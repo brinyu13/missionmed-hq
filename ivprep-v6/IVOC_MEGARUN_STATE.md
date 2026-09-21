@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-21 05:34 America/New_York
+Updated: 2026-09-21 05:55 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -14,25 +14,30 @@ the actual production route and deployment.
 
 ## Founder POV production acceptance — current
 
-- Current healthy production baseline: commit
-  `bde280840a6324bdc4516780a6f57892ed72dc8c`, Railway deployment
-  `636b0518-9fb4-4d50-99d2-252f5b221308`, image
-  `sha256:02db413acba95e12a5143db14c0b0872fe873fb5d1779a5f6707a11b12b78521`;
+- Current healthy production runtime: commit
+  `bc47ec996d05759bc5507fa9b27ba36cb961fc68`, Railway deployment
+  `2442f856-4e56-4371-a327-5dcb63f6b303`, image
+  `sha256:295db580640de11045b15f9067850a8d164edc1ef54c73e30b1c36c85c158ca4`;
   `/health` is HTTP 200 and anonymous product access fails closed at HTTP 401.
 - **Journey A — SELF PRACTICE: PASS.** The production UI reached Question Pool,
   Device Check and Coached Practice; FaceTime HD Camera visibly rendered at
   640x480; the physical microphone and live Analytics ran; the account recording
   saved; Results, Film Room and Library reopened the signed private recording
   after a cold reload.
-- **Journey B — AI MOCK INTERVIEW: PASS except physical barge-in/next-question
-  evidence.** The normal production UI reached the actual Interview Room; the
+- **Journey B — AI MOCK INTERVIEW: LIVE DEPLOYED / TWO-SIDED REPLAY POV
+  WAITING.** The normal production UI reached the actual Interview Room; the
   `gpt-live-1` interviewer audibly asked the selected question, heard a physical
   microphone answer, asked contextual follow-ups, maintained the recording and
   tore down cleanly. The saved session reopened through Results, Film Room and
-  Library. A deliberate human interruption while the interviewer is speaking
-  and a physical pool-ordered next-question exchange remain external acceptance
-  evidence waiting; the deployed interruption contract and provider canary are
-  already accepted.
+  Library, but the Founder subsequently proved that replay preserved only the
+  candidate microphone and omitted the audible interviewer. Commit `bc47ec9`
+  corrects the production graph by mixing the candidate microphone with a silent
+  tap of the one authoritative GPT-Live remote track; the opening question is now
+  gated until playback and the recorder tap are both bound. The correction is
+  healthy in production and its focused suite passes 85/85. Actual audible
+  two-sided replay after save and cold reload, deliberate physical barge-in and a
+  physical pool-ordered next-question exchange remain external POV evidence
+  waiting.
 - **Journey C — PROGRAM-AWARE INTERVIEW: PASS.** Searching `SUNY` returned 44
   readable authorized RISE results; SUNY Downstate Primary Care was selected and
   retained; the Context Pack contains the selected program/specialty and RISE
@@ -42,11 +47,13 @@ the actual production route and deployment.
   Room, and played the signed private recording without actor/subject confusion.
   Genuine second-Admin, entitled-360, negative-role and cross-subject identities
   remain external acceptance evidence waiting; no identity was forged.
-- Session `40ff8df2-58df-4b00-ae67-24c0da959f7f` is the current physical
-  program-aware acceptance record: 74.06 seconds, sealed private recording of
+- Session `40ff8df2-58df-4b00-ae67-24c0da959f7f` remains the current physical
+  program-aware interview record: 74.06 seconds, sealed private recording of
   16,661,773 bytes, 11 conversation turns, 8 canonical transcript turns, one
   answer range and 8 persisted coaching-evidence observations. Cold reload
-  reconstructed the transcript and evidence without a provider re-call.
+  reconstructed the transcript and evidence without a provider re-call. It is
+  not accepted as two-sided replay evidence because its persisted media omitted
+  interviewer audio.
 - The current source makes builder/readiness progression truthful, blocks Review
   until at least one question is selected, preserves the visible camera binding
   across calibration/practice/interview transitions, and replaces student-facing
@@ -220,11 +227,13 @@ the actual production route and deployment.
 - **A — ENGINEERING-EXECUTABLE NOW:** Application Intelligence, deterministic
   multi-turn capture, single-audio teardown, prior-session aggregation,
   prior-self comparison, the presentation-adapter correction, StoryForge
-  owner/consumer wiring, RISE owner/consumer source, and the live non-secret
-  capability manifest are complete. No independent engineering item remains
-  behind the evidence waits listed below.
-- **B — EXTERNAL EVIDENCE WAITING:** one deliberate physical barge-in and
-  pool-ordered next-question exchange; genuine multi-session recurrence;
+  owner/consumer wiring, RISE owner/consumer source, the live non-secret
+  capability manifest and the two-sided AI recording mix are complete. No
+  independent engineering item remains behind the evidence waits listed below.
+- **B — EXTERNAL EVIDENCE WAITING:** one genuine saved AI Mock must audibly replay
+  interviewer → candidate → contextual follow-up → candidate after cold reload;
+  one deliberate physical barge-in and pool-ordered next-question exchange;
+  genuine multi-session recurrence;
   authenticated second-Admin, entitled-360 and negative/wrong-owner/cross-subject
   role evidence; positive current-CV and consented-story owner data; and completed
   Webex media while its owner reports `RECORDING PROCESSING`. Recheck only after
@@ -236,8 +245,9 @@ the actual production route and deployment.
 - **D — EXPLICITLY DEFERRED:** active LemonSlice/provider execution. Match
   Bridge cross-product pickup remains low priority because the IVOC-owned
   consent/version/revocation clip seam is already live accepted.
-- **Weighted IVOC-FOREMAN-9100 completion:** 97%. All presently executable
-  engineering and authorized owner-side work is complete; the remaining
+- **Weighted IVOC-FOREMAN-9100 completion:** 96%. The newly discovered P0 replay
+  defect is repaired, tested and live, but its mandatory audible production POV
+  acceptance is not inferred from track metadata or automated tests. Remaining
   weight is genuine external acceptance evidence, not hidden implementation.
 
 ## Production data authority — LIVE VERIFIED
@@ -306,9 +316,9 @@ the actual production route and deployment.
 | 6 | Volume, pace, pauses, pitch, fillers and transcript boundaries | LIVE VERIFIED | Physical production reps proved live volume, variation, pitch, pace, cadence and pause states. Authenticated saved session `0d250e0c-1011-48bc-a416-f9ae4c2c735f` then cold-reconstructed three canonical transcript segments, 36 words, the 0 s–18 s capture-owner boundary and zero bounded filler candidates on deployment `6b5bad11…`; the UI discloses the bounded lexicon and explicitly rejects hidden-trait inference. |
 | 6 | Admin measurement/visibility controls and prohibited-inference safeguards | LIVE VERIFIED | Production Admin and Student Coached Practice face/head, hand/finger, body/pose and framing/head-orientation overlays were visibly aligned to the real camera surface and independently toggleable; measurement continued while hidden. True eye-gaze visualization remains unsupported; the product exposes only defensible camera-facing/head-orientation proxies. |
 | 7 | Canonical clock across recording, transcript, Q/A, Analytics, Results and clips | LIVE VERIFIED | A production CORE-01 rep persisted one complete session contract, nine timestamped conversation turns and one answer segment; the Film Room transcript row sought private replay to 2.26 s after reload. |
-| 7 | Private durable capture, canonical transcript, answer/follow-up ranges and gaps | LIVE VERIFIED | Physical production AI session `40ff8df2…` persisted a sealed 16,661,773-byte private recording, 11 conversation turns, 8 canonical transcript turns, one answer range and 8 coaching-evidence observations. Results, Film Room and Library reconstructed the private session after cold reload. |
+| 7 | Private durable capture, canonical transcript, answer/follow-up ranges and gaps | LIVE DEPLOYED / TWO-SIDED REPLAY WAITING | Physical production AI session `40ff8df2…` persisted the candidate microphone, 11 conversation turns, 8 canonical transcript turns, one answer range and 8 coaching-evidence observations, but Founder playback proved its media omitted interviewer audio. Commit `bc47ec9` now records candidate mic plus a silent tap of the sole authoritative GPT-Live track and is live on `2442f856…`; actual two-sided audible replay after cold reload remains required. |
 | 8 | Evidence-grounded Results | LIVE VERIFIED | Production post-answer Results and bounded transcript/context analysis returned evidence-cited observations tied to transcript segments without unsupported scoring. |
-| 8 | Film Room synchronized replay and Flight Recorder timeline | LIVE VERIFIED | A private production rep survived reload, reopened through signed owner playback, visibly rendered aligned replay overlays, and its timestamped transcript row sought replay to 2.26 s. |
+| 8 | Film Room synchronized replay and Flight Recorder timeline | LIVE DEPLOYED / TWO-SIDED REPLAY WAITING | Signed owner playback, overlays and transcript seeking remain accepted. AI Mock media now receives both candidate mic and the authoritative interviewer track, but actual production playback must still audibly prove question → answer → follow-up → response after reload. |
 | 8 | Durable student Video Library and Admin student-library access | LIVE VERIFIED | Cold production reload returned 14 owner-bound sessions to authenticated Admin `wp:1`; the semantic CORE-01 answer reopened through signed private playback with its timestamped transcript spine and three persisted observations. Student view still hides the Admin selector. Negative-role isolation remains tracked separately. |
 | 9 | Current supported realtime transport and contextual InterviewBrain | LIVE VERIFIED | Production `gpt-live-1` WebRTC canary created twice through the authenticated IVOC broker, reached `session.started`, exchanged native audio/transcript events, and ended with provider hangup HTTP 200. |
 | 9 | Natural turns, answer-grounded follow-up, memory, move-on and barge-in | LIVE VERIFIED / PHYSICAL BARGE-IN WAITING | The actual production Interview Room audibly asked the selected question, heard the physical applicant answer and asked contextually grounded follow-ups. Provider canary evidence still proves move-on and response truncation; one deliberate human interruption during interviewer speech remains external acceptance evidence waiting. |
@@ -346,9 +356,9 @@ the actual production route and deployment.
 
 ## Current production and governance gates
 
-- Latest functionality-accepted MissionMed HQ production is Railway deployment
-  `636b0518-9fb4-4d50-99d2-252f5b221308` from exact product commit
-  `bde280840a6324bdc4516780a6f57892ed72dc8c`; `/health` is HTTP 200, the
+- Latest healthy MissionMed HQ production is Railway deployment
+  `2442f856-4e56-4371-a327-5dcb63f6b303` from exact product commit
+  `bc47ec996d05759bc5507fa9b27ba36cb961fc68`; `/health` is HTTP 200, the
   unauthenticated product route fails closed at HTTP 401, and the verified
   second-Admin allowlist remains `wp:1,wp:107`.
 - Runtime bindings point to dedicated project `bscnrgqlwsyygyfrbhfn` without
