@@ -15,8 +15,8 @@ add_action(
     'template_redirect',
     static function (): void {
         $page_id = (int) get_queried_object_id();
-        $query_token = isset($_GET['rlq_canary'])
-            ? sanitize_text_field(wp_unslash($_GET['rlq_canary']))
+        $query_token = isset($_GET['rlq_preview'])
+            ? sanitize_text_field(wp_unslash($_GET['rlq_preview']))
             : '';
         $is_private_page = 9174 === $page_id;
         $is_token_route = 4216 === $page_id && 'RLQ-DUALMODE-0921A' === $query_token;
