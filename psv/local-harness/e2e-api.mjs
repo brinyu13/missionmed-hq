@@ -29,10 +29,10 @@ class Session {
     const text = await res.text(); let json = null; try { json = JSON.parse(text); } catch {}
     return { status: res.status, json, text, headers: res.headers };
   }
-	async upload(path, fields, fileName, text) {
+	async upload(path, fields, fileName, text, mime = 'text/markdown') {
 		const form = new FormData();
 		for (const [key, value] of Object.entries(fields)) form.append(key, String(value));
-		form.append('file', new Blob([text], { type: 'text/markdown' }), fileName);
+		form.append('file', new Blob([text], { type: mime }), fileName);
 		const res = await this.raw('/wp-json/mmed-ps-proto/v1' + path, { method: 'POST', body: form, headers: { ...(this.nonce ? { 'X-WP-Nonce': this.nonce } : {}), Origin: BASE, Accept: 'application/json' } });
 		const body = await res.text(); let json = null; try { json = JSON.parse(body); } catch {}
 		return { status: res.status, json, text: body, headers: res.headers };
@@ -143,6 +143,18 @@ ok('region confirmed on real ROOT', r.status === 200 && r.json.root.region.mode 
 const aiBefore = (await aiLog()).length;
 r = await t.api('POST', '/generate', { rootId: realRoot.id, programSpecialtyId: 'ps_ess_003', tier: 'ESSENTIAL' });
 ok('PRIVACY GATE: real ROOT is not sent to the AI provider', r.status === 403 && r.json.code === 'mmps_privacy_gate' && (await aiLog()).length === aiBefore);
+
+// ---------- 5a. direct owner-scoped ROOT upload ----------
+const directText = 'Direct upload opening paragraph.\n\nDirect upload middle paragraph.\n\nDirect upload closing paragraph.';
+r = await t.upload('/roots/upload', { specialtyLabel: 'Internal Medicine' }, 'direct-root.txt', directText, 'text/plain');
+const uploadedRoot = r.json && r.json.root;
+ok('direct TXT upload creates an owner-scoped real ROOT', r.status === 200 && uploadedRoot.sourceKind === 'UPLOADED' && uploadedRoot.isSynthetic === false && uploadedRoot.paragraphs.length === 3 && /^[a-f0-9]{64}$/.test(uploadedRoot.sourceSha256), r.text.slice(0, 200));
+r = await t.upload('/roots/upload', { specialtyLabel: 'Internal Medicine' }, 'direct-root.pdf', '%PDF-ambiguous', 'application/pdf');
+ok('direct upload rejects unsupported PDF extraction', r.status === 415 && r.json.code === 'mmps_root_upload_type', r.text.slice(0, 160));
+await t.api('PUT', `/roots/${uploadedRoot.id}/region`, { mode: 'REPLACE_PARAGRAPH', paragraphIndex: 1 });
+const aiBeforeUpload = (await aiLog()).length;
+r = await t.api('POST', '/generate', { rootId: uploadedRoot.id, programSpecialtyId: 'ps_ess_003', tier: 'ESSENTIAL' });
+ok('PRIVACY GATE: uploaded real ROOT never reaches AI by default', r.status === 403 && r.json.code === 'mmps_privacy_gate' && (await aiLog()).length === aiBeforeUpload);
 
 // ---------- 6. synthetic ROOT, region, prefs ----------
 r = await t.api('POST', '/roots', { source: 'SYNTHETIC', specialtyLabel: 'Internal Medicine' });

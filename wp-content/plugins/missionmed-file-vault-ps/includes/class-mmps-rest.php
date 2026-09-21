@@ -36,6 +36,7 @@ class MMPS_Rest {
 			array( '/bootstrap', 'GET', 'bootstrap' ),
 			array( '/root-candidates', 'GET', 'root_candidates' ),
 			array( '/roots', 'POST', 'create_root' ),
+			array( '/roots/upload', 'POST', 'upload_root' ),
 			array( '/roots/(?P<id>\d+)', 'GET', 'get_root' ),
 			array( '/roots/(?P<id>\d+)/region', 'PUT', 'put_region' ),
 			array( '/roots/(?P<id>\d+)/prefs', 'PUT', 'put_prefs' ),
@@ -179,6 +180,21 @@ class MMPS_Rest {
 		}
 		$root = MMPS_Store::get_root( self::uid(), $root_id );
 		MMPS_Store::audit( self::uid(), 'root_create', 'root:' . $root_id, array( 'source' => $root['sourceKind'], 'synthetic' => $root['isSynthetic'], 'textSha256' => $root['textSha256'] ) );
+		return rest_ensure_response( array( 'root' => $root, 'detection' => MMPS_Region::detect( $root['paragraphs'] ) ) );
+	}
+
+	public static function upload_root( $request ) {
+		$files   = (array) $request->get_file_params();
+		$root_id = MMPS_Root_Source::create_upload(
+			self::uid(),
+			sanitize_text_field( (string) $request->get_param( 'specialtyLabel' ) ),
+			$files['file'] ?? null
+		);
+		if ( is_wp_error( $root_id ) ) {
+			return $root_id;
+		}
+		$root = MMPS_Store::get_root( self::uid(), $root_id );
+		MMPS_Store::audit( self::uid(), 'root_create', 'root:' . $root_id, array( 'source' => $root['sourceKind'], 'synthetic' => false, 'textSha256' => $root['textSha256'], 'sourceSha256' => $root['sourceSha256'] ) );
 		return rest_ensure_response( array( 'root' => $root, 'detection' => MMPS_Region::detect( $root['paragraphs'] ) ) );
 	}
 

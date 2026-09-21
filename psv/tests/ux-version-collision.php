@@ -10,6 +10,6 @@ function add_action($n,$c,$priority=10){global $hooks;$hooks[$n][]=$c;}
 function add_filter($n,$c,$priority=10,$args=1){}
 require dirname(__DIR__,2).'/wp-content/plugins/missionmed-file-vault-ps/missionmed-file-vault-ps.php';
 foreach($hooks['plugins_loaded'] as $hook){$hook();}
-if(!defined('MMED_PSV_VERSION') || MMED_PSV_VERSION!=='0.6.1' || MMPS_VERSION!=='2026.09.21' || !class_exists('MMPS_Store') || !class_exists('MMPS_Edit')){fwrite(STDERR,"FAIL version collision\n");exit(1);}
+if(!defined('MMED_PSV_VERSION') || MMED_PSV_VERSION!=='0.6.2' || MMPS_VERSION!=='2026.09.21' || !class_exists('MMPS_Store') || !class_exists('MMPS_Edit')){fwrite(STDERR,"FAIL version collision\n");exit(1);}
 require dirname(__DIR__,2).'/wp-content/plugins/missionmed-file-vault-ps/missionmed-file-vault-ps.php';
 echo "PASS sibling version remains untouched; PSV loads fully and duplicate inclusion stays safe\n";

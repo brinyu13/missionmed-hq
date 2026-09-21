@@ -13,6 +13,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class MMPS_Root_Source {
 
+	const UPLOAD_MAX_BYTES = 5242880;
+
 	/**
 	 * True only when File Vault's repository class is present AND still has the
 	 * exact shape this read-only bridge relies on. Any drift means "unavailable",
@@ -103,7 +105,79 @@ class MMPS_Root_Source {
 	}
 
 	/**
-	 * Create a ROOT row from one of the three sources.
+	 * Create an owner-scoped ROOT from a request-transient DOCX or UTF-8 TXT.
+	 * The source file is never moved, retained or written into File Vault.
+	 *
+	 * @return int|WP_Error Root id.
+	 */
+	public static function create_upload( $user_id, $specialty, $file ) {
+		$specialty = sanitize_text_field( (string) $specialty );
+		if ( '' === $specialty ) {
+			return new WP_Error( 'mmps_specialty_required', 'Say which specialty this ROOT is for.', array( 'status' => 422 ) );
+		}
+		if ( ! is_array( $file ) || ! isset( $file['error'], $file['tmp_name'], $file['name'], $file['size'] ) ) {
+			return new WP_Error( 'mmps_root_upload', 'Choose one DOCX or TXT personal statement.', array( 'status' => 422 ) );
+		}
+		if ( UPLOAD_ERR_OK !== (int) $file['error'] ) {
+			return new WP_Error( 'mmps_root_upload', 'The document upload did not complete. Choose the file again.', array( 'status' => 422 ) );
+		}
+		$size = (int) $file['size'];
+		if ( $size < 1 || $size > self::UPLOAD_MAX_BYTES ) {
+			return new WP_Error( 'mmps_root_upload_size', 'Upload a DOCX or TXT file no larger than 5 MB.', array( 'status' => 413 ) );
+		}
+		$tmp = (string) $file['tmp_name'];
+		if ( '' === $tmp || ! is_file( $tmp ) || ( ! is_uploaded_file( $tmp ) && ! MMPS_Gate::testing() ) ) {
+			return new WP_Error( 'mmps_root_upload', 'The uploaded document could not be verified.', array( 'status' => 422 ) );
+		}
+		$actual_size = filesize( $tmp );
+		if ( false === $actual_size || (int) $actual_size !== $size ) {
+			return new WP_Error( 'mmps_root_upload_size', 'The uploaded document did not pass its byte-count check.', array( 'status' => 422 ) );
+		}
+		$name = sanitize_file_name( wp_basename( (string) $file['name'] ) );
+		$ext  = strtolower( pathinfo( $name, PATHINFO_EXTENSION ) );
+		if ( ! in_array( $ext, array( 'docx', 'txt' ), true ) ) {
+			return new WP_Error( 'mmps_root_upload_type', 'Upload a clean DOCX or UTF-8 TXT file. Export Pages or PDF documents to DOCX first.', array( 'status' => 415 ) );
+		}
+		$bytes = file_get_contents( $tmp );
+		if ( false === $bytes || strlen( $bytes ) !== $size ) {
+			return new WP_Error( 'mmps_root_upload_read', 'The uploaded document could not be read safely.', array( 'status' => 422 ) );
+		}
+
+		if ( 'docx' === $ext ) {
+			$paragraphs = MMPS_Docx::paragraphs_from_bytes( $bytes );
+		} else {
+			if ( false !== strpos( $bytes, "\0" ) || 1 !== preg_match( '//u', $bytes ) ) {
+				return new WP_Error( 'mmps_root_upload_encoding', 'The TXT file must be plain UTF-8 text.', array( 'status' => 415 ) );
+			}
+			$paragraphs = MMPS_Region::split_text( preg_replace( '/^\xEF\xBB\xBF/', '', $bytes ) );
+		}
+		if ( is_wp_error( $paragraphs ) ) {
+			return $paragraphs;
+		}
+		if ( count( $paragraphs ) < 3 ) {
+			return new WP_Error( 'mmps_root_too_short', 'That document has fewer than three paragraphs. Upload the complete statement with paragraph breaks.', array( 'status' => 422 ) );
+		}
+		$normalized_bytes = strlen( implode( "\n\n", $paragraphs ) );
+		if ( count( $paragraphs ) > 100 || $normalized_bytes > 100000 ) {
+			return new WP_Error( 'mmps_root_upload_length', 'That document is too large to be a Personal Statement ROOT.', array( 'status' => 422 ) );
+		}
+
+		$data = array(
+			'specialty_label' => $specialty,
+			'source_kind'     => 'UPLOADED',
+			'is_synthetic'    => 0,
+			'root_label'      => 'Uploaded PS · ' . ( '' !== $name ? $name : 'personal-statement.' . $ext ),
+			'source_sha256'   => hash( 'sha256', $bytes ),
+			'paragraphs'      => $paragraphs,
+			'text_sha256'     => MMPS_Region::text_hash( $paragraphs ),
+		);
+		$root_id = MMPS_Store::create_root( $user_id, $data );
+		return $root_id ? $root_id : new WP_Error( 'mmps_root_save', 'The ROOT could not be saved.', array( 'status' => 500 ) );
+	}
+
+	/**
+	 * Create a ROOT row from a JSON source. Direct uploads use create_upload()
+	 * so client-supplied text can never impersonate an uploaded document.
 	 *
 	 * @return int|WP_Error Root id.
 	 */

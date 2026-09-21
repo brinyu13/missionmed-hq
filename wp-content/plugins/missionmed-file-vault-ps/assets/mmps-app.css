@@ -86,6 +86,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .panelHead{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:14px}
 .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
 .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
 .stack{display:flex;flex-direction:column;gap:16px}
 .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .spread{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
@@ -119,6 +120,8 @@ select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,va
 .choice:disabled{background:rgba(18,25,39,.45);border-color:var(--edge);opacity:.76}
 .choiceTitle{font-weight:800;font-size:16.5px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
 .choiceBody{font-size:14.5px;color:var(--mid);line-height:1.45}
+.uploadPick{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.uploadName{color:var(--mid);font-size:14px;overflow-wrap:anywhere}
 
 /* chips */
 .chips{display:flex;flex-wrap:wrap;gap:8px}
@@ -307,7 +310,7 @@ pre.prompt{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,mo
 /* responsive: desktop first */
 @media (max-width:1080px){
   .previewGrid{grid-template-columns:1fr}.side{position:static}
-  .grid3{grid-template-columns:1fr 1fr}
+  .grid3,.grid4{grid-template-columns:1fr 1fr}
   .candidateChoices{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media (max-width:860px){
@@ -315,7 +318,7 @@ pre.prompt{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,mo
   .rail{position:static;height:auto;border-right:0;border-bottom:1px solid var(--edge);padding:12px;display:flex;gap:6px;overflow-x:auto}
   .rail .railLabel,.rail .railSep,.rail .railNote,.rail .stepHint{display:none}
   .stepBtn{width:auto;flex:none;padding:8px 10px}
-  .grid2,.grid3{grid-template-columns:1fr}
+  .grid2,.grid3,.grid4{grid-template-columns:1fr}
   .para .pn{display:none}
   .prog{grid-template-columns:1fr}
   .hdr{padding:0 14px;gap:10px}.hdr .pill{display:none}.brandSub{display:none}.brandTitle{font-size:17px}

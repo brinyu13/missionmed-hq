@@ -29,7 +29,7 @@
 
 	var S = {
 		boot: null, view: 'home', root: null, detection: null,
-		rootForm: { source: '', specialty: 'Internal Medicine', text: '', syntheticKey: 'im', fileKey: '' },
+		rootForm: { source: '', specialty: 'Internal Medicine', text: '', syntheticKey: 'im', fileKey: '', uploadFile: null, uploadName: '' },
 		candidates: null, regionDraft: null, prefs: null, stateCodes: [],
 		list: { status: 'idle', programs: [], total: 0, error: null }, search: { q: '', status: 'idle', results: [], error: null },
 		programs: {}, selected: [], tiers: {}, runs: {}, current: '', showOriginal: false,
@@ -39,14 +39,45 @@
 
 	/* ---------- utilities ---------- */
 	function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
-	function api(method, path, body) {
+	var nonceRefresh = null;
+	function sessionExpired() {
+		var err = new Error('Your MissionMed session changed or expired. Your text is still on this page. Sign in again in another tab, then return here and retry.');
+		err.code = 'mmps_session_expired'; err.status = 403; return err;
+	}
+	function refreshNonce() {
+		if (nonceRefresh) { return nonceRefresh; }
+		var pageUrl = new URL(window.location.href);
+		pageUrl.searchParams.set('mmed_ps_proto', '1');
+		pageUrl.searchParams.set('mmps_nonce_refresh', String(Date.now()));
+		nonceRefresh = fetch(pageUrl.toString(), { method: 'GET', credentials: 'same-origin', headers: { 'Accept': 'text/html' }, cache: 'no-store' }).then(function (res) {
+			if (!res.ok) { throw sessionExpired(); }
+			return res.text();
+		}).then(function (html) {
+			var doc = new DOMParser().parseFromString(html, 'text/html'), el = doc.getElementById('mmps-config'), fresh;
+			if (!el) { throw sessionExpired(); }
+			try { fresh = JSON.parse(el.textContent); } catch (e) { throw sessionExpired(); }
+			if (!fresh || typeof fresh.nonce !== 'string' || !fresh.nonce || String(fresh.restUrl || '').replace(/\/$/, '') !== String(cfg.restUrl || '').replace(/\/$/, '')) { throw sessionExpired(); }
+			cfg.nonce = fresh.nonce;
+			return true;
+		});
+		nonceRefresh = nonceRefresh.then(function (value) { nonceRefresh = null; return value; }, function (err) { nonceRefresh = null; throw err; });
+		return nonceRefresh;
+	}
+	function api(method, path, body, retried) {
 		var opts = { method: method, credentials: 'same-origin', headers: { 'X-WP-Nonce': cfg.nonce, 'Accept': 'application/json' }, cache: 'no-store' };
-		if (body !== undefined) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+		if (body !== undefined) {
+			if (window.FormData && body instanceof FormData) { opts.body = body; }
+			else { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+		}
 		return fetch(cfg.restUrl.replace(/\/$/, '') + path, opts).then(function (res) {
 			return res.text().then(function (text) {
 				var data = null;
 				try { data = text ? JSON.parse(text) : null; } catch (e) { data = null; }
-				if (!res.ok) { var err = new Error((data && data.message) || ('Request failed (' + res.status + ').')); err.code = (data && data.code) || 'http_' + res.status; err.status = res.status; err.data = data && data.data ? data.data : {}; throw err; }
+				if (!res.ok) {
+					if (!retried && data && data.code === 'rest_cookie_invalid_nonce') { return refreshNonce().then(function () { return api(method, path, body, true); }); }
+					var err = data && data.code === 'rest_cookie_invalid_nonce' ? sessionExpired() : new Error((data && data.message) || ('Request failed (' + res.status + ').'));
+					err.code = err.code || (data && data.code) || 'http_' + res.status; err.status = res.status; err.data = data && data.data ? data.data : {}; throw err;
+				}
 				return data;
 			});
 		});
@@ -145,6 +176,13 @@
 	}
 	function createRoot() {
 		var f = S.rootForm, body = { source: f.source, specialtyLabel: f.specialty };
+		if (f.source === 'UPLOADED') {
+			if (!f.uploadFile) { toast('Choose a DOCX or TXT personal statement.', 'err'); return; }
+			var form = new FormData(); form.append('specialtyLabel', f.specialty); form.append('file', f.uploadFile, f.uploadFile.name);
+			busy('root', true);
+			api('POST', '/roots/upload', form).then(function (data) { adoptRoot(data); busy('root', false); refreshBoot(); go('region'); }).catch(function (e) { busy('root', false); fail(e); });
+			return;
+		}
 		if (f.source === 'PASTED') { body.text = f.text; }
 		if (f.source === 'SYNTHETIC') { body.syntheticKey = f.syntheticKey; }
 		if (f.source === 'FILE_VAULT') { var parts = f.fileKey.split(':'); body.fileId = parseInt(parts[0], 10); body.versionNumber = parseInt(parts[1], 10); }
@@ -395,8 +433,9 @@
 	function viewRoot() {
 		var f = S.rootForm, c = S.candidates, pv = S.boot.provider, html = head('Step 1', 'Choose your <em>ROOT</em> statement', 'The ROOT is the finished statement every program version is built from. One ROOT belongs to one specialty.');
 		html += '<div class="panel mt"><label class="f">Specialty this ROOT is for<select data-bind="specialty"' + (f.source === 'SYNTHETIC' ? ' disabled' : '') + '>' + SPECIALTIES.map(function (s) { return '<option' + (s === f.specialty ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('') + '</select></label><p class="tiny dim mtS">Applying to more than one specialty? Each specialty gets its own ROOT. The prototype handles one at a time.</p></div>';
-		html += '<div class="grid3 mt">';
+		html += '<div class="grid4 mt">';
 		html += '<button class="choice' + (f.source === 'FILE_VAULT' ? ' on' : '') + '" data-act="source" data-source="FILE_VAULT"' + (c && c.fileVaultAvailable && c.candidates.length ? '' : ' disabled') + '><span class="choiceTitle">From File Vault <span class="tag gold">Real</span></span><span class="choiceBody">' + (!c ? 'Checking File Vault…' : !c.fileVaultAvailable ? 'File Vault is not readable on this site.' : c.candidates.length ? 'Your own Personal Statement versions, read-only.' : 'No Personal Statement versions found for your account.') + '</span></button>';
+		html += '<button class="choice' + (f.source === 'UPLOADED' ? ' on' : '') + '" data-act="source" data-source="UPLOADED"><span class="choiceTitle">Upload document <span class="tag gold">Real</span></span><span class="choiceBody">Choose a clean DOCX or UTF-8 TXT statement directly. The source file is validated, read once and not added to File Vault.</span></button>';
 		html += '<button class="choice' + (f.source === 'SYNTHETIC' ? ' on' : '') + '" data-act="source" data-source="SYNTHETIC"><span class="choiceTitle">Synthetic test ROOT <span class="tag cy">Safe for AI</span></span><span class="choiceBody">Fictional applicants written for this prototype, in two different voices. No real person. Use these to judge the AI writing today.</span></button>';
 		html += '<button class="choice' + (f.source === 'PASTED' ? ' on' : '') + '" data-act="source" data-source="PASTED"><span class="choiceTitle">Paste text</span><span class="choiceBody">Paste a statement with a blank line between paragraphs. Pasted text is always treated as a real statement.</span></button></div>';
 		if (f.source === 'FILE_VAULT' && c) {
@@ -410,10 +449,13 @@
 				return '<button class="choice' + (f.syntheticKey === x.key ? ' on' : '') + '" data-act="pick-synthetic" data-key="' + esc(x.key) + '"><span class="choiceTitle">' + esc(x.specialty) + ' <span class="tag cy">Synthetic</span></span><span class="choiceBody">' + esc(x.label) + ' · ' + x.paragraphCount + ' paragraphs. The specialty is set by this ROOT.</span></button>';
 			}).join('') + '</div></div>';
 		}
+		if (f.source === 'UPLOADED') {
+			html += '<div class="panel mt"><div class="h2">Upload your finished statement</div><p class="small mid mtS">DOCX or UTF-8 TXT · maximum 5 MB. Pages and PDF should be exported to a clean DOCX first. The original file is not retained or written to File Vault. Uploaded documents are treated as real ROOTs and remain subject to the server privacy gate.</p><label class="uploadPick mtS"><input class="srOnly" type="file" accept=".docx,.txt,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" data-root-file><span class="btn cy">Choose document</span><span class="uploadName">' + esc(f.uploadName || 'No file selected') + '</span></label>' + (pv.realRootAllowed ? '' : pv.realRootCanaryConfigured ? '<div class="notice gold mtS"><strong>One Founder canary is configured.</strong> An uploaded statement remains blocked unless its exact server-checked authorization tuple matches.</div>' : '<div class="notice gold mtS"><strong>Privacy gate.</strong> Uploaded documents count as real statements. You can confirm the editable region and preferences, but real student text is not sent to the AI writer without separate authority.</div>') + '</div>';
+		}
 		if (f.source === 'PASTED') {
 			html += '<div class="panel mt"><label class="f">Statement text<textarea data-bind="text" placeholder="Paste the full statement. Leave a blank line between paragraphs.">' + esc(f.text) + '</textarea></label>' + (pv.realRootAllowed ? '' : pv.realRootCanaryConfigured ? '<div class="notice gold mtS"><strong>One Founder canary is configured.</strong> Pasted text remains blocked unless its exact server-checked authorization tuple matches.</div>' : '<div class="notice gold mtS"><strong>Privacy gate.</strong> Pasted text counts as a real statement. You can confirm its region and preferences, but it will not be sent to the AI provider until the Founder privacy decision is recorded on this site. Use a synthetic ROOT to see AI writing today.</div>') + '</div>';
 		}
-		var ready = f.source === 'SYNTHETIC' || (f.source === 'PASTED' && f.text.trim().length > 200) || (f.source === 'FILE_VAULT' && f.fileKey);
+		var ready = f.source === 'SYNTHETIC' || (f.source === 'PASTED' && f.text.trim().length > 200) || (f.source === 'FILE_VAULT' && f.fileKey) || (f.source === 'UPLOADED' && f.uploadFile);
 		html += '<div class="footBar"><button class="btn ghost" data-act="go" data-view="home">← Back</button><button class="btn primary" data-act="create-root"' + (ready && !S.busy.root ? '' : ' disabled') + '>' + (S.busy.root ? '<span class="spin"></span>Reading…' : 'Use this ROOT →') + '</button></div>';
 		return html;
 	}
@@ -887,6 +929,13 @@
 	app.addEventListener('change', function (event) {
 		var t = event.target;
 		if (t.hasAttribute('data-review-select')) { selectCandidate(S.runs[S.current],t.value); return; }
+		if (t.hasAttribute('data-root-file')) {
+			var file = t.files && t.files[0], ext = file && file.name ? file.name.toLowerCase().split('.').pop() : '';
+			if (!file) { S.rootForm.uploadFile = null; S.rootForm.uploadName = ''; render(); return; }
+			if (['docx','txt'].indexOf(ext) === -1) { S.rootForm.uploadFile = null; S.rootForm.uploadName = ''; toast('Choose a DOCX or UTF-8 TXT file. Export Pages or PDF to DOCX first.', 'err'); return; }
+			if (file.size < 1 || file.size > 5242880) { S.rootForm.uploadFile = null; S.rootForm.uploadName = ''; toast('Choose a file no larger than 5 MB.', 'err'); return; }
+			S.rootForm.uploadFile = file; S.rootForm.uploadName = file.name; render(); return;
+		}
 		if (t.hasAttribute('data-state-add')) { if (t.value && S.stateCodes.indexOf(t.value) === -1) { if (S.stateCodes.length >= 8) { toast('Up to eight states.', 'err'); return; } S.stateCodes.push(t.value); } render(); }
 		else if (t.hasAttribute('data-loc-mention')) { S.prefs.location.mayMention = t.checked; }
 			else if (t.hasAttribute('data-show-original')) { S.showOriginal = t.checked; render(); }

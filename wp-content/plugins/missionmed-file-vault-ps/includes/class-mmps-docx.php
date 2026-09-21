@@ -11,6 +11,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 class MMPS_Docx {
 
 	const W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+	const MAX_ARCHIVE_ENTRIES = 512;
+	const MAX_DOCUMENT_XML_BYTES = 8388608;
 
 	/**
 	 * @param string $bytes DOCX bytes.
@@ -27,11 +29,17 @@ class MMPS_Docx {
 			@unlink( $tmp );
 			return new WP_Error( 'mmps_docx_invalid', 'That file is not a readable DOCX.', array( 'status' => 422 ) );
 		}
+		$stat = $zip->statName( 'word/document.xml' );
+		if ( $zip->numFiles > self::MAX_ARCHIVE_ENTRIES || ! is_array( $stat ) || empty( $stat['size'] ) || (int) $stat['size'] > self::MAX_DOCUMENT_XML_BYTES ) {
+			$zip->close();
+			@unlink( $tmp );
+			return new WP_Error( 'mmps_docx_invalid', 'That DOCX has no safely readable body.', array( 'status' => 422 ) );
+		}
 		$xml = $zip->getFromName( 'word/document.xml' );
 		$has_comments = false !== $zip->locateName( 'word/comments.xml' );
 		$zip->close();
 		@unlink( $tmp );
-		if ( false === $xml || strlen( $xml ) > 8 * 1024 * 1024 ) {
+		if ( false === $xml || strlen( $xml ) !== (int) $stat['size'] || strlen( $xml ) > self::MAX_DOCUMENT_XML_BYTES ) {
 			return new WP_Error( 'mmps_docx_invalid', 'That DOCX has no readable body.', array( 'status' => 422 ) );
 		}
 		return self::paragraphs_from_xml( $xml, $has_comments );
