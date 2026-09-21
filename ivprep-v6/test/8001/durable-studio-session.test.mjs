@@ -32,7 +32,10 @@ test('durable Studio session creates, records, seals, and persists the validated
       { question_id: 'CORE-01', canonical_text: 'Tell me about yourself.' },
       { question_id: 'MR142-001', canonical_text: 'Why this specialty?' },
     ],
-    wizard: { interviewer: 'Program Director', program: 'Internal Medicine' },
+    wizard: {
+      interviewer: 'Program Director', program: 'Internal Medicine',
+      contextSources: ['CV', 'File Vault', 'Prior IVOC', 'forged-owner-source', 'CV'],
+    },
     targetQuestions: 5,
     interviewerProvider: 'openai-gpt-live',
   });
@@ -66,6 +69,7 @@ test('durable Studio session creates, records, seals, and persists the validated
   assert.deepEqual(calls.map((call) => call[0]), ['bootstrap', 'createSession', 'recording.start', 'recording.stopAndSeal', 'saveResults']);
   assert.equal(calls[1][1].context.targetQuestions, 5);
   assert.deepEqual(calls[1][1].context.questionIds, ['CORE-01', 'MR142-001']);
+  assert.deepEqual(calls[1][1].context.contextSources, ['CV', 'File Vault', 'Prior IVOC']);
   assert.equal(calls[4][2].schema, 'ivoc.analytics.v1');
   assert.equal(calls[4][2].analytics, analytics);
   assert.deepEqual(calls[4][2].scores, {});

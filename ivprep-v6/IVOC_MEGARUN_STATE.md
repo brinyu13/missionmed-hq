@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-20 19:41 America/New_York
+Updated: 2026-09-20 20:20 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -104,6 +104,17 @@ the actual production route and deployment.
   block is resolved server-side and injected into GPT-Live at
   `16b3284adea43ff4bfe320f1d71544710856b631`; it and the private receipt never
   cross the browser boundary. Owner projections remain.
+- File Vault current-CV projection and IVOC consumer:
+  owner commit `9ba360b294436ef4860a25c07043fd512316eb61` and IVOC commit
+  `c8043a6dfd59f9e57e1c85ce5aa5a69dd4aceb31`. File Vault now exposes only a
+  session-consented, immutable-version-bound, reviewed structured CV projection
+  through its existing owner/entitlement boundary; raw bytes, object identity
+  and signed URLs never cross it. IVOC fetches that projection server-side only
+  when CV/File Vault is explicitly selected, requires the same WordPress
+  subject and session consent receipt, and fails closed on missing auth,
+  unavailable owner data, malformed data or source drift. Owner and consumer
+  focused suites pass; guarded owner/runtime deployment and genuine current-CV
+  readback remain.
 - Evidence-bound prior-IVOC runtime projection:
   `23d119076768a6c6eb19153a0a6e3c69e1f15539`. New semantic analyses persist
   only structured, transcript-cited `structure`, `evidence`, `specificity` or
@@ -140,8 +151,10 @@ the actual production route and deployment.
   entitled-360 and negative/wrong-owner role evidence; and completed Webex
   media while its owner reports `RECORDING PROCESSING`. Recheck only after the
   relevant user, provider or session event changes.
-- **C — OWNER-SCOPED INTEGRATION REQUIRED:** File Vault must publish authorized
-  document identity/version plus bounded extracted projection; StoryForge must
+- **C — OWNER-SCOPED INTEGRATION REQUIRED:** File Vault's authorized,
+  version-pinned bounded CV projection and IVOC consumer are implemented and
+  remotely read back; guarded owner/runtime deployment and genuine CV acceptance
+  remain. StoryForge must
   publish consented approved-story/version applicability; RISE must publish
   sourced program/people/intelligence with freshness. IVOC consumes these
   minimized projections and does not duplicate or weaken their owners.
@@ -223,7 +236,7 @@ the actual production route and deployment.
 | 9 | Natural turns, answer-grounded follow-up, memory, move-on and barge-in | LIVE VERIFIED | Production canary retained the discharge/teach-back detail across turns, asked evidence-grounded follow-ups, honored “move to the next question,” and visibly truncated “That gives me a—” on barge-in before continuing. |
 | 9 | Pool/context weighting, clean teardown, single audio authority | LIVE UNVERIFIED | Production deployment `db562b38…` at source `b6b0a92` resolves the selected canonical corpus entries into an exact ordered server prompt, keeps pressure as a modifier instead of replacing interviewer identity, rejects a surplus provider audio track, and persists the strict `configured -> bound -> released` `ivoc.audio-authority.v1` lifecycle. Deployed synthetic contract canary `f89dc627…` returned `audioAuthorityVerified=true`; authenticated reload preserved five turns, and provider readback plus `audio_authority_persist` audit confirmed single native audio. One real recorded, pool-ordered multi-question exchange remains for behavioral acceptance. |
 | 10 | Server-owned Application Intelligence Context Pack hydration | LIVE VERIFIED | Genuine `brinyu` production session `1b973235-de3b-4d2c-a39a-c51e49df38e8` persisted one owner-bound private pack and `ctxpack:` receipt. Two authenticated `gpt-live-1` WebRTC canaries resolved that same server-only contract, reached live audio/transcript exchange and clean teardown; neither Actor block nor receipt crossed the browser boundary. |
-| 10 | File Vault context/performance-reference seam | OWNER-SCOPED INTEGRATION REQUIRED | Current owner source is `J1-FILEVAULT-1019`; its existing contract carries canonical document/version/freshness identity but no extracted facts and deliberately rejects cross-origin/bearer use. Open the minimal owner-side consented projection before connecting current CV → Application Intelligence; do not duplicate storage or weaken permissions. |
+| 10 | File Vault context/performance-reference seam | OWNER IMPLEMENTED / LIVE UNVERIFIED | Mission `J1-FILEVAULT-1021-IVOC-CV-PROJECTION` implemented the minimal S2S owner projection at `9ba360b…`; IVOC's selected-source, server-authenticated consumer is remotely read back at `c8043a6…`. The exact current CV version, reviewed entries, session consent and source receipt hydrate the existing Context Pack without raw-file access or duplicate storage. Guarded owner deployment plus one genuine current-CV readback remain. |
 | 10 | StoryForge opt-in story/theme and performance evidence | OWNER-SCOPED INTEGRATION REQUIRED | IVOC's fail-closed normalizer and presentation seam are complete. Current owner `/api/interview-intelligence` exposes readiness metadata but not consented approved story text/theme/version bound to the IVOC WordPress subject. Open the minimized owner projection through StoryForge authority. |
 | 10 | RISE sourced/fresh program context | OWNER-SCOPED INTEGRATION REQUIRED | IVOC's normalizer and fail-closed Program/context surfaces are complete. Current RISE routes already carry registry release, program and research detail, but no minimized signed WP-subject IVOC projection exists. Open that projection through RISE authority rather than duplicating RISE. |
 | 10 | MCC / Top 3 / Mentor owner projections | LIVE VERIFIED | With no MCC owner authority present, IVOC now owns the versioned Mentor Top 3 contract. Genuine `brinyu` production v1 generated one `ivoc.mentor_priorities` receipt, two bounded facts and one `AIS-R09` signal in session `4e275dac-a613-45a2-85d5-1d35413c8e47`; the Actor received the shared priority and not the mentor-only note. Append-only v2 cleared the projection, a stale write returned 409, and cleared-state session `f378c2a0-0cc0-4422-b042-f4cbfe334261` had zero leaked inputs. |
@@ -282,8 +295,8 @@ the actual production route and deployment.
   the browser, and resolves the bounded Actor block directly into the trusted
   GPT-Live startup path. Genuine authenticated session/readback and live native
   audio acceptance passed. IVOC-owned Mentor Top 3 is now a live versioned
-  projection; File Vault, StoryForge and RISE owner projections remain explicit
-  external gates.
+  projection. File Vault's owner projection and IVOC consumer are implemented
+  but not yet live accepted; StoryForge and RISE owner projections remain.
 - Root runtime dependency audit previously reported zero vulnerabilities. Default
   branch repository-security advisories remain separate security-owner work until
   re-triaged against the production commit.
@@ -302,9 +315,9 @@ the actual production route and deployment.
 
 ## Next execution lanes
 
-1. Open the smallest sanctioned owner-scoped File Vault CV projection and
-   connect its IVOC consumer. Continue to StoryForge and RISE projections in
-   owner order.
+1. Guardedly deploy and live-accept the implemented File Vault CV projection
+   and IVOC consumer, then continue to StoryForge and RISE projections in owner
+   order.
 2. Continue remaining executable Admin, Answer History, Performance Intelligence,
    browser-native Live Mock and embodiment/null-renderer requirements without
    re-polling unchanged external conditions.

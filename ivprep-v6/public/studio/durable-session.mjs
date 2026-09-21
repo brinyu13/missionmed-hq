@@ -4,6 +4,12 @@ import { AccountRecordingController } from '../ivoc-standalone/app/recording.mjs
 const finiteMs = (value) => Number.isFinite(Number(value))
   ? Math.max(0, Math.round(Number(value)))
   : null;
+const CONTEXT_SOURCES = new Set(['StoryForge', 'RISE', 'CV', 'File Vault', 'MCC', 'Top 3', 'Prior IVOC']);
+
+function selectedContextSources(value) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.filter((item) => CONTEXT_SOURCES.has(item)))].slice(0, CONTEXT_SOURCES.size);
+}
 
 export function createDurableResultsEnvelope({
   sessionId,
@@ -93,6 +99,7 @@ export class DurableStudioSession {
         environment: wizard.environment || null,
         readiness: wizard.readiness || null,
         pressurePractice: wizard.pressurePractice === true,
+        contextSources: selectedContextSources(wizard.contextSources),
         questionIds: interviewSet.map((item) => String(item?.question_id || '')).filter(Boolean).slice(0, 30),
         targetQuestions: Math.max(1, Math.min(30, Number(targetQuestions) || 1)),
       },
