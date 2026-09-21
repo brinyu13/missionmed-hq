@@ -1681,19 +1681,25 @@ function mountLabInstruments() {
 
 function renderCorrection() {
   const correction = selectCorrection(state.bus.latest);
+  const measuring = state.session.state === 'RUNNING';
+  const ready = state.session.state === 'SESSION_READY';
+  const headline = measuring ? correction.headline : ready ? 'Ready to begin' : 'Not ready';
+  const instruction = measuring
+    ? correction.instruction
+    : ready ? 'Start the rep or interview when you are ready.' : (state.session.reason || 'Complete device calibration to begin measurement.');
   const plate = $('#cockpit-correction');
   const metric = $('#correction-metric');
   const verdict = $('#correction-verdict');
   if (!plate) return;
-  plate.dataset.state = correction.state === 'locked' ? 'locked' : correction.state === 'warn' ? 'warn' : 'idle';
-  if (metric) metric.textContent = correction.headline;
-  if (verdict) verdict.textContent = correction.instruction;
+  plate.dataset.state = measuring && correction.state === 'locked' ? 'locked' : measuring && correction.state === 'warn' ? 'warn' : 'idle';
+  if (metric) metric.textContent = headline;
+  if (verdict) verdict.textContent = instruction;
   const simPlate = $('#simulation-correction');
   const simMetric = $('#simulation-correction-metric');
   const simVerdict = $('#simulation-correction-verdict');
   if (simPlate) simPlate.dataset.state = plate?.dataset.state || 'idle';
-  if (simMetric) simMetric.textContent = correction.headline;
-  if (simVerdict) simVerdict.textContent = correction.instruction;
+  if (simMetric) simMetric.textContent = headline;
+  if (simVerdict) simVerdict.textContent = instruction;
   // One dominant correction, ever: the primary instrument follows the limiting
   // contributor, and falls back to voice level when nothing needs correcting.
   mountPrimary(PRIMARY_FOR[correction.metric] || 'VOICE_LEVEL');
@@ -1792,6 +1798,7 @@ function setSessionState(next, reason = null) {
   }
   const finish = $('#cockpit-finish');
   if (finish) finish.disabled = next !== 'RUNNING';
+  renderCorrection();
   return next;
 }
 
