@@ -1,8 +1,19 @@
 # PSV Foreman Control-Tower State
 
-Updated: 2026-09-21T09:12:00Z
+Updated: 2026-09-21T09:56:57Z
 
-## Active Founder UX amendment (DR-326)
+## Live Founder access amendment (DR-327)
+
+- DR-327 is canonical at MissionMed OS `dbb4578377d59069943aa3f5bb7a194742a40d8e`; universal and exact PSV BOOT passed.
+- Live source is `6e156d25ea732e4e02241e369dd51a7a1bd47ff4`, v0.6.1, schema6, manifest25/25 and production PHP lint22/22 PASS.
+- Access mode is `members`: administrators by `manage_options`; non-admin 360 students only through the strict canonical current entitlement claim. Production proof: admin1 allowed, current member89 allowed, non-entitled43 denied, anonymous REST404.
+- Exactly one accessible Matrix `Program-Specific PS` item is live after File Vault and before RankList IQ. `brinyu` Chrome click opened the live private PSV page; the tab remains open.
+- Broad real-ROOT/testing flags remain undefined. Provider attempts remain16/latest07:25:09; roots4/runs27/library8/audit68/revisions2 and Silma hashes/candidates remain unchanged.
+- File Vault sentinels, purchase MU plugin, public gates and RISE public-route behavior remain unchanged. No Matrix Hub, File Vault, RISE, membership or shared-runtime mutation.
+- PATH leases3562/3565 released; active PSV count0. v0.6.0 placement defect was safely fix-forwarded to v0.6.1. Fresh independent production/server verdict PASS with no P0/P1/P2.
+- STOP. See `PSV-ACCESS-MENU_GUARDED_DEPLOYMENT_REPORT.md`.
+
+## Prior Founder UX amendment (DR-326)
 
 - Implementing `/Users/brianb/Downloads/PSV-ASTRA-CANDIDATE_REVIEW_UX_MASTERING.md` under latest explicit Founder implementation directive; same Foreman/worktree. STOP after guarded live acceptance, not after design.
 - Canonical OS amendment `DR-326` at `9c178bfd2bd78f25e11bbad61d0e1bfa2e3cb15f`; universal/PSV boot PASS. REGISTRY epochs 3511/3512 released, active count zero. Dirty default OS preserved; disposable authority tree `/tmp/psv-ux-authority-20260921`.
@@ -13,15 +24,15 @@ Updated: 2026-09-21T09:12:00Z
 - Fresh sibling delta: live File Vault controller `e60b2695e7bed4e04497d0122c7dc3a5b45daca2f415f5fbac55dabc9f7bb424`, repository `a97842553c9c1d997d80903cb367b9ffba5c80a9967b6b3a5a43c5143c0f4896`, scanner `6b5cf0ebc99227e14f63a2d034c03f5beac591451314b8d55d15c57428f78a5a` match newer owner release `9ba360b` in `j1-filevault-1021-ivoc-cv-projection`; JS/CSS unchanged from sealed canary. Preserve these as fresh sentinels, never restore older sibling bytes.
 - Runtime: dedicated key boolean present, broad real-ROOT/testing flags undefined, brinyu1, allowlist mode/admins0, FV loaded, PHP8.2.29. Original exact Silma run remains review-only and unchanged.
 - Production lease3530 released, active PSV count0. Counts roots4/runs27/library8/provider_attempts16 unchanged; two synthetic private SAVE/RESTORE revisions and two audit entries added. Original AI text restored; Silma zero edits and unchanged nine paragraph/output hashes. No new provider request.
-- WAITING_FOR_BRINYU_SESSION: Chrome profile missionresidency.com currently holds another non-admin account; native wp-admin redirects to its account page and PSV remains hidden. No account logout/switch performed. Separate in-app WordPress login opened with redirect to PSV and marked for handoff. Founder login is the remaining human-only condition; do not simulate authentication, mint login credentials or weaken the allowlist.
-- Next critical path: once brinyu is genuinely signed in, replay five-choice/viewport/rail/Compare All/editor/protected ROOT/responsive keyboard checks, obtain final independent live acceptance, leave the Program Answer open, STOP. Full live UX acceptance is NOT yet claimed. See `PSV-UX_MASTERING_GUARDED_DEPLOYMENT_REPORT.md`.
+- Historical checkpoint, now resolved: the genuine `brinyu` Chrome session later became available and was used for the bounded live acceptance. No authentication was simulated or weakened.
+- Historical UX report: `PSV-UX_MASTERING_GUARDED_DEPLOYMENT_REPORT.md`.
 
 ## Product and outcome
 
 - Mission: `PSV-PROTOTYPE-0001`
 - Product: Program-Specific Personal Statement capability inside File Vault
-- Current milestone: accepted Silma canary data preserved; v0.5.9 UX amendment deployed and independently server-verified. Live browser acceptance awaits the genuine brinyu session.
-- Terminal condition: STOP for Founder review of the five live candidates. Do not approve/save, batch, generate another program/student, broaden real-student AI access, or mutate RISE/File Vault.
+- Current milestone: accepted Silma canary preserved; administrator/current-360 access and Matrix menu are live at v0.6.1 and independently server-verified.
+- Terminal condition: STOP after the live DR-327 access/menu release. Do not broaden real-student AI access or mutate RISE/File Vault.
 
 ## Repository truth
 
@@ -30,7 +41,7 @@ Updated: 2026-09-21T09:12:00Z
 - Branch: `codex/psv-prototype-foreman`
 - Base HEAD: `0feee579b0a9f2c90529220899f6cf6d21b8cd05`
 - M2 sealed/pushed HEAD: `981f0d16fc091abb4f54132c15c917c640021c34`
-- Current live UX source HEAD: `cbcda565d97492e02ac2c86bfb01f9c4e5dcb6ea`, pushed to `origin/codex/psv-prototype-foreman`; prior canary source `c2cff9dd922f3632c59068a980e749100491df33`
+- Current live source HEAD: `6e156d25ea732e4e02241e369dd51a7a1bd47ff4`, pushed to `origin/codex/psv-prototype-foreman`; prior UX source `cbcda565d97492e02ac2c86bfb01f9c4e5dcb6ea`
 - Prior branch: `fable/program-specific-ps-engine-architecture`
 - Upstream at initialization: `origin/main` at the same base HEAD
 - Preserved dirty state: untracked `_AI_HANDOFFS/from_fable/` package only
@@ -40,7 +51,7 @@ Updated: 2026-09-21T09:12:00Z
 ## Authority and continuity
 
 - MissionMed OS: `844ce736d66bf497aa74b00b5267c32394649965`; universal and exact mission dependency validation PASS before canary mutation
-- Active decisions: DR-311, DR-312, DR-313, DR-314, DR-315 and exact canary authority DR-324
+- Active decisions: DR-311, DR-312, DR-313, DR-314, DR-315, exact canary DR-324, UX DR-326 and access/menu DR-327
 - Brain: `04ca13d4097096203b9f0b8fa68a0937556fd214`, equal to upstream and clean
 - Universal boot: PASS after DR-315
 - `PSV-PROTOTYPE-0001` boot: PASS after DR-315
@@ -119,10 +130,12 @@ Updated: 2026-09-21T09:12:00Z
 
 ## Next critical path
 
-1. WAIT at genuine brinyu authentication; then finish the bounded live UX replay and STOP for Founder review with the live review tab open.
-2. Do not approve/save, batch, generate another program/student, broaden real-student AI access, or mutate native File Vault/RISE.
+1. STOP with the live PSV tab open for Founder use.
+2. Do not broaden real-student AI access or begin unrelated PSV work.
 
 ## State delta log
+
+- 2026-09-21T09:56:57Z — DR-327 administrator/current-360 access and Matrix menu live at exact v0.6.1/6e156d2. Production Guardian caught grouped-nav placement in v0.6.0 and safely fix-forwarded under released lease3565. Admin/current-member/non-entitled/anonymous gates PASS; live brinyu menu/click PASS; privacy/provider/data/File Vault/RISE sentinels unchanged; fresh independent production/server verdict PASS with no P0/P1/P2. Active PSV leases0. STOP.
 
 - 2026-09-21T09:12:00Z — DR-326 UX amendment guardedly deployed as v0.5.9/cbcda56, schema6,25/25 files and22/22 PHP lint. Production Guardian caught and resolved a PSV-only global version collision without changing the purchase-confirmation owner. Native MySQL13 and fresh independent server verification PASS; original Silma and eight saved documents remain intact by stored hashes/timestamps (no fresh aggregate preimage claim). Two synthetic private revisions retain SAVE/RESTORE history, no provider call. Lease3530 released active0. STOP at genuine brinyu browser-login requirement; separate secure in-app login open. Authenticated UX acceptance remains pending, not sealed.
 
