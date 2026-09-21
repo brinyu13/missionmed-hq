@@ -115,7 +115,8 @@ function normalizedPayload(raw) {
     }
     return Object.freeze({
       story_id: storyId,
-      version,
+      version: String(version),
+      consent_state: 'granted',
       title,
       themes,
       summary,
@@ -201,7 +202,7 @@ export function createIvocProjectionService({ withIdentity } = {}) {
           scope: ['approved_story_summary', 'themes', 'question_applicability', 'student_visible_tips'],
         },
         minimization: {
-          fields_included: ['story_id', 'version', 'title', 'themes', 'summary', 'applicability', 'maturity', 'tips'],
+          fields_included: ['story_id', 'version', 'consent_state', 'title', 'themes', 'summary', 'applicability', 'maturity', 'tips'],
           fields_excluded_reason: {
             full_story_prose: 'not required by IV Prep',
             recordings: 'private owner media',

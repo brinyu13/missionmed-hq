@@ -66,6 +66,8 @@ test('same-owner approved projection is minimized, consent-bound, and determinis
   assert.equal(projection.owner_app, 'storyforge');
   assert.equal(projection.projection_type, 'storyforge.approved_stories');
   assert.equal(projection.authorization.basis, 'student_consent');
+  assert.equal(projection.payload.stories[0].version, '7');
+  assert.equal(projection.payload.stories[0].consent_state, 'granted');
   assert.equal(projection.payload.stories[0].tips.length, 1);
   assert.match(projection.source_receipt.hash, /^[a-f0-9]{64}$/);
   assert.doesNotMatch(JSON.stringify(projection.payload), /original_text|current_text|recording|transcript|internal_only/u);
