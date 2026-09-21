@@ -1,9 +1,13 @@
 # PSV direct ROOT upload and session recovery · guarded deployment report
 
-Date: 2026-09-21  
-Mission: `PSV-PROTOTYPE-0001`  
-Authority: DR-311, DR-312, DR-313, DR-314, DR-315, DR-324, DR-326, DR-327 and additive DR-328  
-Product source: `10290aaff62a1f72a2e87ecf5a459d5f384f8a89`  
+Date: 2026-09-21
+
+Mission: `PSV-PROTOTYPE-0001`
+
+Authority: DR-311, DR-312, DR-313, DR-314, DR-315, DR-324, DR-326, DR-327 and additive DR-328
+
+Product source: `10290aaff62a1f72a2e87ecf5a459d5f384f8a89`
+
 Live version: `0.6.2`
 
 ## Outcome
