@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MissionMed StoryForge SSO
  * Description: Default-off WordPress session bridge, entitlement gate, and Matrix navigation seam for StoryForge V5.
- * Version: 0.1.1
+ * Version: 0.1.2
  * Requires at least: 6.5
  * Requires PHP: 8.1
  * Author: MissionMed
@@ -17,7 +17,7 @@ const MMSF_RATE_KEYS_OPTION = 'missionmed_storyforge_rate_keys';
 const MMSF_REST_NAMESPACE = 'missionmed/v1';
 const MMSF_REST_ROUTE = '/storyforge/token';
 const MMSF_IVOC_SERVICE_TOKEN_ROUTE = '/storyforge/ivoc-token';
-const MMSF_VERSION = '0.1.1';
+const MMSF_VERSION = '0.1.2';
 
 function mmsf_defaults() {
     return array(
@@ -510,8 +510,8 @@ function mmsf_allowed_origin() {
         . (($port = wp_parse_url(home_url('/'), PHP_URL_PORT)) ? ':' . absint($port) : '');
 }
 
-function mmsf_verify_origin($request) {
-    $origin = trim((string) $request->get_header('origin'));
+function mmsf_verify_origin_value($origin) {
+    $origin = trim((string) $origin);
     if ($origin === '') {
         return true;
     }
@@ -520,6 +520,10 @@ function mmsf_verify_origin($request) {
         return new WP_Error('origin_not_allowed', 'This origin may not request a StoryForge token.', array('status' => 403));
     }
     return true;
+}
+
+function mmsf_verify_origin($request) {
+    return mmsf_verify_origin_value($request->get_header('origin'));
 }
 
 function mmsf_no_store($response) {
@@ -676,6 +680,61 @@ function mmsf_register_rest_routes() {
 }
 add_action('rest_api_init', 'mmsf_register_rest_routes');
 
+function mmsf_ajax_send_error($error) {
+    $data = $error->get_error_data();
+    $status = is_array($data) ? (int) ($data['status'] ?? 500) : 500;
+    wp_send_json(array(
+        'code' => $error->get_error_code(),
+        'message' => $error->get_error_message(),
+        'data' => is_array($data) ? $data : array('status' => $status),
+    ), $status);
+}
+
+function mmsf_ajax_token() {
+    mmsf_send_private_no_store_headers();
+    if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
+        wp_send_json(array(
+            'code' => 'method_not_allowed',
+            'message' => 'StoryForge token exchange requires POST.',
+            'data' => array('status' => 405),
+        ), 405);
+    }
+
+    $origin = mmsf_verify_origin_value($_SERVER['HTTP_ORIGIN'] ?? '');
+    if (is_wp_error($origin)) {
+        mmsf_ajax_send_error($origin);
+    }
+
+    $nonce = trim((string) ($_SERVER['HTTP_X_WP_NONCE'] ?? ''));
+    if ($nonce === '' || !wp_verify_nonce($nonce, 'wp_rest')) {
+        mmsf_ajax_send_error(new WP_Error(
+            'csrf_failed',
+            'A valid WordPress REST nonce is required.',
+            array('status' => 403)
+        ));
+    }
+
+    $user = wp_get_current_user();
+    $access = mmsf_access_state($user);
+    if (is_wp_error($access)) {
+        mmsf_ajax_send_error($access);
+    }
+
+    $rate = mmsf_rate_limit((int) $user->ID);
+    if (is_wp_error($rate)) {
+        mmsf_ajax_send_error($rate);
+    }
+
+    $issued = mmsf_issue_jwt($user, $access);
+    if (is_wp_error($issued)) {
+        mmsf_ajax_send_error($issued);
+    }
+    $issued['nonce'] = wp_create_nonce('wp_rest');
+    wp_send_json($issued, 200);
+}
+add_action('wp_ajax_missionmed_storyforge_token', 'mmsf_ajax_token');
+add_action('wp_ajax_nopriv_missionmed_storyforge_token', 'mmsf_ajax_token');
+
 function mmsf_safe_return_url($raw) {
     $settings = mmsf_settings();
     $candidate = esc_url_raw((string) $raw);
@@ -690,7 +749,12 @@ function mmsf_bootstrap_payload($return_to) {
     $settings = mmsf_settings();
     return array(
         'nonce' => wp_create_nonce('wp_rest'),
-        'token_endpoint' => rest_url(MMSF_REST_NAMESPACE . MMSF_REST_ROUTE),
+        // Keep nonce issuance and verification on the same WordPress auth-cookie path.
+        'token_endpoint' => add_query_arg(
+            'action',
+            'missionmed_storyforge_token',
+            admin_url('admin-ajax.php')
+        ),
         'matrix_url' => esc_url_raw((string) $settings['matrix_url']),
         'base_path' => (string) $settings['base_path'],
         'return_to' => mmsf_safe_return_url($return_to),
