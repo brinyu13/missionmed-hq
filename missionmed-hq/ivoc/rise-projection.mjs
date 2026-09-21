@@ -9,6 +9,7 @@ const COOKIE_NAME = /^[A-Za-z0-9_-]{1,64}$/u;
 const COOKIE_VALUE = /^[A-Za-z0-9%._~+/=-]{16,8192}$/u;
 const SHA256 = /^[0-9a-f]{64}$/u;
 const PERSON_ROLES = new Set(['Program Director', 'Associate Program Director', 'Chief Resident', 'Faculty']);
+const SEARCH_TEXT = /^[^\u0000-\u001f\u007f]{0,160}$/u;
 
 function exactBase(value) {
   let parsed;
@@ -69,6 +70,66 @@ export function createRiseProgramProjectionSource({
   const boundedTimeout = Math.max(250, Math.min(10_000, Math.trunc(Number(timeoutMs) || DEFAULT_TIMEOUT_MS)));
 
   return Object.freeze({
+    async search({ sessionCookie, q = '', specialty = '', jurisdiction = '', programType = '' } = {}) {
+      const expectedPrefix = `${sessionCookieName}=`;
+      const cookie = String(sessionCookie || '');
+      if (!cookie.startsWith(expectedPrefix) || !COOKIE_VALUE.test(cookie.slice(expectedPrefix.length))) {
+        throw new TypeError('ivoc_rise_authorization_required');
+      }
+      const inputs = { q, specialty, jurisdiction, programType };
+      if (Object.values(inputs).some((value) => !SEARCH_TEXT.test(String(value || '')))) {
+        throw new TypeError('ivoc_rise_search_invalid');
+      }
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort('ivoc_rise_timeout'), boundedTimeout);
+      try {
+        const url = new URL('/api/rise/v1/programs', base);
+        for (const [name, value] of Object.entries(inputs)) {
+          const clean = String(value || '').trim();
+          if (clean) url.searchParams.set(name, clean);
+        }
+        url.searchParams.set('page', '1');
+        url.searchParams.set('pageSize', '12');
+        const response = await fetchImpl(url, {
+          method: 'GET', redirect: 'error', cache: 'no-store',
+          headers: { Cookie: cookie, 'X-MMED-Consumer': 'ivoc', Accept: 'application/json' },
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error(`ivoc_rise_upstream_${response.status}`);
+        const declaredBytes = Number(response.headers?.get?.('content-length'));
+        if (Number.isFinite(declaredBytes) && declaredBytes > MAX_RESPONSE_BYTES) throw new TypeError('ivoc_rise_search_too_large');
+        const body = await response.text();
+        if (!body || Buffer.byteLength(body, 'utf8') > MAX_RESPONSE_BYTES) throw new TypeError('ivoc_rise_search_too_large');
+        let payload;
+        try { payload = JSON.parse(body); } catch { throw new TypeError('ivoc_rise_search_invalid'); }
+        if (!OPAQUE_ID.test(String(payload?.registryReleaseId || '')) || !Array.isArray(payload?.records) || payload.records.length > 12) {
+          throw new TypeError('ivoc_rise_search_invalid');
+        }
+        const records = payload.records.map((record) => {
+          if (!OPAQUE_ID.test(String(record?.id || '')) || !boundedText(record?.display?.programName, 240)) {
+            throw new TypeError('ivoc_rise_search_invalid');
+          }
+          return Object.freeze({
+            id: record.id,
+            name: record.display.programName,
+            institution: boundedText(record.display.institution, 240) ? record.display.institution : null,
+            city: boundedText(record.display.city, 120) ? record.display.city : null,
+            state: boundedText(record.display.state, 80) ? record.display.state : null,
+            specialty: boundedText(record.designation, 160) ? record.designation : null,
+            programType: boundedText(record.programType, 160) ? record.programType : null,
+            evidenceCoveragePercent: Number.isFinite(Number(record?.evidence?.coveragePercent))
+              ? Math.max(0, Math.min(100, Number(record.evidence.coveragePercent))) : null,
+          });
+        });
+        return Object.freeze({
+          registryReleaseId: payload.registryReleaseId,
+          total: Number.isSafeInteger(payload.total) && payload.total >= 0 ? payload.total : records.length,
+          records: Object.freeze(records),
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+    },
     async read({ actor, sessionId, sessionCookie, programId, registryReleaseId } = {}) {
       if (!SUBJECT.test(String(actor || '')) || !SESSION_ID.test(String(sessionId || ''))
           || !OPAQUE_ID.test(String(programId || '')) || !OPAQUE_ID.test(String(registryReleaseId || ''))) {

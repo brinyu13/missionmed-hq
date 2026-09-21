@@ -867,6 +867,25 @@ export function createIvocHandler({
         return true;
       }
 
+      if (request.method === 'GET' && pathname === `${API_PREFIX}/programs/search`) {
+        if (!riseSource) {
+          sendError(response, 503, 'ivoc_rise_unavailable', mediaBase); return true;
+        }
+        const sessionCookie = exactSessionCookie(request, env.MMHQ_SESSION_COOKIE || 'mmhq_session');
+        if (!sessionCookie) {
+          sendError(response, 401, 'ivprep_authentication_required', mediaBase); return true;
+        }
+        const result = await riseSource.search({
+          sessionCookie,
+          q: safeText(url.searchParams.get('q'), 160),
+          specialty: safeText(url.searchParams.get('specialty'), 160),
+          jurisdiction: safeText(url.searchParams.get('jurisdiction'), 160),
+          programType: safeText(url.searchParams.get('programType'), 160),
+        });
+        await audit({ actor, owner: actor, action: 'rise_program_search', decision: 'allow', reason: `${result.records.length}_of_${result.total}` });
+        sendJson(response, 200, result, mediaBase); return true;
+      }
+
       if (request.method === 'GET' && pathname === `${API_PREFIX}/mentor-priorities`) {
         const row = await db.single(`ivoc_mentor_priority_sets?subject_id=eq.${encodeURIComponent(actor)}&select=*&order=version.desc&limit=1`);
         sendJson(response, 200, publicMentorPriorities(row || { subject_id: actor }), mediaBase);

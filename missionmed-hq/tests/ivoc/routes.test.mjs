@@ -219,6 +219,38 @@ test('bootstrap exposes only non-secret owner-connector availability', async () 
   assert.doesNotMatch(response.body, /missionmed\.example|rise\.example|authorization|cookie/u);
 });
 
+test('authenticated program search proxies the bounded RISE owner result without exposing the owner URL', async () => {
+  const repo = repository();
+  const calls = [];
+  const route = createIvocHandler({
+    registry: registry(), repository: repo,
+    storage: { createUpload: () => { throw new Error('not used'); }, validateUploadToken: () => false },
+    applicationIntelligence: { prepareSession: async () => null, getActorContext: async () => null },
+    fetchImpl: async (url, init) => {
+      calls.push({ url: String(url), init });
+      return new Response(JSON.stringify({
+        registryReleaseId: 'rise_registry_20260920_0123456789ab', total: 1,
+        records: [{ id: 'rise_ps_program_1', display: { programName: 'Example Residency', state: 'New York' }, designation: 'Internal Medicine', evidence: { coveragePercent: 55 } }],
+      }), { status: 200 });
+    },
+    env: {
+      IVPREP_ENABLED: 'true', IVPREP_ADMIN_CANARY_ENABLED: 'true', MMHQ_SESSION_SECRET: 's'.repeat(64),
+      MMHQ_RISE_BASE: 'https://rise.example.test',
+    },
+  });
+  const response = new ResponseCapture();
+  await route({
+    ...base,
+    request: request('GET', null, { cookie: `mmhq_session=${'s'.repeat(32)}` }), response,
+    url: new URL('https://hq.test/api/ivoc/v1/programs/search?q=example&specialty=Internal%20Medicine'), hqSession: session(),
+  });
+  assert.equal(response.status, 200);
+  assert.equal(response.json().records[0].name, 'Example Residency');
+  assert.equal(response.json().registryReleaseId, 'rise_registry_20260920_0123456789ab');
+  assert.match(calls[0].url, /\/api\/rise\/v1\/programs\?q=example&specialty=Internal\+Medicine/u);
+  assert.doesNotMatch(response.body, /rise\.example\.test/u);
+});
+
 test('question catalog exposes active overrides to students and all lifecycle states to Admins', async () => {
   const repo = repository();
   repo.request = async (path) => {

@@ -75,8 +75,12 @@ test('presentation integration preserves the proven analytics and media contract
   assert.match(runtime, /state\.durable\.finish/u);
   assert.match(runtime, /state\.durable\.library\('own'\)/u);
   assert.match(runtime, /state\.durable\.analyze/u);
+  assert.match(runtime, /state\.durable\.programs/u);
+  assert.match(runtime, /Verified RISE program selected/u);
   assert.match(html, /id="context-analyze"/u);
   assert.match(html, /Available transcript and evidence-cited analysis are saved privately/u);
+  assert.match(html, /id="device-proceed" disabled/u);
+  assert.match(html, /id="simulation-rail"/u);
 });
 
 test('the active presentation consumes production behavior through the stable capability boundary', () => {

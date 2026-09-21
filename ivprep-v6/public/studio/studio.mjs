@@ -53,6 +53,7 @@ const ASTRA_PRESENTATION_CANON = 'dedb726bde521a135bec2286ad4cd5a877a68fc7ecd614
 
 const state = {
   view: 'home',
+  launchMode: 'ai',
   role: 'student',
   admission: null,
   analytics: null,
@@ -66,7 +67,8 @@ const state = {
     goal: 'Full IV Simulation', duration: 15, pressurePractice: false, focus: '',
     questions: null, questionCategory: 'Core / Opening', questionSection: 'CORE', questionSearch: '',
     interviewer: 'Program Director', interviewerStyle: 'Owl', interviewerTab: 'Role & style', interviewerName: '',
-    program: '', programSpecialty: '', programState: '', programType: '',
+    program: '', programId: null, programReleaseId: null, programVerified: false,
+    programSpecialty: '', programState: '', programType: '',
     environment: 'MissionMed', interviewMode: 'Interview Mode', analyticsEnabled: true,
     contextSources: [], storyForgeOptIn: null, storyForgeInclude: false,
     readinessPanel: 'Devices', readinessSignal: 'Camera', readiness: null,
@@ -104,6 +106,8 @@ const state = {
   vaultFilter: { query: '', evidence: 'all' },
   mentorPriorities: null,
   homeLibrary: [],
+  deviceError: null,
+  programSearch: { status: 'idle', records: [], total: 0, error: null },
 };
 
 const bridge = createMediaAnalyticsBridge();
@@ -170,6 +174,7 @@ function setView(view, { focus = false } = {}) {
   if (view === 'devicecheck') renderDeviceCheck();
   if (view === 'newsession') renderWizard();
   if (view === 'training') bindCockpitVideo();
+  if (view === 'simulation') bindSimulationVideo();
   if (view === 'lab') { mountLabInstruments(); void renderLongitudinal(); }
   if (view === 'compare') void renderCompare();
   if (view === 'progress') void renderProgress();
@@ -1065,24 +1070,84 @@ function renderProgramStep(host) {
   photo.append(image, copy); host.append(photo);
   const search = el('label', 'canon-search'); search.append(el('span', 'microcap', 'Program name'));
   const input = el('input'); input.type = 'search'; input.placeholder = 'Search program name…'; input.value = state.wizard.program;
-  input.addEventListener('input', () => { state.wizard.program = input.value; }); search.append(input); host.append(search);
+  input.addEventListener('input', () => {
+    state.wizard.program = input.value;
+    state.wizard.programId = null; state.wizard.programReleaseId = null; state.wizard.programVerified = false;
+    state.wizard.contextSources = state.wizard.contextSources.filter((entry) => entry !== 'RISE');
+    state.programSearch = { status: 'idle', records: [], total: 0, error: null };
+  }); search.append(input); host.append(search);
   const filters = el('div', 'canon-program-filters');
   [['Specialty', 'All specialties', 'programSpecialty', 'Internal Medicine,Family Medicine,Pediatrics,Surgery,Psychiatry'], ['State', 'All states', 'programState', 'Massachusetts,New York,California,Texas,Florida'], ['Program type', 'All program types', 'programType', 'University,Community,University-affiliated']].forEach(([labelText, placeholder, key, values]) => {
     const label = el('label', 'canon-field'); label.append(el('span', '', labelText)); const select = el('select');
     select.append(new Option(placeholder, ''));
     values.split(',').forEach((value) => select.append(new Option(value, value)));
-    select.value = state.wizard[key]; select.addEventListener('change', () => { state.wizard[key] = select.value; }); label.append(select); filters.append(label);
+    select.value = state.wizard[key]; select.addEventListener('change', () => {
+      state.wizard[key] = select.value;
+      state.wizard.programId = null; state.wizard.programReleaseId = null; state.wizard.programVerified = false;
+      state.wizard.contextSources = state.wizard.contextSources.filter((entry) => entry !== 'RISE');
+      state.programSearch = { status: 'idle', records: [], total: 0, error: null };
+    }); label.append(select); filters.append(label);
   });
   host.append(filters);
+  const searchActions = el('div', 'canon-inline-actions');
+  const searchButton = choiceButton({ className: 'btn btn-primary', label: state.programSearch.status === 'loading' ? 'Searching…' : 'Search verified programs', onClick: async () => {
+    if (state.programSearch.status === 'loading') return;
+    state.programSearch = { status: 'loading', records: [], total: 0, error: null };
+    renderWizard();
+    try {
+      const result = await state.durable.programs({
+        q: state.wizard.program,
+        specialty: state.wizard.programSpecialty,
+        jurisdiction: state.wizard.programState,
+        programType: state.wizard.programType,
+      });
+      state.programSearch = { status: 'ready', records: result.records || [], total: result.total || 0, error: null, registryReleaseId: result.registryReleaseId };
+    } catch (error) {
+      state.programSearch = { status: 'error', records: [], total: 0, error: String(error?.message || error).slice(0, 120) };
+    }
+    renderWizard();
+  } });
+  searchButton.disabled = state.programSearch.status === 'loading' || !state.durableAvailable
+    || ![state.wizard.program, state.wizard.programSpecialty, state.wizard.programState].some((value) => String(value || '').trim());
+  searchActions.append(searchButton); host.append(searchActions);
+
+  if (state.programSearch.status === 'ready') {
+    const list = el('div', 'canon-program-results');
+    list.append(el('div', 'microcap', `${state.programSearch.total} verified result${state.programSearch.total === 1 ? '' : 's'}`));
+    for (const program of state.programSearch.records) {
+      list.append(choiceButton({
+        className: 'canon-program-result', selected: state.wizard.programId === program.id,
+        label: program.name,
+        detail: [program.specialty, [program.city, program.state].filter(Boolean).join(', '), program.programType].filter(Boolean).join(' · '),
+        onClick: () => {
+          state.wizard.program = program.name;
+          state.wizard.programId = program.id;
+          state.wizard.programReleaseId = state.programSearch.registryReleaseId;
+          state.wizard.programVerified = true;
+          state.wizard.programSpecialty = program.specialty || state.wizard.programSpecialty;
+          state.wizard.programState = program.state || state.wizard.programState;
+          state.wizard.programType = program.programType || state.wizard.programType;
+          state.wizard.contextSources = [...new Set([...state.wizard.contextSources, 'RISE'])];
+          renderWizard();
+        },
+      }));
+    }
+    if (!state.programSearch.records.length) list.append(el('p', 'canon-muted', 'No verified programs matched. Refine the name, specialty, or state, or continue with a clearly labeled manual entry.'));
+    host.append(list);
+  } else if (state.programSearch.status === 'error') {
+    host.append(el('p', 'unavailable', `PROGRAM SEARCH UNAVAILABLE — ${state.programSearch.error.toUpperCase()}`));
+  }
   const result = el('div', 'canon-program-result');
-  result.append(el('div', 'microcap', state.wizard.program ? 'Selected program' : 'Program search'));
+  result.append(el('div', 'microcap', state.wizard.programVerified ? 'Verified RISE program selected' : state.wizard.program ? 'Manual program entry' : 'Program search'));
   result.append(el('h3', '', state.wizard.program || 'Choose a program or enter one manually'));
-  result.append(el('p', 'canon-muted', state.wizard.program
-    ? `${state.wizard.programSpecialty || 'Specialty not selected'} · ${state.wizard.programState || 'State not selected'} · ${state.wizard.programType || 'Type not selected'}`
+  result.append(el('p', 'canon-muted', state.wizard.programVerified
+    ? `${state.wizard.programSpecialty || 'Specialty unavailable'} · ${state.wizard.programState || 'State unavailable'} · ${state.wizard.programType || 'Type unavailable'} · verified release ${state.wizard.programReleaseId}`
+    : state.wizard.program
+      ? 'Manual entry only · verified RISE context is not included until you select a search result.'
     : 'Verified RISE program intelligence will hydrate the cheat sheet when available. No program facts are invented.'));
   const facts = el('div', 'canon-cheat-sheet');
   ['Training focus', 'Leadership and interviewers', 'Curriculum and pathways', 'Research, facilities, and fellowships'].forEach((fact) => {
-    const row = el('div'); row.append(el('strong', '', fact), el('span', '', 'Not available until verified program intelligence is selected.')); facts.append(row);
+    const row = el('div'); row.append(el('strong', '', fact), el('span', '', state.wizard.programVerified ? 'Authorized detail will hydrate when the interview session begins.' : 'Not available until a verified program is selected.')); facts.append(row);
   });
   result.append(facts); host.append(result); renderProgramCalendar(host);
 }
@@ -1250,20 +1315,27 @@ function renderWizard() {
     addSummaryRow('Readiness', state.wizard.readiness);
     const row = document.createElement('div');
     row.className = 'btn-row';
+    const launch = (mode) => {
+      state.launchMode = mode;
+      if (!state.interviewSet.length) applyWizardQuestions('Core 10');
+      setView('devicecheck');
+    };
     const go = document.createElement('button');
     go.className = 'btn btn-primary';
     go.type = 'button';
-    go.innerHTML = '<span>Continue to Readiness ▸</span>';
-    go.addEventListener('click', () => {
-      if (!state.interviewSet.length) applyWizardQuestions('Core 10');
-      setView('devicecheck');
-    });
+    go.innerHTML = '<span>Start AI mock interview ▸</span>';
+    go.addEventListener('click', () => launch('ai'));
+    const practice = document.createElement('button');
+    practice.className = 'btn btn-secondary';
+    practice.type = 'button';
+    practice.innerHTML = '<span>Practice with coaching</span>';
+    practice.addEventListener('click', () => launch('practice'));
     const back = document.createElement('button');
     back.className = 'btn btn-quiet';
     back.type = 'button';
     back.innerHTML = '<span>Start over</span>';
     back.addEventListener('click', () => { state.wizardStep = 0; renderWizard(); });
-    row.append(go, back);
+    row.append(go, practice, back);
     body.append(summary, row);
     return;
   }
@@ -1422,6 +1494,34 @@ async function switchDevice(kind, deviceId) {
   await refreshDevices();
 }
 
+function liveTrack(kind) {
+  const tracks = kind === 'video' ? bridge.media.stream?.getVideoTracks?.() : bridge.media.stream?.getAudioTracks?.();
+  return tracks?.find((track) => track.readyState === 'live') || null;
+}
+
+function videoSurfaceReady(video) {
+  return Boolean(video && bridge.media.stream && video.srcObject === bridge.media.stream
+    && liveTrack('video') && video.videoWidth >= 16 && video.videoHeight >= 16
+    && video.paused === false && video.ended !== true);
+}
+
+function bindVideoSurface(video) {
+  if (!video) return null;
+  video.autoplay = true; video.muted = true; video.playsInline = true;
+  if (video.srcObject !== bridge.media.stream) video.srcObject = bridge.media.stream;
+  if (video.dataset.ivocSurfaceEvents !== 'bound') {
+    video.dataset.ivocSurfaceEvents = 'bound';
+    for (const name of ['loadedmetadata', 'playing', 'resize', 'emptied', 'ended']) {
+      video.addEventListener(name, () => {
+        renderDeviceCheck();
+        if (state.view === 'training' || state.view === 'simulation') evaluateReadiness();
+      });
+    }
+  }
+  if (bridge.media.stream) void video.play?.().catch?.(() => {});
+  return video;
+}
+
 function bindPreview() {
   for (const stage of ['#devicecheck-stage', '#builder-readiness-stage']) {
     const host = $(stage);
@@ -1432,7 +1532,7 @@ function bindPreview() {
       video.autoplay = true; video.muted = true; video.playsInline = true;
       host.append(video);
     }
-    if (video.srcObject !== bridge.media.stream) video.srcObject = bridge.media.stream;
+    bindVideoSurface(video);
   }
 }
 
@@ -1515,22 +1615,28 @@ function renderCorrection() {
   plate.dataset.state = correction.state === 'locked' ? 'locked' : correction.state === 'warn' ? 'warn' : 'idle';
   if (metric) metric.textContent = correction.headline;
   if (verdict) verdict.textContent = correction.instruction;
+  const simPlate = $('#simulation-correction');
+  const simMetric = $('#simulation-correction-metric');
+  const simVerdict = $('#simulation-correction-verdict');
+  if (simPlate) simPlate.dataset.state = plate?.dataset.state || 'idle';
+  if (simMetric) simMetric.textContent = correction.headline;
+  if (simVerdict) simVerdict.textContent = correction.instruction;
   // One dominant correction, ever: the primary instrument follows the limiting
   // contributor, and falls back to voice level when nothing needs correcting.
   mountPrimary(PRIMARY_FOR[correction.metric] || 'VOICE_LEVEL');
 }
 
 function renderStatusRail() {
-  const host = $('#cockpit-rail');
-  if (!host) return;
   const rows = statusRail(state.bus.latest);
-  host.replaceChildren();
-  for (const row of rows) {
-    const pill = document.createElement('span');
-    pill.className = 'status-pill';
-    pill.dataset.ok = row.state === 'ok' ? 'true' : row.state === 'warn' ? 'warn' : 'false';
-    pill.textContent = `${row.label} ${row.state === 'ok' ? '✓' : row.state === 'warn' ? '!' : '—'}`;
-    host.append(pill);
+  for (const host of [$('#cockpit-rail'), $('#simulation-rail')].filter(Boolean)) {
+    host.replaceChildren();
+    for (const row of rows) {
+      const pill = document.createElement('span');
+      pill.className = 'status-pill';
+      pill.dataset.ok = row.state === 'ok' ? 'true' : row.state === 'warn' ? 'warn' : 'false';
+      pill.textContent = `${row.label} ${row.state === 'ok' ? '✓' : row.state === 'warn' ? '!' : '—'}`;
+      host.append(pill);
+    }
   }
 }
 
@@ -1624,6 +1730,10 @@ function evaluateReadiness() {
   if (!m.AC) return setSessionState('BLOCKED', 'Audio could not start. Click Connect camera + mic again.');
   if (m.AC.state !== 'running') return setSessionState('BLOCKED', 'Audio is suspended — click Connect camera + mic to resume it.');
   if (!m.analyser || !m.data) return setSessionState('BLOCKED', 'Audio analysis is not attached. Reconnect your microphone.');
+  const surface = state.view === 'simulation' ? $('#founder-student-video')
+    : state.view === 'training' ? $('#cockpit-video')
+      : $('#devicecheck-stage video') || $('#builder-readiness-stage video');
+  if (!videoSurfaceReady(surface)) return setSessionState('BLOCKED', 'Camera is connected but no visible frame is rendered yet. Reconnect it in Devices.');
   setSessionState('MEDIA_READY');
   if (!state.analytics) return setSessionState('BLOCKED', 'Delivery Intelligence is still loading. Wait a moment and try again.');
   setSessionState('ANALYTICS_READY');
@@ -1746,11 +1856,7 @@ function bindCockpitVideo() {
   // Consume the EXISTING session. No new getUserMedia, no new AudioContext, no new
   // permission prompt - Device Check establishes the media session and Delivery
   // Training attaches to the same one.
-  const v = $('#cockpit-video');
-  if (v && bridge.media.stream && v.srcObject !== bridge.media.stream) {
-    v.srcObject = bridge.media.stream;
-    void v.play?.().catch?.(() => {});
-  }
+  bindVideoSurface($('#cockpit-video'));
   // Re-route even when the view did not change. This repairs the overlay/control
   // nodes if a view render replaced them after the controller first bound.
   state.analytics?.onViewChange?.(state.view, state.role === 'student' ? 'student' : 'admin');
@@ -1760,6 +1866,12 @@ function bindCockpitVideo() {
     const live = ready === 'SESSION_READY' || ready === 'RUNNING';
     connect.innerHTML = `<span>${live ? 'Devices connected ✓' : 'Connect camera + mic'}</span>`;
   }
+}
+
+function bindSimulationVideo() {
+  bindVideoSurface($('#founder-student-video'));
+  state.analytics?.onViewChange?.('simulation', state.role === 'student' ? 'student' : 'admin');
+  evaluateReadiness();
 }
 
 function wireCockpit() {
@@ -1924,13 +2036,16 @@ function wireLiveInterview() {
       return;
     }
     let preparedForLive = false;
+    let analyticsStarted = false;
     try {
       bridge.primeAudioContext();
       if (!bridge.media.stream?.getAudioTracks?.().some((track) => track.readyState === 'live')) {
         await bridge.requestMedia(true, true);
-        bindPreview();
+        bindPreview(); bindSimulationVideo();
         renderDeviceCheck();
       }
+      bindSimulationVideo();
+      if (evaluateReadiness() !== 'SESSION_READY') throw new Error(state.session.reason || 'Camera and microphone are not ready.');
       const track = bridge.media.stream.getAudioTracks()[0];
       const selectedVoice = state.role === 'admin'
         ? ($('#admin-live-voice')?.value || 'marin')
@@ -1944,25 +2059,37 @@ function wireLiveInterview() {
         targetQuestions: state.targetQuestions,
         interviewerProvider: 'openai-gpt-live',
       });
+      const answer = state.analytics.beginAnswer({ videoElement: $('#founder-student-video') });
+      analyticsStarted = true;
+      state.session.answerId = answer?.answerId ?? null;
+      state.session.startedAt = Date.now();
+      await state.durable.start({
+        stream: bridge.media.stream,
+        question: state.interviewSet[0] || null,
+        interviewSet: state.interviewSet,
+        wizard: state.wizard,
+        targetQuestions: state.targetQuestions,
+        interviewerProvider: 'openai-gpt-live',
+      });
       await state.liveInterview.start({
         audioTrack: track,
         voice: selectedVoice,
         context: liveInterviewContext(),
         ivocSessionId: prepared.id,
       });
+      const save = $('#simulation-save');
+      if (save) { save.dataset.state = 'active'; save.textContent = 'Secure account recording active.'; }
+      setSessionState('RUNNING');
     } catch (error) {
-      if (preparedForLive && !state.durable.recorder) {
-        void state.durable.abandon({ reason: 'client_exit' }).catch(() => {});
-      }
+      if (analyticsStarted) state.analytics?.endAnswer?.({ mediaAvailable: false });
+      if (preparedForLive || state.durable?.accountSession) void state.durable.abandon({ reason: 'client_exit' }).catch(() => {});
+      setSessionState('BLOCKED', String(error?.message || error).slice(0, 180));
       setLiveInterviewStatus({ state: 'error', detail: String(error?.message || error).slice(0, 180) });
     }
   });
   $('#live-interview-end')?.addEventListener('click', async () => {
     try {
-      await state.liveInterview.stop();
-      if (state.durable?.accountSession && !state.durable.recorder) {
-        await state.durable.abandon({ reason: 'client_exit' });
-      }
+      await finishRep();
     }
     catch (error) { setLiveInterviewStatus({ state: 'error', detail: `Cleanup unconfirmed: ${String(error?.message || error).slice(0, 120)}` }); }
   });
@@ -1978,10 +2105,14 @@ function renderDeviceCheck() {
   if (!host) return;
   const media = bridge.media;
   const diagnostics = state.analytics?.diagnostics?.() || {};
+  const cameraLive = Boolean(liveTrack('video'));
+  const microphoneLive = Boolean(liveTrack('audio') && media.mic);
+  const preview = $('#devicecheck-stage video') || $('#builder-readiness-stage video');
+  const surfaceLive = videoSurfaceReady(preview);
   const rows = [
-    ['Camera', media.cam ? 'ready' : 'pending', media.cam ? 'LIVE' : 'NOT CONNECTED'],
-    ['Microphone', media.mic ? 'ready' : 'pending', media.mic ? 'LIVE' : 'NOT CONNECTED'],
-    ['Video surface', media.stream ? 'ready' : 'pending', media.stream ? 'BOUND' : 'IDLE'],
+    ['Camera', cameraLive ? 'ready' : 'pending', cameraLive ? 'LIVE' : 'NOT CONNECTED'],
+    ['Microphone', microphoneLive ? 'ready' : 'pending', microphoneLive ? 'LIVE' : 'NOT CONNECTED'],
+    ['Visible preview', surfaceLive ? 'ready' : 'pending', surfaceLive ? `${preview.videoWidth}×${preview.videoHeight} RENDERING` : 'NO VISIBLE FRAME'],
     ['Audio context', media.AC?.state === 'running' ? 'ready' : 'pending', (media.AC?.state || 'IDLE').toUpperCase()],
     ['Vision worker', diagnostics.active ? 'ready' : 'pending', diagnostics.active ? 'RUNNING' : 'IDLE'],
     ['Face landmarks', diagnostics.active ? 'ready' : 'pending', diagnostics.active ? 'AVAILABLE ON START' : 'AWAITING SESSION'],
@@ -2001,6 +2132,18 @@ function renderDeviceCheck() {
     row.append(label, status);
     host.append(row);
   }
+  if (state.deviceError) {
+    const note = document.createElement('p');
+    note.className = 'unavailable';
+    note.textContent = `CAMERA / MIC UNAVAILABLE — ${state.deviceError}`;
+    host.append(note);
+  }
+  const proceed = $('#device-proceed');
+  if (proceed) {
+    const ready = cameraLive && microphoneLive && surfaceLive && media.AC?.state === 'running';
+    proceed.disabled = !ready;
+    proceed.innerHTML = `<span>${ready ? (state.launchMode === 'ai' ? 'Enter Interview Room ▸' : 'Begin coached practice ▸') : 'Connect devices to continue'}</span>`;
+  }
 }
 
 async function connectDevices() {
@@ -2010,15 +2153,12 @@ async function connectDevices() {
   if (button) { button.disabled = true; button.innerHTML = '<span>Requesting…</span>'; }
   try {
     await bridge.requestMedia(true, true);
+    state.deviceError = null;
     bindPreview();
     await refreshDevices();
     startLevelMeter();
   } catch (error) {
-    const host = $('#device-checklist');
-    const note = document.createElement('p');
-    note.className = 'unavailable';
-    note.textContent = `CAMERA / MIC UNAVAILABLE — ${String(error?.name || error).toUpperCase()}`;
-    host?.append(note);
+    state.deviceError = String(error?.name || error).toUpperCase();
   }
   if (button) { button.disabled = false; button.innerHTML = '<span>Reconnect camera + mic</span>'; }
   renderDeviceCheck();
@@ -2317,6 +2457,12 @@ async function mountAnalytics() {
           room: 'cockpit-stage',
           wrapper: 'cockpit-stage',
         },
+        simulation: {
+          video: 'founder-student-video',
+          stage: 'founder-student-stage',
+          room: 'founder-room-stage',
+          wrapper: 'founder-room-wrapper',
+        },
       },
     },
     overlayPolicy: { authorized: true, enabled: true, face: true, bodyHands: true, studentPrimary: true },
@@ -2359,7 +2505,11 @@ async function mountAnalytics() {
 function wireChrome() {
   wireQuestionGovernance();
   for (const item of $$('[data-nav]')) item.addEventListener('click', () => setView(item.dataset.nav, { focus: true }));
-  for (const button of $$('[data-goto]')) button.addEventListener('click', () => setView(button.dataset.goto, { focus: true }));
+  for (const button of $$('[data-goto]')) button.addEventListener('click', () => {
+    if (button.dataset.launchMode) state.launchMode = button.dataset.launchMode;
+    if (button.dataset.launchMode === 'ai' && !state.interviewSet.length) applyWizardQuestions('Core 10');
+    setView(button.dataset.goto, { focus: true });
+  });
   for (const button of $$('[data-builder-step]')) {
     button.addEventListener('click', () => {
       state.wizardStep = Math.max(0, Math.min(WIZARD_STEPS.length - 1, Number(button.dataset.builderStep) || 0));
@@ -2380,6 +2530,10 @@ function wireChrome() {
   $('#q-search')?.addEventListener('input', (event) => { state.search = event.target.value; renderQuestions(); });
   $('#set-clear')?.addEventListener('click', () => { state.interviewSet = []; renderSet(); });
   $('#device-connect')?.addEventListener('click', () => void connectDevices());
+  $('#device-proceed')?.addEventListener('click', () => {
+    if (evaluateReadiness() !== 'SESSION_READY') { renderDeviceCheck(); return; }
+    setView(state.launchMode === 'ai' ? 'simulation' : 'training', { focus: true });
+  });
 
   $('#mode-wizard')?.addEventListener('click', () => showBuilderMode('wizard'));
   $('#mode-loadout')?.addEventListener('click', () => showBuilderMode('loadout'));
@@ -2709,6 +2863,10 @@ async function boot() {
   renderDeviceCheck();
   void refreshDevices();
   navigator.mediaDevices?.addEventListener?.('devicechange', () => void refreshDevices());
+  window.addEventListener('ivoc-media-liveness', () => {
+    renderDeviceCheck();
+    if (state.view === 'training' || state.view === 'simulation') evaluateReadiness();
+  });
   window.addEventListener('pagehide', () => {
     void state.durable.abandon({ reason: 'pagehide', keepalive: true }).catch(() => {});
   }, { capture: true });

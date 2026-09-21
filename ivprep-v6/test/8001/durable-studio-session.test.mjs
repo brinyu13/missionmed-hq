@@ -91,6 +91,34 @@ test('durable Studio session creates, records, seals, and persists the validated
   });
 });
 
+test('RISE context is sent only with a verified program identity and release receipt', () => {
+  const durable = new DurableStudioSession();
+  const manual = durable.sessionInput({ wizard: { program: 'Typed text', contextSources: ['RISE', 'CV'] } });
+  assert.equal(manual.context.program, 'Typed text');
+  assert.equal(manual.context.programId, null);
+  assert.deepEqual(manual.context.contextSources, ['CV']);
+
+  const verified = durable.sessionInput({ wizard: {
+    program: 'Verified Program', programVerified: true,
+    programId: 'rise_ps_123', programReleaseId: 'rise_registry_456', contextSources: ['RISE'],
+  } });
+  assert.equal(verified.context.programId, 'rise_ps_123');
+  assert.equal(verified.context.programReleaseId, 'rise_registry_456');
+  assert.deepEqual(verified.context.contextSources, ['RISE']);
+});
+
+test('program search remains behind the admitted durable capability', async () => {
+  const calls = [];
+  const durable = new DurableStudioSession({ api: {
+    async bootstrap() { return { entitlement: { admitted: true } }; },
+    async searchPrograms(input) { calls.push(input); return { records: [], total: 0 }; },
+  } });
+  await assert.rejects(() => durable.programs({ q: 'Example' }), /durable_session_not_ready/u);
+  await durable.bootstrap();
+  await durable.programs({ q: 'Example' });
+  assert.deepEqual(calls, [{ q: 'Example' }]);
+});
+
 test('live transcript deltas collapse into final provider turns and incomplete text is not persisted', async () => {
   let nowMs = 0;
   const durable = new DurableStudioSession({

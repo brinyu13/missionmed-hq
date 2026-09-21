@@ -84,6 +84,11 @@ export class DurableStudioSession {
 
   sessionInput({ question = null, interviewSet = [], wizard = {}, targetQuestions = 1, interviewerProvider = 'missionmed-static' } = {}) {
     const title = question?.canonical_text || 'IV Prep practice session';
+    const verifiedProgram = wizard.programVerified === true
+      && typeof wizard.programId === 'string' && wizard.programId
+      && typeof wizard.programReleaseId === 'string' && wizard.programReleaseId;
+    const contextSources = selectedContextSources(wizard.contextSources)
+      .filter((source) => source !== 'RISE' || verifiedProgram);
     return {
       title: title.split(/\s+/u).slice(0, 10).join(' '),
       sessionType: targetQuestions > 1 ? 'mock' : 'question',
@@ -96,10 +101,12 @@ export class DurableStudioSession {
         goal: wizard.goal || null,
         interviewer: wizard.interviewer || null,
         program: wizard.program || null,
+        programId: verifiedProgram ? wizard.programId : null,
+        programReleaseId: verifiedProgram ? wizard.programReleaseId : null,
         environment: wizard.environment || null,
         readiness: wizard.readiness || null,
         pressurePractice: wizard.pressurePractice === true,
-        contextSources: selectedContextSources(wizard.contextSources),
+        contextSources,
         questionIds: interviewSet.map((item) => String(item?.question_id || '')).filter(Boolean).slice(0, 30),
         targetQuestions: Math.max(1, Math.min(30, Number(targetQuestions) || 1)),
       },
@@ -234,6 +241,10 @@ export class DurableStudioSession {
   }
 
   async library(scope = 'own') { return this.api.library(scope); }
+  async programs(input = {}) {
+    if (!this.ready) throw new Error('durable_session_not_ready');
+    return this.api.searchPrograms(input);
+  }
   async mentorPriorities() { return this.api.mentorPriorities(); }
   async playback(recordingId, disposition = 'inline') { return this.api.playback(recordingId, disposition); }
   async adminOverview() {

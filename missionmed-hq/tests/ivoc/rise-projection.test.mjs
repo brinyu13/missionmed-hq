@@ -48,6 +48,35 @@ test('forwards only the bounded HQ session cookie and validates the minimized RI
   assert.equal(calls[0].init.headers.Authorization, undefined);
 });
 
+test('search returns only a bounded IVOC program selection projection', async () => {
+  const calls = [];
+  const source = createRiseProgramProjectionSource({
+    riseBase: 'https://rise.test',
+    fetchImpl: async (url, init) => {
+      calls.push({ url: String(url), init });
+      return new Response(JSON.stringify({
+        registryReleaseId: RELEASE_ID,
+        total: 1,
+        records: [{
+          id: PROGRAM_ID,
+          display: { programName: 'Example Internal Medicine Residency', institution: 'Example Health', city: 'Boston', state: 'Massachusetts' },
+          designation: 'Internal Medicine', programType: 'University', evidence: { coveragePercent: 62 },
+        }],
+      }), { status: 200 });
+    },
+  });
+  const result = await source.search({
+    sessionCookie: `mmhq_session=${'s'.repeat(32)}`, q: 'example', specialty: 'Internal Medicine', jurisdiction: 'Massachusetts',
+  });
+  assert.match(calls[0].url, /\/api\/rise\/v1\/programs\?q=example&specialty=Internal\+Medicine&jurisdiction=Massachusetts&page=1&pageSize=12/u);
+  assert.equal(calls[0].init.headers.Cookie, `mmhq_session=${'s'.repeat(32)}`);
+  assert.deepEqual(result.records[0], {
+    id: PROGRAM_ID, name: 'Example Internal Medicine Residency', institution: 'Example Health', city: 'Boston', state: 'Massachusetts',
+    specialty: 'Internal Medicine', programType: 'University', evidenceCoveragePercent: 62,
+  });
+  assert.equal(result.registryReleaseId, RELEASE_ID);
+});
+
 test('rejects missing authorization, wrong subjects, named people fields, and oversized responses', async () => {
   const common = { actor: 'wp:42', sessionId: SESSION_ID, programId: PROGRAM_ID, registryReleaseId: RELEASE_ID };
   const noCookie = createRiseProgramProjectionSource({ riseBase: 'https://rise.test', fetchImpl: async () => new Response('{}') });

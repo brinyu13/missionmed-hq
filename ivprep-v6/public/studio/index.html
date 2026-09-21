@@ -109,7 +109,7 @@
         </div>
 
         <div class="practice-cards">
-          <button class="practice-card instant" type="button" data-goto="devicecheck"><img src="/iv-prep-on-call/assets/studio/astra-assets/synthetic-candidate.png" alt=""><span class="card-copy"><span class="microcap">Instant Interview</span><strong>Step into the interview.</strong><small>A focused mock. An interviewer who knows your story.</small><b>Begin now →</b></span></button>
+          <button class="practice-card instant" type="button" data-goto="devicecheck" data-launch-mode="ai"><img src="/iv-prep-on-call/assets/studio/astra-assets/synthetic-candidate.png" alt=""><span class="card-copy"><span class="microcap">AI Mock Interview</span><strong>Step into the interview.</strong><small>A focused mock. An interviewer who knows your story.</small><b>Begin now →</b></span></button>
           <button class="practice-card build" type="button" data-goto="newsession"><img src="/iv-prep-on-call/assets/studio/astra-assets/iv-prep-on-call.png" alt=""><span class="card-copy"><span class="microcap">Build Your Interview</span><strong>Make it your interview.</strong><small>Your questions. Your program. Your level of pressure.</small><b>Open the builder →</b></span></button>
           <button class="practice-card program" type="button" data-goto="newsession" data-builder-step="3"><img src="/iv-prep-on-call/assets/studio/astra-assets/rise.png" alt=""><span class="card-copy"><span class="microcap">Program Prep</span><strong>Know the room.</strong><small>Practice with the program and role you’ll meet.</small><b>Prepare the room →</b></span></button>
         </div>
@@ -170,7 +170,7 @@
               <div class="recess">
                 <div class="set-list" id="set-list"></div>
                 <div class="btn-row">
-                  <button class="btn btn-primary" type="button" data-goto="devicecheck"><span>Continue ▸</span></button>
+                  <button class="btn btn-primary" type="button" data-goto="devicecheck" data-launch-mode="ai"><span>Start AI mock interview ▸</span></button>
                   <button class="btn btn-quiet" type="button" id="set-clear"><span>Clear</span></button>
                 </div>
               </div>
@@ -201,7 +201,7 @@
             <div class="recess" id="device-checklist"></div>
             <div class="btn-row">
               <button class="btn btn-primary" type="button" id="device-connect"><span>Connect camera + mic</span></button>
-              <button class="btn btn-secondary" type="button" data-goto="training"><span>Delivery training ▸</span></button>
+              <button class="btn btn-secondary" type="button" id="device-proceed" disabled><span>Connect devices to continue</span></button>
             </div>
           </div>
           <div class="housing">
@@ -272,8 +272,8 @@
 
       <!-- SIMULATION -->
       <section class="screen" data-view-panel="simulation" id="founder-room-wrapper">
-        <div class="microcap hero-kick">Simulation</div>
-        <h1 class="hero">No <em>HUD.</em> Just the room.</h1>
+        <div class="microcap hero-kick">AI mock interview</div>
+        <h1 class="hero">Your <em>Interview Room.</em></h1>
         <div class="grid grid-2" style="margin-top:18px">
           <div class="housing">
             <div class="housing-title">Student</div>
@@ -316,6 +316,14 @@
               <p class="microcap">The live interviewer uses the same microphone as Delivery Intelligence, with one secure audio path for the conversation.</p>
               <div class="live-transcript" id="live-transcript" aria-live="polite"><span>Transcript appears here after the session starts.</span></div>
             </div>
+          </div>
+        </div>
+        <div class="housing" style="margin-top:16px">
+          <div class="housing-title">Live Analytics</div>
+          <div class="recess">
+            <div class="correction-plate" id="simulation-correction" data-state="idle"><div><div class="microcap" id="simulation-correction-metric">Ready</div><div class="correction-verdict" id="simulation-correction-verdict">Start the interview to begin measurement</div></div></div>
+            <div class="status-rail" id="simulation-rail"></div>
+            <p class="microcap" id="simulation-save" aria-live="polite">Your interview will be recorded privately to your account.</p>
           </div>
         </div>
         <div class="housing" style="margin-top:16px">

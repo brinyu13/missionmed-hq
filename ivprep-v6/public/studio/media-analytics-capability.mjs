@@ -6,6 +6,27 @@ export function createMediaAnalyticsBridge() {
     source: null,
     sink: null,
     audioContext: null,
+    trackListeners: [],
+    refreshLiveness() {
+      const stream = this.media.stream;
+      const cam = Boolean(stream?.getVideoTracks?.().some((track) => track.readyState === 'live'));
+      const rawMic = Boolean(stream?.getAudioTracks?.().some((track) => track.readyState === 'live'));
+      this.media = Object.freeze({
+        ...this.media,
+        cam,
+        mic: Boolean(rawMic && this.media.AC && this.media.analyser && this.media.data),
+      });
+      window.dispatchEvent?.(new CustomEvent('ivoc-media-liveness'));
+      return this.media;
+    },
+    watchTracks(stream) {
+      this.trackListeners = [];
+      for (const track of stream.getTracks()) {
+        const refresh = () => this.refreshLiveness();
+        for (const name of ['ended', 'mute', 'unmute']) track.addEventListener?.(name, refresh);
+        this.trackListeners.push({ track, refresh });
+      }
+    },
     primeAudioContext() {
       const Ctx = window.AudioContext || window.webkitAudioContext;
       if (!Ctx) return null;
@@ -33,6 +54,7 @@ export function createMediaAnalyticsBridge() {
       }
       this.ownsStream = ownsStream; this.source = source; this.sink = sink;
       this.media = Object.freeze({ cam, mic: Boolean(mic && AC && analyser && data), stream, AC, analyser, data });
+      this.watchTracks(stream);
       return this.media;
     },
     async replaceTrack(kind, deviceId) {
@@ -49,9 +71,16 @@ export function createMediaAnalyticsBridge() {
       return this.media;
     },
     async requestMedia(mic = true, cam = true) {
+      // A failed re-acquisition must never leave a dead stream advertised as LIVE or
+      // bound to a visible preview. Release the old owned capture before retrying.
+      this.stopMedia({ keepContext: true });
       return this.bindStream(await navigator.mediaDevices.getUserMedia({ audio: mic === true, video: cam === true }), { ownsStream: true });
     },
     stopMedia({ keepContext = false } = {}) {
+      for (const { track, refresh } of this.trackListeners) {
+        for (const name of ['ended', 'mute', 'unmute']) track.removeEventListener?.(name, refresh);
+      }
+      this.trackListeners = [];
       try { this.source?.disconnect?.(); } catch {}
       try { this.sink?.disconnect?.(); } catch {}
       if (this.ownsStream) this.media.stream?.getTracks?.().forEach((track) => track.stop());
