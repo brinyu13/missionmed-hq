@@ -1,8 +1,6 @@
 <?php
 /** Configure the existing withdrawn canary page as an admin-only private page. */
 
-declare(strict_types=1);
-
 $content = <<<'HTML'
 <iframe
   title="MissionMed RankListIQ protected canary"
@@ -26,4 +24,3 @@ if (is_wp_error($result)) {
 }
 
 WP_CLI::success('Configured protected RankListIQ canary post ' . (string) $result);
-
