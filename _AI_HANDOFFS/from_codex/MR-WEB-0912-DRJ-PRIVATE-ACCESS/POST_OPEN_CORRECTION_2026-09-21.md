@@ -131,6 +131,21 @@ Analytics preservation:
 - raw access-code values are not emitted by the bounded event source;
 - no claim is made here about GA dashboard attribution or revenue events.
 
+## Independent acceptance
+
+Fresh independent read-only verdict: `APPROVE`.
+
+At `2026-09-21T06:43Z`, the independent verifier repeated anonymous live
+runtime reads and received identical `public_open` state with the exact DR-299
+timestamp, no code disclosure, no backend cap and unchanged IW/Complete
+identity, mapping, price and checkout-allowed values. Its logged-out rendered
+readback found enabled IW and Complete controls, no private prompt, no
+`OUT OF STOCK`, no `use desktop` leak, no horizontal overflow or console error,
+and the explicit Complete-includes-IW/no-extra-charge copy. The verifier made no
+cart, checkout, form, order or payment mutation. Its stated limitation is that
+provider objects were confirmed through the live public runtime contract, not
+an authenticated Woo database query.
+
 ## State delta and boundaries
 
 Production delta: two exact source files, limited to the DR-299 opening boundary
