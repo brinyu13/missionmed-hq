@@ -28,7 +28,6 @@ define( 'MMED_RISE_ORIGIN', 'http://127.0.0.1:4011' );
 define( 'MMED_PS_PROTO_TESTING', true );
 define( 'MMED_PS_PROTO_TEST_RISE_ORIGIN', 'http://127.0.0.1:4011' );
 define( 'MMED_PS_PROTO_TEST_OPENAI_BASE', 'http://127.0.0.1:4012' );
-define( 'MMED_PS_PROTO_ALLOW_USER_IDS', '3' );
 if ( is_readable( $harness_root . '/site/harness-flags.php' ) ) {
 	require $harness_root . '/site/harness-flags.php';
 }
@@ -37,4 +36,3 @@ if ( ! defined( 'ABSPATH' ) ) {
 	define( 'ABSPATH', __DIR__ . '/' );
 }
 require_once ABSPATH . 'wp-settings.php';
-

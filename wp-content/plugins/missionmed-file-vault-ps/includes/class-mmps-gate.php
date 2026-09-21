@@ -12,7 +12,7 @@ class MMPS_Gate {
 	const OPTION_ALLOW_USERS  = 'mmed_ps_proto_allow_user_ids';  // int[]
 	const OPTION_ALLOW_ADMINS = 'mmed_ps_proto_allow_admins';    // '1' | '0'
 
-	/** Hard kill switch: wp-config constant. Nothing of the prototype loads. */
+	/** Hard kill switch: wp-config constant. Nothing of PSV loads. */
 	public static function hard_disabled() {
 		return defined( 'MMED_PS_PROTO_DISABLE' ) && MMED_PS_PROTO_DISABLE;
 	}
@@ -42,13 +42,11 @@ class MMPS_Gate {
 		if ( ! $user_id || 'off' === $mode ) {
 			return false;
 		}
-		if ( in_array( $user_id, self::allowed_user_ids(), true ) ) {
-			return true;
-		}
 		if ( 'members' === $mode ) {
 			return user_can( $user_id, 'manage_options' ) || self::current_360_member( $user_id );
 		}
-		return '1' === (string) get_option( self::OPTION_ALLOW_ADMINS, '1' ) && user_can( $user_id, 'manage_options' );
+		return in_array( $user_id, self::allowed_user_ids(), true )
+			|| ( '1' === (string) get_option( self::OPTION_ALLOW_ADMINS, '1' ) && user_can( $user_id, 'manage_options' ) );
 	}
 
 	/**

@@ -16,6 +16,11 @@ function wp_list_pluck(array $list, string $field): array { return array_values(
 function get_transient(string $key) { return false; }
 function get_userdata(int $id) { return false; }
 function wp_json_encode($value): string { return (string) json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); }
+class MMPS_Gate {
+	public static bool $allow = true;
+	public static function mode(): string { return 'members'; }
+	public static function user_allowed($user_id = 0): bool { return self::$allow && (int) $user_id === 1; }
+}
 
 $plugin = dirname(__DIR__, 2) . '/wp-content/plugins/missionmed-file-vault-ps/includes/';
 require $plugin . 'class-mmps-region.php';

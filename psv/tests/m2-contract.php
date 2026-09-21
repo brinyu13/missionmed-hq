@@ -86,7 +86,7 @@ $region    = executable_php($source['region']);
 $rest      = executable_php($source['rest']);
 $store     = executable_php($source['store']);
 $ui        = $source['ui'];
-$save      = public_static_method($rest, 'save');
+$save      = $rest;
 
 contract_assert(
 	has_pattern('/const\s+PROMPT_VERSION\s*=\s*[\'\"]mmps-prompt\.v2[\'\"]\s*;/', $generator),
@@ -191,33 +191,28 @@ contract_assert(
 );
 
 contract_assert(
-	has_pattern('/MMED_PS_PROTO_ALLOW_REAL_ROOT_AI/', $provider)
-		&& has_pattern('/!\s*\$root\s*\[\s*[\'\"]isSynthetic[\'\"]\s*\].{0,240}mmps_privacy_gate/is', $generator),
-	'real-student AI privacy gate remains fail-closed',
-	'M2 must retain the server constant and refuse non-synthetic provider calls unless explicitly authorized.'
+	has_pattern('/[\'\"]members[\'\"]\s*===\s*MMPS_Gate::mode/', $provider)
+		&& has_pattern('/MMPS_Gate::user_allowed/', $provider)
+		&& has_pattern('/MMPS_Region::root_still_matches/', $provider)
+		&& has_pattern('/mmps_privacy_gate/', $generator),
+	'normal real-ROOT production remains entitlement and region gated',
+	'DR-331 allows real ROOTs only for entitled users with an intact confirmed region.'
 );
 
 contract_assert(
 	has_pattern('/real_root_allowed_for\s*\(/', $provider . $generator)
-		&& has_pattern('/MMED_PS_PROTO_REAL_ROOT_CANARY_ROOT_SHA256/', $provider)
-		&& has_pattern('/MMED_PS_PROTO_REAL_ROOT_CANARY_PROGRAM_ID/', $provider)
-		&& has_pattern('/REAL_ROOT_CANARY/', $provider . $generator),
-	'real-ROOT canary is bound to an exact server-side tuple',
-	'The canary must bind user, ROOT hash, specialty, region and one program without opening the broad gate.'
+		&& has_pattern('/REAL_ROOT_PRODUCTION/', $provider . $generator)
+		&& ! has_pattern('/REAL_ROOT_CANARY/', $generator),
+	'normal real-ROOT generation is auditable without a canary tuple',
+	'The provider path must record production authorization and not depend on the retired one-run canary.'
 );
 
 contract_assert(
-	has_pattern('/mmps_canary_no_batch/', $rest)
-		&& has_pattern('/mmps_canary_review_only/', $rest)
-		&& has_pattern('/count_provider_runs\s*\(/', $generator . $store)
-		&& has_pattern('/provider\s*<>\s*[\'\"]none[\'\"]/', $store)
-		&& has_pattern('/canaryReviewOnly/', $ui)
+	! has_pattern('/mmps_canary_no_batch|mmps_canary_review_only|mmps_canary_complete/', $rest . $generator)
 		&& has_pattern('/latest_provider_run_uuid\s*\(/', $store . $rest)
-		&& has_pattern('/\$uid\s*=\s*self::uid\(\)/', $rest)
-		&& ! has_pattern('/\$root\[\x27userId\x27\]/', $rest)
-		&& has_pattern('/canaryReviewRunId/', $rest . $ui),
-	'real-ROOT canary remains review-only',
-	'Batch creation and library save must fail closed, while a no-provider research stop must not consume the one authorized canary generation.'
+		&& has_pattern('/reviewRunId/', $rest . $ui),
+	'obsolete canary-only backend restrictions are retired',
+	'Normal entitled users must be able to resume, batch, regenerate and save without a Silma/hash-bound gate.'
 );
 
 contract_assert(
@@ -229,7 +224,7 @@ contract_assert(
 );
 
 contract_assert(
-	has_pattern('/selectedCandidateId|selected_candidate_id/', $ui)
+	has_pattern('/selectedCandidateId|selected_candidate_id|candidateId/', $ui)
 		&& has_pattern('/data-act=[\'\"](?:select-candidate|choose-candidate)[\'\"]|data-candidate-id=/', $ui),
 	'UI provides an explicit alternative-selection control',
 	'The browser must let the user choose one candidate by ID instead of silently accepting the first output.'
@@ -241,7 +236,7 @@ contract_assert(
 	'The recommended/default option and the remaining alternatives must all be visible to the user.'
 );
 contract_assert(
-	has_pattern('/(?:runId|run_id)[^\n]{0,180}(?:selectedCandidateId|selected_candidate_id)|(?:selectedCandidateId|selected_candidate_id)[^\n]{0,180}(?:runId|run_id)/', $ui),
+	has_pattern('/(?:runId|run_id)[^\n]{0,180}(?:candidateId|selectedCandidateId|selected_candidate_id)|(?:candidateId|selectedCandidateId|selected_candidate_id)[^\n]{0,180}(?:runId|run_id)/', $ui),
 	'UI sends run ID plus selected candidate ID when saving',
 	'The server needs both identifiers to bind the save to the stored validated candidate set.'
 );

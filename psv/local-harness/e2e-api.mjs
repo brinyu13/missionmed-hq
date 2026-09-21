@@ -64,7 +64,7 @@ ok('anon: REST answers 404 rest_no_route', r.status === 404 && r.json.code === '
 const nsIndex = await anon.raw('/wp-json/mmed-ps-proto/v1'); const restIndex = await (await anon.raw('/wp-json/')).text();
 ok('anon: the REST namespace does not exist publicly (no index, not listed)', nsIndex.status === 404 && !restIndex.includes('mmed-ps-proto'));
 
-// ---------- 2. logged-in, not allowlisted ----------
+// ---------- 2. logged-in, not entitled ----------
 const student = new Session();
 ok('student login', await student.login('student', 'Student-Local-1!'));
 p = await student.page();
@@ -75,19 +75,19 @@ ok('student (valid nonce): REST answers 404', r.status === 404 && r.json.code ==
 const nsStudent = await student.raw('/wp-json/mmed-ps-proto/v1', { headers: { 'X-WP-Nonce': student.nonce } });
 ok('student: the REST namespace is not listed either', nsStudent.status === 404);
 let hub = await (await student.raw('/member-dashboard/')).text();
-ok('student: Hub page renders File Vault stage, no prototype script', hub.includes('fv-canary') && !hub.includes('mmps-entry'));
+ok('student: Hub page renders File Vault stage, no Program-Specific PS script', hub.includes('fv-canary') && !hub.includes('mmps-entry'));
 
-// ---------- 3. allowlisted tester ----------
+// ---------- 3. current 360 member ----------
 const t = new Session();
 ok('tester login', await t.login('tester', 'Tester-Local-1!'));
 p = await t.page();
-ok('tester: prototype page renders with config + strict CSP', p.html.includes('id="mmps-app"') && !!p.config && /default-src 'none'/.test(p.res.headers.get('content-security-policy') || '') && /no-store/.test(p.res.headers.get('cache-control') || ''));
+ok('current 360 member: Program-Specific PS renders with config + strict CSP', p.html.includes('id="mmps-app"') && !!p.config && /default-src 'none'/.test(p.res.headers.get('content-security-policy') || '') && /no-store/.test(p.res.headers.get('cache-control') || ''));
 ok('tester: page has no inline script or style (CSP-safe)', !/<script(?![^>]*(src=|application\/json))/.test(p.html) && !/ style="/.test(p.html.replace(/<noscript>.*?<\/noscript>/s, '')));
 hub = await (await t.raw('/member-dashboard/')).text();
-ok('tester: Hub page gets the entry launcher script, File Vault stage intact', hub.includes('mmps-entry.js') && hub.includes('fv-canary') && hub.includes('window.mmpsEntry='));
+ok('current 360 member: Hub gets the PSV launcher while File Vault stays intact', hub.includes('mmps-entry.js') && hub.includes('fv-canary') && hub.includes('window.mmpsEntry='));
 r = await t.api('GET', '/bootstrap');
 ok('bootstrap ok', r.status === 200 && r.json.provider.provider === 'openai-responses' && r.json.provider.store === false && r.json.rise.configured === true, r.text.slice(0, 200));
-ok('bootstrap: privacy gate closed by default', r.json.provider.realRootAllowed === false);
+ok('bootstrap: normal entitled-member real-ROOT production is active', r.json.gate.mode === 'members' && r.json.provider.realRootAllowed === true);
 ok('bootstrap: no-store header on REST', /no-store/.test(r.headers.get('cache-control') || ''));
 ok('bootstrap: File Vault readable through reflection-checked bridge', r.json.fileVault.available === true);
 
@@ -142,7 +142,11 @@ r = await t.api('PUT', `/roots/${realRoot.id}/region`, { mode: 'REPLACE_PARAGRAP
 ok('region confirmed on real ROOT', r.status === 200 && r.json.root.region.mode === 'REPLACE_PARAGRAPH');
 const aiBefore = (await aiLog()).length;
 r = await t.api('POST', '/generate', { rootId: realRoot.id, programSpecialtyId: 'ps_ess_003', tier: 'ESSENTIAL' });
-ok('PRIVACY GATE: real ROOT is not sent to the AI provider', r.status === 403 && r.json.code === 'mmps_privacy_gate' && (await aiLog()).length === aiBefore);
+const realRootGeneration = r.json;
+const realRootAi = (await aiLog()).at(-1);
+const realRootPayload = JSON.parse(JSON.parse(realRootAi.raw).input[1].content);
+ok('normal production: entitled member can generate from confirmed File Vault real ROOT', r.status === 200 && r.json.status === 'OK' && r.json.candidates.length === 5 && (await aiLog()).length === aiBefore + 1);
+ok('normal production: provider receives every ROOT paragraph as context while protected output remains byte-equal', realRootPayload.root_context_mode === 'READ_ONLY_COMPLETE_STATEMENT' && realRootPayload.root_paragraphs.length === realRoot.paragraphs.length && realRootPayload.root_paragraphs.every(Boolean) && realRootGeneration.paragraphs.every((x, i) => i === 4 || x === realRoot.paragraphs[i]) && realRootGeneration.rootIntegrity.ok === true);
 
 // ---------- 5a. direct owner-scoped ROOT upload ----------
 const directText = 'Direct upload opening paragraph.\n\nDirect upload middle paragraph.\n\nDirect upload closing paragraph.';
@@ -154,7 +158,7 @@ ok('direct upload rejects unsupported PDF extraction', r.status === 415 && r.jso
 await t.api('PUT', `/roots/${uploadedRoot.id}/region`, { mode: 'REPLACE_PARAGRAPH', paragraphIndex: 1 });
 const aiBeforeUpload = (await aiLog()).length;
 r = await t.api('POST', '/generate', { rootId: uploadedRoot.id, programSpecialtyId: 'ps_ess_003', tier: 'ESSENTIAL' });
-ok('PRIVACY GATE: uploaded real ROOT never reaches AI by default', r.status === 403 && r.json.code === 'mmps_privacy_gate' && (await aiLog()).length === aiBeforeUpload);
+ok('normal production: direct-upload real ROOT can generate after explicit region confirmation', r.status === 200 && r.json.rootIntegrity.ok === true && r.json.paragraphs.every((x, i) => i === 1 || x === uploadedRoot.paragraphs[i]) && (await aiLog()).length === aiBeforeUpload + 1);
 
 // ---------- 6. synthetic ROOT, region, prefs ----------
 r = await t.api('POST', '/roots', { source: 'SYNTHETIC', specialtyLabel: 'Internal Medicine' });
@@ -234,7 +238,7 @@ const pasted = r.json.root;
 await t.api('PUT', `/roots/${pasted.id}/region`, { mode: 'REPLACE_PARAGRAPH', paragraphIndex: 4 });
 const aiBeforePaste = (await aiLog()).length;
 r = await t.api('POST', '/generate', { rootId: pasted.id, programSpecialtyId: 'ps_ess_003', tier: 'ESSENTIAL' });
-ok('PRIVACY GATE: pasted text never reaches the AI provider with the gate closed', r.status === 403 && r.json.code === 'mmps_privacy_gate' && (await aiLog()).length === aiBeforePaste);
+ok('normal production: pasted real ROOT generates only after region confirmation', r.status === 200 && r.json.rootIntegrity.ok === true && r.json.paragraphs.every((x, i) => i === 4 || x === pasted.paragraphs[i]) && (await aiLog()).length === aiBeforePaste + 1);
 
 // second synthetic voice + INSERT mode
 r = await t.api('POST', '/roots', { source: 'SYNTHETIC', syntheticKey: 'fm' });
@@ -376,15 +380,17 @@ php(`global $wpdb; $wpdb->delete($wpdb->prefix.'mmed_ps_proto_provider_attempts'
 const admin = new Session();
 ok('admin login', await admin.login('founder', 'Founder-Local-1!'));
 await admin.page();
-ok('admin (allow_admins) sees the prototype', !!admin.nonce);
+ok('administrator sees Program-Specific PS in members mode', !!admin.nonce);
+r = await admin.api('GET', '/bootstrap');
+ok('second authorized user has normal production bootstrap without inheriting another owner\'s state', r.status === 200 && r.json.gate.mode === 'members' && r.json.provider.realRootAllowed === true);
 r = await admin.api('GET', `/roots/${root.id}`);
-ok('another allowlisted user cannot read tester\'s ROOT', r.status === 404);
+ok('another authorized user cannot read tester\'s ROOT', r.status === 404);
 r = await admin.api('GET', `/library/${doc.docUuid}`);
-ok('another allowlisted user cannot read tester\'s saved PS', r.status === 404);
+ok('another authorized user cannot read tester\'s saved PS', r.status === 404);
 r = await admin.api('POST', '/library', { runId: deep.runId });
-ok('another allowlisted user cannot save tester\'s run', r.status === 404);
+ok('another authorized user cannot save tester\'s run', r.status === 404);
 r = await admin.api('GET', `/research-artifacts/${validArtifact.artifactUuid}/download?inline=1`);
-ok('another allowlisted user cannot read or export tester\'s quarantined research', r.status === 404 && r.json.code === 'mmps_research_not_found');
+ok('another authorized user cannot read or export tester\'s quarantined research', r.status === 404 && r.json.code === 'mmps_research_not_found');
 r = await t.api('POST', '/roots', { source: 'SYNTHETIC', specialtyLabel: 'X' }, { Origin: 'https://evil.example' });
 ok('cross-origin write refused', r.status === 403 && r.json.code === 'mmps_bad_origin');
 r = await t.api('POST', '/roots', { source: 'SYNTHETIC', specialtyLabel: 'X' }, { 'X-WP-Nonce': 'bad' });
@@ -405,7 +411,7 @@ ok('audit log holds ids/codes/hashes only, never statement or research text', !/
 php(`update_option('mmed_ps_proto_mode','off');`);
 r = await t.api('GET', '/bootstrap'); p = await t.page(); hub = await (await t.raw('/member-dashboard/')).text();
 ok('KILL 1 (option off): REST 404, page inert, no Hub script, File Vault stage intact', r.status === 404 && !p.html.includes('mmps-app') && !hub.includes('mmps-entry') && hub.includes('fv-canary'));
-php(`update_option('mmed_ps_proto_mode','allowlist');`);
+php(`update_option('mmed_ps_proto_mode','members');`);
 flags(`define( 'MMED_PS_PROTO_DISABLE', true );`);
 r = await t.api('GET', '/bootstrap'); p = await t.page(); hub = await (await t.raw('/member-dashboard/')).text();
 ok('KILL 2 (wp-config constant): nothing loads', r.status === 404 && !p.html.includes('mmps-app') && !hub.includes('mmps-entry') && hub.includes('fv-canary'));

@@ -35,7 +35,7 @@
   "detail": ""
  },
  {
-  "name": "student: Hub page renders File Vault stage, no prototype script",
+  "name": "student: Hub page renders File Vault stage, no Program-Specific PS script",
   "pass": true,
   "detail": ""
  },
@@ -45,7 +45,7 @@
   "detail": ""
  },
  {
-  "name": "tester: prototype page renders with config + strict CSP",
+  "name": "current 360 member: Program-Specific PS renders with config + strict CSP",
   "pass": true,
   "detail": ""
  },
@@ -55,17 +55,17 @@
   "detail": ""
  },
  {
-  "name": "tester: Hub page gets the entry launcher script, File Vault stage intact",
+  "name": "current 360 member: Hub gets the PSV launcher while File Vault stays intact",
   "pass": true,
   "detail": ""
  },
  {
   "name": "bootstrap ok",
   "pass": true,
-  "detail": "{\"version\":\"0.5.0\",\"user\":{\"id\":3,\"name\":\"\\u00c9mile Corridor\"},\"gate\":{\"mode\":\"allowlist\",\"testing\":true},\"provider\":{\"provider\":\"openai-responses\",\"model\":\"gpt-5.6-terra\",\"configured\":true,\"simulato"
+  "detail": "{\"version\":\"1.0.0\",\"user\":{\"id\":3,\"name\":\"\\u00c9mile Corridor\"},\"gate\":{\"mode\":\"members\",\"testing\":true},\"provider\":{\"provider\":\"openai-responses\",\"model\":\"gpt-5.6-terra\",\"configured\":true,\"simulatorA"
  },
  {
-  "name": "bootstrap: privacy gate closed by default",
+  "name": "bootstrap: normal entitled-member real-ROOT production is active",
   "pass": true,
   "detail": ""
  },
@@ -167,7 +167,7 @@
  {
   "name": "FV ROOT v1 read + parsed",
   "pass": true,
-  "detail": "{\"root\":{\"id\":1,\"specialtyLabel\":\"Internal Medicine\",\"sourceKind\":\"FILE_VAULT\",\"isSynthetic\":false,\"fvFileId\":1,\"fvVersionNumber\":1,\"fvVersionUuid\":\"33c25ed8-d87e-499a-b248-e5e58cf29308\",\"rootLabel\":\""
+  "detail": "{\"root\":{\"id\":1,\"specialtyLabel\":\"Internal Medicine\",\"sourceKind\":\"FILE_VAULT\",\"isSynthetic\":false,\"fvFileId\":1,\"fvVersionNumber\":1,\"fvVersionUuid\":\"d175cd31-54e2-40ee-8893-830cfc3c7af0\",\"rootLabel\":\""
  },
  {
   "name": "FV ROOT v2 (not verified clean) refused",
@@ -195,7 +195,27 @@
   "detail": ""
  },
  {
-  "name": "PRIVACY GATE: real ROOT is not sent to the AI provider",
+  "name": "normal production: entitled member can generate from confirmed File Vault real ROOT",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "normal production: provider receives every ROOT paragraph as context while protected output remains byte-equal",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "direct TXT upload creates an owner-scoped real ROOT",
+  "pass": true,
+  "detail": "{\"root\":{\"id\":2,\"specialtyLabel\":\"Internal Medicine\",\"sourceKind\":\"UPLOADED\",\"isSynthetic\":false,\"fvFileId\":0,\"fvVersionNumber\":0,\"fvVersionUuid\":\"\",\"rootLabel\":\"Uploaded PS \\u00b7 direct-root.txt\",\"s"
+ },
+ {
+  "name": "direct upload rejects unsupported PDF extraction",
+  "pass": true,
+  "detail": "{\"code\":\"mmps_root_upload_type\",\"message\":\"Upload a clean DOCX or UTF-8 TXT file. Export Pages or PDF documents to DOCX first.\",\"data\":{\"status\":415}}"
+ },
+ {
+  "name": "normal production: direct-upload real ROOT can generate after explicit region confirmation",
   "pass": true,
   "detail": ""
  },
@@ -227,7 +247,7 @@
  {
   "name": "ESSENTIAL output succeeds",
   "pass": true,
-  "detail": "{\"runId\":\"64535db5-21fc-4851-9e3e-1349682f6fc3\",\"status\":\"OK\",\"tierRequested\":\"ESSENTIAL\",\"tierEffective\":\"ESSENTIAL\",\"strategy\":\"BALANCED_QUIET_SPECIFIC\",\"provider\":\"openai-responses\",\"model\":\"gpt-5.6-terra\",\"simulated\":false,\"program\":{\"programSpecialtyId\":\"ps_ess_003\",\"acgmeId\":\"1401931003\",\"prog"
+  "detail": "{\"runId\":\"2fc9ba1e-729c-4423-b8d9-52ddb95b9730\",\"status\":\"OK\",\"tierRequested\":\"ESSENTIAL\",\"tierEffective\":\"ESSENTIAL\",\"strategy\":\"BALANCED_QUIET_SPECIFIC\",\"provider\":\"openai-responses\",\"model\":\"gpt-5.6-terra\",\"simulated\":false,\"program\":{\"programSpecialtyId\":\"ps_ess_003\",\"acgmeId\":\"1401931003\",\"prog"
  },
  {
   "name": "ESSENTIAL: five distinct choices with an explicit recommended default",
@@ -252,7 +272,7 @@
  {
   "name": "DEEP output succeeds with verified deep facts",
   "pass": true,
-  "detail": "{\"runId\":\"deb8d250-254b-4a04-a65a-e45a3db0a368\",\"status\":\"OK\",\"tierRequested\":\"DEEP\",\"tierEffective\":\"DEEP\",\"strategy\":\"BALANCED_QUIET_SPECIFIC\",\"provider\":\"openai-responses\",\"model\":\"gpt-5.6-terra\",\"simulated\":false,\"program\":{\"programSpecialtyId\":\"ps_deep_001\",\"acgmeId\":\"1403511001\",\"programName\":\"Lakeshore University Internal Medicine Residency\",\"institution\":\"Lakeshore University Medical Cente"
+  "detail": "{\"runId\":\"7a2bbdeb-25e8-4ec0-a650-0b6fb130d9a3\",\"status\":\"OK\",\"tierRequested\":\"DEEP\",\"tierEffective\":\"DEEP\",\"strategy\":\"BALANCED_QUIET_SPECIFIC\",\"provider\":\"openai-responses\",\"model\":\"gpt-5.6-terra\",\"simulated\":false,\"program\":{\"programSpecialtyId\":\"ps_deep_001\",\"acgmeId\":\"1403511001\",\"programName\":\"Lakeshore University Internal Medicine Residency\",\"institution\":\"Lakeshore University Medical Cente"
  },
  {
   "name": "DEEP: 2-3 deep facts, preference-matched (cardiology fellowship chosen; planned GI never)",
@@ -272,7 +292,7 @@
  {
   "name": "unsupported DEEP -> Research Needed, AI never called, nothing invented",
   "pass": true,
-  "detail": "{\"runId\":\"aa806c0d-9e23-4894-ae5e-056854597a2f\",\"status\":\"RESEARCH_NEEDED\",\"tierRequested\":\"DEEP\",\"tierEffective\":\"DEEP_RESEARCH_NEEDED\",\"strategy\":\"\",\"provider\":\"none\",\"model\":\"\",\"simulated\":false,\"program\":{\"programSpecialtyId\":\"ps_thin_002\",\"acgmeId\":\"1403821002\",\"programName\":\"Riverbend Communit"
+  "detail": "{\"runId\":\"698a619e-486a-4a19-ab75-616d9301c99f\",\"status\":\"RESEARCH_NEEDED\",\"tierRequested\":\"DEEP\",\"tierEffective\":\"DEEP_RESEARCH_NEEDED\",\"strategy\":\"\",\"provider\":\"none\",\"model\":\"\",\"simulated\":false,\"program\":{\"programSpecialtyId\":\"ps_thin_002\",\"acgmeId\":\"1403821002\",\"programName\":\"Riverbend Communit"
  },
  {
   "name": "M4 research prompt: optimized exact artifact contract with program data only",
@@ -292,7 +312,7 @@
  {
   "name": "M4 upload: valid artifact is validated but remains pending the RISE owner",
   "pass": true,
-  "detail": "{\"artifact\":{\"artifactUuid\":\"e8bec705-6026-46e4-a53a-eee54d3edbd7\",\"rootId\":2,\"programSpecialtyId\":\"ps_thin_002\",\"acgmeId\":\"1403821002\",\"programName\":\"Riverbend Community Hospital Internal Medicine Residency\",\"status\":\"VALIDATED_PENDING_RISE_OWNER\",\"fileName\":\"riverbend-evidence.md\",\"byteSize\":880,\""
+  "detail": "{\"artifact\":{\"artifactUuid\":\"2ccac617-312b-4bbd-940c-269838c89688\",\"rootId\":3,\"programSpecialtyId\":\"ps_thin_002\",\"acgmeId\":\"1403821002\",\"programName\":\"Riverbend Community Hospital Internal Medicine Residency\",\"status\":\"VALIDATED_PENDING_RISE_OWNER\",\"fileName\":\"riverbend-evidence.md\",\"byteSize\":884,\""
  },
  {
   "name": "M4 owner handoff: validated artifact exports byte-for-byte by owner-scoped route",
@@ -307,7 +327,7 @@
  {
   "name": "regenerate creates a fresh validated five-choice run without overwriting the prior run",
   "pass": true,
-  "detail": "deb8d250-254b-4a04-a65a-e45a3db0a368 -> a47dddd1-0b67-4cbb-92ad-25612e9d22aa"
+  "detail": "7a2bbdeb-25e8-4ec0-a650-0b6fb130d9a3 -> 755b37c5-b1d9-4565-ac27-9c23eb547ef4"
  },
  {
   "name": "hallucination on attempt 1 is caught, revised on attempt 2",
@@ -350,7 +370,7 @@
   "detail": ""
  },
  {
-  "name": "PRIVACY GATE: pasted text never reaches the AI provider with the gate closed",
+  "name": "normal production: pasted real ROOT generates only after region confirmation",
   "pass": true,
   "detail": ""
  },
@@ -362,7 +382,7 @@
  {
   "name": "INSERT mode: 7 paragraphs, all 6 ROOT paragraphs unchanged",
   "pass": true,
-  "detail": "{\"runId\":\"132db8e3-3003-44b8-9c37-917eb65ec911\",\"status\":\"OK\",\"tierRequested\":\"ESSENTIAL\",\"tierEffective\":\"ESSENTIAL\",\"strategy\":\"BALANCED_QUIET_SPECIFIC\",\"provider\":\"openai-responses\",\"model\":\"gpt-5.6-terra\",\"simulated\":false,\"program\":{\"programSpecialtyId\":\"ps_ess_003\",\"acgmeId\":\"1401931003\",\"prog"
+  "detail": "{\"runId\":\"a36f2d7e-93a1-4d0d-8ff9-faaaa9b60570\",\"status\":\"OK\",\"tierRequested\":\"ESSENTIAL\",\"tierEffective\":\"ESSENTIAL\",\"strategy\":\"BALANCED_QUIET_SPECIFIC\",\"provider\":\"openai-responses\",\"model\":\"gpt-5.6-terra\",\"simulated\":false,\"program\":{\"programSpecialtyId\":\"ps_ess_003\",\"acgmeId\":\"1401931003\",\"prog"
  },
  {
   "name": "region changed after generation -> save refused (409)",
@@ -387,7 +407,7 @@
  {
   "name": "save selected alternative after explicit review with candidate and similarity provenance",
   "pass": true,
-  "detail": "{\"document\":{\"docUuid\":\"ec037f47-6a11-47f3-8a3e-c11d6c4da4f6\",\"rootId\":2,\"specialtyLabel\":\"Internal Medicine\",\"programSpecialtyId\":\"ps_deep_001\",\"acgmeId\":\"1403511001\",\"programName\":\"Lakeshore University Internal Medicine Residency\",\"institution\":\"Lakeshore University Medical Center\",\"city\":\"Rochest"
+  "detail": "{\"document\":{\"docUuid\":\"ba900f61-6c99-4d4a-907a-19361f8e8cad\",\"rootId\":3,\"specialtyLabel\":\"Internal Medicine\",\"programSpecialtyId\":\"ps_deep_001\",\"acgmeId\":\"1403511001\",\"programName\":\"Lakeshore University Internal Medicine Residency\",\"institution\":\"Lakeshore University Medical Center\",\"city\":\"Rochest"
  },
  {
   "name": "save is idempotent per run",
@@ -400,7 +420,7 @@
   "detail": ""
  },
  {
-  "name": "library lists both",
+  "name": "library lists both new documents and preserves prior outputs",
   "pass": true,
   "detail": ""
  },
@@ -472,7 +492,7 @@
  {
   "name": "M3 Download All: approved complete statements produce one ZIP and manifest",
   "pass": true,
-  "detail": "{\"fileName\":\"MissionMed_Program_Specific_PS_2026-09-20.zip\",\"documents\":1,\"bytes\":2952,\"sha256\":\"afb774c23160180a16ffb5fe07128d85e1412afd9cdc7fd8511aae8c42752d1e\"}"
+  "detail": "{\"fileName\":\"MissionMed_Program_Specific_PS_2026-09-21.zip\",\"documents\":1,\"bytes\":2951,\"sha256\":\"83183d267e304d7c3202098f1c066e80fb954d49d2e272f6cfee0c3165c66087\"}"
  },
  {
   "name": "M3 selective regeneration preserves the approved document and reports a non-complete job while requeueing one item",
@@ -487,22 +507,22 @@
  {
   "name": "M3 injected transition commit failure returns 503 and leaves the claimed state recoverable",
   "pass": true,
-  "detail": "mmps_batch_transition_commit"
+  "detail": "{\"code\":\"mmps_batch_transition_commit\",\"message\":\"The item state and worker slot could not be committed safely.\",\"data\":{\"status\":503}}"
  },
  {
   "name": "M3 failed commit recovery releases the exact stale slot and reuses provider work idempotently",
   "pass": true,
-  "detail": "stale slot released; provider request count unchanged on retry"
+  "detail": "{\"job\":{\"id\":3,\"jobUuid\":\"0ac2eca9-0be5-416b-b4e4-5e2c328b683e\",\"rootId\":3,\"specialtyLabel\":\"Internal Medicine\",\"status\":\"READY_FOR_APPROVAL\",\"total\":1,\"processed\":1,\"ready\":1,\"attention\":0,\"failed\":0,\"config\":{\"defaultDeepCutoff\":25,\"workers\":2,\"rootTextSha256\":\"4dbb7ff4bfe2338185835183fe33dcb65643"
  },
  {
   "name": "M3 server concurrency: a third claimant is refused without consuming an item attempt",
   "pass": true,
-  "detail": "{\"job\":{\"id\":2,\"jobUuid\":\"cfbc55c4-f97c-4d1a-bcad-0f4f51d6df0d\",\"rootId\":2,\"specialtyLabel\":\"Internal Medicine\",\"status\":\"RUNNING\",\"total\":3,\"processed\":0,\"ready\":0,\"attention\":0,\"failed\":0,\"config\":{\"defaultDeepCutoff\":25,\"workers\":2,\"rootTextSha256\":\"4dbb7ff4bfe2338185835183fe33dcb65643d35dd15973d"
+  "detail": "{\"job\":{\"id\":4,\"jobUuid\":\"c81ec387-d0dd-4812-ba6b-17877fff0c88\",\"rootId\":3,\"specialtyLabel\":\"Internal Medicine\",\"status\":\"RUNNING\",\"total\":3,\"processed\":0,\"ready\":0,\"attention\":0,\"failed\":0,\"config\":{\"defaultDeepCutoff\":25,\"workers\":2,\"rootTextSha256\":\"4dbb7ff4bfe2338185835183fe33dcb65643d35dd15973d"
  },
  {
   "name": "M3 daily provider cap: batch pauses without spending retries or losing resumability",
   "pass": true,
-  "detail": "{\"job\":{\"id\":2,\"jobUuid\":\"cfbc55c4-f97c-4d1a-bcad-0f4f51d6df0d\",\"rootId\":2,\"specialtyLabel\":\"Internal Medicine\",\"status\":\"PAUSED\",\"total\":3,\"processed\":2,\"ready\":0,\"attention\":0,\"failed\":2,\"config\":{\"defaultDeepCutoff\":25,\"workers\":2,\"rootTextSha256\":\"4dbb7ff4bfe2338185835183fe33dcb65643d35dd15973da"
+  "detail": "{\"job\":{\"id\":4,\"jobUuid\":\"c81ec387-d0dd-4812-ba6b-17877fff0c88\",\"rootId\":3,\"specialtyLabel\":\"Internal Medicine\",\"status\":\"PAUSED\",\"total\":3,\"processed\":2,\"ready\":0,\"attention\":0,\"failed\":2,\"config\":{\"defaultDeepCutoff\":25,\"workers\":2,\"rootTextSha256\":\"4dbb7ff4bfe2338185835183fe33dcb65643d35dd15973da"
  },
  {
   "name": "admin login",
@@ -510,27 +530,32 @@
   "detail": ""
  },
  {
-  "name": "admin (allow_admins) sees the prototype",
+  "name": "administrator sees Program-Specific PS in members mode",
   "pass": true,
   "detail": ""
  },
  {
-  "name": "another allowlisted user cannot read tester's ROOT",
+  "name": "second authorized user has normal production bootstrap without inheriting another owner's state",
   "pass": true,
   "detail": ""
  },
  {
-  "name": "another allowlisted user cannot read tester's saved PS",
+  "name": "another authorized user cannot read tester's ROOT",
   "pass": true,
   "detail": ""
  },
  {
-  "name": "another allowlisted user cannot save tester's run",
+  "name": "another authorized user cannot read tester's saved PS",
   "pass": true,
   "detail": ""
  },
  {
-  "name": "another allowlisted user cannot read or export tester's quarantined research",
+  "name": "another authorized user cannot save tester's run",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "another authorized user cannot read or export tester's quarantined research",
   "pass": true,
   "detail": ""
  },
@@ -552,12 +577,12 @@
  {
   "name": "no posts, users or user meta created",
   "pass": true,
-  "detail": "[{\"fv\":\"3\",\"fvsum\":\"c7c5817b71f32cb61bdff62dc61d6efa\",\"posts\":\"5\",\"users\":\"3\",\"usermeta\":\"46\"},{\"fv\":\"3\",\"fvsum\":\"c7c5817b71f32cb61bdff62dc61d6efa\",\"posts\":\"5\",\"users\":\"3\",\"usermeta\":\"46\"}]"
+  "detail": "[{\"fv\":\"3\",\"fvsum\":\"674f11ede4de80ab012822fda72a7352\",\"posts\":\"5\",\"users\":\"3\",\"usermeta\":\"46\"},{\"fv\":\"3\",\"fvsum\":\"674f11ede4de80ab012822fda72a7352\",\"posts\":\"5\",\"users\":\"3\",\"usermeta\":\"46\"}]"
  },
  {
   "name": "only namespaced prototype tables exist besides the stub FV table",
   "pass": true,
-  "detail": "[\"wp_mmed_file_vault_stub\",\"wp_mmed_ps_proto_roots\",\"wp_mmed_ps_proto_runs\",\"wp_mmed_ps_proto_jobs\",\"wp_mmed_ps_proto_provider_attempts\",\"wp_mmed_ps_proto_job_items\",\"wp_mmed_ps_proto_research_artifacts\",\"wp_mmed_ps_proto_similarity_fingerprints\",\"wp_mmed_ps_proto_similarity_buckets\",\"wp_mmed_ps_proto_library\",\"wp_mmed_ps_proto_audit\"]"
+  "detail": "[\"wp_mmed_file_vault_stub\",\"wp_mmed_ps_proto_roots\",\"wp_mmed_ps_proto_runs\",\"wp_mmed_ps_proto_jobs\",\"wp_mmed_ps_proto_provider_attempts\",\"wp_mmed_ps_proto_job_items\",\"wp_mmed_ps_proto_research_artifacts\",\"wp_mmed_ps_proto_similarity_fingerprints\",\"wp_mmed_ps_proto_similarity_buckets\",\"wp_mmed_ps_proto_library\",\"wp_mmed_ps_proto_audit\",\"wp_mmed_ps_proto_edit_revisions\"]"
  },
  {
   "name": "M5 fingerprint store contains keyed digests/signatures only, never Personal Statement prose",
@@ -627,6 +652,6 @@
  {
   "name": "simulator output is labelled SIMULATED and still passes integrity",
   "pass": true,
-  "detail": "{\"runId\":\"698632c6-f867-4e01-bd48-b2db0b7808ed\",\"status\":\"OK\",\"tierRequested\":\"ESSENTIAL\",\"tierEffective\":\"ESSENTIAL\",\"strategy\":\"BALANCED_QUIET_SPECIFIC\",\"provider\":\"simulator\",\"model\":\"offline-simulator\",\"simulated\":true,\"program\":{\"programSpecialtyId\":\"ps_ess_003\",\"acgmeId\":\"1401931003\",\"programN"
+  "detail": "{\"runId\":\"099507e1-8f6d-4822-b198-9e7f756ecad7\",\"status\":\"OK\",\"tierRequested\":\"ESSENTIAL\",\"tierEffective\":\"ESSENTIAL\",\"strategy\":\"BALANCED_QUIET_SPECIFIC\",\"provider\":\"simulator\",\"model\":\"offline-simulator\",\"simulated\":true,\"program\":{\"programSpecialtyId\":\"ps_ess_003\",\"acgmeId\":\"1401931003\",\"programN"
  }
 ]

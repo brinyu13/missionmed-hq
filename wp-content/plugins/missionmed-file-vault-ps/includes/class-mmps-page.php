@@ -1,6 +1,6 @@
 <?php
 /**
- * The prototype's own page and its File Vault entry point.
+ * Program-Specific PS page and its File Vault entry point.
  *
  *  - Page: /?mmed_ps_proto=1. No rewrite rule, no flush and no post.
  *    Anyone outside authorized access gets the normal site response.
@@ -44,7 +44,7 @@ class MMPS_Page {
 			wp_enqueue_script( 'mmps-entry', self::asset( 'mmps-entry.js' ), array(), null, true );
 			wp_add_inline_script( 'mmps-entry', 'window.mmpsEntry=' . wp_json_encode( array( 'url' => self::url() ) ) . ';', 'before' );
 		} catch ( \Throwable $e ) {
-			return; // The Hub page must never be affected by the prototype.
+			return; // The Hub page must never be affected by PSV rendering.
 		}
 	}
 
@@ -55,7 +55,7 @@ class MMPS_Page {
 			return;
 		}
 		if ( ! is_user_logged_in() || ! MMPS_Gate::user_allowed() ) {
-			return; // Not disclosed: the site answers exactly as it would without the prototype.
+			return; // Not disclosed: the site answers exactly as it would without PSV.
 		}
 		MMPS_Install::maybe_install();
 

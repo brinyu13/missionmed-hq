@@ -50,7 +50,7 @@ m3check(str_contains($src['rest'], 'mmps_run_saved_different_candidate'), 'defau
 m3check(str_contains($src['rest'], '/library/bulk-download') && str_contains($src['rest'], 'ZipArchive') && str_contains($src['rest'], 'MANIFEST'), 'selected and Download All ZIP export is implemented', 'Bulk output needs a manifest and server-created archive.');
 m3check(str_contains($src['batch'], 'approvedPreserved') && !str_contains($src['batch'], "'approved_doc_uuid' => ''"), 'selective regeneration preserves approved documents', 'A requeue must never erase the last approved output.');
 m3check(str_contains($src['ui'], 'function runBatch') && str_contains($src['ui'], 'function stopBatch') && str_contains($src['ui'], 'function worker'), 'UI supports pause, resume, and bounded workers', 'Long jobs must survive reloads and be user-controllable.');
-m3check(str_contains($all, 'MMED_PS_PROTO_ALLOW_REAL_ROOT_AI'), 'real-student AI privacy gate remains present', 'M3 scale must not silently open the privacy gate.');
+m3check(str_contains($src['provider'], "'members' === MMPS_Gate::mode()") && str_contains($src['provider'], 'MMPS_Gate::user_allowed') && str_contains($src['provider'], 'MMPS_Region::root_still_matches'), 'real-student generation stays entitlement and region gated', 'M3 scale must not weaken owner access or the confirmed-region boundary.');
 m3check(!preg_match('/class-mmed-file-vault-v2\.php|class-mmed-file-vault-repository\.php/', $all), 'M3 does not edit protected File Vault implementation paths', 'PSV remains isolated until an owner contract is approved.');
 
 if ($fail) {

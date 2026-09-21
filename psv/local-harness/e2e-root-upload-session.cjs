@@ -25,7 +25,7 @@ async function login(page) {
 	await page.goto(BASE + '/?mmed_ps_proto=1');
 	await page.click('button:has-text("Start a new ROOT")');
 	await page.waitForSelector('[data-act="source"]');
-	ok('ROOT chooser has four source options', await page.locator('[data-act="source"]').count() === 4);
+	ok('normal ROOT chooser has File Vault, upload and paste options', await page.locator('[data-act="source"]').count() === 3 && await page.locator('[data-source="SYNTHETIC"]').count() === 0);
 	await page.click('[data-source="UPLOADED"]');
 	await page.waitForSelector('[data-root-file]');
 	const fictionalRoot = 'The first fictional paragraph establishes a thoughtful applicant voice and contains no real student information.\n\nThe second fictional paragraph describes careful teamwork during a simulated clinical exercise.\n\nThe third fictional paragraph explains a fictional interest in Internal Medicine and provides enough text to validate direct upload.';
@@ -33,7 +33,7 @@ async function login(page) {
 	ok('bounded UTF-8 TXT selection is accepted', await page.locator('.uploadName').innerText() === 'fictional-root.txt');
 	ok('Use this ROOT becomes available', await page.locator('[data-act="create-root"]:not([disabled])').count() === 1);
 	const uploadPanel = await page.locator('[data-root-file]').locator('xpath=ancestor::div[contains(@class,"panel")]').innerText();
-	ok('upload custody and real-ROOT privacy are explicit', uploadPanel.includes('not retained or written to File Vault') && uploadPanel.includes('treated as real ROOTs'));
+	ok('upload custody is explicit', uploadPanel.includes('not retained or written to File Vault'));
 
 	const staleContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
 	const stalePage = await staleContext.newPage();

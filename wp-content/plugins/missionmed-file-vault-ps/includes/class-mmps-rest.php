@@ -1,6 +1,6 @@
 <?php
 /**
- * REST surface of the prototype. Namespace mmed-ps-proto/v1.
+ * REST surface of Program-Specific PS. Namespace retained for compatibility.
  * Every route answers 404 to anyone outside authorized access (MMPS_Gate).
  * Every read and write is scoped to the signed-in user's own rows.
  */
@@ -104,10 +104,7 @@ class MMPS_Rest {
 			'textSha256'      => $root['textSha256'],
 			'createdAt'       => $root['createdAt'],
 		);
-		$uid = self::uid();
-		if ( MMPS_Provider::is_real_root_canary_root( $uid, $root ) ) {
-			$summary['canaryReviewRunId'] = MMPS_Store::latest_provider_run_uuid( $uid, (int) $root['id'] );
-		}
+		$summary['reviewRunId'] = MMPS_Store::latest_provider_run_uuid( self::uid(), (int) $root['id'] );
 		return $summary;
 	}
 
@@ -361,9 +358,6 @@ class MMPS_Rest {
 		if ( ! $root ) {
 			return new WP_Error( 'mmps_root_not_found', 'That ROOT was not found for your account.', array( 'status' => 404 ) );
 		}
-		if ( MMPS_Provider::is_real_root_canary_root( self::uid(), $root ) ) {
-			return new WP_Error( 'mmps_canary_no_batch', 'The Founder-authorized real-ROOT canary is review-only and cannot be used for batch generation.', array( 'status' => 403 ) );
-		}
 		$result = MMPS_Batch::create( self::uid(), $root, (array) ( $params['programs'] ?? array() ) );
 		return is_wp_error( $result ) ? $result : rest_ensure_response( array( 'job' => $result ) );
 	}
@@ -580,7 +574,7 @@ class MMPS_Rest {
 		exit;
 	}
 
-	/* ---------------- library (isolated prototype storage) ---------------- */
+	/* ---------------- library (isolated PSV storage) ---------------- */
 
 	public static function library() {
 		return rest_ensure_response( array( 'documents' => MMPS_Store::list_documents( self::uid() ) ) );
@@ -589,7 +583,7 @@ class MMPS_Rest {
 	public static function document( $request ) {
 		$doc = MMPS_Store::get_document( self::uid(), (string) $request['uuid'] );
 		if ( ! $doc ) {
-			return new WP_Error( 'mmps_doc_not_found', 'That statement was not found in your prototype library.', array( 'status' => 404 ) );
+			return new WP_Error( 'mmps_doc_not_found', 'That statement was not found in your PS library.', array( 'status' => 404 ) );
 		}
 		$doc['paragraphs'] = MMPS_Region::split_text( $doc['fullText'] );
 		return rest_ensure_response( array( 'document' => $doc ) );
@@ -608,9 +602,6 @@ class MMPS_Rest {
 			return new WP_Error( 'mmps_run_not_found', 'That generation run was not found.', array( 'status' => 404 ) );
 		}
 		$root = MMPS_Store::get_root( $uid, absint( $run['root_id'] ) );
-		if ( $root && MMPS_Provider::is_real_root_canary_root( $uid, $root ) ) {
-			return new WP_Error( 'mmps_canary_review_only', 'This real-ROOT canary is awaiting Founder review. Approval and save are intentionally disabled.', array( 'status' => 403 ) );
-		}
 		if ( 'OK' !== $run['status'] || empty( $run['output']['replacement_region'] ) ) {
 			return new WP_Error( 'mmps_run_not_savable', 'Only a run that passed every blocking check can be saved.', array( 'status' => 409 ) );
 		}
@@ -742,7 +733,7 @@ class MMPS_Rest {
 		}
 		$doc = MMPS_Store::get_document( self::uid(), (string) $request['uuid'] );
 		if ( ! $doc ) {
-			return new WP_Error( 'mmps_doc_not_found', 'That statement was not found in your prototype library.', array( 'status' => 404 ) );
+			return new WP_Error( 'mmps_doc_not_found', 'That statement was not found in your PS library.', array( 'status' => 404 ) );
 		}
 		MMPS_Store::set_document_status( self::uid(), $doc['docUuid'], $status );
 		MMPS_Store::audit( self::uid(), 'library_status', $doc['docUuid'], array( 'status' => $status ) );
@@ -753,7 +744,7 @@ class MMPS_Rest {
 	public static function download( $request ) {
 		$doc = MMPS_Store::get_document( self::uid(), (string) $request['uuid'] );
 		if ( ! $doc ) {
-			return new WP_Error( 'mmps_doc_not_found', 'That statement was not found in your prototype library.', array( 'status' => 404 ) );
+			return new WP_Error( 'mmps_doc_not_found', 'That statement was not found in your PS library.', array( 'status' => 404 ) );
 		}
 		$format     = 'txt' === strtolower( (string) $request['format'] ) ? 'txt' : 'docx';
 		$paragraphs = MMPS_Region::split_text( $doc['fullText'] );

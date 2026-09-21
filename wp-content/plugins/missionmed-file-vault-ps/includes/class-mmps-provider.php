@@ -22,7 +22,6 @@ class MMPS_Provider {
 			'configured'          => $configured,
 			'simulatorAllowed'    => self::simulator_allowed(),
 			'realRootAllowed'     => self::real_root_allowed(),
-			'realRootCanaryConfigured' => self::real_root_canary_configured(),
 			'store'               => false,
 		);
 	}
@@ -31,55 +30,26 @@ class MMPS_Provider {
 		return defined( 'MMED_PS_PROTO_OPENAI_MODEL' ) && MMED_PS_PROTO_OPENAI_MODEL ? (string) MMED_PS_PROTO_OPENAI_MODEL : 'gpt-5.6-terra';
 	}
 
-	/** Founder privacy gate. Real (non-synthetic) student prose reaches the provider only when this is true. */
+	/** DR-331: normal real-ROOT use is authorized only in the entitled members mode. */
 	public static function real_root_allowed() {
-		return defined( 'MMED_PS_PROTO_ALLOW_REAL_ROOT_AI' ) && true === MMED_PS_PROTO_ALLOW_REAL_ROOT_AI;
-	}
-
-	/** A real-ROOT canary is an exact server-side tuple, never a broad switch. */
-	public static function real_root_canary_configured() {
-		foreach ( array( 'MMED_PS_PROTO_REAL_ROOT_CANARY_USER_ID', 'MMED_PS_PROTO_REAL_ROOT_CANARY_ROOT_SHA256', 'MMED_PS_PROTO_REAL_ROOT_CANARY_SPECIALTY', 'MMED_PS_PROTO_REAL_ROOT_CANARY_REGION_INDEX', 'MMED_PS_PROTO_REAL_ROOT_CANARY_PROGRAM_ID' ) as $name ) {
-			if ( ! defined( $name ) ) {
-				return false;
-			}
-		}
-		return 1 <= (int) MMED_PS_PROTO_REAL_ROOT_CANARY_USER_ID
-			&& 1 === preg_match( '/^[0-9a-f]{64}$/', (string) MMED_PS_PROTO_REAL_ROOT_CANARY_ROOT_SHA256 )
-			&& '' !== trim( (string) MMED_PS_PROTO_REAL_ROOT_CANARY_SPECIALTY )
-			&& 0 <= (int) MMED_PS_PROTO_REAL_ROOT_CANARY_REGION_INDEX
-			&& '' !== trim( (string) MMED_PS_PROTO_REAL_ROOT_CANARY_PROGRAM_ID );
-	}
-
-	/** Match the Founder-authorized subject, ROOT, specialty and paragraph before any provider call. */
-	public static function is_real_root_canary_root( $user_id, $root ) {
-		if ( ! self::real_root_canary_configured() || ! is_array( $root ) || ! empty( $root['isSynthetic'] ) ) {
-			return false;
-		}
-		$region = (array) ( $root['region'] ?? array() );
-		return (int) $user_id === (int) MMED_PS_PROTO_REAL_ROOT_CANARY_USER_ID
-			&& hash_equals( (string) MMED_PS_PROTO_REAL_ROOT_CANARY_ROOT_SHA256, (string) ( $root['textSha256'] ?? '' ) )
-			&& hash_equals( (string) MMED_PS_PROTO_REAL_ROOT_CANARY_SPECIALTY, (string) ( $root['specialtyLabel'] ?? '' ) )
-			&& 'REPLACE_PARAGRAPH' === (string) ( $region['mode'] ?? '' )
-			&& (int) MMED_PS_PROTO_REAL_ROOT_CANARY_REGION_INDEX === (int) ( $region['paragraphIndex'] ?? -1 )
-			&& hash_equals( (string) MMED_PS_PROTO_REAL_ROOT_CANARY_ROOT_SHA256, (string) ( $region['rootTextSha256'] ?? '' ) );
+		return 'members' === MMPS_Gate::mode();
 	}
 
 	public static function real_root_allowed_for( $user_id, $root, $program_specialty_id ) {
-		if ( ! empty( $root['isSynthetic'] ) || self::real_root_allowed() ) {
+		if ( ! empty( $root['isSynthetic'] ) ) {
 			return true;
 		}
-		return self::is_real_root_canary_root( $user_id, $root )
-			&& hash_equals( (string) MMED_PS_PROTO_REAL_ROOT_CANARY_PROGRAM_ID, (string) $program_specialty_id );
+		return self::real_root_allowed()
+			&& MMPS_Gate::user_allowed( $user_id )
+			&& ! empty( $root['region']['mode'] )
+			&& MMPS_Region::root_still_matches( $root['paragraphs'], $root['region'] );
 	}
 
 	public static function authorization_mode_for( $user_id, $root, $program_specialty_id ) {
 		if ( ! empty( $root['isSynthetic'] ) ) {
 			return 'SYNTHETIC';
 		}
-		if ( self::is_real_root_canary_root( $user_id, $root ) && self::real_root_allowed_for( $user_id, $root, $program_specialty_id ) ) {
-			return 'REAL_ROOT_CANARY';
-		}
-		return self::real_root_allowed() ? 'REAL_ROOT_GLOBAL' : 'DENIED';
+		return self::real_root_allowed_for( $user_id, $root, $program_specialty_id ) ? 'REAL_ROOT_PRODUCTION' : 'DENIED';
 	}
 
 	public static function simulator_allowed() {
@@ -207,8 +177,7 @@ class MMPS_Provider {
 }
 
 /**
- * Offline stand-in used for plumbing tests only (local development, or a live
- * site where the Founder explicitly allows it before the key is set). Its
+ * Offline stand-in used for plumbing tests only. Its
  * output is labelled SIMULATED everywhere and says nothing about AI writing quality.
  */
 class MMPS_Provider_Simulator {

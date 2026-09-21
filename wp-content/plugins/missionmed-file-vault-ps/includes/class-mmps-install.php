@@ -1,6 +1,6 @@
 <?php
 /**
- * Additive installer. Creates only the prototype's own tables. Never alters,
+ * Additive installer. Creates only PSV's own tables. Never alters,
  * reads or writes any File Vault table. Deactivation leaves data dormant.
  */
 if ( ! defined( 'ABSPATH' ) ) {
@@ -21,7 +21,7 @@ class MMPS_Install {
 		self::maybe_install();
 		// Tiny, autoloaded: the gate then costs no extra query on any request.
 		if ( false === get_option( MMPS_Gate::OPTION_MODE, false ) ) {
-			add_option( MMPS_Gate::OPTION_MODE, 'allowlist', '', true );
+			add_option( MMPS_Gate::OPTION_MODE, 'members', '', true );
 		}
 		if ( false === get_option( MMPS_Gate::OPTION_ALLOW_ADMINS, false ) ) {
 			add_option( MMPS_Gate::OPTION_ALLOW_ADMINS, '1', '', true );

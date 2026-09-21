@@ -1,4 +1,4 @@
-/* MissionMed File Vault · Program-Specific PS (prototype). Vanilla JS, no build, no inline styles (strict CSP). */
+/* MissionMed File Vault · Program-Specific PS. Vanilla JS, no build, no inline styles (strict CSP). */
 (function () {
 	'use strict';
 
@@ -157,10 +157,10 @@
 		api('GET', '/roots/' + id).then(function (data) {
 			adoptRoot(data);
 			var summary = (S.boot.roots || []).filter(function (item) { return String(item.id) === String(id); })[0];
-			if (!summary || !summary.canaryReviewRunId) { busy('root', false); go(stepDone('region') ? 'programs' : 'region'); return null; }
-			return api('GET', '/runs/' + summary.canaryReviewRunId).then(function (run) {
+			if (!summary || !summary.reviewRunId) { busy('root', false); go(stepDone('region') ? 'programs' : 'region'); return null; }
+			return api('GET', '/runs/' + summary.reviewRunId).then(function (run) {
 				var programId = run.program && run.program.programSpecialtyId ? run.program.programSpecialtyId : '';
-				if (!programId) { throw new Error('The stored canary run has no verified program identity.'); }
+				if (!programId) { throw new Error('The stored run has no verified program identity.'); }
 				S.programs[programId] = { identity: run.program, evidenceQuality: run.evidenceQuality };
 				S.selected = [programId]; S.tiers[programId] = run.tierRequested; S.runs[programId] = run; S.current = programId;
 				busy('root', false); go('preview');
@@ -220,7 +220,7 @@
 	function toggleProgram(id, identity) {
 		var at = S.selected.indexOf(id);
 		if (at !== -1) { S.selected.splice(at, 1); render(); return; }
-		if (S.selected.length >= MAX_PROGRAMS) { toast('The prototype works with up to ' + MAX_PROGRAMS + ' programs at a time.', 'err'); return; }
+		if (S.selected.length >= MAX_PROGRAMS) { toast('Choose up to ' + MAX_PROGRAMS + ' programs at a time.', 'err'); return; }
 		S.selected.push(id);
 		if (!S.programs[id] || !S.programs[id].evidenceQuality) {
 			S.programs[id] = { programSpecialtyId: id, identity: identity || {}, defaultTier: 'ESSENTIAL', pending: true };
@@ -272,7 +272,7 @@
 		busy('save', true);
 		api('POST', '/library', { runId: run.runId, candidateId: chosen.candidateId, editRevisionId: effective.head ? effective.head.id : '', status: status, acknowledgeSimilarity: !!acknowledgeSimilarity }).then(function (data) {
 			run.saved = data.document; delete run.similarityReview; busy('save', false);
-			toast(data.alreadySaved ? 'This run is already in your prototype library.' : 'Saved to your prototype library as ' + data.document.status + '.', 'ok');
+			toast(data.alreadySaved ? 'This run is already in your PS library.' : 'Saved to your PS library as ' + data.document.status + '.', 'ok');
 			refreshBoot();
 		}).catch(function (e) {
 			busy('save', false);
@@ -383,7 +383,7 @@
 	/* ---------- views ---------- */
 	function header() {
 		var pv = S.boot.provider, pill;
-		if (pv.provider === 'openai-responses') { pill = '<span class="pill ok hideS"><span class="dot"></span>Writer ready · ' + (pv.realRootCanaryConfigured ? 'one hash-bound canary' : pv.realRootAllowed ? 'real ROOT enabled' : 'synthetic only') + '</span>'; } else if (pv.provider === 'simulator') { pill = '<span class="pill warn hideS"><span class="dot"></span>Simulator · not real writing</span>'; } else { pill = '<span class="pill warn hideS"><span class="dot"></span>Writer not configured</span>'; }
+		if (pv.provider === 'openai-responses') { pill = '<span class="pill ok hideS"><span class="dot"></span>AI writer ready</span>'; } else if (pv.provider === 'simulator') { pill = '<span class="pill warn hideS"><span class="dot"></span>Practice writer</span>'; } else { pill = '<span class="pill warn hideS"><span class="dot"></span>Writer not configured</span>'; }
 		return '<header class="hdr"><div class="brand"><span class="brandTitle"><span class="brandLong">File Vault <em>·</em> Program-Specific PS</span><span class="brandShort">Program-Specific PS</span></span><span class="brandSub">MissionMed · Personal Statements</span></div><span class="hdrSpace"></span>' +
 			'<span class="pill vi">Private · verified access</span>' + pill +
 			'<span class="hdrNav"><button class="btn sm ghost" data-act="go" data-view="batch">Batch' + (S.boot.batches && S.boot.batches.length ? ' · ' + S.boot.batches.length : '') + '</button>' +
@@ -396,7 +396,7 @@
 		STEPS.forEach(function (s) {
 			html += '<button class="stepBtn' + (S.view === s.key ? ' on' : '') + (stepDone(s.key) ? ' done' : '') + '" data-act="go" data-view="' + s.key + '"' + (S.view === s.key ? ' aria-current="step"' : '') + (stepOpen(s.key) ? '' : ' disabled') + '><span class="stepNum">' + (stepDone(s.key) && S.view !== s.key ? '✓' : s.n) + '</span><span><span class="stepName">' + s.name + '</span><br><span class="stepHint">' + s.hint + '</span></span></button>';
 		});
-		html += '<div class="railSep"></div><button class="stepBtn' + (S.view === 'library' || S.view === 'doc' ? ' on' : '') + '" data-act="go" data-view="library"' + (S.view === 'library' || S.view === 'doc' ? ' aria-current="step"' : '') + '><span class="stepNum">▤</span><span><span class="stepName">Prototype library</span><br><span class="stepHint">Isolated from File Vault</span></span></button>';
+		html += '<div class="railSep"></div><button class="stepBtn' + (S.view === 'library' || S.view === 'doc' ? ' on' : '') + '" data-act="go" data-view="library"' + (S.view === 'library' || S.view === 'doc' ? ' aria-current="step"' : '') + '><span class="stepNum">▤</span><span><span class="stepName">PS library</span><br><span class="stepHint">Approved statements</span></span></button>';
 		html += '<button class="stepBtn' + (S.view === 'batch' ? ' on' : '') + '" data-act="go" data-view="batch"' + (S.view === 'batch' ? ' aria-current="step"' : '') + '><span class="stepNum">⇉</span><span><span class="stepName">Batch workspace</span><br><span class="stepHint">50–100 programs · resumable</span></span></button>';
 		if (S.root) { html += '<div class="railSep"></div><div class="railNote"><strong>ROOT</strong><br>' + esc(S.root.specialtyLabel) + '<br>' + esc(S.root.rootLabel) + '</div>'; }
 		return html + '</nav>';
@@ -408,7 +408,7 @@
 		html += '<div class="row mt"><button class="btn primary" data-act="go" data-view="root">Start a new ROOT →</button>' + (b.library.length ? '<button class="btn" data-act="go" data-view="library">Open library</button>' : '') + '</div>';
 		if (b.roots.length || (b.batches && b.batches.length)) {
 			html += '<div class="panel mt"><div class="panelHead"><div><div class="eyebrow">Continue</div><div class="h2">Resume your work</div></div></div>' + b.roots.map(function (r) {
-				return '<div class="prog"><div><div class="progName">' + esc(r.specialtyLabel) + ' ' + (r.isSynthetic ? '<span class="tag cy">Synthetic</span>' : '<span class="tag gold">Real statement</span>') + '</div><div class="progMeta">' + esc(r.rootLabel) + ' · ' + r.paragraphCount + ' paragraphs · ' + r.wordCount + ' words' + (r.regionConfirmed ? ' · region confirmed' : '') + '</div></div><button class="btn sm" data-act="open-root" data-id="' + r.id + '">' + (r.canaryReviewRunId ? 'Review candidates' : 'Open') + '</button></div>';
+				return '<div class="prog"><div><div class="progName">' + esc(r.specialtyLabel) + '</div><div class="progMeta">' + esc(r.rootLabel) + ' · ' + r.paragraphCount + ' paragraphs · ' + r.wordCount + ' words' + (r.regionConfirmed ? ' · region confirmed' : '') + '</div></div><button class="btn sm" data-act="open-root" data-id="' + r.id + '">' + (r.reviewRunId ? 'Review candidates' : 'Open') + '</button></div>';
 			}).join('') + (b.batches || []).slice(0, 3).map(function (j) {
 				return '<div class="prog"><div><div class="progName">' + esc(j.specialtyLabel) + ' batch</div><div class="progMeta">' + j.processed + ' of ' + j.total + ' processed · ' + esc(String(j.status || '').replace(/_/g, ' ')) + '</div></div><button class="btn sm" data-act="batch-open" data-id="' + j.jobUuid + '">Resume</button></div>';
 			}).join('') + '</div>';
@@ -416,7 +416,7 @@
 		html += '<div class="grid3 mt">' +
 			'<div class="panel"><div class="eyebrow">Protected</div><div class="h2 mtS">Your ROOT never changes</div><p class="mid small mtS">Only the region you authorize is rewritten. Every other paragraph is hash-checked against the ROOT before anything is shown or saved.</p></div>' +
 			'<div class="panel"><div class="eyebrow">Verified</div><div class="h2 mtS">Facts come from RISE</div><p class="mid small mtS">Each program claim traces to a supplied RISE fact with its source. If RISE cannot support a Deep paragraph, you see “Deep research needed”, never a guess.</p></div>' +
-			'<div class="panel"><div class="eyebrow">Isolated</div><div class="h2 mtS">Nothing touches File Vault records</div><p class="mid small mtS">Outputs live in a separate prototype library. No File Vault document, journey slot, review queue or activity entry is created.</p></div></div>';
+			'<div class="panel"><div class="eyebrow">Private</div><div class="h2 mtS">Your work stays in your account</div><p class="mid small mtS">ROOTs, drafts and approved versions are owner-scoped. Statement prose is never sent to RISE or exposed to another student.</p></div></div>';
 		html += statusPanel();
 		return html;
 	}
@@ -424,36 +424,36 @@
 		var b = S.boot, pv = b.provider, rows = '';
 		rows += '<dt>RISE</dt><dd>' + (b.rise.configured ? (b.rise.sessionPresent ? '<span class="tag ok">Connected</span> student-session read contract' : '<span class="tag em">Open RISE once</span> <a href="' + esc(cfg.riseUrl) + '" target="_blank" rel="noopener">Open RISE</a> in this browser, then reload') : '<span class="tag rd">Not configured</span> RISE origin is not set on this site') + '</dd>';
 		rows += '<dt>AI writer</dt><dd>' + (pv.provider === 'openai-responses' ? '<span class="tag ok">Live</span> ' + esc(pv.model) + ' · request storage off' : pv.provider === 'simulator' ? '<span class="tag rd">Simulator</span> clearly labelled placeholder text, not real writing' : '<span class="tag rd">Not configured</span> generation is unavailable') + '</dd>';
-		rows += '<dt>Privacy gate</dt><dd>' + (pv.realRootCanaryConfigured ? '<span class="tag gold">One hash-bound canary</span> every other real statement, paragraph, account and program remains blocked' : pv.realRootAllowed ? '<span class="tag gold">Real statements allowed</span> Founder decision recorded on this site' : '<span class="tag cy">Synthetic only</span> real statement text is not sent to the AI provider until the Founder privacy decision is recorded') + '</dd>';
-		rows += '<dt>File Vault</dt><dd>' + (b.fileVault.available ? '<span class="tag ok">Readable</span> your own verified Personal Statement versions, read-only' : '<span class="tag">Not available here</span> use the synthetic or pasted ROOT') + '</dd>';
-		rows += '<dt>Today</dt><dd>' + b.limits.runsToday + ' of ' + b.limits.dailyRunCap + ' prototype generations used</dd>';
+		rows += '<dt>Privacy</dt><dd><span class="tag ok">Protected</span> only your confirmed Program Answer region can be written</dd>';
+		rows += '<dt>File Vault</dt><dd>' + (b.fileVault.available ? '<span class="tag ok">Connected</span> your own verified Personal Statement versions, read-only' : '<span class="tag">Not available</span> upload a DOCX/TXT or paste your statement') + '</dd>';
+		rows += '<dt>Today</dt><dd>' + b.limits.runsToday + ' of ' + b.limits.dailyRunCap + ' generations used</dd>';
 		return '<div class="panel mt"><div class="panelHead"><div><div class="eyebrow">System</div><div class="h2">What is live right now</div></div></div><dl class="kv">' + rows + '</dl></div>';
 	}
 
 	function viewRoot() {
 		var f = S.rootForm, c = S.candidates, pv = S.boot.provider, html = head('Step 1', 'Choose your <em>ROOT</em> statement', 'The ROOT is the finished statement every program version is built from. One ROOT belongs to one specialty.');
-		html += '<div class="panel mt"><label class="f">Specialty this ROOT is for<select data-bind="specialty"' + (f.source === 'SYNTHETIC' ? ' disabled' : '') + '>' + SPECIALTIES.map(function (s) { return '<option' + (s === f.specialty ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('') + '</select></label><p class="tiny dim mtS">Applying to more than one specialty? Each specialty gets its own ROOT. The prototype handles one at a time.</p></div>';
+		html += '<div class="panel mt"><label class="f">Specialty this ROOT is for<select data-bind="specialty"' + (f.source === 'SYNTHETIC' ? ' disabled' : '') + '>' + SPECIALTIES.map(function (s) { return '<option' + (s === f.specialty ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('') + '</select></label><p class="tiny dim mtS">Applying to more than one specialty? Create a separate ROOT and program set for each specialty.</p></div>';
 		html += '<div class="grid4 mt">';
 		html += '<button class="choice' + (f.source === 'FILE_VAULT' ? ' on' : '') + '" data-act="source" data-source="FILE_VAULT"' + (c && c.fileVaultAvailable && c.candidates.length ? '' : ' disabled') + '><span class="choiceTitle">From File Vault <span class="tag gold">Real</span></span><span class="choiceBody">' + (!c ? 'Checking File Vault…' : !c.fileVaultAvailable ? 'File Vault is not readable on this site.' : c.candidates.length ? 'Your own Personal Statement versions, read-only.' : 'No Personal Statement versions found for your account.') + '</span></button>';
 		html += '<button class="choice' + (f.source === 'UPLOADED' ? ' on' : '') + '" data-act="source" data-source="UPLOADED"><span class="choiceTitle">Upload document <span class="tag gold">Real</span></span><span class="choiceBody">Choose a clean DOCX or UTF-8 TXT statement directly. The source file is validated, read once and not added to File Vault.</span></button>';
-		html += '<button class="choice' + (f.source === 'SYNTHETIC' ? ' on' : '') + '" data-act="source" data-source="SYNTHETIC"><span class="choiceTitle">Synthetic test ROOT <span class="tag cy">Safe for AI</span></span><span class="choiceBody">Fictional applicants written for this prototype, in two different voices. No real person. Use these to judge the AI writing today.</span></button>';
+		if (pv.simulatorAllowed) { html += '<button class="choice' + (f.source === 'SYNTHETIC' ? ' on' : '') + '" data-act="source" data-source="SYNTHETIC"><span class="choiceTitle">Practice fixture</span><span class="choiceBody">Internal writing-pipeline diagnostic. It is not part of the normal student workflow.</span></button>'; }
 		html += '<button class="choice' + (f.source === 'PASTED' ? ' on' : '') + '" data-act="source" data-source="PASTED"><span class="choiceTitle">Paste text</span><span class="choiceBody">Paste a statement with a blank line between paragraphs. Pasted text is always treated as a real statement.</span></button></div>';
 		if (f.source === 'FILE_VAULT' && c) {
 			html += '<div class="panel mt"><div class="h2">Pick a version</div><div class="mtS">' + c.candidates.map(function (v) {
 				var key = v.fileId + ':' + v.versionNumber;
 				return '<button class="choice mtS' + (f.fileKey === key ? ' on' : '') + '" data-act="pick-file" data-key="' + key + '"' + (v.usable ? '' : ' disabled') + '><span class="choiceTitle">' + esc(v.documentName || 'Personal Statement') + ' · v' + v.versionNumber + (v.isFinal ? ' <span class="tag ok">Final</span>' : '') + (v.versionLabel ? ' <span class="tag">' + esc(v.versionLabel) + '</span>' : '') + '</span><span class="choiceBody">' + esc(v.fileName) + (v.uploadedAt ? ' · uploaded ' + esc(v.uploadedAt) : '') + (v.usable ? '' : ' · ' + esc(v.whyNot)) + '</span></button>';
-			}).join('') + '</div>' + (pv.realRootAllowed ? '' : pv.realRootCanaryConfigured ? '<div class="notice gold mtS"><strong>One Founder canary is configured.</strong> Only the exact authorized account, complete ROOT hash, specialty, Paragraph 8 region and program may reach the provider. Every other real statement remains blocked.</div>' : '<div class="notice gold mtS"><strong>Privacy gate.</strong> You can select a real statement and confirm its region, but this site will not send real statement text to the AI provider until the Founder privacy decision is recorded. Use the synthetic ROOT for the AI step.</div>') + '</div>';
+			}).join('') + '</div></div>';
 		}
 		if (f.source === 'SYNTHETIC' && c && c.synthetics) {
 			html += '<div class="panel mt"><div class="h2">Pick a voice</div><div class="grid2 mtS">' + c.synthetics.map(function (x) {
-				return '<button class="choice' + (f.syntheticKey === x.key ? ' on' : '') + '" data-act="pick-synthetic" data-key="' + esc(x.key) + '"><span class="choiceTitle">' + esc(x.specialty) + ' <span class="tag cy">Synthetic</span></span><span class="choiceBody">' + esc(x.label) + ' · ' + x.paragraphCount + ' paragraphs. The specialty is set by this ROOT.</span></button>';
+				return '<button class="choice' + (f.syntheticKey === x.key ? ' on' : '') + '" data-act="pick-synthetic" data-key="' + esc(x.key) + '"><span class="choiceTitle">' + esc(x.specialty) + ' practice fixture</span><span class="choiceBody">' + esc(x.label) + ' · ' + x.paragraphCount + ' paragraphs.</span></button>';
 			}).join('') + '</div></div>';
 		}
 		if (f.source === 'UPLOADED') {
-			html += '<div class="panel mt"><div class="h2">Upload your finished statement</div><p class="small mid mtS">DOCX or UTF-8 TXT · maximum 5 MB. Pages and PDF should be exported to a clean DOCX first. The original file is not retained or written to File Vault. Uploaded documents are treated as real ROOTs and remain subject to the server privacy gate.</p><label class="uploadPick mtS"><input class="srOnly" type="file" accept=".docx,.txt,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" data-root-file><span class="btn cy">Choose document</span><span class="uploadName">' + esc(f.uploadName || 'No file selected') + '</span></label>' + (pv.realRootAllowed ? '' : pv.realRootCanaryConfigured ? '<div class="notice gold mtS"><strong>One Founder canary is configured.</strong> An uploaded statement remains blocked unless its exact server-checked authorization tuple matches.</div>' : '<div class="notice gold mtS"><strong>Privacy gate.</strong> Uploaded documents count as real statements. You can confirm the editable region and preferences, but real student text is not sent to the AI writer without separate authority.</div>') + '</div>';
+			html += '<div class="panel mt"><div class="h2">Upload your finished statement</div><p class="small mid mtS">DOCX or UTF-8 TXT · maximum 5 MB. Pages and PDF should be exported to a clean DOCX first. The original file is read once and is not retained or written to File Vault.</p><label class="uploadPick mtS"><input class="srOnly" type="file" accept=".docx,.txt,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" data-root-file><span class="btn cy">Choose document</span><span class="uploadName">' + esc(f.uploadName || 'No file selected') + '</span></label></div>';
 		}
 		if (f.source === 'PASTED') {
-			html += '<div class="panel mt"><label class="f">Statement text<textarea data-bind="text" placeholder="Paste the full statement. Leave a blank line between paragraphs.">' + esc(f.text) + '</textarea></label>' + (pv.realRootAllowed ? '' : pv.realRootCanaryConfigured ? '<div class="notice gold mtS"><strong>One Founder canary is configured.</strong> Pasted text remains blocked unless its exact server-checked authorization tuple matches.</div>' : '<div class="notice gold mtS"><strong>Privacy gate.</strong> Pasted text counts as a real statement. You can confirm its region and preferences, but it will not be sent to the AI provider until the Founder privacy decision is recorded on this site. Use a synthetic ROOT to see AI writing today.</div>') + '</div>';
+			html += '<div class="panel mt"><label class="f">Statement text<textarea data-bind="text" placeholder="Paste the full statement. Leave a blank line between paragraphs.">' + esc(f.text) + '</textarea></label></div>';
 		}
 		var ready = f.source === 'SYNTHETIC' || (f.source === 'PASTED' && f.text.trim().length > 200) || (f.source === 'FILE_VAULT' && f.fileKey) || (f.source === 'UPLOADED' && f.uploadFile);
 		html += '<div class="footBar"><button class="btn ghost" data-act="go" data-view="home">← Back</button><button class="btn primary" data-act="create-root"' + (ready && !S.busy.root ? '' : ' disabled') + '>' + (S.busy.root ? '<span class="spin"></span>Reading…' : 'Use this ROOT →') + '</button></div>';
@@ -478,7 +478,7 @@
 
 	function viewPrefs() {
 		var p = S.prefs, html = head('Step 3', 'What matters to <em>you</em>', 'Answer once. These are matched against verified RISE facts for every program. A preference is never turned into a claim about a program.');
-		if (!S.boot.provider.realRootAllowed) { html += S.boot.provider.realRootCanaryConfigured ? '<div class="notice gold mt"><strong>Founder canary context.</strong> These preferences are sent only when the exact hash-bound canary tuple passes. Keep them limited to this authorized applicant and one program.</div>' : '<div class="notice mt"><strong>What is sent to the AI writer.</strong> The options you tick and any words you type on this page are sent with the statement. While the privacy gate is closed, type test details for the fictional applicant only, never a real applicant’s personal details.</div>'; }
+		html += '<div class="notice mt"><strong>What the writer uses.</strong> Your complete ROOT is read for voice and context. Only the confirmed Program Answer region can be written. Preferences are used only when supported by verified RISE evidence.</div>';
 		html += '<div class="stack mt">';
 		CATS.forEach(function (c) {
 			var v = p.categories[c.key];
@@ -534,7 +534,6 @@
 	function viewGenerate() {
 		var b = S.boot, html = head('Step 5', 'Essential or <em>Deep</em>', 'Your top programs default to Deep. Everything else defaults to Essential. You can change any of them.');
 		html += '<div class="grid2 mt"><div class="tierCard ess"><div class="row"><span class="tag em">Essential</span><span class="small mid">default outside your top ' + b.limits.priorityDeepCutoff + '</span></div><ul><li>Verified identity ingredients: program name, type, city and state, current program director when RISE can prove it.</li><li>They are ingredients, not a checklist. The writer uses what reads naturally.</li><li>Always available.</li></ul></div><div class="tierCard deep"><div class="row"><span class="tag vi">Deep</span><span class="small mid">default for Gold and top ' + b.limits.priorityDeepCutoff + '</span></div><ul><li>Everything in Essential, plus ' + b.limits.deepMinFacts + ' to ' + b.limits.deepMaxFacts + ' verified RISE details, chosen to match your preferences where RISE has them. A fellowship you did not name is never used.</li><li>If RISE cannot support it you get “Deep research needed”, never invented detail.</li></ul></div></div>';
-		if (S.root && !S.root.isSynthetic && b.provider.provider === 'openai-responses' && !b.provider.realRootAllowed) { html += b.provider.realRootCanaryConfigured ? '<div class="notice gold mt"><strong>Founder canary · review only.</strong> The server will send this statement only if its account, complete ROOT hash, specialty, Paragraph 8 region and selected program match the exact authorization. Batch, approval and save remain blocked.</div>' : '<div class="notice gold mt"><strong>Privacy gate closed.</strong> This ROOT is a real statement, so it will not be sent to the AI provider. Switch to the synthetic ROOT to see real AI writing.</div>'; }
 		if (b.provider.provider === 'simulator') { html += '<div class="notice rd mt"><strong>Simulator.</strong> No AI key is configured on this site, so output is labelled placeholder text that only exercises the pipeline.</div>'; }
 		if (b.provider.provider === 'none') { html += '<div class="notice rd mt"><strong>AI provider not configured.</strong> Generation is unavailable until the key is set in wp-config.</div>'; }
 		html += '<div class="panel mt"><div class="panelHead"><div><div class="eyebrow">Selected programs</div><div class="h2">' + S.selected.length + ' program' + (S.selected.length === 1 ? '' : 's') + '</div></div><button class="btn primary sm" data-act="generate-all"' + (S.busy.all || b.provider.provider === 'none' ? ' disabled' : '') + '>' + (S.busy.all ? '<span class="spin"></span>Writing…' : 'Generate all') + '</button></div>';
@@ -592,7 +591,7 @@
 		var e = effectiveOption(run, c);
 		return e.overlay.saving ? 'Saving edits…' : e.overlay.dirty ? 'Unsaved edits · Your edits need checking' : e.changed ? 'Your edits · Saved privately · Needs grounding review' : c.isRecommended ? 'Recommended' : c.canApprove ? 'Alternative' : 'Needs review';
 	}
-	function canaryReview(run) { return !!(S.root && !S.root.isSynthetic && S.boot.provider.realRootCanaryConfigured); }
+	function restrictedReview(run) { return false; }
 	function rememberEditor(run) {
 		var el = app.querySelector('[data-review-editor]');
 		if (el && run) { var o = editOverlay(run, selectedOption(run)); o.text = el.value; o.caret = el.selectionStart; o.caretEnd = el.selectionEnd; }
@@ -629,15 +628,14 @@
 		});
 	}
 	function reviewControls(run) {
-		var c = selectedOption(run), rs = reviewState(run), e = effectiveOption(run, c), allowed = e.canApprove && !run.saved && !S.busy.save && !canaryReview(run) && rs.loaded && !!rs.capabilities.canApprove;
+		var c = selectedOption(run), rs = reviewState(run), e = effectiveOption(run, c), allowed = e.canApprove && !run.saved && !S.busy.save && !restrictedReview(run) && rs.loaded && !!rs.capabilities.canApprove;
 		return '<div class="row"><button class="btn sm" data-act="compare-all">Compare all</button><button class="btn sm" data-act="edit-paragraph"' + (rs.capabilities && rs.capabilities.canEdit && !e.overlay.saving ? '' : ' disabled') + '>Edit this paragraph</button><button class="btn sm ghost" data-act="evidence">Evidence & checks</button></div>' +
 			'<p class="small mid mtS">' + (e.changed ? 'Edited text has no inherited verification. Approval requires exact-revision grounding checks.' : '<span class="seg-fact">Gold</span> = verified program fact · <span class="seg-link">dotted</span> = applicant context') + '</p>' +
 			(rs.loaded && !rs.capabilities.canEdit ? '<p class="small mid">Editing is unavailable in this review.</p>' : '') +
 			'<div class="row mtS"><button class="btn sm" data-act="save" data-status="DRAFT"' + (allowed ? '' : ' disabled') + '>Save draft</button><button class="btn sm primary" data-act="save" data-status="APPROVED"' + (allowed ? '' : ' disabled') + '>Approve and save</button>' +
 			(e.head || e.changed ? '<button class="btn sm ghost" data-act="restore-ai"' + (e.overlay.saving ? ' disabled' : '') + '>Restore AI version</button>' : '') + '</div>' +
-			(canaryReview(run) ? '<p class="small mid mtS">Founder review only · Final approval and library saving are disabled.</p>' : '') +
-			(run.saved ? '<div class="savedState" role="status"><span class="tag ok">Saved · ' + esc(run.saved.status) + '</span><span class="small">This complete statement is in your prototype library.</span></div>' : '') +
-			(run.similarityReview ? '<div class="notice gold mtS"><strong>Private similarity review</strong><p>' + esc(run.similarityReview.message) + ' No other student text or identity is available here.</p><button class="btn sm" data-act="save" data-status="' + esc(run.similarityReview.status) + '" data-ack="1"' + (allowed ? '' : ' disabled') + '>I reviewed it — keep this version</button></div>' : '');
+			(run.saved ? '<div class="savedState" role="status"><span class="tag ok">Saved · ' + esc(run.saved.status) + '</span><span class="small">This complete statement is in your PS library.</span></div>' : '') +
+			(run.similarityReview ? '<div class="notice gold mtS"><strong>Private similarity review</strong><p>' + esc(run.similarityReview.message) + ' No other student text or identity is available here. Quality comes first; keep the stronger writing after careful review.</p><button class="btn sm" data-act="save" data-status="' + esc(run.similarityReview.status) + '" data-ack="1"' + (allowed ? '' : ' disabled') + '>I reviewed it — keep this version</button></div>' : '');
 	}
 	function reviewEvidence(run) {
 		var c = selectedOption(run), e = effectiveOption(run, c), v = e.validation || c.validation || run.validation || {}, facts = (c.facts || []).slice().sort(function (a,b) { return Number(b.used) - Number(a.used); });
@@ -669,7 +667,7 @@
 		html += '</div><aside class="reviewRail"><section class="reviewNavigator panel" aria-labelledby="writing-choices-title"><h2 class="h2" id="writing-choices-title">Writing choices</h2><div class="candidateChoices reviewChoices mtS" role="radiogroup" aria-label="Program-specific paragraph alternatives">' +
 			run.candidates.map(function (o,j) { return '<button class="candidateChoice" role="radio" aria-checked="false" tabindex="-1" data-act="select-candidate" data-candidate="' + esc(o.candidateId) + '"><span class="candidateNumber">' + (j+1) + '</span><span><strong>' + esc(STRATEGY[o.strategy] || o.strategy) + '</strong><span class="tiny" data-choice-status></span><span class="small mid choiceFocus" hidden>' + esc(o.rhetoricalFocus) + '</span></span></button>'; }).join('') +
 			'</div></section><details class="panel reviewEvidence" data-review-evidence><summary>Evidence & checks · <span data-review-factcount></span></summary><div class="evidenceBody" tabindex="0" aria-label="Evidence details" data-review-evidence-body></div></details><details class="panel reviewDetails"><summary>Details</summary><dl class="kv mtS"><dt>Program</dt><dd>' + esc(programLabel(run.program)) + '<br>' + esc(placeLabel(run.program)) + '<br>ACGME ' + esc(run.program.acgmeId || '') + '</dd><dt>Tier</dt><dd>' + esc(run.tierEffective) + '</dd><dt>Writer</dt><dd>' + esc(run.model) + '</dd><dt>Run</dt><dd class="mono">' + esc(run.runId) + '</dd><dt>ROOT</dt><dd class="mono">' + esc(run.rootTextSha256 || '') + '</dd></dl>' +
-			'<button class="btn sm mtS" data-act="generate" data-id="' + esc(S.current) + '"' + (S.busy['gen:' + S.current] || canaryReview(run) ? ' disabled' : '') + '>Regenerate (new approach)</button></details></aside></div><div class="srOnly" role="status" aria-live="polite" data-review-announcement></div></section>';
+			'<button class="btn sm mtS" data-act="generate" data-id="' + esc(S.current) + '"' + (S.busy['gen:' + S.current] || restrictedReview(run) ? ' disabled' : '') + '>Regenerate (new approach)</button></details></aside></div><div class="srOnly" role="status" aria-live="polite" data-review-announcement></div></section>';
 		return html;
 	}
 	function patchPreview(announce) {
@@ -793,8 +791,7 @@
 		if (!S.root) {
 			html += '<div class="notice gold mt"><strong>Choose a specialty ROOT first.</strong> Every batch is isolated to one ROOT, its preferences and its program set. <button class="btn sm cy" data-act="go" data-view="root">Choose ROOT</button></div>';
 		} else {
-			html += '<div class="panel mt"><div class="spread"><div><div class="eyebrow">Current specialty</div><div class="h2">' + esc(S.root.specialtyLabel) + '</div><p class="small mid mtS">' + esc(S.root.rootLabel) + ' · priority 1–' + esc(S.boot.limits.priorityDeepCutoff) + ' defaults Deep; all others Essential. Every item can be overridden.</p></div><span class="tag ' + (S.root.isSynthetic ? 'cy' : 'gold') + '">' + (S.root.isSynthetic ? 'Synthetic ROOT' : 'Real ROOT · AI gate closed') + '</span></div></div>';
-			if (!S.root.isSynthetic && !S.boot.provider.realRootAllowed) { html += '<div class="notice gold"><strong>Privacy hold is working.</strong> You may prepare and save this batch, but processing real-student prose remains blocked until a separate Founder privacy decision.</div>'; }
+			html += '<div class="panel mt"><div class="spread"><div><div class="eyebrow">Current specialty</div><div class="h2">' + esc(S.root.specialtyLabel) + '</div><p class="small mid mtS">' + esc(S.root.rootLabel) + ' · priority 1–' + esc(S.boot.limits.priorityDeepCutoff) + ' defaults Deep; all others Essential. Every item can be overridden.</p></div><span class="tag gold">ROOT ready</span></div></div>';
 			if (!job && !b.index) { html += '<div class="panel"><button class="btn cy" data-act="batch-import"' + (S.busy['batch-index'] ? ' disabled' : '') + '>' + (S.busy['batch-index'] ? '<span class="spin"></span>Importing…' : 'Import full RISE program list') + '</button><p class="tiny dim mtS">Only program IDs, list state and priority are imported. Private RISE notes never enter PSV.</p></div>'; }
 			else if (!job) { html += '<div class="panel"><div class="spread"><div><div class="eyebrow">RISE import</div><div class="h2">' + b.index.programs.length + ' programs ready</div><p class="small mid mtS">' + b.index.programs.filter(function (p) { return p.defaultTier === 'DEEP'; }).length + ' default Deep · ' + b.index.programs.filter(function (p) { return p.defaultTier !== 'DEEP'; }).length + ' default Essential · maximum ' + b.index.limit + '</p></div><button class="btn primary" data-act="batch-create"' + (S.busy['batch-create'] ? ' disabled' : '') + '>' + (S.busy['batch-create'] ? '<span class="spin"></span>Creating…' : 'Create resumable batch →') + '</button></div></div>'; }
 		}
@@ -811,7 +808,7 @@
 		return html;
 	}
 	function viewLibrary() {
-		var docs = S.boot.library, selectedCount = Object.keys(S.selectedDocs).filter(function (id) { return S.selectedDocs[id]; }).length, html = head('Prototype library', 'Saved <em>complete</em> statements', 'Review and download saved statements. These are stored separately from your File Vault library.');
+		var docs = S.boot.library, selectedCount = Object.keys(S.selectedDocs).filter(function (id) { return S.selectedDocs[id]; }).length, html = head('PS library', 'Saved <em>complete</em> statements', 'Review and download your approved program-specific statements.');
 		if (!docs.length) { return html + '<div class="notice mt">Nothing saved yet. Approve a preview and it appears here.</div>'; }
 		html += '<div class="panel mt"><div class="spread"><p class="small mid">Download one, a selected set, or every approved statement. The ZIP includes body-only DOCX files plus a metadata manifest.</p><div class="row"><button class="btn sm" data-act="bulk-selected"' + (S.busy.bulk || !selectedCount ? ' disabled' : '') + '>Download selected (' + selectedCount + ')</button><button class="btn sm cy" data-act="bulk-approved"' + (S.busy.bulk ? ' disabled' : '') + '>Download All approved</button></div></div><div class="tblWrap mtS"><table class="lib"><thead><tr><th><span class="srOnly">Select</span></th><th>Statement</th><th>Tier</th><th>Status</th><th>Saved</th><th></th></tr></thead><tbody>' + docs.map(function (d) {
 			return '<tr><td><input type="checkbox" data-doc-select="' + d.docUuid + '" aria-label="Select ' + esc(d.title) + '"' + (S.selectedDocs[d.docUuid] ? ' checked' : '') + '></td><td><div class="libTitle">' + esc(d.programName) + '</div><div class="tiny dim">' + esc(d.specialtyLabel) + ' · ACGME ' + esc(d.acgmeId || 'n/a') + ' · v' + d.versionNumber + (d.city || d.state ? ' · ' + esc([d.city, d.state].filter(Boolean).join(', ')) : '') + '</div></td><td><span class="tag ' + (d.tier === 'DEEP' ? 'vi' : 'em') + '">' + esc(d.tier) + '</span></td><td>' + statusTag(d.status) + '</td><td class="small mid">' + esc(d.createdAt) + ' UTC</td><td><div class="row"><button class="btn sm" data-act="open-doc" data-uuid="' + d.docUuid + '">View</button><a class="btn sm cy" href="' + esc(download(d.docUuid, 'docx')) + '">DOCX</a><a class="btn sm" href="' + esc(download(d.docUuid, 'txt')) + '">TXT</a></div></td></tr>';
@@ -821,7 +818,7 @@
 	function viewDoc() {
 		var d = S.doc; if (!d) { return viewLibrary(); }
 		var idx = d.metadata && d.metadata.regionIndex != null ? d.metadata.regionIndex : -1, m = d.metadata || {};
-		var html = head('Prototype library', esc(d.programName), esc(d.title));
+		var html = head('PS library', esc(d.programName), esc(d.title));
 		html += '<div class="panel mt"><div class="spread"><div class="row">' + statusTag(d.status) + '<span class="tag ' + (d.tier === 'DEEP' ? 'vi' : 'em') + '">' + esc(d.tier) + '</span>' + (m.rootIsSynthetic ? '<span class="tag cy">Synthetic ROOT</span>' : '') + '</div><div class="row"><a class="btn sm cy" href="' + esc(download(d.docUuid, 'docx')) + '">Download DOCX</a><a class="btn sm" href="' + esc(download(d.docUuid, 'txt')) + '">Download TXT</a>' + (d.status !== 'APPROVED' ? '<button class="btn sm primary" data-act="doc-status" data-uuid="' + d.docUuid + '" data-status="APPROVED">Approve</button>' : '<button class="btn sm" data-act="doc-status" data-uuid="' + d.docUuid + '" data-status="DRAFT">Back to draft</button>') + (d.status !== 'ARCHIVED' ? '<button class="btn sm ghost" data-act="doc-status" data-uuid="' + d.docUuid + '" data-status="ARCHIVED">Archive</button>' : '') + '</div></div><p class="tiny dim mtS">Downloads contain the statement body only. Metadata stays here.</p></div>';
 		html += '<div class="previewGrid mt"><div class="paper">' + d.paragraphs.map(function (p, i) { return '<div class="para ' + (i === idx ? 'region' : 'locked') + '"><span class="pn">' + (i + 1) + '</span>' + (i === idx ? '<div class="paraFlag">Program-specific paragraph</div>' : '') + esc(p) + '</div>'; }).join('') + '</div>';
 		html += '<div class="side"><div class="panel"><dl class="kv"><dt>Specialty</dt><dd>' + esc(d.specialtyLabel) + '</dd><dt>Program</dt><dd>' + esc(d.programName) + '<br><span class="small mid">' + esc([d.city, d.state].filter(Boolean).join(', ')) + '</span></dd><dt>Verified ID</dt><dd class="mono">ACGME ' + esc(d.acgmeId || 'n/a') + '<br>' + esc(d.programSpecialtyId) + '</dd><dt>ROOT version</dt><dd>' + esc(d.rootLabel) + '<br><span class="mono">' + esc((m.rootTextSha256 || '').slice(0, 16)) + '…</span></dd><dt>Generated</dt><dd>v' + d.versionNumber + ' · ' + esc(d.createdAt) + ' UTC</dd><dt>Approach</dt><dd>' + esc(STRATEGY[m.strategy] || m.strategy || '') + '</dd><dt>Writer</dt><dd>' + esc(m.provider || '') + ' ' + esc(m.model || '') + '</dd><dt>Evidence</dt><dd class="mono">' + esc((m.bundleSha256 || '').slice(0, 16)) + '… · ' + esc(m.registryReleaseId || '') + '</dd><dt>Text hash</dt><dd class="mono">' + esc(d.fullTextSha256.slice(0, 24)) + '…</dd></dl></div></div></div>';
@@ -841,7 +838,7 @@
 		}
 		var views = { home: viewHome, root: viewRoot, region: viewRegion, prefs: viewPrefs, programs: viewPrograms, generate: viewGenerate, preview: viewPreview, batch: viewBatch, library: viewLibrary, doc: viewDoc };
 		var keep = document.activeElement && document.activeElement.getAttribute ? { search: document.activeElement.hasAttribute('data-search') } : {};
-		app.innerHTML = header() + '<div class="protoBar"><strong>PSV-PROTOTYPE-0001</strong><span>Private MissionMed workspace. Access is limited to administrators and verified current MissionMed 360 members. Separate storage; File Vault records are never written.</span></div><div class="shell">' + rail() + '<main class="main"><div class="view' + (render.last !== S.view ? ' enter' : '') + '">' + (views[S.view] || viewHome)() + '</div></main></div>' + (S.toast ? '<div class="toast ' + S.toast.kind + '" role="status">' + esc(S.toast.message) + '</div>' : '');
+		app.innerHTML = header() + '<div class="protoBar"><strong>PROGRAM-SPECIFIC PS</strong><span>Private MissionMed workspace for administrators and current MissionMed 360 members. Your statement and drafts remain owner-scoped.</span></div><div class="shell">' + rail() + '<main class="main"><div class="view' + (render.last !== S.view ? ' enter' : '') + '">' + (views[S.view] || viewHome)() + '</div></main></div>' + (S.toast ? '<div class="toast ' + S.toast.kind + '" role="status">' + esc(S.toast.message) + '</div>' : '');
 		render.last = S.view;
 		var currentStep = app.querySelector('.stepBtn[aria-current="step"]');
 		if (currentStep && window.innerWidth <= 860) { currentStep.scrollIntoView({ block: 'nearest', inline: 'center' }); }

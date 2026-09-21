@@ -29,7 +29,7 @@ m4check(str_contains($rest, "'riseHydrated' => false") && str_contains($rest, 'R
 m4check(!preg_match('/(?:INSERT|UPDATE|DELETE)\s+[^\n;]*rise/i', $all), 'PSV contains no direct RISE write', 'Hydration belongs to the RISE owner contract.');
 m4check(str_contains($ui, 'Write an Essential version instead') && str_contains($ui, 'data-research-file'), 'Essential fallback and upload remain simultaneously available', 'Research cannot block immediate safe output.');
 m4check(str_contains($ui, 'PSV cannot hydrate RISE directly') && str_contains($ui, 'File validated · awaiting RISE acceptance'), 'UI exposes the quarantine and owner boundary', 'Students must see the true state.');
-m4check(str_contains($all, 'MMED_PS_PROTO_ALLOW_REAL_ROOT_AI'), 'real-student AI privacy gate remains closed in the code path', 'Research work cannot weaken ROOT privacy.');
+m4check(str_contains($provider, "'members' === MMPS_Gate::mode()") && str_contains($provider, 'MMPS_Gate::user_allowed') && str_contains($provider, 'MMPS_Region::root_still_matches'), 'research preserves entitled real-ROOT and confirmed-region enforcement', 'Research work cannot weaken ROOT privacy or region authority.');
 
 if ($fail) { fwrite(STDERR, "\nPSV M4 CONTRACT: FAIL (" . count($fail) . " failed, {$pass} passed)\n"); exit(1); }
 fwrite(STDOUT, "\nPSV M4 CONTRACT: PASS ({$pass} assertions)\n");

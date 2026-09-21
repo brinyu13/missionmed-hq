@@ -1,6 +1,6 @@
 <?php
 /**
- * Prototype persistence. Every read and write is scoped by user_id. No File
+ * PSV persistence. Every read and write is scoped by user_id. No File
  * Vault table is touched from here.
  */
 if ( ! defined( 'ABSPATH' ) ) {
@@ -180,13 +180,13 @@ class MMPS_Store {
 		return absint( $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . MMPS_Install::table( 'runs' ) . ' WHERE user_id = %d AND root_id = %d AND program_specialty_id = %s', absint( $user_id ), absint( $root_id ), (string) $program_id ) ) );
 	}
 
-	/** Count only stored provider-backed attempts; a no-provider research stop is not the canary generation. */
+	/** Count only stored provider-backed attempts; a no-provider research stop is not a generation attempt. */
 	public static function count_provider_runs( $user_id, $root_id, $program_id ) {
 		global $wpdb;
 		return absint( $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM " . MMPS_Install::table( 'runs' ) . " WHERE user_id = %d AND root_id = %d AND program_specialty_id = %s AND provider <> 'none'", absint( $user_id ), absint( $root_id ), (string) $program_id ) ) );
 	}
 
-	/** Return the latest provider-backed run for durable canary review after reload. */
+	/** Return the latest provider-backed run for durable review after reload. */
 	public static function latest_provider_run_uuid( $user_id, $root_id ) {
 		global $wpdb;
 		return (string) $wpdb->get_var( $wpdb->prepare( "SELECT run_uuid FROM " . MMPS_Install::table( 'runs' ) . " WHERE user_id = %d AND root_id = %d AND provider <> 'none' ORDER BY id DESC LIMIT 1", absint( $user_id ), absint( $root_id ) ) );

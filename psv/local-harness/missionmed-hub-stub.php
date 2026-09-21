@@ -64,10 +64,10 @@ class MMED_Hub_Page {
 	}
 }
 
-/** Canonical 360 entitlement fixture; only the fictional student is active. */
+/** Canonical 360 entitlement fixture; only the fictional tester is active. */
 function mmhq_cam_build_entitlement( $user_id ) {
 	$user   = get_user_by( 'id', absint( $user_id ) );
-	$active = $user && 'student' === $user->user_login;
+	$active = $user && 'tester' === $user->user_login;
 	return array(
 		'active'                  => $active,
 		'status'                  => $active ? 'active' : 'not_eligible',

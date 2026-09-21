@@ -1,4 +1,4 @@
-# PSV-PROTOTYPE-0001 · Deploy and rollback packet
+# Program-Specific PS · Deploy and rollback packet
 
 For Codex (Builder) or Dr Brian. Fable built and tested this locally; Fable has no production credentials and did not deploy it.
 
@@ -24,20 +24,19 @@ For Codex (Builder) or Dr Brian. Fable built and tested this locally; Fable has 
 4. Add constants to `wp-config.php` on the server (above "That's all, stop editing"). Set them directly on the server. Never commit them, never paste the key anywhere else.
 
 ```php
-// PSV-PROTOTYPE-0001
-define( 'MMED_PS_PROTO_ALLOW_USER_IDS', '<WordPress user id of Dr Brian>[,<test user id>]' );
+// Program-Specific PS
 define( 'MMED_PS_PROTO_OPENAI_API_KEY', '<set on the server only>' );
 // Optional. Default is gpt-5.6-terra, the writer model id already present in RISE config.
 // define( 'MMED_PS_PROTO_OPENAI_MODEL', 'gpt-5.6-terra' );
 ```
 
-Do **not** define `MMED_PS_PROTO_ALLOW_REAL_ROOT_AI` until the Founder has recorded the privacy decision (PSV-0002 decision 2). Without it, real statement text is never sent to the AI provider; the synthetic ROOT is used for the AI step.
+Under DR-331, keep `MMED_PS_PROTO_ALLOW_REAL_ROOT_AI` **undefined**. It is a retired broad switch and is not needed for normal production. In `members` mode, an administrator or a current, server-verified MissionMed 360 member may intentionally select, paste or upload a ROOT, confirm its exact editable region, and send the complete ROOT to the dedicated PSV OpenAI project as read-only context. The provider may return text only for that region; server-side reconstruction and protected-paragraph hashes remain mandatory.
 Never define `MMED_PS_PROTO_TESTING`, `MMED_PS_PROTO_TEST_RISE_ORIGIN` or `MMED_PS_PROTO_TEST_OPENAI_BASE` on production; they exist for the local harness only.
 
-5. Activate, or load the already-active upgraded plugin. `dbDelta` creates/upgrades eleven isolated tables (`{prefix}mmed_ps_proto_roots|runs|library|audit|jobs|job_items|provider_attempts|research_artifacts|similarity_fingerprints|similarity_buckets|edit_revisions`) and four namespaced options (`mmed_ps_proto_mode`, `mmed_ps_proto_allow_admins`, `mmed_ps_proto_allow_users`, `mmed_ps_proto_db_version = 6`). The installer records version 6 only after probing required columns and unique indexes. Nothing outside the PSV namespace is written. Version 0.5.9 adds immutable private paragraph revision chains; all seven participating review/approval tables must be InnoDB on MySQL or edits and library saves fail closed. Edit-head selection and library insertion share an owner-scoped run/ROOT transaction lock. Changed wording is privately saved but cannot inherit original grounding or approval. Version 0.6.0 adds the strict `members` access mode and a Matrix sidebar entry; v0.6.1 pins that entry to File Vault's actual grouped navigation list. Version 0.6.2 adds owner-scoped, request-transient DOCX/TXT ROOT ingestion and one same-page nonce refresh for the exact WordPress stale-cookie response; uploaded ROOTs remain real and subject to the existing AI privacy gate. No AI call is made by menu navigation, upload ingestion or editing.
-6. To restrict the prototype to the listed user ids only (no other administrators): `wp option update mmed_ps_proto_allow_admins 0`.
+5. Activate, or load the already-active upgraded plugin. `dbDelta` creates/upgrades eleven isolated tables (`{prefix}mmed_ps_proto_roots|runs|library|audit|jobs|job_items|provider_attempts|research_artifacts|similarity_fingerprints|similarity_buckets|edit_revisions`) and four namespaced options (`mmed_ps_proto_mode`, `mmed_ps_proto_allow_admins`, `mmed_ps_proto_allow_users`, `mmed_ps_proto_db_version = 6`). The installer records version 6 only after probing required columns and unique indexes. Nothing outside the PSV namespace is written. Immutable private paragraph revision chains preserve the original AI candidate and provenance; changed wording cannot inherit grounding or approval and must pass fresh validation. Owner-scoped, request-transient DOCX/TXT ROOT ingestion and one same-page nonce refresh handle uploads and stale WordPress cookies. No AI call is made by menu navigation, upload ingestion, candidate switching or editing.
+6. Leave administrator access enabled unless a later authority record explicitly narrows it: `mmed_ps_proto_allow_admins = 1`.
 
-7. Under DR-327, set `mmed_ps_proto_mode` to `members`. This admits administrators by `manage_options` and non-admin students only when the canonical `mmhq_cam_build_entitlement()` claim is active, trusted, verified, current, revocation-checked, unrestricted, unrevoked, unexpired and backed by either verified LearnDash + WooCommerce or verified legacy-current LearnDash authority. Any missing or malformed claim fails closed.
+7. Under DR-327 and DR-331, set `mmed_ps_proto_mode` to `members`. This admits administrators by `manage_options` and non-admin students only when the canonical `mmhq_cam_build_entitlement()` claim is active, trusted, verified, current, revocation-checked, unrestricted, unrevoked, unexpired and backed by either verified LearnDash + WooCommerce or verified legacy-current LearnDash authority. Any missing or malformed claim fails closed.
 
 ## 3. Verify on production (5 minutes)
 
@@ -49,7 +48,7 @@ Never define `MMED_PS_PROTO_TESTING`, `MMED_PS_PROTO_TEST_RISE_ORIGIN` or `MMED_
 | 3 | As a logged-in user without current 360 entitlement: open Matrix | Matrix is unchanged; no PSV menu item or launcher; direct page/REST stay undisclosed |
 | 4 | As a current 360 member and as an administrator: open Matrix | "Program-Specific PS" appears immediately after File Vault; the existing File Vault launcher remains secondary |
 | 5 | Use the menu item | PSV opens at `/?mmed_ps_proto=1`; simple navigation makes no provider call |
-| 6 | Walk the Founder test in the handoff (section 7) | one Essential, one Deep, one "Deep research needed" |
+| 6 | Complete a normal student flow with a deliberately supplied real ROOT | confirm region, generate five candidates, compare/edit if desired, approve/save, and download; protected paragraphs remain byte-equal |
 | 7 | `wp-content/debug.log` (if enabled) | no new `MMPS` lines, no new fatals |
 | 8 | File Vault upload, review queue, journey, activity for a test student | unchanged |
 

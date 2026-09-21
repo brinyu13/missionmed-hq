@@ -55,7 +55,7 @@ class MMPS_FV_Reader extends MMED_File_Vault_V2_Repository {
 					'uploadedAt'    => (string) ( $version['uploaded_at'] ?? '' ),
 					'fileName'      => $name,
 					'usable'        => $docx && 'ready_clean' === ( $version['verification_state'] ?? '' ),
-					'whyNot'        => $docx ? ( 'ready_clean' === ( $version['verification_state'] ?? '' ) ? '' : 'Not yet verified clean by File Vault' ) : 'Only DOCX can be used in the prototype',
+					'whyNot'        => $docx ? ( 'ready_clean' === ( $version['verification_state'] ?? '' ) ? '' : 'Not yet verified clean by File Vault' ) : 'Only DOCX can be used here',
 				);
 			}
 		}

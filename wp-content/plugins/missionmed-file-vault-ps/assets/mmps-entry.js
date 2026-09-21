@@ -1,5 +1,5 @@
 /*
- * Matrix entry for the Program-Specific PS prototype.
+ * Matrix entry for Program-Specific PS.
  * Loaded for authorized users only, on the Hub page only. The dedicated menu
  * item is inserted beside the existing File Vault link and points directly to
  * the isolated PSV page. The legacy File Vault launcher remains in its own
@@ -32,7 +32,7 @@
 			'.x:hover{color:#fff;border-color:#aab8d1}' +
 			'@media (max-width:640px){.w{right:12px;bottom:12px}.c{max-width:280px}}' +
 			'</style>' +
-			'<div class="w" part="w"><a class="c" href="#" target="_self"><span class="g">✎</span><span><span class="k">Personal Statements · Prototype</span><span class="t">Program-Specific <em>PS</em> →</span></span></a><button class="x" type="button" aria-label="Hide the Program-Specific PS launcher">×</button></div>';
+			'<div class="w" part="w"><a class="c" href="#" target="_self"><span class="g">✎</span><span><span class="k">Personal Statements</span><span class="t">Program-Specific <em>PS</em> →</span></span></a><button class="x" type="button" aria-label="Hide the Program-Specific PS launcher">×</button></div>';
 		root.querySelector('.c').setAttribute('href', cfg.url);
 		var wrap = root.querySelector('.w');
 		var hidden = false;

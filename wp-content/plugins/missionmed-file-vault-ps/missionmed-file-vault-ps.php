@@ -1,8 +1,8 @@
 <?php
 /**
- * Plugin Name: MissionMed File Vault · Program-Specific PS (Prototype)
- * Description: PSV-PROTOTYPE-0001. Isolated Program-Specific Personal Statement workflow for administrators and current MissionMed 360 members. Own tables, own REST namespace, own page. Edits no File Vault or RISE file. Disable by deactivating, or define MMED_PS_PROTO_DISABLE.
- * Version: 0.6.2
+ * Plugin Name: MissionMed File Vault · Program-Specific PS
+ * Description: Program-specific Personal Statement writing for administrators and current MissionMed 360 members. Uses verified RISE evidence while preserving ROOT integrity and student isolation.
+ * Version: 1.0.0
  * Author: MissionMed
  * Requires PHP: 7.4
  */
@@ -12,18 +12,18 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( defined( 'MMED_PSV_VERSION' ) || class_exists( 'MMPS_Gate', false ) ) {
-	return; // A second copy of the prototype must never redeclare anything.
+	return; // A second copy must never redeclare anything.
 }
 
-define( 'MMED_PSV_VERSION', '0.6.2' );
+define( 'MMED_PSV_VERSION', '1.0.0' );
 define( 'MMPS_PATH', plugin_dir_path( __FILE__ ) );
 define( 'MMPS_URL', plugin_dir_url( __FILE__ ) );
 define( 'MMPS_REST_NS', 'mmed-ps-proto/v1' );
 define( 'MMPS_QUERY_VAR', 'mmed_ps_proto' );
 
 /*
- * Blast-radius rule: if any prototype file is missing, corrupted or throws,
- * the prototype goes inert and the rest of the site carries on untouched.
+ * Blast-radius rule: if any product file is missing, corrupted or throws,
+ * PSV goes inert and the rest of the site carries on untouched.
  * (PHP 7+ raises ParseError from require, so even a damaged upload is caught.)
  */
 /** On PHP 7 a missing file makes require fatal (not catchable), so readability is checked first. */
@@ -41,7 +41,7 @@ try {
 	mmps_require( 'gate' );
 	mmps_require( 'install' );
 } catch ( \Throwable $e ) {
-	error_log( 'MMPS prototype inert: ' . get_class( $e ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions
+	error_log( 'MMPS inert: ' . get_class( $e ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions
 	return;
 }
 
@@ -51,8 +51,8 @@ register_activation_hook( __FILE__, array( 'MMPS_Install', 'activate' ) );
  * Everything else loads on plugins_loaded, late, and only when the hard kill
  * switch is off. WordPress loads this plugin before missionmed-hub
  * alphabetically, so nothing here may reference File Vault classes at include
- * time. If File Vault is absent the prototype still works with the synthetic
- * or pasted ROOT; it never fatals.
+	 * time. If File Vault is absent, direct upload or pasted ROOT intake remains
+	 * available; it never fatals.
  */
 add_action(
 	'plugins_loaded',
@@ -67,7 +67,7 @@ add_action(
 			MMPS_Rest::init();
 			MMPS_Page::init();
 		} catch ( \Throwable $e ) {
-			error_log( 'MMPS prototype inert: ' . get_class( $e ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions
+			error_log( 'MMPS inert: ' . get_class( $e ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions
 		}
 	},
 	99

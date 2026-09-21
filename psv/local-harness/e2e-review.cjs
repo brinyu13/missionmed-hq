@@ -1,4 +1,4 @@
-// Synthetic-only candidate review acceptance against the disposable WordPress harness.
+// Real-ROOT candidate review acceptance against the disposable WordPress harness.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const base = 'http://127.0.0.1:8088';
@@ -14,7 +14,8 @@ function ok(name, value) { assert.ok(value, name); console.log('PASS ' + name); 
  await Promise.all([page.waitForNavigation(),page.click('#wp-submit')]);
  await context.addCookies([{name:'mmhq_rise_session',value:'good-session',url:base}]);
  await page.goto(base+'/?mmed_ps_proto=1'); await page.click('button:has-text("Start a new ROOT")');
- await page.click('[data-source="SYNTHETIC"]'); await page.click('[data-act="create-root"]');
+ await page.waitForFunction(()=>!document.body.innerText.includes('Checking File Vault'));
+ await page.click('[data-source="FILE_VAULT"]'); await page.locator('[data-act="pick-file"]:not([disabled])').first().click(); await page.click('[data-act="create-root"]');
  await page.waitForSelector('[data-act="save-region"]'); await page.click('[data-act="save-region"]');
  await page.click('[data-act="cat"][data-key="fellowship"][data-on="1"]');
  await page.click('[data-act="term"][data-key="fellowship"][data-term="Cardiology"]');

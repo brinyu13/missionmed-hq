@@ -1,4 +1,4 @@
-// Browser walkthrough of the prototype against the local harness. Screenshots -> harness/shots/.
+// Browser walkthrough of Program-Specific PS against the local harness. Screenshots -> harness/shots/.
 const { chromium } = require('playwright');
 const fs = require('fs');
 const { execSync } = require('child_process');
@@ -37,7 +37,7 @@ const ok = (name, cond, detail = '') => { results.push({ name, pass: !!cond }); 
 	await shot('01-file-vault-entry');
 	await Promise.all([page.waitForNavigation(), launcher.click()]);
 	await page.waitForSelector('.h1');
-	ok('prototype opens from File Vault', page.url().includes('mmed_ps_proto=1'));
+	ok('Program-Specific PS opens from File Vault', page.url().includes('mmed_ps_proto=1'));
 	await shot('02-home');
 
 	// step 1 ROOT
@@ -47,8 +47,8 @@ const ok = (name, cond, detail = '') => { results.push({ name, pass: !!cond }); 
 	await page.click('[data-source="FILE_VAULT"]');
 	await shot('03-root-file-vault-versions');
 	ok('File Vault PS versions listed; unverified version disabled', await page.locator('[data-act="pick-file"]').count() === 4 && await page.locator('[data-act="pick-file"][disabled]').count() === 1);
-	await page.click('[data-source="SYNTHETIC"]');
-	await shot('04-root-synthetic');
+	await page.locator('[data-act="pick-file"]:not([disabled])').first().click();
+	await shot('04-root-selected');
 	await page.click('[data-act="create-root"]');
 
 	// step 2 region

@@ -14,10 +14,10 @@ class MMPS_Edit {
 		if ( ! $root || ! MMPS_Region::root_still_matches( $root['paragraphs'], $root['region'] ) || (string) $root['textSha256'] !== (string) ( $root['region']['rootTextSha256'] ?? '' ) || (array) ( $run['validation']['region'] ?? array() ) !== MMPS_Generator::region_snapshot( $root ) ) {
 			return self::error( 'root_changed', 'The ROOT or authorized region changed. This revision cannot be used.' );
 		}
-		$canary = MMPS_Provider::is_real_root_canary_root( $uid, $root ) && hash_equals( (string) MMED_PS_PROTO_REAL_ROOT_CANARY_PROGRAM_ID, (string) ( $run['program_specialty_id'] ?? '' ) );
-		if ( empty( $root['isSynthetic'] ) && ! $canary ) { return self::error( 'privacy', 'Manual revision access is not authorized for this ROOT.', 403 ); }
+		$production = ! empty( $root['isSynthetic'] ) || MMPS_Provider::real_root_allowed_for( $uid, $root, (string) ( $run['program_specialty_id'] ?? '' ) );
+		if ( ! $production ) { return self::error( 'privacy', 'Manual revision access is not authorized for this ROOT.', 403 ); }
 		if ( 'OK' !== $run['status'] || ( empty( $run['output']['replacement_region'] ) && empty( $run['output']['candidates'] ) ) ) { return self::error( 'run_invalid', 'Only a validated candidate run supports review.' ); }
-		return array( 'run' => $run, 'root' => $root, 'canary' => $canary );
+		return array( 'run' => $run, 'root' => $root );
 	}
 
 	/** Exact-text matching is deliberately conservative: no semantic verifier is authorized. */
@@ -39,14 +39,14 @@ class MMPS_Edit {
 		$similarity = MMPS_Similarity::assess( $uid, $text );
 		if ( is_wp_error( $similarity ) ) { return $similarity; }
 		if ( 'EXACT_BLOCKED' === $similarity['status'] ) { $flags[] = array( 'code' => 'CROSS_STUDENT_EXACT', 'message' => 'This revision cannot be approved because of a protected exact-match check. No other student text is disclosed.' ); }
-		return array( 'status' => $flags ? 'NEEDS_REVIEW' : 'VALIDATED', 'canApprove' => empty( $flags ) && ! $context['canary'], 'flags' => $flags, 'rootIntegrity' => 'PASS', 'factsUsed' => $facts, 'segments' => $segments, 'similarity' => array( 'status' => $similarity['status'], 'band' => $similarity['band'] ), 'validationMode' => 'EXACT_AI_TEXT_ONLY' );
+		return array( 'status' => $flags ? 'NEEDS_REVIEW' : 'VALIDATED', 'canApprove' => empty( $flags ), 'flags' => $flags, 'rootIntegrity' => 'PASS', 'factsUsed' => $facts, 'segments' => $segments, 'similarity' => array( 'status' => $similarity['status'], 'band' => $similarity['band'] ), 'validationMode' => 'EXACT_AI_TEXT_ONLY' );
 	}
 
 	public static function read( $uid, $run_uuid ) {
 		$context = self::context( $uid, $run_uuid );
 		if ( is_wp_error( $context ) ) { return $context; }
 		if ( empty( $context['run']['output']['candidates'] ) ) {
-			return array( 'capabilities' => array( 'canEdit' => false, 'canApprove' => ! $context['canary'] && empty( $context['run']['validation']['blocking'] ), 'validationMode' => 'LEGACY_ORIGINAL_ONLY' ), 'heads' => (object) array() );
+			return array( 'capabilities' => array( 'canEdit' => false, 'canApprove' => empty( $context['run']['validation']['blocking'] ), 'validationMode' => 'LEGACY_ORIGINAL_ONLY' ), 'heads' => (object) array() );
 		}
 		$heads = array();
 		foreach ( $context['run']['output']['candidates'] as $candidate ) {
@@ -57,11 +57,10 @@ class MMPS_Edit {
 				// Read-only snapshot, not a fresh approval. Final save rechecks the
 				// exact revision. assess() is deliberately not called by GET: its
 				// legacy fingerprint backfill may write private similarity rows.
-				$head['validation']['canApprove'] = $head['validation']['canApprove'] && ! $context['canary'];
 			}
 			$heads[ $id ] = $head;
 		}
-		return array( 'capabilities' => array( 'canEdit' => true, 'canApprove' => ! $context['canary'], 'validationMode' => 'EXACT_AI_TEXT_ONLY' ), 'heads' => (object) $heads );
+		return array( 'capabilities' => array( 'canEdit' => true, 'canApprove' => true, 'validationMode' => 'EXACT_AI_TEXT_ONLY' ), 'heads' => (object) $heads );
 	}
 
 	public static function write( $uid, $run_uuid, $params ) {
