@@ -12,7 +12,9 @@
 	var sharedPrimaryCache = {};
 	var localIdSequence = 0;
 	var PRIMARY_TIMEOUT_MS = Math.max(50, Number(config.primary_timeout_ms) || 8000);
-	var SCHEDULER_TIMEOUT_MS = Math.max(50, Number(config.scheduler_timeout_ms) || 2500);
+	// Scheduler exchange and feed share this deadline. The former 2.5 second
+	// budget regularly expired after auth but before the feed could answer.
+	var SCHEDULER_TIMEOUT_MS = Math.max(50, Number(config.scheduler_timeout_ms) || 8000);
 
 	var DRILL_TOPICS = {
 		'Step/Level 1': ['Cardiology','Pulmonary','Renal / GU','GIT / HEP','Endocrine','Neurology','Derm / Ophtho','Micro / Infectious Disease','Viruses / Protozoa / Parasites','Immunology','Muscle / Rheumatology','Heme / Onc','Oncology by Systems','Repro / GYN / OB','Biochem / Genetics / Vitamins','Psych / Ethics','Biostats / Public Health','ER Medicine','Mixed Review'],
@@ -236,12 +238,16 @@
 		});
 	}
 
-	function requestWithDeadline(factory, milliseconds, outerSignal, label) {
+	function requestWithDeadline(factory, milliseconds, outerSignal, label, outerAbortContext) {
 		var controller = global.AbortController ? new global.AbortController() : null;
 		var signal = controller ? controller.signal : outerSignal;
 		var settled = false;
 		var timer = 0;
-		var onOuterAbort = function () { if (controller) controller.abort(); };
+		var abortCause = '';
+		var onOuterAbort = function () {
+			abortCause = 'outer:' + String(typeof outerAbortContext === 'function' ? outerAbortContext() : 'unknown');
+			if (controller) controller.abort();
+		};
 		if (outerSignal) {
 			if (outerSignal.aborted) onOuterAbort();
 			else if (typeof outerSignal.addEventListener === 'function') outerSignal.addEventListener('abort', onOuterAbort, { once: true });
@@ -261,9 +267,11 @@
 			timer = global.setTimeout(function () {
 				if (settled) return;
 				settled = true;
+				abortCause = 'deadline';
 				if (controller) controller.abort();
 				var error = new Error(label || 'Request timed out');
 				error.name = 'TimeoutError';
+				error.mmedAbortCause = abortCause;
 				cleanup();
 				reject(error);
 			}, milliseconds);
@@ -276,6 +284,9 @@
 				if (settled) return;
 				settled = true;
 				cleanup();
+				if (error && typeof error === 'object' && abortCause) {
+					try { error.mmedAbortCause = abortCause; } catch (ignore) {}
+				}
 				reject(error);
 			});
 		});
@@ -580,6 +591,8 @@
 		var primaryEvents = [];
 		var schedulerEvents = [];
 		var schedulerRetryTimer = 0;
+		var rangeAbortCause = 'none';
+		var schedulerRequestSequence = 0;
 		var destroyed = false;
 		var today = new Date();
 		var state = {
@@ -604,7 +617,7 @@
 			error: '',
 			requestRange: null,
 			cacheStatus: 'cold',
-			telemetry: { primaryLoadMs: 0, cacheHits: 0, cancelledRanges: 0 }
+			telemetry: { primaryLoadMs: 0, schedulerLoadMs: 0, cacheHits: 0, cancelledRanges: 0, lastRangeAbortCause: '', lastSchedulerAbortCause: '' }
 		};
 
 		function emit() { if (!destroyed) listeners.slice().forEach(function (listener) { listener(state); }); }
@@ -681,7 +694,7 @@
 			if (global.console && typeof global.console.info === 'function') global.console.info('[Matrix Calendar] primary start cache=' + (cached ? 'stale' : 'miss') + ' range=' + key);
 			var request = requestWithDeadline(function (requestSignal) {
 				return typeof api.request === 'function' ? api.request('/events', { method: 'GET', signal: requestSignal }, params) : api.get('/events', params);
-			}, PRIMARY_TIMEOUT_MS, signal, 'Primary Matrix Calendar request timed out');
+			}, PRIMARY_TIMEOUT_MS, signal, 'Primary Matrix Calendar request timed out', function () { return rangeAbortCause; });
 			var events = request.then(function (payload) {
 				var normalized = payload && Array.isArray(payload.events) ? applyFavorites(payload.events.map(function (event) { return normalizeEvent(event, capabilities); })) : [];
 				sharedPrimaryCache[key] = { events: normalized.slice(), savedAt: Date.now() };
@@ -747,36 +760,49 @@
 		function loadScheduler(generation, signal) {
 			if (schedulerRetryTimer) { global.clearTimeout(schedulerRetryTimer); schedulerRetryTimer = 0; }
 			set({ schedulerStatus: 'loading' });
+			var startedAt = Date.now();
+			var requestId = ++schedulerRequestSequence;
 			var params = range();
 			var endpoint = capabilities.admin ? '/api/scheduler/admin/calendar-feed' : '/api/scheduler/calendar-feed';
 			var url = new URL(endpoint, global.location.origin);
 			Object.keys(params).forEach(function (key) { if (key !== 'no_sync') url.searchParams.set(key, params[key]); });
-			var request = requestWithDeadline(function (requestSignal) { return schedulerJson(url.toString(), requestSignal, true); }, SCHEDULER_TIMEOUT_MS, signal, 'Scheduler enrichment timed out').then(function (payload) {
+			var request = requestWithDeadline(function (requestSignal) { return schedulerJson(url.toString(), requestSignal, true); }, SCHEDULER_TIMEOUT_MS, signal, 'Scheduler enrichment timed out', function () { return rangeAbortCause; }).then(function (payload) {
 				var data = payload && (payload.data || payload);
 				var events = data && Array.isArray(data.events) ? applyFavorites(data.events.map(function (event) { return normalizeEvent(event, capabilities); })) : [];
+				state.telemetry.schedulerLoadMs = Date.now() - startedAt;
+				state.telemetry.lastSchedulerAbortCause = '';
+				if (global.console && typeof global.console.info === 'function') global.console.info('[Matrix Calendar] scheduler success request=' + requestId + ' duration_ms=' + state.telemetry.schedulerLoadMs + ' events=' + events.length);
 				if (generation === rangeGeneration) {
 					schedulerEvents = events.slice();
 					set({ events: mergeEvents(primaryEvents, schedulerEvents), schedulerStatus: events.length ? 'ready' : 'empty' });
 				}
 				return events;
 			});
-			return request.catch(function () {
+			return request.catch(function (error) {
+				var abortCause = error && error.mmedAbortCause ? String(error.mmedAbortCause) : (signal && signal.aborted ? 'outer:' + rangeAbortCause : 'request');
+				state.telemetry.schedulerLoadMs = Date.now() - startedAt;
+				state.telemetry.lastSchedulerAbortCause = abortCause;
+				if (global.console && typeof global.console.warn === 'function') global.console.warn('[Matrix Calendar] scheduler failure request=' + requestId + ' class=' + String(error && error.name || 'Error') + ' status=' + String(error && error.status || 0) + ' abort_cause=' + abortCause + ' duration_ms=' + state.telemetry.schedulerLoadMs);
 				if (destroyed || (signal && signal.aborted)) return [];
 				if (generation === rangeGeneration) {
 					set({ schedulerStatus: 'degraded' });
-					schedulerRetryTimer = global.setTimeout(function () { schedulerRetryTimer = 0; loadScheduler(generation, signal).catch(function () {}); }, 10000);
+					// MM-SEV1-504-001: remain degraded until an explicit route or user refresh.
+					// Polling this recursive authentication path can exhaust the PHP worker pool.
 				}
 				return [];
 			});
 		}
 
-		function beginGeneration() {
+		function beginGeneration(caller) {
 			if (schedulerRetryTimer) { global.clearTimeout(schedulerRetryTimer); schedulerRetryTimer = 0; }
 			if (rangeAbortController) {
+				rangeAbortCause = 'range:' + String(caller || 'refresh');
+				state.telemetry.lastRangeAbortCause = rangeAbortCause;
 				rangeAbortController.abort();
 				state.telemetry.cancelledRanges += 1;
 			}
 			rangeAbortController = global.AbortController ? new global.AbortController() : null;
+			rangeAbortCause = 'none';
 			rangeGeneration += 1;
 			primaryEvents = [];
 			schedulerEvents = [];
@@ -784,14 +810,14 @@
 		}
 
 		function start() {
-			var request = beginGeneration();
+			var request = beginGeneration('start');
 			var primary = loadPrimary(request.generation, request.signal);
 			loadScheduler(request.generation, request.signal);
 			return primary;
 		}
 
-		function refreshRange() {
-			var request = beginGeneration();
+		function refreshRange(caller) {
+			var request = beginGeneration(caller || 'refresh');
 			var primary = loadPrimary(request.generation, request.signal);
 			loadScheduler(request.generation, request.signal);
 			return primary;
@@ -939,7 +965,11 @@
 		function destroy() {
 			destroyed = true;
 			if (schedulerRetryTimer) { global.clearTimeout(schedulerRetryTimer); schedulerRetryTimer = 0; }
-			if (rangeAbortController) rangeAbortController.abort();
+			if (rangeAbortController) {
+				rangeAbortCause = 'destroy';
+				state.telemetry.lastRangeAbortCause = rangeAbortCause;
+				rangeAbortController.abort();
+			}
 			listeners = [];
 		}
 
@@ -954,10 +984,10 @@
 			state: state,
 			start: start,
 			subscribe: subscribe,
-				setView: function (view) { if (['today','month','week','day','agenda'].indexOf(view) !== -1 && view !== state.view) { set({ view: view }); return refreshRange(); } return Promise.resolve(state.events); },
-				setDate: function (date) { var next = parseDate(date); set({ date: next, selectedDate: next }); return refreshRange(); },
-				navigate: function (amount) { var next = state.view === 'week' ? addDays(state.date, amount * 7) : state.view === 'day' ? addDays(state.date, amount) : addMonths(state.date, amount); set({ date: next, selectedDate: next }); return refreshRange(); },
-				today: function () { var now = new Date(); set({ date: now, selectedDate: now }); return refreshRange(); },
+				setView: function (view) { if (['today','month','week','day','agenda'].indexOf(view) !== -1 && view !== state.view) { set({ view: view }); return refreshRange('view:' + view); } return Promise.resolve(state.events); },
+				setDate: function (date) { var next = parseDate(date); set({ date: next, selectedDate: next }); return refreshRange('set-date'); },
+				navigate: function (amount) { var next = state.view === 'week' ? addDays(state.date, amount * 7) : state.view === 'day' ? addDays(state.date, amount) : addMonths(state.date, amount); set({ date: next, selectedDate: next }); return refreshRange('navigate:' + String(amount)); },
+				today: function () { var now = new Date(); set({ date: now, selectedDate: now }); return refreshRange('today'); },
 			createEvent: createEvent,
 			updateEvent: updateEvent,
 			deleteEvent: deleteEvent,
@@ -973,7 +1003,7 @@
 			deleteCategory: deleteCategory,
 			setPreference: setPreference,
 				reloadScheduler: function () { return loadScheduler(rangeGeneration, rangeAbortController ? rangeAbortController.signal : undefined); },
-				reloadRange: refreshRange,
+				reloadRange: function () { return refreshRange('reload'); },
 				destroy: destroy
 		};
 	}

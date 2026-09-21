@@ -39,15 +39,6 @@
 		{ id: 'appointments', name: 'My Appointments', color: '#56d8f5', sortOrder: 60, parentId: '', adminOnly: false }
 	];
 
-	var TRACKER_PHASES = [
-		{ id: 'cv', label: 'CV Building', start: '2026-01-01', end: '2026-04-30', icon: '&#128196;' },
-		{ id: 'lors-ps', label: 'LORs & PS', start: '2026-05-01', end: '2026-07-31', icon: '&#9997;' },
-		{ id: 'eras', label: 'ERAS Application', start: '2026-08-01', end: '2026-10-31', icon: '&#128233;' },
-		{ id: 'interviews', label: 'Interviews', start: '2026-11-01', end: '2027-01-31', icon: '&#127908;' },
-		{ id: 'rank', label: 'Rank List', start: '2027-02-01', end: '2027-02-28', icon: '&#128202;' },
-		{ id: 'match', label: 'Match', start: '2027-03-01', end: '2027-03-31', icon: '&#127942;' }
-	];
-	var MATCH_DAY = '2027-03-15';
 	var SPECIALTIES = ['Internal Medicine','Family Medicine','Pediatrics','OB/GYN','Surgery','Psychiatry','Neurology','Emergency Medicine','Radiology','Pathology','Anesthesiology','Dermatology','Ophthalmology','Orthopedics','Urology','PM&R','Cardiology','Pulmonology','Other'];
 
 	function esc(value) {
@@ -82,7 +73,7 @@
 
 	function viewHeading(view) {
 		var label = { month: 'Month', week: 'Week', day: 'Day', agenda: 'Agenda' }[view] || 'Today';
-		return esc(label) + (view === 'today' ? '' : ' <em>view</em>');
+		return esc(label) + (view === 'today' ? '' : ' <em>View</em>');
 	}
 
 	function eventRow(event, compact, draggable) {
@@ -151,7 +142,7 @@
 
 	function renderMonth(model, state) {
 		var isAdmin = effectivePerspective(state) === 'administrator';
-		var eventLimit = global.innerWidth <= 560 ? 4 : global.innerHeight <= 900 ? 1 : 3;
+		var eventLimit = global.innerWidth <= 560 ? 4 : global.innerHeight <= 900 ? 2 : 3;
 		var weekdays = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(function (day) { return '<div class="mcv2-weekday">' + day + '</div>'; }).join('');
 		var cells = model.monthDays.map(function (day) {
 			var events = day.events.slice(0, eventLimit).map(function (event) { return eventRow(event, true, isAdmin); }).join('');
@@ -218,24 +209,6 @@
 			panel('My appointments', appointments, state.schedulerStatus === 'loading' ? 'Checking Scheduler\u2026' : state.schedulerStatus === 'degraded' ? 'Scheduler is temporarily offline. Calendar remains available.' : 'No upcoming appointments.') +
 			panel('My tasks', todos, state.todosStatus === 'loading' ? 'Loading tasks\u2026' : 'No current tasks.') +
 			'</aside></div>';
-	}
-
-	function renderTracker() {
-		var tracker = global.MMEDCalendarCore.trackerModel(TRACKER_PHASES, MATCH_DAY);
-		var bar = tracker.phases.map(function (p) {
-			return '<button type="button" class="mcv2-tracker-seg is-' + p.status + '" data-tracker-phase="' + esc(p.id) + '" title="' + esc(p.label) + '">' + p.icon + '</button>';
-		}).join('');
-		var labels = tracker.phases.map(function (p) {
-			return '<span class="mcv2-tracker-lbl' + (p.status === 'active' ? ' is-active' : '') + '">' + esc(p.label) + '</span>';
-		}).join('');
-		var countdown = tracker.daysUntil > 0
-			? '<span class="num">' + tracker.daysUntil + '</span> days until Match Day' + (tracker.active ? ' &mdash; Currently: <strong>' + esc(tracker.active.label) + '</strong>' : '')
-			: '<strong>Match Day!</strong>';
-		return '<section class="mcv2-tracker" aria-label="Match Cycle Tracker">' +
-			'<p class="mcv2-tracker-title">Match Cycle Tracker &mdash; 2026\u20132027</p>' +
-			'<div class="mcv2-tracker-bar">' + bar + '</div>' +
-			'<div class="mcv2-tracker-labels">' + labels + '</div>' +
-			'<div class="mcv2-tracker-countdown">' + countdown + '</div></section>';
 	}
 
 	function icsText(v) { return String(v || '').replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;'); }
@@ -394,6 +367,7 @@
 		}
 		root.setAttribute('data-perspective', perspective);
 		var newEventBtn = perspective === 'administrator' ? '<button type="button" data-new-event class="mcv2-new-event-btn">+ New</button>' : '';
+		var schedulerState = state.schedulerStatus === 'degraded' ? '<button type="button" class="mcv2-scheduler-state" data-retry-scheduler title="Retry Scheduler enrichment"><span aria-hidden="true"></span>Scheduler offline &middot; Retry</button>' : '';
 		root.innerHTML =
 			'<div class="mcv2-shell' + (mobileRailOpen ? ' is-rail-open' : '') + '">' +
 			'<header class="mcv2-topbar">' +
@@ -415,18 +389,16 @@
 			'</aside>' +
 			'<main class="mcv2-main">' +
 				'<header class="mcv2-header">' +
-					'<div><p class="mcv2-kicker">LIVE CALENDAR</p><h1>' + viewHeading(state.view) + '</h1></div>' +
-					'<div class="mcv2-command-row">' + viewSwitcher(state) +
-					'<div class="mcv2-header-actions">' +
-						'<button type="button" data-nav="-1" aria-label="Previous">&larr;</button>' +
+					'<div class="mcv2-view-identity"><h1>' + viewHeading(state.view) + '</h1></div>' +
+					'<div class="mcv2-header-actions mcv2-period-nav" role="group" aria-label="Calendar period navigation">' +
+						'<button type="button" data-nav="-1" aria-label="Previous period">&larr;</button>' +
 						'<button type="button" data-today>Today</button>' +
-						'<button type="button" data-nav="1" aria-label="Next">&rarr;</button>' +
+						'<button type="button" data-nav="1" aria-label="Next period">&rarr;</button>' +
 						'<strong>' + esc(model.title) + '</strong>' +
-						newEventBtn +
-					'</div></div>' +
+						schedulerState +
+					'</div>' +
+					'<div class="mcv2-command-row">' + viewSwitcher(state) + newEventBtn + '</div>' +
 				'</header>' +
-				renderTracker() +
-				(state.schedulerStatus === 'degraded' ? '<div class="mcv2-notice" role="status">Scheduler enrichment is temporarily offline. Matrix events remain available. <button type="button" data-retry-scheduler>Retry</button></div>' : '') +
 				(state.error ? '<div class="mcv2-notice is-error" role="alert">' + esc(state.error) + '</div>' : '') +
 				'<div class="mcv2-content">' + content + '</div>' +
 			'</main></div>' +
@@ -514,7 +486,6 @@
 		root.querySelectorAll('[data-close-settings]').forEach(function (btn) { btn.addEventListener('click', function () { var dialog = root.querySelector('#mcv2-settings'); if (dialog) dialog.close(); }); });
 		var saveSettings = root.querySelector('[data-save-settings]'); if (saveSettings) saveSettings.addEventListener('click', function () { var choice = root.querySelector('input[name="calendar-experience"]:checked'); if (!choice) return; saveSettings.disabled = true; instance.setPreference(choice.value).then(function () { global.location.reload(); }).catch(function (error) { saveSettings.disabled = false; announcement = error.message; render(instance.state); }); });
 		var retry = root.querySelector('[data-retry-scheduler]'); if (retry) retry.addEventListener('click', instance.reloadScheduler);
-		root.querySelectorAll('[data-tracker-phase]').forEach(function (seg) { seg.addEventListener('click', function () { var phase = TRACKER_PHASES.filter(function (p) { return p.id === seg.getAttribute('data-tracker-phase'); })[0]; if (phase) { instance.setDate(phase.start); announcement = 'Jumped to ' + phase.label + '.'; render(instance.state); } }); });
 		var openSync = root.querySelector('[data-open-sync]'); if (openSync) openSync.addEventListener('click', function () { syncOpen = true; render(instance.state); });
 		root.querySelectorAll('[data-close-sync]').forEach(function (btn) { btn.addEventListener('click', function () { syncOpen = false; render(instance.state); }); });
 		root.querySelectorAll('[data-download-ics]').forEach(function (btn) { btn.addEventListener('click', function () {
