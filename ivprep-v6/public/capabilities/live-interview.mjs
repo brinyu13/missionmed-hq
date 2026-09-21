@@ -67,6 +67,8 @@ export class LiveInterviewSession {
     this.activeTranscriptIds = { applicant: null, interviewer: null };
     this.audioAuthority = null;
     this.remoteAudioTrackId = null;
+    this.openingQuestion = null;
+    this.openingRequested = false;
   }
 
   emitStatus(state, detail = null) {
@@ -103,6 +105,15 @@ export class LiveInterviewSession {
     this.onEvent(event);
     if (event.type === 'session.started') {
       clearTimeout(this.startTimer);
+      try {
+        this.requestOpening(this.openingQuestion);
+      } catch (error) {
+        this.startedReject?.(error);
+        this.startedResolve = null;
+        this.startedReject = null;
+        this.emitStatus('error', String(error?.message || error));
+        return;
+      }
       this.startedResolve?.(event);
       this.startedResolve = null;
       this.startedReject = null;
@@ -137,7 +148,24 @@ export class LiveInterviewSession {
     }
   }
 
-  async start({ audioTrack, voice = 'marin', context, ivocSessionId } = {}) {
+  requestOpening(question) {
+    const text = String(question || '').trim();
+    if (!text || text.length > 1_000) throw new TypeError('A bounded opening question is required.');
+    if (this.openingRequested) return false;
+    if (this.channel?.readyState !== 'open') throw new Error('InterviewBrain event channel is not ready.');
+    this.channel.send(JSON.stringify({
+      event_id: 'ivoc-opening-question',
+      type: 'response.create',
+      response: {
+        output_modalities: ['audio'],
+        instructions: `Ask exactly this opening interview question once, naturally, without adding any preamble or second question: ${JSON.stringify(text)}`,
+      },
+    }));
+    this.openingRequested = true;
+    return true;
+  }
+
+  async start({ audioTrack, voice = 'marin', context, ivocSessionId, openingQuestion } = {}) {
     if (this.state !== 'idle' && this.state !== 'closed') throw new Error('A live interview is already active.');
     if (!audioTrack || audioTrack.kind !== 'audio' || audioTrack.readyState === 'ended') {
       throw new TypeError('A live microphone track is required.');
@@ -146,6 +174,11 @@ export class LiveInterviewSession {
     this.startedAtMs = this.now();
     this.transcriptSequence = 0;
     this.activeTranscriptIds = { applicant: null, interviewer: null };
+    this.openingQuestion = String(openingQuestion || '').trim();
+    if (!this.openingQuestion || this.openingQuestion.length > 1_000) {
+      throw new TypeError('A bounded opening question is required.');
+    }
+    this.openingRequested = false;
     this.audioAuthority = 'configured';
     this.remoteAudioTrackId = null;
     this.emitTelemetry('configured');
@@ -230,6 +263,8 @@ export class LiveInterviewSession {
     }
     if (notifyServer && id) await this.endSession(id, { keepalive });
     this.startedAtMs = null;
+    this.openingQuestion = null;
+    this.openingRequested = false;
     this.emitStatus('closed', 'Interview ended');
     return Object.freeze({ ok: true });
   }

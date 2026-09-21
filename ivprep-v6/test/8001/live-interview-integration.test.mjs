@@ -48,7 +48,7 @@ test('browser session reuses the admitted microphone and never stops the shared 
     onTelemetry: (event) => telemetry.push(event),
     now: () => nowMs,
   });
-  assert.deepEqual(await session.start({ audioTrack: microphone, context: {} }), {
+  assert.deepEqual(await session.start({ audioTrack: microphone, context: {}, openingQuestion: 'Tell me about yourself.' }), {
     id: 'live_session_123456', model: 'gpt-live-1',
     audioAuthority: {
       schema: 'ivoc.audio-authority.v1', mode: 'single', authority: 'openai-gpt-live-native',
@@ -83,7 +83,28 @@ test('browser session reuses the admitted microphone and never stops the shared 
   assert.deepEqual(telemetry.map((event) => event.state), ['configured', 'bound', 'surplus_rejected', 'released']);
   assert.deepEqual(ended, [['live_session_123456', { keepalive: true }]]);
   assert.equal(microphone.stopCalls, 0);
-  assert.deepEqual(channel.sent, [{ type: 'session.close' }]);
+  assert.deepEqual(channel.sent, [
+    {
+      event_id: 'ivoc-opening-question',
+      type: 'response.create',
+      response: {
+        output_modalities: ['audio'],
+        instructions: 'Ask exactly this opening interview question once, naturally, without adding any preamble or second question: "Tell me about yourself."',
+      },
+    },
+    { type: 'session.close' },
+  ]);
   assert.equal(statuses.includes('active'), true);
   assert.equal(statuses.at(-1), 'closed');
+});
+
+test('browser session refuses to open without a bounded opening question', async () => {
+  const session = new LiveInterviewSession({
+    PeerConnection: FakePeerConnection,
+    audioElement: { play: async () => {}, pause() {} },
+    createSession: async () => { throw new Error('must not create'); },
+    endSession: async () => {},
+  });
+  const microphone = { kind: 'audio', readyState: 'live' };
+  await assert.rejects(() => session.start({ audioTrack: microphone, context: {} }), /bounded opening question/u);
 });

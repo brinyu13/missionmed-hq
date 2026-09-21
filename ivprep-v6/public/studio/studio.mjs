@@ -2167,6 +2167,7 @@ async function startLiveInterview() {
       voice: selectedVoice,
       context: liveInterviewContext(),
       ivocSessionId: prepared.id,
+      openingQuestion: state.interviewSet[0]?.canonical_text,
     });
     const save = $('#simulation-save');
     if (save) { save.dataset.state = 'active'; save.textContent = 'Secure account recording active.'; }
@@ -2254,7 +2255,10 @@ function renderDeviceCheck() {
   if (proceed) {
     const ready = cameraLive && microphoneLive && surfaceLive && media.AC?.state === 'running';
     proceed.disabled = !ready;
-    proceed.innerHTML = `<span>${ready ? (state.launchMode === 'ai' ? 'Start AI interview ▸' : 'Begin coached practice ▸') : 'Connect devices to continue'}</span>`;
+    const missingInterviewSet = state.launchMode === 'ai' && !state.interviewSet.length;
+    proceed.innerHTML = `<span>${ready
+      ? (missingInterviewSet ? 'Choose interview questions ▸' : state.launchMode === 'ai' ? 'Start AI interview ▸' : 'Begin coached practice ▸')
+      : 'Connect devices to continue'}</span>`;
   }
 }
 
@@ -2681,6 +2685,12 @@ function wireChrome() {
   $('#device-proceed')?.addEventListener('click', async () => {
     if (evaluateReadiness() !== 'SESSION_READY') { renderDeviceCheck(); return; }
     if (state.launchMode === 'ai') {
+      if (!state.interviewSet.length) {
+        state.wizardStep = 1;
+        showBuilderMode('wizard');
+        setView('newsession', { focus: true });
+        return;
+      }
       setView('simulation', { focus: true });
       await startLiveInterview();
       return;

@@ -118,6 +118,10 @@ test('one readiness action enters the real Interview Room and starts the live in
   assert.match(handler, /setView\('simulation', \{ focus: true \}\)/u);
   assert.match(handler, /await startLiveInterview\(\)/u,
     'the normal AI path must not strand the student in an inert room behind a second hidden action');
+  assert.match(handler, /if \(!state\.interviewSet\.length\)[\s\S]*state\.wizardStep = 1[\s\S]*setView\('newsession'/u,
+    'a restored device-check route without a question set must return to Question Pool instead of opening a dead room');
+  assert.match(studio, /openingQuestion: state\.interviewSet\[0\]\?\.canonical_text/u,
+    'the live transport must receive the exact selected opening question');
   assert.match(studio, /async function startLiveInterview\(\)/u);
 });
 
