@@ -147,7 +147,7 @@
 
 	function renderMonth(model, state) {
 		var isAdmin = effectivePerspective(state) === 'administrator';
-		var eventLimit = global.innerWidth <= 560 ? 4 : global.innerHeight <= 650 ? 2 : 3;
+		var eventLimit = global.innerWidth <= 560 ? 4 : global.innerHeight <= 520 ? 2 : 3;
 		var monthDays = displayedMonthDays(model);
 		var weekCount = monthDays.length / 7;
 		var weekdays = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(function (day) { return '<div class="mcv2-weekday">' + day + '</div>'; }).join('');

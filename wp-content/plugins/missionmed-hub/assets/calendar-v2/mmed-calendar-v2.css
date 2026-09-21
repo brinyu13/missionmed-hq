@@ -1225,9 +1225,9 @@
 	.mmed-calendar-v2 .mcv2-notice { margin-bottom: 7px; padding: 7px 10px; }
 	.mmed-calendar-v2 .mcv2-weekday { padding: 5px 2px; }
 	.mmed-calendar-v2 .mcv2-month-day { padding: 2px 4px; }
-	.mmed-calendar-v2 .mcv2-day-number { width: 19px; height: 19px; font-size: 11px; }
+	.mmed-calendar-v2 .mcv2-day-number { width: 17px; height: 17px; font-size: 10px; }
 	.mmed-calendar-v2 .mcv2-day-events { margin-top: 1px; }
-	.mmed-calendar-v2 .mcv2-event.is-compact { grid-template-columns: auto minmax(0,1fr) auto; min-height: 17px; height: 17px; padding: 1px 4px; }
+	.mmed-calendar-v2 .mcv2-event.is-compact { grid-template-columns: auto minmax(0,1fr) auto; min-height: 16px; height: 16px; padding: 1px 4px; }
 	.mmed-calendar-v2 .mcv2-event.is-compact .mcv2-event-time { display: block; font-size: 8px; }
 	.mmed-calendar-v2 .mcv2-event.is-compact strong { font-size: 9px; line-height: 1.15; }
 }
