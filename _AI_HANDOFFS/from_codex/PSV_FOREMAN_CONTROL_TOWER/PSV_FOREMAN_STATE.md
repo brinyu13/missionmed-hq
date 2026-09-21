@@ -1,13 +1,13 @@
 # PSV Foreman Control-Tower State
 
-Updated: 2026-09-21T04:56:47Z
+Updated: 2026-09-21T07:57:06Z
 
 ## Product and outcome
 
 - Mission: `PSV-PROTOTYPE-0001`
 - Product: Program-Specific Personal Statement capability inside File Vault
-- Current milestone: M2-M5 engineering and guarded synthetic production acceptance are sealed on exact v0.5.3 with fresh independent PASS and no P0/P1 findings
-- Terminal condition: STOP at the genuine Founder real-student whole-ROOT privacy decision. Keep the live system synthetic-only; keep native File Vault population and accepted RISE hydration inactive until their owner contracts/authority permit those writes
+- Current milestone: the Founder-authorized Silma Raisa real-ROOT canary is sealed on exact v0.5.8; one Deep program has five review-only candidates, durable reload restoration, and fresh independent PASS with no P0/P1 findings.
+- Terminal condition: STOP for Founder review of the five live candidates. Do not approve/save, batch, generate another program/student, broaden real-student AI access, or mutate RISE/File Vault.
 
 ## Repository truth
 
@@ -16,7 +16,7 @@ Updated: 2026-09-21T04:56:47Z
 - Branch: `codex/psv-prototype-foreman`
 - Base HEAD: `0feee579b0a9f2c90529220899f6cf6d21b8cd05`
 - M2 sealed/pushed HEAD: `981f0d16fc091abb4f54132c15c917c640021c34`
-- M2-M5 live source HEAD: `d373847b18e2fce46a52392aa1ed3349c9839906`, pushed and GitHub-readable
+- M2-M5 canary live source HEAD: `c2cff9dd922f3632c59068a980e749100491df33`, pushed to `origin/codex/psv-prototype-foreman`
 - Prior branch: `fable/program-specific-ps-engine-architecture`
 - Upstream at initialization: `origin/main` at the same base HEAD
 - Preserved dirty state: untracked `_AI_HANDOFFS/from_fable/` package only
@@ -25,8 +25,8 @@ Updated: 2026-09-21T04:56:47Z
 
 ## Authority and continuity
 
-- MissionMed OS: `8f53f64d1769fd9653f96707e9ef992dfc936f04`; universal and exact mission dependency validation PASS before final mutation
-- Active decisions: DR-311, DR-312, DR-313, DR-314 and DR-315
+- MissionMed OS: `844ce736d66bf497aa74b00b5267c32394649965`; universal and exact mission dependency validation PASS before canary mutation
+- Active decisions: DR-311, DR-312, DR-313, DR-314, DR-315 and exact canary authority DR-324
 - Brain: `04ca13d4097096203b9f0b8fa68a0937556fd214`, equal to upstream and clean
 - Universal boot: PASS after DR-315
 - `PSV-PROTOTYPE-0001` boot: PASS after DR-315
@@ -36,9 +36,9 @@ Updated: 2026-09-21T04:56:47Z
 
 ## Candidate
 
-- Live plugin: `missionmed-file-vault-ps` version `0.5.3`
-- Live release ZIP SHA-256: `08bf8b0e8ac789fd0dbfca3aa9add3cd29d30b2eda4fcac62964f63b1052322e`
-- Live release manifest SHA-256: `7b29dddd6460bb0325d039174a6cf7f0bbfea8a19c3a1a7422db1a6a9bcdd323`
+- Live plugin: `missionmed-file-vault-ps` version `0.5.8`
+- Live release ZIP SHA-256: `1f9b11b1eeff4994f67f5a5f52985711125fba2acd953a01d2e887d2f6c39342`
+- Live release manifest SHA-256: `90c0ba3668f77e3619dc5daf06fb7c035632b264538376e85b52d31fd9529edc`
 - ZIP/deployed integrity: exact 24/24 files PASS; production PHP lint 21/21 PASS
 - Candidate delta from live M2: additive isolated batch, provider-attempt, research-quarantine, and privacy-fingerprint storage; no existing File Vault or RISE code/table mutation
 - Tracked M2 source: `wp-content/plugins/missionmed-file-vault-ps/`, materialized byte-for-byte from the sealed v0.1.0 package; 21/21 manifest hashes PASS before editing
@@ -71,41 +71,42 @@ Updated: 2026-09-21T04:56:47Z
 - `MMED_PS_PROTO_ALLOW_REAL_ROOT_AI`: UNDEFINED
 - Production testing constants: UNDEFINED
 - Prototype access: `allowlist`; `mmed_ps_proto_allow_admins=0`
-- Prototype rows at final Foreman readback: roots `3` (synthetic `3`, real `0`), runs `25`, library `8`, audit `61`, provider attempts `15`; one complete five-item job, research `0`, similarity fingerprints `8`, buckets `512`
-- Real provider configuration: `openai-responses` / `gpt-5.6-terra`, server-side key present. Credits are restored; nine provider attempts are recorded as `http_200`. Historical bounded failures remain auditable.
-- Independent verdict: PASS for final v0.5.3 exact object and post-batch production state, with no P0/P1 findings. The verifier independently matched origin/package/deployed custody, runtime/privacy/data counts, batch/library/export audits, protected File Vault hashes, RISE health/source rights, public gates, logs and zero conflicting PSV leases. Fresh interactive browser replay was unavailable only because the Foreman owned the shared tabs; the Foreman's authenticated live observations remain recorded.
-- Production mutation by this continuation: guarded exact replacement of only the dedicated plugin directory through v0.5.3, plus isolated synthetic PSV root/run/job/item/library/audit/fingerprint rows. No config, existing File Vault, RISE, Railway or unrelated production mutation occurred
+- Prototype rows at canary readback: roots `4` (the new exact real ROOT is ID `4`), runs `27`, library `8`, audit `66`, provider attempts `16`. The canary added no library document, batch, research artifact, RISE row or File Vault row.
+- Real provider configuration: `openai-responses` / `gpt-5.6-terra`, server-side key present. Credits are restored; the exact canary added one `http_200` provider attempt and no retry. Historical bounded failures remain auditable.
+- Independent verdict: PASS for exact v0.5.8 and the stored canary, with no P0/P1 findings. The verifier independently matched authority, pushed source, archive/manifest/deployed custody, privacy/config gates, one provider-backed run, five unequal replacements/strategies, nine-paragraph reconstruction and protected integrity, verified RISE fact subsets, review-only save/batch guards, unchanged File Vault hashes, public gates, logs and zero conflicting PSV leases. Rendered authenticated UI was intentionally not opened by the verifier to avoid prose exposure; the Foreman's metadata-only live browser replay independently covered that surface.
+- Production mutation by this canary: additive hash-bound canary configuration under DR-324; one isolated real ROOT/prefs/run/audit chain; and guarded exact replacement of only the dedicated plugin directory through v0.5.8. No candidate save, batch, File Vault, RISE, Railway, shared option or unrelated production mutation occurred.
 
 ## Health and accepted capabilities
 
 - Existing File Vault and RISE: preserved after replacement and live use; File Vault rendered 13 students and review queue 26, while live RISE rendered five saved programs and 6,245 canonical identities
 - Package/hash/manifest, rollback surface and production prerequisites: PASS
 - Accepted M1 remains preserved. Live synthetic M2 returned five distinct candidates, accepted a non-default choice, reconstructed and saved the full statement. Live M3 completed and approved a five-program durable batch with one Deep and four Essential items. M4/M5 interfaces, research quarantine and privacy-safe similarity controls are live; no RISE/File Vault owner-bound write was performed.
+- The exact Silma canary presents five Deep candidates in durable review-only state; each reconstructs the complete nine-paragraph statement with Paragraphs 1-7 and 9 unchanged.
 
 ## Provider and privacy state
 
 - Existing Railway OpenAI credentials: isolated to MissionMed HQ and IV Prep; reuse prohibited
 - Authorized credential: one new dedicated project-scoped PSV OpenAI key in Kinsta server-side configuration only
-- Privacy gate: CLOSED
-- Real student PS prose to AI: PROHIBITED
-- Initial provider proof: built-in fictional synthetic ROOT only
+- Broad privacy gate: CLOSED; `MMED_PS_PROTO_ALLOW_REAL_ROOT_AI` remains undefined
+- Exact exception: DR-324 authorizes only WordPress user `1`, Silma's normalized ROOT SHA-256 `8ff9e2bbf5249e75e476068ab0586b466821f6d9ab6165e24e9ed812673a72e0`, Internal Medicine, Paragraph 8 / zero-based index `7`, and one program ID `rise_ps_2cab0660-e696-5600-90a6-883aacd45b91`
+- Provider-backed run: `9b7925e4-f2b3-45d2-90bd-7b0717527a50`, `REAL_ROOT_CANARY`, `DEEP`, five distinct candidates, no blocking validations, no save
 
 ## Rollback target
 
-- Known-good runtime: prototype absent and inactive; existing File Vault and RISE unchanged
+- Immediate preimage: exact v0.5.7 at `/www/theresidencyacademy_209/private/psv-rollbacks/PSV-0.5.8-c2cff9d-20260921T074206Z/live-retired`; existing File Vault and RISE unchanged
 - Ordered rollback: soft off, hard off, native WordPress deactivation, then remove only `wp-content/plugins/missionmed-file-vault-ps/`
 - Prototype tables/data remain preserved unless a separate Founder purge decision exists
 
 ## Human-only boundaries
 
 - The credit gate is cleared; do not create, rotate, paste or replace the correctly scoped server-side key.
-- Production transmission of real-student ROOT prose remains a separate genuine Founder privacy decision and is not authorized by DR-314/DR-315. The code and live runtime remain fail-closed with `MMED_PS_PROTO_ALLOW_REAL_ROOT_AI` undefined.
+- DR-324 authorizes only the exact completed Silma tuple. Any second program, student, ROOT, editable region, batch, approval/save or broad release remains a genuine Founder/privacy decision and fails closed while `MMED_PS_PROTO_ALLOW_REAL_ROOT_AI` is undefined.
 - Writes into existing File Vault or RISE code/data remain deferred unless a proven owner contract or separate owner authority permits the exact integration.
 
 ## Next critical path
 
-1. STOP at the genuine Founder real-student privacy decision.
-2. Do not activate real-student AI, native File Vault population or RISE hydration without their exact additional authority.
+1. STOP for Founder review with the live review tab open.
+2. Do not approve/save, batch, generate another program/student, broaden real-student AI access, or mutate native File Vault/RISE.
 
 ## State delta log
 
@@ -139,3 +140,8 @@ Updated: 2026-09-21T04:56:47Z
 - 2026-09-21T04:42:34Z — Live batch `4794e7db-3535-49af-a488-5313b324b7ee` completed five of five at first attempt with one Deep and four Essential overrides, zero exceptions/failures, and five approved isolated documents. Library total reached eight; individual and bulk export audits persisted.
 - 2026-09-21T04:46:19Z — Final Foreman regression readback passed: active v0.5.3, exact 24/24 source, PHP lint 21/21, synthetic roots 3/3 and real roots 0, public 200/404 gates, File Vault/Rise browser health, current protected File Vault hashes and zero PSV active lease. Fresh independent production verification dispatched.
 - 2026-09-21T04:56:47Z — Fresh independent production verifier returned PASS with no P0/P1 findings after exact origin/package/deployed-chain, runtime/privacy, synthetic-only rows, batch/library/export, File Vault hashes/runtime, RISE health/source rights, public gates, logs and lease-zero checks. Fresh interactive browser replay was unavailable only because the Foreman owned the shared tabs; the verifier stopped retries and recorded this P2 observation. M2-M5 engineering and guarded synthetic production acceptance are sealed. STOP at the Founder real-student privacy decision.
+- 2026-09-21T06:47:00Z — Founder supplied Silma Raisa's finalized Internal Medicine ROOT and explicitly authorized one exact real-student canary. Canonical DR-324 recorded the minimum tuple authority while keeping the broad real-ROOT gate undefined.
+- 2026-09-21T07:26:00Z — Created ROOT ID `4`, bound `REPLACE_PARAGRAPH` index `7`, saved evidence-supported Cardiology/fellowship preferences, selected one Deep-ready verified RISE program, and completed exactly one provider-backed OpenAI run `9b7925e4-f2b3-45d2-90bd-7b0717527a50`. Five strategies were returned; no candidate was approved or saved.
+- 2026-09-21T07:35:00Z — Deployed v0.5.7 to add durable stored-run restoration. Fresh reload exposed an authenticated-user lookup defect; no ROOT/run data was lost, and no second provider call occurred.
+- 2026-09-21T07:43:00Z — Fixed the lookup to use the authenticated request user, pushed commit `c2cff9dd922f3632c59068a980e749100491df33`, and guardedly deployed exact v0.5.8 under released lease epoch `3485`. Reload now shows `Review candidates`; all five candidate selections reconstruct nine paragraphs with one editable and eight protected; save/regenerate remain disabled. Fresh independent verification dispatched.
+- 2026-09-21T07:57:06Z — Fresh independent verifier returned PASS with no P0/P1 findings. Exact authority/source/package/deployed custody, one-run/five-candidate differentiation, protected reconstruction, evidence provenance, privacy/RISE/File Vault boundaries, review-only guards, public gates, logs and lease-zero state all passed. Canary sealed; STOP for Founder review.
