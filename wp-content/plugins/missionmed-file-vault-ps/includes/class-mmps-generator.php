@@ -122,8 +122,12 @@ class MMPS_Generator {
 			return new WP_Error( 'mmps_root_changed', 'The stored ROOT no longer matches its confirmed region. Confirm the region again.', array( 'status' => 409 ) );
 		}
 		$provider = MMPS_Provider::status();
-		if ( ! $root['isSynthetic'] && 'openai-responses' === $provider['provider'] && ! $provider['realRootAllowed'] ) {
-			return new WP_Error( 'mmps_privacy_gate', 'Privacy gate: sending a real student statement to the AI provider is not authorized yet. Use the synthetic test ROOT for the AI step, or record the Founder privacy decision and set MMED_PS_PROTO_ALLOW_REAL_ROOT_AI.', array( 'status' => 403 ) );
+		$authorization_mode = MMPS_Provider::authorization_mode_for( $user_id, $root, $program_specialty_id );
+		if ( ! $root['isSynthetic'] && 'openai-responses' === $provider['provider'] && ! MMPS_Provider::real_root_allowed_for( $user_id, $root, $program_specialty_id ) ) {
+			return new WP_Error( 'mmps_privacy_gate', 'Privacy gate: this real statement, account, paragraph or program is not covered by an active Founder authorization.', array( 'status' => 403 ) );
+		}
+		if ( 'REAL_ROOT_CANARY' === $authorization_mode && 0 < MMPS_Store::count_runs( $user_id, $root['id'], $program_specialty_id ) ) {
+			return new WP_Error( 'mmps_canary_complete', 'This one-program canary already has its candidate set. Open the existing preview for Founder review.', array( 'status' => 409 ) );
 		}
 		$bundle = MMPS_Evidence_Bundle::for_program( $program_specialty_id );
 		if ( is_wp_error( $bundle ) ) {
@@ -195,6 +199,7 @@ class MMPS_Generator {
 		$validation['attempts'] = $attempts;
 		$validation['region']   = self::region_snapshot( $root );
 		$validation['promptVersion'] = self::PROMPT_VERSION;
+		$validation['privacyAuthorization'] = $authorization_mode;
 		$output                 = self::with_selected_candidate( $result['json'], (string) ( $validation['recommendedCandidateId'] ?? '' ) );
 
 		$status = $validation['blocking'] ? 'NEEDS_ATTENTION' : 'OK';
@@ -202,7 +207,7 @@ class MMPS_Generator {
 		if ( ! MMPS_Store::insert_run( $user_id, $run ) ) {
 			return new WP_Error( 'mmps_run_store', 'The generated run could not be stored durably. No batch item was marked ready.', array( 'status' => 500 ) );
 		}
-		MMPS_Store::audit( $user_id, 'generate', $run_uuid, array( 'program' => $program_specialty_id, 'tier' => $plan['tierEffective'], 'status' => $status, 'provider' => $result['provider'], 'bundle' => $bundle['bundleSha256'], 'candidateCount' => count( (array) ( $output['candidates'] ?? array() ) ) ) );
+		MMPS_Store::audit( $user_id, 'generate', $run_uuid, array( 'program' => $program_specialty_id, 'tier' => $plan['tierEffective'], 'status' => $status, 'provider' => $result['provider'], 'bundle' => $bundle['bundleSha256'], 'candidateCount' => count( (array) ( $output['candidates'] ?? array() ) ), 'privacyAuthorization' => $authorization_mode ) );
 		return self::preview( $run, $root, $bundle, $plan, $output );
 	}
 

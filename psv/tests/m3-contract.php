@@ -8,6 +8,7 @@ $files      = array(
 	'batch'   => $plugin . '/includes/class-mmps-batch.php',
 	'install' => $plugin . '/includes/class-mmps-install.php',
 	'gen'     => $plugin . '/includes/class-mmps-generator.php',
+	'provider'=> $plugin . '/includes/class-mmps-provider.php',
 	'rest'    => $plugin . '/includes/class-mmps-rest.php',
 	'store'   => $plugin . '/includes/class-mmps-store.php',
 	'ui'      => $plugin . '/assets/mmps-app.js',

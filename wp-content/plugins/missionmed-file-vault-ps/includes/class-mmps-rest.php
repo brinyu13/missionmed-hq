@@ -330,6 +330,9 @@ class MMPS_Rest {
 		if ( ! $root ) {
 			return new WP_Error( 'mmps_root_not_found', 'That ROOT was not found for your account.', array( 'status' => 404 ) );
 		}
+		if ( MMPS_Provider::is_real_root_canary_root( self::uid(), $root ) ) {
+			return new WP_Error( 'mmps_canary_no_batch', 'The Founder-authorized real-ROOT canary is review-only and cannot be used for batch generation.', array( 'status' => 403 ) );
+		}
 		$result = MMPS_Batch::create( self::uid(), $root, (array) ( $params['programs'] ?? array() ) );
 		return is_wp_error( $result ) ? $result : rest_ensure_response( array( 'job' => $result ) );
 	}
@@ -568,6 +571,10 @@ class MMPS_Rest {
 		if ( ! $run ) {
 			return new WP_Error( 'mmps_run_not_found', 'That generation run was not found.', array( 'status' => 404 ) );
 		}
+		$root = MMPS_Store::get_root( $uid, absint( $run['root_id'] ) );
+		if ( $root && MMPS_Provider::is_real_root_canary_root( $uid, $root ) ) {
+			return new WP_Error( 'mmps_canary_review_only', 'This real-ROOT canary is awaiting Founder review. Approval and save are intentionally disabled.', array( 'status' => 403 ) );
+		}
 		if ( 'OK' !== $run['status'] || empty( $run['output']['replacement_region'] ) ) {
 			return new WP_Error( 'mmps_run_not_savable', 'Only a run that passed every blocking check can be saved.', array( 'status' => 409 ) );
 		}
@@ -593,7 +600,6 @@ class MMPS_Rest {
 			}
 			return rest_ensure_response( array( 'document' => $existing, 'alreadySaved' => true ) );
 		}
-		$root = MMPS_Store::get_root( $uid, absint( $run['root_id'] ) );
 		if ( ! $root || ! MMPS_Region::root_still_matches( $root['paragraphs'], $root['region'] ) ) {
 			return new WP_Error( 'mmps_root_changed', 'The ROOT behind this run is no longer available unchanged.', array( 'status' => 409 ) );
 		}

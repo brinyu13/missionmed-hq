@@ -198,6 +198,21 @@ contract_assert(
 );
 
 contract_assert(
+	has_pattern('/real_root_allowed_for\s*\(/', $provider . $generator)
+		&& has_pattern('/MMED_PS_PROTO_REAL_ROOT_CANARY_ROOT_SHA256/', $provider)
+		&& has_pattern('/MMED_PS_PROTO_REAL_ROOT_CANARY_PROGRAM_ID/', $provider)
+		&& has_pattern('/REAL_ROOT_CANARY/', $provider . $generator),
+	'real-ROOT canary is bound to an exact server-side tuple',
+	'The canary must bind user, ROOT hash, specialty, region and one program without opening the broad gate.'
+);
+
+contract_assert(
+	has_pattern('/mmps_canary_no_batch/', $rest) && has_pattern('/mmps_canary_review_only/', $rest),
+	'real-ROOT canary remains review-only',
+	'Batch creation and library save must fail closed during the first real-student canary.'
+);
+
+contract_assert(
 	has_pattern('/credit_balance_exhausted/', $provider)
 		&& has_pattern('/mmps_provider_credits/', $provider)
 		&& has_pattern('/mmps_provider_rate/', $provider),
