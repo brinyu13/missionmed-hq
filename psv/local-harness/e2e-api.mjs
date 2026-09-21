@@ -53,6 +53,7 @@ const concurrentWorker = (jobUuid, waitMs = 0) => new Promise((resolve) => setTi
 // ---------- 0. baseline fingerprints (blast radius) ----------
 const before = php(`global $wpdb; echo json_encode(array('fv'=>$wpdb->get_var('SELECT COUNT(*) FROM '.MMED_File_Vault::table_name()),'fvsum'=>md5(json_encode($wpdb->get_results('SELECT * FROM '.MMED_File_Vault::table_name()))),'posts'=>$wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->posts}"),'users'=>$wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->users}"),'usermeta'=>$wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->usermeta} WHERE meta_key NOT LIKE 'session_tokens' AND meta_key NOT LIKE '%user-settings%'")));`);
 const B = JSON.parse(before);
+const initialLibraryCount = Number(php(`global $wpdb; echo $wpdb->get_var('SELECT COUNT(*) FROM '.$wpdb->prefix.'mmed_ps_proto_library WHERE user_id=3');`));
 
 // ---------- 1. anonymous ----------
 const anon = new Session();
@@ -266,7 +267,7 @@ ok('save is idempotent per run', r.json.alreadySaved === true && r.json.document
 r = await t.api('POST', '/library', { runId: ess.runId, status: 'DRAFT' });
 ok('second program saved as DRAFT', r.json.document.status === 'DRAFT');
 r = await t.api('GET', '/library');
-ok('library lists both', r.json.documents.length === 2);
+ok('library lists both new documents and preserves prior outputs', r.json.documents.length === initialLibraryCount + 2);
 r = await t.api('POST', `/library/${doc.docUuid}/status`, { status: 'ARCHIVED' });
 ok('status change works', r.json.document.status === 'ARCHIVED');
 const dl = await t.raw(`/wp-json/mmed-ps-proto/v1/library/${doc.docUuid}/download?format=docx&_wpnonce=${t.nonce}`);
@@ -382,7 +383,7 @@ const after = JSON.parse(php(`global $wpdb; echo json_encode(array('fv'=>$wpdb->
 ok('File Vault table untouched (row count + content hash identical)', after.fv === B.fv && after.fvsum === B.fvsum);
 ok('no posts, users or user meta created', after.posts === B.posts && after.users === B.users && after.usermeta === B.usermeta, JSON.stringify([B, after]));
 const tables = php(`global $wpdb; echo json_encode($wpdb->get_col("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%mmed%'"));`);
-ok('only namespaced prototype tables exist besides the stub FV table', JSON.parse(tables).sort().join() === ['wp_mmed_file_vault_stub', 'wp_mmed_ps_proto_audit', 'wp_mmed_ps_proto_job_items', 'wp_mmed_ps_proto_jobs', 'wp_mmed_ps_proto_library', 'wp_mmed_ps_proto_provider_attempts', 'wp_mmed_ps_proto_research_artifacts', 'wp_mmed_ps_proto_roots', 'wp_mmed_ps_proto_runs', 'wp_mmed_ps_proto_similarity_buckets', 'wp_mmed_ps_proto_similarity_fingerprints'].join(), tables);
+ok('only namespaced prototype tables exist besides the stub FV table', JSON.parse(tables).sort().join() === ['wp_mmed_file_vault_stub', 'wp_mmed_ps_proto_audit', 'wp_mmed_ps_proto_edit_revisions', 'wp_mmed_ps_proto_job_items', 'wp_mmed_ps_proto_jobs', 'wp_mmed_ps_proto_library', 'wp_mmed_ps_proto_provider_attempts', 'wp_mmed_ps_proto_research_artifacts', 'wp_mmed_ps_proto_roots', 'wp_mmed_ps_proto_runs', 'wp_mmed_ps_proto_similarity_buckets', 'wp_mmed_ps_proto_similarity_fingerprints'].join(), tables);
 const fingerprintText = php(`global $wpdb; echo json_encode($wpdb->get_results('SELECT * FROM '.$wpdb->prefix.'mmed_ps_proto_similarity_fingerprints'));`);
 ok('M5 fingerprint store contains keyed digests/signatures only, never Personal Statement prose', !/glucometer|Lakeshore|careful clinical reasoning|replacement_region|full_text/i.test(fingerprintText));
 const auditText = php(`global $wpdb; echo json_encode($wpdb->get_col('SELECT detail_json FROM '.$wpdb->prefix.'mmed_ps_proto_audit'));`);

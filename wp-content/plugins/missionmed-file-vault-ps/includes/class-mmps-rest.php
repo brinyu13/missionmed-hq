@@ -45,6 +45,8 @@ class MMPS_Rest {
 			array( '/rise/bundle', 'GET', 'bundle' ),
 			array( '/generate', 'POST', 'generate' ),
 			array( '/runs/(?P<uuid>[a-f0-9-]{36})', 'GET', 'run' ),
+			array( '/runs/(?P<uuid>[a-f0-9-]{36})/edits', 'GET', 'edits' ),
+			array( '/runs/(?P<uuid>[a-f0-9-]{36})/edits', 'POST', 'edit_revision' ),
 			array( '/research-prompt', 'POST', 'research_prompt' ),
 			array( '/research-artifacts', 'POST', 'research_upload' ),
 			array( '/research-artifacts/(?P<uuid>[a-f0-9-]{36})/download', 'GET', 'research_download' ),
@@ -131,7 +133,7 @@ class MMPS_Rest {
 		$user = get_userdata( $uid );
 		return rest_ensure_response(
 			array(
-				'version'   => MMPS_VERSION,
+				'version'   => MMED_PSV_VERSION,
 				'user'      => array( 'id' => $uid, 'name' => $user ? (string) $user->display_name : '' ),
 				'gate'      => array( 'mode' => MMPS_Gate::mode(), 'testing' => MMPS_Gate::testing() ),
 				'provider'  => MMPS_Provider::status(),
@@ -321,6 +323,14 @@ class MMPS_Rest {
 		}
 		$root = MMPS_Store::get_root( self::uid(), absint( $run['root_id'] ) );
 		return $root ? rest_ensure_response( MMPS_Generator::preview_from_stored( $run, $root ) ) : new WP_Error( 'mmps_root_not_found', 'The ROOT behind this run is unavailable.', array( 'status' => 409 ) );
+	}
+
+	public static function edits( $request ) {
+		return rest_ensure_response( MMPS_Edit::read( self::uid(), (string) $request['uuid'] ) );
+	}
+
+	public static function edit_revision( $request ) {
+		return rest_ensure_response( MMPS_Edit::write( self::uid(), (string) $request['uuid'], (array) $request->get_json_params() ) );
 	}
 
 	/* ---------------- M3 durable batch ---------------- */
@@ -570,6 +580,11 @@ class MMPS_Rest {
 	}
 
 	public static function save( $request ) {
+		$params = (array) $request->get_json_params();
+		return MMPS_Store::with_review_lock( self::uid(), (string) ( $params['runId'] ?? '' ), function () use ( $request ) { return self::save_locked( $request ); } );
+	}
+
+	protected static function save_locked( $request ) {
 		$uid    = self::uid();
 		$params = (array) $request->get_json_params();
 		$run    = MMPS_Store::get_run( $uid, (string) ( $params['runId'] ?? '' ) );
@@ -594,8 +609,14 @@ class MMPS_Rest {
 			$candidate    = $run['output']; // Backward-compatible M1 run.
 			$candidate_id = (string) ( $run['strategy_key'] ?? '' );
 		}
-		$existing = MMPS_Store::find_document_by_run( $uid, absint( $run['id'] ) );   // Idempotent only for the same selected candidate.
+		$edit = MMPS_Edit::for_library( $uid, $run, $candidate, (string) ( $params['editRevisionId'] ?? '' ) );
+		if ( is_wp_error( $edit ) ) { return $edit; }
+		$candidate = $edit['candidate'];
+		$existing = MMPS_Store::find_document_by_run( $uid, absint( $run['id'] ) );   // Idempotent only for the same exact candidate revision.
 		if ( $existing ) {
+			if ( (string) ( $existing['metadata']['editRevisionId'] ?? '' ) !== $edit['revisionId'] ) {
+				return new WP_Error( 'mmps_run_saved_different_revision', 'This run already has a saved document for another revision. The approved output has been preserved.', array( 'status' => 409 ) );
+			}
 			if ( empty( $params['candidateId'] ) ) {
 				return rest_ensure_response( array( 'document' => $existing, 'alreadySaved' => true ) );
 			}
@@ -669,6 +690,7 @@ class MMPS_Rest {
 						'regionIndex'       => $root['region']['paragraphIndex'],
 						'normalizationRule' => MMPS_Region::RULE,
 						'candidateId'       => $candidate_id,
+						'editRevisionId'    => $edit['revisionId'],
 						'recommendedCandidateId' => (string) ( $run['output']['recommended_candidate_id'] ?? $run['strategy_key'] ),
 						'candidateCount'    => count( (array) ( $run['output']['candidates'] ?? array( $candidate ) ) ),
 						'strategy'          => (string) ( $candidate['strategy'] ?? $run['strategy_key'] ),
@@ -678,7 +700,7 @@ class MMPS_Rest {
 						'bundleSchema'      => (string) ( $run['bundle']['schema'] ?? '' ),
 						'bundleSha256'      => $run['bundle_sha256'],
 						'registryReleaseId' => (string) ( $run['bundle']['registryReleaseId'] ?? '' ),
-						'factsUsed'         => (array) ( $run['validation']['candidateResults'][ $candidate_id ]['factsUsed'] ?? $run['validation']['factsUsed'] ?? array() ),
+						'factsUsed'         => (array) ( $edit['factsUsed'] ?? $run['validation']['candidateResults'][ $candidate_id ]['factsUsed'] ?? $run['validation']['factsUsed'] ?? array() ),
 						'similarityVersion' => MMPS_Similarity::VERSION,
 						'similarityStatus'  => $similarity['status'],
 						'similarityBand'    => $similarity['band'],

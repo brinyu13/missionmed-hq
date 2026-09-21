@@ -1,6 +1,18 @@
 # PSV Foreman Control-Tower State
 
-Updated: 2026-09-21T07:57:06Z
+Updated: 2026-09-21T09:04:00Z
+
+## Active Founder UX amendment (DR-326)
+
+- Implementing `/Users/brianb/Downloads/PSV-ASTRA-CANDIDATE_REVIEW_UX_MASTERING.md` under latest explicit Founder implementation directive; same Foreman/worktree. STOP after guarded live acceptance, not after design.
+- Canonical OS amendment `DR-326` at `9c178bfd2bd78f25e11bbad61d0e1bfa2e3cb15f`; universal/PSV boot PASS. REGISTRY epochs 3511/3512 released, active count zero. Dirty default OS preserved; disposable authority tree `/tmp/psv-ux-authority-20260921`.
+- Product source base `981148460009404a574180eba4811555c9d3c8bf`; live remains exact v0.5.8/c2cff9d, manifest24/24. No production mutation for this amendment yet.
+- Local implementation: paragraph-local navigation, compact choices, modal comparison/evidence, stable protected nodes, region-only private edit revisions (schema6 new `edit_revisions` table). Changed wording is saved unapproved with no inherited verification; no new provider calls. Canary final approval/library save remains disabled.
+- Local tests: API126/126, candidate-review browser41/41, edit runtime51, transaction/lock13, exact canary10 PASS. Independent source recheck cleared approval/edit concurrency, stale similarity-banner binding and legacy M1 findings. Production verifier pending.
+- Production truth refresh found a new external global collision: `missionmed-purchase-success.php` defines `MMPS_VERSION=2026.09.21`, making the existing active v0.5.8 PSV inert before this release. Its file SHA256 is `621fe8131c8e9f86d63fd2da4b16dfc97f5b44344b101bc247b71a8ee260a7bd`; it remains untouched. PSV-only repair renames its five version references to `MMED_PSV_VERSION`. Exact collision/duplicate-inclusion regression passes; independent rename review PASS. Current byte-exact v0.5.8 preimage is a safe inert rollback, not a functional fallback while that sibling constant exists.
+- Fresh sibling delta: live File Vault controller `e60b2695e7bed4e04497d0122c7dc3a5b45daca2f415f5fbac55dabc9f7bb424`, repository `a97842553c9c1d997d80903cb367b9ffba5c80a9967b6b3a5a43c5143c0f4896`, scanner `6b5cf0ebc99227e14f63a2d034c03f5beac591451314b8d55d15c57428f78a5a` match newer owner release `9ba360b` in `j1-filevault-1021-ivoc-cv-projection`; JS/CSS unchanged from sealed canary. Preserve these as fresh sentinels, never restore older sibling bytes.
+- Runtime: dedicated key boolean present, broad real-ROOT/testing flags undefined, brinyu1, allowlist mode/admins0, FV loaded, PHP8.2.29. Original exact Silma run remains review-only and unchanged.
+- Next critical path: package v0.5.9, guarded exact-plugin promotion, live five-choice/protected-root/regression proof, independent release verdict; STOP with Founder review page open. No production mutation for this UX amendment yet.
 
 ## Product and outcome
 

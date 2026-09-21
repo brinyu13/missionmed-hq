@@ -25,7 +25,7 @@ class MMPS_Page {
 
 	protected static function asset( $file ) {
 		$path = MMPS_PATH . 'assets/' . $file;
-		return MMPS_URL . 'assets/' . $file . '?v=' . ( file_exists( $path ) ? substr( md5_file( $path ), 0, 12 ) : MMPS_VERSION );
+		return MMPS_URL . 'assets/' . $file . '?v=' . ( file_exists( $path ) ? substr( md5_file( $path ), 0, 12 ) : MMED_PSV_VERSION );
 	}
 
 	protected static function back_url() {
@@ -65,7 +65,7 @@ class MMPS_Page {
 			'nonce'    => wp_create_nonce( 'wp_rest' ),
 			'backUrl'  => self::back_url(),
 			'riseUrl'  => home_url( '/rise/' ),
-			'version'  => MMPS_VERSION,
+			'version'  => MMED_PSV_VERSION,
 		);
 
 		$asset_origin = wp_parse_url( MMPS_URL, PHP_URL_SCHEME ) . '://' . wp_parse_url( MMPS_URL, PHP_URL_HOST ) . ( wp_parse_url( MMPS_URL, PHP_URL_PORT ) ? ':' . wp_parse_url( MMPS_URL, PHP_URL_PORT ) : '' );

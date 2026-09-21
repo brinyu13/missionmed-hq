@@ -9,7 +9,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class MMPS_Install {
 
-	const DB_VERSION        = '5';
+	const DB_VERSION        = '6';
 	const OPTION_DB_VERSION = 'mmed_ps_proto_db_version';
 
 	public static function table( $name ) {
@@ -267,8 +267,27 @@ class MMPS_Install {
 			KEY user_id (user_id)
 		) $c;" );
 
-		// Record the version only when all ten tables really exist, so a failed install is retried, not hidden.
-		foreach ( array( 'roots', 'runs', 'library', 'audit', 'jobs', 'job_items', 'provider_attempts', 'research_artifacts', 'similarity_fingerprints', 'similarity_buckets' ) as $name ) {
+		// Immutable, private edit chain: a parent can have exactly one successor.
+		dbDelta( 'CREATE TABLE ' . self::table( 'edit_revisions' ) . " (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			revision_uuid char(36) NOT NULL,
+			user_id bigint(20) unsigned NOT NULL,
+			run_uuid char(36) NOT NULL,
+			candidate_id varchar(40) NOT NULL,
+			parent_uuid char(36) NOT NULL DEFAULT '',
+			request_uuid char(36) NOT NULL,
+			request_sha256 char(64) NOT NULL,
+			revision_json longtext NOT NULL,
+			created_at datetime NOT NULL,
+			PRIMARY KEY  (id),
+			UNIQUE KEY revision_uuid (revision_uuid),
+			UNIQUE KEY edit_parent (user_id,run_uuid,candidate_id,parent_uuid),
+			UNIQUE KEY edit_request (user_id,request_uuid),
+			KEY edit_head (user_id,run_uuid,candidate_id,id)
+		) $c;" );
+
+		// A failed additive install remains retryable.
+		foreach ( array( 'roots', 'runs', 'library', 'audit', 'jobs', 'job_items', 'provider_attempts', 'research_artifacts', 'similarity_fingerprints', 'similarity_buckets', 'edit_revisions' ) as $name ) {
 			$table = self::table( $name );
 			if ( $table !== $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) ) ) {
 				return;
@@ -282,7 +301,9 @@ class MMPS_Install {
 		$research_probe = $wpdb->get_results( 'SELECT validation_json,artifact_markdown FROM ' . self::table( 'research_artifacts' ) . ' LIMIT 0' );
 		$similarity_probe = $wpdb->get_results( 'SELECT exact_hmac,signature_json FROM ' . self::table( 'similarity_fingerprints' ) . ' LIMIT 0' );
 		$bucket_probe = $wpdb->get_results( 'SELECT bucket_index,bucket_hash FROM ' . self::table( 'similarity_buckets' ) . ' LIMIT 0' );
+		$edit_probe = $wpdb->get_results( 'SELECT revision_uuid,parent_uuid,request_sha256,revision_json FROM ' . self::table( 'edit_revisions' ) . ' LIMIT 0' );
 		$wpdb->suppress_errors( $previous );
+		if ( false === $edit_probe || ! self::has_unique_index( self::table( 'edit_revisions' ), 'edit_parent' ) || ! self::has_unique_index( self::table( 'edit_revisions' ), 'edit_request' ) || ! self::has_unique_index( self::table( 'edit_revisions' ), 'revision_uuid' ) ) { return; }
 		if ( false === $run_probe || false === $job_probe || false === $research_probe || false === $similarity_probe || false === $bucket_probe || ! self::has_unique_index( self::table( 'runs' ), 'idempotency_key' ) || ! self::has_unique_index( self::table( 'provider_attempts' ), 'user_day_slot' ) || ! self::has_unique_index( self::table( 'similarity_fingerprints' ), 'doc_uuid' ) || ! self::has_unique_index( self::table( 'similarity_buckets' ), 'doc_bucket' ) ) {
 			return;
 		}

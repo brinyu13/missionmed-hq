@@ -34,7 +34,7 @@ define( 'MMED_PS_PROTO_OPENAI_API_KEY', '<set on the server only>' );
 Do **not** define `MMED_PS_PROTO_ALLOW_REAL_ROOT_AI` until the Founder has recorded the privacy decision (PSV-0002 decision 2). Without it, real statement text is never sent to the AI provider; the synthetic ROOT is used for the AI step.
 Never define `MMED_PS_PROTO_TESTING`, `MMED_PS_PROTO_TEST_RISE_ORIGIN` or `MMED_PS_PROTO_TEST_OPENAI_BASE` on production; they exist for the local harness only.
 
-5. Activate, or load the already-active upgraded plugin. `dbDelta` creates/upgrades ten isolated tables (`{prefix}mmed_ps_proto_roots|runs|library|audit|jobs|job_items|provider_attempts|research_artifacts|similarity_fingerprints|similarity_buckets`) and four namespaced options (`mmed_ps_proto_mode`, `mmed_ps_proto_allow_admins`, `mmed_ps_proto_allow_users`, `mmed_ps_proto_db_version = 5`). The installer records version 5 only after probing required columns and unique indexes. Nothing outside the PSV namespace is written.
+5. Activate, or load the already-active upgraded plugin. `dbDelta` creates/upgrades eleven isolated tables (`{prefix}mmed_ps_proto_roots|runs|library|audit|jobs|job_items|provider_attempts|research_artifacts|similarity_fingerprints|similarity_buckets|edit_revisions`) and four namespaced options (`mmed_ps_proto_mode`, `mmed_ps_proto_allow_admins`, `mmed_ps_proto_allow_users`, `mmed_ps_proto_db_version = 6`). The installer records version 6 only after probing required columns and unique indexes. Nothing outside the PSV namespace is written. Version 0.5.9 adds immutable private paragraph revision chains; all seven participating review/approval tables must be InnoDB on MySQL or edits and library saves fail closed. Edit-head selection and library insertion share an owner-scoped run/ROOT transaction lock. Changed wording is privately saved but cannot inherit original grounding or approval. Final canary library save remains disabled. No AI call is made by navigation or editing.
 6. To restrict the prototype to the listed user ids only (no other administrators): `wp option update mmed_ps_proto_allow_admins 0`.
 
 ## 3. Verify on production (5 minutes)
@@ -59,9 +59,11 @@ Never define `MMED_PS_PROTO_TESTING`, `MMED_PS_PROTO_TEST_RISE_ORIGIN` or `MMED_
 | 2. Hard off | add `define( 'MMED_PS_PROTO_DISABLE', true );` to `wp-config.php` | nothing of the prototype loads beyond two small class files | kept |
 | 3. Deactivate | `wp plugin deactivate missionmed-file-vault-ps` | plugin not loaded at all | kept |
 | 4. Remove | deactivate first (level 3), then delete the directory `wp-content/plugins/missionmed-file-vault-ps/` | code gone | kept |
-| 5. Purge (Founder decision only) | drop only `{prefix}mmed_ps_proto_{similarity_buckets,similarity_fingerprints,research_artifacts,provider_attempts,job_items,jobs,audit,library,runs,roots}`, then delete only the documented `mmed_ps_proto_*` options | saved statements, jobs, research quarantine, attempt accounting and privacy fingerprints are destroyed | destroyed |
+| 5. Purge (Founder decision only) | drop only `{prefix}mmed_ps_proto_{edit_revisions,similarity_buckets,similarity_fingerprints,research_artifacts,provider_attempts,job_items,jobs,audit,library,runs,roots}`, then delete only the documented `mmed_ps_proto_*` options | private revisions, saved statements, jobs, research quarantine, attempt accounting and privacy fingerprints are destroyed | destroyed |
 
 Re-enable after 1 to 3 by reversing the step; the saved library returns intact.
+
+September 21 v0.5.9 compatibility note: the currently deployed purchase-confirmation MU plugin defines `MMPS_VERSION`. PSV now uses its own `MMED_PSV_VERSION`; the purchase plugin is unchanged. The byte-exact v0.5.8 preimage is safe but inert in that environment, so restoring it is containment, not functional capability restoration. Do not alter the purchase plugin as part of a PSV rollback.
 
 The plugin has no uninstall hook on purpose: removing it never drops the saved statements by accident.
 

@@ -8,6 +8,53 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 class MMPS_Store {
+	private static $review_transaction = false;
+
+	/** Serialize edit heads and library approval, including an original with no edit head.
+	 * Run-wide locking is deliberately stronger than candidate-wide. The ROOT row is
+	 * also locked so region/preferences cannot change while exact validation runs.
+	 */
+	public static function with_review_lock( $uid, $run_uuid, $callback ) {
+		global $wpdb;
+		$failure = new WP_Error( 'mmps_review_lock', 'The review could not be saved atomically. Keep your draft and retry.', array( 'status' => 409 ) );
+		if ( self::$review_transaction ) { return $failure; }
+		$previous = $wpdb->suppress_errors( true );
+		$started = false;
+		try {
+			$sqlite = isset( $wpdb->is_mysql ) && ! $wpdb->is_mysql;
+			if ( ! $sqlite ) {
+				// Transactional guarantees must not silently degrade on a MyISAM host.
+				$tables = array_map( array( 'MMPS_Install', 'table' ), array( 'runs', 'roots', 'edit_revisions', 'library', 'similarity_fingerprints', 'similarity_buckets', 'audit' ) );
+				$marks = implode( ',', array_fill( 0, count( $tables ), '%s' ) );
+				$count = $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND ENGINE=\'InnoDB\' AND TABLE_NAME IN (' . $marks . ')', $tables ) );
+				if ( (int) $count !== count( $tables ) ) { return $failure; }
+			}
+			if ( false === $wpdb->query( 'START TRANSACTION' ) ) { return $failure; }
+			$started = true;
+			if ( $sqlite && false === $wpdb->query( $wpdb->prepare( 'UPDATE ' . MMPS_Install::table( 'runs' ) . ' SET run_uuid=run_uuid WHERE user_id=%d AND run_uuid=%s', $uid, $run_uuid ) ) ) { return $failure; }
+			$row = $wpdb->get_row( $wpdb->prepare( 'SELECT id,root_id FROM ' . MMPS_Install::table( 'runs' ) . ' WHERE user_id=%d AND run_uuid=%s' . ( $sqlite ? '' : ' FOR UPDATE' ), $uid, $run_uuid ), ARRAY_A );
+			if ( ! $row ) { return new WP_Error( 'mmps_run_not_found', 'That generation run was not found.', array( 'status' => 404 ) ); }
+			if ( $sqlite ) {
+				$locked_root = $wpdb->query( $wpdb->prepare( 'UPDATE ' . MMPS_Install::table( 'roots' ) . ' SET id=id WHERE user_id=%d AND id=%d', $uid, $row['root_id'] ) );
+				if ( false === $locked_root ) { return $failure; }
+			} else {
+				$locked_root = $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . MMPS_Install::table( 'roots' ) . ' WHERE user_id=%d AND id=%d FOR UPDATE', $uid, $row['root_id'] ) );
+				if ( null === $locked_root ) { return $failure; }
+			}
+			self::$review_transaction = true;
+			$result = $callback();
+			if ( is_wp_error( $result ) ) { return $result; }
+			if ( false === $wpdb->query( 'COMMIT' ) ) { return $failure; }
+			$started = false;
+			return $result;
+		} catch ( \Throwable $error ) {
+			return $failure; // Never log an exception/query carrying private prose.
+		} finally {
+			if ( $started ) { $wpdb->query( 'ROLLBACK' ); }
+			self::$review_transaction = false;
+			$wpdb->suppress_errors( $previous );
+		}
+	}
 
 	public static function now() {
 		return gmdate( 'Y-m-d H:i:s' );
@@ -33,6 +80,24 @@ class MMPS_Store {
 		$result   = $callback( $wpdb );
 		$wpdb->suppress_errors( $previous );
 		return $result;
+	}
+
+	/* ---------- private immutable paragraph edit chains ---------- */
+	public static function edit_head( $uid, $run_uuid, $candidate_id ) {
+		global $wpdb;
+		$row = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . MMPS_Install::table( 'edit_revisions' ) . ' WHERE user_id=%d AND run_uuid=%s AND candidate_id=%s ORDER BY id DESC LIMIT 1', $uid, $run_uuid, $candidate_id ), ARRAY_A );
+		return $row ? self::decode( $row['revision_json'] ) : null;
+	}
+
+	public static function edit_request( $uid, $request_uuid ) {
+		global $wpdb;
+		$row = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . MMPS_Install::table( 'edit_revisions' ) . ' WHERE user_id=%d AND request_uuid=%s', $uid, $request_uuid ), ARRAY_A );
+		return $row ? array( 'hash' => $row['request_sha256'], 'revision' => self::decode( $row['revision_json'] ) ) : null;
+	}
+
+	public static function insert_edit( $uid, $run_uuid, $request_uuid, $request_hash, $revision ) {
+		$row = array( 'user_id' => absint( $uid ), 'run_uuid' => $run_uuid, 'candidate_id' => $revision['candidateId'], 'revision_uuid' => $revision['id'], 'parent_uuid' => $revision['baseRevisionId'], 'request_uuid' => $request_uuid, 'request_sha256' => $request_hash, 'revision_json' => wp_json_encode( $revision ), 'created_at' => self::now() );
+		return self::quiet( function ( $db ) use ( $row ) { return (bool) $db->insert( MMPS_Install::table( 'edit_revisions' ), $row ); } );
 	}
 
 	/* ---------- roots ---------- */
@@ -253,15 +318,16 @@ class MMPS_Store {
 		$doc['user_id']    = absint( $user_id );
 		$doc['created_at'] = self::now();
 		$doc['updated_at'] = self::now();
-		$wpdb->query( 'START TRANSACTION' );
+		$standalone = ! self::$review_transaction;
+		if ( $standalone && false === $wpdb->query( 'START TRANSACTION' ) ) { return 0; }
 		$id = self::quiet( function ( $db ) use ( $doc ) {
 			return $db->insert( MMPS_Install::table( 'library' ), $doc ) ? absint( $db->insert_id ) : 0;
 		} );
 		if ( ! $id || ( is_array( $fingerprint ) && ! MMPS_Similarity::store( $user_id, $doc['doc_uuid'], $fingerprint ) ) ) {
-			$wpdb->query( 'ROLLBACK' );
+			if ( $standalone ) { $wpdb->query( 'ROLLBACK' ); }
 			return 0;
 		}
-		if ( false === $wpdb->query( 'COMMIT' ) ) {
+		if ( $standalone && false === $wpdb->query( 'COMMIT' ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			return 0;
 		}

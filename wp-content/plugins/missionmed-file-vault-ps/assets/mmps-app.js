@@ -106,7 +106,12 @@
 		if (key === 'preview') { return Object.keys(S.runs).length > 0; }
 		return false;
 	}
-	function go(view) { S.view = view; render(); window.scrollTo(0, 0); if (view === 'programs' && S.list.status === 'idle') { loadMyPrograms(0); } if (view === 'root' && !S.candidates) { loadCandidates(); } if (view === 'batch' && !S.batch.index) { loadBatchIndex(); } }
+	function go(view) {
+		var mounted=app.querySelector('[data-review-run]');
+		if (mounted && review.runs[mounted.getAttribute('data-review-run')]) { review.runs[mounted.getAttribute('data-review-run')].scroll=window.scrollY; }
+		S.view = view; render(); window.scrollTo(0,view==='preview' && S.runs[S.current] ? reviewState(S.runs[S.current]).scroll : 0);
+		if (view === 'programs' && S.list.status === 'idle') { loadMyPrograms(0); } if (view === 'root' && !S.candidates) { loadCandidates(); } if (view === 'batch' && !S.batch.index) { loadBatchIndex(); }
+	}
 
 	/* ---------- data actions ---------- */
 	function boot() {
@@ -196,8 +201,10 @@
 		}).catch(function (e) { busy('gen:' + id, false); fail(e); throw e; });
 	}
 	function selectCandidate(run, candidateId) {
+		if (!run) { return; }
 		var chosen = (run.candidates || []).filter(function (candidate) { return candidate.candidateId === candidateId; })[0];
-		if (!chosen || !chosen.canApprove) { toast('That alternative did not pass every server-side check.', 'err'); return; }
+		if (!chosen) { return; }
+		rememberEditor(run);
 		run.selectedCandidateId = chosen.candidateId;
 		run.strategy = chosen.strategy;
 		run.replacement = chosen.replacement;
@@ -208,7 +215,7 @@
 		run.rootIntegrity = chosen.rootIntegrity;
 		run.canApprove = chosen.canApprove;
 		delete run.similarityReview;
-		render();
+		patchPreview(true);
 	}
 	function generateAll() {
 		var queue = S.selected.filter(function (id) { return !S.runs[id]; });
@@ -220,14 +227,22 @@
 	}
 	function save(status, acknowledgeSimilarity) {
 		var run = S.runs[S.current];
+		var chosen = selectedOption(run), effective = effectiveOption(run, chosen), rs = reviewState(run);
+		if (effective.overlay.dirty || effective.overlay.saving || !effective.canApprove || !rs.capabilities || !rs.capabilities.canApprove) { return; }
+		var revisionId = effective.head ? effective.head.id : '', selectionKey = chosen.candidateId + '|' + revisionId;
+		if (acknowledgeSimilarity && (!run.similarityReview || run.similarityReview.selectionKey !== selectionKey)) { return; }
 		busy('save', true);
-		api('POST', '/library', { runId: run.runId, candidateId: run.selectedCandidateId || run.recommendedCandidateId || run.strategy, status: status, acknowledgeSimilarity: !!acknowledgeSimilarity }).then(function (data) {
+		api('POST', '/library', { runId: run.runId, candidateId: chosen.candidateId, editRevisionId: effective.head ? effective.head.id : '', status: status, acknowledgeSimilarity: !!acknowledgeSimilarity }).then(function (data) {
 			run.saved = data.document; delete run.similarityReview; busy('save', false);
 			toast(data.alreadySaved ? 'This run is already in your prototype library.' : 'Saved to your prototype library as ' + data.document.status + '.', 'ok');
 			refreshBoot();
 		}).catch(function (e) {
 			busy('save', false);
-			if (e.code === 'mmps_similarity_review') { run.similarityReview = { band: (e.data && e.data.similarity) || 'MODERATE', status: status, message: e.message }; render(); return; }
+			if (e.code === 'mmps_similarity_review') {
+				var now=selectedOption(run), current=effectiveOption(run,now);
+				if (S.runs[S.current] !== run || now.candidateId !== chosen.candidateId || (current.head ? current.head.id : '') !== revisionId || current.overlay.dirty) { return; }
+				run.similarityReview = { band: (e.data && e.data.similarity) || 'MODERATE', status: status, message: e.message, selectionKey: selectionKey }; render(); return;
+			}
 			fail(e);
 		});
 	}
@@ -493,50 +508,223 @@
 		var pr = f.provenance || {}, urls = (pr.sourceUrls && pr.sourceUrls.length ? pr.sourceUrls : (pr.sourceUrl ? [pr.sourceUrl] : []));
 		var src = urls.slice(0, 2).map(function (u) { return '<a href="' + esc(u) + '" target="_blank" rel="noopener noreferrer">' + esc(u.replace(/^https:\/\//, '').slice(0, 60)) + '</a>'; }).join(' · ');
 		var origin = pr.origin === 'RISE_REGISTRY' ? 'RISE registry' + (pr.authority ? ' · ' + pr.authority : '') : 'RISE research' + (pr.provider ? ' · ' + pr.provider : '');
-		return '<div class="fact' + (f.used ? ' used' : '') + '"><div class="factTop"><span class="factLabel">' + esc(f.label) + '</span>' + (f.used ? '<span class="tag gold">Used</span>' : '<span class="tag">Available</span>') + '</div><div class="factText">' + esc(typeof f.value === 'string' && f.value ? f.value : f.text) + '</div><div class="factSrc">' + esc(origin) + ' · ' + esc(ageLabel(pr.ageDays)) + (src ? ' · ' + src : '') + '<br><span class="mono">' + esc(f.factId) + (pr.claimId ? ' · claim ' + esc(pr.claimId) : '') + '</span></div></div>';
+		return '<div tabindex="-1" data-fact-id="' + esc(f.factId) + '" class="fact' + (f.used ? ' used' : '') + '"><div class="factTop"><span class="factLabel">' + esc(f.label) + '</span>' + (f.used ? '<span class="tag gold">Used</span>' : '<span class="tag">Available</span>') + '</div><div class="factText">' + esc(typeof f.value === 'string' && f.value ? f.value : f.text) + '</div><div class="factSrc">' + esc(origin) + ' · ' + esc(ageLabel(pr.ageDays)) + (src ? ' · ' + src : '') + '<br><span class="mono">' + esc(f.factId) + (pr.claimId ? ' · claim ' + esc(pr.claimId) : '') + '</span></div></div>';
 	}
 	function regionMarkup(run) {
 		var joined = (run.segments || []).map(function (s) { return s.text; }).join(' ').replace(/\s+/g, ' ').trim();
 		if (!run.segments || !run.segments.length || joined !== run.replacement.replace(/\s+/g, ' ').trim()) { return esc(run.replacement); }
 		var labels = {}; (run.facts || []).forEach(function (f) { labels[f.factId] = f.label; });
 		return run.segments.map(function (s) {
-			if (s.kind === 'program_fact') { return '<span class="seg-fact" title="Verified: ' + esc((s.fact_ids || []).map(function (id) { return labels[id] || id; }).join(', ')) + '">' + esc(s.text) + '</span>'; }
+			if (s.kind === 'program_fact') { return '<button class="seg-fact" data-act="evidence-fact" data-facts="' + esc((s.fact_ids || []).join(',')) + '" aria-label="' + esc(s.text) + ' — inspect verified evidence">' + esc(s.text) + '</button>'; }
 			if (s.kind === 'student_link') { return '<span class="seg-link" title="From your own statement or preferences">' + esc(s.text) + '</span>'; }
 			return esc(s.text);
 		}).join(' ');
 	}
+	/* Review adapter: AI candidates stay immutable; selection and draft overlays are local. */
+	var review = { runs: {}, dialogReturn: null, dialogScroll: 0, pendingLeave: null };
+	function reviewState(run) {
+		if (!review.runs[run.runId]) { review.runs[run.runId] = { overlays: {}, heads: {}, capabilities: null, loading: false, loaded: false, scroll: 0 }; }
+		return review.runs[run.runId];
+	}
+	function adaptLegacyReview(run) {
+		if (run && run.status === 'OK' && (!run.candidates || !run.candidates.length)) {
+			var c=Object.assign({},run); c.candidateId=run.selectedCandidateId || run.strategy; c.isRecommended=true; c.rhetoricalFocus='Original saved generation approach'; delete c.candidates;
+			run.candidates=[c]; run.selectedCandidateId=c.candidateId; run.legacySingleOption=true;
+		}
+	}
+	function selectedOption(run) { return (run.candidates || []).filter(function (c) { return c.candidateId === run.selectedCandidateId; })[0] || (run.candidates || [])[0] || run; }
+	function editOverlay(run, c) {
+		var rs = reviewState(run), h = rs.heads[c.candidateId];
+		if (!rs.overlays[c.candidateId]) { rs.overlays[c.candidateId] = { text: h && h.action !== 'RESTORE' ? h.text : c.replacement, editing: false, dirty: false, caret: 0, error: '', saving: false }; }
+		return rs.overlays[c.candidateId];
+	}
+	function effectiveOption(run, c) {
+		var rs = reviewState(run), o = editOverlay(run, c), h = rs.heads[c.candidateId], changed = o.text !== c.replacement;
+		return { overlay: o, head: h, changed: changed, text: o.text, canApprove: !o.dirty && !o.saving && (h ? !!(h.validation && h.validation.canApprove) : !!c.canApprove), validation: h && !o.dirty ? h.validation : null };
+	}
+	function reviewLabel(run, c) {
+		var e = effectiveOption(run, c);
+		return (run.candidates.indexOf(c) + 1) + ' of ' + run.candidates.length + ' · ' + (STRATEGY[c.strategy] || c.strategy);
+	}
+	function editStatus(run, c) {
+		var e = effectiveOption(run, c);
+		return e.overlay.saving ? 'Saving edits…' : e.overlay.dirty ? 'Unsaved edits · Your edits need checking' : e.changed ? 'Your edits · Saved privately · Needs grounding review' : c.isRecommended ? 'Recommended' : c.canApprove ? 'Alternative' : 'Needs review';
+	}
+	function canaryReview(run) { return !!(S.root && !S.root.isSynthetic && S.boot.provider.realRootCanaryConfigured); }
+	function rememberEditor(run) {
+		var el = app.querySelector('[data-review-editor]');
+		if (el && run) { var o = editOverlay(run, selectedOption(run)); o.text = el.value; o.caret = el.selectionStart; o.caretEnd = el.selectionEnd; }
+	}
+	function loadReviewEdits(run) {
+		var rs = reviewState(run);
+		if (rs.loaded || rs.loading) { return; }
+		rs.loading = true;
+		api('GET', '/runs/' + run.runId + '/edits').then(function (d) {
+			rs.heads = d.heads || {}; rs.capabilities = d.capabilities || {}; rs.loaded = true; rs.loading = false;
+			// No editing is enabled before this read completes, so acknowledged state cannot overwrite a draft.
+			rs.overlays = {}; if (S.runs[S.current] === run && S.view === 'preview') { patchPreview(false); }
+		}).catch(function () { rs.loading = false; rs.loaded = true; rs.capabilities = {}; if (S.runs[S.current] === run) { patchPreview(false); } });
+	}
+	function saveReviewEdit(run, c, restore) {
+		var rs = reviewState(run), o = editOverlay(run, c), h = rs.heads[c.candidateId];
+		if (!rs.capabilities || !rs.capabilities.canEdit || o.saving) { return Promise.reject(new Error('Editing is unavailable in this review.')); }
+		if (selectedOption(run).candidateId === c.candidateId) { rememberEditor(run); }
+		var sent = restore ? c.replacement : o.text;
+		var body = { candidateId: c.candidateId, text: sent, action: restore ? 'RESTORE' : 'SAVE', baseRevisionId: h ? h.id : '', requestId: o.retry && o.retry.text === sent && o.retry.action === (restore ? 'RESTORE' : 'SAVE') ? o.retry.id : crypto.randomUUID() };
+		o.retry = { text: sent, action: body.action, id: body.requestId }; o.saving = true; o.error = '';
+		patchPreview(false);
+		return api('POST', '/runs/' + run.runId + '/edits', body).then(function (data) {
+			if (!data.revision || data.revision.candidateId !== c.candidateId) { throw new Error('Revision acknowledgement did not match this option.'); }
+			rs.heads[c.candidateId] = data.revision; o.saving = false; o.retry = null;
+			// A delayed response cannot replace newer typing or another candidate's draft.
+			if (o.text === sent || restore) { o.text = restore ? c.replacement : data.revision.text; o.dirty = false; o.editing = false; }
+			if (S.runs[S.current] === run && S.view === 'preview') { patchPreview(false); }
+			return data;
+		}).catch(function (err) {
+			o.saving = false; o.error = 'Couldn’t save edits. Your changes are still here.' + (err.status === 409 ? ' This revision changed elsewhere; reload after preserving your draft.' : '');
+			if (S.runs[S.current] === run && S.view === 'preview') { patchPreview(false); }
+			throw err;
+		});
+	}
+	function reviewControls(run) {
+		var c = selectedOption(run), rs = reviewState(run), e = effectiveOption(run, c), allowed = e.canApprove && !run.saved && !S.busy.save && !canaryReview(run) && rs.loaded && !!rs.capabilities.canApprove;
+		return '<div class="row"><button class="btn sm" data-act="compare-all">Compare all</button><button class="btn sm" data-act="edit-paragraph"' + (rs.capabilities && rs.capabilities.canEdit && !e.overlay.saving ? '' : ' disabled') + '>Edit this paragraph</button><button class="btn sm ghost" data-act="evidence">Evidence & checks</button></div>' +
+			'<p class="small mid mtS">' + (e.changed ? 'Edited text has no inherited verification. Approval requires exact-revision grounding checks.' : '<span class="seg-fact">Gold</span> = verified program fact · <span class="seg-link">dotted</span> = applicant context') + '</p>' +
+			(rs.loaded && !rs.capabilities.canEdit ? '<p class="small mid">Editing is unavailable in this review.</p>' : '') +
+			'<div class="row mtS"><button class="btn sm" data-act="save" data-status="DRAFT"' + (allowed ? '' : ' disabled') + '>Save draft</button><button class="btn sm primary" data-act="save" data-status="APPROVED"' + (allowed ? '' : ' disabled') + '>Approve and save</button>' +
+			(e.head || e.changed ? '<button class="btn sm ghost" data-act="restore-ai"' + (e.overlay.saving ? ' disabled' : '') + '>Restore AI version</button>' : '') + '</div>' +
+			(canaryReview(run) ? '<p class="small mid mtS">Founder review only · Final approval and library saving are disabled.</p>' : '') +
+			(run.saved ? '<div class="savedState" role="status"><span class="tag ok">Saved · ' + esc(run.saved.status) + '</span><span class="small">This complete statement is in your prototype library.</span></div>' : '') +
+			(run.similarityReview ? '<div class="notice gold mtS"><strong>Private similarity review</strong><p>' + esc(run.similarityReview.message) + ' No other student text or identity is available here.</p><button class="btn sm" data-act="save" data-status="' + esc(run.similarityReview.status) + '" data-ack="1"' + (allowed ? '' : ' disabled') + '>I reviewed it — keep this version</button></div>' : '');
+	}
+	function reviewEvidence(run) {
+		var c = selectedOption(run), e = effectiveOption(run, c), v = e.validation || c.validation || run.validation || {}, facts = (c.facts || []).slice().sort(function (a,b) { return Number(b.used) - Number(a.used); });
+		var flags = (v.blocking || v.flags || []).concat(v.advisory || []).map(function (f) { return '<div class="flag block"><strong>' + esc(f.code || '') + '</strong><span>' + esc(f.message || f) + '</span></div>'; }).join('');
+		return '<p class="small">' + (c.rootIntegrity && c.rootIntegrity.ok ? 'Other paragraphs unchanged' : 'Protected ROOT check failed') + '</p>' + (e.changed || e.overlay.dirty ? '<div class="flag block">Your edits need grounding review. These facts describe the original AI option, not the changed text.</div>' : flags || '<div class="flag good">Original candidate passed its server checks.</div>') +
+			'<div class="mtS">' + facts.map(factCard).join('') + '</div><p class="tiny dim mtS">Evidence bundle ' + esc(run.bundleSha256 || '') + ' · ' + esc(S.boot.contract.schema) + '</p>';
+	}
 	function viewPreview() {
 		var ids = S.selected.filter(function (id) { return S.runs[id]; });
 		if (!S.current || !S.runs[S.current]) { S.current = ids[0] || ''; }
-		var run = S.runs[S.current], canaryReviewOnly = !!(S.root && !S.root.isSynthetic && S.boot.provider.realRootCanaryConfigured), html = head('Step 6', 'Preview the <em>complete</em> statement', '');
+		var run = S.runs[S.current], html = head('Step 6', 'Preview the <em>complete</em> statement', '');
 		if (!run) { return html + '<div class="notice mt">Generate at least one program first.</div>'; }
-		if (canaryReviewOnly) { html += '<div class="notice gold mt"><strong>Founder review only.</strong> Compare all five candidates and their complete-statement previews. Approval, save, batch and export remain disabled for this canary.</div>'; }
+		adaptLegacyReview(run);
 		html += '<div class="chips mtS">' + ids.map(function (id) { return '<button class="chip' + (id === S.current ? ' on' : '') + '" data-act="open-run" data-id="' + esc(id) + '">' + esc(programLabel(S.runs[id].program)) + '</button>'; }).join('') + '</div>';
 		if (run.status === 'RESEARCH_NEEDED') { return html + researchNeeded(run); }
-		if (run.candidates && run.candidates.length) {
-			html += '<section class="candidatePanel mt" aria-labelledby="candidate-heading"><div class="spread"><div><div class="eyebrow">Writing choices</div><div class="h2" id="candidate-heading">Choose the paragraph that sounds most like you</div></div><span class="tag">' + run.candidates.length + ' distinct approaches</span></div><p class="small mid mtS">Recommended for this program. Choose another approach to compare it in your full statement.</p><div class="candidateChoices mtS" role="radiogroup" aria-label="Program-specific paragraph alternatives">' + run.candidates.map(function (candidate, index) {
-				var selected = candidate.candidateId === run.selectedCandidateId;
-				return '<button class="candidateChoice' + (selected ? ' on' : '') + '" role="radio" aria-checked="' + (selected ? 'true' : 'false') + '" data-act="select-candidate" data-candidate="' + esc(candidate.candidateId) + '"' + (candidate.canApprove ? '' : ' disabled') + '><span class="candidateNumber">' + (index + 1) + '</span><span><strong>' + esc(STRATEGY[candidate.strategy] || candidate.strategy) + '</strong>' + (candidate.isRecommended ? ' <span class="tag gold">Recommended</span>' : ' <span class="tag">Alternative</span>') + '<br><span class="small mid">' + esc(candidate.rhetoricalFocus) + '</span></span></button>';
-			}).join('') + '</div></section>';
-		}
-		var flags = (run.validation.blocking || []).map(function (f) { return '<div class="flag block"><strong>' + esc(f.code) + '</strong><span>' + esc(f.message) + '</span></div>'; }).join('') + (run.validation.advisory || []).map(function (f) { return '<div class="flag adv"><strong>' + esc(f.code) + '</strong><span>' + esc(f.message) + '</span></div>'; }).join('');
-		if (!flags) { flags = '<div class="flag good"><strong>PASS</strong><span>Every program claim cites a supplied RISE fact. No unsupported names or numbers.</span></div>'; }
-		var paper = '<div class="paper">';
-		run.paragraphs.forEach(function (p, i) {
-			if (i === run.regionIndex) {
-				if (S.showOriginal && run.originalRegion) { paper += '<div class="para old"><div class="paraFlag">ROOT paragraph · replaced</div>' + esc(run.originalRegion) + '</div>'; }
-				paper += '<div class="para region"><span class="pn">' + (i + 1) + '</span><div class="paraFlag">✎ Written for ' + esc(programLabel(run.program)) + (run.simulated ? ' · SIMULATED' : '') + '</div>' + regionMarkup(run) + '</div>';
-			} else { paper += '<div class="para locked"><span class="pn">' + (i + 1) + '</span>' + esc(p) + '</div>'; }
+		var c = selectedOption(run);
+		html += '<section class="reviewView" data-review-run="' + esc(run.runId) + '"><div class="reviewEntry mt"><span>Paragraph options · <span data-review-label>' + esc(reviewLabel(run,c)) + '</span></span><div class="row"><button class="btn sm" data-act="jump">Review paragraph</button><button class="btn sm" data-act="compare-all">Compare all</button></div></div><div class="previewGrid reviewGrid mt"><div class="paper">';
+		run.paragraphs.forEach(function (p,i) {
+			if (i !== run.regionIndex) { html += '<div class="para locked" data-protected-index="' + i + '"><span class="pn">' + (i+1) + '</span>' + esc(p) + '</div>'; return; }
+			html += '<section class="para region reviewRegion" aria-label="Program Answer, Paragraph ' + (i+1) + '"><span class="pn">' + (i+1) + '</span><div class="reviewBand"><div class="paraFlag">Program Answer · Paragraph ' + (i+1) + '</div><div class="reviewArrows">' +
+				(run.candidates.length > 1 ? '<button class="btn sm" data-act="candidate-prev" aria-label="Previous paragraph option">← Previous</button>' : '') +
+				'<span class="small" data-review-ordinal></span>' + (run.candidates.length > 1 ? '<button class="btn sm" data-act="candidate-next" aria-label="Next paragraph option">Next →</button>' : '') +
+				'</div><strong class="reviewStrategy" data-review-strategy></strong><span class="tiny reviewState" data-review-status></span></div><p class="tiny mid reviewHelp">Switch options here. The rest of your statement stays unchanged.</p><label class="reviewMobileOptions small">Choose option<select data-review-select>' +
+				run.candidates.map(function (o,j) { return '<option value="' + esc(o.candidateId) + '">' + (j+1) + ' · ' + esc(STRATEGY[o.strategy] || o.strategy) + '</option>'; }).join('') +
+				'</select></label><div class="reviewText" data-review-text></div><div data-review-edit-actions></div><div class="reviewBottomArrows row">' +
+				(run.candidates.length > 1 ? '<button class="btn sm" data-act="candidate-prev" aria-label="Previous paragraph option">← Previous</button><button class="btn sm" data-act="candidate-next" aria-label="Next paragraph option">Next →</button>' : '') +
+				'</div><div class="reviewActions" data-review-actions></div>' + (run.originalRegion ? '<details class="reviewOriginal mtS"><summary>View original ROOT paragraph</summary><div class="para old">' + esc(run.originalRegion) + '</div></details>' : '') + '</section>';
 		});
-		paper += '</div>';
-		var side = '<div class="side"><div class="panel"><dl class="kv"><dt>Program</dt><dd><strong>' + esc(programLabel(run.program)) + '</strong><br><span class="small mid">' + esc(placeLabel(run.program)) + (run.program.acgmeId ? ' · ACGME ' + esc(run.program.acgmeId) : '') + '</span></dd><dt>Tier</dt><dd><span class="tag ' + (run.tierEffective === 'DEEP' ? 'vi' : 'em') + '">' + esc(run.tierEffective) + '</span>' + (run.tierRequested !== run.tierEffective ? ' <span class="tiny dim">requested ' + esc(run.tierRequested) + '</span>' : '') + '</dd><dt>Status</dt><dd>' + runTag(run) + (run.saved ? ' <span class="tag gold">Saved · ' + esc(run.saved.status) + '</span>' : '') + '</dd><dt>Approach</dt><dd>' + esc(STRATEGY[run.strategy] || run.strategy) + '</dd><dt>Writer</dt><dd>' + (run.simulated ? '<span class="tag rd">Simulator</span>' : esc(run.model)) + '</dd><dt>ROOT check</dt><dd>' + (run.rootIntegrity.ok ? '<span class="tag ok">Unchanged</span> <span class="tiny dim">' + run.rootIntegrity.protectedParagraphs + ' protected paragraphs match</span>' : '<span class="tag rd">Failed</span> ' + esc(run.rootIntegrity.message)) + '</dd><dt>Run</dt><dd class="mono">' + esc(run.runId) + '</dd></dl></div>';
-		side += '<div class="panel"><div class="eyebrow">Checks</div><div class="mtS">' + flags + '</div></div>';
-		side += '<div class="panel"><div class="eyebrow">Facts supplied by RISE</div><div class="mtS">' + run.facts.map(factCard).join('') + '</div><p class="tiny dim mtS">Evidence bundle ' + esc(run.bundleSha256.slice(0, 16)) + '… · ' + esc(S.boot.contract.schema) + '</p></div></div>';
-		html += '<div class="panel mt"><div class="spread"><div class="row"><label class="check"><input type="checkbox" data-show-original' + (S.showOriginal ? ' checked' : '') + '><span>Show the ROOT paragraph it replaced</span></label><span class="tiny dim"><span class="seg-fact">gold underline</span> = verified program fact · <span class="seg-link">dotted</span> = from you</span></div><div class="row"><button class="btn sm ghost" data-act="jump">Jump to the new paragraph ↓</button><button class="btn sm" data-act="generate" data-id="' + esc(S.current) + '"' + (S.busy['gen:' + S.current] || canaryReviewOnly ? ' disabled' : '') + '>' + (S.busy['gen:' + S.current] ? '<span class="spin"></span>Writing…' : '↻ Regenerate (new approach)') + '</button><button class="btn sm" data-act="save" data-status="DRAFT"' + (run.canApprove && !run.saved && !S.busy.save && !canaryReviewOnly ? '' : ' disabled') + '>Save draft</button><button class="btn sm primary" data-act="save" data-status="APPROVED"' + (run.canApprove && !run.saved && !S.busy.save && !canaryReviewOnly ? '' : ' disabled') + '>Approve and save</button></div></div>' + (run.saved ? '<div class="savedState mtS" role="status"><span class="tag ok">' + (run.saved.status === 'APPROVED' ? 'Approved and saved' : 'Draft saved') + '</span><span class="small mid">This complete statement is available in your prototype library.</span></div>' : '') + (run.canApprove || canaryReviewOnly ? '' : '<p class="small mtS dim">Saving is disabled because a blocking check failed. Regenerate, or switch tier.</p>') + '</div>';
-		if (run.similarityReview) { html += '<div class="notice gold mt"><strong>Private similarity review · ' + esc(run.similarityReview.band) + '</strong><p class="small mtS">' + esc(run.similarityReview.message) + ' Quality comes first: review this paragraph as writing, choose another alternative if it is a better fit, or explicitly keep this version. No other student text or identity is available here.</p><button class="btn sm primary mtS" data-act="save" data-status="' + esc(run.similarityReview.status) + '" data-ack="1"' + (canaryReviewOnly ? ' disabled' : '') + '>I reviewed it — keep this version</button></div>'; }
-		html += '<div class="previewGrid mt">' + paper + side + '</div>';
+		html += '</div><aside class="reviewRail"><section class="reviewNavigator panel" aria-labelledby="writing-choices-title"><h2 class="h2" id="writing-choices-title">Writing choices</h2><div class="candidateChoices reviewChoices mtS" role="radiogroup" aria-label="Program-specific paragraph alternatives">' +
+			run.candidates.map(function (o,j) { return '<button class="candidateChoice" role="radio" aria-checked="false" tabindex="-1" data-act="select-candidate" data-candidate="' + esc(o.candidateId) + '"><span class="candidateNumber">' + (j+1) + '</span><span><strong>' + esc(STRATEGY[o.strategy] || o.strategy) + '</strong><span class="tiny" data-choice-status></span><span class="small mid choiceFocus" hidden>' + esc(o.rhetoricalFocus) + '</span></span></button>'; }).join('') +
+			'</div></section><details class="panel reviewEvidence" data-review-evidence><summary>Evidence & checks · <span data-review-factcount></span></summary><div class="evidenceBody" tabindex="0" aria-label="Evidence details" data-review-evidence-body></div></details><details class="panel reviewDetails"><summary>Details</summary><dl class="kv mtS"><dt>Program</dt><dd>' + esc(programLabel(run.program)) + '<br>' + esc(placeLabel(run.program)) + '<br>ACGME ' + esc(run.program.acgmeId || '') + '</dd><dt>Tier</dt><dd>' + esc(run.tierEffective) + '</dd><dt>Writer</dt><dd>' + esc(run.model) + '</dd><dt>Run</dt><dd class="mono">' + esc(run.runId) + '</dd><dt>ROOT</dt><dd class="mono">' + esc(run.rootTextSha256 || '') + '</dd></dl>' +
+			'<button class="btn sm mtS" data-act="generate" data-id="' + esc(S.current) + '"' + (S.busy['gen:' + S.current] || canaryReview(run) ? ' disabled' : '') + '>Regenerate (new approach)</button></details></aside></div><div class="srOnly" role="status" aria-live="polite" data-review-announcement></div></section>';
 		return html;
 	}
+	function patchPreview(announce) {
+		var run = S.runs[S.current], region = app.querySelector('.reviewRegion');
+		if (S.view !== 'preview' || !run || !region || !run.candidates) { return; }
+		var c = selectedOption(run), rs = reviewState(run), e = effectiveOption(run,c), anchor = region.getBoundingClientRect().top, text = region.querySelector('[data-review-text]');
+		var priorFocus=document.activeElement, priorAction=priorFocus && priorFocus.getAttribute && priorFocus.getAttribute('data-act');
+		app.querySelectorAll('[data-review-label]').forEach(function (n) { n.textContent = reviewLabel(run,c); });
+		region.querySelector('[data-review-ordinal]').textContent = (run.candidates.indexOf(c)+1) + ' of ' + run.candidates.length;
+		region.querySelector('[data-review-strategy]').textContent = STRATEGY[c.strategy] || c.strategy;
+		region.querySelector('[data-review-status]').textContent = editStatus(run,c) + (e.changed && c.isRecommended ? ' · Based on recommended option' : '');
+		region.querySelector('[data-review-select]').value = c.candidateId;
+		var sig = c.candidateId + '|' + (e.overlay.editing ? 'edit' : e.text);
+		if (text._signature !== sig) {
+			text.innerHTML = e.overlay.editing ? '<label class="f">Program Answer, Paragraph ' + (run.regionIndex+1) + '. Other paragraphs are locked.<textarea data-review-editor aria-describedby="review-edit-message" maxlength="6000">' + esc(e.text) + '</textarea></label>' : '<div class="reviewProse">' + (e.changed ? esc(e.text) : regionMarkup(c)) + '</div>';
+			text._signature = sig;
+			var editor = text.querySelector('textarea'); if (editor) { editor.setSelectionRange(e.overlay.caret || 0,e.overlay.caretEnd || e.overlay.caret || 0); editor.readOnly = e.overlay.saving; }
+		}
+		var editorNow = text.querySelector('textarea'); if (editorNow) { editorNow.readOnly = e.overlay.saving; }
+		region.querySelector('[data-review-edit-actions]').innerHTML = (e.overlay.editing ? '<div class="row mtS"><button class="btn sm" data-act="save-edits"' + (!e.overlay.dirty || e.overlay.saving ? ' disabled' : '') + '>Save edits</button><button class="btn sm ghost" data-act="discard-edits"' + (e.overlay.saving ? ' disabled' : '') + '>Discard changes</button></div>' : '') + '<p id="review-edit-message" class="small mid" role="status">' + esc(e.overlay.error || (e.head && !e.overlay.dirty && !e.overlay.saving ? (e.changed ? 'Edits saved · Not approved. Changed claims need grounding review before approval.' : 'AI version active.') : '')) + '</p>';
+		region.querySelector('[data-review-actions]').innerHTML = reviewControls(run);
+		app.querySelectorAll('.reviewChoices .candidateChoice').forEach(function (n,j) {
+			var selected = run.candidates[j].candidateId === c.candidateId; n.classList.toggle('on',selected); n.setAttribute('aria-checked',String(selected)); n.tabIndex = selected ? 0 : -1;
+			n.querySelector('[data-choice-status]').textContent = editStatus(run,run.candidates[j]); n.querySelector('.choiceFocus').hidden = !selected;
+		});
+		var evidence = app.querySelector('[data-review-evidence]'); evidence.querySelector('[data-review-factcount]').textContent = (c.facts || []).filter(function (f) { return f.used; }).length + ' facts used';
+		evidence.querySelector('[data-review-evidence-body]').innerHTML = reviewEvidence(run);
+		if (!c.canApprove || e.changed) { evidence.open = true; }
+		if (announce) { app.querySelector('[data-review-announcement]').textContent = 'Option ' + reviewLabel(run,c) + ', ' + editStatus(run,c); }
+		measureReview(run);
+		window.scrollBy(0,region.getBoundingClientRect().top-anchor);
+		if (priorFocus && !priorFocus.isConnected && priorAction) {
+			var restoreFocus=Array.from(region.querySelectorAll('[data-act]')).filter(function(n){return n.getAttribute('data-act')===priorAction && !n.disabled;})[0] || region.querySelector('[data-act="edit-paragraph"]');
+			if(restoreFocus && !restoreFocus.disabled){restoreFocus.focus({preventScroll:true});}
+		}
+		loadReviewEdits(run);
+	}
+	var reviewRule = null;
+	function measureReview(run) {
+		var region = app.querySelector('.reviewRegion'), slot = region && region.querySelector('.reviewText');
+		if (!slot) { return; }
+		if (!reviewRule) {
+			var sheet = Array.from(document.styleSheets).filter(function (s) { return s.href && s.href.indexOf('mmps-app.css') !== -1; })[0];
+			if (sheet) { var n = sheet.insertRule('.reviewView { --review-slot: 0px; --review-header: 64px; }',sheet.cssRules.length); reviewRule = sheet.cssRules[n]; }
+		}
+		var box = document.createElement('div'); box.className = 'reviewMeasure'; box.setAttribute('aria-hidden','true'); box.inert = true;
+		slot.appendChild(box);
+		var max = 0;
+		run.candidates.forEach(function (c) { box.textContent = effectiveOption(run,c).text; max = Math.max(max,box.getBoundingClientRect().height); });
+		box.remove();
+		if (reviewRule) { reviewRule.style.setProperty('--review-slot',Math.ceil(max)+'px'); reviewRule.style.setProperty('--review-header',(app.querySelector('.hdr').getBoundingClientRect().height+8)+'px'); }
+		region.querySelector('.reviewBottomArrows').hidden = max < window.innerHeight * .45;
+	}
+	function closeReviewDialog() {
+		var d = app.querySelector('.reviewDialog'); if (!d) { return; } d.close(); d.remove();
+		window.scrollTo(0,review.dialogScroll);
+		if (review.dialogReturn && review.dialogReturn.isConnected) { review.dialogReturn.focus({preventScroll:true}); }
+	}
+	function openReviewDialog(kind, factIds) {
+		if (app.querySelector('.reviewDialog')) { return; }
+		var run = S.runs[S.current], c = selectedOption(run);
+		review.dialogReturn = document.activeElement; review.dialogScroll = window.scrollY;
+		var d = document.createElement('dialog'); d.className = 'reviewDialog';
+		d.setAttribute('aria-labelledby','review-dialog-title');
+		d.innerHTML = '<div class="dialogTop"><h2 class="h2" id="review-dialog-title">' + (kind === 'compare' ? 'Compare paragraph options' : 'Evidence & checks') + '</h2><button class="btn sm" data-act="close-review-dialog" autofocus>Close</button></div>' +
+			(kind === 'compare' ? '<p class="small mid">Compare these paragraphs in the statement to judge transitions.</p><div class="compareGrid mtS">' + run.candidates.map(function (o) { var e=effectiveOption(run,o); return '<article class="panel"><h3 class="small">' + esc(reviewLabel(run,o)) + '</h3><p class="tiny mid">' + esc(editStatus(run,o)) + '</p><div class="compareProse mtS">' + esc(e.text) + '</div><button class="btn sm mtS" data-act="compare-read" data-candidate="' + esc(o.candidateId) + '">Read in statement</button></article>'; }).join('') + '</div>' : reviewEvidence(run));
+		d.addEventListener('cancel',function (ev) { ev.preventDefault(); closeReviewDialog(); });
+		app.appendChild(d); d.showModal();
+		if (factIds && factIds.length) { var fact = Array.from(d.querySelectorAll('[data-fact-id]')).filter(function (n) { return n.getAttribute('data-fact-id') === factIds[0]; })[0]; if (fact) { fact.scrollIntoView({block:'nearest'}); fact.focus({preventScroll:true}); } }
+	}
+	function jumpReview() {
+		var n = app.querySelector('.reviewRegion'); if (!n) { return; }
+		window.scrollBy(0,n.getBoundingClientRect().top-app.querySelector('.hdr').getBoundingClientRect().height-110);
+	}
+	function hasReviewDrafts() {
+		return Object.keys(review.runs).some(function(id){return Object.keys(review.runs[id].overlays).some(function(c){var o=review.runs[id].overlays[c];return o.dirty || o.saving;});});
+	}
+	function reviewQuestion(title,body,actions) {
+		review.dialogReturn=document.activeElement; review.dialogScroll=window.scrollY;
+		var d=document.createElement('dialog'); d.className='reviewDialog reviewQuestion'; d.setAttribute('aria-labelledby','review-dialog-title');
+		d.innerHTML='<h2 class="h2" id="review-dialog-title">'+esc(title)+'</h2><p class="mid mtS">'+esc(body)+'</p><div class="row mt">'+actions+'</div><p class="small mtS" role="status" data-question-error></p>';
+		d.addEventListener('cancel',function(ev){ev.preventDefault();closeReviewDialog();review.pendingLeave=null;}); app.appendChild(d);d.showModal();
+	}
+	function confirmReviewRestore() { reviewQuestion('Restore the original AI paragraph?','Your current edits will be removed from this option. The original AI candidate and private revision history are preserved.','<button class="btn" data-act="close-review-dialog" autofocus>Keep edits</button><button class="btn primary" data-act="confirm-restore">Restore AI version</button>'); }
+	function reviewLeaveGuard(event,el,act) {
+		if(review.leaveBypass || S.view!=='preview' || !hasReviewDrafts() || ['go','open-root','open-run','generate','open-doc','external-link'].indexOf(act)===-1){return false;}
+		event.preventDefault(); review.pendingLeave=el;
+		reviewQuestion('Keep your paragraph edits?','You have unsaved edits. Save them privately before leaving, discard them, or keep editing. Saving edits does not approve them.','<button class="btn" data-act="leave-keep" autofocus>Keep editing</button><button class="btn" data-act="leave-discard">Discard changes</button><button class="btn primary" data-act="leave-save">Save edits and leave</button>');return true;
+	}
+	function finishReviewLeave(saveFirst) {
+		var run=S.runs[S.current], rs=reviewState(run), pending=review.pendingLeave;
+		if(Object.keys(rs.overlays).some(function(id){return rs.overlays[id].saving;})){app.querySelector('[data-question-error]').textContent='Wait for the current save to finish.';return;}
+		var dirty=run.candidates.filter(function(c){return rs.overlays[c.candidateId] && rs.overlays[c.candidateId].dirty;});
+		var work=saveFirst?dirty.reduce(function(p,c){return p.then(function(){return saveReviewEdit(run,c,false);});},Promise.resolve()):Promise.resolve();
+		work.then(function(){if(!saveFirst){dirty.forEach(function(c){delete rs.overlays[c.candidateId];});} closeReviewDialog();review.pendingLeave=null;review.leaveBypass=true;if(pending && pending.isConnected){pending.click();}review.leaveBypass=false;}).catch(function(){var n=app.querySelector('[data-question-error]');if(n){n.textContent='Edits could not all be saved. Stay here; your drafts are retained.';}});
+	}
+	app.addEventListener('click',function(event){var a=event.target.closest('a[href]');if(a && a.target!=='_blank' && reviewLeaveGuard(event,a,'external-link')){event.stopImmediatePropagation();}},true);
 	function researchNeeded(run) {
 		var id = S.current, packet = S.prompt[id], html = '<div class="panel gold mt"><div class="row"><span class="tag vi">Deep research needed</span><span class="h2">' + esc(programLabel(run.program)) + '</span></div><p class="mid mtS">' + (run.reasons || []).map(esc).join(' ') + ' Nothing was sent to the AI and nothing was invented.</p>';
 		if (run.deepCandidates && run.deepCandidates.length) { html += '<div class="mtS">' + run.deepCandidates.map(function (f) { f.used = false; return factCard(f); }).join('') + '</div>'; }
@@ -602,6 +790,13 @@
 	/* ---------- render + events ---------- */
 	function render() {
 		if (!S.boot) { return; }
+		var mountedReview = app.querySelector('[data-review-run]'), activeRun = S.runs[S.current];
+		if (S.view === 'preview' && mountedReview && activeRun && mountedReview.getAttribute('data-review-run') === activeRun.runId) {
+			patchPreview(false);
+			var oldToast = app.querySelector('.toast'); if (oldToast) { oldToast.remove(); }
+			if (S.toast) { var toastNode = document.createElement('div'); toastNode.className = 'toast ' + S.toast.kind; toastNode.setAttribute('role','status'); toastNode.textContent = S.toast.message; app.appendChild(toastNode); }
+			return;
+		}
 		var views = { home: viewHome, root: viewRoot, region: viewRegion, prefs: viewPrefs, programs: viewPrograms, generate: viewGenerate, preview: viewPreview, batch: viewBatch, library: viewLibrary, doc: viewDoc };
 		var keep = document.activeElement && document.activeElement.getAttribute ? { search: document.activeElement.hasAttribute('data-search') } : {};
 		app.innerHTML = header() + '<div class="protoBar"><strong>PSV-PROTOTYPE-0001</strong><span>Founder review build. Visible to allowlisted accounts only. Separate storage; File Vault records are never written.</span></div><div class="shell">' + rail() + '<main class="main"><div class="view' + (render.last !== S.view ? ' enter' : '') + '">' + (views[S.view] || viewHome)() + '</div></main></div>' + (S.toast ? '<div class="toast ' + S.toast.kind + '" role="status">' + esc(S.toast.message) + '</div>' : '');
@@ -609,13 +804,15 @@
 		var currentStep = app.querySelector('.stepBtn[aria-current="step"]');
 		if (currentStep && window.innerWidth <= 860) { currentStep.scrollIntoView({ block: 'nearest', inline: 'center' }); }
 		if (keep.search) { var el = app.querySelector('[data-search]'); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }
+		if (S.view === 'preview') { patchPreview(false); }
 	}
 
 	app.addEventListener('click', function (event) {
 		var el = event.target.closest('[data-act]'); if (!el || el.disabled) { return; }
 		var act = el.getAttribute('data-act'), id = el.getAttribute('data-id');
+		if (reviewLeaveGuard(event, el, act)) { return; }
 		if (act === 'go') { if (el.getAttribute('data-view') === 'library') { refreshBoot(); } go(el.getAttribute('data-view')); }
-		else if (act === 'jump') { var target = app.querySelector('.para.region, .insertSlot.on'); if (target) { target.scrollIntoView({ block: 'center', behavior: 'smooth' }); } }
+		else if (act === 'jump') { jumpReview(); }
 		else if (act === 'open-root') { openRoot(id); }
 		else if (act === 'source') { S.rootForm.source = el.getAttribute('data-source'); render(); }
 		else if (act === 'pick-file') { S.rootForm.fileKey = el.getAttribute('data-key'); render(); }
@@ -639,6 +836,18 @@
 		else if (act === 'generate-all') { generateAll(); }
 		else if (act === 'open-run') { S.current = id; go('preview'); }
 		else if (act === 'select-candidate') { selectCandidate(S.runs[S.current], el.getAttribute('data-candidate')); }
+		else if (act === 'candidate-prev' || act === 'candidate-next') { var cr=S.runs[S.current], ci=cr.candidates.indexOf(selectedOption(cr)); selectCandidate(cr,cr.candidates[(ci+(act==='candidate-next'?1:-1)+cr.candidates.length)%cr.candidates.length].candidateId); }
+		else if (act === 'compare-all') { openReviewDialog('compare'); }
+		else if (act === 'close-review-dialog') { closeReviewDialog(); }
+		else if (act === 'compare-read') { var cid=el.getAttribute('data-candidate'), anchor=app.querySelector('.reviewRegion').getBoundingClientRect().top; closeReviewDialog(); selectCandidate(S.runs[S.current],cid); if(anchor<0 || anchor>window.innerHeight-100) { jumpReview(); } app.querySelector('[data-act="candidate-next"], [data-act="jump"]').focus({preventScroll:true}); }
+		else if (act === 'evidence' || act === 'evidence-fact') { openReviewDialog('evidence',(el.getAttribute('data-facts')||'').split(',').filter(Boolean)); }
+		else if (act === 'edit-paragraph') { var er=S.runs[S.current], eo=editOverlay(er,selectedOption(er)); eo.editing=true; patchPreview(false); app.querySelector('[data-review-editor]').focus({preventScroll:true}); }
+		else if (act === 'save-edits') { saveReviewEdit(S.runs[S.current],selectedOption(S.runs[S.current]),false).catch(function(){}); }
+		else if (act === 'discard-edits') { var dr=S.runs[S.current], dc=selectedOption(dr), dh=reviewState(dr).heads[dc.candidateId], od=editOverlay(dr,dc); od.text=dh && dh.action!=='RESTORE'?dh.text:dc.replacement; od.dirty=false; od.editing=false; od.error=''; patchPreview(false); }
+		else if (act === 'restore-ai') { confirmReviewRestore(); }
+		else if (act === 'confirm-restore') { closeReviewDialog(); saveReviewEdit(S.runs[S.current],selectedOption(S.runs[S.current]),true).catch(function(){}); }
+		else if (act === 'leave-keep') { closeReviewDialog(); review.pendingLeave=null; }
+		else if (act === 'leave-discard' || act === 'leave-save') { finishReviewLeave(act==='leave-save'); }
 		else if (act === 'save') { save(el.getAttribute('data-status'), el.getAttribute('data-ack') === '1'); }
 		else if (act === 'research-prompt') { researchPrompt(id); }
 			else if (act === 'copy-prompt') { copyText((S.prompt[id] && S.prompt[id].prompt) || ''); }
@@ -658,12 +867,17 @@
 	});
 	app.addEventListener('keydown', function (event) {
 		var t = event.target;
+		if (t.matches && t.matches('.reviewChoices [role="radio"]') && ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Home','End'].indexOf(event.key)!==-1) {
+			event.preventDefault(); var r=S.runs[S.current], i=r.candidates.indexOf(selectedOption(r)), j=event.key==='Home'?0:event.key==='End'?r.candidates.length-1:(i+(['ArrowRight','ArrowDown'].indexOf(event.key)!==-1?1:-1)+r.candidates.length)%r.candidates.length;
+			selectCandidate(r,r.candidates[j].candidateId); app.querySelectorAll('.reviewChoices [role="radio"]')[j].focus({preventScroll:true}); return;
+		}
 		if (event.key === 'Enter' && t.hasAttribute && t.hasAttribute('data-add')) { event.preventDefault(); var terms = S.prefs.categories[t.getAttribute('data-add')].terms, v = t.value.trim(); if (v && terms.indexOf(v) === -1) { if (terms.length >= 6) { toast('Up to six per category.', 'err'); return; } terms.push(v); render(); } }
 		else if (event.key === 'Enter' && t.hasAttribute && t.hasAttribute('data-search')) { event.preventDefault(); runSearch(); }
 		else if ((event.key === 'Enter' || event.key === ' ') && t.getAttribute && t.getAttribute('role') === 'button') { event.preventDefault(); t.click(); }
 	});
 	app.addEventListener('input', function (event) {
 		var t = event.target;
+		if (t.hasAttribute('data-review-editor')) { var r=S.runs[S.current], c=selectedOption(r), o=editOverlay(r,c), h=reviewState(r).heads[c.candidateId]; o.text=t.value; o.caret=t.selectionStart; o.caretEnd=t.selectionEnd; o.dirty=o.text!==(h && h.action!=='RESTORE'?h.text:c.replacement); o.error=''; delete r.similarityReview; patchPreview(false); return; }
 		if (t.hasAttribute('data-bind')) { var k = t.getAttribute('data-bind'); if (t.type === 'checkbox') { S.rootForm[k] = t.checked; } else { S.rootForm[k] = t.value; } if (k === 'text') { var btn = app.querySelector('[data-act="create-root"]'); if (btn) { btn.disabled = t.value.trim().length <= 200; } } }
 		else if (t.hasAttribute('data-note')) { S.prefs.categories[t.getAttribute('data-note')].note = t.value; }
 		else if (t.hasAttribute('data-cities')) { S.prefs.location.cities = t.value.split(',').map(function (x) { return x.trim(); }).filter(Boolean).slice(0, 8); }
@@ -672,6 +886,7 @@
 	});
 	app.addEventListener('change', function (event) {
 		var t = event.target;
+		if (t.hasAttribute('data-review-select')) { selectCandidate(S.runs[S.current],t.value); return; }
 		if (t.hasAttribute('data-state-add')) { if (t.value && S.stateCodes.indexOf(t.value) === -1) { if (S.stateCodes.length >= 8) { toast('Up to eight states.', 'err'); return; } S.stateCodes.push(t.value); } render(); }
 		else if (t.hasAttribute('data-loc-mention')) { S.prefs.location.mayMention = t.checked; }
 			else if (t.hasAttribute('data-show-original')) { S.showOriginal = t.checked; render(); }
@@ -680,5 +895,7 @@
 		else if (t.hasAttribute('data-bind') && t.tagName === 'SELECT') { S.rootForm[t.getAttribute('data-bind')] = t.value; }
 	});
 
+	window.addEventListener('beforeunload',function(event){ if(hasReviewDrafts()){event.preventDefault();event.returnValue='';} });
+	window.addEventListener('resize',function(){ if(S.view==='preview'){patchPreview(false);} });
 	boot();
 })();
