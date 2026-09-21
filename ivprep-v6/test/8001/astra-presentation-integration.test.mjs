@@ -138,13 +138,19 @@ test('Founder-amended StoryForge consent and flagship readiness compositions rem
   assert.match(runtime, /Yes, show suggestions/u);
   assert.match(runtime, /No, practice unaided/u);
   assert.match(runtime, /Include authorized matching stories/u);
+  assert.match(runtime, /storyForgeInclude: false/u);
+  assert.match(runtime, /No verified story suggestion is available for this draft yet/u);
+  assert.doesNotMatch(runtime, /storyForgeInclude = enabled/u);
   assert.match(runtime, /Visual signals/u);
   assert.match(runtime, /Voice signals/u);
   assert.match(runtime, /Know what is actually ready/u);
+  assert.match(css, /grid-template-columns: minmax\(0, 1\.08fr\) minmax\(0, \.92fr\)/u);
+  assert.match(css, /\.canon-signal-pick, \.canon-story-include/u);
 });
 
 test('student presentation does not expose implementation status residue', () => {
   assert.doesNotMatch(runtime, /HYBRID FOLLOW-UP ROUTER PENDING|DR KELLY \/ DR WOODS PACKS PENDING|IVOC does not store the owner URL/iu);
+  assert.doesNotMatch(runtime, /No canonical question/iu);
   assert.doesNotMatch(html, /canonical questions/iu);
 });
 

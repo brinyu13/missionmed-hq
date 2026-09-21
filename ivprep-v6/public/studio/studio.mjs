@@ -68,7 +68,7 @@ const state = {
     interviewer: 'Program Director', interviewerStyle: 'Owl', interviewerTab: 'Role & style', interviewerName: '',
     program: '', programSpecialty: '', programState: '', programType: '',
     environment: 'MissionMed', interviewMode: 'Interview Mode', analyticsEnabled: true,
-    contextSources: [], storyForgeOptIn: null, storyForgeInclude: true,
+    contextSources: [], storyForgeOptIn: null, storyForgeInclude: false,
     readinessPanel: 'Devices', readinessSignal: 'Camera', readiness: null,
   },
   targetQuestions: 5,
@@ -661,7 +661,7 @@ function renderQuestions() {
   if (!rows.length) {
     const empty = document.createElement('div');
     empty.className = 'empty-state';
-    empty.innerHTML = '<strong>No matches</strong>No canonical question matches that search.';
+    empty.innerHTML = '<strong>No matches</strong>No question matches that search.';
     list.append(empty);
   }
 }
@@ -1112,8 +1112,8 @@ function renderEnvironmentStep(host) {
   const storyActions = el('div', 'canon-inline-actions');
   const chooseStoryForge = (enabled) => {
     state.wizard.storyForgeOptIn = enabled;
-    state.wizard.storyForgeInclude = enabled;
-    state.wizard.contextSources = enabled ? [...new Set([...state.wizard.contextSources, 'StoryForge'])] : state.wizard.contextSources.filter((entry) => entry !== 'StoryForge');
+    state.wizard.storyForgeInclude = false;
+    state.wizard.contextSources = state.wizard.contextSources.filter((entry) => entry !== 'StoryForge');
     renderWizard();
   };
   const yes = choiceButton({ className: 'btn btn-secondary', selected: state.wizard.storyForgeOptIn === true, label: 'Yes, show suggestions', onClick: () => chooseStoryForge(true) });
@@ -1124,8 +1124,14 @@ function renderEnvironmentStep(host) {
     story.append(el('p', 'canon-consent-note', 'Story suggestions are unavailable for this account and remain excluded.'));
   } else if (state.wizard.storyForgeOptIn === true) {
     const reveal = el('div', 'canon-story-suggestion');
-    reveal.append(el('div', 'microcap', 'Authorized suggestions'), el('h3', '', 'Relevant stories will be prepared for this session.'), el('p', '', state.interviewSet.length ? `StoryForge will match your approved stories to ${state.interviewSet.length} selected question${state.interviewSet.length === 1 ? '' : 's'}.` : 'Choose questions to give StoryForge a clear theme to match.'));
-    reveal.append(choiceButton({ className: 'canon-story-include', selected: state.wizard.storyForgeInclude === true, label: 'Include authorized matching stories', detail: 'Only approved, consented story summaries may enter the interview context.', onClick: () => {
+    reveal.append(
+      el('div', 'microcap', 'Authorized suggestions'),
+      el('h3', '', 'No verified story suggestion is available for this draft yet.'),
+      el('p', '', state.interviewSet.length
+        ? `Your ${state.interviewSet.length} selected question${state.interviewSet.length === 1 ? '' : 's'} can guide a secure match. No story has been added.`
+        : 'Choose at least one question to establish relevance. Until then, no story is added.'),
+    );
+    reveal.append(choiceButton({ className: 'canon-story-include', selected: state.wizard.storyForgeInclude === true, label: 'Include authorized matching stories if a verified match is found', detail: 'This separate consent allows only approved story summaries to enter the interview context.', onClick: () => {
       state.wizard.storyForgeInclude = !state.wizard.storyForgeInclude;
       state.wizard.contextSources = state.wizard.storyForgeInclude ? [...new Set([...state.wizard.contextSources, 'StoryForge'])] : state.wizard.contextSources.filter((entry) => entry !== 'StoryForge');
       renderWizard();

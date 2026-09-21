@@ -404,10 +404,20 @@ body {
 .canon-story-suggestion { display: grid; gap: 8px; padding: 13px; border: 1px solid #8a6840; border-radius: 11px; background: #d99b3610; }
 .canon-story-include { min-height: 66px; text-align: left; }
 .canon-consent-note { margin: 0; padding-top: 10px; border-top: 1px solid #34435a; color: var(--dim); font-size: 12px; }
-.canon-readiness-layout { display: grid; grid-template-columns: minmax(340px, 1.1fr) minmax(320px, 1fr); gap: 14px; }
+.canon-signal-pick, .canon-story-include {
+  position: relative; border: 1px solid #3b4960; border-bottom-width: 3px; border-radius: 10px;
+  background: linear-gradient(155deg, #19263a, #0d1626); color: var(--ink); box-shadow: 0 10px 22px #02050b66, inset 0 1px #ffffff12;
+  padding: 11px 12px; cursor: pointer; transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+.canon-signal-pick:hover, .canon-story-include:hover { transform: translateY(-2px); border-color: #d87a4d; }
+.canon-signal-pick.selected, .canon-story-include.selected { border-color: #ff9a5d; background: linear-gradient(145deg, #5b312a, #1a1c2b); box-shadow: 0 13px 28px #0008, inset 0 1px #ffc89455; }
+.canon-signal-pick strong, .canon-story-include strong { display: block; font: 800 11px/1.25 var(--font-display); }
+.canon-signal-pick small, .canon-story-include small { display: block; margin-top: 6px; color: var(--dim); font: 500 10px/1.4 var(--font-display); }
+.canon-readiness-layout { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, .92fr); gap: 14px; }
+.canon-readiness-layout > * { min-width: 0; }
 .canon-readiness-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: -3px 0 12px; }
 .canon-readiness-preview { padding: 12px; border: 1px solid #405069; border-radius: 15px; background: #08111e; }
-.canon-readiness-preview .stage { min-height: 310px; }
+.canon-readiness-preview .stage { min-height: clamp(220px, 28vw, 310px); }
 .canon-frame-guide { position: absolute; inset: 14% 19% 12%; border: 1px solid #6fd7e3a8; border-radius: 46% 46% 28% 28%; pointer-events: none; }
 .canon-frame-guide::before, .canon-frame-guide::after { content: ''; position: absolute; background: #6fd7e35e; }
 .canon-frame-guide::before { left: 50%; top: -10%; bottom: -10%; width: 1px; }
