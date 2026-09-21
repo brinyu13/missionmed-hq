@@ -1,24 +1,26 @@
 # PSV Foreman Control-Tower State
 
-Updated: 2026-09-21T09:04:00Z
+Updated: 2026-09-21T09:12:00Z
 
 ## Active Founder UX amendment (DR-326)
 
 - Implementing `/Users/brianb/Downloads/PSV-ASTRA-CANDIDATE_REVIEW_UX_MASTERING.md` under latest explicit Founder implementation directive; same Foreman/worktree. STOP after guarded live acceptance, not after design.
 - Canonical OS amendment `DR-326` at `9c178bfd2bd78f25e11bbad61d0e1bfa2e3cb15f`; universal/PSV boot PASS. REGISTRY epochs 3511/3512 released, active count zero. Dirty default OS preserved; disposable authority tree `/tmp/psv-ux-authority-20260921`.
-- Product source base `981148460009404a574180eba4811555c9d3c8bf`; live remains exact v0.5.8/c2cff9d, manifest24/24. No production mutation for this amendment yet.
+- Live source `cbcda565d97492e02ac2c86bfb01f9c4e5dcb6ea` /v0.5.9, schema6, deployed manifest25/25 and production lint22/22 PASS. Source pushed; only unrelated untracked from_fable preserved.
 - Local implementation: paragraph-local navigation, compact choices, modal comparison/evidence, stable protected nodes, region-only private edit revisions (schema6 new `edit_revisions` table). Changed wording is saved unapproved with no inherited verification; no new provider calls. Canary final approval/library save remains disabled.
-- Local tests: API126/126, candidate-review browser41/41, edit runtime51, transaction/lock13, exact canary10 PASS. Independent source recheck cleared approval/edit concurrency, stale similarity-banner binding and legacy M1 findings. Production verifier pending.
+- Local tests: API126/126, candidate-review browser41/41, edit runtime51, transaction/lock13, exact canary10 PASS. Independent source recheck cleared all findings. Native production MySQL13 PASS. Fresh independent production verdict APPROVE WITH CONDITIONS: server checks PASS, authenticated live UX still pending.
 - Production truth refresh found a new external global collision: `missionmed-purchase-success.php` defines `MMPS_VERSION=2026.09.21`, making the existing active v0.5.8 PSV inert before this release. Its file SHA256 is `621fe8131c8e9f86d63fd2da4b16dfc97f5b44344b101bc247b71a8ee260a7bd`; it remains untouched. PSV-only repair renames its five version references to `MMED_PSV_VERSION`. Exact collision/duplicate-inclusion regression passes; independent rename review PASS. Current byte-exact v0.5.8 preimage is a safe inert rollback, not a functional fallback while that sibling constant exists.
 - Fresh sibling delta: live File Vault controller `e60b2695e7bed4e04497d0122c7dc3a5b45daca2f415f5fbac55dabc9f7bb424`, repository `a97842553c9c1d997d80903cb367b9ffba5c80a9967b6b3a5a43c5143c0f4896`, scanner `6b5cf0ebc99227e14f63a2d034c03f5beac591451314b8d55d15c57428f78a5a` match newer owner release `9ba360b` in `j1-filevault-1021-ivoc-cv-projection`; JS/CSS unchanged from sealed canary. Preserve these as fresh sentinels, never restore older sibling bytes.
 - Runtime: dedicated key boolean present, broad real-ROOT/testing flags undefined, brinyu1, allowlist mode/admins0, FV loaded, PHP8.2.29. Original exact Silma run remains review-only and unchanged.
-- Next critical path: package v0.5.9, guarded exact-plugin promotion, live five-choice/protected-root/regression proof, independent release verdict; STOP with Founder review page open. No production mutation for this UX amendment yet.
+- Production lease3530 released, active PSV count0. Counts roots4/runs27/library8/provider_attempts16 unchanged; two synthetic private SAVE/RESTORE revisions and two audit entries added. Original AI text restored; Silma zero edits and unchanged nine paragraph/output hashes. No new provider request.
+- WAITING_FOR_BRINYU_SESSION: Chrome profile missionresidency.com currently holds another non-admin account; native wp-admin redirects to its account page and PSV remains hidden. No account logout/switch performed. Separate in-app WordPress login opened with redirect to PSV and marked for handoff. Founder login is the remaining human-only condition; do not simulate authentication, mint login credentials or weaken the allowlist.
+- Next critical path: once brinyu is genuinely signed in, replay five-choice/viewport/rail/Compare All/editor/protected ROOT/responsive keyboard checks, obtain final independent live acceptance, leave the Program Answer open, STOP. Full live UX acceptance is NOT yet claimed. See `PSV-UX_MASTERING_GUARDED_DEPLOYMENT_REPORT.md`.
 
 ## Product and outcome
 
 - Mission: `PSV-PROTOTYPE-0001`
 - Product: Program-Specific Personal Statement capability inside File Vault
-- Current milestone: the Founder-authorized Silma Raisa real-ROOT canary is sealed on exact v0.5.8; one Deep program has five review-only candidates, durable reload restoration, and fresh independent PASS with no P0/P1 findings.
+- Current milestone: accepted Silma canary data preserved; v0.5.9 UX amendment deployed and independently server-verified. Live browser acceptance awaits the genuine brinyu session.
 - Terminal condition: STOP for Founder review of the five live candidates. Do not approve/save, batch, generate another program/student, broaden real-student AI access, or mutate RISE/File Vault.
 
 ## Repository truth
@@ -28,7 +30,7 @@ Updated: 2026-09-21T09:04:00Z
 - Branch: `codex/psv-prototype-foreman`
 - Base HEAD: `0feee579b0a9f2c90529220899f6cf6d21b8cd05`
 - M2 sealed/pushed HEAD: `981f0d16fc091abb4f54132c15c917c640021c34`
-- M2-M5 canary live source HEAD: `c2cff9dd922f3632c59068a980e749100491df33`, pushed to `origin/codex/psv-prototype-foreman`
+- Current live UX source HEAD: `cbcda565d97492e02ac2c86bfb01f9c4e5dcb6ea`, pushed to `origin/codex/psv-prototype-foreman`; prior canary source `c2cff9dd922f3632c59068a980e749100491df33`
 - Prior branch: `fable/program-specific-ps-engine-architecture`
 - Upstream at initialization: `origin/main` at the same base HEAD
 - Preserved dirty state: untracked `_AI_HANDOFFS/from_fable/` package only
@@ -105,7 +107,7 @@ Updated: 2026-09-21T09:04:00Z
 
 ## Rollback target
 
-- Immediate preimage: exact v0.5.7 at `/www/theresidencyacademy_209/private/psv-rollbacks/PSV-0.5.8-c2cff9d-20260921T074206Z/live-retired`; existing File Vault and RISE unchanged
+- Immediate preimage: exact v0.5.8 at `/www/theresidencyacademy_209/private/psv-rollbacks/PSV-0.5.9-cbcda56-20260921/live-retired`; existing File Vault and RISE unchanged. This preimage is inert under the sibling version-constant collision: safe containment, not functional restoration.
 - Ordered rollback: soft off, hard off, native WordPress deactivation, then remove only `wp-content/plugins/missionmed-file-vault-ps/`
 - Prototype tables/data remain preserved unless a separate Founder purge decision exists
 
@@ -117,10 +119,12 @@ Updated: 2026-09-21T09:04:00Z
 
 ## Next critical path
 
-1. STOP for Founder review with the live review tab open.
+1. WAIT at genuine brinyu authentication; then finish the bounded live UX replay and STOP for Founder review with the live review tab open.
 2. Do not approve/save, batch, generate another program/student, broaden real-student AI access, or mutate native File Vault/RISE.
 
 ## State delta log
+
+- 2026-09-21T09:12:00Z — DR-326 UX amendment guardedly deployed as v0.5.9/cbcda56, schema6,25/25 files and22/22 PHP lint. Production Guardian caught and resolved a PSV-only global version collision without changing the purchase-confirmation owner. Native MySQL13 and fresh independent server verification PASS; original Silma and eight saved documents remain intact by stored hashes/timestamps (no fresh aggregate preimage claim). Two synthetic private revisions retain SAVE/RESTORE history, no provider call. Lease3530 released active0. STOP at genuine brinyu browser-login requirement; separate secure in-app login open. Authenticated UX acceptance remains pending, not sealed.
 
 - 2026-09-20T17:32:13Z — Foreman packet adopted; volatile truth refreshed; dedicated key remains the sole external dependency; production remains unmodified.
 - 2026-09-20T17:35:45Z — Read-only M0 refresh confirmed absent PSV tables/options, File Vault mode on, protected runtime hashes unchanged, public negative routes closed and authenticated File Vault healthy. Kinsta-shell DNS could not resolve the obsolete hostname `theresidencyacademy.com`; authoritative WordPress home/site URL is `https://missionmedinstitute.com`, which passed locally.
