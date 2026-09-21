@@ -67,7 +67,10 @@ test('Delivery Training consumes the existing session and never reacquires', () 
   const at = studio.indexOf('function bindCockpitVideo()');
   const body = stripComments(studio.slice(at, studio.indexOf('\nfunction ', at + 10)));
   // Attach the SAME stream. No new capture, no new context, no new permission prompt.
-  assert.match(body, /v\.srcObject = bridge\.media\.stream/u);
+  assert.match(body, /bindVideoSurface\(\$\('#cockpit-video'\)\)/u);
+  const binderAt = studio.indexOf('function bindVideoSurface(video)');
+  const binder = stripComments(studio.slice(binderAt, studio.indexOf('\nfunction ', binderAt + 10)));
+  assert.match(binder, /video\.srcObject = bridge\.media\.stream/u);
   assert.doesNotMatch(body, /getUserMedia|primeAudioContext|new Ctx/u,
     'entering training must not reacquire hardware');
   // Route entry re-binds rather than rebuilding.
@@ -98,10 +101,24 @@ test('Start Rep is never a dead button', () => {
   assert.doesNotMatch(body, /communication-analytics-start/u, 'the legacy button must not be in the critical path');
   // A rejected start must name itself rather than being swallowed.
   assert.match(body, /catch \(error\) \{[\s\S]*?Could not start the rep/u);
+  assert.match(body, /Secure account recording is unavailable/u,
+    'hosted practice must fail closed before capture when durable recording is unavailable');
+  assert.match(body, /state\.analytics\?\.endAnswer\?\.\(\{ mediaAvailable: false \}\)/u,
+    'a failed durable recording start must close the partial analytics answer');
+  assert.match(body, /reason: 'recording_start_failed'/u,
+    'a failed recording start must abandon the partial owner session');
   // One canonical state machine, with the required transitions.
   for (const st of ['IDLE', 'MEDIA_READY', 'ANALYTICS_READY', 'SESSION_READY', 'STARTING', 'RUNNING', 'FINISHING', 'COMPLETE']) {
     assert.ok(studio.includes(st), `state ${st} missing from the canonical machine`);
   }
+});
+
+test('one readiness action enters the real Interview Room and starts the live interviewer', () => {
+  const handler = studio.slice(studio.indexOf("$('#device-proceed')?.addEventListener"), studio.indexOf("$('#mode-wizard')", studio.indexOf("$('#device-proceed')?.addEventListener")));
+  assert.match(handler, /setView\('simulation', \{ focus: true \}\)/u);
+  assert.match(handler, /await startLiveInterview\(\)/u,
+    'the normal AI path must not strand the student in an inert room behind a second hidden action');
+  assert.match(studio, /async function startLiveInterview\(\)/u);
 });
 
 test('connectivity is distinguished from an active rep', () => {
@@ -116,7 +133,7 @@ test('connectivity is distinguished from an active rep', () => {
 test('the media session has one owner and the bridge is shared', () => {
   // The Studio shell owns exactly one bridge; the analytics cockpit receives it rather
   // than constructing its own, so there is a single hardware lifecycle.
-  assert.equal((studio.match(/^const bridge = \{/gmu) || []).length, 1, 'exactly one media owner');
+  assert.equal((studio.match(/^const bridge = createMediaAnalyticsBridge\(\);/gmu) || []).length, 1, 'exactly one media owner');
   assert.match(studio, /initializeAnalyticsUi\(bridge,/u, 'the analytics cockpit consumes the shared bridge');
   // Overlay and role toggles are presentation only and must never stop tracks.
   const overlay = studio.slice(studio.indexOf('function renderOverlayToggles'), studio.indexOf('function bindCockpitVideo'));

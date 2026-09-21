@@ -1757,6 +1757,9 @@ async function startRep() {
   if (evaluateReadiness() !== 'SESSION_READY') return;
   setSessionState('STARTING');
   try {
+    if (state.admission?.runtime?.mode === 'hosted' && !state.durableAvailable) {
+      throw new Error('Secure account recording is unavailable. Reconnect or reload before starting.');
+    }
     const video = $('#cockpit-video');
     // Drive the session engine directly. No legacy button, no hidden state machine.
     const answer = state.analytics.beginAnswer({ videoElement: video });
@@ -1778,6 +1781,14 @@ async function startRep() {
       } catch (error) {
         state.durableError = error;
         if (save) { save.dataset.state = 'error'; save.textContent = `Account save unavailable for this rep — ${String(error?.message || error).slice(0, 100)}`; }
+        // Production practice may not continue as an apparently valid rep after its
+        // account transaction failed. End the just-opened analytics answer, abandon
+        // the partial owner session, and keep the user on the actionable start state.
+        state.analytics?.endAnswer?.({ mediaAvailable: false });
+        if (state.durable?.accountSession) {
+          await state.durable.abandon({ reason: 'recording_start_failed' }).catch(() => {});
+        }
+        throw error;
       }
     } else if (save) {
       save.dataset.state = 'error';
@@ -2021,6 +2032,67 @@ function liveInterviewContext() {
   return createLiveContext({ wizard: state.wizard, interviewSet: state.interviewSet, targetQuestions: state.targetQuestions });
 }
 
+async function startLiveInterview() {
+  if (!state.admission?.runtime?.liveInterviewAvailable) {
+    setLiveInterviewStatus({ state: 'error', detail: 'Live voice is not configured in this environment.' });
+    return false;
+  }
+  if (state.liveInterview?.sessionId || ['STARTING', 'RUNNING'].includes(state.session.state)) return true;
+  let preparedForLive = false;
+  let analyticsStarted = false;
+  try {
+    bridge.primeAudioContext();
+    if (!bridge.media.stream?.getAudioTracks?.().some((track) => track.readyState === 'live')) {
+      await bridge.requestMedia(true, true);
+      bindPreview(); bindSimulationVideo();
+      renderDeviceCheck();
+    }
+    bindSimulationVideo();
+    if (evaluateReadiness() !== 'SESSION_READY') throw new Error(state.session.reason || 'Camera and microphone are not ready.');
+    const track = bridge.media.stream.getAudioTracks()[0];
+    const selectedVoice = state.role === 'admin'
+      ? ($('#admin-live-voice')?.value || 'marin')
+      : 'marin';
+    if (!state.durableAvailable) throw new Error('Secure account context is unavailable.');
+    preparedForLive = !state.durable.accountSession;
+    const prepared = await state.durable.prepare({
+      question: state.interviewSet[0] || null,
+      interviewSet: state.interviewSet,
+      wizard: state.wizard,
+      targetQuestions: state.targetQuestions,
+      interviewerProvider: 'openai-gpt-live',
+    });
+    const answer = state.analytics.beginAnswer({ videoElement: $('#founder-student-video') });
+    analyticsStarted = true;
+    state.session.answerId = answer?.answerId ?? null;
+    state.session.startedAt = Date.now();
+    await state.durable.start({
+      stream: bridge.media.stream,
+      question: state.interviewSet[0] || null,
+      interviewSet: state.interviewSet,
+      wizard: state.wizard,
+      targetQuestions: state.targetQuestions,
+      interviewerProvider: 'openai-gpt-live',
+    });
+    await state.liveInterview.start({
+      audioTrack: track,
+      voice: selectedVoice,
+      context: liveInterviewContext(),
+      ivocSessionId: prepared.id,
+    });
+    const save = $('#simulation-save');
+    if (save) { save.dataset.state = 'active'; save.textContent = 'Secure account recording active.'; }
+    setSessionState('RUNNING');
+    return true;
+  } catch (error) {
+    if (analyticsStarted) state.analytics?.endAnswer?.({ mediaAvailable: false });
+    if (preparedForLive || state.durable?.accountSession) await state.durable.abandon({ reason: 'client_exit' }).catch(() => {});
+    setSessionState('BLOCKED', String(error?.message || error).slice(0, 180));
+    setLiveInterviewStatus({ state: 'error', detail: String(error?.message || error).slice(0, 180) });
+    return false;
+  }
+}
+
 function wireLiveInterview() {
   if (typeof window.RTCPeerConnection !== 'function') {
     setLiveInterviewStatus({ state: 'error', detail: 'WebRTC is unavailable in this browser.' });
@@ -2038,63 +2110,7 @@ function wireLiveInterview() {
   setLiveInterviewStatus({ state: available ? 'idle' : 'unavailable', detail: available
     ? 'Uses your selected interviewer, program, Question Pool, and authorized context.'
     : 'Live voice is not configured in this environment.' });
-  $('#live-interview-start')?.addEventListener('click', async () => {
-    if (!state.admission?.runtime?.liveInterviewAvailable) {
-      setLiveInterviewStatus({ state: 'error', detail: 'Live voice is not configured in this environment.' });
-      return;
-    }
-    let preparedForLive = false;
-    let analyticsStarted = false;
-    try {
-      bridge.primeAudioContext();
-      if (!bridge.media.stream?.getAudioTracks?.().some((track) => track.readyState === 'live')) {
-        await bridge.requestMedia(true, true);
-        bindPreview(); bindSimulationVideo();
-        renderDeviceCheck();
-      }
-      bindSimulationVideo();
-      if (evaluateReadiness() !== 'SESSION_READY') throw new Error(state.session.reason || 'Camera and microphone are not ready.');
-      const track = bridge.media.stream.getAudioTracks()[0];
-      const selectedVoice = state.role === 'admin'
-        ? ($('#admin-live-voice')?.value || 'marin')
-        : 'marin';
-      if (!state.durableAvailable) throw new Error('Secure account context is unavailable.');
-      preparedForLive = !state.durable.accountSession;
-      const prepared = await state.durable.prepare({
-        question: state.interviewSet[0] || null,
-        interviewSet: state.interviewSet,
-        wizard: state.wizard,
-        targetQuestions: state.targetQuestions,
-        interviewerProvider: 'openai-gpt-live',
-      });
-      const answer = state.analytics.beginAnswer({ videoElement: $('#founder-student-video') });
-      analyticsStarted = true;
-      state.session.answerId = answer?.answerId ?? null;
-      state.session.startedAt = Date.now();
-      await state.durable.start({
-        stream: bridge.media.stream,
-        question: state.interviewSet[0] || null,
-        interviewSet: state.interviewSet,
-        wizard: state.wizard,
-        targetQuestions: state.targetQuestions,
-        interviewerProvider: 'openai-gpt-live',
-      });
-      await state.liveInterview.start({
-        audioTrack: track,
-        voice: selectedVoice,
-        context: liveInterviewContext(),
-        ivocSessionId: prepared.id,
-      });
-      const save = $('#simulation-save');
-      if (save) { save.dataset.state = 'active'; save.textContent = 'Secure account recording active.'; }
-      setSessionState('RUNNING');
-    } catch (error) {
-      if (analyticsStarted) state.analytics?.endAnswer?.({ mediaAvailable: false });
-      if (preparedForLive || state.durable?.accountSession) void state.durable.abandon({ reason: 'client_exit' }).catch(() => {});
-      setSessionState('BLOCKED', String(error?.message || error).slice(0, 180));
-      setLiveInterviewStatus({ state: 'error', detail: String(error?.message || error).slice(0, 180) });
-    }
-  });
+  $('#live-interview-start')?.addEventListener('click', () => { void startLiveInterview(); });
   $('#live-interview-end')?.addEventListener('click', async () => {
     try {
       await finishRep();
@@ -2150,7 +2166,7 @@ function renderDeviceCheck() {
   if (proceed) {
     const ready = cameraLive && microphoneLive && surfaceLive && media.AC?.state === 'running';
     proceed.disabled = !ready;
-    proceed.innerHTML = `<span>${ready ? (state.launchMode === 'ai' ? 'Enter Interview Room ▸' : 'Begin coached practice ▸') : 'Connect devices to continue'}</span>`;
+    proceed.innerHTML = `<span>${ready ? (state.launchMode === 'ai' ? 'Start AI interview ▸' : 'Begin coached practice ▸') : 'Connect devices to continue'}</span>`;
   }
 }
 
@@ -2563,9 +2579,14 @@ function wireChrome() {
   $('#q-search')?.addEventListener('input', (event) => { state.search = event.target.value; renderQuestions(); });
   $('#set-clear')?.addEventListener('click', () => { state.interviewSet = []; renderSet(); });
   $('#device-connect')?.addEventListener('click', () => void connectDevices());
-  $('#device-proceed')?.addEventListener('click', () => {
+  $('#device-proceed')?.addEventListener('click', async () => {
     if (evaluateReadiness() !== 'SESSION_READY') { renderDeviceCheck(); return; }
-    setView(state.launchMode === 'ai' ? 'simulation' : 'training', { focus: true });
+    if (state.launchMode === 'ai') {
+      setView('simulation', { focus: true });
+      await startLiveInterview();
+      return;
+    }
+    setView('training', { focus: true });
   });
 
   $('#mode-wizard')?.addEventListener('click', () => showBuilderMode('wizard'));

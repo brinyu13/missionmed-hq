@@ -81,6 +81,8 @@ test('presentation integration preserves the proven analytics and media contract
   assert.match(html, /Available transcript and evidence-cited analysis are saved privately/u);
   assert.match(html, /id="device-proceed" disabled/u);
   assert.match(html, /id="simulation-rail"/u);
+  assert.match(runtime, /Start AI interview ▸/u);
+  assert.match(runtime, /await startLiveInterview\(\)/u);
 });
 
 test('the active presentation consumes production behavior through the stable capability boundary', () => {
