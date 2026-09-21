@@ -215,6 +215,7 @@ const MMC_FORBIDDEN_SUPABASE_PROJECTS = new Set([
 ]);
 const AUTH_BOOTSTRAP_PASSWORD_SALT = String(envValue('MMHQ_SUPABASE_PASSWORD_SALT', 'missionmed-bootstrap-salt')).trim() || 'missionmed-bootstrap-salt';
 const AUTH_HANDOFF_SECRET = String(envValue('MMHQ_HANDOFF_SECRET', '')).trim();
+const RISE_IVOC_DELEGATION_TOKEN = String(envValue('MMHQ_RISE_DELEGATION_TOKEN', '')).trim();
 const AUTH_HANDOFF_MAX_CLOCK_SKEW_SECONDS = 300;
 const RISE_HANDOFF_REPLAY_LEDGER_MAX_ENTRIES = 10_000;
 const riseHandoffReplayLedger = new Map();
@@ -2985,6 +2986,35 @@ async function handleApiRoute(request, response, url, context) {
         buildSessionPayload(hydratedSession, request, audience),
         responseHeaders,
       );
+      return;
+    }
+
+    const internalConsumer = String(request.headers['x-mmed-internal-consumer'] || '').trim();
+    if (internalConsumer) {
+      const expectedDelegationToken = RISE_IVOC_DELEGATION_TOKEN.length >= 32
+        ? RISE_IVOC_DELEGATION_TOKEN
+        : '';
+      const providedDelegationToken = String(request.headers['x-mmed-delegation-token'] || '').trim();
+      const authorized = request.method === 'GET'
+        && audience === RISE_AUTH_AUDIENCE
+        && internalConsumer === 'rise-ivoc-projection'
+        && sessionAuthAudience(session) !== RISE_AUTH_AUDIENCE
+        && safeTimingEqual(providedDelegationToken, expectedDelegationToken);
+      const grant = authorized ? resolveWordPressSessionGrant(session?.user || {}, RISE_AUTH_AUDIENCE) : null;
+      if (!authorized || !grant?.ok) {
+        sendJson(response, 403, { error: 'rise_delegation_denied' }, authHeaders);
+        return;
+      }
+      const delegated = createSessionRecord(
+        normalizeWordPressIdentityUser(session.user || {}),
+        {
+          wpAuthorization: String(session.wpAuthorization || '').trim(),
+          audience: grant.audience,
+          apiScope: grant.apiScope,
+        },
+        'ivoc-rise-owner-projection',
+      );
+      sendJson(response, 200, buildSessionPayload(delegated, request, RISE_AUTH_AUDIENCE), authHeaders);
       return;
     }
 

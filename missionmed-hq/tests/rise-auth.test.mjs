@@ -10,6 +10,7 @@ const hqRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const RISE_ENTITLEMENT = 'FULL_RISE_BETA_ACCESS';
 const TEST_EMAIL = 'rise-auth-contract@example.test';
 const TEST_NONCE = '123e4567-e89b-42d3-a456-426614174000';
+const RISE_DELEGATION_TOKEN = 'rise-ivoc-delegation-test-token-000000000000';
 
 function base64url(value) {
   return Buffer.from(value).toString('base64url');
@@ -61,6 +62,7 @@ async function startHq() {
       MMHQ_AUTH_REQUIRED: 'true',
       MMHQ_SESSION_SECRET: randomBytes(32).toString('hex'),
       MMHQ_HANDOFF_SECRET: secret,
+      MMHQ_RISE_DELEGATION_TOKEN: RISE_DELEGATION_TOKEN,
       MMHQ_WP_BASE: 'https://missionmedinstitute.com',
       MMHQ_DBOC_PIPELINE_SAFE_MODE: 'true',
       MMHQ_DBOC_TRANSCRIBE_SAFE_MODE: 'true',
@@ -160,6 +162,56 @@ test('RISE auth is entitlement-bound, audience-isolated, and non-RISE compatible
     assert.equal(anonymousPayload.authAudience, null);
     assert.equal(anonymousPayload.risePrivateBeta, false);
     assert.deepEqual(anonymousPayload.riseEntitlements, []);
+
+    const hqExchange = await fetch(`${runtime.origin}/api/auth/exchange`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-forwarded-proto': 'https',
+        'x-forwarded-host': 'missionmed-hq-production.up.railway.app',
+      },
+      body: JSON.stringify({
+        token: signedToken(runtime.secret, {
+          roles: ['administrator'],
+          auth_audience: 'hq',
+          nonce: undefined,
+        }),
+        audience: 'hq',
+      }),
+    });
+    assert.equal(hqExchange.status, 200);
+    const hqCookie = String(hqExchange.headers.get('set-cookie') || '').match(/^mmhq_session=([^;]+)/u)?.[1];
+    assert.ok(hqCookie);
+    const hqSession = await fetch(`${runtime.origin}/api/auth/session?audience=hq`, {
+      headers: { Cookie: `mmhq_session=${hqCookie}` },
+    });
+    assert.equal(hqSession.status, 200);
+    const hqSessionPayload = await hqSession.json();
+    assert.equal(hqSessionPayload.authenticated, true);
+    assert.equal(hqSessionPayload.user.roles.includes('administrator'), true);
+    const delegated = await fetch(`${runtime.origin}/api/auth/session?audience=rise`, {
+      headers: {
+        Cookie: `mmhq_session=${hqCookie}`,
+        'X-MMED-Delegation-Token': RISE_DELEGATION_TOKEN,
+        'X-MMED-Internal-Consumer': 'rise-ivoc-projection',
+      },
+    });
+    const delegatedText = await delegated.text();
+    assert.equal(delegated.status, 200, delegatedText);
+    const delegatedPayload = JSON.parse(delegatedText);
+    assert.equal(delegatedPayload.authenticated, true);
+    assert.equal(delegatedPayload.authAudience, 'rise');
+    assert.equal(delegatedPayload.user.id, 42);
+
+    const invalidDelegation = await fetch(`${runtime.origin}/api/auth/session?audience=rise`, {
+      headers: {
+        Cookie: `mmhq_session=${hqCookie}`,
+        'X-MMED-Delegation-Token': 'wrong-delegation-token-000000000000',
+        'X-MMED-Internal-Consumer': 'rise-ivoc-projection',
+      },
+    });
+    assert.equal(invalidDelegation.status, 403);
+    assert.equal((await invalidDelegation.json()).error, 'rise_delegation_denied');
 
     for (const courseId of [3893, 3646]) {
       const eligible = await exchange(runtime, signedToken(runtime.secret, {
