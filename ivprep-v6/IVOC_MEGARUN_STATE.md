@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-21 01:28 America/New_York
+Updated: 2026-09-21 01:59 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -17,8 +17,9 @@ the actual production route and deployment.
   acceptance now requires complete production-UI journeys, not component,
   endpoint, DOM, readiness-state or test evidence.
 - Current healthy production baseline: commit
-  `082763ac369ab328e5d3109eb9e16860849a9035`, Railway deployment
-  `258828d0-0280-4b3d-8b65-151d371c174f`; `/health` is HTTP 200 and anonymous
+  `a507fbac2ef137a5574b44c9f35b321660f36418`, Railway deployment
+  `4c755ac4-0926-483f-b812-189d7e28cb84`, image
+  `sha256:88af54379dffd59e9f91d3bd1416d97f93801b26aacf4b85538f5760ec52dc12`; `/health` is HTTP 200 and anonymous
   product access fails closed at HTTP 401. This is infrastructure health, not
   Founder journey acceptance.
 - Real RISE search/select is production-verified: searching `SUNY` returned 44
@@ -29,6 +30,25 @@ the actual production route and deployment.
   nonzero dimensions after camera connection, camera switching and Interview
   Room transition. It also exposes distinct Home entry actions for self
   practice, AI mock and interview building. Focused verification is 38/38.
+- Founder POV fix-forward source is now `a507fbac2ef137a5574b44c9f35b321660f36418`.
+  It removes false Ready states, blocks zero-question launches, distinguishes
+  verified RISE selection from manual text, makes Enter execute program search,
+  gives students a direct Review answer action with session provenance, and
+  routes Self Practice through question selection. The changed critical suite
+  passes 73/73. Fencing epochs 3447-3449 were continuously heartbeated, remotely
+  read back, non-force pushed and released normally.
+- The historical Founder save failure was traced to two production session
+  creates that requested RISE with only manual program text. The upstream
+  projection correctly failed closed, but the route returned a generic 500.
+  Current source suppresses unverified RISE context and returns actionable 409
+  projection-unavailable errors; successful recording/save/reload remains POV
+  unverified until a physical capture completes.
+- Current authenticated Chrome evidence: Chrome's selected camera is FaceTime
+  HD Camera and sites may request camera access, while the production IVOC page
+  currently enumerates no video input and combined capture returns Requested
+  device not found. macOS still enumerates physical and virtual cameras. This is
+  the exact current physical-browser blocker; it is not camera acceptance and
+  it does not reclassify the capture/binding code as verified.
 - **UNVERIFIED / required before closure:** complete production POV Journey 1
   Self Practice, Journey 2 AI Mock (including audible question, contextual
   follow-up and barge-in), Journey 3 program-aware interview influence, and
