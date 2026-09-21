@@ -455,8 +455,8 @@ dialog.private-access-modal{width:620px;max-width:min(620px,calc(100vw - 32px))}
   .comparison .lead{justify-self:start;text-align:left}
   .site-nav{min-height:0;padding:14px var(--pad) 4px}
   .brand-lockup{width:min(330px,100%)}
-  .site-nav nav{gap:0;justify-content:space-between}
-  .site-nav nav a{font-size:14.5px;min-height:48px}
+  .site-nav nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 12px;justify-content:stretch}
+  .site-nav nav a{justify-content:center;min-height:48px;text-align:center;font-size:14.5px;line-height:1.25}
   .site-nav nav a[href="#why"]{display:none}
   .site-nav .nav-enroll{margin-left:0}
   .hero{display:block;height:auto;background:var(--ink)}

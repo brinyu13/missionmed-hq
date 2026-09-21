@@ -2,7 +2,7 @@
   "_release_asset_dir": "missionmed-mr-0912-assets",
   "schema": "missionmed.mr-web-0912.campaign.v1",
   "mission": "MR-WEB-0912",
-  "authority": ["DR-246", "DR-247", "DR-251"],
+  "authority": ["DR-246", "DR-247", "DR-251", "DR-296", "DR-325"],
   "timezone": "America/New_York",
   "campaign": {
     "id": "fall_2026_interview_week",
@@ -12,7 +12,7 @@
       "blocks_checkout": true,
       "required_evidence": "DR-251 Founder waiver, current product/account/mapping truth, entitlement and refund simulation, non-financial cart and checkout, rendered QA, analytics observation, rollback, and independent acceptance"
     },
-    "early_terms_end": "2026-09-23T23:59:59-04:00",
+    "early_terms_end": "2026-09-26T23:59:59-04:00",
     "next_foundation": "Anticipated around November 8, 2026"
   },
   "positioning": {
@@ -141,16 +141,33 @@
       {"question": "Are the evening times final?", "answer": "No exact evening clock time is published yet. Use only the approved schedule supplied with your enrollment."},
       {"question": "Is September the last training opportunity?", "answer": "No. The next foundational training is anticipated around November 8, 2026."},
       {"question": "Do you guarantee a Match?", "answer": "No. No coach can guarantee a Match. Mission Residency provides preparation, practice, feedback, and strategy."},
-      {"question": "How can I pay?", "answer": "Interview Week is $549 by card or $499 by Zelle; choose Zelle at checkout. A Zelle order stays on hold, and course access opens once MissionMed confirms receipt of your payment. Complete is available pay in full ($3,099 early tuition) or on a payment plan ($1,000 today + 6 monthly installments, $3,400 total). Complete checkout is by card."}
+      {"question": "How can I pay?", "answer": "Interview Week is $549 by card or $499 by Zelle. Complete is available pay in full ($3,099 early tuition through September 26), by Zelle at the same applicable pay-in-full tuition, or on a payment plan ($1,000 today + 6 monthly installments, $3,400 total). Every Zelle order stays on hold, and course access opens only after MissionMed confirms receipt."}
     ]
   },
   "schedule": [
-    {"date": "Thu Sep 24", "label": "Orientation + Match Primer", "time": "Evening"},
-    {"date": "Sun Sep 27", "label": "Day 1", "time": "11 AM-4 PM ET"},
-    {"date": "Tue Sep 29", "label": "Day 2", "time": "Evening"},
-    {"date": "Thu Oct 1", "label": "Day 3", "time": "Evening"},
-    {"date": "Sat Oct 3", "label": "Day 4", "time": "11 AM-4 PM ET"},
-    {"date": "Sun Oct 4", "label": "Day 5", "time": "Full day"}
+    {"date": "Thu Oct 1", "label": "Orientation + Match Primer", "time": "Evening"},
+    {"date": "Sun Oct 4", "label": "Day 1", "time": "11 AM-4 PM ET"},
+    {"date": "Tue Oct 6", "label": "Day 2", "time": "Evening"},
+    {"date": "Thu Oct 8", "label": "Day 3", "time": "Evening"},
+    {"date": "Sat Oct 10", "label": "Day 4", "time": "11 AM-4 PM ET"},
+    {"date": "Sun Oct 11", "label": "Day 5 / Final", "time": "Full day"}
+  ],
+  "complete_schedule": {
+    "recurring": [
+      {"day": "Sunday", "session": "Pre-IV Checkups", "time": "8 PM-12 AM ET", "detail": "Program-specific preparation before upcoming interviews."},
+      {"day": "Monday", "session": "Session A / 360 Group Practice", "time": "8 PM-12 AM ET", "detail": "Recurring group practice in your assigned A360 cohort."},
+      {"day": "Wednesday", "session": "Session B or Session C", "time": "8 PM-12 AM ET", "detail": "Alternating weeks. Each group meets every other Wednesday."},
+      {"day": "Alternating Saturday", "session": "Advanced Mock IVs", "time": "12-5 PM ET", "detail": "Signature Mock pathway sessions on select Saturdays."}
+    ],
+    "ongoing": [
+      {"name": "Post-IV Debriefs", "detail": "After a real interview, request a debrief with Dr Brian. Scheduled as interviews happen during the season."},
+      {"name": "Rx Replays", "detail": "On-demand review of practices and teaching moments. Access confirmed with enrollment."},
+      {"name": "Season Support", "detail": "Personalized feedback and guidance through Match Day."}
+    ]
+  },
+  "complete_proof": [
+    {"name": "Dr Manasa Kandula", "role": "Clinical Associate Professor & Associate Program Director", "institution": "Internal Medicine Residency, University of Illinois College of Medicine Peoria", "quote": "Once your session is done, you will know exactly how to approach any interview question."},
+    {"name": "Dr Marian Ghaly", "role": "Faculty", "institution": "St Joseph's Paterson, Family Medicine", "quote": "You made me fall in love with my own story and believe that my dreams are valid against all Odds."}
   ],
   "curriculum": [
     "Communication & Delivery",
@@ -177,7 +194,7 @@
       "descriptor": "Interview Week plus the whole season around it",
       "standard_price": 3499,
       "includes_interview_week": true,
-      "benefits": ["Interview Week", "Debrief and individualized action-plan workflow", "Continued practice", "Personalized feedback", "Interview-season coaching and support"],
+      "benefits": ["Interview Week", "Pre-IV Checkups", "Post-IV Debriefs", "Rx Replays on demand", "Debrief and individualized action-plan workflow", "Continued practice", "Personalized feedback", "Interview-season coaching and support"],
       "mock_count": null,
       "mock_count_public": false,
       "group_availability_public": false,
@@ -196,9 +213,9 @@
     }
   },
   "payment_options": {
-    "early_zelle_paid_in_full": {"amount": 2799, "public_verified": false},
+    "complete_zelle_paid_in_full": {"amount": 3099, "rail": "bacs", "settlement": "manual_verification_required_before_access", "public_verified": false},
     "early_card_paid_in_full": {"amount": 3099, "public_verified": false},
-    "early_installments_total": {"amount": 3299, "public_verified": false, "cadence": null},
+    "complete_installments": {"signup_fee": 1000, "recurring_amount": 400, "installment_count": 6, "amount": 3400, "public_verified": false},
     "standard": {"amount": 3499, "authority_approved": true, "public_verified": false}
   },
   "upgrade_credit": {"amount": 500, "applies_to": "standard_complete_only", "public_verified": false, "double_credit_prevention_verified": false},
