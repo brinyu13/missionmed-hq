@@ -58,6 +58,7 @@ const currentMigrations = [
   '20260908193000_sf_access_5014_canonical_admin_identity.sql',
   '20260911030000_sf_audio_playback_admin_projection.sql',
   '20260912190000_sf_request_story_delivery_hydration.sql',
+  '20260921010000_b1_5021_ivoc_approved_story_projection.sql',
 ];
 
 function commandPath(name) {

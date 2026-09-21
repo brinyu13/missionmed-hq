@@ -16,6 +16,7 @@ const MMSF_OPTION = 'missionmed_storyforge_settings';
 const MMSF_RATE_KEYS_OPTION = 'missionmed_storyforge_rate_keys';
 const MMSF_REST_NAMESPACE = 'missionmed/v1';
 const MMSF_REST_ROUTE = '/storyforge/token';
+const MMSF_IVOC_SERVICE_TOKEN_ROUTE = '/storyforge/ivoc-token';
 const MMSF_VERSION = '0.1.1';
 
 function mmsf_defaults() {
@@ -538,28 +539,32 @@ function mmsf_send_private_no_store_headers() {
 }
 
 function mmsf_is_token_rest_request($request = null) {
-    $expected_route = '/' . MMSF_REST_NAMESPACE . MMSF_REST_ROUTE;
+    $expected_routes = array(
+        '/' . MMSF_REST_NAMESPACE . MMSF_REST_ROUTE,
+        '/' . MMSF_REST_NAMESPACE . MMSF_IVOC_SERVICE_TOKEN_ROUTE,
+    );
     if (
         $request instanceof WP_REST_Request
-        && untrailingslashit($request->get_route()) === untrailingslashit($expected_route)
+        && in_array(untrailingslashit($request->get_route()), array_map('untrailingslashit', $expected_routes), true)
     ) {
         return true;
     }
     $request_uri = isset($_SERVER['REQUEST_URI']) ? wp_unslash($_SERVER['REQUEST_URI']) : '';
     $request_path = (string) wp_parse_url(esc_url_raw($request_uri), PHP_URL_PATH);
-    $route_suffix = '/' . ltrim(MMSF_REST_NAMESPACE . MMSF_REST_ROUTE, '/');
-    if (
-        $request_path !== ''
-        && str_ends_with(untrailingslashit($request_path), untrailingslashit($route_suffix))
-    ) {
-        return true;
+    foreach (array(MMSF_REST_ROUTE, MMSF_IVOC_SERVICE_TOKEN_ROUTE) as $route) {
+        $route_suffix = '/' . ltrim(MMSF_REST_NAMESPACE . $route, '/');
+        if (
+            $request_path !== ''
+            && str_ends_with(untrailingslashit($request_path), untrailingslashit($route_suffix))
+        ) {
+            return true;
+        }
+        $expected_path = (string) wp_parse_url(rest_url(MMSF_REST_NAMESPACE . $route), PHP_URL_PATH);
+        if ($request_path !== '' && untrailingslashit($request_path) === untrailingslashit($expected_path)) {
+            return true;
+        }
     }
-    $expected_path = (string) wp_parse_url(
-        rest_url(MMSF_REST_NAMESPACE . MMSF_REST_ROUTE),
-        PHP_URL_PATH
-    );
-    return $request_path !== ''
-        && untrailingslashit($request_path) === untrailingslashit($expected_path);
+    return false;
 }
 
 function mmsf_rest_private_no_store($response, $server, $request) {
@@ -615,10 +620,57 @@ function mmsf_token_endpoint($request) {
     return mmsf_no_store(new WP_REST_Response($issued, 200));
 }
 
+function mmsf_ivoc_service_token_endpoint($request) {
+    if (trim((string) $request->get_header('origin')) !== '') {
+        return new WP_Error('origin_not_allowed', 'Browser requests may not use this endpoint.', array('status' => 403));
+    }
+
+    $consumer = trim((string) $request->get_header('x-mmed-consumer'));
+    if (!hash_equals('ivoc', $consumer)) {
+        return new WP_Error('consumer_not_allowed', 'The IVOC consumer identity is required.', array('status' => 403));
+    }
+
+    $authorization = trim((string) $request->get_header('authorization'));
+    if (
+        $authorization === ''
+        || strlen($authorization) > 4096
+        || preg_match('/[\r\n]/', $authorization)
+        || !preg_match('/^(Basic|Bearer)\s+\S+$/', $authorization)
+    ) {
+        return new WP_Error('authorization_required', 'Explicit WordPress authorization is required.', array('status' => 401));
+    }
+
+    $user = wp_get_current_user();
+    if (!$user instanceof WP_User || (int) $user->ID <= 0) {
+        return new WP_Error('session_required', 'An authenticated MissionMed user is required.', array('status' => 401));
+    }
+
+    $access = mmsf_access_state($user);
+    if (is_wp_error($access)) {
+        return $access;
+    }
+
+    $rate = mmsf_rate_limit((int) $user->ID);
+    if (is_wp_error($rate)) {
+        return $rate;
+    }
+
+    $issued = mmsf_issue_jwt($user, $access);
+    if (is_wp_error($issued)) {
+        return $issued;
+    }
+    return mmsf_no_store(new WP_REST_Response($issued, 200));
+}
+
 function mmsf_register_rest_routes() {
     register_rest_route(MMSF_REST_NAMESPACE, MMSF_REST_ROUTE, array(
         'methods' => WP_REST_Server::CREATABLE,
         'callback' => 'mmsf_token_endpoint',
+        'permission_callback' => '__return_true',
+    ));
+    register_rest_route(MMSF_REST_NAMESPACE, MMSF_IVOC_SERVICE_TOKEN_ROUTE, array(
+        'methods' => WP_REST_Server::CREATABLE,
+        'callback' => 'mmsf_ivoc_service_token_endpoint',
         'permission_callback' => '__return_true',
     ));
 }

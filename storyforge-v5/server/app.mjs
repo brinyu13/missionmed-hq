@@ -35,6 +35,7 @@ import { createAvatarIdentityService } from './avatar-identity.mjs';
 import { createPostmarkService } from './postmark.mjs';
 import { createGatewayIngressVerifier } from './gateway-ingress.mjs';
 import { createCollaborationService } from './collaboration.mjs';
+import { createIvocProjectionService } from './ivoc-projection.mjs';
 import { previewImport } from './imports.mjs';
 import {
   createAudioPlayback,
@@ -650,6 +651,7 @@ async function api(request, response, url, {
   storyFollowupService,
   avatarIdentityService,
   collaborationService,
+  ivocProjectionService,
   postmarkService,
   verifyGatewayIngress,
   recordingsService,
@@ -765,6 +767,22 @@ async function api(request, response, url, {
   }
 
   const identity = await authorizeRequest(request);
+
+  if (request.method === 'GET' && url.pathname === '/api/ivoc/projection') {
+    const projection = await ivocProjectionService.read(identity);
+    if (!projection) {
+      const error = new Error('No active approved-story projection is available.');
+      error.code = 'ivoc_projection_not_found';
+      error.status = 404;
+      throw error;
+    }
+    return sendJson(response, 200, projection);
+  }
+  if (request.method === 'POST' && url.pathname === '/api/ivoc/consent') {
+    return sendJson(response, 201, {
+      consent: await ivocProjectionService.consent(identity, await readJson(request)),
+    });
+  }
 
   if (request.method === 'POST' && url.pathname === '/api/story-followup') {
     return sendJson(response, 503, await storyFollowupService.ask(identity, await readJson(request)));
@@ -3519,6 +3537,7 @@ export function createAppServer({
   storyFollowupService = null,
   avatarIdentityService = null,
   collaborationService = null,
+  ivocProjectionService = null,
   postmarkService = null,
   gatewayIngressVerifier = null,
   auditWriter = appendAudit,
@@ -3608,6 +3627,9 @@ export function createAppServer({
     withIdentity: identityTransaction,
     signPlayback: audioPlaybackSigner,
   });
+  const resolvedIvocProjectionService = ivocProjectionService || createIvocProjectionService({
+    withIdentity: identityTransaction,
+  });
   const apiRuntime = Object.freeze({
     authorizeRequest,
     auditWriter,
@@ -3629,6 +3651,7 @@ export function createAppServer({
     storyFollowupService: resolvedStoryFollowupService,
     avatarIdentityService: resolvedAvatarIdentityService,
     collaborationService: resolvedCollaborationService,
+    ivocProjectionService: resolvedIvocProjectionService,
     postmarkService: resolvedPostmarkService,
     verifyGatewayIngress: resolvedGatewayIngressVerifier,
     recordingsService: phaseOneRuntime.recordingsService,
