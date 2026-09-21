@@ -1,7 +1,7 @@
 <?php
 /**
  * REST surface of the prototype. Namespace mmed-ps-proto/v1.
- * Every route answers 404 to anyone outside the allowlist (MMPS_Gate).
+ * Every route answers 404 to anyone outside authorized access (MMPS_Gate).
  * Every read and write is scoped to the signed-in user's own rows.
  */
 if ( ! defined( 'ABSPATH' ) ) {
@@ -27,7 +27,7 @@ class MMPS_Rest {
 	}
 
 	public static function routes() {
-		// Outside the allowlist the namespace does not exist at all: no routes, no entry in the public REST index.
+		// Outside authorized access the namespace does not exist at all: no routes, no public REST-index entry.
 		if ( ! MMPS_Gate::user_allowed() ) {
 			return;
 		}

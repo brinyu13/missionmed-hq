@@ -34,8 +34,10 @@ define( 'MMED_PS_PROTO_OPENAI_API_KEY', '<set on the server only>' );
 Do **not** define `MMED_PS_PROTO_ALLOW_REAL_ROOT_AI` until the Founder has recorded the privacy decision (PSV-0002 decision 2). Without it, real statement text is never sent to the AI provider; the synthetic ROOT is used for the AI step.
 Never define `MMED_PS_PROTO_TESTING`, `MMED_PS_PROTO_TEST_RISE_ORIGIN` or `MMED_PS_PROTO_TEST_OPENAI_BASE` on production; they exist for the local harness only.
 
-5. Activate, or load the already-active upgraded plugin. `dbDelta` creates/upgrades eleven isolated tables (`{prefix}mmed_ps_proto_roots|runs|library|audit|jobs|job_items|provider_attempts|research_artifacts|similarity_fingerprints|similarity_buckets|edit_revisions`) and four namespaced options (`mmed_ps_proto_mode`, `mmed_ps_proto_allow_admins`, `mmed_ps_proto_allow_users`, `mmed_ps_proto_db_version = 6`). The installer records version 6 only after probing required columns and unique indexes. Nothing outside the PSV namespace is written. Version 0.5.9 adds immutable private paragraph revision chains; all seven participating review/approval tables must be InnoDB on MySQL or edits and library saves fail closed. Edit-head selection and library insertion share an owner-scoped run/ROOT transaction lock. Changed wording is privately saved but cannot inherit original grounding or approval. Final canary library save remains disabled. No AI call is made by navigation or editing.
+5. Activate, or load the already-active upgraded plugin. `dbDelta` creates/upgrades eleven isolated tables (`{prefix}mmed_ps_proto_roots|runs|library|audit|jobs|job_items|provider_attempts|research_artifacts|similarity_fingerprints|similarity_buckets|edit_revisions`) and four namespaced options (`mmed_ps_proto_mode`, `mmed_ps_proto_allow_admins`, `mmed_ps_proto_allow_users`, `mmed_ps_proto_db_version = 6`). The installer records version 6 only after probing required columns and unique indexes. Nothing outside the PSV namespace is written. Version 0.5.9 adds immutable private paragraph revision chains; all seven participating review/approval tables must be InnoDB on MySQL or edits and library saves fail closed. Edit-head selection and library insertion share an owner-scoped run/ROOT transaction lock. Changed wording is privately saved but cannot inherit original grounding or approval. Version 0.6.0 adds the strict `members` access mode and a Matrix sidebar entry. No AI call is made by menu navigation or editing.
 6. To restrict the prototype to the listed user ids only (no other administrators): `wp option update mmed_ps_proto_allow_admins 0`.
+
+7. Under DR-327, set `mmed_ps_proto_mode` to `members`. This admits administrators by `manage_options` and non-admin students only when the canonical `mmhq_cam_build_entitlement()` claim is active, trusted, verified, current, revocation-checked, unrestricted, unrevoked, unexpired and backed by either verified LearnDash + WooCommerce or verified legacy-current LearnDash authority. Any missing or malformed claim fails closed.
 
 ## 3. Verify on production (5 minutes)
 
@@ -43,10 +45,10 @@ Never define `MMED_PS_PROTO_TESTING`, `MMED_PS_PROTO_TEST_RISE_ORIGIN` or `MMED_
 |---|---|---|
 | 1 | Logged out: `curl -s -o /dev/null -w '%{http_code}' https://<site>/wp-json/mmed-ps-proto/v1/bootstrap` | `404` |
 | 2 | Logged out: open `https://<site>/?mmed_ps_proto=1` | the normal home page |
-| 2b | Logged out: fetch `https://<site>/wp-json/` and search the answer for `mmed-ps-proto`; then `curl -s -o /dev/null -w '%{http_code}' https://<site>/wp-json/mmed-ps-proto/v1` | not found, and `404`: the namespace is registered only for allowlisted users |
-| 3 | As a student who is not on the allowlist: open File Vault | File Vault exactly as before; no launcher |
-| 4 | As Dr Brian: open File Vault | File Vault exactly as before, plus a small "Program-Specific PS" launcher bottom right |
-| 5 | Click the launcher | the prototype opens at `/?mmed_ps_proto=1`; "What is live right now" shows RISE, AI writer, privacy gate, File Vault |
+| 2b | Logged out: fetch `https://<site>/wp-json/` and search the answer for `mmed-ps-proto`; then `curl -s -o /dev/null -w '%{http_code}' https://<site>/wp-json/mmed-ps-proto/v1` | not found, and `404`: the namespace is registered only for authorized users |
+| 3 | As a logged-in user without current 360 entitlement: open Matrix | Matrix is unchanged; no PSV menu item or launcher; direct page/REST stay undisclosed |
+| 4 | As a current 360 member and as an administrator: open Matrix | "Program-Specific PS" appears immediately after File Vault; the existing File Vault launcher remains secondary |
+| 5 | Use the menu item | PSV opens at `/?mmed_ps_proto=1`; simple navigation makes no provider call |
 | 6 | Walk the Founder test in the handoff (section 7) | one Essential, one Deep, one "Deep research needed" |
 | 7 | `wp-content/debug.log` (if enabled) | no new `MMPS` lines, no new fatals |
 | 8 | File Vault upload, review queue, journey, activity for a test student | unchanged |
@@ -70,7 +72,7 @@ The plugin has no uninstall hook on purpose: removing it never drops the saved s
 ## 5. Failure containment (why a broken prototype cannot hurt File Vault or RISE)
 
 - The main plugin file is about 70 lines. Every other file is loaded through a readability check inside `try { } catch ( \Throwable )`, so a missing file (fatal and uncatchable on PHP 7 if required blindly) and a damaged file (`ParseError`) both make the prototype inert instead of taking the site down. A second copy of the plugin returns at its first line. Tested: a deliberately corrupted class file and a deliberately missing class file each left the home page, the Hub page and the login page at 200 and the prototype at 404.
-- For anyone outside the allowlist the prototype costs nothing measurable: no output, no headers, no cron, no rewrite rules, no REST routes (the namespace is not even listed), and the gate reads only autoloaded options after it has established that someone is logged in.
+- For anyone outside authorized access the prototype costs nothing measurable: no output, no headers, no cron, no rewrite rules, no REST routes (the namespace is not even listed), and the gate reads only autoloaded options after it has established that someone is logged in.
 - File Vault is reached only through a subclass that is declared lazily, after reflection proves the parent class is non-final and has the five static members used. Any drift means "File Vault not available", never a fatal. The bridge is read-only and owner-scoped.
 - RISE is reached only by GET, through the student's own session. RISE cannot tell the prototype exists.
 - The launcher script lives in its own shadow root appended to `<body>`. It never inserts into `#sos-content` or the File Vault stage, so File Vault's mutation observers and renderers never see it.

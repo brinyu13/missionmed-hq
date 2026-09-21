@@ -64,9 +64,30 @@ class MMED_Hub_Page {
 	}
 }
 
+/** Canonical 360 entitlement fixture; only the fictional student is active. */
+function mmhq_cam_build_entitlement( $user_id ) {
+	$user   = get_user_by( 'id', absint( $user_id ) );
+	$active = $user && 'student' === $user->user_login;
+	return array(
+		'active'                  => $active,
+		'status'                  => $active ? 'active' : 'not_eligible',
+		'verified'                => true,
+		'trusted'                 => true,
+		'current_access_verified' => true,
+		'purchase_verified'       => $active,
+		'purchase_match_found'    => $active,
+		'enrollment_verified'     => $active,
+		'authority_mode'          => $active ? 'learndash_and_woocommerce' : '',
+		'revocation_checked'      => true,
+		'restricted'              => false,
+		'revoked'                 => false,
+		'expires_at'              => gmdate( 'c', time() + 3600 ),
+	);
+}
+
 add_shortcode(
 	'mmed_hub_stub',
 	function () {
-		return '<main id="sos-content"><section id="mmed-file-vault-v2-content" data-fv2-stage><div id="fv-canary"><h1>File Vault</h1><p>Local fictional harness surface.</p></div></section></main>';
+		return '<aside><ul class="sos-nav-list"><li><a class="sos-nav-link" href="#dashboard"><span class="sos-nav-icon">D</span><span class="sos-nav-text">Dashboard</span></a></li><li><a class="sos-nav-link" href="#filevault"><span class="sos-nav-icon">F</span><span class="sos-nav-text">File Vault</span></a></li></ul></aside><main id="sos-content"><section id="mmed-file-vault-v2-content" data-fv2-stage><div id="fv-canary"><h1>File Vault</h1><p>Local fictional harness surface.</p></div></section></main>';
 	}
 );

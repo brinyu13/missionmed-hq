@@ -2,11 +2,10 @@
 /**
  * The prototype's own page and its File Vault entry point.
  *
- *  - Page: /?mmed_ps_proto=1. No rewrite rule, no flush, no post, no menu item.
- *    Anyone outside the allowlist gets the normal site response for that URL.
- *  - Entry: a small launcher shown to allowlisted users while File Vault is on
- *    screen. It is appended to <body>, outside File Vault's DOM, so File
- *    Vault's own observers and renderers never see it.
+ *  - Page: /?mmed_ps_proto=1. No rewrite rule, no flush and no post.
+ *    Anyone outside authorized access gets the normal site response.
+ *  - Entry: an authorized Matrix menu item plus the secondary File Vault
+ *    launcher. The launcher remains outside File Vault's DOM.
  */
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -32,7 +31,7 @@ class MMPS_Page {
 		return apply_filters( 'mmps_file_vault_url', home_url( '/member-dashboard/#filevault' ) );
 	}
 
-	/* ---------------- File Vault entry ---------------- */
+	/* ---------------- Matrix / File Vault entry ---------------- */
 
 	public static function maybe_enqueue_entry() {
 		try {

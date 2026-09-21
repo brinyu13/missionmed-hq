@@ -1,9 +1,9 @@
 /*
- * File Vault entry for the Program-Specific PS prototype.
- * Loaded for allowlisted users only, on the Hub page only.
- * It never touches File Vault's DOM: the launcher lives in its own shadow root
- * appended to <body>, and it only LOOKS for the File Vault stage to decide
- * whether to show itself. If anything here throws, File Vault is unaffected.
+ * Matrix entry for the Program-Specific PS prototype.
+ * Loaded for authorized users only, on the Hub page only. The dedicated menu
+ * item is inserted beside the existing File Vault link and points directly to
+ * the isolated PSV page. The legacy File Vault launcher remains in its own
+ * shadow root. If anything here throws, File Vault and Matrix remain usable.
  */
 (function () {
 	'use strict';
@@ -38,12 +38,47 @@
 		var hidden = false;
 		root.querySelector('.x').addEventListener('click', function () { hidden = true; wrap.className = 'w'; });
 
+		function menuMounted() {
+			return !!document.querySelector('[data-mmps-menu="1"]');
+		}
+		function mountMenuEntry() {
+			if (menuMounted()) { return; }
+			var list = document.querySelector('.sos-nav-list');
+			var fileVault = document.querySelector('.sos-nav-link[href="#filevault"]');
+			if (!list || !fileVault) { return; }
+			var item = document.createElement('li');
+			item.setAttribute('data-mmps-menu', '1');
+			var link = document.createElement('a');
+			link.className = 'sos-nav-link';
+			link.href = cfg.url;
+			link.setAttribute('aria-label', 'Open Program-Specific Personal Statements');
+			var icon = document.createElement('span');
+			icon.className = 'sos-nav-icon';
+			icon.setAttribute('aria-hidden', 'true');
+			icon.textContent = 'PS';
+			var label = document.createElement('span');
+			label.className = 'sos-nav-text';
+			label.textContent = 'Program-Specific PS';
+			link.appendChild(icon);
+			link.appendChild(label);
+			item.appendChild(link);
+			var fileVaultItem = fileVault.closest ? fileVault.closest('li') : fileVault.parentNode;
+			if (fileVaultItem && fileVaultItem.parentNode === list) {
+				list.insertBefore(item, fileVaultItem.nextSibling);
+			} else {
+				list.appendChild(item);
+			}
+		}
+
 		function fileVaultOnScreen() {
 			var stage = document.getElementById('mmed-file-vault-v2-content') || document.querySelector('[data-fv2-stage]');
 			return !!(stage && stage.offsetParent !== null);
 		}
 		function tick() {
-			try { wrap.className = (!hidden && fileVaultOnScreen()) ? 'w on' : 'w'; } catch (e) { /* never surface */ }
+			try {
+				mountMenuEntry();
+				wrap.className = (!hidden && fileVaultOnScreen()) ? 'w on' : 'w';
+			} catch (e) { /* never surface */ }
 		}
 		function mount() {
 			if (!document.body) { return; }

@@ -347,7 +347,7 @@
 		var pv = S.boot.provider, pill;
 		if (pv.provider === 'openai-responses') { pill = '<span class="pill ok hideS"><span class="dot"></span>Writer ready · ' + (pv.realRootCanaryConfigured ? 'one hash-bound canary' : pv.realRootAllowed ? 'real ROOT enabled' : 'synthetic only') + '</span>'; } else if (pv.provider === 'simulator') { pill = '<span class="pill warn hideS"><span class="dot"></span>Simulator · not real writing</span>'; } else { pill = '<span class="pill warn hideS"><span class="dot"></span>Writer not configured</span>'; }
 		return '<header class="hdr"><div class="brand"><span class="brandTitle"><span class="brandLong">File Vault <em>·</em> Program-Specific PS</span><span class="brandShort">Program-Specific PS</span></span><span class="brandSub">MissionMed · Personal Statements</span></div><span class="hdrSpace"></span>' +
-			'<span class="pill vi">Prototype · allowlist only</span>' + pill +
+			'<span class="pill vi">Private · verified access</span>' + pill +
 			'<span class="hdrNav"><button class="btn sm ghost" data-act="go" data-view="batch">Batch' + (S.boot.batches && S.boot.batches.length ? ' · ' + S.boot.batches.length : '') + '</button>' +
 			'<button class="btn sm ghost" data-act="go" data-view="library">Library' + (S.boot.library.length ? ' · ' + S.boot.library.length : '') + '</button>' +
 			'<a class="btn sm" href="' + esc(cfg.backUrl) + '">← File Vault</a></span></header>';
@@ -799,7 +799,7 @@
 		}
 		var views = { home: viewHome, root: viewRoot, region: viewRegion, prefs: viewPrefs, programs: viewPrograms, generate: viewGenerate, preview: viewPreview, batch: viewBatch, library: viewLibrary, doc: viewDoc };
 		var keep = document.activeElement && document.activeElement.getAttribute ? { search: document.activeElement.hasAttribute('data-search') } : {};
-		app.innerHTML = header() + '<div class="protoBar"><strong>PSV-PROTOTYPE-0001</strong><span>Founder review build. Visible to allowlisted accounts only. Separate storage; File Vault records are never written.</span></div><div class="shell">' + rail() + '<main class="main"><div class="view' + (render.last !== S.view ? ' enter' : '') + '">' + (views[S.view] || viewHome)() + '</div></main></div>' + (S.toast ? '<div class="toast ' + S.toast.kind + '" role="status">' + esc(S.toast.message) + '</div>' : '');
+		app.innerHTML = header() + '<div class="protoBar"><strong>PSV-PROTOTYPE-0001</strong><span>Private MissionMed workspace. Access is limited to administrators and verified current MissionMed 360 members. Separate storage; File Vault records are never written.</span></div><div class="shell">' + rail() + '<main class="main"><div class="view' + (render.last !== S.view ? ' enter' : '') + '">' + (views[S.view] || viewHome)() + '</div></main></div>' + (S.toast ? '<div class="toast ' + S.toast.kind + '" role="status">' + esc(S.toast.message) + '</div>' : '');
 		render.last = S.view;
 		var currentStep = app.querySelector('.stepBtn[aria-current="step"]');
 		if (currentStep && window.innerWidth <= 860) { currentStep.scrollIntoView({ block: 'nearest', inline: 'center' }); }
