@@ -1229,6 +1229,9 @@ export function createIvocHandler({
         } catch (error) {
           await db.update(`ivoc_sessions?id=eq.${row.id}&owner_subject=eq.${encodeURIComponent(actor)}&select=*`, { state: 'error' }).catch(() => null);
           await audit({ actor, owner: actor, sessionId: row.id, action: 'session_create', decision: 'deny', reason: 'context_pack_failed' });
+          if (/^ivoc_(file_vault|storyforge|rise)_projection_unavailable$/u.test(String(error?.message || ''))) {
+            error.status = 409;
+          }
           throw error;
         }
         await audit({ actor, owner: actor, sessionId: row.id, action: 'session_create', decision: 'allow', reason: 'owner' });

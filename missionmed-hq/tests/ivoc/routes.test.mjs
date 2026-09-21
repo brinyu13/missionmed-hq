@@ -576,6 +576,31 @@ test('session creation passes only bounded server-held upstream credentials to A
   assert.doesNotMatch(response.body, /Bearer|wpAuthorization|mmhq_session/u);
 });
 
+test('an unavailable requested owner projection is actionable and never reported as an internal save failure', async () => {
+  const repo = repository();
+  const route = createIvocHandler({
+    registry: registry(), repository: repo,
+    storage: { createUpload: () => { throw new Error('not used'); }, validateUploadToken: () => false },
+    applicationIntelligence: {
+      async prepareSession() { throw new TypeError('ivoc_rise_projection_unavailable'); },
+      async getActorContext() { return null; },
+    },
+    env: { IVPREP_ENABLED: 'true', IVPREP_ADMIN_CANARY_ENABLED: 'true', MMHQ_SESSION_SECRET: 's'.repeat(64) },
+  });
+  const response = new ResponseCapture();
+  await route({
+    ...base,
+    request: request('POST', { title: 'Program practice', context: { contextSources: ['RISE'] } }, {
+      origin: 'https://hq.test', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': 'a'.repeat(24),
+    }),
+    response, url: new URL('https://hq.test/api/ivoc/v1/sessions'), hqSession: session(),
+  });
+  assert.equal(response.status, 409);
+  assert.equal(response.json().error, 'ivoc_rise_projection_unavailable');
+  assert.equal(repo.updates.at(-1).body.state, 'error');
+  assert.doesNotMatch(response.body, /ivoc_internal_error/u);
+});
+
 test('owner can abandon an interrupted session without exposing private recording identity', async () => {
   const repo = repository();
   const sessionId = '00000000-0000-4000-8000-000000000042';
