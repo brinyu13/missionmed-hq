@@ -35,6 +35,9 @@ function check(bool $condition, string $label): void {
 	fwrite(STDOUT, "PASS: {$label}\n");
 }
 
+check(MMPS_Generator::retry_fits_edge_budget(20000), 'retry starts at the exact safe aggregate edge-budget boundary');
+check(!MMPS_Generator::retry_fits_edge_budget(20001), 'retry is skipped one millisecond beyond the aggregate edge-budget boundary');
+
 $paragraphs = array(
 	'During residency preparation, I learned to listen before deciding what a patient needed. That habit made my clinical work more deliberate and helped me recognize how much good medicine depends on trust.',
 	'I carried that approach into a quality project, where careful measurement and steady collaboration mattered more than a dramatic solution. The work taught me to ask useful questions and remain accountable to the people affected by each decision.',

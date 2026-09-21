@@ -14,7 +14,8 @@ class MMPS_Generator {
 	// One full 100-program batch plus bounded retries/review regeneration must fit
 	// inside a normal production day without weakening the per-user ceiling.
 	const DAILY_RUN_CAP  = 150;
-	const RETRY_BUDGET_MS = 40000; // A second attempt starts only if the first used less than this, so one request stays under ~90 s.
+	const REQUEST_EDGE_BUDGET_MS    = 95000;
+	const RETRY_OVERHEAD_BUDGET_MS = 5000;
 
 	/** Legitimate shapes for a candidate set. Every shape must make a different rhetorical move. */
 	public static function strategies() {
@@ -190,7 +191,7 @@ class MMPS_Generator {
 				break;
 			}
 			// One request must stay under the edge timeout: count everything since the request began, RISE fetch included.
-			if ( ( microtime( true ) - $t0 ) * 1000 > self::RETRY_BUDGET_MS ) {
+			if ( ! self::retry_fits_edge_budget( (int) round( ( microtime( true ) - $t0 ) * 1000 ) ) ) {
 				$validation['retrySkipped'] = 'TIME_BUDGET';
 				break;
 			}
@@ -211,6 +212,13 @@ class MMPS_Generator {
 		}
 		MMPS_Store::audit( $user_id, 'generate', $run_uuid, array( 'program' => $program_specialty_id, 'tier' => $plan['tierEffective'], 'status' => $status, 'provider' => $result['provider'], 'bundle' => $bundle['bundleSha256'], 'candidateCount' => count( (array) ( $output['candidates'] ?? array() ) ), 'privacyAuthorization' => $authorization_mode ) );
 		return self::preview( $run, $root, $bundle, $plan, $output );
+	}
+
+	/** A retry may start only when its full HTTP timeout plus overhead fits below the edge ceiling. */
+	public static function retry_fits_edge_budget( $elapsed_ms ) {
+		$elapsed_ms = max( 0, (int) $elapsed_ms );
+		$retry_ms = MMPS_Provider::HTTP_TIMEOUT_SECONDS * 1000;
+		return $elapsed_ms + $retry_ms + self::RETRY_OVERHEAD_BUDGET_MS <= self::REQUEST_EDGE_BUDGET_MS;
 	}
 
 	/** The exact region a run was written for. save() refuses a run whose region is no longer the confirmed one. */

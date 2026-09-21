@@ -13,6 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 class MMPS_Provider {
+	const HTTP_TIMEOUT_SECONDS = 70;
 
 	public static function status() {
 		$configured = defined( 'MMED_PS_PROTO_OPENAI_API_KEY' ) && '' !== trim( (string) MMED_PS_PROTO_OPENAI_API_KEY );
@@ -136,7 +137,7 @@ class MMPS_Provider {
 		$response = wp_remote_post(
 			self::endpoint(),
 			array(
-				'timeout'     => 70,   // Five structured candidates can cross 50 s; keep 30 s below the observed ~100 s edge ceiling.
+				'timeout'     => self::HTTP_TIMEOUT_SECONDS, // Generator reserves the remaining edge budget before any retry.
 				'redirection' => 0,
 				'headers'     => array(
 					'Authorization' => 'Bearer ' . trim( (string) MMED_PS_PROTO_OPENAI_API_KEY ),
