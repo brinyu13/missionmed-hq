@@ -34,7 +34,8 @@
 		list: { status: 'idle', programs: [], total: 0, error: null }, search: { q: '', specialty: '', state: '', status: 'idle', results: [], error: null },
 		programs: {}, selected: [], tiers: {}, runs: {}, current: '', showOriginal: false,
 		prompt: {}, doc: null, selectedDocs: {},
-		batch: { index: null, current: null, running: false }, busy: {}, toast: null
+		batch: { index: null, current: null, running: false },
+		boost: {}, admin: { tab: 'home', loaded: false, prompts: null, research: [], importText: '', qaNotes: {} }, busy: {}, toast: null
 	};
 
 	/* ---------- utilities ---------- */
@@ -141,7 +142,7 @@
 		var mounted=app.querySelector('[data-review-run]');
 		if (mounted && review.runs[mounted.getAttribute('data-review-run')]) { review.runs[mounted.getAttribute('data-review-run')].scroll=window.scrollY; }
 		S.view = view; render(); window.scrollTo(0,view==='preview' && S.runs[S.current] ? reviewState(S.runs[S.current]).scroll : 0);
-		if (view === 'programs' && S.list.status === 'idle') { loadMyPrograms(0); } if (view === 'root' && !S.candidates) { loadCandidates(); } if (view === 'batch' && !S.batch.index) { loadBatchIndex(); }
+		if (view === 'programs' && S.list.status === 'idle') { loadMyPrograms(0); } if (view === 'root' && !S.candidates) { loadCandidates(); } if (view === 'batch' && !S.batch.index) { loadBatchIndex(); } if (view === 'admin' && !S.admin.loaded) { loadAdmin(); }
 	}
 
 	/* ---------- data actions ---------- */
@@ -307,6 +308,44 @@
 			toast(data.artifact.status === 'VALIDATED_PENDING_RISE_OWNER' ? 'Validated and quarantined for RISE-owner intake.' : 'Quarantined. Fix the listed validation issues and upload a new file.', data.artifact.status === 'VALIDATED_PENDING_RISE_OWNER' ? 'ok' : 'err');
 		}).catch(function (e) { busy('research-upload', false); fail(e); });
 	}
+	function boostIssue(id, provider, reissue) {
+		busy('boost:' + id, true);
+		api('POST', '/research-missions', { programSpecialtyId: id, rootId: S.root ? S.root.id : 0, providerKey: provider || 'another_ai', reissue: !!reissue }).then(function (data) {
+			S.boost[id] = data.mission; busy('boost:' + id, false); render();
+		}).catch(function (e) { busy('boost:' + id, false); fail(e); });
+	}
+	function boostLoad(id) {
+		api('GET', '/research-missions/current?programSpecialtyId=' + encodeURIComponent(id)).then(function (data) { S.boost[id] = data.mission || null; render(); }).catch(function () { S.boost[id] = null; render(); });
+	}
+	function boostRefresh(id) {
+		var m = S.boost[id]; if (!m) { return; } busy('boost-refresh:' + id, true);
+		api('POST', '/research-missions/' + m.missionId + '/refresh', {}).then(function (data) { S.boost[id] = data.mission; busy('boost-refresh:' + id, false); render(); }).catch(function (e) { busy('boost-refresh:' + id, false); fail(e); });
+	}
+	function boostUpload(id, file) {
+		var m = S.boost[id]; if (!m || !file) { return; }
+		if (!/\.md$/i.test(file.name) || file.size < 400 || file.size > 262144) { toast('Choose the completed MissionMed .md file (400 bytes–256 KB).', 'err'); return; }
+		var form = new FormData(); form.append('file', file, file.name); busy('boost-upload:' + id, true);
+		api('POST', '/research-missions/' + m.missionId + '/submit', form).then(function (data) { S.boost[id] = data.mission; busy('boost-upload:' + id, false); toast(data.artifact.validation.valid ? 'Received. MissionMed is verifying the research.' : 'This file needs corrections before it can be used.', data.artifact.validation.valid ? 'ok' : 'err'); render(); }).catch(function (e) { busy('boost-upload:' + id, false); fail(e); });
+	}
+	function boostDownload(mid) { return cfg.restUrl.replace(/\/$/, '') + '/research-missions/' + mid + '/download?_wpnonce=' + encodeURIComponent(cfg.nonce); }
+
+	function loadAdmin() {
+		if (!S.boot.admin) { return; } busy('admin-load', true);
+		Promise.all([api('GET', '/admin/prompts'), api('GET', '/admin/research')]).then(function (rows) { S.admin.prompts = rows[0]; S.admin.research = rows[1].items || []; S.admin.loaded = true; busy('admin-load', false); }).catch(function (e) { busy('admin-load', false); fail(e); });
+	}
+	function adminPromptAction(action, value) {
+		busy('admin-action', true); var request;
+		if (action === 'import') { try { request = api('POST', '/admin/prompts/import', JSON.parse(S.admin.importText)); } catch (e) { busy('admin-action', false); toast('The prompt package is not valid JSON.', 'err'); return; } }
+		else if (action === 'rollback') { request = api('POST', '/admin/prompts/' + encodeURIComponent(value) + '/rollback', {}); }
+		else { request = api('POST', '/admin/prompts/' + value + '/' + action, {}); }
+		request.then(function () { S.admin.loaded = false; S.admin.importText = ''; busy('admin-action', false); loadAdmin(); toast('Prompt state updated.', 'ok'); }).catch(function (e) { busy('admin-action', false); fail(e); });
+	}
+	function adminQa(uuid, decision) {
+		busy('admin-action', true); api('POST', '/admin/research/' + uuid + '/qa', { decision: decision, note: S.admin.qaNotes[uuid] || '' }).then(function () { S.admin.loaded = false; busy('admin-action', false); loadAdmin(); toast('Research review recorded.', decision === 'PASS' ? 'ok' : 'err'); }).catch(function (e) { busy('admin-action', false); fail(e); });
+	}
+	function adminRise(uuid, status) {
+		busy('admin-action', true); api('POST', '/admin/research/' + uuid + '/rise-status', { status: status, reference: '' }).then(function () { S.admin.loaded = false; busy('admin-action', false); loadAdmin(); toast('RISE-owner state recorded.', 'ok'); }).catch(function (e) { busy('admin-action', false); fail(e); });
+	}
 	function openDoc(uuid) { api('GET', '/library/' + uuid).then(function (data) { S.doc = data.document; go('doc'); }).catch(fail); }
 	function setDocStatus(uuid, status) { api('POST', '/library/' + uuid + '/status', { status: status }).then(function (data) { if (S.doc && S.doc.docUuid === uuid) { S.doc = Object.assign(S.doc, { status: data.document.status }); } refreshBoot(); }).catch(fail); }
 	function copyText(text) {
@@ -392,6 +431,7 @@
 			'<span class="pill vi">Private · verified access</span>' + pill +
 			'<span class="hdrNav"><button class="btn sm ghost" data-act="go" data-view="batch">Batch' + (S.boot.batches && S.boot.batches.length ? ' · ' + S.boot.batches.length : '') + '</button>' +
 			'<button class="btn sm ghost" data-act="go" data-view="library">Library' + (S.boot.library.length ? ' · ' + S.boot.library.length : '') + '</button>' +
+			(S.boot.admin ? '<button class="btn sm ghost" data-act="go" data-view="admin">PSV Admin</button>' : '') +
 			'<a class="btn sm" href="' + esc(cfg.backUrl) + '">← File Vault</a></span></header>';
 	}
 	function rail() {
@@ -402,6 +442,7 @@
 		});
 		html += '<div class="railSep"></div><button class="stepBtn' + (S.view === 'library' || S.view === 'doc' ? ' on' : '') + '" data-act="go" data-view="library"' + (S.view === 'library' || S.view === 'doc' ? ' aria-current="step"' : '') + '><span class="stepNum">▤</span><span><span class="stepName">PS library</span><br><span class="stepHint">Approved statements</span></span></button>';
 		html += '<button class="stepBtn' + (S.view === 'batch' ? ' on' : '') + '" data-act="go" data-view="batch"' + (S.view === 'batch' ? ' aria-current="step"' : '') + '><span class="stepNum">⇉</span><span><span class="stepName">Batch workspace</span><br><span class="stepHint">50–100 programs · resumable</span></span></button>';
+		if (S.boot.admin) { html += '<div class="railSep"></div><button class="stepBtn' + (S.view === 'admin' ? ' on' : '') + '" data-act="go" data-view="admin"' + (S.view === 'admin' ? ' aria-current="step"' : '') + '><span class="stepNum">⚙</span><span><span class="stepName">PSV Admin</span><br><span class="stepHint">Prompt management</span></span></button>'; }
 		if (S.root) { html += '<div class="railSep"></div><div class="railNote"><strong>ROOT</strong><br>' + esc(S.root.specialtyLabel) + '<br>' + esc(S.root.rootLabel) + '</div>'; }
 		return html + '</nav>';
 	}
@@ -773,6 +814,19 @@
 	function researchNeeded(run) {
 		var id = S.current, packet = S.prompt[id], html = '<div class="panel gold mt"><div class="row"><span class="tag vi">Deep research needed</span><span class="h2">' + esc(programLabel(run.program)) + '</span></div><p class="mid mtS">' + (run.reasons || []).map(esc).join(' ') + ' Nothing was sent to the AI and nothing was invented.</p>';
 		if (run.deepCandidates && run.deepCandidates.length) { html += '<div class="mtS">' + run.deepCandidates.map(function (f) { f.used = false; return factCard(f); }).join('') + '</div>'; }
+		if (S.boot.boost && S.boot.boost.enabled) {
+			if (!Object.prototype.hasOwnProperty.call(S.boost, id)) { S.boost[id] = false; setTimeout(function () { boostLoad(id); }, 0); }
+			var m = S.boost[id], providers = S.boot.boost.providers || [];
+			html += '<div class="notice vi mt"><strong>Deep Research Boost</strong> creates a program-only research mission. It never includes your Personal Statement or identity. Essential remains available now.</div>';
+			if (m === false) { html += '<div class="panel mtS"><span class="spin"></span> Resuming research mission…</div>'; }
+			else if (!m) {
+				html += '<div class="providerGrid mtS">' + providers.map(function (p) { return '<button class="choice" data-act="boost-start" data-id="' + esc(id) + '" data-provider="' + esc(p.key) + '"><span class="choiceTitle">' + esc(p.displayName) + '</span><span class="choiceBody">' + esc(p.rationale) + ' ' + esc(p.subscriptionNote) + '</span></button>'; }).join('') + '</div>';
+			} else {
+				html += '<div class="panel mtS"><div class="spread"><div><div class="eyebrow">Research mission</div><div class="h2">' + esc(String(m.step || '').replace(/_/g, ' ')) + '</div><p class="small mid mtS">Your progress is saved. Return to this program at any time.</p></div><span class="tag cy">' + esc(m.status) + '</span></div><div class="row mtS"><a class="btn primary" href="' + esc(boostDownload(m.missionId)) + '">Download research mission</a><label class="btn"><input class="srOnly" type="file" accept=".md,text/markdown,text/plain" data-boost-file="' + esc(id) + '"' + (S.busy['boost-upload:' + id] ? ' disabled' : '') + '>Upload completed .md</label><button class="btn" data-act="boost-refresh" data-id="' + esc(id) + '">Check for Deep readiness</button></div></div>';
+			}
+			html += '<div class="row mt"><button class="btn primary" data-act="generate-essential" data-id="' + esc(id) + '">Write an Essential version instead</button></div>';
+			return html + '</div>';
+		}
 		html += '<div class="row mt"><button class="btn primary" data-act="generate-essential" data-id="' + esc(id) + '"' + (S.busy['gen:' + id] ? ' disabled' : '') + '>' + (S.busy['gen:' + id] ? '<span class="spin"></span>Writing…' : 'Write an Essential version instead') + '</button><button class="btn" data-act="research-prompt" data-id="' + esc(id) + '"' + (S.busy.prompt ? ' disabled' : '') + '>Prepare deep research prompt</button><span class="tag cy">Research upload available</span></div>';
 		if (packet) {
 			html += '<div class="notice vi mt"><strong>Student-powered, authority-safe research.</strong> Run this prompt in Fable, Astra or another strong research agent, save its exact Markdown output, then upload it here. PSV validates and quarantines it. It does not become evidence until the RISE owner accepts it; meanwhile Essential remains available.</div><pre class="prompt mtS">' + esc(packet.prompt) + '</pre><div class="row mtS"><button class="btn sm cy" data-act="copy-prompt" data-id="' + esc(id) + '">Copy prompt</button><label class="btn sm"' + (S.busy['research-upload'] ? ' aria-disabled="true"' : '') + '><input class="srOnly" type="file" accept=".md,text/markdown,text/plain" data-research-file="' + esc(id) + '"' + (S.busy['research-upload'] ? ' disabled' : '') + '>' + (S.busy['research-upload'] ? '<span class="spin"></span>Validating…' : 'Upload evidence .md') + '</label></div>';
@@ -820,6 +874,26 @@
 		}).join('') + '</tbody></table></div></div>';
 		return html;
 	}
+	function viewAdmin() {
+		if (!S.boot.admin) { return viewHome(); }
+		var a = S.admin, html = head('Administrator mission control', 'PSV <em>Admin</em>', 'Manage deployless writing contracts and the quarantined research-owner queue. Student prose is never shown here.');
+		html += '<div class="seg mt" role="tablist"><button class="' + (a.tab === 'home' ? 'on' : '') + '" data-act="admin-tab" data-tab="home">Home</button><button class="' + (a.tab === 'prompts' ? 'on' : '') + '" data-act="admin-tab" data-tab="prompts">Prompt Management</button><button class="' + (a.tab === 'research' ? 'on' : '') + '" data-act="admin-tab" data-tab="research">Research Queue</button></div>';
+		if (!a.loaded) { return html + '<div class="panel mt"><span class="spin"></span> Loading admin state…</div>'; }
+		if (a.tab === 'home') {
+			var production = (a.prompts.versions || []).filter(function (v) { return v.status === 'PRODUCTION'; }).length;
+			return html + '<div class="grid3 mt"><button class="choice" data-act="admin-tab" data-tab="prompts"><span class="choiceTitle">Prompt Management</span><span class="choiceBody">' + production + ' explicit Production contracts · immutable versions · rollback ready.</span></button><button class="choice" data-act="admin-tab" data-tab="research"><span class="choiceTitle">Research Queue</span><span class="choiceBody">' + a.research.length + ' quarantined or owner-routed artifacts. No direct RISE writes.</span></button><div class="panel"><div class="eyebrow">Boundary</div><div class="h2 mtS">Security stays in code</div><p class="small mid mtS">ROOT enforcement, evidence validation, access control and privacy are not editable prompt text.</p></div></div>';
+		}
+		if (a.tab === 'prompts') {
+			html += '<div class="notice vi mt"><strong>Safe workflow:</strong> Import as Draft → mark Testing → explicitly promote. Production versions are never edited in place; one-click rollback retains the previous contract.</div>';
+			html += '<div class="panel mt"><div class="panelHead"><div><div class="eyebrow">Fable import</div><div class="h2">Install a versioned prompt package</div></div><span class="tag">' + esc(a.prompts.packageSchema) + '</span></div><div class="row"><label class="btn sm"><input class="srOnly" type="file" accept=".json,application/json" data-admin-package>Choose package JSON</label><span class="small mid">or paste it below</span></div><label class="f mtS">Prompt-package JSON<textarea rows="8" data-admin-import placeholder="Paste the structured package JSON. Imported instructions are stored as configuration data; they are never executed here.">' + esc(a.importText) + '</textarea></label><button class="btn primary mtS" data-act="admin-prompt-import"' + (S.busy['admin-action'] ? ' disabled' : '') + '>Validate and import Draft</button><p class="tiny dim mtS">The richer synthetic comparison bench is the next admin increment; it is not required to change or roll back a production contract safely.</p></div>';
+			html += '<div class="panel"><div class="tblWrap"><table class="lib"><thead><tr><th>Family / version</th><th>Status</th><th>Created</th><th>Change note</th><th></th></tr></thead><tbody>' + (a.prompts.versions || []).map(function (v) { var actions = v.status === 'DRAFT' ? '<button class="btn sm" data-act="admin-prompt-testing" data-uuid="' + v.versionId + '">Mark Testing</button>' : v.status === 'TESTING' ? '<button class="btn sm primary" data-act="admin-prompt-promote" data-uuid="' + v.versionId + '">Promote</button>' : v.status === 'PRODUCTION' && v.rollbackTargetId ? '<button class="btn sm" data-act="admin-prompt-rollback" data-family="' + esc(v.familyKey) + '">Rollback</button>' : ''; return '<tr><td><div class="libTitle">' + esc((a.prompts.families[v.familyKey] || {}).label || v.familyKey) + '</div><div class="tiny mono">' + esc(v.versionLabel) + ' · ' + esc(v.versionId) + '<br>SHA-256 ' + esc(v.bodySha256.slice(0, 20)) + '…</div><details class="mtS"><summary>View exact prompt body</summary><pre class="prompt">' + esc(v.promptBody) + '</pre></details></td><td>' + statusTag(v.status) + '</td><td class="small">' + esc(v.createdAt) + '<br>' + esc(v.createdByName) + '</td><td class="small">' + esc(v.changeNote) + '</td><td>' + actions + '</td></tr>'; }).join('') + '</tbody></table></div></div>';
+			return html;
+		}
+		html += '<div class="notice gold mt"><strong>Owner boundary:</strong> PSV validates and quarantines. An administrator reviews source support, downloads the narrow handoff, and records the RISE owner’s decision. PSV never hydrates RISE directly.</div>';
+		if (!a.research.length) { return html + '<div class="panel mt">No submitted research artifacts.</div>'; }
+		html += '<div class="panel mt"><div class="tblWrap"><table class="lib"><thead><tr><th>Program</th><th>Validation</th><th>Owner state</th><th>Actions</th></tr></thead><tbody>' + a.research.map(function (r) { var qa = r.qaStatus === 'QA_PASSED' ? '<span class="tag ok">QA passed</span>' : r.qaStatus === 'QA_FAILED' ? '<span class="tag rd">QA failed</span>' : '<span class="tag em">Source review needed</span>'; var actions = ''; if (r.status === 'VALIDATED_PENDING_RISE_OWNER' || r.qaStatus === 'MANUAL_CONTENT_SOURCE_REVIEW_REQUIRED') { actions += '<textarea class="adminNote" rows="2" data-admin-qa-note="' + r.artifactUuid + '" placeholder="Required reason when failing"></textarea><div class="row"><button class="btn sm primary" data-act="admin-qa" data-decision="PASS" data-uuid="' + r.artifactUuid + '">Pass source review</button><button class="btn sm" data-act="admin-qa" data-decision="FAIL" data-uuid="' + r.artifactUuid + '">Fail</button></div>'; } if (r.qaStatus === 'QA_PASSED') { actions += '<div class="row"><a class="btn sm cy" href="' + esc(cfg.restUrl.replace(/\/$/, '') + '/admin/research/' + r.artifactUuid + '/handoff?_wpnonce=' + encodeURIComponent(cfg.nonce)) + '">Download RISE handoff</a><button class="btn sm" data-act="admin-rise" data-status="RISE_SUBMITTED" data-uuid="' + r.artifactUuid + '">Mark submitted</button><button class="btn sm" data-act="admin-rise" data-status="RISE_PUBLISHED" data-uuid="' + r.artifactUuid + '">Mark published</button></div>'; } return '<tr><td><div class="libTitle">' + esc(r.programName) + '</div><div class="tiny mono">' + esc(r.programSpecialtyId) + ' · ACGME ' + esc(r.acgmeId) + '</div></td><td>' + qa + '<div class="tiny">' + r.factCount + ' facts · ' + esc(r.status) + '</div></td><td>' + (r.riseStatus ? statusTag(r.riseStatus) : '<span class="tag">Not sent</span>') + '</td><td>' + actions + '</td></tr>'; }).join('') + '</tbody></table></div></div>';
+		return html;
+	}
 	function viewDoc() {
 		var d = S.doc; if (!d) { return viewLibrary(); }
 		var idx = d.metadata && d.metadata.regionIndex != null ? d.metadata.regionIndex : -1, m = d.metadata || {};
@@ -841,7 +915,7 @@
 			if (S.toast) { var toastNode = document.createElement('div'); toastNode.className = 'toast ' + S.toast.kind; toastNode.setAttribute('role','status'); toastNode.textContent = S.toast.message; app.appendChild(toastNode); }
 			return;
 		}
-		var views = { home: viewHome, root: viewRoot, region: viewRegion, prefs: viewPrefs, programs: viewPrograms, generate: viewGenerate, preview: viewPreview, batch: viewBatch, library: viewLibrary, doc: viewDoc };
+		var views = { home: viewHome, root: viewRoot, region: viewRegion, prefs: viewPrefs, programs: viewPrograms, generate: viewGenerate, preview: viewPreview, batch: viewBatch, library: viewLibrary, doc: viewDoc, admin: viewAdmin };
 		var keep = document.activeElement && document.activeElement.getAttribute ? { search: document.activeElement.hasAttribute('data-search') } : {};
 		app.innerHTML = header() + '<div class="protoBar"><strong>PROGRAM-SPECIFIC PS</strong><span>Private MissionMed workspace for administrators and current MissionMed 360 members. Your statement and drafts remain owner-scoped.</span></div><div class="shell">' + rail() + '<main class="main"><div class="view' + (render.last !== S.view ? ' enter' : '') + '">' + (views[S.view] || viewHome)() + '</div></main></div>' + (S.toast ? '<div class="toast ' + S.toast.kind + '" role="status">' + esc(S.toast.message) + '</div>' : '');
 		render.last = S.view;
@@ -895,6 +969,15 @@
 		else if (act === 'leave-discard' || act === 'leave-save') { finishReviewLeave(act==='leave-save'); }
 		else if (act === 'save') { save(el.getAttribute('data-status'), el.getAttribute('data-ack') === '1'); }
 		else if (act === 'research-prompt') { researchPrompt(id); }
+			else if (act === 'boost-start') { boostIssue(id, el.getAttribute('data-provider'), false); }
+			else if (act === 'boost-refresh') { boostRefresh(id); }
+			else if (act === 'admin-tab') { S.admin.tab = el.getAttribute('data-tab'); render(); }
+			else if (act === 'admin-prompt-import') { adminPromptAction('import'); }
+			else if (act === 'admin-prompt-testing') { adminPromptAction('testing', el.getAttribute('data-uuid')); }
+			else if (act === 'admin-prompt-promote') { adminPromptAction('promote', el.getAttribute('data-uuid')); }
+			else if (act === 'admin-prompt-rollback') { adminPromptAction('rollback', el.getAttribute('data-family')); }
+			else if (act === 'admin-qa') { adminQa(el.getAttribute('data-uuid'), el.getAttribute('data-decision')); }
+			else if (act === 'admin-rise') { adminRise(el.getAttribute('data-uuid'), el.getAttribute('data-status')); }
 			else if (act === 'copy-prompt') { copyText((S.prompt[id] && S.prompt[id].prompt) || ''); }
 			else if (act === 'batch-import') { loadBatchIndex(); }
 			else if (act === 'batch-create') { createBatch(); }
@@ -923,6 +1006,8 @@
 	app.addEventListener('input', function (event) {
 		var t = event.target;
 		if (t.hasAttribute('data-review-editor')) { var r=S.runs[S.current], c=selectedOption(r), o=editOverlay(r,c), h=reviewState(r).heads[c.candidateId]; o.text=t.value; o.caret=t.selectionStart; o.caretEnd=t.selectionEnd; o.dirty=o.text!==(h && h.action!=='RESTORE'?h.text:c.replacement); o.error=''; delete r.similarityReview; patchPreview(false); return; }
+		if (t.hasAttribute('data-admin-import')) { S.admin.importText = t.value; return; }
+		if (t.hasAttribute('data-admin-qa-note')) { S.admin.qaNotes[t.getAttribute('data-admin-qa-note')] = t.value; return; }
 		if (t.hasAttribute('data-bind')) { var k = t.getAttribute('data-bind'); if (t.type === 'checkbox') { S.rootForm[k] = t.checked; } else { S.rootForm[k] = t.value; } if (k === 'text') { var btn = app.querySelector('[data-act="create-root"]'); if (btn) { btn.disabled = t.value.trim().length <= 200; } } }
 		else if (t.hasAttribute('data-note')) { S.prefs.categories[t.getAttribute('data-note')].note = t.value; }
 		else if (t.hasAttribute('data-cities')) { S.prefs.location.cities = t.value.split(',').map(function (x) { return x.trim(); }).filter(Boolean).slice(0, 8); }
@@ -932,6 +1017,8 @@
 	app.addEventListener('change', function (event) {
 		var t = event.target;
 		if (t.hasAttribute('data-review-select')) { selectCandidate(S.runs[S.current],t.value); return; }
+		if (t.hasAttribute('data-admin-package')) { var pf=t.files&&t.files[0]; if(!pf){return;} if(!/\.json$/i.test(pf.name)||pf.size>131072){toast('Choose one prompt-package JSON file under 128 KB.','err');return;} var reader=new FileReader(); reader.onload=function(){S.admin.importText=String(reader.result||'');render();}; reader.onerror=function(){toast('The prompt package could not be read.','err');}; reader.readAsText(pf); return; }
+		if (t.hasAttribute('data-boost-file')) { boostUpload(t.getAttribute('data-boost-file'), t.files && t.files[0]); return; }
 		if (t.hasAttribute('data-search-specialty')) { S.search.specialty = t.value; S.search.status = 'idle'; S.search.results = []; render(); return; }
 		if (t.hasAttribute('data-search-state')) { S.search.state = t.value; S.search.status = 'idle'; S.search.results = []; render(); return; }
 		if (t.hasAttribute('data-root-file')) {

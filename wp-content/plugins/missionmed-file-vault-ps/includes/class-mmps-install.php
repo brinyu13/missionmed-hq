@@ -9,7 +9,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class MMPS_Install {
 
-	const DB_VERSION        = '6';
+	const DB_VERSION        = '8';
 	const OPTION_DB_VERSION = 'mmed_ps_proto_db_version';
 
 	public static function table( $name ) {
@@ -184,12 +184,79 @@ class MMPS_Install {
 			sha256 char(64) NOT NULL DEFAULT '',
 			validation_json longtext NOT NULL,
 			artifact_markdown longtext NOT NULL,
+			mission_uuid char(26) NULL,
+			channel varchar(24) NOT NULL DEFAULT 'LEGACY_UPLOAD',
+			schema_version varchar(80) NOT NULL DEFAULT 'missionmed.rise.research-artifact.v1',
+			qa_status varchar(40) NOT NULL DEFAULT '',
+			qa_json longtext NULL,
+			rise_status varchar(40) NOT NULL DEFAULT '',
+			rise_ref varchar(191) NOT NULL DEFAULT '',
+			rise_updated_at datetime NULL,
 			created_at datetime NOT NULL,
 			updated_at datetime NOT NULL,
 			PRIMARY KEY  (id),
 			UNIQUE KEY artifact_uuid (artifact_uuid),
+			UNIQUE KEY mission_sha256 (mission_uuid,sha256),
 			KEY user_program (user_id,program_specialty_id),
 			KEY status (status)
+		) $c;" );
+
+		dbDelta( 'CREATE TABLE ' . self::table( 'research_missions' ) . " (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			mission_uuid char(26) NOT NULL,
+			user_id bigint(20) unsigned NOT NULL,
+			root_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			program_specialty_id varchar(191) NOT NULL DEFAULT '',
+			acgme_id varchar(32) NOT NULL DEFAULT '',
+			specialty varchar(120) NOT NULL DEFAULT '',
+			program_name varchar(255) NOT NULL DEFAULT '',
+			schema_version varchar(80) NOT NULL DEFAULT '',
+			scope_json longtext NOT NULL,
+			scope_hash char(32) NOT NULL,
+			key_id varchar(16) NOT NULL DEFAULT 'k1',
+			nonce varchar(32) NOT NULL,
+			provider_key varchar(80) NOT NULL DEFAULT 'another_ai',
+			status varchar(40) NOT NULL DEFAULT 'ISSUED',
+			issued_at datetime NOT NULL,
+			expires_at datetime NOT NULL,
+			last_download_at datetime NULL,
+			download_count int(11) unsigned NOT NULL DEFAULT 0,
+			return_enabled tinyint(1) NOT NULL DEFAULT 0,
+			return_gen int(11) unsigned NOT NULL DEFAULT 1,
+			return_expires_at datetime NULL,
+			return_revoked_at datetime NULL,
+			return_uses int(11) unsigned NOT NULL DEFAULT 0,
+			submission_count int(11) unsigned NOT NULL DEFAULT 0,
+			accepted_artifact_uuid char(36) NOT NULL DEFAULT '',
+			bundle_deep_fields_at_issue longtext NOT NULL,
+			state_revision bigint(20) unsigned NOT NULL DEFAULT 1,
+			created_at datetime NOT NULL,
+			updated_at datetime NOT NULL,
+			PRIMARY KEY  (id),
+			UNIQUE KEY mission_uuid (mission_uuid),
+			KEY user_program_status (user_id,program_specialty_id,status),
+			KEY status_expiry (status,expires_at)
+		) $c;" );
+
+		dbDelta( 'CREATE TABLE ' . self::table( 'prompt_versions' ) . " (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			version_uuid char(36) NOT NULL,
+			family_key varchar(80) NOT NULL,
+			version_label varchar(80) NOT NULL,
+			status varchar(16) NOT NULL DEFAULT 'DRAFT',
+			prompt_body longtext NOT NULL,
+			body_sha256 char(64) NOT NULL,
+			model_compat_json text NOT NULL,
+			evaluation_json text NOT NULL,
+			change_note varchar(500) NOT NULL DEFAULT '',
+			created_by bigint(20) unsigned NOT NULL DEFAULT 0,
+			created_at datetime NOT NULL,
+			promoted_at datetime NULL,
+			retired_at datetime NULL,
+			rollback_target_uuid char(36) NOT NULL DEFAULT '',
+			PRIMARY KEY  (id),
+			UNIQUE KEY version_uuid (version_uuid),
+			KEY family_status (family_key,status)
 		) $c;" );
 
 		/* M5 stores only keyed fingerprints; no student prose or shingles. */
@@ -287,7 +354,7 @@ class MMPS_Install {
 		) $c;" );
 
 		// A failed additive install remains retryable.
-		foreach ( array( 'roots', 'runs', 'library', 'audit', 'jobs', 'job_items', 'provider_attempts', 'research_artifacts', 'similarity_fingerprints', 'similarity_buckets', 'edit_revisions' ) as $name ) {
+		foreach ( array( 'roots', 'runs', 'library', 'audit', 'jobs', 'job_items', 'provider_attempts', 'research_artifacts', 'research_missions', 'prompt_versions', 'similarity_fingerprints', 'similarity_buckets', 'edit_revisions' ) as $name ) {
 			$table = self::table( $name );
 			if ( $table !== $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) ) ) {
 				return;
@@ -298,13 +365,15 @@ class MMPS_Install {
 		$previous = $wpdb->suppress_errors( true );
 		$run_probe = $wpdb->get_results( 'SELECT idempotency_key FROM ' . self::table( 'runs' ) . ' LIMIT 0' );
 		$job_probe = $wpdb->get_results( 'SELECT active_items FROM ' . self::table( 'jobs' ) . ' LIMIT 0' );
-		$research_probe = $wpdb->get_results( 'SELECT validation_json,artifact_markdown FROM ' . self::table( 'research_artifacts' ) . ' LIMIT 0' );
+		$research_probe = $wpdb->get_results( 'SELECT validation_json,artifact_markdown,mission_uuid,qa_status,rise_status FROM ' . self::table( 'research_artifacts' ) . ' LIMIT 0' );
+		$mission_probe = $wpdb->get_results( 'SELECT mission_uuid,scope_hash,state_revision FROM ' . self::table( 'research_missions' ) . ' LIMIT 0' );
+		$prompt_probe = $wpdb->get_results( 'SELECT version_uuid,family_key,status,body_sha256 FROM ' . self::table( 'prompt_versions' ) . ' LIMIT 0' );
 		$similarity_probe = $wpdb->get_results( 'SELECT exact_hmac,signature_json FROM ' . self::table( 'similarity_fingerprints' ) . ' LIMIT 0' );
 		$bucket_probe = $wpdb->get_results( 'SELECT bucket_index,bucket_hash FROM ' . self::table( 'similarity_buckets' ) . ' LIMIT 0' );
 		$edit_probe = $wpdb->get_results( 'SELECT revision_uuid,parent_uuid,request_sha256,revision_json FROM ' . self::table( 'edit_revisions' ) . ' LIMIT 0' );
 		$wpdb->suppress_errors( $previous );
 		if ( false === $edit_probe || ! self::has_unique_index( self::table( 'edit_revisions' ), 'edit_parent' ) || ! self::has_unique_index( self::table( 'edit_revisions' ), 'edit_request' ) || ! self::has_unique_index( self::table( 'edit_revisions' ), 'revision_uuid' ) ) { return; }
-		if ( false === $run_probe || false === $job_probe || false === $research_probe || false === $similarity_probe || false === $bucket_probe || ! self::has_unique_index( self::table( 'runs' ), 'idempotency_key' ) || ! self::has_unique_index( self::table( 'provider_attempts' ), 'user_day_slot' ) || ! self::has_unique_index( self::table( 'similarity_fingerprints' ), 'doc_uuid' ) || ! self::has_unique_index( self::table( 'similarity_buckets' ), 'doc_bucket' ) ) {
+		if ( false === $run_probe || false === $job_probe || false === $research_probe || false === $mission_probe || false === $prompt_probe || false === $similarity_probe || false === $bucket_probe || ! self::has_unique_index( self::table( 'runs' ), 'idempotency_key' ) || ! self::has_unique_index( self::table( 'provider_attempts' ), 'user_day_slot' ) || ! self::has_unique_index( self::table( 'research_artifacts' ), 'mission_sha256' ) || ! self::has_unique_index( self::table( 'research_missions' ), 'mission_uuid' ) || ! self::has_unique_index( self::table( 'prompt_versions' ), 'version_uuid' ) || ! self::has_unique_index( self::table( 'similarity_fingerprints' ), 'doc_uuid' ) || ! self::has_unique_index( self::table( 'similarity_buckets' ), 'doc_bucket' ) ) {
 			return;
 		}
 		update_option( self::OPTION_DB_VERSION, self::DB_VERSION, true );

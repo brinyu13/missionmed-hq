@@ -30,10 +30,17 @@ define( 'MMED_PS_PROTO_OPENAI_API_KEY', '<set on the server only>' );
 // define( 'MMED_PS_PROTO_OPENAI_MODEL', 'gpt-5.6-terra' );
 ```
 
+Deep Research Boost uses two independent, project-scoped random keys. Provision them only in the same protected server-side `wp-config.php` block; do not reuse the OpenAI key, WordPress salts or any RISE credential. Until the first key exists and `mmed_psv_boost_mode` is explicitly promoted, Stage A remains invisible. Stage B additionally requires the second key, `mmed_psv_boost_auto_return=on`, and a dated provider record marked `EXPERIMENTAL` or `VERIFIED`; otherwise its public namespace is not registered.
+
+```php
+define( 'MMED_PSV_MISSION_KEY_K1', '<at least 32 random bytes; server only>' );
+define( 'MMED_PSV_RETURN_KEY_K1', '<different value; at least 32 random bytes; server only>' );
+```
+
 Under DR-331, keep `MMED_PS_PROTO_ALLOW_REAL_ROOT_AI` **undefined**. It is a retired broad switch and is not needed for normal production. In `members` mode, an administrator or a current, server-verified MissionMed 360 member may intentionally select, paste or upload a ROOT, confirm its exact editable region, and send the complete ROOT to the dedicated PSV OpenAI project as read-only context. The provider may return text only for that region; server-side reconstruction and protected-paragraph hashes remain mandatory.
 Never define `MMED_PS_PROTO_TESTING`, `MMED_PS_PROTO_TEST_RISE_ORIGIN` or `MMED_PS_PROTO_TEST_OPENAI_BASE` on production; they exist for the local harness only.
 
-5. Activate, or load the already-active upgraded plugin. `dbDelta` creates/upgrades eleven isolated tables (`{prefix}mmed_ps_proto_roots|runs|library|audit|jobs|job_items|provider_attempts|research_artifacts|similarity_fingerprints|similarity_buckets|edit_revisions`) and four namespaced options (`mmed_ps_proto_mode`, `mmed_ps_proto_allow_admins`, `mmed_ps_proto_allow_users`, `mmed_ps_proto_db_version = 6`). The installer records version 6 only after probing required columns and unique indexes. Nothing outside the PSV namespace is written. Immutable private paragraph revision chains preserve the original AI candidate and provenance; changed wording cannot inherit grounding or approval and must pass fresh validation. Owner-scoped, request-transient DOCX/TXT ROOT ingestion and one same-page nonce refresh handle uploads and stale WordPress cookies. No AI call is made by menu navigation, upload ingestion, candidate switching or editing.
+5. Activate, or load the already-active upgraded plugin. `dbDelta` creates/upgrades thirteen isolated tables (`{prefix}mmed_ps_proto_roots|runs|library|audit|jobs|job_items|provider_attempts|research_artifacts|research_missions|prompt_versions|similarity_fingerprints|similarity_buckets|edit_revisions`) and namespaced options only. Schema version 8 is recorded only after required columns and unique indexes are probed. Nothing outside the PSV namespace is written. Immutable private paragraph revision chains preserve the original AI candidate and provenance; changed wording cannot inherit grounding or approval and must pass fresh validation. Owner-scoped, request-transient DOCX/TXT ROOT ingestion and one same-page nonce refresh handle uploads and stale WordPress cookies. No AI call is made by menu navigation, upload ingestion, candidate switching, editing, prompt administration or research mission creation.
 6. Leave administrator access enabled unless a later authority record explicitly narrows it: `mmed_ps_proto_allow_admins = 1`.
 
 7. Under DR-327 and DR-331, set `mmed_ps_proto_mode` to `members`. This admits administrators by `manage_options` and non-admin students only when the canonical `mmhq_cam_build_entitlement()` claim is active, trusted, verified, current, revocation-checked, unrestricted, unrevoked, unexpired and backed by either verified LearnDash + WooCommerce or verified legacy-current LearnDash authority. Any missing or malformed claim fails closed.
@@ -60,7 +67,7 @@ Never define `MMED_PS_PROTO_TESTING`, `MMED_PS_PROTO_TEST_RISE_ORIGIN` or `MMED_
 | 2. Hard off | add `define( 'MMED_PS_PROTO_DISABLE', true );` to `wp-config.php` | nothing of the prototype loads beyond two small class files | kept |
 | 3. Deactivate | `wp plugin deactivate missionmed-file-vault-ps` | plugin not loaded at all | kept |
 | 4. Remove | deactivate first (level 3), then delete the directory `wp-content/plugins/missionmed-file-vault-ps/` | code gone | kept |
-| 5. Purge (Founder decision only) | drop only `{prefix}mmed_ps_proto_{edit_revisions,similarity_buckets,similarity_fingerprints,research_artifacts,provider_attempts,job_items,jobs,audit,library,runs,roots}`, then delete only the documented `mmed_ps_proto_*` options | private revisions, saved statements, jobs, research quarantine, attempt accounting and privacy fingerprints are destroyed | destroyed |
+| 5. Purge (Founder decision only) | drop only `{prefix}mmed_ps_proto_{edit_revisions,similarity_buckets,similarity_fingerprints,prompt_versions,research_missions,research_artifacts,provider_attempts,job_items,jobs,audit,library,runs,roots}`, then delete only the documented `mmed_ps_proto_*` / `mmed_psv_*` options | private revisions, prompt history, research missions/quarantine, saved statements, jobs, attempt accounting and privacy fingerprints are destroyed | destroyed |
 
 Re-enable after 1 to 3 by reversing the step; the saved library returns intact.
 

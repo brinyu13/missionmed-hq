@@ -77,12 +77,42 @@ class MMPS_Rest {
 				)
 			);
 		}
+		$admin = array( __CLASS__, 'admin_permission' );
+		foreach ( array(
+			array( '/admin/prompts', 'GET', 'admin_prompts' ),
+			array( '/admin/prompts/import', 'POST', 'admin_prompt_import' ),
+			array( '/admin/prompts/(?P<uuid>[a-f0-9-]{36})/testing', 'POST', 'admin_prompt_testing' ),
+			array( '/admin/prompts/(?P<uuid>[a-f0-9-]{36})/promote', 'POST', 'admin_prompt_promote' ),
+			array( '/admin/prompts/(?P<family>[a-z0-9_-]+)/rollback', 'POST', 'admin_prompt_rollback' ),
+			array( '/admin/research', 'GET', 'admin_research_queue' ),
+			array( '/admin/research/(?P<uuid>[a-f0-9-]{36})/qa', 'POST', 'admin_research_qa' ),
+			array( '/admin/research/(?P<uuid>[a-f0-9-]{36})/handoff', 'GET', 'admin_research_handoff' ),
+			array( '/admin/research/(?P<uuid>[a-f0-9-]{36})/rise-status', 'POST', 'admin_research_rise_status' ),
+		) as $route ) {
+			register_rest_route( MMPS_REST_NS, $route[0], array( 'methods' => $route[1], 'callback' => array( __CLASS__, $route[2] ), 'permission_callback' => $admin ) );
+		}
+		foreach ( array(
+			array( '/research-missions', 'POST', 'mission_issue' ),
+			array( '/research-missions/current', 'GET', 'mission_current' ),
+			array( '/research-missions/(?P<mid>[A-Z2-7]{26})/download', 'GET', 'mission_download' ),
+			array( '/research-missions/(?P<mid>[A-Z2-7]{26})/submit', 'POST', 'mission_submit' ),
+			array( '/research-missions/(?P<mid>[A-Z2-7]{26})/refresh', 'POST', 'mission_refresh' ),
+			array( '/research-missions/(?P<mid>[A-Z2-7]{26})/cancel', 'POST', 'mission_cancel' ),
+		) as $route ) {
+			register_rest_route( MMPS_REST_NS, $route[0], array( 'methods' => $route[1], 'callback' => array( __CLASS__, $route[2] ), 'permission_callback' => $gate ) );
+		}
 	}
 
 	/* ---------------- helpers ---------------- */
 
 	protected static function uid() {
 		return get_current_user_id();
+	}
+
+	public static function admin_permission( $request ) {
+		$allowed = MMPS_Gate::rest_permission( $request );
+		if ( true !== $allowed ) { return $allowed; }
+		return current_user_can( 'manage_options' ) ? true : new WP_Error( 'rest_no_route', 'No route was found matching the URL and request method.', array( 'status' => 404 ) );
 	}
 
 	protected static function root_or_404( $request ) {
@@ -137,6 +167,8 @@ class MMPS_Rest {
 				'provider'  => MMPS_Provider::status(),
 				'rise'      => MMPS_Rise_Client::status(),
 				'fileVault' => array( 'available' => MMPS_Root_Source::file_vault_available() ),
+				'admin'     => current_user_can( 'manage_options' ),
+				'boost'     => array( 'enabled' => MMPS_Mission::enabled_for( $uid ), 'configured' => MMPS_Mission::keys_ready(), 'mode' => MMPS_Mission::mode(), 'providers' => MMPS_Mission::providers(), 'autoReturn' => false ),
 				'roots'     => array_map( array( __CLASS__, 'root_summary' ), MMPS_Store::list_roots( $uid ) ),
 				'library'   => MMPS_Store::list_documents( $uid ),
 				'batches'   => MMPS_Batch::list_jobs( $uid ),
@@ -153,6 +185,59 @@ class MMPS_Rest {
 			)
 		);
 	}
+
+	/* ---------------- Deep Research Boost ---------------- */
+
+	public static function mission_issue( $request ) {
+		$p = (array) $request->get_json_params();
+		$item = MMPS_Mission::issue( self::uid(), (string) ( $p['programSpecialtyId'] ?? '' ), absint( $p['rootId'] ?? 0 ), (string) ( $p['providerKey'] ?? 'another_ai' ), ! empty( $p['reissue'] ) );
+		return is_wp_error( $item ) ? $item : rest_ensure_response( array( 'mission' => $item ) );
+	}
+
+	public static function mission_current( $request ) {
+		$item = MMPS_Mission::current( self::uid(), sanitize_text_field( (string) $request->get_param( 'programSpecialtyId' ) ) );
+		return rest_ensure_response( array( 'mission' => $item ) );
+	}
+
+	public static function mission_download( $request ) {
+		$mid = (string) $request['mid']; $bytes = MMPS_Mission::markdown( self::uid(), $mid );
+		if ( is_wp_error( $bytes ) ) { return $bytes; }
+		MMPS_Mission::mark_downloaded( self::uid(), $mid );
+		$name = 'MissionMed_Deep_Research_' . substr( $mid, 0, 8 ) . '.md';
+		if ( MMPS_Gate::testing() && ! empty( $request['inline'] ) ) { return rest_ensure_response( array( 'fileName' => $name, 'bytes' => strlen( $bytes ), 'sha256' => hash( 'sha256', $bytes ) ) ); }
+		nocache_headers(); header( 'Content-Type: text/markdown; charset=utf-8' ); header( 'Content-Disposition: attachment; filename="' . $name . '"' ); header( 'Content-Length: ' . strlen( $bytes ) ); header( 'X-Content-Type-Options: nosniff' ); echo $bytes; exit; // phpcs:ignore WordPress.Security.EscapeOutput
+	}
+
+	public static function mission_submit( $request ) {
+		$mission = MMPS_Mission::get_for_owner( self::uid(), (string) $request['mid'] );
+		if ( ! $mission ) { return new WP_Error( 'mmps_mission_not_found', 'That research mission was not found.', array( 'status' => 404 ) ); }
+		$files = (array) $request->get_file_params(); $file = $files['file'] ?? null; $bytes = ''; $name = '';
+		if ( is_array( $file ) && UPLOAD_ERR_OK === absint( $file['error'] ?? UPLOAD_ERR_NO_FILE ) && is_readable( (string) ( $file['tmp_name'] ?? '' ) ) ) { $bytes = file_get_contents( $file['tmp_name'] ); $name = (string) ( $file['name'] ?? '' ); }
+		else { $p = (array) $request->get_json_params(); $bytes = (string) ( $p['text'] ?? '' ); $name = 'pasted-research.md'; }
+		$item = MMPS_Research::ingest_v2( self::uid(), $mission, $bytes, 'MANUAL_UPLOAD', $name );
+		return is_wp_error( $item ) ? $item : rest_ensure_response( array( 'artifact' => $item, 'mission' => MMPS_Mission::current( self::uid(), $mission['program_specialty_id'] ) ) );
+	}
+
+	public static function mission_refresh( $request ) { $item = MMPS_Mission::refresh( self::uid(), (string) $request['mid'] ); return is_wp_error( $item ) ? $item : rest_ensure_response( array( 'mission' => $item ) ); }
+	public static function mission_cancel( $request ) { return MMPS_Mission::cancel( self::uid(), (string) $request['mid'] ) ? rest_ensure_response( array( 'cancelled' => true ) ) : new WP_Error( 'mmps_mission_not_found', 'That research mission was not found.', array( 'status' => 404 ) ); }
+
+	/* ---------------- PSV admin ---------------- */
+
+	public static function admin_prompts() { return rest_ensure_response( array( 'families' => MMPS_Prompts::families(), 'versions' => MMPS_Prompts::list_versions(), 'packageSchema' => MMPS_Prompts::PACKAGE_SCHEMA ) ); }
+	public static function admin_prompt_import( $request ) { $item = MMPS_Prompts::import_package( self::uid(), (array) $request->get_json_params() ); return is_wp_error( $item ) ? $item : rest_ensure_response( array( 'version' => $item ) ); }
+	public static function admin_prompt_testing( $request ) { $item = MMPS_Prompts::mark_testing( self::uid(), (string) $request['uuid'] ); return is_wp_error( $item ) ? $item : rest_ensure_response( array( 'version' => $item ) ); }
+	public static function admin_prompt_promote( $request ) { $item = MMPS_Prompts::promote( self::uid(), (string) $request['uuid'] ); return is_wp_error( $item ) ? $item : rest_ensure_response( array( 'version' => $item ) ); }
+	public static function admin_prompt_rollback( $request ) { $item = MMPS_Prompts::rollback( self::uid(), sanitize_key( (string) $request['family'] ) ); return is_wp_error( $item ) ? $item : rest_ensure_response( array( 'version' => $item ) ); }
+	public static function admin_research_queue() { return rest_ensure_response( array( 'items' => MMPS_Mission::admin_queue() ) ); }
+	public static function admin_research_qa( $request ) { $p = (array) $request->get_json_params(); $item = MMPS_Research::admin_qa( self::uid(), (string) $request['uuid'], (string) ( $p['decision'] ?? '' ), (string) ( $p['note'] ?? '' ) ); return is_wp_error( $item ) ? $item : rest_ensure_response( array( 'artifact' => $item ) ); }
+	public static function admin_research_handoff( $request ) {
+		$package = MMPS_Research::handoff_package( (string) $request['uuid'] ); if ( is_wp_error( $package ) ) { return $package; }
+		$bytes = wp_json_encode( $package, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ); $name = 'MissionMed_RISE_Handoff_' . substr( (string) $request['uuid'], 0, 8 ) . '.json';
+		MMPS_Store::audit( self::uid(), 'research_handoff_download', (string) $request['uuid'], array( 'programSpecialtyId' => $package['program_specialty_id'], 'artifactSha256' => $package['artifact_sha256'] ) );
+		if ( MMPS_Gate::testing() && ! empty( $request['inline'] ) ) { return rest_ensure_response( array( 'fileName' => $name, 'bytes' => strlen( $bytes ), 'sha256' => hash( 'sha256', $bytes ) ) ); }
+		nocache_headers(); header( 'Content-Type: application/json; charset=utf-8' ); header( 'Content-Disposition: attachment; filename="' . $name . '"' ); header( 'Content-Length: ' . strlen( $bytes ) ); header( 'X-Content-Type-Options: nosniff' ); echo $bytes; exit; // phpcs:ignore WordPress.Security.EscapeOutput
+	}
+	public static function admin_research_rise_status( $request ) { $p = (array) $request->get_json_params(); $item = MMPS_Research::mark_rise_status( self::uid(), (string) $request['uuid'], (string) ( $p['status'] ?? '' ), (string) ( $p['reference'] ?? '' ) ); return is_wp_error( $item ) ? $item : rest_ensure_response( array( 'artifact' => $item ) ); }
 
 	/* ---------------- ROOT ---------------- */
 

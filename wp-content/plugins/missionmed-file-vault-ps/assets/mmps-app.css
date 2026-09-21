@@ -87,6 +87,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
 .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
 .grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.providerGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.adminNote{width:100%;min-width:220px;margin:0 0 8px}
 .stack{display:flex;flex-direction:column;gap:16px}
 .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .spread{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
@@ -327,6 +329,7 @@ pre.prompt{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,mo
   .kv{grid-template-columns:1fr}
   .candidateChoices{grid-template-columns:1fr}
 }
+@media (max-width:700px){.providerGrid{grid-template-columns:1fr}.adminNote{min-width:0}}
 @media (max-width:560px){
   :root{--hdr:112px}
   .hdr{height:auto;min-height:var(--hdr);padding:10px 12px;display:flex;flex-wrap:wrap;align-content:center}

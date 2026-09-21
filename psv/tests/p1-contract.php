@@ -14,7 +14,9 @@ function p1check( $ok, $label ) {
 	$ok ? $pass++ : $fail++;
 	echo ( $ok ? 'PASS: ' : 'FAIL: ' ) . $label . "\n";
 }
-p1check( str_contains( $plugin, 'Version: 1.1.0' ) && str_contains( $plugin, "define( 'MMED_PSV_VERSION', '1.1.0' )" ), 'P1 has one auditable release version' );
+preg_match( '/\* Version:\s*([0-9]+\.[0-9]+\.[0-9]+)/', $plugin, $header_version );
+preg_match( "/define\( 'MMED_PSV_VERSION', '([0-9]+\.[0-9]+\.[0-9]+)' \)/", $plugin, $runtime_version );
+p1check( ! empty( $header_version[1] ) && $header_version[1] === ( $runtime_version[1] ?? '' ) && version_compare( $header_version[1], '1.1.0', '>=' ), 'P1 has one auditable release version' );
 p1check( str_contains( $bundle, "'specialty'" ) && str_contains( $bundle, "'jurisdiction'" ) && str_contains( $bundle, "'includeCombined' => 'false'" ), 'RISE search receives exact specialty and state filters and excludes combined specialties by default' );
 p1check( str_contains( $rest, 'mmps_search_filter_required' ) && str_contains( $rest, 'mmps_search_state' ), 'server validates filtered browsing and state input' );
 p1check( str_contains( $ui, 'data-search-specialty' ) && str_contains( $ui, 'data-search-state' ) && str_contains( $ui, "S.root.specialtyLabel" ), 'program discovery exposes specialty and state with ROOT-specialty defaulting' );
