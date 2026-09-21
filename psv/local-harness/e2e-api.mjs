@@ -51,6 +51,10 @@ const concurrentWorker = (jobUuid, waitMs = 0) => new Promise((resolve) => setTi
 }, waitMs));
 
 // ---------- 0. baseline fingerprints (blast radius) ----------
+// WordPress Core may lazily create its default wp_navigation post on the first
+// front-end render. Warm that Core-owned state before taking the PSV baseline
+// so the blast-radius assertion measures only mutations made by this suite.
+await fetch(BASE + '/');
 const before = php(`global $wpdb; echo json_encode(array('fv'=>$wpdb->get_var('SELECT COUNT(*) FROM '.MMED_File_Vault::table_name()),'fvsum'=>md5(json_encode($wpdb->get_results('SELECT * FROM '.MMED_File_Vault::table_name()))),'posts'=>$wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->posts}"),'users'=>$wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->users}"),'usermeta'=>$wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->usermeta} WHERE meta_key NOT LIKE 'session_tokens' AND meta_key NOT LIKE '%user-settings%'")));`);
 const B = JSON.parse(before);
 const initialLibraryCount = Number(php(`global $wpdb; echo $wpdb->get_var('SELECT COUNT(*) FROM '.$wpdb->prefix.'mmed_ps_proto_library WHERE user_id=3');`));
