@@ -1,0 +1,27 @@
+{
+    "pass": true,
+    "live_only_today_cents": 0,
+    "live_renewal_cents": 30000,
+    "bundle_today_cents": 1999,
+    "addon_renewal_cents": 1999,
+    "renewal_carts": [
+        {
+            "key": "2026_09_28_monthly_after_a_1_week_trial",
+            "total": "300.00",
+            "items": [
+                3651
+            ]
+        },
+        {
+            "key": "2026_10_21_monthly",
+            "total": "19.99",
+            "items": [
+                9109
+            ]
+        }
+    ],
+    "ineligible_forced_addon_rejected": true,
+    "orphan_cart_cleanup": true,
+    "orders_created": 0,
+    "money_moved_cents": 0
+}

@@ -1,0 +1,41 @@
+{
+    "passed": true,
+    "fixtures": {
+        "examprep": {
+            "family": "examprep",
+            "payment": "Payment confirmed",
+            "access": "Inactive \u2014 subscription ended",
+            "primary": "VIEW MY EXAMPREP ACCOUNT",
+            "support": "drj@missionmedinstitute.com"
+        },
+        "residency": {
+            "family": "mission_residency",
+            "payment": "Payment pending",
+            "access": "Inactive \u2014 payment pending",
+            "primary": "ENTER MATRIX DASHBOARD",
+            "support": "info@missionmedinstitute.com"
+        },
+        "usce": {
+            "family": "usce",
+            "payment": "Payment confirmed",
+            "access": "Ready for next steps",
+            "primary": "ENTER MATRIX DASHBOARD",
+            "support": "clinicals@missionmedinstitute.com"
+        },
+        "legacy_examprep": {
+            "family": "examprep",
+            "payment": "Payment confirmed",
+            "access": "Ready for next steps",
+            "primary": "OPEN MY EXAMPREP ACCOUNT",
+            "support": "drj@missionmedinstitute.com"
+        }
+    },
+    "generic_fallback": "neutral",
+    "mixed_fallback": "neutral",
+    "legacy_snippet_active": 0,
+    "source_hashes": {
+        "purchase_success": "e6b8011768e4e3b89f6ad6b8381b2331741385633984c88e39e1a1ec08e2b302",
+        "webhook_router": "efd4b0626b077785a4483136e9f59829d296e8ee0b10ed7951dec37df9403c2c"
+    },
+    "money_moved_cents": 0
+}
