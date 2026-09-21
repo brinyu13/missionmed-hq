@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-21 07:17 America/New_York
+Updated: 2026-09-21 14:27 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -13,6 +13,27 @@ present in the active source lineage but has not yet passed acceptance against
 the actual production route and deployment.
 
 ## Founder POV production acceptance — current
+
+- **Sign-in recovery — LIVE VERIFIED (2026-09-21).** A valid RISE cookie was
+  incorrectly denied access to `/api/auth/start`, preventing fresh HQ sign-in.
+  DR-333 authorizes the exact shared-auth guard correction only. The existing
+  WordPress handoff now remains reachable; RISE sessions gain no HQ permission
+  or cookie at start. Red-before/green-after regression and independent review:
+  33/33 focused auth/IVOC route tests pass. The RISE fixture was aligned to the
+  existing owner `programSpecialtyId` contract; no runtime projection changed.
+  Source `4b5b33b56d0fa3debbfa0e732687f281ef31e28e`, deployment
+  `94a0c8ea-da4d-4068-9193-8436ce52b6f7`, image
+  `sha256:3d549c6826941b9be171fbaf6834a08140a8964c6940f1d2d714d8c0e5041117`.
+  Reloading the actual blocked Chrome handoff tab completed fresh sign-in and
+  rendered production IVOC Home as Dr Brian / FOUNDER / ADMIN (`wp:1`). Health
+  is 200; anonymous product access remains 401. Rollback: source
+  `bb39367fc8e3b4f03b034893f519e7b27db7a494`, deployment
+  `d4885074-1e2c-4a9b-9b5c-1cbdec476980`, image
+  `sha256:3a2127783c087ea63493a2bbac9fe8f779868e09e21baacc4d716f7dcd788a6b`.
+  Isolated source custody: `/Users/brianb/MissionMed_worktrees/ivoc-auth-handoff-fix`;
+  released source remains on `codex/ivoc-converge-8001-production`. This narrow
+  access repair does not change the remaining multi-turn/barge-in/two-sided
+  audible replay or overall Founder-ledger acceptance states below.
 
 - Founder production POV reopens Runtime Interview Room presentation acceptance:
   working camera/overlays/native conversation must transition out of readiness.
