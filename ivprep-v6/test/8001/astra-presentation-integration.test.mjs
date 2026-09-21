@@ -171,7 +171,11 @@ test('journey actions expose truthful prerequisites instead of false ready state
   assert.match(html, /id="cockpit-finish" disabled/u);
   assert.match(html, /id="live-interview-start" disabled/u);
   assert.match(runtime, /function wizardStepComplete\(index\)/u);
-  assert.match(runtime, /wizardStepComplete\(index\) \? 'complete'/u);
+  assert.match(runtime, /const complete = wizardStepComplete\(index\)/u);
+  assert.match(runtime, /<span>\$\{complete \? '✓' : index \+ 1\}<\/span>/u);
+  assert.match(runtime, /state\.interviewSet\.length > 0[\s\S]*CHOOSE AT LEAST ONE QUESTION BEFORE REVIEWING OR STARTING/u);
+  assert.match(runtime, /liveRows\.filter\(\(\[, ready\]\) => ready\)\.length/u);
+  assert.match(runtime, /live checks ready now/u);
   assert.match(runtime, /CHOOSE AT LEAST ONE QUESTION BEFORE STARTING/u);
   assert.match(runtime, /Choose at least one question before entering the Interview Room/u);
   assert.match(runtime, /const measuring = state\.session\.state === 'RUNNING'/u);

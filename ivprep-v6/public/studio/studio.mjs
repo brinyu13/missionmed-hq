@@ -842,9 +842,10 @@ function renderWizardProgress() {
   WIZARD_STEPS.forEach((step, index) => {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = index === state.wizardStep ? 'current' : wizardStepComplete(index) ? 'complete' : '';
+    const complete = wizardStepComplete(index);
+    button.className = index === state.wizardStep ? 'current' : complete ? 'complete' : '';
     if (index === state.wizardStep) button.setAttribute('aria-current', 'step');
-    button.innerHTML = `<span>${index < state.wizardStep ? '✓' : index + 1}</span><b>${step.label}</b>`;
+    button.innerHTML = `<span>${complete ? '✓' : index + 1}</span><b>${step.label}</b>`;
     button.addEventListener('click', () => { state.wizardStep = index; renderWizard(); });
     progress.append(button);
   });
@@ -1300,8 +1301,9 @@ function renderReadinessStep(host) {
   const connect = choiceButton({ className: 'btn btn-primary', label: bridge.media.stream ? 'Reconnect camera + mic' : 'Connect camera + mic', onClick: async () => { await connectDevices(); renderWizard(); } });
   const full = choiceButton({ className: 'btn btn-secondary', label: 'Open full calibration', onClick: () => setView('devicecheck') }); actions.append(connect, full); preview.append(actions);
   const workspace = el('section', 'canon-readiness-workspace');
-  const readyCount = rows.filter(([, ready]) => ready).length;
-  workspace.append(el('div', 'canon-readiness-count', `${readyCount} of ${rows.length} checks ready now`));
+  const liveRows = rows.filter(([name]) => !['Recording', 'Transcript'].includes(name));
+  const readyCount = liveRows.filter(([, ready]) => ready).length;
+  workspace.append(el('div', 'canon-readiness-count', `${readyCount} of ${liveRows.length} live checks ready now`));
   if (state.wizard.readinessPanel === 'Signal health') {
     const signals = el('div', 'canon-signal-grid canon-signal-health');
     rows.forEach(([name, ready, detail]) => { const tile = el('div', 'canon-signal-tile'); tile.dataset.ready = String(Boolean(ready)); tile.append(el('strong', '', name), el('span', '', detail)); signals.append(tile); });
@@ -1402,7 +1404,7 @@ function renderWizard() {
   back.innerHTML = '<span>← Back</span>';
   back.addEventListener('click', () => { state.wizardStep = Math.max(0, state.wizardStep - 1); renderWizard(); });
   const selected = step.key === 'questions' ? state.interviewSet.length > 0
-    : step.key === 'readiness' ? true
+    : step.key === 'readiness' ? state.interviewSet.length > 0
       : Boolean(state.wizard[step.key]);
   const next = document.createElement('button');
   next.type = 'button';
@@ -1413,6 +1415,9 @@ function renderWizard() {
   nav.append(back, next);
   body.append(kick, title, content, nav);
   if (step.key === 'readiness') {
+    if (!state.interviewSet.length) {
+      nav.before(el('p', 'unavailable', 'CHOOSE AT LEAST ONE QUESTION BEFORE REVIEWING OR STARTING.'));
+    }
     bindPreview();
     if (bridge.media.mic) startLevelMeter();
   }
