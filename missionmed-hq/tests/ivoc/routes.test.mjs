@@ -488,7 +488,7 @@ test('session creation requires same-origin CSRF and persists server identity', 
   assert.doesNotMatch(allowed.body, /actor_block|source_receipts|"facts"/u);
 });
 
-test('session creation passes only the server-held WordPress authorization to Application Intelligence', async () => {
+test('session creation passes only bounded server-held upstream credentials to Application Intelligence', async () => {
   const repo = repository();
   const prepared = [];
   const route = createIvocHandler({
@@ -504,8 +504,9 @@ test('session creation passes only the server-held WordPress authorization to Ap
   const response = new ResponseCapture();
   await route({
     ...base,
-    request: request('POST', { title: 'CV practice', context: { contextSources: ['CV'] } }, {
+    request: request('POST', { title: 'CV and program practice', context: { contextSources: ['CV', 'RISE'] } }, {
       origin: 'https://hq.test', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': 'a'.repeat(24),
+      cookie: `unrelated=discard; mmhq_session=${'s'.repeat(32)}; another=discard`,
     }),
     response, url: new URL('https://hq.test/api/ivoc/v1/sessions'), hqSession,
   });
@@ -513,8 +514,9 @@ test('session creation passes only the server-held WordPress authorization to Ap
   assert.equal(prepared.length, 1);
   assert.equal(prepared[0].actor, 'wp:42');
   assert.equal(prepared[0].authorization, hqSession.wpAuthorization);
-  assert.deepEqual(prepared[0].sessionRow.context.contextSources, ['CV']);
-  assert.doesNotMatch(response.body, /Bearer|wpAuthorization/u);
+  assert.equal(prepared[0].sessionCookie, `mmhq_session=${'s'.repeat(32)}`);
+  assert.deepEqual(prepared[0].sessionRow.context.contextSources, ['CV', 'RISE']);
+  assert.doesNotMatch(response.body, /Bearer|wpAuthorization|mmhq_session/u);
 });
 
 test('owner can abandon an interrupted session without exposing private recording identity', async () => {

@@ -46,6 +46,11 @@ function requestsStoryForgeContext(row) {
   return selected.some((value) => String(value || '').trim().toLowerCase() === 'storyforge');
 }
 
+function requestsRiseContext(row) {
+  const selected = Array.isArray(row?.context?.contextSources) ? row.context.contextSources : [];
+  return selected.some((value) => ['rise', 'program'].includes(String(value || '').trim().toLowerCase()));
+}
+
 function poolSnapshotRef(row) {
   const questionIds = selectedQuestionIds(row);
   const basis = questionIds.length ? questionIds : [`session-type:${safeText(row?.session_type, 40) || 'question'}`];
@@ -54,6 +59,10 @@ function poolSnapshotRef(row) {
 
 function programRef(row) {
   return safeText(row?.context?.programRef || row?.context?.programId || row?.context?.program?.id, 200) || null;
+}
+
+function programReleaseRef(row) {
+  return safeText(row?.context?.programReleaseId || row?.context?.program?.registryReleaseId, 256) || null;
 }
 
 function initialContract(row, actor, receipt, adminConfig = null) {
@@ -218,19 +227,26 @@ async function readLongitudinalProjection(repository, actor, currentSessionId = 
   return longitudinalProjection(evidence, actor);
 }
 
-export function createIvocProjectionProvider({ repository, fileVaultSource = null, storyForgeSource = null } = {}) {
+export function createIvocProjectionProvider({ repository, fileVaultSource = null, storyForgeSource = null, riseSource = null } = {}) {
   if (!repository) throw new TypeError('ivoc_projection_repository_required');
-  return async function projectionProvider({ actor, session = null, authorization = null } = {}) {
+  return async function projectionProvider({ actor, session = null, authorization = null, sessionCookie = null } = {}) {
     if (!/^wp:[1-9][0-9]{0,19}$/u.test(String(actor || ''))) return [];
     const needsFileVault = requestsFileVaultContext(session);
     const needsStoryForge = requestsStoryForgeContext(session);
+    const needsRise = requestsRiseContext(session);
     if (needsFileVault && !fileVaultSource?.read) {
       throw new TypeError('ivoc_file_vault_projection_unavailable');
     }
     if (needsStoryForge && !storyForgeSource?.read) {
       throw new TypeError('ivoc_storyforge_projection_unavailable');
     }
-    const [row, priorIvoc, fileVaultCv, storyForgeStories] = await Promise.all([
+    if (needsRise && !riseSource?.read) throw new TypeError('ivoc_rise_projection_unavailable');
+    const selectedProgram = programRef(session);
+    const registryReleaseId = programReleaseRef(session);
+    if (needsRise && (!selectedProgram || !registryReleaseId)) {
+      throw new TypeError('ivoc_rise_program_selection_required');
+    }
+    const [row, priorIvoc, fileVaultCv, storyForgeStories, riseProgram] = await Promise.all([
       repository.single(
         `ivoc_mentor_priority_sets?subject_id=eq.${encodeURIComponent(actor)}&select=*&order=version.desc&limit=1`,
       ),
@@ -241,10 +257,17 @@ export function createIvocProjectionProvider({ repository, fileVaultSource = nul
       needsStoryForge
         ? storyForgeSource.read({ actor, sessionId: safeText(session?.id, 120), authorization })
         : null,
+      needsRise
+        ? riseSource.read({
+          actor, sessionId: safeText(session?.id, 120), sessionCookie,
+          programId: selectedProgram, registryReleaseId,
+        })
+        : null,
     ]);
     if (needsFileVault && !fileVaultCv) throw new TypeError('ivoc_file_vault_projection_unavailable');
     if (needsStoryForge && !storyForgeStories) throw new TypeError('ivoc_storyforge_projection_unavailable');
-    return [fileVaultCv, storyForgeStories, mentorPriorityProjection(row), priorIvoc].filter(Boolean);
+    if (needsRise && !riseProgram) throw new TypeError('ivoc_rise_projection_unavailable');
+    return [fileVaultCv, storyForgeStories, riseProgram, mentorPriorityProjection(row), priorIvoc].filter(Boolean);
   };
 }
 
@@ -262,15 +285,18 @@ export function createIvocApplicationIntelligence({
   projectionProvider = null,
   fileVaultSource = null,
   storyForgeSource = null,
+  riseSource = null,
 } = {}) {
   if (!repository) throw new TypeError('ivoc_application_intelligence_repository_required');
-  const resolveProjections = projectionProvider || createIvocProjectionProvider({ repository, fileVaultSource, storyForgeSource });
+  const resolveProjections = projectionProvider || createIvocProjectionProvider({
+    repository, fileVaultSource, storyForgeSource, riseSource,
+  });
 
   return Object.freeze({
-    async prepareSession({ actor, sessionRow, authorization = null }) {
+    async prepareSession({ actor, sessionRow, authorization = null, sessionCookie = null }) {
       if (!actor || !sessionRow?.id) throw new TypeError('ivoc_application_intelligence_session_required');
       const [projections, adminConfig] = await Promise.all([
-        resolveProjections({ actor, session: sessionRow, authorization }),
+        resolveProjections({ actor, session: sessionRow, authorization, sessionCookie }),
         repository.single('ivoc_admin_config_versions?select=*&order=version.desc&limit=1'),
       ]);
       if (!Array.isArray(projections)) throw new TypeError('ivoc_application_intelligence_projection_invalid');

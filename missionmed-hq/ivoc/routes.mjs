@@ -9,6 +9,7 @@ import { createContextIntelligenceProvider } from './context-provider.mjs';
 import { createIvocApplicationIntelligence, readSessionContextReceipts } from './application-intelligence.mjs';
 import { createFileVaultCvProjectionSource } from './file-vault-projection.mjs';
 import { createStoryForgeProjectionSource } from './storyforge-projection.mjs';
+import { createRiseProgramProjectionSource } from './rise-projection.mjs';
 import { createIvocRepository } from './repository.mjs';
 import { createIvocStorage } from './storage.mjs';
 import {
@@ -46,6 +47,18 @@ function bool(value, fallback = false) {
 }
 
 function safeText(value, max = 400) { return String(value || '').trim().slice(0, max); }
+function exactSessionCookie(request, cookieName) {
+  const name = String(cookieName || 'mmhq_session');
+  if (!/^[A-Za-z0-9_-]{1,64}$/u.test(name)) return null;
+  const raw = String(request?.headers?.cookie || '');
+  for (const item of raw.split(';')) {
+    const candidate = item.trim();
+    if (!candidate.startsWith(`${name}=`)) continue;
+    const value = candidate.slice(name.length + 1);
+    return /^[A-Za-z0-9%._~+/=-]{16,8192}$/u.test(value) ? `${name}=${value}` : null;
+  }
+  return null;
+}
 function optionalDurationMs(value) {
   return value != null && Number.isFinite(Number(value)) ? Math.max(0, Math.trunc(Number(value))) : null;
 }
@@ -749,8 +762,15 @@ export function createIvocHandler({
   const storyForgeSource = env.MMHQ_WP_BASE
     ? createStoryForgeProjectionSource({ wordPressBase: env.MMHQ_WP_BASE, fetchImpl })
     : null;
+  const riseSource = env.MMHQ_RISE_BASE
+    ? createRiseProgramProjectionSource({
+      riseBase: env.MMHQ_RISE_BASE,
+      sessionCookieName: env.MMHQ_SESSION_COOKIE || 'mmhq_session',
+      fetchImpl,
+    })
+    : null;
   const appIntelligence = applicationIntelligence || createIvocApplicationIntelligence({
-    repository: db, now, fileVaultSource, storyForgeSource,
+    repository: db, now, fileVaultSource, storyForgeSource, riseSource,
   });
   const enabled = bool(env.IVPREP_ENABLED) && bool(env.IVPREP_ADMIN_CANARY_ENABLED);
   const contextEnabled = bool(env.IVOC_CONTEXT_CANDIDATE_ENABLED);
@@ -1178,6 +1198,7 @@ export function createIvocHandler({
         try {
           await appIntelligence.prepareSession({
             actor, sessionRow: row, authorization: hqSession?.wpAuthorization || null,
+            sessionCookie: exactSessionCookie(request, env.MMHQ_SESSION_COOKIE || 'mmhq_session'),
           });
         } catch (error) {
           await db.update(`ivoc_sessions?id=eq.${row.id}&owner_subject=eq.${encodeURIComponent(actor)}&select=*`, { state: 'error' }).catch(() => null);

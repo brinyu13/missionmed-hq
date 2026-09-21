@@ -207,6 +207,57 @@ test('StoryForge is not read unless selected, and selected absence fails closed'
   assert.equal(reads, 1);
 });
 
+test('selected RISE program is owner-read once and binds the exact program and release to the context pack', async () => {
+  const repo = repository();
+  const reads = [];
+  const riseSource = {
+    read: async (input) => {
+      reads.push(input);
+      return {
+        projection_id: 'rise-program:wp:42:rise_ps_test', owner_app: 'rise',
+        projection_type: 'rise.program_cheat_sheet', schema_version: '1', subject_id: 'wp:42',
+        source_version: 'rise-ivoc-release-test', produced_at: NOW,
+        authorization: { basis: 'owner_policy', consent_ref: `ivoc-session:${SESSION_ID}`, scope: ['program_identity'] },
+        minimization: { fields_included: ['program_id', 'name', 'high_yield_facts', 'people'] },
+        payload: {
+          program_id: 'rise_ps_test', name: 'Example Internal Medicine Residency', specialty: 'Internal Medicine',
+          high_yield_facts: [{ fact: 'Curriculum: Resident-led quality improvement', source_ref: 'rise:test:curriculum' }],
+          people: [{ role: 'Program Director', source_ref: 'rise:test:leadership' }],
+        },
+        source_receipt: { owner_ref: 'rise:test', hash: 'e'.repeat(64) }, revocation: { revocable: true },
+      };
+    },
+  };
+  const row = sessionRow();
+  row.context = {
+    contextSources: ['RISE'], programId: 'rise_ps_test', programReleaseId: 'rise_registry_test',
+  };
+  const service = createIvocApplicationIntelligence({ repository: repo, riseSource, now: () => Date.parse(NOW) });
+  await service.prepareSession({ actor: 'wp:42', sessionRow: row, sessionCookie: `mmhq_session=${'s'.repeat(32)}` });
+  assert.deepEqual(reads, [{
+    actor: 'wp:42', sessionId: SESSION_ID, sessionCookie: `mmhq_session=${'s'.repeat(32)}`,
+    programId: 'rise_ps_test', registryReleaseId: 'rise_registry_test',
+  }]);
+  const pack = repo.upserts.find((entry) => entry.table === 'ivoc_context_packs').body.pack;
+  assert.equal(pack.program.program_ref, 'rise_ps_test');
+  assert.ok(pack.inputs.some((input) => input.projection_type === 'rise.program_cheat_sheet'));
+  assert.match(pack.actor_block, /Example Internal Medicine Residency/u);
+});
+
+test('RISE is not read unless selected, and selection requires an exact canonical program and release', async () => {
+  const repo = repository();
+  let reads = 0;
+  const riseSource = { read: async () => { reads += 1; return null; } };
+  const provider = createIvocProjectionProvider({ repository: repo, riseSource });
+  await provider({ actor: 'wp:42', session: sessionRow(), sessionCookie: `mmhq_session=${'s'.repeat(32)}` });
+  assert.equal(reads, 0);
+
+  const selected = sessionRow();
+  selected.context = { contextSources: ['RISE'] };
+  await assert.rejects(() => provider({ actor: 'wp:42', session: selected }), /program_selection_required/u);
+  assert.equal(reads, 0);
+});
+
 test('prior-IVOC projection requires two distinct saved sessions and bounded structured evidence', async () => {
   const rows = [
     {
