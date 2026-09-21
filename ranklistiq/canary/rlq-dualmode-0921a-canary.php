@@ -17,9 +17,9 @@ header('X-Frame-Options: SAMEORIGIN');
 header('X-RLQ-Canary: RLQ-DUALMODE-0921A');
 
 if (!is_user_logged_in() || !current_user_can('manage_options')) {
-    status_header(403);
+    status_header(404);
     header('Content-Type: text/plain; charset=UTF-8');
-    echo 'Forbidden';
+    echo 'Not found';
     exit;
 }
 
@@ -34,4 +34,3 @@ if (!is_readable($artifact)) {
 header('Content-Type: text/html; charset=UTF-8');
 header('Content-Length: ' . (string) filesize($artifact));
 readfile($artifact);
-
