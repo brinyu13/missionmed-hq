@@ -83,6 +83,7 @@ test('presentation integration preserves the proven analytics and media contract
   assert.match(html, /id="simulation-rail"/u);
   assert.match(runtime, /Start AI interview ▸/u);
   assert.match(runtime, /await startLiveInterview\(\)/u);
+  assert.match(runtime, /Preparing your private recording and authorized interview context/u);
   assert.match(html, /data-goto="newsession" data-builder-step="1" data-launch-mode="practice">Practice one question myself/u);
   assert.match(html, />Build an interview ▸</u);
   assert.match(runtime, /window\.addEventListener\('focus', \(\) => void refreshDevices\(\)\)/u);

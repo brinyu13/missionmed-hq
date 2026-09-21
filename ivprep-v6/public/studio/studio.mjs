@@ -2140,6 +2140,10 @@ async function startLiveInterview() {
   let preparedForLive = false;
   let analyticsStarted = false;
   try {
+    setLiveInterviewStatus({
+      state: 'connecting',
+      detail: 'Preparing your private recording and authorized interview context…',
+    });
     bridge.primeAudioContext();
     if (!bridge.media.stream?.getAudioTracks?.().some((track) => track.readyState === 'live')) {
       await bridge.requestMedia(true, true);
