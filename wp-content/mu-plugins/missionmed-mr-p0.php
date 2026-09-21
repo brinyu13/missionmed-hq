@@ -809,6 +809,15 @@ add_filter('woocommerce_cart_crosssell_ids', static function (array $ids): array
     return $ids;
 }, 999);
 
+function mm_mr_0912_cart_button_markup(): string {
+    $cartUrl = function_exists('wc_get_cart_url') ? (string) wc_get_cart_url() : home_url('/cart/');
+    $cartCount = function_exists('WC') && WC()->cart ? (int) WC()->cart->get_cart_contents_count() : 0;
+    $label = $cartCount === 1 ? 'Cart, 1 item' : 'Cart, ' . $cartCount . ' items';
+    return '<a id="mm-mr-0912-cart-button" href="' . esc_url($cartUrl) . '" aria-label="' . esc_attr($label) . '">'
+        . '<span aria-hidden="true">CART</span><span class="mm-mr-0912-cart-count" aria-hidden="true">' . esc_html((string) $cartCount) . '</span></a>'
+        . '<style id="mm-mr-0912-cart-button-style">#mm-mr-0912-cart-button{position:fixed;right:max(16px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));z-index:2147482000;display:inline-flex;align-items:center;justify-content:center;gap:9px;min-width:94px;min-height:48px;padding:11px 15px;border:1px solid rgba(229,189,98,.9);border-radius:999px;background:#071626;color:#fff!important;text-decoration:none!important;font:800 13px/1 Inter,system-ui,sans-serif;letter-spacing:.12em;box-shadow:0 10px 30px rgba(0,0,0,.32);transition:transform .18s ease,box-shadow .18s ease}#mm-mr-0912-cart-button:hover,#mm-mr-0912-cart-button:focus-visible{transform:translateY(-2px);box-shadow:0 14px 34px rgba(0,0,0,.4);outline:3px solid #e5bd62;outline-offset:3px}.mm-mr-0912-cart-count{display:inline-grid;place-items:center;min-width:24px;height:24px;padding:0 6px;border-radius:999px;background:#e5bd62;color:#071626;font-size:12px;letter-spacing:0}@media(max-width:520px){#mm-mr-0912-cart-button{right:max(12px,env(safe-area-inset-right));bottom:max(12px,env(safe-area-inset-bottom));min-height:46px;padding:10px 13px}}</style>';
+}
+
 function mm_mr_p0_render_asset_page(string $page): never {
     $isB = $page === 'mission-residency';
     $path = MM_MR_P0_ASSET_DIR . ($isB ? '/b-immersive/index.html' : '/pages/offer.html');
@@ -843,6 +852,7 @@ function mm_mr_p0_render_asset_page(string $page): never {
         . mm_mr_0912_google_tag_markup()
         . '<style id="mm-mr-0912-static-containment">#mm-mobile-notice,#mm-mobile-notice-styles{display:none!important}</style>';
     $html = preg_replace('/<head>/', $head, $html, 1);
+    $html = preg_replace('/<\/body>/i', mm_mr_0912_cart_button_markup() . '</body>', $html, 1) ?? $html;
     status_header(200);
     nocache_headers();
     header('Content-Type: text/html; charset=' . get_option('blog_charset'));
@@ -1093,12 +1103,7 @@ add_action('wp_footer', static function (): void {
 
 add_action('wp_footer', static function (): void {
     if (!mm_mr_0912_is_customer_funnel_route()) return;
-    $cartUrl = function_exists('wc_get_cart_url') ? (string) wc_get_cart_url() : home_url('/cart/');
-    $cartCount = function_exists('WC') && WC()->cart ? (int) WC()->cart->get_cart_contents_count() : 0;
-    $label = $cartCount === 1 ? 'Cart, 1 item' : 'Cart, ' . $cartCount . ' items';
-    echo '<a id="mm-mr-0912-cart-button" href="' . esc_url($cartUrl) . '" aria-label="' . esc_attr($label) . '">'
-        . '<span aria-hidden="true">CART</span><span class="mm-mr-0912-cart-count" aria-hidden="true">' . esc_html((string) $cartCount) . '</span></a>'
-        . '<style id="mm-mr-0912-cart-button-style">#mm-mr-0912-cart-button{position:fixed;right:max(16px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));z-index:2147482000;display:inline-flex;align-items:center;justify-content:center;gap:9px;min-width:94px;min-height:48px;padding:11px 15px;border:1px solid rgba(229,189,98,.9);border-radius:999px;background:#071626;color:#fff!important;text-decoration:none!important;font:800 13px/1 Inter,system-ui,sans-serif;letter-spacing:.12em;box-shadow:0 10px 30px rgba(0,0,0,.32);transition:transform .18s ease,box-shadow .18s ease}#mm-mr-0912-cart-button:hover,#mm-mr-0912-cart-button:focus-visible{transform:translateY(-2px);box-shadow:0 14px 34px rgba(0,0,0,.4);outline:3px solid #e5bd62;outline-offset:3px}.mm-mr-0912-cart-count{display:inline-grid;place-items:center;min-width:24px;height:24px;padding:0 6px;border-radius:999px;background:#e5bd62;color:#071626;font-size:12px;letter-spacing:0}@media(max-width:520px){#mm-mr-0912-cart-button{right:max(12px,env(safe-area-inset-right));bottom:max(12px,env(safe-area-inset-bottom));min-height:46px;padding:10px 13px}}</style>';
+    echo mm_mr_0912_cart_button_markup(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- composed from escaped local values.
 }, PHP_INT_MAX - 1);
 
 add_action('woocommerce_review_order_before_submit', static function (): void {
