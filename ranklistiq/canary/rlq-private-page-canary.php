@@ -27,7 +27,7 @@ add_action(
 
         nocache_headers();
         header('Cache-Control: private, no-store, max-age=0');
-        header('X-RLQ-Canary: RLQ-DUALMODE-0921A');
+        header('X-RLQ-Preview: RLQ-DUALMODE-0921A');
 
         if (!is_user_logged_in() || !current_user_can('manage_options')) {
             status_header(404);
