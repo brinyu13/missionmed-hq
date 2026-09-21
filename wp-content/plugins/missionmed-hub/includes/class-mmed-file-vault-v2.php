@@ -811,7 +811,7 @@ class MMED_File_Vault_V2 {
 	/** @return array */
 	protected static function ivoc_projection_write_args() {
 		return array(
-			'version_uuid' => array( 'required' => true, 'type' => 'string', 'pattern' => '^[a-fA-F0-9-]{36}$' ),
+			'version_uuid' => array( 'required' => true, 'type' => 'string', 'pattern' => '^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[1-5][a-fA-F0-9]{3}-[89aAbB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}$' ),
 			'authorization_ref' => array( 'required' => true, 'type' => 'string', 'minLength' => 1, 'maxLength' => 160 ),
 			'entries' => array( 'required' => true, 'type' => 'array', 'minItems' => 1, 'maxItems' => MMED_File_Vault_V2_Repository::IVOC_CV_PROJECTION_MAX_ENTRIES ),
 		);
