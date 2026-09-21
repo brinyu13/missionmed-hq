@@ -752,18 +752,6 @@ const WIZARD_STEPS = Object.freeze([
   { key: 'readiness', label: 'Readiness + Calibration', title: ['Find your signal.', 'Enter with confidence.'] },
 ]);
 
-function wizardStepComplete(index) {
-  const key = WIZARD_STEPS[index]?.key;
-  if (key === 'questions') return state.interviewSet.length > 0;
-  if (key === 'program') return state.wizard.programVerified === true;
-  if (key === 'readiness') {
-    const preview = $('#builder-readiness-stage video') || $('#devicecheck-stage video');
-    return Boolean(liveTrack('video') && liveTrack('audio')
-      && bridge.media.AC?.state === 'running' && videoSurfaceReady(preview));
-  }
-  return Boolean(state.wizard[key]);
-}
-
 const QUESTION_CATEGORIES = Object.freeze([
   ['Core / Opening', ['CORE', 'TRADITIONAL', 'BACKGROUND', 'CV_BASED', 'CLOSING']],
   ['Behavioral', ['BEHAVIORAL', 'SITUATIONAL']],
@@ -834,7 +822,7 @@ function renderWizardProgress() {
   WIZARD_STEPS.forEach((step, index) => {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = index === state.wizardStep ? 'current' : wizardStepComplete(index) ? 'complete' : '';
+    button.className = index === state.wizardStep ? 'current' : index < state.wizardStep ? 'complete' : '';
     if (index === state.wizardStep) button.setAttribute('aria-current', 'step');
     button.innerHTML = `<span>${index < state.wizardStep ? '✓' : index + 1}</span><b>${step.label}</b>`;
     button.addEventListener('click', () => { state.wizardStep = index; renderWizard(); });
@@ -1096,11 +1084,6 @@ function renderProgramStep(host) {
     state.programSearch = { status: 'idle', records: [], total: 0, error: null };
     updateProgramSearchAvailability();
   }); search.append(input); host.append(search);
-  input.addEventListener('keydown', (event) => {
-    if (event.key !== 'Enter') return;
-    event.preventDefault();
-    searchButton?.click();
-  });
   const filters = el('div', 'canon-program-filters');
   [['Specialty', 'All specialties', 'programSpecialty', 'Internal Medicine,Family Medicine,Pediatrics,Surgery,Psychiatry'], ['State', 'All states', 'programState', 'Massachusetts,New York,California,Texas,Florida'], ['Program type', 'All program types', 'programType', 'University,Community,University-affiliated']].forEach(([labelText, placeholder, key, values]) => {
     const label = el('label', 'canon-field'); label.append(el('span', '', labelText)); const select = el('select');
@@ -1335,30 +1318,25 @@ function renderWizard() {
     addSummaryRow('Practice', state.wizard.goal);
     addSummaryRow('Question Pool', `${state.interviewSet.length} in pool · target about ${state.targetQuestions}`, state.interviewSet.length > 0);
     addSummaryRow('Interviewer', state.wizard.interviewer);
-    addSummaryRow('Program', state.wizard.programVerified
-      ? `${state.wizard.program} · verified`
-      : state.wizard.program ? `${state.wizard.program} · manual / unverified` : 'No program selected', state.wizard.programVerified);
+    addSummaryRow('Program', state.wizard.program || 'No program selected', Boolean(state.wizard.program));
     addSummaryRow('Environment + context', state.wizard.environment);
-    const devicesReady = wizardStepComplete(5);
-    addSummaryRow('Readiness', devicesReady ? 'Camera, microphone, and visible preview confirmed' : 'Device calibration required', devicesReady);
+    addSummaryRow('Readiness', state.wizard.readiness);
     const row = document.createElement('div');
     row.className = 'btn-row';
     const launch = (mode) => {
-      if (!state.interviewSet.length) return;
       state.launchMode = mode;
+      if (!state.interviewSet.length) applyWizardQuestions('Core 10');
       setView('devicecheck');
     };
     const go = document.createElement('button');
     go.className = 'btn btn-primary';
     go.type = 'button';
-    go.disabled = !state.interviewSet.length;
-    go.innerHTML = `<span>${devicesReady ? 'Enter AI Interview Room ▸' : 'Continue to device calibration ▸'}</span>`;
+    go.innerHTML = '<span>Start AI mock interview ▸</span>';
     go.addEventListener('click', () => launch('ai'));
     const practice = document.createElement('button');
     practice.className = 'btn btn-secondary';
     practice.type = 'button';
-    practice.disabled = !state.interviewSet.length;
-    practice.innerHTML = `<span>${devicesReady ? 'Open coached practice' : 'Calibrate for coached practice'}</span>`;
+    practice.innerHTML = '<span>Practice with coaching</span>';
     practice.addEventListener('click', () => launch('practice'));
     const back = document.createElement('button');
     back.className = 'btn btn-quiet';
@@ -1366,9 +1344,7 @@ function renderWizard() {
     back.innerHTML = '<span>Start over</span>';
     back.addEventListener('click', () => { state.wizardStep = 0; renderWizard(); });
     row.append(go, practice, back);
-    body.append(summary);
-    if (!state.interviewSet.length) body.append(el('p', 'unavailable', 'CHOOSE AT LEAST ONE QUESTION BEFORE STARTING.'));
-    body.append(row);
+    body.append(summary, row);
     return;
   }
 
@@ -1786,12 +1762,9 @@ function setSessionState(next, reason = null) {
   const start = $('#cockpit-start');
   if (start) {
     const running = next === 'RUNNING' || next === 'STARTING';
-    const ready = next === 'SESSION_READY';
-    start.innerHTML = `<span>${running ? 'Rep running…' : ready ? 'Start rep ▸' : 'Connect devices first'}</span>`;
-    start.disabled = !ready;
+    start.innerHTML = `<span>${running ? 'Rep running…' : 'Start rep ▸'}</span>`;
+    start.disabled = running;
   }
-  const finish = $('#cockpit-finish');
-  if (finish) finish.disabled = next !== 'RUNNING';
   return next;
 }
 
@@ -2088,15 +2061,11 @@ function setLiveInterviewStatus({ state: next, detail }) {
   const note = $('#sim-provider-note');
   const start = $('#live-interview-start');
   const end = $('#live-interview-end');
-  const blocked = next === 'idle'
-    ? (!state.interviewSet.length ? 'Choose at least one question before entering the Interview Room.' : startBlockedReason())
-    : null;
   if (title) title.textContent = {
     connecting: 'Connecting…', active: 'Live · listening', closed: 'Interview ended', error: 'Live interview unavailable', unavailable: 'Live voice unavailable', idle: 'Ready when you are',
   }[next] || next;
-  if (title && blocked) title.textContent = 'Not ready yet';
-  if (note && (blocked || detail)) note.textContent = blocked || detail;
-  if (start) start.disabled = ['connecting', 'active', 'unavailable'].includes(next) || Boolean(blocked);
+  if (note && detail) note.textContent = detail;
+  if (start) start.disabled = ['connecting', 'active', 'unavailable'].includes(next);
   if (end) end.disabled = !['connecting', 'active'].includes(next);
 }
 
@@ -2110,10 +2079,6 @@ async function startLiveInterview() {
     return false;
   }
   if (state.liveInterview?.sessionId || ['STARTING', 'RUNNING'].includes(state.session.state)) return true;
-  if (!state.interviewSet.length) {
-    setLiveInterviewStatus({ state: 'error', detail: 'Choose at least one question before starting the live interview.' });
-    return false;
-  }
   let preparedForLive = false;
   let analyticsStarted = false;
   try {
@@ -2491,13 +2456,11 @@ async function renderVault() {
       copy.append(title, meta);
       const actions = document.createElement('div');
       actions.className = 'vault-answer-actions';
-      const canReview = Boolean(session.results || Number(history.supportedObservationCount || 0) > 0
-        || history.transcriptAvailable === true || ['complete', 'processed'].includes(session.state));
-      if (canReview) {
+      if (session.results) {
         const results = document.createElement('button');
         results.type = 'button';
         results.className = 'btn btn-quiet';
-        results.innerHTML = '<span>Review answer</span>';
+        results.innerHTML = '<span>Open Results</span>';
         results.addEventListener('click', async () => {
           results.disabled = true;
           try {
@@ -2719,18 +2682,6 @@ function renderLoadoutConfig() {
 }
 
 function renderPostAnswer(analytics = null) {
-  const provenance = $('#post-provenance');
-  if (provenance) {
-    const session = state.lastSaved?.sessionDetail?.session || state.lastSaved?.session || null;
-    const question = session?.questionText || session?.title || session?.questionId || 'No saved answer selected';
-    const when = session?.endedAt || session?.startedAt || null;
-    const program = session?.programName || state.lastSaved?.sessionDetail?.context?.program?.name || null;
-    provenance.replaceChildren(
-      el('span', 'microcap', state.lastSaved?.persisted ? 'Saved private answer' : 'Current unsaved review'),
-      el('strong', '', question),
-      el('span', 'canon-muted', [when ? new Date(when).toLocaleString() : null, program].filter(Boolean).join(' · ') || 'Session details unavailable'),
-    );
-  }
   const rail = statusRail(state.bus.latest);
   const worked = rail.find((item) => item.state === 'ok');
   const correction = selectCorrection(state.bus.latest);

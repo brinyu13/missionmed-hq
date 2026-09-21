@@ -238,8 +238,8 @@
             <div class="overlay-toggles" id="cockpit-overlays" role="group" aria-label="Overlay layers"></div>
             <div class="btn-row" style="margin-top:12px">
               <button class="btn btn-primary" type="button" id="cockpit-connect"><span>Connect camera + mic</span></button>
-              <button class="btn btn-secondary" type="button" id="cockpit-start" disabled><span>Connect devices first</span></button>
-              <button class="btn btn-quiet" type="button" id="cockpit-finish" disabled><span>Finish</span></button>
+              <button class="btn btn-secondary" type="button" id="cockpit-start"><span>Start rep ▸</span></button>
+              <button class="btn btn-quiet" type="button" id="cockpit-finish"><span>Finish</span></button>
             </div>
           </div>
 
@@ -247,8 +247,8 @@
             <!-- ONE dominant correction, ever. -->
             <div class="correction-plate" id="cockpit-correction" data-state="idle">
               <div>
-                <div class="microcap" id="correction-metric">Not ready</div>
-                <div class="correction-verdict" id="correction-verdict">Connect camera + microphone to begin</div>
+                <div class="microcap" id="correction-metric">Ready</div>
+                <div class="correction-verdict" id="correction-verdict">Start speaking</div>
               </div>
             </div>
             <div class="primary-instrument" id="cockpit-primary"></div>
@@ -310,7 +310,7 @@
                 </select>
               </label>
               <div class="btn-row" style="margin-top:0">
-                <button class="btn btn-primary" type="button" id="live-interview-start" disabled><span>Start live interview ▸</span></button>
+                <button class="btn btn-primary" type="button" id="live-interview-start"><span>Start live interview ▸</span></button>
                 <button class="btn btn-quiet" type="button" id="live-interview-end" disabled><span>End interview</span></button>
               </div>
               <p class="microcap">The live interviewer uses the same microphone as Delivery Intelligence, with one secure audio path for the conversation.</p>
@@ -321,7 +321,7 @@
         <div class="housing" style="margin-top:16px">
           <div class="housing-title">Live Analytics</div>
           <div class="recess">
-            <div class="correction-plate" id="simulation-correction" data-state="idle"><div><div class="microcap" id="simulation-correction-metric">Not ready</div><div class="correction-verdict" id="simulation-correction-verdict">Complete device calibration to begin</div></div></div>
+            <div class="correction-plate" id="simulation-correction" data-state="idle"><div><div class="microcap" id="simulation-correction-metric">Ready</div><div class="correction-verdict" id="simulation-correction-verdict">Start the interview to begin measurement</div></div></div>
             <div class="status-rail" id="simulation-rail"></div>
             <p class="microcap" id="simulation-save" aria-live="polite">Your interview will be recorded privately to your account.</p>
           </div>
@@ -336,7 +336,6 @@
       <section class="screen" data-view-panel="postanswer">
         <div class="microcap hero-kick">Post-answer</div>
         <h1 class="hero">What <em>worked.</em></h1>
-        <div class="recess" id="post-provenance" aria-live="polite"><span class="microcap">No saved answer selected</span></div>
         <div class="grid grid-2" style="margin-top:18px">
           <div class="housing"><div class="housing-title">What worked</div><div class="recess" id="post-worked"></div></div>
           <div class="housing"><div class="housing-title">One thing to fix</div><div class="recess" id="post-fix"></div></div>
