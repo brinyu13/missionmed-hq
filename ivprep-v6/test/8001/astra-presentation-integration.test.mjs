@@ -221,6 +221,12 @@ test('student presentation does not expose implementation status residue', () =>
   assert.doesNotMatch(runtime, /HYBRID FOLLOW-UP ROUTER PENDING|DR KELLY \/ DR WOODS PACKS PENDING|IVOC does not store the owner URL/iu);
   assert.doesNotMatch(runtime, /No canonical question/iu);
   assert.doesNotMatch(html, /canonical questions/iu);
+  assert.match(runtime, /adminDiagnostics \? 'Audio context' : 'Microphone processing'/u);
+  assert.match(runtime, /adminDiagnostics \? 'Vision worker' : 'Visual coaching'/u);
+  assert.match(runtime, /summaryHeading\.textContent = 'Transcript coverage'/u);
+  assert.match(runtime, /fillersHeading\.textContent = 'Filler words'/u);
+  assert.match(runtime, /return match \? `Moment \$\{match\[1\]\}` : 'Transcript evidence'/u);
+  assert.match(runtime, /'Saved transcript'/u);
 });
 
 test('Admin student traversal stays behind the stable private-library capability boundary', () => {

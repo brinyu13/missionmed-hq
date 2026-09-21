@@ -2243,14 +2243,15 @@ function renderDeviceCheck() {
   const microphoneLive = Boolean(liveTrack('audio') && media.mic);
   const preview = $('#devicecheck-stage video') || $('#builder-readiness-stage video');
   const surfaceLive = videoSurfaceReady(preview);
+  const adminDiagnostics = state.role === 'admin';
   const rows = [
     ['Camera', cameraLive ? 'ready' : 'pending', cameraLive ? 'LIVE' : 'NOT CONNECTED'],
     ['Microphone', microphoneLive ? 'ready' : 'pending', microphoneLive ? 'LIVE' : 'NOT CONNECTED'],
     ['Visible preview', surfaceLive ? 'ready' : 'pending', surfaceLive ? `${preview.videoWidth}×${preview.videoHeight} RENDERING` : 'NO VISIBLE FRAME'],
-    ['Audio context', media.AC?.state === 'running' ? 'ready' : 'pending', (media.AC?.state || 'IDLE').toUpperCase()],
-    ['Vision worker', diagnostics.active ? 'ready' : 'pending', diagnostics.active ? 'RUNNING' : 'IDLE'],
-    ['Face landmarks', diagnostics.active ? 'ready' : 'pending', diagnostics.active ? 'AVAILABLE ON START' : 'AWAITING SESSION'],
-    ['Body + hands', diagnostics.active ? 'ready' : 'pending', diagnostics.active ? 'AVAILABLE ON START' : 'AWAITING SESSION'],
+    [adminDiagnostics ? 'Audio context' : 'Microphone processing', media.AC?.state === 'running' ? 'ready' : 'pending', adminDiagnostics ? (media.AC?.state || 'IDLE').toUpperCase() : media.AC?.state === 'running' ? 'READY' : 'CONNECT DEVICES FIRST'],
+    [adminDiagnostics ? 'Vision worker' : 'Visual coaching', diagnostics.active ? 'ready' : 'pending', adminDiagnostics ? (diagnostics.active ? 'RUNNING' : 'IDLE') : diagnostics.active ? 'READY DURING PRACTICE' : 'CONNECT DEVICES FIRST'],
+    [adminDiagnostics ? 'Face landmarks' : 'Face + head tracking', diagnostics.active ? 'ready' : 'pending', diagnostics.active ? 'AVAILABLE DURING PRACTICE' : 'AWAITING DEVICES'],
+    ['Body + hands tracking', diagnostics.active ? 'ready' : 'pending', diagnostics.active ? 'AVAILABLE DURING PRACTICE' : 'AWAITING DEVICES'],
   ];
   host.replaceChildren();
   for (const [name, level, text] of rows) {
@@ -2927,6 +2928,15 @@ function renderFullAnalyticsReport(analytics = null) {
   }
 }
 
+function evidenceReferenceLabel(refs) {
+  if (!Array.isArray(refs) || !refs.length) return 'Transcript evidence';
+  if (state.role === 'admin') return refs.join(', ');
+  return refs.map((ref) => {
+    const match = /^seg-(\d+)$/u.exec(String(ref));
+    return match ? `Moment ${match[1]}` : 'Transcript evidence';
+  }).join(', ');
+}
+
 function renderContextEvidence(result) {
   const host = $('#context-evidence');
   if (!host) return;
@@ -2935,7 +2945,12 @@ function renderContextEvidence(result) {
   if (transcript?.status !== 'AVAILABLE') {
     const note = document.createElement('p');
     note.className = 'unavailable';
-    note.textContent = `TRANSCRIPT UNAVAILABLE — ${String(transcript?.reason || 'PROVIDER UNAVAILABLE').toUpperCase().slice(0, 120)}`;
+    const reason = String(transcript?.reason || 'PROVIDER UNAVAILABLE').toUpperCase().slice(0, 120);
+    note.textContent = state.role === 'admin'
+      ? `TRANSCRIPT UNAVAILABLE — ${reason}`
+      : reason === 'NO_PERSISTED_TRANSCRIPT'
+        ? 'NO SAVED TRANSCRIPT YET'
+        : 'TRANSCRIPT PROCESSING IS CURRENTLY UNAVAILABLE';
     host.append(note);
     return;
   }
@@ -2946,28 +2961,28 @@ function renderContextEvidence(result) {
   if (transcriptMetrics.status === 'AVAILABLE') {
     const label = document.createElement('div');
     label.className = 'microcap';
-    label.textContent = 'Transcript signals';
+    label.textContent = 'Answer transcript';
     const grid = document.createElement('div');
     grid.className = 'context-assessment-grid';
     const summary = document.createElement('article');
     summary.className = 'context-assessment-card';
     const summaryHeading = document.createElement('span');
     summaryHeading.className = 'microcap';
-    summaryHeading.textContent = 'Transcript boundary';
+    summaryHeading.textContent = 'Transcript coverage';
     const summaryValue = document.createElement('strong');
     summaryValue.textContent = transcriptMetrics.segmentCount
       ? `${transcriptMetrics.segmentCount} segments · ${transcriptMetrics.wordCount} words`
       : `${transcriptMetrics.wordCount} words`;
     const summaryCopy = document.createElement('p');
     summaryCopy.textContent = transcriptMetrics.startMs === null
-      ? 'Canonical text is available; timestamp boundaries are unavailable.'
-      : `${Math.round(transcriptMetrics.startMs / 100) / 10}s–${Math.round(transcriptMetrics.endMs / 100) / 10}s on the capture-owner clock.`;
+      ? 'Saved text is available; timing detail is unavailable.'
+      : `${Math.round(transcriptMetrics.startMs / 100) / 10}s–${Math.round(transcriptMetrics.endMs / 100) / 10}s in this saved answer.`;
     summary.append(summaryHeading, summaryValue, summaryCopy);
     const fillers = document.createElement('article');
     fillers.className = 'context-assessment-card';
     const fillersHeading = document.createElement('span');
     fillersHeading.className = 'microcap';
-    fillersHeading.textContent = 'Bounded filler tokens';
+    fillersHeading.textContent = 'Filler words';
     const fillersValue = document.createElement('strong');
     fillersValue.textContent = String(transcriptMetrics.fillerTokenCount);
     const fillersCopy = document.createElement('p');
@@ -2984,9 +2999,7 @@ function renderContextEvidence(result) {
     const list = document.createElement('ul');
     for (const observation of analysis.semanticObservations) {
       const item = document.createElement('li');
-      const refs = Array.isArray(observation.transcriptSegmentIds)
-        ? observation.transcriptSegmentIds.join(', ')
-        : 'source cited';
+      const refs = evidenceReferenceLabel(observation.transcriptSegmentIds);
       item.textContent = `${observation.text} · ${refs}`;
       list.append(item);
     }
@@ -3024,7 +3037,7 @@ function renderContextEvidence(result) {
       if (item?.refs?.length) {
         const refs = document.createElement('span');
         refs.className = 'context-assessment-refs';
-        refs.textContent = `Evidence · ${item.refs.join(', ')}`;
+        refs.textContent = `Evidence · ${evidenceReferenceLabel(item.refs)}`;
         card.append(refs);
       }
       grid.append(card);
@@ -3033,9 +3046,9 @@ function renderContextEvidence(result) {
     confidence.className = 'context-assessment-card context-confidence';
     const confidenceHeading = document.createElement('span');
     confidenceHeading.className = 'microcap';
-    confidenceHeading.textContent = 'Confidence and limits';
+    confidenceHeading.textContent = 'Evidence quality and limits';
     const confidenceValue = document.createElement('strong');
-    confidenceValue.textContent = `${assessment.confidence.label} · ${Math.round(assessment.confidence.score * 100)}% SCORE · ${Math.round(assessment.confidence.coverage * 100)}% COVERAGE`;
+    confidenceValue.textContent = `${assessment.confidence.label} · ${Math.round(assessment.confidence.score * 100)}% analysis strength · ${Math.round(assessment.confidence.coverage * 100)}% transcript coverage`;
     const confidenceCopy = document.createElement('p');
     confidenceCopy.textContent = assessment.confidence.limitations.length
       ? assessment.confidence.limitations.join(' · ')
@@ -3051,7 +3064,7 @@ function renderContextEvidence(result) {
       summary.className = 'empty-state';
       const heading = document.createElement('strong');
       heading.textContent = item.facetLabel;
-      const copy = document.createTextNode(`${item.text} · ${item.refs.join(', ')}`);
+      const copy = document.createTextNode(`${item.text} · ${evidenceReferenceLabel(item.refs)}`);
       summary.append(heading, copy);
       summaryHost.replaceChildren(summary);
     }
@@ -3101,7 +3114,7 @@ function renderFilmRoomSpine(session, envelope = null) {
   const label = document.createElement('div');
   label.className = 'microcap';
   label.textContent = canonicalTranscript
-    ? 'Canonical transcript'
+    ? (state.role === 'admin' ? 'Canonical transcript' : 'Saved transcript')
     : 'Live interview transcript · saved privately with this answer';
   const timeline = document.createElement('div');
   timeline.className = 'long-rows';
