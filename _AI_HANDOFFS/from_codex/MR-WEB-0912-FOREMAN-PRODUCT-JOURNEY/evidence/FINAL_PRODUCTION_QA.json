@@ -1,0 +1,542 @@
+{
+  "generatedAt": "2026-09-21T12:36:06.641Z",
+  "origin": "https://missionmedinstitute.com",
+  "livePaymentSubmitted": false,
+  "viewports": [
+    {
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 1000
+      },
+      "landing": {
+        "status": 200,
+        "publicBrowsingWithoutPrompt": true,
+        "privateCodePublished": false,
+        "correctPrices": true,
+        "completeIncludesIW": true,
+        "scheduleRange": true,
+        "forbiddenVisible": false,
+        "geometry": {
+          "innerWidth": 1440,
+          "scrollWidth": 1440,
+          "overflowing": false
+        },
+        "analyticsBootstrap": true,
+        "dataLayerEvents": [
+          "mr_b_page_view",
+          "mr_b_finalization_view",
+          "mr_warm_audience_view",
+          "gtm.dom",
+          "gtm.load"
+        ],
+        "cartButton": {
+          "present": true,
+          "visible": true,
+          "href": "https://missionmedinstitute.com/cart/",
+          "label": "Cart, 0 items",
+          "count": "0",
+          "position": "fixed",
+          "minimumTapTarget": true,
+          "insideViewport": true
+        }
+      },
+      "complete": {
+        "path": "/product/match-prep-pro/",
+        "richContent": true,
+        "priceAndPlan": true,
+        "includesIW": true,
+        "correctDates": true,
+        "paymentChoices": true,
+        "forbiddenVisible": false,
+        "geometry": {
+          "innerWidth": 1440,
+          "scrollWidth": 1440,
+          "overflowing": false
+        },
+        "utmPreserved": true,
+        "cartButton": {
+          "present": true,
+          "visible": true,
+          "href": "https://missionmedinstitute.com/cart/",
+          "label": "Cart, 0 items",
+          "count": "0",
+          "position": "fixed",
+          "minimumTapTarget": true,
+          "insideViewport": true
+        }
+      },
+      "interviewWeek": {
+        "url": "https://missionmedinstitute.com/product/iv-prep-masterclass/?utm_source=foreman&utm_medium=qa&utm_campaign=final",
+        "richContent": true,
+        "prices": true,
+        "correctDates": true,
+        "paymentChoices": true,
+        "forbiddenVisible": false,
+        "geometry": {
+          "innerWidth": 1440,
+          "scrollWidth": 1440,
+          "overflowing": false
+        },
+        "utmPreserved": true,
+        "cartButton": {
+          "present": true,
+          "visible": true,
+          "href": "https://missionmedinstitute.com/cart/",
+          "label": "Cart, 0 items",
+          "count": "0",
+          "position": "fixed",
+          "minimumTapTarget": true,
+          "insideViewport": true
+        }
+      },
+      "errors": []
+    },
+    {
+      "viewport": {
+        "name": "tablet-1024",
+        "width": 1024,
+        "height": 900
+      },
+      "landing": {
+        "status": 200,
+        "publicBrowsingWithoutPrompt": true,
+        "privateCodePublished": false,
+        "correctPrices": true,
+        "completeIncludesIW": true,
+        "scheduleRange": true,
+        "forbiddenVisible": false,
+        "geometry": {
+          "innerWidth": 1024,
+          "scrollWidth": 1024,
+          "overflowing": false
+        },
+        "analyticsBootstrap": true,
+        "dataLayerEvents": [
+          "mr_b_page_view",
+          "mr_b_finalization_view",
+          "mr_warm_audience_view",
+          "gtm.dom",
+          "gtm.load"
+        ],
+        "cartButton": {
+          "present": true,
+          "visible": true,
+          "href": "https://missionmedinstitute.com/cart/",
+          "label": "Cart, 0 items",
+          "count": "0",
+          "position": "fixed",
+          "minimumTapTarget": true,
+          "insideViewport": true
+        }
+      },
+      "complete": {
+        "path": "/product/match-prep-pro/",
+        "richContent": true,
+        "priceAndPlan": true,
+        "includesIW": true,
+        "correctDates": true,
+        "paymentChoices": true,
+        "forbiddenVisible": false,
+        "geometry": {
+          "innerWidth": 1024,
+          "scrollWidth": 1024,
+          "overflowing": false
+        },
+        "utmPreserved": true,
+        "cartButton": {
+          "present": true,
+          "visible": true,
+          "href": "https://missionmedinstitute.com/cart/",
+          "label": "Cart, 0 items",
+          "count": "0",
+          "position": "fixed",
+          "minimumTapTarget": true,
+          "insideViewport": true
+        }
+      },
+      "interviewWeek": {
+        "url": "https://missionmedinstitute.com/product/iv-prep-masterclass/?utm_source=foreman&utm_medium=qa&utm_campaign=final",
+        "richContent": true,
+        "prices": true,
+        "correctDates": true,
+        "paymentChoices": true,
+        "forbiddenVisible": false,
+        "geometry": {
+          "innerWidth": 1024,
+          "scrollWidth": 1024,
+          "overflowing": false
+        },
+        "utmPreserved": true,
+        "cartButton": {
+          "present": true,
+          "visible": true,
+          "href": "https://missionmedinstitute.com/cart/",
+          "label": "Cart, 0 items",
+          "count": "0",
+          "position": "fixed",
+          "minimumTapTarget": true,
+          "insideViewport": true
+        }
+      },
+      "errors": []
+    },
+    {
+      "viewport": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 844
+      },
+      "landing": {
+        "status": 200,
+        "publicBrowsingWithoutPrompt": true,
+        "privateCodePublished": false,
+        "correctPrices": true,
+        "completeIncludesIW": true,
+        "scheduleRange": true,
+        "forbiddenVisible": false,
+        "geometry": {
+          "innerWidth": 390,
+          "scrollWidth": 390,
+          "overflowing": false
+        },
+        "analyticsBootstrap": true,
+        "dataLayerEvents": [
+          "mr_b_page_view",
+          "mr_b_finalization_view",
+          "mr_warm_audience_view",
+          "gtm.dom",
+          "gtm.load"
+        ],
+        "cartButton": {
+          "present": true,
+          "visible": true,
+          "href": "https://missionmedinstitute.com/cart/",
+          "label": "Cart, 0 items",
+          "count": "0",
+          "position": "fixed",
+          "minimumTapTarget": true,
+          "insideViewport": true
+        }
+      },
+      "complete": {
+        "path": "/product/match-prep-pro/",
+        "richContent": true,
+        "priceAndPlan": true,
+        "includesIW": true,
+        "correctDates": true,
+        "paymentChoices": true,
+        "forbiddenVisible": false,
+        "geometry": {
+          "innerWidth": 390,
+          "scrollWidth": 390,
+          "overflowing": false
+        },
+        "utmPreserved": true,
+        "cartButton": {
+          "present": true,
+          "visible": true,
+          "href": "https://missionmedinstitute.com/cart/",
+          "label": "Cart, 0 items",
+          "count": "0",
+          "position": "fixed",
+          "minimumTapTarget": true,
+          "insideViewport": true
+        }
+      },
+      "interviewWeek": {
+        "url": "https://missionmedinstitute.com/product/iv-prep-masterclass/?utm_source=foreman&utm_medium=qa&utm_campaign=final",
+        "richContent": true,
+        "prices": true,
+        "correctDates": true,
+        "paymentChoices": true,
+        "forbiddenVisible": false,
+        "geometry": {
+          "innerWidth": 390,
+          "scrollWidth": 390,
+          "overflowing": false
+        },
+        "utmPreserved": true,
+        "cartButton": {
+          "present": true,
+          "visible": true,
+          "href": "https://missionmedinstitute.com/cart/",
+          "label": "Cart, 0 items",
+          "count": "0",
+          "position": "fixed",
+          "minimumTapTarget": true,
+          "insideViewport": true
+        }
+      },
+      "errors": []
+    }
+  ],
+  "rails": {
+    "complete-card-390": {
+      "url": "https://missionmedinstitute.com/checkout/?add-to-cart=3576&variation_id=5865&attribute_pa_start-date=session-d-start-date",
+      "products": [
+        "Product",
+        "IV Prep Complete - Session D: Oct 4th, 2026 \n× 1"
+      ],
+      "totals": [
+        "Total\t$3,099.00"
+      ],
+      "gateways": [
+        {
+          "value": "stripe",
+          "checked": true
+        },
+        {
+          "value": "bacs",
+          "checked": false
+        }
+      ],
+      "stripeRendered": true,
+      "zelleRendered": true,
+      "termsLink": true,
+      "refundLink": true,
+      "forbiddenVisible": false,
+      "geometry": {
+        "innerWidth": 390,
+        "scrollWidth": 390,
+        "overflowing": false
+      },
+      "cartButton": {
+        "present": true,
+        "visible": true,
+        "href": "https://missionmedinstitute.com/cart/",
+        "label": "Cart, 1 item",
+        "count": "1",
+        "position": "fixed",
+        "minimumTapTarget": true,
+        "insideViewport": true
+      },
+      "screenshot": "screenshots/complete-card-390.png"
+    },
+    "complete-installments-390": {
+      "url": "https://missionmedinstitute.com/checkout/?add-to-cart=5513&variation_id=5873&attribute_pa_start-date=session-d-start-date",
+      "products": [
+        "Product",
+        "IV Prep Complete - Payment Plan - Session D: Oct 4th, 2026 \n× 1"
+      ],
+      "totals": [
+        "Total\t$1,000.00",
+        "Recurring total\t$400.00 / month for 6 months\nFirst renewal: October 21, 2026"
+      ],
+      "gateways": [
+        {
+          "value": "stripe",
+          "checked": true
+        }
+      ],
+      "stripeRendered": true,
+      "zelleRendered": false,
+      "termsLink": true,
+      "refundLink": true,
+      "forbiddenVisible": false,
+      "geometry": {
+        "innerWidth": 390,
+        "scrollWidth": 390,
+        "overflowing": false
+      },
+      "cartButton": {
+        "present": true,
+        "visible": true,
+        "href": "https://missionmedinstitute.com/cart/",
+        "label": "Cart, 1 item",
+        "count": "1",
+        "position": "fixed",
+        "minimumTapTarget": true,
+        "insideViewport": true
+      },
+      "screenshot": "screenshots/complete-installments-390.png"
+    },
+    "complete-zelle-390": {
+      "url": "https://missionmedinstitute.com/checkout/?add-to-cart=3576&variation_id=5865&attribute_pa_start-date=session-d-start-date&mr_payment=zelle",
+      "products": [
+        "Product",
+        "IV Prep Complete - Session D: Oct 4th, 2026 \n× 1"
+      ],
+      "totals": [
+        "Total\t$3,099.00"
+      ],
+      "gateways": [
+        {
+          "value": "stripe",
+          "checked": false
+        },
+        {
+          "value": "bacs",
+          "checked": true
+        }
+      ],
+      "stripeRendered": true,
+      "zelleRendered": true,
+      "termsLink": true,
+      "refundLink": true,
+      "forbiddenVisible": false,
+      "geometry": {
+        "innerWidth": 390,
+        "scrollWidth": 390,
+        "overflowing": false
+      },
+      "cartButton": {
+        "present": true,
+        "visible": true,
+        "href": "https://missionmedinstitute.com/cart/",
+        "label": "Cart, 1 item",
+        "count": "1",
+        "position": "fixed",
+        "minimumTapTarget": true,
+        "insideViewport": true
+      },
+      "afterZelle": {
+        "totals": [
+          "Total\t$3,099.00"
+        ],
+        "selected": true,
+        "onHoldNoAccess": true,
+        "samePriceNoDiscount": true,
+        "interviewWeekSavings": true,
+        "events": [
+          {
+            "event": "mr_payment_method_selected",
+            "payment_method": "bacs",
+            "offer": "complete",
+            "value": 3099,
+            "currency": "USD",
+            "gtm.uniqueEventId": 16
+          }
+        ]
+      },
+      "screenshot": "screenshots/complete-zelle-390.png"
+    },
+    "interview-week-card-390": {
+      "url": "https://missionmedinstitute.com/checkout/?add-to-cart=5504&variation_id=5867&attribute_pa_start-date=session-d-start-date",
+      "products": [
+        "Product",
+        "IV Prep Essentials: Interview Week - Session D: Oct 4th, 2026 \n× 1"
+      ],
+      "totals": [
+        "Total\t$549.00"
+      ],
+      "gateways": [
+        {
+          "value": "stripe",
+          "checked": true
+        },
+        {
+          "value": "bacs",
+          "checked": false
+        }
+      ],
+      "stripeRendered": true,
+      "zelleRendered": true,
+      "termsLink": true,
+      "refundLink": true,
+      "forbiddenVisible": false,
+      "geometry": {
+        "innerWidth": 390,
+        "scrollWidth": 390,
+        "overflowing": false
+      },
+      "cartButton": {
+        "present": true,
+        "visible": true,
+        "href": "https://missionmedinstitute.com/cart/",
+        "label": "Cart, 1 item",
+        "count": "1",
+        "position": "fixed",
+        "minimumTapTarget": true,
+        "insideViewport": true
+      },
+      "screenshot": "screenshots/interview-week-card-390.png"
+    },
+    "interview-week-zelle-390": {
+      "url": "https://missionmedinstitute.com/checkout/?add-to-cart=5504&variation_id=5867&attribute_pa_start-date=session-d-start-date&mr_payment=zelle",
+      "products": [
+        "Product",
+        "IV Prep Essentials: Interview Week - Session D: Oct 4th, 2026 \n× 1"
+      ],
+      "totals": [
+        "Total\t$499.00"
+      ],
+      "gateways": [
+        {
+          "value": "stripe",
+          "checked": false
+        },
+        {
+          "value": "bacs",
+          "checked": true
+        }
+      ],
+      "stripeRendered": true,
+      "zelleRendered": true,
+      "termsLink": true,
+      "refundLink": true,
+      "forbiddenVisible": false,
+      "geometry": {
+        "innerWidth": 390,
+        "scrollWidth": 390,
+        "overflowing": false
+      },
+      "cartButton": {
+        "present": true,
+        "visible": true,
+        "href": "https://missionmedinstitute.com/cart/",
+        "label": "Cart, 1 item",
+        "count": "1",
+        "position": "fixed",
+        "minimumTapTarget": true,
+        "insideViewport": true
+      },
+      "afterZelle": {
+        "totals": [
+          "Total\t$499.00"
+        ],
+        "selected": true,
+        "onHoldNoAccess": true,
+        "samePriceNoDiscount": true,
+        "interviewWeekSavings": true,
+        "events": [
+          {
+            "event": "mr_payment_method_selected",
+            "payment_method": "bacs",
+            "offer": "interview_week",
+            "value": 499,
+            "currency": "USD",
+            "gtm.uniqueEventId": 15
+          }
+        ]
+      },
+      "screenshot": "screenshots/interview-week-zelle-390.png"
+    }
+  },
+  "directGuards": [
+    {
+      "offer": "interview_week",
+      "status": 200,
+      "path": "/mission-residency/",
+      "promptVisible": true,
+      "signedResumeToken": true,
+      "intendedOfferVisible": true
+    },
+    {
+      "offer": "complete",
+      "status": 200,
+      "path": "/mission-residency/",
+      "promptVisible": true,
+      "signedResumeToken": true,
+      "intendedOfferVisible": true
+    },
+    {
+      "offer": "complete_installment",
+      "status": 200,
+      "path": "/mission-residency/",
+      "promptVisible": true,
+      "signedResumeToken": true,
+      "intendedOfferVisible": true
+    }
+  ]
+}

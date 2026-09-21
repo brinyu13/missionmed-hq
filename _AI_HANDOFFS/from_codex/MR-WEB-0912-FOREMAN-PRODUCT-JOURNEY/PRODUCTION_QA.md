@@ -1,6 +1,6 @@
 # MR-WEB-0912 Foreman production QA
 
-QA date: 2026-09-21. No payment or order submission was performed.
+QA date: 2026-09-21. Final responsive/non-financial evidence was generated at `2026-09-21T12:36:06.641Z`; analytics evidence was generated at `2026-09-21T12:38:12.866Z`. The QA sweep did not submit payment. Controlled live payment evidence is recorded separately in `FINANCIAL_ACCEPTANCE.md`.
 
 ## Journey
 
@@ -41,11 +41,13 @@ Mixed-cart protection correctly stopped an unrelated Daily Rounds cart and requi
 
 Landing and both rich product pages passed at 1440, 1024, and 390 pixels with no horizontal overflow. Enrollment/payment controls were at least 48 pixels high on mobile. The mobile landing navigation was corrected to a clean 3-by-2 grid. Cart, pre-checkout, and checkout had no MissionMed “use desktop” warning after the targeted pre-checkout containment correction. The pre-checkout/checkout route remained usable at 390 pixels.
 
+The persistent `CART` control is visible on the landing page, both product pages, cart, and checkout at all three viewports. It is fixed inside the viewport, links to `/cart/`, has a minimum 44-pixel tap target, shows `0` before selection and `1` after a protected offer reaches checkout, and introduces no horizontal overflow.
+
 ## Analytics
 
-- `GT-PJ7SPCWF` loaded on landing, product, pre-checkout, and checkout funnel routes.
+- Fresh readback loaded the Google tag bootstrap on landing, both canonical product pages, and checkout/cart.
 - Main-world `dataLayer` contained the page, scroll, CTA, and upsell events, including `mr_cta_click` and `mr_upsell_shown`.
-- A live GA4 collector request returned for measurement ID `G-B4B4E26HMW` with the `drj/email` UTM landing URL.
+- Fresh live GA4 collector requests returned for measurement ID `G-B4B4E26HMW` on landing, Complete, Interview Week, and checkout/cart; the tested `foreman/qa/final` UTM location was present on landing and product page-view requests.
 - UTM parameters survived landing to canonical Complete and Interview Week product routes.
 
 ## Runtime/mappings
@@ -59,4 +61,6 @@ Landing and both rich product pages passed at 1440, 1024, and 390 pixels with no
 - Existing WP CLI early text-domain notices continue.
 - Checkout still contains legacy Woo shipping/address, account-password, order-note wording, and a separate optional Arena pre-checkout step. These were outside this date/product-journey correction and do not change the verified prices, products, mappings, or payment rails.
 - Existing Stripe plugin code logs a non-fatal express-checkout initialization error on non-checkout custom product shells; the real checkout card controls rendered.
-- Live financial transaction acceptance remains Founder-waived/not performed.
+- Interview Week's real `$0.50` Stripe → Woo → account → LearnDash `3646` → refund → revocation lifecycle passed and is contained.
+- Complete's real `$0.50` Stripe → Woo → account → LearnDash `5227` → refund → revocation lifecycle passed and is contained; no separate Interview Week item or charge was present.
+- Final automation result: `FINAL_PRODUCTION_QA_ASSERTIONS=PASS`; analytics result: `ANALYTICS_LIVE_QA_ASSERTIONS=PASS`.

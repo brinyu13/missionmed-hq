@@ -1,0 +1,108 @@
+{
+  "generatedAt": "2026-09-21T12:38:12.866Z",
+  "routes": [
+    {
+      "route": "/mission-residency/?utm_source=foreman&utm_medium=qa&utm_campaign=final",
+      "status": 200,
+      "dataLayerEvents": [
+        "mr_b_page_view",
+        "mr_b_finalization_view",
+        "mr_warm_audience_view",
+        "gtm.dom",
+        "gtm.load"
+      ],
+      "analyticsRequests": [
+        {
+          "host": "www.googletagmanager.com",
+          "path": "/gtag/js",
+          "measurementId": null,
+          "event": null,
+          "pageLocation": null
+        },
+        {
+          "host": "www.google-analytics.com",
+          "path": "/g/collect",
+          "measurementId": "G-B4B4E26HMW",
+          "event": "page_view",
+          "pageLocation": "https://missionmedinstitute.com/mission-residency/?utm_source=foreman&utm_medium=qa&utm_campaign=final"
+        }
+      ]
+    },
+    {
+      "route": "/product/match-prep-pro/?utm_source=foreman&utm_medium=qa&utm_campaign=final",
+      "status": 200,
+      "dataLayerEvents": [
+        "mr_fable5_page_ready",
+        "mr_faq_open",
+        "gtm.dom",
+        "gtm.load"
+      ],
+      "analyticsRequests": [
+        {
+          "host": "www.googletagmanager.com",
+          "path": "/gtag/js",
+          "measurementId": null,
+          "event": null,
+          "pageLocation": null
+        },
+        {
+          "host": "www.google-analytics.com",
+          "path": "/g/collect",
+          "measurementId": "G-B4B4E26HMW",
+          "event": "page_view",
+          "pageLocation": "https://missionmedinstitute.com/product/match-prep-pro/?utm_source=foreman&utm_medium=qa&utm_campaign=final"
+        }
+      ]
+    },
+    {
+      "route": "/product/iv-prep-masterclass/?utm_source=foreman&utm_medium=qa&utm_campaign=final",
+      "status": 200,
+      "dataLayerEvents": [
+        "mr_fable5_page_ready",
+        "mr_faq_open",
+        "gtm.dom",
+        "gtm.load"
+      ],
+      "analyticsRequests": [
+        {
+          "host": "www.googletagmanager.com",
+          "path": "/gtag/js",
+          "measurementId": null,
+          "event": null,
+          "pageLocation": null
+        },
+        {
+          "host": "www.google-analytics.com",
+          "path": "/g/collect",
+          "measurementId": "G-B4B4E26HMW",
+          "event": "page_view",
+          "pageLocation": "https://missionmedinstitute.com/product/iv-prep-masterclass/?utm_source=foreman&utm_medium=qa&utm_campaign=final"
+        }
+      ]
+    },
+    {
+      "route": "/checkout/",
+      "status": 200,
+      "dataLayerEvents": [
+        "gtm.dom",
+        "gtm.load"
+      ],
+      "analyticsRequests": [
+        {
+          "host": "www.googletagmanager.com",
+          "path": "/gtag/js",
+          "measurementId": null,
+          "event": null,
+          "pageLocation": null
+        },
+        {
+          "host": "www.google-analytics.com",
+          "path": "/g/collect",
+          "measurementId": "G-B4B4E26HMW",
+          "event": "page_view",
+          "pageLocation": "https://missionmedinstitute.com/cart/"
+        }
+      ]
+    }
+  ]
+}
