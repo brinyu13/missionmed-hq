@@ -23,9 +23,9 @@ test('the Founder-facing root declares the sealed Astra candidate.2 presentation
   assert.match(html, /astra-candidate\.2:dedb726bde521a135bec2286ad4cd5a877a68fc7ecd6144fde16b76bc9c09ac4/u);
   assert.match(html, /<title>IV Prep On-Call · MissionMed<\/title>/u);
   assert.doesNotMatch(html, /<title>[^<]*Performance Studio/iu);
-  for (const label of ['Home', 'Build Interview', 'Questions', 'Program Prep', 'Performances',
-    'My Progress', 'Performance Intelligence', 'Answer History &amp; Clips',
-    'My Interview Context', 'Real Interview Debrief']) {
+  for (const label of ['Home', 'Build Interview', 'Question Library', 'Program Prep', 'Recordings &amp; Results',
+    'My Progress', 'Progress Analytics', 'Answer Library',
+    'My Context', 'Review a Real Interview']) {
     assert.match(html, new RegExp(`>${label}(?:\\s|<)`, 'u'), `${label} navigation is missing`);
   }
 });
@@ -83,8 +83,17 @@ test('presentation integration preserves the proven analytics and media contract
   assert.match(html, /id="simulation-rail"/u);
   assert.match(runtime, /Start AI interview ▸/u);
   assert.match(runtime, /await startLiveInterview\(\)/u);
-  assert.match(html, /data-goto="devicecheck" data-launch-mode="practice">Practice one question myself/u);
+  assert.match(html, /data-goto="newsession" data-builder-step="1" data-launch-mode="practice">Practice one question myself/u);
   assert.match(html, />Build an interview ▸</u);
+});
+
+test('first-time navigation names the five student outcomes and preserves launch mode', () => {
+  for (const label of ['Self Practice', 'AI Mock Interview', 'Recordings &amp; Results', 'Program Prep', 'My Progress']) {
+    assert.match(html, new RegExp(`>${label}(?:\\s|<)`, 'u'));
+  }
+  assert.match(html, /data-nav="newsession" data-builder-step="1" data-launch-mode="practice"/u);
+  assert.match(html, /data-nav="devicecheck" data-launch-mode="ai"/u);
+  assert.match(runtime, /if \(item\.dataset\.launchMode\) state\.launchMode = item\.dataset\.launchMode/u);
 });
 
 test('the active presentation consumes production behavior through the stable capability boundary', () => {

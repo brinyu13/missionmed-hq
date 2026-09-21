@@ -42,10 +42,10 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
 const CRUMBS = Object.freeze({
-  home: 'Home', newsession: 'Build Interview', devicecheck: 'Readiness & Calibration',
-  training: 'Coached Practice', simulation: 'Interview Room', postanswer: 'Real Interview Debrief',
-  filmroom: 'Performances', compare: 'Compare Attempts', lab: 'Performance Intelligence', mentor: 'Mentor & Admin',
-  governance: 'Question Governance', progress: 'My Progress', fingerprint: 'Delivery Fingerprint', vault: 'Answer History & Clips',
+  home: 'Home', newsession: 'Build Interview', devicecheck: 'Device Calibration',
+  training: 'Self Practice', simulation: 'AI Mock Interview', postanswer: 'Answer Review',
+  filmroom: 'Recordings & Results', compare: 'Compare Attempts', lab: 'Progress Analytics', mentor: 'Mentor & Admin',
+  governance: 'Question Governance', progress: 'My Progress', fingerprint: 'Delivery Profile', vault: 'Answer Library',
 });
 
 const store = createDefaultQuestionStore();
@@ -2641,7 +2641,11 @@ async function mountAnalytics() {
 
 function wireChrome() {
   wireQuestionGovernance();
-  for (const item of $$('[data-nav]')) item.addEventListener('click', () => setView(item.dataset.nav, { focus: true }));
+  for (const item of $$('[data-nav]')) item.addEventListener('click', () => {
+    if (item.dataset.launchMode) state.launchMode = item.dataset.launchMode;
+    if (item.dataset.launchMode === 'ai' && !state.interviewSet.length) applyWizardQuestions('Core 10');
+    setView(item.dataset.nav, { focus: true });
+  });
   for (const button of $$('[data-goto]')) button.addEventListener('click', () => {
     if (button.dataset.launchMode) state.launchMode = button.dataset.launchMode;
     if (button.dataset.launchMode === 'ai' && !state.interviewSet.length) applyWizardQuestions('Core 10');
