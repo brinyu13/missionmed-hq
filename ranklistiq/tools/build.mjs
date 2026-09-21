@@ -122,6 +122,20 @@ export async function buildHtml({ zero = false, buildId = "test", sourceCommit =
     ].join("\n")).replaceAll("\n", "\n  ") + "\n\n  function collectFinalizeStatsPayload(){",
     "S6"
   );
+  html = replaceOne(
+    html,
+    "    try{\n      notesFlushRes = await flushProgramNotesToUserProgramInterviews({\n        source: \"manual-save-click\"\n      });",
+    "    try{\n      " + seam("S7", [
+      "if(window.RLQ_DUAL && window.RLQ_DUAL.mode === \"application\") {",
+      "  notesFlushRes = { ok:true, skipped:\"application-mode\", attempted:0, synced:0, failed:0, errors:[] };",
+      "} else {",
+      "  notesFlushRes = await flushProgramNotesToUserProgramInterviews({",
+      "    source: \"manual-save-click\"",
+      "  });",
+      "}"
+    ].join("\n")).replaceAll("\n", "\n      "),
+    "S7"
+  );
 
   return { html, basePath, baseSha256: sha256(base), configSha256: sha256(configText), stamp };
 }
