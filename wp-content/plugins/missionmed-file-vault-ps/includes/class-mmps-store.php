@@ -115,6 +115,12 @@ class MMPS_Store {
 		return absint( $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . MMPS_Install::table( 'runs' ) . ' WHERE user_id = %d AND root_id = %d AND program_specialty_id = %s', absint( $user_id ), absint( $root_id ), (string) $program_id ) ) );
 	}
 
+	/** Count only stored provider-backed attempts; a no-provider research stop is not the canary generation. */
+	public static function count_provider_runs( $user_id, $root_id, $program_id ) {
+		global $wpdb;
+		return absint( $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM " . MMPS_Install::table( 'runs' ) . " WHERE user_id = %d AND root_id = %d AND program_specialty_id = %s AND provider <> 'none'", absint( $user_id ), absint( $root_id ), (string) $program_id ) ) );
+	}
+
 	public static function runs_today( $user_id ) {
 		global $wpdb;
 		return absint( $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . MMPS_Install::table( 'runs' ) . ' WHERE user_id = %d AND created_at >= %s', absint( $user_id ), gmdate( 'Y-m-d 00:00:00' ) ) ) );
