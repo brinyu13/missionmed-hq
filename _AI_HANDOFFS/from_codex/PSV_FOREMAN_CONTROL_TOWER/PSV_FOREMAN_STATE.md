@@ -1,6 +1,19 @@
 # PSV Foreman Control-Tower State
 
-Updated: 2026-09-21T09:56:57Z
+Updated: 2026-09-21T10:56:00Z
+
+## Live direct ROOT upload and session recovery (DR-328)
+
+- DR-328 is canonical at MissionMed OS `21e5f0bfe870325e2e01812d2602ec5569f5a21e`; universal and exact PSV BOOT passed.
+- Live source is `10290aaff62a1f72a2e87ecf5a459d5f384f8a89`, v0.6.2, schema6, manifest25/25 and production PHP lint22/22 PASS.
+- ROOT chooser now includes direct owner-scoped DOCX/UTF-8 TXT upload (5 MB maximum). Source bytes are request-transient and never written to File Vault; only the normalized private ROOT and hashes persist.
+- Exact `rest_cookie_invalid_nonce` gets one same-page no-store nonce refresh and one retry. A changed/unauthorized session fails closed while preserving existing page text.
+- The screenshot failure's immediate cause was confirmed: the old PSV page was loaded as `brinyu`, while Chrome's current WordPress session had changed to the separate non-entitled `MR0912 Live Acceptance Complete early card PIF` test account. No access was broadened.
+- Broad real-ROOT/testing flags remain undefined. Counts remain roots4/runs27/library8/audit68/provider attempts16/edit revisions2. No provider request or student-content transmission occurred.
+- ZIP `0185c26b…`, manifest `03154d4b…`, local runtime21/21, focused browser6/6, disposable API129/129, access/menu24/24 and version-collision regression PASS.
+- File Vault/RISE were not modified. Fresh before/after sentinels match, including current owner JS `3f9f0152…`. Public 200/404 gates remain correct.
+- PATH lease3574 released, active PSV count0. Immediate rollback is `/www/theresidencyacademy_209/private/psv-rollbacks/PSV-0.6.2-10290aa-20260921/live-retired`.
+- Original pasted-text PSV tab remains open and un-reloaded. Separate Chrome reauthentication is open for `brinyu`; after human password entry it redirects to the live PSV page. See `PSV-ROOT-UPLOAD-SESSION_GUARDED_DEPLOYMENT_REPORT.md`.
 
 ## Live Founder access amendment (DR-327)
 
@@ -31,7 +44,7 @@ Updated: 2026-09-21T09:56:57Z
 
 - Mission: `PSV-PROTOTYPE-0001`
 - Product: Program-Specific Personal Statement capability inside File Vault
-- Current milestone: accepted Silma canary preserved; administrator/current-360 access and Matrix menu are live at v0.6.1 and independently server-verified.
+- Current milestone: accepted Silma canary preserved; administrator/current-360 access, Matrix menu, direct ROOT upload and session recovery are live at v0.6.2.
 - Terminal condition: STOP after the live DR-327 access/menu release. Do not broaden real-student AI access or mutate RISE/File Vault.
 
 ## Repository truth
@@ -134,6 +147,8 @@ Updated: 2026-09-21T09:56:57Z
 2. Do not broaden real-student AI access or begin unrelated PSV work.
 
 ## State delta log
+
+- 2026-09-21T10:56:00Z — DR-328 direct DOCX/TXT ROOT upload and exact stale-cookie recovery deployed as v0.6.2/10290aa. Exact package/deployed25/25, PHP22/22, local runtime21/21, focused browser6/6 and disposable API129/129 PASS. Production counts/privacy/provider state unchanged; File Vault/RISE sentinels unchanged; lease3574 released active0. Browser root cause was an account transition from brinyu to a separate non-entitled test account. Original pasted text preserved; brinyu reauthentication tab open.
 
 - 2026-09-21T09:56:57Z — DR-327 administrator/current-360 access and Matrix menu live at exact v0.6.1/6e156d2. Production Guardian caught grouped-nav placement in v0.6.0 and safely fix-forwarded under released lease3565. Admin/current-member/non-entitled/anonymous gates PASS; live brinyu menu/click PASS; privacy/provider/data/File Vault/RISE sentinels unchanged; fresh independent production/server verdict PASS with no P0/P1/P2. Active PSV leases0. STOP.
 
