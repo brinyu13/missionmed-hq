@@ -117,7 +117,7 @@ test('Answer History exposes question and evidence filters without inventing sem
 
 test('Live Mock Studio stays behind the Scheduler owner capability boundary', () => {
   assert.match(runtime, /LiveMockStudioCapability/u);
-  assert.match(runtime, /Scheduler\/Webex remains the owner/u);
+  assert.match(runtime, /authorized recording readiness/u);
   assert.match(runtime, /renderId !== liveMockRenderId \|\| state\.role !== 'admin'/u);
   assert.match(html, /id="live-mock-studio" data-admin-only/u);
 });
@@ -125,8 +125,27 @@ test('Live Mock Studio stays behind the Scheduler owner capability boundary', ()
 test('Calendar context stays behind a minimized Scheduler capability adapter', () => {
   assert.match(runtime, /InterviewCalendarCapability/u);
   assert.match(runtime, /state\.calendar\.studentCalendar\(\)/u);
-  assert.match(runtime, /IVOC does not store the owner URL/u);
+  assert.match(runtime, /Join details/u);
   assert.match(runtime, /renderProgramCalendar\(host\)/u);
+});
+
+test('presentation loads analytics only through the capability adapter', () => {
+  assert.match(runtime, /loadAnalyticsCapabilityModules/u);
+  assert.doesNotMatch(runtime, /import\('\.\.\/analytics\//u);
+});
+
+test('Founder-amended StoryForge consent and flagship readiness compositions remain present', () => {
+  assert.match(runtime, /Yes, show suggestions/u);
+  assert.match(runtime, /No, practice unaided/u);
+  assert.match(runtime, /Include authorized matching stories/u);
+  assert.match(runtime, /Visual signals/u);
+  assert.match(runtime, /Voice signals/u);
+  assert.match(runtime, /Know what is actually ready/u);
+});
+
+test('student presentation does not expose implementation status residue', () => {
+  assert.doesNotMatch(runtime, /HYBRID FOLLOW-UP ROUTER PENDING|DR KELLY \/ DR WOODS PACKS PENDING|IVOC does not store the owner URL/iu);
+  assert.doesNotMatch(html, /canonical questions/iu);
 });
 
 test('Admin student traversal stays behind the stable private-library capability boundary', () => {

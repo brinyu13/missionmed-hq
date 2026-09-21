@@ -27,6 +27,8 @@ import {
   InterviewCalendarCapability,
   LiveInterviewSession,
   LiveMockStudioCapability,
+  createMediaAnalyticsBridge,
+  loadAnalyticsCapabilityModules,
   loadIvPrepSession,
   MetricBus,
   projectContextResults,
@@ -66,7 +68,8 @@ const state = {
     interviewer: 'Program Director', interviewerStyle: 'Owl', interviewerTab: 'Role & style', interviewerName: '',
     program: '', programSpecialty: '', programState: '', programType: '',
     environment: 'MissionMed', interviewMode: 'Interview Mode', analyticsEnabled: true,
-    contextSources: [], readiness: null,
+    contextSources: [], storyForgeOptIn: null, storyForgeInclude: true,
+    readinessPanel: 'Devices', readinessSignal: 'Camera', readiness: null,
   },
   targetQuestions: 5,
   devices: { cameras: [], microphones: [] },
@@ -103,142 +106,7 @@ const state = {
   homeLibrary: [],
 };
 
-/* ------------------------------------------------------------------ media bridge
- * Same contract as the proven cockpit: media is published frozen, and the analytics
- * UI derives liveness rather than mutating it.
- */
-const bridge = {
-  media: Object.freeze({ cam: false, mic: false, stream: null, AC: null, analyser: null, data: null }),
-  ownsStream: false,
-  source: null,
-  /**
-   * Create and resume the AudioContext SYNCHRONOUSLY, inside the user gesture.
-   *
-   * Y1-Y2-CAM-V6-3510 — THE SAFARI ROOT CAUSE.
-   *
-   * 3508 fixed graph termination but still constructed the AudioContext *after*
-   * `await navigator.mediaDevices.getUserMedia(...)`. WebKit does not carry user
-   * activation across that await, so a context created afterwards starts 'suspended'
-   * and resume() never reaches 'running' without a fresh gesture. The pipeline gates
-   * audio on `AC.state === 'running'`, so audio was silently disabled while the camera
-   * worked - exactly the reported symptom. Chrome is permissive here, which is why
-   * every Chromium run passed.
-   *
-   * Call this first, from the click handler, before any await.
-   */
-  primeAudioContext() {
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (!Ctx) return null;
-    if (!this.audioContext || this.audioContext.state === 'closed') {
-      this.audioContext = new Ctx();
-    }
-    // resume() inside the gesture; the promise is deliberately not awaited here.
-    if (this.audioContext.state !== 'running') void this.audioContext.resume().catch(() => {});
-    return this.audioContext;
-  },
-
-  async bindStream(stream, { ownsStream = false } = {}) {
-    this.stopMedia({ keepContext: true });
-    if (!(stream instanceof MediaStream)) throw new TypeError('A browser media stream is required.');
-    const tracks = stream.getTracks();
-    const mic = tracks.some((t) => t.kind === 'audio' && t.readyState === 'live');
-    const cam = tracks.some((t) => t.kind === 'video' && t.readyState === 'live');
-    let AC = null; let analyser = null; let data = null; let source = null; let sink = null;
-    if (mic) {
-      const Ctx = window.AudioContext || window.webkitAudioContext;
-      if (Ctx) {
-        // Reuse the gesture-primed context. Creating a new one here is what broke Safari.
-        AC = this.primeAudioContext();
-        if (AC && AC.state !== 'running') { try { await AC.resume(); } catch { /* reported by the debug panel */ } }
-        analyser = AC.createAnalyser();
-        analyser.fftSize = 2048;
-        data = new Float32Array(analyser.fftSize);
-
-        // Y1-Y2-CAM-V6-3508 — THE MICROPHONE ROOT CAUSE.
-        //
-        // Two defects, both invisible in Chrome and fatal in Safari:
-        //
-        // 1. The graph terminated at the analyser. WebKit's Web Audio implementation
-        //    is demand-driven: a node with no route to a destination is never pulled,
-        //    so getFloatTimeDomainData() returned silence forever. That is exactly the
-        //    reported -160 dBFS, peak 0.00, "Detected speech NO", and F0 receiving
-        //    nothing. Chrome pulls analysers regardless of termination, which is why
-        //    every automated Chrome run passed while the real Safari test failed.
-        //
-        //    The graph now terminates at the destination through a MUTED gain node.
-        //    This is the standards-compliant construction, not a Safari special case:
-        //    the graph genuinely ends at a destination, and gain 0 guarantees the
-        //    microphone is never played back (no echo, no feedback).
-        //
-        // 2. createMediaStreamSource() was handed a NEW MediaStream built from
-        //    stream.getAudioTracks(). Safari does not reliably pull audio from such a
-        //    reconstructed stream. The original stream is used instead.
-        source = AC.createMediaStreamSource(stream);
-        source.connect(analyser);
-        // The graph must terminate at a real destination for WebKit to pull it, but it
-        // must never reach the speakers. A MediaStreamAudioDestinationNode is a genuine
-        // destination with no playback path at all, so self-monitoring/feedback is
-        // structurally impossible - and unlike a gain(0) branch to
-        // AudioContext.destination, there is nothing for the engine to optimise away.
-        sink = AC.createMediaStreamDestination();
-        analyser.connect(sink);
-      }
-    }
-    this.ownsStream = ownsStream;
-    this.source = source;
-    this.sink = sink;
-    this.media = Object.freeze({ cam, mic: Boolean(mic && AC && analyser && data), stream, AC, analyser, data });
-    return this.media;
-  },
-
-  /**
-   * Replace one track in place. Camera and microphone can be swapped mid-session
-   * without a refresh, a new session, or restarting Delivery Intelligence.
-   * The previous track is stopped only AFTER the replacement is live, so a failed
-   * switch never leaves the student with no device.
-   */
-  async replaceTrack(kind, deviceId) {
-    const constraint = kind === 'audio'
-      ? { audio: { deviceId: { exact: deviceId } }, video: false }
-      : { video: { deviceId: { exact: deviceId } }, audio: false };
-    const fresh = await navigator.mediaDevices.getUserMedia(constraint);
-    const incoming = kind === 'audio' ? fresh.getAudioTracks()[0] : fresh.getVideoTracks()[0];
-    if (!incoming) { fresh.getTracks().forEach((t) => t.stop()); throw new Error(`No ${kind} track returned.`); }
-
-    const current = this.media.stream;
-    const outgoing = kind === 'audio' ? current?.getAudioTracks?.()[0] : current?.getVideoTracks?.()[0];
-    const retained = (current?.getTracks?.() || []).filter((t) => t !== outgoing);
-    const next = new MediaStream([...retained, incoming]);
-
-    // bindStream() begins with stopMedia(), which stops every track of the CURRENT
-    // stream when we own it - including the track we are carrying over. Switching the
-    // microphone would therefore have killed the camera. Release ownership first so
-    // stopMedia() cannot touch the retained tracks, then stop only the device we are
-    // actually replacing, and only after the new one is live.
-    this.ownsStream = false;
-    await this.bindStream(next, { ownsStream: true });
-    try { outgoing?.stop?.(); } catch {}
-    return this.media;
-  },
-  async requestMedia(mic = true, cam = true) {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: mic === true, video: cam === true });
-    return this.bindStream(stream, { ownsStream: true });
-  },
-  stopMedia({ keepContext = false } = {}) {
-    try { this.source?.disconnect?.(); } catch {}
-    try { this.sink?.disconnect?.(); } catch {}
-    if (this.ownsStream) this.media.stream?.getTracks?.().forEach((t) => t.stop());
-    // Closing the context on a hot switch would discard the gesture-primed context and
-    // Safari could not legally resume a replacement outside a gesture.
-    if (!keepContext) {
-      void this.media.AC?.close?.().catch?.(() => {});
-      this.audioContext = null;
-    }
-    this.ownsStream = false;
-    this.source = null;
-    this.media = Object.freeze({ cam: false, mic: false, stream: null, AC: null, analyser: null, data: null });
-  },
-};
+const bridge = createMediaAnalyticsBridge();
 
 /* ------------------------------------------------------------------ role
  * Y1-Y2-CAM-V6-3508. The role switcher used to change a badge. The Founder physical
@@ -1184,7 +1052,7 @@ function renderProgramCalendar(host) {
     panel.append(
       el('h3', '', next.title),
       el('p', 'canon-muted', `${new Date(next.startsAt).toLocaleString()} · ${next.provider.toUpperCase()} · ${next.status.toUpperCase()}`),
-      el('p', 'admin-boundary-note', `Join ${next.joinAvailable ? 'is available through Scheduler' : 'is not yet available'}; IVOC does not store the owner URL.`),
+      el('p', 'admin-boundary-note', `Join details ${next.joinAvailable ? 'are available in your connected calendar' : 'are not available yet'}.`),
     );
   }
   host.append(panel);
@@ -1238,7 +1106,35 @@ function renderEnvironmentStep(host) {
     durableAvailable: state.durableAvailable,
     contextCapabilities: state.durable.bootstrapPayload?.capabilities?.contextSources || {},
   });
-  sources.forEach(({ name, available, detail, connected = false }) => sourceGrid.append(choiceButton({
+  const storyForge = sources.find((source) => source.name === 'StoryForge');
+  const story = el('div', 'canon-story-context');
+  story.append(el('div', 'microcap', 'StoryForge'), el('h3', '', 'Bring a story when it helps.'), el('p', 'canon-muted', 'Would you like suggestions from your authorized stories for this practice? Your answer stays yours.'));
+  const storyActions = el('div', 'canon-inline-actions');
+  const chooseStoryForge = (enabled) => {
+    state.wizard.storyForgeOptIn = enabled;
+    state.wizard.storyForgeInclude = enabled;
+    state.wizard.contextSources = enabled ? [...new Set([...state.wizard.contextSources, 'StoryForge'])] : state.wizard.contextSources.filter((entry) => entry !== 'StoryForge');
+    renderWizard();
+  };
+  const yes = choiceButton({ className: 'btn btn-secondary', selected: state.wizard.storyForgeOptIn === true, label: 'Yes, show suggestions', onClick: () => chooseStoryForge(true) });
+  yes.disabled = !storyForge?.available;
+  const no = choiceButton({ className: 'btn btn-quiet', selected: state.wizard.storyForgeOptIn === false, label: 'No, practice unaided', onClick: () => chooseStoryForge(false) });
+  storyActions.append(yes, no); story.append(storyActions);
+  if (!storyForge?.available) {
+    story.append(el('p', 'canon-consent-note', 'Story suggestions are unavailable for this account and remain excluded.'));
+  } else if (state.wizard.storyForgeOptIn === true) {
+    const reveal = el('div', 'canon-story-suggestion');
+    reveal.append(el('div', 'microcap', 'Authorized suggestions'), el('h3', '', 'Relevant stories will be prepared for this session.'), el('p', '', state.interviewSet.length ? `StoryForge will match your approved stories to ${state.interviewSet.length} selected question${state.interviewSet.length === 1 ? '' : 's'}.` : 'Choose questions to give StoryForge a clear theme to match.'));
+    reveal.append(choiceButton({ className: 'canon-story-include', selected: state.wizard.storyForgeInclude === true, label: 'Include authorized matching stories', detail: 'Only approved, consented story summaries may enter the interview context.', onClick: () => {
+      state.wizard.storyForgeInclude = !state.wizard.storyForgeInclude;
+      state.wizard.contextSources = state.wizard.storyForgeInclude ? [...new Set([...state.wizard.contextSources, 'StoryForge'])] : state.wizard.contextSources.filter((entry) => entry !== 'StoryForge');
+      renderWizard();
+    } }));
+    story.append(reveal);
+  } else {
+    story.append(el('p', 'canon-consent-note', state.wizard.storyForgeOptIn === false ? 'Suggestions are hidden and StoryForge is excluded from this interview.' : 'Story suggestions stay hidden until you choose Yes.'));
+  }
+  sources.filter(({ name }) => name !== 'StoryForge').forEach(({ name, available, detail, connected = false }) => sourceGrid.append(choiceButton({
     className: 'canon-source-card', selected: state.wizard.contextSources.includes(name), label: name,
     detail: `${detail} · ${available ? 'Available' : connected ? 'Nothing selected yet' : 'Not connected'}`,
     onClick: () => {
@@ -1248,8 +1144,9 @@ function renderEnvironmentStep(host) {
       renderWizard();
     },
   })));
-  [...sourceGrid.children].forEach((button, index) => { if (!sources[index].available) { button.disabled = true; button.setAttribute('aria-disabled', 'true'); } });
-  context.append(sourceGrid); layout.append(environment, context); host.append(layout);
+  const nonStorySources = sources.filter(({ name }) => name !== 'StoryForge');
+  [...sourceGrid.children].forEach((button, index) => { if (!nonStorySources[index].available) { button.disabled = true; button.setAttribute('aria-disabled', 'true'); } });
+  context.append(story, sourceGrid); layout.append(environment, context); host.append(layout);
 }
 
 function readinessRows() {
@@ -1261,22 +1158,62 @@ function readinessRows() {
   });
 }
 
+const READINESS_PANELS = Object.freeze({
+  Devices: ['Camera', 'Microphone', 'Recording', 'Transcript'],
+  'Visual signals': ['Framing', 'Face / head', 'Hands / gestures', 'Smile / expression'],
+  'Voice signals': ['Volume', 'Pace', 'Pitch', 'Pauses'],
+});
+const READINESS_GUIDANCE = Object.freeze({
+  Camera: ['See the frame you will use', 'Center your face, keep the camera near eye level, and leave room for natural gestures.'],
+  Microphone: ['Find a clear speaking level', 'Speak naturally. The live meter should move without staying pinned at either edge.'],
+  Recording: ['Protect the full rehearsal', 'A private account recording is created only when recording is enabled for the session.'],
+  Transcript: ['Make every answer reviewable', 'A transcript becomes available after a saved answer when the speech path is available.'],
+  Framing: ['Set a confident frame', 'Keep head and upper torso visible with balanced space around you.'],
+  'Face / head': ['Stay present with the interviewer', 'Head position is measured as an observable signal, never as emotion or intent.'],
+  'Hands / gestures': ['Let gestures support the answer', 'Keep gestures visible and natural; no movement is treated as a personality judgment.'],
+  'Smile / expression': ['Use expression intentionally', 'Only visible expression cues are measured. No psychological meaning is inferred.'],
+  Volume: ['Land in a comfortable range', 'Aim for an audible, conversational level without clipping.'],
+  Pace: ['Give ideas room to land', 'Use a pace that remains understandable through complete thoughts.'],
+  Pitch: ['Keep vocal energy available', 'Variation is shown as a coaching cue, not a diagnostic score.'],
+  Pauses: ['Make silence work for you', 'Brief pauses can separate ideas and give you time to think.'],
+});
+
 function renderReadinessStep(host) {
   const intro = el('div', 'canon-photo-heading'); const image = el('img'); image.src = '/iv-prep-on-call/assets/studio/astra-assets/synthetic-candidate.png'; image.alt = '';
   const copy = el('div'); copy.append(el('h2', '', 'Find your signal.'), el('p', '', 'Real capability states from the same camera, microphone, and analytics pipeline used in practice.')); intro.append(image, copy); host.append(intro);
+  const rows = readinessRows();
+  const tabs = el('div', 'canon-readiness-tabs');
+  [...Object.keys(READINESS_PANELS), 'Signal health'].forEach((panel) => tabs.append(choiceButton({ className: 'canon-tab', selected: state.wizard.readinessPanel === panel, label: panel, onClick: () => { state.wizard.readinessPanel = panel; state.wizard.readinessSignal = READINESS_PANELS[panel]?.[0] || state.wizard.readinessSignal; renderWizard(); } })));
+  host.append(tabs);
   const layout = el('div', 'canon-readiness-layout');
   state.wizard.readiness = bridge.media.cam && bridge.media.mic
     ? 'Camera and microphone connected'
     : 'Calibration available';
   const preview = el('section', 'canon-readiness-preview');
-  const stage = el('div', 'stage'); stage.id = 'builder-readiness-stage'; stage.innerHTML = '<div class="stage-tag"><span>You</span></div>'; preview.append(stage);
+  const stage = el('div', 'stage'); stage.id = 'builder-readiness-stage'; stage.innerHTML = '<div class="stage-tag"><span>You</span></div><div class="canon-frame-guide" aria-hidden="true"><span></span></div>'; preview.append(stage);
   const meter = el('div', 'canon-live-meter'); meter.innerHTML = '<span class="live-mic-fill"></span>'; preview.append(meter, el('p', 'microcap', bridge.media.mic ? 'Speak to test your live microphone level' : 'Connect camera + microphone to begin'));
   const actions = el('div', 'canon-inline-actions');
   const connect = choiceButton({ className: 'btn btn-primary', label: bridge.media.stream ? 'Reconnect camera + mic' : 'Connect camera + mic', onClick: async () => { await connectDevices(); renderWizard(); } });
   const full = choiceButton({ className: 'btn btn-secondary', label: 'Open full calibration', onClick: () => setView('devicecheck') }); actions.append(connect, full); preview.append(actions);
-  const signals = el('section', 'canon-signal-grid');
-  readinessRows().forEach(([name, ready, detail]) => { const tile = el('div', 'canon-signal-tile'); tile.dataset.ready = String(Boolean(ready)); tile.append(el('strong', '', name), el('span', '', detail)); signals.append(tile); });
-  layout.append(preview, signals); host.append(layout);
+  const workspace = el('section', 'canon-readiness-workspace');
+  const readyCount = rows.filter(([, ready]) => ready).length;
+  workspace.append(el('div', 'canon-readiness-count', `${readyCount} of ${rows.length} checks ready now`));
+  if (state.wizard.readinessPanel === 'Signal health') {
+    const signals = el('div', 'canon-signal-grid canon-signal-health');
+    rows.forEach(([name, ready, detail]) => { const tile = el('div', 'canon-signal-tile'); tile.dataset.ready = String(Boolean(ready)); tile.append(el('strong', '', name), el('span', '', detail)); signals.append(tile); });
+    workspace.append(el('h3', '', 'Know what is actually ready.'), el('p', 'canon-muted', 'Unavailable signals stay unavailable. Connecting devices does not count as measured evidence.'), signals);
+  } else {
+    const names = READINESS_PANELS[state.wizard.readinessPanel] || READINESS_PANELS.Devices;
+    if (!names.includes(state.wizard.readinessSignal)) state.wizard.readinessSignal = names[0];
+    const picks = el('div', 'canon-signal-picks');
+    names.forEach((name) => { const row = rows.find(([candidate]) => candidate === name) || [name, false, 'Unavailable']; picks.append(choiceButton({ className: 'canon-signal-pick', selected: state.wizard.readinessSignal === name, label: name, detail: row[2], onClick: () => { state.wizard.readinessSignal = name; renderWizard(); } })); });
+    const current = rows.find(([name]) => name === state.wizard.readinessSignal) || rows[0];
+    const guidance = READINESS_GUIDANCE[current[0]] || [current[0], current[2]];
+    const focus = el('div', 'canon-readiness-focus'); focus.dataset.ready = String(Boolean(current[1]));
+    focus.append(el('div', 'microcap', `${state.wizard.readinessPanel} · ${current[1] ? 'Ready now' : current[2]}`), el('h3', '', guidance[0]), el('p', '', guidance[1]), el('span', 'canon-readiness-state', current[1] ? '✓ Live capability confirmed' : `○ ${current[2]}`));
+    workspace.append(picks, focus);
+  }
+  layout.append(preview, workspace); host.append(layout);
   bindPreview(); if (bridge.media.mic) startLevelMeter();
 }
 
@@ -2362,7 +2299,7 @@ async function renderVault() {
 async function mountAnalytics() {
   if (state.analytics) return;
   if (!state.admission?.admitted || state.admission?.runtime?.mode !== 'hosted') return;
-  const { initializeAnalyticsUi } = await import('../analytics/ui.mjs');
+  const { initializeAnalyticsUi, DeliveryIntelligenceGroups } = await loadAnalyticsCapabilityModules();
   state.analytics = initializeAnalyticsUi(bridge, {
     surfaceIds: {
       playback: 'playback',
@@ -2382,7 +2319,6 @@ async function mountAnalytics() {
 
   // Film Room and Analytics Lab both render the hierarchical groups. Two instances so
   // each surface keeps its own show/hide and solo state; both are display-only.
-  const { DeliveryIntelligenceGroups } = await import('../analytics/di-groups-ui.mjs');
   const film = $('#filmroom-groups');
   const lab = $('#lab-groups');
   if (film) state.filmGroups = new DeliveryIntelligenceGroups(film);
@@ -2453,9 +2389,9 @@ function renderLoadoutConfig() {
   const host = $('#loadout-config');
   if (!host) return;
   const groups = [
-    ['Interviewer', ['Voice only', 'Text prompts'], 'Dr Kelly / Dr Woods packs pending'],
+    ['Interviewer', ['Voice only', 'Text prompts'], 'Additional interviewer profiles will appear when available'],
     ['Difficulty', ['Standard', 'Pressure'], null],
-    ['Follow-ups', ['None', 'Occasional'], 'Hybrid follow-up router pending'],
+    ['Follow-ups', ['None', 'Occasional'], 'Follow-ups respond to the answer and session goal'],
     ['Overlays', ['Standard', 'Minimal', 'Off'], 'Hiding overlays never stops measurement'],
     ['Recording', ['On'], 'Private account recording + authenticated Answer History'],
     ['Duration', ['90 seconds', '5 minutes'], null],

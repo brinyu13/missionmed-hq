@@ -22,3 +22,4 @@ export { LiveInterviewSession } from './live-interview.mjs';
 export { createLiveContext } from './live-context-adapter.mjs';
 export { buildLongitudinalModel, compareAttempts } from './longitudinal-model.mjs';
 export { MetricBus, selectCorrection, statusRail } from './metric-bus.mjs';
+export { createMediaAnalyticsBridge, loadAnalyticsCapabilityModules } from './media-analytics-capability.mjs';
