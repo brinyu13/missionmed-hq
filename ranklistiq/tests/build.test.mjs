@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { buildHtml } from "../tools/build.mjs";
+import { buildHtml, protectedRuntimeWrapper } from "../tools/build.mjs";
 
 test("zero-module build reproduces the sanitized base byte-for-byte", async () => {
   const result = await buildHtml({ zero: true });
@@ -38,4 +38,13 @@ test("full build has one balanced marker pair per seam and embeds exact config",
   assert.ok(result.html.includes('window.RLQ_DUAL.mode === "application"'));
   assert.ok(result.html.includes('skipped:"application-mode"'));
   assert.equal((result.html.match(/flushProgramNotesToUserProgramInterviews\(\{/g) || []).length, 1);
+});
+
+test("protected runtime wrapper fails closed outside WordPress and returns exact HTML inside it", () => {
+  const html = "<!doctype html><title>QA's exact bytes</title>";
+  const wrapper = protectedRuntimeWrapper(html);
+  assert.ok(wrapper.includes("if (!defined('ABSPATH'))"));
+  assert.ok(wrapper.includes("http_response_code(404)"));
+  const encoded = wrapper.match(/base64_decode\('([^']+)'/)[1];
+  assert.equal(Buffer.from(encoded, "base64").toString("utf8"), html);
 });

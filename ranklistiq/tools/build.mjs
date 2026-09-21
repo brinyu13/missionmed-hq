@@ -43,6 +43,19 @@ function seam(label, content) {
   return `/* RLQ_DUAL:${label} START */\n${content}\n/* RLQ_DUAL:${label} END */`;
 }
 
+export function protectedRuntimeWrapper(html) {
+  const encoded = Buffer.from(html, "utf8").toString("base64");
+  return [
+    "<?php",
+    "if (!defined('ABSPATH')) {",
+    "    http_response_code(404);",
+    "    exit;",
+    "}",
+    `return base64_decode('${encoded}', true);`,
+    ""
+  ].join("\n");
+}
+
 export async function buildHtml({ zero = false, buildId = "test", sourceCommit = "unknown" } = {}) {
   const basePath = await findBase();
   const base = await readFile(basePath, "utf8");
@@ -151,10 +164,16 @@ export async function writeBuild({ buildId } = {}) {
   const filename = `rank_list_engine.${resolvedBuildId}.html`;
   const outputPath = join(distDir, filename);
   const outputSha256 = sha256(result.html);
+  const runtimeFilename = `rank_list_engine.${resolvedBuildId}.runtime.php`;
+  const runtimePath = join(distDir, runtimeFilename);
+  const runtime = protectedRuntimeWrapper(result.html);
+  const runtimeSha256 = sha256(runtime);
   await writeFile(outputPath, result.html, "utf8");
   await writeFile(`${outputPath}.sha256`, `${outputSha256}  ${filename}\n`, "utf8");
-  await writeFile(join(distDir, "build-manifest.json"), JSON.stringify({ ...result.stamp, output: filename, outputSha256 }, null, 2) + "\n", "utf8");
-  return { outputPath, outputSha256, ...result.stamp };
+  await writeFile(runtimePath, runtime, "utf8");
+  await writeFile(`${runtimePath}.sha256`, `${runtimeSha256}  ${runtimeFilename}\n`, "utf8");
+  await writeFile(join(distDir, "build-manifest.json"), JSON.stringify({ ...result.stamp, output: filename, outputSha256, runtime: runtimeFilename, runtimeSha256 }, null, 2) + "\n", "utf8");
+  return { outputPath, outputSha256, runtimePath, runtimeSha256, ...result.stamp };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

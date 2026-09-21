@@ -36,8 +36,16 @@ add_action(
             exit;
         }
 
-        $artifact = '/tmp/rlq-runtime-0921a/rank_list_engine.RLQ-DUALMODE-0921A.html';
+        $artifact = WPMU_PLUGIN_DIR . '/rlq-runtime-0921a/candidate.php';
         if (!is_readable($artifact)) {
+            status_header(503);
+            header('Content-Type: text/plain; charset=UTF-8');
+            echo 'Canary unavailable';
+            exit;
+        }
+
+        $html = require $artifact;
+        if (!is_string($html) || '' === $html) {
             status_header(503);
             header('Content-Type: text/plain; charset=UTF-8');
             echo 'Canary unavailable';
@@ -46,8 +54,8 @@ add_action(
 
         status_header(200);
         header('Content-Type: text/html; charset=UTF-8');
-        header('Content-Length: ' . (string) filesize($artifact));
-        readfile($artifact);
+        header('Content-Length: ' . (string) strlen($html));
+        echo $html;
         exit;
     },
     0
