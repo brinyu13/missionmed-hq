@@ -83,7 +83,7 @@ test("HQ adapter delegates an exact server-only IVOC projection without widening
     observed.push({
       url: request.url,
       cookie: request.headers.cookie,
-      authorization: request.headers.authorization,
+      delegationToken: request.headers["x-mmed-delegation-token"],
       consumer: request.headers["x-mmed-internal-consumer"],
     });
     response.writeHead(200, { "Content-Type": "application/json" });
@@ -114,7 +114,7 @@ test("HQ adapter delegates an exact server-only IVOC projection without widening
       headers: { cookie: "mmhq_session=ivoc-audience-cookie", "x-mmed-consumer": "ivoc" },
     });
     assert.equal(session.subject, "wp:42");
-    assert.equal(observed[0].authorization, `Bearer ${token}`);
+    assert.equal(observed[0].delegationToken, token);
     assert.equal(observed[0].consumer, "rise-ivoc-projection");
     assert.equal(observed[0].cookie, "mmhq_session=ivoc-audience-cookie");
 

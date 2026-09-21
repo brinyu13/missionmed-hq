@@ -92,7 +92,7 @@ export function createHqAuthenticator({
           Accept: "application/json",
           Cookie: `${cookieName}=${cookie}`,
           ...(ivocProjection ? {
-            Authorization: `Bearer ${delegationToken}`,
+            "X-MMED-Delegation-Token": delegationToken,
             "X-MMED-Internal-Consumer": "rise-ivoc-projection",
           } : {}),
         },
