@@ -176,14 +176,20 @@ fv2_assert( false !== strpos( $repository_source, "'moderation_status'" ) && fal
 fv2_assert( false !== strpos( $repository_source, 'source_revision' ) && false !== strpos( $repository_source, 'record_download_event' ), 'shared files pin immutable revisions and append normalized download evidence' );
 fv2_assert( false !== strpos( $repository_source, "'_mmed_program_tier'" ) && false !== strpos( $repository_source, 'mmed_file_vault_v2_course_filter_invalid' ), 'staff roster requires aligned current MissionMed enrollment and rejects unknown course filters' );
 fv2_assert( false !== strpos( $controller_source, "get_param( 'course_id' )" ) && false !== strpos( $controller_source, "'selected_course_id'" ), 'staff REST route carries the validated course filter and returns selected state' );
+fv2_assert( false !== strpos( $controller_source, "'/file-vault/projections/ivoc/cv/(?P<uid>\\d+)'" ) && false !== strpos( $controller_source, "'can_consume_ivoc_cv'" ), 'IVOC consumes CV facts only through the dedicated owner projection boundary' );
+fv2_assert( false !== strpos( $controller_source, "'x-mmed-consumer'" ) && false !== strpos( $controller_source, "'ivoc-session:'" ), 'the projection read requires authenticated IVOC server identity and session-bound consent' );
+fv2_assert( false !== strpos( $repository_source, "['ivoc_cv_projection']" ) && false !== strpos( $repository_source, "'owner_reviewed'" ), 'reviewed facts are bound to one immutable current CV version' );
+fv2_assert( false === strpos( $repository_source, 'file_get_contents( $row->r2_key' ) && false === strpos( $repository_source, "presign_url( 'GET', \$row->r2_key" ), 'the projection path never downloads or reparses private CV bytes' );
 
 MMED_File_Vault_V2::register_routes();
-fv2_assert( 25 === count( $GLOBALS['fv2_routes'] ), 'expected additive V2 route count' );
+fv2_assert( 27 === count( $GLOBALS['fv2_routes'] ), 'expected additive V2 route count' );
 fv2_assert( isset( $GLOBALS['fv2_routes']['mmed/v2/file-vault/bootstrap'] ), 'bootstrap route registered' );
 fv2_assert( isset( $GLOBALS['fv2_routes']['mmed/v2/file-vault/uploads'] ), 'upload route registered' );
 fv2_assert( isset( $GLOBALS['fv2_routes']['mmed/v2/file-vault/review-queue'] ), 'review queue route registered' );
 fv2_assert( isset( $GLOBALS['fv2_routes']['mmed/v2/file-vault/uploads/(?P<upload_id>[a-f0-9-]{36})/confirm'] ), 'confirmation route carries an upload UUID, not its one-time token' );
 fv2_assert( isset( $GLOBALS['fv2_routes']['mmed/v2/file-vault/files/(?P<id>\d+)/score'] ), 'score route uses numeric legacy IDs' );
+fv2_assert( isset( $GLOBALS['fv2_routes']['mmed/v2/file-vault/projections/ivoc/cv/(?P<uid>\d+)'] ), 'File Vault exposes a subject-scoped IVOC CV projection route' );
+fv2_assert( isset( $GLOBALS['fv2_routes']['mmed/v2/file-vault/files/(?P<id>\d+)/projections/ivoc-cv'] ), 'File Vault exposes an administrator-reviewed version-bound projection write route' );
 fv2_assert( isset( $GLOBALS['fv2_routes']['mmed/v2/file-vault/files/(?P<id>\d+)/internal-notes'] ), 'staff-only internal note route is registered' );
 fv2_assert( isset( $GLOBALS['fv2_routes']['mmed/v2/file-vault/audiences'] ), 'server-filtered audience directory route is registered' );
 fv2_assert( isset( $GLOBALS['fv2_routes']['mmed/v2/file-vault/shares'] ), 'shared-library publication route is registered' );
@@ -203,6 +209,8 @@ $share_status_args = $GLOBALS['fv2_routes']['mmed/v2/file-vault/shares/(?P<id>\d
 fv2_assert( array( 'active', 'disabled', 'archived' ) === $share_status_args['status']['enum'], 'share moderation status is a bounded route enum' );
 $internal_note_route_args = $GLOBALS['fv2_routes']['mmed/v2/file-vault/files/(?P<id>\d+)/internal-notes']['args'];
 fv2_assert( 'string' === $internal_note_route_args['body']['type'], 'internal note writes use the bounded comment-body schema' );
+$projection_write_args = $GLOBALS['fv2_routes']['mmed/v2/file-vault/files/(?P<id>\d+)/projections/ivoc-cv']['args'];
+fv2_assert( true === $projection_write_args['version_uuid']['required'] && 120 === $projection_write_args['entries']['maxItems'], 'projection writes pin one immutable CV version and enforce a bounded entry count' );
 $score_route_args = $GLOBALS['fv2_routes']['mmed/v2/file-vault/files/(?P<id>\d+)/score']['args'];
 fv2_assert( 'object' === $score_route_args['category_scores']['type'] && 'string' === $score_route_args['notes']['type'], 'score request bodies reject malformed collection and note types' );
 foreach ( array_keys( $GLOBALS['fv2_routes'] ) as $route ) {

@@ -608,6 +608,80 @@ fv2_repo_assert( 'upload' === $bootstrap['next_action']['kind'], 'next action is
 fv2_repo_assert( 'CV / Resume' === $bootstrap['document_types']['curriculum_vitae'] && 'LOR-Related' === $bootstrap['document_types']['lor_related'] && 'Score Report' === $bootstrap['document_types']['score_report'] && 'Certification' === $bootstrap['document_types']['certification'], 'Founder upload vocabulary is server-owned without removing granular document types' );
 fv2_repo_assert( 4 === count( $bootstrap['rubrics']['personal_statement'] ) && ! isset( $bootstrap['rubrics']['medical_school_transcript'] ), 'only valid document-scoped rubrics are exposed' );
 
+$cv_row = clone $GLOBALS['wpdb']->rows[1];
+$cv_row->id = 99;
+$cv_row->filename = 'Avery_Rivera_CV_Version01.pdf';
+$cv_row->original_name = 'avery-cv.pdf';
+$cv_row->version = 1;
+$cv_row->created_at = '2026-07-15 12:00:00';
+$cv_row->updated_at = '2026-07-15 12:00:00';
+$cv_root = json_decode( $cv_row->meta_json, true );
+$cv_root[ MMED_File_Vault_V2_Repository::META_KEY ]['document_type'] = 'curriculum_vitae';
+$cv_root[ MMED_File_Vault_V2_Repository::META_KEY ]['document_uuid'] = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+$cv_root[ MMED_File_Vault_V2_Repository::META_KEY ]['display_name'] = 'CV / Resume';
+$cv_root[ MMED_File_Vault_V2_Repository::META_KEY ]['versions'] = array(
+	array(
+		'number' => 1,
+		'r2_key' => 'student-files/v2/objects/private-cv.pdf',
+		'original_name' => 'avery-cv.pdf',
+		'canonical_name' => 'Avery_Rivera_CV_Version01.pdf',
+		'mime_type' => 'application/pdf',
+		'file_size' => 200,
+		'sha256' => str_repeat( 'c', 64 ),
+		'version_uuid' => 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+		'verification_state' => 'ready_clean',
+		'uploaded_at' => '2026-07-15T12:00:00+00:00',
+		'uploader_name' => 'Student Fixture',
+	),
+);
+$cv_row->meta_json = wp_json_encode( $cv_root );
+$GLOBALS['wpdb']->rows[99] = $cv_row;
+$cv_entries = array(
+	array(
+		'entry_id' => 'research-1', 'entry_type' => 'research_item',
+		'title' => 'Cardiology outcomes study', 'role' => 'co-author', 'institution' => 'Fixture University',
+		'start' => '2025-01', 'end' => '2025-12', 'specialty_tags' => array( 'cardiology', 'research' ),
+		'ethnicity' => 'must-never-project', 'favorite_color' => 'must-never-project',
+	),
+);
+$wrong_cv_version = MMED_File_Vault_V2_Repository::save_ivoc_cv_projection( 99, 20, array(
+	'version_uuid' => 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+	'authorization_ref' => 'filevault-consent:fixture-1',
+	'entries' => $cv_entries,
+) );
+fv2_repo_assert( is_wp_error( $wrong_cv_version ) && 'mmed_file_vault_v2_ivoc_cv_version_conflict' === $wrong_cv_version->get_error_code(), 'IVOC CV facts cannot bind to a stale document version' );
+$saved_cv_projection = MMED_File_Vault_V2_Repository::save_ivoc_cv_projection( 99, 20, array(
+	'version_uuid' => 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+	'authorization_ref' => 'filevault-consent:fixture-1',
+	'entries' => $cv_entries,
+) );
+fv2_repo_assert( ! is_wp_error( $saved_cv_projection ) && 1 === $saved_cv_projection['entry_count'] && preg_match( '/^[a-f0-9]{64}$/', $saved_cv_projection['projection_hash'] ), 'reviewed CV facts bind to the exact immutable File Vault version' );
+$public_cv_document = MMED_File_Vault_V2_Repository::get_document( 99 );
+fv2_repo_assert( false === strpos( wp_json_encode( $public_cv_document ), 'Cardiology outcomes study' ) && false === strpos( wp_json_encode( $public_cv_document ), 'filevault-consent:fixture-1' ), 'ordinary File Vault document responses do not expose private IVOC projection metadata' );
+$cv_projection = MMED_File_Vault_V2_Repository::ivoc_cv_projection( 10, 20, 'ivoc-session:dddddddd-dddd-4ddd-8ddd-dddddddddddd' );
+fv2_repo_assert( ! is_wp_error( $cv_projection ) && 'matrix.projection.v1' !== ( $cv_projection['schema'] ?? '' ) && 'filevault.document_projection' === $cv_projection['projection_type'], 'File Vault emits the IVOC typed projection envelope without inventing a second storage authority' );
+fv2_repo_assert( 'wp:10' === $cv_projection['subject_id'] && 'student_consent' === $cv_projection['authorization']['basis'] && 'ivoc-session:dddddddd-dddd-4ddd-8ddd-dddddddddddd' === $cv_projection['authorization']['consent_ref'], 'projection authorization is bound to the exact subject and IVOC session consent' );
+fv2_repo_assert( false === strpos( wp_json_encode( $cv_projection ), 'must-never-project' ) && false === strpos( wp_json_encode( $cv_projection ), 'r2_key' ) && false === strpos( wp_json_encode( $cv_projection ), 'private-cv.pdf' ), 'projection minimization removes unsupported and private storage fields' );
+$cv_after_projection = json_decode( $GLOBALS['wpdb']->rows[99]->meta_json, true );
+$cv_after_projection[ MMED_File_Vault_V2_Repository::META_KEY ]['versions'][] = array(
+	'number' => 2,
+	'r2_key' => 'student-files/v2/objects/private-cv-v2.pdf',
+	'original_name' => 'avery-cv-v2.pdf',
+	'canonical_name' => 'Avery_Rivera_CV_Version02.pdf',
+	'mime_type' => 'application/pdf',
+	'file_size' => 220,
+	'sha256' => str_repeat( 'd', 64 ),
+	'version_uuid' => 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+	'verification_state' => 'ready_clean',
+	'uploaded_at' => '2026-07-15T13:00:00+00:00',
+	'uploader_name' => 'Student Fixture',
+);
+$GLOBALS['wpdb']->rows[99]->version = 2;
+$GLOBALS['wpdb']->rows[99]->meta_json = wp_json_encode( $cv_after_projection );
+$invalidated_cv_projection = MMED_File_Vault_V2_Repository::ivoc_cv_projection( 10, 20, 'ivoc-session:dddddddd-dddd-4ddd-8ddd-dddddddddddd' );
+fv2_repo_assert( is_wp_error( $invalidated_cv_projection ) && 'mmed_file_vault_v2_ivoc_cv_unavailable' === $invalidated_cv_projection->get_error_code(), 'a new canonical CV version invalidates the previous structured projection by construction' );
+unset( $GLOBALS['wpdb']->rows[99] );
+
 $GLOBALS['wpdb']->insert(
 	'wp_mmed_files',
 	array(

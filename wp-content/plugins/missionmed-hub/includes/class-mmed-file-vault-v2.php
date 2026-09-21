@@ -54,6 +54,8 @@ class MMED_File_Vault_V2 {
 		self::route( '/file-vault/review-queue', WP_REST_Server::READABLE, 'get_review_queue', 'can_staff' );
 		self::route( '/file-vault/audit', WP_REST_Server::READABLE, 'get_audit', 'can_audit' );
 		self::route( '/file-vault/files/(?P<id>\d+)', WP_REST_Server::READABLE, 'get_file', 'can_use_v2', self::id_args() );
+		self::route( '/file-vault/projections/ivoc/cv/(?P<uid>\d+)', WP_REST_Server::READABLE, 'get_ivoc_cv_projection', 'can_consume_ivoc_cv', array_merge( self::id_args( 'uid' ), self::ivoc_projection_read_args() ) );
+		self::route( '/file-vault/files/(?P<id>\d+)/projections/ivoc-cv', WP_REST_Server::EDITABLE, 'save_ivoc_cv_projection', 'can_manage', array_merge( self::id_args(), self::ivoc_projection_write_args() ) );
 		self::route( '/file-vault/files/(?P<id>\d+)/preview', WP_REST_Server::READABLE, 'preview_file', 'can_use_v2', self::id_args() );
 		self::route( '/file-vault/files/(?P<id>\d+)/download', WP_REST_Server::READABLE, 'download_file', 'can_use_v2', self::id_args() );
 		self::route( '/file-vault/audiences', WP_REST_Server::READABLE, 'get_audiences' );
@@ -258,6 +260,44 @@ class MMED_File_Vault_V2 {
 	}
 
 	/**
+	 * File Vault management permission callback.
+	 *
+	 * @param WP_REST_Request|null $request Request.
+	 * @return true|WP_Error
+	 */
+	public static function can_manage( $request = null ) {
+		$eligible = self::can_use_v2( $request );
+		if ( is_wp_error( $eligible ) ) {
+			return $eligible;
+		}
+		return current_user_can( self::CAP_MANAGE )
+			? true
+			: new WP_Error( 'mmed_file_vault_v2_forbidden', 'File Vault management permission is required.', array( 'status' => 403 ) );
+	}
+
+	/**
+	 * Permit only authenticated server-to-server IVOC reads for the exact owner.
+	 *
+	 * @param WP_REST_Request|null $request Request.
+	 * @return true|WP_Error
+	 */
+	public static function can_consume_ivoc_cv( $request = null ) {
+		if ( ! is_user_logged_in() || ! get_current_user_id() || ! $request || ! method_exists( $request, 'get_header' ) ) {
+			return new WP_Error( 'mmed_file_vault_v2_auth_required', 'Authentication is required.', array( 'status' => 401 ) );
+		}
+		$authorization = trim( (string) $request->get_header( 'authorization' ) );
+		$consumer      = sanitize_key( $request->get_header( 'x-mmed-consumer' ) );
+		if ( ! preg_match( '/^(?:Basic|Bearer) [^\r\n]{16,4096}$/', $authorization ) || 'ivoc' !== $consumer ) {
+			return new WP_Error( 'mmed_file_vault_v2_projection_auth_invalid', 'The IVOC projection consumer is not authorized.', array( 'status' => 403 ) );
+		}
+		$student_id = absint( $request['uid'] );
+		if ( ! $student_id || ! self::can_view_student( $student_id ) ) {
+			return self::forbidden_student();
+		}
+		return true;
+	}
+
+	/**
 	 * Bootstrap the current role lens.
 	 *
 	 * @param WP_REST_Request $request Request.
@@ -393,6 +433,40 @@ class MMED_File_Vault_V2 {
 		}
 		$result = MMED_File_Vault_V2_Repository::get_document( $request['id'] );
 		return self::response( $result );
+	}
+
+	/**
+	 * Return the bounded current-CV projection to IVOC.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function get_ivoc_cv_projection( $request ) {
+		$session_id = strtolower( trim( (string) $request->get_param( 'session_id' ) ) );
+		$result = MMED_File_Vault_V2_Repository::ivoc_cv_projection(
+			absint( $request['uid'] ),
+			get_current_user_id(),
+			'ivoc-session:' . $session_id
+		);
+		return self::response( $result );
+	}
+
+	/**
+	 * Save an administrator-reviewed projection on the exact current CV version.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function save_ivoc_cv_projection( $request ) {
+		$access = self::assert_file_access( $request['id'], true );
+		if ( is_wp_error( $access ) ) {
+			return $access;
+		}
+		return self::response( MMED_File_Vault_V2_Repository::save_ivoc_cv_projection(
+			$request['id'],
+			get_current_user_id(),
+			self::json_params( $request )
+		) );
 	}
 
 	/**
@@ -720,6 +794,26 @@ class MMED_File_Vault_V2 {
 					return absint( $value ) > 0;
 				},
 			),
+		);
+	}
+
+	/** @return array */
+	protected static function ivoc_projection_read_args() {
+		return array(
+			'session_id' => array(
+				'required' => true,
+				'type'     => 'string',
+				'pattern'  => '^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[1-5][a-fA-F0-9]{3}-[89aAbB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}$',
+			),
+		);
+	}
+
+	/** @return array */
+	protected static function ivoc_projection_write_args() {
+		return array(
+			'version_uuid' => array( 'required' => true, 'type' => 'string', 'pattern' => '^[a-fA-F0-9-]{36}$' ),
+			'authorization_ref' => array( 'required' => true, 'type' => 'string', 'minLength' => 1, 'maxLength' => 160 ),
+			'entries' => array( 'required' => true, 'type' => 'array', 'minItems' => 1, 'maxItems' => MMED_File_Vault_V2_Repository::IVOC_CV_PROJECTION_MAX_ENTRIES ),
 		);
 	}
 
