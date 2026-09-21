@@ -45,16 +45,49 @@ final class MissionMed_MR0912_Controlled_Live_Card_Bridge {
     }
 
     public static function clear_stale_router_notice(): void {
-        if (self::controlled_order() && function_exists('WC') && WC() && WC()->session) {
-            if (class_exists('MissionMed_WC_Stripe_Division_Router')) {
-                remove_filter(
-                    'woocommerce_available_payment_gateways',
-                    [MissionMed_WC_Stripe_Division_Router::class, 'filter_payment_gateways'],
-                    20
-                );
-            }
-            WC()->session->set('wc_notices', []);
+        if (!self::controlled_order() || !function_exists('WC') || !WC() || !WC()->session) {
+            return;
         }
+
+        $notices = WC()->session->get('wc_notices', []);
+        $routerNotice = 'This cart needs payment routing review before Stripe checkout can be used. Please contact MissionMed support.';
+        foreach ($notices as $type => $entries) {
+            $notices[$type] = array_values(array_filter((array) $entries, static function ($entry) use ($routerNotice): bool {
+                $message = is_array($entry) ? (string) ($entry['notice'] ?? '') : (string) $entry;
+                return trim(wp_strip_all_tags($message)) !== $routerNotice;
+            }));
+        }
+        WC()->session->set('wc_notices', array_filter($notices));
+    }
+
+    public static function prepare_request(): void {
+        if (!self::controlled_order()) {
+            return;
+        }
+
+        if (class_exists('MissionMed_WC_Stripe_Division_Router')) {
+            remove_filter(
+                'woocommerce_available_payment_gateways',
+                [MissionMed_WC_Stripe_Division_Router::class, 'filter_payment_gateways'],
+                20
+            );
+        }
+
+        if (class_exists('WC_Stripe_Gateway_Conversion')) {
+            remove_filter(
+                'woocommerce_order_get_payment_method',
+                [WC_Stripe_Gateway_Conversion::class, 'convert_payment_method'],
+                10
+            );
+        }
+
+        if (function_exists('WC') && WC() && WC()->session && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
+            WC()->session->set('chosen_payment_method', 'stripe');
+        }
+
+        error_log('[MR0912-LIVE-BRIDGE] prepared request method=' . sanitize_key($_SERVER['REQUEST_METHOD'] ?? 'GET')
+            . ' order=' . (int) get_query_var('order-pay')
+            . ' posted_gateway=' . sanitize_key((string) ($_POST['payment_method'] ?? ''))); // phpcs:ignore WordPress.Security.NonceVerification.Missing
     }
 
     private static function controlled_order(): ?WC_Order {
@@ -93,4 +126,5 @@ final class MissionMed_MR0912_Controlled_Live_Card_Bridge {
 
 add_filter('woocommerce_available_payment_gateways', [MissionMed_MR0912_Controlled_Live_Card_Bridge::class, 'capture'], 1);
 add_filter('woocommerce_available_payment_gateways', [MissionMed_MR0912_Controlled_Live_Card_Bridge::class, 'restore'], 999);
+add_action('wp', [MissionMed_MR0912_Controlled_Live_Card_Bridge::class, 'prepare_request'], 1);
 add_action('template_redirect', [MissionMed_MR0912_Controlled_Live_Card_Bridge::class, 'clear_stale_router_notice'], 50);
