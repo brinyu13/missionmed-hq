@@ -33,6 +33,13 @@ test('camera callbacks cannot rewind the active lifecycle', () => {
 
 const runtime = readFileSync(new URL('../../public/studio/studio.mjs', import.meta.url), 'utf8');
 const html = readFileSync(new URL('../../public/studio/index.html', import.meta.url), 'utf8');
+const css = readFileSync(new URL('../../public/studio/studio.css', import.meta.url), 'utf8');
+test('compact camera geometry uses the same cover transform as its authoritative overlay', () => {
+  assert.match(css, /#founder-student-video \{[^}]*object-fit:cover/);
+  assert.match(css, /aspect-ratio:var\(--room-camera-ratio/);
+  assert.doesNotMatch(css, /#founder-student-stage \{[^}]*aspect-ratio:auto/);
+  assert.match(runtime, /camera\.videoWidth \/ camera\.videoHeight/);
+});
 test('room recomposition preserves exact media anchors and calls only display adapters', () => {
   for (const id of ['founder-student-video', 'founder-student-stage', 'founder-room-stage', 'founder-room-wrapper', 'live-interviewer-audio']) {
     assert.equal(html.split(`id="${id}"`).length - 1, 1);

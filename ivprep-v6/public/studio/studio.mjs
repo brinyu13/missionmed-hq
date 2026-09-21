@@ -2165,6 +2165,8 @@ function renderInterviewRoom() {
   const changed = room.dataset.roomPhase !== model.phase;
   room.dataset.roomPhase = model.phase;
   room.dataset.roomLayout = model.coached ? 'coached' : 'interview';
+  const camera = $('#founder-student-video');
+  if (camera.videoWidth && camera.videoHeight) room.style.setProperty('--room-camera-ratio', String(camera.videoWidth / camera.videoHeight));
   document.body.dataset.interviewImmersive = String(state.view === 'simulation' && model.immersive);
   $('#room-title').textContent = model.title;
   $('#room-summary').textContent = [state.wizard.interviewer, state.wizard.program || 'General interview', `${state.targetQuestions} target questions`].join(' · ');
@@ -2191,6 +2193,11 @@ function renderInterviewRoom() {
     state.room.overlayKey = overlayKey;
   }
   $('#room-recording-state').textContent = model.phase === 'live' ? 'Private recording' : model.phase === 'saving' ? 'Saving privately' : model.phase === 'save-error' ? 'Save required' : 'Not recording';
+  if (model.phase === 'saving') {
+    $('#sim-provider-state').textContent = 'Interview complete';
+    $('#sim-provider-note').textContent = 'Keep this tab open while your recording and results are saved.';
+    $('#simulation-save').textContent = 'Saving private recording and results…';
+  }
   if (model.phase === 'live') {
     const disconnected = ['error', 'closed'].includes(state.room.providerState);
     const mediaProblem = startBlockedReason();
