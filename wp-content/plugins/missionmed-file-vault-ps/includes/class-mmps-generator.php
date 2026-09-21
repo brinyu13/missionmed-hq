@@ -296,7 +296,7 @@ class MMPS_Generator {
 		$tokens = array();
 		if ( preg_match_all( '/[\p{L}]{4,}/u', mb_strtolower( self::plain( (string) $text ) ), $matches ) ) {
 			foreach ( $matches[0] as $word ) {
-				if ( ! in_array( $word, array( 'that', 'with', 'this', 'from', 'have', 'will', 'would', 'their', 'program', 'residency' ), true ) ) {
+				if ( ! in_array( $word, array( 'that', 'with', 'this', 'from', 'have', 'will', 'would', 'their', 'program', 'residency', 'fact' ), true ) ) {
 					$tokens[] = $word;
 				}
 			}
@@ -351,6 +351,7 @@ class MMPS_Generator {
 	 */
 	protected static function candidate_diversity_text( $text, $bundle, $plan ) {
 		$literals = array_filter( array_map( 'strval', (array) ( $bundle['nameForms'] ?? array() ) ) );
+		$evidence_words = array();
 		foreach ( (array) ( $plan['allowedFacts'] ?? array() ) as $fact ) {
 			if ( ! is_array( $fact ) ) {
 				continue;
@@ -360,13 +361,26 @@ class MMPS_Generator {
 				if ( mb_strlen( $literal ) >= 32 || count( self::candidate_tokens( $literal, false ) ) >= 6 ) {
 					$literals[] = $literal;
 				}
+				foreach ( self::candidate_tokens( $literal, false ) as $word ) {
+					if ( mb_strlen( $word ) >= 5 ) {
+						$evidence_words[] = $word;
+					}
+				}
 			}
 		}
 		$literals = array_values( array_unique( $literals ) );
 		usort( $literals, function ( $left, $right ) {
 			return mb_strlen( $right ) - mb_strlen( $left );
 		} );
-		return str_ireplace( $literals, ' fact ', self::plain( (string) $text ) );
+		$normalized = str_ireplace( $literals, ' fact ', self::plain( (string) $text ) );
+		$evidence_words = array_values( array_unique( $evidence_words ) );
+		usort( $evidence_words, function ( $left, $right ) {
+			return mb_strlen( $right ) - mb_strlen( $left );
+		} );
+		foreach ( $evidence_words as $word ) {
+			$normalized = preg_replace( '/(?<![\p{L}\p{N}])' . preg_quote( $word, '/' ) . '(?![\p{L}\p{N}])/iu', ' fact ', $normalized );
+		}
+		return (string) $normalized;
 	}
 
 	public static function validate_candidate_set( $out, $bundle, $plan, $root, $other_program_ids = array() ) {

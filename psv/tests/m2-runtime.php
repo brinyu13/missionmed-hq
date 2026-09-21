@@ -153,7 +153,16 @@ unset($candidate);
 $evidenceCheck = MMPS_Generator::validate_candidate_set($evidenceSet, $evidenceBundle, $evidencePlan, $root);
 check(empty($evidenceCheck['blocking']), 'shared verified evidence literal is excluded from copied-scaffold diversity checks');
 
-$unallowedEvidenceSet = $evidenceSet;
+$paraphrasedEvidenceSet = $evidenceSet;
+foreach ($paraphrasedEvidenceSet['candidates'] as &$candidate) {
+	$candidate['segments'][1]['text'] = 'The program lists a cardiology fellowship that accepts applicants after completing three years of internal medicine training.';
+	$candidate['replacement_region'] = implode(' ', wp_list_pluck($candidate['segments'], 'text'));
+}
+unset($candidate);
+$paraphrasedEvidenceCheck = MMPS_Generator::validate_candidate_set($paraphrasedEvidenceSet, $evidenceBundle, $evidencePlan, $root);
+check(empty($paraphrasedEvidenceCheck['blocking']), 'shared authorized evidence vocabulary is excluded when the fact is faithfully paraphrased');
+
+$unallowedEvidenceSet = $paraphrasedEvidenceSet;
 foreach ($unallowedEvidenceSet['candidates'] as &$candidate) {
 	$candidate['segments'][1]['fact_ids'] = array('F-name');
 	$candidate['facts_used'] = array('F-name');
