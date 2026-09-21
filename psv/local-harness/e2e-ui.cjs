@@ -194,15 +194,23 @@ const ok = (name, cond, detail = '') => { results.push({ name, pass: !!cond }); 
 
 	await page.click('.hdr [data-view="library"]');
 	await page.waitForSelector('[data-doc-select]');
+	const bulkBodies = [];
+	page.on('request', (req) => {
+		if (req.url().includes('/library/bulk-download')) {
+			try { bulkBodies.push(req.postDataJSON()); } catch (_) {}
+		}
+	});
 	const checkboxes = page.locator('[data-doc-select]');
 	await checkboxes.nth(0).check();
 	await checkboxes.nth(1).check();
 	const [selectedZip] = await Promise.all([page.waitForEvent('download'), page.click('[data-act="bulk-selected"]')]);
 	const selectedZipFile = `${SHOTS}/../files/ui-selected.zip`; await selectedZip.saveAs(selectedZipFile);
 	ok('selected statements download as a ZIP', fs.statSync(selectedZipFile).size > 500 && fs.readFileSync(selectedZipFile).subarray(0, 2).toString() === 'PK');
+	ok('selected ZIP requests only checked documents', bulkBodies[0] && bulkBodies[0].allApproved === false && bulkBodies[0].docUuids.length === 2);
 	const [allZip] = await Promise.all([page.waitForEvent('download'), page.click('[data-act="bulk-approved"]')]);
 	const allZipFile = `${SHOTS}/../files/ui-all-approved.zip`; await allZip.saveAs(allZipFile);
 	ok('Download All approved creates a ZIP', fs.statSync(allZipFile).size > 500 && fs.readFileSync(allZipFile).subarray(0, 2).toString() === 'PK');
+	ok('Download All ignores checkbox selection', bulkBodies[1] && bulkBodies[1].allApproved === true && bulkBodies[1].docUuids.length === 0);
 	await shot('19-library-bulk');
 
 	// responsive

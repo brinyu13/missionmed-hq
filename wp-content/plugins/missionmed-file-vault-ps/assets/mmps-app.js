@@ -371,7 +371,7 @@
 		var ids = Object.keys(S.selectedDocs).filter(function (id) { return S.selectedDocs[id]; });
 		if (!allApproved && !ids.length) { toast('Select at least one statement.', 'err'); return; }
 		busy('bulk', true);
-		fetch(cfg.restUrl.replace(/\/$/, '') + '/library/bulk-download', { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'X-WP-Nonce': cfg.nonce, 'Content-Type': 'application/json' }, body: JSON.stringify({ docUuids: ids, allApproved: !!allApproved }) }).then(function (res) {
+		fetch(cfg.restUrl.replace(/\/$/, '') + '/library/bulk-download', { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'X-WP-Nonce': cfg.nonce, 'Content-Type': 'application/json' }, body: JSON.stringify({ docUuids: allApproved ? [] : ids, allApproved: !!allApproved }) }).then(function (res) {
 			if (!res.ok) { return res.json().then(function (d) { throw new Error(d.message || 'Bulk download failed.'); }); }
 			return res.blob().then(function (blob) { return { blob: blob, disposition: res.headers.get('content-disposition') || '' }; });
 		}).then(function (result) {

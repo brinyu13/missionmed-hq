@@ -1,6 +1,22 @@
 # PSV Foreman Control-Tower State
 
-Updated: 2026-09-21T10:56:00Z
+Updated: 2026-09-21T14:56:53Z
+
+## Normal production unlock (DR-331)
+
+- Founder standing production authority is canonical as `DR-331` at MissionMed OS `255b5ec0fe1ad9de0cb3b23fe1176579adcc7d8c`; universal and exact PSV dependency validation both PASS against MissionMed HQ tip `0feee579b0a9f2c90529220899f6cf6d21b8cd05`.
+- Live source is exact pushed commit `d9e2085915b35e81587bc42541d46b4bf33fcbf7`, plugin v1.0.0. The exact 25-file release ZIP SHA-256 is `62def8e6677a5673ba1a940c566d45853310ce26d2f133e0f3bfa653628b674f`; deployed main-file SHA-256 matches local at `023b3ae939b5cd2ef18bd695a314c618c4e711b5f2cdfcad976ceee8f2ea76be`; production PHP lint is 22/22 PASS.
+- Normal access mode is `members`: authenticated administrators and strict current MissionMed 360 members may use the same production workflow. Anonymous PSV REST remains HTTP 404. Normal UI contains no prototype/canary/hash-tuple/synthetic-test language; synthetic ROOT remains separated as an internal diagnostic mode.
+- For an entitled owner who intentionally selects/uploads/pastes a ROOT and confirms a Program Answer region, the complete ROOT may be read by the dedicated PSV OpenAI project and only the confirmed region may be written. Owner isolation, current ROOT hash/version, exact region snapshot, protected-paragraph equality, evidence grounding/provenance, CSRF, audit-without-prose, rate controls and cross-student similarity protections remain enforced.
+- `MMED_PS_PROTO_OPENAI_API_KEY` is defined and nonempty by boolean-only inspection; its value was never inspected or recorded. `MMED_PS_PROTO_ALLOW_REAL_ROOT_AI` and testing flags remain undefined. The old canary tuple and allowlist restrictions are retired from the normal members path.
+- Live controlled production acceptance used existing owner-scoped ROOT ID 6. Deep correctly returned Research Needed for insufficient verified evidence; Essential then produced one provider-backed successful run `ac52f1a3-f6c6-4a50-8555-cb6cc7a1439a` with five valid candidates after one auditable transport failure and bounded retry.
+- Candidate review PASS: all five choices, inline Previous/Next with stable hydrated viewport, right-rail selection, Compare All, and region-only direct-edit/discard. Candidate switching changed neither run nor provider-attempt/library counts and made no save/provider request. A changed manual revision loses inherited grounding until exact revision revalidation.
+- Protected ROOT proof PASS: stored ROOT hash and region snapshot match; 13 parsed paragraphs, one authorized replacement region and 12 protected paragraphs; approved reconstruction `fe3504e4-2390-4ea9-b0cf-2e252ce46320` preserves every protected paragraph and matches its stored full-document hash.
+- Save/export PASS: the selected validated candidate was approved once, library count advanced from 8 to 9, owner-scoped DOCX generation produced a valid 5,105-byte package, and individual download control was exercised. Selected and all-approved ZIP paths remain covered by the existing production/runtime acceptance suite.
+- File Vault and RISE were not mutated. Fresh protected File Vault hashes match their preflight sentinels; RISE production health is HTTP 200 with current registry release `rise_registry_acgme_2026-09-20_50d08ea6f2da` and `sourceRightsCurrent=true`. Recent production logs contain no PSV fatal/inert line.
+- PATH lease epoch 3602 (`bb86a812-82f3-48e8-bc0f-e08b02804c63`) was released. Fresh Supabase readback shows zero active PSV-path or MissionMed OS registry leases.
+- Exact rollback preimage: `/www/theresidencyacademy_209/private/psv-rollbacks/PSV-1.0.0-d9e2085-20260921T1440Z/live-retired`.
+- Local release gates: PHP lint 22/22, PHP contract/runtime suites 14/14, disposable WordPress API 131/131, candidate-review browser 41/41, upload/session browser 6/6, JavaScript/JSON parsing and `git diff --check` all PASS. Fresh independent verification is dispatched; seal only after its final read-only verdict is recorded.
 
 ## Live direct ROOT upload and session recovery (DR-328)
 
