@@ -1317,7 +1317,6 @@ function renderReadinessStep(host) {
     workspace.append(picks, focus);
   }
   layout.append(preview, workspace); host.append(layout);
-  bindPreview(); if (bridge.media.mic) startLevelMeter();
 }
 
 function renderWizard() {
@@ -1412,6 +1411,10 @@ function renderWizard() {
   next.addEventListener('click', () => { state.wizardStep += 1; renderWizard(); });
   nav.append(back, next);
   body.append(kick, title, content, nav);
+  if (step.key === 'readiness') {
+    bindPreview();
+    if (bridge.media.mic) startLevelMeter();
+  }
 }
 
 function applyWizardQuestions(selection) {

@@ -170,6 +170,7 @@ test('journey actions expose truthful prerequisites instead of false ready state
   assert.match(runtime, /Choose at least one question before entering the Interview Room/u);
   assert.match(runtime, /const measuring = state\.session\.state === 'RUNNING'/u);
   assert.match(runtime, /Complete device calibration to begin measurement/u);
+  assert.match(runtime, /body\.append\(kick, title, content, nav\);[\s\S]*if \(step\.key === 'readiness'\) \{[\s\S]*bindPreview\(\)/u);
 });
 
 test('Live Mock Studio stays behind the Scheduler owner capability boundary', () => {
