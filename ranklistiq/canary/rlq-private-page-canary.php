@@ -19,7 +19,7 @@ add_action(
             ? (string) wp_parse_url(wp_unslash($_SERVER['REQUEST_URI']), PHP_URL_PATH)
             : '';
         $is_private_page = 9174 === $page_id;
-        $is_path_route = '/rank-list-engine/ranklistiq-acceptance-0921a' === untrailingslashit($request_path);
+        $is_path_route = '/rlq-preview-0921a' === untrailingslashit($request_path);
 
         if (!$is_private_page && !$is_path_route) {
             return;
