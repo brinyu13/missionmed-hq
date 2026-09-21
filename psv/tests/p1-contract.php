@@ -7,6 +7,7 @@ $generator = (string) file_get_contents( $root . '/includes/class-mmps-generator
 $provider = (string) file_get_contents( $root . '/includes/class-mmps-provider.php' );
 $ui = (string) file_get_contents( $root . '/assets/mmps-app.js' );
 $plugin = (string) file_get_contents( $root . '/missionmed-file-vault-ps.php' );
+$stubs = (string) file_get_contents( dirname( __DIR__ ) . '/local-harness/stubs.mjs' );
 $pass = 0;
 $fail = 0;
 function p1check( $ok, $label ) {
@@ -29,6 +30,7 @@ p1check( str_contains( $generator, 'do not repeat a clause of four or more conse
 p1check( str_contains( $generator, 'generic claim about growth, service, learning, curiosity or contribution is not an applicant anchor' ) && str_contains( $generator, 'both a program-name swap and an applicant swap' ), 'writer requires ROOT-specific anchors and rejects stock applicant language' );
 p1check( str_contains( $generator, "'target_words'" ) && str_contains( $generator, "'transition_contract'" ) && str_contains( $generator, 'two-sided transition test' ), 'writer has a concise two-sided transition contract' );
 p1check( str_contains( $generator, "'root_anchor_terms'" ) && str_contains( $generator, "'ROOT_ANCHOR_REQUIRED'" ) && str_contains( $generator, "'requireRootAnchors'" ), 'real-provider candidates must prove distinct protected-ROOT anchors' );
+p1check( str_contains( $stubs, 'root_anchor_terms: [rootAnchor]' ) && str_contains( $stubs, 'protectedRoot' ), 'provider protocol stub supplies distinct protected-ROOT anchor provenance' );
 p1check( str_contains( $provider, 'const HTTP_TIMEOUT_SECONDS = 70' ) && str_contains( $provider, "'timeout'     => self::HTTP_TIMEOUT_SECONDS" ), 'real provider has one explicit bounded timeout' );
 p1check( str_contains( $provider, "'effort' => 'low'" ) && str_contains( $provider, 'server validators carry quality' ), 'provider latency is bounded without weakening deterministic quality gates' );
 p1check( str_contains( $generator, 'const REQUEST_EDGE_BUDGET_MS    = 95000' ) && str_contains( $generator, 'const RETRY_OVERHEAD_BUDGET_MS = 5000' ) && str_contains( $generator, 'retry_fits_edge_budget' ), 'provider retry reserves its complete timeout and overhead below the edge ceiling' );

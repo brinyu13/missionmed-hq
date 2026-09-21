@@ -78,6 +78,21 @@ http.createServer((req, res) => {
     const F = payload.allowed_facts, by = (label) => F.find(f => f.label === label);
     const name = payload.program.programName, loc = by('Location'), type = by('Program type'), pd = by('Program director');
     const deep = F.filter(f => f.category !== 'identity');
+    const regionIndex = Math.max(0, Number(payload.region?.paragraph_number || 1) - 1);
+    const protectedRoot = (payload.root_paragraphs || []).filter((_, index) => payload.region?.mode !== 'REPLACE_PARAGRAPH' || index !== regionIndex).join(' ');
+    const factCorpus = F.map(item => `${item.label || ''} ${item.text || ''}`.toLocaleLowerCase()).join(' ');
+    const genericAnchors = new Set(['patient', 'patients', 'care', 'medicine', 'medical', 'physician', 'physicians', 'residency', 'program', 'growth', 'learning', 'community', 'service', 'curiosity']);
+    const rootAnchors = [...new Set((protectedRoot.match(/[\p{L}\p{N}][\p{L}\p{N}'’-]{3,}/gu) || []).map(word => word.toLocaleLowerCase()))]
+      .filter(word => !genericAnchors.has(word) && !factCorpus.includes(word))
+      .slice(0, 5);
+    if (rootAnchors.length !== 5) throw new Error('Synthetic fixture needs five distinct protected-ROOT anchors');
+    const anchorSentences = [
+      anchor => `I learned that kind of attention while searching for ${anchor}.`,
+      anchor => `The memory of ${anchor} keeps my goals practical.`,
+      anchor => `What began with ${anchor} still guides how I ask questions.`,
+      anchor => `I return to ${anchor} when I think about the setting in which I hope to train.`,
+      anchor => `${anchor[0].toLocaleUpperCase()}${anchor.slice(1)} remains a quiet reminder to keep reflection tied to action.`
+    ];
     const bad = mode === 'hallucinate-always' || (mode === 'hallucinate-once' && !payload.revision_notes);
     const openings = {
       TRAINING_ENVIRONMENT: 'I learn best when close observation, direct feedback, and shared responsibility turn uncertainty into better clinical judgment.',
@@ -96,6 +111,8 @@ http.createServer((req, res) => {
     const candidates = (payload.requested_strategies || []).map((requested, index) => {
       const key = requested.key;
       const segs = [{ text: openings[key] || 'I have thought carefully about the next stage of training.', kind: 'student_link', fact_ids: [] }];
+      const rootAnchor = rootAnchors[index];
+      segs.push({ text: anchorSentences[index](rootAnchor), kind: 'student_link', fact_ids: [] });
       const nameFact = by('Program name');
       const identityFact = key === 'LOCATION_PROGRAM_TYPE' ? (loc || type) : key === 'BALANCED_QUIET_SPECIFIC' ? null : type;
       const identityIds = [nameFact, identityFact].filter(Boolean).map(f => f.fact_id);
@@ -117,7 +134,7 @@ http.createServer((req, res) => {
       if (pd && key === 'STUDENT_GOAL_FORWARD') segs.push({ text: pd.text, kind: 'program_fact', fact_ids: [pd.fact_id] });
       if (bad && index === 0) segs.push({ text: 'With 42 residents per class and the mentorship of Dr. Alan Whitmore, it is better than any other option.', kind: 'program_fact', fact_ids: [] });
       segs.push({ text: closings[key] || 'I would bring the same deliberate approach to the work ahead.', kind: 'student_link', fact_ids: [] });
-      return { candidate_id: key, replacement_region: segs.map(s => s.text).join(' '), segments: segs, facts_used: [...new Set(segs.flatMap(s => s.fact_ids))], strategy: key, rhetorical_focus: `Stub fixture for ${key}`, self_check: { name_swap_would_still_work: false, possible_unsupported_claims: [], generic_phrases: [] } };
+      return { candidate_id: key, replacement_region: segs.map(s => s.text).join(' '), segments: segs, facts_used: [...new Set(segs.flatMap(s => s.fact_ids))], root_anchor_terms: [rootAnchor], strategy: key, rhetorical_focus: `Stub fixture for ${key}`, self_check: { name_swap_would_still_work: false, possible_unsupported_claims: [], generic_phrases: [] } };
     });
     const out = { recommended_candidate_id: 'BALANCED_QUIET_SPECIFIC', candidates };
     const finish = () => send(res, 200, { id: 'resp_stub', output: [{ type: 'reasoning', summary: [] }, { type: 'message', content: [{ type: 'output_text', text: JSON.stringify(out) }] }], usage: { input_tokens: 1800, output_tokens: 260 } });
