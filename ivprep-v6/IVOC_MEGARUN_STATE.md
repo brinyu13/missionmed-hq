@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-21 05:55 America/New_York
+Updated: 2026-09-21 07:17 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -26,16 +26,33 @@ the actual production route and deployment.
   live state, preserves failed-save retry, shows live device/connection failures,
   and prevents saved Results from borrowing current live metrics. Independent
   Astra code review raised four concrete issues; these were corrected before
-  release. Production POV remains UNVERIFIED until deployed and traversed.
+  release. Code is deployed; production Home → readiness → Joining → distinct
+  live Interview Room → Saving → Results was traversed twice using the physical
+  FaceTime camera. Realistic mode removes preflight/Start/navigation; coached
+  mode places live delivery/voice rails around the candidate. A compact-video
+  overlay alignment defect found during that POV was corrected and reverified
+  visually. Hidden guides leave measurements updating. No new provider/capture
+  graph was introduced. Transcript remains collapsed by default.
+- Runtime source `b3902a6b3441e8ccabe794369e8dfaee64a0dd7e` passed 7/7 final
+  room regressions; preceding focused presentation/media/durable suite passed
+  47/47. Save retry now retains the already-sealed recording receipt if Results
+  filing fails. Astra's independent source review found no remaining blocking
+  presentation issue; narrow instrument-caption clipping is nonblocking polish.
+- Production recordings created at 07:07 and 07:13 saved successfully and opened
+  Results/Film Room. The 07:07 recording reopened from Answer Library after cold
+  reload and its video playback advanced. These canaries each contain only the
+  interviewer's opening transcript turn; they do NOT establish spoken multi-turn,
+  barge-in or audible two-sided replay acceptance. Screenshots of the live room,
+  aligned guides and full Results were attached directly in the task.
 - Immediate rollback before this presentation release: commit
   `279abfaad13906647f3304a647179d5a624550ea`, deployment
   `950cecdb-8430-4a68-8efe-e3732133f8f0`, image
   `sha256:d39d999cdf03fea7c59296ad061362e1f1e4af197dbda3436755e73ae7c8484d`.
 
 - Current healthy production runtime: commit
-  `bc47ec996d05759bc5507fa9b27ba36cb961fc68`, Railway deployment
-  `2442f856-4e56-4371-a327-5dcb63f6b303`, image
-  `sha256:295db580640de11045b15f9067850a8d164edc1ef54c73e30b1c36c85c158ca4`;
+  `b3902a6b3441e8ccabe794369e8dfaee64a0dd7e`, Railway deployment
+  `a64b0e7e-8f63-4492-8769-61e3f8090a7a`, image
+  `sha256:64053433049e9121a1cc468bba738ff06ac2472f0a74aa15afc8dc5b1015eb76`;
   `/health` is HTTP 200 and anonymous product access fails closed at HTTP 401.
 - **Journey A — SELF PRACTICE: PASS.** The production UI reached Question Pool,
   Device Check and Coached Practice; FaceTime HD Camera visibly rendered at
@@ -246,8 +263,11 @@ the actual production route and deployment.
   multi-turn capture, single-audio teardown, prior-session aggregation,
   prior-self comparison, the presentation-adapter correction, StoryForge
   owner/consumer wiring, RISE owner/consumer source, the live non-secret
-  capability manifest and the two-sided AI recording mix are complete. No
-  independent engineering item remains behind the evidence waits listed below.
+  capability manifest and the two-sided AI recording mix are implemented. The
+  Founder-reopened distinct runtime-room presentation and save-retry defects
+  have now been fixed forward and deployed. This does not make the complete AI
+  journey accepted. No additional blocking source defect was identified by the
+  bounded Astra review; any new genuine POV defect reopens engineering.
 - **B — EXTERNAL EVIDENCE WAITING:** one genuine saved AI Mock must audibly replay
   interviewer → candidate → contextual follow-up → candidate after cold reload;
   one deliberate physical barge-in and pool-ordered next-question exchange;
@@ -263,10 +283,18 @@ the actual production route and deployment.
 - **D — EXPLICITLY DEFERRED:** active LemonSlice/provider execution. Match
   Bridge cross-product pickup remains low priority because the IVOC-owned
   consent/version/revocation clip seam is already live accepted.
-- **Weighted IVOC-FOREMAN-9100 completion:** 96%. The newly discovered P0 replay
-  defect is repaired, tested and live, but its mandatory audible production POV
-  acceptance is not inferred from track metadata or automated tests. Remaining
-  weight is genuine external acceptance evidence, not hidden implementation.
+- **Prior 96% estimate withdrawn:** the rejected runtime composition showed that
+  component completion overstated user-journey acceptance. Distinct-room visual
+  transitions, save and reload are verified above; the full AI journey remains
+  open until actual spoken follow-up/interruption and audible two-sided replay
+  pass. No replacement percentage is claimed from component/test counts.
+- **Exact next executable acceptance:** on the current production Home choose
+  AI Mock Interview, connect FaceTime camera + physical microphone, Start,
+  answer aloud, respond to the follow-up, interrupt once, finish/save, then
+  listen to both voices in Film Room and repeat playback after reload. Browser
+  control can navigate this path, but current tooling does not supply genuine
+  human microphone speech or independently hear output; no synthetic substitute
+  is accepted. Other identity/data/provider waits above recheck only on change.
 
 ## Production data authority — LIVE VERIFIED
 
