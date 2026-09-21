@@ -2833,7 +2833,7 @@ function renderFullAnalyticsReport(analytics = null) {
     sessionDetail: state.lastSaved?.sessionDetail,
     envelope: state.lastSaved?.envelope,
   });
-  const canonicalTranscript = conversationTurns.some((turn) => turn.canonical);
+  const canonicalTranscript = conversationTurns.length > 0 && conversationTurns.every((turn) => turn.canonical);
   const recordingState = state.lastSaved?.recording?.recording?.status
     || state.lastSaved?.sessionDetail?.recording?.status
     || (state.lastSaved?.recording?.blob ? 'captured locally' : null);
@@ -3014,7 +3014,7 @@ function renderFilmRoomSpine(session) {
   const host = $('#filmroom-spine');
   if (!host) return;
   const turns = persistedConversationTurns({ sessionDetail: session });
-  const canonicalTranscript = turns.some((turn) => turn.canonical);
+  const canonicalTranscript = turns.length > 0 && turns.every((turn) => turn.canonical);
   const evidence = Array.isArray(session?.spine?.evidence) ? session.spine.evidence : [];
   host.replaceChildren();
   if (!turns.length) {

@@ -36,7 +36,7 @@ test('projects legacy saved analytics from evidence and leaves absent signals un
 test('prefers canonical transcript turns and drops noncanonical duplicates', () => {
   const turns = persistedConversationTurns({ sessionDetail: {
     spine: { turns: [
-      { speaker: 'student', startMs: 400, endMs: 900, transcript: { text: 'Canonical answer.' } },
+      { speaker: 'student', startMs: 400, endMs: 900, transcript: { canonical_ref: 'transcript:t#seg-1', text: 'Canonical answer.' } },
     ] },
     results: { payload: { liveConversation: { turns: [
       { speaker: 'applicant', startMs: 420, text: 'Provider duplicate.' },
@@ -45,6 +45,17 @@ test('prefers canonical transcript turns and drops noncanonical duplicates', () 
   assert.deepEqual(turns, [{
     speaker: 'student', text: 'Canonical answer.', startMs: 400, endMs: 900, canonical: true,
   }]);
+});
+
+test('preserves provisional spine provenance without calling it canonical', () => {
+  const turns = persistedConversationTurns({ sessionDetail: { spine: { turns: [
+    { speaker: 'interviewer', startMs: 120, transcript: { provisional_ref: 'provider:1', text: 'Why this program?' } },
+    { speaker: 'student', startMs: 900, transcript: { provisional_ref: 'provider:2', text: 'Because of its community focus.' } },
+  ] } } });
+  assert.deepEqual(turns, [
+    { speaker: 'interviewer', text: 'Why this program?', startMs: 120, endMs: 120, canonical: false },
+    { speaker: 'student', text: 'Because of its community focus.', startMs: 900, endMs: 900, canonical: false },
+  ]);
 });
 
 test('rehydrates saved GPT-Live turns when canonical processing is not available yet', () => {

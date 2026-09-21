@@ -71,8 +71,8 @@ export function buildHomeViewModel({ identity = null, sessions = [], mentorPrior
   });
 }
 
-function normalizedConversationTurn(turn, { canonical }) {
-  const text = canonical ? turn?.transcript?.text : turn?.text;
+function normalizedConversationTurn(turn, { spine }) {
+  const text = spine ? turn?.transcript?.text : turn?.text;
   if (typeof text !== 'string' || !text.trim()) return null;
   const speaker = ['student', 'applicant', 'user'].includes(String(turn?.speaker || '').toLowerCase())
     ? 'student'
@@ -84,20 +84,25 @@ function normalizedConversationTurn(turn, { canonical }) {
     text: text.trim(),
     startMs: Number.isFinite(startMs) ? startMs : 0,
     endMs: Number.isFinite(endMs) ? endMs : (Number.isFinite(startMs) ? startMs : 0),
-    canonical,
+    canonical: spine && Boolean(turn?.transcript?.canonical_ref),
   });
 }
 
 export function persistedConversationTurns({ sessionDetail = null, envelope = null } = {}) {
   const canonicalTurns = Array.isArray(sessionDetail?.spine?.turns)
-    ? sessionDetail.spine.turns.map((turn) => normalizedConversationTurn(turn, { canonical: true })).filter(Boolean)
+    ? sessionDetail.spine.turns.map((turn) => normalizedConversationTurn(turn, { spine: true })).filter(Boolean)
     : [];
-  if (canonicalTurns.length) return Object.freeze(canonicalTurns);
+  if (canonicalTurns.length) {
+    const hasCanonicalStudentTurns = canonicalTurns.some((turn) => turn.speaker === 'student' && turn.canonical);
+    return Object.freeze(canonicalTurns.filter((turn) => turn.speaker !== 'student'
+      || !hasCanonicalStudentTurns
+      || turn.canonical));
+  }
 
   const liveTurns = sessionDetail?.results?.payload?.liveConversation?.turns
     || envelope?.liveConversation?.turns
     || [];
   return Object.freeze(Array.isArray(liveTurns)
-    ? liveTurns.map((turn) => normalizedConversationTurn(turn, { canonical: false })).filter(Boolean)
+    ? liveTurns.map((turn) => normalizedConversationTurn(turn, { spine: false })).filter(Boolean)
     : []);
 }
