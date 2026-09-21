@@ -185,7 +185,9 @@ function setView(view, { focus = false } = {}) {
   if (view === 'progress') void renderProgress();
   if (view === 'governance') void refreshQuestionGovernance();
   if (view === 'mentor') void renderAdminOverview();
-  if (view === 'filmroom' && state.lastSaved?.sessionDetail) renderFilmRoomSpine(state.lastSaved.sessionDetail);
+  if (view === 'filmroom' && state.lastSaved) {
+    renderFilmRoomSpine(state.lastSaved.sessionDetail, state.lastSaved.envelope);
+  }
   if (view === 'vault') void renderVault();
   if (focus) $('#main-content')?.focus?.({ preventScroll: true });
   window.scrollTo({ top: 0, behavior: 'auto' });
@@ -2755,14 +2757,21 @@ function renderLoadoutConfig() {
 function renderPostAnswer(analytics = null) {
   const provenance = $('#post-provenance');
   if (provenance) {
-    const session = state.lastSaved?.sessionDetail?.session || state.lastSaved?.session || null;
+    const detailSession = state.lastSaved?.sessionDetail?.session || null;
+    const librarySession = state.lastSaved?.session || null;
+    const session = detailSession || librarySession;
     const question = session?.questionText || session?.title || session?.questionId || 'No saved answer selected';
     const when = session?.endedAt || session?.startedAt || null;
     const program = session?.programName || state.lastSaved?.sessionDetail?.context?.program?.name || null;
+    const ownerDisplayName = detailSession?.ownerDisplayName || librarySession?.ownerDisplayName || null;
     provenance.replaceChildren(
       el('span', 'microcap', state.lastSaved?.persisted ? 'Saved private answer' : 'Current unsaved review'),
       el('strong', '', question),
-      el('span', 'canon-muted', [when ? new Date(when).toLocaleString() : null, program].filter(Boolean).join(' · ') || 'Session details unavailable'),
+      el('span', 'canon-muted', [
+        state.role === 'admin' && ownerDisplayName ? `Student · ${ownerDisplayName}` : null,
+        when ? new Date(when).toLocaleString() : null,
+        program,
+      ].filter(Boolean).join(' · ') || 'Session details unavailable'),
     );
   }
   const rail = statusRail(state.bus.latest);
@@ -3010,10 +3019,10 @@ function renderContextEvidence(result) {
   host.append(privacy);
 }
 
-function renderFilmRoomSpine(session) {
+function renderFilmRoomSpine(session, envelope = null) {
   const host = $('#filmroom-spine');
   if (!host) return;
-  const turns = persistedConversationTurns({ sessionDetail: session });
+  const turns = persistedConversationTurns({ sessionDetail: session, envelope });
   const canonicalTranscript = turns.length > 0 && turns.every((turn) => turn.canonical);
   const evidence = Array.isArray(session?.spine?.evidence) ? session.spine.evidence : [];
   host.replaceChildren();

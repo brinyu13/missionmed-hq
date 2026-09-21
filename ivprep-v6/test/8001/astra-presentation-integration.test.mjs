@@ -143,6 +143,12 @@ test('Answer History exposes question and evidence filters without inventing sem
   assert.match(html, /no emotion, personality, or program-fit inference/u);
 });
 
+test('freshly finished interviews and Admin reviews retain their user-facing context', () => {
+  assert.match(runtime, /view === 'filmroom' && state\.lastSaved[\s\S]*renderFilmRoomSpine\(state\.lastSaved\.sessionDetail, state\.lastSaved\.envelope\)/u);
+  assert.match(runtime, /function renderFilmRoomSpine\(session, envelope = null\)[\s\S]*persistedConversationTurns\(\{ sessionDetail: session, envelope \}\)/u);
+  assert.match(runtime, /state\.role === 'admin' && ownerDisplayName \? `Student · \$\{ownerDisplayName\}`/u);
+});
+
 test('verified program search becomes actionable when the visible query changes', () => {
   assert.match(runtime, /const updateProgramSearchAvailability = \(\) =>/u);
   assert.match(runtime, /input\.addEventListener\('input',[\s\S]*updateProgramSearchAvailability\(\)/u);
