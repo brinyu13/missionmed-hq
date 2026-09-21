@@ -1092,7 +1092,7 @@ add_action('wp_footer', static function (): void {
 }, PHP_INT_MAX);
 
 add_action('wp_footer', static function (): void {
-    if (!mm_mr_p0_enabled() || !mm_mr_0912_is_customer_funnel_route()) return;
+    if (!mm_mr_0912_is_customer_funnel_route()) return;
     $cartUrl = function_exists('wc_get_cart_url') ? (string) wc_get_cart_url() : home_url('/cart/');
     $cartCount = function_exists('WC') && WC()->cart ? (int) WC()->cart->get_cart_contents_count() : 0;
     $label = $cartCount === 1 ? 'Cart, 1 item' : 'Cart, ' . $cartCount . ' items';
