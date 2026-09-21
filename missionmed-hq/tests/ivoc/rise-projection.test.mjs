@@ -58,7 +58,7 @@ test('search returns only a bounded IVOC program selection projection', async ()
         registryReleaseId: RELEASE_ID,
         total: 1,
         records: [{
-          id: PROGRAM_ID,
+          id: 'rise_prg_parent', programSpecialtyId: PROGRAM_ID,
           display: { programName: 'Example Internal Medicine Residency', institution: 'Example Health', city: 'Boston', state: 'Massachusetts' },
           designation: 'Internal Medicine', programType: 'University', evidence: { coveragePercent: 62 },
         }],

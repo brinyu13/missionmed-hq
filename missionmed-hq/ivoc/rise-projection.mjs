@@ -106,11 +106,14 @@ export function createRiseProgramProjectionSource({
           throw new TypeError('ivoc_rise_search_invalid');
         }
         const records = payload.records.map((record) => {
-          if (!OPAQUE_ID.test(String(record?.id || '')) || !boundedText(record?.display?.programName, 240)) {
+          if (!OPAQUE_ID.test(String(record?.programSpecialtyId || '')) || !boundedText(record?.display?.programName, 240)) {
             throw new TypeError('ivoc_rise_search_invalid');
           }
           return Object.freeze({
-            id: record.id,
+            // The owner projection is keyed by the selected program-specialty,
+            // not the parent registry program. Keep the UI contract's `id`
+            // field, but bind it to the exact identity accepted by read().
+            id: record.programSpecialtyId,
             name: record.display.programName,
             institution: boundedText(record.display.institution, 240) ? record.display.institution : null,
             city: boundedText(record.display.city, 120) ? record.display.city : null,
