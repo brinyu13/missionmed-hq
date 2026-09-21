@@ -1,60 +1,61 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-21 01:59 America/New_York
+Updated: 2026-09-21 05:34 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
+Current terminal status: `IVOC ENGINEERING COMPLETE — EXTERNAL ACCEPTANCE EVIDENCE WAITING`
 
 This is the one living requirement ledger required by the final Founder
 completion directive. A status of `LIVE UNVERIFIED` means the capability is
 present in the active source lineage but has not yet passed acceptance against
 the actual production route and deployment.
 
-## Founder POV acceptance reset — P0
+## Founder POV production acceptance — current
 
-- The prior 94% / executable-work-exhausted conclusion is invalid. Critical
-  acceptance now requires complete production-UI journeys, not component,
-  endpoint, DOM, readiness-state or test evidence.
 - Current healthy production baseline: commit
-  `a507fbac2ef137a5574b44c9f35b321660f36418`, Railway deployment
-  `4c755ac4-0926-483f-b812-189d7e28cb84`, image
-  `sha256:88af54379dffd59e9f91d3bd1416d97f93801b26aacf4b85538f5760ec52dc12`; `/health` is HTTP 200 and anonymous
-  product access fails closed at HTTP 401. This is infrastructure health, not
-  Founder journey acceptance.
-- Real RISE search/select is production-verified: searching `SUNY` returned 44
-  authorized results, SUNY Downstate Primary Care was selected and retained
-  through Review, and the RISE context source enabled from that verified
-  identity.
-- Source now requires an exact bound video element to be actively playing with
-  nonzero dimensions after camera connection, camera switching and Interview
-  Room transition. It also exposes distinct Home entry actions for self
-  practice, AI mock and interview building. Focused verification is 38/38.
-- Founder POV fix-forward source is now `a507fbac2ef137a5574b44c9f35b321660f36418`.
-  It removes false Ready states, blocks zero-question launches, distinguishes
-  verified RISE selection from manual text, makes Enter execute program search,
-  gives students a direct Review answer action with session provenance, and
-  routes Self Practice through question selection. The changed critical suite
-  passes 73/73. Fencing epochs 3447-3449 were continuously heartbeated, remotely
-  read back, non-force pushed and released normally.
-- The historical Founder save failure was traced to two production session
-  creates that requested RISE with only manual program text. The upstream
-  projection correctly failed closed, but the route returned a generic 500.
-  Current source suppresses unverified RISE context and returns actionable 409
-  projection-unavailable errors; successful recording/save/reload remains POV
-  unverified until a physical capture completes.
-- Current authenticated Chrome evidence: Chrome's selected camera is FaceTime
-  HD Camera and sites may request camera access, while the production IVOC page
-  currently enumerates no video input and combined capture returns Requested
-  device not found. macOS still enumerates physical and virtual cameras. This is
-  the exact current physical-browser blocker; it is not camera acceptance and
-  it does not reclassify the capture/binding code as verified.
-- **UNVERIFIED / required before closure:** complete production POV Journey 1
-  Self Practice, Journey 2 AI Mock (including audible question, contextual
-  follow-up and barge-in), Journey 3 program-aware interview influence, and
-  Journey 4 Admin student-library traversal. Camera acceptance specifically
-  requires a visibly rendered physical frame; save acceptance requires
-  successful reload and private playback.
+  `bde280840a6324bdc4516780a6f57892ed72dc8c`, Railway deployment
+  `636b0518-9fb4-4d50-99d2-252f5b221308`, image
+  `sha256:02db413acba95e12a5143db14c0b0872fe873fb5d1779a5f6707a11b12b78521`;
+  `/health` is HTTP 200 and anonymous product access fails closed at HTTP 401.
+- **Journey A — SELF PRACTICE: PASS.** The production UI reached Question Pool,
+  Device Check and Coached Practice; FaceTime HD Camera visibly rendered at
+  640x480; the physical microphone and live Analytics ran; the account recording
+  saved; Results, Film Room and Library reopened the signed private recording
+  after a cold reload.
+- **Journey B — AI MOCK INTERVIEW: PASS except physical barge-in/next-question
+  evidence.** The normal production UI reached the actual Interview Room; the
+  `gpt-live-1` interviewer audibly asked the selected question, heard a physical
+  microphone answer, asked contextual follow-ups, maintained the recording and
+  tore down cleanly. The saved session reopened through Results, Film Room and
+  Library. A deliberate human interruption while the interviewer is speaking
+  and a physical pool-ordered next-question exchange remain external acceptance
+  evidence waiting; the deployed interruption contract and provider canary are
+  already accepted.
+- **Journey C — PROGRAM-AWARE INTERVIEW: PASS.** Searching `SUNY` returned 44
+  readable authorized RISE results; SUNY Downstate Primary Care was selected and
+  retained; the Context Pack contains the selected program/specialty and RISE
+  receipt; the production interviewer used that context in its follow-up.
+- **Journey D — ADMIN STUDENT LIBRARY: PASS for Founder/Admin traversal.** Admin
+  selected `brinyu`, opened that student's Results and transcript-backed Film
+  Room, and played the signed private recording without actor/subject confusion.
+  Genuine second-Admin, entitled-360, negative-role and cross-subject identities
+  remain external acceptance evidence waiting; no identity was forged.
+- Session `40ff8df2-58df-4b00-ae67-24c0da959f7f` is the current physical
+  program-aware acceptance record: 74.06 seconds, sealed private recording of
+  16,661,773 bytes, 11 conversation turns, 8 canonical transcript turns, one
+  answer range and 8 persisted coaching-evidence observations. Cold reload
+  reconstructed the transcript and evidence without a provider re-call.
+- The current source makes builder/readiness progression truthful, blocks Review
+  until at least one question is selected, preserves the visible camera binding
+  across calibration/practice/interview transitions, and replaces student-facing
+  engineering terms and raw segment IDs with plain evidence language. Admin
+  diagnostics remain available. The changed focused suite passes 25/25.
+- The prior `ACCOUNT SAVE UNAVAILABLE FOR THIS REP — IVOC_INTERNAL_ERROR` path is
+  resolved. Unverified manual RISE text no longer creates a false provider
+  dependency, and the accepted physical rep proves save, reload and signed
+  private playback through the Founder-facing production UI.
 
 ## Canon and source lineage
 
@@ -222,11 +223,12 @@ the actual production route and deployment.
   owner/consumer wiring, RISE owner/consumer source, and the live non-secret
   capability manifest are complete. No independent engineering item remains
   behind the evidence waits listed below.
-- **B — EXTERNAL EVIDENCE WAITING:** one genuine recorded multi-turn human
-  exchange; genuine multi-session recurrence; authenticated second-Admin,
-  entitled-360 and negative/wrong-owner role evidence; and completed Webex
-  media while its owner reports `RECORDING PROCESSING`. Recheck only after the
-  relevant user, provider or session event changes.
+- **B — EXTERNAL EVIDENCE WAITING:** one deliberate physical barge-in and
+  pool-ordered next-question exchange; genuine multi-session recurrence;
+  authenticated second-Admin, entitled-360 and negative/wrong-owner/cross-subject
+  role evidence; positive current-CV and consented-story owner data; and completed
+  Webex media while its owner reports `RECORDING PROCESSING`. Recheck only after
+  the relevant user, provider or session event changes.
 - **C — OWNER-SCOPED INTEGRATION REQUIRED:** no currently authorized owner-side
   engineering remains. File Vault, StoryForge and RISE projections plus IVOC
   consumers are deployed through their owner boundaries. Genuine current-CV
@@ -234,7 +236,7 @@ the actual production route and deployment.
 - **D — EXPLICITLY DEFERRED:** active LemonSlice/provider execution. Match
   Bridge cross-product pickup remains low priority because the IVOC-owned
   consent/version/revocation clip seam is already live accepted.
-- **Weighted IVOC-FOREMAN-9100 completion:** 94%. All presently executable
+- **Weighted IVOC-FOREMAN-9100 completion:** 97%. All presently executable
   engineering and authorized owner-side work is complete; the remaining
   weight is genuine external acceptance evidence, not hidden implementation.
 
@@ -304,13 +306,13 @@ the actual production route and deployment.
 | 6 | Volume, pace, pauses, pitch, fillers and transcript boundaries | LIVE VERIFIED | Physical production reps proved live volume, variation, pitch, pace, cadence and pause states. Authenticated saved session `0d250e0c-1011-48bc-a416-f9ae4c2c735f` then cold-reconstructed three canonical transcript segments, 36 words, the 0 s–18 s capture-owner boundary and zero bounded filler candidates on deployment `6b5bad11…`; the UI discloses the bounded lexicon and explicitly rejects hidden-trait inference. |
 | 6 | Admin measurement/visibility controls and prohibited-inference safeguards | LIVE VERIFIED | Production Admin and Student Coached Practice face/head, hand/finger, body/pose and framing/head-orientation overlays were visibly aligned to the real camera surface and independently toggleable; measurement continued while hidden. True eye-gaze visualization remains unsupported; the product exposes only defensible camera-facing/head-orientation proxies. |
 | 7 | Canonical clock across recording, transcript, Q/A, Analytics, Results and clips | LIVE VERIFIED | A production CORE-01 rep persisted one complete session contract, nine timestamped conversation turns and one answer segment; the Film Room transcript row sought private replay to 2.26 s after reload. |
-| 7 | Private durable capture, canonical transcript, answer/follow-up ranges and gaps | LIVE UNVERIFIED | Owner capture, upload, seal, canonical transcript/answer range persistence, signed playback, reload and `context_persist` audit passed. Deployed canary `f89dc627…` proved five provisional GPT-Live turns and structural follow-up linkage survive private reload without becoming canonical. A real recorded multi-turn exchange with canonical answer/follow-up/gap ranges remains to be accepted. |
+| 7 | Private durable capture, canonical transcript, answer/follow-up ranges and gaps | LIVE VERIFIED | Physical production AI session `40ff8df2…` persisted a sealed 16,661,773-byte private recording, 11 conversation turns, 8 canonical transcript turns, one answer range and 8 coaching-evidence observations. Results, Film Room and Library reconstructed the private session after cold reload. |
 | 8 | Evidence-grounded Results | LIVE VERIFIED | Production post-answer Results and bounded transcript/context analysis returned evidence-cited observations tied to transcript segments without unsupported scoring. |
 | 8 | Film Room synchronized replay and Flight Recorder timeline | LIVE VERIFIED | A private production rep survived reload, reopened through signed owner playback, visibly rendered aligned replay overlays, and its timestamped transcript row sought replay to 2.26 s. |
 | 8 | Durable student Video Library and Admin student-library access | LIVE VERIFIED | Cold production reload returned 14 owner-bound sessions to authenticated Admin `wp:1`; the semantic CORE-01 answer reopened through signed private playback with its timestamped transcript spine and three persisted observations. Student view still hides the Admin selector. Negative-role isolation remains tracked separately. |
 | 9 | Current supported realtime transport and contextual InterviewBrain | LIVE VERIFIED | Production `gpt-live-1` WebRTC canary created twice through the authenticated IVOC broker, reached `session.started`, exchanged native audio/transcript events, and ended with provider hangup HTTP 200. |
-| 9 | Natural turns, answer-grounded follow-up, memory, move-on and barge-in | LIVE VERIFIED | Production canary retained the discharge/teach-back detail across turns, asked evidence-grounded follow-ups, honored “move to the next question,” and visibly truncated “That gives me a—” on barge-in before continuing. |
-| 9 | Pool/context weighting, clean teardown, single audio authority | LIVE UNVERIFIED | Production deployment `db562b38…` at source `b6b0a92` resolves the selected canonical corpus entries into an exact ordered server prompt, keeps pressure as a modifier instead of replacing interviewer identity, rejects a surplus provider audio track, and persists the strict `configured -> bound -> released` `ivoc.audio-authority.v1` lifecycle. Deployed synthetic contract canary `f89dc627…` returned `audioAuthorityVerified=true`; authenticated reload preserved five turns, and provider readback plus `audio_authority_persist` audit confirmed single native audio. One real recorded, pool-ordered multi-question exchange remains for behavioral acceptance. |
+| 9 | Natural turns, answer-grounded follow-up, memory, move-on and barge-in | LIVE VERIFIED / PHYSICAL BARGE-IN WAITING | The actual production Interview Room audibly asked the selected question, heard the physical applicant answer and asked contextually grounded follow-ups. Provider canary evidence still proves move-on and response truncation; one deliberate human interruption during interviewer speech remains external acceptance evidence waiting. |
+| 9 | Pool/context weighting, clean teardown, single audio authority | LIVE VERIFIED / PHYSICAL NEXT-QUESTION WAITING | The physical program-aware session used the selected canonical question and RISE Context Pack, persisted a single native-audio authority and tore down cleanly. The deployed contract and canary prove exact pool order and move-on; one physical pool-ordered next-question exchange remains external acceptance evidence waiting. |
 | 10 | Server-owned Application Intelligence Context Pack hydration | LIVE VERIFIED | Genuine `brinyu` production session `1b973235-de3b-4d2c-a39a-c51e49df38e8` persisted one owner-bound private pack and `ctxpack:` receipt. Two authenticated `gpt-live-1` WebRTC canaries resolved that same server-only contract, reached live audio/transcript exchange and clean teardown; neither Actor block nor receipt crossed the browser boundary. |
 | 10 | File Vault context/performance-reference seam | LIVE DEPLOYED / POSITIVE EVIDENCE WAITING | Mission `J1-FILEVAULT-1021-IVOC-CV-PROJECTION` implemented the minimal S2S projection at owner source `9ba360b…` and deployed only that projection from exact live baseline commit `2587f3c…`; IVOC's selected-source, server-authenticated consumer is live at `a2e945c…`. Anonymous projection/bootstrap access is 401, direct object-root access is 403, product health is 200 and anonymous IVOC access is 401. A genuine authorized reviewed current-CV positive projection is not presently available and remains external evidence waiting. |
 | 10 | StoryForge opt-in story/theme and performance evidence | LIVE DEPLOYED / POSITIVE EVIDENCE WAITING | StoryForge's consented, versioned projection is live at `3cffc77` / `6393da35…`; IVOC's selected-source server consumer is live at `14f115c`. Anonymous access is 401 and malformed/cross-subject/absent data fails closed. A genuine consented positive story projection remains external evidence waiting. |
@@ -345,8 +347,8 @@ the actual production route and deployment.
 ## Current production and governance gates
 
 - Latest functionality-accepted MissionMed HQ production is Railway deployment
-  `d843d3dd-7263-4013-a7e5-d49dce63825d` from exact product commit
-  `2e06b59fc9a156c966dcd7574cc2a7c6fbea1924`; `/health` is HTTP 200, the
+  `636b0518-9fb4-4d50-99d2-252f5b221308` from exact product commit
+  `bde280840a6324bdc4516780a6f57892ed72dc8c`; `/health` is HTTP 200, the
   unauthenticated product route fails closed at HTTP 401, and the verified
   second-Admin allowlist remains `wp:1,wp:107`.
 - Runtime bindings point to dedicated project `bscnrgqlwsyygyfrbhfn` without
@@ -394,8 +396,8 @@ the actual production route and deployment.
 
 ## Next execution lanes
 
-1. When a genuine human session becomes available, accept the real recorded
-   multi-turn answer/follow-up/gap and pool-order path once.
+1. When a genuine human session becomes available, accept deliberate physical
+   barge-in and the pool-ordered next-question path once.
 2. Recheck File Vault and StoryForge positive projections only after genuine
    authorized current-CV or consented-story data exists.
 3. Run second-Admin, entitled-360 and negative/wrong-owner acceptance only from
