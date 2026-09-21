@@ -84,7 +84,7 @@ class MMPS_Provider {
 			),
 			'text'              => array( 'format' => array( 'type' => 'json_schema', 'name' => 'ps_candidate_set_v2', 'strict' => true, 'schema' => $schema ) ),
 			'max_output_tokens' => 16000,  // Five polished alternatives plus hidden reasoning share this cap.
-			'reasoning'         => array( 'effort' => 'medium' ),
+			'reasoning'         => array( 'effort' => 'low' ), // The explicit schema, grounding and server validators carry quality; low stays inside the edge budget.
 		);
 		$started = microtime( true );
 		$result  = self::post( $body, $attempt_context );
@@ -136,7 +136,7 @@ class MMPS_Provider {
 		$response = wp_remote_post(
 			self::endpoint(),
 			array(
-				'timeout'     => 50,   // Edge proxies cut a request at about 100 s; see MMPS_Generator::RETRY_BUDGET_MS.
+				'timeout'     => 70,   // Five structured candidates can cross 50 s; keep 30 s below the observed ~100 s edge ceiling.
 				'redirection' => 0,
 				'headers'     => array(
 					'Authorization' => 'Bearer ' . trim( (string) MMED_PS_PROTO_OPENAI_API_KEY ),
@@ -232,6 +232,7 @@ class MMPS_Provider_Simulator {
 				'replacement_region' => implode( ' ', wp_list_pluck( $segments, 'text' ) ),
 				'segments'           => $segments,
 				'facts_used'         => $name_fact ? array( $name_fact ) : array(),
+				'root_anchor_terms'  => array(),
 				'strategy'           => $key,
 				'rhetorical_focus'   => 'Simulated ' . $key . ' pipeline fixture.',
 				'self_check'         => array( 'name_swap_would_still_work' => true, 'possible_unsupported_claims' => array(), 'generic_phrases' => array() ),

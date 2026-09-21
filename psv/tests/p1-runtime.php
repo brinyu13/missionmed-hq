@@ -18,6 +18,30 @@ class MMPS_Rise_Client {
 					'display' => array( 'programName' => 'Example Internal Medicine Residency', 'institution' => 'Example University', 'hospital' => 'Example Hospital', 'city' => 'Albany', 'state' => 'NY' ),
 					'designation' => 'Internal Medicine',
 				),
+				array(
+					'programSpecialtyId' => 'ps-fm-1',
+					'identifiers' => array( array( 'namespace' => 'ACGME_PROGRAM', 'value' => '1200000001' ) ),
+					'display' => array( 'programName' => 'Wrong Specialty Program', 'institution' => 'Example University', 'city' => 'Albany', 'state' => 'NY' ),
+					'designation' => 'Family Medicine',
+				),
+				array(
+					'programSpecialtyId' => '',
+					'identifiers' => array(),
+					'display' => array( 'programName' => 'Missing Program ID', 'institution' => 'Example University', 'city' => 'Albany', 'state' => 'NY' ),
+					'designation' => 'Internal Medicine',
+				),
+				array(
+					'programSpecialtyId' => 'ps-missing-specialty',
+					'identifiers' => array(),
+					'display' => array( 'programName' => 'Missing Specialty', 'institution' => 'Example University', 'city' => 'Albany', 'state' => 'NY' ),
+					'designation' => '',
+				),
+				array(
+					'programSpecialtyId' => 'ps-wrong-state',
+					'identifiers' => array(),
+					'display' => array( 'programName' => 'Wrong State Program', 'institution' => 'Example University', 'city' => 'Boston', 'state' => 'MA' ),
+					'designation' => 'Internal Medicine',
+				),
 			),
 		);
 	}
@@ -32,6 +56,7 @@ p1runtime( 'NY' === MMPS_Rise_Client::$query['jurisdiction'], 'state is forwarde
 p1runtime( 'false' === MMPS_Rise_Client::$query['includeCombined'], 'combined specialties are excluded from default results' );
 p1runtime( 24 === MMPS_Rise_Client::$query['pageSize'], 'result size remains bounded' );
 p1runtime( 1 === count( $found ) && 'ps-im-1' === $found[0]['programSpecialtyId'], 'verified program-specialty identity survives projection' );
+p1runtime( 1 === count( $found ), 'wrong-specialty, wrong-state and incomplete identities are rejected even if RISE returns them' );
 p1runtime( '1400000001' === $found[0]['acgmeId'] && 'Internal Medicine' === $found[0]['designation'], 'row exposes ACGME ID and specialty without display-name inference' );
 MMPS_Evidence_Bundle::search( 'example', 12, 'Internal Medicine', 'New York' );
 p1runtime( ! isset( MMPS_Rise_Client::$query['jurisdiction'] ), 'malformed state never reaches RISE as a filter' );

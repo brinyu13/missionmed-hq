@@ -1,0 +1,70 @@
+{
+  "schemaVersion": "p1-writer-calibration.v1",
+  "recordedAt": "2026-09-21T19:05:00Z",
+  "fixture": "authorized_silma_im_root",
+  "fixtureProseRetained": false,
+  "candidateProseRetained": false,
+  "providerStore": false,
+  "model": "gpt-5.6-terra",
+  "promptVersion": "mmps-prompt.v5",
+  "reasoningEffort": "low",
+  "baselineStatus": "FROZEN_PRODUCTION_BASELINE",
+  "baselineAuthority": "FOUNDER_STEER_TOKEN_ECONOMY_2026_09_21",
+  "iterations": [
+    {
+      "promptVersion": "mmps-prompt.v3",
+      "result": "REJECTED",
+      "issueCodes": ["GENERIC", "TEMPLATED", "LOW_DIVERSITY", "VERBOSE"]
+    },
+    {
+      "promptVersion": "mmps-prompt.v4",
+      "result": "REJECTED",
+      "issueCodes": ["WEAK_ENTRY", "WEAK_EXIT", "GENERIC", "TEMPLATED", "VERBOSE"]
+    },
+    {
+      "promptVersion": "mmps-prompt.v5",
+      "result": "PARTIAL_PASS",
+      "issueCodes": ["GENERIC", "TEMPLATED", "LOW_DIVERSITY"]
+    },
+    {
+      "promptVersion": "mmps-prompt.v5",
+      "contractAdditions": ["DISTINCT_PROTECTED_ROOT_ANCHORS", "TIGHTER_DIVERSITY", "LOW_REASONING_EDGE_BUDGET"],
+      "result": "FOUNDER_ACCEPTED_BASELINE",
+      "profiles": [
+        {
+          "profile": "strong_deep",
+          "evidenceFactCount": 5,
+          "candidateCount": 5,
+          "deterministicBlockingCount": 0,
+          "outputSha256": "0c5a3a2df314b4fcc681b3d7e2b14be7477ddebf792680646c940bf4689cc74f",
+          "scores": {"voiceFidelity": 4, "transitionIn": 4, "transitionOut": 4, "naturalness": 4, "specificity": 4, "grounding": 5, "coherence": 4, "concision": 4, "nonTemplateFeel": 4, "candidateDiversity": 5},
+          "rubricStatus": "PASS"
+        },
+        {
+          "profile": "moderate",
+          "evidenceFactCount": 4,
+          "candidateCount": 5,
+          "deterministicBlockingCount": 0,
+          "outputSha256": "5fccb2bbf78aa9cc035d71967db29e54a61053699ed9584dc6e43d64fab5e585",
+          "scores": {"voiceFidelity": 4, "transitionIn": 4, "transitionOut": 4, "naturalness": 4, "specificity": 4, "grounding": 5, "coherence": 4, "concision": 4, "nonTemplateFeel": 4, "candidateDiversity": 4},
+          "rubricStatus": "PASS"
+        },
+        {
+          "profile": "essential_weak",
+          "evidenceFactCount": 3,
+          "candidateCount": 5,
+          "deterministicBlockingCount": 0,
+          "outputSha256": "123576e63cb2e70e9694bcce322641be32d557985e296e1e4200655424ecc590",
+          "scores": {"voiceFidelity": 4, "transitionIn": 4, "transitionOut": 4, "naturalness": 4, "specificity": 3, "grounding": 5, "coherence": 4, "concision": 4, "nonTemplateFeel": 3, "candidateDiversity": 4},
+          "rubricStatus": "ACCEPTED_BASELINE_LIMIT",
+          "issueCodes": ["GENERIC", "TEMPLATED"]
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "All fifteen candidates in the frozen run passed deterministic region, evidence, provenance, protected-ROOT-anchor and diversity gates.",
+    "No ROOT or candidate prose is retained in this evidence artifact.",
+    "Future writer prompt optimization is intentionally separated from the engineering Foreman lane and will use versioned admin prompt management."
+  ]
+}

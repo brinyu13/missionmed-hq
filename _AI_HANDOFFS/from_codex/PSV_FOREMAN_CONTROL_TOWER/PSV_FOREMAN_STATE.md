@@ -1,6 +1,6 @@
 # PSV Foreman Control-Tower State
 
-Updated: 2026-09-21T17:20:32Z
+Updated: 2026-09-21T19:11:00Z
 
 ## Reconciled quality and Deep Research Boost mission (DR-332)
 
@@ -8,8 +8,9 @@ Updated: 2026-09-21T17:20:32Z
 - Canonical authority: DR-332 at MissionMed OS `f8aa37c`; registry epoch 3611 released; universal and `PSV-PROTOTYPE-0001` boot validation PASS against MissionMed HQ `0feee579b0a9f2c90529220899f6cf6d21b8cd05`.
 - Founder decisions recorded: R-1, S-1, Q-1 and disabled-by-default R-3 approved; R-2 broad/automatic RISE admission not approved. Existing File Vault and RISE remain owner-controlled and read-only from PSV.
 - P1 local candidate: PSV v1.1.0. Program discovery forwards exact ROOT specialty and optional state to the read-only RISE registry, excludes combined specialties by default, and renders program name plus specialty, city/state and ACGME ID. Explicit clear/change behavior is present.
-- Writer-quality candidate: `mmps-prompt.v3` keeps the full ROOT read-only and the confirmed region as the only write scope, adds an applicant-centered editorial objective, one-to-three-fact evidence budget, stronger anti-template language, five structural strategy contracts and a final silent editing pass.
-- Local gates: all 16 PHP contract/runtime scripts PASS, including new P1 contract 10/10 and P1 runtime 8/8; plugin PHP lint, JavaScript parse and `git diff --check` PASS. Production remains v1.0.1 and unmodified pending fresh preflight, exact package, narrow PATH lease and independent P1 verification.
+- Writer baseline frozen by Founder token-economy steer: `mmps-prompt.v5`, low reasoning, 70-second provider ceiling. Full ROOT remains read-only and only the confirmed region is writable. The prompt adds a two-sided paragraph-hinge contract, one-to-three-fact evidence budget, anti-template/stock-language rules and five distinct rhetorical strategies. Real-provider results additionally fail closed unless every candidate carries a distinct, server-verified non-generic term from a protected ROOT paragraph; tighter set-level diversity remains deterministic.
+- Bounded calibration evidence is retained without prose at `psv/tests/fixtures/p1-writer-calibration.v1.json`: all 15 frozen candidates passed deterministic region/evidence/ROOT-anchor gates; strong Deep and moderate profiles passed all ten editorial rubric dimensions; Essential/weak passed voice, transitions, naturalness, grounding, coherence, concision and diversity while specificity/non-template feel remain the explicit accepted baseline limitation. No further writer calibration is authorized in this Foreman lane; future writer R&D will enter through versioned Admin Prompt Management.
+- P1 local gates: every PHP contract/runtime script PASS, including P1 contract 16/16, calibration contract 9/9 and P1 runtime 9/9; plugin PHP lint 22/22, JavaScript parse and `git diff --check` PASS; disposable WordPress API acceptance 131/131 PASS. Production remains v1.0.1 and unmodified pending exact commit, fresh independent verification, package/preflight and narrow PATH lease.
 - Preserved unrelated state: untracked `_AI_HANDOFFS/from_codex/PSV_DEEP_RESEARCH_BOOST_UX/` and `_AI_HANDOFFS/from_fable/` remain untouched.
 
 ## Normal production unlock (DR-331)

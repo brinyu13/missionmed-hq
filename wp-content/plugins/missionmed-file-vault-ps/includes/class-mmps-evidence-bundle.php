@@ -76,7 +76,19 @@ class MMPS_Evidence_Bundle {
 		}
 		$out = array();
 		foreach ( (array) ( $data['records'] ?? $data['results'] ?? array() ) as $record ) {
-			$out[] = self::identity_from_record( $record );
+			$identity = self::identity_from_record( $record );
+			// RISE owns identity and filtering, but PSV independently fails closed
+			// if an upstream response drifts or contains an ambiguous offering.
+			if ( '' === $identity['programSpecialtyId'] || '' === $identity['designation'] ) {
+				continue;
+			}
+			if ( '' !== trim( (string) $specialty ) && $identity['designation'] !== trim( (string) $specialty ) ) {
+				continue;
+			}
+			if ( preg_match( '/^[A-Z]{2}$/', (string) $state ) && strtoupper( $identity['state'] ) !== (string) $state ) {
+				continue;
+			}
+			$out[] = $identity;
 		}
 		return $out;
 	}
