@@ -142,7 +142,7 @@
 
 	function renderMonth(model, state) {
 		var isAdmin = effectivePerspective(state) === 'administrator';
-		var eventLimit = global.innerWidth <= 560 ? 4 : global.innerHeight <= 900 ? 2 : 3;
+		var eventLimit = global.innerWidth <= 560 ? 4 : global.innerHeight <= 650 ? 2 : 3;
 		var weekdays = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(function (day) { return '<div class="mcv2-weekday">' + day + '</div>'; }).join('');
 		var cells = model.monthDays.map(function (day) {
 			var events = day.events.slice(0, eventLimit).map(function (event) { return eventRow(event, true, isAdmin); }).join('');
