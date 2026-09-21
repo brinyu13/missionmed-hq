@@ -17,11 +17,11 @@ The protected security model remains intact: owner isolation, entitlement, nonce
 - Canonical MissionMed OS: `255b5ec0fe1ad9de0cb3b23fe1176579adcc7d8c`
 - MissionMed HQ dependency: `0feee579b0a9f2c90529220899f6cf6d21b8cd05`
 - Authority: DR-331; universal and exact PSV boot validation PASS
-- Exact pushed source: `d9e2085915b35e81587bc42541d46b4bf33fcbf7`
-- Plugin: `missionmed-file-vault-ps` v1.0.0
-- Release ZIP SHA-256: `62def8e6677a5673ba1a940c566d45853310ce26d2f133e0f3bfa653628b674f`
-- Release manifest SHA-256: `ebf00225f14fc8fc4ea5bfe1186d5b90528583325aa13951965680ba86d58dec`
-- Exact deployed main-file SHA-256: `023b3ae939b5cd2ef18bd695a314c618c4e711b5f2cdfcad976ceee8f2ea76be`
+- Exact pushed source: `7027d9f9a871ee3386eb762794509b4e714f6ea0`
+- Plugin: `missionmed-file-vault-ps` v1.0.1
+- Release ZIP SHA-256: `63e198213b91dead42145e8b023afcc4b8b96ad1f460fe45cf06c02a1d4477d0`
+- Release manifest SHA-256: `2c44d70087cc3d4500fcb16e5c6a1d529d3584e82df834cae2b0389d95bad45f`
+- Exact deployed main-file SHA-256: `dc121d7083c02a67a01b8dfbd74096e82a5e895886bd79d26c5bdc9f7c7d3878`
 - Exact deployed file count: 25; production PHP lint: 22/22 PASS
 
 ## Production configuration
@@ -61,7 +61,9 @@ Live owner-scoped acceptance passed:
 - Approved document `fe3504e4-2390-4ea9-b0cf-2e252ce46320` matches its stored document hash and the ROOT hash recorded in its metadata
 - Library advanced from 8 to 9 only after explicit approval
 - Owner-scoped DOCX generation succeeded at 5,105 bytes; individual download control was exercised
-- Selected and Download All paths remain covered by the unchanged production export implementation and release suites
+- Selected ZIP exported only the checked document
+- Production Guardian found that Download All inherited selected IDs; v1.0.1 sends no UUID filter for all-approved export
+- Live retest left one row selected and Download All exported all 9 approved owner documents with a persisted ZIP SHA-256
 
 No student prose appears in this report.
 
@@ -78,11 +80,16 @@ No student prose appears in this report.
 
 ## Lease and rollback
 
-- Deployment PATH lease: epoch 3602, ID `bb86a812-82f3-48e8-bc0f-e08b02804c63`
-- Lease released; fresh active PSV-path and registry lease count: zero
-- Exact rollback preimage: `/www/theresidencyacademy_209/private/psv-rollbacks/PSV-1.0.0-d9e2085-20260921T1440Z/live-retired`
+- Initial deployment PATH lease: epoch 3602, ID `bb86a812-82f3-48e8-bc0f-e08b02804c63`, released
+- Fix-forward PATH lease: epoch 3606, ID `35de5f45-2072-4911-98bf-82b4f589dbe4`; it covered the atomic replacement and expired closed before release acknowledgement
+- Fresh active PSV-path and registry lease count: zero
+- Exact rollback preimage: `/www/theresidencyacademy_209/private/psv-rollbacks/PSV-1.0.1-7027d9f-20260921T1505Z/live-retired`
 - Rollback remains scoped to the PSV plugin directory; File Vault and RISE are excluded
 
 ## Independent verification
 
-Fresh post-deployment independent read-only verification is dispatched. Its final verdict is the remaining sealing record; no further production mutation is authorized or required by this report.
+Fresh post-deployment independent read-only verification returned **APPROVE / PASS** with no P0/P1 findings. The verifier independently matched DR-331 and BOOT, exact origin/source/live 25-file custody, v1.0.1 runtime configuration, five distinct and freshly valid real-provider candidates, current bundle/region provenance, the approved owner-scoped document, 12 protected paragraphs, cross-user invisibility, direct-edit fail-closed behavior, Download All semantics, RISE health/source rights, unchanged File Vault sentinels, anonymous 404, logs and rollback. The verifier performed no production write, secret inspection or student-prose output.
+
+## Final state
+
+PSV production graduation is sealed. Normal entitled student use is operational, the protected boundaries remain active, and no further production mutation is authorized by this mission. The live PSV review page is the Founder acceptance surface.
