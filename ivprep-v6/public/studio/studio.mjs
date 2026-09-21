@@ -1495,8 +1495,9 @@ function renderDeviceSelectors() {
     const refresh = document.createElement('button');
     refresh.type = 'button';
     refresh.className = 'btn btn-quiet';
-    refresh.innerHTML = '<span>Refresh devices</span>';
-    refresh.addEventListener('click', () => void refreshDevices());
+    const connected = Boolean(liveTrack('video') && liveTrack('audio'));
+    refresh.innerHTML = `<span>${connected ? 'Refresh devices' : 'Connect camera + mic'}</span>`;
+    refresh.addEventListener('click', () => void (connected ? refreshDevices() : connectDevices()));
     host.append(refresh);
   }
 }
@@ -1510,7 +1511,10 @@ async function switchDevice(kind, deviceId) {
   if (status) status.textContent = `Switching ${kind}…`;
   try {
     if (!bridge.media.stream) {
-      await bridge.requestMedia(true, true);
+      await bridge.requestMedia(true, true, {
+        camera: kind === 'camera' ? deviceId : state.selected.camera,
+        microphone: kind === 'microphone' ? deviceId : state.selected.microphone,
+      });
     } else {
       await bridge.replaceTrack(trackKind, deviceId);
     }
@@ -2260,7 +2264,10 @@ async function connectDevices() {
   const button = $('#device-connect');
   if (button) { button.disabled = true; button.innerHTML = '<span>Requesting…</span>'; }
   try {
-    await bridge.requestMedia(true, true);
+    await bridge.requestMedia(true, true, {
+      camera: state.selected.camera,
+      microphone: state.selected.microphone,
+    });
     state.deviceError = null;
     bindPreview();
     const preview = $('#devicecheck-stage video') || $('#builder-readiness-stage video');
@@ -3089,6 +3096,10 @@ async function boot() {
   renderDeviceCheck();
   void refreshDevices();
   navigator.mediaDevices?.addEventListener?.('devicechange', () => void refreshDevices());
+  window.addEventListener('focus', () => void refreshDevices());
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') void refreshDevices();
+  });
   window.addEventListener('ivoc-media-liveness', () => {
     renderDeviceCheck();
     if (state.view === 'training' || state.view === 'simulation') evaluateReadiness();

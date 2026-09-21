@@ -42,3 +42,37 @@ test('failed re-acquisition clears the ended capture instead of preserving false
   assert.equal(bridge.media.stream, null);
   assert.equal(bridge.media.cam, false);
 });
+
+test('combined device failure recovers camera and microphone into one canonical stream', async (context) => {
+  const priorWindow = globalThis.window;
+  const priorNavigator = globalThis.navigator;
+  const priorMediaStream = globalThis.MediaStream;
+  const priorCustomEvent = globalThis.CustomEvent;
+  context.after(() => {
+    Object.defineProperty(globalThis, 'window', { configurable: true, value: priorWindow });
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: priorNavigator });
+    Object.defineProperty(globalThis, 'MediaStream', { configurable: true, value: priorMediaStream });
+    Object.defineProperty(globalThis, 'CustomEvent', { configurable: true, value: priorCustomEvent });
+  });
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: { dispatchEvent() {} } });
+  Object.defineProperty(globalThis, 'MediaStream', { configurable: true, value: FakeMediaStream });
+  Object.defineProperty(globalThis, 'CustomEvent', { configurable: true, value: class { constructor(type) { this.type = type; } } });
+  const calls = [];
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { mediaDevices: {
+    async getUserMedia(constraints) {
+      calls.push(constraints);
+      if (constraints.audio && constraints.video) throw Object.assign(new Error('combined unavailable'), { name: 'NotFoundError' });
+      return new FakeMediaStream([new FakeTrack(constraints.video ? 'video' : 'audio')]);
+    },
+  } } });
+
+  const bridge = createMediaAnalyticsBridge();
+  const media = await bridge.requestMedia(true, true, { camera: 'stale-camera-id' });
+  assert.equal(calls.length, 3);
+  assert.deepEqual(calls[0], { audio: true, video: { deviceId: { exact: 'stale-camera-id' } } });
+  assert.deepEqual(calls[1], { audio: false, video: true });
+  assert.deepEqual(calls[2], { audio: true, video: false });
+  assert.equal(media.cam, true);
+  assert.equal(media.stream.getVideoTracks().length, 1);
+  assert.equal(media.stream.getAudioTracks().length, 1);
+});

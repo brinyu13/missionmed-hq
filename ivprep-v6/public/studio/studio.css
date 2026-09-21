@@ -376,7 +376,9 @@ body {
 .canon-photo-heading h2 { margin: 0; font: italic 700 30px/1 var(--font-editorial); }
 .canon-photo-heading p { margin: 8px 0 0; color: var(--ink2); }
 .canon-program-filters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.canon-program-result { margin-top: 14px; border: 1px solid #45536a; border-radius: 14px; background: linear-gradient(145deg, #172339, #0a1321); padding: 16px; box-shadow: var(--bevel); }
+.canon-program-result { width: 100%; margin-top: 14px; border: 1px solid #45536a; border-radius: 14px; background: linear-gradient(145deg, #172339, #0a1321); color: var(--ink); padding: 16px; text-align: left; box-shadow: var(--bevel); }
+.canon-program-result strong, .canon-program-result h3 { color: var(--ink); }
+.canon-program-result small, .canon-program-result .canon-muted { color: var(--ink2); }
 .canon-program-result h3 { margin: 7px 0; font: italic 700 21px/1.1 var(--font-editorial); }
 .canon-cheat-sheet { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 13px; }
 .canon-cheat-sheet > div { display: grid; gap: 6px; padding: 12px; border: 1px solid #34435a; background: #09111f; }

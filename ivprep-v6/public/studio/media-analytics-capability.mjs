@@ -70,11 +70,41 @@ export function createMediaAnalyticsBridge() {
       try { outgoing?.stop?.(); } catch {}
       return this.media;
     },
-    async requestMedia(mic = true, cam = true) {
+    async requestMedia(mic = true, cam = true, selected = {}) {
       // A failed re-acquisition must never leave a dead stream advertised as LIVE or
       // bound to a visible preview. Release the old owned capture before retrying.
       this.stopMedia({ keepContext: true });
-      return this.bindStream(await navigator.mediaDevices.getUserMedia({ audio: mic === true, video: cam === true }), { ownsStream: true });
+      const audio = mic === true
+        ? (selected.microphone ? { deviceId: { exact: selected.microphone } } : true)
+        : false;
+      const video = cam === true
+        ? (selected.camera ? { deviceId: { exact: selected.camera } } : true)
+        : false;
+      try {
+        return await this.bindStream(await navigator.mediaDevices.getUserMedia({ audio, video }), { ownsStream: true });
+      } catch (primaryError) {
+        const recoverable = ['AbortError', 'NotFoundError', 'NotReadableError', 'OverconstrainedError']
+          .includes(primaryError?.name);
+        if (!recoverable || mic !== true || cam !== true) throw primaryError;
+
+        // Chrome can expose a valid camera in its site-permission preview while a
+        // combined audio+video request still fails (or while a remembered device ID
+        // has gone stale). Recover each current default independently, then bind the
+        // tracks to one canonical IVOC stream. Never retain a half-open capture.
+        let videoStream = null; let audioStream = null;
+        try {
+          videoStream = await navigator.mediaDevices.getUserMedia({ audio: false, video: true });
+          audioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          const videoTrack = videoStream.getVideoTracks()[0];
+          const audioTrack = audioStream.getAudioTracks()[0];
+          if (!videoTrack || !audioTrack) throw new Error('Camera and microphone did not both return live tracks.');
+          return await this.bindStream(new MediaStream([videoTrack, audioTrack]), { ownsStream: true });
+        } catch (recoveryError) {
+          videoStream?.getTracks?.().forEach((track) => track.stop());
+          audioStream?.getTracks?.().forEach((track) => track.stop());
+          throw recoveryError?.name ? recoveryError : primaryError;
+        }
+      }
     },
     stopMedia({ keepContext = false } = {}) {
       for (const { track, refresh } of this.trackListeners) {

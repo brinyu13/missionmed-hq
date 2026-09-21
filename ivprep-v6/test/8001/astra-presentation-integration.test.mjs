@@ -85,6 +85,10 @@ test('presentation integration preserves the proven analytics and media contract
   assert.match(runtime, /await startLiveInterview\(\)/u);
   assert.match(html, /data-goto="newsession" data-builder-step="1" data-launch-mode="practice">Practice one question myself/u);
   assert.match(html, />Build an interview ▸</u);
+  assert.match(runtime, /window\.addEventListener\('focus', \(\) => void refreshDevices\(\)\)/u);
+  assert.match(runtime, /connected \? 'Refresh devices' : 'Connect camera \+ mic'/u);
+  assert.match(css, /\.canon-program-result \{[^}]*color: var\(--ink\)/u);
+  assert.match(css, /\.canon-program-result small, \.canon-program-result \.canon-muted \{ color: var\(--ink2\); \}/u);
 });
 
 test('first-time navigation names the five student outcomes and preserves launch mode', () => {
