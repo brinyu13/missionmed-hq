@@ -2,12 +2,12 @@
 /**
  * Plugin Name: MissionMed Dr J ExamPrep Commerce Guard
  * Description: Enforces the DRJ-EXAMPREP-0920A catalog, private offers, and Daily Rounds-only lifecycle.
- * Version: 1.3.0
+ * Version: 1.4.0
  */
 
 defined( 'ABSPATH' ) || exit;
 
-const MMDRJ_VERSION                       = '1.3.0';
+const MMDRJ_VERSION                       = '1.4.0';
 const MMDRJ_ELIGIBILITY_META              = '_mmed_drj_pricing_eligibility';
 const MMDRJ_REQUIRED_ELIGIBILITY_META     = '_mmed_drj_required_eligibility';
 const MMDRJ_PAYMENT_ARCHITECTURE_META     = '_mmi_payment_architecture';
@@ -747,6 +747,7 @@ function mmdrj_product_journey_styles() {
 	if ( ! function_exists( 'is_product' ) || ! is_product() || ! in_array( get_queried_object_id(), mmdrj_product_ids(), true ) ) {
 		return;
 	}
+	$product_id = get_queried_object_id();
 	?>
 	<style id="mmdrj-product-journey-css">
 		#mm-mobile-notice { display:none!important; }
@@ -757,10 +758,79 @@ function mmdrj_product_journey_styles() {
 		.mmdrj-live-addon span { display:grid; gap:5px; color:#102742; }
 		.mmdrj-live-addon strong { font-size:16px; }
 		.mmdrj-live-addon small { color:#506074; line-height:1.45; }
+		<?php if ( MMDRJ_DAILY_DRILLS_PRODUCT_ID === $product_id ) : ?>
+		body.postid-<?php echo absint( MMDRJ_DAILY_DRILLS_PRODUCT_ID ); ?> .site-content{background:radial-gradient(circle at 82% 10%,rgba(85,228,206,.12),transparent 30%),linear-gradient(145deg,#061525,#0b2948 58%,#071a31);color:#eef5fb}
+		body.postid-<?php echo absint( MMDRJ_DAILY_DRILLS_PRODUCT_ID ); ?> .site-content .ast-container{max-width:none;padding:0}
+		body.postid-<?php echo absint( MMDRJ_DAILY_DRILLS_PRODUCT_ID ); ?> div.product{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(360px,.92fr);gap:44px;width:min(1180px,calc(100% - 40px));max-width:1180px;margin:0 auto!important;padding:68px 0 76px}
+		body.postid-<?php echo absint( MMDRJ_DAILY_DRILLS_PRODUCT_ID ); ?> div.product .woocommerce-product-gallery,body.postid-<?php echo absint( MMDRJ_DAILY_DRILLS_PRODUCT_ID ); ?> div.product .summary{float:none!important;width:100%!important;margin:0!important}
+		body.postid-<?php echo absint( MMDRJ_DAILY_DRILLS_PRODUCT_ID ); ?> div.product .woocommerce-product-gallery{padding:14px;border:1px solid rgba(255,255,255,.16);border-radius:24px;background:rgba(4,18,34,.78);box-shadow:0 26px 64px rgba(0,0,0,.3)}
+		body.postid-<?php echo absint( MMDRJ_DAILY_DRILLS_PRODUCT_ID ); ?> div.product .woocommerce-product-gallery__wrapper{overflow:hidden;border-radius:16px}
+		body.postid-<?php echo absint( MMDRJ_DAILY_DRILLS_PRODUCT_ID ); ?> div.product .flex-control-thumbs{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px!important}
+		body.postid-<?php echo absint( MMDRJ_DAILY_DRILLS_PRODUCT_ID ); ?> div.product .flex-control-thumbs li{width:100%!important;margin:0!important}
+		body.postid-<?php echo absint( MMDRJ_DAILY_DRILLS_PRODUCT_ID ); ?> div.product .summary{padding:36px;border:1px solid rgba(225,179,79,.4);border-radius:24px;background:linear-gradient(150deg,rgba(18,53,88,.97),rgba(5,21,39,.98));box-shadow:0 26px 64px rgba(0,0,0,.3)}
+		body.postid-<?php echo absint( MMDRJ_DAILY_DRILLS_PRODUCT_ID ); ?> div.product .mmdrj-daily-eyebrow{display:inline-flex;margin-bottom:16px;color:#55e4ce;font-size:12px;font-weight:900;letter-spacing:.14em}
+		body.postid-<?php echo absint( MMDRJ_DAILY_DRILLS_PRODUCT_ID ); ?> div.product .summary .woocommerce-breadcrumb,body.postid-<?php echo absint( MMDRJ_DAILY_DRILLS_PRODUCT_ID ); ?> div.product .summary .single-product-category,body.postid-<?php echo absint( MMDRJ_DAILY_DRILLS_PRODUCT_ID ); ?> div.product .summary .posted_in,body.postid-<?php echo absint( MMDRJ_DAILY_DRILLS_PRODUCT_ID ); ?> div.product .product_meta{display:none!important}
+		body.postid-<?php echo absint( MMDRJ_DAILY_DRILLS_PRODUCT_ID ); ?> div.product .summary h1.product_title{margin:0 0 14px;color:#fff!important;font-size:clamp(34px,4.2vw,56px);line-height:1.02;letter-spacing:-.035em}
+		body.postid-<?php echo absint( MMDRJ_DAILY_DRILLS_PRODUCT_ID ); ?> div.product .summary .price{margin:16px 0;color:#f0c75f!important;font-size:clamp(29px,3.4vw,43px)!important;font-weight:900}
+		body.postid-<?php echo absint( MMDRJ_DAILY_DRILLS_PRODUCT_ID ); ?> div.product .woocommerce-product-details__short-description{padding:17px 0 17px 18px;border-left:3px solid #e1b34f;color:#dce7f1;font-size:17px;line-height:1.62}
+		body.postid-<?php echo absint( MMDRJ_DAILY_DRILLS_PRODUCT_ID ); ?> div.product form.cart{margin-top:24px}
+		body.postid-<?php echo absint( MMDRJ_DAILY_DRILLS_PRODUCT_ID ); ?> div.product .single_add_to_cart_button{min-height:54px;padding:0 28px!important;border-radius:11px!important;color:#07182b!important;background:linear-gradient(135deg,#e1b34f,#f3d170)!important;font-weight:900!important;letter-spacing:.06em!important;text-transform:uppercase;box-shadow:0 14px 30px rgba(225,179,79,.2)}
+		body.postid-<?php echo absint( MMDRJ_DAILY_DRILLS_PRODUCT_ID ); ?> div.product .single_add_to_cart_button:focus-visible{outline:3px solid #55e4ce!important;outline-offset:4px}
+		body.postid-<?php echo absint( MMDRJ_DAILY_DRILLS_PRODUCT_ID ); ?> div.product .woocommerce-tabs{grid-column:1/-1;padding:30px;border:1px solid rgba(255,255,255,.14);border-radius:22px;background:rgba(5,22,40,.78)}
+		body.postid-<?php echo absint( MMDRJ_DAILY_DRILLS_PRODUCT_ID ); ?> div.product .woocommerce-tabs ul.tabs{display:none!important}
+		body.postid-<?php echo absint( MMDRJ_DAILY_DRILLS_PRODUCT_ID ); ?> div.product .woocommerce-tabs h2{color:#fff;font-size:clamp(28px,3vw,38px)}
+		body.postid-<?php echo absint( MMDRJ_DAILY_DRILLS_PRODUCT_ID ); ?> div.product .woocommerce-tabs p,body.postid-<?php echo absint( MMDRJ_DAILY_DRILLS_PRODUCT_ID ); ?> div.product .woocommerce-tabs li{color:#d7e3ee;font-size:16px;line-height:1.65}
+		body.postid-<?php echo absint( MMDRJ_DAILY_DRILLS_PRODUCT_ID ); ?> div.product .woocommerce-tabs .mmdrj-access-boundary{margin-top:20px;padding:16px 18px;border-left:3px solid #55e4ce;background:rgba(85,228,206,.08)}
+		body.postid-<?php echo absint( MMDRJ_DAILY_DRILLS_PRODUCT_ID ); ?> div.product .related.products{display:none!important}
+		@media(max-width:820px){body.postid-<?php echo absint( MMDRJ_DAILY_DRILLS_PRODUCT_ID ); ?> div.product{grid-template-columns:1fr;gap:18px;width:min(100% - 28px,1180px);padding:34px 0 54px}body.postid-<?php echo absint( MMDRJ_DAILY_DRILLS_PRODUCT_ID ); ?> div.product .summary{padding:25px 22px}body.postid-<?php echo absint( MMDRJ_DAILY_DRILLS_PRODUCT_ID ); ?> div.product .woocommerce-tabs{padding:24px 20px}}
+		<?php endif; ?>
 	</style>
 	<?php
 }
 add_action( 'wp_head', 'mmdrj_product_journey_styles', 45 );
+
+function mmdrj_render_daily_rounds_eyebrow() {
+	if ( function_exists( 'is_product' ) && is_product() && MMDRJ_DAILY_DRILLS_PRODUCT_ID === get_queried_object_id() ) {
+		echo '<span class="mmdrj-daily-eyebrow" aria-hidden="true">ON-DEMAND · MISSIONMED ARENA</span>';
+	}
+}
+add_action( 'woocommerce_single_product_summary', 'mmdrj_render_daily_rounds_eyebrow', 4 );
+
+function mmdrj_daily_rounds_single_cta( $label ) {
+	if ( function_exists( 'is_product' ) && is_product() && MMDRJ_DAILY_DRILLS_PRODUCT_ID === get_queried_object_id() ) {
+		return __( 'Start Daily Rounds', 'missionmed' );
+	}
+	return $label;
+}
+add_filter( 'woocommerce_product_single_add_to_cart_text', 'mmdrj_daily_rounds_single_cta', 20 );
+
+/**
+ * Remove the unrelated Mission Residency Zelle path and normalize two legacy
+ * presentation labels on the otherwise accepted Live Drills landing page.
+ */
+function mmdrj_render_live_visual_polish() {
+	if ( ! function_exists( 'is_product' ) || ! is_product() || MMDRJ_TEAM_PRODUCT_ID !== get_queried_object_id() ) {
+		return;
+	}
+	?>
+	<script id="mmdrj-live-visual-polish">
+	(function(){
+		function polish(){
+			var tag=document.querySelector('.mm-ep-prod-tag');
+			var plan=document.querySelector('.mm-ep-buybox-tag');
+			if(tag)tag.textContent='LIVE TRAINING · WEEKDAY GROUP';
+			if(plan)plan.textContent='YOUR LIVE PLAN';
+			document.querySelectorAll('.mm-ep-buybox-alt').forEach(function(link){
+				if(link.textContent.trim().toUpperCase()==='PAY VIA ZELLE')link.remove();
+			});
+		}
+		if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',polish);}else{polish();}
+		setTimeout(polish,400);
+	})();
+	</script>
+	<?php
+}
+add_action( 'wp_footer', 'mmdrj_render_live_visual_polish', 99999 );
 
 function mmdrj_render_arena_pro_locked_notice() {
 	if ( function_exists( 'is_product' ) && is_product() && MMDRJ_ARENA_PRO_PRODUCT_ID === get_queried_object_id() ) {
