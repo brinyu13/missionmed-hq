@@ -101,8 +101,9 @@ class MMPS_Rest {
 			'textSha256'      => $root['textSha256'],
 			'createdAt'       => $root['createdAt'],
 		);
-		if ( MMPS_Provider::is_real_root_canary_root( (int) $root['userId'], $root ) ) {
-			$summary['canaryReviewRunId'] = MMPS_Store::latest_provider_run_uuid( (int) $root['userId'], (int) $root['id'] );
+		$uid = self::uid();
+		if ( MMPS_Provider::is_real_root_canary_root( $uid, $root ) ) {
+			$summary['canaryReviewRunId'] = MMPS_Store::latest_provider_run_uuid( $uid, (int) $root['id'] );
 		}
 		return $summary;
 	}

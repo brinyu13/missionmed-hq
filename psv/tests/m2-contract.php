@@ -213,6 +213,8 @@ contract_assert(
 		&& has_pattern('/provider\s*<>\s*[\'\"]none[\'\"]/', $store)
 		&& has_pattern('/canaryReviewOnly/', $ui)
 		&& has_pattern('/latest_provider_run_uuid\s*\(/', $store . $rest)
+		&& has_pattern('/\$uid\s*=\s*self::uid\(\)/', $rest)
+		&& ! has_pattern('/\$root\[\x27userId\x27\]/', $rest)
 		&& has_pattern('/canaryReviewRunId/', $rest . $ui),
 	'real-ROOT canary remains review-only',
 	'Batch creation and library save must fail closed, while a no-provider research stop must not consume the one authorized canary generation.'
