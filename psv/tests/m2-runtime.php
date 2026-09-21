@@ -136,6 +136,23 @@ unset($candidate);
 $longNameCheck = MMPS_Generator::validate_candidate_set($longNameSet, $longBundle, $longPlan, $root);
 check(empty($longNameCheck['blocking']), 'required long program name is excluded from copied-scaffold diversity checks');
 
+$evidenceText = 'The cardiology fellowship accepts applicants after completing three years of internal medicine residency.';
+$evidenceFact = array('factId' => 'F-deep', 'category' => 'fellowship', 'label' => 'Cardiology fellowship eligibility', 'text' => $evidenceText);
+$evidenceBundle = $bundle;
+$evidenceBundle['deepFacts'] = array($evidenceFact);
+$evidencePlan = $plan;
+$evidencePlan['allowedFacts'][] = $evidenceFact;
+$evidenceSet = $set;
+foreach ($evidenceSet['candidates'] as &$candidate) {
+	$factSegment = array('text' => $evidenceText, 'kind' => 'program_fact', 'fact_ids' => array('F-deep'));
+	array_splice($candidate['segments'], 1, 0, array($factSegment));
+	$candidate['replacement_region'] = implode(' ', wp_list_pluck($candidate['segments'], 'text'));
+	$candidate['facts_used'][] = 'F-deep';
+}
+unset($candidate);
+$evidenceCheck = MMPS_Generator::validate_candidate_set($evidenceSet, $evidenceBundle, $evidencePlan, $root);
+check(empty($evidenceCheck['blocking']), 'shared verified evidence literal is excluded from copied-scaffold diversity checks');
+
 $select = new ReflectionMethod(MMPS_Generator::class, 'with_selected_candidate');
 if (PHP_VERSION_ID < 80100) { $select->setAccessible(true); }
 $badOutput = $select->invoke(null, $duplicate, 'BALANCED_QUIET_SPECIFIC');

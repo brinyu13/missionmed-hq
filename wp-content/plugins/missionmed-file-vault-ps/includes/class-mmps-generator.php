@@ -338,20 +338,35 @@ class MMPS_Generator {
 	}
 
 	/**
-	 * Remove required program-name forms before comparing rhetorical diversity.
+	 * Remove required program-name forms and verified evidence literals before
+	 * comparing rhetorical diversity.
 	 *
 	 * Every valid candidate must name the program. Long formal names can exceed
 	 * the copied-scaffold window by themselves, so comparing the raw paragraphs
 	 * makes five genuinely different candidates fail simply for satisfying the
-	 * same naming requirement. Evidence validation still runs against the
-	 * original text; this normalization is used only for set-level diversity.
+	 * same naming requirement. The same problem occurs when several candidates
+	 * accurately preserve one long, verified fact. Evidence validation still
+	 * runs against the original text; this normalization is used only for
+	 * set-level diversity, so it cannot authorize an unsupported claim.
 	 */
 	protected static function candidate_diversity_text( $text, $bundle ) {
-		$forms = array_filter( array_map( 'strval', (array) ( $bundle['nameForms'] ?? array() ) ) );
-		usort( $forms, function ( $left, $right ) {
+		$literals = array_filter( array_map( 'strval', (array) ( $bundle['nameForms'] ?? array() ) ) );
+		foreach ( array_merge( array_values( (array) ( $bundle['essential'] ?? array() ) ), (array) ( $bundle['deepFacts'] ?? array() ) ) as $fact ) {
+			if ( ! is_array( $fact ) ) {
+				continue;
+			}
+			foreach ( array( 'text', 'label' ) as $field ) {
+				$literal = trim( self::plain( (string) ( $fact[ $field ] ?? '' ) ) );
+				if ( mb_strlen( $literal ) >= 32 || count( self::candidate_tokens( $literal, false ) ) >= 6 ) {
+					$literals[] = $literal;
+				}
+			}
+		}
+		$literals = array_values( array_unique( $literals ) );
+		usort( $literals, function ( $left, $right ) {
 			return mb_strlen( $right ) - mb_strlen( $left );
 		} );
-		return str_ireplace( $forms, ' program_identity ', self::plain( (string) $text ) );
+		return str_ireplace( $literals, ' fact ', self::plain( (string) $text ) );
 	}
 
 	public static function validate_candidate_set( $out, $bundle, $plan, $root, $other_program_ids = array() ) {
