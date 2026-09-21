@@ -1,0 +1,337 @@
+{
+  "schema": 1,
+  "application_season": 2027,
+  "application_service": "ERAS",
+  "planning_only": true,
+  "sources": [
+    {
+      "title": "Program Signaling for the 2027 MyERAS Application Season",
+      "url": "https://students-residents.aamc.org/applying-residencies-eras/program-signaling-2027-myeras-application-season",
+      "retrieved_at": "2026-09-21"
+    },
+    {
+      "title": "Program Signals Overview for ERAS Applicants",
+      "url": "https://students-residents.aamc.org/applying-residencies-eras/publication-chapters/program-signals-overview-eras-applicants",
+      "retrieved_at": "2026-09-21"
+    }
+  ],
+  "verification": {
+    "status": "machine_verified",
+    "verified_at": "2026-09-21",
+    "verified_by": "Codex official-source extraction",
+    "human_confirmed_at": null,
+    "human_confirmed_by": null
+  },
+  "rule_facts": [
+    {
+      "key": "anesthesiology",
+      "aamc_label": "Anesthesiology",
+      "signal_system": "tiered",
+      "gold_limit": 5,
+      "silver_limit": 10,
+      "single_limit": null,
+      "rise_designations": ["Anesthesiology"],
+      "notes": null
+    },
+    {
+      "key": "child_neurology",
+      "aamc_label": "Child Neurology",
+      "signal_system": "tiered",
+      "gold_limit": 3,
+      "silver_limit": 6,
+      "single_limit": null,
+      "rise_designations": ["Child Neurology"],
+      "notes": null
+    },
+    {
+      "key": "dermatology",
+      "aamc_label": "Dermatology",
+      "signal_system": "tiered",
+      "gold_limit": 3,
+      "silver_limit": 25,
+      "single_limit": null,
+      "rise_designations": ["Dermatology"],
+      "notes": null
+    },
+    {
+      "key": "diagnostic_radiology",
+      "aamc_label": "Diagnostic Radiology",
+      "signal_system": "tiered",
+      "gold_limit": 6,
+      "silver_limit": 9,
+      "single_limit": null,
+      "rise_designations": ["Diagnostic Radiology", "Radiology-Diagnostic"],
+      "notes": null
+    },
+    {
+      "key": "family_medicine",
+      "aamc_label": "Family Medicine",
+      "signal_system": "single",
+      "gold_limit": null,
+      "silver_limit": null,
+      "single_limit": 5,
+      "rise_designations": ["Family Medicine"],
+      "notes": null
+    },
+    {
+      "key": "general_surgery",
+      "aamc_label": "General Surgery",
+      "signal_system": "single",
+      "gold_limit": null,
+      "silver_limit": null,
+      "single_limit": 15,
+      "rise_designations": ["General Surgery", "Surgery-General"],
+      "notes": null
+    },
+    {
+      "key": "internal_medicine",
+      "aamc_label": "Internal Medicine",
+      "signal_system": "tiered",
+      "gold_limit": 3,
+      "silver_limit": 12,
+      "single_limit": null,
+      "rise_designations": ["Internal Medicine"],
+      "notes": null
+    },
+    {
+      "key": "internal_medicine_medical_genetics",
+      "aamc_label": "Internal Medicine/Medical Genetics",
+      "signal_system": "single",
+      "gold_limit": null,
+      "silver_limit": null,
+      "single_limit": 3,
+      "rise_designations": [],
+      "notes": "RISE name variant requires human confirmation before mapping."
+    },
+    {
+      "key": "internal_medicine_pediatrics",
+      "aamc_label": "Internal Medicine/Pediatrics",
+      "signal_system": "single",
+      "gold_limit": null,
+      "silver_limit": null,
+      "single_limit": 5,
+      "rise_designations": ["Internal Medicine/Pediatrics"],
+      "notes": null
+    },
+    {
+      "key": "internal_medicine_psychiatry",
+      "aamc_label": "Internal Medicine/Psychiatry",
+      "signal_system": "single",
+      "gold_limit": null,
+      "silver_limit": null,
+      "single_limit": 2,
+      "rise_designations": ["Internal Medicine/Psychiatry"],
+      "notes": null
+    },
+    {
+      "key": "interventional_radiology_integrated",
+      "aamc_label": "Interventional Radiology - Integrated",
+      "signal_system": "single",
+      "gold_limit": null,
+      "silver_limit": null,
+      "single_limit": 8,
+      "rise_designations": ["Interventional Radiology - Integrated", "Interventional Radiology (Integrated)"],
+      "notes": null
+    },
+    {
+      "key": "neurodevelopmental_disabilities",
+      "aamc_label": "Neurodevelopmental Disabilities",
+      "signal_system": "single",
+      "gold_limit": null,
+      "silver_limit": null,
+      "single_limit": 2,
+      "rise_designations": ["Neurodevelopmental Disabilities"],
+      "notes": null
+    },
+    {
+      "key": "neurological_surgery",
+      "aamc_label": "Neurological Surgery",
+      "signal_system": "single",
+      "gold_limit": null,
+      "silver_limit": null,
+      "single_limit": 25,
+      "rise_designations": ["Neurological Surgery"],
+      "notes": null
+    },
+    {
+      "key": "neurology",
+      "aamc_label": "Neurology",
+      "signal_system": "single",
+      "gold_limit": null,
+      "silver_limit": null,
+      "single_limit": 8,
+      "rise_designations": ["Neurology"],
+      "notes": null
+    },
+    {
+      "key": "orthopedic_surgery",
+      "aamc_label": "Orthopedic Surgery",
+      "signal_system": "single",
+      "gold_limit": null,
+      "silver_limit": null,
+      "single_limit": 30,
+      "rise_designations": ["Orthopedic Surgery"],
+      "notes": null
+    },
+    {
+      "key": "otolaryngology",
+      "aamc_label": "Otolaryngology",
+      "signal_system": "single",
+      "gold_limit": null,
+      "silver_limit": null,
+      "single_limit": 25,
+      "rise_designations": ["Otolaryngology"],
+      "notes": null
+    },
+    {
+      "key": "pathology",
+      "aamc_label": "Pathology",
+      "signal_system": "single",
+      "gold_limit": null,
+      "silver_limit": null,
+      "single_limit": 5,
+      "rise_designations": ["Pathology"],
+      "notes": null
+    },
+    {
+      "key": "pediatric_medical_genetics",
+      "aamc_label": "Pediatric Medical Genetics",
+      "signal_system": "single",
+      "gold_limit": null,
+      "silver_limit": null,
+      "single_limit": 3,
+      "rise_designations": [],
+      "notes": "RISE name variant requires human confirmation before mapping."
+    },
+    {
+      "key": "pediatrics",
+      "aamc_label": "Pediatrics",
+      "signal_system": "single",
+      "gold_limit": null,
+      "silver_limit": null,
+      "single_limit": 5,
+      "rise_designations": ["Pediatrics"],
+      "notes": null
+    },
+    {
+      "key": "pediatrics_psychiatry_child_adolescent_psychiatry",
+      "aamc_label": "Pediatrics/Psychiatry/Child and Adolescent Psychiatry",
+      "signal_system": "single",
+      "gold_limit": null,
+      "silver_limit": null,
+      "single_limit": 3,
+      "rise_designations": ["Pediatrics/Psychiatry/Child and Adolescent Psychiatry"],
+      "notes": null
+    },
+    {
+      "key": "physical_medicine_rehabilitation",
+      "aamc_label": "Physical Medicine and Rehabilitation",
+      "signal_system": "single",
+      "gold_limit": null,
+      "silver_limit": null,
+      "single_limit": 20,
+      "rise_designations": ["Physical Medicine and Rehabilitation"],
+      "notes": null
+    },
+    {
+      "key": "plastic_surgery_integrated",
+      "aamc_label": "Plastic Surgery - Integrated",
+      "signal_system": "single",
+      "gold_limit": null,
+      "silver_limit": null,
+      "single_limit": 20,
+      "rise_designations": ["Plastic Surgery - Integrated", "Plastic Surgery (Integrated)"],
+      "notes": null
+    },
+    {
+      "key": "psychiatry",
+      "aamc_label": "Psychiatry",
+      "signal_system": "single",
+      "gold_limit": null,
+      "silver_limit": null,
+      "single_limit": 10,
+      "rise_designations": ["Psychiatry"],
+      "notes": null
+    },
+    {
+      "key": "public_health_general_preventive_medicine",
+      "aamc_label": "Public Health and General Preventive Medicine",
+      "signal_system": "single",
+      "gold_limit": null,
+      "silver_limit": null,
+      "single_limit": 3,
+      "rise_designations": ["Public Health and General Preventive Medicine", "Public Health & Preventive Medicine"],
+      "notes": null
+    },
+    {
+      "key": "radiation_oncology",
+      "aamc_label": "Radiation Oncology",
+      "signal_system": "single",
+      "gold_limit": null,
+      "silver_limit": null,
+      "single_limit": 4,
+      "rise_designations": ["Radiation Oncology"],
+      "notes": null
+    },
+    {
+      "key": "thoracic_surgery_integrated",
+      "aamc_label": "Thoracic Surgery - Integrated",
+      "signal_system": "single",
+      "gold_limit": null,
+      "silver_limit": null,
+      "single_limit": 4,
+      "rise_designations": ["Thoracic Surgery - Integrated", "Thoracic Surgery (Integrated)"],
+      "notes": null
+    },
+    {
+      "key": "transitional_year",
+      "aamc_label": "Transitional Year",
+      "signal_system": "single",
+      "gold_limit": null,
+      "silver_limit": null,
+      "single_limit": 12,
+      "rise_designations": ["Transitional Year"],
+      "notes": null
+    },
+    {
+      "key": "urology",
+      "aamc_label": "Urology",
+      "signal_system": "single",
+      "gold_limit": null,
+      "silver_limit": null,
+      "single_limit": 30,
+      "rise_designations": ["Urology"],
+      "notes": null
+    },
+    {
+      "key": "vascular_surgery_integrated",
+      "aamc_label": "Vascular Surgery - Integrated",
+      "signal_system": "tiered",
+      "gold_limit": 3,
+      "silver_limit": 12,
+      "single_limit": null,
+      "rise_designations": ["Vascular Surgery - Integrated", "Vascular Surgery (Integrated)"],
+      "notes": null
+    }
+  ],
+  "alias_candidates_needing_human_confirmation": [
+    {
+      "aamc_label": "Internal Medicine/Medical Genetics",
+      "rise_candidate": "Internal Medicine/Medical Genetics and Genomics"
+    },
+    {
+      "aamc_label": "Pediatric Medical Genetics",
+      "rise_candidate": "Pediatrics/Medical Genetics and Genomics"
+    }
+  ],
+  "unresolved_policy": {
+    "engine_behavior": "disable_signal_assignment",
+    "student_copy": "Rules not listed by AAMC for this specialty. Confirm current requirements in MyERAS.",
+    "never": [
+      "infer a signal limit",
+      "fuzzy-match a specialty",
+      "claim a program accepts signals",
+      "submit a signal"
+    ]
+  }
+}
