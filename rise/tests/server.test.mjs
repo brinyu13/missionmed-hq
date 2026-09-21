@@ -421,6 +421,27 @@ test("profiles return evidence records and unknowns without coercion", async () 
   assert.equal((await missing.json()).error.code, "PROGRAM_NOT_FOUND");
 });
 
+test("IVOC projection is server-only, release-bound, subject-bound, and minimized", async () => {
+  const base = `${baseUrl}/api/rise/v1/ivoc/program-projections/ps-im?session_id=00000000-0000-4000-8000-000000000042`;
+  const missingConsumer = await fetch(`${base}&release_id=rise_registry_test`);
+  assert.equal(missingConsumer.status, 403);
+
+  const stale = await fetch(`${base}&release_id=stale`, { headers: { "X-MMED-Consumer": "ivoc" } });
+  assert.equal(stale.status, 409);
+  assert.equal((await stale.json()).error.code, "REGISTRY_RELEASE_STALE");
+
+  const response = await fetch(`${base}&release_id=rise_registry_test`, { headers: { "X-MMED-Consumer": "ivoc" } });
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.equal(body.owner_app, "rise");
+  assert.equal(body.projection_type, "rise.program_cheat_sheet");
+  assert.equal(body.subject_id, "local-preview");
+  assert.equal(body.payload.program_id, "ps-im");
+  assert.equal(body.payload.name, "Alpha Internal Medicine Program");
+  assert.equal(JSON.stringify(body).includes("Test Director"), false);
+});
+
 test("matching, integrations, and operator writes fail closed", async () => {
   const match = await fetch(`${baseUrl}/api/rise/v1/matches:evaluate`, {
     method: "POST",

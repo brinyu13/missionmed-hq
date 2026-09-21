@@ -19,6 +19,7 @@ const P1_RISE_5012E_FROZEN_BENCHMARK_ACGME_IDS = Object.freeze([
   "1403321227", "1403511262", "1400400928", "1201100747",
 ]);
 import { assertCurrentSourceRights } from "./src/source-authorization.mjs";
+import { createRiseIvocProgramProjection } from "./src/ivoc-projection.mjs";
 
 // P1-RISE-5012D binds this runtime to reviewed-evidence build rise_web_b8abd476daab.
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -2080,6 +2081,48 @@ export function createRiseServer({
           ...result,
           filterOptions: registryIndex.filters,
         }, { cache: "no-store", requestId });
+        return;
+      }
+      const ivocProjectionMatch = url.pathname.match(/^\/api\/rise\/v1\/ivoc\/program-projections\/([^/]+)$/);
+      if (request.method === "GET" && ivocProjectionMatch) {
+        if (String(request.headers.origin ?? "").trim() || request.headers["x-mmed-consumer"] !== "ivoc") {
+          status = 403;
+          apiError(response, 403, "IVOC_CONSUMER_REQUIRED", "The server-side IVOC consumer is required", requestId);
+          return;
+        }
+        const sessionId = String(url.searchParams.get("session_id") ?? "");
+        const releaseId = String(url.searchParams.get("release_id") ?? "");
+        if (releaseId !== registryIndex.registryReleaseId) {
+          status = 409;
+          apiError(response, 409, "REGISTRY_RELEASE_STALE", "The selected RISE registry release is stale", requestId, {
+            currentRegistryReleaseId: registryIndex.registryReleaseId,
+          });
+          return;
+        }
+        const record = byProgramSpecialtyId.get(decodeURIComponent(ivocProjectionMatch[1]));
+        if (!record) {
+          status = 404;
+          apiError(response, 404, "PROGRAM_NOT_FOUND", "Program specialty not found", requestId);
+          return;
+        }
+        const acgmeId = (record.identifiers ?? [])
+          .find((identifier) => identifier.namespace === "ACGME_PROGRAM")?.value ?? null;
+        const researchProjection = typeof filterIntelligence.readProgram === "function"
+          ? await filterIntelligence.readProgram({ programId: record.id, acgmeId })
+          : { currentFacts: [] };
+        let projection;
+        try {
+          projection = createRiseIvocProgramProjection({
+            session, sessionId, registryReleaseId: registryIndex.registryReleaseId,
+            program: record, researchProjection,
+          });
+        } catch {
+          status = 400;
+          apiError(response, 400, "IVOC_PROJECTION_INPUT_INVALID", "The IVOC projection request is invalid", requestId);
+          return;
+        }
+        status = 200;
+        sendJson(response, 200, projection, { cache: "no-store", requestId });
         return;
       }
       const profileMatch = url.pathname.match(/^\/api\/rise\/v1\/program-specialties\/([^/]+)$/);
