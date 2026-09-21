@@ -210,7 +210,8 @@ contract_assert(
 	has_pattern('/mmps_canary_no_batch/', $rest)
 		&& has_pattern('/mmps_canary_review_only/', $rest)
 		&& has_pattern('/count_provider_runs\s*\(/', $generator . $store)
-		&& has_pattern('/provider\s*<>\s*[\'\"]none[\'\"]/', $store),
+		&& has_pattern('/provider\s*<>\s*[\'\"]none[\'\"]/', $store)
+		&& has_pattern('/canaryReviewOnly/', $ui),
 	'real-ROOT canary remains review-only',
 	'Batch creation and library save must fail closed, while a no-provider research stop must not consume the one authorized canary generation.'
 );
