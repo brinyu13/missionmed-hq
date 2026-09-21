@@ -9,6 +9,7 @@
  *   wp eval-file - -- refund interview_week|complete ORDER_ID
  *   wp eval-file - -- final interview_week|complete ORDER_ID
  *   wp eval-file - -- cancel interview_week|complete ORDER_ID
+ *   wp eval-file - -- closeout
  *
  * `prepare` creates two private 50-cent orders only. It does not change a
  * product price and cannot initiate payment. `refund` performs the exact
@@ -47,7 +48,7 @@ $mode = '';
 $offerKey = '';
 $orderId = 0;
 foreach ($tokens as $token) {
-    if ($mode === '' && in_array($token, ['preflight', 'prepare', 'inspect', 'refund', 'final', 'cancel'], true)) {
+    if ($mode === '' && in_array($token, ['preflight', 'prepare', 'inspect', 'refund', 'final', 'cancel', 'closeout'], true)) {
         $mode = $token;
     } elseif ($offerKey === '' && in_array($token, ['interview_week', 'complete'], true)) {
         $offerKey = $token;
@@ -674,8 +675,42 @@ try {
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), "\n";
         exit(0);
     }
+    if ($mode === 'closeout') {
+        $manifest = mr0912_live_read_manifest();
+        if (!empty($manifest['temporary_mechanism_active'])) {
+            throw new RuntimeException('Temporary controlled-order mechanism is still active.');
+        }
+        if (is_file(ABSPATH . 'wp-content/mu-plugins/missionmed-mr-0912-live-card-bridge.php')) {
+            throw new RuntimeException('Temporary live-card bridge is still deployed.');
+        }
+        $inspections = [];
+        foreach (['interview_week', 'complete'] as $key) {
+            $row = $manifest['orders'][$key] ?? [];
+            if (($row['terminal_state'] ?? '') !== 'refunded') {
+                throw new RuntimeException('Both controlled orders must be refunded before closeout.');
+            }
+            $inspections[$key] = mr0912_live_inspect($key, (int) ($row['order_id'] ?? 0), true);
+            if (($inspections[$key]['pass_count'] ?? 0) !== ($inspections[$key]['check_count'] ?? -1)) {
+                throw new RuntimeException('Final controlled-order inspection failed.');
+            }
+        }
+        $verifiedAt = gmdate('c');
+        update_option('mmed_mr_0912_live_financial_acceptance_status', 'passed_two_offer_low_dollar_refunded_contained', false);
+        update_option('mmed_mr_0912_live_financial_acceptance_authority', 'FOUNDER-2026-09-21-LOW-DOLLAR-LIVE-TEST', false);
+        update_option('mmed_mr_0912_live_financial_acceptance_verified_at', $verifiedAt, false);
+        $manifest['runtime_acceptance_recorded_at_utc'] = $verifiedAt;
+        $manifest['runtime_acceptance_status'] = 'passed_two_offer_low_dollar_refunded_contained';
+        mr0912_live_write_manifest($manifest);
+        echo wp_json_encode([
+            'result' => 'PASS',
+            'verified_at_utc' => $verifiedAt,
+            'status' => 'passed_two_offer_low_dollar_refunded_contained',
+            'inspections' => $inspections,
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), "\n";
+        exit(0);
+    }
     if (!in_array($mode, ['inspect', 'refund', 'final', 'cancel'], true) || $orderId <= 0) {
-        throw new RuntimeException('Usage: preflight|prepare OR inspect|refund|final|cancel OFFER ORDER_ID');
+        throw new RuntimeException('Usage: preflight|prepare|closeout OR inspect|refund|final|cancel OFFER ORDER_ID');
     }
     $result = $mode === 'refund'
         ? mr0912_live_refund($offerKey, $orderId)

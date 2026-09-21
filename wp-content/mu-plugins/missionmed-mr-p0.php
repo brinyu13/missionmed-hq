@@ -257,6 +257,12 @@ function mm_mr_0912_founder_waiver_valid(): bool {
         && get_option('mmed_mr_0912_financial_test_authority', '') === MM_MR_0912_FINANCIAL_WAIVER_AUTHORITY;
 }
 
+function mm_mr_0912_live_financial_acceptance_passed(): bool {
+    return get_option('mmed_mr_0912_live_financial_acceptance_status', '') === 'passed_two_offer_low_dollar_refunded_contained'
+        && get_option('mmed_mr_0912_live_financial_acceptance_authority', '') === 'FOUNDER-2026-09-21-LOW-DOLLAR-LIVE-TEST'
+        && preg_match('/^2026-09-21T[0-9]{2}:[0-9]{2}:[0-9]{2}\+00:00$/', (string) get_option('mmed_mr_0912_live_financial_acceptance_verified_at', '')) === 1;
+}
+
 function mm_mr_0912_acceptance_binding(string $offerKey, string $verifiedAt, array $runtime): string {
     if (!mm_mr_0912_founder_waiver_valid()
         || !in_array($offerKey, ['interview_week', 'complete'], true) || !isset(
@@ -431,11 +437,19 @@ function mm_mr_p0_runtime_config(): array {
     }
     unset($config['offers']['complete_installment']['runtime']['checkout_candidate_url']);
 
-    $config['campaign']['go_live_gate']['financial_acceptance'] = [
-        'status' => mm_mr_0912_founder_waiver_valid() ? 'waived_by_founder_not_executed' : 'not_executed',
-        'authority' => mm_mr_0912_founder_waiver_valid() ? MM_MR_0912_FINANCIAL_WAIVER_AUTHORITY : null,
-        'passed' => false,
-    ];
+    $liveFinancialPassed = mm_mr_0912_live_financial_acceptance_passed();
+    $config['campaign']['go_live_gate']['financial_acceptance'] = $liveFinancialPassed
+        ? [
+            'status' => 'passed_two_offer_low_dollar_refunded_contained',
+            'authority' => 'FOUNDER-2026-09-21-LOW-DOLLAR-LIVE-TEST',
+            'passed' => true,
+            'verified_at' => (string) get_option('mmed_mr_0912_live_financial_acceptance_verified_at', ''),
+        ]
+        : [
+            'status' => mm_mr_0912_founder_waiver_valid() ? 'waived_by_founder_not_executed' : 'not_executed',
+            'authority' => mm_mr_0912_founder_waiver_valid() ? MM_MR_0912_FINANCIAL_WAIVER_AUTHORITY : null,
+            'passed' => false,
+        ];
     if (!empty($config['offers']['complete']['runtime']['checkout_allowed'])) {
         $verifiedPriceKey = mm_mr_0912_complete_pif_price() === 3099.0
             ? 'early_card_paid_in_full'
@@ -500,9 +514,11 @@ function mm_mr_p0_runtime_config(): array {
         'woo_price_authoritative' => true,
         'activation_fail_closed' => true,
         'acceptance_binding_valid' => $allAccepted,
-        'live_stripe_financial_acceptance' => mm_mr_0912_founder_waiver_valid()
-            ? 'WAIVED BY FOUNDER / NOT EXECUTED'
-            : 'NOT EXECUTED',
+        'live_stripe_financial_acceptance' => $liveFinancialPassed
+            ? 'PASSED - TWO $0.50 LIVE CHARGES REFUNDED AND CONTAINED'
+            : (mm_mr_0912_founder_waiver_valid()
+                ? 'WAIVED BY FOUNDER / NOT EXECUTED'
+                : 'NOT EXECUTED'),
     ];
     return $config;
 }
@@ -1055,6 +1071,7 @@ add_action('wp_head', static function (): void {
 
 function mm_mr_0912_is_customer_funnel_route(): bool {
     $path = '/' . trim((string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH), '/') . '/';
+    if (str_starts_with($path, '/checkout/')) return true;
     return in_array($path, [
         '/', '/mission-residency/', '/mission-residency-courses/', '/compare-programs/',
         '/course-comparison/', '/product/match-prep-pro/', '/product/iv-prep-complete/',
@@ -1073,6 +1090,16 @@ add_action('wp_footer', static function (): void {
     if (!mm_mr_p0_enabled() || !mm_mr_0912_is_customer_funnel_route()) return;
     echo '<script id="mm-mr-0912-mobile-notice-containment-script">(function(){function remove(){var n=document.getElementById("mm-mobile-notice");if(n)n.remove();}remove();new MutationObserver(remove).observe(document.documentElement,{childList:true,subtree:true});}());</script>';
 }, PHP_INT_MAX);
+
+add_action('wp_footer', static function (): void {
+    if (!mm_mr_p0_enabled() || !mm_mr_0912_is_customer_funnel_route()) return;
+    $cartUrl = function_exists('wc_get_cart_url') ? (string) wc_get_cart_url() : home_url('/cart/');
+    $cartCount = function_exists('WC') && WC()->cart ? (int) WC()->cart->get_cart_contents_count() : 0;
+    $label = $cartCount === 1 ? 'Cart, 1 item' : 'Cart, ' . $cartCount . ' items';
+    echo '<a id="mm-mr-0912-cart-button" href="' . esc_url($cartUrl) . '" aria-label="' . esc_attr($label) . '">'
+        . '<span aria-hidden="true">CART</span><span class="mm-mr-0912-cart-count" aria-hidden="true">' . esc_html((string) $cartCount) . '</span></a>'
+        . '<style id="mm-mr-0912-cart-button-style">#mm-mr-0912-cart-button{position:fixed;right:max(16px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));z-index:2147482000;display:inline-flex;align-items:center;justify-content:center;gap:9px;min-width:94px;min-height:48px;padding:11px 15px;border:1px solid rgba(229,189,98,.9);border-radius:999px;background:#071626;color:#fff!important;text-decoration:none!important;font:800 13px/1 Inter,system-ui,sans-serif;letter-spacing:.12em;box-shadow:0 10px 30px rgba(0,0,0,.32);transition:transform .18s ease,box-shadow .18s ease}#mm-mr-0912-cart-button:hover,#mm-mr-0912-cart-button:focus-visible{transform:translateY(-2px);box-shadow:0 14px 34px rgba(0,0,0,.4);outline:3px solid #e5bd62;outline-offset:3px}.mm-mr-0912-cart-count{display:inline-grid;place-items:center;min-width:24px;height:24px;padding:0 6px;border-radius:999px;background:#e5bd62;color:#071626;font-size:12px;letter-spacing:0}@media(max-width:520px){#mm-mr-0912-cart-button{right:max(12px,env(safe-area-inset-right));bottom:max(12px,env(safe-area-inset-bottom));min-height:46px;padding:10px 13px}}</style>';
+}, PHP_INT_MAX - 1);
 
 add_action('woocommerce_review_order_before_submit', static function (): void {
     if (!mm_mr_p0_launch_product_in_cart()) return;
