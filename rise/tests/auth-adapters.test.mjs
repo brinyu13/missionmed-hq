@@ -75,6 +75,67 @@ test("HQ adapter introspects the exact audience and exposes only a bound RISE se
   }
 });
 
+test("HQ adapter delegates an exact server-only IVOC projection without widening browser auth", async () => {
+  const observed = [];
+  const now = Date.parse("2026-07-22T12:00:00.000Z");
+  const token = "ivoc-rise-delegation-test-token-000000000000";
+  const fixture = await listen((request, response) => {
+    observed.push({
+      url: request.url,
+      cookie: request.headers.cookie,
+      authorization: request.headers.authorization,
+      consumer: request.headers["x-mmed-internal-consumer"],
+    });
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(JSON.stringify({
+      authenticated: true,
+      sessionPersistent: true,
+      authAudience: "rise",
+      revoked: false,
+      revokedAt: null,
+      risePrivateBeta: true,
+      riseEntitlements: ["FULL_RISE_BETA_ACCESS"],
+      csrfToken: "delegatedCsrfTokenForRise0000000",
+      expiresAt: "2026-07-22T13:00:00.000Z",
+      user: { id: 42, displayName: "Beta Student", roles: ["subscriber"] },
+    }));
+  });
+  try {
+    const authenticate = createHqAuthenticator({
+      authSessionUrl: `${fixture.origin}/api/auth/session`,
+      bindingHmacKey: "binding-test-key-0000000000000000",
+      ivocDelegationToken: token,
+      allowInsecureLoopback: true,
+      now: () => now,
+    });
+    const session = await authenticate({
+      method: "GET",
+      url: "/api/rise/v1/ivoc/program-projections/rise_ps_test",
+      headers: { cookie: "mmhq_session=ivoc-audience-cookie", "x-mmed-consumer": "ivoc" },
+    });
+    assert.equal(session.subject, "wp:42");
+    assert.equal(observed[0].authorization, `Bearer ${token}`);
+    assert.equal(observed[0].consumer, "rise-ivoc-projection");
+    assert.equal(observed[0].cookie, "mmhq_session=ivoc-audience-cookie");
+
+    const rejected = createHqAuthenticator({
+      authSessionUrl: `${fixture.origin}/api/auth/session`,
+      bindingHmacKey: "binding-test-key-0000000000000000",
+      ivocDelegationToken: "",
+      allowInsecureLoopback: true,
+      now: () => now,
+    });
+    assert.equal(await rejected({
+      method: "GET",
+      url: "/api/rise/v1/ivoc/program-projections/rise_ps_test",
+      headers: { cookie: "mmhq_session=ivoc-audience-cookie", "x-mmed-consumer": "ivoc" },
+    }), null);
+    assert.equal(observed.length, 1);
+  } finally {
+    await fixture.close();
+  }
+});
+
 test("HQ adapter rejects expired, revoked, malformed-revocation, and audience-drifted upstream sessions", async () => {
   let mode = "expired";
   const fixture = await listen((_request, response) => {

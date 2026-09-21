@@ -32,6 +32,16 @@ function cookieValue(cookieHeader, name) {
   return "";
 }
 
+function isIvocProjectionRequest(request) {
+  if (request?.method !== "GET" || request?.headers?.["x-mmed-consumer"] !== "ivoc") return false;
+  try {
+    const pathname = new URL(String(request.url || ""), "https://rise.invalid").pathname;
+    return /^\/api\/rise\/v1\/ivoc\/program-projections\/[^/]+$/u.test(pathname);
+  } catch {
+    return false;
+  }
+}
+
 async function parseJsonResponse(response) {
   const declaredLength = Number(response.headers.get("content-length") ?? 0);
   if (declaredLength > MAX_RESPONSE_BYTES) throw new Error("HQ auth response exceeds the RISE limit");
@@ -50,6 +60,7 @@ export function createHqAuthenticator({
   authSessionUrl = process.env.RISE_HQ_AUTH_SESSION_URL,
   sessionCookieName = process.env.RISE_HQ_SESSION_COOKIE_NAME ?? "mmhq_session",
   bindingHmacKey = process.env.RISE_SESSION_BINDING_HMAC_KEY,
+  ivocDelegationToken = process.env.RISE_HQ_IVOC_DELEGATION_TOKEN,
   timeoutMs = Number.parseInt(process.env.RISE_AUTH_TIMEOUT_MS ?? String(DEFAULT_TIMEOUT_MS), 10),
   allowInsecureLoopback = process.env.RISE_ALLOW_INSECURE_LOOPBACK_AUTH === "true",
   fetchImpl = globalThis.fetch,
@@ -70,6 +81,9 @@ export function createHqAuthenticator({
     if (request.headers.authorization) return null;
     const cookie = cookieValue(request.headers.cookie, cookieName);
     if (!cookie) return null;
+    const ivocProjection = isIvocProjectionRequest(request);
+    const delegationToken = String(ivocDelegationToken ?? "").trim();
+    if (ivocProjection && delegationToken.length < 32) return null;
     let response;
     try {
       response = await fetchImpl(endpoint, {
@@ -77,6 +91,10 @@ export function createHqAuthenticator({
         headers: {
           Accept: "application/json",
           Cookie: `${cookieName}=${cookie}`,
+          ...(ivocProjection ? {
+            Authorization: `Bearer ${delegationToken}`,
+            "X-MMED-Internal-Consumer": "rise-ivoc-projection",
+          } : {}),
         },
         cache: "no-store",
         redirect: "error",
