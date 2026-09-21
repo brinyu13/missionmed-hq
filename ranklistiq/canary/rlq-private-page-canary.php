@@ -2,8 +2,8 @@
 /**
  * Temporary protected transport for the RLQ-DUALMODE-0921A canary.
  *
- * Serves the candidate only on private page 9174, or via a fixed query token
- * on the existing RankListIQ page, and only to administrators.
+ * Serves the candidate only on private page 9174 or one fixed unlinked path,
+ * and only to administrators.
  * Remove this file after promotion or withdrawal.
  */
 
@@ -15,13 +15,13 @@ add_action(
     'template_redirect',
     static function (): void {
         $page_id = (int) get_queried_object_id();
-        $query_token = isset($_GET['rlq_preview'])
-            ? sanitize_text_field(wp_unslash($_GET['rlq_preview']))
+        $request_path = isset($_SERVER['REQUEST_URI'])
+            ? (string) wp_parse_url(wp_unslash($_SERVER['REQUEST_URI']), PHP_URL_PATH)
             : '';
         $is_private_page = 9174 === $page_id;
-        $is_token_route = 4216 === $page_id && 'RLQ-DUALMODE-0921A' === $query_token;
+        $is_path_route = '/ranklistiq-acceptance-0921a' === untrailingslashit($request_path);
 
-        if (!$is_private_page && !$is_token_route) {
+        if (!$is_private_page && !$is_path_route) {
             return;
         }
 
