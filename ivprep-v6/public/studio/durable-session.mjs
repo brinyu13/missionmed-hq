@@ -208,6 +208,15 @@ export class DurableStudioSession {
     });
   }
 
+  finalizeLiveConversation() {
+    for (const turn of this.liveConversationTurns.values()) {
+      if (turn.final || !String(turn.text || '').trim()) continue;
+      turn.text = String(turn.text).trim();
+      turn.final = true;
+      turn.providerEventType = `${String(turn.providerEventType || 'provider_transcript').slice(0, 180)}:client-finish`;
+    }
+  }
+
   async finish(analyticsPromise) {
     const accountSession = this.accountSession;
     const recorder = this.recorder;
@@ -220,6 +229,11 @@ export class DurableStudioSession {
       });
     const recordingPromise = recorder?.stopAndSeal?.() || Promise.resolve(null);
     const [analytics, recording] = await Promise.all([resolvedAnalytics, recordingPromise]);
+    // The user-controlled Finish action is the terminal boundary for any
+    // provider transcript deltas still in flight. Preserve that text only as
+    // provisional live-conversation evidence; server transcription remains
+    // the sole authority that can assign a canonical transcript reference.
+    this.finalizeLiveConversation();
     const liveConversation = this.liveConversationSnapshot();
     const envelope = createDurableResultsEnvelope({
       sessionId: accountSession.id,

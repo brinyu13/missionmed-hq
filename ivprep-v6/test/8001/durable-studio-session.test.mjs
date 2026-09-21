@@ -119,15 +119,17 @@ test('program search remains behind the admitted durable capability', async () =
   assert.deepEqual(calls, [{ q: 'Example' }]);
 });
 
-test('live transcript deltas collapse into final provider turns and incomplete text is not persisted', async () => {
+test('live transcript deltas stay provisional until explicit Finish seals them', async () => {
+  const saved = [];
   let nowMs = 0;
   const durable = new DurableStudioSession({
     nowMs: () => nowMs,
     api: {
       async bootstrap() { return { entitlement: { admitted: true } }; },
       async createSession() { return { id: 'session-live-turns' }; },
+      async saveResults(_id, input) { saved.push(input); return { id: 'result-live-turns' }; },
     },
-    recordingFactory: () => ({ async start() {} }),
+    recordingFactory: () => ({ async start() {}, async stopAndSeal() { return null; } }),
   });
   await durable.bootstrap();
   await durable.start({ stream: {} });
@@ -143,6 +145,19 @@ test('live transcript deltas collapse into final provider turns and incomplete t
     id: 'r1', speaker: 'interviewer', startMs: 100, endMs: 220,
     text: 'Why this program?', final: true, providerEventType: 'response.output_audio_transcript.done',
   }]);
+  const finished = await durable.finish(Promise.resolve({ durationMs: 300, events: [] }));
+  assert.equal(finished.persisted, true);
+  assert.deepEqual(saved[0].liveConversation.turns, [
+    {
+      id: 'r1', speaker: 'interviewer', startMs: 100, endMs: 220,
+      text: 'Why this program?', final: true, providerEventType: 'response.output_audio_transcript.done',
+    },
+    {
+      id: 'partial', speaker: 'student', startMs: 300, endMs: 300,
+      text: 'Still speaking', final: true,
+      providerEventType: 'conversation.item.input_audio_transcription.delta:client-finish',
+    },
+  ]);
 });
 
 test('results envelope remains truthful when recording evidence is unavailable', () => {
