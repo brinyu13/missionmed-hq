@@ -19,6 +19,18 @@ if (!defined('ABSPATH')) {
     exit(2);
 }
 
+// Payment Plugins for Stripe rewrites the official `stripe` gateway ID to its
+// disabled legacy `stripe_cc` ID on order reads. The controlled acceptance
+// must inspect and refund the raw official Woo gateway without that migration
+// compatibility filter affecting its exact guards.
+if (class_exists('WC_Stripe_Gateway_Conversion')) {
+    remove_filter(
+        'woocommerce_order_get_payment_method',
+        [WC_Stripe_Gateway_Conversion::class, 'convert_payment_method'],
+        10
+    );
+}
+
 const MR0912_LIVE_PRIVATE_DIR = '/www/theresidencyacademy_209/private/mr-web-0912/20260921-founder-reversal-live-card-v2';
 const MR0912_LIVE_MANIFEST = MR0912_LIVE_PRIVATE_DIR . '/live-card-orders.json';
 const MR0912_STRIPE_MINIMUM_USD = 0.50;
