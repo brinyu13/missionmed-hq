@@ -1,0 +1,9 @@
+{
+  "id": "20260921T140832Z-g2a8749d2",
+  "sourceCommit": "2a8749d2c09a335ab80d658b9e0d73db14cf7d28",
+  "baseSha256": "1766f21de2bfbffe2d5e70e999757fad6be38dd572ff5081a21550b6224756ec",
+  "configSha256": "1e7005447672cbd60728dd45e796e89bc6267bf903b19665da44d05087593ea9",
+  "builtAt": "2026-09-21T14:08:32.316Z",
+  "output": "rank_list_engine.20260921T140832Z-g2a8749d2.html",
+  "outputSha256": "7aa96d0a79342e32645fc774a05ceff27eac28cbf858ff3fa48d7bdfa4dd55a0"
+}
