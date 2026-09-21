@@ -541,6 +541,11 @@
 				var id = button.getAttribute('data-toggle-collapse');
 				categoryCollapsed[id] = categoryCollapsed[id] === false ? true : false;
 				render(instance.state);
+				global.setTimeout(function () {
+					root.querySelectorAll('[data-toggle-collapse]').forEach(function (candidate) {
+						if (candidate.getAttribute('data-toggle-collapse') === id) candidate.focus();
+					});
+				}, 0);
 			});
 		});
 		root.querySelectorAll('[data-toggle-todo]').forEach(function (checkbox) { checkbox.addEventListener('change', function () { var todo = state.todos.filter(function (item) { return String(item.id) === String(checkbox.getAttribute('data-toggle-todo')); })[0]; if (!todo) return; todo = Object.assign({}, todo, { completed: checkbox.checked }); instance.updateTodo(todo).catch(function () { render(instance.state); }); }); });

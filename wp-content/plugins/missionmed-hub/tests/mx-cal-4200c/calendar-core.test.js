@@ -52,6 +52,7 @@ test('expandable category rows use the full labeled row with accessible state an
 	assert.match(v2Source, /aria-expanded="' \+ \(!collapsed\) \+ '"/);
 	assert.match(v2Source, /class="mcv2-category-visibility" data-category-id/);
 	assert.match(v2Styles, /\.mcv2-category-disclosure \{[^}]*min-height: 36px;/s);
+	assert.match(v2Source, /candidate\.getAttribute\('data-toggle-collapse'\) === id\) candidate\.focus\(\)/);
 });
 
 test('mobile event dots retain an accessible event name and Classic is not publicly selectable', () => {
