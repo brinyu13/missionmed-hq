@@ -426,7 +426,7 @@ class MMPS_Generator {
 				$right      = self::candidate_diversity_text( (string) ( $candidates[ $j ]['replacement_region'] ?? '' ), $bundle, $plan );
 				$similarity = self::candidate_similarity( $left, $right );
 				$opening    = max( self::candidate_similarity( self::candidate_opening( $raw_left ), self::candidate_opening( $raw_right ) ), self::candidate_similarity( self::candidate_opening( $left ), self::candidate_opening( $right ) ) );
-				$exact      = mb_strtolower( trim( preg_replace( '/\s+/u', ' ', $raw_left ) ) ) === mb_strtolower( trim( preg_replace( '/\s+/u', ' ', $raw_right ) ) );
+				$exact      = self::candidate_tokens( $raw_left, false ) === self::candidate_tokens( $raw_right, false );
 				if ( $exact || $similarity > 0.62 || $opening > 0.55 || self::candidate_has_shared_phrase( $left, $right ) ) {
 					$blocking[] = array( 'code' => 'CANDIDATES_TOO_SIMILAR', 'message' => ( $candidates[ $i ]['candidate_id'] ?? 'candidate' ) . ' and ' . ( $candidates[ $j ]['candidate_id'] ?? 'candidate' ) . ' are too similar (' . round( $similarity * 100 ) . '% shared content words).' );
 				}

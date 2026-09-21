@@ -175,6 +175,22 @@ unset($candidate);
 $factOnlyDuplicateCheck = MMPS_Generator::validate_candidate_set($factOnlyDuplicate, $evidenceBundle, $evidencePlan, $root);
 check(in_array('CANDIDATES_TOO_SIMILAR', wp_list_pluck($factOnlyDuplicateCheck['blocking'], 'code'), true), 'byte-identical fact-dense candidates remain blocked before evidence normalization');
 
+$punctuationDuplicate = $factOnlyDuplicate;
+$punctuationVariants = array(
+	'Cardiology, fellowship accepts applicants after completing three years of internal medicine residency.',
+	'Cardiology fellowship, accepts applicants after completing three years of internal medicine residency.',
+	'Cardiology fellowship accepts applicants, after completing three years of internal medicine residency.',
+	'Cardiology fellowship accepts applicants after completing, three years of internal medicine residency.',
+	'Cardiology fellowship accepts applicants after completing three years, of internal medicine residency.',
+);
+foreach ($punctuationDuplicate['candidates'] as $index => &$candidate) {
+	$candidate['segments'][1]['text'] = $punctuationVariants[$index];
+	$candidate['replacement_region'] = implode(' ', wp_list_pluck($candidate['segments'], 'text'));
+}
+unset($candidate);
+$punctuationDuplicateCheck = MMPS_Generator::validate_candidate_set($punctuationDuplicate, $evidenceBundle, $evidencePlan, $root);
+check(in_array('CANDIDATES_TOO_SIMILAR', wp_list_pluck($punctuationDuplicateCheck['blocking'], 'code'), true), 'punctuation-only variants remain blocked before evidence normalization');
+
 $unallowedEvidenceSet = $paraphrasedEvidenceSet;
 foreach ($unallowedEvidenceSet['candidates'] as &$candidate) {
 	$candidate['segments'][1]['fact_ids'] = array('F-name');
