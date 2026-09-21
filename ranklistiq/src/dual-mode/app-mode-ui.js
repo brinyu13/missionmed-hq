@@ -16,6 +16,7 @@
   var initialized = false;
   var modal = null;
   var compareModal = null;
+  var rankListObserver = null;
   var riseRecords = [];
   var riseIdentity = {};
   var selectedIds = new Set();
@@ -336,6 +337,20 @@
     return ranked;
   }
 
+  function ensureRankListObserver() {
+    if (rankListObserver || !root.MutationObserver) return;
+    var rankList = byId("rankList");
+    if (!rankList) return;
+    rankListObserver = new root.MutationObserver(function restoreApplicationControls() {
+      if (!root.RLQ_DUAL.isApplication() || !root.RLQ_ENGINE || !root.RLQ_SIGNAL_CONFIG || !root.RLQ_SIGNALS) return;
+      var cards = rankList.querySelectorAll(".rankItem[data-program-id]");
+      if (!cards.length || rankList.querySelectorAll(".rlq-card-controls").length >= cards.length) return;
+      var state = root.RLQ_ENGINE.getState();
+      renderCardControls(state, ensureApplication(state));
+    });
+    rankListObserver.observe(rankList, { childList: true, subtree: true });
+  }
+
   function openCompareOrders(state, application) {
     if (!compareModal) {
       compareModal = root.document.createElement("div");
@@ -361,6 +376,7 @@
     addHeaderChip();
     relabelApplication();
     importButton();
+    ensureRankListObserver();
     if (!root.RLQ_DUAL.isApplication() || !root.RLQ_ENGINE || !root.RLQ_SIGNAL_CONFIG || !root.RLQ_SIGNALS) return;
     var state = root.RLQ_ENGINE.getState();
     var application = ensureApplication(state);
@@ -376,6 +392,7 @@
       addHeaderChip();
       relabelApplication();
       importButton();
+      ensureRankListObserver();
     }
     if (root.document.readyState === "loading") root.document.addEventListener("DOMContentLoaded", ready, { once: true });
     else ready();
@@ -388,4 +405,3 @@
     init: init
   };
 });
-

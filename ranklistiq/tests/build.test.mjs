@@ -40,6 +40,8 @@ test("full build has one balanced marker pair per seam and embeds exact config",
   assert.equal((result.html.match(/flushProgramNotesToUserProgramInterviews\(\{/g) || []).length, 1);
   assert.ok(result.html.includes('window.SUPABASE_DEBUG'));
   assert.ok(!result.html.includes('rlqSaveDebugEnabled = !!SUPABASE_DEBUG;'));
+  assert.ok(result.html.includes('new root.MutationObserver(function restoreApplicationControls()'));
+  assert.ok(result.html.includes('rankListObserver.observe(rankList, { childList: true, subtree: true });'));
 });
 
 test("protected runtime wrapper fails closed outside WordPress and returns exact HTML inside it", () => {
