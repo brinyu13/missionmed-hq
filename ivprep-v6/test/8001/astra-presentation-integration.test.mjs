@@ -147,6 +147,10 @@ test('freshly finished interviews and Admin reviews retain their user-facing con
   assert.match(runtime, /view === 'filmroom' && state\.lastSaved[\s\S]*renderFilmRoomSpine\(state\.lastSaved\.sessionDetail, state\.lastSaved\.envelope\)/u);
   assert.match(runtime, /function renderFilmRoomSpine\(session, envelope = null\)[\s\S]*persistedConversationTurns\(\{ sessionDetail: session, envelope \}\)/u);
   assert.match(runtime, /state\.role === 'admin' && ownerDisplayName \? `Student · \$\{ownerDisplayName\}`/u);
+  assert.match(html, /id="filmroom-provenance" aria-live="polite"/u);
+  assert.match(html, /id="post-open-filmroom"/u);
+  assert.match(runtime, /state\.role === 'admin'[\s\S]*state\.adminLibrary\.playback\(recordingId\)/u);
+  assert.match(runtime, /state\.durable\.playback\(recordingId\)/u);
 });
 
 test('verified program search becomes actionable when the visible query changes', () => {

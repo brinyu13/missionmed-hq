@@ -2714,6 +2714,9 @@ function wireChrome() {
     event.target.value = String(state.targetQuestions);
   });
   $('#context-analyze')?.addEventListener('click', () => { void analyzeLastAnswer(); });
+  $('#post-open-filmroom')?.addEventListener('click', (event) => {
+    void openLastSavedFilmRoom(event.currentTarget);
+  });
 }
 
 function renderLoadoutConfig() {
@@ -3022,6 +3025,21 @@ function renderContextEvidence(result) {
 function renderFilmRoomSpine(session, envelope = null) {
   const host = $('#filmroom-spine');
   if (!host) return;
+  const selectedSession = session?.session || state.lastSaved?.session || null;
+  const ownerDisplayName = selectedSession?.ownerDisplayName || state.lastSaved?.session?.ownerDisplayName || null;
+  const provenance = $('#filmroom-provenance');
+  if (provenance) {
+    const question = selectedSession?.questionText || selectedSession?.title || selectedSession?.questionId || 'Saved interview';
+    const when = selectedSession?.endedAt || selectedSession?.startedAt || null;
+    provenance.replaceChildren(
+      el('span', 'microcap', 'Private recording'),
+      el('strong', '', question),
+      el('span', 'canon-muted', [
+        state.role === 'admin' && ownerDisplayName ? `Student · ${ownerDisplayName}` : null,
+        when ? new Date(when).toLocaleString() : null,
+      ].filter(Boolean).join(' · ') || 'Session details unavailable'),
+    );
+  }
   const turns = persistedConversationTurns({ sessionDetail: session, envelope });
   const canonicalTranscript = turns.length > 0 && turns.every((turn) => turn.canonical);
   const evidence = Array.isArray(session?.spine?.evidence) ? session.spine.evidence : [];
@@ -3069,6 +3087,33 @@ function renderFilmRoomSpine(session, envelope = null) {
       list.append(row);
     }
     host.append(label, list);
+  }
+}
+
+async function openLastSavedFilmRoom(button) {
+  if (button) button.disabled = true;
+  try {
+    const recordingId = state.lastSaved?.sessionDetail?.recording?.id
+      || state.lastSaved?.session?.recording?.id
+      || state.lastSaved?.recording?.recording?.id
+      || state.lastSaved?.recording?.id
+      || null;
+    let playbackUrl = state.lastSaved?.recording?.blob ? state.localPlaybackUrl : null;
+    if (!playbackUrl && recordingId) {
+      const signed = state.role === 'admin'
+        ? await state.adminLibrary.playback(recordingId)
+        : await state.durable.playback(recordingId);
+      playbackUrl = signed?.url || null;
+    }
+    renderFilmRoomSpine(state.lastSaved?.sessionDetail, state.lastSaved?.envelope);
+    const video = $('#playback');
+    if (video && playbackUrl) {
+      video.src = playbackUrl;
+      await video.play().catch(() => {});
+    }
+    setView('filmroom', { focus: true });
+  } finally {
+    if (button) button.disabled = false;
   }
 }
 

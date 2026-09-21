@@ -357,7 +357,7 @@
           <p class="microcap">Provider processing begins only when you press the button. Available transcript and evidence-cited analysis are saved privately to this authenticated answer.</p>
         </div>
         <div class="btn-row">
-          <button class="btn btn-secondary" type="button" data-goto="filmroom"><span>Open film room</span></button>
+          <button class="btn btn-secondary" type="button" id="post-open-filmroom"><span>Open film room</span></button>
           <button class="btn btn-quiet" type="button" data-goto="compare"><span>Compare attempts</span></button>
           <button class="btn btn-primary" type="button" data-goto="training"><span>Next question ▸</span></button>
         </div>
@@ -367,6 +367,7 @@
       <section class="screen" data-view-panel="filmroom">
         <div class="microcap hero-kick">Film room</div>
         <h1 class="hero">Every claim is <em>evidence.</em></h1>
+        <div class="recess" id="filmroom-provenance" aria-live="polite"><span class="microcap">No recording selected</span></div>
         <div class="housing" style="margin-top:18px">
           <div class="housing-title">Playback</div>
           <div class="recess" style="padding:0">
