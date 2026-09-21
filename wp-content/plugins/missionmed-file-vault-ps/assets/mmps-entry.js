@@ -43,8 +43,8 @@
 		}
 		function mountMenuEntry() {
 			if (menuMounted()) { return; }
-			var list = document.querySelector('.sos-nav-list');
 			var fileVault = document.querySelector('.sos-nav-link[href="#filevault"]');
+			var list = fileVault && fileVault.closest ? fileVault.closest('.sos-nav-list') : null;
 			if (!list || !fileVault) { return; }
 			var item = document.createElement('li');
 			item.setAttribute('data-mmps-menu', '1');
@@ -63,11 +63,8 @@
 			link.appendChild(label);
 			item.appendChild(link);
 			var fileVaultItem = fileVault.closest ? fileVault.closest('li') : fileVault.parentNode;
-			if (fileVaultItem && fileVaultItem.parentNode === list) {
-				list.insertBefore(item, fileVaultItem.nextSibling);
-			} else {
-				list.appendChild(item);
-			}
+			if (!fileVaultItem || fileVaultItem.parentNode !== list) { return; }
+			list.insertBefore(item, fileVaultItem.nextSibling);
 		}
 
 		function fileVaultOnScreen() {
