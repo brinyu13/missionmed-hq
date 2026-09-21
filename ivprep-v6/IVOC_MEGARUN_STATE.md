@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-20 20:20 America/New_York
+Updated: 2026-09-20 22:42 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -26,9 +26,9 @@ the actual production route and deployment.
   provider behavior remains below that boundary. Current page composition is
   not presentation canon merely because a capability is wired into it.
 - Latest functionality-accepted presentation/runtime deployment:
-  `ece5679c-cd75-4d89-8826-c59af39f165a`, exact commit
-  `f87f572ff59ca7280b821e8be7af84f781617dad`, image
-  `sha256:fae994020d57d1e4997521ba06290228a802550ebe964879e31820fcf29d230a`.
+  `2ee15d42-2ec8-4342-87ae-a91056853265`, exact commit
+  `58242681d64fdd4826b3a37215d9c57ec12e6f94`, image
+  `sha256:0496eccbc07ac5dec2292367c64fbadc147e57a9d2599d03b449d3dd9bce14f6`.
   `/health` is HTTP 200 and anonymous `/iv-prep-on-call/` remains fail-closed
   at HTTP 401. Authenticated production Results reconstructed three canonical
   transcript segments, 36 words and a 0 s–18 s capture-owner boundary, then
@@ -128,19 +128,18 @@ the actual production route and deployment.
   `f87f572` shows StoryForge available and opt-in selection works. A genuine
   consented positive story remains external evidence waiting.
 - RISE program projection and IVOC consumer:
-  owner source `b6c854e70328973612332a4d89a576cc1a4b2c5b` and IVOC source
-  `2f9b376c3de508bd5f25afc71a3f1df833e9c54c` implement the minimized
+  owner source `e0f9eb0` and IVOC source `5824268` implement the minimized
   authenticated `rise.program_cheat_sheet` projection, exact program/release
   binding, provenance, sourced highlights and role presence without names.
-  Focused RISE tests pass 34/34 and the combined IVOC/intelligence suite passes
-  114/114. Promotion is owner-source blocked: current healthy production serves
-  `rise_registry_acgme_2026-09-20_50d08ea6f2da`, but clean canonical source
-  contains an older 909-program manifest; corrected deployment
-  `fea02fce-6267-4874-bbbc-4caaf2f05daa` therefore failed closed on
-  `RISE index manifest hash mismatch`. Existing RISE deployment
-  `b9111ae6-269f-4823-9265-85552ddab11e` remains healthy. IVOC truthfully
-  presents RISE as not connected until the current production artifact is
-  restored to owner source and the exact owner projection can deploy.
+  The exact active 6,245-program release artifacts were recovered from their
+  verified clean-start owner lineage without changing owner data or hashes.
+  RISE deployment `6d1fd003-49a5-4696-978b-fbf357272e2f`, image
+  `sha256:31165b23e8c6720acc28d9a5c657f5bca9a222691532d8477eac1ec2e603af78`,
+  and HQ deployment `2ee15d42-2ec8-4342-87ae-a91056853265` are healthy. Real
+  production canary session `3a6637db-4051-407a-9679-b18a45290e7e` received
+  owner HTTP 200, persisted exactly one RISE projection input, one source
+  receipt and one `ctxpack:` receipt, with zero documents, stories or people;
+  it was then abandoned normally without recording.
 - Evidence-bound prior-IVOC runtime projection:
   `23d119076768a6c6eb19153a0a6e3c69e1f15539`. New semantic analyses persist
   only structured, transcript-cited `structure`, `evidence`, `specificity` or
@@ -177,12 +176,10 @@ the actual production route and deployment.
   entitled-360 and negative/wrong-owner role evidence; and completed Webex
   media while its owner reports `RECORDING PROCESSING`. Recheck only after the
   relevant user, provider or session event changes.
-- **C — OWNER-SCOPED INTEGRATION REQUIRED:** File Vault and StoryForge owner
-  projections plus IVOC consumers are deployed; their genuine positive data
-  remains category B. RISE owner and consumer source are complete, but owner
-  promotion waits on restoring the exact active registry release artifacts to
-  canonical source so its production hash pins can pass. IVOC does not copy,
-  downgrade or fabricate RISE data to bypass that owner integrity gate.
+- **C — OWNER-SCOPED INTEGRATION REQUIRED:** no currently authorized owner-side
+  engineering remains. File Vault, StoryForge and RISE projections plus IVOC
+  consumers are deployed through their owner boundaries. Genuine current-CV
+  and consented-story positive data remain category B, not engineering stops.
 - **D — EXPLICITLY DEFERRED:** active LemonSlice/provider execution. Match
   Bridge cross-product pickup remains low priority because the IVOC-owned
   consent/version/revocation clip seam is already live accepted.
@@ -246,8 +243,8 @@ the actual production route and deployment.
 | 5 | Six-step builder and Practice Goal modes | LIVE VERIFIED | Authenticated production Chrome traversed all six distinct candidate.2 step compositions without collapsing them into the rejected generic-card builder. |
 | 5 | Question Pool branching, persistent rail, presets, ordering, 193-question corpus | LIVE VERIFIED | Deployment `d94bf8fa…` visibly preserved the right rail on Practice Goal and Question Pool, enforced category → subcategory → question progression for Behavioral, selected real `BEH-001` from the 193-question corpus, and exposed ordered move/remove controls in the rail. |
 | 5 | Separate Interviewer and Program steps with role/style controls | LIVE VERIFIED | Authenticated production traversed the independent Program and Interviewer compositions with Program Director, Faculty, Chief Resident, APD and Dove/Peacock/Owl/Eagle controls. RISE hydration remains a separate owner projection. |
-| 5 | RISE-backed Program search, sourced highlights, people, freshness/manual fallback | OWNER SOURCE INTEGRITY BLOCKER | RISE owner projection and IVOC consumer source are complete at `b6c854e` and `2f9b376`. Deployment fails closed because the active 6,245-program registry release is not present in clean canonical source and its runtime manifest pin rejects the older 909-program artifact. Existing production remains healthy; no owner data was copied or downgraded. |
-| 5 | Environment + Context sources and opt-in StoryForge reveal | LIVE VERIFIED | Authenticated production `f87f572` visibly renders MissionMed/Webex/Zoom/Teams, enables StoryForge/CV/File Vault from the server capability manifest, keeps RISE/MCC disabled, truthfully shows empty Top 3, keeps Prior IVOC available, and toggles StoryForge opt-in without exposing provider details. |
+| 5 | RISE-backed Program search, sourced highlights, people, freshness/manual fallback | LIVE VERIFIED | RISE owner `e0f9eb0` and IVOC `5824268` are live at deployments `6d1fd003…` and `2ee15d42…`. Production canary `3a6637db…` bound the exact 6,245-program release, received owner HTTP 200 and persisted only the minimized `rise.program_cheat_sheet` input plus versioned source/Context Pack receipts. |
+| 5 | Environment + Context sources and opt-in StoryForge reveal | LIVE VERIFIED | Authenticated production visibly renders MissionMed/Webex/Zoom/Teams, enables StoryForge/CV/File Vault/RISE from the server capability manifest, keeps MCC disabled, truthfully shows empty Top 3, keeps Prior IVOC available, and toggles opt-in sources without exposing provider details. |
 | 5 | Truthful Readiness & Calibration checks | LIVE VERIFIED | Deployment `d94bf8fa…` now derives each readiness row from its own MetricBus evidence. Live authenticated readback truthfully showed camera/visual signals awaiting camera and voice signals awaiting microphone, while transcript and recording reported only their real capability states; 26 focused adapter/presentation/durable tests passed. |
 | 6 | Real modular camera/mic Analytics with truthful availability states | LIVE VERIFIED | Physical production rep produced real microphone PCM plus face, hands, head and framing telemetry; unavailable signals continued to fail closed. |
 | 6 | Volume, pace, pauses, pitch, fillers and transcript boundaries | LIVE VERIFIED | Physical production reps proved live volume, variation, pitch, pace, cadence and pause states. Authenticated saved session `0d250e0c-1011-48bc-a416-f9ae4c2c735f` then cold-reconstructed three canonical transcript segments, 36 words, the 0 s–18 s capture-owner boundary and zero bounded filler candidates on deployment `6b5bad11…`; the UI discloses the bounded lexicon and explicitly rejects hidden-trait inference. |
@@ -263,7 +260,7 @@ the actual production route and deployment.
 | 10 | Server-owned Application Intelligence Context Pack hydration | LIVE VERIFIED | Genuine `brinyu` production session `1b973235-de3b-4d2c-a39a-c51e49df38e8` persisted one owner-bound private pack and `ctxpack:` receipt. Two authenticated `gpt-live-1` WebRTC canaries resolved that same server-only contract, reached live audio/transcript exchange and clean teardown; neither Actor block nor receipt crossed the browser boundary. |
 | 10 | File Vault context/performance-reference seam | LIVE DEPLOYED / POSITIVE EVIDENCE WAITING | Mission `J1-FILEVAULT-1021-IVOC-CV-PROJECTION` implemented the minimal S2S projection at owner source `9ba360b…` and deployed only that projection from exact live baseline commit `2587f3c…`; IVOC's selected-source, server-authenticated consumer is live at `a2e945c…`. Anonymous projection/bootstrap access is 401, direct object-root access is 403, product health is 200 and anonymous IVOC access is 401. A genuine authorized reviewed current-CV positive projection is not presently available and remains external evidence waiting. |
 | 10 | StoryForge opt-in story/theme and performance evidence | LIVE DEPLOYED / POSITIVE EVIDENCE WAITING | StoryForge's consented, versioned projection is live at `3cffc77` / `6393da35…`; IVOC's selected-source server consumer is live at `14f115c`. Anonymous access is 401 and malformed/cross-subject/absent data fails closed. A genuine consented positive story projection remains external evidence waiting. |
-| 10 | RISE sourced/fresh program context | OWNER SOURCE INTEGRITY BLOCKER | The minimized owner projection and strict IVOC consumer are implemented and tested. Promotion is blocked only by the missing active registry artifacts in canonical RISE source; the runtime integrity gate correctly rejected the old artifact. RISE remains visibly unavailable rather than inventing program intelligence. |
+| 10 | RISE sourced/fresh program context | LIVE VERIFIED | Exact current owner release `rise_registry_acgme_2026-09-20_50d08ea6f2da` is live behind the minimized server-only projection. Session `3a6637db…` proved authenticated owner HTTP 200, exact program/release binding, source-version/hash provenance and a single private `ctxpack:` receipt; no raw corpus or people crossed into IVOC. |
 | 10 | MCC / Top 3 / Mentor owner projections | LIVE VERIFIED | With no MCC owner authority present, IVOC now owns the versioned Mentor Top 3 contract. Genuine `brinyu` production v1 generated one `ivoc.mentor_priorities` receipt, two bounded facts and one `AIS-R09` signal in session `4e275dac-a613-45a2-85d5-1d35413c8e47`; the Actor received the shared priority and not the mentor-only note. Append-only v2 cleared the projection, a stale write returned 409, and cleared-state session `f378c2a0-0cc0-4422-b042-f4cbfe334261` had zero leaked inputs. |
 | 10 | Prior-IVOC longitudinal context | LIVE UNVERIFIED | Deployment `7ad89899…` persists and projects only structured, transcript-cited patterns from prior saved owner sessions, excluding the active session and requiring the same bounded facet in at least two sessions. Production readback found 0 qualifying rows, so no recurring claim was emitted; real multi-session proof remains. |
 | 10 | Calendar interview adapter | LIVE VERIFIED | The deployed stable adapter consumes the Scheduler owner projection, strips owner URLs and rendered the authenticated connected state: seven authorized appointments, none upcoming. |
@@ -294,8 +291,8 @@ the actual production route and deployment.
 ## Current production and governance gates
 
 - Latest functionality-accepted MissionMed HQ production is Railway deployment
-  `ece5679c-cd75-4d89-8826-c59af39f165a` from exact product commit
-  `f87f572ff59ca7280b821e8be7af84f781617dad`; `/health` is HTTP 200, the
+  `2ee15d42-2ec8-4342-87ae-a91056853265` from exact product commit
+  `58242681d64fdd4826b3a37215d9c57ec12e6f94`; `/health` is HTTP 200, the
   unauthenticated product route remains fail-closed at HTTP 401, and the
   verified second-Admin allowlist is `wp:1,wp:107`.
 - Runtime bindings point to dedicated project `bscnrgqlwsyygyfrbhfn` without
@@ -323,8 +320,8 @@ the actual production route and deployment.
   projection. File Vault's owner projection and IVOC consumer are live with
   fail-closed negative-path acceptance; positive current-CV evidence waits on
   genuine owner data. StoryForge owner/consumer wiring is live with positive
-  consented data waiting. RISE owner/consumer source is complete and blocked
-  only by the owner release-artifact integrity mismatch described above.
+  consented data waiting. RISE owner/consumer wiring is live verified against
+  the exact current owner release and a real production Context Pack receipt.
 - Root runtime dependency audit previously reported zero vulnerabilities. Default
   branch repository-security advisories remain separate security-owner work until
   re-triaged against the production commit.
