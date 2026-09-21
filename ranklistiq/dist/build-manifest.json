@@ -1,9 +1,11 @@
 {
-  "id": "20260921T143852Z-g4b5f6aac",
-  "sourceCommit": "4b5f6aac8216d96ba8999eced5eae1bab1f9c0c1",
+  "id": "20260921T145636Z-g940fa52c",
+  "sourceCommit": "940fa52c09e58e8fb1fdcd5544cd8864602dff98",
   "baseSha256": "1766f21de2bfbffe2d5e70e999757fad6be38dd572ff5081a21550b6224756ec",
   "configSha256": "1e7005447672cbd60728dd45e796e89bc6267bf903b19665da44d05087593ea9",
-  "builtAt": "2026-09-21T14:38:52.086Z",
-  "output": "rank_list_engine.20260921T143852Z-g4b5f6aac.html",
-  "outputSha256": "ead961e9f146e96536ef603677765068ef1b4f0ad497c91d0ae16ed6f0675621"
+  "builtAt": "2026-09-21T14:56:36.021Z",
+  "output": "rank_list_engine.20260921T145636Z-g940fa52c.html",
+  "outputSha256": "84e833d721977c5da93e3fbf76c421519711bbdb1ad90184278fbff5cee3d36a",
+  "runtime": "rank_list_engine.20260921T145636Z-g940fa52c.runtime.php",
+  "runtimeSha256": "18541a69eb2a387144b77376d5c00fa6417bf771b993ab185cc8dd9876a9d348"
 }
