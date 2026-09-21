@@ -7,6 +7,8 @@
 	var selectedEventId = '';
 	var drawerReturnEventId = '';
 	var drawerNeedsFocus = false;
+	var formNeedsFocus = false;
+	var formReturnEventId = '';
 	var drillTab = 'Step/Level 1';
 	var armedDrill = null;
 	var announcement = '';
@@ -78,7 +80,8 @@
 
 	function eventRow(event, compact, draggable) {
 		var dragAttr = draggable && event.writable ? ' draggable="true" data-drag-event="' + esc(event.id) + '"' : '';
-		return '<button type="button" class="mcv2-event mcv2-event--' + esc(event.category) + (compact ? ' is-compact' : '') + '" data-event-id="' + esc(event.id) + '"' + dragAttr + '>' +
+		var eventLabel = event.title + ', ' + event.timeLabel + (event.endTimeLabel ? ' to ' + event.endTimeLabel : '') + ', ' + categoryLabel(event.category);
+		return '<button type="button" class="mcv2-event mcv2-event--' + esc(event.category) + (compact ? ' is-compact' : '') + '" data-event-id="' + esc(event.id) + '" aria-label="' + esc(eventLabel) + '"' + dragAttr + '>' +
 			'<span class="mcv2-event-time">' + esc(event.timeLabel) + '</span>' +
 			'<span class="mcv2-event-copy"><strong>' + esc(event.title) + '</strong><small>' + esc(categoryLabel(event.category)) + '</small></span>' +
 			(event.favorite || event.important ? '<span class="mcv2-star" aria-label="Important">\u2605</span>' : '') +
@@ -111,11 +114,13 @@
 				var hasChildren = children && children.length > 0;
 				var collapsed = hasChildren && categoryCollapsed[cat.id] !== false;
 				var visible = state.visibility && state.visibility[cat.id] === false ? false : true;
-				var toggle = hasChildren ? '<button type="button" class="mcv2-category-toggle" data-toggle-collapse="' + esc(cat.id) + '" aria-label="' + (collapsed ? 'Expand' : 'Collapse') + ' ' + esc(cat.name) + '">' + (collapsed ? '\u25b8' : '\u25be') + '</button>' : '';
 				var draggable = !hasChildren && effectivePerspective(state) === 'administrator' && !/^drill_/.test(cat.id) ? ' draggable="true" data-drag-category="' + esc(cat.id) + '"' : '';
 				var childHtml = hasChildren && !collapsed ? draw(cat.id, depth + 1) : '';
-				return '<div class="mcv2-category-node mcv2-category-node--depth-' + depth + '"><div class="mcv2-category-row">' + toggle +
-					'<button type="button" class="mcv2-category" data-category-id="' + esc(cat.id) + '" aria-pressed="' + visible + '" style="--category-color:' + esc(cat.color) + '"' + draggable + '><span class="mcv2-category-dot"></span><span>' + esc(cat.name) + '</span></button></div>' + childHtml + (cat.id === 'exam_prep' && effectivePerspective(state) === 'administrator' && !collapsed ? '<button type="button" class="mcv2-drills-button" data-toggle-drills aria-expanded="' + drillsOpen + '"><span aria-hidden="true">&#10022;</span> Schedule Dr. J\'s Drills</button>' + renderDrillsRail(state) : '') + '</div>';
+				var row = hasChildren
+					? '<button type="button" class="mcv2-category mcv2-category-disclosure" data-toggle-collapse="' + esc(cat.id) + '" aria-expanded="' + (!collapsed) + '" style="--category-color:' + esc(cat.color) + '"><span class="mcv2-category-toggle" aria-hidden="true">' + (collapsed ? '\u25b8' : '\u25be') + '</span><span class="mcv2-category-dot"></span><span>' + esc(cat.name) + '</span></button>' +
+						'<button type="button" class="mcv2-category-visibility" data-category-id="' + esc(cat.id) + '" aria-pressed="' + visible + '" aria-label="' + (visible ? 'Hide ' : 'Show ') + esc(cat.name) + '"><span aria-hidden="true">' + (visible ? '&#9673;' : '&#9675;') + '</span></button>'
+					: '<button type="button" class="mcv2-category" data-category-id="' + esc(cat.id) + '" aria-pressed="' + visible + '" style="--category-color:' + esc(cat.color) + '"' + draggable + '><span class="mcv2-category-dot"></span><span>' + esc(cat.name) + '</span></button>';
+				return '<div class="mcv2-category-node mcv2-category-node--depth-' + depth + '"><div class="mcv2-category-row">' + row + '</div>' + childHtml + (cat.id === 'exam_prep' && effectivePerspective(state) === 'administrator' && !collapsed ? '<button type="button" class="mcv2-drills-button" data-toggle-drills aria-expanded="' + drillsOpen + '"><span aria-hidden="true">&#10022;</span> Schedule Dr. J\'s Drills</button>' + renderDrillsRail(state) : '') + '</div>';
 			}).join('');
 		}
 		return '<section class="mcv2-category-rail" aria-label="Calendar sources"><p class="mcv2-rail-label">Sources</p>' + draw('', 0) + '</section>';
@@ -240,26 +245,27 @@
 		if (!event) return '';
 		var view = global.MMEDCalendarCore.viewModel(Object.assign({}, state, { selectedDate: event.start }));
 		var normalized = view.selectedEvents.filter(function (item) { return String(item.id) === String(event.id); })[0] || event;
-		return '<div class="mcv2-backdrop" data-close-drawer></div><aside class="mcv2-drawer" role="dialog" aria-modal="true" aria-labelledby="mcv2-drawer-title"><button type="button" class="mcv2-close" data-close-drawer aria-label="Close event details">&times;</button>' +
-			'<span class="mcv2-chip mcv2-chip--' + esc(normalized.category) + '">' + esc(categoryLabel(normalized.category)) + '</span>' +
-			'<h2 id="mcv2-drawer-title">' + esc(normalized.title) + '</h2>' +
-			'<dl><dt>Date &amp; time</dt><dd>' + esc(normalized.fullDateLabel) + '<br>' + esc(normalized.timeLabel) + (normalized.endTimeLabel ? ' \u2013 ' + esc(normalized.endTimeLabel) : '') + '<br><small>' + esc(state.timezoneLabel) + '</small></dd>' +
+		var provider = String(normalized.meetingPlatform || '').toLowerCase();
+		var providerLabel = provider === 'webex' ? 'Webex' : provider === 'zoom' ? 'Zoom' : normalized.joinUrl ? 'Manual meeting link' : '';
+		var starLabel = normalized.favorite ? 'Starred for you' : 'Star this event';
+		return '<div class="mcv2-backdrop" data-close-drawer></div><dialog class="mcv2-event-detail mcv2-modal" open aria-modal="true" aria-labelledby="mcv2-drawer-title"><div class="mcv2-modal-head"><div><span class="mcv2-chip mcv2-chip--' + esc(normalized.category) + '">' + esc(categoryLabel(normalized.category)) + '</span><h2 id="mcv2-drawer-title">' + esc(normalized.title) + '</h2></div><button type="button" class="mcv2-close" data-close-drawer aria-label="Close event details">&times;</button></div>' +
+			'<div class="mcv2-modal-body"><dl><dt>Date &amp; time</dt><dd>' + esc(normalized.fullDateLabel) + '<br>' + esc(normalized.timeLabel) + (normalized.endTimeLabel ? ' \u2013 ' + esc(normalized.endTimeLabel) : '') + '<br><small>' + esc(state.timezoneLabel) + '</small></dd>' +
+			(providerLabel ? '<dt>Meeting</dt><dd>' + esc(providerLabel) + '</dd>' : '') +
 			(normalized.description ? '<dt>Description</dt><dd>' + esc(normalized.description) + '</dd>' : '') +
-			(normalized.meta && normalized.meta.specialty ? '<dt>Specialty</dt><dd>' + esc(normalized.meta.specialty) + '</dd>' : '') + '</dl>' +
-			'<div class="mcv2-drawer-actions"><button type="button" class="mcv2-action is-favorite" data-favorite-event="' + esc(normalized.id) + '" aria-pressed="' + (!!normalized.favorite) + '">' + (normalized.favorite ? '\u2605 Favorited' : '\u2606 Add favorite') + '</button>' +
+			(normalized.meta && normalized.meta.specialty ? '<dt>Specialty</dt><dd>' + esc(normalized.meta.specialty) + '</dd>' : '') +
+			(normalized.important ? '<dt>Importance</dt><dd><span class="mcv2-important-state">\u2605 Marked important</span></dd>' : '') + '</dl></div>' +
+			'<div class="mcv2-drawer-actions mcv2-modal-actions"><button type="button" class="mcv2-action is-favorite" data-favorite-event="' + esc(normalized.id) + '" aria-pressed="' + (!!normalized.favorite) + '">' + (normalized.favorite ? '\u2605 ' : '\u2606 ') + starLabel + '</button>' +
 			(normalized.replayUrl || normalized.recordingStatus ? '<button type="button" class="mcv2-action is-replay" data-replay-event="' + esc(normalized.id) + '">Watch replay</button>' : '') +
 			(normalized.joinUrl || normalized.source === 'scheduler' ? '<button type="button" class="mcv2-action" data-join-event="' + esc(normalized.id) + '">Join session</button>' : '') +
 			(normalized.writable && effectivePerspective(state) === 'administrator' ? '<button type="button" class="mcv2-action" data-edit-event="' + esc(normalized.id) + '">Edit</button><button type="button" class="mcv2-action is-danger" data-delete-event="' + esc(normalized.id) + '">Delete</button>' : '') +
-			'</div></aside>';
+			'</div></dialog>';
 	}
 
 	function renderSettings(state) {
-		var disabled = state.forcedClassic ? ' disabled' : '';
-		return '<dialog class="mcv2-settings" id="mcv2-settings" aria-labelledby="mcv2-settings-title"><form method="dialog"><button type="button" class="mcv2-close" data-close-settings aria-label="Close settings">&times;</button><h2 id="mcv2-settings-title">Calendar settings</h2><p class="mcv2-kicker">Calendar experience &mdash; your preference</p>' +
-			'<label><input type="radio" name="calendar-experience" value="classic"' + (state.experience === 'classic' ? ' checked' : '') + disabled + '><span><strong>Classic</strong><small>The familiar Matrix Calendar.</small></span></label>' +
-			'<label><input type="radio" name="calendar-experience" value="storyforge"' + (state.experience === 'storyforge' ? ' checked' : '') + disabled + '><span><strong>StoryForge</strong><small>Calendar-first navigation with the same live Calendar data.</small></span></label>' +
+		return '<dialog class="mcv2-settings" id="mcv2-settings" aria-labelledby="mcv2-settings-title"><form method="dialog"><button type="button" class="mcv2-close" data-close-settings aria-label="Close settings">&times;</button><h2 id="mcv2-settings-title">Calendar settings</h2><p class="mcv2-kicker">Current experience</p>' +
+			'<div class="mcv2-experience-status"><strong>Modern Calendar</strong><small>The supported Matrix Calendar experience. Classic remains available to administrators as an emergency fallback.</small></div>' +
 			(state.forcedClassic ? '<p class="mcv2-force-note">Force Classic is active. Your saved preference is preserved.</p>' : '') +
-			'<div class="mcv2-settings-actions"><button type="button" data-close-settings>Cancel</button><button type="button" class="mcv2-primary" data-save-settings' + disabled + '>Save</button></div></form></dialog>';
+			'<div class="mcv2-settings-actions"><button type="button" class="mcv2-primary" data-close-settings>Done</button></div></form></dialog>';
 	}
 
 	function selectableCategories(state) {
@@ -305,28 +311,32 @@
 		var endVal = isEdit ? global.MMEDCalendarCore.timeInput(ev.end) : '11:00';
 		var meetPlat = isEdit ? (ev.meetingPlatform || '') : '';
 		var meetUrl = isEdit ? (ev.joinUrl || '') : '';
+		var replayUrl = isEdit ? (ev.replayUrl || (ev.meta && (ev.meta.replay_url || ev.meta.recording_url)) || '') : '';
+		var normalizedProvider = String(meetPlat).toLowerCase();
+		var providerChoice = normalizedProvider === 'webex' || normalizedProvider === 'zoom' ? normalizedProvider : meetUrl ? 'other' : '';
 		var desc = isEdit ? (ev.description || '') : '';
 		var imp = isEdit ? !!ev.important : false;
 		var specialty = isEdit && ev.meta ? (ev.meta.specialty || '') : '';
 		var audience = isEdit ? (ev.audience || (ev.meta && ev.meta.audience) || '') : 'all_students';
 		var specialties = SPECIALTIES.map(function (item) { return '<option value="' + esc(item) + '"' + (specialty === item ? ' selected' : '') + '>' + esc(item) + '</option>'; }).join('');
-		return '<div class="mcv2-backdrop" data-close-form></div><dialog class="mcv2-event-form" open aria-labelledby="mcv2-form-title">' +
-			'<button type="button" class="mcv2-close" data-close-form aria-label="Close">&times;</button>' +
-			'<h2 id="mcv2-form-title">' + (isEdit ? 'Edit Event' : 'New Event') + '</h2>' +
-			'<div class="mcv2-form-grid">' +
-			'<label class="mcv2-field"><span>Title</span><input type="text" name="ev-title" maxlength="200" value="' + esc(title) + '" placeholder="Event title"></label>' +
-			'<label class="mcv2-field"><span>Category</span><select name="ev-category">' + catOptions + '</select></label>' +
-			'<label class="mcv2-field"><span>Audience</span><select name="ev-audience"><option value="all_students"' + (audience === 'all_students' ? ' selected' : '') + '>All students</option><option value=""' + (audience !== 'all_students' ? ' selected' : '') + '>Only me</option></select></label>' +
-			'<label class="mcv2-field"><span>Date</span><input type="date" name="ev-date" value="' + esc(dateVal) + '"></label>' +
-			'<div class="mcv2-field-row"><label class="mcv2-field"><span>Start</span><input type="time" name="ev-start" value="' + esc(startVal) + '"></label>' +
-			'<label class="mcv2-field"><span>End</span><input type="time" name="ev-end" value="' + esc(endVal) + '"></label></div>' +
-			'<label class="mcv2-field mcv2-specialty-field" style="display:' + (selectedCategory === 'clinicals' ? 'grid' : 'none') + '"><span>Specialty</span><select name="ev-specialty"><option value="">Select a specialty</option>' + specialties + '</select></label>' +
-			'<label class="mcv2-field"><span>Meeting</span><select name="ev-meet-platform"><option value="">None</option><option value="webex"' + (String(meetPlat).toLowerCase() === 'webex' ? ' selected' : '') + '>Webex</option><option value="zoom"' + (String(meetPlat).toLowerCase() === 'zoom' ? ' selected' : '') + '>Zoom</option><option value="google_meet"' + (/google/i.test(meetPlat) ? ' selected' : '') + '>Google Meet</option><option value="teams"' + (String(meetPlat).toLowerCase() === 'teams' ? ' selected' : '') + '>Microsoft Teams</option></select></label>' +
-			'<label class="mcv2-field"><span>Meeting URL</span><input type="url" name="ev-meet-url" value="' + esc(meetUrl) + '" placeholder="https://..."></label>' +
-			'<label class="mcv2-field"><span>Notes</span><textarea name="ev-notes" rows="3" placeholder="Optional notes">' + esc(desc) + '</textarea></label>' +
-			'<label class="mcv2-field-check"><input type="checkbox" name="ev-important"' + (imp ? ' checked' : '') + '><span>Mark as important</span></label>' +
-			'</div>' +
-			'<div class="mcv2-form-actions">' +
+		return '<div class="mcv2-backdrop" data-close-form></div><dialog class="mcv2-event-form mcv2-modal" open aria-modal="true" aria-labelledby="mcv2-form-title">' +
+			'<div class="mcv2-modal-head"><div><p class="mcv2-kicker">Calendar event</p><h2 id="mcv2-form-title">' + (isEdit ? 'Edit Event' : 'Add Event') + '</h2></div><button type="button" class="mcv2-close" data-close-form aria-label="Close ' + (isEdit ? 'Edit Event' : 'Add Event') + '">&times;</button></div>' +
+			'<div class="mcv2-form-scroll"><div class="mcv2-form-grid">' +
+			'<label class="mcv2-field mcv2-field--full"><span>Title</span><input type="text" name="ev-title" maxlength="200" value="' + esc(title) + '" placeholder="Event title" required></label>' +
+			'<div class="mcv2-field-row mcv2-field-row--two mcv2-field--full"><label class="mcv2-field"><span>Category</span><select name="ev-category">' + catOptions + '</select></label>' +
+			'<label class="mcv2-field"><span>Audience</span><select name="ev-audience"><option value="all_students"' + (audience === 'all_students' ? ' selected' : '') + '>All students</option><option value=""' + (audience !== 'all_students' ? ' selected' : '') + '>Only me</option></select></label></div>' +
+			'<div class="mcv2-field-row mcv2-field-row--date-time mcv2-field--full"><label class="mcv2-field"><span>Date</span><input type="date" name="ev-date" value="' + esc(dateVal) + '" required></label>' +
+			'<label class="mcv2-field"><span>Start</span><input type="time" name="ev-start" value="' + esc(startVal) + '" required></label>' +
+			'<label class="mcv2-field"><span>End</span><input type="time" name="ev-end" value="' + esc(endVal) + '" required></label></div>' +
+			'<label class="mcv2-field mcv2-field--full mcv2-specialty-field" style="display:' + (selectedCategory === 'clinicals' ? 'grid' : 'none') + '"><span>Specialty</span><select name="ev-specialty"><option value="">Select a specialty</option>' + specialties + '</select></label>' +
+			'<fieldset class="mcv2-meeting-fields mcv2-field--full"><legend>Meeting</legend><div class="mcv2-field-row mcv2-field-row--meeting"><label class="mcv2-field"><span>Provider</span><select name="ev-meet-platform"><option value=""' + (providerChoice === '' ? ' selected' : '') + '>None</option><option value="webex"' + (providerChoice === 'webex' ? ' selected' : '') + '>Webex</option><option value="zoom"' + (providerChoice === 'zoom' ? ' selected' : '') + '>Zoom</option><option value="other"' + (providerChoice === 'other' ? ' selected' : '') + '>Other / manual link</option></select></label>' +
+			'<label class="mcv2-field mcv2-meeting-url"' + (providerChoice ? '' : ' hidden') + '><span>Meeting URL</span><input type="url" name="ev-meet-url" value="' + esc(meetUrl) + '" placeholder="https://..."><small>Paste the secure attendee link for this event.</small></label></div></fieldset>' +
+			(isEdit ? '<label class="mcv2-field mcv2-field--full"><span>Replay URL</span><input type="url" name="ev-replay-url" value="' + esc(replayUrl) + '" placeholder="https://..."><small>Add or correct the attendee-safe recording link after the session.</small></label>' : '') +
+			'<label class="mcv2-field mcv2-field--full"><span>Notes</span><textarea name="ev-notes" rows="2" placeholder="Optional notes">' + esc(desc) + '</textarea></label>' +
+			'<label class="mcv2-field-check mcv2-field--full"><input type="checkbox" name="ev-important"' + (imp ? ' checked' : '') + '><span><strong>Mark as important</strong><small>Shows a subtle star across Calendar views.</small></span></label>' +
+			'<p class="mcv2-form-error mcv2-field--full" role="alert" hidden></p>' +
+			'</div></div>' +
+			'<div class="mcv2-form-actions mcv2-modal-actions">' +
 			'<button type="button" data-submit-event class="mcv2-primary">' + (isEdit ? 'Save Changes' : 'Create Event') + '</button>' +
 			(isEdit ? '<button type="button" data-delete-form-event="' + esc(ev.id) + '" class="mcv2-action is-danger">Delete</button>' : '') +
 			'<button type="button" data-close-form>Cancel</button>' +
@@ -414,7 +424,11 @@
 		bind(root, state);
 		if (drawerNeedsFocus) {
 			drawerNeedsFocus = false;
-			global.setTimeout(function () { var close = root.querySelector('.mcv2-drawer [data-close-drawer]'); if (close) close.focus(); }, 0);
+			global.setTimeout(function () { var close = root.querySelector('.mcv2-event-detail [data-close-drawer]'); if (close) close.focus(); }, 0);
+		}
+		if (formNeedsFocus) {
+			formNeedsFocus = false;
+			global.setTimeout(function () { var title = root.querySelector('.mcv2-event-form [name="ev-title"]'); if (title) title.focus(); }, 0);
 		}
 	}
 
@@ -431,15 +445,59 @@
 		}, 0);
 	}
 
-	function trapDrawerFocus(event, drawer, root) {
-		if (event.key === 'Escape') { event.preventDefault(); closeDrawer(root); return; }
+	function returnFormFocus(root) {
+		var target = null;
+		if (formReturnEventId) {
+			root.querySelectorAll('[data-event-id]').forEach(function (button) {
+				if (!target && button.getAttribute('data-event-id') === formReturnEventId) target = button;
+			});
+		} else {
+			target = root.querySelector('[data-new-event]');
+		}
+		formReturnEventId = '';
+		if (target) target.focus();
+	}
+
+	function closeEventForm(root) {
+		eventFormMode = '';
+		eventFormId = '';
+		eventPrefillCategory = '';
+		eventPrefillDate = '';
+		render(instance.state);
+		global.setTimeout(function () { returnFormFocus(root); }, 0);
+	}
+
+	function trapModalFocus(event, modal, close) {
+		if (event.key === 'Escape') { event.preventDefault(); close(); return; }
 		if (event.key !== 'Tab') return;
-		var controls = drawer.querySelectorAll('button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])');
+		var controls = modal.querySelectorAll('button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])');
 		if (!controls.length) { event.preventDefault(); return; }
 		var first = controls[0];
 		var last = controls[controls.length - 1];
 		if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
 		else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+	}
+
+	function clearFormError(form) {
+		if (!form) return;
+		form.querySelectorAll('[aria-invalid="true"]').forEach(function (field) { field.removeAttribute('aria-invalid'); });
+		var message = form.querySelector('.mcv2-form-error');
+		if (message) { message.hidden = true; message.textContent = ''; }
+	}
+
+	function showFormError(form, message, field) {
+		clearFormError(form);
+		var error = form.querySelector('.mcv2-form-error');
+		if (error) { error.textContent = message; error.hidden = false; }
+		if (field) { field.setAttribute('aria-invalid', 'true'); field.focus(); }
+	}
+
+	function validHttpUrl(value) {
+		if (!value) return true;
+		try {
+			var parsed = new URL(value);
+			return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+		} catch (error) { return false; }
 	}
 
 	function schedule(day) {
@@ -468,13 +526,14 @@
 		root.querySelectorAll('[data-mini-day]').forEach(function (button) { button.addEventListener('click', function () { instance.setDate(button.getAttribute('data-mini-day')); }); });
 		root.querySelectorAll('[data-event-id]').forEach(function (button) { button.addEventListener('click', function (event) { event.stopPropagation(); selectedEventId = button.getAttribute('data-event-id'); drawerReturnEventId = selectedEventId; drawerNeedsFocus = true; render(instance.state); }); });
 		root.querySelectorAll('[data-close-drawer]').forEach(function (button) { button.addEventListener('click', function () { closeDrawer(root); }); });
-		var drawer = root.querySelector('.mcv2-drawer'); if (drawer) drawer.addEventListener('keydown', function (event) { trapDrawerFocus(event, drawer, root); });
+		var detailModal = root.querySelector('.mcv2-event-detail'); if (detailModal) detailModal.addEventListener('keydown', function (event) { trapModalFocus(event, detailModal, function () { closeDrawer(root); }); });
+		var eventModal = root.querySelector('.mcv2-event-form'); if (eventModal) eventModal.addEventListener('keydown', function (event) { trapModalFocus(event, eventModal, function () { closeEventForm(root); }); });
 		root.querySelectorAll('[data-drill-tab]').forEach(function (button) { button.addEventListener('click', function () { drillTab = button.getAttribute('data-drill-tab'); armedDrill = null; render(instance.state); }); });
 		root.querySelectorAll('[data-drill-topic]').forEach(function (button) {
 			button.addEventListener('click', function () { armedDrill = { topic: button.getAttribute('data-drill-topic'), level: button.getAttribute('data-drill-level') }; announcement = armedDrill.topic + ' selected. Choose a calendar day.'; render(instance.state); });
 			button.addEventListener('dragstart', function (event) { event.dataTransfer.effectAllowed = 'copy'; event.dataTransfer.setData('application/x-mmed-drill', JSON.stringify({ topic: button.getAttribute('data-drill-topic'), level: button.getAttribute('data-drill-level') })); });
 		});
-		root.querySelectorAll('[data-category-id]').forEach(function (button) { button.addEventListener('click', function () { var id = button.getAttribute('data-category-id'); var visible = button.getAttribute('aria-pressed') !== 'true'; instance.setCategoryVisibility(id, visible).then(function () { announcement = (visible ? 'Showing ' : 'Hiding ') + button.textContent.trim() + '.'; render(instance.state); }).catch(function () { announcement = 'Category visibility was not saved.'; render(instance.state); }); }); });
+		root.querySelectorAll('[data-category-id]').forEach(function (button) { button.addEventListener('click', function () { var id = button.getAttribute('data-category-id'); var visible = button.getAttribute('aria-pressed') !== 'true'; var label = button.getAttribute('aria-label') || button.textContent.trim(); label = label.replace(/^(Hide|Show)\s+/i, ''); instance.setCategoryVisibility(id, visible).then(function () { announcement = (visible ? 'Showing ' : 'Hiding ') + label + '.'; render(instance.state); }).catch(function () { announcement = 'Category visibility was not saved.'; render(instance.state); }); }); });
 		root.querySelectorAll('[data-drag-category]').forEach(function (button) { button.addEventListener('dragstart', function (event) { event.dataTransfer.effectAllowed = 'copy'; event.dataTransfer.setData('application/x-mmed-category', button.getAttribute('data-drag-category')); }); });
 		root.querySelectorAll('[data-toggle-collapse]').forEach(function (button) {
 			button.addEventListener('click', function (e) {
@@ -491,7 +550,6 @@
 		root.querySelectorAll('[data-replay-event]').forEach(function (button) { button.addEventListener('click', function () { var target = state.events.filter(function (event) { return String(event.id) === String(button.getAttribute('data-replay-event')); })[0]; if (!target) return; button.disabled = true; instance.refreshRecording(target).then(function (result) { button.disabled = false; if (result && result.event && result.event.replayUrl) global.open(result.event.replayUrl, '_blank', 'noopener'); else { announcement = 'Replay is not ready yet.'; render(instance.state); } }).catch(function () { button.disabled = false; announcement = 'Replay is temporarily unavailable.'; render(instance.state); }); }); });
 		var openSettings = root.querySelector('[data-open-settings]'); if (openSettings) openSettings.addEventListener('click', function () { root.querySelector('#mcv2-settings').showModal(); });
 		root.querySelectorAll('[data-close-settings]').forEach(function (btn) { btn.addEventListener('click', function () { var dialog = root.querySelector('#mcv2-settings'); if (dialog) dialog.close(); }); });
-		var saveSettings = root.querySelector('[data-save-settings]'); if (saveSettings) saveSettings.addEventListener('click', function () { var choice = root.querySelector('input[name="calendar-experience"]:checked'); if (!choice) return; saveSettings.disabled = true; instance.setPreference(choice.value).then(function () { global.location.reload(); }).catch(function (error) { saveSettings.disabled = false; announcement = error.message; render(instance.state); }); });
 		var retry = root.querySelector('[data-retry-scheduler]'); if (retry) retry.addEventListener('click', instance.reloadScheduler);
 		var openSync = root.querySelector('[data-open-sync]'); if (openSync) openSync.addEventListener('click', function () { syncOpen = true; render(instance.state); });
 		root.querySelectorAll('[data-close-sync]').forEach(function (btn) { btn.addEventListener('click', function () { syncOpen = false; render(instance.state); }); });
@@ -518,21 +576,38 @@
 			syncOpen = false; announcement = 'Calendar export ready.'; render(instance.state);
 		}); });
 		var remove = root.querySelector('[data-delete-event]'); if (remove) remove.addEventListener('click', function () { var target = state.events.filter(function (event) { return String(event.id) === String(remove.getAttribute('data-delete-event')); })[0]; if (!target || !global.confirm('Delete this event? This cannot be undone.')) return; instance.deleteEvent(target).then(function () { selectedEventId = ''; announcement = 'Event deleted.'; render(instance.state); }).catch(function () { announcement = 'The event was not deleted. Nothing changed.'; render(instance.state); }); });
-		var newEventBtn = root.querySelector('[data-new-event]'); if (newEventBtn) newEventBtn.addEventListener('click', function () { eventFormMode = 'create'; eventFormId = ''; eventPrefillCategory = ''; eventPrefillDate = ''; selectedEventId = ''; render(instance.state); });
-		var editBtn = root.querySelector('[data-edit-event]'); if (editBtn) editBtn.addEventListener('click', function () { eventFormMode = 'edit'; eventFormId = editBtn.getAttribute('data-edit-event'); selectedEventId = ''; render(instance.state); });
-		root.querySelectorAll('[data-close-form]').forEach(function (btn) { btn.addEventListener('click', function () { eventFormMode = ''; eventFormId = ''; eventPrefillCategory = ''; eventPrefillDate = ''; render(instance.state); }); });
+		var newEventBtn = root.querySelector('[data-new-event]'); if (newEventBtn) newEventBtn.addEventListener('click', function () { eventFormMode = 'create'; eventFormId = ''; eventPrefillCategory = ''; eventPrefillDate = ''; formReturnEventId = ''; formNeedsFocus = true; selectedEventId = ''; render(instance.state); });
+		var editBtn = root.querySelector('[data-edit-event]'); if (editBtn) editBtn.addEventListener('click', function () { eventFormMode = 'edit'; eventFormId = editBtn.getAttribute('data-edit-event'); formReturnEventId = eventFormId; formNeedsFocus = true; selectedEventId = ''; render(instance.state); });
+		root.querySelectorAll('[data-close-form]').forEach(function (btn) { btn.addEventListener('click', function () { closeEventForm(root); }); });
 		var eventCategorySelect = root.querySelector('[name="ev-category"]'); if (eventCategorySelect) eventCategorySelect.addEventListener('change', function () { var field = root.querySelector('.mcv2-specialty-field'); if (field) field.style.display = eventCategorySelect.value === 'clinicals' ? 'grid' : 'none'; });
+		var eventProviderSelect = root.querySelector('[name="ev-meet-platform"]'); if (eventProviderSelect) eventProviderSelect.addEventListener('change', function () { var field = root.querySelector('.mcv2-meeting-url'); if (field) field.hidden = !eventProviderSelect.value; });
 		var submitEvent = root.querySelector('[data-submit-event]'); if (submitEvent) submitEvent.addEventListener('click', function () {
 			var form = root.querySelector('.mcv2-event-form');
 			if (!form) return;
-			var title = (form.querySelector('[name="ev-title"]').value || '').trim();
-			if (!title) { announcement = 'Please enter a title.'; render(instance.state); return; }
+			clearFormError(form);
+			var titleField = form.querySelector('[name="ev-title"]');
+			var title = (titleField.value || '').trim();
+			if (!title) { showFormError(form, 'Enter an event title.', titleField); return; }
 			var cat = form.querySelector('[name="ev-category"]').value;
-			var dateVal = form.querySelector('[name="ev-date"]').value;
-			var startVal = form.querySelector('[name="ev-start"]').value;
-			var endVal = form.querySelector('[name="ev-end"]').value;
-			var meetPlat = form.querySelector('[name="ev-meet-platform"]').value;
-			var meetUrl = form.querySelector('[name="ev-meet-url"]').value;
+			var dateField = form.querySelector('[name="ev-date"]');
+			var startField = form.querySelector('[name="ev-start"]');
+			var endField = form.querySelector('[name="ev-end"]');
+			var dateVal = dateField.value;
+			var startVal = startField.value;
+			var endVal = endField.value;
+			if (!dateVal) { showFormError(form, 'Choose an event date.', dateField); return; }
+			if (!startVal) { showFormError(form, 'Choose a start time.', startField); return; }
+			if (!endVal) { showFormError(form, 'Choose an end time.', endField); return; }
+			if (endVal <= startVal) { showFormError(form, 'End time must be later than start time.', endField); return; }
+			var providerChoice = form.querySelector('[name="ev-meet-platform"]').value;
+			var meetPlat = providerChoice === 'other' ? '' : providerChoice;
+			var meetUrlField = form.querySelector('[name="ev-meet-url"]');
+			var meetUrl = (meetUrlField.value || '').trim();
+			if (providerChoice && !meetUrl) { showFormError(form, 'Add the attendee meeting URL.', meetUrlField); return; }
+			if (!validHttpUrl(meetUrl)) { showFormError(form, 'Enter a valid http or https meeting URL.', meetUrlField); return; }
+			var replayField = form.querySelector('[name="ev-replay-url"]');
+			var replayUrl = replayField ? (replayField.value || '').trim() : '';
+			if (!validHttpUrl(replayUrl)) { showFormError(form, 'Enter a valid http or https replay URL.', replayField); return; }
 			var notes = form.querySelector('[name="ev-notes"]').value;
 			var imp = form.querySelector('[name="ev-important"]').checked;
 			var audience = form.querySelector('[name="ev-audience"]').value;
@@ -542,19 +617,23 @@
 			var meta = { important: imp, audience: audience };
 			if (specialty && cat === 'clinicals') meta.specialty = specialty;
 			if (categoryRecord.session) meta.session = categoryRecord.session;
+			if (replayUrl) meta.replay_url = replayUrl;
 			var times = global.MMEDCalendarCore.combineDateTime(dateVal, startVal, endVal);
+			submitEvent.disabled = true;
+			form.setAttribute('aria-busy', 'true');
+			submitEvent.textContent = eventFormMode === 'edit' ? 'Saving\u2026' : 'Creating\u2026';
 			if (eventFormMode === 'edit') {
 				var ev = (instance.state.events || []).filter(function (e) { return String(e.id) === String(eventFormId); })[0];
 				if (!ev) return;
-				var updated = Object.assign({}, ev, { title: title, category: cat, eventType: eventType, start: times.start, end: times.end, description: notes, joinUrl: meetUrl, meetingPlatform: meetPlat, audience: audience, important: imp, meta: Object.assign({}, ev.meta || {}, meta) });
+				var updatedMeta = Object.assign({}, ev.meta || {}, meta);
+				if (!replayUrl) delete updatedMeta.replay_url;
+				var updated = Object.assign({}, ev, { title: title, category: cat, eventType: eventType, start: times.start, end: times.end, description: notes, joinUrl: meetUrl, meetingPlatform: meetPlat, replayUrl: replayUrl, audience: audience, important: imp, meta: updatedMeta });
 				announcement = 'Saving changes\u2026';
-				submitEvent.disabled = true;
-				instance.updateEvent(updated).then(function () { eventFormMode = ''; eventFormId = ''; announcement = 'Event updated.'; render(instance.state); }).catch(function () { submitEvent.disabled = false; announcement = 'The event was not updated. Nothing changed.'; render(instance.state); });
+				instance.updateEvent(updated).then(function () { eventFormMode = ''; eventFormId = ''; announcement = 'Event updated.'; render(instance.state); global.setTimeout(function () { returnFormFocus(root); }, 0); }).catch(function () { submitEvent.disabled = false; form.removeAttribute('aria-busy'); submitEvent.textContent = 'Save Changes'; showFormError(form, 'The event was not updated. Nothing changed.'); });
 			} else {
 				var candidate = { title: title, category: cat, start: times.start, end: times.end, description: notes, joinUrl: meetUrl, meetingPlatform: meetPlat, audience: audience, important: imp, allDay: false, eventType: eventType, meta: meta };
 				announcement = 'Creating event\u2026';
-				submitEvent.disabled = true;
-				instance.createEvent(candidate).then(function () { eventFormMode = ''; announcement = 'Event created.'; render(instance.state); }).catch(function () { submitEvent.disabled = false; announcement = 'The event was not created. Nothing changed.'; render(instance.state); });
+				instance.createEvent(candidate).then(function () { eventFormMode = ''; announcement = 'Event created.'; render(instance.state); global.setTimeout(function () { returnFormFocus(root); }, 0); }).catch(function () { submitEvent.disabled = false; form.removeAttribute('aria-busy'); submitEvent.textContent = 'Create Event'; showFormError(form, 'The event was not created. Nothing changed.'); });
 			}
 		});
 		var deleteFormEvent = root.querySelector('[data-delete-form-event]'); if (deleteFormEvent) deleteFormEvent.addEventListener('click', function () {

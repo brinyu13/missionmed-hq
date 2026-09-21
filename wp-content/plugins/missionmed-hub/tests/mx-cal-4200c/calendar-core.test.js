@@ -20,9 +20,44 @@ test('StoryForge renderer defers route mounting to Matrix Runtime v2', () => {
 });
 
 test('StoryForge Month view exposes overflow instead of clipping live events', () => {
-	assert.match(v2Source, /global\.innerHeight <= 900 \? 1 : 3/);
+	assert.match(v2Source, /global\.innerWidth <= 560 \? 4 : global\.innerHeight <= 520 \? 2 : 3/);
+	assert.match(v2Source, /var monthDays = displayedMonthDays\(model\)/);
+	assert.match(v2Source, /--mcv2-week-count:' \+ weekCount/);
 	assert.match(v2Source, /day\.events\.slice\(0, eventLimit\)/);
 	assert.match(v2Source, /day\.events\.length - eventLimit/);
+});
+
+test('V2 restores centered, viewport-bounded event detail and Add/Edit modals', () => {
+	assert.match(v2Source, /class="mcv2-event-detail mcv2-modal" open aria-modal="true"/);
+	assert.match(v2Source, /class="mcv2-event-form mcv2-modal" open aria-modal="true"/);
+	assert.match(v2Styles, /\.mcv2-modal \{[^}]*top: 50%;[^}]*left: 50%;[^}]*transform: translate\(-50%,-50%\);[^}]*max-height: calc\(100dvh - 32px\);[^}]*overflow: hidden;/s);
+	assert.match(v2Styles, /\.mcv2-form-scroll \{[^}]*overflow-y: auto;/s);
+	assert.match(v2Source, /event\.key === 'Escape'.*close\(\)/s);
+	assert.match(v2Source, /trapModalFocus\(event, eventModal/);
+});
+
+test('event form exposes supported providers, manual links, replay, and importance without inventing a provider enum', () => {
+	assert.match(v2Source, />Webex<\/option>/);
+	assert.match(v2Source, />Zoom<\/option>/);
+	assert.match(v2Source, /value="other"[^>]*>Other \/ manual link<\/option>/);
+	assert.match(v2Source, /providerChoice === 'other' \? '' : providerChoice/);
+	assert.match(v2Source, /name="ev-replay-url"/);
+	assert.match(v2Source, /meta\.replay_url = replayUrl/);
+	assert.match(v2Source, /name="ev-important"/);
+	assert.match(v2Source, /\\u2605 Marked important/);
+});
+
+test('expandable category rows use the full labeled row with accessible state and a separate visibility action', () => {
+	assert.match(v2Source, /class="mcv2-category mcv2-category-disclosure" data-toggle-collapse/);
+	assert.match(v2Source, /aria-expanded="' \+ \(!collapsed\) \+ '"/);
+	assert.match(v2Source, /class="mcv2-category-visibility" data-category-id/);
+	assert.match(v2Styles, /\.mcv2-category-disclosure \{[^}]*min-height: 36px;/s);
+});
+
+test('mobile event dots retain an accessible event name and Classic is not publicly selectable', () => {
+	assert.match(v2Source, /aria-label="' \+ esc\(eventLabel\) \+ '"/);
+	assert.doesNotMatch(v2Source, /name="calendar-experience"/);
+	assert.match(v2Source, /Modern Calendar/);
 });
 
 test('StoryForge view titles stay readable and Drills subjects avoid a nested scroller', () => {
