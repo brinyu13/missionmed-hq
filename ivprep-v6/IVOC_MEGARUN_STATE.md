@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-20 22:42 America/New_York
+Updated: 2026-09-20 23:30 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -21,19 +21,25 @@ the actual production route and deployment.
   canon.
 - Candidate.2 presentation integration successor:
   `84e750e4540acd5479ee72291e7b9d1c38f2f351`.
+  The final bounded presentation reconciliation is
+  `2e06b59fc9a156c966dcd7574cc2a7c6fbea1924`. Authenticated production
+  independently accepted the distinct six-step composition, separate
+  StoryForge reveal/inclusion consent, rich signal-specific readiness panels,
+  plain student copy, and adapter-owned media/Analytics boundary. At 1158 by
+  502 pixels, the readiness stage is contained at x319.801–532.883 inside its
+  x306.896–545.788 preview, before the x559.787 workspace and x812.188
+  Question Pool.
 - Durable presentation boundary: Astra canonical components consume stable
   view-model/capability adapters; canonical business, session, database and
   provider behavior remains below that boundary. Current page composition is
   not presentation canon merely because a capability is wired into it.
 - Latest functionality-accepted presentation/runtime deployment:
-  `2ee15d42-2ec8-4342-87ae-a91056853265`, exact commit
-  `58242681d64fdd4826b3a37215d9c57ec12e6f94`, image
-  `sha256:0496eccbc07ac5dec2292367c64fbadc147e57a9d2599d03b449d3dd9bce14f6`.
-  `/health` is HTTP 200 and anonymous `/iv-prep-on-call/` remains fail-closed
-  at HTTP 401. Authenticated production Results reconstructed three canonical
-  transcript segments, 36 words and a 0 s–18 s capture-owner boundary, then
-  truthfully rendered zero bounded filler candidates from its disclosed
-  lexicon without a provider re-call or hidden-trait inference.
+  `d843d3dd-7263-4013-a7e5-d49dce63825d`, exact commit
+  `2e06b59fc9a156c966dcd7574cc2a7c6fbea1924`, image
+  `sha256:3f2f8ce2ce6b5730eaa7e2f87ecceaa0a8ae2330a9742646d45fc94310981556`.
+  `/health` is HTTP 200, anonymous `/iv-prep-on-call/` fails closed at HTTP
+  401, and authenticated production passed live visual plus exact DOM-geometry
+  acceptance for the final Candidate.2 presentation correction.
 - Admin operational-control presentation: `268cd4be2265e7cd1ee6b05247ab5e148312a260`.
   The existing candidate.2 Mentor & Admin surface now consumes the versioned
   Admin-config, authenticated credit-account and governed-question adapters,
@@ -183,6 +189,9 @@ the actual production route and deployment.
 - **D — EXPLICITLY DEFERRED:** active LemonSlice/provider execution. Match
   Bridge cross-product pickup remains low priority because the IVOC-owned
   consent/version/revocation clip seam is already live accepted.
+- **Weighted IVOC-FOREMAN-9100 completion:** 94%. All presently executable
+  engineering and authorized owner-side work is complete; the remaining
+  weight is genuine external acceptance evidence, not hidden implementation.
 
 ## Production data authority — LIVE VERIFIED
 
@@ -239,13 +248,13 @@ the actual production route and deployment.
 
 | Section | Major requirement | Status | Current evidence / next proof |
 |---|---|---|---|
-| 5 | Candidate.2 premium Home visual DNA, hierarchy, contrast, responsive composition | LIVE UNVERIFIED | Exact candidate.2 successor is live at 84e750e; Home and Practice Goal visual readback passed. Fresh independent presentation acceptance remains. |
+| 5 | Candidate.2 premium Home visual DNA, hierarchy, contrast, responsive composition | LIVE VERIFIED | Exact candidate.2 successor plus the bounded reconciliation at `2e06b59` is live on `d843d3dd…`. Authenticated production and a fresh independent read-only verifier accepted the six distinct compositions, StoryForge consent/reveal, plain student copy, dark signal controls and 1158 by 502 readiness geometry with zero stage/workspace/Question Pool overlap. |
 | 5 | Six-step builder and Practice Goal modes | LIVE VERIFIED | Authenticated production Chrome traversed all six distinct candidate.2 step compositions without collapsing them into the rejected generic-card builder. |
 | 5 | Question Pool branching, persistent rail, presets, ordering, 193-question corpus | LIVE VERIFIED | Deployment `d94bf8fa…` visibly preserved the right rail on Practice Goal and Question Pool, enforced category → subcategory → question progression for Behavioral, selected real `BEH-001` from the 193-question corpus, and exposed ordered move/remove controls in the rail. |
 | 5 | Separate Interviewer and Program steps with role/style controls | LIVE VERIFIED | Authenticated production traversed the independent Program and Interviewer compositions with Program Director, Faculty, Chief Resident, APD and Dove/Peacock/Owl/Eagle controls. RISE hydration remains a separate owner projection. |
 | 5 | RISE-backed Program search, sourced highlights, people, freshness/manual fallback | LIVE VERIFIED | RISE owner `e0f9eb0` and IVOC `5824268` are live at deployments `6d1fd003…` and `2ee15d42…`. Production canary `3a6637db…` bound the exact 6,245-program release, received owner HTTP 200 and persisted only the minimized `rise.program_cheat_sheet` input plus versioned source/Context Pack receipts. |
-| 5 | Environment + Context sources and opt-in StoryForge reveal | LIVE VERIFIED | Authenticated production visibly renders MissionMed/Webex/Zoom/Teams, enables StoryForge/CV/File Vault/RISE from the server capability manifest, keeps MCC disabled, truthfully shows empty Top 3, keeps Prior IVOC available, and toggles opt-in sources without exposing provider details. |
-| 5 | Truthful Readiness & Calibration checks | LIVE VERIFIED | Deployment `d94bf8fa…` now derives each readiness row from its own MetricBus evidence. Live authenticated readback truthfully showed camera/visual signals awaiting camera and voice signals awaiting microphone, while transcript and recording reported only their real capability states; 26 focused adapter/presentation/durable tests passed. |
+| 5 | Environment + Context sources and opt-in StoryForge reveal | LIVE VERIFIED | Authenticated production visibly renders MissionMed/Webex/Zoom/Teams, enables StoryForge/CV/File Vault/RISE from the server capability manifest, keeps MCC disabled, truthfully shows empty Top 3, keeps Prior IVOC available, and exposes separate StoryForge suggestion and inclusion consent. With no positive owner data, the reveal truthfully reports no verified match and leaves inclusion off. |
+| 5 | Truthful Readiness & Calibration checks | LIVE VERIFIED | Deployment `d843d3dd…` presents Devices, Visual signals, Voice signals and Signal health with per-signal guidance over the real capability adapter. Live unloaded states remain truthful; 70 focused tests pass. Independent 1158 by 502 readback measured the stage fully inside its preview with no overlap against the workspace or persistent Question Pool. |
 | 6 | Real modular camera/mic Analytics with truthful availability states | LIVE VERIFIED | Physical production rep produced real microphone PCM plus face, hands, head and framing telemetry; unavailable signals continued to fail closed. |
 | 6 | Volume, pace, pauses, pitch, fillers and transcript boundaries | LIVE VERIFIED | Physical production reps proved live volume, variation, pitch, pace, cadence and pause states. Authenticated saved session `0d250e0c-1011-48bc-a416-f9ae4c2c735f` then cold-reconstructed three canonical transcript segments, 36 words, the 0 s–18 s capture-owner boundary and zero bounded filler candidates on deployment `6b5bad11…`; the UI discloses the bounded lexicon and explicitly rejects hidden-trait inference. |
 | 6 | Admin measurement/visibility controls and prohibited-inference safeguards | LIVE VERIFIED | Production Admin and Student Coached Practice face/head, hand/finger, body/pose and framing/head-orientation overlays were visibly aligned to the real camera surface and independently toggleable; measurement continued while hidden. True eye-gaze visualization remains unsupported; the product exposes only defensible camera-facing/head-orientation proxies. |
@@ -291,10 +300,10 @@ the actual production route and deployment.
 ## Current production and governance gates
 
 - Latest functionality-accepted MissionMed HQ production is Railway deployment
-  `2ee15d42-2ec8-4342-87ae-a91056853265` from exact product commit
-  `58242681d64fdd4826b3a37215d9c57ec12e6f94`; `/health` is HTTP 200, the
-  unauthenticated product route remains fail-closed at HTTP 401, and the
-  verified second-Admin allowlist is `wp:1,wp:107`.
+  `d843d3dd-7263-4013-a7e5-d49dce63825d` from exact product commit
+  `2e06b59fc9a156c966dcd7574cc2a7c6fbea1924`; `/health` is HTTP 200, the
+  unauthenticated product route fails closed at HTTP 401, and the verified
+  second-Admin allowlist remains `wp:1,wp:107`.
 - Runtime bindings point to dedicated project `bscnrgqlwsyygyfrbhfn` without
   exposing credentials. Context/transcript flags are enabled for the bounded
   production path; paid-test provider controls remain server-only and fail closed.
@@ -340,14 +349,15 @@ the actual production route and deployment.
 
 ## Next execution lanes
 
-1. Restore the exact active RISE registry release artifacts to canonical owner
-   source, then deploy `b6c854e` through the existing integrity pins and enable
-   `MMHQ_RISE_BASE`; do not rebuild, downgrade or copy around the owner gate.
-2. Recheck File Vault/StoryForge positive paths only when genuine authorized
-   data exists; do not poll unchanged owner data.
-3. When a genuine human session becomes available, accept the real multi-turn
-   follow-up/gap path and longitudinal recurrence without manufacturing either.
-4. When authentic role sessions or completed Webex media become available, run
-   those acceptance checks once; keep unavailable provider capabilities closed.
-5. Create `IVOC_MEGARUN_FINAL_HANDOFF.md`, release every lease, and stop only
-   at `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`.
+1. When a genuine human session becomes available, accept the real recorded
+   multi-turn answer/follow-up/gap and pool-order path once.
+2. Recheck File Vault and StoryForge positive projections only after genuine
+   authorized current-CV or consented-story data exists.
+3. Run second-Admin, entitled-360 and negative/wrong-owner acceptance only from
+   genuine authenticated sessions; do not forge identity evidence.
+4. Recheck Webex only when the owner changes from `RECORDING PROCESSING` to a
+   completed private recording.
+5. Accept longitudinal recurrence only after enough genuine saved sessions
+   exist. Do not manufacture recurrence.
+6. Active LemonSlice execution remains deferred. Create the final handoff only
+   after the external evidence above closes and the terminal marker is true.
