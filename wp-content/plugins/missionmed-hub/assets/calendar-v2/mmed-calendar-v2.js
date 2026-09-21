@@ -121,8 +121,13 @@
 		return '<section class="mcv2-category-rail" aria-label="Calendar sources"><p class="mcv2-rail-label">Sources</p>' + draw('', 0) + '</section>';
 	}
 
+	function displayedMonthDays(model) {
+		var days = model.monthDays.slice();
+		return days.length > 35 && days.slice(-7).every(function (day) { return day.outside; }) ? days.slice(0, -7) : days;
+	}
+
 	function miniCalendar(model, state) {
-		return '<section class="mcv2-mini-calendar" aria-label="Mini calendar"><header><button type="button" data-mini-nav="-1" aria-label="Previous month">&lsaquo;</button><strong>' + esc(global.MMEDCalendarCore.classicFormat(state.date, 'monthYear')) + '</strong><button type="button" data-mini-nav="1" aria-label="Next month">&rsaquo;</button></header><div class="mcv2-mini-grid">' + model.monthDays.map(function (day) { return '<button type="button" class="' + (day.outside ? 'is-outside ' : '') + (day.key === model.selectedKey ? 'is-selected ' : '') + (day.today ? 'is-today' : '') + '" data-mini-day="' + day.key + '">' + esc(day.label) + '</button>'; }).join('') + '<button type="button" class="mcv2-mini-today" data-today>Today</button></div></section>';
+		return '<section class="mcv2-mini-calendar" aria-label="Mini calendar"><header><button type="button" data-mini-nav="-1" aria-label="Previous month">&lsaquo;</button><strong>' + esc(global.MMEDCalendarCore.classicFormat(state.date, 'monthYear')) + '</strong><button type="button" data-mini-nav="1" aria-label="Next month">&rsaquo;</button></header><div class="mcv2-mini-grid">' + displayedMonthDays(model).map(function (day) { return '<button type="button" class="' + (day.outside ? 'is-outside ' : '') + (day.key === model.selectedKey ? 'is-selected ' : '') + (day.today ? 'is-today' : '') + '" data-mini-day="' + day.key + '">' + esc(day.label) + '</button>'; }).join('') + '<button type="button" class="mcv2-mini-today" data-today>Today</button></div></section>';
 	}
 
 	function todoRail(state) {
@@ -143,8 +148,10 @@
 	function renderMonth(model, state) {
 		var isAdmin = effectivePerspective(state) === 'administrator';
 		var eventLimit = global.innerWidth <= 560 ? 4 : global.innerHeight <= 650 ? 2 : 3;
+		var monthDays = displayedMonthDays(model);
+		var weekCount = monthDays.length / 7;
 		var weekdays = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(function (day) { return '<div class="mcv2-weekday">' + day + '</div>'; }).join('');
-		var cells = model.monthDays.map(function (day) {
+		var cells = monthDays.map(function (day) {
 			var events = day.events.slice(0, eventLimit).map(function (event) { return eventRow(event, true, isAdmin); }).join('');
 			var more = day.events.length > eventLimit ? '<button type="button" class="mcv2-more" data-day="' + day.key + '">+' + (day.events.length - eventLimit) + ' more</button>' : '';
 			return '<section class="mcv2-month-day' + (day.outside ? ' is-outside' : '') + (day.today ? ' is-today' : '') + '" data-drop-day="' + day.key + '" aria-label="' + esc(day.fullLabel) + '">' +
@@ -153,7 +160,7 @@
 				(state.capabilities.admin && armedDrill ? '<button type="button" class="mcv2-schedule-here" data-schedule-day="' + day.key + '">Schedule here</button>' : '') +
 				'</section>';
 		}).join('');
-		return '<div class="mcv2-month" role="grid" aria-label="' + esc(model.title) + '"><div class="mcv2-weekdays">' + weekdays + '</div><div class="mcv2-month-grid">' + cells + '</div></div>';
+		return '<div class="mcv2-month" role="grid" aria-label="' + esc(model.title) + '"><div class="mcv2-weekdays">' + weekdays + '</div><div class="mcv2-month-grid" style="--mcv2-week-count:' + weekCount + '">' + cells + '</div></div>';
 	}
 
 	function timeLabels() {
