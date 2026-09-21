@@ -796,12 +796,12 @@ Rollback: restore from /Users/brianb/Dropbox (Personal)/MissionMed-Codex/rank-li
 - Removed redundant top-right Sign In/Out control from visible header UI (auth button retained hidden for existing logic/proxy handlers).
 Why: improve Program Notes data capture UX and header clarity without breaking existing save/version/finalize/oracle/Supabase/localStorage behavior.
 Rollback: restore from /Users/brianb/Dropbox (Personal)/MissionMed-Codex/rank-list-engine/ranklist_engine_BACKUPS/rank_list_engine_WORKING_BACKUP_2026-02-18_1946__BOX5-ADDPROGRAMS__PROGRAMNOTES-WIZARD__REMOVE-TOPRIGHT-SIGNOUT.html
-2026-02-18 19:40 | ORACLE-LOCK_ADMIN-131313_INTRO-ROUTE
-- Locked Oracle UI behind admin-only password access (131313) and removed finalize-based Oracle UI unlocking from Oracle intro access-state computation.
+2026-02-18 19:40 | ORACLE-LOCK_ADMIN-[credential removed]_INTRO-ROUTE
+- Locked Oracle UI behind admin-only password access ([credential removed]) and removed finalize-based Oracle UI unlocking from Oracle intro access-state computation.
 - Added a single global intro router (`routeToOracleIntro`) and rewired Oracle entry points (Box 7 open/sync, panel nav, finalize/snapshot CTA, side drawer Oracle CTA) to route through intro first.
 - Added compact admin unlock persistence + re-lock control in the Oracle intro modal and removed any Oracle auto-profile trigger coupling from entry flow.
 Why: enforce a controlled Oracle preview/access gate while keeping all existing RankListIQ save/finalize/storage/Supabase behaviors backward-compatible.
-Rollback: restore from /Users/brianb/Dropbox (Personal)/MissionMed-Codex/rank-list-engine/ranklist_engine_BACKUPS/rank_list_engine_WORKING_BACKUP_2026-02-18_1940__ORACLE-LOCK_ADMIN-131313_INTRO-ROUTE.html
+Rollback: restore from /Users/brianb/Dropbox (Personal)/MissionMed-Codex/rank-list-engine/ranklist_engine_BACKUPS/rank_list_engine_WORKING_BACKUP_2026-02-18_1940__ORACLE-LOCK_ADMIN-[credential removed]_INTRO-ROUTE.html
 2026-02-18 18:44 | Prompt #12+ | TAB-RAIL-HEADER_FINALIZE_LOGINLOGOUT
 - Attached the side tab rail to the header block (absolute in-header positioning, non-fixed/non-sticky) so it scrolls with the header and no longer floats mid-page.
 - Replaced Summary drawer with FINALIZE drawer wired to existing finalize/snapshot/dev-unfinalize actions and added Oracle coming-soon messaging without changing Oracle unlock logic.
@@ -861,7 +861,7 @@ CL-MAINUI-WIRE-WP-PROFILE-BRIDGE | 2026-02-18 15:30 | mainui-wire-wp-profile-bri
 What this change does: Adds a non-blocking WordPress profile bridge loader (`loadMissionMedProfile`) that stores `wp_user_id` + email in `window.MM_USER`, runs automatically on app init, and appends `wp_user_id` to save/finalize payload snapshots without changing existing storage keys, scoring logic, Oracle UI, or save behavior.
 Rollback: restore from /Users/brianb/Dropbox (Personal)/MissionMed-Codex/rank-list-engine/ranklist_engine_BACKUPS/rank_list_engine_WORKING_BACKUP_2026-02-18_1530__mainui-wire-wp-profile-bridge__CHANGELOG.html
 CL-MAINUI-ONBOARDING-DEV-UNFINALIZE | 2026-02-18 15:13 | CHG-onboarding-dev-unfinalize
-What this change does: Adds a reliable Profile/Intake completion modal with transparent percentage logic, 24-hour dismissal, Supabase-first profile read with local draft fallback, debug toggles (Shift+P), and a dev-only unfinalize shortcut (Shift+U + code 131313) while preserving Oracle popup clickability and existing finalize/oracle/save flows.
+What this change does: Adds a reliable Profile/Intake completion modal with transparent percentage logic, 24-hour dismissal, Supabase-first profile read with local draft fallback, debug toggles (Shift+P), and a dev-only unfinalize shortcut (Shift+U + code [credential removed]) while preserving Oracle popup clickability and existing finalize/oracle/save flows.
 LocalStorage keys (new): mm_profile_intake_draft_v1, mm_profile_intake_dismiss_until_v1
 LocalStorage keys read-only (existing): mm_drip_profile_v1, rl_is_finalized_v1
 Rollback: restore from /Users/brianb/Dropbox (Personal)/MissionMed-Codex/rank-list-engine/ranklist_engine_BACKUPS/rank_list_engine_WORKING_BACKUP_2026-02-18_1513_CHG-onboarding-dev-unfinalize.html
@@ -876,7 +876,7 @@ CL-MAINUI-ORACLE-CLICKFIX-FINALIZE-SNAPSHOT | 2026-02-18 13:00 | mainui-oracle-c
 What this change does: Keeps Main UI Oracle entry always clickable, upgrades Finalize/Certify modal copy/layout with Current Match Cycle + lock-warning + Oracle motivation section, and rebuilds Final Submission Snapshot into an accordion summary packet with real factor-driven rationale, pros/cons thresholds, notes deep-links, and Oracle CTA launch actions.
 Rollback: restore from /Users/brianb/Dropbox (Personal)/MissionMed-Codex/rank-list-engine/ranklist_engine_BACKUPS/rank_list_engine_WORKING_BACKUP_2026-02-18_1300__mainui-oracle-clickfix__finalize-copy__snapshot-packet__CHANGELOG.html
 CL-OUI-POPUP-ALWAYS-OPENS-UNLOCK-INSIDE | 2026-02-18 12:43 | oui-oracle-popup-always-opens__unlock-inside-popup
-What this change does: Ensures Oracle entry from Main UI always opens the Oracle intro popup, then computes access state inside the popup (admin session code 131313 or finalized rank list) to show/hide the ENTER flow with a locked-state “Go Finalize Rank List” path.
+What this change does: Ensures Oracle entry from Main UI always opens the Oracle intro popup, then computes access state inside the popup (admin session code [credential removed] or finalized rank list) to show/hide the ENTER flow with a locked-state “Go Finalize Rank List” path.
 Rollback: restore from /Users/brianb/Dropbox (Personal)/MissionMed-Codex/rank-list-engine/ranklist_engine_BACKUPS/rank_list_engine_WORKING_BACKUP_2026-02-18_1243__oui-oracle-popup-always-opens__unlock-inside-popup__CHANGELOG.html
 CL-MAINUI-FINALIZE-CERTIFY-UNLOCK-ORACLE | 2026-02-18 12:30 | mainui-finalize-certify-unlock-oracle
 What this change does: Adds a visible Box 4 Finalize/Certify workflow with typed confirmation, persistent local final/draft submission snapshots, finalized badge/status + read-only final snapshot viewer, and immediate Main UI Oracle unlock state after finalize while keeping existing storage and Supabase data structures backward-compatible.
@@ -906,7 +906,7 @@ CL-MAIN-UI-PANELS-ROW-BOX5 | 2026-02-18 10:27 | main-ui-panel-view-active-box5-h
 What this change does: Adds a compact “Panel View” label/hint for the top panel row, introduces a UI-only active glow state for All Panels mode, and fixes Box 5 header/action alignment for Supplemental Lists without changing data/storage logic.
 Rollback: restore from /Users/brianb/Dropbox (Personal)/MissionMed-Codex/rank-list-engine/ranklist_engine_BACKUPS/rank_list_engine_WORKING_BACKUP_2026-02-18_1027__main-ui-panel-view-active-box5-header-v1__CHANGELOG.html
 CL-ORACLE-GATE-INTRO-V1 | 2026-02-18 10:15 | oracle-gate-intro-v1
-What this change does: Adds an Oracle-only welcome/access gate overlay with session-based developer unlock (131313), blur/dim lock on Oracle content, and preserved Oracle close behaviors while leaving Boxes 1–6 unchanged.
+What this change does: Adds an Oracle-only welcome/access gate overlay with session-based developer unlock ([credential removed]), blur/dim lock on Oracle content, and preserved Oracle close behaviors while leaving Boxes 1–6 unchanged.
 Rollback: restore from /Users/brianb/Dropbox (Personal)/MissionMed-Codex/rank-list-engine/ranklist_engine_BACKUPS/rank_list_engine_WORKING_BACKUP_2026-02-18_1015__oracle-gate-intro-v1__CHANGELOG.html
 CL-ORACLE-HARDRESET-V1 | 2026-02-17 21:39 | oracle-hard-reset-v1
 What this change does: Performs a full Oracle hard reset by purging legacy Oracle overlay/certification code paths, removing Oracle v1/v2 modal behavior, and rebuilding Oracle as a deterministic fullscreen modal using canonical RankListIQ UI patterns with Box 3 DOM clone sync and namespaced ranklistiq_oracle_v2_* storage.
@@ -1009,7 +1009,7 @@ Files touched: /Users/brianb/Dropbox (Personal)/MissionMed-Codex/rank-list-engin
 CL-011 | 2026-02-16 20:35 | drip-reg-oracle-questions
 - Added “drip” module (isolated `MM_DRIP` namespace) for additive profile/program-meta/notes-intel/oracle-intake capture using new local keys only.
 - Added canonical medical school picker (WHO sample list + strict normalization + Other fallback), program interview metadata fields, and notes intel collapsible section.
-- Added Oracle dev gate (password 131313), conditional Oracle Intake (missing critical fields only), NRMP-informed rank-driver selector, and collated data package builder with local + additive Supabase writes.
+- Added Oracle dev gate (password [credential removed]), conditional Oracle Intake (missing critical fields only), NRMP-informed rank-driver selector, and collated data package builder with local + additive Supabase writes.
 Why: gradually collect structured data with minimal friction while preserving all existing RankListIQ scoring, notes, versions, and persistence behavior.
 Files touched: /Users/brianb/Dropbox (Personal)/MissionMed-Codex/rank-list-engine/rank_list_engine_WORKING.html
 CL-012 | 2026-02-16 21:03 | box4-rename-iq-optimized-ranking
@@ -38412,7 +38412,7 @@ function openProgramNotes(programId){
         if(!code){
           return;
         }
-        if(code !== "131313"){
+        if(true){
           showToast("Dev Mode", "Invalid developer code.");
           return;
         }

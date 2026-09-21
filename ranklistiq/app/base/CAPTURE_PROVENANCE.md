@@ -11,8 +11,8 @@
 - Private backup directory mode: `0700`; files: `0600`; `SHA256SUMS` verified
 - Git-safe base: `rank_list_engine.LIVE_20260921T132844Z.sanitized.html`
 - Git-safe base bytes: `1808955`
-- Git-safe base SHA-256: `ff30d6e962f644ba2e09b94bf146ca60ea7368b8109b47c4a6178a0c2954c5d9`
-- Security delta: two embedded developer unlock values removed; two comparisons changed to fail closed when no server-provided credential exists
+- Git-safe base SHA-256: `1766f21de2bfbffe2d5e70e999757fad6be38dd572ff5081a21550b6224756ec`
+- Security delta: every plaintext developer-unlock occurrence was removed from executable code, changelog text, and rollback filenames; all three executable client-side checks fail closed
 - Historical reference blob: `8f5e953b9b50b4fd3b96d8b5bf8bbcb8351f6f5f`
 - Historical reference bytes: `1801836`
 - Historical reference SHA-256: `0b484a052c0f8979053ad2425b5b63a6efdc45eebfde33b842dad476edd41183`
@@ -22,4 +22,3 @@ The live artifact scan found no service-role key, Stripe secret key, AWS access
 key, or private-key block. It did find the two developer unlock values noted
 above. The only email-like strings were a MissionMed support-domain address and
 an example-domain placeholder; no student email address was found.
-

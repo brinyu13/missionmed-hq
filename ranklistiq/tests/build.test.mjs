@@ -9,6 +9,17 @@ test("zero-module build reproduces the sanitized base byte-for-byte", async () =
   assert.equal(result.html, await readFile(result.basePath, "utf8"));
 });
 
+test("sanitized base contains no plaintext developer unlock credential", async () => {
+  const result = await buildHtml({ zero: true });
+  const forbidden = String.fromCharCode(49, 51, 49, 51, 49, 51);
+  assert.equal(result.html.includes(forbidden), false);
+  assert.ok(result.html.includes("var ORACLE_DEV_PASSWORD = null;"));
+  assert.ok(result.html.includes("var DRIP_DEV_PASSWORD = null;"));
+  assert.ok(result.html.includes('if(!ORACLE_DEV_PASSWORD || entered !== ORACLE_DEV_PASSWORD){'));
+  assert.ok(result.html.includes('if(!DRIP_DEV_PASSWORD || pass !== DRIP_DEV_PASSWORD){'));
+  assert.ok(result.html.includes('if(true){\n          showToast("Dev Mode", "Invalid developer code.");'));
+});
+
 test("full build has one balanced marker pair per seam and embeds exact config", async () => {
   const result = await buildHtml({ buildId: "unit-test", sourceCommit: "test-sha" });
   for (const seam of ["S1", "S2", "S3", "S4", "S5", "S5_BRIDGE"]) {
@@ -21,4 +32,3 @@ test("full build has one balanced marker pair per seam and embeds exact config",
   assert.ok(result.html.includes("window.RLQ_ENGINE = {"));
   assert.ok(result.html.includes('window.__RANKLISTIQ_BUILD__ = {"id":"unit-test"'));
 });
-
