@@ -8,6 +8,7 @@ import { strictProjectHqSession, validateIvPrepMutation } from '../../ivprep-v6/
 import { createContextIntelligenceProvider } from './context-provider.mjs';
 import { createIvocApplicationIntelligence, readSessionContextReceipts } from './application-intelligence.mjs';
 import { createFileVaultCvProjectionSource } from './file-vault-projection.mjs';
+import { createStoryForgeProjectionSource } from './storyforge-projection.mjs';
 import { createIvocRepository } from './repository.mjs';
 import { createIvocStorage } from './storage.mjs';
 import {
@@ -745,8 +746,11 @@ export function createIvocHandler({
   const fileVaultSource = env.MMHQ_WP_BASE
     ? createFileVaultCvProjectionSource({ wordPressBase: env.MMHQ_WP_BASE, fetchImpl })
     : null;
+  const storyForgeSource = env.MMHQ_WP_BASE
+    ? createStoryForgeProjectionSource({ wordPressBase: env.MMHQ_WP_BASE, fetchImpl })
+    : null;
   const appIntelligence = applicationIntelligence || createIvocApplicationIntelligence({
-    repository: db, now, fileVaultSource,
+    repository: db, now, fileVaultSource, storyForgeSource,
   });
   const enabled = bool(env.IVPREP_ENABLED) && bool(env.IVPREP_ADMIN_CANARY_ENABLED);
   const contextEnabled = bool(env.IVOC_CONTEXT_CANDIDATE_ENABLED);

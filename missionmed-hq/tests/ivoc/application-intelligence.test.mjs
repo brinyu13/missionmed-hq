@@ -158,6 +158,55 @@ test('File Vault is not read unless selected, and a selected unavailable project
   assert.equal(reads, 1);
 });
 
+test('selected StoryForge is owner-read once and enters the context pack as consented story evidence', async () => {
+  const repo = repository();
+  const reads = [];
+  const storyForgeSource = {
+    read: async (input) => {
+      reads.push(input);
+      return {
+        projection_id: 'storyforge-approved-stories:wp:42', owner_app: 'storyforge',
+        projection_type: 'storyforge.approved_stories', schema_version: '1', subject_id: 'wp:42',
+        source_version: 'sf-ivoc-42', produced_at: NOW,
+        authorization: { basis: 'student_consent', scope: ['approved_story_summary'], consent_ref: 'storyforge:consent-42' },
+        minimization: { fields_included: ['stories'] },
+        payload: { stories: [{
+          story_id: '33333333-3333-4333-8333-333333333333', version: '7', consent_state: 'granted',
+          title: 'Night shift turnaround', themes: ['teamwork'],
+          summary: 'I clarified roles, closed two safety gaps, and confirmed shared ownership.',
+        }] },
+        source_receipt: { owner_ref: 'storyforge:wp:42@sf-ivoc-42', hash: 'd'.repeat(64) },
+        revocation: { revocable: true },
+      };
+    },
+  };
+  const row = sessionRow();
+  row.context = { contextSources: ['StoryForge'] };
+  const service = createIvocApplicationIntelligence({ repository: repo, storyForgeSource, now: () => Date.parse(NOW) });
+  await service.prepareSession({ actor: 'wp:42', sessionRow: row, authorization: 'Bearer owner-session-token' });
+  assert.deepEqual(reads, [{ actor: 'wp:42', sessionId: SESSION_ID, authorization: 'Bearer owner-session-token' }]);
+  const pack = repo.upserts.find((entry) => entry.table === 'ivoc_context_packs').body.pack;
+  assert.ok(pack.inputs.some((input) => input.projection_type === 'storyforge.approved_stories'));
+  assert.ok(pack.facts.some((fact) => fact.fact_type === 'story_theme' && fact.attributes.consent_state === 'granted'));
+});
+
+test('StoryForge is not read unless selected, and selected absence fails closed', async () => {
+  const repo = repository();
+  let reads = 0;
+  const storyForgeSource = { read: async () => { reads += 1; return null; } };
+  const provider = createIvocProjectionProvider({ repository: repo, storyForgeSource });
+  await provider({ actor: 'wp:42', session: sessionRow(), authorization: 'Bearer owner-session-token' });
+  assert.equal(reads, 0);
+
+  const selected = sessionRow();
+  selected.context = { contextSources: ['StoryForge'] };
+  await assert.rejects(
+    () => provider({ actor: 'wp:42', session: selected, authorization: 'Bearer owner-session-token' }),
+    /storyforge_projection_unavailable/u,
+  );
+  assert.equal(reads, 1);
+});
+
 test('prior-IVOC projection requires two distinct saved sessions and bounded structured evidence', async () => {
   const rows = [
     {
