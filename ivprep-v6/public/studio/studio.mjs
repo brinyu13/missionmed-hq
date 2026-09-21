@@ -1493,10 +1493,14 @@ async function switchDevice(kind, deviceId) {
     state.selected[kind] = deviceId;
     saveDevicePreference();
     bindPreview();
+    if (kind === 'camera') {
+      const preview = $('#devicecheck-stage video') || $('#builder-readiness-stage video');
+      await ensureVisibleVideoFrame(preview);
+    }
     startLevelMeter();
     if (status) status.textContent = `${kind === 'camera' ? 'Camera' : 'Microphone'} switched.`;
   } catch (error) {
-    if (status) status.textContent = `Could not switch ${kind}: ${String(error?.name || error)}`;
+    if (status) status.textContent = `Could not switch ${kind}: ${String(error?.message || error?.name || error)}`;
   }
   renderDeviceCheck();
   await refreshDevices();
@@ -1513,20 +1517,57 @@ function videoSurfaceReady(video) {
     && video.paused === false && video.ended !== true);
 }
 
+function requestVideoPlayback(video) {
+  if (!video || !bridge.media.stream) return;
+  const playback = video.play?.();
+  if (playback?.catch) playback.catch(() => {});
+}
+
 function bindVideoSurface(video) {
   if (!video) return null;
   video.autoplay = true; video.muted = true; video.playsInline = true;
   if (video.srcObject !== bridge.media.stream) video.srcObject = bridge.media.stream;
   if (video.dataset.ivocSurfaceEvents !== 'bound') {
     video.dataset.ivocSurfaceEvents = 'bound';
-    for (const name of ['loadedmetadata', 'playing', 'resize', 'emptied', 'ended']) {
+    for (const name of ['loadedmetadata', 'canplay', 'playing', 'resize', 'emptied', 'ended']) {
       video.addEventListener(name, () => {
+        if (name === 'loadedmetadata' || name === 'canplay') requestVideoPlayback(video);
         renderDeviceCheck();
         if (state.view === 'training' || state.view === 'simulation') evaluateReadiness();
       });
     }
   }
-  if (bridge.media.stream) void video.play?.().catch?.(() => {});
+  requestVideoPlayback(video);
+  return video;
+}
+
+async function ensureVisibleVideoFrame(video, { timeoutMs = 5000 } = {}) {
+  bindVideoSurface(video);
+  if (videoSurfaceReady(video)) return video;
+  if (!video || !bridge.media.stream || !liveTrack('video')) {
+    throw new Error('Camera stream is not available. Reconnect the camera and microphone.');
+  }
+  await new Promise((resolve, reject) => {
+    const deadline = Date.now() + timeoutMs;
+    let poll;
+    const cleanup = () => {
+      clearInterval(poll);
+      for (const event of ['loadedmetadata', 'canplay', 'playing', 'resize']) video.removeEventListener(event, settle);
+    };
+    const settle = () => {
+      requestVideoPlayback(video);
+      if (videoSurfaceReady(video)) {
+        cleanup(); resolve(); return;
+      }
+      if (Date.now() >= deadline || !liveTrack('video')) {
+        cleanup();
+        reject(new Error('Camera connected, but IVOC could not render a visible frame. Reconnect the camera before continuing.'));
+      }
+    };
+    for (const event of ['loadedmetadata', 'canplay', 'playing', 'resize']) video.addEventListener(event, settle);
+    poll = setInterval(settle, 100);
+    settle();
+  });
   return video;
 }
 
@@ -2048,6 +2089,7 @@ async function startLiveInterview() {
       renderDeviceCheck();
     }
     bindSimulationVideo();
+    await ensureVisibleVideoFrame($('#founder-student-video'));
     if (evaluateReadiness() !== 'SESSION_READY') throw new Error(state.session.reason || 'Camera and microphone are not ready.');
     const track = bridge.media.stream.getAudioTracks()[0];
     const selectedVoice = state.role === 'admin'
@@ -2179,10 +2221,12 @@ async function connectDevices() {
     await bridge.requestMedia(true, true);
     state.deviceError = null;
     bindPreview();
+    const preview = $('#devicecheck-stage video') || $('#builder-readiness-stage video');
+    await ensureVisibleVideoFrame(preview);
     await refreshDevices();
     startLevelMeter();
   } catch (error) {
-    state.deviceError = String(error?.name || error).toUpperCase();
+    state.deviceError = String(error?.message || error?.name || error).toUpperCase();
   }
   if (button) { button.disabled = false; button.innerHTML = '<span>Reconnect camera + mic</span>'; }
   renderDeviceCheck();

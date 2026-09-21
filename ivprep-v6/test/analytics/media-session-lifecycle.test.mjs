@@ -121,6 +121,15 @@ test('one readiness action enters the real Interview Room and starts the live in
   assert.match(studio, /async function startLiveInterview\(\)/u);
 });
 
+test('camera acceptance requires an actually rendered frame on every journey surface', () => {
+  assert.match(studio, /async function ensureVisibleVideoFrame\(video/u);
+  assert.match(studio, /\['loadedmetadata', 'canplay', 'playing', 'resize'\]/u);
+  assert.match(studio, /await ensureVisibleVideoFrame\(preview\)/u);
+  assert.match(studio, /await ensureVisibleVideoFrame\(\$\('#founder-student-video'\)\)/u,
+    'the Interview Room must prove a visible frame after its own surface is bound');
+  assert.match(studio, /videoWidth >= 16 && video\.videoHeight >= 16/u);
+});
+
 test('connectivity is distinguished from an active rep', () => {
   // The pipeline only samples audio between beginAnswer and endAnswer, so before a rep
   // there are deliberately no audio diagnostics. That is connectivity, not failure, and

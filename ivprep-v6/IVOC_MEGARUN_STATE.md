@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-20 23:30 America/New_York
+Updated: 2026-09-21 01:28 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -10,6 +10,31 @@ This is the one living requirement ledger required by the final Founder
 completion directive. A status of `LIVE UNVERIFIED` means the capability is
 present in the active source lineage but has not yet passed acceptance against
 the actual production route and deployment.
+
+## Founder POV acceptance reset — P0
+
+- The prior 94% / executable-work-exhausted conclusion is invalid. Critical
+  acceptance now requires complete production-UI journeys, not component,
+  endpoint, DOM, readiness-state or test evidence.
+- Current healthy production baseline: commit
+  `082763ac369ab328e5d3109eb9e16860849a9035`, Railway deployment
+  `258828d0-0280-4b3d-8b65-151d371c174f`; `/health` is HTTP 200 and anonymous
+  product access fails closed at HTTP 401. This is infrastructure health, not
+  Founder journey acceptance.
+- Real RISE search/select is production-verified: searching `SUNY` returned 44
+  authorized results, SUNY Downstate Primary Care was selected and retained
+  through Review, and the RISE context source enabled from that verified
+  identity.
+- Source now requires an exact bound video element to be actively playing with
+  nonzero dimensions after camera connection, camera switching and Interview
+  Room transition. It also exposes distinct Home entry actions for self
+  practice, AI mock and interview building. Focused verification is 38/38.
+- **UNVERIFIED / required before closure:** complete production POV Journey 1
+  Self Practice, Journey 2 AI Mock (including audible question, contextual
+  follow-up and barge-in), Journey 3 program-aware interview influence, and
+  Journey 4 Admin student-library traversal. Camera acceptance specifically
+  requires a visibly rendered physical frame; save acceptance requires
+  successful reload and private playback.
 
 ## Canon and source lineage
 
