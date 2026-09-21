@@ -230,7 +230,7 @@ test('authenticated program search proxies the bounded RISE owner result without
       calls.push({ url: String(url), init });
       return new Response(JSON.stringify({
         registryReleaseId: 'rise_registry_20260920_0123456789ab', total: 1,
-        records: [{ id: 'rise_ps_program_1', display: { programName: 'Example Residency', state: 'New York' }, designation: 'Internal Medicine', evidence: { coveragePercent: 55 } }],
+        records: [{ programSpecialtyId: 'rise_ps_program_1', display: { programName: 'Example Residency', state: 'New York' }, designation: 'Internal Medicine', evidence: { coveragePercent: 55 } }],
       }), { status: 200 });
     },
     env: {
@@ -246,6 +246,7 @@ test('authenticated program search proxies the bounded RISE owner result without
   });
   assert.equal(response.status, 200);
   assert.equal(response.json().records[0].name, 'Example Residency');
+  assert.equal(response.json().records[0].id, 'rise_ps_program_1');
   assert.equal(response.json().registryReleaseId, 'rise_registry_20260920_0123456789ab');
   assert.match(calls[0].url, /\/api\/rise\/v1\/programs\?q=example&specialty=Internal\+Medicine/u);
   assert.doesNotMatch(response.body, /rise\.example\.test/u);

@@ -293,6 +293,46 @@ test('RISE auth is entitlement-bound, audience-isolated, and non-RISE compatible
     assert.equal(audienceConfusion.status, 200);
     assert.equal((await audienceConfusion.json()).authenticated, false);
 
+    // An existing RISE cookie must not trap a user outside IVOC/HQ sign-in.
+    // Starting a new handoff never promotes that cookie or grants API access.
+    for (const [audience, action] of [['hq', 'mmac_hq_auth_redirect'], ['rise', 'mmed_rise_auth_redirect']]) {
+      const restart = await fetch(`${runtime.origin}/api/auth/start?audience=${audience}&final=%2Fiv-prep-on-call%2F`, {
+        redirect: 'manual', headers: { Cookie: `mmhq_session=${cookie}` },
+      });
+      assert.equal(restart.status, 302, `${audience} handoff remains reachable with RISE cookie`);
+      assert.equal(restart.headers.has('set-cookie'), false);
+      const destination = new URL(restart.headers.get('location'));
+      assert.equal(destination.origin, 'https://missionmedinstitute.com');
+      assert.equal(destination.searchParams.get('action'), action);
+      const callback = new URL(destination.searchParams.get('return_to'));
+      assert.equal(callback.pathname, '/api/auth/session');
+      assert.equal(new URL(callback.searchParams.get('final')).pathname, '/iv-prep-on-call/');
+      assert.equal(callback.searchParams.get('audience'), audience === 'rise' ? 'rise' : null);
+    }
+    const blockedStartMethod = await fetch(`${runtime.origin}/api/auth/start`, {
+      method: 'POST', headers: { Cookie: `mmhq_session=${cookie}` }, redirect: 'manual',
+    });
+    assert.equal(blockedStartMethod.status, 405);
+    const badStartAudience = await fetch(`${runtime.origin}/api/auth/start?audience=unknown`, {
+      headers: { Cookie: `mmhq_session=${cookie}` }, redirect: 'manual',
+    });
+    assert.equal(badStartAudience.status, 400);
+    const unsafeStart = await fetch(`${runtime.origin}/api/auth/start?final=https%3A%2F%2Fevil.example.test%2Fsteal`, {
+      headers: { Cookie: `mmhq_session=${cookie}` }, redirect: 'manual',
+    });
+    assert.equal(unsafeStart.status, 302);
+    assert.equal(new URL(new URL(unsafeStart.headers.get('location')).searchParams.get('return_to')).searchParams.has('final'), false);
+    const unchangedAudience = await fetch(`${runtime.origin}/api/auth/session?audience=rise`, {
+      headers: { Cookie: `mmhq_session=${cookie}` },
+    });
+    assert.equal((await unchangedAudience.json()).authAudience, 'rise');
+    const isolatedExchange = await fetch(`${runtime.origin}/api/auth/exchange`, {
+      method: 'POST', headers: { Cookie: `mmhq_session=${cookie}`, 'content-type': 'application/json' },
+      body: '{}',
+    });
+    assert.equal(isolatedExchange.status, 403);
+    assert.equal((await isolatedExchange.json()).error, 'rise_audience_isolated');
+
     const isolated = await fetch(`${runtime.origin}/api/summary`, {
       headers: { Cookie: `mmhq_session=${cookie}` },
     });

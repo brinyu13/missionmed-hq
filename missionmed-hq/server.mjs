@@ -2869,7 +2869,9 @@ async function handleApiRoute(request, response, url, context) {
 
   if (
     sessionAuthAudience(session) === RISE_AUTH_AUDIENCE
-    && !new Set(['/api/auth/session', '/api/auth/logout', '/api/health']).has(pathname)
+    // Sign-in start only redirects to WordPress; it cannot grant or promote a
+    // session. Keep it reachable so a RISE cookie cannot deadlock IVOC/HQ login.
+    && !new Set(['/api/auth/start', '/api/auth/session', '/api/auth/logout', '/api/health']).has(pathname)
   ) {
     sendJson(response, 403, {
       error: 'rise_audience_isolated',
