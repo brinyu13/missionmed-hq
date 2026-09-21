@@ -32,11 +32,18 @@ function cookieValue(cookieHeader, name) {
   return "";
 }
 
-function isIvocProjectionRequest(request) {
-  if (request?.method !== "GET" || request?.headers?.["x-mmed-consumer"] !== "ivoc") return false;
+function isIvocDelegatedReadRequest(request) {
+  // Delegated IVOC reads are exact, server-to-server GETs; browser-originated
+  // requests stay on the normal RISE entitlement path.
+  if (
+    request?.method !== "GET" ||
+    request?.headers?.["x-mmed-consumer"] !== "ivoc" ||
+    String(request?.headers?.origin ?? "").trim()
+  ) return false;
   try {
     const pathname = new URL(String(request.url || ""), "https://rise.invalid").pathname;
-    return /^\/api\/rise\/v1\/ivoc\/program-projections\/[^/]+$/u.test(pathname);
+    return pathname === "/api/rise/v1/programs" ||
+      /^\/api\/rise\/v1\/ivoc\/program-projections\/[^/]+$/u.test(pathname);
   } catch {
     return false;
   }
@@ -81,9 +88,9 @@ export function createHqAuthenticator({
     if (request.headers.authorization) return null;
     const cookie = cookieValue(request.headers.cookie, cookieName);
     if (!cookie) return null;
-    const ivocProjection = isIvocProjectionRequest(request);
+    const ivocDelegatedRead = isIvocDelegatedReadRequest(request);
     const delegationToken = String(ivocDelegationToken ?? "").trim();
-    if (ivocProjection && delegationToken.length < 32) return null;
+    if (ivocDelegatedRead && delegationToken.length < 32) return null;
     let response;
     try {
       response = await fetchImpl(endpoint, {
@@ -91,7 +98,7 @@ export function createHqAuthenticator({
         headers: {
           Accept: "application/json",
           Cookie: `${cookieName}=${cookie}`,
-          ...(ivocProjection ? {
+          ...(ivocDelegatedRead ? {
             "X-MMED-Delegation-Token": delegationToken,
             "X-MMED-Internal-Consumer": "rise-ivoc-projection",
           } : {}),

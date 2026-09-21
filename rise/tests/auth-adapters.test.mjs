@@ -136,6 +136,94 @@ test("HQ adapter delegates an exact server-only IVOC projection without widening
   }
 });
 
+test("HQ adapter delegates exact server-only IVOC program search without widening browser auth", async () => {
+  const observed = [];
+  const now = Date.parse("2026-07-22T12:00:00.000Z");
+  const token = "ivoc-rise-delegation-test-token-000000000000";
+  const fixture = await listen((request, response) => {
+    const delegated = request.headers["x-mmed-delegation-token"] === token;
+    observed.push({
+      url: request.url,
+      cookie: request.headers.cookie,
+      delegationToken: request.headers["x-mmed-delegation-token"],
+      consumer: request.headers["x-mmed-internal-consumer"],
+    });
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(JSON.stringify({
+      authenticated: true,
+      sessionPersistent: true,
+      authAudience: "rise",
+      revoked: false,
+      revokedAt: null,
+      risePrivateBeta: delegated,
+      riseEntitlements: delegated ? ["FULL_RISE_BETA_ACCESS"] : [],
+      csrfToken: "delegatedCsrfTokenForRise0000000",
+      expiresAt: "2026-07-22T13:00:00.000Z",
+      user: { id: 42, displayName: "IVOC Student", roles: ["subscriber"] },
+    }));
+  });
+  try {
+    const authenticate = createHqAuthenticator({
+      authSessionUrl: `${fixture.origin}/api/auth/session`,
+      bindingHmacKey: "binding-test-key-0000000000000000",
+      ivocDelegationToken: token,
+      allowInsecureLoopback: true,
+      now: () => now,
+    });
+    const session = await authenticate({
+      method: "GET",
+      url: "/api/rise/v1/programs?q=SUNY&pageSize=12",
+      headers: { cookie: "mmhq_session=ivoc-audience-cookie", "x-mmed-consumer": "ivoc" },
+    });
+    assert.equal(session.subject, "wp:42");
+    assert.equal(observed[0].delegationToken, token);
+    assert.equal(observed[0].consumer, "rise-ivoc-projection");
+    assert.equal(observed[0].cookie, "mmhq_session=ivoc-audience-cookie");
+
+    assert.equal(await authenticate({
+      method: "GET",
+      url: "/api/rise/v1/programs?q=SUNY&pageSize=12",
+      headers: {
+        cookie: "mmhq_session=ivoc-audience-cookie",
+        "x-mmed-consumer": "ivoc",
+        origin: "https://untrusted-browser.example",
+      },
+    }), null);
+    assert.equal(observed[1].delegationToken, undefined);
+    assert.equal(observed[1].consumer, undefined);
+
+    assert.equal(await authenticate({
+      method: "GET",
+      url: "/api/rise/v1/programs/catalog",
+      headers: { cookie: "mmhq_session=ivoc-audience-cookie", "x-mmed-consumer": "ivoc" },
+    }), null);
+    assert.equal(observed[2].delegationToken, undefined);
+
+    assert.equal(await authenticate({
+      method: "POST",
+      url: "/api/rise/v1/programs",
+      headers: { cookie: "mmhq_session=ivoc-audience-cookie", "x-mmed-consumer": "ivoc" },
+    }), null);
+    assert.equal(observed[3].delegationToken, undefined);
+
+    const missingCredential = createHqAuthenticator({
+      authSessionUrl: `${fixture.origin}/api/auth/session`,
+      bindingHmacKey: "binding-test-key-0000000000000000",
+      ivocDelegationToken: "",
+      allowInsecureLoopback: true,
+      now: () => now,
+    });
+    assert.equal(await missingCredential({
+      method: "GET",
+      url: "/api/rise/v1/programs?q=SUNY&pageSize=12",
+      headers: { cookie: "mmhq_session=ivoc-audience-cookie", "x-mmed-consumer": "ivoc" },
+    }), null);
+    assert.equal(observed.length, 4);
+  } finally {
+    await fixture.close();
+  }
+});
+
 test("HQ adapter rejects expired, revoked, malformed-revocation, and audience-drifted upstream sessions", async () => {
   let mode = "expired";
   const fixture = await listen((_request, response) => {
