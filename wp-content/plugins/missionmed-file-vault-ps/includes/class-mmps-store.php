@@ -121,6 +121,12 @@ class MMPS_Store {
 		return absint( $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM " . MMPS_Install::table( 'runs' ) . " WHERE user_id = %d AND root_id = %d AND program_specialty_id = %s AND provider <> 'none'", absint( $user_id ), absint( $root_id ), (string) $program_id ) ) );
 	}
 
+	/** Return the latest provider-backed run for durable canary review after reload. */
+	public static function latest_provider_run_uuid( $user_id, $root_id ) {
+		global $wpdb;
+		return (string) $wpdb->get_var( $wpdb->prepare( "SELECT run_uuid FROM " . MMPS_Install::table( 'runs' ) . " WHERE user_id = %d AND root_id = %d AND provider <> 'none' ORDER BY id DESC LIMIT 1", absint( $user_id ), absint( $root_id ) ) );
+	}
+
 	public static function runs_today( $user_id ) {
 		global $wpdb;
 		return absint( $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . MMPS_Install::table( 'runs' ) . ' WHERE user_id = %d AND created_at >= %s', absint( $user_id ), gmdate( 'Y-m-d 00:00:00' ) ) ) );

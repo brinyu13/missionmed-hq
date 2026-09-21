@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MissionMed File Vault · Program-Specific PS (Prototype)
  * Description: PSV-PROTOTYPE-0001. Isolated, allowlisted vertical slice of the Program-Specific Personal Statement workflow behind File Vault. Own tables, own REST namespace, own page. Edits no File Vault or RISE file. Disable by deactivating, or define MMED_PS_PROTO_DISABLE.
- * Version: 0.5.6
+ * Version: 0.5.7
  * Author: MissionMed
  * Requires PHP: 7.4
  */
@@ -15,7 +15,7 @@ if ( defined( 'MMPS_VERSION' ) || class_exists( 'MMPS_Gate', false ) ) {
 	return; // A second copy of the prototype must never redeclare anything.
 }
 
-define( 'MMPS_VERSION', '0.5.6' );
+define( 'MMPS_VERSION', '0.5.7' );
 define( 'MMPS_PATH', plugin_dir_path( __FILE__ ) );
 define( 'MMPS_URL', plugin_dir_url( __FILE__ ) );
 define( 'MMPS_REST_NS', 'mmed-ps-proto/v1' );

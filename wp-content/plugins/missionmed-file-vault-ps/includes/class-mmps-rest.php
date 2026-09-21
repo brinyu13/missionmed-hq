@@ -88,7 +88,7 @@ class MMPS_Rest {
 	}
 
 	protected static function root_summary( $root ) {
-		return array(
+		$summary = array(
 			'id'              => $root['id'],
 			'specialtyLabel'  => $root['specialtyLabel'],
 			'rootLabel'       => $root['rootLabel'],
@@ -101,6 +101,10 @@ class MMPS_Rest {
 			'textSha256'      => $root['textSha256'],
 			'createdAt'       => $root['createdAt'],
 		);
+		if ( MMPS_Provider::is_real_root_canary_root( (int) $root['userId'], $root ) ) {
+			$summary['canaryReviewRunId'] = MMPS_Store::latest_provider_run_uuid( (int) $root['userId'], (int) $root['id'] );
+		}
+		return $summary;
 	}
 
 	protected static function bundle_summary( $bundle ) {

@@ -118,7 +118,18 @@
 	function loadCandidates() { api('GET', '/root-candidates').then(function (data) { S.candidates = data; render(); }).catch(fail); }
 	function openRoot(id) {
 		busy('root', true);
-		api('GET', '/roots/' + id).then(function (data) { adoptRoot(data); busy('root', false); go(stepDone('region') ? 'programs' : 'region'); }).catch(function (e) { busy('root', false); fail(e); });
+		api('GET', '/roots/' + id).then(function (data) {
+			adoptRoot(data);
+			var summary = (S.boot.roots || []).filter(function (item) { return String(item.id) === String(id); })[0];
+			if (!summary || !summary.canaryReviewRunId) { busy('root', false); go(stepDone('region') ? 'programs' : 'region'); return null; }
+			return api('GET', '/runs/' + summary.canaryReviewRunId).then(function (run) {
+				var programId = run.program && run.program.programSpecialtyId ? run.program.programSpecialtyId : '';
+				if (!programId) { throw new Error('The stored canary run has no verified program identity.'); }
+				S.programs[programId] = { identity: run.program, evidenceQuality: run.evidenceQuality };
+				S.selected = [programId]; S.tiers[programId] = run.tierRequested; S.runs[programId] = run; S.current = programId;
+				busy('root', false); go('preview');
+			});
+		}).catch(function (e) { busy('root', false); fail(e); });
 	}
 	function adoptRoot(data) {
 		S.root = data.root; S.detection = data.detection || S.detection;
@@ -344,7 +355,7 @@
 		html += '<div class="row mt"><button class="btn primary" data-act="go" data-view="root">Start a new ROOT →</button>' + (b.library.length ? '<button class="btn" data-act="go" data-view="library">Open library</button>' : '') + '</div>';
 		if (b.roots.length || (b.batches && b.batches.length)) {
 			html += '<div class="panel mt"><div class="panelHead"><div><div class="eyebrow">Continue</div><div class="h2">Resume your work</div></div></div>' + b.roots.map(function (r) {
-				return '<div class="prog"><div><div class="progName">' + esc(r.specialtyLabel) + ' ' + (r.isSynthetic ? '<span class="tag cy">Synthetic</span>' : '<span class="tag gold">Real statement</span>') + '</div><div class="progMeta">' + esc(r.rootLabel) + ' · ' + r.paragraphCount + ' paragraphs · ' + r.wordCount + ' words' + (r.regionConfirmed ? ' · region confirmed' : '') + '</div></div><button class="btn sm" data-act="open-root" data-id="' + r.id + '">Open</button></div>';
+				return '<div class="prog"><div><div class="progName">' + esc(r.specialtyLabel) + ' ' + (r.isSynthetic ? '<span class="tag cy">Synthetic</span>' : '<span class="tag gold">Real statement</span>') + '</div><div class="progMeta">' + esc(r.rootLabel) + ' · ' + r.paragraphCount + ' paragraphs · ' + r.wordCount + ' words' + (r.regionConfirmed ? ' · region confirmed' : '') + '</div></div><button class="btn sm" data-act="open-root" data-id="' + r.id + '">' + (r.canaryReviewRunId ? 'Review candidates' : 'Open') + '</button></div>';
 			}).join('') + (b.batches || []).slice(0, 3).map(function (j) {
 				return '<div class="prog"><div><div class="progName">' + esc(j.specialtyLabel) + ' batch</div><div class="progMeta">' + j.processed + ' of ' + j.total + ' processed · ' + esc(String(j.status || '').replace(/_/g, ' ')) + '</div></div><button class="btn sm" data-act="batch-open" data-id="' + j.jobUuid + '">Resume</button></div>';
 			}).join('') + '</div>';
