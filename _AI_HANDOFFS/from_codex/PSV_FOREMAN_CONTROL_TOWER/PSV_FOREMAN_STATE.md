@@ -1,6 +1,16 @@
 # PSV Foreman Control-Tower State
 
-Updated: 2026-09-21T14:56:53Z
+Updated: 2026-09-21T17:20:32Z
+
+## Reconciled quality and Deep Research Boost mission (DR-332)
+
+- Founder packet: `/Users/brianb/Downloads/PSV_FOREMAN_RECONCILED_QUALITY_DEEP_RESEARCH_IMPLEMENTATION.md`; explicit sequence is P1 independently, then Stage A, then only verified Stage B/C provider configurations. Unverified provider automation is not a P1 or Stage A blocker.
+- Canonical authority: DR-332 at MissionMed OS `f8aa37c`; registry epoch 3611 released; universal and `PSV-PROTOTYPE-0001` boot validation PASS against MissionMed HQ `0feee579b0a9f2c90529220899f6cf6d21b8cd05`.
+- Founder decisions recorded: R-1, S-1, Q-1 and disabled-by-default R-3 approved; R-2 broad/automatic RISE admission not approved. Existing File Vault and RISE remain owner-controlled and read-only from PSV.
+- P1 local candidate: PSV v1.1.0. Program discovery forwards exact ROOT specialty and optional state to the read-only RISE registry, excludes combined specialties by default, and renders program name plus specialty, city/state and ACGME ID. Explicit clear/change behavior is present.
+- Writer-quality candidate: `mmps-prompt.v3` keeps the full ROOT read-only and the confirmed region as the only write scope, adds an applicant-centered editorial objective, one-to-three-fact evidence budget, stronger anti-template language, five structural strategy contracts and a final silent editing pass.
+- Local gates: all 16 PHP contract/runtime scripts PASS, including new P1 contract 10/10 and P1 runtime 8/8; plugin PHP lint, JavaScript parse and `git diff --check` PASS. Production remains v1.0.1 and unmodified pending fresh preflight, exact package, narrow PATH lease and independent P1 verification.
+- Preserved unrelated state: untracked `_AI_HANDOFFS/from_codex/PSV_DEEP_RESEARCH_BOOST_UX/` and `_AI_HANDOFFS/from_fable/` remain untouched.
 
 ## Normal production unlock (DR-331)
 

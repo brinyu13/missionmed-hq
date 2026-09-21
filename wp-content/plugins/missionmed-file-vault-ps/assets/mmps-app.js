@@ -31,7 +31,7 @@
 		boot: null, view: 'home', root: null, detection: null,
 		rootForm: { source: '', specialty: 'Internal Medicine', text: '', syntheticKey: 'im', fileKey: '', uploadFile: null, uploadName: '' },
 		candidates: null, regionDraft: null, prefs: null, stateCodes: [],
-		list: { status: 'idle', programs: [], total: 0, error: null }, search: { q: '', status: 'idle', results: [], error: null },
+		list: { status: 'idle', programs: [], total: 0, error: null }, search: { q: '', specialty: '', state: '', status: 'idle', results: [], error: null },
 		programs: {}, selected: [], tiers: {}, runs: {}, current: '', showOriginal: false,
 		prompt: {}, doc: null, selectedDocs: {},
 		batch: { index: null, current: null, running: false }, busy: {}, toast: null
@@ -212,10 +212,14 @@
 		}).catch(function (e) { S.list.status = 'error'; S.list.error = e; render(); });
 	}
 	function runSearch() {
-		var q = S.search.q.trim();
-		if (q.length < 3) { toast('Type at least three letters.', 'err'); return; }
+		var q = S.search.q.trim(), specialty = S.search.specialty || (S.root && S.root.specialtyLabel) || '', state = S.search.state || '';
+		if (q.length > 0 && q.length < 3) { toast('Type at least three letters, or clear the text field to browse with the filters.', 'err'); return; }
+		if (!q && !specialty && !state) { toast('Enter a program name or choose a specialty or state.', 'err'); return; }
 		S.search.status = 'loading'; S.search.error = null; render();
-		api('GET', '/rise/search?q=' + encodeURIComponent(q)).then(function (data) { S.search.status = 'ready'; S.search.results = data.programs; render(); }).catch(function (e) { S.search.status = 'error'; S.search.error = e; render(); });
+		api('GET', '/rise/search?q=' + encodeURIComponent(q) + '&specialty=' + encodeURIComponent(specialty) + '&state=' + encodeURIComponent(state)).then(function (data) { S.search.status = 'ready'; S.search.results = data.programs; render(); }).catch(function (e) { S.search.status = 'error'; S.search.error = e; render(); });
+	}
+	function clearSearch() {
+		S.search.q = ''; S.search.specialty = (S.root && S.root.specialtyLabel) || ''; S.search.state = ''; S.search.status = 'idle'; S.search.results = []; S.search.error = null; render();
 	}
 	function toggleProgram(id, identity) {
 		var at = S.selected.indexOf(id);
@@ -508,19 +512,21 @@
 	}
 	function programRow(id, identity, extra, selectable) {
 		var on = S.selected.indexOf(id) !== -1, rec = S.programs[id] || extra || {};
-		return '<div class="prog' + (on ? ' on' : '') + '"><div><div class="progName">' + esc(programLabel(identity)) + '</div><div class="progMeta">' + esc([identity.institution !== identity.programName ? identity.institution : '', placeLabel(identity), identity.acgmeId ? 'ACGME ' + identity.acgmeId : ''].filter(Boolean).join(' · ')) + '</div><div class="row mtS">' + (extra && extra.goldStarred ? '<span class="tag gold">★ Gold</span>' : '') + (extra && extra.priorityPosition ? '<span class="tag gold">Priority #' + extra.priorityPosition + '</span>' : '') + qualityTag(rec.evidenceQuality) + ingredients(rec.essentialHas) + '</div></div>' + (selectable ? '<button class="btn sm' + (on ? ' primary' : '') + '" data-act="toggle-program" data-id="' + esc(id) + '">' + (on ? '✓ Selected' : 'Select') + '</button>' : '') + '</div>';
+		var specialty = identity.designation || (S.root && S.root.specialtyLabel) || '';
+		return '<div class="prog' + (on ? ' on' : '') + '"><div><div class="progName">' + esc(programLabel(identity)) + '</div><div class="progMeta">' + esc([specialty, placeLabel(identity), identity.acgmeId ? 'ACGME ' + identity.acgmeId : ''].filter(Boolean).join(' · ')) + '</div>' + (identity.institution && identity.institution !== identity.programName ? '<div class="tiny dim mtS">' + esc(identity.institution) + '</div>' : '') + '<div class="row mtS">' + (extra && extra.goldStarred ? '<span class="tag gold">★ Gold</span>' : '') + (extra && extra.priorityPosition ? '<span class="tag gold">Priority #' + extra.priorityPosition + '</span>' : '') + qualityTag(rec.evidenceQuality) + ingredients(rec.essentialHas) + '</div></div>' + (selectable ? '<button class="btn sm' + (on ? ' primary' : '') + '" data-act="toggle-program" data-id="' + esc(id) + '" aria-pressed="' + (on ? 'true' : 'false') + '">' + (on ? '✓ Selected' : 'Select') + '</button>' : '') + '</div>';
 	}
 	function viewPrograms() {
 		var L = S.list, html = head('Step 4', 'Choose programs from <em>RISE</em>', 'Pick three to five with different evidence depth. Program names, IDs and facts come from RISE; nothing is typed by hand.');
+		if (!S.search.specialty && S.root) { S.search.specialty = S.root.specialtyLabel; }
 		html += '<div class="panel mt"><div class="panelHead"><div><div class="eyebrow">Your RISE list</div><div class="h2">Priority order, Gold first</div></div><span class="tag">' + S.selected.length + ' of ' + MAX_PROGRAMS + ' selected</span></div>';
 		if (L.status === 'loading' && !L.programs.length) { html += '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>'; }
 		if (L.status === 'error') { html += riseProblem(L.error); }
 		if (L.status === 'ready' && !L.programs.length) { html += '<div class="notice">Your RISE list is empty. Search the RISE registry below, or add programs in RISE first.</div>'; }
 		html += L.programs.map(function (p) { return p.error ? '<div class="prog"><div><div class="progName dim">' + esc(p.programSpecialtyId) + '</div><div class="progMeta">Could not be read from RISE (' + esc(p.error) + ')</div></div></div>' : programRow(p.programSpecialtyId, p.identity, p, true); }).join('');
 		if (L.status !== 'error' && L.programs.length < L.total) { html += '<div class="row mtS"><button class="btn sm" data-act="more-list"' + (L.status === 'loading' ? ' disabled' : '') + '>' + (L.status === 'loading' ? '<span class="spin"></span>Loading…' : 'Load more (' + (L.total - L.programs.length) + ' left)') + '</button></div>'; }
-		html += '</div><div class="panel"><div class="panelHead"><div><div class="eyebrow">RISE registry</div><div class="h2">Search for a program</div></div></div><div class="row"><input type="search" data-search placeholder="Program or institution name" value="' + esc(S.search.q) + '"><button class="btn" data-act="search"' + (S.search.status === 'loading' ? ' disabled' : '') + '>' + (S.search.status === 'loading' ? '<span class="spin"></span>' : '') + 'Search</button></div>';
+		html += '</div><div class="panel"><div class="panelHead"><div><div class="eyebrow">RISE registry</div><div class="h2">Find the exact program</div><div class="small mid mtS">Specialty defaults to this ROOT. Results never cross into another specialty unless you deliberately change it.</div></div></div><div class="grid2"><label class="f">Program or institution<input type="search" data-search autocomplete="off" placeholder="Name, institution, city, or ACGME ID" value="' + esc(S.search.q) + '"></label><label class="f">Specialty<select data-search-specialty>' + SPECIALTIES.map(function (specialty) { return '<option' + (specialty === S.search.specialty ? ' selected' : '') + '>' + esc(specialty) + '</option>'; }).join('') + '</select></label><label class="f">State<select data-search-state><option value="">All states</option>' + Object.keys(STATES).map(function (code) { return '<option value="' + code + '"' + (code === S.search.state ? ' selected' : '') + '>' + STATES[code] + '</option>'; }).join('') + '</select></label><div class="row searchActions"><button class="btn primary" data-act="search"' + (S.search.status === 'loading' ? ' disabled' : '') + '>' + (S.search.status === 'loading' ? '<span class="spin"></span>' : '') + 'Find programs</button><button class="btn ghost" data-act="clear-search">Clear</button></div></div>';
 		if (S.search.status === 'error') { html += '<div class="mtS">' + riseProblem(S.search.error) + '</div>'; }
-		if (S.search.status === 'ready') { html += '<div class="mtS">' + (S.search.results.length ? S.search.results.map(function (p) { return programRow(p.programSpecialtyId, p, null, true); }).join('') : '<div class="notice">No programs matched.</div>') + '</div>'; }
+		if (S.search.status === 'ready') { html += '<div class="mtS"><div class="tiny dim mbS">' + S.search.results.length + ' verified RISE match' + (S.search.results.length === 1 ? '' : 'es') + '</div>' + (S.search.results.length ? S.search.results.map(function (p) { return programRow(p.programSpecialtyId, p, null, true); }).join('') : '<div class="notice">No programs matched this specialty and state. Change a filter or clear the search.</div>') + '</div>'; }
 		html += '</div><div class="footBar"><button class="btn ghost" data-act="go" data-view="prefs">← Back</button><button class="btn primary" data-act="go" data-view="generate"' + (S.selected.length ? '' : ' disabled') + '>Choose tiers →</button></div>';
 		return html;
 	}
@@ -868,6 +874,7 @@
 		else if (act === 'retry-list') { refreshBoot(); loadMyPrograms(0); if (S.search.status === 'error') { S.search.status = 'idle'; } }
 		else if (act === 'more-list') { loadMyPrograms(S.list.programs.length); }
 		else if (act === 'search') { runSearch(); }
+		else if (act === 'clear-search') { clearSearch(); }
 		else if (act === 'toggle-program') { var rec = null; S.search.results.forEach(function (p) { if (p.programSpecialtyId === id) { rec = p; } }); toggleProgram(id, rec); }
 		else if (act === 'tier') { S.tiers[id] = el.getAttribute('data-tier'); render(); }
 		else if (act === 'generate') { generate(id).then(function () { if (S.view === 'preview') { S.current = id; render(); } }, function () {}); }
@@ -926,6 +933,8 @@
 	app.addEventListener('change', function (event) {
 		var t = event.target;
 		if (t.hasAttribute('data-review-select')) { selectCandidate(S.runs[S.current],t.value); return; }
+		if (t.hasAttribute('data-search-specialty')) { S.search.specialty = t.value; S.search.status = 'idle'; S.search.results = []; render(); return; }
+		if (t.hasAttribute('data-search-state')) { S.search.state = t.value; S.search.status = 'idle'; S.search.results = []; render(); return; }
 		if (t.hasAttribute('data-root-file')) {
 			var file = t.files && t.files[0], ext = file && file.name ? file.name.toLowerCase().split('.').pop() : '';
 			if (!file) { S.rootForm.uploadFile = null; S.rootForm.uploadName = ''; render(); return; }

@@ -57,8 +57,20 @@ class MMPS_Evidence_Bundle {
 		return $out;
 	}
 
-	public static function search( $q, $page_size = 12 ) {
-		$data = MMPS_Rise_Client::get( '/api/rise/v1/programs', array( 'q' => (string) $q, 'pageSize' => min( 24, max( 1, (int) $page_size ) ), 'sort' => 'name' ) );
+	public static function search( $q, $page_size = 12, $specialty = '', $state = '' ) {
+		$query = array(
+			'q'               => (string) $q,
+			'pageSize'        => min( 24, max( 1, (int) $page_size ) ),
+			'sort'            => 'name',
+			'includeCombined' => 'false',
+		);
+		if ( '' !== trim( (string) $specialty ) ) {
+			$query['specialty'] = trim( (string) $specialty );
+		}
+		if ( preg_match( '/^[A-Z]{2}$/', (string) $state ) ) {
+			$query['jurisdiction'] = (string) $state;
+		}
+		$data = MMPS_Rise_Client::get( '/api/rise/v1/programs', $query );
 		if ( is_wp_error( $data ) ) {
 			return $data;
 		}

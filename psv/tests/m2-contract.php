@@ -89,8 +89,8 @@ $ui        = $source['ui'];
 $save      = $rest;
 
 contract_assert(
-	has_pattern('/const\s+PROMPT_VERSION\s*=\s*[\'\"]mmps-prompt\.v2[\'\"]\s*;/', $generator),
-	'PROMPT_VERSION is mmps-prompt.v2',
+	has_pattern('/const\s+PROMPT_VERSION\s*=\s*[\'\"]mmps-prompt\.v3[\'\"]\s*;/', $generator),
+	'PROMPT_VERSION is mmps-prompt.v3',
 	'M2 must make the prompt contract visibly versioned and auditable.'
 );
 

@@ -301,12 +301,25 @@ class MMPS_Rest {
 	}
 
 	public static function search( $request ) {
-		$q = trim( sanitize_text_field( (string) $request['q'] ) );
-		if ( mb_strlen( $q ) < 3 ) {
-			return new WP_Error( 'mmps_search_short', 'Type at least three letters.', array( 'status' => 422 ) );
+		$q         = trim( sanitize_text_field( (string) $request['q'] ) );
+		$specialty = trim( sanitize_text_field( (string) $request['specialty'] ) );
+		$state     = strtoupper( trim( sanitize_text_field( (string) $request['state'] ) ) );
+		if ( '' !== $q && mb_strlen( $q ) < 3 ) {
+			return new WP_Error( 'mmps_search_short', 'Type at least three letters, or clear the text field to browse by specialty and state.', array( 'status' => 422 ) );
 		}
-		$found = MMPS_Evidence_Bundle::search( $q, 12 );
-		return is_wp_error( $found ) ? $found : rest_ensure_response( array( 'programs' => $found ) );
+		if ( '' === $q && '' === $specialty && '' === $state ) {
+			return new WP_Error( 'mmps_search_filter_required', 'Enter a program name or choose a specialty or state.', array( 'status' => 422 ) );
+		}
+		if ( '' !== $state && ! preg_match( '/^[A-Z]{2}$/', $state ) ) {
+			return new WP_Error( 'mmps_search_state', 'Choose a valid state.', array( 'status' => 422 ) );
+		}
+		$found = MMPS_Evidence_Bundle::search( $q, 24, $specialty, $state );
+		return is_wp_error( $found ) ? $found : rest_ensure_response(
+			array(
+				'programs' => $found,
+				'filters'  => array( 'q' => $q, 'specialty' => $specialty, 'state' => $state ),
+			)
+		);
 	}
 
 	public static function bundle( $request ) {
