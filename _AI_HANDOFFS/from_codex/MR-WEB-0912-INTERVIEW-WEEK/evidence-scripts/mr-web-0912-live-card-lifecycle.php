@@ -19,7 +19,7 @@ if (!defined('ABSPATH')) {
     exit(2);
 }
 
-const MR0912_LIVE_PRIVATE_DIR = '/www/theresidencyacademy_209/private/mr-web-0912/20260921-founder-reversal-live-card';
+const MR0912_LIVE_PRIVATE_DIR = '/www/theresidencyacademy_209/private/mr-web-0912/20260921-founder-reversal-live-card-v2';
 const MR0912_LIVE_MANIFEST = MR0912_LIVE_PRIVATE_DIR . '/live-card-orders.json';
 const MR0912_STRIPE_MINIMUM_USD = 0.50;
 
@@ -280,6 +280,8 @@ function mr0912_live_create(string $offerKey): array {
         $order->add_meta_data('_mr_web_0912_test_amount', (string) $spec['test_amount'], true);
         $order->add_order_note('MR-WEB-0912 admin-only minimum-charge acceptance; public product price unchanged; charge must be Founder-confirmed and immediately refunded.', false, false);
         $order->calculate_totals(false);
+        $order->set_discount_total((float) $spec['public_amount'] - (float) $spec['test_amount']);
+        $order->set_total((float) $spec['test_amount']);
         $order->save();
         if (abs((float) $order->get_total() - (float) $spec['test_amount']) > 0.001
             || abs((float) $variation->get_price() - (float) $spec['public_amount']) > 0.001) {
