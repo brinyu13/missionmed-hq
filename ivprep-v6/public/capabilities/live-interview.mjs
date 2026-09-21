@@ -155,11 +155,9 @@ export class LiveInterviewSession {
     if (this.channel?.readyState !== 'open') throw new Error('InterviewBrain event channel is not ready.');
     this.channel.send(JSON.stringify({
       event_id: 'ivoc-opening-question',
-      type: 'response.create',
-      response: {
-        output_modalities: ['audio'],
-        instructions: `Ask exactly this opening interview question once, naturally, without adding any preamble or second question: ${JSON.stringify(text)}`,
-      },
+      type: 'session.instructions.append',
+      delegation_id: null,
+      content: `Ask this opening interview question now, naturally, without waiting for the applicant to speak, without adding a preamble or a second question, then pause and listen: ${JSON.stringify(text)}`,
     }));
     this.openingRequested = true;
     return true;

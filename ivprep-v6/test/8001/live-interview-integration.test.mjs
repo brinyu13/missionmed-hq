@@ -86,11 +86,9 @@ test('browser session reuses the admitted microphone and never stops the shared 
   assert.deepEqual(channel.sent, [
     {
       event_id: 'ivoc-opening-question',
-      type: 'response.create',
-      response: {
-        output_modalities: ['audio'],
-        instructions: 'Ask exactly this opening interview question once, naturally, without adding any preamble or second question: "Tell me about yourself."',
-      },
+      type: 'session.instructions.append',
+      delegation_id: null,
+      content: 'Ask this opening interview question now, naturally, without waiting for the applicant to speak, without adding a preamble or a second question, then pause and listen: "Tell me about yourself."',
     },
     { type: 'session.close' },
   ]);
