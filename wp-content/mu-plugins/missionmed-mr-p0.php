@@ -25,7 +25,7 @@ function mm_mr_p0_enabled(): bool {
 function mm_mr_0912_private_open_timestamp(): int {
     static $timestamp = null;
     if (is_int($timestamp)) return $timestamp;
-    $open = new DateTimeImmutable('2026-09-21 12:00:00', new DateTimeZone('America/New_York'));
+    $open = new DateTimeImmutable('2026-09-19 12:00:00', new DateTimeZone('America/New_York'));
     $timestamp = $open->getTimestamp();
     return $timestamp;
 }
@@ -452,7 +452,7 @@ function mm_mr_p0_runtime_config(): array {
         'mode' => $privateWindow ? 'private_early_access' : 'public_open',
         'required' => $privateWindow && !$privateGranted,
         'granted' => $privateGranted,
-        'opens_at' => '2026-09-21T12:00:00-04:00',
+        'opens_at' => '2026-09-19T12:00:00-04:00',
         'timezone' => 'America/New_York',
         'public_code_disclosure' => false,
         'changes_price' => false,
@@ -588,7 +588,7 @@ function mm_mr_0912_validate_add_to_cart(
     }
     if (mm_mr_0912_private_window_active() && !mm_mr_0912_private_access_granted()) {
         if (function_exists('wc_add_notice')) {
-            wc_add_notice('Official enrollment for the 2026–27 season opens Monday at 12:00 PM ET. Dr J students with private early access may enter their enrollment code to continue.', 'error');
+            wc_add_notice('Official enrollment for the 2026–27 season opens Saturday at 12:00 PM ET. Dr J students with private early access may enter their enrollment code to continue.', 'error');
         }
         return false;
     }
