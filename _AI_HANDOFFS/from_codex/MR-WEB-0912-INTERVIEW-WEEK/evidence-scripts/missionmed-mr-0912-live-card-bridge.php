@@ -38,6 +38,12 @@ final class MissionMed_MR0912_Controlled_Live_Card_Bridge {
         return $gateways;
     }
 
+    public static function clear_stale_router_notice(): void {
+        if (self::controlled_order() && function_exists('WC') && WC() && WC()->session) {
+            WC()->session->set('wc_notices', []);
+        }
+    }
+
     private static function controlled_order(): ?WC_Order {
         if (!function_exists('is_wc_endpoint_url') || !is_wc_endpoint_url('order-pay')) {
             return null;
@@ -74,3 +80,4 @@ final class MissionMed_MR0912_Controlled_Live_Card_Bridge {
 
 add_filter('woocommerce_available_payment_gateways', [MissionMed_MR0912_Controlled_Live_Card_Bridge::class, 'capture'], 1);
 add_filter('woocommerce_available_payment_gateways', [MissionMed_MR0912_Controlled_Live_Card_Bridge::class, 'restore'], 999);
+add_action('template_redirect', [MissionMed_MR0912_Controlled_Live_Card_Bridge::class, 'clear_stale_router_notice'], 50);
