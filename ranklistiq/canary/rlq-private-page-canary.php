@@ -36,7 +36,7 @@ add_action(
             exit;
         }
 
-        $artifact = '/www/theresidencyacademy_209/private/rlq-runtime-0921a/rank_list_engine.RLQ-DUALMODE-0921A.html';
+        $artifact = '/tmp/rlq-runtime-0921a/rank_list_engine.RLQ-DUALMODE-0921A.html';
         if (!is_readable($artifact)) {
             status_header(503);
             header('Content-Type: text/plain; charset=UTF-8');
