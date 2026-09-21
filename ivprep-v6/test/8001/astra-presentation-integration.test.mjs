@@ -137,6 +137,11 @@ test('Answer History exposes question and evidence filters without inventing sem
   assert.match(runtime, /results\.innerHTML = '<span>Review answer<\/span>'/u);
   assert.match(runtime, /const canReview = Boolean\(session\.results/u);
   assert.match(runtime, /renderFullAnalyticsReport\(analytics\)/u);
+  assert.match(runtime, /resultLaneReadouts\(analytics \|\| \{\}\)/u);
+  assert.match(runtime, /Observed signal — informational, not a coaching score/u);
+  for (const observedLane of ['Camera-facing head-position proxy', 'Right hand', 'Camera framing']) {
+    assert.match(runtime, new RegExp(observedLane, 'u'));
+  }
   assert.match(html, /id="post-analytics-report"/u);
   assert.match(html, /id="post-provenance"/u);
   assert.match(html, /id="post-analytics-report" aria-live="polite"/u);

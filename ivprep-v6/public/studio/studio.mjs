@@ -33,6 +33,7 @@ import {
   MetricBus,
   projectContextResults,
   projectTranscriptMetrics,
+  resultLaneReadouts,
   selectCorrection,
   statusRail,
 } from './capability-adapter.mjs';
@@ -2817,6 +2818,17 @@ function supportedAnalyticsEvent(events, metric) {
     && event?.maturity === 'VALIDATED_STUDENT_SAFE') || null;
 }
 
+function observedLaneSummary(readouts, definitions) {
+  const values = definitions.flatMap(([id, label]) => {
+    const value = readouts?.[id];
+    if (typeof value !== 'string' || !value.trim() || value.startsWith('UNAVAILABLE')) return [];
+    return [`${label}: ${value}`];
+  });
+  return values.length
+    ? `Observed signal — informational, not a coaching score · ${values.join(' · ')}`
+    : null;
+}
+
 function renderFullAnalyticsReport(analytics = null) {
   const host = $('#post-analytics-report');
   if (!host) return;
@@ -2844,6 +2856,29 @@ function renderFullAnalyticsReport(analytics = null) {
     ? ['yawDeg', 'pitchDeg', 'rollDeg'].filter((key) => Number.isFinite(Number(head[key])))
       .map((key) => `${key.replace('Deg', '')} ${Number(head[key]).toFixed(1)}°`).join(' · ')
     : null;
+  const laneReadouts = resultLaneReadouts(analytics || {});
+  const voiceObserved = observedLaneSummary(laneReadouts, [
+    ['VOICE.PITCH', 'Pitch'],
+    ['VOICE.PITCH_VARIATION', 'Pitch variation'],
+    ['VOICE.PAUSE', 'Pause state'],
+  ]);
+  const faceHeadObserved = observedLaneSummary(laneReadouts, [
+    ['FACE.GAZE', 'Camera-facing head-position proxy'],
+    ['FACE.CAMERA_DWELL', 'Camera-facing dwell'],
+    ['FACE.MOVEMENT_VARIABILITY', 'Face movement variability'],
+    ['BODY.YAW', 'Head yaw'],
+    ['BODY.PITCH', 'Head pitch'],
+    ['BODY.ROLL', 'Head roll'],
+  ]);
+  const bodyHandsObserved = observedLaneSummary(laneReadouts, [
+    ['HANDS.LEFT', 'Left hand'],
+    ['HANDS.RIGHT', 'Right hand'],
+    ['HANDS.ZONE', 'Gesture zone'],
+    ['BODY.LEAN', 'Torso'],
+  ]);
+  const framingObserved = observedLaneSummary(laneReadouts, [
+    ['BODY.FRAMING', 'Camera framing'],
+  ]);
   const conversationTurns = persistedConversationTurns({
     sessionDetail: state.lastSaved?.sessionDetail,
     envelope: state.lastSaved?.envelope,
@@ -2855,16 +2890,16 @@ function renderFullAnalyticsReport(analytics = null) {
   const rows = [
     ['Timing', durationMs === null ? unavailable : `${(durationMs / 1000).toFixed(1)} seconds of supported answer evidence`],
     ['Voice delivery', voiceLevel === null && variation === null
-      ? unavailable
-      : [voiceLevel === null ? null : `${voiceLevel.toFixed(1)} dBFS captured level`, variation === null ? null : `${variation.toFixed(1)} dB volume variation`].filter(Boolean).join(' · ')],
+      ? (voiceObserved || unavailable)
+      : [voiceLevel === null ? null : `${voiceLevel.toFixed(1)} dBFS captured level`, variation === null ? null : `${variation.toFixed(1)} dB volume variation`, voiceObserved].filter(Boolean).join(' · ')],
     ['Clipping + pauses', clipping === null && !pauses.length
       ? unavailable
       : [clipping === null ? null : `${(clipping * 100).toFixed(2)}% digital clipping`, pauses.length ? `${pauses.length} supported pause${pauses.length === 1 ? '' : 's'}` : null].filter(Boolean).join(' · ')],
-    ['Face + head', !face && !headText ? unavailable : [face ? 'Face presence measured' : null, headText].filter(Boolean).join(' · ')],
-    ['Body + hands', !torso && !hands ? unavailable : [torso ? 'Torso presence measured' : null, hands ? 'Hand presence measured' : null].filter(Boolean).join(' · ')],
+    ['Face + head', !face && !headText ? (faceHeadObserved || unavailable) : [face ? 'Face presence measured' : null, headText, faceHeadObserved].filter(Boolean).join(' · ')],
+    ['Body + hands', !torso && !hands ? (bodyHandsObserved || unavailable) : [torso ? 'Torso presence measured' : null, hands ? 'Hand presence measured' : null, bodyHandsObserved].filter(Boolean).join(' · ')],
     ['Framing', framing === null && cameraFacing === null
-      ? unavailable
-      : [framing === null ? null : `${Math.round(framing * 100)}% centered frames`, cameraFacing === null ? null : `${Math.round(cameraFacing * 100)}% camera-facing proxy`].filter(Boolean).join(' · ')],
+      ? (framingObserved || unavailable)
+      : [framing === null ? null : `${Math.round(framing * 100)}% centered frames`, cameraFacing === null ? null : `${Math.round(cameraFacing * 100)}% camera-facing proxy`, framingObserved].filter(Boolean).join(' · ')],
     ['Transcript', conversationTurns.length
       ? `${conversationTurns.length} persisted ${canonicalTranscript ? 'transcript' : 'live conversation'} turn${conversationTurns.length === 1 ? '' : 's'}`
       : 'Unavailable until transcript + context processing completes'],
