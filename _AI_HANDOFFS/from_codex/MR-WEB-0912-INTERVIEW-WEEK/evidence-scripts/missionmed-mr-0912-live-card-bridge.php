@@ -13,12 +13,16 @@ final class MissionMed_MR0912_Controlled_Live_Card_Bridge {
         9155 => ['user_id' => 1380, 'product_id' => 3576, 'variation_id' => 5865, 'offer' => 'complete'],
     ];
 
-    private static $stripe = null;
+    private static array $stripeGateways = [];
     private static bool $logged = false;
 
     public static function capture(array $gateways): array {
-        if (self::controlled_order() && isset($gateways['stripe'])) {
-            self::$stripe = $gateways['stripe'];
+        if (self::controlled_order()) {
+            foreach ($gateways as $gatewayId => $gateway) {
+                if (str_contains((string) $gatewayId, 'stripe')) {
+                    self::$stripeGateways[(string) $gatewayId] = $gateway;
+                }
+            }
         }
         return $gateways;
     }
@@ -29,11 +33,13 @@ final class MissionMed_MR0912_Controlled_Live_Card_Bridge {
             error_log('[MR0912-LIVE-BRIDGE] order=' . (int) get_query_var('order-pay')
                 . ' user=' . get_current_user_id()
                 . ' controlled=' . ($order ? 'yes' : 'no')
-                . ' stripe_captured=' . (self::$stripe ? 'yes' : 'no'));
+                . ' stripe_gateway_count=' . count(self::$stripeGateways));
             self::$logged = true;
         }
-        if (self::$stripe && $order) {
-            $gateways['stripe'] = self::$stripe;
+        if ($order) {
+            foreach (self::$stripeGateways as $gatewayId => $gateway) {
+                $gateways[$gatewayId] = $gateway;
+            }
         }
         return $gateways;
     }
