@@ -162,6 +162,19 @@ unset($candidate);
 $paraphrasedEvidenceCheck = MMPS_Generator::validate_candidate_set($paraphrasedEvidenceSet, $evidenceBundle, $evidencePlan, $root);
 check(empty($paraphrasedEvidenceCheck['blocking']), 'shared authorized evidence vocabulary is excluded when the fact is faithfully paraphrased');
 
+$factOnlyDuplicate = $paraphrasedEvidenceSet;
+foreach ($factOnlyDuplicate['candidates'] as &$candidate) {
+	$candidate['segments'] = array(
+		array('text' => 'Lakeview Internal Medicine Residency.', 'kind' => 'program_fact', 'fact_ids' => array('F-name')),
+		array('text' => 'Cardiology fellowship accepts applicants after completing three years of internal medicine residency.', 'kind' => 'program_fact', 'fact_ids' => array('F-deep')),
+	);
+	$candidate['replacement_region'] = implode(' ', wp_list_pluck($candidate['segments'], 'text'));
+	$candidate['facts_used'] = array('F-name', 'F-deep');
+}
+unset($candidate);
+$factOnlyDuplicateCheck = MMPS_Generator::validate_candidate_set($factOnlyDuplicate, $evidenceBundle, $evidencePlan, $root);
+check(in_array('CANDIDATES_TOO_SIMILAR', wp_list_pluck($factOnlyDuplicateCheck['blocking'], 'code'), true), 'byte-identical fact-dense candidates remain blocked before evidence normalization');
+
 $unallowedEvidenceSet = $paraphrasedEvidenceSet;
 foreach ($unallowedEvidenceSet['candidates'] as &$candidate) {
 	$candidate['segments'][1]['fact_ids'] = array('F-name');

@@ -349,8 +349,16 @@ class MMPS_Generator {
 	 * runs against the original text; this normalization is used only for
 	 * set-level diversity, so it cannot authorize an unsupported claim.
 	 */
+	protected static function candidate_identity_text( $text, $bundle ) {
+		$forms = array_filter( array_map( 'strval', (array) ( $bundle['nameForms'] ?? array() ) ) );
+		usort( $forms, function ( $left, $right ) {
+			return mb_strlen( $right ) - mb_strlen( $left );
+		} );
+		return str_ireplace( $forms, ' fact ', self::plain( (string) $text ) );
+	}
+
 	protected static function candidate_diversity_text( $text, $bundle, $plan ) {
-		$literals = array_filter( array_map( 'strval', (array) ( $bundle['nameForms'] ?? array() ) ) );
+		$literals = array();
 		$evidence_words = array();
 		foreach ( (array) ( $plan['allowedFacts'] ?? array() ) as $fact ) {
 			if ( ! is_array( $fact ) ) {
@@ -372,7 +380,7 @@ class MMPS_Generator {
 		usort( $literals, function ( $left, $right ) {
 			return mb_strlen( $right ) - mb_strlen( $left );
 		} );
-		$normalized = str_ireplace( $literals, ' fact ', self::plain( (string) $text ) );
+		$normalized = str_ireplace( $literals, ' fact ', self::candidate_identity_text( $text, $bundle ) );
 		$evidence_words = array_values( array_unique( $evidence_words ) );
 		usort( $evidence_words, function ( $left, $right ) {
 			return mb_strlen( $right ) - mb_strlen( $left );
@@ -412,11 +420,14 @@ class MMPS_Generator {
 		}
 		for ( $i = 0; $i < count( $candidates ); $i++ ) {
 			for ( $j = $i + 1; $j < count( $candidates ); $j++ ) {
+				$raw_left   = self::candidate_identity_text( (string) ( $candidates[ $i ]['replacement_region'] ?? '' ), $bundle );
+				$raw_right  = self::candidate_identity_text( (string) ( $candidates[ $j ]['replacement_region'] ?? '' ), $bundle );
 				$left       = self::candidate_diversity_text( (string) ( $candidates[ $i ]['replacement_region'] ?? '' ), $bundle, $plan );
 				$right      = self::candidate_diversity_text( (string) ( $candidates[ $j ]['replacement_region'] ?? '' ), $bundle, $plan );
 				$similarity = self::candidate_similarity( $left, $right );
-				$opening    = self::candidate_similarity( self::candidate_opening( $left ), self::candidate_opening( $right ) );
-				if ( $similarity > 0.62 || $opening > 0.55 || self::candidate_has_shared_phrase( $left, $right ) ) {
+				$opening    = max( self::candidate_similarity( self::candidate_opening( $raw_left ), self::candidate_opening( $raw_right ) ), self::candidate_similarity( self::candidate_opening( $left ), self::candidate_opening( $right ) ) );
+				$exact      = mb_strtolower( trim( preg_replace( '/\s+/u', ' ', $raw_left ) ) ) === mb_strtolower( trim( preg_replace( '/\s+/u', ' ', $raw_right ) ) );
+				if ( $exact || $similarity > 0.62 || $opening > 0.55 || self::candidate_has_shared_phrase( $left, $right ) ) {
 					$blocking[] = array( 'code' => 'CANDIDATES_TOO_SIMILAR', 'message' => ( $candidates[ $i ]['candidate_id'] ?? 'candidate' ) . ' and ' . ( $candidates[ $j ]['candidate_id'] ?? 'candidate' ) . ' are too similar (' . round( $similarity * 100 ) . '% shared content words).' );
 				}
 			}
