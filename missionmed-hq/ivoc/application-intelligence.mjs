@@ -36,6 +36,11 @@ function selectedQuestionIds(row) {
   return [...new Set(candidates.map((value) => safeText(value, 120)).filter(Boolean))].sort();
 }
 
+function requestsFileVaultContext(row) {
+  const selected = Array.isArray(row?.context?.contextSources) ? row.context.contextSources : [];
+  return selected.some((value) => ['cv', 'file vault'].includes(String(value || '').trim().toLowerCase()));
+}
+
 function poolSnapshotRef(row) {
   const questionIds = selectedQuestionIds(row);
   const basis = questionIds.length ? questionIds : [`session-type:${safeText(row?.session_type, 40) || 'question'}`];
@@ -208,17 +213,25 @@ async function readLongitudinalProjection(repository, actor, currentSessionId = 
   return longitudinalProjection(evidence, actor);
 }
 
-export function createIvocProjectionProvider({ repository } = {}) {
+export function createIvocProjectionProvider({ repository, fileVaultSource = null } = {}) {
   if (!repository) throw new TypeError('ivoc_projection_repository_required');
-  return async function projectionProvider({ actor, session = null } = {}) {
+  return async function projectionProvider({ actor, session = null, authorization = null } = {}) {
     if (!/^wp:[1-9][0-9]{0,19}$/u.test(String(actor || ''))) return [];
-    const [row, priorIvoc] = await Promise.all([
+    const needsFileVault = requestsFileVaultContext(session);
+    if (needsFileVault && !fileVaultSource?.read) {
+      throw new TypeError('ivoc_file_vault_projection_unavailable');
+    }
+    const [row, priorIvoc, fileVaultCv] = await Promise.all([
       repository.single(
         `ivoc_mentor_priority_sets?subject_id=eq.${encodeURIComponent(actor)}&select=*&order=version.desc&limit=1`,
       ),
       readLongitudinalProjection(repository, actor, safeText(session?.id, 120) || null),
+      needsFileVault
+        ? fileVaultSource.read({ actor, sessionId: safeText(session?.id, 120), authorization })
+        : null,
     ]);
-    return [mentorPriorityProjection(row), priorIvoc].filter(Boolean);
+    if (needsFileVault && !fileVaultCv) throw new TypeError('ivoc_file_vault_projection_unavailable');
+    return [fileVaultCv, mentorPriorityProjection(row), priorIvoc].filter(Boolean);
   };
 }
 
@@ -230,15 +243,20 @@ export async function readSessionContextReceipts(repository, sessionId) {
   return [...new Set(receipts.filter((value) => typeof value === 'string' && value.startsWith('ctxpack:')))];
 }
 
-export function createIvocApplicationIntelligence({ repository, now = () => Date.now(), projectionProvider = null } = {}) {
+export function createIvocApplicationIntelligence({
+  repository,
+  now = () => Date.now(),
+  projectionProvider = null,
+  fileVaultSource = null,
+} = {}) {
   if (!repository) throw new TypeError('ivoc_application_intelligence_repository_required');
-  const resolveProjections = projectionProvider || createIvocProjectionProvider({ repository });
+  const resolveProjections = projectionProvider || createIvocProjectionProvider({ repository, fileVaultSource });
 
   return Object.freeze({
-    async prepareSession({ actor, sessionRow }) {
+    async prepareSession({ actor, sessionRow, authorization = null }) {
       if (!actor || !sessionRow?.id) throw new TypeError('ivoc_application_intelligence_session_required');
       const [projections, adminConfig] = await Promise.all([
-        resolveProjections({ actor, session: sessionRow }),
+        resolveProjections({ actor, session: sessionRow, authorization }),
         repository.single('ivoc_admin_config_versions?select=*&order=version.desc&limit=1'),
       ]);
       if (!Array.isArray(projections)) throw new TypeError('ivoc_application_intelligence_projection_invalid');

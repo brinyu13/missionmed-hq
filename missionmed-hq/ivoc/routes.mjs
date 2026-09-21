@@ -7,6 +7,7 @@ import { admissionRegistry } from '../../ivprep-v6/server/admission-registry.mjs
 import { strictProjectHqSession, validateIvPrepMutation } from '../../ivprep-v6/server/admission-contract.mjs';
 import { createContextIntelligenceProvider } from './context-provider.mjs';
 import { createIvocApplicationIntelligence, readSessionContextReceipts } from './application-intelligence.mjs';
+import { createFileVaultCvProjectionSource } from './file-vault-projection.mjs';
 import { createIvocRepository } from './repository.mjs';
 import { createIvocStorage } from './storage.mjs';
 import {
@@ -741,7 +742,12 @@ export function createIvocHandler({
     sessionSecret: env.MMHQ_SESSION_SECRET,
     fetchImpl,
   });
-  const appIntelligence = applicationIntelligence || createIvocApplicationIntelligence({ repository: db, now });
+  const fileVaultSource = env.MMHQ_WP_BASE
+    ? createFileVaultCvProjectionSource({ wordPressBase: env.MMHQ_WP_BASE, fetchImpl })
+    : null;
+  const appIntelligence = applicationIntelligence || createIvocApplicationIntelligence({
+    repository: db, now, fileVaultSource,
+  });
   const enabled = bool(env.IVPREP_ENABLED) && bool(env.IVPREP_ADMIN_CANARY_ENABLED);
   const contextEnabled = bool(env.IVOC_CONTEXT_CANDIDATE_ENABLED);
   const contextTranscriptEnabled = bool(env.IVOC_CONTEXT_TRANSCRIPT_ENABLED);
@@ -1166,7 +1172,9 @@ export function createIvocHandler({
           context: input.context && typeof input.context === 'object' ? input.context : {},
         });
         try {
-          await appIntelligence.prepareSession({ actor, sessionRow: row });
+          await appIntelligence.prepareSession({
+            actor, sessionRow: row, authorization: hqSession?.wpAuthorization || null,
+          });
         } catch (error) {
           await db.update(`ivoc_sessions?id=eq.${row.id}&owner_subject=eq.${encodeURIComponent(actor)}&select=*`, { state: 'error' }).catch(() => null);
           await audit({ actor, owner: actor, sessionId: row.id, action: 'session_create', decision: 'deny', reason: 'context_pack_failed' });

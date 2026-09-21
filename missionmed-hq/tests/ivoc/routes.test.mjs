@@ -488,6 +488,35 @@ test('session creation requires same-origin CSRF and persists server identity', 
   assert.doesNotMatch(allowed.body, /actor_block|source_receipts|"facts"/u);
 });
 
+test('session creation passes only the server-held WordPress authorization to Application Intelligence', async () => {
+  const repo = repository();
+  const prepared = [];
+  const route = createIvocHandler({
+    registry: registry(), repository: repo,
+    storage: { createUpload: () => { throw new Error('not used'); }, validateUploadToken: () => false },
+    applicationIntelligence: {
+      async prepareSession(input) { prepared.push(input); return { receipt: 'ctxpack:test@receipt' }; },
+      async getActorContext() { return null; },
+    },
+    env: { IVPREP_ENABLED: 'true', IVPREP_ADMIN_CANARY_ENABLED: 'true', MMHQ_SESSION_SECRET: 's'.repeat(64) },
+  });
+  const hqSession = { ...session(), wpAuthorization: `Bearer ${'w'.repeat(32)}` };
+  const response = new ResponseCapture();
+  await route({
+    ...base,
+    request: request('POST', { title: 'CV practice', context: { contextSources: ['CV'] } }, {
+      origin: 'https://hq.test', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': 'a'.repeat(24),
+    }),
+    response, url: new URL('https://hq.test/api/ivoc/v1/sessions'), hqSession,
+  });
+  assert.equal(response.status, 201);
+  assert.equal(prepared.length, 1);
+  assert.equal(prepared[0].actor, 'wp:42');
+  assert.equal(prepared[0].authorization, hqSession.wpAuthorization);
+  assert.deepEqual(prepared[0].sessionRow.context.contextSources, ['CV']);
+  assert.doesNotMatch(response.body, /Bearer|wpAuthorization/u);
+});
+
 test('owner can abandon an interrupted session without exposing private recording identity', async () => {
   const repo = repository();
   const sessionId = '00000000-0000-4000-8000-000000000042';

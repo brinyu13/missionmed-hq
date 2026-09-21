@@ -109,6 +109,55 @@ test('repository-backed Mentor Top 3 becomes a provenance-bound interviewer atte
   assert.doesNotMatch(pack.actor_block, /bury the point/u);
 });
 
+test('selected File Vault CV is owner-read once and becomes provenance-bound application context', async () => {
+  const repo = repository();
+  const reads = [];
+  const fileVaultSource = {
+    read: async (input) => {
+      reads.push(input);
+      return {
+        projection_id: 'filevault-cv:document-42', owner_app: 'filevault',
+        projection_type: 'filevault.document_projection', schema_version: '1', subject_id: 'wp:42',
+        source_version: 'cv:document-42@version-3', produced_at: NOW,
+        authorization: { basis: 'student_consent', scope: ['entries'], consent_ref: `ivoc-session:${SESSION_ID}` },
+        minimization: { fields_included: ['entries'] },
+        payload: {
+          doc_id: 'document-42', kind: 'cv', version: '3', content_hash: 'b'.repeat(64), as_of: '2026-09-20',
+          entries: [{ entry_id: 'research-1', entry_type: 'research_item', title: 'A verified quality-improvement project', role: 'lead' }],
+        },
+        source_receipt: { owner_ref: 'filevault:document-42@version-3', hash: 'c'.repeat(64) },
+        revocation: { revocable: true },
+      };
+    },
+  };
+  const row = sessionRow();
+  row.context = { contextSources: ['CV'] };
+  const service = createIvocApplicationIntelligence({ repository: repo, fileVaultSource, now: () => Date.parse(NOW) });
+  await service.prepareSession({ actor: 'wp:42', sessionRow: row, authorization: 'Bearer owner-session-token' });
+  assert.deepEqual(reads, [{ actor: 'wp:42', sessionId: SESSION_ID, authorization: 'Bearer owner-session-token' }]);
+  const pack = repo.upserts.find((entry) => entry.table === 'ivoc_context_packs').body.pack;
+  assert.ok(pack.inputs.some((input) => input.projection_type === 'filevault.document_projection'));
+  assert.ok(pack.facts.some((fact) => fact.fact_type === 'research_item'));
+  assert.match(pack.actor_block, /quality-improvement project/u);
+});
+
+test('File Vault is not read unless selected, and a selected unavailable projection fails closed', async () => {
+  const repo = repository();
+  let reads = 0;
+  const fileVaultSource = { read: async () => { reads += 1; return null; } };
+  const provider = createIvocProjectionProvider({ repository: repo, fileVaultSource });
+  await provider({ actor: 'wp:42', session: sessionRow(), authorization: 'Bearer owner-session-token' });
+  assert.equal(reads, 0);
+
+  const selected = sessionRow();
+  selected.context = { contextSources: ['File Vault'] };
+  await assert.rejects(
+    () => provider({ actor: 'wp:42', session: selected, authorization: 'Bearer owner-session-token' }),
+    /projection_unavailable/u,
+  );
+  assert.equal(reads, 1);
+});
+
 test('prior-IVOC projection requires two distinct saved sessions and bounded structured evidence', async () => {
   const rows = [
     {
