@@ -9,6 +9,7 @@ export {
 } from '../aaa/api-client.mjs';
 export { COLLECTIONS, createDefaultQuestionStore } from '../questions/question-store.mjs';
 export { AdminStudentLibraryCapability } from '../capabilities/admin-student-library.mjs';
+export { createConversationRecordingMix } from '../capabilities/conversation-recording.mjs';
 export { InterviewCalendarCapability } from '../capabilities/calendar-context.mjs';
 export {
   contextResultFromSessionSpine,

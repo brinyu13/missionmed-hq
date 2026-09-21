@@ -18,7 +18,10 @@ class FakePeerConnection {
   async setLocalDescription(value) { this.localDescription = value; }
   async setRemoteDescription(value) {
     this.remoteDescription = value;
-    queueMicrotask(() => this.channel.onmessage({ data: JSON.stringify({ type: 'session.started' }) }));
+    queueMicrotask(() => {
+      this.channel.onmessage({ data: JSON.stringify({ type: 'session.started' }) });
+      this.ontrack({ track: FakePeerConnection.remoteTrack, streams: [FakePeerConnection.remoteStream] });
+    });
   }
   close() { this.closed = true; }
 }
@@ -27,8 +30,9 @@ test('browser session reuses the admitted microphone and never stops the shared 
   const statuses = [];
   const transcript = [];
   const telemetry = [];
+  const authorityStreams = [];
   const ended = [];
-  const audio = { srcObject: null, play: async () => {}, pause() { this.paused = true; } };
+  const audio = { srcObject: null, playCalls: 0, async play() { this.playCalls += 1; }, pause() { this.paused = true; } };
   const microphone = { kind: 'audio', readyState: 'live', stopCalls: 0, stop() { this.stopCalls += 1; } };
   let nowMs = 1_000;
   const session = new LiveInterviewSession({
@@ -46,23 +50,26 @@ test('browser session reuses the admitted microphone and never stops the shared 
     onStatus: (event) => statuses.push(event.state),
     onTranscript: (event) => transcript.push(event),
     onTelemetry: (event) => telemetry.push(event),
+    onAuthoritativeAudioStream: (stream) => authorityStreams.push(stream),
     now: () => nowMs,
   });
   assert.deepEqual(await session.start({ audioTrack: microphone, context: {}, openingQuestion: 'Tell me about yourself.' }), {
     id: 'live_session_123456', model: 'gpt-live-1',
     audioAuthority: {
       schema: 'ivoc.audio-authority.v1', mode: 'single', authority: 'openai-gpt-live-native',
-      state: 'configured', remoteTrackBound: false,
+      state: 'bound', remoteTrackBound: true,
     },
   });
   assert.equal(FakePeerConnection.last.track, microphone);
   assert.equal(FakePeerConnection.last.channelLabel, 'oai-events');
-  const remote = { id: 'remote-audio-1', stopCalls: 0, stop() { this.stopCalls += 1; } };
+  const remote = FakePeerConnection.remoteTrack;
   FakePeerConnection.last.ontrack({ track: remote, streams: [{ id: 'provider-stream' }] });
   FakePeerConnection.last.ontrack({ track: remote, streams: [{ id: 'provider-stream' }] });
   const surplus = { id: 'remote-audio-2', stopCalls: 0, stop() { this.stopCalls += 1; } };
   FakePeerConnection.last.ontrack({ track: surplus, streams: [{ id: 'surplus-stream' }] });
   assert.deepEqual(telemetry.map((event) => event.state), ['configured', 'bound', 'surplus_rejected']);
+  assert.equal(audio.playCalls, 1);
+  assert.deepEqual(authorityStreams, [FakePeerConnection.remoteStream]);
   assert.equal(surplus.stopCalls, 1);
   nowMs = 1_125;
   FakePeerConnection.last.channel.onmessage({ data: JSON.stringify({ type: 'session.output_transcript.delta', response_id: 'response-1', delta: 'Tell me about yourself.' }) });
@@ -95,6 +102,9 @@ test('browser session reuses the admitted microphone and never stops the shared 
   assert.equal(statuses.includes('active'), true);
   assert.equal(statuses.at(-1), 'closed');
 });
+
+FakePeerConnection.remoteTrack = { kind: 'audio', id: 'remote-audio-1', stopCalls: 0, stop() { this.stopCalls += 1; } };
+FakePeerConnection.remoteStream = { id: 'provider-stream' };
 
 test('browser session refuses to open without a bounded opening question', async () => {
   const session = new LiveInterviewSession({

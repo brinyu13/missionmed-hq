@@ -42,6 +42,7 @@ export class LiveInterviewSession {
     onTranscript = () => {},
     onEvent = () => {},
     onTelemetry = () => {},
+    onAuthoritativeAudioStream = () => {},
     now = () => performance.now(),
   } = {}) {
     if (typeof createSession !== 'function' || typeof endSession !== 'function'
@@ -54,6 +55,7 @@ export class LiveInterviewSession {
     this.onTranscript = onTranscript;
     this.onEvent = onEvent;
     this.onTelemetry = onTelemetry;
+    this.onAuthoritativeAudioStream = onAuthoritativeAudioStream;
     this.now = now;
     this.peer = null;
     this.channel = null;
@@ -62,6 +64,9 @@ export class LiveInterviewSession {
     this.startedResolve = null;
     this.startedReject = null;
     this.startTimer = null;
+    this.audioBoundTimer = null;
+    this.audioBoundResolve = null;
+    this.audioBoundReject = null;
     this.startedAtMs = null;
     this.transcriptSequence = 0;
     this.activeTranscriptIds = { applicant: null, interviewer: null };
@@ -105,15 +110,6 @@ export class LiveInterviewSession {
     this.onEvent(event);
     if (event.type === 'session.started') {
       clearTimeout(this.startTimer);
-      try {
-        this.requestOpening(this.openingQuestion);
-      } catch (error) {
-        this.startedReject?.(error);
-        this.startedResolve = null;
-        this.startedReject = null;
-        this.emitStatus('error', String(error?.message || error));
-        return;
-      }
       this.startedResolve?.(event);
       this.startedResolve = null;
       this.startedReject = null;
@@ -183,8 +179,17 @@ export class LiveInterviewSession {
     const peer = new this.PeerConnection();
     this.peer = peer;
     peer.addTrack(audioTrack);
-    peer.ontrack = (event) => {
+    const audioBound = new Promise((resolve, reject) => {
+      this.audioBoundResolve = resolve;
+      this.audioBoundReject = reject;
+      this.audioBoundTimer = setTimeout(() => reject(new Error('InterviewBrain audio did not bind in time.')), START_TIMEOUT_MS);
+    });
+    peer.ontrack = async (event) => {
       const track = event.track;
+      if (track?.kind && track.kind !== 'audio') {
+        track.stop?.();
+        return;
+      }
       const trackId = String(track?.id || 'provider-audio').slice(0, 160);
       if (this.remoteAudioTrackId && this.remoteAudioTrackId !== trackId) {
         track?.stop?.();
@@ -193,12 +198,26 @@ export class LiveInterviewSession {
       }
       if (this.remoteAudioTrackId === trackId) return;
       this.remoteAudioTrackId = trackId;
-      this.audioAuthority = 'bound';
-      this.emitTelemetry('bound');
-      if (!this.audioElement) return;
       const stream = event.streams?.[0] || new MediaStream([track]);
-      this.audioElement.srcObject = stream;
-      void this.audioElement.play?.().catch?.(() => {});
+      try {
+        if (!this.audioElement) throw new Error('Interviewer playback surface is unavailable.');
+        this.audioElement.srcObject = stream;
+        await this.audioElement.play?.();
+        await this.onAuthoritativeAudioStream(stream);
+        this.audioAuthority = 'bound';
+        this.emitTelemetry('bound');
+        clearTimeout(this.audioBoundTimer);
+        this.audioBoundResolve?.(stream);
+        this.audioBoundResolve = null;
+        this.audioBoundReject = null;
+      } catch (error) {
+        this.remoteAudioTrackId = null;
+        clearTimeout(this.audioBoundTimer);
+        this.audioBoundReject?.(error);
+        this.audioBoundResolve = null;
+        this.audioBoundReject = null;
+        this.emitStatus('error', String(error?.message || error));
+      }
     };
     peer.onconnectionstatechange = () => {
       if (['failed', 'disconnected'].includes(peer.connectionState)) {
@@ -229,10 +248,12 @@ export class LiveInterviewSession {
         throw new Error('InterviewBrain audio authority is invalid.');
       }
       await peer.setRemoteDescription({ type: 'answer', sdp: created.transport.sdp });
-      await started;
+      await Promise.all([started, audioBound]);
+      this.requestOpening(this.openingQuestion);
       return Object.freeze({ id: this.sessionId, model: created.session.model, audioAuthority: this.diagnostics() });
     } catch (error) {
       clearTimeout(this.startTimer);
+      clearTimeout(this.audioBoundTimer);
       this.startedResolve = null;
       this.startedReject = null;
       await this.stop({ notifyServer: Boolean(this.sessionId) });
@@ -245,6 +266,9 @@ export class LiveInterviewSession {
     const id = this.sessionId;
     this.sessionId = null;
     clearTimeout(this.startTimer);
+    clearTimeout(this.audioBoundTimer);
+    this.audioBoundResolve = null;
+    this.audioBoundReject = null;
     try {
       if (this.channel?.readyState === 'open') this.channel.send(JSON.stringify({ type: 'session.close' }));
     } catch { /* server hangup below remains authoritative */ }

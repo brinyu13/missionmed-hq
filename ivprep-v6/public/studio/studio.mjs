@@ -17,6 +17,7 @@ import {
   buildLongitudinalModel,
   COLLECTIONS,
   compareAttempts,
+  createConversationRecordingMix,
   contextResultFromSessionSpine,
   createDefaultQuestionStore,
   createLiveContext,
@@ -99,6 +100,7 @@ const state = {
   durableError: null,
   lastSaved: null,
   localPlaybackUrl: null,
+  conversationRecording: null,
   longitudinal: null,
   longitudinalPromise: null,
   comparePair: [0, 1],
@@ -1922,6 +1924,8 @@ async function finishRep() {
     const outcome = state.durable?.accountSession
       ? await state.durable.finish(analyticsPromise)
       : { persisted: false, analytics: await analyticsPromise, recording: null };
+    state.conversationRecording?.destroy?.();
+    state.conversationRecording = null;
     state.lastSaved = outcome;
     if (state.localPlaybackUrl) URL.revokeObjectURL(state.localPlaybackUrl);
     state.localPlaybackUrl = outcome.recording?.blob ? URL.createObjectURL(outcome.recording.blob) : null;
@@ -2175,8 +2179,13 @@ async function startLiveInterview() {
     analyticsStarted = true;
     state.session.answerId = answer?.answerId ?? null;
     state.session.startedAt = Date.now();
+    state.conversationRecording?.destroy?.();
+    state.conversationRecording = createConversationRecordingMix({
+      candidateStream: bridge.media.stream,
+      audioContext: bridge.media.AC,
+    });
     await state.durable.start({
-      stream: bridge.media.stream,
+      stream: state.conversationRecording.stream,
       question: state.interviewSet[0] || null,
       interviewSet: state.interviewSet,
       wizard: state.wizard,
@@ -2197,6 +2206,8 @@ async function startLiveInterview() {
   } catch (error) {
     if (analyticsStarted) state.analytics?.endAnswer?.({ mediaAvailable: false });
     if (preparedForLive || state.durable?.accountSession) await state.durable.abandon({ reason: 'client_exit' }).catch(() => {});
+    state.conversationRecording?.destroy?.();
+    state.conversationRecording = null;
     setSessionState('BLOCKED', String(error?.message || error).slice(0, 180));
     setLiveInterviewStatus({ state: 'error', detail: String(error?.message || error).slice(0, 180) });
     return false;
@@ -2215,6 +2226,10 @@ function wireLiveInterview() {
     onStatus: setLiveInterviewStatus,
     onTranscript: appendLiveTranscript,
     onTelemetry: (event) => state.durable?.recordLiveAudioTelemetry?.(event),
+    onAuthoritativeAudioStream: (stream) => {
+      if (!state.conversationRecording) throw new Error('Secure conversation recording is unavailable.');
+      return state.conversationRecording.attachAuthoritativeAudio(stream);
+    },
   });
   const available = state.admission?.runtime?.liveInterviewAvailable === true;
   setLiveInterviewStatus({ state: available ? 'idle' : 'unavailable', detail: available
@@ -2229,6 +2244,8 @@ function wireLiveInterview() {
   });
   window.addEventListener('pagehide', () => {
     if (state.liveInterview?.sessionId) void state.liveInterview.stop({ keepalive: true }).catch(() => {});
+    state.conversationRecording?.destroy?.();
+    state.conversationRecording = null;
   });
 }
 
@@ -3240,6 +3257,8 @@ async function boot() {
   });
   window.addEventListener('pagehide', () => {
     void state.durable.abandon({ reason: 'pagehide', keepalive: true }).catch(() => {});
+    state.conversationRecording?.destroy?.();
+    state.conversationRecording = null;
   }, { capture: true });
 
   try {
