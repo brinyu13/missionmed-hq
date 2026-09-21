@@ -40,6 +40,13 @@ final class MissionMed_MR0912_Controlled_Live_Card_Bridge {
 
     public static function clear_stale_router_notice(): void {
         if (self::controlled_order() && function_exists('WC') && WC() && WC()->session) {
+            if (class_exists('MissionMed_WC_Stripe_Division_Router')) {
+                remove_filter(
+                    'woocommerce_available_payment_gateways',
+                    [MissionMed_WC_Stripe_Division_Router::class, 'filter_payment_gateways'],
+                    20
+                );
+            }
             WC()->session->set('wc_notices', []);
         }
     }
