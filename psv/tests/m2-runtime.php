@@ -153,6 +153,15 @@ unset($candidate);
 $evidenceCheck = MMPS_Generator::validate_candidate_set($evidenceSet, $evidenceBundle, $evidencePlan, $root);
 check(empty($evidenceCheck['blocking']), 'shared verified evidence literal is excluded from copied-scaffold diversity checks');
 
+$unallowedEvidenceSet = $evidenceSet;
+foreach ($unallowedEvidenceSet['candidates'] as &$candidate) {
+	$candidate['segments'][1]['fact_ids'] = array('F-name');
+	$candidate['facts_used'] = array('F-name');
+}
+unset($candidate);
+$unallowedEvidenceCheck = MMPS_Generator::validate_candidate_set($unallowedEvidenceSet, $evidenceBundle, $plan, $root);
+check(in_array('CANDIDATES_TOO_SIMILAR', wp_list_pluck($unallowedEvidenceCheck['blocking'], 'code'), true), 'an unselected bundle fact cannot be normalized as authorized evidence');
+
 $select = new ReflectionMethod(MMPS_Generator::class, 'with_selected_candidate');
 if (PHP_VERSION_ID < 80100) { $select->setAccessible(true); }
 $badOutput = $select->invoke(null, $duplicate, 'BALANCED_QUIET_SPECIFIC');

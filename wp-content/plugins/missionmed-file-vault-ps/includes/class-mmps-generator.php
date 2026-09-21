@@ -349,9 +349,9 @@ class MMPS_Generator {
 	 * runs against the original text; this normalization is used only for
 	 * set-level diversity, so it cannot authorize an unsupported claim.
 	 */
-	protected static function candidate_diversity_text( $text, $bundle ) {
+	protected static function candidate_diversity_text( $text, $bundle, $plan ) {
 		$literals = array_filter( array_map( 'strval', (array) ( $bundle['nameForms'] ?? array() ) ) );
-		foreach ( array_merge( array_values( (array) ( $bundle['essential'] ?? array() ) ), (array) ( $bundle['deepFacts'] ?? array() ) ) as $fact ) {
+		foreach ( (array) ( $plan['allowedFacts'] ?? array() ) as $fact ) {
 			if ( ! is_array( $fact ) ) {
 				continue;
 			}
@@ -398,8 +398,8 @@ class MMPS_Generator {
 		}
 		for ( $i = 0; $i < count( $candidates ); $i++ ) {
 			for ( $j = $i + 1; $j < count( $candidates ); $j++ ) {
-				$left       = self::candidate_diversity_text( (string) ( $candidates[ $i ]['replacement_region'] ?? '' ), $bundle );
-				$right      = self::candidate_diversity_text( (string) ( $candidates[ $j ]['replacement_region'] ?? '' ), $bundle );
+				$left       = self::candidate_diversity_text( (string) ( $candidates[ $i ]['replacement_region'] ?? '' ), $bundle, $plan );
+				$right      = self::candidate_diversity_text( (string) ( $candidates[ $j ]['replacement_region'] ?? '' ), $bundle, $plan );
 				$similarity = self::candidate_similarity( $left, $right );
 				$opening    = self::candidate_similarity( self::candidate_opening( $left ), self::candidate_opening( $right ) );
 				if ( $similarity > 0.62 || $opening > 0.55 || self::candidate_has_shared_phrase( $left, $right ) ) {
