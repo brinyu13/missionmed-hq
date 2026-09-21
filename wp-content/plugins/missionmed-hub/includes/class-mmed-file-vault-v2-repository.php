@@ -52,6 +52,9 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 	const PREVIEW_URL_TTL = 600;
 	const LEGACY_UPLOAD_RATE_LIMIT = 10;
 	const LEGACY_UPLOAD_RATE_WINDOW = 300;
+	const IVOC_CV_PROJECTION_MAX_ENTRIES = 120;
+	const IVOC_CV_PROJECTION_MAX_TAGS = 12;
+	const IVOC_CV_PROJECTION_TEXT_LIMIT = 240;
 
 	/**
 	 * Return the supported document vocabulary.
@@ -671,6 +674,166 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			return new WP_Error( 'mmed_file_vault_v2_not_found', 'Document not found.', array( 'status' => 404 ) );
 		}
 		return self::format_document( $row );
+	}
+
+	/**
+	 * Persist one reviewed, minimized IVOC projection on the exact current CV version.
+	 *
+	 * The source file remains in File Vault. IVOC receives only allowlisted structured
+	 * entries, and a later immutable CV version has no projection until it is reviewed.
+	 *
+	 * @param int   $file_id File ID.
+	 * @param int   $actor_id File Vault administrator ID.
+	 * @param array $params Projection input.
+	 * @return array|WP_Error
+	 */
+	public static function save_ivoc_cv_projection( $file_id, $actor_id, $params ) {
+		$row = self::get_file_by_id( absint( $file_id ) );
+		if ( ! $row ) {
+			return new WP_Error( 'mmed_file_vault_v2_not_found', 'Document not found.', array( 'status' => 404 ) );
+		}
+		$meta = self::meta_for_row( $row );
+		if ( 'curriculum_vitae' !== self::normalize_document_type( $meta['document_type'] ?? '' ) ) {
+			return new WP_Error( 'mmed_file_vault_v2_ivoc_cv_required', 'The IVOC projection must be bound to a CV.', array( 'status' => 422 ) );
+		}
+		$versions = self::internal_versions( $row, $meta );
+		$current_index = count( $versions ) - 1;
+		$current = $current_index >= 0 ? $versions[ $current_index ] : null;
+		if ( ! is_array( $current ) || 'ready_clean' !== sanitize_key( $current['verification_state'] ?? '' ) ) {
+			return new WP_Error( 'mmed_file_vault_v2_ivoc_cv_unverified', 'The current CV version is not verified.', array( 'status' => 409 ) );
+		}
+		$expected_version_uuid = sanitize_text_field( $params['version_uuid'] ?? '' );
+		$current_version_uuid  = sanitize_text_field( $current['version_uuid'] ?? '' );
+		if ( '' === $current_version_uuid || '' === $expected_version_uuid || ! hash_equals( $current_version_uuid, $expected_version_uuid ) ) {
+			return new WP_Error( 'mmed_file_vault_v2_ivoc_cv_version_conflict', 'The CV version changed before its projection was saved.', array( 'status' => 409 ) );
+		}
+		$authorization_ref = self::ivoc_projection_reference( $params['authorization_ref'] ?? '' );
+		if ( is_wp_error( $authorization_ref ) ) {
+			return $authorization_ref;
+		}
+		$entries = self::normalize_ivoc_cv_entries( $params['entries'] ?? null );
+		if ( is_wp_error( $entries ) ) {
+			return $entries;
+		}
+
+		$produced_at = gmdate( 'c' );
+		$projection = array(
+			'schema_version' => 1,
+			'authorization_ref' => $authorization_ref,
+			'produced_at'    => $produced_at,
+			'actor_id'       => absint( $actor_id ),
+			'entries'        => $entries,
+		);
+		$projection['projection_hash'] = hash( 'sha256', wp_json_encode( array(
+			'document_uuid' => sanitize_text_field( $meta['document_uuid'] ?? '' ),
+			'version_uuid'  => $current_version_uuid,
+			'entries'       => $entries,
+		) ) );
+		$versions[ $current_index ]['ivoc_cv_projection'] = $projection;
+		$meta['versions'] = $versions;
+		$meta = self::append_activity( $meta, self::event( 'ivoc_cv_projection_saved', $actor_id, 'Reviewed IVOC CV projection saved for the current version.' ) );
+		$saved = self::save_meta( $row, $meta );
+		if ( is_wp_error( $saved ) ) {
+			return $saved;
+		}
+		return array(
+			'document_id'   => absint( $row->id ),
+			'version'       => max( 1, absint( $current['number'] ?? $row->version ) ),
+			'version_uuid'  => $current_version_uuid,
+			'entry_count'   => count( $entries ),
+			'projection_hash' => $projection['projection_hash'],
+			'produced_at'   => $produced_at,
+		);
+	}
+
+	/**
+	 * Return the newest verified current-CV projection for one authorized subject.
+	 *
+	 * @param int    $user_id Student owner ID.
+	 * @param int    $actor_id Authenticated projection consumer actor ID.
+	 * @param string $consent_ref Session-bound consent receipt.
+	 * @return array|WP_Error
+	 */
+	public static function ivoc_cv_projection( $user_id, $actor_id, $consent_ref ) {
+		global $wpdb;
+
+		$user_id = absint( $user_id );
+		$consent_ref = self::ivoc_projection_reference( $consent_ref );
+		if ( is_wp_error( $consent_ref ) ) {
+			return $consent_ref;
+		}
+		$scope = self::owner_scope_preflight( $user_id );
+		if ( is_wp_error( $scope ) ) {
+			return $scope;
+		}
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				'SELECT * FROM ' . parent::table_name() . ' WHERE user_id = %d ORDER BY updated_at DESC, id DESC LIMIT %d',
+				$user_id,
+				self::OWNER_DOCUMENT_LIMIT + 1
+			)
+		);
+		$loaded_scope = self::validate_loaded_owner_rows( $rows );
+		if ( is_wp_error( $loaded_scope ) ) {
+			return $loaded_scope;
+		}
+
+		foreach ( (array) $rows as $row ) {
+			$meta = self::meta_for_row( $row );
+			if ( 'curriculum_vitae' !== self::normalize_document_type( $meta['document_type'] ?? '' ) ) {
+				continue;
+			}
+			$versions = self::internal_versions( $row, $meta );
+			$current = empty( $versions ) ? null : end( $versions );
+			$stored = is_array( $current ) ? ( $current['ivoc_cv_projection'] ?? null ) : null;
+			if ( ! is_array( $current ) || ! is_array( $stored )
+				|| 'ready_clean' !== sanitize_key( $current['verification_state'] ?? '' )
+				|| 1 !== absint( $stored['schema_version'] ?? 0 )
+				|| is_wp_error( self::ivoc_projection_reference( $stored['authorization_ref'] ?? '' ) ) ) {
+				continue;
+			}
+			$document_uuid = sanitize_text_field( $meta['document_uuid'] ?? '' );
+			$version_uuid  = sanitize_text_field( $current['version_uuid'] ?? '' );
+			$projection_hash = sanitize_text_field( $stored['projection_hash'] ?? '' );
+			if ( ! preg_match( '/^[a-f0-9]{64}$/', $projection_hash ) || '' === $document_uuid || '' === $version_uuid ) {
+				continue;
+			}
+			$source_version = 'cv:' . $document_uuid . '@' . $version_uuid;
+			$payload = array(
+				'doc_id'       => $document_uuid,
+				'kind'         => 'cv',
+				'version'      => (string) max( 1, absint( $current['number'] ?? $row->version ) ),
+				'content_hash' => $projection_hash,
+				'as_of'        => substr( sanitize_text_field( $stored['produced_at'] ?? gmdate( 'c' ) ), 0, 10 ),
+				'entries'      => array_values( (array) ( $stored['entries'] ?? array() ) ),
+			);
+			$receipt_hash = hash( 'sha256', wp_json_encode( array(
+				'subject_id'    => 'wp:' . $user_id,
+				'source_version'=> $source_version,
+				'payload'       => $payload,
+			) ) );
+			$meta = self::append_activity( $meta, self::event( 'ivoc_cv_projection_issued', $actor_id, 'Bounded IVOC CV projection issued with session consent.' ) );
+			$saved = self::save_meta( $row, $meta );
+			if ( is_wp_error( $saved ) ) {
+				return new WP_Error( 'mmed_file_vault_v2_ivoc_cv_audit_unavailable', 'Projection audit evidence could not be saved.', array( 'status' => 503 ) );
+			}
+			return array(
+				'projection_id'   => 'filevault-cv:' . $document_uuid,
+				'owner_app'       => 'filevault',
+				'projection_type' => 'filevault.document_projection',
+				'schema_version'  => '1',
+				'subject_id'      => 'wp:' . $user_id,
+				'source_version'  => $source_version,
+				'produced_at'     => sanitize_text_field( $stored['produced_at'] ),
+				'authorization'   => array( 'basis' => 'student_consent', 'scope' => array( 'entries' ), 'consent_ref' => $consent_ref ),
+				'minimization'    => array( 'fields_included' => array( 'entries' ) ),
+				'payload'         => $payload,
+				'source_receipt'  => array( 'owner_ref' => 'filevault:' . $document_uuid . '@' . $version_uuid, 'hash' => $receipt_hash ),
+				'revocation'      => array( 'revocable' => true ),
+			);
+		}
+
+		return new WP_Error( 'mmed_file_vault_v2_ivoc_cv_unavailable', 'No consented current CV projection is available.', array( 'status' => 404 ) );
 	}
 
 	/**
@@ -2281,7 +2444,7 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 	 * @return array
 	 */
 	protected static function public_version( $version ) {
-		unset( $version['r2_key'], $version['etag'], $version['sha256'] );
+		unset( $version['r2_key'], $version['etag'], $version['sha256'], $version['ivoc_cv_projection'] );
 		return $version;
 	}
 
@@ -2942,6 +3105,86 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			}
 		}
 		return array( 'kind' => 'journey', 'title' => 'Nothing is waiting on you', 'detail' => 'Review your document journey whenever you are ready.' );
+	}
+
+	/**
+	 * Validate one opaque owner/session projection reference.
+	 *
+	 * @param mixed $value Raw reference.
+	 * @return string|WP_Error
+	 */
+	protected static function ivoc_projection_reference( $value ) {
+		$value = trim( (string) $value );
+		if ( ! preg_match( '/^[A-Za-z0-9._:@-]{1,160}$/', $value ) ) {
+			return new WP_Error( 'mmed_file_vault_v2_ivoc_cv_consent_invalid', 'A valid IVOC consent reference is required.', array( 'status' => 422 ) );
+		}
+		return $value;
+	}
+
+	/**
+	 * Keep only the bounded CV vocabulary authorized for IVOC questioning.
+	 *
+	 * @param mixed $entries Candidate entries.
+	 * @return array|WP_Error
+	 */
+	protected static function normalize_ivoc_cv_entries( $entries ) {
+		if ( ! is_array( $entries ) || empty( $entries ) || count( $entries ) > self::IVOC_CV_PROJECTION_MAX_ENTRIES ) {
+			return new WP_Error( 'mmed_file_vault_v2_ivoc_cv_entries_invalid', 'The IVOC CV projection requires 1 to 120 structured entries.', array( 'status' => 422 ) );
+		}
+		$types = array(
+			'research_item', 'publication', 'presentation', 'clinical_experience', 'education',
+			'exam', 'chronology_period', 'leadership_role', 'teaching_role', 'language',
+		);
+		$string_fields = array(
+			'title', 'field', 'role', 'institution', 'subtype', 'setting', 'country',
+			'supervisor_role', 'degree', 'organization', 'kind', 'name', 'outcome',
+			'description', 'language', 'proficiency',
+		);
+		$number_fields = array( 'year', 'attempt_count', 'duration_months' );
+		$normalized = array();
+		$ids = array();
+		foreach ( $entries as $entry ) {
+			if ( ! is_array( $entry ) ) {
+				return new WP_Error( 'mmed_file_vault_v2_ivoc_cv_entry_invalid', 'Each IVOC CV entry must be an object.', array( 'status' => 422 ) );
+			}
+			$entry_id   = self::ivoc_projection_reference( $entry['entry_id'] ?? '' );
+			$entry_type = sanitize_key( $entry['entry_type'] ?? '' );
+			if ( is_wp_error( $entry_id ) || ! in_array( $entry_type, $types, true ) || isset( $ids[ $entry_id ] ) ) {
+				return new WP_Error( 'mmed_file_vault_v2_ivoc_cv_entry_invalid', 'Each IVOC CV entry needs a unique safe ID and supported type.', array( 'status' => 422 ) );
+			}
+			$ids[ $entry_id ] = true;
+			$item = array( 'entry_id' => $entry_id, 'entry_type' => $entry_type, 'extracted_by' => 'owner_reviewed' );
+			foreach ( array( 'start', 'end' ) as $date_field ) {
+				$value = sanitize_text_field( $entry[ $date_field ] ?? '' );
+				if ( '' !== $value && preg_match( '/^[0-9]{4}(?:-[0-9]{2}(?:-[0-9]{2})?)?$/', $value ) ) {
+					$item[ $date_field ] = $value;
+				}
+			}
+			$precision = sanitize_key( $entry['precision'] ?? '' );
+			if ( in_array( $precision, array( 'year', 'month', 'day' ), true ) ) {
+				$item['precision'] = $precision;
+			}
+			foreach ( $string_fields as $field ) {
+				$value = sanitize_text_field( $entry[ $field ] ?? '' );
+				if ( '' !== $value ) {
+					$item[ $field ] = substr( $value, 0, self::IVOC_CV_PROJECTION_TEXT_LIMIT );
+				}
+			}
+			foreach ( $number_fields as $field ) {
+				if ( isset( $entry[ $field ] ) && is_numeric( $entry[ $field ] ) ) {
+					$value = max( 0, min( 9999, absint( $entry[ $field ] ) ) );
+					$item[ $field ] = $value;
+				}
+			}
+			if ( isset( $entry['specialty_tags'] ) && is_array( $entry['specialty_tags'] ) ) {
+				$tags = array_values( array_unique( array_filter( array_map( 'sanitize_text_field', array_slice( $entry['specialty_tags'], 0, self::IVOC_CV_PROJECTION_MAX_TAGS ) ) ) ) );
+				if ( ! empty( $tags ) ) {
+					$item['specialty_tags'] = array_map( static function ( $tag ) { return substr( $tag, 0, 80 ); }, $tags );
+				}
+			}
+			$normalized[] = $item;
+		}
+		return $normalized;
 	}
 
 	/**
