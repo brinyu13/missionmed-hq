@@ -28,14 +28,19 @@ export function buildReadinessRows({
   ]);
 }
 
-export function buildContextSources({ mentorPriorities = null, durableAvailable = false } = {}) {
+export function buildContextSources({
+  mentorPriorities = null, durableAvailable = false, contextCapabilities = {},
+} = {}) {
   const top3Count = Array.isArray(mentorPriorities?.priorities) ? mentorPriorities.priorities.length : 0;
   const top3Connected = Number.isSafeInteger(mentorPriorities?.version) && mentorPriorities.version > 0;
+  const storyForgeConnected = contextCapabilities?.storyForge?.connected === true;
+  const riseConnected = contextCapabilities?.rise?.connected === true;
+  const fileVaultConnected = contextCapabilities?.fileVault?.connected === true;
   return Object.freeze([
-    { name: 'StoryForge', available: false, detail: 'Your authorized stories' },
-    { name: 'RISE', available: false, detail: 'Verified program intelligence' },
-    { name: 'CV', available: false, detail: 'Your current curriculum vitae' },
-    { name: 'File Vault', available: false, detail: 'Selected private files' },
+    { name: 'StoryForge', available: storyForgeConnected, connected: storyForgeConnected, detail: 'Your authorized stories' },
+    { name: 'RISE', available: riseConnected, connected: riseConnected, detail: 'Verified program intelligence' },
+    { name: 'CV', available: fileVaultConnected, connected: fileVaultConnected, detail: 'Your reviewed current curriculum vitae' },
+    { name: 'File Vault', available: fileVaultConnected, connected: fileVaultConnected, detail: 'Your private current CV' },
     { name: 'MCC', available: false, detail: 'MissionMed context' },
     {
       name: 'Top 3', available: top3Connected && top3Count > 0,

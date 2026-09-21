@@ -42,6 +42,19 @@ test('Top 3 availability follows the real mentor-priority projection', () => {
   assert.match(populated.detail, /1 mentor priority/u);
 });
 
+test('owner context cards follow the server capability manifest without exposing provider details', () => {
+  const sources = buildContextSources({
+    contextCapabilities: {
+      storyForge: { connected: true }, rise: { connected: false }, fileVault: { connected: true },
+    },
+  });
+  assert.equal(sources.find((source) => source.name === 'StoryForge').available, true);
+  assert.equal(sources.find((source) => source.name === 'CV').available, true);
+  assert.equal(sources.find((source) => source.name === 'File Vault').available, true);
+  assert.equal(sources.find((source) => source.name === 'RISE').available, false);
+  assert.equal(sources.find((source) => source.name === 'MCC').available, false);
+});
+
 test('Home presents real latest-session and mentor state with truthful empty fallbacks', () => {
   const empty = buildHomeViewModel({ identity: { displayName: 'Alex Morgan' } });
   assert.equal(empty.initials, 'AM');

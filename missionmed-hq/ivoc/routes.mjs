@@ -846,6 +846,13 @@ export function createIvocHandler({
         sendJson(response, 200, {
           identity: { subject: actor, displayName: displayName(hqSession), roles: rolesOf(hqSession), admin: isAdmin(hqSession, admission), mentor: isMentor(hqSession) },
           entitlement: { admitted: true, founder: admission.entitlement?.founder === true, voice: true, video: admission.entitlement?.video === true },
+          capabilities: {
+            contextSources: {
+              storyForge: { connected: Boolean(storyForgeSource), requiresAuthorizedData: true },
+              rise: { connected: Boolean(riseSource), requiresProgramSelection: true },
+              fileVault: { connected: Boolean(fileVaultSource), projection: 'current_cv', requiresAuthorizedData: true },
+            },
+          },
           csrfToken: admission.csrfToken,
           preferences: preferences ? { calibration: preferences.calibration, visibility: preferences.visibility, coachingEnabled: preferences.coaching_enabled, recordingDefault: preferences.recording_default } : null,
         }, mediaBase);

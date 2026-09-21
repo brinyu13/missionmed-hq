@@ -191,7 +191,32 @@ test('entitled owner bootstraps without exposing credentials', async () => {
   assert.equal(response.status, 200);
   assert.equal(response.json().identity.subject, 'wp:42');
   assert.equal(response.json().csrfToken, 'a'.repeat(24));
+  assert.deepEqual(response.json().capabilities.contextSources, {
+    storyForge: { connected: false, requiresAuthorizedData: true },
+    rise: { connected: false, requiresProgramSelection: true },
+    fileVault: { connected: false, projection: 'current_cv', requiresAuthorizedData: true },
+  });
   assert.ok(!/service|secret|objectKey/u.test(response.body));
+});
+
+test('bootstrap exposes only non-secret owner-connector availability', async () => {
+  const repo = repository();
+  const route = createIvocHandler({
+    registry: registry(), repository: repo,
+    storage: { createUpload: () => { throw new Error('not used'); }, validateUploadToken: () => false },
+    applicationIntelligence: { prepareSession: async () => null, getActorContext: async () => null },
+    env: {
+      IVPREP_ENABLED: 'true', IVPREP_ADMIN_CANARY_ENABLED: 'true', MMHQ_SESSION_SECRET: 's'.repeat(64),
+      MMHQ_WP_BASE: 'https://missionmed.example.test', MMHQ_RISE_BASE: 'https://rise.example.test',
+    },
+  });
+  const response = new ResponseCapture();
+  await route({ ...base, request: request('GET'), response, url: new URL('https://hq.test/api/ivoc/v1/bootstrap'), hqSession: session() });
+  assert.equal(response.status, 200);
+  assert.equal(response.json().capabilities.contextSources.storyForge.connected, true);
+  assert.equal(response.json().capabilities.contextSources.fileVault.connected, true);
+  assert.equal(response.json().capabilities.contextSources.rise.connected, true);
+  assert.doesNotMatch(response.body, /missionmed\.example|rise\.example|authorization|cookie/u);
 });
 
 test('question catalog exposes active overrides to students and all lifecycle states to Admins', async () => {

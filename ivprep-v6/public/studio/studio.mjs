@@ -1233,7 +1233,11 @@ function renderEnvironmentStep(host) {
   environment.append(modes, el('p', 'canon-muted', state.wizard.interviewMode === 'Interview Mode' ? 'A clean interview view. Enabled measurements continue in the background.' : 'Selected coaching overlays stay visible during practice.'));
   const context = el('section', 'canon-panel'); context.append(el('h2', '', 'Bring the right context.'), el('p', 'canon-muted', 'Only sources authorized for your account can be included. Unavailable sources remain off.'));
   const sourceGrid = el('div', 'canon-source-grid');
-  const sources = buildContextSources({ mentorPriorities: state.mentorPriorities, durableAvailable: state.durableAvailable });
+  const sources = buildContextSources({
+    mentorPriorities: state.mentorPriorities,
+    durableAvailable: state.durableAvailable,
+    contextCapabilities: state.durable.bootstrapPayload?.capabilities?.contextSources || {},
+  });
   sources.forEach(({ name, available, detail, connected = false }) => sourceGrid.append(choiceButton({
     className: 'canon-source-card', selected: state.wizard.contextSources.includes(name), label: name,
     detail: `${detail} · ${available ? 'Available' : connected ? 'Nothing selected yet' : 'Not connected'}`,
