@@ -14,6 +14,7 @@ final class MissionMed_MR0912_Controlled_Live_Card_Bridge {
     ];
 
     private static $stripe = null;
+    private static bool $logged = false;
 
     public static function capture(array $gateways): array {
         if (self::controlled_order() && isset($gateways['stripe'])) {
@@ -23,7 +24,15 @@ final class MissionMed_MR0912_Controlled_Live_Card_Bridge {
     }
 
     public static function restore(array $gateways): array {
-        if (self::$stripe && self::controlled_order()) {
+        $order = self::controlled_order();
+        if (!self::$logged) {
+            error_log('[MR0912-LIVE-BRIDGE] order=' . (int) get_query_var('order-pay')
+                . ' user=' . get_current_user_id()
+                . ' controlled=' . ($order ? 'yes' : 'no')
+                . ' stripe_captured=' . (self::$stripe ? 'yes' : 'no'));
+            self::$logged = true;
+        }
+        if (self::$stripe && $order) {
             $gateways['stripe'] = self::$stripe;
         }
         return $gateways;
