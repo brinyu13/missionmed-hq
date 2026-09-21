@@ -68,6 +68,7 @@ export class DurableStudioSession {
     this.accountSession = null;
     this.recorder = null;
     this.pendingAnalytics = null;
+    this.pendingRecording = null;
     this.preparedSessionKey = null;
     this.liveConversationTurns = new Map();
     this.liveConversationSequence = 0;
@@ -227,7 +228,14 @@ export class DurableStudioSession {
         this.pendingAnalytics = value;
         return value;
       });
-    const recordingPromise = recorder?.stopAndSeal?.() || Promise.resolve(null);
+    // A sealed recorder returns null on a second stop. Retain its exact receipt
+    // until Results persistence succeeds so retry cannot lose media/timebase.
+    const recordingPromise = this.pendingRecording
+      ? Promise.resolve(this.pendingRecording)
+      : Promise.resolve(recorder?.stopAndSeal?.() || null).then((value) => {
+        this.pendingRecording = value;
+        return value;
+      });
     const [analytics, recording] = await Promise.all([resolvedAnalytics, recordingPromise]);
     // The user-controlled Finish action is the terminal boundary for any
     // provider transcript deltas still in flight. Preserve that text only as
@@ -244,6 +252,7 @@ export class DurableStudioSession {
       capturedAt: this.now(),
     });
     const result = await this.api.saveResults(accountSession.id, envelope);
+    this.pendingRecording = null;
     this.accountSession = null;
     this.recorder = null;
     this.pendingAnalytics = null;
@@ -276,6 +285,7 @@ export class DurableStudioSession {
     const accountSession = this.accountSession;
     if (!accountSession?.id) return { abandoned: false, reason: 'no_active_session' };
     const result = await this.api.abandonSession(accountSession.id, { reason }, { keepalive });
+    this.pendingRecording = null;
     this.recorder?.destroy?.();
     this.accountSession = null;
     this.recorder = null;
@@ -298,6 +308,7 @@ export class DurableStudioSession {
   }
 
   destroy() {
+    this.pendingRecording = null;
     this.recorder?.destroy?.();
     this.accountSession = null;
     this.recorder = null;

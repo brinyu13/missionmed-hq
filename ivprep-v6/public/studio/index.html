@@ -272,11 +272,15 @@
 
       <!-- SIMULATION -->
       <section class="screen" data-view-panel="simulation" id="founder-room-wrapper">
-        <div class="microcap hero-kick">AI mock interview</div>
-        <h1 class="hero">Your <em>Interview Room.</em></h1>
-        <div class="grid grid-2" style="margin-top:18px">
-          <div class="housing">
-            <div class="housing-title">Student</div>
+        <header class="room-header">
+          <div><div class="microcap hero-kick">AI mock interview</div><h1 id="room-title" tabindex="-1">Before you begin</h1><p id="room-summary"></p></div>
+          <div class="room-session-badge"><span id="room-recording-state">Not recording</span><time id="room-clock">00:00</time></div>
+        </header>
+        <div id="room-preflight" class="room-preflight"><p>Check your camera and microphone, then step into your interview.</p><button class="btn btn-secondary" data-goto="devicecheck" type="button"><span>Check camera + microphone</span></button><button class="btn btn-secondary" data-goto="newsession" type="button"><span>Edit interview</span></button></div>
+        <div class="room-composition">
+          <aside class="housing room-visual-rail" aria-label="Live delivery Analytics"><div class="housing-title">Your delivery</div><div id="room-visual-instruments"></div></aside>
+          <div class="housing room-student">
+            <div class="housing-title">Your camera</div>
             <div class="recess" style="padding:0">
               <div class="stage" id="founder-room-stage">
                 <div class="stage" id="founder-student-stage" style="border:0">
@@ -286,18 +290,22 @@
               </div>
             </div>
           </div>
-          <div class="housing">
-            <div class="housing-title">Live interviewer · Voice</div>
+          <div class="housing room-presence">
+            <div class="housing-title">Your interviewer</div>
             <div class="recess live-interviewer-stage">
               <div class="live-orb" aria-hidden="true"><span>IV</span></div>
               <div>
-                <div class="microcap">Realtime interviewer</div>
+                <div class="microcap" id="room-interviewer-role">Program Director · Voice interview</div>
                 <h2 id="sim-provider-state">Checking availability…</h2>
                 <p id="sim-provider-note">A secure session begins only when you press Start live interview.</p>
               </div>
               <audio id="live-interviewer-audio" autoplay></audio>
             </div>
-            <div class="recess live-interviewer-controls">
+          </div>
+          <aside class="housing room-voice-rail" aria-label="Live voice Analytics"><div class="housing-title">Your voice</div><div id="room-voice-instruments"></div></aside>
+        </div>
+        <div class="room-toolbar">
+            <div class="live-interviewer-controls">
               <label id="admin-live-voice-audition" hidden>
                 <span class="microcap">Founder / Admin voice audition</span>
                 <select id="admin-live-voice" aria-label="Interviewer voice">
@@ -310,26 +318,23 @@
                 </select>
               </label>
               <div class="btn-row" style="margin-top:0">
-                <button class="btn btn-primary" type="button" id="live-interview-start" disabled><span>Start live interview ▸</span></button>
-                <button class="btn btn-quiet" type="button" id="live-interview-end" disabled><span>End interview</span></button>
+                <button class="btn btn-primary" type="button" id="live-interview-start" disabled><span>Start interview ▸</span></button>
+                <button class="btn btn-quiet room-end" type="button" id="live-interview-end" disabled><span>End interview</span></button>
               </div>
-              <p class="microcap">The live interviewer uses the same microphone as Delivery Intelligence, with one secure audio path for the conversation.</p>
-              <div class="live-transcript" id="live-transcript" aria-live="polite"><span>Transcript appears here after the session starts.</span></div>
             </div>
-          </div>
+            <button class="btn btn-secondary" type="button" id="room-analytics-toggle" aria-pressed="false"><span>Show live Analytics</span></button>
+            <label class="room-guides-control"><input type="checkbox" id="room-guides"> Show visual guides</label>
+            <p class="room-status" id="simulation-save" aria-live="polite">Your interview will be recorded privately to your account.</p>
         </div>
-        <div class="housing" style="margin-top:16px">
+        <details class="room-transcript"><summary>Transcript</summary><div class="live-transcript" id="live-transcript" aria-live="off"><span>Transcript appears here after the session starts.</span></div></details>
+        <div class="housing room-coaching-detail" style="margin-top:16px">
           <div class="housing-title">Live Analytics</div>
           <div class="recess">
             <div class="correction-plate" id="simulation-correction" data-state="idle"><div><div class="microcap" id="simulation-correction-metric">Not ready</div><div class="correction-verdict" id="simulation-correction-verdict">Complete device calibration to begin</div></div></div>
             <div class="status-rail" id="simulation-rail"></div>
-            <p class="microcap" id="simulation-save" aria-live="polite">Your interview will be recorded privately to your account.</p>
           </div>
         </div>
-        <div class="housing" style="margin-top:16px">
-          <div class="housing-title">Question progression</div>
-          <div class="recess" id="sim-progression"></div>
-        </div>
+        <details class="room-question-plan"><summary>Question plan</summary><div class="recess" id="sim-progression"></div></details>
       </section>
 
       <!-- POST-ANSWER -->

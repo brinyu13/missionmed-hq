@@ -255,6 +255,28 @@ test('a failed media upload retains analytics and retries the same account trans
   assert.equal(stopAttempts, 2);
 });
 
+test('Results retry preserves the already-sealed recording and its timebase', async () => {
+  let seals = 0; let saves = 0;
+  const receipt = { recording: { id: 'recording-sealed' }, durationMs: 1210, blob: { size: 1024 } };
+  const recorder = { async start() {}, async stopAndSeal() { return ++seals === 1 ? receipt : null; } };
+  const inputs = [];
+  const durable = new DurableStudioSession({ recordingFactory: () => recorder, api: {
+    async bootstrap() { return { entitlement: { admitted: true } }; },
+    async createSession() { return { id: 'session-sealed' }; },
+    async saveResults(id, input) { inputs.push(input); if (++saves === 1) throw new Error('results_503'); return { id: 'results-sealed' }; },
+  } });
+  await durable.bootstrap(); await durable.start({ stream: {} });
+  await assert.rejects(durable.finish({ durationMs: 1200, events: [] }), /results_503/);
+  assert.equal(durable.pendingRecording, receipt);
+  const result = await durable.finish(null);
+  assert.equal(seals, 1); assert.equal(result.recording, receipt);
+  assert.equal(result.persisted, true); assert.equal(durable.pendingRecording, null);
+  assert.equal(result.recording.recording.id, 'recording-sealed');
+  assert.equal(inputs[1].playableDurationMs, 1210);
+  assert.equal(inputs[1].playableDurationMs, inputs[0].playableDurationMs);
+  assert.equal(inputs[1].sessionDurationMs, 1200);
+});
+
 test('context analysis sends only sealed answer identity and validated student events', async () => {
   let input = null;
   const durable = new DurableStudioSession({

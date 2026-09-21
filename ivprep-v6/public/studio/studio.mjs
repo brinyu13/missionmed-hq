@@ -42,6 +42,8 @@ import {
   buildContextSources,
   buildHomeViewModel,
   buildReadinessRows,
+  buildInterviewRoomModel,
+  preserveInterviewLifecycle,
   persistedConversationTurns,
 } from './presentation-view-model.mjs';
 
@@ -94,6 +96,7 @@ const state = {
   labRack: null,
   primaryMetric: null,
   overlays: { face: true, bodyHands: true, enabled: true },
+  room: { providerState: 'idle', detail: '', showAnalytics: null, guides: null, overlayKey: null, rack: null },
   liveInterview: null,
   durable: new DurableStudioSession(),
   durableAvailable: false,
@@ -156,12 +159,18 @@ function applyRole(role) {
   if (state.role === 'admin' && state.view === 'mentor') void renderAdminOverview();
   // The analytics cockpit gets the real role so its own founder surfaces follow suit.
   state.analytics?.onViewChange?.(state.view, state.role === 'student' ? 'student' : 'admin');
+  renderInterviewRoom();
 }
 
 /* ------------------------------------------------------------------ router */
 
 function setView(view, { focus = false } = {}) {
   if (!CRUMBS[view]) return;
+  if (view !== 'simulation' && state.view === 'simulation'
+    && (preserveInterviewLifecycle(state.session.state) || roomModel().phase === 'save-error')) {
+    $('#simulation-save').textContent = 'End and save this interview before leaving the room.';
+    return;
+  }
   state.view = view;
   for (const panel of $$('[data-view-panel]')) {
     panel.dataset.active = String(panel.dataset.viewPanel === view);
@@ -183,6 +192,7 @@ function setView(view, { focus = false } = {}) {
   if (view === 'newsession') renderWizard();
   if (view === 'training') bindCockpitVideo();
   if (view === 'simulation') bindSimulationVideo();
+  renderInterviewRoom();
   if (view === 'lab') { mountLabInstruments(); void renderLongitudinal(); }
   if (view === 'compare') void renderCompare();
   if (view === 'progress') void renderProgress();
@@ -1821,11 +1831,15 @@ function setSessionState(next, reason = null) {
   const finish = $('#cockpit-finish');
   if (finish) finish.disabled = next !== 'RUNNING';
   renderCorrection();
+  renderInterviewRoom();
   return next;
 }
 
 /** Canonical readiness. Real prerequisites only - no legacy cockpit flags, no DOM state. */
 function evaluateReadiness() {
+  // Device/resize callbacks report readiness; they cannot rewind an active session.
+  if (preserveInterviewLifecycle(state.session.state)
+    || state.session.finishFailed) { renderInterviewRoom(); return state.session.state; }
   const m = bridge.media;
   const audio = m.stream?.getAudioTracks?.()[0];
   const video = m.stream?.getVideoTracks?.()[0];
@@ -1901,13 +1915,11 @@ async function startRep() {
 }
 
 async function finishRep() {
-  const retryingDurableSave = state.session.state === 'BLOCKED'
-    && state.durable?.recorder?.state === 'ERROR'
-    && state.durable?.pendingAnalytics;
+  const retryingDurableSave = state.session.finishFailed === true;
   if (!['RUNNING', 'STARTING'].includes(state.session.state) && !retryingDurableSave) return;
   setSessionState('FINISHING');
   try {
-    const analyticsPromise = retryingDurableSave ? null : Promise.resolve().then(() => {
+    const analyticsPromise = retryingDurableSave ? state.session.finishAnalytics : Promise.resolve().then(() => {
       const analytics = state.analytics?.endAnswer?.({ mediaAvailable: Boolean(state.durable?.recorder) });
       if (!analytics) return analytics;
       return Object.freeze({
@@ -1918,7 +1930,8 @@ async function finishRep() {
         }),
       });
     });
-    if (!retryingDurableSave && state.liveInterview?.sessionId) {
+    state.session.finishAnalytics = analyticsPromise;
+    if (state.liveInterview?.sessionId) {
       await state.liveInterview.stop();
     }
     const outcome = state.durable?.accountSession
@@ -1927,6 +1940,8 @@ async function finishRep() {
     state.conversationRecording?.destroy?.();
     state.conversationRecording = null;
     state.lastSaved = outcome;
+    state.session.finishFailed = false;
+    state.session.finishAnalytics = null;
     if (state.localPlaybackUrl) URL.revokeObjectURL(state.localPlaybackUrl);
     state.localPlaybackUrl = outcome.recording?.blob ? URL.createObjectURL(outcome.recording.blob) : null;
     const playback = $('#playback');
@@ -1944,8 +1959,10 @@ async function finishRep() {
     setSessionState('COMPLETE');
     setView('postanswer');
   } catch (error) {
-    const save = $('#cockpit-save');
-    if (save) { save.dataset.state = 'error'; save.textContent = `Save failed — ${String(error?.message || error).slice(0, 120)}. Press Finish again to retry the retained capture.`; }
+    state.session.finishFailed = true;
+    for (const save of [$('#cockpit-save'), $('#simulation-save')].filter(Boolean)) {
+      save.dataset.state = 'error'; save.textContent = `Save failed — ${String(error?.message || error).slice(0, 120)}. Retry save to keep this recording.`;
+    }
     setSessionState('BLOCKED', `Could not finish cleanly: ${String(error?.message || error).slice(0, 120)}`);
   }
 }
@@ -2114,6 +2131,8 @@ function appendLiveTranscript(event) {
 }
 
 function setLiveInterviewStatus({ state: next, detail }) {
+  state.room.providerState = next;
+  state.room.detail = detail || '';
   const stage = $('.live-interviewer-stage');
   if (stage) stage.dataset.state = next;
   const title = $('#sim-provider-state');
@@ -2124,12 +2143,70 @@ function setLiveInterviewStatus({ state: next, detail }) {
     ? (!state.interviewSet.length ? 'Choose at least one question before entering the Interview Room.' : startBlockedReason())
     : null;
   if (title) title.textContent = {
-    connecting: 'Connecting…', active: 'Live · listening', closed: 'Interview ended', error: 'Live interview unavailable', unavailable: 'Live voice unavailable', idle: 'Ready when you are',
+    connecting: 'Connecting…', active: 'Interview in progress', closed: 'Interview ended', error: 'Connection interrupted', unavailable: 'Voice interview unavailable', idle: 'Ready when you are',
   }[next] || next;
   if (title && blocked) title.textContent = 'Not ready yet';
   if (note && (blocked || detail)) note.textContent = blocked || detail;
   if (start) start.disabled = ['connecting', 'active', 'unavailable'].includes(next) || Boolean(blocked);
   if (end) end.disabled = !['connecting', 'active'].includes(next);
+  renderInterviewRoom();
+}
+
+function roomModel() {
+  return buildInterviewRoomModel({ sessionState: state.session.state, providerState: state.room.providerState,
+    interviewMode: state.wizard.interviewMode, showAnalytics: state.room.showAnalytics,
+    saveRetry: state.session.finishFailed === true });
+}
+
+function renderInterviewRoom() {
+  const room = $('#founder-room-wrapper');
+  if (!room) return;
+  const model = roomModel();
+  const changed = room.dataset.roomPhase !== model.phase;
+  room.dataset.roomPhase = model.phase;
+  room.dataset.roomLayout = model.coached ? 'coached' : 'interview';
+  document.body.dataset.interviewImmersive = String(state.view === 'simulation' && model.immersive);
+  $('#room-title').textContent = model.title;
+  $('#room-summary').textContent = [state.wizard.interviewer, state.wizard.program || 'General interview', `${state.targetQuestions} target questions`].join(' · ');
+  $('#room-interviewer-role').textContent = `${state.wizard.interviewer || 'Interviewer'} · Voice interview`;
+  $('#room-preflight').hidden = model.immersive;
+  const start = $('#live-interview-start');
+  start.hidden = !model.showStart;
+  start.disabled = !model.showStart || !state.admission?.runtime?.liveInterviewAvailable || !state.interviewSet.length || Boolean(startBlockedReason());
+  const end = $('#live-interview-end');
+  end.hidden = !model.immersive;
+  end.disabled = !model.canEnd;
+  end.querySelector('span').textContent = model.endLabel;
+  $('#admin-live-voice-audition').hidden = state.role !== 'admin' || model.immersive;
+  const toggle = $('#room-analytics-toggle');
+  toggle.setAttribute('aria-pressed', String(model.coached));
+  toggle.querySelector('span').textContent = model.coached ? 'Hide live Analytics' : 'Show live Analytics';
+  const guides = model.coached && (state.room.guides ?? true);
+  $('#room-guides').checked = guides;
+  $('.room-guides-control').hidden = !model.coached;
+  const overlay = state.view === 'simulation' ? guides : state.overlays.enabled;
+  const overlayKey = `${state.view}:${overlay}:${state.overlays.face}:${state.overlays.bodyHands}`;
+  if (state.analytics && state.room.overlayKey !== overlayKey) {
+    state.analytics.setInstrumentation({ overlayEnabled: overlay, faceOverlayEnabled: state.overlays.face, bodyHandsOverlayEnabled: state.overlays.bodyHands });
+    state.room.overlayKey = overlayKey;
+  }
+  $('#room-recording-state').textContent = model.phase === 'live' ? 'Private recording' : model.phase === 'saving' ? 'Saving privately' : model.phase === 'save-error' ? 'Save required' : 'Not recording';
+  if (model.phase === 'live') {
+    const disconnected = ['error', 'closed'].includes(state.room.providerState);
+    const mediaProblem = startBlockedReason();
+    $('#sim-provider-state').textContent = disconnected ? 'Interviewer connection ended' : mediaProblem ? 'Check your devices' : 'Interview in progress';
+    $('#sim-provider-note').textContent = disconnected ? 'End the interview to save your recording.' : mediaProblem ? `${mediaProblem} You can still end and save this interview.` : 'Take your time. Speak naturally, as you would in the interview.';
+  }
+  if (state.view === 'simulation' && model.coached && !state.room.rack) {
+    state.room.rack = new InstrumentRack();
+    for (const [host, metrics] of [['#room-visual-instruments', ['FACE', 'HANDS', 'FRAMING']], ['#room-voice-instruments', ['PACE', 'VOICE_LEVEL', 'PITCH']]]) {
+      for (const id of metrics) { const cell = document.createElement('div'); $(host).append(cell); state.room.rack.mount(cell, id); }
+    }
+    state.room.rack.update(state.bus.latest);
+  }
+  if (state.view === 'simulation' && model.coached) state.room.rack?.start();
+  else state.room.rack?.stop();
+  if (changed && model.immersive && state.view === 'simulation') $('#room-title').focus({ preventScroll: true });
 }
 
 function liveInterviewContext() {
@@ -2141,7 +2218,7 @@ async function startLiveInterview() {
     setLiveInterviewStatus({ state: 'error', detail: 'Live voice is not configured in this environment.' });
     return false;
   }
-  if (state.liveInterview?.sessionId || ['STARTING', 'RUNNING'].includes(state.session.state)) return true;
+  if (state.liveInterview?.sessionId || preserveInterviewLifecycle(state.session.state) || state.room.providerState === 'connecting' || state.session.finishFailed) return true;
   if (!state.interviewSet.length) {
     setLiveInterviewStatus({ state: 'error', detail: 'Choose at least one question before starting the live interview.' });
     return false;
@@ -2162,6 +2239,9 @@ async function startLiveInterview() {
     bindSimulationVideo();
     await ensureVisibleVideoFrame($('#founder-student-video'));
     if (evaluateReadiness() !== 'SESSION_READY') throw new Error(state.session.reason || 'Camera and microphone are not ready.');
+    setSessionState('STARTING');
+    state.session.finishFailed = false;
+    state.session.finishAnalytics = null;
     const track = bridge.media.stream.getAudioTracks()[0];
     const selectedVoice = state.role === 'admin'
       ? ($('#admin-live-voice')?.value || 'marin')
@@ -2236,6 +2316,13 @@ function wireLiveInterview() {
     ? 'Uses your selected interviewer, program, Question Pool, and authorized context.'
     : 'Live voice is not configured in this environment.' });
   $('#live-interview-start')?.addEventListener('click', () => { void startLiveInterview(); });
+  $('#room-analytics-toggle')?.addEventListener('click', () => { state.room.showAnalytics = !roomModel().coached; renderInterviewRoom(); });
+  $('#room-guides')?.addEventListener('change', (event) => { state.room.guides = event.target.checked; renderInterviewRoom(); });
+  setInterval(() => {
+    if (state.view !== 'simulation') return;
+    const seconds = state.session.startedAt ? Math.max(0, Math.floor((Date.now() - state.session.startedAt) / 1000)) : 0;
+    $('#room-clock').textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+  }, 1000);
   $('#live-interview-end')?.addEventListener('click', async () => {
     try {
       await finishRep();
@@ -2680,6 +2767,7 @@ async function mountAnalytics() {
       if (!frame) return;
       state.rack?.update(frame);
       state.labRack?.update(frame);
+      state.room.rack?.update(frame);
       renderStatusRail();
       renderCorrection();
     } catch { /* rendering must never break capture */ }
@@ -2808,16 +2896,13 @@ function renderPostAnswer(analytics = null) {
       ].filter(Boolean).join(' · ') || 'Session details unavailable'),
     );
   }
-  const rail = statusRail(state.bus.latest);
-  const worked = rail.find((item) => item.state === 'ok');
-  const correction = selectCorrection(state.bus.latest);
+  // Reopened recordings must never borrow the current live session's metrics.
+  const supported = (analytics?.studentEvents || []).filter((item) => item?.maturity === 'VALIDATED_STUDENT_SAFE');
   const entries = analytics ? [
-    ['#post-worked', worked
-      ? `<strong>${worked.label}</strong>Observed inside your validated session evidence. Open Film Room for the recording and full signal tracks.`
+    ['#post-worked', supported.length
+      ? '<strong>Review your recorded evidence</strong>Your supported delivery signals are available in the full report below. Listen back in Film Room to find your strongest moments.'
       : '<strong>No supported positive claim yet</strong>The session saved, but no student-safe signal reached an evidence threshold.'],
-    ['#post-fix', correction.state === 'idle'
-      ? '<strong>No supported correction yet</strong>The evidence does not justify a coaching claim for this answer.'
-      : `<strong>${correction.headline}</strong>${correction.instruction}`],
+    ['#post-fix', '<strong>Choose one evidence-backed priority</strong>Use this recording’s full report and transcript-based coaching below. No correction is inferred from another attempt.'],
   ] : [
     ['#post-worked', '<strong>Awaiting evidence</strong>No answer recorded in this session yet. Nothing is asserted without evidence.'],
     ['#post-fix', '<strong>Awaiting evidence</strong>A single correction appears here once a recorded answer produces delivery evidence.'],

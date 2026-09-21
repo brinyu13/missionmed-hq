@@ -5,7 +5,7 @@ Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
-Current terminal status: `IVOC ENGINEERING COMPLETE — EXTERNAL ACCEPTANCE EVIDENCE WAITING`
+Current terminal status: `ACTIVE P0 RUNTIME PRESENTATION RECOVERY — NOT COMPLETE`
 
 This is the one living requirement ledger required by the final Founder
 completion directive. A status of `LIVE UNVERIFIED` means the capability is
@@ -13,6 +13,24 @@ present in the active source lineage but has not yet passed acceptance against
 the actual production route and deployment.
 
 ## Founder POV production acceptance — current
+
+- Founder production POV reopens Runtime Interview Room presentation acceptance:
+  working camera/overlays/native conversation must transition out of readiness.
+  Candidate.2 + amendments remain canon. One read-only Astra 6 runtime director
+  reviewed current source and production baseline: realistic interviewer-primary
+  with self-view; coached candidate-primary with delivery/voice rails; compact
+  runtime header; persistent End; collapsed transcript; no default debug controls.
+  No backend/provider/recording/detector replacement is authorized or needed.
+- Current fix-forward implements a pure lifecycle-first presentation projector,
+  retains exact mounted media anchors, guards camera callbacks from rewinding
+  live state, preserves failed-save retry, shows live device/connection failures,
+  and prevents saved Results from borrowing current live metrics. Independent
+  Astra code review raised four concrete issues; these were corrected before
+  release. Production POV remains UNVERIFIED until deployed and traversed.
+- Immediate rollback before this presentation release: commit
+  `279abfaad13906647f3304a647179d5a624550ea`, deployment
+  `950cecdb-8430-4a68-8efe-e3732133f8f0`, image
+  `sha256:d39d999cdf03fea7c59296ad061362e1f1e4af197dbda3436755e73ae7c8484d`.
 
 - Current healthy production runtime: commit
   `bc47ec996d05759bc5507fa9b27ba36cb961fc68`, Railway deployment

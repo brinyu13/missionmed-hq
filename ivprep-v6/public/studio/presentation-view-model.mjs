@@ -1,5 +1,28 @@
 const readyMetric = (metrics, key) => metrics?.[key]?.available === true;
 
+// Display projection only; the capability layer still owns media and session time.
+export function buildInterviewRoomModel({ sessionState = 'IDLE', providerState = 'idle',
+  interviewMode = 'Interview Mode', showAnalytics = null, saveRetry = false } = {}) {
+  const phase = sessionState === 'FINISHING' ? 'saving' : saveRetry ? 'save-error'
+    : sessionState === 'RUNNING' ? 'live'
+      : sessionState === 'STARTING' || providerState === 'connecting' ? 'connecting'
+        : sessionState === 'COMPLETE' ? 'complete' : providerState === 'error' ? 'error'
+          : sessionState === 'SESSION_READY' ? 'ready' : 'readiness';
+  const immersive = ['connecting', 'live', 'saving', 'save-error'].includes(phase);
+  const coached = showAnalytics ?? (interviewMode === 'Coached / Live Analytics Mode');
+  return Object.freeze({ phase, immersive, coached, showStart: !immersive && phase !== 'complete',
+    canEnd: phase === 'live' || phase === 'save-error',
+    endLabel: phase === 'save-error' ? 'Retry save' : phase === 'saving' ? 'Saving interview…' : 'End interview',
+    title: ({ readiness: 'Before you begin', ready: 'Ready for your interview', connecting: 'Joining your interview',
+      live: 'Interview in progress', saving: 'Saving your interview', 'save-error': 'Your recording needs to be saved',
+      complete: 'Interview complete', error: 'Could not start the interview' })[phase],
+  });
+}
+
+export function preserveInterviewLifecycle(sessionState) {
+  return ['STARTING', 'RUNNING', 'FINISHING'].includes(sessionState);
+}
+
 function measuredDetail({ ready, connected, readyText, waitingText }) {
   if (ready) return readyText;
   return connected ? 'Awaiting measured evidence' : waitingText;
