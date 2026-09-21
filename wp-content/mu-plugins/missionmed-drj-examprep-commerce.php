@@ -2,12 +2,12 @@
 /**
  * Plugin Name: MissionMed Dr J ExamPrep Commerce Guard
  * Description: Enforces the DRJ-EXAMPREP-0920A catalog, private offers, and Daily Rounds-only lifecycle.
- * Version: 1.2.0
+ * Version: 1.3.0
  */
 
 defined( 'ABSPATH' ) || exit;
 
-const MMDRJ_VERSION                       = '1.2.0';
+const MMDRJ_VERSION                       = '1.3.0';
 const MMDRJ_ELIGIBILITY_META              = '_mmed_drj_pricing_eligibility';
 const MMDRJ_REQUIRED_ELIGIBILITY_META     = '_mmed_drj_required_eligibility';
 const MMDRJ_PAYMENT_ARCHITECTURE_META     = '_mmi_payment_architecture';
@@ -137,9 +137,29 @@ function mmdrj_user_has_active_live_group( $user_id ) {
 	return false;
 }
 
+function mmdrj_cart_contains_product( $product_id ) {
+	if ( ! function_exists( 'WC' ) || ! WC()->cart ) {
+		return false;
+	}
+	foreach ( WC()->cart->get_cart() as $item ) {
+		$item_product   = absint( $item['product_id'] ?? 0 );
+		$item_variation = absint( $item['variation_id'] ?? 0 );
+		if ( absint( $product_id ) === $item_product || absint( $product_id ) === $item_variation ) {
+			return true;
+		}
+	}
+	return false;
+}
+
 function mmdrj_user_meets_product_requirement( $user_id, $product_id ) {
 	$required = sanitize_key( (string) get_post_meta( absint( $product_id ), MMDRJ_REQUIRED_ELIGIBILITY_META, true ) );
 	if ( '' === $required ) {
+		return true;
+	}
+	if ( 'live_groups_addon' === $required && ! empty( $GLOBALS['mmdrj_live_bundle_add_in_progress'] ) ) {
+		return true;
+	}
+	if ( 'live_groups_addon' === $required && mmdrj_cart_contains_product( MMDRJ_TEAM_PRODUCT_ID ) ) {
 		return true;
 	}
 	if ( $user_id <= 0 ) {
@@ -165,6 +185,23 @@ function mmdrj_restrict_product_purchase( $purchasable, $product ) {
 add_filter( 'woocommerce_is_purchasable', 'mmdrj_restrict_product_purchase', 20, 2 );
 add_filter( 'woocommerce_variation_is_purchasable', 'mmdrj_restrict_product_purchase', 20, 2 );
 
+/**
+ * Woo Subscriptions caches a failed purchasability result for the request.
+ * Permit only the internally-scoped bundle insertion to cross that cache;
+ * ordinary add-to-cart requests still fail closed through the eligibility rule.
+ */
+function mmdrj_allow_scoped_bundle_subscription_purchase( $purchasable, $product ) {
+	if ( empty( $GLOBALS['mmdrj_live_bundle_add_in_progress'] ) || ! is_object( $product ) || ! method_exists( $product, 'get_id' ) ) {
+		return $purchasable;
+	}
+	$addon_id = absint( get_option( MMDRJ_ADDON_PRODUCT_OPTION, 0 ) );
+	if ( ! $addon_id || $addon_id !== absint( $product->get_id() ) ) {
+		return $purchasable;
+	}
+	return 'publish' === $product->get_status() && '' !== $product->get_price() && $product->is_in_stock();
+}
+add_filter( 'woocommerce_subscription_is_purchasable', 'mmdrj_allow_scoped_bundle_subscription_purchase', 100, 2 );
+
 function mmdrj_validate_restricted_add_to_cart( $passed, $product_id ) {
 	if ( MMDRJ_ARENA_PRO_PRODUCT_ID === absint( $product_id ) ) {
 		wc_add_notice( __( 'ExamPrep: Arena Pro is coming soon and is not available for purchase yet.', 'missionmed' ), 'error' );
@@ -177,6 +214,115 @@ function mmdrj_validate_restricted_add_to_cart( $passed, $product_id ) {
 	return $passed;
 }
 add_filter( 'woocommerce_add_to_cart_validation', 'mmdrj_validate_restricted_add_to_cart', 20, 2 );
+
+/**
+ * Present the reduced-price Daily Rounds option only inside the Live Drills
+ * purchase path. It is deliberately unchecked and remains server-enforced.
+ */
+function mmdrj_render_live_group_addon_option() {
+	if ( ! function_exists( 'is_product' ) || ! is_product() || MMDRJ_TEAM_PRODUCT_ID !== get_queried_object_id() ) {
+		return;
+	}
+	?>
+	<div class="mmdrj-live-addon" data-mmdrj-live-addon>
+		<label for="mmdrj-add-daily-rounds">
+			<input type="checkbox" id="mmdrj-add-daily-rounds" name="mmdrj_add_daily_rounds" value="yes">
+			<span><strong>Add Daily Rounds for $19.99/month</strong><small>The same on-demand Daily Rounds access normally $99.99/month. Optional, billed separately, and available only while your Live Drills enrollment remains eligible.</small></span>
+		</label>
+	</div>
+	<?php
+}
+add_action( 'woocommerce_before_add_to_cart_button', 'mmdrj_render_live_group_addon_option', 25 );
+
+/**
+ * The current premium Live product layout uses curated CTA links instead of
+ * WooCommerce's native add-to-cart form. Bridge the same explicit bundle
+ * choice into that layout without preselecting it or weakening server checks.
+ */
+function mmdrj_render_live_group_curated_addon_option() {
+	if ( ! function_exists( 'is_product' ) || ! is_product() || MMDRJ_TEAM_PRODUCT_ID !== get_queried_object_id() ) {
+		return;
+	}
+	?>
+	<style id="mmdrj-curated-addon-style">
+		.mmdrj-curated-addon{margin:18px 0 4px;padding:16px;border:1px solid rgba(225,179,79,.48);border-radius:12px;background:rgba(225,179,79,.08);color:#f5f8fb}.mmdrj-curated-addon label{display:flex;gap:12px;align-items:flex-start;cursor:pointer}.mmdrj-curated-addon input{width:19px;height:19px;margin-top:2px;accent-color:#e1b34f}.mmdrj-curated-addon strong{display:block;color:#e7bd5a;font-size:15px}.mmdrj-curated-addon small{display:block;margin-top:5px;color:#c6d2df;line-height:1.45}.mmdrj-trial-callout{margin:13px 0;padding:12px 14px;border-left:3px solid #55e4ce;background:rgba(85,228,206,.08);color:#dce8f1;font-size:13px;line-height:1.5}.mmdrj-trial-callout strong{color:#55e4ce}
+	</style>
+	<script id="mmdrj-curated-addon-script">
+	(function(){
+		function mount(){
+			if(document.querySelector('.mmdrj-curated-addon'))return true;
+			var tier=document.querySelector('#mm-ep-active-tier');
+			if(!tier)return false;
+			var block=document.createElement('div');
+			block.className='mmdrj-curated-addon';
+			block.innerHTML='<div class="mmdrj-trial-callout"><strong>FIRST WEEK FREE</strong><br>Card required. Pay $0 today; your first $300 monthly charge is in 7 days unless you cancel before the trial ends.</div><label><input type="checkbox" data-mmdrj-curated-addon value="yes"><span><strong>Add Daily Rounds for $19.99/month</strong><small>Optional and never preselected. Daily Rounds is billed separately and remains available at this student rate only while your Live Drills enrollment is eligible.</small></span></label>';
+			tier.insertAdjacentElement('afterend',block);
+			var checkbox=block.querySelector('input');
+			var links=Array.from(document.querySelectorAll('a[href*="add-to-cart=<?php echo absint( MMDRJ_TEAM_PRODUCT_ID ); ?>"]'));
+			function sync(){links.forEach(function(link){var url=new URL(link.href,window.location.href);if(checkbox.checked){url.searchParams.set('mmdrj_add_daily_rounds','yes');}else{url.searchParams.delete('mmdrj_add_daily_rounds');}link.href=url.toString();});}
+			checkbox.addEventListener('change',sync);sync();
+			links.forEach(function(link){if(/ADD TO CART/i.test(link.textContent)){link.textContent='START FREE WEEK →';}});
+			return true;
+		}
+		var attempts=0;function start(){if(mount())return;if(++attempts<40)setTimeout(start,50);}if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',start);}else{start();}
+	})();
+	</script>
+	<?php
+}
+add_action( 'wp_footer', 'mmdrj_render_live_group_curated_addon_option', 99998 );
+
+function mmdrj_add_selected_live_group_addon( $cart_item_key, $product_id ) {
+	if ( MMDRJ_TEAM_PRODUCT_ID !== absint( $product_id ) || empty( $_REQUEST['mmdrj_add_daily_rounds'] ) ) {
+		return;
+	}
+	$addon_id = absint( get_option( MMDRJ_ADDON_PRODUCT_OPTION, 0 ) );
+	if ( ! $addon_id || mmdrj_cart_contains_product( $addon_id ) ) {
+		return;
+	}
+	$GLOBALS['mmdrj_live_bundle_add_in_progress'] = true;
+	try {
+		WC()->cart->add_to_cart( $addon_id, 1, 0, array(), array( 'mmdrj_live_bundle' => 'yes' ) );
+	} finally {
+		unset( $GLOBALS['mmdrj_live_bundle_add_in_progress'] );
+	}
+}
+add_action( 'woocommerce_add_to_cart', 'mmdrj_add_selected_live_group_addon', 30, 2 );
+
+function mmdrj_remove_orphaned_addon_from_cart() {
+	if ( ! function_exists( 'WC' ) || ! WC()->cart || mmdrj_cart_contains_product( MMDRJ_TEAM_PRODUCT_ID ) || mmdrj_user_has_active_live_group( get_current_user_id() ) ) {
+		return;
+	}
+	$addon_id = absint( get_option( MMDRJ_ADDON_PRODUCT_OPTION, 0 ) );
+	foreach ( WC()->cart->get_cart() as $key => $item ) {
+		if ( $addon_id === absint( $item['product_id'] ?? 0 ) ) {
+			WC()->cart->remove_cart_item( $key );
+		}
+	}
+}
+add_action( 'woocommerce_cart_item_removed', 'mmdrj_remove_orphaned_addon_from_cart', 30 );
+
+function mmdrj_validate_addon_cart_relationship() {
+	$addon_id = absint( get_option( MMDRJ_ADDON_PRODUCT_OPTION, 0 ) );
+	if ( ! $addon_id || ! mmdrj_cart_contains_product( $addon_id ) ) {
+		return;
+	}
+	if ( ! mmdrj_cart_contains_product( MMDRJ_TEAM_PRODUCT_ID ) && ! mmdrj_user_has_active_live_group( get_current_user_id() ) ) {
+		wc_add_notice( __( 'The $19.99 Daily Rounds add-on requires an active Live Drills enrollment in this cart or on your account.', 'missionmed' ), 'error' );
+	}
+}
+add_action( 'woocommerce_check_cart_items', 'mmdrj_validate_addon_cart_relationship', 35 );
+
+function mmdrj_addon_cart_item_data( $data, $cart_item ) {
+	$addon_id = absint( get_option( MMDRJ_ADDON_PRODUCT_OPTION, 0 ) );
+	if ( $addon_id && $addon_id === absint( $cart_item['product_id'] ?? 0 ) ) {
+		$data[] = array(
+			'key'   => __( 'Eligibility', 'missionmed' ),
+			'value' => __( 'Live Drills student rate', 'missionmed' ),
+		);
+	}
+	return $data;
+}
+add_filter( 'woocommerce_get_item_data', 'mmdrj_addon_cart_item_data', 20, 2 );
 
 /**
  * Keep the ExamPrep buying journey explicit: a successful Add to Cart action
@@ -313,6 +459,35 @@ foreach ( array( 'active', 'pending-cancel', 'cancelled', 'expired', 'on-hold' )
 }
 add_action( 'woocommerce_subscription_renewal_payment_complete', 'mmdrj_reconcile_entitlements_from_event', 30 );
 add_action( 'woocommerce_subscription_renewal_payment_failed', 'mmdrj_reconcile_entitlements_from_event', 30 );
+
+/**
+ * A separately-created add-on subscription must not outlive Live Drills
+ * eligibility. Pending-cancel remains eligible until its paid term ends.
+ */
+function mmdrj_cancel_orphaned_addon_subscriptions( $subscription ) {
+	if ( ! $subscription instanceof WC_Subscription || ! mmdrj_order_contains_products( $subscription, array( MMDRJ_TEAM_PRODUCT_ID ) ) ) {
+		return;
+	}
+	$user_id = absint( $subscription->get_user_id() );
+	if ( ! $user_id || mmdrj_user_has_active_live_group( $user_id ) ) {
+		return;
+	}
+	$addon_id = absint( get_option( MMDRJ_ADDON_PRODUCT_OPTION, 0 ) );
+	if ( ! $addon_id ) {
+		return;
+	}
+	foreach ( (array) wcs_get_users_subscriptions( $user_id ) as $candidate ) {
+		if ( ! $candidate instanceof WC_Subscription
+			|| ! in_array( $candidate->get_status(), array( 'active', 'pending-cancel', 'on-hold' ), true )
+			|| ! mmdrj_order_contains_products( $candidate, array( $addon_id ) ) ) {
+			continue;
+		}
+		$candidate->update_status( 'cancelled', 'Daily Rounds student-rate add-on ended because Live Drills eligibility ended.', true );
+	}
+}
+foreach ( array( 'cancelled', 'expired', 'on-hold' ) as $status ) {
+	add_action( 'woocommerce_subscription_status_' . $status, 'mmdrj_cancel_orphaned_addon_subscriptions', 45 );
+}
 
 function mmdrj_exclude_authoritative_products_from_legacy_bridge( $product_ids ) {
 	return array_values( array_diff( array_map( 'absint', (array) $product_ids ), array_merge( mmdrj_daily_rounds_product_ids(), array( MMDRJ_ARENA_PRO_PRODUCT_ID ) ) ) );
@@ -567,6 +742,25 @@ function mmdrj_public_styles() {
 	echo '<style id="mmdrj-5404e-pricing-css">.mmdrj-5404e-pricing{max-width:1180px;margin:56px auto;padding:40px 24px;color:#132434}.mmdrj-pricing-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:24px 0}.mmdrj-pricing-grid article{padding:22px;border:1px solid #d9d1c1;border-radius:16px;background:#fff}.mmdrj-pricing-grid a,.mmdrj-disabled-cta{display:inline-block;margin-top:8px;font-weight:700}.mmdrj-pricing-grid a{color:#8b4c16}.mmdrj-locked-card{background:#f5f5f3!important}.mmdrj-lock{font-size:1.35rem}.mmdrj-disabled-cta{padding:10px 14px;border-radius:8px;background:#d8d8d4;color:#555;cursor:not-allowed}.mmdrj-service-links{display:flex;flex-wrap:wrap;gap:16px;margin-top:22px}.mmdrj-service-links a{color:#8b4c16;font-weight:700}@media(max-width:760px){.mmdrj-pricing-grid{grid-template-columns:1fr}.mmdrj-5404e-pricing{padding:28px 18px}.mm-compare-table{display:block!important;width:100%!important;max-width:100%!important;overflow-x:auto!important;-webkit-overflow-scrolling:touch}}</style>';
 }
 add_action( 'wp_head', 'mmdrj_public_styles', 40 );
+
+function mmdrj_product_journey_styles() {
+	if ( ! function_exists( 'is_product' ) || ! is_product() || ! in_array( get_queried_object_id(), mmdrj_product_ids(), true ) ) {
+		return;
+	}
+	?>
+	<style id="mmdrj-product-journey-css">
+		#mm-mobile-notice { display:none!important; }
+		.single-product .wc-memberships-member-discount-message { display:none!important; }
+		.mmdrj-live-addon { margin:18px 0 16px; padding:18px; border:1px solid rgba(196,155,62,.62); border-radius:14px; background:linear-gradient(145deg,#fdfaf2,#fff); }
+		.mmdrj-live-addon label { display:flex; gap:13px; align-items:flex-start; margin:0; cursor:pointer; }
+		.mmdrj-live-addon input { width:20px; height:20px; margin:2px 0 0; accent-color:#c59b3e; flex:0 0 auto; }
+		.mmdrj-live-addon span { display:grid; gap:5px; color:#102742; }
+		.mmdrj-live-addon strong { font-size:16px; }
+		.mmdrj-live-addon small { color:#506074; line-height:1.45; }
+	</style>
+	<?php
+}
+add_action( 'wp_head', 'mmdrj_product_journey_styles', 45 );
 
 function mmdrj_render_arena_pro_locked_notice() {
 	if ( function_exists( 'is_product' ) && is_product() && MMDRJ_ARENA_PRO_PRODUCT_ID === get_queried_object_id() ) {
