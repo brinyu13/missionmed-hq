@@ -70,3 +70,34 @@ export function buildHomeViewModel({ identity = null, sessions = [], mentorPrior
     mentorPriority: priorities[0]?.text || 'No mentor priority has been set yet.',
   });
 }
+
+function normalizedConversationTurn(turn, { canonical }) {
+  const text = canonical ? turn?.transcript?.text : turn?.text;
+  if (typeof text !== 'string' || !text.trim()) return null;
+  const speaker = ['student', 'applicant', 'user'].includes(String(turn?.speaker || '').toLowerCase())
+    ? 'student'
+    : 'interviewer';
+  const startMs = Number(turn?.startMs);
+  const endMs = Number(turn?.endMs);
+  return Object.freeze({
+    speaker,
+    text: text.trim(),
+    startMs: Number.isFinite(startMs) ? startMs : 0,
+    endMs: Number.isFinite(endMs) ? endMs : (Number.isFinite(startMs) ? startMs : 0),
+    canonical,
+  });
+}
+
+export function persistedConversationTurns({ sessionDetail = null, envelope = null } = {}) {
+  const canonicalTurns = Array.isArray(sessionDetail?.spine?.turns)
+    ? sessionDetail.spine.turns.map((turn) => normalizedConversationTurn(turn, { canonical: true })).filter(Boolean)
+    : [];
+  if (canonicalTurns.length) return Object.freeze(canonicalTurns);
+
+  const liveTurns = sessionDetail?.results?.payload?.liveConversation?.turns
+    || envelope?.liveConversation?.turns
+    || [];
+  return Object.freeze(Array.isArray(liveTurns)
+    ? liveTurns.map((turn) => normalizedConversationTurn(turn, { canonical: false })).filter(Boolean)
+    : []);
+}

@@ -36,7 +36,12 @@ import {
   selectCorrection,
   statusRail,
 } from './capability-adapter.mjs';
-import { buildContextSources, buildHomeViewModel, buildReadinessRows } from './presentation-view-model.mjs';
+import {
+  buildContextSources,
+  buildHomeViewModel,
+  buildReadinessRows,
+  persistedConversationTurns,
+} from './presentation-view-model.mjs';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -1911,12 +1916,13 @@ async function finishRep() {
     state.localPlaybackUrl = outcome.recording?.blob ? URL.createObjectURL(outcome.recording.blob) : null;
     const playback = $('#playback');
     if (playback && state.localPlaybackUrl) playback.src = state.localPlaybackUrl;
-    const save = $('#cockpit-save');
-    if (save) {
-      save.dataset.state = outcome.persisted ? 'saved' : 'error';
-      save.textContent = outcome.persisted
+    const saveState = outcome.persisted ? 'saved' : 'error';
+    const saveText = outcome.persisted
         ? 'Saved privately to your authenticated Answer History.'
         : 'Rep complete, but no durable account record was created.';
+    for (const save of [$('#cockpit-save'), $('#simulation-save')].filter(Boolean)) {
+      save.dataset.state = saveState;
+      save.textContent = saveText;
     }
     renderPostAnswer(outcome.analytics);
     if (outcome.persisted) void renderVault();
@@ -2823,9 +2829,11 @@ function renderFullAnalyticsReport(analytics = null) {
     ? ['yawDeg', 'pitchDeg', 'rollDeg'].filter((key) => Number.isFinite(Number(head[key])))
       .map((key) => `${key.replace('Deg', '')} ${Number(head[key]).toFixed(1)}°`).join(' · ')
     : null;
-  const transcriptTurns = Array.isArray(state.lastSaved?.sessionDetail?.spine?.turns)
-    ? state.lastSaved.sessionDetail.spine.turns.filter((turn) => turn?.transcript?.text).length
-    : 0;
+  const conversationTurns = persistedConversationTurns({
+    sessionDetail: state.lastSaved?.sessionDetail,
+    envelope: state.lastSaved?.envelope,
+  });
+  const canonicalTranscript = conversationTurns.some((turn) => turn.canonical);
   const recordingState = state.lastSaved?.recording?.recording?.status
     || state.lastSaved?.sessionDetail?.recording?.status
     || (state.lastSaved?.recording?.blob ? 'captured locally' : null);
@@ -2842,7 +2850,9 @@ function renderFullAnalyticsReport(analytics = null) {
     ['Framing', framing === null && cameraFacing === null
       ? unavailable
       : [framing === null ? null : `${Math.round(framing * 100)}% centered frames`, cameraFacing === null ? null : `${Math.round(cameraFacing * 100)}% camera-facing proxy`].filter(Boolean).join(' · ')],
-    ['Transcript', transcriptTurns ? `${transcriptTurns} persisted transcript turn${transcriptTurns === 1 ? '' : 's'}` : 'Unavailable until transcript + context processing completes'],
+    ['Transcript', conversationTurns.length
+      ? `${conversationTurns.length} persisted ${canonicalTranscript ? 'transcript' : 'live conversation'} turn${conversationTurns.length === 1 ? '' : 's'}`
+      : 'Unavailable until transcript + context processing completes'],
     ['Recording', recordingState ? `Private recording ${recordingState}` : 'Unavailable — no persisted recording evidence'],
   ];
   for (const [label, detail] of rows) {
@@ -3003,22 +3013,22 @@ function renderContextEvidence(result) {
 function renderFilmRoomSpine(session) {
   const host = $('#filmroom-spine');
   if (!host) return;
-  const allTurns = Array.isArray(session?.spine?.turns)
-    ? session.spine.turns.filter((turn) => turn.transcript?.text)
-    : [];
-  const hasCanonicalStudentTurns = allTurns.some((turn) => turn.speaker === 'student' && turn.transcript?.canonical_ref);
-  const turns = allTurns.filter((turn) => turn.speaker !== 'student'
-    || !hasCanonicalStudentTurns
-    || Boolean(turn.transcript?.canonical_ref));
+  const turns = persistedConversationTurns({ sessionDetail: session });
+  const canonicalTranscript = turns.some((turn) => turn.canonical);
   const evidence = Array.isArray(session?.spine?.evidence) ? session.spine.evidence : [];
   host.replaceChildren();
   if (!turns.length) {
     const empty = document.createElement('div');
     empty.className = 'empty-state';
-    empty.innerHTML = '<strong>No persisted transcript yet</strong>Generate transcript + context after this saved answer.';
+    empty.innerHTML = '<strong>No persisted transcript yet</strong>This recording has no saved conversation turns.';
     host.append(empty);
     return;
   }
+  const label = document.createElement('div');
+  label.className = 'microcap';
+  label.textContent = canonicalTranscript
+    ? 'Canonical transcript'
+    : 'Live interview transcript · saved privately with this answer';
   const timeline = document.createElement('div');
   timeline.className = 'long-rows';
   for (const turn of turns) {
@@ -3028,7 +3038,7 @@ function renderFilmRoomSpine(session) {
     const at = document.createElement('strong');
     at.textContent = `${(Number(turn.startMs || 0) / 1000).toFixed(1)}s`;
     const text = document.createElement('span');
-    text.textContent = `${turn.speaker === 'student' ? 'You' : 'Interviewer'} · ${turn.transcript.text}`;
+    text.textContent = `${turn.speaker === 'student' ? 'You' : 'Interviewer'} · ${turn.text}`;
     row.append(at, text);
     row.addEventListener('click', () => {
       const video = $('#playback');
@@ -3038,7 +3048,7 @@ function renderFilmRoomSpine(session) {
     });
     timeline.append(row);
   }
-  host.append(timeline);
+  host.append(label, timeline);
   if (evidence.length) {
     const label = document.createElement('div');
     label.className = 'microcap';
