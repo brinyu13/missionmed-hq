@@ -22,7 +22,7 @@ test("sanitized base contains no plaintext developer unlock credential", async (
 
 test("full build has one balanced marker pair per seam and embeds exact config", async () => {
   const result = await buildHtml({ buildId: "unit-test", sourceCommit: "test-sha" });
-  for (const seam of ["S1", "S2", "S3", "S4", "S5", "S5_BRIDGE", "S6", "S7"]) {
+  for (const seam of ["S1", "S2", "S3", "S4", "S5", "S5_BRIDGE", "S6", "S7", "S8"]) {
     assert.equal((result.html.match(new RegExp(`RLQ_DUAL:${seam} START`, "g")) || []).length, 1);
     assert.equal((result.html.match(new RegExp(`RLQ_DUAL:${seam} END`, "g")) || []).length, 1);
   }
@@ -38,6 +38,8 @@ test("full build has one balanced marker pair per seam and embeds exact config",
   assert.ok(result.html.includes('window.RLQ_DUAL.mode === "application"'));
   assert.ok(result.html.includes('skipped:"application-mode"'));
   assert.equal((result.html.match(/flushProgramNotesToUserProgramInterviews\(\{/g) || []).length, 1);
+  assert.ok(result.html.includes('window.SUPABASE_DEBUG'));
+  assert.ok(!result.html.includes('rlqSaveDebugEnabled = !!SUPABASE_DEBUG;'));
 });
 
 test("protected runtime wrapper fails closed outside WordPress and returns exact HTML inside it", () => {

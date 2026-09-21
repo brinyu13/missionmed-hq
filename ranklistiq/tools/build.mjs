@@ -149,6 +149,12 @@ export async function buildHtml({ zero = false, buildId = "test", sourceCommit =
     ].join("\n")).replaceAll("\n", "\n      "),
     "S7"
   );
+  html = replaceOne(
+    html,
+    "  }catch(_rlqDbgErr){\n    rlqSaveDebugEnabled = !!SUPABASE_DEBUG;\n  }",
+    "  }catch(_rlqDbgErr){\n    " + seam("S8", "rlqSaveDebugEnabled = !!(typeof window !== \"undefined\" && window.SUPABASE_DEBUG);").replaceAll("\n", "\n    ") + "\n  }",
+    "S8"
+  );
 
   return { html, basePath, baseSha256: sha256(base), configSha256: sha256(configText), stamp };
 }
