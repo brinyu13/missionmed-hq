@@ -10,6 +10,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class MMPS_Region {
 
 	const RULE = 'NFC+nbsp-to-space+collapse-whitespace+trim;sha256';
+	const PROGRAM_TOKEN = '*Your Program*';
 
 	public static function normalize( $text ) {
 		$text = (string) $text;
@@ -225,6 +226,33 @@ class MMPS_Region {
 			array_splice( $out, $region['paragraphIndex'], 0, array( $replacement ) );
 		}
 		return $out;
+	}
+
+	/** Founder-authorized deterministic substitution; never permits surrounding prose edits. */
+	public static function substitute_program_token( $paragraphs, $natural_name ) {
+		$natural_name = self::normalize( $natural_name );
+		if ( '' === $natural_name ) {
+			return new WP_Error( 'mmps_program_name_missing', 'A verified program name is required before the statement can be prepared.', array( 'status' => 409 ) );
+		}
+		$out = array_values( (array) $paragraphs );
+		$replacements = array();
+		foreach ( $out as $i => $paragraph ) {
+			$count = substr_count( (string) $paragraph, self::PROGRAM_TOKEN );
+			if ( $count ) {
+				$out[ $i ] = str_replace( self::PROGRAM_TOKEN, $natural_name, (string) $paragraph );
+				$replacements[] = array( 'paragraphIndex' => $i, 'count' => $count, 'token' => self::PROGRAM_TOKEN, 'resolvedName' => $natural_name );
+			}
+		}
+		return array( 'paragraphs' => $out, 'replacements' => $replacements );
+	}
+
+	/** Verify the only protected change is exact token substitution. */
+	public static function verify_protected_with_program_token( $root_paragraphs, $output_paragraphs, $region, $natural_name ) {
+		$expected = self::substitute_program_token( $root_paragraphs, $natural_name );
+		if ( is_wp_error( $expected ) ) { return $expected; }
+		$token_region = $region;
+		$token_region['paragraphHashes'] = array_map( array( __CLASS__, 'hash' ), $expected['paragraphs'] );
+		return self::verify_protected( $output_paragraphs, $token_region );
 	}
 
 	/**

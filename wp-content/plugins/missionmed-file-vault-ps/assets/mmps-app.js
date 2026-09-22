@@ -23,6 +23,16 @@
 		{ key: 'mission', title: 'Community and mission', hint: 'What the program stands for.', options: ['Community outreach', 'Health equity', 'Global health', 'Free clinics', 'Mentorship and wellness'] },
 		{ key: 'other', title: 'Other differentiators', hint: 'Anything else RISE might hold evidence for.', options: [] }
 	];
+	var CORE_FACTORS = [
+		{ key: 'clinical_training', title: 'Clinical Training & Experience', hint: 'The clinical settings, curriculum and hands-on growth you value.' },
+		{ key: 'fellowship_career', title: 'Fellowship / Career Goals', hint: 'Only goals you genuinely named; PSV never invents one.' },
+		{ key: 'mentorship_teaching', title: 'Mentorship & Teaching', hint: 'How you want to learn, teach and receive guidance.' },
+		{ key: 'research_academics', title: 'Research & Academics', hint: 'Scholarly work that fits your actual interests.' },
+		{ key: 'location_community', title: 'Location & Community', hint: 'Places or communities that matter for a real reason.' },
+		{ key: 'culture_environment', title: 'Program Culture / Size / Environment', hint: 'The kind of team and training environment where you thrive.' },
+		{ key: 'patient_population_mission', title: 'Patient Population / Mission', hint: 'The people and mission you want your training to serve.' },
+		{ key: 'lifestyle_practical', title: 'Lifestyle / Schedule / Practical Fit', hint: 'Schedule and practical features that truly affect fit.' }
+	];
 	var STATES = { AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California', CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', DC: 'District of Columbia', FL: 'Florida', GA: 'Georgia', HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa', KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland', MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri', MT: 'Montana', NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey', NM: 'New Mexico', NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio', OK: 'Oklahoma', OR: 'Oregon', PA: 'Pennsylvania', PR: 'Puerto Rico', RI: 'Rhode Island', SC: 'South Carolina', SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont', VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming' };
 	var STRATEGY = { TRAINING_ENVIRONMENT: 'Training environment', STUDENT_GOAL_FORWARD: 'Your goals first', RESEARCH_FELLOWSHIP: 'Research or fellowship', LOCATION_PROGRAM_TYPE: 'Location and program setting', BALANCED_QUIET_SPECIFIC: 'Balanced and quietly specific', TRAINING_ENVIRONMENT_FIRST: 'Training environment first', BRIDGE_FROM_EXPERIENCE: 'Bridge from experience', GOAL_FORWARD: 'Goal forward', QUIET_SPECIFIC: 'Quiet and specific', PLACE_AND_PEOPLE: 'Place and people' };
 	var MAX_PROGRAMS = 5;
@@ -35,7 +45,7 @@
 		programs: {}, selected: [], tiers: {}, runs: {}, current: '', showOriginal: false,
 		prompt: {}, doc: null, selectedDocs: {},
 		batch: { index: null, current: null, running: false, mode: 'FULL_PARAGRAPH', selected: {} },
-		boost: {}, admin: { tab: 'home', loaded: false, prompts: null, research: [], importText: '', qaNotes: {} }, busy: {}, toast: null
+		boost: {}, myEras: { step: 1, plan: null, confirmed: null, signedIn: false, checked: false }, admin: { tab: 'home', loaded: false, prompts: null, research: [], importText: '', qaNotes: {} }, busy: {}, toast: null
 	};
 
 	/* ---------- utilities ---------- */
@@ -106,13 +116,14 @@
 		return '<span class="ing">' + items.map(function (i) { return has[i[0]] ? '<b>✓ ' + i[1] + '</b>' : '<i>– ' + i[1] + '</i>'; }).join(' ') + '</span>';
 	}
 	function blankPrefs() {
-		var p = { categories: {}, location: { on: false, states: [], cities: [], reason: '', mayMention: false }, otherText: '' };
+		var p = { schema: 'missionmed.psv.preferences.v2', priorityProfile: [], categories: {}, location: { on: false, states: [], cities: [], reason: '', mayMention: false }, otherText: '' };
 		CATS.forEach(function (c) { p.categories[c.key] = { on: false, terms: [], note: '' }; });
 		return p;
 	}
 	function loadPrefs(root) {
 		var p = blankPrefs(), saved = root && root.prefs && root.prefs.categories ? root.prefs : null;
 		if (saved) {
+			p.priorityProfile = (saved.priorityProfile || []).map(function (x) { return { key: x.key, label: x.label || '', details: (x.details || []).slice(), note: x.note || '' }; }).filter(function (x) { return CORE_FACTORS.some(function (f) { return f.key === x.key; }); });
 			CATS.forEach(function (c) { if (saved.categories[c.key]) { p.categories[c.key] = { on: !!saved.categories[c.key].on, terms: (saved.categories[c.key].terms || []).slice(), note: saved.categories[c.key].note || '' }; } });
 			if (saved.location) { p.location = { on: !!saved.location.on, states: (saved.location.states || []).slice(), cities: (saved.location.cities || []).slice(), reason: saved.location.reason || '', mayMention: !!saved.location.mayMention }; }
 			p.otherText = saved.otherText || '';
@@ -352,6 +363,11 @@
 		busy('admin-action', true); api('POST', '/admin/research/' + uuid + '/rise-status', { status: status, reference: '' }).then(function () { S.admin.loaded = false; busy('admin-action', false); loadAdmin(); toast('RISE-owner state recorded.', 'ok'); }).catch(function (e) { busy('admin-action', false); fail(e); });
 	}
 	function openDoc(uuid) { api('GET', '/library/' + uuid).then(function (data) { S.doc = data.document; go('doc'); }).catch(fail); }
+	function editLibraryDocument(doc) {
+		var runId=doc && doc.metadata && doc.metadata.runId;
+		if(!runId){toast('This older statement cannot reopen its original writing review. Regenerate it to edit safely.','err');return;}
+		api('GET','/runs/'+runId).then(function(run){adaptLegacyReview(run);if(doc.metadata.candidateId){run.selectedCandidateId=doc.metadata.candidateId;}S.runs[doc.programSpecialtyId]=run;S.current=doc.programSpecialtyId;go('preview');}).catch(fail);
+	}
 	function setDocStatus(uuid, status) { api('POST', '/library/' + uuid + '/status', { status: status }).then(function (data) { if (S.doc && S.doc.docUuid === uuid) { S.doc = Object.assign(S.doc, { status: data.document.status }); } refreshBoot(); }).catch(fail); }
 	function copyText(text) {
 		if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(function () { toast('Copied.', 'ok'); }, function () { toast('Select the text and copy it manually.', 'err'); }); } else { toast('Select the text and copy it manually.', 'err'); }
@@ -449,6 +465,8 @@
 		busy('eras-manifest', true);
 		fetch(cfg.restUrl.replace(/\/$/, '') + '/library/eras-manifest', { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'X-WP-Nonce': cfg.nonce, 'Content-Type': 'application/json' }, body: JSON.stringify({}) }).then(function (res) { if (!res.ok) { return res.json().then(function (d) { throw new Error(d.message || 'Manifest download failed.'); }); } return res.blob().then(function (blob) { return {blob:blob, disposition:res.headers.get('content-disposition') || ''}; }); }).then(function (result) { var match=result.disposition.match(/filename="([^"]+)"/), a=document.createElement('a'); a.href=URL.createObjectURL(result.blob); a.download=match?match[1]:'MissionMed_ERAS_Assignment_Manifest.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){URL.revokeObjectURL(a.href);},1000); busy('eras-manifest', false); }).catch(function(e){busy('eras-manifest', false); fail(e);});
 	}
+	function loadMyErasPlan() { if(S.myEras.plan || S.busy['eras-plan']){return;} busy('eras-plan',true); api('GET','/library/eras-plan').then(function(data){S.myEras.plan=data;busy('eras-plan',false);render();}).catch(function(e){busy('eras-plan',false);fail(e);}); }
+	function confirmMyErasPlan() { var p=S.myEras.plan;if(!p){return;}busy('eras-confirm',true);api('POST','/library/eras-plan/confirm',{planSha256:p.planSha256}).then(function(data){S.myEras.confirmed=data;S.myEras.step=6;busy('eras-confirm',false);render();}).catch(function(e){busy('eras-confirm',false);if(e.status===409){S.myEras.plan=null;loadMyErasPlan();}fail(e);}); }
 
 	/* ---------- views ---------- */
 	function header() {
@@ -467,7 +485,7 @@
 		STEPS.forEach(function (s) {
 			html += '<button class="stepBtn' + (S.view === s.key ? ' on' : '') + (stepDone(s.key) ? ' done' : '') + '" data-act="go" data-view="' + s.key + '"' + (S.view === s.key ? ' aria-current="step"' : '') + (stepOpen(s.key) ? '' : ' disabled') + '><span class="stepNum">' + (stepDone(s.key) && S.view !== s.key ? '✓' : s.n) + '</span><span><span class="stepName">' + s.name + '</span><br><span class="stepHint">' + s.hint + '</span></span></button>';
 		});
-		html += '<div class="railSep"></div><button class="stepBtn' + (S.view === 'library' || S.view === 'doc' ? ' on' : '') + '" data-act="go" data-view="library"' + (S.view === 'library' || S.view === 'doc' ? ' aria-current="step"' : '') + '><span class="stepNum">▤</span><span><span class="stepName">PS library</span><br><span class="stepHint">Approved statements</span></span></button>';
+		html += '<div class="railSep"></div><button class="stepBtn' + (S.view === 'library' || S.view === 'doc' ? ' on' : '') + '" data-act="go" data-view="library"' + (S.view === 'library' || S.view === 'doc' ? ' aria-current="step"' : '') + '><span class="stepNum">▤</span><span><span class="stepName">PS library</span><br><span class="stepHint">Approved statements</span></span></button><button class="stepBtn' + (S.view === 'myeras' ? ' on' : '') + '" data-act="go" data-view="myeras"' + (S.view === 'myeras' ? ' aria-current="step"' : '') + '><span class="stepNum">✓</span><span><span class="stepName">Prepare MyERAS</span><br><span class="stepHint">Guided assignment plan</span></span></button>';
 		html += '<button class="stepBtn' + (S.view === 'batch' ? ' on' : '') + '" data-act="go" data-view="batch"' + (S.view === 'batch' ? ' aria-current="step"' : '') + '><span class="stepNum">⇉</span><span><span class="stepName">Batch workspace</span><br><span class="stepHint">50–100 programs · resumable</span></span></button>';
 		if (S.boot.admin) { html += '<div class="railSep"></div><button class="stepBtn' + (S.view === 'admin' ? ' on' : '') + '" data-act="go" data-view="admin"' + (S.view === 'admin' ? ' aria-current="step"' : '') + '><span class="stepNum">⚙</span><span><span class="stepName">PSV Admin</span><br><span class="stepHint">Prompt management</span></span></button>'; }
 		if (S.root) { html += '<div class="railSep"></div><div class="railNote"><strong>ROOT</strong><br>' + esc(S.root.specialtyLabel) + '<br>' + esc(S.root.rootLabel) + '</div>'; }
@@ -558,28 +576,13 @@
 	}
 
 	function viewPrefs() {
-		var p = S.prefs, html = head('Step 3', 'What matters to <em>you</em>', 'Answer once. These are matched against verified RISE facts for every program. A preference is never turned into a claim about a program.');
-		html += '<div class="notice mt"><strong>What the writer uses.</strong> Your complete ROOT is read for voice and context. Only the confirmed Program Answer region can be written. Preferences are used only when supported by verified RISE evidence.</div>';
-		html += '<div class="stack mt">';
-		CATS.forEach(function (c) {
-			var v = p.categories[c.key];
-			html += '<div class="panel"><div class="spread"><div><div class="h2">' + c.title + '</div><div class="small mid">' + c.hint + '</div></div><div class="seg"><button data-act="cat" data-key="' + c.key + '" data-on="0" class="' + (v.on ? '' : 'on') + '">Not a priority</button><button data-act="cat" data-key="' + c.key + '" data-on="1" class="' + (v.on ? 'on' : '') + '">Matters to me</button></div></div>';
-			if (v.on) {
-				if (c.options.length) { html += '<div class="chips mtS">' + c.options.map(function (o) { return '<button class="chip' + (v.terms.indexOf(o) !== -1 ? ' on' : '') + '" data-act="term" data-key="' + c.key + '" data-term="' + esc(o) + '">' + esc(o) + '</button>'; }).join('') + '</div>'; }
-				var extra = v.terms.filter(function (t) { return c.options.indexOf(t) === -1; });
-				if (extra.length) { html += '<div class="chips mtS">' + extra.map(function (t) { return '<button class="chip on" data-act="term" data-key="' + c.key + '" data-term="' + esc(t) + '">' + esc(t) + ' ×</button>'; }).join('') + '</div>'; }
-				html += '<div class="grid2 mtS"><label class="f">Add your own (press Enter)<input type="text" data-add="' + c.key + '" placeholder="e.g. advanced heart failure" maxlength="60"></label><label class="f">One line in your own words (optional)<input type="text" data-note="' + c.key + '" value="' + esc(v.note) + '" maxlength="200" placeholder="Why this matters to you"></label></div><p class="tiny dim mtS">Up to six per category.</p>';
-			}
-			html += '</div>';
-		});
-		var loc = p.location;
-		html += '<div class="panel"><div class="spread"><div><div class="h2">Geography and location</div><div class="small mid">Where you want to train. A personal reason is only ever used if you allow it, and only for programs in those places.</div></div><div class="seg"><button data-act="loc" data-on="0" class="' + (loc.on ? '' : 'on') + '">Open to anywhere</button><button data-act="loc" data-on="1" class="' + (loc.on ? 'on' : '') + '">I have a preference</button></div></div>';
-		if (loc.on) {
-			html += '<div class="grid2 mtS"><label class="f">Add a state<select data-state-add><option value="">Choose…</option>' + Object.keys(STATES).map(function (code) { return '<option value="' + code + '">' + STATES[code] + '</option>'; }).join('') + '</select></label><label class="f">Cities (comma separated, optional)<input type="text" data-cities value="' + esc(loc.cities.join(', ')) + '" placeholder="e.g. Rochester, Buffalo"></label></div>';
-			if (S.stateCodes.length) { html += '<div class="chips mtS">' + S.stateCodes.map(function (code) { return '<button class="chip on" data-act="state-remove" data-code="' + code + '">' + STATES[code] + ' ×</button>'; }).join('') + '</div>'; }
-			html += '<label class="f mtS">Your reason, in your own words (optional)<input type="text" data-loc-reason value="' + esc(loc.reason) + '" maxlength="200" placeholder="e.g. my clinical rotations were in western New York"></label><label class="check mtS"><input type="checkbox" data-loc-mention' + (loc.mayMention ? ' checked' : '') + '><span>The writer may mention this reason for programs in these places. <span class="dim">Leave unticked to keep it private; it will then only guide which programs feel like a fit.</span></span></label>';
-		}
-		html += '</div></div><div class="footBar"><button class="btn ghost" data-act="go" data-view="region">← Back</button><button class="btn primary" data-act="save-prefs"' + (S.busy.prefs ? ' disabled' : '') + '>' + (S.busy.prefs ? '<span class="spin"></span>Saving…' : 'Save preferences →') + '</button></div>';
+		var p = S.prefs, selected = p.priorityProfile || [], html = head('Step 3', 'What matters most to <em>you?</em>', 'Choose only what matters, then drag your choices into priority order. MissionMed keeps searching down the list until it finds strong verified reasons.');
+		html += '<div class="notice mt"><strong>Your order guides the search, not the answer.</strong> We skip weak or generic facts even when they match a high priority. If RISE cannot support three strong reasons, we say so.</div>';
+		html += '<section class="panel mt"><div class="eyebrow">Your priorities</div><div class="h2 mtS">Drag to rank</div><p class="small mid mtS">Put the most important factor first. Use the arrow buttons if you prefer the keyboard.</p><div class="priorityList mtS">';
+		if (!selected.length) { html += '<div class="friendlyEmpty">Choose a factor below to begin.</div>'; }
+		selected.forEach(function (v, i) { var f=CORE_FACTORS.filter(function(x){return x.key===v.key;})[0]; if(!f){return;} html += '<article class="priorityCard" draggable="true" data-priority-key="'+esc(v.key)+'"><span class="dragHandle" aria-hidden="true">⋮⋮</span><span class="priorityNumber">'+(i+1)+'</span><div class="priorityBody"><strong>'+esc(f.title)+'</strong><span>'+esc(f.hint)+'</span><details><summary>Optional details</summary><label class="f mtS">What specifically matters? <input type="text" data-priority-details="'+esc(v.key)+'" value="'+esc((v.details||[]).join(', '))+'" maxlength="240" placeholder="A few words, separated by commas"></label><label class="f mtS">Why does this matter to you? <input type="text" data-priority-note="'+esc(v.key)+'" value="'+esc(v.note||'')+'" maxlength="200" placeholder="Optional"></label></details></div><div class="priorityActions"><button class="btn sm" data-act="priority-up" data-key="'+esc(v.key)+'" aria-label="Move '+esc(f.title)+' up"'+(i===0?' disabled':'')+'>↑</button><button class="btn sm" data-act="priority-down" data-key="'+esc(v.key)+'" aria-label="Move '+esc(f.title)+' down"'+(i===selected.length-1?' disabled':'')+'>↓</button><button class="btn sm ghost" data-act="priority-remove" data-key="'+esc(v.key)+'">Remove</button></div></article>'; });
+		html += '</div></section><section class="mt"><div class="eyebrow">Choose what matters</div><div class="coreGrid mtS">'+CORE_FACTORS.filter(function(f){return !selected.some(function(v){return v.key===f.key;});}).map(function(f){return '<button class="choice" data-act="priority-add" data-key="'+esc(f.key)+'"><span class="choiceTitle">＋ '+esc(f.title)+'</span><span class="choiceBody">'+esc(f.hint)+'</span></button>';}).join('')+'</div></section>';
+		html += '<div class="footBar"><button class="btn ghost" data-act="go" data-view="region">← Back</button><button class="btn primary" data-act="save-prefs"' + (S.busy.prefs || !selected.length ? ' disabled' : '') + '>' + (S.busy.prefs ? '<span class="spin"></span>Saving…' : 'Save my priorities →') + '</button></div>';
 		return html;
 	}
 
@@ -671,7 +674,7 @@
 	}
 	function editStatus(run, c) {
 		var e = effectiveOption(run, c);
-		return e.overlay.saving ? 'Saving edits…' : e.overlay.dirty ? 'Unsaved edits · Your edits need checking' : e.changed ? 'Your edits · Saved privately · Needs grounding review' : c.isRecommended ? 'Recommended' : c.canApprove ? 'Alternative' : 'Needs review';
+		return e.overlay.saving ? 'Checking…' : e.overlay.dirty ? 'Unsaved edits · Your edits need checking' : e.changed && e.canApprove ? 'Your edits · Checked and ready' : e.changed ? 'Your edits · Saved privately · Needs grounding review' : c.isRecommended ? 'Recommended' : c.canApprove ? 'Alternative' : 'Needs review';
 	}
 	function restrictedReview(run) { return false; }
 	function rememberEditor(run) {
@@ -709,12 +712,24 @@
 			throw err;
 		});
 	}
+	function revalidateReviewEdit(run, c) {
+		var rs=reviewState(run), o=editOverlay(run,c), h=rs.heads[c.candidateId];
+		if (!h || o.dirty || o.saving || !rs.capabilities || !rs.capabilities.canRevalidate) { return Promise.reject(new Error('Save this draft before checking it.')); }
+		var key=h.id, requestId=o.revalidateRetry && o.revalidateRetry.base===key ? o.revalidateRetry.id : crypto.randomUUID();
+		o.revalidateRetry={base:key,id:requestId}; o.saving=true; o.error=''; patchPreview(false);
+		return api('POST','/runs/'+run.runId+'/edits/revalidate',{candidateId:c.candidateId,baseRevisionId:key,requestId:requestId}).then(function(data){
+			if(!data.revision || data.revision.baseRevisionId!==key){throw new Error('Check acknowledgement did not match this draft.');}
+			rs.heads[c.candidateId]=data.revision; o.text=data.revision.text; o.saving=false; o.revalidateRetry=null;
+			o.error=data.revision.validation && data.revision.validation.canApprove ? 'Checks passed. This exact revision can now be approved.' : 'Checks found items to revise. Open Evidence & checks for details.';
+			patchPreview(false); return data;
+		}).catch(function(err){o.saving=false;o.error='Couldn’t finish the checks. Your saved draft is unchanged.';patchPreview(false);throw err;});
+	}
 	function reviewControls(run) {
 		var c = selectedOption(run), rs = reviewState(run), e = effectiveOption(run, c), allowed = e.canApprove && !run.saved && !S.busy.save && !restrictedReview(run) && rs.loaded && !!rs.capabilities.canApprove;
 		return '<div class="row"><button class="btn sm" data-act="compare-all">Compare all</button><button class="btn sm" data-act="edit-paragraph"' + (rs.capabilities && rs.capabilities.canEdit && !e.overlay.saving ? '' : ' disabled') + '>Edit this paragraph</button><button class="btn sm ghost" data-act="evidence">Evidence & checks</button></div>' +
-			'<p class="small mid mtS">' + (e.changed ? 'Edited text has no inherited verification. Approval requires exact-revision grounding checks.' : '<span class="seg-fact">Gold</span> = verified program fact · <span class="seg-link">dotted</span> = applicant context') + '</p>' +
+			'<p class="small mid mtS">' + (e.changed ? (e.canApprove ? 'This exact edited revision passed fresh grounding, transition and integrity checks.' : 'Edited text has no inherited verification. Approval requires exact-revision grounding checks.') : '<span class="seg-fact">Gold</span> = verified program fact · <span class="seg-link">dotted</span> = applicant context') + '</p>' +
 			(rs.loaded && !rs.capabilities.canEdit ? '<p class="small mid">Editing is unavailable in this review.</p>' : '') +
-			'<div class="row mtS"><button class="btn sm" data-act="save" data-status="DRAFT"' + (allowed ? '' : ' disabled') + '>Save draft</button><button class="btn sm primary" data-act="save" data-status="APPROVED"' + (allowed ? '' : ' disabled') + '>Approve and save</button>' +
+			'<div class="row mtS">' + (e.changed && e.head && !e.overlay.dirty ? '<button class="btn sm" data-act="revalidate-edit"' + (e.overlay.saving || !rs.capabilities.canRevalidate ? ' disabled' : '') + '>Revalidate</button>' : '') + '<button class="btn sm" data-act="save" data-status="DRAFT"' + (allowed ? '' : ' disabled') + '>Save Draft</button><button class="btn sm primary" data-act="save" data-status="APPROVED"' + (allowed ? '' : ' disabled') + '>Approve and save</button>' +
 			(e.head || e.changed ? '<button class="btn sm ghost" data-act="restore-ai"' + (e.overlay.saving ? ' disabled' : '') + '>Restore AI version</button>' : '') + '</div>' +
 			(run.saved ? '<div class="savedState" role="status"><span class="tag ok">Saved · ' + esc(run.saved.status) + '</span><span class="small">This complete statement is in your PS library.</span></div>' : '') +
 			(run.similarityReview ? '<div class="notice gold mtS"><strong>Private similarity review</strong><p>' + esc(run.similarityReview.message) + ' No other student text or identity is available here. Quality comes first; keep the stronger writing after careful review.</p><button class="btn sm" data-act="save" data-status="' + esc(run.similarityReview.status) + '" data-ack="1"' + (allowed ? '' : ' disabled') + '>I reviewed it — keep this version</button></div>' : '');
@@ -722,7 +737,7 @@
 	function reviewEvidence(run) {
 		var c = selectedOption(run), e = effectiveOption(run, c), v = e.validation || c.validation || run.validation || {}, facts = (c.facts || []).slice().sort(function (a,b) { return Number(b.used) - Number(a.used); });
 		var flags = (v.blocking || v.flags || []).concat(v.advisory || []).map(function (f) { return '<div class="flag block"><strong>' + esc(f.code || '') + '</strong><span>' + esc(f.message || f) + '</span></div>'; }).join('');
-		return '<p class="small">' + (c.rootIntegrity && c.rootIntegrity.ok ? 'Other paragraphs unchanged' : 'Protected ROOT check failed') + '</p>' + (e.changed || e.overlay.dirty ? '<div class="flag block">Your edits need grounding review. These facts describe the original AI option, not the changed text.</div>' : flags || '<div class="flag good">Original candidate passed its server checks.</div>') +
+		return '<p class="small">' + (c.rootIntegrity && c.rootIntegrity.ok ? 'Other paragraphs unchanged' : 'Protected ROOT check failed') + '</p>' + (e.changed || e.overlay.dirty ? (e.canApprove ? '<div class="flag good">This exact edited revision passed fresh checks. Original AI annotations were not reused.</div>' + flags : '<div class="flag block">Your edits need grounding review. These facts describe the original AI option, not the changed text.</div>' + flags) : flags || '<div class="flag good">Original candidate passed its server checks.</div>') +
 			'<div class="mtS">' + facts.map(factCard).join('') + '</div><p class="tiny dim mtS">Evidence bundle ' + esc(run.bundleSha256 || '') + ' · ' + esc(S.boot.contract.schema) + '</p>';
 	}
 	function viewPreview() {
@@ -769,7 +784,7 @@
 			var editor = text.querySelector('textarea'); if (editor) { editor.setSelectionRange(e.overlay.caret || 0,e.overlay.caretEnd || e.overlay.caret || 0); editor.readOnly = e.overlay.saving; }
 		}
 		var editorNow = text.querySelector('textarea'); if (editorNow) { editorNow.readOnly = e.overlay.saving; }
-		region.querySelector('[data-review-edit-actions]').innerHTML = (e.overlay.editing ? '<div class="row mtS"><button class="btn sm" data-act="save-edits"' + (!e.overlay.dirty || e.overlay.saving ? ' disabled' : '') + '>Save edits</button><button class="btn sm ghost" data-act="discard-edits"' + (e.overlay.saving ? ' disabled' : '') + '>Discard changes</button></div>' : '') + '<p id="review-edit-message" class="small mid" role="status">' + esc(e.overlay.error || (e.head && !e.overlay.dirty && !e.overlay.saving ? (e.changed ? 'Edits saved · Not approved. Changed claims need grounding review before approval.' : 'AI version active.') : '')) + '</p>';
+		region.querySelector('[data-review-edit-actions]').innerHTML = (e.overlay.editing ? '<div class="row mtS"><button class="btn sm" data-act="save-edits"' + (!e.overlay.dirty || e.overlay.saving ? ' disabled' : '') + '>Save Draft</button><button class="btn sm ghost" data-act="discard-edits"' + (e.overlay.saving ? ' disabled' : '') + '>Discard</button></div>' : '') + '<p id="review-edit-message" class="small mid" role="status">' + esc(e.overlay.error || (e.head && !e.overlay.dirty && !e.overlay.saving ? (e.changed ? (e.canApprove ? 'Checks passed · Ready for approval.' : 'Draft saved · Not approved. Revalidate when ready.') : 'AI version active.') : '')) + '</p>';
 		region.querySelector('[data-review-actions]').innerHTML = reviewControls(run);
 		app.querySelectorAll('.reviewChoices .candidateChoice').forEach(function (n,j) {
 			var selected = run.candidates[j].candidateId === c.candidateId; n.classList.toggle('on',selected); n.setAttribute('aria-checked',String(selected)); n.tabIndex = selected ? 0 : -1;
@@ -853,14 +868,14 @@
 		if (S.boot.boost && S.boot.boost.enabled) {
 			if (!Object.prototype.hasOwnProperty.call(S.boost, id)) { S.boost[id] = false; setTimeout(function () { boostLoad(id); }, 0); }
 			var m = S.boost[id], providers = S.boot.boost.providers || [];
-			html += '<div class="notice vi mt"><strong>Deep Research Boost</strong> creates a program-only research mission. It never includes your Personal Statement or identity. Essential remains available now.</div>';
+			html += '<div class="deepInvite mt"><div><div class="eyebrow">A closer look at a priority program</div><h2>Want MissionMed to know this program much better?</h2><p>Deeper research can uncover faculty and leadership, resident backgrounds, curriculum and training details, fellowship opportunities, research, and distinctive features ordinary residency databases may miss.</p><p class="small">Your Personal Statement and identity are never included in the research mission. You can still use what MissionMed already knows.</p></div></div>';
 			if (m === false) { html += '<div class="panel mtS"><span class="spin"></span> Resuming research mission…</div>'; }
 			else if (!m) {
-				html += '<div class="providerGrid mtS">' + providers.map(function (p) { return '<button class="choice" data-act="boost-start" data-id="' + esc(id) + '" data-provider="' + esc(p.key) + '"><span class="choiceTitle">' + esc(p.displayName) + '</span><span class="choiceBody">' + esc(p.rationale) + ' ' + esc(p.subscriptionNote) + '</span></button>'; }).join('') + '</div>';
+				html += '<div class="providerGrid mtS">' + providers.map(function (p) { return '<button class="choice deepChoice" data-act="boost-start" data-id="' + esc(id) + '" data-provider="' + esc(p.key) + '"><span class="choiceTitle">Unlock Deep Research</span><span class="choiceBody">Use ' + esc(p.displayName) + ' for this program. ' + esc(p.rationale) + '</span></button>'; }).join('') + '</div>';
 			} else {
-				html += '<div class="panel mtS"><div class="spread"><div><div class="eyebrow">Research mission</div><div class="h2">' + esc(String(m.step || '').replace(/_/g, ' ')) + '</div><p class="small mid mtS">Your progress is saved. Return to this program at any time.</p></div><span class="tag cy">' + esc(m.status) + '</span></div><div class="row mtS"><a class="btn primary" href="' + esc(boostDownload(m.missionId)) + '">Download research mission</a><label class="btn"><input class="srOnly" type="file" accept=".md,text/markdown,text/plain" data-boost-file="' + esc(id) + '"' + (S.busy['boost-upload:' + id] ? ' disabled' : '') + '>Upload completed .md</label><button class="btn" data-act="boost-refresh" data-id="' + esc(id) + '">Check for Deep readiness</button></div></div>';
+				html += '<div class="panel mtS"><div class="spread"><div><div class="eyebrow">Your deeper program profile</div><div class="h2">' + esc(String(m.step || '').replace(/_/g, ' ')) + '</div><p class="small mid mtS">Your place is saved. Return to this program at any time.</p></div><span class="tag cy">' + esc(m.status) + '</span></div><div class="row mtS"><a class="btn primary" href="' + esc(boostDownload(m.missionId)) + '">Download Research Mission (.md)</a><label class="btn"><input class="srOnly" type="file" accept=".md,text/markdown,text/plain" data-boost-file="' + esc(id) + '"' + (S.busy['boost-upload:' + id] ? ' disabled' : '') + '>Upload completed research</label><button class="btn" data-act="boost-refresh" data-id="' + esc(id) + '">Check for Deep readiness</button></div></div>';
 			}
-			html += '<div class="row mt"><button class="btn primary" data-act="generate-essential" data-id="' + esc(id) + '">Write an Essential version instead</button></div>';
+			html += '<div class="row mt"><button class="btn" data-act="generate-essential" data-id="' + esc(id) + '">Use what we already know</button></div>';
 			return html + '</div>';
 		}
 		html += '<div class="row mt"><button class="btn primary" data-act="generate-essential" data-id="' + esc(id) + '"' + (S.busy['gen:' + id] ? ' disabled' : '') + '>' + (S.busy['gen:' + id] ? '<span class="spin"></span>Writing…' : 'Write an Essential version instead') + '</button><button class="btn" data-act="research-prompt" data-id="' + esc(id) + '"' + (S.busy.prompt ? ' disabled' : '') + '>Prepare deep research prompt</button><span class="tag cy">Research upload available</span></div>';
@@ -916,8 +931,9 @@
 	function viewLibrary() {
 		var docs = S.boot.library, selectedCount = Object.keys(S.selectedDocs).filter(function (id) { return S.selectedDocs[id]; }).length, html = head('PS library', 'Saved <em>complete</em> statements', 'Review and download your approved program-specific statements.');
 		if (!docs.length) { return html + '<div class="notice mt">Nothing saved yet. Approve a preview and it appears here.</div>'; }
+		html += '<section class="erasLaunch mt"><div><div class="eyebrow">When your statements are ready</div><h2>Prepare My Personal Statements in MyERAS</h2><p>MissionMed organizes the exact program-to-statement plan, then walks you through the current MyERAS steps with clear safety checks.</p></div><button class="btn heroBtn primary" data-act="go" data-view="myeras">Start MyERAS guide</button></section>';
 		html += '<div class="panel mt"><div class="spread"><p class="small mid">Download one, a selected set, or every approved statement. The ZIP includes body-only DOCX files, the canonical ERAS JSON manifest, and a guarded assignment mission.</p><div class="row"><button class="btn sm" data-act="bulk-selected"' + (S.busy.bulk || !selectedCount ? ' disabled' : '') + '>Download selected (' + selectedCount + ')</button><button class="btn sm cy" data-act="bulk-approved"' + (S.busy.bulk ? ' disabled' : '') + '>Download All approved</button><button class="btn sm" data-act="eras-manifest"' + (S.busy['eras-manifest'] ? ' disabled' : '') + '>ERAS assignment manifest</button></div></div><div class="tblWrap mtS"><table class="lib"><thead><tr><th><span class="srOnly">Select</span></th><th>Statement</th><th>Tier</th><th>Status</th><th>Saved</th><th></th></tr></thead><tbody>' + docs.map(function (d) {
-			return '<tr><td><input type="checkbox" data-doc-select="' + d.docUuid + '" aria-label="Select ' + esc(d.title) + '"' + (S.selectedDocs[d.docUuid] ? ' checked' : '') + '></td><td><div class="libTitle">' + esc(d.programName) + '</div><div class="tiny dim">' + esc(d.specialtyLabel) + (d.metadata && d.metadata.trainingType ? ' · ' + esc(d.metadata.trainingType) : '') + ' · ACGME ' + esc(d.acgmeId || 'n/a') + ' · v' + d.versionNumber + (d.city || d.state ? ' · ' + esc([d.city, d.state].filter(Boolean).join(', ')) : '') + '</div></td><td><span class="tag ' + (d.tier === 'DEEP' ? 'vi' : 'em') + '">' + esc(d.tier) + '</span></td><td>' + statusTag(d.status) + '</td><td class="small mid">' + esc(d.createdAt) + ' UTC</td><td><div class="row"><button class="btn sm" data-act="open-doc" data-uuid="' + d.docUuid + '">View</button><a class="btn sm cy" href="' + esc(download(d.docUuid, 'docx')) + '">DOCX</a><a class="btn sm" href="' + esc(download(d.docUuid, 'txt')) + '">TXT</a></div></td></tr>';
+			return '<tr><td><input type="checkbox" data-doc-select="' + d.docUuid + '" aria-label="Select ' + esc(d.title) + '"' + (S.selectedDocs[d.docUuid] ? ' checked' : '') + '></td><td><div class="libTitle">' + esc(d.programName) + '</div><div class="tiny dim">' + esc(d.specialtyLabel) + (d.metadata && d.metadata.trainingType ? ' · ' + esc(d.metadata.trainingType) : '') + ' · ACGME ' + esc(d.acgmeId || 'n/a') + ' · v' + d.versionNumber + (d.city || d.state ? ' · ' + esc([d.city, d.state].filter(Boolean).join(', ')) : '') + '</div></td><td><span class="tag ' + (d.tier === 'DEEP' ? 'vi' : 'em') + '">' + esc(d.tier) + '</span></td><td>' + statusTag(d.status) + '</td><td class="small mid">' + esc(d.createdAt) + ' UTC</td><td><div class="row"><button class="btn sm" data-act="open-doc" data-uuid="' + d.docUuid + '">View</button><button class="btn sm primary" data-act="library-edit" data-uuid="' + d.docUuid + '">Edit Program Paragraph</button><a class="btn sm cy" href="' + esc(download(d.docUuid, 'docx')) + '">DOCX</a><a class="btn sm" href="' + esc(download(d.docUuid, 'txt')) + '">TXT</a></div></td></tr>';
 		}).join('') + '</tbody></table></div></div>';
 		return html;
 	}
@@ -945,10 +961,27 @@
 		var d = S.doc; if (!d) { return viewLibrary(); }
 		var idx = d.metadata && d.metadata.regionIndex != null ? d.metadata.regionIndex : -1, m = d.metadata || {};
 		var html = head('PS library', esc(d.programName), esc(d.title));
-		html += '<div class="panel mt"><div class="spread"><div class="row">' + statusTag(d.status) + '<span class="tag ' + (d.tier === 'DEEP' ? 'vi' : 'em') + '">' + esc(d.tier) + '</span>' + (m.rootIsSynthetic ? '<span class="tag cy">Synthetic ROOT</span>' : '') + '</div><div class="row"><a class="btn sm cy" href="' + esc(download(d.docUuid, 'docx')) + '">Download DOCX</a><a class="btn sm" href="' + esc(download(d.docUuid, 'txt')) + '">Download TXT</a>' + (d.status !== 'APPROVED' ? '<button class="btn sm primary" data-act="doc-status" data-uuid="' + d.docUuid + '" data-status="APPROVED">Approve</button>' : '<button class="btn sm" data-act="doc-status" data-uuid="' + d.docUuid + '" data-status="DRAFT">Back to draft</button>') + (d.status !== 'ARCHIVED' ? '<button class="btn sm ghost" data-act="doc-status" data-uuid="' + d.docUuid + '" data-status="ARCHIVED">Archive</button>' : '') + '</div></div><p class="tiny dim mtS">Downloads contain the statement body only. Metadata stays here.</p></div>';
+		html += '<div class="panel mt"><div class="spread"><div class="row">' + statusTag(d.status) + '<span class="tag ' + (d.tier === 'DEEP' ? 'vi' : 'em') + '">' + esc(d.tier) + '</span>' + (m.rootIsSynthetic ? '<span class="tag cy">Synthetic ROOT</span>' : '') + '</div><div class="row"><button class="btn sm primary" data-act="library-edit" data-uuid="' + d.docUuid + '">Edit Program Paragraph</button><a class="btn sm cy" href="' + esc(download(d.docUuid, 'docx')) + '">Download DOCX</a><a class="btn sm" href="' + esc(download(d.docUuid, 'txt')) + '">Download TXT</a>' + (d.status !== 'APPROVED' ? '<button class="btn sm" data-act="doc-status" data-uuid="' + d.docUuid + '" data-status="APPROVED">Approve</button>' : '<button class="btn sm" data-act="doc-status" data-uuid="' + d.docUuid + '" data-status="DRAFT">Back to draft</button>') + (d.status !== 'ARCHIVED' ? '<button class="btn sm ghost" data-act="doc-status" data-uuid="' + d.docUuid + '" data-status="ARCHIVED">Archive</button>' : '') + '</div></div><p class="tiny dim mtS">Only the Program Answer opens for editing. The rest of your ROOT stays locked.</p></div>';
 		html += '<div class="previewGrid mt"><div class="paper">' + d.paragraphs.map(function (p, i) { return '<div class="para ' + (i === idx ? 'region' : 'locked') + '"><span class="pn">' + (i + 1) + '</span>' + (i === idx ? '<div class="paraFlag">Program-specific paragraph</div>' : '') + esc(p) + '</div>'; }).join('') + '</div>';
 		html += '<div class="side"><div class="panel"><dl class="kv"><dt>Specialty</dt><dd>' + esc(d.specialtyLabel) + '</dd><dt>Program</dt><dd>' + esc(d.programName) + '<br><span class="small mid">' + esc([d.city, d.state].filter(Boolean).join(', ')) + '</span></dd><dt>Verified ID</dt><dd class="mono">ACGME ' + esc(d.acgmeId || 'n/a') + '<br>' + esc(d.programSpecialtyId) + '</dd><dt>ROOT version</dt><dd>' + esc(d.rootLabel) + '<br><span class="mono">' + esc((m.rootTextSha256 || '').slice(0, 16)) + '…</span></dd><dt>Generated</dt><dd>v' + d.versionNumber + ' · ' + esc(d.createdAt) + ' UTC</dd><dt>Approach</dt><dd>' + esc(STRATEGY[m.strategy] || m.strategy || '') + '</dd><dt>Writer</dt><dd>' + esc(m.provider || '') + ' ' + esc(m.model || '') + '</dd><dt>Evidence</dt><dd class="mono">' + esc((m.bundleSha256 || '').slice(0, 16)) + '… · ' + esc(m.registryReleaseId || '') + '</dd><dt>Text hash</dt><dd class="mono">' + esc(d.fullTextSha256.slice(0, 24)) + '…</dd></dl></div></div></div>';
 		html += '<div class="footBar"><button class="btn ghost" data-act="go" data-view="library">← Library</button></div>';
+		return html;
+	}
+
+	function viewMyEras() {
+		var w=S.myEras, p=w.plan, items=p && p.manifest ? p.manifest.items : [], approved=items.length;
+		var html=head('MyERAS guide','Prepare your Personal Statements in <em>MyERAS</em>','A calm, step-by-step handoff using only statements you already approved.');
+		if(!p){setTimeout(loadMyErasPlan,0);return html+'<div class="wizardHero mt"><span class="spin"></span><h2>Checking your approved statements…</h2><p>Nothing is being changed in MyERAS.</p></div>';}
+		var steps=['Get ready','Sign in','Check statements','Review plan','Confirm plan','Prepare','Double-check','Finish'];
+		html+='<div class="wizardSteps mt" aria-label="MyERAS preparation progress">'+steps.map(function(label,i){var n=i+1;return '<span class="wizardStep '+(n<w.step?'done':n===w.step?'on':'')+'">'+(n<w.step?'✓':n)+'<small>'+esc(label)+'</small></span>';}).join('')+'</div>';
+		if(w.step===1){html+='<section class="wizardHero mt"><div class="eyebrow">Step 1</div><h2>Let’s get MyERAS ready.</h2><p>We’ll walk through your approved statements and show the exact program mapping before you do anything in MyERAS.</p><a class="btn heroBtn primary" href="'+esc(p.officialPortal)+'" target="_blank" rel="noopener noreferrer">Open MyERAS</a><button class="btn heroBtn" data-act="myeras-step" data-step="2">Continue</button><p class="tiny mid">Official AAMC portal. PSV never asks for or stores your password.</p></section>';}
+		if(w.step===2){html+='<section class="wizardHero mt"><div class="eyebrow">Step 2</div><h2>Sign in to MyERAS</h2><p>Complete sign-in in the AAMC tab. Come back here when you can see your 2027 application.</p><a class="btn heroBtn" href="'+esc(p.officialPortal)+'" target="_blank" rel="noopener noreferrer">Open MyERAS</a><button class="btn heroBtn primary" data-act="myeras-signed">I’m Signed In</button><p class="tiny mid">This confirmation does not give MissionMed access to your AAMC account.</p></section>';}
+		if(w.step===3){var specs=Array.from(new Set(items.map(function(x){return x.specialty;}))), types=Array.from(new Set(items.map(function(x){return x.trainingType||x.trainingTypeStatus;})));html+='<section class="wizardHero mt"><div class="eyebrow">Step 3</div><h2>Check your statements</h2><p>Only approved PSV statements are included. Gold and Silver programs remain protected by the same review rules.</p><div class="wizardStats"><div><strong>'+approved+'</strong><span>Approved</span></div><div><strong>'+specs.length+'</strong><span>Specialties</span></div><div><strong>'+types.length+'</strong><span>Training types</span></div><div><strong>'+items.filter(function(x){return x.myErasIdentityStatus!=='RESOLVED'||x.trainingTypeStatus!=='RESOLVED';}).length+'</strong><span>Need identity attention</span></div></div><button class="btn heroBtn primary" data-act="myeras-step" data-step="4"'+(!approved?' disabled':'')+'>Review assignment plan</button></section>';}
+		if(w.step===4){html+='<section class="wizardPanel mt"><div class="eyebrow">Step 4</div><h2>Review your assignment plan</h2><p>Match by program, specialty, training type and ACGME identity. Do not rely on filenames.</p><div class="mappingList">'+items.map(function(x){return '<article class="mappingCard"><div><strong>'+esc(x.programName)+'</strong><span>'+esc(x.specialty)+' · '+esc(x.trainingType||x.trainingTypeStatus)+(x.acgmeId?' · ACGME '+esc(x.acgmeId):'')+'</span></div><div><small>Statement</small><strong>'+esc(x.statementTitle)+'</strong><span class="tag '+(x.myErasIdentityStatus==='RESOLVED'?'ok':'gold')+'">MyERAS identity '+esc(x.myErasIdentityStatus)+'</span></div></article>';}).join('')+'</div><div class="row mt"><button class="btn" data-act="myeras-step" data-step="3">Back</button><button class="btn primary" data-act="myeras-step" data-step="5">Continue</button></div></section>';}
+		if(w.step===5){html+='<section class="wizardHero mt"><div class="eyebrow">Step 5</div><h2>Ready to prepare MyERAS?</h2><p>This confirmation freezes the approved PSV mapping you just reviewed. It does <strong>not</strong> create or assign anything in MyERAS.</p><div class="notice gold mtS">In the current guided workflow, you paste each approved statement into MyERAS and assign it manually. Stop on any wrong or ambiguous program or training type. Never Apply, Pay, Certify or Submit from this workflow.</div><button class="btn heroBtn primary" data-act="myeras-confirm"'+(S.busy['eras-confirm']?' disabled':'')+'>'+(S.busy['eras-confirm']?'<span class="spin"></span>Confirming…':'Confirm this preparation plan')+'</button></section>';}
+		if(w.step===6){html+='<section class="wizardHero mt"><div class="eyebrow">Step 6</div><h2>Your preparation plan is ready.</h2><div class="phaseList"><p>✓ Approved statements loaded</p><p>✓ Program mappings frozen for this plan</p><p>✓ Safety boundaries included</p><p>○ Statement creation in MyERAS — manual</p><p>○ Program assignment — manual</p></div><p>MyERAS currently uses a statement title and pasted Content editor. Create each statement, Preview, then Save. Assignment must match the plan exactly.</p><div class="row center mt"><button class="btn heroBtn" data-act="eras-manifest">Download assignment plan</button><a class="btn heroBtn primary" href="'+esc(p.officialPortal)+'" target="_blank" rel="noopener noreferrer">Open MyERAS</a></div><button class="btn mt" data-act="myeras-step" data-step="7">I’m ready to double-check</button></section>';}
+		if(w.step===7){html+='<section class="wizardHero mt"><div class="eyebrow">Step 7</div><h2>Double-check everything</h2><p>Open MyERAS Assignments Checklist / Report. Compare every program, training type and statement title against the MissionMed plan. Check it twice. A missing or ambiguous match stays unresolved.</p><div class="notice vi mtS"><strong>Important:</strong> MissionMed cannot currently read MyERAS back automatically. Your confirmation is a manual checkpoint, not independent verification.</div><a class="btn heroBtn" href="'+esc(p.officialPortal)+'" target="_blank" rel="noopener noreferrer">Open MyERAS checklist</a><button class="btn heroBtn primary" data-act="myeras-checked">I reviewed the checklist and report</button></section>';}
+		if(w.step===8){var attention=items.length;html+='<section class="wizardHero mt"><div class="eyebrow">Completion report</div><h2>Everything MissionMed could verify is ready.</h2><div class="wizardStats"><div><strong>'+items.length+'</strong><span>Total approved</span></div><div><strong>Not verified</strong><span>Assigned</span></div><div><strong>0</strong><span>Independently verified</span></div><div><strong>'+attention+'</strong><span>Need MyERAS readback</span></div></div><p>Your PSV plan is confirmed. MyERAS assignment remains a manual step, and MissionMed has not claimed success for any assignment it cannot read back.</p><div class="row center mt"><button class="btn" data-act="go" data-view="programs">Add Another Program</button><button class="btn" data-act="go" data-view="batch">Personalize Another Batch</button><button class="btn primary" data-act="go" data-view="library">Review Statements</button><a class="btn" href="/">Return to MissionMed Matrix</a></div></section>';}
 		return html;
 	}
 
@@ -962,7 +995,7 @@
 			if (S.toast) { var toastNode = document.createElement('div'); toastNode.className = 'toast ' + S.toast.kind; toastNode.setAttribute('role','status'); toastNode.textContent = S.toast.message; app.appendChild(toastNode); }
 			return;
 		}
-		var views = { home: viewHome, root: viewRoot, region: viewRegion, prefs: viewPrefs, programs: viewPrograms, generate: viewGenerate, preview: viewPreview, batch: viewBatch, library: viewLibrary, doc: viewDoc, admin: viewAdmin };
+		var views = { home: viewHome, root: viewRoot, region: viewRegion, prefs: viewPrefs, programs: viewPrograms, generate: viewGenerate, preview: viewPreview, batch: viewBatch, library: viewLibrary, doc: viewDoc, myeras: viewMyEras, admin: viewAdmin };
 		var keep = document.activeElement && document.activeElement.getAttribute ? { search: document.activeElement.hasAttribute('data-search') } : {};
 		app.innerHTML = header() + '<div class="protoBar"><strong>PROGRAM-SPECIFIC PS</strong><span>Private MissionMed workspace for administrators and current MissionMed 360 members. Your statement and drafts remain owner-scoped.</span></div><div class="shell">' + rail() + '<main class="main"><div class="view' + (render.last !== S.view ? ' enter' : '') + '">' + (views[S.view] || viewHome)() + '</div></main></div>' + (S.toast ? '<div class="toast ' + S.toast.kind + '" role="status">' + esc(S.toast.message) + '</div>' : '');
 		render.last = S.view;
@@ -988,6 +1021,9 @@
 		else if (act === 'save-region') { saveRegion(); }
 		else if (act === 'template-behavior') { S.regionDraft.templateBehavior = el.getAttribute('data-behavior'); render(); }
 		else if (act === 'save-template') { saveTemplate(); }
+		else if (act === 'priority-add') { var pf=CORE_FACTORS.filter(function(x){return x.key===el.getAttribute('data-key');})[0]; if(pf){S.prefs.priorityProfile.push({key:pf.key,label:pf.title,details:[],note:''});render();} }
+		else if (act === 'priority-remove') { S.prefs.priorityProfile=S.prefs.priorityProfile.filter(function(x){return x.key!==el.getAttribute('data-key');});render(); }
+		else if (act === 'priority-up' || act === 'priority-down') { var pk=el.getAttribute('data-key'), pi=S.prefs.priorityProfile.map(function(x){return x.key;}).indexOf(pk), pj=pi+(act==='priority-up'?-1:1); if(pi>=0&&pj>=0&&pj<S.prefs.priorityProfile.length){var pv=S.prefs.priorityProfile.splice(pi,1)[0];S.prefs.priorityProfile.splice(pj,0,pv);render();} }
 		else if (act === 'cat') { S.prefs.categories[el.getAttribute('data-key')].on = el.getAttribute('data-on') === '1'; render(); }
 		else if (act === 'term') { var terms = S.prefs.categories[el.getAttribute('data-key')].terms, term = el.getAttribute('data-term'), at = terms.indexOf(term); if (at !== -1) { terms.splice(at, 1); } else if (terms.length < 6) { terms.push(term); } else { toast('Up to six per category.', 'err'); return; } render(); }
 		else if (act === 'loc') { S.prefs.location.on = el.getAttribute('data-on') === '1'; render(); }
@@ -1011,6 +1047,7 @@
 		else if (act === 'evidence' || act === 'evidence-fact') { openReviewDialog('evidence',(el.getAttribute('data-facts')||'').split(',').filter(Boolean)); }
 		else if (act === 'edit-paragraph') { var er=S.runs[S.current], eo=editOverlay(er,selectedOption(er)); eo.editing=true; patchPreview(false); app.querySelector('[data-review-editor]').focus({preventScroll:true}); }
 		else if (act === 'save-edits') { saveReviewEdit(S.runs[S.current],selectedOption(S.runs[S.current]),false).catch(function(){}); }
+		else if (act === 'revalidate-edit') { revalidateReviewEdit(S.runs[S.current],selectedOption(S.runs[S.current])).catch(function(){}); }
 		else if (act === 'discard-edits') { var dr=S.runs[S.current], dc=selectedOption(dr), dh=reviewState(dr).heads[dc.candidateId], od=editOverlay(dr,dc); od.text=dh && dh.action!=='RESTORE'?dh.text:dc.replacement; od.dirty=false; od.editing=false; od.error=''; patchPreview(false); }
 		else if (act === 'restore-ai') { confirmReviewRestore(); }
 		else if (act === 'confirm-restore') { closeReviewDialog(); saveReviewEdit(S.runs[S.current],selectedOption(S.runs[S.current]),true).catch(function(){}); }
@@ -1042,7 +1079,12 @@
 			else if (act === 'bulk-selected') { bulkDownload(false); }
 			else if (act === 'bulk-approved') { bulkDownload(true); }
 			else if (act === 'eras-manifest') { downloadErasManifest(); }
+			else if (act === 'myeras-step') { S.myEras.step=Number(el.getAttribute('data-step'))||1; render(); }
+			else if (act === 'myeras-signed') { S.myEras.signedIn=true; S.myEras.step=3; render(); }
+			else if (act === 'myeras-confirm') { confirmMyErasPlan(); }
+			else if (act === 'myeras-checked') { S.myEras.checked=true; S.myEras.step=8; render(); }
 			else if (act === 'open-doc') { openDoc(el.getAttribute('data-uuid')); }
+		else if (act === 'library-edit') { var target=(S.boot.library||[]).filter(function(d){return d.docUuid===el.getAttribute('data-uuid');})[0] || (S.doc&&S.doc.docUuid===el.getAttribute('data-uuid')?S.doc:null); if(target){editLibraryDocument(target);} }
 		else if (act === 'doc-status') { setDocStatus(el.getAttribute('data-uuid'), el.getAttribute('data-status')); }
 	});
 	app.addEventListener('keydown', function (event) {
@@ -1059,6 +1101,8 @@
 		var t = event.target;
 		if (t.hasAttribute('data-review-editor')) { var r=S.runs[S.current], c=selectedOption(r), o=editOverlay(r,c), h=reviewState(r).heads[c.candidateId]; o.text=t.value; o.caret=t.selectionStart; o.caretEnd=t.selectionEnd; o.dirty=o.text!==(h && h.action!=='RESTORE'?h.text:c.replacement); o.error=''; delete r.similarityReview; patchPreview(false); return; }
 		if (t.hasAttribute('data-template-text')) { S.regionDraft.templateText = t.value; return; }
+		if (t.hasAttribute('data-priority-details')) { var pd=S.prefs.priorityProfile.filter(function(x){return x.key===t.getAttribute('data-priority-details');})[0]; if(pd){pd.details=t.value.split(',').map(function(x){return x.trim();}).filter(Boolean).slice(0,8);} return; }
+		if (t.hasAttribute('data-priority-note')) { var pn=S.prefs.priorityProfile.filter(function(x){return x.key===t.getAttribute('data-priority-note');})[0]; if(pn){pn.note=t.value;} return; }
 		if (t.hasAttribute('data-admin-import')) { S.admin.importText = t.value; return; }
 		if (t.hasAttribute('data-admin-qa-note')) { S.admin.qaNotes[t.getAttribute('data-admin-qa-note')] = t.value; return; }
 		if (t.hasAttribute('data-bind')) { var k = t.getAttribute('data-bind'); if (t.type === 'checkbox') { S.rootForm[k] = t.checked; } else { S.rootForm[k] = t.value; } if (k === 'text') { var btn = app.querySelector('[data-act="create-root"]'); if (btn) { btn.disabled = t.value.trim().length <= 200; } } }
@@ -1067,6 +1111,11 @@
 		else if (t.hasAttribute('data-loc-reason')) { S.prefs.location.reason = t.value; }
 		else if (t.hasAttribute('data-search')) { S.search.q = t.value; }
 	});
+	var draggedPriority='';
+	app.addEventListener('dragstart',function(event){var card=event.target.closest&&event.target.closest('[data-priority-key]');if(!card){return;}draggedPriority=card.getAttribute('data-priority-key');card.classList.add('dragging');if(event.dataTransfer){event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',draggedPriority);}});
+	app.addEventListener('dragend',function(event){var card=event.target.closest&&event.target.closest('[data-priority-key]');if(card){card.classList.remove('dragging');}draggedPriority='';});
+	app.addEventListener('dragover',function(event){if(draggedPriority&&event.target.closest&&event.target.closest('[data-priority-key]')){event.preventDefault();}});
+	app.addEventListener('drop',function(event){var target=event.target.closest&&event.target.closest('[data-priority-key]');if(!draggedPriority||!target){return;}event.preventDefault();var to=target.getAttribute('data-priority-key'),list=S.prefs.priorityProfile,fromIndex=list.map(function(x){return x.key;}).indexOf(draggedPriority),toIndex=list.map(function(x){return x.key;}).indexOf(to);if(fromIndex>=0&&toIndex>=0&&fromIndex!==toIndex){var moved=list.splice(fromIndex,1)[0];list.splice(toIndex,0,moved);render();}});
 	app.addEventListener('change', function (event) {
 		var t = event.target;
 		if (t.hasAttribute('data-review-select')) { selectCandidate(S.runs[S.current],t.value); return; }

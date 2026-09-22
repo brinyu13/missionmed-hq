@@ -365,6 +365,17 @@ class MMPS_Store {
 		return $row ? self::shape_document( $row, true ) : null;
 	}
 
+	/** Exact immutable run/candidate/revision idempotency; other revisions become new versions. */
+	public static function find_document_by_run_revision( $user_id, $run_id, $candidate_id, $revision_id ) {
+		global $wpdb;
+		$rows = $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM ' . MMPS_Install::table( 'library' ) . ' WHERE run_id = %d AND user_id = %d ORDER BY id DESC LIMIT 100', absint( $run_id ), absint( $user_id ) ), ARRAY_A );
+		foreach ( (array) $rows as $row ) {
+			$doc = self::shape_document( $row, true );
+			if ( strtoupper( (string) ( $doc['metadata']['candidateId'] ?? '' ) ) === strtoupper( (string) $candidate_id ) && (string) ( $doc['metadata']['editRevisionId'] ?? '' ) === (string) $revision_id ) { return $doc; }
+		}
+		return null;
+	}
+
 	public static function list_documents( $user_id ) {
 		global $wpdb;
 		$rows = $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM ' . MMPS_Install::table( 'library' ) . ' WHERE user_id = %d ORDER BY id DESC LIMIT 200', absint( $user_id ) ), ARRAY_A );

@@ -60,7 +60,53 @@ class MMPS_Edit {
 			}
 			$heads[ $id ] = $head;
 		}
-		return array( 'capabilities' => array( 'canEdit' => true, 'canApprove' => true, 'validationMode' => 'EXACT_AI_TEXT_ONLY' ), 'heads' => (object) $heads );
+		return array( 'capabilities' => array( 'canEdit' => true, 'canApprove' => true, 'canRevalidate' => true, 'validationMode' => 'PROVIDER_GROUNDED_EDIT_V1' ), 'heads' => (object) $heads );
+	}
+
+	/** Validate one already-saved exact revision without holding a database lock during provider I/O. */
+	public static function revalidate( $uid, $run_uuid, $params ) {
+		foreach ( array_keys( $params ) as $key ) {
+			if ( ! in_array( $key, array( 'candidateId', 'baseRevisionId', 'requestId' ), true ) || ! is_string( $params[ $key ] ) ) { return self::error( 'field', 'Only the saved revision identifiers are accepted.', 422 ); }
+		}
+		$id = (string) ( $params['candidateId'] ?? '' );
+		$base = (string) ( $params['baseRevisionId'] ?? '' );
+		$request_id = (string) ( $params['requestId'] ?? '' );
+		$uuid = '/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D';
+		if ( ! preg_match( $uuid, $request_id ) || ! preg_match( $uuid, $base ) ) { return self::error( 'request', 'A current saved revision and request identity are required.', 422 ); }
+		$context = self::context( $uid, $run_uuid );
+		if ( is_wp_error( $context ) ) { return $context; }
+		$candidate = MMPS_Generator::candidate_by_id( $context['run']['output'], $id );
+		$head = MMPS_Store::edit_head( $uid, $run_uuid, $id );
+		if ( ! $candidate || ! $head || $head['id'] !== $base ) { return self::error( 'conflict', 'A newer revision exists. Reload before checking this draft.' ); }
+		if ( hash_equals( MMPS_Region::hash( $head['text'] ), MMPS_Region::hash( (string) $candidate['replacement_region'] ) ) ) { return self::error( 'original', 'The original AI version is already validated and does not need edit revalidation.', 422 ); }
+		$hash = hash( 'sha256', wp_json_encode( array( $run_uuid, $id, 'REVALIDATE', $base, MMPS_Region::hash( $head['text'] ) ) ) );
+		$prior = MMPS_Store::edit_request( $uid, $request_id );
+		if ( $prior ) { return hash_equals( $prior['hash'], $hash ) ? array( 'revision' => $prior['revision'], 'alreadySaved' => true ) : self::error( 'request_reused', 'That request identity was already used for a different check.' ); }
+		$checked = MMPS_Generator::revalidate_edit( $uid, $context['root'], $context['run'], $head['text'] );
+		if ( is_wp_error( $checked ) ) { return $checked; }
+		$fresh = (array) $checked['validation'];
+		$flags = (array) ( $fresh['blocking'] ?? array() );
+		$similarity = MMPS_Similarity::assess( $uid, $head['text'] );
+		if ( is_wp_error( $similarity ) ) { return $similarity; }
+		if ( 'EXACT_BLOCKED' === $similarity['status'] ) { $flags[] = array( 'code' => 'CROSS_STUDENT_EXACT', 'message' => 'This revision cannot be approved because of a protected exact-match check. No other student text is disclosed.' ); }
+		$validation = array(
+			'status' => $flags ? 'NEEDS_REVIEW' : 'VALIDATED', 'canApprove' => empty( $flags ), 'flags' => $flags,
+			'advisory' => (array) ( $fresh['advisory'] ?? array() ), 'rootIntegrity' => 'PASS',
+			'factsUsed' => (array) ( $fresh['factsUsed'] ?? array() ), 'segments' => (array) ( $checked['annotation']['segments'] ?? array() ),
+			'similarity' => array( 'status' => $similarity['status'], 'band' => $similarity['band'] ),
+			'validationMode' => 'PROVIDER_GROUNDED_EDIT_V1', 'annotation' => $checked['annotation'],
+			'provider' => $checked['provider'], 'model' => $checked['model'],
+		);
+		return MMPS_Store::with_review_lock( $uid, $run_uuid, function () use ( $uid, $run_uuid, $id, $base, $request_id, $hash, $head, $validation ) {
+			$prior = MMPS_Store::edit_request( $uid, $request_id );
+			if ( $prior ) { return hash_equals( $prior['hash'], $hash ) ? array( 'revision' => $prior['revision'], 'alreadySaved' => true ) : self::error( 'request_reused', 'That request identity was already used for a different check.' ); }
+			$current = MMPS_Store::edit_head( $uid, $run_uuid, $id );
+			if ( ! $current || $current['id'] !== $base || ! hash_equals( MMPS_Region::hash( $current['text'] ), MMPS_Region::hash( $head['text'] ) ) ) { return self::error( 'conflict', 'The draft changed while it was being checked. The newer draft was preserved.' ); }
+			$revision = array( 'id' => MMPS_Store::uuid(), 'candidateId' => $id, 'baseRevisionId' => $base, 'action' => 'REVALIDATE', 'text' => $head['text'], 'createdAt' => MMPS_Store::now(), 'rootTextSha256' => $head['rootTextSha256'], 'region' => $head['region'], 'validation' => $validation );
+			if ( ! MMPS_Store::insert_edit( $uid, $run_uuid, $request_id, $hash, $revision ) ) { return self::error( 'conflict', 'The checked revision could not be stored. Reload and try again.' ); }
+			MMPS_Store::audit( $uid, 'paragraph_edit_revalidate', $revision['id'], array( 'runId' => $run_uuid, 'candidateId' => $id, 'baseRevisionId' => $base, 'validation' => $validation['status'], 'provider' => $validation['provider'] ) );
+			return array( 'revision' => $revision, 'alreadySaved' => false );
+		} );
 	}
 
 	public static function write( $uid, $run_uuid, $params ) {
@@ -113,8 +159,19 @@ class MMPS_Edit {
 		if ( ! $head || '' === $revision_id || $head['id'] !== $revision_id ) { return self::error( 'revision_required', 'Save the exact current edit revision; stale or omitted revisions cannot be approved.' ); }
 		$context = self::context( $uid, $run['run_uuid'] );
 		if ( is_wp_error( $context ) ) { return $context; }
-		$validation = self::validate( $uid, $context, $candidate, $head['text'] );
+		if ( 'PROVIDER_GROUNDED_EDIT_V1' === (string) ( $head['validation']['validationMode'] ?? '' ) ) {
+			$annotation = (array) ( $head['validation']['annotation'] ?? array() );
+			if ( ! hash_equals( MMPS_Region::hash( $head['text'] ), MMPS_Region::hash( (string) ( $annotation['replacement_region'] ?? '' ) ) ) ) { return self::error( 'unverified', 'The checked annotation does not match this exact revision.' ); }
+			$plan = MMPS_Tiers::plan( $run['bundle'], $context['root']['prefs'], $run['tier_requested'] );
+			$fresh = MMPS_Generator::validate( $annotation, $run['bundle'], $plan, $context['root'], (array) ( $run['validation']['otherProgramIds'] ?? array() ) );
+			$validation = array( 'canApprove' => empty( $fresh['blocking'] ) && ! empty( $head['validation']['canApprove'] ), 'segments' => (array) ( $annotation['segments'] ?? array() ), 'factsUsed' => (array) ( $fresh['factsUsed'] ?? array() ) );
+		} else {
+			$validation = self::validate( $uid, $context, $candidate, $head['text'] );
+		}
 		if ( is_wp_error( $validation ) ) { return $validation; }
+		$similarity = MMPS_Similarity::assess( $uid, $head['text'] );
+		if ( is_wp_error( $similarity ) ) { return $similarity; }
+		if ( 'EXACT_BLOCKED' === $similarity['status'] ) { return self::error( 'unverified', 'This exact edited revision failed the protected similarity check.' ); }
 		if ( ! $validation['canApprove'] ) { return self::error( 'unverified', 'This exact edited revision has not passed grounding and approval authority checks.' ); }
 		$candidate['replacement_region'] = $head['text'];
 		$candidate['segments'] = $validation['segments'];

@@ -112,11 +112,28 @@ class MMPS_Evidence_Bundle {
 			if ( '' !== $type ) { $training_types[] = $type; }
 		}
 		$training_types = array_values( array_unique( $training_types ) );
+		$short_name = '';
+		$short_source = '';
+		foreach ( array(
+			'RISE display.shortName' => $display['shortName'] ?? '',
+			'RISE display.programShortName' => $display['programShortName'] ?? '',
+			'RISE display.commonName' => $display['commonName'] ?? '',
+			'RISE shortName' => $record['shortName'] ?? '',
+			'RISE programShortName' => $record['programShortName'] ?? '',
+			'RISE commonName' => $record['commonName'] ?? '',
+		) as $source_name => $candidate ) {
+			$candidate = is_scalar( $candidate ) ? self::clean( $candidate ) : '';
+			if ( '' !== $candidate ) { $short_name = $candidate; $short_source = $source_name; break; }
+		}
+		$program_name = self::clean( $display['programName'] ?? '' );
+		$institution = self::clean( $display['institution'] ?? '' );
 		return array(
 			'programSpecialtyId' => (string) ( $record['programSpecialtyId'] ?? '' ),
 			'acgmeId'            => $acgme,
-			'programName'        => self::clean( $display['programName'] ?? '' ),
-			'institution'        => self::clean( $display['institution'] ?? '' ),
+			'programName'        => $program_name,
+			'institution'        => $institution,
+			'naturalProgramName' => $short_name ?: ( $program_name ?: $institution ),
+			'naturalNameSource'  => $short_name ? $short_source : 'FORMAL_CANONICAL_FALLBACK',
 			'hospital'           => self::clean( $display['hospital'] ?? '' ),
 			'city'               => self::clean( $display['city'] ?? '' ),
 			'state'              => self::clean( $display['state'] ?? '' ),
@@ -124,6 +141,18 @@ class MMPS_Evidence_Bundle {
 			'trainingType'       => 1 === count( $training_types ) ? $training_types[0] : '',
 			'trainingTypes'      => $training_types,
 		);
+	}
+
+	/** Canonical specialty equality for every server-side PSV boundary. */
+	public static function specialty_matches( $root_specialty, $program_specialty ) {
+		$normalize = function ( $value ) {
+			$value = mb_strtolower( self::clean( $value ) );
+			$value = preg_replace( '/[^\p{L}\p{N}]+/u', ' ', $value );
+			return trim( preg_replace( '/\s+/u', ' ', (string) $value ) );
+		};
+		$root = $normalize( $root_specialty );
+		$program = $normalize( $program_specialty );
+		return '' !== $root && '' !== $program && hash_equals( $root, $program );
 	}
 
 	/* ---------------- the bundle ---------------- */
@@ -458,7 +487,7 @@ class MMPS_Evidence_Bundle {
 
 	protected static function name_forms( $identity ) {
 		$forms = array();
-		foreach ( array( 'programName', 'institution', 'hospital' ) as $key ) {
+		foreach ( array( 'naturalProgramName', 'programName', 'institution', 'hospital' ) as $key ) {
 			$value = trim( (string) $identity[ $key ] );
 			if ( mb_strlen( $value ) >= 6 ) {
 				$forms[] = $value;

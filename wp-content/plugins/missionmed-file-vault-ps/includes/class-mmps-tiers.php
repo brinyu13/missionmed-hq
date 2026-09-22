@@ -27,6 +27,20 @@ class MMPS_Tiers {
 		);
 	}
 
+	/** One simple, ordered student preference model. */
+	public static function core_factors() {
+		return array(
+			'clinical_training'          => array( 'label' => 'Clinical Training & Experience', 'evidence' => array( 'curriculum', 'differentiator' ), 'legacy' => array( 'curriculum' ) ),
+			'fellowship_career'          => array( 'label' => 'Fellowship / Career Goals', 'evidence' => array( 'fellowship', 'curriculum' ), 'legacy' => array( 'fellowship' ) ),
+			'mentorship_teaching'        => array( 'label' => 'Mentorship & Teaching', 'evidence' => array( 'teaching', 'curriculum', 'differentiator' ), 'legacy' => array( 'teaching' ) ),
+			'research_academics'         => array( 'label' => 'Research & Academics', 'evidence' => array( 'research' ), 'legacy' => array( 'research' ) ),
+			'location_community'         => array( 'label' => 'Location & Community', 'evidence' => array( 'population', 'mission', 'differentiator' ), 'legacy' => array() ),
+			'culture_environment'        => array( 'label' => 'Program Culture / Size / Environment', 'evidence' => array( 'mission', 'differentiator', 'curriculum' ), 'legacy' => array( 'other' ) ),
+			'patient_population_mission' => array( 'label' => 'Patient Population / Mission', 'evidence' => array( 'population', 'mission' ), 'legacy' => array( 'population', 'mission' ) ),
+			'lifestyle_practical'        => array( 'label' => 'Lifestyle / Schedule / Practical Fit', 'evidence' => array( 'curriculum', 'differentiator' ), 'legacy' => array() ),
+		);
+	}
+
 	public static function default_tier( $list_entry ) {
 		if ( ! empty( $list_entry['goldStarred'] ) ) {
 			return 'DEEP';
@@ -36,7 +50,7 @@ class MMPS_Tiers {
 	}
 
 	public static function sanitize_prefs( $prefs ) {
-		$out = array( 'categories' => array(), 'location' => array(), 'otherText' => '' );
+		$out = array( 'schema' => 'missionmed.psv.preferences.v2', 'priorityProfile' => array(), 'categories' => array(), 'location' => array(), 'otherText' => '' );
 		foreach ( array_keys( self::category_map() ) as $key ) {
 			$in = (array) ( $prefs['categories'][ $key ] ?? array() );
 			$out['categories'][ $key ] = array(
@@ -54,6 +68,33 @@ class MMPS_Tiers {
 			'mayMention' => ! empty( $loc['mayMention'] ),
 		);
 		$out['otherText'] = mb_substr( sanitize_text_field( (string) ( $prefs['otherText'] ?? '' ) ), 0, 200 );
+		$seen = array();
+		foreach ( array_slice( (array) ( $prefs['priorityProfile'] ?? array() ), 0, 8 ) as $entry ) {
+			$key = sanitize_key( (string) ( $entry['key'] ?? '' ) );
+			if ( isset( $seen[ $key ] ) || ! isset( self::core_factors()[ $key ] ) ) { continue; }
+			$seen[ $key ] = true;
+			$out['priorityProfile'][] = array(
+				'key'     => $key,
+				'label'   => self::core_factors()[ $key ]['label'],
+				'details' => array_slice( array_values( array_filter( array_map( 'sanitize_text_field', (array) ( $entry['details'] ?? array() ) ) ) ), 0, 8 ),
+				'note'    => mb_substr( sanitize_text_field( (string) ( $entry['note'] ?? '' ) ), 0, 200 ),
+			);
+		}
+		// Migrate earlier saved preferences deterministically without losing them.
+		if ( ! $out['priorityProfile'] ) {
+			foreach ( self::core_factors() as $key => $factor ) {
+				$details = array(); $note = '';
+				foreach ( $factor['legacy'] as $legacy ) {
+					if ( ! empty( $out['categories'][ $legacy ]['on'] ) ) {
+						$details = array_merge( $details, $out['categories'][ $legacy ]['terms'] );
+						$note = $note ?: $out['categories'][ $legacy ]['note'];
+					}
+				}
+				if ( $details || $note || ( 'location_community' === $key && ! empty( $out['location']['on'] ) ) ) {
+					$out['priorityProfile'][] = array( 'key' => $key, 'label' => $factor['label'], 'details' => array_values( array_unique( $details ) ), 'note' => $note );
+				}
+			}
+		}
 		return $out;
 	}
 
@@ -88,13 +129,11 @@ class MMPS_Tiers {
 
 		/* Student-side facts the writer may lean on (the student's own statements). */
 		$student = array();
-		foreach ( $prefs['categories'] as $key => $category ) {
-			if ( $category['on'] ) {
-				$student[] = array(
-					'id'   => 'S-' . $key,
-					'text' => 'The applicant says ' . $key . ' matters to them' . ( $category['terms'] ? ' (' . implode( ', ', $category['terms'] ) . ')' : '' ) . ( $category['note'] ? ': ' . $category['note'] : '' ) . '.',
-				);
-			}
+		foreach ( $prefs['priorityProfile'] as $rank => $factor ) {
+			$student[] = array(
+				'id'   => 'S-priority-' . ( $rank + 1 ) . '-' . $factor['key'],
+				'text' => 'Priority ' . ( $rank + 1 ) . ': ' . $factor['label'] . ( $factor['details'] ? ' (' . implode( ', ', $factor['details'] ) . ')' : '' ) . ( $factor['note'] ? ': ' . $factor['note'] : '' ) . '.',
+			);
 		}
 		$program_state = strtolower( (string) $bundle['program']['state'] );
 		$program_city  = strtolower( (string) $bundle['program']['city'] );
@@ -108,56 +147,57 @@ class MMPS_Tiers {
 		}
 
 		if ( 'DEEP' !== $tier_requested ) {
-			return array( 'tierEffective' => 'ESSENTIAL', 'allowedFacts' => $essential, 'studentFacts' => $student, 'deepNeeded' => false, 'reasons' => array( 'Essential uses verified identity facts only.' ) );
+			return array( 'tierEffective' => 'ESSENTIAL', 'allowedFacts' => $essential, 'studentFacts' => $student, 'deepNeeded' => false, 'reasons' => array( 'Essential uses verified identity facts only.' ), 'strongReasons' => array(), 'reasonInsufficient' => true );
 		}
 
 		/*
 		 * Score deep facts. A preference match always outranks general quality.
 		 * A fellowship is usable ONLY when the student named it: a fellowship the
 		 * student did not ask for is not a reason for this student.
-		 * Facts that match no preference are used only to reach the Deep minimum,
-		 * never to pad the paragraph.
+		 * Facts that match no selected preference are not reasons and never pad the paragraph.
 		 */
-		$map      = self::category_map();
-		$any_pref = false;
-		foreach ( $prefs['categories'] as $category ) {
-			$any_pref = $any_pref || $category['on'];
-		}
+		$core = self::core_factors();
+		$any_pref = ! empty( $prefs['priorityProfile'] );
 		$scored = array();
 		foreach ( (array) $bundle['deepFacts'] as $fact ) {
 			$pref             = 0;
 			$matched          = '';
+			$matched_rank     = PHP_INT_MAX;
 			$fellowship_named = false;
-			foreach ( $prefs['categories'] as $key => $category ) {
-				if ( ! $category['on'] ) {
-					continue;
-				}
-				$in_category = in_array( $fact['category'], $map[ $key ], true );
-				foreach ( $category['terms'] as $term ) {
+			foreach ( $prefs['priorityProfile'] as $rank => $factor ) {
+				$key = $factor['key'];
+				$in_category = in_array( $fact['category'], $core[ $key ]['evidence'], true );
+				foreach ( $factor['details'] as $term ) {
 					if ( self::term_matches( $term, $fact['text'] ) ) {
-						$pref   += $in_category ? 5 : 3;
+						$pref   += $in_category ? 5 : 2;
 						$matched = $key . ':' . $term;
-						if ( 'fellowship' === $key ) {
+						$matched_rank = min( $matched_rank, $rank );
+						if ( 'fellowship_career' === $key ) {
 							$fellowship_named = true;
 						}
 					}
 				}
-				if ( $in_category && 'fellowship' !== $key ) {
-					$pref += 2;
+				if ( $in_category && 'fellowship_career' !== $key ) {
+					$pref += 4;
+					$matched = $matched ?: $key;
+					$matched_rank = min( $matched_rank, $rank );
 				}
 			}
 			if ( 'fellowship' === $fact['category'] && ! $fellowship_named ) {
 				continue;
 			}
-			$quality  = ! empty( $fact['provenance']['itemSource'] ) ? 1 : 0;
+			$source_url = (string) ( $fact['provenance']['itemSource'] ?? $fact['provenance']['sourceUrl'] ?? '' );
+			$quality  = 0 === strpos( $source_url, 'https://' ) ? 2 : 0;
 			$quality += ! empty( $fact['provenance']['fresh'] ) ? 1 : 0;
 			$quality += preg_match( '/[A-Z][a-z]+ [A-Z][a-z]+|\d/', $fact['text'] ) ? 1 : 0;   // named or quantified beats vague
 			$quality -= preg_match( '/\b(excellent|outstanding|world-class|top-ranked|prestigious|renowned|state-of-the-art|cutting-edge|supportive|collegial|family-like)\b/i', $fact['text'] ) ? 3 : 0;
-			if ( $quality < 0 ) {
+			$specific = mb_strlen( (string) $fact['text'] ) >= 35 && ! preg_match( '/\b(strong training|diverse opportunities|broad exposure|supportive environment|excellent education)\b/i', (string) $fact['text'] );
+			if ( $quality < 2 || ! $specific || $matched_rank === PHP_INT_MAX ) {
 				continue;                                   // Brochure language is not evidence.
 			}
 			$fact['prefScore']  = $pref;
-			$fact['matchScore'] = $pref * 10 + $quality + ( 'differentiator' === $fact['category'] ? 1 : 0 );
+			$fact['priorityRank'] = $matched_rank + 1;
+			$fact['matchScore'] = ( 100 - ( $matched_rank * 10 ) ) + $pref + $quality + ( 'differentiator' === $fact['category'] ? 1 : 0 );
 			$fact['matchedOn']  = $matched;
 			$scored[]           = $fact;
 		}
@@ -169,9 +209,6 @@ class MMPS_Tiers {
 		$matched_n = 0;
 		foreach ( $scored as $fact ) {
 			$is_match = $fact['prefScore'] > 0;
-			if ( $any_pref && ! $is_match && count( $picked ) >= self::DEEP_MIN_FACTS ) {
-				continue;
-			}
 			$per_field[ $fact['field'] ] = ( $per_field[ $fact['field'] ] ?? 0 ) + 1;
 			if ( $per_field[ $fact['field'] ] > 2 ) {
 				continue;
@@ -184,8 +221,8 @@ class MMPS_Tiers {
 		}
 		if ( count( $picked ) < self::DEEP_MIN_FACTS ) {
 			$reasons[] = 'RISE has ' . count( $scored ) . ' usable deep fact(s) for this program and these preferences; Deep needs at least ' . self::DEEP_MIN_FACTS . '.';
-			return array( 'tierEffective' => 'DEEP_RESEARCH_NEEDED', 'allowedFacts' => $essential, 'studentFacts' => $student, 'deepNeeded' => true, 'reasons' => $reasons, 'deepCandidates' => $picked );
+			return array( 'tierEffective' => 'DEEP_RESEARCH_NEEDED', 'allowedFacts' => $essential, 'studentFacts' => $student, 'deepNeeded' => true, 'reasons' => $reasons, 'deepCandidates' => $picked, 'strongReasons' => $picked, 'reasonInsufficient' => true );
 		}
-		return array( 'tierEffective' => 'DEEP', 'allowedFacts' => array_merge( $essential, $picked ), 'studentFacts' => $student, 'deepNeeded' => false, 'reasons' => array( 'Deep uses identity facts plus ' . count( $picked ) . ' verified RISE details' . ( $any_pref ? ' (' . $matched_n . ' matched your preferences)' : '' ) . '.' ) );
+		return array( 'tierEffective' => 'DEEP', 'allowedFacts' => array_merge( $essential, $picked ), 'studentFacts' => $student, 'deepNeeded' => false, 'reasons' => array( 'Deep uses identity facts plus ' . count( $picked ) . ' strong verified RISE reason' . ( 1 === count( $picked ) ? '' : 's' ) . ' in your priority order.' ), 'strongReasons' => $picked, 'reasonInsufficient' => count( $picked ) < 3 );
 	}
 }

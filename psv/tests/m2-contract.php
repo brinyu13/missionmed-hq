@@ -185,7 +185,7 @@ contract_assert(
 contract_assert(
 	$save !== ''
 		&& has_pattern('/MMPS_Region::reconstruct\s*\(/', $save)
-		&& has_pattern('/MMPS_Region::verify_protected\s*\(/', $save)
+		&& ( has_pattern('/MMPS_Region::verify_protected\s*\(/', $save) || has_pattern('/MMPS_Region::verify_protected_with_program_token\s*\(/', $save) )
 		&& has_pattern('/function\s+verify_protected\s*\(/', $region),
 	'selected candidate is reconstructed with protected ROOT verification',
 	'Save must reconstruct from ROOT plus the chosen region and re-run protected-paragraph integrity checks.'

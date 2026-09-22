@@ -49,6 +49,7 @@ class MMPS_Rest {
 			array( '/runs/(?P<uuid>[a-f0-9-]{36})', 'GET', 'run' ),
 			array( '/runs/(?P<uuid>[a-f0-9-]{36})/edits', 'GET', 'edits' ),
 			array( '/runs/(?P<uuid>[a-f0-9-]{36})/edits', 'POST', 'edit_revision' ),
+			array( '/runs/(?P<uuid>[a-f0-9-]{36})/edits/revalidate', 'POST', 'edit_revalidate' ),
 			array( '/research-prompt', 'POST', 'research_prompt' ),
 			array( '/research-artifacts', 'POST', 'research_upload' ),
 			array( '/research-artifacts/(?P<uuid>[a-f0-9-]{36})/download', 'GET', 'research_download' ),
@@ -65,6 +66,8 @@ class MMPS_Rest {
 			array( '/library', 'POST', 'save' ),
 			array( '/library/bulk-download', 'POST', 'bulk_download' ),
 			array( '/library/eras-manifest', 'POST', 'eras_manifest' ),
+			array( '/library/eras-plan', 'GET', 'eras_plan' ),
+			array( '/library/eras-plan/confirm', 'POST', 'eras_plan_confirm' ),
 			array( '/library/(?P<uuid>[a-f0-9-]{36})', 'GET', 'document' ),
 			array( '/library/(?P<uuid>[a-f0-9-]{36})/status', 'POST', 'set_status' ),
 			array( '/library/(?P<uuid>[a-f0-9-]{36})/download', 'GET', 'download' ),
@@ -506,6 +509,11 @@ class MMPS_Rest {
 		return rest_ensure_response( MMPS_Edit::write( self::uid(), (string) $request['uuid'], (array) $request->get_json_params() ) );
 	}
 
+	public static function edit_revalidate( $request ) {
+		$result = MMPS_Edit::revalidate( self::uid(), (string) $request['uuid'], (array) $request->get_json_params() );
+		return is_wp_error( $result ) ? $result : rest_ensure_response( $result );
+	}
+
 	/* ---------------- M3 durable batch ---------------- */
 
 	public static function batch_jobs() {
@@ -788,18 +796,8 @@ class MMPS_Rest {
 		$edit = MMPS_Edit::for_library( $uid, $run, $candidate, (string) ( $params['editRevisionId'] ?? '' ) );
 		if ( is_wp_error( $edit ) ) { return $edit; }
 		$candidate = $edit['candidate'];
-		$existing = MMPS_Store::find_document_by_run( $uid, absint( $run['id'] ) );   // Idempotent only for the same exact candidate revision.
+		$existing = MMPS_Store::find_document_by_run_revision( $uid, absint( $run['id'] ), $candidate_id, $edit['revisionId'] );
 		if ( $existing ) {
-			if ( (string) ( $existing['metadata']['editRevisionId'] ?? '' ) !== $edit['revisionId'] ) {
-				return new WP_Error( 'mmps_run_saved_different_revision', 'This run already has a saved document for another revision. The approved output has been preserved.', array( 'status' => 409 ) );
-			}
-			if ( empty( $params['candidateId'] ) ) {
-				return rest_ensure_response( array( 'document' => $existing, 'alreadySaved' => true ) );
-			}
-			$existing_candidate = strtoupper( (string) ( $existing['metadata']['candidateId'] ?? '' ) );
-			if ( $existing_candidate !== strtoupper( $candidate_id ) ) {
-				return new WP_Error( 'mmps_run_saved_different_candidate', 'This run is already saved with a different candidate. Review that saved document or regenerate before approving a default.', array( 'status' => 409 ) );
-			}
 			return rest_ensure_response( array( 'document' => $existing, 'alreadySaved' => true ) );
 		}
 		if ( ! $root || ! MMPS_Region::root_still_matches( $root['paragraphs'], $root['region'] ) ) {
@@ -809,10 +807,17 @@ class MMPS_Rest {
 		if ( (array) ( $run['validation']['region'] ?? array() ) !== MMPS_Generator::region_snapshot( $root ) ) {
 			return new WP_Error( 'mmps_region_changed', 'The editable region was changed after this version was written. Generate it again.', array( 'status' => 409 ) );
 		}
-		$paragraphs = MMPS_Region::reconstruct( $root['paragraphs'], $root['region'], (string) $candidate['replacement_region'] );
-		$integrity  = MMPS_Region::verify_protected( $paragraphs, $root['region'] );
+		$program = (array) ( $run['bundle']['program'] ?? array() );
+		$natural_name = (string) ( $program['naturalProgramName'] ?? $program['programName'] ?? $program['institution'] ?? '' );
+		$tokenized_root = MMPS_Region::substitute_program_token( $root['paragraphs'], $natural_name );
+		if ( is_wp_error( $tokenized_root ) ) { return $tokenized_root; }
+		$paragraphs = MMPS_Region::reconstruct( $tokenized_root['paragraphs'], $root['region'], (string) $candidate['replacement_region'] );
+		$integrity  = MMPS_Region::verify_protected_with_program_token( $root['paragraphs'], $paragraphs, $root['region'], $natural_name );
 		if ( is_wp_error( $integrity ) ) {
 			return $integrity;
+		}
+		if ( false !== strpos( implode( "\n", $paragraphs ), MMPS_Region::PROGRAM_TOKEN ) ) {
+			return new WP_Error( 'mmps_program_token_unresolved', 'Every program-name token must resolve before saving.', array( 'status' => 409 ) );
 		}
 		$similarity = MMPS_Similarity::assess( $uid, (string) $candidate['replacement_region'] );
 		if ( is_wp_error( $similarity ) ) {
@@ -825,7 +830,6 @@ class MMPS_Rest {
 		if ( 'NEAR_REVIEW' === $similarity['status'] && ! $similarity_ack ) {
 			return new WP_Error( 'mmps_similarity_review', 'This paragraph is structurally close to another protected output. Review it before approval; no matched prose or student identity is shown.', array( 'status' => 409, 'similarity' => $similarity['band'] ) );
 		}
-		$program   = (array) ( $run['bundle']['program'] ?? array() );
 		$name      = ! empty( $program['programName'] ) ? $program['programName'] : (string) ( $program['institution'] ?? '' );
 		$status    = 'APPROVED' === strtoupper( (string) ( $params['status'] ?? '' ) ) ? 'APPROVED' : 'DRAFT';
 		$version   = MMPS_Store::next_version( $uid, $root['id'], $run['program_specialty_id'] );
@@ -889,6 +893,7 @@ class MMPS_Rest {
 						'similarityStatus'  => $similarity['status'],
 						'similarityBand'    => $similarity['band'],
 						'similarityAcknowledged' => $similarity_ack,
+						'programNameSubstitutions' => array_map( function ( $replacement ) use ( $program ) { $replacement['source'] = (string) ( $program['naturalNameSource'] ?? 'FORMAL_CANONICAL_FALLBACK' ); return $replacement; }, $tokenized_root['replacements'] ),
 					)
 				),
 			),
@@ -1027,8 +1032,24 @@ class MMPS_Rest {
 
 	protected static function assignment_manifest_payload( $docs, $user_id ) {
 		$items = array();
+		$seen  = array();
+		$superseded = array();
 		foreach ( (array) $docs as $doc ) {
 			$training_types = array_values( array_filter( array_map( 'strval', (array) ( $doc['metadata']['trainingTypes'] ?? array() ) ) ) );
+			$assignment_key = implode( '|', array(
+				(string) $doc['programSpecialtyId'],
+				(string) ( $doc['metadata']['trainingType'] ?? '' ),
+			) );
+			if ( isset( $seen[ $assignment_key ] ) ) {
+				$superseded[] = array(
+					'psvDocId'           => $doc['docUuid'],
+					'programSpecialtyId' => $doc['programSpecialtyId'],
+					'version'            => $doc['versionNumber'],
+					'reason'             => 'NEWER_APPROVED_VERSION_SELECTED',
+				);
+				continue;
+			}
+			$seen[ $assignment_key ] = true;
 			$items[] = array(
 				'programName'       => $doc['programName'],
 				'acgmeId'           => $doc['acgmeId'],
@@ -1049,7 +1070,28 @@ class MMPS_Rest {
 				'fullTextSha256'    => $doc['fullTextSha256'],
 			);
 		}
-		return array( 'schema' => 'missionmed.psv.eras-assignment-manifest.v1', 'generatedAt' => gmdate( 'c' ), 'ownerUserId' => absint( $user_id ), 'commitPolicy' => 'PREPARE_THEN_EXPLICIT_CONFIRMATION', 'forbiddenActions' => array( 'APPLY', 'PAY', 'CERTIFY', 'SUBMIT', 'WITHDRAW', 'SIGNAL', 'MESSAGE' ), 'items' => $items );
+		return array( 'schema' => 'missionmed.psv.eras-assignment-manifest.v1', 'generatedAt' => gmdate( 'c' ), 'ownerUserId' => absint( $user_id ), 'commitPolicy' => 'PREPARE_THEN_EXPLICIT_CONFIRMATION', 'versionSelectionPolicy' => 'LATEST_APPROVED_PER_PROGRAM_AND_TRAINING_TYPE', 'forbiddenActions' => array( 'APPLY', 'PAY', 'CERTIFY', 'SUBMIT', 'WITHDRAW', 'SIGNAL', 'MESSAGE' ), 'items' => $items, 'supersededApprovedVersions' => $superseded );
+	}
+
+	protected static function assignment_plan_hash( $manifest ) {
+		return hash( 'sha256', wp_json_encode( array( 'schema' => $manifest['schema'], 'ownerUserId' => $manifest['ownerUserId'], 'items' => $manifest['items'], 'forbiddenActions' => $manifest['forbiddenActions'] ) ) );
+	}
+
+	public static function eras_plan() {
+		$docs = MMPS_Store::documents_for_export( self::uid(), array(), true );
+		$manifest = self::assignment_manifest_payload( $docs, self::uid() );
+		return rest_ensure_response( array( 'manifest' => $manifest, 'planSha256' => self::assignment_plan_hash( $manifest ), 'officialPortal' => 'https://myeras.aamc.org/', 'capability' => 'GUIDED_MANUAL_PREPARATION', 'authoritativeReadback' => false ) );
+	}
+
+	public static function eras_plan_confirm( $request ) {
+		$params = (array) $request->get_json_params();
+		$docs = MMPS_Store::documents_for_export( self::uid(), array(), true );
+		if ( ! $docs ) { return new WP_Error( 'mmps_manifest_empty', 'Approve at least one statement before preparing MyERAS.', array( 'status' => 422 ) ); }
+		$manifest = self::assignment_manifest_payload( $docs, self::uid() );
+		$hash = self::assignment_plan_hash( $manifest );
+		if ( ! hash_equals( $hash, (string) ( $params['planSha256'] ?? '' ) ) ) { return new WP_Error( 'mmps_eras_plan_changed', 'Your approved statement plan changed. Review the refreshed mapping before confirming.', array( 'status' => 409 ) ); }
+		MMPS_Store::audit( self::uid(), 'eras_plan_confirm', 'count:' . count( $manifest['items'] ), array( 'count' => count( $manifest['items'] ), 'supersededCount' => count( $manifest['supersededApprovedVersions'] ), 'planSha256' => $hash, 'capability' => 'GUIDED_MANUAL_PREPARATION' ) );
+		return rest_ensure_response( array( 'confirmed' => true, 'confirmedAt' => gmdate( 'c' ), 'planSha256' => $hash, 'capability' => 'GUIDED_MANUAL_PREPARATION', 'myErasMutationPerformed' => false ) );
 	}
 
 	protected static function assignment_manifest_markdown( $manifest ) {

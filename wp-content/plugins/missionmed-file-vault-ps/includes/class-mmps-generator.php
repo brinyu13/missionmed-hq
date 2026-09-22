@@ -180,6 +180,9 @@ class MMPS_Generator {
 		if ( is_wp_error( $bundle ) ) {
 			return $bundle;
 		}
+		if ( ! MMPS_Evidence_Bundle::specialty_matches( $root['specialtyLabel'], $bundle['program']['designation'] ?? '' ) ) {
+			return new WP_Error( 'mmps_specialty_mismatch', 'This verified RISE program does not belong to the ROOT specialty. Create or choose the correct specialty ROOT.', array( 'status' => 409 ) );
+		}
 		$tier_requested = 'DEEP' === strtoupper( (string) $tier_requested ) ? 'DEEP' : 'ESSENTIAL';
 		$plan           = MMPS_Tiers::plan( $bundle, $root['prefs'], $tier_requested );
 		$ordinal        = MMPS_Store::count_runs( $user_id, $root['id'], $program_specialty_id );
@@ -253,6 +256,7 @@ class MMPS_Generator {
 		$validation['promptContracts'] = self::prompt_contract_refs( $plan['tierEffective'], $attempts > 1 );
 		$validation['privacyAuthorization'] = $authorization_mode;
 		$validation['candidateMode'] = count( $strategy_keys ) > 1 ? 'FIVE' : 'RECOMMENDED_ONLY';
+		$validation['otherProgramIds'] = array_values( array_unique( array_map( 'strval', (array) $other_program_ids ) ) );
 		$output                 = self::with_selected_candidate( $result['json'], (string) ( $validation['recommendedCandidateId'] ?? '' ) );
 
 		$status = $validation['blocking'] ? 'NEEDS_ATTENTION' : 'OK';
@@ -285,9 +289,11 @@ class MMPS_Generator {
 	protected static function build_payload( $root, $bundle, $plan, $strategy_keys = null ) {
 		$region   = $root['region'];
 		$index    = (int) $region['paragraphIndex'];
-		$original = MMPS_Region::original_region( $root['paragraphs'], $region );
+		$natural_name = (string) ( $bundle['program']['naturalProgramName'] ?? $bundle['program']['programName'] ?? $bundle['program']['institution'] ?? '' );
+		$tokenized = MMPS_Region::substitute_program_token( $root['paragraphs'], $natural_name );
+		$paras    = is_wp_error( $tokenized ) ? $root['paragraphs'] : $tokenized['paragraphs'];
+		$original = MMPS_Region::original_region( $paras, $region );
 		$words    = $original ? str_word_count( $original ) : 85;
-		$paras    = $root['paragraphs'];
 		if ( 'REPLACE_PARAGRAPH' === $region['mode'] ) {
 			$prev = $paras[ $index - 1 ] ?? '';
 			$next = $paras[ $index + 1 ] ?? '';
@@ -299,6 +305,10 @@ class MMPS_Generator {
 		foreach ( $plan['allowedFacts'] as $fact ) {
 			$facts[] = array( 'fact_id' => $fact['factId'], 'category' => $fact['category'], 'label' => $fact['label'], 'text' => $fact['text'] );
 		}
+		$reason_plan = array();
+		foreach ( (array) ( $plan['strongReasons'] ?? array() ) as $fact ) {
+			$reason_plan[] = array( 'fact_id' => (string) $fact['factId'], 'priority_rank' => (int) ( $fact['priorityRank'] ?? 0 ), 'matched_on' => (string) ( $fact['matchedOn'] ?? '' ) );
+		}
 		$strategies = array();
 		$strategy_keys = $strategy_keys ? array_values( (array) $strategy_keys ) : array_keys( self::strategies() );
 		foreach ( self::strategies() as $key => $description ) {
@@ -307,15 +317,20 @@ class MMPS_Generator {
 			}
 		}
 		$template = (array) ( $region['template'] ?? array() );
+		if ( $template ) {
+			$template['sourceText'] = str_replace( MMPS_Region::PROGRAM_TOKEN, $natural_name, (string) ( $template['sourceText'] ?? '' ) );
+			$template['staticFragments'] = array_map( function ( $fragment ) use ( $natural_name ) { return str_replace( MMPS_Region::PROGRAM_TOKEN, $natural_name, (string) $fragment ); }, (array) ( $template['staticFragments'] ?? array() ) );
+		}
 		$template_behavior = (string) ( $template['behavior'] ?? 'USE_TEMPLATE' );
 		return array(
 			'prompt_version'     => self::prompt_version_ref(),
 			'prompt_contracts'   => self::prompt_contract_refs( $plan['tierEffective'], false ),
 			'specialty'          => $root['specialtyLabel'],
 			'tier'               => $plan['tierEffective'],
-			'program'            => array( 'programName' => $bundle['program']['programName'] ? $bundle['program']['programName'] : $bundle['program']['institution'], 'institution' => $bundle['program']['institution'] ),
+			'program'            => array( 'programName' => $bundle['program']['programName'] ? $bundle['program']['programName'] : $bundle['program']['institution'], 'naturalProgramName' => $natural_name, 'naturalNameSource' => (string) ( $bundle['program']['naturalNameSource'] ?? 'FORMAL_CANONICAL_FALLBACK' ), 'institution' => $bundle['program']['institution'] ),
 			'allowed_facts'      => $facts,
 			'student_facts'      => $plan['studentFacts'],
+			'personalization_plan'=> array( 'ordered_strong_reasons' => $reason_plan, 'evidence_insufficient' => ! empty( $plan['reasonInsufficient'] ) ),
 			'root_paragraphs'    => array_values( $paras ),
 			'root_context_mode'  => 'READ_ONLY_COMPLETE_STATEMENT',
 			'editorial_objective'=> 'Preserve this applicant\'s voice while making one clear, evidence-grounded applicant-to-program argument that enters from the previous paragraph and exits naturally into the next.',
@@ -340,6 +355,43 @@ class MMPS_Generator {
 			'transition_contract'=> array( 'entry' => 'Advance the live idea in previous_paragraph without restarting or repeating it.', 'exit' => 'Leave a live idea that next_paragraph naturally develops without concluding the whole statement.' ),
 			'banned_phrases'     => self::banned_phrases(),
 		);
+	}
+
+	/** Provider-assisted evidence annotation for one exact student edit. The provider may not rewrite it. */
+	public static function revalidate_edit( $user_id, $root, $run, $text ) {
+		$plan = MMPS_Tiers::plan( $run['bundle'], $root['prefs'], $run['tier_requested'] );
+		$payload = self::build_payload( $root, $run['bundle'], $plan, array( 'BALANCED_QUIET_SPECIFIC' ) );
+		$payload['edited_region'] = MMPS_Region::normalize( $text );
+		$payload['audit_contract'] = 'Return edited_region byte-for-byte after normalization. Do not revise it. Segment and cite only claims supported by allowed_facts or ROOT context. Flag every unsupported claim.';
+		$string_array = array( 'type' => 'array', 'items' => array( 'type' => 'string' ) );
+		$schema = array(
+			'type' => 'object', 'additionalProperties' => false,
+			'required' => array( 'replacement_region', 'segments', 'facts_used', 'root_anchor_terms', 'self_check' ),
+			'properties' => array(
+				'replacement_region' => array( 'type' => 'string' ),
+				'segments' => array( 'type' => 'array', 'items' => array( 'type' => 'object', 'additionalProperties' => false, 'required' => array( 'text', 'kind', 'fact_ids' ), 'properties' => array( 'text' => array( 'type' => 'string' ), 'kind' => array( 'type' => 'string', 'enum' => array( 'program_fact', 'student_link', 'connective' ) ), 'fact_ids' => $string_array ) ) ),
+				'facts_used' => $string_array,
+				'root_anchor_terms' => array( 'type' => 'array', 'minItems' => 0, 'maxItems' => 3, 'items' => array( 'type' => 'string' ) ),
+				'self_check' => array( 'type' => 'object', 'additionalProperties' => false, 'required' => array( 'name_swap_would_still_work', 'possible_unsupported_claims', 'generic_phrases', 'entry_bridge_supported', 'exit_bridge_supported' ), 'properties' => array( 'name_swap_would_still_work' => array( 'type' => 'boolean' ), 'possible_unsupported_claims' => $string_array, 'generic_phrases' => $string_array, 'entry_bridge_supported' => array( 'type' => 'boolean' ), 'exit_bridge_supported' => array( 'type' => 'boolean' ) ) ),
+			),
+		);
+		$safe = self::redact( $payload, $user_id );
+		if ( is_wp_error( $safe ) ) { return $safe; }
+		$result = MMPS_Provider::complete(
+			'You are a strict evidence and transition auditor. Never rewrite edited_region. Return it exactly, split into exhaustive consecutive segments. Cite only supplied fact IDs. Flag every unsupported claim. Confirm whether its entry follows previous_paragraph and its exit leads into next_paragraph. Return JSON only.',
+			$safe,
+			$schema,
+			array( 'userId' => $user_id, 'rootId' => $root['id'], 'programSpecialtyId' => $run['program_specialty_id'], 'idempotencyKey' => 'edit-revalidate:' . hash( 'sha256', $run['run_uuid'] . '|' . $text ) )
+		);
+		if ( is_wp_error( $result ) ) { return $result; }
+		$annotation = self::restore( $result['json'], $user_id );
+		if ( ! hash_equals( MMPS_Region::hash( $text ), MMPS_Region::hash( (string) ( $annotation['replacement_region'] ?? '' ) ) ) ) {
+			return new WP_Error( 'mmps_edit_revalidation_rewrite', 'The checker changed the paragraph instead of validating it. Your draft remains saved and unapproved.', array( 'status' => 409 ) );
+		}
+		$validation = self::validate( $annotation, $run['bundle'], $plan, $root, (array) ( $run['validation']['otherProgramIds'] ?? array() ) );
+		if ( ! empty( $annotation['self_check']['possible_unsupported_claims'] ) ) { $validation['blocking'][] = array( 'code' => 'EDIT_UNSUPPORTED_CLAIM', 'message' => 'The edited paragraph contains a claim the evidence auditor could not verify.' ); }
+		if ( empty( $annotation['self_check']['entry_bridge_supported'] ) || empty( $annotation['self_check']['exit_bridge_supported'] ) ) { $validation['blocking'][] = array( 'code' => 'EDIT_TRANSITION_REVIEW', 'message' => 'The edited paragraph does not yet bridge cleanly between its protected neighbors.' ); }
+		return array( 'annotation' => $annotation, 'validation' => $validation, 'provider' => (string) ( $result['provider'] ?? '' ), 'model' => (string) ( $result['model'] ?? '' ) );
 	}
 
 	/** Return one server-authorized candidate from a stored output. */
@@ -764,6 +816,9 @@ class MMPS_Generator {
 		if ( false !== strpos( $region, '***' ) ) {
 			$blocking[] = array( 'code' => 'TEMPLATE_MARKER_LEFT', 'message' => 'Template boundary markers may not appear in the finished Program Answer.' );
 		}
+		if ( false !== strpos( $region, MMPS_Region::PROGRAM_TOKEN ) ) {
+			$blocking[] = array( 'code' => 'PROGRAM_TOKEN_LEAK', 'message' => 'The program-name token must be resolved before review.' );
+		}
 		if ( false !== strpos( $region, '—' ) ) {
 			$blocking[] = array( 'code' => 'EM_DASH', 'message' => 'The Program Answer may not contain an em dash.' );
 		}
@@ -775,6 +830,7 @@ class MMPS_Generator {
 			$haystack = mb_strtolower( self::plain( $region ) );
 			$offset   = 0;
 			foreach ( (array) ( $template['staticFragments'] ?? array() ) as $fragment ) {
+				$fragment = str_replace( MMPS_Region::PROGRAM_TOKEN, (string) ( $bundle['program']['naturalProgramName'] ?? $bundle['program']['programName'] ?? $bundle['program']['institution'] ?? '' ), (string) $fragment );
 				$needle = mb_strtolower( self::plain( $fragment ) );
 				if ( '' === $needle ) {
 					continue;
@@ -826,9 +882,13 @@ class MMPS_Generator {
 		if ( ! $named ) {
 			$blocking[] = array( 'code' => 'PROGRAM_NOT_NAMED', 'message' => 'The paragraph must name the program ("' . $bundle['program']['programName'] . '").' );
 		}
-		foreach ( (array) $other_program_ids as $other_id ) {
-			$other = get_transient( 'mmps_bundle_' . md5( (string) $other_id ) );
-			if ( ! is_array( $other ) || (string) $other_id === (string) $bundle['program']['programSpecialtyId'] ) {
+		foreach ( array_values( array_unique( array_map( 'strval', (array) $other_program_ids ) ) ) as $other_id ) {
+			if ( (string) $other_id === (string) $bundle['program']['programSpecialtyId'] ) {
+				continue;
+			}
+			$other = MMPS_Evidence_Bundle::for_program( $other_id );
+			if ( is_wp_error( $other ) ) {
+				$blocking[] = array( 'code' => 'OTHER_PROGRAM_IDENTITY_UNAVAILABLE', 'message' => 'Another selected program could not be verified, so cross-program exclusion failed closed.' );
 				continue;
 			}
 			foreach ( (array) ( $other['nameForms'] ?? array() ) as $form ) {
@@ -839,7 +899,12 @@ class MMPS_Generator {
 		}
 
 		/* Every number and every proper noun must be a WHOLE token of the ROOT, the supplied facts or the program identity. */
-		$root_text   = implode( ' ', $root['paragraphs'] );
+		$protected_paragraphs = array_values( (array) $root['paragraphs'] );
+		$region_contract = (array) ( $root['region'] ?? array() );
+		if ( 'REPLACE_PARAGRAPH' === (string) ( $region_contract['mode'] ?? '' ) ) {
+			unset( $protected_paragraphs[ (int) ( $region_contract['paragraphIndex'] ?? -1 ) ] );
+		}
+		$root_text   = implode( ' ', $protected_paragraphs );
 		$facts_text  = implode( ' ', wp_list_pluck( $plan['allowedFacts'], 'text' ) );
 		$corpus_text = $root_text . ' ' . $facts_text . ' ' . implode( ' ', wp_list_pluck( $plan['studentFacts'], 'text' ) ) . ' ' . implode( ' ', (array) $bundle['nameForms'] ) . ' ' . $bundle['program']['city'] . ' ' . $bundle['program']['state'] . ' ' . $root['specialtyLabel'];
 		$numbers     = self::number_set( $corpus_text );
@@ -946,6 +1011,9 @@ class MMPS_Generator {
 	}
 
 	public static function preview( $run, $root, $bundle, $plan, $output ) {
+		$natural_name = (string) ( $bundle['program']['naturalProgramName'] ?? $bundle['program']['programName'] ?? $bundle['program']['institution'] ?? '' );
+		$tokenized_root = MMPS_Region::substitute_program_token( $root['paragraphs'], $natural_name );
+		$view_root = is_wp_error( $tokenized_root ) ? $root['paragraphs'] : $tokenized_root['paragraphs'];
 		$preview = array(
 			'runId'          => $run['run_uuid'],
 			'status'         => $run['status'],
@@ -970,8 +1038,8 @@ class MMPS_Generator {
 		$selected_validation = (array) ( $run['validation']['candidateResults'][ $selected_id ] ?? $run['validation'] );
 		$preview['selectedValidation'] = $selected_validation;
 		$replacement = (string) ( $output['replacement_region'] ?? '' );
-		$paragraphs  = MMPS_Region::reconstruct( $root['paragraphs'], $root['region'], $replacement );
-		$integrity   = MMPS_Region::verify_protected( $paragraphs, $root['region'] );
+		$paragraphs  = MMPS_Region::reconstruct( $view_root, $root['region'], $replacement );
+		$integrity   = MMPS_Region::verify_protected_with_program_token( $root['paragraphs'], $paragraphs, $root['region'], $natural_name );
 		$facts       = array();
 		foreach ( $plan['allowedFacts'] as $fact ) {
 			$fact['used'] = in_array( $fact['factId'], (array) ( $selected_validation['factsUsed'] ?? array() ), true );
@@ -981,8 +1049,8 @@ class MMPS_Generator {
 		foreach ( (array) ( $output['candidates'] ?? array() ) as $candidate ) {
 			$candidate_id = (string) ( $candidate['candidate_id'] ?? '' );
 			$check        = (array) ( $run['validation']['candidateResults'][ $candidate_id ] ?? array( 'blocking' => array(), 'advisory' => array(), 'factsUsed' => array() ) );
-			$candidate_paragraphs = MMPS_Region::reconstruct( $root['paragraphs'], $root['region'], (string) ( $candidate['replacement_region'] ?? '' ) );
-			$candidate_integrity  = MMPS_Region::verify_protected( $candidate_paragraphs, $root['region'] );
+			$candidate_paragraphs = MMPS_Region::reconstruct( $view_root, $root['region'], (string) ( $candidate['replacement_region'] ?? '' ) );
+			$candidate_integrity  = MMPS_Region::verify_protected_with_program_token( $root['paragraphs'], $candidate_paragraphs, $root['region'], $natural_name );
 			$candidate_facts      = array();
 			foreach ( $plan['allowedFacts'] as $fact ) {
 				$fact['used']     = in_array( $fact['factId'], (array) ( $check['factsUsed'] ?? array() ), true );
@@ -1004,7 +1072,8 @@ class MMPS_Generator {
 		}
 		$preview['regionIndex']     = (int) $root['region']['paragraphIndex'];
 		$preview['regionMode']      = $root['region']['mode'];
-		$preview['originalRegion']  = MMPS_Region::original_region( $root['paragraphs'], $root['region'] );
+		$preview['originalRegion']  = MMPS_Region::original_region( $view_root, $root['region'] );
+		$preview['programNameSubstitutions'] = is_wp_error( $tokenized_root ) ? array() : $tokenized_root['replacements'];
 		$preview['replacement']     = MMPS_Region::normalize( $replacement );
 		$preview['segments']        = (array) ( $output['segments'] ?? array() );
 		$preview['paragraphs']      = $paragraphs;
