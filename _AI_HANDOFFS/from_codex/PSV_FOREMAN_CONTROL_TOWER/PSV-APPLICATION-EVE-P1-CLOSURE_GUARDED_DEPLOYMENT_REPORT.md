@@ -11,7 +11,7 @@ PSV v1.4.3 is live from exact pushed commit `3a107f532f503dc39b023baa5e2182aae6e
 - Source/origin: `3a107f532f503dc39b023baa5e2182aae6eb8f44`
 - MissionMed OS: `c3c3790eb12edb2577256f719507b523a58de7b5`
 - Package: `/www/theresidencyacademy_209/private/psv-deploy-3a107f5-1.4.3/missionmed-file-vault-ps-1.4.3.zip`
-- ZIP SHA-256: `e8142ab08b56b17f31301f301daca13aa9e8f869aa08dd76cfc089382c49db1`
+- ZIP SHA-256: `e8142ab08b56b17f31301f301daca13aa9e8f869aa08dd76cfc089382c49db1d`
 - Manifest SHA-256: `67dbd32c897501cd589a5e06e1e89a47301facd2d263329893a6ac02cc82ccbe`
 - Live custody: 28 files exact; PHP lint 25/25
 - Rollback: `/www/theresidencyacademy_209/private/psv-rollbacks/PSV-1.4.3-3a107f5-20260922T160606Z/live-retired`
@@ -36,9 +36,9 @@ PSV v1.4.3 is live from exact pushed commit `3a107f532f503dc39b023baa5e2182aae6e
 
 | Stage | Job | Final state | Provider evidence |
 |---:|---|---|---|
-| 10 | `cdf713e7-4b4a-4827-bd02-dcd5c69e0bc1` | 10 READY / 0 exception | Real OpenAI; one attempt each. |
-| 25 | `09389313-68f5-4f71-9e4c-8192a55f5e4a` | 25 READY / 0 exception | One phrase-gate retry; 24 successful outputs preserved. |
-| 50 | `fe756c53-1ff0-423a-af6f-79f42179cf2e` | 50 READY / 0 exception | Real OpenAI; one attempt each; completed resume added zero attempts. |
+| 10 | `cdf713e7-4b4a-4827-bd02-dcd5c69e0bc1` | 10 READY / 0 exception | 10 batch-item attempts; 12 provider-network calls, all `http_200` and accounted. |
+| 25 | `09389313-68f5-4f71-9e4c-8192a55f5e4a` | 25 READY / 0 exception | 26 batch-item attempts because of one selective phrase-gate retry; 34 provider-network calls, all `http_200` and accounted; 24 successful outputs preserved. |
+| 50 | `fe756c53-1ff0-423a-af6f-79f42179cf2e` | 50 READY / 0 exception | 50 batch-item attempts; 50 provider-network calls, all `http_200` and accounted; completed resume added zero calls. |
 
 These are owner-scoped synthetic ROOT and synthetic RISE identity fixtures running through the production batch/runtime and real provider. They prove the staged architecture/provider path through 50, not a 50-program real-student or live-RISE-list run.
 
@@ -61,4 +61,4 @@ These are owner-scoped synthetic ROOT and synthetic RISE identity fixtures runni
 
 ## Independent verification
 
-Fresh read-only exact-release verification is pending dispatch. Its final verdict will be appended without altering production.
+Fresh independent read-only exact-release verification returned **PASS with no open P0/P1 findings**. It independently matched DR-335, exact source/live 28-file custody, production PHP 25/25, rollback presence, runtime/privacy gates, all focused local suites, the three final batch states, provider-call accounting, completed-job no-call resume, manual-edit revision/document custody, natural-name substitution provenance, v1.4.3 Library ROOT/program rebinding, truthful guided/manual MyERAS behavior, File Vault sentinels, RISE health/current source rights, public/anonymous boundaries, zero post-deploy severe/MMPS logs and the guarded deployment lease interval. Its two P2 documentation findings—the truncated ZIP hash and ambiguous item-attempt/provider-call wording—are corrected in this sealed report and ledger.
