@@ -174,6 +174,7 @@
 		var region = S.root.region && S.root.region.mode ? S.root.region : null;
 		S.regionDraft = region ? { mode: region.mode, index: region.paragraphIndex, templateBehavior: region.template && region.template.behavior ? region.template.behavior : 'USE_TEMPLATE', templateText: region.template ? region.template.sourceText : '' } : { mode: 'REPLACE_PARAGRAPH', index: S.detection && S.detection.proposedIndex != null ? S.detection.proposedIndex : null };
 		S.runs = {}; S.current = '';
+		S.batch.current = null; S.batch.index = null; S.batch.selected = {}; S.batch.running = false;
 	}
 	function createRoot() {
 		var f = S.rootForm, body = { source: f.source, specialtyLabel: f.specialty };
@@ -371,7 +372,15 @@
 	}
 	function openBatch(uuid) {
 		busy('batch-open', true);
-		api('GET', '/batch/jobs/' + uuid).then(function (data) { S.batch.current = data.job; busy('batch-open', false); go('batch'); }).catch(function (e) { busy('batch-open', false); fail(e); });
+		api('GET', '/batch/jobs/' + uuid).then(function (data) {
+			var job = data.job;
+			if (S.root && String(S.root.id) === String(job.rootId)) { return null; }
+			return api('GET', '/roots/' + job.rootId).then(function (rootData) { adoptRoot(rootData); });
+		}).then(function () {
+			return api('GET', '/batch/jobs/' + uuid);
+		}).then(function (data) {
+			S.batch.current = data.job; busy('batch-open', false); go('batch');
+		}).catch(function (e) { busy('batch-open', false); fail(e); });
 	}
 	function runBatch() {
 		var job = S.batch.current;
@@ -892,7 +901,8 @@
 		if (!job) { return html; }
 		var pct = job.total ? Math.round(job.processed * 100 / job.total) : 0;
 		var topReasons = job.config && job.config.outputMode === 'TOP_3_REASONS';
-		html += '<div class="panel mt"><div class="spread"><div><div class="eyebrow">' + (topReasons ? 'Top 3 Reasons' : 'Full Paragraph') + ' · Batch ' + esc(job.jobUuid.slice(0, 8)) + '</div><div class="h2">' + esc(job.specialtyLabel) + ' · ' + job.processed + ' of ' + job.total + ' processed</div></div><div class="row">' + batchStatusTag(job.status) + (b.running ? '<button class="btn sm" data-act="batch-stop">Pause after current items</button>' : '<button class="btn sm primary" data-act="batch-run"' + (job.processed >= job.total ? ' disabled' : '') + '>Resume generation</button>') + (!topReasons && job.ready ? '<button class="btn sm cy" data-act="batch-approve-ready"' + (S.busy['batch-approve-all'] ? ' disabled' : '') + '>Approve clean defaults (' + job.ready + ')</button>' : '') + '</div></div><progress class="batchProgress mtS" max="100" value="' + pct + '" aria-label="Batch generation progress">' + pct + '%</progress><p class="tiny dim mtS">Exceptions are listed first. ' + pct + '% · ' + job.ready + ' clean · ' + job.attention + ' exception' + (job.attention === 1 ? '' : 's') + ' · ' + job.failed + ' failed.</p></div>';
+		var autoReady = (job.items || []).filter(function (item) { return item.status === 'READY' && !item.approvedDocUuid && !item.goldStarred && item.priorityPosition !== null && Number(item.priorityPosition) > 25; }).length;
+		html += '<div class="panel mt"><div class="spread"><div><div class="eyebrow">' + (topReasons ? 'Top 3 Reasons' : 'Full Paragraph') + ' · Batch ' + esc(job.jobUuid.slice(0, 8)) + '</div><div class="h2">' + esc(job.specialtyLabel) + ' · ' + job.processed + ' of ' + job.total + ' processed</div></div><div class="row">' + batchStatusTag(job.status) + (b.running ? '<button class="btn sm" data-act="batch-stop">Pause after current items</button>' : '<button class="btn sm primary" data-act="batch-run"' + (job.processed >= job.total ? ' disabled' : '') + '>Resume generation</button>') + (!topReasons && autoReady ? '<button class="btn sm cy" data-act="batch-approve-ready"' + (S.busy['batch-approve-all'] ? ' disabled' : '') + '>Approve clean defaults (' + autoReady + ')</button>' : '') + '</div></div><progress class="batchProgress mtS" max="100" value="' + pct + '" aria-label="Batch generation progress">' + pct + '%</progress><p class="tiny dim mtS">Exceptions are listed first. ' + pct + '% · ' + job.ready + ' clean · ' + job.attention + ' exception' + (job.attention === 1 ? '' : 's') + ' · ' + job.failed + ' failed.</p></div>';
 		var orderedItems = (job.items || []).slice().sort(function (a, b) { var order = {RESEARCH_NEEDED:0,NEEDS_ATTENTION:1,FAILED:2,PROCESSING:3,QUEUED:4,READY:5}; return (order[a.status] == null ? 9 : order[a.status]) - (order[b.status] == null ? 9 : order[b.status]); });
 		html += '<div class="panel"><div class="tblWrap"><table class="lib batchTable"><thead><tr><th>Program</th><th>' + (topReasons ? 'Verified proposed reasons' : 'Tier') + '</th><th>Status</th><th>Attempt</th><th></th></tr></thead><tbody>' + orderedItems.map(function (item) {
 			var label = item.programName || item.programSpecialtyId, canReview = item.runId && ['READY','NEEDS_ATTENTION','RESEARCH_NEEDED'].indexOf(item.status) !== -1;

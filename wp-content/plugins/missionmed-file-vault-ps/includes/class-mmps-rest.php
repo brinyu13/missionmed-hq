@@ -595,6 +595,10 @@ class MMPS_Rest {
 			if ( 'READY' !== $item['status'] || $item['approvedDocUuid'] ) {
 				continue;
 			}
+			$priority = $item['priorityPosition'];
+			if ( $item['goldStarred'] || null === $priority || (int) $priority <= 25 ) {
+				continue;
+			}
 			$doc = self::approve_batch_item( $job['jobUuid'], $item['itemUuid'] );
 			if ( is_wp_error( $doc ) ) {
 				$errors[] = array( 'itemUuid' => $item['itemUuid'], 'code' => $doc->get_error_code() );

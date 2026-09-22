@@ -328,6 +328,18 @@ ok('Application Eve default path: stored batch run contains one validated recomm
 r = await t.api('POST', `/batch/jobs/${job.jobUuid}/approve-ready`, {});
 job = r.json.job;
 ok('Application Eve exception-focused approval approves clean defaults without touching failed work', r.status === 200 && r.json.approved === 2 && r.json.errors.length === 0 && job.items.filter(x => x.status === 'READY').every(x => x.approvedDocUuid));
+// Reclassify one otherwise-ready legacy row into the protected range to prove
+// the approval endpoint applies today's policy to historical jobs, not only to
+// newly imported RISE lists.
+r = await t.api('POST', '/batch/jobs', { rootId: root.id, programs: [
+  { programSpecialtyId: 'ps_ess_003', priorityPosition: 30, goldStarred: false, tier: 'ESSENTIAL' }
+] });
+let legacyProtectedJob = r.json.job;
+r = await t.api('POST', `/batch/jobs/${legacyProtectedJob.jobUuid}/process`, {});
+legacyProtectedJob = r.json.job;
+php(`global $wpdb; $wpdb->update($wpdb->prefix.'mmed_ps_proto_job_items',array('priority_position'=>1),array('job_id'=>${legacyProtectedJob.id}));`);
+r = await t.api('POST', `/batch/jobs/${legacyProtectedJob.jobUuid}/approve-ready`, {});
+ok('Application Eve guardian: bulk approval skips a historical ready item now inside protected priority 1 through 25', r.status === 200 && r.json.approved === 0 && r.json.errors.length === 0 && !r.json.job.items[0].approvedDocUuid && r.json.job.items[0].priorityPosition === 1);
 const approvedItem = job.items.find(x => x.status === 'READY' && x.approvedDocUuid);
 r = await t.api('POST', `/batch/jobs/${job.jobUuid}/items/${approvedItem.itemUuid}/alternatives`, {});
 job = r.json.job;

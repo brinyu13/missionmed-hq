@@ -27,6 +27,8 @@ $checks = array(
 	'assignment is prepare then explicit confirmation' => false !== strpos( $files['rest'], 'PREPARE_THEN_EXPLICIT_CONFIRMATION' ),
 	'assignment mission forbids application and payment actions' => false !== strpos( $files['rest'], "array( 'APPLY', 'PAY', 'CERTIFY', 'SUBMIT', 'WITHDRAW', 'SIGNAL', 'MESSAGE' )" ),
 	'student UI exposes both bulk modes and High Priority Review' => false !== strpos( $files['ui'], 'Full Paragraph' ) && false !== strpos( $files['ui'], 'Top 3 Reasons' ) && false !== strpos( $files['ui'], 'High Priority Review' ),
+	'ROOT adoption clears stale batch state and batch opening rebinds the exact ROOT' => false !== strpos( $files['ui'], 'S.batch.current = null; S.batch.index = null;' ) && false !== strpos( $files['ui'], "api('GET', '/roots/' + job.rootId)" ),
+	'bulk approval remains fail closed for Gold ambiguous and priority 1 through 25 rows' => false !== strpos( $files['rest'], "\$item['goldStarred'] || null === \$priority || (int) \$priority <= 25" ) && false !== strpos( $files['ui'], 'Number(item.priorityPosition) > 25' ),
 	'library exposes deterministic ERAS manifest download' => false !== strpos( $files['ui'], 'ERAS assignment manifest' ),
 );
 $failed = 0;
