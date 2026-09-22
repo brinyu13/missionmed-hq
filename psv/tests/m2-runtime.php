@@ -161,6 +161,30 @@ unset($candidate);
 $evidenceCheck = MMPS_Generator::validate_candidate_set($evidenceSet, $evidenceBundle, $evidencePlan, $root);
 check(empty($evidenceCheck['blocking']), 'shared verified evidence literal is excluded from copied-scaffold diversity checks');
 
+$authoredTemplateRoot = $root;
+$authoredTemplateRoot['region']['template'] = array(
+	'kind' => 'SLOTTED', 'behavior' => 'USE_TEMPLATE',
+	'staticFragments' => array(
+		'Because careful medicine depends on the question someone is willing to ask,',
+		'. I will bring the same willingness to slow down, ask what remains unresolved, and follow the answer.',
+	),
+);
+$authoredTemplateSet = $set;
+foreach ($authoredTemplateSet['candidates'] as &$candidate) {
+	$candidate['segments'][0]['text'] = 'Because careful medicine depends on the question someone is willing to ask, ' . $candidate['segments'][0]['text'];
+	$last = count($candidate['segments']) - 1;
+	$candidate['segments'][$last]['text'] .= ' I will bring the same willingness to slow down, ask what remains unresolved, and follow the answer.';
+	$candidate['replacement_region'] = implode(' ', wp_list_pluck($candidate['segments'], 'text'));
+}
+unset($candidate);
+$authoredTemplateCheck = MMPS_Generator::validate_candidate_set($authoredTemplateSet, $bundle, $plan, $authoredTemplateRoot);
+check(empty($authoredTemplateCheck['blocking']), 'required authored template prose is excluded only from set-level diversity scoring');
+$authoredDuplicate = $authoredTemplateSet;
+$authoredDuplicate['candidates'][1] = $authoredDuplicate['candidates'][0];
+$authoredDuplicate['candidates'][1]['candidate_id'] = 'STUDENT_GOAL_FORWARD';
+$authoredDuplicateCheck = MMPS_Generator::validate_candidate_set($authoredDuplicate, $bundle, $plan, $authoredTemplateRoot);
+check(in_array('CANDIDATES_TOO_SIMILAR', wp_list_pluck($authoredDuplicateCheck['blocking'], 'code'), true), 'exact authored-template candidate duplicates remain blocked');
+
 $paraphrasedEvidenceSet = $evidenceSet;
 foreach ($paraphrasedEvidenceSet['candidates'] as &$candidate) {
 	$candidate['segments'][1]['text'] = 'The program lists a cardiology fellowship that accepts applicants after completing three years of internal medicine training.';

@@ -493,9 +493,22 @@ class MMPS_Generator {
 		return str_ireplace( $forms, ' fact ', self::plain( (string) $text ) );
 	}
 
-	protected static function candidate_diversity_text( $text, $bundle, $plan ) {
+	protected static function candidate_diversity_text( $text, $bundle, $plan, $root = array() ) {
 		$literals = array();
 		$evidence_words = array();
+		$source = self::plain( (string) $text );
+		// Strip immutable authored prose before evidence-word normalization. A
+		// static fragment can itself contain an evidence-category word, and doing
+		// this later would make the exact fragment impossible to recognize.
+		$template = (array) ( $root['region']['template'] ?? array() );
+		if ( 'SLOTTED' === (string) ( $template['kind'] ?? '' ) && 'AI_REWRITE' !== (string) ( $template['behavior'] ?? 'USE_TEMPLATE' ) ) {
+			$natural_name = (string) ( $bundle['program']['naturalProgramName'] ?? $bundle['program']['programName'] ?? $bundle['program']['institution'] ?? '' );
+			$fragments = array_map( function ( $fragment ) use ( $natural_name ) {
+				return str_replace( MMPS_Region::PROGRAM_TOKEN, $natural_name, self::plain( (string) $fragment ) );
+			}, (array) ( $template['staticFragments'] ?? array() ) );
+			usort( $fragments, function ( $left, $right ) { return mb_strlen( $right ) - mb_strlen( $left ); } );
+			$source = str_ireplace( array_filter( $fragments ), ' authored ', $source );
+		}
 		foreach ( (array) ( $plan['allowedFacts'] ?? array() ) as $fact ) {
 			if ( ! is_array( $fact ) ) {
 				continue;
@@ -516,7 +529,7 @@ class MMPS_Generator {
 		usort( $literals, function ( $left, $right ) {
 			return mb_strlen( $right ) - mb_strlen( $left );
 		} );
-		$normalized = str_ireplace( $literals, ' fact ', self::candidate_identity_text( $text, $bundle ) );
+		$normalized = str_ireplace( $literals, ' fact ', self::candidate_identity_text( $source, $bundle ) );
 		$evidence_words = array_values( array_unique( $evidence_words ) );
 		usort( $evidence_words, function ( $left, $right ) {
 			return mb_strlen( $right ) - mb_strlen( $left );
@@ -581,14 +594,19 @@ class MMPS_Generator {
 		if ( array_diff( $expected, array_keys( $seen ) ) ) {
 			$blocking[] = array( 'code' => 'CANDIDATE_MISSING', 'message' => 'The candidate set omitted one or more requested rhetorical approaches.' );
 		}
+		$template = (array) ( $root['region']['template'] ?? array() );
+		$authored_template = 'SLOTTED' === (string) ( $template['kind'] ?? '' ) && 'AI_REWRITE' !== (string) ( $template['behavior'] ?? 'USE_TEMPLATE' );
 		for ( $i = 0; $i < count( $candidates ); $i++ ) {
 			for ( $j = $i + 1; $j < count( $candidates ); $j++ ) {
 				$raw_left   = self::candidate_identity_text( (string) ( $candidates[ $i ]['replacement_region'] ?? '' ), $bundle );
 				$raw_right  = self::candidate_identity_text( (string) ( $candidates[ $j ]['replacement_region'] ?? '' ), $bundle );
-				$left       = self::candidate_diversity_text( (string) ( $candidates[ $i ]['replacement_region'] ?? '' ), $bundle, $plan );
-				$right      = self::candidate_diversity_text( (string) ( $candidates[ $j ]['replacement_region'] ?? '' ), $bundle, $plan );
+				$left       = self::candidate_diversity_text( (string) ( $candidates[ $i ]['replacement_region'] ?? '' ), $bundle, $plan, $root );
+				$right      = self::candidate_diversity_text( (string) ( $candidates[ $j ]['replacement_region'] ?? '' ), $bundle, $plan, $root );
 				$similarity = self::candidate_similarity( $left, $right );
-				$opening    = max( self::candidate_similarity( self::candidate_opening( $raw_left ), self::candidate_opening( $raw_right ) ), self::candidate_similarity( self::candidate_opening( $left ), self::candidate_opening( $right ) ) );
+				$opening    = self::candidate_similarity( self::candidate_opening( $left ), self::candidate_opening( $right ) );
+				if ( ! $authored_template ) {
+					$opening = max( $opening, self::candidate_similarity( self::candidate_opening( $raw_left ), self::candidate_opening( $raw_right ) ) );
+				}
 				$exact      = self::candidate_tokens( $raw_left, false ) === self::candidate_tokens( $raw_right, false );
 				if ( $exact || $similarity > 0.55 || $opening > 0.45 || self::candidate_has_shared_phrase( $left, $right, 7 ) ) {
 					$blocking[] = array( 'code' => 'CANDIDATES_TOO_SIMILAR', 'message' => ( $candidates[ $i ]['candidate_id'] ?? 'candidate' ) . ' and ' . ( $candidates[ $j ]['candidate_id'] ?? 'candidate' ) . ' are too similar (' . round( $similarity * 100 ) . '% shared content words).' );
