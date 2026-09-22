@@ -103,15 +103,30 @@ class MMPS_Evidence_Bundle {
 			}
 		}
 		$training_types = array();
+		$track_identities = array();
 		foreach ( (array) ( $record['tracks'] ?? array() ) as $track ) {
+			if ( ! is_array( $track ) ) { continue; }
 			$type = self::clean( $track['programType'] ?? '' );
 			if ( '' !== $type ) { $training_types[] = $type; }
+			$nrmp = '';
+			// Consume only explicit RISE-owned NRMP fields. A generic `code`
+			// could describe another registry and must never be reinterpreted.
+			foreach ( array( 'nrmpCode', 'nrmpProgramCode', 'nrmpTrackCode' ) as $key ) {
+				$value = is_scalar( $track[ $key ] ?? null ) ? strtoupper( self::clean( $track[ $key ] ) ) : '';
+				if ( preg_match( '/^[0-9]{7}[A-Z0-9]{2}$/D', $value ) ) { $nrmp = $value; break; }
+			}
+			if ( '' !== $type || '' !== $nrmp ) {
+				$track_identities[] = array( 'trainingType' => $type, 'nrmpCode' => $nrmp );
+			}
 		}
 		foreach ( array( $display['trainingType'] ?? '', $display['programType'] ?? '', $record['trainingType'] ?? '', $record['programType'] ?? '', self::known( $fields, 'Program Type' ) ) as $type ) {
 			$type = is_scalar( $type ) ? self::clean( $type ) : '';
 			if ( '' !== $type ) { $training_types[] = $type; }
 		}
 		$training_types = array_values( array_unique( $training_types ) );
+		$track_identities = array_values( array_unique( $track_identities, SORT_REGULAR ) );
+		$nrmp_codes = array_values( array_unique( array_filter( array_map( function ( $track ) { return (string) ( $track['nrmpCode'] ?? '' ); }, $track_identities ) ) ) );
+		$nrmp_status = count( $track_identities ) > 1 || count( $nrmp_codes ) > 1 ? 'AMBIGUOUS' : ( 1 === count( $track_identities ) && 1 === count( $nrmp_codes ) && '' !== (string) $track_identities[0]['trainingType'] ? 'RESOLVED' : 'UNAVAILABLE' );
 		$short_name = '';
 		$short_source = '';
 		foreach ( array(
@@ -140,6 +155,10 @@ class MMPS_Evidence_Bundle {
 			'designation'        => self::clean( $record['designation'] ?? '' ),
 			'trainingType'       => 1 === count( $training_types ) ? $training_types[0] : '',
 			'trainingTypes'      => $training_types,
+			'nrmpCode'           => 'RESOLVED' === $nrmp_status ? $nrmp_codes[0] : '',
+			'nrmpCodes'          => $nrmp_codes,
+			'nrmpTrackStatus'    => $nrmp_status,
+			'trackIdentities'    => $track_identities,
 		);
 	}
 

@@ -83,7 +83,11 @@ class MMPS_Batch {
 			$clean[ $id ]   = $entry;
 		}
 		if ( ! $clean ) {
-			return new WP_Error( 'mmps_batch_empty', 'Import at least one RISE program.', array( 'status' => 422 ) );
+			$high_priority = $excluded['GOLD'] + $excluded['SILVER'];
+			$message = $high_priority
+				? 'Your imported Gold and Silver programs stay in High-Priority Review, so none are eligible for unattended Bulk Rush. Personalize them one at a time in the Program workspace.'
+				: 'None of the imported RISE programs is eligible for unattended Bulk Rush. Confirm each program\'s priority in RISE or personalize it in the Program workspace.';
+			return new WP_Error( 'mmps_batch_empty', $message, array( 'status' => 422, 'excluded' => $excluded ) );
 		}
 		// Fail closed before a job exists: every item must resolve through the
 		// canonical RISE bundle and belong to this exact ROOT specialty.

@@ -14,6 +14,8 @@ class MMPS_Edit {
 		if ( ! $root || ! MMPS_Region::root_still_matches( $root['paragraphs'], $root['region'] ) || (string) $root['textSha256'] !== (string) ( $root['region']['rootTextSha256'] ?? '' ) || (array) ( $run['validation']['region'] ?? array() ) !== MMPS_Generator::region_snapshot( $root ) ) {
 			return self::error( 'root_changed', 'The ROOT or authorized region changed. This revision cannot be used.' );
 		}
+		$template_gate = MMPS_Generator::template_gate( $root );
+		if ( is_wp_error( $template_gate ) ) { return $template_gate; }
 		$production = ! empty( $root['isSynthetic'] ) || MMPS_Provider::real_root_allowed_for( $uid, $root, (string) ( $run['program_specialty_id'] ?? '' ) );
 		if ( ! $production ) { return self::error( 'privacy', 'Manual revision access is not authorized for this ROOT.', 403 ); }
 		if ( 'OK' !== $run['status'] || ( empty( $run['output']['replacement_region'] ) && empty( $run['output']['candidates'] ) ) ) { return self::error( 'run_invalid', 'Only a validated candidate run supports review.' ); }

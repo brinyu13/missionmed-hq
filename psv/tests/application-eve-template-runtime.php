@@ -39,6 +39,13 @@ $slotted = MMPS_Region::parse_template( array( $protected_before, '***', $author
 app_eve_check( ! is_wp_error( $slotted ) && 'SLOTTED' === $slotted['region']['template']['kind'], 'semantic authored template is recognized' );
 app_eve_check( 3 === count( $slotted['region']['template']['slots'] ), 'semantic slot plan is deterministic' );
 app_eve_check( ! empty( $slotted['region']['template']['staticFragments'] ), 'authored non-slot architecture is retained' );
+$slotted_gate = MMPS_Generator::template_gate( array( 'region' => $slotted['region'] ) );
+app_eve_check( is_wp_error( $slotted_gate ) && 'mmps_slotted_template_unavailable' === $slotted_gate->get_error_code(), 'slotted Mad-Lib template fails closed before provider use' );
+$slotted_rewrite = $slotted['region'];
+$slotted_rewrite['template']['behavior'] = 'AI_REWRITE';
+app_eve_check( is_wp_error( MMPS_Generator::template_gate( array( 'region' => $slotted_rewrite ) ) ), 'changing behavior cannot bypass the slotted-template gate' );
+app_eve_check( true === MMPS_Generator::template_gate( array( 'region' => $blank['region'] ) ), 'blank Program Paragraph Here remains available' );
+app_eve_check( true === MMPS_Generator::template_gate( array( 'paragraphs' => array( 'I would train at ' . MMPS_Region::PROGRAM_TOKEN . '.' ), 'region' => array() ) ), 'exact Your Program token remains outside the slotted-template gate' );
 
 $ordinary = MMPS_Region::parse_template( array( $protected_before, 'I seek thoughtful teaching.', $protected_after ) );
 app_eve_check( ! is_wp_error( $ordinary ) && false === $ordinary['found'], 'ROOT with no markers keeps explicit region confirmation' );

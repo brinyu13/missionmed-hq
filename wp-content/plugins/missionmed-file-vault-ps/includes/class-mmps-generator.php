@@ -17,6 +17,23 @@ class MMPS_Generator {
 	const DAILY_RUN_CAP  = 350;
 	const REQUEST_EDGE_BUDGET_MS    = 95000;
 	const RETRY_OVERHEAD_BUDGET_MS = 5000;
+	// Application-eve safety gate. Authored Mad-Lib slots stay unavailable until
+	// deterministic semantic fill/recast/omit validation has independent proof.
+	// BLANK templates and the exact *Your Program* token do not use this gate.
+	const SLOTTED_TEMPLATES_AVAILABLE = false;
+
+	/** Fail closed before any provider call or template confirmation. */
+	public static function template_gate( $root ) {
+		$template = (array) ( $root['region']['template'] ?? array() );
+		if ( 'SLOTTED' === (string) ( $template['kind'] ?? '' ) && ! self::SLOTTED_TEMPLATES_AVAILABLE ) {
+			return new WP_Error(
+				'mmps_slotted_template_unavailable',
+				'Authored Mad-Lib slots are temporarily unavailable. Use [Program Paragraph Here] or an ordinary confirmed region; *Your Program* remains supported.',
+				array( 'status' => 409 )
+			);
+		}
+		return true;
+	}
 
 	/** Legitimate shapes for a candidate set. Every shape must make a different rhetorical move. */
 	public static function baseline_strategies() {
@@ -171,6 +188,10 @@ class MMPS_Generator {
 		if ( ! MMPS_Region::root_still_matches( $root['paragraphs'], $root['region'] ) ) {
 			return new WP_Error( 'mmps_root_changed', 'The stored ROOT no longer matches its confirmed region. Confirm the region again.', array( 'status' => 409 ) );
 		}
+		$template_gate = self::template_gate( $root );
+		if ( is_wp_error( $template_gate ) ) {
+			return $template_gate;
+		}
 		$provider = MMPS_Provider::status();
 		$authorization_mode = MMPS_Provider::authorization_mode_for( $user_id, $root, $program_specialty_id );
 		if ( ! $root['isSynthetic'] && 'openai-responses' === $provider['provider'] && ! MMPS_Provider::real_root_allowed_for( $user_id, $root, $program_specialty_id ) ) {
@@ -259,7 +280,11 @@ class MMPS_Generator {
 		$validation['otherProgramIds'] = array_values( array_unique( array_map( 'strval', (array) $other_program_ids ) ) );
 		$output                 = self::with_selected_candidate( $result['json'], (string) ( $validation['recommendedCandidateId'] ?? '' ) );
 
-		$status = $validation['blocking'] ? 'NEEDS_ATTENTION' : 'OK';
+		// A failed alternative must not poison candidates that passed their own
+		// checks. The aggregate run is actionable whenever at least one exact
+		// candidate remains valid; candidate-level gates still block every failed
+		// option at preview, edit and save boundaries.
+		$status = empty( $validation['validCandidateIds'] ) ? 'NEEDS_ATTENTION' : 'OK';
 		$run    = self::run_record( $run_uuid, $root, $program_specialty_id, $tier_requested, $plan['tierEffective'], (string) ( $output['strategy'] ?? '' ), $ordinal, $result['provider'], $result['model'], $status, $bundle, $output, $validation, $latency, $usage, $idempotency_key );
 		if ( ! MMPS_Store::insert_run( $user_id, $run ) ) {
 			return new WP_Error( 'mmps_run_store', 'The generated run could not be stored durably. No batch item was marked ready.', array( 'status' => 500 ) );
@@ -420,7 +445,11 @@ class MMPS_Generator {
 		if ( ! $candidate ) {
 			return (array) $output;
 		}
-		$output['recommended_candidate_id'] = (string) ( $output['recommended_candidate_id'] ?? $candidate_id );
+		if ( '' !== (string) $candidate_id ) {
+			$output['recommended_candidate_id'] = (string) $candidate_id;
+		} else {
+			$output['recommended_candidate_id'] = (string) ( $output['recommended_candidate_id'] ?? $candidate['candidate_id'] );
+		}
 		$output['selected_candidate_id']    = (string) $candidate['candidate_id'];
 		foreach ( array( 'replacement_region', 'segments', 'facts_used', 'root_anchor_terms', 'strategy', 'rhetorical_focus', 'self_check' ) as $key ) {
 			$output[ $key ] = 'root_anchor_terms' === $key ? (array) ( $candidate[ $key ] ?? array() ) : $candidate[ $key ];
@@ -566,6 +595,7 @@ class MMPS_Generator {
 				continue;
 			}
 			$seen[ $id ]  = true;
+			$results[ $id ] = self::validate( $candidate, $bundle, $plan, $root, $other_program_ids );
 			if ( ! empty( $plan['requireRootAnchors'] ) ) {
 				$valid_anchors = array();
 				foreach ( array_slice( (array) ( $candidate['root_anchor_terms'] ?? array() ), 0, 3 ) as $term ) {
@@ -577,15 +607,22 @@ class MMPS_Generator {
 					$valid_anchors[] = $plain_term;
 				}
 				if ( ! $valid_anchors ) {
-					$blocking[] = array( 'code' => 'ROOT_ANCHOR_REQUIRED', 'candidateId' => $id, 'message' => $id . ': Carry one distinct, non-generic term or short phrase from a protected ROOT paragraph into this candidate and declare it in root_anchor_terms.' );
+					$flag = array( 'code' => 'ROOT_ANCHOR_REQUIRED', 'candidateId' => $id, 'message' => $id . ': Carry one distinct, non-generic term or short phrase from a protected ROOT paragraph into this candidate and declare it in root_anchor_terms.' );
+					$results[ $id ]['blocking'][] = $flag;
+					$blocking[] = $flag;
 				} elseif ( isset( $anchor_seen[ $valid_anchors[0] ] ) ) {
-					$blocking[] = array( 'code' => 'ROOT_ANCHOR_REUSED', 'candidateId' => $id, 'message' => $id . ': Use a different primary protected-ROOT anchor from the other candidates.' );
+					$flag = array( 'code' => 'ROOT_ANCHOR_REUSED', 'candidateId' => $id, 'message' => $id . ': Use a different primary protected-ROOT anchor from the other candidates.' );
+					$results[ $id ]['blocking'][] = $flag;
+					$blocking[] = $flag;
 				} else {
 					$anchor_seen[ $valid_anchors[0] ] = true;
 				}
 			}
-			$results[ $id ] = self::validate( $candidate, $bundle, $plan, $root, $other_program_ids );
 			foreach ( (array) $results[ $id ]['blocking'] as $flag ) {
+				// Anchor flags were already added to the aggregate list above.
+				if ( in_array( (string) ( $flag['code'] ?? '' ), array( 'ROOT_ANCHOR_REQUIRED', 'ROOT_ANCHOR_REUSED' ), true ) ) {
+					continue;
+				}
 				$flag['candidateId'] = $id;
 				$flag['message']     = $id . ': ' . (string) ( $flag['message'] ?? 'Candidate failed validation.' );
 				$blocking[]          = $flag;
@@ -609,13 +646,24 @@ class MMPS_Generator {
 				}
 				$exact      = self::candidate_tokens( $raw_left, false ) === self::candidate_tokens( $raw_right, false );
 				if ( $exact || $similarity > 0.55 || $opening > 0.45 || self::candidate_has_shared_phrase( $left, $right, 7 ) ) {
-					$blocking[] = array( 'code' => 'CANDIDATES_TOO_SIMILAR', 'message' => ( $candidates[ $i ]['candidate_id'] ?? 'candidate' ) . ' and ' . ( $candidates[ $j ]['candidate_id'] ?? 'candidate' ) . ' are too similar (' . round( $similarity * 100 ) . '% shared content words).' );
+					// Preserve the earlier passing option and block only the later
+					// duplicate. This makes the failure attributable and retryable
+					// without invalidating clean alternatives.
+					$later_id = (string) ( $candidates[ $j ]['candidate_id'] ?? '' );
+					$flag = array( 'code' => 'CANDIDATES_TOO_SIMILAR', 'candidateId' => $later_id, 'message' => ( $candidates[ $i ]['candidate_id'] ?? 'candidate' ) . ' and ' . ( $candidates[ $j ]['candidate_id'] ?? 'candidate' ) . ' are too similar (' . round( $similarity * 100 ) . '% shared content words).' );
+					if ( isset( $results[ $later_id ] ) ) { $results[ $later_id ]['blocking'][] = $flag; }
+					$blocking[] = $flag;
 				}
 			}
 		}
+		$valid_ids = array_keys( array_filter( $results, function ( $result ) { return empty( $result['blocking'] ); } ) );
 		$recommended = (string) ( $out['recommended_candidate_id'] ?? '' );
-		if ( ! isset( $results[ $recommended ] ) || $results[ $recommended ]['blocking'] ) {
-			$blocking[] = array( 'code' => 'RECOMMENDED_INVALID', 'message' => 'recommended_candidate_id must identify a candidate that passes every blocking check.' );
+		if ( ! in_array( $recommended, $valid_ids, true ) ) {
+			$requested_recommended = $recommended;
+			$recommended = in_array( 'BALANCED_QUIET_SPECIFIC', $valid_ids, true ) ? 'BALANCED_QUIET_SPECIFIC' : (string) ( $valid_ids[0] ?? '' );
+			$flag = array( 'code' => 'RECOMMENDED_INVALID', 'message' => 'The writer-recommended option did not pass. PSV selected a passing alternative instead.' );
+			if ( '' !== $requested_recommended && isset( $results[ $requested_recommended ] ) ) { $flag['candidateId'] = $requested_recommended; }
+			$advisory[] = $flag;
 		}
 		$facts_used = isset( $results[ $recommended ] ) ? (array) $results[ $recommended ]['factsUsed'] : array();
 		foreach ( $results as $id => $result ) {
@@ -624,7 +672,7 @@ class MMPS_Generator {
 				$advisory[] = $flag;
 			}
 		}
-		return array( 'blocking' => $blocking, 'advisory' => $advisory, 'factsUsed' => $facts_used, 'candidateResults' => $results, 'validCandidateIds' => array_keys( array_filter( $results, function ( $result ) { return empty( $result['blocking'] ); } ) ), 'recommendedCandidateId' => $recommended );
+		return array( 'blocking' => $blocking, 'advisory' => $advisory, 'factsUsed' => $facts_used, 'candidateResults' => $results, 'validCandidateIds' => $valid_ids, 'recommendedCandidateId' => $recommended );
 	}
 
 	/* ---------- identifier minimisation: the signed-in user's own name never leaves the site ---------- */
@@ -1014,6 +1062,10 @@ class MMPS_Generator {
 
 	/** Rebuild an idempotent run preview from stored data; no provider call. */
 	public static function preview_from_stored( $run, $root ) {
+		$template_gate = self::template_gate( $root );
+		if ( is_wp_error( $template_gate ) ) {
+			return $template_gate;
+		}
 		$bundle = (array) $run['bundle'];
 		if ( empty( $bundle['evidenceQuality'] ) ) {
 			$count = count( (array) ( $bundle['deepFacts'] ?? array() ) );

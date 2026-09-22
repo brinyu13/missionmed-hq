@@ -228,9 +228,15 @@ ok('hallucination on attempt 1 is caught, revised on attempt 2', r.json.status =
 await aiMode('hallucinate-always');
 r = await t.api('POST', '/generate', { rootId: root.id, programSpecialtyId: 'ps_deep_001', tier: 'DEEP', otherProgramIds: others });
 const bad = r.json; const bcodes = bad.validation.blocking.map(f => f.code);
-ok('persistent hallucination -> NEEDS_ATTENTION with precise flags', bad.status === 'NEEDS_ATTENTION' && bad.canApprove === false && ['UNSUPPORTED_NUMBER', 'UNSUPPORTED_NAME', 'FACT_WITHOUT_EVIDENCE', 'ABSENCE_OR_COMPARISON'].every(c => bcodes.includes(c)), JSON.stringify(bcodes));
-r = await t.api('POST', '/library', { runId: bad.runId, status: 'APPROVED' });
-ok('a flagged run cannot be saved', r.status === 409 && r.json.code === 'mmps_run_not_savable');
+const failedCandidate = bad.candidates.find(candidate => candidate.candidateId === 'TRAINING_ENVIRONMENT');
+ok('one persistently bad alternative does not poison clean candidates', bad.status === 'OK' && bad.canApprove === true && bad.validation.validCandidateIds.length === 4 && !bad.validation.validCandidateIds.includes('TRAINING_ENVIRONMENT') && bad.candidates.filter(candidate => candidate.canApprove).length === 4 && failedCandidate && failedCandidate.canApprove === false && ['UNSUPPORTED_NUMBER', 'UNSUPPORTED_NAME', 'FACT_WITHOUT_EVIDENCE', 'ABSENCE_OR_COMPARISON'].every(c => bcodes.includes(c)), JSON.stringify({ status: bad.status, valid: bad.validation.validCandidateIds, blocking: bcodes }));
+r = await t.api('POST', '/library', { runId: bad.runId, candidateId: 'TRAINING_ENVIRONMENT', status: 'APPROVED' });
+ok('the failed alternative remains blocked at save', r.status === 409 && r.json.code === 'mmps_candidate_not_savable');
+const passingCandidate = bad.candidates.find(candidate => candidate.canApprove);
+r = await t.api('POST', '/library', { runId: bad.runId, candidateId: passingCandidate.candidateId, status: 'DRAFT', acknowledgeSimilarity: true });
+ok('a passing alternative from the same partially failed run proceeds to the library', r.status === 200 && r.json.document.status === 'DRAFT' && r.json.document.metadata.candidateId === passingCandidate.candidateId, r.text.slice(0, 240));
+const partialRunDoc = r.json.document.docUuid;
+php(`global $wpdb; $id='${partialRunDoc}'; $wpdb->delete($wpdb->prefix.'mmed_ps_proto_similarity_buckets',array('doc_uuid'=>$id)); $wpdb->delete($wpdb->prefix.'mmed_ps_proto_similarity_fingerprints',array('doc_uuid'=>$id)); $wpdb->delete($wpdb->prefix.'mmed_ps_proto_library',array('doc_uuid'=>$id));`);
 await aiMode('good');
 
 // identifier minimisation (tester is "Émile Corridor"; ROOT A says "walking the corridor")

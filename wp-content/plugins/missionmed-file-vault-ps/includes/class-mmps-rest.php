@@ -11,6 +11,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 class MMPS_Rest {
 
 	const MY_PROGRAMS_PAGE = 6;
+	const MYERAS_TITLE_MAX = 50;
+	const ERAS_NORMALIZATION_RULE = 'myeras-2027.v1:crlf-to-lf+nbsp-to-space+curly-apostrophes-to-ascii+trim-line-end+trim-document';
 
 	public static function init() {
 		add_action( 'rest_api_init', array( __CLASS__, 'routes' ) );
@@ -187,7 +189,7 @@ class MMPS_Rest {
 					'batchItemCap'       => MMPS_Batch::MAX_ITEMS,
 					'batchWorkers'       => MMPS_Batch::CLIENT_WORKERS,
 				),
-				'contract'  => array( 'schema' => MMPS_Evidence_Bundle::SCHEMA, 'transport' => MMPS_Rise_Client::TRANSPORT, 'normalizationRule' => MMPS_Region::RULE ),
+				'contract'  => array( 'schema' => MMPS_Evidence_Bundle::SCHEMA, 'transport' => MMPS_Rise_Client::TRANSPORT, 'normalizationRule' => MMPS_Region::RULE, 'slottedTemplatesAvailable' => MMPS_Generator::SLOTTED_TEMPLATES_AVAILABLE ),
 			)
 		);
 	}
@@ -323,6 +325,8 @@ class MMPS_Rest {
 	public static function put_template( $request ) {
 		$root = self::root_or_404( $request );
 		if ( is_wp_error( $root ) ) { return $root; }
+		$template_gate = MMPS_Generator::template_gate( $root );
+		if ( is_wp_error( $template_gate ) ) { return $template_gate; }
 		if ( 'ROOT_TEMPLATE_MARKERS' !== (string) ( $root['region']['authorization'] ?? '' ) ) {
 			return new WP_Error( 'mmps_template_missing', 'This ROOT does not contain an authorized Founder template region.', array( 'status' => 409 ) );
 		}
@@ -779,6 +783,11 @@ class MMPS_Rest {
 			return new WP_Error( 'mmps_run_not_found', 'That generation run was not found.', array( 'status' => 404 ) );
 		}
 		$root = MMPS_Store::get_root( $uid, absint( $run['root_id'] ) );
+		if ( ! $root ) {
+			return new WP_Error( 'mmps_root_changed', 'The ROOT behind this run is no longer available unchanged.', array( 'status' => 409 ) );
+		}
+		$template_gate = MMPS_Generator::template_gate( $root );
+		if ( is_wp_error( $template_gate ) ) { return $template_gate; }
 		if ( 'OK' !== $run['status'] || empty( $run['output']['replacement_region'] ) ) {
 			return new WP_Error( 'mmps_run_not_savable', 'Only a run that passed every blocking check can be saved.', array( 'status' => 409 ) );
 		}
@@ -838,6 +847,10 @@ class MMPS_Rest {
 		$doc_uuid  = MMPS_Store::uuid();
 		$training_type  = (string) ( $program['trainingType'] ?? '' );
 		$training_types = array_values( array_filter( array_map( 'strval', (array) ( $program['trainingTypes'] ?? ( $training_type ? array( $training_type ) : array() ) ) ) ) );
+		$nrmp_code      = (string) ( $program['nrmpCode'] ?? '' );
+		$nrmp_codes     = array_values( array_filter( array_map( 'strval', (array) ( $program['nrmpCodes'] ?? ( $nrmp_code ? array( $nrmp_code ) : array() ) ) ) ) );
+		$nrmp_status    = (string) ( $program['nrmpTrackStatus'] ?? ( $nrmp_code ? 'RESOLVED' : 'UNAVAILABLE' ) );
+		$myeras_title   = self::myeras_title( (string) ( $program['naturalProgramName'] ?? $name ), $root['specialtyLabel'], $training_type, $nrmp_code, (string) ( $program['acgmeId'] ?? '' ) );
 		$title_parts = array( $root['specialtyLabel'], $name );
 		if ( $training_type ) { $title_parts[] = $training_type; }
 		if ( ! empty( $program['acgmeId'] ) ) { $title_parts[] = $program['acgmeId']; }
@@ -888,6 +901,13 @@ class MMPS_Rest {
 						'trainingType'      => $training_type,
 						'trainingTypes'     => $training_types,
 						'trainingTypeStatus'=> $training_type ? 'RESOLVED' : ( count( $training_types ) > 1 ? 'AMBIGUOUS' : 'UNAVAILABLE' ),
+						'nrmpCode'          => 'RESOLVED' === $nrmp_status ? $nrmp_code : '',
+						'nrmpCodes'         => $nrmp_codes,
+						'nrmpTrackStatus'   => $nrmp_status,
+						'trackIdentities'   => array_values( (array) ( $program['trackIdentities'] ?? array() ) ),
+						'myErasTitle'       => $myeras_title,
+						'erasNormalizationRule' => self::ERAS_NORMALIZATION_RULE,
+						'erasNormalizedTextSha256' => self::eras_normalized_hash( $full_text ),
 						'factsUsed'         => (array) ( $edit['factsUsed'] ?? $run['validation']['candidateResults'][ $candidate_id ]['factsUsed'] ?? $run['validation']['factsUsed'] ?? array() ),
 						'similarityVersion' => MMPS_Similarity::VERSION,
 						'similarityStatus'  => $similarity['status'],
@@ -916,6 +936,12 @@ class MMPS_Rest {
 		$doc = MMPS_Store::get_document( self::uid(), (string) $request['uuid'] );
 		if ( ! $doc ) {
 			return new WP_Error( 'mmps_doc_not_found', 'That statement was not found in your PS library.', array( 'status' => 404 ) );
+		}
+		if ( 'APPROVED' === $status ) {
+			$root = MMPS_Store::get_root( self::uid(), absint( $doc['rootId'] ?? 0 ) );
+			if ( ! $root ) { return new WP_Error( 'mmps_root_changed', 'The ROOT behind this statement is no longer available unchanged.', array( 'status' => 409 ) ); }
+			$template_gate = MMPS_Generator::template_gate( $root );
+			if ( is_wp_error( $template_gate ) ) { return $template_gate; }
 		}
 		MMPS_Store::set_document_status( self::uid(), $doc['docUuid'], $status );
 		MMPS_Store::audit( self::uid(), 'library_status', $doc['docUuid'], array( 'status' => $status ) );
@@ -1030,15 +1056,51 @@ class MMPS_Rest {
 		return sanitize_file_name( trim( preg_replace( '/_+/', '_', preg_replace( '/[^A-Za-z0-9]+/', '_', implode( '_', $parts ) ) ), '_' ) ) . '.' . ( 'txt' === $format ? 'txt' : 'docx' );
 	}
 
+	/** Exact transformations observed in the current MyERAS editor canary only. */
+	protected static function eras_normalized_text( $text ) {
+		$text = str_replace( array( "\r\n", "\r", "\xC2\xA0", "\u{2018}", "\u{2019}" ), array( "\n", "\n", ' ', "'", "'" ), (string) $text );
+		$text = preg_replace( '/[ \t]+$/mu', '', $text );
+		return trim( (string) $text, " \t\n" );
+	}
+
+	protected static function eras_normalized_hash( $text ) {
+		return hash( 'sha256', self::eras_normalized_text( $text ) );
+	}
+
+	/** Deterministic, collision-resistant title for MyERAS' 50-character field. */
+	protected static function myeras_title( $program_name, $specialty, $training_type, $nrmp_code, $acgme_id ) {
+		$clean = function ( $value ) { return trim( preg_replace( '/\s+/u', ' ', wp_strip_all_tags( (string) $value ) ) ); };
+		$program_name = preg_replace( '/\s+(?:residency|program)$/iu', '', $clean( $program_name ) );
+		$specialty = $clean( $specialty );
+		$training_type = $clean( $training_type );
+		$nrmp_code = strtoupper( $clean( $nrmp_code ) );
+		$acgme_id = $clean( $acgme_id );
+		$specialty_labels = array( 'Internal Medicine' => 'IM', 'Family Medicine' => 'FM', 'Pediatrics' => 'Peds', 'Psychiatry' => 'Psych', 'Emergency Medicine' => 'EM', 'Anesthesiology' => 'Anes', 'Neurology' => 'Neuro', 'Physical Medicine and Rehabilitation' => 'PM&R' );
+		$training_labels = array( 'Categorical' => 'Cat', 'Preliminary' => 'Prelim', 'Transitional' => 'TY', 'Primary Care' => 'PC', 'Hospitalist-Categorical' => 'Hosp Cat' );
+		$identity = (string) ( $specialty_labels[ $specialty ] ?? $specialty );
+		if ( '' !== $training_type ) { $identity .= ' ' . (string) ( $training_labels[ $training_type ] ?? $training_type ); }
+		$identifier = '' !== $nrmp_code ? $nrmp_code : ( '' !== $acgme_id ? 'ACGME ' . $acgme_id : '' );
+		$tail = implode( ' | ', array_values( array_filter( array( $identity, $identifier ) ) ) );
+		$separator = '' !== $program_name && '' !== $tail ? ' | ' : '';
+		$name_limit = max( 0, self::MYERAS_TITLE_MAX - mb_strlen( $separator . $tail ) );
+		$title = rtrim( mb_substr( $program_name, 0, $name_limit ) ) . $separator . $tail;
+		if ( '' === $title ) { $title = 'MissionMed PS'; }
+		return mb_substr( $title, 0, self::MYERAS_TITLE_MAX );
+	}
+
 	protected static function assignment_manifest_payload( $docs, $user_id ) {
 		$items = array();
 		$seen  = array();
 		$superseded = array();
 		foreach ( (array) $docs as $doc ) {
 			$training_types = array_values( array_filter( array_map( 'strval', (array) ( $doc['metadata']['trainingTypes'] ?? array() ) ) ) );
+			$nrmp_code = (string) ( $doc['metadata']['nrmpCode'] ?? '' );
+			$nrmp_codes = array_values( array_filter( array_map( 'strval', (array) ( $doc['metadata']['nrmpCodes'] ?? ( $nrmp_code ? array( $nrmp_code ) : array() ) ) ) ) );
+			$nrmp_status = (string) ( $doc['metadata']['nrmpTrackStatus'] ?? ( $nrmp_code ? 'RESOLVED' : 'UNAVAILABLE' ) );
 			$assignment_key = implode( '|', array(
 				(string) $doc['programSpecialtyId'],
 				(string) ( $doc['metadata']['trainingType'] ?? '' ),
+				$nrmp_code,
 			) );
 			if ( isset( $seen[ $assignment_key ] ) ) {
 				$superseded[] = array(
@@ -1050,6 +1112,18 @@ class MMPS_Rest {
 				continue;
 			}
 			$seen[ $assignment_key ] = true;
+			$myeras_title = (string) ( $doc['metadata']['myErasTitle'] ?? '' );
+			if ( '' === $myeras_title || mb_strlen( $myeras_title ) > self::MYERAS_TITLE_MAX ) {
+				$myeras_title = self::myeras_title( $doc['programName'], $doc['specialtyLabel'], (string) ( $doc['metadata']['trainingType'] ?? '' ), 'RESOLVED' === $nrmp_status ? $nrmp_code : '', $doc['acgmeId'] );
+			}
+			$myeras_identity = $doc['metadata']['myErasIdentity'] ?? null;
+			$myeras_status = (string) ( $doc['metadata']['myErasIdentityStatus'] ?? 'UNRESOLVED' );
+			$training_status = (string) ( $doc['metadata']['trainingTypeStatus'] ?? 'UNAVAILABLE' );
+			$identity_attention = array();
+			if ( 'RESOLVED' !== $myeras_status || null === $myeras_identity ) { $identity_attention[] = 'MYERAS_IDENTITY_UNRESOLVED'; }
+			if ( 'RESOLVED' !== $nrmp_status ) { $identity_attention[] = 'NRMP_TRACK_' . $nrmp_status; }
+			if ( 'RESOLVED' !== $training_status ) { $identity_attention[] = 'TRAINING_TYPE_' . $training_status; }
+			$assignment_eligible = empty( $identity_attention );
 			$items[] = array(
 				'programName'       => $doc['programName'],
 				'acgmeId'           => $doc['acgmeId'],
@@ -1057,20 +1131,29 @@ class MMPS_Rest {
 				'specialty'         => $doc['specialtyLabel'],
 				'trainingType'      => (string) ( $doc['metadata']['trainingType'] ?? '' ),
 				'trainingTypes'     => $training_types,
-				'trainingTypeStatus'=> (string) ( $doc['metadata']['trainingTypeStatus'] ?? 'UNAVAILABLE' ),
-				'myErasIdentity'    => null,
-				'myErasIdentityStatus' => 'UNRESOLVED',
+				'trainingTypeStatus'=> $training_status,
+				'nrmpCode'          => 'RESOLVED' === $nrmp_status ? $nrmp_code : '',
+				'nrmpCodes'         => $nrmp_codes,
+				'nrmpTrackStatus'   => $nrmp_status,
+				'myErasIdentity'    => $myeras_identity,
+				'myErasIdentityStatus' => $myeras_status,
+				'identityAttentionReasons' => $identity_attention,
+				'assignmentEligible'=> $assignment_eligible,
 				'statementTitle'    => $doc['title'],
+				'myErasTitle'       => $myeras_title,
+				'myErasTitleMaxCharacters' => self::MYERAS_TITLE_MAX,
 				'exportFilename'    => self::export_filename( $doc, $user_id, 'docx' ),
 				'psvDocId'          => $doc['docUuid'],
 				'version'           => $doc['versionNumber'],
 				'approvalStatus'    => $doc['status'],
-				'assignmentStatus'  => 'NOT_STARTED',
+				'assignmentStatus'  => $assignment_eligible ? 'NOT_STARTED' : 'NEEDS_ATTENTION',
 				'verificationStatus'=> 'UNVERIFIED',
 				'fullTextSha256'    => $doc['fullTextSha256'],
+				'erasNormalizedTextSha256' => self::eras_normalized_hash( (string) ( $doc['fullText'] ?? '' ) ),
+				'erasNormalizationRule' => self::ERAS_NORMALIZATION_RULE,
 			);
 		}
-		return array( 'schema' => 'missionmed.psv.eras-assignment-manifest.v1', 'generatedAt' => gmdate( 'c' ), 'ownerUserId' => absint( $user_id ), 'commitPolicy' => 'PREPARE_THEN_EXPLICIT_CONFIRMATION', 'versionSelectionPolicy' => 'LATEST_APPROVED_PER_PROGRAM_AND_TRAINING_TYPE', 'forbiddenActions' => array( 'APPLY', 'PAY', 'CERTIFY', 'SUBMIT', 'WITHDRAW', 'SIGNAL', 'MESSAGE' ), 'items' => $items, 'supersededApprovedVersions' => $superseded );
+		return array( 'schema' => 'missionmed.psv.eras-assignment-manifest.v2', 'generatedAt' => gmdate( 'c' ), 'ownerUserId' => absint( $user_id ), 'commitPolicy' => 'PREPARE_THEN_EXPLICIT_CONFIRMATION', 'versionSelectionPolicy' => 'LATEST_APPROVED_PER_PROGRAM_TRAINING_TYPE_AND_NRMP_TRACK', 'forbiddenActions' => array( 'APPLY', 'PAY', 'CERTIFY', 'SUBMIT', 'WITHDRAW', 'SIGNAL', 'MESSAGE' ), 'items' => $items, 'supersededApprovedVersions' => $superseded );
 	}
 
 	protected static function assignment_plan_hash( $manifest ) {
@@ -1095,9 +1178,9 @@ class MMPS_Rest {
 	}
 
 	protected static function assignment_manifest_markdown( $manifest ) {
-		$lines = array( '# MissionMed MyERAS Assignment Mission', '', 'Use only the attached machine-readable manifest and APPROVED statement files. Prepare exact statement titles and content first. Before changing any assignment, show Program -> Specialty/Training Type -> Statement Title and obtain the student\'s explicit confirmation.', '', 'Never Apply, Pay, Certify, Submit, Withdraw, change signals, send messages, or guess an ambiguous program/training type. Stop on any mismatch. After authorized assignment, reread the MyERAS Assignments Checklist/Report twice and produce a reconciliation report.', '', '## Items' );
+		$lines = array( '# MissionMed MyERAS Assignment Mission', '', 'Use only the attached machine-readable manifest and APPROVED statement files. Prepare the exact MyERAS-safe title and content first. Before changing any assignment, show Program -> Specialty -> Training Type -> NRMP Track -> MyERAS Title and obtain the student\'s explicit confirmation.', '', 'Never Apply, Pay, Certify, Submit, Withdraw, change signals, send messages, infer a training type, or guess an NRMP track. Stop on any unresolved or ambiguous identity. After authorized assignment, reread the MyERAS Assignments Checklist/Report twice and produce a reconciliation report.', '', '## Items' );
 		foreach ( (array) $manifest['items'] as $item ) {
-			$lines[] = '- ' . $item['programName'] . ' | ' . $item['specialty'] . ' | ' . ( $item['trainingType'] ? $item['trainingType'] : $item['trainingTypeStatus'] ) . ' | ' . $item['statementTitle'] . ' | ' . $item['approvalStatus'];
+			$lines[] = '- ' . $item['programName'] . ' | ' . $item['specialty'] . ' | ' . ( $item['trainingType'] ? $item['trainingType'] : $item['trainingTypeStatus'] ) . ' | ' . ( $item['nrmpCode'] ? 'NRMP ' . $item['nrmpCode'] : $item['nrmpTrackStatus'] ) . ' | ' . $item['myErasTitle'] . ' | ' . $item['approvalStatus'];
 		}
 		return implode( "\n", $lines ) . "\n";
 	}
