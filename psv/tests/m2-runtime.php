@@ -64,7 +64,7 @@ $bodies = array(
 	'STUDENT_GOAL_FORWARD' => array(
 		'I hope to become an internist who can pair sound clinical judgment with practical improvement work that patients can feel in their care.',
 		'At Lakeview Internal Medicine Residency, I would continue moving toward that goal through the discipline of residency and the perspective gained from caring for a new community.',
-		'I would bring an instinct to listen first, ask useful questions, and stay responsible for what follows.',
+		'I will rely on an instinct to listen first, ask useful questions, and stay responsible for what follows.',
 	),
 	'RESEARCH_FELLOWSHIP' => array(
 		'My quality project showed me that inquiry matters most when it remains close to the people affected by the answer.',
@@ -79,7 +79,7 @@ $bodies = array(
 	'BALANCED_QUIET_SPECIFIC' => array(
 		'I am drawn to Lakeview Internal Medicine Residency because it offers a place to continue the kind of measured, collaborative work described throughout this statement.',
 		'I want residency to make my judgment more independent while keeping me attentive to the people and systems around each patient.',
-		'I would bring curiosity, follow-through, and a willingness to revise my thinking when the work asks for it.',
+		'Curiosity, follow-through, and a willingness to revise my thinking will remain central to my work.',
 	),
 );
 

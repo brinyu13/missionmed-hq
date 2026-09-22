@@ -95,12 +95,23 @@ class MMPS_Evidence_Bundle {
 
 	protected static function identity_from_record( $record ) {
 		$display = (array) ( $record['display'] ?? array() );
+		$fields  = (array) ( $record['fields'] ?? array() );
 		$acgme   = '';
 		foreach ( (array) ( $record['identifiers'] ?? array() ) as $identifier ) {
 			if ( 'ACGME_PROGRAM' === ( $identifier['namespace'] ?? '' ) ) {
 				$acgme = (string) $identifier['value'];
 			}
 		}
+		$training_types = array();
+		foreach ( (array) ( $record['tracks'] ?? array() ) as $track ) {
+			$type = self::clean( $track['programType'] ?? '' );
+			if ( '' !== $type ) { $training_types[] = $type; }
+		}
+		foreach ( array( $display['trainingType'] ?? '', $display['programType'] ?? '', $record['trainingType'] ?? '', $record['programType'] ?? '', self::known( $fields, 'Program Type' ) ) as $type ) {
+			$type = is_scalar( $type ) ? self::clean( $type ) : '';
+			if ( '' !== $type ) { $training_types[] = $type; }
+		}
+		$training_types = array_values( array_unique( $training_types ) );
 		return array(
 			'programSpecialtyId' => (string) ( $record['programSpecialtyId'] ?? '' ),
 			'acgmeId'            => $acgme,
@@ -110,6 +121,8 @@ class MMPS_Evidence_Bundle {
 			'city'               => self::clean( $display['city'] ?? '' ),
 			'state'              => self::clean( $display['state'] ?? '' ),
 			'designation'        => self::clean( $record['designation'] ?? '' ),
+			'trainingType'       => 1 === count( $training_types ) ? $training_types[0] : '',
+			'trainingTypes'      => $training_types,
 		);
 	}
 

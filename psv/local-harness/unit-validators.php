@@ -30,7 +30,7 @@ $cases = array(
 	array( 'unknown fact id', array( $name, $P( 'It has a track.', array( 'F-nope' ) ) ), array( 'UNKNOWN_FACT_ID', 'FACT_WITHOUT_EVIDENCE' ) ),
 	array( 'ordinary sentence-initial capital is not a proper noun', array( $name, $S( 'Training there would let me keep measuring gaps.' ) ), array() ),
 	array( 'invented family tie', array( $name, $S( 'It is close to my family.' ) ), array( 'INVENTED_PERSONAL_TIE' ) ),
-	array( 'leftover placeholder', array( $name, $S( 'I, [[APPLICANT_0]], would be glad to join.' ) ), array( 'PLACEHOLDER_LEFT', 'UNSUPPORTED_NUMBER' ) ),
+	array( 'leftover placeholder', array( $name, $S( 'I, [[APPLICANT_0]], would be glad to join.' ) ), array( 'PLACEHOLDER_LEFT', 'TEMPLATE_SLOT_LEFT', 'UNSUPPORTED_NUMBER' ) ),
 );
 $fail = 0;
 foreach ( $cases as $c ) {

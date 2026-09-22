@@ -27,6 +27,7 @@ class MMPS_Region {
 		return array_values( array_filter( array_map( 'trim', preg_split( '/\R\s*\R/u', trim( (string) $text ) ) ), function ( $value ) { return '' !== $value; } ) );
 	}
 	public static function text_hash( $paragraphs ) { return hash( 'sha256', implode( "\n\n", $paragraphs ) ); }
+	public static function parse_template( $paragraphs ) { return array( 'found' => false, 'paragraphs' => array_values( $paragraphs ), 'region' => array(), 'detection' => array() ); }
 }
 class MMPS_Store {
 	public static $last_user = 0;

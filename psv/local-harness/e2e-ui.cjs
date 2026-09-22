@@ -174,10 +174,10 @@ const ok = (name, cond, detail = '') => { results.push({ name, pass: !!cond }); 
 	// exception-focused approval and bulk ZIPs.
 	await page.click('.hdr [data-view="batch"]');
 	await page.waitForSelector('[data-act="batch-create"]');
-	ok('batch imports the full RISE list without private notes', /programs ready/.test(await page.locator('.h2').filter({ hasText: 'programs ready' }).innerText()));
+	ok('batch imports the owner RISE list and visibly separates High Priority Review', /programs verified/.test(await page.locator('.h2').filter({ hasText: 'programs verified' }).innerText()) && await page.locator('text=High Priority Review').count() >= 1);
 	await page.click('[data-act="batch-create"]');
 	await page.waitForSelector('.batchTable');
-	ok('batch defaults priority programs to Deep and lower programs to Essential', await page.locator('.batchTable [data-tier="DEEP"].on').count() >= 1 && await page.locator('.batchTable [data-tier="ESSENTIAL"].on').count() >= 1);
+	ok('unattended Bulk Rush contains only eligible remainder and defaults it to Essential', await page.locator('.batchTable [data-tier="DEEP"].on').count() === 0 && await page.locator('.batchTable [data-tier="ESSENTIAL"].on').count() >= 1);
 	await shot('17-batch-created');
 	await page.click('[data-act="batch-run"]');
 	await page.waitForFunction(() => {
@@ -185,8 +185,8 @@ const ok = (name, cond, detail = '') => { results.push({ name, pass: !!cond }); 
 		const m = el && el.textContent.match(/(\d+) of (\d+) processed/);
 		return m && m[1] === m[2];
 	}, null, { timeout: 90000 });
-	ok('batch finishes with durable per-program statuses and capped attempts', await page.locator('.batchTable tbody tr').count() >= 4 && await page.locator('.batchTable td:nth-child(4)').evaluateAll((els) => els.every((e) => /\d+ \/ 3/.test(e.textContent))));
-	ok('batch surfaces clean outputs separately from research/attention exceptions', await page.locator('.batchTable .tag:has-text("Ready")').count() >= 1 && await page.locator('.batchTable .tag:has-text("Research")').count() >= 1);
+	ok('batch finishes with durable per-program statuses and capped attempts', await page.locator('.batchTable tbody tr').count() >= 3 && await page.locator('.batchTable td:nth-child(4)').evaluateAll((els) => els.every((e) => /\d+ \/ 3/.test(e.textContent))));
+	ok('batch surfaces clean outputs separately from failed exceptions', await page.locator('.batchTable .tag:has-text("Ready")').count() >= 1 && await page.locator('.batchTable .tag:has-text("Failed")').count() >= 1);
 	await shot('18-batch-complete');
 	const approveClean = page.locator('[data-act="batch-approve-ready"]');
 	if (await approveClean.count()) { await approveClean.click(); await page.waitForTimeout(900); }

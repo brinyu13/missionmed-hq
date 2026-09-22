@@ -120,10 +120,11 @@ contract_assert(
 	'M2 output must group all alternatives in one top-level candidates array and identify the recommended member.'
 );
 contract_assert(
-	has_pattern('/[\'\"]minItems[\'\"]\s*=>\s*[45]\b/', $generator)
-		&& has_pattern('/[\'\"]maxItems[\'\"]\s*=>\s*5\b/', $generator),
-	'candidate set requires four to five alternatives',
-	'The structured output schema must enforce both the lower and upper bounds.'
+	str_contains($generator, "'minItems' => count( \$strategy_keys )")
+		&& str_contains($generator, "'maxItems' => count( \$strategy_keys )")
+		&& str_contains($generator, "array( 'BALANCED_QUIET_SPECIFIC' )"),
+	'candidate set count follows the explicit strategy request',
+	'The structured output schema must enforce five detailed alternatives or one Bulk Rush default.'
 );
 contract_assert(
 	has_pattern('/[\'\"]candidate_id[\'\"]/', $generator)
@@ -140,7 +141,7 @@ contract_assert(
 	'The recommendation and the user selection must be represented by identifiers, never array position alone.'
 );
 contract_assert(
-	has_pattern('/[\'\"]candidate_id[\'\"]\s*=>\s*array\s*\([^)]*[\'\"]enum[\'\"]\s*=>\s*array_keys\s*\(\s*self::strategies\s*\(\s*\)\s*\)/s', $generator)
+	has_pattern('/[\'\"]candidate_id[\'\"]\s*=>\s*array\s*\([^)]*[\'\"]enum[\'\"]\s*=>\s*\$strategy_keys/s', $generator)
 		|| has_pattern('/(?:candidate.{0,500}hash\s*\(\s*[\'\"]sha256[\'\"]|hash\s*\(\s*[\'\"]sha256[\'\"].{0,500}candidate)/is', $generator),
 	'candidate identifiers are derived deterministically',
 	'Candidate identity must be stable across retries/reloads and derived server-side from canonical inputs.'

@@ -12,7 +12,7 @@ const rec = (id, acgme, programName, institution, city, state, type, pd, pdAge =
   display: { programName, institution, hospital: institution, city, state },
   identifiers: [{ namespace: 'ACGME_PROGRAM', value: acgme }],
   source: { authority: 'REGISTRY_IMPORT', retrievedAt: iso(srcAge) },
-  fields: { 'Program Best Described As': claim(type, srcAge), ...(pd ? { 'Program Director': claim(pd, pdAge), 'Program Director Credentials': claim('MD', pdAge) } : {}), 'Program Website': claim('https://im.' + id.replace(/_/g, '-') + '.example.org/', srcAge) }
+  fields: { 'Program Best Described As': claim(type, srcAge), 'Program Type': claim('Categorical', srcAge), ...(pd ? { 'Program Director': claim(pd, pdAge), 'Program Director Credentials': claim('MD', pdAge) } : {}), 'Program Website': claim('https://im.' + id.replace(/_/g, '-') + '.example.org/', srcAge) }
 });
 const fact = (field, canonicalValue, extra = {}) => ({ field, knowledge: { state: 'known', value: canonicalValue }, canonicalValue, retrievedAt: iso(20), provider: 'PERPLEXITY_SONAR', sourceUrl: 'https://im.example.org/residency', sourceUrls: ['https://im.example.org/residency'], ...extra });
 
@@ -46,8 +46,9 @@ const programs = {
 const myList = [
   { programSpecialtyId: 'ps_thin_002', state: 'INTERESTED', notes: 'PRIVATE NOTE MUST NEVER LEAVE RISE', goldStarred: false, priorityPosition: 2 },
   { programSpecialtyId: 'ps_ess_003', state: 'INTERESTED', notes: '', goldStarred: false, priorityPosition: 30 },
+  { programSpecialtyId: 'ps_dirty_004', state: 'INTERESTED', notes: 'PRIVATE NOTE MUST STAY IN RISE', goldStarred: false, priorityPosition: 31 },
   { programSpecialtyId: 'ps_deep_001', state: 'APPLYING', notes: 'another private note', goldStarred: true, priorityPosition: 1 },
-  { programSpecialtyId: 'ps_missing_999', state: 'INTERESTED', notes: '', goldStarred: false, priorityPosition: null }
+  { programSpecialtyId: 'ps_missing_999', state: 'INTERESTED', notes: '', goldStarred: false, priorityPosition: 32 }
 ];
 const log = { rise: [], ai: [] };
 const send = (res, code, body) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); };
@@ -106,11 +107,11 @@ http.createServer((req, res) => {
       STUDENT_GOAL_FORWARD: 'I would carry that goal forward by listening first, asking useful questions, and remaining accountable for what follows.',
       RESEARCH_FELLOWSHIP: 'That discipline would let me keep investigation close to the relationships that give it purpose.',
       LOCATION_PROGRAM_TYPE: 'I would enter ready to learn local priorities rather than assume them and to contribute through consistent clinical work.',
-      BALANCED_QUIET_SPECIFIC: 'I would bring follow-through, reflection, and respect for the people who make difficult work possible.'
+      BALANCED_QUIET_SPECIFIC: 'I can contribute follow-through, reflection, and respect for the people who make difficult work possible.'
     };
     const candidates = (payload.requested_strategies || []).map((requested, index) => {
       const key = requested.key;
-      const segs = [{ text: openings[key] || 'I have thought carefully about the next stage of training.', kind: 'student_link', fact_ids: [] }];
+      const segs = [{ text: openings[key] || 'I have thought carefully about residency training.', kind: 'student_link', fact_ids: [] }];
       const rootAnchor = rootAnchors[index];
       segs.push({ text: anchorSentences[index](rootAnchor), kind: 'student_link', fact_ids: [] });
       const nameFact = by('Program name');
@@ -123,7 +124,7 @@ http.createServer((req, res) => {
           : key === 'STUDENT_GOAL_FORWARD'
             ? `${name} would make that next step concrete.`
             : key === 'RESEARCH_FELLOWSHIP'
-              ? `I would bring that habit of inquiry to ${name}.`
+              ? `I hope to apply that habit of inquiry at ${name}.`
               : `At ${name}, I could keep those priorities together without overstating what the evidence promises.`;
       segs.push({ text: identityText, kind: 'program_fact', fact_ids: identityIds });
       if (deep.length && ['TRAINING_ENVIRONMENT', 'RESEARCH_FELLOWSHIP', 'BALANCED_QUIET_SPECIFIC'].includes(key)) {
@@ -133,7 +134,7 @@ http.createServer((req, res) => {
       }
       if (pd && key === 'STUDENT_GOAL_FORWARD') segs.push({ text: pd.text, kind: 'program_fact', fact_ids: [pd.fact_id] });
       if (bad && index === 0) segs.push({ text: 'With 42 residents per class and the mentorship of Dr. Alan Whitmore, it is better than any other option.', kind: 'program_fact', fact_ids: [] });
-      segs.push({ text: closings[key] || 'I would bring the same deliberate approach to the work ahead.', kind: 'student_link', fact_ids: [] });
+      segs.push({ text: closings[key] || 'I can apply the same deliberate approach to the work ahead.', kind: 'student_link', fact_ids: [] });
       return { candidate_id: key, replacement_region: segs.map(s => s.text).join(' '), segments: segs, facts_used: [...new Set(segs.flatMap(s => s.fact_ids))], root_anchor_terms: [rootAnchor], strategy: key, rhetorical_focus: `Stub fixture for ${key}`, self_check: { name_swap_would_still_work: false, possible_unsupported_claims: [], generic_phrases: [] } };
     });
     const out = { recommended_candidate_id: 'BALANCED_QUIET_SPECIFIC', candidates };

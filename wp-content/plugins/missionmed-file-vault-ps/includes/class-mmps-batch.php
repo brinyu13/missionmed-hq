@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class MMPS_Batch {
 
-	const MAX_ITEMS       = 100;
+	const MAX_ITEMS       = 150;
 	const MAX_ATTEMPTS    = 3;
 	const LOCK_SECONDS    = 210;
 	const CLIENT_WORKERS  = 2;
@@ -31,22 +31,51 @@ class MMPS_Batch {
 		return MMPS_Install::table( 'job_items' );
 	}
 
-	public static function create( $user_id, $root, $programs ) {
+	/** RISE's current owner-scoped list exposes Gold plus ordered priority, not a separate Silver flag. */
+	public static function bulk_classification( $entry ) {
+		$position = isset( $entry['priorityPosition'] ) && null !== $entry['priorityPosition'] ? (int) $entry['priorityPosition'] : null;
+		if ( ! empty( $entry['goldStarred'] ) ) {
+			return array( 'eligible' => false, 'class' => 'GOLD', 'reason' => 'HIGH_PRIORITY_REVIEW' );
+		}
+		if ( null === $position || $position < 1 ) {
+			return array( 'eligible' => false, 'class' => 'AMBIGUOUS', 'reason' => 'PRIORITY_UNCERTAIN' );
+		}
+		if ( $position <= MMPS_Tiers::PRIORITY_DEEP_CUTOFF ) {
+			return array( 'eligible' => false, 'class' => 'SILVER', 'reason' => 'HIGH_PRIORITY_REVIEW' );
+		}
+		return array( 'eligible' => true, 'class' => 'BULK_ELIGIBLE', 'reason' => '' );
+	}
+
+	public static function create( $user_id, $root, $programs, $output_mode = 'FULL_PARAGRAPH' ) {
 		global $wpdb;
 		MMPS_Install::maybe_install();
 		if ( empty( $root['region']['mode'] ) || empty( $root['prefs']['categories'] ) ) {
 			return new WP_Error( 'mmps_batch_root_incomplete', 'Confirm the editable region and save preferences before creating a batch.', array( 'status' => 409 ) );
 		}
-		$clean = array();
-		foreach ( array_slice( (array) $programs, 0, self::MAX_ITEMS ) as $program ) {
+		$output_mode = 'TOP_3_REASONS' === strtoupper( (string) $output_mode ) ? 'TOP_3_REASONS' : 'FULL_PARAGRAPH';
+		$requested = array();
+		foreach ( (array) $programs as $program ) {
 			$id = sanitize_text_field( (string) ( $program['programSpecialtyId'] ?? '' ) );
-			if ( '' === $id || strlen( $id ) > 190 || isset( $clean[ $id ] ) ) {
+			if ( '' !== $id && strlen( $id ) <= 190 ) { $requested[ $id ] = $program; }
+		}
+		$rise_list = MMPS_Evidence_Bundle::my_list();
+		if ( is_wp_error( $rise_list ) ) { return $rise_list; }
+		$clean = array();
+		$excluded = array( 'GOLD' => 0, 'SILVER' => 0, 'AMBIGUOUS' => 0 );
+		foreach ( (array) $rise_list as $authoritative ) {
+			$id = (string) ( $authoritative['programSpecialtyId'] ?? '' );
+			if ( ! isset( $requested[ $id ] ) ) { continue; }
+			$class = self::bulk_classification( $authoritative );
+			if ( ! $class['eligible'] ) {
+				$excluded[ $class['class'] ]++;
 				continue;
 			}
+			if ( count( $clean ) >= self::MAX_ITEMS ) { break; }
+			$program = $requested[ $id ];
 			$entry = array(
 				'programSpecialtyId' => $id,
-				'goldStarred'        => ! empty( $program['goldStarred'] ),
-				'priorityPosition'   => isset( $program['priorityPosition'] ) && null !== $program['priorityPosition'] ? max( 1, (int) $program['priorityPosition'] ) : null,
+				'goldStarred'        => false,
+				'priorityPosition'   => (int) $authoritative['priorityPosition'],
 			);
 			$default = MMPS_Tiers::default_tier( $entry );
 			$tier    = 'DEEP' === strtoupper( (string) ( $program['tier'] ?? $default ) ) ? 'DEEP' : 'ESSENTIAL';
@@ -68,7 +97,7 @@ class MMPS_Batch {
 				'specialty_label' => $root['specialtyLabel'],
 				'status'          => 'QUEUED',
 				'total_items'     => count( $clean ),
-				'config_json'     => wp_json_encode( array( 'defaultDeepCutoff' => MMPS_Tiers::PRIORITY_DEEP_CUTOFF, 'workers' => self::CLIENT_WORKERS, 'rootTextSha256' => $root['textSha256'] ) ),
+				'config_json'     => wp_json_encode( array( 'outputMode' => $output_mode, 'source' => 'AUTHENTICATED_STUDENT_RISE_LIST', 'sourceCount' => count( $rise_list ), 'excluded' => $excluded, 'defaultDeepCutoff' => MMPS_Tiers::PRIORITY_DEEP_CUTOFF, 'workers' => self::CLIENT_WORKERS, 'rootTextSha256' => $root['textSha256'] ) ),
 				'created_at'      => $now,
 				'updated_at'      => $now,
 			)
@@ -111,7 +140,7 @@ class MMPS_Batch {
 		if ( is_wp_error( $refreshed ) ) {
 			return $refreshed;
 		}
-		MMPS_Store::audit( $user_id, 'batch_create', $job_uuid, array( 'rootId' => $root['id'], 'programCount' => count( $clean ) ) );
+		MMPS_Store::audit( $user_id, 'batch_create', $job_uuid, array( 'rootId' => $root['id'], 'programCount' => count( $clean ), 'outputMode' => $output_mode, 'excluded' => $excluded ) );
 		return self::get( $user_id, $job_uuid );
 	}
 
@@ -203,7 +232,10 @@ class MMPS_Batch {
 		if ( ! is_array( $row ) ) {
 			return new WP_Error( 'mmps_batch_claim_read', 'The claimed item could not be read safely. Its lease will recover automatically.', array( 'status' => 503 ) );
 		}
-		$run = MMPS_Generator::generate( $user_id, $root, $row['program_specialty_id'], $row['tier_requested'], array(), $row['idempotency_key'] );
+		if ( 'TOP_3_REASONS' === (string) ( $job['config']['outputMode'] ?? '' ) ) {
+			return self::finish_top_three( $user_id, $job, $root, $row, $token );
+		}
+		$run = MMPS_Generator::generate( $user_id, $root, $row['program_specialty_id'], $row['tier_requested'], array(), $row['idempotency_key'], 'RECOMMENDED_ONLY' );
 		if ( is_wp_error( $run ) ) {
 			if ( 'mmps_daily_cap' === $run->get_error_code() ) {
 				$stored = self::persist_claim_transition(
@@ -257,6 +289,71 @@ class MMPS_Batch {
 		if ( is_wp_error( $refreshed ) ) { return $refreshed; }
 		MMPS_Store::audit( $user_id, 'batch_item_done', $row['item_uuid'], array( 'run' => $run['runId'], 'status' => $status ) );
 		return array( 'job' => self::get( $user_id, $job_uuid ), 'item' => self::shape_item_by_id( $user_id, absint( $row['id'] ) ), 'run' => $run );
+	}
+
+	/** Deterministic, evidence-backed reasons for review; no invented applicant emotion. */
+	protected static function finish_top_three( $user_id, $job, $root, $row, $token ) {
+		$bundle = MMPS_Evidence_Bundle::for_program( $row['program_specialty_id'] );
+		if ( is_wp_error( $bundle ) ) {
+			$stored = self::persist_claim_transition( absint( $job['id'] ), $user_id, absint( $row['id'] ), $token, array( 'status' => 'FAILED', 'last_error_code' => $bundle->get_error_code(), 'lock_token' => '', 'locked_until' => null, 'updated_at' => MMPS_Store::now() ) );
+			return is_wp_error( $stored ) ? $stored : array( 'job' => self::get( $user_id, $job['jobUuid'] ), 'item' => self::shape_item_by_id( $user_id, absint( $row['id'] ) ), 'retryable' => false );
+		}
+		$plan = MMPS_Tiers::plan( $bundle, $root['prefs'], $row['tier_requested'] );
+		$facts = array_values( (array) $plan['allowedFacts'] );
+		usort( $facts, function ( $a, $b ) {
+			$as = (int) ( $a['prefScore'] ?? 0 ) * 100 + ( isset( $a['field'] ) ? 10 : 0 );
+			$bs = (int) ( $b['prefScore'] ?? 0 ) * 100 + ( isset( $b['field'] ) ? 10 : 0 );
+			return $as === $bs ? strcmp( (string) $a['factId'], (string) $b['factId'] ) : $bs - $as;
+		} );
+		$reasons = array();
+		foreach ( array_slice( $facts, 0, 3 ) as $fact ) {
+			$prov = (array) ( $fact['provenance'] ?? array() );
+			$reasons[] = array(
+				'factId'       => (string) $fact['factId'],
+				'label'        => (string) $fact['label'],
+				'proposedReason'=> (string) $fact['text'],
+				'matchedOn'    => (string) ( $fact['matchedOn'] ?? '' ),
+				'sourceAuthority'=> (string) ( $prov['authority'] ?? $prov['origin'] ?? '' ),
+				'sourceUrl'    => (string) ( $prov['sourceUrl'] ?? $prov['itemSource'] ?? '' ),
+				'retrievedAt'  => (string) ( $prov['retrievedAt'] ?? '' ),
+			);
+		}
+		$status = $plan['deepNeeded'] || count( $reasons ) < 3 ? 'RESEARCH_NEEDED' : 'READY';
+		$program = (array) $bundle['program'];
+		$evidence = array( 'mode' => 'TOP_3_REASONS', 'bundleSha256' => $bundle['bundleSha256'], 'quality' => $bundle['evidenceQuality'], 'reasons' => $reasons, 'plannerReasons' => $plan['reasons'], 'rootTextSha256' => $root['textSha256'] );
+		$stored = self::persist_claim_transition(
+			absint( $job['id'] ), $user_id, absint( $row['id'] ), $token,
+			array( 'acgme_id' => (string) ( $program['acgmeId'] ?? '' ), 'program_name' => mb_substr( (string) ( $program['programName'] ?? $program['institution'] ?? '' ), 0, 255 ), 'tier_effective' => (string) $plan['tierEffective'], 'status' => $status, 'run_uuid' => '', 'last_error_code' => '', 'lock_token' => '', 'locked_until' => null, 'evidence_json' => wp_json_encode( $evidence ), 'updated_at' => MMPS_Store::now() )
+		);
+		if ( is_wp_error( $stored ) ) { return $stored; }
+		$refreshed = self::refresh_job( absint( $job['id'] ) );
+		if ( is_wp_error( $refreshed ) ) { return $refreshed; }
+		MMPS_Store::audit( $user_id, 'batch_reasons_done', $row['item_uuid'], array( 'status' => $status, 'bundle' => $bundle['bundleSha256'], 'reasonCount' => count( $reasons ) ) );
+		return array( 'job' => self::get( $user_id, $job['jobUuid'] ), 'item' => self::shape_item_by_id( $user_id, absint( $row['id'] ) ) );
+	}
+
+	public static function generate_alternatives( $user_id, $job_uuid, $item_uuid ) {
+		global $wpdb;
+		$job = self::get( $user_id, $job_uuid );
+		if ( is_wp_error( $job ) ) { return $job; }
+		if ( 'FULL_PARAGRAPH' !== (string) ( $job['config']['outputMode'] ?? 'FULL_PARAGRAPH' ) ) {
+			return new WP_Error( 'mmps_batch_mode', 'Alternatives are available only for Full Paragraph batches.', array( 'status' => 409 ) );
+		}
+		$item = self::owned_item( $user_id, $job_uuid, $item_uuid );
+		if ( is_wp_error( $item ) ) { return $item; }
+		if ( 'PROCESSING' === $item['status'] ) { return new WP_Error( 'mmps_batch_item_busy', 'Wait for this item to finish.', array( 'status' => 409 ) ); }
+		$root = MMPS_Store::get_root( $user_id, absint( $job['rootId'] ) );
+		if ( ! $root ) { return new WP_Error( 'mmps_batch_root_missing', 'The ROOT for this batch is unavailable.', array( 'status' => 409 ) ); }
+		$key = 'alternatives:' . $item_uuid;
+		$run = MMPS_Generator::generate( $user_id, $root, $item['program_specialty_id'], $item['tier_requested'], array(), $key, 'FIVE' );
+		if ( is_wp_error( $run ) ) { return $run; }
+		$status = 'OK' === $run['status'] ? 'READY' : ( 'RESEARCH_NEEDED' === $run['status'] ? 'RESEARCH_NEEDED' : 'NEEDS_ATTENTION' );
+		$program = (array) ( $run['program'] ?? array() );
+		$updated = $wpdb->update( self::items_table(), array( 'acgme_id' => (string) ( $program['acgmeId'] ?? '' ), 'program_name' => mb_substr( (string) ( $program['programName'] ?? $program['institution'] ?? '' ), 0, 255 ), 'tier_effective' => (string) $run['tierEffective'], 'status' => $status, 'run_uuid' => (string) $run['runId'], 'last_error_code' => '', 'evidence_json' => wp_json_encode( array( 'bundleSha256' => $run['bundleSha256'], 'quality' => $run['evidenceQuality'], 'candidateCount' => count( (array) ( $run['candidates'] ?? array() ) ), 'alternativesGenerated' => true ) ), 'updated_at' => MMPS_Store::now() ), array( 'id' => absint( $item['id'] ), 'user_id' => absint( $user_id ) ) );
+		if ( false === $updated ) { return new WP_Error( 'mmps_batch_alternatives_persist', 'The alternative set could not be linked safely.', array( 'status' => 503 ) ); }
+		$refreshed = self::refresh_job( absint( $item['job_id'] ) );
+		if ( is_wp_error( $refreshed ) ) { return $refreshed; }
+		return array( 'job' => self::get( $user_id, $job_uuid ), 'run' => $run );
 	}
 
 	public static function preview_item( $user_id, $job_uuid, $item_uuid ) {

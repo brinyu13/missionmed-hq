@@ -21,4 +21,5 @@ $wpdb->insert( $t, array( 'user_id' => 3, 'name' => 'Personal Statement', 'meta'
 $wpdb->insert( $t, array( 'user_id' => 3, 'name' => 'CV', 'meta' => wp_json_encode( array( 'document_type' => 'curriculum_vitae', 'versions' => array( $v( 1, 'cv.docx', 'ready_clean', '', 'CV.docx' ) ) ) ) ) );
 $wpdb->insert( $t, array( 'user_id' => 2, 'name' => 'Other student PS', 'meta' => wp_json_encode( array( 'document_type' => 'personal_statement', 'versions' => array( $v( 1, 'ps-root-v1.docx', 'ready_clean', hash( 'sha256', $bytes ), 'OTHER.docx' ) ) ) ) ) );
 update_option( 'mmed_ps_proto_allow_user_ids', array( 3 ) );
+update_option( 'mmed_psv_boost_mode', 'members' );
 echo 'fv rows: ' . $wpdb->get_var( "SELECT COUNT(*) FROM $t" ) . "\n";

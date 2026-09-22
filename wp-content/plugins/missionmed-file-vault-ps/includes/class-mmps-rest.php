@@ -39,6 +39,7 @@ class MMPS_Rest {
 			array( '/roots/upload', 'POST', 'upload_root' ),
 			array( '/roots/(?P<id>\d+)', 'GET', 'get_root' ),
 			array( '/roots/(?P<id>\d+)/region', 'PUT', 'put_region' ),
+			array( '/roots/(?P<id>\d+)/template', 'PUT', 'put_template' ),
 			array( '/roots/(?P<id>\d+)/prefs', 'PUT', 'put_prefs' ),
 			array( '/rise/my-programs', 'GET', 'my_programs' ),
 			array( '/rise/my-program-index', 'GET', 'my_program_index' ),
@@ -56,12 +57,14 @@ class MMPS_Rest {
 			array( '/batch/jobs/(?P<uuid>[a-f0-9-]{36})', 'GET', 'batch_job' ),
 			array( '/batch/jobs/(?P<uuid>[a-f0-9-]{36})/process', 'POST', 'batch_process' ),
 			array( '/batch/jobs/(?P<uuid>[a-f0-9-]{36})/items/(?P<item>[a-f0-9-]{36})/run', 'GET', 'batch_item_run' ),
+			array( '/batch/jobs/(?P<uuid>[a-f0-9-]{36})/items/(?P<item>[a-f0-9-]{36})/alternatives', 'POST', 'batch_item_alternatives' ),
 			array( '/batch/jobs/(?P<uuid>[a-f0-9-]{36})/items/(?P<item>[a-f0-9-]{36})/tier', 'PUT', 'batch_item_tier' ),
 			array( '/batch/jobs/(?P<uuid>[a-f0-9-]{36})/items/(?P<item>[a-f0-9-]{36})/approve', 'POST', 'batch_item_approve' ),
 			array( '/batch/jobs/(?P<uuid>[a-f0-9-]{36})/approve-ready', 'POST', 'batch_approve_ready' ),
 			array( '/library', 'GET', 'library' ),
 			array( '/library', 'POST', 'save' ),
 			array( '/library/bulk-download', 'POST', 'bulk_download' ),
+			array( '/library/eras-manifest', 'POST', 'eras_manifest' ),
 			array( '/library/(?P<uuid>[a-f0-9-]{36})', 'GET', 'document' ),
 			array( '/library/(?P<uuid>[a-f0-9-]{36})/status', 'POST', 'set_status' ),
 			array( '/library/(?P<uuid>[a-f0-9-]{36})/download', 'GET', 'download' ),
@@ -262,7 +265,7 @@ class MMPS_Rest {
 		}
 		$root = MMPS_Store::get_root( self::uid(), $root_id );
 		MMPS_Store::audit( self::uid(), 'root_create', 'root:' . $root_id, array( 'source' => $root['sourceKind'], 'synthetic' => $root['isSynthetic'], 'textSha256' => $root['textSha256'] ) );
-		return rest_ensure_response( array( 'root' => $root, 'detection' => MMPS_Region::detect( $root['paragraphs'] ) ) );
+		return rest_ensure_response( array( 'root' => $root, 'detection' => self::root_detection( $root ) ) );
 	}
 
 	public static function upload_root( $request ) {
@@ -277,7 +280,7 @@ class MMPS_Rest {
 		}
 		$root = MMPS_Store::get_root( self::uid(), $root_id );
 		MMPS_Store::audit( self::uid(), 'root_create', 'root:' . $root_id, array( 'source' => $root['sourceKind'], 'synthetic' => false, 'textSha256' => $root['textSha256'], 'sourceSha256' => $root['sourceSha256'] ) );
-		return rest_ensure_response( array( 'root' => $root, 'detection' => MMPS_Region::detect( $root['paragraphs'] ) ) );
+		return rest_ensure_response( array( 'root' => $root, 'detection' => self::root_detection( $root ) ) );
 	}
 
 	public static function get_root( $request ) {
@@ -285,13 +288,23 @@ class MMPS_Rest {
 		if ( is_wp_error( $root ) ) {
 			return $root;
 		}
-		return rest_ensure_response( array( 'root' => $root, 'detection' => MMPS_Region::detect( $root['paragraphs'] ) ) );
+		return rest_ensure_response( array( 'root' => $root, 'detection' => self::root_detection( $root ) ) );
+	}
+
+	protected static function root_detection( $root ) {
+		if ( 'ROOT_TEMPLATE_MARKERS' === (string) ( $root['region']['authorization'] ?? '' ) ) {
+			return (array) ( $root['region']['detection'] ?? array() );
+		}
+		return MMPS_Region::detect( $root['paragraphs'] );
 	}
 
 	public static function put_region( $request ) {
 		$root = self::root_or_404( $request );
 		if ( is_wp_error( $root ) ) {
 			return $root;
+		}
+		if ( 'ROOT_TEMPLATE_MARKERS' === (string) ( $root['region']['authorization'] ?? '' ) ) {
+			return new WP_Error( 'mmps_template_region_locked', 'This ROOT explicitly authorizes the paragraph between its *** markers. To choose a different region, upload a revised ROOT template.', array( 'status' => 409 ) );
 		}
 		$params = (array) $request->get_json_params();
 		$mode   = strtoupper( (string) ( $params['mode'] ?? '' ) );
@@ -302,6 +315,51 @@ class MMPS_Rest {
 		MMPS_Store::update_root_json( self::uid(), $root['id'], 'region_json', $region );
 		MMPS_Store::audit( self::uid(), 'region_confirm', 'root:' . $root['id'], array( 'mode' => $region['mode'], 'index' => $region['paragraphIndex'], 'regionSha256' => $region['regionSha256'] ) );
 		return rest_ensure_response( array( 'root' => MMPS_Store::get_root( self::uid(), $root['id'] ) ) );
+	}
+
+	public static function put_template( $request ) {
+		$root = self::root_or_404( $request );
+		if ( is_wp_error( $root ) ) { return $root; }
+		if ( 'ROOT_TEMPLATE_MARKERS' !== (string) ( $root['region']['authorization'] ?? '' ) ) {
+			return new WP_Error( 'mmps_template_missing', 'This ROOT does not contain an authorized Founder template region.', array( 'status' => 409 ) );
+		}
+		if ( MMPS_Store::root_run_count( self::uid(), $root['id'] ) > 0 ) {
+			return new WP_Error( 'mmps_template_in_use', 'This ROOT already has generated work. Create a new ROOT before changing its template contract.', array( 'status' => 409 ) );
+		}
+		$params   = (array) $request->get_json_params();
+		$behavior = strtoupper( sanitize_text_field( (string) ( $params['behavior'] ?? 'USE_TEMPLATE' ) ) );
+		if ( ! in_array( $behavior, array( 'USE_TEMPLATE', 'AI_REWRITE', 'EDIT_TEMPLATE' ), true ) ) {
+			return new WP_Error( 'mmps_template_behavior', 'Choose Use my template, AI rewrite, or Edit template.', array( 'status' => 422 ) );
+		}
+		$paragraphs = $root['paragraphs'];
+		$index      = (int) $root['region']['paragraphIndex'];
+		$template   = (array) $root['region']['template'];
+		if ( 'EDIT_TEMPLATE' === $behavior ) {
+			$text = MMPS_Region::normalize( str_replace( "\n", ' ', (string) ( $params['text'] ?? '' ) ) );
+			if ( '' === $text || false !== strpos( $text, '***' ) ) {
+				return new WP_Error( 'mmps_template_edit', 'Enter one template paragraph without boundary markers.', array( 'status' => 422 ) );
+			}
+			$parsed = MMPS_Region::parse_template( array( 'Protected before.', '***', $text, '***', 'Protected after.' ) );
+			if ( is_wp_error( $parsed ) ) { return $parsed; }
+			$paragraphs[ $index ] = $text;
+			$region = MMPS_Region::build( $paragraphs, 'REPLACE_PARAGRAPH', $index, (array) $root['region']['detection'] );
+			$region['authorization'] = 'ROOT_TEMPLATE_MARKERS';
+			$template = $parsed['region']['template'];
+			$template['behavior'] = 'USE_TEMPLATE';
+			$region['template'] = $template;
+			$behavior = 'USE_TEMPLATE';
+		} else {
+			$region = $root['region'];
+			$template['behavior'] = $behavior;
+			$region['template'] = $template;
+			$region['confirmedAt'] = gmdate( 'c' );
+		}
+		if ( ! MMPS_Store::update_template_root( self::uid(), $root['id'], $paragraphs, $region ) ) {
+			return new WP_Error( 'mmps_template_save', 'The template choice could not be saved safely.', array( 'status' => 503 ) );
+		}
+		MMPS_Store::audit( self::uid(), 'template_confirm', 'root:' . $root['id'], array( 'behavior' => $behavior, 'kind' => $template['kind'] ?? '' ) );
+		$updated = MMPS_Store::get_root( self::uid(), $root['id'] );
+		return rest_ensure_response( array( 'root' => $updated, 'detection' => self::root_detection( $updated ) ) );
 	}
 
 	public static function put_prefs( $request ) {
@@ -373,11 +431,15 @@ class MMPS_Rest {
 		return rest_ensure_response(
 			array(
 				'programs' => array_values( array_map( function ( $entry ) {
+					$class = MMPS_Batch::bulk_classification( $entry );
 					return array(
 						'programSpecialtyId' => $entry['programSpecialtyId'],
 						'goldStarred'        => $entry['goldStarred'],
 						'priorityPosition'   => $entry['priorityPosition'],
 						'defaultTier'        => MMPS_Tiers::default_tier( $entry ),
+						'bulkEligible'       => $class['eligible'],
+						'priorityClass'      => $class['class'],
+						'exclusionReason'    => $class['reason'],
 					);
 				}, $list ) ),
 				'limit'    => MMPS_Batch::MAX_ITEMS,
@@ -456,7 +518,7 @@ class MMPS_Rest {
 		if ( ! $root ) {
 			return new WP_Error( 'mmps_root_not_found', 'That ROOT was not found for your account.', array( 'status' => 404 ) );
 		}
-		$result = MMPS_Batch::create( self::uid(), $root, (array) ( $params['programs'] ?? array() ) );
+		$result = MMPS_Batch::create( self::uid(), $root, (array) ( $params['programs'] ?? array() ), (string) ( $params['outputMode'] ?? 'FULL_PARAGRAPH' ) );
 		return is_wp_error( $result ) ? $result : rest_ensure_response( array( 'job' => $result ) );
 	}
 
@@ -472,6 +534,11 @@ class MMPS_Rest {
 
 	public static function batch_item_run( $request ) {
 		$result = MMPS_Batch::preview_item( self::uid(), (string) $request['uuid'], (string) $request['item'] );
+		return is_wp_error( $result ) ? $result : rest_ensure_response( $result );
+	}
+
+	public static function batch_item_alternatives( $request ) {
+		$result = MMPS_Batch::generate_alternatives( self::uid(), (string) $request['uuid'], (string) $request['item'] );
 		return is_wp_error( $result ) ? $result : rest_ensure_response( $result );
 	}
 
@@ -761,6 +828,11 @@ class MMPS_Rest {
 		$full_text = implode( "\n\n", $paragraphs );
 		$region    = $paragraphs[ (int) $root['region']['paragraphIndex'] ];   // In both modes the new paragraph sits at this index.
 		$doc_uuid  = MMPS_Store::uuid();
+		$training_type  = (string) ( $program['trainingType'] ?? '' );
+		$training_types = array_values( array_filter( array_map( 'strval', (array) ( $program['trainingTypes'] ?? ( $training_type ? array( $training_type ) : array() ) ) ) ) );
+		$title_parts = array( $root['specialtyLabel'], $name );
+		if ( $training_type ) { $title_parts[] = $training_type; }
+		if ( ! empty( $program['acgmeId'] ) ) { $title_parts[] = $program['acgmeId']; }
 		$id        = MMPS_Store::insert_document(
 			$uid,
 			array(
@@ -777,7 +849,7 @@ class MMPS_Rest {
 				'tier'                 => (string) $run['tier_effective'],
 				'version_number'       => $version,
 				'status'               => $status,
-				'title'                => mb_substr( $root['specialtyLabel'] . ' PS · ' . $name . ( ! empty( $program['acgmeId'] ) ? ' · ACGME ' . $program['acgmeId'] : '' ) . ' · v' . $version, 0, 255 ),
+				'title'                => mb_substr( implode( ' — ', $title_parts ), 0, 255 ),
 				'root_label'           => $root['rootLabel'],
 				'full_text'            => $full_text,
 				'full_text_sha256'     => MMPS_Region::text_hash( $paragraphs ),
@@ -805,6 +877,9 @@ class MMPS_Rest {
 						'bundleSchema'      => (string) ( $run['bundle']['schema'] ?? '' ),
 						'bundleSha256'      => $run['bundle_sha256'],
 						'registryReleaseId' => (string) ( $run['bundle']['registryReleaseId'] ?? '' ),
+						'trainingType'      => $training_type,
+						'trainingTypes'     => $training_types,
+						'trainingTypeStatus'=> $training_type ? 'RESOLVED' : ( count( $training_types ) > 1 ? 'AMBIGUOUS' : 'UNAVAILABLE' ),
 						'factsUsed'         => (array) ( $edit['factsUsed'] ?? $run['validation']['candidateResults'][ $candidate_id ]['factsUsed'] ?? $run['validation']['factsUsed'] ?? array() ),
 						'similarityVersion' => MMPS_Similarity::VERSION,
 						'similarityStatus'  => $similarity['status'],
@@ -856,7 +931,7 @@ class MMPS_Rest {
 			$bytes = implode( "\r\n\r\n", $paragraphs ) . "\r\n";
 			$type  = 'text/plain; charset=utf-8';
 		}
-		$name = sanitize_file_name( preg_replace( '/[^A-Za-z0-9]+/', '_', $doc['specialtyLabel'] . '_PS_' . $doc['programName'] . '_v' . $doc['versionNumber'] ) ) . '.' . $format;
+		$name = self::export_filename( $doc, self::uid(), $format );
 		MMPS_Store::audit( self::uid(), 'library_download', $doc['docUuid'], array( 'format' => $format ) );
 		if ( MMPS_Gate::testing() && ! empty( $request['inline'] ) ) {
 			return rest_ensure_response( array( 'fileName' => $name, 'bytes' => strlen( $bytes ), 'sha256' => hash( 'sha256', $bytes ) ) );
@@ -874,7 +949,7 @@ class MMPS_Rest {
 	/** Selected or all-approved DOCX documents in one ZIP. */
 	public static function bulk_download( $request ) {
 		$params        = (array) $request->get_json_params();
-		$uuids         = array_slice( array_values( array_filter( array_map( 'strval', (array) ( $params['docUuids'] ?? array() ) ) ) ), 0, 100 );
+		$uuids         = array_slice( array_values( array_filter( array_map( 'strval', (array) ( $params['docUuids'] ?? array() ) ) ) ), 0, 150 );
 		$approved_only = ! empty( $params['allApproved'] );
 		$docs          = MMPS_Store::documents_for_export( self::uid(), $uuids, $approved_only );
 		if ( ! $docs ) {
@@ -889,7 +964,8 @@ class MMPS_Rest {
 		if ( true !== $zip->open( $tmp, ZipArchive::OVERWRITE ) ) {
 			return new WP_Error( 'mmps_bulk_write', 'The ZIP could not be created.', array( 'status' => 500 ) );
 		}
-		$manifest = array( 'MissionMed Program-Specific Personal Statements', 'Generated: ' . gmdate( 'c' ), 'Documents: ' . count( $docs ), '' );
+		$manifest   = array( 'MissionMed Program-Specific Personal Statements', 'Generated: ' . gmdate( 'c' ), 'Documents: ' . count( $docs ), '' );
+		$used_names = array();
 		foreach ( $docs as $doc ) {
 			$bytes = MMPS_Docx::bytes_from_paragraphs( MMPS_Region::split_text( $doc['fullText'] ) );
 			if ( is_wp_error( $bytes ) ) {
@@ -897,15 +973,21 @@ class MMPS_Rest {
 				@unlink( $tmp );
 				return $bytes;
 			}
-			$base = sanitize_file_name( preg_replace( '/[^A-Za-z0-9]+/', '_', $doc['specialtyLabel'] . '_PS_' . $doc['programName'] . '_v' . $doc['versionNumber'] ) );
-			$name = $base . '_' . substr( $doc['docUuid'], 0, 8 ) . '.docx';
+			$name = self::export_filename( $doc, self::uid(), 'docx' );
+			if ( isset( $used_names[ strtolower( $name ) ] ) ) {
+				$base = substr( $name, 0, -5 );
+				$name = sanitize_file_name( $base . '_v' . absint( $doc['versionNumber'] ) ) . '.docx';
+			}
+			$used_names[ strtolower( $name ) ] = true;
 			if ( ! $zip->addFromString( $name, $bytes ) ) {
 				$zip->close(); @unlink( $tmp );
 				return new WP_Error( 'mmps_bulk_write', 'A document could not be added to the ZIP.', array( 'status' => 500 ) );
 			}
 			$manifest[] = $name . ' | ' . $doc['status'] . ' | ' . $doc['programSpecialtyId'] . ' | ACGME ' . $doc['acgmeId'];
 		}
-		if ( ! $zip->addFromString( 'MANIFEST.txt', implode( "\r\n", $manifest ) . "\r\n" ) || ! $zip->close() ) {
+		$eras = self::assignment_manifest_payload( $docs, self::uid() );
+		$eras_md = self::assignment_manifest_markdown( $eras );
+		if ( ! $zip->addFromString( 'MANIFEST.txt', implode( "\r\n", $manifest ) . "\r\n" ) || ! $zip->addFromString( 'ERAS_ASSIGNMENT_MANIFEST.json', wp_json_encode( $eras, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) . "\n" ) || ! $zip->addFromString( 'ERAS_ASSIGNMENT_MISSION.md', $eras_md ) || ! $zip->close() ) {
 			@unlink( $tmp );
 			return new WP_Error( 'mmps_bulk_write', 'The ZIP could not be finalized.', array( 'status' => 500 ) );
 		}
@@ -927,5 +1009,63 @@ class MMPS_Rest {
 		header( 'X-Robots-Tag: noindex, nofollow' );
 		echo $bytes; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- binary download.
 		exit;
+	}
+
+	protected static function export_filename( $doc, $user_id, $format = 'docx' ) {
+		$user = get_userdata( absint( $user_id ) );
+		$last = $user && ! empty( $user->last_name ) ? (string) $user->last_name : 'Student';
+		$training = (string) ( $doc['metadata']['trainingType'] ?? '' );
+		$parts = array( $last, $doc['specialtyLabel'], $doc['programName'] );
+		if ( $training ) { $parts[] = $training; }
+		if ( $doc['acgmeId'] ) { $parts[] = $doc['acgmeId']; }
+		return sanitize_file_name( trim( preg_replace( '/_+/', '_', preg_replace( '/[^A-Za-z0-9]+/', '_', implode( '_', $parts ) ) ), '_' ) ) . '.' . ( 'txt' === $format ? 'txt' : 'docx' );
+	}
+
+	protected static function assignment_manifest_payload( $docs, $user_id ) {
+		$items = array();
+		foreach ( (array) $docs as $doc ) {
+			$training_types = array_values( array_filter( array_map( 'strval', (array) ( $doc['metadata']['trainingTypes'] ?? array() ) ) ) );
+			$items[] = array(
+				'programName'       => $doc['programName'],
+				'acgmeId'           => $doc['acgmeId'],
+				'programSpecialtyId'=> $doc['programSpecialtyId'],
+				'specialty'         => $doc['specialtyLabel'],
+				'trainingType'      => (string) ( $doc['metadata']['trainingType'] ?? '' ),
+				'trainingTypes'     => $training_types,
+				'trainingTypeStatus'=> (string) ( $doc['metadata']['trainingTypeStatus'] ?? 'UNAVAILABLE' ),
+				'myErasIdentity'    => null,
+				'myErasIdentityStatus' => 'UNRESOLVED',
+				'statementTitle'    => $doc['title'],
+				'exportFilename'    => self::export_filename( $doc, $user_id, 'docx' ),
+				'psvDocId'          => $doc['docUuid'],
+				'version'           => $doc['versionNumber'],
+				'approvalStatus'    => $doc['status'],
+				'assignmentStatus'  => 'NOT_STARTED',
+				'verificationStatus'=> 'UNVERIFIED',
+				'fullTextSha256'    => $doc['fullTextSha256'],
+			);
+		}
+		return array( 'schema' => 'missionmed.psv.eras-assignment-manifest.v1', 'generatedAt' => gmdate( 'c' ), 'ownerUserId' => absint( $user_id ), 'commitPolicy' => 'PREPARE_THEN_EXPLICIT_CONFIRMATION', 'forbiddenActions' => array( 'APPLY', 'PAY', 'CERTIFY', 'SUBMIT', 'WITHDRAW', 'SIGNAL', 'MESSAGE' ), 'items' => $items );
+	}
+
+	protected static function assignment_manifest_markdown( $manifest ) {
+		$lines = array( '# MissionMed MyERAS Assignment Mission', '', 'Use only the attached machine-readable manifest and APPROVED statement files. Prepare exact statement titles and content first. Before changing any assignment, show Program -> Specialty/Training Type -> Statement Title and obtain the student\'s explicit confirmation.', '', 'Never Apply, Pay, Certify, Submit, Withdraw, change signals, send messages, or guess an ambiguous program/training type. Stop on any mismatch. After authorized assignment, reread the MyERAS Assignments Checklist/Report twice and produce a reconciliation report.', '', '## Items' );
+		foreach ( (array) $manifest['items'] as $item ) {
+			$lines[] = '- ' . $item['programName'] . ' | ' . $item['specialty'] . ' | ' . ( $item['trainingType'] ? $item['trainingType'] : $item['trainingTypeStatus'] ) . ' | ' . $item['statementTitle'] . ' | ' . $item['approvalStatus'];
+		}
+		return implode( "\n", $lines ) . "\n";
+	}
+
+	public static function eras_manifest( $request ) {
+		$params = (array) $request->get_json_params();
+		$uuids = array_slice( array_values( array_filter( array_map( 'strval', (array) ( $params['docUuids'] ?? array() ) ) ) ), 0, 150 );
+		$docs = MMPS_Store::documents_for_export( self::uid(), $uuids, true );
+		if ( ! $docs ) { return new WP_Error( 'mmps_manifest_empty', 'Approve at least one statement before creating the ERAS manifest.', array( 'status' => 422 ) ); }
+		$payload = self::assignment_manifest_payload( $docs, self::uid() );
+		$bytes = wp_json_encode( $payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) . "\n";
+		MMPS_Store::audit( self::uid(), 'eras_manifest_download', 'count:' . count( $docs ), array( 'count' => count( $docs ), 'sha256' => hash( 'sha256', $bytes ) ) );
+		$name = 'MissionMed_ERAS_Assignment_Manifest_' . gmdate( 'Y-m-d' ) . '.json';
+		if ( MMPS_Gate::testing() && ! empty( $params['inline'] ) ) { return rest_ensure_response( array( 'fileName' => $name, 'documents' => count( $docs ), 'bytes' => strlen( $bytes ), 'sha256' => hash( 'sha256', $bytes ), 'manifest' => $payload ) ); }
+		nocache_headers(); header( 'Content-Type: application/json; charset=utf-8' ); header( 'Content-Disposition: attachment; filename="' . $name . '"' ); header( 'Content-Length: ' . strlen( $bytes ) ); header( 'X-Content-Type-Options: nosniff' ); echo $bytes; exit;
 	}
 }

@@ -29,7 +29,7 @@ foreach ($files as $name => $path) {
 }
 $all = implode("\n", $src);
 
-m3check((bool) preg_match('/const\s+MAX_ITEMS\s*=\s*100\s*;/', $src['batch']), 'batch accepts 100 programs', 'M3 must support the Founder-required 50–100+ scale.');
+m3check((bool) preg_match('/const\s+MAX_ITEMS\s*=\s*150\s*;/', $src['batch']), 'batch accepts up to 150 programs', 'Application-eve scale requires up to 100–150 programs.');
 m3check((bool) preg_match('/const\s+DAILY_RUN_CAP\s*=\s*(?:1[5-9][0-9]|[2-9][0-9]{2,})\s*;/', $src['gen']), 'daily ceiling accommodates a full batch and retries', 'A 100-item batch must not dead-end at the former 60-run prototype cap.');
 m3check((bool) preg_match('/const\s+CLIENT_WORKERS\s*=\s*2\s*;/', $src['batch']), 'browser concurrency is explicitly bounded', 'Client workers must remain small and auditable.');
 m3check(str_contains($src['batch'], 'active_items < %d') && str_contains($src['batch'], 'saturated') && str_contains($src['batch'], 'persist_claim_transition'), 'server enforces the two-worker concurrency ceiling', 'Multiple tabs and direct requests must not exceed the client worker limit.');

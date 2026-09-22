@@ -34,7 +34,7 @@
 		list: { status: 'idle', programs: [], total: 0, error: null }, search: { q: '', specialty: '', state: '', status: 'idle', results: [], error: null },
 		programs: {}, selected: [], tiers: {}, runs: {}, current: '', showOriginal: false,
 		prompt: {}, doc: null, selectedDocs: {},
-		batch: { index: null, current: null, running: false },
+		batch: { index: null, current: null, running: false, mode: 'FULL_PARAGRAPH', selected: {} },
 		boost: {}, admin: { tab: 'home', loaded: false, prompts: null, research: [], importText: '', qaNotes: {} }, busy: {}, toast: null
 	};
 
@@ -172,7 +172,7 @@
 		S.root = data.root; S.detection = data.detection || S.detection;
 		S.prefs = loadPrefs(S.root);
 		var region = S.root.region && S.root.region.mode ? S.root.region : null;
-		S.regionDraft = region ? { mode: region.mode, index: region.paragraphIndex } : { mode: 'REPLACE_PARAGRAPH', index: S.detection && S.detection.proposedIndex != null ? S.detection.proposedIndex : null };
+		S.regionDraft = region ? { mode: region.mode, index: region.paragraphIndex, templateBehavior: region.template && region.template.behavior ? region.template.behavior : 'USE_TEMPLATE', templateText: region.template ? region.template.sourceText : '' } : { mode: 'REPLACE_PARAGRAPH', index: S.detection && S.detection.proposedIndex != null ? S.detection.proposedIndex : null };
 		S.runs = {}; S.current = '';
 	}
 	function createRoot() {
@@ -195,6 +195,10 @@
 		api('PUT', '/roots/' + S.root.id + '/region', { mode: S.regionDraft.mode, paragraphIndex: S.regionDraft.index }).then(function (data) {
 			S.root = data.root; S.runs = {}; busy('region', false); go('prefs');
 		}).catch(function (e) { busy('region', false); fail(e); });
+	}
+	function saveTemplate() {
+		busy('region', true);
+		api('PUT', '/roots/' + S.root.id + '/template', { behavior: S.regionDraft.templateBehavior, text: S.regionDraft.templateText }).then(function (data) { adoptRoot(data); busy('region', false); go('prefs'); }).catch(function (e) { busy('region', false); fail(e); });
 	}
 	function savePrefs() {
 		var p = JSON.parse(JSON.stringify(S.prefs));
@@ -353,13 +357,15 @@
 	}
 	function loadBatchIndex() {
 		busy('batch-index', true);
-		api('GET', '/rise/my-program-index').then(function (data) { S.batch.index = data; busy('batch-index', false); }).catch(function (e) { busy('batch-index', false); fail(e); });
+		api('GET', '/rise/my-program-index').then(function (data) { S.batch.index = data; S.batch.selected = {}; (data.programs || []).forEach(function (p) { if (p.bulkEligible) { S.batch.selected[p.programSpecialtyId] = true; } }); busy('batch-index', false); }).catch(function (e) { busy('batch-index', false); fail(e); });
 	}
 	function createBatch() {
 		if (!S.root) { toast('Open the ROOT for this specialty first.', 'err'); return; }
 		if (!S.batch.index || !S.batch.index.programs.length) { toast('Import your RISE program list first.', 'err'); return; }
 		busy('batch-create', true);
-		api('POST', '/batch/jobs', { rootId: S.root.id, programs: S.batch.index.programs.map(function (p) { return { programSpecialtyId: p.programSpecialtyId, priorityPosition: p.priorityPosition, goldStarred: p.goldStarred, tier: p.defaultTier }; }) }).then(function (data) {
+		var programs = S.batch.index.programs.filter(function (p) { return p.bulkEligible && S.batch.selected[p.programSpecialtyId]; }).map(function (p) { return { programSpecialtyId: p.programSpecialtyId, tier: p.defaultTier }; });
+		if (!programs.length) { busy('batch-create', false); toast('Select at least one Bulk Rush eligible program.', 'err'); return; }
+		api('POST', '/batch/jobs', { rootId: S.root.id, outputMode: S.batch.mode, programs: programs }).then(function (data) {
 			S.batch.current = data.job; busy('batch-create', false); refreshBoot();
 		}).catch(function (e) { busy('batch-create', false); fail(e); });
 	}
@@ -402,6 +408,14 @@
 			S.current = item.programSpecialtyId; busy('batch-run', false); go('preview');
 		}).catch(function (e) { busy('batch-run', false); fail(e); });
 	}
+	function batchAlternatives(item) {
+		busy('batch-alternatives:' + item.itemUuid, true);
+		api('POST', '/batch/jobs/' + S.batch.current.jobUuid + '/items/' + item.itemUuid + '/alternatives', {}).then(function (data) {
+			S.batch.current = data.job; busy('batch-alternatives:' + item.itemUuid, false);
+			var refreshed = (data.job.items || []).filter(function (x) { return x.itemUuid === item.itemUuid; })[0];
+			if (refreshed && refreshed.runId) { openBatchRun(refreshed); }
+		}).catch(function (e) { busy('batch-alternatives:' + item.itemUuid, false); fail(e); });
+	}
 	function approveBatchItem(item) {
 		busy('batch-approve:' + item.itemUuid, true);
 		api('POST', '/batch/jobs/' + S.batch.current.jobUuid + '/items/' + item.itemUuid + '/approve', {}).then(function (data) { S.batch.current = data.job; busy('batch-approve:' + item.itemUuid, false); refreshBoot(); toast('Approved recommended version.', 'ok'); }).catch(function (e) { busy('batch-approve:' + item.itemUuid, false); fail(e); });
@@ -421,6 +435,10 @@
 			var match = result.disposition.match(/filename="([^"]+)"/), a = document.createElement('a');
 			a.href = URL.createObjectURL(result.blob); a.download = match ? match[1] : 'MissionMed_Program_Specific_PS.zip'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000); busy('bulk', false);
 		}).catch(function (e) { busy('bulk', false); fail(e); });
+	}
+	function downloadErasManifest() {
+		busy('eras-manifest', true);
+		fetch(cfg.restUrl.replace(/\/$/, '') + '/library/eras-manifest', { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'X-WP-Nonce': cfg.nonce, 'Content-Type': 'application/json' }, body: JSON.stringify({}) }).then(function (res) { if (!res.ok) { return res.json().then(function (d) { throw new Error(d.message || 'Manifest download failed.'); }); } return res.blob().then(function (blob) { return {blob:blob, disposition:res.headers.get('content-disposition') || ''}; }); }).then(function (result) { var match=result.disposition.match(/filename="([^"]+)"/), a=document.createElement('a'); a.href=URL.createObjectURL(result.blob); a.download=match?match[1]:'MissionMed_ERAS_Assignment_Manifest.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){URL.revokeObjectURL(a.href);},1000); busy('eras-manifest', false); }).catch(function(e){busy('eras-manifest', false); fail(e);});
 	}
 
 	/* ---------- views ---------- */
@@ -507,6 +525,15 @@
 
 	function viewRegion() {
 		var r = S.root, d = S.regionDraft, det = S.detection || {}, html = head('Step 2', 'Confirm the <em>only</em> part that may change', 'Everything outside the highlighted region is locked. It is hash-checked against your ROOT before any version is shown or saved.');
+		if (r.region && r.region.authorization === 'ROOT_TEMPLATE_MARKERS') {
+			var template = r.region.template || {}, kind = template.kind === 'BLANK' ? 'Blank paragraph template' : 'Authored paragraph template';
+			html += '<div class="notice mt"><strong>' + esc(kind) + ' recognized.</strong> The single paragraph between your *** markers is the authorized Program Answer region. The markers were removed from the protected ROOT; every other paragraph is locked.</div>';
+			html += '<div class="panel mtS"><div class="eyebrow">Writing behavior</div><div class="seg mtS"><button data-act="template-behavior" data-behavior="USE_TEMPLATE" class="' + (d.templateBehavior === 'USE_TEMPLATE' ? 'on' : '') + '">Use my template</button><button data-act="template-behavior" data-behavior="AI_REWRITE" class="' + (d.templateBehavior === 'AI_REWRITE' ? 'on' : '') + '">AI rewrite this region</button><button data-act="template-behavior" data-behavior="EDIT_TEMPLATE" class="' + (d.templateBehavior === 'EDIT_TEMPLATE' ? 'on' : '') + '">Edit template</button></div><p class="small mid mtS">' + (d.templateBehavior === 'USE_TEMPLATE' ? 'Authored structure stays fixed while verified slot content is hydrated, recast, or omitted safely.' : d.templateBehavior === 'AI_REWRITE' ? 'The writer may replace the whole authorized paragraph, but no protected paragraph.' : 'Revise the one authorized template paragraph below. Use semantic [slots].') + '</p>' + (d.templateBehavior === 'EDIT_TEMPLATE' ? '<label class="f mtS">Authorized template paragraph<textarea data-template-text maxlength="6000">' + esc(d.templateText) + '</textarea></label>' : '') + '</div>';
+			html += '<div class="paper mt">' + r.paragraphs.map(function (p, i) { var active = i === r.region.paragraphIndex; return '<div class="para ' + (active ? 'region' : 'locked') + '"><span class="pn">' + (i + 1) + '</span>' + (active ? '<div class="paraFlag">✎ Template-authorized Program Answer · ' + esc(kind) + '</div>' : '') + esc(p) + '</div>'; }).join('') + '</div>';
+			html += '<p class="tiny dim mtS">Integrity rule: ' + esc(S.boot.contract.normalizationRule) + ' · ROOT text ' + esc(r.textSha256.slice(0, 16)) + '…</p>';
+			html += '<div class="footBar"><button class="btn ghost" data-act="go" data-view="root">← Back</button><button class="btn primary" data-act="save-template"' + (S.busy.region ? ' disabled' : '') + '>' + (S.busy.region ? '<span class="spin"></span>Saving…' : 'Confirm template →') + '</button></div>';
+			return html;
+		}
 		var conf = det.proposedIndex == null ? '<span class="tag rd">No clear program paragraph found</span>' : '<span class="tag ' + (det.confidence === 'HIGH' ? 'ok' : 'em') + '">Suggestion confidence: ' + esc(det.confidence) + '</span>';
 		html += '<div class="panel mt"><div class="spread"><div class="row">' + conf + '<span class="small mid">' + (det.proposedIndex == null ? 'Click the paragraph to replace, or choose where a new paragraph should go.' : 'We suggested paragraph ' + (det.proposedIndex + 1) + '. Click any other paragraph to change it.') + '</span>' + (d.index != null ? '<button class="btn sm ghost" data-act="jump">Jump to it ↓</button>' : '') + '</div><div class="seg"><button data-act="region-mode" data-mode="REPLACE_PARAGRAPH" class="' + (d.mode === 'REPLACE_PARAGRAPH' ? 'on' : '') + '">Replace a paragraph</button><button data-act="region-mode" data-mode="INSERT_BEFORE" class="' + (d.mode === 'INSERT_BEFORE' ? 'on' : '') + '">Insert a new paragraph</button></div></div></div>';
 		html += '<div class="paper mt">';
@@ -846,31 +873,41 @@
 		return '<span class="tag ' + cls + '">' + esc(String(s || '').replace(/_/g, ' ')) + '</span>';
 	}
 	function viewBatch() {
-		var b = S.batch, job = b.current, html = head('Batch workspace', 'Generate a complete <em>program set</em>', 'Generate statements for this specialty’s RISE list. Progress is saved, so you can return and resume.');
+		var b = S.batch, job = b.current, html = head('Batch Rush', 'Personalize the eligible <em>program set</em>', 'Your authenticated RISE list is the source. Gold, high-priority Silver, and uncertain-priority programs stay in explicit High Priority Review.');
 		if (!S.root) {
 			html += '<div class="notice gold mt"><strong>Choose a specialty ROOT first.</strong> Every batch is isolated to one ROOT, its preferences and its program set. <button class="btn sm cy" data-act="go" data-view="root">Choose ROOT</button></div>';
 		} else {
-			html += '<div class="panel mt"><div class="spread"><div><div class="eyebrow">Current specialty</div><div class="h2">' + esc(S.root.specialtyLabel) + '</div><p class="small mid mtS">' + esc(S.root.rootLabel) + ' · priority 1–' + esc(S.boot.limits.priorityDeepCutoff) + ' defaults Deep; all others Essential. Every item can be overridden.</p></div><span class="tag gold">ROOT ready</span></div></div>';
+			html += '<div class="panel mt"><div class="spread"><div><div class="eyebrow">Current specialty</div><div class="h2">' + esc(S.root.specialtyLabel) + '</div><p class="small mid mtS">' + esc(S.root.rootLabel) + ' · one specialty and one immutable ROOT per batch.</p></div><span class="tag gold">ROOT ready</span></div></div>';
 			if (!job && !b.index) { html += '<div class="panel"><button class="btn cy" data-act="batch-import"' + (S.busy['batch-index'] ? ' disabled' : '') + '>' + (S.busy['batch-index'] ? '<span class="spin"></span>Importing…' : 'Import full RISE program list') + '</button><p class="tiny dim mtS">Only program IDs, list state and priority are imported. Private RISE notes never enter PSV.</p></div>'; }
-			else if (!job) { html += '<div class="panel"><div class="spread"><div><div class="eyebrow">RISE import</div><div class="h2">' + b.index.programs.length + ' programs ready</div><p class="small mid mtS">' + b.index.programs.filter(function (p) { return p.defaultTier === 'DEEP'; }).length + ' default Deep · ' + b.index.programs.filter(function (p) { return p.defaultTier !== 'DEEP'; }).length + ' default Essential · maximum ' + b.index.limit + '</p></div><button class="btn primary" data-act="batch-create"' + (S.busy['batch-create'] ? ' disabled' : '') + '>' + (S.busy['batch-create'] ? '<span class="spin"></span>Creating…' : 'Create resumable batch →') + '</button></div></div>'; }
+			else if (!job) {
+				var eligible = b.index.programs.filter(function (p) { return p.bulkEligible; }), protectedRows = b.index.programs.filter(function (p) { return !p.bulkEligible; }), selected = eligible.filter(function (p) { return b.selected[p.programSpecialtyId]; });
+				html += '<div class="panel"><div class="spread"><div><div class="eyebrow">Imported from your RISE list</div><div class="h2">' + b.index.programs.length + ' programs verified</div><p class="small mid mtS">' + eligible.length + ' Bulk Rush eligible · ' + protectedRows.length + ' moved to High Priority Review · maximum ' + b.index.limit + '</p></div><span class="tag ok">Owner-scoped</span></div><div class="seg mtS"><button data-act="batch-mode" data-mode="FULL_PARAGRAPH" class="' + (b.mode === 'FULL_PARAGRAPH' ? 'on' : '') + '">Full Paragraph</button><button data-act="batch-mode" data-mode="TOP_3_REASONS" class="' + (b.mode === 'TOP_3_REASONS' ? 'on' : '') + '">Top 3 Reasons</button></div><p class="small mid mtS">' + (b.mode === 'FULL_PARAGRAPH' ? 'One validated recommended paragraph per program. Five alternatives remain available on demand.' : 'Three evidence-backed proposed reasons for review and future interview preparation.') + '</p><div class="spread mt"><strong>' + selected.length + ' eligible programs selected</strong><button class="btn primary" data-act="batch-create"' + (S.busy['batch-create'] || !selected.length ? ' disabled' : '') + '>' + (S.busy['batch-create'] ? '<span class="spin"></span>Creating…' : 'Create resumable batch →') + '</button></div></div>';
+				html += '<div class="panel"><div class="eyebrow">Eligible remainder</div><div class="tblWrap mtS"><table class="lib"><thead><tr><th>Select</th><th>RISE program-specialty ID</th><th>Priority</th><th>Default</th></tr></thead><tbody>' + eligible.map(function (p) { return '<tr><td><input type="checkbox" data-batch-select="' + esc(p.programSpecialtyId) + '"' + (b.selected[p.programSpecialtyId] ? ' checked' : '') + ' aria-label="Include priority ' + p.priorityPosition + '"></td><td class="mono">' + esc(p.programSpecialtyId) + '</td><td>#' + p.priorityPosition + '</td><td>Essential</td></tr>'; }).join('') + '</tbody></table></div></div>';
+				if (protectedRows.length) { html += '<div class="notice gold"><strong>High Priority Review · ' + protectedRows.length + '</strong><p class="small mtS">Gold, Silver (priority 1–' + esc(S.boot.limits.priorityDeepCutoff) + '), and uncertain-priority programs are excluded from unattended bulk. They remain available in the detailed Program workspace.</p></div>'; }
+			}
 		}
 		if (!job && S.boot.batches && S.boot.batches.length) {
 			html += '<div class="panel mt"><div class="panelHead"><div><div class="eyebrow">Resume</div><div class="h2">Recent batches</div></div></div>' + S.boot.batches.map(function (j) { return '<div class="prog"><div><div class="progName">' + esc(j.specialtyLabel) + ' · ' + j.total + ' programs</div><div class="progMeta">' + j.processed + ' processed · ' + j.ready + ' clean · ' + j.attention + ' exceptions · updated ' + esc(j.updatedAt) + ' UTC</div></div><div class="row">' + batchStatusTag(j.status) + '<button class="btn sm" data-act="batch-open" data-id="' + j.jobUuid + '">Open</button></div></div>'; }).join('') + '</div>';
 		}
 		if (!job) { return html; }
 		var pct = job.total ? Math.round(job.processed * 100 / job.total) : 0;
-		html += '<div class="panel mt"><div class="spread"><div><div class="eyebrow">Batch ' + esc(job.jobUuid.slice(0, 8)) + '</div><div class="h2">' + esc(job.specialtyLabel) + ' · ' + job.processed + ' of ' + job.total + ' processed</div></div><div class="row">' + batchStatusTag(job.status) + (b.running ? '<button class="btn sm" data-act="batch-stop">Pause after current items</button>' : '<button class="btn sm primary" data-act="batch-run"' + (job.processed >= job.total ? ' disabled' : '') + '>Resume generation</button>') + (job.ready ? '<button class="btn sm cy" data-act="batch-approve-ready"' + (S.busy['batch-approve-all'] ? ' disabled' : '') + '>Approve clean defaults (' + job.ready + ')</button>' : '') + '</div></div><progress class="batchProgress mtS" max="100" value="' + pct + '" aria-label="Batch generation progress">' + pct + '%</progress><p class="tiny dim mtS">' + pct + '% · ' + job.ready + ' clean · ' + job.attention + ' exception' + (job.attention === 1 ? '' : 's') + ' · ' + job.failed + ' failed. Approved documents are preserved when one item is regenerated.</p></div>';
-		html += '<div class="panel"><div class="tblWrap"><table class="lib batchTable"><thead><tr><th>Program</th><th>Default / override</th><th>Status</th><th>Attempt</th><th></th></tr></thead><tbody>' + (job.items || []).map(function (item) {
+		var topReasons = job.config && job.config.outputMode === 'TOP_3_REASONS';
+		html += '<div class="panel mt"><div class="spread"><div><div class="eyebrow">' + (topReasons ? 'Top 3 Reasons' : 'Full Paragraph') + ' · Batch ' + esc(job.jobUuid.slice(0, 8)) + '</div><div class="h2">' + esc(job.specialtyLabel) + ' · ' + job.processed + ' of ' + job.total + ' processed</div></div><div class="row">' + batchStatusTag(job.status) + (b.running ? '<button class="btn sm" data-act="batch-stop">Pause after current items</button>' : '<button class="btn sm primary" data-act="batch-run"' + (job.processed >= job.total ? ' disabled' : '') + '>Resume generation</button>') + (!topReasons && job.ready ? '<button class="btn sm cy" data-act="batch-approve-ready"' + (S.busy['batch-approve-all'] ? ' disabled' : '') + '>Approve clean defaults (' + job.ready + ')</button>' : '') + '</div></div><progress class="batchProgress mtS" max="100" value="' + pct + '" aria-label="Batch generation progress">' + pct + '%</progress><p class="tiny dim mtS">Exceptions are listed first. ' + pct + '% · ' + job.ready + ' clean · ' + job.attention + ' exception' + (job.attention === 1 ? '' : 's') + ' · ' + job.failed + ' failed.</p></div>';
+		var orderedItems = (job.items || []).slice().sort(function (a, b) { var order = {RESEARCH_NEEDED:0,NEEDS_ATTENTION:1,FAILED:2,PROCESSING:3,QUEUED:4,READY:5}; return (order[a.status] == null ? 9 : order[a.status]) - (order[b.status] == null ? 9 : order[b.status]); });
+		html += '<div class="panel"><div class="tblWrap"><table class="lib batchTable"><thead><tr><th>Program</th><th>' + (topReasons ? 'Verified proposed reasons' : 'Tier') + '</th><th>Status</th><th>Attempt</th><th></th></tr></thead><tbody>' + orderedItems.map(function (item) {
 			var label = item.programName || item.programSpecialtyId, canReview = item.runId && ['READY','NEEDS_ATTENTION','RESEARCH_NEEDED'].indexOf(item.status) !== -1;
-			return '<tr><td><div class="libTitle">' + esc(label) + '</div><div class="tiny dim">' + (item.goldStarred ? '★ Gold · ' : '') + (item.priorityPosition ? 'Priority #' + item.priorityPosition + ' · ' : '') + esc(item.programSpecialtyId) + (item.acgmeId ? ' · ACGME ' + esc(item.acgmeId) : '') + '</div></td><td><div class="seg"><button data-act="batch-tier" data-item="' + item.itemUuid + '" data-tier="DEEP" class="deep ' + (item.tierRequested === 'DEEP' ? 'on' : '') + '"' + (item.status === 'PROCESSING' ? ' disabled' : '') + '>Deep</button><button data-act="batch-tier" data-item="' + item.itemUuid + '" data-tier="ESSENTIAL" class="' + (item.tierRequested === 'ESSENTIAL' ? 'on' : '') + '"' + (item.status === 'PROCESSING' ? ' disabled' : '') + '>Essential</button></div></td><td>' + batchStatusTag(item.status) + (item.approvedDocUuid ? ' <span class="tag ok">Approved</span>' : '') + (item.lastErrorCode ? '<div class="tiny rd">' + esc(item.lastErrorCode) + '</div>' : '') + '</td><td class="small mid">' + item.attemptCount + ' / ' + item.maxAttempts + '</td><td><div class="row">' + (canReview ? '<button class="btn sm" data-act="batch-review" data-item="' + item.itemUuid + '" data-id="' + esc(item.programSpecialtyId) + '">Review</button>' : '') + (item.status === 'READY' && !item.approvedDocUuid ? '<button class="btn sm cy" data-act="batch-approve" data-item="' + item.itemUuid + '">Approve default</button>' : '') + '</div></td></tr>';
+			var reasons = item.evidence && item.evidence.reasons ? '<ol class="small">' + item.evidence.reasons.map(function (r) { var source = r.sourceUrl ? '<a href="' + esc(r.sourceUrl) + '" target="_blank" rel="noopener noreferrer">source</a>' : esc(r.sourceAuthority || 'verified RISE evidence'); return '<li>' + esc(r.proposedReason) + (r.matchedOn ? ' <span class="tiny dim">Matched: ' + esc(r.matchedOn) + '</span>' : '') + '<div class="tiny dim">' + source + (r.retrievedAt ? ' · ' + esc(r.retrievedAt) : '') + ' · ' + esc(r.factId) + '</div></li>'; }).join('') + '</ol>' : '<span class="small mid">Pending</span>';
+			var tierCell = topReasons ? reasons : '<div class="seg"><button data-act="batch-tier" data-item="' + item.itemUuid + '" data-tier="DEEP" class="deep ' + (item.tierRequested === 'DEEP' ? 'on' : '') + '"' + (item.status === 'PROCESSING' ? ' disabled' : '') + '>Deep</button><button data-act="batch-tier" data-item="' + item.itemUuid + '" data-tier="ESSENTIAL" class="' + (item.tierRequested === 'ESSENTIAL' ? 'on' : '') + '"' + (item.status === 'PROCESSING' ? ' disabled' : '') + '>Essential</button></div>';
+			var actions = topReasons ? '' : (canReview ? '<button class="btn sm" data-act="batch-review" data-item="' + item.itemUuid + '">Review default</button>' : '') + (item.status === 'READY' && item.evidence && item.evidence.candidateCount === 1 ? '<button class="btn sm" data-act="batch-alternatives" data-item="' + item.itemUuid + '">Review 5 alternatives</button>' : '') + (item.status === 'READY' && !item.approvedDocUuid ? '<button class="btn sm cy" data-act="batch-approve" data-item="' + item.itemUuid + '">Approve default</button>' : '');
+			return '<tr><td><div class="libTitle">' + esc(label) + '</div><div class="tiny dim">Priority #' + item.priorityPosition + ' · ' + esc(item.programSpecialtyId) + (item.acgmeId ? ' · ACGME ' + esc(item.acgmeId) : '') + '</div></td><td>' + tierCell + '</td><td>' + batchStatusTag(item.status) + (item.approvedDocUuid ? ' <span class="tag ok">Approved</span>' : '') + (item.lastErrorCode ? '<div class="tiny rd">' + esc(item.lastErrorCode) + '</div>' : '') + '</td><td class="small mid">' + item.attemptCount + ' / ' + item.maxAttempts + '</td><td><div class="row">' + actions + '</div></td></tr>';
 		}).join('') + '</tbody></table></div></div>';
 		return html;
 	}
 	function viewLibrary() {
 		var docs = S.boot.library, selectedCount = Object.keys(S.selectedDocs).filter(function (id) { return S.selectedDocs[id]; }).length, html = head('PS library', 'Saved <em>complete</em> statements', 'Review and download your approved program-specific statements.');
 		if (!docs.length) { return html + '<div class="notice mt">Nothing saved yet. Approve a preview and it appears here.</div>'; }
-		html += '<div class="panel mt"><div class="spread"><p class="small mid">Download one, a selected set, or every approved statement. The ZIP includes body-only DOCX files plus a metadata manifest.</p><div class="row"><button class="btn sm" data-act="bulk-selected"' + (S.busy.bulk || !selectedCount ? ' disabled' : '') + '>Download selected (' + selectedCount + ')</button><button class="btn sm cy" data-act="bulk-approved"' + (S.busy.bulk ? ' disabled' : '') + '>Download All approved</button></div></div><div class="tblWrap mtS"><table class="lib"><thead><tr><th><span class="srOnly">Select</span></th><th>Statement</th><th>Tier</th><th>Status</th><th>Saved</th><th></th></tr></thead><tbody>' + docs.map(function (d) {
-			return '<tr><td><input type="checkbox" data-doc-select="' + d.docUuid + '" aria-label="Select ' + esc(d.title) + '"' + (S.selectedDocs[d.docUuid] ? ' checked' : '') + '></td><td><div class="libTitle">' + esc(d.programName) + '</div><div class="tiny dim">' + esc(d.specialtyLabel) + ' · ACGME ' + esc(d.acgmeId || 'n/a') + ' · v' + d.versionNumber + (d.city || d.state ? ' · ' + esc([d.city, d.state].filter(Boolean).join(', ')) : '') + '</div></td><td><span class="tag ' + (d.tier === 'DEEP' ? 'vi' : 'em') + '">' + esc(d.tier) + '</span></td><td>' + statusTag(d.status) + '</td><td class="small mid">' + esc(d.createdAt) + ' UTC</td><td><div class="row"><button class="btn sm" data-act="open-doc" data-uuid="' + d.docUuid + '">View</button><a class="btn sm cy" href="' + esc(download(d.docUuid, 'docx')) + '">DOCX</a><a class="btn sm" href="' + esc(download(d.docUuid, 'txt')) + '">TXT</a></div></td></tr>';
+		html += '<div class="panel mt"><div class="spread"><p class="small mid">Download one, a selected set, or every approved statement. The ZIP includes body-only DOCX files, the canonical ERAS JSON manifest, and a guarded assignment mission.</p><div class="row"><button class="btn sm" data-act="bulk-selected"' + (S.busy.bulk || !selectedCount ? ' disabled' : '') + '>Download selected (' + selectedCount + ')</button><button class="btn sm cy" data-act="bulk-approved"' + (S.busy.bulk ? ' disabled' : '') + '>Download All approved</button><button class="btn sm" data-act="eras-manifest"' + (S.busy['eras-manifest'] ? ' disabled' : '') + '>ERAS assignment manifest</button></div></div><div class="tblWrap mtS"><table class="lib"><thead><tr><th><span class="srOnly">Select</span></th><th>Statement</th><th>Tier</th><th>Status</th><th>Saved</th><th></th></tr></thead><tbody>' + docs.map(function (d) {
+			return '<tr><td><input type="checkbox" data-doc-select="' + d.docUuid + '" aria-label="Select ' + esc(d.title) + '"' + (S.selectedDocs[d.docUuid] ? ' checked' : '') + '></td><td><div class="libTitle">' + esc(d.programName) + '</div><div class="tiny dim">' + esc(d.specialtyLabel) + (d.metadata && d.metadata.trainingType ? ' · ' + esc(d.metadata.trainingType) : '') + ' · ACGME ' + esc(d.acgmeId || 'n/a') + ' · v' + d.versionNumber + (d.city || d.state ? ' · ' + esc([d.city, d.state].filter(Boolean).join(', ')) : '') + '</div></td><td><span class="tag ' + (d.tier === 'DEEP' ? 'vi' : 'em') + '">' + esc(d.tier) + '</span></td><td>' + statusTag(d.status) + '</td><td class="small mid">' + esc(d.createdAt) + ' UTC</td><td><div class="row"><button class="btn sm" data-act="open-doc" data-uuid="' + d.docUuid + '">View</button><a class="btn sm cy" href="' + esc(download(d.docUuid, 'docx')) + '">DOCX</a><a class="btn sm" href="' + esc(download(d.docUuid, 'txt')) + '">TXT</a></div></td></tr>';
 		}).join('') + '</tbody></table></div></div>';
 		return html;
 	}
@@ -939,6 +976,8 @@
 		else if (act === 'region-mode') { S.regionDraft = { mode: el.getAttribute('data-mode'), index: null }; if (S.regionDraft.mode === 'REPLACE_PARAGRAPH' && S.detection && S.detection.proposedIndex != null) { S.regionDraft.index = S.detection.proposedIndex; } render(); }
 		else if (act === 'region-pick') { S.regionDraft.index = parseInt(el.getAttribute('data-index'), 10); render(); }
 		else if (act === 'save-region') { saveRegion(); }
+		else if (act === 'template-behavior') { S.regionDraft.templateBehavior = el.getAttribute('data-behavior'); render(); }
+		else if (act === 'save-template') { saveTemplate(); }
 		else if (act === 'cat') { S.prefs.categories[el.getAttribute('data-key')].on = el.getAttribute('data-on') === '1'; render(); }
 		else if (act === 'term') { var terms = S.prefs.categories[el.getAttribute('data-key')].terms, term = el.getAttribute('data-term'), at = terms.indexOf(term); if (at !== -1) { terms.splice(at, 1); } else if (terms.length < 6) { terms.push(term); } else { toast('Up to six per category.', 'err'); return; } render(); }
 		else if (act === 'loc') { S.prefs.location.on = el.getAttribute('data-on') === '1'; render(); }
@@ -980,16 +1019,19 @@
 			else if (act === 'admin-rise') { adminRise(el.getAttribute('data-uuid'), el.getAttribute('data-status')); }
 			else if (act === 'copy-prompt') { copyText((S.prompt[id] && S.prompt[id].prompt) || ''); }
 			else if (act === 'batch-import') { loadBatchIndex(); }
+			else if (act === 'batch-mode') { S.batch.mode = el.getAttribute('data-mode'); render(); }
 			else if (act === 'batch-create') { createBatch(); }
 			else if (act === 'batch-open') { openBatch(id); }
 			else if (act === 'batch-run') { runBatch(); }
 			else if (act === 'batch-stop') { stopBatch(); }
 			else if (act === 'batch-tier') { var bi = (S.batch.current.items || []).filter(function (x) { return x.itemUuid === el.getAttribute('data-item'); })[0]; if (bi) { batchTier(bi, el.getAttribute('data-tier')); } }
 			else if (act === 'batch-review') { var br = (S.batch.current.items || []).filter(function (x) { return x.itemUuid === el.getAttribute('data-item'); })[0]; if (br) { openBatchRun(br); } }
+			else if (act === 'batch-alternatives') { var bx = (S.batch.current.items || []).filter(function (x) { return x.itemUuid === el.getAttribute('data-item'); })[0]; if (bx) { batchAlternatives(bx); } }
 			else if (act === 'batch-approve') { var ba = (S.batch.current.items || []).filter(function (x) { return x.itemUuid === el.getAttribute('data-item'); })[0]; if (ba) { approveBatchItem(ba); } }
 			else if (act === 'batch-approve-ready') { approveBatchReady(); }
 			else if (act === 'bulk-selected') { bulkDownload(false); }
 			else if (act === 'bulk-approved') { bulkDownload(true); }
+			else if (act === 'eras-manifest') { downloadErasManifest(); }
 			else if (act === 'open-doc') { openDoc(el.getAttribute('data-uuid')); }
 		else if (act === 'doc-status') { setDocStatus(el.getAttribute('data-uuid'), el.getAttribute('data-status')); }
 	});
@@ -1006,6 +1048,7 @@
 	app.addEventListener('input', function (event) {
 		var t = event.target;
 		if (t.hasAttribute('data-review-editor')) { var r=S.runs[S.current], c=selectedOption(r), o=editOverlay(r,c), h=reviewState(r).heads[c.candidateId]; o.text=t.value; o.caret=t.selectionStart; o.caretEnd=t.selectionEnd; o.dirty=o.text!==(h && h.action!=='RESTORE'?h.text:c.replacement); o.error=''; delete r.similarityReview; patchPreview(false); return; }
+		if (t.hasAttribute('data-template-text')) { S.regionDraft.templateText = t.value; return; }
 		if (t.hasAttribute('data-admin-import')) { S.admin.importText = t.value; return; }
 		if (t.hasAttribute('data-admin-qa-note')) { S.admin.qaNotes[t.getAttribute('data-admin-qa-note')] = t.value; return; }
 		if (t.hasAttribute('data-bind')) { var k = t.getAttribute('data-bind'); if (t.type === 'checkbox') { S.rootForm[k] = t.checked; } else { S.rootForm[k] = t.value; } if (k === 'text') { var btn = app.querySelector('[data-act="create-root"]'); if (btn) { btn.disabled = t.value.trim().length <= 200; } } }
@@ -1017,6 +1060,7 @@
 	app.addEventListener('change', function (event) {
 		var t = event.target;
 		if (t.hasAttribute('data-review-select')) { selectCandidate(S.runs[S.current],t.value); return; }
+		if (t.hasAttribute('data-batch-select')) { S.batch.selected[t.getAttribute('data-batch-select')] = t.checked; render(); return; }
 		if (t.hasAttribute('data-admin-package')) { var pf=t.files&&t.files[0]; if(!pf){return;} if(!/\.json$/i.test(pf.name)||pf.size>131072){toast('Choose one prompt-package JSON file under 128 KB.','err');return;} var reader=new FileReader(); reader.onload=function(){S.admin.importText=String(reader.result||'');render();}; reader.onerror=function(){toast('The prompt package could not be read.','err');}; reader.readAsText(pf); return; }
 		if (t.hasAttribute('data-boost-file')) { boostUpload(t.getAttribute('data-boost-file'), t.files && t.files[0]); return; }
 		if (t.hasAttribute('data-search-specialty')) { S.search.specialty = t.value; S.search.status = 'idle'; S.search.results = []; render(); return; }

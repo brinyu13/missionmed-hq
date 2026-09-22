@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MissionMed File Vault · Program-Specific PS
  * Description: Program-specific Personal Statement writing for administrators and current MissionMed 360 members. Uses verified RISE evidence while preserving ROOT integrity and student isolation.
- * Version: 1.2.0
+ * Version: 1.3.0
  * Author: MissionMed
  * Requires PHP: 7.4
  */
@@ -15,7 +15,7 @@ if ( defined( 'MMED_PSV_VERSION' ) || class_exists( 'MMPS_Gate', false ) ) {
 	return; // A second copy must never redeclare anything.
 }
 
-define( 'MMED_PSV_VERSION', '1.2.0' );
+define( 'MMED_PSV_VERSION', '1.3.0' );
 define( 'MMPS_PATH', plugin_dir_path( __FILE__ ) );
 define( 'MMPS_URL', plugin_dir_url( __FILE__ ) );
 define( 'MMPS_REST_NS', 'mmed-ps-proto/v1' );

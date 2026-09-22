@@ -41,7 +41,12 @@ class Session {
 const php = (code) => { const f = `${HARNESS}/.snippet.php`; fs.writeFileSync(f, `<?php $_SERVER['HTTP_HOST']='127.0.0.1:8088';$_SERVER['REQUEST_URI']='/';require '${SITE}/wp-load.php';` + code); return execSync('php ' + f + ' 2>/dev/null', { encoding: 'utf8' }); };
 const aiLog = async () => (await fetch('http://127.0.0.1:4012/__log')).json();
 const aiMode = async (m) => fetch('http://127.0.0.1:4012/__mode?m=' + m);
-const flags = (extra) => fs.writeFileSync(`${SITE}/harness-flags.php`, `<?php\ndefine( 'MMED_PS_PROTO_OPENAI_API_KEY', 'local-stub-not-a-real-key' );\n${extra}\n`);
+const forceFreshMtime = (path) => fs.utimesSync(path, new Date(), new Date(Date.now() + 3000));
+const flags = (extra) => {
+	const path = `${SITE}/harness-flags.php`;
+	fs.writeFileSync(path, `<?php\ndefine( 'MMED_PS_PROTO_OPENAI_API_KEY', 'local-stub-not-a-real-key' );\n${extra}\n`);
+	forceFreshMtime(path);
+};
 const concurrentWorker = (jobUuid, waitMs = 0) => new Promise((resolve) => setTimeout(() => {
   const child = spawn('php', [`${HARNESS}/concurrent-worker.php`, jobUuid], { env: { ...process.env, MMPS_HARNESS_ROOT: HARNESS_ROOT } });
   let stdout = '', stderr = '';
@@ -108,7 +113,7 @@ ok('RISE: my list retrieved, Gold first then priority', r.status === 200 && list
 ok('RISE: private notes never leave RISE', !r.text.includes('PRIVATE NOTE') && !r.text.includes('another private note'));
 ok('RISE: default tiers (Gold/top -> DEEP, priority 30 -> ESSENTIAL)', list[0].defaultTier === 'DEEP' && list[1].defaultTier === 'DEEP' && list[2].defaultTier === 'ESSENTIAL');
 ok('RISE: evidence labels differ', list[0].evidenceQuality.label === 'DEEP_READY' && list[1].evidenceQuality.label === 'ONE_DEEP_FACT' && list[2].evidenceQuality.label === 'ESSENTIAL_ONLY', JSON.stringify(list.map(x => x.evidenceQuality)));
-ok('RISE: unknown program on the list is reported, not fatal', list[3].error === 'mmps_rise_not_found');
+ok('RISE: unknown program on the list is reported, not fatal', list.find(x => x.programSpecialtyId === 'ps_missing_999').error === 'mmps_rise_not_found');
 const riseLog = await (await fetch('http://127.0.0.1:4011/__log')).json();
 ok('RISE transport: GET only, cookie renamed to mmhq_session, forwarded host set', riseLog.every(x => x.method === 'GET') && riseLog.some(x => /mmhq_session=good-session/.test(x.cookie) && !/wordpress_logged_in/.test(x.cookie) && x.xfh === '127.0.0.1'));
 r = await t.api('GET', '/rise/bundle?id=ps_deep_001');
@@ -294,14 +299,14 @@ const dl = await t.raw(`/wp-json/mmed-ps-proto/v1/library/${doc.docUuid}/downloa
 const bytes = Buffer.from(await dl.arrayBuffer());
 fs.writeFileSync(`${HARNESS}/files/download.docx`, bytes);
 const xml = execSync(`unzip -p ${HARNESS}/files/download.docx word/document.xml`, { encoding: 'utf8' });
-ok('DOCX download: attachment, valid zip, body text only (no metadata in the body)', dl.status === 200 && /attachment; filename="Internal_Medicine_PS_.*\.docx"/.test(dl.headers.get('content-disposition')) && bytes.slice(0, 2).toString() === 'PK' && xml.includes('glucometer') && xml.includes('Lakeshore') && !/ACGME 14|1403511001|runId|F-[a-f0-9]{12}|SYNTHETIC|bundle|ps_deep_001/i.test(xml), dl.headers.get('content-disposition'));
+ok('DOCX download: deterministic student-specialty-program-training-ACGME filename and body-only document', dl.status === 200 && /attachment; filename="[^\"]+_Internal_Medicine_[^\"]+_Categorical_1403511001\.docx"/.test(dl.headers.get('content-disposition')) && bytes.slice(0, 2).toString() === 'PK' && xml.includes('glucometer') && xml.includes('Lakeshore') && !/ACGME 14|1403511001|runId|F-[a-f0-9]{12}|SYNTHETIC|bundle|ps_deep_001/i.test(xml), dl.headers.get('content-disposition'));
 const dlt = await t.raw(`/wp-json/mmed-ps-proto/v1/library/${doc.docUuid}/download?format=txt&_wpnonce=${t.nonce}`);
 ok('TXT download works', dlt.status === 200 && (await dlt.text()).includes('Lakeshore'));
 
 // ---------- 8b. M3 durable batch, default approval and bulk export ----------
 r = await t.api('GET', '/rise/my-program-index');
 const batchIndex = r.json.programs;
-ok('M3 import: full RISE index is privacy-minimized with priority-based defaults', r.status === 200 && batchIndex.length === 4 && batchIndex.every(x => !('notes' in x)) && batchIndex.find(x => x.programSpecialtyId === 'ps_deep_001').defaultTier === 'DEEP' && batchIndex.find(x => x.programSpecialtyId === 'ps_ess_003').defaultTier === 'ESSENTIAL');
+ok('Application Eve import: owner RISE list is privacy-minimized and classifies unattended bulk eligibility server-side', r.status === 200 && batchIndex.length === 5 && batchIndex.every(x => !('notes' in x)) && batchIndex.find(x => x.programSpecialtyId === 'ps_deep_001').priorityClass === 'GOLD' && batchIndex.find(x => x.programSpecialtyId === 'ps_thin_002').priorityClass === 'SILVER' && batchIndex.find(x => x.programSpecialtyId === 'ps_ess_003').bulkEligible === true);
 const jobsBeforeInjectedFailure = Number(php(`global $wpdb; echo $wpdb->get_var('SELECT COUNT(*) FROM '.$wpdb->prefix.'mmed_ps_proto_jobs');`));
 execSync(`sqlite3 ${SITE}/wp-content/database/test.sqlite "CREATE TRIGGER mmps_test_fail_item BEFORE INSERT ON wp_mmed_ps_proto_job_items BEGIN SELECT RAISE(ABORT, 'test'); END"`);
 r = await t.api('POST', '/batch/jobs', { rootId: root.id, programs: batchIndex.map(x => ({ ...x, tier: x.defaultTier })) });
@@ -310,30 +315,26 @@ const jobsAfterInjectedFailure = Number(php(`global $wpdb; echo $wpdb->get_var('
 ok('M3 atomic create: injected item failure leaves no partial job or items', r.status === 500 && r.json.code === 'mmps_batch_item_create' && jobsAfterInjectedFailure === jobsBeforeInjectedFailure);
 r = await t.api('POST', '/batch/jobs', { rootId: root.id, programs: batchIndex.map(x => ({ ...x, tier: x.defaultTier })) });
 let job = r.json.job;
-ok('M3 batch create: specialty-isolated durable job with one item per program', r.status === 200 && job.rootId === root.id && job.specialtyLabel === 'Internal Medicine' && job.total === 4 && job.items.length === 4 && job.items.every(x => x.status === 'QUEUED'));
+ok('Application Eve batch create: Gold and Silver are absolutely excluded while the eligible remainder is durable', r.status === 200 && job.rootId === root.id && job.specialtyLabel === 'Internal Medicine' && job.total === 3 && job.items.length === 3 && job.config.excluded.GOLD === 1 && job.config.excluded.SILVER === 1 && job.items.every(x => x.status === 'QUEUED'));
 for (let i = 0; i < 8 && job.processed < job.total; i++) {
   r = await t.api('POST', `/batch/jobs/${job.jobUuid}/process`, {});
   job = r.json.job;
 }
-ok('M3 batch process: partial failures do not stop clean, research-needed or later items', job.processed === 4 && job.ready === 2 && job.attention === 1 && job.failed === 1 && job.status === 'COMPLETE_WITH_EXCEPTIONS', JSON.stringify(job.items.map(x => [x.programSpecialtyId,x.status,x.attemptCount])));
+ok('Application Eve batch process: partial failures do not stop later eligible items', job.processed === 3 && job.ready === 2 && job.failed === 1 && job.status === 'COMPLETE_WITH_EXCEPTIONS', JSON.stringify(job.items.map(x => [x.programSpecialtyId,x.status,x.attemptCount])));
 ok('M3 retries: unavailable program exhausts exactly three bounded attempts', job.items.find(x => x.programSpecialtyId === 'ps_missing_999').status === 'FAILED' && job.items.find(x => x.programSpecialtyId === 'ps_missing_999').attemptCount === 3);
-ok('M3 deep shortage: Deep Research Needed remains an exception without hallucination', job.items.find(x => x.programSpecialtyId === 'ps_thin_002').status === 'RESEARCH_NEEDED' && job.items.find(x => x.programSpecialtyId === 'ps_thin_002').runId);
 const readyItem = job.items.find(x => x.status === 'READY');
 r = await t.api('GET', `/batch/jobs/${job.jobUuid}/items/${readyItem.itemUuid}/run`);
-ok('M3 resume: stored run reconstructs five choices without another provider call', r.status === 200 && r.json.runId === readyItem.runId && r.json.candidates.length === 5 && r.json.canApprove === true);
-const recommendedForReady = r.json.recommendedCandidateId;
-const nondefaultForReady = r.json.candidates.find(x => x.candidateId !== recommendedForReady && x.canApprove);
-r = await t.api('POST', '/library', { runId: readyItem.runId, candidateId: nondefaultForReady.candidateId, status: 'DRAFT' });
-const nondefaultDraft = r.json.document;
-ok('M3 candidate custody fixture: a nonrecommended batch alternative can be saved explicitly', r.status === 200 && nondefaultDraft.metadata.candidateId === nondefaultForReady.candidateId && nondefaultDraft.status === 'DRAFT');
+ok('Application Eve default path: stored batch run contains one validated recommended paragraph', r.status === 200 && r.json.runId === readyItem.runId && r.json.candidates.length === 1 && r.json.canApprove === true);
 r = await t.api('POST', `/batch/jobs/${job.jobUuid}/approve-ready`, {});
 job = r.json.job;
-ok('M3 exception-focused approval: clean defaults approve, but a saved alternative is never relabeled as default', r.status === 200 && r.json.approved === 1 && r.json.errors.length === 1 && job.items.find(x => x.itemUuid === readyItem.itemUuid).approvedDocUuid === '');
-r = await t.api('GET', `/library/${nondefaultDraft.docUuid}`);
-ok('M3 saved alternative remains its original DRAFT candidate after bulk default approval', r.json.document.status === 'DRAFT' && r.json.document.metadata.candidateId === nondefaultForReady.candidateId);
+ok('Application Eve exception-focused approval approves clean defaults without touching failed work', r.status === 200 && r.json.approved === 2 && r.json.errors.length === 0 && job.items.filter(x => x.status === 'READY').every(x => x.approvedDocUuid));
+const approvedItem = job.items.find(x => x.status === 'READY' && x.approvedDocUuid);
+r = await t.api('POST', `/batch/jobs/${job.jobUuid}/items/${approvedItem.itemUuid}/alternatives`, {});
+job = r.json.job;
+ok('Application Eve alternatives are generated only on demand and preserve the approved pointer', r.status === 200 && r.json.run.candidates.length === 5 && job.items.find(x => x.itemUuid === approvedItem.itemUuid).approvedDocUuid === approvedItem.approvedDocUuid);
 r = await t.api('POST', '/library/bulk-download', { allApproved: true, inline: true });
 ok('M3 Download All: approved complete statements produce one ZIP and manifest', r.status === 200 && r.json.documents >= 1 && r.json.fileName.endsWith('.zip') && r.json.bytes > 500 && /^[a-f0-9]{64}$/.test(r.json.sha256), r.text.slice(0, 300));
-const preserved = job.items.find(x => x.status === 'READY' && x.approvedDocUuid);
+const preserved = job.items.find(x => x.itemUuid === approvedItem.itemUuid);
 const newTier = preserved.tierRequested === 'DEEP' ? 'ESSENTIAL' : 'DEEP';
 r = await t.api('PUT', `/batch/jobs/${job.jobUuid}/items/${preserved.itemUuid}/tier`, { tier: newTier });
 job = r.json.job;
@@ -342,7 +343,8 @@ ok('M3 selective regeneration preserves the approved document and reports a non-
 r = await t.api('POST', '/batch/jobs', { rootId: root.id, programs: [
   { programSpecialtyId: 'ps_deep_001', priorityPosition: 1, goldStarred: true, tier: 'ESSENTIAL' },
   { programSpecialtyId: 'ps_ess_003', priorityPosition: 30, goldStarred: false, tier: 'ESSENTIAL' },
-  { programSpecialtyId: 'ps_dirty_004', priorityPosition: 31, goldStarred: false, tier: 'ESSENTIAL' }
+  { programSpecialtyId: 'ps_dirty_004', priorityPosition: 31, goldStarred: false, tier: 'ESSENTIAL' },
+  { programSpecialtyId: 'ps_missing_999', priorityPosition: 32, goldStarred: false, tier: 'ESSENTIAL' }
 ] });
 const liveConcurrencyJob = r.json.job;
 await aiMode('slow-good');
@@ -369,13 +371,15 @@ ok('M3 failed commit recovery releases the exact stale slot and reuses provider 
 r = await t.api('POST', '/batch/jobs', { rootId: root.id, programs: [
   { programSpecialtyId: 'ps_deep_001', priorityPosition: 1, goldStarred: true, tier: 'ESSENTIAL' },
   { programSpecialtyId: 'ps_thin_002', priorityPosition: 2, goldStarred: false, tier: 'ESSENTIAL' },
-  { programSpecialtyId: 'ps_ess_003', priorityPosition: 30, goldStarred: false, tier: 'ESSENTIAL' }
+  { programSpecialtyId: 'ps_ess_003', priorityPosition: 30, goldStarred: false, tier: 'ESSENTIAL' },
+  { programSpecialtyId: 'ps_dirty_004', priorityPosition: 31, goldStarred: false, tier: 'ESSENTIAL' },
+  { programSpecialtyId: 'ps_missing_999', priorityPosition: 32, goldStarred: false, tier: 'ESSENTIAL' }
 ] });
 const capJob = r.json.job;
 php(`global $wpdb; $until=gmdate('Y-m-d H:i:s',time()+300); $rows=$wpdb->get_col($wpdb->prepare('SELECT id FROM '.$wpdb->prefix.'mmed_ps_proto_job_items WHERE job_id=%d ORDER BY id LIMIT 2',${capJob.id})); foreach($rows as $id){$wpdb->update($wpdb->prefix.'mmed_ps_proto_job_items',array('status'=>'PROCESSING','lock_token'=>wp_generate_uuid4(),'locked_until'=>$until),array('id'=>$id));} $wpdb->update($wpdb->prefix.'mmed_ps_proto_jobs',array('active_items'=>2),array('job_uuid'=>'${capJob.jobUuid}'));`);
 r = await t.api('POST', `/batch/jobs/${capJob.jobUuid}/process`, {});
 ok('M3 server concurrency: a third claimant is refused without consuming an item attempt', r.status === 200 && r.json.saturated === true && r.json.job.items.find(x => x.status === 'QUEUED').attemptCount === 0, r.text.slice(0, 300));
-php(`global $wpdb; $wpdb->query($wpdb->prepare("UPDATE ".$wpdb->prefix."mmed_ps_proto_job_items SET status='FAILED',lock_token='',locked_until=NULL WHERE job_id=%d AND status='PROCESSING'",${capJob.id})); $wpdb->update($wpdb->prefix.'mmed_ps_proto_jobs',array('active_items'=>0),array('job_uuid'=>'${capJob.jobUuid}')); $day=gmdate('Y-m-d'); $n=(int)$wpdb->get_var($wpdb->prepare('SELECT MAX(attempt_no) FROM '.$wpdb->prefix.'mmed_ps_proto_provider_attempts WHERE user_id=%d AND day_key=%s',3,$day)); for($i=$n+1;$i<=150;$i++){$wpdb->insert($wpdb->prefix.'mmed_ps_proto_provider_attempts',array('attempt_uuid'=>wp_generate_uuid4(),'user_id'=>3,'root_id'=>${root.id},'program_specialty_id'=>'cap-fixture','idempotency_key'=>'cap-'.$i,'day_key'=>$day,'attempt_no'=>$i,'outcome_code'=>'TEST_FIXTURE','created_at'=>gmdate('Y-m-d H:i:s'),'updated_at'=>gmdate('Y-m-d H:i:s')));}`);
+php(`global $wpdb; $table=$wpdb->prefix.'mmed_ps_proto_job_items'; $wpdb->query($wpdb->prepare("UPDATE $table SET status='FAILED',lock_token='',locked_until=NULL WHERE job_id=%d AND status='PROCESSING'",${capJob.id})); $wpdb->update($table,array('status'=>'FAILED'),array('job_id'=>${capJob.id},'program_specialty_id'=>'ps_missing_999')); $wpdb->update($table,array('status'=>'QUEUED','attempt_count'=>0,'last_error_code'=>''),array('job_id'=>${capJob.id},'program_specialty_id'=>'ps_ess_003')); $wpdb->update($wpdb->prefix.'mmed_ps_proto_jobs',array('active_items'=>0),array('job_uuid'=>'${capJob.jobUuid}')); $day=gmdate('Y-m-d'); $n=(int)$wpdb->get_var($wpdb->prepare('SELECT MAX(attempt_no) FROM '.$wpdb->prefix.'mmed_ps_proto_provider_attempts WHERE user_id=%d AND day_key=%s',3,$day)); for($i=$n+1;$i<=350;$i++){$wpdb->insert($wpdb->prefix.'mmed_ps_proto_provider_attempts',array('attempt_uuid'=>wp_generate_uuid4(),'user_id'=>3,'root_id'=>${root.id},'program_specialty_id'=>'cap-fixture','idempotency_key'=>'cap-'.$i,'day_key'=>$day,'attempt_no'=>$i,'outcome_code'=>'TEST_FIXTURE','created_at'=>gmdate('Y-m-d H:i:s'),'updated_at'=>gmdate('Y-m-d H:i:s')));}`);
 r = await t.api('POST', `/batch/jobs/${capJob.jobUuid}/process`, {});
 ok('M3 daily provider cap: batch pauses without spending retries or losing resumability', r.status === 200 && r.json.paused === true && r.json.pauseCode === 'DAILY_CAP' && r.json.item.status === 'QUEUED' && r.json.item.attemptCount === 0 && r.json.item.lastErrorCode === 'DAILY_CAP_PAUSED', r.text.slice(0, 300));
 php(`global $wpdb; $wpdb->delete($wpdb->prefix.'mmed_ps_proto_provider_attempts',array('outcome_code'=>'TEST_FIXTURE'));`);
@@ -418,7 +422,7 @@ ok('KILL 1 (option off): REST 404, page inert, no Hub script, File Vault stage i
 php(`update_option('mmed_ps_proto_mode','members');`);
 flags(`define( 'MMED_PS_PROTO_DISABLE', true );`);
 r = await t.api('GET', '/bootstrap'); p = await t.page(); hub = await (await t.raw('/member-dashboard/')).text();
-ok('KILL 2 (wp-config constant): nothing loads', r.status === 404 && !p.html.includes('mmps-app') && !hub.includes('mmps-entry') && hub.includes('fv-canary'));
+ok('KILL 2 (wp-config constant): nothing loads', r.status === 404 && !p.html.includes('mmps-app') && !hub.includes('mmps-entry') && hub.includes('fv-canary'), JSON.stringify({ status: r.status, app: p.html.includes('mmps-app'), entry: hub.includes('mmps-entry'), vault: hub.includes('fv-canary') }));
 flags('');
 php(`require_once ABSPATH.'wp-admin/includes/plugin.php'; deactivate_plugins('missionmed-file-vault-ps/missionmed-file-vault-ps.php');`);
 r = await t.api('GET', '/bootstrap'); p = await t.page(); hub = await (await t.raw('/member-dashboard/')).text();
@@ -431,6 +435,7 @@ ok('re-enable: prototype and its saved library return intact', p.html.includes('
 const gen = `${SITE}/wp-content/plugins/missionmed-file-vault-ps/includes/class-mmps-generator.php`;
 const genOk = fs.readFileSync(gen, 'utf8');
 fs.writeFileSync(gen, genOk.replace('class MMPS_Generator {', 'class MMPS_Generator {{{ broken'));
+forceFreshMtime(gen);
 const home = await t.raw('/'); hub = await (await t.raw('/member-dashboard/')).text(); r = await t.api('GET', '/bootstrap'); const login = await anon.raw('/wp-login.php');
 ok('BLAST RADIUS: corrupted prototype file -> site, Hub/File Vault page and login all still 200; prototype inert', home.status === 200 && hub.includes('fv-canary') && !hub.includes('mmps-entry') && r.status === 404 && login.status === 200);
 fs.writeFileSync(gen, genOk);

@@ -48,6 +48,95 @@ class MMPS_Region {
 		return $out;
 	}
 
+	/**
+	 * Resolve the Founder template contract before a ROOT is persisted.
+	 *
+	 * A template is recognized only when exactly one pair of standalone `***`
+	 * paragraphs bounds exactly one Program Answer paragraph. The marker
+	 * paragraphs are transport metadata and are removed from the immutable ROOT.
+	 * With no marker, the existing explicit region-confirmation flow remains in
+	 * force. Any partial or ambiguous marker shape fails closed.
+	 *
+	 * @return array|WP_Error {found, paragraphs, region, detection}
+	 */
+	public static function parse_template( $paragraphs ) {
+		$paragraphs = array_values( array_map( array( __CLASS__, 'normalize' ), (array) $paragraphs ) );
+		$markers    = array();
+		foreach ( $paragraphs as $i => $paragraph ) {
+			if ( '***' === $paragraph ) {
+				$markers[] = $i;
+			}
+		}
+		if ( empty( $markers ) ) {
+			return array( 'found' => false, 'paragraphs' => $paragraphs, 'region' => array(), 'detection' => self::detect( $paragraphs ) );
+		}
+		if ( 2 !== count( $markers ) ) {
+			return new WP_Error( 'mmps_template_markers', 'Use exactly one opening and one closing *** marker around the Program Answer paragraph.', array( 'status' => 422 ) );
+		}
+		$open  = $markers[0];
+		$close = $markers[1];
+		if ( 2 !== $close - $open || $open < 1 || $close >= count( $paragraphs ) - 1 ) {
+			return new WP_Error( 'mmps_template_region', 'The *** markers must surround exactly one Program Answer paragraph, with protected ROOT paragraphs before and after it.', array( 'status' => 422 ) );
+		}
+
+		$source = $paragraphs[ $open + 1 ];
+		$kind   = 0 === strcasecmp( $source, '[Program Paragraph Here]' ) ? 'BLANK' : 'SLOTTED';
+		$slots  = array();
+		$static = array();
+		if ( 'SLOTTED' === $kind ) {
+			preg_match_all( '/\[([A-Za-z][A-Za-z0-9 _\/,\'&()\-]{1,80})\]/u', $source, $matches, PREG_OFFSET_CAPTURE );
+			if ( empty( $matches[0] ) ) {
+				return new WP_Error( 'mmps_template_slots', 'The paragraph between *** markers must be [Program Paragraph Here] or authored prose containing semantic [slots].', array( 'status' => 422 ) );
+			}
+			$cursor = 0;
+			foreach ( $matches[0] as $i => $match ) {
+				$before = substr( $source, $cursor, $match[1] - $cursor );
+				if ( '' !== self::normalize( $before ) ) {
+					$static[] = self::normalize( $before );
+				}
+				$slots[] = array(
+					'order'       => $i + 1,
+					'placeholder' => $match[0],
+					'label'       => self::normalize( $matches[1][ $i ][0] ),
+				);
+				$cursor = $match[1] + strlen( $match[0] );
+			}
+			$tail = substr( $source, $cursor );
+			if ( '' !== self::normalize( $tail ) ) {
+				$static[] = self::normalize( $tail );
+			}
+			$without_slots = preg_replace( '/\[([A-Za-z][A-Za-z0-9 _\/,\'&()\-]{1,80})\]/u', '', $source );
+			if ( false !== strpos( $without_slots, '[' ) || false !== strpos( $without_slots, ']' ) ) {
+				return new WP_Error( 'mmps_template_slots', 'The Program Answer template contains an incomplete or unsupported bracket slot.', array( 'status' => 422 ) );
+			}
+		}
+
+		$clean = $paragraphs;
+		array_splice( $clean, $close, 1 );
+		array_splice( $clean, $open, 1 );
+		$index     = $open;
+		$detection = array(
+			'proposedIndex' => $index,
+			'confidence'    => 'HIGH',
+			'rule'          => 'founder-template-v1',
+			'templateKind'  => $kind,
+		);
+		$region = self::build( $clean, 'REPLACE_PARAGRAPH', $index, $detection );
+		if ( is_wp_error( $region ) ) {
+			return $region;
+		}
+		$region['authorization'] = 'ROOT_TEMPLATE_MARKERS';
+		$region['template']      = array(
+			'contract'        => 'founder-template-v1',
+			'kind'            => $kind,
+			'behavior'        => 'USE_TEMPLATE',
+			'sourceText'      => $source,
+			'slots'           => $slots,
+			'staticFragments' => $static,
+		);
+		return array( 'found' => true, 'paragraphs' => $clean, 'region' => $region, 'detection' => $detection );
+	}
+
 	/** Deterministic proposal of the program-specific paragraph. The user always confirms. */
 	public static function detect( $paragraphs ) {
 		$cues = array(

@@ -117,7 +117,7 @@ class MMPS_Store {
 			'source_sha256'     => sanitize_text_field( $data['source_sha256'] ?? '' ),
 			'text_sha256'       => sanitize_text_field( $data['text_sha256'] ),
 			'paragraphs_json'   => wp_json_encode( array_values( $data['paragraphs'] ) ),
-			'region_json'       => '{}',
+			'region_json'       => wp_json_encode( (array) ( $data['region'] ?? array() ) ),
 			'prefs_json'        => '{}',
 			'created_at'        => self::now(),
 			'updated_at'        => self::now(),
@@ -167,6 +167,25 @@ class MMPS_Store {
 		$ok       = false !== $wpdb->update(
 			MMPS_Install::table( 'roots' ),
 			array( $column => wp_json_encode( $value ), 'updated_at' => self::now() ),
+			array( 'id' => absint( $root_id ), 'user_id' => absint( $user_id ) )
+		);
+		$wpdb->suppress_errors( $previous );
+		return $ok;
+	}
+
+	public static function root_run_count( $user_id, $root_id ) {
+		global $wpdb;
+		return absint( $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . MMPS_Install::table( 'runs' ) . ' WHERE user_id=%d AND root_id=%d', absint( $user_id ), absint( $root_id ) ) ) );
+	}
+
+	/** Replace only a newly created template paragraph and rebind all ROOT hashes atomically. */
+	public static function update_template_root( $user_id, $root_id, $paragraphs, $region ) {
+		global $wpdb;
+		$hash = MMPS_Region::text_hash( $paragraphs );
+		$previous = $wpdb->suppress_errors( true );
+		$ok = false !== $wpdb->update(
+			MMPS_Install::table( 'roots' ),
+			array( 'paragraphs_json' => wp_json_encode( array_values( $paragraphs ) ), 'region_json' => wp_json_encode( $region ), 'text_sha256' => $hash, 'updated_at' => self::now() ),
 			array( 'id' => absint( $root_id ), 'user_id' => absint( $user_id ) )
 		);
 		$wpdb->suppress_errors( $previous );

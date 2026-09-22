@@ -104,6 +104,19 @@ class MMPS_Root_Source {
 		return $set['paragraphs'];
 	}
 
+	/** Apply the optional Founder template contract without changing source-byte provenance. */
+	protected static function prepare_template( &$data ) {
+		$parsed = MMPS_Region::parse_template( $data['paragraphs'] );
+		if ( is_wp_error( $parsed ) ) {
+			return $parsed;
+		}
+		$data['paragraphs'] = $parsed['paragraphs'];
+		if ( $parsed['found'] ) {
+			$data['region'] = $parsed['region'];
+		}
+		return true;
+	}
+
 	/**
 	 * Create an owner-scoped ROOT from a request-transient DOCX or UTF-8 TXT.
 	 * The source file is never moved, retained or written into File Vault.
@@ -169,8 +182,12 @@ class MMPS_Root_Source {
 			'root_label'      => 'Uploaded PS · ' . ( '' !== $name ? $name : 'personal-statement.' . $ext ),
 			'source_sha256'   => hash( 'sha256', $bytes ),
 			'paragraphs'      => $paragraphs,
-			'text_sha256'     => MMPS_Region::text_hash( $paragraphs ),
 		);
+		$prepared = self::prepare_template( $data );
+		if ( is_wp_error( $prepared ) ) {
+			return $prepared;
+		}
+		$data['text_sha256'] = MMPS_Region::text_hash( $data['paragraphs'] );
 		$root_id = MMPS_Store::create_root( $user_id, $data );
 		return $root_id ? $root_id : new WP_Error( 'mmps_root_save', 'The ROOT could not be saved.', array( 'status' => 500 ) );
 	}
@@ -229,6 +246,12 @@ class MMPS_Root_Source {
 			return new WP_Error( 'mmps_root_source', 'Unknown ROOT source.', array( 'status' => 422 ) );
 		}
 
+		if ( 'SYNTHETIC' !== $source ) {
+			$prepared = self::prepare_template( $data );
+			if ( is_wp_error( $prepared ) ) {
+				return $prepared;
+			}
+		}
 		$data['text_sha256'] = MMPS_Region::text_hash( $data['paragraphs'] );
 		$root_id             = MMPS_Store::create_root( $user_id, $data );
 		return $root_id ? $root_id : new WP_Error( 'mmps_root_save', 'The ROOT could not be saved.', array( 'status' => 500 ) );

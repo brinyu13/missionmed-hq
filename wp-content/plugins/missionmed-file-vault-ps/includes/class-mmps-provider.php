@@ -206,7 +206,7 @@ class MMPS_Provider_Simulator {
 			'RESEARCH_FELLOWSHIP'     => array(
 				'I have learned to treat unanswered questions as invitations to examine assumptions rather than decorate them with confidence.',
 				'For this simulated fixture, I name ' . $name . ' only as the place where that habit of inquiry would accompany daily clinical work.',
-				'The value I would bring is patience with evidence, candor about its limits, and discipline in carrying lessons back to patients.',
+				'I will approach evidence with patience, speak candidly about its limits, and carry its lessons back to patients.',
 			),
 			'LOCATION_PROGRAM_TYPE'   => array(
 				'The communities surrounding a residency shape which problems become visible and how physicians learn to respond.',
@@ -216,7 +216,7 @@ class MMPS_Provider_Simulator {
 			'BALANCED_QUIET_SPECIFIC' => array(
 				'What I want from residency is a place where attention, responsibility, and growth remain connected in ordinary clinical work.',
 				'In this simulated fixture, ' . $name . ' supplies only the verified program identity and no invented promise about the experience.',
-				'I would bring a reflective approach, respect for the people around me, and the persistence to become more useful over time.',
+				'I will work reflectively, respect the people around me, and persist in becoming more useful over time.',
 			),
 		);
 		$candidates = array();
