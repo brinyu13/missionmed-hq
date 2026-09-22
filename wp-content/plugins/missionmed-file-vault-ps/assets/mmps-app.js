@@ -366,7 +366,15 @@
 	function editLibraryDocument(doc) {
 		var runId=doc && doc.metadata && doc.metadata.runId;
 		if(!runId){toast('This older statement cannot reopen its original writing review. Regenerate it to edit safely.','err');return;}
-		api('GET','/runs/'+runId).then(function(run){adaptLegacyReview(run);if(doc.metadata.candidateId){run.selectedCandidateId=doc.metadata.candidateId;}S.runs[doc.programSpecialtyId]=run;S.current=doc.programSpecialtyId;go('preview');}).catch(fail);
+		busy('library-edit',true);
+		Promise.all([api('GET','/roots/'+doc.rootId),api('GET','/runs/'+runId)]).then(function(rows){
+			var rootData=rows[0],run=rows[1],programId=run && run.program && run.program.programSpecialtyId;
+			if(!rootData || !rootData.root || String(rootData.root.id)!==String(doc.rootId)){throw new Error('The ROOT behind this saved statement could not be verified.');}
+			if(!programId || programId!==doc.programSpecialtyId){throw new Error('The saved statement no longer matches its verified program identity.');}
+			adoptRoot(rootData);adaptLegacyReview(run);if(doc.metadata.candidateId){run.selectedCandidateId=doc.metadata.candidateId;}
+			S.programs[programId]={identity:run.program,evidenceQuality:run.evidenceQuality};S.selected=[programId];S.tiers[programId]=run.tierRequested;S.runs[programId]=run;S.current=programId;
+			busy('library-edit',false);go('preview');
+		}).catch(function(e){busy('library-edit',false);fail(e);});
 	}
 	function setDocStatus(uuid, status) { api('POST', '/library/' + uuid + '/status', { status: status }).then(function (data) { if (S.doc && S.doc.docUuid === uuid) { S.doc = Object.assign(S.doc, { status: data.document.status }); } refreshBoot(); }).catch(fail); }
 	function copyText(text) {
