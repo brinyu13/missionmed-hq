@@ -41,7 +41,7 @@ const ok = (name, cond, detail = '') => { results.push({ name, pass: !!cond }); 
 	await shot('02-home');
 
 	// step 1 ROOT
-	await page.click('button:has-text("Start a new ROOT")');
+	await page.click('.psforgePrimary');
 	await page.waitForSelector('[data-act="source"]');
 	await page.waitForFunction(() => !document.body.innerText.includes('Checking File Vault'));
 	await page.click('[data-source="FILE_VAULT"]');

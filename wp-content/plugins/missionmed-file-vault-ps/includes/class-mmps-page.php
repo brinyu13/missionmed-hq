@@ -89,13 +89,19 @@ class MMPS_Page {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<title>Program-Specific PS · File Vault · MissionMed</title>
+<title>PSForge · MissionMed</title>
 <link rel="stylesheet" href="<?php echo esc_url( self::asset( 'mmps-app.css' ) ); ?>">
 </head>
 <body>
 <div class="aur a" aria-hidden="true"></div><div class="aur b" aria-hidden="true"></div>
 <div id="mmps-app" class="app" data-state="loading">
-	<div class="boot"><span class="bootMark">MissionMed</span><span class="bootLine">Opening Program-Specific PS…</span></div>
+	<div class="boot psforgeOpening" role="status" aria-live="polite" aria-label="Opening PSForge">
+		<span class="bootMission">MISSIONMED</span>
+		<span class="bootForge" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+		<span class="bootMark">PS<em>Forge</em></span>
+		<span class="bootDescriptor">PROGRAM-SPECIFIC PERSONAL STATEMENTS</span>
+		<span class="bootLine">Opening your private statement workspace…</span>
+	</div>
 </div>
 <noscript><p class="noscript">This page needs JavaScript.</p></noscript>
 <script type="application/json" id="mmps-config"><?php echo wp_json_encode( $config, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT ); ?></script>

@@ -32,7 +32,7 @@
 			'.x:hover{color:#fff;border-color:#aab8d1}' +
 			'@media (max-width:640px){.w{right:12px;bottom:12px}.c{max-width:280px}}' +
 			'</style>' +
-			'<div class="w" part="w"><a class="c" href="#" target="_self"><span class="g">✎</span><span><span class="k">Personal Statements</span><span class="t">Program-Specific <em>PS</em> →</span></span></a><button class="x" type="button" aria-label="Hide the Program-Specific PS launcher">×</button></div>';
+			'<div class="w" part="w"><a class="c" href="#" target="_self"><span class="g">PF</span><span><span class="k">Program-Specific Personal Statements</span><span class="t">PS<em>Forge</em> →</span></span></a><button class="x" type="button" aria-label="Hide the PSForge launcher">×</button></div>';
 		root.querySelector('.c').setAttribute('href', cfg.url);
 		var wrap = root.querySelector('.w');
 		var hidden = false;
@@ -51,14 +51,14 @@
 			var link = document.createElement('a');
 			link.className = 'sos-nav-link';
 			link.href = cfg.url;
-			link.setAttribute('aria-label', 'Open Program-Specific Personal Statements');
+			link.setAttribute('aria-label', 'Open PSForge');
 			var icon = document.createElement('span');
 			icon.className = 'sos-nav-icon';
 			icon.setAttribute('aria-hidden', 'true');
-			icon.textContent = 'PS';
+			icon.textContent = 'PF';
 			var label = document.createElement('span');
 			label.className = 'sos-nav-text';
-			label.textContent = 'Program-Specific PS';
+			label.textContent = 'PSForge';
 			link.appendChild(icon);
 			link.appendChild(label);
 			item.appendChild(link);

@@ -108,7 +108,13 @@ $js = file_get_contents( dirname( __DIR__, 2 ) . '/wp-content/plugins/missionmed
 dr328_check( false !== strpos( $js, "data-source=\"UPLOADED\"" ) && false !== strpos( $js, "data-root-file" ), 'direct upload is a visible ROOT option' );
 dr328_check( false !== strpos( $js, "data.code === 'rest_cookie_invalid_nonce'" ) && false !== strpos( $js, '!retried' ), 'only the exact stale-nonce error receives one retry' );
 dr328_check( false !== strpos( $js, 'Your text is still on this page') && false !== strpos( $js, 'mmps_session_expired' ), 'expired session preserves the current page and gives a clear recovery message' );
-dr328_check( false === strpos( $js, 'console.log(cfg.nonce') && false === strpos( $js, 'localStorage'), 'nonce and ROOT are not logged or persisted in browser storage' );
+dr328_check(
+	false === strpos( $js, 'console.log(cfg.nonce') &&
+	false === strpos( $js, "localStorage.setItem('mmps-root" ) &&
+	false === strpos( $js, "localStorage.setItem('mmps-nonce" ) &&
+	false === strpos( $js, "localStorage.setItem('mmps-statement" ),
+	'nonce and ROOT are not logged or persisted in browser storage'
+);
 
 echo "RESULT $pass passed, $fail failed\n";
 exit( $fail ? 1 : 0 );

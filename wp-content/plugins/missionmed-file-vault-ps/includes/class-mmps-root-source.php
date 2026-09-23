@@ -224,7 +224,7 @@ class MMPS_Root_Source {
 			$data['root_label']   = 'Pasted statement · ' . gmdate( 'Y-m-d H:i' ) . ' UTC';
 		} elseif ( 'FILE_VAULT' === $source ) {
 			if ( ! self::file_vault_available() ) {
-				return new WP_Error( 'mmps_file_vault_unavailable', 'File Vault is not available to Program-Specific PS on this site.', array( 'status' => 503 ) );
+				return new WP_Error( 'mmps_file_vault_unavailable', 'File Vault is not available to PSForge on this site.', array( 'status' => 503 ) );
 			}
 			$read = MMPS_FV_Reader::read_version( $user_id, absint( $params['fileId'] ?? 0 ), absint( $params['versionNumber'] ?? 0 ) );
 			if ( is_wp_error( $read ) ) {

@@ -13,6 +13,7 @@ class MMPS_Rest {
 	const MY_PROGRAMS_PAGE = 6;
 	const MYERAS_TITLE_MAX = 50;
 	const ERAS_NORMALIZATION_RULE = 'myeras-2027.v1:crlf-to-lf+nbsp-to-space+curly-apostrophes-to-ascii+trim-line-end+trim-document';
+	const MYERAS_COMPLETION_SCHEMA = 'missionmed.psforge.myeras-completion.v1';
 
 	public static function init() {
 		add_action( 'rest_api_init', array( __CLASS__, 'routes' ) );
@@ -70,6 +71,8 @@ class MMPS_Rest {
 			array( '/library/eras-manifest', 'POST', 'eras_manifest' ),
 			array( '/library/eras-plan', 'GET', 'eras_plan' ),
 			array( '/library/eras-plan/confirm', 'POST', 'eras_plan_confirm' ),
+			array( '/library/myeras-package', 'POST', 'myeras_package' ),
+			array( '/library/myeras-completion', 'POST', 'myeras_completion' ),
 			array( '/library/(?P<uuid>[a-f0-9-]{36})', 'GET', 'document' ),
 			array( '/library/(?P<uuid>[a-f0-9-]{36})/status', 'POST', 'set_status' ),
 			array( '/library/(?P<uuid>[a-f0-9-]{36})/download', 'GET', 'download' ),
@@ -1160,10 +1163,35 @@ class MMPS_Rest {
 		return hash( 'sha256', wp_json_encode( array( 'schema' => $manifest['schema'], 'ownerUserId' => $manifest['ownerUserId'], 'items' => $manifest['items'], 'forbiddenActions' => $manifest['forbiddenActions'] ) ) );
 	}
 
+	/** Student-facing provider labels are data, not presentation conditionals. */
+	protected static function myeras_providers() {
+		$defaults = array(
+			'claude' => array( 'key' => 'claude', 'label' => 'Claude Cowork', 'modelLabel' => 'Fable 5.1' ),
+			'codex'  => array( 'key' => 'codex', 'label' => 'Codex', 'modelLabel' => 'Astra 6' ),
+		);
+		$config = get_option( 'mmps_myeras_provider_config_v1', array() );
+		foreach ( $defaults as $key => $fallback ) {
+			if ( isset( $config[ $key ] ) && is_array( $config[ $key ] ) ) {
+				$label = sanitize_text_field( (string) ( $config[ $key ]['label'] ?? '' ) );
+				$model = sanitize_text_field( (string) ( $config[ $key ]['modelLabel'] ?? '' ) );
+				if ( '' !== $label ) { $defaults[ $key ]['label'] = mb_substr( $label, 0, 80 ); }
+				if ( '' !== $model ) { $defaults[ $key ]['modelLabel'] = mb_substr( $model, 0, 80 ); }
+			}
+		}
+		return $defaults;
+	}
+
+	protected static function myeras_mission_id( $user_id, $plan_hash, $mode, $provider ) {
+		$bound = implode( '|', array( absint( $user_id ), (string) $plan_hash, (string) $mode, (string) $provider ) );
+		return 'PSF-' . strtoupper( substr( hash_hmac( 'sha256', $bound, wp_salt( 'nonce' ) ), 0, 20 ) );
+	}
+
 	public static function eras_plan() {
 		$docs = MMPS_Store::documents_for_export( self::uid(), array(), true );
 		$manifest = self::assignment_manifest_payload( $docs, self::uid() );
-		return rest_ensure_response( array( 'manifest' => $manifest, 'planSha256' => self::assignment_plan_hash( $manifest ), 'officialPortal' => 'https://myeras.aamc.org/', 'capability' => 'GUIDED_MANUAL_PREPARATION', 'authoritativeReadback' => false ) );
+		$statements = array();
+		foreach ( (array) $docs as $doc ) { $statements[ (string) $doc['docUuid'] ] = (string) ( $doc['fullText'] ?? '' ); }
+		return rest_ensure_response( array( 'manifest' => $manifest, 'planSha256' => self::assignment_plan_hash( $manifest ), 'statements' => $statements, 'providers' => array_values( self::myeras_providers() ), 'officialPortal' => 'https://myeras.aamc.org/', 'capability' => 'GUIDED_MANUAL_PREPARATION', 'featureModes' => array( 'AI_BULK_SETUP', 'GUIDED_MANUAL_PREPARATION', 'AI_DOUBLE_CHECK' ), 'authoritativeReadback' => false ) );
 	}
 
 	public static function eras_plan_confirm( $request ) {
@@ -1183,6 +1211,122 @@ class MMPS_Rest {
 			$lines[] = '- ' . $item['programName'] . ' | ' . $item['specialty'] . ' | ' . ( $item['trainingType'] ? $item['trainingType'] : $item['trainingTypeStatus'] ) . ' | ' . ( $item['nrmpCode'] ? 'NRMP ' . $item['nrmpCode'] : $item['nrmpTrackStatus'] ) . ' | ' . $item['myErasTitle'] . ' | ' . $item['approvalStatus'];
 		}
 		return implode( "\n", $lines ) . "\n";
+	}
+
+	protected static function myeras_return_schema( $mission_id, $plan_hash, $mode, $provider, $items ) {
+		return array(
+			'schema'     => self::MYERAS_COMPLETION_SCHEMA,
+			'missionId'  => $mission_id,
+			'planSha256' => $plan_hash,
+			'mode'       => $mode,
+			'provider'   => $provider,
+			'completedAt'=> 'ISO-8601 timestamp',
+			'results'    => array_map( function ( $item ) {
+				return array(
+					'psvDocId' => $item['psvDocId'], 'programSpecialtyId' => $item['programSpecialtyId'],
+					'programName' => $item['programName'], 'specialty' => $item['specialty'],
+					'trainingType' => $item['trainingType'], 'nrmpCode' => $item['nrmpCode'],
+					'myErasTitle' => $item['myErasTitle'], 'creationStatus' => 'EXISTS|CREATED|NOT_CHECKED|NEEDS_ATTENTION',
+					'assignmentStatus' => 'ASSIGNED|NOT_ASSIGNED|WRONG_STATEMENT|EXTRA_UNEXPECTED|NEEDS_ATTENTION|NOT_CHECKED',
+					'verificationResult' => 'AI_READBACK_CORRECT|AI_READBACK_MISMATCH|AI_READBACK_MISSING|COULD_NOT_VERIFY|NOT_CHECKED',
+					'observedProgram' => '', 'observedTrack' => '', 'observedStatementTitle' => '',
+					'normalizedContentCheck' => 'MATCH|MISMATCH|NOT_CHECKED', 'attentionReason' => '', 'timestamp' => 'ISO-8601 timestamp',
+				);
+			}, (array) $items ),
+		);
+	}
+
+	protected static function myeras_mission_markdown( $manifest, $mission_id, $plan_hash, $mode, $provider ) {
+		$read_only = 'DOUBLE_CHECK' === $mode;
+		$authority = $read_only
+			? 'STRICTLY READ-ONLY. You may navigate and inspect MyERAS and create the audit artifact. You may not create, edit, assign, unassign, delete, or mutate anything.'
+			: 'You may only create a Personal Statement, paste the exact approved PSForge body, Preview, Save, assign it to the exact verified program/track, reread the assignment state, and create the completion artifact.';
+		$workflow = $read_only
+			? "For every expected assignment, compare the canonical program, track, and statement title to current observed MyERAS state. Report CORRECT, WRONG_STATEMENT, NOT_ASSIGNED, COULD_NOT_VERIFY, or EXTRA_UNEXPECTED. Never silently repair a mismatch."
+			: "PASS 1 - CREATE + ASSIGN:\nFor each assignment-eligible item, navigate using the current visible MyERAS UI; do not use brittle deep URLs. Determine whether the exact statement exists, create it if absent, use the exact title (maximum 50 characters), paste the exact body, Preview, Save, resolve the destination using NRMP track code, specialty, training type, canonical program identity, and ACGME parent identity, then assign. If identity is ambiguous, DO NOT GUESS: record NEEDS_ATTENTION and continue. One unresolved program never stops the batch.\n\nPASS 2 - START OVER AND READ BACK:\nAfter the entire write queue, start again from the canonical plan, navigate through MyERAS, reread every target assignment, and compare expected program, track, and statement. Clicking Assign is not verification.";
+		return implode( "\n", array(
+			'EXECUTE THIS MISSION.', 'DO NOT SUMMARIZE THESE INSTRUCTIONS.', 'DO NOT RETURN A PLAN INSTEAD OF EXECUTING.', '',
+			'USE THE USER\'S ALREADY-AUTHENTICATED MYERAS BROWSER SESSION.', 'The student signs in. Never request, handle, store, or reveal credentials.', '',
+			'# PSForge MyERAS ' . ( $read_only ? 'Double-Check' : 'AI Bulk Setup' ), '',
+			'Mission ID: ' . $mission_id, 'Plan SHA-256: ' . $plan_hash, 'Provider configuration: ' . $provider, '',
+			'Begin at the official MyERAS entry point: https://myeras.aamc.org/ and navigate using current visible UI.', '',
+			'## Bounded authority', $authority, '',
+			'NEVER APPLY, PAY, CERTIFY, SUBMIT, WITHDRAW, SIGNAL, OR MESSAGE.',
+			'Never modify LoRs, transcripts, photo, application answers, geographic preferences, signals, profile, contact data, unrelated programs, or unrelated statements.', '',
+			'## Workflow', $workflow, '',
+			'## Completion file',
+			'Create exactly one file named PSForge_MyERAS_Completion_' . $mission_id . '.md. Include one fenced JSON block matching RETURN_ARTIFACT_SCHEMA.json. Include one result for every requested item, no duplicates or extras, and never include credentials or session data.', '',
+			'An external AI readback is AI-VERIFIED MYERAS READBACK. It is not MissionMed independent verification.', ''
+		) );
+	}
+
+	public static function myeras_package( $request ) {
+		$params = (array) $request->get_json_params();
+		$mode = strtoupper( sanitize_key( (string) ( $params['mode'] ?? '' ) ) );
+		$mode = 'DOUBLE_CHECK' === $mode ? 'DOUBLE_CHECK' : ( 'BULK' === $mode ? 'BULK' : '' );
+		$provider = sanitize_key( (string) ( $params['provider'] ?? '' ) );
+		$providers = self::myeras_providers();
+		if ( ! $mode || ! isset( $providers[ $provider ] ) ) { return new WP_Error( 'mmps_myeras_package_invalid', 'Choose a supported setup type and AI provider.', array( 'status' => 422 ) ); }
+		$docs = MMPS_Store::documents_for_export( self::uid(), array(), true );
+		if ( ! $docs ) { return new WP_Error( 'mmps_manifest_empty', 'Approve at least one statement before preparing MyERAS.', array( 'status' => 422 ) ); }
+		$manifest = self::assignment_manifest_payload( $docs, self::uid() );
+		$plan_hash = self::assignment_plan_hash( $manifest );
+		$mission_id = self::myeras_mission_id( self::uid(), $plan_hash, $mode, $provider );
+		$mission = self::myeras_mission_markdown( $manifest, $mission_id, $plan_hash, $mode, $providers[ $provider ]['label'] . ' / ' . $providers[ $provider ]['modelLabel'] );
+		$schema = self::myeras_return_schema( $mission_id, $plan_hash, $mode, $provider, $manifest['items'] );
+		if ( ! function_exists( 'wp_tempnam' ) ) { require_once ABSPATH . 'wp-admin/includes/file.php'; }
+		$tmp = wp_tempnam( 'psforge-myeras' );
+		$zip = new ZipArchive();
+		if ( false === $tmp || true !== $zip->open( $tmp, ZipArchive::OVERWRITE ) ) { return new WP_Error( 'mmps_myeras_package_write', 'The MyERAS AI Assistant File could not be created.', array( 'status' => 500 ) ); }
+		$ok = $zip->addFromString( 'EXECUTE_THIS_MISSION.md', $mission ) && $zip->addFromString( 'CANONICAL_ASSIGNMENT_PLAN.json', wp_json_encode( $manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) . "\n" ) && $zip->addFromString( 'RETURN_ARTIFACT_SCHEMA.json', wp_json_encode( $schema, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) . "\n" );
+		foreach ( (array) $manifest['items'] as $item ) {
+			$doc = null; foreach ( $docs as $candidate ) { if ( (string) $candidate['docUuid'] === (string) $item['psvDocId'] ) { $doc = $candidate; break; } }
+			if ( ! $doc || ! $zip->addFromString( 'statements/' . sanitize_file_name( $item['myErasTitle'] ) . '__' . sanitize_file_name( $item['psvDocId'] ) . '.txt', (string) $doc['fullText'] . "\n" ) ) { $ok = false; break; }
+		}
+		$closed = $zip->close();
+		if ( ! $ok || ! $closed ) { @unlink( $tmp ); return new WP_Error( 'mmps_myeras_package_write', 'The MyERAS AI Assistant File could not be finalized.', array( 'status' => 500 ) ); }
+		$bytes = file_get_contents( $tmp ); @unlink( $tmp );
+		if ( false === $bytes ) { return new WP_Error( 'mmps_myeras_package_read', 'The MyERAS AI Assistant File could not be read.', array( 'status' => 500 ) ); }
+		$name = ( 'DOUBLE_CHECK' === $mode ? 'PSForge_MyERAS_Double_Check_File_' : 'PSForge_MyERAS_AI_Assistant_File_' ) . $mission_id . '.zip';
+		MMPS_Store::audit( self::uid(), 'myeras_package_download', $mission_id, array( 'mode' => $mode, 'provider' => $provider, 'count' => count( $manifest['items'] ), 'sha256' => hash( 'sha256', $bytes ) ) );
+		if ( MMPS_Gate::testing() && ! empty( $params['inline'] ) ) { return rest_ensure_response( array( 'fileName' => $name, 'missionId' => $mission_id, 'planSha256' => $plan_hash, 'mode' => $mode, 'provider' => $provider, 'documents' => count( $manifest['items'] ), 'bytes' => strlen( $bytes ), 'sha256' => hash( 'sha256', $bytes ), 'missionMarkdown' => $mission, 'returnSchema' => $schema ) ); }
+		nocache_headers(); header( 'Content-Type: application/zip' ); header( 'Content-Disposition: attachment; filename="' . $name . '"' ); header( 'Content-Length: ' . strlen( $bytes ) ); header( 'X-Content-Type-Options: nosniff' ); echo $bytes; exit;
+	}
+
+	public static function myeras_completion( $request ) {
+		$params = (array) $request->get_json_params();
+		$content = (string) ( $params['content'] ?? '' );
+		if ( strlen( $content ) > 2000000 || preg_match( '/\b(?:password|passwd|session[_ -]?cookie|access[_ -]?token|refresh[_ -]?token|authorization\s*:|bearer\s+[a-z0-9._~-]+)\b/i', $content ) || preg_match( '/<(?:script|iframe|object|embed|svg|math)\b|javascript\s*:/i', $content ) || ! preg_match( '/\A\s*(?:#[^\n]*\n[^`]*)?```json\s*(\{[\s\S]*\})\s*```\s*\z/i', $content, $match ) ) { return new WP_Error( 'mmps_myeras_completion_format', 'Choose the PSForge completion .md file created by your AI. Files with active content or credential/session data are rejected.', array( 'status' => 422 ) ); }
+		$data = json_decode( $match[1], true );
+		if ( ! is_array( $data ) || self::MYERAS_COMPLETION_SCHEMA !== (string) ( $data['schema'] ?? '' ) ) { return new WP_Error( 'mmps_myeras_completion_schema', 'This completion file does not match the PSForge return format.', array( 'status' => 422 ) ); }
+		if ( ! isset( $data['results'] ) || ! is_array( $data['results'] ) || ! preg_match( '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/D', (string) ( $data['completedAt'] ?? '' ) ) ) { return new WP_Error( 'mmps_myeras_completion_fields', 'This completion file is missing its result list or completion timestamp.', array( 'status' => 422 ) ); }
+		$mode = (string) ( $data['mode'] ?? '' ); $provider = sanitize_key( (string) ( $data['provider'] ?? '' ) );
+		if ( ! in_array( $mode, array( 'BULK', 'DOUBLE_CHECK' ), true ) || ! isset( self::myeras_providers()[ $provider ] ) ) { return new WP_Error( 'mmps_myeras_completion_context', 'This completion file has an unsupported mission context.', array( 'status' => 422 ) ); }
+		$docs = MMPS_Store::documents_for_export( self::uid(), array(), true ); $manifest = self::assignment_manifest_payload( $docs, self::uid() ); $plan_hash = self::assignment_plan_hash( $manifest );
+		$mission_id = self::myeras_mission_id( self::uid(), $plan_hash, $mode, $provider );
+		if ( ! hash_equals( $plan_hash, (string) ( $data['planSha256'] ?? '' ) ) || ! hash_equals( $mission_id, (string) ( $data['missionId'] ?? '' ) ) ) { return new WP_Error( 'mmps_myeras_completion_owner_plan', 'This completion file is not for your current PSForge assignment plan.', array( 'status' => 409 ) ); }
+		$expected = array(); foreach ( $manifest['items'] as $item ) { $expected[ (string) $item['psvDocId'] ] = $item; }
+		$seen = array(); $clean = array(); $allowed_creation = array( 'EXISTS', 'CREATED', 'NOT_CHECKED', 'NEEDS_ATTENTION' ); $allowed_assignment = array( 'ASSIGNED', 'NOT_ASSIGNED', 'WRONG_STATEMENT', 'EXTRA_UNEXPECTED', 'NEEDS_ATTENTION', 'NOT_CHECKED' ); $allowed_verify = array( 'AI_READBACK_CORRECT', 'AI_READBACK_MISMATCH', 'AI_READBACK_MISSING', 'COULD_NOT_VERIFY', 'NOT_CHECKED' ); $allowed_content = array( 'MATCH', 'MISMATCH', 'NOT_CHECKED' );
+		foreach ( (array) ( $data['results'] ?? array() ) as $result ) {
+			$id = (string) ( $result['psvDocId'] ?? '' );
+			if ( ! isset( $expected[ $id ] ) || isset( $seen[ $id ] ) ) { return new WP_Error( 'mmps_myeras_completion_items', 'The completion file contains an unexpected or duplicate assignment result.', array( 'status' => 422 ) ); }
+			$item = $expected[ $id ];
+			$required = array( 'programName', 'specialty', 'trainingType', 'nrmpCode', 'myErasTitle', 'creationStatus', 'assignmentStatus', 'verificationResult', 'observedProgram', 'observedTrack', 'observedStatementTitle', 'normalizedContentCheck', 'attentionReason', 'timestamp' );
+			foreach ( $required as $field ) { if ( ! array_key_exists( $field, $result ) ) { return new WP_Error( 'mmps_myeras_completion_fields', 'A completion result is missing required fields.', array( 'status' => 422 ) ); } }
+			$identity_ok = (string) $result['programSpecialtyId'] === (string) $item['programSpecialtyId'] && (string) $result['programName'] === (string) $item['programName'] && (string) $result['specialty'] === (string) $item['specialty'] && (string) $result['trainingType'] === (string) $item['trainingType'] && (string) $result['nrmpCode'] === (string) $item['nrmpCode'] && (string) $result['myErasTitle'] === (string) $item['myErasTitle'];
+			$status_ok = in_array( (string) $result['creationStatus'], $allowed_creation, true ) && in_array( (string) $result['assignmentStatus'], $allowed_assignment, true ) && in_array( (string) $result['verificationResult'], $allowed_verify, true ) && in_array( (string) $result['normalizedContentCheck'], $allowed_content, true ) && preg_match( '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/D', (string) $result['timestamp'] );
+			if ( 'DOUBLE_CHECK' === $mode && 'NOT_CHECKED' !== (string) $result['creationStatus'] ) { $status_ok = false; }
+			if ( 'AI_READBACK_CORRECT' === (string) $result['verificationResult'] && 'ASSIGNED' !== (string) $result['assignmentStatus'] ) { $status_ok = false; }
+			if ( 'AI_READBACK_MISSING' === (string) $result['verificationResult'] && 'NOT_ASSIGNED' !== (string) $result['assignmentStatus'] ) { $status_ok = false; }
+			if ( ! $identity_ok || ! $status_ok ) { return new WP_Error( 'mmps_myeras_completion_result', 'A completion result does not match the canonical assignment, timestamp, or allowed statuses.', array( 'status' => 422 ) ); }
+			$seen[ $id ] = true; $clean[] = array_merge( $result, array( 'psvDocId' => $id, 'programName' => $item['programName'], 'specialty' => $item['specialty'], 'trainingType' => $item['trainingType'], 'nrmpCode' => $item['nrmpCode'], 'myErasTitle' => $item['myErasTitle'] ) );
+		}
+		if ( count( $seen ) !== count( $expected ) ) { return new WP_Error( 'mmps_myeras_completion_missing', 'The completion file does not include every requested assignment.', array( 'status' => 422 ) ); }
+		$correct = count( array_filter( $clean, function ( $r ) { return 'AI_READBACK_CORRECT' === (string) $r['verificationResult']; } ) );
+		$unknown = count( array_filter( $clean, function ( $r ) { return in_array( (string) $r['verificationResult'], array( 'COULD_NOT_VERIFY', 'NOT_CHECKED' ), true ); } ) );
+		$attention = max( 0, count( $clean ) - $correct - $unknown );
+		MMPS_Store::audit( self::uid(), 'myeras_completion_validated', $mission_id, array( 'mode' => $mode, 'count' => count( $clean ), 'correct' => $correct, 'attention' => $attention, 'unknown' => $unknown ) );
+		return rest_ensure_response( array( 'validated' => true, 'missionId' => $mission_id, 'mode' => $mode, 'truthLabel' => 'AI-VERIFIED MYERAS READBACK', 'counts' => array( 'checked' => count( $clean ), 'correct' => $correct, 'attention' => $attention, 'couldNotVerify' => $unknown ), 'results' => $clean, 'missionMedIndependentVerification' => false ) );
 	}
 
 	public static function eras_manifest( $request ) {

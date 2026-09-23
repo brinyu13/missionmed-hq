@@ -93,7 +93,7 @@ function ok(name, value) { assert.ok(value, name); console.log('PASS ' + name); 
 
 	await page.reload();
 	await page.waitForSelector('#mmps-app');
-	await page.click('button:has-text("Start a new ROOT")');
+	await page.click('.psforgePrimary');
 	await page.waitForSelector('[data-act="source"]');
 	await page.waitForFunction(() => !document.body.innerText.includes('Checking File Vault'));
 	await page.click('[data-source="FILE_VAULT"]');
@@ -112,7 +112,9 @@ function ok(name, value) { assert.ok(value, name); console.log('PASS ' + name); 
 	ok('Bulk Rush has no horizontal overflow at phone width', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
 	await page.click('.hdrNav [data-view="library"]');
 	await page.waitForSelector('[data-act="eras-manifest"]');
-	ok('library exposes selected, Download All, and ERAS manifest workflows', await page.locator('[data-act="bulk-selected"]').isVisible() && await page.locator('[data-act="bulk-approved"]').isVisible() && await page.locator('[data-act="eras-manifest"]').isVisible());
+	ok('library exposes selected and Download All workflows while keeping raw manifest under Advanced', await page.locator('[data-act="bulk-selected"]').isVisible() && await page.locator('[data-act="bulk-approved"]').isVisible() && !(await page.locator('[data-act="eras-manifest"]').isVisible()));
+	await page.locator('.advancedDownloads summary').click();
+	ok('advanced technical downloads expose the raw ERAS manifest on demand', await page.locator('[data-act="eras-manifest"]').isVisible());
 	ok('library has no horizontal overflow at phone width', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
 	ok('focused Application-Eve browser flow has no JavaScript exception', errors.length === 0);
 

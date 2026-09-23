@@ -111,7 +111,7 @@ $mmps_throw = false;
 
 $entry = file_get_contents( dirname( __DIR__, 2 ) . '/wp-content/plugins/missionmed-file-vault-ps/assets/mmps-entry.js' );
 check_gate( false !== strpos( $entry, "fileVault.closest('.sos-nav-list')" ) && false !== strpos( $entry, '.sos-nav-link[href="#filevault"]' ), 'menu mounts in the File Vault Matrix group' );
-check_gate( false !== strpos( $entry, "label.textContent = 'Program-Specific PS'" ) && false !== strpos( $entry, "link.href = cfg.url" ), 'menu label and direct PSV URL are explicit' );
+check_gate( false !== strpos( $entry, "label.textContent = 'PSForge'" ) && false !== strpos( $entry, "link.href = cfg.url" ), 'menu label and direct PSV URL are explicit' );
 check_gate( false !== strpos( $entry, 'data-mmps-menu' ) && false !== strpos( $entry, 'menuMounted()' ), 'menu insertion is idempotent' );
 
 echo "RESULT $pass passed, $fail failed\n";
