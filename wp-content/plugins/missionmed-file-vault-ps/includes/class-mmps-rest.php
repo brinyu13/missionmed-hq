@@ -1236,6 +1236,17 @@ class MMPS_Rest {
 		);
 	}
 
+	/** Compare browser-observed MyERAS labels without weakening canonical identity. */
+	protected static function myeras_observed_equal( $observed, $expected ) {
+		$normalize = static function ( $value ) {
+			$value = preg_replace( '/\s+/u', ' ', trim( (string) $value ) );
+			return mb_strtolower( (string) $value, 'UTF-8' );
+		};
+		$observed = $normalize( $observed );
+		$expected = $normalize( $expected );
+		return '' !== $observed && '' !== $expected && $observed === $expected;
+	}
+
 	protected static function myeras_mission_markdown( $manifest, $mission_id, $plan_hash, $mode, $provider ) {
 		$read_only = 'DOUBLE_CHECK' === $mode;
 		$authority = $read_only
@@ -1316,7 +1327,16 @@ class MMPS_Rest {
 			$identity_ok = (string) $result['programSpecialtyId'] === (string) $item['programSpecialtyId'] && (string) $result['programName'] === (string) $item['programName'] && (string) $result['specialty'] === (string) $item['specialty'] && (string) $result['trainingType'] === (string) $item['trainingType'] && (string) $result['nrmpCode'] === (string) $item['nrmpCode'] && (string) $result['myErasTitle'] === (string) $item['myErasTitle'];
 			$status_ok = in_array( (string) $result['creationStatus'], $allowed_creation, true ) && in_array( (string) $result['assignmentStatus'], $allowed_assignment, true ) && in_array( (string) $result['verificationResult'], $allowed_verify, true ) && in_array( (string) $result['normalizedContentCheck'], $allowed_content, true ) && preg_match( '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/D', (string) $result['timestamp'] );
 			if ( 'DOUBLE_CHECK' === $mode && 'NOT_CHECKED' !== (string) $result['creationStatus'] ) { $status_ok = false; }
-			if ( 'AI_READBACK_CORRECT' === (string) $result['verificationResult'] && 'ASSIGNED' !== (string) $result['assignmentStatus'] ) { $status_ok = false; }
+			if ( 'AI_READBACK_CORRECT' === (string) $result['verificationResult'] ) {
+				$track_ok = self::myeras_observed_equal( $result['observedTrack'], $item['trainingType'] ) || ( '' !== (string) $item['nrmpCode'] && self::myeras_observed_equal( $result['observedTrack'], $item['nrmpCode'] ) );
+				$correct_ok = ! empty( $item['assignmentEligible'] )
+					&& 'ASSIGNED' === (string) $result['assignmentStatus']
+					&& 'MATCH' === (string) $result['normalizedContentCheck']
+					&& self::myeras_observed_equal( $result['observedProgram'], $item['programName'] )
+					&& $track_ok
+					&& self::myeras_observed_equal( $result['observedStatementTitle'], $item['myErasTitle'] );
+				if ( ! $correct_ok ) { $status_ok = false; }
+			}
 			if ( 'AI_READBACK_MISSING' === (string) $result['verificationResult'] && 'NOT_ASSIGNED' !== (string) $result['assignmentStatus'] ) { $status_ok = false; }
 			if ( ! $identity_ok || ! $status_ok ) { return new WP_Error( 'mmps_myeras_completion_result', 'A completion result does not match the canonical assignment, timestamp, or allowed statuses.', array( 'status' => 422 ) ); }
 			$seen[ $id ] = true; $clean[] = array_merge( $result, array( 'psvDocId' => $id, 'programName' => $item['programName'], 'specialty' => $item['specialty'], 'trainingType' => $item['trainingType'], 'nrmpCode' => $item['nrmpCode'], 'myErasTitle' => $item['myErasTitle'] ) );

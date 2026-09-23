@@ -9,7 +9,7 @@ function ok(name, value) { assert.ok(value, name); console.log('PASS ' + name); 
 (async () => {
 	const harnessRoot = process.env.MMPS_HARNESS_ROOT;
 	assert.ok(harnessRoot, 'MMPS_HARNESS_ROOT is required for the disposable fixture');
-	const fixture = `$_SERVER['HTTP_HOST']='127.0.0.1:8088';$_SERVER['REQUEST_URI']='/';require ${JSON.stringify(harnessRoot + '/site/wp-load.php')};$text="Fictional opening paragraph for a disposable PSForge test.\n\nFictional program paragraph for a disposable PSForge test.\n\nFictional closing paragraph for a disposable PSForge test.";$doc=array('doc_uuid'=>'10000000-0000-4000-8000-000000009901','root_id'=>9901,'run_id'=>9901,'specialty_label'=>'Internal Medicine','program_specialty_id'=>'rise:fictional:im:9901','acgme_id'=>'9999999901','program_name'=>'Fictional Lakeside Medical Center Program','institution'=>'Fictional Lakeside Medical Center','city'=>'Testville','state'=>'NY','tier'=>'ESSENTIAL','version_number'=>1,'status'=>'APPROVED','title'=>'Fictional Lakeside Program Statement','root_label'=>'Disposable synthetic fixture','full_text'=>$text,'full_text_sha256'=>hash('sha256',$text),'region_text'=>'Fictional program paragraph for a disposable PSForge test.','metadata_json'=>wp_json_encode(array('trainingType'=>'Categorical','trainingTypes'=>array('Categorical'),'trainingTypeStatus'=>'RESOLVED','nrmpCode'=>'9999999C0','nrmpCodes'=>array('9999999C0'),'nrmpTrackStatus'=>'RESOLVED','myErasIdentity'=>array('fixture'=>true),'myErasIdentityStatus'=>'RESOLVED','regionIndex'=>1)));if(!MMPS_Store::insert_document(3,$doc)){exit(1);}`;
+	const fixture = `$_SERVER['HTTP_HOST']='127.0.0.1:8088';$_SERVER['REQUEST_URI']='/';require ${JSON.stringify(harnessRoot + '/site/wp-load.php')};$text="Fictional opening paragraph for a disposable PSForge test.\n\nFictional program paragraph for a disposable PSForge test.\n\nFictional closing paragraph for a disposable PSForge test.";$doc=array('doc_uuid'=>'10000000-0000-4000-8000-000000009901','root_id'=>9901,'run_id'=>9901,'specialty_label'=>'Internal Medicine','program_specialty_id'=>'rise:fictional:im:9901','acgme_id'=>'9999999901','program_name'=>'Fictional Lakeside Medical Center Program','institution'=>'Fictional Lakeside Medical Center','city'=>'Testville','state'=>'NY','tier'=>'ESSENTIAL','version_number'=>1,'status'=>'APPROVED','title'=>'Fictional Lakeside Program Statement','root_label'=>'Disposable synthetic fixture','full_text'=>$text,'full_text_sha256'=>hash('sha256',$text),'region_text'=>'Fictional program paragraph for a disposable PSForge test.','metadata_json'=>wp_json_encode(array('trainingType'=>'Categorical','trainingTypes'=>array('Categorical'),'trainingTypeStatus'=>'RESOLVED','nrmpCode'=>'9999999C0','nrmpCodes'=>array('9999999C0'),'nrmpTrackStatus'=>'RESOLVED','myErasIdentity'=>array('fixture'=>true),'myErasIdentityStatus'=>'RESOLVED','regionIndex'=>1)));if(!MMPS_Store::insert_document(3,$doc)){exit(1);}$doc['doc_uuid']='10000000-0000-4000-8000-000000009902';$doc['root_id']=9902;$doc['run_id']=9902;$doc['program_specialty_id']='rise:fictional:im:9902';$doc['acgme_id']='9999999902';$doc['program_name']='Fictional Harbor Medical Center Program';$doc['institution']='Fictional Harbor Medical Center';$doc['title']='Fictional Harbor Program Statement';$doc['metadata_json']=wp_json_encode(array('trainingType'=>'','trainingTypes'=>array(),'trainingTypeStatus'=>'UNAVAILABLE','nrmpCode'=>'','nrmpCodes'=>array(),'nrmpTrackStatus'=>'UNAVAILABLE','myErasIdentity'=>null,'myErasIdentityStatus'=>'UNRESOLVED','regionIndex'=>1));if(!MMPS_Store::insert_document(3,$doc)){exit(2);}`;
 	execFileSync('php', ['-r', fixture], { stdio: 'ignore' });
 	const browser = await chromium.launch({ channel: process.env.MMPS_BROWSER_CHANNEL || 'chrome' });
 	const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
@@ -37,6 +37,7 @@ function ok(name, value) { assert.ok(value, name); console.log('PASS ' + name); 
 	let response = await api('GET', '/library/eras-plan');
 	ok('plan returns approved statements and configured provider cards', response.status === 200 && response.body.manifest.items.length > 0 && response.body.providers.length === 2 && response.body.statements[response.body.manifest.items[0].psvDocId]);
 	ok('official MyERAS route is the verified root only', response.body.officialPortal === 'https://myeras.aamc.org/');
+	const plan = response.body;
 
 	response = await api('POST', '/library/myeras-package', { mode: 'BULK', provider: 'claude', inline: true });
 	if (response.status !== 200) { console.error('Bulk package response', response); }
@@ -60,21 +61,46 @@ function ok(name, value) { assert.ok(value, name); console.log('PASS ' + name); 
 	const check = response.body;
 	ok('Double-Check package is separate and strictly read-only', response.status === 200 && /Double_Check_File/.test(check.fileName) && check.missionMarkdown.includes('STRICTLY READ-ONLY') && check.missionMarkdown.includes('Never silently repair'));
 
+	const planByDoc = new Map(plan.manifest.items.map(item => [item.psvDocId, item]));
 	const completion = JSON.parse(JSON.stringify(check.returnSchema));
 	completion.completedAt = '2026-09-22T22:00:00Z';
-	completion.results = completion.results.map(result => Object.assign(result, {
-		creationStatus: 'NOT_CHECKED', assignmentStatus: 'ASSIGNED', verificationResult: 'AI_READBACK_CORRECT',
-		observedProgram: result.programName, observedTrack: result.trainingType, observedStatementTitle: result.myErasTitle,
-		normalizedContentCheck: 'MATCH', attentionReason: '', timestamp: '2026-09-22T22:00:00Z'
-	}));
-	completion.results[0] = Object.assign(completion.results[0], {
-		assignmentStatus: 'NOT_CHECKED', verificationResult: 'COULD_NOT_VERIFY',
-		observedProgram: '', observedTrack: '', observedStatementTitle: '',
-		normalizedContentCheck: 'NOT_CHECKED', attentionReason: 'The current page did not expose an authoritative assignment row.'
+	completion.results = completion.results.map(result => {
+		const item = planByDoc.get(result.psvDocId);
+		return Object.assign(result, item.assignmentEligible ? {
+			creationStatus: 'NOT_CHECKED', assignmentStatus: 'ASSIGNED', verificationResult: 'AI_READBACK_CORRECT',
+			observedProgram: result.programName, observedTrack: result.nrmpCode || result.trainingType, observedStatementTitle: result.myErasTitle,
+			normalizedContentCheck: 'MATCH', attentionReason: '', timestamp: '2026-09-22T22:00:00Z'
+		} : {
+			creationStatus: 'NOT_CHECKED', assignmentStatus: 'NEEDS_ATTENTION', verificationResult: 'AI_READBACK_MISMATCH',
+			observedProgram: '', observedTrack: '', observedStatementTitle: '', normalizedContentCheck: 'NOT_CHECKED',
+			attentionReason: 'The canonical assignment identity is not eligible.', timestamp: '2026-09-22T22:00:00Z'
+		});
 	});
+	const eligibleIndexes = completion.results.map((result, index) => planByDoc.get(result.psvDocId).assignmentEligible ? index : -1).filter(index => index >= 0);
+	const ineligibleIndexes = completion.results.map((result, index) => planByDoc.get(result.psvDocId).assignmentEligible ? -1 : index).filter(index => index >= 0);
+	ok('fixture covers eligible and ineligible canonical assignment rows', eligibleIndexes.length > 0 && ineligibleIndexes.length > 0);
 	const markdown = '# PSForge MyERAS Completion\n\n```json\n' + JSON.stringify(completion, null, 2) + '\n```';
 	response = await api('POST', '/library/myeras-completion', { content: markdown });
-ok('valid exact-plan completion separates confirmed, attention, and unknown counts', response.status === 200 && response.body.validated && response.body.counts.correct === completion.results.length - 1 && response.body.counts.attention === 0 && response.body.counts.couldNotVerify === 1 && response.body.truthLabel === 'AI-VERIFIED MYERAS READBACK' && response.body.missionMedIndependentVerification === false);
+	ok('valid exact-plan completion separates eligible correct and ineligible attention counts', response.status === 200 && response.body.validated && response.body.counts.correct === eligibleIndexes.length && response.body.counts.attention === ineligibleIndexes.length && response.body.counts.couldNotVerify === 0 && response.body.truthLabel === 'AI-VERIFIED MYERAS READBACK' && response.body.missionMedIndependentVerification === false);
+	for (const [label, mutate] of [
+		['content mismatch', row => { row.normalizedContentCheck = 'MISMATCH'; }],
+		['wrong observed program', row => { row.observedProgram = 'Wrong Program'; }],
+		['wrong observed track', row => { row.observedTrack = 'Wrong Track'; }],
+		['wrong observed statement title', row => { row.observedStatementTitle = 'Wrong Statement'; }]
+	]) {
+		const contradictory = JSON.parse(JSON.stringify(completion)); mutate(contradictory.results[eligibleIndexes[0]]);
+		response = await api('POST', '/library/myeras-completion', { content: '# Completion\n```json\n' + JSON.stringify(contradictory) + '\n```' });
+		ok('correct readback rejects ' + label, response.status === 422 && response.body.code === 'mmps_myeras_completion_result');
+	}
+	const ineligibleCorrect = JSON.parse(JSON.stringify(completion));
+	Object.assign(ineligibleCorrect.results[ineligibleIndexes[0]], {
+		assignmentStatus: 'ASSIGNED', verificationResult: 'AI_READBACK_CORRECT', normalizedContentCheck: 'MATCH',
+		observedProgram: ineligibleCorrect.results[ineligibleIndexes[0]].programName,
+		observedTrack: ineligibleCorrect.results[ineligibleIndexes[0]].trainingType || 'Categorical',
+		observedStatementTitle: ineligibleCorrect.results[ineligibleIndexes[0]].myErasTitle
+	});
+	response = await api('POST', '/library/myeras-completion', { content: '# Completion\n```json\n' + JSON.stringify(ineligibleCorrect) + '\n```' });
+	ok('correct readback rejects an assignment-ineligible canonical item', response.status === 422 && response.body.code === 'mmps_myeras_completion_result');
 	const wrong = JSON.parse(JSON.stringify(completion)); wrong.missionId = 'PSF-WRONGOWNERORPLAN';
 	response = await api('POST', '/library/myeras-completion', { content: '# Completion\n```json\n' + JSON.stringify(wrong) + '\n```' });
 	ok('wrong mission or owner binding is rejected', response.status === 409 && response.body.code === 'mmps_myeras_completion_owner_plan');
@@ -101,7 +127,7 @@ ok('valid exact-plan completion separates confirmed, attention, and unknown coun
 		input.dispatchEvent(new Event('change', { bubbles: true }));
 	}, completion);
 	await page.waitForSelector('[data-act="scroll-myeras-issues"]');
-	ok('validated return exposes the required issue-review action', await page.getByText('Review 1 Issues').isVisible());
+	ok('validated return exposes the required issue-review action', await page.getByRole('button', { name: /Review \d+ Issues/ }).isVisible());
 	if (errors.length) { console.error('Browser exceptions', errors); }
 	ok('focused MyERAS flow has no JavaScript exception', errors.length === 0);
 
