@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const pluginPath = path.join(repoRoot, 'wp-content', 'mu-plugins', 'missionmed-hq-auth-handoff.php');
+const usceAdminPath = path.join(repoRoot, 'LIVE', 'usce_admin.html');
 
 test('WordPress USCE relay is administrator-only, exact-target, and fragment-only', async () => {
   const source = await readFile(pluginPath, 'utf8');
@@ -26,4 +27,15 @@ test('WordPress USCE relay is administrator-only, exact-target, and fragment-onl
     source.indexOf('function mmhq_cam_logout_nonce_option_name'),
   );
   assert.doesNotMatch(usceHandler, /add_query_arg\([^)]*token/su);
+});
+
+test('USCE admin runtime uses the scoped WordPress relay fallback', async () => {
+  const source = await readFile(usceAdminPath, 'utf8');
+
+  assert.match(
+    source,
+    /authRelayEndpoint:\s*'https:\/\/missionmedinstitute\.com\/wp-admin\/admin-post\.php\?action=mmhq_usce_admin_auth_relay'/u,
+  );
+  assert.match(source, /authAudience:\s*'hq'/u);
+  assert.doesNotMatch(source, /authRelayEndpoint:\s*'\/api\/usce\/admin\/auth\/relay'/u);
 });
