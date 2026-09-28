@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MissionMed HQ Auth Handoff
  * Description: WordPress -> Railway runtime auth handoff for Arena/STAT exchange bootstrap.
- * Version: 1.0.6
+ * Version: 1.0.11
  */
 
 if (!defined('ABSPATH')) {
@@ -11,6 +11,15 @@ if (!defined('ABSPATH')) {
 
 if (!defined('MMHQ_HANDOFF_ACTION')) {
     define('MMHQ_HANDOFF_ACTION', 'mmac_hq_auth_redirect');
+}
+if (!defined('MMHQ_USCE_ADMIN_HANDOFF_ACTION')) {
+    define('MMHQ_USCE_ADMIN_HANDOFF_ACTION', 'mmhq_usce_admin_auth_relay');
+}
+if (!defined('MMHQ_USCE_ADMIN_CDN_URL')) {
+    define('MMHQ_USCE_ADMIN_CDN_URL', 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html');
+}
+if (!defined('MMHQ_USCE_ADMIN_ASSET_VERSION')) {
+    define('MMHQ_USCE_ADMIN_ASSET_VERSION', '52c71149dd0c');
 }
 if (!defined('MMHQ_HANDOFF_TTL_SECONDS')) {
     define('MMHQ_HANDOFF_TTL_SECONDS', 60);
@@ -37,18 +46,25 @@ function mmhq_handoff_is_endpoint_request() {
     $script = isset($_SERVER['SCRIPT_NAME']) ? basename((string) wp_unslash($_SERVER['SCRIPT_NAME'])) : '';
     $action = isset($_REQUEST['action']) ? sanitize_key(wp_unslash($_REQUEST['action'])) : '';
     $public = isset($_GET['mmhq_handoff']) ? sanitize_key(wp_unslash($_GET['mmhq_handoff'])) : '';
-    return ('admin-post.php' === $script && MMHQ_HANDOFF_ACTION === $action) || '1' === $public;
+    return (
+        'admin-post.php' === $script
+        && in_array($action, array(MMHQ_HANDOFF_ACTION, MMHQ_USCE_ADMIN_HANDOFF_ACTION), true)
+    ) || '1' === $public;
+}
+
+function mmhq_handoff_redirect_contains_action($redirect_to) {
+    $decoded = rawurldecode((string) $redirect_to);
+    return false !== strpos($decoded, 'action=' . MMHQ_HANDOFF_ACTION)
+        || false !== strpos($decoded, 'action=' . MMHQ_USCE_ADMIN_HANDOFF_ACTION)
+        || false !== strpos($decoded, 'mmhq_handoff=1');
 }
 
 function mmhq_handoff_is_login_request() {
     $script = isset($_SERVER['SCRIPT_NAME']) ? basename((string) wp_unslash($_SERVER['SCRIPT_NAME'])) : '';
     $redirect_to = isset($_REQUEST['redirect_to']) ? (string) wp_unslash($_REQUEST['redirect_to']) : '';
-    $decoded = rawurldecode($redirect_to);
-    return 'wp-login.php' === $script && (
-        false !== strpos($decoded, 'action=' . MMHQ_HANDOFF_ACTION)
-        || false !== strpos($decoded, 'mmhq_handoff=1')
-        || !empty($_COOKIE[MMHQ_HANDOFF_LOGIN_STATE_COOKIE])
-    );
+    return 'wp-login.php' === $script
+        && (mmhq_handoff_redirect_contains_action($redirect_to)
+            || !empty($_COOKIE[MMHQ_HANDOFF_LOGIN_STATE_COOKIE]));
 }
 
 function mmhq_handoff_limit_endpoint_plugins($plugins) {
@@ -894,6 +910,122 @@ function mmhq_handoff_handle() {
     exit;
 }
 
+function mmhq_usce_admin_handoff_target($raw_target) {
+    $candidate = esc_url_raw(trim((string) $raw_target));
+    $allowed = wp_parse_url(MMHQ_USCE_ADMIN_CDN_URL);
+    $target = wp_parse_url($candidate);
+    if (!is_array($allowed) || !is_array($target)) {
+        return '';
+    }
+    if (
+        strtolower((string) ($target['scheme'] ?? '')) !== 'https'
+        || strtolower((string) ($target['host'] ?? '')) !== strtolower((string) ($allowed['host'] ?? ''))
+        || (string) ($target['path'] ?? '') !== (string) ($allowed['path'] ?? '')
+        || !empty($target['user'])
+        || !empty($target['pass'])
+        || (isset($target['port']) && (int) $target['port'] !== 443)
+        || !empty($target['fragment'])
+    ) {
+        return '';
+    }
+    return $candidate;
+}
+
+function mmhq_usce_admin_versioned_target() {
+    return add_query_arg(
+        array('v' => MMHQ_USCE_ADMIN_ASSET_VERSION),
+        MMHQ_USCE_ADMIN_CDN_URL
+    );
+}
+
+function mmhq_usce_admin_entry_url() {
+    return add_query_arg(
+        array(
+            'action' => MMHQ_USCE_ADMIN_HANDOFF_ACTION,
+            'target' => mmhq_usce_admin_versioned_target(),
+        ),
+        admin_url('admin-post.php')
+    );
+}
+
+function mmhq_usce_admin_autohandoff_content($content) {
+    if (!function_exists('is_page') || !is_page('usce-admin')) {
+        return $content;
+    }
+
+    $content = (string) $content;
+    if (false === strpos($content, MMHQ_USCE_ADMIN_CDN_URL)) {
+        return $content;
+    }
+
+    // Always enter through WordPress. Authorized administrators receive the
+    // fragment-only handoff; logged-out users see the normal WordPress login;
+    // logged-in non-admins fail closed with the scoped 403 response.
+    return str_replace(
+        MMHQ_USCE_ADMIN_CDN_URL,
+        esc_url(mmhq_usce_admin_entry_url()),
+        $content
+    );
+}
+add_filter('the_content', 'mmhq_usce_admin_autohandoff_content', PHP_INT_MAX);
+
+function mmhq_usce_admin_handoff_handle() {
+    $request_uri = isset($_SERVER['REQUEST_URI']) ? (string) wp_unslash($_SERVER['REQUEST_URI']) : '';
+    if (!is_user_logged_in()) {
+        mmhq_handoff_set_login_state($request_uri);
+        wp_safe_redirect(mmhq_handoff_login_url($request_uri));
+        exit;
+    }
+
+    if (!current_user_can('manage_options')) {
+        wp_die(
+            'USCE administrator access is required.',
+            'USCE administrator access denied',
+            array('response' => 403)
+        );
+    }
+
+    $target_raw = isset($_GET['target']) ? (string) wp_unslash($_GET['target']) : '';
+    $target = mmhq_usce_admin_handoff_target($target_raw);
+    if ($target === '') {
+        wp_die(
+            'Invalid USCE administrator target.',
+            'Invalid USCE administrator target',
+            array('response' => 400)
+        );
+    }
+
+    $secret = mmhq_handoff_secret();
+    if ($secret === '') {
+        wp_die(
+            'MissionMed handoff secret is not configured.',
+            'USCE administrator access unavailable',
+            array('response' => 503)
+        );
+    }
+
+    $payload = mmhq_handoff_build_token_payload(wp_get_current_user(), 'hq', '');
+    $payload_json = wp_json_encode($payload);
+    if (!is_string($payload_json) || $payload_json === '') {
+        wp_die(
+            'Failed to encode USCE administrator handoff.',
+            'USCE administrator access unavailable',
+            array('response' => 500)
+        );
+    }
+
+    $body = rtrim(strtr(base64_encode($payload_json), '+/', '-_'), '=');
+    $token = $body . '.' . hash_hmac('sha256', $body, $secret);
+    nocache_headers();
+    header('Referrer-Policy: no-referrer');
+    wp_redirect(
+        $target . '#mmhq_handoff_token=' . rawurlencode($token),
+        302,
+        'MissionMed USCE Admin Handoff'
+    );
+    exit;
+}
+
 function mmhq_cam_logout_nonce_option_name($nonce) {
     return 'mmhq_cam_logout_nonce_' . hash('sha256', (string) $nonce);
 }
@@ -969,18 +1101,16 @@ function mmhq_cam_logout_handle() {
 add_action('init', 'mmhq_cam_logout_handle', 1);
 
 function mmhq_handoff_maybe_handle_public_route() {
-    if (mmhq_handoff_is_endpoint_request() && (!isset($_REQUEST['action']) || MMHQ_HANDOFF_ACTION !== sanitize_key(wp_unslash($_REQUEST['action'])))) {
+    $public = isset($_GET['mmhq_handoff']) ? sanitize_key(wp_unslash($_GET['mmhq_handoff'])) : '';
+    $action = isset($_REQUEST['action']) ? sanitize_key(wp_unslash($_REQUEST['action'])) : '';
+    if ('1' === $public && '' === $action) {
         mmhq_handoff_handle();
     }
 }
 add_action('init', 'mmhq_handoff_maybe_handle_public_route', 99);
 
 function mmhq_handoff_preserve_login_redirect($redirect_to, $requested) {
-    $decoded = rawurldecode((string) $requested);
-    if (
-        false === strpos($decoded, 'action=' . MMHQ_HANDOFF_ACTION)
-        && false === strpos($decoded, 'mmhq_handoff=1')
-    ) {
+    if (!mmhq_handoff_redirect_contains_action($requested)) {
         return $redirect_to;
     }
     return wp_validate_redirect((string) $requested, $redirect_to);
@@ -992,11 +1122,7 @@ function mmhq_handoff_redirect_after_login($user_login, $user) {
     if ($state_redirect !== '') {
         $requested = $state_redirect;
     }
-    $decoded = rawurldecode($requested);
-    if (
-        false === strpos($decoded, 'action=' . MMHQ_HANDOFF_ACTION)
-        && false === strpos($decoded, 'mmhq_handoff=1')
-    ) {
+    if (!mmhq_handoff_redirect_contains_action($requested)) {
         return;
     }
 
@@ -1022,3 +1148,5 @@ add_action('wp_loaded', 'mmhq_handoff_register_login_redirect_guard', PHP_INT_MA
 // signs with MMHQ_HANDOFF_SECRET which Railway shares.
 add_action('admin_post_' . MMHQ_HANDOFF_ACTION, 'mmhq_handoff_handle', 1);
 add_action('admin_post_nopriv_' . MMHQ_HANDOFF_ACTION, 'mmhq_handoff_handle', 1);
+add_action('admin_post_' . MMHQ_USCE_ADMIN_HANDOFF_ACTION, 'mmhq_usce_admin_handoff_handle', 1);
+add_action('admin_post_nopriv_' . MMHQ_USCE_ADMIN_HANDOFF_ACTION, 'mmhq_usce_admin_handoff_handle', 1);
