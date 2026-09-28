@@ -2,7 +2,7 @@
   "_release_asset_dir": "missionmed-mr-0912-assets",
   "schema": "missionmed.mr-web-0912.campaign.v1",
   "mission": "MR-WEB-0912",
-  "authority": ["DR-246", "DR-247", "DR-251", "DR-296", "DR-325", "DR-336"],
+  "authority": ["DR-246", "DR-247", "DR-251", "DR-296", "DR-325", "DR-336", "DR-337"],
   "timezone": "America/New_York",
   "campaign": {
     "id": "fall_2026_interview_week",
@@ -23,6 +23,13 @@
   "cro": {
     "mission": "MR-WEB-0914-FABLE5-CRO-CLOSURE",
     "authority": "DR-253",
+    "early_interview_coverage": {
+      "authority": "DR-337",
+      "cutoff_inclusive": "2026-10-18",
+      "headline": "Early interview? You're covered.",
+      "body": "Interview scheduled on or before Oct 18? Dr Brian will personally provide individualized emergency prep before your interview, so you don't have to wait for Bootcamp Week to finish.",
+      "applies_to": ["interview_week", "complete", "complete_installment"]
+    },
     "boutique": {
       "headline": "One expert. Your whole interview season.",
       "body": "Mission Residency is physician-led, personal, and built around deliberate practice. Dr. Brian remains meaningfully involved while the training system keeps each step clear."
@@ -86,8 +93,8 @@
           "answer": "4 total private 1:1 hours with Dr Brian, including 3 Signature Mock Interviews, personalized strategy and answer/content development, plus interview/program-specific preparation. Each mock uses personalized simulation, structured analysis, debrief and an individualized action plan."
         },
         {
-          "question": "Does Emergency include Interview Week?",
-          "answer": "No. Interview Week / Essentials is not included."
+          "question": "Does Emergency include Interview Bootcamp Week?",
+          "answer": "No. Interview Bootcamp Week / Essentials is not included."
         },
         {
           "question": "Does Emergency include IV Prep Complete?",
@@ -103,7 +110,7 @@
         },
         {
           "question": "Should I choose Emergency or Complete?",
-          "answer": "If you still have time to train properly, choose Complete. It costs less at current campaign tuition, includes Interview Week and continues preparation throughout interview season."
+          "answer": "If you still have time to train properly, choose Complete. It costs less at current campaign tuition, includes Interview Bootcamp Week and continues preparation throughout interview season."
         },
         {
           "question": "Can I buy Emergency online right now?",
@@ -129,19 +136,21 @@
       "Keep the order confirmation for your records.",
       "Use the same MissionMed account at My Account and My Courses.",
       "Your enrollment confirmation provides the approved schedule, placement, and Signature Mock details for your program.",
-      "Complete students begin with Interview Week; there is no separate Interview Week charge.",
+      "Complete students begin with Interview Bootcamp Week; there is no separate Interview Bootcamp Week charge.",
+      "If your residency interview is on or before October 18, Dr Brian will personally provide individualized emergency prep before that interview.",
       "Contact Admissions if your confirmed access does not appear as expected."
     ],
     "faq": [
-      {"question": "Which option should I choose?", "answer": "Choose Interview Week for the live foundational kickoff. Choose Complete when you want Interview Week plus continued practice, personalized feedback, and interview-season coaching."},
-      {"question": "Do I buy both programs?", "answer": "No. IV Prep Complete includes Interview Week. The two prices are never added together."},
-      {"question": "Does Interview Week include an individual Signature Mock?", "answer": "No individual Signature Mock Interview is included in Interview Week tuition. A limited standalone reservation opportunity may be offered separately."},
+      {"question": "Which option should I choose?", "answer": "Choose Interview Bootcamp Week for the live foundational kickoff. Choose Complete when you want Interview Bootcamp Week plus continued practice, personalized feedback, and interview-season coaching."},
+      {"question": "Do I buy both programs?", "answer": "No. IV Prep Complete includes Interview Bootcamp Week. The two prices are never added together."},
+      {"question": "What if I already have an interview before Bootcamp Week is over?", "answer": "If your residency interview is scheduled on or before October 18, Dr Brian will personally provide individualized emergency interview preparation before your interview. This included protection applies to Interview Bootcamp Week and IV Prep Complete students."},
+      {"question": "Does Interview Bootcamp Week include an individual Signature Mock?", "answer": "No individual Signature Mock Interview is included in Interview Bootcamp Week tuition. A limited standalone reservation opportunity may be offered separately."},
       {"question": "What is a Signature Mock?", "answer": "A live, personalized interview simulation followed by structured analysis, a debrief, and an individualized action plan. Your confirmation states the exact details included in your enrollment."},
       {"question": "What happens after I enroll?", "answer": "Keep your confirmation, use the same MissionMed account for My Account and My Courses, and follow the approved schedule and placement details supplied with your enrollment."},
       {"question": "Are the evening times final?", "answer": "No exact evening clock time is published yet. Use only the approved schedule supplied with your enrollment."},
       {"question": "Is September the last training opportunity?", "answer": "No. The next foundational training is anticipated around November 8, 2026."},
       {"question": "Do you guarantee a Match?", "answer": "No. No coach can guarantee a Match. Mission Residency provides preparation, practice, feedback, and strategy."},
-      {"question": "How can I pay?", "answer": "Interview Week is $549 by card or $499 by Zelle. Complete is available pay in full ($3,099 early tuition through October 7), by Zelle at the same applicable pay-in-full tuition, or on a payment plan ($1,000 today + 6 monthly installments, $3,400 total). Every Zelle order stays on hold, and course access opens only after MissionMed confirms receipt."}
+      {"question": "How can I pay?", "answer": "Interview Bootcamp Week is $549 by card or $499 by Zelle. Complete is available pay in full ($3,099 early tuition through October 7), by Zelle at the same applicable pay-in-full tuition, or on a payment plan ($1,000 today + 6 monthly installments, $3,400 total). Every Zelle order stays on hold, and course access opens only after MissionMed confirms receipt."}
     ]
   },
   "schedule": [
@@ -179,22 +188,22 @@
   ],
   "offers": {
     "interview_week": {
-      "name": "IV Prep Essentials: Interview Week",
+      "name": "IV Prep Essentials: Interview Bootcamp Week",
       "descriptor": "Mission Residency's Live Interview-Season Kickoff",
       "price": 549,
       "zelle_price": 499,
       "payment_label": "$549 card or $499 Zelle",
-      "includes": ["Orientation + Match Primer", "Five live online training days", "Foundational interview and communication curriculum", "Priority opportunity to request a limited standalone mock-IV reservation"],
+      "includes": ["Orientation + Match Primer", "Five live online training days", "Foundational interview and communication curriculum", "Early-interview protection through October 18", "Priority opportunity to request a limited standalone mock-IV reservation"],
       "excludes": ["An included individual Signature Mock Interview", "Complete's season-long small-group coaching, debriefs, practice, and support"],
       "complete_includes_this": true,
       "runtime": {"checkout_allowed": false, "checkout_url": null}
     },
     "complete": {
       "name": "IV Prep Complete",
-      "descriptor": "Interview Week plus the whole season around it",
+      "descriptor": "Interview Bootcamp Week plus the whole season around it",
       "standard_price": 3499,
       "includes_interview_week": true,
-      "benefits": ["Interview Week", "Pre-IV Checkups", "Post-IV Debriefs", "Rx Replays on demand", "Debrief and individualized action-plan workflow", "Continued practice", "Personalized feedback", "Interview-season coaching and support"],
+      "benefits": ["Interview Bootcamp Week", "Early-interview protection through October 18", "Pre-IV Checkups", "Post-IV Debriefs", "Rx Replays on demand", "Debrief and individualized action-plan workflow", "Continued practice", "Personalized feedback", "Interview-season coaching and support"],
       "mock_count": null,
       "mock_count_public": false,
       "group_availability_public": false,

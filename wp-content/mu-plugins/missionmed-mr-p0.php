@@ -238,8 +238,8 @@ function mm_mr_0912_output_boundary(string $html): string {
             . 'function clean(){var n=document.getElementById("mm-mobile-notice");if(n)n.remove();'
             . 'var s=document.getElementById("mm-mobile-notice-styles");if(s)s.remove();'
             . 'if(location.pathname==="/"){document.querySelectorAll("a[href]").forEach(function(a){'
-            . 'var t=(a.textContent||"").trim();if((t==="Explore Interview Week and Complete"'
-            . '||t==="View Interview Week and Complete")&&(a.getAttribute("href")==="#"'
+            . 'var t=(a.textContent||"").trim();if((t==="Explore Interview Bootcamp Week and Complete"'
+            . '||t==="View Interview Bootcamp Week and Complete")&&(a.getAttribute("href")==="#"'
             . '||a.href.indexOf("/mission-residency-waitlist/")!==-1)){a.href="/mission-residency/";}});}}'
             . 'clean();document.addEventListener("DOMContentLoaded",clean);'
             . 'new MutationObserver(clean).observe(document.documentElement,{childList:true,subtree:true});}());</script>';
@@ -558,7 +558,7 @@ function mm_mr_0912_ga4_item(int $productId, int $variationId, int $quantity = 1
     $product = function_exists('wc_get_product') ? wc_get_product($variationId) : null;
     $itemPrice = $price ?? ($product ? (float) $product->get_price() : 0.0);
     $names = [
-        'interview_week' => 'IV Prep Essentials: Interview Week',
+        'interview_week' => 'IV Prep Essentials: Interview Bootcamp Week',
         'complete' => 'IV Prep Complete',
         'complete_installment' => 'IV Prep Complete - Payment Plan',
     ];
@@ -728,7 +728,7 @@ function mm_mr_0912_validate_add_to_cart(
     $conflicts = array_values(array_diff(['interview_week', 'complete', 'complete_installment'], [$offerKey]));
     foreach ($conflicts as $conflict) {
         if (in_array($conflict, $cartKeys, true)) {
-            if (function_exists('wc_add_notice')) wc_add_notice('Choose either Interview Week or IV Prep Complete; Complete already includes Interview Week.', 'error');
+            if (function_exists('wc_add_notice')) wc_add_notice('Choose either Interview Bootcamp Week or IV Prep Complete; Complete already includes Interview Bootcamp Week.', 'error');
             return false;
         }
     }
@@ -763,7 +763,7 @@ function mm_mr_0912_validate_cart(): void {
         }
     }
     if (count($offerKeys) > 1 && function_exists('wc_add_notice')) {
-        wc_add_notice('Choose either Interview Week or IV Prep Complete; Complete already includes Interview Week.', 'error');
+        wc_add_notice('Choose either Interview Bootcamp Week or IV Prep Complete; Complete already includes Interview Bootcamp Week.', 'error');
     }
 }
 add_action('woocommerce_check_cart_items', 'mm_mr_0912_validate_cart', 999);
@@ -869,7 +869,7 @@ add_filter('woocommerce_bacs_process_payment_order_status', static function (str
     return $status;
 }, 999, 2);
 
-// Presentation only: Complete already includes Interview Week. Do not recommend buying it twice.
+// Presentation only: Complete already includes Interview Bootcamp Week. Do not recommend buying it twice.
 add_filter('woocommerce_cart_crosssell_ids', static function (array $ids): array {
     if (!mm_mr_p0_enabled() || !function_exists('WC') || !WC()->cart) return $ids;
     foreach (WC()->cart->get_cart() as $item) {
@@ -1106,11 +1106,11 @@ add_action('template_redirect', static function (): void {
                 'Signature Mock entitlement confirmed at enrollment',
                 'Signature Mock entitlement confirmed at enrollment',
                 'physician mentors who teach residency applicants',
-                '<div class="mm-mr-p0-route__card"><strong>IV Prep Essentials: Interview Week</strong>',
+                '<div class="mm-mr-p0-route__card"><strong>IV Prep Essentials: Interview Bootcamp Week</strong>',
                 'href="https://missionmedinstitute.com/mission-residency/"',
                 'href="/mission-residency/"',
-                'Explore Interview Week and Complete',
-                'View Interview Week and Complete',
+                'Explore Interview Bootcamp Week and Complete',
+                'View Interview Bootcamp Week and Complete',
             ],
             $html
         );
@@ -1204,7 +1204,7 @@ add_action('woocommerce_review_order_before_payment', static function (): void {
     $offer = mm_mr_0912_zelle_offer();
     if ($offer === null) return;
     if ($offer === 'interview_week') {
-        echo '<div class="mm-mr-0912-payment-choice"><strong>Interview Week payment choice</strong><p>Card: $549. Zelle: $499, a $50 savings. Zelle orders remain on hold and do not receive course access until payment is verified.</p></div>';
+        echo '<div class="mm-mr-0912-payment-choice"><strong>Interview Bootcamp Week payment choice</strong><p>Card: $549. Zelle: $499, a $50 savings. Zelle orders remain on hold and do not receive course access until payment is verified.</p></div>';
         return;
     }
     echo '<div class="mm-mr-0912-payment-choice"><strong>IV Prep Complete payment choice</strong><p>Card or Zelle: $'
@@ -1246,7 +1246,7 @@ function mm_mr_0914_post_enrollment_expectations(int $orderId): void {
         . '<li>Use the same MissionMed account in <a href="' . esc_url(wc_get_page_permalink('myaccount')) . '">My Account</a> and My Courses.</li>'
         . '<li>Your enrollment confirmation provides the approved schedule, placement, and Signature Mock details for your program.</li>';
     if (isset($offers['complete']) || isset($offers['complete_installment'])) {
-        echo '<li>IV Prep Complete includes Interview Week. There is no separate Interview Week charge.</li>';
+        echo '<li>IV Prep Complete includes Interview Bootcamp Week. There is no separate Interview Bootcamp Week charge.</li>';
     }
     echo '<li>If confirmed access does not appear as expected, <a href="' . esc_url(home_url('/contact/')) . '">contact Admissions</a>.</li>'
         . '</ol></section>';
@@ -1315,7 +1315,7 @@ add_action('wp_footer', static function (): void {
       document.querySelectorAll("#mm-pgm-inject,.mm-pgm").forEach(function(n){n.remove();});
       document.querySelectorAll("a[href]").forEach(function(a){
         var text=(a.textContent||"").trim();
-        if((text==="Explore Interview Week and Complete"||text==="View Interview Week and Complete")
+        if((text==="Explore Interview Bootcamp Week and Complete"||text==="View Interview Bootcamp Week and Complete")
           &&(a.getAttribute("href")==="#"||a.href.indexOf("/mission-residency-waitlist/")!==-1)){
           a.href="/mission-residency/";
         }
@@ -1323,7 +1323,7 @@ add_action('wp_footer', static function (): void {
       var w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);var n;
       while(n=w.nextNode()){if(!n.nodeValue)continue;n.nodeValue=n.nodeValue
         .replace(/Match Prep Pro/gi,"IV Prep Complete")
-        .replace(/Interview Prep Foundation/gi,"IV Prep Essentials: Interview Week")
+        .replace(/Interview Prep Foundation/gi,"IV Prep Essentials: Interview Bootcamp Week")
         .replace(/Interview Prep Complete/gi,"IV Prep Complete")
         .replace(/Unlimited mock interviews/gi,"Signature Mock entitlement confirmed at enrollment")
         .replace(/Four Signature Mock Interviews/gi,"Signature Mock entitlement confirmed at enrollment")
@@ -1352,19 +1352,19 @@ add_filter('the_content', static function (string $content): string {
     if (!mm_mr_p0_enabled() || !is_front_page() || !in_the_loop() || !is_main_query()) return $content;
     $content = str_ireplace(
         ['Match Prep Pro', 'Interview Prep Foundation', 'Interview Prep Complete', 'Unlimited mock interviews', 'Four Signature Mock Interviews', 'physicians who have matched hundreds of candidates'],
-        ['IV Prep Complete', 'IV Prep Essentials: Interview Week', 'IV Prep Complete', 'Signature Mock entitlement confirmed at enrollment', 'Signature Mock entitlement confirmed at enrollment', 'physician mentors who teach residency applicants'],
+        ['IV Prep Complete', 'IV Prep Essentials: Interview Bootcamp Week', 'IV Prep Complete', 'Signature Mock entitlement confirmed at enrollment', 'Signature Mock entitlement confirmed at enrollment', 'physician mentors who teach residency applicants'],
         $content
     );
     $route = '<section class="mm-mr-p0-route" aria-label="Mission Residency Fall 2026">'
         . '<style>.mm-mr-p0-route{background:#081a2f;color:#f8f3e7;padding:clamp(44px,7vw,84px) 24px;font-family:Inter,system-ui,sans-serif}.mm-mr-p0-route__in{max-width:1160px;margin:auto;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(260px,.65fr);gap:42px;align-items:center}.mm-mr-p0-route__k,.mm-mr-p0-route__card-k{color:#e5bd62;text-transform:uppercase;letter-spacing:.16em;font-size:.78rem;font-weight:800}.mm-mr-p0-route h2{color:#fff;font:600 clamp(2.2rem,5vw,4.3rem)/1.02 Georgia,serif;margin:.35em 0}.mm-mr-p0-route p{font-size:1.1rem;line-height:1.65;max-width:720px}.mm-mr-p0-route__card{background:#102945;border:1px solid rgba(229,189,98,.45);padding:28px;border-radius:18px}.mm-mr-p0-route__card strong{display:block;color:#fff;font:600 1.7rem/1.15 Georgia,serif;margin:.45em 0}.mm-mr-p0-route a{display:inline-block;background:#e5bd62;color:#071626!important;text-decoration:none!important;font-weight:800;padding:14px 22px;border-radius:999px;margin-top:14px}@media(max-width:760px){.mm-mr-p0-route__in{grid-template-columns:1fr}}</style>'
         . '<div class="mm-mr-p0-route__in"><div><span class="mm-mr-p0-route__k">Mission Residency · Fall 2026</span><h2>Don&#8217;t use your real interviews as practice.</h2><p>One expert. Your whole interview season. Learn the framework, practice under pressure, and improve with physician-led feedback before programs see you.</p><a href="' . esc_url(home_url('/mission-residency/')) . '">Explore Mission Residency</a></div>'
-        . '<div class="mm-mr-p0-route__card"><span class="mm-mr-p0-route__card-k">Two clear paths</span><strong>Live kickoff or whole-season support.</strong><p>Interview Week builds the live foundation. Complete includes Interview Week and continues the coaching, practice, and feedback.</p><a href="' . esc_url(home_url('/mission-residency-courses/')) . '">Compare the two paths</a></div></div></section>';
+        . '<div class="mm-mr-p0-route__card"><span class="mm-mr-p0-route__card-k">Two clear paths</span><strong>Live kickoff or whole-season support.</strong><p>Interview Bootcamp Week builds the live foundation. Complete includes Interview Bootcamp Week and continues the coaching, practice, and feedback.</p><a href="' . esc_url(home_url('/mission-residency-courses/')) . '">Compare the two paths</a></div></div></section>';
     // DR-267 secondary directory; no product, checkout or payment mutation.
     $route .= '<section class="mm-mr-p0-route" aria-label="Other ways we can help"><div class="mm-mr-p0-route__in"><div>'
         . '<span class="mm-mr-p0-route__k">Other ways we can help</span>'
         . '<h2>Interview in the next 7 days?</h2>'
         . '<p><strong>Emergency Private Interview Intensive &middot; $3,999</strong><br>4 total private hours with Dr Brian, including 3 Signature Mock Interviews, for a real interview 7 days or less away.</p>'
-        . '<p>Does not include Interview Week, Complete, its season-long pathway or Match Guarantee. If time allows, we recommend Complete instead.</p>'
+        . '<p>Does not include Interview Bootcamp Week, Complete, its season-long pathway or Match Guarantee. If time allows, we recommend Complete instead.</p>'
         . '<a href="' . esc_url(home_url('/mission-residency/#emergency-prep')) . '">Explore emergency preparation</a></div>'
         . '<div class="mm-mr-p0-route__card"><span class="mm-mr-p0-route__card-k">SOLD OUT</span>'
         . '<strong>360 Match Mentorship &middot; $5,499</strong><p>Our highest-touch, one-to-one mentorship model. Currently unavailable for enrollment.</p></div></div></section>';
