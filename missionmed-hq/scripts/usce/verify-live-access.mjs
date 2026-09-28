@@ -2,6 +2,7 @@ const baseUrl = requiredUrl(process.env.USCE_VERIFY_BASE_URL);
 const expectedEmail = String(process.env.USCE_VERIFY_EXPECTED_EMAIL || '').trim().toLowerCase();
 const expectedLogin = String(process.env.USCE_VERIFY_EXPECTED_LOGIN || '').trim().toLowerCase();
 const expectDenied = process.env.USCE_VERIFY_EXPECT_DENIED === '1';
+const expectedDeniedStatus = Number(process.env.USCE_VERIFY_EXPECT_STATUS || 403);
 const browserOrigin = String(
   process.env.USCE_VERIFY_ORIGIN || 'https://cdn.missionmedinstitute.com',
 ).trim();
@@ -24,7 +25,7 @@ try {
       authenticated: exchange?.authenticated === true,
       error: String(exchange?.error || ''),
     }, null, 2));
-    process.exit(exchangeResponse.status === 403 ? 0 : 1);
+    process.exit(exchangeResponse.status === expectedDeniedStatus ? 0 : 1);
   }
   const cookie = readCookieHeader(exchangeResponse);
   const accessToken = String(exchange?.accessToken || '').trim();
@@ -79,6 +80,30 @@ try {
     redirect: 'manual',
   });
 
+  const logoutResponse = await fetch(new URL('/api/auth/logout', baseUrl), {
+    method: 'POST',
+    headers: {
+      ...authHeaders,
+      'X-MMHQ-CSRF': String(exchange?.csrfToken || ''),
+    },
+    redirect: 'manual',
+  });
+  const loggedOutCookie = readCookieHeader(logoutResponse);
+  const loggedOutSessionResponse = await fetch(new URL('/api/auth/session?audience=hq', baseUrl), {
+    headers: {
+      Accept: 'application/json',
+      Origin: browserOrigin,
+      ...(loggedOutCookie ? { Cookie: loggedOutCookie } : {}),
+    },
+    redirect: 'manual',
+  });
+  const loggedOutSession = await readJson(loggedOutSessionResponse);
+  const reloginResponse = await fetch(exchangeUrl, {
+    headers: { Origin: browserOrigin },
+    redirect: 'manual',
+  });
+  const relogin = await readJson(reloginResponse);
+
   const user = exchange?.user || {};
   const roles = Array.isArray(user.roles) ? user.roles.map((role) => String(role)) : [];
   const result = {
@@ -110,6 +135,11 @@ try {
     unauthenticated_queue_status: unauthenticatedResponse.status,
     unauthenticated_queue_error: String(unauthenticated?.error || ''),
     unrelated_route_status: unrelatedResponse.status,
+    logout_status: logoutResponse.status,
+    logged_out_session_status: loggedOutSessionResponse.status,
+    logged_out_session_authenticated: loggedOutSession?.authenticated === true,
+    relogin_status: reloginResponse.status,
+    relogin_authenticated: relogin?.authenticated === true,
   };
 
   console.log(JSON.stringify(result, null, 2));
@@ -129,7 +159,12 @@ try {
     && offerCsrfResponse.status === 403
     && invalidPublicOfferResponse.status === 404
     && unauthenticatedResponse.status === 401
-    && unrelatedResponse.status === 404;
+    && unrelatedResponse.status === 404
+    && logoutResponse.status === 200
+    && loggedOutSessionResponse.status === 200
+    && loggedOutSession?.authenticated === false
+    && reloginResponse.status === 200
+    && relogin?.authenticated === true;
   if (!accepted) process.exitCode = 1;
 } catch (error) {
   console.error(JSON.stringify({ error: 'live_verification_failed', type: error?.name || 'Error' }));
