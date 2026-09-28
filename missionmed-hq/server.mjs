@@ -72,6 +72,9 @@ const WORDPRESS_AUTH_REDIRECT_ACTION = 'mmac_hq_auth_redirect';
 const RISE_WORDPRESS_AUTH_REDIRECT_ACTION = 'mmed_rise_auth_redirect';
 const DEFAULT_AUTH_AUDIENCE = 'missionmed-hq';
 const RISE_AUTH_AUDIENCE = 'rise';
+const USCE_ADMIN_AUTH_RELAY_PATH = '/api/usce/admin/auth/relay';
+const USCE_ADMIN_AUTH_AUDIENCE = 'usce_admin';
+const USCE_ADMIN_CDN_URL = 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html';
 const RISE_PRIVATE_BETA_COURSE_IDS = new Set([3893, 3646]);
 const RISE_PRIVATE_BETA_ENTITLEMENT = 'FULL_RISE_BETA_ACCESS';
 const LOR_AUTH_START_PATH = '/api/lor-studio/auth/start';
@@ -1690,6 +1693,26 @@ function resolveAuthSessionFinalRedirect(rawFinal = '', request = null) {
   }
 }
 
+function withAuthSessionHandoffFragment(finalRedirect = '', handoffToken = '') {
+  const base = String(finalRedirect || '').trim();
+  const token = String(handoffToken || '').trim();
+  if (!base || !token) {
+    return base;
+  }
+
+  try {
+    const target = new URL(base);
+    const hash = String(target.hash || '').replace(/^#/u, '');
+    const params = new URLSearchParams(hash);
+    params.set('mmhq_handoff_token', token);
+    const nextHash = params.toString();
+    target.hash = nextHash ? `#${nextHash}` : '';
+    return target.toString();
+  } catch {
+    return base;
+  }
+}
+
 function isLocalhostHostname(hostname = '') {
   return LOCALHOST_HOSTNAMES.has(String(hostname || '').trim().toLowerCase());
 }
@@ -1816,6 +1839,37 @@ function buildWordPressAuthRedirectUrl(returnTo = '', audience = '') {
   }
 
   return target.toString();
+}
+
+function resolveExactCdnTarget(rawTarget = '', fallback = '') {
+  const candidate = String(rawTarget || '').trim() || fallback;
+
+  try {
+    const target = new URL(candidate, fallback);
+    const allowed = new URL(fallback);
+    if (target.origin !== allowed.origin || target.pathname !== allowed.pathname) {
+      return fallback;
+    }
+    target.hash = '';
+    return target.toString();
+  } catch {
+    return fallback;
+  }
+}
+
+function resolveUsceAdminAuthTarget(rawTarget = '') {
+  return resolveExactCdnTarget(rawTarget, USCE_ADMIN_CDN_URL);
+}
+
+function buildUsceAdminAuthRelayUrl(request = null, target = '') {
+  const hqBase = getHqBaseForRequest(request);
+  if (!hqBase) {
+    return '';
+  }
+
+  const relay = new URL(USCE_ADMIN_AUTH_RELAY_PATH, hqBase);
+  relay.searchParams.set('target', resolveUsceAdminAuthTarget(target));
+  return relay.toString();
 }
 
 function buildWordPressLorAuthRedirectUrl(
@@ -2798,6 +2852,36 @@ async function handleUsceRoute(request, response, url, context) {
   const { pathname } = url;
   const { session, authHeaders } = context;
 
+  if (pathname === USCE_ADMIN_AUTH_RELAY_PATH) {
+    if (request.method !== 'GET') {
+      sendMethodNotAllowed(response, ['GET']);
+      return true;
+    }
+
+    const relayTarget = resolveUsceAdminAuthTarget(url.searchParams.get('target'));
+    const handoffToken = String(url.searchParams.get('token') || '').trim();
+
+    if (!handoffToken) {
+      const relayReturnTo = buildUsceAdminAuthRelayUrl(request, relayTarget);
+      const redirectUrl = buildWordPressAuthRedirectUrl(relayReturnTo);
+
+      if (!redirectUrl) {
+        sendJson(response, 503, {
+          error: 'wordpress_login_not_configured',
+          message: 'WordPress login redirect is not configured yet. Set MMHQ_WP_BASE.',
+          login: getLoginHints(request),
+        }, authHeaders);
+        return true;
+      }
+
+      sendRedirect(response, redirectUrl);
+      return true;
+    }
+
+    sendRedirect(response, withAuthSessionHandoffFragment(relayTarget, handoffToken));
+    return true;
+  }
+
   if (!isKnownUsceRoute(pathname)) {
     return false;
   }
@@ -2870,8 +2954,15 @@ async function handleApiRoute(request, response, url, context) {
   if (
     sessionAuthAudience(session) === RISE_AUTH_AUDIENCE
     // Sign-in start only redirects to WordPress; it cannot grant or promote a
-    // session. Keep it reachable so a RISE cookie cannot deadlock IVOC/HQ login.
-    && !new Set(['/api/auth/start', '/api/auth/session', '/api/auth/logout', '/api/health']).has(pathname)
+    // session. Keep sign-in relays reachable so a RISE cookie cannot deadlock
+    // IVOC/HQ or USCE admin login.
+    && !new Set([
+      '/api/auth/start',
+      '/api/auth/session',
+      '/api/auth/logout',
+      '/api/health',
+      USCE_ADMIN_AUTH_RELAY_PATH,
+    ]).has(pathname)
   ) {
     sendJson(response, 403, {
       error: 'rise_audience_isolated',
@@ -9759,6 +9850,7 @@ function isSupportedAuthAudience(audience = '') {
     'missionmed-scheduler',
     'matrix-scheduler',
     RISE_AUTH_AUDIENCE,
+    USCE_ADMIN_AUTH_AUDIENCE,
   ]).has(normalized);
 }
 
