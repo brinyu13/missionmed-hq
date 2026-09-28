@@ -34,6 +34,10 @@ test('USCE admin runtime uses the scoped WordPress relay fallback', async () => 
 
   assert.match(
     source,
+    /apiBase:\s*'https:\/\/missionmed-usce-gateway-production\.up\.railway\.app'/u,
+  );
+  assert.match(
+    source,
     /authRelayEndpoint:\s*'https:\/\/missionmedinstitute\.com\/wp-admin\/admin-post\.php\?action=mmhq_usce_admin_auth_relay'/u,
   );
   assert.match(source, /authAudience:\s*'hq'/u);
