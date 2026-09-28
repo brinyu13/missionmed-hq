@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MissionMed HQ Auth Handoff
  * Description: WordPress -> Railway runtime auth handoff for Arena/STAT exchange bootstrap.
- * Version: 1.0.10
+ * Version: 1.0.11
  */
 
 if (!defined('ABSPATH')) {
@@ -19,7 +19,7 @@ if (!defined('MMHQ_USCE_ADMIN_CDN_URL')) {
     define('MMHQ_USCE_ADMIN_CDN_URL', 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html');
 }
 if (!defined('MMHQ_USCE_ADMIN_ASSET_VERSION')) {
-    define('MMHQ_USCE_ADMIN_ASSET_VERSION', '41456a69f527');
+    define('MMHQ_USCE_ADMIN_ASSET_VERSION', '52c71149dd0c');
 }
 if (!defined('MMHQ_HANDOFF_TTL_SECONDS')) {
     define('MMHQ_HANDOFF_TTL_SECONDS', 60);

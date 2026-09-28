@@ -1183,10 +1183,12 @@
       if (response.status === 401 || (response.ok && payload && payload.authenticated === false)) {
         writeStoredBearer('');
         state.accessToken = '';
+        beginAdminAuthRelay();
       }
       const err = new Error(payload && payload.message ? payload.message : 'Administrator login required.');
       err.status = response.status === 200 ? 401 : (response.status || 401);
       err.payload = payload;
+      err.recovering = err.status === 401;
       throw err;
     }
     state.csrfToken = payload.csrfToken || '';
@@ -1214,9 +1216,11 @@
     });
     const payload = await parseJson(response);
     if (!response.ok || (payload && payload.ok === false)) {
+      if (response.status === 401) beginAdminAuthRelay();
       const err = new Error(payload && payload.message ? payload.message : ('Request failed with HTTP ' + response.status));
       err.status = response.status;
       err.payload = payload;
+      err.recovering = response.status === 401;
       throw err;
     }
     return payload || {};
@@ -1331,6 +1335,7 @@
       setRuntime('Live protected', 'live');
       renderRequestList();
     } catch (error) {
+      if (error && error.recovering) return;
       state.requests = [];
       state.selectedRequestId = null;
       state.adapter = 'blocked';

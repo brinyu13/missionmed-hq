@@ -11,7 +11,7 @@ const usceAdminPath = path.join(repoRoot, 'LIVE', 'usce_admin.html');
 test('WordPress USCE relay is administrator-only, exact-target, and fragment-only', async () => {
   const source = await readFile(pluginPath, 'utf8');
 
-  assert.match(source, /Version:\s+1\.0\.10/u);
+  assert.match(source, /Version:\s+1\.0\.11/u);
   assert.match(source, /define\('MMHQ_USCE_ADMIN_HANDOFF_ACTION', 'mmhq_usce_admin_auth_relay'\)/u);
   assert.match(source, /define\('MMHQ_USCE_ADMIN_CDN_URL', 'https:\/\/cdn\.missionmedinstitute\.com\/html-system\/LIVE\/usce_admin\.html'\)/u);
   assert.match(source, /current_user_can\('manage_options'\)/u);
@@ -19,7 +19,7 @@ test('WordPress USCE relay is administrator-only, exact-target, and fragment-onl
   assert.match(source, /!empty\(\$target\['fragment'\]\)/u);
   assert.match(source, /mmhq_handoff_build_token_payload\(wp_get_current_user\(\), 'hq', ''\)/u);
   assert.match(source, /#mmhq_handoff_token=/u);
-  assert.match(source, /define\('MMHQ_USCE_ADMIN_ASSET_VERSION', '41456a69f527'\)/u);
+  assert.match(source, /define\('MMHQ_USCE_ADMIN_ASSET_VERSION', '52c71149dd0c'\)/u);
   assert.match(source, /function mmhq_usce_admin_autohandoff_content\(\$content\)/u);
   assert.match(source, /is_page\('usce-admin'\)/u);
   assert.match(source, /esc_url\(mmhq_usce_admin_entry_url\(\)\)/u);
@@ -55,4 +55,18 @@ test('USCE admin runtime uses the scoped WordPress relay fallback', async () => 
   );
   assert.match(source, /authAudience:\s*'hq'/u);
   assert.doesNotMatch(source, /authRelayEndpoint:\s*'\/api\/usce\/admin\/auth\/relay'/u);
+
+  const ensureSession = source.slice(
+    source.indexOf('async function ensureSession()'),
+    source.indexOf('async function adminFetch('),
+  );
+  assert.match(ensureSession, /response\.status === 401[\s\S]*beginAdminAuthRelay\(\)/u);
+  assert.match(ensureSession, /err\.recovering = err\.status === 401/u);
+
+  const adminFetch = source.slice(
+    source.indexOf('async function adminFetch('),
+    source.indexOf('function errorSummary('),
+  );
+  assert.match(adminFetch, /response\.status === 401\) beginAdminAuthRelay\(\)/u);
+  assert.match(adminFetch, /err\.recovering = response\.status === 401/u);
 });
