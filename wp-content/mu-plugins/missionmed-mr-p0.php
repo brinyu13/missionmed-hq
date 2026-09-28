@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MissionMed Mission Residency P0
  * Description: Reversible MR-WEB-0912 commerce activation with the bounded MR-WEB-0914 Fable 5 customer journey.
- * Version: 1.6.0
+ * Version: 1.7.0
  */
 declare(strict_types=1);
 
@@ -11,9 +11,10 @@ if (!defined('ABSPATH')) exit;
 const MM_MR_P0_ASSET_DIR = WPMU_PLUGIN_DIR . '/missionmed-mr-0912-assets';
 const MM_MR_P0_ASSET_URL = WPMU_PLUGIN_URL . '/missionmed-mr-0912-assets';
 const MM_MR_0912_GOOGLE_TAG_ID = 'GT-PJ7SPCWF';
+const MM_MR_0912_GA4_MEASUREMENT_ID = 'G-B4B4E26HMW';
 const MM_MR_0912_FINANCIAL_WAIVER_AUTHORITY = 'DR-296';
 const MM_MR_0912_PRIVATE_ACCESS_AUTHORITY = 'DR-325';
-const MM_MR_0912_FOREMAN_AUTHORITY = 'DR-325';
+const MM_MR_0912_FOREMAN_AUTHORITY = 'DR-336';
 const MM_MR_0912_PRIVATE_ACCESS_CODE_SHA256 = 'f312b8b76ebd1840de756111e7ad8a6181dba9ee0916d15dd59723aa27838507';
 const MM_MR_0912_PRIVATE_ACCESS_COOKIE = 'mm_mr_drj_access';
 const MM_MR_0912_IW_CARD_PRICE = 549.0;
@@ -34,7 +35,7 @@ function mm_mr_0912_private_open_timestamp(): int {
 function mm_mr_0912_complete_early_deadline_timestamp(): int {
     static $timestamp = null;
     if (is_int($timestamp)) return $timestamp;
-    $deadline = new DateTimeImmutable('2026-09-26 23:59:59', new DateTimeZone('America/New_York'));
+    $deadline = new DateTimeImmutable('2026-10-07 23:59:59', new DateTimeZone('America/New_York'));
     $timestamp = $deadline->getTimestamp();
     return $timestamp;
 }
@@ -159,7 +160,8 @@ function mm_mr_0912_google_tag_markup(): string {
         . MM_MR_0912_GOOGLE_TAG_ID . '"></script><script id="mm-mr-0912-google-tag-config">'
         . 'window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}'
         . 'gtag("set","linker",{"domains":["missionmedinstitute.com"]});gtag("js",new Date());'
-        . 'gtag("config","' . MM_MR_0912_GOOGLE_TAG_ID . '");</script>';
+        . 'gtag("config","' . MM_MR_0912_GOOGLE_TAG_ID . '");'
+        . 'gtag("config","' . MM_MR_0912_GA4_MEASUREMENT_ID . '",{"send_page_view":false});</script>';
 }
 
 function mm_mr_0912_clean_policy_markup(string $html): string {
@@ -280,7 +282,7 @@ function mm_mr_0912_acceptance_binding(string $offerKey, string $verifiedAt, arr
     $priceFacts = $offerKey === 'complete'
         ? ['approved_price_schedule' => [
             'early_paid_in_full' => 3099.0,
-            'early_through' => '2026-09-26T23:59:59-04:00',
+            'early_through' => '2026-10-07T23:59:59-04:00',
             'standard_paid_in_full' => 3499.0,
             'authority' => MM_MR_0912_FOREMAN_AUTHORITY,
         ]]
@@ -319,7 +321,7 @@ function mm_mr_p0_runtime_config(): array {
             'product_id' => 3576,
             'variation_id' => 5865,
             'course_id' => 5227,
-            // This is the verified-card target through Sept 26. After the
+            // This is the verified-card target through Oct 7. After the
             // deadline a stale $3,099 product fails closed against $3,499.
             'expected_price' => mm_mr_0912_complete_pif_price(),
         ],
@@ -531,6 +533,75 @@ function mm_mr_0912_offer_for_product(int $productId, int $variationId = 0): ?st
         return 'invalid';
     }
     return null;
+}
+
+function mm_mr_0912_ga4_attribution(): array {
+    $allowed = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'];
+    $values = [];
+    foreach ($allowed as $key) {
+        if (!isset($_GET[$key])) continue;
+        $value = substr(sanitize_text_field(wp_unslash((string) $_GET[$key])), 0, 200);
+        if ($value !== '') $values[$key] = $value;
+    }
+    if ($values && function_exists('WC') && WC()->session) {
+        WC()->session->set('mm_mr_0912_ga4_attribution', $values);
+    } elseif (!$values && function_exists('WC') && WC()->session) {
+        $stored = WC()->session->get('mm_mr_0912_ga4_attribution', []);
+        if (is_array($stored)) $values = array_intersect_key($stored, array_flip($allowed));
+    }
+    return $values;
+}
+
+function mm_mr_0912_ga4_item(int $productId, int $variationId, int $quantity = 1, ?float $price = null): ?array {
+    $offer = mm_mr_0912_offer_for_product($productId, $variationId);
+    if (!in_array($offer, ['interview_week', 'complete', 'complete_installment'], true)) return null;
+    $product = function_exists('wc_get_product') ? wc_get_product($variationId) : null;
+    $itemPrice = $price ?? ($product ? (float) $product->get_price() : 0.0);
+    $names = [
+        'interview_week' => 'IV Prep Essentials: Interview Week',
+        'complete' => 'IV Prep Complete',
+        'complete_installment' => 'IV Prep Complete - Payment Plan',
+    ];
+    return [
+        'item_id' => (string) $variationId,
+        'item_name' => $names[$offer],
+        'item_category' => 'Mission Residency',
+        'item_variant' => $offer,
+        'price' => round($itemPrice, 2),
+        'quantity' => max(1, $quantity),
+    ];
+}
+
+function mm_mr_0912_ga4_cart_payload(): array {
+    if (!function_exists('WC') || !WC()->cart) return [];
+    $items = [];
+    $value = 0.0;
+    foreach (WC()->cart->get_cart() as $cartItem) {
+        $quantity = max(1, (int) ($cartItem['quantity'] ?? 1));
+        $unitPrice = isset($cartItem['line_total']) ? (float) $cartItem['line_total'] / $quantity : null;
+        $item = mm_mr_0912_ga4_item(
+            (int) ($cartItem['product_id'] ?? 0),
+            (int) ($cartItem['variation_id'] ?? 0),
+            $quantity,
+            $unitPrice
+        );
+        if (!$item) continue;
+        $items[] = $item;
+        $value += (float) $item['price'] * $quantity;
+    }
+    if (!$items) return [];
+    return ['currency' => 'USD', 'value' => round($value, 2), 'items' => $items] + mm_mr_0912_ga4_attribution();
+}
+
+function mm_mr_0912_ga4_emit(string $event, array $payload, string $dedupeKey = ''): void {
+    if (!$payload) return;
+    $payload['send_to'] = MM_MR_0912_GA4_MEASUREMENT_ID;
+    $eventJson = wp_json_encode($event);
+    $payloadJson = wp_json_encode($payload, JSON_UNESCAPED_SLASHES);
+    $dedupeJson = wp_json_encode($dedupeKey);
+    echo '<script class="mm-mr-0912-ga4-event">(function(){var e=' . $eventJson . ',p=' . $payloadJson . ',k=' . $dedupeJson
+        . ';if(k&&sessionStorage.getItem(k))return;if(k)sessionStorage.setItem(k,"1");'
+        . 'window.dataLayer=window.dataLayer||[];if(typeof window.gtag==="function")window.gtag("event",e,p);else window.dataLayer.push(Object.assign({event:e},p));}());</script>';
 }
 
 function mm_mr_0912_private_offer_for_ids(int $productId, int $variationId = 0): ?string {
@@ -814,8 +885,11 @@ function mm_mr_0912_cart_button_markup(): string {
     $cartCount = function_exists('WC') && WC()->cart ? (int) WC()->cart->get_cart_contents_count() : 0;
     $label = $cartCount === 1 ? 'Cart, 1 item' : 'Cart, ' . $cartCount . ' items';
     return '<a id="mm-mr-0912-cart-button" href="' . esc_url($cartUrl) . '" aria-label="' . esc_attr($label) . '">'
-        . '<span aria-hidden="true">CART</span><span class="mm-mr-0912-cart-count" aria-hidden="true">' . esc_html((string) $cartCount) . '</span></a>'
-        . '<style id="mm-mr-0912-cart-button-style">#mm-mr-0912-cart-button{position:fixed;right:max(16px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));z-index:2147482000;display:inline-flex;align-items:center;justify-content:center;gap:9px;min-width:94px;min-height:48px;padding:11px 15px;border:1px solid rgba(229,189,98,.9);border-radius:999px;background:#071626;color:#fff!important;text-decoration:none!important;font:800 13px/1 Inter,system-ui,sans-serif;letter-spacing:.12em;box-shadow:0 10px 30px rgba(0,0,0,.32);transition:transform .18s ease,box-shadow .18s ease}#mm-mr-0912-cart-button:hover,#mm-mr-0912-cart-button:focus-visible{transform:translateY(-2px);box-shadow:0 14px 34px rgba(0,0,0,.4);outline:3px solid #e5bd62;outline-offset:3px}.mm-mr-0912-cart-count{display:inline-grid;place-items:center;min-width:24px;height:24px;padding:0 6px;border-radius:999px;background:#e5bd62;color:#071626;font-size:12px;letter-spacing:0}@media(max-width:520px){#mm-mr-0912-cart-button{right:max(12px,env(safe-area-inset-right));bottom:max(12px,env(safe-area-inset-bottom));min-height:46px;padding:10px 13px}}</style>';
+        . '<span aria-hidden="true">CART</span><span class="mm-mr-0912-cart-count" aria-hidden="true">' . esc_html((string) $cartCount) . '</span></a>';
+}
+
+function mm_mr_0912_cart_button_style_markup(): string {
+    return '<style id="mm-mr-0912-cart-button-style">#mm-mr-0912-cart-button{position:fixed;right:max(16px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));z-index:2147482000;display:inline-flex;align-items:center;justify-content:center;gap:9px;min-width:94px;min-height:48px;padding:11px 15px;border:1px solid rgba(229,189,98,.9);border-radius:999px;background:#071626;color:#fff!important;text-decoration:none!important;font:800 13px/1 Inter,system-ui,sans-serif;letter-spacing:.12em;box-shadow:0 10px 30px rgba(0,0,0,.32);transition:transform .18s ease,box-shadow .18s ease}#mm-mr-0912-cart-button:hover,#mm-mr-0912-cart-button:focus-visible{transform:translateY(-2px);box-shadow:0 14px 34px rgba(0,0,0,.4);outline:3px solid #e5bd62;outline-offset:3px}.mm-mr-0912-cart-count{display:inline-grid;place-items:center;min-width:24px;height:24px;padding:0 6px;border-radius:999px;background:#e5bd62;color:#071626;font-size:12px;letter-spacing:0}@media(max-width:520px){#mm-mr-0912-cart-button{right:max(12px,env(safe-area-inset-right));bottom:max(12px,env(safe-area-inset-bottom));min-height:46px;padding:10px 13px}}</style>';
 }
 
 function mm_mr_p0_render_asset_page(string $page): never {
@@ -852,7 +926,7 @@ function mm_mr_p0_render_asset_page(string $page): never {
         . mm_mr_0912_google_tag_markup()
         . '<style id="mm-mr-0912-static-containment">#mm-mobile-notice,#mm-mobile-notice-styles{display:none!important}</style>';
     $html = preg_replace('/<head>/', $head, $html, 1);
-    $html = preg_replace('/<\/body>/i', mm_mr_0912_cart_button_markup() . '</body>', $html, 1) ?? $html;
+    $html = preg_replace('/<\/body>/i', mm_mr_0912_cart_button_style_markup() . mm_mr_0912_cart_button_markup() . '</body>', $html, 1) ?? $html;
     status_header(200);
     nocache_headers();
     header('Content-Type: text/html; charset=' . get_option('blog_charset'));
@@ -1080,7 +1154,8 @@ add_action('wp_head', static function (): void {
 }, 99);
 
 function mm_mr_0912_is_customer_funnel_route(): bool {
-    $path = '/' . trim((string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH), '/') . '/';
+    $trimmed = trim((string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH), '/');
+    $path = $trimmed === '' ? '/' : '/' . $trimmed . '/';
     if (str_starts_with($path, '/checkout/')) return true;
     return in_array($path, [
         '/', '/mission-residency/', '/mission-residency-courses/', '/compare-programs/',
@@ -1094,6 +1169,7 @@ function mm_mr_0912_is_customer_funnel_route(): bool {
 add_action('wp_head', static function (): void {
     if (!mm_mr_p0_enabled() || !mm_mr_0912_is_customer_funnel_route()) return;
     echo '<style id="mm-mr-0912-mobile-notice-containment">#mm-mobile-notice,#mm-mobile-notice-styles{display:none!important}</style>';
+    echo mm_mr_0912_cart_button_style_markup(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- static reviewed CSS.
 }, PHP_INT_MAX);
 
 add_action('wp_footer', static function (): void {
@@ -1105,6 +1181,19 @@ add_action('wp_footer', static function (): void {
     if (!mm_mr_0912_is_customer_funnel_route()) return;
     echo mm_mr_0912_cart_button_markup(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- composed from escaped local values.
 }, PHP_INT_MAX - 1);
+
+add_action('wp_footer', static function (): void {
+    if (!mm_mr_p0_enabled() || !function_exists('WC') || !WC()->session) return;
+    if (function_exists('is_checkout') && is_checkout()
+        && (!function_exists('is_order_received_page') || !is_order_received_page())) {
+        $payload = mm_mr_0912_ga4_cart_payload();
+        if ($payload) {
+            $payload['offer'] = implode(',', mm_mr_0912_cart_offer_keys());
+            $payload['destination_path'] = '/checkout/';
+            mm_mr_0912_ga4_emit('begin_checkout', $payload, 'mm_mr_begin_checkout_' . md5((string) wp_json_encode($payload['items'])));
+        }
+    }
+}, 19);
 
 add_action('woocommerce_review_order_before_submit', static function (): void {
     if (!mm_mr_p0_launch_product_in_cart()) return;
@@ -1126,10 +1215,12 @@ add_action('woocommerce_review_order_before_payment', static function (): void {
 add_action('wp_footer', static function (): void {
     if (!mm_mr_p0_launch_product_in_cart()) return;
     $offer = mm_mr_0912_zelle_offer();
+    $cartOffers = mm_mr_0912_cart_offer_keys();
+    $analyticsOffer = count($cartOffers) === 1 ? (string) reset($cartOffers) : 'protected_offer';
     $cardValue = $offer === 'interview_week' ? MM_MR_0912_IW_CARD_PRICE : mm_mr_0912_complete_pif_price();
     $zelleValue = $offer === 'interview_week' ? MM_MR_0912_IW_ZELLE_PRICE : $cardValue;
     echo '<script id="mm-mr-0912-payment-analytics">(function(){var last="",requested=new URLSearchParams(location.search).get("mr_payment")==="zelle",applied=false;function choose(){if(!requested||applied)return;var n=document.querySelector("input[name=payment_method][value=bacs]");if(!n)return;applied=true;n.checked=true;n.dispatchEvent(new Event("change",{bubbles:true}));}function emit(){var n=document.querySelector("input[name=payment_method]:checked");if(!n||n.value===last)return;last=n.value;window.dataLayer=window.dataLayer||[];window.dataLayer.push({event:"mr_payment_method_selected",payment_method:last,offer:'
-        . wp_json_encode($offer ?: 'protected_offer') . ',value:last==="bacs"?'
+        . wp_json_encode($analyticsOffer) . ',rail:last==="bacs"?"zelle":"card",destination_path:"/checkout/",value:last==="bacs"?'
         . wp_json_encode($zelleValue) . ':' . wp_json_encode($cardValue)
         . ',currency:"USD"});}document.addEventListener("change",function(e){if(!e.target||e.target.name!=="payment_method")return;emit();if(window.jQuery)jQuery(document.body).trigger("update_checkout");});document.addEventListener("DOMContentLoaded",function(){choose();emit();});if(window.jQuery)jQuery(document.body).on("updated_checkout",function(){choose();emit();});}());</script>';
 }, 20);
@@ -1161,6 +1252,52 @@ function mm_mr_0914_post_enrollment_expectations(int $orderId): void {
         . '</ol></section>';
 }
 add_action('woocommerce_thankyou', 'mm_mr_0914_post_enrollment_expectations', 5);
+
+function mm_mr_0912_ga4_order_payload($order): array {
+    if (!is_object($order) || !method_exists($order, 'get_items')) return [];
+    $items = [];
+    foreach ($order->get_items() as $orderItem) {
+        if (!is_object($orderItem) || !method_exists($orderItem, 'get_product_id')) continue;
+        $quantity = max(1, (int) $orderItem->get_quantity());
+        $unitPrice = (float) $orderItem->get_total() / $quantity;
+        $item = mm_mr_0912_ga4_item(
+            (int) $orderItem->get_product_id(),
+            (int) $orderItem->get_variation_id(),
+            $quantity,
+            $unitPrice
+        );
+        if ($item) $items[] = $item;
+    }
+    if (!$items) return [];
+    return [
+        'transaction_id' => (string) $order->get_id(),
+        'currency' => (string) $order->get_currency(),
+        'value' => round((float) $order->get_total(), 2),
+        'tax' => round((float) $order->get_total_tax(), 2),
+        'shipping' => round((float) $order->get_shipping_total(), 2),
+        'payment_type' => sanitize_key((string) $order->get_payment_method()),
+        'items' => $items,
+    ] + mm_mr_0912_ga4_attribution();
+}
+
+add_action('woocommerce_thankyou', static function (int $orderId): void {
+    if (!mm_mr_p0_enabled() || !function_exists('wc_get_order')) return;
+    $order = wc_get_order($orderId);
+    if (!$order || !method_exists($order, 'is_paid') || !$order->is_paid()) return;
+    $payload = mm_mr_0912_ga4_order_payload($order);
+    mm_mr_0912_ga4_emit('purchase', $payload, 'mm_mr_purchase_' . $orderId);
+}, 25);
+
+add_action('woocommerce_order_details_after_order_table', static function ($order): void {
+    if (!mm_mr_p0_enabled() || !is_object($order) || !method_exists($order, 'get_total_refunded')) return;
+    $refunded = abs((float) $order->get_total_refunded());
+    if ($refunded < 0.01) return;
+    $payload = mm_mr_0912_ga4_order_payload($order);
+    if (!$payload) return;
+    $payload['value'] = round($refunded, 2);
+    unset($payload['tax'], $payload['shipping'], $payload['payment_type']);
+    mm_mr_0912_ga4_emit('refund', $payload, 'mm_mr_refund_' . $order->get_id() . '_' . number_format($refunded, 2, '.', ''));
+}, 25);
 
 add_action('wp_footer', static function (): void {
     if (!mm_mr_p0_clean_commercial_chrome()) return;
