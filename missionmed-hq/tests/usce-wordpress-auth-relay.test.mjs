@@ -11,7 +11,7 @@ const usceAdminPath = path.join(repoRoot, 'LIVE', 'usce_admin.html');
 test('WordPress USCE relay is administrator-only, exact-target, and fragment-only', async () => {
   const source = await readFile(pluginPath, 'utf8');
 
-  assert.match(source, /Version:\s+1\.0\.9/u);
+  assert.match(source, /Version:\s+1\.0\.10/u);
   assert.match(source, /define\('MMHQ_USCE_ADMIN_HANDOFF_ACTION', 'mmhq_usce_admin_auth_relay'\)/u);
   assert.match(source, /define\('MMHQ_USCE_ADMIN_CDN_URL', 'https:\/\/cdn\.missionmedinstitute\.com\/html-system\/LIVE\/usce_admin\.html'\)/u);
   assert.match(source, /current_user_can\('manage_options'\)/u);
@@ -38,6 +38,7 @@ test('WordPress USCE relay is administrator-only, exact-target, and fragment-onl
     source.indexOf('function mmhq_usce_admin_handoff_handle()'),
     source.indexOf('function mmhq_cam_logout_nonce_option_name'),
   );
+  assert.match(usceHandler, /USCE administrator access is required[\s\S]*array\('response' => 403\)/u);
   assert.doesNotMatch(usceHandler, /add_query_arg\([^)]*token/su);
 });
 

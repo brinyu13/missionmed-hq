@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MissionMed HQ Auth Handoff
  * Description: WordPress -> Railway runtime auth handoff for Arena/STAT exchange bootstrap.
- * Version: 1.0.9
+ * Version: 1.0.10
  */
 
 if (!defined('ABSPATH')) {
@@ -978,28 +978,40 @@ function mmhq_usce_admin_handoff_handle() {
     }
 
     if (!current_user_can('manage_options')) {
-        status_header(403);
-        wp_die('USCE administrator access is required.');
+        wp_die(
+            'USCE administrator access is required.',
+            'USCE administrator access denied',
+            array('response' => 403)
+        );
     }
 
     $target_raw = isset($_GET['target']) ? (string) wp_unslash($_GET['target']) : '';
     $target = mmhq_usce_admin_handoff_target($target_raw);
     if ($target === '') {
-        status_header(400);
-        wp_die('Invalid USCE administrator target.');
+        wp_die(
+            'Invalid USCE administrator target.',
+            'Invalid USCE administrator target',
+            array('response' => 400)
+        );
     }
 
     $secret = mmhq_handoff_secret();
     if ($secret === '') {
-        status_header(503);
-        wp_die('MissionMed handoff secret is not configured.');
+        wp_die(
+            'MissionMed handoff secret is not configured.',
+            'USCE administrator access unavailable',
+            array('response' => 503)
+        );
     }
 
     $payload = mmhq_handoff_build_token_payload(wp_get_current_user(), 'hq', '');
     $payload_json = wp_json_encode($payload);
     if (!is_string($payload_json) || $payload_json === '') {
-        status_header(500);
-        wp_die('Failed to encode USCE administrator handoff.');
+        wp_die(
+            'Failed to encode USCE administrator handoff.',
+            'USCE administrator access unavailable',
+            array('response' => 500)
+        );
     }
 
     $body = rtrim(strtr(base64_encode($payload_json), '+/', '-_'), '=');
