@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MissionMed HQ Auth Handoff
  * Description: WordPress -> Railway runtime auth handoff for Arena/STAT exchange bootstrap.
- * Version: 1.0.7
+ * Version: 1.0.8
  */
 
 if (!defined('ABSPATH')) {
@@ -17,6 +17,9 @@ if (!defined('MMHQ_USCE_ADMIN_HANDOFF_ACTION')) {
 }
 if (!defined('MMHQ_USCE_ADMIN_CDN_URL')) {
     define('MMHQ_USCE_ADMIN_CDN_URL', 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html');
+}
+if (!defined('MMHQ_USCE_ADMIN_ASSET_VERSION')) {
+    define('MMHQ_USCE_ADMIN_ASSET_VERSION', '41456a69f527');
 }
 if (!defined('MMHQ_HANDOFF_TTL_SECONDS')) {
     define('MMHQ_HANDOFF_TTL_SECONDS', 60);
@@ -927,6 +930,44 @@ function mmhq_usce_admin_handoff_target($raw_target) {
     }
     return $candidate;
 }
+
+function mmhq_usce_admin_versioned_target() {
+    return add_query_arg(
+        array('v' => MMHQ_USCE_ADMIN_ASSET_VERSION),
+        MMHQ_USCE_ADMIN_CDN_URL
+    );
+}
+
+function mmhq_usce_admin_entry_url() {
+    return add_query_arg(
+        array(
+            'action' => MMHQ_USCE_ADMIN_HANDOFF_ACTION,
+            'target' => mmhq_usce_admin_versioned_target(),
+        ),
+        admin_url('admin-post.php')
+    );
+}
+
+function mmhq_usce_admin_autohandoff_content($content) {
+    if (!function_exists('is_page') || !is_page('usce-admin')) {
+        return $content;
+    }
+
+    $content = (string) $content;
+    if (false === strpos($content, MMHQ_USCE_ADMIN_CDN_URL)) {
+        return $content;
+    }
+
+    // Always enter through WordPress. Authorized administrators receive the
+    // fragment-only handoff; logged-out users see the normal WordPress login;
+    // logged-in non-admins fail closed with the scoped 403 response.
+    return str_replace(
+        MMHQ_USCE_ADMIN_CDN_URL,
+        esc_url(mmhq_usce_admin_entry_url()),
+        $content
+    );
+}
+add_filter('the_content', 'mmhq_usce_admin_autohandoff_content', PHP_INT_MAX);
 
 function mmhq_usce_admin_handoff_handle() {
     $request_uri = isset($_SERVER['REQUEST_URI']) ? (string) wp_unslash($_SERVER['REQUEST_URI']) : '';
