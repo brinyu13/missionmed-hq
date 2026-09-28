@@ -685,9 +685,13 @@ try {
   console.log('PUBLIC DIR CONTENTS:', existsSync(publicDirPath) ? readdirSync(publicDirPath) : []);
   console.log('EMAIL DIR CONTENTS:', existsSync(emailDirPath) ? readdirSync(emailDirPath) : []);
   console.log('EMAIL PATH:', path.join(__dirname, 'public', 'email', 'email_inbox.html'));
-  startDbocTranscribeWorker();
-  startDbocEncodeWorker();
-  startDbocMetricsWorker();
+  // The isolated USCE gateway reuses this request runtime behind a strict
+  // route allowlist. It must not start a second copy of unrelated DBoC jobs.
+  if (process.env.MMHQ_USCE_GATEWAY_CHILD !== '1') {
+    startDbocTranscribeWorker();
+    startDbocEncodeWorker();
+    startDbocMetricsWorker();
+  }
   server.listen(PORT, '0.0.0.0', () => {
     console.log('HQ server running on port:', PORT);
   });
