@@ -11,7 +11,7 @@ const usceAdminPath = path.join(repoRoot, 'LIVE', 'usce_admin.html');
 test('WordPress USCE relay is administrator-only, exact-target, and fragment-only', async () => {
   const source = await readFile(pluginPath, 'utf8');
 
-  assert.match(source, /Version:\s+1\.0\.8/u);
+  assert.match(source, /Version:\s+1\.0\.9/u);
   assert.match(source, /define\('MMHQ_USCE_ADMIN_HANDOFF_ACTION', 'mmhq_usce_admin_auth_relay'\)/u);
   assert.match(source, /define\('MMHQ_USCE_ADMIN_CDN_URL', 'https:\/\/cdn\.missionmedinstitute\.com\/html-system\/LIVE\/usce_admin\.html'\)/u);
   assert.match(source, /current_user_can\('manage_options'\)/u);
@@ -26,6 +26,13 @@ test('WordPress USCE relay is administrator-only, exact-target, and fragment-onl
   assert.match(source, /add_filter\('the_content', 'mmhq_usce_admin_autohandoff_content', PHP_INT_MAX\)/u);
   assert.match(source, /add_action\('admin_post_' \. MMHQ_USCE_ADMIN_HANDOFF_ACTION, 'mmhq_usce_admin_handoff_handle', 1\)/u);
   assert.match(source, /add_action\('admin_post_nopriv_' \. MMHQ_USCE_ADMIN_HANDOFF_ACTION, 'mmhq_usce_admin_handoff_handle', 1\)/u);
+
+  const publicRouteHandler = source.slice(
+    source.indexOf('function mmhq_handoff_maybe_handle_public_route()'),
+    source.indexOf("add_action('init', 'mmhq_handoff_maybe_handle_public_route'"),
+  );
+  assert.match(publicRouteHandler, /'1' === \$public && '' === \$action/u);
+  assert.doesNotMatch(publicRouteHandler, /mmhq_handoff_is_endpoint_request/u);
 
   const usceHandler = source.slice(
     source.indexOf('function mmhq_usce_admin_handoff_handle()'),

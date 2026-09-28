@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MissionMed HQ Auth Handoff
  * Description: WordPress -> Railway runtime auth handoff for Arena/STAT exchange bootstrap.
- * Version: 1.0.8
+ * Version: 1.0.9
  */
 
 if (!defined('ABSPATH')) {
@@ -1089,7 +1089,9 @@ function mmhq_cam_logout_handle() {
 add_action('init', 'mmhq_cam_logout_handle', 1);
 
 function mmhq_handoff_maybe_handle_public_route() {
-    if (mmhq_handoff_is_endpoint_request() && (!isset($_REQUEST['action']) || MMHQ_HANDOFF_ACTION !== sanitize_key(wp_unslash($_REQUEST['action'])))) {
+    $public = isset($_GET['mmhq_handoff']) ? sanitize_key(wp_unslash($_GET['mmhq_handoff'])) : '';
+    $action = isset($_REQUEST['action']) ? sanitize_key(wp_unslash($_REQUEST['action'])) : '';
+    if ('1' === $public && '' === $action) {
         mmhq_handoff_handle();
     }
 }
