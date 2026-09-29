@@ -86,4 +86,11 @@ test('exact-match engine distinguishes verified, consumed, ambiguous, and absent
 
   const absent = await findExactZelleMatch({ input: { ...baseInput, payerName: 'different payer' }, ...common });
   assert.equal(absent.state, 'not_found');
+
+  const wrongAmount = await findExactZelleMatch({ input: { ...baseInput, expectedAmount: '2.00' }, ...common });
+  assert.equal(wrongAmount.state, 'not_found');
+
+  messages.splice(1, 1);
+  const outsideWindow = await findExactZelleMatch({ input: { ...baseInput, orderCreatedEpoch: nowEpoch + 3600 }, ...common });
+  assert.equal(outsideWindow.state, 'not_found');
 });
