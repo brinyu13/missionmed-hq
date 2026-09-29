@@ -38,8 +38,11 @@ the actual production route and deployment.
   actor/subject transition risk was found: Admin-selected student Results/Film
   Room state could remain visible after switching to Student View. The isolated
   live-source worktree now invalidates in-flight Admin reads, clears selected
-  recording and evidence, and returns to the own-library view. Focused tests
-  pass; no production deployment or user POV acceptance has occurred yet.
+  recording and evidence, and returns to the own-library view. A subsequent
+  source review found a second pending Film Room playback path; it now checks
+  review generation and saved-attempt identity after signed URL resolution.
+  Focused tests pass; no successful production deployment or user POV
+  acceptance has occurred yet.
 - **Review wayfinding: LOCAL FIX, LIVE UNVERIFIED.** With no selected attempt,
   Results/Film Room entry now resolves to the private saved-attempt chooser;
   its empty state offers Start practicing. The Home practice prompt carries
@@ -47,9 +50,25 @@ the actual production route and deployment.
   instead of inheriting an earlier interview mode. Focused source tests pass;
   production visual/interaction acceptance remains open.
 - **Lease control:** earlier connector/TTY keepers expired without any
-  production mutation. A corrected keychain-backed local keeper was started
-  under fresh PRODUCT fencing; protected work may continue only while its
-  provider heartbeat remains current. No force-unlock or owner override occurred.
+  production mutation. A keychain-backed local keeper protected the first
+  candidate upload but later failed closed on provider transport; its lease
+  expired. A fresh PRODUCT lease/fencing transaction is required for each
+  subsequent mutation and must be checked against provider time. No force-unlock
+  or owner override occurred.
+- **First release candidate FAILED BUILD, production still healthy.** Candidate
+  `ff6461aff91b352748b28d6002299a0712831c6b` was uploaded as Railway
+  deployment `5b5e70d2-29f8-4d0e-93ad-a43da50d06e0`; `npm run build` failed
+  because Railway's `.gitignore`-based archive omitted the tracked
+  `missionmed-hq/lib/auth/session-token.mjs` (`*token*` ignore rule). The live
+  `ac928daa-6d68-4cc3-93e3-f313c70f4fcd` deployment remained SUCCESS and
+  `/health` returned 200. Next candidate must use a tracked-files-only archive
+  with explicit inclusion of that module; do not upload ignored secrets.
+- **Recording fail-closed: LOCAL FIX, LIVE UNVERIFIED.** A source review found
+  that an unsupported `MediaRecorder` could return false while the session
+  proceeded as if recorded, and a null seal could still file Results. Start now
+  requires a true recorder start; Finish requires a sealed recording receipt
+  before Results persistence. Focused local tests pass. Genuine audible
+  two-sided production replay after cold reload remains required.
 
 ## Founder POV production acceptance — current
 

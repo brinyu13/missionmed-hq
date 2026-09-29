@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { clearAdminReviewMedia, createAdminReviewGate, isAdminReview, resolveReviewDestination } from '../../public/studio/review-scope.mjs';
+import { clearAdminReviewMedia, createAdminReviewGate, isAdminReview, mayPresentSavedReview, resolveReviewDestination } from '../../public/studio/review-scope.mjs';
 
 test('Admin review responses are invalid after a role switch or newer selection', () => {
   const gate = createAdminReviewGate();
@@ -19,6 +19,21 @@ test('Only an Admin-selected student review is cleared on role change', () => {
   assert.equal(isAdminReview({ reviewScope: 'admin' }), true);
   assert.equal(isAdminReview({ persisted: true }), false);
   assert.equal(isAdminReview(null), false);
+});
+
+test('pending Admin playback cannot reopen after a role switch', async () => {
+  const gate = createAdminReviewGate();
+  const saved = { reviewScope: 'admin', recording: { id: 'student-recording' } };
+  const ticket = gate.begin('admin');
+  let resolvePlayback;
+  const playback = new Promise((resolve) => { resolvePlayback = resolve; });
+  const pending = playback.then(() => mayPresentSavedReview({
+    saved, currentSaved: null, role: 'student', ticket, gate,
+  }));
+  gate.invalidate();
+  resolvePlayback({ url: 'signed-private-media' });
+  assert.equal(await pending, false);
+  assert.equal(mayPresentSavedReview({ saved, currentSaved: saved, role: 'admin', ticket, gate }), false);
 });
 
 test('Leaving an Admin review removes signed playback and student-specific readouts', () => {

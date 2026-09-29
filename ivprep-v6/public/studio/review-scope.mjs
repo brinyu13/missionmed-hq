@@ -17,6 +17,10 @@ export function isAdminReview(saved) {
   return saved?.reviewScope === 'admin';
 }
 
+export function mayPresentSavedReview({ saved, currentSaved, role, ticket, gate }) {
+  return saved === currentSaved && (!isAdminReview(saved) || gate.accepts(ticket, role));
+}
+
 export function resolveReviewDestination(view, saved) {
   if ((view === 'filmroom' || view === 'postanswer') && !saved) return 'vault';
   return view;

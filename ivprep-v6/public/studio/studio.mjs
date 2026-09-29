@@ -46,7 +46,7 @@ import {
   preserveInterviewLifecycle,
   persistedConversationTurns,
 } from './presentation-view-model.mjs';
-import { clearAdminReviewMedia, createAdminReviewGate, isAdminReview, resolveReviewDestination } from './review-scope.mjs';
+import { clearAdminReviewMedia, createAdminReviewGate, isAdminReview, mayPresentSavedReview, resolveReviewDestination } from './review-scope.mjs';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -3309,19 +3309,23 @@ function renderFilmRoomSpine(session, envelope = null) {
 async function openLastSavedFilmRoom(button) {
   if (button) button.disabled = true;
   try {
-    const recordingId = state.lastSaved?.sessionDetail?.recording?.id
-      || state.lastSaved?.session?.recording?.id
-      || state.lastSaved?.recording?.recording?.id
-      || state.lastSaved?.recording?.id
+    const saved = state.lastSaved;
+    const ticket = isAdminReview(saved) ? adminReviewGate.begin(state.role) : null;
+    if (isAdminReview(saved) && ticket === null) return;
+    const recordingId = saved?.sessionDetail?.recording?.id
+      || saved?.session?.recording?.id
+      || saved?.recording?.recording?.id
+      || saved?.recording?.id
       || null;
-    let playbackUrl = state.lastSaved?.recording?.blob ? state.localPlaybackUrl : null;
+    let playbackUrl = saved?.recording?.blob ? state.localPlaybackUrl : null;
     if (!playbackUrl && recordingId) {
       const signed = state.role === 'admin'
         ? await state.adminLibrary.playback(recordingId)
         : await state.durable.playback(recordingId);
       playbackUrl = signed?.url || null;
     }
-    renderFilmRoomSpine(state.lastSaved?.sessionDetail, state.lastSaved?.envelope);
+    if (!mayPresentSavedReview({ saved, currentSaved: state.lastSaved, role: state.role, ticket, gate: adminReviewGate })) return;
+    renderFilmRoomSpine(saved?.sessionDetail, saved?.envelope);
     const video = $('#playback');
     if (video && playbackUrl) {
       video.src = playbackUrl;

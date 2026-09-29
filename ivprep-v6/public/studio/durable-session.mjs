@@ -143,7 +143,13 @@ export class DurableStudioSession {
       title,
       questionId: question?.question_id || null,
     });
-    await this.recorder.start();
+    try {
+      if (await this.recorder.start() !== true) throw new Error('recording_unavailable');
+    } catch (error) {
+      this.recorder.destroy?.();
+      this.recorder = null;
+      throw error;
+    }
     this.liveConversationTurns.clear();
     this.liveConversationSequence = 0;
     this.conversationCaptureStartedAtMs = this.nowMs();
@@ -233,6 +239,7 @@ export class DurableStudioSession {
     const recordingPromise = this.pendingRecording
       ? Promise.resolve(this.pendingRecording)
       : Promise.resolve(recorder?.stopAndSeal?.() || null).then((value) => {
+        if (!value?.recording?.id) throw new Error('recording_not_sealed');
         this.pendingRecording = value;
         return value;
       });

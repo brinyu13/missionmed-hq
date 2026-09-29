@@ -107,6 +107,45 @@ test('RISE context is sent only with a verified program identity and release rec
   assert.deepEqual(verified.context.contextSources, ['RISE']);
 });
 
+test('an unavailable browser recorder cannot enter a durable interview', async () => {
+  let destroyed = false;
+  const durable = new DurableStudioSession({
+    api: {
+      async bootstrap() { return { entitlement: { admitted: true } }; },
+      async createSession() { return { id: 'unrecorded-session' }; },
+    },
+    recordingFactory: () => ({
+      async start() { return false; },
+      destroy() { destroyed = true; },
+    }),
+  });
+  await durable.bootstrap();
+  await assert.rejects(durable.start({ stream: {} }), /recording_unavailable/u);
+  assert.equal(destroyed, true);
+  assert.equal(durable.recorder, null);
+  assert.equal(durable.conversationCaptureStartedAtMs, null);
+});
+
+test('an interview without sealed media cannot be reported as saved', async () => {
+  let resultWrites = 0;
+  const durable = new DurableStudioSession({
+    api: {
+      async bootstrap() { return { entitlement: { admitted: true } }; },
+      async createSession() { return { id: 'unsealed-session' }; },
+      async saveResults() { resultWrites += 1; return { id: 'should-not-exist' }; },
+    },
+    recordingFactory: () => ({
+      async start() { return true; },
+      async stopAndSeal() { return null; },
+    }),
+  });
+  await durable.bootstrap();
+  await durable.start({ stream: {} });
+  await assert.rejects(durable.finish({ durationMs: 1_000, events: [] }), /recording_not_sealed/u);
+  assert.equal(resultWrites, 0);
+  assert.equal(durable.accountSession?.id, 'unsealed-session');
+});
+
 test('program search remains behind the admitted durable capability', async () => {
   const calls = [];
   const durable = new DurableStudioSession({ api: {
@@ -129,7 +168,7 @@ test('live transcript deltas stay provisional until explicit Finish seals them',
       async createSession() { return { id: 'session-live-turns' }; },
       async saveResults(_id, input) { saved.push(input); return { id: 'result-live-turns' }; },
     },
-    recordingFactory: () => ({ async start() {}, async stopAndSeal() { return null; } }),
+    recordingFactory: () => ({ async start() { return true; }, async stopAndSeal() { return { recording: { id: 'recording-live-turns' } }; } }),
   });
   await durable.bootstrap();
   await durable.start({ stream: {} });
@@ -175,7 +214,7 @@ test('a prepared canonical session is reused when the same rep begins recording'
     async bootstrap() { return { entitlement: { admitted: true } }; },
     async createSession(input) { calls.push(['createSession', input]); return { id: 'session-prepared' }; },
   };
-  const recorder = { async start() { calls.push(['recording.start']); } };
+  const recorder = { async start() { calls.push(['recording.start']); return true; } };
   const durable = new DurableStudioSession({ api, recordingFactory: () => recorder });
   await durable.bootstrap();
   const options = {
@@ -238,7 +277,7 @@ test('a failed media upload retains analytics and retries the same account trans
   };
   const recorder = {
     state: 'RECORDING',
-    async start() {},
+    async start() { return true; },
     async stopAndSeal() {
       stopAttempts += 1;
       if (stopAttempts === 1) { this.state = 'ERROR'; throw new Error('recording_upload_503'); }
@@ -258,7 +297,7 @@ test('a failed media upload retains analytics and retries the same account trans
 test('Results retry preserves the already-sealed recording and its timebase', async () => {
   let seals = 0; let saves = 0;
   const receipt = { recording: { id: 'recording-sealed' }, durationMs: 1210, blob: { size: 1024 } };
-  const recorder = { async start() {}, async stopAndSeal() { return ++seals === 1 ? receipt : null; } };
+  const recorder = { async start() { return true; }, async stopAndSeal() { return ++seals === 1 ? receipt : null; } };
   const inputs = [];
   const durable = new DurableStudioSession({ recordingFactory: () => recorder, api: {
     async bootstrap() { return { entitlement: { admitted: true } }; },
@@ -306,7 +345,7 @@ test('interrupted sessions are abandoned through the authenticated owner API and
     },
   };
   const recorder = {
-    async start() {},
+    async start() { return true; },
     destroy() { calls.push(['recording.destroy']); },
   };
   const durable = new DurableStudioSession({ api, recordingFactory: () => recorder });
