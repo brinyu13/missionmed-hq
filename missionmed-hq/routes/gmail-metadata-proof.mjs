@@ -11,6 +11,7 @@ const STATIC_ALLOWED_MAILBOXES = new Set([
   'clinicals@missionmedinstitute.com',
   'drj@missionmedinstitute.com',
   'drbrian@missionmedinstitute.com',
+  'info@missionmedinstitute.com',
 ]);
 
 export function isGmailMetadataProofPath(pathname = '') {

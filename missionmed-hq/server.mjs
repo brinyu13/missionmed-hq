@@ -54,6 +54,10 @@ import {
   handleGmailCommsReviewWriteRoute,
   isGmailCommsReviewWritePath,
 } from './routes/gmail-comms-review-write.mjs';
+import {
+  handleGmailZelleMatchRoute,
+  isGmailZelleMatchPath,
+} from './routes/gmail-zelle-match.mjs';
 import { handleIvPrepV6Request } from '../ivprep-v6/server/hq-mount.mjs';
 import { fingerprintIvPrepHqCookie, recordIvPrepHqLogout } from '../ivprep-v6/server/hq-auth-lifecycle.mjs';
 import { handleIvocRequest } from './ivoc/routes.mjs';
@@ -3334,6 +3338,11 @@ async function handleApiRoute(request, response, url, context) {
     if (handled) {
       return;
     }
+  }
+
+  if (isGmailZelleMatchPath(pathname)) {
+    await handleGmailZelleMatchRoute(request, response, url, { readJsonBody });
+    return;
   }
 
   if (!requireAuthenticatedApiSession(request, response, session, authHeaders)) {
