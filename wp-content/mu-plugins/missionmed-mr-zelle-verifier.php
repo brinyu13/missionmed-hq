@@ -10,6 +10,7 @@ defined( 'ABSPATH' ) || exit;
 const MM_MR_ZELLE_HQ_ENDPOINT = 'https://missionmed-hq-production.up.railway.app/api/integrations/gmail/zelle-match';
 const MM_MR_ZELLE_CRON_HOOK   = 'mm_mr_zelle_retry_verification';
 const MM_MR_ZELLE_ACTION      = 'mm_mr_zelle_verify_payment';
+const MM_MR_ZELLE_ADMIN_ACTION = 'mm_mr_zelle_admin_review';
 const MM_MR_ZELLE_MAX_RETRIES = 12;
 
 function mm_mr_zelle_product_map() {
@@ -172,6 +173,23 @@ function mm_mr_zelle_claim_fingerprint( $order, $fingerprint ) {
 	return true;
 }
 
+function mm_mr_zelle_complete_payment( $order, $fingerprint, $source ) {
+	if ( $order->is_paid() ) {
+		return true;
+	}
+	if ( ! mm_mr_zelle_claim_fingerprint( $order, $fingerprint ) ) {
+		return false;
+	}
+	$order->update_meta_data( '_mm_zelle_state', 'verified' );
+	$order->update_meta_data( '_mm_zelle_verified_at', time() );
+	$order->delete_meta_data( '_mm_zelle_payer' );
+	mm_mr_zelle_audit( $order, 'verified', $source );
+	$order->save();
+	$order->payment_complete( 'zelle_' . substr( $fingerprint, 0, 16 ) );
+	$order->add_order_note( 'Mission Residency Zelle payment verified from exact Chase notification evidence. Access processing followed canonical Woo payment completion.' );
+	return $order->is_paid();
+}
+
 function mm_mr_zelle_schedule_retry( $order ) {
 	if ( $order->is_paid() || wp_next_scheduled( MM_MR_ZELLE_CRON_HOOK, array( $order->get_id() ) ) ) {
 		return;
@@ -192,17 +210,12 @@ function mm_mr_zelle_run_verification( $order, $payer_name, $source = 'request' 
 		$state  = sanitize_key( (string) ( $result['state'] ?? 'provider_unavailable' ) );
 		if ( 'verified' === $state ) {
 			$fingerprint = strtolower( (string) ( $result['fingerprint'] ?? '' ) );
-			if ( ! mm_mr_zelle_claim_fingerprint( $order, $fingerprint ) ) {
+			$order->update_meta_data( '_mm_zelle_candidate_fingerprint', $fingerprint );
+			$order->update_meta_data( '_mm_zelle_reference_masked', sanitize_text_field( (string) ( $result['reference_masked'] ?? '' ) ) );
+			$order->save();
+			if ( ! mm_mr_zelle_complete_payment( $order, $fingerprint, $source ) ) {
 				$state = 'already_consumed';
 			} else {
-				$order->update_meta_data( '_mm_zelle_state', 'verified' );
-				$order->update_meta_data( '_mm_zelle_verified_at', time() );
-				$order->update_meta_data( '_mm_zelle_reference_masked', sanitize_text_field( (string) ( $result['reference_masked'] ?? '' ) ) );
-				$order->delete_meta_data( '_mm_zelle_payer' );
-				mm_mr_zelle_audit( $order, 'verified', $source );
-				$order->save();
-				$order->payment_complete( 'zelle_' . substr( $fingerprint, 0, 16 ) );
-				$order->add_order_note( 'Mission Residency Zelle payment verified from exact Chase notification evidence. Access processing followed canonical Woo payment completion.' );
 				return 'verified';
 			}
 		}
@@ -275,6 +288,67 @@ function mm_mr_zelle_retry( $order_id ) {
 }
 add_action( MM_MR_ZELLE_CRON_HOOK, 'mm_mr_zelle_retry', 10, 1 );
 
+function mm_mr_zelle_handle_admin_review() {
+	if ( ! current_user_can( 'manage_woocommerce' ) ) {
+		wp_die( esc_html__( 'You are not allowed to review Zelle payments.', 'missionmed' ), 'Forbidden', array( 'response' => 403 ) );
+	}
+	$order_id = isset( $_POST['order_id'] ) ? absint( wp_unslash( $_POST['order_id'] ) ) : 0;
+	$order    = function_exists( 'wc_get_order' ) ? wc_get_order( $order_id ) : false;
+	$decision = isset( $_POST['decision'] ) ? sanitize_key( wp_unslash( $_POST['decision'] ) ) : '';
+	$nonce    = isset( $_POST['_mm_zelle_admin_nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['_mm_zelle_admin_nonce'] ) ) : '';
+	if ( ! $order || ! mm_mr_zelle_order_identity( $order ) || ! wp_verify_nonce( $nonce, 'mm_zelle_admin_' . $order_id ) ) {
+		wp_die( esc_html__( 'The Zelle review request is invalid or expired.', 'missionmed' ), 'Invalid request', array( 'response' => 403 ) );
+	}
+	if ( 'continue_waiting' === $decision && ! $order->is_paid() ) {
+		$order->update_meta_data( '_mm_zelle_state', 'checking' );
+		mm_mr_zelle_audit( $order, 'checking', 'admin_continue' );
+		$order->save();
+		mm_mr_zelle_schedule_retry( $order );
+	} elseif ( 'not_match' === $decision && ! $order->is_paid() ) {
+		$order->update_meta_data( '_mm_zelle_state', 'not_found' );
+		mm_mr_zelle_audit( $order, 'not_found', 'admin_rejected' );
+		$order->save();
+	} elseif ( 'verify_activate' === $decision && ! $order->is_paid() ) {
+		$fingerprint = strtolower( (string) $order->get_meta( '_mm_zelle_candidate_fingerprint', true ) );
+		if ( ! preg_match( '/^[a-f0-9]{64}$/', $fingerprint ) || ! mm_mr_zelle_complete_payment( $order, $fingerprint, 'admin_verified_candidate' ) ) {
+			mm_mr_zelle_audit( $order, 'already_consumed', 'admin_blocked' );
+			$order->save();
+			wp_die( esc_html__( 'No unused genuine payment candidate is available. The order remains unpaid.', 'missionmed' ), 'Activation blocked', array( 'response' => 409 ) );
+		}
+	}
+	wp_safe_redirect( $order->get_edit_order_url() );
+	exit;
+}
+add_action( 'admin_post_' . MM_MR_ZELLE_ADMIN_ACTION, 'mm_mr_zelle_handle_admin_review' );
+
+function mm_mr_zelle_admin_panel( $order ) {
+	if ( ! current_user_can( 'manage_woocommerce' ) || ! mm_mr_zelle_order_identity( $order ) ) {
+		return;
+	}
+	$state       = sanitize_key( (string) $order->get_meta( '_mm_zelle_state', true ) ) ?: 'awaiting_payment';
+	$fingerprint = strtolower( (string) $order->get_meta( '_mm_zelle_candidate_fingerprint', true ) );
+	$can_verify  = ! $order->is_paid() && preg_match( '/^[a-f0-9]{64}$/', $fingerprint );
+	?>
+	<div class="order_data_column" style="width:100%;padding-top:18px">
+		<h3><?php esc_html_e( 'Mission Residency Zelle verification', 'missionmed' ); ?></h3>
+		<p><strong><?php esc_html_e( 'State:', 'missionmed' ); ?></strong> <?php echo esc_html( $state ); ?><br>
+		<strong><?php esc_html_e( 'Expected:', 'missionmed' ); ?></strong> <?php echo wp_kses_post( $order->get_formatted_order_total() ); ?><br>
+		<strong><?php esc_html_e( 'Submitted payer:', 'missionmed' ); ?></strong> <?php echo esc_html( (string) $order->get_meta( '_mm_zelle_payer', true ) ?: 'Not submitted' ); ?><br>
+		<strong><?php esc_html_e( 'Receipt reference:', 'missionmed' ); ?></strong> <?php echo esc_html( (string) $order->get_meta( '_mm_zelle_reference_masked', true ) ?: 'No genuine candidate' ); ?></p>
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+			<input type="hidden" name="action" value="<?php echo esc_attr( MM_MR_ZELLE_ADMIN_ACTION ); ?>">
+			<input type="hidden" name="order_id" value="<?php echo esc_attr( $order->get_id() ); ?>">
+			<?php wp_nonce_field( 'mm_zelle_admin_' . $order->get_id(), '_mm_zelle_admin_nonce' ); ?>
+			<button class="button" name="decision" value="continue_waiting" type="submit"><?php esc_html_e( 'CONTINUE WAITING', 'missionmed' ); ?></button>
+			<button class="button" name="decision" value="not_match" type="submit"><?php esc_html_e( 'NOT A MATCH', 'missionmed' ); ?></button>
+			<button class="button button-primary" name="decision" value="verify_activate" type="submit" <?php disabled( ! $can_verify ); ?>><?php esc_html_e( 'VERIFY PAYMENT & ACTIVATE', 'missionmed' ); ?></button>
+		</form>
+		<?php if ( ! $can_verify && ! $order->is_paid() ) : ?><p><em><?php esc_html_e( 'Activation remains disabled until the verifier records an unused genuine Chase payment candidate.', 'missionmed' ); ?></em></p><?php endif; ?>
+	</div>
+	<?php
+}
+add_action( 'woocommerce_admin_order_data_after_order_details', 'mm_mr_zelle_admin_panel', 30, 1 );
+
 function mm_mr_zelle_render_pending( $order_id ) {
 	static $rendered = false;
 	if ( $rendered ) {
@@ -287,7 +361,7 @@ function mm_mr_zelle_render_pending( $order_id ) {
 	$rendered = true;
 	$state = sanitize_key( (string) $order->get_meta( '_mm_zelle_state', true ) );
 	$state = $state ?: 'pending';
-	$title = in_array( $state, array( 'checking', 'not_found', 'provider_unavailable' ), true ) ? 'We are checking your payment' : ( in_array( $state, array( 'needs_review', 'already_consumed' ), true ) ? 'Payment needs staff review' : 'Payment pending' );
+	$title = in_array( $state, array( 'checking', 'not_found', 'provider_unavailable' ), true ) ? "WE'RE CHECKING YOUR PAYMENT" : ( in_array( $state, array( 'needs_review', 'already_consumed' ), true ) ? 'PAYMENT RECEIVED FOR REVIEW' : 'ONE LAST STEP: COMPLETE YOUR ZELLE PAYMENT' );
 	?>
 	<style>
 	.mmz-shell{max-width:880px;margin:28px auto;padding:clamp(24px,5vw,52px);background:#0d1d24;color:#f8f4ea;border-radius:20px;font-family:Arial,sans-serif;box-sizing:border-box}.mmz-kicker{color:#dcbf86;font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase}.mmz-shell h2{color:#fff;font-size:clamp(30px,5vw,52px);line-height:1.03;margin:12px 0}.mmz-shell p{font-size:17px;line-height:1.6}.mmz-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:24px 0}.mmz-card{border:1px solid rgba(255,255,255,.18);padding:16px;border-radius:12px}.mmz-card strong{display:block;color:#dcbf86;margin-bottom:5px}.mmz-form{margin-top:24px;padding-top:24px;border-top:1px solid rgba(255,255,255,.18)}.mmz-form label{display:block;font-weight:700;margin-bottom:8px}.mmz-form input{width:100%;min-height:50px;padding:12px;border:1px solid #aeb8bd;border-radius:8px;box-sizing:border-box}.mmz-form button{margin-top:12px;min-height:50px;padding:12px 20px;border:0;border-radius:8px;background:#dcbf86;color:#0d1d24;font-weight:800;cursor:pointer}.mmz-note{color:#d7e0e4}.mmz-alert{padding:12px;border-left:4px solid #dcbf86;background:rgba(255,255,255,.07)}@media(max-width:600px){.mmz-shell{margin:16px 0;border-radius:14px}.mmz-grid{grid-template-columns:1fr}.mmz-form button{width:100%}}
@@ -302,7 +376,7 @@ function mm_mr_zelle_render_pending( $order_id ) {
 			<div class="mmz-card"><strong>Send to</strong>Mission Global Group</div>
 			<div class="mmz-card"><strong>Confirmation</strong>info@missionmedinstitute.com</div>
 		</div>
-		<?php if ( in_array( $state, array( 'pending', 'not_found', 'provider_unavailable' ), true ) ) : ?>
+		<?php if ( 'pending' === $state ) : ?>
 		<form class="mmz-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 			<input type="hidden" name="action" value="<?php echo esc_attr( MM_MR_ZELLE_ACTION ); ?>">
 			<input type="hidden" name="order_id" value="<?php echo esc_attr( $order->get_id() ); ?>">
@@ -310,10 +384,10 @@ function mm_mr_zelle_render_pending( $order_id ) {
 			<?php wp_nonce_field( 'mm_zelle_' . $order->get_id(), '_mm_zelle_nonce' ); ?>
 			<label for="mmz-payer">Full name used to send the Zelle payment</label>
 			<input id="mmz-payer" name="payer_name" type="text" autocomplete="name" maxlength="120" required>
-			<button type="submit">CHECK MY PAYMENT</button>
+			<button type="submit">I'VE SENT MY ZELLE PAYMENT →</button>
 		</form>
-		<?php elseif ( 'checking' === $state ) : ?>
-			<p class="mmz-note">The check will continue securely in the background. Refresh this page in a few minutes. Do not send a second payment.</p>
+		<?php elseif ( in_array( $state, array( 'checking', 'not_found', 'provider_unavailable' ), true ) ) : ?>
+			<p class="mmz-note">We haven't confirmed it yet. Zelle notifications can take a few minutes to arrive. We'll continue checking and email you as soon as your payment is verified. Your program access will remain locked until payment is confirmed. Do not send a second payment.</p>
 		<?php else : ?>
 			<p class="mmz-note">No access has been activated. The Mission Residency team has been alerted and will review the verification record. Do not send a second payment.</p>
 		<?php endif; ?>
