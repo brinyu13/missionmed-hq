@@ -1,0 +1,28 @@
+{
+  "mission": "MR-WEB-0912-ZELLE-P0",
+  "date": "2026-09-29",
+  "launch_gate": "NOT_APPROVED",
+  "order_id": 9193,
+  "items": [
+    {"id": "genuine_gmail_message_found", "grade": "PASS", "evidence": "Authorized inbox contains the real Notifications@zellepay.com message for Kathryn Bolante and $1.00."},
+    {"id": "genuine_chase_deposit_evidence", "grade": "FAIL", "evidence": "Message is an enrollment-required Zelle notice, not a Chase incoming-payment confirmation."},
+    {"id": "prepayment_entitlement_containment", "grade": "PASS", "evidence": "Order unpaid; LD 3646/5227 false; no groups; no transaction ID."},
+    {"id": "button_alone_does_not_activate", "grade": "PASS", "evidence": "Submission produced checking/not_found and no entitlement."},
+    {"id": "deterministic_positive_match", "grade": "UNVERIFIED", "evidence": "No eligible deposited-payment message exists."},
+    {"id": "wrong_or_no_match_locked", "grade": "PASS", "evidence": "Live order stayed locked after request and scheduled retry."},
+    {"id": "ambiguous_match_locked", "grade": "PASS", "evidence": "Committed matcher test returns needs_review for two exact candidates."},
+    {"id": "same_receipt_cannot_activate_second_order", "grade": "UNVERIFIED", "evidence": "Consumed-fingerprint code and test pass, but no real eligible receipt fingerprint exists."},
+    {"id": "request_replay_protection", "grade": "PASS", "evidence": "Live duplicate HMAC request was rejected; committed tests bind HMAC to order/amount/payer/time."},
+    {"id": "canonical_woo_completion", "grade": "EXPLICITLY_DEFERRED", "evidence": "Correctly withheld because payment was not received."},
+    {"id": "intended_learndash_grant", "grade": "EXPLICITLY_DEFERRED", "evidence": "Correctly withheld because Woo completion did not occur."},
+    {"id": "matrix_program_grant", "grade": "EXPLICITLY_DEFERRED", "evidence": "Correctly withheld because Woo completion did not occur."},
+    {"id": "unrelated_entitlement_exclusion", "grade": "PASS", "evidence": "No target or unrelated closed-course access was introduced."},
+    {"id": "customer_activation_email_state", "grade": "EXPLICITLY_DEFERRED", "evidence": "Correctly not emitted for an unpaid order."},
+    {"id": "controlled_admin_fallback", "grade": "UNVERIFIED", "evidence": "Positive control remains disabled without a genuine eligible candidate."},
+    {"id": "responsive_ui_and_contrast", "grade": "PASS", "evidence": "Scoped live colors measure 9.72:1 to 17.24:1; responsive profiles show no horizontal overflow."},
+    {"id": "stripe_and_public_price_regression", "grade": "PASS", "evidence": "Public card prices remained $549/$3,099; Stripe was untouched."},
+    {"id": "public_zelle_fail_closed", "grade": "PASS", "evidence": "Interview Week and Complete Zelle enable options changed from yes to no after the failed gate."},
+    {"id": "cleanup", "grade": "EXPLICITLY_DEFERRED", "evidence": "Public Zelle selection is disabled, but the real transfer remains enrollment-pending; order/account stay locked to preserve truthful reconciliation."},
+    {"id": "rollback_readiness", "grade": "PASS", "evidence": "Exact CSS preimage and source/runtime hashes are recorded; no financial rollback is authorized or required."}
+  ]
+}
