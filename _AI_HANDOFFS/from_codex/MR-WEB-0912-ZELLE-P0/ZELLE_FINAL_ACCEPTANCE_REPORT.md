@@ -68,6 +68,10 @@ No code change can truthfully turn an unreceived, enrollment-pending transfer in
 - Cleanup is intentionally deferred while a real, unresolved $1 transfer remains pending; falsifying or discarding that state would weaken accounting truth.
 - New Interview Week and Complete Zelle checkout selection is fail-closed while the banking enrollment blocker is unresolved.
 
+## Remaining customer-facing issue
+
+Some existing campaign presentation copy still mentions the `$499` Zelle option. The eligibility flags now prevent that rail from being offered for a new launch-product checkout, but the promotional copy can still create confusion. The presentation owner must replace those references with a temporarily-unavailable treatment before Zelle traffic resumes; this run did not broaden into the concurrent landing-page integration.
+
 ## Exact next step
 
 The Founder or an authorized banking administrator must confirm, through the official Chase/Zelle banking surface, whether `info@missionmedinstitute.com` should be enrolled to receive business payments. Do not use the email link as a substitute for direct bank authentication. After enrollment and actual receipt, obtain the genuine incoming-payment confirmation and resume order #9193 through the existing matcher. If MissionMed instead chooses an already-enrolled Zelle destination, update commercial authority and customer-facing instructions before a fresh controlled test.

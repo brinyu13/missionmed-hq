@@ -34,6 +34,7 @@
 - Global BACS settings were not deleted or rewritten; the scoped Mission Residency eligibility gates now exclude Zelle for new Interview Week and Complete carts.
 - Public card prices remain `$549` and `$3,099`.
 - The historical/controlled #9193 order remains readable and retryable for reconciliation.
+- Existing landing-page presentation source still contains Zelle promotional copy. Checkout eligibility is fail-closed, but the presentation owner must reconcile that copy before the rail is relaunched.
 
 ## Preserved unrelated work
 
