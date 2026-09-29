@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { clearAdminReviewMedia, createAdminReviewGate, isAdminReview } from '../../public/studio/review-scope.mjs';
+import { clearAdminReviewMedia, createAdminReviewGate, isAdminReview, resolveReviewDestination } from '../../public/studio/review-scope.mjs';
 
 test('Admin review responses are invalid after a role switch or newer selection', () => {
   const gate = createAdminReviewGate();
@@ -35,4 +35,11 @@ test('Leaving an Admin review removes signed playback and student-specific reado
   clearAdminReviewMedia(video, groups);
   assert.deepEqual(calls.slice(0, 3), ['pause', 'remove:src', 'load']);
   assert.deepEqual(calls[3], { 'VOICE.VOLUME': 'Unavailable', 'BODY.FRAMING': 'Unavailable' });
+});
+
+test('Review navigation opens the private attempt chooser when no attempt is selected', () => {
+  assert.equal(resolveReviewDestination('filmroom', null), 'vault');
+  assert.equal(resolveReviewDestination('postanswer', null), 'vault');
+  assert.equal(resolveReviewDestination('filmroom', { persisted: true }), 'filmroom');
+  assert.equal(resolveReviewDestination('home', null), 'home');
 });

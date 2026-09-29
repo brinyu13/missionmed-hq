@@ -17,6 +17,11 @@ export function isAdminReview(saved) {
   return saved?.reviewScope === 'admin';
 }
 
+export function resolveReviewDestination(view, saved) {
+  if ((view === 'filmroom' || view === 'postanswer') && !saved) return 'vault';
+  return view;
+}
+
 export function clearAdminReviewMedia(playback, filmGroups) {
   if (playback) {
     playback.pause();

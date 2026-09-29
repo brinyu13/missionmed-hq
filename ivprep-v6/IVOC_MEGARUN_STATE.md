@@ -26,10 +26,13 @@ the actual production route and deployment.
   returned 200 and anonymous product access returned 401; this is infrastructure
   evidence, not a passed student journey.
 - **Current entry POV: BLOCKED / NOT ACCEPTED.** In the available signed-in
-  Matrix browser session, the IVOC tile is locked for that identity. A direct
+  Matrix browser session, the IVOC tile is correctly locked for the current
+  restricted/free identity: current Matrix access says
+  `apps.ivprep.allowed=false`, reason `entitlement_required`. This is not a
+  product-entry defect or an entitled-360 test. A direct
   Chrome and in-app-browser visit to the HQ product returned
-  `ERR_BLOCKED_BY_CLIENT`. The account's entitlement and browser-control
-  conditions must be resolved with actual authorized identity evidence; do not
+  `ERR_BLOCKED_BY_CLIENT`. Browser-control access and a genuine entitled-360
+  identity remain needed for positive POV acceptance; do not
   infer that any student journey works from API status or old acceptance.
 - **Admin review privacy: LOCAL FIX, LIVE UNVERIFIED.** A source-grounded
   actor/subject transition risk was found: Admin-selected student Results/Film
@@ -37,6 +40,12 @@ the actual production route and deployment.
   live-source worktree now invalidates in-flight Admin reads, clears selected
   recording and evidence, and returns to the own-library view. Focused tests
   pass; no production deployment or user POV acceptance has occurred yet.
+- **Review wayfinding: LOCAL FIX, LIVE UNVERIFIED.** With no selected attempt,
+  Results/Film Room entry now resolves to the private saved-attempt chooser;
+  its empty state offers Start practicing. The Home practice prompt carries
+  into the builder focus, and standalone Device Calibration returns Home
+  instead of inheriting an earlier interview mode. Focused source tests pass;
+  production visual/interaction acceptance remains open.
 - **Lease control:** earlier connector/TTY keepers expired without any
   production mutation. A corrected keychain-backed local keeper was started
   under fresh PRODUCT fencing; protected work may continue only while its

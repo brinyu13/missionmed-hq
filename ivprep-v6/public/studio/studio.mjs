@@ -46,7 +46,7 @@ import {
   preserveInterviewLifecycle,
   persistedConversationTurns,
 } from './presentation-view-model.mjs';
-import { clearAdminReviewMedia, createAdminReviewGate, isAdminReview } from './review-scope.mjs';
+import { clearAdminReviewMedia, createAdminReviewGate, isAdminReview, resolveReviewDestination } from './review-scope.mjs';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -65,6 +65,7 @@ const ASTRA_PRESENTATION_CANON = 'dedb726bde521a135bec2286ad4cd5a877a68fc7ecd614
 const state = {
   view: 'home',
   launchMode: 'ai',
+  calibrationStandalone: false,
   role: 'student',
   admission: null,
   analytics: null,
@@ -183,6 +184,7 @@ function applyRole(role) {
 /* ------------------------------------------------------------------ router */
 
 function setView(view, { focus = false } = {}) {
+  view = resolveReviewDestination(view, state.lastSaved);
   if (!CRUMBS[view]) return;
   if (view !== 'simulation' && state.view === 'simulation'
     && (preserveInterviewLifecycle(state.session.state) || roomModel().phase === 'save-error')) {
@@ -190,6 +192,7 @@ function setView(view, { focus = false } = {}) {
     return;
   }
   state.view = view;
+  if (view !== 'devicecheck') state.calibrationStandalone = false;
   for (const panel of $$('[data-view-panel]')) {
     panel.dataset.active = String(panel.dataset.viewPanel === view);
   }
@@ -2413,7 +2416,7 @@ function renderDeviceCheck() {
     proceed.disabled = !ready;
     const missingInterviewSet = state.launchMode === 'ai' && !state.interviewSet.length;
     proceed.innerHTML = `<span>${ready
-      ? (missingInterviewSet ? 'Choose interview questions ▸' : state.launchMode === 'ai' ? 'Start AI interview ▸' : 'Begin coached practice ▸')
+      ? (state.calibrationStandalone ? 'Device check complete · Return Home ▸' : missingInterviewSet ? 'Choose interview questions ▸' : state.launchMode === 'ai' ? 'Start AI interview ▸' : 'Begin coached practice ▸')
       : 'Connect devices to continue'}</span>`;
   }
 }
@@ -2593,7 +2596,13 @@ async function renderVault() {
     if (!sessions.length) {
       const empty = document.createElement('div');
       empty.className = 'empty-state';
-      empty.innerHTML = '<strong>No saved answers</strong>Your authenticated Answer History is empty. Finish a real recorded rep to create the first private AnswerRecord.';
+      empty.innerHTML = '<strong>No saved answers yet</strong>Finish a recorded practice or interview and it will appear here.';
+      const start = document.createElement('button');
+      start.type = 'button';
+      start.className = 'btn btn-primary';
+      start.textContent = 'Start practicing';
+      start.addEventListener('click', () => setView('newsession', { focus: true }));
+      empty.append(start);
       host.append(empty);
       return;
     }
@@ -2809,15 +2818,29 @@ async function mountAnalytics() {
 
 function wireChrome() {
   wireQuestionGovernance();
+  const captureHomeIntent = (destination) => {
+    if (state.view !== 'home' || destination !== 'newsession') return;
+    const intent = $('#home-practice')?.value.trim().slice(0, 200);
+    if (intent) state.wizard.focus = intent;
+  };
   for (const item of $$('[data-nav]')) item.addEventListener('click', () => {
+    captureHomeIntent(item.dataset.nav);
+    if (item.dataset.nav === 'devicecheck') state.calibrationStandalone = !item.dataset.launchMode;
     if (item.dataset.launchMode) state.launchMode = item.dataset.launchMode;
     if (item.dataset.launchMode === 'ai' && !state.interviewSet.length) applyWizardQuestions('Core 10');
     setView(item.dataset.nav, { focus: true });
   });
   for (const button of $$('[data-goto]')) button.addEventListener('click', () => {
+    captureHomeIntent(button.dataset.goto);
+    if (button.dataset.goto === 'devicecheck') state.calibrationStandalone = false;
     if (button.dataset.launchMode) state.launchMode = button.dataset.launchMode;
     if (button.dataset.launchMode === 'ai' && !state.interviewSet.length) applyWizardQuestions('Core 10');
     setView(button.dataset.goto, { focus: true });
+  });
+  $('#home-practice')?.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    $('.hero-action [data-goto="newsession"]')?.click();
   });
   for (const button of $$('[data-builder-step]')) {
     button.addEventListener('click', () => {
@@ -2841,6 +2864,7 @@ function wireChrome() {
   $('#device-connect')?.addEventListener('click', () => void connectDevices());
   $('#device-proceed')?.addEventListener('click', async () => {
     if (evaluateReadiness() !== 'SESSION_READY') { renderDeviceCheck(); return; }
+    if (state.calibrationStandalone) { setView('home', { focus: true }); return; }
     if (state.launchMode === 'ai') {
       if (!state.interviewSet.length) {
         state.wizardStep = 1;
