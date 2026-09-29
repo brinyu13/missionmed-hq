@@ -1,0 +1,38 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { clearAdminReviewMedia, createAdminReviewGate, isAdminReview } from '../../public/studio/review-scope.mjs';
+
+test('Admin review responses are invalid after a role switch or newer selection', () => {
+  const gate = createAdminReviewGate();
+  const first = gate.begin('admin');
+  assert.equal(gate.accepts(first, 'admin'), true);
+  const second = gate.begin('admin');
+  assert.equal(gate.accepts(first, 'admin'), false);
+  assert.equal(gate.accepts(second, 'admin'), true);
+  gate.invalidate();
+  assert.equal(gate.accepts(second, 'admin'), false);
+  assert.equal(gate.begin('student'), null);
+  assert.equal(gate.accepts(second, 'student'), false);
+});
+
+test('Only an Admin-selected student review is cleared on role change', () => {
+  assert.equal(isAdminReview({ reviewScope: 'admin' }), true);
+  assert.equal(isAdminReview({ persisted: true }), false);
+  assert.equal(isAdminReview(null), false);
+});
+
+test('Leaving an Admin review removes signed playback and student-specific readouts', () => {
+  const calls = [];
+  const video = {
+    pause() { calls.push('pause'); },
+    removeAttribute(name) { calls.push(`remove:${name}`); },
+    load() { calls.push('load'); },
+  };
+  const groups = {
+    readouts: { 'VOICE.VOLUME': '-21 dBFS', 'BODY.FRAMING': '74% centered' },
+    ingestResult(value) { calls.push(value.deliveryIntelligence.readouts); },
+  };
+  clearAdminReviewMedia(video, groups);
+  assert.deepEqual(calls.slice(0, 3), ['pause', 'remove:src', 'load']);
+  assert.deepEqual(calls[3], { 'VOICE.VOLUME': 'Unavailable', 'BODY.FRAMING': 'Unavailable' });
+});

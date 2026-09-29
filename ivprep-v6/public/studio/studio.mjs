@@ -46,6 +46,7 @@ import {
   preserveInterviewLifecycle,
   persistedConversationTurns,
 } from './presentation-view-model.mjs';
+import { clearAdminReviewMedia, createAdminReviewGate, isAdminReview } from './review-scope.mjs';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -58,6 +59,7 @@ const CRUMBS = Object.freeze({
 });
 
 const store = createDefaultQuestionStore();
+const adminReviewGate = createAdminReviewGate();
 const ASTRA_PRESENTATION_CANON = 'dedb726bde521a135bec2286ad4cd5a877a68fc7ecd6144fde16b76bc9c09ac4';
 
 const state = {
@@ -144,7 +146,23 @@ function permittedRoles() {
 
 function applyRole(role) {
   const allowed = permittedRoles();
-  state.role = allowed.has(role) ? role : 'student';
+  const nextRole = allowed.has(role) ? role : 'student';
+  if (state.role === 'admin' && nextRole !== 'admin') {
+    const hadAdminReview = isAdminReview(state.lastSaved);
+    adminReviewGate.invalidate();
+    ++adminStudentLibraryRenderId;
+    state.role = nextRole;
+    if (hadAdminReview) {
+      clearAdminReviewMedia($('#playback'), state.filmGroups);
+      state.lastSaved = null;
+      renderPostAnswer(null);
+      renderFilmRoomSpine(null);
+      renderContextEvidence({ transcript: { status: 'UNAVAILABLE', reason: 'NO_SELECTED_ANSWER' } });
+    }
+    if (state.view === 'mentor' || (hadAdminReview
+      && (state.view === 'postanswer' || state.view === 'filmroom'))) setView('vault');
+  }
+  state.role = nextRole;
   document.body.dataset.role = state.role;
   for (const button of $$('[data-role]')) {
     const authorized = allowed.has(button.dataset.role);
@@ -289,11 +307,15 @@ async function renderAdminOverview() {
 let adminStudentLibraryRenderId = 0;
 
 async function openAdminStudentSession(session, destination, action) {
+  const ticket = adminReviewGate.begin(state.role);
+  if (ticket === null) return;
   action.disabled = true;
   try {
     const detail = await state.adminLibrary.session(session.id);
+    if (!adminReviewGate.accepts(ticket, state.role)) return;
     const analytics = detail?.results?.payload?.analytics || null;
     state.lastSaved = {
+      reviewScope: 'admin',
       persisted: true,
       session,
       sessionDetail: detail,
@@ -308,6 +330,7 @@ async function openAdminStudentSession(session, destination, action) {
       return;
     }
     const playback = await state.adminLibrary.playback(session.recording.id);
+    if (!adminReviewGate.accepts(ticket, state.role)) return;
     const video = $('#playback');
     renderFilmRoomSpine(detail);
     if (video) {

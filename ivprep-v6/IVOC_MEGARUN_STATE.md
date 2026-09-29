@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-21 14:27 America/New_York
+Updated: 2026-09-29 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -11,6 +11,36 @@ This is the one living requirement ledger required by the final Founder
 completion directive. A status of `LIVE UNVERIFIED` means the capability is
 present in the active source lineage but has not yet passed acceptance against
 the actual production route and deployment.
+
+## Foreman 9200 reactivation — current dated evidence
+
+- **Terminal status: NOT COMPLETE.** September's component and prior-user
+  acceptance rows remain historical evidence, not current student-ready POV
+  acceptance. Journeys A–D must be rerun from the visible production product.
+- **Current source/runtime:** Railway deployment `ac928daa-6d68-4cc3-93e3-f313c70f4fcd`
+  is healthy and serves source `ab78c6e571b192cb33f394db3910f92b81c465c6`
+  (image `sha256:172ece8bbe569e1d688de3ba653e45fe8e24873d70c5c9af7280b502f33422db`).
+  The IVOC remote branch is `645de1e6bee9e1ffe2c0194cbd2c5aa40b9a6ec0`;
+  it diverges from the live source, so neither may silently replace the other.
+  The historical IVOC checkout remains dirty and untouched. Production health
+  returned 200 and anonymous product access returned 401; this is infrastructure
+  evidence, not a passed student journey.
+- **Current entry POV: BLOCKED / NOT ACCEPTED.** In the available signed-in
+  Matrix browser session, the IVOC tile is locked for that identity. A direct
+  Chrome and in-app-browser visit to the HQ product returned
+  `ERR_BLOCKED_BY_CLIENT`. The account's entitlement and browser-control
+  conditions must be resolved with actual authorized identity evidence; do not
+  infer that any student journey works from API status or old acceptance.
+- **Admin review privacy: LOCAL FIX, LIVE UNVERIFIED.** A source-grounded
+  actor/subject transition risk was found: Admin-selected student Results/Film
+  Room state could remain visible after switching to Student View. The isolated
+  live-source worktree now invalidates in-flight Admin reads, clears selected
+  recording and evidence, and returns to the own-library view. Focused tests
+  pass; no production deployment or user POV acceptance has occurred yet.
+- **Lease control:** earlier connector/TTY keepers expired without any
+  production mutation. A corrected keychain-backed local keeper was started
+  under fresh PRODUCT fencing; protected work may continue only while its
+  provider heartbeat remains current. No force-unlock or owner override occurred.
 
 ## Founder POV production acceptance — current
 
