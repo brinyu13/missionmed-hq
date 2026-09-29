@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mission Residency Zelle Payment Verifier
  * Description: Fail-closed Mission Residency Zelle verification with administrator and automated-email providers.
- * Version: 2026.09.29.2
+ * Version: 2026.09.29.3
  */
 
 defined( 'ABSPATH' ) || exit;
@@ -158,10 +158,11 @@ function mm_mr_zelle_claim_reference( $order, $reference, $kind ) {
 	}
 	$key      = 'mm_zelle_' . sanitize_key( $kind ) . '_' . $reference;
 	$existing = get_option( $key, '' );
-	if ( '' !== (string) $existing && absint( $existing ) !== $order->get_id() ) {
+	/* A consumed claim is terminal, including after later cancellation/refund cleanup. */
+	if ( '' !== (string) $existing ) {
 		return false;
 	}
-	if ( '' === (string) $existing && ! add_option( $key, (string) $order->get_id(), '', false ) ) {
+	if ( ! add_option( $key, (string) $order->get_id(), '', false ) ) {
 		return false;
 	}
 	$order->update_meta_data( 'automated' === $kind ? '_mm_zelle_fingerprint' : '_mm_zelle_admin_claim', $reference );
@@ -368,6 +369,12 @@ function mm_mr_zelle_handle_admin_review() {
 		mm_mr_zelle_audit( $order, 'needs_review', 'admin_review' );
 		$order->save();
 	} elseif ( 'verify_activate' === $decision ) {
+		$state = sanitize_key( (string) $order->get_meta( '_mm_zelle_state', true ) );
+		if ( ! mm_mr_zelle_is_pending_order( $order ) || ! in_array( $state, array( 'awaiting_admin', 'not_found', 'needs_review' ), true ) ) {
+			mm_mr_zelle_audit( $order, 'activation_blocked', 'order_not_pending' );
+			$order->save();
+			wp_die( esc_html__( 'Only an unpaid pending verification request can be activated.', 'missionmed' ), 'Activation blocked', array( 'response' => 409 ) );
+		}
 		$mode      = sanitize_key( (string) $order->get_meta( '_mm_zelle_verification_mode', true ) );
 		$reference = MM_MR_ZELLE_MODE_AUTOMATED === $mode ? strtolower( (string) $order->get_meta( '_mm_zelle_candidate_fingerprint', true ) ) : strtolower( (string) $order->get_meta( '_mm_zelle_admin_request_token', true ) );
 		if ( ! preg_match( '/^[a-f0-9]{64}$/', $reference ) || ! mm_mr_zelle_complete_payment( $order, $reference, 'admin_confirmed', $mode ) ) {
