@@ -213,6 +213,14 @@ function mm_mr_zelle_run_verification( $order, $payer_name, $source = 'request' 
 			$order->update_meta_data( '_mm_zelle_candidate_fingerprint', $fingerprint );
 			$order->update_meta_data( '_mm_zelle_reference_masked', sanitize_text_field( (string) ( $result['reference_masked'] ?? '' ) ) );
 			$order->save();
+			if ( '1' === (string) $order->get_meta( '_mm_zelle_controlled_manual_acceptance', true ) ) {
+				$order->update_meta_data( '_mm_zelle_state', 'needs_review' );
+				mm_mr_zelle_audit( $order, 'needs_review', 'controlled_manual_acceptance' );
+				$order->save();
+				$order->add_order_note( 'A genuine exact Zelle match is held for the authorized controlled manual-acceptance test. No access was activated.' );
+				wp_mail( get_option( 'admin_email' ), 'Zelle verification review needed for order #' . $order->get_id(), 'A genuine exact Zelle match is ready for the authorized controlled manual-acceptance test. No access has been activated. Review the WooCommerce order.' );
+				return 'needs_review';
+			}
 			if ( ! mm_mr_zelle_complete_payment( $order, $fingerprint, $source ) ) {
 				$state = 'already_consumed';
 			} else {
@@ -349,6 +357,19 @@ function mm_mr_zelle_admin_panel( $order ) {
 }
 add_action( 'woocommerce_admin_order_data_after_order_details', 'mm_mr_zelle_admin_panel', 30, 1 );
 
+function mm_mr_zelle_render_verified_badge( $order_id ) {
+	static $rendered = false;
+	if ( $rendered || ! function_exists( 'wc_get_order' ) ) {
+		return;
+	}
+	$order = wc_get_order( absint( $order_id ) );
+	if ( ! $order || ! $order->is_paid() || ! mm_mr_zelle_order_identity( $order ) || 'verified' !== (string) $order->get_meta( '_mm_zelle_state', true ) ) {
+		return;
+	}
+	$rendered = true;
+	echo '<div class="mmz-verified" role="status" style="max-width:880px;margin:24px auto 0;padding:14px 20px;border:2px solid #1f7955;border-radius:12px;background:#eaf8f1;color:#123c2c;font-weight:800;letter-spacing:.08em;text-align:center">PAYMENT VERIFIED</div>';
+}
+
 function mm_mr_zelle_render_pending( $order_id ) {
 	static $rendered = false;
 	if ( $rendered ) {
@@ -399,7 +420,15 @@ add_action(
 	'wp',
 	function () {
 		$order = mm_mr_zelle_authorized_order();
-		if ( ! $order || ! mm_mr_zelle_is_pending_order( $order ) ) {
+		if ( ! $order ) {
+			return;
+		}
+		if ( $order->is_paid() && 'verified' === (string) $order->get_meta( '_mm_zelle_state', true ) ) {
+			add_action( 'woocommerce_before_thankyou', 'mm_mr_zelle_render_verified_badge', 0, 1 );
+			add_action( 'woocommerce_thankyou', 'mm_mr_zelle_render_verified_badge', 0, 1 );
+			return;
+		}
+		if ( ! mm_mr_zelle_is_pending_order( $order ) ) {
 			return;
 		}
 		remove_action( 'woocommerce_before_thankyou', 'mmps_render_order', 1 );
