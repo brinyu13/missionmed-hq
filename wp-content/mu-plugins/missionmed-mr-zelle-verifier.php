@@ -475,7 +475,7 @@ function mm_mr_zelle_render_verified_badge( $order_id ) {
 		return;
 	}
 	$rendered = true;
-	echo '<section class="mmz-verified" role="status" style="max-width:880px;margin:24px auto 0;padding:24px;border:2px solid #1f7955;border-radius:12px;background:#eaf8f1;color:#123c2c;text-align:center"><strong style="display:block;font-size:22px;letter-spacing:.08em">PAYMENT VERIFIED</strong><h2 style="color:#123c2c;margin:10px 0">YOU\'RE IN.</h2><p>Your Mission Residency enrollment is now active.</p><a style="display:inline-block;margin-top:8px;padding:12px 18px;border-radius:8px;background:#123c2c;color:#fff" href="' . esc_url( home_url( '/member-dashboard/' ) ) . '">ENTER MATRIX DASHBOARD →</a></section>';
+	echo '<style>.woocommerce-order-received .woocommerce-thankyou-order-received{display:none!important}</style><section class="mmz-verified" role="status" style="max-width:880px;margin:24px auto 0;padding:24px;border:2px solid #1f7955;border-radius:12px;background:#eaf8f1;color:#123c2c;text-align:center"><strong style="display:block;font-size:22px;letter-spacing:.08em">PAYMENT VERIFIED</strong><h2 style="color:#123c2c;margin:10px 0">YOU\'RE IN.</h2><p>Your Mission Residency enrollment is now active.</p><a style="display:inline-block;margin-top:8px;padding:12px 18px;border-radius:8px;background:#123c2c;color:#fff" href="' . esc_url( home_url( '/member-dashboard/' ) ) . '">ENTER MATRIX DASHBOARD →</a></section>';
 }
 
 function mm_mr_zelle_render_pending( $order_id ) {
@@ -534,6 +534,12 @@ add_action(
 			return;
 		}
 		if ( $order->is_paid() && 'verified' === (string) $order->get_meta( '_mm_zelle_state', true ) ) {
+			if ( function_exists( 'WC' ) && WC()->payment_gateways() ) {
+				$gateways = WC()->payment_gateways()->payment_gateways();
+				if ( isset( $gateways['bacs'] ) ) {
+					remove_action( 'woocommerce_thankyou_bacs', array( $gateways['bacs'], 'thankyou_page' ) );
+				}
+			}
 			add_action( 'woocommerce_before_thankyou', 'mm_mr_zelle_render_verified_badge', 0, 1 );
 			add_action( 'woocommerce_thankyou', 'mm_mr_zelle_render_verified_badge', 0, 1 );
 			return;
