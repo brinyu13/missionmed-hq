@@ -7,7 +7,9 @@
 - Added a secure Woo administrator queue, per-order nonce/capability validation, auditable review decisions and one-request/one-order claims.
 - Added customer pending/submitted/verified UI using Zelle ID `missionmed` and the exact Founder QR.
 - Added scoped WCAG-AA colors and focus states across all Zelle states.
-- Production code commit: `e497eff82de25fb937f4fcc365cd0f53c66a87f2`.
+- Hardened terminal claim consumption and pending-state checks so a cancelled/refunded order cannot reuse a previously consumed administrator claim.
+- Production code commit: `2a43b20018865c465df3c9f81e836de066315aae`.
+- Live/source verifier SHA-256: `b4813d439bcf78f61ca362d77db61211abb6f90dce8931353f4999fe93d02e1d`.
 
 ## Runtime/configuration
 
@@ -20,7 +22,7 @@
 ## Controlled evidence
 
 - `#9195`: Interview Week canonical completion proved 3646-only grant, replay idempotency, then cleanup/revocation.
-- `#9196`: Complete canonical completion proved 5227-only grant, no separate 3646 grant, verified customer/Matrix state, replay idempotency, then cleanup/revocation.
+- `#9196`: Complete canonical completion proved 5227-only grant, no separate 3646 grant, verified customer/Matrix state, paid-state replay idempotency, then cleanup/revocation. A subsequent post-cancellation direct and authenticated-admin replay stayed cancelled/unpaid with zero protected entitlement and was audit-blocked as `order_not_pending`.
 - `#9198`: reused claim blocked; unpaid; no entitlement.
 - `#9197`: responsive fixture only; unpaid; no customer entitlement.
 - `#9193`: real `$1` attempt not observed as received by Chase; never paid or entitled; truthfully closed.

@@ -1,61 +1,52 @@
 # Fresh Read-Only Independent Verification
 
-Verifier scope: production/read-only; no Gmail, WooCommerce, Git, user, order, entitlement, or file mutation.
+Date: 2026-09-29
+
+Verifier scope: final production/read-only verification after replay hardening; no Gmail, WooCommerce, Git, user, order, entitlement, payment, configuration, or file mutation.
 
 ## Verdict
 
-**ZELLE LAUNCH GATE = NOT APPROVED**
+**ZELLE LAUNCH GATE = APPROVED FOR STUDENT TRAFFIC**
 
-The verifier independently opened the authorized Gmail message and confirmed:
+**VERIFICATION MODE = SECURE ADMINISTRATOR CONFIRMATION**
 
-- sender: `Zelle <Notifications@zellepay.com>`;
-- subject: `Kathryn Bolante sent you $1.00 with Zelle`;
-- body meaning: `Enroll to receive $1.00 from Kathryn Bolante`;
-- enrollment address: `info@missionmedinstitute.com`;
-- deadline: October 9, 2026.
+**SCREENSHOT REQUIREMENT = NONE**
 
-This is genuine transfer-initiation/enrollment evidence, not a Chase incoming-payment receipt. The deployed matcher correctly queries only the allowlisted Chase receipt schema and rejects the enrollment notice.
+**AUTOMATED EMAIL RECONCILIATION = PRESERVED FOR REACTIVATION**
+
+No remaining launch-critical defect was found after replay hardening.
 
 ## Independent grades
 
-| Acceptance item | Grade | Independent finding |
+| Category | Grade | Independent finding |
 | --- | --- | --- |
-| Genuine Gmail evidence | PASS | Real Zelle enrollment-required message independently observed. |
-| Genuine Chase/deposit evidence | FAIL | No Chase receipt or deposited-payment evidence exists. |
-| Deterministic positive match | UNVERIFIED | No eligible receipt exists to match. |
-| Pre-payment entitlement containment | PASS | #9193 unpaid; no target courses or groups. |
-| Canonical Woo completion | EXPLICITLY_DEFERRED | Correctly withheld without deposited-payment evidence. |
-| Correct LearnDash grant | EXPLICITLY_DEFERRED | Correctly withheld. |
-| Correct Matrix grant | EXPLICITLY_DEFERRED | Correctly withheld. |
-| Unrelated entitlement exclusion | PASS | Closed unrelated course 3893 remains excluded. |
-| Request replay / no-match protection | PASS | Live order stayed locked; source/tests cover replay. |
-| Ambiguous-match protection | PASS | 5/5 matcher tests include the `needs_review` ambiguity branch. |
-| Real receipt reuse prevention | UNVERIFIED | No eligible real receipt fingerprint exists. |
-| Positive admin fallback | UNVERIFIED | No genuine candidate exists; activation control correctly remains unavailable. |
-| Customer activation email/state | EXPLICITLY_DEFERRED | Correctly absent for the unpaid order. |
-| Contrast | PASS | Independently recomputed declared color ratios: 9.72:1 to 17.24:1. |
-| Exact authenticated three-profile render | UNVERIFIED | Verifier did not repeat the authenticated 1440/1024/390 browser run; builder evidence records it. |
-| Stripe/public-price regression | PASS | Public prices remain $549/$3,099; scoped source commits do not touch Stripe. |
-| Public Zelle containment | PASS | Foreman disabled both scoped Mission Residency Zelle enable options after the failed gate. |
-| Cleanup | EXPLICITLY_DEFERRED | Real transfer remains enrollment-pending; retaining locked evidence is correct. |
-| Rollback readiness | PASS | Initial verifier and contrast preimages exist with recorded hashes. |
+| Payment destination | PASS | Live UI/config uses `missionmed`; no current payment instruction uses the old email destination. |
+| QR fidelity/scannability | PASS | Local/live hash `7e1f116daf0b0dd23b66db87073b5db2df77d049535603a9abb8a21545ad6b15`; independently decoded to Mission Global Group LLC / `missionmed`. |
+| Mobile Zelle-ID usability | PASS | 390px evidence shows a prominent ID and full-width COPY control; clipboard implementation has secure-context and fallback paths. |
+| Pending entitlement containment | PASS | Submission only persists request/audit; controlled orders remained unpaid and unentitled before verification. |
+| Truthful pending UX | PASS | It states enrollment is inactive and the button does not activate access; no Matrix CTA appears while pending. |
+| Verification request persistence | PASS | Order-bound amount, payer, timestamp, mode, state, token and audit are persisted. |
+| Staff notification and durable queue | PASS | `wp_mail` returned success and order audit recorded dispatch; the authenticated durable queue was exercised. Inbox delivery itself was not observed. |
+| Admin security | PASS | `manage_woocommerce`, per-order nonce, mapped-order validation, pending-state validation and audit are enforced. |
+| Canonical Woo completion | PASS | Controlled Interview Week and Complete orders completed through Woo `payment_complete()`, not direct permission grants. |
+| LearnDash activation | PASS | Interview Week granted 3646 only; Complete granted 5227 only; both were revoked during cleanup. |
+| Matrix/customer activation state | PASS | Verified state and Matrix CTA rendered only after canonical completion; pending state remained locked. |
+| Unrelated entitlement exclusion | PASS | Closed course 3893 remained absent; pre-existing course 4204 was preserved. |
+| Activation email/state | PASS | Woo processing email is enabled and hooked to the paid transition; verified customer state appeared only after completion. Actual inbox delivery was not independently observed. |
+| Idempotency/replay | PASS | Duplicate cross-order claim was blocked; post-cancellation replay on #9196 was blocked with `activation_blocked / order_not_pending`, leaving status and access unchanged. |
+| Responsive QA | PASS | 1440, 1024 and 390 evidence was independently inspected; no overflow, clipping or pending/verified ambiguity was found. |
+| Contrast/accessibility | PASS | Ratios were independently recomputed from 9.72:1 to 17.24:1; focus styling is explicit. |
+| Stripe/commerce regression | PASS | Stripe remains enabled/live; public prices and mappings remain `$549/$499` Interview Week and `$3,099` Complete; no Stripe transaction was changed. |
+| Automated-email architecture | PASS | HQ parser call, HMAC signing, deterministic states, fingerprints and replay controls remain present but dormant. |
+| Temporary test cleanup | PASS | #9193 and #9195 through #9198 are cancelled; test markers/retries were removed; user 1391 retains only course 4204 and no groups. |
+| Rollback readiness | PASS | The replay-hardening preimage exists and hashes correctly; earlier source/full/contrast preimages remain documented. |
 
-## Independent live state
+## Final deployment identity
 
-At readback the verifier observed:
+- Source commit: `2a43b20018865c465df3c9f81e836de066315aae`
+- Local/live verifier SHA-256: `b4813d439bcf78f61ca362d77db61211abb6f90dce8931353f4999fe93d02e1d`
+- Replay-hardening preimage SHA-256: `15c7b51cf59d44a8205fc655da8fa3ea22aa6dd0a840f55c2540f1d72ab96418`
 
-- order #9193: on hold, unpaid;
-- Zelle state: `not_found`;
-- payer: normalized `kathryn bolante`;
-- no genuine candidate fingerprint;
-- no Woo transaction ID;
-- LearnDash 3646: false;
-- LearnDash 5227: false;
-- closed unrelated course 3893: false;
-- group list: empty;
-- customer role only;
-- live verifier SHA-256 matches source: `60aa59768c50b80e393c8f9da6bb7beb6038407fe2674b1ae86169c136f6d0d2`.
+## Noncritical observation
 
-## Required non-delegable action
-
-The Founder or an authorized banking administrator must enroll or confirm the recipient through the official Chase/Zelle banking surface, not through the email link, and then wait for a genuine incoming-payment confirmation. Until that evidence exists and the controlled lifecycle is completed, Zelle must remain unavailable for student traffic.
+The application reported successful staff-notification dispatch and the request remained available in the durable authenticated queue. Destination-inbox delivery was not independently observed. This does not discard or auto-activate a request; the queue remains the operational source of truth.

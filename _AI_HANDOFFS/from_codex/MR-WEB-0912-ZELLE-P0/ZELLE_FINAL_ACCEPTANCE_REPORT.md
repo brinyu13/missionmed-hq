@@ -14,8 +14,8 @@ Date: 2026-09-29 (America/New_York)
 
 ## Deployment identity
 
-- Production code commit: `e497eff82de25fb937f4fcc365cd0f53c66a87f2`
-- Live/local verifier SHA-256: `15c7b51cf59d44a8205fc655da8fa3ea22aa6dd0a840f55c2540f1d72ab96418`
+- Production code commit: `2a43b20018865c465df3c9f81e836de066315aae`
+- Live/local verifier SHA-256: `b4813d439bcf78f61ca362d77db61211abb6f90dce8931353f4999fe93d02e1d`
 - Live/local Founder QR SHA-256: `7e1f116daf0b0dd23b66db87073b5db2df77d049535603a9abb8a21545ad6b15`
 - Runtime option: `mmed_mr_zelle_verification_mode=admin_confirmation`
 - Interview Week Zelle rail: enabled
@@ -76,6 +76,7 @@ The queue also supports `PAYMENT NOT FOUND`, `KEEP WAITING`, and `NEEDS REVIEW`;
 - The administrator action requires `manage_woocommerce`, a per-order nonce, a valid mapped BACS order and an unused 64-character request claim.
 - Controlled order `#9198` attempted to reuse the consumed claim from `#9196`; completion returned false, the order stayed unpaid and course 3646 was not granted.
 - Orders already paid are idempotent and exit before any second completion.
+- Post-cleanup replay was also tested against cancelled order `#9196`. Direct reuse of its consumed claim returned false. An authenticated administrator with a valid per-order nonce was then rejected with `Only an unpaid pending verification request can be activated`; the order remained cancelled/unpaid, 3646 and 5227 remained false, course 4204 remained preserved, the group list remained empty, and the rejection was audit-logged as `activation_blocked / order_not_pending`.
 - Automated mode retains deterministic financial fingerprints and one-payment/one-order claim protection for later reactivation.
 
 ## Order #9193 result
@@ -107,9 +108,11 @@ Remaining database/source occurrences were classified instead of erased:
 
 Current visible customer payment-destination count for `info@missionmedinstitute.com`: **zero**.
 
-## Noncritical deferred item
+## Noncritical deferred items
 
 WordPress returned success and stored `sent` for both controlled staff alerts; the durable admin queue was independently exercised. The alert was not observed in the destination Gmail search during the bounded acceptance window. This is recorded as delivery telemetry not independently observed, not as loss of the request: the durable queue is the operational source of truth and requires administrator authentication.
+
+During a read-only Stripe regression query, sensitive live Stripe configuration values were emitted into the restricted task tool transcript. They are not repeated in this report, were not changed, and no external/public disclosure or commerce mutation was observed. A controlled Stripe/Woo credential rotation and readback is a security-hygiene follow-up outside this Zelle verification pivot.
 
 ## Evidence
 

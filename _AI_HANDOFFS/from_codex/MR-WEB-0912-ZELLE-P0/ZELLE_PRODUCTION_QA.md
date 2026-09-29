@@ -55,6 +55,15 @@ The focused payer field computed a 3px solid `rgb(246, 215, 154)` outline plus a
 
 `pending`, `awaiting_admin`, `checking`, `not_found`, `provider_unavailable`, `needs_review`, `already_consumed`, validation/error, and `verified` use explicit scoped high-contrast treatments. The payer field remains light with dark text. Pending surfaces hide the ordinary Woo success sentence and any Matrix/customer-active CTA.
 
+## Activation and replay containment
+
+- Both controlled products reached the single canonical Woo `payment_complete()` path only after an authenticated administrator decision with the correct capability and per-order nonce.
+- Paid-state replay did not duplicate completion or access.
+- Reuse of the Complete request claim on order `#9198` returned false and left the order unpaid and unentitled.
+- After order `#9196` was cancelled and its test access revoked, direct reuse of its consumed claim returned false.
+- A second test using administrator user 1 and a valid per-order nonce was rejected with `Only an unpaid pending verification request can be activated`.
+- After that rejected replay, `#9196` remained cancelled/unpaid, 3646 and 5227 remained false, existing course 4204 remained present, groups remained empty, and the audit appended `activation_blocked / order_not_pending`.
+
 ## Regression
 
 - Both public products and active variations remain in stock and purchasable.
