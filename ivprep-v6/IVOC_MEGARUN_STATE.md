@@ -17,14 +17,21 @@ the actual production route and deployment.
 - **Terminal status: NOT COMPLETE.** September's component and prior-user
   acceptance rows remain historical evidence, not current student-ready POV
   acceptance. Journeys A–D must be rerun from the visible production product.
-- **Current source/runtime:** Railway deployment `ac928daa-6d68-4cc3-93e3-f313c70f4fcd`
-  is healthy and serves source `ab78c6e571b192cb33f394db3910f92b81c465c6`
-  (image `sha256:172ece8bbe569e1d688de3ba653e45fe8e24873d70c5c9af7280b502f33422db`).
-  The IVOC remote branch is `645de1e6bee9e1ffe2c0194cbd2c5aa40b9a6ec0`;
-  it diverges from the live source, so neither may silently replace the other.
+- **Current source/runtime:** Railway deployment `6298e2b4-cd72-471c-91d4-340c911baa64`
+  is SUCCESS on 2026-09-29, built from the tracked-files-only Foreman source
+  `ef1ca4b2bc1e7c5fcbf271c5250b4ac36d17e870` (Railway upload metadata
+  has no Git commit hash; image
+  `sha256:a6da7b9e6ddc53fcaf931f04d6ab73c0e9e33995144179775cb97192f4a2f9e0`).
+  The preceding healthy source was `ab78c6e571b192cb33f394db3910f92b81c465c6`,
+  deployment `ac928daa-6d68-4cc3-93e3-f313c70f4fcd`, image
+  `sha256:172ece8bbe569e1d688de3ba653e45fe8e24873d70c5c9af7280b502f33422db`;
+  Railway now reports that deployment REMOVED, so rollback requires a fresh
+  exact-source/image redeploy rather than an ID rollback. The historical IVOC
+  branch `645de1e6bee9e1ffe2c0194cbd2c5aa40b9a6ec0` diverges from the
+  former live source; neither may silently replace the other.
   The historical IVOC checkout remains dirty and untouched. Production health
-  returned 200 and anonymous product access returned 401; this is infrastructure
-  evidence, not a passed student journey.
+  returned 200 and anonymous product/bootstrap access returned 401 after the
+  new deployment; this is infrastructure evidence, not a passed student journey.
 - **Current entry POV: BLOCKED / NOT ACCEPTED.** In the available signed-in
   Matrix browser session, the IVOC tile is correctly locked for the current
   restricted/free identity: current Matrix access says
@@ -55,14 +62,15 @@ the actual production route and deployment.
   expired. A fresh PRODUCT lease/fencing transaction is required for each
   subsequent mutation and must be checked against provider time. No force-unlock
   or owner override occurred.
-- **First release candidate FAILED BUILD, production still healthy.** Candidate
+- **First release candidate FAILED BUILD, corrected release SUCCESS.** Candidate
   `ff6461aff91b352748b28d6002299a0712831c6b` was uploaded as Railway
   deployment `5b5e70d2-29f8-4d0e-93ad-a43da50d06e0`; `npm run build` failed
   because Railway's `.gitignore`-based archive omitted the tracked
   `missionmed-hq/lib/auth/session-token.mjs` (`*token*` ignore rule). The live
   `ac928daa-6d68-4cc3-93e3-f313c70f4fcd` deployment remained SUCCESS and
-  `/health` returned 200. Next candidate must use a tracked-files-only archive
-  with explicit inclusion of that module; do not upload ignored secrets.
+  `/health` returned 200. A tracked-files-only archive with explicit inclusion
+  of that module built and deployed successfully as `6298e2b4-cd72-471c-91d4-340c911baa64`;
+  ignored secrets were not uploaded. Authenticated student/Admin POV remains open.
 - **Recording fail-closed: LOCAL FIX, LIVE UNVERIFIED.** A source review found
   that an unsupported `MediaRecorder` could return false while the session
   proceeded as if recorded, and a null seal could still file Results. Start now
