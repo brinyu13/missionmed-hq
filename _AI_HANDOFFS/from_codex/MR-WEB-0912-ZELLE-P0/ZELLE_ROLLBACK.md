@@ -1,27 +1,19 @@
-# Zelle Rollback and Containment
+# Zelle Administrator-Confirmation Rollback
 
-## CSS/source rollback
+## Recovery points
 
-- Pre-fix live verifier SHA-256: `c19fa165a31975779511df25fa5e1c1aae2bd59968718469556930e449f41403`
-- Current live verifier SHA-256: `60aa59768c50b80e393c8f9da6bb7beb6038407fe2674b1ae86169c136f6d0d2`
-- Exact server preimage: `/www/theresidencyacademy_209/private-backups/MR-WEB-0912-ZELLE-CONTRAST-20260929/missionmed-mr-zelle-verifier.php.preimage`
-- Current source commit: `a860765556b025c14177d7044fbf2bf5948b4a6d`
+- Fresh MyKinsta manual backup: `Pre Zelle Update`, September 29, 2026 11:33 AM ET; expires October 13; restore control visible.
+- Immediate source preimage: `/www/theresidencyacademy_209/private-backups/MR-WEB-0912-ZELLE-ADMIN-PIVOT-20260929T210730Z/missionmed-mr-zelle-verifier.php.preimage`
+- Preimage SHA-256: `60aa59768c50b80e393c8f9da6bb7beb6038407fe2674b1ae86169c136f6d0d2`
+- Earlier full Zelle preimage: `/www/theresidencyacademy_209/private-backups/MR-WEB-0912-ZELLE-20260929T1648Z`
+- Contrast preimage: `/www/theresidencyacademy_209/private-backups/MR-WEB-0912-ZELLE-CONTRAST-20260929/missionmed-mr-zelle-verifier.php.preimage`
 
-The contrast patch can be reverted by restoring the exact preimage or reverting only commit `a860765`. That rollback would affect presentation only; it must not rewrite order/payment evidence.
+## Scoped rollback
 
-## Financial containment
+1. Set both scoped Mission Residency Zelle enable options to `no` to stop new Zelle checkout exposure without affecting card commerce.
+2. Restore the exact verifier preimage only if the runtime itself is unhealthy.
+3. Restore or remove the QR only together with the verifier version that references it.
+4. Flush application/page caches and verify card checkout remains available.
+5. Do not roll back or rewrite orders, payments, notes, audit records or entitlements as part of a source rollback.
 
-Do not roll back or delete the truthful #9193 audit trail. The real transfer is enrollment-pending and must be reconciled through the banking/Zelle surface. Current safe state:
-
-- order on hold and unpaid;
-- no candidate fingerprint;
-- no transaction ID;
-- no course or Matrix entitlement;
-- scheduled retries fail closed;
-- positive admin activation remains unavailable without a genuine candidate.
-
-## Cleanup boundary
-
-Account/order cleanup is intentionally deferred until the real transfer is either received and accepted or expires/is returned through the authorized financial process. Disabling the customer or erasing the order now would make reconciliation harder and could discard required audit evidence. No public `$1` price or public bypass exists to remove.
-
-The two scoped public Zelle enable options were `yes` before this failed gate and are now `no`. Do not re-enable either option as a generic rollback. Re-enablement requires resolution of the recipient enrollment/destination issue and completion of the positive production acceptance lifecycle.
+Runtime rollback is not source rollback. The provider mode may be changed back to `automated_email_match` only after the authoritative financial-email source is restored and focused acceptance passes.

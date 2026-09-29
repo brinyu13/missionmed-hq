@@ -1,79 +1,120 @@
-# MR-WEB-0912 Zelle Real-World Production Acceptance
+# Mission Residency Zelle Admin-Confirmation Launch Report
 
 Date: 2026-09-29 (America/New_York)
 
-## Final gate
+## Final production status
 
-**ZELLE LAUNCH GATE = NOT APPROVED**
+**ZELLE LAUNCH GATE = APPROVED FOR STUDENT TRAFFIC**
 
-The controlled customer sent a real $1.00 transfer to `info@missionmedinstitute.com`, but the authorized Gmail inbox received an enrollment-required notification from `Notifications@zellepay.com`, not an incoming-payment confirmation from Chase. The message states that MissionMed must enroll that email address to receive the money before October 9, 2026. Therefore the funds are not proven deposited, and the live matcher correctly returned `not_found`.
+**VERIFICATION MODE = SECURE ADMINISTRATOR CONFIRMATION**
 
-No code change can truthfully turn an unreceived, enrollment-pending transfer into a paid WooCommerce order. Enrollment of the business email in Zelle/Chase is a Founder-controlled banking action and was not delegated to this run.
+**SCREENSHOT REQUIREMENT = NONE**
 
-## Controlled order
+**AUTOMATED EMAIL RECONCILIATION = PRESERVED FOR REACTIVATION**
 
-- Order: `#9193`
-- Customer: controlled customer ID `1391`
-- Amount: `$1.00`
-- Payment method: BACS-backed controlled Zelle acceptance
-- Current Woo state: `on-hold`, unpaid
-- Zelle state: `not_found`
-- Submitted payer: normalized `kathryn bolante`
-- Genuine candidate fingerprint: absent
-- Woo transaction ID: absent
-- LearnDash 3646: no access
-- LearnDash 5227: no access
-- Unrelated closed course 3893: no access
-- LearnDash groups / Matrix program groups: none
+## Deployment identity
 
-## Real-world chronology
+- Production code commit: `e497eff82de25fb937f4fcc365cd0f53c66a87f2`
+- Live/local verifier SHA-256: `15c7b51cf59d44a8205fc655da8fa3ea22aa6dd0a840f55c2540f1d72ab96418`
+- Live/local Founder QR SHA-256: `7e1f116daf0b0dd23b66db87073b5db2df77d049535603a9abb8a21545ad6b15`
+- Runtime option: `mmed_mr_zelle_verification_mode=admin_confirmation`
+- Interview Week Zelle rail: enabled
+- Complete Zelle rail: enabled
+- Dormant provider retained: `automated_email_match`
+- Dormant HQ matcher source and its HMAC, Gmail schema, deterministic matcher, fingerprint and replay controls were not removed.
 
-1. Before submission, order #9193 was on hold and unpaid with zero target course or Matrix entitlement.
-2. The customer-side form submitted the exact sender name `Kathryn Bolante`.
-3. The verifier recorded `checking` and queried the authorized Gmail integration.
-4. The matcher returned `not_found`; clicking the button alone did not activate payment or access.
-5. Gmail subsequently showed the real message from `Notifications@zellepay.com`, subject `Kathryn Bolante sent you $1.00 with Zelle`.
-6. The message says `Enroll to receive $1.00` and identifies `info@missionmedinstitute.com` as the email to enroll. It does not assert that Chase received/deposited the payment.
-7. A scheduled live retry ran after the message existed. Because the notification is not an allowlisted Chase deposit receipt, the matcher remained `not_found` and fail-closed.
+## Exact customer flow
 
-## Source and runtime
+1. The customer chooses Zelle at the ordinary Mission Residency checkout.
+2. Interview Week shows `$499`; Complete shows `$3,099`.
+3. Woo creates an unpaid/on-hold order. No protected entitlement is granted.
+4. The order-received page shows the exact amount, Zelle ID `missionmed`, the byte-identical Founder QR, and a mobile-first COPY control.
+5. The customer submits only the full name used to send the payment.
+6. The request is nonce protected, ownership/order-key bound, rate limited, audited, persisted and placed in the administrator queue.
+7. The customer sees `PAYMENT SUBMITTED FOR VERIFICATION`; access remains locked and the browser may be closed.
 
-- WordPress source commit: `a860765556b025c14177d7044fbf2bf5948b4a6d`
-- Live verifier SHA-256: `60aa59768c50b80e393c8f9da6bb7beb6038407fe2674b1ae86169c136f6d0d2`
-- MissionMed HQ matcher commit: `ab78c6e571b192cb33f394db3910f92b81c465c6`
-- Matcher tests: 5/5 pass
-- Existing public prices remained `$549` for Interview Week card and `$3,099` for Complete.
-- No Stripe source, order, charge, refund, or entitlement was changed.
-- After the failed launch gate, both public Mission Residency Zelle enable options were changed from `yes` to `no`. BACS remains globally configured but is no longer eligible for the Interview Week or Complete launch carts; card prices remain unchanged.
+No screenshot, bank receipt, phone call, WhatsApp message or separate email is required in the normal flow.
 
-## What passed
+## Exact administrator flow
 
-- Real Gmail discovery occurred; no email or transaction evidence was fabricated.
-- Customer submission and retry used the deployed HMAC-authenticated WordPress-to-HQ matcher.
-- Button-only activation containment passed.
-- Wrong/no-match containment passed live.
-- Ambiguous, consumed, wrong-sender, wrong-subject, wrong-payer, wrong-amount, and replay protections pass the committed matcher tests; HMAC request replay was also rejected in prior live acceptance.
-- Order, LearnDash, and Matrix access stayed locked throughout.
-- The Zelle UI contrast correction is live and source-matched.
-- Public card pricing and Stripe commerce were unaffected.
+1. WordPress dispatches the operational alert through `wp_mail` to the canonical administrator address and records the dispatch result on the order.
+2. Every request is durably visible in WooCommerce > Zelle verification, so mail is not the source of truth and a delayed mailbox cannot discard a request.
+3. The review link requires an authenticated user with `manage_woocommerce`.
+4. The review form shows order, amount, student, program, submitted sender, requested time, state and verification mode.
+5. After confirming the real receipt in the authorized Chase workflow, the administrator uses the nonce-protected `VERIFY PAYMENT & ACTIVATE` action.
+6. The provider records one cryptographic request claim, then calls the single canonical Woo `payment_complete()` path. It never directly grants LearnDash or Matrix access and never fabricates a bank transaction ID.
+7. The ordinary Woo/LearnDash cascade grants the mapped course and renders the verified Matrix/customer state.
 
-## What did not pass
+The queue also supports `PAYMENT NOT FOUND`, `KEEP WAITING`, and `NEEDS REVIEW`; each remains unpaid and locked.
 
-- No genuine Chase incoming-payment notification exists for this transfer.
-- Deterministic positive match could not occur.
-- Canonical Woo `payment_complete()` was correctly not called.
-- Positive LearnDash/Matrix/customer-email activation could not be tested.
-- The controlled admin fallback correctly has no genuine candidate to approve and therefore could not complete its positive path.
-- Real-payment fingerprint consumption against a second order could not be proven because no eligible deposited-payment fingerprint exists.
-- Cleanup is intentionally deferred while a real, unresolved $1 transfer remains pending; falsifying or discarding that state would weaken accounting truth.
-- New Interview Week and Complete Zelle checkout selection is fail-closed while the banking enrollment blocker is unresolved.
+## Controlled production acceptance
 
-## Remaining customer-facing issue
+### Interview Week
 
-Some existing campaign presentation copy still mentions the `$499` Zelle option. The eligibility flags now prevent that rail from being offered for a new launch-product checkout, but the promotional copy can still create confusion. The presentation owner must replace those references with a temporarily-unavailable treatment before Zelle traffic resumes; this run did not broaden into the concurrent landing-page integration.
+- Controlled order: `#9195`
+- Before verification: on hold, unpaid; no 3646 or 5227; no Matrix group; unrelated course 4204 preserved.
+- Button-only submission: state changed to `awaiting_admin`; mail dispatch returned true; no entitlement appeared.
+- Admin confirmation: canonical Woo completion granted LearnDash 3646 only.
+- Exclusions: 5227 and unrelated closed course 3893 remained absent; no group was added.
+- Replay: repeated approval did not change paid-at, audit count or access.
+- Cleanup: 3646 revoked, order cancelled with an audit note, controlled markers removed.
 
-## Exact next step
+### IV Prep Complete
 
-The Founder or an authorized banking administrator must confirm, through the official Chase/Zelle banking surface, whether `info@missionmedinstitute.com` should be enrolled to receive business payments. Do not use the email link as a substitute for direct bank authentication. After enrollment and actual receipt, obtain the genuine incoming-payment confirmation and resume order #9193 through the existing matcher. If MissionMed instead chooses an already-enrolled Zelle destination, update commercial authority and customer-facing instructions before a fresh controlled test.
+- Controlled order: `#9196`
+- Before verification: on hold, unpaid; no 3646 or 5227; no Matrix group; unrelated course 4204 preserved.
+- Button-only submission: state changed to `awaiting_admin`; mail dispatch returned true; no entitlement appeared.
+- Admin confirmation: canonical Woo completion granted LearnDash 5227 only.
+- Exclusions: no separate 3646 grant and no separate Interview Week charge; 3893 remained absent; no group was added.
+- Verified customer state: `PAYMENT VERIFIED`, `YOU'RE IN`, and the Matrix dashboard link rendered only after Woo completion.
+- Replay: repeated approval did not change paid-at, audit count or access.
+- Cleanup: 5227 revoked, order cancelled with an audit note, controlled markers removed.
 
-Until one of those actions occurs, the Zelle rail must remain unavailable for student traffic.
+### Security and replay controls
+
+- A logged-in non-administrator was denied access to the review queue.
+- The administrator action requires `manage_woocommerce`, a per-order nonce, a valid mapped BACS order and an unused 64-character request claim.
+- Controlled order `#9198` attempted to reuse the consumed claim from `#9196`; completion returned false, the order stayed unpaid and course 3646 was not granted.
+- Orders already paid are idempotent and exit before any second completion.
+- Automated mode retains deterministic financial fingerprints and one-payment/one-order claim protection for later reactivation.
+
+## Order #9193 result
+
+The Founder-reported `$1.00` attempt was not found as a received payment in the authoritative Mission Global Group Chase account. The visible activity's newest incoming Zelle receipt was September 15, not September 29. The Gmail message was an enrollment-required Zelle notice, not a Chase deposit receipt.
+
+Order `#9193` was therefore never marked paid. It was closed as cancelled/unpaid with a truthful private note. It has no transaction ID, no 3646 or 5227 access, and no Matrix group. Its test-only markers and retry schedule were removed. No refund/return was represented.
+
+## Final cleanup
+
+- Controlled orders `#9193`, `#9195`, `#9196`, `#9197`, and `#9198` are cancelled and not active purchase records.
+- All controlled-test and controlled-admin markers were removed.
+- All scheduled verifier retries for those orders were cleared.
+- Controlled customer 1391 retains only pre-existing unrelated course 4204; 3646, 5227 and 3893 are false and the group list is empty.
+- No public `$1` price or public test bypass exists.
+- Public product prices remain `$549` card / `$499` Zelle for Interview Week and `$3,099` for Complete; Complete's `$3,499` regular-price anchor is unchanged.
+- Stripe remains enabled in live mode and rendered alongside Zelle on checkout. No Stripe source, charge, refund, order or entitlement was changed.
+
+## Current-instruction audit
+
+Current rendered Zelle checkout and order instructions use `missionmed` and the Founder QR. The active checkout and pending-payment surfaces contain no instruction to send Zelle to `info@missionmedinstitute.com`.
+
+Remaining database/source occurrences were classified instead of erased:
+
+- support/contact email in the legacy waitlist and footer: false positive, not a payment destination;
+- hidden historical Course Comparison Zelle note: not rendered (removed by the current runtime layer), historical/stale presentation source;
+- Gmail/HQ/parser references: technical and required for the preserved dormant automated provider;
+- prior reports and order evidence: historical.
+
+Current visible customer payment-destination count for `info@missionmedinstitute.com`: **zero**.
+
+## Noncritical deferred item
+
+WordPress returned success and stored `sent` for both controlled staff alerts; the durable admin queue was independently exercised. The alert was not observed in the destination Gmail search during the bounded acceptance window. This is recorded as delivery telemetry not independently observed, not as loss of the request: the durable queue is the operational source of truth and requires administrator authentication.
+
+## Evidence
+
+- Responsive evidence: `evidence/admin-pivot/zelle-pending-1440.png`, `zelle-pending-1024.png`, `zelle-pending-390.png`
+- Production QA: `ZELLE_PRODUCTION_QA.md`
+- State delta: `ZELLE_STATE_DELTA.md`
+- Rollback: `ZELLE_ROLLBACK.md`
+- Fresh independent verdict: `ZELLE_INDEPENDENT_VERIFIER.md`

@@ -1,10 +1,35 @@
-# Zelle Production UI and Regression QA
+# Zelle Production QA — Administrator Confirmation Pivot
 
-## Scoped contrast correction
+Date: 2026-09-29
 
-The correction is confined to `.mmz-shell` and `.mmz-verified` within the Mission Residency Zelle verification component. It does not globally override WooCommerce typography.
+## Responsive pending-payment UI
 
-Measured combinations:
+The production order-received component was inspected at requested widths `1440`, `1024`, and `390`.
+
+| Check | 1440 | 1024 | 390 |
+| --- | --- | --- | --- |
+| Exact amount prominent | PASS | PASS | PASS |
+| Zelle ID `missionmed` prominent | PASS | PASS | PASS |
+| COPY returns exactly `missionmed` | PASS | PASS | PASS |
+| Exact Founder QR visible, uncropped | PASS | PASS | PASS |
+| Payer-name control usable | PASS | PASS | PASS |
+| CTA at least 48px high | PASS | PASS | PASS |
+| No horizontal overflow | PASS | PASS | PASS |
+| Pending and verified states unambiguous | PASS | PASS | PASS |
+| No Matrix CTA while pending | PASS | PASS | PASS |
+
+Measured targets: copy control 48px high on desktop/tablet and 270x48px on mobile; payer input 50px; submit button 50px desktop/tablet and 53px mobile. `scrollWidth` equaled viewport width at each profile.
+
+## QR fidelity and scannability
+
+- Live URL: `https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/media/missionmed-zelle-qr.png`
+- Source/live SHA-256: `7e1f116daf0b0dd23b66db87073b5db2df77d049535603a9abb8a21545ad6b15`
+- Dimensions: 444x364 source; rendered within a white container without cropping or overlays.
+- Independent decode succeeded as a Zelle payment QR for `Mission Global Group LLC`, token `missionmed`.
+
+## Contrast and focus
+
+All styles are scoped to `.mmz-shell` or `.mmz-verified`; no global Woo typography override was introduced.
 
 | Surface | Foreground / background | Contrast |
 | --- | --- | ---: |
@@ -15,32 +40,25 @@ Measured combinations:
 | Input text | `#0d1d24` / `#ffffff` | 17.24:1 |
 | Verified badge | `#123c2c` / `#eaf8f1` | 11.24:1 |
 
-All exceed WCAG AA for normal text. Input focus uses a visible gold outline with offset.
+The focused payer field computed a 3px solid `rgb(246, 215, 154)` outline plus a 4px gold focus ring. All measured combinations exceed WCAG AA normal-text requirements.
 
-## Responsive checks
+## Live checkout rails
 
-Requested browser profiles: 1440 desktop, 1024 tablet, and 390 mobile. The in-app browser chrome reduced the measured content viewports to 1309, 931, and 354 pixels respectively; the mobile run is therefore narrower than the requested 390 profile. At each profile:
-
-- explanatory text, payer label, amount, recipient, confirmation address, and CTA were readable;
-- the grid collapsed to one column at mobile width;
-- `scrollWidth` equaled the content viewport, so no horizontal overflow was present;
-- the payer input retained a white background and dark text;
-- no order/payment state or entitlement changed during UI QA.
+- Interview Week cart/card total: `$549.00`.
+- Selecting Zelle changed the live item, subtotal, and total to `$499.00` and displayed `Zelle — $499 total (save $50)`.
+- Complete cart/card total: `$3,099.00`; the Zelle rail displayed `Zelle — $3,099 total` with no separate discount.
+- Stripe card and Zelle both rendered on the scoped checkout.
+- Zelle description states the order stays on hold and access is not granted until MissionMed verifies receipt.
+- No payment was submitted during final QA.
 
 ## State coverage
 
-- `pending`: alert, order cards, input label, input, and CTA use explicit scoped colors.
-- `checking`, `not_found`, and `provider_unavailable`: use the same shell and explicit high-contrast `.mmz-note` treatment.
-- `needs_review` and `already_consumed`: use the same shell and `.mmz-note` treatment.
-- `verified`: uses the independently high-contrast `.mmz-verified` badge.
+`pending`, `awaiting_admin`, `checking`, `not_found`, `provider_unavailable`, `needs_review`, `already_consumed`, validation/error, and `verified` use explicit scoped high-contrast treatments. The payer field remains light with dark text. Pending surfaces hide the ordinary Woo success sentence and any Matrix/customer-active CTA.
 
-## Commerce regression
+## Regression
 
-- Interview Week card price: `$549` unchanged.
-- Complete card price: `$3,099` unchanged.
-- Controlled order total: `$1.00`, isolated to order #9193.
-- No public product price was changed.
-- No Stripe setting, charge, refund, or order was changed.
-- `mmed_mr_0912_iw_zelle_enabled`: `yes` to `no` after the launch gate failed.
-- `mmed_mr_0912_complete_zelle_enabled`: `yes` to `no` after the launch gate failed.
-- The global BACS configuration remains present for historical/controlled orders, but the launch-cart eligibility functions now return no Zelle offer for Interview Week or Complete.
+- Both public products and active variations remain in stock and purchasable.
+- Product IDs/mappings remain 5504/5867 → LearnDash 3646 and 3576/5865 → LearnDash 5227.
+- Stripe is enabled in live mode and its card element renders.
+- No Stripe setting, payment, refund, order or entitlement was mutated by this pivot.
+- Existing paid users were not queried or rewritten; the source path is gated to mapped BACS orders only.
