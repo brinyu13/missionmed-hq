@@ -1,0 +1,77 @@
+[
+  {
+    "metrics": {
+      "lcp": 248,
+      "cls": 0.0006592354480131173,
+      "longTasks": [],
+      "lcpElement": "IMG",
+      "lcpUrl": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/media/montage-1702.webp?v=6ee860251c1f"
+    },
+    "nav": [
+      {
+        "ttfb": 89.6000000089407,
+        "domReady": 242,
+        "load": 352.29999999701977
+      }
+    ],
+    "slow": [],
+    "heroEyebrow": "13px",
+    "css": [
+      "https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap",
+      "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/usce-donor.css?v=351b10ae1f58",
+      "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/usce-shell.css?v=5b43966eb74b",
+      "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/alternate.css?v=6c3a367b32f5"
+    ],
+    "cartFocus": "rgb(34, 101, 172) solid 3px"
+  },
+  {
+    "metrics": {
+      "lcp": 468,
+      "cls": 0.0006592354480131173,
+      "longTasks": [],
+      "lcpElement": "IMG",
+      "lcpUrl": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/media/montage-1702.webp?v=6ee860251c1f"
+    },
+    "nav": [
+      {
+        "ttfb": 178,
+        "domReady": 457.70000000298023,
+        "load": 519
+      }
+    ],
+    "slow": [],
+    "heroEyebrow": "13px",
+    "css": [
+      "https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap",
+      "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/usce-donor.css?v=351b10ae1f58",
+      "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/usce-shell.css?v=5b43966eb74b",
+      "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/alternate.css?v=6c3a367b32f5"
+    ],
+    "cartFocus": "rgb(34, 101, 172) solid 3px"
+  },
+  {
+    "metrics": {
+      "lcp": 288,
+      "cls": 0.032967107668566004,
+      "longTasks": [],
+      "lcpElement": "IMG",
+      "lcpUrl": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/media/montage-640.webp?v=10ad8ba65122"
+    },
+    "nav": [
+      {
+        "ttfb": 134.3999999910593,
+        "domReady": 280.09999999403954,
+        "load": 418
+      }
+    ],
+    "slow": [],
+    "heroEyebrow": "13px",
+    "css": [
+      "https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap",
+      "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/usce-donor.css?v=351b10ae1f58",
+      "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/usce-shell.css?v=5b43966eb74b",
+      "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/alternate.css?v=6c3a367b32f5"
+    ],
+    "cartFocus": "rgb(34, 101, 172) solid 3px"
+  }
+]

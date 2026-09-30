@@ -1,0 +1,104 @@
+{
+  "at": "2026-09-30T06:39:05.782Z",
+  "source": "01c26f93f185d8ccf78f8ca3c1d11074a59e16ac",
+  "preservation": {
+    "primary": {
+      "count": 45,
+      "allUnchanged": true
+    },
+    "mu": {
+      "count": 68,
+      "allUnchanged": true
+    },
+    "premium-hero/hero.js": {
+      "onlyCanonicalLinkChanges": true
+    },
+    "js/mr-0912.js": {
+      "onlyCanonicalLinkChanges": true
+    }
+  },
+  "runtime": [
+    {
+      "path": "wp-content/mu-plugins/missionmed-mr-alternate.php",
+      "sha256": "ef5b66e27eaf49a1c0d230039d726a94a28dd3c9a784fb3ed6c63024a7629f2e",
+      "matches": true
+    },
+    {
+      "path": "wp-content/mu-plugins/missionmed-mr-alternate-assets/page.php",
+      "sha256": "2e6e8dc94475434da7c091a8bc496bb4663efb509e68c519989ac41ed2d727ef",
+      "matches": true
+    },
+    {
+      "path": "wp-content/mu-plugins/missionmed-mr-alternate-assets/alternate.css",
+      "sha256": "6c3a367b32f5e166d500b5ed58976007cbae10f8a388fa4e1e11ebc2abb480da",
+      "matches": true
+    },
+    {
+      "path": "wp-content/mu-plugins/missionmed-mr-primary-routing.php",
+      "sha256": "07f89f42375c42c0023bfbd1856e991842d1c129d39a180f05208bd82fcab895",
+      "matches": true
+    },
+    {
+      "path": "wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/hero.js",
+      "sha256": "542a29d328dd6d24f942734c4b16c30cf9a975452de7976663cc1f8ab4ca6e10",
+      "matches": true
+    },
+    {
+      "path": "wp-content/mu-plugins/missionmed-mr-0912-assets/js/mr-0912.js",
+      "sha256": "de384a693976bcfb9ab1425f619b726a1c162ff6396e204b3c2b111ad2799c82",
+      "matches": true
+    }
+  ],
+  "navigation": {
+    "keyboardOpen": true,
+    "escapeCloses": true,
+    "focusReturns": true,
+    "targets": [
+      {
+        "text": "Menu",
+        "w": 61.8125,
+        "h": 44
+      },
+      {
+        "text": "Explore Interview Bootcamp Week",
+        "w": 350,
+        "h": 48.796875
+      },
+      {
+        "text": "Explore IV Prep Complete",
+        "w": 350,
+        "h": 50.796875
+      },
+      {
+        "text": "Bootcamp details & payment choices →",
+        "w": 350,
+        "h": 78
+      },
+      {
+        "text": "Bootcamp details & payment choices →",
+        "w": 292,
+        "h": 80
+      },
+      {
+        "text": "Complete details & payment choices →",
+        "w": 292,
+        "h": 78
+      },
+      {
+        "text": "CART →",
+        "w": 93.40625,
+        "h": 48.09375
+      }
+    ],
+    "primaryTouchTargets": true
+  },
+  "typography": {
+    ".cl1403c-a-hero-sub": "15px",
+    ".mm-alt-kicker": "13px",
+    ".cl1403c-a-stat-lbl": "13px",
+    ".cl1403c-a-step time": "15px",
+    ".mm-alt-alumnus p": "15px",
+    ".mm-alt-payment": "15px",
+    ".cl1403c-footer-legal": "14px"
+  }
+}

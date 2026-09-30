@@ -1,0 +1,197 @@
+{
+  "at": "2026-09-30T06:39:49.656Z",
+  "redirects": [
+    {
+      "from": "https://missionmedinstitute.com/mission-residency/",
+      "status": 301,
+      "location": "https://missionmedinstitute.com/missionresidency/",
+      "finalStatus": 200
+    },
+    {
+      "from": "https://missionmedinstitute.com/mission-residency/?utm_source=facebook&utm_medium=organic&utm_campaign=mission_residency_fall_2026&utm_content=interview_to_match",
+      "status": 301,
+      "location": "https://missionmedinstitute.com/missionresidency/?utm_source=facebook&utm_medium=organic&utm_campaign=mission_residency_fall_2026&utm_content=interview_to_match",
+      "finalStatus": 200
+    },
+    {
+      "from": "https://missionmedinstitute.com/mission-residency/?utm_content=a%2Bb&fbclid=MR_QA_ONLY&campaign=fall%202026",
+      "status": 301,
+      "location": "https://missionmedinstitute.com/missionresidency/?utm_content=a%2Bb&fbclid=MR_QA_ONLY&campaign=fall%202026",
+      "finalStatus": 200
+    }
+  ],
+  "flows": [
+    {
+      "offer": "Bootcamp",
+      "href": "https://missionmedinstitute.com/checkout/?add-to-cart=5504&variation_id=5867&attribute_pa_start-date=session-d-start-date&mr_payment=zelle&utm_source=facebook&utm_medium=organic&utm_campaign=mission_residency_fall_2026&utm_content=interview_to_match",
+      "url": "https://missionmedinstitute.com/checkout/?add-to-cart=5504&variation_id=5867&attribute_pa_start-date=session-d-start-date&mr_payment=zelle&utm_source=facebook&utm_medium=organic&utm_campaign=mission_residency_fall_2026&utm_content=interview_to_match",
+      "summary": "Product\tSubtotal\n\nIV Prep Essentials: Interview Bootcamp Week - Session D: Oct 11th, 2026 \n× 1\n$499.00\nSubtotal\t$499.00\nShipment\t\nFree shipping\n\nTotal\t$499.00\nInterview Bootcamp Week payment choice\n\nCard: $549. Zelle: $499, a $50 savings. Zelle orders remain on hold and do not receive course access until payment is verified.\n\n Credit / Debit Card \n Zelle — $499 total (save $50)\n\nPlace the order and follow the secure Zelle instructions. Your order stays on hold and access is not granted until MissionMed verifies receipt.\n\nYour personal data will be used to process your order, support your experience throughout this website, and for other purposes described in our privacy policy.\n\n I have read and agree to the Terms of Agreement and Refund & Cancellation Policy. *\n\nTerms of Agreement · Refund & Cancellation Policy · Privacy Policy\n\nPLACE ORDER",
+      "bacs": true,
+      "bacsChecked": true,
+      "stripe": true,
+      "overflow": 0
+    },
+    {
+      "offer": "Complete",
+      "href": "https://missionmedinstitute.com/checkout/?add-to-cart=3576&variation_id=5865&attribute_pa_start-date=session-d-start-date&mr_payment=zelle&utm_source=facebook&utm_medium=organic&utm_campaign=mission_residency_fall_2026&utm_content=interview_to_match",
+      "url": "https://missionmedinstitute.com/checkout/?add-to-cart=3576&variation_id=5865&attribute_pa_start-date=session-d-start-date&mr_payment=zelle&utm_source=facebook&utm_medium=organic&utm_campaign=mission_residency_fall_2026&utm_content=interview_to_match",
+      "summary": "Product\tSubtotal\n\nIV Prep Complete - Session D: Oct 11th, 2026 \n× 1\n$3,099.00\nSubtotal\t$3,099.00\nShipment\t\nFree shipping\n\nTotal\t$3,099.00\nIV Prep Complete payment choice\n\nCard or Zelle: $3,099 paid in full. Zelle has no separate discount; the order remains on hold and receives no course access until payment is verified.\n\n Credit / Debit Card \n Zelle — $3,099 total\n\nPlace the order and follow the secure Zelle instructions. Your order stays on hold and access is not granted until MissionMed verifies receipt.\n\nYour personal data will be used to process your order, support your experience throughout this website, and for other purposes described in our privacy policy.\n\n I have read and agree to the Terms of Agreement and Refund & Cancellation Policy. *\n\nTerms of Agreement · Refund & Cancellation Policy · Privacy Policy\n\nPLACE ORDER",
+      "bacs": true,
+      "bacsChecked": true,
+      "stripe": true,
+      "overflow": 0
+    }
+  ],
+  "checks": [
+    {
+      "name": "One-hop permanent redirect and exact query preservation ",
+      "pass": true
+    },
+    {
+      "name": "One-hop permanent redirect and exact query preservation ?utm_source=facebook&utm_medium=organic&utm_campaign=mission_residency_fall_2026&utm_content=interview_to_match",
+      "pass": true
+    },
+    {
+      "name": "One-hop permanent redirect and exact query preservation ?utm_content=a%2Bb&fbclid=MR_QA_ONLY&campaign=fall%202026",
+      "pass": true
+    },
+    {
+      "name": "Sitemap canonical present once; legacy absent",
+      "pass": true
+    },
+    {
+      "name": "Homepage direct navigation 1440",
+      "pass": true,
+      "detail": {
+        "href": "https://missionmedinstitute.com/missionresidency/",
+        "nav": [
+          {
+            "url": "https://missionmedinstitute.com/missionresidency/",
+            "status": 200
+          }
+        ]
+      }
+    },
+    {
+      "name": "Homepage direct navigation 390",
+      "pass": true,
+      "detail": {
+        "href": "https://missionmedinstitute.com/missionresidency/",
+        "nav": [
+          {
+            "url": "https://missionmedinstitute.com/missionresidency/",
+            "status": 200
+          }
+        ]
+      }
+    },
+    {
+      "name": "Self canonical and index enabled",
+      "pass": true
+    },
+    {
+      "name": "Legacy fragment preserved with meaningful section aliases",
+      "pass": true
+    },
+    {
+      "name": "Refinements actually rendered",
+      "pass": true
+    },
+    {
+      "name": "Exactly one h1",
+      "pass": true
+    },
+    {
+      "name": "Lower portraits remain lazy",
+      "pass": true
+    },
+    {
+      "name": "White enrollment finish",
+      "pass": true
+    },
+    {
+      "name": "One GA4 page_view on final canonical path with Facebook attribution",
+      "pass": true,
+      "detail": [
+        {
+          "event": "page_view",
+          "tid": "G-B4B4E26HMW",
+          "location": "https://missionmedinstitute.com/missionresidency/?utm_source=facebook&utm_medium=organic&utm_campaign=mission_residency_fall_2026&utm_content=interview_to_match"
+        }
+      ]
+    },
+    {
+      "name": "Bootcamp Zelle checkout smoke",
+      "pass": true,
+      "detail": {
+        "url": "https://missionmedinstitute.com/checkout/?add-to-cart=5504&variation_id=5867&attribute_pa_start-date=session-d-start-date&mr_payment=zelle&utm_source=facebook&utm_medium=organic&utm_campaign=mission_residency_fall_2026&utm_content=interview_to_match",
+        "summary": "Product\tSubtotal\n\nIV Prep Essentials: Interview Bootcamp Week - Session D: Oct 11th, 2026 \n× 1\n$499.00\nSubtotal\t$499.00\nShipment\t\nFree shipping\n\nTotal\t$499.00\nInterview Bootcamp Week payment choice\n\nCard: $549. Zelle: $499, a $50 savings. Zelle orders remain on hold and do not receive course access until payment is verified.\n\n Credit / Debit Card \n Zelle — $499 total (save $50)\n\nPlace the order and follow the secure Zelle instructions. Your order stays on hold and access is not granted until MissionMed verifies receipt.\n\nYour personal data will be used to process your order, support your experience throughout this website, and for other purposes described in our privacy policy.\n\n I have read and agree to the Terms of Agreement and Refund & Cancellation Policy. *\n\nTerms of Agreement · Refund & Cancellation Policy · Privacy Policy\n\nPLACE ORDER",
+        "bacs": true,
+        "bacsChecked": true,
+        "stripe": true,
+        "overflow": 0
+      }
+    },
+    {
+      "name": "Complete Zelle checkout smoke",
+      "pass": true,
+      "detail": {
+        "url": "https://missionmedinstitute.com/checkout/?add-to-cart=3576&variation_id=5865&attribute_pa_start-date=session-d-start-date&mr_payment=zelle&utm_source=facebook&utm_medium=organic&utm_campaign=mission_residency_fall_2026&utm_content=interview_to_match",
+        "summary": "Product\tSubtotal\n\nIV Prep Complete - Session D: Oct 11th, 2026 \n× 1\n$3,099.00\nSubtotal\t$3,099.00\nShipment\t\nFree shipping\n\nTotal\t$3,099.00\nIV Prep Complete payment choice\n\nCard or Zelle: $3,099 paid in full. Zelle has no separate discount; the order remains on hold and receives no course access until payment is verified.\n\n Credit / Debit Card \n Zelle — $3,099 total\n\nPlace the order and follow the secure Zelle instructions. Your order stays on hold and access is not granted until MissionMed verifies receipt.\n\nYour personal data will be used to process your order, support your experience throughout this website, and for other purposes described in our privacy policy.\n\n I have read and agree to the Terms of Agreement and Refund & Cancellation Policy. *\n\nTerms of Agreement · Refund & Cancellation Policy · Privacy Policy\n\nPLACE ORDER",
+        "bacs": true,
+        "bacsChecked": true,
+        "stripe": true,
+        "overflow": 0
+      }
+    }
+  ],
+  "seo": {
+    "url": "https://missionmedinstitute.com/missionresidency/?utm_source=facebook&utm_medium=organic&utm_campaign=mission_residency_fall_2026&utm_content=interview_to_match#dates",
+    "canon": [
+      "https://missionmedinstitute.com/missionresidency/"
+    ],
+    "robots": [
+      "index, follow, max-image-preview:large"
+    ],
+    "anchors": true,
+    "relationship": "Interview Bootcamp Week\nStandalone intensive. Personalized training.\n\nAlso the opening phase of\n→\n\nIV Prep Complete\nBootcamp + full-season training, mocks, feedback and support through February.",
+    "mentorship": "Work directly with Dr Brian on your communication, interview strategy and delivery.",
+    "headings": [
+      "YOU EARNED THE INTERVIEW.\nNOW LET'S TURN IT INTO A MATCH."
+    ],
+    "lazy": [
+      {
+        "src": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/media/marian-ghaly-founder.png?v=25939ff9a10a",
+        "loading": "lazy",
+        "width": 220,
+        "height": 250
+      },
+      {
+        "src": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/media/manasa-kandula-founder.avif?v=a0ca11c53529",
+        "loading": "lazy",
+        "width": 220,
+        "height": 250
+      },
+      {
+        "src": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/media/brian-studio-aaa.jpg?v=d0471ef127ff",
+        "loading": "lazy",
+        "width": 360,
+        "height": 320
+      },
+      {
+        "src": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/media/matrix-reference.jpeg?v=0376ca83f2d4",
+        "loading": "lazy",
+        "width": 358,
+        "height": 165
+      }
+    ],
+    "enrollBg": "rgb(255, 255, 255)"
+  },
+  "analytics": [
+    {
+      "event": "page_view",
+      "tid": "G-B4B4E26HMW",
+      "location": "https://missionmedinstitute.com/missionresidency/?utm_source=facebook&utm_medium=organic&utm_campaign=mission_residency_fall_2026&utm_content=interview_to_match"
+    }
+  ]
+}

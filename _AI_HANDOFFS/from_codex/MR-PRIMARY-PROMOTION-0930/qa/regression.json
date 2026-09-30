@@ -1,0 +1,108 @@
+{
+  "results": [
+    {
+      "offer": "interview_week",
+      "amount": 549,
+      "detailUrl": "https://missionmedinstitute.com/product/iv-prep-masterclass/?utm_source=facebook&utm_medium=paid_social&utm_campaign=alternate_qa",
+      "rails": [
+        {
+          "text": "Continue with card",
+          "url": "https://missionmedinstitute.com/checkout/?add-to-cart=5504&variation_id=5867&attribute_pa_start-date=session-d-start-date&utm_source=facebook&utm_medium=paid_social&utm_campaign=alternate_qa"
+        },
+        {
+          "text": "Continue with Zelle",
+          "url": "https://missionmedinstitute.com/checkout/?add-to-cart=5504&variation_id=5867&attribute_pa_start-date=session-d-start-date&mr_payment=zelle&utm_source=facebook&utm_medium=paid_social&utm_campaign=alternate_qa"
+        }
+      ],
+      "checkout": {
+        "url": "https://missionmedinstitute.com/checkout/?add-to-cart=5504&variation_id=5867&attribute_pa_start-date=session-d-start-date&utm_source=facebook&utm_medium=paid_social&utm_campaign=alternate_qa",
+        "title": "Checkout - MissionMed Institute",
+        "order": "Product\tSubtotal\n\nIV Prep Essentials: Interview Bootcamp Week - Session D: Oct 11th, 2026 \n× 1\n$549.00\nSubtotal\t$549.00\nShipment\t\nFree shipping\n\nTotal\t$549.00\n\nInterview Bootcamp Week payment choice\n\nCard: $549. Zelle: $499, a $50 savings. Zelle orders remain on hold and do not receive course access until payment is verified.\n\n Credit / Debit Card \n Use a new payment method\n\n Save payment information to my account for future purchases.\n\n Zelle — $499 total (save $50)\n\nYour personal data will be used to process your order, support your experience throughout this website, and for other purposes described in our privacy policy.\n\n I have read and agree to the Terms of Agreement and Refund & Cancellation Policy. *\n\nTerms of Agreement · Refund & Cancellation Policy · Privacy Policy\n\nPLACE ORDER",
+        "stripe": true,
+        "zelle": true,
+        "fields": [
+          "username",
+          "password"
+        ],
+        "overflow": 0
+      },
+      "events": [
+        {
+          "event": "mr_product_detail_intent",
+          "measurement_id": "G-B4B4E26HMW",
+          "page_location": "https://missionmedinstitute.com/missionresidency/?utm_source=facebook&utm_medium=paid_social&utm_campaign=alternate_qa"
+        }
+      ]
+    },
+    {
+      "offer": "complete",
+      "amount": 3099,
+      "detailUrl": "https://missionmedinstitute.com/product/match-prep-pro/?utm_source=facebook&utm_medium=paid_social&utm_campaign=alternate_qa",
+      "rails": [
+        {
+          "text": "Continue with card",
+          "url": "https://missionmedinstitute.com/checkout/?add-to-cart=3576&variation_id=5865&attribute_pa_start-date=session-d-start-date&utm_source=facebook&utm_medium=paid_social&utm_campaign=alternate_qa"
+        },
+        {
+          "text": "Continue with installments",
+          "url": "https://missionmedinstitute.com/checkout/?add-to-cart=5513&variation_id=5873&attribute_pa_start-date=session-d-start-date&utm_source=facebook&utm_medium=paid_social&utm_campaign=alternate_qa"
+        },
+        {
+          "text": "Continue with Zelle",
+          "url": "https://missionmedinstitute.com/checkout/?add-to-cart=3576&variation_id=5865&attribute_pa_start-date=session-d-start-date&mr_payment=zelle&utm_source=facebook&utm_medium=paid_social&utm_campaign=alternate_qa"
+        }
+      ],
+      "checkout": {
+        "url": "https://missionmedinstitute.com/checkout/?add-to-cart=3576&variation_id=5865&attribute_pa_start-date=session-d-start-date&utm_source=facebook&utm_medium=paid_social&utm_campaign=alternate_qa",
+        "title": "Checkout - MissionMed Institute",
+        "order": "Product\tSubtotal\n\nIV Prep Complete - Session D: Oct 11th, 2026 \n× 1\n$3,099.00\nSubtotal\t$3,099.00\nShipment\t\nFree shipping\n\nTotal\t$3,099.00\n\nIV Prep Complete payment choice\n\nCard or Zelle: $3,099 paid in full. Zelle has no separate discount; the order remains on hold and receives no course access until payment is verified.\n\n Credit / Debit Card \n Use a new payment method\n\n Save payment information to my account for future purchases.\n\n Zelle — $3,099 total\n\nYour personal data will be used to process your order, support your experience throughout this website, and for other purposes described in our privacy policy.\n\n I have read and agree to the Terms of Agreement and Refund & Cancellation Policy. *\n\nTerms of Agreement · Refund & Cancellation Policy · Privacy Policy\n\nPLACE ORDER",
+        "stripe": true,
+        "zelle": true,
+        "fields": [
+          "username",
+          "password"
+        ],
+        "overflow": 0
+      },
+      "events": [
+        {
+          "event": "mr_product_detail_intent",
+          "measurement_id": "G-B4B4E26HMW",
+          "page_location": "https://missionmedinstitute.com/missionresidency/?utm_source=facebook&utm_medium=paid_social&utm_campaign=alternate_qa"
+        }
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "route": "/mission-residency/",
+      "status": 200,
+      "destination": "https://missionmedinstitute.com/missionresidency/",
+      "title": "Mission Residency | Interview Bootcamp Week & IV Prep Complete"
+    },
+    {
+      "route": "/usce/",
+      "status": 200,
+      "destination": "https://missionmedinstitute.com/usce/",
+      "title": "USCE - MissionMed Institute"
+    },
+    {
+      "route": "/my-account/",
+      "status": 200,
+      "destination": "https://missionmedinstitute.com/my-account/",
+      "title": "My Account - MissionMed Institute"
+    },
+    {
+      "route": "/cart/",
+      "status": 200,
+      "destination": "https://missionmedinstitute.com/cart/",
+      "title": "Cart - MissionMed Institute"
+    },
+    {
+      "route": "/wp-admin/",
+      "status": 200,
+      "destination": "https://missionmedinstitute.com/wp-login.php?redirect_to=https%3A%2F%2Fmissionmedinstitute.com%2Fwp-admin%2F&reauth=1",
+      "title": "Log In ‹ MissionMed Institute — WordPress"
+    }
+  ]
+}
