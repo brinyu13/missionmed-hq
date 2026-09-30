@@ -3,9 +3,9 @@
 Updated: 2026-09-29 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
-Branch: `codex/ivoc-converge-8001-production`
+Branch: `codex/ivoc-foreman-9200`
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
-Current terminal status: `ACTIVE P0 RUNTIME PRESENTATION RECOVERY — NOT COMPLETE`
+Current terminal status: `ACTIVE P0 USER-JOURNEY RECOVERY — NOT COMPLETE`
 
 This is the one living requirement ledger required by the final Founder
 completion directive. A status of `LIVE UNVERIFIED` means the capability is
@@ -14,6 +14,28 @@ the actual production route and deployment.
 
 ## Foreman 9200 reactivation — current dated evidence
 
+- **2026-09-29 authenticated POV entry: WAITING, not accepted.** The Chrome
+  profile exposed to this task is signed into Matrix as Ismat Huq; IVOC shows
+  `wp:142` / `SUBSCRIBER`, not Founder/Admin. A second IVOC tab loads the shell
+  but its account remains `Loading…` after protected module requests return
+  403. No Admin, entitled-360, physical-media, or interview journey is claimed
+  from that account. Recheck only when an actual Founder/Admin or authorized
+  student tab becomes available; continue independent engineering meanwhile.
+- **Current asset release: LIVE VISUAL VERIFIED, journeys still unverified.**
+  Source `a0740bc36c87091febce6824c72e5d1df52da30a` is clean and remotely
+  read back. Railway deployment `ef18c315-64d0-47fc-bb15-243633317135`
+  reports SUCCESS with image
+  `sha256:f6f4fd8ce92dfe10bb324bf0d930b99e9aede191b9734533a83402c6ca9f4f04`.
+  Health is 200; anonymous product/bootstrap are 401. Three approved Astra
+  Home photographs that previously returned 404 now return 200 and visibly
+  render in Chrome. Lossless WebP copies stay within IVOC product custody;
+  original PNG source is preserved. The prior deployment `6298e2b4…` is now
+  REMOVED but its exact source/image remains a redeploy rollback identity.
+- **Wayfinding correction: LOCAL FIX, LIVE UNVERIFIED.** The Home saved-practice
+  card now clearly opens the recordings chooser instead of potentially opening
+  a different `lastSaved` attempt. A fake hard-coded progress count and a
+  misleading real-interview label are removed; Film Room can return to the
+  same selected Results. This does not assert current production POV acceptance.
 - **Terminal status: NOT COMPLETE.** September's component and prior-user
   acceptance rows remain historical evidence, not current student-ready POV
   acceptance. Journeys A–D must be rerun from the visible production product.
