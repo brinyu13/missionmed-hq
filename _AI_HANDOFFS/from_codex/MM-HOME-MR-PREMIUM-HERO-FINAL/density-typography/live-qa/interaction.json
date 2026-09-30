@@ -1,0 +1,118 @@
+{
+  "checkedAt": "2026-09-30T04:07:36.944Z",
+  "url": "https://missionmedinstitute.com/",
+  "cases": [
+    {
+      "name": "desktop",
+      "width": 1440,
+      "height": 900,
+      "motion": "no-preference",
+      "status": 200,
+      "first": {
+        "text": "Skip to content",
+        "href": "#content",
+        "className": "skip-link screen-reader-text"
+      },
+      "before": {
+        "index": 0,
+        "scrollY": 0,
+        "focus": true,
+        "outline": "solid",
+        "outlineWidth": "3px"
+      },
+      "after": {
+        "index": 1,
+        "scrollY": 0,
+        "focus": true,
+        "paused": "true",
+        "nextHit": true
+      },
+      "back": {
+        "index": 0,
+        "scrollY": 0
+      },
+      "final": {
+        "index": 0,
+        "pauseDisabled": false,
+        "pauseLabel": "Play",
+        "transition": "0.45s"
+      },
+      "errors": []
+    },
+    {
+      "name": "mobile",
+      "width": 390,
+      "height": 844,
+      "motion": "no-preference",
+      "status": 200,
+      "first": {
+        "text": "Skip to content",
+        "href": "#content",
+        "className": "skip-link screen-reader-text"
+      },
+      "before": {
+        "index": 0,
+        "scrollY": 0,
+        "focus": true,
+        "outline": "solid",
+        "outlineWidth": "3px"
+      },
+      "after": {
+        "index": 1,
+        "scrollY": 0,
+        "focus": true,
+        "paused": "true",
+        "nextHit": true
+      },
+      "back": {
+        "index": 0,
+        "scrollY": 0
+      },
+      "final": {
+        "index": 0,
+        "pauseDisabled": false,
+        "pauseLabel": "Play",
+        "transition": "0.45s"
+      },
+      "errors": []
+    },
+    {
+      "name": "reduced-motion",
+      "width": 1440,
+      "height": 900,
+      "motion": "reduce",
+      "status": 200,
+      "first": {
+        "text": "Skip to content",
+        "href": "#content",
+        "className": "skip-link screen-reader-text"
+      },
+      "before": {
+        "index": 0,
+        "scrollY": 0,
+        "focus": true,
+        "outline": "solid",
+        "outlineWidth": "3px"
+      },
+      "after": {
+        "index": 1,
+        "scrollY": 0,
+        "focus": true,
+        "paused": "true",
+        "nextHit": true
+      },
+      "back": {
+        "index": 0,
+        "scrollY": 0
+      },
+      "final": {
+        "index": 0,
+        "pauseDisabled": true,
+        "pauseLabel": "Still",
+        "transition": "0s"
+      },
+      "errors": []
+    }
+  ],
+  "failures": []
+}

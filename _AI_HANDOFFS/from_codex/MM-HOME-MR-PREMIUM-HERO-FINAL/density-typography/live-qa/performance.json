@@ -1,0 +1,595 @@
+{
+  "checkedAt": "2026-09-30T04:07:36.944Z",
+  "url": "https://missionmedinstitute.com/",
+  "runs": [
+    {
+      "viewport": "1440x900",
+      "run": 1,
+      "status": 200,
+      "metrics": {
+        "cls": 0.0015466419110082303,
+        "shifts": [
+          {
+            "startTime": 1458.2999999970198,
+            "value": 0.00010763888888888889,
+            "sources": [
+              null,
+              null
+            ]
+          },
+          {
+            "startTime": 1497.7000000029802,
+            "value": 0.0005510545267489712,
+            "sources": [
+              null,
+              null,
+              null
+            ]
+          },
+          {
+            "startTime": 1521,
+            "value": 0.0007638888888888888,
+            "sources": [
+              "<div class=\"mm-l5__inner\"><a href=\"https://missionmedinstitute.com/\" class=\"mm-l5__logo\" aria-label=\"MissionMed Institute\"></a><nav class=\"mm-l5__nav\" aria-label=\"Primary\"><a href="
+            ]
+          },
+          {
+            "startTime": 1649.7999999970198,
+            "value": 0.0001240596064814815,
+            "sources": [
+              null
+            ]
+          }
+        ],
+        "lcp": {
+          "startTime": 1472,
+          "size": 604021,
+          "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+          "element": "<img class=\"mm-ph__image\" data-hero-image=\"\" src=\"https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp\" alt=\"Supplied Mission Residency physician image with Matched and Acco"
+        }
+      },
+      "nav": {
+        "domContentLoadedEventEnd": 1513.7999999970198,
+        "loadEventEnd": 1634.7999999970198,
+        "responseEnd": 1343.1000000089407,
+        "transferSize": 121557
+      },
+      "heroHeight": 648,
+      "image": {
+        "complete": true,
+        "naturalWidth": 1277,
+        "currentSrc": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+        "loading": "auto",
+        "fetchPriority": "high"
+      },
+      "overflow": 0,
+      "criticalCss": true,
+      "errors": [],
+      "failed": []
+    },
+    {
+      "viewport": "1440x900",
+      "run": 2,
+      "status": 200,
+      "metrics": {
+        "cls": 0.0009422582304526749,
+        "shifts": [
+          {
+            "startTime": 1706.300000011921,
+            "value": 0.00010763888888888889,
+            "sources": [
+              null,
+              null
+            ]
+          },
+          {
+            "startTime": 1716.1000000089407,
+            "value": 0.0005510545267489712,
+            "sources": [
+              null,
+              null,
+              null
+            ]
+          },
+          {
+            "startTime": 1935.300000011921,
+            "value": 0.0001240596064814815,
+            "sources": [
+              null
+            ]
+          },
+          {
+            "startTime": 2028.5,
+            "value": 0.00015950520833333333,
+            "sources": [
+              null
+            ]
+          }
+        ],
+        "lcp": {
+          "startTime": 1696,
+          "size": 604021,
+          "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+          "element": "<img class=\"mm-ph__image\" data-hero-image=\"\" src=\"https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp\" alt=\"Supplied Mission Residency physician image with Matched and Acco"
+        }
+      },
+      "nav": {
+        "domContentLoadedEventEnd": 1751.2000000029802,
+        "loadEventEnd": 2023.4000000059605,
+        "responseEnd": 1589.800000011921,
+        "transferSize": 121557
+      },
+      "heroHeight": 648,
+      "image": {
+        "complete": true,
+        "naturalWidth": 1277,
+        "currentSrc": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+        "loading": "auto",
+        "fetchPriority": "high"
+      },
+      "overflow": 0,
+      "criticalCss": true,
+      "errors": [],
+      "failed": []
+    },
+    {
+      "viewport": "1366x768",
+      "run": 1,
+      "status": 200,
+      "metrics": {
+        "cls": 0.0014028500640640108,
+        "shifts": [
+          {
+            "startTime": 1853.4000000059605,
+            "value": 0.00013297263909224012,
+            "sources": [
+              null,
+              null
+            ]
+          },
+          {
+            "startTime": 1924.7000000029802,
+            "value": 0.00012182093254074587,
+            "sources": [
+              null,
+              null
+            ]
+          },
+          {
+            "startTime": 1949,
+            "value": 0.0009947983768106002,
+            "sources": [
+              "<div class=\"mm-l5__inner\"><a href=\"https://missionmedinstitute.com/\" class=\"mm-l5__logo\" aria-label=\"MissionMed Institute\"></a><nav class=\"mm-l5__nav\" aria-label=\"Primary\"><a href="
+            ]
+          },
+          {
+            "startTime": 2115,
+            "value": 0.00015325811562042459,
+            "sources": [
+              null
+            ]
+          }
+        ],
+        "lcp": {
+          "startTime": 1848,
+          "size": 604021,
+          "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+          "element": "<img class=\"mm-ph__image\" data-hero-image=\"\" src=\"https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp\" alt=\"Supplied Mission Residency physician image with Matched and Acco"
+        }
+      },
+      "nav": {
+        "domContentLoadedEventEnd": 1941.6000000089407,
+        "loadEventEnd": 2097.7999999970198,
+        "responseEnd": 1751,
+        "transferSize": 121557
+      },
+      "heroHeight": 620,
+      "image": {
+        "complete": true,
+        "naturalWidth": 1277,
+        "currentSrc": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+        "loading": "auto",
+        "fetchPriority": "high"
+      },
+      "overflow": 0,
+      "criticalCss": true,
+      "errors": [],
+      "failed": []
+    },
+    {
+      "viewport": "1366x768",
+      "run": 2,
+      "status": 200,
+      "metrics": {
+        "cls": 0.0014028500640640108,
+        "shifts": [
+          {
+            "startTime": 1582.699999988079,
+            "value": 0.00013297263909224012,
+            "sources": [
+              null,
+              null
+            ]
+          },
+          {
+            "startTime": 1665.199999988079,
+            "value": 0.00012182093254074587,
+            "sources": [
+              null,
+              null
+            ]
+          },
+          {
+            "startTime": 1681.0999999940395,
+            "value": 0.0009947983768106002,
+            "sources": [
+              "<div class=\"mm-l5__inner\"><a href=\"https://missionmedinstitute.com/\" class=\"mm-l5__logo\" aria-label=\"MissionMed Institute\"></a><nav class=\"mm-l5__nav\" aria-label=\"Primary\"><a href="
+            ]
+          },
+          {
+            "startTime": 1830.699999988079,
+            "value": 0.00015325811562042459,
+            "sources": [
+              null
+            ]
+          }
+        ],
+        "lcp": {
+          "startTime": 1572,
+          "size": 604021,
+          "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+          "element": "<img class=\"mm-ph__image\" data-hero-image=\"\" src=\"https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp\" alt=\"Supplied Mission Residency physician image with Matched and Acco"
+        }
+      },
+      "nav": {
+        "domContentLoadedEventEnd": 1674.5999999940395,
+        "loadEventEnd": 1814.2999999970198,
+        "responseEnd": 1459.3999999910593,
+        "transferSize": 121558
+      },
+      "heroHeight": 620,
+      "image": {
+        "complete": true,
+        "naturalWidth": 1277,
+        "currentSrc": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+        "loading": "auto",
+        "fetchPriority": "high"
+      },
+      "overflow": 0,
+      "criticalCss": true,
+      "errors": [],
+      "failed": []
+    },
+    {
+      "viewport": "1280x800",
+      "run": 1,
+      "status": 200,
+      "metrics": {
+        "cls": 0.0004921165466308594,
+        "shifts": [
+          {
+            "startTime": 1658.7000000029802,
+            "value": 0.00013623046875,
+            "sources": [
+              null,
+              null
+            ]
+          },
+          {
+            "startTime": 1729.5,
+            "value": 0.00019887313842773435,
+            "sources": [
+              null,
+              null
+            ]
+          },
+          {
+            "startTime": 1899.800000011921,
+            "value": 0.000157012939453125,
+            "sources": [
+              null
+            ]
+          }
+        ],
+        "lcp": {
+          "startTime": 1648,
+          "size": 604021,
+          "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+          "element": "<img class=\"mm-ph__image\" data-hero-image=\"\" src=\"https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp\" alt=\"Supplied Mission Residency physician image with Matched and Acco"
+        }
+      },
+      "nav": {
+        "domContentLoadedEventEnd": 1722,
+        "loadEventEnd": 1884.1000000089407,
+        "responseEnd": 1580,
+        "transferSize": 121557
+      },
+      "heroHeight": 620,
+      "image": {
+        "complete": true,
+        "naturalWidth": 1277,
+        "currentSrc": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+        "loading": "auto",
+        "fetchPriority": "high"
+      },
+      "overflow": 0,
+      "criticalCss": true,
+      "errors": [],
+      "failed": []
+    },
+    {
+      "viewport": "1280x800",
+      "run": 2,
+      "status": 200,
+      "metrics": {
+        "cls": 0.0004921165466308594,
+        "shifts": [
+          {
+            "startTime": 1623.7999999970198,
+            "value": 0.00013623046875,
+            "sources": [
+              null,
+              null
+            ]
+          },
+          {
+            "startTime": 1699.5,
+            "value": 0.00019887313842773435,
+            "sources": [
+              null,
+              null
+            ]
+          },
+          {
+            "startTime": 1896.6000000089407,
+            "value": 0.000157012939453125,
+            "sources": [
+              null
+            ]
+          }
+        ],
+        "lcp": {
+          "startTime": 1632,
+          "size": 604021,
+          "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+          "element": "<img class=\"mm-ph__image\" data-hero-image=\"\" src=\"https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp\" alt=\"Supplied Mission Residency physician image with Matched and Acco"
+        }
+      },
+      "nav": {
+        "domContentLoadedEventEnd": 1738.2999999970198,
+        "loadEventEnd": 1880.7999999970198,
+        "responseEnd": 1507.6000000089407,
+        "transferSize": 121558
+      },
+      "heroHeight": 620,
+      "image": {
+        "complete": true,
+        "naturalWidth": 1277,
+        "currentSrc": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+        "loading": "auto",
+        "fetchPriority": "high"
+      },
+      "overflow": 0,
+      "criticalCss": true,
+      "errors": [],
+      "failed": []
+    },
+    {
+      "viewport": "1024x768",
+      "run": 1,
+      "status": 200,
+      "metrics": {
+        "cls": 0.00031654040018717444,
+        "shifts": [
+          {
+            "startTime": 1610.3999999910593,
+            "value": 0.00011209646860758463,
+            "sources": [
+              null
+            ]
+          },
+          {
+            "startTime": 1726.3999999910593,
+            "value": 0.00020444393157958984,
+            "sources": [
+              null
+            ]
+          }
+        ],
+        "lcp": {
+          "startTime": 1580,
+          "size": 604021,
+          "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+          "element": "<img class=\"mm-ph__image\" data-hero-image=\"\" src=\"https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp\" alt=\"Supplied Mission Residency physician image with Matched and Acco"
+        }
+      },
+      "nav": {
+        "domContentLoadedEventEnd": 1603.0999999940395,
+        "loadEventEnd": 1710.2999999970198,
+        "responseEnd": 1454.8999999910593,
+        "transferSize": 121558
+      },
+      "heroHeight": 620,
+      "image": {
+        "complete": true,
+        "naturalWidth": 1277,
+        "currentSrc": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+        "loading": "auto",
+        "fetchPriority": "high"
+      },
+      "overflow": 0,
+      "criticalCss": true,
+      "errors": [],
+      "failed": []
+    },
+    {
+      "viewport": "1024x768",
+      "run": 2,
+      "status": 200,
+      "metrics": {
+        "cls": 0.00031654040018717444,
+        "shifts": [
+          {
+            "startTime": 1932,
+            "value": 0.00011209646860758463,
+            "sources": [
+              null
+            ]
+          },
+          {
+            "startTime": 2072.1000000089407,
+            "value": 0.00020444393157958984,
+            "sources": [
+              null
+            ]
+          }
+        ],
+        "lcp": {
+          "startTime": 1900,
+          "size": 604021,
+          "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+          "element": "<img class=\"mm-ph__image\" data-hero-image=\"\" src=\"https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp\" alt=\"Supplied Mission Residency physician image with Matched and Acco"
+        }
+      },
+      "nav": {
+        "domContentLoadedEventEnd": 1906.4000000059605,
+        "loadEventEnd": 2057.9000000059605,
+        "responseEnd": 1766.9000000059605,
+        "transferSize": 121557
+      },
+      "heroHeight": 620,
+      "image": {
+        "complete": true,
+        "naturalWidth": 1277,
+        "currentSrc": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+        "loading": "auto",
+        "fetchPriority": "high"
+      },
+      "overflow": 0,
+      "criticalCss": true,
+      "errors": [],
+      "failed": []
+    },
+    {
+      "viewport": "390x844",
+      "run": 1,
+      "status": 200,
+      "metrics": {
+        "cls": 0.01371192329820658,
+        "shifts": [
+          {
+            "startTime": 1480.9000000059605,
+            "value": 0.0010716940460681475,
+            "sources": [
+              null,
+              "<::before></::before>"
+            ]
+          },
+          {
+            "startTime": 1526.1000000089407,
+            "value": 0.012485917417554754,
+            "sources": [
+              "<p class=\"mm-ph__support\" data-support=\"\">Build the communication, story and connection skills that matter when programs meet you.</p>",
+              "<a class=\"mm-ph__cta\" data-cta=\"\" href=\"https://missionmedinstitute.com/mission-residency/#dates\">Explore Interview Bootcamp Week</a>",
+              null,
+              "<::after></::after>"
+            ]
+          },
+          {
+            "startTime": 1679.9000000059605,
+            "value": 0.0001543118345836796,
+            "sources": [
+              null,
+              "<::before></::before>"
+            ]
+          }
+        ],
+        "lcp": {
+          "startTime": 1440,
+          "size": 112320,
+          "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+          "element": "<img class=\"mm-ph__image\" data-hero-image=\"\" src=\"https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp\" alt=\"Supplied Mission Residency physician image with Matched and Acco"
+        }
+      },
+      "nav": {
+        "domContentLoadedEventEnd": 1515,
+        "loadEventEnd": 1665.9000000059605,
+        "responseEnd": 1372.5,
+        "transferSize": 121557
+      },
+      "heroHeight": 860,
+      "image": {
+        "complete": true,
+        "naturalWidth": 1277,
+        "currentSrc": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+        "loading": "auto",
+        "fetchPriority": "high"
+      },
+      "overflow": 0,
+      "criticalCss": true,
+      "errors": [],
+      "failed": []
+    },
+    {
+      "viewport": "390x844",
+      "run": 2,
+      "status": 200,
+      "metrics": {
+        "cls": 0.01371192329820658,
+        "shifts": [
+          {
+            "startTime": 1442.7999999970198,
+            "value": 0.0010716940460681475,
+            "sources": [
+              null,
+              "<::before></::before>"
+            ]
+          },
+          {
+            "startTime": 1534.9000000059605,
+            "value": 0.012485917417554754,
+            "sources": [
+              "<p class=\"mm-ph__support\" data-support=\"\">Build the communication, story and connection skills that matter when programs meet you.</p>",
+              "<a class=\"mm-ph__cta\" data-cta=\"\" href=\"https://missionmedinstitute.com/mission-residency/#dates\">Explore Interview Bootcamp Week</a>",
+              null,
+              "<::after></::after>"
+            ]
+          },
+          {
+            "startTime": 1725.2999999970198,
+            "value": 0.0001543118345836796,
+            "sources": [
+              null,
+              "<::before></::before>"
+            ]
+          }
+        ],
+        "lcp": {
+          "startTime": 1424,
+          "size": 112320,
+          "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+          "element": "<img class=\"mm-ph__image\" data-hero-image=\"\" src=\"https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp\" alt=\"Supplied Mission Residency physician image with Matched and Acco"
+        }
+      },
+      "nav": {
+        "domContentLoadedEventEnd": 1572.2999999970198,
+        "loadEventEnd": 1711.2000000029802,
+        "responseEnd": 1319.9000000059605,
+        "transferSize": 121557
+      },
+      "heroHeight": 860,
+      "image": {
+        "complete": true,
+        "naturalWidth": 1277,
+        "currentSrc": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+        "loading": "auto",
+        "fetchPriority": "high"
+      },
+      "overflow": 0,
+      "criticalCss": true,
+      "errors": [],
+      "failed": []
+    }
+  ],
+  "failures": []
+}
