@@ -43,10 +43,38 @@ the actual production route and deployment.
   audible two-sided replay, or cold-reload playback was observed in this short
   unattended QA session. Do not promote Journey A–D from these partial steps.
 - **Actor/subject presentation defect: OPEN.** Despite Matrix identifying
-  Ismat (`wp:142`), IVOC greets the session as “Dr Brian.” Fix the narrow
-  view-model label without changing the IVOC-only authorization or selecting
-  another subject. One bounded read-only Astra 6 current-release review is
-  running; it does not self-certify production acceptance.
+  Ismat (`wp:142`), the prior IVOC release greeted the session as “Dr Brian.”
+  Source `d2953b288d0060b3d11b4926c09067010856db41` now projects the
+  authenticated display name separately from Founder capability. Deployment
+  `20f406d4-37f9-4012-8137-be9827f84e64` is SUCCESS, image
+  `sha256:3485f57da647a791af1f35f15191269df326d007843a975298436c48d0869dea`;
+  health is 200, anonymous product/bootstrap 401, and cold-loaded Chrome shows
+  `wp:142`, `IH`, and “Good evening, Ismat.” The precise Dr Brian presentation
+  remains bound to `wp:1`. Focused tests passed 41/41. The earlier deployment
+  `e6827d9c…` is REMOVED; exact source/config is the rollback identity.
+- **Camera: REAL BLACK SOURCE FRAME, P0 unresolved.** In the current Chrome
+  FaceTime HD Camera capture, the live track is unmuted at 640×480/30 fps,
+  but a bounded luminance-only canvas sample of the actual video frame had
+  mean 1/255, max 3/255, and 100% near-black pixels. This independently
+  confirms the black screenshot is not merely a screenshot renderer artifact.
+  The app's “640×480 RENDERING” readiness label is therefore false as visible
+  video acceptance. Distinguish upstream camera/physical darkness from IVOC
+  binding before changing media plumbing; do not claim camera POV accepted.
+- **Program search: LIVE FAIL for this scoped actor.** A visible `SUNY` search
+  reached IVOC but returned `IVOC_INTERNAL_ERROR` (HQ HTTP 500). RISE owner
+  logged the exact upstream `/api/rise/v1/programs` request as 401; HQ's
+  delegated `/api/auth/session` returned 403. The two existing delegation
+  token configurations are present and equal. Current HQ code requires a
+  RISE-private-beta grant even for the delegated IVOC consumer, whereas
+  DR-340 authorizes IVOC-only access for `wp:142`. Do not silently promote
+  Ismat into RISE or call this a successful program-aware journey. Resolve
+  the smallest owner-approved IVOC projection/consumer policy, or leave the
+  RISE-gated evidence explicitly waiting while progressing other work.
+- **Independent presentation review: READ-ONLY COMPLETE.** Astra 6 identified
+  the now-fixed actor label, the false visible-frame readiness claim, builder
+  controls that require real state binding, and Admin review transcript labels
+  that must not call another student “You.” Its source review did not confer
+  live POV acceptance or exact candidate.2 pixel-parity certification.
 
 ## Foreman 9200 reactivation — current dated evidence
 
