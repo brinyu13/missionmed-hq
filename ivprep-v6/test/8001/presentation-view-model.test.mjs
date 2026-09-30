@@ -6,8 +6,11 @@ import {
   buildHomeViewModel,
   buildIdentityViewModel,
   buildReadinessRows,
+  reviewTranscriptCoverage,
+  reviewTurnSpeakerLabel,
 } from '../../public/studio/presentation-view-model.mjs';
 import { publicAdmissionState } from '../../server/admission-contract.mjs';
+import { summarizeVideoFramePixels } from '../../public/studio/media-analytics-capability.mjs';
 
 const row = (rows, label) => rows.find(([name]) => name === label);
 
@@ -88,4 +91,25 @@ test('temporary IVOC Founder access does not impersonate Dr Brian in presentatio
   assert.equal(buildHomeViewModel({ identity: publicState.identity }).greetingName, 'Ismat.');
   assert.equal(buildIdentityViewModel({ wpUserId: 1, founder: true, displayName: 'Brian Yu' }).greetingName, 'Dr Brian.');
   assert.equal(buildIdentityViewModel({ wpUserId: 142, founder: true }).greetingName, 'Doctor.');
+});
+
+test('video readiness rejects live-but-black frames without treating one bright pixel as a picture', () => {
+  const black = new Uint8ClampedArray(64 * 48 * 4);
+  assert.equal(summarizeVideoFramePixels(black).visible, false);
+  const singlePixel = black.slice();
+  singlePixel[0] = 255; singlePixel[1] = 255; singlePixel[2] = 255;
+  assert.equal(summarizeVideoFramePixels(singlePixel).visible, false);
+  const lit = new Uint8ClampedArray(64 * 48 * 4);
+  for (let index = 0; index < lit.length; index += 4) {
+    lit[index] = 72; lit[index + 1] = 64; lit[index + 2] = 58; lit[index + 3] = 255;
+  }
+  assert.equal(summarizeVideoFramePixels(lit).visible, true);
+});
+
+test('Admin review transcript names the selected student, not the reviewer', () => {
+  assert.equal(reviewTurnSpeakerLabel('student', { role: 'admin', ownerDisplayName: 'Alex Morgan' }), 'Student · Alex Morgan');
+  assert.equal(reviewTurnSpeakerLabel('student', { role: 'student', ownerDisplayName: 'Alex Morgan' }), 'You');
+  assert.equal(reviewTurnSpeakerLabel('interviewer', { role: 'admin', ownerDisplayName: 'Alex Morgan' }), 'Interviewer');
+  assert.equal(reviewTranscriptCoverage([{ speaker: 'interviewer' }]), 'interviewer_only');
+  assert.equal(reviewTranscriptCoverage([{ speaker: 'interviewer' }, { speaker: 'student' }]), 'candidate_present');
 });

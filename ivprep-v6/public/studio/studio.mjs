@@ -46,6 +46,8 @@ import {
   buildInterviewRoomModel,
   preserveInterviewLifecycle,
   persistedConversationTurns,
+  reviewTranscriptCoverage,
+  reviewTurnSpeakerLabel,
 } from './presentation-view-model.mjs';
 import { clearAdminReviewMedia, createAdminReviewGate, isAdminReview, mayPresentSavedReview, resolveReviewDestination } from './review-scope.mjs';
 
@@ -1597,10 +1599,15 @@ function liveTrack(kind) {
   return tracks?.find((track) => track.readyState === 'live') || null;
 }
 
-function videoSurfaceReady(video) {
+function videoSurfaceBound(video) {
   return Boolean(video && bridge.media.stream && video.srcObject === bridge.media.stream
     && liveTrack('video') && video.videoWidth >= 16 && video.videoHeight >= 16
     && video.paused === false && video.ended !== true);
+}
+
+function videoSurfaceReady(video) {
+  return videoSurfaceBound(video) && bridge.frameVisibility.stream === bridge.media.stream
+    && bridge.frameVisibility.visible === true;
 }
 
 function requestVideoPlayback(video) {
@@ -1629,7 +1636,6 @@ function bindVideoSurface(video) {
 
 async function ensureVisibleVideoFrame(video, { timeoutMs = 5000 } = {}) {
   bindVideoSurface(video);
-  if (videoSurfaceReady(video)) return video;
   if (!video || !bridge.media.stream || !liveTrack('video')) {
     throw new Error('Camera stream is not available. Reconnect the camera and microphone.');
   }
@@ -1642,7 +1648,7 @@ async function ensureVisibleVideoFrame(video, { timeoutMs = 5000 } = {}) {
     };
     const settle = () => {
       requestVideoPlayback(video);
-      if (videoSurfaceReady(video)) {
+      if (videoSurfaceBound(video)) {
         cleanup(); resolve(); return;
       }
       if (Date.now() >= deadline || !liveTrack('video')) {
@@ -1654,6 +1660,7 @@ async function ensureVisibleVideoFrame(video, { timeoutMs = 5000 } = {}) {
     poll = setInterval(settle, 100);
     settle();
   });
+  await bridge.verifyVisibleFrame(video, { timeoutMs: Math.min(timeoutMs, 1500) });
   return video;
 }
 
@@ -1895,6 +1902,11 @@ async function startRep() {
   // that canonical stream at the action boundary so a late publication can never
   // leave the visible Astra surface black while the hidden analytics preview works.
   bindCockpitVideo();
+  try {
+    await ensureVisibleVideoFrame($('#cockpit-video'));
+  } catch (error) {
+    return setSessionState('BLOCKED', String(error?.message || error));
+  }
   if (evaluateReadiness() !== 'SESSION_READY') return;
   setSessionState('STARTING');
   try {
@@ -2388,7 +2400,9 @@ function renderDeviceCheck() {
   const rows = [
     ['Camera', cameraLive ? 'ready' : 'pending', cameraLive ? 'LIVE' : 'NOT CONNECTED'],
     ['Microphone', microphoneLive ? 'ready' : 'pending', microphoneLive ? 'LIVE' : 'NOT CONNECTED'],
-    ['Visible preview', surfaceLive ? 'ready' : 'pending', surfaceLive ? `${preview.videoWidth}×${preview.videoHeight} RENDERING` : 'NO VISIBLE FRAME'],
+    ['Visible preview', surfaceLive ? 'ready' : 'pending', surfaceLive
+      ? `${preview.videoWidth}×${preview.videoHeight} IMAGE VERIFIED`
+      : bridge.frameVisibility.reason === 'black_image' ? 'BLACK CAMERA IMAGE' : 'NO VISIBLE FRAME'],
     [adminDiagnostics ? 'Audio context' : 'Microphone processing', media.AC?.state === 'running' ? 'ready' : 'pending', adminDiagnostics ? (media.AC?.state || 'IDLE').toUpperCase() : media.AC?.state === 'running' ? 'READY' : 'CONNECT DEVICES FIRST'],
     [adminDiagnostics ? 'Vision worker' : 'Visual coaching', diagnostics.active ? 'ready' : 'pending', adminDiagnostics ? (diagnostics.active ? 'RUNNING' : 'IDLE') : diagnostics.active ? 'READY DURING PRACTICE' : 'CONNECT DEVICES FIRST'],
     [adminDiagnostics ? 'Face landmarks' : 'Face + head tracking', diagnostics.active ? 'ready' : 'pending', diagnostics.active ? 'AVAILABLE DURING PRACTICE' : 'AWAITING DEVICES'],
@@ -2956,7 +2970,13 @@ function renderPostAnswer(analytics = null) {
   }
   // Reopened recordings must never borrow the current live session's metrics.
   const supported = (analytics?.studentEvents || []).filter((item) => item?.maturity === 'VALIDATED_STUDENT_SAFE');
-  const entries = analytics ? [
+  const transcriptCoverage = reviewTranscriptCoverage(persistedConversationTurns({
+    sessionDetail: state.lastSaved?.sessionDetail, envelope: state.lastSaved?.envelope,
+  }));
+  const entries = transcriptCoverage === 'interviewer_only' ? [
+    ['#post-worked', '<strong>No candidate speech transcribed</strong>The saved transcript contains the interviewer only. Film Room can confirm what the recording captured; no answer strength is inferred.'],
+    ['#post-fix', '<strong>Try a spoken answer</strong>Check the microphone and make one complete response before reviewing coaching evidence.'],
+  ] : analytics ? [
     ['#post-worked', supported.length
       ? '<strong>Review your recorded evidence</strong>Your supported delivery signals are available in the full report below. Listen back in Film Room to find your strongest moments.'
       : '<strong>No supported positive claim yet</strong>The session saved, but no student-safe signal reached an evidence threshold.'],
@@ -3058,7 +3078,7 @@ function renderFullAnalyticsReport(analytics = null) {
     || state.lastSaved?.sessionDetail?.recording?.status
     || (state.lastSaved?.recording?.blob ? 'captured locally' : null);
   const rows = [
-    ['Timing', durationMs === null ? unavailable : `${(durationMs / 1000).toFixed(1)} seconds of supported answer evidence`],
+    ['Timing', durationMs === null ? unavailable : `${(durationMs / 1000).toFixed(1)} seconds of captured session evidence`],
     ['Voice delivery', voiceLevel === null && variation === null
       ? (voiceObserved || unavailable)
       : [voiceLevel === null ? null : `${voiceLevel.toFixed(1)} dBFS captured level`, variation === null ? null : `${variation.toFixed(1)} dB volume variation`, voiceObserved].filter(Boolean).join(' · ')],
@@ -3285,7 +3305,7 @@ function renderFilmRoomSpine(session, envelope = null) {
     const at = document.createElement('strong');
     at.textContent = `${(Number(turn.startMs || 0) / 1000).toFixed(1)}s`;
     const text = document.createElement('span');
-    text.textContent = `${turn.speaker === 'student' ? 'You' : 'Interviewer'} · ${turn.text}`;
+    text.textContent = `${reviewTurnSpeakerLabel(turn.speaker, { role: state.role, ownerDisplayName })} · ${turn.text}`;
     row.append(at, text);
     row.addEventListener('click', () => {
       const video = $('#playback');

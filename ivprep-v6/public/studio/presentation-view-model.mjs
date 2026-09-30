@@ -85,6 +85,18 @@ export function buildIdentityViewModel(identity = null) {
   });
 }
 
+export function reviewTurnSpeakerLabel(speaker, { role = 'student', ownerDisplayName = null } = {}) {
+  if (speaker !== 'student') return 'Interviewer';
+  if (role !== 'admin') return 'You';
+  const owner = String(ownerDisplayName || '').trim().slice(0, 120);
+  return owner ? `Student · ${owner}` : 'Student';
+}
+
+export function reviewTranscriptCoverage(turns = []) {
+  if (!Array.isArray(turns) || !turns.length) return 'none';
+  return turns.some((turn) => turn?.speaker === 'student') ? 'candidate_present' : 'interviewer_only';
+}
+
 export function buildHomeViewModel({ identity = null, sessions = [], mentorPriorities = null } = {}) {
   const { initials, greetingName } = buildIdentityViewModel(identity);
   const latest = [...sessions]

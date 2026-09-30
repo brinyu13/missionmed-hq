@@ -1,7 +1,26 @@
 // Media and Delivery Intelligence stay below the presentation boundary.
+// Dimensions and play() are not proof of a visible camera image: a live device
+// can deliver black pixels indefinitely. Only a tiny local aggregate is used;
+// no frame or pixel array leaves the browser.
+export function summarizeVideoFramePixels(pixels) {
+  if (!pixels || pixels.length < 4 || pixels.length % 4 !== 0) return Object.freeze({ visible: false, mean: 0, max: 0 });
+  let total = 0; let maximum = 0; let lit = 0;
+  const count = pixels.length / 4;
+  for (let index = 0; index < pixels.length; index += 4) {
+    const level = (pixels[index] + pixels[index + 1] + pixels[index + 2]) / 3;
+    total += level;
+    maximum = Math.max(maximum, level);
+    if (level >= 24) lit += 1;
+  }
+  const mean = total / count;
+  return Object.freeze({ visible: mean >= 6 && maximum >= 24 && lit / count >= 0.02,
+    mean: Math.round(mean), max: Math.round(maximum) });
+}
+
 export function createMediaAnalyticsBridge() {
   return {
     media: Object.freeze({ cam: false, mic: false, stream: null, AC: null, analyser: null, data: null }),
+    frameVisibility: Object.freeze({ stream: null, visible: false, reason: 'unchecked' }),
     ownsStream: false,
     source: null,
     sink: null,
@@ -54,8 +73,40 @@ export function createMediaAnalyticsBridge() {
       }
       this.ownsStream = ownsStream; this.source = source; this.sink = sink;
       this.media = Object.freeze({ cam, mic: Boolean(mic && AC && analyser && data), stream, AC, analyser, data });
+      this.frameVisibility = Object.freeze({ stream, visible: false, reason: 'unchecked' });
       this.watchTracks(stream);
       return this.media;
+    },
+    async verifyVisibleFrame(video, { timeoutMs = 1500 } = {}) {
+      const stream = this.media.stream;
+      if (!video || !stream || video.srcObject !== stream || video.videoWidth < 16 || video.videoHeight < 16) {
+        throw new Error('Camera stream is not bound to the preview. Reconnect your camera.');
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = 64; canvas.height = 48;
+      const context = canvas.getContext('2d', { willReadFrequently: true });
+      if (!context) throw new Error('Camera image could not be checked in this browser.');
+      const deadline = Date.now() + timeoutMs;
+      do {
+        if (this.media.stream !== stream || !stream.getVideoTracks().some((track) => track.readyState === 'live')) {
+          throw new Error('Camera disconnected while checking the preview. Reconnect it.');
+        }
+        let summary;
+        try {
+          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+          summary = summarizeVideoFramePixels(context.getImageData(0, 0, canvas.width, canvas.height).data);
+        } catch {
+          throw new Error('Camera image could not be checked in this browser.');
+        }
+        if (summary.visible) {
+          this.frameVisibility = Object.freeze({ stream, visible: true, reason: 'image_verified' });
+          return this.frameVisibility;
+        }
+        if (Date.now() >= deadline) break;
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      } while (true);
+      this.frameVisibility = Object.freeze({ stream, visible: false, reason: 'black_image' });
+      throw new Error('Camera connected, but its image is black. Uncover or illuminate the camera, or choose another camera.');
     },
     async replaceTrack(kind, deviceId) {
       const constraint = kind === 'audio' ? { audio: { deviceId: { exact: deviceId } }, video: false } : { video: { deviceId: { exact: deviceId } }, audio: false };
@@ -117,6 +168,7 @@ export function createMediaAnalyticsBridge() {
       if (!keepContext) { void this.media.AC?.close?.().catch?.(() => {}); this.audioContext = null; }
       this.ownsStream = false; this.source = null; this.sink = null;
       this.media = Object.freeze({ cam: false, mic: false, stream: null, AC: null, analyser: null, data: null });
+      this.frameVisibility = Object.freeze({ stream: null, visible: false, reason: 'unchecked' });
     },
   };
 }
