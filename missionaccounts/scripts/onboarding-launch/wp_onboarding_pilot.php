@@ -111,7 +111,7 @@ function mmdrj_launch_process( $payload, $html_template, $text_template, $mode )
         $values=array('first_name'=>$user->first_name?:$item['display_name'],'username'=>$user->user_login,'account_url'=>$payload['cta_url'],'password_setup_url'=>$setup_url,'support_email'=>get_option('admin_email'));
         $html=mmdrj_launch_merge_html($html_template,$values); $plain=mmdrj_launch_merge_text($text_template,$values);
         add_action('phpmailer_init',function($mailer)use($plain){$mailer->AltBody=$plain;});
-        $sent=wp_mail($user->user_email,$payload['subject'],$html,array('Content-Type: text/html; charset=UTF-8','From: Dr J via MissionMed <'.sanitize_email(get_option('admin_email')).'>','Reply-To: Dr J via MissionMed <'.sanitize_email(get_option('admin_email')).'>','X-MissionMed-Send-Key: '.$send_key));
+        $sent=missionaccounts_send_email($user->user_email,$payload['subject'],$html,array('Content-Type: text/html; charset=UTF-8','From: Dr J via MissionMed <'.sanitize_email(get_option('admin_email')).'>','Reply-To: Dr J via MissionMed <'.sanitize_email(get_option('admin_email')).'>','X-MissionMed-Send-Key: '.$send_key));
         $finished_at=gmdate('c');
         $final_raw=wp_json_encode(array('state'=>$sent?'sent':'failed','attempted_at'=>$attempted_at,'sent_at'=>$sent?$finished_at:null,'send_key'=>$send_key,'authority_commit'=>$payload['authority_commit'],'reason'=>$sent?null:'wp_mail_failed'));
         $finalized=mmdrj_launch_cas_option($claim_key,$sending_raw,$final_raw)&&mmdrj_launch_mirror_ledger($user->ID,$ledger_key,$final_raw);

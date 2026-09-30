@@ -54,7 +54,7 @@ if (preg_match('/\{\{[^}]+\}\}/', $html . $text)) {
     throw new RuntimeException('founder_proof_merge_failed');
 }
 add_action('phpmailer_init', static function ($mailer) use ($text): void { $mailer->AltBody = $text; });
-$sent = wp_mail($user->user_email, 'Your Dr J live sessions are moving into Matrix', $html, array(
+$sent = missionaccounts_send_email($user->user_email, 'Your Dr J live sessions are moving into Matrix', $html, array(
     'Content-Type: text/html; charset=UTF-8',
     'From: Dr J via MissionMed <' . $support_email . '>',
     'Reply-To: Dr J via MissionMed <' . $support_email . '>',

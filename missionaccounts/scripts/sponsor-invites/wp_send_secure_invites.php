@@ -92,7 +92,7 @@ foreach ($payload['items'] as $item) {
     $message = "Your MyMissionMed Account is ready.\n\nUsername: " . $user->user_login
         . "\nYou may also use your registered email address to log in.\n\nSet your own password securely:\n" . $url
         . "\n\nAfter setting it, open Matrix at https://missionmedinstitute.com/member-dashboard/ and choose MyMissionMed Account, or go directly to https://missionmedinstitute.com/missionaccounts/.\n";
-    $sent = wp_mail($user->user_email, $subject, $message);
+    $sent = missionaccounts_send_email($user->user_email, $subject, $message);
     $finished_at = gmdate('c');
     update_user_meta($wp_id, $meta_key, wp_json_encode(array(
         'state'=>$sent?'sent':'failed','attempted_at'=>$attempted_at,'sent_at'=>$sent?$finished_at:null,
