@@ -34,8 +34,9 @@ test('rotation is bounded, controllable and motion-aware',()=>{
 test('Round 2 visual geometry is full bleed and contrast-safe',()=>{
  for(const token of ['height:880px','position:absolute;inset:0;z-index:0','left:54%;right:4.45%','--ph-accent:#9b412e','linear-gradient(90deg,rgba(3,14,24,.14)'])assert.ok(heroCss.includes(token),token);
  assert.ok(!/\.mm-ph\{[^}]*display:grid/.test(heroCss),'homepage hero must not return to split-grid geometry');
- for(const token of ['height:calc(2300px - 400vw)','grid-template-rows:44px 44px','transform:none!important','.f2-gates{grid-template-columns:minmax(0,1fr)!important}', '.f2-filter-btn{width:100%!important'])assert.ok(heroCss.includes(token),token);
- for(const token of ['background:#eee7d9','linear-gradient(90deg,transparent 33%,#eee7d9 60%)','left:53%;right:4.45%','height:884px'])assert.ok(mrCss.includes(token),token);
+ for(const token of ['height:calc(2300px - 400vw)','grid-template-rows:44px 44px','transform:none!important','.f2-gates{grid-template-columns:minmax(0,1fr)!important}', '.f2-filter-btn{width:100%!important','mm-ph__evidence-crop','width:171.4286%','body.home:not(.mm-ph-dark):not(.mm-ph-scrolled)',':has(.mm-ph[data-theme="evidence"])'])assert.ok(heroCss.includes(token),token);
+ for(const token of ['NRMP Program Director Survey · 2024','Interpersonal skills · Faculty interactions · Resident feedback','2024-PD-Survey-Report-narrative_Final.pdf'])assert.ok(php.includes(token),token);
+ for(const token of ['background:#eee7d9','linear-gradient(90deg,transparent 33%,#eee7d9 60%)','left:53%;right:4.45%','height:884px','@media(max-width:240px)','height:auto;min-height:0;overflow:visible','.site-nav-menu[open]>nav{display:grid}'])assert.ok(mrCss.includes(token),token);
  assert.ok(!mrJs.includes("$('.hero-scene').style"),'removed hero-scene runtime error');
  assert.ok(mrJs.includes('scrollIntoView({block:\'start\'})'),'deep links restore after async render');
 });
