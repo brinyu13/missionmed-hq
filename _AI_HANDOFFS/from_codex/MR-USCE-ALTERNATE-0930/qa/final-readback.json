@@ -1,0 +1,200 @@
+{
+  "checked_at": "2026-09-30T05:32:04.226Z",
+  "source": "c57cd227bab6f59acecef628f129e79920d9cc1a",
+  "preservation": {
+    "primary": {
+      "count": 45,
+      "allPass": true
+    },
+    "mu": {
+      "count": 68,
+      "allPass": true
+    },
+    "primary_html": {
+      "before": "4f825d9afeecc3b481a32902638f530565f2b62688057be4ed666565b06327df",
+      "after": "4f825d9afeecc3b481a32902638f530565f2b62688057be4ed666565b06327df",
+      "identical": true
+    },
+    "commerce": {
+      "before": "d9721bf8033b61762a8521c368be3d2be4eb83b1929be0e20778f21c0c233528",
+      "after": "d9721bf8033b61762a8521c368be3d2be4eb83b1929be0e20778f21c0c233528",
+      "identical": true
+    },
+    "usce": {
+      "before": "0771af807df4bdb50bf115a3b075bb2094904fb656110f097c5506f4efe7e7c5",
+      "after": "0771af807df4bdb50bf115a3b075bb2094904fb656110f097c5506f4efe7e7c5",
+      "identical": true
+    }
+  },
+  "assets": [
+    {
+      "name": "alternate.js",
+      "status": 200,
+      "sha256": "f269f59fb75ea9f3240611dafa6cd3e822164f47f5d236ed958c4af4d27fb176",
+      "sourceMatches": true
+    },
+    {
+      "name": "alternate.css",
+      "status": 200,
+      "sha256": "4a74cf80c5297a0e50275a82f5e709dc5ec3b05079803522c999d0817b76cf84",
+      "sourceMatches": true
+    },
+    {
+      "name": "usce-donor.css",
+      "status": 200,
+      "sha256": "351b10ae1f580f8af4cdf7c51cef589db812a045f37d8af2848c0a36afde62d8",
+      "sourceMatches": true
+    },
+    {
+      "name": "usce-shell.css",
+      "status": 200,
+      "sha256": "5b43966eb74bf96c5367d8298920b11d2950ab9a801a58ca74ada1e548e1d544",
+      "sourceMatches": true
+    }
+  ],
+  "routes": [
+    {
+      "route": "/missionresidency/",
+      "status": 200,
+      "location": null,
+      "robots": "noindex, follow"
+    },
+    {
+      "route": "/missionresidency",
+      "status": 200,
+      "location": null,
+      "robots": "noindex, follow"
+    },
+    {
+      "route": "/mission-residency/",
+      "status": 200,
+      "location": null,
+      "robots": null
+    },
+    {
+      "route": "/usce/",
+      "status": 200,
+      "location": null,
+      "robots": null
+    }
+  ],
+  "navigation": {
+    "menuKeyboardOpen": true,
+    "escapeCloses": true,
+    "focusReturned": true,
+    "links": [
+      {
+        "text": "MissionMed home",
+        "href": "https://missionmedinstitute.com/"
+      },
+      {
+        "text": "Bootcamp schedule",
+        "href": "https://missionmedinstitute.com/missionresidency/#bootcamp"
+      },
+      {
+        "text": "IV Prep Complete",
+        "href": "https://missionmedinstitute.com/missionresidency/#complete"
+      },
+      {
+        "text": "Alumni stories",
+        "href": "https://missionmedinstitute.com/missionresidency/#alumni"
+      },
+      {
+        "text": "Clear answers",
+        "href": "https://missionmedinstitute.com/missionresidency/#faq"
+      },
+      {
+        "text": "Choose your program",
+        "href": "https://missionmedinstitute.com/missionresidency/#enroll"
+      },
+      {
+        "text": "My Matrix",
+        "href": "https://missionmedinstitute.com/member-dashboard/"
+      },
+      {
+        "text": "Cart",
+        "href": "https://missionmedinstitute.com/cart/"
+      }
+    ],
+    "targets": [
+      {
+        "text": "Menu",
+        "width": 61.8125,
+        "height": 44
+      },
+      {
+        "text": "Bootcamp details & payment choices →",
+        "width": 350,
+        "height": 78
+      },
+      {
+        "text": "Bootcamp details & payment choices →",
+        "width": 292,
+        "height": 80
+      },
+      {
+        "text": "Complete details & payment choices →",
+        "width": 292,
+        "height": 78
+      },
+      {
+        "text": "CART →",
+        "width": 93.40625,
+        "height": 48.09375
+      }
+    ]
+  },
+  "analytics": [
+    {
+      "offer": "interview_week",
+      "destination": "https://missionmedinstitute.com/product/iv-prep-masterclass/?utm_source=facebook&utm_medium=paid_social&utm_campaign=alternate_qa",
+      "events": [
+        {
+          "event": "page_view",
+          "measurement_id": "G-B4B4E26HMW",
+          "page_location": "https://missionmedinstitute.com/missionresidency/?utm_source=facebook&utm_medium=paid_social&utm_campaign=alternate_qa"
+        },
+        {
+          "event": "scroll",
+          "measurement_id": "G-B4B4E26HMW",
+          "page_location": "https://missionmedinstitute.com/missionresidency/?utm_source=facebook&utm_medium=paid_social&utm_campaign=alternate_qa"
+        },
+        {
+          "event": "page_view",
+          "measurement_id": "G-B4B4E26HMW",
+          "page_location": "https://missionmedinstitute.com/product/iv-prep-masterclass/?utm_source=facebook&utm_medium=paid_social&utm_campaign=alternate_qa"
+        },
+        {
+          "event": "scroll",
+          "measurement_id": "G-B4B4E26HMW",
+          "page_location": "https://missionmedinstitute.com/product/iv-prep-masterclass/?utm_source=facebook&utm_medium=paid_social&utm_campaign=alternate_qa"
+        }
+      ]
+    },
+    {
+      "offer": "complete",
+      "destination": "https://missionmedinstitute.com/product/match-prep-pro/?utm_source=facebook&utm_medium=paid_social&utm_campaign=alternate_qa",
+      "events": [
+        {
+          "event": "page_view",
+          "measurement_id": "G-B4B4E26HMW",
+          "page_location": "https://missionmedinstitute.com/missionresidency/?utm_source=facebook&utm_medium=paid_social&utm_campaign=alternate_qa"
+        },
+        {
+          "event": "page_view",
+          "measurement_id": "G-B4B4E26HMW",
+          "page_location": "https://missionmedinstitute.com/product/match-prep-pro/?utm_source=facebook&utm_medium=paid_social&utm_campaign=alternate_qa"
+        },
+        {
+          "event": "scroll",
+          "measurement_id": "G-B4B4E26HMW",
+          "page_location": "https://missionmedinstitute.com/product/match-prep-pro/?utm_source=facebook&utm_medium=paid_social&utm_campaign=alternate_qa"
+        }
+      ]
+    }
+  ],
+  "sitemap": {
+    "alternatePresent": false,
+    "primaryPresent": true
+  }
+}

@@ -29,6 +29,8 @@ for(const [width,height] of [[1440,900],[1366,768],[1280,800],[1024,900],[768,10
  });
  await page.emulateMedia({reducedMotion:'reduce'});const reduced=await page.locator('.cl1403c-a-specs').evaluate(e=>getComputedStyle(e).backgroundAttachment);
  await page.evaluate(()=>scrollTo(0,0));if(width===1440||width===390)await page.screenshot({path:path.join(dir,`${label}-${width}-full.png`),fullPage:true});
- results.push({width,height,status:res.status(),headers:res.headers(),...initial,...audit,faqKeyboard,reduced,errors,failed,analytics});console.log(JSON.stringify({width,status:res.status(),overflow:audit.overflow,contrast:audit.contrast.length,broken:audit.broken.length,lcp:initial.metrics.lcp,cls:audit.cls,errors}));await context.close();
+ const safeHeaders=Object.fromEntries(Object.entries(res.headers()).filter(([k])=>['x-robots-tag','x-missionmed-alternate','cache-control','cf-cache-status','content-type'].includes(k)));
+ const safeAnalytics=analytics.map(a=>{const u=new URL(a.url);return {host:u.hostname,event:u.searchParams.get('en'),measurement_id:u.searchParams.get('tid'),page_location:u.searchParams.get('dl')};});
+ results.push({width,height,status:res.status(),headers:safeHeaders,...initial,...audit,faqKeyboard,reduced,errors,failed,analytics:safeAnalytics});console.log(JSON.stringify({width,status:res.status(),overflow:audit.overflow,contrast:audit.contrast.length,broken:audit.broken.length,lcp:initial.metrics.lcp,cls:audit.cls,errors}));await context.close();
 }
 fs.writeFileSync(path.join(dir,`${label}-qa.json`),JSON.stringify(results,null,2));await browser.close();
