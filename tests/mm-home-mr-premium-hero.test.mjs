@@ -31,7 +31,7 @@ test('rotation is bounded, controllable and motion-aware',()=>{
 
 test('dedicated Mission Residency hero is static and both paths are explicit',()=>{
  const hero=mrJs.slice(mrJs.indexOf('function hero()'),mrJs.indexOf('function paths()'));
- for(const text of ['brian-studio-aaa.jpg','YOU BUILT THE APPLICATION','that earned the interview.',"NOW LET'S TURN THE INTERVIEW",'INTO A MATCH.','Explore Interview Bootcamp Week','Explore IV Prep Complete'])assert.ok(hero.includes(text),text);
+ for(const text of ['brian-studio-aaa.jpg','YOU BUILT THE APPLICATION','that earned the interview.',"NOW LET'S TURN THE INTERVIEW",'INTO A MATCH.','Explore Interview Bootcamp Week','Explore IV Prep Complete',"carry('#dates')","carry('#compare')"])assert.ok(hero.includes(text),text);
  assert.ok(!/carousel|setInterval|setTimeout/.test(hero));
  for(const text of ['October 8–18, 2026','October through final February interviews','small-group training','groups are small and personalized'])assert.ok(mrJs.includes(text),text);
  assert.ok(mrHtml.includes('brian-studio-aaa.jpg'));
