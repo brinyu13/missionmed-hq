@@ -1,0 +1,73 @@
+{
+  "checkedAt": "2026-09-30T04:35:15.832Z",
+  "offers": {
+    "complete": {
+      "status": 200,
+      "expectedAmount": "$3,099.00",
+      "amountPresent": true,
+      "card": true,
+      "zelle": true,
+      "url": "https://missionmedinstitute.com/checkout/?add-to-cart=3576&variation_id=5865&attribute_pa_start-date=session-d-start-date&qa=refinement",
+      "lineItems": [
+        "Product",
+        "IV Prep Complete - Session D: Oct 11th, 2026 \n× 1\n$3,099.00",
+        "IV Prep Complete - Session D: Oct 11th, 2026 \n× 1"
+      ],
+      "totals": [
+        "Subtotal\t$3,099.00",
+        "Total\t$3,099.00"
+      ],
+      "methods": [
+        {
+          "id": "stripe",
+          "label": "Credit / Debit Card"
+        },
+        {
+          "id": "bacs",
+          "label": "Zelle — $3,099 total"
+        }
+      ],
+      "placeOrder": true
+    },
+    "bootcamp": {
+      "status": 200,
+      "expectedAmount": "$549.00",
+      "amountPresent": true,
+      "card": true,
+      "zelle": true,
+      "url": "https://missionmedinstitute.com/checkout/?add-to-cart=5504&variation_id=5867&attribute_pa_start-date=session-d-start-date&qa=refinement",
+      "lineItems": [
+        "Product",
+        "IV Prep Essentials: Interview Bootcamp Week - Session D: Oct 11th, 2026 \n× 1\n$549.00",
+        "IV Prep Essentials: Interview Bootcamp Week - Session D: Oct 11th, 2026 \n× 1"
+      ],
+      "totals": [
+        "Subtotal\t$549.00",
+        "Total\t$549.00"
+      ],
+      "methods": [
+        {
+          "id": "stripe",
+          "label": "Credit / Debit Card"
+        },
+        {
+          "id": "bacs",
+          "label": "Zelle — $499 total (save $50)"
+        }
+      ],
+      "placeOrder": true
+    }
+  },
+  "landing": {
+    "complete": {
+      "url": "https://missionmedinstitute.com/product/match-prep-pro/?utm_source=facebook&utm_medium=paid_social&utm_campaign=refinement_readback",
+      "productReached": true,
+      "utmPreserved": true
+    },
+    "bootcamp": {
+      "url": "https://missionmedinstitute.com/product/iv-prep-masterclass/?utm_source=facebook&utm_medium=paid_social&utm_campaign=refinement_readback",
+      "productReached": true,
+      "utmPreserved": true
+    }
+  }
+}

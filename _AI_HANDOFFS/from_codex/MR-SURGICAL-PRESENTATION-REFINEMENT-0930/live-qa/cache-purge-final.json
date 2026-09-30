@@ -1,0 +1,16 @@
+{
+    "attempted_at_utc": "2026-09-30T04:39:37+00:00",
+    "wordpress_object_cache": true,
+    "kinsta": {
+        "available": true,
+        "site_cache": {
+            "ok": true,
+            "http_code": 200
+        },
+        "cdn_cache": {
+            "ok": true,
+            "http_code": 200
+        }
+    },
+    "pass": true
+}
