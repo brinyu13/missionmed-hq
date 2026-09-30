@@ -1,0 +1,235 @@
+{
+  "runAt": "2026-09-30T03:14:23.114Z",
+  "results": [
+    {
+      "width": 1440,
+      "run": 1,
+      "status": 200,
+      "url": "https://missionmedinstitute.com/?finalperf=1790738044866-1440-1",
+      "metrics": {
+        "critical": true,
+        "criticalIndex": 6,
+        "cls": 0.0013125798396776407,
+        "shifts": [
+          {
+            "t": 1735.6000000089407,
+            "v": 0.0001375943072702332
+          },
+          {
+            "t": 1884.7000000029802,
+            "v": 0.001050925925925926
+          },
+          {
+            "t": 2021.4000000059605,
+            "v": 0.0001240596064814815
+          }
+        ],
+        "lcp": {
+          "t": 1724,
+          "size": 604021,
+          "tag": "IMG",
+          "cls": "mm-ph__image"
+        },
+        "heroImageLoaded": true,
+        "heroHeight": 880,
+        "overflow": 0,
+        "stale": 0
+      },
+      "errors": [],
+      "bad": []
+    },
+    {
+      "width": 1440,
+      "run": 2,
+      "status": 200,
+      "url": "https://missionmedinstitute.com/?finalperf=1790738048337-1440-2",
+      "metrics": {
+        "critical": true,
+        "criticalIndex": 6,
+        "cls": 0.0003692928026406036,
+        "shifts": [
+          {
+            "t": 1637.5999999940395,
+            "v": 0.00010763888888888889
+          },
+          {
+            "t": 1714.7000000029802,
+            "v": 0.0001375943072702332
+          },
+          {
+            "t": 1861.7999999970198,
+            "v": 0.0001240596064814815
+          }
+        ],
+        "lcp": {
+          "t": 1632,
+          "size": 604021,
+          "tag": "IMG",
+          "cls": "mm-ph__image"
+        },
+        "heroImageLoaded": true,
+        "heroHeight": 880,
+        "overflow": 0,
+        "stale": 0
+      },
+      "errors": [],
+      "bad": []
+    },
+    {
+      "width": 1024,
+      "run": 1,
+      "status": 200,
+      "url": "https://missionmedinstitute.com/?finalperf=1790738051407-1024-1",
+      "metrics": {
+        "critical": true,
+        "criticalIndex": 6,
+        "cls": 0.002537785636054145,
+        "shifts": [
+          {
+            "t": 1527.0999999940395,
+            "v": 0.0001513671875
+          },
+          {
+            "t": 1565.5,
+            "v": 0.00011126518249511719
+          },
+          {
+            "t": 1613.0999999940395,
+            "v": 0.0021006944444444445
+          },
+          {
+            "t": 1704.2999999970198,
+            "v": 0.00017445882161458334
+          }
+        ],
+        "lcp": {
+          "t": 1528,
+          "size": 604021,
+          "tag": "IMG",
+          "cls": "mm-ph__image"
+        },
+        "heroImageLoaded": true,
+        "heroHeight": 880,
+        "overflow": 0,
+        "stale": 0
+      },
+      "errors": [],
+      "bad": []
+    },
+    {
+      "width": 1024,
+      "run": 2,
+      "status": 200,
+      "url": "https://missionmedinstitute.com/?finalperf=1790738054306-1024-2",
+      "metrics": {
+        "critical": true,
+        "criticalIndex": 6,
+        "cls": 0.002537785636054145,
+        "shifts": [
+          {
+            "t": 1338.3999999910593,
+            "v": 0.0001513671875
+          },
+          {
+            "t": 1430.7999999970198,
+            "v": 0.00011126518249511719
+          },
+          {
+            "t": 1452.5999999940395,
+            "v": 0.0021006944444444445
+          },
+          {
+            "t": 1618.0999999940395,
+            "v": 0.00017445882161458334
+          }
+        ],
+        "lcp": {
+          "t": 1340,
+          "size": 604021,
+          "tag": "IMG",
+          "cls": "mm-ph__image"
+        },
+        "heroImageLoaded": true,
+        "heroHeight": 880,
+        "overflow": 0,
+        "stale": 0
+      },
+      "errors": [],
+      "bad": []
+    },
+    {
+      "width": 390,
+      "run": 1,
+      "status": 200,
+      "url": "https://missionmedinstitute.com/?finalperf=1790738057118-390-1",
+      "metrics": {
+        "critical": true,
+        "criticalIndex": 6,
+        "cls": 0.010795221984805318,
+        "shifts": [
+          {
+            "t": 1483.5,
+            "v": 0.0009979166666666667
+          },
+          {
+            "t": 1509.300000011921,
+            "v": 0.009661599299620132
+          },
+          {
+            "t": 1714.5,
+            "v": 0.00013570601851851854
+          }
+        ],
+        "lcp": {
+          "t": 1476,
+          "size": 112320,
+          "tag": "IMG",
+          "cls": "mm-ph__image"
+        },
+        "heroImageLoaded": true,
+        "heroHeight": 860,
+        "overflow": 0,
+        "stale": 0
+      },
+      "errors": [],
+      "bad": []
+    },
+    {
+      "width": 390,
+      "run": 2,
+      "status": 200,
+      "url": "https://missionmedinstitute.com/?finalperf=1790738060041-390-2",
+      "metrics": {
+        "critical": true,
+        "criticalIndex": 6,
+        "cls": 0.010795221984805318,
+        "shifts": [
+          {
+            "t": 1631.5,
+            "v": 0.0009979166666666667
+          },
+          {
+            "t": 1637.9000000059605,
+            "v": 0.009661599299620132
+          },
+          {
+            "t": 1836.2999999970198,
+            "v": 0.00013570601851851854
+          }
+        ],
+        "lcp": {
+          "t": 1600,
+          "size": 112320,
+          "tag": "IMG",
+          "cls": "mm-ph__image"
+        },
+        "heroImageLoaded": true,
+        "heroHeight": 860,
+        "overflow": 0,
+        "stale": 0
+      },
+      "errors": [],
+      "bad": []
+    }
+  ]
+}

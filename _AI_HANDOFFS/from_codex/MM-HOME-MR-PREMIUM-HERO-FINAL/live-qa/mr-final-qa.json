@@ -1,0 +1,38 @@
+{
+  "checkedAt": "2026-09-30T03:20:11.275Z",
+  "widths": {
+    "390": {
+      "status": 200,
+      "heroHeight": 884,
+      "headline": "YOU BUILT THE APPLICATION\nthat earned the interview.\nNOW LET'S TURN THE INTERVIEW\nINTO A MATCH.",
+      "bootcamp": true,
+      "complete": true,
+      "enrollBackground": "rgb(255, 255, 255)",
+      "overflow": 0,
+      "anchors": true,
+      "errors": []
+    },
+    "1024": {
+      "status": 200,
+      "heroHeight": 900,
+      "headline": "YOU BUILT THE APPLICATION\nthat earned the interview.\nNOW LET'S TURN THE INTERVIEW\nINTO A MATCH.",
+      "bootcamp": true,
+      "complete": true,
+      "enrollBackground": "rgb(255, 255, 255)",
+      "overflow": 0,
+      "anchors": true,
+      "errors": []
+    },
+    "1440": {
+      "status": 200,
+      "heroHeight": 900,
+      "headline": "YOU BUILT THE APPLICATION\nthat earned the interview.\nNOW LET'S TURN THE INTERVIEW\nINTO A MATCH.",
+      "bootcamp": true,
+      "complete": true,
+      "enrollBackground": "rgb(255, 255, 255)",
+      "overflow": 0,
+      "anchors": true,
+      "errors": []
+    }
+  }
+}

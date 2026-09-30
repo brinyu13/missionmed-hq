@@ -1,0 +1,110 @@
+{
+  "runAt": "2026-09-30T03:13:47.856Z",
+  "keyboard": {
+    "before": {
+      "index": "0",
+      "scrollY": 0,
+      "focused": true,
+      "focusVisible": true
+    },
+    "right": {
+      "index": "1",
+      "scrollY": 0,
+      "live": "Exam Prep, slide 2 of 8",
+      "focus": true,
+      "pause": "Play",
+      "pressed": "true"
+    },
+    "left": {
+      "index": "0",
+      "scrollY": 0,
+      "focus": true
+    },
+    "native": {
+      "index": "0",
+      "selected": "Mission Residency"
+    }
+  },
+  "reduced": {
+    "initial": {
+      "index": "0",
+      "text": "Still",
+      "disabled": true
+    },
+    "afterWait": "0",
+    "manualIndex": "1"
+  },
+  "autoplay": {
+    "initial": {
+      "index": "0",
+      "text": "Pause",
+      "disabled": false
+    },
+    "afterWait": "1"
+  },
+  "mobileMotion": {
+    "initial": {
+      "index": "0",
+      "text": "Play",
+      "disabled": false
+    },
+    "afterWait": "0",
+    "afterPlay": "1"
+  },
+  "ctaClick": {
+    "url": "https://missionmedinstitute.com/mission-residency/?utm_source=heroqa&utm_campaign=founderfinal#dates",
+    "datesFound": 1,
+    "bootcamp": 32,
+    "complete": 9
+  },
+  "mobileMenu": {
+    "open": "",
+    "links": [
+      {
+        "text": "Home",
+        "href": "https://missionmedinstitute.com/"
+      },
+      {
+        "text": "Exam Prep",
+        "href": "https://missionmedinstitute.com/examprep/"
+      },
+      {
+        "text": "Mission Residency",
+        "href": "https://missionmedinstitute.com/mission-residency/"
+      },
+      {
+        "text": "USCE",
+        "href": "https://missionmedinstitute.com/usce/"
+      },
+      {
+        "text": "Arena",
+        "href": "https://missionmedinstitute.com/homepage-arena/"
+      },
+      {
+        "text": "My Matrix",
+        "href": "https://missionmedinstitute.com/member-dashboard/"
+      },
+      {
+        "text": "Log in",
+        "href": "https://missionmedinstitute.com/my-account/"
+      },
+      {
+        "text": "Cart",
+        "href": "https://missionmedinstitute.com/cart/"
+      }
+    ]
+  },
+  "skipLink": {
+    "text": "Skip to content",
+    "href": "#content",
+    "focusVisible": true,
+    "rect": {
+      "x": 12,
+      "y": 12,
+      "width": 124.625,
+      "height": 40
+    },
+    "clip": "auto",
+    "position": "fixed"
+  }
+}

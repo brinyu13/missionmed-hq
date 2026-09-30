@@ -1,0 +1,17 @@
+{
+  "checkedAt": "2026-09-30T03:23:00Z",
+  "site": "https://missionmedinstitute.com/mission-residency/",
+  "complete": {
+    "trigger": "View Complete details & payment choices",
+    "observedDestination": "https://missionmedinstitute.com/product/match-prep-pro/",
+    "status": 200
+  },
+  "bootcamp": {
+    "trigger": "View Interview Bootcamp Week details & payment choices",
+    "intermediate": "Before you choose modal; Complete includes Bootcamp Week",
+    "choice": "Continue to Interview Bootcamp Week details",
+    "observedDestination": "https://missionmedinstitute.com/product/iv-prep-masterclass/",
+    "status": 200
+  },
+  "paymentSubmitted": false
+}

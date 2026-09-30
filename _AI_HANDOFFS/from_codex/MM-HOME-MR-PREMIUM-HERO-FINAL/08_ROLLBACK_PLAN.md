@@ -1,5 +1,7 @@
 # Rollback plan
 
+> Historical candidate plan. Use the later exact preimages and hash guards in `ROLLBACK.md` for the final accepted release.
+
 ## Preferred recovery boundary
 
 Use the provider-native Kinsta backup `Pre premium hero release 2026-09-29` for a complete site rollback. It was created immediately before release and remains available until Oct 13 2026 8:35 PM ET.
@@ -20,4 +22,3 @@ For a narrow rollback:
 4. Re-run the anonymous homepage and dedicated-page smoke, then verify unrelated page-load routes.
 
 Do not alter accepted Zelle artifacts during a presentation rollback.
-

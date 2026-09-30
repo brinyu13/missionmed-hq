@@ -1,0 +1,7 @@
+# Rollback custody and procedure
+
+Product source target for the accepted presentation is `5f59a91ef5cb2d04d54527cd53875c6f244d7427`; the main presentation fix-forward is `86ddc1c843cbbd148d617f40a80b2d32671dd03b`. Provider-native backup `Pre premium hero release 2026-09-29` was created Sep 29 at 8:35 PM ET and was listed as available until Oct 13 at 8:35 PM ET. A whole-site restore is a broader operation and must account for later unrelated production changes.
+
+Prefer narrow, hash-guarded file restoration using `/www/theresidencyacademy_209/private/mm-home-mr-premium-hero/20260930T003640Z/preimage/`, which contains original SHA256SUMS, ABSENT_PREIMAGES and per-file preimages. The final `86ddc1c` deployment also holds `candidate/86ddc1c` and `preimage/*.pre-86ddc1c`. The later closing-section release has its own candidate, preimage and SHA256SUMS at `/www/theresidencyacademy_209/private/mm-home-mr-premium-hero/MR-CLOSING-WHITE-20260930T031519Z`.
+
+Before any rollback, re-read current production hashes and choose only the affected presentation files; do not overwrite newer unrelated changes. Verify expected current hash, preserve owner/mode, install atomically with failure rollback, purge only required caches, and repeat anonymous homepage/dedicated/page-load smoke. The six current presentation hashes are recorded in `live-qa/deployment-readback.txt` and `live-qa/public-readback.json`. Accepted unrelated commerce files are not rollback targets.

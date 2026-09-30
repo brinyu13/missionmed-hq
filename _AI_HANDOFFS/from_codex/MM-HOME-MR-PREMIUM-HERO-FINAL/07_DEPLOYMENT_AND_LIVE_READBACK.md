@@ -1,5 +1,7 @@
 # Deployment and live readback
 
+> Historical candidate report. The accepted later release is documented in `README.md`, `FINAL_ACCEPTANCE.md`, and `ROLLBACK.md`; the hashes below are not current production hashes.
+
 - Live homepage: `https://missionmedinstitute.com/`
 - Live dedicated page: `https://missionmedinstitute.com/mission-residency/`
 - Production root: `/www/theresidencyacademy_209/public`
@@ -28,4 +30,3 @@
 | `usce-operating.webp` | `bfd875f2cc957035af6e412c71479a9fae1b1a3e787dec1635baca035e2adb48` |
 
 Every listed live file matched the local release source byte-for-byte at final readback.
-

@@ -1,0 +1,9 @@
+# State delta — MissionMed premium presentation
+
+**Before:** The live homepage retained the old static “Don’t use your real interviews as practice” opening. An earlier rotating-hero candidate had a first-load CLS defect and incomplete focus behavior. The dedicated page was temporarily restored to an earlier presentation by `7e83304` during concurrent release activity.
+
+**After:** The approved eight-frame hero is live on the anonymous public homepage, with the final MATCH opening, authentic full-bleed photo, manual controls, motion/reduced-motion behavior and correct destinations. The dedicated Mission Residency page has the approved premium static hero and both Bootcamp and Complete paths. The focus/CLS fixes were released in `86ddc1c`; `5f59a91` added a verified white closing section. Final product branch/commit: `codex/mm-home-mr-premium-hero` / `5f59a91ef5cb2d04d54527cd53875c6f244d7427`.
+
+**Authority and conflict:** Astra's Round-2 Founder override remains presentation authority. The Founder later expressly authorized this single thread to perform final acceptance, superseding the earlier independent-verifier requirement for this release only. The prior verifier's 0.94 CLS finding on an earlier candidate was valid and fixed, not silently erased. The concurrent `7e83304` emergency restore conflicted with the approved dedicated hero and was corrected by a guarded presentation-only fix-forward. The later `5f59a91` closing CSS was retained after live responsive QA. No unrelated product architecture was changed.
+
+**Live evidence:** `FINAL_ACCEPTANCE.md` and `live-qa/` cover public 1440/1024/390, all eight frames, dedicated page, performance, focus, CTA navigation, analytics, page-load regression and exact public readback. **Rollback:** `ROLLBACK.md`. **Deferred:** field Core Web Vitals after traffic accumulation; legacy 195px downstream layout is outside the 390px approved scope.

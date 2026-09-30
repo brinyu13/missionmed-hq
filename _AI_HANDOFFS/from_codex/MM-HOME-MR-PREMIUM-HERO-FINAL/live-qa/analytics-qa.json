@@ -1,0 +1,28 @@
+{
+  "checkedAt": "2026-09-30T03:23:28.170Z",
+  "events": [
+    {
+      "event": "mm_home_hero_view",
+      "hero_frame": "mr-application",
+      "division": "Mission Residency",
+      "utm_source": "heroqa",
+      "utm_campaign": "founderfinal",
+      "interaction": "initial"
+    },
+    {
+      "event": "mm_home_hero_interaction",
+      "hero_frame": "mr-application",
+      "utm_source": "heroqa",
+      "utm_campaign": "founderfinal",
+      "action": "next"
+    },
+    {
+      "event": "mm_home_hero_view",
+      "hero_frame": "exam-live",
+      "division": "Exam Prep",
+      "utm_source": "heroqa",
+      "utm_campaign": "founderfinal",
+      "interaction": "next"
+    }
+  ]
+}

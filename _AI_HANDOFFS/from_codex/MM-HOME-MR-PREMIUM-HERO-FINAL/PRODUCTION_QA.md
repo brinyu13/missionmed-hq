@@ -1,0 +1,5 @@
+# Anonymous public production QA
+
+Both `https://missionmedinstitute.com/` and `https://missionmedinstitute.com/mission-residency/` returned 200 with the approved four-line opening and zero current stale phrases. Public asset readback returned 200 for versioned hero JS and dedicated CSS/JS. The homepage served the critical-head style, and the dedicated page served the current white closing section from `5f59a91`. Cache observations were Kinsta MISS/Cloudflare DYNAMIC for one homepage readback and Kinsta HIT/Cloudflare HIT for a dedicated readback; both delivered approved DOM. See `live-qa/public-readback.json`.
+
+`live-qa/live-qa.json` records all 24 frame/width combinations. Each frame had the correct division, copy, loaded asset, CTA and destination, with zero document overflow, page errors, or failed same-origin critical requests. Manual interaction, CTA navigation, analytics/UTM and mobile navigation are in `interaction-qa.json` and `analytics-qa.json`. Exact product CTA navigation is in `mr-cta-destinations.json`. Screenshots are in `live-qa/`.
