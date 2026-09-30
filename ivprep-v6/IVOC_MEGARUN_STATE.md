@@ -42,7 +42,7 @@ the actual production route and deployment.
   UNVERIFIED. No physical candidate answer, contextual follow-up, barge-in,
   audible two-sided replay, or cold-reload playback was observed in this short
   unattended QA session. Do not promote Journey A–D from these partial steps.
-- **Actor/subject presentation defect: OPEN.** Despite Matrix identifying
+- **Actor/subject presentation defect: LIVE FIX VERIFIED.** Despite Matrix identifying
   Ismat (`wp:142`), the prior IVOC release greeted the session as “Dr Brian.”
   Source `d2953b288d0060b3d11b4926c09067010856db41` now projects the
   authenticated display name separately from Founder capability. Deployment
@@ -60,6 +60,33 @@ the actual production route and deployment.
   The app's “640×480 RENDERING” readiness label is therefore false as visible
   video acceptance. Distinguish upstream camera/physical darkness from IVOC
   binding before changing media plumbing; do not claim camera POV accepted.
+- **2026-09-30 visible-frame guard: LIVE VERIFIED as fail-closed, physical
+  camera journey still WAITING.** Reviewed source `41c56fae8b762adb74d736ce9d527cc6fb143e58`
+  deployed as Railway `3442d1c4-cacc-4e46-9745-219ee347c45c`, image
+  `sha256:d7cba4be10b7412fd92a38911bb054998646e2f3dc7ebe6a5f53ece9b44d9691`.
+  Health is 200, anonymous product/bootstrap remain 401. From authenticated
+  Home → AI Mock → Device Check, FaceTime HD Camera and microphone again
+  connected, but the actual production UI now reports `BLACK CAMERA IMAGE`
+  and explains the physical correction; Start remains disabled. Local 64×48
+  luminance summary never exports a frame. A previously verified frame is
+  resampled at start rather than treated as permanent readiness. Physical
+  visible video and a complete spoken interview are not accepted. Previous
+  healthy source `d2953b288d0060b3d11b4926c09067010856db41`, deployment
+  `20f406d4-37f9-4012-8137-be9827f84e64`, image
+  `sha256:3485f57da647a791af1f35f15191269df326d007843a975298436c48d0869dea`
+  is now REMOVED by Railway; rollback requires exact-source/config redeploy.
+- **Saved-review truth correction: LIVE UI VERIFIED for the scoped actor.** The same
+  release names the selected student, not `You`, on Admin Film Room transcript
+  turns; interviewer-only saved sessions no longer receive implied candidate
+  answer coaching, and the report calls duration captured session evidence.
+  Focused camera/identity/review tests passed 10/10. The wider 8001 suite has
+  one pre-existing stale navigation expectation (`Progress Analytics`), which
+  does not match the current Home label; it is not evidence of this media
+  change failing. Authenticated Admin selected another authorized student and
+  Film Room named that student on candidate transcript turns; Admin then
+  selected the own QA recording and Results explicitly reported no candidate
+  speech, with no invented answer strength. Audible two-sided replay and
+  cross-role negative-path acceptance remain unverified.
 - **Program search: LIVE FAIL for this scoped actor.** A visible `SUNY` search
   reached IVOC but returned `IVOC_INTERNAL_ERROR` (HQ HTTP 500). RISE owner
   logged the exact upstream `/api/rise/v1/programs` request as 401; HQ's
