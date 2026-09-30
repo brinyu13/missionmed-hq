@@ -1,7 +1,7 @@
 <?php
 /**
- * Plugin Name: Mission Residency USCE-framework alternate
- * Description: Isolated, noindex presentation at /missionresidency/ only. No commerce writes.
+ * Plugin Name: Mission Residency USCE-framework presentation
+ * Description: Isolated presentation at /missionresidency/. Indexing follows canonical promotion provider. No commerce writes.
  * Authority: Founder ASTRA6_MISSION_RESIDENCY_ALT_FOREMAN, 2026-09-30.
  */
 defined('ABSPATH') || exit;
@@ -19,9 +19,10 @@ add_action('template_redirect', static function (): void {
         status_header(503);
         nocache_headers();
         header('X-Robots-Tag: noindex, follow');
-        echo 'This page is temporarily unavailable. Please visit /mission-residency/.';
+        echo 'This page is temporarily unavailable. Please contact MissionMed through /contact/.';
         exit;
     }
+    $promoted = function_exists('mm_mr_primary_route_enabled') && mm_mr_primary_route_enabled();
     $config = mm_mr_p0_runtime_config(); // Read existing canonical commerce; never set products/options.
     $iw = $config['offers']['interview_week'] ?? [];
     $complete = $config['offers']['complete'] ?? [];
@@ -37,8 +38,8 @@ add_action('template_redirect', static function (): void {
     status_header(200);
     nocache_headers(); // Prices are current Woo truth, not a cached campaign snapshot.
     header('Content-Type: text/html; charset=UTF-8');
-    header('X-Robots-Tag: noindex, follow');
-    header('X-MissionMed-Alternate: usce-framework-v1');
+    header('X-Robots-Tag: ' . ($promoted ? 'index, follow' : 'noindex, follow'));
+    header($promoted ? 'X-MissionMed-Primary: usce-framework-v1' : 'X-MissionMed-Alternate: usce-framework-v1');
     if (($_SERVER['REQUEST_METHOD'] ?? '') === 'HEAD') exit;
     require $root . '/page.php';
     exit;
