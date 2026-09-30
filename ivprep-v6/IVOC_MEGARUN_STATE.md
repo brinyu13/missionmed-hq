@@ -40,6 +40,24 @@ the actual production route and deployment.
   Device Calibration. Railway edge intermittently returned fallback 404/502
   during rollout before later 200/401 readback; do not infer sustained routing
   reliability or complete Student Journey A/B from this entry proof.
+- **Independent admission review: PASS within bounded scope.** A separate
+  read-only verifier reviewed exact ledger HEAD `ce2b16e` and found no new
+  executable P0/P1 security or concurrency defect in the static admission
+  change. Its focused mount suite passed 15/15; anonymous health/product/
+  bootstrap/static returned 200/401/401/401. It could not independently use
+  the authenticated Chrome session; the Foreman's actual `wp:142` Student Home
+  and Device Calibration observations supply only entry-level live evidence.
+  Production remains one Railway replica; multi-replica behavior is unverified.
+- **RISE delegated 360 search: owner authority waiting, not a UI pass.** The
+  previously reproduced `wp:142` delegated request received RISE owner 401
+  because RISE-private-beta admission does not recognize an IVOC-only QA grant.
+  The current RISE passport keeps audience/entitlement ownership isolated;
+  DR-322/323 authorize the original bounded projection, not a blanket shared
+  auth expansion, and the current OS `CURRENT.md` still describes that mission
+  as pre-build despite the deployed owner projection. No RISE or shared-HQ
+  mutation is safe from this stale/conflicting authority. Existing `wp:1`
+  program-aware production evidence remains valid; ordinary 360 program-aware
+  search requires a fresh owner-scoped authority/current-state reconciliation.
 - **Current production guardian (2026-09-30):** Source
   `fc3a9d3526dc09dfd9063f7c0cdb204b99f1e450` is remotely read back;
   Railway `7e2072f4-1f1e-4816-9783-e9159538d910` reports SUCCESS, image
@@ -753,9 +771,12 @@ the actual production route and deployment.
    when available; run second-Admin and negative/wrong-owner acceptance only
    from genuine authenticated identities. Do not forge evidence or restore the
    revoked Founder QA grant.
-4. Recheck Webex only when the owner changes from `RECORDING PROCESSING` to a
+4. Resume the ordinary 360 RISE-delegation owner lane only when current RISE
+   authority and MissionMed OS `CURRENT.md` reconcile to the deployed owner
+   projection; do not grant cross-product Admin/private-beta access by proxy.
+5. Recheck Webex only when the owner changes from `RECORDING PROCESSING` to a
    completed private recording.
-5. Accept longitudinal recurrence only after enough genuine saved sessions
+6. Accept longitudinal recurrence only after enough genuine saved sessions
    exist. Do not manufacture recurrence.
-6. Active LemonSlice execution remains deferred. Create the final handoff only
+7. Active LemonSlice execution remains deferred. Create the final handoff only
    after the external evidence above closes and the terminal marker is true.
