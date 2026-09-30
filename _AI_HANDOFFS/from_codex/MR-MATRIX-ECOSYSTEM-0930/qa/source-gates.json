@@ -1,0 +1,39 @@
+{
+  "at": "2026-09-30T16:25:30.054Z",
+  "baseline": "b4fb762a9861ef3221c77f0805546fd97ee4dbb2",
+  "onlySectionChanged": true,
+  "priorCssPreserved": true,
+  "jsUnchanged": true,
+  "images": [
+    {
+      "file": "ecosystem-matrix-1080.webp",
+      "bytes": 102796,
+      "sha256": "6d286f7d2eea03e21fbe8edba37bad0e52e64b1f5b4ae8737beabf19a1b60935"
+    },
+    {
+      "file": "ecosystem-matrix-1440.webp",
+      "bytes": 210758,
+      "sha256": "1c60ed9011103cc2a3c568de54088f4cec6efbc0dce29eee0a2dffa3dba2d55b"
+    },
+    {
+      "file": "ecosystem-matrix-720.webp",
+      "bytes": 58478,
+      "sha256": "6f95de41bea8f05837c295c9dce849dd5ab712a095b1030d3f76ed40565b5454"
+    },
+    {
+      "file": "ecosystem-oncall-1080.webp",
+      "bytes": 37376,
+      "sha256": "c10a9cc1c9cc9520c312f447d76b3eb808fada6e59959761f348172d9dc11a87"
+    },
+    {
+      "file": "ecosystem-oncall-1440.webp",
+      "bytes": 63136,
+      "sha256": "192205228ecef197b7ab1e93a414f3f5a41654865b10bcb3da86a06de71ad429"
+    },
+    {
+      "file": "ecosystem-oncall-720.webp",
+      "bytes": 21004,
+      "sha256": "5edb001ada684186250af2691665831a8c1732a33ff522ebad6f74d61a5ebf7d"
+    }
+  ]
+}

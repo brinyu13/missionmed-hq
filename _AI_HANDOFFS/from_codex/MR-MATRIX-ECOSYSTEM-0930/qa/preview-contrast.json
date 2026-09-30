@@ -1,0 +1,338 @@
+[
+  {
+    "bg": [
+      244,
+      243,
+      239
+    ],
+    "fg": "rgb(112, 87, 24)",
+    "pass": true,
+    "ratio": 6.169881068458957,
+    "size": "13px",
+    "text": "BETWEEN SESSIONS"
+  },
+  {
+    "bg": [
+      244,
+      243,
+      239
+    ],
+    "fg": "rgb(10, 22, 40)",
+    "pass": true,
+    "ratio": 16.328319394128954,
+    "size": "32px",
+    "text": "Your Training Continues\nInside Matrix."
+  },
+  {
+    "bg": [
+      244,
+      243,
+      239
+    ],
+    "fg": "rgb(55, 69, 86)",
+    "pass": true,
+    "ratio": 8.804763067732202,
+    "size": "16px",
+    "text": "Live training with Dr Brian gives you the framework and feedback."
+  },
+  {
+    "bg": [
+      244,
+      243,
+      239
+    ],
+    "fg": "rgb(112, 87, 24)",
+    "pass": true,
+    "ratio": 6.169881068458957,
+    "size": "13px",
+    "text": "01 / YOUR HOME BASE"
+  },
+  {
+    "bg": [
+      244,
+      243,
+      239
+    ],
+    "fg": "rgb(10, 22, 40)",
+    "pass": true,
+    "ratio": 16.328319394128954,
+    "size": "29px",
+    "text": "Matrix V2 Dashboard"
+  },
+  {
+    "bg": [
+      244,
+      243,
+      239
+    ],
+    "fg": "rgb(55, 69, 86)",
+    "pass": true,
+    "ratio": 8.804763067732202,
+    "size": "16px",
+    "text": "Your schedule, resources and available Match tools, brought toget"
+  },
+  {
+    "bg": [
+      244,
+      243,
+      239
+    ],
+    "fg": "rgb(75, 86, 100)",
+    "pass": true,
+    "ratio": 6.720396260350617,
+    "size": "13px",
+    "text": "Current Matrix interface. Personal details omitted.\nExplore full-"
+  },
+  {
+    "bg": [
+      244,
+      243,
+      239
+    ],
+    "fg": "rgb(23, 36, 56)",
+    "pass": true,
+    "ratio": 14.052632836796532,
+    "size": "13px",
+    "text": "Explore full-size screenshot\n(new tab)\n↗"
+  },
+  {
+    "bg": [
+      244,
+      243,
+      239
+    ],
+    "fg": "rgb(112, 87, 24)",
+    "pass": true,
+    "ratio": 6.169881068458957,
+    "size": "13px",
+    "text": "STORYFORGE"
+  },
+  {
+    "bg": [
+      244,
+      243,
+      239
+    ],
+    "fg": "rgb(10, 22, 40)",
+    "pass": true,
+    "ratio": 16.328319394128954,
+    "size": "26px",
+    "text": "Your experiences.\nReady for the conversation."
+  },
+  {
+    "bg": [
+      244,
+      243,
+      239
+    ],
+    "fg": "rgb(55, 69, 86)",
+    "pass": true,
+    "ratio": 8.804763067732202,
+    "size": "16px",
+    "text": "Capture and develop your real stories, organize them in your libr"
+  },
+  {
+    "bg": [
+      244,
+      243,
+      239
+    ],
+    "fg": "rgb(112, 87, 24)",
+    "pass": true,
+    "ratio": 6.169881068458957,
+    "size": "13px",
+    "text": "RISE"
+  },
+  {
+    "bg": [
+      244,
+      243,
+      239
+    ],
+    "fg": "rgb(10, 22, 40)",
+    "pass": true,
+    "ratio": 16.328319394128954,
+    "size": "26px",
+    "text": "Know the program.\nAsk better questions."
+  },
+  {
+    "bg": [
+      244,
+      243,
+      239
+    ],
+    "fg": "rgb(55, 69, 86)",
+    "pass": true,
+    "ratio": 8.804763067732202,
+    "size": "16px",
+    "text": "Explore residency programs, review available program intelligence"
+  },
+  {
+    "bg": [
+      244,
+      243,
+      239
+    ],
+    "fg": "rgb(112, 87, 24)",
+    "pass": true,
+    "ratio": 6.169881068458957,
+    "size": "13px",
+    "text": "FILE VAULT"
+  },
+  {
+    "bg": [
+      244,
+      243,
+      239
+    ],
+    "fg": "rgb(10, 22, 40)",
+    "pass": true,
+    "ratio": 16.328319394128954,
+    "size": "26px",
+    "text": "The materials behind\nyour Match season."
+  },
+  {
+    "bg": [
+      244,
+      243,
+      239
+    ],
+    "fg": "rgb(55, 69, 86)",
+    "pass": true,
+    "ratio": 8.804763067732202,
+    "size": "16px",
+    "text": "Keep your CV, application documents and supporting files organize"
+  },
+  {
+    "bg": [
+      244,
+      243,
+      239
+    ],
+    "fg": "rgb(112, 87, 24)",
+    "pass": true,
+    "ratio": 6.169881068458957,
+    "size": "13px",
+    "text": "RANKLIST IQ"
+  },
+  {
+    "bg": [
+      244,
+      243,
+      239
+    ],
+    "fg": "rgb(10, 22, 40)",
+    "pass": true,
+    "ratio": 16.328319394128954,
+    "size": "26px",
+    "text": "When interviews\nbecome decisions."
+  },
+  {
+    "bg": [
+      244,
+      243,
+      239
+    ],
+    "fg": "rgb(55, 69, 86)",
+    "pass": true,
+    "ratio": 8.804763067732202,
+    "size": "16px",
+    "text": "Compare programs, record your thinking and work through a structu"
+  },
+  {
+    "bg": [
+      244,
+      243,
+      239
+    ],
+    "fg": "rgb(112, 87, 24)",
+    "pass": true,
+    "ratio": 6.169881068458957,
+    "size": "13px",
+    "text": "02 / YOUR INTERVIEW WORKSPACE"
+  },
+  {
+    "bg": [
+      244,
+      243,
+      239
+    ],
+    "fg": "rgb(10, 22, 40)",
+    "pass": true,
+    "ratio": 16.328319394128954,
+    "size": "29px",
+    "text": "IV Prep On-Call"
+  },
+  {
+    "bg": [
+      244,
+      243,
+      239
+    ],
+    "fg": "rgb(55, 69, 86)",
+    "pass": true,
+    "ratio": 8.804763067732202,
+    "size": "16px",
+    "text": "Build a focused practice session around your questions and progra"
+  },
+  {
+    "bg": [
+      244,
+      243,
+      239
+    ],
+    "fg": "rgb(75, 86, 100)",
+    "pass": true,
+    "ratio": 6.720396260350617,
+    "size": "13px",
+    "text": "Current On-Call interface. Personal details and activity omitted."
+  },
+  {
+    "bg": [
+      244,
+      243,
+      239
+    ],
+    "fg": "rgb(23, 36, 56)",
+    "pass": true,
+    "ratio": 14.052632836796532,
+    "size": "13px",
+    "text": "Explore full-size screenshot\n(new tab)\n↗"
+  },
+  {
+    "bg": [
+      244,
+      243,
+      239
+    ],
+    "fg": "rgb(23, 36, 56)",
+    "pass": true,
+    "ratio": 14.052632836796532,
+    "size": "22px",
+    "text": "Technology supports the work.\nPhysician mentorship stays at the c"
+  },
+  {
+    "bg": [
+      244,
+      243,
+      239
+    ],
+    "fg": "rgb(75, 86, 100)",
+    "pass": true,
+    "ratio": 6.720396260350617,
+    "size": "14px",
+    "text": "Available tools and features vary by program, enrollment and acco"
+  },
+  {
+    "bg": [
+      200,
+      168,
+      78
+    ],
+    "fg": "rgb(10, 22, 40)",
+    "pass": true,
+    "ratio": 7.914061586704952,
+    "size": "15px",
+    "text": "Choose your training path →"
+  }
+]

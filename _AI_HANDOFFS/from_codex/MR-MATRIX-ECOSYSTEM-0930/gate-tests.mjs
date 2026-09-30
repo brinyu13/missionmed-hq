@@ -1,0 +1,31 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+import {execFileSync} from 'node:child_process';
+import crypto from 'node:crypto';
+const base='wp-content/mu-plugins/missionmed-mr-alternate-assets/';
+const baseline='b4fb762a9861ef3221c77f0805546fd97ee4dbb2';
+const read=f=>fs.readFileSync(base+f,'utf8');
+const old=f=>execFileSync('git',['show',baseline+':'+base+f],{encoding:'utf8'});
+const removeSection=s=>s.replace(/<section class="mm-alt-story[\s\S]*?<\/section>/,'SECTION');
+assert.equal(removeSection(read('page.php')),removeSection(old('page.php')),'Only Matrix section may change');
+assert.ok(read('alternate.css').startsWith(old('alternate.css')),'Existing CSS must be byte-preserved');
+assert.equal(read('alternate.js'),old('alternate.js'),'No JavaScript change');
+const css=read('alternate.css').slice(old('alternate.css').length);
+assert.ok(!css.includes('!important'));
+for(const selector of css.replace(/\/\*[\s\S]*?\*\//g,'').matchAll(/(?:^|\})([^{}]+)\{/g)){
+ const value=selector[1].trim();if(value.startsWith('@media'))continue;
+ assert.ok(value.split(',').every(s=>s.trim().startsWith('#story')),'Unscoped CSS: '+value);
+}
+const section=read('page.php').match(/<section class="mm-alt-story[\s\S]*?<\/section>/)[0];
+assert.equal((section.match(/<img /g)||[]).length,2);
+assert.equal((section.match(/loading="lazy"/g)||[]).length,2);
+assert.equal((section.match(/<article>/g)||[]).length,4);
+for(const t of ['StoryForge','RISE','File Vault','RankList IQ','IV Prep On-Call','Matrix V2 Dashboard','vary by program, enrollment and account eligibility'])assert.ok(section.includes(t),t);
+assert.ok(!/Kristin|Ismat|wp:142|LOCAL PROTOTYPE|Alex Morgan|synthetic/i.test(section));
+assert.equal((section.match(/href="#enroll"/g)||[]).length,1);
+execFileSync('php',['-l',base+'page.php']);
+const images=fs.readdirSync(base+'media').filter(x=>x.startsWith('ecosystem-')).map(f=>({file:f,bytes:fs.statSync(base+'media/'+f).size,sha256:crypto.createHash('sha256').update(fs.readFileSync(base+'media/'+f)).digest('hex')}));
+assert.equal(images.length,6);assert.ok(images.every(i=>i.bytes<220000));
+fs.mkdirSync(new URL('./qa/',import.meta.url),{recursive:true});
+fs.writeFileSync(new URL('./qa/source-gates.json',import.meta.url),JSON.stringify({at:new Date().toISOString(),baseline,onlySectionChanged:true,priorCssPreserved:true,jsUnchanged:true,images},null,2));
+console.log('PASS: section-only markup; appended scoped CSS; unchanged JS; two lazy responsive images; four apps; one CTA; six optimized assets; PHP lint.');
