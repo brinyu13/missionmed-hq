@@ -19,7 +19,7 @@
         load(entry.target);
         observer.unobserve(entry.target);
       }
-    }, { rootMargin: '0px' });
+    }, { rootMargin: '400px 0px' });
     root.querySelectorAll('img[data-src]').forEach(image => images.observe(image));
   } else root.querySelectorAll('img[data-src]').forEach(load);
   let pending = false;
