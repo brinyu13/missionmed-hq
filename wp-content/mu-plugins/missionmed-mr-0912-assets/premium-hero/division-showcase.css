@@ -1,0 +1,38 @@
+/* MissionMed Homepage Division Showcase V1. Isolated from the accepted Hero. */
+body.home .mm-dv{position:relative;isolation:isolate;background:#061723;color:#f7f6f2;overflow:hidden;font-family:inherit}
+body.home .mm-dv *{box-sizing:border-box}
+body.home .mm-dv__intro{padding:clamp(48px,6vw,96px) max(6vw,calc((100vw - 1280px)/2));background:radial-gradient(circle at 88% 8%,#173d46 0,transparent 38%),#081d28;display:flex;align-items:end;justify-content:space-between;gap:32px}
+body.home .mm-dv__intro p{margin:0 0 12px;color:#e0bd7c;font-size:12px;font-weight:800;letter-spacing:.19em;text-transform:uppercase}
+body.home .mm-dv__intro h2{margin:0;max-width:720px;color:#fff;font-size:clamp(34px,4.5vw,70px);line-height:1.02;letter-spacing:-.045em;font-weight:700}
+body.home .mm-dv__intro aside{max-width:260px;padding-bottom:5px;color:#d7e5e6;font-size:clamp(15px,1.3vw,18px);line-height:1.45}
+body.home .mm-dv__scene{position:relative;min-height:clamp(510px,64vh,680px);display:flex;align-items:center;overflow:hidden;border-top:1px solid rgba(255,255,255,.18);background:#071824}
+body.home .mm-dv__media{position:absolute;inset:-96px 0;z-index:0;overflow:hidden;pointer-events:none}
+body.home .mm-dv__media img{display:block;position:absolute;width:100%;height:100%;object-fit:cover;object-position:center;transform:translate3d(0,var(--mm-dv-shift,0px),0) scale(1.035);will-change:transform}
+body.home .mm-dv__scene--exam .mm-dv__media img{object-position:center 37%}
+body.home .mm-dv__scene--clinical .mm-dv__media img{object-position:center 46%}
+body.home .mm-dv__scene--residency .mm-dv__media img{object-position:center 50%}
+body.home .mm-dv__shade{position:absolute;inset:0;z-index:1;pointer-events:none}
+body.home .mm-dv__scene--exam .mm-dv__shade{background:linear-gradient(90deg,rgba(5,19,34,.98) 0%,rgba(6,25,42,.88) 36%,rgba(5,19,34,.38) 72%,rgba(5,19,34,.4) 100%)}
+body.home .mm-dv__scene--clinical .mm-dv__shade{background:linear-gradient(270deg,rgba(4,33,38,.98) 0%,rgba(5,40,43,.89) 36%,rgba(4,31,37,.37) 72%,rgba(4,31,37,.45) 100%)}
+body.home .mm-dv__scene--residency .mm-dv__shade{background:linear-gradient(90deg,rgba(8,27,35,.98) 0%,rgba(8,33,40,.9) 39%,rgba(6,31,38,.39) 75%,rgba(6,31,38,.45) 100%)}
+body.home .mm-dv__glow{position:absolute;z-index:1;inset:auto -18% -65% auto;width:min(70vw,800px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,rgba(203,156,81,.15),transparent 67%);transform:translate3d(0,var(--mm-dv-glow,0px),0);pointer-events:none;animation:mm-dv-breathe 18s ease-in-out infinite alternate}
+body.home .mm-dv__scene--clinical .mm-dv__glow{inset:-70% auto auto -20%;background:radial-gradient(circle,rgba(95,179,175,.2),transparent 67%)}
+body.home .mm-dv__scene--residency .mm-dv__glow{background:radial-gradient(circle,rgba(194,151,76,.18),transparent 67%)}
+@keyframes mm-dv-breathe{from{opacity:.42}to{opacity:.9}}
+body.home .mm-dv__content{position:relative;z-index:2;width:min(100%,1280px);padding:70px max(6vw,calc((100vw - 1280px)/2));margin:0 auto}
+body.home .mm-dv__scene--clinical .mm-dv__content{display:flex;flex-direction:column;align-items:flex-end;text-align:left}
+body.home .mm-dv__content>*{max-width:600px}
+body.home .mm-dv__index{display:inline-flex;align-items:center;gap:14px;margin:0 0 22px;color:#f0ca86!important;font-size:13px!important;line-height:1.2!important;font-weight:800!important;letter-spacing:.17em;text-transform:uppercase}
+body.home .mm-dv__index::before{content:'';display:block;width:44px;height:1px;background:currentColor}
+body.home .mm-dv__content h3{margin:0 0 22px;color:#fff!important;font-size:clamp(43px,5.2vw,78px);line-height:.99;letter-spacing:-.047em;font-weight:700;text-wrap:balance}
+body.home .mm-dv__content h3 em{color:#f0ca86;font-style:italic;font-weight:500}
+body.home .mm-dv__support{margin:0 0 28px;color:#edf4f3!important;font-size:clamp(17px,1.45vw,20px)!important;line-height:1.5!important;max-width:510px!important}
+body.home .mm-dv__cta{display:inline-flex;align-items:center;justify-content:center;gap:30px;padding:16px 22px;min-height:53px;border:1px solid #ead0a1;border-radius:2px;background:#e9c78a;color:#081c2a!important;text-decoration:none!important;text-transform:uppercase;font-size:12px!important;line-height:1.2!important;font-weight:800!important;letter-spacing:.12em;transition:background .2s,color .2s,transform .2s}
+body.home .mm-dv__cta::after{content:'↗';font-size:18px;line-height:0}
+body.home .mm-dv__cta:hover{background:#fff;color:#071824!important;transform:translateY(-2px)}
+body.home .mm-dv__cta:focus-visible{outline:3px solid #fff;outline-offset:4px}
+body.home .mm-dv__scene--clinical .mm-dv__content>*{width:min(100%,570px)}
+body.home .mm-dv__scene--clinical .mm-dv__cta{width:auto;align-self:flex-start}
+@media (max-width:1024px){body.home .mm-dv__intro{padding:56px 5vw}body.home .mm-dv__content{padding:56px 5vw}body.home .mm-dv__scene{min-height:540px}body.home .mm-dv__scene--clinical .mm-dv__content>*{width:min(100%,520px)}}
+@media (max-width:767px){body.home .mm-dv__intro{display:block;padding:48px 6vw 45px}body.home .mm-dv__intro h2{font-size:clamp(37px,9vw,55px)}body.home .mm-dv__intro aside{margin-top:18px;max-width:360px}body.home .mm-dv__scene{display:block;min-height:0;padding-top:clamp(230px,60vw,330px);background:#071824}body.home .mm-dv__scene--clinical{background:#0a2e32}body.home .mm-dv__scene--residency{background:#0c2630}body.home .mm-dv__media{inset:-20px 0 auto;height:clamp(270px,68vw,370px)}body.home .mm-dv__media img{height:100%;transform:translate3d(0,var(--mm-dv-shift,0px),0) scale(1.04)}body.home .mm-dv__scene--residency .mm-dv__media img{object-fit:contain;background:#0c2630}body.home .mm-dv__shade{background:linear-gradient(180deg,transparent 0%,rgba(7,24,36,.1) 35%,#071824 75%)!important}body.home .mm-dv__scene--clinical .mm-dv__shade{background:linear-gradient(180deg,transparent 0%,rgba(10,46,50,.1) 35%,#0a2e32 75%)!important}body.home .mm-dv__scene--residency .mm-dv__shade{background:linear-gradient(180deg,transparent 0%,rgba(12,38,48,.1) 35%,#0c2630 75%)!important}body.home .mm-dv__glow{display:none}body.home .mm-dv__content,body.home .mm-dv__scene--clinical .mm-dv__content{display:block;padding:34px 6vw 54px;text-align:left}body.home .mm-dv__content>*{max-width:none!important;width:auto!important}body.home .mm-dv__index{font-size:11px!important;margin-bottom:19px}body.home .mm-dv__content h3{font-size:clamp(40px,10vw,59px);line-height:1.02;margin-bottom:18px}body.home .mm-dv__support{font-size:17px!important;line-height:1.48!important;margin-bottom:25px}body.home .mm-dv__cta{width:100%!important;justify-content:space-between}}
+@media (prefers-reduced-motion:reduce){body.home .mm-dv__media img,body.home .mm-dv__glow,body.home .mm-dv__cta{animation:none!important;transition:none!important;transform:none!important;will-change:auto!important}}

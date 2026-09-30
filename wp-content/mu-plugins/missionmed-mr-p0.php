@@ -1362,6 +1362,29 @@ function mm_mr_0929_home_hero_frames(): array {
     ];
 }
 
+function mm_mr_0929_division_showcase_markup(): string {
+    $hero = MM_MR_P0_ASSET_URL . '/premium-hero/assets/';
+    $small = MM_MR_P0_ASSET_URL . '/premium-hero/division-showcase/';
+    $scenes = [
+        ['id'=>'exam','number'=>'01','label'=>'ExamPrep','headline'=>'Train how you think <em>under pressure.</em>','support'=>'Build live reasoning for USMLE, COMLEX and boards with question analysis and feedback.','cta'=>'Explore ExamPrep','href'=>home_url('/examprep/'),'image'=>$hero.'exam-live.webp','mobile'=>$small.'exam-live-768.webp','large_width'=>1600,'large_height'=>1200,'mobile_width'=>768,'alt'=>'Illustrative video-call scene used in the approved ExamPrep hero'],
+        ['id'=>'clinical','number'=>'02','label'=>'USCE + Clinicals','headline'=>'The right clinical experience. <em>Placed with precision.</em>','support'=>'Explore placements matched to your specialty, timeline and clinical needs.','cta'=>'Explore Clinical Experiences','href'=>home_url('/usce/'),'image'=>$hero.'usce-operating.webp','mobile'=>$small.'usce-operating-768.webp','large_width'=>1600,'large_height'=>1067,'mobile_width'=>768,'alt'=>'Illustrative operating-room photograph used in the approved USCE hero'],
+        ['id'=>'residency','number'=>'03','label'=>'Mission Residency','headline'=>'Become a better <em>communicator.</em>','support'=>'Build the communication, story and connection skills that matter when programs meet you.','cta'=>'Explore Mission Residency','href'=>home_url('/missionresidency/'),'image'=>WPMU_PLUGIN_URL.'/missionmed-mr-alternate-assets/media/montage-1702.webp','mobile'=>$hero.'mr-community.webp','large_width'=>1702,'large_height'=>630,'mobile_width'=>600,'alt'=>'Authentic Mission Residency classroom and Match Day community montage'],
+    ];
+    $html = '<section class="mm-dv" id="mm-three-divisions" aria-labelledby="mm-dv-title">'
+        . '<div class="mm-dv__intro"><div><p>One MissionMed Institute</p><h2 id="mm-dv-title">Three divisions. <em>One mission.</em></h2></div><aside>From exams to clinical experience to the Match.</aside></div>';
+    foreach ($scenes as $scene) {
+        $srcset = $scene['mobile'] . ' ' . $scene['mobile_width'] . 'w, ' . $scene['image'] . ' ' . $scene['large_width'] . 'w';
+        $html .= '<article class="mm-dv__scene mm-dv__scene--' . esc_attr($scene['id']) . '" aria-labelledby="mm-dv-' . esc_attr($scene['id']) . '-title">'
+            . '<div class="mm-dv__media" aria-hidden="true"><img data-src="' . esc_url($scene['image']) . '" data-srcset="' . esc_attr($srcset) . '" sizes="100vw" alt="" width="' . esc_attr((string) $scene['large_width']) . '" height="' . esc_attr((string) $scene['large_height']) . '" loading="lazy" decoding="async" fetchpriority="low"></div>'
+            . '<div class="mm-dv__shade"></div><div class="mm-dv__glow"></div>'
+            . '<div class="mm-dv__content"><p class="mm-dv__index">' . esc_html($scene['number'] . ' / ' . $scene['label']) . '</p>'
+            . '<h3 id="mm-dv-' . esc_attr($scene['id']) . '-title">' . wp_kses($scene['headline'], ['em'=>[]]) . '</h3>'
+            . '<p class="mm-dv__support">' . esc_html($scene['support']) . '</p>'
+            . '<a class="mm-dv__cta" href="' . esc_url($scene['href']) . '">' . esc_html($scene['cta']) . '</a></div></article>';
+    }
+    return $html . '</section>';
+}
+
 function mm_mr_0929_home_hero_markup(): string {
     $frames = mm_mr_0929_home_hero_frames();
     $first = $frames[0];
@@ -1377,6 +1400,7 @@ function mm_mr_0929_home_hero_markup(): string {
         . '<div class="mm-ph__controls"><select class="mm-ph__division" data-division aria-label="Choose a MissionMed division"><option>Mission Residency</option><option>Exam Prep</option><option>USCE</option></select><div class="mm-ph__dots" role="group" aria-label="Choose a hero message">' . $dots . '</div><button class="mm-ph__button" type="button" data-prev aria-label="Previous message">←</button><button class="mm-ph__button mm-ph__pause" type="button" data-pause aria-pressed="false">Pause</button><button class="mm-ph__button" type="button" data-next aria-label="Next message">→</button><span class="mm-ph__sr" data-live aria-live="polite">Mission Residency, slide 1 of 8</span></div>'
         . '<script type="application/json" id="mm-premium-hero-data">' . wp_json_encode($frames, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) . '</script></section>'
         . '<section class="mm-ph__ecosystem" aria-labelledby="mm-ph-ecosystem-title"><p>One MissionMed ecosystem</p><h2 id="mm-ph-ecosystem-title">Prepare for the exam, the clinical experience, and the interview.</h2><div class="mm-ph__links"><a href="' . esc_url(home_url('/examprep/')) . '">Exam Prep</a><a href="' . esc_url(home_url('/usce/')) . '">USCE</a><a href="' . esc_url(home_url('/mission-residency/')) . '">Mission Residency</a></div></section>'
+        . mm_mr_0929_division_showcase_markup()
         . '<section class="mm-ph__proof" aria-label="Mission Residency student proof"><figure><blockquote>“You made me fall in love with my own story and believe that my dreams are valid against all Odds.”</blockquote><figcaption>Dr Marian Ghaly · Mission Residency alumna</figcaption></figure><aside><p>For IMGs, DOs and reapplicants seeking a clearer next step. Individual experiences are not a Match guarantee.</p><p><a href="#f2-pd-system">See what program directors consider</a><br><a href="' . esc_url(home_url('/red-flag-match-stories/')) . '">Read student Match stories</a></p></aside></section>';
 }
 
@@ -1406,6 +1430,11 @@ add_action('wp_enqueue_scripts', static function (): void {
     wp_enqueue_style('mm-mr-premium-hero', MM_MR_P0_ASSET_URL . '/premium-hero/hero.css', [], is_file($css) ? substr((string) hash_file('sha256', $css), 0, 12) : null);
     wp_enqueue_script('mm-mr-premium-hero', MM_MR_P0_ASSET_URL . '/premium-hero/hero.js', [], is_file($js) ? substr((string) hash_file('sha256', $js), 0, 12) : null, true);
     wp_script_add_data('mm-mr-premium-hero', 'strategy', 'defer');
+    $division_css = MM_MR_P0_ASSET_DIR . '/premium-hero/division-showcase.css';
+    $division_js = MM_MR_P0_ASSET_DIR . '/premium-hero/division-showcase.js';
+    wp_enqueue_style('mm-mr-division-showcase', MM_MR_P0_ASSET_URL . '/premium-hero/division-showcase.css', [], is_file($division_css) ? substr((string) hash_file('sha256', $division_css), 0, 12) : null);
+    wp_enqueue_script('mm-mr-division-showcase', MM_MR_P0_ASSET_URL . '/premium-hero/division-showcase.js', [], is_file($division_js) ? substr((string) hash_file('sha256', $division_js), 0, 12) : null, true);
+    wp_script_add_data('mm-mr-division-showcase', 'strategy', 'defer');
 }, 90);
 
 add_action('wp_head', static function (): void {
