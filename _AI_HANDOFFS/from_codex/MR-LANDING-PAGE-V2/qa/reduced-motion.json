@@ -1,0 +1,23 @@
+{
+  "allContentVisible": true,
+  "ambient": [
+    "none",
+    "none",
+    "none",
+    "none",
+    "none",
+    "none"
+  ],
+  "native": [
+    "scroll",
+    "scroll"
+  ],
+  "photos": [
+    "none",
+    "none",
+    "none",
+    "none"
+  ],
+  "reduced": true,
+  "toggleHidden": false
+}

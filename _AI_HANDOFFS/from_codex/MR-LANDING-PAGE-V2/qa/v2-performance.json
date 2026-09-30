@@ -1,0 +1,133 @@
+{
+  "cls": 0,
+  "lcp": 0,
+  "longTasks": [],
+  "resources": [
+    {
+      "decoded": 4860,
+      "duration": 0,
+      "name": "https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap",
+      "transfer": 0
+    },
+    {
+      "decoded": 95552,
+      "duration": 0,
+      "name": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/media/montage-1702.webp?v=6ee860251c1f",
+      "transfer": 0
+    },
+    {
+      "decoded": 23028,
+      "duration": 0,
+      "name": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/usce-donor.css?v=351b10ae1f58",
+      "transfer": 0
+    },
+    {
+      "decoded": 4222,
+      "duration": 0,
+      "name": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/usce-shell.css?v=5b43966eb74b",
+      "transfer": 0
+    },
+    {
+      "decoded": 26312,
+      "duration": 0,
+      "name": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/alternate.css?v=d8ab47c3b716",
+      "transfer": 0
+    },
+    {
+      "decoded": 0,
+      "duration": 0,
+      "name": "https://www.googletagmanager.com/gtag/js?id=GT-PJ7SPCWF",
+      "transfer": 0
+    },
+    {
+      "decoded": 12593,
+      "duration": 0,
+      "name": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/alternate.js?v=a9af6d81c802",
+      "transfer": 0
+    },
+    {
+      "decoded": 902063,
+      "duration": 0,
+      "name": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/media/marian-ghaly-founder.png?v=25939ff9a10a",
+      "transfer": 0
+    },
+    {
+      "decoded": 4504,
+      "duration": 0,
+      "name": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/media/manasa-kandula-founder.avif?v=a0ca11c53529",
+      "transfer": 0
+    },
+    {
+      "decoded": 209681,
+      "duration": 0,
+      "name": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/media/brian-studio-aaa.jpg?v=d0471ef127ff",
+      "transfer": 0
+    },
+    {
+      "decoded": 58478,
+      "duration": 0,
+      "name": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/media/ecosystem-matrix-720.webp?v=6f95de41bea8",
+      "transfer": 0
+    },
+    {
+      "decoded": 21004,
+      "duration": 0,
+      "name": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/media/ecosystem-oncall-720.webp?v=5edb001ada68",
+      "transfer": 0
+    },
+    {
+      "decoded": 7900,
+      "duration": 0,
+      "name": "https://fonts.gstatic.com/s/poppins/v24/pxiEyp8kv8JHgFVrJJfecnFHGPc.woff2",
+      "transfer": 0
+    },
+    {
+      "decoded": 7740,
+      "duration": 0,
+      "name": "https://fonts.gstatic.com/s/poppins/v24/pxiByp8kv8JHgFVrLGT9Z1xlFd2JQEk.woff2",
+      "transfer": 0
+    },
+    {
+      "decoded": 7992,
+      "duration": 0,
+      "name": "https://fonts.gstatic.com/s/poppins/v24/pxiByp8kv8JHgFVrLEj6Z1xlFd2JQEk.woff2",
+      "transfer": 0
+    },
+    {
+      "decoded": 7848,
+      "duration": 0,
+      "name": "https://fonts.gstatic.com/s/poppins/v24/pxiByp8kv8JHgFVrLCz7Z1xlFd2JQEk.woff2",
+      "transfer": 0
+    },
+    {
+      "decoded": 294667,
+      "duration": 0,
+      "name": "https://missionmedinstitute.com/wp-content/uploads/2026/02/cropped-608a69b125647f6e63b56f87b823b1e60dbdaebf4916b1d5d5edcc408b8ab3fe-1024x391.png",
+      "transfer": 0
+    },
+    {
+      "decoded": 2307,
+      "duration": 2.9000000059604645,
+      "name": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-32x32.png",
+      "transfer": 0
+    },
+    {
+      "decoded": 7636,
+      "duration": 2.5,
+      "name": "https://missionmedinstitute.com/favicon.ico",
+      "transfer": 0
+    },
+    {
+      "decoded": 7636,
+      "duration": 2.5999999940395355,
+      "name": "https://missionmedinstitute.com/favicon.ico",
+      "transfer": 0
+    },
+    {
+      "decoded": 2307,
+      "duration": 1,
+      "name": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-32x32.png",
+      "transfer": 0
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "at": "2026-09-30T17:18:48.690Z",
+  "source": "4ec61d14376a67d1218d56cc885d6ff5072d7493",
+  "custody": "/www/theresidencyacademy_209/private/mr-landing-page-versions-20260930",
+  "files": [
+    "alternate.css",
+    "alternate.js",
+    "page.php"
+  ],
+  "preimages": {
+    "alternate.css": "2871b469a6731883e2107afdf6ea030e6528943859f4a489651d778008572c5d",
+    "alternate.js": "4c190bd23441972712c52bca45046dbd53b860ead76d1f8f52809b71dd3ce539",
+    "page.php": "47886c46916bb20d6b0cbc48ea55e29e8285137645c018594959171d1d6a1254"
+  },
+  "deployed": {
+    "alternate.css": "d8ab47c3b716627a14cc04724c9d62f9030ee2ccaa92323f600786fd9fb3cd36",
+    "alternate.js": "a9af6d81c8026e9cd4df25206cd15a674fe1257cbe3908f5522db38137695f97",
+    "page.php": "b412650357699ab80c49b407367b9182a93bb74b646bfb98dac1268488a6326d"
+  },
+  "protectedBefore": "ef5b66e27eaf49a1c0d230039d726a94a28dd3c9a784fb3ed6c63024a7629f2e  wp-content/mu-plugins/missionmed-mr-alternate.php\n725790239f0dacc344e8a349c0d095ee57d069d00f254f54f1b2b6dff009a52b  wp-content/mu-plugins/missionmed-mr-legacy-popup.php\n5777cd9bb474ad17ab566b6485af4bdc4f802cefc828c5407f8a9ccdb58eca0e  wp-content/mu-plugins/missionmed-mr-p0.php\n07f89f42375c42c0023bfbd1856e991842d1c129d39a180f05208bd82fcab895  wp-content/mu-plugins/missionmed-mr-primary-routing.php\nb4813d439bcf78f61ca362d77db61211abb6f90dce8931353f4999fe93d02e1d  wp-content/mu-plugins/missionmed-mr-zelle-verifier.php\ne896522beeeab8a1b7db6f12aa03df0a97a98607c6c6314e30ac08cb0ad5d70a  wp-content/mu-plugins/missionmed-mr-alternate-assets/match-day-media.json\n549e2e3a4ffd77ab4c36d5d4e1c7ddbc60b85d4ccccfa885bcee7f63003b5839  wp-content/mu-plugins/missionmed-mr-alternate-assets/match-day-player.php\n",
+  "protectedAfter": "ef5b66e27eaf49a1c0d230039d726a94a28dd3c9a784fb3ed6c63024a7629f2e  wp-content/mu-plugins/missionmed-mr-alternate.php\n725790239f0dacc344e8a349c0d095ee57d069d00f254f54f1b2b6dff009a52b  wp-content/mu-plugins/missionmed-mr-legacy-popup.php\n5777cd9bb474ad17ab566b6485af4bdc4f802cefc828c5407f8a9ccdb58eca0e  wp-content/mu-plugins/missionmed-mr-p0.php\n07f89f42375c42c0023bfbd1856e991842d1c129d39a180f05208bd82fcab895  wp-content/mu-plugins/missionmed-mr-primary-routing.php\nb4813d439bcf78f61ca362d77db61211abb6f90dce8931353f4999fe93d02e1d  wp-content/mu-plugins/missionmed-mr-zelle-verifier.php\ne896522beeeab8a1b7db6f12aa03df0a97a98607c6c6314e30ac08cb0ad5d70a  wp-content/mu-plugins/missionmed-mr-alternate-assets/match-day-media.json\n549e2e3a4ffd77ab4c36d5d4e1c7ddbc60b85d4ccccfa885bcee7f63003b5839  wp-content/mu-plugins/missionmed-mr-alternate-assets/match-day-player.php\n",
+  "protectedUnchanged": true
+}

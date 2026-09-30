@@ -33,3 +33,17 @@ Verify all three exact V1 hashes and the protected hashes. Fetch anonymous canon
 No WordPress content/config database restore is required or permitted by this recipe: the canonical route is an MU-rendered template, not a changed page object. Current prices and schedule continue to come from the unchanged mm_mr_p0_runtime_config(). Do not restore Woo, orders, payments, account state, Zelle, Stripe, entitlements, routing, main homepage or USCE. Do not extract the entire archive onto production unnecessarily.
 
 Kinsta's purge command may report success and then exit 139 in this environment. Record that accurately; prove public asset versions/HTML rather than repeatedly purging or interpreting a browser's cached tab as runtime truth.
+
+## Preferred version-aware, hash-guarded procedure
+
+The included restore.mjs implements the same three-file boundary and refuses any live state that is not exactly named V1 or V2. It verifies private preimages before doing anything. Default mode is read-only. Both V1 and V2 custody are explicit in their manifests; unchanged static assets share V1's immutable full archive.
+
+From `/Users/brianb/.codex/worktrees/mm-home-mr-premium-hero/MissionMed`:
+
+```sh
+node _AI_HANDOFFS/from_codex/MR-LANDING-PAGE-V2/restore.mjs V1
+# After current provider/registry clearance and exact-path lease heartbeat:
+MR_PRESENTATION_RESTORE_LEASE_ACTIVE=1 node _AI_HANDOFFS/from_codex/MR-LANDING-PAGE-V2/restore.mjs V1 --apply
+```
+
+For **RESTORE MR LANDING PAGE V2**, substitute `V2` in both commands. Purge the site cache using the command above, then perform the same public verification and release procedure. No source reset, branch checkout, transactional restore, media rewrite, or payment mutation is part of this command.

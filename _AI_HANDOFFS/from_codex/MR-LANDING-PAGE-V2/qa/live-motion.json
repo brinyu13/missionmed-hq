@@ -1,0 +1,12 @@
+{
+  "ambient": "running",
+  "ambientAfter": "matrix(1.00056, 0, 0, 1.00056, -34.2749, 0.42149)",
+  "ambientStart": "matrix(1, 0, 0, 1, -35.7119, 0)",
+  "hero": "matrix(1.08, 0, 0, 1.08, 0, 0)",
+  "heroAfter": "matrix(1.08, 0, 0, 1.08, 0, 10.99)",
+  "native": [
+    "fixed",
+    "fixed"
+  ],
+  "reveals": 40
+}

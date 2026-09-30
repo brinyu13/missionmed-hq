@@ -6,6 +6,8 @@ const here=path.dirname(new URL(import.meta.url).pathname),root=path.resolve(her
 http.createServer((req,res)=>{
  const u=new URL(req.url,'http://127.0.0.1:8776');
  const send=(type,body,status=200)=>{res.writeHead(status,{'Content-Type':type,'Cache-Control':'no-store','X-Robots-Tag':'noindex'});res.end(body)};
+ if(u.pathname==='/v1')return send('text/html',fs.readFileSync(path.join(here,'v1/public.html'),'utf8').replaceAll('https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/','/assets/').replace(/\/assets\/alternate\.(css|js)\?v=[a-f0-9]+/g,'/v1-assets/alternate.$1'));
+ if(['/v1-assets/alternate.css','/v1-assets/alternate.js'].includes(u.pathname))return send(u.pathname.endsWith('css')?'text/css':'text/javascript',fs.readFileSync(path.join(here,'v1',path.basename(u.pathname))));
  if(req.method==='POST'&&u.pathname==='/__evidence'){
   if(req.headers.origin!=='http://127.0.0.1:8776')return send('text/plain','Forbidden',403);
   let b='';req.on('data',c=>{b+=c;if(b.length>25000000)req.destroy()});req.on('end',()=>{try{const x=JSON.parse(b);if(!/^[a-z0-9-]+\.(png|json)$/.test(x.name))throw Error();fs.writeFileSync(path.join(here,'qa',x.name),x.name.endsWith('.png')?Buffer.from(x.data,'base64'):JSON.stringify(x.data,null,2),{mode:0o600});send('text/plain','saved')}catch{send('text/plain','invalid',400)}});return;
