@@ -20,6 +20,7 @@ test('homepage frame order and final Founder message are exact',()=>{
  assert.deepEqual([...block.matchAll(/'id'=>'([^']+)'/g)].map(m=>m[1]),['mr-application','exam-live','mr-communication','usce-fit','mr-ranking','exam-reasoning','mr-story','usce-pathway']);
  for(const text of ['YOU BUILT THE APPLICATION','that earned the interview.',"NOW LET'S TURN THE INTERVIEW",'INTO A MATCH.','Build the communication, story and connection skills that matter when programs meet you.','Explore Interview Bootcamp Week'])assert.ok(block.includes(text),text);
  assert.ok(php.includes("preg_replace('~<section\\b[^>]*\\bid="),'legacy hero removal accepts attributes before id');
+ assert.ok(php.includes("ob_start('mm_mr_0929_filter_homepage_output')"),'final output removes legacy hero injected outside main content');
 });
 
 test('rotation is bounded, controllable and motion-aware',()=>{

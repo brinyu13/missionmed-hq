@@ -1392,6 +1392,16 @@ add_action('wp_head', static function (): void {
     echo '<link rel="preload" as="image" href="' . esc_url(MM_MR_P0_ASSET_URL . '/premium-hero/assets/mr-application.webp') . '" fetchpriority="high">';
 }, 2);
 
+function mm_mr_0929_filter_homepage_output(string $html): string {
+    if (!mm_mr_p0_enabled() || !is_front_page() || stripos($html, 'id="mm-premium-hero"') === false) return $html;
+    return preg_replace('~<section\b[^>]*\bclass=["\'][^"\']*\bmm107-hero\b[^"\']*["\'][^>]*>.*?</section>~is', '', $html) ?? $html;
+}
+
+add_action('template_redirect', static function (): void {
+    if (!mm_mr_p0_enabled() || !is_front_page()) return;
+    ob_start('mm_mr_0929_filter_homepage_output');
+}, PHP_INT_MAX);
+
 add_filter('the_content', static function (string $content): string {
     if (!mm_mr_p0_enabled() || !is_front_page() || !in_the_loop() || !is_main_query()) return $content;
     $content = str_ireplace(
