@@ -1,0 +1,26 @@
+import fs from 'node:fs';
+import crypto from 'node:crypto';
+import assert from 'node:assert/strict';
+import {execFileSync as run} from 'node:child_process';
+const root='/www/theresidencyacademy_209/public';
+const base='wp-content/mu-plugins/missionmed-mr-alternate-assets';
+const dir=new URL('./',import.meta.url), sha=b=>crypto.createHash('sha256').update(b).digest('hex');
+const custody='/www/theresidencyacademy_209/private/mr-landing-page-versions-20260930';
+fs.mkdirSync(new URL('v1/',dir),{recursive:true});fs.mkdirSync(new URL('qa/',dir),{recursive:true});
+const ssh=s=>run('ssh',['missionmed-kinsta',s],{encoding:'utf8',timeout:60000,maxBuffer:8e6});
+const hashes=ssh(`cd ${root} && find ${base} -type f -print0 | sort -z | xargs -0 sha256sum`);
+for(const f of ['page.php','alternate.css','alternate.js'])assert.ok(hashes.includes(sha(fs.readFileSync(base+'/'+f))+'  '+base+'/'+f));
+// No transactional database is archived. Immutable presentation custody only.
+ssh(`set -eu; test ! -e ${custody}; umask 077; mkdir -p ${custody}/MR-LANDING-PAGE-V1; cd ${root}; tar -czf ${custody}/MR-LANDING-PAGE-V1/presentation.tar.gz ${base}; cp -p ${base}/page.php ${base}/alternate.css ${base}/alternate.js ${custody}/MR-LANDING-PAGE-V1/; sha256sum ${custody}/MR-LANDING-PAGE-V1/*`);
+const protectedFiles=ssh(`cd ${root} && sha256sum wp-content/mu-plugins/missionmed-mr*.php ${base}/match-day-player.php ${base}/match-day-media.json`);
+fs.writeFileSync(new URL('v1/presentation-hashes.txt',dir),hashes);fs.writeFileSync(new URL('v1/protected-hashes.txt',dir),protectedFiles);
+for(const f of ['page.php','alternate.css','alternate.js'])fs.copyFileSync(base+'/'+f,new URL('v1/'+f,dir));
+const r=await fetch('https://missionmedinstitute.com/missionresidency/');const html=await r.text();assert.equal(r.status,200);fs.writeFileSync(new URL('v1/public.html',dir),html);
+const legacy=await fetch('https://missionmedinstitute.com/mission-residency/?utm_source=facebook',{redirect:'manual'});
+const donor=ssh(`cd ${root} && wp post meta get 5656 _elementor_data --format=json 2>/dev/null`);
+let d=JSON.parse(donor);if(typeof d==='string')d=JSON.parse(d);
+fs.writeFileSync(new URL('v1/usce-current-elementor.json',dir),JSON.stringify(d,null,2));
+const widgets=[];const walk=x=>{if(x.settings?.html)widgets.push({id:x.id,html:x.settings.html});(x.elements||[]).forEach(walk)};d.forEach(walk);
+fs.writeFileSync(new URL('v1/usce-motion-source.txt',dir),widgets.map(w=>w.html).join('\n'));
+const manifest={version:'MR-LANDING-PAGE-V1',label:'MISSION RESIDENCY LANDING PAGE — V1',frozenAt:new Date().toISOString(),sourceSha:run('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),runtimeSourceSha:'70275a5e8675e611991f2aaa01c7a7b4dfa85de9',deploymentIdentity:'mr-matrix-ecosystem-0930',privateCustody:custody+'/MR-LANDING-PAGE-V1',restoreFiles:['page.php','alternate.css','alternate.js'],assetHashes:hashes.trim().split('\n').map(l=>({sha256:l.slice(0,64),path:l.slice(66)})),protectedFiles,public:{url:r.url,status:r.status,sha256:sha(html),headers:Object.fromEntries([...r.headers].filter(([k])=>/cache|etag|last-modified|content-type/.test(k)))},legacy:{status:legacy.status,location:legacy.headers.get('location')},runtime:'WordPress MU static renderer; current pricing/schedule via mm_mr_p0_runtime_config(); no transactional database restore',screenshots:['qa/v1-1440.png','qa/v1-390.png'],measurements:'qa/v1-browser.json',rollbackProcedure:'RESTORE.md'};
+fs.writeFileSync(new URL('MR-LANDING-PAGE-V1.json',dir),JSON.stringify(manifest,null,2));console.log(JSON.stringify({frozen:manifest.version,source:manifest.sourceSha,custody:manifest.privateCustody,assets:manifest.assetHashes.length,donorWidgets:widgets.length}));

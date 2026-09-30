@@ -76,3 +76,46 @@
 #story a:focus-visible{outline:3px solid #2265ac;outline-offset:5px}
 @media(max-width:767px){#story.mm-ecosystem{padding:52px 20px}#story .mm-ecosystem-intro{margin-bottom:34px}#story .mm-ecosystem-intro>p:last-child{font-size:16px}#story .mm-ecosystem-product-copy{grid-template-columns:1fr;gap:16px}#story .mm-ecosystem-apps{column-gap:28px;row-gap:30px;margin:30px 0 42px}#story .mm-ecosystem-apps h3{font-size:24px}#story .mm-ecosystem-figure figcaption{display:block}#story .mm-ecosystem-figure figcaption>span{display:block}#story .mm-ecosystem-figure figcaption a{display:flex;width:fit-content;flex-wrap:wrap}#story .mm-ecosystem-footer{display:block}#story .mm-ecosystem-footer .cl1403c-a-btn{display:inline-block;margin-top:24px}}
 @media(max-width:520px){#story .mm-ecosystem-apps{grid-template-columns:1fr;gap:26px}#story .mm-ecosystem-apps h3{font-size:26px}#story .mm-ecosystem-apps article{padding-top:20px}#story .mm-ecosystem-footer .cl1403c-a-btn{width:100%}#story .mm-ecosystem-human{font-size:22px}}
+/* MR-LANDING-PAGE-V2: bounded compression, human proof and an optional motion layer. */
+#story.mm-ecosystem{padding:64px 32px}
+#story .mm-ecosystem-intro{margin-bottom:32px}
+#story .mm-ecosystem-products{display:grid;grid-template-columns:1fr 1fr;gap:36px;align-items:start}
+#story .mm-ecosystem-product-copy{display:block;margin-bottom:20px;min-height:145px}
+#story .mm-ecosystem-product-copy>p{margin-top:12px}
+#story .mm-ecosystem-figure figcaption{display:block;font-size:13px}
+#story .mm-ecosystem-figure figcaption>span{display:block}
+#story .mm-ecosystem-apps{grid-template-columns:repeat(4,1fr);gap:28px;margin:32px 0}
+#story .mm-ecosystem-apps article{padding-top:18px}
+#story .mm-ecosystem-apps h3{font-size:25px;margin-bottom:10px}
+#story .mm-ecosystem-apps article>p:last-child{font-size:15px;line-height:1.65;margin:0}
+#story .mm-ecosystem-footer{margin-top:24px;padding-top:24px}
+#alumni .mm-alt-alumnus{display:grid;grid-template-columns:190px 1fr;align-content:start;gap:24px}
+#alumni .mm-human-portrait{height:220px;margin:0;justify-content:flex-start;overflow:hidden}
+#alumni .mm-human-portrait img{width:190px;height:220px}
+#alumni .mm-human-portrait-original img{width:180px;height:auto}
+#alumni .mm-human-identity{grid-column:2;grid-row:1;margin:0;border:0;padding:0;align-self:center}
+#alumni .mm-alt-alumnus blockquote{grid-column:1/-1;font-size:30px;line-height:1.4;margin:0;padding-top:24px;border-top:1px solid #c7bba1}
+#alumni .mm-alt-alumnus h3{font-size:25px;line-height:1.3}
+#alumni .mm-alt-alumnus p{font-size:14px}
+/* Transform-only ambient light lives behind content, never over text or data. */
+.mm-motion-surface{position:relative;isolation:isolate;overflow:hidden}
+.mm-motion-surface::before{content:"";position:absolute;inset:-12%;z-index:-1;pointer-events:none;background:radial-gradient(ellipse at 18% 28%,rgba(76,133,127,.14),transparent 54%),radial-gradient(ellipse at 80% 75%,rgba(192,159,83,.10),transparent 48%);transform:translate3d(-2%,0,0);animation:mm-ambient-depth 28s ease-in-out infinite alternate;animation-play-state:paused}
+.mm-motion-surface.mm-in-view::before{animation-play-state:running}
+@keyframes mm-ambient-depth{to{transform:translate3d(3%,2%,0) scale(1.035)}}
+.mm-photo-depth{transform:translate3d(0,var(--mm-depth,0px),0) scale(var(--mm-scale,1));transform-origin:center;will-change:auto}
+.mm-depth-clip{overflow:hidden;line-height:0}
+.mm-motion-ready .mm-reveal{opacity:0;transform:translate3d(0,12px,0);transition:opacity .55s ease,transform .65s cubic-bezier(.2,.65,.3,1);transition-delay:var(--mm-delay,0ms)}
+.mm-motion-ready .mm-reveal.mm-revealed{opacity:1;transform:none}
+.mm-motion-ready .mm-product-depth{transform:perspective(1400px) rotateX(2deg) scale(.985);transform-origin:50% 100%}
+.mm-motion-ready .mm-product-depth.mm-revealed{transform:none}
+.mm-motion-toggle{position:fixed;left:14px;bottom:14px;z-index:80;min-height:44px;padding:10px 14px;border:1px solid #7f919b;border-radius:24px;background:#102039;color:#fff;font:500 12px/1.4 Poppins,Arial,sans-serif;cursor:pointer;box-shadow:0 2px 10px #0002}
+.mm-motion-toggle:focus-visible{outline:3px solid #2265ac;outline-offset:4px}
+.mm-motion-paused .mm-motion-surface::before,.mm-page-hidden .mm-motion-surface::before{animation-play-state:paused!important}
+.mm-motion-paused .mm-photo-depth{transform:none!important}
+.mm-motion-paused .mm-reveal{opacity:1!important;transform:none!important;transition:none!important}
+.mm-motion-paused .mm-native-depth{background-attachment:scroll!important}
+@media(min-width:1025px) and (prefers-reduced-motion:no-preference){.mm-native-depth{background-attachment:fixed}}
+@media(max-width:1100px){#alumni .mm-alt-alumnus{grid-template-columns:155px 1fr;gap:20px}#alumni .mm-human-portrait img{width:155px;height:190px}#alumni .mm-human-portrait-original img{height:auto}#alumni .mm-alt-alumnus blockquote{font-size:27px}#alumni .mm-alt-alumnus h3{font-size:23px}}
+@media(max-width:1024px){.mm-native-depth{background-attachment:scroll!important}.mm-motion-surface::before{animation-duration:36s}#story .mm-ecosystem-apps{grid-template-columns:1fr 1fr}}
+@media(max-width:767px){#story.mm-ecosystem{padding:48px 20px}#story .mm-ecosystem-products{grid-template-columns:1fr;gap:30px}#story .mm-ecosystem-product-copy{min-height:0;margin-bottom:18px}#story .mm-ecosystem-apps{gap:22px;margin:28px 0}#story .mm-ecosystem-apps h3{font-size:23px}#story .mm-ecosystem-footer .cl1403c-a-btn{margin-top:18px}.mm-motion-surface::before{animation:none;transform:none}.mm-motion-ready .mm-reveal{transform:translate3d(0,6px,0);transition-duration:.35s;transition-delay:0s}.mm-motion-ready .mm-reveal.mm-revealed{transform:none}.mm-motion-toggle{left:10px;bottom:12px;font-size:11px;padding:10px 12px}#alumni .mm-alt-alumnus{display:flex;flex-direction:column;gap:0}#alumni .mm-human-portrait{height:220px;margin-bottom:22px;justify-content:center}#alumni .mm-human-portrait img{width:220px;height:220px}#alumni .mm-human-portrait-original img{width:180px;height:auto}#alumni .mm-alt-alumnus blockquote{font-size:26px;border:0;padding:0;margin-bottom:22px}#alumni .mm-human-identity{border-top:1px solid #c7bba1;padding-top:18px;align-self:stretch}}
+@media(prefers-reduced-motion:reduce){.mm-motion-surface::before{animation:none!important;transform:none!important}.mm-photo-depth,.mm-motion-ready .mm-reveal{transform:none!important;opacity:1!important;transition:none!important}.mm-native-depth{background-attachment:scroll!important}.mm-motion-toggle{display:none}}

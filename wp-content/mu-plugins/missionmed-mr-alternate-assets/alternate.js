@@ -115,3 +115,87 @@
     matchButton.hidden = true;
   }
 })();
+
+/* MR-LANDING-PAGE-V2. Presentation only; commerce and the existing player are untouched.
+ * USCE's native fixed-background pattern is retained on large screens. The extension
+ * adds bounded image depth, one-time reveals and pausable transform-only ambient light.
+ */
+(() => {
+  'use strict';
+  if (!('IntersectionObserver' in window)) return;
+  const root = document.documentElement;
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  const desktop = matchMedia('(min-width: 1025px)');
+  const surfaces = [...document.querySelectorAll('.cl1403c-a-stats,.cl1403c-a-problem,.cl1403c-a-loseground,#evidence,#bootcamp,#complete')];
+  const nativePhotos = [...document.querySelectorAll('.cl1403c-a-types-photo,.mm-human-match')];
+  const images = [...document.querySelectorAll('.mm-alt-hero-img,#teacher .cl1403c-a-pd-img,#alumni .mm-human-portrait img')];
+  const revealSelectors = '.mm-alt-early-inner,.mm-program-relationship>div,.cl1403c-a-stat,.cl1403c-a-problem-inner,.cl1403c-a-lg-card,.cl1403c-a-type-card,#evidence .cl1403c-a-pd-text,.cl1403c-a-step,#alumni .mm-alt-alumnus,#teacher .cl1403c-a-pd-text,#story .mm-ecosystem-intro,#story .mm-ecosystem-figure,#story .mm-ecosystem-apps article,#enroll .mm-alt-enroll-inner>h2';
+  const reveals = [...document.querySelectorAll(revealSelectors)];
+  surfaces.forEach(el => el.classList.add('mm-motion-surface'));
+  nativePhotos.forEach(el => el.classList.add('mm-native-depth'));
+  images.forEach(el => {
+    el.classList.add('mm-photo-depth');
+    el.style.setProperty('--mm-scale', el.classList.contains('mm-alt-hero-img') ? '1.08' : '1.035');
+    if (el.matches('#teacher img')) {
+      const clip = document.createElement('div');
+      clip.className = 'mm-depth-clip'; el.before(clip); clip.append(el);
+    }
+  });
+  const button = document.createElement('button');
+  button.type = 'button'; button.className = 'mm-motion-toggle';
+  button.setAttribute('aria-label', 'Pause decorative page motion');
+  button.setAttribute('aria-pressed', 'false'); button.textContent = 'Pause motion';
+  document.body.append(button);
+  let paused = false, frame = 0;
+  const activeImages = new Set();
+  const disabled = () => paused || reduced.matches;
+  const paint = () => {
+    frame = 0;
+    if (disabled() || !desktop.matches || document.hidden) return;
+    const updates = [...activeImages].map(el => {
+      const box = el.getBoundingClientRect();
+      const distance = Math.max(-1, Math.min(1, (innerHeight / 2 - (box.top + box.height / 2)) / innerHeight));
+      const depth = el.matches('.mm-alt-hero-img') ? 32 : el.matches('#teacher img') ? 10 : 3;
+      return [el, (distance * depth).toFixed(2)];
+    });
+    updates.forEach(([el, y]) => el.style.setProperty('--mm-depth', y + 'px'));
+  };
+  const requestPaint = () => { if (!frame && !disabled() && desktop.matches) frame = requestAnimationFrame(paint); };
+  const observer = new IntersectionObserver(entries => entries.forEach(({target,isIntersecting}) => {
+    if (target.classList.contains('mm-motion-surface')) target.classList.toggle('mm-in-view', isIntersecting);
+    if (target.classList.contains('mm-photo-depth')) {
+      if (isIntersecting) activeImages.add(target); else activeImages.delete(target);
+      requestPaint();
+    }
+    if (target.classList.contains('mm-reveal') && isIntersecting) {
+      target.classList.add('mm-revealed'); observer.unobserve(target);
+    }
+  }), {rootMargin:'0px 0px -24px 0px',threshold:0});
+  reveals.forEach((el,i) => {
+    el.classList.add('mm-reveal');
+    if (el.matches('.mm-ecosystem-figure')) el.classList.add('mm-product-depth');
+    el.style.setProperty('--mm-delay', (i % 4) * 35 + 'ms');
+    if (el.getBoundingClientRect().top < innerHeight || reduced.matches) el.classList.add('mm-revealed');
+    observer.observe(el);
+  });
+  [...surfaces,...images].forEach(el => observer.observe(el));
+  root.classList.add('mm-motion-ready');
+  const sync = () => {
+    root.classList.toggle('mm-motion-paused', disabled());
+    button.hidden = reduced.matches;
+    button.textContent = paused ? 'Resume motion' : 'Pause motion';
+    button.setAttribute('aria-label', paused ? 'Resume decorative page motion' : 'Pause decorative page motion');
+    button.setAttribute('aria-pressed', String(paused));
+    if (disabled()) reveals.forEach(el => el.classList.add('mm-revealed'));
+    if (disabled() || !desktop.matches) images.forEach(el => el.style.setProperty('--mm-depth','0px'));
+    requestPaint();
+  };
+  button.addEventListener('click', () => { paused = !paused; sync(); });
+  reduced.addEventListener('change',sync); desktop.addEventListener('change',sync);
+  window.addEventListener('scroll',requestPaint,{passive:true});
+  window.addEventListener('resize',requestPaint,{passive:true});
+  document.addEventListener('visibilitychange',() => {
+    root.classList.toggle('mm-page-hidden',document.hidden); requestPaint();
+  });
+  sync();
+})();
