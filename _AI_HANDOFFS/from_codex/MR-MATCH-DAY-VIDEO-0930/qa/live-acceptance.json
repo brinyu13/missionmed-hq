@@ -1,0 +1,406 @@
+{
+  "at": "2026-09-30T15:29:23.758Z",
+  "before": [
+    {
+      "width": 1440,
+      "lcp": 2724,
+      "cls": 0,
+      "height": 10949,
+      "overflow": 0,
+      "video": [],
+      "hasAdminToolbar": false
+    },
+    {
+      "width": 1366,
+      "lcp": 1120,
+      "cls": 0,
+      "height": 10949,
+      "overflow": 0,
+      "video": [],
+      "hasAdminToolbar": false
+    },
+    {
+      "width": 1024,
+      "lcp": 1324,
+      "cls": 0,
+      "height": 11158,
+      "overflow": 0,
+      "video": [],
+      "hasAdminToolbar": false
+    },
+    {
+      "width": 430,
+      "lcp": 1100,
+      "cls": 0,
+      "height": 16682,
+      "overflow": 0,
+      "video": [],
+      "hasAdminToolbar": false
+    },
+    {
+      "width": 390,
+      "lcp": 1176,
+      "cls": 0,
+      "height": 17482,
+      "overflow": 0,
+      "video": [],
+      "hasAdminToolbar": false
+    }
+  ],
+  "after": [
+    {
+      "width": 1440,
+      "lcp": 1180,
+      "cls": 0,
+      "height": 10949,
+      "overflow": 0,
+      "video": [],
+      "hasAdminToolbar": false
+    },
+    {
+      "width": 1366,
+      "lcp": 1084,
+      "cls": 0,
+      "height": 10949,
+      "overflow": 0,
+      "video": [],
+      "hasAdminToolbar": false
+    },
+    {
+      "width": 1024,
+      "lcp": 1036,
+      "cls": 0,
+      "height": 11158,
+      "overflow": 0,
+      "video": [],
+      "hasAdminToolbar": false
+    },
+    {
+      "width": 430,
+      "lcp": 1100,
+      "cls": 0,
+      "height": 16682,
+      "overflow": 0,
+      "video": [],
+      "hasAdminToolbar": false
+    },
+    {
+      "width": 390,
+      "lcp": 976,
+      "cls": 0,
+      "height": 17482,
+      "overflow": 0,
+      "video": [],
+      "hasAdminToolbar": false
+    }
+  ],
+  "responsive": [
+    {
+      "width": 1440,
+      "open": true,
+      "status": "",
+      "focus": "mm-match-close",
+      "video": {
+        "time": 0.710925,
+        "duration": 266.5,
+        "readyState": 4,
+        "paused": false,
+        "muted": false,
+        "volume": 1,
+        "videoWidth": 426,
+        "videoHeight": 240,
+        "audioDecodedBytes": 16654,
+        "videoDecodedBytes": 22872,
+        "controls": true,
+        "playsInline": true,
+        "rect": {
+          "width": 950,
+          "height": 534.375
+        }
+      },
+      "overflow": 0,
+      "events": [
+        "match_day_video_start"
+      ],
+      "close": {
+        "open": false,
+        "videoCount": 0,
+        "focusReturned": true,
+        "overflowRestored": ""
+      }
+    },
+    {
+      "width": 1366,
+      "open": true,
+      "status": "",
+      "focus": "mm-match-close",
+      "video": {
+        "time": 0.748379,
+        "duration": 266.5,
+        "readyState": 4,
+        "paused": false,
+        "muted": false,
+        "volume": 1,
+        "videoWidth": 426,
+        "videoHeight": 240,
+        "audioDecodedBytes": 17033,
+        "videoDecodedBytes": 22872,
+        "controls": true,
+        "playsInline": true,
+        "rect": {
+          "width": 950,
+          "height": 534.375
+        }
+      },
+      "overflow": 0,
+      "events": [
+        "match_day_video_start"
+      ],
+      "close": {
+        "open": false,
+        "videoCount": 0,
+        "focusReturned": true,
+        "overflowRestored": ""
+      }
+    },
+    {
+      "width": 1024,
+      "open": true,
+      "status": "",
+      "focus": "mm-match-close",
+      "video": {
+        "time": 0.716705,
+        "duration": 266.5,
+        "readyState": 4,
+        "paused": false,
+        "muted": false,
+        "volume": 1,
+        "videoWidth": 426,
+        "videoHeight": 240,
+        "audioDecodedBytes": 16654,
+        "videoDecodedBytes": 22872,
+        "controls": true,
+        "playsInline": true,
+        "rect": {
+          "width": 942,
+          "height": 529.875
+        }
+      },
+      "overflow": 0,
+      "events": [
+        "match_day_video_start"
+      ],
+      "close": {
+        "open": false,
+        "videoCount": 0,
+        "focusReturned": true,
+        "overflowRestored": ""
+      }
+    },
+    {
+      "width": 430,
+      "open": true,
+      "status": "",
+      "focus": "mm-match-close",
+      "video": {
+        "time": 0.71137,
+        "duration": 266.5,
+        "readyState": 4,
+        "paused": false,
+        "muted": false,
+        "volume": 1,
+        "videoWidth": 426,
+        "videoHeight": 240,
+        "audioDecodedBytes": 16654,
+        "videoDecodedBytes": 22872,
+        "controls": true,
+        "playsInline": true,
+        "rect": {
+          "width": 380,
+          "height": 213.75
+        }
+      },
+      "overflow": 0,
+      "events": [
+        "match_day_video_start"
+      ],
+      "close": {
+        "open": false,
+        "videoCount": 0,
+        "focusReturned": true,
+        "overflowRestored": ""
+      }
+    },
+    {
+      "width": 390,
+      "open": true,
+      "status": "",
+      "focus": "mm-match-close",
+      "video": {
+        "time": 0.69762,
+        "duration": 266.5,
+        "readyState": 4,
+        "paused": false,
+        "muted": false,
+        "volume": 1,
+        "videoWidth": 426,
+        "videoHeight": 240,
+        "audioDecodedBytes": 16276,
+        "videoDecodedBytes": 22872,
+        "controls": true,
+        "playsInline": true,
+        "rect": {
+          "width": 340,
+          "height": 191.25
+        }
+      },
+      "overflow": 0,
+      "events": [
+        "match_day_video_start"
+      ],
+      "close": {
+        "open": false,
+        "videoCount": 0,
+        "focusReturned": true,
+        "overflowRestored": ""
+      }
+    }
+  ],
+  "completedAcceleratedMuted16x": {
+    "width": 1440,
+    "open": true,
+    "status": "",
+    "focus": "mm-match-close",
+    "video": {
+      "time": 266.526438,
+      "duration": 266.526438,
+      "readyState": 4,
+      "paused": true,
+      "muted": true,
+      "volume": 1,
+      "videoWidth": 852,
+      "videoHeight": 480,
+      "audioDecodedBytes": 4354641,
+      "videoDecodedBytes": 9170408,
+      "controls": true,
+      "playsInline": true,
+      "rect": {
+        "width": 950,
+        "height": 534.375
+      }
+    },
+    "overflow": 0,
+    "events": [
+      "match_day_video_start",
+      "match_day_video_25",
+      "match_day_video_50",
+      "match_day_video_75",
+      "match_day_video_complete"
+    ]
+  },
+  "contrast": [
+    {
+      "selector": "mm-match-play",
+      "color": "rgb(255, 255, 255)",
+      "effectiveBackground": [
+        16,
+        32,
+        57
+      ],
+      "contrast": 16.30791718157219,
+      "fontSize": "15px",
+      "rect": {
+        "width": 327.5859375,
+        "height": 48.5
+      }
+    },
+    {
+      "selector": "mm-match-dialog-title",
+      "color": "rgb(255, 255, 255)",
+      "effectiveBackground": [
+        10,
+        22,
+        40
+      ],
+      "contrast": 18.129862065974283,
+      "fontSize": "22px",
+      "rect": {
+        "width": 359.3515625,
+        "height": 30.796875
+      }
+    },
+    {
+      "selector": "mm-match-close",
+      "color": "rgb(255, 255, 255)",
+      "effectiveBackground": [
+        16,
+        32,
+        57
+      ],
+      "contrast": 16.30791718157219,
+      "fontSize": "15px",
+      "rect": {
+        "width": 94.3203125,
+        "height": 48.5
+      }
+    },
+    {
+      "selector": "mm-match-dialog-description",
+      "color": "rgb(227, 234, 243)",
+      "effectiveBackground": [
+        10,
+        22,
+        40
+      ],
+      "contrast": 14.961037625781662,
+      "fontSize": "15px",
+      "rect": {
+        "width": 950,
+        "height": 24
+      }
+    }
+  ],
+  "reducedMotion": {
+    "reduce": true,
+    "transition": "0s",
+    "animation": "none",
+    "parallax": "scroll"
+  },
+  "seek": {
+    "paused": true,
+    "time": 25
+  },
+  "pauseKeyboard": true,
+  "fullscreen": {
+    "status": "UNVERIFIED",
+    "reason": "CDP/native tab controls returned not granted; final native foreground checks were interrupted by concurrent user Chrome activity. Native fullscreen control and document.fullscreenEnabled are present."
+  },
+  "analyticsCollectorResponses": [
+    {
+      "status": 204,
+      "host": "www.google-analytics.com",
+      "event": "match_day_video_25",
+      "measurement": "G-B4B4E26HMW"
+    },
+    {
+      "status": 204,
+      "host": "www.google-analytics.com",
+      "event": "match_day_video_50",
+      "measurement": "G-B4B4E26HMW"
+    },
+    {
+      "status": 204,
+      "host": "www.google-analytics.com",
+      "event": "match_day_video_75",
+      "measurement": "G-B4B4E26HMW"
+    },
+    {
+      "status": 204,
+      "host": "www.google-analytics.com",
+      "event": "match_day_video_complete",
+      "measurement": "G-B4B4E26HMW"
+    }
+  ],
+  "initialMediaTransferBytes": 0,
+  "captionStatus": "No verified track published; inaccurate local ASR draft remains private"
+}

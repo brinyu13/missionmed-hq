@@ -1,0 +1,51 @@
+{
+  "at": "2026-09-30T15:30:11.879Z",
+  "anonymousCookieFree": true,
+  "status": 200,
+  "htmlSha256": "6f2ead330fff15b66fa122c665d101ecfae3279bb3d2155022130fb6c222b60b",
+  "videoElementInitiallyAbsent": true,
+  "playControlPresent": true,
+  "assets": {
+    "alternate.css": {
+      "status": 200,
+      "sha256": "625608f3bd2964104a299c1b149672a5558c82323052405b6a8bac1bbddd5da7",
+      "matchesSource": true
+    },
+    "alternate.js": {
+      "status": 200,
+      "sha256": "4c190bd23441972712c52bca45046dbd53b860ead76d1f8f52809b71dd3ce539",
+      "matchesSource": true
+    },
+    "vendor/hls-1.7.3.min.js": {
+      "status": 200,
+      "sha256": "a12e7ee1cd64a69dcdb314157e45dafcba705bfb0b1440b7935cb265d374423e",
+      "matchesSource": true
+    }
+  },
+  "legacy": {
+    "status": 301,
+    "location": "https://missionmedinstitute.com/missionresidency/?utm_source=facebook&utm_medium=paid_social&utm_campaign=match-day-live"
+  },
+  "products": {
+    "/product/iv-prep-masterclass/": {
+      "status": 200,
+      "finalUrl": "https://missionmedinstitute.com/product/iv-prep-masterclass/"
+    },
+    "/product/match-prep-pro/": {
+      "status": 200,
+      "finalUrl": "https://missionmedinstitute.com/product/match-prep-pro/"
+    }
+  },
+  "pricesAndDates": {
+    "$549": true,
+    "$499": true,
+    "$3,099": true,
+    "$3,499": true,
+    "$3,400": true,
+    "October 8": true,
+    "October 18": true,
+    "October 7": true,
+    "February": true
+  },
+  "allOtherTemplateBytesIdentical": true
+}

@@ -1,0 +1,33 @@
+{
+  "uid": "4ddaf43647395dcc1ca0cda6f17b7ee6",
+  "readyToStream": true,
+  "readyToStreamAt": "2026-09-30T15:20:32.045251Z",
+  "status": {
+    "state": "ready",
+    "pctComplete": "100.000000",
+    "errorReasonCode": "",
+    "errorReasonText": ""
+  },
+  "meta": {
+    "filename": "Happy Match Cut.master.mov",
+    "filetype": "video/quicktime",
+    "name": "Mission Residency - Authentic Match Day Celebration",
+    "relativePath": "null",
+    "type": "video/quicktime"
+  },
+  "size": 384082340,
+  "duration": 266.5,
+  "input": {
+    "width": 960,
+    "height": 540
+  },
+  "allowedOrigins": [
+    "missionmedinstitute.com",
+    "www.missionmedinstitute.com"
+  ],
+  "requireSignedURLs": false,
+  "playback": {
+    "hls": "https://customer-wiw9vmb43wmdkdp7.cloudflarestream.com/4ddaf43647395dcc1ca0cda6f17b7ee6/manifest/video.m3u8",
+    "dash": "https://customer-wiw9vmb43wmdkdp7.cloudflarestream.com/4ddaf43647395dcc1ca0cda6f17b7ee6/manifest/video.mpd"
+  }
+}
