@@ -47,6 +47,8 @@ test('editorial alumni break and clean enrollment close are contrast-safe',()=>{
 
 test('scroll depth is bounded, mobile-safe and reduced-motion-safe',()=>{
   for(const token of ['parallax-media','Math.min(24','innerWidth>820',"setProperty('--parallax-y','0px')"]) assert.ok(js.includes(token),token);
+  assert.ok(css.includes('translate3d(0,var(--parallax-y,0),0)'));
+  assert.ok(!css.includes('translate3d(0,var(--parallax-y,0))'));
   assert.ok(css.includes('@media(prefers-reduced-motion:reduce)'));
   assert.ok(css.includes('.parallax-media{transform:none!important;will-change:auto!important}'));
   assert.ok(css.includes('.alumni-portrait img{height:100%;transform:none!important;will-change:auto}'));

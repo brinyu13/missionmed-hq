@@ -336,8 +336,8 @@ tbody th{font-weight:600;width:34%}
 .proof-head p:not(.eyebrow){margin-top:24px;font-size:16px;line-height:1.6;color:var(--muted);max-width:34ch}
 .proof-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
 .proof-story{position:relative;display:block;aspect-ratio:4/5;overflow:hidden;padding:0;border:0;background:#081012;color:#fff;text-align:left}
-.proof-story img{width:100%;height:108%;object-fit:cover;transform:translate3d(0,var(--parallax-y,0)) scale(1.14);transition:transform .9s cubic-bezier(.2,.7,.2,1)}
-.proof-story:hover img{transform:translate3d(0,var(--parallax-y,0)) scale(1.19)}
+.proof-story img{width:100%;height:108%;object-fit:cover;transform:translate3d(0,var(--parallax-y,0),0) scale(1.14);transition:transform .9s cubic-bezier(.2,.7,.2,1)}
+.proof-story:hover img{transform:translate3d(0,var(--parallax-y,0),0) scale(1.19)}
 .proof-story::after{content:'';position:absolute;inset:40% 0 0;background:linear-gradient(0deg,rgba(6,14,18,.94),rgba(6,14,18,0))}
 .play{position:absolute;right:18px;bottom:18px;z-index:2;width:48px;height:48px;border:1px solid rgba(255,255,255,.75);border-radius:50%;background:rgba(6,14,18,.35);transition:background .25s}
 .play::before{content:'';position:absolute;left:19px;top:16px;border-left:12px solid #fff;border-top:8px solid transparent;border-bottom:8px solid transparent}
@@ -407,8 +407,8 @@ tbody th{font-weight:600;width:34%}
 .decide-note{margin:26px auto 0;font-size:16px;font-weight:600;color:#17272f}
 
 /* ---------- Lightweight scroll depth ---------- */
-.parallax-media{will-change:transform;transform:translate3d(0,var(--parallax-y,0));transition:transform .12s linear}
-.teacher-photo .parallax-media,.alumni-portrait .parallax-media{transform:translate3d(0,var(--parallax-y,0)) scale(1.04)}
+.parallax-media{will-change:transform;transform:translate3d(0,var(--parallax-y,0),0);transition:transform .12s linear}
+.teacher-photo .parallax-media,.alumni-portrait .parallax-media{transform:translate3d(0,var(--parallax-y,0),0) scale(1.04)}
 .motion-off .parallax-media{transform:none!important;transition:none;will-change:auto}
 
 /* ---------- Footer ---------- */
