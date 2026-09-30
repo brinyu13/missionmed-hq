@@ -19,7 +19,7 @@ async function show(next,reason='manual'){
  dots.forEach((d,i)=>{d.setAttribute('aria-current',String(i===n));d.setAttribute('aria-label',`${i+1} of ${frames.length}: ${frames[i].division}`)});select.value=frame.division;live.textContent=`${frame.division}, slide ${n+1} of ${frames.length}`;document.body.classList.toggle('mm-ph-dark',frame.tone==='dark');hero.classList.remove('is-loading');loaded.add(frame.asset);eager(frames[(n+1)%frames.length].asset);
  if(reason!=='init'){emit('mm_home_hero_view',{hero_frame:frame.id,division:frame.division,interaction:reason})}schedule();
 }
-const hold=(action)=>{paused=true;pause.textContent='Play';pause.setAttribute('aria-pressed','true');emit('mm_home_hero_interaction',{action,hero_frame:frames[index].id})};
+const hold=(action)=>{paused=true;pause.textContent=reduced.matches?'Still':'Play';pause.setAttribute('aria-pressed','true');emit('mm_home_hero_interaction',{action,hero_frame:frames[index].id})};
 dots.forEach(d=>d.addEventListener('click',()=>{hold('select');show(Number(d.dataset.slide),'select')}));q('[data-prev]').addEventListener('click',()=>{hold('previous');show(index-1,'previous')});q('[data-next]').addEventListener('click',()=>{hold('next');show(index+1,'next')});
 pause.addEventListener('click',()=>{if(reduced.matches)return;paused=!paused;pause.textContent=paused?'Play':'Pause';pause.setAttribute('aria-pressed',String(paused));emit('mm_home_hero_interaction',{action:paused?'pause':'play',hero_frame:frames[index].id});schedule()});
 select.addEventListener('change',()=>{hold('division');const next=frames.findIndex((f,i)=>f.division===select.value&&(i>index||!frames.some((x,j)=>j>index&&x.division===select.value)));show(next<0?0:next,'division')});
