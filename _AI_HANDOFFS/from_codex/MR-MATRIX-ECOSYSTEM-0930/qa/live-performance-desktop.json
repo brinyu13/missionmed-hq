@@ -1,0 +1,67 @@
+{
+  "initial": {
+    "initialImageRequests": [],
+    "perf": {
+      "lcp": 1852,
+      "shifts": [
+        {
+          "sources": [
+            {
+              "inStory": false
+            },
+            {
+              "cls": "mm-alt-actions",
+              "id": "",
+              "inStory": false,
+              "tag": "DIV"
+            },
+            {
+              "cls": "cl1403c-a-hero-label",
+              "id": "",
+              "inStory": false,
+              "tag": "P"
+            },
+            {
+              "cls": "",
+              "id": "",
+              "inStory": false,
+              "tag": "A"
+            }
+          ],
+          "value": 0.0006540253732103051
+        }
+      ]
+    }
+  },
+  "final": {
+    "lcp": 1852,
+    "shifts": [
+      {
+        "sources": [
+          {
+            "inStory": false
+          },
+          {
+            "cls": "mm-alt-actions",
+            "id": "",
+            "inStory": false,
+            "tag": "DIV"
+          },
+          {
+            "cls": "cl1403c-a-hero-label",
+            "id": "",
+            "inStory": false,
+            "tag": "P"
+          },
+          {
+            "cls": "",
+            "id": "",
+            "inStory": false,
+            "tag": "A"
+          }
+        ],
+        "value": 0.0006540253732103051
+      }
+    ]
+  }
+}

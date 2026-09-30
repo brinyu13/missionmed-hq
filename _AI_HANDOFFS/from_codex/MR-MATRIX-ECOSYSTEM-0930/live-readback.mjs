@@ -1,0 +1,32 @@
+import fs from 'node:fs';
+import crypto from 'node:crypto';
+import assert from 'node:assert/strict';
+const dir=new URL('./qa/',import.meta.url);
+const deployment=JSON.parse(fs.readFileSync(new URL('deployment.json',dir)));
+const root='https://missionmedinstitute.com';
+const base='/wp-content/mu-plugins/missionmed-mr-alternate-assets/';
+const response=await fetch(root+'/missionresidency/');
+assert.equal(response.status,200);
+const html=await response.text();
+assert.ok(html.includes('Your Training Continues'));
+const before=fs.readFileSync(new URL('live-before.html',dir),'utf8');
+const neutral=s=>s.replace(/<section class="mm-alt-story[\s\S]*?<\/section>/,'SECTION').replace(/alternate\.css\?v=[a-f0-9]+/g,'alternate.css?v=VERSION');
+const outsideSectionEqual=neutral(before)===neutral(html);
+const assets=[];
+for(const [file,expected] of Object.entries(deployment.deployed)){
+ if(file==='page.php')continue;
+ const r=await fetch(root+base+file+'?v='+expected.slice(0,12));
+ const body=Buffer.from(await r.arrayBuffer());
+ const hash=crypto.createHash('sha256').update(body).digest('hex');
+ assert.equal(r.status,200,file);assert.equal(hash,expected,file);
+ assets.push({file,status:r.status,bytes:body.length,sha256:hash});
+}
+const legacy=await fetch(root+'/mission-residency/?utm_source=facebook&utm_medium=acceptance',{redirect:'manual'});
+assert.equal(legacy.status,301);
+const location=legacy.headers.get('location');
+assert.ok(location.includes('/missionresidency/'));assert.ok(location.includes('utm_source=facebook'));
+const record={at:new Date().toISOString(),url:response.url,status:response.status,outsideSectionEqual,assets,legacy:{status:legacy.status,location}};
+fs.writeFileSync(new URL('live-readback.json',dir),JSON.stringify(record,null,2));
+fs.writeFileSync(new URL('live-after.html',dir),html);
+console.log(JSON.stringify(record,null,2));
+assert.ok(outsideSectionEqual,'Investigate any non-section anonymous HTML change');

@@ -1,0 +1,30 @@
+{
+  "initial": {
+    "dpr": 2,
+    "initialImageRequests": [],
+    "perf": {
+      "lcp": 1708,
+      "shifts": []
+    },
+    "width": 390
+  },
+  "final": {
+    "images": [
+      {
+        "loaded": true,
+        "src": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/media/ecosystem-matrix-720.webp?v=6f95de41bea8",
+        "w": 349
+      },
+      {
+        "loaded": true,
+        "src": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/media/ecosystem-oncall-720.webp?v=5edb001ada68",
+        "w": 349
+      }
+    ],
+    "overflow": false,
+    "perf": {
+      "lcp": 1708,
+      "shifts": []
+    }
+  }
+}

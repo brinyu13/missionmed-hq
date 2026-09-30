@@ -1,0 +1,54 @@
+{
+  "at": "2026-09-30T16:34:18.884Z",
+  "url": "https://missionmedinstitute.com/missionresidency/",
+  "status": 200,
+  "outsideSectionEqual": true,
+  "assets": [
+    {
+      "file": "media/ecosystem-matrix-720.webp",
+      "status": 200,
+      "bytes": 58478,
+      "sha256": "6f95de41bea8f05837c295c9dce849dd5ab712a095b1030d3f76ed40565b5454"
+    },
+    {
+      "file": "media/ecosystem-matrix-1080.webp",
+      "status": 200,
+      "bytes": 102796,
+      "sha256": "6d286f7d2eea03e21fbe8edba37bad0e52e64b1f5b4ae8737beabf19a1b60935"
+    },
+    {
+      "file": "media/ecosystem-matrix-1440.webp",
+      "status": 200,
+      "bytes": 210758,
+      "sha256": "1c60ed9011103cc2a3c568de54088f4cec6efbc0dce29eee0a2dffa3dba2d55b"
+    },
+    {
+      "file": "media/ecosystem-oncall-720.webp",
+      "status": 200,
+      "bytes": 21004,
+      "sha256": "5edb001ada684186250af2691665831a8c1732a33ff522ebad6f74d61a5ebf7d"
+    },
+    {
+      "file": "media/ecosystem-oncall-1080.webp",
+      "status": 200,
+      "bytes": 37376,
+      "sha256": "c10a9cc1c9cc9520c312f447d76b3eb808fada6e59959761f348172d9dc11a87"
+    },
+    {
+      "file": "media/ecosystem-oncall-1440.webp",
+      "status": 200,
+      "bytes": 63136,
+      "sha256": "192205228ecef197b7ab1e93a414f3f5a41654865b10bcb3da86a06de71ad429"
+    },
+    {
+      "file": "alternate.css",
+      "status": 200,
+      "bytes": 20787,
+      "sha256": "2871b469a6731883e2107afdf6ea030e6528943859f4a489651d778008572c5d"
+    }
+  ],
+  "legacy": {
+    "status": 301,
+    "location": "https://missionmedinstitute.com/missionresidency/?utm_source=facebook&utm_medium=acceptance"
+  }
+}
