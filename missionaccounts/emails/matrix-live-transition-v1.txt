@@ -1,0 +1,46 @@
+Your Dr J live sessions are moving into Matrix
+
+Hi {{first_name}},
+
+Your Dr J live sessions have a new home.
+
+Dr J live sessions are moving into MissionMed Matrix.
+
+YOUR NEXT STEP
+Sign in to MissionMed, then enter Matrix.
+
+Open MissionMed: https://missionmedinstitute.com/my-account/
+
+Same Dr J. A new home for live sessions.
+
+Dr J is still teaching, challenging you, and helping you prepare for exam day. The way you reach your live sessions is moving into Matrix.
+
+Sign in through MissionMed and select Enter Matrix. Your MyMissionMed Account remains the place to review your profile, attendance, exam plan, and account.
+
+YOUR MATRIX HOME
+Start in Matrix for your Dr J live sessions.
+
+YOUR EXAMPREP ACCOUNT
+Review your profile, exam plan, recorded attendance, and account.
+
+ONE LOGIN
+Your existing MissionMed login is your doorway into Matrix.
+
+YOUR MISSIONMED ACCESS
+Username: {{username}}
+Password / account access: {{credential_block}}
+
+Open MissionMed: https://missionmedinstitute.com/my-account/
+
+After signing in, select Enter Matrix from your account page.
+
+Sign in before your next Dr J live session.
+We'll see you in Matrix.
+
+Warm Wishes,
+Dr J
+Dr J ExamPrep
+Powered by MissionMed Institute
+
+Need help? Reply to this email or contact {{support_email}}.
+Private student communication from MissionMed Institute. Please do not forward this email.
