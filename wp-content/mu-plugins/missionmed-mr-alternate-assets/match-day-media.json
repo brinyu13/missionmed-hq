@@ -1,7 +1,7 @@
 {
-  "enabled": false,
+  "enabled": true,
   "provider": "cloudflare-stream",
-  "streamUid": "",
-  "publicUseAuthority": "",
+  "streamUid": "4ddaf43647395dcc1ca0cda6f17b7ee6",
+  "publicUseAuthority": "MR-MATCH-DAY-VIDEO-0930/PUBLICATION_AUTHORITY.md (Founder confirmation 2026-09-30)",
   "masterSha256": "6ca321397fabd28d69c5e98a621c7b5d4fa7705f99d93a60daff2a5fc79d1398"
 }
