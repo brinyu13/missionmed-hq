@@ -48,6 +48,7 @@ import {
   persistedConversationTurns,
   reviewTranscriptCoverage,
   reviewTurnSpeakerLabel,
+  reviewEvidenceCopy,
   buildQuestionPoolBulkAction,
   programSearchFailureCopy,
 } from './presentation-view-model.mjs';
@@ -2962,6 +2963,7 @@ function renderLoadoutConfig() {
 }
 
 function renderPostAnswer(analytics = null) {
+  const adminReview = state.role === 'admin' && state.lastSaved?.reviewScope === 'admin';
   const provenance = $('#post-provenance');
   if (provenance) {
     const detailSession = state.lastSaved?.sessionDetail?.session || null;
@@ -2991,7 +2993,9 @@ function renderPostAnswer(analytics = null) {
     ['#post-fix', '<strong>Try a spoken answer</strong>Check the microphone and make one complete response before reviewing coaching evidence.'],
   ] : analytics ? [
     ['#post-worked', supported.length
-      ? '<strong>Review your recorded evidence</strong>Your supported delivery signals are available in the full report below. Listen back in Film Room to find your strongest moments.'
+      ? (adminReview
+        ? '<strong>Review the student’s recorded evidence</strong>Supported delivery signals are available in the full report below. Listen back in Film Room to find the strongest moments.'
+        : '<strong>Review your recorded evidence</strong>Your supported delivery signals are available in the full report below. Listen back in Film Room to find your strongest moments.')
       : '<strong>No supported positive claim yet</strong>The session saved, but no student-safe signal reached an evidence threshold.'],
     ['#post-fix', '<strong>Choose one evidence-backed priority</strong>Use this recording’s full report and transcript-based coaching below. No correction is inferred from another attempt.'],
   ] : [
@@ -3059,7 +3063,8 @@ function renderFullAnalyticsReport(analytics = null) {
     ? ['yawDeg', 'pitchDeg', 'rollDeg'].filter((key) => Number.isFinite(Number(head[key])))
       .map((key) => `${key.replace('Deg', '')} ${Number(head[key]).toFixed(1)}°`).join(' · ')
     : null;
-  const laneReadouts = resultLaneReadouts(analytics || {});
+  const laneReadouts = Object.fromEntries(Object.entries(resultLaneReadouts(analytics || {}))
+    .map(([id, value]) => [id, reviewEvidenceCopy(value, { role: state.role, reviewScope: state.lastSaved?.reviewScope })]));
   const voiceObserved = observedLaneSummary(laneReadouts, [
     ['VOICE.PITCH', 'Pitch'],
     ['VOICE.PITCH_VARIATION', 'Pitch variation'],
@@ -3179,7 +3184,8 @@ function renderContextEvidence(result) {
     const fillersValue = document.createElement('strong');
     fillersValue.textContent = String(transcriptMetrics.fillerTokenCount);
     const fillersCopy = document.createElement('p');
-    fillersCopy.textContent = 'Counted from your transcript using the disclosed um / uh / erm / like / you know / I mean list. No personality or emotion is inferred.';
+    fillersCopy.textContent = reviewEvidenceCopy('Counted from your transcript using the disclosed um / uh / erm / like / you know / I mean list. No personality or emotion is inferred.',
+      { role: state.role, reviewScope: state.lastSaved?.reviewScope });
     fillers.append(fillersHeading, fillersValue, fillersCopy);
     grid.append(summary, fillers);
     host.append(label, grid);

@@ -92,6 +92,13 @@ export function reviewTurnSpeakerLabel(speaker, { role = 'student', ownerDisplay
   return owner ? `Student · ${owner}` : 'Student';
 }
 
+export function reviewEvidenceCopy(value, { role = 'student', reviewScope = null } = {}) {
+  const copy = String(value ?? '');
+  if (role !== 'admin' || reviewScope !== 'admin') return copy;
+  return copy.replaceAll('your median', "the student's median")
+    .replaceAll('your transcript', "the student's transcript");
+}
+
 export function reviewTranscriptCoverage(turns = []) {
   if (!Array.isArray(turns) || !turns.length) return 'none';
   return turns.some((turn) => turn?.speaker === 'student') ? 'candidate_present' : 'interviewer_only';

@@ -8,6 +8,7 @@ import {
   buildReadinessRows,
   reviewTranscriptCoverage,
   reviewTurnSpeakerLabel,
+  reviewEvidenceCopy,
   buildQuestionPoolBulkAction,
   programSearchFailureCopy,
 } from '../../public/studio/presentation-view-model.mjs';
@@ -67,6 +68,15 @@ test('owner context cards follow the server capability manifest without exposing
   const selectedRise = buildContextSources({ programVerified: true, contextCapabilities: { rise: { connected: true } } })
     .find((source) => source.name === 'RISE');
   assert.equal(selectedRise.available, true);
+});
+
+test('Admin review copy names the selected student instead of the reviewer', () => {
+  const pitch = '+1.1 st vs your median';
+  const transcript = 'Counted from your transcript';
+  assert.equal(reviewEvidenceCopy(pitch, { role: 'student' }), pitch);
+  assert.equal(reviewEvidenceCopy(pitch, { role: 'admin', reviewScope: 'self' }), pitch);
+  assert.equal(reviewEvidenceCopy(pitch, { role: 'admin', reviewScope: 'admin' }), "+1.1 st vs the student's median");
+  assert.equal(reviewEvidenceCopy(transcript, { role: 'admin', reviewScope: 'admin' }), "Counted from the student's transcript");
 });
 
 test('Home presents real latest-session and mentor state with truthful empty fallbacks', () => {
