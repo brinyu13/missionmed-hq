@@ -1,0 +1,554 @@
+{
+  "generated_at_utc": "2026-09-30T03:40:12.564Z",
+  "fresh_browser_context": true,
+  "device_scale_factor": 2,
+  "routes": [
+    {
+      "name": "homepage",
+      "requested_url": "https://missionmedinstitute.com/?favicon_qa=1790739612768",
+      "final_url": "https://missionmedinstitute.com/?favicon_qa=1790739612768",
+      "status": 200,
+      "title": "Home - MissionMed Institute",
+      "expected_text_present": true,
+      "favicon_family_present": true,
+      "icons": [
+        {
+          "rel": "icon",
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-32x32.png",
+          "sizes": "32x32",
+          "type": null
+        },
+        {
+          "rel": "icon",
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-192x192.png",
+          "sizes": "192x192",
+          "type": null
+        },
+        {
+          "rel": "apple-touch-icon",
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-180x180.png",
+          "sizes": null,
+          "type": null
+        }
+      ],
+      "icon_checks": [
+        {
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-32x32.png",
+          "status": 200,
+          "content_type": "image/png"
+        },
+        {
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-192x192.png",
+          "status": 200,
+          "content_type": "image/png"
+        },
+        {
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-180x180.png",
+          "status": 200,
+          "content_type": "image/png"
+        }
+      ],
+      "failed_icon_requests": [],
+      "pass": true
+    },
+    {
+      "name": "mission_residency",
+      "requested_url": "https://missionmedinstitute.com/mission-residency/?favicon_qa=1790739615025",
+      "final_url": "https://missionmedinstitute.com/mission-residency/?favicon_qa=1790739615025",
+      "status": 200,
+      "title": "Mission Residency | Interview Bootcamp Week & IV Prep Complete",
+      "expected_text_present": true,
+      "favicon_family_present": true,
+      "icons": [
+        {
+          "rel": "icon",
+          "href": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-site-icon-assets/favicon.ico?v=e6c3dc8c741c",
+          "sizes": "any",
+          "type": "image/x-icon"
+        },
+        {
+          "rel": "icon",
+          "href": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-site-icon-assets/missionmed-favicon-16.png?v=07f37890a744",
+          "sizes": "16x16",
+          "type": "image/png"
+        },
+        {
+          "rel": "icon",
+          "href": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-site-icon-assets/missionmed-favicon-32.png?v=fbb72a5a7a55",
+          "sizes": "32x32",
+          "type": "image/png"
+        },
+        {
+          "rel": "icon",
+          "href": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-site-icon-assets/missionmed-favicon-48.png?v=e3c64ee9f867",
+          "sizes": "48x48",
+          "type": "image/png"
+        },
+        {
+          "rel": "icon",
+          "href": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-site-icon-assets/missionmed-favicon-192.png?v=892448047cdb",
+          "sizes": "192x192",
+          "type": "image/png"
+        },
+        {
+          "rel": "icon",
+          "href": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-site-icon-assets/missionmed-favicon-512.png?v=1ab7df4a8162",
+          "sizes": "512x512",
+          "type": "image/png"
+        },
+        {
+          "rel": "apple-touch-icon",
+          "href": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-site-icon-assets/missionmed-favicon-180.png?v=49809dc9afc5",
+          "sizes": "180x180",
+          "type": null
+        }
+      ],
+      "icon_checks": [
+        {
+          "href": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-site-icon-assets/favicon.ico?v=e6c3dc8c741c",
+          "status": 200,
+          "content_type": "image/x-icon"
+        },
+        {
+          "href": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-site-icon-assets/missionmed-favicon-16.png?v=07f37890a744",
+          "status": 200,
+          "content_type": "image/png"
+        },
+        {
+          "href": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-site-icon-assets/missionmed-favicon-32.png?v=fbb72a5a7a55",
+          "status": 200,
+          "content_type": "image/png"
+        },
+        {
+          "href": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-site-icon-assets/missionmed-favicon-48.png?v=e3c64ee9f867",
+          "status": 200,
+          "content_type": "image/png"
+        },
+        {
+          "href": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-site-icon-assets/missionmed-favicon-192.png?v=892448047cdb",
+          "status": 200,
+          "content_type": "image/png"
+        },
+        {
+          "href": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-site-icon-assets/missionmed-favicon-512.png?v=1ab7df4a8162",
+          "status": 200,
+          "content_type": "image/png"
+        },
+        {
+          "href": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-site-icon-assets/missionmed-favicon-180.png?v=49809dc9afc5",
+          "status": 200,
+          "content_type": "image/png"
+        }
+      ],
+      "failed_icon_requests": [],
+      "pass": true
+    },
+    {
+      "name": "exam_prep",
+      "requested_url": "https://missionmedinstitute.com/examprep/?favicon_qa=1790739616461",
+      "final_url": "https://missionmedinstitute.com/examprep/?favicon_qa=1790739616461",
+      "status": 200,
+      "title": "ExamPrep - MissionMed Institute",
+      "expected_text_present": true,
+      "favicon_family_present": true,
+      "icons": [
+        {
+          "rel": "icon",
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-32x32.png",
+          "sizes": "32x32",
+          "type": null
+        },
+        {
+          "rel": "icon",
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-192x192.png",
+          "sizes": "192x192",
+          "type": null
+        },
+        {
+          "rel": "apple-touch-icon",
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-180x180.png",
+          "sizes": null,
+          "type": null
+        }
+      ],
+      "icon_checks": [
+        {
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-32x32.png",
+          "status": 200,
+          "content_type": "image/png"
+        },
+        {
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-192x192.png",
+          "status": 200,
+          "content_type": "image/png"
+        },
+        {
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-180x180.png",
+          "status": 200,
+          "content_type": "image/png"
+        }
+      ],
+      "failed_icon_requests": [],
+      "pass": true
+    },
+    {
+      "name": "usce",
+      "requested_url": "https://missionmedinstitute.com/usce/?favicon_qa=1790739618789",
+      "final_url": "https://missionmedinstitute.com/usce/?favicon_qa=1790739618789",
+      "status": 200,
+      "title": "USCE - MissionMed Institute",
+      "expected_text_present": true,
+      "favicon_family_present": true,
+      "icons": [
+        {
+          "rel": "icon",
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-32x32.png",
+          "sizes": "32x32",
+          "type": null
+        },
+        {
+          "rel": "icon",
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-192x192.png",
+          "sizes": "192x192",
+          "type": null
+        },
+        {
+          "rel": "apple-touch-icon",
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-180x180.png",
+          "sizes": null,
+          "type": null
+        }
+      ],
+      "icon_checks": [
+        {
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-32x32.png",
+          "status": 200,
+          "content_type": "image/png"
+        },
+        {
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-192x192.png",
+          "status": 200,
+          "content_type": "image/png"
+        },
+        {
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-180x180.png",
+          "status": 200,
+          "content_type": "image/png"
+        }
+      ],
+      "failed_icon_requests": [],
+      "pass": true
+    },
+    {
+      "name": "arena_landing",
+      "requested_url": "https://missionmedinstitute.com/homepage-arena/?favicon_qa=1790739620862",
+      "final_url": "https://missionmedinstitute.com/homepage-arena/?favicon_qa=1790739620862",
+      "status": 200,
+      "title": "Arena - MissionMed Institute",
+      "expected_text_present": true,
+      "favicon_family_present": true,
+      "icons": [
+        {
+          "rel": "icon",
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-32x32.png",
+          "sizes": "32x32",
+          "type": null
+        },
+        {
+          "rel": "icon",
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-192x192.png",
+          "sizes": "192x192",
+          "type": null
+        },
+        {
+          "rel": "apple-touch-icon",
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-180x180.png",
+          "sizes": null,
+          "type": null
+        }
+      ],
+      "icon_checks": [
+        {
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-32x32.png",
+          "status": 200,
+          "content_type": "image/png"
+        },
+        {
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-192x192.png",
+          "status": 200,
+          "content_type": "image/png"
+        },
+        {
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-180x180.png",
+          "status": 200,
+          "content_type": "image/png"
+        }
+      ],
+      "failed_icon_requests": [],
+      "pass": true
+    },
+    {
+      "name": "arena",
+      "requested_url": "https://missionmedinstitute.com/arena/?favicon_qa=1790739623187",
+      "final_url": "https://missionmedinstitute.com/arena?favicon_qa=1790739623187",
+      "status": 200,
+      "title": "MissionMed Arena",
+      "expected_text_present": true,
+      "favicon_family_present": true,
+      "icons": [
+        {
+          "rel": "icon",
+          "href": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-site-icon-assets/favicon.ico?v=e6c3dc8c741c",
+          "sizes": "any",
+          "type": "image/x-icon"
+        },
+        {
+          "rel": "icon",
+          "href": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-site-icon-assets/missionmed-favicon-16.png?v=07f37890a744",
+          "sizes": "16x16",
+          "type": "image/png"
+        },
+        {
+          "rel": "icon",
+          "href": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-site-icon-assets/missionmed-favicon-32.png?v=fbb72a5a7a55",
+          "sizes": "32x32",
+          "type": "image/png"
+        },
+        {
+          "rel": "icon",
+          "href": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-site-icon-assets/missionmed-favicon-48.png?v=e3c64ee9f867",
+          "sizes": "48x48",
+          "type": "image/png"
+        },
+        {
+          "rel": "icon",
+          "href": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-site-icon-assets/missionmed-favicon-192.png?v=892448047cdb",
+          "sizes": "192x192",
+          "type": "image/png"
+        },
+        {
+          "rel": "icon",
+          "href": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-site-icon-assets/missionmed-favicon-512.png?v=1ab7df4a8162",
+          "sizes": "512x512",
+          "type": "image/png"
+        },
+        {
+          "rel": "apple-touch-icon",
+          "href": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-site-icon-assets/missionmed-favicon-180.png?v=49809dc9afc5",
+          "sizes": "180x180",
+          "type": null
+        }
+      ],
+      "icon_checks": [
+        {
+          "href": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-site-icon-assets/favicon.ico?v=e6c3dc8c741c",
+          "status": 200,
+          "content_type": "image/x-icon"
+        },
+        {
+          "href": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-site-icon-assets/missionmed-favicon-16.png?v=07f37890a744",
+          "status": 200,
+          "content_type": "image/png"
+        },
+        {
+          "href": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-site-icon-assets/missionmed-favicon-32.png?v=fbb72a5a7a55",
+          "status": 200,
+          "content_type": "image/png"
+        },
+        {
+          "href": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-site-icon-assets/missionmed-favicon-48.png?v=e3c64ee9f867",
+          "status": 200,
+          "content_type": "image/png"
+        },
+        {
+          "href": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-site-icon-assets/missionmed-favicon-192.png?v=892448047cdb",
+          "status": 200,
+          "content_type": "image/png"
+        },
+        {
+          "href": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-site-icon-assets/missionmed-favicon-512.png?v=1ab7df4a8162",
+          "status": 200,
+          "content_type": "image/png"
+        },
+        {
+          "href": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-site-icon-assets/missionmed-favicon-180.png?v=49809dc9afc5",
+          "status": 200,
+          "content_type": "image/png"
+        }
+      ],
+      "failed_icon_requests": [],
+      "pass": true
+    },
+    {
+      "name": "account",
+      "requested_url": "https://missionmedinstitute.com/my-account/?favicon_qa=1790739625568",
+      "final_url": "https://missionmedinstitute.com/my-account/?favicon_qa=1790739625568",
+      "status": 200,
+      "title": "My Account - MissionMed Institute",
+      "expected_text_present": true,
+      "favicon_family_present": true,
+      "icons": [
+        {
+          "rel": "icon",
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-32x32.png",
+          "sizes": "32x32",
+          "type": null
+        },
+        {
+          "rel": "icon",
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-192x192.png",
+          "sizes": "192x192",
+          "type": null
+        },
+        {
+          "rel": "apple-touch-icon",
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-180x180.png",
+          "sizes": null,
+          "type": null
+        }
+      ],
+      "icon_checks": [
+        {
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-32x32.png",
+          "status": 200,
+          "content_type": "image/png"
+        },
+        {
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-192x192.png",
+          "status": 200,
+          "content_type": "image/png"
+        },
+        {
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-180x180.png",
+          "status": 200,
+          "content_type": "image/png"
+        }
+      ],
+      "failed_icon_requests": [],
+      "pass": true
+    },
+    {
+      "name": "login",
+      "requested_url": "https://missionmedinstitute.com/wp-login.php?favicon_qa=1790739627523",
+      "final_url": "https://missionmedinstitute.com/wp-login.php?favicon_qa=1790739627523",
+      "status": 200,
+      "title": "Log In ‹ MissionMed Institute — WordPress",
+      "expected_text_present": true,
+      "favicon_family_present": true,
+      "icons": [
+        {
+          "rel": "icon",
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-32x32.png",
+          "sizes": "32x32",
+          "type": null
+        },
+        {
+          "rel": "icon",
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-192x192.png",
+          "sizes": "192x192",
+          "type": null
+        },
+        {
+          "rel": "apple-touch-icon",
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-180x180.png",
+          "sizes": null,
+          "type": null
+        }
+      ],
+      "icon_checks": [
+        {
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-32x32.png",
+          "status": 200,
+          "content_type": "image/png"
+        },
+        {
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-192x192.png",
+          "status": 200,
+          "content_type": "image/png"
+        },
+        {
+          "href": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-180x180.png",
+          "status": 200,
+          "content_type": "image/png"
+        }
+      ],
+      "failed_icon_requests": [],
+      "pass": true
+    }
+  ],
+  "assets": [
+    {
+      "path": "/favicon.ico",
+      "status": 200,
+      "content_type": "image/x-icon",
+      "bytes": 7636,
+      "sha256": "e6c3dc8c741c5de7a7985af2e2641b0a6f36df50fd80f49495c58db99d095327",
+      "expected_sha256": "e6c3dc8c741c5de7a7985af2e2641b0a6f36df50fd80f49495c58db99d095327",
+      "pass": true
+    },
+    {
+      "path": "/wp-content/mu-plugins/missionmed-site-icon-assets/favicon.ico",
+      "status": 200,
+      "content_type": "image/x-icon",
+      "bytes": 7636,
+      "sha256": "e6c3dc8c741c5de7a7985af2e2641b0a6f36df50fd80f49495c58db99d095327",
+      "expected_sha256": "e6c3dc8c741c5de7a7985af2e2641b0a6f36df50fd80f49495c58db99d095327",
+      "pass": true
+    },
+    {
+      "path": "/wp-content/mu-plugins/missionmed-site-icon-assets/missionmed-favicon-16.png",
+      "status": 200,
+      "content_type": "image/png",
+      "bytes": 826,
+      "sha256": "07f37890a7446b6a21c7e568b9a1c2121f2671dd363e896835a8bed5585ba507",
+      "expected_sha256": "07f37890a7446b6a21c7e568b9a1c2121f2671dd363e896835a8bed5585ba507",
+      "pass": true
+    },
+    {
+      "path": "/wp-content/mu-plugins/missionmed-site-icon-assets/missionmed-favicon-32.png",
+      "status": 200,
+      "content_type": "image/png",
+      "bytes": 2307,
+      "sha256": "fbb72a5a7a55eb1116d7ef6adb491fc4012836ddb01610cf1d7f169f94b5b60b",
+      "expected_sha256": "fbb72a5a7a55eb1116d7ef6adb491fc4012836ddb01610cf1d7f169f94b5b60b",
+      "pass": true
+    },
+    {
+      "path": "/wp-content/mu-plugins/missionmed-site-icon-assets/missionmed-favicon-48.png",
+      "status": 200,
+      "content_type": "image/png",
+      "bytes": 4449,
+      "sha256": "e3c64ee9f86706f769c39675adc88a756231b2bd7cfeec8ccc39c09771e5a076",
+      "expected_sha256": "e3c64ee9f86706f769c39675adc88a756231b2bd7cfeec8ccc39c09771e5a076",
+      "pass": true
+    },
+    {
+      "path": "/wp-content/mu-plugins/missionmed-site-icon-assets/missionmed-favicon-180.png",
+      "status": 200,
+      "content_type": "image/png",
+      "bytes": 42110,
+      "sha256": "49809dc9afc56e57e7699481484db56f74b99ab01ca549dfd684d43f5c376af9",
+      "expected_sha256": "49809dc9afc56e57e7699481484db56f74b99ab01ca549dfd684d43f5c376af9",
+      "pass": true
+    },
+    {
+      "path": "/wp-content/mu-plugins/missionmed-site-icon-assets/missionmed-favicon-192.png",
+      "status": 200,
+      "content_type": "image/png",
+      "bytes": 46813,
+      "sha256": "892448047cdb289005529368ee40fac10b451d4a19c69913140edf6cef31a860",
+      "expected_sha256": "892448047cdb289005529368ee40fac10b451d4a19c69913140edf6cef31a860",
+      "pass": true
+    },
+    {
+      "path": "/wp-content/mu-plugins/missionmed-site-icon-assets/missionmed-favicon-512.png",
+      "status": 200,
+      "content_type": "image/png",
+      "bytes": 205124,
+      "sha256": "1ab7df4a816225f0a6dd445f702d18b1d956989268f8dbe7a00ec880bc14aa83",
+      "expected_sha256": "1ab7df4a816225f0a6dd445f702d18b1d956989268f8dbe7a00ec880bc14aa83",
+      "pass": true
+    }
+  ],
+  "pass": true
+}
