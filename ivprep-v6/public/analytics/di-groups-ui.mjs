@@ -404,7 +404,9 @@ export class DeliveryIntelligenceGroups {
   }
 
   ingestResult(analytics = {}) {
-    this.#readouts = { ...this.#readouts, ...resultLaneReadouts(analytics) };
+    // A saved answer replaces the previous answer's display evidence. Merging
+    // would leak stale lanes into another student's Film Room review.
+    this.#readouts = { ...resultLaneReadouts(analytics) };
     for (const [laneId, node] of this.#laneValueNodes) {
       const text = this.#readouts[laneId];
       node.textContent = typeof text === 'string' ? text : UNAVAILABLE;

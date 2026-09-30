@@ -3,6 +3,16 @@ import test from 'node:test';
 
 import { resultLaneReadouts } from '../../public/analytics/di-groups-ui.mjs';
 import { persistedConversationTurns } from '../../public/studio/presentation-view-model.mjs';
+import { readFileSync } from 'node:fs';
+
+const groupsSource = readFileSync(new URL('../../public/analytics/di-groups-ui.mjs', import.meta.url), 'utf8');
+const studioSource = readFileSync(new URL('../../public/studio/studio.mjs', import.meta.url), 'utf8');
+
+test('saved Film Room readouts replace prior student evidence and ignore live diagnostics outside capture', () => {
+  assert.match(groupsSource, /ingestResult\(analytics = \{\}\) \{[\s\S]*this\.#readouts = \{ \.\.\.resultLaneReadouts\(analytics\) \}/u);
+  assert.match(studioSource, /state\.session\.state === 'STARTING' \|\| state\.session\.state === 'RUNNING'\) state\.filmGroups\?\.ingest\(detail\)/u);
+  assert.match(studioSource, /function presentFilmRoomAnalytics\(analytics = null\)[\s\S]*reviewEvidenceCopy\(value/u);
+});
 
 test('rehydrates the bounded persisted Film Room view model without inventing lanes', () => {
   const readouts = resultLaneReadouts({

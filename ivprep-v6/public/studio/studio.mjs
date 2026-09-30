@@ -331,7 +331,7 @@ async function openAdminStudentSession(session, destination, action) {
       analytics,
       recording: detail?.recording ? { recording: detail.recording } : null,
     };
-    state.filmGroups?.ingestResult(analytics || {});
+    state.filmGroups?.ingestResult(presentFilmRoomAnalytics(analytics));
     if (destination === 'postanswer') {
       renderPostAnswer(analytics);
       renderContextEvidence(contextResultFromSessionSpine(detail));
@@ -1922,6 +1922,7 @@ async function startRep() {
     return setSessionState('BLOCKED', String(error?.message || error));
   }
   if (evaluateReadiness() !== 'SESSION_READY') return;
+  state.filmGroups?.ingestResult({});
   setSessionState('STARTING');
   try {
     if (state.admission?.runtime?.mode === 'hosted' && !state.durableAvailable) {
@@ -2302,6 +2303,7 @@ async function startLiveInterview() {
     bindSimulationVideo();
     await ensureVisibleVideoFrame($('#founder-student-video'));
     if (evaluateReadiness() !== 'SESSION_READY') throw new Error(state.session.reason || 'Camera and microphone are not ready.');
+    state.filmGroups?.ingestResult({});
     setSessionState('STARTING');
     state.session.finishFailed = false;
     state.session.finishAnalytics = null;
@@ -2725,7 +2727,7 @@ async function renderVault() {
               analytics,
               recording: detail?.recording ? { recording: detail.recording } : null,
             };
-            state.filmGroups?.ingestResult(analytics || {});
+            state.filmGroups?.ingestResult(presentFilmRoomAnalytics(analytics));
             renderPostAnswer(analytics);
             renderContextEvidence(contextResultFromSessionSpine(detail));
             setView('postanswer');
@@ -2747,7 +2749,7 @@ async function renderVault() {
             ]);
             const video = $('#playback');
             state.lastSaved = { persisted: true, session, sessionDetail: detail };
-            state.filmGroups?.ingestResult(detail?.results?.payload?.analytics || session?.results?.payload?.analytics || {});
+            state.filmGroups?.ingestResult(presentFilmRoomAnalytics(detail?.results?.payload?.analytics || session?.results?.payload?.analytics));
             renderFilmRoomSpine(detail);
             if (video) { video.src = signed.url; await video.play().catch(() => {}); setView('filmroom'); }
           } finally { play.disabled = false; }
@@ -2821,7 +2823,9 @@ async function mountAnalytics() {
   if (film) state.filmGroups = new DeliveryIntelligenceGroups(film);
   if (lab) state.labGroups = new DeliveryIntelligenceGroups(lab);
   state.analytics.onDiagnostic?.((detail) => {
-    try { state.filmGroups?.ingest(detail); } catch {}
+    try {
+      if (state.session.state === 'STARTING' || state.session.state === 'RUNNING') state.filmGroups?.ingest(detail);
+    } catch {}
     try { state.labGroups?.ingest(detail); } catch {}
     // Raw diagnostic -> normalized metric frame -> renderers. Renderers never see the
     // raw payload, which is what keeps them swappable.
@@ -3034,6 +3038,16 @@ function observedLaneSummary(readouts, definitions) {
   return values.length
     ? `Observed signal — informational, not a coaching score · ${values.join(' · ')}`
     : null;
+}
+
+function presentFilmRoomAnalytics(analytics = null) {
+  const readouts = resultLaneReadouts(analytics || {});
+  return { deliveryIntelligence: {
+    schema: 'ivoc.delivery-intelligence.view-model.v1',
+    readouts: Object.fromEntries(Object.entries(readouts).map(([id, value]) => [
+      id, reviewEvidenceCopy(value, { role: state.role, reviewScope: state.lastSaved?.reviewScope }),
+    ])),
+  } };
 }
 
 function renderFullAnalyticsReport(analytics = null) {
@@ -3368,6 +3382,7 @@ async function openLastSavedFilmRoom(button) {
       playbackUrl = signed?.url || null;
     }
     if (!mayPresentSavedReview({ saved, currentSaved: state.lastSaved, role: state.role, ticket, gate: adminReviewGate })) return;
+    state.filmGroups?.ingestResult(presentFilmRoomAnalytics(saved?.analytics || saved?.sessionDetail?.results?.payload?.analytics));
     renderFilmRoomSpine(saved?.sessionDetail, saved?.envelope);
     const video = $('#playback');
     if (video && playbackUrl) {
