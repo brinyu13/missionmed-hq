@@ -200,12 +200,12 @@ summary:has(.num)~p{padding-left:48px}
 .pmt-save{font-size:14.5px;line-height:1.5;color:var(--gold-soft)}
 .pmt-total{font-size:15px;line-height:1.5;color:var(--muted)}
 .pmt-total strong{color:var(--cream)}
-.closing .payment-choice{border-color:rgba(22,40,42,.25)}
-.closing .pmt+.pmt{border-color:rgba(22,40,42,.25)}
-.closing .pmt-best{background:var(--tan-ink);color:var(--cream)}
-.closing .pmt-save{color:#33403c}
-.closing .pmt-total{color:#33403c}
-.closing .pmt-total strong{color:var(--tan-ink)}
+.closing .payment-choice{border-color:#d5d0c6}
+.closing .pmt+.pmt{border-color:#d5d0c6}
+.closing .pmt-best{background:#172a2e;color:#fff}
+.closing .pmt-save{color:#46524f}
+.closing .pmt-total{color:#46524f}
+.closing .pmt-total strong{color:#172a2e}
 .iw-offer{border:1px solid var(--paper-line)}
 .iw-offer h3,.iw-offer .price b{color:var(--paper-ink)}
 .iw-offer .price span,.iw-offer .offer-boundary{color:var(--paper-muted)}
@@ -351,22 +351,24 @@ tbody th{font-weight:600;width:34%}
 .sold-out{display:inline-block;padding:5px 10px;border:1px solid var(--gold);font:400 var(--fs-meta)/1.3 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--gold)}
 
 /* ---------- Final enrollment close ---------- */
-.closing{background:var(--tan);color:var(--tan-ink);text-align:center}
-.closing .eyebrow{color:#4a3714}
-.closing h2{color:var(--tan-ink);font-size:clamp(34px,calc(2.8vw + 20px),62px)}
-.closing h2 em{color:var(--tan-red)}
-.decide{display:grid;grid-template-columns:1fr 1fr;max-width:1040px;margin:42px auto 0;border-block:1px solid rgba(22,40,42,.4);text-align:left}
+.closing{background:#fff;color:#172a2e;text-align:center}
+.closing .eyebrow{color:#635334}
+.closing h2{color:#172a2e;font-size:clamp(34px,calc(2.8vw + 20px),62px)}
+.closing h2 em{color:#8a3022}
+.decide{display:grid;grid-template-columns:1fr 1fr;max-width:1040px;margin:42px auto 0;border-block:1px solid #c8c3b8;text-align:left}
 .decide-option{display:flex;flex-direction:column;align-items:flex-start;padding:32px 44px 36px 0}
-.decide-option+.decide-option{padding:32px 0 36px 44px;border-left:1px solid rgba(22,40,42,.4)}
-.decide h3{color:var(--tan-ink);font-size:clamp(26px,2.3vw,32px)}
+.decide-option+.decide-option{padding:32px 0 36px 44px;border-left:1px solid #c8c3b8}
+.decide h3{color:#172a2e;font-size:clamp(26px,2.3vw,32px)}
 .decide-price{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin:14px 0 14px}
 .decide-price b{font:300 clamp(38px,3.3vw,46px)/1 var(--serif);letter-spacing:-.04em}
-.decide-price span{font-size:14.5px;line-height:1.4;color:#33403c}
+.decide-price span{font-size:14.5px;line-height:1.4;color:#46524f}
 .decide-option>p:not(.decide-price){font-size:16px;line-height:1.6;color:#27332f;margin-bottom:26px;max-width:40ch}
 .decide-option .button{margin-top:auto}
-.closing .button{background:var(--tan-ink);border-color:var(--tan-ink);color:var(--cream)}
-.closing .button.secondary{background:transparent;border-color:var(--tan-ink);color:var(--tan-ink)}
-.decide-note{margin-top:24px;font-size:16px;font-weight:500;color:var(--tan-ink)}
+.closing .button{background:#172a2e;border-color:#172a2e;color:#fff}
+.closing .button:hover{background:#234047;border-color:#234047}
+.closing .button.secondary{background:#fff;border-color:#172a2e;color:#172a2e}
+.closing .button.secondary:hover{background:#f4f1ea}
+.decide-note{margin-top:24px;font-size:16px;font-weight:500;color:#172a2e}
 
 /* ---------- Footer ---------- */
 .footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:24px 40px;padding:34px var(--pad);background:#f5f0e4;color:#14252b}
@@ -530,9 +532,9 @@ dialog.private-access-modal{width:620px;max-width:min(620px,calc(100vw - 32px))}
   .pmt+.pmt{padding-left:0;border-left:0;padding-top:20px;border-top:1px solid var(--line)}
   .decide{grid-template-columns:1fr;margin-top:44px}
   .decide-option,.decide-option+.decide-option{padding:32px 0 34px}
-  .decide-option+.decide-option{border-left:0;border-top:1px solid rgba(22,40,42,.4)}
+  .decide-option+.decide-option{border-left:0;border-top:1px solid #c8c3b8}
   .decide-option .button{width:100%}
-  .closing .pmt+.pmt{border-color:rgba(22,40,42,.25)}
+  .closing .pmt+.pmt{border-color:#d5d0c6}
   .footer{flex-direction:column;align-items:flex-start}
   .footer-links{gap:0 24px}
   dialog{padding:46px 22px 26px}
