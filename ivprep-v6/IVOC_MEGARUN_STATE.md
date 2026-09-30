@@ -2,7 +2,7 @@
 
 Updated: 2026-09-30 America/New_York
 Mission: `IVOC-CONVERGE-8001`
-Authority: `DR-290`, `DR-340` (temporary wp:142 IVOC-only QA access)
+Authority: `DR-290`, `DR-340` (temporary wp:142 Founder QA grant revoked)
 Branch: `codex/ivoc-foreman-9200`
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
 Current terminal status: `ACTIVE P0 USER-JOURNEY RECOVERY — NOT COMPLETE`
@@ -14,6 +14,32 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **2026-09-30 current guardian and student-entry recovery:** Remotely read-back
+  source `77bd32605c6eeafef1654ce7eccfb6e0112dc098` is live on Railway
+  `7283667f-44f9-4dc4-8b94-90fc05a9ef60` (SUCCESS, image
+  `sha256:1411a8d781624b8be4c8d0a89629cc740f73cf507a5e5e1fd5f0c3afd6182527`).
+  `/health` is 200; anonymous product/bootstrap are 401. Previous infrastructure
+  baseline `b971e219-f7c4-47ef-91e3-42d9f9bc8c1e` is REMOVED by Railway;
+  rollback requires exact-source/config redeploy, not source reset. The DR-340
+  temporary Founder allowlist is restored to its exact preimage `1`; Admin
+  allowlist remains `1,107`. Dedicated IVOC database readback shows `wp:142`
+  `founder=false`, `video_enabled=false`; the subject's separately verified
+  ordinary 360-course entitlement renewed `voice_enabled=true`. Do not revoke
+  that legitimate course access merely to erase the QA grant.
+- **Ordinary 360 module boot: LIVE UI VERIFIED for entry, full journeys not
+  accepted.** After the QA grant was removed, authenticated `wp:142` initially
+  froze at Home `Loading…`: three imported ES modules returned HTTP 403 after
+  4-second per-asset owner course checks. The IVOC mount now reuses only a
+  30-second successful admission for static assets, coalesces concurrent first
+  asset refreshes, and still runs strict HQ cookie/revocation/entitlement checks
+  on every request; product pages and APIs always refresh owner authority.
+  Admission-focused tests passed 24/24. On the new deployment, previously
+  failing modules returned 200 within milliseconds; a fresh Chrome production
+  load completed as `wp:142` / `subscriber`, greeted Ismat, rendered all 193
+  questions, withheld Admin controls, and the visible AI Mock action reached
+  Device Calibration. Railway edge intermittently returned fallback 404/502
+  during rollout before later 200/401 readback; do not infer sustained routing
+  reliability or complete Student Journey A/B from this entry proof.
 - **Current production guardian (2026-09-30):** Source
   `fc3a9d3526dc09dfd9063f7c0cdb204b99f1e450` is remotely read back;
   Railway `7e2072f4-1f1e-4816-9783-e9159538d910` reports SUCCESS, image
@@ -662,17 +688,18 @@ the actual production route and deployment.
 | 17 | Fictional 10–15 avatar configuration model | LIVE VERIFIED | Authenticated `brinyu` Admin readback returned 12 fictional profiles spanning Program Director, Faculty and Chief Resident with Dove/Peacock/Owl/Eagle styles; every entry explicitly forbids person cloning and carries no provider voice or avatar asset identity. |
 | 17 | Active LemonSlice provider integration | DEFERRED LEMONSLICE ONLY | Founder explicitly deferred active provider/spend. |
 | 18 | Dr Brian/brinyu Admin and second authorized Admin | LIVE UNVERIFIED | `wp:1` Founder/Admin is live accepted. Current WordPress authority verifies `wp:107` (`brian_test`) as an administrator; the production IVOC allowlist and dedicated entitlement now include `wp:107`. Final acceptance still requires a genuine authenticated `wp:107` browser session; no session was forged. |
-| 18 | Entitled 360 student and non-entitled/revoked/expired denials | LIVE UNVERIFIED | Fail-closed contracts exist; actual role/entitlement canaries remain. |
+| 18 | Entitled 360 student and non-entitled/revoked/expired denials | LIVE VERIFIED ENTRY / FULL ACCEPTANCE WAITING | Ordinary course-entitled `wp:142` authenticated as `subscriber`, loaded production Home and 193 questions after the static-module fix, and navigated AI Mock to Device Calibration with Founder/Admin controls absent. Negative-role/revoked/expired production identities and the full student media journey remain unverified. |
 | 18 | Wrong-role/wrong-mentor denial and actor/subject separation | LIVE UNVERIFIED | Requires authenticated production negative-path acceptance. |
 | 18 | Private media, signed/revocable playback, no public leakage, audit trail | LIVE UNVERIFIED | Owner signed playback, reload, transcript-spine authorization, `context_persist` audit and anonymous HTTP 401 passed. Wrong-owner/negative-role denial and revocation remain. |
 
 ## Current production and governance gates
 
 - Latest healthy MissionMed HQ production is Railway deployment
-  `2442f856-4e56-4371-a327-5dcb63f6b303` from exact product commit
-  `bc47ec996d05759bc5507fa9b27ba36cb961fc68`; `/health` is HTTP 200, the
-  unauthenticated product route fails closed at HTTP 401, and the verified
-  second-Admin allowlist remains `wp:1,wp:107`.
+  `7283667f-44f9-4dc4-8b94-90fc05a9ef60` from exact source
+  `77bd32605c6eeafef1654ce7eccfb6e0112dc098`; `/health` is HTTP 200,
+  anonymous product/bootstrap fail closed at HTTP 401, Founder allowlist is
+  restored to `wp:1`, and Admin allowlist remains `wp:1,wp:107`. Railway edge
+  404/502 intermittency during this rollout remains an operational sentinel.
 - Runtime bindings point to dedicated project `bscnrgqlwsyygyfrbhfn` without
   exposing credentials. Context/transcript flags are enabled for the bounded
   production path; paid-test provider controls remain server-only and fail closed.
@@ -722,8 +749,10 @@ the actual production route and deployment.
    barge-in and the pool-ordered next-question path once.
 2. Recheck File Vault and StoryForge positive projections only after genuine
    authorized current-CV or consented-story data exists.
-3. Run second-Admin, entitled-360 and negative/wrong-owner acceptance only from
-   genuine authenticated sessions; do not forge identity evidence.
+3. Use the genuine `wp:142` student session for remaining physical-media POV
+   when available; run second-Admin and negative/wrong-owner acceptance only
+   from genuine authenticated identities. Do not forge evidence or restore the
+   revoked Founder QA grant.
 4. Recheck Webex only when the owner changes from `RECORDING PROCESSING` to a
    completed private recording.
 5. Accept longitudinal recurrence only after enough genuine saved sessions
