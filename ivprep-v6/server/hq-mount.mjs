@@ -21,6 +21,8 @@ const MAX_BODY_BYTES = 64 * 1024;
 const PRODUCT_PREFIX = '/iv-prep-on-call';
 const LIVE_ANALYTICS_PREFIX = `${PRODUCT_PREFIX}/live-analytics`;
 const API_PREFIX = '/api/ivprep-v6';
+const STATIC_ADMISSION_TTL_MS = 30_000;
+const MAX_STATIC_ADMISSIONS = 256;
 
 const MIME = Object.freeze({
   '.css': 'text/css; charset=utf-8',
@@ -215,6 +217,28 @@ export function createIvPrepHqHandler({
 } = {}) {
   const interviews = new Map();
   const liveSessions = new Map();
+  // The product's ES module graph can request dozens of files at once. A fresh
+  // course-entitlement lookup for every file can exhaust the upstream WordPress
+  // check and strand an otherwise admitted student midway through boot. Only
+  // static code assets may reuse a recent successful admission; every API and
+  // product-page request still refreshes the owner entitlement. The strict HQ
+  // session, local revocation, and entitlement checks run on every asset hit.
+  const staticAdmissions = new Map();
+  const staticRefreshes = new Map();
+  const staticAdmissionKey = (hqSession, cookieFingerprint) => {
+    const userId = Number(hqSession?.user?.id);
+    return Number.isSafeInteger(userId) && userId > 0
+      && /^[a-f0-9]{64}$/u.test(String(cookieFingerprint || ''))
+      ? `${userId}:${cookieFingerprint}` : null;
+  };
+  const rememberStaticAdmission = (key) => {
+    if (!key) return;
+    staticAdmissions.delete(key);
+    staticAdmissions.set(key, now() + STATIC_ADMISSION_TTL_MS);
+    if (staticAdmissions.size > MAX_STATIC_ADMISSIONS) {
+      staticAdmissions.delete(staticAdmissions.keys().next().value);
+    }
+  };
   const sealedLiveKitSignalOrigin = liveKitSignalOrigin == null ? null : trustedWebSocketOrigin(liveKitSignalOrigin);
   if (liveKitSignalOrigin != null && !sealedLiveKitSignalOrigin) {
     throw new Error('LiveKit browser signal origin is invalid.');
@@ -240,11 +264,34 @@ export function createIvPrepHqHandler({
       return true;
     }
 
+    const staticAssetRequest = pathname.startsWith(`${PRODUCT_PREFIX}/assets/`)
+      && (request.method === 'GET' || request.method === 'HEAD');
+    const assetAdmissionKey = staticAdmissionKey(hqSession, cookieFingerprint);
+    let refreshed = false;
     try {
       if (typeof registry.refreshSubject === 'function') {
-        await registry.refreshSubject({ hqSession, cookieFingerprint });
+        if (staticAssetRequest && assetAdmissionKey
+          && staticAdmissions.get(assetAdmissionKey) > now()) {
+          // Only the expensive owner refresh is skipped, never session admission.
+        } else if (staticAssetRequest && assetAdmissionKey) {
+          let pending = staticRefreshes.get(assetAdmissionKey);
+          if (!pending) {
+            pending = Promise.resolve().then(() => registry.refreshSubject({ hqSession, cookieFingerprint }));
+            staticRefreshes.set(assetAdmissionKey, pending);
+            pending.then(
+              () => staticRefreshes.delete(assetAdmissionKey),
+              () => staticRefreshes.delete(assetAdmissionKey),
+            );
+          }
+          await pending;
+          refreshed = true;
+        } else {
+          await registry.refreshSubject({ hqSession, cookieFingerprint });
+          refreshed = true;
+        }
       }
     } catch {
+      if (assetAdmissionKey) staticAdmissions.delete(assetAdmissionKey);
       sendJson(response, 503, { error: 'ivprep_admission_unavailable' });
       return true;
     }
@@ -258,9 +305,11 @@ export function createIvPrepHqHandler({
       maxSessionTtlSeconds: hqSessionMaxTtlSeconds,
     });
     if (!admission.ok) {
+      if (assetAdmissionKey) staticAdmissions.delete(assetAdmissionKey);
       sendAdmissionError(response, admission);
       return true;
     }
+    if (refreshed) rememberStaticAdmission(assetAdmissionKey);
 
     if (pathname === PRODUCT_PREFIX) {
       response.writeHead(308, headers({ Location: `${PRODUCT_PREFIX}/` }));

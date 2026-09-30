@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { Readable } from 'node:stream';
+import { Readable, Writable } from 'node:stream';
+import { finished } from 'node:stream/promises';
 import test from 'node:test';
 
 import { InMemoryAdmissionRegistry } from '../../server/admission-registry.mjs';
@@ -68,6 +69,22 @@ async function invoke(handler, { path = '/api/ivprep-v6/session', method = 'GET'
   return { handled, status: response.status, headers: response.headers, body: response.body ? JSON.parse(response.body) : null };
 }
 
+async function invokeAsset(handler, { path, hqSession = session(142), fingerprint = 'b'.repeat(64) } = {}) {
+  const request = Readable.from([]);
+  request.method = 'GET';
+  request.headers = { host: 'hq.local' };
+  const chunks = [];
+  const response = new Writable({ write(chunk, _encoding, callback) { chunks.push(chunk); callback(); } });
+  response.writeHead = (status, headers) => { response.status = status; response.headers = headers; };
+  await handler({
+    request, response, url: new URL(path, 'http://hq.local'), hqSession,
+    cookieFingerprint: fingerprint, hqSessionMaxTtlSeconds: 300,
+    expectedOrigin: 'http://hq.local',
+  });
+  await finished(response);
+  return { status: response.status, body: Buffer.concat(chunks).toString('utf8') };
+}
+
 function registry() {
   const value = new InMemoryAdmissionRegistry({ now: () => NOW });
   value.grantSyntheticEntitlement({
@@ -86,6 +103,69 @@ test('feature flags, bearer auth, and missing entitlement deny before product da
   assert.equal((await invoke(on, { path: '/api/ivprep-v6/session?next=Bearer%20opaque' })).status, 401);
   const empty = createIvPrepHqHandler({ registry: new InMemoryAdmissionRegistry({ now: () => NOW }), now: () => NOW, flags: { enabled: true, adminCanaryEnabled: true, videoEnabled: false } });
   assert.equal((await invoke(empty)).status, 403);
+});
+
+test('course-entitled student static module boot reuses a short admission without weakening API or session checks', async () => {
+  const student = { ...session(142), user: { id: 142, roles: ['subscriber'] } };
+  const enrolled = new InMemoryAdmissionRegistry({ now: () => NOW });
+  let ownerChecks = 0;
+  enrolled.refreshSubject = async () => {
+    ownerChecks += 1;
+    if (ownerChecks > 1) {
+      enrolled.revokeEntitlement('wp:142');
+      return false;
+    }
+    enrolled.grantSyntheticEntitlement({
+      subject: 'wp:142', revision: 'course-1', expiresAtMs: NOW + 120_000,
+      founder: false, voice: true, video: false,
+    });
+    return true;
+  };
+  const handler = createIvPrepHqHandler({
+    registry: enrolled, now: () => NOW,
+    flags: { enabled: true, adminCanaryEnabled: true, videoEnabled: false },
+  });
+  assert.equal((await invoke(handler, { path: '/iv-prep-on-call/', method: 'HEAD', hqSession: student, fingerprint: 'b'.repeat(64) })).status, 200);
+  const paths = [
+    '/iv-prep-on-call/assets/studio/live-context-adapter.mjs',
+    '/iv-prep-on-call/assets/studio/live-interview.mjs',
+    '/iv-prep-on-call/assets/capabilities/admin-student-library.mjs',
+  ];
+  const modules = await Promise.all(paths.map((path) => invokeAsset(handler, { path, hqSession: student })));
+  assert.deepEqual(modules.map(({ status }) => status), [200, 200, 200]);
+  assert.ok(modules.every(({ body }) => body.length > 0));
+  assert.equal(ownerChecks, 1, 'module burst must not repeat external course checks');
+
+  const expired = { ...student, expiresAt: new Date(NOW - 1).toISOString() };
+  assert.equal((await invokeAsset(handler, { path: paths[0], hqSession: expired })).status, 401);
+  assert.equal((await invoke(handler, { path: '/api/ivprep-v6/session', hqSession: student, fingerprint: 'b'.repeat(64) })).status, 403);
+  assert.equal(ownerChecks, 2, 'product API must revalidate owner entitlement');
+  assert.equal((await invokeAsset(handler, { path: paths[0], hqSession: student })).status, 403);
+});
+
+test('concurrent first static module requests coalesce the course entitlement refresh', async () => {
+  const enrolled = new InMemoryAdmissionRegistry({ now: () => NOW });
+  let ownerChecks = 0;
+  enrolled.refreshSubject = async () => {
+    ownerChecks += 1;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    enrolled.grantSyntheticEntitlement({
+      subject: 'wp:142', revision: 'course-1', expiresAtMs: NOW + 120_000,
+      founder: false, voice: true, video: false,
+    });
+    return true;
+  };
+  const handler = createIvPrepHqHandler({
+    registry: enrolled, now: () => NOW,
+    flags: { enabled: true, adminCanaryEnabled: true, videoEnabled: false },
+  });
+  const modules = await Promise.all([
+    '/iv-prep-on-call/assets/studio/live-context-adapter.mjs',
+    '/iv-prep-on-call/assets/studio/live-interview.mjs',
+    '/iv-prep-on-call/assets/capabilities/admin-student-library.mjs',
+  ].map((path) => invokeAsset(handler, { path })));
+  assert.deepEqual(modules.map(({ status }) => status), [200, 200, 200]);
+  assert.equal(ownerChecks, 1);
 });
 
 test('admitted session projection contains no shared token and vault is empty', async () => {
