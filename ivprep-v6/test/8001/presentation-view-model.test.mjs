@@ -77,6 +77,8 @@ test('Admin review copy names the selected student instead of the reviewer', () 
   assert.equal(reviewEvidenceCopy(pitch, { role: 'admin', reviewScope: 'self' }), pitch);
   assert.equal(reviewEvidenceCopy(pitch, { role: 'admin', reviewScope: 'admin' }), "+1.1 st vs the student's median");
   assert.equal(reviewEvidenceCopy(transcript, { role: 'admin', reviewScope: 'admin' }), "Counted from the student's transcript");
+  assert.equal(reviewEvidenceCopy('UNAVAILABLE — KEEP SPEAKING TO ESTABLISH YOUR RANGE', { role: 'admin', reviewScope: 'admin' }), 'UNAVAILABLE — INSUFFICIENT STUDENT SPEECH TO ESTABLISH A RANGE');
+  assert.equal(reviewEvidenceCopy('+0.2 vs your baseline', { role: 'admin', reviewScope: 'admin' }), "+0.2 vs the student's baseline");
 });
 
 test('Home presents real latest-session and mentor state with truthful empty fallbacks', () => {

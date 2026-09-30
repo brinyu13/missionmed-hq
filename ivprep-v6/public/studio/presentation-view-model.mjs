@@ -95,8 +95,10 @@ export function reviewTurnSpeakerLabel(speaker, { role = 'student', ownerDisplay
 export function reviewEvidenceCopy(value, { role = 'student', reviewScope = null } = {}) {
   const copy = String(value ?? '');
   if (role !== 'admin' || reviewScope !== 'admin') return copy;
-  return copy.replaceAll('your median', "the student's median")
-    .replaceAll('your transcript', "the student's transcript");
+  return copy.replaceAll('KEEP SPEAKING TO ESTABLISH YOUR RANGE', 'INSUFFICIENT STUDENT SPEECH TO ESTABLISH A RANGE')
+    .replaceAll('your median', "the student's median")
+    .replaceAll('your transcript', "the student's transcript")
+    .replaceAll('your baseline', "the student's baseline");
 }
 
 export function reviewTranscriptCoverage(turns = []) {
