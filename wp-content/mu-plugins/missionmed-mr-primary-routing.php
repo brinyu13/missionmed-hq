@@ -62,7 +62,15 @@ add_action('template_redirect', static function (): void {
             $href = $tags->get_attribute('href');
             if (!is_string($href)) continue;
             $next = mm_mr_primary_public_url($href);
+            // Current homepage legacy-waitlist CTAs are later normalized by existing JS.
+            // Send them directly to the canonical page before that script runs.
+            if (preg_match('~^(?:https?://(?:www\\.)?missionmedinstitute\\.com)?/mission-residency-waitlist/?(?=[?#]|$)~i', $href)) {
+                $next = preg_replace('~/mission-residency-waitlist/?(?=[?#]|$)~', '/missionresidency/', $href);
+            }
             if ($next !== $href) $tags->set_attribute('href', $next);
+            // The inherited shared header restores href from this exact data attribute.
+            $source = $tags->get_attribute('data-mm-href');
+            if (is_string($source)) $tags->set_attribute('data-mm-href', mm_mr_primary_public_url($source));
         }
         return $tags->get_updated_html();
     });
