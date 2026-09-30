@@ -1,0 +1,17 @@
+import fs from 'node:fs';import crypto from 'node:crypto';import assert from 'node:assert/strict';import {execFileSync} from 'node:child_process';
+assert.equal(process.env.MR_COPY_LEASE_ACTIVE,'1','Exact page.php lease required');
+const here=new URL('./',import.meta.url),base='wp-content/mu-plugins/missionmed-mr-alternate-assets',root='/www/theresidencyacademy_209/public';
+const custody='/www/theresidencyacademy_209/private/mr-bootcamp-headline-20260930';
+const old='b412650357699ab80c49b407367b9182a93bb74b646bfb98dac1268488a6326d',next='19e1556c934dca038d332633ac092ecea121ce5eff298bd1f72bfd7b44138cea';
+const sha=b=>crypto.createHash('sha256').update(b).digest('hex'),ssh=s=>execFileSync('ssh',['missionmed-kinsta',`set -eu; cd ${root}; ${s}`],{encoding:'utf8',timeout:25000});
+assert.equal(sha(fs.readFileSync(base+'/page.php')),next);
+const before=await (await fetch('https://missionmedinstitute.com/missionresidency/')).text();assert(before.includes('One Usable Foundation.'));fs.writeFileSync(new URL('public-before.html',here),before);
+const protect=`find ${base} -type f ! -name page.php -print0 | sort -z | xargs -0 sha256sum; sha256sum wp-content/mu-plugins/missionmed-mr*.php`;
+const protectedBefore=ssh(protect);
+const guard=`test "$(sha256sum ${base}/page.php | cut -d' ' -f1)" = '${old}'`;
+ssh(`${guard}; test ! -e ${custody}; umask 077; mkdir ${custody}; cp -p ${base}/page.php ${custody}/page-preimage.php`);
+execFileSync('scp',[base+'/page.php',`missionmed-kinsta:${custody}/page-candidate.php`],{timeout:25000});
+console.log(ssh(`${guard}; test "$(sha256sum ${custody}/page-candidate.php | cut -d' ' -f1)" = '${next}'; php -l ${custody}/page-candidate.php; install -m 644 ${custody}/page-candidate.php ${base}/page.php.headline-next; mv ${base}/page.php.headline-next ${base}/page.php; sha256sum ${base}/page.php`));
+assert.equal(ssh(protect),protectedBefore,'Unrelated runtime drift');
+fs.writeFileSync(new URL('deployment.json',here),JSON.stringify({at:new Date().toISOString(),source:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),custody,before:old,after:next,protectedBefore,protectedUnchanged:true,change:'One Usable Foundation. -> Skills That Last Far Beyond Interview Season.'},null,2));
+console.log('PASS: page.php copy-only deployment; all other presentation/runtime hashes unchanged');
