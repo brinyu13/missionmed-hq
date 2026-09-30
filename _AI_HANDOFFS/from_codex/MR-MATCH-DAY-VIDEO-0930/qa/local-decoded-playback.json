@@ -1,0 +1,47 @@
+[
+  {
+    "viewportWidth": 1440,
+    "videoWidth": 960,
+    "audioDecoded": 225,
+    "error": null,
+    "muted": false,
+    "playing": true,
+    "ready": 4
+  },
+  {
+    "viewportWidth": 1366,
+    "videoWidth": 960,
+    "audioDecoded": 277,
+    "error": null,
+    "muted": false,
+    "playing": true,
+    "ready": 4
+  },
+  {
+    "viewportWidth": 1024,
+    "videoWidth": 960,
+    "audioDecoded": 277,
+    "error": null,
+    "muted": false,
+    "playing": true,
+    "ready": 4
+  },
+  {
+    "viewportWidth": 430,
+    "videoWidth": 960,
+    "audioDecoded": 277,
+    "error": null,
+    "muted": false,
+    "playing": true,
+    "ready": 4
+  },
+  {
+    "viewportWidth": 390,
+    "videoWidth": 960,
+    "audioDecoded": 277,
+    "error": null,
+    "muted": false,
+    "playing": true,
+    "ready": 4
+  }
+]

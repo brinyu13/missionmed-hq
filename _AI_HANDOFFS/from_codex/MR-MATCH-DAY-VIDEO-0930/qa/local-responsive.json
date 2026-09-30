@@ -1,0 +1,187 @@
+[
+  {
+    "width": 1440,
+    "before": {
+      "lcp": 288,
+      "cls": 0,
+      "height": 10949
+    },
+    "after": {
+      "lcp": 96,
+      "cls": 0,
+      "height": 10949,
+      "initialVideoRequests": 0,
+      "initialVideoBytes": 0,
+      "overflow": 0
+    },
+    "opened": {
+      "open": true,
+      "focus": "mm-match-close",
+      "width": 1000,
+      "left": 220,
+      "right": 1220,
+      "videoAspect": 1.7777777777777777,
+      "controls": true,
+      "playsInline": true,
+      "preload": "none",
+      "muted": false,
+      "videoWidth": 960,
+      "playHeight": 48.5,
+      "closeHeight": 48.5
+    },
+    "closed": {
+      "open": false,
+      "videoCount": 0,
+      "focus": "mm-match-play",
+      "bodyOverflow": ""
+    }
+  },
+  {
+    "width": 1366,
+    "before": {
+      "lcp": 188,
+      "cls": 0,
+      "height": 10949
+    },
+    "after": {
+      "lcp": 124,
+      "cls": 0,
+      "height": 10949,
+      "initialVideoRequests": 0,
+      "initialVideoBytes": 0,
+      "overflow": 0
+    },
+    "opened": {
+      "open": true,
+      "focus": "mm-match-close",
+      "width": 1000,
+      "left": 183,
+      "right": 1183,
+      "videoAspect": 1.7777777777777777,
+      "controls": true,
+      "playsInline": true,
+      "preload": "none",
+      "muted": false,
+      "videoWidth": 0,
+      "playHeight": 48.5,
+      "closeHeight": 48.5
+    },
+    "closed": {
+      "open": false,
+      "videoCount": 0,
+      "focus": "mm-match-play",
+      "bodyOverflow": ""
+    }
+  },
+  {
+    "width": 1024,
+    "before": {
+      "lcp": 212,
+      "cls": 0,
+      "height": 11158
+    },
+    "after": {
+      "lcp": 104,
+      "cls": 0,
+      "height": 11158,
+      "initialVideoRequests": 0,
+      "initialVideoBytes": 0,
+      "overflow": 0
+    },
+    "opened": {
+      "open": true,
+      "focus": "mm-match-close",
+      "width": 992,
+      "left": 16,
+      "right": 1008,
+      "videoAspect": 1.7777777777777777,
+      "controls": true,
+      "playsInline": true,
+      "preload": "none",
+      "muted": false,
+      "videoWidth": 960,
+      "playHeight": 48.5,
+      "closeHeight": 48.5
+    },
+    "closed": {
+      "open": false,
+      "videoCount": 0,
+      "focus": "mm-match-play",
+      "bodyOverflow": ""
+    }
+  },
+  {
+    "width": 430,
+    "before": {
+      "lcp": 152,
+      "cls": 0,
+      "height": 16682
+    },
+    "after": {
+      "lcp": 88,
+      "cls": 0,
+      "height": 16682,
+      "initialVideoRequests": 0,
+      "initialVideoBytes": 0,
+      "overflow": 0
+    },
+    "opened": {
+      "open": true,
+      "focus": "mm-match-close",
+      "width": 410,
+      "left": 10,
+      "right": 420,
+      "videoAspect": 1.7777777777777777,
+      "controls": true,
+      "playsInline": true,
+      "preload": "none",
+      "muted": false,
+      "videoWidth": 0,
+      "playHeight": 48,
+      "closeHeight": 48
+    },
+    "closed": {
+      "open": false,
+      "videoCount": 0,
+      "focus": "mm-match-play",
+      "bodyOverflow": ""
+    }
+  },
+  {
+    "width": 390,
+    "before": {
+      "lcp": 132,
+      "cls": 0,
+      "height": 17482
+    },
+    "after": {
+      "lcp": 84,
+      "cls": 0,
+      "height": 17482,
+      "initialVideoRequests": 0,
+      "initialVideoBytes": 0,
+      "overflow": 0
+    },
+    "opened": {
+      "open": true,
+      "focus": "mm-match-close",
+      "width": 370,
+      "left": 10,
+      "right": 380,
+      "videoAspect": 1.7777777777777777,
+      "controls": true,
+      "playsInline": true,
+      "preload": "none",
+      "muted": false,
+      "videoWidth": 0,
+      "playHeight": 48,
+      "closeHeight": 48
+    },
+    "closed": {
+      "open": false,
+      "videoCount": 0,
+      "focus": "mm-match-play",
+      "bodyOverflow": ""
+    }
+  }
+]

@@ -1,0 +1,115 @@
+{
+  "fullPlaybackQa": {
+    "ended": true,
+    "duration": 266.5,
+    "time": 266.5,
+    "decodedAudioBytes": 5068904,
+    "events": [
+      {
+        "event": "match_day_video_start",
+        "send_to": "G-B4B4E26HMW",
+        "mission": "MR-USCE-ALTERNATE-0930",
+        "page_path": "/",
+        "video_id": "mission-residency-match-day",
+        "video_provider": "cloudflare-stream"
+      },
+      {
+        "event": "match_day_video_25",
+        "send_to": "G-B4B4E26HMW",
+        "mission": "MR-USCE-ALTERNATE-0930",
+        "page_path": "/",
+        "video_id": "mission-residency-match-day",
+        "video_provider": "cloudflare-stream"
+      },
+      {
+        "event": "match_day_video_50",
+        "send_to": "G-B4B4E26HMW",
+        "mission": "MR-USCE-ALTERNATE-0930",
+        "page_path": "/",
+        "video_id": "mission-residency-match-day",
+        "video_provider": "cloudflare-stream"
+      },
+      {
+        "event": "match_day_video_75",
+        "send_to": "G-B4B4E26HMW",
+        "mission": "MR-USCE-ALTERNATE-0930",
+        "page_path": "/",
+        "video_id": "mission-residency-match-day",
+        "video_provider": "cloudflare-stream"
+      },
+      {
+        "event": "match_day_video_complete",
+        "send_to": "G-B4B4E26HMW",
+        "mission": "MR-USCE-ALTERNATE-0930",
+        "page_path": "/",
+        "video_id": "mission-residency-match-day",
+        "video_provider": "cloudflare-stream"
+      }
+    ]
+  },
+  "contrastQa": [
+    {
+      "selector": "mm-match-play",
+      "foreground": "rgb(255, 255, 255)",
+      "background": [
+        16,
+        32,
+        57
+      ],
+      "ratio": 16.30791718157219,
+      "fontSize": "15px"
+    },
+    {
+      "selector": "mm-match-dialog-title",
+      "foreground": "rgb(255, 255, 255)",
+      "background": [
+        10,
+        22,
+        40
+      ],
+      "ratio": 18.129862065974283,
+      "fontSize": "22px"
+    },
+    {
+      "selector": "mm-match-close",
+      "foreground": "rgb(255, 255, 255)",
+      "background": [
+        16,
+        32,
+        57
+      ],
+      "ratio": 16.30791718157219,
+      "fontSize": "15px"
+    },
+    {
+      "selector": "mm-match-dialog-description",
+      "foreground": "rgb(227, 234, 243)",
+      "background": [
+        10,
+        22,
+        40
+      ],
+      "ratio": 14.961037625781662,
+      "fontSize": "15px"
+    },
+    {
+      "selector": "mm-match-status",
+      "foreground": "rgb(227, 234, 243)",
+      "background": [
+        10,
+        22,
+        40
+      ],
+      "ratio": 14.961037625781662,
+      "fontSize": "15px"
+    }
+  ],
+  "motionQa": {
+    "reduced": true,
+    "transition": "0s",
+    "animation": "none",
+    "parallax": "scroll"
+  },
+  "fullscreen": "UNVERIFIED: browser returned not granted, including native control. Recheck live after authority.",
+  "audioQuality": "Codec decoded; no subjective listening claim."
+}

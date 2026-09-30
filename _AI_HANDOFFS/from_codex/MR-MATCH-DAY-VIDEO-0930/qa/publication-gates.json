@@ -1,0 +1,42 @@
+[
+  {
+    "name": "valid fixture",
+    "expectedVisible": true,
+    "pass": true
+  },
+  {
+    "name": "disabled",
+    "expectedVisible": false,
+    "pass": true
+  },
+  {
+    "name": "string boolean",
+    "expectedVisible": false,
+    "pass": true
+  },
+  {
+    "name": "no authority",
+    "expectedVisible": false,
+    "pass": true
+  },
+  {
+    "name": "whitespace authority",
+    "expectedVisible": false,
+    "pass": true
+  },
+  {
+    "name": "wrong asset",
+    "expectedVisible": false,
+    "pass": true
+  },
+  {
+    "name": "bad UID",
+    "expectedVisible": false,
+    "pass": true
+  },
+  {
+    "name": "wrong provider",
+    "expectedVisible": false,
+    "pass": true
+  }
+]

@@ -1,0 +1,22 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import {execFileSync} from 'node:child_process';
+const here=path.dirname(new URL(import.meta.url).pathname),root=path.resolve(here,'../../..');
+const qa=path.join(here,'qa');fs.mkdirSync(qa,{recursive:true});
+const base='b6490e47f2593504a57432b3f48ab2a9617bc2ca',asset='wp-content/mu-plugins/missionmed-mr-alternate-assets/';
+const hash=b=>crypto.createHash('sha256').update(b).digest('hex');
+const old=name=>execFileSync('git',['-C',root,'show',base+':'+asset+name]);
+const master='/Users/brianb/MissionMed/Happy Match Cut.mov',custody='/Users/brianb/.codex/media-custody/mr-match-day-0930/';
+const inspect=p=>{const b=fs.readFileSync(p),atoms=[];let at=0;while(at+8<=b.length){let n=b.readUInt32BE(at);const type=b.toString('ascii',at+4,at+8);if(n===1)n=Number(b.readBigUInt64BE(at+8));if(!n)n=b.length-at;atoms.push({type,offset:at,size:n});at+=n;}return {path:p,sha256:hash(b),bytes:b.length,atoms,faststart:atoms.findIndex(x=>x.type==='moov')<atoms.findIndex(x=>x.type==='mdat'),probe:JSON.parse(execFileSync('ffprobe',['-v','error','-show_streams','-show_format','-of','json',p]))};};
+const media={master:inspect(master),custodyMaster:inspect(custody+'Happy Match Cut.master.mov'),localDerivative:inspect(custody+'match-day-540p.mp4')};
+fs.writeFileSync(path.join(qa,'media-inspection.json'),JSON.stringify(media,null,2));
+const page=fs.readFileSync(path.join(root,asset,'page.php'),'utf8');
+const preservation={base,masterUnchanged:media.master.sha256===media.custodyMaster.sha256,pageOnlyAddsMatchDayInclude:page.replace("<?php require __DIR__ . '/match-day-player.php'; ?>",'')===old('page.php').toString(),cssOnlyAppended:fs.readFileSync(path.join(root,asset,'alternate.css'),'utf8').startsWith(old('alternate.css').toString()),publicationConfig:JSON.parse(fs.readFileSync(path.join(root,asset,'match-day-media.json'))),changedTracked:execFileSync('git',['-C',root,'diff','--name-only']).toString().trim().split('\n')};
+const live=await fetch('https://missionmedinstitute.com/missionresidency/');const html=await live.text();
+preservation.live={status:live.status,htmlSha256:hash(html),montageSection:html.includes('This Is What Match Day Looks Like.'),humanProof:html.includes('A Mentor Who Gets to Know It.'),videoPublished:html.includes('data-match-day-source'),cssHashVersion:html.match(/alternate\.css\?v=([^"&]+)/)?.[1]};
+const legacy=await fetch('https://missionmedinstitute.com/mission-residency/?utm_source=facebook&utm_campaign=match-day-readonly',{redirect:'manual'});
+preservation.legacy={status:legacy.status,location:legacy.headers.get('location')};
+preservation.liveAssets={};for(const name of ['alternate.css','alternate.js']){const r=await fetch('https://missionmedinstitute.com/'+asset+name);const data=Buffer.from(await r.arrayBuffer());preservation.liveAssets[name]={status:r.status,sha256:hash(data),matchesPriorSource:hash(data)===hash(old(name))};}
+fs.writeFileSync(path.join(qa,'preservation.json'),JSON.stringify(preservation,null,2));
+console.log(JSON.stringify({media: {originalBytes:media.master.bytes,derivativeBytes:media.localDerivative.bytes,masterSha256:media.master.sha256,derivativeSha256:media.localDerivative.sha256},preservation},null,2));

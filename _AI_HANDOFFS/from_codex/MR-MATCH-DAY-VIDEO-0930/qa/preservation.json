@@ -1,0 +1,42 @@
+{
+  "base": "b6490e47f2593504a57432b3f48ab2a9617bc2ca",
+  "masterUnchanged": true,
+  "pageOnlyAddsMatchDayInclude": true,
+  "cssOnlyAppended": true,
+  "publicationConfig": {
+    "enabled": false,
+    "provider": "cloudflare-stream",
+    "streamUid": "",
+    "publicUseAuthority": "",
+    "masterSha256": "6ca321397fabd28d69c5e98a621c7b5d4fa7705f99d93a60daff2a5fc79d1398"
+  },
+  "changedTracked": [
+    "wp-content/mu-plugins/missionmed-mr-alternate-assets/alternate.css",
+    "wp-content/mu-plugins/missionmed-mr-alternate-assets/alternate.js",
+    "wp-content/mu-plugins/missionmed-mr-alternate-assets/page.php"
+  ],
+  "live": {
+    "status": 200,
+    "htmlSha256": "e7c6b627da705274ee9ac8e05a3e093b4fe78dcfc6c7fde140b6af979c76f8ed",
+    "montageSection": true,
+    "humanProof": true,
+    "videoPublished": false,
+    "cssHashVersion": "fd26071d894d"
+  },
+  "legacy": {
+    "status": 301,
+    "location": "https://missionmedinstitute.com/missionresidency/?utm_source=facebook&utm_campaign=match-day-readonly"
+  },
+  "liveAssets": {
+    "alternate.css": {
+      "status": 200,
+      "sha256": "fd26071d894ded34780b007e34dfce5d0cca98a41533e6110f8357549ab1a70c",
+      "matchesPriorSource": true
+    },
+    "alternate.js": {
+      "status": 200,
+      "sha256": "f269f59fb75ea9f3240611dafa6cd3e822164f47f5d236ed958c4af4d27fb176",
+      "matchesPriorSource": true
+    }
+  }
+}
