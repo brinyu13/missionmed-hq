@@ -56,7 +56,7 @@ add_action('template_redirect', static function (): void {
         || !in_array($_SERVER['REQUEST_METHOD'] ?? 'GET', ['GET', 'HEAD'], true)
         || is_feed() || !class_exists('WP_HTML_Tag_Processor')) return;
     ob_start(static function (string $html): string {
-        if (!preg_match('/<html(?:\\s|>)/i', $html) || strpos($html, 'mission-residency') === false) return $html;
+        if (!preg_match('/<html(?:\\s|>)/i', $html)) return $html;
         $tags = new WP_HTML_Tag_Processor($html);
         while ($tags->next_tag('A')) {
             // Some inherited header anchors initially have only data-mm-href, no href.
