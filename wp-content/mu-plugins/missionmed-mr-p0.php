@@ -1399,7 +1399,7 @@ add_filter('the_content', static function (string $content): string {
         ['IV Prep Complete', 'IV Prep Essentials: Interview Bootcamp Week', 'IV Prep Complete', 'Signature Mock entitlement confirmed at enrollment', 'Signature Mock entitlement confirmed at enrollment', 'physician mentors who teach residency applicants'],
         $content
     );
-    $content = preg_replace('~<section\s+id=["\']mm107-hero["\'][^>]*>.*?</section>~is', '', $content) ?? $content;
+    $content = preg_replace('~<section\b[^>]*\bid=["\']mm107-hero["\'][^>]*>.*?</section>~is', '', $content) ?? $content;
     $content = preg_replace('~<h6>FOR IMGs, DOs, AND REAPPLICANTS</h6>.*?See How Students Like You Matched\s*</a>~is', '', $content, 1) ?? $content;
     $hero = mm_mr_0929_home_hero_markup();
     // DR-267 secondary directory; no product, checkout or payment mutation.
