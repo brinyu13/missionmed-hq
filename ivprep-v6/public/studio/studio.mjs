@@ -931,9 +931,9 @@ function renderPoolSummary() {
 
 function renderGoalStep(host) {
   const choices = [
-    ['Full IV Simulation', 'A realistic start-to-finish residency interview.', 'synthetic-candidate.png'],
-    ['Guided Mock IV Practice', 'Structured support around one or more priorities.', 'storyforge.png'],
-    ['Individual Question', 'Give one specific answer your full attention.', 'iv-prep-on-call.png'],
+    ['Full IV Simulation', 'A realistic start-to-finish residency interview.', 'synthetic-candidate.webp'],
+    ['Guided Mock IV Practice', 'Structured support around one or more priorities.', 'storyforge.webp'],
+    ['Individual Question', 'Give one specific answer your full attention.', 'iv-prep-on-call.webp'],
   ];
   const cards = el('div', 'canon-purpose-cards');
   choices.forEach(([name, detail, image], index) => {
@@ -1131,7 +1131,7 @@ function renderProgramStep(host) {
         .some((value) => String(value || '').trim());
   };
   const photo = el('div', 'canon-photo-heading');
-  const image = el('img'); image.src = '/iv-prep-on-call/assets/studio/astra-assets/rise.png'; image.alt = '';
+  const image = el('img'); image.src = '/iv-prep-on-call/assets/studio/astra-assets/rise.webp'; image.alt = '';
   const copy = el('div'); copy.append(el('h2', '', 'Know the room.'), el('p', '', 'Search and select verified program intelligence, or continue with a manual entry.'));
   photo.append(image, copy); host.append(photo);
   const search = el('label', 'canon-search'); search.append(el('span', 'microcap', 'Program name'));
@@ -1322,7 +1322,7 @@ const READINESS_GUIDANCE = Object.freeze({
 });
 
 function renderReadinessStep(host) {
-  const intro = el('div', 'canon-photo-heading'); const image = el('img'); image.src = '/iv-prep-on-call/assets/studio/astra-assets/synthetic-candidate.png'; image.alt = '';
+  const intro = el('div', 'canon-photo-heading'); const image = el('img'); image.src = '/iv-prep-on-call/assets/studio/astra-assets/synthetic-candidate.webp'; image.alt = '';
   const copy = el('div'); copy.append(el('h2', '', 'Find your signal.'), el('p', '', 'Real capability states from the same camera, microphone, and analytics pipeline used in practice.')); intro.append(image, copy); host.append(intro);
   const rows = readinessRows();
   const tabs = el('div', 'canon-readiness-tabs');
