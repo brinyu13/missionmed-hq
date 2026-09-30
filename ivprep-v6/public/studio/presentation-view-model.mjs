@@ -52,7 +52,7 @@ export function buildReadinessRows({
 }
 
 export function buildContextSources({
-  mentorPriorities = null, durableAvailable = false, contextCapabilities = {},
+  mentorPriorities = null, durableAvailable = false, contextCapabilities = {}, programVerified = false,
 } = {}) {
   const top3Count = Array.isArray(mentorPriorities?.priorities) ? mentorPriorities.priorities.length : 0;
   const top3Connected = Number.isSafeInteger(mentorPriorities?.version) && mentorPriorities.version > 0;
@@ -61,7 +61,7 @@ export function buildContextSources({
   const fileVaultConnected = contextCapabilities?.fileVault?.connected === true;
   return Object.freeze([
     { name: 'StoryForge', available: storyForgeConnected, connected: storyForgeConnected, detail: 'Your authorized stories' },
-    { name: 'RISE', available: riseConnected, connected: riseConnected, detail: 'Verified program intelligence' },
+    { name: 'RISE', available: riseConnected && programVerified === true, connected: riseConnected, detail: 'Verified program intelligence' },
     { name: 'CV', available: fileVaultConnected, connected: fileVaultConnected, detail: 'Your reviewed current curriculum vitae' },
     { name: 'File Vault', available: fileVaultConnected, connected: fileVaultConnected, detail: 'Your private current CV' },
     { name: 'MCC', available: false, detail: 'MissionMed context' },

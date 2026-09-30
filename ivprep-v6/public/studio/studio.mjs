@@ -1247,12 +1247,13 @@ function renderEnvironmentStep(host) {
   const modes = el('div', 'canon-segment');
   ['Interview Mode', 'Coached / Live Analytics Mode'].forEach((mode) => modes.append(choiceButton({ className: 'canon-tab', selected: state.wizard.interviewMode === mode, label: mode, onClick: () => { state.wizard.interviewMode = mode; renderWizard(); } })));
   environment.append(modes, el('p', 'canon-muted', state.wizard.interviewMode === 'Interview Mode' ? 'A clean interview view. Enabled measurements continue in the background.' : 'Selected coaching overlays stay visible during practice.'));
-  const context = el('section', 'canon-panel'); context.append(el('h2', '', 'Bring the right context.'), el('p', 'canon-muted', 'Only sources authorized for your account can be included. Unavailable sources remain off.'));
+  const context = el('section', 'canon-panel'); context.append(el('h2', '', 'Bring the right context.'), el('p', 'canon-muted', 'Choose what this interview may use. Only verified, authorized material is included when the interview begins.'));
   const sourceGrid = el('div', 'canon-source-grid');
   const sources = buildContextSources({
     mentorPriorities: state.mentorPriorities,
     durableAvailable: state.durableAvailable,
     contextCapabilities: state.durable.bootstrapPayload?.capabilities?.contextSources || {},
+    programVerified: state.wizard.programVerified,
   });
   const storyForge = sources.find((source) => source.name === 'StoryForge');
   const story = el('div', 'canon-story-context');
@@ -1290,7 +1291,7 @@ function renderEnvironmentStep(host) {
   }
   sources.filter(({ name }) => name !== 'StoryForge').forEach(({ name, available, detail, connected = false }) => sourceGrid.append(choiceButton({
     className: 'canon-source-card', selected: state.wizard.contextSources.includes(name), label: name,
-    detail: `${detail} · ${available ? 'Available' : connected ? 'Nothing selected yet' : 'Not connected'}`,
+    detail: `${detail} · ${available ? 'Checked when interview begins' : connected ? 'Select a verified program first' : 'Not connected'}`,
     onClick: () => {
       if (!available) return;
       state.wizard.contextSources = state.wizard.contextSources.includes(name)
@@ -1300,7 +1301,14 @@ function renderEnvironmentStep(host) {
   })));
   const nonStorySources = sources.filter(({ name }) => name !== 'StoryForge');
   [...sourceGrid.children].forEach((button, index) => { if (!nonStorySources[index].available) { button.disabled = true; button.setAttribute('aria-disabled', 'true'); } });
-  context.append(story, sourceGrid); layout.append(environment, context); host.append(layout);
+  const cvHandoff = el('div', 'canon-inline-actions');
+  const cvLink = el('a', 'btn btn-secondary', 'Upload or update your CV in File Vault ↗');
+  cvLink.href = 'https://missionmedinstitute.com/member-dashboard/#filevault';
+  cvLink.target = '_blank';
+  cvLink.rel = 'noopener noreferrer';
+  cvHandoff.append(cvLink);
+  context.append(story, sourceGrid, cvHandoff, el('p', 'canon-muted', 'File Vault keeps your CV private and current. Return here after saving; future interviews check the authorized version.'));
+  layout.append(environment, context); host.append(layout);
 }
 
 function readinessRows() {

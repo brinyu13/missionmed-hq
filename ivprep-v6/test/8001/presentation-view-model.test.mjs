@@ -60,6 +60,13 @@ test('owner context cards follow the server capability manifest without exposing
   assert.equal(sources.find((source) => source.name === 'File Vault').available, true);
   assert.equal(sources.find((source) => source.name === 'RISE').available, false);
   assert.equal(sources.find((source) => source.name === 'MCC').available, false);
+  const connectedRise = buildContextSources({ contextCapabilities: { rise: { connected: true } } })
+    .find((source) => source.name === 'RISE');
+  assert.equal(connectedRise.connected, true);
+  assert.equal(connectedRise.available, false);
+  const selectedRise = buildContextSources({ programVerified: true, contextCapabilities: { rise: { connected: true } } })
+    .find((source) => source.name === 'RISE');
+  assert.equal(selectedRise.available, true);
 });
 
 test('Home presents real latest-session and mentor state with truthful empty fallbacks', () => {
