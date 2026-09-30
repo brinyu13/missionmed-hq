@@ -11,9 +11,7 @@
     "masterSha256": "6ca321397fabd28d69c5e98a621c7b5d4fa7705f99d93a60daff2a5fc79d1398"
   },
   "changedTracked": [
-    "wp-content/mu-plugins/missionmed-mr-alternate-assets/alternate.css",
-    "wp-content/mu-plugins/missionmed-mr-alternate-assets/alternate.js",
-    "wp-content/mu-plugins/missionmed-mr-alternate-assets/page.php"
+    ""
   ],
   "live": {
     "status": 200,

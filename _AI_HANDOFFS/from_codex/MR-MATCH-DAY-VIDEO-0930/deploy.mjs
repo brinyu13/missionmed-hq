@@ -1,0 +1,27 @@
+import fs from 'node:fs';
+import crypto from 'node:crypto';
+import {execFileSync} from 'node:child_process';
+// Caller must hold and heartbeat the exact eight-path provider lease.
+if(process.env.MR_MEDIA_LEASE_ACTIVE!=='1')throw Error('Exact-path lease required');
+const base='wp-content/mu-plugins/missionmed-mr-alternate-assets';
+const runtime='/www/theresidencyacademy_209/public';
+const custody='/www/theresidencyacademy_209/private/mr-match-day-video-0930';
+const files=['vendor/hls-1.7.3.min.js','vendor/HLS-LICENSE','vendor/HLS-PROVENANCE.md','match-day-media.json','match-day-player.php','alternate.css','alternate.js','page.php'];
+const old={'page.php':'be796c0e0e3aedbf47a1f74bfba31adb239ea4b20599a564ea372e5124f1aaf5','alternate.css':'fd26071d894ded34780b007e34dfce5d0cca98a41533e6110f8357549ab1a70c','alternate.js':'f269f59fb75ea9f3240611dafa6cd3e822164f47f5d236ed958c4af4d27fb176'};
+const hashes=Object.fromEntries(files.map(f=>[f,crypto.createHash('sha256').update(fs.readFileSync(`${base}/${f}`)).digest('hex')]));
+const q=s=>`'${s.replaceAll("'","'\\''")}'`;
+const ssh=s=>execFileSync('ssh',['missionmed-kinsta',`set -eu; cd ${q(runtime)}; ${s}`],{encoding:'utf8',timeout:25000});
+const guard=Object.entries(old).map(([f,h])=>`test "$(sha256sum ${q(base+'/'+f)} | cut -d' ' -f1)" = ${q(h)}`).join('; ');
+const absent=files.filter(f=>!old[f]).map(f=>`test ! -e ${q(base+'/'+f)}`).join('; ');
+const protect="sha256sum wp-content/mu-plugins/missionmed-mr*.php";
+const protectedBefore=ssh(protect);
+console.log(ssh(`${guard}; ${absent}; test ! -e ${q(custody)}; umask 077; mkdir -p ${q(custody+'/preimage')} ${q(custody+'/candidate/vendor')}; cp -p ${q(base+'/page.php')} ${q(base+'/alternate.css')} ${q(base+'/alternate.js')} ${q(custody+'/preimage/')}; sha256sum ${q(custody+'/preimage/')}*`));
+for(const f of files)execFileSync('scp',[`${base}/${f}`,`missionmed-kinsta:${custody}/candidate/${f}`],{timeout:25000});
+const verify=files.map(f=>`test "$(sha256sum ${q(custody+'/candidate/'+f)} | cut -d' ' -f1)" = ${q(hashes[f])}`).join('; ');
+const install=files.map(f=>`install -m 644 ${q(custody+'/candidate/'+f)} ${q(base+'/'+f+'.media-next')}; mv ${q(base+'/'+f+'.media-next')} ${q(base+'/'+f)}`).join('; ');
+console.log(ssh(`${guard}; ${absent}; ${verify}; php -l ${q(custody+'/candidate/page.php')}; php -l ${q(custody+'/candidate/match-day-player.php')}; mkdir -p ${q(base+'/vendor')}; ${install}; sha256sum ${files.map(f=>q(base+'/'+f)).join(' ')}`));
+const protectedAfter=ssh(protect);
+if(protectedBefore!==protectedAfter)throw Error('Unrelated MR runtime drift detected; inspect before any further write');
+const receipt={at:new Date().toISOString(),source:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),custody,files,preimages:old,absentBefore:files.filter(f=>!old[f]),deployed:hashes,protectedBefore,protectedAfter,protectedUnchanged:true};
+fs.writeFileSync(new URL('./qa/deployment.json',import.meta.url),JSON.stringify(receipt,null,2));
+console.log(JSON.stringify({deployed:files.length,protectedUnchanged:true,custody}));
