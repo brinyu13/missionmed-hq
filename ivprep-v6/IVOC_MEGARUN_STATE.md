@@ -1,8 +1,8 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-29 America/New_York
+Updated: 2026-09-30 America/New_York
 Mission: `IVOC-CONVERGE-8001`
-Authority: `DR-290`
+Authority: `DR-290`, `DR-340` (temporary wp:142 IVOC-only QA access)
 Branch: `codex/ivoc-foreman-9200`
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
 Current terminal status: `ACTIVE P0 USER-JOURNEY RECOVERY — NOT COMPLETE`
@@ -11,6 +11,42 @@ This is the one living requirement ledger required by the final Founder
 completion directive. A status of `LIVE UNVERIFIED` means the capability is
 present in the active source lineage but has not yet passed acceptance against
 the actual production route and deployment.
+
+## Foreman 9300 overnight reactivation — current dated evidence
+
+- **2026-09-30 scoped QA entry: LIVE, full POV unverified.** DR-340 registered
+  and remotely read back. Matrix identifies the available Chrome actor as
+  Ismat Huq (`wp:142`). Railway's IVOC-only Founder allowlist changed exactly
+  from `1` to `1,142`; WordPress global role, Admin allowlist, and other products
+  were not changed. Deployment `e6827d9c-d108-4350-aa02-04b490ba35c5`
+  reports SUCCESS, image
+  `sha256:a8fe5b83c1f9b51e5418f9fb69770db8e23ca9079fadfd202d16538d7d2b21bf`,
+  built from clean remotely read-back source `406e80790aeda4fd1a6f7d57af006c75a070c332`.
+  `/health` is 200 and anonymous product/bootstrap remain 401. Prior healthy
+  deployment `a21316a8-b013-4ca8-aa66-a56e7b30a86d`, source `fb2c014d2fa487f561201e9f2f68be80fe122df5`,
+  image `sha256:5de801a2c6d204e239ec6defa19693045c4a79b6a79239f0295097e90032aaa4`
+  is REMOVED by Railway; rollback means exact-source/config redeploy.
+- **Home freeze: LIVE FIX VERIFIED for the scoped actor.** Cold reload showed
+  `wp:142` with IVOC Founder/Admin role, and the visible Home AI Mock CTA now
+  advanced to Device Check. The prior frozen shell/403 condition did not recur.
+  Production entitlement readback shows `founder=true`, voice/video enabled,
+  but persisted `granted_video_seconds=0`; whether this affects any video
+  credit path requires a focused contract check. Grant expiry and exact
+  allowlist/entitlement reversal remain mandatory.
+- **First QA interview: PARTIAL, not Journey B acceptance.** In the normal
+  Chrome UI, FaceTime HD Camera and built-in microphone connected, readiness
+  reported 640×480 rendering, Start entered the distinct live Interview Room,
+  one canonical interviewer opening turn appeared in Transcript, End saved a
+  private recording and reached Results. The screenshot of preview/self-view
+  remained black despite the rendering flag; visible physical video is
+  UNVERIFIED. No physical candidate answer, contextual follow-up, barge-in,
+  audible two-sided replay, or cold-reload playback was observed in this short
+  unattended QA session. Do not promote Journey A–D from these partial steps.
+- **Actor/subject presentation defect: OPEN.** Despite Matrix identifying
+  Ismat (`wp:142`), IVOC greets the session as “Dr Brian.” Fix the narrow
+  view-model label without changing the IVOC-only authorization or selecting
+  another subject. One bounded read-only Astra 6 current-release review is
+  running; it does not self-certify production acceptance.
 
 ## Foreman 9200 reactivation — current dated evidence
 
