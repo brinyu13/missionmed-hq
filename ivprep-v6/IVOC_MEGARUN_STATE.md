@@ -115,6 +115,27 @@ the actual production route and deployment.
   deployment `3442d1c4-cacc-4e46-9745-219ee347c45c`, image
   `sha256:d7cba4be10b7412fd92a38911bb054998646e2f3dc7ebe6a5f53ece9b44d9691`
   is now REMOVED; exact-source/config redeploy is the rollback.
+- **2026-09-30 context truth and CV handoff: LIVE UI VERIFIED, owner data still
+  waiting.** Reviewed source `279148d4cda6ff62c8ffbae10aa049893df9fe0d`
+  deployed as Railway `df154025-6268-47ef-b1dd-feddcf9b5904`, image
+  `sha256:2e8737ccdbf68728dd7e81e1f194893ef8c8bd8663bada45f63ea2df7d0613ad`.
+  Health is 200; anonymous product/bootstrap remain 401. Authenticated `wp:142`
+  production Builder step 5 now disables RISE until a verified program is
+  selected, describes CV/File Vault/Prior IVOC as checked at interview start
+  rather than claiming subject data exists, and exposes a direct Upload/Update
+  CV link to Matrix's canonical File Vault route. The route redirects an
+  anonymous caller to WordPress login, as expected. No upload, positive
+  current-CV projection, or RISE owner authorization was inferred from the
+  link. Focused IVOC suite passed 108/108. Prior healthy source `62114964817abf63dd7b9d18f4378cccf746d1ba`,
+  deployment `d5f5f124-06f2-4390-9db7-fe24ad00850f`, image
+  `sha256:200b69403f3f4ddd664d48aaf772f5768eb61ed643313a894505ac52bdb3bb04`
+  is REMOVED; rollback requires exact-source/config redeploy.
+- **Video-credit contract check: no current GPT-Live core blocker identified.**
+  `granted_video_seconds=0` on the temporary QA subject remains a paid-video
+  reservation concern, but the current native GPT-Live student client does not
+  consume `videoSecondsAvailable`; only the separate video-test reservation
+  store checks that balance. Do not silently grant credits or infer avatar
+  acceptance from the enabled video flag.
 - **Independent presentation review: READ-ONLY COMPLETE.** Astra 6 identified
   the now-fixed actor label, the false visible-frame readiness claim, builder
   controls that require real state binding, and Admin review transcript labels
@@ -576,7 +597,7 @@ the actual production route and deployment.
 | 5 | Question Pool branching, persistent rail, presets, ordering, 193-question corpus | LIVE VERIFIED | Deployment `d94bf8fa…` visibly preserved the right rail on Practice Goal and Question Pool, enforced category → subcategory → question progression for Behavioral, selected real `BEH-001` from the 193-question corpus, and exposed ordered move/remove controls in the rail. |
 | 5 | Separate Interviewer and Program steps with role/style controls | LIVE VERIFIED | Authenticated production traversed the independent Program and Interviewer compositions with Program Director, Faculty, Chief Resident, APD and Dove/Peacock/Owl/Eagle controls. RISE hydration remains a separate owner projection. |
 | 5 | RISE-backed Program search, sourced highlights, people, freshness/manual fallback | LIVE VERIFIED | RISE owner `e0f9eb0` and IVOC `5824268` are live at deployments `6d1fd003…` and `2ee15d42…`. Production canary `3a6637db…` bound the exact 6,245-program release, received owner HTTP 200 and persisted only the minimized `rise.program_cheat_sheet` input plus versioned source/Context Pack receipts. |
-| 5 | Environment + Context sources and opt-in StoryForge reveal | LIVE VERIFIED | Authenticated production visibly renders MissionMed/Webex/Zoom/Teams, enables StoryForge/CV/File Vault/RISE from the server capability manifest, keeps MCC disabled, truthfully shows empty Top 3, keeps Prior IVOC available, and exposes separate StoryForge suggestion and inclusion consent. With no positive owner data, the reveal truthfully reports no verified match and leaves inclusion off. |
+| 5 | Environment + Context sources and opt-in StoryForge reveal | LIVE VERIFIED / POSITIVE OWNER DATA WAITING | Authenticated production visibly renders MissionMed/Webex/Zoom/Teams and StoryForge opt-in. CV/File Vault/Prior IVOC cards offer a session-start authorization check rather than promising subject data. RISE is disabled without a selected verified program; MCC and empty Top 3 remain disabled. The live Builder links to canonical Matrix File Vault for CV updates. Positive CV/story data and RISE access for this scoped QA actor remain unverified. |
 | 5 | Truthful Readiness & Calibration checks | LIVE VERIFIED | Deployment `d843d3dd…` presents Devices, Visual signals, Voice signals and Signal health with per-signal guidance over the real capability adapter. Live unloaded states remain truthful; 70 focused tests pass. Independent 1158 by 502 readback measured the stage fully inside its preview with no overlap against the workspace or persistent Question Pool. |
 | 6 | Real modular camera/mic Analytics with truthful availability states | LIVE VERIFIED | Physical production rep produced real microphone PCM plus face, hands, head and framing telemetry; unavailable signals continued to fail closed. |
 | 6 | Volume, pace, pauses, pitch, fillers and transcript boundaries | LIVE VERIFIED | Physical production reps proved live volume, variation, pitch, pace, cadence and pause states. Authenticated saved session `0d250e0c-1011-48bc-a416-f9ae4c2c735f` then cold-reconstructed three canonical transcript segments, 36 words, the 0 s–18 s capture-owner boundary and zero bounded filler candidates on deployment `6b5bad11…`; the UI discloses the bounded lexicon and explicitly rejects hidden-trait inference. |
