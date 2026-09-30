@@ -74,19 +74,26 @@ export function buildContextSources({
   ]);
 }
 
-export function buildHomeViewModel({ identity = null, sessions = [], mentorPriorities = null } = {}) {
+export function buildIdentityViewModel(identity = null) {
   const displayName = String(identity?.displayName || '').trim();
-  const roles = Array.isArray(identity?.roles) ? identity.roles.map((role) => String(role).toLowerCase()) : [];
-  const founder = identity?.founder === true || roles.some((role) => ['administrator', 'admin'].includes(role));
   const words = displayName.split(/\s+/u).filter(Boolean);
-  const initials = words.slice(0, 2).map((word) => word[0]?.toUpperCase()).join('') || (founder ? 'DB' : 'IV');
+  const isDrBrian = Number(identity?.wpUserId) === 1;
+  const initials = isDrBrian ? 'DB' : (words.slice(0, 2).map((word) => word[0]?.toUpperCase()).join('') || 'IV');
+  return Object.freeze({
+    initials,
+    greetingName: isDrBrian ? 'Dr Brian.' : (words[0] ? `${words[0]}.` : 'Doctor.'),
+  });
+}
+
+export function buildHomeViewModel({ identity = null, sessions = [], mentorPriorities = null } = {}) {
+  const { initials, greetingName } = buildIdentityViewModel(identity);
   const latest = [...sessions]
     .filter((session) => session && typeof session === 'object')
     .sort((left, right) => Date.parse(right.startedAt || right.endedAt || 0) - Date.parse(left.startedAt || left.endedAt || 0))[0] || null;
   const priorities = Array.isArray(mentorPriorities?.priorities) ? mentorPriorities.priorities : [];
   return Object.freeze({
     initials,
-    greetingName: founder ? 'Dr Brian.' : (words[0] ? `${words[0]}.` : 'Doctor.'),
+    greetingName,
     continueTitle: latest?.title || latest?.questionText || 'No saved practice yet',
     continueNote: latest ? 'Resume your latest private recording and evidence.' : 'Your saved attempts will appear here after your first practice.',
     mentorLabel: priorities.length ? 'Your next priority' : 'Mentor focus',

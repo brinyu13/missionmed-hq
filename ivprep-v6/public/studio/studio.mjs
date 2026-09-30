@@ -41,6 +41,7 @@ import {
 import {
   buildContextSources,
   buildHomeViewModel,
+  buildIdentityViewModel,
   buildReadinessRows,
   buildInterviewRoomModel,
   preserveInterviewLifecycle,
@@ -501,11 +502,14 @@ function applyIdentity() {
   }
   const roles = Array.isArray(identity.roles) ? identity.roles : [];
   const founder = identity.founder === true || roles.includes('administrator');
+  const presentation = buildIdentityViewModel(identity);
   name.textContent = identity.subject || 'Signed in';
   sub.textContent = founder ? 'Founder / Admin' : (roles[0] || 'Student');
-  mark.innerHTML = `<span>${founder ? 'DB' : String(identity.wpUserId ?? '?').slice(0, 2)}</span>`;
+  const initials = document.createElement('span');
+  initials.textContent = presentation.initials;
+  mark.replaceChildren(initials);
   const homeName = $('#home-first-name');
-  if (homeName) homeName.textContent = founder ? 'Dr Brian.' : 'Doctor.';
+  if (homeName) homeName.textContent = presentation.greetingName;
 }
 
 function applyHomeModel() {

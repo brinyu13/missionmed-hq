@@ -4,8 +4,10 @@ import test from 'node:test';
 import {
   buildContextSources,
   buildHomeViewModel,
+  buildIdentityViewModel,
   buildReadinessRows,
 } from '../../public/studio/presentation-view-model.mjs';
+import { publicAdmissionState } from '../../server/admission-contract.mjs';
 
 const row = (rows, label) => rows.find(([name]) => name === label);
 
@@ -62,7 +64,7 @@ test('Home presents real latest-session and mentor state with truthful empty fal
   assert.equal(empty.mentorPriority, 'No mentor priority has been set yet.');
 
   const real = buildHomeViewModel({
-    identity: { displayName: 'Brian Yu', roles: ['administrator'] },
+    identity: { wpUserId: 1, displayName: 'Brian Yu', roles: ['administrator'] },
     sessions: [
       { title: 'Older answer', startedAt: '2026-09-01T12:00:00Z' },
       { title: 'Recent answer', startedAt: '2026-09-02T12:00:00Z' },
@@ -72,4 +74,18 @@ test('Home presents real latest-session and mentor state with truthful empty fal
   assert.equal(real.greetingName, 'Dr Brian.');
   assert.equal(real.continueTitle, 'Recent answer');
   assert.equal(real.mentorPriority, 'Lead with your contribution.');
+});
+
+test('temporary IVOC Founder access does not impersonate Dr Brian in presentation', () => {
+  const admission = { ok: true, subject: 'wp:142', expiresAtMs: Date.now() + 60_000,
+    csrfToken: 'local-test-csrf', entitlement: { founder: true, voice: true, video: true, grantedVideoSeconds: 0, revision: 'test' } };
+  const publicState = publicAdmissionState(admission, {
+    hqSession: { user: { id: 142, displayName: 'Ismat Huq', roles: ['subscriber'] } },
+  });
+  assert.equal(publicState.identity.displayName, 'Ismat Huq');
+  assert.equal(publicState.identity.founder, true);
+  assert.deepEqual(buildIdentityViewModel(publicState.identity), { initials: 'IH', greetingName: 'Ismat.' });
+  assert.equal(buildHomeViewModel({ identity: publicState.identity }).greetingName, 'Ismat.');
+  assert.equal(buildIdentityViewModel({ wpUserId: 1, founder: true, displayName: 'Brian Yu' }).greetingName, 'Dr Brian.');
+  assert.equal(buildIdentityViewModel({ wpUserId: 142, founder: true }).greetingName, 'Doctor.');
 });

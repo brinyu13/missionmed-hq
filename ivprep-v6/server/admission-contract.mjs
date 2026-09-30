@@ -96,6 +96,7 @@ export function publicAdmissionState(admission, { videoEnabled = false, founderP
       ? Object.freeze({
           subject: admission.subject,
           wpUserId: Number(String(admission.subject).replace(/^wp:/u, '')) || null,
+          displayName: String(hqSession?.user?.displayName || '').trim().slice(0, 120),
           roles: Object.freeze(roles),
           founder: admission.entitlement?.founder === true,
         })
