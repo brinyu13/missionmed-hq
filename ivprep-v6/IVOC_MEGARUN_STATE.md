@@ -14,6 +14,31 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Current production guardian (2026-09-30):** Source
+  `fc3a9d3526dc09dfd9063f7c0cdb204b99f1e450` is remotely read back;
+  Railway `7e2072f4-1f1e-4816-9783-e9159538d910` reports SUCCESS, image
+  `sha256:290314b4c5aff2bab886ca4004ad97c7ad5bdfd3b89309ee5027c2f824325c82`.
+  `/health` is 200; anonymous product and bootstrap are 401. The previous
+  healthy release is source `8770e97df531dce8f3a46da12e7a88fcc9d5e0b7`,
+  deployment `9cf784cd-571e-4c93-ad39-0703db174643`, image
+  `sha256:97ecccf11bcd1ca450bf7a66325558c575cee4a31833295e345ff4f638e29dec`;
+  Railway rolling deploy may require exact-source redeploy for rollback.
+- **Admin Film Room subject isolation: LIVE UI VERIFIED, audio unverified.**
+  Authenticated `wp:142` Admin selected another authorized student's saved
+  interview, then the own interviewer-only QA recording. The first displayed
+  that student's median; the second displayed no carried-over pitch, face,
+  hands or framing evidence. Fresh release `fc3a9d3` also renders insufficient
+  speech as a student-evidence statement instead of instructing the reviewer
+  to speak. Focused Film Room/view-model tests passed 18/18. Actual audible
+  two-sided replay and wrong-owner negative-path acceptance remain unverified.
+- **Owner access distinction:** The scoped IVOC QA actor can open Matrix File
+  Vault and its canonical CV upload surface, but no current CV was uploaded;
+  positive CV projection is waiting. Direct RISE program search in the RISE
+  product returned results, while IVOC's delegated search for this actor was
+  denied at the RISE/HQ owner-auth boundary. DR-340 does not grant cross-product
+  Admin/RISE authority. The current IVOC Admin Live Mock panel reports its
+  Scheduler owner adapter unavailable for this actor; do not infer Scheduler
+  owner outage or widen the actor's global role from an IVOC-only grant.
 - **2026-09-30 scoped QA entry: LIVE, full POV unverified.** DR-340 registered
   and remotely read back. Matrix identifies the available Chrome actor as
   Ismat Huq (`wp:142`). Railway's IVOC-only Founder allowlist changed exactly
