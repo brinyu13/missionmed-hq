@@ -74,6 +74,12 @@ add_action('template_redirect', static function (): void {
         }
         // Existing public homepage cleanup assigns this literal href after rendering.
         // Migrate only that known link assignment, never pricing/content/commerce code.
-        return str_replace('a.href="/mission-residency/";', 'a.href="/missionresidency/";', $tags->get_updated_html());
+        $html = str_replace('a.href="/mission-residency/";', 'a.href="/missionresidency/";', $tags->get_updated_html());
+        // Shared cached theme scripts create some header links only after PHP rendering.
+        // Observe only newly created/changed anchors; preserve query/hash and all other URLs.
+        $navigation = <<<'JS'
+<script id="mm-mr-canonical-navigation">(()=>{'use strict';const fix=a=>{if(!a.matches?.('a'))return;for(const key of ['href','data-mm-href']){const raw=a.getAttribute(key);if(!raw)continue;let u;try{u=new URL(raw,location.origin)}catch{return}if(u.origin!==location.origin||!/^\/mission-residency\/?$/.test(u.pathname))continue;u.pathname='/missionresidency/';a.setAttribute(key,u.href)}};const scan=n=>{if(n.nodeType!==1)return;fix(n);n.querySelectorAll('a[href],a[data-mm-href]').forEach(fix)};scan(document.documentElement);new MutationObserver(ms=>{for(const m of ms){if(m.type==='attributes')fix(m.target);else m.addedNodes.forEach(scan)}}).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['href','data-mm-href']});})();</script>
+JS;
+        return str_ireplace('</body>', $navigation . '</body>', $html);
     });
 }, -2000);
