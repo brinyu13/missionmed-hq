@@ -1,0 +1,4722 @@
+{
+  "at": "2026-09-30T07:30:23.105Z",
+  "frames": {
+    "1440x900": {
+      "status": 200,
+      "frames": [
+        {
+          "index": 0,
+          "theme": "destination",
+          "headline": "YOU BUILT THE APPLICATION\nthat earned the interview.\nNOW LET'S TURN THE INTERVIEW\nINTO A MATCH.",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+          "alt": "Supplied Mission Residency physician image with Matched and Accomplished patch",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1440,
+            "bottom": 648,
+            "width": 1440,
+            "height": 648
+          },
+          "copy": {
+            "x": 748.796875,
+            "y": 112.5,
+            "right": 1375.921875,
+            "bottom": 506.359375,
+            "width": 627.125,
+            "height": 393.859375
+          },
+          "image": {
+            "x": 0,
+            "y": 0,
+            "right": 1440,
+            "bottom": 648,
+            "width": 1440,
+            "height": 648
+          },
+          "headlineRect": {
+            "x": 748.796875,
+            "y": 141.34375,
+            "right": 1375.921875,
+            "bottom": 382.796875,
+            "width": 627.125,
+            "height": 241.453125
+          },
+          "supportRect": {
+            "x": 748.796875,
+            "y": 397.796875,
+            "right": 1208.796875,
+            "bottom": 444.359375,
+            "width": 460,
+            "height": 46.5625
+          },
+          "ctaRect": {
+            "x": 748.796875,
+            "y": 458.359375,
+            "right": 1055.609375,
+            "bottom": 506.359375,
+            "width": 306.8125,
+            "height": 48
+          },
+          "controls": {
+            "x": 64.078125,
+            "y": 590,
+            "right": 1375.921875,
+            "bottom": 634,
+            "width": 1311.84375,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(231, 201, 149)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(220, 225, 223)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 1,
+          "theme": "exam-live",
+          "headline": "Your exam prep is missing one thing:\nlive practice.",
+          "cta": "Explore Exam Prep",
+          "href": "https://missionmedinstitute.com/examprep/",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+          "alt": "Existing Exam Prep live-page illustrative video-call photograph",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1440,
+            "bottom": 648,
+            "width": 1440,
+            "height": 648
+          },
+          "copy": {
+            "x": 64.078125,
+            "y": 112.5,
+            "right": 684.078125,
+            "bottom": 451.796875,
+            "width": 620,
+            "height": 339.296875
+          },
+          "image": {
+            "x": 0,
+            "y": 0,
+            "right": 1440,
+            "bottom": 648,
+            "width": 1440,
+            "height": 648
+          },
+          "headlineRect": {
+            "x": 64.078125,
+            "y": 141.34375,
+            "right": 684.078125,
+            "bottom": 328.234375,
+            "width": 620,
+            "height": 186.890625
+          },
+          "supportRect": {
+            "x": 64.078125,
+            "y": 343.234375,
+            "right": 534.078125,
+            "bottom": 389.796875,
+            "width": 470,
+            "height": 46.5625
+          },
+          "ctaRect": {
+            "x": 64.078125,
+            "y": 403.796875,
+            "right": 262.8125,
+            "bottom": 451.796875,
+            "width": 198.734375,
+            "height": 48
+          },
+          "controls": {
+            "x": 64.078125,
+            "y": 590,
+            "right": 1375.921875,
+            "bottom": 634,
+            "width": 1311.84375,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(232, 180, 79)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(224, 232, 237)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 2,
+          "theme": "story",
+          "headline": "Don’t memorize a better answer.\nBecome a better communicator.",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/b-immersive/assets/online-class.webp",
+          "alt": "Real MissionMed online class with students in a video call",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1440,
+            "bottom": 648,
+            "width": 1440,
+            "height": 648
+          },
+          "copy": {
+            "x": 64.078125,
+            "y": 112.5,
+            "right": 684.078125,
+            "bottom": 509.65625,
+            "width": 620,
+            "height": 397.15625
+          },
+          "image": {
+            "x": 452.17144775390625,
+            "y": -53.9000244140625,
+            "right": 1621.4380493164062,
+            "bottom": 705.9000244140625,
+            "width": 1169.2666015625,
+            "height": 759.800048828125
+          },
+          "headlineRect": {
+            "x": 64.078125,
+            "y": 141.34375,
+            "right": 684.078125,
+            "bottom": 386.09375,
+            "width": 620,
+            "height": 244.75
+          },
+          "supportRect": {
+            "x": 64.078125,
+            "y": 401.09375,
+            "right": 524.078125,
+            "bottom": 447.65625,
+            "width": 460,
+            "height": 46.5625
+          },
+          "ctaRect": {
+            "x": 64.078125,
+            "y": 461.65625,
+            "right": 370.890625,
+            "bottom": 509.65625,
+            "width": 306.8125,
+            "height": 48
+          },
+          "controls": {
+            "x": 64.078125,
+            "y": 590,
+            "right": 1375.921875,
+            "bottom": 634,
+            "width": 1311.84375,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(155, 65, 46)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(69, 85, 87)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 3,
+          "theme": "clinical",
+          "headline": "The right clinical experience.\nPlaced with precision.",
+          "cta": "Explore USCE",
+          "href": "https://missionmedinstitute.com/usce/",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/usce-operating.webp",
+          "alt": "Existing USCE live-page illustrative operating-room photograph",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1440,
+            "bottom": 648,
+            "width": 1440,
+            "height": 648
+          },
+          "copy": {
+            "x": 172.796875,
+            "y": 117,
+            "right": 1267.203125,
+            "bottom": 379.625,
+            "width": 1094.40625,
+            "height": 262.625
+          },
+          "image": {
+            "x": 0,
+            "y": 0,
+            "right": 1440,
+            "bottom": 648,
+            "width": 1440,
+            "height": 648
+          },
+          "headlineRect": {
+            "x": 195,
+            "y": 145.84375,
+            "right": 1245,
+            "bottom": 274.34375,
+            "width": 1050,
+            "height": 128.5
+          },
+          "supportRect": {
+            "x": 415,
+            "y": 289.34375,
+            "right": 1025,
+            "bottom": 312.625,
+            "width": 610,
+            "height": 23.28125
+          },
+          "ctaRect": {
+            "x": 638.5625,
+            "y": 331.625,
+            "right": 801.4375,
+            "bottom": 379.625,
+            "width": 162.875,
+            "height": 48
+          },
+          "controls": {
+            "x": 64.078125,
+            "y": 590,
+            "right": 1375.921875,
+            "bottom": 634,
+            "width": 1311.84375,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(200, 168, 78)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(227, 230, 227)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 4,
+          "theme": "evidence",
+          "headline": "The interview is part of\nthe ranking decision.",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-ranking.webp",
+          "alt": "NRMP Program Director Survey 2024 chart showing factors used to rank applicants",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1440,
+            "bottom": 648,
+            "width": 1440,
+            "height": 648
+          },
+          "copy": {
+            "x": 64.078125,
+            "y": 118,
+            "right": 619.65625,
+            "bottom": 392.78125,
+            "width": 555.578125,
+            "height": 274.78125
+          },
+          "image": {
+            "x": 633.3125,
+            "y": -179.140625,
+            "right": 1571.34375,
+            "bottom": 993.390625,
+            "width": 938.03125,
+            "height": 1172.53125
+          },
+          "headlineRect": {
+            "x": 64.078125,
+            "y": 146.84375,
+            "right": 619.65625,
+            "bottom": 269.21875,
+            "width": 555.578125,
+            "height": 122.375
+          },
+          "supportRect": {
+            "x": 64.078125,
+            "y": 284.21875,
+            "right": 534.078125,
+            "bottom": 330.78125,
+            "width": 470,
+            "height": 46.5625
+          },
+          "ctaRect": {
+            "x": 64.078125,
+            "y": 344.78125,
+            "right": 370.890625,
+            "bottom": 392.78125,
+            "width": 306.8125,
+            "height": 48
+          },
+          "controls": {
+            "x": 64.078125,
+            "y": 590,
+            "right": 1375.921875,
+            "bottom": 634,
+            "width": 1311.84375,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(33, 78, 103)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(70, 96, 107)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(56, 80, 94)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 5,
+          "theme": "exam-reasoning",
+          "headline": "Train how you think\nunder pressure.",
+          "cta": "Explore Exam Prep",
+          "href": "https://missionmedinstitute.com/examprep/",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+          "alt": "Existing Exam Prep live-page illustrative video-call photograph",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1440,
+            "bottom": 648,
+            "width": 1440,
+            "height": 648
+          },
+          "copy": {
+            "x": 64.078125,
+            "y": 126,
+            "right": 580.234375,
+            "bottom": 403,
+            "width": 516.15625,
+            "height": 277
+          },
+          "image": {
+            "x": 0,
+            "y": 0,
+            "right": 1440,
+            "bottom": 648,
+            "width": 1440,
+            "height": 648
+          },
+          "headlineRect": {
+            "x": 64.078125,
+            "y": 154.84375,
+            "right": 580.234375,
+            "bottom": 279.4375,
+            "width": 516.15625,
+            "height": 124.59375
+          },
+          "supportRect": {
+            "x": 64.078125,
+            "y": 294.4375,
+            "right": 534.078125,
+            "bottom": 341,
+            "width": 470,
+            "height": 46.5625
+          },
+          "ctaRect": {
+            "x": 64.078125,
+            "y": 355,
+            "right": 262.8125,
+            "bottom": 403,
+            "width": 198.734375,
+            "height": 48
+          },
+          "controls": {
+            "x": 64.078125,
+            "y": 590,
+            "right": 1375.921875,
+            "bottom": 634,
+            "width": 1311.84375,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(232, 180, 79)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(224, 232, 237)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 6,
+          "theme": "community",
+          "headline": "They already know what’s on your application.\nThe interview tells them what isn’t.",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-community.webp",
+          "alt": "Real Mission Residency classroom and Match Day community montage",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1440,
+            "bottom": 648,
+            "width": 1440,
+            "height": 648
+          },
+          "copy": {
+            "x": 64.078125,
+            "y": 112.5,
+            "right": 1375.921875,
+            "bottom": 259.15625,
+            "width": 1311.84375,
+            "height": 146.65625
+          },
+          "image": {
+            "x": 547.203125,
+            "y": 300,
+            "right": 1440,
+            "bottom": 630.328125,
+            "width": 892.796875,
+            "height": 330.328125
+          },
+          "headlineRect": {
+            "x": 64.078125,
+            "y": 141.34375,
+            "right": 1334.078125,
+            "bottom": 244.15625,
+            "width": 1270,
+            "height": 102.8125
+          },
+          "supportRect": {
+            "x": 64.078125,
+            "y": 317.5,
+            "right": 364.078125,
+            "bottom": 383.640625,
+            "width": 300,
+            "height": 66.140625
+          },
+          "ctaRect": {
+            "x": 64.078125,
+            "y": 432.5,
+            "right": 370.890625,
+            "bottom": 480.5,
+            "width": 306.8125,
+            "height": 48
+          },
+          "controls": {
+            "x": 64.078125,
+            "y": 590,
+            "right": 1375.921875,
+            "bottom": 634,
+            "width": 1311.84375,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(230, 200, 150)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(220, 228, 220)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(220, 228, 220)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 7,
+          "theme": "clinical-path",
+          "headline": "Your specialty. Your timeline.\nYour next clinical step.",
+          "cta": "Explore USCE",
+          "href": "https://missionmedinstitute.com/usce/",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/usce-clinical.webp",
+          "alt": "Existing USCE live-page illustrative clinical discussion photograph",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1440,
+            "bottom": 648,
+            "width": 1440,
+            "height": 648
+          },
+          "copy": {
+            "x": 64.078125,
+            "y": 117,
+            "right": 684.078125,
+            "bottom": 457.890625,
+            "width": 620,
+            "height": 340.890625
+          },
+          "image": {
+            "x": 0,
+            "y": 0,
+            "right": 1440,
+            "bottom": 648,
+            "width": 1440,
+            "height": 648
+          },
+          "headlineRect": {
+            "x": 64.078125,
+            "y": 145.84375,
+            "right": 684.078125,
+            "bottom": 334.328125,
+            "width": 620,
+            "height": 188.484375
+          },
+          "supportRect": {
+            "x": 64.078125,
+            "y": 349.328125,
+            "right": 534.078125,
+            "bottom": 395.890625,
+            "width": 470,
+            "height": 46.5625
+          },
+          "ctaRect": {
+            "x": 64.078125,
+            "y": 409.890625,
+            "right": 226.953125,
+            "bottom": 457.890625,
+            "width": 162.875,
+            "height": 48
+          },
+          "controls": {
+            "x": 64.078125,
+            "y": 590,
+            "right": 1375.921875,
+            "bottom": 634,
+            "width": 1311.84375,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(219, 199, 136)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(224, 233, 228)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        }
+      ],
+      "sections": {
+        "quote": {
+          "color": "rgb(245, 241, 231)",
+          "background": "rgba(0, 0, 0, 0)",
+          "text": "“You made me fall in love with my own story and believe that my dreams are valid against all Odds.”"
+        },
+        "quoteSection": {
+          "color": "rgb(245, 241, 231)",
+          "background": "rgb(21, 44, 41)",
+          "text": "“You made me fall in love with my own story and believe that my dreams are valid against all Odds.”\nDr Marian Ghaly · Mission Residency alumna\n\nFor IMGs, DOs and reapplicants seeking a clearer next step. Individual experiences are not a Match guarantee.\n\nSee what program directors consider\nRead student Match stories"
+        },
+        "nrmpHeading": {
+          "color": "rgb(255, 250, 242)",
+          "background": "rgba(0, 0, 0, 0)",
+          "text": "What Program Directors Actually Value"
+        },
+        "nrmpLead": {
+          "color": "rgb(220, 225, 223)",
+          "background": "rgba(0, 0, 0, 0)",
+          "text": "Click a category to see exactly which factors MissionMed helps you improve."
+        },
+        "nrmpHeader": {
+          "color": "rgb(26, 26, 26)",
+          "background": "rgb(15, 33, 55)",
+          "text": "NRMP PROGRAM DIRECTOR SURVEY 2024\nWhat Program Directors Actually Value\n\nClick a category to see exactly which factors MissionMed helps you improve."
+        }
+      },
+      "errors": [],
+      "failed": []
+    },
+    "1366x768": {
+      "status": 200,
+      "frames": [
+        {
+          "index": 0,
+          "theme": "destination",
+          "headline": "YOU BUILT THE APPLICATION\nthat earned the interview.\nNOW LET'S TURN THE INTERVIEW\nINTO A MATCH.",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+          "alt": "Supplied Mission Residency physician image with Matched and Accomplished patch",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1366,
+            "bottom": 620,
+            "width": 1366,
+            "height": 620
+          },
+          "copy": {
+            "x": 710.3125,
+            "y": 112,
+            "right": 1305.21875,
+            "bottom": 495.640625,
+            "width": 594.90625,
+            "height": 383.640625
+          },
+          "image": {
+            "x": 0,
+            "y": 0,
+            "right": 1366,
+            "bottom": 620,
+            "width": 1366,
+            "height": 620
+          },
+          "headlineRect": {
+            "x": 710.3125,
+            "y": 140.84375,
+            "right": 1305.21875,
+            "bottom": 374.453125,
+            "width": 594.90625,
+            "height": 233.609375
+          },
+          "supportRect": {
+            "x": 710.3125,
+            "y": 389.453125,
+            "right": 1170.3125,
+            "bottom": 433.640625,
+            "width": 460,
+            "height": 44.1875
+          },
+          "ctaRect": {
+            "x": 710.3125,
+            "y": 447.640625,
+            "right": 1017.125,
+            "bottom": 495.640625,
+            "width": 306.8125,
+            "height": 48
+          },
+          "controls": {
+            "x": 60.78125,
+            "y": 562,
+            "right": 1305.21875,
+            "bottom": 606,
+            "width": 1244.4375,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(231, 201, 149)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(220, 225, 223)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 1,
+          "theme": "exam-live",
+          "headline": "Your exam prep is missing one thing:\nlive practice.",
+          "cta": "Explore Exam Prep",
+          "href": "https://missionmedinstitute.com/examprep/",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+          "alt": "Existing Exam Prep live-page illustrative video-call photograph",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1366,
+            "bottom": 620,
+            "width": 1366,
+            "height": 620
+          },
+          "copy": {
+            "x": 60.78125,
+            "y": 112,
+            "right": 680.78125,
+            "bottom": 439.3125,
+            "width": 620,
+            "height": 327.3125
+          },
+          "image": {
+            "x": 0,
+            "y": 0,
+            "right": 1366,
+            "bottom": 620,
+            "width": 1366,
+            "height": 620
+          },
+          "headlineRect": {
+            "x": 60.78125,
+            "y": 140.84375,
+            "right": 680.78125,
+            "bottom": 318.125,
+            "width": 620,
+            "height": 177.28125
+          },
+          "supportRect": {
+            "x": 60.78125,
+            "y": 333.125,
+            "right": 530.78125,
+            "bottom": 377.3125,
+            "width": 470,
+            "height": 44.1875
+          },
+          "ctaRect": {
+            "x": 60.78125,
+            "y": 391.3125,
+            "right": 259.515625,
+            "bottom": 439.3125,
+            "width": 198.734375,
+            "height": 48
+          },
+          "controls": {
+            "x": 60.78125,
+            "y": 562,
+            "right": 1305.21875,
+            "bottom": 606,
+            "width": 1244.4375,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(232, 180, 79)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(224, 232, 237)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 2,
+          "theme": "story",
+          "headline": "Don’t memorize a better answer.\nBecome a better communicator.",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/b-immersive/assets/online-class.webp",
+          "alt": "Real MissionMed online class with students in a video call",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1366,
+            "bottom": 620,
+            "width": 1366,
+            "height": 620
+          },
+          "copy": {
+            "x": 60.78125,
+            "y": 112,
+            "right": 680.78125,
+            "bottom": 496.09375,
+            "width": 620,
+            "height": 384.09375
+          },
+          "image": {
+            "x": 428.93243408203125,
+            "y": -47.600006103515625,
+            "right": 1538.1145629882812,
+            "bottom": 671.5999450683594,
+            "width": 1109.18212890625,
+            "height": 719.199951171875
+          },
+          "headlineRect": {
+            "x": 60.78125,
+            "y": 140.84375,
+            "right": 680.78125,
+            "bottom": 374.90625,
+            "width": 620,
+            "height": 234.0625
+          },
+          "supportRect": {
+            "x": 60.78125,
+            "y": 389.90625,
+            "right": 520.78125,
+            "bottom": 434.09375,
+            "width": 460,
+            "height": 44.1875
+          },
+          "ctaRect": {
+            "x": 60.78125,
+            "y": 448.09375,
+            "right": 367.59375,
+            "bottom": 496.09375,
+            "width": 306.8125,
+            "height": 48
+          },
+          "controls": {
+            "x": 60.78125,
+            "y": 562,
+            "right": 1305.21875,
+            "bottom": 606,
+            "width": 1244.4375,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(155, 65, 46)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(69, 85, 87)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 3,
+          "theme": "clinical",
+          "headline": "The right clinical experience.\nPlaced with precision.",
+          "cta": "Explore USCE",
+          "href": "https://missionmedinstitute.com/usce/",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/usce-operating.webp",
+          "alt": "Existing USCE live-page illustrative operating-room photograph",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1366,
+            "bottom": 620,
+            "width": 1366,
+            "height": 620
+          },
+          "copy": {
+            "x": 163.90625,
+            "y": 116,
+            "right": 1202.09375,
+            "bottom": 371.53125,
+            "width": 1038.1875,
+            "height": 255.53125
+          },
+          "image": {
+            "x": 0,
+            "y": 0,
+            "right": 1366,
+            "bottom": 620,
+            "width": 1366,
+            "height": 620
+          },
+          "headlineRect": {
+            "x": 163.90625,
+            "y": 144.84375,
+            "right": 1202.09375,
+            "bottom": 267.4375,
+            "width": 1038.1875,
+            "height": 122.59375
+          },
+          "supportRect": {
+            "x": 378,
+            "y": 282.4375,
+            "right": 988,
+            "bottom": 304.53125,
+            "width": 610,
+            "height": 22.09375
+          },
+          "ctaRect": {
+            "x": 601.5625,
+            "y": 323.53125,
+            "right": 764.4375,
+            "bottom": 371.53125,
+            "width": 162.875,
+            "height": 48
+          },
+          "controls": {
+            "x": 60.78125,
+            "y": 562,
+            "right": 1305.21875,
+            "bottom": 606,
+            "width": 1244.4375,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(200, 168, 78)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(227, 230, 227)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 4,
+          "theme": "evidence",
+          "headline": "The interview is part of\nthe ranking decision.",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-ranking.webp",
+          "alt": "NRMP Program Director Survey 2024 chart showing factors used to rank applicants",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1366,
+            "bottom": 620,
+            "width": 1366,
+            "height": 620
+          },
+          "copy": {
+            "x": 60.78125,
+            "y": 118,
+            "right": 595.734375,
+            "bottom": 385.0625,
+            "width": 534.953125,
+            "height": 267.0625
+          },
+          "image": {
+            "x": 600.765625,
+            "y": -161.203125,
+            "right": 1490.609375,
+            "bottom": 951.09375,
+            "width": 889.84375,
+            "height": 1112.296875
+          },
+          "headlineRect": {
+            "x": 60.78125,
+            "y": 146.84375,
+            "right": 595.734375,
+            "bottom": 263.875,
+            "width": 534.953125,
+            "height": 117.03125
+          },
+          "supportRect": {
+            "x": 60.78125,
+            "y": 278.875,
+            "right": 530.78125,
+            "bottom": 323.0625,
+            "width": 470,
+            "height": 44.1875
+          },
+          "ctaRect": {
+            "x": 60.78125,
+            "y": 337.0625,
+            "right": 367.59375,
+            "bottom": 385.0625,
+            "width": 306.8125,
+            "height": 48
+          },
+          "controls": {
+            "x": 60.78125,
+            "y": 562,
+            "right": 1305.21875,
+            "bottom": 606,
+            "width": 1244.4375,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(33, 78, 103)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(70, 96, 107)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(56, 80, 94)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 5,
+          "theme": "exam-reasoning",
+          "headline": "Train how you think\nunder pressure.",
+          "cta": "Explore Exam Prep",
+          "href": "https://missionmedinstitute.com/examprep/",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+          "alt": "Existing Exam Prep live-page illustrative video-call photograph",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1366,
+            "bottom": 620,
+            "width": 1366,
+            "height": 620
+          },
+          "copy": {
+            "x": 60.78125,
+            "y": 124,
+            "right": 550.390625,
+            "bottom": 392.21875,
+            "width": 489.609375,
+            "height": 268.21875
+          },
+          "image": {
+            "x": 0,
+            "y": 0,
+            "right": 1366,
+            "bottom": 620,
+            "width": 1366,
+            "height": 620
+          },
+          "headlineRect": {
+            "x": 60.78125,
+            "y": 152.84375,
+            "right": 550.390625,
+            "bottom": 271.03125,
+            "width": 489.609375,
+            "height": 118.1875
+          },
+          "supportRect": {
+            "x": 60.78125,
+            "y": 286.03125,
+            "right": 530.78125,
+            "bottom": 330.21875,
+            "width": 470,
+            "height": 44.1875
+          },
+          "ctaRect": {
+            "x": 60.78125,
+            "y": 344.21875,
+            "right": 259.515625,
+            "bottom": 392.21875,
+            "width": 198.734375,
+            "height": 48
+          },
+          "controls": {
+            "x": 60.78125,
+            "y": 562,
+            "right": 1305.21875,
+            "bottom": 606,
+            "width": 1244.4375,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(232, 180, 79)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(224, 232, 237)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 6,
+          "theme": "community",
+          "headline": "They already know what’s on your application.\nThe interview tells them what isn’t.",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-community.webp",
+          "alt": "Real Mission Residency classroom and Match Day community montage",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1366,
+            "bottom": 620,
+            "width": 1366,
+            "height": 620
+          },
+          "copy": {
+            "x": 60.78125,
+            "y": 112,
+            "right": 1305.21875,
+            "bottom": 253.375,
+            "width": 1244.4375,
+            "height": 141.375
+          },
+          "image": {
+            "x": 519.09375,
+            "y": 300,
+            "right": 1366,
+            "bottom": 613.34375,
+            "width": 846.90625,
+            "height": 313.34375
+          },
+          "headlineRect": {
+            "x": 60.78125,
+            "y": 140.84375,
+            "right": 1305.21875,
+            "bottom": 238.375,
+            "width": 1244.4375,
+            "height": 97.53125
+          },
+          "supportRect": {
+            "x": 60.78125,
+            "y": 317,
+            "right": 360.78125,
+            "bottom": 383.140625,
+            "width": 300,
+            "height": 66.140625
+          },
+          "ctaRect": {
+            "x": 60.78125,
+            "y": 432,
+            "right": 367.59375,
+            "bottom": 480,
+            "width": 306.8125,
+            "height": 48
+          },
+          "controls": {
+            "x": 60.78125,
+            "y": 562,
+            "right": 1305.21875,
+            "bottom": 606,
+            "width": 1244.4375,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(230, 200, 150)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(220, 228, 220)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(220, 228, 220)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 7,
+          "theme": "clinical-path",
+          "headline": "Your specialty. Your timeline.\nYour next clinical step.",
+          "cta": "Explore USCE",
+          "href": "https://missionmedinstitute.com/usce/",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/usce-clinical.webp",
+          "alt": "Existing USCE live-page illustrative clinical discussion photograph",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1366,
+            "bottom": 620,
+            "width": 1366,
+            "height": 620
+          },
+          "copy": {
+            "x": 60.78125,
+            "y": 116,
+            "right": 680.78125,
+            "bottom": 425.390625,
+            "width": 620,
+            "height": 309.390625
+          },
+          "image": {
+            "x": 0,
+            "y": 0,
+            "right": 1366,
+            "bottom": 620,
+            "width": 1366,
+            "height": 620
+          },
+          "headlineRect": {
+            "x": 60.78125,
+            "y": 144.84375,
+            "right": 680.78125,
+            "bottom": 326.296875,
+            "width": 620,
+            "height": 181.453125
+          },
+          "supportRect": {
+            "x": 60.78125,
+            "y": 341.296875,
+            "right": 530.78125,
+            "bottom": 363.390625,
+            "width": 470,
+            "height": 22.09375
+          },
+          "ctaRect": {
+            "x": 60.78125,
+            "y": 377.390625,
+            "right": 223.65625,
+            "bottom": 425.390625,
+            "width": 162.875,
+            "height": 48
+          },
+          "controls": {
+            "x": 60.78125,
+            "y": 562,
+            "right": 1305.21875,
+            "bottom": 606,
+            "width": 1244.4375,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(219, 199, 136)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(224, 233, 228)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        }
+      ],
+      "sections": {
+        "quote": {
+          "color": "rgb(245, 241, 231)",
+          "background": "rgba(0, 0, 0, 0)",
+          "text": "“You made me fall in love with my own story and believe that my dreams are valid against all Odds.”"
+        },
+        "quoteSection": {
+          "color": "rgb(245, 241, 231)",
+          "background": "rgb(21, 44, 41)",
+          "text": "“You made me fall in love with my own story and believe that my dreams are valid against all Odds.”\nDr Marian Ghaly · Mission Residency alumna\n\nFor IMGs, DOs and reapplicants seeking a clearer next step. Individual experiences are not a Match guarantee.\n\nSee what program directors consider\nRead student Match stories"
+        },
+        "nrmpHeading": {
+          "color": "rgb(255, 250, 242)",
+          "background": "rgba(0, 0, 0, 0)",
+          "text": "What Program Directors Actually Value"
+        },
+        "nrmpLead": {
+          "color": "rgb(220, 225, 223)",
+          "background": "rgba(0, 0, 0, 0)",
+          "text": "Click a category to see exactly which factors MissionMed helps you improve."
+        },
+        "nrmpHeader": {
+          "color": "rgb(26, 26, 26)",
+          "background": "rgb(15, 33, 55)",
+          "text": "NRMP PROGRAM DIRECTOR SURVEY 2024\nWhat Program Directors Actually Value\n\nClick a category to see exactly which factors MissionMed helps you improve."
+        }
+      },
+      "errors": [],
+      "failed": []
+    },
+    "1280x800": {
+      "status": 200,
+      "frames": [
+        {
+          "index": 0,
+          "theme": "destination",
+          "headline": "YOU BUILT THE APPLICATION\nthat earned the interview.\nNOW LET'S TURN THE INTERVIEW\nINTO A MATCH.",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+          "alt": "Supplied Mission Residency physician image with Matched and Accomplished patch",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1280,
+            "bottom": 620,
+            "width": 1280,
+            "height": 620
+          },
+          "copy": {
+            "x": 665.59375,
+            "y": 112,
+            "right": 1223.046875,
+            "bottom": 483.984375,
+            "width": 557.453125,
+            "height": 371.984375
+          },
+          "image": {
+            "x": 0,
+            "y": 0,
+            "right": 1280,
+            "bottom": 620,
+            "width": 1280,
+            "height": 620
+          },
+          "headlineRect": {
+            "x": 665.59375,
+            "y": 140.84375,
+            "right": 1223.046875,
+            "bottom": 362.890625,
+            "width": 557.453125,
+            "height": 222.046875
+          },
+          "supportRect": {
+            "x": 665.59375,
+            "y": 377.890625,
+            "right": 1125.59375,
+            "bottom": 421.984375,
+            "width": 460,
+            "height": 44.09375
+          },
+          "ctaRect": {
+            "x": 665.59375,
+            "y": 435.984375,
+            "right": 972.40625,
+            "bottom": 483.984375,
+            "width": 306.8125,
+            "height": 48
+          },
+          "controls": {
+            "x": 56.953125,
+            "y": 562,
+            "right": 1223.046875,
+            "bottom": 606,
+            "width": 1166.09375,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(231, 201, 149)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(220, 225, 223)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 1,
+          "theme": "exam-live",
+          "headline": "Your exam prep is missing one thing:\nlive practice.",
+          "cta": "Explore Exam Prep",
+          "href": "https://missionmedinstitute.com/examprep/",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+          "alt": "Existing Exam Prep live-page illustrative video-call photograph",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1280,
+            "bottom": 620,
+            "width": 1280,
+            "height": 620
+          },
+          "copy": {
+            "x": 56.953125,
+            "y": 112,
+            "right": 676.953125,
+            "bottom": 428.0625,
+            "width": 620,
+            "height": 316.0625
+          },
+          "image": {
+            "x": 0,
+            "y": 0,
+            "right": 1280,
+            "bottom": 620,
+            "width": 1280,
+            "height": 620
+          },
+          "headlineRect": {
+            "x": 56.953125,
+            "y": 140.84375,
+            "right": 676.953125,
+            "bottom": 306.96875,
+            "width": 620,
+            "height": 166.125
+          },
+          "supportRect": {
+            "x": 56.953125,
+            "y": 321.96875,
+            "right": 526.953125,
+            "bottom": 366.0625,
+            "width": 470,
+            "height": 44.09375
+          },
+          "ctaRect": {
+            "x": 56.953125,
+            "y": 380.0625,
+            "right": 255.6875,
+            "bottom": 428.0625,
+            "width": 198.734375,
+            "height": 48
+          },
+          "controls": {
+            "x": 56.953125,
+            "y": 562,
+            "right": 1223.046875,
+            "bottom": 606,
+            "width": 1166.09375,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(232, 180, 79)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(224, 232, 237)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 2,
+          "theme": "story",
+          "headline": "Don’t memorize a better answer.\nBecome a better communicator.",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/b-immersive/assets/online-class.webp",
+          "alt": "Real MissionMed online class with students in a video call",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1280,
+            "bottom": 620,
+            "width": 1280,
+            "height": 620
+          },
+          "copy": {
+            "x": 56.953125,
+            "y": 112,
+            "right": 676.953125,
+            "bottom": 481.25,
+            "width": 620,
+            "height": 369.25
+          },
+          "image": {
+            "x": 401.923828125,
+            "y": -47.600006103515625,
+            "right": 1441.279296875,
+            "bottom": 671.5999450683594,
+            "width": 1039.35546875,
+            "height": 719.199951171875
+          },
+          "headlineRect": {
+            "x": 56.953125,
+            "y": 140.84375,
+            "right": 676.953125,
+            "bottom": 360.15625,
+            "width": 620,
+            "height": 219.3125
+          },
+          "supportRect": {
+            "x": 56.953125,
+            "y": 375.15625,
+            "right": 516.953125,
+            "bottom": 419.25,
+            "width": 460,
+            "height": 44.09375
+          },
+          "ctaRect": {
+            "x": 56.953125,
+            "y": 433.25,
+            "right": 363.765625,
+            "bottom": 481.25,
+            "width": 306.8125,
+            "height": 48
+          },
+          "controls": {
+            "x": 56.953125,
+            "y": 562,
+            "right": 1223.046875,
+            "bottom": 606,
+            "width": 1166.09375,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(155, 65, 46)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(69, 85, 87)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 3,
+          "theme": "clinical",
+          "headline": "The right clinical experience.\nPlaced with precision.",
+          "cta": "Explore USCE",
+          "href": "https://missionmedinstitute.com/usce/",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/usce-operating.webp",
+          "alt": "Existing USCE live-page illustrative operating-room photograph",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1280,
+            "bottom": 620,
+            "width": 1280,
+            "height": 620
+          },
+          "copy": {
+            "x": 153.59375,
+            "y": 116,
+            "right": 1126.40625,
+            "bottom": 363.765625,
+            "width": 972.8125,
+            "height": 247.765625
+          },
+          "image": {
+            "x": 0,
+            "y": 0,
+            "right": 1280,
+            "bottom": 620,
+            "width": 1280,
+            "height": 620
+          },
+          "headlineRect": {
+            "x": 153.59375,
+            "y": 144.84375,
+            "right": 1126.40625,
+            "bottom": 259.71875,
+            "width": 972.8125,
+            "height": 114.875
+          },
+          "supportRect": {
+            "x": 335,
+            "y": 274.71875,
+            "right": 945,
+            "bottom": 296.765625,
+            "width": 610,
+            "height": 22.046875
+          },
+          "ctaRect": {
+            "x": 558.5625,
+            "y": 315.765625,
+            "right": 721.4375,
+            "bottom": 363.765625,
+            "width": 162.875,
+            "height": 48
+          },
+          "controls": {
+            "x": 56.953125,
+            "y": 562,
+            "right": 1223.046875,
+            "bottom": 606,
+            "width": 1166.09375,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(200, 168, 78)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(227, 230, 227)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 4,
+          "theme": "evidence",
+          "headline": "The interview is part of\nthe ranking decision.",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-ranking.webp",
+          "alt": "NRMP Program Director Survey 2024 chart showing factors used to rank applicants",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1280,
+            "bottom": 620,
+            "width": 1280,
+            "height": 620
+          },
+          "copy": {
+            "x": 56.953125,
+            "y": 118,
+            "right": 563.03125,
+            "bottom": 377.59375,
+            "width": 506.078125,
+            "height": 259.59375
+          },
+          "image": {
+            "x": 562.953125,
+            "y": -140.34375,
+            "right": 1396.765625,
+            "bottom": 901.921875,
+            "width": 833.8125,
+            "height": 1042.265625
+          },
+          "headlineRect": {
+            "x": 56.953125,
+            "y": 146.84375,
+            "right": 563.03125,
+            "bottom": 256.5,
+            "width": 506.078125,
+            "height": 109.65625
+          },
+          "supportRect": {
+            "x": 56.953125,
+            "y": 271.5,
+            "right": 526.953125,
+            "bottom": 315.59375,
+            "width": 470,
+            "height": 44.09375
+          },
+          "ctaRect": {
+            "x": 56.953125,
+            "y": 329.59375,
+            "right": 363.765625,
+            "bottom": 377.59375,
+            "width": 306.8125,
+            "height": 48
+          },
+          "controls": {
+            "x": 56.953125,
+            "y": 562,
+            "right": 1223.046875,
+            "bottom": 606,
+            "width": 1166.09375,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(33, 78, 103)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(70, 96, 107)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(56, 80, 94)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 5,
+          "theme": "exam-reasoning",
+          "headline": "Train how you think\nunder pressure.",
+          "cta": "Explore Exam Prep",
+          "href": "https://missionmedinstitute.com/examprep/",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+          "alt": "Existing Exam Prep live-page illustrative video-call photograph",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1280,
+            "bottom": 620,
+            "width": 1280,
+            "height": 620
+          },
+          "copy": {
+            "x": 56.953125,
+            "y": 124,
+            "right": 526.953125,
+            "bottom": 384.6875,
+            "width": 470,
+            "height": 260.6875
+          },
+          "image": {
+            "x": 0,
+            "y": 0,
+            "right": 1280,
+            "bottom": 620,
+            "width": 1280,
+            "height": 620
+          },
+          "headlineRect": {
+            "x": 56.953125,
+            "y": 152.84375,
+            "right": 526.953125,
+            "bottom": 263.59375,
+            "width": 470,
+            "height": 110.75
+          },
+          "supportRect": {
+            "x": 56.953125,
+            "y": 278.59375,
+            "right": 526.953125,
+            "bottom": 322.6875,
+            "width": 470,
+            "height": 44.09375
+          },
+          "ctaRect": {
+            "x": 56.953125,
+            "y": 336.6875,
+            "right": 255.6875,
+            "bottom": 384.6875,
+            "width": 198.734375,
+            "height": 48
+          },
+          "controls": {
+            "x": 56.953125,
+            "y": 562,
+            "right": 1223.046875,
+            "bottom": 606,
+            "width": 1166.09375,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(232, 180, 79)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(224, 232, 237)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 6,
+          "theme": "community",
+          "headline": "They already know what’s on your application.\nThe interview tells them what isn’t.",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-community.webp",
+          "alt": "Real Mission Residency classroom and Match Day community montage",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1280,
+            "bottom": 620,
+            "width": 1280,
+            "height": 620
+          },
+          "copy": {
+            "x": 56.953125,
+            "y": 112,
+            "right": 1223.046875,
+            "bottom": 247.21875,
+            "width": 1166.09375,
+            "height": 135.21875
+          },
+          "image": {
+            "x": 486.40625,
+            "y": 300,
+            "right": 1280,
+            "bottom": 593.625,
+            "width": 793.59375,
+            "height": 293.625
+          },
+          "headlineRect": {
+            "x": 56.953125,
+            "y": 140.84375,
+            "right": 1223.046875,
+            "bottom": 232.21875,
+            "width": 1166.09375,
+            "height": 91.375
+          },
+          "supportRect": {
+            "x": 56.953125,
+            "y": 317,
+            "right": 356.953125,
+            "bottom": 383.140625,
+            "width": 300,
+            "height": 66.140625
+          },
+          "ctaRect": {
+            "x": 56.953125,
+            "y": 432,
+            "right": 363.765625,
+            "bottom": 480,
+            "width": 306.8125,
+            "height": 48
+          },
+          "controls": {
+            "x": 56.953125,
+            "y": 562,
+            "right": 1223.046875,
+            "bottom": 606,
+            "width": 1166.09375,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(230, 200, 150)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(220, 228, 220)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(220, 228, 220)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 7,
+          "theme": "clinical-path",
+          "headline": "Your specialty. Your timeline.\nYour next clinical step.",
+          "cta": "Explore USCE",
+          "href": "https://missionmedinstitute.com/usce/",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/usce-clinical.webp",
+          "alt": "Existing USCE live-page illustrative clinical discussion photograph",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1280,
+            "bottom": 620,
+            "width": 1280,
+            "height": 620
+          },
+          "copy": {
+            "x": 56.953125,
+            "y": 116,
+            "right": 676.953125,
+            "bottom": 413.953125,
+            "width": 620,
+            "height": 297.953125
+          },
+          "image": {
+            "x": 0,
+            "y": 0,
+            "right": 1280,
+            "bottom": 620,
+            "width": 1280,
+            "height": 620
+          },
+          "headlineRect": {
+            "x": 56.953125,
+            "y": 144.84375,
+            "right": 676.953125,
+            "bottom": 314.90625,
+            "width": 620,
+            "height": 170.0625
+          },
+          "supportRect": {
+            "x": 56.953125,
+            "y": 329.90625,
+            "right": 526.953125,
+            "bottom": 351.953125,
+            "width": 470,
+            "height": 22.046875
+          },
+          "ctaRect": {
+            "x": 56.953125,
+            "y": 365.953125,
+            "right": 219.828125,
+            "bottom": 413.953125,
+            "width": 162.875,
+            "height": 48
+          },
+          "controls": {
+            "x": 56.953125,
+            "y": 562,
+            "right": 1223.046875,
+            "bottom": 606,
+            "width": 1166.09375,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(219, 199, 136)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(224, 233, 228)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        }
+      ],
+      "sections": {
+        "quote": {
+          "color": "rgb(245, 241, 231)",
+          "background": "rgba(0, 0, 0, 0)",
+          "text": "“You made me fall in love with my own story and believe that my dreams are valid against all Odds.”"
+        },
+        "quoteSection": {
+          "color": "rgb(245, 241, 231)",
+          "background": "rgb(21, 44, 41)",
+          "text": "“You made me fall in love with my own story and believe that my dreams are valid against all Odds.”\nDr Marian Ghaly · Mission Residency alumna\n\nFor IMGs, DOs and reapplicants seeking a clearer next step. Individual experiences are not a Match guarantee.\n\nSee what program directors consider\nRead student Match stories"
+        },
+        "nrmpHeading": {
+          "color": "rgb(255, 250, 242)",
+          "background": "rgba(0, 0, 0, 0)",
+          "text": "What Program Directors Actually Value"
+        },
+        "nrmpLead": {
+          "color": "rgb(220, 225, 223)",
+          "background": "rgba(0, 0, 0, 0)",
+          "text": "Click a category to see exactly which factors MissionMed helps you improve."
+        },
+        "nrmpHeader": {
+          "color": "rgb(26, 26, 26)",
+          "background": "rgb(15, 33, 55)",
+          "text": "NRMP PROGRAM DIRECTOR SURVEY 2024\nWhat Program Directors Actually Value\n\nClick a category to see exactly which factors MissionMed helps you improve."
+        }
+      },
+      "errors": [],
+      "failed": []
+    },
+    "1024x768": {
+      "status": 200,
+      "frames": [
+        {
+          "index": 0,
+          "theme": "destination",
+          "headline": "YOU BUILT THE APPLICATION\nthat earned the interview.\nNOW LET'S TURN THE INTERVIEW\nINTO A MATCH.",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+          "alt": "Supplied Mission Residency physician image with Matched and Accomplished patch",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1024,
+            "bottom": 620,
+            "width": 1024,
+            "height": 620
+          },
+          "copy": {
+            "x": 491.515625,
+            "y": 112,
+            "right": 978.4375,
+            "bottom": 455.828125,
+            "width": 486.921875,
+            "height": 343.828125
+          },
+          "image": {
+            "x": 0,
+            "y": 0,
+            "right": 1024,
+            "bottom": 620,
+            "width": 1024,
+            "height": 620
+          },
+          "headlineRect": {
+            "x": 491.515625,
+            "y": 140.84375,
+            "right": 978.4375,
+            "bottom": 334.734375,
+            "width": 486.921875,
+            "height": 193.890625
+          },
+          "supportRect": {
+            "x": 491.515625,
+            "y": 349.734375,
+            "right": 951.515625,
+            "bottom": 393.828125,
+            "width": 460,
+            "height": 44.09375
+          },
+          "ctaRect": {
+            "x": 491.515625,
+            "y": 407.828125,
+            "right": 798.328125,
+            "bottom": 455.828125,
+            "width": 306.8125,
+            "height": 48
+          },
+          "controls": {
+            "x": 45.5625,
+            "y": 562,
+            "right": 978.4375,
+            "bottom": 606,
+            "width": 932.875,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(231, 201, 149)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(220, 225, 223)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 1,
+          "theme": "exam-live",
+          "headline": "Your exam prep is missing one thing:\nlive practice.",
+          "cta": "Explore Exam Prep",
+          "href": "https://missionmedinstitute.com/examprep/",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+          "alt": "Existing Exam Prep live-page illustrative video-call photograph",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1024,
+            "bottom": 620,
+            "width": 1024,
+            "height": 620
+          },
+          "copy": {
+            "x": 32,
+            "y": 112,
+            "right": 652,
+            "bottom": 397.875,
+            "width": 620,
+            "height": 285.875
+          },
+          "image": {
+            "x": 0,
+            "y": 0,
+            "right": 1024,
+            "bottom": 620,
+            "width": 1024,
+            "height": 620
+          },
+          "headlineRect": {
+            "x": 32,
+            "y": 140.84375,
+            "right": 652,
+            "bottom": 276.78125,
+            "width": 620,
+            "height": 135.9375
+          },
+          "supportRect": {
+            "x": 32,
+            "y": 291.78125,
+            "right": 502,
+            "bottom": 335.875,
+            "width": 470,
+            "height": 44.09375
+          },
+          "ctaRect": {
+            "x": 32,
+            "y": 349.875,
+            "right": 230.734375,
+            "bottom": 397.875,
+            "width": 198.734375,
+            "height": 48
+          },
+          "controls": {
+            "x": 45.5625,
+            "y": 562,
+            "right": 978.4375,
+            "bottom": 606,
+            "width": 932.875,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(232, 180, 79)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(224, 232, 237)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 2,
+          "theme": "story",
+          "headline": "Don’t memorize a better answer.\nBecome a better communicator.",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/b-immersive/assets/online-class.webp",
+          "alt": "Real MissionMed online class with students in a video call",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1024,
+            "bottom": 620,
+            "width": 1024,
+            "height": 620
+          },
+          "copy": {
+            "x": 32,
+            "y": 112,
+            "right": 605.4375,
+            "bottom": 437.4375,
+            "width": 573.4375,
+            "height": 325.4375
+          },
+          "image": {
+            "x": 321.5390625,
+            "y": -47.600006103515625,
+            "right": 1153.0234375,
+            "bottom": 671.5999450683594,
+            "width": 831.484375,
+            "height": 719.199951171875
+          },
+          "headlineRect": {
+            "x": 32,
+            "y": 140.84375,
+            "right": 605.4375,
+            "bottom": 316.34375,
+            "width": 573.4375,
+            "height": 175.5
+          },
+          "supportRect": {
+            "x": 32,
+            "y": 331.34375,
+            "right": 492,
+            "bottom": 375.4375,
+            "width": 460,
+            "height": 44.09375
+          },
+          "ctaRect": {
+            "x": 32,
+            "y": 389.4375,
+            "right": 338.8125,
+            "bottom": 437.4375,
+            "width": 306.8125,
+            "height": 48
+          },
+          "controls": {
+            "x": 45.5625,
+            "y": 562,
+            "right": 978.4375,
+            "bottom": 606,
+            "width": 932.875,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(155, 65, 46)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(69, 85, 87)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 3,
+          "theme": "clinical",
+          "headline": "The right clinical experience.\nPlaced with precision.",
+          "cta": "Explore USCE",
+          "href": "https://missionmedinstitute.com/usce/",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/usce-operating.webp",
+          "alt": "Existing USCE live-page illustrative operating-room photograph",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1024,
+            "bottom": 620,
+            "width": 1024,
+            "height": 620
+          },
+          "copy": {
+            "x": 81.90625,
+            "y": 116,
+            "right": 942.09375,
+            "bottom": 342.703125,
+            "width": 860.1875,
+            "height": 226.703125
+          },
+          "image": {
+            "x": 0,
+            "y": 0,
+            "right": 1024,
+            "bottom": 620,
+            "width": 1024,
+            "height": 620
+          },
+          "headlineRect": {
+            "x": 81.90625,
+            "y": 144.84375,
+            "right": 942.09375,
+            "bottom": 238.65625,
+            "width": 860.1875,
+            "height": 93.8125
+          },
+          "supportRect": {
+            "x": 207,
+            "y": 253.65625,
+            "right": 817,
+            "bottom": 275.703125,
+            "width": 610,
+            "height": 22.046875
+          },
+          "ctaRect": {
+            "x": 430.5625,
+            "y": 294.703125,
+            "right": 593.4375,
+            "bottom": 342.703125,
+            "width": 162.875,
+            "height": 48
+          },
+          "controls": {
+            "x": 45.5625,
+            "y": 562,
+            "right": 978.4375,
+            "bottom": 606,
+            "width": 932.875,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(200, 168, 78)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(227, 230, 227)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 4,
+          "theme": "evidence",
+          "headline": "The interview is part of\nthe ranking decision.",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-ranking.webp",
+          "alt": "NRMP Program Director Survey 2024 chart showing factors used to rank applicants",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1024,
+            "bottom": 620,
+            "width": 1024,
+            "height": 620
+          },
+          "copy": {
+            "x": 32,
+            "y": 118,
+            "right": 502,
+            "bottom": 357.6875,
+            "width": 470,
+            "height": 239.6875
+          },
+          "image": {
+            "x": 450.375,
+            "y": -78.28125,
+            "right": 1117.40625,
+            "bottom": 755.5,
+            "width": 667.03125,
+            "height": 833.78125
+          },
+          "headlineRect": {
+            "x": 32,
+            "y": 146.84375,
+            "right": 502,
+            "bottom": 236.59375,
+            "width": 470,
+            "height": 89.75
+          },
+          "supportRect": {
+            "x": 32,
+            "y": 251.59375,
+            "right": 502,
+            "bottom": 295.6875,
+            "width": 470,
+            "height": 44.09375
+          },
+          "ctaRect": {
+            "x": 32,
+            "y": 309.6875,
+            "right": 338.8125,
+            "bottom": 357.6875,
+            "width": 306.8125,
+            "height": 48
+          },
+          "controls": {
+            "x": 45.5625,
+            "y": 562,
+            "right": 978.4375,
+            "bottom": 606,
+            "width": 932.875,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(33, 78, 103)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(70, 96, 107)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(56, 80, 94)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 5,
+          "theme": "exam-reasoning",
+          "headline": "Train how you think\nunder pressure.",
+          "cta": "Explore Exam Prep",
+          "href": "https://missionmedinstitute.com/examprep/",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+          "alt": "Existing Exam Prep live-page illustrative video-call photograph",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1024,
+            "bottom": 620,
+            "width": 1024,
+            "height": 620
+          },
+          "copy": {
+            "x": 32,
+            "y": 124,
+            "right": 502,
+            "bottom": 364.5625,
+            "width": 470,
+            "height": 240.5625
+          },
+          "image": {
+            "x": 0,
+            "y": 0,
+            "right": 1024,
+            "bottom": 620,
+            "width": 1024,
+            "height": 620
+          },
+          "headlineRect": {
+            "x": 32,
+            "y": 152.84375,
+            "right": 502,
+            "bottom": 243.46875,
+            "width": 470,
+            "height": 90.625
+          },
+          "supportRect": {
+            "x": 32,
+            "y": 258.46875,
+            "right": 502,
+            "bottom": 302.5625,
+            "width": 470,
+            "height": 44.09375
+          },
+          "ctaRect": {
+            "x": 32,
+            "y": 316.5625,
+            "right": 230.734375,
+            "bottom": 364.5625,
+            "width": 198.734375,
+            "height": 48
+          },
+          "controls": {
+            "x": 45.5625,
+            "y": 562,
+            "right": 978.4375,
+            "bottom": 606,
+            "width": 932.875,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(232, 180, 79)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(224, 232, 237)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 6,
+          "theme": "community",
+          "headline": "They already know what’s on your application.\nThe interview tells them what isn’t.",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-community.webp",
+          "alt": "Real Mission Residency classroom and Match Day community montage",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1024,
+            "bottom": 620,
+            "width": 1024,
+            "height": 620
+          },
+          "copy": {
+            "x": 32,
+            "y": 112,
+            "right": 978.4375,
+            "bottom": 245.59375,
+            "width": 946.4375,
+            "height": 133.59375
+          },
+          "image": {
+            "x": 389.125,
+            "y": 300,
+            "right": 1024,
+            "bottom": 534.890625,
+            "width": 634.875,
+            "height": 234.890625
+          },
+          "headlineRect": {
+            "x": 32,
+            "y": 140.84375,
+            "right": 978.4375,
+            "bottom": 230.59375,
+            "width": 946.4375,
+            "height": 89.75
+          },
+          "supportRect": {
+            "x": 32,
+            "y": 317,
+            "right": 332,
+            "bottom": 383.140625,
+            "width": 300,
+            "height": 66.140625
+          },
+          "ctaRect": {
+            "x": 32,
+            "y": 432,
+            "right": 338.8125,
+            "bottom": 480,
+            "width": 306.8125,
+            "height": 48
+          },
+          "controls": {
+            "x": 45.5625,
+            "y": 562,
+            "right": 978.4375,
+            "bottom": 606,
+            "width": 932.875,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(230, 200, 150)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(220, 228, 220)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(220, 228, 220)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 7,
+          "theme": "clinical-path",
+          "headline": "Your specialty. Your timeline.\nYour next clinical step.",
+          "cta": "Explore USCE",
+          "href": "https://missionmedinstitute.com/usce/",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/usce-clinical.webp",
+          "alt": "Existing USCE live-page illustrative clinical discussion photograph",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 1024,
+            "bottom": 620,
+            "width": 1024,
+            "height": 620
+          },
+          "copy": {
+            "x": 32,
+            "y": 116,
+            "right": 597.34375,
+            "bottom": 336.578125,
+            "width": 565.34375,
+            "height": 220.578125
+          },
+          "image": {
+            "x": 0,
+            "y": 0,
+            "right": 1024,
+            "bottom": 620,
+            "width": 1024,
+            "height": 620
+          },
+          "headlineRect": {
+            "x": 32,
+            "y": 144.84375,
+            "right": 597.34375,
+            "bottom": 237.53125,
+            "width": 565.34375,
+            "height": 92.6875
+          },
+          "supportRect": {
+            "x": 32,
+            "y": 252.53125,
+            "right": 502,
+            "bottom": 274.578125,
+            "width": 470,
+            "height": 22.046875
+          },
+          "ctaRect": {
+            "x": 32,
+            "y": 288.578125,
+            "right": 194.875,
+            "bottom": 336.578125,
+            "width": 162.875,
+            "height": 48
+          },
+          "controls": {
+            "x": 45.5625,
+            "y": 562,
+            "right": 978.4375,
+            "bottom": 606,
+            "width": 932.875,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(219, 199, 136)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(224, 233, 228)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        }
+      ],
+      "sections": {
+        "quote": {
+          "color": "rgb(245, 241, 231)",
+          "background": "rgba(0, 0, 0, 0)",
+          "text": "“You made me fall in love with my own story and believe that my dreams are valid against all Odds.”"
+        },
+        "quoteSection": {
+          "color": "rgb(245, 241, 231)",
+          "background": "rgb(21, 44, 41)",
+          "text": "“You made me fall in love with my own story and believe that my dreams are valid against all Odds.”\nDr Marian Ghaly · Mission Residency alumna\n\nFor IMGs, DOs and reapplicants seeking a clearer next step. Individual experiences are not a Match guarantee.\n\nSee what program directors consider\nRead student Match stories"
+        },
+        "nrmpHeading": {
+          "color": "rgb(255, 250, 242)",
+          "background": "rgba(0, 0, 0, 0)",
+          "text": "What Program Directors Actually Value"
+        },
+        "nrmpLead": {
+          "color": "rgb(220, 225, 223)",
+          "background": "rgba(0, 0, 0, 0)",
+          "text": "Click a category to see exactly which factors MissionMed helps you improve."
+        },
+        "nrmpHeader": {
+          "color": "rgb(26, 26, 26)",
+          "background": "rgb(15, 33, 55)",
+          "text": "NRMP PROGRAM DIRECTOR SURVEY 2024\nWhat Program Directors Actually Value\n\nClick a category to see exactly which factors MissionMed helps you improve."
+        }
+      },
+      "errors": [],
+      "failed": []
+    },
+    "430x932": {
+      "status": 200,
+      "frames": [
+        {
+          "index": 0,
+          "theme": "destination",
+          "headline": "YOU BUILT THE APPLICATION\nthat earned the interview.\nNOW LET'S TURN THE INTERVIEW\nINTO A MATCH.",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+          "alt": "Supplied Mission Residency physician image with Matched and Accomplished patch",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 430,
+            "bottom": 860,
+            "width": 430,
+            "height": 860
+          },
+          "copy": {
+            "x": 24,
+            "y": 368,
+            "right": 406,
+            "bottom": 738.734375,
+            "width": 382,
+            "height": 370.734375
+          },
+          "image": {
+            "x": 0,
+            "y": 75,
+            "right": 430,
+            "bottom": 363,
+            "width": 430,
+            "height": 288
+          },
+          "headlineRect": {
+            "x": 24,
+            "y": 404.59375,
+            "right": 406,
+            "bottom": 600.234375,
+            "width": 382,
+            "height": 195.640625
+          },
+          "supportRect": {
+            "x": 24,
+            "y": 620.234375,
+            "right": 406,
+            "bottom": 666.734375,
+            "width": 382,
+            "height": 46.5
+          },
+          "ctaRect": {
+            "x": 24,
+            "y": 684.734375,
+            "right": 313.484375,
+            "bottom": 738.734375,
+            "width": 289.484375,
+            "height": 54
+          },
+          "controls": {
+            "x": 24,
+            "y": 800,
+            "right": 406,
+            "bottom": 844,
+            "width": 382,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(231, 201, 149)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(220, 225, 223)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 1,
+          "theme": "exam-live",
+          "headline": "Your exam prep is missing one thing:\nlive practice.",
+          "cta": "Explore Exam Prep",
+          "href": "https://missionmedinstitute.com/examprep/",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+          "alt": "Existing Exam Prep live-page illustrative video-call photograph",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 430,
+            "bottom": 860,
+            "width": 430,
+            "height": 860
+          },
+          "copy": {
+            "x": 24,
+            "y": 160,
+            "right": 406,
+            "bottom": 530.59375,
+            "width": 382,
+            "height": 370.59375
+          },
+          "image": {
+            "x": 0,
+            "y": 0,
+            "right": 430,
+            "bottom": 860,
+            "width": 430,
+            "height": 860
+          },
+          "headlineRect": {
+            "x": 24,
+            "y": 196.59375,
+            "right": 406,
+            "bottom": 392.09375,
+            "width": 382,
+            "height": 195.5
+          },
+          "supportRect": {
+            "x": 24,
+            "y": 412.09375,
+            "right": 406,
+            "bottom": 458.59375,
+            "width": 382,
+            "height": 46.5
+          },
+          "ctaRect": {
+            "x": 24,
+            "y": 476.59375,
+            "right": 212.625,
+            "bottom": 530.59375,
+            "width": 188.625,
+            "height": 54
+          },
+          "controls": {
+            "x": 24,
+            "y": 800,
+            "right": 406,
+            "bottom": 844,
+            "width": 382,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(232, 180, 79)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(224, 232, 237)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 2,
+          "theme": "story",
+          "headline": "Don’t memorize a better answer.\nBecome a better communicator.",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/b-immersive/assets/online-class.webp",
+          "alt": "Real MissionMed online class with students in a video call",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 430,
+            "bottom": 860,
+            "width": 430,
+            "height": 860
+          },
+          "copy": {
+            "x": 24,
+            "y": 396,
+            "right": 406,
+            "bottom": 729.15625,
+            "width": 382,
+            "height": 333.15625
+          },
+          "image": {
+            "x": 123.75,
+            "y": 6.42498779296875,
+            "right": 486.25,
+            "bottom": 480.57501220703125,
+            "width": 362.5,
+            "height": 474.1500244140625
+          },
+          "headlineRect": {
+            "x": 24,
+            "y": 432.59375,
+            "right": 406,
+            "bottom": 590.65625,
+            "width": 382,
+            "height": 158.0625
+          },
+          "supportRect": {
+            "x": 24,
+            "y": 610.65625,
+            "right": 406,
+            "bottom": 657.15625,
+            "width": 382,
+            "height": 46.5
+          },
+          "ctaRect": {
+            "x": 24,
+            "y": 675.15625,
+            "right": 313.484375,
+            "bottom": 729.15625,
+            "width": 289.484375,
+            "height": 54
+          },
+          "controls": {
+            "x": 24,
+            "y": 800,
+            "right": 406,
+            "bottom": 844,
+            "width": 382,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(155, 65, 46)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(69, 85, 87)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 3,
+          "theme": "clinical",
+          "headline": "The right clinical experience.\nPlaced with precision.",
+          "cta": "Explore USCE",
+          "href": "https://missionmedinstitute.com/usce/",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/usce-operating.webp",
+          "alt": "Existing USCE live-page illustrative operating-room photograph",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 430,
+            "bottom": 860,
+            "width": 430,
+            "height": 860
+          },
+          "copy": {
+            "x": 24,
+            "y": 160,
+            "right": 406,
+            "bottom": 531.40625,
+            "width": 382,
+            "height": 371.40625
+          },
+          "image": {
+            "x": 0,
+            "y": 0,
+            "right": 430,
+            "bottom": 860,
+            "width": 430,
+            "height": 860
+          },
+          "headlineRect": {
+            "x": 24,
+            "y": 196.59375,
+            "right": 406,
+            "bottom": 387.90625,
+            "width": 382,
+            "height": 191.3125
+          },
+          "supportRect": {
+            "x": 24,
+            "y": 407.90625,
+            "right": 406,
+            "bottom": 454.40625,
+            "width": 382,
+            "height": 46.5
+          },
+          "ctaRect": {
+            "x": 137.421875,
+            "y": 477.40625,
+            "right": 292.5625,
+            "bottom": 531.40625,
+            "width": 155.140625,
+            "height": 54
+          },
+          "controls": {
+            "x": 24,
+            "y": 800,
+            "right": 406,
+            "bottom": 844,
+            "width": 382,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(200, 168, 78)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(227, 230, 227)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 4,
+          "theme": "evidence",
+          "headline": "The interview is part of\nthe ranking decision.",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-ranking.webp",
+          "alt": "NRMP Program Director Survey 2024 chart showing factors used to rank applicants",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 430,
+            "bottom": 860,
+            "width": 430,
+            "height": 860
+          },
+          "copy": {
+            "x": 24,
+            "y": 164,
+            "right": 406,
+            "bottom": 455.484375,
+            "width": 382,
+            "height": 291.484375
+          },
+          "image": {
+            "x": -112.421875,
+            "y": 274.265625,
+            "right": 542.421875,
+            "bottom": 1092.8125,
+            "width": 654.84375,
+            "height": 818.546875
+          },
+          "headlineRect": {
+            "x": 24,
+            "y": 200.59375,
+            "right": 406,
+            "bottom": 322.984375,
+            "width": 382,
+            "height": 122.390625
+          },
+          "supportRect": {
+            "x": 24,
+            "y": 342.984375,
+            "right": 406,
+            "bottom": 389.484375,
+            "width": 382,
+            "height": 46.5
+          },
+          "ctaRect": {
+            "x": 24,
+            "y": 401.484375,
+            "right": 313.484375,
+            "bottom": 455.484375,
+            "width": 289.484375,
+            "height": 54
+          },
+          "controls": {
+            "x": 24,
+            "y": 816,
+            "right": 406,
+            "bottom": 860,
+            "width": 382,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(33, 78, 103)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(70, 96, 107)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(56, 80, 94)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 5,
+          "theme": "exam-reasoning",
+          "headline": "Train how you think\nunder pressure.",
+          "cta": "Explore Exam Prep",
+          "href": "https://missionmedinstitute.com/examprep/",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+          "alt": "Existing Exam Prep live-page illustrative video-call photograph",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 430,
+            "bottom": 860,
+            "width": 430,
+            "height": 860
+          },
+          "copy": {
+            "x": 24,
+            "y": 160,
+            "right": 406,
+            "bottom": 481.71875,
+            "width": 382,
+            "height": 321.71875
+          },
+          "image": {
+            "x": 0,
+            "y": 0,
+            "right": 430,
+            "bottom": 860,
+            "width": 430,
+            "height": 860
+          },
+          "headlineRect": {
+            "x": 24,
+            "y": 196.59375,
+            "right": 406,
+            "bottom": 343.21875,
+            "width": 382,
+            "height": 146.625
+          },
+          "supportRect": {
+            "x": 24,
+            "y": 363.21875,
+            "right": 406,
+            "bottom": 409.71875,
+            "width": 382,
+            "height": 46.5
+          },
+          "ctaRect": {
+            "x": 24,
+            "y": 427.71875,
+            "right": 212.625,
+            "bottom": 481.71875,
+            "width": 188.625,
+            "height": 54
+          },
+          "controls": {
+            "x": 24,
+            "y": 800,
+            "right": 406,
+            "bottom": 844,
+            "width": 382,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(232, 180, 79)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(224, 232, 237)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 6,
+          "theme": "community",
+          "headline": "They already know what’s on your application.\nThe interview tells them what isn’t.",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-community.webp",
+          "alt": "Real Mission Residency classroom and Match Day community montage",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 430,
+            "bottom": 860,
+            "width": 430,
+            "height": 860
+          },
+          "copy": {
+            "x": 24,
+            "y": 290,
+            "right": 406,
+            "bottom": 661.1875,
+            "width": 382,
+            "height": 371.1875
+          },
+          "image": {
+            "x": 0,
+            "y": 106,
+            "right": 430,
+            "bottom": 265.09375,
+            "width": 430,
+            "height": 159.09375
+          },
+          "headlineRect": {
+            "x": 24,
+            "y": 326.59375,
+            "right": 406,
+            "bottom": 522.6875,
+            "width": 382,
+            "height": 196.09375
+          },
+          "supportRect": {
+            "x": 24,
+            "y": 542.6875,
+            "right": 406,
+            "bottom": 589.1875,
+            "width": 382,
+            "height": 46.5
+          },
+          "ctaRect": {
+            "x": 24,
+            "y": 607.1875,
+            "right": 329.8125,
+            "bottom": 661.1875,
+            "width": 305.8125,
+            "height": 54
+          },
+          "controls": {
+            "x": 24,
+            "y": 800,
+            "right": 406,
+            "bottom": 844,
+            "width": 382,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(230, 200, 150)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(220, 228, 220)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(220, 228, 220)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 7,
+          "theme": "clinical-path",
+          "headline": "Your specialty. Your timeline.\nYour next clinical step.",
+          "cta": "Explore USCE",
+          "href": "https://missionmedinstitute.com/usce/",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/usce-clinical.webp",
+          "alt": "Existing USCE live-page illustrative clinical discussion photograph",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 430,
+            "bottom": 860,
+            "width": 430,
+            "height": 860
+          },
+          "copy": {
+            "x": 24,
+            "y": 370,
+            "right": 406,
+            "bottom": 669.875,
+            "width": 382,
+            "height": 299.875
+          },
+          "image": {
+            "x": 0,
+            "y": 76,
+            "right": 430,
+            "bottom": 356,
+            "width": 430,
+            "height": 280
+          },
+          "headlineRect": {
+            "x": 24,
+            "y": 406.59375,
+            "right": 406,
+            "bottom": 531.375,
+            "width": 382,
+            "height": 124.78125
+          },
+          "supportRect": {
+            "x": 24,
+            "y": 551.375,
+            "right": 406,
+            "bottom": 597.875,
+            "width": 382,
+            "height": 46.5
+          },
+          "ctaRect": {
+            "x": 24,
+            "y": 615.875,
+            "right": 179.140625,
+            "bottom": 669.875,
+            "width": 155.140625,
+            "height": 54
+          },
+          "controls": {
+            "x": 24,
+            "y": 800,
+            "right": 406,
+            "bottom": 844,
+            "width": 382,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(219, 199, 136)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(224, 233, 228)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        }
+      ],
+      "sections": {
+        "quote": {
+          "color": "rgb(245, 241, 231)",
+          "background": "rgba(0, 0, 0, 0)",
+          "text": "“You made me fall in love with my own story and believe that my dreams are valid against all Odds.”"
+        },
+        "quoteSection": {
+          "color": "rgb(245, 241, 231)",
+          "background": "rgb(21, 44, 41)",
+          "text": "“You made me fall in love with my own story and believe that my dreams are valid against all Odds.”\nDr Marian Ghaly · Mission Residency alumna\n\nFor IMGs, DOs and reapplicants seeking a clearer next step. Individual experiences are not a Match guarantee.\n\nSee what program directors consider\nRead student Match stories"
+        },
+        "nrmpHeading": {
+          "color": "rgb(255, 250, 242)",
+          "background": "rgba(0, 0, 0, 0)",
+          "text": "What Program Directors Actually Value"
+        },
+        "nrmpLead": {
+          "color": "rgb(220, 225, 223)",
+          "background": "rgba(0, 0, 0, 0)",
+          "text": "Click a category to see exactly which factors MissionMed helps you improve."
+        },
+        "nrmpHeader": {
+          "color": "rgb(26, 26, 26)",
+          "background": "rgb(15, 33, 55)",
+          "text": "NRMP PROGRAM DIRECTOR SURVEY 2024\nWhat Program Directors Actually Value\n\nClick a category to see exactly which factors MissionMed helps you improve."
+        }
+      },
+      "errors": [],
+      "failed": []
+    },
+    "390x844": {
+      "status": 200,
+      "frames": [
+        {
+          "index": 0,
+          "theme": "destination",
+          "headline": "YOU BUILT THE APPLICATION\nthat earned the interview.\nNOW LET'S TURN THE INTERVIEW\nINTO A MATCH.",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+          "alt": "Supplied Mission Residency physician image with Matched and Accomplished patch",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 390,
+            "bottom": 860,
+            "width": 390,
+            "height": 860
+          },
+          "copy": {
+            "x": 24,
+            "y": 368,
+            "right": 366,
+            "bottom": 733.296875,
+            "width": 342,
+            "height": 365.296875
+          },
+          "image": {
+            "x": 0,
+            "y": 75,
+            "right": 390,
+            "bottom": 363,
+            "width": 390,
+            "height": 288
+          },
+          "headlineRect": {
+            "x": 24,
+            "y": 404.59375,
+            "right": 366,
+            "bottom": 594.796875,
+            "width": 342,
+            "height": 190.203125
+          },
+          "supportRect": {
+            "x": 24,
+            "y": 614.796875,
+            "right": 366,
+            "bottom": 661.296875,
+            "width": 342,
+            "height": 46.5
+          },
+          "ctaRect": {
+            "x": 24,
+            "y": 679.296875,
+            "right": 313.484375,
+            "bottom": 733.296875,
+            "width": 289.484375,
+            "height": 54
+          },
+          "controls": {
+            "x": 24,
+            "y": 800,
+            "right": 366,
+            "bottom": 844,
+            "width": 342,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(231, 201, 149)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(220, 225, 223)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 1,
+          "theme": "exam-live",
+          "headline": "Your exam prep is missing one thing:\nlive practice.",
+          "cta": "Explore Exam Prep",
+          "href": "https://missionmedinstitute.com/examprep/",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+          "alt": "Existing Exam Prep live-page illustrative video-call photograph",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 390,
+            "bottom": 860,
+            "width": 390,
+            "height": 860
+          },
+          "copy": {
+            "x": 24,
+            "y": 160,
+            "right": 366,
+            "bottom": 530.59375,
+            "width": 342,
+            "height": 370.59375
+          },
+          "image": {
+            "x": 0,
+            "y": 0,
+            "right": 390,
+            "bottom": 860,
+            "width": 390,
+            "height": 860
+          },
+          "headlineRect": {
+            "x": 24,
+            "y": 196.59375,
+            "right": 366,
+            "bottom": 392.09375,
+            "width": 342,
+            "height": 195.5
+          },
+          "supportRect": {
+            "x": 24,
+            "y": 412.09375,
+            "right": 366,
+            "bottom": 458.59375,
+            "width": 342,
+            "height": 46.5
+          },
+          "ctaRect": {
+            "x": 24,
+            "y": 476.59375,
+            "right": 212.625,
+            "bottom": 530.59375,
+            "width": 188.625,
+            "height": 54
+          },
+          "controls": {
+            "x": 24,
+            "y": 800,
+            "right": 366,
+            "bottom": 844,
+            "width": 342,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(232, 180, 79)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(224, 232, 237)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 2,
+          "theme": "story",
+          "headline": "Don’t memorize a better answer.\nBecome a better communicator.",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/b-immersive/assets/online-class.webp",
+          "alt": "Real MissionMed online class with students in a video call",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 390,
+            "bottom": 860,
+            "width": 390,
+            "height": 860
+          },
+          "copy": {
+            "x": 24,
+            "y": 396,
+            "right": 366,
+            "bottom": 729.15625,
+            "width": 342,
+            "height": 333.15625
+          },
+          "image": {
+            "x": 83.75,
+            "y": 6.42498779296875,
+            "right": 446.25,
+            "bottom": 480.57501220703125,
+            "width": 362.5,
+            "height": 474.1500244140625
+          },
+          "headlineRect": {
+            "x": 24,
+            "y": 432.59375,
+            "right": 366,
+            "bottom": 590.65625,
+            "width": 342,
+            "height": 158.0625
+          },
+          "supportRect": {
+            "x": 24,
+            "y": 610.65625,
+            "right": 366,
+            "bottom": 657.15625,
+            "width": 342,
+            "height": 46.5
+          },
+          "ctaRect": {
+            "x": 24,
+            "y": 675.15625,
+            "right": 313.484375,
+            "bottom": 729.15625,
+            "width": 289.484375,
+            "height": 54
+          },
+          "controls": {
+            "x": 24,
+            "y": 800,
+            "right": 366,
+            "bottom": 844,
+            "width": 342,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(155, 65, 46)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(69, 85, 87)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 3,
+          "theme": "clinical",
+          "headline": "The right clinical experience.\nPlaced with precision.",
+          "cta": "Explore USCE",
+          "href": "https://missionmedinstitute.com/usce/",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/usce-operating.webp",
+          "alt": "Existing USCE live-page illustrative operating-room photograph",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 390,
+            "bottom": 860,
+            "width": 390,
+            "height": 860
+          },
+          "copy": {
+            "x": 24,
+            "y": 160,
+            "right": 366,
+            "bottom": 531.40625,
+            "width": 342,
+            "height": 371.40625
+          },
+          "image": {
+            "x": 0,
+            "y": 0,
+            "right": 390,
+            "bottom": 860,
+            "width": 390,
+            "height": 860
+          },
+          "headlineRect": {
+            "x": 24,
+            "y": 196.59375,
+            "right": 366,
+            "bottom": 387.90625,
+            "width": 342,
+            "height": 191.3125
+          },
+          "supportRect": {
+            "x": 24,
+            "y": 407.90625,
+            "right": 366,
+            "bottom": 454.40625,
+            "width": 342,
+            "height": 46.5
+          },
+          "ctaRect": {
+            "x": 117.421875,
+            "y": 477.40625,
+            "right": 272.5625,
+            "bottom": 531.40625,
+            "width": 155.140625,
+            "height": 54
+          },
+          "controls": {
+            "x": 24,
+            "y": 800,
+            "right": 366,
+            "bottom": 844,
+            "width": 342,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(200, 168, 78)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(227, 230, 227)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 4,
+          "theme": "evidence",
+          "headline": "The interview is part of\nthe ranking decision.",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-ranking.webp",
+          "alt": "NRMP Program Director Survey 2024 chart showing factors used to rank applicants",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 390,
+            "bottom": 860,
+            "width": 390,
+            "height": 860
+          },
+          "copy": {
+            "x": 24,
+            "y": 164,
+            "right": 366,
+            "bottom": 496.28125,
+            "width": 342,
+            "height": 332.28125
+          },
+          "image": {
+            "x": -98.140625,
+            "y": 299.78125,
+            "right": 488.140625,
+            "bottom": 1032.625,
+            "width": 586.28125,
+            "height": 732.84375
+          },
+          "headlineRect": {
+            "x": 24,
+            "y": 200.59375,
+            "right": 366,
+            "bottom": 363.78125,
+            "width": 342,
+            "height": 163.1875
+          },
+          "supportRect": {
+            "x": 24,
+            "y": 383.78125,
+            "right": 366,
+            "bottom": 430.28125,
+            "width": 342,
+            "height": 46.5
+          },
+          "ctaRect": {
+            "x": 24,
+            "y": 442.28125,
+            "right": 313.484375,
+            "bottom": 496.28125,
+            "width": 289.484375,
+            "height": 54
+          },
+          "controls": {
+            "x": 24,
+            "y": 816,
+            "right": 366,
+            "bottom": 860,
+            "width": 342,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(33, 78, 103)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(70, 96, 107)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(56, 80, 94)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(23, 36, 43)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 5,
+          "theme": "exam-reasoning",
+          "headline": "Train how you think\nunder pressure.",
+          "cta": "Explore Exam Prep",
+          "href": "https://missionmedinstitute.com/examprep/",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+          "alt": "Existing Exam Prep live-page illustrative video-call photograph",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 390,
+            "bottom": 860,
+            "width": 390,
+            "height": 860
+          },
+          "copy": {
+            "x": 24,
+            "y": 160,
+            "right": 366,
+            "bottom": 481.71875,
+            "width": 342,
+            "height": 321.71875
+          },
+          "image": {
+            "x": 0,
+            "y": 0,
+            "right": 390,
+            "bottom": 860,
+            "width": 390,
+            "height": 860
+          },
+          "headlineRect": {
+            "x": 24,
+            "y": 196.59375,
+            "right": 366,
+            "bottom": 343.21875,
+            "width": 342,
+            "height": 146.625
+          },
+          "supportRect": {
+            "x": 24,
+            "y": 363.21875,
+            "right": 366,
+            "bottom": 409.71875,
+            "width": 342,
+            "height": 46.5
+          },
+          "ctaRect": {
+            "x": 24,
+            "y": 427.71875,
+            "right": 212.625,
+            "bottom": 481.71875,
+            "width": 188.625,
+            "height": 54
+          },
+          "controls": {
+            "x": 24,
+            "y": 800,
+            "right": 366,
+            "bottom": 844,
+            "width": 342,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(232, 180, 79)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(224, 232, 237)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 6,
+          "theme": "community",
+          "headline": "They already know what’s on your application.\nThe interview tells them what isn’t.",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-community.webp",
+          "alt": "Real Mission Residency classroom and Match Day community montage",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 390,
+            "bottom": 860,
+            "width": 390,
+            "height": 860
+          },
+          "copy": {
+            "x": 24,
+            "y": 290,
+            "right": 366,
+            "bottom": 661.1875,
+            "width": 342,
+            "height": 371.1875
+          },
+          "image": {
+            "x": 0,
+            "y": 106,
+            "right": 390,
+            "bottom": 250.296875,
+            "width": 390,
+            "height": 144.296875
+          },
+          "headlineRect": {
+            "x": 24,
+            "y": 326.59375,
+            "right": 366,
+            "bottom": 522.6875,
+            "width": 342,
+            "height": 196.09375
+          },
+          "supportRect": {
+            "x": 24,
+            "y": 542.6875,
+            "right": 366,
+            "bottom": 589.1875,
+            "width": 342,
+            "height": 46.5
+          },
+          "ctaRect": {
+            "x": 24,
+            "y": 607.1875,
+            "right": 329.8125,
+            "bottom": 661.1875,
+            "width": 305.8125,
+            "height": 54
+          },
+          "controls": {
+            "x": 24,
+            "y": 800,
+            "right": 366,
+            "bottom": 844,
+            "width": 342,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(230, 200, 150)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(220, 228, 220)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(220, 228, 220)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        },
+        {
+          "index": 7,
+          "theme": "clinical-path",
+          "headline": "Your specialty. Your timeline.\nYour next clinical step.",
+          "cta": "Explore USCE",
+          "href": "https://missionmedinstitute.com/usce/",
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/usce-clinical.webp",
+          "alt": "Existing USCE live-page illustrative clinical discussion photograph",
+          "loaded": true,
+          "hero": {
+            "x": 0,
+            "y": 0,
+            "right": 390,
+            "bottom": 860,
+            "width": 390,
+            "height": 860
+          },
+          "copy": {
+            "x": 24,
+            "y": 370,
+            "right": 366,
+            "bottom": 711.46875,
+            "width": 342,
+            "height": 341.46875
+          },
+          "image": {
+            "x": 0,
+            "y": 76,
+            "right": 390,
+            "bottom": 356,
+            "width": 390,
+            "height": 280
+          },
+          "headlineRect": {
+            "x": 24,
+            "y": 406.59375,
+            "right": 366,
+            "bottom": 572.96875,
+            "width": 342,
+            "height": 166.375
+          },
+          "supportRect": {
+            "x": 24,
+            "y": 592.96875,
+            "right": 366,
+            "bottom": 639.46875,
+            "width": 342,
+            "height": 46.5
+          },
+          "ctaRect": {
+            "x": 24,
+            "y": 657.46875,
+            "right": 179.140625,
+            "bottom": 711.46875,
+            "width": 155.140625,
+            "height": 54
+          },
+          "controls": {
+            "x": 24,
+            "y": 800,
+            "right": 366,
+            "bottom": 844,
+            "width": 342,
+            "height": 44
+          },
+          "overflow": 0,
+          "styles": {
+            ".mm-ph__eyebrow": {
+              "color": "rgb(219, 199, 136)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__headline": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__support": {
+              "color": "rgb(224, 233, 228)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__cta": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__caption": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            },
+            ".mm-ph__controls": {
+              "color": "rgb(255, 250, 242)",
+              "background": "rgba(0, 0, 0, 0)"
+            }
+          },
+          "problems": []
+        }
+      ],
+      "sections": {
+        "quote": {
+          "color": "rgb(245, 241, 231)",
+          "background": "rgba(0, 0, 0, 0)",
+          "text": "“You made me fall in love with my own story and believe that my dreams are valid against all Odds.”"
+        },
+        "quoteSection": {
+          "color": "rgb(245, 241, 231)",
+          "background": "rgb(21, 44, 41)",
+          "text": "“You made me fall in love with my own story and believe that my dreams are valid against all Odds.”\nDr Marian Ghaly · Mission Residency alumna\n\nFor IMGs, DOs and reapplicants seeking a clearer next step. Individual experiences are not a Match guarantee.\n\nSee what program directors consider\nRead student Match stories"
+        },
+        "nrmpHeading": {
+          "color": "rgb(255, 250, 242)",
+          "background": "rgba(0, 0, 0, 0)",
+          "text": "What Program Directors Actually Value"
+        },
+        "nrmpLead": {
+          "color": "rgb(220, 225, 223)",
+          "background": "rgba(0, 0, 0, 0)",
+          "text": "Click a category to see exactly which factors MissionMed helps you improve."
+        },
+        "nrmpHeader": {
+          "color": "rgb(26, 26, 26)",
+          "background": "rgb(15, 33, 55)",
+          "text": "NRMP PROGRAM DIRECTOR SURVEY 2024\nWhat Program Directors Actually Value\n\nClick a category to see exactly which factors MissionMed helps you improve."
+        }
+      },
+      "errors": [],
+      "failed": []
+    }
+  },
+  "failures": []
+}

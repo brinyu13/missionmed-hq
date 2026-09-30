@@ -101,3 +101,10 @@ body.home:not(.mm-ph-scrolled):has(.mm-ph[data-theme="story"]) #mm-l5-header,bod
   .mm-ph[data-theme="clinical"] .mm-ph__headline,
   .mm-ph[data-theme="clinical-path"] .mm-ph__headline{font-family:Inter,Arial,sans-serif;font-weight:650;letter-spacing:-.04em}
 }
+
+/* Homepage-only contrast repair and authentic online-class story crop. */
+.mm-ph[data-theme="story"] .mm-ph__image{object-position:50% 50%;transform:scale(1.45)}
+body.home .mm-ph__proof blockquote{color:#f5f1e7!important}
+body.home #f2-pd-system .f2-header h2{color:#fffaf2!important}
+body.home #f2-pd-system .f2-header .f2-lead{color:#dce1df!important}
+body.home:not(.mm-ph-dark):not(.mm-ph-scrolled) #mm-l5-header .mm-l5__account,body.home.mm-ph-scrolled #mm-l5-header .mm-l5__account{color:#fffaf2!important}
