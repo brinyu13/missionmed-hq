@@ -48,6 +48,8 @@ import {
   persistedConversationTurns,
   reviewTranscriptCoverage,
   reviewTurnSpeakerLabel,
+  buildQuestionPoolBulkAction,
+  programSearchFailureCopy,
 } from './presentation-view-model.mjs';
 import { clearAdminReviewMedia, createAdminReviewGate, isAdminReview, mayPresentSavedReview, resolveReviewDestination } from './review-scope.mjs';
 
@@ -1001,8 +1003,12 @@ function renderQuestionStep(host) {
   const branch = el('section', 'canon-branches');
   branch.append(el('h2', '', state.wizard.questionSearch ? 'Search results' : state.wizard.questionCategory));
   const branchActions = el('div', 'canon-inline-actions');
-  const categoryQuestions = store.all().filter((question) => categoryForQuestion(question) === state.wizard.questionCategory);
-  branchActions.append(choiceButton({ className: 'canon-mini-choice', label: 'Add entire category', onClick: () => { categoryQuestions.forEach(addToSet); renderWizard(); } }));
+  const bulkAction = buildQuestionPoolBulkAction({
+    questions: store.all(), category: state.wizard.questionCategory,
+    search: state.wizard.questionSearch, categoryOf: categoryForQuestion,
+  });
+  branchActions.append(choiceButton({ className: 'canon-mini-choice', label: bulkAction.label,
+    onClick: () => { bulkAction.targets.forEach(addToSet); renderWizard(); } }));
   branch.append(branchActions);
   if (!state.wizard.questionSearch) {
     const sections = el('div', 'canon-sections');
@@ -1015,8 +1021,7 @@ function renderQuestionStep(host) {
   }
   let visible = store.all();
   if (state.wizard.questionSearch.trim()) {
-    const needle = state.wizard.questionSearch.toLowerCase();
-    visible = visible.filter((question) => `${question.question_id} ${question.canonical_text}`.toLowerCase().includes(needle));
+    visible = bulkAction.targets;
   } else if (!state.wizard.questionSection) {
     visible = [];
   } else {
@@ -1182,7 +1187,7 @@ function renderProgramStep(host) {
       });
       state.programSearch = { status: 'ready', records: result.records || [], total: result.total || 0, error: null, registryReleaseId: result.registryReleaseId };
     } catch (error) {
-      state.programSearch = { status: 'error', records: [], total: 0, error: String(error?.message || error).slice(0, 120) };
+      state.programSearch = { status: 'error', records: [], total: 0, error: programSearchFailureCopy(error) };
     }
     renderWizard();
   } });
@@ -1213,7 +1218,7 @@ function renderProgramStep(host) {
     if (!state.programSearch.records.length) list.append(el('p', 'canon-muted', 'No verified programs matched. Refine the name, specialty, or state, or continue with a clearly labeled manual entry.'));
     host.append(list);
   } else if (state.programSearch.status === 'error') {
-    host.append(el('p', 'unavailable', `PROGRAM SEARCH UNAVAILABLE — ${state.programSearch.error.toUpperCase()}`));
+    host.append(el('p', 'unavailable', state.programSearch.error));
   }
   const result = el('div', 'canon-program-result');
   result.append(el('div', 'microcap', state.wizard.programVerified ? 'Verified RISE program selected' : state.wizard.program ? 'Manual program entry' : 'Program search'));

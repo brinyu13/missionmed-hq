@@ -8,6 +8,8 @@ import {
   buildReadinessRows,
   reviewTranscriptCoverage,
   reviewTurnSpeakerLabel,
+  buildQuestionPoolBulkAction,
+  programSearchFailureCopy,
 } from '../../public/studio/presentation-view-model.mjs';
 import { publicAdmissionState } from '../../server/admission-contract.mjs';
 import { summarizeVideoFramePixels } from '../../public/studio/media-analytics-capability.mjs';
@@ -112,4 +114,24 @@ test('Admin review transcript names the selected student, not the reviewer', () 
   assert.equal(reviewTurnSpeakerLabel('interviewer', { role: 'admin', ownerDisplayName: 'Alex Morgan' }), 'Interviewer');
   assert.equal(reviewTranscriptCoverage([{ speaker: 'interviewer' }]), 'interviewer_only');
   assert.equal(reviewTranscriptCoverage([{ speaker: 'interviewer' }, { speaker: 'student' }]), 'candidate_present');
+});
+
+test('bulk Question Pool action follows visible search results instead of the selected category', () => {
+  const questions = [
+    { question_id: 'CORE-01', canonical_text: 'Tell me about yourself.', category: 'Core' },
+    { question_id: 'MR-02', canonical_text: 'Describe your research.', category: 'Research' },
+  ];
+  const categoryOf = (question) => question.category;
+  const search = buildQuestionPoolBulkAction({ questions, category: 'Core', search: 'research', categoryOf });
+  assert.equal(search.label, 'Add matching questions');
+  assert.deepEqual(search.targets.map((question) => question.question_id), ['MR-02']);
+  const category = buildQuestionPoolBulkAction({ questions, category: 'Core', categoryOf });
+  assert.equal(category.label, 'Add entire category');
+  assert.deepEqual(category.targets.map((question) => question.question_id), ['CORE-01']);
+});
+
+test('program search failure is student-facing and does not expose an internal error code', () => {
+  assert.match(programSearchFailureCopy({ status: 403 }), /not available for this account/u);
+  assert.match(programSearchFailureCopy({ status: 500 }), /temporarily unavailable/u);
+  assert.doesNotMatch(programSearchFailureCopy({ status: 500, message: 'ivoc_internal_error' }), /ivoc_internal_error/u);
 });

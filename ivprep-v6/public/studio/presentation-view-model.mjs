@@ -97,6 +97,22 @@ export function reviewTranscriptCoverage(turns = []) {
   return turns.some((turn) => turn?.speaker === 'student') ? 'candidate_present' : 'interviewer_only';
 }
 
+export function buildQuestionPoolBulkAction({ questions = [], category = '', search = '', categoryOf } = {}) {
+  const query = String(search).trim().toLowerCase();
+  const source = Array.isArray(questions) ? questions : [];
+  const targets = query
+    ? source.filter((question) => `${question?.question_id || ''} ${question?.canonical_text || ''}`.toLowerCase().includes(query))
+    : source.filter((question) => categoryOf?.(question) === category);
+  return { label: query ? 'Add matching questions' : 'Add entire category', targets };
+}
+
+export function programSearchFailureCopy(error) {
+  const denied = error?.status === 401 || error?.status === 403;
+  return denied
+    ? 'Verified program search is not available for this account. You can continue with a manual entry; no unverified program facts will be used.'
+    : 'Verified program search is temporarily unavailable. You can continue with a manual entry; no unverified program facts will be used.';
+}
+
 export function buildHomeViewModel({ identity = null, sessions = [], mentorPriorities = null } = {}) {
   const { initials, greetingName } = buildIdentityViewModel(identity);
   const latest = [...sessions]

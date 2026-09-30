@@ -24,8 +24,8 @@ test('the Founder-facing root declares the sealed Astra candidate.2 presentation
   assert.match(html, /<title>IV Prep On-Call · MissionMed<\/title>/u);
   assert.doesNotMatch(html, /<title>[^<]*Performance Studio/iu);
   for (const label of ['Home', 'Build Interview', 'Question Library', 'Program Prep', 'Recordings &amp; Results',
-    'My Progress', 'Progress Analytics', 'Answer Library',
-    'My Context', 'Review a Real Interview']) {
+    'My Progress', 'Analytics Lab', 'Answer Library',
+    'My Context', 'Review My Answers']) {
     assert.match(html, new RegExp(`>${label}(?:\\s|<)`, 'u'), `${label} navigation is missing`);
   }
 });
