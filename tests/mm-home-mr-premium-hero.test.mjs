@@ -34,7 +34,7 @@ test('rotation is bounded, controllable and motion-aware',()=>{
 test('Round 2 visual geometry is full bleed and contrast-safe',()=>{
  for(const token of ['height:880px','position:absolute;inset:0;z-index:0','left:54%;right:4.45%','--ph-accent:#9b412e','linear-gradient(90deg,rgba(3,14,24,.14)'])assert.ok(heroCss.includes(token),token);
  assert.ok(!/\.mm-ph\{[^}]*display:grid/.test(heroCss),'homepage hero must not return to split-grid geometry');
- for(const token of ['height:calc(2300px - 400vw)','grid-template-rows:44px 44px','transform:none!important'])assert.ok(heroCss.includes(token),token);
+ for(const token of ['height:calc(2300px - 400vw)','grid-template-rows:44px 44px','transform:none!important','.f2-gates{grid-template-columns:minmax(0,1fr)!important}'])assert.ok(heroCss.includes(token),token);
  for(const token of ['background:#eee7d9','linear-gradient(90deg,transparent 33%,#eee7d9 60%)','left:53%;right:4.45%','height:884px'])assert.ok(mrCss.includes(token),token);
  assert.ok(!mrJs.includes("$('.hero-scene').style"),'removed hero-scene runtime error');
  assert.ok(mrJs.includes('scrollIntoView({block:\'start\'})'),'deep links restore after async render');
@@ -44,6 +44,7 @@ test('dedicated Mission Residency hero is static and both paths are explicit',()
  const hero=mrJs.slice(mrJs.indexOf('function hero()'),mrJs.indexOf('function paths()'));
  for(const text of ['brian-studio-aaa.jpg','YOU BUILT THE APPLICATION','that earned the interview.',"NOW LET'S TURN THE INTERVIEW",'INTO A MATCH.','Explore Interview Bootcamp Week','Explore IV Prep Complete',"here('#dates')","here('#compare')"])assert.ok(hero.includes(text),text);
  assert.ok(mrJs.includes('carry(location.pathname+hash)'));
+ for(const path of ['/member-dashboard/','/my-account/','/cart/'])assert.ok(mrJs.includes(`carry('${path}')`),path);
  assert.ok(!/carousel|setInterval|setTimeout/.test(hero));
  for(const text of ['October 8–18, 2026','October through final February interviews','small-group training','groups are small and personalized'])assert.ok(mrJs.includes(text),text);
  assert.ok(mrHtml.includes('brian-studio-aaa.jpg'));
