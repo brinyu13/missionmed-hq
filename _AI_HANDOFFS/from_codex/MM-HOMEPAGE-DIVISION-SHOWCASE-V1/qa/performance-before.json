@@ -1,0 +1,262 @@
+[
+  {
+    "kind": "before",
+    "width": 1440,
+    "run": 1,
+    "status": 200,
+    "cls": 0.0015466419110082303,
+    "lcp": 1592,
+    "lcpElement": "<img class=\"mm-ph__image\" data-hero-image=\"\" src=\"https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp\" alt=\"Supplied Mission Residen",
+    "transferBytes": 1608767,
+    "decodedBytes": 2661304,
+    "requests": 37,
+    "images": [
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/06/hero-bg-optimized.webp",
+        "transfer": 380920
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+        "transfer": 59094
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/02/cropped-608a69b125647f6e63b56f87b823b1e60dbdaebf4916b1d5d5edcc408b8ab3fe-1024x391.png",
+        "transfer": 294967
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+        "transfer": 112704
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/06/mm-speed-home-012/mm-home-012-04-chelsey-matched-after-5-cycles.jpg",
+        "transfer": 25911
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/06/mm-speed-home-012/mm-home-012-03-marian-tearful-match-call.jpg",
+        "transfer": 19030
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/06/mm-speed-home-012/mm-home-012-05-yamini-left-medicine-15-years.jpg",
+        "transfer": 15750
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/06/mm-speed-home-012/mm-home-012-06-gunjan-family-finds-out.jpg",
+        "transfer": 11073
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-32x32.png",
+        "transfer": 2607
+      }
+    ],
+    "heroHeight": 648,
+    "showcase": false,
+    "errors": [],
+    "failed": []
+  },
+  {
+    "kind": "before",
+    "width": 1440,
+    "run": 2,
+    "status": 200,
+    "cls": 0.0015466419110082303,
+    "lcp": 500,
+    "lcpElement": "<img class=\"mm-ph__image\" data-hero-image=\"\" src=\"https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp\" alt=\"Supplied Mission Residen",
+    "transferBytes": 1625905,
+    "decodedBytes": 2661304,
+    "requests": 37,
+    "images": [
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/06/hero-bg-optimized.webp",
+        "transfer": 380920
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+        "transfer": 59094
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/02/cropped-608a69b125647f6e63b56f87b823b1e60dbdaebf4916b1d5d5edcc408b8ab3fe-1024x391.png",
+        "transfer": 294967
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+        "transfer": 112704
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-32x32.png",
+        "transfer": 2607
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/06/mm-speed-home-012/mm-home-012-03-marian-tearful-match-call.jpg",
+        "transfer": 19030
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/06/mm-speed-home-012/mm-home-012-04-chelsey-matched-after-5-cycles.jpg",
+        "transfer": 25911
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/06/mm-speed-home-012/mm-home-012-06-gunjan-family-finds-out.jpg",
+        "transfer": 11073
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/06/mm-speed-home-012/mm-home-012-05-yamini-left-medicine-15-years.jpg",
+        "transfer": 15750
+      }
+    ],
+    "heroHeight": 648,
+    "showcase": false,
+    "errors": [],
+    "failed": []
+  },
+  {
+    "kind": "before",
+    "width": 1440,
+    "run": 3,
+    "status": 200,
+    "cls": 0.0007827530221193416,
+    "lcp": 496,
+    "lcpElement": "<img class=\"mm-ph__image\" data-hero-image=\"\" src=\"https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp\" alt=\"Supplied Mission Residen",
+    "transferBytes": 1554511,
+    "decodedBytes": 2590740,
+    "requests": 33,
+    "images": [
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/06/hero-bg-optimized.webp",
+        "transfer": 380920
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+        "transfer": 59094
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/02/cropped-608a69b125647f6e63b56f87b823b1e60dbdaebf4916b1d5d5edcc408b8ab3fe-1024x391.png",
+        "transfer": 294967
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+        "transfer": 112704
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-32x32.png",
+        "transfer": 2607
+      }
+    ],
+    "heroHeight": 648,
+    "showcase": false,
+    "errors": [],
+    "failed": []
+  },
+  {
+    "kind": "before",
+    "width": 390,
+    "run": 1,
+    "status": 200,
+    "cls": 0.012660525421793894,
+    "lcp": 520,
+    "lcpElement": "<img class=\"mm-ph__image\" data-hero-image=\"\" src=\"https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp\" alt=\"Supplied Mission Residen",
+    "transferBytes": 1554150,
+    "decodedBytes": 2590740,
+    "requests": 33,
+    "images": [
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/06/hero-bg-optimized.webp",
+        "transfer": 380920
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+        "transfer": 59094
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/02/cropped-608a69b125647f6e63b56f87b823b1e60dbdaebf4916b1d5d5edcc408b8ab3fe-1024x391.png",
+        "transfer": 294967
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+        "transfer": 112704
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-32x32.png",
+        "transfer": 2607
+      }
+    ],
+    "heroHeight": 860,
+    "showcase": false,
+    "errors": [],
+    "failed": []
+  },
+  {
+    "kind": "before",
+    "width": 390,
+    "run": 2,
+    "status": 200,
+    "cls": 0.01371192329820658,
+    "lcp": 356,
+    "lcpElement": "<img class=\"mm-ph__image\" data-hero-image=\"\" src=\"https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp\" alt=\"Supplied Mission Residen",
+    "transferBytes": 1554310,
+    "decodedBytes": 2590740,
+    "requests": 33,
+    "images": [
+      {
+        "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+        "transfer": 59094
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/06/hero-bg-optimized.webp",
+        "transfer": 380920
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/02/cropped-608a69b125647f6e63b56f87b823b1e60dbdaebf4916b1d5d5edcc408b8ab3fe-1024x391.png",
+        "transfer": 294967
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+        "transfer": 112704
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-32x32.png",
+        "transfer": 2607
+      }
+    ],
+    "heroHeight": 860,
+    "showcase": false,
+    "errors": [],
+    "failed": []
+  },
+  {
+    "kind": "before",
+    "width": 390,
+    "run": 3,
+    "status": 200,
+    "cls": 0.01371192329820658,
+    "lcp": 484,
+    "lcpElement": "<img class=\"mm-ph__image\" data-hero-image=\"\" src=\"https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp\" alt=\"Supplied Mission Residen",
+    "transferBytes": 1554577,
+    "decodedBytes": 2590740,
+    "requests": 33,
+    "images": [
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/06/hero-bg-optimized.webp",
+        "transfer": 380920
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+        "transfer": 59094
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/02/cropped-608a69b125647f6e63b56f87b823b1e60dbdaebf4916b1d5d5edcc408b8ab3fe-1024x391.png",
+        "transfer": 294967
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+        "transfer": 112704
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-32x32.png",
+        "transfer": 2607
+      }
+    ],
+    "heroHeight": 860,
+    "showcase": false,
+    "errors": [],
+    "failed": []
+  }
+]

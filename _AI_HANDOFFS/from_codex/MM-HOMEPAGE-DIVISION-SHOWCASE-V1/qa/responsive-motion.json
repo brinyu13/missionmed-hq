@@ -1,0 +1,1545 @@
+{
+  "results": [
+    {
+      "width": 1440,
+      "height": 900,
+      "status": 200,
+      "initial": {
+        "showcaseTop": 1181,
+        "intro": "Three divisions. One mission.",
+        "order": [
+          "exam",
+          "clinical",
+          "residency"
+        ],
+        "cta": [
+          {
+            "text": "Explore ExamPrep",
+            "href": "https://missionmedinstitute.com/examprep/"
+          },
+          {
+            "text": "Explore Clinical Experiences",
+            "href": "https://missionmedinstitute.com/usce/"
+          },
+          {
+            "text": "Explore Mission Residency",
+            "href": "https://missionmedinstitute.com/missionresidency/"
+          }
+        ],
+        "frames": [
+          "mr-application",
+          "exam-live",
+          "mr-communication",
+          "usce-fit",
+          "mr-ranking",
+          "exam-reasoning",
+          "mr-story",
+          "usce-pathway"
+        ],
+        "heroHeight": 648,
+        "htmlOverflow": 0
+      },
+      "frameCheck": [
+        {
+          "index": "0",
+          "headline": "YOU BUILT THE APPLICATION",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates"
+        },
+        {
+          "index": "1",
+          "headline": "Your exam prep is missing one thing:",
+          "cta": "Explore Exam Prep",
+          "href": "https://missionmedinstitute.com/examprep/"
+        },
+        {
+          "index": "2",
+          "headline": "Don’t memorize a better answer.",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates"
+        },
+        {
+          "index": "3",
+          "headline": "The right clinical experience.",
+          "cta": "Explore USCE",
+          "href": "https://missionmedinstitute.com/usce/"
+        },
+        {
+          "index": "4",
+          "headline": "The interview is part of",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates"
+        },
+        {
+          "index": "5",
+          "headline": "Train how you think",
+          "cta": "Explore Exam Prep",
+          "href": "https://missionmedinstitute.com/examprep/"
+        },
+        {
+          "index": "6",
+          "headline": "They already know what’s on your application.",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates"
+        },
+        {
+          "index": "7",
+          "headline": "Your specialty. Your timeline.",
+          "cta": "Explore USCE",
+          "href": "https://missionmedinstitute.com/usce/"
+        }
+      ],
+      "scenes": [
+        {
+          "id": "exam",
+          "height": 576,
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+          "naturalWidth": 1440,
+          "headline": "Train how you think under pressure.",
+          "support": "Build live reasoning for USMLE, COMLEX and boards with question analysis and feedback.",
+          "cta": "https://missionmedinstitute.com/examprep/",
+          "headlineBox": {
+            "x": 166.390625,
+            "y": 280.484375,
+            "width": 600,
+            "height": 222.375,
+            "right": 766.390625,
+            "bottom": 502.859375
+          },
+          "supportBox": {
+            "x": 166.390625,
+            "y": 524.859375,
+            "width": 510,
+            "height": 60,
+            "right": 676.390625,
+            "bottom": 584.859375
+          },
+          "ctaBox": {
+            "x": 166.390625,
+            "y": 612.859375,
+            "width": 246.53125,
+            "height": 53,
+            "right": 412.921875,
+            "bottom": 665.859375
+          },
+          "sceneBox": {
+            "x": 0,
+            "y": 161.53125,
+            "width": 1440,
+            "height": 576,
+            "right": 1440,
+            "bottom": 737.53125
+          },
+          "shift": "0.07px",
+          "bodyOverflow": 0
+        },
+        {
+          "id": "clinical",
+          "height": 638.09375,
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/usce-operating.webp",
+          "naturalWidth": 1440,
+          "headline": "The right clinical experience. Placed with precision.",
+          "support": "Explore placements matched to your specialty, timeline and clinical needs.",
+          "cta": "https://missionmedinstitute.com/usce/",
+          "headlineBox": {
+            "x": 703.609375,
+            "y": 370.125,
+            "width": 570,
+            "height": 296.5,
+            "right": 1273.609375,
+            "bottom": 666.625
+          },
+          "supportBox": {
+            "x": 763.609375,
+            "y": 688.625,
+            "width": 510,
+            "height": 60,
+            "right": 1273.609375,
+            "bottom": 748.625
+          },
+          "ctaBox": {
+            "x": 703.609375,
+            "y": 776.625,
+            "width": 340.9375,
+            "height": 53,
+            "right": 1044.546875,
+            "bottom": 829.625
+          },
+          "sceneBox": {
+            "x": 0,
+            "y": 261.53125,
+            "width": 1440,
+            "height": 638.09375,
+            "right": 1440,
+            "bottom": 899.625
+          },
+          "shift": "-20.89px",
+          "bodyOverflow": 0
+        },
+        {
+          "id": "residency",
+          "height": 576,
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/media/montage-1702.webp",
+          "naturalWidth": 1440,
+          "headline": "Become a better communicator.",
+          "support": "Build the communication, story and connection skills that matter when programs meet you.",
+          "cta": "https://missionmedinstitute.com/missionresidency/",
+          "headlineBox": {
+            "x": 166.390625,
+            "y": 317.640625,
+            "width": 600,
+            "height": 148.25,
+            "right": 766.390625,
+            "bottom": 465.890625
+          },
+          "supportBox": {
+            "x": 166.390625,
+            "y": 487.890625,
+            "width": 510,
+            "height": 60,
+            "right": 676.390625,
+            "bottom": 547.890625
+          },
+          "ctaBox": {
+            "x": 166.390625,
+            "y": 575.890625,
+            "width": 316.15625,
+            "height": 53,
+            "right": 482.546875,
+            "bottom": 628.890625
+          },
+          "sceneBox": {
+            "x": 0,
+            "y": 161.625,
+            "width": 1440,
+            "height": 576,
+            "right": 1440,
+            "bottom": 737.625
+          },
+          "shift": "0.06px",
+          "bodyOverflow": 0
+        }
+      ],
+      "errors": [],
+      "failed": []
+    },
+    {
+      "width": 1440,
+      "height": 1000,
+      "status": 200,
+      "initial": {
+        "showcaseTop": 1233,
+        "intro": "Three divisions. One mission.",
+        "order": [
+          "exam",
+          "clinical",
+          "residency"
+        ],
+        "cta": [
+          {
+            "text": "Explore ExamPrep",
+            "href": "https://missionmedinstitute.com/examprep/"
+          },
+          {
+            "text": "Explore Clinical Experiences",
+            "href": "https://missionmedinstitute.com/usce/"
+          },
+          {
+            "text": "Explore Mission Residency",
+            "href": "https://missionmedinstitute.com/missionresidency/"
+          }
+        ],
+        "frames": [
+          "mr-application",
+          "exam-live",
+          "mr-communication",
+          "usce-fit",
+          "mr-ranking",
+          "exam-reasoning",
+          "mr-story",
+          "usce-pathway"
+        ],
+        "heroHeight": 700,
+        "htmlOverflow": 0
+      },
+      "frameCheck": null,
+      "scenes": [
+        {
+          "id": "exam",
+          "height": 640,
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+          "naturalWidth": 1440,
+          "headline": "Train how you think under pressure.",
+          "support": "Build live reasoning for USMLE, COMLEX and boards with question analysis and feedback.",
+          "cta": "https://missionmedinstitute.com/examprep/",
+          "headlineBox": {
+            "x": 166.390625,
+            "y": 330.484375,
+            "width": 600,
+            "height": 222.375,
+            "right": 766.390625,
+            "bottom": 552.859375
+          },
+          "supportBox": {
+            "x": 166.390625,
+            "y": 574.859375,
+            "width": 510,
+            "height": 60,
+            "right": 676.390625,
+            "bottom": 634.859375
+          },
+          "ctaBox": {
+            "x": 166.390625,
+            "y": 662.859375,
+            "width": 246.53125,
+            "height": 53,
+            "right": 412.921875,
+            "bottom": 715.859375
+          },
+          "sceneBox": {
+            "x": 0,
+            "y": 179.53125,
+            "width": 1440,
+            "height": 640,
+            "right": 1440,
+            "bottom": 819.53125
+          },
+          "shift": "0.07px",
+          "bodyOverflow": 0
+        },
+        {
+          "id": "clinical",
+          "height": 640,
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/usce-operating.webp",
+          "naturalWidth": 1440,
+          "headline": "The right clinical experience. Placed with precision.",
+          "support": "Explore placements matched to your specialty, timeline and clinical needs.",
+          "cta": "https://missionmedinstitute.com/usce/",
+          "headlineBox": {
+            "x": 703.609375,
+            "y": 469.078125,
+            "width": 570,
+            "height": 296.5,
+            "right": 1273.609375,
+            "bottom": 765.578125
+          },
+          "supportBox": {
+            "x": 763.609375,
+            "y": 787.578125,
+            "width": 510,
+            "height": 60,
+            "right": 1273.609375,
+            "bottom": 847.578125
+          },
+          "ctaBox": {
+            "x": 703.609375,
+            "y": 875.578125,
+            "width": 340.9375,
+            "height": 53,
+            "right": 1044.546875,
+            "bottom": 928.578125
+          },
+          "sceneBox": {
+            "x": 0,
+            "y": 359.53125,
+            "width": 1440,
+            "height": 640,
+            "right": 1440,
+            "bottom": 999.53125
+          },
+          "shift": "-28.73px",
+          "bodyOverflow": 0
+        },
+        {
+          "id": "residency",
+          "height": 640,
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/media/montage-1702.webp",
+          "naturalWidth": 1440,
+          "headline": "Become a better communicator.",
+          "support": "Build the communication, story and connection skills that matter when programs meet you.",
+          "cta": "https://missionmedinstitute.com/missionresidency/",
+          "headlineBox": {
+            "x": 166.390625,
+            "y": 367.546875,
+            "width": 600,
+            "height": 148.25,
+            "right": 766.390625,
+            "bottom": 515.796875
+          },
+          "supportBox": {
+            "x": 166.390625,
+            "y": 537.796875,
+            "width": 510,
+            "height": 60,
+            "right": 676.390625,
+            "bottom": 597.796875
+          },
+          "ctaBox": {
+            "x": 166.390625,
+            "y": 625.796875,
+            "width": 316.15625,
+            "height": 53,
+            "right": 482.546875,
+            "bottom": 678.796875
+          },
+          "sceneBox": {
+            "x": 0,
+            "y": 179.53125,
+            "width": 1440,
+            "height": 640,
+            "right": 1440,
+            "bottom": 819.53125
+          },
+          "shift": "0.07px",
+          "bodyOverflow": 0
+        }
+      ],
+      "errors": [],
+      "failed": []
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "status": 200,
+      "initial": {
+        "showcaseTop": 1153,
+        "intro": "Three divisions. One mission.",
+        "order": [
+          "exam",
+          "clinical",
+          "residency"
+        ],
+        "cta": [
+          {
+            "text": "Explore ExamPrep",
+            "href": "https://missionmedinstitute.com/examprep/"
+          },
+          {
+            "text": "Explore Clinical Experiences",
+            "href": "https://missionmedinstitute.com/usce/"
+          },
+          {
+            "text": "Explore Mission Residency",
+            "href": "https://missionmedinstitute.com/missionresidency/"
+          }
+        ],
+        "frames": [
+          "mr-application",
+          "exam-live",
+          "mr-communication",
+          "usce-fit",
+          "mr-ranking",
+          "exam-reasoning",
+          "mr-story",
+          "usce-pathway"
+        ],
+        "heroHeight": 620,
+        "htmlOverflow": 0
+      },
+      "frameCheck": null,
+      "scenes": [
+        {
+          "id": "exam",
+          "height": 560.671875,
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+          "naturalWidth": 1366,
+          "headline": "Train how you think under pressure.",
+          "support": "Build live reasoning for USMLE, COMLEX and boards with question analysis and feedback.",
+          "cta": "https://missionmedinstitute.com/examprep/",
+          "headlineBox": {
+            "x": 124.953125,
+            "y": 220.171875,
+            "width": 600,
+            "height": 210.9375,
+            "right": 724.953125,
+            "bottom": 431.109375
+          },
+          "supportBox": {
+            "x": 124.953125,
+            "y": 453.109375,
+            "width": 510,
+            "height": 59.4375,
+            "right": 634.953125,
+            "bottom": 512.546875
+          },
+          "ctaBox": {
+            "x": 124.953125,
+            "y": 540.546875,
+            "width": 246.53125,
+            "height": 53,
+            "right": 371.484375,
+            "bottom": 593.546875
+          },
+          "sceneBox": {
+            "x": 0,
+            "y": 102.875,
+            "width": 1366,
+            "height": 560.671875,
+            "right": 1366,
+            "bottom": 663.546875
+          },
+          "shift": "0.13px",
+          "bodyOverflow": 0
+        },
+        {
+          "id": "clinical",
+          "height": 551.96875,
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/usce-operating.webp",
+          "naturalWidth": 1366,
+          "headline": "The right clinical experience. Placed with precision.",
+          "support": "Explore placements matched to your specialty, timeline and clinical needs.",
+          "cta": "https://missionmedinstitute.com/usce/",
+          "headlineBox": {
+            "x": 671.046875,
+            "y": 324.140625,
+            "width": 570,
+            "height": 210.9375,
+            "right": 1241.046875,
+            "bottom": 535.078125
+          },
+          "supportBox": {
+            "x": 731.046875,
+            "y": 557.078125,
+            "width": 510,
+            "height": 59.4375,
+            "right": 1241.046875,
+            "bottom": 616.515625
+          },
+          "ctaBox": {
+            "x": 671.046875,
+            "y": 644.515625,
+            "width": 340.9375,
+            "height": 53,
+            "right": 1011.984375,
+            "bottom": 697.515625
+          },
+          "sceneBox": {
+            "x": 0,
+            "y": 215.546875,
+            "width": 1366,
+            "height": 551.96875,
+            "right": 1366,
+            "bottom": 767.515625
+          },
+          "shift": "-17.21px",
+          "bodyOverflow": 0
+        },
+        {
+          "id": "residency",
+          "height": 510,
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/media/montage-1702.webp",
+          "naturalWidth": 1366,
+          "headline": "Become a better communicator.",
+          "support": "Build the communication, story and connection skills that matter when programs meet you.",
+          "cta": "https://missionmedinstitute.com/missionresidency/",
+          "headlineBox": {
+            "x": 124.953125,
+            "y": 255.625,
+            "width": 600,
+            "height": 140.625,
+            "right": 724.953125,
+            "bottom": 396.25
+          },
+          "supportBox": {
+            "x": 124.953125,
+            "y": 418.25,
+            "width": 510,
+            "height": 59.4375,
+            "right": 634.953125,
+            "bottom": 477.6875
+          },
+          "ctaBox": {
+            "x": 124.953125,
+            "y": 505.6875,
+            "width": 316.15625,
+            "height": 53,
+            "right": 441.109375,
+            "bottom": 558.6875
+          },
+          "sceneBox": {
+            "x": 0,
+            "y": 128.515625,
+            "width": 1366,
+            "height": 510,
+            "right": 1366,
+            "bottom": 638.515625
+          },
+          "shift": "0.08px",
+          "bodyOverflow": 0
+        }
+      ],
+      "errors": [],
+      "failed": []
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "initial": {
+        "showcaseTop": 1153,
+        "intro": "Three divisions. One mission.",
+        "order": [
+          "exam",
+          "clinical",
+          "residency"
+        ],
+        "cta": [
+          {
+            "text": "Explore ExamPrep",
+            "href": "https://missionmedinstitute.com/examprep/"
+          },
+          {
+            "text": "Explore Clinical Experiences",
+            "href": "https://missionmedinstitute.com/usce/"
+          },
+          {
+            "text": "Explore Mission Residency",
+            "href": "https://missionmedinstitute.com/missionresidency/"
+          }
+        ],
+        "frames": [
+          "mr-application",
+          "exam-live",
+          "mr-communication",
+          "usce-fit",
+          "mr-ranking",
+          "exam-reasoning",
+          "mr-story",
+          "usce-pathway"
+        ],
+        "heroHeight": 620,
+        "htmlOverflow": 0
+      },
+      "frameCheck": null,
+      "scenes": [
+        {
+          "id": "exam",
+          "height": 512,
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+          "naturalWidth": 1280,
+          "headline": "Train how you think under pressure.",
+          "support": "Build live reasoning for USMLE, COMLEX and boards with question analysis and feedback.",
+          "cta": "https://missionmedinstitute.com/examprep/",
+          "headlineBox": {
+            "x": 76.796875,
+            "y": 278.0625,
+            "width": 600,
+            "height": 131.78125,
+            "right": 676.796875,
+            "bottom": 409.84375
+          },
+          "supportBox": {
+            "x": 76.796875,
+            "y": 431.84375,
+            "width": 510,
+            "height": 55.6875,
+            "right": 586.796875,
+            "bottom": 487.53125
+          },
+          "ctaBox": {
+            "x": 76.796875,
+            "y": 515.53125,
+            "width": 246.53125,
+            "height": 53,
+            "right": 323.328125,
+            "bottom": 568.53125
+          },
+          "sceneBox": {
+            "x": 0,
+            "y": 143.65625,
+            "width": 1280,
+            "height": 512,
+            "right": 1280,
+            "bottom": 655.65625
+          },
+          "shift": "0.06px",
+          "bodyOverflow": 0
+        },
+        {
+          "id": "clinical",
+          "height": 534.953125,
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/usce-operating.webp",
+          "naturalWidth": 1280,
+          "headline": "The right clinical experience. Placed with precision.",
+          "support": "Explore placements matched to your specialty, timeline and clinical needs.",
+          "cta": "https://missionmedinstitute.com/usce/",
+          "headlineBox": {
+            "x": 633.203125,
+            "y": 373.25,
+            "width": 570,
+            "height": 197.671875,
+            "right": 1203.203125,
+            "bottom": 570.921875
+          },
+          "supportBox": {
+            "x": 693.203125,
+            "y": 592.921875,
+            "width": 510,
+            "height": 55.6875,
+            "right": 1203.203125,
+            "bottom": 648.609375
+          },
+          "ctaBox": {
+            "x": 633.203125,
+            "y": 676.609375,
+            "width": 340.9375,
+            "height": 53,
+            "right": 974.140625,
+            "bottom": 729.609375
+          },
+          "sceneBox": {
+            "x": 0,
+            "y": 264.65625,
+            "width": 1280,
+            "height": 534.953125,
+            "right": 1280,
+            "bottom": 799.609375
+          },
+          "shift": "-21.14px",
+          "bodyOverflow": 0
+        },
+        {
+          "id": "residency",
+          "height": 512,
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/media/montage-1702.webp",
+          "naturalWidth": 1280,
+          "headline": "Become a better communicator.",
+          "support": "Build the communication, story and connection skills that matter when programs meet you.",
+          "cta": "https://missionmedinstitute.com/missionresidency/",
+          "headlineBox": {
+            "x": 76.796875,
+            "y": 278.015625,
+            "width": 600,
+            "height": 131.78125,
+            "right": 676.796875,
+            "bottom": 409.796875
+          },
+          "supportBox": {
+            "x": 76.796875,
+            "y": 431.796875,
+            "width": 510,
+            "height": 55.6875,
+            "right": 586.796875,
+            "bottom": 487.484375
+          },
+          "ctaBox": {
+            "x": 76.796875,
+            "y": 515.484375,
+            "width": 316.15625,
+            "height": 53,
+            "right": 392.953125,
+            "bottom": 568.484375
+          },
+          "sceneBox": {
+            "x": 0,
+            "y": 143.609375,
+            "width": 1280,
+            "height": 512,
+            "right": 1280,
+            "bottom": 655.609375
+          },
+          "shift": "0.06px",
+          "bodyOverflow": 0
+        }
+      ],
+      "errors": [],
+      "failed": []
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "status": 200,
+      "initial": {
+        "showcaseTop": 1161,
+        "intro": "Three divisions. One mission.",
+        "order": [
+          "exam",
+          "clinical",
+          "residency"
+        ],
+        "cta": [
+          {
+            "text": "Explore ExamPrep",
+            "href": "https://missionmedinstitute.com/examprep/"
+          },
+          {
+            "text": "Explore Clinical Experiences",
+            "href": "https://missionmedinstitute.com/usce/"
+          },
+          {
+            "text": "Explore Mission Residency",
+            "href": "https://missionmedinstitute.com/missionresidency/"
+          }
+        ],
+        "frames": [
+          "mr-application",
+          "exam-live",
+          "mr-communication",
+          "usce-fit",
+          "mr-ranking",
+          "exam-reasoning",
+          "mr-story",
+          "usce-pathway"
+        ],
+        "heroHeight": 620,
+        "htmlOverflow": 0
+      },
+      "frameCheck": null,
+      "scenes": [
+        {
+          "id": "exam",
+          "height": 540,
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+          "naturalWidth": 1024,
+          "headline": "Train how you think under pressure.",
+          "support": "Build live reasoning for USMLE, COMLEX and boards with question analysis and feedback.",
+          "cta": "https://missionmedinstitute.com/examprep/",
+          "headlineBox": {
+            "x": 51.1875,
+            "y": 277.015625,
+            "width": 600,
+            "height": 105.40625,
+            "right": 651.1875,
+            "bottom": 382.421875
+          },
+          "supportBox": {
+            "x": 51.1875,
+            "y": 404.421875,
+            "width": 510,
+            "height": 51,
+            "right": 561.1875,
+            "bottom": 455.421875
+          },
+          "ctaBox": {
+            "x": 51.1875,
+            "y": 483.421875,
+            "width": 246.53125,
+            "height": 53,
+            "right": 297.71875,
+            "bottom": 536.421875
+          },
+          "sceneBox": {
+            "x": 0,
+            "y": 113.578125,
+            "width": 1024,
+            "height": 540,
+            "right": 1024,
+            "bottom": 653.578125
+          },
+          "shift": "0.07px",
+          "bodyOverflow": 0
+        },
+        {
+          "id": "clinical",
+          "height": 540,
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/usce-operating.webp",
+          "naturalWidth": 1024,
+          "headline": "The right clinical experience. Placed with precision.",
+          "support": "Explore placements matched to your specialty, timeline and clinical needs.",
+          "cta": "https://missionmedinstitute.com/usce/",
+          "headlineBox": {
+            "x": 452.8125,
+            "y": 360.8125,
+            "width": 520,
+            "height": 158.109375,
+            "right": 972.8125,
+            "bottom": 518.921875
+          },
+          "supportBox": {
+            "x": 462.8125,
+            "y": 540.921875,
+            "width": 510,
+            "height": 51,
+            "right": 972.8125,
+            "bottom": 591.921875
+          },
+          "ctaBox": {
+            "x": 452.8125,
+            "y": 619.921875,
+            "width": 340.9375,
+            "height": 53,
+            "right": 793.75,
+            "bottom": 672.921875
+          },
+          "sceneBox": {
+            "x": 0,
+            "y": 227.578125,
+            "width": 1024,
+            "height": 540,
+            "right": 1024,
+            "bottom": 767.578125
+          },
+          "shift": "-18.17px",
+          "bodyOverflow": 0
+        },
+        {
+          "id": "residency",
+          "height": 540,
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/media/montage-1702.webp",
+          "naturalWidth": 1024,
+          "headline": "Become a better communicator.",
+          "support": "Build the communication, story and connection skills that matter when programs meet you.",
+          "cta": "https://missionmedinstitute.com/missionresidency/",
+          "headlineBox": {
+            "x": 51.1875,
+            "y": 277.015625,
+            "width": 600,
+            "height": 105.40625,
+            "right": 651.1875,
+            "bottom": 382.421875
+          },
+          "supportBox": {
+            "x": 51.1875,
+            "y": 404.421875,
+            "width": 510,
+            "height": 51,
+            "right": 561.1875,
+            "bottom": 455.421875
+          },
+          "ctaBox": {
+            "x": 51.1875,
+            "y": 483.421875,
+            "width": 316.15625,
+            "height": 53,
+            "right": 367.34375,
+            "bottom": 536.421875
+          },
+          "sceneBox": {
+            "x": 0,
+            "y": 113.578125,
+            "width": 1024,
+            "height": 540,
+            "right": 1024,
+            "bottom": 653.578125
+          },
+          "shift": "0.07px",
+          "bodyOverflow": 0
+        }
+      ],
+      "errors": [],
+      "failed": []
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "status": 200,
+      "initial": {
+        "showcaseTop": 1311,
+        "intro": "Three divisions. One mission.",
+        "order": [
+          "exam",
+          "clinical",
+          "residency"
+        ],
+        "cta": [
+          {
+            "text": "Explore ExamPrep",
+            "href": "https://missionmedinstitute.com/examprep/"
+          },
+          {
+            "text": "Explore Clinical Experiences",
+            "href": "https://missionmedinstitute.com/usce/"
+          },
+          {
+            "text": "Explore Mission Residency",
+            "href": "https://missionmedinstitute.com/missionresidency/"
+          }
+        ],
+        "frames": [
+          "mr-application",
+          "exam-live",
+          "mr-communication",
+          "usce-fit",
+          "mr-ranking",
+          "exam-reasoning",
+          "mr-story",
+          "usce-pathway"
+        ],
+        "heroHeight": 700,
+        "htmlOverflow": 0
+      },
+      "frameCheck": null,
+      "scenes": [
+        {
+          "id": "exam",
+          "height": 540,
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+          "naturalWidth": 768,
+          "headline": "Train how you think under pressure.",
+          "support": "Build live reasoning for USMLE, COMLEX and boards with question analysis and feedback.",
+          "cta": "https://missionmedinstitute.com/examprep/",
+          "headlineBox": {
+            "x": 38.390625,
+            "y": 414.65625,
+            "width": 600,
+            "height": 85.125,
+            "right": 638.390625,
+            "bottom": 499.78125
+          },
+          "supportBox": {
+            "x": 38.390625,
+            "y": 521.78125,
+            "width": 510,
+            "height": 51,
+            "right": 548.390625,
+            "bottom": 572.78125
+          },
+          "ctaBox": {
+            "x": 38.390625,
+            "y": 600.78125,
+            "width": 246.53125,
+            "height": 53,
+            "right": 284.921875,
+            "bottom": 653.78125
+          },
+          "sceneBox": {
+            "x": 0,
+            "y": 241.078125,
+            "width": 768,
+            "height": 540,
+            "right": 768,
+            "bottom": 781.078125
+          },
+          "shift": "0.15px",
+          "bodyOverflow": 0
+        },
+        {
+          "id": "clinical",
+          "height": 540,
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/division-showcase/usce-operating-768.webp",
+          "naturalWidth": 768,
+          "headline": "The right clinical experience. Placed with precision.",
+          "support": "Explore placements matched to your specialty, timeline and clinical needs.",
+          "cta": "https://missionmedinstitute.com/usce/",
+          "headlineBox": {
+            "x": 209.609375,
+            "y": 632.53125,
+            "width": 520,
+            "height": 127.6875,
+            "right": 729.609375,
+            "bottom": 760.21875
+          },
+          "supportBox": {
+            "x": 219.609375,
+            "y": 782.21875,
+            "width": 510,
+            "height": 51,
+            "right": 729.609375,
+            "bottom": 833.21875
+          },
+          "ctaBox": {
+            "x": 209.609375,
+            "y": 861.21875,
+            "width": 340.9375,
+            "height": 53,
+            "right": 550.546875,
+            "bottom": 914.21875
+          },
+          "sceneBox": {
+            "x": 0,
+            "y": 484.078125,
+            "width": 768,
+            "height": 540,
+            "right": 768,
+            "bottom": 1024.078125
+          },
+          "shift": "-38.73px",
+          "bodyOverflow": 0
+        },
+        {
+          "id": "residency",
+          "height": 540,
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-alternate-assets/media/montage-1702.webp",
+          "naturalWidth": 768,
+          "headline": "Become a better communicator.",
+          "support": "Build the communication, story and connection skills that matter when programs meet you.",
+          "cta": "https://missionmedinstitute.com/missionresidency/",
+          "headlineBox": {
+            "x": 38.390625,
+            "y": 435.9375,
+            "width": 600,
+            "height": 42.5625,
+            "right": 638.390625,
+            "bottom": 478.5
+          },
+          "supportBox": {
+            "x": 38.390625,
+            "y": 500.5,
+            "width": 510,
+            "height": 51,
+            "right": 548.390625,
+            "bottom": 551.5
+          },
+          "ctaBox": {
+            "x": 38.390625,
+            "y": 579.5,
+            "width": 316.15625,
+            "height": 53,
+            "right": 354.546875,
+            "bottom": 632.5
+          },
+          "sceneBox": {
+            "x": 0,
+            "y": 241.078125,
+            "width": 768,
+            "height": 540,
+            "right": 768,
+            "bottom": 781.078125
+          },
+          "shift": "0.15px",
+          "bodyOverflow": 0
+        }
+      ],
+      "errors": [],
+      "failed": []
+    },
+    {
+      "width": 430,
+      "height": 932,
+      "status": 200,
+      "initial": {
+        "showcaseTop": 1506,
+        "intro": "Three divisions. One mission.",
+        "order": [
+          "exam",
+          "clinical",
+          "residency"
+        ],
+        "cta": [
+          {
+            "text": "Explore ExamPrep",
+            "href": "https://missionmedinstitute.com/examprep/"
+          },
+          {
+            "text": "Explore Clinical Experiences",
+            "href": "https://missionmedinstitute.com/usce/"
+          },
+          {
+            "text": "Explore Mission Residency",
+            "href": "https://missionmedinstitute.com/missionresidency/"
+          }
+        ],
+        "frames": [
+          "mr-application",
+          "exam-live",
+          "mr-communication",
+          "usce-fit",
+          "mr-ranking",
+          "exam-reasoning",
+          "mr-story",
+          "usce-pathway"
+        ],
+        "heroHeight": 860,
+        "htmlOverflow": 0
+      },
+      "frameCheck": null,
+      "scenes": [
+        {
+          "id": "exam",
+          "height": 658.125,
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+          "naturalWidth": 429,
+          "headline": "Train how you think under pressure.",
+          "support": "Build live reasoning for USMLE, COMLEX and boards with question analysis and feedback.",
+          "cta": "https://missionmedinstitute.com/examprep/",
+          "headlineBox": {
+            "x": 25.796875,
+            "y": 470.453125,
+            "width": 378.40625,
+            "height": 87.71875,
+            "right": 404.203125,
+            "bottom": 558.171875
+          },
+          "supportBox": {
+            "x": 25.796875,
+            "y": 576.171875,
+            "width": 378.40625,
+            "height": 50.3125,
+            "right": 404.203125,
+            "bottom": 626.484375
+          },
+          "ctaBox": {
+            "x": 25.796875,
+            "y": 651.484375,
+            "width": 378.40625,
+            "height": 53,
+            "right": 404.203125,
+            "bottom": 704.484375
+          },
+          "sceneBox": {
+            "x": 0,
+            "y": 136.359375,
+            "width": 430,
+            "height": 658.125,
+            "right": 430,
+            "bottom": 794.484375
+          },
+          "shift": "0.03px",
+          "bodyOverflow": 0
+        },
+        {
+          "id": "clinical",
+          "height": 701.984375,
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/division-showcase/usce-operating-768.webp",
+          "naturalWidth": 430,
+          "headline": "The right clinical experience. Placed with precision.",
+          "support": "Explore placements matched to your specialty, timeline and clinical needs.",
+          "cta": "https://missionmedinstitute.com/usce/",
+          "headlineBox": {
+            "x": 25.796875,
+            "y": 564.578125,
+            "width": 378.40625,
+            "height": 131.578125,
+            "right": 404.203125,
+            "bottom": 696.15625
+          },
+          "supportBox": {
+            "x": 25.796875,
+            "y": 714.15625,
+            "width": 378.40625,
+            "height": 50.3125,
+            "right": 404.203125,
+            "bottom": 764.46875
+          },
+          "ctaBox": {
+            "x": 25.796875,
+            "y": 789.46875,
+            "width": 378.40625,
+            "height": 53,
+            "right": 404.203125,
+            "bottom": 842.46875
+          },
+          "sceneBox": {
+            "x": 0,
+            "y": 230.484375,
+            "width": 430,
+            "height": 701.984375,
+            "right": 430,
+            "bottom": 932.46875
+          },
+          "shift": "-5.20px",
+          "bodyOverflow": 0
+        },
+        {
+          "id": "residency",
+          "height": 658.125,
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-community.webp",
+          "naturalWidth": 430,
+          "headline": "Become a better communicator.",
+          "support": "Build the communication, story and connection skills that matter when programs meet you.",
+          "cta": "https://missionmedinstitute.com/missionresidency/",
+          "headlineBox": {
+            "x": 25.796875,
+            "y": 470.5625,
+            "width": 378.40625,
+            "height": 87.71875,
+            "right": 404.203125,
+            "bottom": 558.28125
+          },
+          "supportBox": {
+            "x": 25.796875,
+            "y": 576.28125,
+            "width": 378.40625,
+            "height": 50.3125,
+            "right": 404.203125,
+            "bottom": 626.59375
+          },
+          "ctaBox": {
+            "x": 25.796875,
+            "y": 651.59375,
+            "width": 378.40625,
+            "height": 53,
+            "right": 404.203125,
+            "bottom": 704.59375
+          },
+          "sceneBox": {
+            "x": 0,
+            "y": 136.46875,
+            "width": 430,
+            "height": 658.125,
+            "right": 430,
+            "bottom": 794.59375
+          },
+          "shift": "0.02px",
+          "bodyOverflow": 0
+        }
+      ],
+      "errors": [],
+      "failed": []
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "initial": {
+        "showcaseTop": 1549,
+        "intro": "Three divisions. One mission.",
+        "order": [
+          "exam",
+          "clinical",
+          "residency"
+        ],
+        "cta": [
+          {
+            "text": "Explore ExamPrep",
+            "href": "https://missionmedinstitute.com/examprep/"
+          },
+          {
+            "text": "Explore Clinical Experiences",
+            "href": "https://missionmedinstitute.com/usce/"
+          },
+          {
+            "text": "Explore Mission Residency",
+            "href": "https://missionmedinstitute.com/missionresidency/"
+          }
+        ],
+        "frames": [
+          "mr-application",
+          "exam-live",
+          "mr-communication",
+          "usce-fit",
+          "mr-ranking",
+          "exam-reasoning",
+          "mr-story",
+          "usce-pathway"
+        ],
+        "heroHeight": 860,
+        "htmlOverflow": 0
+      },
+      "frameCheck": [
+        {
+          "index": "0",
+          "headline": "YOU BUILT THE APPLICATION",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates"
+        },
+        {
+          "index": "1",
+          "headline": "Your exam prep is missing one thing:",
+          "cta": "Explore Exam Prep",
+          "href": "https://missionmedinstitute.com/examprep/"
+        },
+        {
+          "index": "2",
+          "headline": "Don’t memorize a better answer.",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates"
+        },
+        {
+          "index": "3",
+          "headline": "The right clinical experience.",
+          "cta": "Explore USCE",
+          "href": "https://missionmedinstitute.com/usce/"
+        },
+        {
+          "index": "4",
+          "headline": "The interview is part of",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates"
+        },
+        {
+          "index": "5",
+          "headline": "Train how you think",
+          "cta": "Explore Exam Prep",
+          "href": "https://missionmedinstitute.com/examprep/"
+        },
+        {
+          "index": "6",
+          "headline": "They already know what’s on your application.",
+          "cta": "Explore Interview Bootcamp Week",
+          "href": "https://missionmedinstitute.com/missionresidency/#dates"
+        },
+        {
+          "index": "7",
+          "headline": "Your specialty. Your timeline.",
+          "cta": "Explore USCE",
+          "href": "https://missionmedinstitute.com/usce/"
+        }
+      ],
+      "scenes": [
+        {
+          "id": "exam",
+          "height": 653.15625,
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+          "naturalWidth": 390,
+          "headline": "Train how you think under pressure.",
+          "support": "Build live reasoning for USMLE, COMLEX and boards with question analysis and feedback.",
+          "cta": "https://missionmedinstitute.com/examprep/",
+          "headlineBox": {
+            "x": 23.390625,
+            "y": 404.875,
+            "width": 343.21875,
+            "height": 81.59375,
+            "right": 366.609375,
+            "bottom": 486.46875
+          },
+          "supportBox": {
+            "x": 23.390625,
+            "y": 504.46875,
+            "width": 343.21875,
+            "height": 75.46875,
+            "right": 366.609375,
+            "bottom": 579.9375
+          },
+          "ctaBox": {
+            "x": 23.390625,
+            "y": 604.9375,
+            "width": 343.21875,
+            "height": 53,
+            "right": 366.609375,
+            "bottom": 657.9375
+          },
+          "sceneBox": {
+            "x": 0,
+            "y": 94.78125,
+            "width": 390,
+            "height": 653.15625,
+            "right": 390,
+            "bottom": 747.9375
+          },
+          "shift": "0.03px",
+          "bodyOverflow": 0
+        },
+        {
+          "id": "clinical",
+          "height": 668.796875,
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/usce-operating.webp",
+          "naturalWidth": 390,
+          "headline": "The right clinical experience. Placed with precision.",
+          "support": "Explore placements matched to your specialty, timeline and clinical needs.",
+          "cta": "https://missionmedinstitute.com/usce/",
+          "headlineBox": {
+            "x": 23.390625,
+            "y": 485.03125,
+            "width": 343.21875,
+            "height": 122.390625,
+            "right": 366.609375,
+            "bottom": 607.421875
+          },
+          "supportBox": {
+            "x": 23.390625,
+            "y": 625.421875,
+            "width": 343.21875,
+            "height": 50.3125,
+            "right": 366.609375,
+            "bottom": 675.734375
+          },
+          "ctaBox": {
+            "x": 23.390625,
+            "y": 700.734375,
+            "width": 343.21875,
+            "height": 53,
+            "right": 366.609375,
+            "bottom": 753.734375
+          },
+          "sceneBox": {
+            "x": 0,
+            "y": 174.9375,
+            "width": 390,
+            "height": 668.796875,
+            "right": 390,
+            "bottom": 843.734375
+          },
+          "shift": "-3.93px",
+          "bodyOverflow": 0
+        },
+        {
+          "id": "residency",
+          "height": 653.15625,
+          "asset": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-community.webp",
+          "naturalWidth": 390,
+          "headline": "Become a better communicator.",
+          "support": "Build the communication, story and connection skills that matter when programs meet you.",
+          "cta": "https://missionmedinstitute.com/missionresidency/",
+          "headlineBox": {
+            "x": 23.390625,
+            "y": 404.828125,
+            "width": 343.21875,
+            "height": 81.59375,
+            "right": 366.609375,
+            "bottom": 486.421875
+          },
+          "supportBox": {
+            "x": 23.390625,
+            "y": 504.421875,
+            "width": 343.21875,
+            "height": 75.46875,
+            "right": 366.609375,
+            "bottom": 579.890625
+          },
+          "ctaBox": {
+            "x": 23.390625,
+            "y": 604.890625,
+            "width": 343.21875,
+            "height": 53,
+            "right": 366.609375,
+            "bottom": 657.890625
+          },
+          "sceneBox": {
+            "x": 0,
+            "y": 94.734375,
+            "width": 390,
+            "height": 653.15625,
+            "right": 390,
+            "bottom": 747.890625
+          },
+          "shift": "0.03px",
+          "bodyOverflow": 0
+        }
+      ],
+      "errors": [],
+      "failed": []
+    }
+  ],
+  "checks": {
+    "parallax1440": [
+      {
+        "id": "exam",
+        "a": -71.92,
+        "b": -36.73,
+        "delta": 35.190000000000005
+      },
+      {
+        "id": "clinical",
+        "a": -76.89,
+        "b": -41.69,
+        "delta": 35.2
+      },
+      {
+        "id": "residency",
+        "a": -71.94,
+        "b": -36.74,
+        "delta": 35.199999999999996
+      }
+    ],
+    "parallax390": [
+      {
+        "id": "exam",
+        "a": -14,
+        "b": -11.63,
+        "delta": 2.369999999999999
+      },
+      {
+        "id": "clinical",
+        "a": -14,
+        "b": -11.99,
+        "delta": 2.01
+      },
+      {
+        "id": "residency",
+        "a": -14,
+        "b": -11.62,
+        "delta": 2.380000000000001
+      }
+    ],
+    "reduced": {
+      "transform": "none",
+      "glowAnimation": "none",
+      "ctaCount": 3
+    },
+    "keyboard": {
+      "focusText": "Explore Clinical Experiences",
+      "focusOutline": "3px"
+    }
+  }
+}

@@ -1,0 +1,230 @@
+[
+  {
+    "kind": "final-js",
+    "width": 1440,
+    "run": 1,
+    "status": 200,
+    "cls": 0.0015466419110082303,
+    "lcp": 628,
+    "lcpElement": "<img class=\"mm-ph__image\" data-hero-image=\"\" src=\"https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp\" alt=\"Supplied Mission Residen",
+    "transferBytes": 1471715,
+    "decodedBytes": 2518084,
+    "requests": 33,
+    "images": [
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/06/hero-bg-optimized.webp",
+        "transfer": 380920
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+        "transfer": 59094
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/02/cropped-608a69b125647f6e63b56f87b823b1e60dbdaebf4916b1d5d5edcc408b8ab3fe-1024x391.png",
+        "transfer": 294967
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+        "transfer": 112704
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-32x32.png",
+        "transfer": 2607
+      }
+    ],
+    "heroHeight": 648,
+    "showcase": true,
+    "errors": [],
+    "failed": []
+  },
+  {
+    "kind": "final-js",
+    "width": 1440,
+    "run": 2,
+    "status": 200,
+    "cls": 0.0007431359310699589,
+    "lcp": 672,
+    "lcpElement": "<img class=\"mm-ph__image\" data-hero-image=\"\" src=\"https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp\" alt=\"Supplied Mission Residen",
+    "transferBytes": 1558058,
+    "decodedBytes": 2603356,
+    "requests": 34,
+    "images": [
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/06/hero-bg-optimized.webp",
+        "transfer": 380920
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+        "transfer": 59094
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/02/cropped-608a69b125647f6e63b56f87b823b1e60dbdaebf4916b1d5d5edcc408b8ab3fe-1024x391.png",
+        "transfer": 294967
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+        "transfer": 112704
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-32x32.png",
+        "transfer": 2607
+      }
+    ],
+    "heroHeight": 648,
+    "showcase": true,
+    "errors": [],
+    "failed": []
+  },
+  {
+    "kind": "final-js",
+    "width": 1440,
+    "run": 3,
+    "status": 200,
+    "cls": 0.0007431359310699589,
+    "lcp": 496,
+    "lcpElement": "<img class=\"mm-ph__image\" data-hero-image=\"\" src=\"https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp\" alt=\"Supplied Mission Residen",
+    "transferBytes": 1557299,
+    "decodedBytes": 2603356,
+    "requests": 34,
+    "images": [
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/06/hero-bg-optimized.webp",
+        "transfer": 380920
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+        "transfer": 59094
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/02/cropped-608a69b125647f6e63b56f87b823b1e60dbdaebf4916b1d5d5edcc408b8ab3fe-1024x391.png",
+        "transfer": 294967
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+        "transfer": 112704
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-32x32.png",
+        "transfer": 2607
+      }
+    ],
+    "heroHeight": 648,
+    "showcase": true,
+    "errors": [],
+    "failed": []
+  },
+  {
+    "kind": "final-js",
+    "width": 390,
+    "run": 1,
+    "status": 200,
+    "cls": 0.01371192329820658,
+    "lcp": 540,
+    "lcpElement": "<img class=\"mm-ph__image\" data-hero-image=\"\" src=\"https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp\" alt=\"Supplied Mission Residen",
+    "transferBytes": 1557303,
+    "decodedBytes": 2603356,
+    "requests": 34,
+    "images": [
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/06/hero-bg-optimized.webp",
+        "transfer": 380920
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+        "transfer": 59094
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/02/cropped-608a69b125647f6e63b56f87b823b1e60dbdaebf4916b1d5d5edcc408b8ab3fe-1024x391.png",
+        "transfer": 294967
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+        "transfer": 112704
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-32x32.png",
+        "transfer": 2607
+      }
+    ],
+    "heroHeight": 860,
+    "showcase": true,
+    "errors": [],
+    "failed": []
+  },
+  {
+    "kind": "final-js",
+    "width": 390,
+    "run": 2,
+    "status": 200,
+    "cls": 0.01371192329820658,
+    "lcp": 672,
+    "lcpElement": "<img class=\"mm-ph__image\" data-hero-image=\"\" src=\"https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp\" alt=\"Supplied Mission Residen",
+    "transferBytes": 1557382,
+    "decodedBytes": 2603356,
+    "requests": 34,
+    "images": [
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/06/hero-bg-optimized.webp",
+        "transfer": 380920
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+        "transfer": 59094
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/02/cropped-608a69b125647f6e63b56f87b823b1e60dbdaebf4916b1d5d5edcc408b8ab3fe-1024x391.png",
+        "transfer": 294967
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+        "transfer": 112704
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-32x32.png",
+        "transfer": 2607
+      }
+    ],
+    "heroHeight": 860,
+    "showcase": true,
+    "errors": [],
+    "failed": []
+  },
+  {
+    "kind": "final-js",
+    "width": 390,
+    "run": 3,
+    "status": 200,
+    "cls": 0.012660525421793894,
+    "lcp": 580,
+    "lcpElement": "<img class=\"mm-ph__image\" data-hero-image=\"\" src=\"https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp\" alt=\"Supplied Mission Residen",
+    "transferBytes": 1557556,
+    "decodedBytes": 2603356,
+    "requests": 34,
+    "images": [
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/06/hero-bg-optimized.webp",
+        "transfer": 380920
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+        "transfer": 59094
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/02/cropped-608a69b125647f6e63b56f87b823b1e60dbdaebf4916b1d5d5edcc408b8ab3fe-1024x391.png",
+        "transfer": 294967
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+        "transfer": 112704
+      },
+      {
+        "url": "https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-favicon-512-32x32.png",
+        "transfer": 2607
+      }
+    ],
+    "heroHeight": 860,
+    "showcase": true,
+    "errors": [],
+    "failed": []
+  }
+]
