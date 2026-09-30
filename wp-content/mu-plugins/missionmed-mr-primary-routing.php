@@ -59,6 +59,9 @@ add_action('template_redirect', static function (): void {
         if (!preg_match('/<html(?:\\s|>)/i', $html) || strpos($html, 'mission-residency') === false) return $html;
         $tags = new WP_HTML_Tag_Processor($html);
         while ($tags->next_tag('A')) {
+            // Some inherited header anchors initially have only data-mm-href, no href.
+            $source = $tags->get_attribute('data-mm-href');
+            if (is_string($source)) $tags->set_attribute('data-mm-href', mm_mr_primary_public_url($source));
             $href = $tags->get_attribute('href');
             if (!is_string($href)) continue;
             $next = mm_mr_primary_public_url($href);
@@ -68,10 +71,9 @@ add_action('template_redirect', static function (): void {
                 $next = preg_replace('~/mission-residency-waitlist/?(?=[?#]|$)~', '/missionresidency/', $href);
             }
             if ($next !== $href) $tags->set_attribute('href', $next);
-            // The inherited shared header restores href from this exact data attribute.
-            $source = $tags->get_attribute('data-mm-href');
-            if (is_string($source)) $tags->set_attribute('data-mm-href', mm_mr_primary_public_url($source));
         }
-        return $tags->get_updated_html();
+        // Existing public homepage cleanup assigns this literal href after rendering.
+        // Migrate only that known link assignment, never pricing/content/commerce code.
+        return str_replace('a.href="/mission-residency/";', 'a.href="/missionresidency/";', $tags->get_updated_html());
     });
 }, -2000);
