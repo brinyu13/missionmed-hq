@@ -1,6 +1,6 @@
 # Final implementation and production report
 
-**Outcome:** The approved eight-frame premium ecosystem hero is serving on the anonymous public homepage, and the approved static premium Mission Residency presentation is serving on its public page. Product source is `5f59a91ef5cb2d04d54527cd53875c6f244d7427`; the presentation fix-forward was `86ddc1c843cbbd148d617f40a80b2d32671dd03b`. The subsequent `5f59a91` changes only the dedicated page's closing-section CSS and passed fresh live QA. The checkout and origin agreed and were clean at final report preparation.
+**Outcome:** The approved eight-frame premium ecosystem hero is serving on the anonymous public homepage, and the approved static premium Mission Residency presentation is serving on its public page. Accepted presentation source is `5f59a91ef5cb2d04d54527cd53875c6f244d7427`; the presentation fix-forward was `86ddc1c843cbbd148d617f40a80b2d32671dd03b`. The subsequent `5f59a91` changes only the dedicated page's closing-section CSS and passed fresh live QA. A concurrent unrelated favicon commit `65436e5` landed before the evidence commit; it did not change the presentation files. The branch and origin agreed after the evidence push.
 
 The exact opening is:
 
