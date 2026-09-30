@@ -1380,6 +1380,24 @@ function mm_mr_0929_home_hero_markup(): string {
         . '<section class="mm-ph__proof" aria-label="Mission Residency student proof"><figure><blockquote>“You made me fall in love with my own story and believe that my dreams are valid against all Odds.”</blockquote><figcaption>Dr Marian Ghaly · Mission Residency alumna</figcaption></figure><aside><p>For IMGs, DOs and reapplicants seeking a clearer next step. Individual experiences are not a Match guarantee.</p><p><a href="#f2-pd-system">See what program directors consider</a><br><a href="' . esc_url(home_url('/red-flag-match-stories/')) . '">Read student Match stories</a></p></aside></section>';
 }
 
+// Autoptimize loads its aggregate styles asynchronously on the public homepage.
+// Reserve the complete first viewport before that stylesheet arrives so the
+// cinematic frame, controls, and following section do not shift on first load.
+add_action('wp_head', static function (): void {
+    if (!mm_mr_p0_enabled() || !is_front_page()) return;
+    $css_file = MM_MR_P0_ASSET_DIR . '/premium-hero/hero.css';
+    if (!is_file($css_file)) return;
+    $css = file_get_contents($css_file);
+    if ($css === false) return;
+    $css = str_replace("url('../b-immersive/assets/", "url('" . MM_MR_P0_ASSET_URL . '/b-immersive/assets/', $css);
+    echo '<style id="mm-premium-hero-critical" data-noptimize="1">'
+        . 'body.home::before{display:none!important;content:none!important}'
+        . 'body.home #masthead{display:none!important}'
+        . 'body.home .skip-link.screen-reader-text{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}'
+        . str_replace('</style', '<\/style', $css)
+        . '</style>';
+}, -9999);
+
 add_action('wp_enqueue_scripts', static function (): void {
     if (!mm_mr_p0_enabled() || !is_front_page()) return;
     $css = MM_MR_P0_ASSET_DIR . '/premium-hero/hero.css';
