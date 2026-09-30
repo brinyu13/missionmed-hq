@@ -1,0 +1,67 @@
+.mm-l5 { font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif; background: rgb(255, 255, 255); border-bottom: 1px solid rgba(11, 20, 36, 0.08); position: relative; z-index: 9990; }
+.mm-l5__top { background: rgb(10, 15, 26); color: rgb(168, 159, 137); padding: 8px 32px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; }
+@media (max-width: 880px) {
+  .mm-l5__top { font-size: 10px; padding: 6px 14px; letter-spacing: 0.12em; }
+}
+@media (max-width: 880px) {
+  .mm-l5__top span:last-child { display: none; }
+}
+.mm-l5__top em { font-style: normal; color: rgb(217, 189, 123); }
+.mm-l5__inner { max-width: 1320px; margin: 0px auto; display: grid; grid-template-columns: auto 1fr auto; align-items: stretch; padding: 0px 32px; gap: 18px; }
+@media (max-width: 1100px) {
+  .mm-l5__inner { gap: 10px; padding: 0px 16px; }
+}
+@media (max-width: 880px) {
+  .mm-l5__inner { grid-template-columns: auto 1fr auto; padding: 0px 14px; }
+}
+.mm-l5__logo { width: 200px; height: 78px; align-self: center; background: url("https://missionmedinstitute.com/wp-content/uploads/2026/02/cropped-608a69b125647f6e63b56f87b823b1e60dbdaebf4916b1d5d5edcc408b8ab3fe-1024x391.png") left center / contain no-repeat; display: block; }
+@media (max-width: 1100px) {
+  .mm-l5__logo { width: 170px; height: 62px; }
+}
+@media (max-width: 880px) {
+  .mm-l5__logo { width: 140px; height: 52px; }
+}
+.mm-l5__nav { display: flex; align-items: center; gap: 0px; justify-content: center; }
+@media (max-width: 880px) {
+  .mm-l5__nav { display: none; }
+}
+.mm-l5__nav a { position: relative; padding: 30px 22px; font-size: 14px; font-weight: 500; color: rgb(11, 20, 36); text-decoration: none; letter-spacing: 0.04em; transition: 0.18s; }
+.mm-l5__nav a.is-active { color: rgb(142, 107, 39); box-shadow: rgb(201, 162, 75) 0px -2px 0px inset; }
+@media (max-width: 1100px) {
+  .mm-l5__nav a { padding: 22px 14px; font-size: 13px; }
+}
+.mm-l5__right { display: flex; align-items: center; gap: 10px; }
+.mm-l5__members, .mm-l5__account { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 500; text-decoration: none; padding: 11px 16px; border-radius: 999px; transition: 0.18s; }
+.mm-l5__members { border: 1px solid rgba(11, 20, 36, 0.18); color: rgb(11, 20, 36); background: transparent; }
+@media (max-width: 1100px) {
+  .mm-l5__members, .mm-l5__account { font-size: 11px; padding: 8px 12px; letter-spacing: 0.1em; }
+}
+.mm-l5__account { background: rgb(10, 15, 26); color: rgb(245, 241, 230); }
+html body:not(.elementor-editor-active):not(.mm-l5-on)::before { content: ""; display: block; height: 110px; background: rgb(255, 255, 255); }
+@media (max-width: 1100px) {
+  html body:not(.elementor-editor-active):not(.mm-l5-on)::before { height: 92px; }
+}
+@media (max-width: 880px) {
+  html body:not(.elementor-editor-active):not(.mm-l5-on)::before { height: 78px; }
+}
+.mm-l5__nav a:hover { color: rgb(142, 107, 39); }
+.mm-l5__nav a + a::before { content: ""; position: absolute; left: 0px; top: 50%; height: 18px; width: 1px; background: rgba(11, 20, 36, 0.1); transform: translateY(-50%); }
+.mm-l5__members:hover { background: rgb(10, 15, 26); color: rgb(245, 241, 230); border-color: rgb(10, 15, 26); }
+.mm-l5__account:hover { background: rgb(201, 162, 75); color: rgb(10, 15, 26); }
+body:not(.logged-in) .mm-l5__account .label-in { display: none; }
+body.logged-in .mm-l5__account .label-out { display: none; }
+@media (max-width: 1100px) {
+  .mm-l5__inner { gap: 10px; padding: 0px 16px; }
+  .mm-l5__nav a { padding: 22px 14px; font-size: 13px; }
+  .mm-l5__members, .mm-l5__account { font-size: 11px; padding: 8px 12px; letter-spacing: 0.1em; }
+  .mm-l5__logo { width: 170px; height: 62px; }
+}
+@media (max-width: 880px) {
+  .mm-l5__top { font-size: 10px; padding: 6px 14px; letter-spacing: 0.12em; }
+  .mm-l5__top span:last-child { display: none; }
+  .mm-l5__nav { display: none; }
+  .mm-l5__inner { grid-template-columns: auto 1fr auto; padding: 0px 14px; }
+  .mm-l5__logo { width: 140px; height: 52px; }
+}
+#mm-l5-header .mm-l5__top > span:first-child { display: none !important; }
+#mm-l5-header .mm-l5__top { justify-content: flex-end !important; }
