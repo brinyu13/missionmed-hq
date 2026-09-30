@@ -1348,6 +1348,50 @@ JS;
     echo '<script id="mm-mr-p0-claims-cleanup-script">' . $script . '</script>';
 }, 99);
 
+function mm_mr_0929_home_hero_frames(): array {
+    $asset = MM_MR_P0_ASSET_URL . '/premium-hero/assets/';
+    return [
+        ['id'=>'mr-application','division'=>'Mission Residency','eyebrow'=>'INTERVIEW BOOTCAMP WEEK · LIVE ONLINE','headline'=>'YOU BUILT THE APPLICATION','connector'=>'that earned the interview.','bridge'=>"NOW LET'S TURN THE INTERVIEW",'accent'=>'INTO A MATCH.','support'=>'Build the communication, story and connection skills that matter when programs meet you.','cta'=>'Explore Interview Bootcamp Week','href'=>home_url('/mission-residency/#dates'),'asset'=>$asset.'mr-application.webp','visual'=>'physician','caption'=>'Mission Residency · Matched / Accomplished','alt'=>'Supplied Mission Residency physician image with Matched and Accomplished patch','theme'=>'destination','tone'=>'dark','width'=>1277,'height'=>473],
+        ['id'=>'exam-live','division'=>'Exam Prep','eyebrow'=>'EXAM PREP · DR. J / COACH J','headline'=>'Your exam prep is missing one thing:','connector'=>'','bridge'=>'','accent'=>'live practice.','support'=>'Build live reasoning for USMLE, COMLEX and boards with question analysis and feedback.','cta'=>'Explore Exam Prep','href'=>home_url('/examprep/'),'asset'=>$asset.'exam-live.webp','visual'=>'mentor','caption'=>'Dr. J / Coach J · MissionMed Exam Prep','alt'=>'Existing Exam Prep live-page illustrative video-call photograph','theme'=>'exam-live','tone'=>'dark','width'=>1600,'height'=>1200],
+        ['id'=>'mr-communication','division'=>'Mission Residency','eyebrow'=>'MISSION RESIDENCY · COMMUNICATION','headline'=>'Don’t memorize a better answer.','connector'=>'','bridge'=>'','accent'=>'Become a better communicator.','support'=>'Develop your own story, presence and judgment under pressure with physician-led training.','cta'=>'Explore Interview Bootcamp Week','href'=>home_url('/mission-residency/#dates'),'asset'=>$asset.'mr-communication.webp','visual'=>'portrait','caption'=>'Dr Marian Ghaly · Mission Residency alumna','alt'=>'Supplied authentic portrait of Dr Marian Ghaly','theme'=>'story','tone'=>'light','width'=>800,'height'=>800],
+        ['id'=>'usce-fit','division'=>'USCE','eyebrow'=>'USCE · MISSIONMED CLINICALS','headline'=>'The right clinical experience.','connector'=>'','bridge'=>'','accent'=>'Placed with precision.','support'=>'Explore placements matched to your specialty, timeline and clinical needs.','cta'=>'Explore USCE','href'=>home_url('/usce/'),'asset'=>$asset.'usce-operating.webp','visual'=>'clinical','caption'=>'Clinical education · MissionMed USCE','alt'=>'Existing USCE live-page illustrative operating-room photograph','theme'=>'clinical','tone'=>'dark','width'=>1600,'height'=>1067],
+        ['id'=>'mr-ranking','division'=>'Mission Residency','eyebrow'=>'MISSION RESIDENCY · NRMP 2024 EVIDENCE','headline'=>'The interview is part of','connector'=>'','bridge'=>'','accent'=>'the ranking decision.','support'=>'Interpersonal skills and interview interactions matter when programs decide whom to rank.','cta'=>'Explore Interview Bootcamp Week','href'=>home_url('/mission-residency/#dates'),'asset'=>$asset.'mr-ranking.webp','visual'=>'evidence','caption'=>'NRMP Program Director Survey · 2024','alt'=>'Original supplied NRMP Program Director Survey 2024 ranking chart, unchanged','theme'=>'evidence','tone'=>'light','width'=>1080,'height'=>1350],
+        ['id'=>'exam-reasoning','division'=>'Exam Prep','eyebrow'=>'EXAM PREP · LIVE REASONING','headline'=>'Train how you think','connector'=>'','bridge'=>'','accent'=>'under pressure.','support'=>'Work through clinical questions with Dr. J / Coach J and real-time feedback.','cta'=>'Explore Exam Prep','href'=>home_url('/examprep/'),'asset'=>$asset.'exam-live.webp','visual'=>'mentor','caption'=>'Dr. J / Coach J · MissionMed Exam Prep','alt'=>'Existing Exam Prep live-page illustrative video-call photograph','theme'=>'exam-reasoning','tone'=>'dark','width'=>1600,'height'=>1200],
+        ['id'=>'mr-story','division'=>'Mission Residency','eyebrow'=>'MISSION RESIDENCY · APPLICATION → INTERVIEW','headline'=>'They already know what’s on your application.','connector'=>'','bridge'=>'','accent'=>'The interview tells them what isn’t.','support'=>'Learn to communicate the person behind the application, alongside a real training community.','cta'=>'Explore Interview Bootcamp Week','href'=>home_url('/mission-residency/#dates'),'asset'=>$asset.'mr-community.webp','visual'=>'community','caption'=>'Mission Residency community · Match Day','alt'=>'Real Mission Residency classroom and Match Day community montage','theme'=>'community','tone'=>'dark','width'=>600,'height'=>222],
+        ['id'=>'usce-pathway','division'=>'USCE','eyebrow'=>'USCE · A PERSONAL PLACEMENT PATH','headline'=>'Your specialty. Your timeline.','connector'=>'','bridge'=>'','accent'=>'Your next clinical step.','support'=>'Share your goals so the team can review rotation availability and fit.','cta'=>'Explore USCE','href'=>home_url('/usce/'),'asset'=>$asset.'usce-clinical.webp','visual'=>'clinical','caption'=>'Clinical education · MissionMed USCE','alt'=>'Existing USCE live-page illustrative clinical discussion photograph','theme'=>'clinical-path','tone'=>'dark','width'=>1600,'height'=>1067],
+    ];
+}
+
+function mm_mr_0929_home_hero_markup(): string {
+    $frames = mm_mr_0929_home_hero_frames();
+    $first = $frames[0];
+    $dots = '';
+    foreach ($frames as $index => $frame) {
+        $dots .= '<button class="mm-ph__dot" type="button" data-slide="' . esc_attr((string) $index) . '" aria-current="' . ($index === 0 ? 'true' : 'false') . '" aria-label="' . esc_attr(($index + 1) . ' of 8: ' . $frame['division']) . '"><span>' . esc_html(sprintf('%02d', $index + 1)) . '</span></button>';
+    }
+    return '<section class="mm-ph" id="mm-premium-hero" data-index="0" data-tone="dark" data-theme="destination" data-visual="physician" aria-labelledby="mm-premium-hero-title">'
+        . '<div class="mm-ph__copy"><p class="mm-ph__eyebrow" data-eyebrow>' . esc_html($first['eyebrow']) . '</p><h1 class="mm-ph__headline" id="mm-premium-hero-title"><span data-headline>' . esc_html($first['headline']) . '</span><span data-connector>' . esc_html($first['connector']) . '</span><span data-bridge>' . esc_html($first['bridge']) . '</span><span data-accent>' . esc_html($first['accent']) . '</span></h1><p class="mm-ph__support" data-support>' . esc_html($first['support']) . '</p><a class="mm-ph__cta" data-cta href="' . esc_url($first['href']) . '">' . esc_html($first['cta']) . '</a></div>'
+        . '<figure class="mm-ph__visual"><img class="mm-ph__image" data-hero-image src="' . esc_url($first['asset']) . '" alt="' . esc_attr($first['alt']) . '" width="1277" height="473" fetchpriority="high" decoding="async"><figcaption class="mm-ph__caption" data-caption>' . esc_html($first['caption']) . '</figcaption></figure>'
+        . '<div class="mm-ph__controls"><select class="mm-ph__division" data-division aria-label="Choose a MissionMed division"><option>Mission Residency</option><option>Exam Prep</option><option>USCE</option></select><div class="mm-ph__dots" role="group" aria-label="Choose a hero message">' . $dots . '</div><button class="mm-ph__button" type="button" data-prev aria-label="Previous message">←</button><button class="mm-ph__button mm-ph__pause" type="button" data-pause aria-pressed="false">Pause</button><button class="mm-ph__button" type="button" data-next aria-label="Next message">→</button><span class="mm-ph__sr" data-live aria-live="polite">Mission Residency, slide 1 of 8</span></div>'
+        . '<script type="application/json" id="mm-premium-hero-data">' . wp_json_encode($frames, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) . '</script></section>'
+        . '<section class="mm-ph__ecosystem" aria-labelledby="mm-ph-ecosystem-title"><p>One MissionMed ecosystem</p><h2 id="mm-ph-ecosystem-title">Prepare for the exam, the clinical experience, and the interview.</h2><div class="mm-ph__links"><a href="' . esc_url(home_url('/examprep/')) . '">Exam Prep</a><a href="' . esc_url(home_url('/usce/')) . '">USCE</a><a href="' . esc_url(home_url('/mission-residency/')) . '">Mission Residency</a></div></section>'
+        . '<section class="mm-ph__proof" aria-label="Mission Residency student proof"><figure><blockquote>“You made me fall in love with my own story and believe that my dreams are valid against all Odds.”</blockquote><figcaption>Dr Marian Ghaly · Mission Residency alumna</figcaption></figure><aside><p>For IMGs, DOs and reapplicants seeking a clearer next step. Individual experiences are not a Match guarantee.</p><p><a href="#f2-pd-system">See what program directors consider</a><br><a href="' . esc_url(home_url('/red-flag-match-stories/')) . '">Read student Match stories</a></p></aside></section>';
+}
+
+add_action('wp_enqueue_scripts', static function (): void {
+    if (!mm_mr_p0_enabled() || !is_front_page()) return;
+    $css = MM_MR_P0_ASSET_DIR . '/premium-hero/hero.css';
+    $js = MM_MR_P0_ASSET_DIR . '/premium-hero/hero.js';
+    wp_enqueue_style('mm-mr-premium-hero', MM_MR_P0_ASSET_URL . '/premium-hero/hero.css', [], is_file($css) ? substr((string) hash_file('sha256', $css), 0, 12) : null);
+    wp_enqueue_script('mm-mr-premium-hero', MM_MR_P0_ASSET_URL . '/premium-hero/hero.js', [], is_file($js) ? substr((string) hash_file('sha256', $js), 0, 12) : null, true);
+    wp_script_add_data('mm-mr-premium-hero', 'strategy', 'defer');
+}, 90);
+
+add_action('wp_head', static function (): void {
+    if (!mm_mr_p0_enabled() || !is_front_page()) return;
+    echo '<link rel="preload" as="image" href="' . esc_url(MM_MR_P0_ASSET_URL . '/premium-hero/assets/mr-application.webp') . '" fetchpriority="high">';
+}, 2);
+
 add_filter('the_content', static function (string $content): string {
     if (!mm_mr_p0_enabled() || !is_front_page() || !in_the_loop() || !is_main_query()) return $content;
     $content = str_ireplace(
@@ -1355,12 +1399,11 @@ add_filter('the_content', static function (string $content): string {
         ['IV Prep Complete', 'IV Prep Essentials: Interview Bootcamp Week', 'IV Prep Complete', 'Signature Mock entitlement confirmed at enrollment', 'Signature Mock entitlement confirmed at enrollment', 'physician mentors who teach residency applicants'],
         $content
     );
-    $route = '<section class="mm-mr-p0-route" aria-label="Mission Residency Fall 2026">'
-        . '<style>.mm-mr-p0-route{background:#081a2f;color:#f8f3e7;padding:clamp(44px,7vw,84px) 24px;font-family:Inter,system-ui,sans-serif}.mm-mr-p0-route__in{max-width:1160px;margin:auto;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(260px,.65fr);gap:42px;align-items:center}.mm-mr-p0-route__k,.mm-mr-p0-route__card-k{color:#e5bd62;text-transform:uppercase;letter-spacing:.16em;font-size:.78rem;font-weight:800}.mm-mr-p0-route h2{color:#fff;font:600 clamp(2.2rem,5vw,4.3rem)/1.02 Georgia,serif;margin:.35em 0}.mm-mr-p0-route p{font-size:1.1rem;line-height:1.65;max-width:720px}.mm-mr-p0-route__card{background:#102945;border:1px solid rgba(229,189,98,.45);padding:28px;border-radius:18px}.mm-mr-p0-route__card strong{display:block;color:#fff;font:600 1.7rem/1.15 Georgia,serif;margin:.45em 0}.mm-mr-p0-route a{display:inline-block;background:#e5bd62;color:#071626!important;text-decoration:none!important;font-weight:800;padding:14px 22px;border-radius:999px;margin-top:14px}@media(max-width:760px){.mm-mr-p0-route__in{grid-template-columns:1fr}}</style>'
-        . '<div class="mm-mr-p0-route__in"><div><span class="mm-mr-p0-route__k">Mission Residency · Fall 2026</span><h2>Don&#8217;t use your real interviews as practice.</h2><p>One expert. Your whole interview season. Learn the framework, practice under pressure, and improve with physician-led feedback before programs see you.</p><a href="' . esc_url(home_url('/mission-residency/')) . '">Explore Mission Residency</a></div>'
-        . '<div class="mm-mr-p0-route__card"><span class="mm-mr-p0-route__card-k">Two clear paths</span><strong>Live kickoff or whole-season support.</strong><p>Interview Bootcamp Week builds the live foundation. Complete includes Interview Bootcamp Week and continues the coaching, practice, and feedback.</p><a href="' . esc_url(home_url('/mission-residency-courses/')) . '">Compare the two paths</a></div></div></section>';
+    $content = preg_replace('~<section\s+id=["\']mm107-hero["\'][^>]*>.*?</section>~is', '', $content) ?? $content;
+    $content = preg_replace('~<h6>FOR IMGs, DOs, AND REAPPLICANTS</h6>.*?See How Students Like You Matched\s*</a>~is', '', $content, 1) ?? $content;
+    $hero = mm_mr_0929_home_hero_markup();
     // DR-267 secondary directory; no product, checkout or payment mutation.
-    $route .= '<section class="mm-mr-p0-route" aria-label="Other ways we can help"><div class="mm-mr-p0-route__in"><div>'
+    $directory = '<section class="mm-mr-p0-route" aria-label="Other ways we can help"><div class="mm-mr-p0-route__in"><div>'
         . '<span class="mm-mr-p0-route__k">Other ways we can help</span>'
         . '<h2>Interview in the next 7 days?</h2>'
         . '<p><strong>Emergency Private Interview Intensive &middot; $3,999</strong><br>4 total private hours with Dr Brian, including 3 Signature Mock Interviews, for a real interview 7 days or less away.</p>'
@@ -1368,5 +1411,5 @@ add_filter('the_content', static function (string $content): string {
         . '<a href="' . esc_url(home_url('/mission-residency/#emergency-prep')) . '">Explore emergency preparation</a></div>'
         . '<div class="mm-mr-p0-route__card"><span class="mm-mr-p0-route__card-k">SOLD OUT</span>'
         . '<strong>360 Match Mentorship &middot; $5,499</strong><p>Our highest-touch, one-to-one mentorship model. Currently unavailable for enrollment.</p></div></div></section>';
-    return $route . $content;
+    return $hero . $content . $directory;
 }, 20);
