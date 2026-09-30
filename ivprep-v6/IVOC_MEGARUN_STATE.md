@@ -97,6 +97,24 @@ the actual production route and deployment.
   Ismat into RISE or call this a successful program-aware journey. Resolve
   the smallest owner-approved IVOC projection/consumer policy, or leave the
   RISE-gated evidence explicitly waiting while progressing other work.
+- **2026-09-30 Builder truth fix: LIVE UI VERIFIED, RISE acceptance still
+  waiting.** Source `62114964817abf63dd7b9d18f4378cccf746d1ba` deployed as
+  Railway `d5f5f124-06f2-4390-9db7-fe24ad00850f`, image
+  `sha256:200b69403f3f4ddd664d48aaf772f5768eb61ed643313a894505ac52bdb3bb04`;
+  health 200 and anonymous product/bootstrap 401. From the production six-step
+  Builder, searching `research` then pressing `Add matching questions` added
+  exactly the visible research question (one pool item), not the unrelated
+  selected Core category. The Core 10 preset and search were also visibly
+  functional; do not carry forward the independent reviewer hypothesis that
+  those controls are decorative. For scoped `wp:142`, the `SUNY` RISE search
+  still cannot return owner-authorized results; the UI now names that state in
+  student language and allows only clearly labeled manual entry with no
+  invented RISE facts. The 8001 focused suite passed 108/108 after aligning two
+  stale navigation assertions with the actual `Analytics Lab` and `Review My
+  Answers` labels. Prior healthy source `41c56fae8b762adb74d736ce9d527cc6fb143e58`,
+  deployment `3442d1c4-cacc-4e46-9745-219ee347c45c`, image
+  `sha256:d7cba4be10b7412fd92a38911bb054998646e2f3dc7ebe6a5f53ece9b44d9691`
+  is now REMOVED; exact-source/config redeploy is the rollback.
 - **Independent presentation review: READ-ONLY COMPLETE.** Astra 6 identified
   the now-fixed actor label, the false visible-frame readiness claim, builder
   controls that require real state binding, and Admin review transcript labels
