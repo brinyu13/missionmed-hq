@@ -1,11 +1,11 @@
 {
-  "checkedAt": "2026-09-30T03:22:54.815Z",
+  "checkedAt": "2026-09-30T03:34:30.124Z",
   "pages": {
     "home": {
       "status": 200,
       "url": "https://missionmedinstitute.com/",
       "cache": {
-        "kinsta": "MISS",
+        "kinsta": "HIT",
         "cloudflare": "DYNAMIC"
       },
       "dom": {
@@ -23,7 +23,7 @@
       "cache": {
         "kinsta": "HIT",
         "cloudflare": "HIT",
-        "age": "385"
+        "age": "1078"
       },
       "dom": {
         "headline": "YOU BUILT THE APPLICATION\nthat earned the interview.\nNOW LET'S TURN THE INTERVIEW\nINTO A MATCH.",
