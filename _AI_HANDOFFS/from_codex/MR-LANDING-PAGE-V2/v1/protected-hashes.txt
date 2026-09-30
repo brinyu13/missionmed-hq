@@ -1,0 +1,7 @@
+ef5b66e27eaf49a1c0d230039d726a94a28dd3c9a784fb3ed6c63024a7629f2e  wp-content/mu-plugins/missionmed-mr-alternate.php
+725790239f0dacc344e8a349c0d095ee57d069d00f254f54f1b2b6dff009a52b  wp-content/mu-plugins/missionmed-mr-legacy-popup.php
+5777cd9bb474ad17ab566b6485af4bdc4f802cefc828c5407f8a9ccdb58eca0e  wp-content/mu-plugins/missionmed-mr-p0.php
+07f89f42375c42c0023bfbd1856e991842d1c129d39a180f05208bd82fcab895  wp-content/mu-plugins/missionmed-mr-primary-routing.php
+b4813d439bcf78f61ca362d77db61211abb6f90dce8931353f4999fe93d02e1d  wp-content/mu-plugins/missionmed-mr-zelle-verifier.php
+549e2e3a4ffd77ab4c36d5d4e1c7ddbc60b85d4ccccfa885bcee7f63003b5839  wp-content/mu-plugins/missionmed-mr-alternate-assets/match-day-player.php
+e896522beeeab8a1b7db6f12aa03df0a97a98607c6c6314e30ac08cb0ad5d70a  wp-content/mu-plugins/missionmed-mr-alternate-assets/match-day-media.json

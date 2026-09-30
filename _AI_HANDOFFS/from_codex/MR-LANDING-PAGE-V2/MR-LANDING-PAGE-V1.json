@@ -1,0 +1,140 @@
+{
+  "version": "MR-LANDING-PAGE-V1",
+  "label": "MISSION RESIDENCY LANDING PAGE — V1",
+  "frozenAt": "2026-09-30T17:02:34.283Z",
+  "sourceSha": "8390032e4c1b33b26c4f8d7d0a7f9e2d6562eef9",
+  "runtimeSourceSha": "70275a5e8675e611991f2aaa01c7a7b4dfa85de9",
+  "deploymentIdentity": "mr-matrix-ecosystem-0930",
+  "privateCustody": "/www/theresidencyacademy_209/private/mr-landing-page-versions-20260930/MR-LANDING-PAGE-V1",
+  "restoreFiles": [
+    "page.php",
+    "alternate.css",
+    "alternate.js"
+  ],
+  "assetHashes": [
+    {
+      "sha256": "2871b469a6731883e2107afdf6ea030e6528943859f4a489651d778008572c5d",
+      "path": "wp-content/mu-plugins/missionmed-mr-alternate-assets/alternate.css"
+    },
+    {
+      "sha256": "4c190bd23441972712c52bca45046dbd53b860ead76d1f8f52809b71dd3ce539",
+      "path": "wp-content/mu-plugins/missionmed-mr-alternate-assets/alternate.js"
+    },
+    {
+      "sha256": "e896522beeeab8a1b7db6f12aa03df0a97a98607c6c6314e30ac08cb0ad5d70a",
+      "path": "wp-content/mu-plugins/missionmed-mr-alternate-assets/match-day-media.json"
+    },
+    {
+      "sha256": "549e2e3a4ffd77ab4c36d5d4e1c7ddbc60b85d4ccccfa885bcee7f63003b5839",
+      "path": "wp-content/mu-plugins/missionmed-mr-alternate-assets/match-day-player.php"
+    },
+    {
+      "sha256": "d0471ef127ff40101dd93effc76ab11d5f72841e5f97429c6f0621573dbe7c44",
+      "path": "wp-content/mu-plugins/missionmed-mr-alternate-assets/media/brian-studio-aaa.jpg"
+    },
+    {
+      "sha256": "6d286f7d2eea03e21fbe8edba37bad0e52e64b1f5b4ae8737beabf19a1b60935",
+      "path": "wp-content/mu-plugins/missionmed-mr-alternate-assets/media/ecosystem-matrix-1080.webp"
+    },
+    {
+      "sha256": "1c60ed9011103cc2a3c568de54088f4cec6efbc0dce29eee0a2dffa3dba2d55b",
+      "path": "wp-content/mu-plugins/missionmed-mr-alternate-assets/media/ecosystem-matrix-1440.webp"
+    },
+    {
+      "sha256": "6f95de41bea8f05837c295c9dce849dd5ab712a095b1030d3f76ed40565b5454",
+      "path": "wp-content/mu-plugins/missionmed-mr-alternate-assets/media/ecosystem-matrix-720.webp"
+    },
+    {
+      "sha256": "c10a9cc1c9cc9520c312f447d76b3eb808fada6e59959761f348172d9dc11a87",
+      "path": "wp-content/mu-plugins/missionmed-mr-alternate-assets/media/ecosystem-oncall-1080.webp"
+    },
+    {
+      "sha256": "192205228ecef197b7ab1e93a414f3f5a41654865b10bcb3da86a06de71ad429",
+      "path": "wp-content/mu-plugins/missionmed-mr-alternate-assets/media/ecosystem-oncall-1440.webp"
+    },
+    {
+      "sha256": "5edb001ada684186250af2691665831a8c1732a33ff522ebad6f74d61a5ebf7d",
+      "path": "wp-content/mu-plugins/missionmed-mr-alternate-assets/media/ecosystem-oncall-720.webp"
+    },
+    {
+      "sha256": "a0ca11c53529a99a0880f93703e5a74dbd0ca558e3633099f2fc667f18cfaf72",
+      "path": "wp-content/mu-plugins/missionmed-mr-alternate-assets/media/manasa-kandula-founder.avif"
+    },
+    {
+      "sha256": "25939ff9a10a9d119c4d6978b1177b7d79f3706500c007d8fa7fa17e1d4d09a4",
+      "path": "wp-content/mu-plugins/missionmed-mr-alternate-assets/media/marian-ghaly-founder.png"
+    },
+    {
+      "sha256": "0376ca83f2d4915663baabfc0989d286b5c096feaa0e9766dd370d016c93ce43",
+      "path": "wp-content/mu-plugins/missionmed-mr-alternate-assets/media/matrix-reference.jpeg"
+    },
+    {
+      "sha256": "6ee860251c1f443b0eafb20214117f1dead1957d891149361bb81e7ae5ecc212",
+      "path": "wp-content/mu-plugins/missionmed-mr-alternate-assets/media/montage-1702.webp"
+    },
+    {
+      "sha256": "10ad8ba65122c13a467afba157af04a47052d169e75a65e8abb9781124710083",
+      "path": "wp-content/mu-plugins/missionmed-mr-alternate-assets/media/montage-640.webp"
+    },
+    {
+      "sha256": "3fc10d79bb2350c888e8fa20e7ccb3b798ada4a232918c60a117e878145af06a",
+      "path": "wp-content/mu-plugins/missionmed-mr-alternate-assets/media/montage-960.webp"
+    },
+    {
+      "sha256": "017dda20cf344d5369f0e234699dd73d25e8bb2045ebce9ff137405703fbd592",
+      "path": "wp-content/mu-plugins/missionmed-mr-alternate-assets/media/student-celebrate-v2.webp"
+    },
+    {
+      "sha256": "47886c46916bb20d6b0cbc48ea55e29e8285137645c018594959171d1d6a1254",
+      "path": "wp-content/mu-plugins/missionmed-mr-alternate-assets/page.php"
+    },
+    {
+      "sha256": "351b10ae1f580f8af4cdf7c51cef589db812a045f37d8af2848c0a36afde62d8",
+      "path": "wp-content/mu-plugins/missionmed-mr-alternate-assets/usce-donor.css"
+    },
+    {
+      "sha256": "5b43966eb74bf96c5367d8298920b11d2950ab9a801a58ca74ada1e548e1d544",
+      "path": "wp-content/mu-plugins/missionmed-mr-alternate-assets/usce-shell.css"
+    },
+    {
+      "sha256": "ca8773cf798c7ed997d4dd7c8e23c348699f8d5b7462636694cc14de6cda12db",
+      "path": "wp-content/mu-plugins/missionmed-mr-alternate-assets/vendor/HLS-LICENSE"
+    },
+    {
+      "sha256": "8f5f97998196b454a7c5a1c6100d6996c556e63f529e739f06279c1100f5b59b",
+      "path": "wp-content/mu-plugins/missionmed-mr-alternate-assets/vendor/HLS-PROVENANCE.md"
+    },
+    {
+      "sha256": "a12e7ee1cd64a69dcdb314157e45dafcba705bfb0b1440b7935cb265d374423e",
+      "path": "wp-content/mu-plugins/missionmed-mr-alternate-assets/vendor/hls-1.7.3.min.js"
+    }
+  ],
+  "protectedFiles": "ef5b66e27eaf49a1c0d230039d726a94a28dd3c9a784fb3ed6c63024a7629f2e  wp-content/mu-plugins/missionmed-mr-alternate.php\n725790239f0dacc344e8a349c0d095ee57d069d00f254f54f1b2b6dff009a52b  wp-content/mu-plugins/missionmed-mr-legacy-popup.php\n5777cd9bb474ad17ab566b6485af4bdc4f802cefc828c5407f8a9ccdb58eca0e  wp-content/mu-plugins/missionmed-mr-p0.php\n07f89f42375c42c0023bfbd1856e991842d1c129d39a180f05208bd82fcab895  wp-content/mu-plugins/missionmed-mr-primary-routing.php\nb4813d439bcf78f61ca362d77db61211abb6f90dce8931353f4999fe93d02e1d  wp-content/mu-plugins/missionmed-mr-zelle-verifier.php\n549e2e3a4ffd77ab4c36d5d4e1c7ddbc60b85d4ccccfa885bcee7f63003b5839  wp-content/mu-plugins/missionmed-mr-alternate-assets/match-day-player.php\ne896522beeeab8a1b7db6f12aa03df0a97a98607c6c6314e30ac08cb0ad5d70a  wp-content/mu-plugins/missionmed-mr-alternate-assets/match-day-media.json\n",
+  "public": {
+    "url": "https://missionmedinstitute.com/missionresidency/",
+    "status": 200,
+    "sha256": "19e66c983c05692e45dcddd40593ad93a659552c6c862ef367373b227f355620",
+    "headers": {
+      "cache-control": "public, max-age=0, s-maxage=86400",
+      "cf-cache-status": "HIT",
+      "content-type": "text/html; charset=UTF-8",
+      "ki-cache-tag": "54348e27-24fe-4b73-aeb5-ac89f43456b4,a7d65253c73bb1a3d802f53ff8a2fb5e21ac9de8ec0e95e141d92ae05179097a",
+      "ki-cache-type": "Edge",
+      "ki-cf-cache-status": "HIT",
+      "last-modified": "Wed, 30 Sep 2026 16:34:17 GMT",
+      "x-content-type-options": "nosniff",
+      "x-kinsta-cache": "HIT"
+    }
+  },
+  "legacy": {
+    "status": 301,
+    "location": "https://missionmedinstitute.com/missionresidency/?utm_source=facebook"
+  },
+  "runtime": "WordPress MU static renderer; current pricing/schedule via mm_mr_p0_runtime_config(); no transactional database restore",
+  "screenshots": [
+    "qa/v1-1440.png",
+    "qa/v1-390.png"
+  ],
+  "measurements": "qa/v1-browser.json",
+  "rollbackProcedure": "RESTORE.md"
+}

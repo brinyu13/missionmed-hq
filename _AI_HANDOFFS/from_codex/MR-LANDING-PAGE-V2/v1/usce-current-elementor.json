@@ -1,0 +1,299 @@
+[
+  {
+    "id": "aab3649",
+    "elType": "container",
+    "settings": {
+      "boxed_width": {
+        "unit": "%",
+        "size": 100,
+        "sizes": []
+      }
+    },
+    "elements": [
+      {
+        "id": "f95af0f",
+        "elType": "widget",
+        "settings": {
+          "html": "```html\n<!-- ============================================================\n     WIDGET 00 - CL-1403D SHARED CSS\n     Paste this ONCE into an Elementor HTML widget at the TOP of the page.\n     Requires: Nothing. This is the foundation for all other widgets.\n     ============================================================ -->\n<style>\n/* ================================================================\n   CL-1403D SHARED CSS - Scoped to .cl1403c- prefix\n   Does NOT reset body/html. Does NOT use unscoped classes.\n   Safe for WordPress/Elementor coexistence.\n   ================================================================ */\n\n/* --- Shared Components (used by both Version A and Version B) --- */\n\n/* Situation Filter Chips */\n.cl1403c-chip{padding:8px 16px;border:1px solid #c8a84e;background:transparent;color:#1a1a1a;border-radius:20px;cursor:pointer;font-size:13px;font-weight:600;transition:all .2s;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,sans-serif;}\n.cl1403c-chip:hover,.cl1403c-chip.active{background:#c8a84e;color:#0a1628;}\n\n/* Proof Cards */\n.cl1403c-pcard{display:none;background:#fff;border-radius:8px;padding:28px;box-shadow:0 2px 16px rgba(0,0,0,.07);border:1px solid #e8e8e8;}\n.cl1403c-pcard.cl1403c-visible{display:block;}\n.cl1403c-pcard-tags{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}\n.cl1403c-ptag{padding:3px 10px;font-size:11px;font-weight:700;border-radius:12px;background:#f0ebe0;color:#8b6f2e;text-transform:uppercase;letter-spacing:.3px;}\n.cl1403c-pcard blockquote{font-size:15px;color:#444;line-height:1.7;margin-bottom:12px;font-style:italic;}\n.cl1403c-pcard cite{font-size:13px;color:#888;font-style:normal;font-weight:600;}\n\n/* FAQ Accordion */\n.cl1403c-faq-item{margin-bottom:12px;border:1px solid #e0e0e0;border-radius:6px;overflow:hidden;}\n.cl1403c-faq-q{padding:18px 20px;cursor:pointer;font-weight:600;color:#1a1a1a;display:flex;justify-content:space-between;align-items:center;transition:background .2s;font-size:15px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,sans-serif;}\n.cl1403c-faq-q:hover{background:#f8f6f0;}\n.cl1403c-faq-icon{font-size:18px;color:#c8a84e;font-weight:700;transition:transform .3s;}\n.cl1403c-faq-item.cl1403c-faq-open .cl1403c-faq-icon{transform:rotate(45deg);}\n.cl1403c-faq-a{display:none;padding:0 20px 18px;color:#555;line-height:1.7;font-size:15px;}\n.cl1403c-faq-item.cl1403c-faq-open .cl1403c-faq-a{display:block;}\n\n/* Video Play Button */\n.cl1403c-play-btn{width:56px;height:56px;background:rgba(255,255,255,.92);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;color:#0a1628;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);cursor:pointer;transition:all .2s;box-shadow:0 2px 12px rgba(0,0,0,.2);}\n.cl1403c-play-btn:hover{transform:translate(-50%,-50%) scale(1.08);}\n\n/* Form */\n.cl1403c-form{max-width:560px;width:100%;}\n.cl1403c-form-row{display:flex;gap:12px;margin-bottom:12px;}\n.cl1403c-form-row.cl1403c-form-full{flex-direction:column;}\n.cl1403c-form input,.cl1403c-form select,.cl1403c-form textarea{width:100%;padding:14px 16px;border:1px solid #d0d0d0;border-radius:6px;font-size:14px;font-family:inherit;background:#fff;transition:border .2s;color:#1a1a1a;}\n.cl1403c-form input:focus,.cl1403c-form select:focus,.cl1403c-form textarea:focus{border-color:#c8a84e;outline:none;}\n.cl1403c-form-btn{padding:16px 40px;background:#c8a84e;color:#0a1628;border:none;border-radius:6px;font-size:16px;font-weight:700;cursor:pointer;transition:all .2s;width:100%;}\n.cl1403c-form-btn:hover{background:#b8963e;transform:translateY(-1px);}\n\n/* Footer shared */\n.cl1403c-footer-logo{height:40px;margin:0 auto 12px;}\n.cl1403c-footer-legal{font-size:11px;color:#667;max-width:600px;margin:8px auto 0;text-align:center;line-height:1.6;}\n\n/* --- VERSION A CSS --- */\n\n.cl1403c-a-header{background:#fff;padding:16px 40px;display:flex;align-items:center;border-bottom:1px solid #eaeaea;}\n.cl1403c-a-header-inner{display:flex;align-items:center;justify-content:space-between;width:100%;max-width:1280px;margin:0 auto;}\n.cl1403c-a-logo{height:42px;}\n.cl1403c-a-nav{display:flex;align-items:center;gap:28px;}\n.cl1403c-a-nav a{font-size:13px;font-weight:600;color:#444;transition:color .2s;text-decoration:none;}\n.cl1403c-a-nav a:hover{color:#0a1628;}\n.cl1403c-a-nav-cta{padding:10px 24px !important;background:#c8a84e !important;color:#0a1628 !important;border-radius:4px;font-weight:700 !important;transition:all .2s !important;}\n.cl1403c-a-nav-cta:hover{background:#b8963e !important;}\n\n.cl1403c-a-hero{min-height:88vh;background-size:cover;background-position:center;background-repeat:no-repeat;position:relative;display:flex;align-items:center;justify-content:center;text-align:center;}\n.cl1403c-a-hero-overlay{background:rgba(0,0,0,.52);width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;}\n.cl1403c-a-hero-label{font-size:11px;text-transform:uppercase;letter-spacing:4px;color:#c8a84e;margin-bottom:24px;}\n.cl1403c-a-hero-overlay h1{font-family:Georgia,'Times New Roman',serif;font-size:48px;color:#fff;max-width:780px;line-height:1.12;margin-bottom:20px;}\n.cl1403c-a-hero-sub{font-size:16px;color:#ccc;max-width:560px;margin-bottom:32px;line-height:1.7;}\n.cl1403c-a-btn{display:inline-block;padding:15px 40px;background:#c8a84e;color:#0a1628;border-radius:4px;font-weight:700;font-size:15px;transition:all .2s;text-decoration:none;}\n.cl1403c-a-btn:hover{background:#b8963e;transform:translateY(-1px);}\n\n.cl1403c-a-stats{background:#0a1628;}\n.cl1403c-a-stats-inner{display:flex;justify-content:center;gap:72px;padding:40px 20px;max-width:900px;margin:0 auto;}\n.cl1403c-a-stat{text-align:center;}\n.cl1403c-a-stat-num{display:block;font-size:36px;font-weight:800;color:#c8a84e;}\n.cl1403c-a-stat-lbl{font-size:12px;color:#6b7a8d;text-transform:uppercase;letter-spacing:1.2px;}\n\n.cl1403c-a-problem{padding:100px 20px;background:#fff;}\n.cl1403c-a-problem-inner{max-width:700px;margin:0 auto;text-align:center;}\n.cl1403c-a-problem-inner h2{font-family:Georgia,serif;font-size:36px;color:#111;margin-bottom:28px;line-height:1.25;}\n.cl1403c-a-problem-inner p{font-size:17px;color:#444;line-height:1.8;margin-bottom:20px;}\n\n.cl1403c-a-loseground{padding:80px 20px;background:#faf8f4;}\n.cl1403c-a-loseground-inner{max-width:1120px;margin:0 auto;}\n.cl1403c-a-loseground-inner h2{font-family:Georgia,serif;font-size:34px;text-align:center;color:#111;margin-bottom:48px;}\n.cl1403c-a-lg-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:28px;}\n.cl1403c-a-lg-card{padding:32px 24px;border-top:3px solid #c8a84e;background:#fff;}\n.cl1403c-a-lg-card h3{font-size:17px;color:#111;margin-bottom:10px;font-weight:700;}\n.cl1403c-a-lg-card p{font-size:14px;color:#666;line-height:1.65;}\n\n.cl1403c-a-types{overflow:hidden;}\n.cl1403c-a-types-photo{min-height:44vh;background-size:cover;background-position:center;position:relative;display:flex;align-items:center;justify-content:center;}\n.cl1403c-a-types-photo-overlay{background:rgba(10,22,40,.68);padding:48px 60px;text-align:center;}\n.cl1403c-a-types-photo-overlay h2{font-family:Georgia,serif;font-size:42px;color:#fff;margin-bottom:8px;}\n.cl1403c-a-types-photo-overlay p{color:#b0bcc8;font-size:16px;}\n.cl1403c-a-types-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0;}\n.cl1403c-a-type-card{padding:36px 28px;background:#fff;border-right:1px solid #eee;}\n.cl1403c-a-type-card:last-child{border-right:none;}\n.cl1403c-a-type-badge{display:block;font-size:11px;font-weight:700;text-transform:uppercase;color:#c8a84e;letter-spacing:1px;margin-bottom:12px;}\n.cl1403c-a-type-card h3{font-size:18px;color:#0a1628;margin-bottom:10px;font-weight:700;}\n.cl1403c-a-type-card p{font-size:14px;color:#666;line-height:1.65;}\n\n.cl1403c-a-pd{padding:80px 20px;background:#fff;}\n.cl1403c-a-pd-inner{display:grid;grid-template-columns:360px 1fr;gap:48px;max-width:1100px;margin:0 auto;align-items:center;}\n.cl1403c-a-pd-img{width:100%;height:320px;object-fit:cover;border-radius:6px;}\n.cl1403c-a-pd-text h2{font-family:Georgia,serif;font-size:30px;color:#0a1628;margin-bottom:20px;}\n.cl1403c-a-pd-text p{font-size:15px;color:#555;line-height:1.75;margin-bottom:14px;}\n\n.cl1403c-a-pathway{padding:80px 20px;background:#faf8f4;}\n.cl1403c-a-pathway-inner{max-width:1000px;margin:0 auto;}\n.cl1403c-a-pathway-inner h2{font-family:Georgia,serif;font-size:34px;text-align:center;color:#0a1628;margin-bottom:52px;}\n.cl1403c-a-steps{display:flex;justify-content:center;align-items:flex-start;gap:0;}\n.cl1403c-a-step{text-align:center;flex:1;position:relative;}\n.cl1403c-a-step-num{display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;background:#0a1628;color:#c8a84e;border-radius:50%;font-size:20px;font-weight:700;margin-bottom:16px;position:relative;z-index:1;}\n.cl1403c-a-step-line{position:absolute;top:24px;left:calc(50% + 24px);width:calc(100% - 48px);height:2px;background:#c8a84e;z-index:0;}\n.cl1403c-a-step h3{font-size:15px;color:#0a1628;margin-bottom:6px;font-weight:700;}\n.cl1403c-a-step p{font-size:13px;color:#666;padding:0 8px;line-height:1.55;}\n.cl1403c-a-pathway-note{text-align:center;color:#888;font-size:13px;margin-top:36px;}\n\n.cl1403c-a-specs{min-height:52vh;background-size:cover;background-position:center;background-attachment:fixed;background-repeat:no-repeat;position:relative;display:flex;align-items:center;justify-content:center;}\n.cl1403c-a-specs-overlay{background:rgba(10,22,40,.82);padding:64px 40px;text-align:center;border-radius:8px;max-width:900px;width:90%;}\n.cl1403c-a-specs-overlay h2{font-family:Georgia,serif;font-size:34px;color:#fff;margin-bottom:28px;}\n.cl1403c-a-spec-grid{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-bottom:20px;}\n.cl1403c-a-spec{padding:10px 24px;background:rgba(200,168,78,.12);border:1px solid #c8a84e;color:#c8a84e;border-radius:4px;font-size:14px;font-weight:600;}\n.cl1403c-a-spec-note{color:#7a8a9a;font-size:13px;}\n\n.cl1403c-a-proof{padding:80px 20px;background:#fff;}\n.cl1403c-a-proof-inner{max-width:1100px;margin:0 auto;}\n.cl1403c-a-proof-inner h2{font-family:Georgia,serif;font-size:34px;text-align:center;color:#0a1628;margin-bottom:8px;}\n.cl1403c-a-proof-sub{text-align:center;color:#777;margin-bottom:28px;font-size:15px;}\n.cl1403c-a-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:36px;}\n.cl1403c-a-proof-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;}\n\n.cl1403c-a-videos{display:grid;grid-template-columns:repeat(3,1fr);gap:0;}\n.cl1403c-a-vid{min-height:300px;background-size:cover;background-position:center;position:relative;display:flex;align-items:flex-end;padding:20px;}\n.cl1403c-a-vid p{color:#fff;font-weight:600;font-size:14px;text-shadow:0 1px 6px rgba(0,0,0,.6);padding-top:80px;background:linear-gradient(transparent,rgba(0,0,0,.6));position:absolute;bottom:0;left:0;right:0;padding:80px 20px 20px;}\n\n.cl1403c-a-pricing{padding:80px 20px;background:#faf8f4;text-align:center;}\n.cl1403c-a-pricing-inner{max-width:680px;margin:0 auto;}\n.cl1403c-a-pricing-inner h2{font-family:Georgia,serif;font-size:34px;color:#0a1628;margin-bottom:20px;}\n.cl1403c-a-pricing-inner p{font-size:15px;color:#555;margin-bottom:16px;line-height:1.75;}\n\n.cl1403c-a-form-section{padding:0;}\n.cl1403c-a-form-wrap{display:grid;grid-template-columns:1fr 1fr;min-height:580px;}\n.cl1403c-a-form-photo{background-size:cover;background-position:center;position:relative;display:flex;align-items:flex-end;}\n.cl1403c-a-form-photo-overlay{background:linear-gradient(transparent 20%,rgba(10,22,40,.9));width:100%;padding:60px 40px;}\n.cl1403c-a-form-photo-overlay h2{font-family:Georgia,serif;font-size:30px;color:#fff;margin-bottom:10px;}\n.cl1403c-a-form-photo-overlay p{color:#b0bcc8;font-size:14px;line-height:1.6;}\n.cl1403c-a-form-panel{padding:60px 40px;display:flex;align-items:center;background:#faf8f4;}\n\n.cl1403c-a-faq{padding:80px 20px;background:#fff;}\n.cl1403c-a-faq-inner{max-width:800px;margin:0 auto;}\n.cl1403c-a-faq-inner h2{font-family:Georgia,serif;font-size:34px;text-align:center;color:#0a1628;margin-bottom:40px;}\n\n.cl1403c-a-final{min-height:50vh;background-size:cover;background-position:center;background-repeat:no-repeat;position:relative;display:flex;align-items:center;justify-content:center;text-align:center;}\n.cl1403c-a-final-overlay{background:rgba(10,22,40,.78);width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 40px;}\n.cl1403c-a-final-overlay h2{font-family:Georgia,serif;font-size:36px;color:#fff;margin-bottom:24px;max-width:700px;line-height:1.25;}\n\n.cl1403c-a-footer{padding:40px 20px;text-align:center;background:#0a1628;color:#7a8a9a;}\n\n/* --- VERSION B CSS --- */\n\n.cl1403c-b-header{background:rgba(255,255,255,.97);padding:16px 40px;display:flex;align-items:center;border-bottom:1px solid #eaeaea;backdrop-filter:blur(8px);}\n.cl1403c-b-header-inner{display:flex;align-items:center;justify-content:space-between;width:100%;max-width:1280px;margin:0 auto;}\n.cl1403c-b-logo{height:42px;}\n.cl1403c-b-nav{display:flex;align-items:center;gap:28px;}\n.cl1403c-b-nav a{font-size:13px;font-weight:600;color:#444;transition:color .2s;text-decoration:none;}\n.cl1403c-b-nav a:hover{color:#0a1628;}\n.cl1403c-b-nav-cta{padding:10px 24px !important;background:#c8a84e !important;color:#0a1628 !important;border-radius:4px;font-weight:700 !important;}\n\n.cl1403c-b-hero{min-height:92vh;background-size:cover;background-position:center;position:relative;display:flex;align-items:flex-end;}\n.cl1403c-b-hero-overlay{width:100%;background:linear-gradient(transparent 0%,rgba(10,22,40,.65) 30%,rgba(10,22,40,.92) 100%);padding:140px 60px 80px;}\n.cl1403c-b-hero-content{max-width:850px;}\n.cl1403c-b-hero-kicker{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:3px;color:#c8a84e;margin-bottom:20px;display:block;}\n.cl1403c-b-hero-content h1{font-family:Georgia,serif;font-size:46px;line-height:1.12;color:#fff;margin-bottom:20px;}\n.cl1403c-b-hero-rule{width:60px;height:3px;background:#c8a84e;margin-bottom:20px;}\n.cl1403c-b-hero-sub{font-size:17px;color:#b0bcc8;max-width:620px;line-height:1.7;margin-bottom:28px;}\n.cl1403c-b-btn{display:inline-block;padding:15px 40px;background:#c8a84e;color:#0a1628;border-radius:4px;font-weight:700;font-size:15px;transition:all .2s;text-decoration:none;}\n.cl1403c-b-btn:hover{background:#b8963e;}\n\n.cl1403c-b-stats{background:#0d1f35;}\n.cl1403c-b-stats-inner{display:flex;justify-content:center;gap:72px;padding:40px 20px;max-width:900px;margin:0 auto;}\n.cl1403c-b-stat{text-align:center;}\n.cl1403c-b-stat-num{display:block;font-size:36px;font-weight:800;color:#c8a84e;}\n.cl1403c-b-stat-lbl{font-size:12px;color:#6b7a8d;text-transform:uppercase;letter-spacing:1.2px;}\n\n.cl1403c-b-problem{padding:100px 20px;background:#fff;}\n.cl1403c-b-problem-inner{max-width:720px;margin:0 auto;display:flex;gap:0;}\n.cl1403c-b-dropcap{font-family:Georgia,serif;font-size:88px;line-height:.85;color:#c8a84e;font-weight:700;float:left;margin-right:8px;margin-top:4px;}\n.cl1403c-b-problem-text p{font-size:17px;color:#333;line-height:1.85;margin-bottom:20px;}\n\n.cl1403c-b-photodivider{min-height:44vh;background-size:cover;background-position:center;background-attachment:fixed;position:relative;display:flex;align-items:center;justify-content:center;}\n.cl1403c-b-photodivider-overlay{background:rgba(10,22,40,.68);padding:44px 60px;max-width:800px;border-left:4px solid #c8a84e;}\n.cl1403c-b-photodivider-overlay blockquote{font-family:Georgia,serif;font-size:22px;color:#fff;line-height:1.55;font-style:italic;}\n.cl1403c-b-photodivider-2{min-height:32vh;}\n\n.cl1403c-b-loseground{padding:80px 20px;background:#faf8f4;}\n.cl1403c-b-loseground-inner{max-width:800px;margin:0 auto;}\n.cl1403c-b-loseground-inner h2{font-family:Georgia,serif;font-size:36px;text-align:center;color:#111;margin-bottom:48px;}\n.cl1403c-b-lg-cols{display:grid;grid-template-columns:1fr 1fr;gap:36px;}\n.cl1403c-b-lg-item{padding-left:56px;position:relative;}\n.cl1403c-b-lg-num{position:absolute;left:0;top:0;font-size:32px;font-weight:800;color:#c8a84e;font-family:Georgia,serif;}\n.cl1403c-b-lg-item h3{font-size:18px;color:#111;margin-bottom:6px;}\n.cl1403c-b-lg-item p{font-size:14px;color:#666;line-height:1.65;}\n\n.cl1403c-b-types{overflow:hidden;}\n.cl1403c-b-types-hero{min-height:44vh;background-size:cover;background-position:center;position:relative;display:flex;align-items:center;justify-content:center;}\n.cl1403c-b-types-hero-overlay{background:rgba(10,22,40,.68);padding:48px 60px;text-align:center;}\n.cl1403c-b-types-hero-overlay h2{font-family:Georgia,serif;font-size:44px;color:#fff;margin-bottom:8px;}\n.cl1403c-b-types-hero-overlay p{color:#b0bcc8;font-size:16px;}\n.cl1403c-b-types-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0;}\n.cl1403c-b-type-card{padding:40px 28px;background:#fff;border-right:1px solid #eee;}\n.cl1403c-b-type-card:last-child{border-right:none;}\n.cl1403c-b-type-rank{display:block;font-size:11px;font-weight:700;text-transform:uppercase;color:#c8a84e;letter-spacing:1px;margin-bottom:14px;}\n.cl1403c-b-type-card h3{font-size:18px;color:#0a1628;margin-bottom:10px;font-weight:700;}\n.cl1403c-b-type-card p{font-size:14px;color:#666;line-height:1.65;}\n\n.cl1403c-b-pd{padding:80px 20px;background:#fff;}\n.cl1403c-b-pd-inner{display:grid;grid-template-columns:1fr 1fr;gap:48px;max-width:1100px;margin:0 auto;align-items:center;}\n.cl1403c-b-pd-img{width:100%;height:380px;object-fit:cover;border-radius:6px;}\n.cl1403c-b-pd-text h2{font-family:Georgia,serif;font-size:30px;color:#0a1628;margin-bottom:20px;}\n.cl1403c-b-pd-text p{font-size:15px;color:#555;line-height:1.75;margin-bottom:14px;}\n\n.cl1403c-b-pathway{padding:80px 20px;background:#faf8f4;}\n.cl1403c-b-pathway-inner{max-width:800px;margin:0 auto;}\n.cl1403c-b-pathway-inner h2{font-family:Georgia,serif;font-size:34px;text-align:center;color:#0a1628;margin-bottom:48px;}\n.cl1403c-b-steps{display:flex;flex-direction:column;gap:28px;}\n.cl1403c-b-step{display:flex;gap:20px;align-items:flex-start;}\n.cl1403c-b-step-marker{flex-shrink:0;}\n.cl1403c-b-step-marker span{display:flex;align-items:center;justify-content:center;width:48px;height:48px;background:#0a1628;color:#c8a84e;border-radius:50%;font-weight:700;font-size:18px;}\n.cl1403c-b-step h3{font-size:17px;color:#0a1628;margin-bottom:4px;}\n.cl1403c-b-step p{font-size:14px;color:#666;line-height:1.6;}\n.cl1403c-b-pathway-note{text-align:center;color:#888;font-size:13px;margin-top:32px;}\n\n.cl1403c-b-specs{min-height:52vh;background-size:cover;background-position:center;background-attachment:fixed;background-repeat:no-repeat;position:relative;display:flex;align-items:center;justify-content:center;}\n.cl1403c-b-specs-overlay{background:rgba(10,22,40,.82);padding:64px 40px;text-align:center;border-radius:8px;max-width:900px;width:90%;}\n.cl1403c-b-specs-overlay h2{font-family:Georgia,serif;font-size:34px;color:#fff;margin-bottom:28px;}\n.cl1403c-b-spec-grid{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-bottom:20px;}\n.cl1403c-b-spec{padding:10px 24px;border:1px solid #c8a84e;color:#c8a84e;border-radius:20px;font-size:14px;font-weight:600;}\n.cl1403c-b-spec-note{color:#7a8a9a;font-size:13px;}\n\n.cl1403c-b-proof{padding:80px 20px;background:#fff;}\n.cl1403c-b-proof-inner{max-width:1100px;margin:0 auto;}\n.cl1403c-b-proof-inner h2{font-family:Georgia,serif;font-size:34px;text-align:center;color:#0a1628;margin-bottom:8px;}\n.cl1403c-b-proof-sub{text-align:center;color:#777;margin-bottom:28px;font-size:15px;}\n.cl1403c-b-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:36px;}\n.cl1403c-b-proof-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;}\n\n.cl1403c-b-videos{display:grid;grid-template-columns:repeat(3,1fr);gap:0;}\n.cl1403c-b-vid{min-height:320px;background-size:cover;background-position:center;position:relative;display:flex;align-items:flex-end;}\n.cl1403c-b-vid p{color:#fff;font-weight:600;font-size:14px;background:linear-gradient(transparent,rgba(0,0,0,.65));position:absolute;bottom:0;left:0;right:0;padding:80px 20px 20px;text-shadow:0 1px 4px rgba(0,0,0,.5);}\n\n.cl1403c-b-pricing{padding:80px 20px;text-align:center;background:#faf8f4;}\n.cl1403c-b-pricing-inner{max-width:640px;margin:0 auto;}\n.cl1403c-b-pricing-inner h2{font-family:Georgia,serif;font-size:34px;color:#0a1628;margin-bottom:20px;}\n.cl1403c-b-pricing-inner p{font-size:15px;color:#555;margin-bottom:24px;line-height:1.75;}\n\n.cl1403c-b-form-section{padding:0;}\n.cl1403c-b-form-wrap{display:grid;grid-template-columns:1fr 1fr;min-height:580px;}\n.cl1403c-b-form-left{background-size:cover;background-position:center;position:relative;display:flex;align-items:flex-end;}\n.cl1403c-b-form-left-overlay{background:linear-gradient(transparent 20%,rgba(10,22,40,.9));width:100%;padding:60px 40px;}\n.cl1403c-b-form-left-overlay h2{font-family:Georgia,serif;font-size:30px;color:#fff;margin-bottom:8px;}\n.cl1403c-b-form-left-overlay p{color:#b0bcc8;font-size:14px;}\n.cl1403c-b-form-right{padding:60px 40px;display:flex;align-items:center;background:#faf8f4;}\n\n.cl1403c-b-faq{padding:80px 20px;background:#fff;}\n.cl1403c-b-faq-inner{max-width:800px;margin:0 auto;}\n.cl1403c-b-faq-inner h2{font-family:Georgia,serif;font-size:34px;text-align:center;color:#0a1628;margin-bottom:40px;}\n\n.cl1403c-b-final{min-height:52vh;background-size:cover;background-position:center;position:relative;display:flex;align-items:center;justify-content:center;text-align:center;}\n.cl1403c-b-final-overlay{background:rgba(10,22,40,.78);width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 40px;}\n.cl1403c-b-final-overlay h2{font-family:Georgia,serif;font-size:38px;color:#fff;margin-bottom:24px;max-width:700px;line-height:1.25;}\n\n.cl1403c-b-footer{padding:40px 20px;text-align:center;background:#0a1628;color:#7a8a9a;}\n\n/* --- RESPONSIVE --- */\n@media(max-width:960px){\n.cl1403c-a-lg-grid{grid-template-columns:1fr 1fr;}\n.cl1403c-a-types-grid,.cl1403c-b-types-grid{grid-template-columns:1fr 1fr;}\n.cl1403c-a-pd-inner,.cl1403c-b-pd-inner{grid-template-columns:1fr;}\n.cl1403c-a-form-wrap,.cl1403c-b-form-wrap{grid-template-columns:1fr;}\n.cl1403c-a-form-photo{min-height:300px;}\n.cl1403c-b-form-left{min-height:300px;}\n.cl1403c-a-videos,.cl1403c-b-videos{grid-template-columns:1fr;}\n.cl1403c-a-stats-inner,.cl1403c-b-stats-inner{flex-direction:column;gap:20px;align-items:center;}\n.cl1403c-a-steps{flex-direction:column;align-items:center;gap:20px;}\n.cl1403c-a-step-line{display:none;}\n.cl1403c-a-nav,.cl1403c-b-nav{display:none;}\n.cl1403c-b-lg-cols{grid-template-columns:1fr;}\n.cl1403c-b-hero-content h1,.cl1403c-a-hero-overlay h1{font-size:32px;}\n}\n@media(max-width:600px){\n.cl1403c-a-lg-grid,.cl1403c-a-types-grid,.cl1403c-b-types-grid{grid-template-columns:1fr;}\n.cl1403c-a-proof-grid,.cl1403c-b-proof-grid{grid-template-columns:1fr;}\n.cl1403c-form-row{flex-direction:column;}\n.cl1403c-a-specs,.cl1403c-b-specs,.cl1403c-b-photodivider{background-attachment:scroll;}\n}\n/* iOS parallax fallback */\n@supports (-webkit-touch-callout: none){\n.cl1403c-a-specs,.cl1403c-b-specs,.cl1403c-b-photodivider{background-attachment:scroll;background-size:cover;}\n}\n</style>\n```\n\n---",
+          "wcm_element_visibility_content_restricted_message": "You are not authorized to view this content."
+        },
+        "elements": [],
+        "widgetType": "html"
+      }
+    ],
+    "isInner": false
+  },
+  {
+    "id": "7001c52",
+    "elType": "container",
+    "settings": {
+      "boxed_width": {
+        "unit": "%",
+        "size": 100,
+        "sizes": []
+      }
+    },
+    "elements": [
+      {
+        "id": "cd1dd4f",
+        "elType": "widget",
+        "settings": {
+          "html": "<!-- WIDGET A-03 -- Version A Hero\n     Requires: Shared CSS. No JS needed.\n     Image: ASSET-01 (hero surgical team) -->\n<section class=\"cl1403c-a-hero\" style=\"background-image:url(https://images.unsplash.com/photo-1504439468489-c8920d796a29?auto=format&fit=crop&w=1920&q=80);\">\n  <div class=\"cl1403c-a-hero-overlay\">\n    <p class=\"cl1403c-a-hero-label\">MissionMed Clinicals</p>\n    <h1>The Right Clinical Experience.<br>Placed With Precision.</h1>\n    <p class=\"cl1403c-a-hero-sub\">For physicians who understand that the quality of their clinical rotation defines the strength of their application.</p>\n    <a href=\"https://missionmedinstitute.com/rotation-request\" class=\"cl1403c-a-btn\">Request Placement</a>\n  </div>\n</section>",
+          "wcm_element_visibility_content_restricted_message": "You are not authorized to view this content."
+        },
+        "elements": [],
+        "widgetType": "html"
+      },
+      {
+        "id": "3023082",
+        "elType": "widget",
+        "settings": {
+          "html": "```html\n<!-- WIDGET A-04 -- Version A Stat Strip\n     Requires: Shared CSS. No JS needed. -->\n<section class=\"cl1403c-a-stats\">\n<div class=\"cl1403c-a-stats-inner\">\n<div class=\"cl1403c-a-stat\"><span class=\"cl1403c-a-stat-num\">3,000+</span><span class=\"cl1403c-a-stat-lbl\">IMGs Trained</span></div>\n<div class=\"cl1403c-a-stat\"><span class=\"cl1403c-a-stat-num\">89.1%</span><span class=\"cl1403c-a-stat-lbl\">Match Rate</span></div>\n<div class=\"cl1403c-a-stat\"><span class=\"cl1403c-a-stat-num\">30+</span><span class=\"cl1403c-a-stat-lbl\">Countries Represented</span></div>\n</div>\n</section>\n```",
+          "wcm_element_visibility_content_restricted_message": "You are not authorized to view this content."
+        },
+        "elements": [],
+        "widgetType": "html"
+      }
+    ],
+    "isInner": false
+  },
+  {
+    "id": "eb88fd8",
+    "elType": "container",
+    "settings": {
+      "boxed_width": {
+        "unit": "%",
+        "size": 100,
+        "sizes": []
+      }
+    },
+    "elements": [
+      {
+        "id": "04d73b9",
+        "elType": "widget",
+        "settings": {
+          "html": "```html\n<!-- WIDGET A-05 -- Version A Most Rotations Problem Section\n     Requires: Shared CSS. No JS needed. -->\n<section class=\"cl1403c-a-problem\" id=\"a-about\">\n<div class=\"cl1403c-a-problem-inner\">\n<h2>Most Clinical Rotations Are Not Designed to Help You Match.</h2>\n<p>They are designed to fill seats. They are sold on availability, not on outcome. They prioritize volume over fit. And the result is predictable: thousands of applicants complete rotations every year that add nothing meaningful to their applications.</p>\n<p>MissionMed Clinicals takes a different approach. Every placement is individually matched based on your specialty, your timeline, your clinical gaps, and your application strategy.</p>\n</div>\n</section>\n```",
+          "wcm_element_visibility_content_restricted_message": "You are not authorized to view this content."
+        },
+        "elements": [],
+        "widgetType": "html"
+      }
+    ],
+    "isInner": false
+  },
+  {
+    "id": "1a3cfac",
+    "elType": "container",
+    "settings": {
+      "boxed_width": {
+        "unit": "%",
+        "size": 100,
+        "sizes": []
+      }
+    },
+    "elements": [
+      {
+        "id": "37eee69",
+        "elType": "widget",
+        "settings": {
+          "html": "```html\n<!-- WIDGET A-06 -- Version A Where Applicants Lose Ground\n     Requires: Shared CSS. No JS needed. -->\n<section class=\"cl1403c-a-loseground\">\n<div class=\"cl1403c-a-loseground-inner\">\n<h2>Where Applicants Lose Ground</h2>\n<div class=\"cl1403c-a-lg-grid\">\n<div class=\"cl1403c-a-lg-card\"><h3>Passive Experience</h3><p>Observing is not participating. Programs know the difference. Your letter of recommendation will reflect it.</p></div>\n<div class=\"cl1403c-a-lg-card\"><h3>Outdated USCE</h3><p>Clinical experience ages. What counted two years ago may not carry weight today.</p></div>\n<div class=\"cl1403c-a-lg-card\"><h3>Wrong Setting</h3><p>Clinic-only rotations miss the inpatient signal most competitive programs want to see.</p></div>\n<div class=\"cl1403c-a-lg-card\"><h3>Generic Documentation</h3><p>A letter that says \"observed our team\" tells a program director nothing about your clinical abilities.</p></div>\n</div>\n</div>\n</section>\n```",
+          "wcm_element_visibility_content_restricted_message": "You are not authorized to view this content."
+        },
+        "elements": [],
+        "widgetType": "html"
+      }
+    ],
+    "isInner": false
+  },
+  {
+    "id": "97528fc",
+    "elType": "container",
+    "settings": {
+      "boxed_width": {
+        "unit": "%",
+        "size": 100,
+        "sizes": []
+      }
+    },
+    "elements": [
+      {
+        "id": "f8b22c5",
+        "elType": "widget",
+        "settings": {
+          "html": "```html\n<!-- WIDGET A-07 -- Version A Four Types of USCE\n     Requires: Shared CSS. No JS needed.\n     Image: ASSET-02 (clinical team) -->\n<section class=\"cl1403c-a-types\" id=\"a-types\">\n<div class=\"cl1403c-a-types-photo\" style=\"background-image:url(https://images.unsplash.com/photo-1551076805-e1869033e561?auto=format&fit=crop&w=1400&q=80);\">\n<div class=\"cl1403c-a-types-photo-overlay\">\n<h2>Four Types of USCE</h2>\n<p>How program directors rank them</p>\n</div>\n</div>\n<div class=\"cl1403c-a-types-grid\">\n<div class=\"cl1403c-a-type-card\"><span class=\"cl1403c-a-type-badge\">Highest</span><h3>Hands-On Clinical Rotation</h3><p>Direct patient care, integrated into the clinical team. Daily interaction with attending physicians. Real note writing, real clinical decisions.</p></div>\n<div class=\"cl1403c-a-type-card\"><span class=\"cl1403c-a-type-badge\">High</span><h3>Sub-Internship</h3><p>Intern-level responsibility. The strongest audition format. Programs can evaluate you as if you were already part of their team.</p></div>\n<div class=\"cl1403c-a-type-card\"><span class=\"cl1403c-a-type-badge\">Moderate</span><h3>Clinical Observership</h3><p>Observation-based. Useful as a first step into the U.S. system, but limited in what it proves to a selection committee.</p></div>\n<div class=\"cl1403c-a-type-card\"><span class=\"cl1403c-a-type-badge\">Limited</span><h3>Research Experience</h3><p>Academic value only. Does not demonstrate clinical readiness. Cannot replace patient-facing experience on your application.</p></div>\n</div>\n</section>\n```",
+          "wcm_element_visibility_content_restricted_message": "You are not authorized to view this content."
+        },
+        "elements": [],
+        "widgetType": "html"
+      }
+    ],
+    "isInner": false
+  },
+  {
+    "id": "16fe8a2",
+    "elType": "container",
+    "settings": {
+      "boxed_width": {
+        "unit": "%",
+        "size": 100,
+        "sizes": []
+      }
+    },
+    "elements": [
+      {
+        "id": "e392637",
+        "elType": "widget",
+        "settings": {
+          "html": "```html\n<!-- WIDGET A-08 -- Version A Program Director Perspective\n     Requires: Shared CSS. No JS needed.\n     Image: ASSET-03 (clinical education discussion) -->\n<section class=\"cl1403c-a-pd\">\n<div class=\"cl1403c-a-pd-inner\">\n<img src=\"https://missionmedinstitute.com/wp-content/uploads/2026/05/medical-team-collaborating-on-anatomy-study-in-hos-2026-03-24-05-03-34-utc-scaled.jpg\" alt=\"Clinical education discussion\" class=\"cl1403c-a-pd-img\">\n<div class=\"cl1403c-a-pd-text\">\n<h2>What Program Directors Actually Look For</h2>\n<p>When a program director reviews your application, USCE is not just a line item. It tells them whether you can function in a U.S. clinical environment. They look at where you rotated, what you did there, how long you stayed, and whether your letter writer can speak to your clinical abilities with specificity.</p>\n<p>Generic letters that say \"this student observed our team\" carry almost no weight. Letters that describe your clinical reasoning, your interaction with patients, and your growth over weeks of direct involvement carry enormous weight.</p>\n<p>The rotation you choose determines which type of letter you get.</p>\n</div>\n</div>\n</section>\n```",
+          "wcm_element_visibility_content_restricted_message": "You are not authorized to view this content."
+        },
+        "elements": [],
+        "widgetType": "html"
+      }
+    ],
+    "isInner": false
+  },
+  {
+    "id": "817e65a",
+    "elType": "container",
+    "settings": {
+      "boxed_width": {
+        "unit": "%",
+        "size": 100,
+        "sizes": []
+      }
+    },
+    "elements": [
+      {
+        "id": "e10be06",
+        "elType": "widget",
+        "settings": {
+          "html": "```html\n<!-- WIDGET A-09 -- Version A Clinical Pathway\n     Requires: Shared CSS. No JS needed. -->\n<section class=\"cl1403c-a-pathway\" id=\"a-pathway\">\n<div class=\"cl1403c-a-pathway-inner\">\n<h2>The MissionMed Clinical Pathway</h2>\n<div class=\"cl1403c-a-steps\">\n<div class=\"cl1403c-a-step\"><div class=\"cl1403c-a-step-num\">1</div><div class=\"cl1403c-a-step-line\"></div><h3>Submit Your Request</h3><p>Tell us your specialty, timeline, goals, and any specific needs. The more detail you provide, the better we can match you.</p></div>\n<div class=\"cl1403c-a-step\"><div class=\"cl1403c-a-step-num\">2</div><div class=\"cl1403c-a-step-line\"></div><h3>Match With Availability</h3><p>Our team reviews current rotation availability and identifies placements that align with your profile and application strategy.</p></div>\n<div class=\"cl1403c-a-step\"><div class=\"cl1403c-a-step-num\">3</div><div class=\"cl1403c-a-step-line\"></div><h3>Confirm Your Placement</h3><p>Review your matched rotation details, ask any questions, and confirm when you are ready to move forward.</p></div>\n<div class=\"cl1403c-a-step\"><div class=\"cl1403c-a-step-num\">4</div><h3>Secure Your Spot</h3><p>Complete enrollment and lock in your rotation dates. Placements are allocated by cycle, not on demand. Early action means more options.</p></div>\n</div>\n<p class=\"cl1403c-a-pathway-note\">Placements are allocated by application cycle. Availability is not guaranteed and depends on timing, specialty, and location.</p>\n</div>\n</section>\n```",
+          "wcm_element_visibility_content_restricted_message": "You are not authorized to view this content."
+        },
+        "elements": [],
+        "widgetType": "html"
+      }
+    ],
+    "isInner": false
+  },
+  {
+    "id": "205197c",
+    "elType": "container",
+    "settings": {
+      "boxed_width": {
+        "unit": "%",
+        "size": 100,
+        "sizes": []
+      }
+    },
+    "elements": [
+      {
+        "id": "b5717e3",
+        "elType": "widget",
+        "settings": {
+          "html": "```html\n<!-- WIDGET A-10 -- Version A Specialties Parallax\n     Requires: Shared CSS. No JS needed.\n     Image: ASSET-04 (Chicago skyline). Uses background-attachment:fixed.\n     NOTE: iOS Safari does not support fixed backgrounds. CSS includes @supports fallback. -->\n<section class=\"cl1403c-a-specs\" style=\"background-image:url(https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?auto=format&fit=crop&w=1920&q=80);\">\n<div class=\"cl1403c-a-specs-overlay\">\n<h2>Available Specialties and Locations</h2>\n<div class=\"cl1403c-a-spec-grid\"><span class=\"cl1403c-a-spec\">Internal Medicine</span><span class=\"cl1403c-a-spec\">Family Medicine</span><span class=\"cl1403c-a-spec\">Psychiatry</span><span class=\"cl1403c-a-spec\">Pediatrics</span><span class=\"cl1403c-a-spec\">Surgery</span><span class=\"cl1403c-a-spec\">OB/GYN</span><span class=\"cl1403c-a-spec\">Neurology</span><span class=\"cl1403c-a-spec\">Emergency Medicine</span></div>\n<p class=\"cl1403c-a-spec-note\">Rotations available at teaching hospitals across multiple U.S. states. Specific site availability varies by cycle.</p>\n</div>\n</section>\n```",
+          "wcm_element_visibility_content_restricted_message": "You are not authorized to view this content."
+        },
+        "elements": [],
+        "widgetType": "html"
+      }
+    ],
+    "isInner": false
+  },
+  {
+    "id": "895deae",
+    "elType": "container",
+    "settings": {
+      "boxed_width": {
+        "unit": "%",
+        "size": 100,
+        "sizes": []
+      }
+    },
+    "elements": [
+      {
+        "id": "088629d",
+        "elType": "widget",
+        "settings": {
+          "html": "<!-- Paste this into an Elementor HTML widget. Update the cache-buster after uploading a new CDN copy. -->\n<style>\n  .missionmed-usce-cdn-wrap{\n    width:100vw;\n    max-width:100vw;\n    margin-left:calc(50% - 50vw);\n    margin-right:calc(50% - 50vw);\n    overflow:hidden;\n    background:#0a1628;\n  }\n  @supports(width:100dvw){\n    .missionmed-usce-cdn-wrap{\n      width:100dvw;\n      max-width:100dvw;\n      margin-left:calc(50% - 50dvw);\n      margin-right:calc(50% - 50dvw);\n    }\n  }\n  .missionmed-usce-cdn-frame{\n    display:block;\n    width:100%;\n    min-height:1100px;\n    border:0;\n    background:#0a1628;\n  }\n</style>\n<div class=\"missionmed-usce-cdn-wrap\">\n  <iframe\n    id=\"missionmed-usce-cdn-frame\"\n    class=\"missionmed-usce-cdn-frame\"\n    title=\"MissionMed USCE Request Form\"\n    src=\"https://cdn.missionmedinstitute.com/html-system/LIVE/usce_request.html?v=20260507-2\"\n    loading=\"eager\"\n    scrolling=\"no\"></iframe>\n</div>\n<script>\n(function(){\n  var frame = document.getElementById('missionmed-usce-cdn-frame');\n  if (!frame) return;\n  window.addEventListener('message', function(event){\n    if (event.origin !== 'https://cdn.missionmedinstitute.com') return;\n    if (!event.data || event.data.type !== 'missionmed-usce-height') return;\n    var height = Math.max(760, Math.min(3200, Number(event.data.height) || 0));\n    frame.style.height = Math.ceil(height) + 'px';\n  });\n})();\n</script>\n",
+          "wcm_element_visibility_content_restricted_message": "You are not authorized to view this content."
+        },
+        "elements": [],
+        "widgetType": "html"
+      },
+      {
+        "id": "2deb9f2",
+        "elType": "widget",
+        "settings": {
+          "html": "```html\n<!-- WIDGET A-16 -- Version A Final CTA\n     Requires: Shared CSS. No JS needed.\n     Image: ASSET-09 (medical team) -->\n<section class=\"cl1403c-a-final\" style=\"background-image:url(https://images.unsplash.com/photo-1587351021759-3e566b6af7cc?auto=format&fit=crop&w=1920&q=80);\">\n<div class=\"cl1403c-a-final-overlay\">\n<h2>Your Application Tells a Story.<br>Make Sure It Is the Right One.</h2>\n<a href=\"#a-form\" class=\"cl1403c-a-btn\">Check Availability</a>\n</div>\n</section>\n```",
+          "wcm_element_visibility_content_restricted_message": "You are not authorized to view this content."
+        },
+        "elements": [],
+        "widgetType": "html"
+      }
+    ],
+    "isInner": false
+  },
+  {
+    "id": "f2fc648",
+    "elType": "container",
+    "settings": {
+      "boxed_width": {
+        "unit": "%",
+        "size": 100,
+        "sizes": []
+      }
+    },
+    "elements": [
+      {
+        "id": "0ff0161",
+        "elType": "widget",
+        "settings": {
+          "html": "```html\n<!-- WIDGET A-15 -- Version A FAQ\n     Requires: Shared CSS + Shared JS (cl1403cToggleFaq). -->\n<section class=\"cl1403c-a-faq\" id=\"a-faq\">\n<div class=\"cl1403c-a-faq-inner\">\n<h2>Frequently Asked Questions</h2>\n<div class=\"cl1403c-faq-item\" onclick=\"cl1403cToggleFaq(this)\">\n<div class=\"cl1403c-faq-q\"><span>What types of clinical rotations does MissionMed offer?</span><span class=\"cl1403c-faq-icon\">+</span></div>\n<div class=\"cl1403c-faq-a\"><p>MissionMed Clinicals provides access to hospital-based, hands-on clinical rotations across multiple specialties including Internal Medicine, Family Medicine, Psychiatry, Pediatrics, and more. Each rotation is designed to provide documented U.S. clinical experience that strengthens residency applications.</p></div>\n</div>\n<div class=\"cl1403c-faq-item\" onclick=\"cl1403cToggleFaq(this)\">\n<div class=\"cl1403c-faq-q\"><span>How is this different from an observership?</span><span class=\"cl1403c-faq-icon\">+</span></div>\n<div class=\"cl1403c-faq-a\"><p>Observerships are passive. You watch. MissionMed Clinicals focuses on hands-on rotations where you participate in patient care, write notes, interact with clinical teams, and build relationships with faculty who can write strong letters of recommendation.</p></div>\n</div>\n<div class=\"cl1403c-faq-item\" onclick=\"cl1403cToggleFaq(this)\">\n<div class=\"cl1403c-faq-q\"><span>How far in advance should I request a placement?</span><span class=\"cl1403c-faq-icon\">+</span></div>\n<div class=\"cl1403c-faq-a\"><p>The earlier, the better. Placements are allocated by cycle, not on demand. Students who plan 3 to 6 months ahead have the most options. Late-cycle placements may be available but with limited specialty and location choices.</p></div>\n</div>\n<div class=\"cl1403c-faq-item\" onclick=\"cl1403cToggleFaq(this)\">\n<div class=\"cl1403c-faq-q\"><span>Can I get a letter of recommendation?</span><span class=\"cl1403c-faq-icon\">+</span></div>\n<div class=\"cl1403c-faq-a\"><p>Strong LORs are one of the primary benefits of a well-placed rotation. When you work directly with attending physicians over multiple weeks, they can write detailed, specific letters that carry real weight with program directors.</p></div>\n</div>\n<div class=\"cl1403c-faq-item\" onclick=\"cl1403cToggleFaq(this)\">\n<div class=\"cl1403c-faq-q\"><span>What does the placement process look like?</span><span class=\"cl1403c-faq-icon\">+</span></div>\n<div class=\"cl1403c-faq-a\"><p>You submit a placement request with your specialty interests, timeline, and goals. Our team matches you with available rotations that fit your profile. You review the match, confirm your placement, and secure your spot.</p></div>\n</div>\n<div class=\"cl1403c-faq-item\" onclick=\"cl1403cToggleFaq(this)\">\n<div class=\"cl1403c-faq-q\"><span>Is there a refund policy?</span><span class=\"cl1403c-faq-icon\">+</span></div>\n<div class=\"cl1403c-faq-a\"><p>Placement policies including cancellation and refund terms are provided during the confirmation process. Because placements are allocated from limited availability, policies vary by rotation type and timing.</p></div>\n</div>\n<div class=\"cl1403c-faq-item\" onclick=\"cl1403cToggleFaq(this)\">\n<div class=\"cl1403c-faq-q\"><span>Do you guarantee a Match?</span><span class=\"cl1403c-faq-icon\">+</span></div>\n<div class=\"cl1403c-faq-a\"><p>No ethical organization can guarantee a Match. What MissionMed Clinicals provides is the right clinical experience, properly timed and documented, that gives your application the strongest possible foundation.</p></div>\n</div>\n</div>\n</section>\n```\n",
+          "wcm_element_visibility_content_restricted_message": "You are not authorized to view this content."
+        },
+        "elements": [],
+        "widgetType": "html"
+      }
+    ],
+    "isInner": false
+  },
+  {
+    "id": "efd3fe2",
+    "elType": "container",
+    "settings": {
+      "boxed_width": {
+        "unit": "%",
+        "size": 100,
+        "sizes": []
+      }
+    },
+    "elements": [],
+    "isInner": false
+  },
+  {
+    "id": "e8161c4",
+    "elType": "container",
+    "settings": {
+      "boxed_width": {
+        "unit": "%",
+        "size": 100,
+        "sizes": []
+      }
+    },
+    "elements": [
+      {
+        "id": "69b69c1",
+        "elType": "widget",
+        "settings": {
+          "html": "```html\n<!-- ============================================================\n     WIDGET 01 -- CL-1403D SHARED JS\n     Paste this ONCE into an Elementor HTML widget at the BOTTOM of the page.\n     Required by: Proof/Filter sections, FAQ sections.\n     ============================================================ -->\n<script>\n(function(){\n\"use strict\";\n\n/* --- Situation Filter Chip Handler --- */\nwindow.cl1403cSelectSit = function(chip){\n  var section = chip.closest('section');\n  if(!section) return;\n  section.querySelectorAll('.cl1403c-chip').forEach(function(c){ c.classList.remove('active'); });\n  chip.classList.add('active');\n  var idx = parseInt(chip.dataset.sit, 10);\n  section.querySelectorAll('.cl1403c-pcard').forEach(function(card){\n    card.classList.remove('cl1403c-visible');\n    if(parseInt(card.dataset.sit, 10) === idx) card.classList.add('cl1403c-visible');\n  });\n};\n\n/* --- FAQ Accordion Toggle --- */\nwindow.cl1403cToggleFaq = function(item){\n  item.classList.toggle('cl1403c-faq-open');\n};\n\n})();\n</script>\n```",
+          "wcm_element_visibility_content_restricted_message": "You are not authorized to view this content."
+        },
+        "elements": [],
+        "widgetType": "html"
+      }
+    ],
+    "isInner": false
+  }
+]
