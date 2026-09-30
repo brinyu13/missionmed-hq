@@ -21,26 +21,28 @@ the actual production route and deployment.
   403. No Admin, entitled-360, physical-media, or interview journey is claimed
   from that account. Recheck only when an actual Founder/Admin or authorized
   student tab becomes available; continue independent engineering meanwhile.
-- **Current asset release: LIVE VISUAL VERIFIED, journeys still unverified.**
-  Source `a0740bc36c87091febce6824c72e5d1df52da30a` is clean and remotely
-  read back. Railway deployment `ef18c315-64d0-47fc-bb15-243633317135`
-  reports SUCCESS with image
-  `sha256:f6f4fd8ce92dfe10bb324bf0d930b99e9aede191b9734533a83402c6ca9f4f04`.
+- **Current source/runtime: LIVE INFRASTRUCTURE, journeys unverified.** Source
+  `fb2c014d2fa487f561201e9f2f68be80fe122df5` is clean and remotely read
+  back. Railway deployment `a21316a8-b013-4ca8-aa66-a56e7b30a86d` reports
+  SUCCESS with image
+  `sha256:5de801a2c6d204e239ec6defa19693045c4a79b6a79239f0295097e90032aaa4`.
   Health is 200; anonymous product/bootstrap are 401. Three approved Astra
   Home photographs that previously returned 404 now return 200 and visibly
-  render in Chrome. Lossless WebP copies stay within IVOC product custody;
-  original PNG source is preserved. The prior deployment `6298e2b4…` is now
-  REMOVED but its exact source/image remains a redeploy rollback identity.
-- **Wayfinding correction: LOCAL FIX, LIVE UNVERIFIED.** The Home saved-practice
-  card now clearly opens the recordings chooser instead of potentially opening
-  a different `lastSaved` attempt. A fake hard-coded progress count and a
-  misleading real-interview label are removed; Film Room can return to the
-  same selected Results. This does not assert current production POV acceptance.
+  render in Chrome. The older asset release `ef18c315…` and original baseline
+  `6298e2b4…` have preserved source/image identities for exact redeploy, not
+  assumed ID rollback. Lossless WebP copies remain within IVOC product custody;
+  original PNG source is preserved.
+- **Wayfinding correction: LIVE VISUAL VERIFIED, journeys unverified.** Chrome
+  now shows the Home saved-practice card opening the recordings chooser rather
+  than potentially opening a different `lastSaved` attempt. The hard-coded
+  progress count and misleading real-interview label are gone, and Film Room
+  has a return to Results. This does not assert any complete production POV
+  journey, Admin role, or private playback acceptance.
 - **Terminal status: NOT COMPLETE.** September's component and prior-user
   acceptance rows remain historical evidence, not current student-ready POV
   acceptance. Journeys A–D must be rerun from the visible production product.
-- **Current source/runtime:** Railway deployment `6298e2b4-cd72-471c-91d4-340c911baa64`
-  is SUCCESS on 2026-09-29, built from the tracked-files-only Foreman source
+- **Historical Foreman 9200 baseline:** Railway deployment `6298e2b4-cd72-471c-91d4-340c911baa64`
+  was SUCCESS on 2026-09-29, built from the tracked-files-only Foreman source
   `ef1ca4b2bc1e7c5fcbf271c5250b4ac36d17e870` (Railway upload metadata
   has no Git commit hash; image
   `sha256:a6da7b9e6ddc53fcaf931f04d6ab73c0e9e33995144179775cb97192f4a2f9e0`).
