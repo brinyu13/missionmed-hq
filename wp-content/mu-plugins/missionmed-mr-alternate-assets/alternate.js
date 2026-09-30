@@ -15,7 +15,14 @@
     if (typeof window.gtag === 'function') window.gtag('event',event,data);
     else (window.dataLayer = window.dataLayer || []).push({event,...data});
   };
-  document.querySelectorAll('a[data-offer]').forEach(a => a.addEventListener('click', () => track('mr_product_detail_intent',{offer:a.dataset.offer,destination_path:new URL(a.href).pathname,cta_location:'usce_alternate'})));
+  document.querySelectorAll('a[data-offer]').forEach(a => a.addEventListener('click', e => {
+    const data={offer:a.dataset.offer,destination_path:new URL(a.href).pathname,cta_location:'usce_alternate',transport_type:'beacon'};
+    // Allow the analytics beacon to flush without trapping navigation if tracking is blocked.
+    if(e.button===0&&!e.ctrlKey&&!e.metaKey&&!e.shiftKey&&!e.altKey){
+      e.preventDefault();let moved=false;const go=()=>{if(!moved){moved=true;location.assign(a.href);}};
+      track('mr_product_detail_intent',{...data,event_callback:go,event_timeout:400});setTimeout(go,450);
+    }else track('mr_product_detail_intent',data);
+  }));
   document.querySelectorAll('.cl1403c-faq-item').forEach(d => d.addEventListener('toggle', () => {if(d.open)track('mr_faq_open',{question:d.querySelector('summary').innerText});}));
   // Preserve donor's photo loading discipline: lower background images load near viewport.
   const load = el => {el.style.backgroundImage = `url("${el.dataset.bg}")`;el.removeAttribute('data-bg');};
