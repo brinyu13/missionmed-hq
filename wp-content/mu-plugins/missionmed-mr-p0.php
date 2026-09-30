@@ -1394,6 +1394,7 @@ add_action('wp_head', static function (): void {
         . 'body.home::before{display:none!important;content:none!important}'
         . 'body.home #masthead{display:none!important}'
         . 'body.home .skip-link.screen-reader-text{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}'
+        . 'body.home .skip-link.screen-reader-text:focus{position:fixed!important;top:12px!important;left:12px!important;z-index:1000!important;width:auto!important;height:auto!important;padding:12px 16px!important;margin:0!important;overflow:visible!important;clip:auto!important;white-space:normal!important;background:#fff!important;color:#17242b!important}'
         . str_replace('</style', '<\/style', $css)
         . '</style>';
 }, -9999);
