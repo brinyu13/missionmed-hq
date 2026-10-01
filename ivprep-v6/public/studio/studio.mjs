@@ -474,9 +474,9 @@ async function renderLiveMockStudio(host, integrationHost) {
         action.disabled = true;
         try {
           const status = await state.liveMock.recordingStatus(appointment.id);
-          action.textContent = liveMockRecordingCheckLabel(status);
+          action.querySelector('span').textContent = liveMockRecordingCheckLabel(status);
         } catch {
-          action.textContent = liveMockRecordingCheckLabel(null, { failed: true });
+          action.querySelector('span').textContent = liveMockRecordingCheckLabel(null, { failed: true });
         } finally {
           // Readiness can change later; one check must not permanently freeze
           // the control. No automatic polling or sibling-provider mutation.
