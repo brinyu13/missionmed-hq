@@ -970,6 +970,8 @@ function renderWizardProgress() {
 function renderPoolSummary() {
   const count = $('#builder-pool-count');
   const preview = $('#builder-pool-preview');
+  const target = $('#builder-target');
+  if (target) target.value = String(state.targetQuestions);
   if (count) count.textContent = String(state.interviewSet.length);
   if (!preview) return;
   preview.replaceChildren();

@@ -29,6 +29,22 @@ import { summarizeVideoFramePixels } from '../../public/studio/media-analytics-c
 
 const row = (rows, label) => rows.find(([name]) => name === label);
 
+test('actual pool summary refresh synchronizes the visible target with current practice intent', () => {
+  const source = readFileSync(new URL('../../public/studio/studio.mjs', import.meta.url), 'utf8');
+  const body = source.match(/function renderPoolSummary\(\) \{([\s\S]*?)\n\}/)[1];
+  const target = { value: '5' };
+  const preview = { replaceChildren() {}, append() {} };
+  const state = { targetQuestions: 1, interviewSet: [] };
+  const render = new Function('$', 'state', 'document', body);
+  render((selector) => selector === '#builder-target' ? target : selector === '#builder-pool-preview' ? preview : null,
+    state, { createElement: () => ({ textContent: '' }) });
+  assert.equal(target.value, '1');
+  state.targetQuestions = 7;
+  render((selector) => selector === '#builder-target' ? target : selector === '#builder-pool-preview' ? preview : null,
+    state, { createElement: () => ({ textContent: '' }) });
+  assert.equal(target.value, '7');
+});
+
 test('Admin review return preserves only a currently authorized student selection', () => {
   const students = [{ subject: 'wp:1' }, { subject: 'wp:142' }];
   assert.equal(resolveAdminStudentSelection(students, 'wp:142'), 'wp:142');

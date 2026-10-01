@@ -14,6 +14,16 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Live fix-forward guardian:** source `b623e722a44e59bd8195d817f940f178c1782692`,
+  Railway `ebb2776a-9b2a-4005-a89b-336cb95f5fad` SUCCESS, image
+  `sha256:f85c0ba964eac2abe2852405a1e27b7be8c184c9a807f908da7caafd20fb6667`.
+  Exact runtime SSH hashes match source; health 200; anonymous product/bootstrap
+  401. Epoch 3926 released normally. Actual Home practice review now says
+  Individual Question / target 1, with distinct self/AI device-review choices.
+  POV caught stale right-rail input still showing 5; the same pool-summary
+  render now reflects current intent. Actual-render regression added; this
+  path stays reopened until the corrected display is live verified.
+  Own Admin usage reset cold readback is v14, balance/usage remain zero.
 - **Navigation candidate release:** `c1af94c4aa8304aed1aa9b4cb42289ae5a80aee9`
   uploaded under fresh deployment epoch 3924; upload transport timed out,
   deployment `ee80e5b1-8937-4e4c-a38f-d90b7a7975b0` became FAILED without an image.
