@@ -54,6 +54,8 @@ import {
   buildBuilderLaunchLabel,
   buildResultsNextAction,
   buildBuilderStepAction,
+  buildPracticeQuestionLabel,
+  buildBuilderLaunchOrder,
   liveMockRecordingCheckLabel,
 } from './presentation-view-model.mjs';
 import { clearAdminReviewMedia, createAdminReviewGate, isAdminReview, mayPresentSavedReview, resolveReviewDestination } from './review-scope.mjs';
@@ -221,7 +223,11 @@ function setView(view, { focus = false } = {}) {
   state.analytics?.onViewChange?.(view, state.role === 'student' ? 'student' : 'admin');
   if (view === 'devicecheck') renderDeviceCheck();
   if (view === 'newsession') renderWizard();
-  if (view === 'training') bindCockpitVideo();
+  if (view === 'training') {
+    const questionLabel = $('#cockpit-question');
+    if (questionLabel) questionLabel.textContent = buildPracticeQuestionLabel(state.interviewSet[0]);
+    bindCockpitVideo();
+  }
   if (view === 'simulation') bindSimulationVideo();
   renderInterviewRoom();
   if (view === 'lab') { mountLabInstruments(); void renderLongitudinal(); }
@@ -1427,13 +1433,13 @@ function renderWizard() {
       setView('devicecheck');
     };
     const go = document.createElement('button');
-    go.className = 'btn btn-primary';
+    go.className = state.launchMode === 'practice' ? 'btn btn-secondary' : 'btn btn-primary';
     go.type = 'button';
     go.disabled = !state.interviewSet.length;
     go.innerHTML = `<span>${buildBuilderLaunchLabel({ mode: 'ai', devicesReady })}</span>`;
     go.addEventListener('click', () => launch('ai'));
     const practice = document.createElement('button');
-    practice.className = 'btn btn-secondary';
+    practice.className = state.launchMode === 'practice' ? 'btn btn-primary' : 'btn btn-secondary';
     practice.type = 'button';
     practice.disabled = !state.interviewSet.length;
     practice.innerHTML = `<span>${buildBuilderLaunchLabel({ mode: 'practice', devicesReady })}</span>`;
@@ -1443,7 +1449,8 @@ function renderWizard() {
     back.type = 'button';
     back.innerHTML = '<span>Start over</span>';
     back.addEventListener('click', () => { state.wizardStep = 0; renderWizard(); });
-    row.append(go, practice, back);
+    const launchButtons = { ai: go, practice };
+    row.append(...buildBuilderLaunchOrder(state.launchMode).map(mode => launchButtons[mode]), back);
     body.append(summary);
     if (!state.interviewSet.length) body.append(el('p', 'unavailable', 'CHOOSE AT LEAST ONE QUESTION BEFORE STARTING.'));
     body.append(row);
@@ -1974,7 +1981,7 @@ async function startRep() {
       save.textContent = 'Account save unavailable in this environment; Analytics remains local to this rep.';
     }
     const label = $('#cockpit-question');
-    if (label) label.textContent = q ? q.canonical_text : 'Free practice';
+    if (label) label.textContent = buildPracticeQuestionLabel(q);
     setSessionState('RUNNING');
   } catch (error) {
     // Never swallow: a rejected start must name itself.

@@ -14,11 +14,20 @@ import {
   buildBuilderLaunchLabel,
   buildResultsNextAction,
   buildBuilderStepAction,
+  buildPracticeQuestionLabel,
+  buildBuilderLaunchOrder,
 } from '../../public/studio/presentation-view-model.mjs';
 import { publicAdmissionState } from '../../server/admission-contract.mjs';
 import { summarizeVideoFramePixels } from '../../public/studio/media-analytics-capability.mjs';
 
 const row = (rows, label) => rows.find(([name]) => name === label);
+
+test('practice launch preserves chosen mode and displays the selected question before recording', () => {
+  assert.deepEqual(buildBuilderLaunchOrder('practice'), ['practice', 'ai']);
+  assert.deepEqual(buildBuilderLaunchOrder('ai'), ['ai', 'practice']);
+  assert.equal(buildPracticeQuestionLabel({ canonical_text: 'Tell me about yourself.' }), 'Tell me about yourself.');
+  assert.equal(buildPracticeQuestionLabel(), 'Free practice');
+});
 
 test('general practice and AI mock can continue without inventing a program', () => {
   for (const launchMode of ['practice', 'ai']) {

@@ -10,6 +10,14 @@ export function buildBuilderStepAction({ step, wizard = {}, questionCount = 0 } 
   return Object.freeze({ enabled, label });
 }
 
+export function buildPracticeQuestionLabel(question = null) {
+  return String(question?.canonical_text || '').trim() || 'Free practice';
+}
+
+export function buildBuilderLaunchOrder(mode = 'ai') {
+  return Object.freeze(mode === 'practice' ? ['practice', 'ai'] : ['ai', 'practice']);
+}
+
 // Display projection only; the capability layer still owns media and session time.
 export function buildInterviewRoomModel({ sessionState = 'IDLE', providerState = 'idle',
   interviewMode = 'Interview Mode', showAnalytics = null, saveRetry = false } = {}) {

@@ -14,6 +14,33 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **2026-10-01 current fix-forward guardian:** Pushed source
+  `e79fc7629e5c011b2a4bb62f04935984a014f4f8` is live on Railway
+  `07d4b57f-b840-4391-a71b-0b7109609212` SUCCESS, image
+  `sha256:d797562cdb7724eeaf239917b514f1317e1450d7a504c73e282d8487ccf4e37e`.
+  Artifact `1b1c7ef4826313e3e3cc20b3abb5a28cb5c8086fabd0275307fbe2af4031e03d`
+  contains 1171 filtered tracked files. SSH matches both changed modules;
+  health 200 and anonymous product/bootstrap 401. Deployment lease released
+  normally. Independent read-only review passes the optional-program fix.
+- **Self Practice production POV, bounded media smoke:** Normal Home → practice
+  → CORE-01 → Program (empty) → Environment → readiness now advances. Native
+  FaceTime camera visibly renders the Founder; the microphone meter responds.
+  Visible video remains bound through device readiness and practice. Start rep
+  retains CORE-01 and activates secure account recording; Finish saves a
+  26.2-second private capture and opens Results/full Analytics. Film Room plays
+  visible captured video. Cold reload lists this new CORE-01 attempt at
+  2026-10-01 12:15:37. This is media/persistence smoke, NOT proof of a genuine
+  spoken answer, audible microphone replay or complete student-role acceptance.
+  Transcript was not generated for incidental captured speech.
+  Observed P1 copy: practice showed “No question selected” until start despite
+  retaining the actual question. The Builder also prioritized AI over the
+  user's selected practice mode. Small presentation-adapter repairs now display
+  the chosen question before recording and prioritize the chosen launch mode;
+  16 focused tests pass. No media/provider/session behavior changes.
+- **RISE Founder search POV:** Current authenticated `wp:1` UI query SUNY
+  returns 44 verified results. Full selected-program hydration/interview and
+  ordinary entitled-360 owner admission are still separate acceptance gates.
+
 - **Current guardian / authenticated POV (2026-10-01):** Source
   `3dce842ee8bda73004425ef699d634b5e7b5bd97`, Railway
   `b67cfe45-1d91-4782-bbea-e1e7f4363323` SUCCESS, image
