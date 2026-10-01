@@ -13,11 +13,40 @@ import {
   programSearchFailureCopy,
   buildBuilderLaunchLabel,
   buildResultsNextAction,
+  buildBuilderStepAction,
 } from '../../public/studio/presentation-view-model.mjs';
 import { publicAdmissionState } from '../../server/admission-contract.mjs';
 import { summarizeVideoFramePixels } from '../../public/studio/media-analytics-capability.mjs';
 
 const row = (rows, label) => rows.find(([name]) => name === label);
+
+test('general practice and AI mock can continue without inventing a program', () => {
+  for (const launchMode of ['practice', 'ai']) {
+    const wizard = { launchMode, program: '', programId: null, programVerified: false, contextSources: [] };
+    const before = structuredClone(wizard);
+    assert.deepEqual(buildBuilderStepAction({ step: 'program', wizard }), {
+      enabled: true, label: 'Continue',
+    });
+    assert.deepEqual(wizard, before);
+    assert.equal(buildContextSources({ programVerified: wizard.programVerified,
+      contextCapabilities: { rise: { connected: true } } }).find(source => source.name === 'RISE').available, false);
+  }
+});
+
+test('program navigation preserves selected/manual context and required question gates', () => {
+  for (const wizard of [
+    { program: 'Manual program', programId: null, programVerified: false },
+    { program: 'Verified program', programId: 'owner-program-id', programVerified: true },
+  ]) {
+    const before = structuredClone(wizard);
+    assert.deepEqual(buildBuilderStepAction({ step: 'program', wizard }), { enabled: true, label: 'Continue' });
+    assert.deepEqual(wizard, before);
+  }
+  assert.equal(buildBuilderStepAction({ step: 'questions', questionCount: 0 }).enabled, false);
+  assert.equal(buildBuilderStepAction({ step: 'readiness', questionCount: 0 }).enabled, false);
+  assert.equal(buildBuilderStepAction({ step: 'readiness', questionCount: 1 }).enabled, true);
+  assert.equal(buildBuilderStepAction({ step: 'goal', wizard: {} }).enabled, false);
+});
 
 test('builder promises device review before either launch mode', () => {
   assert.equal(buildBuilderLaunchLabel({ mode: 'ai', devicesReady: true }), 'Review devices and start AI interview ▸');

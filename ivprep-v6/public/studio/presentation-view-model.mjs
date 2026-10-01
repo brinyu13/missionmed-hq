@@ -1,5 +1,15 @@
 const readyMetric = (metrics, key) => metrics?.[key]?.available === true;
 
+// A program adds context; it is not a prerequisite for general practice or an
+// AI mock. This display action never grants verified RISE context.
+export function buildBuilderStepAction({ step, wizard = {}, questionCount = 0 } = {}) {
+  const enabled = step === 'program' ? true
+    : ['questions', 'readiness'].includes(step) ? questionCount > 0
+      : Boolean(wizard[step]);
+  const label = step === 'readiness' ? 'Review interview' : 'Continue';
+  return Object.freeze({ enabled, label });
+}
+
 // Display projection only; the capability layer still owns media and session time.
 export function buildInterviewRoomModel({ sessionState = 'IDLE', providerState = 'idle',
   interviewMode = 'Interview Mode', showAnalytics = null, saveRetry = false } = {}) {

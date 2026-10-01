@@ -14,6 +14,26 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Current guardian / authenticated POV (2026-10-01):** Source
+  `3dce842ee8bda73004425ef699d634b5e7b5bd97`, Railway
+  `b67cfe45-1d91-4782-bbea-e1e7f4363323` SUCCESS, image
+  `sha256:e1a91615b5e6c2609e24377f3fb23a8f0962073eeaa60d1d3f3be6919a2547bd`.
+  Health 200; anonymous product/bootstrap 401. SSH confirms current navigation
+  modules. Live Mock manual readiness recheck repair is deployed, not yet
+  workflow-accepted. Native Chrome recovered genuine `wp:1` Founder/Admin
+  through the existing WordPress issuer; normal Matrix → IVOC Home works.
+  This supersedes the browser-environment WAITING entry below. No temporary
+  identity grant was restored. Cold nested-final login handoff was malformed;
+  explicit existing top-level final contract succeeds. Cold-entry repair remains
+  an owner-scoped follow-up, not a reason to stop the current authenticated POV.
+- **Self Practice POV: EXECUTABLE FAIL / fix-forward.** Home → Practice one
+  question myself → select CORE-01 → Continue → Interviewer → Program exposed
+  disabled Continue with no program and no general-practice option. Navigation
+  now permits an optional program with explicit general-practice guidance and
+  neutral Continue copy; manual/verified program state is not changed and verified RISE context
+  is never fabricated. Fifteen focused presentation tests pass. Deployment and
+  full restarted Self Practice journey remain required before LIVE VERIFIED.
+
 - **Release packaging correction: LIVE DEPLOYED, navigation POV waiting.** DR-350 is canonically filed.
   Source `40382e4` Builder/Results navigation fix was not live: Railway candidate
   `e5b21e38` failed because `*token*` excluded tracked session-token source.

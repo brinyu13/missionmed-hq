@@ -53,6 +53,7 @@ import {
   programSearchFailureCopy,
   buildBuilderLaunchLabel,
   buildResultsNextAction,
+  buildBuilderStepAction,
   liveMockRecordingCheckLabel,
 } from './presentation-view-model.mjs';
 import { clearAdminReviewMedia, createAdminReviewGate, isAdminReview, mayPresentSavedReview, resolveReviewDestination } from './review-scope.mjs';
@@ -1184,6 +1185,7 @@ function renderProgramStep(host) {
   });
   host.append(filters);
   const searchActions = el('div', 'canon-inline-actions');
+  host.append(el('p', 'canon-muted', 'Program context is optional. Choose a program for targeted preparation, or continue without one for general practice.'));
   searchButton = choiceButton({ className: 'btn btn-primary', label: state.programSearch.status === 'loading' ? 'Searching…' : 'Search verified programs', onClick: async () => {
     if (state.programSearch.status === 'loading') return;
     state.programSearch = { status: 'loading', records: [], total: 0, error: null };
@@ -1470,14 +1472,14 @@ function renderWizard() {
   back.disabled = state.wizardStep === 0;
   back.innerHTML = '<span>← Back</span>';
   back.addEventListener('click', () => { state.wizardStep = Math.max(0, state.wizardStep - 1); renderWizard(); });
-  const selected = step.key === 'questions' ? state.interviewSet.length > 0
-    : step.key === 'readiness' ? state.interviewSet.length > 0
-      : Boolean(state.wizard[step.key]);
+  const stepAction = buildBuilderStepAction({
+    step: step.key, wizard: state.wizard, questionCount: state.interviewSet.length,
+  });
   const next = document.createElement('button');
   next.type = 'button';
   next.className = 'btn btn-quiet';
-  next.disabled = !selected;
-  next.innerHTML = `<span>${state.wizardStep === 5 ? 'Review interview' : 'Continue'} →</span>`;
+  next.disabled = !stepAction.enabled;
+  next.innerHTML = `<span>${stepAction.label} →</span>`;
   next.addEventListener('click', () => { state.wizardStep += 1; renderWizard(); });
   nav.append(back, next);
   body.append(kick, title, content, nav);
