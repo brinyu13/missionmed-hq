@@ -14,6 +14,29 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Retry release live:** source `5c39ac87e209516f81d974b09d98a98f64dca107`,
+  deployment `34c7a24d-ff04-4c42-963c-be6597e0dfc9` SUCCESS, image
+  `sha256:8e091404d7486f8261a6dd0e091aa23b1bec5ba1d24a44c5012738109e5b2b16`,
+  artifact `62fd2e4b8ef100d08124157177bf69b301f12165dde62022b0c28b53964787be`.
+  Four runtime hashes match exact source; health 200; anonymous product/bootstrap
+  401. Epoch 4024 released normally and provider-confirmed; product/HQ epochs
+  3984/3985 also released normally. One GitHub commit_refs internal rejection
+  left remote unchanged; same non-force push succeeded with exact readback.
+  Genuine `wp:1` visible Results → Retry retained MR142-071 wording, original Full
+  goal, target one, version one and cited Structure drill; AI device-review action
+  is primary. Prior program is explicitly unverified pending fresh selection.
+  No capture/provider/session starts from Retry navigation. New recorded retry
+  and audible two-sided acceptance remain separate. Independent visible-UI PASS:
+  exact own retry setup and no Retry action in authorized selected-student Admin
+  Results. No capture, provider or new recording was exercised by that check.
+  Rollback: `3d44466` / `4b162b78` with the recorded image/config.
+- **Saved-evidence integrity candidate:** full canonical refs must uniquely map
+  to the same saved candidate transcript before coaching/confidence is retained.
+  Invalid/ambiguous replay IDs receive null identity/times, not truncation or
+  invented zero. Unknown coaching quality is explicit and conservative. 40
+  focused checks pass; independent two-file review PASS after malformed-ID
+  collision regressions. Synthetic contrast fixtures test adapter contracts only,
+  not model judgment. No private data or historical evidence rows were changed.
 - **Debrief release live:** source `3d44466ba4995afe659e73b2986a68259a26536d`,
   deployment `4b162b78-b50a-4f35-b011-40dfd25336ad` SUCCESS, image
   `sha256:7a606c5fbaeefc499ef0a6f7c7dfb69a9bb950a22105229f88dea11a32396e73`,

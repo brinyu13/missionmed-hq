@@ -109,3 +109,70 @@ test('missing, invalid and zero-length segment times do not become replay eviden
   assert.equal(metrics.fillerTokenCount, 1);
   assert.ok(metrics.limitations.includes('bounded_lexical_candidates_not_all_disfluencies'));
 });
+
+// TEST DATA: these controlled outputs exercise contract differentiation only,
+// not whether a language model can recognize answer quality.
+test('saved coaching rejects missing, foreign, duplicate and mixed-invalid references', () => {
+  const turn = { speaker: 'student', transcript: { canonical_ref: 'transcript:own#seg-1', text: 'I coordinated follow-up.' } };
+  const claim = refs => ({ dimension: 'semantic.coaching_pattern', refs: refs.map(ref => ({ref})),
+    interpretation: { facet: 'specificity', polarity: 'strength', text: 'Names a concrete action.' },
+    score: { value: .9 }, confidence: .9 });
+  for (const refs of [['transcript:own#seg-404'], ['transcript:foreign#seg-1'],
+    ['transcript:own#seg-1', 'transcript:own#seg-404'], []]) {
+    const result = contextResultFromSessionSpine({ spine: { turns: [turn], evidence: [claim(refs)] } });
+    assert.equal(result.analysis.status, 'UNAVAILABLE');
+    assert.equal(result.analysis.score, 0);
+    assert.deepEqual(projectContextResults(result), { status: 'UNAVAILABLE' });
+  }
+  for (const turns of [[turn, turn], [turn, { ...turn, transcript: { ...turn.transcript, canonical_ref: 'transcript:other#seg-1' } }]]) {
+    assert.equal(contextResultFromSessionSpine({ spine: { turns, evidence: [claim(['transcript:own#seg-1'])] } }).analysis.status, 'UNAVAILABLE');
+  }
+  const valid = { ...claim(['transcript:own#seg-1']), score: { value: .7 }, confidence: .65 };
+  const mixed = contextResultFromSessionSpine({ spine: { turns: [turn], evidence: [valid, claim(['transcript:other#seg-1'])] } });
+  assert.equal(mixed.analysis.coachingPatterns.length, 1);
+  assert.equal(mixed.analysis.score, .7);
+  assert.equal(mixed.analysis.coverage, .65);
+  assert.match(mixed.analysis.limitations[0], /omitted/);
+});
+
+test('synthetic contrasting coaching preserves distinct drills and silent evidence stays unavailable', () => {
+  const cases = [
+    ['specific', 'I called the patient, arranged the visit, and confirmed follow-up.', 'specificity', 'strength'],
+    ['vague', 'I did many things and it went well.', 'specificity', 'weakness'],
+    ['rambling', 'I called. I called again. As I said, I called again.', 'concision', 'weakness'],
+    ['incomplete', 'The situation was difficult, and then I', 'structure', 'weakness'],
+    ['medical', 'I reviewed the HbA1c trend and discussed the insulin plan.', 'evidence', 'strength'],
+  ];
+  for (const [label, text, facet, polarity] of cases) {
+    const result = contextResultFromSessionSpine({ spine: {
+      turns: [{ speaker: 'student', startMs: null, endMs: null, transcript: { canonical_ref: 'transcript:test#seg-1', text } }],
+      evidence: [{ dimension: 'semantic.coaching_pattern', refs: [{ref:'transcript:test#seg-1'}],
+        interpretation: { text: `TEST DATA: ${label}`, facet, polarity }, score: {value:.8}, confidence:.8 }],
+    } });
+    const view = projectContextResults(result);
+    assert.equal(result.transcript.text, text);
+    assert.equal(result.transcript.segments[0].endMs, null);
+    assert.equal((polarity === 'strength' ? view.strongest : view.improvement).facet, facet);
+    assert.equal(view.drill?.facet || null, polarity === 'weakness' ? facet : null);
+  }
+  assert.deepEqual(projectContextResults(contextResultFromSessionSpine({spine:{turns:[],evidence:[]}})), {status:'UNAVAILABLE'});
+});
+
+test('overlong replay IDs and absent coaching quality cannot acquire another observation certainty', () => {
+  const ref = `transcript:own#${'a'.repeat(96)}-one`;
+  const claim = { dimension: 'semantic.coaching_pattern', refs: [{ref}],
+    interpretation: {text:'TEST DATA',facet:'specificity',polarity:'strength'},score:{value:.9},confidence:.9 };
+  const turn = {speaker:'student',transcript:{canonical_ref:ref,text:'Test contribution.'}};
+  assert.equal(contextResultFromSessionSpine({spine:{turns:[turn],evidence:[claim]}}).analysis.status,'UNAVAILABLE');
+  const prefix = `transcript:own#${'a'.repeat(96)}`;
+  const mixed = contextResultFromSessionSpine({spine:{turns:[turn,
+    {...turn,transcript:{...turn.transcript,canonical_ref:prefix}}],evidence:[{...claim,refs:[{ref:prefix}]}]}});
+  assert.deepEqual(mixed.transcript.segments.map(segment=>segment.id),[null,'a'.repeat(96)]);
+  assert.equal(mixed.analysis.status,'AVAILABLE');
+  const own = 'transcript:own#seg-1';
+  const valid = {...claim,refs:[{ref:own}]};
+  const unknown = {...valid,interpretation:{...valid.interpretation,polarity:'weakness'},score:null,confidence:null};
+  const result = contextResultFromSessionSpine({spine:{turns:[{...turn,transcript:{...turn.transcript,canonical_ref:own}}],evidence:[valid,unknown]}});
+  assert.equal(projectContextResults(result).confidence.label,'LIMITED');
+  assert.match(result.analysis.limitations[0],/no saved quality estimate/);
+});

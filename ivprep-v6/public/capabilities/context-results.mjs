@@ -100,7 +100,28 @@ export function contextResultFromSessionSpine(session = {}) {
   const turns = (Array.isArray(spine.turns) ? spine.turns : [])
     .filter((turn) => turn?.speaker === 'student' && turn?.transcript?.canonical_ref && boundedText(turn?.transcript?.text));
   if (!turns.length) return Object.freeze({ transcript: Object.freeze({ status: 'UNAVAILABLE', reason: 'NO_PERSISTED_TRANSCRIPT' }) });
-  const evidence = Array.isArray(spine.evidence) ? spine.evidence : [];
+  const rows = Array.isArray(spine.evidence) ? spine.evidence : [];
+  const refCounts = new Map();
+  const segmentCounts = new Map();
+  for (const turn of turns) {
+    const ref = turn.transcript.canonical_ref;
+    const segment = typeof ref === 'string' && ref.includes('#') ? ref.split('#').at(-1) : null;
+    if (!segment || segment.length > 96 || segment.trim() !== segment) continue;
+    refCounts.set(ref, (refCounts.get(ref) || 0) + 1);
+    segmentCounts.set(segment, (segmentCounts.get(segment) || 0) + 1);
+  }
+  // Historical persisted rows cross the same trust boundary as new analysis.
+  // Matching only "seg-1" can attach a foreign transcript to this answer.
+  // Reject the whole claim on any invalid/ambiguous reference, not just that ref.
+  const evidence = rows.filter(row => {
+    if (!['semantic.supported_claim', 'semantic.answer_structure', 'semantic.coaching_pattern'].includes(row?.dimension)
+        || !boundedText(row?.interpretation?.text) || !Array.isArray(row.refs) || !row.refs.length || row.refs.length > 8) return false;
+    if (!row.refs.every(item => typeof item?.ref === 'string' && refCounts.get(item.ref) === 1
+        && segmentCounts.get(item.ref.split('#').at(-1)) === 1)) return false;
+    return row.dimension !== 'semantic.coaching_pattern'
+      || (Object.hasOwn(FACET_LABELS, row.interpretation.facet)
+        && ['strength', 'weakness'].includes(row.interpretation.polarity));
+  });
   const semanticObservations = evidence
     .filter((row) => ['semantic.supported_claim', 'semantic.answer_structure'].includes(row?.dimension))
     .map((row) => Object.freeze({
@@ -116,26 +137,36 @@ export function contextResultFromSessionSpine(session = {}) {
       text: boundedText(row?.interpretation?.text),
       transcriptSegmentIds: evidenceRefs(row),
     })).filter((item) => item.text && item.transcriptSegmentIds.length);
-  const scored = evidence.map((row) => Number(row?.score?.value)).filter(Number.isFinite);
-  const covered = evidence.map((row) => Number(row?.confidence)).filter(Number.isFinite);
+  const quality = value => value !== null && value !== undefined && value !== ''
+    && Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= 1;
+  const scored = evidence.map((row) => row?.score?.value).filter(quality).map(Number);
+  const covered = evidence.map((row) => row?.confidence).filter(quality).map(Number);
+  const incompleteQuality = evidence.some(row => !quality(row.confidence)
+    || (row.dimension === 'semantic.coaching_pattern' && !quality(row.score?.value)));
   const limitations = [...new Set(evidence.flatMap((row) => Array.isArray(row?.limitations) ? row.limitations : [])
     .map((item) => boundedText(item, 240)).filter(Boolean))].slice(0, 8);
+  if (evidence.length !== rows.length) limitations.unshift('Some saved observations were omitted because their supporting evidence could not be verified.');
+  if (incompleteQuality) limitations.unshift('Confidence is limited because some cited coaching has no saved quality estimate.');
   return Object.freeze({
     transcript: Object.freeze({
       status: 'AVAILABLE',
       text: turns.map((turn) => boundedText(turn.transcript.text)).join(' '),
-      segments: Object.freeze(turns.map((turn, index) => Object.freeze({
-        id: boundedText(String(turn.transcript.canonical_ref).split('#').at(-1) || `seg-${index + 1}`, 96),
-        startMs: recordedMs(turn.startMs),
-        endMs: recordedMs(turn.endMs),
-      }))),
+      segments: Object.freeze(turns.map(turn => {
+        const ref = turn.transcript.canonical_ref;
+        const suffix = typeof ref === 'string' ? ref.split('#').at(-1) : null;
+        const valid = refCounts.get(ref) === 1 && segmentCounts.get(suffix) === 1;
+        // Retain transcript wording, but never invent/truncate a replay identity.
+        return Object.freeze({ id: valid ? suffix : null,
+          startMs: valid ? recordedMs(turn.startMs) : null,
+          endMs: valid ? recordedMs(turn.endMs) : null });
+      })),
     }),
     analysis: Object.freeze({
       status: semanticObservations.length || coachingPatterns.length ? 'AVAILABLE' : 'UNAVAILABLE',
       semanticObservations: Object.freeze(semanticObservations),
       coachingPatterns: Object.freeze(coachingPatterns),
       score: scored.length ? Math.min(...scored) : 0,
-      coverage: covered.length ? Math.min(...covered) : 0,
+      coverage: !incompleteQuality && covered.length ? Math.min(...covered) : 0,
       coverageBasis: 'evidence_confidence',
       limitations: Object.freeze(limitations),
     }),
