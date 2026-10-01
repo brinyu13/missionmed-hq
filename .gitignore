@@ -87,3 +87,8 @@ _AI_HANDOFFS/**
 *token*
 _SYSTEM/r2.env
 **/.DS_Store
+
+# DR-350: audited tracked runtime source, never generated/private token artifacts.
+!/missionmed-hq/lib/auth/session-token.mjs
+!/missionmed-hq/lor-studio/security/faculty-candidate-credential-context.mjs
+!/ivprep-v6/public/ivoc-standalone/styles/tokens.css

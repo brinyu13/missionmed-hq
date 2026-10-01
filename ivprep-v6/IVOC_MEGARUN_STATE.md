@@ -1,8 +1,8 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-30 America/New_York
+Updated: 2026-10-01 America/New_York
 Mission: `IVOC-CONVERGE-8001`
-Authority: `DR-290`, `DR-340` (temporary wp:142 Founder QA grant revoked)
+Authority: `DR-290`, `DR-350` (narrow packaging); `DR-340` QA grant revoked
 Branch: `codex/ivoc-foreman-9200`
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
 Current terminal status: `ACTIVE P0 USER-JOURNEY RECOVERY — NOT COMPLETE`
@@ -13,6 +13,24 @@ present in the active source lineage but has not yet passed acceptance against
 the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
+
+- **Release packaging correction: IN PROGRESS.** DR-350 is canonically filed.
+  Source `40382e4` Builder/Results navigation fix was not live: Railway candidate
+  `e5b21e38` failed because `*token*` excluded tracked session-token source.
+  Bounded runtime audit found three required source files affected; only those
+  exact paths now have root-ignore exceptions. General private-artifact filters
+  remain unchanged. The stdlib release sentinel uses filtered tracked-source
+  staging, checks required files/private exclusions and rejects dirty/unpushed
+  source. Mandatory before every IVOC upload:
+  `node ivprep-v6/scripts/check-release-artifact.mjs`; deploy ONLY its returned
+  stage with `railway up <stage> --path-as-root`, never a broad ignore bypass.
+  Three focused packaging regressions pass, including restored overbroad filter
+  and private-file unignore failures. Healthy rollback remains `7283667f`.
+- **Current authenticated live POV: WAITING.** No IVOC tab exists in the
+  attached Chrome inventory; opening normal production entry returned
+  `net::ERR_BLOCKED_BY_CLIENT`. This is one browser-environment dependency,
+  not evidence of a production outage. Recheck on an attached/authenticated
+  production surface change; continue independent engineering now.
 
 - **2026-09-30 current guardian and student-entry recovery:** Remotely read-back
   source `77bd32605c6eeafef1654ce7eccfb6e0112dc098` is live on Railway
