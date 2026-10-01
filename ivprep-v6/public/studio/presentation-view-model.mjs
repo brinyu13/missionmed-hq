@@ -1,5 +1,37 @@
 import { buildLongitudinalModel, canCompareAttempts } from './longitudinal-model.mjs';
 
+// Retry projects a saved owner-scoped setup, not whatever happens to be in the
+// current builder. Current catalog/owner authorization must still be resolved.
+export function buildRetryIntent({ detail = null, reviewScope = null, catalog = [], drill = null } = {}) {
+  const source = detail?.retryContext;
+  const unavailable = reason => Object.freeze({ available: false, reason });
+  if (reviewScope === 'admin' || !['question', 'quick', 'mock'].includes(detail?.sessionType)
+      || !source || source.schema !== 'ivoc.retry-intent.v1'
+      || source.sourceSessionId !== detail.id) return unavailable('Retry is available from your own saved answer.');
+  const question = catalog.find(item => item.question_id === source.questionId);
+  if (!question || question.canonical_text !== source.questionText) {
+    return unavailable('This question has changed or is no longer available. Choose a current question from the library.');
+  }
+  const sourceGoal = ['Full IV Simulation', 'Guided Mock IV Practice', 'Individual Question'].includes(source.goal) ? source.goal : null;
+  const goal = sourceGoal || 'Individual Question';
+  const sources = Array.isArray(source.contextSources) ? source.contextSources
+    .filter(item => ['CV', 'File Vault', 'MCC', 'Top 3', 'Prior IVOC'].includes(item)) : [];
+  const notes = [source.questionVersion ? `Original question version: ${source.questionVersion}.` : 'Retry saved wording; original question version unavailable.',
+    sourceGoal ? 'Original practice goal retained; one question in this retry.' : 'Original practice goal unavailable; using Individual Question.',
+    'Context will be refreshed under your current permissions.'];
+  if (source.program) notes.push('Reselect the program to refresh its verified intelligence.');
+  if (source.contextSources?.includes('StoryForge')) notes.push('Select StoryForge again to confirm current story consent.');
+  if (goal === 'Individual Question' && source.pressurePractice) notes.push('Pressure is unavailable for Individual Question.');
+  return Object.freeze({ available: true, sourceSessionId: detail.id, question,
+    launchMode: detail.interviewerProvider === 'openai-gpt-live' ? 'ai' : 'practice',
+    wizard: { goal, retrySessionType: detail.sessionType, pressurePractice: goal !== 'Individual Question' && source.pressurePractice === true,
+      interviewer: source.interviewer || 'Program Director', environment: source.environment || 'MissionMed',
+      program: source.program || '', programId: null, programReleaseId: null, programVerified: false,
+      contextSources: sources, storyForgeInclude: false, storyForgeOptIn: null,
+      focus: String(drill?.text || '').slice(0, 500) },
+    notes: Object.freeze(notes), drill: drill?.text ? String(drill.text).slice(0, 500) : null });
+}
+
 // A citation is a replay action only when this answer has one unambiguous,
 // bounded recording-relative range. Missing timestamps never become zero.
 export function buildEvidenceMomentLinks(result, refs = [], durationMs = null) {

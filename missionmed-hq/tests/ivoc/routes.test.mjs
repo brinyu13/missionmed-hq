@@ -546,6 +546,54 @@ test('session creation requires same-origin CSRF and persists server identity', 
   assert.doesNotMatch(allowed.body, /actor_block|source_receipts|"facts"/u);
 });
 
+test('retry setup projection is bounded and owner-only, including authorized Admin reviews', async () => {
+  const repo = repository();
+  const source = { id: foreignSessionId, owner_subject: 'wp:42', question_id: 'Q1', question_text: 'Why here?',
+    context: { goal: 'Full IV Simulation', pressurePractice: true, program: 'Original program',
+      contextSources: ['CV', 'StoryForge', 'CV', 'unknown'], actor_block: 'PRIVATE-CONTEXT',
+      source_receipts: ['PRIVATE-RECEIPT'], readiness: { secret: 'PRIVATE-DEVICE' } } };
+  repo.single = async path => path.startsWith('ivoc_sessions?') ? source : null;
+  const { route } = handler(repo);
+  for (const [id, roles, allowed] of [[42, ['student'], true], [7, ['administrator'], false]]) {
+    const response = new ResponseCapture();
+    await route({ ...base, request: request(), response, url: new URL(`https://hq.test/api/ivoc/v1/sessions/${foreignSessionId}`), hqSession: session(id, roles) });
+    assert.equal(response.status, 200);
+    assert.equal(Boolean(response.json().retryContext), allowed);
+    if (allowed) {
+      assert.deepEqual(response.json().retryContext.contextSources, ['CV', 'StoryForge']);
+      assert.equal(response.json().retryContext.questionVersion, null);
+      assert.equal(response.json().retryContext.sourceSessionId, foreignSessionId);
+    }
+    assert.doesNotMatch(response.body, /PRIVATE-|actor_block|source_receipts|readiness/);
+  }
+});
+
+test('retry creation rejects foreign or mismatched source before insertion and derives provenance itself', async () => {
+  const repo = repository();
+  const source = { id: foreignSessionId, owner_subject: 'wp:42', question_id: 'Q1', question_text: 'Why here?', session_type: 'mock', context: { goal: 'Guided Mock IV Practice' } };
+  repo.single = async path => path.startsWith('ivoc_sessions?') ? source : null;
+  const { route } = handler(repo);
+  const headers = { origin: 'https://hq.test', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': 'a'.repeat(24) };
+  const input = { questionId: 'Q1', questionText: 'Why here?', sessionType: 'mock', retrySourceSessionId: foreignSessionId,
+    context: { retry: { sourceSessionId: 'forged' }, goal: 'Individual Question' } };
+  const call = async (body, identity = session()) => {
+    const response = new ResponseCapture();
+    await route({ ...base, request: request('POST', body, headers), response, url: new URL('https://hq.test/api/ivoc/v1/sessions'), hqSession: identity });
+    return response;
+  };
+  assert.equal((await call(input, session(7, ['administrator']))).status, 404);
+  assert.equal((await call({ ...input, questionText: 'Different' })).status, 409);
+  assert.equal((await call({ ...input, sessionType: 'question' })).status, 409);
+  assert.equal((await call({ ...input, retrySourceSessionId: 'bad' })).status, 400);
+  assert.equal(repo.inserts.filter(row => row.table === 'ivoc_sessions').length, 0);
+  assert.equal((await call(input)).status, 201);
+  const created = repo.inserts.find(row => row.table === 'ivoc_sessions').body;
+  assert.equal(created.owner_subject, 'wp:42');
+  assert.equal(created.context.retry.sourceSessionId, foreignSessionId);
+  assert.equal(created.context.retry.sourceGoal, 'Guided Mock IV Practice');
+  assert.equal(created.context.retry.questionVersion, null);
+});
+
 test('session creation passes only bounded server-held upstream credentials to Application Intelligence', async () => {
   const repo = repository();
   const prepared = [];

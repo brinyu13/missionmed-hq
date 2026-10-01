@@ -23,6 +23,7 @@ import {
   programSearchFailureCopy,
   buildBuilderLaunchLabel,
   buildResultsNextAction,
+  buildRetryIntent,
   buildBuilderStepAction,
   buildPracticeQuestionLabel,
   buildBuilderLaunchOrder,
@@ -31,6 +32,53 @@ import { publicAdmissionState } from '../../server/admission-contract.mjs';
 import { summarizeVideoFramePixels } from '../../public/studio/media-analytics-capability.mjs';
 
 const row = (rows, label) => rows.find(([name]) => name === label);
+
+test('retry retains owner question and goal without reusing stale context authority', () => {
+  const question = { question_id: 'Q1', canonical_text: 'Why this program?' };
+  const detail = { id: 'own', sessionType: 'mock', interviewerProvider: 'openai-gpt-live', retryContext: {
+    schema: 'ivoc.retry-intent.v1', sourceSessionId: 'own', questionId: 'Q1', questionText: question.canonical_text,
+    goal: 'Guided Mock IV Practice', pressurePractice: true, program: 'Original program',
+    contextSources: ['CV', 'RISE', 'StoryForge', 'private-unrecognized'],
+  } };
+  const retry = buildRetryIntent({ detail, catalog: [question], drill: { text: 'Name your own contribution.' } });
+  assert.equal(retry.available, true);
+  assert.equal(retry.question, question);
+  assert.equal(retry.wizard.goal, 'Guided Mock IV Practice');
+  assert.equal(retry.wizard.retrySessionType, 'mock');
+  assert.equal(retry.wizard.pressurePractice, true);
+  assert.equal(retry.wizard.programVerified, false);
+  assert.equal(retry.wizard.programId, null);
+  assert.equal(retry.wizard.storyForgeOptIn, null);
+  assert.deepEqual(retry.wizard.contextSources, ['CV']);
+  assert.equal(retry.drill, 'Name your own contribution.');
+  assert.match(retry.notes.join(' '), /version unavailable/);
+  assert.equal(buildRetryIntent({ detail, catalog: [question], reviewScope: 'admin' }).available, false);
+  assert.equal(buildRetryIntent({ detail, catalog: [] }).available, false);
+  assert.equal(buildRetryIntent({ detail, catalog: [{ ...question, canonical_text: 'Edited question' }] }).available, false);
+  assert.equal(buildRetryIntent({ detail: { ...detail, id: 'different' }, catalog: [question] }).available, false);
+  assert.equal(buildRetryIntent({ detail: null }).available, false);
+});
+
+test('actual retry transition seeds exactly one question and never starts capture or provider', async () => {
+  const source = readFileSync(new URL('../../public/studio/studio.mjs', import.meta.url), 'utf8');
+  const implementation = source.match(/async function prepareSavedQuestionRetry[\s\S]*?(?=\nfunction renderPostAnswer)/)[0];
+  const question = { question_id: 'Q1', canonical_text: 'Why here?' };
+  const detail = { id: 'own', sessionType: 'mock', interviewerProvider: 'openai-gpt-live', retryContext: {
+    schema: 'ivoc.retry-intent.v1', sourceSessionId: 'own', questionId: 'Q1', questionText: 'Why here?', goal: 'Full IV Simulation',
+  } };
+  const saved = { sessionDetail: detail };
+  const state = { lastSaved: saved, view: 'postanswer', session: { state: 'COMPLETE' }, wizard: { goal: 'stale', program: 'wrong' } };
+  const prepare = new Function('state','isAdminReview','preserveInterviewLifecycle','projectContextResults','contextResultFromSessionSpine','buildRetryIntent','store','WIZARD_STEPS','renderSet','setView','$','el', `return ${implementation};`)(state,
+    s => s?.reviewScope === 'admin', s => s === 'RUNNING', () => ({drill:{text:'One specific example.'}}), d => d,
+    buildRetryIntent, { all: () => [question] }, [1,2,3,4,5,6], () => {}, view => { state.view = view; }, () => null, () => null);
+  await prepare(saved);
+  assert.equal(state.view, 'newsession'); assert.equal(state.wizardStep, 6);
+  assert.deepEqual(state.interviewSet, [question]); assert.equal(state.targetQuestions, 1);
+  assert.equal(state.launchMode, 'ai'); assert.equal(state.wizard.focus, 'One specific example.');
+  assert.equal(state.wizard.program, ''); assert.equal(state.wizard.retrySourceSessionId, 'own');
+  state.view = 'postanswer'; saved.reviewScope = 'admin'; await prepare(saved);
+  assert.equal(state.view, 'postanswer');
+});
 
 test('citations resolve only unique bounded ranges in this saved recording', () => {
   const result = { transcript: { status: 'AVAILABLE', segments: [

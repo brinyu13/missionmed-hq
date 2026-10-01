@@ -14,6 +14,28 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Debrief release live:** source `3d44466ba4995afe659e73b2986a68259a26536d`,
+  deployment `4b162b78-b50a-4f35-b011-40dfd25336ad` SUCCESS, image
+  `sha256:7a606c5fbaeefc499ef0a6f7c7dfb69a9bb950a22105229f88dea11a32396e73`,
+  tracked artifact `81bc70257122679e8360bfc275cb52ad46a20fa000492ec122d4eced50d9b6e7`.
+  Three runtime module hashes match exact source; health 200; anonymous product
+  and bootstrap 401. Epoch 3947 released normally, provider readback confirmed.
+  Genuine Founder/Admin `wp:1`, Student presentation: MR142-071 Results citation
+  opens its private Film Room paused at 64.0 s with a visible 640×480 saved frame.
+  Independent visible-UI check selected 21.36 s, correct saved answer, no autoplay,
+  and returned to the same Results. Possible fillers and cited-evidence confidence
+  labels PASS. This is not audible two-sided or genuine Student-role acceptance.
+  Nearest healthy rollback is `e7645a2` / `591427cf` and its recorded image/config.
+- **Exact-question retry candidate:** owner-only bounded setup projection; same
+  current question wording, one-question target, original session mode/goal;
+  missing historical versions disclosed. Program/StoryForge require refreshed
+  selection/consent; current CV and other sources rehydrate through normal server
+  authority. No navigation-triggered capture, provider call or session creation.
+  Retry provenance is derived server-side from the owner's source; foreign or
+  mismatched requests fail before insert. 81 focused checks pass; live pending.
+  Next executable teaching correction: saved-spine rehydration must reject
+  nonexistent/foreign transcript references before displaying coaching/confidence.
+  Reproduced offline with labeled synthetic data; no live-data incident asserted.
 - **Comparison release live:** source `e7645a2001f3c4dfa7386ff05225c67ec5f7dac1`,
   deployment `591427cf-3a9d-408a-8879-d1e1488c10f6` SUCCESS, image
   `sha256:35fcfec980eafbcba71a345d9baf62796e19f51fda6fce3c74c3735971c9d99f`,
@@ -27,7 +49,7 @@ the actual production route and deployment.
   selected `wp:142` → Results → Compare: only student attempt `827b34e6`, no own
   history fallback; leaving Admin clears that review and returns own scope. PASS.
   Rollback remains `017256f` / `f43b1d5d` with its recorded image/config.
-- **Debrief/replay candidate:** bounded evidence citations now resolve only
+- **Debrief/replay implementation (live receipt above):** bounded evidence citations now resolve only
   unique, nonmissing, recording-bounded segment ranges; the normal private
   playback contract opens paused at the cited moment. Stale request/role/answer
   replies cannot attach media or seek. Signing/load failure stays recoverable on
@@ -35,7 +57,7 @@ the actual production route and deployment.
   detail. Film Room navigation pauses replay. Lexical matches are explicitly
   possible fillers, not confirmed disfluencies; persisted confidence is no longer
   labeled measured transcript coverage. 35 focused checks and independent source
-  review PASS. This candidate is not yet live verified; actual audible two-sided
+  review PASS. Citation navigation is live verified above; actual audible two-sided
   replay remains its separate human-media gate, not inferred from these checks.
 - **2026-10-01 interview-season convergence is ACTIVE:** the Founder brief
   `IVOC_INTERVIEW_SEASON_FOREMAN_EXECUTION.md` governs continuation under the

@@ -3,6 +3,19 @@ import test from 'node:test';
 
 import { DurableStudioSession, createDurableResultsEnvelope } from '../../public/studio/durable-session.mjs';
 
+test('retry request binds only an unchanged one-question setup, never client provenance', () => {
+  const durable = new DurableStudioSession({ api: {} });
+  const question = { question_id: 'Q1', canonical_text: 'Why here?' };
+  const wizard = { retrySourceSessionId: '00000000-0000-4000-8000-000000000007', retryQuestionId: 'Q1', retryQuestionText: 'Why here?', retrySessionType: 'mock', retry: { forged: true } };
+  const options = { question, interviewSet: [question], wizard, targetQuestions: 1 };
+  const input = durable.sessionInput(options);
+  assert.equal(input.retrySourceSessionId, wizard.retrySourceSessionId);
+  assert.equal(input.sessionType, 'mock');
+  assert.equal(input.context.retry, undefined);
+  assert.equal(durable.sessionInput({ ...options, targetQuestions: 2 }).retrySourceSessionId, undefined);
+  assert.equal(durable.sessionInput({ ...options, question: { ...question, canonical_text: 'Changed' } }).retrySourceSessionId, undefined);
+});
+
 test('Admin adapters fail closed and delegate only admitted authenticated Admin writes', async () => {
   const calls = [];
   const durable = new DurableStudioSession({ api: {

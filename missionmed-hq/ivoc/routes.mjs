@@ -173,7 +173,28 @@ function publicAnswerHistory(sessionId, segments = [], evidence = []) {
   };
 }
 
-function publicSession(row, recording = null, result = null, review = null, spine = null, answerHistory = null, { includeOwnerSubject = false } = {}) {
+// Setup intent only: never return the private Context Pack, receipts, credentials,
+// extracted documents, or prior consent as authority for a new session.
+function publicRetryContext(row, spine = null) {
+  const context = row.context || {};
+  const allowed = ['StoryForge', 'RISE', 'CV', 'File Vault', 'MCC', 'Top 3', 'Prior IVOC'];
+  const snapshots = (spine?.segments || []).map(segment => segment.question)
+    .filter(question => question?.canonical_question_id === row.question_id && question.text === row.question_text);
+  const versions = [...new Set(snapshots.map(question => safeText(String(question.version ?? ''), 80)).filter(Boolean))];
+  return {
+    schema: 'ivoc.retry-intent.v1', sourceSessionId: row.id,
+    questionId: row.question_id, questionText: row.question_text,
+    questionVersion: versions.length === 1 ? versions[0] : null,
+    goal: ['Full IV Simulation', 'Guided Mock IV Practice', 'Individual Question'].includes(context.goal) ? context.goal : null,
+    pressurePractice: context.pressurePractice === true,
+    interviewer: ['Program Director', 'Faculty', 'Chief Resident'].includes(context.interviewer) ? context.interviewer : null,
+    environment: ['MissionMed', 'Webex', 'Zoom', 'Teams'].includes(context.environment) ? context.environment : null,
+    program: safeText(context.program, 240) || null,
+    contextSources: Array.isArray(context.contextSources) ? [...new Set(context.contextSources.filter(source => allowed.includes(source)))] : [],
+  };
+}
+
+function publicSession(row, recording = null, result = null, review = null, spine = null, answerHistory = null, { includeOwnerSubject = false, includeRetryContext = false } = {}) {
   return {
     id: row.id, title: row.title, sessionType: row.session_type, questionId: row.question_id,
     questionText: row.question_text, state: row.state, startedAt: row.started_at,
@@ -186,6 +207,7 @@ function publicSession(row, recording = null, result = null, review = null, spin
     review: review ? { status: review.status || null, reviewedAt: review.reviewed_at || null } : null,
     spine,
     answerHistory,
+    ...(includeRetryContext ? { retryContext: publicRetryContext(row, spine) } : {}),
   };
 }
 
@@ -1209,6 +1231,25 @@ export function createIvocHandler({
 
       if (request.method === 'POST' && pathname === `${API_PREFIX}/sessions`) {
         const input = await readJson(request);
+        const context = input.context && typeof input.context === 'object' && !Array.isArray(input.context) ? { ...input.context } : {};
+        // A retry link never confers review rights or permits an Admin to start
+        // someone else's retry. Re-derive provenance server-side, not from input.
+        delete context.retry;
+        if (input.retrySourceSessionId) {
+          const sourceId = safeText(input.retrySourceSessionId, 80);
+          if (!/^[0-9a-f-]{36}$/u.test(sourceId)) { sendError(response, 400, 'invalid_retry_source', mediaBase); return true; }
+          const source = await db.single(`ivoc_sessions?id=eq.${sourceId}&select=*&limit=1`);
+          if (!source || source.owner_subject !== actor) { sendError(response, 404, 'not_found', mediaBase); return true; }
+          if (!source.question_id || safeText(input.questionId, 120) !== source.question_id
+              || safeText(input.questionText, 1000) !== source.question_text
+              || input.sessionType !== source.session_type) {
+            sendError(response, 409, 'retry_question_changed', mediaBase); return true;
+          }
+          const retry = publicRetryContext(source, await readPublicSpine(db, sourceId));
+          context.retry = { schema: retry.schema, sourceSessionId: sourceId,
+            questionId: retry.questionId, questionVersion: retry.questionVersion,
+            sourceGoal: retry.goal, sourcePressurePractice: retry.pressurePractice };
+        }
         const row = await db.insert('ivoc_sessions', {
           owner_subject: actor, owner_display_name: displayName(hqSession),
           title: safeText(input.title, 200) || 'IV Prep practice session',
@@ -1219,7 +1260,7 @@ export function createIvocHandler({
           analytics_schema: input.analyticsSchema === 'ivoc.analytics.v1' ? input.analyticsSchema : 'ivoc.analytics.v1',
           recording_enabled: input.recordingEnabled !== false,
           calibration_snapshot: input.calibration && typeof input.calibration === 'object' ? input.calibration : {},
-          context: input.context && typeof input.context === 'object' ? input.context : {},
+          context,
         });
         try {
           await appIntelligence.prepareSession({
@@ -1580,7 +1621,7 @@ export function createIvocHandler({
         const review = await db.single(`ivoc_reviews?session_id=eq.${row.id}&status=neq.revoked&select=status,reviewed_at&limit=1`);
         const spine = await readPublicSpine(db, row.id);
         await audit({ actor, owner: row.owner_subject, sessionId: row.id, action: 'session_read', decision: 'allow', reason: row.owner_subject === actor ? 'owner' : 'authorized_review' });
-        sendJson(response, 200, publicSession(row, recording, result, review, spine), mediaBase); return true;
+        sendJson(response, 200, publicSession(row, recording, result, review, spine, null, { includeRetryContext: row.owner_subject === actor }), mediaBase); return true;
       }
 
       match = pathname.match(/^\/api\/ivoc\/v1\/recordings\/([0-9a-f-]{36})\/playback-url$/u);

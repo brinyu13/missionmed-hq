@@ -62,6 +62,7 @@ import {
   programSearchFailureCopy,
   buildBuilderLaunchLabel,
   buildResultsNextAction,
+  buildRetryIntent,
   buildBuilderStepAction,
   buildPracticeQuestionLabel,
   buildBuilderLaunchOrder,
@@ -812,6 +813,12 @@ function addToSet(question) {
 }
 
 function renderSet() {
+  if (state.wizard.retrySourceSessionId && (state.interviewSet.length !== 1
+      || state.interviewSet[0]?.question_id !== state.wizard.retryQuestionId
+      || state.interviewSet[0]?.canonical_text !== state.wizard.retryQuestionText)) {
+    delete state.wizard.retrySourceSessionId;
+    delete state.wizard.retryNotes;
+  }
   const host = $('#set-list');
   if (!host) return;
   host.replaceChildren();
@@ -1489,6 +1496,14 @@ function renderWizard() {
       ? `${state.wizard.program} · verified`
       : state.wizard.program ? `${state.wizard.program} · manual / unverified` : 'No program selected', state.wizard.programVerified);
     addSummaryRow('Environment + context', state.wizard.environment);
+    if (state.wizard.retrySourceSessionId) {
+      addSummaryRow('Retry question', state.interviewSet[0]?.canonical_text || 'Unavailable');
+      if (state.wizard.focus) summary.append(el('p', 'canon-muted', `Your next drill: ${state.wizard.focus}`));
+      for (const note of state.wizard.retryNotes || []) summary.append(el('p', 'canon-muted', note));
+      const edit = el('button', 'btn btn-quiet', 'Review program and context');
+      edit.type = 'button'; edit.addEventListener('click', () => { state.wizardStep = 3; renderWizard(); });
+      summary.append(edit);
+    }
     const devicesReady = wizardStepComplete(5);
     addSummaryRow('Readiness', devicesReady ? 'Camera, microphone, and visible preview confirmed' : 'Device calibration required', devicesReady);
     const row = document.createElement('div');
@@ -2988,6 +3003,8 @@ function wireChrome() {
   const applyPracticeIntent = (dataset, destination) => {
     const intent = buildPracticeEntryIntent({ ...dataset, destination });
     if (!intent) return;
+    delete state.wizard.retrySourceSessionId;
+    delete state.wizard.retryNotes;
     state.wizard.goal = intent.goal;
     state.wizard.duration = intent.duration;
     state.wizard.pressurePractice = intent.pressurePractice;
@@ -3102,6 +3119,35 @@ function renderLoadoutConfig() {
   }
 }
 
+async function prepareSavedQuestionRetry(saved) {
+  if (saved !== state.lastSaved || isAdminReview(saved) || preserveInterviewLifecycle(state.session.state)) return;
+  let detail = saved?.sessionDetail;
+  if (!detail?.retryContext) {
+    try { detail = await state.durable.api.session(saved?.session?.id); }
+    catch {
+      if (saved === state.lastSaved && !isAdminReview(saved) && state.view === 'postanswer') {
+        $('#post-provenance')?.append(el('p', 'canon-muted', 'Could not load the saved setup. Please retry.'));
+      }
+      return;
+    }
+    if (saved !== state.lastSaved || isAdminReview(saved) || state.view !== 'postanswer') return;
+  }
+  const result = projectContextResults(contextResultFromSessionSpine(detail));
+  const retry = buildRetryIntent({ detail, reviewScope: saved?.reviewScope, catalog: store.all(), drill: result?.drill });
+  if (!retry.available) return;
+  state.interviewSet = [retry.question];
+  state.targetQuestions = 1;
+  state.launchMode = retry.launchMode;
+  state.wizard = { ...state.wizard, ...retry.wizard, readiness: null,
+    retrySourceSessionId: retry.sourceSessionId, retryQuestionId: retry.question.question_id,
+    retryQuestionText: retry.question.canonical_text, retryNotes: retry.notes };
+  state.wizardStep = WIZARD_STEPS.length;
+  state.calibrationStandalone = false;
+  // No provider connection, device acquisition, session creation or recording.
+  renderSet();
+  setView('newsession', { focus: true });
+}
+
 function renderPostAnswer(analytics = null) {
   const adminReview = state.role === 'admin' && state.lastSaved?.reviewScope === 'admin';
   const reviewedSession = state.lastSaved?.sessionDetail?.session || state.lastSaved?.session || null;
@@ -3116,6 +3162,17 @@ function renderPostAnswer(analytics = null) {
     if (nextAction.launchMode) nextButton.dataset.launchMode = nextAction.launchMode;
     else delete nextButton.dataset.launchMode;
     nextButton.querySelector('span').textContent = nextAction.label;
+    $('#post-retry-question')?.remove();
+    const saved = state.lastSaved;
+    if (saved?.persisted && !isAdminReview(saved)) {
+      const retry = buildRetryIntent({ detail: saved.sessionDetail, reviewScope: saved.reviewScope, catalog: store.all() });
+      const button = el('button', 'btn btn-primary', 'Retry this question');
+      button.id = 'post-retry-question'; button.type = 'button';
+      button.disabled = saved.sessionDetail ? !retry.available : !saved.session?.id;
+      if (!retry.available) button.title = retry.reason;
+      button.addEventListener('click', () => prepareSavedQuestionRetry(saved));
+      nextButton.before(button);
+    }
   }
   const provenance = $('#post-provenance');
   if (provenance) {

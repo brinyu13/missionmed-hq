@@ -90,14 +90,19 @@ export class DurableStudioSession {
       && typeof wizard.programReleaseId === 'string' && wizard.programReleaseId;
     const contextSources = selectedContextSources(wizard.contextSources)
       .filter((source) => source !== 'RISE' || verifiedProgram);
+    const exactRetry = typeof wizard.retrySourceSessionId === 'string' && /^[0-9a-f-]{36}$/u.test(wizard.retrySourceSessionId)
+      && question?.question_id === wizard.retryQuestionId && question?.canonical_text === wizard.retryQuestionText
+      && interviewSet.length === 1 && targetQuestions === 1
+      && ['question', 'quick', 'mock'].includes(wizard.retrySessionType);
     return {
       title: title.split(/\s+/u).slice(0, 10).join(' '),
-      sessionType: targetQuestions > 1 ? 'mock' : 'question',
+      sessionType: exactRetry ? wizard.retrySessionType : targetQuestions > 1 ? 'mock' : 'question',
       questionId: question?.question_id || null,
       questionText: question?.canonical_text || null,
       interviewerProvider,
       analyticsSchema: 'ivoc.analytics.v1',
       recordingEnabled: true,
+      ...(exactRetry ? { retrySourceSessionId: wizard.retrySourceSessionId } : {}),
       context: {
         goal: wizard.goal || null,
         interviewer: wizard.interviewer || null,
