@@ -114,7 +114,7 @@ export class EmbodimentGenerationGate {
     if (this.usedGenerationIds.has(generationId)) throw new Error('An embodiment generation ID cannot be reused.');
     this.usedGenerationIds.add(generationId);
     this.cleanupPromise = null;
-    this.active = { profileId, generationId, responseId, audioAuthority, lastAtMs: this.lastAtMs, audible: false };
+    this.active = { profileId, generationId, responseId, audioAuthority, lastAtMs: this.lastAtMs, audioState: 'never_started' };
     return { ...this.active };
   }
 
@@ -127,14 +127,21 @@ export class EmbodimentGenerationGate {
     }
     if (atMs < this.lastAtMs) return Object.freeze({ accepted: false, reason: 'clock_regression' });
     if (kind === 'audio_started') {
-      if (this.active.audible) return Object.freeze({ accepted: false, reason: 'duplicate_audio' });
+      if (this.active.audioState === 'audible') return Object.freeze({ accepted: false, reason: 'duplicate_audio' });
+      if (this.active.audioState === 'ended') return Object.freeze({ accepted: false, reason: 'audio_ended' });
       this.audioAuthority.begin({ authority: this.active.audioAuthority, utteranceId: responseId });
-      this.active.audible = true;
+      this.active.audioState = 'audible';
     }
-    if (kind === 'audio_completed' && this.active.audible) {
+    if ((kind === 'audio_delta' || kind === 'audio_completed') && this.active.audioState !== 'audible') {
+      return Object.freeze({ accepted: false, reason: 'audio_not_active' });
+    }
+    // The adapter must normalize audio_completed from the authoritative playback
+    // sink's actual drain, never merely from a provider response-ended signal.
+    if (kind === 'audio_completed') {
       this.audioAuthority.finish({ reason: 'complete' });
-      this.active.audible = false;
+      this.active.audioState = 'ended';
     }
+    if (kind === 'completed' && this.active.audioState === 'audible') return this.complete();
     this.lastAtMs = atMs;
     this.active.lastAtMs = atMs;
     if (kind === 'completed') return this.complete();
@@ -143,7 +150,7 @@ export class EmbodimentGenerationGate {
 
   interrupt() {
     if (!this.active) return this.cleanupPromise || Promise.resolve(Object.freeze({ interrupted: false }));
-    const audible = this.active.audible;
+    const audible = this.active.audioState === 'audible';
     const identity = Object.freeze({ generationId: this.active.generationId, responseId: this.active.responseId });
     // Invalidate synchronously, before any injected transport cleanup can run.
     this.active = null;
@@ -173,7 +180,7 @@ export class EmbodimentGenerationGate {
 
   complete() {
     if (!this.active) return Object.freeze({ completed: false });
-    if (this.active.audible) this.audioAuthority.finish({ reason: 'complete' });
+    if (this.active.audioState === 'audible') return Object.freeze({ completed: false, reason: 'drain_pending' });
     const identity = { generationId: this.active.generationId, responseId: this.active.responseId };
     this.active = null;
     return Object.freeze({ completed: true, ...identity });

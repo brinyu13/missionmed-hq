@@ -120,6 +120,7 @@ test('interruption invalidates identity before effects, shares cleanup, and hold
   gate.begin(generation('2'));
   assert.equal(gate.accept(event('audio_delta', 11)).reason, 'stale_generation');
   assert.equal(gate.accept(event('audio_started', 12, '2')).accepted, true);
+  assert.equal(gate.accept(event('audio_completed', 14, '2')).accepted, true);
   assert.deepEqual(gate.accept(event('completed', 15, '2')), {
     completed: true, generationId: 'gen-2', responseId: 'resp-2',
   });
@@ -216,6 +217,67 @@ test('session clock and used generation identities survive both completion and i
   assert.equal(gate.accept(event('audio_started', 26, '3')).accepted, true);
   assert.equal(gate.accept(event('audio_started', 100, '3')).reason, 'duplicate_audio');
   assert.equal(gate.accept(event('audio_delta', 27, '3')).accepted, true);
-  assert.equal(gate.accept(event('completed', 28, '3')).completed, true);
+  assert.deepEqual(gate.accept(event('completed', 100, '3')), { completed: false, reason: 'drain_pending' });
+  assert.equal(gate.accept(event('audio_completed', 28, '3')).accepted, true);
+  assert.equal(gate.accept(event('completed', 29, '3')).completed, true);
   assert.equal(audio.health().active, null);
+});
+
+test('audio output requires the active per-generation audio guard and cannot restart after drain', () => {
+  const audio = new InterviewerAudioAuthority();
+  const gate = new EmbodimentGenerationGate({ audioAuthority: audio, ...successfulEffects() });
+  gate.begin(generation());
+  audio.begin({ authority: 'openai-gpt-live-native', utteranceId: 'other' });
+  assert.equal(gate.active.audioState, 'never_started');
+  assert.deepEqual(gate.accept(event('audio_delta', 1)), { accepted: false, reason: 'audio_not_active' });
+  assert.deepEqual(gate.accept(event('audio_completed', 2)), { accepted: false, reason: 'audio_not_active' });
+  assert.equal(audio.health().active.utteranceId, 'other');
+  assert.throws(() => gate.accept(event('audio_started', 3)), /already active/);
+  assert.equal(gate.active.audioState, 'never_started');
+  audio.interrupt();
+  assert.equal(gate.accept(event('audio_started', 4)).accepted, true);
+  assert.equal(gate.active.audioState, 'audible');
+  assert.equal(gate.accept(event('audio_delta', 5)).accepted, true);
+  assert.equal(gate.accept(event('audio_completed', 6)).accepted, true);
+  assert.equal(gate.active.audioState, 'ended');
+  audio.begin({ authority: 'liveavatar-livekit', utteranceId: 'other-after-drain' });
+  assert.deepEqual(gate.accept(event('audio_delta', 7)), { accepted: false, reason: 'audio_not_active' });
+  assert.deepEqual(gate.accept(event('audio_started', 8)), { accepted: false, reason: 'audio_ended' });
+  assert.deepEqual(gate.accept(event('audio_completed', 9)), { accepted: false, reason: 'audio_not_active' });
+  assert.equal(audio.health().active.utteranceId, 'other-after-drain');
+  assert.equal(gate.complete().completed, true);
+  assert.equal(audio.health().active.utteranceId, 'other-after-drain');
+});
+
+test('provider/generic completion and direct completion cannot release audio that has not actually drained', () => {
+  const audio = new InterviewerAudioAuthority();
+  const gate = new EmbodimentGenerationGate({ audioAuthority: audio, ...successfulEffects() });
+  gate.begin(generation());
+  gate.accept(event('audio_started', 10));
+  const identity = gate.active;
+  assert.deepEqual(gate.accept(event('completed', 100)), { completed: false, reason: 'drain_pending' });
+  assert.deepEqual(gate.complete(), { completed: false, reason: 'drain_pending' });
+  assert.equal(gate.active, identity);
+  assert.equal(gate.active.audioState, 'audible');
+  assert.equal(audio.health().active.utteranceId, 'resp-1');
+  assert.equal(audio.health().completedStreams, 0);
+  assert.throws(() => gate.begin(generation('2')), /already active/);
+  assert.equal(gate.accept(event('audio_delta', 11)).accepted, true);
+  // Only this normalized authoritative-sink-drained event releases the guard.
+  assert.equal(gate.accept(event('audio_completed', 12)).accepted, true);
+  assert.equal(audio.health().active, null);
+  assert.equal(audio.health().completedStreams, 1);
+  assert.deepEqual(gate.accept(event('completed', 13)), { completed: true, generationId: 'gen-1', responseId: 'resp-1' });
+});
+
+test('interruption after explicit drain cannot release a different current audio owner', async () => {
+  const audio = new InterviewerAudioAuthority();
+  const gate = new EmbodimentGenerationGate({ audioAuthority: audio, ...successfulEffects() });
+  gate.begin(generation());
+  gate.accept(event('audio_started', 10));
+  gate.accept(event('audio_completed', 11));
+  audio.begin({ authority: 'openai-gpt-live-native', utteranceId: 'different-owner' });
+  assert.equal((await gate.interrupt()).cleaned, true);
+  assert.equal(audio.health().active.utteranceId, 'different-owner');
+  assert.equal(audio.health().completedStreams, 1);
 });
