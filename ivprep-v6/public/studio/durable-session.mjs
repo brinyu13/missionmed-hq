@@ -288,6 +288,12 @@ export class DurableStudioSession {
     ]);
     return Object.freeze({ config, credits, questions });
   }
+  requireAdmin() {
+    if (!this.ready || this.bootstrapPayload?.identity?.admin !== true) throw new Error('ivoc_admin_required');
+  }
+  async saveAdminConfig(input) { this.requireAdmin(); return this.api.saveAdminConfig(input); }
+  async adminCredits(subjectId) { this.requireAdmin(); return this.api.adminCredits(subjectId); }
+  async saveAdminCredits(input) { this.requireAdmin(); return this.api.saveAdminCredits(input); }
   async abandon({ reason = 'client_exit', keepalive = false } = {}) {
     const accountSession = this.accountSession;
     if (!accountSession?.id) return { abandoned: false, reason: 'no_active_session' };

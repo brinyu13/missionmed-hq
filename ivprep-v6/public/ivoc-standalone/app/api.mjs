@@ -64,6 +64,9 @@ export class IvocApi {
     return json(`/programs/search?${params.toString()}`);
   }
   adminConfig() { return json('/admin/config'); }
+  saveAdminConfig(input) { return json('/admin/config', { method: 'PUT', body: input, csrfToken: this.csrfToken }); }
+  adminCredits(subjectId) { return json(`/admin/credits?subjectId=${encodeURIComponent(subjectId)}`); }
+  saveAdminCredits(input) { return json('/admin/credits', { method: 'PUT', body: input, csrfToken: this.csrfToken }); }
   credits() { return json('/credits'); }
   addQuestion(input) { return json('/admin/questions', { method: 'POST', body: input, csrfToken: this.csrfToken }); }
   updateQuestion(questionId, input) { return json(`/admin/questions/${encodeURIComponent(questionId)}`, { method: 'PATCH', body: input, csrfToken: this.csrfToken }); }

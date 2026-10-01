@@ -3,6 +3,27 @@ import test from 'node:test';
 
 import { DurableStudioSession, createDurableResultsEnvelope } from '../../public/studio/durable-session.mjs';
 
+test('Admin adapters fail closed and delegate only admitted authenticated Admin writes', async () => {
+  const calls = [];
+  const durable = new DurableStudioSession({ api: {
+    saveAdminConfig: async (input) => calls.push(['config', input]),
+    adminCredits: async (subject) => calls.push(['read', subject]),
+    saveAdminCredits: async (input) => calls.push(['credits', input]),
+  } });
+  for (const identity of [null, { admin: false }, { admin: 'true' }]) {
+    durable.bootstrapPayload = { entitlement: { admitted: true }, identity };
+    await assert.rejects(durable.saveAdminConfig({}), /ivoc_admin_required/);
+    await assert.rejects(durable.adminCredits('wp:142'), /ivoc_admin_required/);
+    await assert.rejects(durable.saveAdminCredits({}), /ivoc_admin_required/);
+  }
+  assert.equal(calls.length, 0);
+  durable.bootstrapPayload = { entitlement: { admitted: true }, identity: { admin: true } };
+  await durable.saveAdminConfig({ expectedVersion: 3 });
+  await durable.adminCredits('wp:142');
+  await durable.saveAdminCredits({ subjectId: 'wp:142', expectedVersion: 8 });
+  assert.deepEqual(calls, [['config', { expectedVersion: 3 }], ['read', 'wp:142'], ['credits', { subjectId: 'wp:142', expectedVersion: 8 }]]);
+});
+
 test('durable Studio session creates, records, seals, and persists the validated analytics envelope', async () => {
   const calls = [];
   const api = {

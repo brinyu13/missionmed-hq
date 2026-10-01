@@ -59,6 +59,7 @@ import {
   liveMockRecordingCheckLabel,
 } from './presentation-view-model.mjs';
 import { clearAdminReviewMedia, createAdminReviewGate, isAdminReview, mayPresentSavedReview, resolveReviewDestination } from './review-scope.mjs';
+import { mountAdminControls } from './admin-controls.mjs';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -124,6 +125,8 @@ const state = {
   comparePair: [0, 1],
   governedQuestions: [],
   adminOverview: null,
+  adminControls: null,
+  adminCreditSubject: null,
   adminLibrary: new AdminStudentLibraryCapability(),
   calendar: new InterviewCalendarCapability(),
   calendarProjection: null,
@@ -164,6 +167,10 @@ function applyRole(role) {
     const hadAdminReview = isAdminReview(state.lastSaved);
     adminReviewGate.invalidate();
     ++adminStudentLibraryRenderId;
+    ++adminOverviewRenderId;
+    state.adminControls?.destroy();
+    state.adminControls = null;
+    state.adminCreditSubject = null;
     state.role = nextRole;
     if (hadAdminReview) {
       clearAdminReviewMedia($('#playback'), state.filmGroups);
@@ -270,8 +277,12 @@ function renderIntegrationFacts(host, { liveMock = 'CHECKING OWNER', liveMockRea
   ]);
 }
 
+let adminOverviewRenderId = 0;
 async function renderAdminOverview() {
   if (state.role !== 'admin') return;
+  const renderId = ++adminOverviewRenderId;
+  state.adminControls?.destroy();
+  state.adminControls = null;
   const configHost = $('[data-admin-summary="config"]');
   const creditHost = $('[data-admin-summary="credits"]');
   const questionHost = $('[data-admin-summary="questions"]');
@@ -286,6 +297,7 @@ async function renderAdminOverview() {
 
   try {
     const overview = state.adminOverview || await state.durable.adminOverview();
+    if (renderId !== adminOverviewRenderId || state.role !== 'admin' || state.view !== 'mentor') return;
     state.adminOverview = overview;
     const config = overview.config || {};
     const account = overview.credits?.account || {};
@@ -298,12 +310,18 @@ async function renderAdminOverview() {
       { label: 'InterviewBrain', value: config.brainPackVersion || 'UNAVAILABLE', state: config.brainPackVersion ? 'ready' : 'limited' },
       { label: 'Follow-up intensity', value: Number.isInteger(config.pressureDefaults?.defaultFollowUpIntensity) ? String(config.pressureDefaults.defaultFollowUpIntensity) : 'UNAVAILABLE' },
     ]);
-    renderAdminFacts(creditHost, [
-      { label: 'Subject', value: account.subjectId || 'UNAVAILABLE' },
-      { label: 'Account version', value: `v${Number(account.version || 0)}` },
-      { label: 'Balance', value: `${Math.max(0, Number(account.balanceSeconds || 0))} SEC`, state: Number(account.balanceSeconds || 0) > 0 ? 'ready' : 'limited' },
-      { label: 'Consumed', value: `${Math.max(0, Number(account.consumedSeconds || 0))} SEC` },
-    ]);
+    state.adminControls = mountAdminControls({
+      configHost, creditHost, config, durable: state.durable,
+      initialSubject: state.adminCreditSubject || { subject: account.subjectId, displayName: 'Your account' },
+      isCurrent: () => renderId === adminOverviewRenderId && state.role === 'admin' && state.view === 'mentor',
+      onConfigSaved: (saved) => {
+        state.adminOverview = { ...state.adminOverview, config: saved };
+        const facts = $$('.admin-fact dd', configHost);
+        if (facts[0]) facts[0].textContent = `v${saved.version}`;
+        if (facts[3]) facts[3].textContent = String(saved.pressureDefaults.defaultFollowUpIntensity);
+      },
+      onConfigConflict: () => { state.adminOverview = null; },
+    });
     renderAdminFacts(questionHost, [
       { label: 'Catalog authority', value: overview.questions?.admin === true ? 'ADMIN VERSIONED' : 'READ ONLY', state: overview.questions?.admin === true ? 'ready' : 'limited' },
       { label: 'Total governed', value: String(questions.length) },
@@ -311,6 +329,7 @@ async function renderAdminOverview() {
       { label: 'Retired / hidden', value: String(retired) },
     ]);
   } catch (error) {
+    if (renderId !== adminOverviewRenderId || state.role !== 'admin' || state.view !== 'mentor') return;
     const reason = String(error?.message || 'ADMIN CAPABILITY UNAVAILABLE').toUpperCase().slice(0, 90);
     for (const host of [configHost, creditHost, questionHost]) {
       const empty = document.createElement('div');
@@ -397,6 +416,8 @@ async function renderAdminStudentLibrary(host) {
     const paint = () => {
       rows.replaceChildren();
       const student = library.students.find((item) => item.subject === selector.value) || library.students[0];
+      state.adminCreditSubject = { subject: student.subject, displayName: student.displayName };
+      void state.adminControls?.selectSubject(student.subject, student.displayName);
       for (const session of student.sessions) {
         const row = document.createElement('div');
         row.className = 'admin-library-row';

@@ -14,6 +14,30 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Current live guardian:** `714c5980ad36e4da11a78f4a62a34861cfac8e68`, Railway
+  `cb9d38b4-68d9-41ce-9332-f1184fa575e1` SUCCESS, image
+  `sha256:e074a6c47515d4fc62b73447b129073987198c7724aa07237e7a90855bbe45d6`.
+  Health 200; anonymous product/bootstrap 401; exact HTML/runtime SSH readback;
+  normal lease release. Independent entry-contract review passes. Actual fresh
+  Home → AI Mock now enters Practice Goal → explicit Question Pool (empty pool
+  cannot advance) → Interviewer → Program, rather than device check/Core 10.
+  Full AI conversation and two-sided audible replay remain unverified.
+- **Admin controls reopened for engineering:** The current positive Admin POV
+  shows config/usage readouts but no editable policy or credit controls. Prior
+  API-canary acceptance is not user-journey acceptance of these controls.
+  The existing config and selected-subject credit contracts are now connected
+  through guarded client/adapters and progressive Admin controls. Pinned provider
+  versions and allowance policy are preserved. 21 focused + 32 route tests pass;
+  independent review PASS after correcting conflict-cache invalidation. Live
+  control acceptance remains pending deployment; no new API/schema was created.
+- **Current AI normal-entry media smoke:** Home → explicit Builder → verified
+  SUNY Downstate IM selection → readiness → distinct Interview Room, visible
+  physical camera and user-enabled Analytics rails → End → saved Results →
+  Film Room → cold Library reload → private replay passed navigation/capture/
+  persistence checks. Saved interviewer turn: “Tell me about yourself.” No
+  candidate answer was spoken/transcribed; genuine contextual multi-turn,
+  barge-in and actual audible two-sided replay are NOT accepted by this smoke.
+
 - **Latest presentation fix-forward:** `ecd61549ae708126f3668618af3a679987f0ae56`
   live on `2bbcdf3b-b8dc-485f-b20f-f8c69ca4b324` SUCCESS, image
   `sha256:76879ff76f1ebc2ad382a4ad6c23c9a13ccde0611542ce4dd3cd842e9d6a21a6`.
