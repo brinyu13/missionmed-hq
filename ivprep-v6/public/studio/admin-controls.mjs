@@ -60,6 +60,97 @@ export function createCreditAttemptKeys(uuid = () => crypto.randomUUID()) {
   };
 }
 
+export function buildMentorPriorityWrite(snapshot, { priorities, mentorNotes }) {
+  if (!/^wp:[1-9][0-9]{0,19}$/u.test(snapshot?.subjectId || '') || !Number.isSafeInteger(snapshot.version) || snapshot.version < 0) throw new Error('Refresh the selected student before saving.');
+  if (!Array.isArray(priorities) || priorities.length > 3 || !Array.isArray(mentorNotes) || mentorNotes.length > 12) throw new Error('Use at most three priorities and twelve notes.');
+  const normalize = (item) => {
+    const text = String(item.text || '').trim();
+    if (!text) return null;
+    if (text.length < 3 || text.length > 500 || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/u.test(item.id || '')) throw new Error('Each populated item needs 3–500 characters and a valid identity.');
+    return { id: item.id, text };
+  };
+  return {
+    subjectId: snapshot.subjectId, expectedVersion: snapshot.version,
+    priorities: priorities.map(normalize).filter(Boolean),
+    mentorNotes: mentorNotes.map((item) => {
+      const normalized = normalize(item); if (!normalized) return null;
+      if (!['shared', 'mentor_only'].includes(item.visibility)) throw new Error('Choose Shared or Admin/mentor-only note visibility.');
+      return { ...normalized, visibility: item.visibility };
+    }).filter(Boolean),
+  };
+}
+
+export function mountAdminMentorControls({ host, durable, isCurrent, onOwnSaved, actorSubject }) {
+  let alive = true; let generation = 0;
+  const active = (ticket) => alive && ticket === generation && isCurrent();
+  const node = (tag, text = '', className = '') => { const element = document.createElement(tag); element.textContent = text; element.className = className; return element; };
+  async function selectSubject(subjectId, displayName = subjectId) {
+    const ticket = ++generation;
+    if (!active(ticket)) return;
+    host.replaceChildren(node('p', `Loading mentor priorities for ${displayName}…`));
+    try {
+      const snapshot = await durable.adminMentorPriorities(subjectId);
+      if (!active(ticket)) return;
+      if (snapshot.subjectId !== subjectId) throw new Error('Mentor priority subject does not match the selected student.');
+      host.replaceChildren(node('h3', `Mentor Top 3 · ${displayName}`), node('p', `${subjectId} · v${snapshot.version} · Set by ${snapshot.setBy || 'not set'}${snapshot.setAt ? ` · ${new Date(snapshot.setAt).toLocaleString()}` : ''}`, 'microcap'));
+      const details = node('details'); details.append(node('summary', 'Manage selected student priorities'));
+      const form = node('form'); details.append(form); host.append(details);
+      form.append(node('p', 'Priorities are shared with this student and may guide future interviews. Admin/mentor-only notes are never given to the student or interviewer. Clearing an item removes it in the next version.'));
+      const field = (label, text) => {
+        const wrapper = node('label', label, 'canon-field'); const input = node('input');
+        input.type = 'text'; input.value = text || ''; input.maxLength = 500; input.setAttribute('aria-label', label);
+        wrapper.append(input); form.append(wrapper); return input;
+      };
+      const priorities = Array.from({ length: 3 }, (_, index) => ({ id: snapshot.priorities[index]?.id || crypto.randomUUID(), input: field(`Priority ${index + 1}`, snapshot.priorities[index]?.text) }));
+      const notes = [];
+      function addNote(note = {}) {
+        const index = notes.length + 1;
+        const input = field(`Mentor note ${index}`, note.text);
+        const wrapper = node('label', `Note ${index} visibility`, 'canon-field'); const visibility = node('select'); visibility.setAttribute('aria-label', `Note ${index} visibility`);
+        for (const [value, text] of [['mentor_only', 'Admin / mentor only'], ['shared', 'Shared with student and interviewer']]) { const option = node('option', text); option.value = value; visibility.append(option); }
+        visibility.value = note.visibility || 'mentor_only'; wrapper.append(visibility); form.append(wrapper);
+        notes.push({ id: note.id || crypto.randomUUID(), input, visibility });
+      }
+      for (const note of snapshot.mentorNotes) addNote(note);
+      const add = node('button', '', 'btn btn-quiet'); add.type = 'button'; add.append(node('span', 'Add mentor note')); form.append(add);
+      add.disabled = notes.length >= 12;
+      add.addEventListener('click', () => { if (!active(ticket) || notes.length >= 12) return; addNote(); add.disabled = notes.length >= 12; });
+      const save = node('button', '', 'btn btn-quiet'); save.type = 'submit'; save.append(node('span', 'Save selected student priorities')); form.append(save);
+      const status = node('p', '', 'microcap'); status.setAttribute('role', 'status'); form.append(status);
+      let busy = false;
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault(); if (!active(ticket) || busy) return;
+        try {
+          const input = buildMentorPriorityWrite(snapshot, {
+            priorities: priorities.map(({ id, input: control }) => ({ id, text: control.value })),
+            mentorNotes: notes.map(({ id, input: control, visibility }) => ({ id, text: control.value, visibility: visibility.value })),
+          });
+          busy = true; save.disabled = true;
+          await durable.saveAdminMentorPriorities(input);
+          if (!active(ticket)) return;
+          if (subjectId === actorSubject) void onOwnSaved(); // Re-read owner-filtered projection, never Admin private notes.
+          const refreshed = await selectSubject(subjectId, displayName);
+          if (active(ticket + 1)) host.append(node('p', refreshed ? 'Mentor priorities saved and refreshed.' : 'Mentor priorities saved; refresh unavailable. Reselect the student to retry the read.', 'microcap'));
+        } catch (error) {
+          if (!active(ticket)) return;
+          status.textContent = error.status === 409
+            ? 'Not saved: priorities changed elsewhere. Reselect the student to load the current version and reconcile your edits.'
+            : `Not saved: ${error.message}`;
+          if (error.status === 409) save.disabled = true;
+        } finally {
+          busy = false;
+          if (active(ticket) && !status.textContent.startsWith('Not saved: priorities changed elsewhere')) save.disabled = false;
+        }
+      });
+      return true;
+    } catch (error) {
+      if (active(ticket)) host.replaceChildren(node('p', `Mentor priorities unavailable: ${error.message}`));
+      return false;
+    }
+  }
+  return { selectSubject, destroy() { alive = false; ++generation; host.replaceChildren(); } };
+}
+
 export function mountAdminControls({ configHost, creditHost, config, durable, initialSubject, isCurrent, onConfigSaved, onConfigConflict }) {
   let alive = true;
   let creditTicket = 0;
@@ -168,8 +259,8 @@ export function mountAdminControls({ configHost, creditHost, config, durable, in
           await durable.saveAdminCredits(input);
           if (!active() || ticket !== creditTicket) return;
           attempts.clear();
-          await selectSubject(subjectId, displayName);
-          if (active() && ticket + 1 === creditTicket) creditHost.append(node('p', 'Credit change saved and current balance refreshed.', 'microcap'));
+          const refreshed = await selectSubject(subjectId, displayName);
+          if (active() && ticket + 1 === creditTicket) creditHost.append(node('p', refreshed ? 'Credit change saved and current balance refreshed.' : 'Credit change saved; balance refresh unavailable. Reselect the student to retry the read.', 'microcap'));
         } catch (error) {
           if (!active() || ticket !== creditTicket) return;
           status.textContent = error.status === 409
@@ -181,8 +272,10 @@ export function mountAdminControls({ configHost, creditHost, config, durable, in
           if (active() && ticket === creditTicket && !status.textContent.includes('credit limit conflict')) save.disabled = false;
         }
       });
+      return true;
     } catch (error) {
       if (active() && ticket === creditTicket) creditHost.replaceChildren(node('p', `Credits unavailable: ${error.message}`));
+      return false;
     }
   }
   void selectSubject(initialSubject.subject, initialSubject.displayName);

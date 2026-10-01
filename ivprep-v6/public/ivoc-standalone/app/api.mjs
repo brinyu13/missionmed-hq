@@ -53,6 +53,8 @@ export class IvocApi {
   markReviewed(sessionId, input = {}) { return json(`/sessions/${encodeURIComponent(sessionId)}/review`, { method: 'POST', body: input, csrfToken: this.csrfToken }); }
   library(scope = 'own') { return json(`/library?scope=${encodeURIComponent(scope)}`); }
   mentorPriorities() { return json('/mentor-priorities'); }
+  adminMentorPriorities(subjectId) { return json(`/admin/mentor-priorities?subjectId=${encodeURIComponent(subjectId)}`); }
+  saveAdminMentorPriorities(input) { return json('/admin/mentor-priorities', { method: 'PUT', body: input, csrfToken: this.csrfToken }); }
   session(sessionId) { return json(`/sessions/${encodeURIComponent(sessionId)}`); }
   playback(recordingId, disposition = 'inline') { return json(`/recordings/${encodeURIComponent(recordingId)}/playback-url?disposition=${encodeURIComponent(disposition)}`); }
   questions() { return json('/questions'); }

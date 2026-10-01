@@ -9,19 +9,24 @@ test('Admin adapters fail closed and delegate only admitted authenticated Admin 
     saveAdminConfig: async (input) => calls.push(['config', input]),
     adminCredits: async (subject) => calls.push(['read', subject]),
     saveAdminCredits: async (input) => calls.push(['credits', input]),
+    adminMentorPriorities: async (subject) => calls.push(['mentor-read', subject]),
+    saveAdminMentorPriorities: async (input) => calls.push(['mentor-write', input]),
   } });
   for (const identity of [null, { admin: false }, { admin: 'true' }]) {
     durable.bootstrapPayload = { entitlement: { admitted: true }, identity };
     await assert.rejects(durable.saveAdminConfig({}), /ivoc_admin_required/);
     await assert.rejects(durable.adminCredits('wp:142'), /ivoc_admin_required/);
     await assert.rejects(durable.saveAdminCredits({}), /ivoc_admin_required/);
+    await assert.rejects(durable.adminMentorPriorities('wp:142'), /ivoc_admin_required/);
+    await assert.rejects(durable.saveAdminMentorPriorities({}), /ivoc_admin_required/);
   }
   assert.equal(calls.length, 0);
   durable.bootstrapPayload = { entitlement: { admitted: true }, identity: { admin: true } };
   await durable.saveAdminConfig({ expectedVersion: 3 });
   await durable.adminCredits('wp:142');
   await durable.saveAdminCredits({ subjectId: 'wp:142', expectedVersion: 8 });
-  assert.deepEqual(calls, [['config', { expectedVersion: 3 }], ['read', 'wp:142'], ['credits', { subjectId: 'wp:142', expectedVersion: 8 }]]);
+  await durable.adminMentorPriorities('wp:142'); await durable.saveAdminMentorPriorities({ subjectId: 'wp:142', expectedVersion: 0 });
+  assert.deepEqual(calls, [['config', { expectedVersion: 3 }], ['read', 'wp:142'], ['credits', { subjectId: 'wp:142', expectedVersion: 8 }], ['mentor-read', 'wp:142'], ['mentor-write', { subjectId: 'wp:142', expectedVersion: 0 }]]);
 });
 
 test('durable Studio session creates, records, seals, and persists the validated analytics envelope', async () => {

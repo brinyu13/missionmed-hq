@@ -40,6 +40,8 @@ import {
 } from './capability-adapter.mjs';
 import {
   buildContextSources,
+  contextSourceHint,
+  buildOwnerIntegrationFacts,
   buildHomeViewModel,
   buildIdentityViewModel,
   buildReadinessRows,
@@ -59,7 +61,7 @@ import {
   liveMockRecordingCheckLabel,
 } from './presentation-view-model.mjs';
 import { clearAdminReviewMedia, createAdminReviewGate, isAdminReview, mayPresentSavedReview, resolveReviewDestination } from './review-scope.mjs';
-import { mountAdminControls } from './admin-controls.mjs';
+import { mountAdminControls, mountAdminMentorControls } from './admin-controls.mjs';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -127,6 +129,7 @@ const state = {
   adminOverview: null,
   adminControls: null,
   adminCreditSubject: null,
+  adminMentorControls: null,
   adminLibrary: new AdminStudentLibraryCapability(),
   calendar: new InterviewCalendarCapability(),
   calendarProjection: null,
@@ -170,6 +173,8 @@ function applyRole(role) {
     ++adminOverviewRenderId;
     state.adminControls?.destroy();
     state.adminControls = null;
+    state.adminMentorControls?.destroy();
+    state.adminMentorControls = null;
     state.adminCreditSubject = null;
     state.role = nextRole;
     if (hadAdminReview) {
@@ -272,7 +277,7 @@ function renderIntegrationFacts(host, { liveMock = 'CHECKING OWNER', liveMockRea
   renderAdminFacts(host, [
     { label: 'Match Bridge', value: 'BOUNDED CLIPS READY', state: 'ready' },
     { label: 'Live Mock Studio', value: liveMock, state: liveMockReady ? 'ready' : 'limited' },
-    { label: 'File Vault / RISE / StoryForge', value: 'OWNER PROJECTION REQUIRED', state: 'limited' },
+    ...buildOwnerIntegrationFacts(state.durable.bootstrapPayload?.capabilities?.contextSources),
     { label: 'LemonSlice', value: 'DEFERRED', state: 'limited' },
   ]);
 }
@@ -383,6 +388,8 @@ async function openAdminStudentSession(session, destination, action) {
 
 async function renderAdminStudentLibrary(host) {
   const renderId = ++adminStudentLibraryRenderId;
+  state.adminMentorControls?.destroy();
+  state.adminMentorControls = null;
   host.replaceChildren();
   try {
     const library = await state.adminLibrary.overview();
@@ -413,11 +420,20 @@ async function renderAdminStudentLibrary(host) {
 
     const rows = document.createElement('div');
     rows.className = 'admin-library-rows';
+    const mentorHost = document.createElement('section');
+    mentorHost.className = 'recess';
+    state.adminMentorControls = mountAdminMentorControls({
+      host: mentorHost, durable: state.durable,
+      isCurrent: () => renderId === adminStudentLibraryRenderId && state.role === 'admin' && state.view === 'mentor',
+      actorSubject: state.admission?.identity?.subject,
+      onOwnSaved: hydrateHome,
+    });
     const paint = () => {
       rows.replaceChildren();
       const student = library.students.find((item) => item.subject === selector.value) || library.students[0];
       state.adminCreditSubject = { subject: student.subject, displayName: student.displayName };
       void state.adminControls?.selectSubject(student.subject, student.displayName);
+      void state.adminMentorControls?.selectSubject(student.subject, student.displayName);
       for (const session of student.sessions) {
         const row = document.createElement('div');
         row.className = 'admin-library-row';
@@ -456,7 +472,7 @@ async function renderAdminStudentLibrary(host) {
       }
     };
     selector.addEventListener('change', paint);
-    host.append(toolbar, rows);
+    host.append(toolbar, mentorHost, rows);
     paint();
   } catch (error) {
     if (renderId !== adminStudentLibraryRenderId || state.role !== 'admin' || state.view !== 'mentor') return;
@@ -1330,7 +1346,7 @@ function renderEnvironmentStep(host) {
   }
   sources.filter(({ name }) => name !== 'StoryForge').forEach(({ name, available, detail, connected = false }) => sourceGrid.append(choiceButton({
     className: 'canon-source-card', selected: state.wizard.contextSources.includes(name), label: name,
-    detail: `${detail} · ${available ? 'Checked when interview begins' : connected ? 'Select a verified program first' : 'Not connected'}`,
+    detail: `${detail} · ${contextSourceHint({ name, available, connected })}`,
     onClick: () => {
       if (!available) return;
       state.wizard.contextSources = state.wizard.contextSources.includes(name)

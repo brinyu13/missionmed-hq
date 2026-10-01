@@ -294,6 +294,8 @@ export class DurableStudioSession {
   async saveAdminConfig(input) { this.requireAdmin(); return this.api.saveAdminConfig(input); }
   async adminCredits(subjectId) { this.requireAdmin(); return this.api.adminCredits(subjectId); }
   async saveAdminCredits(input) { this.requireAdmin(); return this.api.saveAdminCredits(input); }
+  async adminMentorPriorities(subjectId) { this.requireAdmin(); return this.api.adminMentorPriorities(subjectId); }
+  async saveAdminMentorPriorities(input) { this.requireAdmin(); return this.api.saveAdminMentorPriorities(input); }
   async abandon({ reason = 'client_exit', keepalive = false } = {}) {
     const accountSession = this.accountSession;
     if (!accountSession?.id) return { abandoned: false, reason: 'no_active_session' };

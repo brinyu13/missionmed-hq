@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 
 import {
   buildContextSources,
+  contextSourceHint,
+  buildOwnerIntegrationFacts,
   buildHomeViewModel,
   buildIdentityViewModel,
   buildReadinessRows,
@@ -22,6 +24,21 @@ import { publicAdmissionState } from '../../server/admission-contract.mjs';
 import { summarizeVideoFramePixels } from '../../public/studio/media-analytics-capability.mjs';
 
 const row = (rows, label) => rows.find(([name]) => name === label);
+
+test('empty mentor priorities do not instruct students to select a program', () => {
+  const sources = buildContextSources({ mentorPriorities: { version: 2, priorities: [] }, contextCapabilities: { rise: { connected: true } }, programVerified: true });
+  const top3 = sources.find((source) => source.name === 'Top 3');
+  assert.equal(contextSourceHint(top3), 'No mentor priorities have been added');
+  assert.equal(contextSourceHint(sources.find((source) => source.name === 'RISE')), 'Checked when interview begins');
+  assert.equal(contextSourceHint({ name: 'RISE', connected: true, available: false }), 'Select a verified program first');
+});
+
+test('Admin connector readouts distinguish configuration from positive subject-data acceptance', () => {
+  const facts = buildOwnerIntegrationFacts({ fileVault: { connected: true }, rise: { connected: true }, storyForge: { connected: false } });
+  assert.equal(facts[0].value, 'CONFIGURED · SUBJECT DATA CHECKED AT START');
+  assert.equal(facts[1].state, 'ready');
+  assert.equal(facts[2].value, 'NOT CONNECTED');
+});
 
 test('normal AI Home and navigation entries configure before device readiness', () => {
   const html = readFileSync(new URL('../../public/studio/index.html', import.meta.url), 'utf8');

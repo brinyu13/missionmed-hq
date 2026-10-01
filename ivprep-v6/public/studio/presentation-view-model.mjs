@@ -92,6 +92,21 @@ export function buildContextSources({
   ]);
 }
 
+export function contextSourceHint({ name, available, connected } = {}) {
+  if (available) return 'Checked when interview begins';
+  if (name === 'RISE' && connected) return 'Select a verified program first';
+  if (name === 'Top 3' && connected) return 'No mentor priorities have been added';
+  return 'Not connected';
+}
+
+export function buildOwnerIntegrationFacts(capabilities = {}) {
+  return [['File Vault', 'fileVault'], ['RISE', 'rise'], ['StoryForge', 'storyForge']].map(([label, key]) => ({
+    label,
+    value: capabilities[key]?.connected === true ? 'CONFIGURED · SUBJECT DATA CHECKED AT START' : 'NOT CONNECTED',
+    state: capabilities[key]?.connected === true ? 'ready' : 'limited',
+  }));
+}
+
 export function buildIdentityViewModel(identity = null) {
   const displayName = String(identity?.displayName || '').trim();
   const words = displayName.split(/\s+/u).filter(Boolean);

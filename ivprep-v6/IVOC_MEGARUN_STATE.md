@@ -14,6 +14,28 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Current live guardian (Admin adapters):** `6ea31cc56fdde5d0ff6a9935401063d0a4c2a86f`
+  on Railway `39f52234-98d7-438a-892b-944579178469` SUCCESS, image
+  `sha256:d28d1d4ec08cad21fca90540d1d5e6694a29b7cc2fbd131b59bbcd9ad5a69bfa`.
+  Exact four-module SSH hashes match source; health 200; anonymous product and
+  bootstrap 401; deployment lease released normally. Prior `714c598` artifact
+  remains the source/config rollback identity. Genuine `wp:1` visible Admin
+  policy save advanced v3 → v4 preserving all baseline values and provider
+  pins. Own allowance save advanced credit v11 → v12, still zero allowance/
+  balance/consumption; no student access or balance was changed. Both controls
+  report saved state and refreshed version. Cold reload retains policy v4 and
+  credit v12; selecting authorized `wp:142` displays that subject's v0 account
+  without mutation. Student presentation removes the Admin editors.
+- **Mentor Top 3 engineering:** Existing Admin GET/PUT supports authorized
+  selected subjects, CAS, actor provenance and shared/private-note filtering,
+  but current production lacks an editor. The same guarded adapter boundary
+  now exposes an ordered three-priority editor with explicit note visibility,
+  stale-subject rejection and removal of private fields on Admin exit. Source
+  acceptance: 43 focused tests and independent review PASS, including role/
+  subject races and saved-but-readback-unavailable copy. Deployment/POV pending;
+  no MCC API or owner storage was invented. Empty Top 3 copy no longer falsely
+  requests a program selection; Admin owner readouts distinguish connector
+  configuration from positive subject-data acceptance.
 - **Current live guardian:** `714c5980ad36e4da11a78f4a62a34861cfac8e68`, Railway
   `cb9d38b4-68d9-41ce-9332-f1184fa575e1` SUCCESS, image
   `sha256:e074a6c47515d4fc62b73447b129073987198c7724aa07237e7a90855bbe45d6`.

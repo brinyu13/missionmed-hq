@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildAdminPolicyWrite, buildAdminCreditWrite, createCreditAttemptKeys, mountAdminControls } from '../../public/studio/admin-controls.mjs';
+import { buildAdminPolicyWrite, buildAdminCreditWrite, createCreditAttemptKeys, mountAdminControls, buildMentorPriorityWrite, mountAdminMentorControls } from '../../public/studio/admin-controls.mjs';
 import { IvocApi } from '../../public/ivoc-standalone/app/api.mjs';
 
 const config = {
@@ -114,8 +114,63 @@ test('Admin client delegates same-origin authenticated CSRF writes to exact exis
   try {
     const api = new IvocApi(); api.csrfToken = 'unit-fixture-only';
     await api.saveAdminConfig({ expectedVersion: 3 }); await api.adminCredits('wp:142'); await api.saveAdminCredits({ subjectId: 'wp:142' });
-    assert.deepEqual(calls.map((call) => call.url), ['/api/ivoc/v1/admin/config', '/api/ivoc/v1/admin/credits?subjectId=wp%3A142', '/api/ivoc/v1/admin/credits']);
+    await api.adminMentorPriorities('wp:142'); await api.saveAdminMentorPriorities({ subjectId: 'wp:142', expectedVersion: 0 });
+    assert.deepEqual(calls.map((call) => call.url), ['/api/ivoc/v1/admin/config', '/api/ivoc/v1/admin/credits?subjectId=wp%3A142', '/api/ivoc/v1/admin/credits', '/api/ivoc/v1/admin/mentor-priorities?subjectId=wp%3A142', '/api/ivoc/v1/admin/mentor-priorities']);
     for (const call of calls) assert.equal(call.options.credentials, 'same-origin');
-    for (const call of [calls[0], calls[2]]) { assert.equal(call.options.method, 'PUT'); assert.equal(call.options.headers['X-MMHQ-CSRF'], 'unit-fixture-only'); }
+    for (const call of [calls[0], calls[2], calls[4]]) { assert.equal(call.options.method, 'PUT'); assert.equal(call.options.headers['X-MMHQ-CSRF'], 'unit-fixture-only'); }
   } finally { globalThis.fetch = previous; }
+});
+
+test('mentor write retains ordered IDs, selected subject, version and explicit private-note visibility', () => {
+  const snapshot = { subjectId: 'wp:142', version: 2 };
+  const input = buildMentorPriorityWrite(snapshot, {
+    priorities: [{ id: 'leadership', text: 'Lead with your actual contribution.' }, { id: 'blank', text: '' }],
+    mentorNotes: [{ id: 'private', text: 'Admin-only instructional note.', visibility: 'mentor_only' }, { id: 'shared', text: 'Use a concrete example.', visibility: 'shared' }],
+  });
+  assert.equal(input.subjectId, 'wp:142'); assert.equal(input.expectedVersion, 2);
+  assert.deepEqual(input.priorities, [{ id: 'leadership', text: 'Lead with your actual contribution.' }]);
+  assert.equal(input.mentorNotes[0].visibility, 'mentor_only');
+  assert.throws(() => buildMentorPriorityWrite(snapshot, { priorities: [], mentorNotes: [{ id: 'bad', text: 'Valid note', visibility: 'public' }] }));
+  assert.throws(() => buildMentorPriorityWrite(snapshot, { priorities: Array(4).fill({ id: 'p', text: 'Priority' }), mentorNotes: [] }));
+});
+
+test('mentor editor rejects stale subject reads and removes private notes on role exit', async () => {
+  const previous = globalThis.document;
+  globalThis.document = { createElement: (tag) => new Element(tag) };
+  try {
+    const host = new Element('section'); const reads = new Map();
+    const controls = mountAdminMentorControls({ host, isCurrent: () => true, actorSubject: 'wp:1', onOwnSaved() {},
+      durable: { adminMentorPriorities: (subject) => { const read = deferred(); reads.set(subject, read); return read.promise; } },
+    });
+    const old = controls.selectSubject('wp:1'); const selected = controls.selectSubject('wp:142', 'Selected student');
+    reads.get('wp:142').resolve({ subjectId: 'wp:142', version: 0, priorities: [], mentorNotes: [{ id: 'private', text: 'Private authorized note', visibility: 'mentor_only' }] });
+    await selected;
+    reads.get('wp:1').resolve({ subjectId: 'wp:1', version: 2, priorities: [], mentorNotes: [] }); await old;
+    assert.match(host.children[0].textContent, /Selected student/);
+    assert(descendants(host).some((element) => element.value === 'Private authorized note'));
+    controls.destroy(); assert.deepEqual(host.children, []);
+  } finally { globalThis.document = previous; }
+});
+
+test('successful mentor save with failed readback never claims refreshed state', async () => {
+  const previous = globalThis.document;
+  globalThis.document = { createElement: (tag) => new Element(tag) };
+  try {
+    const host = new Element('section'); let reads = 0; let saved = 0;
+    const controls = mountAdminMentorControls({ host, isCurrent: () => true, actorSubject: 'wp:1', onOwnSaved() {},
+      durable: {
+        adminMentorPriorities: async () => {
+          if (++reads > 1) throw new Error('readback unavailable');
+          return { subjectId: 'wp:142', version: 0, priorities: [], mentorNotes: [] };
+        },
+        saveAdminMentorPriorities: async () => { ++saved; return { version: 1 }; },
+      },
+    });
+    await controls.selectSubject('wp:142');
+    await descendants(host).find((element) => element.tag === 'form').listeners.submit({ preventDefault() {} });
+    assert.equal(saved, 1);
+    assert.match(host.children.map((element) => element.textContent).join(' '), /saved; refresh unavailable/);
+    assert.doesNotMatch(host.children.map((element) => element.textContent).join(' '), /saved and refreshed/);
+    controls.destroy();
+  } finally { globalThis.document = previous; }
 });
