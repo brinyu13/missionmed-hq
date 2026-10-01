@@ -8,6 +8,7 @@ import {
   buildOwnerIntegrationFacts,
   buildPracticeEntryIntent,
   resolveAdminStudentSelection,
+  buildAdminStudentProgress,
   interviewerPresenceCopy,
   buildHomeViewModel,
   buildIdentityViewModel,
@@ -34,6 +35,20 @@ test('Admin review return preserves only a currently authorized student selectio
   assert.equal(resolveAdminStudentSelection(students, 'wp:999'), 'wp:1');
   assert.equal(resolveAdminStudentSelection(students), 'wp:1');
   assert.equal(resolveAdminStudentSelection([], 'wp:142'), '');
+});
+
+test('Admin progress uses only selected-subject saved history without inferred performance', () => {
+  const model = buildAdminStudentProgress({ subject: 'wp:142', displayName: 'Selected student', sessions: [
+    { id: 'a', ownerSubject: 'wp:142', state: 'saved', questionId: 'CORE-01', durationMs: 12000, endedAt: '2026-10-01T12:00:00Z' },
+    { id: 'b', ownerSubject: 'wp:1', state: 'saved', questionId: 'CORE-02', durationMs: 99000 },
+    { id: 'c', ownerSubject: 'wp:142', state: 'abandoned', durationMs: 99000 },
+  ] });
+  assert.deepEqual(model.totals, { savedSessions: 1, recordedMs: 12000, activeDays: 1, uniqueQuestions: 1 });
+  assert.match(model.title, /Selected student/);
+  assert.match(model.note, /no mastery, rank or recurring pattern is inferred/);
+  assert.equal(buildAdminStudentProgress().totals.savedSessions, 0);
+  assert.equal(model.durationAvailable, true);
+  assert.equal(buildAdminStudentProgress({ subject: 'wp:142', sessions: [{ ownerSubject: 'wp:142', state: 'saved', durationMs: null }] }).durationAvailable, false);
 });
 
 test('one-question shortcuts establish explicit intent without resetting AI or in-progress launch choices', () => {

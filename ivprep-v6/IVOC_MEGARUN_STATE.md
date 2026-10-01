@@ -14,6 +14,26 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Navigation candidate release:** `c1af94c4aa8304aed1aa9b4cb42289ae5a80aee9`
+  uploaded under fresh deployment epoch 3924; upload transport timed out,
+  deployment `ee80e5b1-8937-4e4c-a38f-d90b7a7975b0` became FAILED without an image.
+  Healthy `ab9a2c0b` remains serving. That keeper hit one heartbeat transport
+  failure and released normally (provider readback confirms released_at).
+  No blind re-upload or promotion under lost authority. Mentor editor actual
+  Admin UI saved the unchanged empty own priorities v2 → v3 and read them back;
+  authorized selected `wp:142` shows its own v0, without mutation. Own credit
+  override-zero readback is v13. Real nonempty mentor-content acceptance remains.
+- **Selected-student Progress gap reopened:** Existing Admin library had no
+  selected-subject Progress presentation; the own-account Progress surface is
+  not equivalent. Existing longitudinal model now supplies bounded selected-
+  subject saved counts/time/breadth/days in the Admin library. Per-attempt
+  measured Analytics remain in Results; no private source or inferred trend
+  is added. Independent review caught upstream null-duration coercion to zero;
+  the adapter now preserves unavailable duration through the actual projection
+  pipeline, and the summary counts attempts rather than individual answers.
+  26 focused checks pass. Product epoch 3923 released normally after a transient
+  heartbeat failure. Expanded epoch 3925 uses bounded transport retries only
+  within verified expiry; it never treats an expired handle as valid.
 - **Current live guardian (Mentor adapters):** `80d2a0fca17f14ceb0c50965c3f11cd09acb06d7`,
   deployment `ab9a2c0b-846c-44f3-a1d1-116b7f21d45a` SUCCESS, image
   `sha256:c8cf20c496899d95f0d1504d025f1c3c06515890b7d557cef2b7b2fcbecc41a8`.

@@ -16,7 +16,8 @@ function sessionView(session = {}) {
     questionId: text(session.questionId, 120) || null,
     state: text(session.state, 40) || 'unknown',
     endedAt: text(session.endedAt || session.startedAt, 80) || null,
-    durationMs: Number.isFinite(Number(session.durationMs)) ? Math.max(0, Number(session.durationMs)) : null,
+    durationMs: session.durationMs != null && session.durationMs !== '' && Number.isFinite(Number(session.durationMs))
+      ? Math.max(0, Number(session.durationMs)) : null,
     recording,
     resultsAvailable: Boolean(session.results),
     answerHistory: Object.freeze({

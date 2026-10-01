@@ -1,3 +1,5 @@
+import { buildLongitudinalModel } from './longitudinal-model.mjs';
+
 const readyMetric = (metrics, key) => metrics?.[key]?.available === true;
 
 // A program adds context; it is not a prerequisite for general practice or an
@@ -114,6 +116,18 @@ export function interviewerPresenceCopy(admin = false) {
 export function resolveAdminStudentSelection(students = [], previousSubject = null) {
   return students.find((student) => student.subject === previousSubject)?.subject
     || students[0]?.subject || '';
+}
+
+export function buildAdminStudentProgress(student = {}) {
+  const sessions = (Array.isArray(student.sessions) ? student.sessions : [])
+    .filter((session) => session.ownerSubject === student.subject);
+  return Object.freeze({
+    title: `Practice history · ${student.displayName || 'Selected student'}`,
+    totals: buildLongitudinalModel(sessions).totals,
+    durationAvailable: sessions.filter((session) => session.state === 'saved')
+      .every((session) => session.durationMs != null && Number.isFinite(Number(session.durationMs))),
+    note: 'Selected student’s saved history only. Open an attempt for its measured Analytics; no mastery, rank or recurring pattern is inferred.',
+  });
 }
 
 export function buildOwnerIntegrationFacts(capabilities = {}) {

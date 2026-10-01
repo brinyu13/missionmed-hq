@@ -44,6 +44,7 @@ import {
   buildOwnerIntegrationFacts,
   buildPracticeEntryIntent,
   resolveAdminStudentSelection,
+  buildAdminStudentProgress,
   interviewerPresenceCopy,
   buildHomeViewModel,
   buildIdentityViewModel,
@@ -438,6 +439,17 @@ async function renderAdminStudentLibrary(host) {
       state.adminCreditSubject = { subject: student.subject, displayName: student.displayName };
       void state.adminControls?.selectSubject(student.subject, student.displayName);
       void state.adminMentorControls?.selectSubject(student.subject, student.displayName);
+      const progress = buildAdminStudentProgress(student);
+      const heading = document.createElement('h3'); heading.textContent = progress.title;
+      const grid = document.createElement('div'); grid.className = 'long-grid';
+      grid.append(
+        metricCard('Saved attempts', String(progress.totals.savedSessions), 'Completed durable sessions'),
+        metricCard('Recorded practice', progress.durationAvailable ? formatEvidence(progress.totals.recordedMs, 'ms') : 'Unavailable', 'Saved session duration'),
+        metricCard('Question breadth', String(progress.totals.uniqueQuestions), 'Distinct practiced questions'),
+        metricCard('Active days', String(progress.totals.activeDays), 'Days with saved work'),
+      );
+      const note = document.createElement('p'); note.className = 'microcap long-note'; note.textContent = progress.note;
+      rows.append(heading, grid, note);
       for (const session of student.sessions) {
         const row = document.createElement('div');
         row.className = 'admin-library-row';

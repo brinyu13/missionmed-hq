@@ -1,10 +1,21 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { buildAdminStudentProgress } from '../../public/studio/presentation-view-model.mjs';
 
 import {
   AdminStudentLibraryCapability,
   projectAdminStudentLibrary,
 } from '../../public/capabilities/admin-student-library.mjs';
+
+test('Admin library projection preserves unavailable duration through the progress presentation', () => {
+  for (const durationMs of [null, undefined, '', 'unknown']) {
+    const view = projectAdminStudentLibrary({ sessions: [{ id: 'a', ownerSubject: 'wp:142', state: 'saved', durationMs }] });
+    assert.equal(view.students[0].sessions[0].durationMs, null);
+    assert.equal(buildAdminStudentProgress(view.students[0]).durationAvailable, false);
+  }
+  const view = projectAdminStudentLibrary({ sessions: [{ id: 'a', ownerSubject: 'wp:142', state: 'saved', durationMs: 0 }] });
+  assert.equal(buildAdminStudentProgress(view.students[0]).durationAvailable, true);
+});
 
 test('Admin library groups the authorized projection by stable student identity', () => {
   const view = projectAdminStudentLibrary({ sessions: [
