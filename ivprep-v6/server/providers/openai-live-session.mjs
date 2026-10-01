@@ -8,9 +8,15 @@ const MODEL = 'gpt-live-1';
 const SAFE_VOICES = new Set(['marin', 'meridian', 'gleam', 'vesper', 'stone', 'willow']);
 const SAFE_CONTEXT = Object.freeze({
   goal: new Set(['Residency interview practice', 'Instant focused rep', 'Individual question', 'Coached practice', 'Full interview simulation']),
-  interviewer: new Set(['Program Director · balanced', 'Faculty · conversational', 'Chief Resident · warm']),
+  interviewer: new Set(['Program Director · balanced', 'Associate Program Director · balanced', 'Faculty · conversational', 'Chief Resident · warm']),
   program: new Set(['General residency interview', 'Internal Medicine · RISE seam', 'Family Medicine · RISE seam', 'Program context not available']),
   environment: new Set(['MissionMed · interview only', 'MissionMed · coached analytics', 'StoryForge context seam', 'RISE + StoryForge seams']),
+});
+const INTERVIEWER_STYLE_GUIDANCE = Object.freeze({
+  Dove: 'warm, patient, supportive',
+  Peacock: 'expressive, energetic, conversational',
+  Owl: 'measured, analytical, evidence-focused',
+  Eagle: 'direct, concise, outcome-focused',
 });
 const MAX_SDP_BYTES = 256 * 1024;
 const MAX_CONTEXT_BYTES = 16 * 1024;
@@ -32,11 +38,18 @@ export function normalizeLiveInterviewContext(value) {
     throw new TypeError('Interview context must be an object.');
   }
   const expected = ['environment', 'goal', 'interviewer', 'pressurePractice', 'program', 'questionIds', 'targetQuestions'];
+  const hasStyle = Object.hasOwn(value, 'interviewerStyle');
+  if (hasStyle) expected.push('interviewerStyle');
+  expected.sort();
   if (Object.keys(value).sort().join(',') !== expected.join(',')) {
     throw new TypeError('Interview context has unexpected fields.');
   }
   if (!Array.isArray(value.questionIds) || value.questionIds.length > 30) {
     throw new TypeError('Question IDs are invalid.');
+  }
+  if (hasStyle && (typeof value.interviewerStyle !== 'string'
+      || !Object.hasOwn(INTERVIEWER_STYLE_GUIDANCE, value.interviewerStyle))) {
+    throw new TypeError('Interviewer style is invalid.');
   }
   const context = Object.freeze({
     goal: boundedText(value.goal, 'Practice goal', SAFE_CONTEXT.goal),
@@ -52,6 +65,7 @@ export function normalizeLiveInterviewContext(value) {
       if (!/^[A-Za-z0-9._:-]{1,120}$/u.test(exact)) throw new TypeError('Question ID is invalid.');
       return exact;
     })),
+    ...(hasStyle ? { interviewerStyle: value.interviewerStyle } : {}),
   });
   if (Buffer.byteLength(JSON.stringify(context), 'utf8') > MAX_CONTEXT_BYTES) {
     throw new TypeError('Interview context is too large.');
@@ -99,6 +113,9 @@ export function buildLiveInterviewInstructions(context, actorContext) {
     'Keep each turn concise. Use sparse, natural backchannels only when they do not steal the floor.',
     'QUESTION POOL POLICY: Use selected questions in the exact listed order. Ask each selected base question once before repeating or substituting another base question. Follow-ups must be grounded in the applicant answer or authorized application context. A follow-up does not consume a base-question slot.',
     'If a selected question has no canonical text, identify the missing question data and do not invent a replacement.',
+    ...(normalized.interviewerStyle ? [
+      `INTERVIEWER STYLE: ${normalized.interviewerStyle} — ${INTERVIEWER_STYLE_GUIDANCE[normalized.interviewerStyle]}. Apply this to delivery and follow-up phrasing, not to inference about the applicant. Style does not enable pressure practice; the pressure modifier below remains separate.`,
+    ] : []),
     normalized.pressurePractice
       ? 'PRESSURE MODIFIER: Be direct and appropriately skeptical, while remaining professional. This modifies follow-up intensity; it does not change interviewer identity.'
       : 'PRESSURE MODIFIER: Off. Maintain the selected interviewer identity and a realistic, supportive level of challenge.',

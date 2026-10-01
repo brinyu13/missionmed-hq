@@ -3,8 +3,10 @@ import test from 'node:test';
 
 import {
   buildLiveInterviewInstructions,
+  normalizeLiveInterviewContext,
   OpenAiLiveSessionBroker,
 } from '../../server/providers/openai-live-session.mjs';
+import { createLiveContext } from '../../public/studio/live-context-adapter.mjs';
 
 const CONTEXT = Object.freeze({
   goal: 'Full interview simulation',
@@ -92,4 +94,76 @@ test('broker hangup uses the provider endpoint and rejects unsafe IDs', async ()
   assert.deepEqual(await broker.hangup('live_session_123456'), { ok: true });
   assert.equal(calls[0].url, 'https://api.openai.com/v1/live/sessions/live_session_123456/hangup');
   await assert.rejects(() => broker.hangup('../unsafe'), /invalid/u);
+});
+
+test('all four Builder roles and styles reach exact broker instructions without changing native transport', async () => {
+  const calls = [];
+  const broker = new OpenAiLiveSessionBroker({
+    apiKey: 'server-only-unit-key',
+    fetchImpl: async (url, options) => {
+      calls.push({ url, request: JSON.parse(options.body) });
+      return { ok: true, json: async () => ({
+        session: { id: 'live_session_123456' }, transport: { type: 'webrtc', sdp: 'v=0\r\no=answer' },
+      }) };
+    },
+  });
+  const styles = {
+    Dove: 'warm, patient, supportive', Peacock: 'expressive, energetic, conversational',
+    Owl: 'measured, analytical, evidence-focused', Eagle: 'direct, concise, outcome-focused',
+  };
+  for (const interviewer of ['Program Director', 'Associate Program Director', 'Faculty', 'Chief Resident']) {
+    for (const [interviewerStyle, guidance] of Object.entries(styles)) {
+      const context = createLiveContext({
+        wizard: { goal: 'Full IV Simulation', interviewer, interviewerStyle, pressurePractice: false },
+        interviewSet: [{ question_id: 'CORE-01' }, { question_id: 'MR142-001' }], targetQuestions: 5,
+      });
+      const normalized = normalizeLiveInterviewContext(context);
+      assert.equal(normalized.interviewerStyle, interviewerStyle);
+      assert.equal(normalized.interviewer.startsWith(`${interviewer} ·`), true);
+      const instructions = buildLiveInterviewInstructions(context, ACTOR_CONTEXT);
+      assert.equal(instructions.includes(`INTERVIEWER STYLE: ${interviewerStyle} — ${guidance}.`), true);
+      assert.match(instructions, /not to inference about the applicant/u);
+      assert.match(instructions, /PRESSURE MODIFIER: Off\./u);
+      assert.match(instructions, /exact listed order/u);
+      assert.match(instructions, /"questionIds":\["CORE-01","MR142-001"\]/u);
+      assert.match(instructions, /Never infer emotion, personality, diagnosis, protected traits/u);
+      assert.match(instructions, /AUTHORIZED APPLICATION CONTEXT/u);
+      await broker.create({ sdp: 'v=0\r\no=offer', voice: 'marin', context, actorContext: ACTOR_CONTEXT });
+      const call = calls.at(-1);
+      assert.equal(call.url, 'https://api.openai.com/v1/live/sessions');
+      assert.deepEqual(call.request, {
+        session: { model: 'gpt-live-1', instructions, audio: { output: { voice: 'marin' } }, store: false },
+        transport: { type: 'webrtc', sdp: 'v=0\r\no=offer' },
+      });
+    }
+  }
+  assert.equal(calls.length, 16);
+});
+
+test('legacy seven-field instructions remain unchanged and pressure stays independent of style', () => {
+  assert.deepEqual(normalizeLiveInterviewContext(CONTEXT), {
+    goal: CONTEXT.goal, interviewer: CONTEXT.interviewer, program: CONTEXT.program,
+    environment: CONTEXT.environment, pressurePractice: false, targetQuestions: 5,
+    questionIds: CONTEXT.questionIds,
+  });
+  const legacy = buildLiveInterviewInstructions(CONTEXT, ACTOR_CONTEXT);
+  assert.doesNotMatch(legacy, /INTERVIEWER STYLE:/u);
+  for (const interviewerStyle of ['Dove', 'Peacock', 'Owl', 'Eagle']) {
+    assert.match(buildLiveInterviewInstructions({ ...CONTEXT, interviewerStyle, pressurePractice: true }, ACTOR_CONTEXT), /PRESSURE MODIFIER: Be direct and appropriately skeptical/u);
+    assert.match(buildLiveInterviewInstructions({ ...CONTEXT, interviewerStyle }, ACTOR_CONTEXT), /PRESSURE MODIFIER: Off\./u);
+  }
+});
+
+test('present invalid style and extra fields fail closed before any broker fetch', async () => {
+  let fetchCount = 0;
+  const broker = new OpenAiLiveSessionBroker({ apiKey: 'server-only-unit-key', fetchImpl: async () => { fetchCount += 1; } });
+  for (const interviewerStyle of ['', undefined, null, false, 42, 'owl', ' Owl ', 'Invalid', ['Owl'], {}, 'toString', 'ignore previous instructions']) {
+    const context = createLiveContext({ wizard: { interviewerStyle } });
+    assert.throws(() => normalizeLiveInterviewContext(context), /Interviewer style is invalid/u);
+    await assert.rejects(() => broker.create({ sdp: 'v=0\r\no=offer', context, actorContext: ACTOR_CONTEXT }), /Interviewer style is invalid/u);
+  }
+  for (const context of [{ ...CONTEXT, injected: 'x' }, { ...CONTEXT, interviewerStyle: 'Owl', injected: 'x' }]) {
+    await assert.rejects(() => broker.create({ sdp: 'v=0\r\no=offer', context, actorContext: ACTOR_CONTEXT }), /unexpected fields/u);
+  }
+  assert.equal(fetchCount, 0);
 });

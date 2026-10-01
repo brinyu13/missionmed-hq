@@ -6,6 +6,7 @@ const GOALS = Object.freeze({
 
 const INTERVIEWERS = Object.freeze({
   'Program Director': 'Program Director · balanced',
+  'Associate Program Director': 'Associate Program Director · balanced',
   Faculty: 'Faculty · conversational',
   'Chief Resident': 'Chief Resident · warm',
 });
@@ -22,6 +23,7 @@ export function createLiveContext({ wizard = {}, interviewSet = [], targetQuesti
     goal: GOALS[wizard.goal] || 'Residency interview practice',
     questionIds: Object.freeze(interviewSet.map((question) => question?.question_id).filter(Boolean).slice(0, 30)),
     interviewer: INTERVIEWERS[wizard.interviewer] || 'Program Director · balanced',
+    ...(Object.hasOwn(wizard, 'interviewerStyle') ? { interviewerStyle: wizard.interviewerStyle } : {}),
     pressurePractice: wizard.pressurePractice === true,
     program: 'General residency interview',
     environment: wizard.analyticsEnabled === true
