@@ -53,6 +53,13 @@ export function projectAdminStudentLibrary(payload = {}) {
 export class AdminStudentLibraryCapability {
   constructor({ api = new IvocApi() } = {}) { this.api = api; }
   async overview() { return projectAdminStudentLibrary(await this.api.library('all')); }
+  async comparisonSessions(subject) {
+    const selected = text(subject);
+    if (!selected) throw new Error('ivoc_student_required');
+    const payload = await this.api.library('all');
+    return (Array.isArray(payload?.sessions) ? payload.sessions : [])
+      .filter((session) => session?.ownerSubject === selected);
+  }
   async session(sessionId) {
     const id = text(sessionId);
     if (!id) throw new Error('ivoc_session_required');

@@ -5,8 +5,9 @@ import { attemptSnapshot, buildLongitudinalModel, compareAttempts } from '../../
 
 const saved = ({ id, endedAt, questionId, duration = 8_000, level = -28, clipping = 0, maturity = 'VALIDATED_STUDENT_SAFE' }) => ({
   id, state: 'saved', endedAt, questionId, questionText: `Question ${questionId}`,
+  sessionType: 'question', interviewerProvider: 'missionmed-static',
   recording: { durationMs: duration },
-  results: { payload: { analytics: {
+  results: { schema: 'ivoc.analytics.v1', schemaVersion: 1, payload: { analytics: {
     modalities: { mic: { coverage: .9 }, camera: { coverage: .6 } },
     studentEvents: [
       { metric: 'answer_duration_ms', maturity, observation: { value: duration, unit: 'ms' } },
@@ -40,4 +41,29 @@ test('pair comparison reports neutral signed deltas and missing evidence', () =>
   assert.equal(comparison.metrics.find((entry) => entry.key === 'answerDurationMs').delta, 2_500);
   assert.equal(comparison.metrics.find((entry) => entry.key === 'capturedLevelDbfs').delta, 3);
   assert.equal(compareAttempts(first, first), null);
+});
+
+test('comparison refuses unrelated questions, subjects, modes and changed evidence versions', () => {
+  const a = attemptSnapshot({ ...saved({ id: 'a', questionId: 'Q1' }), ownerSubject: 'wp:1', sessionType: 'question', interviewerProvider: 'missionmed-static' });
+  const b = { ...a, id: 'b' };
+  assert.ok(compareAttempts(a, b));
+  for (const change of [
+    { questionId: 'Q2' }, { questionId: null }, { title: 'Revised question text' },
+    { ownerSubject: 'wp:2' }, { ownerSubject: null }, { sessionType: 'mock' },
+    { interviewerProvider: 'openai-gpt-live' }, { evidenceVersion: 'new-version' },
+  ]) assert.equal(compareAttempts(a, { ...b, ...change }), null);
+  const missing = compareAttempts(a, { ...b, metrics: { ...b.metrics, capturedLevelDbfs: null } });
+  assert.equal(missing.metrics.find((metric) => metric.key === 'capturedLevelDbfs').delta, null);
+});
+
+test('two unknown modes or evidence versions are not proof of compatibility', () => {
+  const source = saved({ id: 'a', questionId: 'Q1' });
+  for (const change of [
+    { sessionType: null }, { interviewerProvider: null },
+    { results: { ...source.results, schema: null } },
+    { results: { ...source.results, schemaVersion: null } },
+  ]) {
+    const a = attemptSnapshot({ ...source, ...change });
+    assert.equal(compareAttempts(a, { ...a, id: 'b' }), null);
+  }
 });

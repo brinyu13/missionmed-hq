@@ -9,6 +9,7 @@ import {
   buildPracticeEntryIntent,
   resolveAdminStudentSelection,
   buildAdminStudentProgress,
+  buildComparisonSelection,
   interviewerPresenceCopy,
   buildHomeViewModel,
   buildIdentityViewModel,
@@ -28,6 +29,20 @@ import { publicAdmissionState } from '../../server/admission-contract.mjs';
 import { summarizeVideoFramePixels } from '../../public/studio/media-analytics-capability.mjs';
 
 const row = (rows, label) => rows.find(([name]) => name === label);
+
+test('comparison retains the reviewed stable ID and selects only an earlier compatible baseline', () => {
+  const attempt = (id, questionId, at) => ({ id, questionId, title: questionId, at,
+    sessionType: 'question', interviewerProvider: 'missionmed-static', evidenceVersion: 'ivoc.analytics.v1:1::' });
+  const attempts = [attempt('new-other', 'Q2', 50), attempt('later', 'Q1', 40), attempt('reviewed', 'Q1', 30), attempt('earlier', 'Q1', 20)];
+  const view = buildComparisonSelection(attempts, { currentId: 'reviewed', baselineId: 'new-other' });
+  assert.equal(view.current.id, 'reviewed');
+  assert.equal(view.baseline.id, 'earlier');
+  assert.deepEqual(view.eligible.map((entry) => entry.id), ['earlier']);
+  assert.equal(buildComparisonSelection([...attempts].reverse(), { currentId: 'reviewed', baselineId: 'earlier' }).baseline.id, 'earlier');
+  assert.equal(buildComparisonSelection(attempts, { currentId: 'new-other' }).baseline, null);
+  assert.equal(buildComparisonSelection([attempts[2]]).baseline, null);
+  assert.equal(buildComparisonSelection([]).current, null);
+});
 
 test('actual pool summary refresh synchronizes the visible target with current practice intent', () => {
   const source = readFileSync(new URL('../../public/studio/studio.mjs', import.meta.url), 'utf8');

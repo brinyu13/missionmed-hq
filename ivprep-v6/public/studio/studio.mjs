@@ -45,6 +45,7 @@ import {
   buildPracticeEntryIntent,
   resolveAdminStudentSelection,
   buildAdminStudentProgress,
+  buildComparisonSelection,
   interviewerPresenceCopy,
   buildHomeViewModel,
   buildIdentityViewModel,
@@ -128,7 +129,7 @@ const state = {
   conversationRecording: null,
   longitudinal: null,
   longitudinalPromise: null,
-  comparePair: [0, 1],
+  comparePair: { currentId: null, baselineId: null, scope: null },
   governedQuestions: [],
   adminOverview: null,
   adminControls: null,
@@ -180,6 +181,9 @@ function applyRole(role) {
     state.adminMentorControls?.destroy();
     state.adminMentorControls = null;
     state.adminCreditSubject = null;
+    state.comparePair = { currentId: null, baselineId: null, scope: null };
+    ++compareRenderId;
+    $('#compare-body')?.replaceChildren();
     state.role = nextRole;
     if (hadAdminReview) {
       clearAdminReviewMedia($('#playback'), state.filmGroups);
@@ -189,7 +193,7 @@ function applyRole(role) {
       renderContextEvidence({ transcript: { status: 'UNAVAILABLE', reason: 'NO_SELECTED_ANSWER' } });
     }
     if (state.view === 'mentor' || (hadAdminReview
-      && (state.view === 'postanswer' || state.view === 'filmroom'))) setView('vault');
+      && ['postanswer', 'filmroom', 'compare'].includes(state.view))) setView('vault');
   }
   state.role = nextRole;
   document.body.dataset.role = state.role;
@@ -214,6 +218,9 @@ function applyRole(role) {
 function setView(view, { focus = false } = {}) {
   view = resolveReviewDestination(view, state.lastSaved);
   if (!CRUMBS[view]) return;
+  if (view === 'compare' && state.view !== 'compare') {
+    state.comparePair = { currentId: state.lastSaved?.session?.id || null, baselineId: null, scope: null };
+  }
   if (view !== 'simulation' && state.view === 'simulation'
     && (preserveInterviewLifecycle(state.session.state) || roomModel().phase === 'save-error')) {
     $('#simulation-save').textContent = 'End and save this interview before leaving the room.';
@@ -2647,31 +2654,72 @@ async function renderLongitudinal() {
   }
 }
 
+let compareRenderId = 0;
+
 async function renderCompare() {
   const host = $('#compare-body');
   if (!host) return;
+  const renderId = ++compareRenderId;
+  const saved = state.lastSaved;
+  const adminReview = isAdminReview(saved);
+  const role = state.role;
+  const subject = adminReview ? saved?.session?.ownerSubject : state.admission?.identity?.subject;
+  const scope = `${adminReview ? 'admin' : 'own'}:${subject || ''}`;
+  const isCurrent = () => renderId === compareRenderId && state.view === 'compare'
+    && state.role === role && state.lastSaved === saved;
+  host.replaceChildren(el('p', 'microcap', 'Loading saved attempts…'));
   try {
-    const model = await longitudinalModel();
-    if (model.attempts.length < 2) {
-      emptyEvidence(host, 'Needs two saved attempts', 'Your authenticated Answer History supplies the attempts. No pairwise delta is shown until two real saved answers exist.');
+    if (adminReview && (role !== 'admin' || !subject)) throw new Error('Select an authorized student first.');
+    const model = adminReview
+      ? buildLongitudinalModel(await state.adminLibrary.comparisonSessions(subject))
+      : await longitudinalModel();
+    if (!isCurrent()) return;
+    if (!model.attempts.length) {
+      emptyEvidence(host, 'No saved attempts to compare', 'Save an answer, retry that question, then return to compare your evidence.');
       return;
     }
-    const makeSelect = (selected, otherIndex) => {
+    const selection = buildComparisonSelection(model.attempts, {
+      currentId: state.comparePair.scope && state.comparePair.scope !== scope ? saved?.session?.id : state.comparePair.currentId,
+      baselineId: state.comparePair.scope === scope ? state.comparePair.baselineId : null,
+    });
+    state.comparePair = { currentId: selection.current.id, baselineId: selection.baseline?.id || null, scope };
+    const makeSelect = (attempts, selected, label) => {
+      const wrapper = el('label', '');
+      wrapper.append(el('span', 'microcap', label));
       const select = document.createElement('select'); select.className = 'q-search';
-      model.attempts.forEach((attempt, index) => {
-        const option = document.createElement('option'); option.value = String(index);
-        option.textContent = `${attempt.title} · ${attempt.at === null ? 'date unavailable' : new Date(attempt.at).toLocaleDateString()}`;
-        option.selected = index === selected; option.disabled = index === otherIndex; select.append(option);
+      select.setAttribute('aria-label', label);
+      attempts.forEach((attempt) => {
+        const option = document.createElement('option'); option.value = attempt.id;
+        option.textContent = `${attempt.title} · ${attempt.at === null ? 'date unavailable' : new Date(attempt.at).toLocaleString()} · ${attempt.id.slice(0, 8)}`;
+        select.append(option);
       });
-      return select;
+      if (!attempts.length) {
+        const option = el('option', '', 'No earlier comparable attempt'); option.value = ''; select.append(option);
+      }
+      select.value = selected || ''; select.disabled = !attempts.length;
+      wrapper.append(select);
+      return { wrapper, select };
     };
     const selectors = document.createElement('div'); selectors.className = 'compare-selectors';
-    const left = makeSelect(state.comparePair[0], state.comparePair[1]);
-    const right = makeSelect(state.comparePair[1], state.comparePair[0]);
-    const bind = (select, slot) => select.addEventListener('change', () => { state.comparePair[slot] = Number(select.value); void renderCompare(); });
-    bind(left, 0); bind(right, 1); selectors.append(left, right);
-    const comparison = compareAttempts(model.attempts[state.comparePair[0]], model.attempts[state.comparePair[1]]);
+    const left = makeSelect(selection.eligible, selection.baseline?.id, 'Earlier attempt');
+    const right = makeSelect(model.attempts, selection.current.id, 'Selected attempt');
+    left.select.addEventListener('change', () => { state.comparePair.baselineId = left.select.value; void renderCompare(); });
+    right.select.addEventListener('change', () => { state.comparePair.currentId = right.select.value; state.comparePair.baselineId = null; void renderCompare(); });
+    selectors.append(left.wrapper, right.wrapper);
+    const heading = el('p', 'microcap', adminReview
+      ? `Student · ${saved.session.ownerDisplayName || subject}` : 'Your saved attempts');
+    const comparison = compareAttempts(selection.baseline, selection.current);
+    if (!comparison) {
+      const message = el('div', 'empty-state');
+      message.append(el('strong', '', 'No earlier comparable attempt'),
+        document.createTextNode('Retry this question in the same interview mode, then compare the two saved attempts. Different questions, modes or evidence versions are not shown as progress.'));
+      host.replaceChildren(heading, selectors, message);
+      return;
+    }
     const table = document.createElement('div'); table.className = 'compare-table';
+    const headers = el('div', 'compare-row');
+    for (const title of ['Recorded evidence', 'Earlier attempt', 'Selected attempt', 'Change']) headers.append(el('strong', '', title));
+    table.append(headers);
     for (const metric of comparison.metrics) {
       const row = document.createElement('div'); row.className = 'compare-row';
       const label = document.createElement('strong'); label.textContent = metric.label;
@@ -2681,9 +2729,10 @@ async function renderCompare() {
       row.append(label, before, after, delta); table.append(row);
     }
     const note = document.createElement('p'); note.className = 'microcap long-note';
-    note.textContent = 'Signed deltas are descriptive, not good/bad judgments. Captured mic level is device signal, not calibrated loudness.';
-    host.replaceChildren(selectors, table, note);
+    note.textContent = 'Same question and recording mode. Signed changes describe recorded signals, not answer quality. Captured mic level varies with device and setup; it is not calibrated loudness.';
+    host.replaceChildren(heading, selectors, table, note);
   } catch (error) {
+    if (!isCurrent()) return;
     emptyEvidence(host, 'Comparison unavailable', String(error?.message || 'Authenticated Answer History required').toUpperCase().slice(0, 120));
   }
 }

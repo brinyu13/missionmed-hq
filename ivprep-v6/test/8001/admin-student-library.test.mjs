@@ -54,3 +54,18 @@ test('Admin capability uses only the stable library, detail and signed-playback 
     ['library', 'all'], ['session', 'session-1'], ['playback', 'recording-1'],
   ]);
 });
+
+test('selected-student comparison never substitutes the actor or an unattributed session', async () => {
+  const calls = [];
+  const selected = { id: 'student-attempt', ownerSubject: 'wp:142', results: { payload: { analytics: {} } } };
+  const capability = new AdminStudentLibraryCapability({ api: {
+    library: async (scope) => {
+      calls.push(scope);
+      return { sessions: [selected, { id: 'actor-attempt', ownerSubject: 'wp:1' }, { id: 'unknown' }] };
+    },
+  } });
+  assert.deepEqual(await capability.comparisonSessions('wp:142'), [selected]);
+  assert.deepEqual(await capability.comparisonSessions('wp:999'), []);
+  await assert.rejects(capability.comparisonSessions(''), /ivoc_student_required/);
+  assert.deepEqual(calls, ['all', 'all']);
+});

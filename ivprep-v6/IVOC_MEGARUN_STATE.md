@@ -14,6 +14,38 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **2026-10-01 interview-season convergence is ACTIVE:** the Founder brief
+  `IVOC_INTERVIEW_SEASON_FOREMAN_EXECUTION.md` governs continuation under the
+  existing mission. Current source custody is `54c11466` on the registered
+  isolated worktree/branch; runtime remains `017256f` / `f43b1d5d`. Fresh normal
+  Matrix entry authenticated genuine `wp:1` Founder/Admin. Student presentation
+  is not a Student-role acceptance. No competing product writer was active.
+  Actual GPT-6 Astra read-only experience review and separate Codex teaching
+  reviewer (disclosed substitute for unavailable Fable) reopened executable work.
+- **R1 training-loop fixes in progress:** production Admin comparison switched
+  selected `wp:142` history to the actor's own attempts; own nonlatest Results
+  comparison also lost the reviewed question and permitted unlike-question deltas.
+  The source correction filters Admin history to its authorized subject, seeds
+  stable reviewed ID, restricts earlier baselines to matching question text/ID,
+  mode/provider and known evidence version, and rejects stale role/render results.
+  Unknown mode/version is not compatibility. 34 focused tests pass; independent
+  review and deployed POV remain separate gates. Healthy `f43b1d5d` is the exact
+  source/image/config rollback identity for this candidate.
+- **Remaining executable R1 teaching/usability gaps:** evidence references need
+  bounded seek-only replay links; exact-question retry must preserve question,
+  goal and authorized refreshed context; lexical filler candidates must not be
+  asserted as actual disfluencies; confidence must not be labeled measured
+  transcript coverage. Contrast fixtures and independent F/U/T acceptance remain.
+  These invalidate the earlier engineering-exhausted conclusion below.
+- **Retained scope after R1:** R2 application/program hydration; R3 teaching,
+  progress and demonstrated curriculum gaps without rewriting 193 immutable seed
+  IDs; R4 embodiment preparation with paid execution waiting on a bounded numeric
+  spend grant and current OS reconciliation; R5 retained-product completion.
+  The new Founder brief reopens LemonSlice planning, not implicit paid execution
+  under the older deferred OS authority. No architecture restart or provider
+  bake-off. Real human speech/audible two-sided replay, genuine role canaries,
+  positive owner documents/stories, recurrence and completed Webex remain
+  event-driven evidence waits; they do not stop independent engineering.
 - **Latest verified runtime:** source `017256f37b407254836ab68fe5bb39ae3570cf41`,
   deployment `f43b1d5d-5b50-49c6-a1ef-2aca25e9e9ac` SUCCESS, image
   `sha256:91bcd63c04d90a30116f08b0261702cce481dbbf2aea3eda9676e115282b675b`,
@@ -33,7 +65,7 @@ the actual production route and deployment.
   removed the canary from Home. Append-only history preserved; no other student
   record changed. This is presentation/own-projection acceptance, NOT genuine
   Student-role denial or a spoken application-aware interview proof.
-- **Current remaining boundary, no completion claim:** the bounded fresh
+- **Historical pre-convergence boundary, superseded above:** the bounded fresh
   non-builder inspection has no remaining executable FAIL in the corrected
   paths. Full A/B/C/D journey acceptance is still UNVERIFIED where below:
   real human candidate speech + follow-up response + physical barge-in/next
@@ -922,7 +954,7 @@ the actual production route and deployment.
 | 10 | Match Bridge bounded consented clip seam | LIVE VERIFIED | Real saved `CORE-01` media was bound only to a 0–14 s answer range, promoted from private v1 to consented `match_bridge_ready` v2, then revoked at v3. Whole-mock sharing remains prohibited by the contract; cross-product pickup is an external owner integration, not an IVOC clip-seam gap. |
 | 11 | Structured evidence-to-coaching pipeline | LIVE VERIFIED | Deployment `68a57f16…` accepted real sealed session `4571e86c-3d99-4ba4-bf19-bee1f972a699`, rendered transcript-cited semantic observations, and persisted one answer-structure plus two confidence-bounded coaching-pattern rows. Canonical readback proved object-shaped `score.value=0.02`, eight segment references per row and clean cold-reload synthesis. |
 | 11 | Assessments, strongest moments, improvements, drills, confidence/limitations | LIVE VERIFIED | Production Admin `wp:1` cold-opened saved session `0d250e0c-1011-48bc-a416-f9ae4c2c735f` after deployment `cd7195da…`; the live Results surface reconstructed four cited observations, strongest Structure, Specificity improvement, the cited next drill, MODERATE confidence, 61% score, 90% coverage and explicit limitations without a provider re-call. |
-| 12 | Longitudinal metrics, deltas, filters and prior-self comparison | LIVE VERIFIED | Evidence-backed Progress, Compare and Performance Intelligence shipped at 30fb859 and remain present in 84e750e; live authenticated readback proved honest single-attempt gating and measured duration/volume evidence. |
+| 12 | Longitudinal metrics, deltas, filters and prior-self comparison | REOPENED F/U/T | Current independent production POV found wrong selected-subject/question comparison. Stable-ID, subject-bound, compatible earlier-attempt correction is in progress; unrelated previously measured Progress evidence remains ratcheted. |
 | 13 | Admin View / Student View presentation switch without impersonation | LIVE VERIFIED | Authenticated production `wp:1` switched Student → Admin while retaining the same actor/subject identity; Admin-only navigation and diagnostics appeared without impersonating another user. |
 | 13 | Student selector, libraries, Results, Film Room, Progress and Top 3 | LIVE VERIFIED | Production Admin `wp:1` selected the authorized student library, traversed Results and transcript-backed Film Room, and played the signed private recording. Student view hid the selector without actor impersonation. Top 3, Progress and longitudinal views retain their separately accepted evidence. |
 | 13 | Usage/credits, Settings, AI controls, question governance, Match Bridge and Live Mock status | LIVE VERIFIED | Authenticated production `wp:1` visibly read policy v3, `ivoc.analytics.v1`, `gpt-live-1:marin`, follow-up intensity 1, credit account v11, governed catalog status, Match Bridge readiness, owner-projection requirements, deferred LemonSlice and `SCHEDULER CONNECTED · 11 WEBEX` through the candidate.2 Admin surface. |

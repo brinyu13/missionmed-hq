@@ -1,4 +1,14 @@
-import { buildLongitudinalModel } from './longitudinal-model.mjs';
+import { buildLongitudinalModel, canCompareAttempts } from './longitudinal-model.mjs';
+
+// Stable IDs keep the reviewed answer selected when history is reordered or refreshed.
+// Baselines are earlier attempts at the same question in the same recording mode.
+export function buildComparisonSelection(attempts = [], { currentId = null, baselineId = null } = {}) {
+  const current = attempts.find((attempt) => attempt.id === currentId) || attempts[0] || null;
+  const eligible = attempts.filter((attempt) => canCompareAttempts(attempt, current)
+    && attempt.at !== null && current.at !== null && attempt.at <= current.at);
+  const baseline = eligible.find((attempt) => attempt.id === baselineId) || eligible[0] || null;
+  return Object.freeze({ current, baseline, eligible: Object.freeze(eligible) });
+}
 
 const readyMetric = (metrics, key) => metrics?.[key]?.available === true;
 

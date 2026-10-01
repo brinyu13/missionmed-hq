@@ -30,6 +30,12 @@ export function attemptSnapshot(session) {
     id: String(session.id || ''),
     title: String(session.questionText || session.title || session.questionId || 'Saved answer'),
     questionId: session.questionId || null,
+    ownerSubject: session.ownerSubject || null,
+    sessionType: session.sessionType || null,
+    interviewerProvider: session.interviewerProvider || null,
+    evidenceVersion: session.results?.schema && session.results?.schemaVersion
+      ? [session.results.schema, session.results.schemaVersion, analytics.schema || '', analytics.schemaVersion || ''].join(':')
+      : null,
     at,
     recordedMs: recordedMs === null ? null : Math.max(0, recordedMs),
     metrics: Object.freeze({
@@ -54,8 +60,18 @@ export function buildLongitudinalModel(sessions = []) {
   });
 }
 
+export function canCompareAttempts(left, right) {
+  return Boolean(left?.id && right?.id && left.id !== right.id
+    && left.questionId && left.questionId === right.questionId
+    && left.title === right.title
+    && left.ownerSubject === right.ownerSubject
+    && left.sessionType && left.sessionType === right.sessionType
+    && left.interviewerProvider && left.interviewerProvider === right.interviewerProvider
+    && left.evidenceVersion && left.evidenceVersion === right.evidenceVersion);
+}
+
 export function compareAttempts(left, right) {
-  if (!left || !right || left.id === right.id) return null;
+  if (!canCompareAttempts(left, right)) return null;
   const metrics = [
     ['answerDurationMs', 'Answer duration', 'ms'],
     ['capturedLevelDbfs', 'Captured mic level', 'dBFS'],
