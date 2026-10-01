@@ -122,6 +122,24 @@ export function programSearchFailureCopy(error) {
     : 'Verified program search is temporarily unavailable. You can continue with a manual entry; no unverified program facts will be used.';
 }
 
+export function buildBuilderLaunchLabel({ mode = 'ai', devicesReady = false } = {}) {
+  if (!devicesReady) return 'Continue to device calibration ▸';
+  return mode === 'practice'
+    ? 'Review devices and begin practice ▸'
+    : 'Review devices and start AI interview ▸';
+}
+
+export function buildResultsNextAction({ reviewScope = null, interviewerProvider = null, launchMode = 'practice' } = {}) {
+  if (reviewScope === 'admin') {
+    return Object.freeze({ label: 'Back to student library ▸', destination: 'mentor', launchMode: null });
+  }
+  const aiInterview = interviewerProvider === 'openai-gpt-live'
+    || (interviewerProvider == null && launchMode === 'ai');
+  return aiInterview
+    ? Object.freeze({ label: 'Plan another AI interview ▸', destination: 'newsession', launchMode: 'ai' })
+    : Object.freeze({ label: 'Practice another question ▸', destination: 'training', launchMode: 'practice' });
+}
+
 export function buildHomeViewModel({ identity = null, sessions = [], mentorPriorities = null } = {}) {
   const { initials, greetingName } = buildIdentityViewModel(identity);
   const latest = [...sessions]

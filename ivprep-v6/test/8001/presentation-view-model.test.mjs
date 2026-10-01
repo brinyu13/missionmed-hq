@@ -11,11 +11,31 @@ import {
   reviewEvidenceCopy,
   buildQuestionPoolBulkAction,
   programSearchFailureCopy,
+  buildBuilderLaunchLabel,
+  buildResultsNextAction,
 } from '../../public/studio/presentation-view-model.mjs';
 import { publicAdmissionState } from '../../server/admission-contract.mjs';
 import { summarizeVideoFramePixels } from '../../public/studio/media-analytics-capability.mjs';
 
 const row = (rows, label) => rows.find(([name]) => name === label);
+
+test('builder promises device review before either launch mode', () => {
+  assert.equal(buildBuilderLaunchLabel({ mode: 'ai', devicesReady: true }), 'Review devices and start AI interview ▸');
+  assert.equal(buildBuilderLaunchLabel({ mode: 'practice', devicesReady: true }), 'Review devices and begin practice ▸');
+  assert.equal(buildBuilderLaunchLabel({ mode: 'ai', devicesReady: false }), 'Continue to device calibration ▸');
+});
+
+test('Results continuation follows the saved interview mode and Admin review scope', () => {
+  assert.deepEqual(buildResultsNextAction({ interviewerProvider: 'openai-gpt-live', launchMode: 'practice' }), {
+    label: 'Plan another AI interview ▸', destination: 'newsession', launchMode: 'ai',
+  });
+  assert.deepEqual(buildResultsNextAction({ interviewerProvider: 'missionmed-static', launchMode: 'ai' }), {
+    label: 'Practice another question ▸', destination: 'training', launchMode: 'practice',
+  });
+  assert.deepEqual(buildResultsNextAction({ reviewScope: 'admin', interviewerProvider: 'openai-gpt-live' }), {
+    label: 'Back to student library ▸', destination: 'mentor', launchMode: null,
+  });
+});
 
 test('connected devices do not become measured readiness without per-signal evidence', () => {
   const rows = buildReadinessRows({ media: { cam: true, mic: true }, metrics: {} });

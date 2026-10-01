@@ -51,6 +51,8 @@ import {
   reviewEvidenceCopy,
   buildQuestionPoolBulkAction,
   programSearchFailureCopy,
+  buildBuilderLaunchLabel,
+  buildResultsNextAction,
 } from './presentation-view-model.mjs';
 import { clearAdminReviewMedia, createAdminReviewGate, isAdminReview, mayPresentSavedReview, resolveReviewDestination } from './review-scope.mjs';
 
@@ -1419,13 +1421,13 @@ function renderWizard() {
     go.className = 'btn btn-primary';
     go.type = 'button';
     go.disabled = !state.interviewSet.length;
-    go.innerHTML = `<span>${devicesReady ? 'Enter AI Interview Room ▸' : 'Continue to device calibration ▸'}</span>`;
+    go.innerHTML = `<span>${buildBuilderLaunchLabel({ mode: 'ai', devicesReady })}</span>`;
     go.addEventListener('click', () => launch('ai'));
     const practice = document.createElement('button');
     practice.className = 'btn btn-secondary';
     practice.type = 'button';
     practice.disabled = !state.interviewSet.length;
-    practice.innerHTML = `<span>${devicesReady ? 'Open coached practice' : 'Calibrate for coached practice'}</span>`;
+    practice.innerHTML = `<span>${buildBuilderLaunchLabel({ mode: 'practice', devicesReady })}</span>`;
     practice.addEventListener('click', () => launch('practice'));
     const back = document.createElement('button');
     back.className = 'btn btn-quiet';
@@ -2968,6 +2970,19 @@ function renderLoadoutConfig() {
 
 function renderPostAnswer(analytics = null) {
   const adminReview = state.role === 'admin' && state.lastSaved?.reviewScope === 'admin';
+  const reviewedSession = state.lastSaved?.sessionDetail?.session || state.lastSaved?.session || null;
+  const nextAction = buildResultsNextAction({
+    reviewScope: state.lastSaved?.reviewScope,
+    interviewerProvider: reviewedSession?.interviewerProvider,
+    launchMode: state.launchMode,
+  });
+  const nextButton = $('#post-next-action');
+  if (nextButton) {
+    nextButton.dataset.goto = nextAction.destination;
+    if (nextAction.launchMode) nextButton.dataset.launchMode = nextAction.launchMode;
+    else delete nextButton.dataset.launchMode;
+    nextButton.querySelector('span').textContent = nextAction.label;
+  }
   const provenance = $('#post-provenance');
   if (provenance) {
     const detailSession = state.lastSaved?.sessionDetail?.session || null;
