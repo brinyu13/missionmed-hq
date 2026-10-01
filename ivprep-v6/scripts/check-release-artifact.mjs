@@ -8,7 +8,9 @@ import { fileURLToPath } from 'node:url';
 // DR-350: same tracked-source staging pattern as the MissionMed DR-133 release.
 // No local/untracked inputs and no --no-gitignore. Railway's custom ignore file
 // takes precedence over Git ignore rules. Nested Git rules remain in scope.
-export const releaseRoots = ['.gitignore', '.railwayignore', 'package.json', 'package-lock.json', 'railway.json', 'missionmed-hq', 'ivprep-v6', 'ivoc'];
+// Preserve the established whole-repository upload scope; filter tracked inputs
+// rather than silently dropping shared HQ-mounted surfaces outside IVOC roots.
+export const releaseRoots = ['.'];
 export const requiredRuntime = [
   'missionmed-hq/lib/auth/session-token.mjs',
   'missionmed-hq/lor-studio/security/faculty-candidate-credential-context.mjs',
@@ -61,7 +63,11 @@ export function releaseManifest(root) {
 export function prepareRelease(root) {
   if (git(root, ['status', '--porcelain']).trim()) throw new Error('RELEASE_DIRTY_SOURCE');
   const source = git(root, ['rev-parse', 'HEAD']).trim();
-  if (source !== git(root, ['rev-parse', '@{upstream}']).trim()) throw new Error('RELEASE_SOURCE_NOT_PUSHED');
+  const remote = git(root, ['config', '--get', `branch.${git(root, ['branch', '--show-current']).trim()}.remote`]).trim();
+  const ref = git(root, ['config', '--get', `branch.${git(root, ['branch', '--show-current']).trim()}.merge`]).trim();
+  if (!remote || remote === '.' || !ref.startsWith('refs/heads/')) throw new Error('RELEASE_REMOTE_NOT_CONFIGURED');
+  const actualRemote = git(root, ['ls-remote', '--exit-code', remote, ref]).trim().split(/\s+/)[0];
+  if (source !== actualRemote) throw new Error('RELEASE_SOURCE_NOT_PUSHED');
   const files = releaseManifest(root);
   const artifact = mkdtempSync(join(tmpdir(), 'ivoc-release-artifact-'));
   const stage = join(artifact, 'stage');
