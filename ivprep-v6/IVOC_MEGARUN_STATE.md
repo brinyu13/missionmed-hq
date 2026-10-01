@@ -14,6 +14,33 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **R4 inactive lifecycle preparation:** `022d72f` plus review correction
+  `5740d32` replace declarative flush flags with required acknowledged cancellation,
+  audio-flush and motion-flush effects. Pending/failed cleanup blocks new output;
+  failed cleanup retains audio ownership. Generations cannot be reused, the
+  session clock cannot regress, and only a normalized playback-sink-drained
+  acknowledgement releases audible ownership on normal completion. 20 focused
+  checks pass; independent correction review pending. No runtime hookup,
+  transport messages, provider creation, avatar assets or paid activation.
+  Native audio remains unchanged. Actual sink/transport bindings, avatar mapping,
+  deadline/cost integration and live A/V acceptance remain open R4 work.
+- **Teaching/evidence release live:** source `44f5404a9803eaf7353b29b69bac08a83929b2ff`,
+  deployment `50493273-5246-4aff-9e9a-097ae80abb96` SUCCESS, image
+  `sha256:0fa9f26f096f6e60ce803df8f312db1e81ced4151fc2b0597047aeb70c5b05d9`,
+  artifact `7181dd90d21dd46e005db73cc18ac46ac0bc9376dcedc847ee5970bcbf591f40`.
+  Both changed runtime hashes match source; health 200; anonymous product and
+  bootstrap 401. Epoch 4036 released normally; no schema/config changes. Rollback
+  is `5c39ac8` / `34c7a24d` with its recorded image/config, not a source reset.
+  One changed-vague synthetic semantic canary (6.959 s) now returns only cited
+  specificity/evidence/structure weaknesses, UNSUPPORTED stage and no brevity
+  praise. No student data/audio or DB writes; no numeric calibration claim.
+  Source-review epochs 4025/4034 released normally and provider-confirmed.
+  Independent visible-UI PASS: saved MR142-071 citations open its Film Room at
+  64.0 s paused; return preserves Results; Retry retains exact question/version,
+  one target, original Full goal and cited structure drill with fresh-context
+  warning. Actor `wp:1` Founder/Admin in Student presentation, not Student role.
+  Independent teaching PASS is limited to the changed synthetic output above;
+  no new speech, recording, audible playback or completed retry was claimed.
 - **Teaching contrast canary (synthetic, not student acceptance):** runtime
   `5c39ac8`, existing server-only `gpt-5.6-terra` semantic adapter, CORE-10 rev1;
   fixture SHA-256 `0c4dfdb83486333b0b43cb3d02c9a28ee56a9a1c85aa59f163a8f8aafaf6d037`.
@@ -1054,9 +1081,9 @@ the actual production route and deployment.
 | 16 | Per-question semantic Answer History | LIVE VERIFIED | After a cold production reload, authenticated `wp:1` selected “Supported semantic evidence” and the projection filtered 14 owner answers to the one CORE-01 answer with three persisted supported observations. The list remains question-bound and does not leak raw private interpretation data. |
 | 16 | Match Bridge Ready promotion with consent/audience/revocation/version | LIVE VERIFIED | Genuine `brinyu` production lifecycle used saved session `4571e86c-3d99-4ba4-bf19-bee1f972a699`: private v1 playback returned 200, explicit bounded-clip consent plus `student`/`match_bridge` audience produced v2, stale mutation returned 409, and owner revocation produced v3 with empty audience and playback 404. |
 | 17 | Provider-neutral embodiment adapter and Brain/session separation | LIVE VERIFIED | Production Admin readback returns `missionmed.ivoc.embodiment.v1`: MissionMed InterviewBrain is the Director, providers are Actor-only, students select profiles rather than engines, and the adapter contract requires one audio authority plus generation/response identities. |
-| 17 | Flush/interruption/motion contract, Admin preview and cost controls | LIVE UNVERIFIED | The deployed neutral gate rejects stale generations and regressing session-clock events, flushes audio/motion and cancels the provider response on interruption, and exposes Admin-only 45 s/no-retry/reservation controls. Real embodiment motion/preview execution remains unverified while external activation is deferred. |
+| 17 | Flush/interruption/motion contract, Admin preview and cost controls | REOPENED R4 / PROVIDER INACTIVE | The historical public contract declared flush/cancel flags but did not execute those effects. Current inactive candidate requires actual acknowledgements and correct sink-drain lifecycle (dated receipt above). Admin policy still exposes bounded 45 s/no-retry/reservation requirements; current production transport/sink wiring and real avatar acceptance remain unverified. |
 | 17 | Fictional 10–15 avatar configuration model | LIVE VERIFIED | Authenticated `brinyu` Admin readback returned 12 fictional profiles spanning Program Director, Faculty and Chief Resident with Dove/Peacock/Owl/Eagle styles; every entry explicitly forbids person cloning and carries no provider voice or avatar asset identity. |
-| 17 | Active LemonSlice provider integration | DEFERRED LEMONSLICE ONLY | Founder explicitly deferred active provider/spend. |
+| 17 | Active LemonSlice provider integration | R4 ACTIVE PREPARATION / PAID GATE WAITING | Interview-season Founder brief reopens this delivery lane. Software preparation proceeds; numeric provider allowance and current OS activation reconciliation remain required before provider creation. One bounded allowance question is outstanding; do not repeatedly ask or silently bill. |
 | 18 | Dr Brian/brinyu Admin and second authorized Admin | LIVE UNVERIFIED | `wp:1` Founder/Admin is live accepted. Current WordPress authority verifies `wp:107` (`brian_test`) as an administrator; the production IVOC allowlist and dedicated entitlement now include `wp:107`. Final acceptance still requires a genuine authenticated `wp:107` browser session; no session was forged. |
 | 18 | Entitled 360 student and non-entitled/revoked/expired denials | LIVE VERIFIED ENTRY / FULL ACCEPTANCE WAITING | Ordinary course-entitled `wp:142` authenticated as `subscriber`, loaded production Home and 193 questions after the static-module fix, and navigated AI Mock to Device Calibration with Founder/Admin controls absent. Negative-role/revoked/expired production identities and the full student media journey remain unverified. |
 | 18 | Wrong-role/wrong-mentor denial and actor/subject separation | LIVE UNVERIFIED | Requires authenticated production negative-path acceptance. |
