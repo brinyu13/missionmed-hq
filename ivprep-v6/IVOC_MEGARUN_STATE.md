@@ -14,6 +14,40 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Latest verified runtime:** source `017256f37b407254836ab68fe5bb39ae3570cf41`,
+  deployment `f43b1d5d-5b50-49c6-a1ef-2aca25e9e9ac` SUCCESS, image
+  `sha256:91bcd63c04d90a30116f08b0261702cce481dbbf2aea3eda9676e115282b675b`,
+  filtered artifact `4c73fcdbb4e1e8ac188941edcee3ca7b64be8d743dd85c3c57a46a1b6e3401d9`.
+  Exact runtime SSH hash matches source; health 200; anonymous product/bootstrap
+  401. Rollback source/image/config: `b623e722` / `ebb2776a` / `sha256:f85c0ba964eac2abe2852405a1e27b7be8c184c9a807f908da7caafd20fb6667`.
+  Deployment epoch 3928 released normally. Fresh non-builder visible UI PASS:
+  Home and sidebar one-question entry target 1; CORE-01 → readiness → review
+  Individual Question, target 1 in both summary and rail; distinct self/AI
+  device actions. Prior voice-copy, selected-student return and selected-student
+  Progress passes are ratcheted; no unchanged device/provider tests rerun.
+- **Mentor control production POV:** own account only, empty v3 → reversible
+  shared-priority/private-note canary v4 → restored empty v5. The shared priority
+  appeared on Student presentation Home and survived cold reload; private note
+  was absent from visible text and input DOM after Admin exit, then present only
+  in the authenticated Admin editor on return. Restoration read back v5 and
+  removed the canary from Home. Append-only history preserved; no other student
+  record changed. This is presentation/own-projection acceptance, NOT genuine
+  Student-role denial or a spoken application-aware interview proof.
+- **Current remaining boundary, no completion claim:** the bounded fresh
+  non-builder inspection has no remaining executable FAIL in the corrected
+  paths. Full A/B/C/D journey acceptance is still UNVERIFIED where below:
+  real human candidate speech + follow-up response + physical barge-in/next
+  question + actual audible two-sided replay after reload; genuine second
+  Admin/360/negative/wrong-owner sessions; authorized positive current CV and
+  approved stories; real recurrence; completed Scheduler/Webex recording.
+  Check only on the corresponding human/data/provider event, not repeated audits.
+  Ordinary-360 RISE delegated search remains owner-scoped authority waiting:
+  DR-322 preserves owner entitlement depth and expires on runtime/source drift,
+  while CURRENT still routes the projection mission as pre-build. Do not grant
+  RISE beta access, invent an API, or mutate shared auth to close this gate.
+  LemonSlice execution remains explicitly deferred. Next executable acceptance:
+  a genuine spoken AI mock through the now-working Founder UI, then listen to
+  both saved sides after cold reload; continue fix-forward on any new defect.
 - **Live fix-forward guardian:** source `b623e722a44e59bd8195d817f940f178c1782692`,
   Railway `ebb2776a-9b2a-4005-a89b-336cb95f5fad` SUCCESS, image
   `sha256:f85c0ba964eac2abe2852405a1e27b7be8c184c9a807f908da7caafd20fb6667`.
@@ -76,11 +110,12 @@ the actual production route and deployment.
   without mutation. Student presentation removes the Admin editors.
 - **Mentor Top 3 engineering:** Existing Admin GET/PUT supports authorized
   selected subjects, CAS, actor provenance and shared/private-note filtering,
-  but current production lacks an editor. The same guarded adapter boundary
+  and production now exposes the editor. The same guarded adapter boundary
   now exposes an ordered three-priority editor with explicit note visibility,
   stale-subject rejection and removal of private fields on Admin exit. Source
   acceptance: 43 focused tests and independent review PASS, including role/
-  subject races and saved-but-readback-unavailable copy. Deployment/POV pending;
+  subject races and saved-but-readback-unavailable copy. Live own-account
+  edit/save/privacy/restore acceptance is recorded above;
   no MCC API or owner storage was invented. Empty Top 3 copy no longer falsely
   requests a program selection; Admin owner readouts distinguish connector
   configuration from positive subject-data acceptance.
@@ -911,8 +946,8 @@ the actual production route and deployment.
 ## Current production and governance gates
 
 - Latest healthy MissionMed HQ production is Railway deployment
-  `7283667f-44f9-4dc4-8b94-90fc05a9ef60` from exact source
-  `77bd32605c6eeafef1654ce7eccfb6e0112dc098`; `/health` is HTTP 200,
+  `f43b1d5d-5b50-49c6-a1ef-2aca25e9e9ac` from exact runtime source
+  `017256f37b407254836ab68fe5bb39ae3570cf41`; `/health` is HTTP 200,
   anonymous product/bootstrap fail closed at HTTP 401, Founder allowlist is
   restored to `wp:1`, and Admin allowlist remains `wp:1,wp:107`. Railway edge
   404/502 intermittency during this rollout remains an operational sentinel.
