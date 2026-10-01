@@ -122,6 +122,24 @@ test('mock transcript never reaches semantic analysis', async () => {
   assert.equal(semanticCalls, 0);
 });
 
+test('short unsupported or unfinished answers do not earn concision strength', async () => {
+  for (const stage of ['UNSUPPORTED', 'EVIDENCE', 'COMPLETE']) {
+    const provider = createContextIntelligenceProvider({
+      transcriptionProvider: { transcribeAnswer: async () => realTranscript('I learned a lot and everything worked out well.') },
+      semanticProvider: { analyze: async () => ({ ...semantic(undefined, [
+        {facet:'concision',polarity:'strength',text:'The response is brief.',transcriptSegmentIds:['seg-1']},
+        {facet:'specificity',polarity:'weakness',text:'No specific actions are stated.',transcriptSegmentIds:['seg-1']},
+      ]), answerStage:{label:stage,score:.9} }) },
+    });
+    const result = await provider.analyze({sessionId,answerId,analyticsEvents:[analyticsEvent()],audio:Buffer.from('TEST DATA'),transcriptEnabled:true});
+    assert.equal(result.analysis.status,'AVAILABLE');
+    assert.equal(result.analysis.coachingPatterns.some(pattern=>pattern.facet==='concision'),stage==='COMPLETE');
+    assert.equal(result.analysis.coachingPatterns.some(pattern=>pattern.facet==='specificity'),true);
+    assert.equal(result.analysis.provenance.policyVersion,'context-v1.1');
+    if(stage!=='COMPLETE') assert.match(result.analysis.limitations[0],/Brevity alone/);
+  }
+});
+
 test('prohibited semantic claim is suppressed and forces NO_CUE', async () => {
   const provider = createContextIntelligenceProvider({
     transcriptionProvider: { transcribeAnswer: async () => realTranscript() },

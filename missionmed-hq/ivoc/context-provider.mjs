@@ -19,6 +19,7 @@ const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
 const MAX_PROVIDER_BYTES = 128 * 1024;
 const MAX_SEGMENTS = 40;
 const MAX_TRANSCRIPT_CHARACTERS = 20_000;
+const CONTEXT_POLICY_VERSION = 'context-v1.1';
 const MOCK_MARKER = /\[MOCK_/iu;
 const PROHIBITED_CLAIM = /(?:anxi(?:ety|ous)|confidence|decept|diagnos|dishonest|emotion|employab|hidden (?:emotion|state|trait)|honest|intelligen|mental state|not sad enough|doesn['’]t care|personality|professionalism|program fit|protected trait|psychometric|readiness|sincere|sincerity)/iu;
 const PROMPT_INJECTION_ECHO = /(?:developer message|ignore (?:all |the )?(?:previous|prior) instructions|reveal (?:the )?system prompt|system prompt)/iu;
@@ -90,7 +91,7 @@ function unavailableAnalysis(reason) {
     limitations: Object.freeze([reason]),
     score: 0,
     coverage: 0,
-    provenance: Object.freeze({ provider: 'server-only', model: null, policyVersion: 'context-v1', truthLabel: 'UNAVAILABLE' }),
+    provenance: Object.freeze({ provider: 'server-only', model: null, policyVersion: CONTEXT_POLICY_VERSION, truthLabel: 'UNAVAILABLE' }),
   });
 }
 
@@ -278,6 +279,7 @@ export function createOpenAiSemanticProvider({
             'Describe only explicit content and answer structure. Do not infer hidden traits, emotion, sincerity, honesty, diagnosis, professionalism, readiness, confidence, or program fit.',
             'Every semantic observation must cite one or more supplied transcript segment IDs.',
             'Coaching patterns may classify only observable answer execution as structure, evidence, specificity, or concision, and as a strength or weakness. Every pattern must cite transcript segment IDs.',
+            'Brevity alone is not a concision strength. Award that strength only when the answer completes the question with substantive relevant content; do not reward missing examples, unsupported generalities, or an unfinished answer for being short.',
             'Use limitations for uncertainty. Return no coaching command.',
           ].join(' '),
           input: jsonText(request),
@@ -322,7 +324,7 @@ function normalizeAnalysis(value, { sessionId, answerId, transcript, durationMs,
       transcriptSegmentIds: Object.freeze([...(observation?.transcriptSegmentIds || [])].slice(0, 8)),
     });
   });
-  const coachingPatterns = (value?.coachingPatterns || []).map((pattern) => {
+  const normalizedPatterns = (value?.coachingPatterns || []).map((pattern) => {
     const text = boundedText(pattern?.text, 'coaching_pattern', 500);
     if (PROHIBITED_CLAIM.test(text) || PROMPT_INJECTION_ECHO.test(text) || MOCK_MARKER.test(text)) throw fail('CONTEXT_CLAIM_SCREEN_REJECTED');
     const facet = String(pattern?.facet || '').toLowerCase();
@@ -334,6 +336,12 @@ function normalizeAnalysis(value, { sessionId, answerId, transcript, durationMs,
     }
     return Object.freeze({ facet, polarity, text, transcriptSegmentIds: Object.freeze(refs) });
   });
+  const coachingPatterns = normalizedPatterns.filter(pattern => !(pattern.facet === 'concision'
+    && pattern.polarity === 'strength' && value?.answerStage?.label !== 'COMPLETE'));
+  const limits = [...(value?.limitations || [])];
+  if (coachingPatterns.length !== normalizedPatterns.length) {
+    limits.unshift('Brevity alone is not counted as a strength before the answer reaches a completed response.');
+  }
   const analysis = Object.freeze({
     status: 'AVAILABLE',
     schema: CONTEXT_ANALYSIS_SCHEMA,
@@ -348,8 +356,8 @@ function normalizeAnalysis(value, { sessionId, answerId, transcript, durationMs,
     contextTags: Object.freeze([...(value?.contextTags || [])].filter((tag) => CONTEXT_TAGS.includes(tag)).slice(0, 8)),
     score: score(value?.score, 'analysis_score'),
     coverage: score(value?.coverage, 'analysis_coverage'),
-    limitations: Object.freeze([...(value?.limitations || [])].slice(0, 8).map((item) => boundedText(item, 'analysis_limitation', 240))),
-    provenance: Object.freeze({ provider: 'openai', model, policyVersion: 'context-v1', truthLabel: transcript.truthLabel }),
+    limitations: Object.freeze(limits.slice(0, 8).map((item) => boundedText(item, 'analysis_limitation', 240))),
+    provenance: Object.freeze({ provider: 'openai', model, policyVersion: CONTEXT_POLICY_VERSION, truthLabel: transcript.truthLabel }),
   });
   assertContextAnalysis(analysis, transcript);
   return analysis;
@@ -419,7 +427,7 @@ export function createContextIntelligenceProvider({
         analyticsObservations,
         masterDerived,
         sessionState: Object.freeze({ phase: 'ANSWER_COMPLETE' }),
-        policyVersion: 'context-v1',
+        policyVersion: CONTEXT_POLICY_VERSION,
         behaviorRegistry: Object.freeze({ registryVersion: BEHAVIOR_REGISTRY_VERSION }),
       });
       let analysis = unavailableAnalysis(transcript.reason || 'TRANSCRIPT_UNAVAILABLE');

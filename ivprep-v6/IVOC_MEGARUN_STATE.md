@@ -14,6 +14,25 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Teaching contrast canary (synthetic, not student acceptance):** runtime
+  `5c39ac8`, existing server-only `gpt-5.6-terra` semantic adapter, CORE-10 rev1;
+  fixture SHA-256 `0c4dfdb83486333b0b43cb3d02c9a28ee56a9a1c85aa59f163a8f8aafaf6d037`.
+  Five ephemeral calls, no student/audio/DB data, returned distinct specific,
+  vague, repetitive, incomplete and internally contradictory assessments with
+  valid supplied citations; no invented close or resolution of the contradiction.
+  Response latencies 9.292/7.125/8.190/6.838/6.761 s. Independent reviewer accepted
+  only that supplied-output contrast and identified brevity-only praise for the
+  vague response as a teaching defect. Candidate `context-v1.1` adds a substantive
+  completeness rule and suppresses concision strengths for non-COMPLETE answers;
+  other cited observations remain. 53 focused checks and independent source
+  review pass. Changed-vague canary pending. Broad teaching quality, calibrated
+  numeric scores, silence/accented speech/interrupted follow-up remain unverified.
+- **Curriculum source boundary:** one indexed Founder-PDF manifest lookup found
+  research MR142-123 and application-concern MR142-051/053/054/133 already present.
+  No authorized omitted question wording was found; 193 is not a future cap.
+  Applicant-asked faculty/PD/resident sections must not be repurposed. Existing
+  IDs can be surfaced together; expanding research/visa content requires exact
+  Founder-approved curriculum wording/audience/provenance, not generic invention.
 - **Retry release live:** source `5c39ac87e209516f81d974b09d98a98f64dca107`,
   deployment `34c7a24d-ff04-4c42-963c-be6597e0dfc9` SUCCESS, image
   `sha256:8e091404d7486f8261a6dd0e091aa23b1bec5ba1d24a44c5012738109e5b2b16`,
