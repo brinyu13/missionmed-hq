@@ -14,13 +14,21 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Confidence-copy candidate:** saved Results no longer converts uncalibrated
+  model estimates into precise-looking percentages. The view-model labels the
+  allowlisted qualitative estimate explicitly AI-estimated, concerning cited
+  evidence, not a validated performance/readiness score. Missing/invalid labels
+  remain unavailable. Raw evidence, measured detector values, citations and
+  limits are unchanged. 40 focused checks and independent two-file review PASS;
+  live copy verification pending. Candidate.2 composition is unchanged.
 - **R4 inactive lifecycle preparation:** `022d72f` plus review correction
   `5740d32` replace declarative flush flags with required acknowledged cancellation,
   audio-flush and motion-flush effects. Pending/failed cleanup blocks new output;
   failed cleanup retains audio ownership. Generations cannot be reused, the
   session clock cannot regress, and only a normalized playback-sink-drained
   acknowledgement releases audible ownership on normal completion. 20 focused
-  checks pass; independent correction review pending. No runtime hookup,
+  checks and independent illegal-order correction review pass. Epochs 4037/4038
+  released normally and provider-confirmed. No runtime hookup,
   transport messages, provider creation, avatar assets or paid activation.
   Native audio remains unchanged. Actual sink/transport bindings, avatar mapping,
   deadline/cost integration and live A/V acceptance remain open R4 work.

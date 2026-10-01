@@ -96,9 +96,22 @@ test('citations resolve only unique bounded ranges in this saved recording', () 
   assert.equal(buildEvidenceMomentLinks(result, ['seg-1'])[0].available, false);
 });
 
-test('evidence confidence is never described as measured transcript coverage', () => {
-  assert.match(debriefConfidenceCopy({ label: 'MODERATE', score: .76, coverage: .9, coverageBasis: 'evidence_confidence' }), /90% cited-evidence confidence/);
-  assert.match(debriefConfidenceCopy({ label: 'MODERATE', score: .76, coverage: .9 }), /provider-estimated coverage/);
+test('uncalibrated model confidence is qualitative, not a precise student performance score', () => {
+  for (const [label, expected] of [['HIGH', 'High'], ['MODERATE', 'Moderate'], ['LIMITED', 'Limited']]) {
+    const input = Object.freeze({ label, score: .76, coverage: .9, coverageBasis: 'evidence_confidence' });
+    const copy = debriefConfidenceCopy(input);
+    assert.ok(copy.startsWith(`AI-estimated evidence confidence: ${expected}.`));
+    assert.match(copy, /not a validated performance or readiness score/);
+    assert.doesNotMatch(copy, /%|analysis strength|measured transcript coverage/);
+    assert.equal(input.score, .76); assert.equal(input.coverage, .9);
+    assert.equal(debriefConfidenceCopy({ label, score: NaN, coverage: Infinity }), copy);
+  }
+  for (const input of [undefined, null, {}, { label: '' }, { label: 'CERTAIN' }, { label: '__proto__' },
+    { label: { toString: null } }, { label: ['HIGH'] }]) {
+    const copy = debriefConfidenceCopy(input);
+    assert.match(copy, /confidence is unavailable/);
+    assert.doesNotMatch(copy, /%|NaN|undefined|CERTAIN|__proto__/);
+  }
 });
 
 test('actual Results citation action loads authorized playback, seeks, and stays paused', async () => {

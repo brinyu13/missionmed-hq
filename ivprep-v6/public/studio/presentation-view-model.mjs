@@ -55,9 +55,14 @@ export function buildEvidenceMomentLinks(result, refs = [], durationMs = null) {
 }
 
 export function debriefConfidenceCopy(confidence = {}) {
-  const basis = confidence.coverageBasis === 'evidence_confidence'
-    ? 'cited-evidence confidence' : 'provider-estimated coverage';
-  return `${confidence.label} · ${Math.round(confidence.score * 100)}% analysis strength · ${Math.round(confidence.coverage * 100)}% ${basis}`;
+  // Model estimates are not calibrated measurements or a grade of the student.
+  // Preserve the underlying evidence values; this is presentation copy only.
+  const labels = { HIGH: 'High', MODERATE: 'Moderate', LIMITED: 'Limited' };
+  const label = typeof confidence?.label === 'string' && Object.hasOwn(labels, confidence.label)
+    ? labels[confidence.label] : null;
+  return label
+    ? `AI-estimated evidence confidence: ${label}. This qualitative estimate concerns the cited evidence—not a validated performance or readiness score.`
+    : 'AI-estimated evidence confidence is unavailable. Review the cited evidence and its limitations; no performance or readiness score is established.';
 }
 
 // Stable IDs keep the reviewed answer selected when history is reordered or refreshed.
