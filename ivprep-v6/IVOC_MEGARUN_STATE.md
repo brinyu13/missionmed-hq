@@ -14,7 +14,7 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
-- **Release packaging correction: IN PROGRESS.** DR-350 is canonically filed.
+- **Release packaging correction: LIVE DEPLOYED, navigation POV waiting.** DR-350 is canonically filed.
   Source `40382e4` Builder/Results navigation fix was not live: Railway candidate
   `e5b21e38` failed because `*token*` excluded tracked session-token source.
   Bounded runtime audit found three required source files affected; only those
@@ -25,7 +25,23 @@ the actual production route and deployment.
   `node ivprep-v6/scripts/check-release-artifact.mjs`; deploy ONLY its returned
   stage with `railway up <stage> --path-as-root`, never a broad ignore bypass.
   Three focused packaging regressions pass, including restored overbroad filter
-  and private-file unignore failures. Healthy rollback remains `7283667f`.
+  and private-file unignore failures. Independent reviewer approved corrected
+  source `31941a2b8d7004411d61f1768939d3ec81015d65`; all 115 focused tests passed.
+  Artifact SHA-256 `b3eb502b22efc13c5ffd902c57512de5000d22842e1fecea5f8df1a84099fa1b`
+  contains 1171 tracked eligible files. Railway `1afb4232-1f3f-4953-a612-f2bceaf0ae1f`
+  is SUCCESS, image `sha256:e0836056c6e9fc94d6b4646a59c65ce669a151507e78c5c9dea115d8614d7836`.
+  SSH readback hashes exactly match the three recovered runtime sources and
+  both updated navigation modules. `/health` 200, anonymous product/bootstrap
+  401; Nixpacks/start/health/replica configuration unchanged. Railway removed
+  `7283667f` only after the successor succeeded; it remains an exact-source/image
+  recovery identity. Current infrastructure rollback baseline is `1afb4232`.
+  All packaging/deployment leases released normally with provider acknowledgement.
+- **Next executable control repair: IN PROGRESS.** Live Mock recording readiness
+  disabled its check button forever after one request, including processing and
+  transport failure. Restore the control in `finally` and offer manual recheck;
+  no repeated automatic polls, owner URL propagation or provider mutation.
+  Candidate.2 composition is unchanged; status copy consumes the view-model
+  boundary. Current UI baseline cannot be captured due the browser dependency.
 - **Current authenticated live POV: WAITING.** No IVOC tab exists in the
   attached Chrome inventory; opening normal production entry returned
   `net::ERR_BLOCKED_BY_CLIENT`. This is one browser-environment dependency,

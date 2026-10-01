@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { LiveMockStudioCapability } from '../../public/capabilities/live-mock-studio.mjs';
+import { liveMockRecordingCheckLabel } from '../../public/studio/presentation-view-model.mjs';
+import { readFileSync } from 'node:fs';
 
 function response(body, status = 200) {
   return { ok: status >= 200 && status < 300, status, json: async () => body };
@@ -68,4 +70,26 @@ test('owner-declared missing recording remains an unavailable state, not an adap
 test('Scheduler denial fails closed instead of manufacturing Live Mock readiness', async () => {
   const capability = new LiveMockStudioCapability({ fetchImpl: async () => response({ ok: false, error: 'scheduler_admin_required' }, 403) });
   await assert.rejects(capability.adminQueue(), /scheduler_admin_required/u);
+});
+
+test('manual recording recheck observes owner processing-to-ready without retaining URLs', async () => {
+  let checks = 0;
+  const capability = new LiveMockStudioCapability({ fetchImpl: async () => {
+    checks += 1;
+    return response({ status: checks === 1 ? 'processing' : 'ready', has_recording: checks > 1,
+      playback_url: checks > 1 ? 'https://webex.example/private' : null });
+  } });
+  const first = await capability.recordingStatus('appt-1');
+  assert.equal(liveMockRecordingCheckLabel(first), 'Recording processing · Check again');
+  const second = await capability.recordingStatus('appt-1');
+  assert.equal(liveMockRecordingCheckLabel(second), 'Private recording ready · Recheck');
+  assert.doesNotMatch(JSON.stringify(second), /webex\.example/u);
+  assert.equal(liveMockRecordingCheckLabel(null, { failed: true }), 'Recording check failed · Retry');
+});
+
+test('Live Mock check control is restored in finally on success and failure', () => {
+  const source = readFileSync(new URL('../../public/studio/studio.mjs', import.meta.url), 'utf8');
+  const handler = source.slice(source.indexOf("action.addEventListener('click', async () => {"), source.indexOf('row.append(copy, action)'));
+  assert.match(handler, /finally\s*\{[\s\S]*action\.disabled = false/u);
+  assert.match(handler, /action\.disabled = true/u);
 });

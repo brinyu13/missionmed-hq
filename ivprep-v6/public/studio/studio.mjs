@@ -53,6 +53,7 @@ import {
   programSearchFailureCopy,
   buildBuilderLaunchLabel,
   buildResultsNextAction,
+  liveMockRecordingCheckLabel,
 } from './presentation-view-model.mjs';
 import { clearAdminReviewMedia, createAdminReviewGate, isAdminReview, mayPresentSavedReview, resolveReviewDestination } from './review-scope.mjs';
 
@@ -473,8 +474,14 @@ async function renderLiveMockStudio(host, integrationHost) {
         action.disabled = true;
         try {
           const status = await state.liveMock.recordingStatus(appointment.id);
-          action.innerHTML = `<span>${status.playbackAvailable ? 'Private playback available' : status.status === 'processing' ? 'Recording processing' : 'Recording unavailable'}</span>`;
-        } catch { action.innerHTML = '<span>Owner adapter unavailable</span>'; }
+          action.textContent = liveMockRecordingCheckLabel(status);
+        } catch {
+          action.textContent = liveMockRecordingCheckLabel(null, { failed: true });
+        } finally {
+          // Readiness can change later; one check must not permanently freeze
+          // the control. No automatic polling or sibling-provider mutation.
+          action.disabled = false;
+        }
       });
       row.append(copy, action); host.append(row);
     }

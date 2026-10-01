@@ -122,6 +122,14 @@ export function programSearchFailureCopy(error) {
     : 'Verified program search is temporarily unavailable. You can continue with a manual entry; no unverified program facts will be used.';
 }
 
+export function liveMockRecordingCheckLabel(status = null, { failed = false } = {}) {
+  if (failed) return 'Recording check failed · Retry';
+  if (status?.playbackAvailable === true) return 'Private recording ready · Recheck';
+  return status?.status === 'processing'
+    ? 'Recording processing · Check again'
+    : 'Recording unavailable · Check again';
+}
+
 export function buildBuilderLaunchLabel({ mode = 'ai', devicesReady = false } = {}) {
   if (!devicesReady) return 'Continue to device calibration ▸';
   return mode === 'practice'
