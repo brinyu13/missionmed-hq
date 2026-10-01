@@ -46,6 +46,8 @@ import {
   resolveAdminStudentSelection,
   buildAdminStudentProgress,
   buildComparisonSelection,
+  buildEvidenceMomentLinks,
+  debriefConfidenceCopy,
   interviewerPresenceCopy,
   buildHomeViewModel,
   buildIdentityViewModel,
@@ -226,6 +228,7 @@ function setView(view, { focus = false } = {}) {
     $('#simulation-save').textContent = 'End and save this interview before leaving the room.';
     return;
   }
+  if (state.view === 'filmroom' && view !== 'filmroom') $('#playback')?.pause?.();
   state.view = view;
   if (view !== 'devicecheck') state.calibrationStandalone = false;
   for (const panel of $$('[data-view-panel]')) {
@@ -3307,7 +3310,9 @@ function renderContextEvidence(result) {
     note.textContent = state.role === 'admin'
       ? `TRANSCRIPT UNAVAILABLE — ${reason}`
       : reason === 'NO_PERSISTED_TRANSCRIPT'
-        ? 'NO SAVED TRANSCRIPT YET'
+        ? (persistedConversationTurns({ sessionDetail: state.lastSaved?.sessionDetail, envelope: state.lastSaved?.envelope }).length
+          ? 'Conversation transcript saved in Film Room; candidate-answer analysis is not available yet.'
+          : 'No saved candidate-answer transcript yet.')
         : 'TRANSCRIPT PROCESSING IS CURRENTLY UNAVAILABLE';
     host.append(note);
     return;
@@ -3340,11 +3345,11 @@ function renderContextEvidence(result) {
     fillers.className = 'context-assessment-card';
     const fillersHeading = document.createElement('span');
     fillersHeading.className = 'microcap';
-    fillersHeading.textContent = 'Filler words';
+    fillersHeading.textContent = 'Possible filler terms';
     const fillersValue = document.createElement('strong');
     fillersValue.textContent = String(transcriptMetrics.fillerTokenCount);
     const fillersCopy = document.createElement('p');
-    fillersCopy.textContent = reviewEvidenceCopy('Counted from your transcript using the disclosed um / uh / erm / like / you know / I mean list. No personality or emotion is inferred.',
+    fillersCopy.textContent = reviewEvidenceCopy('Lexical matches in your transcript: um / uh / erm / like / you know / I mean. These are candidates, not confirmed disfluencies: “I like research” is ordinary language. Listen in context before choosing a practice goal.',
       { role: state.role, reviewScope: state.lastSaved?.reviewScope });
     fillers.append(fillersHeading, fillersValue, fillersCopy);
     grid.append(summary, fillers);
@@ -3358,8 +3363,8 @@ function renderContextEvidence(result) {
     const list = document.createElement('ul');
     for (const observation of analysis.semanticObservations) {
       const item = document.createElement('li');
-      const refs = evidenceReferenceLabel(observation.transcriptSegmentIds);
-      item.textContent = `${observation.text} · ${refs}`;
+      item.textContent = observation.text;
+      item.append(renderEvidenceMomentLinks(result, observation.transcriptSegmentIds));
       list.append(item);
     }
     host.append(label, list);
@@ -3394,10 +3399,7 @@ function renderContextEvidence(result) {
       copy.textContent = item?.text || 'This answer does not contain enough cited evidence for this claim.';
       card.append(heading, facet, copy);
       if (item?.refs?.length) {
-        const refs = document.createElement('span');
-        refs.className = 'context-assessment-refs';
-        refs.textContent = `Evidence · ${evidenceReferenceLabel(item.refs)}`;
-        card.append(refs);
+        card.append(renderEvidenceMomentLinks(result, item.refs));
       }
       grid.append(card);
     }
@@ -3407,7 +3409,7 @@ function renderContextEvidence(result) {
     confidenceHeading.className = 'microcap';
     confidenceHeading.textContent = 'Evidence quality and limits';
     const confidenceValue = document.createElement('strong');
-    confidenceValue.textContent = `${assessment.confidence.label} · ${Math.round(assessment.confidence.score * 100)}% analysis strength · ${Math.round(assessment.confidence.coverage * 100)}% transcript coverage`;
+    confidenceValue.textContent = debriefConfidenceCopy(assessment.confidence);
     const confidenceCopy = document.createElement('p');
     confidenceCopy.textContent = assessment.confidence.limitations.length
       ? assessment.confidence.limitations.join(' · ')
@@ -3423,8 +3425,8 @@ function renderContextEvidence(result) {
       summary.className = 'empty-state';
       const heading = document.createElement('strong');
       heading.textContent = item.facetLabel;
-      const copy = document.createTextNode(`${item.text} · ${evidenceReferenceLabel(item.refs)}`);
-      summary.append(heading, copy);
+      const copy = document.createTextNode(item.text);
+      summary.append(heading, copy, renderEvidenceMomentLinks(result, item.refs));
       summaryHost.replaceChildren(summary);
     }
   }
@@ -3439,6 +3441,25 @@ function renderContextEvidence(result) {
       : 'Transcript saved privately to this answer · no supported semantic observations were produced.')
     : 'Result was not persisted.';
   host.append(privacy);
+}
+
+function renderEvidenceMomentLinks(result, refs) {
+  const saved = state.lastSaved;
+  const duration = saved?.sessionDetail?.recording?.durationMs
+    ?? saved?.session?.recording?.durationMs ?? saved?.recording?.recording?.durationMs;
+  const host = el('div', 'btn-row');
+  for (const moment of buildEvidenceMomentLinks(result, refs, duration)) {
+    const button = el('button', 'btn btn-quiet');
+    button.type = 'button';
+    button.append(el('span', '', moment.label));
+    button.disabled = !moment.available;
+    button.addEventListener('click', () => {
+      if (state.lastSaved !== saved) return;
+      void openLastSavedFilmRoom(button, { autoplay: false, moment, expectedSaved: saved });
+    });
+    host.append(button);
+  }
+  return host;
 }
 
 function renderFilmRoomSpine(session, envelope = null) {
@@ -3489,8 +3510,8 @@ function renderFilmRoomSpine(session, envelope = null) {
     row.addEventListener('click', () => {
       const video = $('#playback');
       if (!video || !Number.isFinite(Number(turn.startMs))) return;
+      video.pause();
       video.currentTime = Math.max(0, Number(turn.startMs) / 1000);
-      void video.play().catch(() => {});
     });
     timeline.append(row);
   }
@@ -3509,7 +3530,11 @@ function renderFilmRoomSpine(session, envelope = null) {
   }
 }
 
-async function openLastSavedFilmRoom(button) {
+let playbackReviewRequest = 0;
+async function openLastSavedFilmRoom(button, { autoplay = true, moment = null, expectedSaved = state.lastSaved } = {}) {
+  if (state.lastSaved !== expectedSaved) return;
+  const requestId = ++playbackReviewRequest;
+  const originView = state.view;
   if (button) button.disabled = true;
   try {
     const saved = state.lastSaved;
@@ -3527,15 +3552,40 @@ async function openLastSavedFilmRoom(button) {
         : await state.durable.playback(recordingId);
       playbackUrl = signed?.url || null;
     }
-    if (!mayPresentSavedReview({ saved, currentSaved: state.lastSaved, role: state.role, ticket, gate: adminReviewGate })) return;
+    if (requestId !== playbackReviewRequest || state.view !== originView
+      || !mayPresentSavedReview({ saved, currentSaved: state.lastSaved, role: state.role, ticket, gate: adminReviewGate })) return;
+    if (!playbackUrl) throw new Error('This answer has no available private recording. No earlier recording was opened.');
     state.filmGroups?.ingestResult(presentFilmRoomAnalytics(saved?.analytics || saved?.sessionDetail?.results?.payload?.analytics));
     renderFilmRoomSpine(saved?.sessionDetail, saved?.envelope);
     const video = $('#playback');
     if (video && playbackUrl) {
+      video.pause();
       video.src = playbackUrl;
-      await video.play().catch(() => {});
     }
     setView('filmroom', { focus: true });
+    if (moment && video && playbackUrl) {
+      await new Promise((resolve, reject) => {
+        const cleanup = () => { clearTimeout(timer); video.removeEventListener('loadedmetadata', ready); video.removeEventListener('error', failed); };
+        const ready = () => { cleanup(); resolve(); };
+        const failed = () => { cleanup(); reject(new Error('Recording could not load. Reopen this answer from the library.')); };
+        const timer = setTimeout(failed, 8000);
+        video.addEventListener('loadedmetadata', ready, { once: true });
+        video.addEventListener('error', failed, { once: true });
+        if (video.readyState >= 1) ready();
+      });
+      if (requestId !== playbackReviewRequest || state.view !== 'filmroom'
+        || !mayPresentSavedReview({ saved, currentSaved: state.lastSaved, role: state.role, ticket, gate: adminReviewGate })) return;
+      if (Number.isFinite(video.duration) && moment.endMs > video.duration * 1000) throw new Error('This citation is outside the playable recording. No seek was performed.');
+      video.pause();
+      video.currentTime = moment.startMs / 1000;
+      $('#filmroom-provenance')?.append(el('p', 'microcap', `${moment.label} · Paused at cited evidence. Press Play to listen.`));
+    } else if (autoplay && video && playbackUrl) {
+      await video.play().catch(() => {});
+    }
+  } catch (error) {
+    if (requestId === playbackReviewRequest && ['filmroom', originView].includes(state.view) && state.lastSaved === expectedSaved) {
+      $(state.view === 'filmroom' ? '#filmroom-provenance' : '#post-provenance')?.append(el('p', 'unavailable', String(error?.message || 'Recording unavailable.')));
+    }
   } finally {
     if (button) button.disabled = false;
   }
@@ -3549,6 +3599,9 @@ async function analyzeLastAnswer() {
   const answerId = saved?.analytics?.answerId;
   const questionId = saved?.session?.questionId;
   if (!saved?.persisted || !recordingId || !sessionId || !answerId || !questionId) return;
+  const ticket = isAdminReview(saved) ? adminReviewGate.begin(state.role) : null;
+  if (isAdminReview(saved) && ticket === null) return;
+  const isCurrent = () => mayPresentSavedReview({ saved, currentSaved: state.lastSaved, role: state.role, ticket, gate: adminReviewGate });
   if (button) { button.disabled = true; button.innerHTML = '<span>Analyzing sealed answer…</span>'; }
   try {
     const result = await state.durable.analyze({
@@ -3558,14 +3611,16 @@ async function analyzeLastAnswer() {
       questionId,
       analyticsEvents: Array.isArray(saved.analytics.studentEvents) ? saved.analytics.studentEvents : [],
     });
-    renderContextEvidence(result);
+    if (!isCurrent()) return;
     if (result?.persistence?.transcript) {
       const detail = await state.durable.api.session(sessionId);
+      if (!isCurrent()) return;
       state.lastSaved = { ...saved, sessionDetail: detail };
       renderFilmRoomSpine(detail);
     }
+    renderContextEvidence(result);
   } catch (error) {
-    renderContextEvidence({ transcript: { status: 'UNAVAILABLE', reason: String(error?.message || error).slice(0, 120) } });
+    if (isCurrent()) renderContextEvidence({ transcript: { status: 'UNAVAILABLE', reason: String(error?.message || error).slice(0, 120) } });
   } finally {
     if (button) { button.disabled = false; button.innerHTML = '<span>Generate transcript + context</span>'; }
   }

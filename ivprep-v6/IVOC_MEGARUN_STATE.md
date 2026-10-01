@@ -14,6 +14,29 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Comparison release live:** source `e7645a2001f3c4dfa7386ff05225c67ec5f7dac1`,
+  deployment `591427cf-3a9d-408a-8879-d1e1488c10f6` SUCCESS, image
+  `sha256:35fcfec980eafbcba71a345d9baf62796e19f51fda6fce3c74c3735971c9d99f`,
+  filtered artifact `dd397da647a9280920d95a61b9a34ee9e938f6f0dfc9589341844654eba1b352`.
+  Four changed runtime modules match exact source SHA-256; health 200; anonymous
+  product/bootstrap 401; deployment epoch 3934 released normally and read back.
+  Foreman and fresh independent visible-UI verification both PASS for own
+  MR142-071 Results → Compare retaining reviewed `40ff8df2` with no fabricated
+  cross-question delta; latest CORE-01 offers compatible earlier attempts with
+  date/time and labeled descriptive changes. Independent genuine `wp:1` Admin
+  selected `wp:142` → Results → Compare: only student attempt `827b34e6`, no own
+  history fallback; leaving Admin clears that review and returns own scope. PASS.
+  Rollback remains `017256f` / `f43b1d5d` with its recorded image/config.
+- **Debrief/replay candidate:** bounded evidence citations now resolve only
+  unique, nonmissing, recording-bounded segment ranges; the normal private
+  playback contract opens paused at the cited moment. Stale request/role/answer
+  replies cannot attach media or seek. Signing/load failure stays recoverable on
+  Results; refreshed analysis binds controls after publishing the new saved
+  detail. Film Room navigation pauses replay. Lexical matches are explicitly
+  possible fillers, not confirmed disfluencies; persisted confidence is no longer
+  labeled measured transcript coverage. 35 focused checks and independent source
+  review PASS. This candidate is not yet live verified; actual audible two-sided
+  replay remains its separate human-media gate, not inferred from these checks.
 - **2026-10-01 interview-season convergence is ACTIVE:** the Founder brief
   `IVOC_INTERVIEW_SEASON_FOREMAN_EXECUTION.md` governs continuation under the
   existing mission. Current source custody is `54c11466` on the registered

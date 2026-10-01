@@ -89,10 +89,23 @@ test('persisted session spine rehydrates the same bounded Results adapter after 
   assert.equal(result.transcript.status, 'AVAILABLE');
   assert.equal(result.transcript.text, 'I coordinated follow-up. I explained my contribution.');
   assert.deepEqual(result.transcript.segments, [
-    { id: 'seg-1', startMs: 0, endMs: 0 },
-    { id: 'seg-2', startMs: 0, endMs: 0 },
+    { id: 'seg-1', startMs: null, endMs: null },
+    { id: 'seg-2', startMs: null, endMs: null },
   ]);
   assert.deepEqual(result.analysis.semanticObservations[0].transcriptSegmentIds, ['seg-1']);
   assert.equal(projectContextResults(result).strongest.facetLabel, 'Specificity');
   assert.deepEqual(result.analysis.limitations, ['Only this answer was analyzed.']);
+  assert.equal(projectContextResults(result).confidence.coverageBasis, 'evidence_confidence');
+});
+
+test('missing, invalid and zero-length segment times do not become replay evidence', () => {
+  const metrics = projectTranscriptMetrics({ transcript: { status: 'AVAILABLE', text: 'I like research.', segments: [
+    { id: 'missing' }, { id: 'null', startMs: null, endMs: null },
+    { id: 'negative', startMs: -1, endMs: 500 }, { id: 'zero', startMs: 0, endMs: 0 },
+  ] } });
+  assert.equal(metrics.startMs, null);
+  assert.equal(metrics.endMs, null);
+  assert.equal(metrics.segmentCount, 0);
+  assert.equal(metrics.fillerTokenCount, 1);
+  assert.ok(metrics.limitations.includes('bounded_lexical_candidates_not_all_disfluencies'));
 });

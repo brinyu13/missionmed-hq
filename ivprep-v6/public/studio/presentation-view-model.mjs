@@ -1,5 +1,33 @@
 import { buildLongitudinalModel, canCompareAttempts } from './longitudinal-model.mjs';
 
+// A citation is a replay action only when this answer has one unambiguous,
+// bounded recording-relative range. Missing timestamps never become zero.
+export function buildEvidenceMomentLinks(result, refs = [], durationMs = null) {
+  const finiteMs = value => value !== null && value !== undefined && value !== ''
+    && Number.isFinite(Number(value)) && Number(value) >= 0 ? Number(value) : null;
+  const duration = finiteMs(durationMs);
+  const segments = result?.transcript?.status === 'AVAILABLE' && Array.isArray(result.transcript.segments)
+    ? result.transcript.segments : [];
+  return [...new Set(Array.isArray(refs) ? refs : [])].slice(0, 8).map(ref => {
+    const matches = segments.filter(segment => segment.id === ref);
+    const startMs = matches.length === 1 ? finiteMs(matches[0].startMs) : null;
+    const endMs = matches.length === 1 ? finiteMs(matches[0].endMs) : null;
+    const available = duration > 0 && startMs !== null && endMs !== null
+      && endMs > startMs && endMs <= duration;
+    const name = /^seg-(\d+)$/u.exec(String(ref));
+    const label = name ? `Moment ${name[1]}` : 'Cited moment';
+    return Object.freeze({ ref, startMs, endMs, available,
+      label: available ? `${label} · ${(startMs / 1000).toFixed(1)}–${(endMs / 1000).toFixed(1)}s`
+        : `${label} · replay range unavailable` });
+  });
+}
+
+export function debriefConfidenceCopy(confidence = {}) {
+  const basis = confidence.coverageBasis === 'evidence_confidence'
+    ? 'cited-evidence confidence' : 'provider-estimated coverage';
+  return `${confidence.label} · ${Math.round(confidence.score * 100)}% analysis strength · ${Math.round(confidence.coverage * 100)}% ${basis}`;
+}
+
 // Stable IDs keep the reviewed answer selected when history is reordered or refreshed.
 // Baselines are earlier attempts at the same question in the same recording mode.
 export function buildComparisonSelection(attempts = [], { currentId = null, baselineId = null } = {}) {

@@ -10,6 +10,8 @@ import {
   resolveAdminStudentSelection,
   buildAdminStudentProgress,
   buildComparisonSelection,
+  buildEvidenceMomentLinks,
+  debriefConfidenceCopy,
   interviewerPresenceCopy,
   buildHomeViewModel,
   buildIdentityViewModel,
@@ -29,6 +31,83 @@ import { publicAdmissionState } from '../../server/admission-contract.mjs';
 import { summarizeVideoFramePixels } from '../../public/studio/media-analytics-capability.mjs';
 
 const row = (rows, label) => rows.find(([name]) => name === label);
+
+test('citations resolve only unique bounded ranges in this saved recording', () => {
+  const result = { transcript: { status: 'AVAILABLE', segments: [
+    { id: 'seg-1', startMs: 0, endMs: 1500 },
+    { id: 'seg-2', startMs: 1200, endMs: 500 },
+    { id: 'seg-3', startMs: null, endMs: 1000 },
+    { id: 'seg-4', startMs: 1900, endMs: 3000 },
+    { id: 'seg-5', startMs: 500, endMs: 700 }, { id: 'seg-5', startMs: 900, endMs: 1100 },
+  ] } };
+  const links = buildEvidenceMomentLinks(result, ['seg-1','seg-1','seg-2','seg-3','seg-4','seg-5','absent'], 2000);
+  assert.equal(links.length, 6);
+  assert.equal(links[0].label, 'Moment 1 · 0.0–1.5s');
+  assert.equal(links[0].available, true);
+  assert.ok(links.slice(1).every(link => !link.available && link.label.includes('unavailable')));
+  assert.equal(buildEvidenceMomentLinks(result, ['seg-1'])[0].available, false);
+});
+
+test('evidence confidence is never described as measured transcript coverage', () => {
+  assert.match(debriefConfidenceCopy({ label: 'MODERATE', score: .76, coverage: .9, coverageBasis: 'evidence_confidence' }), /90% cited-evidence confidence/);
+  assert.match(debriefConfidenceCopy({ label: 'MODERATE', score: .76, coverage: .9 }), /provider-estimated coverage/);
+});
+
+test('actual Results citation action loads authorized playback, seeks, and stays paused', async () => {
+  const source = readFileSync(new URL('../../public/studio/studio.mjs', import.meta.url), 'utf8');
+  const implementation = source.match(/async function openLastSavedFilmRoom[\s\S]*?(?=\nasync function analyzeLastAnswer)/)[0];
+  const video = Object.assign(new EventTarget(), { readyState: 1, duration: 10, currentTime: 0, plays: 0,
+    pause() {}, async play() { this.plays++; } });
+  const saved = { session: { recording: { id: 'recording-a' } } };
+  const state = { lastSaved: saved, role: 'student', view: 'postanswer', durable: { playback: async id => {
+    assert.equal(id, 'recording-a'); return { url: 'https://private.invalid/recording-a' };
+  } } };
+  const notes = [];
+  const open = new Function('state','$','isAdminReview','adminReviewGate','mayPresentSavedReview','presentFilmRoomAnalytics','renderFilmRoomSpine','setView','el',
+    `let playbackReviewRequest = 0; return ${implementation};`)(state,
+    selector => selector === '#playback' ? video : { append: note => notes.push(note) },
+    () => false, {}, ({ saved, currentSaved }) => saved === currentSaved, value => value, () => {},
+    view => { state.view = view; }, (...parts) => parts.at(-1));
+  await open(null, { autoplay: false, moment: { startMs: 2500, endMs: 4000, label: 'Moment 2' }, expectedSaved: saved });
+  assert.equal(state.view, 'filmroom');
+  assert.equal(video.currentTime, 2.5);
+  assert.equal(video.plays, 0);
+  assert.match(notes[0], /Paused at cited evidence/);
+
+  state.view = 'postanswer';
+  state.durable.playback = async () => { state.lastSaved = { session: { id: 'another-answer' } }; return { url: 'https://private.invalid/stale' }; };
+  await open(null, { autoplay: false, moment: { startMs: 5000, endMs: 6000 }, expectedSaved: saved });
+  assert.equal(video.currentTime, 2.5);
+  assert.equal(state.view, 'postanswer');
+  assert.notEqual(video.src, 'https://private.invalid/stale');
+
+  state.lastSaved = saved;
+  state.durable.playback = async () => { throw new Error('Signed playback temporarily unavailable'); };
+  await open(null, { autoplay: false, moment: { startMs: 2500, endMs: 4000 }, expectedSaved: saved });
+  assert.equal(state.view, 'postanswer');
+  assert.match(notes.at(-1), /Signed playback temporarily unavailable/);
+});
+
+test('completed analysis binds citations to refreshed saved detail and discards obsolete review replies', async () => {
+  const source = readFileSync(new URL('../../public/studio/studio.mjs', import.meta.url), 'utf8');
+  const implementation = source.match(/async function analyzeLastAnswer[\s\S]*?(?=\nfunction renderHomeCorpus)/)[0];
+  const saved = { persisted: true, recording: { recording: { id: 'r1' } }, session: { id: 's1', questionId: 'q1' }, analytics: { answerId: 'a1' } };
+  const detail = { id: 's1' };
+  const state = { lastSaved: saved, role: 'student', durable: { analyze: async () => ({ persistence: { transcript: true } }), api: { session: async () => detail } } };
+  const rendered = [];
+  const analyze = new Function('state','$','isAdminReview','adminReviewGate','mayPresentSavedReview','renderContextEvidence','renderFilmRoomSpine',
+    `return ${implementation};`)(state, () => null, () => false, {},
+    ({saved,currentSaved}) => saved === currentSaved, () => rendered.push(state.lastSaved), () => {});
+  await analyze();
+  assert.equal(rendered.length, 1);
+  assert.equal(rendered[0], state.lastSaved);
+  assert.equal(rendered[0].sessionDetail, detail);
+  assert.notEqual(rendered[0], saved);
+  state.lastSaved = saved;
+  state.durable.analyze = async () => { state.lastSaved = null; return { persistence: { transcript: true } }; };
+  await analyze();
+  assert.equal(rendered.length, 1);
+});
 
 test('comparison retains the reviewed stable ID and selects only an earlier compatible baseline', () => {
   const attempt = (id, questionId, at) => ({ id, questionId, title: questionId, at,

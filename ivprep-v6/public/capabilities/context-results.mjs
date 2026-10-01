@@ -18,6 +18,8 @@ const boundedScore = (value) => Number.isFinite(Number(value))
   : 0;
 
 const FILLER_TOKEN_PATTERN = /\b(?:um+|uh+|erm+|like|you know|i mean)\b/giu;
+const recordedMs = (value) => value !== null && value !== undefined && value !== ''
+  && Number.isFinite(Number(value)) && Number(value) >= 0 ? Number(value) : null;
 
 export function projectTranscriptMetrics(result = {}) {
   const transcript = result?.transcript || {};
@@ -26,10 +28,10 @@ export function projectTranscriptMetrics(result = {}) {
   const segments = (Array.isArray(transcript.segments) ? transcript.segments : [])
     .map((segment, index) => ({
       id: boundedText(segment?.id || `seg-${index + 1}`, 96),
-      startMs: Math.max(0, Math.trunc(Number(segment?.startMs) || 0)),
-      endMs: Math.max(0, Math.trunc(Number(segment?.endMs) || 0)),
+      startMs: recordedMs(segment?.startMs),
+      endMs: recordedMs(segment?.endMs),
     }))
-    .filter((segment) => segment.id && segment.endMs >= segment.startMs);
+    .filter((segment) => segment.id && segment.startMs !== null && segment.endMs !== null && segment.endMs > segment.startMs);
   const words = text.split(/\s+/u).filter(Boolean);
   const matches = [...text.matchAll(FILLER_TOKEN_PATTERN)];
   const startMs = segments.length ? Math.min(...segments.map((segment) => segment.startMs)) : null;
@@ -84,7 +86,8 @@ export function projectContextResults(result = {}) {
       text: FACET_DRILLS[improvement.facet],
       refs: improvement.refs,
     }) : null,
-    confidence: Object.freeze({ score, coverage, label: confidenceLabel(score, coverage), limitations }),
+    confidence: Object.freeze({ score, coverage, label: confidenceLabel(score, coverage), limitations,
+      coverageBasis: analysis.coverageBasis || 'provider_estimate' }),
   });
 }
 
@@ -123,8 +126,8 @@ export function contextResultFromSessionSpine(session = {}) {
       text: turns.map((turn) => boundedText(turn.transcript.text)).join(' '),
       segments: Object.freeze(turns.map((turn, index) => Object.freeze({
         id: boundedText(String(turn.transcript.canonical_ref).split('#').at(-1) || `seg-${index + 1}`, 96),
-        startMs: Math.max(0, Math.trunc(Number(turn.startMs) || 0)),
-        endMs: Math.max(0, Math.trunc(Number(turn.endMs) || 0)),
+        startMs: recordedMs(turn.startMs),
+        endMs: recordedMs(turn.endMs),
       }))),
     }),
     analysis: Object.freeze({
@@ -133,6 +136,7 @@ export function contextResultFromSessionSpine(session = {}) {
       coachingPatterns: Object.freeze(coachingPatterns),
       score: scored.length ? Math.min(...scored) : 0,
       coverage: covered.length ? Math.min(...covered) : 0,
+      coverageBasis: 'evidence_confidence',
       limitations: Object.freeze(limitations),
     }),
     persistence: Object.freeze({ transcript: true }),
