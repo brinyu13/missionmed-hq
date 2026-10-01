@@ -2881,14 +2881,14 @@ function wireChrome() {
     captureHomeIntent(item.dataset.nav);
     if (item.dataset.nav === 'devicecheck') state.calibrationStandalone = !item.dataset.launchMode;
     if (item.dataset.launchMode) state.launchMode = item.dataset.launchMode;
-    if (item.dataset.launchMode === 'ai' && !state.interviewSet.length) applyWizardQuestions('Core 10');
+    if (item.dataset.nav === 'devicecheck' && item.dataset.launchMode === 'ai' && !state.interviewSet.length) applyWizardQuestions('Core 10');
     setView(item.dataset.nav, { focus: true });
   });
   for (const button of $$('[data-goto]')) button.addEventListener('click', () => {
     captureHomeIntent(button.dataset.goto);
     if (button.dataset.goto === 'devicecheck') state.calibrationStandalone = false;
     if (button.dataset.launchMode) state.launchMode = button.dataset.launchMode;
-    if (button.dataset.launchMode === 'ai' && !state.interviewSet.length) applyWizardQuestions('Core 10');
+    if (button.dataset.goto === 'devicecheck' && button.dataset.launchMode === 'ai' && !state.interviewSet.length) applyWizardQuestions('Core 10');
     setView(button.dataset.goto, { focus: true });
   });
   $('#home-practice')?.addEventListener('keydown', (event) => {

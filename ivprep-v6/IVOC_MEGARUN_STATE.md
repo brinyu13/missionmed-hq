@@ -14,6 +14,29 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Latest presentation fix-forward:** `ecd61549ae708126f3668618af3a679987f0ae56`
+  live on `2bbcdf3b-b8dc-485f-b20f-f8c69ca4b324` SUCCESS, image
+  `sha256:76879ff76f1ebc2ad382a4ad6c23c9a13ccde0611542ce4dd3cd842e9d6a21a6`.
+  Health 200; anonymous product/bootstrap 401; SSH hashes match changed modules;
+  independent review passes. Deployment lease released normally. Self Practice
+  question-label and mode hierarchy changes require live presentation readback.
+- **Cold private replay / Admin selected-subject POV:** The new practice attempt
+  reopened from cold account history as private server playback, rendered
+  640×480 decoded frames and advanced to the end. Actual audible replay remains
+  unverified by available tooling. Admin `wp:1` selected authorized `wp:142`,
+  opened that student's Results and Film Room (not the actor's saved attempt),
+  saw the student explicitly named and the saved interviewer-only transcript
+  truthfully distinguished from candidate evidence. Leaving Admin presentation
+  cleared this selected-student review and returned to the actor's own Library.
+  This is positive review/actor-subject evidence, not negative-role acceptance.
+- **AI normal-entry POV: executable wayfinding defect.** Home AI Mock sent a
+  fresh user straight to Device Calibration and silently selected Core 10,
+  skipping purpose/questions/interviewer/program configuration. Home and rail
+  AI entry now open the existing six-step Builder at Practice Goal, keep AI
+  launch mode, and do not silently preload questions. Direct configured-pool
+  launch and the actual Interview Room remain unchanged. Focused regression
+  checks both visible entry contracts; live restart remains required.
+
 - **2026-10-01 current fix-forward guardian:** Pushed source
   `e79fc7629e5c011b2a4bb62f04935984a014f4f8` is live on Railway
   `07d4b57f-b840-4391-a71b-0b7109609212` SUCCESS, image

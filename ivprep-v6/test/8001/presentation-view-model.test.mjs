@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 
 import {
   buildContextSources,
@@ -21,6 +22,18 @@ import { publicAdmissionState } from '../../server/admission-contract.mjs';
 import { summarizeVideoFramePixels } from '../../public/studio/media-analytics-capability.mjs';
 
 const row = (rows, label) => rows.find(([name]) => name === label);
+
+test('normal AI Home and navigation entries configure before device readiness', () => {
+  const html = readFileSync(new URL('../../public/studio/index.html', import.meta.url), 'utf8');
+  const aiEntries = [...html.matchAll(/<button\b[^>]*data-launch-mode="ai"[^>]*>[\s\S]*?<\/button>/gu)]
+    .map(match => match[0]).filter(markup => /(?:nav-item|practice-card instant)/u.test(markup));
+  assert.equal(aiEntries.length, 2);
+  for (const entry of aiEntries) {
+    assert.match(entry, /data-(?:nav|goto)="newsession"/u);
+    assert.match(entry, /data-builder-step="0"/u);
+    assert.doesNotMatch(entry, /data-(?:nav|goto)="devicecheck"/u);
+  }
+});
 
 test('practice launch preserves chosen mode and displays the selected question before recording', () => {
   assert.deepEqual(buildBuilderLaunchOrder('practice'), ['practice', 'ai']);
