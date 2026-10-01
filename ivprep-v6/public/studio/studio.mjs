@@ -42,6 +42,9 @@ import {
   buildContextSources,
   contextSourceHint,
   buildOwnerIntegrationFacts,
+  buildPracticeEntryIntent,
+  resolveAdminStudentSelection,
+  interviewerPresenceCopy,
   buildHomeViewModel,
   buildIdentityViewModel,
   buildReadinessRows,
@@ -413,6 +416,7 @@ async function renderAdminStudentLibrary(host) {
       option.textContent = `${student.displayName} · ${student.sessions.length} session${student.sessions.length === 1 ? '' : 's'}`;
       selector.append(option);
     }
+    selector.value = resolveAdminStudentSelection(library.students, state.adminCreditSubject?.subject);
     const summary = document.createElement('span');
     summary.className = 'microcap';
     summary.textContent = `${library.studentCount} AUTHORIZED STUDENT${library.studentCount === 1 ? '' : 'S'} · ${library.sessionCount} SESSIONS`;
@@ -1128,7 +1132,8 @@ function renderInterviewerStep(host) {
     host.append(roles, heading, birds);
   } else if (state.wizard.interviewerTab === 'Voice & presence') {
     const panel = el('div', 'canon-presence');
-    panel.innerHTML = '<div class="canon-presence-orb" aria-hidden="true"><span>IV</span></div><div><div class="microcap">Interviewer voice</div><h2>Give the conversation <em>a presence.</em></h2><p>Choose an available interviewer voice for a natural spoken practice conversation.</p></div>';
+    panel.innerHTML = '<div class="canon-presence-orb" aria-hidden="true"><span>IV</span></div><div><div class="microcap">Interviewer voice</div><h2>Give the conversation <em>a presence.</em></h2><p></p></div>';
+    $('p', panel).textContent = interviewerPresenceCopy(state.role === 'admin');
     host.append(panel);
   } else {
     const panel = el('div', 'canon-name-coaching');
@@ -2914,8 +2919,17 @@ function wireChrome() {
     const intent = $('#home-practice')?.value.trim().slice(0, 200);
     if (intent) state.wizard.focus = intent;
   };
+  const applyPracticeIntent = (dataset, destination) => {
+    const intent = buildPracticeEntryIntent({ ...dataset, destination });
+    if (!intent) return;
+    state.wizard.goal = intent.goal;
+    state.wizard.duration = intent.duration;
+    state.wizard.pressurePractice = intent.pressurePractice;
+    state.targetQuestions = intent.targetQuestions;
+  };
   for (const item of $$('[data-nav]')) item.addEventListener('click', () => {
     captureHomeIntent(item.dataset.nav);
+    applyPracticeIntent(item.dataset, item.dataset.nav);
     if (item.dataset.nav === 'devicecheck') state.calibrationStandalone = !item.dataset.launchMode;
     if (item.dataset.launchMode) state.launchMode = item.dataset.launchMode;
     if (item.dataset.nav === 'devicecheck' && item.dataset.launchMode === 'ai' && !state.interviewSet.length) applyWizardQuestions('Core 10');
@@ -2923,6 +2937,7 @@ function wireChrome() {
   });
   for (const button of $$('[data-goto]')) button.addEventListener('click', () => {
     captureHomeIntent(button.dataset.goto);
+    applyPracticeIntent(button.dataset, button.dataset.goto);
     if (button.dataset.goto === 'devicecheck') state.calibrationStandalone = false;
     if (button.dataset.launchMode) state.launchMode = button.dataset.launchMode;
     if (button.dataset.goto === 'devicecheck' && button.dataset.launchMode === 'ai' && !state.interviewSet.length) applyWizardQuestions('Core 10');

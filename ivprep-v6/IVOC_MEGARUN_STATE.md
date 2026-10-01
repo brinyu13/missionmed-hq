@@ -14,6 +14,24 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Current live guardian (Mentor adapters):** `80d2a0fca17f14ceb0c50965c3f11cd09acb06d7`,
+  deployment `ab9a2c0b-846c-44f3-a1d1-116b7f21d45a` SUCCESS, image
+  `sha256:c8cf20c496899d95f0d1504d025f1c3c06515890b7d557cef2b7b2fcbecc41a8`.
+  Exact three-module SSH hashes match the filtered release stage; health 200,
+  anonymous product/bootstrap 401. Prior `39f52234`/`6ea31cc` is the rollback
+  source/image/config identity. Product/deployment controllers subsequently
+  exited on transport failure; provider confirms epochs 3921/3922 expired,
+  inactive, NOT normally released. No force cleanup. Fresh product epoch 3923
+  has renewed heartbeat. Pending narrow local navigation correction is retained
+  and revalidated under fresh authority; no deployment used an expired claim.
+- **Fresh independent product POV:** genuine Founder/Admin, Student presentation,
+  separate read-only tab. Three P2 failures: single-question shortcut retains
+  Full IV/target five; empty voice-choice invitation; Admin return loses selected
+  student. Corrections remain above capability adapters, with authorized-list
+  selection fallback and distinct AI/self device-review labels. 22 focused
+  tests and fresh independent narrow review PASS; live acceptance pending.
+  RISE Massachusetts search/selection and named-student Results navigation pass;
+  physical speech, actual audible replay and genuine Student role remain unverified.
 - **Current live guardian (Admin adapters):** `6ea31cc56fdde5d0ff6a9935401063d0a4c2a86f`
   on Railway `39f52234-98d7-438a-892b-944579178469` SUCCESS, image
   `sha256:d28d1d4ec08cad21fca90540d1d5e6694a29b7cc2fbd131b59bbcd9ad5a69bfa`.

@@ -99,6 +99,23 @@ export function contextSourceHint({ name, available, connected } = {}) {
   return 'Not connected';
 }
 
+export function buildPracticeEntryIntent({ destination, launchMode, builderStep } = {}) {
+  return destination === 'newsession' && launchMode === 'practice' && String(builderStep) === '1'
+    ? Object.freeze({ goal: 'Individual Question', targetQuestions: 1, duration: 5, pressurePractice: false })
+    : null;
+}
+
+export function interviewerPresenceCopy(admin = false) {
+  return admin
+    ? 'AI interviews use the current interviewer voice. Voice audition is available in the Founder/Admin Interview Room before starting. Avatar selection is not active.'
+    : 'AI interviews use the current interviewer voice. Voice and avatar selection are not available in this Builder yet.';
+}
+
+export function resolveAdminStudentSelection(students = [], previousSubject = null) {
+  return students.find((student) => student.subject === previousSubject)?.subject
+    || students[0]?.subject || '';
+}
+
 export function buildOwnerIntegrationFacts(capabilities = {}) {
   return [['File Vault', 'fileVault'], ['RISE', 'rise'], ['StoryForge', 'storyForge']].map(([label, key]) => ({
     label,
@@ -164,7 +181,9 @@ export function liveMockRecordingCheckLabel(status = null, { failed = false } = 
 }
 
 export function buildBuilderLaunchLabel({ mode = 'ai', devicesReady = false } = {}) {
-  if (!devicesReady) return 'Continue to device calibration ▸';
+  if (!devicesReady) return mode === 'practice'
+    ? 'Check devices for self practice ▸'
+    : 'Check devices for AI interview ▸';
   return mode === 'practice'
     ? 'Review devices and begin practice ▸'
     : 'Review devices and start AI interview ▸';

@@ -6,6 +6,9 @@ import {
   buildContextSources,
   contextSourceHint,
   buildOwnerIntegrationFacts,
+  buildPracticeEntryIntent,
+  resolveAdminStudentSelection,
+  interviewerPresenceCopy,
   buildHomeViewModel,
   buildIdentityViewModel,
   buildReadinessRows,
@@ -24,6 +27,27 @@ import { publicAdmissionState } from '../../server/admission-contract.mjs';
 import { summarizeVideoFramePixels } from '../../public/studio/media-analytics-capability.mjs';
 
 const row = (rows, label) => rows.find(([name]) => name === label);
+
+test('Admin review return preserves only a currently authorized student selection', () => {
+  const students = [{ subject: 'wp:1' }, { subject: 'wp:142' }];
+  assert.equal(resolveAdminStudentSelection(students, 'wp:142'), 'wp:142');
+  assert.equal(resolveAdminStudentSelection(students, 'wp:999'), 'wp:1');
+  assert.equal(resolveAdminStudentSelection(students), 'wp:1');
+  assert.equal(resolveAdminStudentSelection([], 'wp:142'), '');
+});
+
+test('one-question shortcuts establish explicit intent without resetting AI or in-progress launch choices', () => {
+  assert.deepEqual(buildPracticeEntryIntent({ destination: 'newsession', launchMode: 'practice', builderStep: '1' }), { goal: 'Individual Question', targetQuestions: 1, duration: 5, pressurePractice: false });
+  assert.equal(buildPracticeEntryIntent({ destination: 'newsession', launchMode: 'ai', builderStep: '0' }), null);
+  assert.equal(buildPracticeEntryIntent({ destination: 'devicecheck', launchMode: 'practice', builderStep: '1' }), null);
+  assert.equal(buildPracticeEntryIntent({ destination: 'newsession', launchMode: 'practice' }), null);
+});
+
+test('voice presence never advertises empty student voice selection', () => {
+  assert.match(interviewerPresenceCopy(false), /selection are not available/);
+  assert.match(interviewerPresenceCopy(true), /Founder\/Admin Interview Room/);
+  assert.doesNotMatch(interviewerPresenceCopy(false), /Choose an available/);
+});
 
 test('empty mentor priorities do not instruct students to select a program', () => {
   const sources = buildContextSources({ mentorPriorities: { version: 2, priorities: [] }, contextCapabilities: { rise: { connected: true } }, programVerified: true });
@@ -90,7 +114,8 @@ test('program navigation preserves selected/manual context and required question
 test('builder promises device review before either launch mode', () => {
   assert.equal(buildBuilderLaunchLabel({ mode: 'ai', devicesReady: true }), 'Review devices and start AI interview ▸');
   assert.equal(buildBuilderLaunchLabel({ mode: 'practice', devicesReady: true }), 'Review devices and begin practice ▸');
-  assert.equal(buildBuilderLaunchLabel({ mode: 'ai', devicesReady: false }), 'Continue to device calibration ▸');
+  assert.equal(buildBuilderLaunchLabel({ mode: 'ai', devicesReady: false }), 'Check devices for AI interview ▸');
+  assert.equal(buildBuilderLaunchLabel({ mode: 'practice', devicesReady: false }), 'Check devices for self practice ▸');
 });
 
 test('Results continuation follows the saved interview mode and Admin review scope', () => {
