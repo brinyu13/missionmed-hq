@@ -77,20 +77,32 @@ export function publicEmbodimentConfig() {
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/u;
 const EVENT_KINDS = new Set(['audio_started', 'audio_delta', 'audio_completed', 'motion_frame', 'completed']);
+const INTERRUPTION_EFFECTS = Object.freeze(['cancelProviderResponse', 'flushAudio', 'flushMotion']);
 
 function validId(value) { return typeof value === 'string' && SAFE_ID.test(value); }
 
 export class EmbodimentGenerationGate {
-  constructor({ audioAuthority } = {}) {
+  constructor({ audioAuthority, cancelProviderResponse, flushAudio, flushMotion } = {}) {
     if (!audioAuthority || typeof audioAuthority.begin !== 'function'
         || typeof audioAuthority.finish !== 'function' || typeof audioAuthority.interrupt !== 'function') {
       throw new TypeError('The existing single-audio authority is required.');
     }
+    this.effects = { cancelProviderResponse, flushAudio, flushMotion };
+    if (INTERRUPTION_EFFECTS.some((name) => typeof this.effects[name] !== 'function')) {
+      throw new TypeError('Explicit provider cancellation, audio flush, and motion flush effects are required.');
+    }
     this.audioAuthority = audioAuthority;
     this.active = null;
+    this.cleanupPending = false;
+    this.cleanupFailure = null;
+    this.cleanupPromise = null;
+    this.usedGenerationIds = new Set();
+    this.lastAtMs = -1;
   }
 
   begin({ profileId, generationId, responseId, audioAuthority }) {
+    if (this.cleanupPending) throw new Error('Embodiment interruption cleanup is pending.');
+    if (this.cleanupFailure) throw new Error('Embodiment interruption cleanup failed; this gate remains blocked.');
     if (this.active) throw new Error('An embodiment generation is already active.');
     if (!FICTIONAL_INTERVIEWER_PROFILES.some((profile) => profile.profileId === profileId)) {
       throw new TypeError('Unknown fictional interviewer profile.');
@@ -99,7 +111,10 @@ export class EmbodimentGenerationGate {
         || !Object.values(INTERVIEWER_AUDIO_AUTHORITIES).includes(audioAuthority)) {
       throw new TypeError('Invalid embodiment generation identity.');
     }
-    this.active = { profileId, generationId, responseId, audioAuthority, lastAtMs: -1, audible: false };
+    if (this.usedGenerationIds.has(generationId)) throw new Error('An embodiment generation ID cannot be reused.');
+    this.usedGenerationIds.add(generationId);
+    this.cleanupPromise = null;
+    this.active = { profileId, generationId, responseId, audioAuthority, lastAtMs: this.lastAtMs, audible: false };
     return { ...this.active };
   }
 
@@ -110,8 +125,7 @@ export class EmbodimentGenerationGate {
     if (!EVENT_KINDS.has(kind) || !Number.isFinite(atMs) || atMs < 0) {
       throw new TypeError('Invalid embodiment event.');
     }
-    if (atMs < this.active.lastAtMs) return Object.freeze({ accepted: false, reason: 'clock_regression' });
-    this.active.lastAtMs = atMs;
+    if (atMs < this.lastAtMs) return Object.freeze({ accepted: false, reason: 'clock_regression' });
     if (kind === 'audio_started') {
       if (this.active.audible) return Object.freeze({ accepted: false, reason: 'duplicate_audio' });
       this.audioAuthority.begin({ authority: this.active.audioAuthority, utteranceId: responseId });
@@ -121,20 +135,40 @@ export class EmbodimentGenerationGate {
       this.audioAuthority.finish({ reason: 'complete' });
       this.active.audible = false;
     }
+    this.lastAtMs = atMs;
+    this.active.lastAtMs = atMs;
     if (kind === 'completed') return this.complete();
     return Object.freeze({ accepted: true, kind, atMs });
   }
 
   interrupt() {
-    if (!this.active) return Object.freeze({ interrupted: false });
-    if (this.active.audible) this.audioAuthority.interrupt();
-    const identity = { generationId: this.active.generationId, responseId: this.active.responseId };
+    if (!this.active) return this.cleanupPromise || Promise.resolve(Object.freeze({ interrupted: false }));
+    const audible = this.active.audible;
+    const identity = Object.freeze({ generationId: this.active.generationId, responseId: this.active.responseId });
+    // Invalidate synchronously, before any injected transport cleanup can run.
     this.active = null;
-    return Object.freeze({
-      interrupted: true,
-      ...identity,
-      ...EMBODIMENT_RUNTIME_CONTRACT.interruption,
+    this.cleanupPending = true;
+    this.cleanupPromise = Promise.allSettled(INTERRUPTION_EFFECTS.map((name) =>
+      Promise.resolve().then(() => this.effects[name](identity)))).then((results) => {
+      const acknowledged = Object.fromEntries(INTERRUPTION_EFFECTS.map((name, index) =>
+        [name, results[index].status === 'fulfilled' && results[index].value === true]));
+      const failedEffects = INTERRUPTION_EFFECTS.filter((name) => !acknowledged[name]);
+      // Keep the audible guard held unless every actual cleanup effect confirms completion.
+      if (!failedEffects.length && audible) {
+        try { this.audioAuthority.interrupt(); }
+        catch { failedEffects.push('audioAuthorityRelease'); }
+      }
+      this.cleanupPending = false;
+      this.cleanupFailure = failedEffects.length ? Object.freeze([...failedEffects]) : null;
+      return Object.freeze({
+        interrupted: true,
+        ...identity,
+        ...acknowledged,
+        cleaned: failedEffects.length === 0,
+        failedEffects: Object.freeze(failedEffects),
+      });
     });
+    return this.cleanupPromise;
   }
 
   complete() {

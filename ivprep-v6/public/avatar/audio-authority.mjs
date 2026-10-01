@@ -1,6 +1,7 @@
 export const INTERVIEWER_AUDIO_AUTHORITIES = Object.freeze({
   LIVEAVATAR_LIVEKIT: 'liveavatar-livekit',
   OPENAI_REALTIME_DIRECT: 'openai-realtime-direct',
+  OPENAI_GPT_LIVE_NATIVE: 'openai-gpt-live-native',
   BROWSER_OPENAI_SPEECH: 'browser-openai-speech',
 });
 

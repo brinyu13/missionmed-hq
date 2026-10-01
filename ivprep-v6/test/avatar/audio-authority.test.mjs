@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 
 import {
   selectInterviewerAudioAuthority,
+  INTERVIEWER_AUDIO_AUTHORITIES as SERVER_AUTHORITIES,
+  InterviewerAudioAuthority as ServerAudioAuthority,
 } from '../../avatar/audio-authority.mjs';
 import {
   INTERVIEWER_AUDIO_AUTHORITIES,
@@ -38,6 +40,20 @@ test('a second audible stream cannot begin until the active stream finishes or i
   authority.begin({ authority: INTERVIEWER_AUDIO_AUTHORITIES.BROWSER_OPENAI_SPEECH, utteranceId: 'u-2' });
   assert.equal(authority.health().active.authority, INTERVIEWER_AUDIO_AUTHORITIES.BROWSER_OPENAI_SPEECH);
   assert.equal(authority.health().duplicateAudioPrevented, true);
+});
+
+test('both authority copies recognize current GPT-Live native audio without changing legacy rail selection', () => {
+  assert.deepEqual(SERVER_AUTHORITIES, INTERVIEWER_AUDIO_AUTHORITIES);
+  assert.equal(INTERVIEWER_AUDIO_AUTHORITIES.OPENAI_GPT_LIVE_NATIVE, 'openai-gpt-live-native');
+  for (const Authority of [InterviewerAudioAuthority, ServerAudioAuthority]) {
+    const authority = new Authority({ now: () => 10 });
+    authority.begin({ authority: 'openai-gpt-live-native', utteranceId: 'native-1' });
+    assert.equal(authority.health().active.authority, 'openai-gpt-live-native');
+    assert.throws(() => authority.begin({ authority: 'liveavatar-livekit', utteranceId: 'avatar-1' }), /already active/);
+    assert.equal(authority.interrupt().reason, 'interrupted');
+  }
+  assert.equal(selectInterviewerAudioAuthority({ railId: 'openai-realtime-continuous' }).authority, 'openai-realtime-direct');
+  assert.equal(selectInterviewerAudioAuthority({ railId: 'responses-speech' }).authority, 'browser-openai-speech');
 });
 
 test('the browser runtime wires the same authority guard around avatar and direct playback', () => {
