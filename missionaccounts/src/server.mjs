@@ -801,7 +801,7 @@ export function createMissionAccountsServer({
         });
       }
       const cycles = await store.billingCycles();
-      const [home, students, cycleProjections, identityClusters, attendanceIssues, health, canon, onboardingQueue] = await Promise.all([
+      const [home, students, cycleProjections, identityClusters, attendanceIssues, health, canon, onboardingQueue, chargeReadiness] = await Promise.all([
         store.adminHome({ today: localDayFromIso(now().toISOString()) }),
         store.adminStudents(),
         Promise.all(cycles.map(cycle => store.adminCycle(cycle.key))),
@@ -815,6 +815,7 @@ export function createMissionAccountsServer({
             actorRole: identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin',
           })
           : Promise.resolve([]),
+        config.features?.manualCharges ? store.adminChargeReadiness() : Promise.resolve(null),
       ]);
       return json(response, 200, {
         schema_version: 'missionaccounts-ui-bootstrap-v1',
@@ -829,6 +830,7 @@ export function createMissionAccountsServer({
         health,
         canon,
         onboarding_queue: onboardingQueue,
+        charge_readiness: chargeReadiness,
       });
     }
     if (request.method === 'GET' && url.pathname === '/api/me') {

@@ -1049,6 +1049,18 @@ h1:focus:not(:focus-visible){outline:0}
 @media(max-width:900px){.legacyGrid,.legacyForms{grid-template-columns:1fr}.legacyToolbar{grid-template-columns:1fr 1fr}.legacyToolbar .btn{grid-column:1/-1}}
 @media(max-width:560px){.legacyToolbar{grid-template-columns:1fr}.legacyToolbar .btn{grid-column:auto}.legacyForm{padding:15px}.legacyLine{grid-template-columns:1fr}.legacyLine .amt{justify-self:start}}
 
+.chargeHome{padding:22px;margin:0 0 22px}
+.chargeHomeTop{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap}
+.chargeHome h2{font:700 clamp(24px,2.5vw,33px)/1.15 Georgia,serif;margin:5px 0 8px}
+.chargeHome p{margin:0;color:var(--mute);line-height:1.5}
+.chargeHomeCount{font-weight:800;font-size:27px;color:var(--greenInk)}
+.chargeHomeRows{display:grid;gap:10px;margin-top:18px}
+.chargeHomeRow{display:grid;grid-template-columns:minmax(160px,1.5fr) minmax(130px,1fr) minmax(140px,1fr) auto;align-items:center;gap:12px;padding:15px;border:1px solid var(--line);border-radius:14px}
+.chargeHomeRow .who{font-weight:700}
+.chargeHomeRow .small{font-size:13px;color:var(--mute);line-height:1.35}
+.chargeHomeRow .amount{font-weight:800;font-size:21px}
+.chargeHomeBadges{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+@media(max-width:720px){.chargeHomeRow{grid-template-columns:1fr 1fr}.chargeHomeRow .who{grid-column:1/-1}.chargeHomeRow .action{grid-column:1/-1}.chargeHomeRow .action button{width:100%}}
 </style>
 </head>
 <body data-lens="admin" data-context="xp" class="is-booting"><style id="missionaccounts-runtime-gate-style">
@@ -1558,6 +1570,32 @@ function shell(){ const m=model(); const openQ = totalQuestions();
 function meStudent(){ if(WS.meStudent==null){ WS.meStudent=D.students[0]?.i??0; } return model().eff[model().canonOf(WS.meStudent)]; }
 
 /* ---------------- HOME ---------------- */
+function missionAccountsChargeHomeHTML(){
+  if(!missionAccountsCapability('manual_charges'))return '';
+  const snapshot=window.MissionAccountsRuntime?.state?.bootstrap?.charge_readiness;
+  if(!snapshot||!Array.isArray(snapshot.rows))return '<section class="panel chargeHome"><div class="eyebrow">Manual collection</div><h2>Charge readiness unavailable</h2><p>Reload before collecting any balance. No charge can be started from this summary.</p></section>';
+  const s=snapshot.summary||{}; const cents=n=>money(Number(n||0)/100);
+  const cycleKey={'2026-cycle-1':'june','2026-cycle-2':'july','2026-cycle-3':'august'};
+  const rowHTML=row=>{
+    const si=D.students.findIndex(student=>student.id===row.student_id);
+    const k=cycleKey[row.cycle_key];
+    const dec=si>=0&&k?WS.dec?.[si]?.[k]:null;
+    const method=si>=0?pmOf(si):null;
+    const matches=dec?.id===row.decision_id&&Math.round(Number(dec.amt)*100)===row.amount_cents
+      &&method?.state==='on_file'&&String(method.last4)===String(row.payment_method?.last4);
+    const card=row.payment_method?.status==='ON_FILE'&&row.payment_method.last4
+      ?esc(row.payment_method.brand||'Card')+' •••• '+esc(row.payment_method.last4)
+      :'No saved card';
+    const profile=row.profile_status==='COMPLETE'?'Profile complete':row.profile_status==='IN_PROGRESS'?'Profile in progress':'Profile not started';
+    const status=row.status==='READY'?'Ready to charge':row.status==='PROCESSING'?'Processing':row.status==='COLLECTED'?'Collected':'Needs attention';
+    const action=row.status==='READY'&&matches
+      ?'<button type="button" class="btn confirm" data-manual-charge="'+si+'|'+k+'">Charge '+cents(row.amount_cents)+'</button>'
+      :si>=0&&k?'<a class="btn soft" href="#/student/'+si+'?cycle='+k+'">View account</a>':'<span class="muted">Reload to review</span>';
+    return '<div class="chargeHomeRow"><div class="who">'+esc(row.student_name)+'<div class="small">'+esc(k?cyc(k).label:row.cycle_key)+'</div><div class="chargeHomeBadges"><span class="chip '+(row.profile_status==='COMPLETE'?'approved':'review')+'">'+esc(profile)+'</span><span class="chip '+(row.payment_method?.status==='ON_FILE'?'approved':'review')+'">'+card+'</span></div></div><div><div class="amount">'+cents(row.amount_cents)+'</div><div class="small">Approved cycle amount</div></div><div><b>'+esc(status)+'</b><div class="small">'+esc(row.reason)+'</div></div><div class="action">'+action+'</div></div>';
+  };
+  return '<section class="panel chargeHome" aria-label="Manual charge readiness"><div class="chargeHomeTop"><div><div class="eyebrow">Dr J · manual collection</div><h2>Ready to charge</h2><p>Only approved amounts that pass the current identity, invoice, card, and duplicate-charge checks appear as ready. Each charge still needs your confirmation.</p><p class="small" style="margin-top:8px">Among '+Number(s.approved_count||0)+' approved cycle records: '+Number(s.profile_complete_count||0)+' profiles complete · '+Number(s.card_on_file_count||0)+' saved cards · '+Number(s.needs_action_count||0)+' need attention.</p></div><div><div class="chargeHomeCount">'+Number(s.ready_count||0)+' · '+cents(s.ready_amount_cents)+'</div><div class="small">ready now</div></div></div><div class="chargeHomeRows">'+(snapshot.rows.length?snapshot.rows.map(rowHTML).join(''):'<p>No approved amounts to review.</p>')+'</div><p class="small" style="margin-top:12px">Profile and card status are shown separately. Readiness is rechecked by the server when you confirm; processing or collected amounts cannot be charged again.</p></section>';
+}
+
 function viewHome(){ const m=model(); const june=cycleStats('june'), july=cycleStats('july'), aug=cycleStats('august');
   const focus = [june,july,aug].find(s=>s.questions>0 || s.groups.clean.length>0) || june; const k=focus.c.key;
   const totalQ = totalQuestions();
@@ -1572,6 +1610,7 @@ function viewHome(){ const m=model(); const june=cycleStats('june'), july=cycleS
   const pendEx=pendingExams().length; const upEx=upcomingExams();
   return `<section class="view home">
     ${commandHeroHTML()}
+    ${missionAccountsChargeHomeHTML()}
     <div class="homeIntro"><div class="eyebrow">MissionAccounts · ${esc(fmtDate(TODAY_ISO))}, 2026</div><p class="voice greetSub" style="margin-top:6px">The attendance is organized. You only need to answer the exceptions.</p></div>
     <div class="panel dark hero">
       <div class="lft">

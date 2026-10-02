@@ -3,6 +3,7 @@ import { buildDecisionBasis, calculateCycleAmount } from '../domain/billing-engi
 import { buildAutomaticBillingShadow } from '../domain/auto-billing-shadow.mjs';
 import { commercePlanState, contractPublicSummary } from '../domain/business-contract.mjs';
 import { isIsoCountryCode } from '../../public/missionaccounts-countries.js';
+import { buildManualChargeReadiness } from '../domain/manual-charge-readiness.mjs';
 
 function sanitizedPaymentMethod(row) {
   if (!row) return null;
@@ -865,6 +866,20 @@ export class SupabaseRestStore {
       if (missing === 'setup' && (student.sponsor_type !== 'DIRECT' || (student.payment_method?.status === 'on_file' && student.billing_consent?.state === 'authorized'))) return false;
       return true;
     });
+  }
+
+  async adminChargeReadiness() {
+    const [decisions, students, identities, profiles, invoices, customers, methods, charges] = await Promise.all([
+      this.requestAll('billing_decision?state=eq.approved&superseded_by_id=is.null&amount_cents=gt.0&select=id,student_id,cycle_key,treatment,amount_cents,state,superseded_by_id'),
+      this.requestAll('student?select=id,display_name,email,identity_state,matrix_user_ref,sponsor_type'),
+      this.requestAll('student_identity_projection?select=id,canonical_student_id,absorbed,excluded'),
+      this.requestAll('student_onboarding_profile?select=student_id,school_name,best_contact_method,mailing_line1,mailing_city,mailing_region,mailing_postal_code,mailing_country_code'),
+      this.requestAll('invoice?select=id,student_id,cycle_key,decision_id,state,amount_cents,provider_ref,created_at'),
+      this.requestAll('stripe_customer_private?select=student_id,provider_customer_ref'),
+      this.requestAll('payment_method_private?select=student_id,status,provider_customer_ref,brand,last4'),
+      this.requestAll('manual_cycle_charge?select=student_id,cycle_key,decision_id,state,created_at'),
+    ]);
+    return buildManualChargeReadiness({ decisions, students, identities, profiles, invoices, customers, methods, charges });
   }
 
   async adminHome({ today }) {
@@ -2991,6 +3006,20 @@ export class PreviewStore {
         : true;
     return matches && missingMatch ? [student] : [];
   }
+  async adminChargeReadiness() {
+    return buildManualChargeReadiness({
+      decisions: [...this.billingDecisions.values()],
+      students: [this.previewStudentRecord],
+      identities: [{ id: this.previewStudentRecord.id, canonical_student_id: this.previewStudentRecord.id,
+        absorbed: false, excluded: false }],
+      profiles: [...this.onboardingProfiles.entries()].map(([student_id, profile]) => ({ student_id, ...profile })),
+      invoices: [...this.invoices.values()],
+      customers: [...this.stripeCustomers.entries()].map(([student_id, customer]) => ({ student_id, ...customer })),
+      methods: [...this.paymentMethods.entries()].map(([student_id, method]) => ({ student_id, ...method })),
+      charges: [...this.manualCycleCharges.values()],
+    });
+  }
+
   async adminHome({ today }) {
     const students = await this.adminStudents();
     const examPlans = [...this.examPlans.values()].filter(plan => !plan.withdrawn_at);
