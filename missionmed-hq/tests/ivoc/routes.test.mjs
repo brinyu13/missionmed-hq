@@ -1038,16 +1038,186 @@ test('results preserve explicit duration vocabulary while the library duration f
   assert.deepEqual(resultInsert.body.payload.pausedSpans, [{ startMs: 11_000, endMs: 13_000 }]);
   const liveTurns = repo.upserts.filter((entry) => entry.table === 'ivoc_conversation_turns').map((entry) => entry.body);
   assert.deepEqual(liveTurns.map((turn) => [turn.speaker, turn.relation]), [
-    ['interviewer', 'opening'], ['student', 'answer'], ['interviewer', 'follow_up'],
+    ['interviewer', 'aside'], ['student', 'answer'], ['interviewer', 'aside'],
   ]);
   assert.equal(liveTurns[0].transcript.text, 'Tell me about yourself.');
   assert.match(liveTurns[0].transcript.provisional_ref, /^provider:gpt-live-1:/u);
   assert.equal(Object.hasOwn(liveTurns[0].transcript, 'canonical_ref'), false);
+  assert.equal(liveTurns[0].transcript.timing_basis, 'LEGACY_UNSPECIFIED');
+  assert.equal(liveTurns[0].transcript.finalization, 'LEGACY_UNSPECIFIED');
+  assert.deepEqual(liveTurns[0].question, {});
   assert.equal(response.json().liveConversationTurns, 3);
   assert.equal(response.json().audioAuthorityVerified, true);
   assert.equal(resultInsert.body.payload.audioAuthority.mode, 'single');
   const sessionUpdate = repo.updates.find((entry) => entry.path.startsWith(`ivoc_sessions?id=eq.${sessionId}`));
   assert.equal(sessionUpdate.body.duration_ms, 24_500);
+});
+
+function provisionalConversation(sessionId = '00000000-0000-4000-8000-000000000042') {
+  const metadata = { timingBasis: 'MESSAGE_RECEIPT', provenance: 'BROWSER_DECLARED' };
+  return { schema: 'ivoc.live-conversation.v1', provider: 'openai-gpt-live', clock: 'recording-observed', sessionId,
+    ...metadata, turns: [
+      { ...metadata, id: 'prompt-item', itemId: 'prompt-item', responseId: 'prompt-response', speaker: 'interviewer',
+        text: 'A second base question?', startMs: 100, endMs: 200, final: true,
+        finalization: 'PROVIDER_FINAL_MESSAGE', providerEventType: 'response.audio_transcript.done' },
+      { ...metadata, id: 'candidate-item', itemId: 'candidate-item', speaker: 'student', text: 'An unfinished response',
+        startMs: 300, endMs: 400, final: true, finalization: 'CLIENT_FINISH',
+        providerEventType: 'input.transcript.delta:client-finish' },
+      { ...metadata, id: 'other-prompt', itemId: 'other-prompt', responseId: 'other-response', speaker: 'interviewer',
+        text: 'Another utterance.', startMs: 500, endMs: 500, final: true,
+        finalization: 'PROVIDER_FINAL_MESSAGE', providerEventType: 'response.audio_transcript.done' },
+    ] };
+}
+
+test('Results→saved spine→authorized reload preserves declared IDs and receipt provenance without canonical prompt/speech claims', async () => {
+  const id = '00000000-0000-4000-8000-000000000042';
+  const row = { id, owner_subject: 'wp:42', state: 'saved', interviewer_provider: 'openai-gpt-live', question_id: 'CORE-01',
+    question_text: 'Tell me about yourself.', context: {} };
+  const repo = repository(); let saved = null;
+  const insert = repo.insert;
+  repo.insert = async (table, body) => { const result = await insert(table, body); if (table === 'ivoc_results') saved = result; return result; };
+  repo.single = async path => path.startsWith('ivoc_sessions?') ? row : path.startsWith('ivoc_results?') ? saved : null;
+  repo.request = async path => path.startsWith('ivoc_conversation_turns?') ? repo.upserts.map(entry => entry.body)
+    : path.startsWith('ivoc_sessions?') ? [row] : path.startsWith('ivoc_results?') ? [saved] : [];
+  const { route } = handler(repo); const response = new ResponseCapture();
+  const input = { schema: 'ivoc.analytics.v1', schemaVersion: 1, sessionId: id, durationMs: 1000,
+    analytics: { objectiveMarker: 'unchanged' }, liveConversation: provisionalConversation(id) };
+  // Extra browser assertions are discarded, not granted a canonical/provider origin.
+  input.liveConversation.turns[0].canonical_ref = 'transcript:forged#seg-1';
+  input.liveConversation.turns[0].speechBoundaries = 'VERIFIED';
+  input.liveConversation.turns[0].question = { canonical_question_id: 'CORE-99' };
+  await route({ ...base, request: request('POST', input, { origin: 'https://hq.test', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': 'a'.repeat(24) }),
+    response, url: new URL(`https://hq.test/api/ivoc/v1/sessions/${id}/results`), hqSession: session() });
+  assert.equal(response.status, 200, response.body);
+  const storedTurns = repo.upserts.map(entry => entry.body);
+  assert.deepEqual(storedTurns.map(turn => turn.relation), ['aside', 'answer', 'aside']);
+  assert.equal(storedTurns[0].transcript.item_id, 'prompt-item');
+  assert.equal(storedTurns[0].transcript.response_id, 'prompt-response');
+  assert.equal(storedTurns[0].transcript.ivoc_session_id, id);
+  assert.equal(storedTurns[0].transcript.provenance, 'BROWSER_DECLARED');
+  assert.equal(storedTurns[0].transcript.timing_basis, 'MESSAGE_RECEIPT');
+  assert.equal(storedTurns[0].transcript.finalization, 'PROVIDER_FINAL_MESSAGE');
+  assert.equal(storedTurns[1].transcript.finalization, 'CLIENT_FINISH');
+  assert.equal(storedTurns.every(turn => turn.parent_turn_id === null && !turn.transcript.canonical_ref), true);
+  assert.equal(storedTurns.every(turn => turn.transcript.prompt_binding === 'UNVERIFIED' && turn.transcript.speech_boundaries === 'UNVERIFIED'), true);
+  assert.deepEqual(storedTurns[0].question, {});
+  assert.deepEqual(saved.payload.analytics, input.analytics);
+  assert.equal(saved.payload.liveConversation.turns[0].canonical_ref, undefined);
+  const preimage = structuredClone({ saved, storedTurns });
+  const read = new ResponseCapture();
+  await handler(repo).route({ ...base, request: request('GET'), response: read,
+    url: new URL(`https://hq.test/api/ivoc/v1/sessions/${id}`), hqSession: session() });
+  assert.equal(read.status, 200, read.body);
+  const detail = read.json();
+  assert.equal(detail.spine.turns[0].transcript.response_id, 'prompt-response');
+  assert.equal(detail.spine.turns[1].transcript.finalization, 'CLIENT_FINISH');
+  assert.equal(detail.spine.turns[2].startMs, detail.spine.turns[2].endMs);
+  assert.equal(detail.spine.candidateAttribution.status, 'UNVERIFIED');
+  assert.equal(detail.analysisAvailability.status, 'UNAVAILABLE');
+  assert.equal(detail.results.payload.liveConversation.turns[0].speechBoundaries, 'UNVERIFIED');
+  assert.deepEqual({ saved, storedTurns }, preimage);
+});
+
+test('malformed or foreign provisional identity/receipt metadata rejects before Results and turn writes', async () => {
+  const id = '00000000-0000-4000-8000-000000000042';
+  const mutations = [v => { v.sessionId = foreignSessionId; }, v => { v.liveConversation.sessionId = foreignSessionId; },
+    v => { delete v.liveConversation.sessionId; }, v => { delete v.liveConversation.provenance; },
+    v => { v.liveConversation.turns[0].sessionId = foreignSessionId; },
+    v => { v.liveConversation.timingBasis = 'MEASURED_SPEECH'; }, v => { v.liveConversation.provenance = 'SERVER_ATTESTED'; },
+    v => { v.liveConversation.turns[0].provenance = 'PROVIDER_ATTESTED'; },
+    v => { delete v.liveConversation.turns[0].finalization; }, v => { v.liveConversation.turns[0].finalization = 'COMPLETE_ANSWER'; },
+    v => { v.liveConversation.turns[0].id = 1; }, v => { v.liveConversation.turns[0].itemId = ' padded '; },
+    v => { v.liveConversation.turns[0].responseId = 'x'.repeat(241); }, v => { v.liveConversation.turns[0].itemId = {}; },
+    v => { v.liveConversation.turns[0].text = {}; }, v => { v.liveConversation.turns[0].providerEventType = {}; },
+    v => { v.liveConversation.turns[1].id = v.liveConversation.turns[0].id; },
+    v => { v.liveConversation.turns[0].endMs = 99; } ];
+  for (const mutate of mutations) {
+    const repo = repository(); repo.single = async path => path.startsWith('ivoc_sessions?') ? { id, owner_subject: 'wp:42' } : null;
+    const input = { schema: 'ivoc.analytics.v1', schemaVersion: 1, sessionId: id, liveConversation: provisionalConversation(id) };
+    mutate(input); const response = new ResponseCapture();
+    await handler(repo).route({ ...base, request: request('POST', input, { origin: 'https://hq.test', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': 'a'.repeat(24) }),
+      response, url: new URL(`https://hq.test/api/ivoc/v1/sessions/${id}/results`), hqSession: session() });
+    assert.equal(response.status, 400, response.body);
+    assert.equal(repo.inserts.length, 0); assert.equal(repo.upserts.length, 0); assert.equal(repo.updates.length, 0);
+  }
+});
+
+test('legacy provisional reads retain text/offsets but remove inferred follow-up proof without rewriting rows', async () => {
+  const id = '00000000-0000-4000-8000-000000000042';
+  const row = { id, owner_subject: 'wp:42', state: 'saved', context: {} };
+  const legacyTurn = { turn_id: `turn:${id}:live:legacy`, speaker: 'interviewer', relation: 'follow_up',
+    t_start_ms: 120, t_end_ms: 120, transcript: { provisional_ref: 'provider:gpt-live-1:legacy', text: 'Legacy prompt text',
+      provider_event_type: 'response.transcript.done', item_id: 'legacy-item', response_id: 'legacy-response' },
+    question: { origin: 'generated', identity: { canonical_question_id: 'CORE-01' } }, version: 1 };
+  const legacyConversation = provisionalConversation(id);
+  delete legacyConversation.sessionId; delete legacyConversation.timingBasis; delete legacyConversation.provenance;
+  for (const turn of legacyConversation.turns) { delete turn.timingBasis; delete turn.provenance; delete turn.finalization; }
+  const result = { payload: { liveConversation: legacyConversation }, summary: {} };
+  const preimage = structuredClone({ legacyTurn, result });
+  const repo = repository();
+  repo.single = async path => path.startsWith('ivoc_sessions?') ? row : path.startsWith('ivoc_results?') ? result : null;
+  repo.request = async path => path.startsWith('ivoc_conversation_turns?') ? [legacyTurn] : [];
+  const response = new ResponseCapture();
+  await handler(repo).route({ ...base, request: request('GET'), response,
+    url: new URL(`https://hq.test/api/ivoc/v1/sessions/${id}`), hqSession: session() });
+  assert.equal(response.status, 200);
+  const turn = response.json().spine.turns[0];
+  assert.equal(turn.relation, 'aside'); assert.deepEqual(turn.question, {});
+  assert.equal(turn.startMs, 120); assert.equal(turn.transcript.text, 'Legacy prompt text');
+  assert.equal(turn.transcript.item_id, 'legacy-item'); assert.equal(turn.transcript.response_id, 'legacy-response');
+  assert.equal(turn.transcript.timing_basis, 'LEGACY_UNSPECIFIED');
+  assert.equal(turn.transcript.finalization, 'LEGACY_UNSPECIFIED');
+  assert.equal(turn.transcript.prompt_binding, 'UNVERIFIED');
+  assert.equal(response.json().results.payload.liveConversation.turns[0].finalization, 'LEGACY_UNSPECIFIED');
+  assert.deepEqual({ legacyTurn, result }, preimage);
+  assert.equal(repo.upserts.length, 0); assert.equal(repo.updates.length, 0);
+});
+
+test('source-bound unavailable transcription audits only allowlisted reason codes, never provider text or locations', async () => {
+  const sid = '00000000-0000-4000-8000-000000000042';
+  const pid = '00000000-0000-4000-8000-000000000043';
+  const cid = '00000000-0000-4000-8000-000000000044';
+  const stamp = '2026-09-17T20:00:00.000Z'; const bytes = Buffer.from('offline-microphone');
+  const row = { id: sid, owner_subject: 'wp:42', state: 'saved', session_type: 'question', interviewer_provider: 'missionmed-static',
+    question_id: 'CORE-01', question_text: 'Tell me about yourself.', context: { targetQuestions: 1, questionIds: ['CORE-01'],
+      promptReceipt: { schema: 'ivoc.self-practice-prompt.v1', workflow: 'SELF_PRACTICE', questionId: 'CORE-01', version: 1,
+        text: 'Tell me about yourself.', approval: 'ACTIVE_AT_SELECTION', issuedAt: stamp } } };
+  const parent = { id: pid, session_id: sid, owner_subject: 'wp:42', recording_role: 'conversation', status: 'saved',
+    storage_object_key: 'private/replay', size_bytes: 1000, etag: 'parent-etag', mime_type: 'video/webm', sealed_at: stamp,
+    duration_ms: 1000, paused_spans: [], recording_timebase: { clock: 'browser-monotonic-session', recordingId: pid,
+      sessionId: sid, ownerSubject: 'wp:42', recordingStartSessionMs: 0, recordingDurationMs: 1000, playableDurationMs: 1000, pausedSpans: [] } };
+  const source = { id: cid, session_id: sid, owner_subject: 'wp:42', recording_role: 'candidate_audio', parent_recording_id: pid,
+    status: 'saved', storage_object_key: 'private/microphone', size_bytes: bytes.length, etag: 'source-etag', mime_type: 'audio/webm',
+    sealed_at: stamp, duration_ms: 800, paused_spans: [], capture_receipt: { schema: 'ivoc.candidate-audio.v1', captureVersion: 'direct-mic-v1',
+      status: 'SEALED', recordingId: cid, sessionId: sid, parentRecordingId: pid, allocatedAt: stamp, sealedAt: stamp,
+      assurance: 'CLIENT_MIC_CAPTURE_DECLARATION', analysisEligibility: 'UNVERIFIED', sizeBytes: bytes.length,
+      etag: 'source-etag', mime: 'audio/webm', timing: { clock: 'browser-monotonic-session', clientAttested: true,
+        recordingStartSessionMs: 100, recordingDurationMs: 800, playableDurationMs: 800, pausedSpans: [] } } };
+  for (const reason of ['TRANSCRIPT_SEGMENTS_UNAVAILABLE', 'TRANSCRIPT_PROVIDER_ERROR',
+    'Provider text https://private.example/signed?token=never-log-this', { code: 'TRANSCRIPT_PROVIDER_ERROR' }]) {
+    const repo = repository(); let providerCalls = 0;
+    repo.single = async path => path.startsWith('ivoc_sessions?') ? row
+      : path.startsWith('ivoc_recordings?parent_recording_id=') ? source : path.startsWith('ivoc_recordings?id=') ? parent
+        : path.startsWith('ivoc_results?') ? { id: 'result', candidate_analysis: null } : null;
+    const route = createIvocHandler({ registry: registry(), repository: repo,
+      storage: { fetchObject: async key => { assert.equal(key, source.storage_object_key); return new Response(bytes,
+        { headers: { 'Content-Length': String(bytes.length), 'Content-Type': source.mime_type, ETag: source.etag } }); } },
+      contextProvider: { analyze: async () => { providerCalls += 1; return { transcript: { status: 'UNAVAILABLE', reason }, analysis: { status: 'UNAVAILABLE' } }; } },
+      env: { IVPREP_ENABLED: 'true', IVPREP_ADMIN_CANARY_ENABLED: 'true', MMHQ_SESSION_SECRET: 's'.repeat(64),
+        IVOC_CONTEXT_CANDIDATE_ENABLED: 'true', IVOC_CONTEXT_TRANSCRIPT_ENABLED: 'true' } });
+    const response = new ResponseCapture();
+    await route({ ...base, request: request('POST', { action: 'analyze', sessionId: sid, recordingId: pid, answerId: 'answer-1' },
+      { origin: 'https://hq.test', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': 'a'.repeat(24) }), response,
+      url: new URL('https://hq.test/api/ivoc/v1/context'), hqSession: session() });
+    assert.equal(response.status, 200, response.body); assert.equal(providerCalls, 1);
+    assert.equal(repo.updates.length, 0); assert.equal(repo.upserts.length, 0);
+    const audits = repo.inserts.filter(entry => entry.table === 'ivoc_access_log');
+    assert.equal(audits.length, 1);
+    assert.deepEqual(audits[0].body, { actor_subject: 'wp:42', owner_subject: 'wp:42', session_id: sid, recording_id: pid,
+      action: 'context_transcript_unavailable', decision: 'deny',
+      reason: typeof reason === 'string' && reason.startsWith('TRANSCRIPT_') ? reason : 'TRANSCRIPT_UNAVAILABLE' });
+    assert.doesNotMatch(JSON.stringify(audits), /private\/|signed\?|never-log-this|Provider text/u);
+  }
 });
 
 test('Answer History library quarantines unverified batch transcript and candidate semantic summaries', async () => {

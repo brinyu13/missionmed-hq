@@ -265,13 +265,23 @@ export class DurableStudioSession {
   }
 
   recordLiveTranscript(event = {}) {
-    if (!this.recorder || this.conversationCaptureStartedAtMs == null) return false;
+    if (!this.recorder || !this.accountSession || this.conversationCaptureStartedAtMs == null
+      || (Object.hasOwn(event, 'sessionId') && event.sessionId !== this.accountSession.id)) return false;
     const speaker = event.speaker === 'applicant' ? 'student' : event.speaker;
     if (!['student', 'interviewer'].includes(speaker)) return false;
     const rawText = String(event.text || '').slice(0, 8_000);
     const text = event.final ? rawText.trim() : rawText;
-    const id = String(event.identity || `${speaker}:${++this.liveConversationSequence}`).slice(0, 240);
+    if (event.identity != null && (typeof event.identity !== 'string' || !event.identity.length
+      || event.identity.length > 240 || event.identity.trim() !== event.identity)) return false;
+    const id = event.identity || `${speaker}:${++this.liveConversationSequence}`;
+    for (const key of ['itemId', 'responseId']) {
+      if (event[key] != null && (typeof event[key] !== 'string' || !event[key].length
+        || event[key].length > 240 || event[key].trim() !== event[key])) return false;
+    }
     const observedAtMs = Math.max(0, Math.round(this.nowMs() - this.conversationCaptureStartedAtMs));
+    const previous = this.liveConversationTurns.get(id);
+    if (previous && (previous.speaker !== speaker || ['itemId', 'responseId'].some(key =>
+      previous[key] && event[key] && previous[key] !== event[key]))) return false;
     const current = this.liveConversationTurns.get(id) || {
       id,
       speaker,
@@ -280,11 +290,15 @@ export class DurableStudioSession {
       text: '',
       final: false,
       providerEventType: null,
+      timingBasis: 'MESSAGE_RECEIPT',
+      provenance: 'BROWSER_DECLARED',
+      finalization: null,
     };
     current.endMs = observedAtMs;
     current.providerEventType = String(event.type || '').slice(0, 200) || current.providerEventType;
     current.text = event.final ? (text || current.text) : `${current.text}${text}`.slice(0, 8_000);
     current.final = current.final || event.final === true;
+    if (event.final === true) current.finalization = 'PROVIDER_FINAL_MESSAGE';
     for (const key of ['itemId', 'responseId']) {
       if (typeof event[key] === 'string' && event[key].length <= 240 && event[key].trim()) current[key] = event[key];
     }
@@ -322,6 +336,9 @@ export class DurableStudioSession {
       schema: 'ivoc.live-conversation.v1',
       provider: 'openai-gpt-live',
       clock: 'recording-observed',
+      sessionId: this.accountSession?.id || null,
+      timingBasis: 'MESSAGE_RECEIPT',
+      provenance: 'BROWSER_DECLARED',
       turns: Object.freeze(turns),
     });
   }
@@ -331,6 +348,7 @@ export class DurableStudioSession {
       if (turn.final || !String(turn.text || '').trim()) continue;
       turn.text = String(turn.text).trim();
       turn.final = true;
+      turn.finalization = 'CLIENT_FINISH';
       turn.providerEventType = `${String(turn.providerEventType || 'provider_transcript').slice(0, 180)}:client-finish`;
     }
   }

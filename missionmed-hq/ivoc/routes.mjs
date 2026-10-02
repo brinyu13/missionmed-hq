@@ -232,7 +232,9 @@ function publicSession(row, recording = null, result = null, review = null, spin
     ownerDisplayName: safeText(row.owner_display_name, 200) || null,
     interviewerProvider: row.interviewer_provider, recording: publicRecording(recording),
     results: result ? { schema: result.schema_name, schemaVersion: result.schema_version,
-      payload: { ...quarantineSavedContext(result.payload), candidateAttribution }, summary: quarantineSavedContext(result.summary), candidateAttribution } : null,
+      payload: { ...quarantineSavedContext(result.payload),
+        ...(result.payload?.liveConversation ? { liveConversation: publicLiveConversation(result.payload.liveConversation, row.id) } : {}),
+        candidateAttribution }, summary: quarantineSavedContext(result.summary), candidateAttribution } : null,
     reviewStatus: review?.status || null,
     review: review ? { status: review.status || null, reviewedAt: review.reviewed_at || null } : null,
     spine,
@@ -618,27 +620,81 @@ function contractEnvironment(row) {
   return 'missionmed';
 }
 
+const provisionalId = value => typeof value === 'string' && value.length > 0 && value.length <= 240 && value.trim() === value;
+const provisionalFinalizations = new Set(['PROVIDER_FINAL_MESSAGE', 'CLIENT_FINISH']);
+const transcriptUnavailableReasons = new Set([
+  'TRANSCRIPT_PROVIDER_UNCONFIGURED', 'TRANSCRIPT_AUDIO_INVALID', 'CANDIDATE_AUDIO_SOURCE_UNVERIFIED',
+  'TRANSCRIPT_TIMED_AUDIO_UNSUPPORTED', 'TRANSCRIPT_PROVIDER_TIMEOUT', 'TRANSCRIPT_PROVIDER_ERROR',
+  'TRANSCRIPT_SEGMENTS_UNAVAILABLE', 'TRANSCRIPT_SOURCE_TIMING_OR_SPEECH_UNCERTAIN', 'TRANSCRIPT_UNAVAILABLE',
+]);
+
+function publicLiveConversation(value, sessionId) {
+  const declared = value?.sessionId === sessionId && value?.timingBasis === 'MESSAGE_RECEIPT'
+    && value?.provenance === 'BROWSER_DECLARED';
+  return { schema: 'ivoc.live-conversation.v1', provider: 'openai-gpt-live', clock: 'recording-observed',
+    sessionId, timingBasis: declared ? 'MESSAGE_RECEIPT' : 'LEGACY_UNSPECIFIED', provenance: 'BROWSER_DECLARED',
+    speechBoundaries: 'UNVERIFIED', promptBinding: 'UNVERIFIED',
+    turns: (Array.isArray(value?.turns) ? value.turns : []).slice(0, 128).filter(item => item
+      && provisionalId(item.id) && ['interviewer', 'student'].includes(item.speaker)
+      && typeof item.text === 'string' && item.text.trim() && item.text.length <= 8000
+      && Number.isSafeInteger(item.startMs) && item.startMs >= 0
+      && Number.isSafeInteger(item.endMs) && item.endMs >= item.startMs && item.endMs <= 43200000).map(item => ({
+      id: item.id, speaker: item.speaker, text: item.text, startMs: item.startMs, endMs: item.endMs, final: item.final === true,
+      providerEventType: typeof item.providerEventType === 'string' ? item.providerEventType.slice(0, 200) : null,
+      ...(provisionalId(item.itemId) ? { itemId: item.itemId } : {}),
+      ...(provisionalId(item.responseId) ? { responseId: item.responseId } : {}),
+      timingBasis: declared && item.timingBasis === 'MESSAGE_RECEIPT' ? 'MESSAGE_RECEIPT' : 'LEGACY_UNSPECIFIED',
+      finalization: declared && item.timingBasis === 'MESSAGE_RECEIPT' && item.provenance === 'BROWSER_DECLARED' && provisionalFinalizations.has(item.finalization)
+        ? item.finalization : 'LEGACY_UNSPECIFIED',
+      provenance: 'BROWSER_DECLARED', speechBoundaries: 'UNVERIFIED', promptBinding: 'UNVERIFIED',
+    })) };
+}
+
+// Browser-observed provider text is continuity evidence, never provider attestation.
+function publicProvisionalTranscript(transcript, sessionId) {
+  const declared = transcript?.provenance === 'BROWSER_DECLARED'
+    && transcript.ivoc_session_id === sessionId && transcript.timing_basis === 'MESSAGE_RECEIPT';
+  return { provisional_ref: transcript.provisional_ref, text: transcript.text,
+    provider_event_type: typeof transcript.provider_event_type === 'string' ? transcript.provider_event_type.slice(0, 200) : null,
+    ...(provisionalId(transcript.item_id) ? { item_id: transcript.item_id } : {}),
+    ...(provisionalId(transcript.response_id) ? { response_id: transcript.response_id } : {}),
+    ivoc_session_id: sessionId, provenance: 'BROWSER_DECLARED',
+    timing_basis: declared ? 'MESSAGE_RECEIPT' : 'LEGACY_UNSPECIFIED',
+    finalization: declared && provisionalFinalizations.has(transcript.finalization) ? transcript.finalization : 'LEGACY_UNSPECIFIED',
+    speech_boundaries: 'UNVERIFIED', prompt_binding: 'UNVERIFIED', relation_basis: 'UNCLASSIFIED_PROVISIONAL' };
+}
+
 function liveConversationTurns(value, sessionId) {
   if (value == null) return [];
   if (!value || typeof value !== 'object' || Array.isArray(value)
       || value.schema !== 'ivoc.live-conversation.v1'
       || value.provider !== 'openai-gpt-live'
-      || value.clock !== 'recording-observed') {
+      || value.clock !== 'recording-observed'
+      || (Object.hasOwn(value, 'sessionId') && value.sessionId !== sessionId)
+      || (Object.hasOwn(value, 'timingBasis') && value.timingBasis !== 'MESSAGE_RECEIPT')
+      || (Object.hasOwn(value, 'provenance') && value.provenance !== 'BROWSER_DECLARED')
+      || (value.timingBasis === 'MESSAGE_RECEIPT' && (value.sessionId !== sessionId || value.provenance !== 'BROWSER_DECLARED'))) {
     throw Object.assign(new TypeError('live_conversation_invalid'), { status: 400 });
   }
   const seen = new Set();
-  let sawStudent = false;
-  let interviewerCount = 0;
   return boundedArray(value.turns, 'live_conversation_turns', 128).map((item) => {
     if (!item || typeof item !== 'object' || Array.isArray(item) || item.final !== true) {
       throw Object.assign(new TypeError('live_conversation_turn_invalid'), { status: 400 });
     }
-    const sourceId = String(item.id || '');
-    const text = String(item.text || '').trim();
-    const sourceType = String(item.providerEventType || '');
-    if (!sourceId || sourceId.length > 240 || seen.has(sourceId)
-        || !text || text.length > 8_000 || sourceType.length > 200
-        || !['student', 'interviewer'].includes(item.speaker)) {
+    const sourceId = item.id;
+    const text = typeof item.text === 'string' ? item.text.trim() : '';
+    const sourceType = item.providerEventType ?? '';
+    const declared = value.timingBasis === 'MESSAGE_RECEIPT';
+    if (!provisionalId(sourceId) || seen.has(sourceId)
+        || !text || text.length > 8_000 || typeof sourceType !== 'string' || sourceType.length > 200
+        || !['student', 'interviewer'].includes(item.speaker)
+        || (Object.hasOwn(item, 'sessionId') && item.sessionId !== sessionId)
+        || (Object.hasOwn(item, 'timingBasis') && item.timingBasis !== 'MESSAGE_RECEIPT')
+        || (Object.hasOwn(item, 'provenance') && item.provenance !== 'BROWSER_DECLARED')
+        || (Object.hasOwn(item, 'finalization') && !provisionalFinalizations.has(item.finalization))
+        || (declared && (item.timingBasis !== 'MESSAGE_RECEIPT' || item.provenance !== 'BROWSER_DECLARED'
+          || !provisionalFinalizations.has(item.finalization)))
+        || ['itemId', 'responseId'].some(key => Object.hasOwn(item, key) && !provisionalId(item[key]))) {
       throw Object.assign(new TypeError('live_conversation_turn_invalid'), { status: 400 });
     }
     seen.add(sourceId);
@@ -648,20 +704,15 @@ function liveConversationTurns(value, sessionId) {
       throw Object.assign(new TypeError('live_conversation_time_invalid'), { status: 400 });
     }
     const digest = createHash('sha256').update(sourceId).digest('hex');
-    let relation = 'answer';
-    if (item.speaker === 'interviewer') {
-      relation = interviewerCount === 0 && !sawStudent ? 'opening' : (sawStudent ? 'follow_up' : 'question');
-      interviewerCount += 1;
-    } else {
-      sawStudent = true;
-    }
     return {
       turn_id: `turn:${sessionId}:live:${digest.slice(0, 24)}`,
       session_id: sessionId,
       parent_turn_id: null,
       schema_version: 1,
       speaker: item.speaker,
-      relation,
+      // The contract has no unknown relation. Aside is an explicitly unclassified
+      // provisional utterance, not a catalog question or inferred follow-up.
+      relation: item.speaker === 'interviewer' ? 'aside' : 'answer',
       t_start_ms: startMs,
       t_end_ms: endMs,
       // Provider-delivered text is useful private continuity evidence, but is
@@ -670,8 +721,15 @@ function liveConversationTurns(value, sessionId) {
         provisional_ref: `provider:gpt-live-1:${digest}`,
         text,
         provider_event_type: sourceType || null,
+        ...(Object.hasOwn(item, 'itemId') ? { item_id: item.itemId } : {}),
+        ...(Object.hasOwn(item, 'responseId') ? { response_id: item.responseId } : {}),
+        ivoc_session_id: sessionId,
+        provenance: 'BROWSER_DECLARED',
+        timing_basis: declared ? 'MESSAGE_RECEIPT' : 'LEGACY_UNSPECIFIED',
+        finalization: declared ? item.finalization : 'LEGACY_UNSPECIFIED',
+        speech_boundaries: 'UNVERIFIED', prompt_binding: 'UNVERIFIED', relation_basis: 'UNCLASSIFIED_PROVISIONAL',
       },
-      question: item.speaker === 'interviewer' ? { origin: 'generated' } : {},
+      question: {},
       semantic: {},
       interrupted: null,
       version: 1,
@@ -828,7 +886,14 @@ async function readPublicSpine(db, sessionId) {
     candidateAttribution,
     turns: turns.filter(turn => !batchTranscriptRef(turn.transcript?.canonical_ref)
       && !(hasBatchSource && turn.turn_id === `turn:${sessionId}:question`))
-      .map((turn) => ({ id: turn.turn_id, speaker: turn.speaker, relation: turn.relation, startMs: turn.t_start_ms, endMs: turn.t_end_ms, transcript: turn.transcript, question: turn.question, semantic: {}, version: turn.version })),
+      .map((turn) => {
+        const provisional = /^provider:gpt-live-1:/u.test(String(turn.transcript?.provisional_ref || ''));
+        return { id: turn.turn_id, speaker: turn.speaker,
+          relation: provisional && turn.speaker === 'interviewer' ? 'aside' : turn.relation,
+          startMs: turn.t_start_ms, endMs: turn.t_end_ms,
+          transcript: provisional ? publicProvisionalTranscript(turn.transcript, sessionId) : turn.transcript,
+          question: provisional ? {} : turn.question, semantic: {}, version: turn.version };
+      }),
     // Preserve question snapshots for exact retry, never an unproven answer
     // range or its transcript/evidence references (even absent/legacy refs).
     segments: segments.map((segment) => ({ id: segment.segment_id,
@@ -1323,6 +1388,9 @@ export function createIvocHandler({
             answerSource, retainedResult: retry ? model.projection.result : null,
             audio, mimeType: sourceRecording.mime_type, transcriptEnabled: contextTranscriptEnabled });
           if (result.transcript?.status !== 'AVAILABLE') {
+            await audit({ actor, owner: actor, sessionId, recordingId, action: 'context_transcript_unavailable',
+              decision: 'deny', reason: transcriptUnavailableReasons.has(result.transcript?.reason)
+                ? result.transcript.reason : 'TRANSCRIPT_UNAVAILABLE' });
             sendJson(response, 200, result, mediaBase); return true;
           }
           const candidateAnalysis = packageSelfPracticeAnalysis({ answerSource, session: sessionRow, result, createdAt: new Date(now()).toISOString(),
@@ -1720,6 +1788,7 @@ export function createIvocHandler({
         if (!sessionRow || sessionRow.owner_subject !== actor) { sendError(response, 404, 'not_found', mediaBase); return true; }
         const input = await readJson(request);
         if (input.schema !== 'ivoc.analytics.v1' || Number(input.schemaVersion) !== 1) { sendError(response, 400, 'analytics_schema_invalid', mediaBase); return true; }
+        if (Object.hasOwn(input, 'sessionId') && input.sessionId !== sessionId) { sendError(response, 400, 'live_conversation_identity_invalid', mediaBase); return true; }
         const providerTurns = liveConversationTurns(input.liveConversation, sessionId);
         const audioAuthority = audioAuthorityEvidence(input.audioAuthority);
         const existing = await db.single(`ivoc_results?session_id=eq.${sessionId}&select=id&limit=1`);
@@ -1734,7 +1803,9 @@ export function createIvocHandler({
           owner_subject: actor,
           schema_name: input.schema,
           schema_version: 1,
-          payload: { ...input, ...(audioAuthority ? { audioAuthority } : {}) },
+          payload: { ...input,
+            ...(input.liveConversation ? { liveConversation: publicLiveConversation(input.liveConversation, sessionId) } : {}),
+            ...(audioAuthority ? { audioAuthority } : {}) },
           summary: { scores: input.scores || {}, counters: input.counters || {}, durations: summaryDurations },
         };
         const result = existing

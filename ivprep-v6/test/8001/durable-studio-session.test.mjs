@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 
 import { DurableStudioSession, createDurableResultsEnvelope } from '../../public/studio/durable-session.mjs';
 
+const messageReceipt = { timingBasis: 'MESSAGE_RECEIPT', provenance: 'BROWSER_DECLARED', finalization: 'PROVIDER_FINAL_MESSAGE' };
+
 function candidateHarness({ gate = true, failStart = false, failSeal = false } = {}) {
   let clock = 100; const made = []; const writes = []; let mainStops = 0; let sourceStops = 0;
   const mic = { kind: 'audio', readyState: 'live', id: 'original-mic' };
@@ -58,6 +60,9 @@ test('gated mic source is separate from remote mix, keeps independent clocks and
   assert.equal(saved.envelope.liveConversation.turns[0].itemId, 'item1');
   assert.equal(saved.envelope.liveConversation.turns[0].responseId, 'response1');
   assert.equal(saved.envelope.liveConversation.turns[0].startMs, 90);
+  assert.equal(saved.envelope.liveConversation.sessionId, 'owned-session');
+  assert.equal(saved.envelope.liveConversation.timingBasis, 'MESSAGE_RECEIPT');
+  assert.equal(saved.envelope.liveConversation.turns[0].finalization, 'PROVIDER_FINAL_MESSAGE');
   assert.equal(saved.envelope.candidateAudioCapture.blob, undefined);
   assert.equal(h.durable.candidateRecorder, null);
 });
@@ -320,9 +325,10 @@ test('durable Studio session creates, records, seals, and persists the validated
   assert.equal(calls[4][2].playableDurationMs, 3_000);
   assert.deepEqual(calls[4][2].liveConversation, {
     schema: 'ivoc.live-conversation.v1', provider: 'openai-gpt-live', clock: 'recording-observed',
+    sessionId: 'session-1', timingBasis: 'MESSAGE_RECEIPT', provenance: 'BROWSER_DECLARED',
     turns: [
-      { id: 'response-1', speaker: 'interviewer', startMs: 120, endMs: 120, text: 'Tell me about yourself.', final: true, providerEventType: 'session.output_transcript.done' },
-      { id: 'item-1', speaker: 'student', startMs: 1_320, endMs: 1_320, text: 'I value careful listening.', final: true, providerEventType: 'session.input_transcript.done' },
+      { ...messageReceipt, id: 'response-1', speaker: 'interviewer', startMs: 120, endMs: 120, text: 'Tell me about yourself.', final: true, providerEventType: 'session.output_transcript.done' },
+      { ...messageReceipt, id: 'item-1', speaker: 'student', startMs: 1_320, endMs: 1_320, text: 'I value careful listening.', final: true, providerEventType: 'session.input_transcript.done' },
     ],
   });
   assert.deepEqual(calls[4][2].audioAuthority, {
@@ -425,6 +431,7 @@ test('live transcript deltas stay provisional until explicit Finish seals them',
   nowMs = 300;
   durable.recordLiveTranscript({ identity: 'partial', speaker: 'applicant', text: 'Still speaking', type: 'conversation.item.input_audio_transcription.delta', final: false });
   assert.deepEqual(durable.liveConversationSnapshot().turns, [{
+    ...messageReceipt,
     id: 'r1', speaker: 'interviewer', startMs: 100, endMs: 220,
     text: 'Why this program?', final: true, providerEventType: 'response.output_audio_transcript.done',
   }]);
@@ -432,15 +439,39 @@ test('live transcript deltas stay provisional until explicit Finish seals them',
   assert.equal(finished.persisted, true);
   assert.deepEqual(saved[0].liveConversation.turns, [
     {
+      ...messageReceipt,
       id: 'r1', speaker: 'interviewer', startMs: 100, endMs: 220,
       text: 'Why this program?', final: true, providerEventType: 'response.output_audio_transcript.done',
     },
     {
+      ...messageReceipt, finalization: 'CLIENT_FINISH',
       id: 'partial', speaker: 'student', startMs: 300, endMs: 300,
       text: 'Still speaking', final: true,
       providerEventType: 'conversation.item.input_audio_transcription.delta:client-finish',
     },
   ]);
+});
+
+test('provisional capture rejects foreign session, malformed IDs and reused identity drift without changing receipt text', async () => {
+  const h = candidateHarness({ gate: false }); await h.durable.bootstrap(); await h.durable.start({ stream: {} });
+  h.advance(200);
+  const event = { identity: 'item-1', speaker: 'applicant', text: 'Actual partial text', final: false,
+    itemId: 'item-1', responseId: 'response-1', type: 'input.transcript.delta' };
+  assert.equal(h.durable.recordLiveTranscript(event), true);
+  for (const invalid of [{ sessionId: 'foreign-session' }, { identity: 42 }, { identity: 'x'.repeat(241) },
+    { itemId: ' padded ' }, { responseId: {} }, { responseId: 'x'.repeat(241) },
+    { speaker: 'interviewer' }, { itemId: 'different-item' }, { responseId: 'different-response' }]) {
+    assert.equal(h.durable.recordLiveTranscript({ ...event, ...invalid, final: true, text: 'Must not replace text' }), false);
+  }
+  assert.equal(h.durable.liveConversationSnapshot().turns.length, 0);
+  const result = await h.durable.finish({ durationMs: 1000 });
+  const turn = result.envelope.liveConversation.turns[0];
+  assert.equal(turn.text, 'Actual partial text');
+  assert.equal(turn.finalization, 'CLIENT_FINISH');
+  assert.equal(turn.itemId, 'item-1'); assert.equal(turn.responseId, 'response-1');
+  assert.equal(turn.startMs, turn.endMs);
+  assert.equal(turn.speechStartMs, undefined);
+  assert.equal(result.envelope.liveConversation.provenance, 'BROWSER_DECLARED');
 });
 
 test('results envelope remains truthful when recording evidence is unavailable', () => {
