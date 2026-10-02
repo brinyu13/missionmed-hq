@@ -10,6 +10,7 @@ import {
   resolveContextQuestion,
 } from '../../ivoc/context-provider.mjs';
 import { createIvocHandler } from '../../ivoc/routes.mjs';
+import { rebuildSelfPracticeAnswerSource, packageSelfPracticeAnalysis, projectSelfPracticeAnalysis } from '../../ivoc/self-practice-analysis.mjs';
 
 const sessionId = '00000000-0000-4000-8000-000000000042';
 const recordingId = '00000000-0000-4000-8000-000000000043';
@@ -219,6 +220,288 @@ const base = {
   cookieFingerprint: 'f'.repeat(64), hqSessionMaxTtlSeconds: 28_800, expectedOrigin: 'https://hq.test',
   url: new URL('https://hq.test/api/ivoc/v1/context'),
 };
+
+// Synthetic custody fixtures, not recorded media or model-quality acceptance.
+function sealedPractice() {
+  const stamp = '2026-09-17T20:00:00.000Z';
+  const sourceId = '00000000-0000-4000-8000-000000000044';
+  const audio = Buffer.from('synthetic-microphone-bytes');
+  const session = { id: sessionId, owner_subject: 'wp:42', state: 'saved', session_type: 'question',
+    interviewer_provider: 'missionmed-static', question_id: 'CORE-01', question_text: 'Tell me about yourself.',
+    context: { targetQuestions: 1, questionIds: ['CORE-01'], promptReceipt: {
+      schema: 'ivoc.self-practice-prompt.v1', workflow: 'SELF_PRACTICE', questionId: 'CORE-01', version: 1,
+      text: 'Tell me about yourself.', approval: 'ACTIVE_AT_SELECTION', issuedAt: stamp } } };
+  const parentRecording = { id: recordingId, session_id: sessionId, owner_subject: 'wp:42', recording_role: 'conversation',
+    status: 'saved', storage_object_key: 'private/full-conversation', size_bytes: 5000, etag: 'parent-etag',
+    sealed_at: stamp, mime_type: 'video/webm', duration_ms: 45000, paused_spans: [], recording_timebase: {
+      clock: 'browser-monotonic-session', recordingId, sessionId, ownerSubject: 'wp:42',
+      recordingStartSessionMs: 500, recordingDurationMs: 45000, playableDurationMs: 45000, pausedSpans: [] } };
+  const sourceRecording = { id: sourceId, session_id: sessionId, owner_subject: 'wp:42', recording_role: 'candidate_audio',
+    parent_recording_id: recordingId, status: 'saved', storage_object_key: 'private/candidate-microphone',
+    size_bytes: audio.length, etag: 'source-etag', sealed_at: stamp, mime_type: 'audio/webm', duration_ms: 42000,
+    paused_spans: [], capture_receipt: { schema: 'ivoc.candidate-audio.v1', captureVersion: 'direct-mic-v1', status: 'SEALED',
+      recordingId: sourceId, parentRecordingId: recordingId, sessionId, allocatedAt: stamp, sealedAt: stamp,
+      assurance: 'CLIENT_MIC_CAPTURE_DECLARATION', analysisEligibility: 'UNVERIFIED', sizeBytes: audio.length,
+      etag: 'source-etag', mime: 'audio/webm', timing: { clock: 'browser-monotonic-session', clientAttested: true,
+        recordingStartSessionMs: 2000, recordingDurationMs: 42000, playableDurationMs: 42000, pausedSpans: [] } } };
+  return { session, parentRecording, sourceRecording, audio };
+}
+
+function defaultAdapterFixture({ transcription = { text: 'I learned careful listening.',
+  segments: [{ start: 1, end: 2, text: 'I learned careful listening.', no_speech_prob: 0.01 }] }, semanticFailure = false } = {}) {
+  const calls = { transcription: 0, semantic: 0, transferred: [], semanticBodies: [] };
+  const behavior = { transcription, semanticFailure };
+  const provider = createContextIntelligenceProvider({ apiKey: 'offline-test-key', now: () => 42000,
+    fetchImpl: async (url, options) => {
+      if (url.endsWith('/audio/transcriptions')) {
+        calls.transcription += 1;
+        assert.equal(options.body.get('model'), 'whisper-1');
+        assert.equal(options.body.get('response_format'), 'verbose_json');
+        assert.deepEqual(options.body.getAll('timestamp_granularities[]'), ['segment']);
+        calls.transferred.push(Buffer.from(await options.body.get('file').arrayBuffer()));
+        return Response.json(behavior.transcription);
+      }
+      assert.equal(url, 'https://api.openai.com/v1/responses');
+      calls.semantic += 1;
+      const body = JSON.parse(options.body); calls.semanticBodies.push(body);
+      assert.equal(body.store, false);
+      if (behavior.semanticFailure) throw new Error('offline semantic transport failure');
+      return Response.json({ status: 'completed', model: 'offline-semantic-fixture', output_text: JSON.stringify(semantic()) });
+    } });
+  return { provider, calls, behavior };
+}
+
+function sourceRouteFixture(options = {}) {
+  const rows = sealedPractice();
+  const adapters = defaultAdapterFixture(options);
+  const state = { result: { id: 'result-42', session_id: sessionId, owner_subject: 'wp:42',
+    schema: 'ivoc.analytics.v1', payload: { objectiveMarker: 'unchanged' }, candidate_analysis: null },
+    now: Date.now(), downloads: [], updates: [], inserts: [], mediaOverride: null, beforeDownload: null };
+  const repository = {
+    single: async path => {
+      if (path.startsWith('ivoc_sessions?id=')) return rows.session;
+      if (path.startsWith('ivoc_recordings?parent_recording_id=')) return rows.sourceRecording;
+      if (path.startsWith('ivoc_recordings?session_id=')) return rows.parentRecording;
+      if (path.startsWith(`ivoc_recordings?id=eq.${rows.sourceRecording.id}`)) return rows.sourceRecording;
+      if (path.startsWith('ivoc_recordings?id=')) return rows.parentRecording;
+      if (path.startsWith('ivoc_results?')) return state.result;
+      return null;
+    },
+    request: async path => {
+      if (path.startsWith('ivoc_sessions?')) return [rows.session];
+      if (path.startsWith('ivoc_recordings?')) return path.includes('candidate_audio') ? [rows.sourceRecording] : [rows.parentRecording];
+      if (path.startsWith('ivoc_results?')) return [state.result];
+      return [];
+    },
+    update: async (path, body) => {
+      state.updates.push({ path, body });
+      assert.match(path, /^ivoc_results\?/u);
+      assert.deepEqual(Object.keys(body), ['candidate_analysis']);
+      if (path.includes('candidate_analysis=is.null') && state.result.candidate_analysis) return null;
+      state.result = { ...state.result, candidate_analysis: JSON.parse(JSON.stringify(body.candidate_analysis)) };
+      return state.result;
+    },
+    insert: async (table, body) => { state.inserts.push({ table, body }); return null; },
+  };
+  const storage = { fetchObject: async key => {
+    state.downloads.push(key);
+    if (state.beforeDownload) await state.beforeDownload();
+    return state.mediaOverride ? state.mediaOverride() : new Response(rows.audio, { headers: {
+      'Content-Length': String(rows.audio.length), 'Content-Type': 'audio/webm', ETag: '"source-etag"' } });
+  } };
+  const makeHandler = () => createIvocHandler({ registry: registry(), repository, storage, contextProvider: adapters.provider,
+    now: () => state.now, env: { IVPREP_ENABLED: 'true', IVPREP_ADMIN_CANARY_ENABLED: 'true',
+      IVOC_CONTEXT_CANDIDATE_ENABLED: 'true', IVOC_CONTEXT_TRANSCRIPT_ENABLED: 'true', MMHQ_SESSION_SECRET: 's'.repeat(64) } });
+  const handler = makeHandler();
+  const invoke = async ({ useHandler = handler, method = 'POST', path = '/api/ivoc/v1/context', body = {}, auth = hqSession(), csrf = true } = {}) => {
+    const response = new ResponseCapture();
+    await useHandler({ ...base, url: new URL(`https://hq.test${path}`), hqSession: auth,
+      request: request(method, { action: 'analyze', sessionId, recordingId, answerId, ...body }, csrf), response });
+    return response;
+  };
+  return { rows, ...adapters, state, makeHandler, invoke };
+}
+
+test('actual default transcription→semantic→package maps isolated source offsets exactly once', async () => {
+  const rows = sealedPractice(); const { provider, calls } = defaultAdapterFixture();
+  const answerSource = rebuildSelfPracticeAnswerSource(rows);
+  const result = await provider.analyze({ sessionId, answerId, answerSource, audio: rows.audio,
+    mimeType: 'audio/webm', transcriptEnabled: true });
+  assert.equal(result.analysis.status, 'AVAILABLE');
+  assert.deepEqual(result.transcript.segments[0].sourceRange, { startMs: 1000, endMs: 2000 });
+  assert.deepEqual(result.transcript.segments[0].sessionRange, { startMs: 3000, endMs: 4000 });
+  assert.deepEqual(result.analysis.range, { startMs: 2500, endMs: 3500 });
+  assert.equal(result.transcript.segments[0].startMs, 2500);
+  const envelope = packageSelfPracticeAnalysis({ ...rows, answerSource, result, createdAt: new Date().toISOString() });
+  const projected = projectSelfPracticeAnalysis({ ...rows, candidateAnalysis: JSON.parse(JSON.stringify(envelope)) });
+  assert.equal(projected.available, true);
+  assert.equal(projected.spine.turns[0].startMs, 2500);
+  assert.deepEqual(calls.transferred, [rows.audio]);
+  assert.equal(calls.semantic, 1);
+});
+
+test('default transcription rejects absent, out-of-range, overlapping and uncertain speech segments before semantics', async () => {
+  const cases = [ { text: 'No timestamps.' }, { text: 'Empty.', segments: [] },
+    { segments: [{ start: 41, end: 43, text: 'Too late.' }] },
+    { segments: [{ start: 1, end: 3, text: 'First.' }, { start: 2, end: 4, text: 'Overlap.' }] },
+    { segments: [{ start: 1, end: 2, text: 'Uncertain.', no_speech_prob: .8 }] } ];
+  for (const transcription of cases) {
+    const h = sourceRouteFixture({ transcription }); const response = await h.invoke();
+    assert.equal(response.status, 200);
+    assert.equal(response.json().transcript.status, 'UNAVAILABLE');
+    assert.equal(response.json().analysis.status, 'UNAVAILABLE');
+    assert.equal(h.calls.semantic, 0); assert.equal(h.state.updates.length, 0);
+    assert.equal(h.state.result.candidate_analysis, null);
+  }
+});
+
+test('source-bound route ignores browser question/foreign metrics, caches and revalidates protected envelope on reload', async () => {
+  const h = sourceRouteFixture();
+  const response = await h.invoke({ body: { questionId: 'UNKNOWN-CLIENT-QUESTION', analyticsEvents: [
+    { ...analyticsEvent(), sessionId: 'foreign-session', answerId: 'foreign-answer' } ],
+    candidate_analysis: { receipt: { status: 'VERIFIED' } } } });
+  assert.equal(response.status, 200, response.body);
+  assert.equal(response.json().analysis.status, 'AVAILABLE');
+  const contextRequest = JSON.parse(h.calls.semanticBodies[0].input);
+  assert.equal(contextRequest.question.canonicalText, h.rows.session.question_text);
+  assert.deepEqual(contextRequest.analyticsObservations, []);
+  assert.deepEqual(h.state.downloads, [h.rows.sourceRecording.storage_object_key]);
+  assert.equal(h.state.updates.length, 1);
+  assert.match(h.state.updates[0].path, /owner_subject=eq.wp%3A42.*candidate_analysis=is.null/u);
+  assert.equal(h.state.inserts.every(insert => insert.table === 'ivoc_access_log'), true);
+  const before = JSON.parse(JSON.stringify(h.state.result));
+  const cached = await h.invoke({ useHandler: h.makeHandler() });
+  assert.equal(cached.status, 200);
+  assert.equal(cached.json().transcript.transcriptId, response.json().transcript.transcriptId);
+  assert.equal(h.calls.transcription, 1); assert.equal(h.calls.semantic, 1); assert.equal(h.state.downloads.length, 1);
+  const detail = await h.invoke({ method: 'GET', path: `/api/ivoc/v1/sessions/${sessionId}` });
+  assert.equal(detail.status, 200, detail.body);
+  assert.equal(detail.json().spine.turns[0].startMs, 2500);
+  assert.equal(detail.json().spine.turns.every(turn => turn.speaker === 'student'), true);
+  assert.equal(detail.json().recording.id, recordingId);
+  assert.equal(detail.json().spine.candidateAttribution.status, 'UNVERIFIED');
+  const library = await h.invoke({ method: 'GET', path: '/api/ivoc/v1/library' });
+  assert.equal(library.status, 200, library.body);
+  assert.equal(library.json().sessions[0].recording.id, recordingId);
+  assert.equal(library.json().sessions[0].contextAnalysis.analysis.status, 'AVAILABLE');
+  assert.deepEqual(h.state.result, before);
+  assert.equal(detail.body.includes('private/'), false);
+  h.rows.sourceRecording.etag = 'changed-after-seal';
+  const changed = await h.invoke({ useHandler: h.makeHandler() });
+  assert.equal(changed.status, 409);
+  assert.equal(h.state.downloads.length, 1); assert.equal(h.calls.semantic, 1);
+});
+
+test('media custody rejects changed length, MIME, etag and actual body before provider/writes; guard releases', async () => {
+  for (const mutation of ['length', 'mime', 'etag', 'short-body', 'long-body']) {
+    const h = sourceRouteFixture();
+    h.state.mediaOverride = () => new Response(mutation === 'short-body' ? h.rows.audio.subarray(1)
+      : mutation === 'long-body' ? Buffer.concat([h.rows.audio, Buffer.from('x')]) : h.rows.audio, { headers: {
+      'Content-Length': String(h.rows.audio.length + (mutation === 'length' ? 1 : 0)),
+      'Content-Type': mutation === 'mime' ? 'video/webm' : 'audio/webm', ETag: mutation === 'etag' ? 'different' : 'source-etag' } });
+    const denied = await h.invoke();
+    assert.equal(denied.status, 409, `${mutation}: ${denied.body}`);
+    assert.equal(h.calls.transcription, 0); assert.equal(h.calls.semantic, 0); assert.equal(h.state.updates.length, 0);
+    h.state.mediaOverride = null;
+    assert.equal((await h.invoke()).status, 200, mutation);
+  }
+});
+
+test('concurrent same-session analysis is denied while first source download is pending', async () => {
+  const h = sourceRouteFixture();
+  let release; let entered;
+  const downloaded = new Promise(resolve => { entered = resolve; });
+  const wait = new Promise(resolve => { release = resolve; });
+  h.state.beforeDownload = async () => { entered(); await wait; };
+  const first = h.invoke(); await downloaded;
+  const overlapping = await h.invoke();
+  assert.equal(overlapping.status, 409);
+  assert.equal(overlapping.json().error, 'context_analysis_in_progress');
+  assert.equal(h.state.downloads.length, 1); assert.equal(h.calls.transcription, 0);
+  release(); assert.equal((await first).status, 200);
+  assert.equal(h.calls.transcription, 1); assert.equal(h.state.updates.length, 1);
+});
+
+test('semantic failure retains bounded transcript; cooldown retry uses validated saved transcript without media transfer', async () => {
+  const h = sourceRouteFixture({ semanticFailure: true });
+  const initial = await h.invoke();
+  assert.equal(initial.status, 200, initial.body);
+  assert.equal(initial.json().transcript.status, 'AVAILABLE');
+  assert.equal(initial.json().analysis.status, 'UNAVAILABLE');
+  const firstTranscript = initial.json().transcript;
+  const tooEarly = await h.invoke({ useHandler: h.makeHandler() });
+  assert.equal(tooEarly.status, 429, tooEarly.body);
+  h.state.now += 30000; h.behavior.semanticFailure = false;
+  const retried = await h.invoke({ useHandler: h.makeHandler(), body: { answerId: 'spoofed-retry-answer' } });
+  assert.equal(retried.status, 200, retried.body);
+  assert.equal(retried.json().analysis.status, 'AVAILABLE');
+  assert.equal(retried.json().answerId, answerId);
+  assert.equal(retried.json().transcript.transcriptId, firstTranscript.transcriptId);
+  assert.deepEqual(retried.json().transcript.segments, firstTranscript.segments);
+  assert.equal(h.state.downloads.length, 1); assert.equal(h.calls.transcription, 1); assert.equal(h.calls.semantic, 2);
+  assert.equal(h.state.result.candidate_analysis.receipt.semanticAttempt, 2);
+  assert.match(h.state.updates[1].path, /candidate_analysis->receipt->>createdAt=eq.*analysis->>status=eq.UNAVAILABLE/u);
+  assert.equal((await h.invoke({ useHandler: h.makeHandler() })).status, 200);
+  assert.equal(h.calls.semantic, 2);
+});
+
+test('owned sealed source still enforces session auth, CSRF and source ownership before storage/provider', async () => {
+  for (const kind of ['anonymous', 'csrf', 'source-owner', 'source-parent', 'ai', 'missing-parent-map']) {
+    const h = sourceRouteFixture();
+    if (kind === 'source-owner') h.rows.sourceRecording.owner_subject = 'wp:99';
+    if (kind === 'source-parent') h.rows.sourceRecording.parent_recording_id = sessionId;
+    if (kind === 'ai') h.rows.session.interviewer_provider = 'openai-gpt-live';
+    if (kind === 'missing-parent-map') delete h.rows.parentRecording.recording_timebase;
+    const response = await h.invoke({ auth: kind === 'anonymous' ? null : hqSession(), csrf: kind !== 'csrf' });
+    assert.equal(response.status, kind === 'anonymous' ? 401 : kind === 'csrf' ? 403 : 409, kind);
+    assert.equal(h.state.downloads.length, 0, kind); assert.equal(h.calls.transcription, 0, kind);
+    assert.equal(h.calls.semantic, 0, kind); assert.equal(h.state.updates.length, 0, kind);
+  }
+  const h = sourceRouteFixture();
+  const privateSource = await h.invoke({ method: 'GET', path: `/api/ivoc/v1/recordings/${h.rows.sourceRecording.id}/playback-url` });
+  assert.equal(privateSource.status, 404);
+  assert.equal(h.state.downloads.length, 0);
+});
+
+test('actual transcription mapping rejects unsplit removed intervals; split source+replay pauses preserve edges', async () => {
+  for (const split of [false, true]) {
+    const h = sourceRouteFixture({ transcription: { text: 'Before. After.', segments: split
+      ? [{ start: 0, end: 1, text: 'Before.' }, { start: 1, end: 2, text: 'After.' }]
+      : [{ start: 0, end: 2, text: 'Before. After.' }] } });
+    h.rows.sourceRecording.paused_spans = [{ startMs: 3000, endMs: 4000 }];
+    h.rows.sourceRecording.capture_receipt.timing.pausedSpans = h.rows.sourceRecording.paused_spans;
+    h.rows.parentRecording.paused_spans = [{ startMs: 3000, endMs: 4000 }];
+    h.rows.parentRecording.recording_timebase.pausedSpans = h.rows.parentRecording.paused_spans;
+    const response = await h.invoke();
+    assert.equal(response.status, 200, response.body);
+    assert.equal(response.json().transcript.status, split ? 'AVAILABLE' : 'UNAVAILABLE');
+    assert.equal(h.calls.semantic, split ? 1 : 0);
+    assert.equal(h.state.updates.length, split ? 1 : 0);
+    if (split) {
+      const segments = response.json().transcript.segments;
+      assert.deepEqual(segments.map(segment => segment.sessionRange), [
+        { startMs: 2000, endMs: 3000 }, { startMs: 4000, endMs: 5000 } ]);
+      assert.deepEqual(segments.map(segment => [segment.startMs, segment.endMs]), [[1500, 2500], [2500, 3500]]);
+    }
+  }
+});
+
+test('plain copied retained result never bypasses source transcription; changed stored source prevents semantic retry', async () => {
+  const h = sourceRouteFixture({ semanticFailure: true });
+  const initial = await h.invoke(); assert.equal(initial.status, 200);
+  const retained = JSON.parse(JSON.stringify(h.state.result.candidate_analysis.result));
+  const answerSource = rebuildSelfPracticeAnswerSource(h.rows);
+  const before = h.calls.transcription;
+  const withoutAudio = await h.provider.analyze({ sessionId, answerId, answerSource,
+    retainedResult: retained, transcriptEnabled: true, mimeType: 'audio/webm' });
+  assert.equal(withoutAudio.transcript.status, 'UNAVAILABLE');
+  assert.equal(h.calls.transcription, before);
+  h.state.now += 30000;
+  h.state.result.candidate_analysis.result.transcript.mapping.segments[0].session.startMs += 1;
+  const tampered = await h.invoke({ useHandler: h.makeHandler() });
+  assert.equal(tampered.status, 409);
+  assert.equal(h.state.downloads.length, 1); assert.equal(h.calls.transcription, 1); assert.equal(h.calls.semantic, 1);
+});
 
 test('context route inherits auth, entitlement, CSRF, and default-off feature gates', async () => {
   const anonymous = new ResponseCapture();
