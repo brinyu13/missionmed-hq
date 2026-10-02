@@ -18,13 +18,24 @@ const ENVIRONMENTS = Object.freeze({
   Teams: 'MissionMed · interview only',
 });
 
+// A practice preference is never a source receipt or permission to change policy.
+export function normalizePracticeFocus(value) {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string' || value.length > 500 || /[\p{Cc}\p{Cf}]/u.test(value)) {
+    throw new TypeError('Practice focus is invalid.');
+  }
+  return value.trim() || undefined;
+}
+
 export function createLiveContext({ wizard = {}, interviewSet = [], targetQuestions = 1 } = {}) {
+  const practiceFocus = wizard.goal === 'Guided Mock IV Practice' ? normalizePracticeFocus(wizard.focus) : undefined;
   return Object.freeze({
     goal: GOALS[wizard.goal] || 'Residency interview practice',
     questionIds: Object.freeze(interviewSet.map((question) => question?.question_id).filter(Boolean).slice(0, 30)),
     interviewer: INTERVIEWERS[wizard.interviewer] || 'Program Director · balanced',
     ...(Object.hasOwn(wizard, 'interviewerStyle') ? { interviewerStyle: wizard.interviewerStyle } : {}),
-    pressurePractice: wizard.pressurePractice === true,
+    pressurePractice: wizard.goal !== 'Individual Question' && wizard.pressurePractice === true,
+    ...(practiceFocus ? { practiceFocus } : {}),
     program: 'General residency interview',
     environment: wizard.analyticsEnabled === true
       ? 'MissionMed · coached analytics'

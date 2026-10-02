@@ -1156,7 +1156,12 @@ function renderGoalStep(host) {
   choices.forEach(([name, detail, image], index) => {
     const button = choiceButton({
       className: 'canon-purpose-card', selected: state.wizard.goal === name, label: name, detail,
-      onClick: () => { state.wizard.goal = name; if (name === 'Individual Question') state.targetQuestions = 1; renderWizard(); },
+      onClick: () => {
+        state.wizard.goal = name;
+        if (name === 'Individual Question') { state.targetQuestions = 1; state.wizard.pressurePractice = false; }
+        if (name !== 'Guided Mock IV Practice') state.wizard.focus = '';
+        renderWizard();
+      },
     });
     const img = el('img', 'canon-goal-photo');
     img.src = `/iv-prep-on-call/assets/studio/astra-assets/${image}`;
@@ -1503,7 +1508,7 @@ function renderEnvironmentStep(host) {
   });
   environment.append(rooms);
   const modes = el('div', 'canon-segment');
-  ['Interview Mode', 'Coached / Live Analytics Mode'].forEach((mode) => modes.append(choiceButton({ className: 'canon-tab', selected: state.wizard.interviewMode === mode, label: mode, onClick: () => { state.wizard.interviewMode = mode; renderWizard(); } })));
+  ['Interview Mode', 'Coached / Live Analytics Mode'].forEach((mode) => modes.append(choiceButton({ className: 'canon-tab', selected: state.wizard.interviewMode === mode, label: mode, onClick: () => { state.wizard.interviewMode = mode; state.room.showAnalytics = null; renderWizard(); } })));
   environment.append(modes, el('p', 'canon-muted', state.wizard.interviewMode === 'Interview Mode' ? 'A clean interview view. Enabled measurements continue in the background.' : 'Selected coaching overlays stay visible during practice.'));
   const context = el('section', 'canon-panel'); context.append(el('h2', '', 'Bring the right context.'), el('p', 'canon-muted', 'Choose what this interview may use. Only verified, authorized material is included when the interview begins.'));
   const sourceGrid = el('div', 'canon-source-grid');
@@ -1670,6 +1675,7 @@ function renderWizard() {
       summary.append(item);
     };
     addSummaryRow('Practice', state.wizard.goal);
+    if (state.wizard.goal === 'Guided Mock IV Practice' && state.wizard.focus) addSummaryRow('Practice focus', state.wizard.focus);
     addSummaryRow('Question Pool', `${state.interviewSet.length} in pool · target about ${state.targetQuestions}`, state.interviewSet.length > 0);
     addSummaryRow('Interviewer', buildInterviewerSelectionLabel(state.wizard));
     addSummaryRow('Program', state.wizard.programVerified

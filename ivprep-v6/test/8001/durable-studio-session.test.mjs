@@ -6,6 +6,23 @@ import { DurableStudioSession, createDurableResultsEnvelope } from '../../public
 
 const messageReceipt = { timingBasis: 'MESSAGE_RECEIPT', provenance: 'BROWSER_DECLARED', finalization: 'PROVIDER_FINAL_MESSAGE' };
 
+test('Guided practice preference is stored and bound to prepared session identity', async () => {
+  const calls = [];
+  const durable = new DurableStudioSession({ api: {
+    bootstrap: async () => ({ entitlement: { admitted: true } }),
+    createSession: async input => { calls.push(input); return { id: 'prepared-focus' }; },
+  } });
+  await durable.bootstrap();
+  const wizard = { goal: 'Guided Mock IV Practice', focus: '  Explain the impact  ', pressurePractice: true };
+  await durable.prepare({ wizard });
+  assert.equal(calls[0].context.practiceFocus, 'Explain the impact');
+  await assert.rejects(() => durable.prepare({ wizard: { ...wizard, focus: 'A different focus' } }), /context_changed/);
+  const individual = durable.sessionInput({ wizard: { ...wizard, goal: 'Individual Question' } });
+  assert.equal(individual.context.pressurePractice, false);
+  assert.equal(Object.hasOwn(individual.context, 'practiceFocus'), false);
+  assert.throws(() => durable.sessionInput({ wizard: { ...wizard, focus: {} } }), /Practice focus/);
+});
+
 function candidateHarness({ gate = true, failStart = false, failSeal = false } = {}) {
   let clock = 100; const made = []; const writes = []; let mainStops = 0; let sourceStops = 0;
   const mic = { kind: 'audio', readyState: 'live', id: 'original-mic' };

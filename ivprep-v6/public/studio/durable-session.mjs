@@ -1,6 +1,7 @@
 import { IvocApi } from '../ivoc-standalone/app/api.mjs';
 import { AccountRecordingController } from '../ivoc-standalone/app/recording.mjs';
 import { normalizeNameUseCoaching } from '../capabilities/context-results.mjs';
+import { normalizePracticeFocus } from './live-context-adapter.mjs';
 
 const finiteMs = (value) => Number.isFinite(Number(value))
   ? Math.max(0, Math.round(Number(value)))
@@ -99,6 +100,7 @@ export class DurableStudioSession {
   }
 
   sessionInput({ question = null, interviewSet = [], wizard = {}, targetQuestions = 1, interviewerProvider = 'missionmed-static' } = {}) {
+    const practiceFocus = wizard.goal === 'Guided Mock IV Practice' ? normalizePracticeFocus(wizard.focus) : undefined;
     const title = question?.canonical_text || 'IV Prep practice session';
     const verifiedProgram = wizard.programVerified === true
       && typeof wizard.programId === 'string' && wizard.programId
@@ -130,7 +132,8 @@ export class DurableStudioSession {
         programReleaseId: verifiedProgram ? wizard.programReleaseId : null,
         environment: wizard.environment || null,
         readiness: wizard.readiness || null,
-        pressurePractice: wizard.pressurePractice === true,
+        pressurePractice: wizard.goal !== 'Individual Question' && wizard.pressurePractice === true,
+        ...(practiceFocus ? { practiceFocus } : {}),
         contextSources,
         questionIds: interviewSet.map((item) => String(item?.question_id || '')).filter(Boolean).slice(0, 30),
         targetQuestions: Math.max(1, Math.min(30, Number(targetQuestions) || 1)),

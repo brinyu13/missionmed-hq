@@ -26,8 +26,21 @@ test('maps Founder pressure practice without exposing UI implementation terms', 
   const context = createLiveContext({ wizard: { goal: 'Individual Question', pressurePractice: true }, targetQuestions: 99 });
   assert.equal(context.goal, 'Individual question');
   assert.equal(context.interviewer, 'Program Director · balanced');
-  assert.equal(context.pressurePractice, true);
+  assert.equal(context.pressurePractice, false, 'hidden pressure must not survive Individual Question');
   assert.equal(context.targetQuestions, 30);
+});
+
+test('only visible Guided focus enters the live preference contract', () => {
+  const wizard = { goal: 'Guided Mock IV Practice', focus: '  Explain my contribution.  ', pressurePractice: true };
+  assert.equal(createLiveContext({ wizard }).practiceFocus, 'Explain my contribution.');
+  assert.equal(createLiveContext({ wizard }).pressurePractice, true);
+  for (const goal of ['Individual Question', 'Full IV Simulation']) {
+    assert.equal(Object.hasOwn(createLiveContext({ wizard: { ...wizard, goal } }), 'practiceFocus'), false);
+  }
+  for (const focus of [null, 42, {}, 'a'.repeat(501), 'line\ncommand', 'hidden\u200bcommand']) {
+    assert.throws(() => createLiveContext({ wizard: { ...wizard, focus } }), /Practice focus/);
+  }
+  assert.equal(Object.hasOwn(createLiveContext({ wizard: { ...wizard, focus: '   ' } }), 'practiceFocus'), false);
 });
 
 test('all approved role and bird-style selections survive the actual client projection', () => {

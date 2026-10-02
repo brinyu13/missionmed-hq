@@ -32,11 +32,23 @@ the actual production route and deployment.
   with the exact visible verified release. Ordinary Student access, session
   hydration, physical media and spoken acceptance are NOT inferred. Rollback
   remains exact preserved `f70752f` / `86e37b65` source/image/artifact below.
-- **Next executable setup corrections:** independent actual-handler/payload
-  review found hidden pressure surviving Individual Question selection, Guided
-  Practice focus not reaching the interviewer, and an earlier room Analytics
-  override masking a new explicit Builder mode. These are executable fixes,
-  separate from the unchanged physical camera/genuine speech evidence wait.
+- **Guided setup correction, source epoch 4102:** hidden pressure now clears on
+  Individual Question selection and is disabled defensively in durable/live/server
+  contracts. Guided focus now persists with the prepared session fingerprint and
+  reaches native instructions as a bounded, quoted, untrusted practice preference,
+  never application evidence or authority; malformed values reject before storage
+  or provider fetch. Focus applies only while Guided is selected and clears when
+  explicitly choosing another goal. Review shows the Guided focus. Explicit
+  Builder mode clears the previous room's Analytics display override without
+  changing measurement. 173 focused contract/view/media compatibility checks PASS;
+  independent review PASS including snapshot/parity/hidden-focus probes; deployment
+  pending. No schema, voice, transport or recording
+  graph change. Genuine spoken effect remains UNVERIFIED.
+- **Program paging independent production PASS:** fresh non-builder wp:1
+  Founder/Admin UI traversed Next/Previous, selected page-two Orthopaedic Surgery,
+  retained verified identity/release through Step 5/back, and confirmed query edits
+  remove verified identity and RISE consent. No role impersonation or provider
+  session. Source4100 and deployment4101 normally released/read back.
 - **PRIOR ROLLBACK / Compare freshness LIVE DEPLOYED:** source
   `f70752f9cb17da205e796409d329e633f72246bf`, deployment
   `86e37b65-b79a-464f-a4d7-cb04d5c873ae` SUCCESS, image

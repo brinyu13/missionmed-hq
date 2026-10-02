@@ -11,6 +11,30 @@ class ResponseCapture {
   json() { return this.body ? JSON.parse(this.body) : null; }
 }
 
+test('session preference validation precedes storage and cannot become hidden pressure or evidence', async () => {
+  const repo = repository(); const { route } = handler(repo);
+  const call = async context => {
+    const response = new ResponseCapture();
+    await route({ ...base, request: request('POST', { sessionType: 'mock', context }, {
+      origin: 'https://hq.test', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': 'a'.repeat(24),
+    }), response, url: new URL('https://hq.test/api/ivoc/v1/sessions'), hqSession: session() });
+    return response;
+  };
+  for (const practiceFocus of [null, 7, {}, 'a'.repeat(501), 'a\nb', 'a\u200bb']) {
+    assert.equal((await call({ goal: 'Guided Mock IV Practice', practiceFocus })).status, 400);
+  }
+  assert.equal(repo.inserts.length, 0);
+  assert.equal((await call({ goal: 'Guided Mock IV Practice', practiceFocus: '  Explain the impact  ' })).status, 201);
+  const guided = repo.inserts.find(row => row.table === 'ivoc_sessions').body;
+  assert.equal(guided.context.practiceFocus, 'Explain the impact');
+  assert.equal(guided.owner_subject, 'wp:42');
+  assert.equal(guided.context.promptReceipt, undefined);
+  assert.equal((await call({ goal: 'Individual Question', pressurePractice: true, practiceFocus: 'stale focus' })).status, 201);
+  const individual = repo.inserts.filter(row => row.table === 'ivoc_sessions').at(-1).body;
+  assert.equal(individual.context.practiceFocus, undefined);
+  assert.equal(individual.context.pressurePractice, false);
+});
+
 function request(method = 'GET', body = null, headers = {}) {
   const stream = Readable.from(body == null ? [] : [Buffer.from(JSON.stringify(body))]);
   stream.method = method;

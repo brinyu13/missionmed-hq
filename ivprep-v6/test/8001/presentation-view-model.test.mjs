@@ -2,6 +2,44 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 
+test('actual Builder handlers clear hidden pressure/focus and prior-room Analytics override', () => {
+  const source = readFileSync(new URL('../../public/studio/studio.mjs', import.meta.url), 'utf8');
+  const state = { wizard: { goal: 'Guided Mock IV Practice', focus: 'Explain the impact', pressurePractice: true,
+    duration: 15, contextSources: [], interviewMode: 'Interview Mode' }, room: { showAnalytics: false },
+    durable: {}, interviewSet: [], targetQuestions: 5 };
+  const choices = new Map();
+  class Element {
+    constructor() { this.children = []; }
+    append(...nodes) { this.children.push(...nodes); }
+    prepend(...nodes) { this.children.unshift(...nodes); }
+    addEventListener() {}
+    setAttribute() {}
+  }
+  let renders = 0;
+  const dependencies = { state, el: () => new Element(), choiceButton: options => { choices.set(options.label, options); return new Element(); },
+    renderWizard: () => { renders += 1; }, buildContextSources: () => [], contextSourceHint: () => '' };
+  const load = (start, end) => new Function(...Object.keys(dependencies),
+    `${source.slice(source.indexOf(start), source.indexOf(end))}; return ${start.split(' ')[1].split('(')[0]};`)(...Object.values(dependencies));
+  const goal = load('function renderGoalStep(', '\nfunction renderQuestionStep(');
+  goal(new Element());
+  choices.get('Individual Question').onClick();
+  assert.equal(state.wizard.pressurePractice, false);
+  assert.equal(state.wizard.focus, '');
+  assert.equal(state.targetQuestions, 1);
+  choices.get('Guided Mock IV Practice').onClick();
+  assert.equal(state.wizard.pressurePractice, false, 'returning must not restore invisible pressure');
+  const environment = load('function renderEnvironmentStep(', '\nfunction readinessRows(');
+  environment(new Element());
+  choices.get('Coached / Live Analytics Mode').onClick();
+  assert.equal(state.wizard.interviewMode, 'Coached / Live Analytics Mode');
+  assert.equal(state.room.showAnalytics, null);
+  state.room.showAnalytics = true;
+  choices.get('Interview Mode').onClick();
+  assert.equal(state.wizard.interviewMode, 'Interview Mode');
+  assert.equal(state.room.showAnalytics, null);
+  assert.equal(renders, 4);
+});
+
 test('one-prompt source-ready detail enables analysis without inventing candidate verification', () => {
   const detail = { id: 'p1', sessionType: 'quick', interviewerProvider: 'missionmed-static', recording: { id: 'r1' },
     analysisAvailability: { status: 'READY', workflow: 'SELF_PRACTICE', sessionId: 'p1', replayRecordingId: 'r1' },

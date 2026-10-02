@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import { admissionRegistry } from '../../ivprep-v6/server/admission-registry.mjs';
 import { strictProjectHqSession, validateIvPrepMutation } from '../../ivprep-v6/server/admission-contract.mjs';
+import { normalizePracticeFocus } from '../../ivprep-v6/public/studio/live-context-adapter.mjs';
 import { CANDIDATE_AUDIO_ATTRIBUTION_REASON, createContextIntelligenceProvider, resolveContextQuestion as resolveApprovedPracticeQuestion } from './context-provider.mjs';
 import { createIvocApplicationIntelligence, readSessionContextReceipts } from './application-intelligence.mjs';
 import { createFileVaultCvProjectionSource } from './file-vault-projection.mjs';
@@ -1417,6 +1418,12 @@ export function createIvocHandler({
       if (request.method === 'POST' && pathname === `${API_PREFIX}/sessions`) {
         const input = await readJson(request);
         const context = input.context && typeof input.context === 'object' && !Array.isArray(input.context) ? { ...input.context } : {};
+        let practiceFocus;
+        try { practiceFocus = normalizePracticeFocus(context.practiceFocus); }
+        catch { sendError(response, 400, 'invalid_practice_focus', mediaBase); return true; }
+        delete context.practiceFocus;
+        if (context.goal === 'Guided Mock IV Practice' && practiceFocus) context.practiceFocus = practiceFocus;
+        if (context.goal === 'Individual Question') context.pressurePractice = false;
         // A retry link never confers review rights or permits an Admin to start
         // someone else's retry. Re-derive provenance server-side, not from input.
         delete context.retry;
