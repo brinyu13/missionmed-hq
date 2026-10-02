@@ -24,7 +24,7 @@ BEGIN
     result := missionaccounts.api_save_student_onboarding_v2(sid,null,'QA','Medical School','email','100 Test Street',null,'City','Region','12345','US',
       ARRAY['preferred_name','school_name','best_contact_method','mailing_line1','mailing_line2','mailing_city','mailing_region','mailing_postal_code','mailing_country_code'],
       0,sid::text,'student','p0-profile-'||s);
-    IF result->'onboarding'->'missing_steps' <> '["CONTACT"]'::jsonb THEN RAISE EXCEPTION 'CONTACT-only reproduction failed: %',result; END IF;
+    IF result->'onboarding'->'optional_missing_steps' <> '["CONTACT"]'::jsonb THEN RAISE EXCEPTION 'CONTACT-only reproduction failed: %',result; END IF;
     request := 'p0-phone-'||s;
     result := missionaccounts.api_save_student_onboarding_v2(sid,'+1 (555) 555-0123',null,null,null,null,null,null,null,null,null,
       ARRAY['phone'],1,sid::text,'student',request);
@@ -47,7 +47,41 @@ BEGIN
     IF (SELECT phone FROM missionaccounts.student WHERE id=sid) <> '+1 (555) 555-0123' THEN RAISE EXCEPTION 'Rejected write changed phone'; END IF;
     IF (SELECT revision FROM missionaccounts.student_onboarding_profile WHERE student_id=sid) <> 2 THEN RAISE EXCEPTION 'Rejected write changed revision'; END IF;
     IF missionaccounts.onboarding_state_for_student(sid)->>'status' <> 'COMPLETE' THEN RAISE EXCEPTION 'Reload completion failed'; END IF;
+    UPDATE missionaccounts.student SET email=null WHERE id=sid;
+    IF missionaccounts.onboarding_state_for_student(sid)->'optional_missing_steps' <> '["CONTACT"]'::jsonb THEN RAISE EXCEPTION 'Missing email not reproduced'; END IF;
+    result := missionaccounts.api_sync_student_account_email(sid,'  Verified-'||lower(s)||'@EXAMPLE.TEST  ',sid::text,'student');
+    IF result->>'updated'<>'true' OR missionaccounts.onboarding_state_for_student(sid)->>'status'<>'COMPLETE' THEN RAISE EXCEPTION 'Verified email projection did not restore completion'; END IF;
+    result := missionaccounts.api_sync_student_account_email(sid,'different@example.test',sid::text,'student');
+    IF result->>'updated'<>'false' OR result->>'email'<>'verified-'||lower(s)||'@example.test' THEN RAISE EXCEPTION 'Existing email overwritten'; END IF;
+    BEGIN
+      PERFORM missionaccounts.api_sync_student_account_email(sid,'other@example.test',gen_random_uuid()::text,'student');
+      RAISE EXCEPTION 'Cross-principal email projection allowed';
+    EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+    BEGIN
+      PERFORM missionaccounts.api_sync_student_account_email(sid,E'invalid\n@example.test',sid::text,'student');
+      RAISE EXCEPTION 'Malformed email allowed';
+    EXCEPTION WHEN invalid_parameter_value THEN NULL; END;
+    IF has_function_privilege('anon','missionaccounts.api_sync_student_account_email(uuid,text,text,text)','execute')
+       OR has_function_privilege('authenticated','missionaccounts.api_sync_student_account_email(uuid,text,text,text)','execute') THEN RAISE EXCEPTION 'Email projection RPC exposed'; END IF;
+    IF EXISTS(SELECT 1 FROM missionaccounts.audit_event WHERE subject_student_id=sid AND kind='onboarding.account_email_projected' AND to_val::text LIKE '%example.test%') THEN RAISE EXCEPTION 'Email leaked into audit'; END IF;
     IF EXISTS (SELECT 1 FROM missionaccounts.audit_event WHERE subject_student_id=sid AND to_val::text LIKE '%555-0123%') THEN RAISE EXCEPTION 'Phone value leaked into audit'; END IF;
+  END LOOP;
+  INSERT INTO missionaccounts.student(display_name,email,identity_state,sponsor_type)
+    VALUES('Local payment-only fixture','payment-only@example.test','verified','DIRECT') RETURNING id INTO sid;
+  IF missionaccounts.onboarding_state_for_student(sid)->'missing_steps' <> '["PAYMENT_METHOD","BILLING_CONSENT"]'::jsonb THEN RAISE EXCEPTION 'Optional fields gated DIRECT'; END IF;
+  INSERT INTO missionaccounts.stripe_customer_private(student_id,provider,provider_customer_ref) VALUES(sid,'stripe','cus_local_paymentonly');
+  INSERT INTO missionaccounts.payment_method_private(student_id,provider,provider_customer_ref,provider_pm_ref,brand,last4,status)
+    VALUES(sid,'stripe','cus_local_paymentonly','pm_local_paymentonly','visa','4242','on_file');
+  IF missionaccounts.onboarding_state_for_student(sid)->'missing_steps' <> '["BILLING_CONSENT"]'::jsonb THEN RAISE EXCEPTION 'Consent requirement lost'; END IF;
+  INSERT INTO missionaccounts.billing_consent(student_id,terms_version,accepted_at,state,actor_id,request_id)
+    VALUES(sid,'p0-local-terms',now(),'authorized',sid::text,'p0-local-consent-paymentonly');
+  result:=missionaccounts.onboarding_state_for_student(sid);
+  IF result->>'status'<>'COMPLETE' OR result->'optional_missing_steps'<>'["PROFILE","CONTACT","EXAM_PLAN"]'::jsonb THEN RAISE EXCEPTION 'Payment-only completion failed'; END IF;
+  FOREACH s IN ARRAY ARRAY['UCC','MUL'] LOOP
+    INSERT INTO missionaccounts.student(display_name,email,identity_state,sponsor_type,sponsor_name,sponsor_updated_at,sponsor_updated_by,sponsor_request_id)
+      VALUES('Local exempt fixture','exempt-'||lower(s)||'@example.test','verified',s,s,now(),'local-admin','p0-empty-sponsor-'||s) RETURNING id INTO sid;
+    result:=missionaccounts.onboarding_state_for_student(sid);
+    IF result->>'status'<>'COMPLETE' OR result->'required_steps'<>'[]'::jsonb OR result->>'payment_requirement'<>'NOT_APPLICABLE' THEN RAISE EXCEPTION 'Exempt optional details gated completion'; END IF;
   END LOOP;
 END $test$;
 ROLLBACK;

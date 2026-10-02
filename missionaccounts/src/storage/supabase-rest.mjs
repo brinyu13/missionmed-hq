@@ -59,6 +59,13 @@ export class SupabaseRestStore {
     return rows[0] || null;
   }
 
+  async syncStudentAccountEmail({ studentId, accountEmail, actorId, actorRole }) {
+    return this.rpc('api_sync_student_account_email', {
+      p_student_id: studentId, p_account_email: accountEmail,
+      p_actor_id: actorId, p_actor_role: actorRole,
+    });
+  }
+
   async syncProgramEnrollment({ studentId, enrolled, sourceSubject, sourceObservedAt, actorId, requestId }) {
     return this.rpc('api_sync_program_enrollment', {
       p_student_id: studentId,
@@ -1061,6 +1068,19 @@ export class PreviewStore {
   async studentByMatrixUser(userId) {
     return this.previewStudentRecord.id === userId ? { ...this.previewStudentRecord } : null;
   }
+  async syncStudentAccountEmail({ studentId, accountEmail, actorId, actorRole }) {
+    if (actorRole !== 'student' || actorId !== studentId || studentId !== this.previewStudentRecord.id
+        || this.previewStudentRecord.identity_state !== 'verified') {
+      throw Object.assign(new Error('Account email requires the canonical student'), { status: 403 });
+    }
+    const cleanEmail = String(accountEmail || '').trim().toLowerCase();
+    if (cleanEmail.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      throw Object.assign(new Error('Invalid account email'), { status: 400 });
+    }
+    const updated = !String(this.previewStudentRecord.email || '').trim();
+    if (updated) this.previewStudentRecord.email = cleanEmail;
+    return { email: this.previewStudentRecord.email, updated };
+  }
   async syncProgramEnrollment({ studentId, enrolled, sourceSubject, sourceObservedAt, actorId, requestId }) {
     const fingerprint = JSON.stringify({ studentId, enrolled: enrolled === true, sourceSubject, sourceObservedAt, actorId });
     const existing = this.enrollmentMutations.get(requestId);
@@ -1115,16 +1135,17 @@ export class PreviewStore {
     };
     const missing = [];
     if (!progress.account) missing.push('ACCOUNT');
-    if (!progress.profile) missing.push('PROFILE');
-    if (!progress.contact) missing.push('CONTACT');
-    if (!progress.exam_plan) missing.push('EXAM_PLAN');
+    const optionalMissing = ['profile','contact','exam_plan'].filter(key => !progress[key]).map(key => key.toUpperCase());
     if (direct && !progress.payment_method) missing.push('PAYMENT_METHOD');
     if (direct && !progress.billing_consent) missing.push('BILLING_CONSENT');
     return {
       student: { display_name: student.display_name, email: student.email, phone: student.phone, sponsor_type: student.sponsor_type },
       profile: profile ? { ...profile } : null,
-      status: missing.length === 0 ? 'COMPLETE' : profile ? 'IN_PROGRESS' : 'NOT_STARTED',
+      status: missing.length === 0 ? 'COMPLETE' : (profile || progress.payment_method || progress.billing_consent) ? 'IN_PROGRESS' : 'NOT_STARTED',
       missing_steps: missing,
+      optional_missing_steps: optionalMissing,
+      required_steps: direct ? ['PAYMENT_METHOD','BILLING_CONSENT'] : [],
+      completion_contract_version: 'examprep-onboarding-payment-readiness-2026-10-02-v1',
       progress,
       payment_requirement: direct ? 'REQUIRED' : 'NOT_APPLICABLE',
       revision: profile?.revision || 0,

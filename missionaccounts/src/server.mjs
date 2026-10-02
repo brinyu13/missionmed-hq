@@ -300,8 +300,17 @@ export function createMissionAccountsServer({
   }
 
   async function studentContext(identity) {
-    const student = await store.studentByMatrixUser(identity.userId);
+    let student = await store.studentByMatrixUser(identity.userId);
     if (!student) throw requestError('MissionAccounts record not found', 404);
+    // Only verified WordPress identity supplies this email; never a form value.
+    const accountEmail = String(identity.email || '').trim().toLowerCase();
+    if (!String(student.email || '').trim() && accountEmail.length <= 320
+        && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(accountEmail)) {
+      const synced = await store.syncStudentAccountEmail({
+        studentId: student.id, accountEmail, actorId: identity.userId, actorRole: 'student',
+      });
+      student = { ...student, email: synced.email };
+    }
     const issuedAtSeconds = Number(identity.claims?.iat);
     const sourceObservedAt = Number.isFinite(issuedAtSeconds)
       ? new Date(issuedAtSeconds * 1_000).toISOString()

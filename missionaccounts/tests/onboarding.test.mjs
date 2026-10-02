@@ -39,6 +39,25 @@ const validProfile = {
   expected_revision: 0,
 };
 
+test('missing canonical email is supplied by authenticated account without overwriting existing contact or causing billing', async () => {
+  const store = new PreviewStore();
+  store.previewStudentRecord.email = null;
+  store.previewStudentRecord.phone = '+15555550123';
+  const baseline = [store.notifications.size, store.autoChargeDispatches.size, store.hostedInvoiceDispatches.size, store.chargesByDay.size];
+  await withServer({ config, store, stripeGateway: new StripeGateway() }, async base => {
+    const response = await fetch(`${base}/api/me/onboarding`, { headers: studentHeaders });
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.onboarding.student.email, 'student.preview@invalid.local');
+    assert.equal(body.onboarding.progress.contact, true);
+    store.previewStudentRecord.email = 'existing-contact@example.test';
+    const retained = await fetch(`${base}/api/me/onboarding`, { headers: studentHeaders });
+    assert.equal((await retained.json()).onboarding.student.email, 'existing-contact@example.test');
+  });
+  await assert.rejects(store.syncStudentAccountEmail({ studentId, accountEmail:'other@example.test',actorId:'different-student',actorRole:'student' }), /canonical student/);
+  assert.deepEqual([store.notifications.size, store.autoChargeDispatches.size, store.hostedInvoiceDispatches.size, store.chargesByDay.size], baseline);
+});
+
 async function withServer(options, run) {
   const server = createMissionAccountsServer(options);
   server.listen(0, '127.0.0.1');
@@ -82,7 +101,7 @@ test('student saves, resumes, edits, and idempotently replays only their onboard
     assert.equal(initialBody.onboarding.status, 'NOT_STARTED');
     assert.equal(initialBody.onboarding.student.display_name, 'Preview Student');
     assert.equal(initialBody.onboarding.student.student_id, undefined);
-    assert.deepEqual(initialBody.onboarding.missing_steps, ['PROFILE', 'EXAM_PLAN', 'PAYMENT_METHOD', 'BILLING_CONSENT']);
+    assert.deepEqual(initialBody.onboarding.missing_steps, ['PAYMENT_METHOD', 'BILLING_CONSENT']);
 
     const headers = { ...studentHeaders, 'idempotency-key': 'onboard-profile-0001' };
     const first = await fetch(`${base}/api/me/onboarding`, { method: 'POST', headers, body: JSON.stringify(validProfile) });
@@ -196,7 +215,22 @@ test('ambiguous canonical identity cannot read a previously saved onboarding pro
   });
 });
 
-test('completion is server-derived and sponsored students do not require payment or consent', async () => {
+test('only payment and billing authorization gate DIRECT completion; optional details never block sponsored completion', async () => {
+  const minimal = new PreviewStore();
+  minimal.previewStudentRecord.phone = null;
+  assert.deepEqual(minimal.onboardingState(studentId).missing_steps, ['PAYMENT_METHOD','BILLING_CONSENT']);
+  minimal.seedPaymentMethod(studentId, { status:'on_file',brand:'visa',last4:'4242' });
+  assert.deepEqual(minimal.onboardingState(studentId).missing_steps, ['BILLING_CONSENT']);
+  minimal.billingConsents.set(studentId,{state:'authorized',terms_version:'approved-v1'});
+  assert.equal(minimal.onboardingState(studentId).status,'COMPLETE');
+  assert.deepEqual(minimal.onboardingState(studentId).optional_missing_steps,['PROFILE','CONTACT','EXAM_PLAN']);
+  assert.equal(minimal.onboardingState(studentId).profile,null);
+  for (const sponsor of ['UCC','MUL']) {
+    const exempt = new PreviewStore(); exempt.previewStudentRecord.sponsor_type=sponsor;
+    assert.equal(exempt.onboardingState(studentId).status,'COMPLETE');
+    assert.deepEqual(exempt.onboardingState(studentId).required_steps,[]);
+    assert.equal(exempt.onboardingState(studentId).payment_requirement,'NOT_APPLICABLE');
+  }
   const direct = new PreviewStore();
   direct.previewStudentRecord.phone = '+15555550123';
   await direct.saveStudentOnboarding({ studentId, profile: validProfile, expectedRevision: 0, actorId: studentId, actorRole: 'student', requestId: 'direct-profile-0001' });
@@ -397,7 +431,7 @@ test('phone-only save preserves profile and cannot cross student or spoof comple
     assert.equal(state.profile.school_name, 'School');
     assert.equal(state.progress.contact, true);
     assert.equal(state.status, 'IN_PROGRESS');
-    assert.ok(state.missing_steps.includes('PROFILE'));
+    assert.ok(state.optional_missing_steps.includes('PROFILE'));
     const denied = await fetch(base + '/api/me/onboarding', {
       method: 'POST', headers: { ...studentHeaders, 'x-missionaccounts-local-user': '00000000-0000-4000-8000-000000000002', 'idempotency-key': 'phone-other-student' },
       body: JSON.stringify({ phone: '+15555550999', expected_revision: 2 }),
@@ -442,7 +476,7 @@ test('an incomplete student can submit the required exam plan without a circular
     assert.equal(state.progress.exam_plan, true);
     assert.equal(state.progress.contact, false);
     assert.notEqual(state.status, 'COMPLETE');
-    assert.ok(state.missing_steps.includes('PROFILE'));
-    assert.ok(state.missing_steps.includes('CONTACT'));
+    assert.ok(state.optional_missing_steps.includes('PROFILE'));
+    assert.ok(state.optional_missing_steps.includes('CONTACT'));
   });
 });
