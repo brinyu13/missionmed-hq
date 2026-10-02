@@ -14,6 +14,21 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Progress/history freshness correction, source epochs 4106 → 4108:** fresh
+  independent actual-source POV probe reproduced Progress retaining its previous
+  saved-attempt total after a successful save. Durable success now invalidates
+  the own-history cache immediately; failed/local-only saves do not create saved
+  evidence. Reads and cache publication are bound to generation, actor, admission,
+  role and durable adapter; old completion cannot clear a newer pending request.
+  Progress/trend rendering rejects stale navigation and errors; Library no longer
+  writes an unscoped cache. 52 focused checks PASS, including actual finish →
+  Progress without a Library detour, reversed responses, stale failures and Compare
+  compatibility. Independent bounded review found no remaining P0/P1; its small
+  stale-error consistency note was corrected with focused regression coverage.
+  Source correction is not yet deployed. No camera, audio, provider, DB or visual
+  composition change. Epoch4106 released normally/read back before expanding the
+  exact test-file lease; epoch4108 keeper is active. Current healthy rollback is
+  `c25eaa4` / `f6186d77`, exact custody below.
 - **Own Answer Library race correction, source epoch 4106:** fresh independent
   actual-renderer probes found Review A → Review B resolving backwards reopened
   A; a late Review also hijacked navigation Home. Shared Review/Play action and
@@ -22,8 +37,20 @@ the actual production route and deployment.
   navigation is published after asynchronous video.play. Errors remain bounded;
   expired authentication offers normal Matrix re-entry instead of an internal
   error label. 63 focused checks PASS; independent review PASS with eight additional
-  actual-renderer adversarial probes. Deployed POV is still pending. Astra
-  composition and media graph unchanged.
+  actual-renderer adversarial probes. LIVE source
+  `c25eaa40e149456c99e10f01fc8534818b9ca59d`, deployment
+  `f6186d77-5c3b-4b76-93f3-2ff7750ba84c` SUCCESS, image
+  `sha256:03932d1707261da96c54ee2649fd8f6580e10ae2b5bb29dfaccf64829b6798a0`,
+  artifact `6ffd9f3ecf16f242ebece1a2d9fb2448a84c69858af534d3415c9ca3fac4539e`.
+  Runtime studio hash `6570adec7002c0e859e94701ab01284211f6675df6068c745108f2d2d073377b`
+  matches source. Health200, anonymous product/bootstrap401, config unchanged;
+  deployment4107 released normally/read back. Fresh independent production wp:1
+  POV PASS: two selected answers opened their respective Results; leaving a pending
+  Review stayed Home; cold Results/Film Room retained exact selected session
+  `1a8acfb2-3cda-42c6-b2a3-db41d93b59c4`, paused at 0 s with a visible saved frame.
+  No Play/new recording/provider/data operation or two-sided audible claim.
+  Astra composition and media graph unchanged. Nearest healthy rollback is
+  `8ce18f8` / `1e8eca68` with exact artifact/image below.
 - **Fresh auth recovery:** current cached Founder shell's Library returned
   IVPREP_AUTHENTICATION_REQUIRED. Fresh independent normal Matrix → IVOC re-entry
   restored visible wp:1 Founder/Admin and 33/33 own saved answers without
@@ -38,7 +65,7 @@ the actual production route and deployment.
   patch; DR-151 is WP-read-only and DR-153's old hash transition is insufficient.
   One bounded reconciliation authorization question is outstanding; no repeated
   audit or source overwrite. Other IVOC-owned engineering continues.
-- **CURRENT LIVE / guardian, inactive reader release:** source
+- **PRIOR ROLLBACK / inactive reader release:** source
   `8ce18f8606490d40af0a1c1ab20807bc05eaa365`, deployment
   `1e8eca68-cec6-4d9f-ab98-8f5732da23e1` SUCCESS, image
   `sha256:b76962386c72c1f82824d314233edc3fa894de072424f5168e579fafe7240ef9`,

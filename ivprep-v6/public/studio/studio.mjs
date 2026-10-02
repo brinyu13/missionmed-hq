@@ -2292,6 +2292,7 @@ async function finishRep() {
     const outcome = state.durable?.accountSession
       ? await state.durable.finish(analyticsPromise)
       : { persisted: false, analytics: await analyticsPromise, recording: null };
+    if (outcome.persisted) invalidateLongitudinalHistory();
     state.conversationRecording?.destroy?.();
     state.conversationRecording = null;
     state.lastSaved = outcome;
@@ -2310,7 +2311,6 @@ async function finishRep() {
       save.textContent = saveText;
     }
     renderPostAnswer(outcome.analytics);
-    if (outcome.persisted) void renderVault();
     setSessionState('COMPLETE');
     setView('postanswer');
   } catch (error) {
@@ -2784,16 +2784,53 @@ async function connectDevices() {
 
 /* ------------------------------------------------------------------ vault */
 
+let longitudinalGeneration = 0;
+let longitudinalScope = null;
+
+function ownHistoryScope() {
+  return { admission: state.admission, subject: state.admission?.identity?.subject,
+    durable: state.durable, role: state.role };
+}
+
+function isOwnHistoryScopeCurrent(scope) {
+  return Boolean(scope && state.admission === scope.admission
+    && state.admission?.identity?.subject === scope.subject && state.durable === scope.durable
+    && state.role === scope.role);
+}
+
+function invalidateLongitudinalHistory() {
+  ++longitudinalGeneration;
+  longitudinalScope = null;
+  state.longitudinal = null;
+  state.longitudinalPromise = null;
+}
+
 async function longitudinalModel({ refresh = false } = {}) {
-  if (refresh) { state.longitudinal = null; state.longitudinalPromise = null; }
+  if (refresh || !state.durableAvailable || !longitudinalScope?.subject || !isOwnHistoryScopeCurrent(longitudinalScope)) {
+    invalidateLongitudinalHistory();
+    longitudinalScope = ownHistoryScope();
+  }
   if (state.longitudinal) return state.longitudinal;
   if (!state.longitudinalPromise) {
-    state.longitudinalPromise = (async () => {
+    const generation = longitudinalGeneration;
+    const scope = longitudinalScope;
+    const available = state.durableAvailable;
+    const isCurrent = () => generation === longitudinalGeneration && state.durableAvailable === available && isOwnHistoryScopeCurrent(scope);
+    const pending = (async () => {
       if (!state.durableAvailable) throw state.durableError || new Error('durable_session_unavailable');
-      const vault = await state.durable.library('own');
+      if (!scope.subject) throw new Error('authenticated_account_required');
+      const vault = await scope.durable.library('own');
+      if (!isCurrent()) return null;
       state.longitudinal = buildLongitudinalModel(Array.isArray(vault?.sessions) ? vault.sessions : []);
       return state.longitudinal;
-    })().finally(() => { state.longitudinalPromise = null; });
+    })().catch(error => {
+      if (!isCurrent()) return null;
+      throw error;
+    }).finally(() => {
+      // An obsolete request must not clear a newer in-flight history read.
+      if (state.longitudinalPromise === pending) state.longitudinalPromise = null;
+    });
+    state.longitudinalPromise = pending;
   }
   return state.longitudinalPromise;
 }
@@ -2825,11 +2862,24 @@ function metricCard(label, value, note) {
   return card;
 }
 
+let progressRenderId = 0;
+let longitudinalRenderId = 0;
+
 async function renderProgress() {
   const host = $('#progress-body');
-  if (!host) return;
+  if (!host || state.view !== 'progress') return;
+  const renderId = ++progressRenderId;
+  const viewGeneration = adminReviewViewGeneration;
+  const scope = ownHistoryScope();
+  const pending = longitudinalModel();
+  const generation = longitudinalGeneration;
+  const isCurrent = () => renderId === progressRenderId && state.view === 'progress'
+    && viewGeneration === adminReviewViewGeneration && generation === longitudinalGeneration
+    && isOwnHistoryScopeCurrent(scope) && $('#progress-body') === host;
+  host.replaceChildren();
   try {
-    const model = await longitudinalModel();
+    const model = await pending;
+    if (!isCurrent() || !model || model !== state.longitudinal) return;
     if (!model.totals.savedSessions) {
       emptyEvidence(host, 'No saved attempts yet', 'Complete and save a real recorded answer to begin your evidence-backed progress history. XP, rank, and badges are not fabricated.');
       return;
@@ -2845,15 +2895,25 @@ async function renderProgress() {
     note.textContent = 'Personal history only · no population rank, seeded XP, or inferred mastery.';
     host.replaceChildren(grid, note);
   } catch (error) {
-    emptyEvidence(host, 'Progress unavailable', String(error?.message || 'Authenticated Answer History required').toUpperCase().slice(0, 120));
+    if (isCurrent()) emptyEvidence(host, 'Progress unavailable', 'Your saved history could not be loaded. Return to this page to try again.');
   }
 }
 
 async function renderLongitudinal() {
   const host = $('#longitudinal-body');
-  if (!host) return;
+  if (!host || state.view !== 'lab') return;
+  const renderId = ++longitudinalRenderId;
+  const viewGeneration = adminReviewViewGeneration;
+  const scope = ownHistoryScope();
+  const pending = longitudinalModel();
+  const generation = longitudinalGeneration;
+  const isCurrent = () => renderId === longitudinalRenderId && state.view === 'lab'
+    && viewGeneration === adminReviewViewGeneration && generation === longitudinalGeneration
+    && isOwnHistoryScopeCurrent(scope) && $('#longitudinal-body') === host;
+  host.replaceChildren();
   try {
-    const model = await longitudinalModel();
+    const model = await pending;
+    if (!isCurrent() || !model || model !== state.longitudinal) return;
     if (!model.attempts.length) {
       emptyEvidence(host, 'No validated trend evidence yet', 'A saved answer with validated student-safe analytics creates the first personal evidence point.');
       return;
@@ -2873,7 +2933,7 @@ async function renderLongitudinal() {
     note.textContent = 'Validated student-safe observations only · unavailable means the evidence did not support a value.';
     host.replaceChildren(rows, note);
   } catch (error) {
-    emptyEvidence(host, 'Longitudinal evidence unavailable', String(error?.message || 'Authenticated Answer History required').toUpperCase().slice(0, 120));
+    if (isCurrent()) emptyEvidence(host, 'Longitudinal evidence unavailable', 'Your saved evidence could not be loaded. Return to this page to try again.');
   }
 }
 
@@ -3010,7 +3070,7 @@ async function renderCompare() {
     const model = adminReview
       ? buildLongitudinalModel(await state.adminLibrary.comparisonSessions(subject))
       : await longitudinalModel({ refresh: true });
-    if (!isCurrent()) return;
+    if (!isCurrent() || !model) return;
     if (!model.attempts.length) {
       emptyEvidence(host, 'No saved attempts to compare', 'Save an answer, retry that question, then return to compare your evidence.');
       return;
@@ -3100,7 +3160,7 @@ async function renderVault() {
     const vault = await durable.library('own');
     if (!isLibraryCurrent()) return;
     const sessions = Array.isArray(vault?.sessions) ? vault.sessions : [];
-    state.longitudinal = buildLongitudinalModel(sessions);
+    invalidateLongitudinalHistory();
     if (!sessions.length) {
       const empty = document.createElement('div');
       empty.className = 'empty-state';

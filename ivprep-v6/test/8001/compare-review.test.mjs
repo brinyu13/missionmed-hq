@@ -173,7 +173,7 @@ test('actual Compare retains metrics and gates teaching reads across actor/role/
 });
 
 test('actual cached history plus Compare keeps a newly saved retry selected after fresh own read', async () => {
-  const cacheCode = between('async function longitudinalModel(', '\nfunction emptyEvidence(');
+  const cacheCode = between('let longitudinalGeneration = 0;', '\nfunction emptyEvidence(');
   const compareCode = between('async function renderCompare(', '\nlet vaultRenderId');
   const old = { id: 'old', state: 'saved', sessionType: 'question', interviewerProvider: 'missionmed-static',
     questionId: 'q1', questionText: 'Prompt', endedAt: '2026-10-01T10:00:00Z',

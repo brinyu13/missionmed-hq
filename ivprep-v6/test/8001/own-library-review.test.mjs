@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
+import { buildLongitudinalModel } from '../../public/studio/longitudinal-model.mjs';
 
 const source = readFileSync(new URL('../../public/studio/studio.mjs', import.meta.url), 'utf8');
 const code = source.slice(source.indexOf('let vaultRenderId = 0;'), source.indexOf('/* ------------------------------------------------------------------ analytics mount */'));
@@ -33,6 +34,7 @@ function harness({ readLibrary, readSession, sign, play } = {}) {
   const controls = new Function('state', '$', 'document', 'buildLongitudinalModel', 'presentFilmRoomAnalytics',
     'renderPostAnswer', 'renderContextEvidence', 'contextResultFromSessionSpine', 'renderFilmRoomSpine',
     `let adminReviewViewGeneration=0;
+    const invalidateLongitudinalHistory=()=>{state.longitudinal=null;};
     const setView = view => { if(state.view!==view) adminReviewViewGeneration++; state.view=view; };
     ${code}; return { render: renderVault, navigate: setView, changeRole: role => { state.role=role; vaultActionId++; },
       refresh: renderVault };`)(state, selector => selector === '#vault-body' ? host : video,
@@ -137,5 +139,128 @@ test('actual Library exposes normal Matrix sign-in recovery without internal aut
       assert.equal(links[0].href, 'https://missionmedinstitute.com/member-dashboard/');
       assert.match(text, /sign in again/i);
     }
+  }
+});
+
+const historyCode = source.slice(source.indexOf('let longitudinalGeneration = 0;'), source.indexOf('let compareRenderId = 0;'));
+const finishCode = source.slice(source.indexOf('async function finishRep()'), source.indexOf('/** Explicit, actionable prerequisites.'));
+const savedAttempt = id => ({ id, state: 'saved', endedAt: '2026-10-02T06:00:00Z', questionId: 'Q1', questionText: 'Question Q1',
+  sessionType: 'question', interviewerProvider: 'missionmed-static', recording: { durationMs: 8000 },
+  results: { schema: 'ivoc.analytics.v1', schemaVersion: 1, payload: { analytics: { studentEvents: [
+    { metric: 'answer_duration_ms', maturity: 'VALIDATED_STUDENT_SAFE', observation: { value: 8000, unit: 'ms' } },
+  ] } } } });
+function historyHarness({ read, finish } = {}) {
+  const hosts = { '#progress-body': new Element('div'), '#longitudinal-body': new Element('div') };
+  const rows = [savedAttempt('a')]; let reads = 0;
+  const state = { view: 'progress', role: 'student', admission: { identity: { subject: 'wp:1' } },
+    durableAvailable: true, session: { state: 'RUNNING' }, durable: { accountSession: { id: 'b' },
+      library: async mode => { assert.equal(mode, 'own'); reads++; return read ? read() : { sessions: [...rows] }; },
+      finish: async () => { if (finish) return finish(); rows.push(savedAttempt('b')); return { persisted: true }; },
+    },
+  };
+  const controls = new Function('state', '$', 'document', 'buildLongitudinalModel', `
+    let adminReviewViewGeneration=0;
+    const setView=view=>{if(state.view!==view)adminReviewViewGeneration++;state.view=view;};
+    const setSessionState=phase=>{state.session.state=phase;};
+    const renderPostAnswer=()=>{};
+    ${historyCode}; ${finishCode};
+    return {model:longitudinalModel, invalidate:invalidateLongitudinalHistory, finish:finishRep,
+      progress:renderProgress, trends:renderLongitudinal, navigate:setView};
+  `)(state, selector => hosts[selector] || null,
+    { createElement: tag => new Element(tag), createTextNode: text => Object.assign(new Element('text'), { textContent: text }) },
+    buildLongitudinalModel);
+  return { state, hosts, rows, ...controls, reads: () => reads,
+    text: selector => all(hosts[selector]).map(n => n.textContent || '').join(' ') };
+}
+
+test('actual durable finish invalidates Progress and trend history without a Library detour', async () => {
+  const h = historyHarness(); await h.progress();
+  assert.match(h.text('#progress-body'), /Saved answers 1 /); assert.equal(h.reads(), 1);
+  await h.finish(); assert.equal(h.state.longitudinal, null); assert.equal(h.state.view, 'postanswer');
+  h.navigate('progress'); await h.progress();
+  assert.match(h.text('#progress-body'), /Saved answers 2 /); assert.equal(h.reads(), 2);
+  h.navigate('lab'); await h.trends(); assert.equal(h.state.longitudinal.attempts.length, 2);
+});
+
+test('failed or local-only finish does not create saved progress evidence', async () => {
+  for (const finish of [async () => ({ persisted: false }), async () => { throw new Error('save failed'); }]) {
+    const h = historyHarness({ finish }); const before = await h.model();
+    await h.finish(); assert.equal(h.state.longitudinal, before);
+    assert.equal((await h.model()).totals.savedSessions, 1); assert.equal(h.rows.length, 1);
+  }
+});
+
+test('old history cannot overwrite a fresh read, and its finally cannot clear a newer request', async () => {
+  for (const order of ['old-first', 'new-first']) {
+    const a=deferred(), b=deferred(); let call=0;
+    const h=historyHarness({read:()=> (++call===1?a:b).promise});
+    const old=h.model(), current=h.model({refresh:true}); const pending=h.state.longitudinalPromise;
+    if(order==='old-first') {
+      a.resolve({sessions:[savedAttempt('a')]}); assert.equal(await old,null);
+      assert.equal(h.state.longitudinalPromise,pending);
+      const shared=h.model(); assert.equal(call,2);
+      b.resolve({sessions:[savedAttempt('a'),savedAttempt('b')]}); await shared;
+    } else {
+      b.resolve({sessions:[savedAttempt('a'),savedAttempt('b')]}); await current;
+      a.resolve({sessions:[savedAttempt('a')]}); assert.equal(await old,null);
+    }
+    assert.equal((await current).totals.savedSessions,2);
+    assert.equal(h.state.longitudinal.totals.savedSessions,2);
+  }
+});
+
+test('save during an older history read prevents stale publication after the durable save', async () => {
+  const a=deferred(),b=deferred();let call=0;
+  const h=historyHarness({read:()=> (++call===1?a:b).promise}); const old=h.model();
+  await h.finish(); const current=h.model();
+  a.resolve({sessions:[savedAttempt('a')]}); assert.equal(await old,null);
+  b.resolve({sessions:h.rows}); assert.equal((await current).totals.savedSessions,2);
+});
+
+test('history cache never reuses or publishes an old actor, admission, durable or role snapshot', async () => {
+  const changes = [h=>{h.state.admission.identity.subject='wp:2';},
+    h=>{h.state.admission={identity:{subject:'wp:1'}};},
+    h=>{h.state.durable={...h.state.durable};}, h=>{h.state.role='admin';}];
+  for(const change of changes) {
+    const h=historyHarness(); const first=await h.model(); change(h);
+    assert.notEqual(await h.model(),first); assert.equal(h.reads(),2);
+    const pending=deferred();const late=historyHarness({read:()=>pending.promise});
+    const old=late.model();change(late);pending.resolve({sessions:[savedAttempt('a')]});
+    assert.equal(await old,null);assert.equal(late.state.longitudinal,null);
+  }
+});
+
+test('obsolete history failures are discarded at the cache boundary', async () => {
+  for (const change of [h=>{h.state.admission.identity.subject='wp:2';},
+    h=>{h.state.admission={identity:{subject:'wp:1'}};}, h=>{h.state.durable={...h.state.durable};},
+    h=>{h.state.role='admin';}, h=>{h.state.durableAvailable=false;}]) {
+    const pending=deferred();const h=historyHarness({read:()=>pending.promise});
+    const old=h.model();change(h);pending.reject(new Error('obsolete private diagnostic'));
+    assert.equal(await old,null);assert.equal(h.state.longitudinal,null);
+  }
+});
+
+test('Progress and trend renderers reject stale success and error after navigation or identity changes', async () => {
+  for(const view of ['progress','lab']) for(const fails of [false,true]) {
+    for(const change of [h=>h.navigate('home'), h=>{h.navigate('home');h.navigate(view);},
+      h=>{h.state.admission.identity.subject='wp:2';}, h=>{h.state.role='admin';},
+      h=>h.invalidate()]) {
+      const pending=deferred();const h=historyHarness({read:()=>pending.promise});h.navigate(view);
+      const rendering=view==='progress'?h.progress():h.trends();change(h);
+      const host=h.hosts[view==='progress'?'#progress-body':'#longitudinal-body'];
+      const sentinel=new Element('sentinel');host.replaceChildren(sentinel);
+      if(fails)pending.reject(new Error('private diagnostic'));else pending.resolve({sessions:[savedAttempt('a')]});
+      await rendering;assert.deepEqual(host.children,[sentinel]);
+    }
+  }
+});
+
+test('current history failures remain actionable and never expose private diagnostics', async () => {
+  for(const view of ['progress','lab']) for(const unavailable of [false,true]) {
+    const h=historyHarness({read:async()=>{throw new Error('private diagnostic');}});h.navigate(view);
+    if(unavailable)h.state.durableAvailable=false;
+    await (view==='progress'?h.progress():h.trends());
+    const text=h.text(view==='progress'?'#progress-body':'#longitudinal-body');
+    assert.match(text,/unavailable/);assert.match(text,/try again/);assert.doesNotMatch(text,/private diagnostic/);
   }
 });
