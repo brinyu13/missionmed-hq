@@ -92,6 +92,17 @@ test('calibration cannot replace a recorded lifecycle and pending navigation can
   assert.match(source, /await ensureVisibleVideoFrame\(\$\('#devicecheck-video'\)\);\s*if \(generation !== signalPreviewGeneration \|\| !canPreviewSignals\(\)\) return;/);
   assert.match(source, /canStart: canPreviewSignals/);
 });
+test('default preview timers preserve the browser global receiver', () => {
+  const originalSet = globalThis.setTimeout; const originalClear = globalThis.clearTimeout;
+  let scheduled = 0; let cleared = 0;
+  globalThis.setTimeout = function () { assert.equal(this, globalThis); return ++scheduled; };
+  globalThis.clearTimeout = function () { assert.equal(this, globalThis); cleared++; };
+  try {
+    const preview = new AnalyticsPreview({ analytics: { beginAnswer() {}, abandonAnswer() {} } });
+    assert.equal(preview.start({}), true); preview.stop();
+    assert.equal(scheduled, 2); assert.equal(cleared, 2);
+  } finally { globalThis.setTimeout = originalSet; globalThis.clearTimeout = originalClear; }
+});
 test('smile event count survives bounded retention and release duration is observed', () => {
   const detector = new SmilePatternEventDetector({ maximumEvents: 1, config: {
     smileOnDelta: .15, smileOffDelta: .07, smileMinimumDurationMs: 200, smileRefractoryMs: 0,

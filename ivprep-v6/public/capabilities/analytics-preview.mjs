@@ -1,6 +1,8 @@
 // A bounded, local-only epoch. No recorder, account or provider calls.
 export class AnalyticsPreview {
-  constructor({ analytics, canStart = () => true, onState = () => {}, setTimer = setTimeout, clearTimer = clearTimeout }) {
+  constructor({ analytics, canStart = () => true, onState = () => {},
+    setTimer = (callback, delay) => globalThis.setTimeout(callback, delay),
+    clearTimer = id => globalThis.clearTimeout(id) }) {
     this.canStart = canStart;
     this.analytics = analytics; this.onState = onState; this.setTimer = setTimer; this.clearTimer = clearTimer;
     this.active = false; this.timer = null;
