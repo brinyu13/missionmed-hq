@@ -70,7 +70,7 @@ import {
   buildBuilderLaunchOrder,
   liveMockRecordingCheckLabel,
 } from './presentation-view-model.mjs';
-import { clearAdminReviewMedia, createAdminReviewGate, isAdminReview, mayPresentSavedReview, resolveAdminStudentRefreshSelection, resolveReviewDestination } from './review-scope.mjs';
+import { clearAdminReviewMedia, createAdminReviewGate, isAdminReview, mayPresentSavedReview, resolveAdminStudentRefreshSelection, resolveReviewDestination, savedReviewHash, parseSavedReviewRoute, resolveOwnSavedReview } from './review-scope.mjs';
 import { mountAdminControls, mountAdminMentorControls } from './admin-controls.mjs';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -250,7 +250,7 @@ function setView(view, { focus = false } = {}) {
   $('#crumb').textContent = CRUMBS[view];
   document.body.dataset.activeView = view;
   $('#rail').dataset.open = 'false';
-  history.replaceState(null, '', `#${view}`);
+  history.replaceState(null, '', savedReviewHash(view, state.lastSaved));
   // The analytics cockpit must learn about the view change so it does not tear down
   // live media while its own screen is active.
   state.analytics?.onViewChange?.(view, state.role === 'student' ? 'student' : 'admin');
@@ -3896,6 +3896,8 @@ function renderHomeCorpus() {
 }
 
 async function boot() {
+  const entryHash = String(location.hash || '');
+  const entryGeneration = adminReviewViewGeneration;
   wireChrome();
   applyRole('student');
   wireCockpit();
@@ -3949,6 +3951,32 @@ async function boot() {
 
   await mountAnalytics();
 
+  const reviewRoute = parseSavedReviewRoute(entryHash);
+  if (reviewRoute && state.durableAvailable && state.role === 'student'
+    && entryGeneration === adminReviewViewGeneration && location.hash === entryHash) {
+    const isCurrent = () => state.role === 'student' && entryGeneration === adminReviewViewGeneration
+      && location.hash === entryHash;
+    try {
+      const saved = await resolveOwnSavedReview({ route: reviewRoute,
+        library: scope => state.durable.library(scope), session: id => state.durable.api.session(id), isCurrent });
+      if (!isCurrent()) return;
+      if (saved) {
+        state.lastSaved = saved;
+        state.filmGroups?.ingestResult(presentFilmRoomAnalytics(saved.analytics));
+        renderPostAnswer(saved.analytics);
+        renderContextEvidence(contextResultFromSessionSpine(saved.sessionDetail));
+        setView('postanswer');
+        if (reviewRoute.view === 'filmroom') await openLastSavedFilmRoom(null, { autoplay: false, expectedSaved: saved });
+        return;
+      }
+    } catch { /* Expired or inaccessible attempts return to the authorized chooser. */ }
+    if (!isCurrent()) return;
+    setView('vault');
+    return;
+  }
+  // Do not undo navigation or an Admin role selection made while boot awaited
+  // account data. A cold review URL never grants delegated student selection.
+  if (entryGeneration !== adminReviewViewGeneration || location.hash !== entryHash) return;
   const hash = String(location.hash || '').replace('#', '');
   setView(CRUMBS[hash] ? hash : 'home');
 }

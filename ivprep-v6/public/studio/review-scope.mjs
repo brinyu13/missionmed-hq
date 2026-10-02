@@ -38,6 +38,41 @@ export function resolveReviewDestination(view, saved) {
   return view;
 }
 
+const savedSessionId = value => typeof value === 'string'
+  && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(value);
+
+// Fragments retain an opaque attempt identity, never a private playback URL,
+// subject selection or authorization. Every reload resolves fresh account data.
+export function savedReviewHash(view, saved) {
+  const id = saved?.session?.id;
+  return ['filmroom', 'postanswer'].includes(view) && saved?.persisted === true
+    && !isAdminReview(saved) && savedSessionId(id)
+    ? `#${view}?session=${id}` : `#${view}`;
+}
+
+export function parseSavedReviewRoute(hash) {
+  if (typeof hash !== 'string') return null;
+  const match = /^#(filmroom|postanswer)\?session=([0-9a-f-]+)$/u.exec(hash);
+  return match && savedSessionId(match[2]) ? Object.freeze({ view: match[1], sessionId: match[2] }) : null;
+}
+
+export async function resolveOwnSavedReview({ route, library, session, isCurrent = () => true }) {
+  if (!route || !['filmroom', 'postanswer'].includes(route.view) || !savedSessionId(route.sessionId)
+    || !isCurrent()) return null;
+  // An Admin's broader session read permission must not restore a different
+  // student's work into Student view. Membership in the fresh OWN library is
+  // mandatory before requesting any attempt details.
+  const own = await library('own');
+  if (!isCurrent()) return null;
+  const row = own?.sessions?.find(item => item.id === route.sessionId);
+  if (!row || (!row.results && row.recording?.status !== 'saved')) return null;
+  const detail = await session(route.sessionId);
+  if (!isCurrent() || detail?.session?.id !== route.sessionId) return null;
+  const analytics = detail.results?.payload?.analytics || null;
+  return { persisted: true, session: row, sessionDetail: detail, analytics,
+    recording: detail.recording ? { recording: detail.recording } : null };
+}
+
 export function clearAdminReviewMedia(playback, filmGroups) {
   if (playback) {
     playback.pause();
