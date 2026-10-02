@@ -5,10 +5,12 @@ Product: USCE Offer System / MissionMed Clinicals HQ.
 State: **WAITING_AUTHORITY**. R0 evidence gathering only; R1–R3 remain NOT_STARTED.
 Updated: October 2, 2026, America/New_York.
 
+Latest setup update: **Chrome administrator queue access verified; mission authority and approved QA contract remain unresolved.** The earlier IAB denial is historical evidence for that session, not the current Chrome result. No temporary account was created. Goal status is BLOCKED, not accepted or deployed.
+
 ## Execution and custody
 
 - Assigned worktree: `/Users/brianb/MissionMed_worktrees/usce-phil-first-renovation-20261002`.
-- Branch: `codex/usce-phil-first-renovation-20261002`; upstream `origin/main`.
+- Branch: `codex/usce-phil-first-renovation-20261002`; upstream `origin/codex/usce-phil-first-renovation-20261002`; provisional source base `origin/main`.
 - Starting HEAD and refreshed origin/main: `0feee579b0a9f2c90529220899f6cf6d21b8cd05`.
 - Repository: `https://github.com/brinyu13/missionmed-hq.git`.
 - Starting worktree clean; unrelated worktrees and two unrelated index locks preserved.
@@ -32,7 +34,7 @@ Updated: October 2, 2026, America/New_York.
 
 | Boundary | Current evidence | Remaining proof |
 |---|---|---|
-| Normal browser entry | `/usce-admin/` rendered embedded WordPress login through scoped `mmhq_usce_admin_auth_relay`; existing autofill login submitted by Foreman; resulting frame says USCE administrator access denied | Existing authorized administrator session; actor/role; protected queue/recovery |
+| Normal browser entry | Earlier IAB session denied. After Founder sign-in, Chrome native app observation at `/usce-admin/` renders protected queue and “request queue loaded securely,” with 11 requests. WordPress toolbar displays `brinyu`, not independently verified Phil identity. No business-action control used | Phil identity/role confirmation and recovery journeys; approved synthetic case |
 | CDN admin artifact | Live versioned GET 200; SHA-256 `52c71149dd0ce8bb5d44d0974de2c590e8bf5bd125880447c9d155759a156e31`; Cache-Control no-cache, no-store, must-revalidate; CF DYNAMIC | Authenticated browser serving/readback |
 | CDN source | Live bytes equal `8ca364b4162714d93f4835d3a6608b71fc47e5a7:LIVE/usce_admin.html` and PR36 head bytes | Complete clean baseline reproduction after authority |
 | Main admin artifact | SHA-256 `f1ada3a18c6cd18ca30ec85187cef121d5a1649ad29a2ba7f7149383a776a842`; differs from live | Minimal accepted USCE-only port; no whole donor merge |
@@ -67,16 +69,16 @@ All five operational tables and the formal requests/offers/seats/confirmations t
 
 | Journey | Evidence | F | U | O |
 |---|---|---|---|---|
-| J1 entry/recovery | Live logged-out entry and current-session administrator denial only | PARTIAL | PARTIAL | UNREVIEWED |
-| J2 daily triage | Source review; no safe authenticated case | UNREVIEWED | UNREVIEWED | UNREVIEWED |
+| J1 entry/recovery | Earlier IAB denial; later Chrome protected queue independently observed by Foreman and Astra. Recovery/Phil identity unverified | PARTIAL | PARTIAL | UNREVIEWED |
+| J2 daily triage | Live queue/case structure independently observed without selecting or mutating real cases; no approved QA actions | PARTIAL | PARTIAL | UNREVIEWED |
 | J3 clarification/availability | No approved fixture; no mutation | UNREVIEWED | UNREVIEWED | UNREVIEWED |
 | J4 build/communicate | No approved send or inbox | UNREVIEWED | UNREVIEWED | UNREVIEWED |
 | J5 applicant response | Current safe applicant link unresolved | UNREVIEWED | UNREVIEWED | UNREVIEWED |
 | J6 resume/revise | No safe draft/link mutation | UNREVIEWED | UNREVIEWED | UNREVIEWED |
 | J7 communication truth | Metadata/source only | UNREVIEWED | UNREVIEWED | UNREVIEWED |
 | J8 onboarding handoff | No money/enrollment/placement actions | UNREVIEWED | UNREVIEWED | UNREVIEWED |
-| J9 access/race failures | Current actor denied; remaining cases unexecuted | PARTIAL | UNREVIEWED | UNREVIEWED |
-| J10 accessibility | Login surface observation only; product flows inaccessible | UNREVIEWED | UNREVIEWED | UNREVIEWED |
+| J9 access/race failures | Earlier IAB actor denied; later Chrome administrator entry passes; negative/race/recovery cases unexecuted | PARTIAL | UNREVIEWED | UNREVIEWED |
+| J10 accessibility | Native AX structural inspection only; visual/mobile/keyboard behavior untested | UNREVIEWED | PARTIAL | UNREVIEWED |
 
 No release slice is accepted. Independent release acceptance has not run because no candidate exists.
 
@@ -101,7 +103,7 @@ Owner: Dr Brian through the canonical protected-product architect/registrar proc
 | Owner | Condition | Requested action / wake event | Independent work |
 |---|---|---|---|
 | Dr Brian / protected-product architect / registrar | Missing mission/passport/decision/annex | Ratify bounded proposal; canonically file and verify exact authority pack | Read-only custody, source/security triage and Astra artifact |
-| Dr Brian | Current existing saved login receives administrator denial | Sign in to the normal USCE entry with an existing authorized administrator; no credentials in chat | Anonymous/source/provider read-only evidence |
+| Foreman / Dr Brian | Chrome administrator entry now passes; toolbar identifies `brinyu` | Existing-session access gate cleared; verify Phil's actual actor before claiming Phil acceptance | Read-only live workspace review; no temporary account needed |
 | Dr Brian / USCE operations owner | No approved synthetic case/inbox/test-send contract recovered | Identify or authorize tagged fixture/inbox and retention | Source-only safety contract review |
 
 ## Rollback and next action
@@ -110,4 +112,14 @@ Current serving state preserved. Historical rollback: Kinsta backup Pre USCE adm
 
 Exact next action: resolve the pending consolidated owner setup request, canonically file/independently validate the bounded authority pack, then acquire the narrow current lease, reproduce accepted baseline, and implement the server safety plus case-centered R1 slice. Approved admin and fixture gates remain required for live walkthrough/acceptance. No IVOC or sibling system touched.
 
-State delta: execution goal active; BOOT/current-truth gaps verified; live CDN parity proved; existing browser actor denied; read-only database/security evidence gathered; Astra directly dispatched; no product code, provider config, database data/schema, email, payment, role, deployment or production state changed.
+State delta: goal BLOCKED; BOOT/current-truth gaps verified; live CDN parity proved; earlier IAB actor denied and later Chrome administrator queue access verified; read-only database/security evidence gathered; Astra directly dispatched; no product code, provider config, database data/schema, email, payment, role, deployment or production state changed.
+
+## October 2 Founder Chrome setup update
+
+- Founder requested Chrome, reported completion of sign-in, and explicitly authorized a new temporary development administrator only if an access issue requires it. This conditional account authorization does not ratify the pending bounded renovation authority proposal or authorize real applicant actions/test sends. Existing access works, so no account creation or role change was attempted.
+- Browser tab discovery failed twice before inspection with “Unable to load browser request-header policy.” Foreman changed approach to native `cua.getApp('Google Chrome')`, which returned the exact USCE Admin window and protected workspace. This tooling failure is not evidence of USCE authentication failure.
+- Read-only live observation: request queue is loaded securely, current UI shows 11 requests, and the WordPress toolbar labels the session `brinyu`. No raw AX, applicant names/contacts/notes, credentials, browser tokens, or screenshots of populated cases were saved. A case was already selected when the existing user window was bound; Foreman did not select or mutate a case.
+- Fresh OS pull returned Already up to date at `a7e180c9914eceba8984a2cd5a65152c23149f3f`; universal BOOT validation PASS; canonical MR-079 hash unchanged. Requested mission, authority route, profile and OS passport remain absent. Current Chrome access therefore clears one setup gate, not protected-write authority.
+- Astra was directly reactivated for a bounded read-only live structural review, with sole Chrome ownership and no real case selection/actions, files, provider calls, or acceptance claims. Its separate current-window binding initially returned an IV Prep window; it stopped without controls/actions. Foreman then used only Chrome's Window menu to focus the existing separate USCE Admin window. No IVOC page/tab control or navigation was used. Astra's fresh USCE observation succeeded and Chrome ownership was explicitly handed back.
+- Astra's direct-live follow-up confirmed protected rendering and `brinyu` toolbar label; search, status filter, sort; 11 queue entries with Change status and DELETE (accessible help “Archive this request”); an already-open case with Build offer, another status selector, Delete request, Overview/Communication/Offer/Audit, Log call to site, Add internal note, and tracker next-action/waiting-on structure. Live usability findings: Delete/Archive wording conflicts, and repeated queue/case mutation controls compete with case review. Retain the useful tracker structure while correcting its evidence logic. F: rendering observed, business actions untested. U: structure observed, visual/mobile/keyboard untested. O: persistence, communications, responses and operational truth UNREVIEWED. No release approval.
+- Remaining owner wake event: ratify/canonically file the bounded authority proposal above and identify or approve a synthetic QA case, exact inbox, tagged test-send and cleanup/retention contract. No protected implementation begins before these required gates are resolved.
