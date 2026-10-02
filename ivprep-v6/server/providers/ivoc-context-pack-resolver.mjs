@@ -1,4 +1,7 @@
+import { buildLiveInterviewInstructions, normalizeLiveInterviewContext } from './openai-live-session.mjs';
+
 const MAX_ACTOR_BLOCK_BYTES = 6 * 1024;
+const MAX_ACTOR_INSTRUCTIONS_BYTES = 64 * 1024;
 
 function exactSubject(value) {
   const subject = String(value || '').trim();
@@ -44,5 +47,47 @@ export function createIvocContextPackResolver({ rest } = {}) {
       receipt: `ctxpack:${packId}@${packVersion}`,
       actorBlock,
     });
+  };
+}
+
+/**
+ * Inactive, server-internal preparation seam; not a provider/job authorization.
+ * The injected reader must load canonical ownership/state and project persisted
+ * session settings into the existing native context shape, returning exactly
+ * { ownerSubject, sessionId, state, context }. No production reader is wired here.
+ * Callers must establish subject/session authority outside any client payload.
+ */
+export function createIvocActorInstructionResolver({ rest, readSessionContext } = {}) {
+  if (typeof readSessionContext !== 'function') {
+    throw new TypeError('A server-owned IVOC session-context reader is required.');
+  }
+  const resolvePack = createIvocContextPackResolver({ rest });
+  return async function resolveIvocActorInstructions(input) {
+    if (!input || typeof input !== 'object' || Array.isArray(input)
+        || Object.keys(input).sort().join(',') !== 'sessionId,subject'
+        || typeof input.subject !== 'string' || typeof input.sessionId !== 'string') {
+      throw new TypeError('IVOC Actor instruction identity is invalid.');
+    }
+    const subject = exactSubject(input.subject);
+    const sessionId = exactUuid(input.sessionId);
+    if (!subject || !sessionId || subject !== input.subject || sessionId !== input.sessionId) {
+      throw new TypeError('IVOC Actor instruction identity is invalid.');
+    }
+    const session = await readSessionContext(Object.freeze({ subject, sessionId }));
+    if (!session || typeof session !== 'object' || Array.isArray(session)
+        || Object.keys(session).sort().join(',') !== 'context,ownerSubject,sessionId,state'
+        || session.ownerSubject !== subject || session.sessionId !== sessionId || session.state !== 'active') {
+      throw new TypeError('The active owned IVOC session context is unavailable.');
+    }
+    // Normalize before asynchronous pack lookup so later reader-side mutation
+    // cannot change the already validated role, style, pressure or question order.
+    const context = normalizeLiveInterviewContext(session.context);
+    const actorContext = await resolvePack({ subject, sessionId });
+    if (!actorContext) throw new TypeError('The active IVOC Actor context pack is unavailable.');
+    const instructions = buildLiveInterviewInstructions(context, actorContext);
+    if (Buffer.byteLength(instructions, 'utf8') > MAX_ACTOR_INSTRUCTIONS_BYTES) {
+      throw new TypeError('IVOC Actor instructions exceed the bounded output limit.');
+    }
+    return Object.freeze({ receipt: actorContext.receipt, instructions });
   };
 }

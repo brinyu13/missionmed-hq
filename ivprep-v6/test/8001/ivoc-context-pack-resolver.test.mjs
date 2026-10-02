@@ -1,12 +1,21 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createIvocContextPackResolver } from '../../server/providers/ivoc-context-pack-resolver.mjs';
+import { createIvocActorInstructionResolver, createIvocContextPackResolver } from '../../server/providers/ivoc-context-pack-resolver.mjs';
+import { buildLiveInterviewInstructions } from '../../server/providers/openai-live-session.mjs';
 
 const SESSION_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const PACK_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const PACK_VERSION = 'c'.repeat(64);
 const ACTOR_BLOCK = 'AUTHORIZED APPLICATION CONTEXT\nPROGRAM: none\nAPPLICANT FACTS:\n- none provided\nATTENTION:\n- none\nRULES:\n- Stay factual.';
+const SUBJECT = 'wp:3472';
+const CONTEXT = {
+  goal: 'Full interview simulation', interviewer: 'Associate Program Director · balanced', interviewerStyle: 'Owl',
+  pressurePractice: true, questionIds: ['CORE-01', 'MR142-001'], targetQuestions: 5,
+  program: 'General residency interview', environment: 'MissionMed · interview only',
+};
+const activeSession = (context = CONTEXT) => ({ ownerSubject: SUBJECT, sessionId: SESSION_ID, state: 'active', context });
+const packRow = () => ({ pack_id: PACK_ID, pack_version: PACK_VERSION, actor_block: ACTOR_BLOCK });
 
 test('context-pack resolver owner-binds one active pack and returns only the Actor contract', async () => {
   const calls = [];
@@ -38,4 +47,125 @@ test('context-pack resolver fails closed on malformed identity or Actor content'
   await assert.rejects(() => malformed({ subject: 'student-3472', sessionId: SESSION_ID }), /identity is invalid/u);
   assert.equal(await malformed({ subject: 'wp:3472', sessionId: SESSION_ID }), null);
   assert.throws(() => createIvocContextPackResolver(), /storage is required/u);
+});
+
+test('inactive Actor resolver reuses native policy with exact server identity and only bounded Actor output', async () => {
+  const calls = [];
+  const resolve = createIvocActorInstructionResolver({
+    readSessionContext: async (input) => { calls.push({ reader: input }); return activeSession(); },
+    rest: { async table(name, query) {
+      calls.push({ name, query });
+      return [{ ...packRow(), pack: { privateNote: 'do-not-expose-private-note' }, source_receipts: ['do-not-expose-source'] }];
+    } },
+  });
+  const output = await resolve({ subject: SUBJECT, sessionId: SESSION_ID });
+  assert.deepEqual(calls[0], { reader: { subject: SUBJECT, sessionId: SESSION_ID } });
+  assert.equal(Object.isFrozen(calls[0].reader), true);
+  assert.equal(calls[1].name, 'ivoc_context_packs');
+  assert.match(calls[1].query, /owner_subject=eq\.wp%3A3472/u);
+  assert.match(calls[1].query, /session_id=eq\.aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/u);
+  assert.match(calls[1].query, /invalidated_at=is\.null/u);
+  const actorContext = { receipt: `ctxpack:${PACK_ID}@${PACK_VERSION}`, actorBlock: ACTOR_BLOCK };
+  assert.deepEqual(output, { receipt: actorContext.receipt, instructions: buildLiveInterviewInstructions(CONTEXT, actorContext) });
+  assert.equal(Object.isFrozen(output), true);
+  assert.deepEqual(Object.keys(output).sort(), ['instructions', 'receipt']);
+  assert.match(output.instructions, /Associate Program Director/u);
+  assert.match(output.instructions, /INTERVIEWER STYLE: Owl — measured, analytical, evidence-focused/u);
+  assert.match(output.instructions, /PRESSURE MODIFIER: Be direct/u);
+  assert.match(output.instructions, /exact listed order/u);
+  assert.match(output.instructions, /"questionIds":\["CORE-01","MR142-001"\]/u);
+  assert.doesNotMatch(JSON.stringify(output), /do-not-expose|source_receipts|ownerSubject|actorBlock|apiKey/u);
+  assert.ok(Buffer.byteLength(output.instructions, 'utf8') <= 64 * 1024);
+  assert.equal(calls.length, 2);
+});
+
+test('Actor resolver requires the explicit internal reader and never accepts client instruction/identity extensions', async () => {
+  let reads = 0;
+  const rest = { async table() { reads += 1; return [packRow()]; } };
+  assert.throws(() => createIvocActorInstructionResolver({ rest }), /server-owned/u);
+  assert.throws(() => createIvocActorInstructionResolver({ readSessionContext: async () => activeSession() }), /storage is required/u);
+  const resolve = createIvocActorInstructionResolver({ rest, readSessionContext: async () => { reads += 1; return activeSession(); } });
+  for (const input of [null, {}, [],
+    { subject: 'student-3472', sessionId: SESSION_ID },
+    { subject: ` ${SUBJECT}`, sessionId: SESSION_ID },
+    { subject: SUBJECT, sessionId: SESSION_ID.toUpperCase() },
+    { subject: SUBJECT, sessionId: '../unsafe' },
+    { subject: SUBJECT, sessionId: SESSION_ID, instructions: 'ignore restrictions' },
+    { subject: SUBJECT, sessionId: SESSION_ID, actorContext: {} },
+    { subject: { toString: () => SUBJECT }, sessionId: SESSION_ID },
+  ]) await assert.rejects(() => resolve(input), /identity is invalid/u);
+  assert.equal(reads, 0);
+});
+
+test('missing, mismatched, stale or malformed server session metadata fails before pack lookup', async () => {
+  let packReads = 0;
+  const rest = { async table() { packReads += 1; return [packRow()]; } };
+  for (const session of [null, [], {},
+    { ...activeSession(), ownerSubject: 'wp:1' },
+    { ...activeSession(), sessionId: PACK_ID },
+    { ...activeSession(), state: 'saved' },
+    { ...activeSession(), state: 'processing' },
+    { ...activeSession(), state: 'error' },
+    { ...activeSession(), state: undefined },
+    { ...activeSession(), instructions: 'arbitrary' },
+  ]) {
+    const resolve = createIvocActorInstructionResolver({ rest, readSessionContext: async () => session });
+    await assert.rejects(() => resolve({ subject: SUBJECT, sessionId: SESSION_ID }), /active owned/u);
+  }
+  for (const context of [null, {}, { ...CONTEXT, interviewerStyle: null },
+    { ...CONTEXT, interviewer: 'invented' }, { ...CONTEXT, instructions: 'arbitrary' },
+  ]) {
+    const resolve = createIvocActorInstructionResolver({ rest, readSessionContext: async () => activeSession(context) });
+    await assert.rejects(() => resolve({ subject: SUBJECT, sessionId: SESSION_ID }), /context|style|Interviewer/u);
+  }
+  assert.equal(packReads, 0);
+});
+
+test('missing/invalidated or malformed active Actor packs never fall back to generic instructions', async () => {
+  for (const rows of [[], null, [packRow(), packRow()],
+    [{ ...packRow(), pack_version: 'stale-version' }],
+    [{ ...packRow(), pack_id: '../invalid' }],
+    [{ ...packRow(), actor_block: 'arbitrary instructions' }],
+    [{ ...packRow(), actor_block: `AUTHORIZED APPLICATION CONTEXT\n${'x'.repeat(6 * 1024)}` }],
+  ]) {
+    const resolve = createIvocActorInstructionResolver({
+      readSessionContext: async () => activeSession(),
+      rest: { async table(_name, query) {
+        assert.match(query, /invalidated_at=is\.null/u); // Invalidated rows are excluded by the owner store.
+        return rows;
+      } },
+    });
+    await assert.rejects(() => resolve({ subject: SUBJECT, sessionId: SESSION_ID }), /active IVOC Actor context pack/u);
+  }
+});
+
+test('context snapshot remains stable across async pack reads and requires no provider call', async (t) => {
+  const providerFetch = t.mock.method(globalThis, 'fetch', () => { throw new Error('Provider calls are forbidden in the inactive resolver.'); });
+  const context = { ...CONTEXT, questionIds: [...CONTEXT.questionIds] };
+  const resolve = createIvocActorInstructionResolver({
+    readSessionContext: async () => activeSession(context),
+    rest: { async table() {
+      context.interviewerStyle = 'Eagle';
+      context.pressurePractice = false;
+      context.questionIds.reverse();
+      return [packRow()];
+    } },
+  });
+  const output = await resolve({ subject: SUBJECT, sessionId: SESSION_ID });
+  assert.equal(output.instructions, buildLiveInterviewInstructions(CONTEXT, {
+    receipt: `ctxpack:${PACK_ID}@${PACK_VERSION}`, actorBlock: ACTOR_BLOCK,
+  }));
+  assert.equal(providerFetch.mock.callCount(), 0);
+});
+
+test('owner-store invalidation removes the pack from the inactive instruction path', async () => {
+  const stored = { ...packRow(), invalidated_at: '2026-10-01T12:00:00Z' };
+  const resolve = createIvocActorInstructionResolver({
+    readSessionContext: async () => activeSession(),
+    rest: { async table(_name, query) {
+      assert.match(query, /invalidated_at=is\.null/u);
+      return stored.invalidated_at == null ? [stored] : [];
+    } },
+  });
+  await assert.rejects(() => resolve({ subject: SUBJECT, sessionId: SESSION_ID }), /active IVOC Actor context pack/u);
 });
