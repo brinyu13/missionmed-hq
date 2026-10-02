@@ -27,7 +27,11 @@ the actual production route and deployment.
   allocation/seal, immutable owner/sealed receipt and NULL rejection passed in
   a rolled-back synthetic transaction, zero test rows remain. FORCE RLS and
   revoked browser grants unchanged. Production preimage: 21 recording rows,
-  18 saved; original columns and grants read back. Production migration pending.
+  18 saved; original columns and grants read back. Production migration applied;
+  all 21 original replay rows and 18 saved rows retained, zero source rows,
+  FORCE RLS / no browser grants / no service DELETE / no public function execute
+  verified after migration. 87 integrated focused checks PASS, independent
+  correction review PASS. Source-aware disabled-capture deployment pending.
 - **Containment independent live PASS:** genuine Founder/Admin actual UI showed
   unavailable unsafe coaching, retained measured Analytics and provisional
   Film Room conversation, paused playback, exact question/version retry. Admin
