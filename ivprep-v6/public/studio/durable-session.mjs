@@ -19,6 +19,7 @@ export function createDurableResultsEnvelope({
   liveConversation = null,
   audioAuthority = null,
   nameUseCoaching = null,
+  candidateAudioCapture = null,
   capturedAt = new Date().toISOString(),
 } = {}) {
   const sessionDurationMs = finiteMs(analytics?.durationMs);
@@ -56,6 +57,7 @@ export function createDurableResultsEnvelope({
     } : {}),
     ...(liveConversation?.turns?.length ? { liveConversation } : {}),
     ...(audioAuthority?.events?.length ? { audioAuthority } : {}),
+    ...(candidateAudioCapture ? { candidateAudioCapture } : {}),
   });
 }
 
@@ -65,11 +67,17 @@ export class DurableStudioSession {
     recordingFactory = (options) => new AccountRecordingController(options),
     now = () => new Date().toISOString(),
     nowMs = () => performance.now(),
+    MediaStreamCtor = globalThis.MediaStream,
   } = {}) {
     this.api = api;
     this.recordingFactory = recordingFactory;
     this.now = now;
     this.nowMs = nowMs;
+    this.MediaStreamCtor = MediaStreamCtor;
+    this.candidateRecorder = null;
+    this.candidateAudioCapture = null;
+    this.candidateRetry = null;
+    this.captureEpoch = 0;
     this.bootstrapPayload = null;
     this.accountSession = null;
     this.recorder = null;
@@ -148,10 +156,13 @@ export class DurableStudioSession {
     return this.accountSession;
   }
 
-  async start({ stream, question = null, interviewSet = [], wizard = {}, targetQuestions = 1, interviewerProvider = 'missionmed-static' } = {}) {
+  async start({ stream, candidateStream = null, question = null, interviewSet = [], wizard = {}, targetQuestions = 1, interviewerProvider = 'missionmed-static' } = {}) {
     const title = question?.canonical_text || 'IV Prep practice session';
     await this.prepare({ question, interviewSet, wizard, targetQuestions, interviewerProvider });
     if (this.recorder) throw new Error('durable_session_already_active');
+    this.clearCandidateCapture();
+    const captureOrigin = this.nowMs();
+    const sessionNow = () => Math.max(0, this.nowMs() - captureOrigin);
     this.recorder = this.recordingFactory({
       api: this.api,
       stream,
@@ -159,6 +170,8 @@ export class DurableStudioSession {
       sessionId: this.accountSession.id,
       title,
       questionId: question?.question_id || null,
+      sessionNow,
+      now: this.nowMs,
     });
     try {
       if (await this.recorder.start() !== true) throw new Error('recording_unavailable');
@@ -169,8 +182,86 @@ export class DurableStudioSession {
     }
     this.liveConversationTurns.clear();
     this.liveConversationSequence = 0;
-    this.conversationCaptureStartedAtMs = this.nowMs();
+    // Preserve the existing provisional replay clock: arrival offsets begin at
+    // the actual main recorder start, not at asynchronous upload allocation.
+    this.conversationCaptureStartedAtMs = this.recorder.startedAt
+      ?? (Number.isFinite(this.recorder.recordingStartSessionMs)
+        ? captureOrigin + this.recorder.recordingStartSessionMs : this.nowMs());
+    if (this.bootstrapPayload?.capabilities?.candidateAudioCapture === true) {
+      this.candidateAudioCapture = { status: 'FAILED', reason: 'CANDIDATE_MIC_CAPTURE_UNAVAILABLE', analysisEligibility: 'UNVERIFIED' };
+      try {
+        const audio = candidateStream?.getAudioTracks?.().filter(track => track.readyState !== 'ended') || [];
+        if (audio.length !== 1 || typeof this.MediaStreamCtor !== 'function') throw new Error('candidate_microphone_unavailable');
+        const micOnly = new this.MediaStreamCtor(audio);
+        const parentRecordingId = this.recorder.recording?.id;
+        if (!parentRecordingId) throw new Error('candidate_audio_parent_unavailable');
+        this.candidateRecorder = this.recordingFactory({ api: this.api, stream: micOnly,
+          enabled: true, sessionId: this.accountSession.id, recordingRole: 'candidate_audio',
+          parentRecordingId, sessionNow, now: this.nowMs });
+        if (await this.candidateRecorder.start() !== true) throw new Error('candidate_audio_unavailable');
+        this.candidateAudioCapture = { status: 'RECORDING', parentRecordingId,
+          captureReceipt: this.candidateRecorder.captureReceipt, analysisEligibility: 'UNVERIFIED' };
+      } catch {
+        this.candidateRecorder?.destroy?.();
+        this.candidateRecorder = null;
+      }
+    }
     return this.accountSession;
+  }
+
+  clearCandidateCapture() {
+    this.captureEpoch += 1;
+    this.candidateRecorder?.destroy?.();
+    this.candidateRecorder = null;
+    this.candidateAudioCapture = null;
+    this.candidateRetry = null;
+  }
+
+  async sealCandidateAudio() {
+    if (!this.candidateRecorder) return this.candidateAudioCapture;
+    const recorder = this.candidateRecorder;
+    const epoch = this.captureEpoch;
+    try {
+      const sealed = await recorder.stopAndSeal();
+      if (epoch !== this.captureEpoch) return null;
+      if (!sealed?.recording?.id) throw new Error('candidate_audio_not_sealed');
+      this.candidateAudioCapture = { status: 'SAVED', recording: sealed.recording,
+        parentRecordingId: recorder.parentRecordingId,
+        captureReceipt: sealed.captureReceipt || recorder.captureReceipt,
+        captureTiming: { recordingStartSessionMs: sealed.recordingStartSessionMs,
+          recordingDurationMs: sealed.recordingDurationMs, playableDurationMs: sealed.playableDurationMs,
+          pausedSpans: sealed.pausedSpans || [] }, analysisEligibility: 'UNVERIFIED' };
+    } catch {
+      if (epoch !== this.captureEpoch) return null;
+      this.candidateAudioCapture = { ...this.candidateAudioCapture, status: 'FAILED',
+        reason: 'CANDIDATE_AUDIO_SAVE_FAILED', analysisEligibility: 'UNVERIFIED',
+        retryAvailable: Boolean(recorder.finalBlob) };
+    }
+    return this.candidateAudioCapture;
+  }
+
+  async retryCandidateAudio() {
+    if (this.candidateRetry?.pending) return this.candidateRetry.pending;
+    const retry = this.candidateRetry;
+    if (!retry || !this.candidateRecorder || this.bootstrapPayload?.capabilities?.candidateAudioCapture !== true) {
+      return { retried: false, reason: 'candidate_audio_retry_unavailable' };
+    }
+    const epoch = this.captureEpoch;
+    const recorder = this.candidateRecorder;
+    retry.pending = (async () => {
+      const candidateAudioCapture = await this.sealCandidateAudio();
+      if (epoch !== this.captureEpoch) return { retried: false, reason: 'candidate_audio_capture_closed' };
+      if (candidateAudioCapture?.status !== 'SAVED') return { retried: false, candidateAudioCapture };
+      const envelope = { ...retry.envelope, candidateAudioCapture };
+      const result = await this.api.saveResults(retry.sessionId, envelope);
+      if (epoch !== this.captureEpoch || this.candidateRecorder !== recorder || this.candidateRetry !== retry) {
+        return { retried: false, reason: 'candidate_audio_capture_closed' };
+      }
+      this.candidateRetry = null;
+      recorder.destroy?.(); this.candidateRecorder = null;
+      return { retried: true, candidateAudioCapture, envelope, result };
+    })().finally(() => { retry.pending = null; });
+    return retry.pending;
   }
 
   recordLiveTranscript(event = {}) {
@@ -194,6 +285,9 @@ export class DurableStudioSession {
     current.providerEventType = String(event.type || '').slice(0, 200) || current.providerEventType;
     current.text = event.final ? (text || current.text) : `${current.text}${text}`.slice(0, 8_000);
     current.final = current.final || event.final === true;
+    for (const key of ['itemId', 'responseId']) {
+      if (typeof event[key] === 'string' && event[key].length <= 240 && event[key].trim()) current[key] = event[key];
+    }
     this.liveConversationTurns.set(id, current);
     return true;
   }
@@ -260,7 +354,7 @@ export class DurableStudioSession {
         this.pendingRecording = value;
         return value;
       });
-    const [analytics, recording] = await Promise.all([resolvedAnalytics, recordingPromise]);
+    const [analytics, recording, candidateAudioCapture] = await Promise.all([resolvedAnalytics, recordingPromise, this.sealCandidateAudio()]);
     // The user-controlled Finish action is the terminal boundary for any
     // provider transcript deltas still in flight. Preserve that text only as
     // provisional live-conversation evidence; server transcription remains
@@ -274,9 +368,15 @@ export class DurableStudioSession {
       liveConversation,
       audioAuthority: this.liveAudioAuthoritySnapshot(),
       nameUseCoaching: this.preparedNameUseCoaching,
+      candidateAudioCapture,
       capturedAt: this.now(),
     });
     const result = await this.api.saveResults(accountSession.id, envelope);
+    if (this.candidateRecorder && candidateAudioCapture?.retryAvailable) {
+      this.candidateRetry = { sessionId: accountSession.id, envelope, pending: null };
+    } else {
+      this.candidateRecorder?.destroy?.(); this.candidateRecorder = null;
+    }
     this.pendingRecording = null;
     this.accountSession = null;
     this.recorder = null;
@@ -317,8 +417,9 @@ export class DurableStudioSession {
   async saveAdminMentorPriorities(input) { this.requireAdmin(); return this.api.saveAdminMentorPriorities(input); }
   async abandon({ reason = 'client_exit', keepalive = false } = {}) {
     const accountSession = this.accountSession;
-    if (!accountSession?.id) return { abandoned: false, reason: 'no_active_session' };
+    if (!accountSession?.id) { this.clearCandidateCapture(); return { abandoned: false, reason: 'no_active_session' }; }
     const result = await this.api.abandonSession(accountSession.id, { reason }, { keepalive });
+    this.clearCandidateCapture();
     this.pendingRecording = null;
     this.recorder?.destroy?.();
     this.accountSession = null;
@@ -343,6 +444,7 @@ export class DurableStudioSession {
   }
 
   destroy() {
+    this.clearCandidateCapture();
     this.pendingRecording = null;
     this.recorder?.destroy?.();
     this.accountSession = null;

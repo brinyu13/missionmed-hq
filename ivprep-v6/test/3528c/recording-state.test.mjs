@@ -16,6 +16,65 @@ class FakeRecorder extends EventTarget {
   }
 }
 
+test('mic-only controller allocates separate artifact, seals bounded capture timing, deduplicates retry upload', async () => {
+  const oldRecorder = globalThis.MediaRecorder; const oldFetch = globalThis.fetch;
+  let now = 1000; let uploads = 0; let seals = 0; let allocation; let timing;
+  class AudioRecorder extends FakeRecorder {
+    constructor(stream, options) { super(); this.mimeType = options.mimeType; assert.equal(stream.getVideoTracks().length, 0); }
+  }
+  globalThis.MediaRecorder = AudioRecorder;
+  globalThis.fetch = async () => { uploads += 1; return { ok: true }; };
+  const receipt = { schema: 'ivoc.candidate-audio.v1', captureVersion: 'direct-mic-v1', status: 'ALLOCATED' };
+  const api = { csrfToken: 'csrf', createRecording: () => { throw new Error('wrong-artifact'); },
+    createCandidateAudio: async (session, input) => {
+      allocation = { session, input };
+      return { id: 'mic1', recordingRole: 'candidate_audio', parentRecordingId: 'video1', captureReceipt: receipt,
+        uploadUrl: 'https://media.test/mic', uploadToken: 'token', uploadExpiresAtMs: Date.now() + 60000 };
+    },
+    sealRecording: async (id, input) => {
+      seals += 1; timing = input.captureTiming;
+      if (seals === 1) throw new Error('seal-offline');
+      return { recording: { id, status: 'saved' }, captureReceipt: { ...receipt, status: 'SEALED',
+        assurance: 'CLIENT_MIC_CAPTURE_DECLARATION', analysisEligibility: 'UNVERIFIED' } };
+    } };
+  try {
+    const controller = new AccountRecordingController({ api, stream: {
+      getVideoTracks: () => [], getAudioTracks: () => [{ kind: 'audio' }],
+    }, sessionId: 's1', recordingRole: 'candidate_audio', parentRecordingId: 'video1',
+      now: () => now, sessionNow: () => now - 900, probePlayableDuration: async () => 1950 });
+    await controller.start();
+    assert.equal(allocation.input.mime, 'audio/webm;codecs=opus');
+    assert.equal(allocation.input.captureVersion, 'direct-mic-v1');
+    now = 1500; controller.pause(); now = 2000; controller.resume(); now = 3500;
+    await assert.rejects(controller.stopAndSeal(), /seal-offline/);
+    const [a, b] = await Promise.all([controller.stopAndSeal(), controller.stopAndSeal()]);
+    assert.equal(a, b); assert.equal(uploads, 1); assert.equal(seals, 2);
+    assert.deepEqual(timing, { recordingStartSessionMs: 100, recordingDurationMs: 2000,
+      playableDurationMs: 1950, pausedSpans: [{ startMs: 600, endMs: 1100 }] });
+    assert.equal(a.captureReceipt.analysisEligibility, 'UNVERIFIED');
+    await controller.stopAndSeal(); assert.equal(uploads, 1); assert.equal(seals, 2);
+    controller.destroy(); assert.equal(controller.finalBlob, null);
+  } finally { globalThis.MediaRecorder = oldRecorder; globalThis.fetch = oldFetch; }
+});
+
+test('candidate recorder rejects video/missing-parent/forged receipt before recording or upload', async () => {
+  const oldRecorder = globalThis.MediaRecorder; globalThis.MediaRecorder = FakeRecorder;
+  let allocations = 0;
+  const api = { createCandidateAudio: async () => { allocations += 1; return { id: 'bad', recordingRole: 'conversation' }; } };
+  try {
+    for (const options of [{ parentRecordingId: null, videos: [] }, { parentRecordingId: 'p', videos: [{}] }]) {
+      const controller = new AccountRecordingController({ api, sessionId: 's', recordingRole: 'candidate_audio',
+        parentRecordingId: options.parentRecordingId, stream: { getVideoTracks: () => options.videos, getAudioTracks: () => [{}] } });
+      await assert.rejects(controller.start(), /candidate_audio_stream_invalid/);
+    }
+    assert.equal(allocations, 0);
+    const controller = new AccountRecordingController({ api, sessionId: 's', recordingRole: 'candidate_audio',
+      parentRecordingId: 'p', stream: { getVideoTracks: () => [], getAudioTracks: () => [{}] } });
+    await assert.rejects(controller.start(), /candidate_audio_receipt_invalid/);
+    assert.equal(controller.recorder, null);
+  } finally { globalThis.MediaRecorder = oldRecorder; }
+});
+
 test('a hung private upload request fails into the retained retry path instead of waiting forever', async () => {
   const oldFetch = globalThis.fetch;
   globalThis.fetch = async () => new Promise(() => {});

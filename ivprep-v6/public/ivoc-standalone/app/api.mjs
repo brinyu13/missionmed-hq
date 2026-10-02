@@ -47,6 +47,22 @@ export class IvocApi {
     });
   }
   createRecording(sessionId, input) { return json(`/sessions/${encodeURIComponent(sessionId)}/recordings`, { method: 'POST', body: input, csrfToken: this.csrfToken }); }
+  async createCandidateAudio(sessionId, input) {
+    const allocate = async () => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 15_000);
+      try { return await json(`/sessions/${encodeURIComponent(sessionId)}/candidate-audio`,
+        { method: 'POST', body: input, csrfToken: this.csrfToken, signal: controller.signal }); }
+      finally { clearTimeout(timer); }
+    };
+    try { return await allocate(); }
+    catch (error) {
+      // Recover a lost allocation response through the server's owner/parent
+      // idempotency boundary. HTTP denials and contract errors are never retried.
+      if (!(error instanceof TypeError) || error.status) throw error;
+      return allocate();
+    }
+  }
   sealRecording(recordingId, input) { return json(`/recordings/${encodeURIComponent(recordingId)}/seal`, { method: 'POST', body: input, csrfToken: this.csrfToken }); }
   saveResults(sessionId, input) { return json(`/sessions/${encodeURIComponent(sessionId)}/results`, { method: 'POST', body: input, csrfToken: this.csrfToken }); }
   context(input) { return json('/context', { method: 'POST', body: input, csrfToken: this.csrfToken }); }

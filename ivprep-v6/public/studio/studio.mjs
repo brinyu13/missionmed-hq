@@ -2158,6 +2158,7 @@ async function startRep() {
       try {
         await state.durable.start({
           stream: bridge.media.stream,
+          candidateStream: bridge.media.stream,
           question: q || null,
           interviewSet: state.interviewSet,
           wizard: state.wizard,
@@ -2550,6 +2551,7 @@ async function startLiveInterview() {
     });
     await state.durable.start({
       stream: state.conversationRecording.stream,
+      candidateStream: bridge.media.stream,
       question: state.interviewSet[0] || null,
       interviewSet: state.interviewSet,
       wizard: state.wizard,
@@ -3328,7 +3330,9 @@ function renderPostAnswer(analytics = null) {
         ? '<strong>Review the student’s recorded evidence</strong>Supported delivery signals are available in the full report below. Listen back in Film Room to find the strongest moments.'
         : '<strong>Review your recorded evidence</strong>Your supported delivery signals are available in the full report below. Listen back in Film Room to find your strongest moments.')
       : '<strong>No supported positive claim yet</strong>The session saved, but no student-safe signal reached an evidence threshold.'],
-    ['#post-fix', '<strong>Choose one evidence-backed priority</strong>Use this recording’s full report and transcript-based coaching below. No correction is inferred from another attempt.'],
+    ['#post-fix', !buildCandidateAnalysisState(state.lastSaved?.sessionDetail).available
+      ? '<strong>Choose one evidence-backed priority</strong>Use this recording’s measured delivery report and private replay. Transcript-based coaching is unavailable while candidate audio attribution remains unverified.'
+      : '<strong>Choose one evidence-backed priority</strong>Use this recording’s full report and transcript-based coaching below. No correction is inferred from another attempt.'],
   ] : [
     ['#post-worked', '<strong>Awaiting evidence</strong>No answer recorded in this session yet. Nothing is asserted without evidence.'],
     ['#post-fix', '<strong>Awaiting evidence</strong>A single correction appears here once a recorded answer produces delivery evidence.'],
@@ -3342,6 +3346,28 @@ function renderPostAnswer(analytics = null) {
     host.replaceChildren(empty);
   }
   renderFullAnalyticsReport(analytics);
+  $('#candidate-audio-retry')?.remove();
+  const sourceRetry = state.durable?.candidateRetry;
+  const saved = state.lastSaved;
+  if (sourceRetry && !isAdminReview(saved)
+    && sourceRetry.sessionId === (saved?.sessionDetail?.id || saved?.session?.id)) {
+    const retry = el('button', 'btn btn-secondary', 'Retry microphone audio save');
+    retry.id = 'candidate-audio-retry'; retry.type = 'button';
+    retry.title = 'Retry only the retained private microphone audio upload. Your full recording is already saved; answer analysis remains unavailable.';
+    retry.addEventListener('click', async () => {
+      retry.disabled = true;
+      try {
+        const outcome = await state.durable.retryCandidateAudio();
+        if (state.lastSaved !== saved) return;
+        if (outcome.retried) {
+          saved.envelope = outcome.envelope;
+          saved.result = outcome.result;
+          retry.textContent = 'Microphone audio saved — analysis remains unavailable';
+        } else { retry.disabled = false; retry.textContent = 'Retry microphone audio save'; }
+      } catch { retry.disabled = false; retry.textContent = 'Save failed — retry microphone audio'; }
+    });
+    $('#context-analyze')?.before(retry);
+  }
   const contextButton = $('#context-analyze');
   if (contextButton) {
     const recordingId = state.lastSaved?.recording?.recording?.id;
@@ -3454,7 +3480,9 @@ function renderFullAnalyticsReport(analytics = null) {
       : [framing === null ? null : `${Math.round(framing * 100)}% centered frames`, cameraFacing === null ? null : `${Math.round(cameraFacing * 100)}% camera-facing proxy`, framingObserved].filter(Boolean).join(' · ')],
     ['Transcript', conversationTurns.length
       ? `${conversationTurns.length} persisted ${canonicalTranscript ? 'transcript' : 'live conversation'} turn${conversationTurns.length === 1 ? '' : 's'}`
-      : 'Unavailable until transcript + context processing completes'],
+      : buildCandidateAnalysisState(state.lastSaved?.sessionDetail).available
+        ? 'Unavailable until transcript + context processing completes'
+        : 'Unavailable — candidate audio attribution is unverified; transcript analysis is disabled'],
     ['Recording', recordingState ? `Private recording ${recordingState}` : 'Unavailable — no persisted recording evidence'],
   ];
   for (const [label, detail] of rows) {

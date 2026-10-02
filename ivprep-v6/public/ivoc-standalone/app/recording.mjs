@@ -1,5 +1,5 @@
-function supportedMime() {
-  const choices = [
+function supportedMime(audioOnly = false) {
+  const choices = audioOnly ? ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'] : [
     'video/webm;codecs=vp9,opus',
     'video/webm;codecs=vp8,opus',
     'video/webm',
@@ -114,6 +114,8 @@ export class AccountRecordingController extends EventTarget {
     sessionId,
     title,
     questionId,
+    recordingRole = 'conversation',
+    parentRecordingId = null,
     now = () => performance.now(),
     sessionNow = null,
     recordingStartSessionMs = null,
@@ -126,11 +128,18 @@ export class AccountRecordingController extends EventTarget {
     this.sessionId = sessionId;
     this.title = title;
     this.questionId = questionId;
+    this.recordingRole = recordingRole;
+    this.parentRecordingId = parentRecordingId;
+    this.captureReceipt = null;
     this.now = now;
     this.sessionNow = typeof sessionNow === 'function' ? sessionNow : null;
     this.initialRecordingStartSessionMs = finiteMs(recordingStartSessionMs);
     this.probePlayableDuration = typeof probePlayableDuration === 'function' ? probePlayableDuration : browserPlayableDurationMs;
-    this.mime = supportedMime();
+    this.mime = supportedMime(recordingRole === 'candidate_audio');
+    this.uploadedBlob = null;
+    this.sealedResult = null;
+    this.sealing = null;
+    this.destroyed = false;
     this.recorder = null;
     this.chunks = [];
     this.recording = null;
@@ -176,12 +185,31 @@ export class AccountRecordingController extends EventTarget {
   }
 
   async start() {
+    if (this.destroyed) return false;
     if (!this.enabled || this.state !== 'READY') return false;
-    this.recording = await this.api.createRecording(this.sessionId, {
+    const candidate = this.recordingRole === 'candidate_audio';
+    if (candidate && (!this.parentRecordingId || !this.mime
+      || this.stream?.getVideoTracks?.().length || this.stream?.getAudioTracks?.().length !== 1)) {
+      throw new Error('candidate_audio_stream_invalid');
+    }
+    this.recording = candidate ? await this.api.createCandidateAudio(this.sessionId, {
+      parentRecordingId: this.parentRecordingId, captureVersion: 'direct-mic-v1', mime: this.mime,
+    }) : await this.api.createRecording(this.sessionId, {
       title: this.title,
       questionId: this.questionId,
       mime: this.mime || 'video/webm',
     });
+    if (this.destroyed) throw new Error('recording_closed');
+    if (candidate) {
+      const receipt = this.recording.captureReceipt;
+      if (this.recording.recordingRole !== 'candidate_audio'
+        || this.recording.parentRecordingId !== this.parentRecordingId
+        || receipt?.schema !== 'ivoc.candidate-audio.v1'
+        || receipt.captureVersion !== 'direct-mic-v1' || receipt.status !== 'ALLOCATED') {
+        throw new Error('candidate_audio_receipt_invalid');
+      }
+      this.captureReceipt = receipt;
+    }
     this.recorder = new MediaRecorder(this.stream, this.mime ? { mimeType: this.mime } : undefined);
     this.chunks = [];
     this.recorder.addEventListener('dataavailable', (event) => {
@@ -223,7 +251,15 @@ export class AccountRecordingController extends EventTarget {
     return true;
   }
 
-  async stopAndSeal() {
+  stopAndSeal() {
+    if (this.recordingRole !== 'candidate_audio') return this.stopAndSealOnce();
+    if (this.sealedResult) return Promise.resolve(this.sealedResult);
+    if (this.sealing) return this.sealing;
+    this.sealing = this.stopAndSealOnce().finally(() => { this.sealing = null; });
+    return this.sealing;
+  }
+
+  async stopAndSealOnce() {
     if (this.state === 'ERROR' && this.finalBlob) return this.uploadAndSeal(this.finalBlob);
     if (!['RECORDING', 'PAUSED'].includes(this.state)) return null;
     const stoppedAt = this.now();
@@ -249,12 +285,14 @@ export class AccountRecordingController extends EventTarget {
       const playableDuration = this.playableDurationMs === null
         ? Promise.resolve(this.probePlayableDuration(blob)).then(finiteMs).catch(() => null)
         : Promise.resolve(this.playableDurationMs);
-      const upload = putWithRetry(this.recording.uploadUrl, blob, {
+      const upload = this.recordingRole === 'candidate_audio' && this.uploadedBlob === blob ? Promise.resolve() : putWithRetry(this.recording.uploadUrl, blob, {
         csrfToken: this.api.csrfToken,
         uploadToken: this.recording.uploadToken,
         uploadExpiresAtMs: this.recording.uploadExpiresAtMs,
       });
       await upload;
+      if (this.destroyed) throw new Error('recording_closed');
+      this.uploadedBlob = blob;
       this.playableDurationMs = await playableDuration;
       const recordingDurationMs = Math.round(this.finalElapsedMs ?? 0);
       const durationMs = this.playableDurationMs ?? recordingDurationMs;
@@ -270,9 +308,20 @@ export class AccountRecordingController extends EventTarget {
         recordingStartSessionMs: timebase.recordingStartSessionMs,
         pausedSpans: timebase.pausedSpans,
         timebase,
+        ...(this.recordingRole === 'candidate_audio' ? { captureTiming: {
+          recordingStartSessionMs: timebase.recordingStartSessionMs,
+          recordingDurationMs, playableDurationMs: this.playableDurationMs,
+          pausedSpans: timebase.pausedSpans,
+        } } : {}),
       });
+      if (this.recordingRole === 'candidate_audio') {
+        const receipt = sealed.captureReceipt || sealed.recording?.captureReceipt;
+        if (receipt?.schema !== 'ivoc.candidate-audio.v1' || receipt.captureVersion !== 'direct-mic-v1'
+          || receipt.status !== 'SEALED') throw new Error('candidate_audio_seal_receipt_invalid');
+        this.captureReceipt = receipt;
+      }
       this.state = 'SAVED'; this.emit();
-      return {
+      this.sealedResult = {
         ...sealed,
         blob,
         durationMs,
@@ -281,7 +330,9 @@ export class AccountRecordingController extends EventTarget {
         recordingStartSessionMs: timebase.recordingStartSessionMs,
         pausedSpans: timebase.pausedSpans.map((span) => ({ ...span })),
         timebase,
+        ...(this.recordingRole === 'candidate_audio' ? { captureReceipt: this.captureReceipt } : {}),
       };
+      return this.sealedResult;
     } catch (error) {
       this.state = 'ERROR'; this.emit();
       throw error;
@@ -289,7 +340,11 @@ export class AccountRecordingController extends EventTarget {
   }
 
   destroy() {
+    this.destroyed = true;
     try { if (this.recorder?.state && this.recorder.state !== 'inactive') this.recorder.stop(); } catch {}
     this.chunks = [];
+    this.finalBlob = null;
+    this.uploadedBlob = null;
+    this.sealedResult = null;
   }
 }

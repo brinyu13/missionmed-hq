@@ -1,7 +1,160 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 
 import { DurableStudioSession, createDurableResultsEnvelope } from '../../public/studio/durable-session.mjs';
+
+function candidateHarness({ gate = true, failStart = false, failSeal = false } = {}) {
+  let clock = 100; const made = []; const writes = []; let mainStops = 0; let sourceStops = 0;
+  const mic = { kind: 'audio', readyState: 'live', id: 'original-mic' };
+  const remote = { kind: 'audio', readyState: 'live', id: 'remote-ai' };
+  class Stream {
+    constructor(tracks) { this.tracks = tracks; }
+    getAudioTracks() { return this.tracks.filter(t => t.kind === 'audio'); }
+    getVideoTracks() { return this.tracks.filter(t => t.kind === 'video'); }
+  }
+  const receipt = { schema: 'ivoc.candidate-audio.v1', captureVersion: 'direct-mic-v1', status: 'ALLOCATED' };
+  const api = { bootstrap: async () => ({ entitlement: { admitted: true }, capabilities: { candidateAudioCapture: gate } }),
+    createSession: async () => ({ id: 'owned-session' }),
+    saveResults: async (id, envelope) => { writes.push({ id, envelope }); return { id: 'saved-result' }; },
+    abandonSession: async () => ({ abandoned: true }) };
+  const durable = new DurableStudioSession({ api, nowMs: () => clock, MediaStreamCtor: Stream,
+    recordingFactory: options => {
+      const source = options.recordingRole === 'candidate_audio';
+      const recorder = { options, recording: { id: source ? 'source' : 'main' }, captureReceipt: receipt,
+        parentRecordingId: options.parentRecordingId, destroyed: 0,
+        start: async () => { clock += source ? 20 : 10; if (source && failStart) throw new Error('source-start'); return true; },
+        stopAndSeal: async () => {
+          if (source) {
+            sourceStops += 1;
+            if (failSeal && sourceStops === 1) { recorder.finalBlob = new Blob(['retained-mic']); throw new Error('source-seal'); }
+          } else mainStops += 1;
+          return { recording: { id: source ? 'source' : 'main', status: 'saved' },
+            captureReceipt: { ...receipt, status: 'SEALED', assurance: 'CLIENT_MIC_CAPTURE_DECLARATION', analysisEligibility: 'UNVERIFIED' },
+            recordingStartSessionMs: source ? 30 : 10, recordingDurationMs: 1000,
+            playableDurationMs: 990, pausedSpans: [] };
+        }, destroy() { this.destroyed += 1; } };
+      made.push(recorder); return recorder;
+    } });
+  return { durable, made, writes, mic, remote, Stream, stats: () => ({ mainStops, sourceStops }), advance: value => { clock = value; } };
+}
+
+test('gated mic source is separate from remote mix, keeps independent clocks and provisional identities', async () => {
+  const h = candidateHarness(); await h.durable.bootstrap();
+  const mixed = new h.Stream([h.remote, { kind: 'video' }]);
+  await h.durable.start({ stream: mixed, candidateStream: new h.Stream([h.mic, { kind: 'video' }]) });
+  assert.equal(h.made[0].options.stream, mixed);
+  assert.deepEqual(h.made[1].options.stream.getAudioTracks(), [h.mic]);
+  assert.deepEqual(h.made[1].options.stream.getVideoTracks(), []);
+  assert.equal(h.made[1].options.parentRecordingId, 'main');
+  assert.equal(h.made[0].options.sessionNow(), h.made[1].options.sessionNow());
+  h.advance(200);
+  h.durable.recordLiveTranscript({ speaker: 'student', final: true, text: 'A response',
+    itemId: 'item1', responseId: 'response1', identity: 'item1', type: 'input.transcript.done' });
+  const saved = await h.durable.finish({ durationMs: 1000, events: [] });
+  assert.equal(saved.envelope.candidateAudioCapture.status, 'SAVED');
+  assert.equal(saved.envelope.candidateAudioCapture.analysisEligibility, 'UNVERIFIED');
+  assert.equal(saved.envelope.candidateAudioCapture.captureTiming.recordingStartSessionMs, 30);
+  assert.equal(saved.envelope.liveConversation.turns[0].itemId, 'item1');
+  assert.equal(saved.envelope.liveConversation.turns[0].responseId, 'response1');
+  assert.equal(saved.envelope.liveConversation.turns[0].startMs, 90);
+  assert.equal(saved.envelope.candidateAudioCapture.blob, undefined);
+  assert.equal(h.durable.candidateRecorder, null);
+});
+
+test('source seal failure preserves main saved Results and retries source alone after account session clears', async () => {
+  const h = candidateHarness({ failSeal: true }); await h.durable.bootstrap();
+  await h.durable.start({ stream: {}, candidateStream: new h.Stream([h.mic]) });
+  const saved = await h.durable.finish({ durationMs: 1000 });
+  assert.equal(saved.persisted, true);
+  assert.equal(saved.recording.recording.id, 'main');
+  assert.equal(saved.envelope.candidateAudioCapture.status, 'FAILED');
+  assert.equal(h.durable.accountSession, null);
+  assert.equal(h.durable.candidateRetry.sessionId, 'owned-session');
+  const [a, b] = await Promise.all([h.durable.retryCandidateAudio(), h.durable.retryCandidateAudio()]);
+  assert.equal(a.retried, true); assert.equal(b.retried, true);
+  assert.deepEqual(h.stats(), { mainStops: 1, sourceStops: 2 });
+  assert.equal(h.writes.length, 2);
+  assert.equal(h.writes[1].id, 'owned-session');
+  assert.equal(h.writes[1].envelope.candidateAudioCapture.status, 'SAVED');
+  assert.equal(h.durable.candidateRetry, null);
+});
+
+test('source start failure does not block main; old/false/nonliteral bootstrap never creates source', async () => {
+  for (const gate of [undefined, false, 'true']) {
+    const h = candidateHarness({ gate }); await h.durable.bootstrap();
+    if (gate === undefined) delete h.durable.bootstrapPayload.capabilities;
+    await h.durable.start({ stream: {}, candidateStream: new h.Stream([h.mic]) });
+    await h.durable.finish({ durationMs: 1000 });
+    assert.equal(h.made.length, 1); assert.equal(h.writes[0].envelope.candidateAudioCapture, undefined);
+  }
+  const h = candidateHarness({ failStart: true }); await h.durable.bootstrap();
+  await h.durable.start({ stream: {}, candidateStream: new h.Stream([h.mic]) });
+  await h.durable.finish({ durationMs: 1000 });
+  assert.equal(h.writes[0].envelope.candidateAudioCapture.status, 'FAILED');
+  assert.equal(h.made[1].destroyed, 1);
+  assert.equal(h.durable.candidateRetry, null);
+});
+
+test('late source retry Results response cannot clear or destroy a new capture', async () => {
+  const h = candidateHarness({ failSeal: true }); await h.durable.bootstrap();
+  await h.durable.start({ stream: {}, candidateStream: new h.Stream([h.mic]) });
+  await h.durable.finish({ durationMs: 1000 });
+  let resolveSave; let saveStarted;
+  const started = new Promise(resolve => { saveStarted = resolve; });
+  h.durable.api.saveResults = async () => { saveStarted(); return new Promise(resolve => { resolveSave = resolve; }); };
+  const pending = h.durable.retryCandidateAudio();
+  await started;
+  await h.durable.start({ stream: {}, candidateStream: new h.Stream([h.mic]) });
+  const current = h.durable.candidateRecorder;
+  const currentSession = h.durable.accountSession;
+  resolveSave({ id: 'old-save' });
+  assert.equal((await pending).reason, 'candidate_audio_capture_closed');
+  assert.equal(h.durable.candidateRecorder, current);
+  assert.equal(current.destroyed, 0);
+  assert.equal(h.durable.accountSession, currentSession);
+  assert.equal(h.durable.candidateAudioCapture.status, 'RECORDING');
+});
+
+test('actual Results source retry handler appears only for original owner attempt and ignores stale views', async () => {
+  const studio = readFileSync(new URL('../../public/studio/studio.mjs', import.meta.url), 'utf8');
+  const source = studio.slice(studio.indexOf('  const sourceRetry = state.durable?.candidateRetry;'),
+    studio.indexOf('  const contextButton =', studio.indexOf('  const sourceRetry = state.durable?.candidateRetry;')));
+  const render = new Function('state', 'isAdminReview', 'el', '$', source);
+  let handler; let button; let calls = 0; let release;
+  const saved = { session: { id: 'original' } };
+  const state = { lastSaved: saved, durable: { candidateRetry: { sessionId: 'original' },
+    retryCandidateAudio: async () => { calls += 1; return new Promise(resolve => { release = resolve; }); } } };
+  const el = () => { button = { addEventListener: (_event, callback) => { handler = callback; } }; return button; };
+  const $ = () => ({ before() {} });
+  render(state, () => false, el, $);
+  assert.equal(button.id, 'candidate-audio-retry');
+  const pending = handler(); assert.equal(button.disabled, true); assert.equal(calls, 1);
+  const newer = { session: { id: 'new' }, envelope: 'unchanged' }; state.lastSaved = newer;
+  release({ retried: true, envelope: { candidateAudioCapture: { status: 'SAVED' } } });
+  await pending;
+  assert.equal(newer.envelope, 'unchanged');
+  for (const [id, admin] of [['different', false], ['original', true]]) {
+    button = null; state.lastSaved = { session: { id } };
+    render(state, () => admin, el, $); assert.equal(button, null);
+  }
+});
+
+test('destroy and abandon dispose mic recorder, retained retries, but never stop borrowed microphone tracks', async () => {
+  for (const action of ['destroy', 'abandon']) {
+    const h = candidateHarness(); await h.durable.bootstrap();
+    await h.durable.start({ stream: {}, candidateStream: new h.Stream([h.mic]) });
+    await h.durable[action]();
+    assert.equal(h.made[1].destroyed, 1); assert.equal(h.durable.candidateRecorder, null);
+    assert.equal(h.mic.readyState, 'live');
+  }
+  const h = candidateHarness({ failSeal: true }); await h.durable.bootstrap();
+  await h.durable.start({ stream: {}, candidateStream: new h.Stream([h.mic]) });
+  await h.durable.finish({ durationMs: 1000 });
+  await h.durable.abandon();
+  assert.equal(h.durable.candidateRetry, null);
+  assert.equal((await h.durable.retryCandidateAudio()).retried, false);
+});
 
 test('optional manual name coaching snapshots preparation, persists through finish and resets', async () => {
   const inputs = []; const writes = [];
