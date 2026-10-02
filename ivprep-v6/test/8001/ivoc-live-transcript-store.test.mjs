@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createIvocLiveTranscriptStore } from '../../server/providers/ivoc-live-transcript-store.mjs';
+import { createIvocLiveTranscriptStore, createIvocLiveTranscriptDependencies } from '../../server/providers/ivoc-live-transcript-store.mjs';
 
 const identity = { ownerSubject: 'wp:1', ivocSessionId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   providerSessionId: 'live_session_fixture', observationId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' };
@@ -58,4 +58,22 @@ test('storage errors are generic and never claim a terminal was persisted', asyn
   await assert.rejects(() => append([attached()]), error => {
     assert.equal(error.message, 'IVOC live transcript persistence unconfirmed.'); return true;
   });
+});
+
+test('runtime dependencies attach only after a fresh owner guard, with server-only credentials and sink', async () => {
+  let current = session; const calls = [];
+  const deps = createIvocLiveTranscriptDependencies({ apiKey: 'test-only-server-value',
+    rest: { table: async () => current ? [current] : [], request: async () => {} },
+    observerFactory: input => { calls.push(input); return { fixtureObserver: true }; },
+  });
+  assert.deepEqual(Object.keys(deps).sort(), ['liveSessionGuard', 'liveTranscriptObserver']);
+  assert.equal(JSON.stringify(deps).includes('test-only-server-value'), false);
+  await deps.liveSessionGuard(identity);
+  assert.deepEqual(await deps.liveTranscriptObserver(identity), { fixtureObserver: true });
+  assert.equal(calls[0].apiKey, 'test-only-server-value');
+  assert.equal(calls[0].providerSessionId, identity.providerSessionId);
+  assert.equal(typeof calls[0].append, 'function');
+  current = { ...session, state: 'saved' };
+  await assert.rejects(() => deps.liveTranscriptObserver(identity), /active owned live session/);
+  assert.equal(calls.length, 1);
 });

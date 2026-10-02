@@ -1,3 +1,5 @@
+import { attachOpenAiLiveTranscriptObserver } from './openai-live-transcript-observer.mjs';
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const SUBJECT = /^wp:[1-9][0-9]{0,19}$/u;
 const PROVIDER = /^[A-Za-z0-9_-]{8,160}$/u;
@@ -53,4 +55,23 @@ export function createIvocLiveTranscriptStore({ rest } = {}) {
     };
   }
   return Object.freeze({ assertActiveSession, bindObservation });
+}
+
+// Credentials remain captured server-side; caller receives only actions. The
+// mount supplies identity from its authorized provider/session binding, never
+// a browser transcript or a client-supplied provider session identifier.
+export function createIvocLiveTranscriptDependencies({ rest, apiKey,
+  observerFactory = attachOpenAiLiveTranscriptObserver } = {}) {
+  if (typeof apiKey !== 'string' || !apiKey.trim() || /[\r\n]/u.test(apiKey)
+    || typeof observerFactory !== 'function') throw new TypeError('IVOC live transcript server binding unavailable.');
+  const store = createIvocLiveTranscriptStore({ rest });
+  return Object.freeze({
+    liveSessionGuard: store.assertActiveSession,
+    async liveTranscriptObserver(identity) {
+      const { ownerSubject, ivocSessionId, providerSessionId, observationId } = identity || {};
+      const trusted = Object.freeze({ ownerSubject, ivocSessionId, providerSessionId, observationId });
+      const append = await store.bindObservation(trusted);
+      return observerFactory({ ...trusted, apiKey, append });
+    },
+  });
 }

@@ -10,6 +10,7 @@ import {
 } from '../founder-paid-test-gate.mjs';
 import { createLiveKitSessionCoordinator } from './livekit-session-coordinator.mjs';
 import { createIvocContextPackResolver } from './ivoc-context-pack-resolver.mjs';
+import { createIvocLiveTranscriptDependencies } from './ivoc-live-transcript-store.mjs';
 import { createOpenAiLiveSessionBroker } from './openai-live-session.mjs';
 import { PROFILE_B, PROFILE_B_AGENT_NAME, ProviderSessionController } from './provider-session-controller.mjs';
 
@@ -829,6 +830,9 @@ export async function createHostedHqDependenciesFromEnvironment(environment = pr
     ? createOpenAiLiveSessionBroker({ apiKey: liveApiKey })
     : null;
   const liveContextResolver = createIvocContextPackResolver({ rest });
+  const liveTranscriptDependencies = liveApiKey
+    ? createIvocLiveTranscriptDependencies({ rest, apiKey: liveApiKey })
+    : { liveSessionGuard: null, liveTranscriptObserver: null };
   if (!paidEnabled) {
     return Object.freeze({
       registry,
@@ -838,6 +842,7 @@ export async function createHostedHqDependenciesFromEnvironment(environment = pr
       liveKitSignalOrigin: null,
       liveSessionBroker,
       liveContextResolver,
+      ...liveTranscriptDependencies,
       runtimeState,
     });
   }
@@ -875,6 +880,7 @@ export async function createHostedHqDependenciesFromEnvironment(environment = pr
     liveKitSignalOrigin: livekit.signalOrigin,
     liveSessionBroker,
     liveContextResolver,
+    ...liveTranscriptDependencies,
     runtimeState,
   });
 }
