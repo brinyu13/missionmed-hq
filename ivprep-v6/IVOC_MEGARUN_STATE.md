@@ -22,14 +22,22 @@ the actual production route and deployment.
   verified-selection copy. No RISE owner, auth, database, provider or media change.
   57 focused route/adapter/actual-renderer checks plus 28 presentation compatibility
   checks PASS. Fresh independent source PASS includes reaching result 44 and
-  exact release selection. Deployment/live POV pending; physical media is not
-  inferred from these checks. Rollback remains `f70752f` / `86e37b65` below.
+  exact release selection. LIVE source `a26ae28d6ea54993aabe0944d3293188c58fc394`,
+  deployment `f7ef28c3-bc20-4766-a41e-4ee420685099` SUCCESS, image
+  `sha256:6cd720ed88152296e081e901f54d34a605a75ca150f7a3f78d2121e5228912c6`,
+  artifact `ff0aace189d30ef483f8f90891230e8946cd9405cbbe17c7f7414f4eae797150`.
+  Four changed runtime hashes match source; health 200, anonymous product and
+  bootstrap 401, config unchanged. Actual Founder wp:1 Chrome Home → Builder →
+  Program traversed all four pages and selected SUNY Upstate Internal Medicine
+  with the exact visible verified release. Ordinary Student access, session
+  hydration, physical media and spoken acceptance are NOT inferred. Rollback
+  remains exact preserved `f70752f` / `86e37b65` source/image/artifact below.
 - **Next executable setup corrections:** independent actual-handler/payload
   review found hidden pressure surviving Individual Question selection, Guided
   Practice focus not reaching the interviewer, and an earlier room Analytics
   override masking a new explicit Builder mode. These are executable fixes,
   separate from the unchanged physical camera/genuine speech evidence wait.
-- **CURRENT PRODUCTION / Compare freshness LIVE DEPLOYED:** source
+- **PRIOR ROLLBACK / Compare freshness LIVE DEPLOYED:** source
   `f70752f9cb17da205e796409d329e633f72246bf`, deployment
   `86e37b65-b79a-464f-a4d7-cb04d5c873ae` SUCCESS, image
   `sha256:2891a85685837593f247ad996d761b924fa29e19844915b07d338d1f2ce64fcd`,
