@@ -1,0 +1,14 @@
+{
+  "deployment": "dd1ee4ed-b06b-4049-afb8-92bdaaadf5f0",
+  "image": "sha256:0c4b57f6fd7943e8d8633981d5100764c98e95dffca265482b0a6c44b30a4cb1",
+  "source_files_verified": 18,
+  "health": "status:ok",
+  "qa_allowlist_absent": true,
+  "root_intake_hold_absent": true,
+  "claim_fenced_send_enabled": true,
+  "builder_auth_lease": "8e296d11-156a-4fef-93ba-534e94a8ef09",
+  "builder_routing_lease": "d9282952-c7f5-4970-ac31-7b6448a6bebf",
+  "both_positively_released": true,
+  "root_send_or_intake_invoked": false,
+  "independent_final_acceptance": "pending"
+}

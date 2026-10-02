@@ -216,9 +216,9 @@
       "environment_id": "ed3353f7-bcc7-4e25-a000-3c9fc628a9a7",
       "environment": "production",
       "public_origin": "https://missionmed-usce-gateway-production.up.railway.app",
-      "current_deployment_id": "98875fa0-499f-412a-a596-b2dc2fd72200",
-      "current_image_digest": "sha256:06a5aa2c13fa1a401fe8354f3be31965aa31f23a831a6c2858bf39025293a1bf",
-      "runtime_evidence": "Exact C18 all18 SSH hashes verified; controlled independent single-recipient QA transport ready, normal config and fresh F/U/O pending.",
+      "current_deployment_id": "dd1ee4ed-b06b-4049-afb8-92bdaaadf5f0",
+      "current_image_digest": "sha256:0c4b57f6fd7943e8d8633981d5100764c98e95dffca265482b0a6c44b30a4cb1",
+      "runtime_evidence": "Ordinary safe production configuration restored; exact C18 all18 SSH hashes and healthy serving runtime; independent final F/U/O pending.",
       "start_command": "node missionmed-hq/usce-gateway.mjs",
       "active_source_roots": [
         "missionmed-hq/usce-gateway.mjs",

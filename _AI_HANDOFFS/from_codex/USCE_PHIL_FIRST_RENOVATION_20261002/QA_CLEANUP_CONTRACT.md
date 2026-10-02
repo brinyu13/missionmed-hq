@@ -9,3 +9,5 @@ Recovery: retain all archived records and previous status/revision in qa_cleanup
 Mail: add existing USCE QA label and remove INBOX only for exact owned messages 1a0fd6c22a3f4edc,1a0fe0169eacef7e,1a0fe9c4da80380b after verifying exact TEST subjects/recipient. Recover via restoring INBOX. No Trash/delete or thread-wide action.
 
 Independent preliminary review corrections incorporated: lock first, then exact source/alias/name/new intake and frozen offer UUID/status/revision pairs; NULL-safe RPC results; hashes preserve all intake non-status/time fields, all offer non-maintenance fields, metadata except new qa_cleanup, and full claims. Pending final SQL review; not applied.
+
+Fresh independent /root/usce_registration_verifier APPROVE corrected prospective SQL SHA24985617857e7b9c025062a0f3a599415fe6f5841950e648d784737429a59d2b. Current six frozen offer/intake/status/revision preimages match; actual triggers/archived GET reviewed. Source-only approval; execute only after normal config/component acceptance under fresh own fence.

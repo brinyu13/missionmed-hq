@@ -58,3 +58,7 @@ Recovery completed: guarded C18 same-image reinstallation, exact compatible oper
 Controlled independent QA transport staged: offer live enabled, offer dry-run false, exact MissionMed test recipient guard retained, intake held; same C18 retained source redeploy dispatched without from-source. No send performed by config change.
 
 Controlled independent QA transport ready 2026-10-02T21:24:24.944290+00:00: {"deployment": "98875fa0-499f-412a-a596-b2dc2fd72200", "image": "sha256:06a5aa2c13fa1a401fe8354f3be31965aa31f23a831a6c2858bf39025293a1bf", "health": "status:ok", "source_files_verified": 18, "recipient_guard_exact": true, "intake_held": true, "offer_qa_live_enabled": true}; root sends none, reviewer may send exactly one labeled synthetic offer to approved inbox. Normal safe configuration restoration remains required.
+
+Normal safe config restoration: only Root-added exact QA recipient restriction and intake dry-run hold removed; claim-fenced current approval send remains enabled. Final retained C18 deployment observation pending. No send or intake invoked by Root.
+
+Normal safe production configuration verified 2026-10-02T22:38:25.433200+00:00: {"deployment": "dd1ee4ed-b06b-4049-afb8-92bdaaadf5f0", "image": "sha256:0c4b57f6fd7943e8d8633981d5100764c98e95dffca265482b0a6c44b30a4cb1", "health": "status:ok", "source_files_verified": 18, "qa_allowlist_absent": true, "root_intake_hold_absent": true, "claim_fenced_send_enabled": true}; both temporary keys actually absent (not empty), unchanged exact18 retained C18 source. Fresh final independent O pending.
