@@ -65,8 +65,34 @@ the actual production route and deployment.
   live conversation gates, not inferred from prompt tests.
   Known-good runtime preserved: `d6ab5544-0674-4f43-a31b-1dc69a3465a1`, source
   `638c7a279e4dfe3aaafa7163aec0f531533fddcc`, exact image/artifact below.
-  Next: deploy this bounded stall recovery, cold-reload persistence verification,
-  then specific candidate-question scenario. No final acceptance claim yet.
+  Fix-forward source `91c4877d5a598cf84876596ca3f880e011f4665d` pushed/read back;
+  deployment `a5985ddb-3b63-4765-801c-e15a0b27e9a9` SUCCESS, image
+  `sha256:2af088af42ba7697e3e506fd8cf083d543e19aa10ee34f65065f76ad8ab2b86b`.
+  Exact client/broker runtime hashes match source; health200, anonymous
+  product/bootstrap401; V2 configuration unchanged. Release artifact
+  `5efb5564ba5088b691edfde4e54b377631bc9b2a70c7db8f0b297cc64d571194` (1204 files)
+  at `/var/folders/xs/k4jpy4k177g_flhq3wp7p21r0000gn/T/ivoc-release-artifact-oHPlRP/stage`.
+  Fresh production UI canary accepted the native session configuration, rendered
+  physical camera/live measured history and transcribed the selected opening plus
+  exact closing after the explicit closing action. No candidate response occurred
+  in this bounded canary: no claim of recovered multiple-question conversation.
+  Earlier genuine recording survived cold reload; actual playback advanced and
+  the persisted timeline sought to 7.815 seconds with matching 0:07 cursor.
+  Speech-separated coaching remains honestly unavailable: native transcript is
+  provisionally grouped by speaker, not verified semantic answer ranges. Do not
+  label those two speaker aggregates as proof of two semantic conversational turns.
+  Independent Astra source/production review cleared the changed navigation,
+  room composition and saved-review path; pedagogy review cleared the bounded
+  fallback without asserting audible model behavior. MR1316 DOCX remains absent,
+  so that formal visual-filter check is not represented as passed.
+  Deployment lease4199 released normally. PRODUCT4194 protects final ledger
+  receipt and is released after clean commit/push/readback.
+  New experience is staged for Founder acceptance, NOT final product acceptance.
+  Next genuine acceptance: answer with an intentional hook; allow automatic
+  one-question closing; ask at least two candidate questions including unavailable
+  program facts; confirm natural truthful answers and professional signoff; finish,
+  then audibly confirm both voices in replay before/after reload. No unrelated
+  camera/provider retest, new architecture or synthetic human evidence needed.
 - **RISE/HQ successor repair, 2026-10-02: DEPLOYED; genuine Student role POV OPEN.**
   DR-361 is filed/pushed/read back in MissionMed OS commit
   `08f9a08035d20669f244efd4aaff4e9cf35d4332`. Current live issuer policy is
