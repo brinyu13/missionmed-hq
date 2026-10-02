@@ -14,6 +14,16 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Isolated microphone capture activated:** source
+  `0909cefce71bd5001dc1efe913c3a4c796197121`, deployment
+  `87ad6aaf-7269-4e88-b813-b43e246f42ca` SUCCESS, image
+  `sha256:cfee0f04e156c650186318c88bfd5068c07d23ed547fc098f6d7fb00bcba65fc`,
+  artifact `fbdaad9aa572ef368b1a9a16c139967113246a901149c948aaab716af5e1da5b`.
+  Exact changed route hash matched, unchanged config, health 200, anonymous
+  product/bootstrap 401. Independent activation review PASS; analysis remains
+  closed. Deployment epoch 4059 released normally and provider-confirmed.
+  Source-aware rollback remains `5f3f23f` / `668bb5a5` above. Actual owned
+  Self Practice capture verification is in progress, not yet accepted.
 - **Candidate microphone custody preparation:** separate original-mic capture,
   independent private upload/seal/retry and shared-clock start offsets are built;
   the full two-sided replay stays authoritative and source rows cannot replace it.
