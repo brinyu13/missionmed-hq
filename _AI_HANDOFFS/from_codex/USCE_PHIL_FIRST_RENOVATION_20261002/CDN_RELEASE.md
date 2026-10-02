@@ -54,3 +54,5 @@ Fix-forward independent_j10_labels: source/R2/public exacte6586f33a32d7fcec79162
 Fix-forward independent_j10_month_selection: source/R2/public exact6ccd46e49fb10ca123b08530e45a83ec0e730b55384b3cad47cd1ced95f47a27200 no-store; beforee6586f33a32d7fcec79162d897f9cac31dac19afa86d1ead922e651940258eaf backup verified. No sibling/global/provider-email mutation. Live browser acceptance separate.
 
 Fix-forward preference-contrast-final: source/R2/public exacta6101cef0cc255f5855b37da544f0d96ba89a98e938ef59a25238cf444f814d0200 no-store; before6ccd46e49fb10ca123b08530e45a83ec0e730b55384b3cad47cd1ced95f47a27 backup verified. No sibling/global/provider-email mutation. Live browser acceptance separate.
+
+Fix-forward embedded-toolbar-spacing-final: source/R2/public exactb5bfd9743b7f71b160c5d600c525fd245920eb7a89838d70a6ce8dd40b9deaf0200 no-store; beforea6101cef0cc255f5855b37da544f0d96ba89a98e938ef59a25238cf444f814d0 backup verified. No sibling/global/provider-email mutation. Live browser acceptance separate.

@@ -514,6 +514,10 @@ a,button,input,select,textarea{touch-action:manipulation}
 @media(max-width:1100px) and (min-width:761px){:root{--sf-rail:148px}.mm-cx{padding-left:calc(var(--sf-rail) + 16px);padding-right:16px}.mm-cx .sf-rail{padding:20px 8px}.mm-cx .sf-rail button{padding:10px 8px}.mm-cx .mm-hq-grid{grid-template-columns:260px minmax(0,1fr);gap:12px}.mm-cx .mm-prefs-grid{grid-template-columns:1fr}.mm-cx .mm-builder-grid,.mm-cx .mm-ops-grid{grid-template-columns:1fr}.mm-cx .mm-detail-body,.mm-cx .mm-detail-head{padding:14px}.mm-cx .mm-admin-tracker-body{grid-template-columns:1fr}}
 @media(max-width:760px){.mm-cx{padding:132px 12px 28px}.mm-cx .mm-topbar{padding:0 14px}.mm-cx .mm-brand-text{font-size:12px}.mm-cx .mm-brand-text small{font-size:9px}.mm-cx .mm-runtime-pill{font-size:9px;letter-spacing:0;padding:6px 8px}.mm-cx .sf-rail{top:60px;bottom:auto;width:100%;height:56px;padding:6px 8px;flex-direction:row;gap:4px;border-right:0;border-bottom:1px solid var(--sf-edge);overflow-x:auto}.mm-cx .sf-rail-title,.mm-cx .sf-rail-note{display:none}.mm-cx .sf-rail button{min-width:max-content;padding:8px 11px;gap:6px;font-size:12px}.mm-cx .sf-rail button span{display:none}.mm-cx .mm-hero{margin-bottom:14px}.mm-cx .mm-hero h1{font-size:24px}.mm-cx .mm-hero p{font-size:12px}.mm-cx .mm-adapter-banner{margin-bottom:14px}.mm-cx .mm-hq-grid{display:block}.mm-cx .mm-req-list{max-height:none}.mm-cx .mm-stats{grid-template-columns:repeat(4,1fr)}.mm-cx .mm-detail{min-height:0}.mm-cx .mm-detail-actions{gap:10px}.mm-cx .mm-tabs{gap:18px}.mm-cx .mm-detail-body,.mm-cx .mm-detail-head{padding:16px}.mm-cx .mm-admin-stage-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.mm-cx .mm-admin-stage{margin:0;min-height:40px}.mm-cx .mm-modal{max-height:92dvh}.mm-cx .mm-kv{grid-template-columns:90px minmax(0,1fr)}html{scroll-padding-top:132px}}
 @media(max-width:760px){.mm-cx .mm-brand-mark{display:none}.mm-cx .mm-brand-text{font-size:11px}.mm-cx .mm-runtime{flex-wrap:nowrap;gap:5px}.mm-cx .sf-open-full{font-size:10px;max-width:68px;line-height:1.2;text-align:center;padding:6px}.mm-cx .mm-topbar{gap:6px}.mm-cx .mm-runtime-pill{white-space:nowrap}}
+
+/* Reserve space for the authorized WordPress toolbar only in the embedded workspace. */
+.mm-cx.sf-embedded{padding-top:132px}.mm-cx.sf-embedded .mm-topbar{top:48px} .mm-cx.sf-embedded .sf-rail{top:108px}.mm-cx.sf-embedded .sf-skip:focus{top:56px}.mm-cx.sf-embedded #mmWorkspace{scroll-margin-top:48px}
+@media(max-width:760px){.mm-cx.sf-embedded{padding-top:180px}}
 </style>
 </head>
 <body>
@@ -3077,6 +3081,7 @@ CONFIG.gmailMailboxes[0];
 (function(){
   const root=document.getElementById('mmCx'),rail=root.querySelector('.sf-rail');
   const full=root.querySelector('.sf-open-full');if(full)full.hidden=window.top===window.self;
+  root.classList.toggle('sf-embedded',window.top!==window.self);
   function sync(){
     const selected=root.classList.contains('mm-case-open');
     rail.querySelectorAll('[data-sf-nav]').forEach(button=>{
