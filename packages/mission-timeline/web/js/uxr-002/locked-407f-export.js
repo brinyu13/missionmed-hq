@@ -368,11 +368,12 @@ function milestoneGeometry(flag,index,scale,scene,{interview=false}={}){
   const footprintRight=Math.max(x+56,flipLabel?x-8:x+60+labelWidth);
   const plaque=FOUNDER_PORTABLE_GEOMETRY.title;
   const crossesTitle=footprintLeft<plaque.x+plaque.width&&footprintRight>plaque.x;
-  // The authoritative template keeps milestones above the ribbon. The gap
+  // General milestones stay above the ribbon; explicit exam-attempt flags
+  // attach to their study arrow, as the Founder exemplar shows. The gap
   // under the plaque can hold a pennant and a single-line label; unresolved
   // long/simultaneous labels are quality findings, never moved below the axis.
-  const automaticY=crossesTitle?87:(index%2===0?58:65);
-  const defaultPoleBottom=FOUNDER_PORTABLE_GEOMETRY.axisTop;
+  const automaticY=studyBox?studyBox.y-58:crossesTitle?87:(index%2===0?58:65);
+  const defaultPoleBottom=studyBox?.y??FOUNDER_PORTABLE_GEOMETRY.axisTop;
   return {object,overridden,x,y:overridden?pixel(overridden.y):automaticY,width:overridden?Math.max(.25,Number(overridden.width)||50):50,height:overridden?Math.max(.25,Number(overridden.height)||64):64,rotation:overridden?Number(overridden.rotation)||0:0,defaultPoleBottom};
 }
 
@@ -727,7 +728,7 @@ function serializePlacedPortableSvg(scene,{layers="",resourceNamespace=""}={}){
 // immutable here. No consolidation, abbreviation, new lanes/legend or pages.
 function avoidAutomaticArrowCollisions(scene,svg){
   const joinedBands=personalBandSegments(scene);
-  const auto=(scene.arrows||[]).filter(arrow=>!presentationEventObject(scene,arrow.id)?.geometry&&!arrow.manualOffset?.laneLocked&&!joinedBands.has(arrow.id));
+  const auto=(scene.arrows||[]).filter(arrow=>!presentationEventObject(scene,arrow.id)?.geometry&&!arrow.manualOffset?.laneLocked&&!joinedBands.has(arrow.id)&&!(arrow.study&&(scene.flags||[]).some(flag=>flag.examAttemptId&&flag.examAttemptId===arrow.examAttemptId)));
   if(!auto.length)return null;
   const ids=new Set(auto.map(arrow=>'event:'+arrow.id));
   const resolved=resolveFounderPresentationSvg(svg,{measureText:scene.measureText});
