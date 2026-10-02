@@ -442,7 +442,7 @@
       "id": "cdn_usce_admin_live",
       "system": "usce_admin",
       "url": "https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html",
-      "approved_sha256": "6ccd46e49fb10ca123b08530e45a83ec0e730b55384b3cad47cd1ced95f47a27",
+      "approved_sha256": "a6101cef0cc255f5855b37da544f0d96ba89a98e938ef59a25238cf444f814d0",
       "required_markers": [
         "/api/usce/admin/public-intake-requests",
         "action=mmhq_usce_admin_auth_relay",
