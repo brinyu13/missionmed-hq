@@ -93,3 +93,16 @@ test('Live Mock check control is restored in finally on success and failure', ()
   assert.match(handler, /finally\s*\{[\s\S]*action\.disabled = false/u);
   assert.match(handler, /action\.disabled = true/u);
 });
+
+test('student-owned browser teaching guidance is available without Scheduler or provider calls', () => {
+  const capability = new LiveMockStudioCapability({ fetchImpl: () => { throw new Error('No owner request needed.'); } });
+  const workflow = capability.teachingWorkflow();
+  assert.equal(workflow.title, 'Student practice + teacher review');
+  assert.equal(workflow.steps.length, 4);
+  assert.match(workflow.steps.join(' '), /student signs into their own IVOC account/u);
+  assert.match(workflow.steps.join(' '), /Refresh saved attempts/u);
+  assert.match(workflow.boundary, /No Webex recording is required/u);
+  assert.match(workflow.boundary, /does not capture or save media as another student/u);
+  assert.match(workflow.boundary, /not teacher or remote-participant audio/u);
+  assert.equal(Object.isFrozen(workflow.steps), true);
+});

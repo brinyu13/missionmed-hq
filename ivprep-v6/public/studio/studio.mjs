@@ -43,7 +43,6 @@ import {
   contextSourceHint,
   buildOwnerIntegrationFacts,
   buildPracticeEntryIntent,
-  resolveAdminStudentSelection,
   buildAdminStudentProgress,
   buildComparisonSelection,
   buildEvidenceMomentLinks,
@@ -69,7 +68,7 @@ import {
   buildBuilderLaunchOrder,
   liveMockRecordingCheckLabel,
 } from './presentation-view-model.mjs';
-import { clearAdminReviewMedia, createAdminReviewGate, isAdminReview, mayPresentSavedReview, resolveReviewDestination } from './review-scope.mjs';
+import { clearAdminReviewMedia, createAdminReviewGate, isAdminReview, mayPresentSavedReview, resolveAdminStudentRefreshSelection, resolveReviewDestination } from './review-scope.mjs';
 import { mountAdminControls, mountAdminMentorControls } from './admin-controls.mjs';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -84,6 +83,7 @@ const CRUMBS = Object.freeze({
 
 const store = createDefaultQuestionStore();
 const adminReviewGate = createAdminReviewGate();
+let adminReviewViewGeneration = 0;
 const ASTRA_PRESENTATION_CANON = 'dedb726bde521a135bec2286ad4cd5a877a68fc7ecd6144fde16b76bc9c09ac4';
 
 const state = {
@@ -178,6 +178,7 @@ function applyRole(role) {
   if (state.role === 'admin' && nextRole !== 'admin') {
     const hadAdminReview = isAdminReview(state.lastSaved);
     adminReviewGate.invalidate();
+    ++adminReviewViewGeneration;
     ++adminStudentLibraryRenderId;
     ++adminOverviewRenderId;
     state.adminControls?.destroy();
@@ -231,6 +232,7 @@ function setView(view, { focus = false } = {}) {
     return;
   }
   if (state.view === 'filmroom' && view !== 'filmroom') $('#playback')?.pause?.();
+  if (state.view !== view) ++adminReviewViewGeneration;
   state.view = view;
   if (view !== 'devicecheck') state.calibrationStandalone = false;
   for (const panel of $$('[data-view-panel]')) {
@@ -267,6 +269,7 @@ function setView(view, { focus = false } = {}) {
     renderFilmRoomSpine(state.lastSaved.sessionDetail, state.lastSaved.envelope);
   }
   if (view === 'vault') void renderVault();
+  renderAdminReviewControl();
   if (focus) $('#main-content')?.focus?.({ preventScroll: true });
   window.scrollTo({ top: 0, behavior: 'auto' });
 }
@@ -366,12 +369,25 @@ async function renderAdminOverview() {
 let adminStudentLibraryRenderId = 0;
 
 async function openAdminStudentSession(session, destination, action) {
-  const ticket = adminReviewGate.begin(state.role);
+  const scope = { subject: state.adminCreditSubject?.subject, sessionId: session.id, view: state.view };
+  if (scope.subject !== session.ownerSubject || scope.view !== 'mentor') return;
+  const viewGeneration = adminReviewViewGeneration;
+  const currentScope = () => ({ subject: state.adminCreditSubject?.subject, sessionId: session.id, view: state.view });
+  const ticket = adminReviewGate.begin(state.role, scope);
   if (ticket === null) return;
+  const isCurrent = () => viewGeneration === adminReviewViewGeneration
+    && adminReviewGate.accepts(ticket, state.role, currentScope());
   action.disabled = true;
   try {
-    const detail = await state.adminLibrary.session(session.id);
-    if (!adminReviewGate.accepts(ticket, state.role)) return;
+    const detail = await state.adminLibrary.sessionForStudent({ subject: scope.subject, sessionId: session.id, isCurrent });
+    if (!detail || !isCurrent()) return;
+    let playback = null;
+    if (destination === 'filmroom') {
+      if (!detail.recording?.id || detail.recording.status !== 'saved') throw new Error('Saved recording unavailable.');
+      playback = await state.adminLibrary.playback(detail.recording.id);
+      if (!isCurrent()) return;
+      if (!playback?.url) throw new Error('Private playback unavailable.');
+    }
     const analytics = detail?.results?.payload?.analytics || null;
     state.lastSaved = {
       reviewScope: 'admin',
@@ -388,29 +404,88 @@ async function openAdminStudentSession(session, destination, action) {
       setView('postanswer');
       return;
     }
-    const playback = await state.adminLibrary.playback(session.recording.id);
-    if (!adminReviewGate.accepts(ticket, state.role)) return;
     const video = $('#playback');
     renderFilmRoomSpine(detail);
     if (video) {
       video.src = playback.url;
-      await video.play().catch(() => {});
     }
     setView('filmroom');
+  } catch {
+    if (isCurrent()) {
+      action.title = 'Review unavailable. Refresh saved attempts and try again.';
+      const label = action.querySelector?.('span');
+      if (label) label.textContent = 'Review unavailable · Refresh';
+    }
   } finally {
     action.disabled = false;
   }
 }
 
+function renderAdminReviewControl() {
+  for (const host of $$('.admin-attempt-review-control')) host.remove();
+  const saved = state.lastSaved;
+  const subject = state.adminCreditSubject?.subject;
+  if (state.role !== 'admin' || !isAdminReview(saved) || saved.session?.ownerSubject !== subject
+      || !['postanswer', 'filmroom'].includes(state.view)) return;
+  const panel = $(`[data-view-panel="${state.view}"]`);
+  if (!panel) return;
+  const host = el('section', 'housing admin-attempt-review-control');
+  host.append(el('div', 'housing-title', 'Selected student review'));
+  host.append(el('p', 'microcap', `${saved.session.ownerDisplayName || 'Student'} · ${subject} · Attempt ${saved.session.id}`));
+  const status = el('p', 'microcap', saved.sessionDetail?.reviewStatus === 'reviewed' ? 'Reviewed' : 'Not yet marked reviewed');
+  const mark = el('button', 'btn btn-secondary', 'Mark attempt reviewed'); mark.type = 'button';
+  mark.disabled = saved.sessionDetail?.reviewStatus === 'reviewed';
+  const back = el('button', 'btn btn-quiet', 'Back to student library'); back.type = 'button';
+  back.addEventListener('click', () => setView('mentor', { focus: true }));
+  host.append(status, el('p', 'admin-boundary-note', 'Review status only. Existing notes are preserved. The recording remains owned by the student.'), mark, back);
+  panel.append(host);
+  mark.addEventListener('click', async () => {
+    const scope = { subject, sessionId: saved.session.id, view: state.view };
+    const viewGeneration = adminReviewViewGeneration;
+    const ticket = adminReviewGate.begin(state.role, scope);
+    const isCurrent = () => state.lastSaved === saved && viewGeneration === adminReviewViewGeneration
+      && adminReviewGate.accepts(ticket, state.role, {
+        subject: state.adminCreditSubject?.subject, sessionId: state.lastSaved?.session?.id, view: state.view,
+      });
+    if (!isCurrent() || mark.disabled) return;
+    mark.disabled = true; status.textContent = 'Saving review status…';
+    try {
+      const result = await state.adminLibrary.markReviewed({ subject, sessionId: scope.sessionId, isCurrent });
+      if (!result || !isCurrent()) return;
+      saved.sessionDetail = { ...saved.sessionDetail, reviewStatus: result.reviewStatus,
+        review: { status: result.reviewStatus, reviewedAt: result.reviewedAt } };
+      saved.session = { ...saved.session, reviewStatus: result.reviewStatus };
+      status.textContent = 'Reviewed · status saved';
+    } catch {
+      if (isCurrent()) status.textContent = 'Review not saved. Refresh the student library to retry safely.';
+    } finally {
+      if (isCurrent()) mark.disabled = saved.sessionDetail?.reviewStatus === 'reviewed';
+    }
+  });
+}
+
 async function renderAdminStudentLibrary(host) {
   const renderId = ++adminStudentLibraryRenderId;
+  const previousSubject = state.adminCreditSubject?.subject;
+  adminReviewGate.invalidate();
+  if (isAdminReview(state.lastSaved)) {
+    clearAdminReviewMedia($('#playback'), state.filmGroups);
+    state.lastSaved = null;
+  }
   state.adminMentorControls?.destroy();
   state.adminMentorControls = null;
   host.replaceChildren();
+  const toolbar = document.createElement('div'); toolbar.className = 'admin-library-toolbar';
+  const refresh = el('button', 'btn btn-quiet', 'Refresh saved attempts'); refresh.type = 'button';
+  refresh.disabled = true;
+  refresh.addEventListener('click', () => void renderAdminStudentLibrary(host));
+  toolbar.append(refresh); host.append(toolbar);
   try {
     const library = await state.adminLibrary.overview();
     if (renderId !== adminStudentLibraryRenderId || state.role !== 'admin' || state.view !== 'mentor') return;
     if (!library.students.length) {
+      state.adminCreditSubject = null;
+      if (previousSubject) { state.adminControls?.destroy(); state.adminControls = null; }
       const empty = document.createElement('div');
       empty.className = 'empty-state';
       empty.innerHTML = '<strong>No authorized practice yet</strong>Student sessions appear here only after they are durably saved.';
@@ -418,18 +493,20 @@ async function renderAdminStudentLibrary(host) {
       return;
     }
 
-    const toolbar = document.createElement('div');
-    toolbar.className = 'admin-library-toolbar';
     const selector = document.createElement('select');
     selector.className = 'q-search';
     selector.setAttribute('aria-label', 'Authorized student');
+    const placeholder = document.createElement('option'); placeholder.value = '';
+    placeholder.textContent = previousSubject && !library.students.some(student => student.subject === previousSubject)
+      ? 'Selected student unavailable — choose a student' : 'Choose a student to review';
+    selector.append(placeholder);
     for (const student of library.students) {
       const option = document.createElement('option');
       option.value = student.subject;
       option.textContent = `${student.displayName} · ${student.sessions.length} session${student.sessions.length === 1 ? '' : 's'}`;
       selector.append(option);
     }
-    selector.value = resolveAdminStudentSelection(library.students, state.adminCreditSubject?.subject);
+    selector.value = resolveAdminStudentRefreshSelection(library.students, previousSubject);
     const summary = document.createElement('span');
     summary.className = 'microcap';
     summary.textContent = `${library.studentCount} AUTHORIZED STUDENT${library.studentCount === 1 ? '' : 'S'} · ${library.sessionCount} SESSIONS`;
@@ -446,8 +523,23 @@ async function renderAdminStudentLibrary(host) {
       onOwnSaved: hydrateHome,
     });
     const paint = () => {
+      adminReviewGate.invalidate();
       rows.replaceChildren();
-      const student = library.students.find((item) => item.subject === selector.value) || library.students[0];
+      const student = library.students.find((item) => item.subject === selector.value);
+      if (!student) {
+        state.adminCreditSubject = null;
+        state.adminMentorControls?.destroy(); state.adminMentorControls = null;
+        if (previousSubject) { state.adminControls?.destroy(); state.adminControls = null; }
+        rows.append(el('p', 'microcap', previousSubject
+          ? 'Selected student unavailable. Choose a student explicitly; no replacement account was selected.'
+          : 'Choose a student with a saved attempt. New students appear after their first save.'));
+        return;
+      }
+      if (!state.adminMentorControls) state.adminMentorControls = mountAdminMentorControls({
+        host: mentorHost, durable: state.durable,
+        isCurrent: () => renderId === adminStudentLibraryRenderId && state.role === 'admin' && state.view === 'mentor',
+        actorSubject: state.admission?.identity?.subject, onOwnSaved: hydrateHome,
+      });
       state.adminCreditSubject = { subject: student.subject, displayName: student.displayName };
       void state.adminControls?.selectSubject(student.subject, student.displayName);
       void state.adminMentorControls?.selectSubject(student.subject, student.displayName);
@@ -474,7 +566,7 @@ async function renderAdminStudentLibrary(host) {
         const evidence = session.answerHistory.supportedObservationCount
           ? `${session.answerHistory.supportedObservationCount} SUPPORTED OBSERVATION${session.answerHistory.supportedObservationCount === 1 ? '' : 'S'}`
           : (session.answerHistory.transcriptAvailable ? 'TRANSCRIPT AVAILABLE' : 'EVIDENCE PENDING');
-        meta.textContent = `${session.questionId || session.state.toUpperCase()} · ${evidence} · ${when}`;
+        meta.textContent = `${session.questionId || session.state.toUpperCase()} · ${evidence} · ${when}${session.reviewStatus === 'reviewed' ? ' · REVIEWED' : ''}`;
         copy.append(title, meta);
         const actions = document.createElement('div');
         actions.className = 'admin-library-actions';
@@ -499,8 +591,11 @@ async function renderAdminStudentLibrary(host) {
         rows.append(row);
       }
     };
-    selector.addEventListener('change', paint);
-    host.append(toolbar, mentorHost, rows);
+    selector.addEventListener('change', () => {
+      paint();
+      if (state.adminCreditSubject && !state.adminControls) void renderAdminOverview();
+    });
+    host.append(mentorHost, rows);
     paint();
   } catch (error) {
     if (renderId !== adminStudentLibraryRenderId || state.role !== 'admin' || state.view !== 'mentor') return;
@@ -508,6 +603,8 @@ async function renderAdminStudentLibrary(host) {
     empty.className = 'empty-state';
     empty.innerHTML = '<strong>Student library unavailable</strong>The Admin capability failed closed; no private session was inferred.';
     host.append(empty);
+  } finally {
+    if (renderId === adminStudentLibraryRenderId && state.role === 'admin' && state.view === 'mentor') refresh.disabled = false;
   }
 }
 
@@ -516,6 +613,21 @@ let liveMockRenderId = 0;
 async function renderLiveMockStudio(host, integrationHost) {
   const renderId = ++liveMockRenderId;
   host.replaceChildren();
+  const teaching = state.liveMock.teachingWorkflow();
+  const instructions = el('section', 'recess');
+  instructions.append(el('h3', '', teaching.title));
+  const steps = document.createElement('ol');
+  for (const step of teaching.steps) steps.append(el('li', '', step));
+  instructions.append(steps, el('p', 'admin-boundary-note', teaching.boundary));
+  const refresh = el('button', 'btn btn-quiet', 'Refresh saved student attempts'); refresh.type = 'button';
+  refresh.addEventListener('click', () => {
+    const libraryHost = $('#admin-student-library');
+    if (state.role === 'admin' && state.view === 'mentor' && libraryHost) {
+      void renderAdminStudentLibrary(libraryHost);
+      libraryHost.scrollIntoView?.({ block: 'nearest' });
+    }
+  });
+  instructions.append(refresh); host.append(instructions);
   try {
     const queue = await state.liveMock.adminQueue();
     if (renderId !== liveMockRenderId || state.role !== 'admin' || state.view !== 'mentor') return;

@@ -20,6 +20,7 @@ function sessionView(session = {}) {
       ? Math.max(0, Number(session.durationMs)) : null,
     recording,
     resultsAvailable: Boolean(session.results),
+    reviewStatus: text(session.reviewStatus, 40) || null,
     answerHistory: Object.freeze({
       transcriptAvailable: session.answerHistory?.transcriptAvailable === true,
       supportedObservationCount: Math.max(0, Number(session.answerHistory?.supportedObservationCount || 0)),
@@ -64,6 +65,45 @@ export class AdminStudentLibraryCapability {
     const id = text(sessionId);
     if (!id) throw new Error('ivoc_session_required');
     return this.api.session(id);
+  }
+  async sessionForStudent({ subject, sessionId, isCurrent } = {}) {
+    if (typeof subject !== 'string' || !/^wp:[1-9][0-9]{0,19}$/u.test(subject)
+        || typeof sessionId !== 'string' || !sessionId || sessionId.trim() !== sessionId
+        || typeof isCurrent !== 'function') throw new Error('ivoc_review_scope_required');
+    if (!isCurrent()) return null;
+    const library = await this.overview();
+    if (!isCurrent()) return null;
+    const student = library.students.find(item => item.subject === subject);
+    const binding = student?.sessions.find(item => item.id === sessionId);
+    if (!binding) throw new Error('ivoc_selected_attempt_unavailable');
+    const detail = await this.api.session(sessionId);
+    if (!isCurrent()) return null;
+    if (detail?.id !== sessionId || (detail.ownerSubject != null && detail.ownerSubject !== subject)) {
+      throw new Error('ivoc_review_identity_mismatch');
+    }
+    // Detail currently omits ownerSubject. Bind it only from the fresh authorized
+    // library projection, never from a client claim or an actor fallback.
+    return Object.freeze({ ...detail, ownerSubject: binding.ownerSubject });
+  }
+  async markReviewed({ subject, sessionId, isCurrent } = {}) {
+    if (typeof subject !== 'string' || !/^wp:[1-9][0-9]{0,19}$/u.test(subject)
+        || typeof sessionId !== 'string' || !sessionId || sessionId.trim() !== sessionId
+        || typeof isCurrent !== 'function') throw new Error('ivoc_review_scope_required');
+    if (!isCurrent()) return null;
+    const bootstrap = await this.api.bootstrap();
+    if (!isCurrent()) return null;
+    if (bootstrap?.identity?.admin !== true || !/^[A-Za-z0-9_-]{16,256}$/u.test(String(bootstrap.csrfToken || ''))
+        || this.api.csrfToken !== bootstrap.csrfToken) throw new Error('ivoc_admin_review_unavailable');
+    const detail = await this.sessionForStudent({ subject, sessionId, isCurrent });
+    if (!detail || !isCurrent()) return null;
+    if (detail.reviewStatus === 'reviewed' || detail.review?.status === 'reviewed') {
+      throw new Error('ivoc_attempt_already_reviewed');
+    }
+    // Status only: no notes property, no note rewrite or implied capture grant.
+    const result = await this.api.markReviewed(sessionId, {});
+    if (!isCurrent()) return null;
+    if (result?.sessionId !== sessionId || result.reviewStatus !== 'reviewed') throw new Error('ivoc_review_response_mismatch');
+    return Object.freeze({ sessionId, ownerSubject: subject, reviewStatus: 'reviewed', reviewedAt: result.reviewedAt || null });
   }
   async playback(recordingId) {
     const id = text(recordingId);

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { clearAdminReviewMedia, createAdminReviewGate, isAdminReview, mayPresentSavedReview, resolveReviewDestination } from '../../public/studio/review-scope.mjs';
+import { clearAdminReviewMedia, createAdminReviewGate, isAdminReview, mayPresentSavedReview, resolveAdminStudentRefreshSelection, resolveReviewDestination } from '../../public/studio/review-scope.mjs';
 
 test('Admin review responses are invalid after a role switch or newer selection', () => {
   const gate = createAdminReviewGate();
@@ -57,4 +57,25 @@ test('Review navigation opens the private attempt chooser when no attempt is sel
   assert.equal(resolveReviewDestination('postanswer', null), 'vault');
   assert.equal(resolveReviewDestination('filmroom', { persisted: true }), 'filmroom');
   assert.equal(resolveReviewDestination('home', null), 'home');
+});
+
+test('manual student refresh preserves exact available subject and never substitutes another account', () => {
+  const students = [{ subject: 'wp:1' }, { subject: 'wp:142' }];
+  assert.equal(resolveAdminStudentRefreshSelection(students, 'wp:142'), 'wp:142');
+  assert.equal(resolveAdminStudentRefreshSelection(students, 'wp:999'), '');
+  assert.equal(resolveAdminStudentRefreshSelection(students, null), '');
+  assert.equal(resolveAdminStudentRefreshSelection([], 'wp:142'), '');
+});
+
+test('bound review gate rejects changed subject, attempt or view even while Admin remains active', () => {
+  const gate = createAdminReviewGate();
+  const scope = { subject: 'wp:142', sessionId: 'saved-attempt', view: 'mentor' };
+  const ticket = gate.begin('admin', scope);
+  assert.equal(gate.accepts(ticket, 'admin', scope), true);
+  for (const changed of [{ ...scope, subject: 'wp:1' }, { ...scope, sessionId: 'other' }, { ...scope, view: 'home' }]) {
+    assert.equal(gate.accepts(ticket, 'admin', changed), false);
+  }
+  assert.equal(gate.accepts(ticket, 'admin'), false);
+  gate.invalidate();
+  assert.equal(gate.accepts(ticket, 'admin', scope), false);
 });

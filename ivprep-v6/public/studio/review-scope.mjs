@@ -2,15 +2,27 @@
 // populate a Student surface. This is presentation state, not an authorization grant.
 export function createAdminReviewGate() {
   let generation = 0;
+  let scope = null;
   return Object.freeze({
-    begin(role) {
+    begin(role, nextScope = null) {
       if (role !== 'admin') return null;
+      scope = nextScope ? Object.freeze({ ...nextScope }) : null;
       generation += 1;
       return generation;
     },
-    invalidate() { generation += 1; },
-    accepts(ticket, role) { return role === 'admin' && ticket !== null && ticket === generation; },
+    invalidate() { generation += 1; scope = null; },
+    accepts(ticket, role, currentScope = null) {
+      return role === 'admin' && ticket !== null && ticket === generation
+        && (!scope || (currentScope?.subject === scope.subject
+          && currentScope?.sessionId === scope.sessionId && currentScope?.view === scope.view));
+    },
   });
+}
+
+// A disappearing selection never authorizes a replacement student or the actor.
+export function resolveAdminStudentRefreshSelection(students, selectedSubject) {
+  return Array.isArray(students) && selectedSubject
+    && students.some(student => student.subject === selectedSubject) ? selectedSubject : '';
 }
 
 export function isAdminReview(saved) {

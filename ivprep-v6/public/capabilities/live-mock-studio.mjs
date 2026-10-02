@@ -56,6 +56,19 @@ export class LiveMockStudioCapability {
     this.base = String(base || '/api/scheduler').replace(/\/$/u, '');
   }
 
+  teachingWorkflow() {
+    return Object.freeze({
+      title: 'Student practice + teacher review',
+      steps: Object.freeze([
+        'The student signs into their own IVOC account and records their response through Self Practice.',
+        'The student finishes and saves the attempt. Their authenticated account remains the recording owner.',
+        'Choose that student in the practice library below, then Refresh saved attempts and open Results or Film Room.',
+        'Review the evidence, mark the attempt reviewed, and ask the student to retry from their own account.',
+      ]),
+      boundary: 'No Webex recording is required. This workflow records the student’s own camera/microphone, not teacher or remote-participant audio. This page does not capture or save media as another student. Students appear here after they have saved an attempt.',
+    });
+  }
+
   async adminQueue() {
     const response = await this.fetchImpl(`${this.base}/admin/appointments`, {
       method: 'GET', credentials: 'same-origin', headers: { Accept: 'application/json' },
