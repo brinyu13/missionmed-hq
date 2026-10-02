@@ -14,15 +14,37 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
-- **Release held for an executable startup correction:** independent review of
-  `4526266` found that server transcript readiness can consume the browser's old
-  15-second media deadline before SDP arrives (3-second provider setup plus
-  12.001-second attachment reproduces failure). Candidate `5efbe9b` is clean and
-  remotely read back, 112 focused checks PASS, but NOT deployed. Correct separate
-  setup/media deadlines and late-cancellation cleanup under epoch 4077, then
-  independent review → tracked release → exact Film Room reload → bounded live
-  attachment/teardown canary. No full audible interview acceptance inferred.
-- **Live fix-forward, 2026-10-02 03:50 UTC:** current deployment
+- **Current release, 2026-10-02 04:20 UTC:** source
+  `399a87518a412a6f94efe81a113e0f0640155e26`, deployment
+  `62590a0f-1168-4e08-a751-e871a5d1d6b8` SUCCESS, image
+  `sha256:013d914b10ffb5d62dd93784df32cae6061c818ea20b9d95a592c4118ec3b3ef`,
+  artifact `c9c0f0c4dc3c0f75716db295ccaa523e5a4f6209a86e2b5d1936d586a4a2127c`.
+  Six changed runtime hashes match, config unchanged, health 200, anonymous
+  product/bootstrap 401. Source is clean and exact remote readback confirmed.
+  Previous `c6a0201` / `d7617c00` image/artifact below is the rollback identity;
+  retain the additive private table and newer source on any runtime restore.
+- **Film Room cold reload LIVE PASS:** actual Founder `wp:1` Library → Results
+  → Film Room retained own attempt `4f708360-6a76-477d-a927-caca2989800d` after
+  cold reload, showed the original paused frame, and played through 11.067 s.
+  Fresh independent non-builder POV confirmed the same identity/frame, playback
+  advancement to 7.39 s without media error, and Back to Results preserving the
+  attempt. This capture probe proves replay/navigation, not audible conversation.
+- **Startup/stop correction independently passed:** old pre-SDP 15 s media timers
+  failed valid slower server attachment. Current client has a separate 90 s setup
+  bound and starts its 15 s media wait only when applying SDP. Captured-generation
+  cleanup closes a returned provider session even if cancellation wins the promise
+  race; exact nested-microtask regression and independent depths 0–8 passed.
+  Combined browser/HQ 40 PASS; earlier server/store/review release checks 112 PASS.
+- **Current AI attachment canary UNVERIFIED:** normal Builder/readiness reached a
+  black FaceTime HD preview before and after one Reconnect. Video was playing
+  640×480, readyState 4, advancing time, no media error, no CSS hiding/filter.
+  No physical cause is established; native Chrome comparison was inconclusive
+  because foreground window changed. Readiness correctly did not accept black
+  imagery. Capture stopped by reload; no new AI/provider session was started.
+  Next: bounded source diagnosis of image/readiness lifecycle; meanwhile continue
+  genuine Admin review and independent executable work, without repeatedly polling
+  unchanged physical evidence or fabricating a spoken-answer acceptance.
+- **Superseded release, 2026-10-02 03:50 UTC:** deployment
   `d7617c00-b524-402d-88ee-c8f6c9230b09`, source `c6a0201f77547e8342b86e5cb682bb31978485e0`,
   image `sha256:00c8ab8332f0ea359b19211deddb73db22a8b8b2412075bd5e26502d5e55d0ab`,
   artifact `b7e955be93774dbe8a538f1d874c48e5025db35e1ea3418c4c9dfc4cb45a7167`:
@@ -30,14 +52,16 @@ the actual production route and deployment.
   Founder Film Room cold reload FAILED (returned to Library). Root cause: the
   new resolver expected `detail.session.id`; the actual authorized GET returns
   flat `detail.id`. Incorrect fixture repeated that assumption. Focused correction
-  now passes exact-ID/nested-conflict and actual boot checks; LIVE acceptance open.
+  now passes exact-ID/nested-conflict and actual boot checks; live reload acceptance
+  subsequently passed on `62590a0f` above.
   Current deployment is healthy infrastructure, not full user-journey acceptance.
 - **Private transcript sink production preparation:** reviewed additive migration
   applied under epoch 4075 after DEV rehearsal. FORCE RLS true; anon/authenticated
   read/write denied; service only SELECT/INSERT, no UPDATE/DELETE. Zero new events;
-  existing 34 sessions / 23 recordings / 20 results unchanged. Runtime observer
-  activation awaits reviewed HQ lifecycle integration; no provider/turn acceptance
-  claimed. Rollback retains this private additive table and existing source-aware
+  existing 34 sessions / 23 recordings / 20 results unchanged at migration readback.
+  Reviewed HQ observer/lifecycle integration is deployed on `62590a0f`, but actual
+  provider attachment/turn acceptance is still unverified. Rollback retains this
+  private additive table and existing source-aware
   recording schema. Completed source epochs 4070/4074 released normally/read back.
 - **Cold-review / prior-context candidate:** own Results and Film Room now retain
   an exact saved-attempt hash across reload; fresh own-Library membership and
@@ -49,23 +73,24 @@ the actual production route and deployment.
   REST adapter now permits GET-only reads of sessions/results/recordings, with
   actual-class negative-write and real resolver traversal regressions. Worker
   `ad5e38e` (146 focused checks) plus integrator `94e606d`; no positive genuine
-  recurrence or audible conversation acceptance claimed. Current healthy rollback
-  remains `c07ef41` / `9f745595` while this candidate is reviewed and deployed.
+  recurrence or audible conversation acceptance claimed. This candidate is now
+  deployed; current release/rollback identities are recorded above.
 - **Reader correction independently passed:** valid 20-session synthetic history
   exceeded the old native 64-KiB response cap. `f640bfc` adds a streamed 4-MiB
   budget only for the three protected GET-only context reads; all other budgets
   and mutation guards remain unchanged. Eight actual-class checks and independent
   review PASS, including positive HQ/native equivalence above 64 KiB and custody
   change denials. This is engineering parity, not real recurrence evidence.
-- **Server transcript preparation, inactive:** `cf8a0f5`, `04a6c5d`, `e8352a2`
+- **Server transcript preparation, historical development evidence:** `cf8a0f5`, `04a6c5d`, `e8352a2`
   add a private append-only sink and silent same-session observer. Official API
   supports server attachment; exact fragments/approximate provider time do not
-  prove completed turns, heard playback or semantic answer ranges. No live broker
-  imports/activation yet. Independent SQL/sink review and 25 observer checks pass.
+  prove completed turns, heard playback or semantic answer ranges. Independent
+  SQL/sink review and 25 observer checks pass.
   Additive migration rehearsed on sanctioned development only: NULL timing,
   wrong owner/provider reuse, conflicting retry, after-terminal insert and service
   UPDATE/DELETE denied; exact retry and atomic invalid-batch rollback pass; FORCE
-  RLS/no browser grants verified; zero test rows remain. Production is unchanged.
+  RLS/no browser grants verified; zero test rows remain. Later production migration
+  and runtime activation are recorded above; no genuine AI speech acceptance inferred.
 - **Provisional-evidence release live:** source
   `c07ef410a06851b7eabc993347cfa0471dc25950`, deployment
   `9f745595-29fc-4a95-b2bf-c577c48f9d45` SUCCESS, image
