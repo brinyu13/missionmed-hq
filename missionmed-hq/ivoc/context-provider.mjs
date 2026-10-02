@@ -20,6 +20,7 @@ const MAX_PROVIDER_BYTES = 128 * 1024;
 const MAX_SEGMENTS = 40;
 const MAX_TRANSCRIPT_CHARACTERS = 20_000;
 const CONTEXT_POLICY_VERSION = 'context-v1.1';
+export const CANDIDATE_AUDIO_ATTRIBUTION_REASON = 'CANDIDATE_AUDIO_SOURCE_UNVERIFIED';
 const MOCK_MARKER = /\[MOCK_/iu;
 const PROHIBITED_CLAIM = /(?:anxi(?:ety|ous)|confidence|decept|diagnos|dishonest|emotion|employab|hidden (?:emotion|state|trait)|honest|intelligen|mental state|not sad enough|doesn['’]t care|personality|professionalism|program fit|protected trait|psychometric|readiness|sincere|sincerity)/iu;
 const PROMPT_INJECTION_ECHO = /(?:developer message|ignore (?:all |the )?(?:previous|prior) instructions|reveal (?:the )?system prompt|system prompt)/iu;
@@ -127,77 +128,9 @@ export function createOpenAiTranscriptionProvider({
       if (typeof apiKey !== 'string' || apiKey.trim().length < 8) return unavailableTranscript('TRANSCRIPT_PROVIDER_UNCONFIGURED');
       if (!Buffer.isBuffer(audio) || audio.length < 1 || audio.length > MAX_AUDIO_BYTES) return unavailableTranscript('TRANSCRIPT_AUDIO_INVALID');
       if (typeof fetchImpl !== 'function') return unavailableTranscript('TRANSCRIPT_PROVIDER_UNCONFIGURED');
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), timeoutMs);
-      let bearer = apiKey.trim();
-      try {
-        const form = new FormData();
-        form.append('model', model);
-        form.append('response_format', model === 'whisper-1' ? 'verbose_json' : 'json');
-        if (model === 'whisper-1') form.append('timestamp_granularities[]', 'segment');
-        form.append('file', new Blob([audio], { type: mimeType }), `answer.${extensionForMime(mimeType)}`);
-        let response;
-        try {
-          response = await fetchImpl(TRANSCRIPTION_ENDPOINT, {
-            method: 'POST',
-            redirect: 'error',
-            headers: { Authorization: `Bearer ${bearer}` },
-            body: form,
-            signal: controller.signal,
-          });
-        } catch {
-          return unavailableTranscript(controller.signal.aborted ? 'TRANSCRIPT_PROVIDER_TIMEOUT' : 'TRANSCRIPT_PROVIDER_ERROR');
-        } finally {
-          bearer = '';
-        }
-        let parsed;
-        try { parsed = await responseJson(response); } catch { return unavailableTranscript('TRANSCRIPT_PROVIDER_ERROR'); }
-        const text = String(parsed?.text || '').trim().slice(0, MAX_TRANSCRIPT_CHARACTERS);
-        if (!text || MOCK_MARKER.test(text)) return unavailableTranscript('TRANSCRIPT_PROVIDER_RESPONSE_INVALID');
-        const sourceSegments = Array.isArray(parsed.segments) && parsed.segments.length
-          ? parsed.segments.slice(0, MAX_SEGMENTS)
-          : [{ start: 0, end: Number(parsed.duration) || 0, text, avg_logprob: null }];
-        const segments = sourceSegments.map((segment, index) => {
-          const segmentText = String(segment?.text || '').trim().slice(0, 4_000);
-          const startMs = Math.max(0, Math.round(Number(segment?.start) * 1000 || 0));
-          const endMs = Math.max(startMs, Math.round(Number(segment?.end) * 1000 || startMs));
-          return Object.freeze({
-            id: `seg-${index + 1}`,
-            speaker: 'STUDENT',
-            startMs,
-            endMs,
-            text: segmentText,
-            final: true,
-            score: Number.isFinite(Number(segment?.avg_logprob))
-              ? Number(Math.max(0, Math.min(1, Math.exp(Number(segment.avg_logprob)))).toFixed(4))
-              : null,
-            source: 'openai-batch-transcription',
-          });
-        }).filter((segment) => segment.text && !MOCK_MARKER.test(segment.text));
-        const transcript = Object.freeze({
-          status: 'AVAILABLE',
-          transcriptId: randomUUID(),
-          provider: 'openai',
-          model,
-          adapter: 'openai-batch-transcription',
-          truthLabel: 'REAL',
-          reason: null,
-          text,
-          segments: Object.freeze(segments),
-          wordCount: text.split(/\s+/u).filter(Boolean).length,
-          timestamps: model === 'whisper-1' ? 'FINAL_SEGMENTS' : 'WHOLE_ANSWER_ONLY',
-          provenance: Object.freeze({
-            endpoint: 'openai-audio-transcriptions',
-            storage: 'EPHEMERAL_REQUEST_MEMORY_ONLY',
-            audioTransfer: 'SEALED_ANSWER_OBJECT_SERVER_SIDE',
-          }),
-        });
-        assertTranscript(transcript);
-        return transcript;
-      } finally {
-        clearTimeout(timeout);
-        bearer = '';
-      }
+      // Whisper segments have no candidate-source proof. Do not send an
+      // unproven/mixed object or manufacture STUDENT attribution.
+      return unavailableTranscript(CANDIDATE_AUDIO_ATTRIBUTION_REASON);
     },
   });
 }
@@ -313,7 +246,9 @@ export function createOpenAiSemanticProvider({
   });
 }
 
-function normalizeAnalysis(value, { sessionId, answerId, transcript, durationMs, model }) {
+// Pure normalization contract. This does not authorize audio processing.
+export function normalizeAnalysis(value, { sessionId, answerId, transcript, durationMs, model }) {
+  assertTranscript(transcript);
   const transcriptSegmentIds = new Set((transcript?.segments || []).map((segment) => segment.id));
   const semanticObservations = (value?.semanticObservations || []).map((observation) => {
     const text = boundedText(observation?.text, 'semantic_observation', 500);
@@ -405,9 +340,11 @@ export function createContextIntelligenceProvider({
       const question = resolveContextQuestion(questionId);
       const analyticsObservations = normalizeAnalytics(analyticsEvents);
       const duration = analyticsObservations.find((entry) => entry.metric === 'answer_duration_ms');
-      const transcript = transcriptEnabled
-        ? await transcripts.transcribeAnswer({ audio, mimeType, sessionId: safeSessionId, answerId: safeAnswerId, questionId: question.questionId })
-        : unavailableTranscript('TRANSCRIPT_PROVIDER_UNCONFIGURED');
+      // No recording-bound candidate-only source proof exists in the current
+      // runtime. Neither flags, client receipts nor historical labels establish
+      // it. Keep sensor observations, but do not invoke either provider.
+      const transcript = unavailableTranscript(transcriptEnabled
+        ? CANDIDATE_AUDIO_ATTRIBUTION_REASON : 'TRANSCRIPT_PROVIDER_UNCONFIGURED');
       assertTranscript(transcript);
       const masterDerived = transcript.status === 'AVAILABLE' && duration?.value > 0
         ? Object.freeze({

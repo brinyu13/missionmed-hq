@@ -939,7 +939,7 @@ test('results preserve explicit duration vocabulary while the library duration f
   assert.equal(sessionUpdate.body.duration_ms, 24_500);
 });
 
-test('Answer History library projects question-bound transcript and semantic evidence summaries', async () => {
+test('Answer History library quarantines unverified batch transcript and candidate semantic summaries', async () => {
   const repo = repository();
   const sessionId = '00000000-0000-4000-8000-000000000042';
   repo.request = async (path) => {
@@ -966,10 +966,11 @@ test('Answer History library projects question-bound transcript and semantic evi
   await route({ ...base, request: request('GET'), response, url: new URL('https://hq.test/api/ivoc/v1/library?scope=own'), hqSession: session() });
   assert.equal(response.status, 200);
   assert.deepEqual(response.json().sessions[0].answerHistory, {
-    transcriptAvailable: true,
-    answerSegmentCount: 1,
-    supportedObservationCount: 1,
-    dimensions: ['semantic.supported_claim'],
+    transcriptAvailable: false,
+    answerSegmentCount: 0,
+    supportedObservationCount: 0,
+    dimensions: [],
+    candidateAttribution: { status: 'UNVERIFIED', reason: 'CANDIDATE_AUDIO_SOURCE_UNVERIFIED' },
   });
 });
 
@@ -1056,7 +1057,7 @@ test('assigned mentor can read results without receiving the private object key'
   assert.doesNotMatch(response.body, /storage_object_key|never-return-this/u);
 });
 
-test('authorized session read returns only the private persisted transcript spine projection', async () => {
+test('authorized session read quarantines batch-derived candidate text and answer ranges without changing rows', async () => {
   // Readback is deliberately projected and never carries the storage object key.
   const repo = scopedRepository({ assigned: true });
   repo.request = async (path) => {
@@ -1075,9 +1076,107 @@ test('authorized session read returns only the private persisted transcript spin
   const response = new ResponseCapture();
   await route({ ...base, request: request('GET'), response, url: new URL(`https://hq.test/api/ivoc/v1/sessions/${foreignSessionId}`), hqSession: session(42, ['mentor']) });
   assert.equal(response.status, 200);
-  assert.equal(response.json().spine.turns[0].transcript.text, 'A private answer.');
-  assert.equal(response.json().spine.turns[0].startMs, 1200);
+  assert.deepEqual(response.json().spine.turns, []);
+  assert.equal(response.json().spine.segments[0].transcriptRef, null);
+  assert.equal(response.json().spine.segments[0].answer, null);
+  assert.equal(response.json().spine.candidateAttribution.status, 'UNVERIFIED');
+  assert.doesNotMatch(response.body, /A private answer|transcript:1/u);
   assert.doesNotMatch(response.body, /storage_object_key|never-return-this/u);
+});
+
+test('public spine/results/history quarantine unsafe batch context but preserve native conversation, metrics, replay and retry identity', async () => {
+  const id = '00000000-0000-4000-8000-000000000042';
+  const row = { id, owner_subject: 'wp:42', question_id: 'CORE-01', question_text: 'Tell me about yourself.',
+    state: 'saved', context: { goal: 'Individual Question' }, duration_ms: 12000 };
+  const recording = { id: foreignRecordingId, session_id: id, status: 'saved', duration_ms: 12000,
+    storage_object_key: 'private/unchanged.webm' };
+  const unsafeContext = { transcript: { status: 'AVAILABLE', text: 'Misattributed interviewer words' },
+    analysis: { status: 'AVAILABLE', coachingPatterns: [{ text: 'Unsafe coaching' }] },
+    behaviorRegistry: { enabled: true }, coachCommand: { cue: 'SLOW_DOWN' } };
+  const metrics = { counters: { durationMs: 12000, clippingPercent: 0.5 }, voice: { volumeDbfs: -24 } };
+  const result = { session_id: id, schema_name: 'ivoc.analytics.v1', schema_version: 1,
+    payload: { analytics: metrics, contextResult: unsafeContext, nested: { contextResult: unsafeContext } },
+    summary: { durations: { playableDurationMs: 12000 } } };
+  const turns = [
+    { turn_id: `turn:${id}:question`, speaker: 'interviewer', relation: 'question', t_start_ms: 0, t_end_ms: 0,
+      transcript: { text: 'Synthetic first pool question at zero' }, question: {} },
+    { turn_id: `turn:${id}:answer:1`, speaker: 'student', relation: 'answer', t_start_ms: 0, t_end_ms: 12000,
+      transcript: { canonical_ref: 'transcript:batch#seg-1', text: 'Misattributed interviewer words' }, semantic: { confidence: 0.99 } },
+    { turn_id: `turn:${id}:live:interviewer`, speaker: 'interviewer', relation: 'follow_up', t_start_ms: 3000, t_end_ms: 4000,
+      transcript: { provisional_ref: 'provider:gpt-live-1:interviewer', text: 'Actual follow-up prompt' }, semantic: {} },
+    { turn_id: `turn:${id}:live:candidate`, speaker: 'student', relation: 'answer', t_start_ms: 4500, t_end_ms: 9000,
+      transcript: { provisional_ref: 'provider:gpt-live-1:candidate', text: 'Actual provisional candidate words' }, semantic: {} },
+  ];
+  const segments = [{ session_id: id, segment_id: 'batch-segment', transcript_ref: 'transcript:batch', media_ref: `recording:${foreignRecordingId}`,
+    question: { canonical_question_id: 'CORE-01', text: 'Tell me about yourself.', version: '1' },
+    answer: { t_start_ms: 0, t_end_ms: 12000, turn_ids: [`turn:${id}:answer:1`] }, coaching_notes_refs: ['unsafe-evidence'] },
+    { session_id: id, segment_id: 'legacy-unproven', transcript_ref: null,
+      question: {}, answer: { t_start_ms: 0, t_end_ms: 12000 }, coaching_notes_refs: ['unsafe-evidence'] },
+  ];
+  const evidence = [
+    { session_id: id, evidence_id: 'unsafe-evidence', dimension: 'semantic.supported_claim', refs: [{ ref: 'transcript:batch#seg-1' }], interpretation: { text: 'Unsafe coaching' } },
+    { session_id: id, evidence_id: 'dependent-voice', dimension: 'voice.pacing', refs: [{ ref: 'transcript:batch#seg-1' }], interpretation: { text: 'Unsafe derived pace' } },
+    { session_id: id, evidence_id: 'measured', dimension: 'voice.volume', refs: [{ ref: 'event:measured-volume' }], interpretation: { text: 'Measured volume' } },
+  ];
+  const stored = { row, recording, result, turns, segments, evidence };
+  const preimage = structuredClone(stored);
+  const repo = repository();
+  repo.single = async path => path.startsWith('ivoc_sessions?') ? row : path.startsWith('ivoc_recordings?') ? recording
+    : path.startsWith('ivoc_results?') ? result : null;
+  repo.request = async path => path.startsWith('ivoc_conversation_turns?') ? turns
+    : path.startsWith('ivoc_answer_segments?') ? segments : path.startsWith('ivoc_coaching_evidence?') ? evidence
+      : path.startsWith('ivoc_sessions?') ? [row] : path.startsWith('ivoc_recordings?') ? [recording]
+        : path.startsWith('ivoc_results?') ? [result] : [];
+  const { route } = handler(repo);
+  const detailResponse = new ResponseCapture();
+  await route({ ...base, request: request('GET'), response: detailResponse,
+    url: new URL(`https://hq.test/api/ivoc/v1/sessions/${id}`), hqSession: session() });
+  assert.equal(detailResponse.status, 200);
+  const detail = detailResponse.json();
+  assert.deepEqual(detail.spine.turns.map(turn => [turn.speaker, turn.startMs, turn.transcript.text]), [
+    ['interviewer', 3000, 'Actual follow-up prompt'], ['student', 4500, 'Actual provisional candidate words'],
+  ]);
+  assert.equal(detail.spine.segments[0].answer, null);
+  assert.equal(detail.spine.segments[0].transcriptRef, null);
+  assert.deepEqual(detail.spine.segments[0].coachingNotesRefs, []);
+  assert.equal(detail.spine.segments[1].answer, null);
+  assert.deepEqual(detail.spine.evidence.map(item => item.id), ['measured']);
+  assert.equal(detail.retryContext.questionVersion, '1');
+  assert.equal(detail.retryContext.questionText, row.question_text);
+  assert.deepEqual(detail.results.payload.analytics, metrics);
+  assert.equal(detail.results.payload.contextResult.transcript.status, 'UNAVAILABLE');
+  assert.deepEqual(detail.results.payload.contextResult.analysis.coachingPatterns, []);
+  assert.equal(detail.results.payload.contextResult.behaviorRegistry.status, 'DISABLED');
+  assert.equal(detail.results.payload.contextResult.coachCommand.status, 'UNAVAILABLE');
+  assert.equal(detail.results.payload.nested.contextResult.transcript.reason, 'CANDIDATE_AUDIO_SOURCE_UNVERIFIED');
+  assert.equal(detail.spine.candidateAttribution.status, 'UNVERIFIED');
+  assert.equal(detail.results.candidateAttribution.status, 'UNVERIFIED');
+  assert.equal(detail.recording.id, recording.id);
+  assert.equal(detail.recording.durationMs, 12000);
+  assert.doesNotMatch(detailResponse.body, /Misattributed|Unsafe coaching|Unsafe derived pace|Synthetic first pool|private\/unchanged/u);
+  const libraryResponse = new ResponseCapture();
+  await route({ ...base, request: request('GET'), response: libraryResponse,
+    url: new URL('https://hq.test/api/ivoc/v1/library?scope=own'), hqSession: session() });
+  assert.equal(libraryResponse.status, 200);
+  const history = libraryResponse.json().sessions[0];
+  assert.equal(history.answerHistory.supportedObservationCount, 0);
+  assert.equal(history.answerHistory.transcriptAvailable, false);
+  assert.deepEqual(history.results.payload.analytics, metrics);
+  assert.doesNotMatch(libraryResponse.body, /Misattributed|Unsafe coaching|private\/unchanged/u);
+  assert.deepEqual(stored, preimage);
+  assert.equal(repo.updates.length, 0);
+  assert.equal(repo.upserts.length, 0);
+});
+
+test('an owned recording without transcript rows still discloses unverified candidate attribution', async () => {
+  const repo = scopedRepository({ assigned: true });
+  const { route } = handler(repo);
+  const response = new ResponseCapture();
+  await route({ ...base, request: request('GET'), response,
+    url: new URL(`https://hq.test/api/ivoc/v1/sessions/${foreignSessionId}`), hqSession: session(42, ['mentor']) });
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.json().spine.candidateAttribution, { status: 'UNVERIFIED', reason: 'CANDIDATE_AUDIO_SOURCE_UNVERIFIED' });
+  assert.deepEqual(response.json().spine.turns, []);
 });
 
 test('administrator can read any session without receiving the private object key', async () => {

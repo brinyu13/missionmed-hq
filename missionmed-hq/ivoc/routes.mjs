@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import { admissionRegistry } from '../../ivprep-v6/server/admission-registry.mjs';
 import { strictProjectHqSession, validateIvPrepMutation } from '../../ivprep-v6/server/admission-contract.mjs';
-import { createContextIntelligenceProvider } from './context-provider.mjs';
+import { CANDIDATE_AUDIO_ATTRIBUTION_REASON, createContextIntelligenceProvider } from './context-provider.mjs';
 import { createIvocApplicationIntelligence, readSessionContextReceipts } from './application-intelligence.mjs';
 import { createFileVaultCvProjectionSource } from './file-vault-projection.mjs';
 import { createStoryForgeProjectionSource } from './storyforge-projection.mjs';
@@ -161,15 +161,39 @@ function publicRecording(row) {
   };
 }
 
-function publicAnswerHistory(sessionId, segments = [], evidence = []) {
-  const sessionSegments = segments.filter((row) => row.session_id === sessionId);
-  const sessionEvidence = evidence.filter((row) => row.session_id === sessionId);
-  const semantic = sessionEvidence.filter((row) => String(row.dimension || '').startsWith('semantic.'));
+const candidateAttribution = Object.freeze({ status: 'UNVERIFIED', reason: CANDIDATE_AUDIO_ATTRIBUTION_REASON });
+const batchTranscriptRef = value => /^transcript:/iu.test(String(value || '').trim());
+const semanticEvidence = row => String(row?.dimension || '').startsWith('semantic.');
+
+function unavailableSavedContext() {
   return {
-    transcriptAvailable: sessionSegments.some((row) => Boolean(row.transcript_ref)),
-    answerSegmentCount: sessionSegments.length,
-    supportedObservationCount: semantic.length,
-    dimensions: [...new Set(semantic.map((row) => safeText(row.dimension, 120)).filter(Boolean))].slice(0, 24),
+    schema: 'missionmed.ivoc.context.result.v1', candidateAttribution,
+    transcript: { status: 'UNAVAILABLE', reason: CANDIDATE_AUDIO_ATTRIBUTION_REASON, text: '', segments: [], wordCount: 0 },
+    analysis: { status: 'UNAVAILABLE', reason: CANDIDATE_AUDIO_ATTRIBUTION_REASON, semanticObservations: [], coachingPatterns: [], limitations: [CANDIDATE_AUDIO_ATTRIBUTION_REASON] },
+    masterDerived: null, behaviorRegistry: { status: 'DISABLED', reason: CANDIDATE_AUDIO_ATTRIBUTION_REASON },
+    coachCommand: { status: 'UNAVAILABLE', cue: 'NO_CUE', reason: CANDIDATE_AUDIO_ATTRIBUTION_REASON },
+  };
+}
+
+// Read-only projection: never modify stored rows. A nested saved contextResult
+// must not bypass the spine quarantine. Observable Analytics stays unchanged.
+function quarantineSavedContext(value) {
+  if (Array.isArray(value)) return value.map(quarantineSavedContext);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key,
+    key === 'contextResult' ? unavailableSavedContext() : quarantineSavedContext(item),
+  ]));
+}
+
+function publicAnswerHistory(sessionId, segments = [], evidence = []) {
+  // No current answer range or semantic candidate evidence has recording-bound
+  // source proof. Provisional conversation remains available in the spine.
+  return {
+    transcriptAvailable: false,
+    answerSegmentCount: 0,
+    supportedObservationCount: 0,
+    dimensions: [],
+    candidateAttribution,
   };
 }
 
@@ -203,7 +227,8 @@ function publicSession(row, recording = null, result = null, review = null, spin
     ...(includeOwnerSubject ? { ownerSubject: safeText(row.owner_subject, 240) || null } : {}),
     ownerDisplayName: safeText(row.owner_display_name, 200) || null,
     interviewerProvider: row.interviewer_provider, recording: publicRecording(recording),
-    results: result ? { schema: result.schema_name, schemaVersion: result.schema_version, payload: result.payload, summary: result.summary } : null,
+    results: result ? { schema: result.schema_name, schemaVersion: result.schema_version,
+      payload: { ...quarantineSavedContext(result.payload), candidateAttribution }, summary: quarantineSavedContext(result.summary), candidateAttribution } : null,
     reviewStatus: review?.status || null,
     review: review ? { status: review.status || null, reviewedAt: review.reviewed_at || null } : null,
     spine,
@@ -743,12 +768,24 @@ async function readPublicSpine(db, sessionId) {
   const turns = await db.request(`ivoc_conversation_turns?session_id=eq.${sessionId}&select=turn_id,speaker,relation,t_start_ms,t_end_ms,transcript,question,semantic,version&order=t_start_ms.asc`);
   const segments = await db.request(`ivoc_answer_segments?session_id=eq.${sessionId}&select=segment_id,transcript_ref,media_ref,question,answer,coaching_notes_refs,version&order=created_at.asc`);
   const evidence = await db.request(`ivoc_coaching_evidence?session_id=eq.${sessionId}&select=evidence_id,dimension,refs,interpretation,score,confidence,limitations,version&order=created_at.asc`);
-  if (!turns.length && !segments.length && !evidence.length) return null;
+  const hasBatchSource = turns.some(turn => batchTranscriptRef(turn.transcript?.canonical_ref))
+    || segments.some(segment => batchTranscriptRef(segment.transcript_ref));
   return {
     schema: 'ivoc.session-spine.v1',
-    turns: turns.map((turn) => ({ id: turn.turn_id, speaker: turn.speaker, relation: turn.relation, startMs: turn.t_start_ms, endMs: turn.t_end_ms, transcript: turn.transcript, question: turn.question, semantic: turn.semantic, version: turn.version })),
-    segments: segments.map((segment) => ({ id: segment.segment_id, transcriptRef: segment.transcript_ref, mediaRef: segment.media_ref, question: segment.question, answer: segment.answer, coachingNotesRefs: segment.coaching_notes_refs, version: segment.version })),
-    evidence: evidence.map((item) => ({ id: item.evidence_id, dimension: item.dimension, refs: item.refs, interpretation: item.interpretation, score: item.score, confidence: item.confidence, limitations: item.limitations, version: item.version })),
+    candidateAttribution,
+    turns: turns.filter(turn => !batchTranscriptRef(turn.transcript?.canonical_ref)
+      && !(hasBatchSource && turn.turn_id === `turn:${sessionId}:question`))
+      .map((turn) => ({ id: turn.turn_id, speaker: turn.speaker, relation: turn.relation, startMs: turn.t_start_ms, endMs: turn.t_end_ms, transcript: turn.transcript, question: turn.question, semantic: {}, version: turn.version })),
+    // Preserve question snapshots for exact retry, never an unproven answer
+    // range or its transcript/evidence references (even absent/legacy refs).
+    segments: segments.map((segment) => ({ id: segment.segment_id,
+      transcriptRef: null,
+      mediaRef: segment.media_ref, question: segment.question,
+      answer: null,
+      coachingNotesRefs: [], version: segment.version })),
+    evidence: evidence.filter(item => !semanticEvidence(item)
+      && !(item.refs || []).some(ref => batchTranscriptRef(ref.ref)))
+      .map((item) => ({ id: item.evidence_id, dimension: item.dimension, refs: item.refs, interpretation: item.interpretation, score: item.score, confidence: item.confidence, limitations: item.limitations, version: item.version })),
   };
 }
 
@@ -1172,7 +1209,8 @@ export function createIvocHandler({
             schema: 'missionmed.ivoc.context.candidate.v1',
             state: 'READY',
             question,
-            transcriptProvider: contextTranscriptEnabled ? 'SERVER_CONFIGURED' : 'UNAVAILABLE',
+            transcriptProvider: 'UNAVAILABLE',
+            candidateAttribution,
             persistence: { transcript: false, analysis: false, behaviorRegistry: false, coachCommand: false },
           }, mediaBase);
           return true;
@@ -1196,38 +1234,12 @@ export function createIvocHandler({
         ) {
           sendError(response, 404, 'not_found', mediaBase); return true;
         }
-        let audio = null;
-        try {
-          if (contextTranscriptEnabled) {
-            const upstream = await media.fetchObject(recording.storage_object_key, { method: 'GET' });
-            const declaredBytes = Number(upstream?.headers?.get?.('content-length'));
-            if (!upstream?.ok || (Number.isFinite(declaredBytes) && declaredBytes > MAX_CONTEXT_AUDIO_BYTES)) {
-              sendError(response, 409, 'context_recording_unavailable', mediaBase); return true;
-            }
-            audio = Buffer.from(await upstream.arrayBuffer());
-            if (!audio.length || audio.length > MAX_CONTEXT_AUDIO_BYTES) {
-              audio.fill(0);
-              sendError(response, 409, 'context_recording_unavailable', mediaBase); return true;
-            }
-          }
-          const result = await context.analyze({
-            sessionId,
-            answerId,
-            questionId: question.questionId,
-            analyticsEvents: Array.isArray(input.analyticsEvents) ? input.analyticsEvents : [],
-            audio,
-            mimeType: recording.mime_type || 'video/webm',
-            transcriptEnabled: contextTranscriptEnabled,
-          });
-          const persistence = await persistContextSpine({ db, actor, sessionRow, recording, result, nowMs: now() });
-          if (persistence.transcript) {
-            await audit({ actor, owner: actor, sessionId, recordingId, action: 'context_persist', decision: 'allow', reason: persistence.analysis ? 'transcript_and_analysis' : 'transcript_only' });
-          }
-          sendJson(response, 200, { ...result, persistence: { ...result.persistence, ...persistence } }, mediaBase);
-          return true;
-        } finally {
-          audio?.fill?.(0);
-        }
+        // There is currently no trusted recording-bound candidate-only source
+        // proof. Fail before downloading private media, invoking any provider,
+        // or overwriting canonical transcript/coaching rows. Client receipts,
+        // recording age, session type and old STUDENT labels cannot cure this.
+        sendJson(response, 409, { error: 'context_candidate_audio_source_unverified', candidateAttribution }, mediaBase);
+        return true;
       }
 
       if (request.method === 'POST' && pathname === `${API_PREFIX}/sessions`) {

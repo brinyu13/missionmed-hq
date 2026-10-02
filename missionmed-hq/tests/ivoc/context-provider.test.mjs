@@ -6,6 +6,7 @@ import { ANALYTICS_ENGINE_VERSION, MATURITY, createEvidenceEvent } from '../../.
 import {
   createContextIntelligenceProvider,
   createOpenAiTranscriptionProvider,
+  normalizeAnalysis,
   resolveContextQuestion,
 } from '../../ivoc/context-provider.mjs';
 import { createIvocHandler } from '../../ivoc/routes.mjs';
@@ -57,25 +58,29 @@ test('server resolves CORE-01 from the real 193-question corpus', () => {
   });
 });
 
-test('OpenAI transcription adapter fails closed when unconfigured or when provider returns a mock marker', async () => {
+test('OpenAI transcription adapter never transfers an unproven recording or accepts client attribution', async () => {
   const missing = createOpenAiTranscriptionProvider({ apiKey: '' });
   assert.equal((await missing.transcribeAnswer({ audio: Buffer.from('audio') })).reason, 'TRANSCRIPT_PROVIDER_UNCONFIGURED');
+  let calls = 0;
   const mocked = createOpenAiTranscriptionProvider({
     apiKey: 'test-key-long-enough',
-    fetchImpl: async () => new Response(JSON.stringify({ text: '[MOCK_WHISPER] fake' }), {
+    fetchImpl: async () => { calls += 1; return new Response(JSON.stringify({ text: '[MOCK_WHISPER] fake' }), {
       status: 200, headers: { 'Content-Type': 'application/json' },
-    }),
+    }); },
   });
-  const result = await mocked.transcribeAnswer({ audio: Buffer.from('audio') });
+  const result = await mocked.transcribeAnswer({ audio: Buffer.from('audio'), candidateOnly: true,
+    sourceReceipt: { status: 'VERIFIED', role: 'candidate', channel: 0 } });
   assert.equal(result.status, 'UNAVAILABLE');
-  assert.equal(result.reason, 'TRANSCRIPT_PROVIDER_ERROR');
+  assert.equal(result.reason, 'CANDIDATE_AUDIO_SOURCE_UNVERIFIED');
   assert.equal(result.segments.length, 0);
+  assert.equal(calls, 0);
 });
 
-test('Context provider uses only student-safe events, derives pace above Analytics, and returns one command', async () => {
+test('Context provider preserves student-safe sensor events but withholds candidate-derived pace and coaching', async () => {
+  let calls = 0;
   const provider = createContextIntelligenceProvider({
-    transcriptionProvider: { transcribeAnswer: async () => realTranscript() },
-    semanticProvider: { analyze: async () => semantic() },
+    transcriptionProvider: { transcribeAnswer: async () => { calls += 1; return realTranscript(); } },
+    semanticProvider: { analyze: async () => { calls += 1; return semantic(); } },
     now: () => 42_000,
   });
   const result = await provider.analyze({
@@ -83,27 +88,23 @@ test('Context provider uses only student-safe events, derives pace above Analyti
     audio: Buffer.from('real-audio-placeholder'), transcriptEnabled: true,
   });
   assert.equal(result.question.canonicalText, 'Tell me about yourself.');
-  assert.equal(result.transcript.truthLabel, 'REAL');
+  assert.equal(result.transcript.truthLabel, 'UNAVAILABLE');
+  assert.equal(result.transcript.reason, 'CANDIDATE_AUDIO_SOURCE_UNVERIFIED');
   assert.equal(result.analyticsObservations.length, 1);
-  assert.equal(result.masterDerived.basis, 'MASTER_DERIVED_FROM_TRANSCRIPT_WORDCOUNT_AND_ANSWER_DURATION');
-  assert.ok(['SLOW_DOWN', 'PICK_UP_PACE', 'SPEAK_UP', 'EASE_VOLUME', 'NO_CUE'].includes(result.coachCommand.cue));
+  assert.equal(result.masterDerived, null);
+  assert.equal(result.coachCommand.cue, 'NO_CUE');
+  assert.equal(calls, 0);
   assert.equal(result.persistence.transcript, false);
   assert.equal(result.persistence.analysis, false);
   assert.equal(result.persistence.coachCommand, false);
 });
 
-test('Context provider keeps longitudinal coaching evidence structured, cited, and bounded', async () => {
-  const provider = createContextIntelligenceProvider({
-    transcriptionProvider: { transcribeAnswer: async () => realTranscript() },
-    semanticProvider: { analyze: async () => semantic(undefined, [{
+test('pure synthetic teaching normalization keeps coaching evidence structured, cited, and bounded', () => {
+  const analysis = normalizeAnalysis(semantic(undefined, [{
       facet: 'specificity', polarity: 'strength',
       text: 'The answer gives one concrete family example.', transcriptSegmentIds: ['seg-1'],
-    }]) },
-  });
-  const result = await provider.analyze({
-    sessionId, answerId, analyticsEvents: [analyticsEvent()], audio: Buffer.from('audio'), transcriptEnabled: true,
-  });
-  assert.deepEqual(result.analysis.coachingPatterns, [{
+    }]), { sessionId, answerId, transcript: realTranscript(), durationMs: 42000, model: 'offline-fixture' });
+  assert.deepEqual(analysis.coachingPatterns, [{
     facet: 'specificity', polarity: 'strength',
     text: 'The answer gives one concrete family example.', transcriptSegmentIds: ['seg-1'],
   }]);
@@ -115,32 +116,35 @@ test('mock transcript never reaches semantic analysis', async () => {
     transcriptionProvider: { transcribeAnswer: async () => realTranscript('[MOCK_WHISPER] fake') },
     semanticProvider: { analyze: async () => { semanticCalls += 1; return semantic(); } },
   });
-  await assert.rejects(() => provider.analyze({
+  const result = await provider.analyze({
     sessionId, answerId, analyticsEvents: [analyticsEvent()],
     audio: Buffer.from('audio'), transcriptEnabled: true,
-  }), /Mock transcript/u);
+  });
+  assert.equal(result.analysis.status, 'UNAVAILABLE');
   assert.equal(semanticCalls, 0);
+  assert.throws(() => normalizeAnalysis(semantic(), { sessionId, answerId,
+    transcript: realTranscript('[MOCK_WHISPER] fake'), durationMs: 42000, model: 'offline-fixture' }), /Mock transcript/u);
 });
 
 test('short unsupported or unfinished answers do not earn concision strength', async () => {
   for (const stage of ['UNSUPPORTED', 'EVIDENCE', 'COMPLETE']) {
-    const provider = createContextIntelligenceProvider({
-      transcriptionProvider: { transcribeAnswer: async () => realTranscript('I learned a lot and everything worked out well.') },
-      semanticProvider: { analyze: async () => ({ ...semantic(undefined, [
+    const analysis = normalizeAnalysis({ ...semantic(undefined, [
         {facet:'concision',polarity:'strength',text:'The response is brief.',transcriptSegmentIds:['seg-1']},
         {facet:'specificity',polarity:'weakness',text:'No specific actions are stated.',transcriptSegmentIds:['seg-1']},
-      ]), answerStage:{label:stage,score:.9} }) },
-    });
-    const result = await provider.analyze({sessionId,answerId,analyticsEvents:[analyticsEvent()],audio:Buffer.from('TEST DATA'),transcriptEnabled:true});
-    assert.equal(result.analysis.status,'AVAILABLE');
-    assert.equal(result.analysis.coachingPatterns.some(pattern=>pattern.facet==='concision'),stage==='COMPLETE');
-    assert.equal(result.analysis.coachingPatterns.some(pattern=>pattern.facet==='specificity'),true);
-    assert.equal(result.analysis.provenance.policyVersion,'context-v1.1');
-    if(stage!=='COMPLETE') assert.match(result.analysis.limitations[0],/Brevity alone/);
+      ]), answerStage:{label:stage,score:.9} }, { sessionId, answerId,
+      transcript: realTranscript('I learned a lot and everything worked out well.'), durationMs: 42000, model: 'offline-fixture' });
+    assert.equal(analysis.status,'AVAILABLE');
+    assert.equal(analysis.coachingPatterns.some(pattern=>pattern.facet==='concision'),stage==='COMPLETE');
+    assert.equal(analysis.coachingPatterns.some(pattern=>pattern.facet==='specificity'),true);
+    assert.equal(analysis.provenance.policyVersion,'context-v1.1');
+    if(stage!=='COMPLETE') assert.match(analysis.limitations[0],/Brevity alone/);
   }
 });
 
-test('prohibited semantic claim is suppressed and forces NO_CUE', async () => {
+test('prohibited semantic fixture is rejected; production containment forces NO_CUE', async () => {
+  assert.throws(() => normalizeAnalysis(semantic('The student is honest and professionally ready.'), {
+    sessionId, answerId, transcript: realTranscript(), durationMs: 42000, model: 'offline-fixture',
+  }), /CONTEXT_CLAIM_SCREEN_REJECTED/u);
   const provider = createContextIntelligenceProvider({
     transcriptionProvider: { transcribeAnswer: async () => realTranscript() },
     semanticProvider: { analyze: async () => semantic('The student is honest and professionally ready.') },
@@ -150,7 +154,7 @@ test('prohibited semantic claim is suppressed and forces NO_CUE', async () => {
     audio: Buffer.from('audio'), transcriptEnabled: true,
   });
   assert.equal(result.analysis.status, 'UNAVAILABLE');
-  assert.equal(result.analysis.reason, 'CONTEXT_CLAIM_SCREEN_REJECTED');
+  assert.equal(result.analysis.reason, 'CANDIDATE_AUDIO_SOURCE_UNVERIFIED');
   assert.equal(result.coachCommand.cue, 'NO_CUE');
 });
 
@@ -241,12 +245,13 @@ test('context route inherits auth, entitlement, CSRF, and default-off feature ga
   }
 });
 
-test('analyze route reads only the owner sealed object and persists a private canonical transcript spine', async () => {
+test('analyze route contains even historical candidate-labeled media before download/provider/canonical writes', async () => {
   // The provider result remains server-owned through persistence; no client transcript is trusted.
   let inserts = 0;
   let updates = 0;
   const upserts = [];
   let analyzeInput = null;
+  let downloads = 0;
   const repository = {
     single: async (path) => {
       if (path.startsWith(`ivoc_sessions?id=eq.${sessionId}`)) return { id: sessionId, owner_subject: 'wp:42', session_type: 'question', interviewer_provider: 'missionmed-static', analytics_schema: 'ivoc.analytics.v1', context: {}, started_at: '2026-09-17T20:00:00.000Z' };
@@ -277,33 +282,80 @@ test('analyze route reads only the owner sealed object and persists a private ca
   const response = new ResponseCapture();
   await route({
     repository,
-    storage: { fetchObject: async () => new Response('real-audio', { status: 200, headers: { 'Content-Type': 'video/webm', 'Content-Length': '10' } }) },
+    storage: { fetchObject: async () => { downloads += 1; return new Response('real-audio', { status: 200, headers: { 'Content-Type': 'video/webm', 'Content-Length': '10' } }); } },
     contextProvider: { question: resolveContextQuestion, analyze: async (input) => { analyzeInput = input; return expected; } },
   })({
     ...base,
     request: request('POST', { action: 'analyze', sessionId, recordingId, answerId, questionId: 'CORE-01', analyticsEvents: [analyticsEvent()] }),
     response, hqSession: hqSession(),
   });
-  assert.equal(response.status, 200);
-  assert.equal(analyzeInput.questionId, 'CORE-01');
-  assert.equal(analyzeInput.transcriptEnabled, true);
-  assert.equal(response.json().persistence.transcript, true);
-  assert.equal(response.json().persistence.analysis, true);
-  assert.deepEqual(upserts.map((entry) => entry.table), [
-    'ivoc_session_contracts', 'ivoc_conversation_turns', 'ivoc_conversation_turns', 'ivoc_answer_segments',
-    'ivoc_coaching_evidence', 'ivoc_coaching_evidence',
-  ]);
-  assert.deepEqual(upserts.slice(-2).map((entry) => entry.body.dimension), [
-    'semantic.supported_claim', 'semantic.coaching_pattern',
-  ]);
-  assert.deepEqual(upserts.at(-1).body.interpretation, {
-    text: 'The answer gives a concrete example.', by: 'ai_draft', facet: 'specificity', polarity: 'strength',
-  });
-  assert.deepEqual(upserts.at(-1).body.score, {
-    value: 0.86, scale: '0..1', basis: 'context_analysis',
-  });
-  assert.equal(upserts.at(-1).body.subject_id, 'wp:42');
-  assert.equal(inserts, 1);
+  assert.equal(response.status, 409);
+  assert.equal(response.json().error, 'context_candidate_audio_source_unverified');
+  assert.equal(response.json().candidateAttribution.status, 'UNVERIFIED');
+  assert.equal(analyzeInput, null);
+  assert.equal(downloads, 0);
+  assert.deepEqual(upserts, []);
+  assert.equal(inserts, 0);
   assert.equal(updates, 0);
   assert.doesNotMatch(response.body, /storage_object_key|private\/object/u);
+});
+
+test('mixed, unknown, historical and forged candidate receipts cannot activate analysis or download', async () => {
+  for (const fixture of [
+    { session_type: 'simulation', interviewer_provider: 'openai-gpt-live' },
+    { session_type: 'unknown', interviewer_provider: null },
+    { session_type: 'question', interviewer_provider: 'missionmed-static', created_at: '2020-01-01T00:00:00Z' },
+    { session_type: 'question', context: { candidateOnly: true, candidateAttribution: { status: 'VERIFIED' } } },
+  ]) {
+    let downloads = 0; let providerCalls = 0; let canonicalWrites = 0;
+    const repository = {
+      single: async path => path.startsWith('ivoc_sessions?')
+        ? { id: sessionId, owner_subject: 'wp:42', ...fixture }
+        : { id: recordingId, session_id: sessionId, owner_subject: 'wp:42', status: 'saved',
+          candidate_audio_source: { role: 'candidate', verified: true }, storage_object_key: 'private/mixed.webm' },
+      request: async () => [], insert: async () => null,
+      upsert: async () => { canonicalWrites += 1; }, update: async () => { canonicalWrites += 1; },
+    };
+    const response = new ResponseCapture();
+    await route({ repository, storage: { fetchObject: async () => { downloads += 1; throw Error('No download'); } },
+      contextProvider: { question: resolveContextQuestion, analyze: async () => { providerCalls += 1; throw Error('No provider'); } },
+    })({ ...base, request: request('POST', { action: 'analyze', sessionId, recordingId, answerId,
+      questionId: 'CORE-01', sourceReceipt: { status: 'VERIFIED', role: 'candidate', channel: 0 },
+      candidateOnly: true, transcript: realTranscript(), analyticsEvents: [] }), response, hqSession: hqSession() });
+    assert.equal(response.status, 409);
+    assert.equal(response.json().candidateAttribution.reason, 'CANDIDATE_AUDIO_SOURCE_UNVERIFIED');
+    assert.deepEqual([downloads, providerCalls, canonicalWrites], [0, 0, 0]);
+  }
+});
+
+test('provider containment ignores mixed/unknown/client source claims even with injected transcription', async () => {
+  let calls = 0;
+  const provider = createContextIntelligenceProvider({
+    transcriptionProvider: { transcribeAnswer: async () => { calls += 1; return realTranscript(); } },
+    semanticProvider: { analyze: async () => { calls += 1; return semantic(); } },
+  });
+  for (const source of [null, 'mixed', { status: 'VERIFIED', role: 'candidate' }]) {
+    const result = await provider.analyze({ sessionId, answerId, transcriptEnabled: true,
+      audio: Buffer.from('synthetic mixed fixture'), sourceReceipt: source, candidateOnly: true, analyticsEvents: [] });
+    assert.equal(result.transcript.reason, 'CANDIDATE_AUDIO_SOURCE_UNVERIFIED');
+    assert.equal(result.analysis.status, 'UNAVAILABLE');
+    assert.deepEqual(result.analysis.coachingPatterns, []);
+    assert.equal(result.masterDerived, null);
+    assert.equal(result.coachCommand.cue, 'NO_CUE');
+    assert.equal(result.persistence.transcript, false);
+  }
+  assert.equal(calls, 0);
+});
+
+test('context analysis retains owner privacy denial before revealing containment state', async () => {
+  let calls = 0;
+  const response = new ResponseCapture();
+  await route({ repository: { single: async () => ({ owner_subject: 'wp:7' }), insert: async () => null },
+    storage: { fetchObject: async () => { calls += 1; } },
+    contextProvider: { question: resolveContextQuestion, analyze: async () => { calls += 1; } },
+  })({ ...base, request: request('POST', { action: 'analyze', sessionId, recordingId, answerId }),
+    response, hqSession: hqSession() });
+  assert.equal(response.status, 404);
+  assert.deepEqual(response.json(), { error: 'not_found' });
+  assert.equal(calls, 0);
 });
