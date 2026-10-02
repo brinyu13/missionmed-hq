@@ -31,7 +31,10 @@ test('ready transcript action does not display source-unavailable copy before it
     buildCandidateAnalysisState: () => ({ unavailableCopy: 'SOURCE_UNAVAILABLE' }),
   });
   render({ transcript: { status: 'UNAVAILABLE', reason: 'NOT_REQUESTED' } });
-  assert.match(host.children[1].textContent, /ready.*Generate transcript \+ coaching.*not started/u);
+  assert.match(host.children[1].textContent, /ready.*no transcript or coaching is saved yet.*Generate transcript \+ coaching/u);
+  // A failed provider attempt is audited, not saved as an answer transcript.
+  // A cold reload therefore must not claim processing was never attempted.
+  assert.doesNotMatch(host.children[1].textContent, /not started|never attempted/u);
   assert.doesNotMatch(host.children[1].textContent, /unavailable/i);
   render({ transcript: { status: 'UNAVAILABLE', reason: 'CANDIDATE_AUDIO_SOURCE_UNVERIFIED' } });
   assert.equal(host.children[1].textContent, 'SOURCE_UNAVAILABLE');

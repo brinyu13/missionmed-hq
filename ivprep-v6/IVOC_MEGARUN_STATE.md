@@ -14,6 +14,27 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Provisional-evidence release live:** source
+  `c07ef410a06851b7eabc993347cfa0471dc25950`, deployment
+  `9f745595-29fc-4a95-b2bf-c577c48f9d45` SUCCESS, image
+  `sha256:44f6d2a9e2a1e9431b2839d70ee620c62cacd6406282e767f01e3c82a88c50fd`,
+  artifact `56e13f5bb77c40b344a5f15a1be791b789b18cf8246fdbf5875ce8e214be4ceb`.
+  Four changed runtime hashes match; config unchanged; health 200; anonymous
+  product/bootstrap 401. Deployment epoch 4069 and completed source epochs
+  4067/4068 released normally and provider-confirmed. Founder cold reload retained
+  the capture probe in Library and Film Room visibly played its original video.
+  Current Results shows enabled coaching with measured Analytics, not a fabricated
+  transcript. Browser-declared live messages now preserve bounded provider IDs,
+  owned-session identity and finalization while remaining explicitly provisional;
+  arrival times are not speech boundaries and interviewer relation/prompt binding
+  remain unverified. Independent source review PASS; actual conversation/audio
+  acceptance remains open. Small follow-on copy removes “not started” after reload,
+  because an unsuccessful prior request is audited but has no saved transcript.
+- **Next executable intelligence slice:** restore only source-revalidated prior
+  Self Practice context when explicitly selected; historical mixed/AI/legacy
+  analysis stays quarantined. Require two distinct saved source-bound sessions,
+  cited supported patterns and fresh prepared-pack receipts on both Actor readers.
+  Implementation under exact source lease 4070; no positive recurrence claim.
 - **Timestamp fix live:** source `a07d97581653acbee110841aad6617fcfba160a3`,
   deployment `d7c1b901-9168-4f46-8341-89b569a0f6b2` SUCCESS, image
   `sha256:2a05e80d8fbccd66aa922cd5852f152510e5c02bdcfc66309029a4b59ddbfb77`,
