@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { validateUscePostmarkQaRecipient } from '../lib/usce-postmark-qa-guard.mjs';
 
 const PUBLIC_INTAKE_PATH = '/api/usce/public/requests';
 const PUBLIC_CONFIG_PATH = '/api/usce/public/config';
@@ -852,6 +853,8 @@ async function sendPostmarkEmailWithRetry(message) {
 }
 
 async function sendPostmarkEmail({ token, fromEmail, replyTo, to, subject, textBody, htmlBody, tag, metadata }) {
+  const guard = validateUscePostmarkQaRecipient({ toEmail: to, subject, body: textBody });
+  if (!guard.ok) return { ok: false, reason: guard.error, retryable: false, attempts: 0 };
   if (!token) {
     return { ok: false, reason: 'postmark_token_missing', retryable: false };
   }

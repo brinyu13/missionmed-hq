@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { validateUscePostmarkQaRecipient } from '../lib/usce-postmark-qa-guard.mjs';
 
 const OFFER_TABLE = 'command_center.usce_offer_drafts';
 const PAYMENT_URL = 'https://missionmedinstitute.com/product/usce-clinical-rotations/';
@@ -508,6 +509,14 @@ function buildBoundOfferEmail(offer, message) {
 }
 
 async function sendAdminOfferMessage(offerId, payload, session, request) {
+  if (payload.approve_live_send === true) {
+    const guard = validateUscePostmarkQaRecipient({
+      toEmail: payload.to_email || payload.email,
+      subject: payload.subject,
+      body: payload.body ?? payload.body_text ?? payload.message,
+    });
+    if (!guard.ok) return guard;
+  }
   const proof = await prepareBoundPreview(offerId, payload);
   if (!proof.ok) return proof;
   if (payload.preview_hash !== proof.data.preview_hash || payload.revision !== proof.data.revision) {
@@ -1338,6 +1347,8 @@ function extractUrl(body, contains) {
 }
 
 async function sendPostmarkEmail({ token, fromEmail, replyTo, toEmail, subject, body, htmlBody, claimId, revision }) {
+  const guard = validateUscePostmarkQaRecipient({ toEmail, subject, body });
+  if (!guard.ok) return { ...guard, attempts: 0, ambiguous: false };
   let response;
   try {
     response = await fetch(POSTMARK_API_URL, {
