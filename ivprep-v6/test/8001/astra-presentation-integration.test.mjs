@@ -28,7 +28,8 @@ test('actual production boot restores only the exact own review and opens Film R
   for (const navigateAway of [false, true]) {
     const calls = [];
     const location = { hash: `#filmroom?session=${id}` };
-    const detail = { session: { id }, results: { payload: { analytics: { durationMs: 11085 } } } };
+    // GET /sessions/:id returns the public session itself, not { session }.
+    const detail = { id, results: { payload: { analytics: { durationMs: 11085 } } } };
     const state = { role: 'student', view: 'home', filmGroups: { ingestResult() {} }, durable: {
       ready: true, bootstrap: async () => {},
       library: async scope => { calls.push(['library', scope]); if (navigateAway) location.hash = '#newsession';

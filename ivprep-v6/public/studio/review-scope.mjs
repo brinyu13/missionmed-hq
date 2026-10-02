@@ -67,7 +67,9 @@ export async function resolveOwnSavedReview({ route, library, session, isCurrent
   const row = own?.sessions?.find(item => item.id === route.sessionId);
   if (!row || (!row.results && row.recording?.status !== 'saved')) return null;
   const detail = await session(route.sessionId);
-  if (!isCurrent() || detail?.session?.id !== route.sessionId) return null;
+  // GET /sessions/:id returns publicSession directly. Do not accept a nested
+  // lookalike identity or fall back to the library row if detail differs.
+  if (!isCurrent() || detail?.id !== route.sessionId) return null;
   const analytics = detail.results?.payload?.analytics || null;
   return { persisted: true, session: row, sessionDetail: detail, analytics,
     recording: detail.recording ? { recording: detail.recording } : null };

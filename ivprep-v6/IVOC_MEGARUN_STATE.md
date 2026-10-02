@@ -14,6 +14,23 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Live fix-forward, 2026-10-02 03:50 UTC:** current deployment
+  `d7617c00-b524-402d-88ee-c8f6c9230b09`, source `c6a0201f77547e8342b86e5cb682bb31978485e0`,
+  image `sha256:00c8ab8332f0ea359b19211deddb73db22a8b8b2412075bd5e26502d5e55d0ab`,
+  artifact `b7e955be93774dbe8a538f1d874c48e5025db35e1ea3418c4c9dfc4cb45a7167`:
+  five runtime hashes match; health 200, anonymous product/bootstrap 401. Actual
+  Founder Film Room cold reload FAILED (returned to Library). Root cause: the
+  new resolver expected `detail.session.id`; the actual authorized GET returns
+  flat `detail.id`. Incorrect fixture repeated that assumption. Focused correction
+  now passes exact-ID/nested-conflict and actual boot checks; LIVE acceptance open.
+  Current deployment is healthy infrastructure, not full user-journey acceptance.
+- **Private transcript sink production preparation:** reviewed additive migration
+  applied under epoch 4075 after DEV rehearsal. FORCE RLS true; anon/authenticated
+  read/write denied; service only SELECT/INSERT, no UPDATE/DELETE. Zero new events;
+  existing 34 sessions / 23 recordings / 20 results unchanged. Runtime observer
+  activation awaits reviewed HQ lifecycle integration; no provider/turn acceptance
+  claimed. Rollback retains this private additive table and existing source-aware
+  recording schema. Completed source epochs 4070/4074 released normally/read back.
 - **Cold-review / prior-context candidate:** own Results and Film Room now retain
   an exact saved-attempt hash across reload; fresh own-Library membership and
   detail authorization are required, Admin subject/media credentials never enter

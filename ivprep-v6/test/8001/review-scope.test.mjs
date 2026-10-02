@@ -20,7 +20,7 @@ test('saved review URLs contain only owned-attempt identity, never media or Admi
 
 test('cold review resolves exact attempt through own library then fresh authorized detail', async () => {
   const row = { id: savedId, recording: { id: 'recording', status: 'saved' } };
-  const detail = { session: { id: savedId }, recording: row.recording, results: { payload: { analytics: { durationMs: 11085 } } } };
+  const detail = { id: savedId, recording: row.recording, results: { payload: { analytics: { durationMs: 11085 } } } };
   const calls = [];
   const saved = await resolveOwnSavedReview({ route: parseSavedReviewRoute(`#filmroom?session=${savedId}`),
     library: async scope => { calls.push(['library', scope]); return { sessions: [row] }; },
@@ -46,12 +46,16 @@ test('cold review drops mismatched detail and navigation/role changes across eit
   const route = { view: 'postanswer', sessionId: savedId };
   const own = { sessions: [{ id: savedId, results: {} }] };
   assert.equal(await resolveOwnSavedReview({ route, library: async () => own,
-    session: async () => ({ session: { id: 'other-id' } }) }), null);
+    session: async () => ({ id: 'other-id' }) }), null);
+  assert.equal(await resolveOwnSavedReview({ route, library: async () => own,
+    session: async () => ({ id: 'other-id', session: { id: savedId } }) }), null);
+  assert.equal(await resolveOwnSavedReview({ route, library: async () => own,
+    session: async () => ({ session: { id: savedId } }) }), null);
   for (const changedAt of ['library', 'detail']) {
     let current = true; let detailReads = 0;
     const result = await resolveOwnSavedReview({ route, isCurrent: () => current,
       library: async () => { if (changedAt === 'library') current = false; return own; },
-      session: async () => { detailReads += 1; current = false; return { session: { id: savedId } }; } });
+      session: async () => { detailReads += 1; current = false; return { id: savedId }; } });
     assert.equal(result, null);
     assert.equal(detailReads, changedAt === 'library' ? 0 : 1);
   }
