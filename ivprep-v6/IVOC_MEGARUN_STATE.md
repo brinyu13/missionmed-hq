@@ -14,6 +14,23 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **CURRENT PRODUCTION / Compare freshness LIVE DEPLOYED:** source
+  `f70752f9cb17da205e796409d329e633f72246bf`, deployment
+  `86e37b65-b79a-464f-a4d7-cb04d5c873ae` SUCCESS, image
+  `sha256:2891a85685837593f247ad996d761b924fa29e19844915b07d338d1f2ce64fcd`,
+  artifact `99e9649716815abbec2e6f64765f271a50ffebc9783af627ce1626ba447f7878`.
+  Both runtime presentation files match tracked hashes; source clean/pushed/remote
+  read back, configuration unchanged, health 200, anonymous product/bootstrap 401.
+  Nearest healthy rollback is `426e095` / `50e47409` with exact image/artifact below;
+  retain all newer source and additive private data on runtime restoration.
+  Fresh independent production POV PASS: actual Founder `wp:1` after cold reload,
+  Home → Answer Library → Results → Compare retained `4f708360`; switching to
+  `1a8acfb2` updated measured evidence and retained truthful unavailable coaching.
+  Temporary verifier tab closed. This is compatibility/wayfinding acceptance;
+  real source-qualified coaching pair, physical camera and genuine two-sided
+  speech/replay remain OPEN. Source/deploy epochs 4095/4096/4098/4099 were normally
+  released and canonical readback confirmed; source4097 covers this final ledger
+  commit and is released at the ensuing safe boundary.
 - **Retry teaching comparison LIVE DEPLOYED, epoch 4097:** same-owner,
   same-version/prompt Self Practice answers can project their saved coaching/drills
   side by side with exact recording-specific, paused citation links. Existing
@@ -58,10 +75,8 @@ the actual production route and deployment.
   preserved the selected historical AI attempt, visible saved frame, full measured
   tracks and both earlier transcript entries. This proves legacy compatibility,
   not new positive native capture or audible two-sided replay, which remain OPEN.
-- **CURRENT PRODUCTION:** `426e095` / `50e47409` above; nearest healthy rollback
-  is `5fe96f0` / `3cb62487` with exact image/artifact above. Next: reviewed Compare
-  freshness fix-forward, then remaining genuine learning-loop evidence. Physical
-  camera and genuine conversation evidence remain separate dependencies.
+- **Previous comparison release / rollback:** `426e095` / `50e47409` above;
+  earlier fallback is `5fe96f0` / `3cb62487` with exact image/artifact above.
 - **EARLIER VERIFIED HEALTHY RUNTIME:** source `89168e2b7267dc709b410ec4d98540a4a0ac81ea`,
   deployment `82f86a78-eaac-4ea2-bda1-cfb26d9983c6` SUCCESS, image
   `sha256:e43d0a68b4a0f44197f4e64dbb909f00f22c96439f49420bebeb46107b863bea`,
