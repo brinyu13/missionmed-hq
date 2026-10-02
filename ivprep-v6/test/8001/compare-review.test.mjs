@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { buildComparisonSelection } from '../../public/studio/presentation-view-model.mjs';
-import { compareAttempts } from '../../public/studio/longitudinal-model.mjs';
+import { buildLongitudinalModel, compareAttempts } from '../../public/studio/longitudinal-model.mjs';
 const source = readFileSync(new URL('../../public/studio/studio.mjs', import.meta.url), 'utf8');
 const between = (start, end) => source.slice(source.indexOf(start), source.indexOf(end, source.indexOf(start)));
 const readCode = between('async function readComparisonDetails(', '\nasync function renderTeachingComparison(');
@@ -159,7 +159,8 @@ test('actual Compare retains metrics and gates teaching reads across actor/role/
     const render = new Function('state','$','isAdminReview','longitudinalModel','buildComparisonSelection',
       'compareAttempts','renderTeachingComparison','document','el','formatEvidence',
       `let compareRenderId=0; ${renderCompareCode}; return renderCompare;`)(state, () => host, () => false,
-      async () => { if (changed === 'actor') state.admission.identity.subject = 'wp:2';
+      async options => { assert.deepEqual(options, { refresh: true }, 'newly saved retry must not disappear behind cached history');
+        if (changed === 'actor') state.admission.identity.subject = 'wp:2';
         if (changed === 'role') state.role = 'admin'; if (changed === 'view') state.view = 'home';
         return { attempts }; }, buildComparisonSelection, compareAttempts,
       async (_host, selected, options) => { teaching++; assert.equal(selected.baseline.id, 'a');
@@ -169,4 +170,29 @@ test('actual Compare retains metrics and gates teaching reads across actor/role/
     await render(); assert.equal(teaching, changed ? 0 : 1);
     assert.equal(all(host).some(n => n.className === 'compare-table'), !changed);
   }
+});
+
+test('actual cached history plus Compare keeps a newly saved retry selected after fresh own read', async () => {
+  const cacheCode = between('async function longitudinalModel(', '\nfunction emptyEvidence(');
+  const compareCode = between('async function renderCompare(', '\nlet vaultRenderId');
+  const old = { id: 'old', state: 'saved', sessionType: 'question', interviewerProvider: 'missionmed-static',
+    questionId: 'q1', questionText: 'Prompt', endedAt: '2026-10-01T10:00:00Z',
+    recording: { durationMs: 3000 }, results: { schema: 'ivoc.analytics.v1', schemaVersion: 1, payload: { analytics: {} } } };
+  const retry = { ...old, id: 'retry', endedAt: '2026-10-02T10:00:00Z' };
+  let reads = 0, pair = null;
+  const state = { role: 'student', view: 'compare', admission: { identity: { subject: 'wp:1' } },
+    lastSaved: { session: retry }, comparePair: { currentId: 'retry' }, durableAvailable: true,
+    longitudinal: buildLongitudinalModel([old]), durable: { library: async mode => {
+      reads++; assert.equal(mode, 'own'); return { sessions: [retry, old] };
+    } } };
+  const host = el('div');
+  const run = new Function('state', '$', 'isAdminReview', 'buildLongitudinalModel', 'buildComparisonSelection',
+    'compareAttempts', 'renderTeachingComparison', 'document', 'el', 'formatEvidence', 'emptyEvidence',
+    `let compareRenderId=0; ${cacheCode}\n${compareCode}; return renderCompare;`)(state, () => host, () => false,
+    buildLongitudinalModel, buildComparisonSelection, compareAttempts,
+    async (_host, selected) => { pair = selected; }, { createElement: el, createTextNode: text => el('text', '', text) },
+    el, value => String(value), () => { throw new Error('New retry was lost from comparison'); });
+  await run();
+  assert.equal(reads, 1); assert.equal(pair.current.id, 'retry'); assert.equal(pair.baseline.id, 'old');
+  assert.equal(state.comparePair.currentId, 'retry'); assert.equal(state.longitudinal.attempts[0].id, 'retry');
 });

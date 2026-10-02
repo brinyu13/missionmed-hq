@@ -2958,7 +2958,7 @@ async function renderCompare() {
     if (adminReview && (role !== 'admin' || !subject)) throw new Error('Select an authorized student first.');
     const model = adminReview
       ? buildLongitudinalModel(await state.adminLibrary.comparisonSessions(subject))
-      : await longitudinalModel();
+      : await longitudinalModel({ refresh: true });
     if (!isCurrent()) return;
     if (!model.attempts.length) {
       emptyEvidence(host, 'No saved attempts to compare', 'Save an answer, retry that question, then return to compare your evidence.');

@@ -14,7 +14,7 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
-- **Retry teaching comparison SOURCE CANDIDATE, epoch 4097:** same-owner,
+- **Retry teaching comparison LIVE DEPLOYED, epoch 4097:** same-owner,
   same-version/prompt Self Practice answers can project their saved coaching/drills
   side by side with exact recording-specific, paused citation links. Existing
   measured deltas remain separate; no improvement/grade is inferred. Fresh own
@@ -26,6 +26,18 @@ the actual production route and deployment.
   correcting the omitted-owner compatibility issue, with actual server projection
   reachability and stale-metadata/error probes. No schema/provider
   mutation. Genuine spoken retry/coaching usefulness acceptance remains OPEN.
+  Source `426e09582a845db9394f71c402338ccaf4212a7f`, deployment
+  `50e47409-5b7e-455d-a9d1-6bf16c907ce5` SUCCESS, image
+  `sha256:77f0b40f6f86bf45466828ecc0b4b2f8f56123355f61241fbf2d19983c56b926`,
+  artifact `769354fa502570414fcf936b3faf23e9a72f716ffd75032ef4e1d25ffeb3ee68`.
+  Both changed runtime hashes matched, config unchanged, health 200 and anonymous
+  product/bootstrap 401. Actual authenticated own Compare preserved measured
+  deltas and selected IDs; legacy Self Practice and AI pairs visibly show distinct
+  truthful coaching-unavailable explanations, not synthetic coaching.
+  Follow-on source correction refreshes own history on Compare entry so a just-saved
+  retry cannot be hidden by an earlier cached list; independent actual-handler
+  repro confirms HEAD loses it and correction retains it. Eight focused checks
+  PASS, including actual cached-old-history → fresh-new-retry selection.
 - **Server transcript → Film Room: LIVE DEPLOYED, epoch 4095.** Exact
   server-captured fragments now have a bounded, owner-scoped cold-read projection
   through the existing authorized session detail. Current actor/owner/mentor
@@ -46,10 +58,11 @@ the actual production route and deployment.
   preserved the selected historical AI attempt, visible saved frame, full measured
   tracks and both earlier transcript entries. This proves legacy compatibility,
   not new positive native capture or audible two-sided replay, which remain OPEN.
-- **CURRENT PRODUCTION:** `5fe96f0` / `3cb62487` above. Next independent work:
-  source-bound Self Practice coaching/citation comparison after retry; physical
+- **CURRENT PRODUCTION:** `426e095` / `50e47409` above; nearest healthy rollback
+  is `5fe96f0` / `3cb62487` with exact image/artifact above. Next: reviewed Compare
+  freshness fix-forward, then remaining genuine learning-loop evidence. Physical
   camera and genuine conversation evidence remain separate dependencies.
-- **NEAREST VERIFIED HEALTHY ROLLBACK:** source `89168e2b7267dc709b410ec4d98540a4a0ac81ea`,
+- **EARLIER VERIFIED HEALTHY RUNTIME:** source `89168e2b7267dc709b410ec4d98540a4a0ac81ea`,
   deployment `82f86a78-eaac-4ea2-bda1-cfb26d9983c6` SUCCESS, image
   `sha256:e43d0a68b4a0f44197f4e64dbb909f00f22c96439f49420bebeb46107b863bea`,
   artifact `6eef1e79b5311c20ca7c44c1925563778c530b5d722bca9b3f9f3a856087a730`.
