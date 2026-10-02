@@ -163,10 +163,18 @@ export function createIvocStorage({
     const response = await r2Request('POST', key, { query: [['uploads', '']], headers: { 'content-type': mime } });
     const uploadId = xmlValue(await response.text(), 'UploadId');
     if (!uploadId) throw Object.assign(new Error('ivoc_storage_multipart_invalid'), { status: 502 });
-    const expiresAtMs = now() + (60 * 60 * 1000);
     return {
       objectKey: key,
       uploadState: encodeUploadState({ v: 1, uploadId, totalParts: null, parts: {} }),
+      ...renewUpload({ recordingId, objectKey: key }),
+    };
+  }
+
+  // Caller must resolve an owned, still-uploading row. This recovers a lost
+  // allocation response without allocating another object or multipart upload.
+  function renewUpload({ recordingId, objectKey: key }) {
+    const expiresAtMs = now() + (60 * 60 * 1000);
+    return {
       expiresAt: new Date(expiresAtMs).toISOString(),
       uploadToken: tokenFor('upload', recordingId, key, expiresAtMs, secret),
       tokenExpiresAtMs: expiresAtMs,
@@ -198,7 +206,7 @@ export function createIvocStorage({
     try { return (await r2Request('HEAD', key)).ok === true; } catch { return false; }
   }
 
-  async function completeUpload({ objectKey: key, uploadState }) {
+  async function completeUpload({ objectKey: key, uploadState, recoverCompleted = false }) {
     const state = decodeUploadState(uploadState);
     if (!Number.isSafeInteger(state.totalParts) || state.totalParts < 1) throw Object.assign(new Error('recording_upload_incomplete'), { status: 409 });
     const completedParts = [];
@@ -208,11 +216,29 @@ export function createIvocStorage({
       completedParts.push(`<Part><PartNumber>${part}</PartNumber><ETag>${etag}</ETag></Part>`);
     }
     const body = `<CompleteMultipartUpload>${completedParts.join('')}</CompleteMultipartUpload>`;
-    const response = await r2Request('POST', key, {
-      query: [['uploadId', state.uploadId]], headers: { 'content-type': 'application/xml' }, body,
-    });
+    let response;
+    try {
+      response = await r2Request('POST', key, {
+        query: [['uploadId', state.uploadId]], headers: { 'content-type': 'application/xml' }, body,
+      });
+    } catch (error) {
+      // A successful completion may outlive a lost response or failed DB save.
+      // Only the same allocated object, confirmed by authenticated HEAD, is
+      // recoverable. An unfinished/missing object still fails closed.
+      if (!recoverCompleted) throw error;
+      const metadata = await inspectObject(key).catch(() => null);
+      if (!metadata?.etag || !(metadata.sizeBytes > 0)) throw error;
+      return { ...metadata, recovered: true };
+    }
     const xml = await response.text();
     return { etag: normalizeEtag(xmlValue(xml, 'ETag') || response.headers.get('etag')) };
+  }
+
+  async function inspectObject(key) {
+    const response = await r2Request('HEAD', key);
+    return { etag: normalizeEtag(response.headers.get('etag')),
+      sizeBytes: Number(response.headers.get('content-length')),
+      mime: response.headers.get('content-type') || '' };
   }
 
   function createPlayback({ recordingId, objectKey: key, disposition = 'inline', ttlMs = 10 * 60 * 1000 }) {
@@ -239,10 +265,12 @@ export function createIvocStorage({
 
   return Object.freeze({
     createUpload,
+    renewUpload,
     validateUploadToken,
     uploadPart,
     completeUpload,
     verifyObject,
+    inspectObject,
     createPlayback,
     validatePlaybackToken,
     fetchObject,

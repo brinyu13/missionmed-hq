@@ -82,3 +82,33 @@ test('same-origin playback token is scoped, expiring, and proxies private object
     recordingId, objectKey, expiresAtMs: playback.expiresAtMs, playbackToken: playback.token, disposition: 'inline',
   }), false);
 });
+
+test('recovered allocation renews only the exact object token without another multipart allocation', async () => {
+  const { storage, calls, advance } = storageFixture();
+  const recordingId = '00000000-0000-4000-8000-000000000042';
+  const upload = await storage.createUpload({ ownerSubject: 'wp:42', recordingId, extension: 'webm' });
+  advance(upload.tokenExpiresAtMs + 1);
+  const renewed = storage.renewUpload({ recordingId, objectKey: upload.objectKey });
+  assert.equal(calls.length, 1);
+  assert.equal(storage.validateUploadToken({ recordingId, objectKey: upload.objectKey, expiresAtMs: renewed.tokenExpiresAtMs, uploadToken: renewed.uploadToken }), true);
+  assert.equal(storage.validateUploadToken({ recordingId: 'other', objectKey: upload.objectKey, expiresAtMs: renewed.tokenExpiresAtMs, uploadToken: renewed.uploadToken }), false);
+});
+
+test('lost multipart completion recovers only an authenticated existing exact object', async () => {
+  for (const exists of [true, false]) {
+    let completedOnce = false;
+    const storage = createIvocStorage({ endpoint: 'https://account.r2.cloudflarestorage.com', accessKeyId: 'test', secretAccessKey: 'test', sessionSecret: 's'.repeat(64),
+      fetchImpl: async (url, opts) => {
+        const parsed = new URL(url);
+        if (parsed.searchParams.has('uploads')) return response({ body: '<UploadId>id</UploadId>' });
+        if (opts.method === 'PUT') return response({ headers: { etag: 'part' } });
+        if (opts.method === 'POST') { completedOnce = true; return response({ status: 503 }); }
+        if (opts.method === 'HEAD') return response({ status: completedOnce && exists ? 200 : 404, headers: { etag: 'actual', 'content-length': '1234', 'content-type': 'audio/webm' } });
+      } });
+    const upload = await storage.createUpload({ ownerSubject: 'wp:42', recordingId: 'r', extension: 'webm' });
+    const part = await storage.uploadPart({ objectKey: upload.objectKey, uploadState: upload.uploadState, part: 1, parts: 1, body: Buffer.from('fixture') });
+    const operation = storage.completeUpload({ objectKey: upload.objectKey, uploadState: part.uploadState, recoverCompleted: true });
+    if (exists) assert.equal((await operation).recovered, true);
+    else await assert.rejects(operation, /ivoc_storage_request_failed/);
+  }
+});

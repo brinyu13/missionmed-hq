@@ -176,6 +176,93 @@ const base = {
   cookieFingerprint: 'f'.repeat(64), hqSessionMaxTtlSeconds: 28_800, expectedOrigin: 'https://hq.test',
 };
 
+function candidateCaptureHarness() {
+  const repo = repository();
+  const sid = '00000000-0000-4000-8000-000000000042';
+  const pid = '00000000-0000-4000-8000-000000000043';
+  const ownedSession = { id: sid, owner_subject: 'wp:42', state: 'active' };
+  const rows = [{ id: pid, session_id: sid, owner_subject: 'wp:42', status: 'uploading', recording_role: 'conversation' }];
+  let storageCompletions = 0;
+  repo.single = async path => {
+    if (path.startsWith(`ivoc_sessions?id=eq.${sid}`)) return ownedSession;
+    if (path.startsWith('ivoc_recordings?id=eq.')) return rows.find(r => path.startsWith(`ivoc_recordings?id=eq.${r.id}&`)) || null;
+    if (path.startsWith(`ivoc_recordings?parent_recording_id=eq.${pid}`)) return rows.find(r => r.parent_recording_id === pid) || null;
+    if (path.startsWith(`ivoc_recordings?session_id=eq.${sid}`)) return rows.find(r => r.recording_role === 'conversation') || null;
+    return null;
+  };
+  repo.insert = async (table, body) => { repo.inserts.push({ table, body }); if (table === 'ivoc_recordings') rows.push(body); return body; };
+  repo.update = async (path, body) => { repo.updates.push({ path, body }); const row = await repo.single(path); Object.assign(row, body); return row; };
+  const route = createIvocHandler({ registry: registry(), repository: repo, candidateAudioCaptureEnabled: true, storage: {
+    createUpload: async ({ recordingId }) => ({ objectKey: `private/${recordingId}`, uploadState: 'pending-multipart', uploadToken: 'test-only-token', tokenExpiresAtMs: 12345 }),
+    validateUploadToken: () => true, completeUpload: async () => { storageCompletions++; return { etag: 'sealed-etag' }; }, verifyObject: async () => true,
+    renewUpload: () => ({ uploadToken: 'fresh-test-token', tokenExpiresAtMs: 12346 }),
+    inspectObject: async () => ({ sizeBytes: 1234, mime: 'audio/webm;codecs=opus', etag: 'sealed-etag' }),
+  }, env: { IVPREP_ENABLED: 'true', IVPREP_ADMIN_CANARY_ENABLED: 'true', MMHQ_SESSION_SECRET: 's'.repeat(64), MMHQ_CIE_BASE: 'https://media.test' } });
+  const invoke = async (path, body, { method = 'POST', roles = ['student'], actorId = 42, csrf = true } = {}) => {
+    const response = new ResponseCapture();
+    await route({ ...base, request: request(method, body, csrf ? { origin: 'https://hq.test', 'x-mmhq-csrf': 'a'.repeat(24) } : {}), response,
+      url: new URL(`https://hq.test/api/ivoc/v1/${path}`), hqSession: session(actorId, roles) });
+    return response;
+  };
+  return { repo, rows, sid, pid, ownedSession, invoke, completions: () => storageCompletions,
+    allocate: () => invoke(`sessions/${sid}/candidate-audio`, { parentRecordingId: pid, captureVersion: 'direct-mic-v1', mime: 'audio/webm;codecs=opus', owner_subject: 'wp:7', analysisEligibility: 'VERIFIED' }),
+  };
+}
+
+test('candidate capture is server-bound, one per owned parent, and cannot replace replay', async () => {
+  const h = candidateCaptureHarness();
+  const created = await h.allocate();
+  assert.equal(created.status, 201);
+  const child = created.json();
+  assert.equal(child.recordingRole, 'candidate_audio');
+  assert.equal(child.parentRecordingId, h.pid);
+  assert.equal(child.captureReceipt.analysisEligibility, 'UNVERIFIED');
+  assert.equal(h.rows[1].owner_subject, 'wp:42');
+  assert.doesNotMatch(created.body, /private\/|pending-multipart/);
+  const recovered = await h.allocate();
+  assert.equal(recovered.status, 200);
+  assert.equal(recovered.json().id, child.id);
+  assert.equal(recovered.json().uploadToken, 'fresh-test-token');
+  assert.equal(h.rows.length, 2);
+  for (const suffix of ['playback-url', 'playback']) {
+    assert.equal((await h.invoke(`recordings/${child.id}/${suffix}`, null, { method: 'GET' })).status, 404);
+  }
+  const detail = await h.invoke(`sessions/${h.sid}`, null, { method: 'GET' });
+  assert.equal(detail.json().recording.id, h.pid);
+});
+
+test('candidate allocation denies foreign actors, inactive parents, bad contracts and missing CSRF before storage', async () => {
+  for (const scenario of ['foreign', 'inactive', 'child-parent', 'bad-mime', 'csrf']) {
+    const h = candidateCaptureHarness();
+    if (scenario === 'inactive') h.ownedSession.state = 'saved';
+    if (scenario === 'child-parent') h.rows[0].recording_role = 'candidate_audio';
+    const response = await h.invoke(`sessions/${h.sid}/candidate-audio`, { parentRecordingId: h.pid, captureVersion: 'direct-mic-v1', mime: scenario === 'bad-mime' ? 'video/webm' : 'audio/webm' },
+      { actorId: scenario === 'foreign' ? 7 : 42, csrf: scenario !== 'csrf' });
+    assert.ok([400, 403, 404].includes(response.status), scenario);
+    assert.equal(h.rows.length, 1);
+  }
+});
+
+test('candidate seal validates clock before storage and cannot overwrite a sealed receipt on retry', async () => {
+  const h = candidateCaptureHarness();
+  const child = (await h.allocate()).json();
+  const body = { mime: 'audio/webm;codecs=opus', sizeBytes: 1234, durationMs: 1000,
+    captureTiming: { recordingStartSessionMs: 140, recordingDurationMs: 1000, playableDurationMs: null, pausedSpans: [] } };
+  assert.equal((await h.invoke(`recordings/${child.id}/seal`, { ...body, captureTiming: null })).status, 400);
+  assert.equal(h.completions(), 0);
+  const sealed = await h.invoke(`recordings/${child.id}/seal`, body);
+  assert.equal(sealed.status, 200);
+  assert.equal(sealed.json().recording.captureReceipt.status, 'SEALED');
+  assert.equal(sealed.json().recording.captureReceipt.analysisEligibility, 'UNVERIFIED');
+  assert.equal(h.completions(), 1);
+  const retried = await h.invoke(`recordings/${child.id}/seal`, { ...body, sizeBytes: 9999, durationMs: 9000 });
+  assert.equal(retried.status, 200);
+  assert.equal(retried.json().recording.sizeBytes, 1234);
+  assert.equal(h.completions(), 1);
+  const rewritten = await h.invoke(`recordings/${child.id}/media`, {}, { method: 'PUT' });
+  assert.equal(rewritten.status, 409);
+});
+
 test('status-only review preserves stored notes without replaying stale note content', async () => {
   const repo = repository();
   const stored = { id: 'review-1', status: 'assigned', notes: ['Existing mentor note'] };

@@ -14,6 +14,26 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Candidate microphone custody preparation:** separate original-mic capture,
+  independent private upload/seal/retry and shared-clock start offsets are built;
+  the full two-sided replay stays authoritative and source rows cannot replace it.
+  Source receipts remain client-declared / UNVERIFIED, never semantic permission.
+  Independent review found and passed fixes for lost allocation response,
+  completed-object reconciliation and late retry destroying a newer capture.
+  The first release keeps capture disabled to establish a source-aware rollback
+  before activation. Actual capture and coaching restoration remain unverified.
+  Additive CLI-generated migration `20261002012644_ivoc_candidate_audio_capture`
+  rehearsed on sanctioned development `mwyqdupgalpvtupceozz`: service-role
+  allocation/seal, immutable owner/sealed receipt and NULL rejection passed in
+  a rolled-back synthetic transaction, zero test rows remain. FORCE RLS and
+  revoked browser grants unchanged. Production preimage: 21 recording rows,
+  18 saved; original columns and grants read back. Production migration pending.
+- **Containment independent live PASS:** genuine Founder/Admin actual UI showed
+  unavailable unsafe coaching, retained measured Analytics and provisional
+  Film Room conversation, paused playback, exact question/version retry. Admin
+  student selector starts blank, refresh retains selected subject, Results and
+  Film Room name that subject; exiting Admin clears review media and controls.
+  Audible playback and review writes remain UNVERIFIED (not attempted).
 - **P1 candidate-speech attribution reopened:** independent synthetic route →
   transcription → semantic → persistence reproduction proves the whole two-sided
   recording can label interviewer words as student answers. This is an engineering

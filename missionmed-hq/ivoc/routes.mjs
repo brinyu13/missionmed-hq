@@ -12,6 +12,7 @@ import { createStoryForgeProjectionSource } from './storyforge-projection.mjs';
 import { createRiseProgramProjectionSource } from './rise-projection.mjs';
 import { createIvocRepository } from './repository.mjs';
 import { createIvocStorage } from './storage.mjs';
+import { allocateCandidateCapture, isCandidateAudio, isConversationRecording, publicCaptureReceipt, sealCandidateCapture } from './candidate-audio.mjs';
 import {
   assertAnswerSegment,
   assertAnswerAssetOwner,
@@ -158,6 +159,8 @@ function publicRecording(row) {
     sizeBytes: row.size_bytes, durationMs: row.duration_ms, sealedAt: row.sealed_at,
     pausedSpans: Array.isArray(row.paused_spans) ? row.paused_spans : [],
     createdAt: row.created_at,
+    recordingRole: row.recording_role || 'conversation',
+    ...(isCandidateAudio(row) ? { parentRecordingId: row.parent_recording_id, captureReceipt: publicCaptureReceipt(row.capture_receipt) } : {}),
   };
 }
 
@@ -501,10 +504,10 @@ async function writeAnswerAsset({ db, actor, assetId, input, existing = null }) 
   if (!(write.status === 'revoked' && existing)) {
     const [sessionRow, recording, segment] = await Promise.all([
       db.single(`ivoc_sessions?id=eq.${write.sessionId}&owner_subject=eq.${encodeURIComponent(actor)}&select=id,owner_subject,question_id&limit=1`),
-      db.single(`ivoc_recordings?id=eq.${write.recordingId}&owner_subject=eq.${encodeURIComponent(actor)}&status=eq.saved&select=id,session_id,owner_subject,duration_ms&limit=1`),
+      db.single(`ivoc_recordings?id=eq.${write.recordingId}&owner_subject=eq.${encodeURIComponent(actor)}&status=eq.saved&recording_role=eq.conversation&select=id,session_id,owner_subject,duration_ms,recording_role&limit=1`),
       db.single(`ivoc_answer_segments?segment_id=eq.${encodeURIComponent(write.answerSegmentId)}&subject_id=eq.${encodeURIComponent(actor)}&select=segment_id,session_id,subject_id,question,answer,media_ref&limit=1`),
     ]);
-    if (!sessionRow || !recording || !segment
+    if (!sessionRow || !isConversationRecording(recording) || !segment
         || recording.session_id !== sessionRow.id || segment.session_id !== sessionRow.id
         || segment.media_ref !== `recording:${recording.id}`
         || write.endMs > Number(recording.duration_ms || -1)
@@ -800,6 +803,7 @@ export function createIvocHandler({
   fetchImpl = fetch,
   contextProvider = null,
   applicationIntelligence = null,
+  candidateAudioCaptureEnabled = false,
 } = {}) {
   const mediaBase = '';
   const db = repository || createIvocRepository({
@@ -907,6 +911,7 @@ export function createIvocHandler({
           identity: { subject: actor, displayName: displayName(hqSession), roles: rolesOf(hqSession), admin: isAdmin(hqSession, admission), mentor: isMentor(hqSession) },
           entitlement: { admitted: true, founder: admission.entitlement?.founder === true, voice: true, video: admission.entitlement?.video === true },
           capabilities: {
+            candidateAudioCapture: candidateAudioCaptureEnabled === true,
             contextSources: {
               storyForge: { connected: Boolean(storyForgeSource), requiresAuthorizedData: true },
               rise: { connected: Boolean(riseSource), requiresProgramSelection: true },
@@ -1145,7 +1150,7 @@ export function createIvocHandler({
         const recording = asset?.status !== 'revoked'
           ? await db.single(`ivoc_recordings?id=eq.${asset.recording_id}&owner_subject=eq.${encodeURIComponent(actor)}&status=eq.saved&select=*&limit=1`)
           : null;
-        if (!asset || !recording) {
+        if (!asset || !isConversationRecording(recording)) {
           await audit({ actor, owner: asset?.owner_subject, recordingId: asset?.recording_id, action: 'answer_asset_playback', decision: 'deny', reason: asset?.status === 'revoked' ? 'revoked' : 'not_owner' });
           sendError(response, 404, 'not_found', mediaBase); return true;
         }
@@ -1456,6 +1461,42 @@ export function createIvocHandler({
         }, mediaBase); return true;
       }
 
+      match = pathname.match(/^\/api\/ivoc\/v1\/sessions\/([0-9a-f-]{36})\/candidate-audio$/u);
+      if (request.method === 'POST' && match) {
+        if (candidateAudioCaptureEnabled !== true) { sendError(response, 503, 'candidate_audio_capture_unavailable', mediaBase); return true; }
+        const sessionId = match[1];
+        const sessionRow = await db.single(`ivoc_sessions?id=eq.${sessionId}&select=*&limit=1`);
+        if (!sessionRow || sessionRow.owner_subject !== actor) { sendError(response, 404, 'not_found', mediaBase); return true; }
+        const input = await readJson(request);
+        if (!/^[0-9a-f-]{36}$/u.test(input.parentRecordingId || '')) { sendError(response, 400, 'candidate_audio_parent_invalid', mediaBase); return true; }
+        const parent = await db.single(`ivoc_recordings?id=eq.${input.parentRecordingId}&select=*&limit=1`);
+        if (!parent || parent.owner_subject !== actor) { sendError(response, 404, 'not_found', mediaBase); return true; }
+        const recordingId = randomUUID();
+        const captureReceipt = allocateCandidateCapture({ input, parent, session: sessionRow, actor, recordingId, allocatedAt: new Date(now()).toISOString() });
+        const existing = await db.single(`ivoc_recordings?parent_recording_id=eq.${parent.id}&recording_role=eq.candidate_audio&select=*&limit=1`);
+        if (existing) {
+          if (existing.owner_subject !== actor || existing.session_id !== sessionId || existing.mime_type !== input.mime
+            || !isCandidateAudio(existing) || !['uploading', 'saved'].includes(existing.status)) {
+            sendError(response, 409, 'candidate_audio_capture_closed', mediaBase); return true;
+          }
+          const token = existing.status === 'uploading' ? media.renewUpload({ recordingId: existing.id, objectKey: existing.storage_object_key }) : null;
+          sendJson(response, 200, { ...publicRecording(existing), ...(token ? {
+            uploadUrl: `${API_PREFIX}/recordings/${existing.id}/media`, uploadToken: token.uploadToken,
+            uploadExpiresAt: token.expiresAt, uploadExpiresAtMs: token.tokenExpiresAtMs,
+          } : {}) }, mediaBase); return true;
+        }
+        const upload = await media.createUpload({ ownerSubject: actor, recordingId, extension: extensionForMime(input.mime), mime: input.mime });
+        const row = await db.insert('ivoc_recordings', {
+          id: recordingId, session_id: sessionId, owner_subject: actor, storage_object_key: upload.objectKey,
+          status: 'uploading', mime_type: input.mime, etag: upload.uploadState,
+          recording_role: 'candidate_audio', parent_recording_id: parent.id, capture_receipt: captureReceipt,
+        });
+        await audit({ actor, owner: actor, sessionId, recordingId, action: 'candidate_audio_allocate', decision: 'allow', reason: 'owned_conversation_parent' });
+        sendJson(response, 201, { ...publicRecording(row), uploadUrl: `${API_PREFIX}/recordings/${recordingId}/media`,
+          uploadToken: upload.uploadToken, uploadExpiresAt: upload.expiresAt, uploadExpiresAtMs: upload.tokenExpiresAtMs,
+        }, mediaBase); return true;
+      }
+
       match = pathname.match(/^\/api\/ivoc\/v1\/sessions\/([0-9a-f-]{36})\/recordings$/u);
       if (request.method === 'POST' && match) {
         const sessionId = match[1];
@@ -1468,6 +1509,7 @@ export function createIvocHandler({
         const row = await db.insert('ivoc_recordings', {
           id: recordingId, session_id: sessionId, owner_subject: actor, storage_object_key: upload.objectKey,
           status: 'uploading', mime_type: mime, etag: upload.uploadState,
+          recording_role: 'conversation',
         });
         sendJson(response, 201, {
           ...publicRecording(row),
@@ -1483,6 +1525,7 @@ export function createIvocHandler({
         const recordingId = match[1];
         const row = await db.single(`ivoc_recordings?id=eq.${recordingId}&select=*&limit=1`);
         if (!row || row.owner_subject !== actor) { await audit({ actor, recordingId, action: 'recording_media_upload', decision: 'deny', reason: 'not_owner' }); sendError(response, 404, 'not_found', mediaBase); return true; }
+        if (row.status !== 'uploading') { sendError(response, 409, 'recording_upload_closed', mediaBase); return true; }
         const expiresAtMs = Number(request.headers['x-ivoc-upload-expires']);
         const tokenValid = media.validateUploadToken({ recordingId, objectKey: row.storage_object_key, expiresAtMs, uploadToken: request.headers['x-ivoc-upload-token'] });
         if (!tokenValid) { sendError(response, 403, 'recording_upload_token_invalid', mediaBase); return true; }
@@ -1527,12 +1570,26 @@ export function createIvocHandler({
         const input = await readJson(request);
         const tokenValid = media.validateUploadToken({ recordingId, objectKey: row.storage_object_key, expiresAtMs: Number(input.uploadExpiresAtMs), uploadToken: input.uploadToken });
         if (!tokenValid) { sendError(response, 403, 'recording_upload_token_invalid', mediaBase); return true; }
-        const completed = await media.completeUpload({ objectKey: row.storage_object_key, uploadState: row.etag });
+        if (row.status === 'saved') { sendJson(response, 200, { recording: publicRecording(row) }, mediaBase); return true; }
+        if (row.status !== 'uploading') { sendError(response, 409, 'recording_upload_closed', mediaBase); return true; }
+        const sealedAt = new Date(now()).toISOString();
+        // Validate before any storage completion. Custody remains UNVERIFIED for
+        // coaching until the separate attribution/prompt-binding gate is proven.
+        const captureReceipt = isCandidateAudio(row) ? sealCandidateCapture(row, input, { sealedAt, etag: null }) : null;
+        const completed = await media.completeUpload({ objectKey: row.storage_object_key, uploadState: row.etag, recoverCompleted: isCandidateAudio(row) });
+        if (captureReceipt) {
+          const actual = await media.inspectObject(row.storage_object_key);
+          if (actual.sizeBytes !== input.sizeBytes || actual.mime.toLowerCase() !== row.mime_type.toLowerCase() || !actual.etag) {
+            sendError(response, 409, 'candidate_audio_object_mismatch', mediaBase); return true;
+          }
+          completed.etag = actual.etag;
+        }
         if (requireHead && !(await media.verifyObject(row.storage_object_key))) { sendError(response, 409, 'recording_media_not_confirmed', mediaBase); return true; }
         const saved = await db.update(`ivoc_recordings?id=eq.${recordingId}&owner_subject=eq.${encodeURIComponent(actor)}&select=*`, {
           status: 'saved', size_bytes: Math.max(0, Math.trunc(Number(input.sizeBytes) || 0)),
           duration_ms: Math.max(0, Math.trunc(Number(input.durationMs) || 0)), mime_type: safeText(input.mime, 120) || row.mime_type,
-          sealed_at: new Date(now()).toISOString(), paused_spans: Array.isArray(input.pausedSpans) ? input.pausedSpans : [], etag: completed.etag || null,
+          sealed_at: sealedAt, paused_spans: captureReceipt?.timing.pausedSpans || (Array.isArray(input.pausedSpans) ? input.pausedSpans : []), etag: completed.etag || null,
+          ...(captureReceipt ? { capture_receipt: { ...captureReceipt, etag: completed.etag || null } } : {}),
         });
         await audit({ actor, owner: actor, sessionId: row.session_id, recordingId, action: 'recording_seal', decision: 'allow', reason: requireHead ? 'head_confirmed' : 'signed_upload_completed' });
         sendJson(response, 200, { recording: publicRecording(saved) }, mediaBase); return true;
@@ -1617,14 +1674,14 @@ export function createIvocHandler({
           rows = ids.length ? await db.request(`ivoc_sessions?id=in.(${ids.join(',')})&select=*&order=created_at.desc&limit=200`) : [];
         } else rows = await db.request(`ivoc_sessions?owner_subject=eq.${encodeURIComponent(actor)}&select=*&order=created_at.desc&limit=200`);
         const ids = rows.map((r) => r.id);
-        const recordings = ids.length ? await db.request(`ivoc_recordings?session_id=in.(${ids.join(',')})&select=*`) : [];
+        const recordings = ids.length ? await db.request(`ivoc_recordings?session_id=in.(${ids.join(',')})&recording_role=eq.conversation&select=*`) : [];
         const results = ids.length ? await db.request(`ivoc_results?session_id=in.(${ids.join(',')})&select=*`) : [];
         const reviews = ids.length ? await db.request(`ivoc_reviews?session_id=in.(${ids.join(',')})&status=neq.revoked&select=session_id,status,mentor_subject,reviewed_at,assigned_by_subject`) : [];
         const segments = ids.length ? await db.request(`ivoc_answer_segments?session_id=in.(${ids.join(',')})&select=session_id,transcript_ref`) : [];
         const evidence = ids.length ? await db.request(`ivoc_coaching_evidence?session_id=in.(${ids.join(',')})&select=session_id,dimension`) : [];
         sendJson(response, 200, { sessions: rows.map((row) => publicSession(
           row,
-          recordings.find((x) => x.session_id === row.id),
+          recordings.find((x) => x.session_id === row.id && isConversationRecording(x)),
           results.find((x) => x.session_id === row.id),
           reviews.find((x) => x.session_id === row.id),
           null,
@@ -1637,7 +1694,7 @@ export function createIvocHandler({
       if (request.method === 'GET' && match) {
         const row = await db.single(`ivoc_sessions?id=eq.${match[1]}&select=*&limit=1`);
         if (!(await canReadSession({ row, actor, session: hqSession, admission }))) { await audit({ actor, owner: row?.owner_subject, sessionId: match[1], action: 'session_read', decision: 'deny', reason: 'scope' }); sendError(response, 404, 'not_found', mediaBase); return true; }
-        const recording = await db.single(`ivoc_recordings?session_id=eq.${row.id}&select=*&limit=1`);
+        const recording = await db.single(`ivoc_recordings?session_id=eq.${row.id}&recording_role=eq.conversation&select=*&limit=1`);
         const result = await db.single(`ivoc_results?session_id=eq.${row.id}&select=*&limit=1`);
         const review = await db.single(`ivoc_reviews?session_id=eq.${row.id}&status=neq.revoked&select=status,reviewed_at&limit=1`);
         const spine = await readPublicSpine(db, row.id);
@@ -1649,7 +1706,7 @@ export function createIvocHandler({
       if (request.method === 'GET' && match) {
         const recording = await db.single(`ivoc_recordings?id=eq.${match[1]}&status=eq.saved&select=*&limit=1`);
         const sessionRow = recording ? await db.single(`ivoc_sessions?id=eq.${recording.session_id}&select=*&limit=1`) : null;
-        if (!recording || !(await canReadSession({ row: sessionRow, actor, session: hqSession, admission }))) { await audit({ actor, owner: recording?.owner_subject, recordingId: match[1], action: 'recording_playback', decision: 'deny', reason: 'scope' }); sendError(response, 404, 'not_found', mediaBase); return true; }
+        if (!isConversationRecording(recording) || !(await canReadSession({ row: sessionRow, actor, session: hqSession, admission }))) { await audit({ actor, owner: recording?.owner_subject, recordingId: match[1], action: 'recording_playback', decision: 'deny', reason: 'scope' }); sendError(response, 404, 'not_found', mediaBase); return true; }
         const disposition = url.searchParams.get('disposition') === 'attachment' ? 'attachment' : 'inline';
         const playback = media.createPlayback({ recordingId: recording.id, objectKey: recording.storage_object_key, disposition });
         await audit({ actor, owner: recording.owner_subject, sessionId: recording.session_id, recordingId: recording.id, action: 'recording_playback', decision: 'allow', reason: recording.owner_subject === actor ? 'owner' : 'authorized_review' });
@@ -1661,7 +1718,7 @@ export function createIvocHandler({
       if (['GET', 'HEAD'].includes(request.method) && match) {
         const recording = await db.single(`ivoc_recordings?id=eq.${match[1]}&status=eq.saved&select=*&limit=1`);
         const sessionRow = recording ? await db.single(`ivoc_sessions?id=eq.${recording.session_id}&select=*&limit=1`) : null;
-        if (!recording || !(await canReadSession({ row: sessionRow, actor, session: hqSession, admission }))) { sendError(response, 404, 'not_found', mediaBase); return true; }
+        if (!isConversationRecording(recording) || !(await canReadSession({ row: sessionRow, actor, session: hqSession, admission }))) { sendError(response, 404, 'not_found', mediaBase); return true; }
         const disposition = url.searchParams.get('disposition') === 'attachment' ? 'attachment' : 'inline';
         const tokenValid = media.validatePlaybackToken({
           recordingId: recording.id,
