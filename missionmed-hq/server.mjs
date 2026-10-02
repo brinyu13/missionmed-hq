@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { readUsceSessionFromHeaders } from './lib/usce-session-token.mjs';
 import { copyFileSync, createReadStream, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import path from 'node:path';
@@ -1047,12 +1048,24 @@ function createSessionRecord(user, authContext = {}, authSource) {
     expiresAt: expiresAt.toISOString(),
     csrfToken: base64UrlEncode(randomBytes(18)),
     authSource,
+    ...(process.env.MMHQ_USCE_GATEWAY_CHILD === '1' && authContext.audience === 'usce_admin' ? { audience: 'usce_admin', apiScope: 'usce_admin' } : {}),
     wpAuthorization: String(authContext.wpAuthorization || '').trim(),
     user,
   };
 }
 
 function readSessionFromRequest(request) {
+  const usceRequest = String(request.url || '').split('?')[0].startsWith('/api/usce/');
+  if (process.env.MMHQ_USCE_GATEWAY_CHILD === '1' || usceRequest) {
+    try {
+      return readUsceSessionFromHeaders({
+        headers: request.headers, key: SESSION_KEY,
+        cookieName: CONFIG.sessionCookieName, now: Date.now,
+      });
+    } catch {
+      return null;
+    }
+  }
   const bearerToken = extractBearerToken(request.headers.authorization || request.headers.Authorization || '');
   if (bearerToken) {
     try {
@@ -2067,11 +2080,17 @@ async function handleApiRoute(request, response, url, context) {
   }
 
   if (pathname === '/api/auth/session') {
+    const isolatedUsce = process.env.MMHQ_USCE_GATEWAY_CHILD === '1';
+    const requestedUsceAudience = String(searchParams.get('audience') || searchParams.get('aud') || 'usce_admin').trim().toLowerCase();
+    if (isolatedUsce && requestedUsceAudience !== 'usce_admin') {
+      sendJson(response, 400, { error: 'invalid_auth_audience' }, authHeaders);
+      return;
+    }
     const handoffToken = String(searchParams.get('token') || '').trim();
     const finalRedirect = resolveAuthSessionFinalRedirect(searchParams.get('final'), request);
 
     if (handoffToken) {
-      const exchange = await exchangeWordPressAuth({ token: handoffToken }, request);
+      const exchange = await exchangeWordPressAuth({ token: handoffToken, ...(isolatedUsce ? { audience: 'usce_admin' } : {}) }, request);
       if (!exchange.ok || !exchange.session) {
         sendJson(response, exchange.status || 401, {
           error: 'auth_exchange_failed',
@@ -6852,7 +6871,7 @@ async function ensureSupabaseAuthUser(email, password, session = null) {
   };
 }
 
-function parseWordPressHandoffToken(wpToken = '') {
+function parseWordPressHandoffToken(wpToken = '', expectedUsceAudience = '') {
   // WordPress handoff tokens are signed payloads, not bearer tokens from /auth/token.
   const rawToken = String(wpToken || '').trim();
   const parts = rawToken.match(/^([A-Za-z0-9_-]+)\.([a-fA-F0-9]{64})$/u);
@@ -6925,6 +6944,11 @@ function parseWordPressHandoffToken(wpToken = '') {
     };
   }
 
+  const declaredAudience = String(payload?.auth_audience || '').trim().toLowerCase();
+  if (expectedUsceAudience === 'usce_admin' && declaredAudience && declaredAudience !== expectedUsceAudience) {
+    return { ok: false, recognized: true, status: 401, error: 'handoff_audience_mismatch' };
+  }
+
   const wpUser = normalizeWordPressUser({
     id: payload?.wp_user_id || payload?.id,
     username: payload?.username || payload?.login,
@@ -6964,7 +6988,7 @@ async function exchangeWordPressAuth(payload = {}, request = null) {
   const wpToken = String(payload.wpToken || payload.token || payload.bearerToken || '').trim();
 
   if (wpToken) {
-    const handoff = parseWordPressHandoffToken(wpToken);
+    const handoff = parseWordPressHandoffToken(wpToken, process.env.MMHQ_USCE_GATEWAY_CHILD === '1' && payload.audience === 'usce_admin' ? 'usce_admin' : '');
     if (handoff.ok && handoff.user) {
       const wpUser = handoff.user;
       return {
@@ -6981,6 +7005,7 @@ async function exchangeWordPressAuth(payload = {}, request = null) {
           },
           {
             wpAuthorization: getWordPressServiceAuthorization(),
+            ...(process.env.MMHQ_USCE_GATEWAY_CHILD === '1' && payload.audience === 'usce_admin' ? { audience: 'usce_admin' } : {}),
           },
           'wordpress-handoff',
         ),
