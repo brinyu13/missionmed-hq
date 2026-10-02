@@ -2191,6 +2191,8 @@ export function initializeAnalyticsUi(bridge, { surfaceIds = {}, overlayPolicy =
   if (overlayPolicy) studentOverlay.configure(overlayPolicy);
   const api = Object.freeze({
     beginAnswer: (options) => pipeline.beginAnswer(options),
+    beginFaceBaseline: () => pipeline.beginPersonalFaceBaseline(),
+    endFaceBaseline: () => pipeline.endPersonalFaceBaseline(),
     prepareEnd: (endAt) => pipeline.prepareEnd(endAt),
     endAnswer: (options) => pipeline.endAnswer(options),
     abandonAnswer: (reason) => pipeline.abandonAnswer(reason),

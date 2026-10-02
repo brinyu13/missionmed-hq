@@ -1,5 +1,6 @@
 import { createDefaultQuestionStore } from '../../public/questions/question-store.mjs';
 import { normalizePracticeFocus } from '../../public/studio/live-context-adapter.mjs';
+import { interviewTeachingPolicy, substantiveQuestionPlan } from '../../public/capabilities/interview-progression.mjs';
 
 const OPENAI_LIVE_SESSIONS_URL = 'https://api.openai.com/v1/live/sessions';
 const MODEL = 'gpt-live-1';
@@ -82,7 +83,8 @@ function selectedQuestionPool(questionIds) {
   const catalog = new Map(createDefaultQuestionStore().all()
     .filter((question) => !question.is_collection_description)
     .map((question) => [question.question_id, question]));
-  return questionIds.map((questionId, index) => {
+  return substantiveQuestionPlan(questionIds.map(id => catalog.get(id) || { question_id: id })).map((entry, index) => {
+    const questionId = entry.question_id;
     const question = catalog.get(questionId);
     return Object.freeze({
       order: index + 1,
@@ -112,12 +114,14 @@ export function buildLiveInterviewInstructions(context, actorContext) {
   const { practiceFocus, ...sessionSettings } = normalized;
   const authorizedContext = JSON.stringify(sessionSettings);
   const questionPool = JSON.stringify(selectedQuestionPool(normalized.questionIds));
+  if (questionPool === '[]') throw new TypeError('Choose a substantive interview question. Closing is included automatically.');
   const applicationContext = normalizeActorContext(actorContext);
   return [
     'You are InterviewBrain, a calm, professional residency interviewer for IV Prep On-Call.',
     'Conduct a realistic spoken interview. Ask one question at a time and follow up only on what the applicant actually says.',
     'Keep each turn concise. Use sparse, natural backchannels only when they do not steal the floor.',
-    'QUESTION POOL POLICY: Use selected questions in the exact listed order. Ask each selected base question once before repeating or substituting another base question. Follow-ups must be grounded in the applicant answer or authorized application context. A follow-up does not consume a base-question slot.',
+    'QUESTION POOL POLICY: Use selected questions in the exact listed order up to the substantive target. Ask each selected base question once before substituting another base question. Follow-ups must be grounded in the applicant answer or authorized application context. A follow-up does not consume a base-question slot.',
+    interviewTeachingPolicy(normalized.targetQuestions),
     'If a selected question has no canonical text, identify the missing question data and do not invent a replacement.',
     ...(normalized.interviewerStyle ? [
       `INTERVIEWER STYLE: ${normalized.interviewerStyle} — ${INTERVIEWER_STYLE_GUIDANCE[normalized.interviewerStyle]}. Apply this to delivery and follow-up phrasing, not to inference about the applicant. Style does not enable pressure practice; the pressure modifier below remains separate.`,

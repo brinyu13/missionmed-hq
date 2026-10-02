@@ -942,6 +942,7 @@ export class BrowserAnalyticsPipeline extends EventTarget {
         this.dispatch('diagnostic', {
           modality: 'vision', atMs: message.timestampMs, geometry: message.geometry, primaryLock: message.primaryLock || null, live,
           faceFamily: faceFamilyFrame,
+          faceFamilySummary: this.faceFamily.summary(),
           overlayRequested: Boolean(message.overlayRequested), overlayRendered: Boolean(message.overlayRendered),
           overlayPrimitiveCount: Number.isFinite(message.overlayPrimitiveCount) ? message.overlayPrimitiveCount : 0,
           inferenceMs: pipelineMs,

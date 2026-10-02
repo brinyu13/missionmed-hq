@@ -75,6 +75,7 @@ export class LiveInterviewSession {
     this.remoteAudioTrackId = null;
     this.openingQuestion = null;
     this.openingRequested = false;
+    this.closingRequested = false;
     this.startGeneration = 0;
     this.cancelStart = null;
     this.overallStartTimer = null;
@@ -163,6 +164,16 @@ export class LiveInterviewSession {
     return true;
   }
 
+  requestClosing(content) {
+    if (this.closingRequested) return false;
+    if (this.state !== 'active' || this.channel?.readyState !== 'open') throw new Error('The interviewer is not connected. You can still finish and save.');
+    if (typeof content !== 'string' || content.length > 1800) throw new TypeError('A bounded closing instruction is required.');
+    this.channel.send(JSON.stringify({ type: 'session.instructions.append', event_id: 'ivoc-candidate-questions', delegation_id: null, content }));
+    this.closingRequested = true;
+    // Receipt is not audible delivery. Recording continues until Finish.
+    return true;
+  }
+
   async start({ audioTrack, voice = 'marin', context, ivocSessionId, openingQuestion } = {}) {
     if (this.state !== 'idle' && this.state !== 'closed') throw new Error('A live interview is already active.');
     if (!audioTrack || audioTrack.kind !== 'audio' || audioTrack.readyState === 'ended') {
@@ -173,6 +184,7 @@ export class LiveInterviewSession {
     this.transcriptSequence = 0;
     this.activeTranscriptIds = { applicant: null, interviewer: null };
     this.openingQuestion = String(openingQuestion || '').trim();
+    this.closingRequested = false;
     if (!this.openingQuestion || this.openingQuestion.length > 1_000) {
       throw new TypeError('A bounded opening question is required.');
     }

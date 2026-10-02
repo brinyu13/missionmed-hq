@@ -52,7 +52,8 @@ test('the Studio overlay adapter is live and the rep boundary re-adopts late med
   assert.ok(start.indexOf('bindCockpitVideo();') < start.indexOf("evaluateReadiness() !== 'SESSION_READY'"),
     'Start rep must re-adopt a late shared stream before readiness and capture');
   const bind = studio.slice(studio.indexOf('function bindCockpitVideo()'), studio.indexOf('function wireCockpit()'));
-  assert.match(bind, /v\.srcObject = bridge\.media\.stream/u);
+  assert.ok(bind.includes("bindVideoSurface($('#cockpit-video'))"));
+  assert.match(studio, /video\.srcObject = bridge\.media\.stream/u);
   assert.match(bind, /state\.analytics\?\.onViewChange\?\.\(state\.view, state\.role === 'student' \? 'student' : 'admin'\)/u,
     'rebinding the stream must also self-heal the overlay surface');
 });
@@ -75,8 +76,13 @@ test('the Studio shell declares the approved Performance Studio hierarchy', () =
   for (const view of ['home', 'newsession', 'devicecheck', 'training', 'simulation',
     'postanswer', 'filmroom', 'compare', 'lab', 'mentor', 'progress', 'fingerprint', 'vault']) {
     assert.match(studioHtml, new RegExp(`data-view-panel="${view}"`, 'u'), `${view} screen missing`);
-    assert.match(studioHtml, new RegExp(`data-nav="${view}"`, 'u'), `${view} nav item missing`);
+    // Routes stay addressable; primary Student navigation need not expose every
+    // internal screen. Device proceed and session completion own runtime transitions.
+    if (!['training', 'simulation', 'filmroom'].includes(view)) {
+      assert.match(studioHtml, new RegExp(`data-(?:nav|goto)="${view}"`, 'u'), `${view} entry missing`);
+    }
   }
+  assert.ok(studioHtml.includes('id="post-open-filmroom"'), 'Film Room opens an actual selected recording');
   // The surface ids the proven analytics cockpit binds to must be present, or the
   // working telemetry silently detaches.
   for (const id of ['founder-student-video', 'founder-student-stage', 'founder-room-stage',
@@ -92,14 +98,17 @@ test('the Studio shell declares the approved Performance Studio hierarchy', () =
   assert.match(studioHtml, /id="communication-analytics-test-root" data-founder-only/u);
   assert.doesNotMatch(studioHtml, /data-view-panel="training" id="communication-analytics-test-root"/u,
     'the analytics root must not be the training panel itself');
-  assert.match(studio, /liveRoutes:\s*\{\s*training:/su, 'Coached Practice must bind the real student overlay controller');
+  assert.match(studio, /liveRoutes:\s*\{[\s\S]*?training:/u, 'Coached Practice must bind the real student overlay controller');
+  assert.match(studio, /devicecheck: \{ video: 'devicecheck-video'/u, 'Calibration must bind the same measurement source');
   assert.match(studio, /playbackViews:\s*\['filmroom'\]/u, 'Film Room must bind persisted playback overlays');
   assert.match(studio, /video:\s*'cockpit-video'/u);
   assert.match(studio, /stage:\s*'cockpit-stage'/u);
 });
 
 test('the Studio shell uses the canonical corpus and never the retired fixture', async () => {
-  assert.match(studio, /from '\.\.\/questions\/question-store\.mjs'/u);
+  const adapter = await readFile(new URL('../../public/studio/capability-adapter.mjs', import.meta.url), 'utf8');
+  assert.ok(studio.includes("from './capability-adapter.mjs'"));
+  assert.match(adapter, /from '\.\.\/questions\/question-store\.mjs'/u);
   assert.doesNotMatch(studio, /QUESTIONS.*fixtures\.mjs/u);
   const fixtures = await readFile(new URL('../../public/aaa/fixtures.mjs', import.meta.url), 'utf8');
   assert.doesNotMatch(fixtures, /export const QUESTIONS\b/u, 'the 10-question fixture must stay retired');

@@ -76,6 +76,20 @@ import {
 } from './presentation-view-model.mjs';
 import { clearAdminReviewMedia, createAdminReviewGate, isAdminReview, mayPresentSavedReview, resolveAdminStudentRefreshSelection, resolveReviewDestination, savedReviewHash, parseSavedReviewRoute, resolveOwnSavedReview } from './review-scope.mjs';
 import { mountAdminControls, mountAdminMentorControls } from './admin-controls.mjs';
+import { AnalyticsPreview } from '../capabilities/analytics-preview.mjs';
+import { InterviewProgression, substantiveQuestionPlan } from '../capabilities/interview-progression.mjs';
+import { MeasurementTimeline, renderMeasurementTimeline } from './flight-recorder-view.mjs';
+
+const interviewProgression = new InterviewProgression();
+const measurementTimeline = new MeasurementTimeline();
+let signalPreview = null;
+let signalRack = null;
+let signalPreviewStartedAt = null;
+let signalPreviewGeneration = 0;
+function canPreviewSignals() {
+  return state.view === 'devicecheck' && !['STARTING', 'RUNNING', 'FINISHING'].includes(state.session.state)
+    && !state.session.finishFailed;
+}
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -100,6 +114,7 @@ const state = {
   role: 'student',
   admission: null,
   analytics: null,
+  measurementTimeline,
   filmGroups: null,
   labGroups: null,
   interviewSet: [],
@@ -243,6 +258,7 @@ function setView(view, { focus = false } = {}) {
   }
   if (state.view === 'filmroom' && view !== 'filmroom') $('#playback')?.pause?.();
   if (state.view !== view) ++adminReviewViewGeneration;
+  if (view !== 'devicecheck') { ++signalPreviewGeneration; signalPreview?.stop('leaving'); }
   state.view = view;
   if (view !== 'devicecheck') state.calibrationStandalone = false;
   for (const panel of $$('[data-view-panel]')) {
@@ -1983,6 +1999,7 @@ function bindPreview() {
     if (!video) {
       video = document.createElement('video');
       video.autoplay = true; video.muted = true; video.playsInline = true;
+      if (stage === '#devicecheck-stage') video.id = 'devicecheck-video';
       host.append(video);
     }
     bindVideoSurface(video);
@@ -2220,6 +2237,7 @@ async function startRep() {
   }
   if (evaluateReadiness() !== 'SESSION_READY') return;
   state.filmGroups?.ingestResult({});
+  state.bus.reset(); measurementTimeline.reset();
   setSessionState('STARTING');
   try {
     if (state.admission?.runtime?.mode === 'hosted' && !state.durableAvailable) {
@@ -2279,6 +2297,7 @@ async function finishRep() {
       if (!analytics) return analytics;
       return Object.freeze({
         ...analytics,
+        flightRecorder: state.measurementTimeline?.snapshot(),
         deliveryIntelligence: Object.freeze({
           schema: 'ivoc.delivery-intelligence.view-model.v1',
           readouts: state.filmGroups?.readouts || Object.freeze({}),
@@ -2524,6 +2543,7 @@ function renderInterviewRoom() {
   if (camera.videoWidth && camera.videoHeight) room.style.setProperty('--room-camera-ratio', String(camera.videoWidth / camera.videoHeight));
   document.body.dataset.interviewImmersive = String(state.view === 'simulation' && model.immersive);
   $('#room-title').textContent = model.title;
+  if (!$('#room-flight-recorder').children.length) renderMeasurementTimeline($('#room-flight-recorder'), measurementTimeline.snapshot(), { compact: true });
   $('#room-summary').textContent = [buildInterviewerSelectionLabel(state.wizard), state.wizard.program || 'General interview', `${state.targetQuestions} target questions`].join(' · ');
   $('#room-interviewer-role').textContent = `${buildInterviewerSelectionLabel(state.wizard)} · Voice interview`;
   $('#room-preflight').hidden = model.immersive;
@@ -2533,7 +2553,11 @@ function renderInterviewRoom() {
   const end = $('#live-interview-end');
   end.hidden = !model.immersive;
   end.disabled = !model.canEnd;
-  end.querySelector('span').textContent = model.endLabel;
+  end.querySelector('span').textContent = model.phase === 'live' ? 'Finish & save' : model.endLabel;
+  const closing = $('#interview-closing');
+  closing.hidden = model.phase !== 'live';
+  closing.disabled = state.room.providerState !== 'active' || interviewProgression.phase === 'CANDIDATE_QUESTIONS';
+  closing.querySelector('span').textContent = interviewProgression.phase === 'CANDIDATE_QUESTIONS' ? 'Your questions · then Finish & save' : 'Questions for your interviewer';
   $('#admin-live-voice-audition').hidden = state.role !== 'admin' || model.immersive;
   const toggle = $('#room-analytics-toggle');
   toggle.setAttribute('aria-pressed', String(model.coached));
@@ -2561,7 +2585,7 @@ function renderInterviewRoom() {
   }
   if (state.view === 'simulation' && model.coached && !state.room.rack) {
     state.room.rack = new InstrumentRack();
-    for (const [host, metrics] of [['#room-visual-instruments', ['FACE', 'HANDS', 'FRAMING']], ['#room-voice-instruments', ['PACE', 'VOICE_LEVEL', 'PITCH']]]) {
+    for (const [host, metrics] of [['#room-visual-instruments', ['FACE', 'HANDS', 'FRAMING']], ['#room-voice-instruments', ['PACE', 'VOICE_LEVEL', 'PITCH', 'VOLUME_VARIATION']]]) {
       for (const id of metrics) { const cell = document.createElement('div'); $(host).append(cell); state.room.rack.mount(cell, id); }
     }
     state.room.rack.update(state.bus.latest);
@@ -2581,8 +2605,9 @@ async function startLiveInterview() {
     return false;
   }
   if (state.liveInterview?.sessionId || preserveInterviewLifecycle(state.session.state) || state.room.providerState === 'connecting' || state.session.finishFailed) return true;
-  if (!state.interviewSet.length) {
-    setLiveInterviewStatus({ state: 'error', detail: 'Choose at least one question before starting the live interview.' });
+  const substantivePlan = substantiveQuestionPlan(state.interviewSet);
+  if (!substantivePlan.length) {
+    setLiveInterviewStatus({ state: 'error', detail: 'Choose at least one substantive interview question. Questions for your interviewer is included automatically at the end.' });
     return false;
   }
   let preparedForLive = false;
@@ -2612,13 +2637,16 @@ async function startLiveInterview() {
     if (!state.durableAvailable) throw new Error('Secure account context is unavailable.');
     preparedForLive = !state.durable.accountSession;
     const prepared = await state.durable.prepare({
-      question: state.interviewSet[0] || null,
+      question: substantivePlan[0],
       interviewSet: state.interviewSet,
       wizard: state.wizard,
       targetQuestions: state.targetQuestions,
       interviewerProvider: 'openai-gpt-live',
     });
     const answer = state.analytics.beginAnswer({ videoElement: $('#founder-student-video') });
+    state.bus.reset();
+    measurementTimeline.reset();
+    interviewProgression.start();
     analyticsStarted = true;
     state.session.answerId = answer?.answerId ?? null;
     state.session.startedAt = Date.now();
@@ -2630,7 +2658,7 @@ async function startLiveInterview() {
     await state.durable.start({
       stream: state.conversationRecording.stream,
       candidateStream: bridge.media.stream,
-      question: state.interviewSet[0] || null,
+      question: substantivePlan[0],
       interviewSet: state.interviewSet,
       wizard: state.wizard,
       targetQuestions: state.targetQuestions,
@@ -2641,7 +2669,7 @@ async function startLiveInterview() {
       voice: selectedVoice,
       context: liveInterviewContext(),
       ivocSessionId: prepared.id,
-      openingQuestion: state.interviewSet[0]?.canonical_text,
+      openingQuestion: substantivePlan[0]?.canonical_text,
     });
     const save = $('#simulation-save');
     if (save) { save.dataset.state = 'active'; save.textContent = 'Secure account recording active.'; }
@@ -2680,6 +2708,18 @@ function wireLiveInterview() {
     ? 'Uses your selected interviewer, program, Question Pool, and authorized context.'
     : 'Live voice is not configured in this environment.' });
   $('#live-interview-start')?.addEventListener('click', () => { void startLiveInterview(); });
+  $('#interview-closing')?.addEventListener('click', () => {
+    const instruction = interviewProgression.requestClosing();
+    if (!instruction) return;
+    try {
+      state.liveInterview.requestClosing(instruction);
+      $('#simulation-save').textContent = 'Ask your questions. After the interviewer signs off, select Finish & save.';
+    } catch (error) {
+      interviewProgression.start();
+      $('#simulation-save').textContent = error.message;
+    }
+    renderInterviewRoom();
+  });
   $('#room-analytics-toggle')?.addEventListener('click', () => { state.room.showAnalytics = !roomModel().coached; renderInterviewRoom(); });
   $('#room-guides')?.addEventListener('change', (event) => { state.room.guides = event.target.checked; renderInterviewRoom(); });
   setInterval(() => {
@@ -3360,6 +3400,7 @@ async function mountAnalytics() {
       playback: 'playback',
       playbackViews: ['filmroom'],
       liveRoutes: {
+        devicecheck: { video: 'devicecheck-video', stage: 'devicecheck-stage', room: 'devicecheck-stage', wrapper: 'devicecheck-stage' },
         training: {
           video: 'cockpit-video',
           stage: 'cockpit-stage',
@@ -3377,6 +3418,21 @@ async function mountAnalytics() {
     overlayPolicy: { authorized: true, enabled: true, face: true, bodyHands: true, studentPrimary: true },
   });
   state.analytics.onViewChange(state.view, 'admin');
+  signalPreview = new AnalyticsPreview({
+    analytics: state.analytics,
+    canStart: canPreviewSignals,
+    onState: (status) => {
+      const active = ['measuring', 'exploring'].includes(status);
+      $('#signals-stop').hidden = !active;
+      $('#signals-start').disabled = active;
+      $('#signals-state').textContent = status === 'measuring'
+        ? 'First, relax your face for five seconds to establish your own baseline.'
+        : status === 'exploring' ? 'Now speak, pause, smile then relax, and move your hands naturally.'
+        : status === 'complete' ? 'Check complete. Review the measured signals below; missing signals do not block your interview.'
+          : 'Check stopped. Your interview is not being recorded.';
+      if (!active) signalRack?.stop();
+    },
+  });
 
   // Film Room and Analytics Lab both render the hierarchical groups. Two instances so
   // each surface keeps its own show/hide and solo state; both are display-only.
@@ -3405,6 +3461,13 @@ async function mountAnalytics() {
       state.rack?.update(frame);
       state.labRack?.update(frame);
       state.room.rack?.update(frame);
+      if (signalPreview?.active) signalRack?.update(frame);
+      const origin = signalPreview?.active ? signalPreviewStartedAt : state.durable?.recorder?.startedAt;
+      if (Number.isFinite(origin) && (signalPreview?.active || ['STARTING', 'RUNNING'].includes(state.session.state))) {
+        if (measurementTimeline.ingest(detail, frame, performance.now() - origin)) {
+          renderMeasurementTimeline($(signalPreview?.active ? '#signals-timeline' : '#room-flight-recorder'), measurementTimeline.snapshot(), { compact: true });
+        }
+      }
       renderStatusRail();
       renderCorrection();
     } catch { /* rendering must never break capture */ }
@@ -3472,6 +3535,27 @@ function wireChrome() {
   $('#q-search')?.addEventListener('input', (event) => { state.search = event.target.value; renderQuestions(); });
   $('#set-clear')?.addEventListener('click', () => { state.interviewSet = []; renderSet(); });
   $('#device-connect')?.addEventListener('click', () => void connectDevices());
+  $('#signals-start')?.addEventListener('click', async () => {
+    const generation = ++signalPreviewGeneration;
+    try {
+      if (!canPreviewSignals()) throw new Error('Finish and save your current recording before trying calibration.');
+      if (!state.analytics) throw new Error('Sign in and connect your camera and microphone first.');
+      await ensureVisibleVideoFrame($('#devicecheck-video'));
+      if (generation !== signalPreviewGeneration || !canPreviewSignals()) return;
+      const reason = startBlockedReason();
+      if (reason) throw new Error(reason);
+      state.bus.reset(); measurementTimeline.reset(); signalPreviewStartedAt = performance.now();
+      if (!signalRack) {
+        signalRack = new InstrumentRack();
+        for (const id of ['VOICE_LEVEL', 'PITCH', 'PACE', 'FACE', 'HANDS', 'FRAMING']) {
+          const cell = document.createElement('div'); $('#signals-instruments').append(cell); signalRack.mount(cell, id);
+        }
+      }
+      signalRack.update(state.bus.latest); signalRack.start();
+      signalPreview.start($('#devicecheck-video'));
+    } catch (error) { $('#signals-state').textContent = String(error.message || error); }
+  });
+  $('#signals-stop')?.addEventListener('click', () => { ++signalPreviewGeneration; signalPreview?.stop(); });
   $('#device-proceed')?.addEventListener('click', async () => {
     if (evaluateReadiness() !== 'SESSION_READY') { renderDeviceCheck(); return; }
     if (state.calibrationStandalone) { setView('home', { focus: true }); return; }
@@ -3992,6 +4076,8 @@ function renderEvidenceMomentLinks(result, refs) {
 }
 
 function renderFilmRoomSpine(session, envelope = null) {
+  const savedAnalytics = envelope?.analytics || session?.results?.payload?.analytics;
+  renderMeasurementTimeline($('#review-flight-recorder'), savedAnalytics?.flightRecorder, { playback: $('#playback') });
   const host = $('#filmroom-spine');
   if (!host) return;
   const selectedSession = session?.session || state.lastSaved?.session || null;

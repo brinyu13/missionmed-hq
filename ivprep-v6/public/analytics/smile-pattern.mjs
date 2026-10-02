@@ -73,6 +73,12 @@ export class SmilePatternEventDetector {
       return Object.freeze({ available: false, reason: 'SMILE_GEOMETRY_QUALITY_GATE', active: false, state });
     }
     this.observedFrames += 1;
+    // Never bridge a missing/low-quality face interval into a longer event.
+    if (this.lastValidAtMs !== null && time - this.lastValidAtMs > 1000) {
+      this.active = false; this.activeSinceMs = null; this.activeState = null;
+      this.activeEventRecorded = false; this.peakDelta = null; this.peakCheekDelta = null;
+    }
+    this.lastValidAtMs = time;
     const cheek = optionalFinite(cheekBilateral);
     if (this.baselineCapturing) {
       this.baselineSamples.push(value);
@@ -130,11 +136,16 @@ export class SmilePatternEventDetector {
           provenance: Object.freeze({ source: 'LOCAL_FACE_BLENDSHAPES', method: Number(this.peakCheekDelta) >= this.config.smileCheekOnDelta ? 'MOUTH_PLUS_CHEEK_PERSONAL_BASELINE_HYSTERESIS' : 'MOUTH_CORNER_PERSONAL_BASELINE_HYSTERESIS' }),
         });
         this.events.push(event);
+        this.totalEventCount += 1;
         if (this.events.length > this.maximumEvents) this.events.shift();
         this.lastEventAtMs = time;
         this.activeEventRecorded = true;
       }
       if (released) {
+        if (this.activeEventRecorded && this.events.length) {
+          const prior = this.events.at(-1);
+          this.events[this.events.length - 1] = Object.freeze({ ...prior, endMs: time, durationMs, complete: true });
+        }
         this.active = false;
         this.activeSinceMs = null;
         this.activeState = null;
@@ -153,7 +164,7 @@ export class SmilePatternEventDetector {
       fullFacePattern: this.active && cheekActive,
       state,
       event,
-      eventCount: this.events.length,
+      eventCount: this.totalEventCount,
       quality: Object.freeze({
         confidence: confidence >= 0.75 ? 'HIGH' : confidence >= 0.45 ? 'MODERATE' : 'LOW',
         coverage: 1,
@@ -168,7 +179,8 @@ export class SmilePatternEventDetector {
       reason: Number.isFinite(this.baseline) ? null : 'PERSONAL_BASELINE_REQUIRED',
       baseline: this.baseline,
       cheekBaseline: this.cheekBaseline,
-      eventCount: this.events.length,
+      eventCount: this.totalEventCount,
+      retainedEventCount: this.events.length,
       events: Object.freeze([...this.events]),
       observedFrames: this.observedFrames,
       claimBoundary: Number.isFinite(this.config.smileCheekOnDelta)
@@ -186,6 +198,8 @@ export class SmilePatternEventDetector {
     this.peakCheekDelta = null;
     this.lastEventAtMs = -Infinity;
     this.events = [];
+    this.totalEventCount = 0;
+    this.lastValidAtMs = null;
     this.observedFrames = 0;
     return this;
   }

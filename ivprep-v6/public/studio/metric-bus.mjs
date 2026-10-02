@@ -74,6 +74,11 @@ export class MetricBus extends EventTarget {
   #audio(d) {
     this.#frames.audio += 1;
     const out = {};
+    if (d.available === false) {
+      for (const id of ['VOICE_LEVEL', 'VOLUME_VARIATION', 'PITCH', 'PITCH_VARIATION', 'PACE', 'CADENCE', 'PAUSE']) out[id] = unavailable('MICROPHONE_UNAVAILABLE');
+      this.#lastSpeaking = null; this.#speechEdges = []; this.#level.clear(); this.#pitch.clear();
+      return out;
+    }
 
     // ---- VOICE LEVEL. Level and variation are separate observables by law: a loud
     // monotone must not read as good on variation.
@@ -199,16 +204,17 @@ export class MetricBus extends EventTarget {
   #vision(d) {
     this.#frames.vision += 1;
     const out = {};
-    const g = d.geometry || null;
+    const g = d.geometry?.primaryAssociated === true ? d.geometry : null;
     const ff = d.faceFamily || null;
 
     // ---- FACE: compact family status for the student. Individual lanes stay in
     // Analytics Lab / Film Room. Observable language only.
-    if (!ff?.available) {
+    if (!g || !ff?.available) {
       out.FACE = unavailable(ff?.reason === 'NO_FACE_BLENDSHAPES' ? 'NO_FACE_IN_FRAME' : 'NO_FACE_DATA');
     } else {
-      const mv = ff.movementVariability;
-      const dwell = ff.cameraDwell;
+      const mv = d.faceFamilySummary?.movementVariability;
+      // Eye-directed dwell is not head orientation and is not student eye contact.
+      const dwell = null;
       const smile = ff['FACE.SMILE'];
       const brow = ff['FACE.BROW'];
       out.FACE = Object.freeze({
@@ -218,9 +224,14 @@ export class MetricBus extends EventTarget {
         cameraFacingRatio: dwell?.available ? dwell.cameraFacingRatio : null,
         gazeReleases: dwell?.available ? dwell.gazeReleases : null,
         smileActive: smile?.availability === 'AVAILABLE' ? smile.active === true : null,
+        smileEvents: ff.smilePattern?.available ? ff.smilePattern.eventCount : null,
+        smilePatternActive: ff.smilePattern?.available ? ff.smilePattern.active === true : null,
         browActive: brow?.availability === 'AVAILABLE' ? brow.active === true : null,
         // Descriptive only. No target dwell, and no affect claim anywhere.
-        summary: mv?.available
+        summary: ff.smilePattern?.available ? ff.smilePattern.eventCount + ' smile patterns'
+          : smile?.availability === 'AVAILABLE'
+          ? (smile.active ? 'Mouth corners elevated' : 'Mouth corners at rest')
+          : mv?.available
           ? (mv.value > 0.06 ? 'Natural movement' : 'Low facial movement')
           : 'Measuring',
       });
@@ -240,6 +251,7 @@ export class MetricBus extends EventTarget {
         leftZone: hands.left?.zone ?? null,
         rightZone: hands.right?.zone ?? null,
         activity: left || right ? (left && right ? 'both' : 'single') : 'none',
+        moving: ['left', 'right', 'both'].includes(d.live?.gestureActive),
         // Explicit: classification is not implemented, so the UI must not imply it.
         gestureClassification: Object.freeze({ available: false, reason: 'NOT_IMPLEMENTED' }),
       });
@@ -248,7 +260,7 @@ export class MetricBus extends EventTarget {
     // ---- FRAMING: readiness, not raw geometry.
     const face = g?.face || null;
     const pose = g?.pose || null;
-    if (!face) {
+    if (!face?.present) {
       out.FRAMING = unavailable('NO_FACE_IN_FRAME');
     } else {
       const yaw = Number.isFinite(face.yawDeg) ? face.yawDeg : null;

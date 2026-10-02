@@ -29,24 +29,24 @@
     <div class="brand">IV Prep <span>On-Call</span></div>
     <div class="brand-sub microcap">Your interview workspace</div>
 
-    <button class="new-session btn-new-session" type="button" data-goto="newsession">
-      <span>Build Interview</span>
+    <button class="new-session btn-new-session" type="button" data-goto="newsession" data-launch-mode="ai">
+      <span>Start AI Mock</span>
     </button>
 
     <nav class="nav-group" aria-label="Interview workspace">
       <span class="microcap">Your interview workspace</span>
       <button class="nav-item" type="button" data-nav="home"><i class="ico">⌂</i>Home</button>
-      <button class="nav-item" type="button" data-nav="newsession"><i class="ico">＋</i>Build Interview</button>
-      <button class="nav-item" type="button" data-nav="newsession" data-open-mode="loadout"><i class="ico">▤</i>Question Library</button>
-      <button class="nav-item" type="button" data-nav="newsession" data-builder-step="3"><i class="ico">◇</i>Program Prep</button>
-      <button class="nav-item" type="button" data-nav="filmroom"><i class="ico">▥</i>Recordings &amp; Results</button>
-      <button class="nav-item" type="button" data-nav="progress"><i class="ico">▲</i>My Progress</button>
+      <button class="nav-item" type="button" data-nav="newsession" data-builder-step="1" data-launch-mode="practice"><i class="ico">⌁</i>Practice</button>
+      <button class="nav-item" type="button" data-nav="newsession" data-builder-step="0" data-launch-mode="ai"><i class="ico">▣</i>AI Mock Interview</button>
+      <button class="nav-item" type="button" data-nav="newsession" data-builder-step="3"><i class="ico">◇</i>Prepare for an Interview</button>
+      <button class="nav-item" type="button" data-nav="vault"><i class="ico">▥</i>Review &amp; Improve</button>
     </nav>
 
-    <nav class="nav-group" aria-label="Intelligence">
-      <span class="microcap">Intelligence</span>
+    <details class="nav-tools"><summary>More tools</summary>
+    <nav class="nav-group" aria-label="Review tools">
+      <span class="microcap">Review tools</span>
       <button class="nav-item" type="button" data-nav="lab"><i class="ico">⌖</i>Analytics Lab</button>
-      <button class="nav-item" type="button" data-nav="vault"><i class="ico">▤</i>Answer Library</button>
+      <button class="nav-item" type="button" data-nav="progress"><i class="ico">▲</i>My Progress</button>
       <button class="nav-item" type="button" data-nav="newsession" data-builder-step="4"><i class="ico">◎</i>My Context</button>
       <button class="nav-item" type="button" data-nav="postanswer"><i class="ico">✓</i>Review My Answers</button>
     </nav>
@@ -54,13 +54,12 @@
     <nav class="nav-group" aria-label="Practice and diagnostics">
       <span class="microcap">Practice</span>
       <button class="nav-item" type="button" data-nav="devicecheck"><i class="ico">◉</i>Device Calibration</button>
-      <button class="nav-item" type="button" data-nav="newsession" data-builder-step="1" data-launch-mode="practice"><i class="ico">⌁</i>Self Practice</button>
-      <button class="nav-item" type="button" data-nav="newsession" data-builder-step="0" data-launch-mode="ai"><i class="ico">▣</i>AI Mock Interview</button>
       <button class="nav-item" type="button" data-nav="compare"><i class="ico">⇄</i>Compare Attempts</button>
       <button class="nav-item" type="button" data-nav="fingerprint"><i class="ico">◈</i>Delivery Profile</button>
       <button class="nav-item" type="button" data-nav="mentor" data-founder-only><i class="ico">◇</i>Mentor &amp; Admin</button>
       <button class="nav-item" type="button" data-nav="governance" data-founder-only><i class="ico">⚙</i>Question Governance</button>
     </nav>
+    </details>
 
     <div class="rail-foot">
       <div class="role-switch" role="group" aria-label="Role view">
@@ -211,8 +210,15 @@
                 <div class="stage-tag"><span>You</span></div>
               </div>
             </div>
-            <p class="microcap" style="margin-top:10px">Nothing is measured while idle. Raw frames never leave your browser.</p>
+            <p class="microcap" style="margin-top:10px">Raw frames never leave your browser. Try the signals below before you begin.</p>
           </div>
+        </div>
+        <div class="housing signal-preview">
+          <div class="housing-title">Try your signals · 30 seconds</div>
+          <p>Speak naturally, pause, then bring each hand into view. See what your camera and microphone can measure. This check is not recorded or saved.</p>
+          <div class="btn-row"><button class="btn btn-secondary" id="signals-start" type="button"><span>Try Analytics</span></button><button class="btn btn-quiet" id="signals-stop" type="button" hidden><span>Stop check</span></button><span id="signals-state" role="status">Connect camera + microphone first.</span></div>
+          <div id="signals-instruments" class="signal-instruments"></div>
+          <div id="signals-timeline"></div>
         </div>
       </section>
 
@@ -319,13 +325,15 @@
               </label>
               <div class="btn-row" style="margin-top:0">
                 <button class="btn btn-primary" type="button" id="live-interview-start" disabled><span>Start interview ▸</span></button>
-                <button class="btn btn-quiet room-end" type="button" id="live-interview-end" disabled><span>End interview</span></button>
+                <button class="btn btn-secondary" type="button" id="interview-closing" hidden><span>Questions for your interviewer</span></button>
+                <button class="btn btn-quiet room-end" type="button" id="live-interview-end" disabled><span>Finish &amp; save</span></button>
               </div>
             </div>
             <button class="btn btn-secondary" type="button" id="room-analytics-toggle" aria-pressed="false"><span>Show live Analytics</span></button>
             <label class="room-guides-control"><input type="checkbox" id="room-guides"> Show visual guides</label>
             <p class="room-status" id="simulation-save" aria-live="polite">Your interview will be recorded privately to your account.</p>
         </div>
+        <div id="room-flight-recorder" class="housing"></div>
         <details class="room-transcript"><summary>Transcript</summary><div class="live-transcript" id="live-transcript" aria-live="off"><span>Transcript appears here after the session starts.</span></div></details>
         <div class="housing room-coaching-detail" style="margin-top:16px">
           <div class="housing-title">Live Analytics</div>
@@ -381,6 +389,7 @@
           </div>
         </div>
         <div class="housing" style="margin-top:16px">
+          <div id="review-flight-recorder"></div>
           <div class="housing-title">Tracks</div>
           <div id="filmroom-groups"></div>
         </div>
@@ -495,8 +504,9 @@
 
       <!-- RESULTS / VAULT -->
       <section class="screen" data-view-panel="vault">
-        <div class="microcap hero-kick">Results / Vault</div>
-        <h1 class="hero">Your answer <em>library.</em></h1>
+        <div class="microcap hero-kick">Review &amp; improve</div>
+        <h1 class="hero">See your <em>progress.</em></h1>
+        <div class="btn-row"><button class="btn btn-secondary" type="button" data-goto="progress"><span>My Progress</span></button><button class="btn btn-secondary" type="button" data-goto="compare"><span>Compare attempts</span></button><button class="btn btn-quiet" type="button" data-goto="lab"><span>Advanced evidence</span></button></div>
         <div class="housing" style="margin-top:18px">
           <div class="housing-title">Saved answers</div>
           <div class="recess" id="vault-body"></div>

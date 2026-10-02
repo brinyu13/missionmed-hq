@@ -5,7 +5,7 @@ Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`, `DR-350` (narrow packaging), `DR-361` (current RISE eligibility successor); `DR-340` QA grant revoked
 Branch: `codex/ivoc-foreman-9200`
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
-Current terminal status: `FOUNDER ACCEPTANCE READY — PRODUCT NOT COMPLETE`
+Current terminal status: `EXPERIENCE / ANALYTICS / PEDAGOGY RECOVERY — ACCEPTANCE REOPENED`
 
 This is the one living requirement ledger required by the final Founder
 completion directive. A status of `LIVE UNVERIFIED` means the capability is
@@ -14,6 +14,38 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Founder live-POV override, 2026-10-02: acceptance REOPENED; candidate implementation ready for deployment.**
+  Founder confirms physical camera/mic and native multi-turn AI entry work;
+  preserve those gains. Navigation, calibration Analytics, runtime composition,
+  follow-up quality and closing are NOT accepted by historical tests/flags.
+  Bounded donor recovery: 3466C `649d256fd7b73894e88da3d797eba49145740726`
+  flight-recorder prototype supplies aligned-clock composition, not synthetic
+  measurements or obsolete capture. Astra source/Analytics Experience Contract
+  and candidate.2 Founder amendments remain presentation authority. Current
+  compact metric projection discarded richer outputs and lacked a mounted
+  history view; exact historical removal commit is not established.
+  Read-only Astra and pedagogy workers reviewed this candidate. They caught
+  closing-pool counting, cross-attempt timeline fallback and calibration stealing
+  a running practice epoch; all corrected before deployment.
+  Candidate: five primary Student destinations; bounded 30-second local signal
+  preview with personal face baseline; video-forward room; eight-lane measured
+  Flight Recorder persisted in the existing private Analytics envelope; Film
+  Room seeks and playback cursor. Bounded scalar history, explicit gaps/retention,
+  no raw landmarks or invented gaze/emotion. Qualified smile counts/release
+  durations and observed hand-region movement reuse current detectors. Pace
+  remains phrases/min, not invented word-level pace. Existing audio/capture,
+  two-sided mix, auth, RISE, subject boundaries and database schema unchanged.
+  Native InterviewBrain policy now distinguishes hooks from interruptions and
+  unhelpful probes, excludes canonical closing from substantive targets, requires
+  exact closing, multiple candidate questions and truthful professional signoff.
+  Explicit one-shot closing action uses native instruction append; instructions
+  are NOT proof of model compliance or automatic semantic phase detection.
+  74 focused tests PASS. Actual spontaneous bait response, count adherence and
+  multi-question spoken closing remain genuine conversation acceptance gates.
+  Known-good runtime preserved: `d6ab5544-0674-4f43-a31b-1dc69a3465a1`, source
+  `638c7a279e4dfe3aaafa7163aec0f531533fddcc`, exact image/artifact below.
+  Next: clean push/readback -> filtered artifact -> leased deployment -> actual
+  non-human production POV. No Founder-acceptance-ready claim before staging.
 - **RISE/HQ successor repair, 2026-10-02: DEPLOYED; genuine Student role POV OPEN.**
   DR-361 is filed/pushed/read back in MissionMed OS commit
   `08f9a08035d20669f244efd4aaff4e9cf35d4332`. Current live issuer policy is

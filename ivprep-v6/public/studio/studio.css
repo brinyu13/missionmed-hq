@@ -799,3 +799,41 @@ body[data-interview-immersive="true"] [data-room-layout="interview"] .room-stude
 }
 @media (prefers-reduced-motion:reduce) { #founder-room-wrapper { animation:none; } }
 #founder-room-wrapper[data-room-phase="saving"] .room-coaching-detail { display:none; }
+
+/* Astra analytical composition: student dominant, compact interviewer, shared time. */
+.nav-tools summary { min-height:44px; padding:12px; color:var(--ink2); cursor:pointer; }
+.signal-preview { margin-top:18px; }
+.signal-preview p,.timeline-note { color:var(--ink2); font-size:12px; line-height:1.5; }
+.signal-instruments { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-top:14px; }
+.timeline-row { display:grid; grid-template-columns:160px minmax(0,1fr); gap:12px; align-items:center; font-size:11px; color:var(--ink2); }
+.timeline-track { position:relative; height:26px; border-bottom:1px solid var(--line); overflow:hidden; background:repeating-linear-gradient(90deg,transparent 0,transparent 9.9%,#ffffff08 10%); }
+.timeline-mark { position:absolute; bottom:2px; width:3px; padding:0; border:0; border-radius:1px; background:var(--gold,#ffc24b); min-height:3px; }
+button.timeline-mark { cursor:pointer; width:8px; }
+button.timeline-mark:focus-visible { outline:2px solid white; z-index:2; }
+.timeline-empty { padding-top:5px; font-size:10px; color:var(--ink3,#9eabc5); }
+#room-flight-recorder { margin-top:12px; padding:12px 16px; }
+#room-flight-recorder .housing-title { padding-bottom:3px; }
+#room-flight-recorder .timeline-note { margin:0 0 6px; }
+body[data-interview-immersive="true"] [data-room-layout="interview"] .room-composition { display:grid; grid-template-columns:minmax(0,1fr) minmax(200px,25%); }
+body[data-interview-immersive="true"] [data-room-layout="interview"] .room-student { position:relative; right:auto; bottom:auto; width:auto; padding:12px; box-shadow:none; }
+body[data-interview-immersive="true"] [data-room-layout="interview"] .room-presence .live-interviewer-stage { min-height:180px; padding:20px; }
+body[data-interview-immersive="true"] [data-room-layout="interview"] .room-presence .live-orb { width:70px; height:70px; }
+body[data-interview-immersive="true"] #founder-room-stage { max-height:43vh; width:auto; margin:auto; }
+.room-visual-rail .inst-canvas,.room-voice-rail .inst-canvas { height:48px; }
+.room-visual-rail .inst,.room-voice-rail .inst { padding:8px; margin-bottom:6px; }
+.room-voice-rail .inst-head,.room-visual-rail .inst-head { flex-wrap:wrap; gap:4px; }
+.room-coaching-detail { max-height:160px; overflow:auto; }
+@media (min-width:851px) {
+  #founder-room-wrapper[data-room-layout="coached"] .room-composition { grid-template-columns:minmax(155px,18%) minmax(300px,1fr) minmax(165px,19%); gap:10px; }
+  #founder-room-wrapper[data-room-layout="coached"] #founder-room-stage { max-height:35vh; }
+  #room-flight-recorder .timeline-row { min-height:20px; }
+  #room-flight-recorder .timeline-track { height:21px; }
+}
+@media (max-width:850px) {
+  .signal-instruments { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  body[data-interview-immersive="true"] [data-room-layout="interview"] .room-composition { grid-template-columns:1fr; }
+  body[data-interview-immersive="true"] [data-room-layout="interview"] .room-presence .live-interviewer-stage { min-height:90px; flex-direction:row; padding:12px; }
+  .timeline-row { grid-template-columns:110px minmax(0,1fr); gap:6px; font-size:10px; }
+}
+@media (max-width:420px) { .signal-instruments { grid-template-columns:1fr; } }
+.timeline-playhead { position:absolute; top:0; bottom:0; width:2px; background:#fff8e8; pointer-events:none; z-index:2; }
