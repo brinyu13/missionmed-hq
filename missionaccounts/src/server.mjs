@@ -135,13 +135,13 @@ function onboardingProfileFromBody(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) throw requestError('Onboarding profile is invalid');
   const allowed = new Set([
     'preferred_name', 'school_name', 'best_contact_method', 'mailing_line1', 'mailing_line2',
-    'mailing_city', 'mailing_region', 'mailing_postal_code', 'mailing_country_code', 'expected_revision',
+    'mailing_city', 'mailing_region', 'mailing_postal_code', 'mailing_country_code', 'phone', 'expected_revision',
   ]);
   if (Object.keys(body).some(key => !allowed.has(key))) throw requestError('Onboarding profile contains an unsupported field');
   const changedFields = Object.keys(body).filter(key => key !== 'expected_revision');
   if (changedFields.length === 0) throw requestError('Onboarding profile contains no changes');
   const labels = {
-    preferred_name: 'Preferred name', school_name: 'School', best_contact_method: 'Best way to contact you',
+    phone: 'Phone number', preferred_name: 'Preferred name', school_name: 'School', best_contact_method: 'Best way to contact you',
     mailing_line1: 'Mailing address', mailing_line2: 'Address line 2', mailing_city: 'City',
     mailing_region: 'State or region', mailing_postal_code: 'Postal code', mailing_country_code: 'Country',
   };
@@ -163,6 +163,7 @@ function onboardingProfileFromBody(body) {
     mailing_postal_code: [24, false],
     mailing_country_code: [2, false],
   };
+  rules.phone = [100, false];
   const profile = Object.fromEntries(changedFields.map(key => {
     const [max, allowEmpty] = rules[key];
     const clean = value(key, max, allowEmpty);
@@ -173,6 +174,13 @@ function onboardingProfileFromBody(body) {
   }
   if (Object.hasOwn(profile, 'mailing_country_code') && !isIsoCountryCode(profile.mailing_country_code)) {
     throw requestError('Choose a country from the list.', 400, { field: 'mailing_country_code' });
+  }
+  const minimums = { school_name: 2, mailing_line1: 3, mailing_city: 2, mailing_region: 2, mailing_postal_code: 2 };
+  for (const [field, minimum] of Object.entries(minimums)) {
+    if (Object.hasOwn(profile, field) && profile[field].length < minimum) throw requestError(`${labels[field]} must contain at least ${minimum} characters.`, 400, { field });
+  }
+  if (Object.hasOwn(profile, 'phone') && (!/^[+0-9(). -]+$/.test(profile.phone) || !/^[0-9]{7,15}$/.test(profile.phone.replace(/\D/g, '')))) {
+    throw requestError('Enter a valid phone number with country code and 7–15 digits.', 400, { field: 'phone' });
   }
   const expectedRevision = Number(body.expected_revision);
   if (!Number.isInteger(expectedRevision) || expectedRevision < 0) throw requestError('Onboarding revision is invalid');

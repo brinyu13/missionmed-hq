@@ -1942,4 +1942,6 @@ psql -h "$pg_tmp" -p 55439 -d postgres -v ON_ERROR_STOP=1 -f "$app_dir/tests/zoo
 psql -h "$pg_tmp" -p 55439 -d postgres -v ON_ERROR_STOP=1 -f "$app_dir/tests/zoom-bounded-repair.sql" >/dev/null
 python3 "$app_dir/tests/zoom-concurrency.py" "$pg_tmp"
 
+psql -h "$pg_tmp" -p 55439 -d postgres -v ON_ERROR_STOP=1 -f "$app_dir/tests/onboarding-phone-completion.sql" >/dev/null
+
 echo "MissionAccounts PostgreSQL migration, private identity custody, zero-money 5404E commerce/onboarding idempotency, billing default-off controls, Zoom source ingestion, and notification custody: PASS"

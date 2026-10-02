@@ -87,8 +87,9 @@ export class SupabaseRestStore {
   }
 
   async saveStudentOnboarding({ studentId, profile, changedFields = Object.keys(profile).filter(field => field !== 'expected_revision'), expectedRevision, actorId, actorRole, requestId }) {
-    return this.rpc('api_save_student_onboarding', {
+    return this.rpc('api_save_student_onboarding_v2', {
       p_student_id: studentId,
+      p_phone: profile.phone ?? null,
       p_preferred_name: profile.preferred_name ?? null,
       p_school_name: profile.school_name ?? null,
       p_best_contact_method: profile.best_contact_method ?? null,
@@ -1137,7 +1138,7 @@ export class PreviewStore {
   }
   async saveStudentOnboarding({ studentId, profile, changedFields = Object.keys(profile).filter(field => field !== 'expected_revision'), expectedRevision, actorId, actorRole, requestId }) {
     if (actorRole !== 'student' || actorId !== studentId) throw Object.assign(new Error('Onboarding student subject mismatch'), { status: 403 });
-    const allowed = new Set(['preferred_name','school_name','best_contact_method','mailing_line1','mailing_line2','mailing_city','mailing_region','mailing_postal_code','mailing_country_code']);
+    const allowed = new Set(['phone','preferred_name','school_name','best_contact_method','mailing_line1','mailing_line2','mailing_city','mailing_region','mailing_postal_code','mailing_country_code']);
     if (!changedFields.length || changedFields.some(field => !allowed.has(field)) || new Set(changedFields).size !== changedFields.length) {
       throw Object.assign(new Error('Onboarding profile contains invalid changes'), { status: 400 });
     }
@@ -1163,7 +1164,12 @@ export class PreviewStore {
     }
     const current = this.onboardingProfiles.get(studentId) || null;
     if ((current?.revision || 0) !== expectedRevision) throw Object.assign(new Error('Onboarding was updated in another session. Reload before saving.'), { status: 409 });
-    const saved = { ...(current || {}), ...normalized, revision: expectedRevision + 1, updated_at: new Date().toISOString() };
+    const { phone, ...profileFields } = normalized;
+    if (Object.hasOwn(normalized, 'phone')) {
+      if (!/^[+0-9(). -]+$/.test(phone || '') || !/^[0-9]{7,15}$/.test(String(phone).replace(/\D/g, ''))) throw Object.assign(new Error('Enter a valid phone number.'), { status: 400 });
+      this.previewStudentRecord.phone = phone;
+    }
+    const saved = { ...(current || {}), ...profileFields, revision: expectedRevision + 1, updated_at: new Date().toISOString() };
     this.onboardingProfiles.set(studentId, saved);
     const result = { accepted: true, duplicate: false, onboarding: this.onboardingState(studentId) };
     this.onboardingMutations.set(requestId, { fingerprint, result: structuredClone(result) });
