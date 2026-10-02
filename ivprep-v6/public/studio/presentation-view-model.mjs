@@ -9,6 +9,7 @@ export function buildNameUseReview(saved = null) {
   const reasons = {
     NOT_SELECTED_FOR_SAVED_ATTEMPT: 'Not assessed — optional name-use observations were not selected for this saved attempt.',
     NO_UNAMBIGUOUS_CANONICAL_CANDIDATE_TRANSCRIPT: 'Not assessed — a canonical candidate transcript is not available yet.',
+    CANDIDATE_AUDIO_SOURCE_UNVERIFIED: 'Not assessed — this recording does not have verified candidate-only speech for name-use observations.',
   };
   return Object.freeze({ ...observed, heading: 'Possible interviewer-name mentions',
     copy: observed.status === 'AVAILABLE'
@@ -23,6 +24,13 @@ export function buildNameUseReview(saved = null) {
       label: match.third ? `${match.third[0].toUpperCase()}${match.third.slice(1)} recording third`
         : 'Recording third unavailable',
     }))) });
+}
+
+export function buildCandidateAnalysisState(detail = null) {
+  return Object.freeze({
+    available: detail?.spine?.candidateAttribution?.status === 'VERIFIED',
+    unavailableCopy: 'Answer coaching is unavailable because we cannot reliably separate candidate speech from other audio in this recording. The recording and measured delivery signals remain available; saved live conversation can be reviewed in Film Room.',
+  });
 }
 
 // Retry projects a saved owner-scoped setup, not whatever happens to be in the
@@ -359,7 +367,9 @@ function normalizedConversationTurn(turn, { spine }) {
 
 export function persistedConversationTurns({ sessionDetail = null, envelope = null } = {}) {
   const canonicalTurns = Array.isArray(sessionDetail?.spine?.turns)
-    ? sessionDetail.spine.turns.map((turn) => normalizedConversationTurn(turn, { spine: true })).filter(Boolean)
+    ? sessionDetail.spine.turns.filter(turn => sessionDetail.spine.candidateAttribution?.status === 'VERIFIED'
+        || (!turn?.transcript?.canonical_ref && Boolean(turn?.transcript?.provisional_ref)))
+      .map((turn) => normalizedConversationTurn(turn, { spine: true })).filter(Boolean)
     : [];
   if (canonicalTurns.length) {
     const hasCanonicalStudentTurns = canonicalTurns.some((turn) => turn.speaker === 'student' && turn.canonical);

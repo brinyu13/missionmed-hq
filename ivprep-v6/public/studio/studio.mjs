@@ -47,6 +47,7 @@ import {
   buildComparisonSelection,
   buildEvidenceMomentLinks,
   buildNameUseReview,
+  buildCandidateAnalysisState,
   debriefConfidenceCopy,
   buildInterviewerSelectionLabel,
   interviewerPresenceCopy,
@@ -3314,7 +3315,8 @@ function renderPostAnswer(analytics = null) {
   }
   // Reopened recordings must never borrow the current live session's metrics.
   const supported = (analytics?.studentEvents || []).filter((item) => item?.maturity === 'VALIDATED_STUDENT_SAFE');
-  const transcriptCoverage = reviewTranscriptCoverage(persistedConversationTurns({
+  const transcriptCoverage = state.lastSaved?.sessionDetail?.spine?.candidateAttribution?.status === 'UNVERIFIED'
+    ? 'unverified' : reviewTranscriptCoverage(persistedConversationTurns({
     sessionDetail: state.lastSaved?.sessionDetail, envelope: state.lastSaved?.envelope,
   }));
   const entries = transcriptCoverage === 'interviewer_only' ? [
@@ -3345,7 +3347,10 @@ function renderPostAnswer(analytics = null) {
     const recordingId = state.lastSaved?.recording?.recording?.id;
     const answerId = state.lastSaved?.analytics?.answerId;
     const questionId = state.lastSaved?.session?.questionId;
-    contextButton.disabled = !(state.lastSaved?.persisted && recordingId && answerId && questionId);
+    const attribution = buildCandidateAnalysisState(state.lastSaved?.sessionDetail);
+    contextButton.disabled = !(attribution.available && state.lastSaved?.persisted && recordingId && answerId && questionId);
+    contextButton.querySelector('span').textContent = attribution.available ? 'Generate transcript + context' : 'Answer coaching unavailable';
+    contextButton.title = attribution.available ? '' : attribution.unavailableCopy;
   }
 }
 
@@ -3494,7 +3499,9 @@ function renderContextEvidence(result) {
     const note = document.createElement('p');
     note.className = 'unavailable';
     const reason = String(transcript?.reason || 'PROVIDER UNAVAILABLE').toUpperCase().slice(0, 120);
-    note.textContent = state.role === 'admin'
+    note.textContent = ['CANDIDATE_AUDIO_SOURCE_UNVERIFIED', 'CONTEXT_CANDIDATE_AUDIO_SOURCE_UNVERIFIED'].includes(reason)
+      ? buildCandidateAnalysisState().unavailableCopy
+      : state.role === 'admin'
       ? `TRANSCRIPT UNAVAILABLE — ${reason}`
       : reason === 'NO_PERSISTED_TRANSCRIPT'
         ? (persistedConversationTurns({ sessionDetail: state.lastSaved?.sessionDetail, envelope: state.lastSaved?.envelope }).length
@@ -3669,7 +3676,8 @@ function renderFilmRoomSpine(session, envelope = null) {
   }
   const turns = persistedConversationTurns({ sessionDetail: session, envelope });
   const canonicalTranscript = turns.length > 0 && turns.every((turn) => turn.canonical);
-  const evidence = Array.isArray(session?.spine?.evidence) ? session.spine.evidence : [];
+  const evidence = buildCandidateAnalysisState(session).available && Array.isArray(session?.spine?.evidence)
+    ? session.spine.evidence : [];
   host.replaceChildren();
   if (!turns.length) {
     const empty = document.createElement('div');
@@ -3785,6 +3793,10 @@ async function analyzeLastAnswer() {
   const sessionId = saved?.session?.id;
   const answerId = saved?.analytics?.answerId;
   const questionId = saved?.session?.questionId;
+  if (!buildCandidateAnalysisState(saved?.sessionDetail).available) {
+    renderContextEvidence({ transcript: { status: 'UNAVAILABLE', reason: 'CANDIDATE_AUDIO_SOURCE_UNVERIFIED' } });
+    return;
+  }
   if (!saved?.persisted || !recordingId || !sessionId || !answerId || !questionId) return;
   const ticket = isAdminReview(saved) ? adminReviewGate.begin(state.role) : null;
   if (isAdminReview(saved) && ticket === null) return;
@@ -3805,11 +3817,16 @@ async function analyzeLastAnswer() {
       state.lastSaved = { ...saved, sessionDetail: detail };
       renderFilmRoomSpine(detail);
     }
-    renderContextEvidence(result);
+    renderContextEvidence(buildCandidateAnalysisState(state.lastSaved?.sessionDetail).available
+      ? result : { transcript: { status: 'UNAVAILABLE', reason: 'CANDIDATE_AUDIO_SOURCE_UNVERIFIED' } });
   } catch (error) {
     if (isCurrent()) renderContextEvidence({ transcript: { status: 'UNAVAILABLE', reason: String(error?.message || error).slice(0, 120) } });
   } finally {
-    if (button) { button.disabled = false; button.innerHTML = '<span>Generate transcript + context</span>'; }
+    if (button) {
+      const available = buildCandidateAnalysisState(state.lastSaved?.sessionDetail).available;
+      button.disabled = !available;
+      button.innerHTML = available ? '<span>Generate transcript + context</span>' : '<span>Answer coaching unavailable</span>';
+    }
   }
 }
 

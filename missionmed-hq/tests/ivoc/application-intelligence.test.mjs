@@ -296,7 +296,7 @@ test('prior-IVOC projection requires two distinct saved sessions and bounded str
   assert.equal(longitudinalProjection(rows.slice(0, 1), 'wp:42'), null);
 });
 
-test('provider excludes the active session and emits prior-IVOC context only from saved owner evidence', async () => {
+test('production projection withholds historical coaching without candidate-source provenance', async () => {
   const repo = repository();
   const calls = [];
   repo.request = async (path) => {
@@ -318,15 +318,35 @@ test('provider excludes the active session and emits prior-IVOC context only fro
   };
   const provider = createIvocProjectionProvider({ repository: repo });
   const projections = await provider({ actor: 'wp:42', session: sessionRow() });
-  assert.equal(projections.length, 1);
-  assert.equal(projections[0].projection_type, 'ivoc.longitudinal_summary');
-  assert.ok(calls[1].includes('session_id=in.(session-a,session-b)'));
+  assert.deepEqual(projections, []);
+  assert.deepEqual(calls, [], 'no unverified historical evidence is fetched or projected');
 
   const service = createIvocApplicationIntelligence({ repository: repo, now: () => Date.parse(NOW) });
   await service.prepareSession({ actor: 'wp:42', sessionRow: sessionRow() });
   const pack = repo.upserts.find((entry) => entry.table === 'ivoc_context_packs').body.pack;
-  assert.ok(pack.signals.some((signal) => signal.rule_id === 'AIS-R10'));
+  assert.ok(!pack.signals.some((signal) => signal.rule_id === 'AIS-R10'));
   assert.doesNotMatch(pack.actor_block, /session-a|session-b/u);
+});
+
+test('prepared packs with historical prior-IVOC receipts are not reused or destructively rewritten', async () => {
+  const repo = repository();
+  const historical = { pack_id: 'prior-pack', pack_version: 'prior-version',
+    actor_block: 'Unverified candidate observation',
+    source_receipts: [{ owner_app: 'ivoc', projection_type: 'ivoc.longitudinal_summary' }] };
+  const paths = [];
+  repo.single = async path => { paths.push(path); return historical; };
+  const service = createIvocApplicationIntelligence({ repository: repo });
+  assert.equal(await service.getActorContext({ actor: 'wp:42', sessionId: SESSION_ID }), null);
+  assert.deepEqual(repo.upserts, []);
+  assert.equal(historical.actor_block, 'Unverified candidate observation');
+  assert.ok(paths[0].includes('owner_subject=eq.wp%3A42'));
+  assert.ok(paths[0].includes('source_receipts'));
+  delete historical.source_receipts;
+  assert.equal(await service.getActorContext({ actor: 'wp:42', sessionId: SESSION_ID }), null,
+    'missing provenance does not establish safe legacy context');
+  historical.source_receipts = [{ owner_app: 'file_vault', projection_type: 'file_vault.cv' }];
+  assert.equal((await service.getActorContext({ actor: 'wp:42', sessionId: SESSION_ID })).actorBlock,
+    historical.actor_block, 'unrelated owner context remains available');
 });
 
 test('session contract pins the exact versioned Admin Analytics and InterviewBrain configuration', async () => {

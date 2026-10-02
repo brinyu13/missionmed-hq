@@ -15,7 +15,7 @@ const CONTEXT = {
   program: 'General residency interview', environment: 'MissionMed · interview only',
 };
 const activeSession = (context = CONTEXT) => ({ ownerSubject: SUBJECT, sessionId: SESSION_ID, state: 'active', context });
-const packRow = () => ({ pack_id: PACK_ID, pack_version: PACK_VERSION, actor_block: ACTOR_BLOCK });
+const packRow = () => ({ pack_id: PACK_ID, pack_version: PACK_VERSION, actor_block: ACTOR_BLOCK, source_receipts: [] });
 
 test('context-pack resolver owner-binds one active pack and returns only the Actor contract', async () => {
   const calls = [];
@@ -23,7 +23,7 @@ test('context-pack resolver owner-binds one active pack and returns only the Act
     rest: {
       async table(name, query) {
         calls.push({ name, query });
-        return [{ pack_id: PACK_ID, pack_version: PACK_VERSION, actor_block: ACTOR_BLOCK }];
+        return [packRow()];
       },
     },
   });
@@ -55,7 +55,8 @@ test('inactive Actor resolver reuses native policy with exact server identity an
     readSessionContext: async (input) => { calls.push({ reader: input }); return activeSession(); },
     rest: { async table(name, query) {
       calls.push({ name, query });
-      return [{ ...packRow(), pack: { privateNote: 'do-not-expose-private-note' }, source_receipts: ['do-not-expose-source'] }];
+      return [{ ...packRow(), pack: { privateNote: 'do-not-expose-private-note' },
+        source_receipts: [{ projection_type: 'ivoc.mentor_priorities', owner_ref: 'do-not-expose-source' }] }];
     } },
   });
   const output = await resolve({ subject: SUBJECT, sessionId: SESSION_ID });
@@ -168,4 +169,22 @@ test('owner-store invalidation removes the pack from the inactive instruction pa
     } },
   });
   await assert.rejects(() => resolve({ subject: SUBJECT, sessionId: SESSION_ID }), /active IVOC Actor context pack/u);
+});
+
+test('native and inactive Actor resolvers quarantine historical longitudinal or unknown source receipts', async () => {
+  for (const source_receipts of [undefined, null, 'unknown', [null], ['unknown'], [{}],
+    [{ projection_type: 'ivoc.longitudinal_summary', owner_app: 'ivoc' }]]) {
+    const stored = { ...packRow(), source_receipts };
+    const rest = { async table(_name, query) {
+      assert.match(query, /select=pack_id,pack_version,actor_block,source_receipts/);
+      return [stored];
+    } };
+    assert.equal(await createIvocContextPackResolver({ rest })({ subject: SUBJECT, sessionId: SESSION_ID }), null);
+    await assert.rejects(() => createIvocActorInstructionResolver({ rest, readSessionContext: async () => activeSession() })({ subject: SUBJECT, sessionId: SESSION_ID }), /context pack is unavailable/);
+    assert.equal(stored.actor_block, ACTOR_BLOCK, 'original pack is not overwritten');
+  }
+  for (const projection_type of ['file_vault.cv', 'storyforge.stories', 'rise.program_intelligence', 'ivoc.mentor_priorities']) {
+    const rest = { async table() { return [{ ...packRow(), source_receipts: [{ projection_type }] }]; } };
+    assert.equal((await createIvocContextPackResolver({ rest })({ subject: SUBJECT, sessionId: SESSION_ID })).actorBlock, ACTOR_BLOCK);
+  }
 });

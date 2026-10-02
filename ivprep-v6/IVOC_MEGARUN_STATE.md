@@ -14,6 +14,37 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **P1 candidate-speech attribution reopened:** independent synthetic route →
+  transcription → semantic → persistence reproduction proves the whole two-sided
+  recording can label interviewer words as student answers. This is an engineering
+  defect, not proof of a live student incident. Production has no ffmpeg decoder.
+  Containment in progress: no processing of mixed/unproven audio, no unsafe saved
+  semantic/name/prior-IVOC projection; keep original rows, full replay, measured
+  Analytics and provisional native conversation. Native and inactive Context Pack
+  readers must both reject old longitudinal receipts. Complete candidate-only
+  source capture and actual asked-question/range binding remains executable work;
+  containment alone is not full Analytics acceptance.
+- **Attribution containment release candidate:** HQ `fc3a9a7` denies unproven
+  processing before download/provider/canonical writes; historical unsafe batch
+  text/ranges/coaching are withheld on read, not deleted. Parent UI requires an
+  explicit verified source, retains provisional live transcript and measured
+  Analytics, and disables unavailable coaching. Both native and inactive Actor
+  pack readers are guarded. 52 HQ and 115 other focused checks PASS; the legacy
+  hosted-runtime suite could not load because local `@livekit/agents` is absent
+  (not a live application failure). Current DB aggregate: 22 active context packs
+  have array receipts, zero carry a prior-IVOC longitudinal projection. No data,
+  schema, provider configuration or audio topology change in this containment.
+  Deployment/readback and actual changed Results/Film Room checks remain pending.
+- **Optional name observations:** local `60b3fdc` captures explicit default-off
+  manual-name opt-in and exact saved-attempt lexical evidence. Release held until
+  attribution containment; absent verified candidate speech remains UNASSESSED.
+  No rapport/personality scoring. Current Results baseline captured from actual
+  authenticated Founder UI before the changed unavailable-state presentation.
+- **Teaching review live evidence:** independent UI confirmed genuine Founder
+  actor, explicit initially blank student selector, teaching instructions and
+  selected `wp:142` history without actor fallback. Refresh, selected Results /
+  Film Room, review write and cold reload were UNVERIFIED when browser dispatch
+  stalled; control is responding again. No student review/credit/data mutation.
 - **Current healthy teaching-review release:** source `586ee6abd9db8b859049ffae0f23920ae0f971c5`,
   deployment `43be768c-8b73-434a-8d76-6eaf2efe5ae7` SUCCESS, image
   `sha256:697603296d7aa9849c9e4691ec9819e0596471fa0e4f04d9b239daf339994496`,

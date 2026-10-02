@@ -45,7 +45,7 @@ test('projects legacy saved analytics from evidence and leaves absent signals un
 
 test('prefers canonical transcript turns and drops noncanonical duplicates', () => {
   const turns = persistedConversationTurns({ sessionDetail: {
-    spine: { turns: [
+    spine: { candidateAttribution: { status: 'VERIFIED' }, turns: [
       { speaker: 'student', startMs: 400, endMs: 900, transcript: { canonical_ref: 'transcript:t#seg-1', text: 'Canonical answer.' } },
     ] },
     results: { payload: { liveConversation: { turns: [
@@ -55,6 +55,23 @@ test('prefers canonical transcript turns and drops noncanonical duplicates', () 
   assert.deepEqual(turns, [{
     speaker: 'student', text: 'Canonical answer.', startMs: 400, endMs: 900, canonical: true,
   }]);
+});
+
+test('legacy or quarantined batch speech cannot replace the separately saved live conversation', () => {
+  for (const candidateAttribution of [undefined, { status: 'UNVERIFIED' }]) {
+    const detail = { spine: { candidateAttribution, turns: [
+      { speaker: 'student', transcript: { canonical_ref: 'transcript:old#seg-1', text: 'Interviewer wording mislabeled.' } },
+    ] }, results: { payload: { liveConversation: { turns: [
+      { speaker: 'interviewer', text: 'The actual question.', startMs: 200 },
+      { speaker: 'applicant', text: 'The provisional candidate answer.', startMs: 1000 },
+    ] } } } };
+    assert.deepEqual(persistedConversationTurns({ sessionDetail: detail }).map(turn => [turn.speaker, turn.text, turn.canonical]), [
+      ['interviewer', 'The actual question.', false], ['student', 'The provisional candidate answer.', false],
+    ]);
+    delete detail.results;
+    assert.deepEqual(persistedConversationTurns({ sessionDetail: detail }), []);
+  }
+  assert.match(studioSource, /const evidence = buildCandidateAnalysisState\(session\)\.available/);
 });
 
 test('preserves provisional spine provenance without calling it canonical', () => {

@@ -39,6 +39,7 @@ export function projectInterviewerNameUse(session = {}, envelope = null) {
   const config = normalizeNameUseCoaching(payload?.nameUseCoaching);
   if (!config || !session?.id || payload?.sessionId !== session.id
       || payload.nameUseCoaching.sessionId !== session.id) return unassessed('NOT_SELECTED_FOR_SAVED_ATTEMPT');
+  if (session.spine?.candidateAttribution?.status !== 'VERIFIED') return unassessed('CANDIDATE_AUDIO_SOURCE_UNVERIFIED');
   const turns = Array.isArray(session?.spine?.turns) ? session.spine.turns : [];
   const refs = new Map(); const suffixes = new Map();
   for (const turn of turns) {
@@ -153,6 +154,10 @@ const evidenceRefs = (row = {}) => Object.freeze([...(Array.isArray(row.refs) ? 
 
 export function contextResultFromSessionSpine(session = {}) {
   const spine = session?.spine || {};
+  if (spine.candidateAttribution?.status !== 'VERIFIED') return Object.freeze({
+    transcript: Object.freeze({ status: 'UNAVAILABLE', reason: 'CANDIDATE_AUDIO_SOURCE_UNVERIFIED' }),
+    analysis: Object.freeze({ status: 'UNAVAILABLE', reason: 'CANDIDATE_AUDIO_SOURCE_UNVERIFIED' }),
+  });
   const turns = (Array.isArray(spine.turns) ? spine.turns : [])
     .filter((turn) => turn?.speaker === 'student' && turn?.transcript?.canonical_ref && boundedText(turn?.transcript?.text));
   if (!turns.length) return Object.freeze({ transcript: Object.freeze({ status: 'UNAVAILABLE', reason: 'NO_PERSISTED_TRANSCRIPT' }) });

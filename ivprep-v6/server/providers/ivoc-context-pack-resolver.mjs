@@ -36,9 +36,16 @@ export function createIvocContextPackResolver({ rest } = {}) {
     if (!owner || !session) throw new TypeError('IVOC context-pack identity is invalid.');
     const rows = await rest.table(
       'ivoc_context_packs',
-      `?session_id=eq.${encodeURIComponent(session)}&owner_subject=eq.${encodeURIComponent(owner)}&invalidated_at=is.null&select=pack_id,pack_version,actor_block&limit=1`,
+      `?session_id=eq.${encodeURIComponent(session)}&owner_subject=eq.${encodeURIComponent(owner)}&invalidated_at=is.null&select=pack_id,pack_version,actor_block,source_receipts&limit=1`,
     );
     const row = Array.isArray(rows) && rows.length === 1 ? rows[0] : null;
+    // Older longitudinal evidence can contain interviewer speech mislabeled as
+    // the candidate. Never send a pre-rendered block derived from that evidence
+    // to either the native interviewer or the inactive Actor seam.
+    if (!Array.isArray(row?.source_receipts)
+        || row.source_receipts.some(receipt => !receipt || typeof receipt !== 'object'
+          || typeof receipt.projection_type !== 'string'
+          || receipt.projection_type === 'ivoc.longitudinal_summary')) return null;
     const packId = exactUuid(row?.pack_id);
     const packVersion = exactPackVersion(row?.pack_version);
     const actorBlock = boundedActorBlock(row?.actor_block);

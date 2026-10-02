@@ -210,21 +210,14 @@ export function longitudinalProjection(rows, subjectId) {
   });
 }
 
-async function readLongitudinalProjection(repository, actor, currentSessionId = null) {
-  if (typeof repository.request !== 'function') return null;
-  const saved = await repository.request(
-    `ivoc_sessions?owner_subject=eq.${encodeURIComponent(actor)}&state=eq.saved&select=id&order=ended_at.desc&limit=50`,
-  );
-  const sessionIds = [...new Set((saved || []).map((row) => safeText(row?.id, 120)).filter(Boolean))]
-    .filter((id) => id !== currentSessionId);
-  if (sessionIds.length < 2) return null;
-  const evidence = await repository.request(
-    `ivoc_coaching_evidence?subject_id=eq.${encodeURIComponent(actor)}&session_id=in.(${sessionIds.join(',')})`
-      + `&dimension=eq.${LONGITUDINAL_DIMENSION}`
-      + '&select=evidence_id,session_id,subject_id,dimension,refs,interpretation,score,confidence,limitations,version,created_at'
-      + '&order=created_at.desc&limit=200',
-  );
-  return longitudinalProjection(evidence, actor);
+async function readLongitudinalProjection() {
+  // Historical batch evidence was derived from whole recordings without a
+  // recording-bound candidate-only source receipt. Saved state, high confidence
+  // and repeated observations cannot establish who spoke. Keep the deterministic
+  // aggregator above, but do not hydrate InterviewBrain from unverified evidence.
+  // Re-enable this reader only with a verified candidate-source join, never a
+  // client-supplied label or a date/session-type cutoff. Original rows stay intact.
+  return null;
 }
 
 export function createIvocProjectionProvider({ repository, fileVaultSource = null, storyForgeSource = null, riseSource = null } = {}) {
@@ -335,9 +328,15 @@ export function createIvocApplicationIntelligence({
     async getActorContext({ actor, sessionId }) {
       if (!actor || !sessionId) throw new TypeError('ivoc_application_intelligence_session_required');
       const row = await repository.single(
-        `ivoc_context_packs?session_id=eq.${encodeURIComponent(sessionId)}&owner_subject=eq.${encodeURIComponent(actor)}&invalidated_at=is.null&select=pack_id,pack_version,actor_block&limit=1`,
+        `ivoc_context_packs?session_id=eq.${encodeURIComponent(sessionId)}&owner_subject=eq.${encodeURIComponent(actor)}&invalidated_at=is.null&select=pack_id,pack_version,actor_block,source_receipts&limit=1`,
       );
       if (!row) return null;
+      // An already prepared pack can predate the read-side quarantine. Do not
+      // reuse its rendered actor block, or try to remove guessed text from it.
+      if (!Array.isArray(row.source_receipts)
+          || row.source_receipts.some(receipt => !receipt || typeof receipt !== 'object'
+            || typeof receipt.projection_type !== 'string'
+            || receipt.projection_type === 'ivoc.longitudinal_summary')) return null;
       return Object.freeze({
         receipt: contextReceiptRef({ pack_id: row.pack_id, pack_version: row.pack_version }),
         actorBlock: row.actor_block,

@@ -12,6 +12,7 @@ import {
   buildComparisonSelection,
   buildEvidenceMomentLinks,
   buildNameUseReview,
+  buildCandidateAnalysisState,
   debriefConfidenceCopy,
   buildInterviewerSelectionLabel,
   interviewerPresenceCopy,
@@ -39,7 +40,7 @@ test('saved name observations cold-reload from exact selected detail, never acto
   const payload = { sessionId: 'selected', nameUseCoaching: { schema: 'ivoc.name-use.v1', enabled: true,
     source: 'manual', name: 'Dr. Sample', sessionId: 'selected' } };
   const detail = { id: 'selected', ownerSubject: 'test:subject', recording: { durationMs: 3000 },
-    results: { payload }, spine: { turns: [{ speaker: 'student', startMs: 100, endMs: 800,
+    results: { payload }, spine: { candidateAttribution: { status: 'VERIFIED' }, turns: [{ speaker: 'student', startMs: 100, endMs: 800,
       transcript: { canonical_ref: 'transcript:test#seg-1', text: 'Thank you Dr. Sample.' } }] } };
   const saved = JSON.parse(JSON.stringify({ reviewScope: 'admin', session: { id: 'selected', ownerSubject: 'test:subject' },
     sessionDetail: detail, envelope: { sessionId: 'actor-attempt', nameUseCoaching: { ...payload.nameUseCoaching, name: 'Actor name' } } }));
@@ -77,7 +78,7 @@ test('actual Results render clears private name observations when saved review i
     reviewScope: 'admin', session: { id: 'selected' }, sessionDetail: { id: 'selected', recording: { durationMs: 3000 },
       results: { payload: { sessionId: 'selected', nameUseCoaching: { schema: 'ivoc.name-use.v1', enabled: true,
         source: 'manual', name: 'Dr. Saved', sessionId: 'selected' } } },
-      spine: { turns: [{ speaker: 'student', startMs: 100, endMs: 500,
+      spine: { candidateAttribution: { status: 'VERIFIED' }, turns: [{ speaker: 'student', startMs: 100, endMs: 500,
         transcript: { canonical_ref: 'transcript:test#seg-1', text: 'Thanks, Dr. Saved.' } }] } } } };
   const render = new Function('state', '$', 'el', 'buildNameUseReview', 'renderEvidenceMomentLinks', 'document',
     `return ${implementation};`)(state, () => host, element, buildNameUseReview,
@@ -230,22 +231,43 @@ test('actual Results citation action loads authorized playback, seeks, and stays
 test('completed analysis binds citations to refreshed saved detail and discards obsolete review replies', async () => {
   const source = readFileSync(new URL('../../public/studio/studio.mjs', import.meta.url), 'utf8');
   const implementation = source.match(/async function analyzeLastAnswer[\s\S]*?(?=\nfunction renderHomeCorpus)/)[0];
-  const saved = { persisted: true, recording: { recording: { id: 'r1' } }, session: { id: 's1', questionId: 'q1' }, analytics: { answerId: 'a1' } };
-  const detail = { id: 's1' };
+  const saved = { persisted: true, recording: { recording: { id: 'r1' } }, session: { id: 's1', questionId: 'q1' }, analytics: { answerId: 'a1' },
+    sessionDetail: { spine: { candidateAttribution: { status: 'VERIFIED' } } } };
+  const detail = { id: 's1', spine: { candidateAttribution: { status: 'VERIFIED' } } };
   const state = { lastSaved: saved, role: 'student', durable: { analyze: async () => ({ persistence: { transcript: true } }), api: { session: async () => detail } } };
-  const rendered = [];
-  const analyze = new Function('state','$','isAdminReview','adminReviewGate','mayPresentSavedReview','renderContextEvidence','renderFilmRoomSpine',
+  const rendered = []; const published = [];
+  const analyze = new Function('state','$','isAdminReview','adminReviewGate','mayPresentSavedReview','renderContextEvidence','renderFilmRoomSpine','buildCandidateAnalysisState',
     `return ${implementation};`)(state, () => null, () => false, {},
-    ({saved,currentSaved}) => saved === currentSaved, () => rendered.push(state.lastSaved), () => {});
+    ({saved,currentSaved}) => saved === currentSaved, result => { rendered.push(state.lastSaved); published.push(result); }, () => {}, buildCandidateAnalysisState);
   await analyze();
   assert.equal(rendered.length, 1);
   assert.equal(rendered[0], state.lastSaved);
   assert.equal(rendered[0].sessionDetail, detail);
   assert.notEqual(rendered[0], saved);
   state.lastSaved = saved;
+  detail.spine.candidateAttribution.status = 'UNVERIFIED';
+  await analyze();
+  assert.equal(published.at(-1).transcript.reason, 'CANDIDATE_AUDIO_SOURCE_UNVERIFIED');
+  assert.equal(rendered.length, 2);
+  state.lastSaved = saved;
   state.durable.analyze = async () => { state.lastSaved = null; return { persistence: { transcript: true } }; };
   await analyze();
-  assert.equal(rendered.length, 1);
+  assert.equal(rendered.length, 2);
+});
+
+test('unverified candidate analysis is disabled and its actual action never calls the provider', async () => {
+  const source = readFileSync(new URL('../../public/studio/studio.mjs', import.meta.url), 'utf8');
+  const implementation = source.match(/async function analyzeLastAnswer[\s\S]*?(?=\nfunction renderHomeCorpus)/)[0];
+  const results = [];
+  const state = { lastSaved: { persisted: true, sessionDetail: { spine: { candidateAttribution: { status: 'UNVERIFIED' } } } },
+    durable: { analyze: () => { throw new Error('must not process unknown speaker audio'); } } };
+  const analyze = new Function('state', '$', 'buildCandidateAnalysisState', 'renderContextEvidence', `return ${implementation};`)(
+    state, () => null, buildCandidateAnalysisState, value => results.push(value));
+  await analyze();
+  assert.equal(results[0].transcript.reason, 'CANDIDATE_AUDIO_SOURCE_UNVERIFIED');
+  assert.equal(buildCandidateAnalysisState().available, false);
+  assert.match(buildCandidateAnalysisState().unavailableCopy, /recording and measured delivery signals remain available/);
+  assert.match(source, /contextButton\.disabled = !\(attribution\.available/);
 });
 
 test('comparison retains the reviewed stable ID and selects only an earlier compatible baseline', () => {

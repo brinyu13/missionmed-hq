@@ -12,7 +12,7 @@ import {
 const nameSession = (name = 'Dr. Élan') => ({ id: 'name-session', recording: { durationMs: 9000 },
   results: { payload: { sessionId: 'name-session', nameUseCoaching: { schema: 'ivoc.name-use.v1',
     enabled: true, name, source: 'manual', sessionId: 'name-session' } } },
-  spine: { turns: [] } });
+  spine: { candidateAttribution: { status: 'VERIFIED' }, turns: [] } });
 const nameTurn = (id, text, startMs = 0, endMs = 1000, speaker = 'student') => ({ speaker, startMs, endMs,
   transcript: { canonical_ref: `transcript:controlled-test#${id}`, text } });
 
@@ -30,6 +30,20 @@ test('possible name mentions use canonical student text and recording thirds, no
   assert.equal(view.matches[0].ref, 'transcript:controlled-test#seg-1');
   assert.match(view.limitation, /not word timestamps/);
   assert.equal(view.score, undefined); assert.equal(view.confidence, undefined);
+});
+
+test('unverified recording attribution suppresses name and semantic observations even with canonical-looking student labels', () => {
+  const detail = nameSession(); detail.spine.turns = [nameTurn('seg-1', 'Thank you, Dr. Élan.')];
+  for (const candidateAttribution of [undefined, { status: 'UNVERIFIED' }]) {
+    detail.spine.candidateAttribution = candidateAttribution;
+    assert.equal(projectInterviewerNameUse(detail).status, 'UNASSESSED');
+    assert.equal(projectInterviewerNameUse(detail).reason, 'CANDIDATE_AUDIO_SOURCE_UNVERIFIED');
+    assert.equal(contextResultFromSessionSpine(detail).transcript.status, 'UNAVAILABLE');
+  }
+  const result = contextResultFromSessionSpine(detail);
+  assert.equal(result.transcript.status, 'UNAVAILABLE');
+  assert.equal(result.transcript.reason, 'CANDIDATE_AUDIO_SOURCE_UNVERIFIED');
+  assert.equal(result.analysis.status, 'UNAVAILABLE');
 });
 
 test('name matching uses Unicode tokens, not substring or executable regex, and never guesses aliases', () => {
@@ -138,6 +152,7 @@ test('context results never invent unsupported strengths, improvements, or drill
 
 test('persisted session spine rehydrates the same bounded Results adapter after reload', () => {
   const result = contextResultFromSessionSpine({ spine: {
+    candidateAttribution: { status: 'VERIFIED' },
     turns: [
       { speaker: 'student', transcript: { canonical_ref: 'transcript:t#seg-1', text: 'I coordinated follow-up.' } },
       { speaker: 'student', transcript: { canonical_ref: 'transcript:t#seg-2', text: 'I explained my contribution.' } },
@@ -189,16 +204,16 @@ test('saved coaching rejects missing, foreign, duplicate and mixed-invalid refer
     score: { value: .9 }, confidence: .9 });
   for (const refs of [['transcript:own#seg-404'], ['transcript:foreign#seg-1'],
     ['transcript:own#seg-1', 'transcript:own#seg-404'], []]) {
-    const result = contextResultFromSessionSpine({ spine: { turns: [turn], evidence: [claim(refs)] } });
+    const result = contextResultFromSessionSpine({ spine: { candidateAttribution: { status: 'VERIFIED' }, turns: [turn], evidence: [claim(refs)] } });
     assert.equal(result.analysis.status, 'UNAVAILABLE');
     assert.equal(result.analysis.score, 0);
     assert.deepEqual(projectContextResults(result), { status: 'UNAVAILABLE' });
   }
   for (const turns of [[turn, turn], [turn, { ...turn, transcript: { ...turn.transcript, canonical_ref: 'transcript:other#seg-1' } }]]) {
-    assert.equal(contextResultFromSessionSpine({ spine: { turns, evidence: [claim(['transcript:own#seg-1'])] } }).analysis.status, 'UNAVAILABLE');
+    assert.equal(contextResultFromSessionSpine({ spine: { candidateAttribution: { status: 'VERIFIED' }, turns, evidence: [claim(['transcript:own#seg-1'])] } }).analysis.status, 'UNAVAILABLE');
   }
   const valid = { ...claim(['transcript:own#seg-1']), score: { value: .7 }, confidence: .65 };
-  const mixed = contextResultFromSessionSpine({ spine: { turns: [turn], evidence: [valid, claim(['transcript:other#seg-1'])] } });
+  const mixed = contextResultFromSessionSpine({ spine: { candidateAttribution: { status: 'VERIFIED' }, turns: [turn], evidence: [valid, claim(['transcript:other#seg-1'])] } });
   assert.equal(mixed.analysis.coachingPatterns.length, 1);
   assert.equal(mixed.analysis.score, .7);
   assert.equal(mixed.analysis.coverage, .65);
@@ -215,6 +230,7 @@ test('synthetic contrasting coaching preserves distinct drills and silent eviden
   ];
   for (const [label, text, facet, polarity] of cases) {
     const result = contextResultFromSessionSpine({ spine: {
+      candidateAttribution: { status: 'VERIFIED' },
       turns: [{ speaker: 'student', startMs: null, endMs: null, transcript: { canonical_ref: 'transcript:test#seg-1', text } }],
       evidence: [{ dimension: 'semantic.coaching_pattern', refs: [{ref:'transcript:test#seg-1'}],
         interpretation: { text: `TEST DATA: ${label}`, facet, polarity }, score: {value:.8}, confidence:.8 }],
@@ -233,16 +249,16 @@ test('overlong replay IDs and absent coaching quality cannot acquire another obs
   const claim = { dimension: 'semantic.coaching_pattern', refs: [{ref}],
     interpretation: {text:'TEST DATA',facet:'specificity',polarity:'strength'},score:{value:.9},confidence:.9 };
   const turn = {speaker:'student',transcript:{canonical_ref:ref,text:'Test contribution.'}};
-  assert.equal(contextResultFromSessionSpine({spine:{turns:[turn],evidence:[claim]}}).analysis.status,'UNAVAILABLE');
+  assert.equal(contextResultFromSessionSpine({spine:{candidateAttribution:{status:'VERIFIED'},turns:[turn],evidence:[claim]}}).analysis.status,'UNAVAILABLE');
   const prefix = `transcript:own#${'a'.repeat(96)}`;
-  const mixed = contextResultFromSessionSpine({spine:{turns:[turn,
+  const mixed = contextResultFromSessionSpine({spine:{candidateAttribution:{status:'VERIFIED'},turns:[turn,
     {...turn,transcript:{...turn.transcript,canonical_ref:prefix}}],evidence:[{...claim,refs:[{ref:prefix}]}]}});
   assert.deepEqual(mixed.transcript.segments.map(segment=>segment.id),[null,'a'.repeat(96)]);
   assert.equal(mixed.analysis.status,'AVAILABLE');
   const own = 'transcript:own#seg-1';
   const valid = {...claim,refs:[{ref:own}]};
   const unknown = {...valid,interpretation:{...valid.interpretation,polarity:'weakness'},score:null,confidence:null};
-  const result = contextResultFromSessionSpine({spine:{turns:[{...turn,transcript:{...turn.transcript,canonical_ref:own}}],evidence:[valid,unknown]}});
+  const result = contextResultFromSessionSpine({spine:{candidateAttribution:{status:'VERIFIED'},turns:[{...turn,transcript:{...turn.transcript,canonical_ref:own}}],evidence:[valid,unknown]}});
   assert.equal(projectContextResults(result).confidence.label,'LIMITED');
   assert.match(result.analysis.limitations[0],/no saved quality estimate/);
 });
