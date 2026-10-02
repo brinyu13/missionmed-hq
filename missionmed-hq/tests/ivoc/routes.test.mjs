@@ -176,6 +176,62 @@ const base = {
   cookieFingerprint: 'f'.repeat(64), hqSessionMaxTtlSeconds: 28_800, expectedOrigin: 'https://hq.test',
 };
 
+test('status-only review preserves stored notes without replaying stale note content', async () => {
+  const repo = repository();
+  const stored = { id: 'review-1', status: 'assigned', notes: ['Existing mentor note'] };
+  repo.single = async (path) => path.startsWith('ivoc_sessions?')
+    ? { id: foreignSessionId, owner_subject: 'wp:7' }
+    : path.startsWith('ivoc_reviews?') ? { ...stored } : null;
+  repo.update = async (path, body) => {
+    repo.updates.push({ path, body });
+    stored.notes = ['Concurrent mentor note'];
+    Object.assign(stored, body);
+    return stored;
+  };
+  const { route } = handler(repo);
+  const response = new ResponseCapture();
+  await route({ ...base, request: request('POST', {}, { origin: 'https://hq.test', 'x-mmhq-csrf': 'a'.repeat(24) }), response,
+    url: new URL(`https://hq.test/api/ivoc/v1/sessions/${foreignSessionId}/review`), hqSession: session(42, ['mentor']) });
+  assert.equal(response.status, 200);
+  assert.equal(response.json().reviewStatus, 'reviewed');
+  assert.equal(Object.hasOwn(repo.updates[0].body, 'notes'), false);
+  assert.deepEqual(stored.notes, ['Concurrent mentor note']);
+  assert.doesNotMatch(response.body, /mentor note/u);
+});
+
+test('review creation defaults empty notes, explicit arrays remain bounded, invalid input never clears notes', async () => {
+  for (const [input, expectedStatus] of [[{}, 200], [{ notes: ['Explicit note'] }, 200], [{ notes: [] }, 200], [{ notes: Array(101).fill('note') }, 200], [{ notes: null }, 400], [{ notes: 'bad' }, 400], [null, 400]]) {
+    const repo = repository();
+    repo.single = async (path) => path.startsWith('ivoc_sessions?') ? { id: foreignSessionId, owner_subject: 'wp:7' } : null;
+    const { route } = handler(repo);
+    const response = new ResponseCapture();
+    await route({ ...base, request: rawRequest('POST', JSON.stringify(input), { origin: 'https://hq.test', 'x-mmhq-csrf': 'a'.repeat(24) }), response,
+      url: new URL(`https://hq.test/api/ivoc/v1/sessions/${foreignSessionId}/review`), hqSession: session(42, ['administrator']) });
+    assert.equal(response.status, expectedStatus);
+    const reviews = repo.inserts.filter(row => row.table === 'ivoc_reviews');
+    if (expectedStatus === 400) assert.equal(reviews.length, 0);
+    else {
+      assert.deepEqual(reviews[0].body.notes, (input.notes || []).slice(0, 100));
+      assert.equal(reviews[0].body.owner_subject, 'wp:7');
+      assert.equal(reviews[0].body.mentor_subject, 'wp:42');
+    }
+  }
+});
+
+test('review completion still denies unassigned students and missing CSRF before mutation', async () => {
+  for (const [roles, headers, status] of [[['student'], { origin: 'https://hq.test', 'x-mmhq-csrf': 'a'.repeat(24) }, 404], [['administrator'], {}, 403]]) {
+    const repo = repository();
+    repo.single = async (path) => path.startsWith('ivoc_sessions?') ? { id: foreignSessionId, owner_subject: 'wp:7' } : null;
+    const { route } = handler(repo);
+    const response = new ResponseCapture();
+    await route({ ...base, request: request('POST', {}, headers), response,
+      url: new URL(`https://hq.test/api/ivoc/v1/sessions/${foreignSessionId}/review`), hqSession: session(42, roles) });
+    assert.equal(response.status, status);
+    assert.equal(repo.inserts.filter(row => row.table === 'ivoc_reviews').length, 0);
+    assert.equal(repo.updates.length, 0);
+  }
+});
+
 test('anonymous API request fails closed', async () => {
   const { route } = handler();
   const response = new ResponseCapture();

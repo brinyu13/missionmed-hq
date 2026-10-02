@@ -1576,10 +1576,18 @@ export function createIvocHandler({
         const assigned = await db.single(`ivoc_reviews?session_id=eq.${sessionId}&mentor_subject=eq.${encodeURIComponent(actor)}&status=neq.revoked&select=*&limit=1`);
         if (!sessionRow || (!admin && (!isMentor(hqSession) || !assigned))) { await audit({ actor, owner: sessionRow?.owner_subject, sessionId, action: 'review_complete', decision: 'deny', reason: 'not_assigned' }); sendError(response, 404, 'not_found', mediaBase); return true; }
         const input = await readJson(request);
-        const body = { status: 'reviewed', reviewed_at: new Date(now()).toISOString(), notes: Array.isArray(input.notes) ? input.notes.slice(0, 100) : [] };
+        if (!input || typeof input !== 'object' || Array.isArray(input)
+          || (Object.hasOwn(input, 'notes') && !Array.isArray(input.notes))) {
+          sendError(response, 400, 'review_notes_invalid', mediaBase); return true;
+        }
+        // Status-only completion must not erase existing (or concurrently saved)
+        // mentor notes. Omit the column from PATCH rather than copying stale data.
+        const body = { status: 'reviewed', reviewed_at: new Date(now()).toISOString(),
+          ...(Object.hasOwn(input, 'notes') ? { notes: input.notes.slice(0, 100) } : {}),
+        };
         const row = assigned
           ? await db.update(`ivoc_reviews?id=eq.${assigned.id}&select=*`, body)
-          : await db.insert('ivoc_reviews', { session_id: sessionId, owner_subject: sessionRow.owner_subject, mentor_subject: actor, assigned_by_subject: actor, ...body });
+          : await db.insert('ivoc_reviews', { session_id: sessionId, owner_subject: sessionRow.owner_subject, mentor_subject: actor, assigned_by_subject: actor, notes: [], ...body });
         await audit({ actor, owner: sessionRow.owner_subject, sessionId, action: 'review_complete', decision: 'allow', reason: admin ? 'admin' : 'assigned_mentor' });
         sendJson(response, 200, { sessionId, reviewStatus: row.status, reviewedAt: row.reviewed_at }, mediaBase); return true;
       }
