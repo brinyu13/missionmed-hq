@@ -95,7 +95,7 @@ export function resolveFounderPresentationSvg(svg,{advancedGroups=[],measureText
     }
     if(node.tag==='image'){
       if(!a.href){warnings.push('MISSING_IMAGE');return;}
-      nodes.push({...shared,kind:'image',source:a.href,bounds:box(matrix,numeric(a.x),numeric(a.y),numeric(a.width),numeric(a.height)),fit:a.preserveAspectRatio?.includes('slice')?'cover':a.preserveAspectRatio==='none'?'stretch':'contain'});return;
+      nodes.push({...shared,kind:'image',source:a.href,...(a['data-paint-inset-top']?{occlusionBounds:box(matrix,numeric(a.x),numeric(a.y)+numeric(a['data-paint-inset-top']),numeric(a.width),Math.max(0,numeric(a.height)-numeric(a['data-paint-inset-top'])))}:{}),bounds:box(matrix,numeric(a.x),numeric(a.y),numeric(a.width),numeric(a.height)),fit:a.preserveAspectRatio?.includes('slice')?'cover':a.preserveAspectRatio==='none'?'stretch':'contain'});return;
     }
     if(node.tag==='text'){
       const size=numeric(currentStyle['font-size'],16),family=currentStyle['font-family']||'serif';
@@ -170,9 +170,11 @@ export function materialPresentationCollisions(resolved){
     !n.sourceAttributes['data-advanced-background']&&Number(n.style.opacity??1)!==0&&
     n.sourceAttributes.visibility!=='hidden'&&n.sourceAttributes.display!=='none'&&
     !(n.kind==='path'&&(n.lineOnly||n.style.fill==='none'||n.bounds.width<1||n.bounds.height<1)))
-    .map(n=>({...n,polygon:polygon(n.bounds)}));
+    .map(n=>({...n,paintOrder:resolved.nodes.indexOf(n),polygon:polygon(n.occlusionBounds||n.bounds)}));
   const found=new Map();
-  for(const text of parts.filter(n=>n.kind==='text'&&n.role==='event'))for(const other of parts){
+  for(const text of parts.filter(n=>n.kind==='text'))for(const other of parts){
+    if(text.role!=='event'&&(other.paintOrder<=text.paintOrder||other.groupId===text.groupId))continue;
+    if(other.kind!=='text'&&(other.style.fill==='none'||other.style.fill==='transparent'||Number(other.style['fill-opacity']??1)===0))continue;
     if(text.groupId===other.groupId||other.groupId==='furniture:axis'||
       !['event','furniture','profile','media','annotation'].includes(other.role))continue;
     if(!overlap(text.polygon,other.polygon))continue;

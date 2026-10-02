@@ -70,7 +70,7 @@ test("one deterministic portable serializer supplies preview/export composition 
   assert.equal(first.svg,second.svg);
   // The historical serialization digest predates measured text and the native font audit.
   // Immutable authority/assets remain hash-locked above; this digest is a technical regression, not visual acceptance.
-  assert.equal(sha256(first.svg),"c2c376bc845f0da025611c724aa66979ebc7db33493c1d05c482e26244130a50");
+  assert.equal(sha256(first.svg),"fe7f8638fb67360f4f978000b57bc45951b2854732c3e3e15f9c60c741fb7f91");
   assert.match(first.svg,/viewBox="0 0 1920 1080"/);
   assert.match(first.svg,/data-founder-canvas="1920x1080"/);
   assert.match(first.svg,new RegExp(`data-founder-keynote-source-sha256="${FOUNDER_KEYNOTE_CONTRACT.source.sha256}"`));
@@ -79,7 +79,7 @@ test("one deterministic portable serializer supplies preview/export composition 
   assert.match(first.svg,new RegExp(`data-founder-board-asset-sha256="${FOUNDER_KEYNOTE_CONTRACT.assets.board.sha256}"`));
   assert.match(first.svg,/data-axis-language="407f-powerpoint"/);
   assert.match(first.svg,/data-continuous-duration-arrow="true"/);
-  assert.match(first.svg,/data-founder-milestone-style="usa"/);
+  assert.doesNotMatch(first.svg,/<image data-founder-usa-flag-asset-sha256/); // Generic relocation has no confirmed country.
   assert.match(first.svg,new RegExp(`data-founder-usa-flag-asset-sha256="${FOUNDER_KEYNOTE_CONTRACT.assets.usaFlag.sha256}"`));
   assert.match(first.svg,/data-founder-geometry="648,0,596,83"/);
   assert.match(first.svg,/data-founder-geometry="20,300,284,346"/);
@@ -164,16 +164,17 @@ test("canonical preview mounts the shared serializer and retains the last comple
     currentMonth:"2027-01",
     resourceNamespace:`preview-${surfaceKey}`
   });
-  const ready=canonicalBoardPreview(fixture,{
+  const bound={...fixture,id:"bound-fixture",studentOwnerId:"synthetic-owner"};
+  const ready=canonicalBoardPreview(bound,{
     audience:"INTERVIEWER_SAFE",
     currentMonth:"2027-01",
-    surfaceKey
+    surfaceKey,viewerPrincipalId:"synthetic-viewer"
   });
   assert.ok(ready.includes(rendered.svg));
   assert.match(ready,/data-render-state="ready"/);
 
   const invalid={
-    ...fixture,
+    ...bound,
     events:[...fixture.events,{
       id:"invalid-category",
       title:"Invalid",
@@ -187,7 +188,7 @@ test("canonical preview mounts the shared serializer and retains the last comple
   const recovered=canonicalBoardPreview(invalid,{
     audience:"INTERVIEWER_SAFE",
     currentMonth:"2027-01",
-    surfaceKey
+    surfaceKey,viewerPrincipalId:"synthetic-viewer"
   });
   assert.match(recovered,/data-render-state="last-good"/);
   assert.match(recovered,/Keeping your last complete preview/);

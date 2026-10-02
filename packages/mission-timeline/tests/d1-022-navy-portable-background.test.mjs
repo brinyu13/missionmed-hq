@@ -30,12 +30,12 @@ test('automatic milestones that cross the fixed title plaque clear the title and
   {id:'2023',weight:1},{id:'2024',weight:1.1},{id:'2025',weight:1},{id:'2026',weight:1},{id:'FUTURE',weight:.8}
  ]}};
  const placement=locked407FMilestoneGeometry(s,'award');
- assert.equal(placement.y,179,'the automatic flag starts below the axis hit area');
+ assert.equal(placement.y,87,'the automatic flag stays between the title plaque and the ribbon');
  assert.equal(placement.axisBottom,161,'the pole anchors to the bottom of the year ribbon');
- assert.ok(placement.y>placement.axisBottom,'the flag body does not cover a year label');
+ assert.ok(placement.y+38<=placement.axisY,'the flag body does not cover a year label');
  const svg=serializeLocked407FPortableSvg(s);
- assert.match(svg,/data-event-id="award"[\s\S]*?<line[^>]*y1="179"[^>]*y2="161"/);
- assert.match(svg,/data-event-id="award"[\s\S]*?<text[^>]*data-board-ink-role="flag-label"[^>]*y="201"/);
+ assert.match(svg,/data-event-id="award"[\s\S]*?<line[^>]*y1="87"[^>]*y2="125"/);
+ assert.match(svg,/data-event-id="award"[\s\S]*?<text[^>]*data-board-ink-role="flag-label"[^>]*y="109"/);
 });
 test('default Founder board remains its original texture, including at zero events',()=>{
  for(const events of [undefined,[]]){

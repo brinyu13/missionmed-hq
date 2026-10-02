@@ -679,6 +679,7 @@ function buildArrows(events, segments, laneResult, currentMonth, measureText) {
       categoryId: event.categoryId,
       fill,
       lane,
+      manualOffset:{...event.manualOffset},
       condensed,
       study,
       examAttemptId:event.categoryId==="exams"?String(event.fields?.attemptId||""):"",
@@ -755,6 +756,7 @@ function buildFlags(events, segments, measureText) {
     return {
       kind: "flag",
       id: String(event.id),
+      siteName: String(event.siteName||""),
       title: String(event.title),
       categoryId: event.categoryId,
       anchorX,

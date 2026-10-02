@@ -412,10 +412,10 @@ export function normalizeAdvancedStudioDocument(document={}){
 /* Keep the V1 scene contract in the same transaction as its compatibility
  * arrays.  The renderer may continue to consume those arrays during the
  * re-anchor, but save/reload now always carries one versioned scene snapshot. */
-function refreshAdvancedScene(document){
+function refreshAdvancedScene(document,{deletedObjectIds=[]}={}){
   if(document?.advanced&&typeof document.advanced==="object"){
     document.advanced.scene=reconcileAdvancedScene(document.advanced,{
-      revision:document.revision
+      revision:document.revision,deletedObjectIds
     });
   }
   return document;
@@ -1635,12 +1635,17 @@ export function applyAdvancedObjectAction(document,target,action,{
     const group=state.advanced.groups[groupIndex];
     const children=new Set((group.children||[]).map(childTargetKey));
     if(action==="delete"){
+      const deletedObjectIds=[];
       for(const collection of ["media","textBlocks","elements"]){
         const childType={media:"media",textBlocks:"text",elements:"element"}[collection];
-        state.advanced[collection]=state.advanced[collection].filter((item)=>!children.has(targetKey({type:item.type||childType,id:item.id})));
+        state.advanced[collection]=state.advanced[collection].filter((item)=>{
+          const remove=children.has(targetKey({type:item.type||childType,id:item.id}));
+          if(remove)deletedObjectIds.push(String(item.id));
+          return !remove;
+        });
       }
       state.advanced.groups.splice(groupIndex,1);
-      return{document:refreshAdvancedScene(state),changed:true,mutation:{label:"Delete group",history:true,undoSteps:1},selection:null};
+      return{document:refreshAdvancedScene(state,{deletedObjectIds}),changed:true,mutation:{label:"Delete group",history:true,undoSteps:1},selection:null};
     }
     const nextGroupId=String(duplicateId||"").trim();
     if(!nextGroupId||state.advanced.groups.some((candidate)=>String(candidate.id)===nextGroupId))throw new TypeError("A unique duplicate group ID is required.");
@@ -1714,7 +1719,7 @@ export function applyAdvancedObjectAction(document,target,action,{
     duplicate:"Duplicate",
     delete:"Delete"
   }[action];
-  refreshAdvancedScene(state);
+  refreshAdvancedScene(state,{deletedObjectIds:action==="delete"?[id]:[]});
   return{
     document:state,
     changed:true,

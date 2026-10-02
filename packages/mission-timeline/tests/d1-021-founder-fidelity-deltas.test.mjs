@@ -87,8 +87,8 @@ test('only explicit exam results color native pennants; score, title and attempt
     assert.ok(nodes.some(n=>n.semanticRef===event.id&&n.kind==='path'&&n.style.fill===color));
     const flag=out.scene.flags.find(f=>f.id===event.id),study=out.scene.arrows.find(a=>a.study&&a.examAttemptId===flag.examAttemptId);
     assert.ok(study);const studyPaint=arrow(nodes,study.id),pole=nodes.find(n=>n.semanticRef===event.id&&n.lineOnly);
-    assert.equal(pole.commands.at(-1).y,studyPaint.bounds.y);
-    assert.ok(pole.bounds.y>170,'Attempt flags remain above their study window, clear of the title plaque');
+    assert.equal(pole.commands.at(-1).y,125);
+    assert.ok(pole.bounds.y<125,'The locked 2025 template keeps attempt pennants above the ribbon');
   }
   const unknown=structuredClone(document);unknown.exams=[];
   unknown.events=unknown.events.map(e=>e.categoryId==='exams'?{...e,title:'Passed in title is not evidence',result:undefined,fields:{...e.fields,result:undefined,score:'299'}}:e);

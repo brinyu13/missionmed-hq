@@ -170,7 +170,7 @@ export function sceneGraphFromLegacy(advanced={}, {revision=0}={}){
  * Reconcile the current arrays with a valid stored scene and preserve only the
  * scene-native event objects; semantic event facts remain outside this module.
  */
-export function reconcileAdvancedScene(advanced={}, {revision=0}={}){
+export function reconcileAdvancedScene(advanced={}, {revision=0,deletedObjectIds=[]}={}){
   const rebuilt=sceneGraphFromLegacy(advanced,{revision});
   const stored=advanced?.scene;
   const supported=stored?.schema===TIMELINE_SCENE_SCHEMA&&Number(stored?.version)===TIMELINE_SCENE_VERSION;
@@ -184,6 +184,14 @@ export function reconcileAdvancedScene(advanced={}, {revision=0}={}){
     error.code='TIMELINE_SCENE_RECOVERY_REQUIRED';error.details=storedValidity.errors;throw error;
   }
   const prior=normalizeStoredScene(stored);
+  const rebuiltIds=new Set(rebuilt.objects.map(object=>object.id));
+  // Only an explicit user delete may remove an authored scene object.
+  const deletedIds=new Set(deletedObjectIds.map(String));
+  const unrepresented=prior.objects.filter(object=>object.type!=="event"&&!rebuiltIds.has(object.id)&&!deletedIds.has(object.id));
+  if(unrepresented.length){
+    const error=new TypeError('Your saved layout contains authored objects that need recovery. Restore a compatible prior version from History before exporting.');
+    error.code='TIMELINE_SCENE_RECOVERY_REQUIRED';error.details=unrepresented.map(object=>object.id);throw error;
+  }
   const sceneOnly=prior.objects.filter((object)=>object.type==="event");
   if(!sceneOnly.length)return rebuilt;
 
@@ -330,13 +338,14 @@ export function migrateAdvancedScene(advanced={}, {revision=0}={}){
       return{scene:normalized,migrated:false,sourceVersion:TIMELINE_SCENE_VERSION};
     }
   }
-  return{
-    scene:supported
-      ?reconcileAdvancedScene(advanced,{revision})
-      :sceneGraphFromLegacy(advanced,{revision}),
-    migrated:true,
-    sourceVersion:supported?TIMELINE_SCENE_VERSION:Number(stored?.version||0)
-  };
+  try{
+    return{scene:supported?reconcileAdvancedScene(advanced,{revision}):sceneGraphFromLegacy(advanced,{revision}),
+      migrated:true,sourceVersion:supported?TIMELINE_SCENE_VERSION:Number(stored?.version||0)};
+  }catch(error){
+    if(!supported||error.code!=='TIMELINE_SCENE_RECOVERY_REQUIRED')throw error;
+    return{scene:clone(stored),migrated:false,sourceVersion:TIMELINE_SCENE_VERSION,
+      recovery:{code:error.code,errors:[error.message]}};
+  }
 }
 
 function legacyItemFromScene(object,prior={}){

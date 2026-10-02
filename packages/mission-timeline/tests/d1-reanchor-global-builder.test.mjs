@@ -188,13 +188,13 @@ test("server AI mapping bulk-accepts professional CV facts into the interview Ti
 
 test("Builder preview keeps the last valid canvas when recalculation fails",()=>{
   clearLastGoodBuilderPreview("preview-test");
-  const document={id:"preview-test"};
-  const first=renderLastGoodBuilderPreview(document,{},()=>'<div><svg data-version="good"></svg></div>');
-  const second=renderLastGoodBuilderPreview(document,{},()=>'<div data-render-isolated="BROKEN"><svg></svg></div>');
+  const document={id:"preview-test",studentOwnerId:"synthetic-owner"};
+  const first=renderLastGoodBuilderPreview(document,{viewerPrincipalId:"synthetic-viewer"},()=>'<div><svg data-version="good"></svg></div>');
+  const second=renderLastGoodBuilderPreview(document,{viewerPrincipalId:"synthetic-viewer"},()=>'<div data-render-isolated="BROKEN"><svg></svg></div>');
   assert.match(first,/data-version="good"/);
   assert.match(second,/data-version="good"/);
   assert.match(second,/data-preview-recalculating="true"/);
-  const third=renderLastGoodBuilderPreview(document,{},()=>{throw new Error("synthetic failure");});
+  const third=renderLastGoodBuilderPreview(document,{viewerPrincipalId:"synthetic-viewer"},()=>{throw new Error("synthetic failure");});
   assert.match(third,/data-preview-recovery="true"/);
   assert.doesNotMatch(third,/loading canonical timeline/i);
 });

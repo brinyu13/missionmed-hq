@@ -424,6 +424,9 @@ function renderScreen(store){
   if(store.route==="home")return responsiveFrame(store,"home",{fullContent:renderHome(store)});
   if(store.route==="builder"){
     const previewHtml=store.document.events.length?renderLastGoodBuilderPreview(store.document,{
+      viewerPrincipalId:store.entitlement?.principalId,
+      subjectPrincipalId:store.document.studentOwnerId,
+      surfaceKey:"builder",
       interactive:true,
       label:"Live timeline preview; activate an event to edit it",
       eventTargetAttribute:"data-builder-preview-entry"

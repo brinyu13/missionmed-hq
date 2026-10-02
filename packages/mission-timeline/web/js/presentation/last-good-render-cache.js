@@ -39,3 +39,14 @@ export class LastGoodRenderCache{
 }
 
 export const timelineLastGoodRenderCache=new LastGoodRenderCache();
+
+// A caller's surface name is never an access boundary. Unbound callers render
+// normally but cannot receive a previously cached applicant's content.
+export function previewCacheIdentity(document,options={}){
+  const id=document?.id,owner=document?.studentOwnerId;
+  const viewer=options.viewerPrincipalId,subject=options.subjectPrincipalId||owner;
+  if(!id||!owner||!viewer||!subject)return null;
+  return JSON.stringify([String(id),String(owner),String(viewer),String(subject),
+    String(options.audience||'INTERVIEWER_SAFE').toUpperCase(),
+    String(options.surfaceKey||options.className||'default'),!!options.ghost]);
+}

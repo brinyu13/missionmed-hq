@@ -53,7 +53,7 @@ export function renderHome(store){
           </div>
         </div>
         ${count?`<button type="button" class="preview-button" data-open-canvas aria-label="Edit timeline">
-          ${simpleBoardPreview(document,{interactive:false,label:"Current interview-safe timeline preview"})}
+          ${simpleBoardPreview(document,{interactive:false,label:"Current interview-safe timeline preview",surfaceKey:"home",viewerPrincipalId:store.entitlement?.principalId,subjectPrincipalId:document.studentOwnerId})}
           <span class="ghost-action" aria-hidden="true">Edit timeline</span>
         </button>`:`<div class="empty-preview">
           ${simpleBoardPreview(document,{ghost:true,label:"Example timeline illustration"})}

@@ -29,7 +29,10 @@ test('an institution omission is detected even when all event IDs remain in the 
   assert.throws(()=>assertCompleteFounderPresentation(r),e=>e.code==='TIMELINE_EXPORT_MISSING_FIELDS'&&e.fields.some(f=>f.field==='siteName'));
 });
 
-test('material text collisions block the same final render used for export',()=>{
-  const r=serializeFounderPresentation(FOUNDER_2025_MATRIX.find(f=>f.id==='M05').document);
-  assert.throws(()=>assertCompleteFounderPresentation(r),e=>e.code==='TIMELINE_EXPORT_TEXT_COLLISION');
+test('rotations and long institutions fit inside the template without changing facts',()=>{
+  for(const id of ['M05','M09']){
+    const document=FOUNDER_2025_MATRIX.find(f=>f.id===id).document,before=JSON.stringify(document);
+    const r=serializeFounderPresentation(document);assert.doesNotThrow(()=>assertCompleteFounderPresentation(r));
+    assert.equal(JSON.stringify(document),before);assert.equal(r.svg,serializeFounderPresentation(document).svg);
+  }
 });

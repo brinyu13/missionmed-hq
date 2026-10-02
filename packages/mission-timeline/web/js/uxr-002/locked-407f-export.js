@@ -1,3 +1,4 @@
+import {resolveFounderPresentationSvg} from '../presentation/resolved-founder-presentation.js';
 import {presentationDateWording} from '../presentation/source-date-wording.js';
 /*
  * Raster-safe export projection for the protected 407F renderer.
@@ -118,7 +119,7 @@ function metrics(scene){
   const lastCandidate=months.length
     ?Math.floor(Math.max(...months)/12)
     :Number(scene?.span?.lastYear)||firstYear+1;
-  const lastYear=Math.max(firstYear+1,lastCandidate);
+  const lastYear=Math.max(firstYear,lastCandidate);
   const totalMonths=(lastYear-firstYear+1)*12;
   const segments=[];
   for(let year=firstYear;year<=lastYear;year+=1){
@@ -235,11 +236,11 @@ function personalBandSegments(scene){
 }
 
 function geometry(arrow,layout,scale,scene){
-  const overridden=presentationEventObject(scene,arrow.id)?.geometry;
+  const overridden=presentationEventObject(scene,arrow.id)?.geometry||scene.autoArrowGeometry?.get(String(arrow.id));
   if(overridden){
     const x=pixel(overridden.x),y=pixel(overridden.y);
     const width=pixel(Math.max(1,overridden.width));
-    return{x,y,width,x2:x+width,height:pixel(Math.max(1,overridden.height))};
+    return{x,y,width,x2:x+width,height:pixel(Math.max(1,overridden.height)),...(overridden.personalSegment?{personalSegment:overridden.personalSegment}:{})};
   }
   const segment=personalBandSegments(scene).get(arrow.id);
   const x=pixel(boardX(scale.xPercent(arrow.startMonth)));
@@ -290,11 +291,13 @@ function arrowMarkup(arrow,index,layout,scale,scene){
   const outsideInk=boardInk(scene);
   const dates=`<text data-arrow-caption="true" data-board-ink-role="caption" x="${captionX}" y="${dateY}" text-anchor="middle" fill="${outsideInk}" font-family="${TYPE.event}" font-size="${dateSize}">${xml(caption)}</text>`;
   void start;void end;void duration;
-  const siteCenter=Math.max(44,Math.min(WIDTH-44,box.x+box.width/2));
-  const siteWidth=Math.min(500,2*Math.min(siteCenter-24,WIDTH-24-siteCenter));
+  const siteWidth=Math.min(500,Math.max(1,(scene.measureText||measurePresentationText)(String(arrow.siteName||""),19,TYPE.event)+4));
+  const siteCenter=Math.max(24+siteWidth/2,Math.min(WIDTH-24-siteWidth/2,box.x+box.width/2));
   const siteLines=arrow.siteName?wrapPresentationText(arrow.siteName,{width:Math.max(1,siteWidth),size:19,family:TYPE.event,measureText:scene.measureText||measurePresentationText}):[];
+  const siteX=(siteLines.length>1?Math.min(WIDTH-24-siteWidth,Math.max(24,box.x)):siteCenter)+(scene.autoSiteOffsets?.get(String(arrow.id))||0);
+  const siteAnchor=siteLines.length>1?"start":"middle";
   const site=siteLines.length
-    ?`<text data-board-ink-role="site" data-material-field="siteName" x="${siteCenter}" y="${box.y+51}" text-anchor="middle" fill="${outsideInk}" font-family="${TYPE.event}" font-size="19">${siteLines.map((line,i)=>`<tspan x="${siteCenter}" dy="${i?21:0}">${xml(line)}</tspan>`).join('')}</text>`
+    ?`<text data-board-ink-role="site" data-material-field="siteName" x="${siteX}" y="${box.y+51}" text-anchor="${siteAnchor}" fill="${outsideInk}" font-family="${TYPE.event}" font-size="19">${siteLines.map((line,i)=>`<tspan x="${siteX}" dy="${i?21:0}">${xml(line)}</tspan>`).join('')}</text>`
     :"";
   const arrowHead=Math.min(24,Math.max(14,box.width*.14));
   const joined=box.personalSegment&&!box.personalSegment.terminal;
@@ -365,17 +368,11 @@ function milestoneGeometry(flag,index,scale,scene,{interview=false}={}){
   const footprintRight=Math.max(x+56,flipLabel?x-8:x+60+labelWidth);
   const plaque=FOUNDER_PORTABLE_GEOMETRY.title;
   const crossesTitle=footprintLeft<plaque.x+plaque.width&&footprintRight>plaque.x;
-  /* The fixed title plaque owns y=0..83. Default milestone flags previously used
-     y=58/65 even when their date and label crossed the plaque, so the plaque painted
-     over the flag in the shared SVG, PNG, PDF and editable presentation. Place only
-     that automatic flag below the complete axis hit area and connect its pole to the
-     ribbon bottom. This preserves the chronological x anchor without covering either
-     the plaque or year labels. Manual Advanced Studio geometry remains exact. */
-  const belowAxisY=FOUNDER_PORTABLE_GEOMETRY.axisTop+FOUNDER_PORTABLE_GEOMETRY.axisHeight+18;
-  const automaticY=studyBox?studyBox.y-58:crossesTitle?belowAxisY:(index%2===0?58:65);
-  const defaultPoleBottom=studyBox?.y??(crossesTitle
-    ?FOUNDER_PORTABLE_GEOMETRY.axisTop+FOUNDER_PORTABLE_GEOMETRY.axisHeight
-    :FOUNDER_PORTABLE_GEOMETRY.axisTop);
+  // The authoritative template keeps milestones above the ribbon. The gap
+  // under the plaque can hold a pennant and a single-line label; unresolved
+  // long/simultaneous labels are quality findings, never moved below the axis.
+  const automaticY=crossesTitle?87:(index%2===0?58:65);
+  const defaultPoleBottom=FOUNDER_PORTABLE_GEOMETRY.axisTop;
   return {object,overridden,x,y:overridden?pixel(overridden.y):automaticY,width:overridden?Math.max(.25,Number(overridden.width)||50):50,height:overridden?Math.max(.25,Number(overridden.height)||64):64,rotation:overridden?Number(overridden.rotation)||0:0,defaultPoleBottom};
 }
 
@@ -402,7 +399,7 @@ function flagMarkup(flag,index,scale,scene,{interview=false}={}){
     :"";
   const bx=overridden?0:x,by=overridden?0:y;
   const title=interview?"Interview":flag.title;
-  const useUsFlag=!interview&&/relocat|moved|u\.?s\.?a|green\s*card|citizen|immigra/i.test(title);
+  const useUsFlag=!interview&&/\b(?:united states(?: of america)?|u\.s\.(?:a\.?)?|usa)\b/i.test(title);
   if(useUsFlag){
     const poleX=bx+4;
     const usaFlag=FOUNDER_KEYNOTE_CONTRACT.assets.usaFlag;
@@ -423,10 +420,9 @@ function flagMarkup(flag,index,scale,scene,{interview=false}={}){
   const pennant=`<path d="M${poleX} ${by+2}C${poleX+16} ${by-4},${poleX+34} ${by+8},${poleX+52} ${by+2}L${poleX+52} ${by+36}C${poleX+36} ${by+42},${poleX+18} ${by+30},${poleX} ${by+36}Z" fill="${fill}" stroke="${edge}" stroke-width="1.2"/><path d="M${poleX+2} ${by+4}C${poleX+16} ${by-1},${poleX+34} ${by+10},${poleX+50} ${by+5}" stroke="${light}" stroke-opacity=".8" stroke-width="1"/>`;
   const chip=`<rect x="${poleX+8}" y="${by+10}" width="36" height="18" rx="3" fill="#FFFFFF" fill-opacity=".92"/><text x="${poleX+26}" y="${by+23}" text-anchor="middle" fill="#3B4048" font-family="${TYPE.event}" font-size="13">${xml(presentationDateWording(flag.month,flag.datePrecision?.start,flag.sourceDateWording?.start))}</text>`;
   const labelX=flipLabel?poleX-8:poleX+60;
-  const words=String(title||"").split(/\s+/).filter(Boolean);
-  const lines=words.length>2&&String(title||"").length>16?[words.slice(0,Math.ceil(words.length/2)).join(" "),words.slice(Math.ceil(words.length/2)).join(" ")]:[String(title||"")];
+  const lines=wrapPresentationText(String(title||''),{width:Math.max(1,flipLabel?labelX-16:WIDTH-labelX-16),size:18,family:TYPE.arrowLabel,measureText:scene.measureText||measurePresentationText});
   const resultPrivacy=flag.presentationRedactions?.includes('EXAM_RESULT_PRIVATE')?' data-exam-result-private="true"':'';
-  const label=lines.map((line,lineIndex)=>`<text${resultPrivacy} data-board-ink-role="flag-label" x="${labelX}" y="${by+22+lineIndex*21}"${flipLabel?' text-anchor="end"':""} fill="${boardInk(scene)}" font-family="${TYPE.event}" font-size="18">${xml(line)}</text>`).join("");
+  const label=lines.map((line,lineIndex)=>`<text${resultPrivacy} data-board-ink-role="flag-label" x="${labelX}" y="${by+22+lineIndex*21}"${flipLabel?' text-anchor="end"':""} fill="${boardInk(scene)}" font-family="${TYPE.arrowLabel}" font-size="18">${xml(line)}</text>`).join("");
   return`<g data-event-kind="${interview?"interview-marker":"flag"}"${interview?"":` data-event-id="${xml(flag.id)}"`} data-founder-milestone-style="pennant"${examResult?` data-exam-result="${examResult}"`:""} aria-label="${xml(flag.ariaLabel)}"${transform}><line x1="${poleX}" y1="${by}" x2="${poleX}" y2="${poleBottom}" stroke="#8E9398" stroke-width="3"/><circle cx="${poleX}" cy="${by}" r="2.5" fill="#B9BDC1"/>${pennant}${chip}${label}</g>`;
 }
 
@@ -443,7 +439,7 @@ function colorKey(scene){
   const base=FOUNDER_PORTABLE_GEOMETRY.colorKey;
   const sx=width/base.width,sy=height/base.height;
   const cardTop=35,left=20,swatchWidth=36,swatchHeight=rows.length>7?26:30,firstRow=cardTop+41;
-  return`<g data-artifact-chrome="color-key" data-canonical-row-count="6" data-founder-geometry="${x},${y},${width},${height}" transform="translate(${x} ${y}) scale(${sx} ${sy})"><image href="${xml(LOCKED_407F_ASSETS.key)}" x="0" y="0" width="${base.width}" height="${base.height}" preserveAspectRatio="none"/><image href="${xml(LOCKED_407F_ASSETS.pin)}" x="${base.width/2-14}" y="-12" width="28" height="28"/><text x="${left}" y="${cardTop+26}" fill="#A8402F" font-family="${TYPE.key}" font-size="18" font-weight="700">COLOR KEY</text><path d="M${left} ${cardTop+31}H${left+100}" stroke="#A8402F" stroke-width="1.2"/>${rows.map(({id,label,color},index)=>{const fit=String(label).length>19?' textLength="190" lengthAdjust="spacingAndGlyphs"':"";const top=firstRow+index*rowPitch;return`<g data-color-key-row="${index}" data-category-id="${xml(id)}"><rect x="${left}" y="${top}" width="${swatchWidth}" height="${swatchHeight}" rx="2" fill="${color}" stroke="#2B2B2B" stroke-width="1"/><text x="${left+swatchWidth+12}" y="${top+21}" fill="#171D26" font-family="${TYPE.key}" font-size="18" font-weight="500"${fit}>${xml(label)}</text></g>`;}).join("")}</g>`;
+  return`<g data-artifact-chrome="color-key" data-canonical-row-count="6" data-founder-geometry="${x},${y},${width},${height}" transform="translate(${x} ${y}) scale(${sx} ${sy})"><image data-paint-inset-top="35" href="${xml(LOCKED_407F_ASSETS.key)}" x="0" y="0" width="${base.width}" height="${base.height}" preserveAspectRatio="none"/><image href="${xml(LOCKED_407F_ASSETS.pin)}" x="${base.width/2-14}" y="-12" width="28" height="28"/><text x="${left}" y="${cardTop+26}" fill="#A8402F" font-family="${TYPE.key}" font-size="18" font-weight="700">COLOR KEY</text><path d="M${left} ${cardTop+31}H${left+100}" stroke="#A8402F" stroke-width="1.2"/>${rows.map(({id,label,color},index)=>{const fit=String(label).length>19?' textLength="190" lengthAdjust="spacingAndGlyphs"':"";const top=firstRow+index*rowPitch;return`<g data-color-key-row="${index}" data-category-id="${xml(id)}"><rect x="${left}" y="${top}" width="${swatchWidth}" height="${swatchHeight}" rx="2" fill="${color}" stroke="#2B2B2B" stroke-width="1"/><text x="${left+swatchWidth+12}" y="${top+21}" fill="#171D26" font-family="${TYPE.key}" font-size="18" font-weight="500"${fit}>${xml(label)}</text></g>`;}).join("")}</g>`;
 }
 
 /* AAA-019 — crop rendered in SVG. The stored crop model ({x,y} pan 0–100, zoom 1–4) used
@@ -711,7 +707,7 @@ function namespacePortableSvgResources(svg,resourceNamespace){
   return svg.replaceAll("d1406-",`d1406-${namespace}-`);
 }
 
-export function serializeLocked407FPortableSvg(scene,{layers="",resourceNamespace=""}={}){
+function serializePlacedPortableSvg(scene,{layers="",resourceNamespace=""}={}){
   const scale=metrics(scene);
   const layout=founderPortableLayout(scene);
   const arrows=scene?.arrows||[];
@@ -724,4 +720,52 @@ export function serializeLocked407FPortableSvg(scene,{layers="",resourceNamespac
     appendLayers(svg,`${advancedSceneMarkup(scene)}${layers}`),
     resourceNamespace
   );
+}
+
+// Fit independent, directly labelled duration arrows inside the existing board.
+// Chronological x/width, native typography, content and manual geometry are
+// immutable here. No consolidation, abbreviation, new lanes/legend or pages.
+function avoidAutomaticArrowCollisions(scene,svg){
+  const joinedBands=personalBandSegments(scene);
+  const auto=(scene.arrows||[]).filter(arrow=>!presentationEventObject(scene,arrow.id)?.geometry&&!arrow.manualOffset?.laneLocked&&!joinedBands.has(arrow.id));
+  if(!auto.length)return null;
+  const ids=new Set(auto.map(arrow=>'event:'+arrow.id));
+  const resolved=resolveFounderPresentationSvg(svg,{measureText:scene.measureText});
+  const physical=resolved.nodes.filter(n=>n.groupId&&n.bounds&&n.groupId!=='furniture:axis'&&
+    !n.sourceAttributes['data-board-background']&&!n.sourceAttributes['data-advanced-background']&&
+    Number(n.style.opacity??1)>0&&Number(n.style['fill-opacity']??1)>0&&
+    !(n.kind==='path'&&(n.lineOnly||n.style.fill==='none'||n.bounds.width<1||n.bounds.height<1)));
+  // Conservative axis-aligned envelope for rotated photos; never move a card.
+  const envelope=b=>{const a=(b.rotation||0)*Math.PI/180,w=Math.abs(b.width*Math.cos(a))+Math.abs(b.height*Math.sin(a)),h=Math.abs(b.width*Math.sin(a))+Math.abs(b.height*Math.cos(a));return{x:b.x+(b.width-w)/2,y:b.y+(b.height-h)/2,width:w,height:h};};
+  const intersects=(a,b)=>a.x<b.x+b.width+6&&a.x+a.width+6>b.x&&a.y<b.y+b.height+6&&a.y+a.height+6>b.y;
+  const occupied=physical.filter(n=>!ids.has(n.groupId)).map(n=>envelope(n.occlusionBounds||n.bounds));
+  const scale=metrics(scene),layout=founderPortableLayout(scene),placements=new Map(),siteOffsets=new Map();
+  let changed=false;
+  for(const arrow of auto){
+    const original=geometry(arrow,layout,scale,scene);
+    const parts=physical.filter(n=>n.groupId==='event:'+arrow.id).map(n=>({...envelope(n.occlusionBounds||n.bounds),site:n.sourceAttributes['data-material-field']==='siteName'}));
+    const shifted=(b,dy,dx)=>({...b,x:b.x+(b.site?dx:0),y:b.y+dy});
+    const fits=(dy,dx)=>parts.map(b=>shifted(b,dy,dx)).every(b=>b.x>=0&&b.x+b.width<=WIDTH&&b.y>=171&&b.y+b.height<=HEIGHT-8&&
+      !occupied.some(other=>intersects(b,other)));
+    let delta=0,siteOffset=0;
+    if(!fits(0,0)){
+      const candidates=[0];
+      for(let y=188;y<=1000;y+=2)candidates.push(y-original.y);
+      candidates.sort((a,b)=>Math.abs(a)-Math.abs(b)||a-b);
+      const offsets=[0,Math.min(250,original.width),-Math.min(250,original.width)];
+      let found=false;
+      for(const dx of offsets){const dy=candidates.find(y=>fits(y,dx));if(dy!==undefined){delta=dy;siteOffset=dx;changed=true;found=true;break;}}
+      if(!found){delta=0;siteOffset=0;} // Preserve all material; the final gate reports the remaining conflict.
+    }
+    placements.set(String(arrow.id),{...original,y:original.y+delta});
+    siteOffsets.set(String(arrow.id),siteOffset);
+    occupied.push(...parts.map(b=>shifted(b,delta,siteOffset)));
+  }
+  return changed?{...scene,autoArrowGeometry:placements,autoSiteOffsets:siteOffsets}:null;
+}
+
+export function serializeLocked407FPortableSvg(scene,options={}){
+  const first=serializePlacedPortableSvg(scene,options);
+  const adjusted=avoidAutomaticArrowCollisions(scene,first);
+  return adjusted?serializePlacedPortableSvg(adjusted,options):first;
 }

@@ -4,7 +4,7 @@ import {
 } from "../editor/collision-engine-410.js";
 import {escapeHtml} from "./utils.js";
 import {applySceneCommandToDocument} from '../editor/scene-commands.js';
-import {serializeFounderPresentation} from '../presentation/founder-presentation-serializer.js';
+import {serializeFounderPresentation,assertCompleteFounderPresentation} from '../presentation/founder-presentation-serializer.js';
 import {resolveFounderPresentationSvg,materialPresentationCollisions} from '../presentation/resolved-founder-presentation.js';
 import {locked407FMilestoneGeometry} from './locked-407f-export.js';
 
@@ -276,11 +276,17 @@ function inspectReadability(document,findings){
       basis:QUALITY_GUARDIAN_BASES.SOURCE_FACT,elementIds:omitted.map(item=>item.id),
       message:`${omitted.length} included event${omitted.length===1?' cannot':'s cannot'} appear on the timeline.`,
       recommendation:"Review missing or invalid dates before exporting. No event will be silently omitted.",evidence:{count:omitted.length}});
+    try{assertCompleteFounderPresentation(rendered);}catch(error){
+      if(['TIMELINE_EXPORT_MISSING_FIELDS','TIMELINE_EXPORT_INCOMPLETE'].includes(error.code)&&!omitted.length)
+        add(findings,{section:"CHRONOLOGY",code:error.code,severity:"BLOCK_EXPORT",basis:QUALITY_GUARDIAN_BASES.SOURCE_FACT,
+          elementIds:error.eventIds||error.fields?.map(field=>field.id)||[],message:error.message,
+          recommendation:"Review these source facts and their visible representation before exporting.",evidence:{fields:error.fields||[]}});
+    }
     const paint=resolveFounderPresentationSvg(rendered.svg);
     const materialCollisions=materialPresentationCollisions(paint);
     if(materialCollisions.length)add(findings,{section:"LAYOUT",code:"PRESENTATION_TEXT_COLLISION",severity:"BLOCK_EXPORT",
       basis:QUALITY_GUARDIAN_BASES.PRESENTATION,elementIds:[...new Set(materialCollisions.flatMap(c=>c.elementIds))],
-      message:"Some event text overlaps another event or a template card.",recommendation:"Adjust the layout and review the preview before exporting.",evidence:{count:materialCollisions.length}});
+      message:"Some visible text is overlapped or hidden by another object.",recommendation:"Adjust the layout and review the preview before exporting.",evidence:{count:materialCollisions.length}});
     const outside=paint.nodes.filter(node=>node.kind==='text'&&(node.bounds.x<-.5||node.bounds.y<-.5||node.bounds.x+node.bounds.width>BOARD.width+.5||node.bounds.y+node.bounds.height>BOARD.height+.5));
     if(outside.length)add(findings,{section:"LAYOUT",code:"PRESENTATION_TEXT_OFF_CANVAS",severity:"BLOCK_EXPORT",
       basis:QUALITY_GUARDIAN_BASES.PRESENTATION,elementIds:[...new Set(outside.map(node=>node.semanticRef||node.groupId||node.id))],

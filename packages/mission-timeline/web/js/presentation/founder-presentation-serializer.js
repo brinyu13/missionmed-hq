@@ -369,16 +369,17 @@ export function assertCompleteFounderPresentation(rendered){
     const error=new TypeError(`Review ${omitted.length} event${omitted.length===1?'':'s'} with missing or invalid dates before exporting. Every included event must appear in your timeline.`);
     error.code='TIMELINE_EXPORT_INCOMPLETE';error.eventIds=omitted.map(item=>String(item.id));throw error;
   }
+  const uncertain=[...(rendered.scene.arrows||[]),...(rendered.scene.flags||[])].filter(event=>Object.values(event.datePrecision||{}).includes('UNKNOWN'));
+  if(uncertain.length){const error=new TypeError('Confirm unknown dates before exporting; normalized coordinates do not establish a source date.');error.code='TIMELINE_EXPORT_INCOMPLETE';error.eventIds=uncertain.map(event=>String(event.id));throw error;}
   const paint=resolveFounderPresentationSvg(rendered.svg,{measureText:rendered.scene.measureText});
   const expected=new Set(rendered.scene.events.map(event=>String(event.id)));
   const represented=new Set(paint.nodes.map(node=>String(node.semanticRef||'')));
   const normalized=value=>String(value||'').replace(/\s+/g,' ').trim();
   const missingFields=[];
-  for(const event of rendered.scene.arrows||[]){
+  for(const event of [...(rendered.scene.arrows||[]),...(rendered.scene.flags||[])]){
     const text=normalized(paint.nodes.filter(node=>node.kind==='text'&&node.semanticRef===String(event.id)).map(node=>node.text).join(' '));
     for(const field of ['title','siteName'])if(event[field]&&!text.includes(normalized(event[field])))missingFields.push({id:String(event.id),field});
   }
-  if(missingFields.length){const error=new TypeError('Some material event details are missing from the visible timeline. Review the layout before exporting.');error.code='TIMELINE_EXPORT_MISSING_FIELDS';error.fields=missingFields;throw error;}
 
   const missing=[...expected].filter(id=>!represented.has(id));
   if(missing.length){const error=new TypeError('Some included events are absent from the exported timeline.');error.code='TIMELINE_EXPORT_INCOMPLETE';error.eventIds=missing;throw error;}
@@ -391,9 +392,10 @@ export function assertCompleteFounderPresentation(rendered){
       error.code='TIMELINE_EXPORT_TEXT_OVERFLOW';error.elementIds=[...new Set(unreadable.map(node=>node.semanticRef||node.groupId||node.id))];throw error;
     }
   }
+  if(missingFields.length){const error=new TypeError('Some material event details are missing from the visible timeline. Review the layout before exporting.');error.code='TIMELINE_EXPORT_MISSING_FIELDS';error.fields=missingFields;throw error;}
   const collisions=materialPresentationCollisions(paint);
   if(collisions.length){
-    const error=new TypeError('Some event text overlaps another event or a template card. Adjust the layout and review the preview before exporting.');
+    const error=new TypeError('Some visible text is overlapped or hidden by another object. Adjust the layout and review the preview before exporting.');
     error.code='TIMELINE_EXPORT_TEXT_COLLISION';error.elementIds=[...new Set(collisions.flatMap(c=>c.elementIds))];throw error;
   }
   return rendered;

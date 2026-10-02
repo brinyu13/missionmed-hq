@@ -1,5 +1,5 @@
 import {serializeFounderPresentation} from "../presentation/founder-presentation-serializer.js";
-import {timelineLastGoodRenderCache} from "../presentation/last-good-render-cache.js";
+import {timelineLastGoodRenderCache,previewCacheIdentity} from "../presentation/last-good-render-cache.js";
 import {escapeHtml} from "./utils.js";
 
 function currentUtcMonth(now=new Date()){
@@ -60,11 +60,14 @@ export function canonicalBoardPreview(
     currentMonth=currentUtcMonth(),
     className="",
     eventTargetAttribute=null,
-    surfaceKey=null
+    surfaceKey=null,
+    viewerPrincipalId=null,
+    subjectPrincipalId=null
   }={}
 ){
   const source=ghost?exampleDocument():document;
-  const cacheKey=surfaceKey||[
+  const cacheKey=previewCacheIdentity(source,{ghost,audience,className,surfaceKey,viewerPrincipalId,subjectPrincipalId});
+  const namespace=surfaceKey||[
     ghost?"ghost":"document",
     String(audience||"INTERVIEWER_SAFE"),
     String(className||"default")
@@ -73,14 +76,14 @@ export function canonicalBoardPreview(
     const {scene,svg}=serializeFounderPresentation(source,{
       audience,
       currentMonth,
-      resourceNamespace:`preview-${cacheKey}`
+      resourceNamespace:`preview-${namespace}`
     });
     const allowedTargetAttributes=new Set(["data-builder-preview-entry","data-canvas-event"]);
     const targetAttribute=allowedTargetAttributes.has(eventTargetAttribute)?eventTargetAttribute:null;
     const interactiveSvg=interactive&&targetAttribute
       ?svg.replace(/data-event-id="([^"]+)"/g,(_,id)=>`data-event-id="${id}" ${targetAttribute}="${id}" tabindex="0" role="button"`)
       :svg;
-    timelineLastGoodRenderCache.commit(cacheKey,{
+    if(cacheKey)timelineLastGoodRenderCache.commit(cacheKey,{
       svg:interactiveSvg,
       renderer:scene.renderer,
       theme:scene.theme.id,
@@ -88,7 +91,7 @@ export function canonicalBoardPreview(
     });
     return`<div class="board-preview ${ghost?"ghost":""} canonical-board-preview ${interactive?"is-interactive":""} ${escapeHtml(className)}" role="${interactive?"application":"img"}" ${interactive?'tabindex="0"':""} aria-label="${escapeHtml(label)}" data-render-state="ready" data-renderer="${escapeHtml(scene.renderer)}" data-theme="${escapeHtml(scene.theme.id)}" data-event-count="${scene.events.length}">${interactiveSvg}</div>`;
   }catch(error){
-    const lastGood=timelineLastGoodRenderCache.get(cacheKey);
+    const lastGood=cacheKey?timelineLastGoodRenderCache.get(cacheKey):null;
     if(lastGood){
       const errorCode=String(error?.code||"TIMELINE_RENDER_RECOVERY");
       return`<div class="board-preview ${ghost?"ghost":""} canonical-board-preview is-last-good ${interactive?"is-interactive":""} ${escapeHtml(className)}" role="${interactive?"application":"img"}" ${interactive?'tabindex="0"':""} aria-label="${escapeHtml(label)}" data-render-state="last-good" data-render-error-code="${escapeHtml(errorCode)}" data-renderer="${escapeHtml(lastGood.renderer)}" data-theme="${escapeHtml(lastGood.theme)}" data-event-count="${lastGood.eventCount}">${lastGood.svg}<div class="timeline-preview-recovery-status" role="status">Keeping your last complete preview while this update is checked.</div></div>`;
