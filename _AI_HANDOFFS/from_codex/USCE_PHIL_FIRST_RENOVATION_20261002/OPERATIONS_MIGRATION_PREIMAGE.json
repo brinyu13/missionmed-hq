@@ -1,0 +1,421 @@
+{
+  "captured_at": "2026-10-02T20:20:38.467Z",
+  "functions": [
+    {
+      "signature": "get_usce_offer_by_token_hash(text)",
+      "owner": "postgres",
+      "security_definer": true,
+      "settings": [
+        "search_path=command_center, public, pg_temp"
+      ],
+      "acl": "{postgres=X/postgres,service_role=X/postgres}",
+      "definition": "CREATE OR REPLACE FUNCTION public.get_usce_offer_by_token_hash(p_token_hash text)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'command_center', 'public', 'pg_temp'\nAS $function$\nDECLARE\n  v_offer command_center.usce_offer_drafts%ROWTYPE;\nBEGIN\n  SELECT * INTO v_offer\n  FROM command_center.usce_offer_drafts\n  WHERE offer_token_hash = p_token_hash;\n\n  IF NOT FOUND OR v_offer.status IN ('draft', 'archived') THEN\n    RETURN jsonb_build_object('ok', false, 'error', 'invalid_token');\n  END IF;\n\n  IF v_offer.offer_token_expires_at IS NULL OR v_offer.offer_token_expires_at <= now() THEN\n    RETURN jsonb_build_object('ok', false, 'error', 'expired');\n  END IF;\n\n  RETURN jsonb_build_object('ok', true, 'offer', public.usce_offer_student_json(v_offer.id, false));\nEND;\n$function$\n"
+    },
+    {
+      "signature": "update_usce_offer_operations_state(uuid,jsonb,jsonb)",
+      "owner": "postgres",
+      "security_definer": true,
+      "settings": [
+        "search_path=command_center, public, pg_temp"
+      ],
+      "acl": "{postgres=X/postgres,service_role=X/postgres}",
+      "definition": "CREATE OR REPLACE FUNCTION public.update_usce_offer_operations_state(p_offer_id uuid, p_patch jsonb, p_admin_identity jsonb DEFAULT '{}'::jsonb)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'command_center', 'public', 'pg_temp'\nAS $function$\nDECLARE\n  v_offer command_center.usce_offer_drafts%ROWTYPE;\n  v_admin text := left(coalesce(p_admin_identity->>'login', p_admin_identity->>'wp_id', 'unknown'), 160);\n  v_payment_status text := nullif(lower(coalesce(p_patch->>'payment_status', '')), '');\n  v_paperwork_status text := nullif(lower(coalesce(p_patch->>'paperwork_status', '')), '');\n  v_learndash_status text := nullif(lower(coalesce(p_patch->>'learndash_status', '')), '');\n  v_payment_reference text := nullif(left(regexp_replace(coalesce(p_patch->>'payment_reference', ''), '[[:cntrl:]<>]+', '', 'g'), 240), '');\n  v_note text := nullif(left(regexp_replace(coalesce(p_patch->>'note', ''), '[[:cntrl:]]+', ' ', 'g'), 1000), '');\n  v_event_type text := 'operations_state_updated';\n  v_subject text := 'USCE operations state updated';\n  v_comm_id uuid;\nBEGIN\n  SELECT * INTO v_offer\n  FROM command_center.usce_offer_drafts\n  WHERE id = p_offer_id\n  FOR UPDATE;\n\n  IF NOT FOUND THEN\n    RETURN jsonb_build_object('ok', false, 'error', 'not_found');\n  END IF;\n\n  IF v_payment_status IS NOT NULL AND v_payment_status NOT IN ('pending','handoff_shown','paid','failed','refunded','manual_review') THEN\n    RETURN jsonb_build_object('ok', false, 'error', 'invalid_payment_status');\n  END IF;\n  IF v_paperwork_status IS NOT NULL AND v_paperwork_status NOT IN ('not_started','requested','received','approved','blocked') THEN\n    RETURN jsonb_build_object('ok', false, 'error', 'invalid_paperwork_status');\n  END IF;\n  IF v_learndash_status IS NOT NULL AND v_learndash_status NOT IN ('locked','ready','enabled','blocked') THEN\n    RETURN jsonb_build_object('ok', false, 'error', 'invalid_learndash_status');\n  END IF;\n\n  IF v_payment_status IS NULL AND v_paperwork_status IS NULL AND v_learndash_status IS NULL AND v_payment_reference IS NULL AND v_note IS NULL THEN\n    RETURN jsonb_build_object('ok', false, 'error', 'invalid_patch');\n  END IF;\n\n  IF v_payment_status IS NOT NULL THEN\n    v_event_type := 'payment_status_updated';\n    v_subject := 'USCE payment status updated';\n  ELSIF v_paperwork_status IS NOT NULL THEN\n    v_event_type := 'paperwork_status_updated';\n    v_subject := 'USCE paperwork status updated';\n  ELSIF v_learndash_status IS NOT NULL THEN\n    v_event_type := 'learndash_status_updated';\n    v_subject := 'USCE LearnDash readiness updated';\n  END IF;\n\n  UPDATE command_center.usce_offer_drafts\n  SET payment_status = coalesce(v_payment_status, payment_status),\n      payment_reference = coalesce(v_payment_reference, payment_reference),\n      payment_checked_at = CASE WHEN v_payment_status IS NOT NULL OR v_payment_reference IS NOT NULL THEN now() ELSE payment_checked_at END,\n      paperwork_status = coalesce(v_paperwork_status, paperwork_status),\n      paperwork_updated_at = CASE WHEN v_paperwork_status IS NOT NULL THEN now() ELSE paperwork_updated_at END,\n      learndash_status = coalesce(v_learndash_status, learndash_status),\n      learndash_updated_at = CASE WHEN v_learndash_status IS NOT NULL THEN now() ELSE learndash_updated_at END,\n      updated_by = v_admin,\n      metadata = metadata || jsonb_build_object(\n        'last_operations_update', jsonb_build_object(\n          'payment_status', v_payment_status,\n          'paperwork_status', v_paperwork_status,\n          'learndash_status', v_learndash_status,\n          'payment_reference', v_payment_reference,\n          'note', v_note,\n          'admin_identity', p_admin_identity,\n          'recorded_at', now()\n        )\n      )\n  WHERE id = p_offer_id\n  RETURNING * INTO v_offer;\n\n  v_comm_id := command_center.usce_log_offer_engine_comm(\n    v_offer.id,\n    v_offer.intake_request_id,\n    v_event_type,\n    'SYS',\n    v_subject,\n    coalesce(v_note, v_subject || '. No WooCommerce order, payment, document upload, or LearnDash enrollment was triggered by this state update.'),\n    jsonb_build_object(\n      'payment_status', v_payment_status,\n      'paperwork_status', v_paperwork_status,\n      'learndash_status', v_learndash_status,\n      'payment_reference', v_payment_reference,\n      'admin_identity', p_admin_identity\n    ),\n    NULL,\n    false,\n    NULL,\n    NULL\n  );\n\n  RETURN jsonb_build_object('ok', true, 'item', public.usce_offer_draft_admin_json(v_offer.id), 'comms_id', v_comm_id);\nEND;\n$function$\n"
+    },
+    {
+      "signature": "usce_offer_student_json(uuid,boolean)",
+      "owner": "postgres",
+      "security_definer": true,
+      "settings": [
+        "search_path=command_center, public, pg_temp"
+      ],
+      "acl": "{postgres=X/postgres,service_role=X/postgres}",
+      "definition": "CREATE OR REPLACE FUNCTION public.usce_offer_student_json(p_offer_id uuid, p_include_payment boolean DEFAULT false)\n RETURNS jsonb\n LANGUAGE sql\n SECURITY DEFINER\n SET search_path TO 'command_center', 'public', 'pg_temp'\nAS $function$\n  SELECT jsonb_build_object(\n    'id', o.id,\n    'offer_id', o.id,\n    'status', o.status,\n    'specialty', coalesce(o.specialty, 'To be confirmed'),\n    'location', coalesce(o.location, 'To be confirmed'),\n    'timing', coalesce(o.timing, 'To be confirmed'),\n    'duration', CASE WHEN o.duration_weeks IS NULL THEN 'To be confirmed' ELSE o.duration_weeks::text || ' weeks' END,\n    'format', coalesce(o.format, 'In-person clinical exposure'),\n    'reference', 'USCE-' || upper(left(replace(o.id::text, '-', ''), 8)),\n    'deadlineLabel', CASE\n      WHEN o.expires_at IS NULL THEN 'Response deadline will be confirmed by your coordinator.'\n      ELSE 'Please respond before ' || to_char(o.expires_at AT TIME ZONE 'America/New_York', 'Mon DD, YYYY HH12:MI AM') || ' ET.'\n    END,\n    'deadlineDetail', 'After the deadline this offer expires automatically and a new option may be prepared.',\n    'message', coalesce(o.admin_message, o.message_body, 'Thank you for your USCE rotation request. Please review the option above and choose accept, decline, or request an alternate.'),\n    'expiresAt', o.expires_at,\n    'payment_url', CASE WHEN p_include_payment THEN 'https://missionmedinstitute.com/product/us-clinical-rotations/' ELSE NULL END,\n    'payment_status', o.payment_status,\n    'paperwork_status', o.paperwork_status,\n    'learndash_status', o.learndash_status,\n    'next_steps', jsonb_build_object(\n      'payment', CASE WHEN p_include_payment THEN 'Payment handoff is available after acceptance.' ELSE 'Payment is only shown after acceptance.' END,\n      'paperwork', 'Onboarding paperwork follows coordinator confirmation and payment readiness.',\n      'course_access', 'Course access is enabled only after downstream MissionMed approval gates.'\n    )\n  )\n  FROM command_center.usce_offer_drafts o\n  WHERE o.id = p_offer_id;\n$function$\n"
+    }
+  ],
+  "history": [
+    {
+      "version": "20260324190000",
+      "name": "mr_904a_crm_email_schema",
+      "statements_sha256": "fcb96e6136c21ecb18e5e8cc52e04cbd996c0e83422e3eb36656dc910d62c98f"
+    },
+    {
+      "version": "20260324223000",
+      "name": "mr_903a_command_center_phase1",
+      "statements_sha256": "3b1648bb96fd9777aeeb733d74ecdd11180f0fdb71473e54092e55b44622f31a"
+    },
+    {
+      "version": "20260325120110",
+      "name": "remote_schema",
+      "statements_sha256": "0edada294e6d90e21fd5ca50e4ed8597477029227c9cf3fbb0e0f20cbca00e55"
+    },
+    {
+      "version": "20260325153000",
+      "name": "mr_903b_command_center_rest_views",
+      "statements_sha256": "827d675c03ea676b5bc3682c1730534f3f05567e2ad9d03be88ad8c3d4f77a68"
+    },
+    {
+      "version": "20260327195500",
+      "name": "mac_6_command_center_core_infrastructure",
+      "statements_sha256": "5b2b4c8028b3b7ac1f7464ea9c1da5e17530042a6888cf0649e3ea48581cf488"
+    },
+    {
+      "version": "20260327213000",
+      "name": "mac_6_1_command_center_integration_layer",
+      "statements_sha256": "0a899e71ae7806bff8813a3c0969d0c6e6d742ee3a02e6c2a858bdfd94628df8"
+    },
+    {
+      "version": "20260328120000",
+      "name": "mcc_402_read_write_rpc",
+      "statements_sha256": "5b383b8f3690296b3a9b5b227e18f76ad415fa147c75ff6bb9e51a444a8eec3b"
+    },
+    {
+      "version": "20260329235500",
+      "name": "mr_te_951_testimonial_engine_additions",
+      "statements_sha256": "17d11e31a9ca43e255b3b3cf78d7f826968872c1055ff929b78a626049acc81d"
+    },
+    {
+      "version": "20260330163000",
+      "name": "nmcc_2d_hq_rpc_reads",
+      "statements_sha256": "4b2c7fbbf7b5cbc808f24354503670fde3408dbb7dde3f18af2f1121cbcfcd12"
+    },
+    {
+      "version": "20260330170000",
+      "name": "nmcc_3b_task_linked_entities",
+      "statements_sha256": "6d3bc1323385ffa3ea94374fbbc63fff13a7baad54849d6bd90a6ce5dd77a547"
+    },
+    {
+      "version": "20260330190000",
+      "name": "nmcc_2e_command_center_backfill_rpc",
+      "statements_sha256": "5c010a73e9270856831d9927a88c37bf85abcf0f33b9a06f80dcee058e4eb1cf"
+    },
+    {
+      "version": "20260330193000",
+      "name": "nmcc_2e_backfill_anchor_support",
+      "statements_sha256": "be134c5288a0fa8383d74c333e57727f8bb05b80567df620d02643022befc218"
+    },
+    {
+      "version": "20260330204500",
+      "name": "nmcc_4_hq_live_crud_rpc",
+      "statements_sha256": "014e87c6cdef99f4c97a2aef7b9b1dbd077448e71a5269fdfbb004667e4fcfb0"
+    },
+    {
+      "version": "20260402021500",
+      "name": "vrs9d_media_system_schema",
+      "statements_sha256": "11b3030c33ceea8d045d0932310b3de6f7d9daf726fbda1286b8fcb94f50eb24"
+    },
+    {
+      "version": "20260406120000",
+      "name": "vdrl_080_drill_registry",
+      "statements_sha256": "a5486a3d8a22cdb3283a199c9a4cdab324ee90a2940d0b617a2c4cd9dbf87e7b"
+    },
+    {
+      "version": "20260411103300",
+      "name": "vdrl_081_drill_registry_control_layer",
+      "statements_sha256": "06b28fc745787548ac96a65d2f97e921d0ac17a4d5917d039ad02020a51b5506"
+    },
+    {
+      "version": "20260411153000",
+      "name": "vdrl_082_menu_categories",
+      "statements_sha256": "c79f1efadd5053e2e3e7df34bc3c463f8d0ea1288304c9bf7291d1003b0db040"
+    },
+    {
+      "version": "20260411164000",
+      "name": "vdrl_083_drill_menu_write_rls",
+      "statements_sha256": "d6eeccd68092d4228747084dc5c2ef67accbb50a7d80dbc7e8a369a91944a004"
+    },
+    {
+      "version": "20260415120000",
+      "name": "tournamed_qstat_core_async",
+      "statements_sha256": "6f3c43bfe85a8444caf4461d3a424362d7e5c79e5ce5f5c4171aa52d88d58411"
+    },
+    {
+      "version": "20260416153000",
+      "name": "stat_private_generate_bot_attempt_digest_schema_fix",
+      "statements_sha256": "67101834e535f13e15efb51750b2abfc2092899622861b139bcc7a03505d1ad6"
+    },
+    {
+      "version": "20260420110000",
+      "name": "stat_canon_schema",
+      "statements_sha256": "5f137fe6441bb92b360b3aa73c3432b20097e65efa44e5655a1d833d0cffc5ae"
+    },
+    {
+      "version": "20260420111000",
+      "name": "stat_dataset_ingest",
+      "statements_sha256": "832715df0689aac73f83191b2a3ed1b9d5c6512f5d13bf57907f37d8babf63bf"
+    },
+    {
+      "version": "20260420112000",
+      "name": "stat_canon_helpers",
+      "statements_sha256": "0a2d6937365be73f4a9da9fc9a58862c0f975729c1faefd2183df08ba5f53c96"
+    },
+    {
+      "version": "20260420113000",
+      "name": "stat_canon_rpcs",
+      "statements_sha256": "165f86b644ce30debb339264083e019018e3a55b8bd07efe90677729e0070578"
+    },
+    {
+      "version": "20260420114000",
+      "name": "stat_backfill",
+      "statements_sha256": "e6c5c16ed697ff23a417d480318ca625fe6d476bdab074a286a1b7b33f7f6387"
+    },
+    {
+      "version": "20260422123000",
+      "name": "avatar_locker_identity_stat",
+      "statements_sha256": "313cf6fe33f5e6421a273b38abe7a282107d80e9dd338e831978e448f7ee7c7f"
+    },
+    {
+      "version": "20260422124500",
+      "name": "stat_tier_a_supabase_staging_safe_mode",
+      "statements_sha256": "5b4ef5799c136db80e9b3798cfca1c7d340d2167b7b9bde07f4ce26eabf81c88"
+    },
+    {
+      "version": "20260423213000",
+      "name": "avatar_hardening_rls_rpc",
+      "statements_sha256": "c940468a705ac7fb8597004e3e57020c17e46862a4f9668f2e2446a6196386d5"
+    },
+    {
+      "version": "20260423220000",
+      "name": "e3_stat_beta_tables",
+      "statements_sha256": "ca827de52b36b386a848e52e15a17f5e0624f9b41e7782582555d6626544ffd0"
+    },
+    {
+      "version": "20260423223000",
+      "name": "e3_stat_beta_rls",
+      "statements_sha256": "9c3e489aaf2a510309a93f3638147ae7142175290ca8b1769ce5883cfac87fdc"
+    },
+    {
+      "version": "20260423230000",
+      "name": "e3_stat_session_match_rpcs",
+      "statements_sha256": "320ac916120c2fe20d753a2f718b54359a3057c33b63851da541a6f1baeab544"
+    },
+    {
+      "version": "20260423233000",
+      "name": "e3_stat_telemetry_rpcs",
+      "statements_sha256": "2bbef243d02786092980b9f27af74df8f244cd84085cd4f1710bbd87a3d600b7"
+    },
+    {
+      "version": "20260424111407",
+      "name": "remote_schema",
+      "statements_sha256": "7bc51db829f713d9d6c042831ff1225c45832f431edf8e125bb591222df1d2f4"
+    },
+    {
+      "version": "20260424121038",
+      "name": "create_bootstrap_match_rpc",
+      "statements_sha256": "7b96df137aa16a3ca113f0e11c8ec9ce68f785b1c799a71b0493ba1aa6738478"
+    },
+    {
+      "version": "20260424130000",
+      "name": "usce_portal_guard",
+      "statements_sha256": "7848d0ce5968298a389bef197b51297a55baacf06bebca42434f9a70b4b41353"
+    },
+    {
+      "version": "20260424150000",
+      "name": "usce_rls_policies",
+      "statements_sha256": "ec4fdaa53366c6059b85ddc8fab42e94d5fc5ee6cab84807ffe19b9c7cf54d34"
+    },
+    {
+      "version": "20260424164000",
+      "name": "stat_avatar_snapshot_replay_bridge",
+      "statements_sha256": "7eb6fc7045eab89aa515d1378501e47f03a20133c3fd9238846e488f75977d41"
+    },
+    {
+      "version": "20260426123000",
+      "name": "e3_stat_write_order_repair",
+      "statements_sha256": "f02f1ee21ac3641fb88d9511015963b98270efbe123c3a4cb12cfaee27a0b888"
+    },
+    {
+      "version": "20260426140000",
+      "name": "usce_portal_rpc",
+      "statements_sha256": "ac688ff028006aa03cd6711de8644e2b956647c48f9e0a597a4b91779082c5ed"
+    },
+    {
+      "version": "20260426141000",
+      "name": "usce_search_indexes",
+      "statements_sha256": "f8e8d8b101defb831d17bd58b048739bf348c503bc0e6a0ff569c4fe6a8975c6"
+    },
+    {
+      "version": "20260426142000",
+      "name": "usce_cron_jobs",
+      "statements_sha256": "8d0e5c057a04954b0078da01d543482f3f75d3f1347cf07eff31eb79122f5699"
+    },
+    {
+      "version": "20260426143000",
+      "name": "usce_seed_programs",
+      "statements_sha256": "4a6f416e0d7eb21ffb6808d49454d7749fc8eb705376c79469d85de1bfb1f8e5"
+    },
+    {
+      "version": "20260426150000",
+      "name": "e3_stat_write_order_schema_compat",
+      "statements_sha256": "def4f4b47469dfc5fce26c1fcad9bc38ecaa5d1ffde1c297c937399907966915"
+    },
+    {
+      "version": "20260426161000",
+      "name": "dboc_iv_schema",
+      "statements_sha256": "a5d4a86377216bedb56c5a07762bfe324f20e9c7ed997b4d4cdf7cd9132b274c"
+    },
+    {
+      "version": "20260426162000",
+      "name": "dboc_iv_rls",
+      "statements_sha256": "03eb975a844e9b2e02124510e261a536c5b17c20afa65a318d7402bdfd583629"
+    },
+    {
+      "version": "20260426170000",
+      "name": "mmos_arena_intel_question_metadata",
+      "statements_sha256": "a7de6e8d4de2a1f725c920ff48e29ac539b4605b11d74b3365543ee015fecd80"
+    },
+    {
+      "version": "20260426171000",
+      "name": "mmos_arena_intel_qstat_answers_v1_view",
+      "statements_sha256": "57c7e58089df0c8b32393f73751b2f42e1b05a82428695c99c7dec388d1c659d"
+    },
+    {
+      "version": "20260426172000",
+      "name": "mmos_arena_intel_student_profiles_enrollment",
+      "statements_sha256": "292a47aa7793939c6c286ef8c14d751ab59a289e0bec9ce20a28f9c7764ebcff"
+    },
+    {
+      "version": "20260426173000",
+      "name": "mmos_arena_intel_pipeline_core",
+      "statements_sha256": "71c16468588d8834c5ffa9f6c82b34e0a7bcc0e10a6aa7642f20fe1112e5d81f"
+    },
+    {
+      "version": "20260426174000",
+      "name": "mmos_arena_intel_performance_snapshots",
+      "statements_sha256": "08aa386c44211de25ec2ce656ba9dbc818e03b6ea90505ee6bf3ba9f4be0051b"
+    },
+    {
+      "version": "20260426175000",
+      "name": "mmos_arena_intel_diagnostic_plan_engine",
+      "statements_sha256": "9ffc0342b316c65bb6e77880330acdce0cc1ff6fc2a5c51401d11a96557595d8"
+    },
+    {
+      "version": "20260426183000",
+      "name": "mmos_arena_intel_complete_study_task_rpc",
+      "statements_sha256": "fd8fe32f04765d676dd2fbd323fddbbe7652f47462a19a1fd286128687532c0a"
+    },
+    {
+      "version": "20260427131000",
+      "name": "mr_stat_human_async_duel_contract_repair_035",
+      "statements_sha256": "76bd4cbc44d723ff60fa848cbda52ef7a92f3dd652ec45e0deae7c1b87f2191d"
+    },
+    {
+      "version": "20260501183000",
+      "name": "stat_player_search_public_cards",
+      "statements_sha256": "f96f38c82da60adaae510fa9b314b51f8f7b08986ef5a1f500094373097de8b5"
+    },
+    {
+      "version": "20260503101000",
+      "name": "usce_public_intake_requests",
+      "statements_sha256": "511da15290dbda858ef2d248db3495f2eea3b256af8653d74b60bff81130c1f1"
+    },
+    {
+      "version": "20260503123000",
+      "name": "usce_public_intake_rpc",
+      "statements_sha256": "3ebe6005e377155a86d5c4b3aead453264422630053a0fe73e5d0d0c930cd208"
+    },
+    {
+      "version": "20260503170000",
+      "name": "usce_public_intake_admin_read_rpc",
+      "statements_sha256": "440d998db96afc86fd89bb6d6e67dc75e14862f7a74ec747fd6c2db8a8ea9e85"
+    },
+    {
+      "version": "20260505120000",
+      "name": "usce_full_offer_engine_automation",
+      "statements_sha256": "ded92cabe8e02bbfecba633650f641c1c10c4884e9dfe001137742e56e985a50"
+    },
+    {
+      "version": "20260505215000",
+      "name": "gmail_metadata_comms_review_write",
+      "statements_sha256": "09ad8510db4ad79431dd7fa52c0d8fa9f8774df6022d6dba29958c8ce3d944aa"
+    },
+    {
+      "version": "20260507143000",
+      "name": "stat_diagnostic_snapshot_job_layer",
+      "statements_sha256": "8c5e8f6f234d1c29cd37c54091adc77966104be3c3c54db1dc9d91c41560c8a1"
+    },
+    {
+      "version": "20260512152258",
+      "name": "ahp_013_profile_rls_identity_hardening",
+      "statements_sha256": "d16276d28455e5f186ef1ce64a63202961363ba9050b07b37c270af4ccf3008d"
+    },
+    {
+      "version": "20260512201200",
+      "name": "ahp_014_registration_profile_contract",
+      "statements_sha256": "0718654fa2dbf35552f68a7f556ee6543c5dc71674c88e0fbdf07dbef961b04d"
+    },
+    {
+      "version": "20260513064500",
+      "name": "ahp_015_registration_matchpoints_bonus",
+      "statements_sha256": "c05db94ce6ada972cbcaef59ac738cd4f01d642245226441fd1477f13cf48600"
+    },
+    {
+      "version": "20260513115000",
+      "name": "ahp_016_registration_pressure_bonus_update",
+      "statements_sha256": "fe072239479b8fc3fe6c1c2235b9c58dc8533c98f0af0e3d6b184b50061a13d4"
+    },
+    {
+      "version": "20260514120412",
+      "name": "mm_sched_012_scheduler_v1_foundation",
+      "statements_sha256": "595b7555b90729baf85cd936563f28cfadf4aae447a9dc14e329894fa0bbd461"
+    },
+    {
+      "version": "20260514160000",
+      "name": "statv3_ai_rivals",
+      "statements_sha256": "c9124f821d40a95d577eb18521ae40b6d1b712a5843c1da1ca44de32f9d0d101"
+    },
+    {
+      "version": "20260517194712",
+      "name": "statv3_human_roster_search_avatar_repair_056",
+      "statements_sha256": "b19d3d04eb4598186100de95c10ff7c45834685673b34b25811e33cf9d6802c0"
+    },
+    {
+      "version": "20260526123000",
+      "name": "arena_beta_access_gating",
+      "statements_sha256": "b6fec04e378bc2dbeeaf4aa2271935f747ce73360ee9437b2780dca4977aa824"
+    },
+    {
+      "version": "20260531221500",
+      "name": "e9_stat_v3_classmate_avatar_roster",
+      "statements_sha256": "f080a67924b469b361044480a3bacc3ddbb47cde710fcc30b693a2bbd7a60b75"
+    },
+    {
+      "version": "20260531223600",
+      "name": "e9_stat_v3_classmate_profile_avatar_fallback",
+      "statements_sha256": "8549fd9b409334fd351e8685d165c7cf2fdcd4e4950f03ccc81e8ffedacf273f"
+    },
+    {
+      "version": "20260619164000",
+      "name": "usce_offer_decline_action_contract",
+      "statements_sha256": "69de55e1b8da418990ae8f619a08bf35f42fae0ed243086ebb9807877f01d115"
+    },
+    {
+      "version": "20260905221718",
+      "name": "hb_360a_005r_x_ranklist_resolver_lockdown",
+      "statements_sha256": "59dedf562e2be3ee113ffaf89a6f42690f27a6457ac529a510beb53fa8c6eae4"
+    },
+    {
+      "version": "20261002131800",
+      "name": "usce_phil_first_safety",
+      "statements_sha256": "b5322488152cfb214ba1dca77f51a437ac411207c86d6c97e39a1eec65621778"
+    },
+    {
+      "version": "20261002142841",
+      "name": "usce_phil_first_fix_forward",
+      "statements_sha256": "f7cd9dce466e0d16453123e55bb451f2878c0ddecea6191ad31561bf5c1ecfee"
+    }
+  ],
+  "real": [
+    {
+      "kind": "intakes",
+      "n": 88,
+      "fingerprint": "6bac8e8a7bef9f2fa9a7b5a269273d323f4cf5e76b47d22ebc2c11a3a579a4ee"
+    },
+    {
+      "kind": "offers",
+      "n": 66,
+      "fingerprint": "26347be663fc344051f6402df8677a885c53f6d7d270f2332b3cc01a97789326"
+    }
+  ],
+  "unresolved_claims": 0,
+  "held_runtime": "e52fef2f-2d9b-48fe-ab8e-60687fa1b062"
+}

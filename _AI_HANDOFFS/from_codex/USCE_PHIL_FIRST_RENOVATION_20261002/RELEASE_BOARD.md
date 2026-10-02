@@ -1,78 +1,47 @@
-# USCE Phil-first renovation release board
+# USCE renovation release board
 
-Mission: USCE-PHIL-FIRST-RENOVATION-20261002. Product: MissionMed Clinicals HQ / USCE Offer System.
-State: DEPLOYED / LIVE SYNTHETIC VERIFICATION; final independent acceptance pending.
-Updated: October 2, 2026, America/New_York.
+Mission USCE-PHIL-FIRST-RENOVATION-20261002. State LIVE_VERIFIED for the existing synthetic journeys; IMPLEMENTING and LOCAL_VERIFIED for the reviewed fix-forward and StoryForge foundation. Final independent acceptance is pending. Updated 2026-10-02T20:16:48.340476+00:00.
 
-Founder ratification cleared the prior authority and QA gates. Canonical OS registration at 11c362643eac489f0fc5efd74dc4b97c56c632e7 independently APPROVED. DR-359/DR-360 and PRODUCT_PASSPORTS/usce.md route this mission. Universal and mission BOOT PASS; MR-079 hash 9638e67841e98b278244c0d4f9ecd0ccbdc7a9e17c50a67dd45d1d31895a0357. Registrar leases released with provider readback. An initial CURRENT generator scope error was independently caught and fixed forward; latest sibling instructions preserved.
+Founder authority DR-359/DR-360 is canonically filed. OS c0d4fad records the later direct instruction to use Chrome and Dr Brian brinyu as the administrator acceptance target, and the StoryForge foundation requirement. The earlier Phil-personal-login completion gate is superseded. Fresh mission BOOT passed against immutable MR-079 SHA9638e67841e98b278244c0d4f9ecd0ccbdc7a9e17c50a67dd45d1d31895a0357. No new permission gate exists.
 
-## Execution
+Foreman alone integrates and deploys. Exact scoped Lease V2 keepers run through each writer operation and positive process completion. Specialists write only assigned candidate/review artifacts. IVOC, siblings, real applicants, provider boundaries and unrelated dirty state remain untouched. No temporary account, charge, refund, order, placement, reservation or enrollment was created.
 
-Worktree /Users/brianb/MissionMed_worktrees/usce-phil-first-renovation-20261002; branch codex/usce-phil-first-renovation-20261002; origin https://github.com/brinyu13/missionmed-hq.git.
-Pre-integration HEAD cc6649c9417ea44ea9e44a9c4a73a884336ffb59; source base origin/main 0feee579b0a9f2c90529220899f6cf6d21b8cd05.
-Sole integrator: Foreman. Exact PATH Lease V2 with ROUTING domain for each bounded source tranche; keeper/fence checks and release required. No invented PRODUCT:USCE scope or borrowed lease.
-Risk HIGH. Preserve unrelated worktrees, providers, dirty work and IVOC. PR36 remains an unchanged read-only lineage reference.
+## Current serving custody
 
-## Serving custody and rollback
+- Normal entry: https://missionmedinstitute.com/usce-admin/ in Chrome. Actual session returned user1, login brinyu, administrator.
+- Admin CDN a4733a50e49a8dead724b5107277ceb088d29366dcc829191d252a43640f47b5; applicant CDN68a97ea4418edc36b91a5e497f300fb43c63cacb7a6beb429ee6cc880224ce6e. Source/R2/public byte equality200 with no-store; exact backup history is in CDN_RELEASE.md and CDN_BACKUPS.md.
+- Isolated Railway project29afe885-b9b1-425d-8fd8-8611cd275409, service643853a7-4a40-4418-86be-05807b5d80cc, environmented3353f7-bcc7-4e25-a000-3c9fc628a9a7. Healthy held deploymente52fef2f-2d9b-48fe-ab8e-60687fa1b062, imagesha256:5987081c57852566cc992734a5b5c5a64b59f80a0fbf560edb2ffadb4f632c31. Start node missionmed-hq/usce-gateway.mjs; qualified manual isolated source, stale GitHub source disconnected.
+- Temporary outbound/intake holds and the exact approved MissionMed QA-recipient guard remain active for cutover. Remove test restrictions deliberately and verify ordinary safe configuration before acceptance.
+- Existing reviewed migrations applied once: provider20261002131800 safety/sourceb532; provider20261002142841 RLS/message/sourcef7cd. No history repair/replay. New operations/payment migration source20261002193404 SHA97884 remains unapplied. Current74-entry history and3functionpreimages match review.
+- Real88intakes/66offers retain baseline fingerprints6bac8e8a7bef9f2fa9a7b5a269273d323f4cf5e76b47d22ebc2c11a3a579a4ee and26347be663fc344051f6402df8677a885c53f6d7d270f2332b3cc01a97789326.
 
-| Boundary | Qualified current baseline | Remaining release proof |
-|---|---|---|
-| Entry | Chrome /usce-admin/ protected queue; authenticated Brian administrator authorized for QA | Synthetic case workflow, logout/recovery; Phil-specific identity separately |
-| Admin CDN | html-system/LIVE/usce_admin.html SHA256 52c71149dd0ce8bb5d44d0974de2c590e8bf5bd125880447c9d155759a156e31; exact Git8ca bytes; no-cache/no-store | Candidate deploy/hash/browser |
-| Applicant CDN | usce_offer.html SHA256 3d7471b9694659f84e72fb3cd8799e33023d88333b5da36181315460e8246bac; current public bytes custodied baseline, unmatched historical Git | Candidate deploy/hash/browser |
-| Railway | Project29afe885-b9b1-425d-8fd8-8611cd275409, service643853a7-4a40-4418-86be-05807b5d80cc, production ed3353f7-bcc7-4e25-a000-3c9fc628a9a7; SUCCESS4ea220b8-0892-4a29-b16e-1c85298e37cd, source8ca364b4162714d93f4835d3a6608b71fc47e5a7, image sha256:f81beeb49654d20581e09909a5ae16284b27f84abcb9b10f4b7ef299196270d2 | Exact isolated deployment, rollback/reapply |
-| Gateway | Accepted usce-gateway.mjs/policy ported deliberately; main inner-server receives USCE-only route additions | Role-aware runtime/auth baseline compatibility |
-| WordPress | Current administrator browser works; historical plugin1.0.11 hash8cfb8dadf7193c63722ab3d217f319460922324d9e12fa934c902d02a9fa1813 | Fresh live-file custody/readability; no plugin change currently planned |
-| Supabase | fglyvdykwgbuivikqoah; active request-first tables, RPCs and exact USCE migration history captured without applicant rows | Final reviewed migration, controlled fixture and live reload |
-| Inbox | Connected authenticated MissionMed Institute Info account confirmed info@missionmedinstitute.com | Dedicated test alias/label and receipt verification |
-| Commerce | Canonical WooCommerce handoff only; no payment/seat/enrollment generated | Synthetic acceptance/read-only handoff verification |
+## Reviewed correction
 
-Fresh qualified backups and compatible recovery are required before provider writes. Baseline/CUSTODY.md holds exact public bytes. New schema is additive; legacy send paths will fail closed during cutover. Rollback must preserve claim fencing and cannot re-enable unsafe duplicate sends. No provider write yet.
+J8 route c54d63a12cdbb6b3a307cc4131e551f20e5d73388835b155328d0181369091dc is integrated locally. It requires manual operations source/reason/current revision and binds preview to actual sender identity. The reviewed two-function SQL adds durable actor/time/provenance and CAS while retaining accepted tokens, and restores the acceptance-gated payment URL after reload.
 
-## Current slice
+Independent rehearsal161/161 passed. Integrated root130 substantive assertions and exact C18 source-root50/50 passed, with foreign network intercepted. C18's18-file closure and hashes are pinned in RUNTIME_BUNDLE_C.md. The old runtime can provide held read/reconciliation but cannot restore new operations calls; normal recovery must use C18 while preserving claim history and forward SQL.
 
-Durable case activity for internal notes, site-call logs and availability confirmations; case-centered coordinator UI; truthful tracker; version-bound preview and exact recipient/content approval; durable claim before Postmark; no blind retry after ambiguous provider outcome; authenticated provider reconciliation; revised-term token revocation; applicant clarity.
-
-Astra initial review and isolated admin candidate are complete; applicant candidate in progress. Astra is a builder and cannot provide final independence. Root integrates only reviewed candidate paths. No global role/auth weakening or sibling imports/merges.
-
-Local candidate evidence: 28 PostgreSQL checks /40 local commands PASS, including eight concurrent claims, dry-run truth, stale revision/preview, terminal immutability, NULL expiry, legacy bypass retirement, RLS/grants, ambiguity and matched evidence reconciliation. Seven backend tests PASS with every fetch intercepted. Finalized migration/security review pending; candidate tests are not production acceptance.
+Astra's sender/terminal/modal behavioral baseline d90b passed fresh independent36 checks. Astra is preparing the read-only StoryForge foundation adaptation from immutable accepted commit9934fb49d7529f4f607530c5a0c98e99c07ea91c. StoryForge logic/data/providers are outside scope. Foundation browser validation and release are pending. Astra is a builder and cannot perform final acceptance.
 
 ## Journey matrix
 
-| Journey | Current evidence | F | U | O |
+Every LIVE result below is builder evidence until a fresh nonbuilder issues independent F/U/O. Exact cases, artifacts and receipts are in LIVE_QA.md, SYNTHETIC_QA.md, CUTOVER.md and the migration/CDN ledgers.
+
+| Journey | Evidence now | Functional | Usability | Operational / next proof |
 |---|---|---|---|---|
-| Entry/recovery | Brian Chrome queue; initial denial historical; Phil/recovery unverified | PARTIAL | PARTIAL | UNREVIEWED |
-| Triage/context | Astra queue/detail correction candidate | LOCAL ONLY | LOCAL ONLY | UNREVIEWED |
-| Notes/availability | Durable activity rehearsal | LOCAL ONLY | UNREVIEWED | UNREVIEWED |
-| Draft/preview/send | Version/claim tests | LOCAL ONLY | UNREVIEWED | UNREVIEWED |
-| Applicant response | Existing RPC catalog; candidate correction | UNREVIEWED | UNREVIEWED | UNREVIEWED |
-| Resume/revise | Compare-and-swap + token invalidation rehearsal | LOCAL ONLY | UNREVIEWED | UNREVIEWED |
-| Communications/recovery | Provider ambiguity/reconciliation tests | LOCAL ONLY | UNREVIEWED | UNREVIEWED |
-| Payment/onboarding | No-money boundary preserved | UNREVIEWED | UNREVIEWED | UNREVIEWED |
-| Access/privacy/races | Grant/RLS/local concurrency tests | LOCAL ONLY | UNREVIEWED | UNREVIEWED |
-| Accessibility | Candidate labels/focus/responsive checks | UNREVIEWED | LOCAL ONLY | UNREVIEWED |
+| J1 entry/recovery | Normal Chrome brinyu entry and authenticated queue/reload; credential-free and invalid bearer denied | Live partial | Live partial | Scoped logout/recovery and final reviewer pending |
+| J2 daily triage | Four synthetic cases show waiting party and next step after applicant responses | Live verified | Live verified | Foundation uncoached review pending |
+| J3 clarification/availability | Durable internal note, availability evidence and simulated site-call; actor/time and case survive reload | Live verified | Live verified | Logged activity creates no real contact; direct-message/reminder delivery unavailable |
+| J4 build/communicate | Saved custom draft/deadline/resume; one labeled test email provider-accepted, delivered and inbox readback; settled replay same claim/no second email | Live verified | Live verified | New sender proof plus new UI verification pending |
+| J5 response | Actual Chrome accept, pending decline reload then no-notify choice, alternate; coordinator reads durable same states | Live verified | Live verified | Future-notify choice and fresh uncoached run pending |
+| J6 resume/revise | Actual revision conflict, stale proof held before claim, revoked link, token expiry and response deadline | Live verified | Fix-forward pending | Explicit expired status candidate not yet live |
+| J7 communication truth | Note/call/provider acceptance/delivery distinct; opened/replied/bounce/complaint are not inferred | Live verified for observed states | Live verified | Outcome channels without evidence remain unavailable; no fabricated automation |
+| J8 onboarding | Acceptance separate from money; payment CTA reload defect and manual provenance independently corrected locally | Local verified | Local verified | Deploy and live manual-record/CAS/token handoff proof pending |
+| J9 access/races | Actual401/403/404 negatives; SQL two-session CAS and intercepted ambiguity/duplicate/provider-failure tests | Mixed live/local | Pending | No live provider chaos or foreign applicant action claimed |
+| J10 accessibility | Dialog labels/Escape/Tab/focus corrected; StoryForge responsive candidate in progress | Local verified | Pending Chrome | Desktop,390px,200% zoom and contrast/keyboard proof pending |
 
-## Ownership and next action
+Pre-existing cron commands reference absent USCE functions; automated SLA/payment timeout/archive work is unavailable. No cron mutation or invented business policy. Current app uses manual coordinator actions and labels unavailable communication channels. Provider accepted, delivered, opened, replied and paid remain separate evidence states.
 
-Foreman: source integration, migration, tests, exact deployment, synthetic live workflows and fix-forward.
-Astra: scoped frontend candidates only; no providers/browser/source staging.
-Registration/security verifier: read-only independent review; registration approved, final migration review pending.
-Final F/U/O verifier: fresh non-builder session after live release, not yet dispatched.
+## Next action
 
-No unresolved Founder permission gate. Brian session is sufficient; no temporary admin created.
-New external dependency may arise for Phil personal-login acceptance, but does not prevent current implementation/admin QA.
-Next: finish source integration, role-aware baseline and migration review, then qualified production release and controlled live QA. Do not end at local tests or a PR.
-
-State delta: authority canonically ratified and independently approved; current live bytes custodied; root safety implementation and Astra corrections now integrating. Production and final acceptance remain unverified.
-
-## Current production and live evidence — supersedes baseline rows above
-
-Gateway guarded18 releaseB89ac3023-69a9-4e32-bc07-08f94d52ced0 SUCCESS, image297f7c897c97a074e82a91a274dc2a60bd14ef9b9b8ce50dee6c8816572dee12, only active deployment. Older A/baseline deployments REMOVED. Exact isolated start node missionmed-hq/usce-gateway.mjs. Stale GitHub automatic source disconnected; qualified manual bundle is the source of truth.
-
-Safety migration actual20261002131800 / source20261002160725_usce_phil_first_safety.sql b532 applied once; independent exact ledger/function/grant/fingerprint review APPROVE. 88realintakes and66realoffers unchanged. Five existing private empty operational tables have owner-only access; ENABLE-only RLS fix-forward under independent review. Pre-existing USCE cron functions absent; automation unavailable, no business rules invented or cron mutation.
-
-Admin b4ffb2a0bd81947aac244f07b961cd9b78ba84f2dcddf2abe0dd69ae01346a83 and applicant68a97ea4418edc36b91a5e497f300fb43c63cacb7a6beb429ee6cc880224ce6e source/R2/CDN byte equality200/no-store. Astra modal focus/ARIA, full saved-message hydration, explicit template replacement, event-ID dedupe and search recovery live.
-
-Brian normal WordPress entry /usce-admin/ Live protected. Four labeled controlled alias synthetic cases. Principal Accept case saved note, synthetic availability and simulated site-call each durably read back; no actual program contacted. Draft85a0041e-b6b4-4ea2-b154-30c66a92fbce persisted/reloaded with custom no-obligation instructions, original deadline, case and Offer tab. Initial reload caught template replacement and repeated activity; fixed forward before token/send. Corrected Activity has each durable note/site event once; screenshot shows retained synthetic search.
-
-Offer outbound held, dry-run true; intake forced dry-run; exact controlled-recipient QA guard present. No offer email yet. Next: preview/dry-run, one labeled controlled offer send and inbox/provider proof, synthetic applicant responses/revisions/privacy/races, compatible rollback/reapply, fresh independentF/U/O, then Phil-specific account experience separately.
+Deploy exact independently reviewed migration/runtime and foundation assets under current fences, verify corrected live synthetic workflows, prove compatible rollback/reapply, archive only own QA cases and restore ordinary safe configuration, then obtain fresh independent Functional/Usability/Operational acceptance. Preserve durable audit. No stop at a report, local test, build or PR.

@@ -1,0 +1,13 @@
+{
+  "name": "missionmed-hq-runtime",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "start:usce-gateway": "node usce-gateway.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
