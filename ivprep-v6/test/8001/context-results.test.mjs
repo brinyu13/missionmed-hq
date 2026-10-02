@@ -11,6 +11,21 @@ import {
   sourceBoundSelfPracticeResult,
 } from '../../public/capabilities/context-results.mjs';
 
+test('server-ready analysis is not requested yet, not falsely unavailable or already transcribed', () => {
+  const detail = { id: 'own', sessionType: 'question', interviewerProvider: 'missionmed-static', recording: { id: 'replay' },
+    analysisAvailability: { status: 'READY', workflow: 'SELF_PRACTICE', sessionId: 'own', replayRecordingId: 'replay' } };
+  assert.deepEqual(contextResultFromSessionSpine(detail), {
+    transcript: { status: 'UNAVAILABLE', reason: 'NOT_REQUESTED' },
+    analysis: { status: 'UNAVAILABLE', reason: 'NOT_REQUESTED' },
+  });
+  for (const mutate of [d => { d.analysisAvailability.sessionId = 'other'; },
+    d => { d.recording.id = 'other'; }, d => { d.interviewerProvider = 'openai-gpt-live'; },
+    d => { d.analysisAvailability.status = 'UNAVAILABLE'; }]) {
+    const copy = structuredClone(detail); mutate(copy);
+    assert.equal(contextResultFromSessionSpine(copy).transcript.reason, 'CANDIDATE_AUDIO_SOURCE_UNVERIFIED');
+  }
+});
+
 test('source-bound self-practice projects server detail without claiming biometric verification or using browser envelopes', () => {
   const binding = { status: 'SOURCE_BOUND', assurance: 'CLIENT_MIC_CAPTURE_DECLARATION', biometricIdentity: 'UNVERIFIED',
     sourceRecordingId: 'mic-1', replayRecordingId: 'replay-1' };

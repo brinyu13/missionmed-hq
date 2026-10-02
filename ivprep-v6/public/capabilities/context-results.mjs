@@ -179,6 +179,10 @@ export function sourceBoundSelfPracticeResult(session = {}) {
 export function contextResultFromSessionSpine(session = {}) {
   const sourceBound = sourceBoundSelfPracticeResult(session);
   if (sourceBound) return sourceBound;
+  if (selfPracticeAnalysisAvailability(session) === 'READY') return Object.freeze({
+    transcript: Object.freeze({ status: 'UNAVAILABLE', reason: 'NOT_REQUESTED' }),
+    analysis: Object.freeze({ status: 'UNAVAILABLE', reason: 'NOT_REQUESTED' }),
+  });
   const spine = session?.spine || {};
   if (spine.candidateAttribution?.status !== 'VERIFIED') return Object.freeze({
     transcript: Object.freeze({ status: 'UNAVAILABLE', reason: 'CANDIDATE_AUDIO_SOURCE_UNVERIFIED' }),

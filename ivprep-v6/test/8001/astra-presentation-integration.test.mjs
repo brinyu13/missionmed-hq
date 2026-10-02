@@ -20,6 +20,23 @@ const adminLibrary = await readFile(adminLibraryUrl, 'utf8');
 
 const digest = (value) => createHash('sha256').update(value).digest('hex');
 
+test('ready transcript action does not display source-unavailable copy before it is requested', () => {
+  const start = runtime.indexOf('function renderContextEvidence(result)');
+  const end = runtime.indexOf('\nfunction ', start + 1);
+  const host = { children: [], replaceChildren() { this.children = []; }, append(child) { this.children.push(child); } };
+  const render = runInNewContext(`${runtime.slice(start, end)}; renderContextEvidence`, {
+    $: () => host, state: { role: 'student' },
+    buildNameUseReview: () => ({ status: 'UNASSESSED', heading: 'Optional name use', copy: 'Not selected' }),
+    el: () => ({ append() {} }), document: { createElement: () => ({}) },
+    buildCandidateAnalysisState: () => ({ unavailableCopy: 'SOURCE_UNAVAILABLE' }),
+  });
+  render({ transcript: { status: 'UNAVAILABLE', reason: 'NOT_REQUESTED' } });
+  assert.match(host.children[1].textContent, /ready.*Generate transcript \+ coaching.*not started/u);
+  assert.doesNotMatch(host.children[1].textContent, /unavailable/i);
+  render({ transcript: { status: 'UNAVAILABLE', reason: 'CANDIDATE_AUDIO_SOURCE_UNVERIFIED' } });
+  assert.equal(host.children[1].textContent, 'SOURCE_UNAVAILABLE');
+});
+
 test('readiness reports camera acquisition failure and prevents concurrent acquisition', async () => {
   const start = runtime.indexOf('async function connectDevices()');
   const end = runtime.indexOf('/* ------------------------------------------------------------------ vault */', start);

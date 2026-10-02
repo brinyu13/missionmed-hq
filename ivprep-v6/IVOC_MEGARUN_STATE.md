@@ -14,6 +14,17 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Timestamp fix live:** source `a07d97581653acbee110841aad6617fcfba160a3`,
+  deployment `d7c1b901-9168-4f46-8341-89b569a0f6b2` SUCCESS, image
+  `sha256:2a05e80d8fbccd66aa922cd5852f152510e5c02bdcfc66309029a4b59ddbfb77`,
+  artifact `2bf1974b84d5a2ac9e4031744854d961fe7e2ea228775cc183d617fa9a801612`.
+  Runtime module hash matched; health 200; anonymous product/bootstrap 401;
+  source/deployment epochs 4065/4066 released and provider-confirmed. Cold reload
+  retained the test attempt in Library; visible Results reopened with enabled
+  Generate transcript + coaching for that same unchanged private recording.
+  Actual UI exposed contradictory old unavailable copy alongside this button;
+  a pending-action adapter/copy correction is in progress. AI evidence remains
+  provisional; actual spoken-answer/coaching and audible replay are not accepted.
 - **Live POV fix-forward (2026-10-02 02:33 UTC):** Founder `wp:1` normal
   Builder → readiness → Self Practice visibly retained real camera video and
   measured microphone input. A bounded 13-second capture saved both private

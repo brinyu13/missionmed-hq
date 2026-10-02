@@ -3550,7 +3550,9 @@ function renderContextEvidence(result) {
     const note = document.createElement('p');
     note.className = 'unavailable';
     const reason = String(transcript?.reason || 'PROVIDER UNAVAILABLE').toUpperCase().slice(0, 120);
-    note.textContent = ['CANDIDATE_AUDIO_SOURCE_UNVERIFIED', 'CONTEXT_CANDIDATE_AUDIO_SOURCE_UNVERIFIED'].includes(reason)
+    note.textContent = reason === 'NOT_REQUESTED'
+      ? 'Your private microphone recording is ready. Choose Generate transcript + coaching to review this answer; processing has not started yet.'
+      : ['CANDIDATE_AUDIO_SOURCE_UNVERIFIED', 'CONTEXT_CANDIDATE_AUDIO_SOURCE_UNVERIFIED'].includes(reason)
       ? buildCandidateAnalysisState().unavailableCopy
       : state.role === 'admin'
       ? `TRANSCRIPT UNAVAILABLE — ${reason}`
