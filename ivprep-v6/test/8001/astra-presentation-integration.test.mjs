@@ -230,7 +230,8 @@ test('Answer History exposes question and evidence filters without inventing sem
   assert.match(runtime, /Supported semantic evidence/u);
   assert.match(runtime, /supportedObservationCount/u);
   assert.match(runtime, /Transcript · no supported semantic observations/u);
-  assert.match(runtime, /renderId !== vaultRenderId \|\| state\.view !== 'vault'/u);
+  assert.match(runtime, /renderId === vaultRenderId && state\.view === 'vault'/u);
+  assert.match(runtime, /if \(!isLibraryCurrent\(\)\) return/u);
   assert.match(runtime, /results\.innerHTML = '<span>Review answer<\/span>'/u);
   assert.match(runtime, /const canReview = Boolean\(session\.results/u);
   assert.match(runtime, /renderFullAnalyticsReport\(analytics\)/u);

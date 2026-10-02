@@ -182,6 +182,8 @@ function permittedRoles() {
 function applyRole(role) {
   const allowed = permittedRoles();
   const nextRole = allowed.has(role) ? role : 'student';
+  const roleChanged = state.role !== nextRole;
+  if (roleChanged) ++vaultActionId;
   if (state.role === 'admin' && nextRole !== 'admin') {
     const hadAdminReview = isAdminReview(state.lastSaved);
     adminReviewGate.invalidate();
@@ -220,6 +222,7 @@ function applyRole(role) {
   const voiceAudition = $('#admin-live-voice-audition');
   if (voiceAudition) voiceAudition.hidden = state.role !== 'admin';
   if (state.role === 'admin' && state.view === 'mentor') void renderAdminOverview();
+  if (roleChanged && state.view === 'vault') void renderVault();
   // The analytics cockpit gets the real role so its own founder surfaces follow suit.
   state.analytics?.onViewChange?.(state.view, state.role === 'student' ? 'student' : 'admin');
   renderInterviewRoom();
@@ -3074,16 +3077,28 @@ async function renderCompare() {
 }
 
 let vaultRenderId = 0;
+let vaultActionId = 0;
 
 async function renderVault() {
   const host = $('#vault-body');
   if (!host) return;
   const renderId = ++vaultRenderId;
+  ++vaultActionId;
+  const durable = state.durable;
+  const admission = state.admission;
+  const subject = admission?.identity?.subject;
+  const role = state.role;
+  const viewGeneration = adminReviewViewGeneration;
+  const isLibraryCurrent = () => renderId === vaultRenderId && state.view === 'vault'
+    && viewGeneration === adminReviewViewGeneration && state.role === role
+    && state.admission === admission && state.admission?.identity?.subject === subject
+    && state.durable === durable;
   host.replaceChildren();
   try {
     if (!state.durableAvailable) throw state.durableError || new Error('durable_session_unavailable');
-    const vault = await state.durable.library('own');
-    if (renderId !== vaultRenderId || state.view !== 'vault') return;
+    if (!subject) throw new Error('authenticated_account_required');
+    const vault = await durable.library('own');
+    if (!isLibraryCurrent()) return;
     const sessions = Array.isArray(vault?.sessions) ? vault.sessions : [];
     state.longitudinal = buildLongitudinalModel(sessions);
     if (!sessions.length) {
@@ -3129,6 +3144,7 @@ async function renderVault() {
     rows.className = 'vault-rows';
 
     const paint = () => {
+      ++vaultActionId;
       rows.replaceChildren();
       const needle = state.vaultFilter.query.trim().toLowerCase();
       const filtered = sessions.filter((session) => {
@@ -3167,6 +3183,49 @@ async function renderVault() {
       copy.append(title, meta);
       const actions = document.createElement('div');
       actions.className = 'vault-answer-actions';
+      const open = async (action, destination) => {
+        if (!isLibraryCurrent()) return;
+        const actionId = ++vaultActionId;
+        const isCurrent = () => isLibraryCurrent() && actionId === vaultActionId;
+        action.disabled = true;
+        try {
+          // The own-library receipt is necessary even when the actor has broader
+          // Admin detail permissions. Never substitute an unexpected detail row.
+          if (sessions.filter(row => row.id === session.id).length !== 1
+            || (session.ownerSubject != null && session.ownerSubject !== subject)) throw new Error('Review identity changed.');
+          const detail = await durable.api.session(session.id);
+          if (!isCurrent()) return;
+          if (detail?.id !== session.id || (detail.ownerSubject != null && detail.ownerSubject !== subject)) throw new Error('Review identity changed.');
+          let playback = null;
+          if (destination === 'filmroom') {
+            if (detail.recording?.id !== session.recording?.id || detail.recording?.status !== 'saved') throw new Error('Recording changed.');
+            playback = await durable.playback(detail.recording.id);
+            if (!isCurrent()) return;
+            if (!playback?.url) throw new Error('Recording unavailable.');
+          }
+          const analytics = detail?.results?.payload?.analytics || null;
+          state.lastSaved = { persisted: true, session, sessionDetail: detail, analytics,
+            recording: detail?.recording ? { recording: detail.recording } : null };
+          state.filmGroups?.ingestResult(presentFilmRoomAnalytics(analytics));
+          if (destination === 'postanswer') {
+            renderPostAnswer(analytics);
+            renderContextEvidence(contextResultFromSessionSpine(detail));
+            setView('postanswer');
+          } else {
+            renderFilmRoomSpine(detail);
+            const video = $('#playback');
+            if (video) { video.pause(); video.src = playback.url; }
+            setView('filmroom');
+            // No navigation or state publication after asynchronous playback.
+            if (video) await video.play().catch(() => {});
+          }
+        } catch {
+          if (isCurrent()) {
+            action.title = 'This saved answer is unavailable. Refresh your Answer Library and try again.';
+            action.innerHTML = '<span>Unavailable · refresh</span>';
+          }
+        } finally { action.disabled = false; }
+      };
       const canReview = Boolean(session.results || Number(history.supportedObservationCount || 0) > 0
         || history.transcriptAvailable === true || ['complete', 'processed'].includes(session.state));
       if (canReview) {
@@ -3174,24 +3233,7 @@ async function renderVault() {
         results.type = 'button';
         results.className = 'btn btn-quiet';
         results.innerHTML = '<span>Review answer</span>';
-        results.addEventListener('click', async () => {
-          results.disabled = true;
-          try {
-            const detail = await state.durable.api.session(session.id);
-            const analytics = detail?.results?.payload?.analytics || null;
-            state.lastSaved = {
-              persisted: true,
-              session,
-              sessionDetail: detail,
-              analytics,
-              recording: detail?.recording ? { recording: detail.recording } : null,
-            };
-            state.filmGroups?.ingestResult(presentFilmRoomAnalytics(analytics));
-            renderPostAnswer(analytics);
-            renderContextEvidence(contextResultFromSessionSpine(detail));
-            setView('postanswer');
-          } finally { results.disabled = false; }
-        });
+        results.addEventListener('click', () => open(results, 'postanswer'));
         actions.append(results);
       }
       if (session.recording?.id && session.recording?.status === 'saved') {
@@ -3199,20 +3241,7 @@ async function renderVault() {
         play.type = 'button';
         play.className = 'btn btn-quiet';
         play.innerHTML = '<span>Play</span>';
-        play.addEventListener('click', async () => {
-          play.disabled = true;
-          try {
-            const [signed, detail] = await Promise.all([
-              state.durable.playback(session.recording.id),
-              state.durable.api.session(session.id),
-            ]);
-            const video = $('#playback');
-            state.lastSaved = { persisted: true, session, sessionDetail: detail };
-            state.filmGroups?.ingestResult(presentFilmRoomAnalytics(detail?.results?.payload?.analytics || session?.results?.payload?.analytics));
-            renderFilmRoomSpine(detail);
-            if (video) { video.src = signed.url; await video.play().catch(() => {}); setView('filmroom'); }
-          } finally { play.disabled = false; }
-        });
+        play.addEventListener('click', () => open(play, 'filmroom'));
         actions.append(play);
       }
       if (['active', 'processing'].includes(session.state)) {
@@ -3221,10 +3250,14 @@ async function renderVault() {
         abandon.className = 'btn btn-quiet';
         abandon.innerHTML = '<span>End interrupted session</span>';
         abandon.addEventListener('click', async () => {
+          if (!isLibraryCurrent()) return;
+          const actionId = ++vaultActionId;
           abandon.disabled = true;
           try {
-            await state.durable.api.abandonSession(session.id, { reason: 'owner_cleanup' });
-            await renderVault();
+            await durable.api.abandonSession(session.id, { reason: 'owner_cleanup' });
+            if (isLibraryCurrent() && actionId === vaultActionId) await renderVault();
+          } catch {
+            if (isLibraryCurrent() && actionId === vaultActionId) abandon.innerHTML = '<span>Unavailable · refresh</span>';
           } finally { abandon.disabled = false; }
         });
         actions.append(abandon);
@@ -3238,11 +3271,21 @@ async function renderVault() {
     host.append(toolbar, rows);
     paint();
   } catch (error) {
-    if (renderId !== vaultRenderId || state.view !== 'vault') return;
+    if (!isLibraryCurrent()) return;
     const note = document.createElement('p');
     note.className = 'unavailable';
-    note.textContent = `ANSWER HISTORY UNAVAILABLE — ${String(error?.message || 'SESSION REQUIRED').toUpperCase().slice(0, 120)}`;
+    const needsSignIn = /AUTHENTICATION_REQUIRED|UNAUTHENTICATED|SESSION_REQUIRED/iu.test(String(error?.message || ''));
+    note.textContent = needsSignIn
+      ? 'Please sign in again to load your saved answers.'
+      : 'Your saved answers could not be loaded. Try refreshing your Answer Library.';
     host.append(note);
+    if (needsSignIn) {
+      const signIn = document.createElement('a');
+      signIn.className = 'btn btn-primary';
+      signIn.href = 'https://missionmedinstitute.com/member-dashboard/';
+      signIn.textContent = 'Sign in through MissionMed Matrix';
+      host.append(signIn);
+    }
   }
 }
 

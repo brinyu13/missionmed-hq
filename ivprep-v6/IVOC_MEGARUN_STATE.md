@@ -14,6 +14,41 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Own Answer Library race correction, source epoch 4106:** fresh independent
+  actual-renderer probes found Review A → Review B resolving backwards reopened
+  A; a late Review also hijacked navigation Home. Shared Review/Play action and
+  render/view/role/actor/admission/durable guards now reject obsolete responses;
+  detail and recording identity must match before presentation/signing. No
+  navigation is published after asynchronous video.play. Errors remain bounded;
+  expired authentication offers normal Matrix re-entry instead of an internal
+  error label. 63 focused checks PASS; independent review PASS with eight additional
+  actual-renderer adversarial probes. Deployed POV is still pending. Astra
+  composition and media graph unchanged.
+- **Fresh auth recovery:** current cached Founder shell's Library returned
+  IVPREP_AUTHENTICATION_REQUIRED. Fresh independent normal Matrix → IVOC re-entry
+  restored visible wp:1 Founder/Admin and 33/33 own saved answers without
+  credentials/MFA or privileged bypass. Expiry cause is not established. No
+  private media playback, provider or data mutation occurred.
+- **RISE WordPress hard stop:** live auth files do not match either local base.
+  Live HQ handoff SHA-256 `8cfb8dadf7193c63722ab3d217f319460922324d9e12fa934c902d02a9fa1813`;
+  live RISE SSO `3e9e3eedc7b703d63f814544b48ec2c0d0eefa589b28e0cf72d1af6a33c88ab9`.
+  No existing RISE entitlement-introspection endpoint was found in the inspected
+  owner contract. Stop protected WP work under BOOT drift rule. Exact live
+  preimage/callback ownership and successor authority must be rebound before a
+  patch; DR-151 is WP-read-only and DR-153's old hash transition is insufficient.
+  One bounded reconciliation authorization question is outstanding; no repeated
+  audit or source overwrite. Other IVOC-owned engineering continues.
+- **CURRENT LIVE / guardian, inactive reader release:** source
+  `8ce18f8606490d40af0a1c1ab20807bc05eaa365`, deployment
+  `1e8eca68-cec6-4d9f-ab98-8f5732da23e1` SUCCESS, image
+  `sha256:b76962386c72c1f82824d314233edc3fa894de072424f5168e579fafe7240ef9`,
+  artifact `170a51b545297a50ea4a869e884bb3947cce2aed91f58192d366575d08862854`,
+  exact resolver runtime hash `7122523c1c84b11fec4766064921420ec0abd1372258050d6eaf0755215989aa`.
+  Health200, anonymous product/bootstrap401; source pushed/read back and provider
+  configuration unchanged. Reader remains inactive. Source4104/deploy4105 released
+  normally/read back. Nearest healthy rollback source `98cc7d8` / deployment
+  `b1f61346` and exact artifact/image below; provider marked predecessor REMOVED,
+  so use exact preserved artifact redeploy if needed, preserving newer source/data.
 - **Inactive Actor saved-setup reader, source epoch 4104:** server-internal,
   GET-only reader now projects exact active owned saved settings through existing
   native instructions, including role/style, ordered pool and Guided preference.
@@ -25,7 +60,7 @@ the actual production route and deployment.
   inactive source preparation, NOT live avatar acceptance. Sequential rechecks
   are not atomic admission: future activation still requires its own gate, real
   cancellation/audio/motion/sink acknowledgements and approved spending/profile
-  mappings. Existing live runtime remains `98cc7d8` / `b1f61346` below.
+  mappings. Deployment custody is recorded above; no active avatar acceptance.
 - **RISE ordinary-student dependency reclassified:** existing owner policy admits
   current 3893/3646 students, while IVOC's internal delegation requires RISE
   claims absent from ordinary HQ/CAM handoff. DR-322/323 permit bounded owner-auth
