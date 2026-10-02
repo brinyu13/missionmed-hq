@@ -25,6 +25,15 @@ the actual production route and deployment.
   Actual UI exposed contradictory old unavailable copy alongside this button;
   a pending-action adapter/copy correction is in progress. AI evidence remains
   provisional; actual spoken-answer/coaching and audible replay are not accepted.
+- **Capture-probe abstention:** the owned short room-audio probe reached actual
+  Whisper successfully (HTTP 200, 10.02s); provider no-speech probability 0.766
+  caused the unchanged safety threshold to withhold transcript/coaching as
+  `TRANSCRIPT_SOURCE_TIMING_OR_SPEECH_UNCERTAIN`. One bounded diagnostic repeat
+  established the exact reason; no transcript text, score or coaching was saved.
+  This is truthful negative-speech evidence, not a genuine answer acceptance.
+  Results copy now explains the withheld transcript and recovery action instead
+  of a generic processing error. Human spoken response availability was asked
+  once asynchronously; independent engineering continues.
 - **Live POV fix-forward (2026-10-02 02:33 UTC):** Founder `wp:1` normal
   Builder → readiness → Self Practice visibly retained real camera video and
   measured microphone input. A bounded 13-second capture saved both private

@@ -3552,6 +3552,8 @@ function renderContextEvidence(result) {
     const reason = String(transcript?.reason || 'PROVIDER UNAVAILABLE').toUpperCase().slice(0, 120);
     note.textContent = reason === 'NOT_REQUESTED'
       ? 'Your private microphone recording is ready. Choose Generate transcript + coaching to review this answer; processing has not started yet.'
+      : ['TRANSCRIPT_SOURCE_TIMING_OR_SPEECH_UNCERTAIN', 'TRANSCRIPT_SEGMENTS_UNAVAILABLE'].includes(reason)
+      ? 'This recording did not yield a reliable timed transcript, so no answer coaching was generated. Listen in Film Room, then retry with a clear spoken answer.'
       : ['CANDIDATE_AUDIO_SOURCE_UNVERIFIED', 'CONTEXT_CANDIDATE_AUDIO_SOURCE_UNVERIFIED'].includes(reason)
       ? buildCandidateAnalysisState().unavailableCopy
       : state.role === 'admin'

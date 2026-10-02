@@ -35,6 +35,9 @@ test('ready transcript action does not display source-unavailable copy before it
   assert.doesNotMatch(host.children[1].textContent, /unavailable/i);
   render({ transcript: { status: 'UNAVAILABLE', reason: 'CANDIDATE_AUDIO_SOURCE_UNVERIFIED' } });
   assert.equal(host.children[1].textContent, 'SOURCE_UNAVAILABLE');
+  render({ transcript: { status: 'UNAVAILABLE', reason: 'TRANSCRIPT_SOURCE_TIMING_OR_SPEECH_UNCERTAIN' } });
+  assert.match(host.children[1].textContent, /no answer coaching was generated.*Film Room.*clear spoken answer/u);
+  assert.doesNotMatch(host.children[1].textContent, /provider|internal|verified/i);
 });
 
 test('readiness reports camera acquisition failure and prevents concurrent acquisition', async () => {
