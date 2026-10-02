@@ -143,3 +143,66 @@ test('rebinding preview to another stream and ending the current track never gra
     assert.equal(f.timers.size, 0);
   }
 });
+
+function startupFixture({ muted = false, width = 640 } = {}) {
+  const stream = new Stream(); const track = stream.getVideoTracks()[0]; track.muted = muted;
+  const video = { srcObject: stream, videoWidth: width, videoHeight: 480, paused: false, ended: false,
+    addEventListener(name, callback) { events.set(name, callback); },
+    removeEventListener(name) { events.delete(name); } };
+  const events = new Map(); const polls = new Map(); let now = 0; let samples = 0;
+  const bridge = { media: { stream }, async verifyVisibleFrame(actual) {
+    assert.equal(actual, video); assert.equal(track.muted, false); assert.equal(track.enabled, true);
+    samples += 1;
+  } };
+  const start = runtime.indexOf('async function ensureVisibleVideoFrame(');
+  const end = runtime.indexOf('\nfunction bindPreview()', start);
+  const trackStart = runtime.indexOf('function liveTrack(kind)');
+  const trackEnd = runtime.indexOf('function requestVideoPlayback', trackStart);
+  const ensure = runInNewContext(`${runtime.slice(trackStart, trackEnd)}\n${runtime.slice(start, end)}; ensureVisibleVideoFrame`, {
+    bridge, bindVideoSurface() {}, requestVideoPlayback() {}, Date: { now: () => now },
+    setInterval(callback, ms) { assert.equal(ms, 100); polls.set(1, callback); return 1; },
+    clearInterval(id) { polls.delete(id); },
+  });
+  return { stream, track, bridge, video, events, polls, ensure, samples: () => samples,
+    tick(time = now) { now = time; for (const callback of [...polls.values()]) callback(); } };
+}
+
+test('initial camera mute and mute while waiting for dimensions both recover within the bounded startup wait', async () => {
+  for (const initiallyMuted of [true, false]) {
+    const f = startupFixture({ muted: initiallyMuted, width: initiallyMuted ? 640 : 0 });
+    const pending = f.ensure(f.video);
+    f.track.muted = true; f.video.videoWidth = 640; f.tick(100);
+    assert.equal(f.samples(), 0); assert.equal(f.polls.size, 1);
+    f.track.muted = false; f.tick(200);
+    assert.equal(await pending, f.video);
+    assert.equal(f.samples(), 1); assert.equal(f.polls.size, 0); assert.equal(f.events.size, 0);
+  }
+});
+
+test('startup wait remains bounded and rejects ended/replaced capture without sampling stale pixels', async () => {
+  for (const condition of ['deadline', 'ended', 'replaced']) {
+    const f = startupFixture({ muted: true });
+    const pending = assert.rejects(f.ensure(f.video), /Camera/);
+    if (condition === 'ended') f.track.stop();
+    if (condition === 'replaced') f.bridge.media.stream = new Stream();
+    f.tick(condition === 'deadline' ? 5001 : 100);
+    await pending;
+    assert.equal(f.samples(), 0); assert.equal(f.polls.size, 0); assert.equal(f.events.size, 0);
+  }
+});
+
+test('a black camera does not suppress the working microphone meter', async () => {
+  const calls = []; const button = {}; const state = { selected: {} };
+  const start = runtime.indexOf('async function connectDevices()');
+  const end = runtime.indexOf('/* ------------------------------------------------------------------ vault */', start);
+  const connect = runInNewContext(`${runtime.slice(start, end)}; connectDevices`, {
+    state, $: () => button, bridge: { primeAudioContext() {}, async requestMedia() { calls.push('capture'); } },
+    bindPreview() { calls.push('preview'); }, startLevelMeter() { calls.push('meter'); },
+    async ensureVisibleVideoFrame() { calls.push('verify'); throw new Error(CAMERA_BLACK_MESSAGE); },
+    async refreshDevices() {}, renderDeviceCheck() {},
+  });
+  await connect();
+  assert.deepEqual(calls, ['capture', 'preview', 'meter', 'verify']);
+  assert.equal(state.deviceError, CAMERA_BLACK_MESSAGE.toUpperCase());
+  assert.equal(state.deviceConnectionPending, false);
+});

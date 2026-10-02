@@ -14,7 +14,17 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
-- **Black-frame recovery candidate, epoch 4085:** independent reproduction found
+- **Startup follow-on, epoch 4088:** independent repro caught initial/during-wait
+  camera mute ending the wait prematurely. Exact captured-stream liveness now
+  keeps the existing bounded 5 s startup wait, while readiness still requires
+  enabled/unmuted capture and visible pixels. A live POV black-camera check also
+  found that the working microphone meter was skipped after image failure; it
+  now starts before image verification. Eight focused camera regressions plus
+  independent replacement/end-between-await probes PASS; no false image claim.
+  Await reviewed follow-on deployment. Physical image is still black; one new
+  asynchronous question asks whether the camera/lid is covered, without blocking
+  independent engineering. No AI session/recording created by these device checks.
+- **Black-frame recovery LIVE DEPLOYED, epoch 4085:** independent reproduction found
   that a black first image left readiness cached false after the same stream became
   lit. The bridge now retries one tiny local sample per 500 ms only after this
   failure; exact stream/surface/generation guards cancel stale work, stop/rebind
@@ -22,7 +32,15 @@ the actual production route and deployment.
   No capture restart, upload or automatic interview start. Muted/disabled tracks
   stay unready; live muted microphones retain their processing graph for unmute.
   Independent review PASS after that regression was caught and corrected; 68 focused
-  checks PASS. Await exact tracked deployment and normal live readiness verification.
+  checks PASS. Source `f83e28c80b52019921757cc633bb65dff1c4cff0`, deployment
+  `d09eea11-0ea0-43c6-b698-1c7365694fd2` SUCCESS, image
+  `sha256:082c94cd8a9441f4e1dcd8ef548204677b5c1885a5052d61b105a96266a1d76d`,
+  artifact `f32245ef7aab5eaf9251f48bf1ffc811b7ba8ddba2dee359b61101895eb446d4`.
+  Three runtime hashes match, health 200, anonymous product/bootstrap 401.
+  Authenticated normal calibration loaded and refused the still-black real image;
+  capture stopped by reload. Same-stream physical black→lit recovery remains
+  UNVERIFIED until the actual device supplies a visible image. Source lease4085
+  released normally/read back; deployment lease4086 maintained for fix-forward.
 - **Admin review current POV:** Founder actor `wp:1` selected genuine `wp:142`
   in Admin library, opened that student's Results/full measured report and Film Room,
   and playback advanced to 19.443 s without media error. The historical recording's
@@ -31,7 +49,7 @@ the actual production route and deployment.
   review and returned to own Library; no notes/review status/data were changed.
   Completed previous source/deployment leases 4061/4071/4072/4073/4075/4076/4077
   were released normally and canonical readback confirmed release.
-- **Current release, 2026-10-02 04:20 UTC:** source
+- **Previous healthy release / rollback, 2026-10-02 04:20 UTC:** source
   `399a87518a412a6f94efe81a113e0f0640155e26`, deployment
   `62590a0f-1168-4e08-a751-e871a5d1d6b8` SUCCESS, image
   `sha256:013d914b10ffb5d62dd93784df32cae6061c818ea20b9d95a592c4118ec3b3ef`,

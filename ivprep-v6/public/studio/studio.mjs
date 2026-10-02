@@ -1884,7 +1884,12 @@ function bindVideoSurface(video) {
 
 async function ensureVisibleVideoFrame(video, { timeoutMs = 5000 } = {}) {
   bindVideoSurface(video);
-  if (!video || !bridge.media.stream || !liveTrack('video')) {
+  const stream = bridge.media.stream;
+  const hasCameraCapture = () => bridge.media.stream === stream
+    && stream?.getVideoTracks?.().some((track) => track.readyState === 'live');
+  // Startup mute is transient: wait within the existing deadline, but never
+  // grant readiness until this exact capture is unmuted and visibly rendered.
+  if (!video || !hasCameraCapture()) {
     throw new Error('Camera stream is not available. Reconnect the camera and microphone.');
   }
   await new Promise((resolve, reject) => {
@@ -1895,11 +1900,14 @@ async function ensureVisibleVideoFrame(video, { timeoutMs = 5000 } = {}) {
       for (const event of ['loadedmetadata', 'canplay', 'playing', 'resize']) video.removeEventListener(event, settle);
     };
     const settle = () => {
+      if (!hasCameraCapture()) {
+        cleanup(); reject(new Error('Camera disconnected while checking the preview. Reconnect it.')); return;
+      }
       requestVideoPlayback(video);
       if (videoSurfaceBound(video)) {
         cleanup(); resolve(); return;
       }
-      if (Date.now() >= deadline || !liveTrack('video')) {
+      if (Date.now() >= deadline) {
         cleanup();
         reject(new Error('Camera connected, but IVOC could not render a visible frame. Reconnect the camera before continuing.'));
       }
@@ -1908,6 +1916,7 @@ async function ensureVisibleVideoFrame(video, { timeoutMs = 5000 } = {}) {
     poll = setInterval(settle, 100);
     settle();
   });
+  if (!hasCameraCapture()) throw new Error('Camera disconnected while checking the preview. Reconnect it.');
   await bridge.verifyVisibleFrame(video, { timeoutMs: Math.min(timeoutMs, 1500) });
   return video;
 }
@@ -2706,10 +2715,10 @@ async function connectDevices() {
     });
     state.deviceError = null;
     bindPreview();
+    startLevelMeter();
     const preview = $('#devicecheck-stage video') || $('#builder-readiness-stage video');
     await ensureVisibleVideoFrame(preview);
     await refreshDevices();
-    startLevelMeter();
   } catch (error) {
     state.deviceError = String(error?.message || error?.name || error).toUpperCase();
   } finally {
