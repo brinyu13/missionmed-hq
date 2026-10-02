@@ -13,6 +13,7 @@ import { buildDeliveryInsights, computeDeliveryMetricsFromWav, computeDeliveryMe
 import { handleUscePublicRoute } from './routes/usce-public-intake.mjs';
 import { handleSchedulerApiRoute } from './lib/scheduler/routes.mjs';
 import { readSessionFromHeaders } from './lib/auth/session-token.mjs';
+import { readCurrentRiseEligibility, riseDelegatedProjection } from './lib/auth/rise-current-eligibility.mjs';
 import {
   createLorStudioRuntime,
   createUnavailableLorEntitlementResolver,
@@ -3004,23 +3005,19 @@ async function handleApiRoute(request, response, url, context) {
       const authorized = request.method === 'GET'
         && audience === RISE_AUTH_AUDIENCE
         && internalConsumer === 'rise-ivoc-projection'
+        && !String(request.headers.origin || '').trim()
+        && Boolean(SESSION_SECRET) && Boolean(session?.user?.id)
         && sessionAuthAudience(session) !== RISE_AUTH_AUDIENCE
         && safeTimingEqual(providedDelegationToken, expectedDelegationToken);
-      const grant = authorized ? resolveWordPressSessionGrant(session?.user || {}, RISE_AUTH_AUDIENCE) : null;
-      if (!authorized || !grant?.ok) {
+      const receipt = authorized ? await readCurrentRiseEligibility({
+        wpBase: CONFIG.wpBase, secret: AUTH_HANDOFF_SECRET, subject: session.user.id,
+      }) : null;
+      const delegated = receipt ? riseDelegatedProjection(session, receipt) : null;
+      if (!authorized || !delegated) {
         sendJson(response, 403, { error: 'rise_delegation_denied' }, authHeaders);
         return;
       }
-      const delegated = createSessionRecord(
-        normalizeWordPressIdentityUser(session.user || {}),
-        {
-          wpAuthorization: String(session.wpAuthorization || '').trim(),
-          audience: grant.audience,
-          apiScope: grant.apiScope,
-        },
-        'ivoc-rise-owner-projection',
-      );
-      sendJson(response, 200, buildSessionPayload(delegated, request, RISE_AUTH_AUDIENCE), authHeaders);
+      sendJson(response, 200, delegated, authHeaders);
       return;
     }
 

@@ -53,7 +53,20 @@ async function freePort() {
 async function startHq() {
   const port = await freePort();
   const secret = randomBytes(32).toString('hex');
-  const child = spawn(process.execPath, ['server.mjs'], {
+  // Offline signed owner stub, injected into this test child only.
+  const stub = `
+    import { createHmac } from 'node:crypto';
+    const original = globalThis.fetch;
+    globalThis.fetch = async (url, options) => {
+      if (String(url) !== 'https://missionmedinstitute.com/wp-json/missionmed-rise/v1/ivoc-eligibility') return original(url, options);
+      const body = JSON.parse(options.body);
+      const secret = process.env.MMHQ_HANDOFF_SECRET;
+      if (options.headers['X-MMED-RISE-Proof'] !== createHmac('sha256', secret).update('mmrise-ivoc-eligibility-request-v1\\n' + options.body).digest('hex')) return new Response('', {status:403});
+      const payload = JSON.stringify({ ...body, source:'wordpress_current_rise_owner', allowed:body.subject !== 'wp:78', admin:body.subject === 'wp:42', exp:body.iat+30 });
+      return Response.json({payload,signature:createHmac('sha256',secret).update('mmrise-ivoc-eligibility-response-v1\\n'+payload).digest('hex')});
+    };
+  `;
+  const child = spawn(process.execPath, ['--import', 'data:text/javascript,' + encodeURIComponent(stub), 'server.mjs'], {
     cwd: hqRoot,
     env: {
       ...process.env,
@@ -202,6 +215,32 @@ test('RISE auth is entitlement-bound, audience-isolated, and non-RISE compatible
     assert.equal(delegatedPayload.authenticated, true);
     assert.equal(delegatedPayload.authAudience, 'rise');
     assert.equal(delegatedPayload.user.id, 42);
+    assert.equal(delegatedPayload.accessToken, '');
+    assert.equal(delegated.headers.has('set-cookie'), false);
+    assert.ok(Date.parse(delegatedPayload.expiresAt) <= Date.now() + 30_000);
+
+    for (const id of [77, 78]) {
+      const ordinary = await fetch(`${runtime.origin}/api/auth/exchange`, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ audience: 'arena', token: signedToken(runtime.secret, {
+        wp_user_id: id, auth_audience: 'arena', roles: ['subscriber'],
+        rise_beta_access: false, rise_beta_course_ids: [], rise_beta_entitlements: [],
+        }) }),
+      });
+      const cookie = String(ordinary.headers.get('set-cookie') || '').split(';')[0];
+      assert.ok(cookie.startsWith('mmhq_session='));
+      const result = await fetch(`${runtime.origin}/api/auth/session?audience=rise`, {
+        headers: { Cookie: cookie, 'X-MMED-Delegation-Token': RISE_DELEGATION_TOKEN,
+          'X-MMED-Internal-Consumer': 'rise-ivoc-projection' },
+      });
+      assert.equal(result.status, id === 77 ? 200 : 403);
+      if (id === 77) assert.deepEqual((await result.json()).user.roles, ['subscriber']);
+      const browser = await fetch(`${runtime.origin}/api/auth/session?audience=rise`, {
+        headers: { Cookie: cookie, Origin:'https://missionmedinstitute.com',
+          'X-MMED-Delegation-Token': RISE_DELEGATION_TOKEN, 'X-MMED-Internal-Consumer': 'rise-ivoc-projection' },
+      });
+      assert.equal(browser.status, 403);
+    }
 
     const invalidDelegation = await fetch(`${runtime.origin}/api/auth/session?audience=rise`, {
       headers: {
