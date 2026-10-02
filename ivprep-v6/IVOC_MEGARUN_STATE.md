@@ -41,9 +41,20 @@ the actual production route and deployment.
   explicitly choosing another goal. Review shows the Guided focus. Explicit
   Builder mode clears the previous room's Analytics display override without
   changing measurement. 173 focused contract/view/media compatibility checks PASS;
-  independent review PASS including snapshot/parity/hidden-focus probes; deployment
-  pending. No schema, voice, transport or recording
-  graph change. Genuine spoken effect remains UNVERIFIED.
+  independent review PASS including snapshot/parity/hidden-focus probes.
+  CURRENT LIVE source `98cc7d8a380792eec206a1a48343a7a8051ba42e`, deployment
+  `b1f61346-05ec-4841-9164-4f79317b54a7` SUCCESS, image
+  `sha256:cc362dba44b26250840b917a59a535e77e6ef15ad15a4ad4d0a10aeb558f3468`,
+  artifact `1827650d7b9bbbd2d9b26e47f5574a0327d547166d62cd0eb7c4baecad37fa2f`.
+  Five changed runtime hashes match source; health200 and anonymous product/
+  bootstrap401. Config unchanged; no schema, voice, transport or recording graph
+  change. Genuine spoken effect remains UNVERIFIED. Preserve paging release
+  `a26ae28` / `f7ef28c3` source/image/artifact above as nearest healthy rollback.
+  Fresh non-builder production wp:1 PASS: Full pressure ON → Individual → Guided
+  leaves pressure OFF and focus empty; entered focus survives navigation and is
+  visible in final Guided review; explicit Interview/Coached selections persist.
+  Final review is reachable without starting devices/provider or saving a session.
+  This accepts setup usability only, not spoken adherence or runtime overlays.
 - **Program paging independent production PASS:** fresh non-builder wp:1
   Founder/Admin UI traversed Next/Previous, selected page-two Orthopaedic Surgery,
   retained verified identity/release through Step 5/back, and confirmed query edits
