@@ -39,7 +39,7 @@ function fixture({provider='accept',finishFails=false}={}) {
   assert.ok(String(url).startsWith('https://fglyvdykwgbuivikqoah.supabase.co/rest/v1/rpc/'),'unexpected network operation');
   const name=String(url).split('/').at(-1);
   stored.push(payload);
-  assert.ok(!decodeURIComponent(JSON.stringify(payload)).includes(rawToken),'bearer token entered durable RPC payload');
+  assert.ok(!JSON.stringify(payload).replace(/%([0-9a-f]{2})/giu,(_,hex)=>String.fromCharCode(parseInt(hex,16))).includes(rawToken),'bearer token entered durable RPC payload');
   if(name==='get_usce_offer_draft_admin')return Response.json({ok:true,item:offer});
   if(name==='usce_bind_message_preview'){
    bound=payload.p_message;
@@ -82,6 +82,12 @@ test('percent-encoded bearer prefix is redacted from every stored rendering',asy
   const result=await route('message-preview',f.message);
   assert.equal(result.status,200);
   assert.ok(result.reply.data.rendered_email.text_body.includes('%75sce_'));
+ }finally{f.restore();}
+});
+test('ordinary percent prose cannot bypass percent-encoded bearer redaction',async()=>{
+ const f=fixture();try{
+  f.message.body='QA 10%: '+f.message.body.replace('?offer=usce_','?offer=%75sce_');
+  assert.equal((await route('message-preview',f.message)).status,200);
  }finally{f.restore();}
 });
 test('changed subject or recipient cannot reuse approval',async()=>{

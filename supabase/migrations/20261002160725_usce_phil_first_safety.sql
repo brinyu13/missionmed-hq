@@ -440,4 +440,214 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.usce_reconcile_send(uuid,text,jsonb) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.usce_reconcile_send(uuid,text,jsonb) TO service_role;
+
+-- Preserve existing decline preference contract; close pending-decline and deadline bypasses.
+CREATE OR REPLACE FUNCTION public.respond_usce_offer_by_token_hash(p_token_hash text, p_action text, p_note text DEFAULT NULL::text, p_consent boolean DEFAULT false, p_metadata jsonb DEFAULT '{}'::jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'command_center', 'public', 'pg_temp'
+AS $function$
+DECLARE
+  v_offer command_center.usce_offer_drafts%ROWTYPE;
+  v_action text := lower(trim(coalesce(p_action, '')));
+  v_target_status text;
+  v_event_type text;
+  v_event_subject text;
+  v_default_body text;
+  v_response_note text := left(regexp_replace(coalesce(p_note, ''), '[[:cntrl:]]+', ' ', 'g'), 1000);
+  v_metadata jsonb := coalesce(p_metadata, '{}'::jsonb);
+  v_notify_future_rotations boolean;
+  v_comm_id uuid;
+BEGIN
+  IF v_action NOT IN (
+    'accept',
+    'decline',
+    'request_alternate',
+    'decline_pending',
+    'decline_notify_future',
+    'decline_no_notify'
+  ) THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'invalid_action');
+  END IF;
+
+  SELECT * INTO v_offer
+  FROM command_center.usce_offer_drafts
+  WHERE offer_token_hash = p_token_hash
+  FOR UPDATE;
+
+  IF NOT FOUND OR v_offer.status IN ('draft', 'archived') THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'invalid_token');
+  END IF;
+
+  -- A pending decline cannot become acceptance or alternate selection.
+  IF v_offer.status = 'decline_pending' AND v_action NOT IN ('decline_pending','decline_notify_future','decline_no_notify') THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'already_responded');
+  END IF;
+  -- Response deadline and token lifetime are independent. Completed responses remain canonical.
+  IF v_offer.status IN ('ready','sent','viewed') AND (v_offer.expires_at IS NULL OR v_offer.expires_at <= now()) THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'expired');
+  END IF;
+
+  IF v_offer.offer_token_expires_at IS NULL OR v_offer.offer_token_expires_at <= now() THEN
+    UPDATE command_center.usce_offer_drafts
+    SET status = 'expired'
+    WHERE id = v_offer.id
+      AND status NOT IN (
+        'accepted',
+        'declined',
+        'alternate_requested',
+        'declined_notify_future',
+        'declined_no_notify',
+        'archived'
+      );
+    RETURN jsonb_build_object('ok', false, 'error', 'expired');
+  END IF;
+
+  v_target_status := CASE v_action
+    WHEN 'accept' THEN 'accepted'
+    WHEN 'decline' THEN 'declined'
+    WHEN 'request_alternate' THEN 'alternate_requested'
+    WHEN 'decline_pending' THEN 'decline_pending'
+    WHEN 'decline_notify_future' THEN 'declined_notify_future'
+    ELSE 'declined_no_notify'
+  END;
+
+  v_notify_future_rotations := CASE v_action
+    WHEN 'decline_notify_future' THEN true
+    WHEN 'decline_no_notify' THEN false
+    ELSE NULL
+  END;
+
+  IF v_offer.status = v_target_status THEN
+    RETURN jsonb_build_object(
+      'ok', true,
+      'idempotent', true,
+      'offer', public.usce_offer_student_json(v_offer.id, v_target_status = 'accepted')
+    );
+  END IF;
+
+  IF v_offer.status IN (
+    'accepted',
+    'declined',
+    'alternate_requested',
+    'declined_notify_future',
+    'declined_no_notify'
+  ) THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'already_responded');
+  END IF;
+
+  IF v_action IN ('decline_notify_future', 'decline_no_notify')
+     AND v_offer.status <> 'decline_pending' THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'invalid_state');
+  END IF;
+
+  IF v_offer.status NOT IN ('ready', 'sent', 'viewed', 'decline_pending') THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'invalid_state');
+  END IF;
+
+  UPDATE command_center.usce_offer_drafts
+  SET status = v_target_status,
+      accepted_at = CASE WHEN v_action = 'accept' THEN now() ELSE accepted_at END,
+      declined_at = CASE WHEN v_action IN ('decline', 'decline_notify_future', 'decline_no_notify') THEN now() ELSE declined_at END,
+      alternate_requested_at = CASE WHEN v_action = 'request_alternate' THEN now() ELSE alternate_requested_at END,
+      payment_status = CASE WHEN v_action = 'accept' THEN 'handoff_shown' ELSE payment_status END,
+      payment_checked_at = CASE WHEN v_action = 'accept' THEN now() ELSE payment_checked_at END,
+      student_response_note = v_response_note,
+      metadata = metadata
+        || jsonb_build_object(
+          'last_student_response', jsonb_build_object(
+            'action', v_action,
+            'target_status', v_target_status,
+            'consent', coalesce(p_consent, false),
+            'metadata', v_metadata,
+            'notify_future_rotations', v_notify_future_rotations,
+            'recorded_at', now()
+          )
+        )
+        || CASE
+          WHEN v_action IN ('decline_notify_future', 'decline_no_notify') THEN
+            jsonb_build_object(
+              'decline_confirmation', jsonb_build_object(
+                'notify_future_rotations', v_notify_future_rotations,
+                'recorded_at', now()
+              )
+            )
+          ELSE '{}'::jsonb
+        END
+  WHERE id = v_offer.id
+  RETURNING * INTO v_offer;
+
+  v_event_type := CASE v_action
+    WHEN 'accept' THEN 'student_accepted_offer'
+    WHEN 'decline' THEN 'student_declined_offer'
+    WHEN 'request_alternate' THEN 'student_requested_alternate'
+    WHEN 'decline_pending' THEN 'student_decline_pending'
+    WHEN 'decline_notify_future' THEN 'student_declined_offer_notify_future'
+    ELSE 'student_declined_offer_no_notify'
+  END;
+
+  v_event_subject := CASE v_action
+    WHEN 'accept' THEN 'Student accepted USCE offer'
+    WHEN 'decline' THEN 'Student declined USCE offer'
+    WHEN 'request_alternate' THEN 'Student requested alternate USCE option'
+    WHEN 'decline_pending' THEN 'Student opened decline confirmation'
+    WHEN 'decline_notify_future' THEN 'Student declined USCE offer and wants future rotation notifications'
+    ELSE 'Student declined USCE offer and does not want future rotation notifications'
+  END;
+
+  v_default_body := CASE v_action
+    WHEN 'decline_pending' THEN 'Student opened the decline confirmation page. Final notify preference is still required.'
+    WHEN 'decline_notify_future' THEN 'Student declined and asked to be notified about future rotations.'
+    WHEN 'decline_no_notify' THEN 'Student declined and does not want future rotation notifications.'
+    ELSE 'Student response recorded through tokenized offer portal.'
+  END;
+
+  v_comm_id := command_center.usce_log_offer_engine_comm(
+    v_offer.id,
+    v_offer.intake_request_id,
+    v_event_type,
+    'SYS',
+    v_event_subject,
+    coalesce(nullif(v_response_note, ''), v_default_body),
+    jsonb_build_object(
+      'action', v_action,
+      'target_status', v_target_status,
+      'notify_future_rotations', v_notify_future_rotations,
+      'metadata', v_metadata
+    ),
+    NULL,
+    false,
+    NULL,
+    NULL
+  );
+
+  IF v_action = 'accept' THEN
+    PERFORM command_center.usce_log_offer_engine_comm(
+      v_offer.id,
+      v_offer.intake_request_id,
+      'payment_handoff_shown',
+      'SYS',
+      'WooCommerce payment handoff shown',
+      'Canonical MissionMed USCE Clinical Rotations payment handoff was returned after acceptance. No order or payment was created by MissionMed HQ.',
+      jsonb_build_object(
+        'payment_url', v_offer.payment_url,
+        'payment_status', v_offer.payment_status,
+        'student_response_comms_id', v_comm_id
+      ),
+      NULL,
+      false,
+      NULL,
+      NULL
+    );
+  END IF;
+
+  RETURN jsonb_build_object(
+    'ok', true,
+    'offer', public.usce_offer_student_json(v_offer.id, v_target_status = 'accepted'),
+    'comms_id', v_comm_id
+  );
+END;
+$function$;
+
 COMMIT;

@@ -5,7 +5,7 @@
   Standalone R2-ready public offer-response shell with real fetch adapter for Railway
   token endpoints. No Supabase from browser, no service-role data, no email sends,
   no payment trigger, no WooCommerce redirect before acceptance.
-  Decline actions route to the Railway confirmation page before any final decline.
+  Decline confirmation and future-contact preferences stay in this offer page.
 -->
 <html lang="en">
 <head>
@@ -278,6 +278,11 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
   .payment-cta h3{font-size:19px}
   .step{padding:10px 12px}
 }
+[hidden]{display:none!important}
+a:focus-visible,button:focus-visible,textarea:focus-visible{outline:3px solid var(--gold);outline-offset:4px}
+.info b,.message,.confirm p,.deadline b{overflow-wrap:anywhere}
+.footer-note a{text-decoration:underline;text-underline-offset:3px;font-weight:800}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
@@ -289,26 +294,21 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
         <div><strong>MissionMed Clinicals</strong><span>Offer Portal</span></div>
       </div>
       <div class="mm-runtime" aria-live="polite">
-        <span class="mm-pill"><span class="mm-dot" id="modeDot"></span><span id="modePill">Demo offer</span></span>
-        <span class="mm-pill">MM-USCE-OFFER-FLOW-003</span>
+        <span class="mm-pill"><span class="mm-dot" id="modeDot"></span><span id="modePill">Checking offer</span></span>
+
       </div>
     </div>
     <section class="mm-hero">
-      <div class="mm-eyebrow">Availability option ready for your review</div>
+      <div class="mm-eyebrow">Your rotation offer and next steps</div>
       <h1 id="heroTitle">Your MissionMed Clinicals offer.</h1>
-      <p class="mm-sub" id="heroSub">Review the proposed rotation below and choose accept, decline, or request an alternate. No payment is required to make a choice.</p>
+      <p class="mm-sub" id="heroSub">Review the proposed rotation below and choose accept, decline, or request an alternate. Submitting a response does not take payment or confirm a placement.</p>
     </section>
   </header>
 
   <main class="mm-app">
-    <div class="demo-banner" id="demoBanner" role="status">
-      <span class="demo-dot" aria-hidden="true"></span>
-      <b>Demo preview.</b> This is a sample offer for demonstration purposes. When a live offer is sent by a MissionMed coordinator, it will appear here with your specific rotation details and a unique link.
-    </div>
-
-    <article class="mm-card" id="offerCard" aria-label="Offer summary">
+    <article class="mm-card" id="offerCard" aria-label="Offer summary" style="display:none">
       <div class="adapter-strip" role="region" aria-label="Adapter status">
-        <div class="status-line" id="adapterStatus"><strong>Demo adapter active.</strong> No production data is loaded by default.</div>
+        <div class="status-line" id="adapterStatus"><strong>Checking offer.</strong> Retrieving the current offer details.</div>
         <div class="right">
           <span class="badge pending" id="offerStateBadge">Pending</span>
         </div>
@@ -323,20 +323,20 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
 
       <div class="mm-card-body">
         <div class="mm-grid cols-3" id="offerGrid">
-          <div class="info"><small>Specialty</small><b id="offerSpecialty">Internal Medicine</b></div>
-          <div class="info"><small>Location</small><b id="offerLocation">Major US metro area</b></div>
-          <div class="info"><small>Timing / month</small><b id="offerTiming">August 2026</b></div>
-          <div class="info"><small>Duration</small><b id="offerDuration">4 weeks</b></div>
-          <div class="info"><small>Format</small><b id="offerFormat">In-person clinical exposure</b></div>
-          <div class="info"><small>Reference</small><b id="offerReference">Confirmed at acceptance</b></div>
+          <div class="info"><small>Specialty</small><b id="offerSpecialty">Loading…</b></div>
+          <div class="info"><small>Location</small><b id="offerLocation">Loading…</b></div>
+          <div class="info"><small>Timing / month</small><b id="offerTiming">Loading…</b></div>
+          <div class="info"><small>Duration</small><b id="offerDuration">Loading…</b></div>
+          <div class="info"><small>Format</small><b id="offerFormat">Loading…</b></div>
+          <div class="info"><small>Reference</small><b id="offerReference">Not provided</b></div>
         </div>
 
         <div class="section-title">Response deadline</div>
         <div class="deadline" id="deadlineBox">
           <div class="icon" aria-hidden="true">!</div>
           <div>
-            <b id="deadlineLabel">Please respond by August 1, 2026.</b>
-            <span id="deadlineDetail">This offer expires automatically after the deadline. After expiration, your coordinator will reach out about a new option.</span>
+            <b id="deadlineLabel">Loading the response deadline…</b>
+            <span id="deadlineDetail">Check the exact response deadline below. A new option is not guaranteed after it expires.</span>
           </div>
         </div>
 
@@ -346,7 +346,7 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
           <div id="messageBody">Thank you for your USCE rotation request. Based on your preferences, we have prepared the option above. Please confirm whether this timing and specialty direction works for you. Payment and onboarding paperwork are only requested after you accept a confirmed offer.</div>
         </div>
 
-        <div class="section-title" id="responseTitle">Your response</div>
+        <div class="guard"><b>Review before responding:</b> the displayed details and coordinator message describe this offer. Missing details are not confirmed. Ask Clinicals about any missing site, price, dates or conditions before accepting.</div><div class="section-title" id="responseTitle">Your response</div>
         <div class="actions" id="actionRow">
           <button class="btn accept" type="button" id="acceptBtn">Accept this offer</button>
           <button class="btn alternate" type="button" id="alternateBtn">Request an alternate</button>
@@ -354,7 +354,7 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
         </div>
 
         <div class="confirm-bar accept-confirm" id="acceptConfirm">
-          <p><b>Confirm acceptance.</b> You are accepting the rotation option above. Your coordinator will follow up with payment and onboarding details. You can still discuss adjustments with your coordinator after accepting.</p>
+          <p><b>Confirm acceptance.</b> This records your acceptance of the offer details and stated terms above. It does not take payment, reserve a seat, or confirm final placement. If any detail needs clarification or change, contact Clinicals before confirming.</p>
           <div class="row">
             <button class="btn accept" type="button" id="acceptConfirmBtn">Yes, accept this offer</button>
             <button class="btn ghost" type="button" id="acceptCancelBtn">Go back</button>
@@ -362,16 +362,24 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
         </div>
 
         <div class="confirm-bar decline-confirm" id="declineConfirm">
-          <p><b>Confirm decline.</b> You are declining this rotation option. No payment or paperwork will be requested. You can always submit a new request or ask your coordinator for a different option later.</p>
+          <p><b>Continue with declining this offer?</b> The next step records a pending decline and asks whether you want future rotation notifications. Your decline is final only after you confirm that preference. No payment or placement commitment is made.</p>
           <div class="row">
-            <button class="btn decline" type="button" id="declineConfirmBtn">Yes, decline this offer</button>
+            <button class="btn decline" type="button" id="declineConfirmBtn">Continue to decline preferences</button>
             <button class="btn ghost" type="button" id="declineCancelBtn">Go back</button>
           </div>
         </div>
+        <section id="declinePreferences" hidden aria-labelledby="declinePreferenceTitle" class="confirm-bar decline-confirm">
+          <h3 id="declinePreferenceTitle">Finish your decline</h3>
+          <p>A pending decline is recorded. Choose your future-contact preference to finalize it. Notifications do not guarantee another offer. To reconsider this offer, contact Clinicals before taking another action.</p>
+          <div class="row">
+            <button class="btn decline" type="button" id="declineNotifyBtn">Confirm decline — notify me about future options</button>
+            <button class="btn ghost" type="button" id="declineNoNotifyBtn">Confirm decline — no future rotation notifications</button>
+          </div>
+        </section>
 
         <form class="alt-form" id="altForm" autocomplete="off" novalidate>
           <label for="altInput">What would work better?</label>
-          <textarea id="altInput" placeholder="Optional — let your coordinator know which specialty, location, or month would be a better fit. They will follow up with a new option." maxlength="1000"></textarea>
+          <textarea id="altInput" placeholder="Optional — let your coordinator know which specialty, location, or month would be a better fit. The team will review available options." maxlength="1000"></textarea>
           <div class="row">
             <button class="btn primary" type="button" id="altSubmitBtn">Send alternate request</button>
             <button class="btn ghost" type="button" id="altCancelBtn">Cancel</button>
@@ -380,7 +388,7 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
         </form>
 
         <div class="guard">
-          <b>How this works:</b> nothing is finalized until your coordinator confirms your response. No payment, paperwork, or course access is triggered by a click on this page. You will receive a follow-up from the MissionMed Clinicals team after your response is recorded.
+          <b>How this works:</b> your response is recorded for the Clinicals team. Acceptance, payment, paperwork, access and final placement are separate steps. A saved response does not confirm that the other steps are complete.
         </div>
       </div>
     </article>
@@ -409,31 +417,31 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
           <div class="confirm-icon" aria-hidden="true">&#10003;</div>
           <div>
             <h3>Offer accepted. Thank you.</h3>
-            <p>Your acceptance has been recorded. A MissionMed Clinicals coordinator will follow up to confirm payment and onboarding paperwork. Final placement is confirmed only after the coordinator completes both steps.</p>
+            <p>Your acceptance is recorded. Payment, paperwork, access and final placement still require their own confirmation. Contact Clinicals if your next step or any offer term is unclear.</p>
           </div>
         </div>
 
         <div class="section-title">What happens next</div>
         <div class="next-steps">
-          <div class="step"><div class="num">1</div><div><b>Coordinator confirmation</b><span>Your coordinator reviews the acceptance and confirms availability before any payment step.</span></div></div>
+          <div class="step"><div class="num">1</div><div><b>Coordinator confirmation</b><span>Confirm the current availability, terms and required next steps with Clinicals. Acceptance alone is not a placement confirmation.</span></div></div>
           <div class="step"><div class="num">2</div><div><b>Payment</b><span>The MissionMed USCE Clinical Rotations product handles the payment step. The link below opens a new tab — payment is only requested after acceptance, never before.</span></div></div>
-          <div class="step"><div class="num">3</div><div><b>Onboarding paperwork</b><span>After payment is confirmed, onboarding paperwork is sent for completion.</span></div></div>
-          <div class="step"><div class="num">4</div><div><b>Course access</b><span>Course access is enabled after onboarding paperwork is complete.</span></div></div>
+          <div class="step"><div class="num">3</div><div><b>Onboarding paperwork</b><span>Follow the paperwork instructions supplied by Clinicals. A status shown here does not prove every requirement is complete.</span></div></div>
+          <div class="step"><div class="num">4</div><div><b>Course access</b><span>Clinicals will confirm the required course access separately. This page does not enroll you.</span></div></div>
         </div>
-        <div class="section-title">Readiness status</div>
+        <div class="section-title">Recorded next-step status</div><p class="guard">These records are not a receipt, enrollment confirmation or confirmation that your rotation is secured.</p>
         <div class="next-steps" id="readinessSteps">
           <div class="step"><div class="num">P</div><div><b>Payment</b><span id="paymentStatusText">Pending coordinator confirmation.</span></div></div>
           <div class="step"><div class="num">W</div><div><b>Paperwork</b><span id="paperworkStatusText">Not started until payment readiness is confirmed.</span></div></div>
           <div class="step"><div class="num">L</div><div><b>Course access</b><span id="learndashStatusText">Locked until downstream approval gates are complete.</span></div></div>
         </div>
 
-        <div class="payment-cta" role="region" aria-label="Payment call to action">
+        <div class="payment-cta" id="paymentHandoff" role="region" aria-label="Separate payment handoff" hidden>
           <div>
             <h3>Continue to payment</h3>
-            <p>Open the MissionMed USCE Clinical Rotations product page to complete payment. This is the official product page and opens in a new tab.</p>
+            <p>This separate link was supplied with your recorded offer. Review the product, amount and terms before taking any payment action. Opening it does not confirm a reservation or placement.</p>
             <div class="payment-trust">Opens securely on missionmedinstitute.com in a new tab</div>
           </div>
-          <a class="btn primary" id="paymentCta" href="https://missionmedinstitute.com/product/us-clinical-rotations/" target="_blank" rel="noopener noreferrer">Go to payment &#8594;</a>
+          <a class="btn primary" id="paymentCta" target="_blank" rel="noopener noreferrer">Go to payment &#8594;</a>
         </div>
       </div>
     </section>
@@ -441,18 +449,18 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
     <div class="payment-modal" id="paymentInstructionModal" role="dialog" aria-modal="true" aria-labelledby="paymentInstructionTitle" hidden>
       <div class="payment-modal-card">
         <div class="payment-modal-top">
-          <div class="payment-modal-kicker">Rotation seat approved</div>
-          <h3 id="paymentInstructionTitle">Congrats! You've got a rotation seat approved.</h3>
-          <p>You now have 48 hours to secure it before it is released. Select the location and specialty you were approved for, then complete enrollment on the MissionMed product page.</p>
+          <div class="payment-modal-kicker">Acceptance recorded</div>
+          <h3 id="paymentInstructionTitle">Your next steps are separate from acceptance.</h3>
+          <p>Review the current instructions from Clinicals. Acceptance does not reserve a seat, complete payment or confirm enrollment. No new payment deadline is inferred here.</p>
         </div>
         <div class="payment-modal-body">
-          <div class="payment-modal-steps" aria-label="How to secure your approved seat">
+          <div class="payment-modal-steps" aria-label="Separate next steps after acceptance">
             <div class="payment-modal-step"><div class="num">1</div><div><b>Open the official product page</b><span>The button below opens MissionMed Clinical Rotations checkout in a new tab.</span></div></div>
-            <div class="payment-modal-step"><div class="num">2</div><div><b>Pick your approved location and specialty</b><span>Match the product choices to the offer your coordinator approved.</span></div></div>
-            <div class="payment-modal-step"><div class="num">3</div><div><b>Complete enrollment within 48 hours</b><span>Your seat is not secured until payment and follow-up onboarding are complete.</span></div></div>
+            <div class="payment-modal-step"><div class="num">2</div><div><b>Check the location, specialty and terms</b><span>Compare the product choices and terms with your current offer before making a payment.</span></div></div>
+            <div class="payment-modal-step"><div class="num">3</div><div><b>Confirm remaining requirements</b><span>Ask Clinicals to confirm payment, paperwork, access and final placement separately.</span></div></div>
           </div>
           <div class="payment-modal-actions">
-            <a class="btn primary" id="paymentInstructionCta" href="https://missionmedinstitute.com/product/us-clinical-rotations/" target="_blank" rel="noopener noreferrer">Secure my seat</a>
+            <a class="btn primary" id="paymentInstructionCta" target="_blank" rel="noopener noreferrer">Review payment details</a>
             <button class="btn ghost" type="button" id="paymentInstructionClose">Review details first</button>
           </div>
         </div>
@@ -465,7 +473,7 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
         <div class="confirm declined">
           <div class="confirm-icon" aria-hidden="true">&times;</div>
           <div>
-            <h3>Offer declined. Thank you for letting us know.</h3>
+            <h3>Offer declined. Thank you for letting us know.</h3><p id="declinePreferenceSummary"></p>
             <p>Your decision has been recorded. No payment or paperwork will be requested for this option. If you would like a different option in the future, your coordinator can prepare a new one.</p>
           </div>
         </div>
@@ -482,8 +490,8 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
         <div class="confirm alt">
           <div class="confirm-icon" aria-hidden="true">&#8634;</div>
           <div>
-            <h3>Alternate request sent.</h3>
-            <p>Your coordinator has been notified that this option does not work and will prepare a new option to review. No payment is required at this step.</p>
+            <h3>Alternate request recorded.</h3>
+            <p>Your request for another option is recorded for Clinicals. A different option is not guaranteed; the team can review what is available. No payment is taken by this response.</p>
           </div>
         </div>
         <div class="info" style="margin-top:14px"><small>Your note to the coordinator</small><b id="altEcho">No additional details provided.</b></div>
@@ -509,7 +517,7 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
         <div class="confirm expired-state">
           <div class="confirm-icon" aria-hidden="true">?</div>
           <div>
-            <h3>Offer not found.</h3>
+            <h3 id="notFoundTitle">This offer link is unavailable.</h3>
             <p id="notFoundMessage">This offer link is not valid or has expired. If you received this link from a MissionMed coordinator, please contact them for an updated link.</p>
           </div>
         </div>
@@ -522,7 +530,7 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
         <div class="confirm expired-state">
           <div class="confirm-icon" aria-hidden="true">!</div>
           <div>
-            <h3>Something went wrong.</h3>
+            <h3 id="errorTitle">Your offer could not be loaded.</h3>
             <p id="errorMessage">We could not load your offer right now. This is usually temporary. Please try again in a moment or contact your MissionMed coordinator.</p>
           </div>
         </div>
@@ -532,7 +540,7 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
       </div>
     </section>
 
-    <p class="footer-note">MissionMed USCE offer portal with live adapter. This page does not contact Supabase from the browser, does not expose service-role data, and does not trigger payment or email on its own. Decline actions open the secure confirmation flow before a final response is recorded.</p>
+    <p class="footer-note">Questions? <a href="mailto:clinicals@missionmedinstitute.com">Contact Clinicals</a> or reply to the original coordinator email. Asking a question does not record a response. Do not forward your private offer link. Decline opens a separate confirmation step before the final decision is recorded.</p>
   </main>
 </div>
 
@@ -545,11 +553,10 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
   window.__MISSIONMED_USCE_OFFER_CONFIG = {
     version: 'MM-USCE-OFFER-FLOW-003',
     mode: 'live_adapter_ready',
-    apiBase: 'https://missionmed-hq-production.up.railway.app',
+    apiBase: 'https://missionmed-usce-gateway-production.up.railway.app',
     offerTokenParam: 'offer',
     readEndpoint: '/api/usce/offer/:token',
     respondEndpoint: '/api/usce/offer/:token/respond',
-    declineConfirmUrl: 'https://missionmed-hq-production.up.railway.app/usce-decline-confirm',
     liveAdapterEnabled: true
   };
 
@@ -563,13 +570,15 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
     offer: null,
     response: 'pending',
     locked: false,
-    confirmPending: ''
+    confirmPending: '',
+    loadGeneration: 0, submitting: false
   };
 
   document.addEventListener('DOMContentLoaded', init);
 
   function init(){
     cacheEls();
+    els.adapterStatus.setAttribute('role','status');els.adapterStatus.setAttribute('aria-live','polite');
     state.token = readToken();
     bindEvents();
     loadOffer();
@@ -587,8 +596,8 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
       'demoBanner','offerCard','acceptConfirm','declineConfirm',
       'acceptConfirmBtn','acceptCancelBtn','declineConfirmBtn','declineCancelBtn',
       'altCharCount','responseTitle','paymentInstructionModal','paymentInstructionCta',
-      'paymentInstructionClose',
-      'stateLoading','stateNotFound','stateError','retryBtn','notFoundMessage','errorMessage'
+      'paymentInstructionClose','declinePreferences','declineNotifyBtn','declineNoNotifyBtn','declinePreferenceSummary',
+      'stateLoading','stateNotFound','stateError','retryBtn','notFoundMessage','errorMessage','notFoundTitle','errorTitle','paymentHandoff'
     ].forEach(function(id){ els[id] = document.getElementById(id); });
   }
 
@@ -596,7 +605,9 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
     els.acceptBtn.addEventListener('click', function(){ showConfirmBar('accepted'); });
     els.declineBtn.addEventListener('click', openDeclineConfirmation);
     els.acceptConfirmBtn.addEventListener('click', function(){ respond('accepted'); });
-    els.declineConfirmBtn.addEventListener('click', openDeclineConfirmation);
+    els.declineConfirmBtn.addEventListener('click', function(){ respond('decline_pending'); });
+    els.declineNotifyBtn.addEventListener('click', function(){ respond('decline_notify_future'); });
+    els.declineNoNotifyBtn.addEventListener('click', function(){ respond('decline_no_notify'); });
     els.acceptCancelBtn.addEventListener('click', hideConfirmBars);
     els.declineCancelBtn.addEventListener('click', hideConfirmBars);
     els.alternateBtn.addEventListener('click', openAltForm);
@@ -666,21 +677,18 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
     return respondToOffer(token, 'accept', null);
   }
 
-  function declineOffer(token, reason) {
-    openDeclineConfirmation();
-    return Promise.resolve({ ok: true, action: 'decline_confirmation_opened' });
-  }
-
-  function buildDeclineConfirmationUrl() {
-    var url = new URL(CONFIG.declineConfirmUrl);
-    if (state.token) url.searchParams.set('token', state.token);
-    var offerId = state.offer && (state.offer.offer_id || state.offer.id || state.offer.reference);
-    if (offerId) url.searchParams.set('offer_id', String(offerId));
-    return url.toString();
-  }
-
   function openDeclineConfirmation() {
-    window.location.href = buildDeclineConfirmationUrl();
+    if (state.locked || state.submitting || !state.token || isExpired(state.offer)) return;
+    showConfirmBar('declined');
+  }
+  function showDeclinePreferences() {
+    lockActions('decline_pending');
+    state.response='decline_pending';
+    els.declinePreferences.hidden=false;els.declinePreferences.classList.add('open');
+    els.declineNotifyBtn.disabled=false;els.declineNoNotifyBtn.disabled=false;
+    setBadge('Decline awaiting confirmation','pending');
+    setAdapterStatus('Pending decline recorded. Confirm your future-contact preference to finish.','live');
+    els.declineNotifyBtn.focus();
   }
 
   function requestAlternate(token, payload) {
@@ -689,22 +697,24 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
   }
 
   function createPaymentHandoff(responseData) {
-    var raw = (responseData && responseData.payment_handoff_url) || WOO_URL;
-    return addSeatInstructionParams(raw);
+    var payload = responseData && (responseData.data || responseData);
+    var offer = payload && (payload.offer || payload);
+    return safePaymentUrl(payload && payload.payment_handoff_url || offer && (offer.payment_handoff_url || offer.payment_url));
   }
-
-  function addSeatInstructionParams(raw) {
+  function safePaymentUrl(raw) {
+    if (!raw) return '';
     try {
-      var next = new URL(raw, window.location.href);
-      next.searchParams.set('usce_offer_approved', '1');
-      next.searchParams.set('secure_window', '48h');
-      var offerId = state.offer && (state.offer.offer_id || state.offer.id);
-      if (offerId) next.searchParams.set('offer_id', String(offerId));
-      if (state.token) next.searchParams.set('token', state.token);
-      return next.toString();
-    } catch (_e) {
-      return raw || WOO_URL;
-    }
+      var url = new URL(raw);
+      if (url.protocol !== 'https:' || !['missionmedinstitute.com','www.missionmedinstitute.com'].includes(url.hostname) || url.username || url.password) return '';
+      Array.from(url.searchParams.keys()).forEach(function(key){if(['token','offer','offer_token','access_token','bearer','mmhq_handoff_token','usce_offer_approved','secure_window'].includes(key.toLowerCase()))url.searchParams.delete(key);});
+      url.hash = '';
+      return url.toString();
+    } catch (_e) { return ''; }
+  }
+  function updatePaymentHandoff(offer) {
+    var href = canonicalResponse(offer && offer.responseStatus) === 'accepted' ? safePaymentUrl(offer.paymentUrl) : '';
+    if (els.paymentHandoff) els.paymentHandoff.hidden = !href;
+    [els.paymentCta,els.paymentInstructionCta].forEach(function(link){if(!link)return;if(href)link.href=href;else link.removeAttribute('href');});
   }
 
   function getOfferComms(_token) {
@@ -712,10 +722,11 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
   }
 
   function mapApiOfferToView(payload) {
-    var data = payload && payload.offer && typeof payload.offer === 'object' ? payload.offer : (payload || {});
+    payload = payload && payload.data && typeof payload.data === 'object' ? payload.data : (payload || {});
+    var data = payload.offer && typeof payload.offer === 'object' ? payload.offer : payload;
     var dw = data.duration_weeks || data.durationWeeks;
     var durationStr = dw ? dw + ' week' + (Number(dw) !== 1 ? 's' : '') : null;
-    var exp = data.expires_at || data.expiresAt || data.token_expires_at;
+    var exp = data.expires_at || data.expiresAt;
     return {
       id: data.id || data.offer_id || null,
       offer_id: data.offer_id || data.id || null,
@@ -723,14 +734,15 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
       location: data.location || null,
       timing: data.timing || null,
       duration: durationStr || data.duration || null,
-      format: data.format || 'In-person clinical exposure',
-      reference: 'Confirmed at acceptance',
+      format: data.format || null,
+      reference: data.reference || data.offer_id || data.id || null,
       message: data.admin_message || data.message || data.coordinator_message || null,
       expiresAt: exp || null,
       deadlineLabel: exp ? formatDeadlineLabel(exp) : null,
-      deadlineDetail: 'This offer expires automatically after the deadline. Your coordinator will reach out about a new option after expiration.',
+      deadlineDetail: 'The response deadline is shown in UTC, including time. It is separate from any payment deadline or access-link lifetime. Contact Clinicals if you need more time.',
       heroTitle: 'Your MissionMed Clinicals offer.',
-      heroSub: 'Review the proposed rotation below and choose accept, decline, or request an alternate. No payment is required to make a choice.',
+      heroSub: 'Review the proposed rotation below and choose accept, decline, or request an alternate. Submitting a response does not take payment or confirm a placement.',
+      responseNote: data.response_note || data.student_note || '',
       responseStatus: data.response_status || data.student_response || data.status || payload.response_status || payload.student_response || null,
       paymentUrl: payload.payment_handoff_url || data.payment_handoff_url || data.payment_url || null,
       paymentStatus: data.payment_status || null,
@@ -741,31 +753,39 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
 
   function formatDeadlineLabel(isoDate) {
     try {
-      var d = new Date(isoDate);
-      if (isNaN(d.getTime())) return null;
-      return 'Please respond by ' + d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) + '.';
-    } catch(_e) { return null; }
+      var date = new Date(isoDate);
+      if (!isoDate || isNaN(date.getTime())) return null;
+      return 'Respond by ' + new Intl.DateTimeFormat('en-US',{year:'numeric',month:'long',day:'numeric',hour:'numeric',minute:'2-digit',second:'2-digit',timeZone:'UTC',timeZoneName:'short'}).format(date) + '.';
+    } catch (_e) { return null; }
   }
-
-  function readinessLabel(type, status) {
-    var value = String(status || '').replace(/_/g, ' ').trim();
-    if (type === 'payment') {
-      if (!value || value === 'pending') return 'Pending coordinator confirmation. No order or payment is created by this page.';
-      if (value === 'handoff shown') return 'Payment handoff is available after acceptance. Complete payment only on missionmedinstitute.com.';
-      if (value === 'paid') return 'Payment is marked paid by downstream MissionMed review.';
-      return 'Payment status: ' + value + '.';
-    }
-    if (type === 'paperwork') {
-      if (!value || value === 'not started') return 'Not started until payment readiness is confirmed.';
-      return 'Paperwork status: ' + value + '.';
-    }
-    if (!value || value === 'locked') return 'Locked until payment and paperwork gates are complete.';
-    return 'Course access status: ' + value + '.';
+  function readinessLabel(type,status) {
+    var value=String(status || '').replace(/_/g,' ').trim();
+    var label=type==='payment'?'Payment':type==='paperwork'?'Paperwork':'Course access';
+    if(!value)return label+': no confirmed status provided. Ask Clinicals for the current next step.';
+    if(type==='payment' && value==='manual review')return 'Payment record: under manual review. This does not confirm payment.';
+    return label+' record: '+value+'. Verify the current status with Clinicals; this record does not confirm final placement.';
+  }
+  function canonicalResponse(raw) {
+    var value=String(raw || '').toLowerCase();
+    if(['accept','accepted','offer_accepted'].includes(value))return 'accepted';
+    if(['decline','declined','decline_notify_future','decline_no_notify','declined_notify_future','declined_no_notify','offer_declined_notify_future','offer_declined_no_notify'].includes(value))return 'declined';
+    if(['request_alternate','alternate_requested'].includes(value))return 'alternate_requested';
+    return '';
+  }
+  function offerProblem(data) {
+    var error=String(data && data.error || '').toLowerCase(), status=data && data._httpStatus;
+    if(/revis|stale|version|supersed/.test(error))return {title:'This offer has changed.',message:'This link no longer represents the current offer. Open the newest link from Clinicals or contact the team before responding.'};
+    if(/revok/.test(error))return {title:'This offer link has been withdrawn.',message:'You cannot respond through this link. Contact Clinicals for the current status or a replacement link.'};
+    if(/expir/.test(error)||status===410)return {title:'This offer or access link has expired.',message:'The response or access window has ended. Contact Clinicals to check current availability and request an updated link.'};
+    if(/already_responded|response_conflict/.test(error)||status===409)return {title:'A current response could not be confirmed here.',message:'This offer may already have a response or may have changed. Reload to see the current record. Do not assume your latest attempt was saved.',retry:true};
+    if(/invalid|not_found|notfound/.test(error)||[401,403,404].includes(status))return {title:'This offer link is unavailable.',message:'Use the full private link from Clinicals. If it still does not open, contact the team for an updated link.'};
+    return {title:'Your offer could not be loaded.',message:'Check your connection and try again. If the problem continues, contact Clinicals. No response is confirmed by this message.',retry:true};
   }
 
   // ---- View state management -------------------------------------------------
 
   function showViewState(which) {
+    if(which!=='offer'){els.declinePreferences.hidden=true;hideAll([els.stateAccepted,els.stateDeclined,els.stateAlternate,els.stateExpired]);hidePaymentInstructionModal();}
     if (els.offerCard) els.offerCard.style.display = which === 'offer' ? '' : 'none';
     togglePanel(els.stateLoading, which === 'loading');
     togglePanel(els.stateNotFound, which === 'notfound');
@@ -781,72 +801,39 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
   // ---- Offer loading ---------------------------------------------------------
 
   function loadOffer(){
-    if (CONFIG.liveAdapterEnabled === true && state.token) {
-      loadLiveOffer();
-      return;
+    if(state.submitting)return;
+    if(CONFIG.liveAdapterEnabled!==true || !state.token){
+      lockActions('unavailable');setText(els.notFoundTitle,'Open your private offer link.');
+      setText(els.notFoundMessage,'This page needs the complete offer link supplied by Clinicals. Contact the team or return to the original email. No sample offer or response is active.');
+      setAdapterStatus('A valid private offer link is required.','blocked');showViewState('notfound');return;
     }
-    if (state.token) {
-      setAdapterStatus('Token detected, but live adapter is disabled. Showing demo preview only.', 'demo');
-    } else {
-      setAdapterStatus('No offer token in URL. Showing demo preview only.', 'demo');
-    }
-    applyOffer(buildDemoOffer(state.token));
-    showDemoBanner();
+    return loadLiveOffer();
   }
-
-  function loadLiveOffer(){
-    showViewState('loading');
-    setAdapterStatus('Loading offer...', 'pending');
-
-    getOfferByToken(state.token).then(function(data) {
-      if (data.ok === true) {
-        var view = mapApiOfferToView(data);
-        setAdapterStatus('Live offer loaded.', 'live');
-        showViewState('offer');
-        applyOffer(view);
-        if (view.responseStatus) handlePreExistingResponse(view);
-        return;
-      }
-      var err = data.error || '';
-      if (err === 'expired' || data._httpStatus === 410) {
-        setAdapterStatus('This offer has expired.', 'live');
-        showViewState('offer');
-        applyOffer(mapApiOfferToView(data));
-        showExpired();
-        return;
-      }
-      if (err === 'invalid_token' || data._httpStatus === 404) {
-        setAdapterStatus('Offer not found.', 'live');
-        setText(els.notFoundMessage, data.message || 'This offer link is not valid or has expired. Please contact your MissionMed coordinator for an updated link.');
-        showViewState('notfound');
-        return;
-      }
-      setAdapterStatus('Could not load offer.', 'demo');
-      setText(els.errorMessage, data.message || 'We could not load your offer right now. Please try again in a moment or contact your MissionMed coordinator.');
-      showViewState('error');
-    }).catch(function() {
-      setAdapterStatus('Network error.', 'demo');
-      setText(els.errorMessage, 'We could not connect to the server. Please check your internet connection and try again.');
-      showViewState('error');
-    });
+  function showOfferProblem(data){
+    state.response='unavailable';var problem=offerProblem(data);lockActions('unavailable');setAdapterStatus(problem.title,'blocked');
+    if(problem.retry){setText(els.errorTitle,problem.title);setText(els.errorMessage,problem.message);showViewState('error');}
+    else{setText(els.notFoundTitle,problem.title);setText(els.notFoundMessage,problem.message);showViewState('notfound');}
   }
-
-  function handlePreExistingResponse(view) {
-    var rs = String(view.responseStatus).toLowerCase();
-    if (rs === 'accepted' || rs === 'accept') {
-      lockActions('accepted');
-      setBadge('Accepted', 'accepted');
-      show(els.stateAccepted);
-      if (view.paymentUrl && els.paymentCta) els.paymentCta.href = view.paymentUrl;
-    } else if (rs === 'declined' || rs === 'decline') {
-      lockActions('declined');
-      setBadge('Declined', 'declined');
-      show(els.stateDeclined);
-    } else if (rs === 'request_alternate' || rs === 'alternate_requested') {
-      lockActions('alternate_requested');
-      setBadge('Alternate requested', 'alt');
-      show(els.stateAlternate);
-    }
+  function loadLiveOffer(reason){
+    var generation=++state.loadGeneration;
+    lockActions('loading');showViewState('loading');setAdapterStatus('Loading your current offer…','pending');
+    return getOfferByToken(state.token).then(function(data){
+      if(generation!==state.loadGeneration)return;
+      if(data.ok!==true){showOfferProblem(data);return;}
+      hideAll([els.stateAccepted,els.stateDeclined,els.stateAlternate,els.stateExpired]);state.response='pending';state.locked=false;
+      var view=mapApiOfferToView(data);
+      if(/^(revoked|archived|superseded|revised|expired)$/.test(String(view.responseStatus||''))){showOfferProblem({error:view.responseStatus==='archived'?'revoked':view.responseStatus});return;}
+      showViewState('offer');applyOffer(view);
+      if(!handlePreExistingResponse(view)&&!isExpired(view)){unlockButtons();setAdapterStatus(reason === 'response_check' ? 'The current record does not show a final response. Review it or contact Clinicals before trying again.' : 'Current offer loaded. Review the details before responding.','live');}
+      if(state.response==='pending' && !state.locked && new URL(window.location.href).searchParams.get('intent')==='decline' && reason!=='response_check')openDeclineConfirmation();
+      return view;
+    }).catch(function(){if(generation===state.loadGeneration)showOfferProblem({error:'network_error'});});
+  }
+  function handlePreExistingResponse(view){
+    if(['decline_pending','offer_decline_pending'].includes(String(view.responseStatus||'').toLowerCase())){if(isExpired(view)){showExpired();return true;}showDeclinePreferences();return true;}
+    var response=canonicalResponse(view.responseStatus);if(!response)return false;
+    state.response=response;setAdapterStatus('Previously recorded response: '+response.replace(/_/g,' ')+'.','live');
+    showState(response,view.responseNote || '');return true;
   }
 
   // ---- Offer rendering -------------------------------------------------------
@@ -862,41 +849,22 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
     setText(els.offerLocation, o.location || 'To be confirmed');
     setText(els.offerTiming, o.timing || 'To be confirmed');
     setText(els.offerDuration, o.duration || 'To be confirmed');
-    setText(els.offerFormat, o.format || 'In-person clinical exposure');
-    setText(els.offerReference, o.reference || 'Confirmed at acceptance');
-    setText(els.deadlineLabel, o.deadlineLabel || 'Response deadline will be confirmed by your coordinator.');
-    setText(els.deadlineDetail, o.deadlineDetail || 'After the deadline this offer expires automatically and a new option may be prepared.');
-    setText(els.messageBody, o.message || els.messageBody.textContent);
+    setText(els.offerFormat, o.format || 'To be confirmed');
+    setText(els.offerReference, o.reference || 'Not provided');
+    setText(els.deadlineLabel, o.deadlineLabel || 'No valid response deadline is provided. Ask Clinicals before responding.');
+    setText(els.deadlineDetail, o.deadlineDetail || 'The response deadline is separate from any payment deadline or access-link lifetime.');
+    setText(els.messageBody, o.message || 'No additional coordinator message was provided. Contact Clinicals with questions about the terms.');
     setText(els.heroTitle, o.heroTitle || 'Your MissionMed Clinicals offer.');
-    setText(els.heroSub, o.heroSub || 'Review the proposed rotation below and choose accept, decline, or request an alternate. No payment is required to make a choice.');
+    setText(els.heroSub, o.heroSub || 'Review the proposed rotation below and choose accept, decline, or request an alternate. Submitting a response does not take payment or confirm a placement.');
     setText(els.paymentStatusText, readinessLabel('payment', o.paymentStatus));
     setText(els.paperworkStatusText, readinessLabel('paperwork', o.paperworkStatus));
     setText(els.learndashStatusText, readinessLabel('learndash', o.learndashStatus));
-    if (isExpired(o)) {
+    updatePaymentHandoff(o);
+    if (isExpired(o) && !canonicalResponse(o.responseStatus)) {
       showExpired();
     } else {
       setBadge('Pending', 'pending');
     }
-  }
-
-  function buildDemoOffer(token){
-    return {
-      specialty: 'Internal Medicine',
-      location: 'Major US metro area',
-      timing: 'August 2026',
-      duration: '4 weeks',
-      format: 'In-person clinical exposure',
-      reference: token ? 'Reference confirmed at acceptance' : 'Demo preview reference',
-      deadlineLabel: 'Please respond by August 1, 2026.',
-      deadlineDetail: 'This offer expires automatically after the deadline. Your coordinator will reach out about a new option after expiration.',
-      message: 'Thank you for your USCE rotation request. Based on your preferences, we have prepared the option above. Please confirm whether this timing and specialty direction works for you. Payment and onboarding paperwork are only requested after you accept a confirmed offer.',
-      heroTitle: 'Your MissionMed Clinicals offer.',
-      heroSub: 'Review the proposed rotation below and choose accept, decline, or request an alternate. No payment is required to make a choice.',
-      expiresAt: null,
-      paymentStatus: 'pending',
-      paperworkStatus: 'not_started',
-      learndashStatus: 'locked'
-    };
   }
 
   function isExpired(offer){
@@ -904,10 +872,6 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
     var t = Date.parse(offer.expiresAt);
     if (isNaN(t)) return false;
     return t < Date.now();
-  }
-
-  function showDemoBanner(){
-    if (els.demoBanner) els.demoBanner.classList.add('visible');
   }
 
   // ---- User interaction handlers ---------------------------------------------
@@ -918,10 +882,10 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
     closeAltForm();
     state.confirmPending = action;
     if (action === 'accepted' && els.acceptConfirm) {
-      els.acceptConfirm.classList.add('open');
+      els.acceptConfirm.classList.add('open');els.acceptConfirm.setAttribute('role','region');els.acceptConfirm.setAttribute('aria-label','Confirm acceptance');els.acceptConfirmBtn.focus();
       try { els.acceptConfirm.scrollIntoView({ behavior:'smooth', block:'nearest' }); } catch(_e){}
     } else if (action === 'declined' && els.declineConfirm) {
-      els.declineConfirm.classList.add('open');
+      els.declineConfirm.classList.add('open');els.declineConfirmBtn.focus();
       try { els.declineConfirm.scrollIntoView({ behavior:'smooth', block:'nearest' }); } catch(_e){}
     }
   }
@@ -954,6 +918,7 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
   }
 
   function showExpired(){
+    state.response='expired';
     els.deadlineBox.classList.add('expired');
     lockActions('expired');
     setBadge('Expired', 'expired');
@@ -965,59 +930,29 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
   }
 
   function respond(action){
-    if (state.locked) return;
-    var note = '';
-    if (action === 'alternate_requested') {
-      note = String(els.altInput.value || '').trim().slice(0, ALT_MAX);
-    }
-    state.response = action;
-    state.locked = true;
-    hideConfirmBars();
-
-    if (CONFIG.liveAdapterEnabled === true && state.token) {
-      var normalized = action === 'accepted' ? 'accept'
-        : action === 'declined' ? 'decline'
-        : action === 'alternate_requested' ? 'request_alternate'
-        : action;
-
-      setAdapterStatus('Submitting response...', 'pending');
-      respondToOffer(state.token, normalized, note).then(function(data) {
-        if (data.ok === true) {
-          setAdapterStatus('Response recorded.', 'live');
-          state.offer = mapApiOfferToView(data);
-          renderOffer();
-          if (normalized === 'accept') {
-            var payUrl = createPaymentHandoff(data);
-            if (payUrl && els.paymentCta) els.paymentCta.href = payUrl;
-          }
-          showState(action, note);
-          return;
-        }
-        if (data.error === 'already_responded' || data._httpStatus === 409) {
-          setAdapterStatus('This offer already has a recorded response.', 'live');
-          showState(action, note);
-          return;
-        }
-        state.locked = false;
-        setAdapterStatus('Response could not be saved: ' + (data.message || 'Please try again.'), 'demo');
-        unlockButtons();
-      }).catch(function() {
-        state.locked = false;
-        setAdapterStatus('Network error submitting response. Please try again.', 'demo');
-        unlockButtons();
-      });
-    } else {
-      setAdapterStatus('Response captured locally. Live adapter is disabled — no production write occurred.', 'demo');
-      showState(action, note);
-    }
+    var preference=['decline_notify_future','decline_no_notify'].includes(action);
+    if(state.submitting||!state.token||CONFIG.liveAdapterEnabled!==true||(state.locked&&!(preference&&state.response==='decline_pending')))return;
+    if(preference&&state.response!=='decline_pending')return;
+    if(isExpired(state.offer)){showExpired();return;}
+    var note=action==='alternate_requested'?String(els.altInput.value||'').trim().slice(0,ALT_MAX):'';
+    var normalized=action==='accepted'?'accept':action==='declined'?'decline':action==='alternate_requested'?'request_alternate':action;
+    state.submitting=true;lockActions('submitting');setAdapterStatus('Saving your response…','pending');
+    respondToOffer(state.token,normalized,note).then(function(data){
+      state.submitting=false;
+      if(data.ok===true){
+        setAdapterStatus('Checking the saved response…','pending');return loadLiveOffer('response_check');
+      }
+      if(data._httpStatus===409||/already_responded|conflict/.test(String(data.error||''))){setAdapterStatus('Checking the current response before continuing…','pending');return loadLiveOffer('response_check');}
+      showOfferProblem(data);
+    }).catch(function(){state.submitting=false;setAdapterStatus('The response outcome is uncertain. Checking the current record…','pending');return loadLiveOffer('response_check');});
   }
-
   function unlockButtons(){
-    els.acceptBtn.disabled = false;
-    els.declineBtn.disabled = false;
-    els.alternateBtn.disabled = false;
-    els.altSubmitBtn.disabled = false;
-    els.altInput.disabled = false;
+    if(isExpired(state.offer)||canonicalResponse(state.offer && state.offer.responseStatus))return;
+    state.locked=false;
+    els.acceptBtn.disabled=false;els.acceptBtn.textContent='Accept this offer';els.acceptBtn.className='btn accept';
+    els.declineBtn.disabled=false;els.declineBtn.textContent='Decline';els.declineBtn.className='btn decline';
+    els.alternateBtn.disabled=false;els.alternateBtn.textContent='Request an alternate';els.alternateBtn.className='btn alternate';
+    els.altSubmitBtn.disabled=false;els.altInput.disabled=false;
   }
 
   function showState(action, note){
@@ -1025,14 +960,15 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
     hideAll([els.stateAccepted, els.stateDeclined, els.stateAlternate]);
     var target = null;
     if (action === 'accepted') {
-      if (els.paymentCta && !els.paymentCta.href) els.paymentCta.href = addSeatInstructionParams(WOO_URL);
-      if (els.paymentCta) els.paymentCta.href = addSeatInstructionParams(els.paymentCta.href || WOO_URL);
+      updatePaymentHandoff(state.offer);
       show(els.stateAccepted);
       setBadge('Accepted', 'accepted');
       target = els.stateAccepted;
-      showPaymentInstructionModal();
+      // No automatic payment modal; handoff is an explicit separate choice.
     } else if (action === 'declined') {
       show(els.stateDeclined);
+      var status=String(state.offer&&state.offer.responseStatus||'').toLowerCase();
+      setText(els.declinePreferenceSummary,/no_notify/.test(status)?'Your preference: no future rotation notifications. This does not change unrelated account communications.':/notify_future/.test(status)?'Your preference: notify you about future rotation options. Another offer is not guaranteed.':'No future-contact preference is confirmed here. Contact Clinicals if you want to clarify it.');
       setBadge('Declined', 'declined');
       target = els.stateDeclined;
     } else if (action === 'alternate_requested') {
@@ -1042,13 +978,15 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
       target = els.stateAlternate;
     }
     if (target) {
+      target.setAttribute('tabindex','-1');target.focus();
       try { target.scrollIntoView({ behavior:'smooth', block:'start' }); } catch(_e){}
     }
   }
 
   function showPaymentInstructionModal(){
     if (!els.paymentInstructionModal) return;
-    var href = addSeatInstructionParams((els.paymentCta && els.paymentCta.href) || WOO_URL);
+    var href=safePaymentUrl(state.offer && state.offer.paymentUrl);
+    if(!href || canonicalResponse(state.offer && state.offer.responseStatus)!=='accepted')return;
     if (els.paymentCta) els.paymentCta.href = href;
     if (els.paymentInstructionCta) els.paymentInstructionCta.href = href;
     els.paymentInstructionModal.hidden = false;
@@ -1061,6 +999,8 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
 
   function lockActions(reason){
     state.locked = true;
+    els.declinePreferences.hidden=true;els.declinePreferences.classList.remove('open');
+    els.declineNotifyBtn.disabled=true;els.declineNoNotifyBtn.disabled=true;
     els.acceptBtn.disabled = true;
     els.declineBtn.disabled = true;
     els.alternateBtn.disabled = true;
@@ -1104,13 +1044,10 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
     els.offerStateBadge.className = 'badge ' + kind;
   }
 
-  function setAdapterStatus(text, kind){
-    var label = kind === 'live' ? 'Live.' : kind === 'pending' ? 'Checking.' : 'Demo adapter active.';
-    els.adapterStatus.innerHTML = '<strong>' + esc(label) + '</strong> ' + esc(text);
-    if (els.modeDot && els.modePill) {
-      els.modeDot.className = 'mm-dot' + (kind === 'live' ? ' green' : kind === 'pending' ? ' amber' : '');
-      els.modePill.textContent = kind === 'live' ? 'Live offer' : kind === 'pending' ? 'Loading...' : 'Demo offer';
-    }
+  function setAdapterStatus(text,kind){
+    var label=kind==='live'?'Offer status.':kind==='pending'?'Checking.':'Action needed.';
+    els.adapterStatus.innerHTML='<strong>'+esc(label)+'</strong> '+esc(text);
+    if(els.modeDot&&els.modePill){els.modeDot.className='mm-dot'+(kind==='live'?' green':kind==='pending'?' amber':' red');els.modePill.textContent=kind==='live'?'Current offer':kind==='pending'?'Checking offer':'Review needed';}
   }
 
   // ---- Tiny helpers ---------------------------------------------------------

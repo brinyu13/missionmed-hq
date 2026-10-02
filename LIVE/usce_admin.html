@@ -1367,8 +1367,9 @@
       state.selectedRequestId = state.requests.some(r => r.id === state.selectedRequestId) ? state.selectedRequestId : null;
       setAdapterBanner('Cases updated at ' + new Date().toLocaleTimeString() + '. Select a case to review its next step.', 'live');
       setRuntime('Live protected', 'live');
-      renderRequestList(); renderDetail();
-      if (currentReq()) loadCaseActivity(currentReq()).catch(() => {});
+      restoreCaseNavigation(); root.classList.toggle('mm-case-open',!!state.selectedRequestId);
+      renderRequestList(); renderDetail(); switchTab(state.activeTab);
+      if (currentReq()) {loadCaseActivity(currentReq()).catch(() => {});const offer=getOfferForRequest(currentReq());if(offer)loadLiveComms(offer.id,currentReq());}
     } catch (error) {
       if (generation !== state.queueLoad) return;
       if (error && error.recovering) return;
@@ -1378,7 +1379,7 @@
       setRuntime(error && error.status === 401 ? 'Login required' : 'Admin blocked', 'blocked');
       setAdapterBanner(errorSummary(error), 'blocked');
       if (error && error.status === 401) showAuthConnectAction();
-      renderRequestList();
+      renderRequestList(); renderDetail(); root.classList.remove('mm-case-open');
     }
   }
 
@@ -1637,11 +1638,27 @@
   $('#mmFilter').addEventListener('change', (e)=> { state.filter = e.target.value; renderRequestList(); });
   $('#mmSort').addEventListener('change', (e)=> { state.sort = e.target.value; renderRequestList(); });
 
+  // Session-only navigation memory: opaque case ID and tab; no applicant fields or draft contents.
+  const CASE_RESUME_KEY = 'mm_usce_case_navigation_v1';
+  function saveCaseNavigation(){
+    try {if(state.selectedRequestId)sessionStorage.setItem(CASE_RESUME_KEY,JSON.stringify({id:state.selectedRequestId,tab:state.activeTab}));else sessionStorage.removeItem(CASE_RESUME_KEY);}catch(_error){}
+  }
+  function restoreCaseNavigation(){
+    if(state.selectedRequestId)return;
+    try {
+      const saved=JSON.parse(sessionStorage.getItem(CASE_RESUME_KEY)||'null');
+      if(!saved||typeof saved.id!=='string')return;
+      // Restore only after this authenticated queue has returned the case.
+      if(!state.requests.some(r=>r.id===saved.id)){sessionStorage.removeItem(CASE_RESUME_KEY);setAdapterBanner('The previously open case is not in this loaded queue. Search or refresh to locate it. Unsaved changes were not restored.','live');return;}
+      state.selectedRequestId=saved.id;state.activeTab=['overview','comms','offer','audit'].includes(saved.tab)?saved.tab:'overview';
+    }catch(_error){}
+  }
+
   function selectRequest(id){
     if (state.busy) { toast('Wait for the current action to finish.'); return; }
     if (state.dirty && !window.confirm('Discard unsaved changes and open another case?')) return;
     state.dirty = false; state.draftEmail = null;
-    state.selectedRequestId = id; state.activeTab = 'overview';
+    state.selectedRequestId = id; state.activeTab = 'overview'; saveCaseNavigation();
     root.classList.add('mm-case-open');
     renderRequestList(); renderDetail(); switchTab('overview');
     $('#mmDetName').setAttribute('tabindex', '-1'); $('#mmDetName').focus();
@@ -1795,14 +1812,14 @@
 
   /* Tabs */
   function switchTab(t){
-    state.activeTab = t;
+    state.activeTab = t; saveCaseNavigation();
     $$('#mmDetTabs button').forEach(b => (b.classList.toggle('is-active', b.dataset.tab === t), b.setAttribute('aria-selected', String(b.dataset.tab === t))));
     $$('.mm-tabpane').forEach(p => p.classList.toggle('is-active', p.dataset.pane === t));
   }
   $$('#mmDetTabs button').forEach(b => b.addEventListener('click', ()=> switchTab(b.dataset.tab)));
   function backToCases(){
     if (state.busy || (state.dirty && !window.confirm('Discard unsaved changes and return to cases?'))) return;
-    state.dirty = false; state.selectedRequestId = null; state.draftEmail = null;
+    state.dirty = false; state.selectedRequestId = null; state.draftEmail = null; saveCaseNavigation();
     root.classList.remove('mm-case-open'); renderRequestList(); renderDetail(); $('#mmSearch').focus();
   }
   $('#mmDetBack').addEventListener('click', backToCases);
@@ -1825,7 +1842,7 @@
       }
       r.status = next;
       pushAudit(r, from, r.status, options.reason || (COORDINATOR + ' updated status'));
-      if (next === 'ARCHIVED' && state.selectedRequestId === r.id) state.selectedRequestId = null;
+      if (next === 'ARCHIVED' && state.selectedRequestId === r.id) {state.selectedRequestId = null;saveCaseNavigation();}
       renderRequestList();
       if (state.selectedRequestId) renderDetail();
       else { $('#mmDetailEmpty').style.display='grid'; $('#mmDetailContent').style.display='none'; }
@@ -2318,7 +2335,7 @@ selectedMessageOpening(offer, first) +
 'Month(s) offered: ' + months + start + '\n' +
 'Offer expires: ' + fmtDateTime(offer.expiresAt) + portalLine +
 instructions + '\n\n' +
-'To secure this rotation, click Accept in your MissionMed portal before the expiration. If these dates or site do not work, decline and we will attempt your next-ranked preference.\n\n' +
+'Review this proposed rotation in your MissionMed portal before the response deadline. Acceptance records your choice; payment and placement confirmation are separate. If this option does not work, review the decline or alternate-request choices.\n\n' +
 'Any questions - reply to this email and a coordinator will respond within one business day.\n\n' +
 'Best,\n' +
 COORDINATOR + '\n' +
@@ -2356,7 +2373,7 @@ CONFIG.gmailMailboxes[0];
       '<tr><td style="padding:30px 22px 24px;background:#0b4770;border-left:1px solid rgba(255,255,255,.16);border-right:1px solid rgba(255,255,255,.16);">',
       '<div style="display:inline-block;border:1px solid rgba(255,255,255,.28);border-radius:999px;padding:7px 12px;color:#f3cf61;background:rgba(255,255,255,.08);font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;">Clinical Rotation Offer</div>',
       '<h1 style="margin:18px 0 12px;color:#ffffff;font-family:Georgia,serif;font-size:38px;line-height:1.05;font-weight:700;">Your Clinical Rotation Offer from MissionMed</h1>',
-      '<p style="margin:0;color:#d9e7f1;font-size:15px;line-height:1.65;">MissionMed Clinicals has a rotation offer ready for your review. Accept to continue to enrollment or decline to release this option after confirmation.</p>',
+      '<p style="margin:0;color:#d9e7f1;font-size:15px;line-height:1.65;">MissionMed Clinicals has a rotation offer ready for your review. Review the terms and record your response. Payment and placement confirmation are separate steps.</p>',
       '</td></tr>',
       '<tr><td style="padding:0 22px 18px;background:#071627;border-left:1px solid rgba(255,255,255,.16);border-right:1px solid rgba(255,255,255,.16);"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:-8px;background:#0b78a8;border:1px solid rgba(255,255,255,.22);border-radius:12px;"><tr><td style="padding:16px;color:#ffffff;font-size:14px;font-weight:900;text-transform:uppercase;text-align:center;">USCE Tracker - Offer waiting for student response</td></tr></table></td></tr>',
       '<tr><td style="padding:0 22px 18px;background:#071627;border-left:1px solid rgba(255,255,255,.16);border-right:1px solid rgba(255,255,255,.16);"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fffdf6;color:#071627;border-radius:8px;border-top:6px solid #d9b85b;"><tr><td style="padding:20px;"><div style="color:#071627;font-family:Georgia,serif;font-size:26px;line-height:1.15;font-weight:900;">Offer summary</div><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:10px;border-collapse:collapse;">',
@@ -2378,21 +2395,17 @@ CONFIG.gmailMailboxes[0];
   }
 
   function buildOfferAcceptUrl(offer){
-    const url = new URL(CONFIG.paymentProductUrl);
-    url.searchParams.set('usce_offer_approved', '1');
-    url.searchParams.set('secure_window', '48h');
-    if (offer && offer.id) url.searchParams.set('offer_id', offer.id);
-    const token = offer && extractOfferTokenFromUrl(offer.portalUrl || '');
-    if (token) url.searchParams.set('token', token);
-    return url.toString();
+    return offerPortalActionUrl(offer, 'review');
   }
-
   function buildOfferDeclineUrl(offer){
-    const url = new URL('https://missionmed-hq-production.up.railway.app/usce-decline-confirm');
-    if (offer && offer.id) url.searchParams.set('offer_id', offer.id);
-    const token = offer && extractOfferTokenFromUrl(offer.portalUrl || '');
-    if (token) url.searchParams.set('token', token);
-    return url.toString();
+    return offerPortalActionUrl(offer, 'decline');
+  }
+  function offerPortalActionUrl(offer, intent){
+    try {
+      const url = new URL(offer && offer.portalUrl || '');
+      if (url.protocol !== 'https:' || !['missionmedinstitute.com','www.missionmedinstitute.com','missionmed-usce-gateway-production.up.railway.app'].includes(url.hostname)) return '';
+      url.searchParams.set('intent', intent);return url.toString();
+    } catch (_error) { return ''; }
   }
 
   function extractOfferTokenFromUrl(url){

@@ -55,6 +55,9 @@ const STUDENT_ACTIONS = new Map([
   ['accepted', 'accept'],
   ['decline', 'decline'],
   ['declined', 'decline'],
+  ['decline_pending', 'decline_pending'],
+  ['decline_notify_future', 'decline_notify_future'],
+  ['decline_no_notify', 'decline_no_notify'],
   ['request_alternate', 'request_alternate'],
   ['alternate_requested', 'request_alternate'],
 ]);
@@ -397,9 +400,13 @@ async function saveAdminMessagePreview(offerId, payload, session) {
 
 function redactOfferTokens(value) {
   let text = String(value || '');
-  let decoded = text;
-  try { decoded = decodeURIComponent(text); } catch {}
-  const tokens = decoded.match(/usce_[A-Za-z0-9_-]{32,}/gu) || [];
+  // Bearers are ASCII. Decode individual valid octets so ordinary "10%"
+  // prose or malformed unrelated escapes cannot disable token recognition.
+  const decoded = text.replace(/%([0-9a-f]{2})/giu,(_,hex)=>String.fromCharCode(parseInt(hex,16)));
+  const tokens = new Set(decoded.match(/usce_[A-Za-z0-9_-]{32,}/gu) || []);
+  for (const match of decoded.matchAll(/(?:[?&]|&amp;)offer=([^&\s<>"')]+)/gu)) {
+    if (isSafeOfferToken(match[1])) tokens.add(match[1]);
+  }
   for (const token of tokens) {
     const pattern = [...token].map(c => '(?:' + c.replace(/[.*+?^$()|[\]\\]/gu,'\\$&') + '|%' + c.charCodeAt(0).toString(16).padStart(2,'0') + ')').join('');
     text = text.replace(new RegExp(pattern,'giu'),'[secure-offer-token]');
@@ -600,7 +607,7 @@ async function getStudentOfferByToken(rawToken) {
 async function submitStudentOfferResponse(rawToken, payload, request) {
   const action = normalizeStudentResponseAction(payload?.action);
   if (!action) {
-    return badRequest('invalid_offer_response_action', 'Offer response action must be accept, decline, or request_alternate.');
+    return badRequest('invalid_offer_response_action', 'Offer response action is not supported.');
   }
 
   const note = sanitizeText(payload?.note ?? payload?.student_response_note, MAX_NOTE_LENGTH);
