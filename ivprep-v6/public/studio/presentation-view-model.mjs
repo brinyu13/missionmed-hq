@@ -1,5 +1,5 @@
 import { buildLongitudinalModel, canCompareAttempts } from './longitudinal-model.mjs';
-import { projectInterviewerNameUse } from '../capabilities/context-results.mjs';
+import { projectInterviewerNameUse, selfPracticeAnalysisAvailability, sourceBoundSelfPracticeResult } from '../capabilities/context-results.mjs';
 
 export function buildNameUseReview(saved = null) {
   const detail = saved?.sessionDetail ?? saved?.session;
@@ -27,8 +27,16 @@ export function buildNameUseReview(saved = null) {
 }
 
 export function buildCandidateAnalysisState(detail = null) {
+  const status = selfPracticeAnalysisAvailability(detail || {});
+  const saved = sourceBoundSelfPracticeResult(detail || {});
+  const legacy = detail?.spine?.candidateAttribution?.status === 'VERIFIED';
+  const retry = Boolean(saved && detail.analysisAvailability.semanticRetryAvailable);
   return Object.freeze({
-    available: detail?.spine?.candidateAttribution?.status === 'VERIFIED',
+    available: legacy || status === 'READY' || Boolean(saved),
+    canGenerate: legacy || status === 'READY' || retry,
+    actionLabel: retry ? 'Retry answer coaching' : saved
+      ? saved.analysis?.status === 'AVAILABLE' ? 'Transcript + coaching saved' : 'Transcript saved · coaching unavailable'
+      : legacy || status === 'READY' ? 'Generate transcript + coaching' : 'Answer coaching unavailable',
     unavailableCopy: 'Answer coaching is unavailable because we cannot reliably separate candidate speech from other audio in this recording. The recording and measured delivery signals remain available; saved live conversation can be reviewed in Film Room.',
   });
 }
@@ -368,6 +376,8 @@ function normalizedConversationTurn(turn, { spine }) {
 export function persistedConversationTurns({ sessionDetail = null, envelope = null } = {}) {
   const canonicalTurns = Array.isArray(sessionDetail?.spine?.turns)
     ? sessionDetail.spine.turns.filter(turn => sessionDetail.spine.candidateAttribution?.status === 'VERIFIED'
+        || (sourceBoundSelfPracticeResult(sessionDetail)
+          && turn?.transcript?.sourceBinding?.sourceRecordingId === sessionDetail.spine.sourceBinding.sourceRecordingId)
         || (!turn?.transcript?.canonical_ref && Boolean(turn?.transcript?.provisional_ref)))
       .map((turn) => normalizedConversationTurn(turn, { spine: true })).filter(Boolean)
     : [];

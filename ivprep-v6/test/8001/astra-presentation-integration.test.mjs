@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { runInNewContext } from 'node:vm';
 
 const htmlUrl = new URL('../../public/studio/index.html', import.meta.url);
 const legacyHtmlUrl = new URL('../../public/aaa/index.html', import.meta.url);
@@ -18,6 +19,36 @@ const liveCompatibility = await readFile(liveCompatibilityUrl, 'utf8');
 const adminLibrary = await readFile(adminLibraryUrl, 'utf8');
 
 const digest = (value) => createHash('sha256').update(value).digest('hex');
+
+test('readiness reports camera acquisition failure and prevents concurrent acquisition', async () => {
+  const start = runtime.indexOf('async function connectDevices()');
+  const end = runtime.indexOf('/* ------------------------------------------------------------------ vault */', start);
+  const state = { deviceConnectionPending: false, selected: {} };
+  const button = { disabled: false, innerHTML: '' };
+  let rejectCapture; let requests = 0; let renders = 0;
+  const bridge = { primeAudioContext() {}, requestMedia() {
+    requests += 1;
+    return new Promise((_, reject) => { rejectCapture = reject; });
+  } };
+  const connect = runInNewContext(`${runtime.slice(start, end)}; connectDevices`, {
+    state, bridge, $: () => button, renderDeviceCheck: () => { renders += 1; },
+    bindPreview() {}, ensureVisibleVideoFrame: async () => {}, refreshDevices: async () => {}, startLevelMeter() {},
+  });
+  const first = connect();
+  assert.equal(state.deviceConnectionPending, true);
+  assert.equal(button.disabled, true);
+  await connect();
+  assert.equal(requests, 1);
+  rejectCapture(new Error('Could not start video source'));
+  await first;
+  assert.equal(state.deviceConnectionPending, false);
+  assert.equal(button.disabled, false);
+  assert.equal(state.deviceError, 'COULD NOT START VIDEO SOURCE');
+  assert.equal(renders, 1);
+  assert.match(runtime, /connect\.disabled = state\.deviceConnectionPending/u);
+  assert.match(runtime, /message\.setAttribute\('role', state\.deviceConnectionPending \? 'status' : 'alert'\)/u);
+  assert.match(runtime, /Camera or microphone could not connect: \$\{state\.deviceError\}/u);
+});
 
 test('the Founder-facing root declares the sealed Astra candidate.2 presentation lineage', () => {
   assert.match(html, /astra-candidate\.2:dedb726bde521a135bec2286ad4cd5a877a68fc7ecd6144fde16b76bc9c09ac4/u);

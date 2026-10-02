@@ -6,6 +6,8 @@ import { assertContextResult, assertContextAnalysis } from '../../ivprep-v6/publ
 // Origin authority MUST be the server-only ivoc_results.candidate_analysis
 // column. Structural validation/brands cannot authenticate identical JSON.
 const rebuilt = new WeakMap();
+const projectedResults = new WeakSet();
+export const isProjectedSelfPracticeResult = value => Boolean(value && projectedResults.has(value));
 const promptKeys = ['schema', 'workflow', 'questionId', 'version', 'text', 'approval', 'issuedAt'];
 const fail = code => { throw Object.assign(new TypeError(code), { code }); };
 const bounded = (value, max) => typeof value === 'string' && value.length > 0 && value.length <= max && value.trim() === value;
@@ -157,7 +159,7 @@ function checkedResult(answerSource, result) {
 }
 
 /** Package only the actual source-relative mapping; replay timestamps are not shifted twice. */
-export function packageSelfPracticeAnalysis({ answerSource, session, result, createdAt } = {}) {
+export function packageSelfPracticeAnalysis({ answerSource, session, result, createdAt, semanticAttempt = 1 } = {}) {
   const clean = checkedResult(answerSource, result);
   const origin = rebuilt.get(answerSource);
   resolveSelfPracticePrompt({ actor: session?.owner_subject, session, workflow: answerSource.prompt.workflow,
@@ -165,11 +167,11 @@ export function packageSelfPracticeAnalysis({ answerSource, session, result, cre
       canonical_text: answerSource.prompt.text, status: 'active' } });
   if (session?.id !== answerSource.sessionId || session.owner_subject !== answerSource.ownerSubject
     || !isDeepStrictEqual(exactPrompt(session), origin.promptReceipt) || !instant(createdAt)
-    || createdAt < origin.sealedAt) fail('SELF_PRACTICE_ENVELOPE_IDENTITY_INVALID');
+    || createdAt < origin.sealedAt || !Number.isInteger(semanticAttempt) || semanticAttempt < 1 || semanticAttempt > 3) fail('SELF_PRACTICE_ENVELOPE_IDENTITY_INVALID');
   return copy({ receipt: { schema: 'ivoc.self-practice-analysis.v1', status: 'SOURCE_BOUND',
     sessionId: answerSource.sessionId, ownerSubject: answerSource.ownerSubject,
     sourceRecordingId: answerSource.sourceRecordingId, replayRecordingId: answerSource.replayRecordingId,
-    promptReceipt: origin.promptReceipt, createdAt, sourceSealDigest: origin.sourceSealDigest, replaySealDigest: origin.replaySealDigest }, result: clean });
+    promptReceipt: origin.promptReceipt, createdAt, semanticAttempt, sourceSealDigest: origin.sourceSealDigest, replaySealDigest: origin.replaySealDigest }, result: clean });
 }
 
 function publicSpine(envelope) {
@@ -205,10 +207,12 @@ export function projectSelfPracticeAnalysis({ candidateAnalysis, session, source
   try {
     const answerSource = rebuildSelfPracticeAnswerSource({ session, sourceRecording, parentRecording });
     const expected = packageSelfPracticeAnalysis({ answerSource, session, result: candidateAnalysis?.result,
-      createdAt: candidateAnalysis?.receipt?.createdAt });
+      createdAt: candidateAnalysis?.receipt?.createdAt, semanticAttempt: candidateAnalysis?.receipt?.semanticAttempt });
     if (!isDeepStrictEqual(candidateAnalysis, expected)) fail('SELF_PRACTICE_SAVED_ENVELOPE_INVALID');
-    return copy({ available: true, receipt: expected.receipt, result: expected.result,
+    const projection = copy({ available: true, receipt: expected.receipt, result: expected.result,
       sourceBinding: expected.result.sourceBinding, setupPrompt: expected.receipt.promptReceipt, spine: publicSpine(expected) });
+    projectedResults.add(projection.result);
+    return projection;
   } catch {
     return copy({ available: false, reason: 'SELF_PRACTICE_ANALYSIS_UNAVAILABLE', result: null, spine: null,
       sourceBinding: { status: 'UNAVAILABLE', biometricIdentity: 'UNVERIFIED', analysisEligibility: 'UNVERIFIED', limitations: [...limits] } });

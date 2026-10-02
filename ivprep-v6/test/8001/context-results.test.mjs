@@ -7,7 +7,33 @@ import {
   projectTranscriptMetrics,
   projectInterviewerNameUse,
   normalizeNameUseCoaching,
+  selfPracticeAnalysisAvailability,
+  sourceBoundSelfPracticeResult,
 } from '../../public/capabilities/context-results.mjs';
+
+test('source-bound self-practice projects server detail without claiming biometric verification or using browser envelopes', () => {
+  const binding = { status: 'SOURCE_BOUND', assurance: 'CLIENT_MIC_CAPTURE_DECLARATION', biometricIdentity: 'UNVERIFIED',
+    sourceRecordingId: 'mic-1', replayRecordingId: 'replay-1' };
+  const detail = { id: 'practice-1', sessionType: 'question', interviewerProvider: 'missionmed-static', questionId: 'CORE-01',
+    questionText: 'Tell me about yourself.', recording: { id: 'replay-1' },
+    analysisAvailability: { status: 'AVAILABLE', workflow: 'SELF_PRACTICE', sessionId: 'practice-1', replayRecordingId: 'replay-1' },
+    spine: { sourceBinding: binding, candidateAttribution: { status: 'UNVERIFIED' } },
+    contextAnalysis: { sessionId: 'practice-1', question: { questionId: 'CORE-01', canonicalText: 'Tell me about yourself.' },
+      sourceBinding: binding, transcript: { status: 'AVAILABLE', segments: [{ id: 'seg-1', startMs: 125, endMs: 2100 }] } } };
+  assert.equal(selfPracticeAnalysisAvailability(detail), 'AVAILABLE');
+  assert.equal(contextResultFromSessionSpine(detail), detail.contextAnalysis);
+  assert.equal(contextResultFromSessionSpine(detail).transcript.segments[0].startMs, 125);
+  assert.equal(detail.spine.candidateAttribution.status, 'UNVERIFIED');
+  for (const mutate of [d => { d.id = 'other'; }, d => { d.recording.id = 'other'; },
+    d => { d.interviewerProvider = 'openai-gpt-live'; }, d => { d.questionText = 'Different'; },
+    d => { d.contextAnalysis.sourceBinding.biometricIdentity = 'VERIFIED'; },
+    d => { d.results = { payload: { contextAnalysis: d.contextAnalysis } }; delete d.contextAnalysis; },
+    d => { d.analysisAvailability.status = 'READY'; }, d => { delete d.spine.sourceBinding; }]) {
+    const changed = structuredClone(detail); mutate(changed);
+    assert.equal(sourceBoundSelfPracticeResult(changed), null);
+    assert.equal(contextResultFromSessionSpine(changed).transcript.status, 'UNAVAILABLE');
+  }
+});
 
 const nameSession = (name = 'Dr. Élan') => ({ id: 'name-session', recording: { durationMs: 9000 },
   results: { payload: { sessionId: 'name-session', nameUseCoaching: { schema: 'ivoc.name-use.v1',

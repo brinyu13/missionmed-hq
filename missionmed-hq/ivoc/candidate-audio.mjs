@@ -7,6 +7,28 @@ const audioMimes = new Set(['audio/webm', 'audio/webm;codecs=opus', 'audio/mp4',
 const fail = code => { throw Object.assign(new TypeError(code), { status: 400 }); };
 const milliseconds = value => Number.isSafeInteger(value) && value >= 0 && value <= 43_200_000;
 
+// Both recorders already submit their actual monotonic start and pauses at seal.
+// Never reconstruct this from subsequently writable Results, or assume zero.
+export function recordingSealTimebase(row, input) {
+  if (input.recordingStartSessionMs === undefined && input.recordingDurationMs === undefined) return null;
+  if (!milliseconds(input.recordingStartSessionMs) || !milliseconds(input.recordingDurationMs)
+    || input.recordingDurationMs === 0 || (input.playableDurationMs !== null
+      && (!milliseconds(input.playableDurationMs) || input.playableDurationMs === 0))
+    || !Array.isArray(input.pausedSpans) || input.pausedSpans.length > 128) fail('recording_timebase_invalid');
+  let lastEnd = input.recordingStartSessionMs; let removed = 0;
+  const pausedSpans = input.pausedSpans.map(span => {
+    if (!milliseconds(span?.startMs) || !milliseconds(span?.endMs) || span.startMs < lastEnd
+      || span.endMs <= span.startMs || span.startMs - input.recordingStartSessionMs - removed > input.recordingDurationMs) fail('recording_timebase_invalid');
+    removed += span.endMs - span.startMs; lastEnd = span.endMs;
+    return { startMs: span.startMs, endMs: span.endMs };
+  });
+  if (!milliseconds(input.recordingStartSessionMs + input.recordingDurationMs + removed)
+    || input.durationMs !== (input.playableDurationMs ?? input.recordingDurationMs)) fail('recording_timebase_invalid');
+  return { clock: 'browser-monotonic-session', recordingId: row.id, sessionId: row.session_id,
+    ownerSubject: row.owner_subject, recordingStartSessionMs: input.recordingStartSessionMs,
+    recordingDurationMs: input.recordingDurationMs, playableDurationMs: input.playableDurationMs, pausedSpans };
+}
+
 export function allocateCandidateCapture({ input, parent, session, actor, recordingId, allocatedAt }) {
   if (input?.captureVersion !== CANDIDATE_CAPTURE_VERSION || !audioMimes.has(input?.mime)) fail('candidate_audio_contract_invalid');
   if (session?.owner_subject !== actor || session?.state !== 'active'

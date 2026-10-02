@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { allocateCandidateCapture, sealCandidateCapture, publicCaptureReceipt } from '../../ivoc/candidate-audio.mjs';
+import { allocateCandidateCapture, sealCandidateCapture, publicCaptureReceipt, recordingSealTimebase } from '../../ivoc/candidate-audio.mjs';
 
 const parent = { id: 'parent', session_id: 'session', owner_subject: 'wp:42', status: 'uploading', recording_role: 'conversation' };
 const session = { id: 'session', owner_subject: 'wp:42', state: 'active' };
@@ -9,6 +9,22 @@ const allocate = (overrides = {}) => allocateCandidateCapture({ input, parent, s
 const row = () => ({ id: 'child', session_id: 'session', parent_recording_id: 'parent', recording_role: 'candidate_audio', mime_type: input.mime, capture_receipt: allocate() });
 const seal = { mime: input.mime, sizeBytes: 2048, durationMs: 9000,
   captureTiming: { recordingStartSessionMs: 300, recordingDurationMs: 9000, playableDurationMs: null, pausedSpans: [{ startMs: 400, endMs: 1000 }] } };
+
+test('replay timebase is captured from first seal without inventing a legacy zero origin', () => {
+  assert.equal(recordingSealTimebase(parent, { durationMs: 1000 }), null);
+  const input = { recordingStartSessionMs: 500, recordingDurationMs: 1000, playableDurationMs: null,
+    durationMs: 1000, pausedSpans: [{ startMs: 700, endMs: 900 }] };
+  const map = recordingSealTimebase(parent, input);
+  assert.equal(map.recordingId, parent.id); assert.equal(map.ownerSubject, parent.owner_subject);
+  assert.equal(map.recordingStartSessionMs, 500);
+  for (const patch of [{ recordingStartSessionMs: null }, { recordingDurationMs: -1 },
+    { playableDurationMs: undefined }, { durationMs: 1 },
+    { pausedSpans: [{ startMs: 499, endMs: 700 }] },
+    { pausedSpans: [{ startMs: 1600, endMs: 1700 }] },
+    { pausedSpans: [{ startMs: 700, endMs: 900 }, { startMs: 800, endMs: 1000 }] }]) {
+    assert.throws(() => recordingSealTimebase(parent, { ...input, ...patch }));
+  }
+});
 
 test('server capture custody is exact, private, and never claims verified attribution', () => {
   const receipt = allocate();

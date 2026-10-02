@@ -5,14 +5,15 @@ import { fileURLToPath } from 'node:url';
 
 import { admissionRegistry } from '../../ivprep-v6/server/admission-registry.mjs';
 import { strictProjectHqSession, validateIvPrepMutation } from '../../ivprep-v6/server/admission-contract.mjs';
-import { CANDIDATE_AUDIO_ATTRIBUTION_REASON, createContextIntelligenceProvider } from './context-provider.mjs';
+import { CANDIDATE_AUDIO_ATTRIBUTION_REASON, createContextIntelligenceProvider, resolveContextQuestion as resolveApprovedPracticeQuestion } from './context-provider.mjs';
 import { createIvocApplicationIntelligence, readSessionContextReceipts } from './application-intelligence.mjs';
 import { createFileVaultCvProjectionSource } from './file-vault-projection.mjs';
 import { createStoryForgeProjectionSource } from './storyforge-projection.mjs';
 import { createRiseProgramProjectionSource } from './rise-projection.mjs';
 import { createIvocRepository } from './repository.mjs';
 import { createIvocStorage } from './storage.mjs';
-import { allocateCandidateCapture, isCandidateAudio, isConversationRecording, publicCaptureReceipt, sealCandidateCapture } from './candidate-audio.mjs';
+import { allocateCandidateCapture, isCandidateAudio, isConversationRecording, publicCaptureReceipt, recordingSealTimebase, sealCandidateCapture } from './candidate-audio.mjs';
+import { rebuildSelfPracticeAnswerSource, packageSelfPracticeAnalysis, projectSelfPracticeAnalysis } from './self-practice-analysis.mjs';
 import {
   assertAnswerSegment,
   assertAnswerAssetOwner,
@@ -238,6 +239,55 @@ function publicSession(row, recording = null, result = null, review = null, spin
     answerHistory,
     ...(includeRetryContext ? { retryContext: publicRetryContext(row, spine) } : {}),
   };
+}
+
+function practiceReadModel(session, parentRecording, sourceRecording, result, enabled = false) {
+  const projection = projectSelfPracticeAnalysis({ session, parentRecording, sourceRecording, candidateAnalysis: result?.candidate_analysis });
+  let ready = false;
+  if (enabled && !result?.candidate_analysis) {
+    try { rebuildSelfPracticeAnswerSource({ session, parentRecording, sourceRecording }); ready = Boolean(result); } catch {}
+  }
+  return { projection, availability: { status: projection.available ? 'AVAILABLE' : ready ? 'READY' : 'UNAVAILABLE',
+    workflow: 'SELF_PRACTICE', sessionId: session.id, replayRecordingId: parentRecording?.id || null,
+    reason: projection.available || ready ? null : CANDIDATE_AUDIO_ATTRIBUTION_REASON,
+    biometricIdentity: 'UNVERIFIED',
+    semanticRetryAvailable: enabled && projection.available && projection.result.analysis.status !== 'AVAILABLE'
+      && projection.receipt.semanticAttempt < 3 } };
+}
+
+function withPracticeReadModel(detail, model) {
+  const projection = model.projection;
+  const spine = projection.available ? { ...detail.spine, ...projection.spine, candidateAttribution } : detail.spine;
+  return { ...detail, spine, analysisAvailability: model.availability,
+    ...(projection.available ? { contextAnalysis: projection.result,
+      answerHistory: { transcriptAvailable: true, answerSegmentCount: projection.spine.segments.length,
+        supportedObservationCount: projection.spine.evidence.length,
+        dimensions: [...new Set(projection.spine.evidence.map(item => item.dimension))], candidateAttribution,
+        sourceBinding: projection.sourceBinding } } : {}) };
+}
+
+async function readSealedSourceAudio(media, row) {
+  const upstream = await media.fetchObject(row.storage_object_key, { method: 'GET' });
+  const fail = () => Object.assign(new Error('context_source_media_changed'), { status: 409 });
+  const bytes = Number(upstream?.headers?.get?.('content-length'));
+  const mime = String(upstream?.headers?.get?.('content-type') || '').toLowerCase().replace(/\s+/gu, '');
+  const etag = String(upstream?.headers?.get?.('etag') || '').replace(/^"|"$/gu, '');
+  const chunks = [];
+  let length = 0;
+  try {
+    if (!upstream?.ok || bytes !== row.size_bytes || bytes < 1 || bytes > MAX_CONTEXT_AUDIO_BYTES
+      || mime !== row.mime_type.toLowerCase().replace(/\s+/gu, '')
+      || !etag || etag !== String(row.etag).replace(/^"|"$/gu, '') || !upstream.body) throw fail();
+    for await (const value of upstream.body) {
+      const chunk = Buffer.from(value); length += chunk.length; chunks.push(chunk);
+      if (length > bytes || length > MAX_CONTEXT_AUDIO_BYTES) throw fail();
+    }
+    if (length !== bytes) throw fail();
+    return Buffer.concat(chunks, length);
+  } finally {
+    for (const chunk of chunks) chunk.fill(0);
+    if (upstream?.body && !upstream.body.locked) await upstream.body.cancel().catch(() => {});
+  }
 }
 
 function publicQuestion(row) {
@@ -806,6 +856,9 @@ export function createIvocHandler({
   candidateAudioCaptureEnabled = true,
 } = {}) {
   const mediaBase = '';
+  // One production replica; duplicate concurrent requests fail before download
+  // or paid analysis. The conditional database write also preserves first result.
+  const analysisInFlight = new Set();
   const db = repository || createIvocRepository({
     baseUrl: env.IVPREP_SUPABASE_URL,
     serviceRoleKey: env.IVPREP_SUPABASE_SERVICE_ROLE_KEY,
@@ -1208,8 +1261,8 @@ export function createIvocHandler({
       if (request.method === 'POST' && pathname === `${API_PREFIX}/context`) {
         if (!contextEnabled) { sendError(response, 503, 'ivprep_unavailable', mediaBase); return true; }
         const input = await readJson(request);
-        const question = context.question(safeText(input.questionId, 120) || 'CORE-01');
         if (input.action === 'prepare') {
+          const question = context.question(safeText(input.questionId, 120) || 'CORE-01');
           sendJson(response, 200, {
             schema: 'missionmed.ivoc.context.candidate.v1',
             state: 'READY',
@@ -1239,12 +1292,52 @@ export function createIvocHandler({
         ) {
           sendError(response, 404, 'not_found', mediaBase); return true;
         }
-        // There is currently no trusted recording-bound candidate-only source
-        // proof. Fail before downloading private media, invoking any provider,
-        // or overwriting canonical transcript/coaching rows. Client receipts,
-        // recording age, session type and old STUDENT labels cannot cure this.
-        sendJson(response, 409, { error: 'context_candidate_audio_source_unverified', candidateAttribution }, mediaBase);
-        return true;
+        const sourceRecording = await db.single(`ivoc_recordings?parent_recording_id=eq.${recordingId}&recording_role=eq.candidate_audio&select=*&limit=1`);
+        const savedResult = await db.single(`ivoc_results?session_id=eq.${sessionId}&select=*&limit=1`);
+        const model = practiceReadModel(sessionRow, recording, sourceRecording, savedResult, contextTranscriptEnabled);
+        const retry = model.availability.semanticRetryAvailable;
+        if (model.projection.available && !retry) {
+          sendJson(response, 200, { ...model.projection.result, persistence: { transcript: true,
+            analysis: model.projection.result.analysis.status === 'AVAILABLE', behaviorRegistry: false, coachCommand: false } }, mediaBase);
+          return true;
+        }
+        if (model.availability.status !== 'READY' && !retry) {
+          sendJson(response, 409, { error: 'context_candidate_audio_source_unverified', candidateAttribution }, mediaBase); return true;
+        }
+        if (retry && now() - Date.parse(model.projection.receipt.createdAt) < 30_000) {
+          sendError(response, 429, 'context_semantic_retry_wait_30_seconds', mediaBase); return true;
+        }
+        if (analysisInFlight.has(sessionId) || analysisInFlight.size >= 4) {
+          sendError(response, 409, 'context_analysis_in_progress', mediaBase); return true;
+        }
+        analysisInFlight.add(sessionId);
+        let audio = null;
+        try {
+          const answerSource = rebuildSelfPracticeAnswerSource({ session: sessionRow, sourceRecording, parentRecording: recording });
+          if (!retry) audio = await readSealedSourceAudio(media, sourceRecording);
+          const result = await context.analyze({ sessionId, answerId: retry ? model.projection.result.answerId : answerId, questionId: sessionRow.question_id,
+            // This restored path analyzes the source-bound transcript only.
+            // Browser-supplied metrics remain in the delivery report, never
+            // authoritative semantic evidence or another attempt's coaching.
+            analyticsEvents: [],
+            answerSource, retainedResult: retry ? model.projection.result : null,
+            audio, mimeType: sourceRecording.mime_type, transcriptEnabled: contextTranscriptEnabled });
+          if (result.transcript?.status !== 'AVAILABLE') {
+            sendJson(response, 200, result, mediaBase); return true;
+          }
+          const candidateAnalysis = packageSelfPracticeAnalysis({ answerSource, session: sessionRow, result, createdAt: new Date(now()).toISOString(),
+            semanticAttempt: retry ? model.projection.receipt.semanticAttempt + 1 : 1 });
+          const prior = retry
+            ? `candidate_analysis->receipt->>createdAt=eq.${encodeURIComponent(model.projection.receipt.createdAt)}&candidate_analysis->result->analysis->>status=eq.UNAVAILABLE`
+            : 'candidate_analysis=is.null';
+          const stored = await db.update(`ivoc_results?session_id=eq.${sessionId}&owner_subject=eq.${encodeURIComponent(actor)}&${prior}&select=*`, { candidate_analysis: candidateAnalysis });
+          const readback = stored || await db.single(`ivoc_results?session_id=eq.${sessionId}&select=*&limit=1`);
+          const projected = projectSelfPracticeAnalysis({ session: sessionRow, sourceRecording, parentRecording: recording, candidateAnalysis: readback?.candidate_analysis });
+          if (!projected.available) { sendError(response, 409, 'context_analysis_persistence_unavailable', mediaBase); return true; }
+          await audit({ actor, owner: actor, sessionId, recordingId, action: 'context_persist', decision: 'allow', reason: 'source_bound_self_practice' });
+          sendJson(response, 200, { ...projected.result, persistence: { transcript: true,
+            analysis: projected.result.analysis.status === 'AVAILABLE', behaviorRegistry: false, coachCommand: false } }, mediaBase); return true;
+        } finally { audio?.fill(0); analysisInFlight.delete(sessionId); }
       }
 
       if (request.method === 'POST' && pathname === `${API_PREFIX}/sessions`) {
@@ -1253,6 +1346,29 @@ export function createIvocHandler({
         // A retry link never confers review rights or permits an Admin to start
         // someone else's retry. Re-derive provenance server-side, not from input.
         delete context.retry;
+        // Reserved server snapshot. Client-provided receipts never become proof.
+        delete context.promptReceipt;
+        if (['question', 'quick'].includes(input.sessionType) && input.interviewerProvider === 'missionmed-static'
+          && context.targetQuestions === 1 && Array.isArray(context.questionIds) && context.questionIds.length === 1
+          && context.questionIds[0] === input.questionId) {
+          const id = safeText(input.questionId, 120);
+          const governed = /^[A-Z0-9][A-Z0-9._:-]{1,119}$/u.test(id)
+            ? await db.single(`ivoc_question_catalog?question_id=eq.${encodeURIComponent(id)}&select=*&limit=1`) : null;
+          let approved = governed;
+          if (!approved) {
+            try {
+              const original = resolveApprovedPracticeQuestion(id);
+              approved = { question_id: original.questionId, current_version: original.revision,
+                canonical_text: original.canonicalText, status: 'active' };
+            } catch { /* Unknown legacy/custom prompts retain no coaching authority. */ }
+          }
+          if (approved?.status === 'active' && approved.canonical_text === input.questionText
+            && Number.isSafeInteger(approved.current_version) && approved.current_version > 0) {
+            context.promptReceipt = { schema: 'ivoc.self-practice-prompt.v1', workflow: 'SELF_PRACTICE',
+              questionId: id, version: approved.current_version, text: approved.canonical_text,
+              approval: 'ACTIVE_AT_SELECTION', issuedAt: new Date(now()).toISOString() };
+          }
+        }
         if (input.retrySourceSessionId) {
           const sourceId = safeText(input.retrySourceSessionId, 80);
           if (!/^[0-9a-f-]{36}$/u.test(sourceId)) { sendError(response, 400, 'invalid_retry_source', mediaBase); return true; }
@@ -1576,6 +1692,7 @@ export function createIvocHandler({
         // Validate before any storage completion. Custody remains UNVERIFIED for
         // coaching until the separate attribution/prompt-binding gate is proven.
         const captureReceipt = isCandidateAudio(row) ? sealCandidateCapture(row, input, { sealedAt, etag: null }) : null;
+        const recordingTimebase = recordingSealTimebase(row, input);
         const completed = await media.completeUpload({ objectKey: row.storage_object_key, uploadState: row.etag, recoverCompleted: isCandidateAudio(row) });
         if (captureReceipt) {
           const actual = await media.inspectObject(row.storage_object_key);
@@ -1590,6 +1707,7 @@ export function createIvocHandler({
           duration_ms: Math.max(0, Math.trunc(Number(input.durationMs) || 0)), mime_type: safeText(input.mime, 120) || row.mime_type,
           sealed_at: sealedAt, paused_spans: captureReceipt?.timing.pausedSpans || (Array.isArray(input.pausedSpans) ? input.pausedSpans : []), etag: completed.etag || null,
           ...(captureReceipt ? { capture_receipt: { ...captureReceipt, etag: completed.etag || null } } : {}),
+          ...(recordingTimebase ? { recording_timebase: recordingTimebase } : {}),
         });
         await audit({ actor, owner: actor, sessionId: row.session_id, recordingId, action: 'recording_seal', decision: 'allow', reason: requireHead ? 'head_confirmed' : 'signed_upload_completed' });
         sendJson(response, 200, { recording: publicRecording(saved) }, mediaBase); return true;
@@ -1679,7 +1797,10 @@ export function createIvocHandler({
         const reviews = ids.length ? await db.request(`ivoc_reviews?session_id=in.(${ids.join(',')})&status=neq.revoked&select=session_id,status,mentor_subject,reviewed_at,assigned_by_subject`) : [];
         const segments = ids.length ? await db.request(`ivoc_answer_segments?session_id=in.(${ids.join(',')})&select=session_id,transcript_ref`) : [];
         const evidence = ids.length ? await db.request(`ivoc_coaching_evidence?session_id=in.(${ids.join(',')})&select=session_id,dimension`) : [];
-        sendJson(response, 200, { sessions: rows.map((row) => publicSession(
+        const sourceRecordings = results.some(result => result.candidate_analysis)
+          ? await db.request(`ivoc_recordings?session_id=in.(${ids.join(',')})&recording_role=eq.candidate_audio&select=*`) : [];
+        sendJson(response, 200, { sessions: rows.map((row) => {
+          const detail = publicSession(
           row,
           recordings.find((x) => x.session_id === row.id && isConversationRecording(x)),
           results.find((x) => x.session_id === row.id),
@@ -1687,7 +1808,12 @@ export function createIvocHandler({
           null,
           publicAnswerHistory(row.id, segments, evidence),
           { includeOwnerSubject: adminAll },
-        )) }, mediaBase); return true;
+          );
+          const result = results.find(item => item.session_id === row.id);
+          return result?.candidate_analysis ? withPracticeReadModel(detail, practiceReadModel(row,
+            recordings.find(item => item.id === detail.recording?.id),
+            sourceRecordings.find(item => item.parent_recording_id === detail.recording?.id), result)) : detail;
+        }) }, mediaBase); return true;
       }
 
       match = pathname.match(/^\/api\/ivoc\/v1\/sessions\/([0-9a-f-]{36})$/u);
@@ -1698,8 +1824,11 @@ export function createIvocHandler({
         const result = await db.single(`ivoc_results?session_id=eq.${row.id}&select=*&limit=1`);
         const review = await db.single(`ivoc_reviews?session_id=eq.${row.id}&status=neq.revoked&select=status,reviewed_at&limit=1`);
         const spine = await readPublicSpine(db, row.id);
+        const sourceRecording = row.context?.promptReceipt && recording
+          ? await db.single(`ivoc_recordings?parent_recording_id=eq.${recording?.id}&recording_role=eq.candidate_audio&select=*&limit=1`) : null;
+        const practice = practiceReadModel(row, recording, sourceRecording, result, contextEnabled && contextTranscriptEnabled && row.owner_subject === actor);
         await audit({ actor, owner: row.owner_subject, sessionId: row.id, action: 'session_read', decision: 'allow', reason: row.owner_subject === actor ? 'owner' : 'authorized_review' });
-        sendJson(response, 200, publicSession(row, recording, result, review, spine, null, { includeRetryContext: row.owner_subject === actor }), mediaBase); return true;
+        sendJson(response, 200, withPracticeReadModel(publicSession(row, recording, result, review, spine, null, { includeRetryContext: row.owner_subject === actor }), practice), mediaBase); return true;
       }
 
       match = pathname.match(/^\/api\/ivoc\/v1\/recordings\/([0-9a-f-]{36})\/playback-url$/u);

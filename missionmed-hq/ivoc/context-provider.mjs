@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { isSelfPracticeAnswerSource, mapSelfPracticeAnswerSegments } from './answer-source.mjs';
+import { isProjectedSelfPracticeResult } from './self-practice-analysis.mjs';
 
 import { projectStudentEvents, assertStudentProjection } from '../../ivprep-v6/public/analytics/signal-registry.mjs';
 import { createDefaultQuestionStore } from '../../ivprep-v6/public/questions/question-store.mjs';
@@ -100,6 +102,7 @@ function extensionForMime(mimeType) {
   if (/mp4/iu.test(mimeType)) return 'mp4';
   if (/mpeg|mp3/iu.test(mimeType)) return 'mp3';
   if (/wav/iu.test(mimeType)) return 'wav';
+  if (/ogg/iu.test(mimeType)) return 'ogg';
   return 'webm';
 }
 
@@ -124,13 +127,68 @@ export function createOpenAiTranscriptionProvider({
 } = {}) {
   return Object.freeze({
     id: 'openai-batch-transcription',
-    async transcribeAnswer({ audio, mimeType = 'video/webm' } = {}) {
+    async transcribeAnswer({ audio, mimeType = 'video/webm', answerSource = null } = {}) {
       if (typeof apiKey !== 'string' || apiKey.trim().length < 8) return unavailableTranscript('TRANSCRIPT_PROVIDER_UNCONFIGURED');
       if (!Buffer.isBuffer(audio) || audio.length < 1 || audio.length > MAX_AUDIO_BYTES) return unavailableTranscript('TRANSCRIPT_AUDIO_INVALID');
       if (typeof fetchImpl !== 'function') return unavailableTranscript('TRANSCRIPT_PROVIDER_UNCONFIGURED');
-      // Whisper segments have no candidate-source proof. Do not send an
-      // unproven/mixed object or manufacture STUDENT attribution.
-      return unavailableTranscript(CANDIDATE_AUDIO_ATTRIBUTION_REASON);
+      // Only the server-resolved separate mic source for one static prompt can
+      // enter this path. Neither flags nor a JSON-shaped receipt are sufficient.
+      if (!isSelfPracticeAnswerSource(answerSource)) return unavailableTranscript(CANDIDATE_AUDIO_ATTRIBUTION_REASON);
+      if (model !== 'whisper-1' || !/^audio\/(webm|mp4|ogg)(;codecs=opus)?$/u.test(mimeType)) return unavailableTranscript('TRANSCRIPT_TIMED_AUDIO_UNSUPPORTED');
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+      let bearer = apiKey.trim();
+      try {
+        const form = new FormData();
+        form.append('model', model);
+        form.append('response_format', 'verbose_json');
+        form.append('timestamp_granularities[]', 'segment');
+        form.append('file', new Blob([audio], { type: mimeType }), `answer.${extensionForMime(mimeType)}`);
+        let parsed;
+        try {
+          parsed = await responseJson(await fetchImpl(TRANSCRIPTION_ENDPOINT, {
+            method: 'POST', redirect: 'error', headers: { Authorization: `Bearer ${bearer}` }, body: form, signal: controller.signal,
+          }));
+        } catch {
+          return unavailableTranscript(controller.signal.aborted ? 'TRANSCRIPT_PROVIDER_TIMEOUT' : 'TRANSCRIPT_PROVIDER_ERROR');
+        } finally { bearer = ''; }
+        if (!Array.isArray(parsed?.segments) || !parsed.segments.length || parsed.segments.length > MAX_SEGMENTS) {
+          return unavailableTranscript('TRANSCRIPT_SEGMENTS_UNAVAILABLE');
+        }
+        try {
+          const sourceSegments = parsed.segments.map((segment, index) => {
+            const text = boundedText(segment?.text, 'transcript_segment', 4000);
+            if (MOCK_MARKER.test(text) || !Number.isFinite(segment.start) || !Number.isFinite(segment.end)
+              || segment.start < 0 || segment.end <= segment.start
+              || (Number.isFinite(segment.no_speech_prob) && segment.no_speech_prob >= 0.6)) throw fail('TRANSCRIPT_SPEECH_UNCERTAIN');
+            return { id: `seg-${index + 1}`, startMs: Math.round(segment.start * 1000), endMs: Math.round(segment.end * 1000), text };
+          });
+          const mapping = mapSelfPracticeAnswerSegments({ answerSource, segments: sourceSegments });
+          const segments = sourceSegments.map((segment, index) => Object.freeze({
+            id: segment.id, text: segment.text, speaker: 'STUDENT', final: true, score: null,
+            startMs: mapping.segments[index].replayMedia.startMs, endMs: mapping.segments[index].replayMedia.endMs,
+            source: 'separate-microphone-capture', sourceRange: mapping.segments[index].sourceMedia,
+            sessionRange: mapping.segments[index].session,
+          }));
+          const text = segments.map(segment => segment.text).join(' ');
+          if (text.length > MAX_TRANSCRIPT_CHARACTERS) throw fail('TRANSCRIPT_RESPONSE_TOO_LARGE');
+          const transcript = Object.freeze({ status: 'AVAILABLE', transcriptId: randomUUID(), provider: 'openai', model,
+            adapter: 'openai-batch-transcription', truthLabel: 'REAL', reason: null, text,
+            segments: Object.freeze(segments), wordCount: text.split(/\s+/u).filter(Boolean).length,
+            timestamps: 'FINAL_SEGMENTS', mapping,
+            sourceBinding: Object.freeze({ status: 'SOURCE_BOUND', sourceRecordingId: answerSource.sourceRecordingId,
+              replayRecordingId: answerSource.replayRecordingId, assurance: 'CLIENT_MIC_CAPTURE_DECLARATION' }),
+            provenance: Object.freeze({ endpoint: 'openai-audio-transcriptions', storage: 'EPHEMERAL_REQUEST_MEMORY_ONLY',
+              audioTransfer: 'SEALED_SEPARATE_MIC_OBJECT_SERVER_SIDE', sourceRecordingId: answerSource.sourceRecordingId,
+              replayRecordingId: answerSource.replayRecordingId, speakerBasis: 'MIC_INPUT_ROLE_NOT_BIOMETRIC_IDENTITY',
+              timestampBasis: 'PROVIDER_ESTIMATES_MAPPED_THROUGH_CAPTURE_CLOCKS', limitations: answerSource.limitations }),
+          });
+          assertTranscript(transcript);
+          return transcript;
+        } catch {
+          return unavailableTranscript('TRANSCRIPT_SOURCE_TIMING_OR_SPEECH_UNCERTAIN');
+        }
+      } finally { clearTimeout(timeout); bearer = ''; }
     },
   });
 }
@@ -334,24 +392,34 @@ export function createContextIntelligenceProvider({
       audio = null,
       mimeType = 'video/webm',
       transcriptEnabled = false,
+      answerSource = null,
+      retainedResult = null,
     } = {}) {
       const safeSessionId = boundedText(sessionId, 'session_id', 120);
       const safeAnswerId = boundedText(answerId, 'answer_id', 120);
-      const question = resolveContextQuestion(questionId);
+      const sourceBound = isSelfPracticeAnswerSource(answerSource) && answerSource.sessionId === safeSessionId;
+      const question = sourceBound ? Object.freeze({ questionId: answerSource.prompt.questionId,
+        revision: answerSource.prompt.version, canonicalText: answerSource.prompt.text, tags: Object.freeze([]), source: 'saved-approved-prompt' })
+        : resolveContextQuestion(questionId);
       const analyticsObservations = normalizeAnalytics(analyticsEvents);
       const duration = analyticsObservations.find((entry) => entry.metric === 'answer_duration_ms');
-      // No recording-bound candidate-only source proof exists in the current
-      // runtime. Neither flags, client receipts nor historical labels establish
-      // it. Keep sensor observations, but do not invoke either provider.
-      const transcript = unavailableTranscript(transcriptEnabled
-        ? CANDIDATE_AUDIO_ATTRIBUTION_REASON : 'TRANSCRIPT_PROVIDER_UNCONFIGURED');
+      const retained = sourceBound && isProjectedSelfPracticeResult(retainedResult)
+        && retainedResult.sessionId === safeSessionId && retainedResult.answerId === safeAnswerId
+        && retainedResult.sourceBinding.sourceRecordingId === answerSource.sourceRecordingId
+        && retainedResult.sourceBinding.replayRecordingId === answerSource.replayRecordingId
+        && retainedResult.question.questionId === question.questionId && retainedResult.question.revision === question.revision
+        && retainedResult.question.canonicalText === question.canonicalText;
+      const transcript = sourceBound && transcriptEnabled
+        ? retained ? retainedResult.transcript : await transcripts.transcribeAnswer({ audio, mimeType, answerSource })
+        : unavailableTranscript(transcriptEnabled ? CANDIDATE_AUDIO_ATTRIBUTION_REASON : 'TRANSCRIPT_PROVIDER_UNCONFIGURED');
       assertTranscript(transcript);
-      const masterDerived = transcript.status === 'AVAILABLE' && duration?.value > 0
+      const answerDurationMs = sourceBound ? answerSource.sourceMap.recordingDurationMs : duration?.value;
+      const masterDerived = transcript.status === 'AVAILABLE' && answerDurationMs > 0
         ? Object.freeze({
-          wordsPerMinute: Number((transcript.wordCount / (duration.value / 60_000)).toFixed(1)),
+          wordsPerMinute: Number((transcript.wordCount / (answerDurationMs / 60_000)).toFixed(1)),
           basis: 'MASTER_DERIVED_FROM_TRANSCRIPT_WORDCOUNT_AND_ANSWER_DURATION',
           transcriptId: transcript.transcriptId,
-          analyticsEventId: duration.eventId,
+          analyticsEventId: duration?.eventId || null,
         })
         : null;
       const contextRequest = Object.freeze({
@@ -377,6 +445,10 @@ export function createContextIntelligenceProvider({
             transcript,
             durationMs: duration?.value || transcript.segments.at(-1)?.endMs || 0,
             model: raw?.providerModel || contextModel,
+          });
+          if (sourceBound) analysis = Object.freeze({ ...analysis,
+            range: Object.freeze({ startMs: transcript.segments[0].startMs, endMs: transcript.segments.at(-1).endMs }),
+            limitations: Object.freeze([...analysis.limitations, ...answerSource.limitations].slice(0, 10)),
           });
         } catch (error) {
           analysis = unavailableAnalysis(String(error?.message || 'CONTEXT_PROVIDER_ERROR').slice(0, 120));

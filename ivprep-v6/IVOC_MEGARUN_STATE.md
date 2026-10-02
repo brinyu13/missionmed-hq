@@ -14,6 +14,30 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Source-bound Self Practice candidate:** new one-question static sessions now
+  receive a server-issued approved-question snapshot. First seal preserves the
+  replay clock; owned separate mic source maps through session time to replay.
+  Transcript/coaching persists only in reserved `ivoc_results.candidate_analysis`,
+  revalidated on Results/Film Room/Library reload. Mixed/AI/legacy audio remains
+  quarantined; client-declared capture is not biometric speaker verification.
+  Semantic failures retain the genuine transcript and permit at most two explicit
+  delayed retries without downloading/transcribing again; completed coaching and
+  original transcript/source seals are immutable. Independent source review PASS,
+  148 targeted server/client checks PASS, including actual mocked provider → route
+  → persistence → reload, wrong-owner/changed-media denial and stale Admin-review
+  control protection. These are engineering checks, not live/acoustic acceptance.
+  Additive migration `20261002015334_ivoc_recording_analysis_binding` passed a
+  rolled-back development transaction including forged/null prompt, immutable
+  clock, owner, retry-limit and transcript-rewrite rejection. Application pending.
+- **Current physical POV dependency:** authenticated Founder Chrome normal
+  one-question readiness reached FaceTime HD camera / built-in microphone, but
+  capture returned `Could not start video source` on initial and one reconnect.
+  No new recording or provider session was created; do not repeat unchanged
+  device retries. Builder had hidden this error; candidate shows pending/error
+  and recovery controls without changing media or candidate.2 composition.
+  Focused actual-function regression and independent correction review PASS.
+  The broad presentation suite retains three pre-existing stale source-regex
+  failures (navigation, removed copy, moved Admin invocation); not a green-suite claim.
 - **Isolated microphone capture activated:** source
   `0909cefce71bd5001dc1efe913c3a4c796197121`, deployment
   `87ad6aaf-7269-4e88-b813-b43e246f42ca` SUCCESS, image

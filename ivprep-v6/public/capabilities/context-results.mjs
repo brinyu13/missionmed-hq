@@ -152,7 +152,33 @@ const evidenceRefs = (row = {}) => Object.freeze([...(Array.isArray(row.refs) ? 
   .map((item) => boundedText(String(item?.ref || '').split('#').at(-1), 96))
   .filter(Boolean).slice(0, 8));
 
+// Presentation projection only. The authenticated server detail is the trust
+// boundary; local Results/envelope payloads cannot manufacture this receipt.
+export function selfPracticeAnalysisAvailability(session = {}) {
+  const value = session.analysisAvailability;
+  const valid = ['question', 'quick'].includes(session.sessionType)
+    && session.interviewerProvider === 'missionmed-static'
+    && value?.workflow === 'SELF_PRACTICE' && value.sessionId === session.id
+    && Boolean(session.recording?.id) && value.replayRecordingId === session.recording.id;
+  return valid && ['READY', 'AVAILABLE'].includes(value.status) ? value.status : 'UNAVAILABLE';
+}
+
+export function sourceBoundSelfPracticeResult(session = {}) {
+  const result = session.contextAnalysis;
+  const binding = result?.sourceBinding;
+  if (selfPracticeAnalysisAvailability(session) !== 'AVAILABLE' || result?.sessionId !== session.id
+    || result?.question?.questionId !== session.questionId || result?.question?.canonicalText !== session.questionText
+    || binding?.status !== 'SOURCE_BOUND' || binding.assurance !== 'CLIENT_MIC_CAPTURE_DECLARATION'
+    || binding.biometricIdentity !== 'UNVERIFIED' || binding.replayRecordingId !== session.recording.id
+    || !binding.sourceRecordingId || binding.sourceRecordingId === binding.replayRecordingId
+    || session.spine?.sourceBinding?.sourceRecordingId !== binding.sourceRecordingId
+    || session.spine?.sourceBinding?.replayRecordingId !== binding.replayRecordingId) return null;
+  return result;
+}
+
 export function contextResultFromSessionSpine(session = {}) {
+  const sourceBound = sourceBoundSelfPracticeResult(session);
+  if (sourceBound) return sourceBound;
   const spine = session?.spine || {};
   if (spine.candidateAttribution?.status !== 'VERIFIED') return Object.freeze({
     transcript: Object.freeze({ status: 'UNAVAILABLE', reason: 'CANDIDATE_AUDIO_SOURCE_UNVERIFIED' }),

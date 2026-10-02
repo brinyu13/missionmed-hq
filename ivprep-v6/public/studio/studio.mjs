@@ -92,6 +92,7 @@ const state = {
   view: 'home',
   launchMode: 'ai',
   calibrationStandalone: false,
+  deviceConnectionPending: false,
   role: 'student',
   admission: null,
   analytics: null,
@@ -1566,8 +1567,21 @@ function renderReadinessStep(host) {
   const stage = el('div', 'stage'); stage.id = 'builder-readiness-stage'; stage.innerHTML = '<div class="stage-tag"><span>You</span></div><div class="canon-frame-guide" aria-hidden="true"><span></span></div>'; preview.append(stage);
   const meter = el('div', 'canon-live-meter'); meter.innerHTML = '<span class="live-mic-fill"></span>'; preview.append(meter, el('p', 'microcap', bridge.media.mic ? 'Speak to test your live microphone level' : 'Connect camera + microphone to begin'));
   const actions = el('div', 'canon-inline-actions');
-  const connect = choiceButton({ className: 'btn btn-primary', label: bridge.media.stream ? 'Reconnect camera + mic' : 'Connect camera + mic', onClick: async () => { await connectDevices(); renderWizard(); } });
+  const connect = choiceButton({ className: 'btn btn-primary', label: state.deviceConnectionPending ? 'Connecting camera + mic…' : bridge.media.stream ? 'Reconnect camera + mic' : 'Connect camera + mic', onClick: async () => {
+    const connection = connectDevices();
+    renderWizard();
+    await connection;
+    if (state.view === 'newsession') renderWizard();
+  } });
+  connect.disabled = state.deviceConnectionPending;
   const full = choiceButton({ className: 'btn btn-secondary', label: 'Open full calibration', onClick: () => setView('devicecheck') }); actions.append(connect, full); preview.append(actions);
+  if (state.deviceConnectionPending || state.deviceError) {
+    const message = el('p', 'unavailable', state.deviceConnectionPending
+      ? 'Connecting your camera and microphone. Respond to any browser permission prompt.'
+      : `Camera or microphone could not connect: ${state.deviceError}. Check browser permissions and whether another app is using the camera, then reconnect. Open full calibration to choose a different device.`);
+    message.setAttribute('role', state.deviceConnectionPending ? 'status' : 'alert');
+    preview.append(message);
+  }
   const workspace = el('section', 'canon-readiness-workspace');
   const liveRows = rows.filter(([name]) => !['Recording', 'Transcript'].includes(name));
   const readyCount = liveRows.filter(([, ready]) => ready).length;
@@ -2677,11 +2691,14 @@ function renderDeviceCheck() {
 }
 
 async function connectDevices() {
+  if (state.deviceConnectionPending) return;
+  state.deviceConnectionPending = true;
+  state.deviceError = null;
   // Same law as the cockpit handler: prime before any await.
-  bridge.primeAudioContext();
   const button = $('#device-connect');
   if (button) { button.disabled = true; button.innerHTML = '<span>Requesting…</span>'; }
   try {
+    bridge.primeAudioContext();
     await bridge.requestMedia(true, true, {
       camera: state.selected.camera,
       microphone: state.selected.microphone,
@@ -2694,8 +2711,10 @@ async function connectDevices() {
     startLevelMeter();
   } catch (error) {
     state.deviceError = String(error?.message || error?.name || error).toUpperCase();
+  } finally {
+    state.deviceConnectionPending = false;
+    if (button) { button.disabled = false; button.innerHTML = '<span>Reconnect camera + mic</span>'; }
   }
-  if (button) { button.disabled = false; button.innerHTML = '<span>Reconnect camera + mic</span>'; }
   renderDeviceCheck();
 }
 
@@ -3317,7 +3336,7 @@ function renderPostAnswer(analytics = null) {
   }
   // Reopened recordings must never borrow the current live session's metrics.
   const supported = (analytics?.studentEvents || []).filter((item) => item?.maturity === 'VALIDATED_STUDENT_SAFE');
-  const transcriptCoverage = state.lastSaved?.sessionDetail?.spine?.candidateAttribution?.status === 'UNVERIFIED'
+  const transcriptCoverage = !buildCandidateAnalysisState(state.lastSaved?.sessionDetail).available
     ? 'unverified' : reviewTranscriptCoverage(persistedConversationTurns({
     sessionDetail: state.lastSaved?.sessionDetail, envelope: state.lastSaved?.envelope,
   }));
@@ -3362,7 +3381,11 @@ function renderPostAnswer(analytics = null) {
         if (outcome.retried) {
           saved.envelope = outcome.envelope;
           saved.result = outcome.result;
-          retry.textContent = 'Microphone audio saved — analysis remains unavailable';
+          const detail = await state.durable.api.session(saved.session.id);
+          if (state.lastSaved !== saved) return;
+          saved.sessionDetail = detail;
+          retry.textContent = 'Microphone audio saved';
+          renderPostAnswer(saved.analytics);
         } else { retry.disabled = false; retry.textContent = 'Retry microphone audio save'; }
       } catch { retry.disabled = false; retry.textContent = 'Save failed — retry microphone audio'; }
     });
@@ -3374,8 +3397,8 @@ function renderPostAnswer(analytics = null) {
     const answerId = state.lastSaved?.analytics?.answerId;
     const questionId = state.lastSaved?.session?.questionId;
     const attribution = buildCandidateAnalysisState(state.lastSaved?.sessionDetail);
-    contextButton.disabled = !(attribution.available && state.lastSaved?.persisted && recordingId && answerId && questionId);
-    contextButton.querySelector('span').textContent = attribution.available ? 'Generate transcript + context' : 'Answer coaching unavailable';
+    contextButton.disabled = !(attribution.canGenerate && !isAdminReview(state.lastSaved) && state.lastSaved?.persisted && recordingId && answerId && questionId);
+    contextButton.querySelector('span').textContent = attribution.actionLabel;
     contextButton.title = attribution.available ? '' : attribution.unavailableCopy;
   }
 }
@@ -3826,6 +3849,8 @@ async function analyzeLastAnswer() {
     return;
   }
   if (!saved?.persisted || !recordingId || !sessionId || !answerId || !questionId) return;
+  // Reviewing a student's evidence never grants provider-generation authority.
+  if (isAdminReview(saved)) return;
   const ticket = isAdminReview(saved) ? adminReviewGate.begin(state.role) : null;
   if (isAdminReview(saved) && ticket === null) return;
   const isCurrent = () => mayPresentSavedReview({ saved, currentSaved: state.lastSaved, role: state.role, ticket, gate: adminReviewGate });
@@ -3851,9 +3876,9 @@ async function analyzeLastAnswer() {
     if (isCurrent()) renderContextEvidence({ transcript: { status: 'UNAVAILABLE', reason: String(error?.message || error).slice(0, 120) } });
   } finally {
     if (button) {
-      const available = buildCandidateAnalysisState(state.lastSaved?.sessionDetail).available;
-      button.disabled = !available;
-      button.innerHTML = available ? '<span>Generate transcript + context</span>' : '<span>Answer coaching unavailable</span>';
+      const analysis = buildCandidateAnalysisState(state.lastSaved?.sessionDetail);
+      button.disabled = isAdminReview(state.lastSaved) || !analysis.canGenerate;
+      button.innerHTML = `<span>${analysis.actionLabel}</span>`;
     }
   }
 }

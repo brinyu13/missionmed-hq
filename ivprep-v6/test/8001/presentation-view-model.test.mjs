@@ -2,6 +2,54 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 
+test('one-prompt source-ready detail enables analysis without inventing candidate verification', () => {
+  const detail = { id: 'p1', sessionType: 'quick', interviewerProvider: 'missionmed-static', recording: { id: 'r1' },
+    analysisAvailability: { status: 'READY', workflow: 'SELF_PRACTICE', sessionId: 'p1', replayRecordingId: 'r1' },
+    spine: { candidateAttribution: { status: 'UNVERIFIED' } } };
+  assert.equal(buildCandidateAnalysisState(detail).available, true);
+  assert.equal(detail.spine.candidateAttribution.status, 'UNVERIFIED');
+  for (const mutate of [d => { d.interviewerProvider = 'openai-gpt-live'; },
+    d => { d.recording.id = 'other'; }, d => { d.analysisAvailability.sessionId = 'other'; },
+    d => { d.analysisAvailability.status = 'AVAILABLE'; }]) {
+    const changed = structuredClone(detail); mutate(changed);
+    assert.equal(buildCandidateAnalysisState(changed).available, false);
+  }
+});
+
+test('Admin review remains read-only even with an available source-bound result and a stale retry control', async () => {
+  const source = readFileSync(new URL('../../public/studio/studio.mjs', import.meta.url), 'utf8');
+  const implementation = source.match(/async function analyzeLastAnswer[\s\S]*?(?=\nfunction renderHomeCorpus)/)[0];
+  const binding = { status: 'SOURCE_BOUND', assurance: 'CLIENT_MIC_CAPTURE_DECLARATION', biometricIdentity: 'UNVERIFIED',
+    sourceRecordingId: 'mic', replayRecordingId: 'r1' };
+  const detail = { id: 's1', sessionType: 'question', interviewerProvider: 'missionmed-static', questionId: 'CORE-01', questionText: 'Prompt',
+    recording: { id: 'r1' }, analysisAvailability: { status: 'AVAILABLE', workflow: 'SELF_PRACTICE', sessionId: 's1', replayRecordingId: 'r1', semanticRetryAvailable: true },
+    contextAnalysis: { sessionId: 's1', question: { questionId: 'CORE-01', canonicalText: 'Prompt' }, sourceBinding: binding },
+    spine: { sourceBinding: binding, candidateAttribution: { status: 'UNVERIFIED' } } };
+  assert.equal(buildCandidateAnalysisState(detail).available, true);
+  let calls = 0;
+  const state = { lastSaved: { persisted: true, reviewScope: 'admin', session: { id: 's1', questionId: 'CORE-01' },
+    recording: { recording: { id: 'r1' } }, analytics: { answerId: 'a1' }, sessionDetail: detail },
+    durable: { analyze: async () => { calls += 1; } } };
+  const analyze = new Function('state', '$', 'isAdminReview', 'buildCandidateAnalysisState', `return ${implementation};`)(
+    state, () => null, saved => saved.reviewScope === 'admin', buildCandidateAnalysisState);
+  await analyze(); assert.equal(calls, 0);
+  assert.match(source, /attribution\.canGenerate && !isAdminReview\(state\.lastSaved\)/);
+  const reviewed = state.lastSaved;
+  state.lastSaved = { ...reviewed, reviewScope: 'own' };
+  let resolve;
+  state.durable.analyze = () => new Promise(done => { resolve = done; });
+  const button = { disabled: false, innerHTML: '' };
+  const run = new Function('state', '$', 'isAdminReview', 'buildCandidateAnalysisState', 'adminReviewGate',
+    'mayPresentSavedReview', 'renderContextEvidence', `return ${implementation};`)(state, () => button,
+    saved => saved.reviewScope === 'admin', buildCandidateAnalysisState, {},
+    ({ saved, currentSaved }) => saved === currentSaved, () => { throw Error('stale response rendered'); });
+  const pending = run();
+  state.lastSaved = reviewed;
+  resolve({ persistence: { transcript: false } });
+  await pending;
+  assert.equal(button.disabled, true, 'late own-session completion must not re-enable Admin provider control');
+});
+
 import {
   buildContextSources,
   contextSourceHint,
@@ -267,7 +315,7 @@ test('unverified candidate analysis is disabled and its actual action never call
   assert.equal(results[0].transcript.reason, 'CANDIDATE_AUDIO_SOURCE_UNVERIFIED');
   assert.equal(buildCandidateAnalysisState().available, false);
   assert.match(buildCandidateAnalysisState().unavailableCopy, /recording and measured delivery signals remain available/);
-  assert.match(source, /contextButton\.disabled = !\(attribution\.available/);
+  assert.match(source, /contextButton\.disabled = !\(attribution\.canGenerate/);
 });
 
 test('comparison retains the reviewed stable ID and selects only an earlier compatible baseline', () => {

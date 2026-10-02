@@ -689,6 +689,30 @@ test('session creation requires same-origin CSRF and persists server identity', 
   assert.doesNotMatch(allowed.body, /actor_block|source_receipts|"facts"/u);
 });
 
+test('self-practice prompt is issued from approved exact source and client receipts are stripped', async () => {
+  const headers = { origin: 'https://hq.test', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': 'a'.repeat(24) };
+  const input = { sessionType: 'question', interviewerProvider: 'missionmed-static', questionId: 'CORE-01',
+    questionText: 'Tell me about yourself.', context: { targetQuestions: 1, questionIds: ['CORE-01'], promptReceipt: { version: 999, fake: true } } };
+  for (const scenario of ['approved', 'edited', 'retired', 'ai', 'multi']) {
+    const { route, repo } = handler();
+    if (scenario === 'retired') repo.single = async path => path.startsWith('ivoc_question_catalog?')
+      ? { question_id: 'CORE-01', current_version: 2, canonical_text: input.questionText, status: 'retired' } : null;
+    const candidate = structuredClone(input);
+    if (scenario === 'edited') candidate.questionText = 'Client invented wording';
+    if (scenario === 'ai') candidate.interviewerProvider = 'openai-gpt-live';
+    if (scenario === 'multi') candidate.context.targetQuestions = 2;
+    const response = new ResponseCapture();
+    await route({ ...base, request: request('POST', candidate, headers), response,
+      url: new URL('https://hq.test/api/ivoc/v1/sessions'), hqSession: session() });
+    assert.equal(response.status, 201);
+    const receipt = repo.inserts.find(row => row.table === 'ivoc_sessions').body.context.promptReceipt;
+    if (scenario === 'approved') {
+      assert.equal(receipt.schema, 'ivoc.self-practice-prompt.v1'); assert.equal(receipt.version, 1);
+      assert.equal(receipt.text, input.questionText); assert.equal(receipt.fake, undefined);
+    } else assert.equal(receipt, undefined);
+  }
+});
+
 test('retry setup projection is bounded and owner-only, including authorized Admin reviews', async () => {
   const repo = repository();
   const source = { id: foreignSessionId, owner_subject: 'wp:42', question_id: 'Q1', question_text: 'Why here?',
