@@ -14,7 +14,32 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
-- **Current healthy release:** source `33034a1dd7d31b6d8f7c55c40f7d98b6e9712510`,
+- **R4 inactive instruction resolver:** source `02033d1` reuses the native
+  bounded role/style/pressure/question-order policy and current authorized pack.
+  Requires an injected server-owned active-session reader; rejects mismatched
+  identity, stale/missing metadata and missing/invalidated packs. Returns only
+  receipt/instructions server-side. 15 combined focused checks plus independent
+  eight resolver tests/12 probes PASS. Not wired to a production reader, job,
+  client or provider; no spend or avatar acceptance. Native behavior unchanged.
+- **Browser teaching gap confirmed:** live Admin shows Webex status checks only,
+  not Hot Seat capture. Current Admin permission is review, not delegated student
+  recording. Next safe slice is student-owned capture → explicit Admin refresh
+  → selected student's Results/Film Room → existing review contract. Preserve
+  owner-only recording/spine writes; never relabel Admin media as student work.
+- **Current healthy role/style release:** source `c6b408f18d097fa05543c096e49f74072598820d`,
+  deployment `74753088-0b13-47b8-abd7-f034250c1078` SUCCESS, image
+  `sha256:6d03e30a5b9287c0d85091280a2bda353524ffc54ea0a9557aa8ab4d6c1520e4`,
+  artifact `aec51385e4d8c1ceefbd7fdf67ede04705f6993436c1a9c275045298cf817c53`.
+  Six changed runtime hashes match; health 200; anonymous product/bootstrap 401.
+  Deployment epoch 4043 released normally; product/HQ epochs 4041/4042 released
+  and provider-confirmed. Genuine Founder/Admin visible Builder APD + Eagle →
+  CORE-01 → readiness → Review displays `Associate Program Director · Eagle`.
+  No media/provider/session was started. Independent live UI PASS: APD/Eagle
+  retained in review, older MR142-071 retry explicitly resets missing style to
+  Owl with a warning and keeps one-question target. Spoken style remains
+  unverified. Rollback is `33034a1` / `d1505c5a` below with its
+  exact image and unchanged config. Candidate.2 composition is preserved.
+- **Previous healthy confidence release:** source `33034a1dd7d31b6d8f7c55c40f7d98b6e9712510`,
   deployment `d1505c5a-78d7-4fda-a907-154623e13e75` SUCCESS, image
   `sha256:78b93941d7adf549c0633fb60c26bba3f0faa9831e7e7a56518e07339c85599b`,
   artifact `c8b5148c11f8c6010c7e67a5c5b4eea0c96811ada8a54f4da4de047855e9eb56`.
@@ -170,7 +195,7 @@ the actual production route and deployment.
   is not a Student-role acceptance. No competing product writer was active.
   Actual GPT-6 Astra read-only experience review and separate Codex teaching
   reviewer (disclosed substitute for unavailable Fable) reopened executable work.
-- **R1 training-loop fixes in progress:** production Admin comparison switched
+- **Initial R1 findings (corrected by dated releases above):** production Admin comparison switched
   selected `wp:142` history to the actor's own attempts; own nonlatest Results
   comparison also lost the reviewed question and permitted unlike-question deltas.
   The source correction filters Admin history to its authorized subject, seeds
@@ -179,7 +204,7 @@ the actual production route and deployment.
   Unknown mode/version is not compatibility. 34 focused tests pass; independent
   review and deployed POV remain separate gates. Healthy `f43b1d5d` is the exact
   source/image/config rollback identity for this candidate.
-- **Remaining executable R1 teaching/usability gaps:** evidence references need
+- **Initial R1 teaching/usability gaps (corrected by dated releases above):** evidence references need
   bounded seek-only replay links; exact-question retry must preserve question,
   goal and authorized refreshed context; lexical filler candidates must not be
   asserted as actual disfluencies; confidence must not be labeled measured
@@ -194,7 +219,7 @@ the actual production route and deployment.
   bake-off. Real human speech/audible two-sided replay, genuine role canaries,
   positive owner documents/stories, recurrence and completed Webex remain
   event-driven evidence waits; they do not stop independent engineering.
-- **Latest verified runtime:** source `017256f37b407254836ab68fe5bb39ae3570cf41`,
+- **Historical 9300 baseline runtime:** source `017256f37b407254836ab68fe5bb39ae3570cf41`,
   deployment `f43b1d5d-5b50-49c6-a1ef-2aca25e9e9ac` SUCCESS, image
   `sha256:91bcd63c04d90a30116f08b0261702cce481dbbf2aea3eda9676e115282b675b`,
   filtered artifact `4c73fcdbb4e1e8ac188941edcee3ca7b64be8d743dd85c3c57a46a1b6e3401d9`.
@@ -1102,7 +1127,7 @@ the actual production route and deployment.
 | 10 | Match Bridge bounded consented clip seam | LIVE VERIFIED | Real saved `CORE-01` media was bound only to a 0–14 s answer range, promoted from private v1 to consented `match_bridge_ready` v2, then revoked at v3. Whole-mock sharing remains prohibited by the contract; cross-product pickup is an external owner integration, not an IVOC clip-seam gap. |
 | 11 | Structured evidence-to-coaching pipeline | LIVE VERIFIED | Deployment `68a57f16…` accepted real sealed session `4571e86c-3d99-4ba4-bf19-bee1f972a699`, rendered transcript-cited semantic observations, and persisted one answer-structure plus two confidence-bounded coaching-pattern rows. Canonical readback proved object-shaped `score.value=0.02`, eight segment references per row and clean cold-reload synthesis. |
 | 11 | Assessments, strongest moments, improvements, drills, confidence/limitations | LIVE VERIFIED | Production Admin `wp:1` cold-opened saved session `0d250e0c-1011-48bc-a416-f9ae4c2c735f` after deployment `cd7195da…`; the live Results surface reconstructed four cited observations, strongest Structure, Specificity improvement, the cited next drill, MODERATE confidence, 61% score, 90% coverage and explicit limitations without a provider re-call. |
-| 12 | Longitudinal metrics, deltas, filters and prior-self comparison | REOPENED F/U/T | Current independent production POV found wrong selected-subject/question comparison. Stable-ID, subject-bound, compatible earlier-attempt correction is in progress; unrelated previously measured Progress evidence remains ratcheted. |
+| 12 | Longitudinal metrics, deltas, filters and prior-self comparison | F/U CORRECTION LIVE VERIFIED / RECURRENCE WAITING | Stable-ID, subject-bound, compatible earlier-attempt correction is live at `e7645a2` with independent own/selected-student visible-UI PASS (dated receipt above). Genuine multi-session recurrence and teaching value remain separate evidence gates; no cross-question delta is fabricated. |
 | 13 | Admin View / Student View presentation switch without impersonation | LIVE VERIFIED | Authenticated production `wp:1` switched Student → Admin while retaining the same actor/subject identity; Admin-only navigation and diagnostics appeared without impersonating another user. |
 | 13 | Student selector, libraries, Results, Film Room, Progress and Top 3 | LIVE VERIFIED | Production Admin `wp:1` selected the authorized student library, traversed Results and transcript-backed Film Room, and played the signed private recording. Student view hid the selector without actor impersonation. Top 3, Progress and longitudinal views retain their separately accepted evidence. |
 | 13 | Usage/credits, Settings, AI controls, question governance, Match Bridge and Live Mock status | LIVE VERIFIED | Authenticated production `wp:1` visibly read policy v3, `ivoc.analytics.v1`, `gpt-live-1:marin`, follow-up intensity 1, credit account v11, governed catalog status, Match Bridge readiness, owner-projection requirements, deferred LemonSlice and `SCHEDULER CONNECTED · 11 WEBEX` through the candidate.2 Admin surface. |
@@ -1125,9 +1150,8 @@ the actual production route and deployment.
 
 ## Current production and governance gates
 
-- Latest healthy MissionMed HQ production is Railway deployment
-  `f43b1d5d-5b50-49c6-a1ef-2aca25e9e9ac` from exact runtime source
-  `017256f37b407254836ab68fe5bb39ae3570cf41`; `/health` is HTTP 200,
+- Latest healthy MissionMed HQ production is the exact deployment/source/image
+  in the current dated release receipt at the top of this ledger; `/health` is HTTP 200,
   anonymous product/bootstrap fail closed at HTTP 401, Founder allowlist is
   restored to `wp:1`, and Admin allowlist remains `wp:1,wp:107`. Railway edge
   404/502 intermittency during this rollout remains an operational sentinel.
