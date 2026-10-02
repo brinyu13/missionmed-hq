@@ -1348,8 +1348,55 @@ function renderProgramCalendar(host) {
   host.append(panel);
 }
 
+async function searchProgramPage(page = 1) {
+  if (state.programSearch.status === 'loading') return;
+  const wizard = state.wizard;
+  const actor = state.admission?.identity?.subject;
+  const role = state.role;
+  const query = { q: wizard.program, specialty: wizard.programSpecialty,
+    jurisdiction: wizard.programState, programType: wizard.programType };
+  const pending = { status: 'loading', records: [], total: 0, error: null };
+  state.programSearch = pending;
+  const current = () => state.programSearch === pending && state.wizard === wizard
+    && state.admission?.identity?.subject === actor && state.role === role
+    && wizard.program === query.q && wizard.programSpecialty === query.specialty
+    && wizard.programState === query.jurisdiction && wizard.programType === query.programType;
+  const renderCurrent = () => {
+    if (state.view === 'newsession' && WIZARD_STEPS[state.wizardStep]?.key === 'program') renderWizard();
+  };
+  const discardStale = () => {
+    if (current()) return false;
+    if (state.programSearch === pending) {
+      state.programSearch = { status: 'idle', records: [], total: 0, error: null };
+      renderCurrent();
+    }
+    return true;
+  };
+  renderCurrent();
+  try {
+    const result = await state.durable.programs({ ...query, page });
+    if (discardStale()) return;
+    state.programSearch = { status: 'ready', records: result.records || [], total: result.total || 0,
+      page: result.page, pageSize: result.pageSize, totalPages: result.totalPages,
+      error: null, registryReleaseId: result.registryReleaseId };
+  } catch (error) {
+    if (discardStale()) return;
+    state.programSearch = { status: 'error', records: [], total: 0, error: programSearchFailureCopy(error) };
+  }
+  renderCurrent();
+}
+
 function renderProgramStep(host) {
   let searchButton;
+  const list = el('div', 'canon-program-results');
+  const invalidateSearch = () => {
+    state.wizard.programId = null; state.wizard.programReleaseId = null; state.wizard.programVerified = false;
+    state.wizard.contextSources = state.wizard.contextSources.filter((entry) => entry !== 'RISE');
+    state.programSearch = { status: 'idle', records: [], total: 0, error: null };
+    list.replaceChildren();
+    renderProgramSelection(result);
+    updateProgramSearchAvailability();
+  };
   const updateProgramSearchAvailability = () => {
     if (!searchButton) return;
     searchButton.disabled = state.programSearch.status === 'loading' || !state.durableAvailable
@@ -1364,10 +1411,7 @@ function renderProgramStep(host) {
   const input = el('input'); input.type = 'search'; input.placeholder = 'Search program name…'; input.value = state.wizard.program;
   input.addEventListener('input', () => {
     state.wizard.program = input.value;
-    state.wizard.programId = null; state.wizard.programReleaseId = null; state.wizard.programVerified = false;
-    state.wizard.contextSources = state.wizard.contextSources.filter((entry) => entry !== 'RISE');
-    state.programSearch = { status: 'idle', records: [], total: 0, error: null };
-    updateProgramSearchAvailability();
+    invalidateSearch();
   }); search.append(input); host.append(search);
   input.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter') return;
@@ -1379,64 +1423,62 @@ function renderProgramStep(host) {
     const label = el('label', 'canon-field'); label.append(el('span', '', labelText)); const select = el('select');
     select.append(new Option(placeholder, ''));
     values.split(',').forEach((value) => select.append(new Option(value, value)));
+    if (state.wizard[key] && !values.split(',').includes(state.wizard[key])) select.append(new Option(state.wizard[key], state.wizard[key]));
     select.value = state.wizard[key]; select.addEventListener('change', () => {
       state.wizard[key] = select.value;
-      state.wizard.programId = null; state.wizard.programReleaseId = null; state.wizard.programVerified = false;
-      state.wizard.contextSources = state.wizard.contextSources.filter((entry) => entry !== 'RISE');
-      state.programSearch = { status: 'idle', records: [], total: 0, error: null };
-      updateProgramSearchAvailability();
+      invalidateSearch();
     }); label.append(select); filters.append(label);
   });
   host.append(filters);
   const searchActions = el('div', 'canon-inline-actions');
   host.append(el('p', 'canon-muted', 'Program context is optional. Choose a program for targeted preparation, or continue without one for general practice.'));
-  searchButton = choiceButton({ className: 'btn btn-primary', label: state.programSearch.status === 'loading' ? 'Searching…' : 'Search verified programs', onClick: async () => {
-    if (state.programSearch.status === 'loading') return;
-    state.programSearch = { status: 'loading', records: [], total: 0, error: null };
-    renderWizard();
-    try {
-      const result = await state.durable.programs({
-        q: state.wizard.program,
-        specialty: state.wizard.programSpecialty,
-        jurisdiction: state.wizard.programState,
-        programType: state.wizard.programType,
-      });
-      state.programSearch = { status: 'ready', records: result.records || [], total: result.total || 0, error: null, registryReleaseId: result.registryReleaseId };
-    } catch (error) {
-      state.programSearch = { status: 'error', records: [], total: 0, error: programSearchFailureCopy(error) };
-    }
-    renderWizard();
-  } });
+  searchButton = choiceButton({ className: 'btn btn-primary', label: state.programSearch.status === 'loading' ? 'Searching…' : 'Search verified programs', onClick: () => searchProgramPage(1) });
   updateProgramSearchAvailability();
   searchActions.append(searchButton); host.append(searchActions);
 
   if (state.programSearch.status === 'ready') {
-    const list = el('div', 'canon-program-results');
-    list.append(el('div', 'microcap', `${state.programSearch.total} verified result${state.programSearch.total === 1 ? '' : 's'}`));
+    const receipt = state.programSearch;
+    const page = receipt.page || 1;
+    list.append(el('div', 'microcap', `${receipt.total} verified result${receipt.total === 1 ? '' : 's'} · Page ${page} of ${receipt.totalPages || 1}`));
     for (const program of state.programSearch.records) {
       list.append(choiceButton({
         className: 'canon-program-result', selected: state.wizard.programId === program.id,
         label: program.name,
         detail: [program.specialty, [program.city, program.state].filter(Boolean).join(', '), program.programType].filter(Boolean).join(' · '),
         onClick: () => {
+          if (state.programSearch !== receipt) return;
           state.wizard.program = program.name;
           state.wizard.programId = program.id;
-          state.wizard.programReleaseId = state.programSearch.registryReleaseId;
+          state.wizard.programReleaseId = receipt.registryReleaseId;
           state.wizard.programVerified = true;
           state.wizard.programSpecialty = program.specialty || state.wizard.programSpecialty;
           state.wizard.programState = program.state || state.wizard.programState;
           state.wizard.programType = program.programType || state.wizard.programType;
           state.wizard.contextSources = [...new Set([...state.wizard.contextSources, 'RISE'])];
+          state.programSearch = { status: 'idle', records: [], total: 0, error: null };
           renderWizard();
         },
       }));
     }
     if (!state.programSearch.records.length) list.append(el('p', 'canon-muted', 'No verified programs matched. Refine the name, specialty, or state, or continue with a clearly labeled manual entry.'));
-    host.append(list);
+    if (receipt.totalPages > 1) {
+      const pages = el('div', 'canon-inline-actions');
+      const previous = choiceButton({ className: 'btn btn-secondary', label: 'Previous programs', onClick: () => { if (state.programSearch === receipt) return searchProgramPage(page - 1); } });
+      previous.disabled = page <= 1;
+      const next = choiceButton({ className: 'btn btn-secondary', label: 'Next programs', onClick: () => { if (state.programSearch === receipt) return searchProgramPage(page + 1); } });
+      next.disabled = page >= receipt.totalPages;
+      pages.append(previous, next); list.append(pages);
+    }
   } else if (state.programSearch.status === 'error') {
-    host.append(el('p', 'unavailable', state.programSearch.error));
+    list.append(el('p', 'unavailable', state.programSearch.error));
   }
+  host.append(list);
   const result = el('div', 'canon-program-result');
+  renderProgramSelection(result); host.append(result); renderProgramCalendar(host);
+}
+
+function renderProgramSelection(result) {
+  result.replaceChildren();
   result.append(el('div', 'microcap', state.wizard.programVerified ? 'Verified RISE program selected' : state.wizard.program ? 'Manual program entry' : 'Program search'));
   result.append(el('h3', '', state.wizard.program || 'Choose a program or enter one manually'));
   result.append(el('p', 'canon-muted', state.wizard.programVerified
@@ -1448,7 +1490,7 @@ function renderProgramStep(host) {
   ['Training focus', 'Leadership and interviewers', 'Curriculum and pathways', 'Research, facilities, and fellowships'].forEach((fact) => {
     const row = el('div'); row.append(el('strong', '', fact), el('span', '', state.wizard.programVerified ? 'Authorized detail will hydrate when the interview session begins.' : 'Not available until a verified program is selected.')); facts.append(row);
   });
-  result.append(facts); host.append(result); renderProgramCalendar(host);
+  result.append(facts);
 }
 
 function renderEnvironmentStep(host) {

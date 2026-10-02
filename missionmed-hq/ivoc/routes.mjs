@@ -1052,6 +1052,10 @@ export function createIvocHandler({
       }
 
       if (request.method === 'GET' && pathname === `${API_PREFIX}/programs/search`) {
+        const pageText = url.searchParams.get('page') ?? '1';
+        if (!/^[1-9][0-9]{0,4}$/u.test(pageText) || Number(pageText) > 10_000) {
+          sendError(response, 400, 'ivoc_rise_search_invalid', mediaBase); return true;
+        }
         if (!riseSource) {
           sendError(response, 503, 'ivoc_rise_unavailable', mediaBase); return true;
         }
@@ -1065,6 +1069,7 @@ export function createIvocHandler({
           specialty: safeText(url.searchParams.get('specialty'), 160),
           jurisdiction: safeText(url.searchParams.get('jurisdiction'), 160),
           programType: safeText(url.searchParams.get('programType'), 160),
+          page: Number(pageText),
         });
         await audit({ actor, owner: actor, action: 'rise_program_search', decision: 'allow', reason: `${result.records.length}_of_${result.total}` });
         sendJson(response, 200, result, mediaBase); return true;

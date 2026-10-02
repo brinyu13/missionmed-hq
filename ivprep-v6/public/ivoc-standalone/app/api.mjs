@@ -74,11 +74,12 @@ export class IvocApi {
   session(sessionId) { return json(`/sessions/${encodeURIComponent(sessionId)}`); }
   playback(recordingId, disposition = 'inline') { return json(`/recordings/${encodeURIComponent(recordingId)}/playback-url?disposition=${encodeURIComponent(disposition)}`); }
   questions() { return json('/questions'); }
-  searchPrograms({ q = '', specialty = '', jurisdiction = '', programType = '' } = {}) {
+  searchPrograms({ q = '', specialty = '', jurisdiction = '', programType = '', page = 1 } = {}) {
     const params = new URLSearchParams();
     for (const [name, value] of Object.entries({ q, specialty, jurisdiction, programType })) {
       if (String(value || '').trim()) params.set(name, String(value).trim());
     }
+    params.set('page', String(page));
     return json(`/programs/search?${params.toString()}`);
   }
   adminConfig() { return json('/admin/config'); }

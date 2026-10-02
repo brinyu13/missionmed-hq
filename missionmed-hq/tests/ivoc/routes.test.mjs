@@ -421,7 +421,7 @@ test('authenticated program search proxies the bounded RISE owner result without
     fetchImpl: async (url, init) => {
       calls.push({ url: String(url), init });
       return new Response(JSON.stringify({
-        registryReleaseId: 'rise_registry_20260920_0123456789ab', total: 1,
+        registryReleaseId: 'rise_registry_20260920_0123456789ab', total: 13, page: 2, pageSize: 12,
         records: [{ programSpecialtyId: 'rise_ps_program_1', display: { programName: 'Example Residency', state: 'New York' }, designation: 'Internal Medicine', evidence: { coveragePercent: 55 } }],
       }), { status: 200 });
     },
@@ -434,7 +434,7 @@ test('authenticated program search proxies the bounded RISE owner result without
   await route({
     ...base,
     request: request('GET', null, { cookie: `mmhq_session=${'s'.repeat(32)}` }), response,
-    url: new URL('https://hq.test/api/ivoc/v1/programs/search?q=example&specialty=Internal%20Medicine'), hqSession: session(),
+    url: new URL('https://hq.test/api/ivoc/v1/programs/search?q=example&specialty=Internal%20Medicine&page=2'), hqSession: session(),
   });
   assert.equal(response.status, 200);
   assert.equal(response.json().records[0].name, 'Example Residency');
@@ -442,6 +442,16 @@ test('authenticated program search proxies the bounded RISE owner result without
   assert.equal(response.json().registryReleaseId, 'rise_registry_20260920_0123456789ab');
   assert.match(calls[0].url, /\/api\/rise\/v1\/programs\?q=example&specialty=Internal\+Medicine/u);
   assert.doesNotMatch(response.body, /rise\.example\.test/u);
+  assert.equal(response.json().page, 2);
+  assert.equal(response.json().totalPages, 2);
+  assert.match(calls[0].url, /page=2&pageSize=12/u);
+  for (const page of ['0', '-1', '1.5', '2abc', '10001', '']) {
+    const denied = new ResponseCapture();
+    await route({ ...base, request: request('GET', null, { cookie: `mmhq_session=${'s'.repeat(32)}` }), response: denied,
+      url: new URL(`https://hq.test/api/ivoc/v1/programs/search?page=${encodeURIComponent(page)}`), hqSession: session() });
+    assert.equal(denied.status, 400);
+  }
+  assert.equal(calls.length, 1);
 });
 
 test('question catalog exposes active overrides to students and all lifecycle states to Admins', async () => {

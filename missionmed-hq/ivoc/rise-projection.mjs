@@ -70,14 +70,15 @@ export function createRiseProgramProjectionSource({
   const boundedTimeout = Math.max(250, Math.min(10_000, Math.trunc(Number(timeoutMs) || DEFAULT_TIMEOUT_MS)));
 
   return Object.freeze({
-    async search({ sessionCookie, q = '', specialty = '', jurisdiction = '', programType = '' } = {}) {
+    async search({ sessionCookie, q = '', specialty = '', jurisdiction = '', programType = '', page = 1 } = {}) {
       const expectedPrefix = `${sessionCookieName}=`;
       const cookie = String(sessionCookie || '');
       if (!cookie.startsWith(expectedPrefix) || !COOKIE_VALUE.test(cookie.slice(expectedPrefix.length))) {
         throw new TypeError('ivoc_rise_authorization_required');
       }
       const inputs = { q, specialty, jurisdiction, programType };
-      if (Object.values(inputs).some((value) => !SEARCH_TEXT.test(String(value || '')))) {
+      if (!Number.isSafeInteger(page) || page < 1 || page > 10_000
+          || Object.values(inputs).some((value) => !SEARCH_TEXT.test(String(value || '')))) {
         throw new TypeError('ivoc_rise_search_invalid');
       }
       const controller = new AbortController();
@@ -88,7 +89,7 @@ export function createRiseProgramProjectionSource({
           const clean = String(value || '').trim();
           if (clean) url.searchParams.set(name, clean);
         }
-        url.searchParams.set('page', '1');
+        url.searchParams.set('page', String(page));
         url.searchParams.set('pageSize', '12');
         const response = await fetchImpl(url, {
           method: 'GET', redirect: 'error', cache: 'no-store',
@@ -102,7 +103,9 @@ export function createRiseProgramProjectionSource({
         if (!body || Buffer.byteLength(body, 'utf8') > MAX_RESPONSE_BYTES) throw new TypeError('ivoc_rise_search_too_large');
         let payload;
         try { payload = JSON.parse(body); } catch { throw new TypeError('ivoc_rise_search_invalid'); }
-        if (!OPAQUE_ID.test(String(payload?.registryReleaseId || '')) || !Array.isArray(payload?.records) || payload.records.length > 12) {
+        if (!OPAQUE_ID.test(String(payload?.registryReleaseId || '')) || !Array.isArray(payload?.records) || payload.records.length > 12
+            || (payload.page ?? 1) !== page || (payload.pageSize ?? 12) !== 12
+            || !Number.isSafeInteger(payload.total) || payload.total < 0 || payload.total > 120_000) {
           throw new TypeError('ivoc_rise_search_invalid');
         }
         const records = payload.records.map((record) => {
@@ -126,7 +129,8 @@ export function createRiseProgramProjectionSource({
         });
         return Object.freeze({
           registryReleaseId: payload.registryReleaseId,
-          total: Number.isSafeInteger(payload.total) && payload.total >= 0 ? payload.total : records.length,
+          page, pageSize: 12, totalPages: Math.max(1, Math.ceil(payload.total / 12)),
+          total: payload.total,
           records: Object.freeze(records),
         });
       } finally {

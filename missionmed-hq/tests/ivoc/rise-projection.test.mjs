@@ -75,6 +75,33 @@ test('search returns only a bounded IVOC program selection projection', async ()
     specialty: 'Internal Medicine', programType: 'University', evidenceCoveragePercent: 62,
   });
   assert.equal(result.registryReleaseId, RELEASE_ID);
+  assert.equal(result.page, 1);
+  assert.equal(result.pageSize, 12);
+  assert.equal(result.totalPages, 1);
+});
+
+test('program pagination preserves filters, fixed response bounds and exact owner page', async () => {
+  let called = 0;
+  const payload = { registryReleaseId: RELEASE_ID, page: 2, pageSize: 12, total: 44,
+    records: [{ programSpecialtyId: PROGRAM_ID, display: { programName: 'Page two program' } }] };
+  const source = createRiseProgramProjectionSource({ riseBase: 'https://rise.test', fetchImpl: async url => {
+    called++;
+    assert.equal(url.searchParams.get('page'), '2');
+    assert.equal(url.searchParams.get('pageSize'), '12');
+    assert.equal(url.searchParams.get('q'), 'suny');
+    assert.equal(url.searchParams.get('programType'), 'University');
+    return new Response(JSON.stringify(payload));
+  } });
+  const input = { sessionCookie: `mmhq_session=${'s'.repeat(32)}`, q: 'suny', programType: 'University', page: 2 };
+  const result = await source.search(input);
+  assert.equal(result.page, 2); assert.equal(result.totalPages, 4);
+  assert.equal(result.records[0].id, PROGRAM_ID);
+  for (const page of [0, -1, 1.5, '2', 10_001, NaN]) await assert.rejects(() => source.search({ ...input, page }), /search_invalid/);
+  assert.equal(called, 1);
+  for (const change of [{ page: 1 }, { page: undefined }, { pageSize: 24 }, { total: -1 }, { total: 120_001 }]) {
+    const bad = createRiseProgramProjectionSource({ riseBase: 'https://rise.test', fetchImpl: async () => new Response(JSON.stringify({ ...payload, ...change })) });
+    await assert.rejects(() => bad.search(input), /search_invalid/);
+  }
 });
 
 test('rejects missing authorization, wrong subjects, named people fields, and oversized responses', async () => {

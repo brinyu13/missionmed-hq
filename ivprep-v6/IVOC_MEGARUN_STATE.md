@@ -14,6 +14,21 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Program search source correction, epoch 4100:** current Founder production
+  POV found 44 RISE matches but only the first 12 could be reached. IVOC now uses
+  the existing owner's bounded page contract, exposes Previous/Next with truthful
+  totals, preserves exact selected identity/release, and rejects stale search or
+  role/account/setup responses. Query edits clear old clickable results and stale
+  verified-selection copy. No RISE owner, auth, database, provider or media change.
+  57 focused route/adapter/actual-renderer checks plus 28 presentation compatibility
+  checks PASS. Fresh independent source PASS includes reaching result 44 and
+  exact release selection. Deployment/live POV pending; physical media is not
+  inferred from these checks. Rollback remains `f70752f` / `86e37b65` below.
+- **Next executable setup corrections:** independent actual-handler/payload
+  review found hidden pressure surviving Individual Question selection, Guided
+  Practice focus not reaching the interviewer, and an earlier room Analytics
+  override masking a new explicit Builder mode. These are executable fixes,
+  separate from the unchanged physical camera/genuine speech evidence wait.
 - **CURRENT PRODUCTION / Compare freshness LIVE DEPLOYED:** source
   `f70752f9cb17da205e796409d329e633f72246bf`, deployment
   `86e37b65-b79a-464f-a4d7-cb04d5c873ae` SUCCESS, image
