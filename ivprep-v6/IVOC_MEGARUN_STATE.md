@@ -14,6 +14,18 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Cold-review / prior-context candidate:** own Results and Film Room now retain
+  an exact saved-attempt hash across reload; fresh own-Library membership and
+  detail authorization are required, Admin subject/media credentials never enter
+  the URL, and replay reopens paused. Actual boot, stale-navigation and review
+  isolation tests pass. Prior-IVOC context accepts only fresh source-revalidated
+  Self Practice evidence, explicit current opt-in and cited recurrence across two
+  distinct saved sessions; old mixed/AI/legacy analyses remain excluded. The native
+  REST adapter now permits GET-only reads of sessions/results/recordings, with
+  actual-class negative-write and real resolver traversal regressions. Worker
+  `ad5e38e` (146 focused checks) plus integrator `94e606d`; no positive genuine
+  recurrence or audible conversation acceptance claimed. Current healthy rollback
+  remains `c07ef41` / `9f745595` while this candidate is reviewed and deployed.
 - **Provisional-evidence release live:** source
   `c07ef410a06851b7eabc993347cfa0471dc25950`, deployment
   `9f745595-29fc-4a95-b2bf-c577c48f9d45` SUCCESS, image
