@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { runInNewContext } from 'node:vm';
+import { parseSavedReviewRoute, resolveOwnSavedReview } from '../../public/studio/review-scope.mjs';
 
 const htmlUrl = new URL('../../public/studio/index.html', import.meta.url);
 const legacyHtmlUrl = new URL('../../public/aaa/index.html', import.meta.url);
@@ -19,6 +20,43 @@ const liveCompatibility = await readFile(liveCompatibilityUrl, 'utf8');
 const adminLibrary = await readFile(adminLibraryUrl, 'utf8');
 
 const digest = (value) => createHash('sha256').update(value).digest('hex');
+
+test('actual production boot restores only the exact own review and opens Film Room paused', async () => {
+  const id = '4f708360-6a76-477d-a927-caca2989800d';
+  const start = runtime.indexOf('async function boot()');
+  const end = runtime.indexOf('\nvoid boot();', start);
+  for (const navigateAway of [false, true]) {
+    const calls = [];
+    const location = { hash: `#filmroom?session=${id}` };
+    const detail = { session: { id }, results: { payload: { analytics: { durationMs: 11085 } } } };
+    const state = { role: 'student', view: 'home', filmGroups: { ingestResult() {} }, durable: {
+      ready: true, bootstrap: async () => {},
+      library: async scope => { calls.push(['library', scope]); if (navigateAway) location.hash = '#newsession';
+        return { sessions: [{ id, results: {} }] }; },
+      api: { session: async value => { calls.push(['session', value]); return detail; } },
+    } };
+    const noop = () => {};
+    const context = { state, location, adminReviewViewGeneration: 0, parseSavedReviewRoute, resolveOwnSavedReview,
+      wireChrome: noop, applyRole: role => { state.role = role; }, wireCockpit: noop, startAudioDebug: noop,
+      collectionChips: noop, renderQuestions: noop, renderSet: noop, renderWizard: noop, renderLoadoutConfig: noop,
+      renderPostAnswer: noop, renderHomeCorpus: noop, renderDeviceCheck: noop, refreshDevices: async () => {},
+      navigator: {}, window: { addEventListener: noop }, document: { addEventListener: noop },
+      loadIvPrepSession: async () => ({ admitted: true, runtime: { mode: 'hosted' } }),
+      applyIdentity: noop, applyHomeModel: noop, refreshQuestionGovernance: async () => {}, hydrateHome: async () => {},
+      wireLiveInterview: noop, mountAnalytics: async () => {}, presentFilmRoomAnalytics: value => value,
+      renderContextEvidence: noop, contextResultFromSessionSpine: value => value,
+      setView: view => { calls.push(['view', view]); location.hash = `#${view}`; },
+      openLastSavedFilmRoom: async (_, options) => calls.push(['filmroom', options.autoplay, options.expectedSaved.session.id]),
+      CRUMBS: { home: 'Home', newsession: 'Build' },
+    };
+    const boot = runInNewContext(`${runtime.slice(start, end)}; boot`, context);
+    await boot();
+    assert.deepEqual(calls, navigateAway ? [['library', 'own']] : [
+      ['library', 'own'], ['session', id], ['view', 'postanswer'], ['filmroom', false, id],
+    ]);
+    assert.equal(state.lastSaved?.session?.id, navigateAway ? undefined : id);
+  }
+});
 
 test('ready transcript action does not display source-unavailable copy before it is requested', () => {
   const start = runtime.indexOf('function renderContextEvidence(result)');
