@@ -142,6 +142,41 @@ export async function handleUsceAdminOfferRoute(request, response, url, context 
   if (!route) return false;
 
   const authHeaders = context.authHeaders || {};
+  if (route.action === 'send_state' || route.action === 'send_reconcile') {
+    if (request.method !== (route.action === 'send_state' ? 'GET' : 'POST')) {
+      sendMethodNotAllowed(response, [route.action === 'send_state' ? 'GET' : 'POST'], authHeaders);
+      return true;
+    }
+    if (route.action === 'send_state') {
+      sendRoutePayload(response, await callOfferRpc({rpcName:'usce_send_state',body:{p_offer_id:route.offerId},action:'send_state'}), authHeaders);
+    } else {
+      const payload = await readAdminJsonPayload(request, response, authHeaders);
+      if (payload.ok) sendRoutePayload(response, await reconcileProviderSend(route.offerId,payload.body),authHeaders);
+    }
+    return true;
+  }
+  if (route.action === 'activity') {
+    if (!['GET', 'POST'].includes(request.method)) {
+      sendMethodNotAllowed(response, ['GET', 'POST'], authHeaders);
+      return true;
+    }
+    let event = null;
+    if (request.method === 'POST') {
+      const payload = await readAdminJsonPayload(request, response, authHeaders);
+      if (!payload.ok) return true;
+      event = {
+        kind: sanitizeTokenPart(payload.body.kind, 40),
+        body: sanitizeMultilineText(payload.body.body, 2400),
+        idempotency_key: sanitizeTokenPart(payload.body.idempotency_key, 160),
+      };
+    }
+    sendRoutePayload(response, await callOfferRpc({
+      rpcName: 'usce_case_activity',
+      body: { p_intake_request_id: route.intakeRequestId, p_event: event, p_admin_identity: buildAdminIdentity(context.session) },
+      action: 'case_activity',
+    }), authHeaders);
+    return true;
+  }
   if (route.action === 'comms') {
     if (request.method !== 'GET') {
       sendMethodNotAllowed(response, ['GET'], authHeaders);
@@ -282,6 +317,10 @@ async function updateAdminOfferDraft(offerId, payload, session) {
 
   const offer = normalizeAdminOfferPayload(payload, { requireDraftFields: false });
   if (!offer.ok) return offer;
+  if (!Number.isSafeInteger(payload.expected_revision) || payload.expected_revision < 1) {
+    return badRequest('stale_revision', 'Reload the current offer before saving changes.');
+  }
+  offer.data.expected_revision = payload.expected_revision;
 
   return callOfferRpc({
     rpcName: ADMIN_UPDATE_RPC,
@@ -340,122 +379,178 @@ async function mintAdminOfferToken(offerId, payload, session) {
 }
 
 async function saveAdminMessagePreview(offerId, payload, session) {
-  if (!isUuid(offerId)) {
-    return badRequest('invalid_offer_id', 'USCE offer id must be a UUID.');
-  }
-
-  const message = normalizeOfferMessagePayload(payload);
-  if (!message.ok) return message;
-
-  return callOfferRpc({
-    rpcName: ADMIN_MESSAGE_PREVIEW_RPC,
-    body: {
-      p_offer_id: offerId,
-      p_message: message.data,
-      p_admin_identity: buildAdminIdentity(session),
-    },
+  const proof = await prepareBoundPreview(offerId, payload);
+  if (!proof.ok) return proof;
+  const stored = {...proof.data, body:redactOfferTokens(proof.data.body), rendered_email:{
+    ...proof.data.rendered_email,
+    body:redactOfferTokens(proof.data.rendered_email.body),
+    text_body:redactOfferTokens(proof.data.rendered_email.text_body),
+    html_body:redactOfferTokens(proof.data.rendered_email.html_body),
+  }};
+  const result = await callOfferRpc({
+    rpcName: 'usce_bind_message_preview',
+    body: { p_offer_id: offerId, p_message: stored, p_admin_identity: buildAdminIdentity(session) },
     action: 'offer_message_preview',
   });
+  return result.ok ? {...result,data:{...result.data,rendered_email:proof.data.rendered_email}} : result;
+}
+
+function redactOfferTokens(value) {
+  let text = String(value || '');
+  let decoded = text;
+  try { decoded = decodeURIComponent(text); } catch {}
+  const tokens = decoded.match(/usce_[A-Za-z0-9_-]{32,}/gu) || [];
+  for (const token of tokens) {
+    const pattern = [...token].map(c => '(?:' + c.replace(/[.*+?^$()|[\]\\]/gu,'\\$&') + '|%' + c.charCodeAt(0).toString(16).padStart(2,'0') + ')').join('');
+    text = text.replace(new RegExp(pattern,'giu'),'[secure-offer-token]');
+  }
+  return text;
+}
+
+async function reconcileProviderSend(offerId, payload) {
+  if (!isUuid(payload.claim_id) || (payload.message_id && !isUuid(payload.message_id))) return badRequest('invalid_provider_identity','A valid claim and optional Postmark message ID are required.');
+  const claims = await callOfferRpc({rpcName:'usce_send_state',body:{p_offer_id:offerId},action:'send_state'});
+  const claim=claims.items?.find(c=>c.id===payload.claim_id);
+  if (!claims.ok || !claim) return badRequest('claim_mismatch','This claim does not belong to this offer.');
+  if (claim.mode === 'dry_run' && claim.state === 'claimed') return callOfferRpc({rpcName:'usce_finish_send',body:{p_claim_id:claim.id,p_state:'dry_run'},action:'dry_run_recovery'});
+  const config=getPostmarkConfig();
+  if (!config.token) return {ok:false,httpStatus:503,error:'postmark_readback_unavailable',message:'Provider readback is unavailable. The send remains held.'};
+  try {
+    let messageId=payload.message_id;
+    if (!messageId) {
+      const query=new URLSearchParams({count:'2',offset:'0',metadata_usce_claim_id:claim.id});
+      const found=await fetch('https://api.postmarkapp.com/messages/outbound?'+query,
+        {headers:{Accept:'application/json','X-Postmark-Server-Token':config.token},signal:AbortSignal.timeout(8000)});
+      const matches=await readSupabaseJson(found);
+      if (!found.ok || matches?.TotalCount !== 1 || !isUuid(matches.Messages?.[0]?.MessageID)) {
+        return {ok:false,httpStatus:409,error:'provider_outcome_unresolved',message:'Provider search did not establish one matching message. The attempt remains held; do not resend.'};
+      }
+      messageId=matches.Messages[0].MessageID;
+    }
+    const response=await fetch('https://api.postmarkapp.com/messages/outbound/'+encodeURIComponent(messageId)+'/details',
+      {headers:{Accept:'application/json','X-Postmark-Server-Token':config.token},signal:AbortSignal.timeout(8000)});
+    const provider=await readSupabaseJson(response);
+    if (!response.ok || provider?.Metadata?.usce_claim_id !== payload.claim_id || provider.MessageID !== messageId || provider.Sandboxed === true || !['Sent','Processed','Queued'].includes(provider.Status)) {
+      return badRequest('provider_evidence_mismatch','Provider readback does not match this claim. The send remains held.');
+    }
+    const recipient=Array.isArray(provider.To) ? sanitizeEmail(provider.To[0]?.Email) : sanitizeEmail(provider.To);
+    return callOfferRpc({rpcName:'usce_reconcile_send',body:{
+      p_claim_id:payload.claim_id,p_message_id:messageId,p_evidence:{
+        claim_id:payload.claim_id,provider_message_id:provider.MessageID,recipient,
+        subject:provider.Subject,verified_at:new Date().toISOString(),source:'postmark_authenticated_readback',
+        text_sha256:crypto.createHash('sha256').update(String(provider.TextBody||'')).digest('hex'),
+        html_sha256:crypto.createHash('sha256').update(String(provider.HtmlBody||'')).digest('hex'),
+      }},action:'provider_reconciliation'});
+  } catch {
+    return {ok:false,httpStatus:503,error:'postmark_readback_unavailable',message:'Provider readback failed. The send remains held; do not resend.'};
+  }
+}
+
+async function prepareBoundPreview(offerId, payload) {
+  if (!isUuid(offerId)) return badRequest('invalid_offer_id', 'Offer id must be a UUID.');
+  const message = normalizeOfferMessagePayload(payload);
+  if (!message.ok) return message;
+  if (redactOfferTokens(message.data.subject) !== message.data.subject) {
+    return badRequest('invalid_message_subject', 'Secure offer links belong in the message body, never its subject.');
+  }
+  if (!message.data.to_email) return badRequest('missing_recipient_email', 'Confirm the applicant recipient before preview.');
+  const readback = await getAdminOfferDraft(offerId);
+  if (!readback.ok) return readback;
+  const offer = readback.item;
+  if (!offer || !Number.isSafeInteger(offer.revision)) {
+    return { ok: false, httpStatus: 503, error: 'offer_revision_unavailable', message: 'Current offer revision is unavailable. Nothing was sent.' };
+  }
+  if (sanitizeEmail(offer.intake?.email) !== message.data.to_email) {
+    return badRequest('recipient_mismatch', 'The recipient must match this applicant. Reload the case.');
+  }
+  const tokenHash = offerLinkTokenHash(message.data.body);
+  const rendered = buildBoundOfferEmail(offer, message.data);
+  const proof = { offer_id: offerId, revision: offer.revision, ...message.data, rendered_email: rendered };
+  const previewHash = crypto.createHash('sha256').update(JSON.stringify(proof)).digest('hex');
+  return { ok: true, data: { ...proof, preview_hash: previewHash, link_token_hash: tokenHash } };
+}
+
+function offerLinkTokenHash(body) {
+  for (const candidate of String(body).match(/https:\/\/[^\s<>"')]+/gu) || []) {
+    try {
+      const url = new URL(candidate);
+      if (url.origin === 'https://cdn.missionmedinstitute.com' && url.pathname === '/html-system/LIVE/usce_offer.html') {
+        const token = url.searchParams.get('offer');
+        if (isSafeOfferToken(token)) return hashOfferToken(token);
+      }
+    } catch {}
+  }
+  return null;
+}
+
+function buildBoundOfferEmail(offer, message) {
+  const details = [
+    'Offer revision: ' + offer.revision,
+    'Specialty: ' + (offer.specialty || 'Not specified'),
+    'Location: ' + (offer.location || 'Not specified'),
+    'Timing: ' + (offer.timing || 'Not specified'),
+    'Duration: ' + (offer.duration_weeks ? offer.duration_weeks + ' weeks' : 'Not specified'),
+    'Format: ' + (offer.format || 'Not specified'),
+    'Response deadline: ' + (offer.expires_at ? new Date(offer.expires_at).toISOString() + ' (UTC)' : 'Not specified'),
+  ].join('\n');
+  const textBody = message.body + '\n\n' + details + '\n\nResponding to an offer is separate from payment and placement confirmation. Contact Clinicals with questions: clinicals@missionmedinstitute.com';
+  const htmlBody=textToHtml(textBody);
+  return { to_email: message.to_email, subject: message.subject, body: message.body, text_body: textBody, html_body: htmlBody,
+    text_sha256:crypto.createHash('sha256').update(textBody).digest('hex'),
+    html_sha256:crypto.createHash('sha256').update(htmlBody).digest('hex') };
 }
 
 async function sendAdminOfferMessage(offerId, payload, session, request) {
-  if (!isUuid(offerId)) {
-    return badRequest('invalid_offer_id', 'USCE offer id must be a UUID.');
+  const proof = await prepareBoundPreview(offerId, payload);
+  if (!proof.ok) return proof;
+  if (payload.preview_hash !== proof.data.preview_hash || payload.revision !== proof.data.revision) {
+    return { ok: false, httpStatus: 409, error: 'stale_preview', message: 'The offer or message changed. Review a new preview before sending.' };
   }
-
-  const message = normalizeOfferMessagePayload(payload);
-  if (!message.ok) return message;
-
-  const postmarkConfig = getPostmarkConfig();
-  const idempotencyKey = sanitizeTokenPart(
-    request.headers['x-mm-usce-idempotency-key']
-      || request.headers['idempotency-key']
-      || payload?.idempotency_key
-      || `${offerId}-${message.data.category}-${message.data.variant}`,
-    160,
-  );
-  const liveApproval = payload?.approve_live_send === true;
-
-  if (liveApproval && !postmarkConfig.liveSend) {
-    return {
-      ok: false,
-      httpStatus: 503,
-      error: 'postmark_live_send_not_configured',
-      message: 'USCE offer email live send is not configured. No email was sent.',
-      dry_run: false,
-      reason: postmarkConfig.reason || 'postmark_live_send_disabled',
-    };
+  const idempotencyKey = sanitizeTokenPart(request.headers['x-mm-usce-idempotency-key'] || request.headers['idempotency-key'] || payload.idempotency_key, 160);
+  if (!idempotencyKey) return badRequest('idempotency_key_required', 'A durable send key is required.');
+  const live = payload.approve_live_send === true;
+  const config = getPostmarkConfig();
+  if (live && (!config.ok || !config.liveSend)) {
+    return { ok: false, httpStatus: 503, error: 'postmark_live_send_not_configured', message: 'Live email is unavailable. Nothing was sent.' };
   }
-
-  if (!liveApproval) {
-    return recordOfferSend({
-      offerId,
-      message: message.data,
-      mode: 'dry_run',
-      idempotencyKey,
-      postmarkMessageId: null,
-      session,
-      action: 'offer_postmark_dry_run',
-      extra: {
-        postmark_enabled: postmarkConfig.enabled,
-        postmark_dry_run: postmarkConfig.dryRun,
-        live_send_enabled: postmarkConfig.liveSend,
-        live_send_approval: liveApproval,
-      },
-    });
-  }
-
-  if (!postmarkConfig.ok) {
-    return {
-      ok: false,
-      httpStatus: 503,
-      error: 'postmark_not_configured',
-      message: 'USCE Postmark live send is gated but server configuration is incomplete.',
-      dry_run: false,
-      reason: postmarkConfig.reason,
-    };
-  }
-
-  const renderedMessage = buildOfferEmailPresentation({ offerId, message: message.data });
-  const liveResult = await sendPostmarkEmailWithRetry({
-    token: postmarkConfig.token,
-    fromEmail: postmarkConfig.fromEmail,
-    replyTo: postmarkConfig.replyTo,
-    toEmail: message.data.to_email,
-    subject: message.data.subject,
-    body: renderedMessage.textBody,
-    htmlBody: renderedMessage.htmlBody,
+  const claim = await callOfferRpc({
+    rpcName: 'usce_claim_send',
+    body: { p_offer_id: offerId, p_preview_hash: proof.data.preview_hash, p_revision: proof.data.revision, p_idempotency_key: idempotencyKey, p_mode: live ? 'live' : 'dry_run', p_admin_identity: buildAdminIdentity(session) },
+    action: 'offer_send_claim',
   });
-
-  if (!liveResult.ok) {
-    return liveResult;
+  if (!claim.ok) return claim;
+  const state = claim.data?.claim;
+  if (!state?.id) return { ok: false, httpStatus: 503, error: 'send_claim_unavailable', message: 'Send state is unavailable. Nothing was sent.' };
+  if (!claim.data.claimed) {
+    if (['claimed', 'ambiguous'].includes(state.state)) {
+      return { ok: false, httpStatus: 409, error: 'send_requires_reconciliation', message: 'This attempt may have reached the provider. Check its send state before retrying.', data: { claim: state } };
+    }
+    if (state.state === 'failed') {
+      return { ok: false, httpStatus: 409, error: 'previous_send_failed', message: 'The provider rejected this attempt. Review its recorded result before a new attempt.', data: { claim: state } };
+    }
+    return { ...claim, idempotent: true, dry_run: state.mode === 'dry_run', mode: state.mode, item: claim.data.item };
   }
-
-  return recordOfferSend({
-    offerId,
-    message: { ...message.data, from_email: postmarkConfig.fromEmail },
-    mode: 'live',
-    idempotencyKey,
-    postmarkMessageId: liveResult.message_id,
-    session,
-    action: 'offer_postmark_live_send',
-    extra: { postmark_enabled: true, postmark_dry_run: false, live_send_enabled: true },
+  const mail = proof.data.rendered_email;
+  if (!mail || mail.to_email !== proof.data.to_email) {
+    // Claim remains held: no provider attempt and no unsafe retry.
+    return { ok: false, httpStatus: 503, error: 'send_claim_payload_unavailable', message: 'The durable send payload needs review.' };
+  }
+  const outcome = live ? await sendPostmarkEmail({
+    token: config.token, fromEmail: config.fromEmail, replyTo: config.replyTo,
+    toEmail: mail.to_email, subject: mail.subject, body: mail.text_body, htmlBody: mail.html_body,
+    claimId: state.id, revision: state.revision,
+  }) : { ok: true, state: 'dry_run', message_id: null };
+  const recorded = await callOfferRpc({
+    rpcName: 'usce_finish_send',
+    body: { p_claim_id: state.id, p_state: outcome.ok ? (live ? 'provider_accepted' : 'dry_run') : outcome.ambiguous ? 'ambiguous' : 'failed',
+      p_message_id: outcome.message_id || null, p_reason: outcome.error || null },
+    action: live ? 'offer_provider_outcome' : 'offer_dry_run',
   });
-}
-
-async function recordOfferSend({ offerId, message, mode, idempotencyKey, postmarkMessageId, session, action, extra = {} }) {
-  return callOfferRpc({
-    rpcName: ADMIN_POSTMARK_SEND_RPC,
-    body: {
-      p_offer_id: offerId,
-      p_message: { ...message, ...extra },
-      p_mode: mode,
-      p_idempotency_key: idempotencyKey || null,
-      p_postmark_message_id: postmarkMessageId || null,
-      p_admin_identity: buildAdminIdentity(session),
-    },
-    action,
-  });
+  if (!recorded.ok) {
+    return { ok: false, httpStatus: 503, error: 'send_requires_reconciliation', message: 'The attempt is durably claimed but its outcome could not be recorded. Do not resend.', data: { claim_id: state.id } };
+  }
+  if (!outcome.ok) return { ...outcome, data: recorded.data, message: outcome.ambiguous ? 'The provider outcome is uncertain. This attempt is held for reconciliation; do not resend.' : 'The provider rejected the attempt. Its failure is recorded.' };
+  return recorded;
 }
 
 async function getAdminOfferComms(offerId, searchParams) {
@@ -698,7 +793,10 @@ async function callOfferRpc({ rpcName, body, action, publicRequest = false }) {
     };
   }
 
-  const response = await fetch(`${config.supabaseUrl}/rest/v1/rpc/${rpcName}`, {
+  let response;
+  try {
+  response = await fetch(`${config.supabaseUrl}/rest/v1/rpc/${rpcName}`, {
+    signal: AbortSignal.timeout(8000),
     method: 'POST',
     headers: buildSupabaseHeaders(config.serviceKey, {
       'Content-Type': 'application/json',
@@ -706,6 +804,9 @@ async function callOfferRpc({ rpcName, body, action, publicRequest = false }) {
     body: JSON.stringify(body),
   });
 
+  } catch {
+    return { ok:false, httpStatus:503, error:"usce_storage_unavailable", message:"Storage could not confirm this action. Reload its durable state before retrying." };
+  }
   const payload = await readSupabaseJson(response);
   if (response.ok && payload && typeof payload === 'object') {
     if (payload.ok === false) {
@@ -743,6 +844,11 @@ function mapRpcError(payload, publicRequest) {
     already_responded: 409,
     invalid_state: 409,
     invalid_action: 400,
+    stale_revision: 409,
+    stale_preview: 409,
+    idempotency_conflict: 409,
+    send_requires_reconciliation: 409,
+    recipient_mismatch: 409,
   };
   return {
     ok: false,
@@ -780,6 +886,10 @@ function getSupabaseOfferConfig() {
 
 function getAdminOfferRoute(pathname) {
   const normalized = normalizePathname(pathname);
+  const sending = normalized.match(/^\/api\/usce\/admin\/offers\/([^/]+)\/(send-state|send-reconcile)$/u);
+  if (sending && isUuid(sending[1])) return {action:sending[2].replace('-','_'),offerId:sending[1]};
+  const activity = normalized.match(/^\/api\/usce\/admin\/requests\/([^/]+)\/activity$/u);
+  if (activity && isUuid(activity[1])) return { action: 'activity', intakeRequestId: activity[1] };
   let match = normalized.match(/^\/api\/usce\/admin\/intake-requests\/([^/]+)\/offer-draft$/u);
   if (match) {
     return { action: 'create', intakeRequestId: match[1] };
@@ -1220,84 +1330,28 @@ function extractUrl(body, contains) {
   return found || candidates[0] || '';
 }
 
-async function sendPostmarkEmailWithRetry(message) {
-  let lastResult = { ok: false, reason: 'postmark_not_attempted', retryable: true };
-
-  for (let attempt = 1; attempt <= POSTMARK_MAX_ATTEMPTS; attempt += 1) {
-    lastResult = await sendPostmarkEmail(message);
-    if (lastResult.ok || !lastResult.retryable || attempt === POSTMARK_MAX_ATTEMPTS) {
-      return { ...lastResult, attempts: attempt };
-    }
-    await sleep(POSTMARK_RETRY_BASE_MS * attempt);
-  }
-
-  return { ...lastResult, attempts: POSTMARK_MAX_ATTEMPTS };
-}
-
-async function sendPostmarkEmail({ token, fromEmail, replyTo, toEmail, subject, body, htmlBody }) {
-  if (!sanitizeEmail(toEmail)) {
-    return {
-      ok: false,
-      httpStatus: 400,
-      error: 'missing_recipient_email',
-      message: 'A live USCE offer email requires an explicit valid recipient email.',
-      retryable: false,
-    };
-  }
-
+async function sendPostmarkEmail({ token, fromEmail, replyTo, toEmail, subject, body, htmlBody, claimId, revision }) {
   let response;
   try {
     response = await fetch(POSTMARK_API_URL, {
       method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        'X-Postmark-Server-Token': token,
-      },
-      body: JSON.stringify({
-        From: formatPostmarkFromHeader(fromEmail),
-        To: toEmail,
-        ReplyTo: replyTo || DEFAULT_POSTMARK_REPLY_TO,
-        Subject: subject,
-        TextBody: body,
-        HtmlBody: htmlBody || textToHtml(body),
-        MessageStream: 'outbound',
-        Tag: 'usce-offer',
-      }),
+      signal: AbortSignal.timeout(12000),
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-Postmark-Server-Token': token },
+      body: JSON.stringify({ From: formatPostmarkFromHeader(fromEmail), To: toEmail,
+        ReplyTo: replyTo || DEFAULT_POSTMARK_REPLY_TO, Subject: subject, TextBody: body,
+        HtmlBody: htmlBody, MessageStream: 'outbound', Tag: 'usce-offer',
+        Metadata: { usce_claim_id: claimId, usce_revision: String(revision) } }),
     });
+    const payload = await readSupabaseJson(response);
+    if (response.ok && payload?.ErrorCode === 0 && sanitizeText(payload.MessageID, 180)) {
+      return { ok: true, message_id: sanitizeText(payload.MessageID, 180), attempts: 1 };
+    }
+    const ambiguous = response.status >= 500 || (response.ok && !payload?.MessageID);
+    return { ok: false, httpStatus: 502, error: ambiguous ? 'postmark_outcome_unknown' : 'postmark_rejected',
+      ambiguous, retryable: false, attempts: 1, statusCode: response.status };
   } catch {
-    return {
-      ok: false,
-      httpStatus: 502,
-      error: 'postmark_network_error',
-      message: 'Postmark could not be reached for the USCE offer email.',
-      reason: 'postmark_network_error',
-      retryable: true,
-    };
+    return { ok: false, httpStatus: 502, error: 'postmark_outcome_unknown', ambiguous: true, retryable: false, attempts: 1 };
   }
-
-  const payload = await readSupabaseJson(response);
-  if (!response.ok) {
-    return {
-      ok: false,
-      httpStatus: 502,
-      error: 'postmark_send_failed',
-      message: 'Postmark rejected the USCE offer email.',
-      reason: sanitizeText(payload?.ErrorCode || payload?.Message || response.status, 160),
-      retryable: response.status === 429 || response.status >= 500,
-      statusCode: response.status,
-    };
-  }
-
-  return {
-    ok: true,
-    message_id: sanitizeText(payload?.MessageID || payload?.MessageId || '', 180),
-    retryable: false,
-  };
-}
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function textToHtml(value) {

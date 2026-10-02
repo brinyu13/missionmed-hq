@@ -1,9 +1,18 @@
 <!DOCTYPE html>
+<!--
+  CX-OFFER-330
+  Refined USCE offer template wired to existing Railway protected USCE contracts.
+  Browser code uses only Railway endpoints with credentials/CSRF; no direct Supabase,
+  no service-role exposure, no WooCommerce order creation, no LearnDash enrollment,
+  and no live external email without the existing backend gates.
+-->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MissionMed Clinicals HQ - Offer System v500</title>
+<meta name="missionmed-app" content="usce-admin-offer-engine">
+<meta name="missionmed-version" content="CX-OFFER-330">
+<title>MissionMed Clinicals HQ - Offer System</title>
 <style>
 .mm-cx, .mm-cx *, .mm-cx *::before, .mm-cx *::after { box-sizing: border-box; }
 .mm-cx {
@@ -39,22 +48,11 @@
 .mm-cx .mm-viewswitch button:hover { background: var(--mm-paper); }
 .mm-cx .mm-viewswitch button.is-active { background: linear-gradient(135deg, var(--mm-navy) 0%, var(--mm-navy-3) 100%); color: #fff; box-shadow: 0 6px 14px rgba(15,42,68,0.25); }
 .mm-cx .mm-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--mm-gold); box-shadow: 0 0 0 3px rgba(201,162,75,0.18); }
-.mm-cx[data-mode="admin"] .mm-viewswitch button[data-view="student"],
-.mm-cx[data-mode="admin"] .mm-viewswitch button[data-view="portal"] { display: none; }
-.mm-cx[data-mode="admin"] [data-panel="student"],
-.mm-cx[data-mode="admin"] [data-panel="portal"] { display: none !important; }
-
-.mm-cx .mm-runtime {
-  margin-bottom: 14px; background: #fff; border: 1px solid var(--mm-line); border-radius: 12px;
-  padding: 10px 12px; box-shadow: var(--mm-shadow);
-  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-}
-.mm-cx .mm-runtime-left { display: grid; gap: 2px; }
-.mm-cx .mm-runtime-title { font-size: 12px; font-weight: 700; color: var(--mm-navy); letter-spacing: .06em; text-transform: uppercase; }
-.mm-cx .mm-runtime-status { font-size: 13px; font-weight: 600; color: var(--mm-ink); }
-.mm-cx .mm-runtime-meta { font-size: 11px; color: var(--mm-muted); }
-.mm-cx .mm-runtime-actions { display: inline-flex; gap: 8px; flex-wrap: wrap; }
-.mm-cx .mm-btn.mm-btn-sm { padding: 7px 10px; font-size: 12px; border-radius: 9px; }
+.mm-cx .mm-runtime { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.mm-cx .mm-runtime-pill { display:inline-flex; align-items:center; gap:7px; border:1px solid var(--mm-line-2); background:#fff; color:var(--mm-navy); border-radius:999px; padding:8px 11px; font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; box-shadow:var(--mm-shadow); }
+.mm-cx .mm-runtime-pill.is-live .mm-dot { background:var(--mm-success); }
+.mm-cx .mm-runtime-pill.is-blocked .mm-dot { background:var(--mm-danger); }
+.mm-cx .mm-runtime .mm-viewswitch { display:none; }
 
 .mm-cx .mm-panel { display: none; animation: mm-fade .4s var(--mm-ease) both; }
 .mm-cx .mm-panel.is-active { display: block; }
@@ -75,6 +73,11 @@
 .mm-cx .mm-eyebrow { display: inline-block; padding: 4px 10px; border-radius: 999px;
   background: var(--mm-gold-soft); color: var(--mm-gold-2);
   font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; }
+.mm-cx .mm-adapter-banner { margin:-4px 0 18px; padding:12px 14px; border:1px solid var(--mm-line); background:#fff; border-radius:12px; color:var(--mm-muted); font-size:12px; line-height:1.55; box-shadow:var(--mm-shadow); }
+.mm-cx .mm-adapter-banner strong { color:var(--mm-navy); }
+.mm-cx .mm-adapter-banner.is-live { border-color:rgba(31,138,90,.24); background:rgba(31,138,90,.06); }
+.mm-cx .mm-adapter-banner.is-blocked { border-color:rgba(178,58,58,.22); background:rgba(178,58,58,.06); }
+.mm-cx .mm-adapter-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; }
 
 /* Intake form */
 .mm-cx .mm-form-wrap { max-width: 860px; margin: 0 auto; }
@@ -179,16 +182,26 @@
 .mm-cx .mm-req-meta { font-size: 12px; color: var(--mm-muted); line-height: 1.4; }
 .mm-cx .mm-req-time { font-size: 11px; color: var(--mm-muted); margin-top: 4px; display: flex; justify-content: space-between; gap: 8px; }
 .mm-cx .mm-req-time b { color: var(--mm-navy); font-weight: 600; }
+.mm-cx .mm-queue-actions { display:flex; gap:6px; align-items:center; margin-top:8px; }
+.mm-cx .mm-queue-status { flex:1; min-width:0; border:1px solid var(--mm-line); border-radius:8px; background:#fff; color:var(--mm-navy); font:800 10px/1.2 var(--mm-sans); text-transform:uppercase; letter-spacing:.04em; padding:7px 8px; }
+.mm-cx .mm-queue-delete { appearance:none; border:1px solid rgba(178,58,58,.28); background:#fff; color:var(--mm-danger); border-radius:8px; cursor:pointer; font:800 10px/1.2 var(--mm-sans); text-transform:uppercase; letter-spacing:.04em; padding:7px 8px; }
+.mm-cx .mm-queue-delete:hover { background:rgba(178,58,58,.07); }
 
 .mm-cx .mm-status-badge { font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
 .mm-cx .mm-status-new { background: rgba(201,162,75,0.18); color: #8c6d1f; }
 .mm-cx .mm-status-in_progress { background: rgba(31,69,106,0.14); color: var(--mm-navy-3); }
 .mm-cx .mm-status-offered { background: rgba(31,69,106,0.12); color: var(--mm-navy); }
+.mm-cx .mm-status-offer_sent { background: rgba(31,69,106,0.12); color: var(--mm-navy); }
 .mm-cx .mm-status-accepted { background: rgba(31,138,90,0.14); color: var(--mm-success); }
+.mm-cx .mm-status-offer_accepted { background: rgba(31,138,90,0.14); color: var(--mm-success); }
+.mm-cx .mm-status-offer_decline_pending { background: rgba(196,122,26,0.16); color: var(--mm-warn); }
 .mm-cx .mm-status-declined { background: rgba(178,58,58,0.12); color: var(--mm-danger); }
+.mm-cx .mm-status-offer_declined_notify_future { background: rgba(178,58,58,0.12); color: var(--mm-danger); }
+.mm-cx .mm-status-offer_declined_no_notify { background: rgba(178,58,58,0.12); color: var(--mm-danger); }
 .mm-cx .mm-status-draft { background: rgba(94,107,122,0.14); color: var(--mm-muted); }
 .mm-cx .mm-status-expired { background: rgba(94,107,122,0.14); color: var(--mm-muted); }
 .mm-cx .mm-status-retained { background: rgba(201,162,75,0.18); color: #8c6d1f; }
+.mm-cx .mm-status-archived { background: rgba(94,107,122,0.14); color: var(--mm-muted); }
 
 .mm-cx .mm-detail { min-height: 640px; display: flex; flex-direction: column; }
 .mm-cx .mm-detail-empty { flex: 1; display: grid; place-items: center; color: var(--mm-muted); text-align: center; padding: 40px; }
@@ -196,6 +209,10 @@
 .mm-cx .mm-detail-head { padding: 20px 22px; border-bottom: 1px solid var(--mm-line); display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
 .mm-cx .mm-detail-head h2 { margin: 0 0 4px; font-size: 19px; color: var(--mm-navy); }
 .mm-cx .mm-detail-head small { color: var(--mm-muted); font-size: 12px; }
+.mm-cx .mm-detail-actions { display:flex; flex-direction:column; align-items:flex-end; gap:8px; min-width:220px; }
+.mm-cx .mm-detail-actions-row { display:flex; gap:8px; align-items:center; justify-content:flex-end; flex-wrap:wrap; }
+.mm-cx .mm-build-offer-top { min-width:170px; justify-content:center; padding:12px 18px; font-size:13px; }
+.mm-cx .mm-detail-status-select { border:1px solid var(--mm-line); border-radius:9px; background:#fff; color:var(--mm-navy); font:800 11px/1.2 var(--mm-sans); text-transform:uppercase; letter-spacing:.05em; padding:9px 10px; }
 .mm-cx .mm-detail-body { padding: 18px 22px 24px; display: grid; gap: 16px; }
 
 .mm-cx .mm-tabs { display: inline-flex; padding: 4px; background: var(--mm-paper); border-radius: 10px; border: 1px solid var(--mm-line); gap: 2px; flex-wrap: wrap; }
@@ -270,8 +287,10 @@
 .mm-cx .mm-email { border: 1px solid var(--mm-line); border-radius: 12px; overflow: hidden; background: #fff; }
 .mm-cx .mm-email-head { padding: 12px 16px; border-bottom: 1px solid var(--mm-line); background: var(--mm-paper); font-size: 13px; color: var(--mm-navy); display: grid; grid-template-columns: 60px 1fr; gap: 4px 10px; }
 .mm-cx .mm-email-head span { color: var(--mm-muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; padding-top: 2px; }
-.mm-cx .mm-email-body { padding: 16px; font-size: 14px; color: var(--mm-ink); white-space: pre-wrap; line-height: 1.6; min-height: 240px; outline: none; }
+.mm-cx .mm-email-body { padding: 0; font-size: 14px; color: var(--mm-ink); white-space: normal; line-height: 1.6; min-height: 420px; outline: none; background: #eef2f6; }
+.mm-cx .mm-email-body.is-source { padding: 16px; white-space: pre-wrap; min-height: 240px; background: #fff; }
 .mm-cx .mm-email-body[contenteditable="true"] { background: #fffbe9; border-top: 2px dashed var(--mm-gold); }
+.mm-cx .mm-email-preview-frame { width: 100%; min-height: 680px; border: 0; display: block; background: #fff; }
 .mm-cx .mm-email-subject { font-weight: 700; font-size: 15px; padding: 10px 16px; border-bottom: 1px solid var(--mm-line); color: var(--mm-navy); outline: none; }
 .mm-cx .mm-email-subject[contenteditable="true"] { background: #fffbe9; }
 
@@ -285,6 +304,11 @@
 .mm-cx .mm-preflight ul { margin: 4px 0 0; padding-left: 18px; color: var(--mm-muted); }
 .mm-cx .mm-preflight li.ok { color: var(--mm-success); list-style: "\2713  "; }
 .mm-cx .mm-preflight li.warn { color: var(--mm-warn); list-style: "!  "; }
+.mm-cx .mm-live-link { width:100%; border:1px solid var(--mm-line-2); border-radius:10px; padding:10px 12px; background:#fff; color:var(--mm-navy); font-size:12px; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; overflow:auto; white-space:nowrap; }
+.mm-cx .mm-ops-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:12px; }
+.mm-cx .mm-other-field { display:none; margin-top:8px; }
+.mm-cx .mm-other-field.is-visible { display:block; }
+@media (max-width: 720px) { .mm-cx .mm-ops-grid { grid-template-columns:1fr; } }
 
 /* Portal */
 .mm-cx .mm-portal { max-width: 680px; margin: 0 auto; }
@@ -343,42 +367,75 @@
 .mm-cx .mm-stat { padding: 8px 10px; border-radius: 10px; background: var(--mm-paper); border: 1px solid var(--mm-line); }
 .mm-cx .mm-stat b { display: block; font-size: 18px; color: var(--mm-navy); font-weight: 800; line-height: 1.1; }
 .mm-cx .mm-stat small { display: block; font-size: 10px; color: var(--mm-muted); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; margin-top: 2px; }
+/* Phil-first bounded workspace corrections */
+.mm-cx [hidden]{display:none!important}
+.mm-cx button:focus-visible,.mm-cx input:focus-visible,.mm-cx select:focus-visible,.mm-cx textarea:focus-visible{outline:3px solid #1f456a;outline-offset:3px}
+.mm-cx .mm-req-item{display:block;width:100%;text-align:left;font:inherit;background:#fff;color:var(--mm-ink)}
+.mm-cx .mm-req-meta,.mm-cx .mm-case-next,.mm-cx .mm-req-time{display:block;overflow-wrap:anywhere}
+.mm-cx .mm-case-next{font-size:12px;font-weight:650;margin:7px 0;color:var(--mm-navy)}
+.mm-cx .mm-detail-head,.mm-cx .mm-detail-body,.mm-cx .mm-hq-grid>*{min-width:0}
+.mm-cx .mm-detail-head small,.mm-cx .mm-live-link{overflow-wrap:anywhere}
+.mm-cx .mm-detail-actions{min-width:0;align-items:flex-start}
+.mm-cx .mm-tabs button{min-height:42px;text-transform:none;font-size:13px}
+.mm-cx .mm-status-badge{white-space:normal;text-align:right}
+@media(max-width:760px){.mm-cx{padding:12px 10px 40px}.mm-cx .mm-hq-grid{display:block}.mm-cx.mm-case-open .mm-hq-grid>.mm-card:first-child{display:none}.mm-cx:not(.mm-case-open) #mmDetailCard{display:none}.mm-cx .mm-builder-grid,.mm-cx .mm-ops-grid,.mm-cx .mm-prefs-grid{grid-template-columns:1fr}.mm-cx .mm-detail-body,.mm-cx .mm-detail-head{padding:16px}.mm-cx .mm-modal{width:calc(100vw - 20px);max-height:92vh;overflow:auto}.mm-cx .mm-form-actions .mm-btn{width:100%;justify-content:center}}
+@media(prefers-reduced-motion:reduce){.mm-cx *{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+</style>
+<style>
+.mm-cx .mm-admin-tracker{margin-top:14px;border:1px solid var(--mm-line-2);border-radius:14px;overflow:hidden;background:#fff}
+.mm-cx .mm-admin-tracker-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;padding:15px 16px;background:linear-gradient(135deg,rgba(15,42,68,.06),rgba(201,162,75,.1));border-bottom:1px solid var(--mm-line)}
+.mm-cx .mm-admin-tracker-head b{display:block;color:var(--mm-navy);font-size:13px;text-transform:uppercase;letter-spacing:.08em}
+.mm-cx .mm-admin-tracker-head span{display:block;color:var(--mm-muted);font-size:12px;margin-top:3px;line-height:1.45}
+.mm-cx .mm-admin-waiting{white-space:nowrap;border-radius:999px;padding:6px 10px;background:var(--mm-gold-soft);color:#8c6d1f;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
+.mm-cx .mm-admin-stage-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:0;padding:14px;background:#0f2a44;border-bottom:1px solid var(--mm-line)}
+.mm-cx .mm-admin-stage{position:relative;min-height:54px;display:grid;place-items:center;text-align:center;color:rgba(255,255,255,.66);font-size:10px;line-height:1.22;font-weight:800;text-transform:uppercase;letter-spacing:.04em;background:linear-gradient(180deg,#7c8da0,#53677a);clip-path:polygon(0 0,calc(100% - 12px) 0,100% 50%,calc(100% - 12px) 100%,0 100%,12px 50%)}
+.mm-cx .mm-admin-stage:first-child{clip-path:polygon(0 0,calc(100% - 12px) 0,100% 50%,calc(100% - 12px) 100%,0 100%)}
+.mm-cx .mm-admin-stage:last-child{clip-path:polygon(0 0,100% 0,100% 100%,0 100%,12px 50%)}
+.mm-cx .mm-admin-stage.complete{background:linear-gradient(180deg,var(--mm-success),#187949);color:#fff}
+.mm-cx .mm-admin-stage.active{background:linear-gradient(180deg,#f0bd54,#e56b32);color:#fff;animation:mm-admin-blink 1.08s ease-in-out infinite}
+.mm-cx .mm-admin-stage.issue{background:linear-gradient(180deg,#d86666,var(--mm-danger));color:#fff;animation:mm-admin-blink 1.08s ease-in-out infinite}
+@keyframes mm-admin-blink{0%,100%{filter:brightness(1)}50%{filter:brightness(1.32)}}
+.mm-cx .mm-admin-dot{display:none}
+.mm-cx .mm-admin-tracker-body{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px}
+.mm-cx .mm-admin-next{border:1px solid var(--mm-line);border-radius:12px;background:var(--mm-paper);padding:12px}
+.mm-cx .mm-admin-next small{display:block;color:var(--mm-muted);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+.mm-cx .mm-admin-next b{display:block;color:var(--mm-navy);font-size:14px;line-height:1.35}
+.mm-cx .mm-admin-next span{display:block;color:var(--mm-muted);font-size:12px;line-height:1.45;margin-top:4px}
+@media(max-width:820px){.mm-cx .mm-admin-stage-grid{display:block}.mm-cx .mm-admin-stage{clip-path:none!important;border-radius:9px;margin-bottom:7px}.mm-cx .mm-admin-tracker-body{grid-template-columns:1fr}.mm-cx .mm-admin-tracker-head{display:block}.mm-cx .mm-admin-waiting{display:inline-block;margin-top:8px}}
+/* Phil-first bounded workspace corrections */
+.mm-cx [hidden]{display:none!important}
+.mm-cx button:focus-visible,.mm-cx input:focus-visible,.mm-cx select:focus-visible,.mm-cx textarea:focus-visible{outline:3px solid #1f456a;outline-offset:3px}
+.mm-cx .mm-req-item{display:block;width:100%;text-align:left;font:inherit;background:#fff;color:var(--mm-ink)}
+.mm-cx .mm-req-meta,.mm-cx .mm-case-next,.mm-cx .mm-req-time{display:block;overflow-wrap:anywhere}
+.mm-cx .mm-case-next{font-size:12px;font-weight:650;margin:7px 0;color:var(--mm-navy)}
+.mm-cx .mm-detail-head,.mm-cx .mm-detail-body,.mm-cx .mm-hq-grid>*{min-width:0}
+.mm-cx .mm-detail-head small,.mm-cx .mm-live-link{overflow-wrap:anywhere}
+.mm-cx .mm-detail-actions{min-width:0;align-items:flex-start}
+.mm-cx .mm-tabs button{min-height:42px;text-transform:none;font-size:13px}
+.mm-cx .mm-status-badge{white-space:normal;text-align:right}
+@media(max-width:760px){.mm-cx{padding:12px 10px 40px}.mm-cx .mm-hq-grid{display:block}.mm-cx.mm-case-open .mm-hq-grid>.mm-card:first-child{display:none}.mm-cx:not(.mm-case-open) #mmDetailCard{display:none}.mm-cx .mm-builder-grid,.mm-cx .mm-ops-grid,.mm-cx .mm-prefs-grid{grid-template-columns:1fr}.mm-cx .mm-detail-body,.mm-cx .mm-detail-head{padding:16px}.mm-cx .mm-modal{width:calc(100vw - 20px);max-height:92vh;overflow:auto}.mm-cx .mm-form-actions .mm-btn{width:100%;justify-content:center}}
+@media(prefers-reduced-motion:reduce){.mm-cx *{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 </style>
 </head>
 <body>
 
-<div class="mm-cx" id="mmCx" data-mode="admin">
+<div class="mm-cx" id="mmCx">
 
   <div class="mm-topbar">
     <div class="mm-brand">
       <div class="mm-brand-mark">M</div>
       <div class="mm-brand-text">
         MissionMed Clinicals HQ
-        <small>Internal Offer System v500</small>
+        <small>Internal Offer System</small>
       </div>
     </div>
-    <div class="mm-viewswitch" role="tablist" aria-label="Switch view">
-      <button type="button" data-view="student"><span class="mm-dot"></span>Student Intake</button>
-      <button type="button" data-view="hq" class="is-active"><span class="mm-dot"></span>HQ Dashboard</button>
-      <button type="button" data-view="portal"><span class="mm-dot"></span>Student Portal</button>
-    </div>
-  </div>
-
-  <div class="mm-runtime" id="mmRuntime">
-    <div class="mm-runtime-left">
-      <div class="mm-runtime-title">Runtime Bridge</div>
-      <div class="mm-runtime-status" id="mmRtStatus">Demo mode active. Layout and flows are live.</div>
-      <div class="mm-runtime-meta" id="mmRtMeta">Use Connect Live only when served from Railway host.</div>
-    </div>
-    <div class="mm-runtime-actions">
-      <button type="button" class="mm-btn mm-btn-sm mm-btn-dark" id="mmRtConnect">Connect Live Auth</button>
-      <button type="button" class="mm-btn mm-btn-sm mm-btn-primary" id="mmRtLoad" disabled>Load Live Requests</button>
-      <button type="button" class="mm-btn mm-btn-sm mm-btn-ghost" id="mmRtReset">Reset Demo Data</button>
+    <div class="mm-runtime">
+      <span class="mm-runtime-pill" id="mmRuntimePill"><span class="mm-dot"></span><span id="mmRuntimeText">Checking session</span></span>
     </div>
   </div>
 
   <!-- ============== STUDENT INTAKE ============== -->
-  <section class="mm-panel" data-panel="student">
+  <section hidden class="mm-panel" data-panel="student">
     <div class="mm-hero">
       <span class="mm-eyebrow">Step 1 of the Match</span>
       <h1>Request your Clinical Rotation</h1>
@@ -397,7 +454,7 @@
         <div class="mm-form-step is-active" data-formstep="1">
           <div class="mm-row">
             <div class="mm-field"><label class="mm-label">Full name</label><input class="mm-input" id="f_name" placeholder="Jane Applicant"></div>
-            <div class="mm-field"><label class="mm-label">Email</label><input class="mm-input" id="f_email" type="email" placeholder="jane@example.com"></div>
+            <div class="mm-field"><label class="mm-label">Email</label><input class="mm-input" id="f_email" type="email" placeholder="jane at example dot com"></div>
           </div>
           <div class="mm-row">
             <div class="mm-field"><label class="mm-label">Phone</label><input class="mm-input" id="f_phone" type="tel" placeholder="(555) 555-5555"></div>
@@ -478,8 +535,11 @@
   <section class="mm-panel is-active" data-panel="hq">
     <div class="mm-hero">
       <span class="mm-eyebrow">HQ Coordinator Workspace</span>
-      <h1>Inbound Clinical Requests</h1>
+      <h1>Clinicals cases</h1>
       <p>Review preferences, log outreach, track the thread, build the offer, and send with coordinator approval.</p>
+    </div>
+    <div class="mm-adapter-banner" id="mmAdapterBanner">
+      <strong>Secure admin access:</strong> loading the protected USCE request queue for authorized MissionMed administrators.
     </div>
 
     <div class="mm-hq-grid">
@@ -490,16 +550,22 @@
           <div class="mm-stat"><b id="st_offered">0</b><small>Offered</small></div>
           <div class="mm-stat"><b id="st_accepted">0</b><small>Accepted</small></div>
         </div>
-        <div class="mm-hq-toolbar">
+        <div class="mm-hq-toolbar"><button type="button" id="mmRefreshCases" class="mm-btn mm-btn-sm mm-btn-ghost">Refresh cases</button>
           <input type="search" id="mmSearch" placeholder="Search name, email, specialty...">
-          <select id="mmFilter" title="Filter by status">
-            <option value="all">All</option>
+          <select id="mmWorkFilter" aria-label="Filter cases by next step"><option value="active">All active cases</option><option value="attention">Needs attention</option><option value="draft">Preparing an offer</option><option value="waiting">Waiting for applicant</option><option value="accepted">Accepted — next steps</option><option value="archived">Archived cases</option></select><select id="mmFilter" title="Additional recorded-status filter">
+            <option value="all">All active cases</option>
             <option value="NEW">New</option>
-            <option value="IN_PROGRESS">In Progress</option>
+            <option value="IN_PROGRESS">In progress</option>
             <option value="OFFERED">Offered</option>
+            <option value="OFFER_SENT">Offer Sent</option>
+            <option value="OFFER_ACCEPTED">Offer Accepted</option>
+            <option value="OFFER_DECLINE_PENDING">Decline Pending</option>
+            <option value="OFFER_DECLINED_NOTIFY_FUTURE">Declined - Notify Future</option>
+            <option value="OFFER_DECLINED_NO_NOTIFY">Declined - No Notify</option>
             <option value="ACCEPTED">Accepted</option>
             <option value="DECLINED">Declined</option>
             <option value="RETAINED">Retained</option>
+            <option value="ARCHIVED">Archived</option>
           </select>
           <select id="mmSort" title="Sort">
             <option value="urgent">Most Urgent</option>
@@ -524,19 +590,26 @@
         </div>
 
         <div id="mmDetailContent" style="display:none;">
-          <div class="mm-detail-head">
+          <div class="mm-detail-head"><button type="button" id="mmCaseBack" class="mm-btn mm-btn-sm mm-btn-ghost">Back to cases</button>
             <div>
               <h2 id="mmDetName">-</h2>
               <small id="mmDetMeta">-</small>
               <div class="mm-mini-meta" id="mmDetMini"></div>
             </div>
-            <div style="display:flex; flex-direction: column; align-items: flex-end; gap: 8px;">
-              <span class="mm-status-badge mm-status-new" id="mmDetStatus">NEW</span>
+            <div class="mm-detail-actions">
+              <div class="mm-detail-actions-row">
+                <button type="button" class="mm-btn mm-btn-primary mm-build-offer-top" id="mmActGotoOffer">Prepare offer</button>
+                <span class="mm-status-badge mm-status-new" id="mmDetStatus">NEW</span>
+              </div>
+              <div class="mm-detail-actions-row">
+                <select hidden disabled class="mm-detail-status-select" id="mmDetailStatusSelect" title="Recorded request status"></select>
+                <button type="button" class="mm-btn mm-btn-sm mm-btn-danger" id="mmActDelete">Archive case</button>
+              </div>
               <div class="mm-tabs" id="mmDetTabs">
-                <button type="button" data-tab="overview" class="is-active">Overview</button>
-                <button type="button" data-tab="comms">Communication</button>
+                <button type="button" data-tab="overview" class="is-active">Summary</button>
+                <button type="button" data-tab="comms">Activity</button>
                 <button type="button" data-tab="offer">Offer</button>
-                <button type="button" data-tab="audit">Audit</button>
+                <button type="button" data-tab="audit">History</button>
               </div>
             </div>
           </div>
@@ -544,6 +617,7 @@
           <div class="mm-detail-body">
             <!-- Overview -->
             <div class="mm-tabpane is-active" data-pane="overview">
+              <div class="mm-admin-tracker" id="mmAdminTracker"></div>
               <div class="mm-prefs-grid">
                 <div class="mm-pref-card"><small>Specialty (ranked)</small><div class="mm-pref-list" id="mmDetSpecs"></div></div>
                 <div class="mm-pref-card"><small>Location (ranked)</small><div class="mm-pref-list" id="mmDetLocs"></div></div>
@@ -557,7 +631,6 @@
                 <button type="button" class="mm-btn mm-btn-sm mm-btn-ghost" id="mmActCall">&#128222; Log call to site</button>
                 <button type="button" class="mm-btn mm-btn-sm mm-btn-ghost" id="mmActNote">&#128221; Add internal note</button>
                 <button type="button" class="mm-btn mm-btn-sm mm-btn-ghost" id="mmActStatus">&#8635; Mark In Progress</button>
-                <button type="button" class="mm-btn mm-btn-sm mm-btn-dark" id="mmActGotoOffer">&rarr; Build offer</button>
               </div>
             </div>
 
@@ -582,7 +655,7 @@
                   </div>
                   <div class="mm-composer-actions">
                     <button type="button" class="mm-btn mm-btn-sm mm-btn-ghost" id="cmpCancel">Cancel</button>
-                    <button type="button" class="mm-btn mm-btn-sm mm-btn-primary" id="cmpSend">Send message</button>
+                    <button type="button" class="mm-btn mm-btn-sm mm-btn-primary" id="cmpSend">Log message</button>
                   </div>
                 </div>
               </div>
@@ -591,7 +664,7 @@
             <!-- Offer builder -->
             <div class="mm-tabpane" data-pane="offer">
               <div class="mm-builder">
-                <h4>Offer Builder</h4>
+                <h4>Prepare this offer</h4><p class="mm-hint">Requested preferences are not confirmed availability. Saving a draft or preparing a link does not send an email or reserve a place.</p><p id="mmDraftState" role="status" class="mm-hint">No unsaved changes</p>
                 <div class="mm-builder-grid">
                   <div class="mm-field" style="margin:0;">
                     <label class="mm-label">Program</label>
@@ -603,9 +676,11 @@
                     </select>
                   </div>
                   <div class="mm-field" style="margin:0;"><label class="mm-label">Specialty</label>
-                    <select class="mm-select" id="mmOfSpecialty"></select></div>
+                    <select class="mm-select" id="mmOfSpecialty"></select>
+                    <input class="mm-input mm-other-field" id="mmOfSpecialtyOther" placeholder="Type the specialty or rotation"></div>
                   <div class="mm-field" style="margin:0;"><label class="mm-label">Location</label>
-                    <select class="mm-select" id="mmOfLocation"></select></div>
+                    <select class="mm-select" id="mmOfLocation"></select>
+                    <input class="mm-input mm-other-field" id="mmOfLocationOther" placeholder="Type the city, state, or preferred region"></div>
                   <div class="mm-field" style="margin:0;"><label class="mm-label">Rotation length</label>
                     <select class="mm-select" id="mmOfLength">
                       <option>2 weeks</option><option selected>4 weeks</option>
@@ -632,6 +707,16 @@
                 </div>
 
                 <div class="mm-field" style="margin-top: 10px;">
+                  <label class="mm-label">Message template</label>
+                  <select class="mm-select" id="mmMessageChoice">
+                    <option value="availability">Availability confirmed</option>
+                    <option value="alternate">Alternate option recommended</option>
+                    <option value="urgent">48-hour response window</option>
+                    <option value="manual">Manual / custom message</option>
+                  </select>
+                </div>
+
+                <div class="mm-field" style="margin-top: 10px;">
                   <label class="mm-label">Student-facing instructions / next steps</label>
                   <textarea class="mm-textarea" id="mmOfInstructions" rows="2" placeholder="e.g. Please confirm within 48 hours. Orientation packet will follow."></textarea>
                 </div>
@@ -642,12 +727,51 @@
                 </div>
 
                 <div class="mm-preflight" id="mmPreflight"></div>
+                <div class="mm-preflight" id="mmLiveOfferBox" hidden></div>
+
+                <div class="mm-builder" id="mmOpsPanel" style="margin-top:14px;">
+                  <h4>Recorded next-step status</h4><p class="mm-hint">These are coordinator records. Saving does not take payment, reserve a place, approve documents, or grant course access. Confirm each with its owning system.</p>
+                  <div class="mm-ops-grid">
+                    <div class="mm-field" style="margin:0;"><label class="mm-label">Payment</label>
+                      <select class="mm-select" id="mmOpsPayment">
+                        <option value="pending">Pending</option>
+                        <option value="handoff_shown">Handoff shown</option>
+                        <option value="paid">Paid</option>
+                        <option value="manual_review">Manual review</option>
+                        <option value="failed">Failed</option>
+                        <option value="refunded">Refunded</option>
+                      </select></div>
+                    <div class="mm-field" style="margin:0;"><label class="mm-label">Paperwork</label>
+                      <select class="mm-select" id="mmOpsPaperwork">
+                        <option value="not_started">Not started</option>
+                        <option value="requested">Requested</option>
+                        <option value="received">Received</option>
+                        <option value="approved">Approved</option>
+                        <option value="blocked">Blocked</option>
+                      </select></div>
+                    <div class="mm-field" style="margin:0;"><label class="mm-label">Course access</label>
+                      <select class="mm-select" id="mmOpsLearndash">
+                        <option value="locked">Locked</option>
+                        <option value="ready">Ready</option>
+                        <option value="enabled">Enabled</option>
+                        <option value="blocked">Blocked</option>
+                      </select></div>
+                  </div>
+                  <div class="mm-field" style="margin-top:10px;"><label class="mm-label">Operations note</label>
+                    <textarea class="mm-textarea" id="mmOpsNote" rows="2" placeholder="Optional admin-only note for the state change."></textarea></div>
+                  <div class="mm-quickact" style="padding-bottom:0;">
+                    <button type="button" class="mm-btn mm-btn-sm mm-btn-ghost" data-ops-save="payment">Record payment status</button>
+                    <button type="button" class="mm-btn mm-btn-sm mm-btn-ghost" data-ops-save="paperwork">Record paperwork status</button>
+                    <button type="button" class="mm-btn mm-btn-sm mm-btn-ghost" data-ops-save="learndash">Record access status</button>
+                  </div>
+                </div>
 
                 <div class="mm-form-actions" style="margin-top:10px; border-top: 1px dashed var(--mm-line-2); padding-top: 14px;">
                   <button type="button" class="mm-btn mm-btn-ghost" id="mmDetBack">Back to list</button>
                   <div style="display:flex; gap:10px; flex-wrap: wrap;">
                     <button type="button" class="mm-btn mm-btn-ghost" id="mmSaveDraft">Save as draft</button>
-                    <button type="button" class="mm-btn mm-btn-primary" id="mmPreviewEmail">Preview Email &rarr;</button>
+                    <button type="button" class="mm-btn mm-btn-primary" id="mmPreviewEmail">Save draft and review message &rarr;</button>
+                    <button type="button" class="mm-btn mm-btn-dark" id="mmGenerateLink">Generate student link</button>
                   </div>
                 </div>
               </div>
@@ -667,7 +791,7 @@
   </section>
 
   <!-- ============== STUDENT PORTAL ============== -->
-  <section class="mm-panel" data-panel="portal">
+  <section hidden class="mm-panel" data-panel="portal">
     <div class="mm-hero">
       <span class="mm-eyebrow">Your Offer</span>
       <h1>A clinical rotation slot is reserved for you</h1>
@@ -682,14 +806,14 @@
       <div class="mm-modal-head">
         <div>
           <h3 id="mmModalTitle">Offer Email - Preview</h3>
-          <small style="color:var(--mm-muted); font-size: 12px;">Review. Edit. Approve. Send.</small>
+          <small style="color:var(--mm-muted); font-size: 12px;">Review, edit, approve, and send the student offer email.</small>
         </div>
         <button type="button" class="mm-modal-close" id="mmModalClose" aria-label="Close">&times;</button>
       </div>
       <div class="mm-modal-body">
         <div class="mm-email">
           <div class="mm-email-head">
-            <span>From</span><div id="emFrom">MissionMed Clinicals &lt;clinicals@missionmedinstitute.com&gt;</div>
+            <span>From</span><div id="emFrom">MissionMed Clinicals &lt;<span id="emFromEmail"></span>&gt;</div>
             <span>To</span><div id="emTo">-</div>
             <span>Subject</span><div class="mm-email-subject" id="emSubject"></div>
           </div>
@@ -705,7 +829,7 @@
         <div style="display:flex; gap:10px; flex-wrap: wrap;">
           <button type="button" class="mm-btn mm-btn-ghost" id="mmEmailEdit">Edit</button>
           <button type="button" class="mm-btn mm-btn-dark" id="mmEmailApprove">Approve</button>
-          <button type="button" class="mm-btn mm-btn-success" id="mmEmailSend" disabled>Send Offer</button>
+          <button type="button" class="mm-btn mm-btn-success" id="mmEmailSend" disabled>Send Offer Email</button>
         </div>
       </div>
     </div>
@@ -739,44 +863,137 @@
   if (!root || root.dataset.mmInit === '1') return;
   root.dataset.mmInit = '1';
 
+  const MM_MAIL_DOMAIN = 'missionmedinstitute.com';
+  const EXAMPLE_MAIL_DOMAIN = 'example.com';
+  function mmMail(local){ return local + '@' + MM_MAIL_DOMAIN; }
+  function exampleMail(local){ return local + '@' + EXAMPLE_MAIL_DOMAIN; }
+
+  window.__MISSIONMED_USCE_ADMIN_CONFIG = Object.freeze({
+    version: 'CX-OFFER-330',
+    apiBase: 'https://missionmed-usce-gateway-production.up.railway.app',
+    wpBase: 'https://missionmedinstitute.com',
+    liveReadEnabledByDefault: true,
+    publicIntakeEndpoint: '/api/usce/public/requests',
+    adminReadEndpoint: '/api/usce/admin/public-intake-requests',
+    adminStatusEndpoint: '/api/usce/admin/public-intake-requests/{id}/status',
+    activityEndpoint: '/api/usce/admin/requests/{id}/activity',
+    adminNoteEndpoint: '/api/usce/admin/public-intake-requests/{id}/admin-note',
+    offerDraftEndpoint: '/api/usce/admin/intake-requests/{id}/offer-draft',
+    offerReadEndpoint: '/api/usce/admin/offers/{offerId}',
+    offerMessagePreviewEndpoint: '/api/usce/admin/offers/{offerId}/message-preview',
+    offerSendEndpoint: '/api/usce/admin/offers/{offerId}/send',
+    offerCommsEndpoint: '/api/usce/admin/offers/{offerId}/comms',
+    offerPaymentEndpoint: '/api/usce/admin/offers/{offerId}/payment',
+    offerPaperworkEndpoint: '/api/usce/admin/offers/{offerId}/paperwork',
+    offerLearndashEndpoint: '/api/usce/admin/offers/{offerId}/learndash',
+    offerTokenEndpoint: '/api/usce/admin/offers/{offerId}/token',
+    gmailSyncPreviewEndpoint: '/api/integrations/gmail/sync-preview',
+    authRelayEndpoint: 'https://missionmedinstitute.com/wp-admin/admin-post.php?action=mmhq_usce_admin_auth_relay',
+    authAudience: 'hq',
+    adminPageUrl: 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html',
+    statusTrackerUrl: 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_status_tracker.html',
+    offerPageUrl: 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_offer.html',
+    requestPageUrl: 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_request.html',
+    paymentProductUrl: 'https://missionmedinstitute.com/product/usce-clinical-rotations/',
+    learndashCourseUrl: 'https://missionmedinstitute.com/courses/mmi-clinicals/',
+    gmailMailboxes: [mmMail('clinicals'), mmMail('drj'), mmMail('drbrian')]
+  });
+
+  const CONFIG = window.__MISSIONMED_USCE_ADMIN_CONFIG;
+  const fromEmailNode = document.getElementById('emFromEmail');
+  if (fromEmailNode) fromEmailNode.textContent = CONFIG.gmailMailboxes[0];
+  const STATUS_TO_LIVE = {
+    NEW: 'new',
+    IN_PROGRESS: 'in_progress',
+    OFFERED: 'offer_ready',
+    OFFER_SENT: 'offer_ready',
+    OFFER_ACCEPTED: 'accepted',
+    OFFER_DECLINE_PENDING: 'decline_pending',
+    OFFER_DECLINED_NOTIFY_FUTURE: 'declined_notify_future',
+    OFFER_DECLINED_NO_NOTIFY: 'declined_no_notify',
+    ACCEPTED: 'offer_ready',
+    DECLINED: 'archived',
+    RETAINED: 'reviewed',
+    ARCHIVED: 'archived',
+    DRAFT: 'in_progress'
+  };
+  const LIVE_TO_STATUS = {
+    new: 'NEW',
+    reviewed: 'IN_PROGRESS',
+    in_progress: 'IN_PROGRESS',
+    offer_ready: 'IN_PROGRESS',
+    offered: 'OFFER_SENT',
+    sent: 'OFFER_SENT',
+    offer_sent: 'OFFER_SENT',
+    accepted: 'OFFER_ACCEPTED',
+    offer_accepted: 'OFFER_ACCEPTED',
+    paid: 'OFFER_ACCEPTED',
+    decline_pending: 'OFFER_DECLINE_PENDING',
+    offer_decline_pending: 'OFFER_DECLINE_PENDING',
+    declined_notify_future: 'OFFER_DECLINED_NOTIFY_FUTURE',
+    offer_declined_notify_future: 'OFFER_DECLINED_NOTIFY_FUTURE',
+    declined_no_notify: 'OFFER_DECLINED_NO_NOTIFY',
+    offer_declined_no_notify: 'OFFER_DECLINED_NO_NOTIFY',
+    declined: 'OFFER_DECLINED_NO_NOTIFY',
+    archived: 'ARCHIVED'
+  };
+
   /* ---- Catalogs ---- */
-  const SPECIALTIES = ["Internal Medicine","Family Medicine","Pediatrics","Emergency Medicine","Surgery","Psychiatry","OB/GYN","Cardiology","Neurology","Radiology","Anesthesiology","Dermatology"];
-  const LOCATIONS = ["New York, NY","Miami, FL","Chicago, IL","Los Angeles, CA","Houston, TX","Atlanta, GA","Boston, MA","Philadelphia, PA","Dallas, TX","Phoenix, AZ"];
+  const OTHER_OPTION = "Other / custom";
+  const INTAKE_STATUS_OPTIONS = [
+    { value: "NEW", label: "New" },
+    { value: "IN_PROGRESS", label: "In progress" },
+    { value: "OFFERED", label: "Offered" },
+    { value: "OFFER_SENT", label: "Offer sent" },
+    { value: "OFFER_ACCEPTED", label: "Offer accepted" },
+    { value: "OFFER_DECLINE_PENDING", label: "Decline pending" },
+    { value: "OFFER_DECLINED_NOTIFY_FUTURE", label: "Declined - notify future" },
+    { value: "OFFER_DECLINED_NO_NOTIFY", label: "Declined - no notify" },
+    { value: "ACCEPTED", label: "Accepted" },
+    { value: "DECLINED", label: "Declined" },
+    { value: "RETAINED", label: "Retained" },
+    { value: "ARCHIVED", label: "Archived" }
+  ];
+  const SPECIALTIES = ["Internal Medicine","Family Medicine","Pediatrics","Emergency Medicine","Surgery","Psychiatry","OB/GYN","Cardiology","Neurology","Radiology","Anesthesiology","Dermatology",OTHER_OPTION];
+  const LOCATIONS = ["Chicago","Miami","Texas","Arizona","California",OTHER_OPTION];
   const MONTHS = ["May 2026","Jun 2026","Jul 2026","Aug 2026","Sep 2026","Oct 2026","Nov 2026","Dec 2026","Jan 2027","Feb 2027"];
-  const COORDINATOR = "Phil";
+  const COORDINATOR = "Coordinator";
   const SLA_AMBER_HRS = 24, SLA_RED_HRS = 48;
-  const RUNTIME_BASE = /^https?:$/i.test(window.location.protocol) ? "" : "https://missionmed-hq-production.up.railway.app";
+  const AUTH_BEARER_KEY = 'mm_usce_admin_bearer_session';
+  const AUTH_HANDOFF_HASH_KEY = 'mmhq_handoff_token';
 
   /* ---- State ---- */
   const state = {
     view: 'hq', step: 1, totalSteps: 4,
     requests: [],
+    demoRequests: [],
     offers: [],
     selectedRequestId: null,
     currentUser: null,
     currentOfferId: null,
+    csrfToken: '',
+    accessToken: '',
+    adapter: 'booting',
+    liveSession: null,
+    liveOffersByRequest: {},
+    liveCommsByOffer: {},
+    lastOfferUrl: '',
     draftEmail: null,
     activeTab: 'overview',
     retentionChoice: null,
     timers: {},
     filter: 'all', sort: 'urgent', query: '',
-    runtime: {
-      connected: false,
-      authenticated: false,
-      accessToken: "",
-      csrfToken: "",
-      host: RUNTIME_BASE || window.location.origin
-    }
+    busy: false, dirty: false, workFilter: 'active', activityByRequest: {}, actionKeys: {}, queueLoad: 0
   };
 
   function seed(){
-    const r1 = mkReq("Amelia Ortiz","MS4","Caribbean Medical School","amelia.ortiz@example.com","(212) 555-0148",
+    const r1 = mkReq("Amelia Ortiz","MS4","Caribbean Medical School",exampleMail('amelia.ortiz'),"(212) 555-0148",
       ["Internal Medicine","Cardiology","Family Medicine"],
       ["New York, NY","Boston, MA","Philadelphia, PA"],
       ["Jun 2026","Jul 2026","Aug 2026"], "4 weeks", hoursAgo(6),
       "Ideally looking for academic sites; open to community hospitals if needed.");
     seedComms(r1);
-    const r2 = mkReq("Rahul Shah","IMG","St. George's University","rahul.shah@example.com","(305) 555-0112",
+    const r2 = mkReq("Rahul Shah","IMG","St. George's University",exampleMail('rahul.shah'),"(305) 555-0112",
       ["Emergency Medicine","Internal Medicine","Surgery"],
       ["Miami, FL","Atlanta, GA"],
       ["May 2026","Jun 2026"], "4 weeks", hoursAgo(26),
@@ -785,12 +1002,13 @@
     r2.status = 'IN_PROGRESS';
     r2.comms.push({ dir:'call', kind:'Call to Miami site', at: hoursAgo(18), subject:'IM coordinator', body:'Left VM with Dr. Rivera re: May 19 Internal Medicine block. Callback expected tomorrow AM.' });
     pushAudit(r2, 'NEW', 'IN_PROGRESS', 'Outreach started');
-    const r3 = mkReq("Priya Patel","MS3","AUC","priya.patel@example.com","(312) 555-0139",
+    const r3 = mkReq("Priya Patel","MS3","AUC",exampleMail('priya.patel'),"(312) 555-0139",
       ["Pediatrics","OB/GYN","Family Medicine"],
       ["Chicago, IL","Dallas, TX","Phoenix, AZ"],
       ["Jul 2026","Aug 2026"], "6 weeks", hoursAgo(50), "");
     seedComms(r3);
     state.requests = [r1, r2, r3];
+    state.demoRequests = state.requests.map(cloneJson);
   }
 
   function hoursAgo(h){ return Date.now() - h*3600*1000; }
@@ -834,7 +1052,7 @@
     return d.toLocaleDateString([], { month:'short', day:'numeric', year:'numeric' }) + ' at ' + d.toLocaleTimeString([], { hour:'numeric', minute:'2-digit' });
   }
   function slaLevel(r){
-    if (['ACCEPTED','DECLINED','RETAINED','OFFERED'].indexOf(r.status) > -1) return 'green';
+    if (['ACCEPTED','OFFER_ACCEPTED','DECLINED','OFFER_DECLINED_NOTIFY_FUTURE','OFFER_DECLINED_NO_NOTIFY','RETAINED','OFFERED','OFFER_SENT','OFFER_DECLINE_PENDING','ARCHIVED'].indexOf(r.status) > -1) return 'green';
     const hrs = (Date.now() - r.submittedAt) / 3600000;
     if (hrs >= SLA_RED_HRS) return 'red';
     if (hrs >= SLA_AMBER_HRS) return 'amber';
@@ -845,61 +1063,204 @@
     const t = document.createElement('div'); t.className='mm-toast'; t.textContent = msg; wrap.appendChild(t);
     setTimeout(()=>{ t.style.opacity='0'; t.style.transform='translateX(12px)'; t.style.transition='all .25s'; setTimeout(()=>t.remove(), 260); }, 2600);
   }
-
-  function setRuntimeStatus(primary, meta){
-    const st = $('#mmRtStatus');
-    const mt = $('#mmRtMeta');
-    if (st) st.textContent = primary || '';
-    if (mt) mt.textContent = meta || '';
+  function esc(value){
+    return String(value == null ? '' : value).replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
   }
-
-  async function runtimeFetchJson(path, options){
-    const url = state.runtime.host.replace(/\/+$/,'') + path;
-    const response = await fetch(url, Object.assign({ method: 'GET', credentials: 'include', cache: 'no-store' }, options || {}));
-    let payload = null;
-    try { payload = await response.json(); } catch(_jsonErr) { payload = null; }
-    return { ok: response.ok, status: response.status, payload };
+  function setRuntime(text, mode){
+    const pill = $('#mmRuntimePill');
+    $('#mmRuntimeText').textContent = text;
+    pill.classList.toggle('is-live', mode === 'live');
+    pill.classList.toggle('is-blocked', mode === 'blocked');
   }
-
-  async function connectRuntimeAuth(){
-    if (window.location.protocol === 'file:') {
-      setRuntimeStatus(
-        'Demo mode from local file. Live auth requires hosted page context.',
-        'Open this same file via https://missionmed-hq-production.up.railway.app/usce.html to reuse session cookies.'
-      );
-    }
-    setRuntimeStatus('Connecting to /api/auth/session ...', state.runtime.host + '/api/auth/session');
+  function setAdapterBanner(text, mode){
+    const banner = $('#mmAdapterBanner');
+    if (!banner) return;
+    banner.innerHTML = '<strong>Secure admin access:</strong> ' + esc(text);
+    banner.classList.toggle('is-live', mode === 'live');
+    banner.classList.toggle('is-blocked', mode === 'blocked');
+  }
+  function cloneJson(value){ return JSON.parse(JSON.stringify(value)); }
+  function endpoint(path, vars){
+    let output = path;
+    Object.keys(vars || {}).forEach(key => {
+      output = output.replace('{'+key+'}', encodeURIComponent(vars[key]));
+    });
+    return output;
+  }
+  function apiUrl(path, vars){
+    return new URL(endpoint(path, vars), CONFIG.apiBase).toString();
+  }
+  async function parseJson(response){
+    try { return await response.json(); } catch (_error) { return null; }
+  }
+  function readStoredBearer(){
+    try { return String(sessionStorage.getItem(AUTH_BEARER_KEY) || '').trim(); }
+    catch (_error) { return ''; }
+  }
+  function writeStoredBearer(token){
+    const safe = String(token || '').trim();
     try {
-      const sessionRes = await runtimeFetchJson('/api/auth/session');
-      const session = sessionRes.payload || {};
-      const token = String(session.accessToken || '').trim();
-      const csrf = String(session.csrfToken || '').trim();
-      state.runtime.connected = true;
-      state.runtime.authenticated = Boolean(session.authenticated && token);
-      state.runtime.accessToken = token;
-      state.runtime.csrfToken = csrf;
-
-      if (state.runtime.authenticated) {
-        $('#mmRtLoad').disabled = false;
-        const who = session.user && (session.user.displayName || session.user.login || session.user.email || session.user.id) ? (session.user.displayName || session.user.login || session.user.email || session.user.id) : 'Authenticated user';
-        setRuntimeStatus('Live auth connected as ' + who + '.', 'Bearer token in memory only. Ready to load /api/usce/requests.');
-        toast('Live auth connected');
-        return true;
-      }
-
-      $('#mmRtLoad').disabled = true;
-      setRuntimeStatus('Session reachable but not authenticated.', 'Use /api/auth/start on hosted domain, then Connect Live Auth again.');
-      toast('Not authenticated yet');
-      return false;
-    } catch (error) {
-      $('#mmRtLoad').disabled = true;
-      setRuntimeStatus('Live auth connection failed.', String(error && error.message ? error.message : error));
-      toast('Live auth failed');
-      return false;
+      if (safe) sessionStorage.setItem(AUTH_BEARER_KEY, safe);
+      else sessionStorage.removeItem(AUTH_BEARER_KEY);
+    } catch (_error) {}
+  }
+  function readHandoffTokenFromHash(){
+    try {
+      const rawHash = String(window.location.hash || '').replace(/^#/, '').trim();
+      if (!rawHash) return '';
+      const params = new URLSearchParams(rawHash);
+      return String(params.get(AUTH_HANDOFF_HASH_KEY) || '').trim();
+    } catch (_error) {
+      return '';
     }
   }
+  function clearHandoffTokenFromHash(){
+    try {
+      const rawHash = String(window.location.hash || '').replace(/^#/, '').trim();
+      if (!rawHash) return;
+      const params = new URLSearchParams(rawHash);
+      if (!params.has(AUTH_HANDOFF_HASH_KEY)) return;
+      params.delete(AUTH_HANDOFF_HASH_KEY);
+      const nextHash = params.toString();
+      const nextUrl = window.location.pathname + window.location.search + (nextHash ? ('#' + nextHash) : '');
+      window.history.replaceState({}, '', nextUrl);
+    } catch (_error) {}
+  }
+  function resolveAdminFinalUrl(){
+    try {
+      const current = new URL(window.location.href);
+      const canonical = new URL(CONFIG.adminPageUrl);
+      if (current.origin === canonical.origin && current.pathname === canonical.pathname) {
+        current.hash = '';
+        return current.toString();
+      }
+    } catch (_error) {}
+    return CONFIG.adminPageUrl;
+  }
+  function adminAuthRelayUrl(){
+    const relay = new URL(CONFIG.authRelayEndpoint, CONFIG.apiBase);
+    relay.searchParams.set('target', resolveAdminFinalUrl());
+    return relay.toString();
+  }
+  function beginAdminAuthRelay(){
+    writeStoredBearer('');
+    state.accessToken = '';
+    state.csrfToken = '';
+    state.liveSession = null;
+    window.location.href = adminAuthRelayUrl();
+  }
+  function showAuthConnectAction(){
+    const banner = $('#mmAdapterBanner');
+    if (!banner) return;
+    const actions = document.createElement('div');
+    actions.className = 'mm-adapter-actions';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'mm-btn mm-btn-sm mm-btn-primary';
+    button.textContent = 'Admin Login';
+    button.addEventListener('click', beginAdminAuthRelay);
+    actions.appendChild(button);
+    banner.appendChild(actions);
+  }
+  async function exchangeHandoffToken(handoffToken){
+    const safeToken = String(handoffToken || '').trim();
+    if (!safeToken) return null;
+    clearHandoffTokenFromHash();
+    const url = new URL(apiUrl('/api/auth/session'));
+    url.searchParams.set('audience', CONFIG.authAudience || 'usce_admin');
+    url.searchParams.set('token', safeToken);
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      credentials: 'include',
+      cache: 'no-store',
+      headers: { Accept: 'application/json' }
+    });
+    const payload = await parseJson(response);
+    if (!response.ok || !payload || payload.authenticated !== true || !payload.accessToken) {
+      const err = new Error(payload && payload.message ? payload.message : 'Admin handoff exchange failed.');
+      err.status = response.status === 200 ? 401 : (response.status || 401);
+      err.payload = payload;
+      throw err;
+    }
+    state.accessToken = String(payload.accessToken || '').trim();
+    state.csrfToken = payload.csrfToken || '';
+    state.liveSession = payload;
+    writeStoredBearer(state.accessToken);
+    return payload;
+  }
+  async function ensureSession(){
+    if (state.csrfToken && state.liveSession && state.accessToken) return state.liveSession;
 
+    const handoffToken = readHandoffTokenFromHash();
+    if (handoffToken) {
+      return exchangeHandoffToken(handoffToken);
+    }
+
+    const storedBearer = state.accessToken || readStoredBearer();
+    if (storedBearer) state.accessToken = storedBearer;
+    const headers = { Accept: 'application/json' };
+    if (state.accessToken) headers.Authorization = 'Bearer ' + state.accessToken;
+    const response = await fetch(apiUrl('/api/auth/session'), {
+      method: 'GET',
+      credentials: 'include',
+      cache: 'no-store',
+      headers
+    });
+    const payload = await parseJson(response);
+    if (!response.ok || !payload || payload.authenticated !== true) {
+      if (response.status === 401 || (response.ok && payload && payload.authenticated === false)) {
+        writeStoredBearer('');
+        state.accessToken = '';
+        beginAdminAuthRelay();
+      }
+      const err = new Error(payload && payload.message ? payload.message : 'Administrator login required.');
+      err.status = response.status === 200 ? 401 : (response.status || 401);
+      err.payload = payload;
+      err.recovering = err.status === 401;
+      throw err;
+    }
+    state.csrfToken = payload.csrfToken || '';
+    state.accessToken = String(payload.accessToken || state.accessToken || '').trim();
+    state.liveSession = payload;
+    if (state.accessToken) writeStoredBearer(state.accessToken);
+    return payload;
+  }
+  async function adminFetch(path, vars, options){
+    const method = String((options && options.method) || 'GET').toUpperCase();
+    const isMutation = ['POST','PATCH','PUT','DELETE'].indexOf(method) > -1;
+    if (isMutation && state.adapter !== 'live') throw new Error('Reconnect to the live workspace before saving.');
+    const headers = { Accept: 'application/json' };
+    const session = await ensureSession();
+    const bearer = String(state.accessToken || session.accessToken || '').trim();
+    if (bearer) headers.Authorization = 'Bearer ' + bearer;
+    if (isMutation) {
+      headers['Content-Type'] = 'application/json';
+      headers['X-MMHQ-CSRF'] = session.csrfToken || state.csrfToken || '';
+    }
+    const response = await fetch(apiUrl(path, vars || {}), {
+      method,
+      credentials: 'include',
+      headers,
+      body: options && options.body ? JSON.stringify(options.body) : undefined
+    });
+    const payload = await parseJson(response);
+    if (!response.ok || (payload && payload.ok === false)) {
+      if (response.status === 401) beginAdminAuthRelay();
+      const err = new Error(payload && payload.message ? payload.message : ('Request failed with HTTP ' + response.status));
+      err.status = response.status;
+      err.payload = payload;
+      err.recovering = response.status === 401;
+      throw err;
+    }
+    return payload || {};
+  }
+  function errorSummary(error){
+    if (error && error.status === 401) return 'Administrator-level login required. This page is only available to secure MissionMed admins like Phil, Brian, or Dr. J.';
+    if (error && error.status === 403) return 'Administrator-level access is required. Student and learner accounts cannot view this page.';
+    return error && error.message ? error.message : 'Operation failed safely.';
+  }
   function switchView(v){
+    if (v !== 'hq') return;
     state.view = v;
     $$('.mm-viewswitch button').forEach(b => b.classList.toggle('is-active', b.dataset.view === v));
     $$('.mm-panel').forEach(p => p.classList.toggle('is-active', p.getAttribute('data-panel') === v));
@@ -908,6 +1269,127 @@
   }
   $$('.mm-viewswitch button').forEach(b => b.addEventListener('click', ()=> switchView(b.dataset.view)));
   $$('[data-goto]').forEach(b => b.addEventListener('click', ()=> switchView(b.dataset.goto)));
+
+  function latestOfferFromRow(row){
+    const offer = row && (row.latest_offer || row.latestOffer);
+    return offer && typeof offer === 'object' && !Array.isArray(offer) ? offer : null;
+  }
+
+  function statusFromLatestOffer(offer){
+    if (!offer) return '';
+    const offerStatus = String(offer.status || '').toLowerCase();
+    if (offer.accepted_at || offerStatus === 'accepted' || offerStatus === 'offer_accepted') return 'OFFER_ACCEPTED';
+    if (offerStatus === 'decline_pending' || offerStatus === 'offer_decline_pending') return 'OFFER_DECLINE_PENDING';
+    if (offerStatus === 'declined_notify_future' || offerStatus === 'offer_declined_notify_future') return 'OFFER_DECLINED_NOTIFY_FUTURE';
+    if (offer.declined_at || offerStatus === 'declined_no_notify' || offerStatus === 'declined' || offerStatus === 'offer_declined_no_notify') return 'OFFER_DECLINED_NO_NOTIFY';
+    if (String(offer.postmark_status || '').toLowerCase() !== 'dry_run' && (offer.message_sent_at || ['sent','delivered','opened'].includes(String(offer.postmark_status || '').toLowerCase()))) return 'OFFER_SENT';
+    if (offer.id || ['draft','ready'].includes(offerStatus)) return 'IN_PROGRESS';
+    return '';
+  }
+
+  function normalizeLiveRequest(row){
+    const submitted = Date.parse(row.created_at || row.updated_at || '');
+    const specialties = arrayify(row.preferred_specialties);
+    const locations = arrayify(row.preferred_locations);
+    const months = arrayify(row.preferred_months_or_dates);
+    const latestOffer = latestOfferFromRow(row);
+    const rawStatus = String(row.status || '').toLowerCase();
+    const effectiveStatus = String(row.effective_status || '').toLowerCase();
+    const statusSource = rawStatus === 'archived' ? 'archived' : (effectiveStatus || rawStatus);
+    const baseStatus = LIVE_TO_STATUS[statusSource] || 'NEW';
+    const displayStatus = baseStatus === 'ARCHIVED'
+      ? 'ARCHIVED'
+      : (statusFromLatestOffer(latestOffer) || baseStatus);
+    return {
+      id: String(row.id || ''),
+      sourceId: String(row.id || ''),
+      live: true,
+      name: row.student_name || 'Unnamed request',
+      program: row.training_level_or_school || 'Student',
+      school: row.training_level_or_school || '',
+      email: row.email || '',
+      phone: row.phone || '',
+      specialties,
+      locations,
+      months,
+      length: row.duration_weeks ? String(row.duration_weeks) + ' weeks' : '4 weeks',
+      durationWeeks: Number(row.duration_weeks || 4),
+      submittedAt: Number.isFinite(submitted) ? submitted : Date.now(),
+      notes: row.notes || '',
+      adminNotes: row.admin_notes || '',
+      source: row.source || 'public intake',
+      status: displayStatus,
+      comms: [
+        { dir:'in', kind:'Request received', at: Number.isFinite(submitted) ? submitted : Date.now(), subject:'USCE public intake', body:'Student submitted a request through the live public intake path.' }
+      ],
+      audit: [],
+      offerHistory: latestOffer && latestOffer.id ? [{ id: String(latestOffer.id), status: statusFromLatestOffer(latestOffer) || String(latestOffer.status || 'DRAFT').toUpperCase(), at: Date.parse(latestOffer.updated_at || latestOffer.created_at || '') || Date.now() }] : [],
+      retention: null,
+      raw: row
+    };
+  }
+
+  function arrayify(value){
+    if (Array.isArray(value)) return value.filter(Boolean).map(String);
+    if (!value) return [];
+    return [String(value)];
+  }
+
+  async function loadLiveQueue(){
+    if (state.busy || (state.dirty && !window.confirm('Discard unsaved offer changes and refresh cases?'))) return;
+    state.dirty = false;
+    const generation = ++state.queueLoad;
+    state.adapter = 'live';
+    setRuntime('Live protected', 'live');
+    setAdapterBanner('checking administrator login and loading the protected request queue...', 'live');
+    try {
+      const params = new URLSearchParams({ limit: '75' });
+      if (state.query) params.set('search', state.query);
+      const path = CONFIG.adminReadEndpoint + '?' + params.toString();
+      const payload = await adminFetch(path, {}, { method: 'GET' });
+      if (generation !== state.queueLoad) return;
+      const items = Array.isArray(payload.items) ? payload.items : [];
+      state.requests = items.map(normalizeLiveRequest).filter(r => r.id);
+      state.offers = [];
+      state.liveOffersByRequest = {};
+      state.requests.forEach(r => {
+        const latestOffer = latestOfferFromRow(r.raw);
+        if (!latestOffer) return;
+        const offer = mergeLiveOffer(latestOffer, r.id);
+        if (!offer) return;
+        r.offerId = offer.id;
+        const offerStatus = statusFromLatestOffer(latestOffer);
+        if (offerStatus && r.status !== 'ARCHIVED') r.status = offerStatus;
+        if (!r.offerHistory.some(h => h.id === offer.id)) {
+          r.offerHistory.push({ id: offer.id, status: offer.status || offerStatus || 'DRAFT', at: Date.parse(latestOffer.updated_at || latestOffer.created_at || '') || Date.now() });
+        }
+      });
+      state.selectedRequestId = state.requests.some(r => r.id === state.selectedRequestId) ? state.selectedRequestId : null;
+      setAdapterBanner('Cases updated at ' + new Date().toLocaleTimeString() + '. Select a case to review its next step.', 'live');
+      setRuntime('Live protected', 'live');
+      renderRequestList(); renderDetail();
+      if (currentReq()) loadCaseActivity(currentReq()).catch(() => {});
+    } catch (error) {
+      if (generation !== state.queueLoad) return;
+      if (error && error.recovering) return;
+      state.requests = [];
+      state.selectedRequestId = null;
+      state.adapter = 'blocked';
+      setRuntime(error && error.status === 401 ? 'Login required' : 'Admin blocked', 'blocked');
+      setAdapterBanner(errorSummary(error), 'blocked');
+      if (error && error.status === 401) showAuthConnectAction();
+      renderRequestList();
+    }
+  }
+
+  function restoreDemoQueue(){
+    state.adapter = 'demo';
+    state.requests = state.demoRequests.map(cloneJson);
+    state.selectedRequestId = state.requests.some(r => r.id === state.selectedRequestId) ? state.selectedRequestId : null;
+    setRuntime('Demo preview', '');
+    setAdapterBanner('demo preview active. No production API calls are being made.', '');
+    renderRequestList();
+  }
 
   /* =========================================================
      INTAKE FORM
@@ -1028,36 +1510,89 @@
     if (state.step < state.totalSteps) setStep(state.step+1); else submitRequest();
   });
 
-  function submitRequest(){
+  async function submitRequest(){
     const r = mkReq(
       $('#f_name').value.trim(), $('#f_program').value, $('#f_school').value.trim(), $('#f_email').value.trim(), $('#f_phone').value.trim(),
       formRanks.spec.filter(Boolean), formRanks.loc.filter(Boolean), monthOrder.slice(),
       $('#f_length').value, Date.now(), $('#f_notes').value.trim()
     );
     seedComms(r);
+    let persisted = false;
+    try {
+      const duration = parseInt(String($('#f_length').value).replace(/[^0-9]/g, ''), 10) || 4;
+      const response = await fetch(apiUrl(CONFIG.publicIntakeEndpoint), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          student_name: r.name,
+          email: r.email,
+          phone: r.phone,
+          training_level_or_school: [r.program, r.school].filter(Boolean).join(' - '),
+          preferred_specialties: r.specialties,
+          preferred_locations: r.locations,
+          preferred_months_or_dates: r.months,
+          duration_weeks: duration,
+          flexibility: '',
+          notes: r.notes,
+          source_url: window.location.href,
+          consent: true,
+          idempotency_key: 'cx-offer-328d-' + r.id
+        })
+      });
+      const payload = await parseJson(response);
+      if (response.ok && payload && (payload.request_id || payload.success)) {
+        persisted = payload.dry_run !== true;
+        r.sourceId = payload.request_id || r.id;
+        r.id = payload.request_id || r.id;
+        r.live = persisted;
+      } else if (!response.ok) {
+        throw new Error(payload && payload.message ? payload.message : 'Public request endpoint rejected the request.');
+      }
+    } catch (error) {
+      toast('Request captured locally; live intake did not accept it: ' + errorSummary(error));
+    }
     state.requests.unshift(r);
     state.currentUser = { name: r.name, email: r.email, requestId: r.id };
     $('#mmFormCard').style.display = 'none';
     $('#mmStepper').style.display = 'none';
-    $('#mmIntakeEcho').textContent = 'Hi ' + r.name.split(' ')[0] + ', we received your request at ' + fmtDateTime(r.submittedAt) + '. A MissionMed coordinator will respond with a concrete offer within 48 hours.';
+    $('#mmIntakeEcho').textContent = 'Hi ' + r.name.split(' ')[0] + ', we received your request at ' + fmtDateTime(r.submittedAt) + '. A MissionMed coordinator will respond with a concrete offer within 48 hours.' + (persisted ? ' Your request is in the live intake queue.' : '');
     $('#mmIntakeDone').style.display = 'block';
-    toast('Request submitted');
+    toast(persisted ? 'Request submitted to live intake' : 'Request submitted');
   }
 
   /* =========================================================
      HQ DASHBOARD
      ========================================================= */
+  function statusLabel(value){
+    const found = INTAKE_STATUS_OPTIONS.find(option => option.value === value);
+    return found ? found.label : String(value || '').replace(/_/g, ' ');
+  }
+
+  function statusOptionHtml(selected){
+    return INTAKE_STATUS_OPTIONS.map(option =>
+      '<option value="' + esc(option.value) + '"' + (option.value === selected ? ' selected' : '') + '>' + esc(option.label) + '</option>'
+    ).join('');
+  }
+
   function refreshStats(){
-    const by = (s) => state.requests.filter(r => r.status === s).length;
+    const by = (...statuses) => state.requests.filter(r => statuses.indexOf(r.status) > -1).length;
     $('#st_new').textContent = by('NEW');
     $('#st_progress').textContent = by('IN_PROGRESS');
-    $('#st_offered').textContent = by('OFFERED');
-    $('#st_accepted').textContent = by('ACCEPTED');
+    $('#st_offered').textContent = by('OFFERED', 'OFFER_SENT', 'OFFER_DECLINE_PENDING');
+    $('#st_accepted').textContent = by('ACCEPTED', 'OFFER_ACCEPTED');
   }
 
   function filteredRequests(){
     let list = state.requests.slice();
-    if (state.filter !== 'all') list = list.filter(r => r.status === state.filter);
+    if (state.filter === 'all') list = list.filter(r => state.workFilter === 'archived' ? r.status === 'ARCHIVED' : r.status !== 'ARCHIVED');
+    else list = list.filter(r => r.status === state.filter);
+    if (state.workFilter !== 'active' && state.workFilter !== 'archived') list = list.filter(r => {
+      const offer = getOfferForRequest(r), tracker = computeAdminTracker(r,offer);
+      if (state.workFilter === 'waiting') return tracker.waitingOn === 'Applicant';
+      if (state.workFilter === 'accepted') return tracker.studentState === 'Offer accepted';
+      if (state.workFilter === 'draft') return tracker.studentState === 'Draft saved — not sent' || tracker.studentState === 'Test recorded — no email sent';
+      return tracker.waitingOn === 'Coordinator' && tracker.studentState !== 'Draft saved — not sent';
+    });
     if (state.query) {
       const q = state.query.toLowerCase();
       list = list.filter(r => (r.name+' '+r.email+' '+(r.specialties||[]).join(' ')+' '+(r.locations||[]).join(' ')).toLowerCase().indexOf(q) > -1);
@@ -1065,105 +1600,12 @@
     if (state.sort === 'newest') list.sort((a,b)=>b.submittedAt-a.submittedAt);
     else if (state.sort === 'oldest') list.sort((a,b)=>a.submittedAt-b.submittedAt);
     else if (state.sort === 'urgent') list.sort((a,b)=>{
-      const rank = (r)=> ['NEW','IN_PROGRESS','OFFERED','DECLINED','RETAINED','ACCEPTED'].indexOf(r.status);
+      const rank = (r)=> ['NEW','IN_PROGRESS','OFFERED','OFFER_SENT','OFFER_DECLINE_PENDING','DECLINED','OFFER_DECLINED_NOTIFY_FUTURE','OFFER_DECLINED_NO_NOTIFY','RETAINED','ACCEPTED','OFFER_ACCEPTED','ARCHIVED'].indexOf(r.status);
       const ra = rank(a), rb = rank(b);
       if (ra !== rb) return ra - rb;
       return a.submittedAt - b.submittedAt;
     });
     return list;
-  }
-
-  function normalizeLiveStatus(raw){
-    const s = String(raw || '').trim().toUpperCase();
-    if (!s) return 'NEW';
-    if (s.indexOf('ACCEPT') > -1 || s === 'PAID') return 'ACCEPTED';
-    if (s.indexOf('DECLIN') > -1 || s.indexOf('REVOK') > -1) return 'DECLINED';
-    if (s.indexOf('RETAIN') > -1) return 'RETAINED';
-    if (s.indexOf('IN_PROGRESS') > -1 || s.indexOf('CLAIM') > -1) return 'IN_PROGRESS';
-    if (s.indexOf('OFFER') > -1 || s.indexOf('SENT') > -1 || s.indexOf('APPROV') > -1 || s.indexOf('REMIND') > -1 || s.indexOf('PENDING_PAYMENT') > -1) return 'OFFERED';
-    return 'NEW';
-  }
-
-  function coerceMonths(value){
-    if (Array.isArray(value)) return value.filter(Boolean).map(v => String(v));
-    const s = String(value || '').trim();
-    if (!s) return [];
-    if (s.indexOf(',') > -1) return s.split(',').map(v => v.trim()).filter(Boolean);
-    return [s];
-  }
-
-  function mapLiveRequestToDemoShape(row, idx){
-    const createdAt = Date.parse(String(row.created_at || row.submitted_at || ''));
-    const normalizedStatus = normalizeLiveStatus(row.status);
-    const submittedAt = Number.isFinite(createdAt) ? createdAt : (Date.now() - (idx * 45 * 60000));
-    const specialties = coerceMonths(row.specialty_preferences || row.specialties);
-    const locations = coerceMonths(row.location_preferences || row.locations);
-    const months = coerceMonths(row.preferred_months || row.months);
-    const specialty = String(row.specialty || specialties[0] || row.track || 'USCE').trim();
-    const location = String(row.location_city || row.location || locations[0] || 'TBD').trim();
-    const request = {
-      id: String(row.id || ('R-LIVE-' + (idx + 1))),
-      name: String(row.applicant_name || row.student_name || row.full_name || row.email || ('Applicant ' + (idx + 1))).trim(),
-      program: String(row.program_level || row.program || 'USCE').trim(),
-      school: String(row.school || row.medical_school || '').trim(),
-      email: String(row.applicant_email || row.email || ('unknown+' + idx + '@example.com')).trim(),
-      phone: String(row.phone || '').trim(),
-      specialties: specialties.length ? specialties : [specialty],
-      locations: locations.length ? locations : [location],
-      months: months.length ? months : ['TBD'],
-      length: String(row.rotation_length || row.length || '4 weeks').trim(),
-      notes: String(row.notes || row.student_notes || '').trim(),
-      status: normalizedStatus,
-      submittedAt,
-      offerId: null,
-      offerHistory: [],
-      comms: [],
-      audit: []
-    };
-    request.comms.push({
-      dir: 'sys',
-      kind: 'Imported from live runtime',
-      at: Date.now(),
-      subject: 'USCE request sync',
-      body: 'Loaded from /api/usce/requests for UI preview.'
-    });
-    pushAudit(request, null, normalizedStatus, 'Live request imported');
-    return request;
-  }
-
-  async function loadLiveRequestsIntoDashboard(){
-    if (!state.runtime.authenticated || !state.runtime.accessToken) {
-      const connected = await connectRuntimeAuth();
-      if (!connected) return;
-    }
-    setRuntimeStatus('Loading /api/usce/requests ...', state.runtime.host + '/api/usce/requests');
-    try {
-      const liveRes = await runtimeFetchJson('/api/usce/requests', {
-        headers: { Authorization: 'Bearer ' + state.runtime.accessToken }
-      });
-      if (!liveRes.ok) {
-        setRuntimeStatus('Live requests call failed (HTTP ' + liveRes.status + ').', 'Keeping demo dataset active.');
-        toast('Live requests failed');
-        return;
-      }
-      const rows = Array.isArray(liveRes.payload && liveRes.payload.requests) ? liveRes.payload.requests : [];
-      state.requests = rows.map(mapLiveRequestToDemoShape);
-      state.selectedRequestId = null;
-      state.currentOfferId = null;
-      state.query = '';
-      state.filter = 'all';
-      state.sort = 'urgent';
-      $('#mmSearch').value = '';
-      $('#mmFilter').value = 'all';
-      $('#mmSort').value = 'urgent';
-      renderRequestList();
-      switchView('hq');
-      setRuntimeStatus('Live requests loaded: ' + rows.length + ' item(s).', 'HQ Dashboard now reflects runtime API payload mapped to demo UI.');
-      toast('Live requests loaded');
-    } catch (error) {
-      setRuntimeStatus('Live requests load failed.', String(error && error.message ? error.message : error));
-      toast('Live load error');
-    }
   }
 
   function renderRequestList(){
@@ -1172,42 +1614,38 @@
     const filtered = filteredRequests();
     $('#mmReqCount').textContent = filtered.length;
     if (!filtered.length) {
-      list.innerHTML = '<div style="padding: 30px 12px; text-align:center; color: var(--mm-muted); font-size: 13px;">No requests match the current filter.</div>';
-      if (state.selectedRequestId) renderDetail();
-      return;
+      const message = state.adapter === 'blocked' ? 'Cases could not be loaded. Reconnect or refresh to try again.' : state.adapter === 'booting' ? 'Loading cases…' : state.query || state.filter !== 'all' ? 'No cases match these filters.' : 'No active cases.';
+      const empty = document.createElement('p'); empty.className = 'mm-hint'; empty.textContent = message; list.appendChild(empty); return;
     }
     filtered.forEach(r => {
-      const item = document.createElement('div');
-      item.className = 'mm-req-item' + (state.selectedRequestId===r.id ? ' is-active' : '');
-      item.dataset.id = r.id;
-      const sla = slaLevel(r);
-      item.innerHTML =
-        '<div class="mm-req-item-top">' +
-          '<span class="mm-req-name"><span class="mm-sla-dot mm-sla-'+sla+'" title="SLA: '+sla+'"></span><span class="mm-nm-txt"></span></span>' +
-          '<span class="mm-status-badge mm-status-' + r.status.toLowerCase() + '">' + r.status.replace('_',' ') + '</span>' +
-        '</div>' +
-        '<div class="mm-req-meta"></div>' +
-        '<div class="mm-req-time"><span></span><b></b></div>';
-      item.querySelector('.mm-nm-txt').textContent = r.name;
-      item.querySelector('.mm-req-meta').textContent = r.program + ' \u00B7 ' + (r.specialties[0] || '-') + ' \u00B7 ' + (r.locations[0] || '-');
-      item.querySelector('.mm-req-time span').textContent = fmtDateTime(r.submittedAt);
-      item.querySelector('.mm-req-time b').textContent = fmtAgo(r.submittedAt);
-      item.addEventListener('click', ()=> selectRequest(r.id));
-      list.appendChild(item);
+      const item = document.createElement('button'); item.type = 'button';
+      item.className = 'mm-req-item' + (state.selectedRequestId === r.id ? ' is-active' : '');
+      item.dataset.id = r.id; item.setAttribute('aria-pressed', String(state.selectedRequestId === r.id));
+      const tracker = computeAdminTracker(r, getOfferForRequest(r));
+      item.innerHTML = '<span class="mm-req-item-top"><span class="mm-req-name"></span><span class="mm-status-badge"></span></span><span class="mm-req-meta"></span><span class="mm-case-next"></span><span class="mm-req-time"></span>';
+      item.querySelector('.mm-req-name').textContent = r.name;
+      item.querySelector('.mm-status-badge').textContent = statusLabel(r.status);
+      item.querySelector('.mm-req-meta').textContent = (r.specialties[0] || 'Specialty not provided') + ' · ' + (r.locations[0] || 'Location not provided');
+      item.querySelector('.mm-case-next').textContent = tracker.adminAction + ' · Waiting on ' + tracker.waitingOn;
+      item.querySelector('.mm-req-time').textContent = 'Requested ' + fmtDateTime(r.submittedAt);
+      item.addEventListener('click', () => selectRequest(r.id)); list.appendChild(item);
     });
-    if (state.selectedRequestId) renderDetail();
   }
 
+  $('#mmWorkFilter').addEventListener('change',event => {state.workFilter = event.target.value; state.filter = 'all'; $('#mmFilter').value = 'all'; renderRequestList();});
   $('#mmSearch').addEventListener('input', (e)=> { state.query = e.target.value.trim(); renderRequestList(); });
   $('#mmFilter').addEventListener('change', (e)=> { state.filter = e.target.value; renderRequestList(); });
   $('#mmSort').addEventListener('change', (e)=> { state.sort = e.target.value; renderRequestList(); });
 
   function selectRequest(id){
-    state.selectedRequestId = id;
-    state.activeTab = 'overview';
-    $$('.mm-req-item').forEach(i => i.classList.toggle('is-active', i.dataset.id === id));
-    renderDetail();
-    switchTab('overview');
+    if (state.busy) { toast('Wait for the current action to finish.'); return; }
+    if (state.dirty && !window.confirm('Discard unsaved changes and open another case?')) return;
+    state.dirty = false; state.draftEmail = null;
+    state.selectedRequestId = id; state.activeTab = 'overview';
+    root.classList.add('mm-case-open');
+    renderRequestList(); renderDetail(); switchTab('overview');
+    $('#mmDetName').setAttribute('tabindex', '-1'); $('#mmDetName').focus();
+    const r = currentReq(); if (r) { loadCaseActivity(r).catch(() => {}); const offer = getOfferForRequest(r); if (offer) loadLiveComms(offer.id,r); }
   }
 
   function renderDetail(){
@@ -1227,7 +1665,12 @@
 
     const badge = $('#mmDetStatus');
     badge.className = 'mm-status-badge mm-status-' + r.status.toLowerCase();
-    badge.textContent = r.status.replace('_',' ');
+    badge.textContent = statusLabel(r.status);
+    const detailStatus = $('#mmDetailStatusSelect');
+    if (detailStatus) {
+      detailStatus.innerHTML = statusOptionHtml(r.status);
+      detailStatus.value = r.status;
+    }
 
     renderRankedList($('#mmDetSpecs'), r.specialties);
     renderRankedList($('#mmDetLocs'), r.locations);
@@ -1237,12 +1680,70 @@
     renderTimeline(r);
     renderAudit(r);
     renderOfferBuilder(r);
+    renderAdminTracker(r);
 
     const statusBtn = $('#mmActStatus');
     if (r.status === 'NEW') { statusBtn.style.display=''; statusBtn.textContent = '\u21BB Mark In Progress'; }
-    else if (r.status === 'IN_PROGRESS') { statusBtn.style.display=''; statusBtn.textContent = '\u21BB Back to New'; }
+    else if (r.status === 'IN_PROGRESS') { statusBtn.style.display='none'; }
     else { statusBtn.style.display='none'; }
   }
+
+  function renderAdminTracker(r){
+    const box = $('#mmAdminTracker');
+    if (!box || !r) return;
+    const offer = getOfferForRequest(r);
+    const tracker = computeAdminTracker(r, offer);
+    const stagesHtml = tracker.stages.map((stage, idx) =>
+      '<div class="mm-admin-stage ' + esc(stage.state) + '">' +
+        '<span class="mm-admin-dot">' + (stage.state === 'complete' ? '&#10003;' : (idx + 1)) + '</span>' +
+        '<span>' + esc(stage.label) + '</span>' +
+      '</div>'
+    ).join('');
+    const statusLine = offer
+      ? 'Offer ' + esc(offer.status || 'DRAFT') + ' | payment ' + esc(offer.paymentStatus || 'pending') + ' | paperwork ' + esc(offer.paperworkStatus || 'not_started') + ' | course ' + esc(offer.learndashStatus || 'locked')
+      : 'No offer draft has been saved yet.';
+    box.innerHTML =
+      '<div class="mm-admin-tracker-head">' +
+        '<div><b>Case next step</b><span>' + esc(tracker.summary) + '</span></div>' +
+        '<span class="mm-admin-waiting">Waiting on ' + esc(tracker.waitingOn) + '</span>' +
+      '</div>' +
+      '<div class="mm-admin-stage-grid">' + stagesHtml + '</div>' +
+      '<div class="mm-admin-tracker-body">' +
+        '<div class="mm-admin-next"><small>Coordinator next action</small><b>' + esc(tracker.adminAction) + '</b><span>' + esc(tracker.adminDetail) + '</span></div>' +
+        '<div class="mm-admin-next"><small>Recorded case state</small><b>' + esc(tracker.studentState) + '</b><span>' + statusLine + '</span></div>' +
+      '</div>';
+  }
+
+  function computeAdminTracker(r, offer){
+    const status = String(r.status || '').toUpperCase();
+    const os = String(offer && offer.status || '').toUpperCase();
+    const events = state.activityByRequest[r.id] || [];
+    const accepted = !!(offer && (offer.acceptedAt || ['ACCEPTED','OFFER_ACCEPTED'].includes(os)));
+    const declined = !!(offer && (offer.declinedAt || ['DECLINED','OFFER_DECLINED_NOTIFY_FUTURE','OFFER_DECLINED_NO_NOTIFY'].includes(os)));
+    const alternate = os === 'ALTERNATE_REQUESTED';
+    const sent = !!(offer && offer.postmarkStatus !== 'dry_run' && (offer.messageSentAt || ['sent','delivered','opened'].includes(offer.postmarkStatus)));
+    const availability = events.some(e => e.kind === 'availability_confirmed');
+    const expired = !!(offer && offer.expiresAt && offer.expiresAt < Date.now() && !accepted && !declined);
+    let waitingOn = 'Coordinator', adminAction = 'Review request', adminDetail = 'Review the ranked preferences and record what is needed before proposing an offer.', studentState = 'Request received', index = 0;
+    if (status === 'IN_PROGRESS' || events.length) { index = 1; adminAction = 'Check availability'; studentState = 'Review recorded'; adminDetail = 'Record program outreach and confirmed facts. Applicant preferences are not confirmed availability.'; }
+    if (offer) { index = 2; adminAction = 'Review offer draft'; studentState = sent ? 'Message sent' : 'Draft saved — not sent'; adminDetail = 'Check the exact rotation, response deadline and recipient before reviewing the message.'; }
+    if (sent) { index = 3; waitingOn = 'Applicant'; adminAction = 'Await applicant response'; adminDetail = 'Review recorded delivery and response events in Activity. Provider acceptance is not proof of delivery.'; }
+    if (offer && offer.postmarkStatus === 'dry_run') { index = 2; studentState = 'Test recorded — no email sent'; }
+    if (expired) { waitingOn = 'Coordinator'; adminAction = 'Review expired offer'; studentState = 'Response deadline passed'; adminDetail = 'Review current availability and terms before preparing a revised offer.'; }
+    if (accepted) { index = 4; waitingOn = 'Coordinator / applicant'; adminAction = 'Verify next steps'; studentState = 'Offer accepted'; adminDetail = 'Check payment, paperwork, access and placement separately. Recorded status alone does not secure a rotation.'; }
+    if (alternate) { index = 2; waitingOn = 'Coordinator'; adminAction = 'Prepare alternate option'; studentState = 'Alternate requested'; adminDetail = 'Review the applicant response before revising the current option.'; }
+    if (declined) { index = 3; waitingOn = 'Coordinator'; adminAction = 'Review decline and follow-up preference'; studentState = 'Offer declined'; adminDetail = 'Preserve the applicant’s future-contact preference. No payment action follows this decline.'; }
+    if (status === 'ARCHIVED') { waitingOn = 'No active follow-up'; adminAction = 'Archived case'; studentState = 'Archived'; adminDetail = 'History is retained. This case is hidden from the active queue.'; }
+    if (offer && ['failed','bounced','complaint'].includes(offer.postmarkStatus) && status !== 'ARCHIVED') { waitingOn = 'Coordinator'; adminAction = 'Review delivery problem'; adminDetail = 'Inspect Activity before retrying. Do not assume the applicant received this offer.'; }
+    const labels = ['Request received','Review recorded','Offer preparation','Message sent','Response recorded'];
+    const facts = [true, status === 'IN_PROGRESS' || events.length > 0, !!offer, sent, accepted || declined || alternate];
+    return { waitingOn, adminAction, adminDetail, studentState, summary: availability ? 'Program availability confirmation is recorded in Activity. Verify it remains current before sending.' : 'No program availability confirmation is recorded in case Activity.', stages: labels.map((label,i) => ({key:String(i),label,state:facts[i]?'complete':i===index?'active':'waiting'})) };
+  }
+
+  function labelizeLocal(value){
+    return String(value || '').replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
+  }
+
   function renderRankedList(container, arr){
     container.innerHTML = '';
     if (!arr || !arr.length) { container.innerHTML = '<span style="color:var(--mm-muted); font-weight:500;">(none)</span>'; return; }
@@ -1255,6 +1756,7 @@
   }
   function renderTimeline(r){
     const tl = $('#mmDetTimeline'); tl.innerHTML = '';
+    const offer = getOfferForRequest(r);
     const sorted = r.comms.slice().sort((a,b)=>a.at-b.at);
     sorted.forEach(c => {
       const item = document.createElement('div');
@@ -1294,122 +1796,282 @@
   /* Tabs */
   function switchTab(t){
     state.activeTab = t;
-    $$('#mmDetTabs button').forEach(b => b.classList.toggle('is-active', b.dataset.tab === t));
+    $$('#mmDetTabs button').forEach(b => (b.classList.toggle('is-active', b.dataset.tab === t), b.setAttribute('aria-selected', String(b.dataset.tab === t))));
     $$('.mm-tabpane').forEach(p => p.classList.toggle('is-active', p.dataset.pane === t));
   }
   $$('#mmDetTabs button').forEach(b => b.addEventListener('click', ()=> switchTab(b.dataset.tab)));
-  $('#mmDetBack').addEventListener('click', ()=> {
-    state.selectedRequestId = null; renderRequestList();
-    $('#mmDetailEmpty').style.display='grid'; $('#mmDetailContent').style.display='none';
-  });
+  function backToCases(){
+    if (state.busy || (state.dirty && !window.confirm('Discard unsaved changes and return to cases?'))) return;
+    state.dirty = false; state.selectedRequestId = null; state.draftEmail = null;
+    root.classList.remove('mm-case-open'); renderRequestList(); renderDetail(); $('#mmSearch').focus();
+  }
+  $('#mmDetBack').addEventListener('click', backToCases);
+  $('#mmCaseBack').addEventListener('click', backToCases);
+  $('#mmRefreshCases').addEventListener('click', loadLiveQueue);
 
   /* Quick actions - overview */
+  async function updateRequestStatus(r, next, options = {}){
+    if (!r || !next || r.status === next || state.busy) return;
+    if (!['IN_PROGRESS','ARCHIVED'].includes(next)) { toast('Applicant responses must come through the current offer.'); return; }
+    const from = r.status;
+    state.busy = true;
+    try {
+      if (state.adapter === 'live') {
+        await adminFetch(CONFIG.adminStatusEndpoint, { id: r.sourceId || r.id }, {
+          method: 'PATCH',
+          body: { status: STATUS_TO_LIVE[next] || 'in_progress' }
+        });
+        setAdapterBanner('intake status updated through the secure admin service.', 'live');
+      }
+      r.status = next;
+      pushAudit(r, from, r.status, options.reason || (COORDINATOR + ' updated status'));
+      if (next === 'ARCHIVED' && state.selectedRequestId === r.id) state.selectedRequestId = null;
+      renderRequestList();
+      if (state.selectedRequestId) renderDetail();
+      else { $('#mmDetailEmpty').style.display='grid'; $('#mmDetailContent').style.display='none'; }
+      toast(options.toast || ('Status: ' + statusLabel(r.status)));
+    } catch (error) {
+      setAdapterBanner('status update blocked safely: ' + errorSummary(error), 'blocked');
+      toast('Status update blocked safely');
+      renderRequestList();
+      if (state.selectedRequestId) renderDetail();
+    } finally { state.busy = false; }
+  }
+
+  function archiveRequest(r){
+    if (!r) return;
+    const label = 'Archive this case and hide it from the active queue?';
+    if (!window.confirm(label + '\n\nIts history will be kept. No message will be sent.')) return;
+    updateRequestStatus(r, 'ARCHIVED', {
+      reason: COORDINATOR + ' archived request from active queue',
+      toast: 'Request removed from active queue'
+    });
+  }
+
   $('#mmActGotoOffer').addEventListener('click', ()=> switchTab('offer'));
+  $('#mmDetailStatusSelect').addEventListener('change', (event)=> {
+    const r = currentReq(); if (!r) return;
+    updateRequestStatus(r, event.target.value);
+  });
+  $('#mmActDelete').addEventListener('click', ()=> archiveRequest(currentReq()));
   $('#mmActStatus').addEventListener('click', ()=> {
     const r = currentReq(); if (!r) return;
-    const from = r.status;
-    if (r.status === 'NEW') r.status = 'IN_PROGRESS';
-    else if (r.status === 'IN_PROGRESS') r.status = 'NEW';
-    pushAudit(r, from, r.status, COORDINATOR + ' updated status');
-    renderRequestList(); renderDetail();
-    toast('Status: ' + r.status.replace('_',' '));
+    const next = r.status === 'NEW' ? 'IN_PROGRESS' : 'NEW';
+    updateRequestStatus(r, next);
   });
-  $('#mmActCall').addEventListener('click', ()=> openPrompt('Log call to site', 'Call notes (who, outcome, next step)', (v)=> {
-    const r = currentReq(); if (!r || !v.trim()) return;
-    r.comms.push({ dir:'call', kind: COORDINATOR + ' called program', at: Date.now(), subject: 'Phone outreach', body: v.trim() });
-    if (r.status === 'NEW') { pushAudit(r,'NEW','IN_PROGRESS','First outreach logged'); r.status='IN_PROGRESS'; }
-    renderRequestList(); renderDetail(); switchTab('comms');
-    toast('Call logged');
-  }));
-  $('#mmActNote').addEventListener('click', ()=> openPrompt('Add internal note', 'Internal note (not sent to student)', (v)=> {
-    const r = currentReq(); if (!r || !v.trim()) return;
-    r.comms.push({ dir:'note', kind: 'Internal note by ' + COORDINATOR, at: Date.now(), subject: '', body: v.trim() });
-    renderDetail(); switchTab('comms');
-    toast('Note saved');
-  }));
-
-  /* Quick actions - comms */
-  $('#mmActMessage').addEventListener('click', ()=> {
-    const r = currentReq(); if (!r) return;
-    $('#cmpSubject').value = 'Update on your MissionMed request';
-    $('#cmpBody').value = 'Hi ' + r.name.split(' ')[0] + ',\n\nQuick update: we are actively working on matching you. ';
-    $('#mmComposer').classList.add('is-open');
-    $('#cmpSubject').focus();
+  async function loadCaseActivity(r){
+    try {
+      const payload = await adminFetch(CONFIG.activityEndpoint, {id:r.sourceId || r.id}, {method:'GET'});
+      const events = payload.data && payload.data.activity;
+      if (!Array.isArray(events)) throw new Error('Activity response could not be verified.');
+      state.activityByRequest[r.id] = events;
+      const mapped = events.map(e => ({dir:e.kind === 'site_call'?'call':e.kind === 'internal_note'?'note':'sys',kind:e.kind === 'site_call'?'Program call recorded':e.kind === 'internal_note'?'Internal note':'Availability confirmation recorded',at:Date.parse(e.created_at),subject:'',body:e.body || '',caseActivity:true}));
+      r.comms = r.comms.filter(e => !e.caseActivity).concat(mapped);
+      if (state.selectedRequestId === r.id) { renderTimeline(r); renderAdminTracker(r); }
+      return events;
+    } catch (error) {
+      if (state.selectedRequestId === r.id) toast('Case activity could not be loaded. Refresh to retry.');
+      throw error;
+    }
+  }
+  function actionKey(scope){
+    if (!state.actionKeys[scope]) state.actionKeys[scope] = 'usce-' + crypto.randomUUID();
+    return state.actionKeys[scope];
+  }
+  function activityPrompt(kind, title){
+    const r = currentReq(); if (!r || state.busy) return;
+    const label = kind === 'availability_confirmed' ? 'Record the program contact, exact rotation and dates, confirmation date, conditions, and follow-up. This records evidence; it does not reserve a place.' : kind === 'site_call' ? 'Who did you call, what was confirmed, and what happens next? This records a call; it does not place a call or send a message.' : 'Internal note — visible to coordinators only. Nothing is sent to the applicant.';
+    const save = async body => {
+      if (!body.trim() || state.busy) return;
+      const scope = r.id + ':' + kind + ':' + body.trim(); state.busy = true;
+      try {
+        await adminFetch(CONFIG.activityEndpoint,{id:r.sourceId || r.id},{method:'POST',body:{kind,body:body.trim(),idempotency_key:actionKey(scope)}});
+        await loadCaseActivity(r); delete state.actionKeys[scope]; toast('Saved to case history. No message sent.');
+      } catch(error) {
+        openPrompt(title,'Save/readback could not be confirmed. Your text is retained. Retry uses the same action identity.',save); $('#mmPromptText').value = body;
+        toast('Save could not be confirmed. Text retained.');
+      } finally { state.busy = false; }
+    };
+    openPrompt(title,label,save);
+  }
+  $('#mmActCall').insertAdjacentHTML('afterend','<button type="button" class="mm-btn mm-btn-sm mm-btn-ghost" id="mmRecordAvailability">Record program confirmation</button>');
+  $('#mmRecordAvailability').addEventListener('click', () => activityPrompt('availability_confirmed','Record program confirmation'));
+  $('#mmActCall').addEventListener('click', () => activityPrompt('site_call','Record program call'));
+  $('#mmActNote').addEventListener('click', () => activityPrompt('internal_note','Add internal note'));
+  ['mmActMessage','mmActReminder','cmpSend'].forEach(id => {
+    const button = document.getElementById(id); button.disabled = true;
+    button.title = 'Direct messages and reminders are not connected to a durable sending contract. Use the reviewed offer message workflow.';
   });
-  $('#cmpCancel').addEventListener('click', ()=> $('#mmComposer').classList.remove('is-open'));
-  $('#cmpSend').addEventListener('click', ()=> {
-    const r = currentReq(); if (!r) return;
-    const subj = $('#cmpSubject').value.trim(); const body = $('#cmpBody').value.trim();
-    if (!subj || !body) { toast('Subject and body required'); return; }
-    r.comms.push({ dir:'out', kind:'Message from ' + COORDINATOR, at: Date.now(), subject: subj, body: body });
-    $('#mmComposer').classList.remove('is-open');
-    renderDetail();
-    toast('Message sent');
-  });
-  $('#mmActReminder').addEventListener('click', ()=> {
-    const r = currentReq(); if (!r) return;
-    const offer = state.offers.find(o => o.id === r.offerId);
-    if (!offer) { toast('No offer on file'); return; }
-    const body = 'Hi ' + r.name.split(' ')[0] + ', a friendly reminder that your offer for ' + offer.specialty + ' in ' + offer.location + ' expires ' + fmtDateTime(offer.expiresAt) + '. Log in to accept.';
-    r.comms.push({ dir:'out', kind:'Reminder sent', at: Date.now(), subject: 'Reminder: your MissionMed offer expires soon', body: body });
-    renderDetail(); toast('Reminder sent');
-  });
-  $('#mmActSimReply').addEventListener('click', ()=> openPrompt('Simulate student reply', 'Reply content', (v)=> {
-    const r = currentReq(); if (!r || !v.trim()) return;
-    r.comms.push({ dir:'in', kind:'Student reply', at: Date.now(), subject: 'Re: MissionMed', body: v.trim() });
-    renderDetail();
-    toast('Reply ingested');
-  }));
+  $('#mmActSimReply').hidden = true;
+  $('#cmpCancel').addEventListener('click', () => $('#mmComposer').classList.remove('is-open'));
 
   function currentReq(){ return state.requests.find(x => x.id === state.selectedRequestId); }
+  function getOfferForRequest(r){
+    if (!r) return null;
+    return state.liveOffersByRequest[r.id] || state.offers.find(o => o.requestId === r.id) || null;
+  }
+  function normalizeDurationWeeks(value){
+    const numeric = parseInt(String(value || '').replace(/[^0-9]/g, ''), 10);
+    return Number.isInteger(numeric) && numeric > 0 ? numeric : 4;
+  }
+  function offerPayload(offer){
+    return {
+      specialty: offer.specialty,
+      location: offer.location,
+      timing: offer.months && offer.months.length ? offer.months.join(' or ') : '',
+      duration_weeks: normalizeDurationWeeks(offer.length),
+      format: offer.program || 'In-person clinical exposure',
+      admin_message: offer.instructions || offer.body || '',
+      expires_at: new Date(offer.expiresAt).toISOString(),
+      status: offer.status && offer.status !== 'DRAFT' ? String(offer.status).toLowerCase() : 'draft',
+      metadata: {
+        source: 'CX-OFFER-328D',
+        program: offer.program || '',
+        months: offer.months || [],
+        start: offer.start || '',
+        internal_notes: offer.internalNotes || ''
+      }
+    };
+  }
+  function mergeLiveOffer(item, requestId){
+    if (!item || !item.id) return null;
+    const r = state.requests.find(row => row.id === (requestId || item.intake_request_id));
+    const meta = item.metadata && typeof item.metadata === 'object' ? item.metadata : {};
+    const draftMeta = meta.draft_metadata && typeof meta.draft_metadata === 'object' ? meta.draft_metadata : meta;
+    const offer = {
+      id: item.id,
+      requestId: requestId || item.intake_request_id,
+      student: r ? { name:r.name, email:r.email, phone:r.phone } : { name:'Student', email:'', phone:'' },
+      program: item.format || draftMeta.program || 'Core Rotation Access',
+      specialty: item.specialty || '',
+      location: item.location || '',
+      length: item.duration_weeks ? String(item.duration_weeks) + ' weeks' : '4 weeks',
+      months: Array.isArray(draftMeta.months) ? draftMeta.months : (item.timing ? [item.timing] : []),
+      start: draftMeta.start || '',
+      instructions: item.admin_message || item.message_body || '',
+      internalNotes: draftMeta.internal_notes || '',
+      createdAt: Date.parse(item.created_at || '') || Date.now(),
+      expiresAt: Date.parse(item.expires_at || item.offer_token_expires_at || '') || Date.now() + 48*3600*1000,
+      status: String(item.status || 'draft').toUpperCase(),
+      subject: item.message_subject || '',
+      body: item.message_body || '',
+      paymentStatus: item.payment_status || 'pending',
+      paperworkStatus: item.paperwork_status || 'not_started',
+      learndashStatus: item.learndash_status || 'locked',
+      hasToken: !!item.has_token || !!item.offer_token_expires_at,
+      portalUrl: item.has_token && (state.liveOffersByRequest[requestId || item.intake_request_id] || {}).revision === item.revision ? ((state.liveOffersByRequest[requestId || item.intake_request_id] || {}).portalUrl || '') : '',
+      revision: item.revision, messageSentAt: item.message_sent_at || null,
+      postmarkStatus: String(item.postmark_status || 'not_sent').toLowerCase(),
+      acceptedAt: item.accepted_at || null, declinedAt: item.declined_at || null
+    };
+    state.liveOffersByRequest[offer.requestId] = offer;
+    const idx = state.offers.findIndex(o => o.id === offer.id || o.requestId === offer.requestId);
+    if (idx >= 0) state.offers[idx] = offer; else state.offers.unshift(offer);
+    if (r) r.offerId = offer.id;
+    return offer;
+  }
 
   /* Offer builder */
+  function showOtherOfferFields(){
+    const specOther = $('#mmOfSpecialtyOther');
+    const locOther = $('#mmOfLocationOther');
+    if (specOther) specOther.classList.toggle('is-visible', $('#mmOfSpecialty').value === OTHER_OPTION);
+    if (locOther) locOther.classList.toggle('is-visible', $('#mmOfLocation').value === OTHER_OPTION);
+  }
+
+  function offerSpecialtyValue(){
+    const value = $('#mmOfSpecialty').value;
+    if (value !== OTHER_OPTION) return value;
+    const custom = $('#mmOfSpecialtyOther').value.trim();
+    return custom ? 'Other: ' + custom : '';
+  }
+
+  function offerLocationValue(){
+    const value = $('#mmOfLocation').value;
+    if (value !== OTHER_OPTION) return value;
+    const custom = $('#mmOfLocationOther').value.trim();
+    return custom ? 'Other: ' + custom : '';
+  }
+
   function renderOfferBuilder(r){
+    const existing = getOfferForRequest(r);
     const specSel = $('#mmOfSpecialty');
     const specPool = (r.specialties || []).concat(SPECIALTIES.filter(s => (r.specialties||[]).indexOf(s)<0));
     fillSelectEl(specSel, specPool);
-    specSel.value = (r.specialties && r.specialties[0]) || specPool[0] || '';
+    specSel.value = (existing && existing.specialty) || (r.specialties && r.specialties[0]) || specPool[0] || '';
+    $('#mmOfSpecialtyOther').value = existing && existing.specialty && specPool.indexOf(existing.specialty) < 0 ? String(existing.specialty).replace(/^Other:\s*/i,'') : '';
+    if (existing && existing.specialty && specPool.indexOf(existing.specialty) < 0) specSel.value = OTHER_OPTION;
 
     const locSel = $('#mmOfLocation');
-    const locPool = (r.locations || []).concat(LOCATIONS.filter(l => (r.locations||[]).indexOf(l)<0));
+    const locPool = LOCATIONS.slice();
     fillSelectEl(locSel, locPool);
-    locSel.value = (r.locations && r.locations[0]) || locPool[0] || '';
+    locSel.value = (existing && LOCATIONS.indexOf(existing.location) > -1 && existing.location) || locPool[0] || '';
+    $('#mmOfLocationOther').value = existing && LOCATIONS.indexOf(existing.location) < 0 ? String(existing.location || '').replace(/^Other:\s*/i, '') : '';
+    if (existing && existing.location && LOCATIONS.indexOf(existing.location) < 0) locSel.value = OTHER_OPTION;
 
-    $('#mmOfLength').value = r.length || '4 weeks';
+    $('#mmOfLength').value = (existing && existing.length) || r.length || '4 weeks';
 
     const ofMonths = $('#mmOfMonths'); ofMonths.innerHTML='';
     const studentMonths = r.months || [];
     const pool = studentMonths.concat(MONTHS.filter(m => studentMonths.indexOf(m)<0));
-    const preselected = new Set(studentMonths[0] ? [studentMonths[0]] : []);
+    const preselected = new Set(existing && existing.months && existing.months.length ? existing.months : (studentMonths[0] ? [studentMonths[0]] : []));
     pool.forEach(m => {
       const b = document.createElement('button');
       b.type='button'; b.className='mm-month'; b.dataset.val=m;
       const prefIdx = studentMonths.indexOf(m);
       const prefTag = prefIdx > -1 ? '<span class="mm-pref-tag">#'+(prefIdx+1)+'</span>' : '';
-      b.innerHTML = '<span>'+m+'</span>' + prefTag;
+      b.innerHTML = '<span>'+esc(m)+'</span>' + prefTag;
       if (prefIdx > -1) b.classList.add('is-preferred');
       if (preselected.has(m)) b.classList.add('is-on');
       b.addEventListener('click', ()=> { b.classList.toggle('is-on'); updatePreflight(); });
       ofMonths.appendChild(b);
     });
 
-    $('#mmOfInternal').value = '';
-    $('#mmOfInstructions').value = 'Please confirm within the expiration window. After acceptance, our onboarding team will email you the site coordinator contact, orientation packet, and required documentation within one business day.';
-    $('#mmOfExpire').value = '48';
-    $('#mmOfStart').value = '';
+    $('#mmOfProgram').value = (existing && existing.program) || 'Core Rotation Access';
+    $('#mmOfInternal').value = (existing && existing.internalNotes) || '';
+    $('#mmOfInstructions').value = (existing && existing.instructions) || 'Please confirm within the expiration window. After acceptance, our onboarding team will email you the site coordinator contact, orientation packet, and required documentation within one business day.';
+    $('#mmOfExpire').value = '48'; $('#mmOfExpire').dataset.changed = 'false';
+    $('#mmDraftState').textContent = existing ? 'Saved response deadline: ' + fmtDateTime(existing.expiresAt) + '. Change the expiry field only to revise it.' : 'New draft — not saved or sent';
+    $('#mmOfStart').value = (existing && existing.start) || '';
+    $('#mmOpsPayment').value = (existing && existing.paymentStatus) || 'pending';
+    $('#mmOpsPaperwork').value = (existing && existing.paperworkStatus) || 'not_started';
+    $('#mmOpsLearndash').value = (existing && existing.learndashStatus) || 'locked';
+    renderLiveOfferBox(r);
 
-    ['#mmOfProgram','#mmOfSpecialty','#mmOfLocation','#mmOfLength','#mmOfExpire','#mmOfStart'].forEach(sel => {
+    showOtherOfferFields();
+    ['#mmOfProgram','#mmOfSpecialty','#mmOfLocation','#mmOfLength','#mmOfExpire','#mmOfStart','#mmMessageChoice','#mmOfSpecialtyOther','#mmOfLocationOther'].forEach(sel => {
       const el = $(sel); el.oninput = updatePreflight; el.onchange = updatePreflight;
     });
     updatePreflight();
+  }
+
+  function renderLiveOfferBox(r){
+    const box = $('#mmLiveOfferBox');
+    const offer = getOfferForRequest(r);
+    if (!box || !offer) {
+      if (box) box.hidden = true;
+      return;
+    }
+    box.hidden = false;
+    const linkHtml = offer.portalUrl
+      ? '<div class="mm-live-link">' + esc(offer.portalUrl) + '</div>'
+      : '<div class="mm-hint">Generate a student link after saving the offer draft.</div>';
+    box.innerHTML =
+      '<b style="font-size:11px; color:var(--mm-navy); text-transform:uppercase; letter-spacing:0.08em;">Live offer state</b>' +
+      '<ul>' +
+        '<li class="ok">Offer ID: ' + esc(offer.id) + '</li>' +
+        '<li class="ok">Status: ' + esc(offer.status || 'DRAFT') + '</li>' +
+        '<li class="ok">Payment: ' + esc(offer.paymentStatus || 'pending') + ' / paperwork: ' + esc(offer.paperworkStatus || 'not_started') + ' / course: ' + esc(offer.learndashStatus || 'locked') + '</li>' +
+      '</ul>' + linkHtml;
   }
 
   function updatePreflight(){
     const r = currentReq(); if (!r) return;
     const pf = $('#mmPreflight');
     const months = $$('#mmOfMonths .mm-month.is-on').map(b => b.dataset.val);
-    const spec = $('#mmOfSpecialty').value;
-    const loc = $('#mmOfLocation').value;
+    showOtherOfferFields();
+    const spec = offerSpecialtyValue();
+    const loc = offerLocationValue();
     const items = [];
     items.push({ ok: !!spec, msg: spec ? 'Specialty set: ' + spec : 'Specialty required' });
     items.push({ ok: !!loc, msg: loc ? 'Location set: ' + loc : 'Location required' });
@@ -1421,13 +2083,15 @@
     const monthMatch = months.some(m => (r.months||[]).indexOf(m) > -1);
     items.push({ ok: monthMatch, msg: monthMatch ? 'At least one offered month matches student preference' : 'No offered month matches student preference', warn: months.length && !monthMatch });
     pf.innerHTML = '<b style="font-size:11px; color:var(--mm-navy); text-transform:uppercase; letter-spacing:0.08em;">Pre-flight checks</b><ul>' +
-      items.map(i => '<li class="'+(i.ok?'ok':'warn')+'">'+i.msg+'</li>').join('') + '</ul>';
+      items.map(i => '<li class="'+(i.ok?'ok':'warn')+'">'+esc(i.msg)+'</li>').join('') + '</ul>';
   }
 
   function readOfferForm(){
     const r = currentReq(); if (!r) return null;
     const months = $$('#mmOfMonths .mm-month.is-on').map(b => b.dataset.val);
-    if (!$('#mmOfSpecialty').value || !$('#mmOfLocation').value) { toast('Set specialty and location'); return null; }
+    const specialty = offerSpecialtyValue();
+    const location = offerLocationValue();
+    if (!specialty || !location) { toast('Set specialty and location'); return null; }
     if (!months.length) { toast('Pick at least one offered month'); return null; }
     const expireHrs = parseInt($('#mmOfExpire').value, 10);
     return {
@@ -1435,43 +2099,207 @@
       requestId: r.id,
       student: { name: r.name, email: r.email, phone: r.phone },
       program: $('#mmOfProgram').value,
-      specialty: $('#mmOfSpecialty').value,
-      location: $('#mmOfLocation').value,
+      specialty,
+      location,
       length: $('#mmOfLength').value,
       months,
       start: $('#mmOfStart').value,
       instructions: $('#mmOfInstructions').value.trim(),
       internalNotes: $('#mmOfInternal').value.trim(),
       createdAt: Date.now(),
-      expiresAt: Date.now() + expireHrs*3600*1000,
+      expiresAt: (getOfferForRequest(r) && $('#mmOfExpire').dataset.changed !== 'true') ? getOfferForRequest(r).expiresAt : Date.now() + expireHrs*3600*1000,
       status: 'DRAFT',
       approved: false,
       createdBy: COORDINATOR
     };
   }
 
-  $('#mmSaveDraft').addEventListener('click', ()=> {
-    const offer = readOfferForm(); if (!offer) return;
+  async function persistLiveOfferDraft(offer){
+    const r = state.requests.find(row => row.id === offer.requestId);
+    if (!r || state.selectedRequestId !== r.id) throw new Error('Case changed. Review this offer again.');
+    const existing = getOfferForRequest(r);
+    const path = existing && existing.id
+      ? CONFIG.offerReadEndpoint
+      : CONFIG.offerDraftEndpoint;
+    const vars = existing && existing.id
+      ? { offerId: existing.id }
+      : { id: r.sourceId || r.id };
+    const method = existing && existing.id ? 'PATCH' : 'POST';
+    if (existing && !Number.isInteger(existing.revision)) throw new Error('Offer version is unavailable. Refresh the case before editing.');
+    const body = { ...offerPayload(offer), ...(existing ? { expected_revision: existing.revision } : {}) };
+    const payload = await adminFetch(path, vars, { method, body });
+    const item = payload.item || payload.offer || (payload.data && (payload.data.item || payload.data.offer)) || payload.data || payload;
+    const liveOffer = mergeLiveOffer(item, r.id);
+    if (!liveOffer) throw new Error('Saved offer could not be verified.');
+    if (liveOffer) {
+      state.dirty = false;
+      liveOffer.student = offer.student;
+      liveOffer.portalUrl = offer.portalUrl || liveOffer.portalUrl || '';
+      r.offerId = liveOffer.id;
+      const prev = r.status;
+      if (r.status === 'NEW') {
+        r.status = 'IN_PROGRESS';
+        pushAudit(r, prev, 'IN_PROGRESS', 'Live offer draft saved');
+      }
+      if (!r.offerHistory.some(h => h.id === liveOffer.id)) {
+        r.offerHistory.push({ id: liveOffer.id, status: liveOffer.status || 'DRAFT', at: Date.now() });
+      }
+      r.comms.push({ dir:'sys', kind:'Offer draft saved', at: Date.now(), subject: liveOffer.specialty + ' / ' + liveOffer.location, body:'The secure admin service saved or updated the offer draft. No browser database admin write occurred.' });
+      state.currentOfferId = liveOffer.id;
+      return liveOffer;
+    }
+    return null;
+  }
+
+  function persistLocalOfferDraft(offer){
+    const r = currentReq();
     offer.status = 'DRAFT';
-    state.offers.unshift(offer);
-    const r = currentReq(); r.offerId = offer.id; r.offerHistory.push({ id: offer.id, status: 'DRAFT', at: Date.now() });
+    const idx = state.offers.findIndex(o => o.id === offer.id || o.requestId === offer.requestId);
+    if (idx >= 0) state.offers[idx] = offer; else state.offers.unshift(offer);
+    r.offerId = offer.id;
+    if (!r.offerHistory.some(h => h.id === offer.id)) r.offerHistory.push({ id: offer.id, status: 'DRAFT', at: Date.now() });
     const prev = r.status;
     if (r.status === 'NEW') { r.status = 'IN_PROGRESS'; pushAudit(r, prev, 'IN_PROGRESS', 'Offer drafted'); }
     r.comms.push({ dir:'sys', kind:'Offer drafted', at: Date.now(), subject: offer.specialty + ' / ' + offer.location, body: 'Coordinator saved an offer draft. Months: ' + offer.months.join(', ') + '. Expires ' + fmtDateTime(offer.expiresAt) + '.' });
-    renderRequestList(); renderDetail();
-    toast('Draft saved');
+    state.currentOfferId = offer.id;
+    return offer;
+  }
+
+  $('#mmSaveDraft').addEventListener('click', async ()=> {
+    if (state.busy || state.adapter !== 'live') return;
+    const offer = readOfferForm(); if (!offer) return;
+    state.busy = true;
+    try {
+      if (state.adapter === 'live') {
+        await persistLiveOfferDraft(offer);
+        setAdapterBanner('offer draft saved through the secure admin service.', 'live');
+        toast('Live draft saved');
+      } else {
+        persistLocalOfferDraft(offer);
+        toast('Draft saved');
+      }
+      renderRequestList(); renderDetail();
+    } catch (error) {
+      setAdapterBanner('draft save blocked safely: ' + errorSummary(error), 'blocked');
+      toast('Draft save blocked safely');
+    } finally { state.busy = false; }
   });
 
   /* Email preview */
-  function openEmailPreview(){
+  async function openEmailPreview(){
+    if (state.busy || state.adapter !== 'live') return;
     const offer = readOfferForm(); if (!offer) return;
-    state.draftEmail = buildDraftEmail(offer);
-    state.draftEmail.offer = offer;
-    renderEmailModal();
-    $('#mmModalScrim').classList.add('is-open');
-    $('#mmModalScrim').setAttribute('aria-hidden','false');
+    state.busy = true;
+    try {
+      const liveOffer = state.adapter === 'live' ? await persistLiveOfferDraft(offer) : persistLocalOfferDraft(offer);
+      if (state.adapter === 'live' && liveOffer && liveOffer.id) {
+        await ensureLiveOfferPortalUrl(liveOffer);
+      }
+      const previewOffer = liveOffer ? { ...offer, id: liveOffer.id, requestId: offer.requestId, portalUrl: liveOffer.portalUrl || offer.portalUrl || '' } : offer;
+      state.draftEmail = buildDraftEmail(previewOffer);
+      state.draftEmail.offer = previewOffer;
+      if (state.adapter === 'live' && liveOffer && liveOffer.id) {
+        const previewPayload = await recordLiveMessagePreview(liveOffer.id, state.draftEmail);
+        applyServerPreview(state.draftEmail, previewPayload);
+        await loadLiveComms(liveOffer.id, currentReq());
+        setAdapterBanner('message preview logged through protected comms path. No live email was sent.', 'live');
+      } else {
+        applyRenderedEmailPayload(state.draftEmail, buildLocalOfferEmailPreview(state.draftEmail));
+      }
+      renderEmailModal();
+      $('#mmModalScrim').classList.add('is-open');
+      $('#mmModalScrim').setAttribute('aria-hidden','false');
+      $('#mmEmailApprove').focus();
+    } catch (error) {
+      setAdapterBanner('message preview blocked safely: ' + errorSummary(error), 'blocked');
+      toast('Preview blocked safely');
+    } finally { state.busy = false; }
   }
-  $('#mmPreviewEmail').addEventListener('click', openEmailPreview);
+  $('#mmPreviewEmail').addEventListener('click', ()=> openEmailPreview());
+
+  async function recordLiveMessagePreview(offerId, draft){
+    return adminFetch(CONFIG.offerMessagePreviewEndpoint, { offerId }, {
+      method: 'POST',
+      body: {
+        category: 'offer_ready',
+        variant: 'coordinator_clear',
+        to_email: draft.to,
+        subject: draft.subject,
+        body: draft.body
+      }
+    });
+  }
+
+  async function ensureLiveOfferPortalUrl(liveOffer){
+    if (!liveOffer || !liveOffer.id || liveOffer.portalUrl) return liveOffer && liveOffer.portalUrl;
+    const tokenResult = await mintLiveOfferToken(liveOffer.id);
+    const tokenPayload = tokenResult.data || tokenResult;
+    if (tokenPayload && tokenPayload.offer_url) {
+      const item = tokenPayload.item || tokenResult.item;
+      if (item && Number.isInteger(item.revision)) { liveOffer.revision=item.revision; liveOffer.hasToken=!!item.has_token; }
+      liveOffer.portalUrl = tokenPayload.offer_url;
+      state.lastOfferUrl = tokenPayload.offer_url;
+      state.liveOffersByRequest[liveOffer.requestId] = liveOffer;
+    }
+    return liveOffer.portalUrl || '';
+  }
+
+  function applyServerPreview(draft, payload){
+    const proof = payload && payload.data;
+    if (!proof || !proof.preview_hash || !Number.isInteger(proof.revision) || !proof.rendered_email || typeof proof.rendered_email.subject !== 'string' || typeof proof.rendered_email.body !== 'string') throw new Error('Server review could not be verified. Nothing has been sent.');
+    draft.previewHash = proof.preview_hash; draft.revision = proof.revision;
+    const rendered = proof.rendered_email;
+    draft.to = rendered.to_email || draft.to; draft.subject = rendered.subject; draft.body = rendered.body;
+    draft.approved = false; applyRenderedEmailPayload(draft, rendered);
+  }
+  function applyRenderedEmailPayload(draft, rendered){
+    if (!draft) return;
+    const payload = rendered && (rendered.htmlBody || rendered.html_body || rendered.html || rendered.textBody || rendered.text_body) ? rendered : buildLocalOfferEmailPreview(draft);
+    draft.renderedEmail = {
+      subject: payload.subject || draft.subject,
+      textBody: payload.textBody || payload.text_body || draft.body,
+      htmlBody: payload.htmlBody || payload.html_body || payload.html || '',
+      acceptUrl: payload.accept_url || payload.acceptUrl || '',
+      declineUrl: payload.decline_url || payload.declineUrl || '',
+      template: payload.template || 'usce_offer_preview'
+    };
+  }
+
+  async function loadLiveComms(offerId, r){
+    if (!offerId || !r || state.adapter !== 'live') return;
+    try {
+      const payload = await adminFetch(CONFIG.offerCommsEndpoint + '?limit=30', { offerId }, { method: 'GET' });
+      const items = Array.isArray(payload.items) ? payload.items : [];
+      const mapped = items.map(item => ({
+        dir: item.direction === 'OUT' ? 'out' : item.direction === 'IN' ? 'in' : 'sys',
+        kind: item.event_type || item.message_status || 'Communication event',
+        at: Date.parse(item.created_at || '') || Date.now(),
+        subject: item.subject || '',
+        body: [
+          item.body_text || '',
+          item.message_status ? 'Status: ' + item.message_status : '',
+          item.postmark_message_id ? 'Postmark: recorded' : ''
+        ].filter(Boolean).join('\n')
+      }));
+      const local = r.comms.filter(c => c.localOnly || c.caseActivity || c.kind === 'Request received');
+      r.comms = local.concat(mapped.length ? mapped : r.comms);
+      state.liveCommsByOffer[offerId] = mapped;
+      if (state.selectedRequestId === r.id) renderTimeline(r);
+    } catch (_error) {
+      r.comms.push({ dir:'sys', kind:'Comms read unavailable', at: Date.now(), subject:'Protected comms timeline', body:'The comms endpoint did not return timeline data in this session.' });
+    }
+  }
+
+  function selectedMessageOpening(offer, first){
+    const choice = $('#mmMessageChoice') ? $('#mmMessageChoice').value : 'availability';
+    const openings = {
+      availability: 'Great news - we have an availability option that appears aligned with your request.',
+      alternate: 'We are still watching your original preference, but this alternate option may keep your timeline moving while staying close to your goals.',
+      urgent: 'We have a time-sensitive rotation option for you. Please review it carefully and respond within the offer window.',
+      manual: offer.instructions || 'Thank you for submitting your MissionMed Clinicals request. Please review the proposed option below.'
+    };
+    return 'Hi ' + first + ',\n\n' + (openings[choice] || openings.availability) + '\n\n';
+  }
 
   function buildDraftEmail(offer){
     const r = state.requests.find(x => x.id === offer.requestId);
@@ -1480,30 +2308,107 @@
     const start = offer.start ? ('\nProposed start: ' + new Date(offer.start).toLocaleDateString()) : '';
     const subject = 'Your MissionMed Offer: ' + offer.specialty + ' in ' + offer.location;
     const instructions = offer.instructions ? ('\n\nNext steps:\n' + offer.instructions) : '';
+    const portalLine = offer.portalUrl ? '\nReview offer: ' + offer.portalUrl : '';
     const body =
-'Hi ' + first + ',\n\n' +
-'Great news - we have a confirmed slot for you.\n\n' +
+selectedMessageOpening(offer, first) +
 'Program: ' + offer.program + '\n' +
 'Specialty: ' + offer.specialty + '\n' +
 'Location: ' + offer.location + '\n' +
 'Length: ' + offer.length + '\n' +
 'Month(s) offered: ' + months + start + '\n' +
-'Offer expires: ' + fmtDateTime(offer.expiresAt) +
+'Offer expires: ' + fmtDateTime(offer.expiresAt) + portalLine +
 instructions + '\n\n' +
 'To secure this rotation, click Accept in your MissionMed portal before the expiration. If these dates or site do not work, decline and we will attempt your next-ranked preference.\n\n' +
 'Any questions - reply to this email and a coordinator will respond within one business day.\n\n' +
 'Best,\n' +
 COORDINATOR + '\n' +
 'MissionMed Clinicals Team\n' +
-'clinicals@missionmedinstitute.com';
+CONFIG.gmailMailboxes[0];
     return { to: r.email, subject, body, approved: false };
+  }
+
+  function buildLocalOfferEmailPreview(draft){
+    const offer = draft.offer || {};
+    const acceptUrl = buildOfferAcceptUrl(offer);
+    const declineUrl = buildOfferDeclineUrl(offer);
+    const rows = [
+      ['Program', offer.program],
+      ['Specialty', offer.specialty],
+      ['Location', offer.location],
+      ['Dates / months offered', Array.isArray(offer.months) ? offer.months.join(' or ') : ''],
+      ['Rotation length', offer.length],
+      ['Proposed start', offer.start ? new Date(offer.start).toLocaleDateString() : ''],
+      ['Respond by', offer.expiresAt ? fmtDateTime(offer.expiresAt) : '']
+    ].filter(row => row[1]);
+    const detailHtml = rows.map(row =>
+      '<tr><td style="padding:11px 0;border-bottom:1px solid #d7dee8;color:#627287;font-size:12px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;">' + esc(row[0]) + '</td>' +
+      '<td align="right" style="padding:11px 0;border-bottom:1px solid #d7dee8;color:#071627;font-size:14px;font-weight:800;">' + esc(row[1]) + '</td></tr>'
+    ).join('');
+    const htmlBody = [
+      '<!doctype html><html><body style="margin:0;padding:0;background:#071627;">',
+      '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#071627;font-family:Poppins,Arial,Helvetica,sans-serif;color:#ffffff;"><tr><td align="center" style="padding:22px 14px;">',
+      '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:720px;border-collapse:collapse;">',
+      '<tr><td style="padding:16px 18px;background:#051524;border:1px solid rgba(255,255,255,.16);border-bottom:0;border-radius:10px 10px 0 0;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr>',
+      '<td width="58" valign="middle"><div style="width:42px;height:42px;border-radius:50%;background:#f3cf61;color:#071627;text-align:center;line-height:42px;font-family:Georgia,serif;font-size:18px;font-weight:900;">MM</div></td>',
+      '<td valign="middle"><div style="color:#ffffff;font-size:15px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;">MissionMed</div><div style="color:#a9b9c8;font-size:11px;letter-spacing:.12em;text-transform:uppercase;">Clinical rotations</div></td>',
+      '<td align="right" valign="middle"><div style="color:#f3cf61;font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;">Offer ready</div></td>',
+      '</tr></table></td></tr>',
+      '<tr><td style="padding:30px 22px 24px;background:#0b4770;border-left:1px solid rgba(255,255,255,.16);border-right:1px solid rgba(255,255,255,.16);">',
+      '<div style="display:inline-block;border:1px solid rgba(255,255,255,.28);border-radius:999px;padding:7px 12px;color:#f3cf61;background:rgba(255,255,255,.08);font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;">Clinical Rotation Offer</div>',
+      '<h1 style="margin:18px 0 12px;color:#ffffff;font-family:Georgia,serif;font-size:38px;line-height:1.05;font-weight:700;">Your Clinical Rotation Offer from MissionMed</h1>',
+      '<p style="margin:0;color:#d9e7f1;font-size:15px;line-height:1.65;">MissionMed Clinicals has a rotation offer ready for your review. Accept to continue to enrollment or decline to release this option after confirmation.</p>',
+      '</td></tr>',
+      '<tr><td style="padding:0 22px 18px;background:#071627;border-left:1px solid rgba(255,255,255,.16);border-right:1px solid rgba(255,255,255,.16);"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:-8px;background:#0b78a8;border:1px solid rgba(255,255,255,.22);border-radius:12px;"><tr><td style="padding:16px;color:#ffffff;font-size:14px;font-weight:900;text-transform:uppercase;text-align:center;">USCE Tracker - Offer waiting for student response</td></tr></table></td></tr>',
+      '<tr><td style="padding:0 22px 18px;background:#071627;border-left:1px solid rgba(255,255,255,.16);border-right:1px solid rgba(255,255,255,.16);"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fffdf6;color:#071627;border-radius:8px;border-top:6px solid #d9b85b;"><tr><td style="padding:20px;"><div style="color:#071627;font-family:Georgia,serif;font-size:26px;line-height:1.15;font-weight:900;">Offer summary</div><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:10px;border-collapse:collapse;">',
+      detailHtml,
+      '</table><p style="margin:16px 0 0;color:#627287;font-size:13px;line-height:1.6;">Spots are not guaranteed until enrollment is confirmed.</p></td></tr></table></td></tr>',
+      '<tr><td style="padding:0 22px 22px;background:#071627;border-left:1px solid rgba(255,255,255,.16);border-right:1px solid rgba(255,255,255,.16);"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fffdf6;color:#071627;border-radius:8px;"><tr><td style="padding:20px;"><div style="font-size:12px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:#071627;">Choose your response</div><p style="margin:8px 0 16px;color:#627287;font-size:13px;line-height:1.65;">Accepting opens the MissionMed enrollment page. Declining opens a confirmation page first.</p>',
+      '<a href="' + esc(acceptUrl) + '" data-mm-cta="accept-offer" style="display:inline-block;margin:0 10px 10px 0;padding:14px 18px;border-radius:999px;background:#f3cf61;border:1px solid #f3cf61;color:#071627;font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;">Accept This Offer</a>',
+      '<a href="' + esc(declineUrl) + '" data-mm-cta="decline-offer" style="display:inline-block;margin:0 0 10px 0;padding:14px 18px;border-radius:999px;background:#ffffff;border:1px solid #d7dee8;color:#071627;font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;">Decline This Offer</a>',
+      '</td></tr></table></td></tr></table></td></tr></table></body></html>'
+    ].join('');
+    return {
+      subject: 'Your Clinical Rotation Offer from MissionMed',
+      textBody: draft.body + '\n\nAccept This Offer:\n' + acceptUrl + '\n\nDecline This Offer:\n' + declineUrl,
+      htmlBody,
+      accept_url: acceptUrl,
+      decline_url: declineUrl,
+      template: 'usce_offer_preview_local'
+    };
+  }
+
+  function buildOfferAcceptUrl(offer){
+    const url = new URL(CONFIG.paymentProductUrl);
+    url.searchParams.set('usce_offer_approved', '1');
+    url.searchParams.set('secure_window', '48h');
+    if (offer && offer.id) url.searchParams.set('offer_id', offer.id);
+    const token = offer && extractOfferTokenFromUrl(offer.portalUrl || '');
+    if (token) url.searchParams.set('token', token);
+    return url.toString();
+  }
+
+  function buildOfferDeclineUrl(offer){
+    const url = new URL('https://missionmed-hq-production.up.railway.app/usce-decline-confirm');
+    if (offer && offer.id) url.searchParams.set('offer_id', offer.id);
+    const token = offer && extractOfferTokenFromUrl(offer.portalUrl || '');
+    if (token) url.searchParams.set('token', token);
+    return url.toString();
+  }
+
+  function extractOfferTokenFromUrl(url){
+    try {
+      const parsed = new URL(String(url || ''));
+      return parsed.searchParams.get('offer') || parsed.searchParams.get('token') || '';
+    } catch (_error) {
+      return '';
+    }
   }
 
   function renderEmailModal(){
     const d = state.draftEmail;
     $('#emTo').textContent = d.to;
-    $('#emSubject').textContent = d.subject;
-    $('#emBody').textContent = d.body;
+    $('#emSubject').textContent = (d.renderedEmail && d.renderedEmail.subject) || d.subject;
+    renderEmailHtmlPreview((d.renderedEmail && d.renderedEmail.htmlBody) || buildLocalOfferEmailPreview(d).htmlBody);
     $('#emSubject').setAttribute('contenteditable', 'false');
     $('#emBody').setAttribute('contenteditable', 'false');
     const bar = $('#mmApproveBar');
@@ -1512,12 +2417,34 @@ COORDINATOR + '\n' +
     $('#mmEmailSend').disabled = !d.approved;
     $('#mmEmailEdit').textContent = 'Edit';
   }
-  function editOfferEmail(){
+
+  function renderEmailHtmlPreview(htmlBody){
+    const body = $('#emBody');
+    body.classList.remove('is-source');
+    body.innerHTML = '';
+    const frame = document.createElement('iframe');
+    frame.className = 'mm-email-preview-frame';
+    frame.title = 'Rendered student offer email preview';
+    frame.setAttribute('sandbox', '');
+    frame.srcdoc = htmlBody || '';
+    body.appendChild(frame);
+  }
+
+  function renderEmailSourceEditor(){
+    const body = $('#emBody');
+    body.classList.add('is-source');
+    body.innerHTML = '';
+    body.textContent = state.draftEmail.body;
+    body.setAttribute('contenteditable','true');
+    $('#emSubject').setAttribute('contenteditable','true');
+    body.focus();
+  }
+
+  async function editOfferEmail(){
+    if (state.busy) return;
     const editing = $('#emBody').getAttribute('contenteditable') === 'true';
     if (!editing) {
-      $('#emBody').setAttribute('contenteditable','true');
-      $('#emSubject').setAttribute('contenteditable','true');
-      $('#emBody').focus();
+      renderEmailSourceEditor();
       $('#mmEmailEdit').textContent = 'Done editing';
       state.draftEmail.approved = false;
       $('#mmApproveBar').classList.remove('is-approved');
@@ -1527,54 +2454,94 @@ COORDINATOR + '\n' +
     } else {
       state.draftEmail.subject = $('#emSubject').textContent.trim();
       state.draftEmail.body = $('#emBody').textContent;
-      $('#emBody').setAttribute('contenteditable','false');
-      $('#emSubject').setAttribute('contenteditable','false');
-      $('#mmEmailEdit').textContent = 'Edit';
-      toast('Edits captured');
+      state.busy = true;
+      try {
+        const payload = await recordLiveMessagePreview(state.draftEmail.offer.id, state.draftEmail);
+        applyServerPreview(state.draftEmail, payload); renderEmailModal(); toast('Updated message ready for review. Approve this version before sending.');
+      } catch (error) { state.draftEmail.approved = false; $('#mmEmailSend').disabled = true; toast(errorSummary(error)); } finally { state.busy = false; }
     }
   }
   $('#mmEmailEdit').addEventListener('click', editOfferEmail);
 
   function approveOfferEmail(){
-    if ($('#emBody').getAttribute('contenteditable') === 'true') {
-      state.draftEmail.subject = $('#emSubject').textContent.trim();
-      state.draftEmail.body = $('#emBody').textContent;
-      $('#emBody').setAttribute('contenteditable','false');
-      $('#emSubject').setAttribute('contenteditable','false');
-      $('#mmEmailEdit').textContent = 'Edit';
-    }
-    state.draftEmail.approved = true;
-    $('#mmApproveBar').classList.add('is-approved');
-    $('#mmApproveText').textContent = 'Approved - ready to send';
-    $('#mmEmailSend').disabled = false;
-    toast('Offer email approved');
+    const d = state.draftEmail;
+    if (!d || !d.previewHash || !Number.isInteger(d.revision) || $('#emBody').getAttribute('contenteditable') === 'true') { toast('Finish editing and load a server-verified preview first.'); return; }
+    d.approved = true; d.approvedContent = JSON.stringify([d.to,d.subject,d.body,d.previewHash,d.revision,d.offer.id]);
+    $('#mmApproveBar').classList.add('is-approved'); $('#mmApproveText').textContent = 'This exact version is approved'; $('#mmEmailSend').disabled = false;
   }
   $('#mmEmailApprove').addEventListener('click', approveOfferEmail);
 
-  function sendOfferEmail(){
-    if (!state.draftEmail || !state.draftEmail.approved) { toast('Approve first'); return; }
-    const offer = state.draftEmail.offer;
-    offer.status = 'SENT';
-    offer.subject = state.draftEmail.subject;
-    offer.body = state.draftEmail.body;
-    offer.sentAt = Date.now();
-    if (!state.offers.find(o => o.id === offer.id)) state.offers.unshift(offer);
-    else { const idx = state.offers.findIndex(o => o.id === offer.id); state.offers[idx] = offer; }
-    const r = state.requests.find(x => x.id === offer.requestId);
-    r.offerId = offer.id;
-    const prev = r.status;
-    r.status = 'OFFERED';
-    pushAudit(r, prev, 'OFFERED', 'Offer sent by ' + COORDINATOR);
-    r.comms.push({ dir:'out', kind:'Offer email sent', at: Date.now(), subject: offer.subject, body: offer.body });
-    r.offerHistory.push({ id: offer.id, status: 'SENT', at: Date.now() });
-    state.currentOfferId = offer.id;
-    closeModal();
-    renderRequestList();
-    renderDetail();
-    toast('Offer sent to ' + r.name);
-    setTimeout(()=> switchView('portal'), 700);
+  async function sendOfferEmail(){
+    const d = state.draftEmail;
+    if (state.busy || !d || !d.approved || !d.previewHash || d.approvedContent !== JSON.stringify([d.to,d.subject,d.body,d.previewHash,d.revision,d.offer.id])) { toast('Review and approve the current version first.'); return; }
+    if (!currentReq() || currentReq().id !== d.offer.requestId) { toast('Case changed. Reopen the correct offer.'); return; }
+    state.busy = true; $('#mmEmailSend').disabled = true;
+    try {
+      const result = await adminFetch(CONFIG.offerSendEndpoint, {offerId:d.offer.id}, {method:'POST',body:{category:'offer_ready',variant:'coordinator_clear',to_email:d.to,subject:d.subject,body:d.body,preview_hash:d.previewHash,revision:d.revision,approve_live_send:true,idempotency_key:actionKey('send:'+d.offer.id+':'+d.previewHash)}});
+      const data = result.data || result;
+      const mode = String(data.mode || data.postmark_status || data.status || '').toLowerCase();
+      const message = mode === 'dry_run' ? 'Test recorded — no email sent.' : mode === 'delivered' ? 'Delivery recorded.' : ['sent','accepted'].includes(mode) ? 'Email accepted by provider. Delivery is tracked in Activity.' : mode === 'queued' ? 'Message queued. Check Activity for its outcome.' : 'Send request recorded. Refresh Activity to verify the outcome.';
+      closeModal(); state.dirty = false; state.busy = false; await loadLiveQueue(); toast(message);
+    } catch (error) {
+      d.approved = false; d.approvedContent = null; $('#mmApproveText').textContent = 'Send outcome requires review. Refresh Activity before retrying.';
+      toast('Send could not be confirmed. Check Activity before attempting another send.');
+    } finally { state.busy = false; }
   }
-  $('#mmEmailSend').addEventListener('click', sendOfferEmail);
+  $('#mmEmailSend').addEventListener('click', ()=> sendOfferEmail());
+
+  async function mintLiveOfferToken(offerId){
+    return adminFetch(CONFIG.offerTokenEndpoint, { offerId }, {
+      method: 'POST',
+      body: { expires_in_days: 14 }
+    });
+  }
+
+  $('#mmGenerateLink').addEventListener('click', async ()=> {
+    if (state.busy || state.adapter !== 'live') return;
+    const offer = readOfferForm(); if (!offer) return;
+    state.busy = true;
+    try {
+      const liveOffer = state.adapter === 'live' ? await persistLiveOfferDraft(offer) : persistLocalOfferDraft(offer);
+      if (state.adapter === 'live') {
+        const tokenResult = await mintLiveOfferToken(liveOffer.id);
+        const payload = tokenResult.data || tokenResult;
+        liveOffer.portalUrl = payload.offer_url || '';
+        state.lastOfferUrl = liveOffer.portalUrl;
+        state.liveOffersByRequest[liveOffer.requestId] = liveOffer;
+        setAdapterBanner('student offer link generated. Raw token is displayed only in the admin browser and is stored server-side as a SHA-256 hash.', 'live');
+        toast('Student link generated');
+      } else {
+        liveOffer.portalUrl = CONFIG.offerPageUrl + '?offer=demo_' + encodeURIComponent(liveOffer.id);
+        toast('Demo student link generated');
+      }
+      renderDetail();
+    } catch (error) {
+      setAdapterBanner('student link generation blocked safely: ' + errorSummary(error), 'blocked');
+      toast('Link generation blocked safely');
+    } finally { state.busy = false; }
+  });
+
+  $$('[data-ops-save]').forEach(button => {
+    button.addEventListener('click', async () => {
+      const r = currentReq(); if (!r || state.busy || state.adapter !== 'live') return;
+      const offer = getOfferForRequest(r); if (!offer) { toast('Save an offer draft before recording next-step status.'); return; }
+      const action = button.dataset.opsSave;
+      const body = {note:$('#mmOpsNote').value.trim()};
+      if (!body.note) { toast('Add the source or reason for this recorded status.'); $('#mmOpsNote').focus(); return; }
+      if (action === 'payment') body.payment_status = $('#mmOpsPayment').value;
+      if (action === 'paperwork') body.paperwork_status = $('#mmOpsPaperwork').value;
+      if (action === 'learndash') body.learndash_status = $('#mmOpsLearndash').value;
+      const path = action === 'payment' ? CONFIG.offerPaymentEndpoint : action === 'paperwork' ? CONFIG.offerPaperworkEndpoint : CONFIG.offerLearndashEndpoint;
+      state.busy = true;
+      try {
+        const payload = await adminFetch(path,{offerId:offer.id},{method:'PATCH',body});
+        const item = payload.item || payload.offer || (payload.data && (payload.data.item || payload.data.offer)) || payload.data || payload;
+        if (!mergeLiveOffer(item,r.id)) throw new Error('Recorded state could not be verified.');
+        renderLiveOfferBox(r); renderAdminTracker(r); toast('Coordinator status recorded. No payment, reservation or enrollment performed.');
+      } catch(error) { toast('Status record could not be confirmed. Refresh before retrying.'); }
+      finally { state.busy = false; }
+    });
+  });
 
   function closeModal(){
     $('#mmModalScrim').classList.remove('is-open');
@@ -1591,7 +2558,7 @@ COORDINATOR + '\n' +
     $('#mmPromptLabel').textContent = label;
     $('#mmPromptText').value = '';
     promptCb = cb;
-    $('#mmPromptScrim').classList.add('is-open');
+    $('#mmPromptScrim').classList.add('is-open'); $('#mmPromptScrim').setAttribute('role','dialog'); $('#mmPromptScrim').setAttribute('aria-modal','true'); $('#mmPromptScrim').setAttribute('aria-labelledby','mmPromptTitle');
     setTimeout(()=> $('#mmPromptText').focus(), 80);
   }
   function closePrompt(){ $('#mmPromptScrim').classList.remove('is-open'); promptCb = null; }
@@ -1606,7 +2573,7 @@ COORDINATOR + '\n' +
   function viewOffer(){
     let offer = null;
     if (state.currentOfferId) offer = state.offers.find(o => o.id === state.currentOfferId);
-    if (!offer) offer = state.offers.find(o => o.status === 'SENT') || state.offers[0];
+    if (!offer) offer = state.offers.find(o => ['SENT','OFFER_SENT','OFFER_DECLINE_PENDING'].indexOf(String(o.status || '').toUpperCase()) > -1) || state.offers[0];
     return offer;
   }
 
@@ -1618,8 +2585,10 @@ COORDINATOR + '\n' +
       wrap.querySelector('[data-goto]').addEventListener('click', ()=> switchView('hq'));
       return;
     }
-    if (offer.status === 'ACCEPTED') return renderAccepted(offer);
-    if (offer.status === 'DECLINED') return renderDeclined(offer);
+    const status = String(offer.status || '').toUpperCase();
+    if (['ACCEPTED','OFFER_ACCEPTED'].indexOf(status) > -1) return renderAccepted(offer);
+    if (status === 'OFFER_DECLINE_PENDING') return renderDeclinePending(offer);
+    if (['DECLINED','OFFER_DECLINED_NOTIFY_FUTURE','OFFER_DECLINED_NO_NOTIFY'].indexOf(status) > -1) return renderDeclined(offer);
 
     const instructions = offer.instructions ? offer.instructions : 'A coordinator will follow up with orientation details after acceptance.';
     wrap.innerHTML =
@@ -1628,7 +2597,7 @@ COORDINATOR + '\n' +
           '<span class="mm-eyebrow">Clinical Rotation Offer</span>' +
           '<h2 id="pOfferTitle"></h2>' +
           '<small style="color:var(--mm-muted);">Offer ' + offer.id + ' \u00B7 For ' + offer.student.name + '</small>' +
-        '</div><span class="mm-status-badge mm-status-offered">SENT</span></div>' +
+        '</div><span class="mm-status-badge mm-status-' + esc((offer.status || 'OFFER_SENT').toLowerCase()) + '">' + esc(statusLabel(offer.status || 'OFFER_SENT')) + '</span></div>' +
         '<div class="mm-offer-fields">' +
           '<div class="mm-offer-field"><small>Program</small><b id="pProgram"></b></div>' +
           '<div class="mm-offer-field"><small>Specialty</small><b id="pSpec"></b></div>' +
@@ -1644,6 +2613,7 @@ COORDINATOR + '\n' +
             '<div class="mm-clock-cell"><b data-c="m">0</b><span>min</span></div>' +
             '<div class="mm-clock-cell"><b data-c="s">0</b><span>sec</span></div>' +
           '</div></div>' +
+        (offer.portalUrl ? '<div class="mm-next-steps"><h4>Live student link</h4><div class="mm-live-link">'+esc(offer.portalUrl)+'</div><div style="margin-top:10px;"><a class="mm-btn mm-btn-dark" href="'+esc(offer.portalUrl)+'" target="_blank" rel="noopener noreferrer">Open live portal</a></div></div>' : '') +
         '<div class="mm-offer-cta">' +
           '<button type="button" class="mm-btn mm-btn-primary" id="pAccept">Accept Offer</button>' +
           '<button type="button" class="mm-btn mm-btn-ghost" id="pDecline">Decline</button>' +
@@ -1695,11 +2665,11 @@ COORDINATOR + '\n' +
 
   function acceptOffer(id){
     const offer = state.offers.find(o => o.id === id); if (!offer) return;
-    offer.status = 'ACCEPTED';
+    offer.status = 'OFFER_ACCEPTED';
     const r = state.requests.find(x => x.id === offer.requestId);
     if (r) {
-      const prev = r.status; r.status = 'ACCEPTED';
-      pushAudit(r, prev, 'ACCEPTED', 'Student accepted');
+      const prev = r.status; r.status = 'OFFER_ACCEPTED';
+      pushAudit(r, prev, 'OFFER_ACCEPTED', 'Student accepted');
       r.comms.push({ dir:'in', kind:'Student accepted', at: Date.now(), subject:'Re: ' + (offer.subject || 'Your MissionMed Offer'), body: r.name + ' accepted the offer for ' + offer.specialty + ' in ' + offer.location + '.' });
     }
     toast('Offer accepted'); renderAccepted(offer);
@@ -1722,14 +2692,23 @@ COORDINATOR + '\n' +
 
   function declineOffer(id){
     const offer = state.offers.find(o => o.id === id); if (!offer) return;
-    offer.status = 'DECLINED';
+    offer.status = 'OFFER_DECLINE_PENDING';
     const r = state.requests.find(x => x.id === offer.requestId);
     if (r) {
-      const prev = r.status; r.status = 'DECLINED';
-      pushAudit(r, prev, 'DECLINED', 'Student declined');
-      r.comms.push({ dir:'in', kind:'Student declined', at: Date.now(), subject:'Re: ' + (offer.subject || 'Your MissionMed Offer'), body: r.name + ' declined the offer.' });
+      const prev = r.status; r.status = 'OFFER_DECLINE_PENDING';
+      pushAudit(r, prev, 'OFFER_DECLINE_PENDING', 'Student opened decline confirmation');
+      r.comms.push({ dir:'in', kind:'Decline confirmation opened', at: Date.now(), subject:'Re: ' + (offer.subject || 'Your MissionMed Offer'), body: r.name + ' opened the decline confirmation step. Final notify preference is still required.' });
     }
-    toast('Offer declined'); renderDeclined(offer);
+    toast('Decline confirmation pending'); renderDeclinePending(offer);
+  }
+  function renderDeclinePending(offer){
+    $('#mmPortalWrap').innerHTML =
+      '<div class="mm-success-card"><div class="mm-empty-ring">!</div>' +
+      '<h2>Decline confirmation pending.</h2>' +
+      '<p><b>' + offer.specialty + '</b> \u00B7 ' + offer.location + ' \u00B7 ' + (offer.months||[]).join(' or ') + ' (' + offer.length + ')</p>' +
+      '<p style="margin-top:-6px;">This demo state mirrors the live flow: a decline is not final until the student confirms whether they want future rotation notifications.</p>' +
+      '<div style="margin-top: 16px;"><button type="button" class="mm-btn mm-btn-dark" data-goto="hq">Return to HQ (demo)</button></div></div>';
+    $('#mmPortalWrap').querySelector('[data-goto]').addEventListener('click', ()=> switchView('hq'));
   }
   function renderDeclined(offer){
     const wrap = $('#mmPortalWrap');
@@ -1810,51 +2789,31 @@ COORDINATOR + '\n' +
     });
   }
 
-  function resetDemoData(){
-    state.requests = [];
-    state.offers = [];
-    state.selectedRequestId = null;
-    state.currentOfferId = null;
-    state.draftEmail = null;
-    state.retentionChoice = null;
-    state.query = '';
-    state.filter = 'all';
-    state.sort = 'urgent';
-    $('#mmSearch').value = '';
-    $('#mmFilter').value = 'all';
-    $('#mmSort').value = 'urgent';
-    monthOrder.length = 0;
-    renderMonthGrid();
-    initRankGroups();
-    $('#mmFormCard').style.display = '';
-    $('#mmStepper').style.display = '';
-    $('#mmIntakeDone').style.display = 'none';
-    seed();
-    setStep(1);
-    renderRequestList();
-    switchView('hq');
-    setRuntimeStatus('Demo dataset restored.', 'You are viewing the refined v500 demo flow with working interactions.');
-    toast('Demo reset');
-  }
-
-  /* ---- Init ---- */
-  $('#mmRtConnect').addEventListener('click', connectRuntimeAuth);
-  $('#mmRtLoad').addEventListener('click', loadLiveRequestsIntoDashboard);
-  $('#mmRtReset').addEventListener('click', resetDemoData);
-
-  seed();
-  setStep(1);
-  renderRequestList();
-  switchView('hq');
-  setRuntimeStatus(
-    'Demo mode active. Layout and flows are live.',
-    /^https?:$/i.test(window.location.protocol)
-      ? 'Hosted context detected. Use Connect Live Auth to pull real API data.'
-      : 'Local file context detected. Demo flows are fully interactive; live auth may require hosted context.'
-  );
-
-  /* Refresh relative timestamps and SLA every 60s */
-  setInterval(()=> { if (state.view === 'hq') renderRequestList(); }, 60000);
+  /* ---- Coordinator-only production entry ---- */
+  $('#mmActMessage').insertAdjacentHTML('afterend','<p class="mm-hint">Direct messages and reminders are unavailable here until their delivery contract is connected. Offer messages use the review-and-send workflow.</p>');
+  root.querySelectorAll('.mm-viewswitch,[data-panel="student"],[data-panel="portal"]').forEach(el => { el.hidden = true; });
+  $('#mmActSimReply').hidden = true;
+  $('#mmDetailStatusSelect').hidden = true;
+  $('#mmDetTabs').setAttribute('role','tablist');
+  $$('#mmDetTabs button').forEach(button => { button.setAttribute('role','tab'); button.setAttribute('aria-selected',String(button.dataset.tab === 'overview')); });
+  $$('.mm-field').forEach(field => { const label = field.querySelector('label'); const input = field.querySelector('input,textarea,select'); if (label && input && input.id) label.htmlFor = input.id; });
+  $('#mmSearch').setAttribute('aria-label','Search cases by name, email, specialty or location');
+  $('#mmDetailContent').addEventListener('input', event => {
+    if (!event.target.closest('[data-pane="offer"]') || event.target.closest('#mmOpsPanel')) return;
+    state.dirty = true; if (event.target.id === 'mmOfExpire') event.target.dataset.changed = 'true';
+    if (state.draftEmail) state.draftEmail.approved = false;
+    $('#mmDraftState').textContent = 'Unsaved changes';
+  });
+  $('#mmOfMonths').addEventListener('click', () => {state.dirty = true; $('#mmDraftState').textContent = 'Unsaved changes';});
+  window.addEventListener('beforeunload', event => {if (state.dirty || state.busy) {event.preventDefault(); event.returnValue = '';}});
+  document.addEventListener('keydown', event => {
+    const modal = [$('#mmPromptScrim'),$('#mmModalScrim')].find(el => el.classList.contains('is-open'));
+    if (!modal) return;
+    if (event.key === 'Escape' && !state.busy) { closePrompt(); closeModal(); $('#mmActGotoOffer').focus(); }
+    if (event.key === 'Tab') { const controls = Array.from(modal.querySelectorAll('button:not(:disabled),input,textarea,[contenteditable="true"]')).filter(el=>el.getClientRects().length); const first = controls[0], last = controls[controls.length-1]; if (event.shiftKey && document.activeElement===first) {event.preventDefault();last.focus();} else if (!event.shiftKey && document.activeElement===last) {event.preventDefault();first.focus();} }
+  });
+  state.requests = []; state.offers = []; state.adapter = 'booting';
+  renderRequestList(); switchView('hq'); loadLiveQueue();
 
 })();
 </script>

@@ -375,86 +375,31 @@ function buildTrackerItem(requestItem, offer, commsEvents) {
 
 function computeStage(requestItem, offer) {
   const keys = [
-    ['request_received', 'Request received', 'Submitted and waiting for coordinator review.'],
-    ['under_review', 'Under review', 'MissionMed Clinicals is reviewing your request.'],
-    ['availability_confirmed', 'Availability confirmed', 'A realistic rotation path is being prepared.'],
-    ['offer_sent', 'Offer sent', 'Review your offer and approve, decline, or request another option.'],
-    ['rotation_secured', 'Rotation secured', 'Tuition is finalized and onboarding is next.'],
+    ['request_received', 'Request received', 'Received; waiting for coordinator review.'],
+    ['under_review', 'Coordinator review', 'Review was recorded by the coordinator.'],
+    ['offer_prepared', 'Offer being prepared', 'A draft exists; confirmed availability is separate.'],
+    ['offer_sent', 'Offer email accepted by provider', 'Review the offer link. Provider acceptance does not prove delivery.'],
+    ['response_recorded', 'Response recorded', 'Your response is separate from payment and placement confirmation.'],
   ];
-
-  let index = 0;
-  let waitingOn = 'MissionMed';
-  let nextStep = 'Your request was received. The tracker moves to Under Review one hour after submission.';
-  const reqStatus = String(requestItem?.status || 'new').toLowerCase();
-  const offerStatus = String(offer?.status || '').toLowerCase();
-  const submittedAt = Date.parse(requestItem?.created_at || '');
-  const oneHourReviewStarted = Number.isFinite(submittedAt) && Date.now() - submittedAt >= 60 * 60 * 1000;
-  const accepted = Boolean(offer?.accepted_at || offerStatus === 'accepted');
-  const declined = Boolean(offer?.declined_at || offerStatus === 'declined');
-  const alternateRequested = Boolean(offer?.alternate_requested_at || offerStatus === 'alternate_requested');
-  const paymentStatus = String(offer?.payment_status || 'pending').toLowerCase();
-  const paperworkStatus = String(offer?.paperwork_status || 'not_started').toLowerCase();
-  const courseStatus = String(offer?.learndash_status || 'locked').toLowerCase();
-  const hasOfferReadySignal = Boolean(
-    offer
-    && (offer.offer_token_expires_at
-      || offer.message_sent_at
-      || ['ready', 'sent', 'viewed', 'accepted', 'declined', 'alternate_requested'].includes(offerStatus)
-      || ['dry_run', 'queued', 'sent'].includes(String(offer.postmark_status || '').toLowerCase()))
-  );
-
-  if (oneHourReviewStarted || ['reviewed', 'in_progress', 'offer_ready', 'promoted'].includes(reqStatus)) {
-    index = 1;
-    nextStep = 'Your request is under review.';
+  const reqStatus=String(requestItem?.status || 'new').toLowerCase();
+  const offerStatus=String(offer?.status || '').toLowerCase();
+  const accepted=Boolean(offer?.accepted_at || offerStatus==='accepted');
+  const declined=Boolean(offer?.declined_at || ['declined','declined_notify_future','declined_no_notify'].includes(offerStatus));
+  const alternate=Boolean(offer?.alternate_requested_at || offerStatus==='alternate_requested');
+  let index=0,waitingOn='MissionMed',nextStep='The Clinicals team will review your request. Progress changes when an action is recorded.';
+  if(['reviewed','in_progress','offer_ready','promoted'].includes(reqStatus)) {index=1;nextStep='The coordinator is reviewing your request.';}
+  if(offer && !['archived','expired'].includes(offerStatus)) {index=2;nextStep='An offer draft exists. The coordinator must confirm its terms and send it.';}
+  if(offer?.message_sent_at) {index=3;waitingOn='Applicant';nextStep='Review the current secure offer link. An email was accepted by the provider; delivery is tracked separately.';}
+  if(accepted || declined || alternate) {
+    index=4;waitingOn=accepted?'Applicant':alternate?'MissionMed':'Complete';
+    nextStep=accepted?'Your acceptance was recorded. Payment and placement confirmation are separate next steps; follow the official Clinicals handoff.'
+      :alternate?'Your alternate request was recorded. The coordinator will review another option.'
+      :'Your decline was recorded. Contact Clinicals if you want another option.';
   }
-
-  if (offer || reqStatus === 'offer_ready') {
-    index = 2;
-    nextStep = 'Availability is being shaped into a specific offer.';
-  }
-
-  if (hasOfferReadySignal) {
-    index = 3;
-    waitingOn = 'Student';
-    nextStep = 'Review the secure offer link from the Clinicals team.';
-  }
-
-  if (accepted || declined || alternateRequested) {
-    index = accepted ? 4 : alternateRequested ? 2 : 3;
-    waitingOn = accepted ? 'Student' : declined ? 'Complete' : 'MissionMed';
-    nextStep = accepted
-      ? 'Complete the official MissionMed Clinicals tuition handoff.'
-      : declined
-        ? 'This option is closed. Contact Clinicals if you want a new request.'
-        : 'Clinicals will prepare an alternate option.';
-  }
-
-  if (accepted) {
-    const finalReady = ['paid', 'manual_review'].includes(paymentStatus)
-      || paperworkStatus === 'approved'
-      || ['ready', 'enabled'].includes(courseStatus);
-    waitingOn = finalReady ? 'Complete' : 'Student';
-    nextStep = finalReady
-      ? 'Congrats. Complete rotation-specific onboarding in your MissionMed dashboard.'
-      : 'Complete the official MissionMed Clinicals tuition handoff so the rotation can be secured.';
-  }
-
-  const stages = keys.map(([key, label, description], itemIndex) => {
-    let state = itemIndex < index ? 'complete' : itemIndex === index ? 'active' : 'waiting';
-    if (accepted && waitingOn === 'Complete' && itemIndex <= 4) state = 'complete';
-    if (declined && itemIndex === 3) state = 'issue';
-    if (alternateRequested && itemIndex === 2) state = 'active';
-    return { key, label, description, state };
-  });
-
-  return {
-    index,
-    key: keys[index][0],
-    label: keys[index][1],
-    waitingOn,
-    nextStep,
-    stages,
-  };
+  if(accepted && String(offer?.payment_status)==='paid') {waitingOn='MissionMed';nextStep='Payment is marked paid in the coordinator record. Contact Clinicals to confirm placement and onboarding.';}
+  if(['archived','expired'].includes(offerStatus)) {waitingOn='MissionMed';nextStep='This offer is closed or expired. Contact Clinicals for the current option.';}
+  return {index,key:keys[index][0],label:keys[index][1],waitingOn,nextStep,
+    stages:keys.map(([key,label,description],i)=>({key,label,description,state:i<index?'complete':i===index?'active':'waiting'}))};
 }
 
 function buildCommunicationSummary(offer, commsEvents) {
@@ -462,7 +407,7 @@ function buildCommunicationSummary(offer, commsEvents) {
   const eventTypes = commsEvents.map((item) => item.event_type).filter(Boolean);
   return {
     message_previewed: Boolean(offer?.message_previewed_at),
-    message_sent: Boolean(offer?.message_sent_at || ['dry_run', 'queued', 'sent'].includes(String(offer?.postmark_status || '').toLowerCase())),
+    message_sent: Boolean(offer?.message_sent_at),
     postmark_status: offer?.postmark_status || 'not_sent',
     latest_event: eventTypes[0] || statuses[0] || null,
     latest_event_at: commsEvents[0]?.created_at || null,
