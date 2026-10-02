@@ -190,7 +190,10 @@ test('first-time navigation names the five student outcomes and preserves launch
     assert.match(html, new RegExp(`>${label}(?:\\s|<)`, 'u'));
   }
   assert.match(html, /data-nav="newsession" data-builder-step="1" data-launch-mode="practice"/u);
-  assert.match(html, /data-nav="devicecheck" data-launch-mode="ai"/u);
+  // AI entry configures the interview before device readiness; it must not
+  // bypass the builder and recreate the former tech-check dead end.
+  assert.match(html, /data-nav="newsession" data-builder-step="0" data-launch-mode="ai"/u);
+  assert.doesNotMatch(html, /data-nav="devicecheck" data-launch-mode="ai"/u);
   assert.match(runtime, /if \(item\.dataset\.launchMode\) state\.launchMode = item\.dataset\.launchMode/u);
 });
 
@@ -317,7 +320,8 @@ test('student presentation does not expose implementation status residue', () =>
   assert.match(runtime, /adminDiagnostics \? 'Audio context' : 'Microphone processing'/u);
   assert.match(runtime, /adminDiagnostics \? 'Vision worker' : 'Visual coaching'/u);
   assert.match(runtime, /summaryHeading\.textContent = 'Transcript coverage'/u);
-  assert.match(runtime, /fillersHeading\.textContent = 'Filler words'/u);
+  assert.match(runtime, /fillersHeading\.textContent = 'Possible filler terms'/u);
+  assert.match(runtime, /candidates, not confirmed disfluencies/u);
   assert.match(runtime, /return match \? `Moment \$\{match\[1\]\}` : 'Transcript evidence'/u);
   assert.match(runtime, /'Saved transcript'/u);
 });
@@ -325,8 +329,8 @@ test('student presentation does not expose implementation status residue', () =>
 test('Admin student traversal stays behind the stable private-library capability boundary', () => {
   assert.match(runtime, /AdminStudentLibraryCapability/u);
   assert.match(runtime, /state\.adminLibrary\.overview\(\)/u);
-  assert.match(runtime, /state\.adminLibrary\.session\(session\.id\)/u);
-  assert.match(runtime, /state\.adminLibrary\.playback\(session\.recording\.id\)/u);
+  assert.match(runtime, /state\.adminLibrary\.sessionForStudent\(\{ subject: scope\.subject, sessionId: session\.id, isCurrent \}\)/u);
+  assert.match(runtime, /state\.adminLibrary\.playback\(detail\.recording\.id\)/u);
   assert.match(adminLibrary, /this\.api\.library\('all'\)/u);
   assert.match(adminLibrary, /this\.api\.session\(id\)/u);
   assert.match(adminLibrary, /this\.api\.playback\(id\)/u);
