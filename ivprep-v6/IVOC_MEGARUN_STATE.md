@@ -26,6 +26,21 @@ the actual production route and deployment.
   `ad5e38e` (146 focused checks) plus integrator `94e606d`; no positive genuine
   recurrence or audible conversation acceptance claimed. Current healthy rollback
   remains `c07ef41` / `9f745595` while this candidate is reviewed and deployed.
+- **Reader correction independently passed:** valid 20-session synthetic history
+  exceeded the old native 64-KiB response cap. `f640bfc` adds a streamed 4-MiB
+  budget only for the three protected GET-only context reads; all other budgets
+  and mutation guards remain unchanged. Eight actual-class checks and independent
+  review PASS, including positive HQ/native equivalence above 64 KiB and custody
+  change denials. This is engineering parity, not real recurrence evidence.
+- **Server transcript preparation, inactive:** `cf8a0f5`, `04a6c5d`, `e8352a2`
+  add a private append-only sink and silent same-session observer. Official API
+  supports server attachment; exact fragments/approximate provider time do not
+  prove completed turns, heard playback or semantic answer ranges. No live broker
+  imports/activation yet. Independent SQL/sink review and 25 observer checks pass.
+  Additive migration rehearsed on sanctioned development only: NULL timing,
+  wrong owner/provider reuse, conflicting retry, after-terminal insert and service
+  UPDATE/DELETE denied; exact retry and atomic invalid-batch rollback pass; FORCE
+  RLS/no browser grants verified; zero test rows remain. Production is unchanged.
 - **Provisional-evidence release live:** source
   `c07ef410a06851b7eabc993347cfa0471dc25950`, deployment
   `9f745595-29fc-4a95-b2bf-c577c48f9d45` SUCCESS, image
