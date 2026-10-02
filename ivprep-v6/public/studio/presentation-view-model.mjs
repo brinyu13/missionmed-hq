@@ -1,4 +1,29 @@
 import { buildLongitudinalModel, canCompareAttempts } from './longitudinal-model.mjs';
+import { projectInterviewerNameUse } from '../capabilities/context-results.mjs';
+
+export function buildNameUseReview(saved = null) {
+  const detail = saved?.sessionDetail ?? saved?.session;
+  const consistent = !saved?.session?.id || (detail?.id === saved.session.id
+    && (!detail?.ownerSubject || !saved.session.ownerSubject || detail.ownerSubject === saved.session.ownerSubject));
+  const observed = projectInterviewerNameUse(consistent ? detail : null, consistent ? saved?.envelope : null);
+  const reasons = {
+    NOT_SELECTED_FOR_SAVED_ATTEMPT: 'Not assessed — optional name-use observations were not selected for this saved attempt.',
+    NO_UNAMBIGUOUS_CANONICAL_CANDIDATE_TRANSCRIPT: 'Not assessed — a canonical candidate transcript is not available yet.',
+  };
+  return Object.freeze({ ...observed, heading: 'Possible interviewer-name mentions',
+    copy: observed.status === 'AVAILABLE'
+      ? `Manually supplied name: ${observed.name}. ${observed.limitation}`
+      : reasons[observed.reason],
+    replayEvidence: Object.freeze({ transcript: Object.freeze({ status: observed.status,
+      segments: Object.freeze(observed.matches.map(match => Object.freeze({
+        id: match.segmentId, startMs: match.startMs, endMs: match.endMs,
+      }))),
+    }) }),
+    moments: Object.freeze(observed.matches.map(match => Object.freeze({ ...match,
+      label: match.third ? `${match.third[0].toUpperCase()}${match.third.slice(1)} recording third`
+        : 'Recording third unavailable',
+    }))) });
+}
 
 // Retry projects a saved owner-scoped setup, not whatever happens to be in the
 // current builder. Current catalog/owner authorization must still be resolved.

@@ -5,7 +5,77 @@ import {
   contextResultFromSessionSpine,
   projectContextResults,
   projectTranscriptMetrics,
+  projectInterviewerNameUse,
+  normalizeNameUseCoaching,
 } from '../../public/capabilities/context-results.mjs';
+
+const nameSession = (name = 'Dr. Élan') => ({ id: 'name-session', recording: { durationMs: 9000 },
+  results: { payload: { sessionId: 'name-session', nameUseCoaching: { schema: 'ivoc.name-use.v1',
+    enabled: true, name, source: 'manual', sessionId: 'name-session' } } },
+  spine: { turns: [] } });
+const nameTurn = (id, text, startMs = 0, endMs = 1000, speaker = 'student') => ({ speaker, startMs, endMs,
+  transcript: { canonical_ref: `transcript:controlled-test#${id}`, text } });
+
+test('possible name mentions use canonical student text and recording thirds, not interviewer speech', () => {
+  const detail = nameSession();
+  detail.spine.turns = [nameTurn('seg-1', 'Thank you, DR. E\u0301LAN.', 0, 1000),
+    nameTurn('seg-2', 'Dr Élan, my contribution was coordinating follow-up.', 3100, 4000),
+    nameTurn('seg-3', 'Thank you Dr. Élan.', 6100, 7000),
+    nameTurn('seg-4', 'Dr Élan, what would you say?', 7100, 8000, 'interviewer'),
+    { speaker: 'student', text: 'Dr. Élan', startMs: 8200, endMs: 8400 }];
+  const view = projectInterviewerNameUse(JSON.parse(JSON.stringify(detail)));
+  assert.equal(view.status, 'AVAILABLE'); assert.equal(view.source, 'manual');
+  assert.deepEqual(view.matches.map(item => item.third), ['first', 'middle', 'final']);
+  assert.deepEqual(view.matches.map(item => item.segmentId), ['seg-1', 'seg-2', 'seg-3']);
+  assert.equal(view.matches[0].ref, 'transcript:controlled-test#seg-1');
+  assert.match(view.limitation, /not word timestamps/);
+  assert.equal(view.score, undefined); assert.equal(view.confidence, undefined);
+});
+
+test('name matching uses Unicode tokens, not substring or executable regex, and never guesses aliases', () => {
+  for (const [name, text, expected] of [['Ann', 'Annette greeted me.', 0], ['Ann', 'Thanks, Ann!', 1],
+    ['Dr. A+B', 'Thank you Dr A+B.', 1], ['Dr. A+B', 'Thanks Dr AAAAA B.', 0],
+    ['李明', '谢谢李明同学', 0], ['李明', '谢谢，李明。', 1],
+    ['Dr. Élan', 'Thank you Élan.', 0]]) {
+    const detail = nameSession(name); detail.spine.turns = [nameTurn('seg-1', text)];
+    assert.equal(projectInterviewerNameUse(detail).matches.length, expected);
+  }
+  assert.equal(normalizeNameUseCoaching({ schema: 'ivoc.name-use.v1', enabled: true, name: '123', source: 'manual' }), null);
+});
+
+test('missing opt-in, legacy, foreign envelope and ambiguous canonical refs remain unassessed', () => {
+  const detail = nameSession(); detail.spine.turns = [nameTurn('seg-1', 'Dr. Élan')];
+  const envelope = detail.results.payload;
+  assert.equal(projectInterviewerNameUse({ ...detail, results: undefined }).status, 'UNASSESSED');
+  assert.equal(projectInterviewerNameUse(null, envelope).status, 'UNASSESSED');
+  assert.equal(projectInterviewerNameUse({ ...detail, id: 'another' }).status, 'UNASSESSED');
+  assert.equal(projectInterviewerNameUse({ ...detail, results: { payload: { ...envelope,
+    nameUseCoaching: { ...envelope.nameUseCoaching, enabled: false } } } }).status, 'UNASSESSED');
+  for (const other of [detail.spine.turns[0], nameTurn('seg-1', 'Other text', 1000, 2000, 'interviewer'),
+    { ...nameTurn('seg-1', 'Other'), transcript: { canonical_ref: 'transcript:other#seg-1', text: 'Other' } }]) {
+    assert.equal(projectInterviewerNameUse({ ...detail, spine: { turns: [...detail.spine.turns, other] } }).status, 'UNASSESSED');
+  }
+  const distantDuplicate = [...detail.spine.turns,
+    ...Array.from({ length: 128 }, (_, index) => nameTurn(`other-${index}`, 'Other text', 0, 100)), detail.spine.turns[0]];
+  assert.equal(projectInterviewerNameUse({ ...detail, spine: { turns: distantDuplicate } }).matches.length, 0);
+});
+
+test('missing, invalid, out-of-duration and cross-third ranges never invent name timing', () => {
+  for (const [startMs, endMs] of [[null, null], [undefined, undefined], ['', ''], [-1, 20], [0, 0],
+    [0, 10000], [Infinity, Infinity]]) {
+    const detail = nameSession(); detail.spine.turns = [nameTurn('seg-1', 'Dr. Élan', startMs, endMs)];
+    // Explicit assignment preserves undefined instead of helper defaults.
+    detail.spine.turns[0].startMs = startMs; detail.spine.turns[0].endMs = endMs;
+    const match = projectInterviewerNameUse(detail).matches[0];
+    assert.equal(match.third, null); assert.equal(match.startMs, null); assert.equal(match.endMs, null);
+  }
+  const detail = nameSession(); detail.spine.turns = [nameTurn('seg-1', 'Dr. Élan', 2000, 4000)];
+  assert.equal(projectInterviewerNameUse(detail).matches[0].third, null);
+  detail.recording.durationMs = null;
+  assert.equal(projectInterviewerNameUse(detail).matches[0].startMs, null);
+  detail.spine.turns = [nameTurn('seg-1', 'No exact name in this passage.')];
+  assert.deepEqual(projectInterviewerNameUse(detail).matches, []);
+});
 
 test('canonical transcript metrics count bounded fillers and retain segment boundaries', () => {
   const metrics = projectTranscriptMetrics({ transcript: {

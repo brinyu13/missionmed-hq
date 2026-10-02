@@ -3,6 +3,46 @@ import test from 'node:test';
 
 import { DurableStudioSession, createDurableResultsEnvelope } from '../../public/studio/durable-session.mjs';
 
+test('optional manual name coaching snapshots preparation, persists through finish and resets', async () => {
+  const inputs = []; const writes = [];
+  const durable = new DurableStudioSession({ api: {
+    bootstrap: async () => ({ entitlement: { admitted: true } }),
+    createSession: async input => { inputs.push(input); return { id: `session-${inputs.length}` }; },
+    saveResults: async (id, input) => { writes.push(JSON.parse(JSON.stringify(input))); return { id }; },
+    abandonSession: async () => ({ abandoned: true }),
+  }, recordingFactory: () => ({ start: async () => true,
+    stopAndSeal: async () => ({ recording: { id: 'recording', durationMs: 3000 } }), destroy() {} }) });
+  await durable.bootstrap();
+  const wizard = { interviewerName: '  Dr. Élan  ', nameUseCoaching: true };
+  await durable.start({ stream: {}, wizard });
+  assert.equal(inputs[0].context.nameUseCoaching.name, 'Dr. Élan');
+  wizard.interviewerName = 'Different name'; wizard.nameUseCoaching = false;
+  await assert.rejects(durable.prepare({ wizard }), /durable_session_context_changed/);
+  const saved = await durable.finish({ durationMs: 3000, events: [] });
+  assert.deepEqual(writes[0].nameUseCoaching, { schema: 'ivoc.name-use.v1', enabled: true,
+    source: 'manual', name: 'Dr. Élan', sessionId: 'session-1' });
+  assert.deepEqual(saved.envelope.nameUseCoaching, writes[0].nameUseCoaching);
+  assert.equal(durable.preparedNameUseCoaching, null);
+  await durable.start({ stream: {}, wizard });
+  assert.equal(inputs[1].context.nameUseCoaching, null);
+  await durable.finish({ durationMs: 3000, events: [] });
+  assert.equal(writes[1].nameUseCoaching, undefined);
+  await durable.prepare({ wizard: { interviewerName: 'Dr. Élan', nameUseCoaching: true } });
+  await durable.abandon(); assert.equal(durable.preparedNameUseCoaching, null);
+  await durable.prepare({ wizard: { interviewerName: 'Dr. Élan', nameUseCoaching: true } });
+  durable.destroy(); assert.equal(durable.preparedNameUseCoaching, null);
+});
+
+test('name coaching requires literal opt-in and bounded manual name; legacy envelope stays unchanged', () => {
+  const durable = new DurableStudioSession({ api: {} });
+  for (const wizard of [{ interviewerName: 'Dr. Sample' }, { interviewerName: 'Dr. Sample', nameUseCoaching: 'true' },
+    { interviewerName: '', nameUseCoaching: true }, { interviewerName: 'x'.repeat(101), nameUseCoaching: true },
+    { interviewerName: 'Dr.\nSample', nameUseCoaching: true }]) {
+    assert.equal(durable.sessionInput({ wizard }).context.nameUseCoaching, null);
+  }
+  assert.equal(createDurableResultsEnvelope({ sessionId: 'legacy' }).nameUseCoaching, undefined);
+});
+
 test('retry request binds only an unchanged one-question setup, never client provenance', () => {
   const durable = new DurableStudioSession({ api: {} });
   const question = { question_id: 'Q1', canonical_text: 'Why here?' };

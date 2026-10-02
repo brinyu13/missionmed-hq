@@ -21,6 +21,62 @@ const FILLER_TOKEN_PATTERN = /\b(?:um+|uh+|erm+|like|you know|i mean)\b/giu;
 const recordedMs = (value) => value !== null && value !== undefined && value !== ''
   && Number.isFinite(Number(value)) && Number(value) >= 0 ? Number(value) : null;
 
+export function normalizeNameUseCoaching(value) {
+  if (value?.schema !== 'ivoc.name-use.v1' || value.enabled !== true || value.source !== 'manual'
+      || typeof value.name !== 'string') return null;
+  const name = value.name.normalize('NFKC').trim();
+  if (!name || name.length > 100 || /[\p{Cc}\p{Cf}]/u.test(name) || !/\p{L}/u.test(name)) return null;
+  return Object.freeze({ schema: 'ivoc.name-use.v1', enabled: true, name, source: 'manual' });
+}
+
+const nameTokens = value => String(value).normalize('NFKC').toLowerCase().match(/[\p{L}\p{M}\p{N}]+/gu) || [];
+
+// This is a lexical observation, never a judgment of rapport or direct address.
+// Only the saved session's opt-in and canonical candidate turns are inputs.
+export function projectInterviewerNameUse(session = {}, envelope = null) {
+  const unassessed = reason => Object.freeze({ status: 'UNASSESSED', reason, matches: Object.freeze([]) });
+  const payload = session?.results?.payload ?? envelope;
+  const config = normalizeNameUseCoaching(payload?.nameUseCoaching);
+  if (!config || !session?.id || payload?.sessionId !== session.id
+      || payload.nameUseCoaching.sessionId !== session.id) return unassessed('NOT_SELECTED_FOR_SAVED_ATTEMPT');
+  const turns = Array.isArray(session?.spine?.turns) ? session.spine.turns : [];
+  const refs = new Map(); const suffixes = new Map();
+  for (const turn of turns) {
+    const ref = turn?.transcript?.canonical_ref;
+    if (typeof ref !== 'string' || ref.length > 2048 || ref.trim() !== ref || !ref.includes('#')) continue;
+    const suffix = ref.split('#').at(-1);
+    if (!suffix || suffix.length > 96 || suffix.trim() !== suffix) continue;
+    refs.set(ref, (refs.get(ref) || 0) + 1);
+    suffixes.set(suffix, (suffixes.get(suffix) || 0) + 1);
+  }
+  const candidateTurns = turns.filter(turn => turn?.speaker === 'student'
+    && typeof turn?.transcript?.text === 'string' && turn.transcript.text.trim()
+    && refs.get(turn.transcript.canonical_ref) === 1
+    && suffixes.get(turn.transcript.canonical_ref.split('#').at(-1)) === 1).slice(0, 128);
+  if (!candidateTurns.length) return unassessed('NO_UNAMBIGUOUS_CANONICAL_CANDIDATE_TRANSCRIPT');
+  const needle = nameTokens(config.name);
+  const duration = recordedMs(session?.recording?.durationMs ?? payload.playableDurationMs);
+  const matches = [];
+  for (const turn of candidateTurns) {
+    const text = turn.transcript.text.slice(0, 20_000);
+    const words = nameTokens(text);
+    if (!words.some((_, index) => needle.every((word, offset) => words[index + offset] === word))) continue;
+    const startMs = recordedMs(turn.startMs); const endMs = recordedMs(turn.endMs);
+    const timed = duration > 0 && startMs !== null && endMs !== null && endMs > startMs && endMs <= duration;
+    // A turn crossing a third boundary cannot locate the name within that turn.
+    const first = timed ? Math.min(2, Math.floor(startMs / (duration / 3))) : null;
+    const last = timed ? Math.min(2, Math.ceil(endMs / (duration / 3)) - 1) : null;
+    matches.push(Object.freeze({ ref: turn.transcript.canonical_ref,
+      segmentId: turn.transcript.canonical_ref.split('#').at(-1), text,
+      startMs: timed ? startMs : null, endMs: timed ? endMs : null,
+      third: timed && first === last ? ['first', 'middle', 'final'][first] : null }));
+  }
+  return Object.freeze({ status: 'AVAILABLE', name: config.name, source: 'manual',
+    matches: Object.freeze(matches.slice(0, 8)),
+    basis: 'CANONICAL_CANDIDATE_TRANSCRIPT_LEXICAL_MATCH',
+    limitation: 'Possible mentions only (up to eight cited turns). Saved transcript coverage may be incomplete; no mention is not a failure. Turn ranges are not word timestamps or greeting/closing intent.' });
+}
+
 export function projectTranscriptMetrics(result = {}) {
   const transcript = result?.transcript || {};
   const text = boundedText(transcript.text, 20_000);

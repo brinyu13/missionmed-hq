@@ -46,6 +46,7 @@ import {
   buildAdminStudentProgress,
   buildComparisonSelection,
   buildEvidenceMomentLinks,
+  buildNameUseReview,
   debriefConfidenceCopy,
   buildInterviewerSelectionLabel,
   interviewerPresenceCopy,
@@ -102,7 +103,7 @@ const state = {
   wizard: {
     goal: 'Full IV Simulation', duration: 15, pressurePractice: false, focus: '',
     questions: null, questionCategory: 'Core / Opening', questionSection: 'CORE', questionSearch: '',
-    interviewer: 'Program Director', interviewerStyle: 'Owl', interviewerTab: 'Role & style', interviewerName: '',
+    interviewer: 'Program Director', interviewerStyle: 'Owl', interviewerTab: 'Role & style', interviewerName: '', nameUseCoaching: false,
     program: '', programId: null, programReleaseId: null, programVerified: false,
     programSpecialty: '', programState: '', programType: '',
     environment: 'MissionMed', interviewMode: 'Interview Mode', analyticsEnabled: true,
@@ -1283,11 +1284,16 @@ function renderInterviewerStep(host) {
     const panel = el('div', 'canon-name-coaching');
     panel.append(el('h2', '', 'Make it personal.'));
     const label = el('label', 'canon-field'); label.append(el('span', '', 'Interviewer name (optional)'));
-    const input = el('input'); input.value = state.wizard.interviewerName; input.placeholder = 'Enter a verified name when known'; input.maxLength = 100;
+    const input = el('input'); input.value = state.wizard.interviewerName; input.placeholder = 'Name you supply (not verified faculty identity)'; input.maxLength = 100;
     input.addEventListener('input', () => { state.wizard.interviewerName = input.value; }); label.append(input); panel.append(label);
+    const optIn = el('label', 'canon-field'); const checkbox = el('input'); checkbox.type = 'checkbox';
+    checkbox.style.width = 'auto'; checkbox.style.minHeight = 'auto';
+    checkbox.checked = state.wizard.nameUseCoaching === true;
+    checkbox.addEventListener('change', () => { state.wizard.nameUseCoaching = checkbox.checked; });
+    optIn.append(checkbox, el('span', '', 'Show optional name-use observations in saved Results')); panel.append(optIn);
     const windows = el('div', 'canon-name-windows');
     [['Opening', 'First ~60s'], ['Middle', 'When it fits'], ['Close', 'A natural thank-you']].forEach(([name, detail]) => { const cell = el('span'); cell.append(el('strong', '', name), document.createTextNode(detail)); windows.append(cell); });
-    panel.append(windows, el('p', 'canon-muted', 'Rapport matters more than exact counts. Coaching stays observational and contextual.')); host.append(panel);
+    panel.append(windows, el('p', 'canon-muted', 'Use a name only when natural. Optional observations cite possible mentions in your saved transcript, not rapport or required counts.')); host.append(panel);
   }
 }
 
@@ -3473,6 +3479,17 @@ function renderContextEvidence(result) {
   if (!host) return;
   host.replaceChildren();
   const transcript = result?.transcript;
+  const nameUse = buildNameUseReview(state.lastSaved);
+  const nameCard = el('article', 'context-assessment-card');
+  nameCard.append(el('span', 'microcap', nameUse.heading), el('p', 'canon-muted', nameUse.copy));
+  if (nameUse.status === 'AVAILABLE') {
+    if (!nameUse.moments.length) nameCard.append(el('p', 'canon-muted', 'No exact name matches found in the available canonical candidate transcript. This is not a score or a failure.'));
+    for (const moment of nameUse.moments) {
+      nameCard.append(el('span', 'microcap', moment.label), el('blockquote', '', moment.text),
+        renderEvidenceMomentLinks(nameUse.replayEvidence, [moment.segmentId]));
+    }
+  }
+  host.append(nameCard);
   if (transcript?.status !== 'AVAILABLE') {
     const note = document.createElement('p');
     note.className = 'unavailable';

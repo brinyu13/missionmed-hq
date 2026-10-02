@@ -1,5 +1,6 @@
 import { IvocApi } from '../ivoc-standalone/app/api.mjs';
 import { AccountRecordingController } from '../ivoc-standalone/app/recording.mjs';
+import { normalizeNameUseCoaching } from '../capabilities/context-results.mjs';
 
 const finiteMs = (value) => Number.isFinite(Number(value))
   ? Math.max(0, Math.round(Number(value)))
@@ -17,6 +18,7 @@ export function createDurableResultsEnvelope({
   recording = null,
   liveConversation = null,
   audioAuthority = null,
+  nameUseCoaching = null,
   capturedAt = new Date().toISOString(),
 } = {}) {
   const sessionDurationMs = finiteMs(analytics?.durationMs);
@@ -24,6 +26,7 @@ export function createDurableResultsEnvelope({
   const playableDurationMs = finiteMs(recording?.playableDurationMs ?? recording?.durationMs)
     ?? recordingDurationMs
     ?? sessionDurationMs;
+  const nameUse = normalizeNameUseCoaching(nameUseCoaching);
   return Object.freeze({
     schema: 'ivoc.analytics.v1',
     schemaVersion: 1,
@@ -48,6 +51,9 @@ export function createDurableResultsEnvelope({
     metrics: null,
     behavior: null,
     analytics: analytics || null,
+    ...(nameUse && sessionId ? {
+      nameUseCoaching: { ...nameUse, sessionId },
+    } : {}),
     ...(liveConversation?.turns?.length ? { liveConversation } : {}),
     ...(audioAuthority?.events?.length ? { audioAuthority } : {}),
   });
@@ -70,6 +76,7 @@ export class DurableStudioSession {
     this.pendingAnalytics = null;
     this.pendingRecording = null;
     this.preparedSessionKey = null;
+    this.preparedNameUseCoaching = null;
     this.liveConversationTurns = new Map();
     this.liveConversationSequence = 0;
     this.conversationCaptureStartedAtMs = null;
@@ -108,6 +115,8 @@ export class DurableStudioSession {
         interviewer: wizard.interviewer || null,
         interviewerStyle: ['Dove', 'Peacock', 'Owl', 'Eagle'].includes(wizard.interviewerStyle)
           ? wizard.interviewerStyle : null,
+        nameUseCoaching: normalizeNameUseCoaching({ schema: 'ivoc.name-use.v1',
+          enabled: wizard.nameUseCoaching === true, name: wizard.interviewerName, source: 'manual' }),
         program: wizard.program || null,
         programId: verifiedProgram ? wizard.programId : null,
         programReleaseId: verifiedProgram ? wizard.programReleaseId : null,
@@ -134,6 +143,7 @@ export class DurableStudioSession {
     this.conversationCaptureStartedAtMs = null;
     this.liveAudioAuthorityEvents = [];
     this.accountSession = await this.api.createSession(input);
+    this.preparedNameUseCoaching = input.context.nameUseCoaching;
     this.preparedSessionKey = key;
     return this.accountSession;
   }
@@ -263,6 +273,7 @@ export class DurableStudioSession {
       recording,
       liveConversation,
       audioAuthority: this.liveAudioAuthoritySnapshot(),
+      nameUseCoaching: this.preparedNameUseCoaching,
       capturedAt: this.now(),
     });
     const result = await this.api.saveResults(accountSession.id, envelope);
@@ -271,6 +282,7 @@ export class DurableStudioSession {
     this.recorder = null;
     this.pendingAnalytics = null;
     this.preparedSessionKey = null;
+    this.preparedNameUseCoaching = null;
     this.liveConversationTurns.clear();
     this.liveAudioAuthorityEvents = [];
     this.conversationCaptureStartedAtMs = null;
@@ -313,6 +325,7 @@ export class DurableStudioSession {
     this.recorder = null;
     this.pendingAnalytics = null;
     this.preparedSessionKey = null;
+    this.preparedNameUseCoaching = null;
     this.liveConversationTurns.clear();
     this.liveAudioAuthorityEvents = [];
     this.conversationCaptureStartedAtMs = null;
@@ -336,6 +349,7 @@ export class DurableStudioSession {
     this.recorder = null;
     this.pendingAnalytics = null;
     this.preparedSessionKey = null;
+    this.preparedNameUseCoaching = null;
     this.liveConversationTurns.clear();
     this.liveAudioAuthorityEvents = [];
     this.conversationCaptureStartedAtMs = null;

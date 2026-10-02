@@ -11,6 +11,7 @@ import {
   buildAdminStudentProgress,
   buildComparisonSelection,
   buildEvidenceMomentLinks,
+  buildNameUseReview,
   debriefConfidenceCopy,
   buildInterviewerSelectionLabel,
   interviewerPresenceCopy,
@@ -33,6 +34,64 @@ import { publicAdmissionState } from '../../server/admission-contract.mjs';
 import { summarizeVideoFramePixels } from '../../public/studio/media-analytics-capability.mjs';
 
 const row = (rows, label) => rows.find(([name]) => name === label);
+
+test('saved name observations cold-reload from exact selected detail, never actor/Builder state', () => {
+  const payload = { sessionId: 'selected', nameUseCoaching: { schema: 'ivoc.name-use.v1', enabled: true,
+    source: 'manual', name: 'Dr. Sample', sessionId: 'selected' } };
+  const detail = { id: 'selected', ownerSubject: 'test:subject', recording: { durationMs: 3000 },
+    results: { payload }, spine: { turns: [{ speaker: 'student', startMs: 100, endMs: 800,
+      transcript: { canonical_ref: 'transcript:test#seg-1', text: 'Thank you Dr. Sample.' } }] } };
+  const saved = JSON.parse(JSON.stringify({ reviewScope: 'admin', session: { id: 'selected', ownerSubject: 'test:subject' },
+    sessionDetail: detail, envelope: { sessionId: 'actor-attempt', nameUseCoaching: { ...payload.nameUseCoaching, name: 'Actor name' } } }));
+  const view = buildNameUseReview(saved);
+  assert.equal(view.status, 'AVAILABLE'); assert.equal(view.name, 'Dr. Sample');
+  assert.equal(view.moments[0].label, 'First recording third');
+  assert.equal(buildEvidenceMomentLinks(view.replayEvidence, ['seg-1'], 3000)[0].available, true);
+  assert.match(view.copy, /Manually supplied/); assert.doesNotMatch(view.copy, /Actor name/);
+  assert.equal(buildNameUseReview({ ...saved, sessionDetail: { ...detail, id: 'actor-attempt' } }).status, 'UNASSESSED');
+  assert.equal(buildNameUseReview({ ...saved, sessionDetail: { ...detail, ownerSubject: 'test:other' } }).status, 'UNASSESSED');
+  assert.equal(buildNameUseReview(null).status, 'UNASSESSED');
+  const missing = { ...saved, sessionDetail: { ...detail, recording: { durationMs: null } } };
+  const unavailable = buildNameUseReview(missing);
+  assert.equal(unavailable.moments[0].label, 'Recording third unavailable');
+  assert.equal(buildEvidenceMomentLinks(unavailable.replayEvidence, ['seg-1'], 3000)[0].available, false);
+});
+
+test('actual Results name-use wiring uses saved evidence and existing guarded replay, with default-off Builder opt-in', () => {
+  const source = readFileSync(new URL('../../public/studio/studio.mjs', import.meta.url), 'utf8');
+  assert.match(source, /interviewerName: '', nameUseCoaching: false/);
+  assert.match(source, /checkbox\.addEventListener\('change', \(\) => \{ state\.wizard\.nameUseCoaching = checkbox\.checked;/);
+  const body = source.slice(source.indexOf('function renderContextEvidence('), source.indexOf('function renderEvidenceMomentLinks('));
+  assert.match(body, /buildNameUseReview\(state\.lastSaved\)/);
+  assert.match(body, /renderEvidenceMomentLinks\(nameUse\.replayEvidence, \[moment\.segmentId\]\)/);
+  assert.doesNotMatch(body, /state\.wizard\.interviewerName/);
+});
+
+test('actual Results render clears private name observations when saved review is cleared', () => {
+  const source = readFileSync(new URL('../../public/studio/studio.mjs', import.meta.url), 'utf8');
+  const implementation = source.slice(source.indexOf('function renderContextEvidence('), source.indexOf('function renderEvidenceMomentLinks('));
+  const element = (tag, className = '', text = '') => ({ tag, className, textContent: text, children: [],
+    append(...nodes) { this.children.push(...nodes); }, replaceChildren(...nodes) { this.children = nodes; } });
+  const host = element('div'); const replayCalls = [];
+  const state = { role: 'admin', wizard: { interviewerName: 'Actor Builder name' }, lastSaved: {
+    reviewScope: 'admin', session: { id: 'selected' }, sessionDetail: { id: 'selected', recording: { durationMs: 3000 },
+      results: { payload: { sessionId: 'selected', nameUseCoaching: { schema: 'ivoc.name-use.v1', enabled: true,
+        source: 'manual', name: 'Dr. Saved', sessionId: 'selected' } } },
+      spine: { turns: [{ speaker: 'student', startMs: 100, endMs: 500,
+        transcript: { canonical_ref: 'transcript:test#seg-1', text: 'Thanks, Dr. Saved.' } }] } } } };
+  const render = new Function('state', '$', 'el', 'buildNameUseReview', 'renderEvidenceMomentLinks', 'document',
+    `return ${implementation};`)(state, () => host, element, buildNameUseReview,
+    (evidence, refs) => { replayCalls.push([evidence, refs]); return element('button'); }, { createElement: element });
+  const flatten = node => [node.textContent, ...node.children.map(flatten)].join(' ');
+  render({ transcript: { status: 'UNAVAILABLE', reason: 'PENDING' } });
+  assert.match(flatten(host), /Dr\. Saved/); assert.doesNotMatch(flatten(host), /Actor Builder name/);
+  assert.deepEqual(replayCalls[0][1], ['seg-1']);
+  assert.equal(buildEvidenceMomentLinks(replayCalls[0][0], ['seg-1'], 3000)[0].startMs, 100);
+  state.lastSaved = null;
+  render({ transcript: { status: 'UNAVAILABLE', reason: 'NO_SELECTED_ANSWER' } });
+  assert.doesNotMatch(flatten(host), /Dr\. Saved|Thanks/);
+  assert.match(flatten(host), /Not assessed/);
+});
 
 test('retry retains owner question and goal without reusing stale context authority', () => {
   const question = { question_id: 'Q1', canonical_text: 'Why this program?' };
