@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createIvocActorInstructionResolver, createIvocContextPackResolver } from '../../server/providers/ivoc-context-pack-resolver.mjs';
+import { createIvocActorInstructionResolver, createIvocContextPackResolver, createStoredIvocActorInstructionResolver } from '../../server/providers/ivoc-context-pack-resolver.mjs';
 import { buildLiveInterviewInstructions } from '../../server/providers/openai-live-session.mjs';
+import { createLiveContext } from '../../public/studio/live-context-adapter.mjs';
 
 const SESSION_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const PACK_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
@@ -16,6 +17,100 @@ const CONTEXT = {
 };
 const activeSession = (context = CONTEXT) => ({ ownerSubject: SUBJECT, sessionId: SESSION_ID, state: 'active', context });
 const packRow = () => ({ pack_id: PACK_ID, pack_version: PACK_VERSION, actor_block: ACTOR_BLOCK, source_receipts: [] });
+const storedSession = () => ({ id: SESSION_ID, owner_subject: SUBJECT, state: 'active', context: {
+  goal: 'Guided Mock IV Practice', interviewer: 'Associate Program Director', interviewerStyle: 'Owl',
+  environment: 'MissionMed', pressurePractice: true, targetQuestions: 5, questionIds: ['CORE-01', 'MR142-001'],
+  practiceFocus: 'Make my research example concise.', program: 'private unverified program',
+  contextSources: [], nameUseCoaching: { name: 'private name' },
+} });
+
+test('stored inactive Actor reader preserves native setup policy, minimizes output and never calls a provider', async t => {
+  const fetch = t.mock.method(globalThis, 'fetch', () => { throw new Error('No provider or job work is permitted.'); });
+  const calls = [];
+  const row = storedSession();
+  const resolve = createStoredIvocActorInstructionResolver({ rest: { table: async (name, query, options) => {
+    calls.push({ name, query });
+    assert.equal(options, undefined, 'GET-only storage contract');
+    if (name === 'ivoc_sessions') {
+      assert.match(query, /id=eq\.aaaaaaaa.*owner_subject=eq\.wp%3A3472&state=eq.active&select=id,owner_subject,state,context&limit=1/u);
+      return [row];
+    }
+    assert.equal(name, 'ivoc_context_packs');
+    return [packRow()];
+  } } });
+  const output = await resolve({ subject: SUBJECT, sessionId: SESSION_ID });
+  const context = createLiveContext({ wizard: { ...row.context, focus: row.context.practiceFocus },
+    interviewSet: row.context.questionIds.map(question_id => ({ question_id })), targetQuestions: 5 });
+  assert.deepEqual(output, { receipt: `ctxpack:${PACK_ID}@${PACK_VERSION}`, instructions: buildLiveInterviewInstructions(context, {
+    receipt: `ctxpack:${PACK_ID}@${PACK_VERSION}`, actorBlock: ACTOR_BLOCK,
+  }) });
+  assert.equal(Object.isFrozen(output), true);
+  assert.doesNotMatch(JSON.stringify(output), /private unverified|private name|owner_subject|source_receipts/u);
+  assert.deepEqual(calls.map(c => c.name), ['ivoc_sessions', 'ivoc_context_packs', 'ivoc_context_packs', 'ivoc_sessions']);
+  assert.equal(fetch.mock.callCount(), 0);
+});
+
+test('stored Actor rejects invalid identity, ownership, state and setup before any pack lookup', async () => {
+  let reads = 0;
+  const resolve = createStoredIvocActorInstructionResolver({ rest: { table: async () => { reads++; return [storedSession()]; } } });
+  for (const input of [null, {}, { subject: SUBJECT, sessionId: SESSION_ID, context: {} },
+    { subject: ` ${SUBJECT}`, sessionId: SESSION_ID }, { subject: SUBJECT, sessionId: SESSION_ID.toUpperCase() }]) {
+    await assert.rejects(resolve(input), /identity is invalid/u);
+  }
+  assert.equal(reads, 0);
+  const base = storedSession();
+  const invalid = [null, { ...base, owner_subject: 'wp:7' }, { ...base, id: PACK_ID }, { ...base, state: 'saved' },
+    ...[null, [], {}, { ...base.context, goal: 'invented' }, { ...base.context, interviewer: 'invented' },
+      { ...base.context, environment: 'invented' }, { ...base.context, pressurePractice: 'true' },
+      { ...base.context, targetQuestions: 1.5 }, { ...base.context, targetQuestions: 31 },
+      { ...base.context, questionIds: [' CORE-01'] }, { ...base.context, questionIds: [7] },
+      { ...base.context, interviewerStyle: 'invented' }, { ...base.context, practiceFocus: 'a\nb' },
+      { ...base.context, practiceFocus: 'x'.repeat(501) },
+    ].map(context => ({ ...base, context }))];
+  for (const row of invalid) {
+    const subjectResolve = createStoredIvocActorInstructionResolver({ rest: { table: async name => {
+      assert.equal(name, 'ivoc_sessions', 'invalid setup must never reach the pack');
+      return row ? [row] : [];
+    } } });
+    await assert.rejects(subjectResolve({ subject: SUBJECT, sessionId: SESSION_ID }), /unavailable|invalid/u);
+  }
+});
+
+test('stored Individual setup cannot carry stale Guided focus or pressure, and legacy null style is omitted', async () => {
+  const row = storedSession();
+  row.context.goal = 'Individual Question';
+  row.context.interviewerStyle = null;
+  const output = await createStoredIvocActorInstructionResolver({ rest: { table: async name => name === 'ivoc_sessions' ? [row] : [packRow()] } })({ subject: SUBJECT, sessionId: SESSION_ID });
+  assert.doesNotMatch(output.instructions, /Make my research|"pressurePractice":true|"interviewerStyle"/u);
+  assert.match(output.instructions, /"pressurePractice":false/u);
+});
+
+test('stored Actor rejects session changes during asynchronous pack reads', async () => {
+  for (const change of [row => { row.state = 'saved'; }, row => { row.owner_subject = 'wp:7'; },
+    row => { row.context.interviewerStyle = 'Eagle'; }, row => { row.context.questionIds.reverse(); },
+    row => { row.context.contextSources = ['File Vault']; }]) {
+    const row = storedSession();
+    let packReads = 0;
+    const resolve = createStoredIvocActorInstructionResolver({ rest: { table: async name => {
+      if (name === 'ivoc_sessions') return [row];
+      if (++packReads === 1) change(row);
+      return [packRow()];
+    } } });
+    await assert.rejects(resolve({ subject: SUBJECT, sessionId: SESSION_ID }), /changed during preparation|unavailable/u);
+  }
+});
+
+test('stored Actor rejects pack invalidation, replacement or content change during preparation', async () => {
+  for (const later of [[], [{ ...packRow(), pack_version: 'd'.repeat(64) }],
+    [{ ...packRow(), actor_block: `${ACTOR_BLOCK}\nChanged.` }]]) {
+    let reads = 0;
+    const resolve = createStoredIvocActorInstructionResolver({ rest: { table: async name => {
+      if (name === 'ivoc_sessions') return [storedSession()];
+      return ++reads === 1 ? [packRow()] : later;
+    } } });
+    await assert.rejects(resolve({ subject: SUBJECT, sessionId: SESSION_ID }), /pack changed during preparation/u);
+  }
+});
 
 test('context-pack resolver owner-binds one active pack and returns only the Actor contract', async () => {
   const calls = [];

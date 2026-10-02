@@ -1,6 +1,7 @@
 import { buildLiveInterviewInstructions, normalizeLiveInterviewContext } from './openai-live-session.mjs';
 import { validateSourceBoundPriorIvocPack } from '../../../missionmed-hq/ivoc/application-intelligence.mjs';
 import { hashValue } from '../../../ivoc/intelligence/index.mjs';
+import { createLiveContext, normalizePracticeFocus } from '../../public/studio/live-context-adapter.mjs';
 
 const MAX_ACTOR_BLOCK_BYTES = 6 * 1024;
 const MAX_ACTOR_INSTRUCTIONS_BYTES = 64 * 1024;
@@ -105,5 +106,74 @@ export function createIvocActorInstructionResolver({ rest, readSessionContext } 
       throw new TypeError('IVOC Actor instructions exceed the bounded output limit.');
     }
     return Object.freeze({ receipt: actorContext.receipt, instructions });
+  };
+}
+
+function storedInterviewContext(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)
+      || Buffer.byteLength(JSON.stringify(value), 'utf8') > MAX_ACTOR_INSTRUCTIONS_BYTES
+      || !['Full IV Simulation', 'Guided Mock IV Practice', 'Individual Question'].includes(value.goal)
+      || !['Program Director', 'Associate Program Director', 'Faculty', 'Chief Resident'].includes(value.interviewer)
+      || !['MissionMed', 'Webex', 'Zoom', 'Teams'].includes(value.environment)
+      || typeof value.pressurePractice !== 'boolean'
+      || !Number.isInteger(value.targetQuestions) || value.targetQuestions < 1 || value.targetQuestions > 30
+      || !Array.isArray(value.questionIds) || value.questionIds.length > 30
+      || value.questionIds.some(id => typeof id !== 'string' || !/^[A-Za-z0-9._:-]{1,120}$/u.test(id))
+      || (value.interviewerStyle != null && !['Dove', 'Peacock', 'Owl', 'Eagle'].includes(value.interviewerStyle))) {
+    throw new TypeError('The stored IVOC interview setup is invalid.');
+  }
+  const focus = normalizePracticeFocus(value.practiceFocus);
+  // Persisted visual environment is not an Analytics visibility authority. The
+  // room still owns that display setting; this inactive path cannot change it.
+  // Program/application content comes only from the separately authorized pack.
+  return normalizeLiveInterviewContext(createLiveContext({
+    wizard: {
+      goal: value.goal, interviewer: value.interviewer, environment: value.environment,
+      pressurePractice: value.pressurePractice,
+      ...(value.interviewerStyle != null ? { interviewerStyle: value.interviewerStyle } : {}),
+      ...(focus ? { focus } : {}),
+    },
+    interviewSet: value.questionIds.map(question_id => ({ question_id })),
+    targetQuestions: value.targetQuestions,
+  }));
+}
+
+/**
+ * GET-only, inactive preparation of the Actor's instructions from saved setup.
+ * This is NOT admission, a provider dispatch, or authority to publish audio.
+ * A future caller must supply authenticated server identity and recheck its
+ * independent activation/admission gate before dispatching any provider work.
+ */
+export function createStoredIvocActorInstructionResolver({ rest } = {}) {
+  const resolvePack = createIvocContextPackResolver({ rest });
+  return async function resolveStoredIvocActorInstructions(input) {
+    // Per-call custody prevents concurrent subjects from sharing a snapshot.
+    let first;
+    let identity;
+    const readOwned = async ({ subject, sessionId }) => {
+      const rows = await rest.table('ivoc_sessions',
+        `?id=eq.${encodeURIComponent(sessionId)}&owner_subject=eq.${encodeURIComponent(subject)}&state=eq.active&select=id,owner_subject,state,context&limit=1`);
+      const row = Array.isArray(rows) && rows.length === 1 ? structuredClone(rows[0]) : null;
+      if (!row || row.id !== sessionId || row.owner_subject !== subject || row.state !== 'active') {
+        throw new TypeError('The active owned IVOC session context is unavailable.');
+      }
+      return { ownerSubject: subject, sessionId, state: row.state, context: row.context };
+    };
+    const resolve = createIvocActorInstructionResolver({ rest, readSessionContext: async authorized => {
+      identity = authorized;
+      first = await readOwned(authorized);
+      return { ...first, context: storedInterviewContext(first.context) };
+    } });
+    // The existing resolver rejects extended/malformed identity before any read.
+    const output = await resolve(input);
+    const pack = await resolvePack(identity);
+    if (!pack || pack.receipt !== output.receipt
+        || buildLiveInterviewInstructions(storedInterviewContext(first.context), pack) !== output.instructions) {
+      throw new TypeError('The active IVOC Actor context pack changed during preparation.');
+    }
+    if (hashValue(first) !== hashValue(await readOwned(identity))) {
+      throw new TypeError('The owned IVOC session changed during preparation.');
+    }
+    return output;
   };
 }

@@ -14,6 +14,28 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Inactive Actor saved-setup reader, source epoch 4104:** server-internal,
+  GET-only reader now projects exact active owned saved settings through existing
+  native instructions, including role/style, ordered pool and Guided preference.
+  It rejects malformed identity/setup, foreign/inactive sessions and observed
+  pack/session changes during preparation. Only frozen instructions/receipt leave
+  the reader; no raw private session fields, new route, provider/job activation,
+  spend, voice or audible path change. 29 focused checks PASS; independent review
+  PASS with 32 additional concurrent owner/role/style/focus parity probes. This is
+  inactive source preparation, NOT live avatar acceptance. Sequential rechecks
+  are not atomic admission: future activation still requires its own gate, real
+  cancellation/audio/motion/sink acknowledgements and approved spending/profile
+  mappings. Existing live runtime remains `98cc7d8` / `b1f61346` below.
+- **RISE ordinary-student dependency reclassified:** existing owner policy admits
+  current 3893/3646 students, while IVOC's internal delegation requires RISE
+  claims absent from ordinary HQ/CAM handoff. DR-322/323 permit bounded owner-auth
+  integration without expanding entitlement depth. OWNER-SCOPED ENGINEERING,
+  not an established human-only eligibility decision. Read-only current owner
+  custody: clean/pushed `4df1eba122dfdf500fb71e28dc56eb9196a69ada`, provider
+  SUCCESS `1ad90e27-973a-4f6b-a8ea-587eb6f98e16`; registry baseline pins are older.
+  Next: resolve exact current handoff issuer/current-access proof and reconcile
+  owner custody before protected mutation. Cached enrollment or IVOC admission
+  alone must not create RISE authority. Genuine ordinary-student POV remains OPEN.
 - **Program search source correction, epoch 4100:** current Founder production
   POV found 44 RISE matches but only the first 12 could be reached. IVOC now uses
   the existing owner's bounded page contract, exposes Previous/Next with truthful
