@@ -1,0 +1,5 @@
+# Isolated USCE deployment source
+
+Founder direct infrastructure authority and DR359 exact isolated Railway pin apply. Only service643853a7-4a40-4418-86be-05807b5d80cc in project29afe885-b9b1-425d-8fd8-8611cd275409, environmented3353f7-bcc7-4e25-a000-3c9fc628a9a7 is changed. Preimage repo brinyu13/missionmed-hq with legacy source branch codex/usce-phil-wp-relay-fallback-20260928 (earlier custody); source separation prevents an older automatic source build from replacing guarded18files. Accepted deployment89ac3023 image297f7c897c97a074e82a91a274dc2a60bd14ef9b9b8ce50dee6c8816572dee12 remains retained. Dedicated18file release_b and its checked manifest are the manual source of truth; upload only with --no-gitignore --path-as-root. Never upload the shared repository root manifest. Mutation/readback pending.
+
+Readback: isolated repository source disconnected; accepted deployment/start unchanged SUCCESS. Other service instances not mutated. Future production releases are explicit qualified18file CLI uploads or accepted-image redeploys. To reconnect, first qualify the exact dedicated release root and branch; do not restore the older branch for ordinary deployment.

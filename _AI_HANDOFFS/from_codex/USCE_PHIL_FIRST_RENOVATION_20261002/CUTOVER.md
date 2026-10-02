@@ -8,3 +8,7 @@ Deployed flag-off release207c2721-74cd-4200-910a-fb074df3c419 SUCCESS; accepted 
 Safety migration applied once at provider version20261002131800; exactb532SQL. Real88intakes/66offers fingerprints unchanged. Outboundofferfalse, offerdrytrue, intakeforcedrytrue privatelyconfirmed. Exact17reviewedfilemanifest uploaded to isolatedservice only; deploymenthealth pending. Old4ea removed independently.
 
 Firstupload339c1460 FAILED safely: CLIhonoredglobalJSONignores and Railpack sawonlymissionmed-hq/.207c remainedhealthy. Correctedexact17fileupload uses--path-as-root --no-gitignore, outboundheld. No bundle/source bytes changed. New health readback pending.
+
+Brian normalentry Liveprotected. TwoCDNsource/R2/publicexacthashesCDN_RELEASE.md after contactfallbackfix. Independentlyapproved QAguard configuredwhileoutboundheld andexact18fileB uploaded; healthpending.
+
+Guarded dry-run stage: accepted89ac image source redeploy requested without --from-source after isolated repo disconnect. Offer path enabled with offerdry-run true, intakeforcedry true, exacttestrecipient guard privately verified. No provider email can be sent in dry-run. New health/deployment readback pending.

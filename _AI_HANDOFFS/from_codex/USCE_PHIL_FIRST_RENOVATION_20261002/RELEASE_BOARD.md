@@ -1,7 +1,7 @@
 # USCE Phil-first renovation release board
 
 Mission: USCE-PHIL-FIRST-RENOVATION-20261002. Product: MissionMed Clinicals HQ / USCE Offer System.
-State: IMPLEMENTING; not deployed or independently accepted.
+State: DEPLOYED / LIVE SYNTHETIC VERIFICATION; final independent acceptance pending.
 Updated: October 2, 2026, America/New_York.
 
 Founder ratification cleared the prior authority and QA gates. Canonical OS registration at 11c362643eac489f0fc5efd74dc4b97c56c632e7 independently APPROVED. DR-359/DR-360 and PRODUCT_PASSPORTS/usce.md route this mission. Universal and mission BOOT PASS; MR-079 hash 9638e67841e98b278244c0d4f9ecd0ccbdc7a9e17c50a67dd45d1d31895a0357. Registrar leases released with provider readback. An initial CURRENT generator scope error was independently caught and fixed forward; latest sibling instructions preserved.
@@ -64,3 +64,15 @@ New external dependency may arise for Phil personal-login acceptance, but does n
 Next: finish source integration, role-aware baseline and migration review, then qualified production release and controlled live QA. Do not end at local tests or a PR.
 
 State delta: authority canonically ratified and independently approved; current live bytes custodied; root safety implementation and Astra corrections now integrating. Production and final acceptance remain unverified.
+
+## Current production and live evidence — supersedes baseline rows above
+
+Gateway guarded18 releaseB89ac3023-69a9-4e32-bc07-08f94d52ced0 SUCCESS, image297f7c897c97a074e82a91a274dc2a60bd14ef9b9b8ce50dee6c8816572dee12, only active deployment. Older A/baseline deployments REMOVED. Exact isolated start node missionmed-hq/usce-gateway.mjs. Stale GitHub automatic source disconnected; qualified manual bundle is the source of truth.
+
+Safety migration actual20261002131800 / source20261002160725_usce_phil_first_safety.sql b532 applied once; independent exact ledger/function/grant/fingerprint review APPROVE. 88realintakes and66realoffers unchanged. Five existing private empty operational tables have owner-only access; ENABLE-only RLS fix-forward under independent review. Pre-existing USCE cron functions absent; automation unavailable, no business rules invented or cron mutation.
+
+Admin b4ffb2a0bd81947aac244f07b961cd9b78ba84f2dcddf2abe0dd69ae01346a83 and applicant68a97ea4418edc36b91a5e497f300fb43c63cacb7a6beb429ee6cc880224ce6e source/R2/CDN byte equality200/no-store. Astra modal focus/ARIA, full saved-message hydration, explicit template replacement, event-ID dedupe and search recovery live.
+
+Brian normal WordPress entry /usce-admin/ Live protected. Four labeled controlled alias synthetic cases. Principal Accept case saved note, synthetic availability and simulated site-call each durably read back; no actual program contacted. Draft85a0041e-b6b4-4ea2-b154-30c66a92fbce persisted/reloaded with custom no-obligation instructions, original deadline, case and Offer tab. Initial reload caught template replacement and repeated activity; fixed forward before token/send. Corrected Activity has each durable note/site event once; screenshot shows retained synthetic search.
+
+Offer outbound held, dry-run true; intake forced dry-run; exact controlled-recipient QA guard present. No offer email yet. Next: preview/dry-run, one labeled controlled offer send and inbox/provider proof, synthetic applicant responses/revisions/privacy/races, compatible rollback/reapply, fresh independentF/U/O, then Phil-specific account experience separately.

@@ -207,6 +207,46 @@
           "expected": "production"
         }
       ]
+    },
+    "railway_usce_gateway": {
+      "host": "railway",
+      "service": "missionmed-usce-gateway",
+      "project_id": "29afe885-b9b1-425d-8fd8-8611cd275409",
+      "service_id": "643853a7-4a40-4418-86be-05807b5d80cc",
+      "environment_id": "ed3353f7-bcc7-4e25-a000-3c9fc628a9a7",
+      "environment": "production",
+      "public_origin": "https://missionmed-usce-gateway-production.up.railway.app",
+      "current_deployment_id": "7e79d3de-50c0-4721-bb4e-0c7c39c411cd",
+      "current_image_digest": "sha256:9b5d6a025fcb6f05381665f46fd1765dd55e411b5a07dcb3d32818fb961edf63",
+      "runtime_evidence": "Accepted guarded18file source redeployed with controlled QA-only dry-run configuration; one active SUCCESS deployment.",
+      "start_command": "node missionmed-hq/usce-gateway.mjs",
+      "active_source_roots": [
+        "missionmed-hq/usce-gateway.mjs",
+        "missionmed-hq/usce-gateway-policy.mjs",
+        "missionmed-hq/server.mjs",
+        "missionmed-hq/routes/usce-offer-portal.mjs",
+        "missionmed-hq/routes/usce-public-intake.mjs",
+        "missionmed-hq/routes/usce-status-tracker.mjs",
+        "missionmed-hq/lib/usce-session-token.mjs",
+        "missionmed-hq/lib/usce-postmark-qa-guard.mjs"
+      ],
+      "inactive_lookalikes": [
+        "app/api/usce/**"
+      ],
+      "runtime_bundle_manifest": "_AI_HANDOFFS/from_codex/USCE_PHIL_FIRST_RENOVATION_20261002/RUNTIME_BUNDLE_B.md",
+      "authority": "MissionMed_OS/decisions/DR-359_usce_phil_first_renovation_authority.md",
+      "required_env": [
+        {
+          "name": "MMHQ_SESSION_SECRET",
+          "fail_if_missing": true
+        }
+      ],
+      "deployment_requirements": [
+        "Upload only the reviewed exact 18-file runtime closure, not the shared repository.",
+        "Verify isolated project/service/environment pins and claim-fenced sender before cutover.",
+        "Never treat shared main HQ as this runtime owner."
+      ],
+      "deployment_source": "Explicit manual upload of qualified dedicated18file closure; stale GitHub automatic source disconnected; see RUNTIME_SOURCE.md."
     }
   },
   "protected_paths": [
@@ -401,14 +441,24 @@
       "id": "cdn_usce_admin_live",
       "system": "usce_admin",
       "url": "https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html",
-      "approved_sha256": "9b6eade1c5e5d60044a418d6ec334958f037ba8ae948472673ad064a0862c29c",
+      "approved_sha256": "a4733a50e49a8dead724b5107277ceb088d29366dcc829191d252a43640f47b5",
       "required_markers": [
         "/api/usce/admin/public-intake-requests",
-        "/api/usce/admin/auth/relay",
+        "action=mmhq_usce_admin_auth_relay",
         "/api/auth/session",
-        "Live protected"
+        "https://missionmed-usce-gateway-production.up.railway.app",
+        "Live protected",
+        "mmPromptLabel",
+        "preview_hash",
+        "expected_revision",
+        "hydrateSavedOffer",
+        "uniqueTimelineEvents",
+        "Apply selected template",
+        "authAudience: 'usce_admin'"
       ],
-      "local_source_note": "Metadata-only reconciliation to the deployed June 29 archive-precedence repair. Live CDN and R2 bytes matched; B1-502M did not mutate USCE."
+      "local_source_note": "Root-integrated Astra accessibility, saved-term hydration, explicit template, event dedupe and token/write-fence fix-forward. Exact serving custody CDN_RELEASE.md; independentF/U/O separate.",
+      "local_source_required": true,
+      "local_source_path": "LIVE/usce_admin.html"
     },
     {
       "id": "cdn_arena_live",
@@ -569,6 +619,23 @@
       ],
       "local_source_path": "storyforge-v5/dist/assets/fonts/OFL-Lora.txt",
       "local_source_required": true
+    },
+    {
+      "id": "cdn_usce_offer_live",
+      "system": "usce_admin",
+      "url": "https://cdn.missionmedinstitute.com/html-system/LIVE/usce_offer.html",
+      "approved_sha256": "68a97ea4418edc36b91a5e497f300fb43c63cacb7a6beb429ee6cc880224ce6e",
+      "local_source_required": true,
+      "local_source_path": "LIVE/usce_offer.html",
+      "required_markers": [
+        "https://missionmed-usce-gateway-production.up.railway.app",
+        "decline_pending",
+        "decline_notify_future",
+        "decline_no_notify",
+        "clinicalsContact",
+        "referrerpolicy=\"no-referrer\""
+      ],
+      "local_source_note": "Applicant companion under the same USCE owner; no missing-token demo, shared-main decline navigation or financial/placement commitment."
     }
   ],
   "route_checks": [
@@ -596,7 +663,7 @@
     {
       "id": "usce_admin_auth_relay",
       "system": "usce_admin",
-      "url": "https://missionmed-hq-production.up.railway.app/api/usce/admin/auth/relay?target=https%3A%2F%2Fcdn.missionmedinstitute.com%2Fhtml-system%2FLIVE%2Fusce_admin.html",
+      "url": "https://missionmed-usce-gateway-production.up.railway.app/api/usce/admin/auth/relay?target=https%3A%2F%2Fcdn.missionmedinstitute.com%2Fhtml-system%2FLIVE%2Fusce_admin.html",
       "method": "GET",
       "expected_status": 302,
       "expected_headers_contains": {
@@ -612,7 +679,7 @@
     {
       "id": "usce_admin_public_intake_unauth",
       "system": "usce_admin",
-      "url": "https://missionmed-hq-production.up.railway.app/api/usce/admin/public-intake-requests",
+      "url": "https://missionmed-usce-gateway-production.up.railway.app/api/usce/admin/public-intake-requests",
       "method": "GET",
       "headers": {
         "Origin": "https://cdn.missionmedinstitute.com"
@@ -843,6 +910,19 @@
         501,
         503
       ]
+    },
+    {
+      "id": "usce_gateway_rejects_sibling_path",
+      "system": "usce_admin",
+      "url": "https://missionmed-usce-gateway-production.up.railway.app/api/non-usce-scope-probe",
+      "method": "GET",
+      "expected_status": 404,
+      "body_contains": "not_found",
+      "must_not_status": [
+        200,
+        500,
+        502
+      ]
     }
   ],
   "systems": {
@@ -867,7 +947,7 @@
     },
     "usce_admin": {
       "owner": "USCE",
-      "runtime_owner": "railway_missionmed_hq",
+      "runtime_owner": "railway_usce_gateway",
       "classes": [
         "auth_session",
         "redirect_handoff",
@@ -883,17 +963,57 @@
         "tables": [
           "usce_public_intake_requests",
           "usce_offer_drafts",
-          "usce_audit"
+          "usce_audit",
+          "usce_case_activity",
+          "usce_send_claims"
         ],
         "rpcs": [
           "create_usce_public_intake_request",
           "list_usce_public_intake_requests",
           "update_usce_public_intake_request_status",
-          "update_usce_public_intake_request_admin_note"
+          "update_usce_public_intake_request_admin_note",
+          "usce_case_activity",
+          "usce_bind_message_preview",
+          "usce_claim_send",
+          "usce_finish_send",
+          "usce_send_state",
+          "usce_reconcile_send",
+          "respond_usce_offer_by_token_hash"
         ],
         "access_role": "service_role"
       },
-      "rollback": "Re-deploy tag known-good/2026-06-25-critical-auth-usce-arena-matrix or Railway deployment 27280193-c85b-49de-8b03-58e28ba0c9f3; restore CDN usce_admin.html from approved backup if CDN drifted."
+      "rollback": "Hold all outbound offer sending and force intake notifications to dry-run before cutover or rollback. Recover only an exact USCE-owned, qualified claim-fenced guarded runtime compatible with the applied additive schema and its matching CDN preimages. Preserve recipient restriction and resolve uncertain provider claims before reopening sending. Never roll back to the legacy pre-claim sender or the June shared-main known-good tag/deployment with sending enabled. Do not reverse/replay applied migrations or delete evidence; repair forward using the migration ledger. If no compatible artifact is verified, remain held and fix forward.",
+      "source_of_truth": [
+        "LIVE/usce_admin.html",
+        "LIVE/usce_offer.html",
+        "_AI_HANDOFFS/from_codex/USCE_PHIL_FIRST_RENOVATION_20261002/RUNTIME_BUNDLE_B.md",
+        "_AI_HANDOFFS/from_codex/USCE_PHIL_FIRST_RENOVATION_20261002/MIGRATION_LEDGER.md"
+      ],
+      "routes_or_assets": [
+        "https://missionmedinstitute.com/usce-admin/",
+        "https://missionmed-usce-gateway-production.up.railway.app/api/usce/admin/",
+        "https://missionmed-usce-gateway-production.up.railway.app/api/usce/offer/",
+        "https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html",
+        "https://cdn.missionmedinstitute.com/html-system/LIVE/usce_offer.html"
+      ],
+      "dependencies": {
+        "wordpress": "Existing scoped WordPress administrator relay; audience usce_admin. No global identity/role change.",
+        "supabase_project_ref": "fglyvdykwgbuivikqoah",
+        "migration_ledger": "_AI_HANDOFFS/from_codex/USCE_PHIL_FIRST_RENOVATION_20261002/MIGRATION_LEDGER.md",
+        "safety_sql_source": "supabase/migrations/20261002160725_usce_phil_first_safety.sql",
+        "safety_sql_sha256": "b5322488152cfb214ba1dca77f51a437ac411207c86d6c97e39a1eec65621778",
+        "actual_provider_migration_version": "20261002131800",
+        "postmark": "Claim-fenced sender and exact controlled-recipient QA guard; no unbounded live sending.",
+        "fix_forward_sql_source": "supabase/migrations/20261002182503_usce_phil_first_fix_forward.sql",
+        "fix_forward_sql_sha256": "f7cd9dce466e0d16453123e55bb451f2878c0ddecea6191ad31561bf5c1ecfee",
+        "fix_forward_actual_provider_version": "20261002142841"
+      },
+      "rollback_evidence": [
+        "_AI_HANDOFFS/from_codex/USCE_PHIL_FIRST_RENOVATION_20261002/RUNTIME_BUNDLE_B.md",
+        "_AI_HANDOFFS/from_codex/USCE_PHIL_FIRST_RENOVATION_20261002/CDN_BACKUPS.md",
+        "_AI_HANDOFFS/from_codex/USCE_PHIL_FIRST_RENOVATION_20261002/CUTOVER.md",
+        "_AI_HANDOFFS/from_codex/USCE_PHIL_FIRST_RENOVATION_20261002/MIGRATION_LEDGER.md"
+      ]
     },
     "arena": {
       "owner": "Arena",
@@ -1079,11 +1199,18 @@
     {
       "id": "usce_admin_authenticated_read",
       "system": "usce_admin",
-      "url": "https://missionmed-hq-production.up.railway.app/api/usce/admin/auth/relay?target=https%3A%2F%2Fcdn.missionmedinstitute.com%2Fhtml-system%2FLIVE%2Fusce_admin.html",
-      "expected_text": "LIVE PROTECTED",
-      "expected_min_rows": 1,
+      "url": "https://missionmedinstitute.com/usce-admin/",
+      "expected_text": "Live protected",
+      "expected_min_rows": 0,
       "expected_console_errors": 0,
-      "manual_or_browser_plugin_required": true
+      "manual_or_browser_plugin_required": true,
+      "requirements": [
+        "Use normal WordPress entry and authorized usce_admin audience; no shared-main detour.",
+        "Use only mission-owned synthetic cases; never require a real applicant row to pass.",
+        "Verify durable note save/reload, draft/revision/preview/send claim and actual communication evidence.",
+        "Verify named visible prompt textbox, keyboard containment, cancel/Escape and return focus.",
+        "Verify denied/non-admin access; report Phil identity and human acceptance separately."
+      ]
     },
     {
       "id": "matrix_app_mode_routes",
@@ -1173,6 +1300,19 @@
       "expected_final_state": "SESSION_REQUIRED_OR_GATEWAY_REQUIRED_WITHOUT_DATA",
       "expected_console_errors": 0,
       "manual_or_browser_plugin_required": true
+    },
+    {
+      "id": "usce_applicant_synthetic_response",
+      "system": "usce_admin",
+      "url": "https://missionmedinstitute.com/usce-offer/",
+      "manual_or_browser_plugin_required": true,
+      "requirements": [
+        "Use a privately supplied current synthetic token; never store it in this manifest or evidence.",
+        "Check accept, alternate and both inline decline preferences, pending reload, duplicate/conflicting response and revised/revoked/expired links.",
+        "No-token entry must fail closed; no response occurs merely by following intent=decline.",
+        "Acceptance, payment and placement remain separate; QA performs no payment/reservation/enrollment.",
+        "Verify Clinicals email and permanent contact-page fallback, mobile/zoom/keyboard and explicit UTC deadline."
+      ]
     }
   ],
   "new_system_registration": {

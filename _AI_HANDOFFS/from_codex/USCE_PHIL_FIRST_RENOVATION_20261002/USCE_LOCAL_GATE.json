@@ -1,0 +1,296 @@
+{
+  "schema_version": "1.0",
+  "status": "ACTIVE",
+  "lock_name": "MissionMed Critical Systems Contract",
+  "owner": "Brian",
+  "last_updated_utc": "2026-08-01T14:00:00Z",
+  "known_good": {
+    "git_commit": "3f0c27aac55dbf82748b3eaba360006d4041b539",
+    "git_tag": "known-good/2026-06-25-critical-auth-usce-arena-matrix",
+    "railway_deployment": "27280193-c85b-49de-8b03-58e28ba0c9f3"
+  },
+  "delegated_locks": {
+    "matrix_runtime": "_SYSTEM/KNOWN_GOOD/MATRIX_RUNTIME_LOCK_MANIFEST.json",
+    "matrix_runtime_recovery": {
+      "immutable_source_commit": "60e7169b544e6c93eb41f0de9717d8e61d2d49d0",
+      "immutable_source_tree": "291a1f4dff573e2f64635ddd069ac9275f3984ff",
+      "remote_refs": [
+        "origin/codex/v1-study-schedule-production-connected-rc",
+        "origin/codex/v1-study-schedule-8010d-validation"
+      ],
+      "guard_result": "PASS_10_OF_10_LOCAL_ORIGIN_PUBLIC",
+      "production_mutation": false,
+      "approved_hashes_changed": false
+    }
+  },
+  "runtime_owners": {
+    "railway_usce_gateway": {
+      "host": "railway",
+      "service": "missionmed-usce-gateway",
+      "project_id": "29afe885-b9b1-425d-8fd8-8611cd275409",
+      "service_id": "643853a7-4a40-4418-86be-05807b5d80cc",
+      "environment_id": "ed3353f7-bcc7-4e25-a000-3c9fc628a9a7",
+      "environment": "production",
+      "public_origin": "https://missionmed-usce-gateway-production.up.railway.app",
+      "current_deployment_id": "7e79d3de-50c0-4721-bb4e-0c7c39c411cd",
+      "current_image_digest": "sha256:9b5d6a025fcb6f05381665f46fd1765dd55e411b5a07dcb3d32818fb961edf63",
+      "runtime_evidence": "Accepted guarded18file source redeployed with controlled QA-only dry-run configuration; one active SUCCESS deployment.",
+      "start_command": "node missionmed-hq/usce-gateway.mjs",
+      "active_source_roots": [
+        "missionmed-hq/usce-gateway.mjs",
+        "missionmed-hq/usce-gateway-policy.mjs",
+        "missionmed-hq/server.mjs",
+        "missionmed-hq/routes/usce-offer-portal.mjs",
+        "missionmed-hq/routes/usce-public-intake.mjs",
+        "missionmed-hq/routes/usce-status-tracker.mjs",
+        "missionmed-hq/lib/usce-session-token.mjs",
+        "missionmed-hq/lib/usce-postmark-qa-guard.mjs"
+      ],
+      "inactive_lookalikes": [
+        "app/api/usce/**"
+      ],
+      "runtime_bundle_manifest": "_AI_HANDOFFS/from_codex/USCE_PHIL_FIRST_RENOVATION_20261002/RUNTIME_BUNDLE_B.md",
+      "authority": "MissionMed_OS/decisions/DR-359_usce_phil_first_renovation_authority.md",
+      "required_env": [
+        {
+          "name": "MMHQ_SESSION_SECRET",
+          "fail_if_missing": true
+        }
+      ],
+      "deployment_requirements": [
+        "Upload only the reviewed exact 18-file runtime closure, not the shared repository.",
+        "Verify isolated project/service/environment pins and claim-fenced sender before cutover.",
+        "Never treat shared main HQ as this runtime owner."
+      ],
+      "deployment_source": "Explicit manual upload of qualified dedicated18file closure; stale GitHub automatic source disconnected; see RUNTIME_SOURCE.md."
+    }
+  },
+  "protected_paths": [
+    "missionmed-hq/server.mjs",
+    "missionmed-hq/routes/usce-public-intake.mjs",
+    "_SYSTEM/CRITICAL_SYSTEMS_MANIFEST.json"
+  ],
+  "supabase_projects": {
+    "ranklistiq": {
+      "project_ref": "fglyvdykwgbuivikqoah",
+      "name": "missionmed-ranklistiq",
+      "domains": [
+        "Arena",
+        "STAT",
+        "USCE command_center.usce_*"
+      ]
+    },
+    "growth_engine": {
+      "project_ref": "plgndqcplokwiuimwhzh",
+      "name": "MissionMed Growth Engine",
+      "domains": [
+        "HQ CRM",
+        "command_center.students",
+        "command_center.leads",
+        "command_center.payments",
+        "command_center.email_drafts",
+        "command_center.events"
+      ]
+    },
+    "scheduler_staging": {
+      "project_ref": "avpdetdkpwmqqxtvomix",
+      "name": "MissionMed Scheduler Staging",
+      "domains": [
+        "Scheduler staging, inventory pending"
+      ]
+    }
+  },
+  "postgres_projects": {
+    "storyforge_v5": {
+      "provider": "railway",
+      "project_id": "875e7c17-d06f-4301-a4bb-e61016f153cf",
+      "database_service_id": "a4a66362-c3ba-475a-ae21-2aa46624bafe",
+      "environment_id": "bcef8734-e42b-44df-8488-c2a3de68213f",
+      "schema": "public",
+      "migration_ledger": "public.sf_schema_migrations",
+      "migration_files": [
+        "storyforge-v5/infra/postgres/migrations/20260726150000_b1_500_storyforge_v5_foundation.sql",
+        "storyforge-v5/infra/postgres/migrations/20260727170000_b1_502_storyforge_submit_assignment_gate.sql",
+        "storyforge-v5/infra/postgres/migrations/20260727190000_b1_502_storyforge_background_preference.sql",
+        "storyforge-v5/infra/postgres/migrations/20260728045100_b1_503_story_domain_conformance.sql",
+        "storyforge-v5/infra/postgres/migrations/20260728045444_b1_503_interview_mentor_conformance.sql",
+        "storyforge-v5/infra/postgres/migrations/20260729000100_b1_506_voice_recording_sessions.sql",
+        "storyforge-v5/infra/postgres/migrations/20260729000200_b1_506_feature_flags.sql",
+        "storyforge-v5/infra/postgres/migrations/20260729010000_b1_506a_voice_audit_lifecycle.sql",
+        "storyforge-v5/infra/postgres/migrations/20260730000100_b1_507b_reconciliation_state.sql",
+        "storyforge-v5/infra/postgres/migrations/20260801190000_b1_510i_admin_console.sql",
+        "storyforge-v5/infra/postgres/migrations/20260805190000_b1_511_workflow_taxonomy_mentor_notes.sql",
+        "storyforge-v5/infra/postgres/migrations/20260806130000_b1_511a_wordpress_admin_authority.sql",
+        "storyforge-v5/infra/postgres/migrations/20260806190000_b1_512_concrete_configuration_media.sql",
+        "storyforge-v5/infra/postgres/migrations/20260810190000_b1_514_v2_r1_visibility_consent_activity.sql",
+        "storyforge-v5/infra/postgres/migrations/20260810200000_b1_514_v2_r2_story_versions_provenance.sql",
+        "storyforge-v5/infra/postgres/migrations/20260810210000_b1_514_v2_r3_inspiration.sql",
+        "storyforge-v5/infra/postgres/migrations/20260810220000_b1_514_v2_ra_requests_guest.sql",
+        "storyforge-v5/infra/postgres/migrations/20260810230000_b1_514_v2_preferences_environments.sql",
+        "storyforge-v5/infra/postgres/migrations/20260810240000_b1_514_v2_ra_lifecycle_completion.sql",
+        "storyforge-v5/infra/postgres/migrations/20260810250000_b1_514_v21_authored_segment_writes.sql",
+        "storyforge-v5/infra/postgres/migrations/20260810260000_b1_514_guest_voice_contributions.sql",
+        "storyforge-v5/infra/postgres/migrations/20260810270000_b1_514_request_delivery_attempts.sql",
+        "storyforge-v5/infra/postgres/migrations/20260810280000_b1_514_guest_voice_cleanup_recovery.sql",
+        "storyforge-v5/infra/postgres/migrations/20260812120000_b1_515_v201_reviews_collections_peer.sql"
+      ],
+      "pending_migration_files": [],
+      "application_role": "storyforge_app",
+      "policy_role": "authenticated",
+      "application_role_must_not_own_tables": true,
+      "application_role_bypassrls": false,
+      "seed_policy": "No demo data. Preserve all canonical V1 and V2 stories, identities, versions, media, governed prompts, and audit history.",
+      "mentor_assignment_policy": "Mentor and administrator reads remain bounded by signed WordPress authority, assignments, visibility, and submission state.",
+      "current_migration_count": 24,
+      "current_storyforge_user_count": 441,
+      "current_active_assignment_count": 0,
+      "system_identifier": "7667256745042145332"
+    },
+    "timeline_builder": {
+      "provider": "railway",
+      "project_id": "295b3d56-f555-4851-91f4-eb32d7dc88e1",
+      "database_service_id": "134e537e-d48b-4452-acf6-8c3af2ce03db",
+      "environment_id": "d0705d67-83d5-4b53-942d-3862d9906529",
+      "schema": "timeline",
+      "schema_version": "d1-timeline-db-500.1",
+      "migration_files": [
+        "packages/mission-timeline/database/migrations/202607150001_timeline_v1.sql",
+        "packages/mission-timeline/database/migrations/202607150002_timeline_v1_413_hardening.sql",
+        "packages/mission-timeline/database/migrations/202608020003_d1_411c_identity_and_admin_grants.sql",
+        "packages/mission-timeline/database/migrations/202608040004_d1_500_grant_hardening.sql"
+      ],
+      "application_role": "timeline_authenticated",
+      "application_role_must_not_own_tables": true,
+      "application_role_bypassrls": false,
+      "force_row_level_security": true,
+      "seed_policy": "No production seed data. Controlled synthetic fixtures are disposable and must be labeled CONTROLLED_SYNTHETIC."
+    }
+  },
+  "asset_checks": [
+    {
+      "id": "cdn_usce_admin_live",
+      "system": "usce_admin",
+      "url": "https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html",
+      "approved_sha256": "a4733a50e49a8dead724b5107277ceb088d29366dcc829191d252a43640f47b5",
+      "required_markers": [
+        "/api/usce/admin/public-intake-requests",
+        "action=mmhq_usce_admin_auth_relay",
+        "/api/auth/session",
+        "https://missionmed-usce-gateway-production.up.railway.app",
+        "Live protected",
+        "mmPromptLabel",
+        "preview_hash",
+        "expected_revision",
+        "hydrateSavedOffer",
+        "uniqueTimelineEvents",
+        "Apply selected template",
+        "authAudience: 'usce_admin'"
+      ],
+      "local_source_note": "Root-integrated Astra accessibility, saved-term hydration, explicit template, event dedupe and token/write-fence fix-forward. Exact serving custody CDN_RELEASE.md; independentF/U/O separate.",
+      "local_source_required": true,
+      "local_source_path": "LIVE/usce_admin.html"
+    },
+    {
+      "id": "cdn_usce_offer_live",
+      "system": "usce_admin",
+      "url": "https://cdn.missionmedinstitute.com/html-system/LIVE/usce_offer.html",
+      "approved_sha256": "68a97ea4418edc36b91a5e497f300fb43c63cacb7a6beb429ee6cc880224ce6e",
+      "local_source_required": true,
+      "local_source_path": "LIVE/usce_offer.html",
+      "required_markers": [
+        "https://missionmed-usce-gateway-production.up.railway.app",
+        "decline_pending",
+        "decline_notify_future",
+        "decline_no_notify",
+        "clinicalsContact",
+        "referrerpolicy=\"no-referrer\""
+      ],
+      "local_source_note": "Applicant companion under the same USCE owner; no missing-token demo, shared-main decline navigation or financial/placement commitment."
+    }
+  ],
+  "route_checks": [],
+  "systems": {
+    "usce_admin": {
+      "owner": "USCE",
+      "runtime_owner": "railway_usce_gateway",
+      "classes": [
+        "auth_session",
+        "redirect_handoff",
+        "cors_header",
+        "cdn_asset",
+        "wordpress_wrapper",
+        "supabase_pin",
+        "browser_journey"
+      ],
+      "supabase": {
+        "project_ref": "fglyvdykwgbuivikqoah",
+        "schema": "command_center",
+        "tables": [
+          "usce_public_intake_requests",
+          "usce_offer_drafts",
+          "usce_audit",
+          "usce_case_activity",
+          "usce_send_claims"
+        ],
+        "rpcs": [
+          "create_usce_public_intake_request",
+          "list_usce_public_intake_requests",
+          "update_usce_public_intake_request_status",
+          "update_usce_public_intake_request_admin_note",
+          "usce_case_activity",
+          "usce_bind_message_preview",
+          "usce_claim_send",
+          "usce_finish_send",
+          "usce_send_state",
+          "usce_reconcile_send",
+          "respond_usce_offer_by_token_hash"
+        ],
+        "access_role": "service_role"
+      },
+      "rollback": "Hold all outbound offer sending and force intake notifications to dry-run before cutover or rollback. Recover only an exact USCE-owned, qualified claim-fenced guarded runtime compatible with the applied additive schema and its matching CDN preimages. Preserve recipient restriction and resolve uncertain provider claims before reopening sending. Never roll back to the legacy pre-claim sender or the June shared-main known-good tag/deployment with sending enabled. Do not reverse/replay applied migrations or delete evidence; repair forward using the migration ledger. If no compatible artifact is verified, remain held and fix forward.",
+      "source_of_truth": [
+        "LIVE/usce_admin.html",
+        "LIVE/usce_offer.html",
+        "_AI_HANDOFFS/from_codex/USCE_PHIL_FIRST_RENOVATION_20261002/RUNTIME_BUNDLE_B.md",
+        "_AI_HANDOFFS/from_codex/USCE_PHIL_FIRST_RENOVATION_20261002/MIGRATION_LEDGER.md"
+      ],
+      "routes_or_assets": [
+        "https://missionmedinstitute.com/usce-admin/",
+        "https://missionmed-usce-gateway-production.up.railway.app/api/usce/admin/",
+        "https://missionmed-usce-gateway-production.up.railway.app/api/usce/offer/",
+        "https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html",
+        "https://cdn.missionmedinstitute.com/html-system/LIVE/usce_offer.html"
+      ],
+      "dependencies": {
+        "wordpress": "Existing scoped WordPress administrator relay; audience usce_admin. No global identity/role change.",
+        "supabase_project_ref": "fglyvdykwgbuivikqoah",
+        "migration_ledger": "_AI_HANDOFFS/from_codex/USCE_PHIL_FIRST_RENOVATION_20261002/MIGRATION_LEDGER.md",
+        "safety_sql_source": "supabase/migrations/20261002160725_usce_phil_first_safety.sql",
+        "safety_sql_sha256": "b5322488152cfb214ba1dca77f51a437ac411207c86d6c97e39a1eec65621778",
+        "actual_provider_migration_version": "20261002131800",
+        "postmark": "Claim-fenced sender and exact controlled-recipient QA guard; no unbounded live sending.",
+        "fix_forward_sql_source": "supabase/migrations/20261002182503_usce_phil_first_fix_forward.sql",
+        "fix_forward_sql_sha256": "f7cd9dce466e0d16453123e55bb451f2878c0ddecea6191ad31561bf5c1ecfee",
+        "fix_forward_actual_provider_version": "20261002142841"
+      },
+      "rollback_evidence": [
+        "_AI_HANDOFFS/from_codex/USCE_PHIL_FIRST_RENOVATION_20261002/RUNTIME_BUNDLE_B.md",
+        "_AI_HANDOFFS/from_codex/USCE_PHIL_FIRST_RENOVATION_20261002/CDN_BACKUPS.md",
+        "_AI_HANDOFFS/from_codex/USCE_PHIL_FIRST_RENOVATION_20261002/CUTOVER.md",
+        "_AI_HANDOFFS/from_codex/USCE_PHIL_FIRST_RENOVATION_20261002/MIGRATION_LEDGER.md"
+      ]
+    }
+  },
+  "browser_journeys": [],
+  "new_system_registration": {
+    "rule": "No new MissionMed route, asset, RPC, iframe, CDN key, or Matrix-owned app mode is deployable until it has a manifest entry with owner, runtime owner, route or asset checks, dependency pins, browser expectation, and rollback path.",
+    "required_fields": [
+      "owner",
+      "runtime_owner",
+      "source_of_truth",
+      "routes_or_assets",
+      "dependencies",
+      "rollback"
+    ]
+  }
+}

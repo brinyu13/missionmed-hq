@@ -540,7 +540,7 @@ a:focus-visible,button:focus-visible,textarea:focus-visible{outline:3px solid va
       </div>
     </section>
 
-    <p class="footer-note">Questions? <a id="clinicalsContact" href="https://missionmedinstitute.com/contact/">Contact Clinicals</a> or reply to the original coordinator email. Asking a question does not record a response. Do not forward your private offer link. Decline opens a separate confirmation step before the final decision is recorded.</p>
+    <p class="footer-note">Questions? <a id="clinicalsContact" href="https://missionmedinstitute.com/contact/" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">Contact Clinicals</a>, use the <a href="https://missionmedinstitute.com/contact/" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">contact page</a>, or reply to the original coordinator email. Asking a question does not record a response. Do not forward your private offer link. Decline is finalized here only after you confirm your future-contact preference.</p>
   </main>
 </div>
 
@@ -548,7 +548,11 @@ a:focus-visible,button:focus-visible,textarea:focus-visible{outline:3px solid va
 (function(){
   'use strict';
   const clinicalsContact = document.getElementById('clinicalsContact');
-  if (clinicalsContact) clinicalsContact.href = 'mailto:clinicals@missionmedinstitute.com';
+  if (clinicalsContact) {
+    clinicalsContact.href = 'mailto:clinicals@missionmedinstitute.com';
+    clinicalsContact.textContent = 'Email Clinicals';
+    clinicalsContact.removeAttribute('target');
+  }
 
   // MM-USCE-OFFER-FLOW-003: Live adapter ready. No Supabase from browser,
   // no service-role data, no email sends, no payment trigger before acceptance.

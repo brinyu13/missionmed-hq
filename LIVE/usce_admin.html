@@ -663,6 +663,7 @@
 
             <!-- Offer builder -->
             <div class="mm-tabpane" data-pane="offer">
+              <p id="mmOfferWriteStatus" class="mm-hint" role="status" aria-live="polite" hidden>Working… Offer editing is temporarily locked until this action finishes.</p>
               <div class="mm-builder">
                 <h4>Prepare this offer</h4><p class="mm-hint">Requested preferences are not confirmed availability. Saving a draft or preparing a link does not send an email or reserve a place.</p><p id="mmDraftState" role="status" class="mm-hint">No unsaved changes</p>
                 <div class="mm-builder-grid">
@@ -714,6 +715,8 @@
                     <option value="urgent">48-hour response window</option>
                     <option value="manual">Manual / custom message</option>
                   </select>
+                  <button type="button" class="mm-btn mm-btn-sm mm-btn-ghost" id="mmApplyMessageTemplate">Apply selected template</button>
+                  <small class="mm-hint">Saved text is preserved. Applying a template replaces it with unsaved text for review.</small>
                 </div>
 
                 <div class="mm-field" style="margin-top: 10px;">
@@ -837,14 +840,14 @@
 
   <!-- ============== GENERIC PROMPT MODAL ============== -->
   <div class="mm-modal-scrim" id="mmPromptScrim" aria-hidden="true">
-    <div class="mm-modal" style="width:min(520px,100%);" role="dialog" aria-modal="true">
+    <div class="mm-modal" style="width:min(520px,100%);" role="dialog" aria-modal="true" aria-labelledby="mmPromptTitle">
       <div class="mm-modal-head">
         <h3 id="mmPromptTitle">Action</h3>
-        <button type="button" class="mm-modal-close" id="mmPromptClose">&times;</button>
+        <button type="button" class="mm-modal-close" id="mmPromptClose" aria-label="Close note dialog">&times;</button>
       </div>
       <div class="mm-modal-body">
-        <div class="mm-field"><label class="mm-label" id="mmPromptLabel">Notes</label>
-          <textarea class="mm-textarea" id="mmPromptText" rows="4"></textarea></div>
+        <div class="mm-field"><label class="mm-label" id="mmPromptLabel" for="mmPromptText">Notes</label>
+          <textarea class="mm-textarea" id="mmPromptText" rows="4" aria-labelledby="mmPromptLabel"></textarea></div>
       </div>
       <div class="mm-modal-foot">
         <button type="button" class="mm-btn mm-btn-ghost" id="mmPromptCancel">Cancel</button>
@@ -985,6 +988,20 @@
     filter: 'all', sort: 'urgent', query: '',
     busy: false, dirty: false, workFilter: 'active', activityByRequest: {}, actionKeys: {}, queueLoad: 0
   };
+
+  // One native-control fence for every asynchronous workspace write. Hydration is independent.
+  const offerControlDisabled = new WeakMap();
+  let workspaceBusy = false;
+  function syncOfferControlLocks(){
+    const locked=workspaceBusy||!!state.offerHydrating;
+    root.querySelectorAll('[data-pane="offer"] input,[data-pane="offer"] textarea,[data-pane="offer"] select,[data-pane="offer"] button').forEach(el=>{
+      if(locked){if(!offerControlDisabled.has(el))offerControlDisabled.set(el,el.disabled);el.disabled=true;}
+      else if(offerControlDisabled.has(el)){el.disabled=offerControlDisabled.get(el);offerControlDisabled.delete(el);}
+    });
+    const pane=root.querySelector('[data-pane="offer"]');if(pane)pane.setAttribute('aria-busy',String(locked));
+    const status=$('#mmOfferWriteStatus');if(status)status.hidden=!workspaceBusy;
+  }
+  Object.defineProperty(state,'busy',{enumerable:true,get(){return workspaceBusy;},set(value){workspaceBusy=!!value;syncOfferControlLocks();}});
 
   function seed(){
     const r1 = mkReq("Amelia Ortiz","MS4","Caribbean Medical School",exampleMail('amelia.ortiz'),"(212) 555-0148",
@@ -1255,6 +1272,8 @@
     return payload || {};
   }
   function errorSummary(error){
+    const code = error && error.payload && (error.payload.error || (error.payload.data && error.payload.data.error));
+    if (code === 'stale_revision' || code === 'stale_preview') return 'This offer changed on the server. Keep any unsaved text, refresh the case, review the current terms, then save and create a fresh preview. Nothing was sent by this blocked action.';
     if (error && error.status === 401) return 'Administrator-level login required. This page is only available to secure MissionMed admins like Phil, Brian, or Dr. J.';
     if (error && error.status === 403) return 'Administrator-level access is required. Student and learner accounts cannot view this page.';
     return error && error.message ? error.message : 'Operation failed safely.';
@@ -1320,7 +1339,7 @@
       source: row.source || 'public intake',
       status: displayStatus,
       comms: [
-        { dir:'in', kind:'Request received', at: Number.isFinite(submitted) ? submitted : Date.now(), subject:'USCE public intake', body:'Student submitted a request through the live public intake path.' }
+        { timelineId:'intake:'+String(row.id), dir:'in', kind:'Request received', at: Number.isFinite(submitted) ? submitted : Date.now(), subject:'USCE public intake', body:'Student submitted a request through the live public intake path.' }
       ],
       audit: [],
       offerHistory: latestOffer && latestOffer.id ? [{ id: String(latestOffer.id), status: statusFromLatestOffer(latestOffer) || String(latestOffer.status || 'DRAFT').toUpperCase(), at: Date.parse(latestOffer.updated_at || latestOffer.created_at || '') || Date.now() }] : [],
@@ -1634,14 +1653,14 @@
   }
 
   $('#mmWorkFilter').addEventListener('change',event => {state.workFilter = event.target.value; state.filter = 'all'; $('#mmFilter').value = 'all'; renderRequestList();});
-  $('#mmSearch').addEventListener('input', (e)=> { state.query = e.target.value.trim(); renderRequestList(); });
+  $('#mmSearch').addEventListener('input', (e)=> { state.query = e.target.value.trim(); saveCaseNavigation(); renderRequestList(); });
   $('#mmFilter').addEventListener('change', (e)=> { state.filter = e.target.value; renderRequestList(); });
   $('#mmSort').addEventListener('change', (e)=> { state.sort = e.target.value; renderRequestList(); });
 
-  // Session-only navigation memory: opaque case ID and tab; no applicant fields or draft contents.
+  // Session-only navigation memory: case ID, tab and entered search; no draft or token contents.
   const CASE_RESUME_KEY = 'mm_usce_case_navigation_v1';
   function saveCaseNavigation(){
-    try {if(state.selectedRequestId)sessionStorage.setItem(CASE_RESUME_KEY,JSON.stringify({id:state.selectedRequestId,tab:state.activeTab}));else sessionStorage.removeItem(CASE_RESUME_KEY);}catch(_error){}
+    try {sessionStorage.setItem(CASE_RESUME_KEY,JSON.stringify({id:state.selectedRequestId,tab:state.activeTab,query:state.query}));}catch(_error){}
   }
   function restoreCaseNavigation(){
     if(state.selectedRequestId)return;
@@ -1771,10 +1790,13 @@
       container.appendChild(row);
     });
   }
+  function uniqueTimelineEvents(events){
+    const seen=new Set();return events.filter(event=>{if(!event.timelineId)return true;if(seen.has(event.timelineId))return false;seen.add(event.timelineId);return true;});
+  }
   function renderTimeline(r){
     const tl = $('#mmDetTimeline'); tl.innerHTML = '';
     const offer = getOfferForRequest(r);
-    const sorted = r.comms.slice().sort((a,b)=>a.at-b.at);
+    const sorted = uniqueTimelineEvents(r.comms).sort((a,b)=>a.at-b.at);
     sorted.forEach(c => {
       const item = document.createElement('div');
       let cls = '';
@@ -1882,8 +1904,8 @@
       const events = payload.data && payload.data.activity;
       if (!Array.isArray(events)) throw new Error('Activity response could not be verified.');
       state.activityByRequest[r.id] = events;
-      const mapped = events.map(e => ({dir:e.kind === 'site_call'?'call':e.kind === 'internal_note'?'note':'sys',kind:e.kind === 'site_call'?'Program call recorded':e.kind === 'internal_note'?'Internal note':'Availability confirmation recorded',at:Date.parse(e.created_at),subject:'',body:e.body || '',caseActivity:true}));
-      r.comms = r.comms.filter(e => !e.caseActivity).concat(mapped);
+      const mapped = events.map(e => ({timelineId:e.id?'activity:'+e.id:null,dir:e.kind === 'site_call'?'call':e.kind === 'internal_note'?'note':'sys',kind:e.kind === 'site_call'?'Program call recorded':e.kind === 'internal_note'?'Internal note':'Availability confirmation recorded',at:Date.parse(e.created_at),subject:'',body:e.body || '',caseActivity:true}));
+      r.comms = uniqueTimelineEvents(r.comms.filter(e => !e.caseActivity).concat(mapped));
       if (state.selectedRequestId === r.id) { renderTimeline(r); renderAdminTracker(r); }
       return events;
     } catch (error) {
@@ -1938,7 +1960,7 @@
       timing: offer.months && offer.months.length ? offer.months.join(' or ') : '',
       duration_weeks: normalizeDurationWeeks(offer.length),
       format: offer.program || 'In-person clinical exposure',
-      admin_message: offer.instructions || offer.body || '',
+      admin_message: offer.instructions == null ? '' : String(offer.instructions),
       expires_at: new Date(offer.expiresAt).toISOString(),
       status: offer.status && offer.status !== 'DRAFT' ? String(offer.status).toLowerCase() : 'draft',
       metadata: {
@@ -1965,7 +1987,8 @@
       length: item.duration_weeks ? String(item.duration_weeks) + ' weeks' : '4 weeks',
       months: Array.isArray(draftMeta.months) ? draftMeta.months : (item.timing ? [item.timing] : []),
       start: draftMeta.start || '',
-      instructions: item.admin_message || item.message_body || '',
+      instructions: item.admin_message == null ? '' : String(item.admin_message),
+      detailsLoaded: Object.prototype.hasOwnProperty.call(item,'admin_message'),
       internalNotes: draftMeta.internal_notes || '',
       createdAt: Date.parse(item.created_at || '') || Date.now(),
       expiresAt: Date.parse(item.expires_at || item.offer_token_expires_at || '') || Date.now() + 48*3600*1000,
@@ -2010,6 +2033,23 @@
     return custom ? 'Other: ' + custom : '';
   }
 
+  function setOfferHydrationLock(locked){
+    state.offerHydrating=!!locked;syncOfferControlLocks();
+  }
+  async function hydrateSavedOffer(r,existing){
+    r.offerHydrationAttempted=true;const generation=state.queueLoad;
+    try{
+      const payload=await adminFetch(CONFIG.offerReadEndpoint,{offerId:existing.id},{method:'GET'});
+      const item=payload.item||payload.offer||(payload.data&&(payload.data.item||payload.data.offer))||payload.data||payload;
+      if(!item||item.id!==existing.id||!Object.prototype.hasOwnProperty.call(item,'admin_message'))throw new Error('Incomplete offer detail');
+      if(generation!==state.queueLoad||!state.requests.includes(r))return;
+      const current=getOfferForRequest(r);if(!current||current.id!==existing.id)return;
+      if(current.detailsLoaded && Number(current.revision)>Number(item.revision))return;
+      mergeLiveOffer(item,r.id);
+      if(state.selectedRequestId===r.id&&!state.dirty){setOfferHydrationLock(false);renderOfferBuilder(r);}
+    }catch(_error){r.offerHydrationFailed=true;if(state.selectedRequestId===r.id)$('#mmDraftState').textContent='Saved offer details could not be verified. Refresh cases to retry; nothing was overwritten or saved.';}
+  }
+
   function renderOfferBuilder(r){
     const existing = getOfferForRequest(r);
     const specSel = $('#mmOfSpecialty');
@@ -2046,7 +2086,8 @@
 
     $('#mmOfProgram').value = (existing && existing.program) || 'Core Rotation Access';
     $('#mmOfInternal').value = (existing && existing.internalNotes) || '';
-    $('#mmOfInstructions').value = (existing && existing.instructions) || 'Please confirm within the expiration window. After acceptance, our onboarding team will email you the site coordinator contact, orientation packet, and required documentation within one business day.';
+    $('#mmMessageChoice').value = 'manual';
+    $('#mmOfInstructions').value = existing ? String(existing.instructions ?? '') : '';
     $('#mmOfExpire').value = '48'; $('#mmOfExpire').dataset.changed = 'false';
     $('#mmDraftState').textContent = existing ? 'Saved response deadline: ' + fmtDateTime(existing.expiresAt) + '. Change the expiry field only to revise it.' : 'New draft — not saved or sent';
     $('#mmOfStart').value = (existing && existing.start) || '';
@@ -2060,6 +2101,11 @@
       const el = $(sel); el.oninput = updatePreflight; el.onchange = updatePreflight;
     });
     updatePreflight();
+    if(existing && !existing.detailsLoaded){
+      setOfferHydrationLock(true);$('#mmDraftState').textContent='Loading saved offer details. Editing, link generation and preview are blocked until verified.';
+      if(!r.offerHydrationAttempted) hydrateSavedOffer(r,existing);
+      else if(r.offerHydrationFailed) $('#mmDraftState').textContent='Saved offer details could not be verified. Refresh cases to retry; no local defaults can be saved.';
+    } else setOfferHydrationLock(false);
   }
 
   function renderLiveOfferBox(r){
@@ -2105,6 +2151,7 @@
 
   function readOfferForm(){
     const r = currentReq(); if (!r) return null;
+    const saved=getOfferForRequest(r);if(saved&&!saved.detailsLoaded){toast('Wait for verified saved offer details, or refresh to retry.');return null;}
     const months = $$('#mmOfMonths .mm-month.is-on').map(b => b.dataset.val);
     const specialty = offerSpecialtyValue();
     const location = offerLocationValue();
@@ -2135,6 +2182,7 @@
     const r = state.requests.find(row => row.id === offer.requestId);
     if (!r || state.selectedRequestId !== r.id) throw new Error('Case changed. Review this offer again.');
     const existing = getOfferForRequest(r);
+    if(existing&&!existing.detailsLoaded)throw new Error('Saved offer details must be verified before editing.');
     const path = existing && existing.id
       ? CONFIG.offerReadEndpoint
       : CONFIG.offerDraftEndpoint;
@@ -2247,18 +2295,31 @@
     });
   }
 
+  function offerFormSnapshot(){
+    return JSON.stringify(Array.from(root.querySelectorAll('[data-pane="offer"] input,[data-pane="offer"] textarea,[data-pane="offer"] select')).map(el=>[el.id,el.value]).concat([['months',$$('#mmOfMonths .mm-month.is-on').map(el=>el.dataset.val)]]));
+  }
+  function applyMintedOfferResult(liveOffer, tokenResult, context){
+    const payload=tokenResult && (tokenResult.data || tokenResult);
+    const item=payload && (payload.item || tokenResult.item);
+    const current=state.liveOffersByRequest[liveOffer.requestId];
+    if(state.selectedRequestId!==liveOffer.requestId||state.queueLoad!==context.generation||current!==liveOffer||state.dirty||offerFormSnapshot()!==context.form)throw new Error('The case or form changed while generating the link. Keep unsaved text and refresh the case before continuing.');
+    if(!item||item.id!==liveOffer.id||(item.intake_request_id&&item.intake_request_id!==liveOffer.requestId)||!Number.isInteger(item.revision)||item.revision<liveOffer.revision||item.has_token!==true)throw new Error('The generated link version could not be verified. Refresh the case before saving or previewing.');
+    let url;try{url=new URL(payload.offer_url);}catch(_error){throw new Error('No valid offer link returned. Refresh the case.');}
+    if(url.protocol!=='https:'||url.username||url.password||!['cdn.missionmedinstitute.com','missionmedinstitute.com','www.missionmedinstitute.com'].includes(url.hostname)||!url.searchParams.get('offer'))throw new Error('The generated offer link could not be verified. Refresh the case.');
+    // Merge only verified token-related fields; partial token responses must not erase saved terms.
+    liveOffer.revision=item.revision;liveOffer.hasToken=true;
+    if(typeof item.status==='string')liveOffer.status=item.status.toUpperCase();
+    liveOffer.portalUrl=url.toString();
+    state.liveOffersByRequest[liveOffer.requestId]=liveOffer;
+    const index=state.offers.findIndex(offer=>offer.id===liveOffer.id);if(index>=0)state.offers[index]=liveOffer;
+    if(state.draftEmail){state.draftEmail.approved=false;state.draftEmail.approvedContent=null;}
+    return liveOffer.portalUrl;
+  }
   async function ensureLiveOfferPortalUrl(liveOffer){
     if (!liveOffer || !liveOffer.id || liveOffer.portalUrl) return liveOffer && liveOffer.portalUrl;
-    const tokenResult = await mintLiveOfferToken(liveOffer.id);
-    const tokenPayload = tokenResult.data || tokenResult;
-    if (tokenPayload && tokenPayload.offer_url) {
-      const item = tokenPayload.item || tokenResult.item;
-      if (item && Number.isInteger(item.revision)) { liveOffer.revision=item.revision; liveOffer.hasToken=!!item.has_token; }
-      liveOffer.portalUrl = tokenPayload.offer_url;
-      state.lastOfferUrl = tokenPayload.offer_url;
-      state.liveOffersByRequest[liveOffer.requestId] = liveOffer;
-    }
-    return liveOffer.portalUrl || '';
+    const context={generation:state.queueLoad,form:offerFormSnapshot()};
+    const tokenResult=await mintLiveOfferToken(liveOffer.id);
+    return applyMintedOfferResult(liveOffer,tokenResult,context);
   }
 
   function applyServerPreview(draft, payload){
@@ -2286,8 +2347,10 @@
     if (!offerId || !r || state.adapter !== 'live') return;
     try {
       const payload = await adminFetch(CONFIG.offerCommsEndpoint + '?limit=30', { offerId }, { method: 'GET' });
-      const items = Array.isArray(payload.items) ? payload.items : [];
+      const items = Array.isArray(payload.items) ? payload.items : null;
+      if(!items)throw new Error('Communication history could not be verified.');
       const mapped = items.map(item => ({
+        timelineId:item.id||item.event_id?'comms:'+String(item.id||item.event_id):null,
         dir: item.direction === 'OUT' ? 'out' : item.direction === 'IN' ? 'in' : 'sys',
         kind: item.event_type || item.message_status || 'Communication event',
         at: Date.parse(item.created_at || '') || Date.now(),
@@ -2299,7 +2362,7 @@
         ].filter(Boolean).join('\n')
       }));
       const local = r.comms.filter(c => c.localOnly || c.caseActivity || c.kind === 'Request received');
-      r.comms = local.concat(mapped.length ? mapped : r.comms);
+      r.comms = uniqueTimelineEvents(local.concat(mapped));
       state.liveCommsByOffer[offerId] = mapped;
       if (state.selectedRequestId === r.id) renderTimeline(r);
     } catch (_error) {
@@ -2307,13 +2370,25 @@
     }
   }
 
+  function applySelectedMessageTemplate(){
+    if(state.busy)return;
+    const r=currentReq(),existing=getOfferForRequest(r);if(!r||(existing&&!existing.detailsLoaded))return;
+    const choice=$('#mmMessageChoice').value;
+    const templates={availability:'Please review the proposed rotation details and response deadline. Contact Clinicals before responding if any detail needs clarification.',alternate:'Please review this alternate rotation option. Contact Clinicals if the specialty, location or dates do not meet your needs.',urgent:'Please review the response deadline shown in your offer. Contact Clinicals if you need more time.'};
+    if(!Object.prototype.hasOwnProperty.call(templates,choice)){toast('Manual message selected. Edit the instructions directly.');return;}
+    const field=$('#mmOfInstructions');if(field.value&&field.value!==templates[choice]&&!window.confirm('Replace these instructions with the selected template? The replacement will be unsaved until you save the draft.'))return;
+    field.value=templates[choice];state.dirty=true;if(state.draftEmail){state.draftEmail.approved=false;state.draftEmail.approvedContent=null;}
+    $('#mmDraftState').textContent='Unsaved template change — review and save before previewing.';
+  }
+  $('#mmApplyMessageTemplate').addEventListener('click',applySelectedMessageTemplate);
+
   function selectedMessageOpening(offer, first){
-    const choice = $('#mmMessageChoice') ? $('#mmMessageChoice').value : 'availability';
+    const choice = 'manual';
     const openings = {
       availability: 'Great news - we have an availability option that appears aligned with your request.',
       alternate: 'We are still watching your original preference, but this alternate option may keep your timeline moving while staying close to your goals.',
       urgent: 'We have a time-sensitive rotation option for you. Please review it carefully and respond within the offer window.',
-      manual: offer.instructions || 'Thank you for submitting your MissionMed Clinicals request. Please review the proposed option below.'
+      manual: 'Please review the proposed rotation details below.'
     };
     return 'Hi ' + first + ',\n\n' + (openings[choice] || openings.availability) + '\n\n';
   }
@@ -2466,7 +2541,7 @@ CONFIG.gmailMailboxes[0];
       toast('Editing enabled');
     } else {
       state.draftEmail.subject = $('#emSubject').textContent.trim();
-      state.draftEmail.body = $('#emBody').textContent;
+      state.draftEmail.body = $('#emBody').innerText;
       state.busy = true;
       try {
         const payload = await recordLiveMessagePreview(state.draftEmail.offer.id, state.draftEmail);
@@ -2511,27 +2586,20 @@ CONFIG.gmailMailboxes[0];
 
   $('#mmGenerateLink').addEventListener('click', async ()=> {
     if (state.busy || state.adapter !== 'live') return;
-    const offer = readOfferForm(); if (!offer) return;
-    state.busy = true;
+    const offer=readOfferForm();if(!offer)return;
+    const context={generation:state.queueLoad,form:offerFormSnapshot()};
+    state.busy=true;
     try {
-      const liveOffer = state.adapter === 'live' ? await persistLiveOfferDraft(offer) : persistLocalOfferDraft(offer);
-      if (state.adapter === 'live') {
-        const tokenResult = await mintLiveOfferToken(liveOffer.id);
-        const payload = tokenResult.data || tokenResult;
-        liveOffer.portalUrl = payload.offer_url || '';
-        state.lastOfferUrl = liveOffer.portalUrl;
-        state.liveOffersByRequest[liveOffer.requestId] = liveOffer;
-        setAdapterBanner('student offer link generated. Raw token is displayed only in the admin browser and is stored server-side as a SHA-256 hash.', 'live');
-        toast('Student link generated');
-      } else {
-        liveOffer.portalUrl = CONFIG.offerPageUrl + '?offer=demo_' + encodeURIComponent(liveOffer.id);
-        toast('Demo student link generated');
-      }
-      renderDetail();
-    } catch (error) {
-      setAdapterBanner('student link generation blocked safely: ' + errorSummary(error), 'blocked');
-      toast('Link generation blocked safely');
-    } finally { state.busy = false; }
+      const liveOffer=await persistLiveOfferDraft(offer);
+      if(state.selectedRequestId!==offer.requestId||state.queueLoad!==context.generation||offerFormSnapshot()!==context.form){state.dirty=true;throw new Error('Draft saved, but the form changed during saving. Keep your unsaved edits and review before generating a link.');}
+      const tokenResult=await mintLiveOfferToken(liveOffer.id);
+      applyMintedOfferResult(liveOffer,tokenResult,context);
+      setAdapterBanner('Student offer link generated for the current saved revision. No email sent.', 'live');
+      toast('Student link generated');renderDetail();
+    } catch(error){
+      setAdapterBanner('Student link generation needs review: '+errorSummary(error),'blocked');
+      toast('Refresh and review the current offer before retrying.');
+    } finally{state.busy=false;}
   });
 
   $$('[data-ops-save]').forEach(button => {
@@ -2565,16 +2633,27 @@ CONFIG.gmailMailboxes[0];
   $('#mmModalScrim').addEventListener('click', (e)=> { if (e.target === $('#mmModalScrim')) closeModal(); });
 
   /* Generic prompt modal */
-  let promptCb = null;
+  let promptCb = null, promptReturnFocus = null, promptFocusTimer = null;
   function openPrompt(title, label, cb){
+    if (!$('#mmPromptScrim').classList.contains('is-open')) promptReturnFocus = document.activeElement;
+    clearTimeout(promptFocusTimer);
     $('#mmPromptTitle').textContent = title;
     $('#mmPromptLabel').textContent = label;
     $('#mmPromptText').value = '';
     promptCb = cb;
-    $('#mmPromptScrim').classList.add('is-open'); $('#mmPromptScrim').setAttribute('role','dialog'); $('#mmPromptScrim').setAttribute('aria-modal','true'); $('#mmPromptScrim').setAttribute('aria-labelledby','mmPromptTitle');
-    setTimeout(()=> $('#mmPromptText').focus(), 80);
+    $('#mmPromptScrim').setAttribute('aria-hidden','false');
+    $('#mmPromptScrim').classList.add('is-open');
+    promptFocusTimer = setTimeout(()=> { if ($('#mmPromptScrim').classList.contains('is-open')) $('#mmPromptText').focus(); }, 0);
   }
-  function closePrompt(){ $('#mmPromptScrim').classList.remove('is-open'); promptCb = null; }
+  function closePrompt(){
+    const scrim = $('#mmPromptScrim');
+    if (!scrim.classList.contains('is-open')) return;
+    clearTimeout(promptFocusTimer);
+    scrim.classList.remove('is-open'); promptCb = null;
+    if (promptReturnFocus && promptReturnFocus.isConnected && !promptReturnFocus.disabled) promptReturnFocus.focus();
+    else $('#mmDetName').focus();
+    scrim.setAttribute('aria-hidden','true'); promptReturnFocus = null;
+  }
   $('#mmPromptClose').addEventListener('click', closePrompt);
   $('#mmPromptCancel').addEventListener('click', closePrompt);
   $('#mmPromptOk').addEventListener('click', ()=> { const v = $('#mmPromptText').value; const cb = promptCb; closePrompt(); if (cb) cb(v); });
@@ -2822,9 +2901,10 @@ CONFIG.gmailMailboxes[0];
   document.addEventListener('keydown', event => {
     const modal = [$('#mmPromptScrim'),$('#mmModalScrim')].find(el => el.classList.contains('is-open'));
     if (!modal) return;
-    if (event.key === 'Escape' && !state.busy) { closePrompt(); closeModal(); $('#mmActGotoOffer').focus(); }
-    if (event.key === 'Tab') { const controls = Array.from(modal.querySelectorAll('button:not(:disabled),input,textarea,[contenteditable="true"]')).filter(el=>el.getClientRects().length); const first = controls[0], last = controls[controls.length-1]; if (event.shiftKey && document.activeElement===first) {event.preventDefault();last.focus();} else if (!event.shiftKey && document.activeElement===last) {event.preventDefault();first.focus();} }
+    if (event.key === 'Escape' && !state.busy) { event.preventDefault(); if (modal.id === 'mmPromptScrim') closePrompt(); else { closeModal(); $('#mmActGotoOffer').focus(); } }
+    if (event.key === 'Tab') { const controls = Array.from(modal.querySelectorAll('button:not(:disabled),input,textarea,[contenteditable="true"]')).filter(el=>el.getClientRects().length); const first = controls[0], last = controls[controls.length-1]; if (!first) return; if (event.shiftKey && document.activeElement===first) {event.preventDefault();last.focus();} else if (!event.shiftKey && document.activeElement===last) {event.preventDefault();first.focus();} }
   });
+  try{const saved=JSON.parse(sessionStorage.getItem(CASE_RESUME_KEY)||'null');if(saved&&typeof saved.query==='string'){state.query=saved.query.slice(0,200);$('#mmSearch').value=state.query;}}catch(_error){}
   state.requests = []; state.offers = []; state.adapter = 'booting';
   renderRequestList(); switchView('hq'); loadLiveQueue();
 
