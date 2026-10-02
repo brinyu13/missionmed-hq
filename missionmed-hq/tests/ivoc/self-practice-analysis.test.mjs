@@ -60,6 +60,40 @@ function ready() {
   return { rows, answerSource, result, envelope };
 }
 
+test('PostgREST UTC timestamp spelling preserves custody, seal digests and cold readback', () => {
+  const { rows, envelope } = ready();
+  for (const timestamp of ['2026-10-02T01:00:00+00:00', '2026-10-02T01:00:00.0+00:00',
+    '2026-10-02T01:00:00.000000+00:00', '2026-10-02T01:00:00.000000Z']) {
+    for (const keys of [['sourceRecording'], ['parentRecording'], ['sourceRecording', 'parentRecording']]) {
+      const stored = structuredClone(rows);
+      for (const key of keys) stored[key].sealed_at = timestamp;
+      const before = structuredClone(stored);
+      const answerSource = rebuildSelfPracticeAnswerSource(stored);
+      const packaged = packageSelfPracticeAnalysis({ ...stored, answerSource, result: providerResult(answerSource), createdAt: stamp });
+      assert.equal(packaged.receipt.sourceSealDigest, envelope.receipt.sourceSealDigest);
+      assert.equal(packaged.receipt.replaySealDigest, envelope.receipt.replaySealDigest);
+      assert.equal(projectSelfPracticeAnalysis({ ...stored, candidateAnalysis: envelope }).available, true);
+      assert.deepEqual(stored, before);
+    }
+  }
+});
+
+test('timestamp normalization rejects changed instants, malformed dates and precision loss', () => {
+  for (const timestamp of ['2026-10-02T01:00:00.001+00:00', '2026-10-02T01:00:00.000001+00:00',
+    '2026-02-30T01:00:00.000+00:00', '2026-10-02T25:00:00.000+00:00',
+    '2026-10-02 01:00:00+00:00', '2026-10-02T01:00:00', 'not a timestamp', null]) {
+    const rows = fixture(); rows.sourceRecording.sealed_at = timestamp;
+    assert.throws(() => rebuildSelfPracticeAnswerSource(rows), /CUSTODY_INVALID/);
+  }
+  const rows = fixture();
+  rows.sourceRecording.sealed_at = '2026-10-02T01:00:00.001+00:00';
+  rows.sourceRecording.capture_receipt.sealedAt = '2026-10-02T01:00:00.001Z';
+  const answerSource = rebuildSelfPracticeAnswerSource(rows);
+  assert.throws(() => packageSelfPracticeAnalysis({ ...rows, answerSource, result: providerResult(answerSource), createdAt: stamp }), /ENVELOPE_IDENTITY_INVALID/);
+  rows.sourceRecording.capture_receipt.allocatedAt = '2026-10-02T01:00:00.002Z';
+  assert.throws(() => rebuildSelfPracticeAnswerSource(rows), /CUSTODY_INVALID/);
+});
+
 test('rebuild uses historical prompt and immutable parent seal clone, never mutable Results timing', () => {
   const rows = fixture(); const before = structuredClone(rows);
   const source = rebuildSelfPracticeAnswerSource(rows);

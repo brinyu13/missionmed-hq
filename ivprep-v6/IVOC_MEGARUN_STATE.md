@@ -14,6 +14,27 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Live POV fix-forward (2026-10-02 02:33 UTC):** Founder `wp:1` normal
+  Builder → readiness → Self Practice visibly retained real camera video and
+  measured microphone input. A bounded 13-second capture saved both private
+  replay and separate microphone source; Film Room visibly played the saved
+  video. Session `4f708360-6a76-477d-a927-caca2989800d`. This was a capture
+  probe, not a genuine spoken-answer or audible interview acceptance claim.
+  Coaching remained disabled: actual production repository read reproduced
+  `CANDIDATE_SOURCE_CUSTODY_INVALID` because PostgreSQL returns `sealed_at`
+  as `+00:00` while the immutable JSON receipt retains `Z`. Normalizing only
+  row timestamps in memory made the exact source validate. Candidate correction
+  canonicalizes those UTC representations before custody/order/digests, rejects
+  changed instants and precision loss; 97 focused checks and independent review
+  PASS. No historical data or receipt rewrite. Deploy and cold-read same attempt.
+- **Current healthy source-bound release:** source
+  `839dc268dcaada0bae6177cebf642f2b6786eabf`, deployment
+  `7bacae84-7f8d-403f-afa4-c58aa3fea6d9` SUCCESS, image
+  `sha256:e1fc946c0caa0bb788702fb9c367e478e2bd1e66eac5b88080afd67de5f75db9`,
+  artifact `9eb7a1db548989317aa996462ca02ca6b0ff5519d31d4ac2e8f63aac41f6056d`.
+  Eight runtime hashes matched; config unchanged; health 200; anonymous product
+  and bootstrap 401; authenticated Founder cold reload passed. Epoch 4064 released
+  and provider-confirmed. This is the infrastructure rollback for timestamp repair.
 - **Source-bound Self Practice candidate:** new one-question static sessions now
   receive a server-issued approved-question snapshot. First seal preserves the
   replay clock; owned separate mic source maps through session time to replay.
@@ -28,12 +49,15 @@ the actual production route and deployment.
   control protection. These are engineering checks, not live/acoustic acceptance.
   Additive migration `20261002015334_ivoc_recording_analysis_binding` passed a
   rolled-back development transaction including forged/null prompt, immutable
-  clock, owner, retry-limit and transcript-rewrite rejection. Application pending.
-- **Current physical POV dependency:** authenticated Founder Chrome normal
+  clock, owner, retry-limit and transcript-rewrite rejection. Applied to sanctioned
+  development then production; all preexisting 21 recordings / 19 Results retained;
+  FORCE RLS, no browser grants and no public guard execution verified unchanged.
+- **Resolved earlier physical POV dependency:** authenticated Founder Chrome normal
   one-question readiness reached FaceTime HD camera / built-in microphone, but
   capture returned `Could not start video source` on initial and one reconnect.
-  No new recording or provider session was created; do not repeat unchanged
-  device retries. Builder had hidden this error; candidate shows pending/error
+  No recording or provider session was created during those failures. The next
+  live release check visibly acquired real video; see current evidence above.
+  Builder had hidden this error; the live release shows pending/error
   and recovery controls without changing media or candidate.2 composition.
   Focused actual-function regression and independent correction review PASS.
   The broad presentation suite retains three pre-existing stale source-regex

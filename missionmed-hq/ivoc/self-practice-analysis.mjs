@@ -36,10 +36,24 @@ function sealDigest(row) {
     'storage_object_key', 'mime_type', 'size_bytes', 'duration_ms', 'etag', 'sealed_at', 'paused_spans', 'capture_receipt', 'recording_timebase']));
 }
 
+// PostgREST renders timestamptz columns with +00:00, while JSON receipts keep
+// the original Z. Normalize only this server-row representation; never round
+// away a different instant or relax the immutable JSON receipt contract.
+function canonicalSealedRow(row) {
+  const match = typeof row?.sealed_at === 'string'
+    && /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,6}))?(?:Z|\+00:00)$/u.exec(row.sealed_at);
+  if (!match || /[1-9]/u.test((match[2] || '').slice(3))) fail('CANDIDATE_SOURCE_CUSTODY_INVALID');
+  const canonical = `${match[1]}.${(match[2] || '').slice(0, 3).padEnd(3, '0')}Z`;
+  if (!instant(canonical)) fail('CANDIDATE_SOURCE_CUSTODY_INVALID');
+  return { ...row, sealed_at: canonical };
+}
+
 /** Server-resolved rows only. No current-catalog or mutable Results fallback. */
 export function rebuildSelfPracticeAnswerSource({ session, sourceRecording, parentRecording } = {}) {
   const snapshot = exactPrompt(session);
   if (!parentRecording?.recording_timebase) fail('ANSWER_TIMEBASE_UNAVAILABLE');
+  sourceRecording = canonicalSealedRow(sourceRecording);
+  parentRecording = canonicalSealedRow(parentRecording);
   const parentTimebase = copy(parentRecording.recording_timebase);
   const promptReceipt = resolveSelfPracticePrompt({ actor: session.owner_subject, session,
     workflow: snapshot.workflow, question: { question_id: snapshot.questionId, current_version: snapshot.version,
