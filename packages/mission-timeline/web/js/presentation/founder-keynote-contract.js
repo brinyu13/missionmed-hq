@@ -91,3 +91,29 @@ export function founderContractAttributes(){
     "data-founder-usa-flag-asset-sha256":FOUNDER_KEYNOTE_CONTRACT.assets.usaFlag.sha256
   });
 }
+
+// The reference defines identity; unsupported density policy is never inferred.
+export const FOUNDER_TEMPLATE_GRAMMAR=Object.freeze({
+  schemaVersion:"missionmed-founder-2025-grammar/1",
+  sourceSha256:FOUNDER_KEYNOTE_CONTRACT.source.sha256,
+  goldenSha256:FOUNDER_KEYNOTE_CONTRACT.verifiedEvidence.pngSha256,
+  locked:Object.freeze({canvas:FOUNDER_KEYNOTE_CONTRACT.canvas,slideCount:1,
+    background:"textured-blue-board",title:"centered-framed-plaque",axis:"navy-chevron-year-ribbon",
+    duration:"category-arrow-with-direct-label-and-date",milestone:"pole-and-date-pennant",
+    profile:"mounted-white-paper-with-portrait",photos:"white-snapshot-frames",
+    interview:"program-logo-purple-ribbon-date",annotations:"authored-sticky-notes-and-pointers",
+    colorKeyIds:Object.freeze(FOUNDER_COLOR_KEY_ROWS.map(row=>row.id)),
+    typography:Object.freeze({
+      title:Object.freeze({family:"American Typewriter",size:36,weight:400}),
+      arrowLabel:Object.freeze({family:"American Typewriter",size:18,weight:400}),
+      date:Object.freeze({family:"Baskerville",size:18,weight:400}),
+      institution:Object.freeze({family:"Baskerville",size:19,weight:400}),
+      year:Object.freeze({family:"Futura",size:23,weight:700}),
+      colorKey:Object.freeze({family:"Futura",size:18,weight:500}),
+      profile:Object.freeze({family:"American Typewriter",size:19,labelsWeight:700,valuesWeight:400})
+    }),
+    nativeFontNames:Object.freeze(["AmericanTypewriter","AmericanTypewriter-Bold","Baskerville","Futura-Bold","Futura-Medium"])}),
+  parametric:Object.freeze(["confirmed-facts","source-date-precision","placement","spacing","wrapping","authored-geometry","authored-media-crops","audience-projection"]),
+  prohibited:Object.freeze(["numbered-experience-directory","gantt-replacement","automatic-continuation","automatic-fact-abbreviation","silent-material-omission"]),
+  undefined:Object.freeze(["extreme-density-consolidation","education-seventh-key-row","automatic-year-compression","absent-furniture-policy","minimum-print-font-size"])
+});

@@ -18,7 +18,7 @@ const publicEvent={id:'public-event',title:'Public clinical work',categoryId:'cl
 
 function approved({visibility='ADVISOR_ONLY',profile={},exams=[],candidates=[degree,score]}={}){
   const state=createIntakeState({candidates:structuredClone(candidates)});state.stage='review';
-  state.candidates.forEach(candidate=>{candidate.decision='accepted';candidate.visibilityState=visibility;});
+  state.candidates.forEach(candidate=>{candidate.decision='accepted';candidate.fields.acceptProfileClaims=true;candidate.visibilityState=visibility;});
   let serial=0;
   const document={title:'Private Studentname PRIVATE_TITLE_021',events:[structuredClone(publicEvent)],studentProfile:structuredClone(profile),exams:structuredClone(exams),builder:{}};
   applyApprovalBatchToDocument(document,buildApprovalBatch(state,document.events,{idFactory:()=>`accepted-${++serial}`}));

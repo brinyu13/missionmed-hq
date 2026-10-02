@@ -1664,12 +1664,18 @@ export async function boot407FEngineeringAdapter({
     const editable=surface==="edit"&&store.entitlement.canMutate===true;
     const projected=timelineWithLorPresentation(timeline);
     const mediaById=liveMediaById(projected);
-    const rendered=serializeFounderPresentation(projected,{
+    let rendered;
+    try{rendered=serializeFounderPresentation(projected,{
       audience:options.audience||"EVERYTHING",
       currentMonth:options.currentMonth||currentMonth(),
       resourceNamespace:`timeline-${surface}`,
       mediaById
-    });
+    });}catch(error){
+      if(surface!=="edit"||error?.code!=="TIMELINE_SCENE_RECOVERY_REQUIRED")throw error;
+      const recovery="Your saved layout needs recovery. Open History to restore a prior version.";
+      return{kind:"d1-411a-recovery",html:`<div role="alert" style="padding:48px">${escapeMarkup(recovery)}</div>`,
+        scene:{events:[],accessibility:{ariaLabel:recovery}},warnings:[error.code]};
+    }
     const interactive=surface==="edit"?editable:options.interactive!==false;
     const presentation=["builder","home","full-preview"].includes(surface)
       ?enhanceBuilderPreviewSvg(rendered.svg,projected,{interactive})
@@ -3873,6 +3879,9 @@ export async function boot407FEngineeringAdapter({
     force=false
   }={})=>{
     if(!host)return false;
+    const identity=JSON.stringify([store.document.id||null,store.document.studentOwnerId||null,
+      productionRuntime?.identity?.principalId||store.entitlement.principalId||null,
+      productionRuntime?.subject?.principalId||null,surface]);
     const signature=[
       namespace,
       surface,
@@ -3883,6 +3892,7 @@ export async function boot407FEngineeringAdapter({
     ].join("|");
     if(
       !force&&
+      host.dataset.builderPreviewIdentity===identity&&
       host.dataset.builderPreviewSignature===signature&&
       host.querySelector("[data-builder-preview-surface]")
     )return false;
@@ -3895,10 +3905,22 @@ export async function boot407FEngineeringAdapter({
     }catch(error){
       toastStudentError(error,"open");
     }
-    if(!rendered?.html&&host.querySelector("[data-builder-preview-surface]")){
+    if(!rendered?.html){
       host.dataset.builderPreviewError="true";
-      return false;
+      if(store.document.id&&host.dataset.builderPreviewIdentity===identity&&host.querySelector("[data-builder-preview-surface]")){
+        if(!host.querySelector("[data-builder-preview-recovery]")){
+          const notice=document.createElement("div");notice.dataset.builderPreviewRecovery="true";
+          notice.setAttribute("role","status");notice.textContent="Preview could not refresh. Showing the last successfully rendered version of this timeline.";host.append(notice);
+        }
+        return false;
+      }
+      delete host.dataset.builderPreviewSignature;
+      host.dataset.builderPreviewIdentity=identity;
+      const failure=document.createElement("div");failure.className="builderPreviewTrueEmpty";
+      failure.setAttribute("role","alert");failure.textContent="This timeline preview could not be displayed. Your saved information is unchanged. Review the timeline or restore a prior version from History.";
+      host.replaceChildren(failure);return true;
     }
+    host.dataset.builderPreviewIdentity=identity;
     host.dataset.builderPreviewSignature=signature;
     delete host.dataset.builderPreviewError;
     const next=document.createElement("div");
@@ -3941,6 +3963,8 @@ export async function boot407FEngineeringAdapter({
     const percent=builderPreviewZoom.mode==="percent"
       ?builderPreviewZoom.percent
       :null;
+    const viewport=document.querySelector('[data-builder-preview-viewport]');
+    canvas.style.width=percent?`${1920*percent/100}px`:viewport?`${Math.min(viewport.clientWidth,viewport.clientHeight*16/9)}px`:'100%';
     canvas.dataset.zoomMode=builderPreviewZoom.mode;
     canvas.dataset.zoomPercent=percent||"fit";
     canvas.style.setProperty(
@@ -4533,6 +4557,7 @@ export async function boot407FEngineeringAdapter({
     }
   };
   onBuilderPreviewResize=()=>{
+    applyBuilderPreviewZoom();
     updateBuilderPreviewHitTargets(document.getElementById("boardWizard"));
     updateBuilderPreviewHitTargets(
       document.querySelector("[data-builder-preview-canvas]")

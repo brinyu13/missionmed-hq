@@ -1,3 +1,4 @@
+import {presentationDateWording} from '../presentation/source-date-wording.js';
 /*
  * Raster-safe export projection for the protected 407F renderer.
  *
@@ -19,6 +20,7 @@ import {
   FOUNDER_KEYNOTE_CONTRACT
 } from "../presentation/founder-keynote-contract.js";
 import {layoutExplanationText} from './explanation.js';
+import {fitPresentationText,wrapPresentationText,measurePresentationText} from '../presentation/text-layout.js';
 
 const WIDTH=LOCKED_407F_GEOMETRY.width;
 const HEIGHT=LOCKED_407F_GEOMETRY.height;
@@ -29,6 +31,7 @@ const TYPE=Object.freeze({
   axis:"Futura,'Trebuchet MS',Arial,sans-serif",
   key:"Futura,'Trebuchet MS',Arial,sans-serif",
   profile:"'American Typewriter',Rockwell,'Courier New',serif",
+  arrowLabel:"'American Typewriter',Rockwell,'Courier New',serif",
   event:"Baskerville,'Iowan Old Style','Times New Roman',serif"
 });
 const FOUNDER_PORTABLE_GEOMETRY=Object.freeze({
@@ -276,19 +279,22 @@ function arrowMarkup(arrow,index,layout,scale,scene){
   const end=arrow.openEnded?"Present":formatMonth(arrow.endMonth);
   const duration=monthIndex(arrow.endMonth)-monthIndex(arrow.startMonth)+1;
   const tight=layout.tight;
-  const dateSize=tight?16:18;
+  const dateSize=18;
   const dateY=box.y-(tight?4:7);
   /* AAA-019 Keynote fidelity (016 §3 "Duration arrows"): the golden writes one compact
      caption — "8/11 - 1/17" — centred immediately above the banner, never one date per end. */
-  const compactStart=formatFlagDate(arrow.startMonth,arrow.datePrecision?.start);
-  const compactEnd=arrow.openEnded?"Present":formatFlagDate(arrow.endMonth,arrow.datePrecision?.end);
+  const compactStart=presentationDateWording(arrow.startMonth,arrow.datePrecision?.start,arrow.sourceDateWording?.start);
+  const compactEnd=arrow.openEnded?"Present":presentationDateWording(arrow.endMonth,arrow.datePrecision?.end,arrow.sourceDateWording?.end);
   const caption=`${compactStart} - ${compactEnd}`;
   const captionX=Math.max(box.x+40,Math.min(WIDTH-40,box.x+box.width/2));
   const outsideInk=boardInk(scene);
   const dates=`<text data-arrow-caption="true" data-board-ink-role="caption" x="${captionX}" y="${dateY}" text-anchor="middle" fill="${outsideInk}" font-family="${TYPE.event}" font-size="${dateSize}">${xml(caption)}</text>`;
   void start;void end;void duration;
-  const site=arrow.siteName&&!tight
-    ?`<text data-board-ink-role="site" x="${box.x+box.width/2}" y="${box.y+51}" text-anchor="middle" fill="${outsideInk}" font-family="${TYPE.event}" font-size="18">${xml(arrow.siteName)}</text>`
+  const siteCenter=Math.max(44,Math.min(WIDTH-44,box.x+box.width/2));
+  const siteWidth=Math.min(500,2*Math.min(siteCenter-24,WIDTH-24-siteCenter));
+  const siteLines=arrow.siteName?wrapPresentationText(arrow.siteName,{width:Math.max(1,siteWidth),size:19,family:TYPE.event,measureText:scene.measureText||measurePresentationText}):[];
+  const site=siteLines.length
+    ?`<text data-board-ink-role="site" data-material-field="siteName" x="${siteCenter}" y="${box.y+51}" text-anchor="middle" fill="${outsideInk}" font-family="${TYPE.event}" font-size="19">${siteLines.map((line,i)=>`<tspan x="${siteCenter}" dy="${i?21:0}">${xml(line)}</tspan>`).join('')}</text>`
     :"";
   const arrowHead=Math.min(24,Math.max(14,box.width*.14));
   const joined=box.personalSegment&&!box.personalSegment.terminal;
@@ -298,18 +304,18 @@ function arrowMarkup(arrow,index,layout,scale,scene){
   const separator=joined?`<path data-personal-band-separator="true" d="M${box.x2-9} ${box.y+1}L${box.x2} ${box.y+box.height/2}L${box.x2-9} ${box.y+box.height-1}" fill="none" stroke="#D9C8EA" stroke-width="1.5"/>`:"";
   const labelX=box.x+10+(box.width-28)/2;
   const title=String(arrow.title||'');
-  const titleWidth=title.length*20*.57;
+  const titleWidth=(scene.measureText||measurePresentationText)(title,18,TYPE.arrowLabel,400);
   const titleFits=titleWidth<=box.width-arrowHead-16;
   const leftRoom=Math.max(1,box.x-44),rightRoom=Math.max(1,WIDTH-box.x2-44);
   const outsideLeft=leftRoom>=titleWidth&&(rightRoom<titleWidth||box.x+box.width/2>WIDTH/2)||leftRoom>rightRoom&&rightRoom<titleWidth;
-  const titleLines=titleFits?[title]:wrappedTextLines(title,outsideLeft?leftRoom:rightRoom,20,'wrap');
+  const titleLines=titleFits?[title]:wrapPresentationText(title,{width:outsideLeft?leftRoom:rightRoom,size:18,family:TYPE.arrowLabel,measureText:scene.measureText||measurePresentationText});
   const titleAnchor=titleFits?'middle':outsideLeft?'end':'start';
   const titleX=titleFits?labelX:outsideLeft?box.x-12:box.x2+12;
   const titleY=box.y+22-(titleLines.length-1)*11;
   // Short chronology bars retain their exact dates/width. Their full readable
   // label sits beside the bar instead of crushing glyphs into a few pixels.
   const titleColor=titleFits?String(arrow?.label?.color||"#FFFFFF"):outsideInk;
-  const titleMarkup=`<text data-arrow-label-placement="${titleFits?'inside':outsideLeft?'outside-left':'outside-right'}" data-board-ink-role="${titleFits?'inside-arrow':'outside-arrow'}" x="${titleX}" y="${titleY}" text-anchor="${titleAnchor}" fill="${xml(titleColor)}" font-family="${TYPE.event}" font-size="20" font-weight="700">${titleLines.length===1?xml(title):titleLines.map((line,i)=>`<tspan x="${titleX}" dy="${i?22:0}">${xml(line)}</tspan>`).join('')}</text>`;
+  const titleMarkup=`<text data-arrow-label-placement="${titleFits?'inside':outsideLeft?'outside-left':'outside-right'}" data-board-ink-role="${titleFits?'inside-arrow':'outside-arrow'}" x="${titleX}" y="${titleY}" text-anchor="${titleAnchor}" fill="${xml(titleColor)}" font-family="${TYPE.arrowLabel}" font-size="18" font-weight="400">${titleLines.length===1?xml(title):titleLines.map((line,i)=>`<tspan x="${titleX}" dy="${i?22:0}">${xml(line)}</tspan>`).join('')}</text>`;
   const lor=arrow.lorSubmitted
     ?`<g data-lor-submitted="true" transform="translate(${box.x2-38} ${box.y-10})"><path d="M0 0H20V22L10 16L0 22Z" fill="#F3E7B3" stroke="#8C6B20"/><text x="10" y="14" text-anchor="middle" fill="#6C5018" font-family="Arial" font-size="11" font-weight="800">★</text></g>`
     :"";
@@ -337,7 +343,7 @@ function axisMarkup(scale){
     const ex=index===segments.length-1?WIDTH:x+width*((segment.endPercent-2)/96);
     const segmentWidth=ex-sx;
     const kind=segment.id==="FUTURE"?"future":"year";
-    const fontSize=segmentWidth<90?18:segmentWidth<150?22:26;
+    const fontSize=23;
     const notch=index===0?"":`<path data-axis-notch="true" d="M${sx-11} ${y+1}L${sx} ${mid}L${sx-11} ${y+height-1}" fill="none" stroke="#DCE6F4" stroke-opacity=".85" stroke-width="2"/>`;
     /* A transparent cell rect keeps the per-year hit/drag geometry the axis handles use. */
     return`<g data-segment-kind="${kind}" data-axis-segment-id="${xml(segment.id)}" data-axis-segment-weight="${segment.weight}"><rect data-axis-cell="true" x="${sx}" y="${y}" width="${Math.max(1,segmentWidth)}" height="${height}" fill="transparent"/>${notch}<text x="${sx+segmentWidth/2+(index===0?0:4)}" y="${y+27}" text-anchor="middle" fill="#FFFFFF" font-family="${TYPE.axis}" font-size="${fontSize}" font-weight="700">${xml(segment.label)}</text></g>`;
@@ -401,7 +407,7 @@ function flagMarkup(flag,index,scale,scene,{interview=false}={}){
     const poleX=bx+4;
     const usaFlag=FOUNDER_KEYNOTE_CONTRACT.assets.usaFlag;
     const ink=boardInk(scene);
-    return`<g data-event-kind="flag" data-event-id="${xml(flag.id)}" data-founder-milestone-style="usa" aria-label="${xml(flag.ariaLabel)}"${transform}><line x1="${poleX}" y1="${by+2}" x2="${poleX}" y2="${overridden?anchoredPoleBottom:FOUNDER_PORTABLE_GEOMETRY.axisTop}" stroke="#A9AFB2" stroke-width="4"/><image data-founder-usa-flag-asset-sha256="${usaFlag.sha256}" href="${xml(founderKeynoteAssetUrl(usaFlag))}" x="${bx}" y="${by}" width="50" height="41" preserveAspectRatio="xMinYMin meet"/><text data-board-ink-role="flag-label" x="${bx+54}" y="${by+31}" fill="${ink}" font-family="${TYPE.event}" font-size="18">${xml(title)}</text><text data-board-ink-role="flag-date" x="${bx+54}" y="${by+52}" fill="${ink}" font-family="${TYPE.event}" font-size="18">${xml(formatMonth(flag.month,flag.datePrecision?.start))}</text></g>`;
+    return`<g data-event-kind="flag" data-event-id="${xml(flag.id)}" data-founder-milestone-style="usa" aria-label="${xml(flag.ariaLabel)}"${transform}><line x1="${poleX}" y1="${by+2}" x2="${poleX}" y2="${overridden?anchoredPoleBottom:FOUNDER_PORTABLE_GEOMETRY.axisTop}" stroke="#A9AFB2" stroke-width="4"/><image data-founder-usa-flag-asset-sha256="${usaFlag.sha256}" href="${xml(founderKeynoteAssetUrl(usaFlag))}" x="${bx}" y="${by}" width="50" height="41" preserveAspectRatio="xMinYMin meet"/><text data-board-ink-role="flag-label" x="${bx+54}" y="${by+31}" fill="${ink}" font-family="${TYPE.event}" font-size="18">${xml(title)}</text><text data-board-ink-role="flag-date" x="${bx+54}" y="${by+52}" fill="${ink}" font-family="${TYPE.event}" font-size="18">${xml(presentationDateWording(flag.month,flag.datePrecision?.start,flag.sourceDateWording?.start))}</text></g>`;
   }
   /* AAA-019 Keynote fidelity (016 §3 "Milestone flags"): the golden milestone is a waving
      grey pennant planted on the ribbon with a white date chip inside and the label beside it —
@@ -415,7 +421,7 @@ function flagMarkup(flag,index,scale,scene,{interview=false}={}){
   const poleX=bx+4;
   const poleBottom=overridden?anchoredPoleBottom:placed.defaultPoleBottom;
   const pennant=`<path d="M${poleX} ${by+2}C${poleX+16} ${by-4},${poleX+34} ${by+8},${poleX+52} ${by+2}L${poleX+52} ${by+36}C${poleX+36} ${by+42},${poleX+18} ${by+30},${poleX} ${by+36}Z" fill="${fill}" stroke="${edge}" stroke-width="1.2"/><path d="M${poleX+2} ${by+4}C${poleX+16} ${by-1},${poleX+34} ${by+10},${poleX+50} ${by+5}" stroke="${light}" stroke-opacity=".8" stroke-width="1"/>`;
-  const chip=`<rect x="${poleX+8}" y="${by+10}" width="36" height="18" rx="3" fill="#FFFFFF" fill-opacity=".92"/><text x="${poleX+26}" y="${by+23}" text-anchor="middle" fill="#3B4048" font-family="${TYPE.event}" font-size="13">${xml(formatFlagDate(flag.month,flag.datePrecision?.start))}</text>`;
+  const chip=`<rect x="${poleX+8}" y="${by+10}" width="36" height="18" rx="3" fill="#FFFFFF" fill-opacity=".92"/><text x="${poleX+26}" y="${by+23}" text-anchor="middle" fill="#3B4048" font-family="${TYPE.event}" font-size="13">${xml(presentationDateWording(flag.month,flag.datePrecision?.start,flag.sourceDateWording?.start))}</text>`;
   const labelX=flipLabel?poleX-8:poleX+60;
   const words=String(title||"").split(/\s+/).filter(Boolean);
   const lines=words.length>2&&String(title||"").length>16?[words.slice(0,Math.ceil(words.length/2)).join(" "),words.slice(Math.ceil(words.length/2)).join(" ")]:[String(title||"")];
@@ -485,23 +491,31 @@ function profileMarkup(scene){
     ["Research",months(profile.researchMonths)]
   ].filter(([,value])=>String(value||"").trim());
   const photoX=351,photoY=20,photoWidth=169,photoHeight=170;
-  const wrappedRows=rows.slice(0,9).map(([label,value])=>({label,lines:wrappedTextLines(`${label}: ${value}`,296,17,'wrap')}));
-  const totalLines=wrappedRows.reduce((count,row)=>count+row.lines.length,0);
-  const rowGap=Math.max(4,Math.min(12,(base.height-20-94-(totalLines-1)*22)/Math.max(1,wrappedRows.length-1)));
-  let rowY=94;
-  const rowMarkup=wrappedRows.map(({label,lines})=>{
-    const markup=lines.map((line,index)=>{
-      const prefix=`${label}: `;
-      const contents=index===0&&line.startsWith(prefix)?`<tspan font-weight="700">${xml(prefix)}</tspan>${xml(line.slice(prefix.length))}`:xml(line);
-      return`<text data-profile-field="${xml(label)}" data-profile-line="${index}" x="34" y="${rowY+index*22}" fill="#171D26" font-family="${TYPE.profile}" font-size="17">${contents}</text>`;
-    }).join('');
-    rowY+=lines.length*22+rowGap;
-    return markup;
-  }).join('');
+  const measureText=scene.measureText||measurePresentationText;
+  let rowY=54;
+  const textRows=[];
+  const emitLines=(text,label,size,weight)=>{
+    let remaining=String(text||'').trim().replace(/\s+/g,' ');let index=0;
+    while(remaining){
+      const width=rowY-size<photoY+photoHeight+12?296:base.width-68;
+      const lines=wrapPresentationText(remaining,{width,size,family:TYPE.profile,weight,measureText});
+      const line=lines[0]||'';
+      const overflow=rowY+size*.34>base.height-18||measureText(line,size,TYPE.profile,weight)>width+.01;
+      const prefix=label?`${label}: `:'';
+      const contents=index===0&&prefix&&line.startsWith(prefix)?`<tspan font-weight="700">${xml(prefix)}</tspan>${xml(line.slice(prefix.length))}`:xml(line);
+      textRows.push(`<text data-profile-field="${xml(label||'Name')}" data-profile-line="${index}" data-text-overflow="${overflow}" x="34" y="${rowY}" fill="#171D26" font-family="${TYPE.profile}" font-size="${size}" font-weight="${weight}">${contents}</text>`);
+      // The wrapper normalizes whitespace only; never truncate content to fit.
+      remaining=remaining.slice(line.length).trimStart();rowY+=size*1.2;index++;
+    }
+  };
+  emitLines(profile.fullName||"Your journey",null,19,700);
+  rowY+=13;
+  for(const [label,value] of rows){emitLines(`${label}: ${value}`,label,19,400);rowY+=6;}
+  const rowMarkup=textRows.join('');
   const photoLayer=photo
     ?`<g data-frame-slot="profile" data-media-state="filled" data-media-id="${xml(photo.id)}"><rect x="${photoX}" y="${photoY}" width="${photoWidth}" height="${photoHeight}" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="7"/>${croppedImageMarkup({href:photo.source,x:photoX,y:photoY,width:photoWidth,height:photoHeight,crop:photo.crop,naturalAspect:photo.naturalAspect,attributes:`data-profile-photo-slot="true" data-media-id="${xml(photo.id)}"`})}</g>`
     :`<g data-frame-slot="profile" data-media-state="empty"><rect data-profile-photo-slot="true" data-media-state="empty" x="${photoX}" y="${photoY}" width="${photoWidth}" height="${photoHeight}" fill="#C9C2AE" stroke="#FFFFFF" stroke-width="7"/><text x="${photoX+photoWidth/2}" y="${photoY+photoHeight/2+7}" text-anchor="middle" fill="#6D6753" font-family="${TYPE.profile}" font-size="17" font-weight="700" pointer-events="none">PROFILE PHOTO</text></g>`;
-  return`<g data-artifact-chrome="profile" data-founder-geometry="${x},${y},${width},${height}" transform="translate(${x} ${y}) scale(${sx} ${sy})"><image href="${xml(LOCKED_407F_ASSETS.paper)}" x="0" y="0" width="${base.width}" height="${base.height}" preserveAspectRatio="none"/><text x="34" y="54" fill="#171D26" font-family="${TYPE.profile}" font-size="22" font-weight="700">${xml(profile.fullName||"Your journey")}</text>${rowMarkup}${photoLayer}</g>`;
+  return`<g data-artifact-chrome="profile" data-founder-geometry="${x},${y},${width},${height}" transform="translate(${x} ${y}) scale(${sx} ${sy})"><image href="${xml(LOCKED_407F_ASSETS.paper)}" x="0" y="0" width="${base.width}" height="${base.height}" preserveAspectRatio="none"/>${rowMarkup}${photoLayer}</g>`;
 }
 
 export function photoFrameGeometry(scene,index){
@@ -635,37 +649,18 @@ export function advancedElementPreviewMarkup(kind,{width=120,height=80,fill="#2C
   return`<svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" aria-hidden="true" focusable="false" preserveAspectRatio="xMidYMid meet">${body}</svg>`;
 }
 
-function wrappedTextLines(text,width,fontSize,wrap){
-  const source=String(text||"").split(/\r?\n/);
-  if(wrap==="nowrap")return[source.join(" ")];
-  const max=Math.max(1,Math.floor(width/(fontSize*.57)));
-  const lines=[];
-  for(const paragraph of source){
-    const words=paragraph.split(/\s+/).filter(Boolean);
-    if(!words.length){lines.push("");continue;}
-    let line="";
-    for(const word of words){
-      const candidate=line?`${line} ${word}`:word;
-      if(candidate.length<=max||!line)line=candidate;
-      else{lines.push(line);line=word;}
-    }
-    if(line)lines.push(line);
-  }
-  return lines;
+function wrappedTextLines(text,width,size,wrap,family=TYPE.event){
+  return wrapPresentationText(text,{width,size,wrap,family});
 }
 
 function advancedTextMarkup(object){
   const item=object.presentation||{},box=object.geometry;
   const lineHeight=Math.max(.8,Math.min(2,Number(item.lineHeight)||1.2));
   const minimum=Math.max(8,Math.min(72,Number(item.minFontSize)||10));
-  let size=Math.max(minimum,Math.min(72,Number(item.size)||24));
-  let lines=wrappedTextLines(item.text,box.width,size,item.wrap);
-  if(item.fitMode!=="fixed"){
-    while(size>minimum&&lines.length*size*lineHeight>box.height){
-      size-=1;
-      lines=wrappedTextLines(item.text,box.width,size,item.wrap);
-    }
-  }
+  const fitted=fitPresentationText(item.text,{width:box.width,height:box.height,
+    size:Math.max(minimum,Math.min(72,Number(item.size)||24)),minSize:minimum,lineHeight,
+    fit:item.fitMode,wrap:item.wrap,family:item.font||'Inter',weight:Number(item.weight)||400});
+  const size=fitted.fontSize,lines=fitted.lines;
   const anchor=item.alignment==="center"?"middle":item.alignment==="right"?"end":"start";
   const x=anchor==="middle"?box.width/2:anchor==="end"?box.width:0;
   const contentHeight=lines.length*size*lineHeight;
@@ -674,7 +669,7 @@ function advancedTextMarkup(object){
     :item.verticalAlign==="center"
       ?(box.height-contentHeight)/2+size
       :size;
-  return`<text data-advanced-text="${xml(object.id)}" x="${x}" y="${startY}" fill="${xml(item.color||"#191C21")}" font-family="${xml(item.font||"Inter")}" font-size="${size}" font-weight="${Number(item.weight)||400}" text-anchor="${anchor}" data-text-fit="${item.fitMode==="fixed"?"fixed":"auto"}">${lines.map((line,index)=>`<tspan x="${x}" dy="${index?size*lineHeight:0}">${xml(line)}</tspan>`).join("")}</text>`;
+  return`<text data-advanced-text="${xml(object.id)}" data-text-overflow="${!fitted.fits}" x="${x}" y="${startY}" fill="${xml(item.color||"#191C21")}" font-family="${xml(item.font||"Inter")}" font-size="${size}" font-weight="${Number(item.weight)||400}" text-anchor="${anchor}" data-text-fit="${item.fitMode==="fixed"?"fixed":"auto"}">${lines.map((line,index)=>`<tspan x="${x}" dy="${index?size*lineHeight:0}">${xml(line)}</tspan>`).join("")}</text>`;
 }
 
 function advancedSceneMarkup(scene){

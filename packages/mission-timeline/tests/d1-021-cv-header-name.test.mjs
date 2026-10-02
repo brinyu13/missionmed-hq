@@ -35,7 +35,7 @@ test('accepted medical degree prefills CV2 name with source-event authority and 
   assert.equal(mapped.fields.profileFullName,'Alex Rivera');
   for(const manual of ['', 'Existing Manualname']){
     const state=createIntakeState({candidates:[structuredClone(mapped)]});state.stage='review';
-    state.candidates[0].decision='accepted';state.candidates[0].visibilityState='ADVISOR_ONLY';
+    state.candidates[0].decision='accepted';state.candidates[0].fields.acceptProfileClaims=true;state.candidates[0].visibilityState='ADVISOR_ONLY';
     const document={events:[],studentProfile:manual?{fullName:manual}:{},exams:[],builder:{}};
     applyApprovalBatchToDocument(document,buildApprovalBatch(state,[],{idFactory:()=> 'accepted-cv2-md'}));
     assert.equal(document.studentProfile.fullName,manual||'Alex Rivera');

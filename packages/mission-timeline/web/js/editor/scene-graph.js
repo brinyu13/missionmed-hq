@@ -174,9 +174,16 @@ export function reconcileAdvancedScene(advanced={}, {revision=0}={}){
   const rebuilt=sceneGraphFromLegacy(advanced,{revision});
   const stored=advanced?.scene;
   const supported=stored?.schema===TIMELINE_SCENE_SCHEMA&&Number(stored?.version)===TIMELINE_SCENE_VERSION;
-  if(!supported)return rebuilt;
+  if(!supported){
+    if(stored!=null){const error=new TypeError('Your saved layout uses an unsupported format. Restore a compatible prior version from History before exporting.');error.code='TIMELINE_SCENE_RECOVERY_REQUIRED';throw error;}
+    return rebuilt;
+  }
+  const storedValidity=validateSceneGraph(stored);
+  if(!storedValidity.valid){
+    const error=new TypeError('Your saved layout needs recovery. Restore a prior version from History before exporting.');
+    error.code='TIMELINE_SCENE_RECOVERY_REQUIRED';error.details=storedValidity.errors;throw error;
+  }
   const prior=normalizeStoredScene(stored);
-  if(!validateSceneGraph(prior).valid)return rebuilt;
   const sceneOnly=prior.objects.filter((object)=>object.type==="event");
   if(!sceneOnly.length)return rebuilt;
 
@@ -248,6 +255,9 @@ function normalizeStoredScene(scene={}){
 }
 
 export function validateSceneGraph(scene={}){
+  if(!scene||typeof scene!=='object'||Array.isArray(scene))return{valid:false,errors:['Timeline scene must be an object.']};
+  for(const collection of ['objects','groups'])if(Array.isArray(scene[collection])&&scene[collection].some(item=>!item||typeof item!=='object'||Array.isArray(item)))return{valid:false,errors:[`Timeline scene ${collection} must contain objects.`]};
+  if(Array.isArray(scene.groups)&&scene.groups.some(group=>group.childIds!=null&&!Array.isArray(group.childIds)))return{valid:false,errors:['Timeline scene group childIds must be an array.']};
   const errors=[];
   if(scene.schema!==TIMELINE_SCENE_SCHEMA)errors.push("Unsupported Timeline scene schema.");
   if(Number(scene.version)!==TIMELINE_SCENE_VERSION)errors.push("Unsupported Timeline scene version.");
@@ -308,7 +318,12 @@ export function migrateAdvancedScene(advanced={}, {revision=0}={}){
   const legacyDigest=sceneLegacyDigest(advanced);
   const stored=advanced?.scene;
   const supported=stored?.schema===TIMELINE_SCENE_SCHEMA&&Number(stored?.version)===TIMELINE_SCENE_VERSION;
+  if(stored!=null&&!supported)return{scene:clone(stored),migrated:false,sourceVersion:Number(stored?.version||0),
+    recovery:{code:'TIMELINE_SCENE_RECOVERY_REQUIRED',errors:['Unsupported saved Timeline scene format.']}};
   if(supported){
+    const storedValidity=validateSceneGraph(stored);
+    if(!storedValidity.valid)return{scene:clone(stored),migrated:false,sourceVersion:TIMELINE_SCENE_VERSION,
+      recovery:{code:'TIMELINE_SCENE_RECOVERY_REQUIRED',errors:[...storedValidity.errors]}};
     const normalized=normalizeStoredScene(stored);
     const validity=validateSceneGraph(normalized);
     if(validity.valid&&normalized.legacyDigest===legacyDigest){

@@ -176,11 +176,11 @@ test("M12 filename parsing is deterministic, space-free, and handles titles, suf
   });
   assert.equal(
     buildExportFilename("Dr. Amara N. Osei, MD","png-1920x1080",{now:fixedNow}),
-    "Osei_Amara_Timeline_2026-07-29.png"
+    "Osei_Amara_Timeline_2026-07-29_1920x1080.png"
   );
   assert.equal(
     buildExportFilename('Ana / Rivera','pdf-a4-landscape',{now:fixedNow}),
-    "Rivera_Ana_Timeline_2026-07-29.pdf"
+    "Rivera_Ana_Timeline_2026-07-29_A4.pdf"
   );
   assert.throws(()=>buildExportFilename("","png-1920x1080",{now:fixedNow}),/Student name is required/);
 });
@@ -192,7 +192,7 @@ test("M10 export request gives preview and generation identical scoped input plu
     formatId:"pdf-letter-landscape",
     showPrintMargins:true
   },{now:fixedNow});
-  assert.equal(request.filename,"Osei_Amara_Timeline_2026-07-29.pdf");
+  assert.equal(request.filename,"Osei_Amara_Timeline_2026-07-29_Letter.pdf");
   assert.equal(request.previewInput,request.renderInput);
   assert.deepEqual(request.renderInput.timeline.events.map(({id})=>id),[
     "safe-one","advisor-one","safe-two"
@@ -410,7 +410,7 @@ test("M12 verified local adapter success downloads, toasts, and requests the aut
   assert.deepEqual(calls[2],["version","Export · Jul 29, 2026","automatic"]);
   assert.deepEqual(calls[3],[
     "toast",
-    "Exported · Osei_Amara_Timeline_2026-07-29.png",
+    "Exported · Osei_Amara_Timeline_2026-07-29_1920x1080.png",
     {tone:"success"}
   ]);
 });
@@ -579,7 +579,7 @@ test("a student who exports once can immediately export another format, intersti
   });
 
   await button.fire("click");
-  assert.deepEqual(toasts,["Exported · Osei_Amara_Timeline_2026-07-29.png"]);
+  assert.deepEqual(toasts,["Exported · Osei_Amara_Timeline_2026-07-29_1920x1080.png"]);
   assert.equal(button.disabled,false);
   assert.equal(blocker.hidden,true);
 
@@ -592,8 +592,8 @@ test("a student who exports once can immediately export another format, intersti
 
   await button.fire("click");
   assert.deepEqual(toasts,[
-    "Exported · Osei_Amara_Timeline_2026-07-29.png",
-    "Exported · Osei_Amara_Timeline_2026-07-29.pdf"
+    "Exported · Osei_Amara_Timeline_2026-07-29_1920x1080.png",
+    "Exported · Osei_Amara_Timeline_2026-07-29_Letter.pdf"
   ]);
   assert.equal(controller.state.formatId,"pdf-letter-landscape");
   assert.equal(controller.state.exporting,false);

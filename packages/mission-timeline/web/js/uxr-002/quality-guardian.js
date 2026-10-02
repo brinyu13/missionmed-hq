@@ -5,7 +5,7 @@ import {
 import {escapeHtml} from "./utils.js";
 import {applySceneCommandToDocument} from '../editor/scene-commands.js';
 import {serializeFounderPresentation} from '../presentation/founder-presentation-serializer.js';
-import {resolveFounderPresentationSvg} from '../presentation/resolved-founder-presentation.js';
+import {resolveFounderPresentationSvg,materialPresentationCollisions} from '../presentation/resolved-founder-presentation.js';
 import {locked407FMilestoneGeometry} from './locked-407f-export.js';
 
 export const QUALITY_GUARDIAN_SCHEMA="d1-timeline-quality-guardian.1";
@@ -130,6 +130,9 @@ function add(findings,{
 }
 
 function inspectContent(document,findings){
+  if(!clean(document?.studentProfile?.fullName))add(findings,{
+    section:"CONTENT",code:"STUDENT_NAME_MISSING",severity:"BLOCK_EXPORT",basis:QUALITY_GUARDIAN_BASES.SOURCE_FACT,
+    message:"Add your name in Builder before exporting.",recommendation:"Enter your name in Core Info; confirm it against your source."});
   const events=safeArray(document?.events);
   if(!events.length){
     add(findings,{
@@ -267,13 +270,37 @@ function inspectReadability(document,findings){
   // duration labels squeezed by SVG textLength into unreadable glyphs.
   let compressed=[];
   try{
-    const paint=resolveFounderPresentationSvg(serializeFounderPresentation(document,{scope:"FULL_STORY"}).svg);
+    const rendered=serializeFounderPresentation(document,{scope:"FULL_STORY"});
+    const omitted=rendered.scene.omissions||[];
+    if(omitted.length)add(findings,{section:"CHRONOLOGY",code:"EVENTS_NOT_RENDERABLE",severity:"BLOCK_EXPORT",
+      basis:QUALITY_GUARDIAN_BASES.SOURCE_FACT,elementIds:omitted.map(item=>item.id),
+      message:`${omitted.length} included event${omitted.length===1?' cannot':'s cannot'} appear on the timeline.`,
+      recommendation:"Review missing or invalid dates before exporting. No event will be silently omitted.",evidence:{count:omitted.length}});
+    const paint=resolveFounderPresentationSvg(rendered.svg);
+    const materialCollisions=materialPresentationCollisions(paint);
+    if(materialCollisions.length)add(findings,{section:"LAYOUT",code:"PRESENTATION_TEXT_COLLISION",severity:"BLOCK_EXPORT",
+      basis:QUALITY_GUARDIAN_BASES.PRESENTATION,elementIds:[...new Set(materialCollisions.flatMap(c=>c.elementIds))],
+      message:"Some event text overlaps another event or a template card.",recommendation:"Adjust the layout and review the preview before exporting.",evidence:{count:materialCollisions.length}});
+    const outside=paint.nodes.filter(node=>node.kind==='text'&&(node.bounds.x<-.5||node.bounds.y<-.5||node.bounds.x+node.bounds.width>BOARD.width+.5||node.bounds.y+node.bounds.height>BOARD.height+.5));
+    if(outside.length)add(findings,{section:"LAYOUT",code:"PRESENTATION_TEXT_OFF_CANVAS",severity:"BLOCK_EXPORT",
+      basis:QUALITY_GUARDIAN_BASES.PRESENTATION,elementIds:[...new Set(outside.map(node=>node.semanticRef||node.groupId||node.id))],
+      message:`${outside.length} visible text block${outside.length===1?' extends':'s extend'} beyond the exported page.`,recommendation:"Adjust the layout and inspect the whole exported page before sharing.",evidence:{count:outside.length}});
+    const overflow=paint.nodes.filter(node=>node.kind==='text'&&node.sourceAttributes['data-text-overflow']==='true');
+    if(overflow.length)add(findings,{section:"READABILITY",code:"TEXT_CONTAINER_OVERFLOW",severity:"BLOCK_EXPORT",basis:QUALITY_GUARDIAN_BASES.PRESENTATION,
+      elementIds:overflow.map(node=>node.groupId||node.id),message:"Some text does not fit its container at the selected minimum size.",recommendation:"Enlarge the text container or review the layout. Source text has been preserved.",evidence:{count:overflow.length}});
+    const placeholders=paint.nodes.filter(node=>node.kind==='text'&&/^(?:PROFILE PHOTO|DROP PHOTO\s*\d*|PROGRAM LOGO|Date pending)$/.test(node.text.trim()));
+    if(placeholders.length)add(findings,{section:"MISSIONMED_FORMAT",code:"UNFINISHED_PRESENTATION_FURNITURE",severity:"REVIEW",basis:QUALITY_GUARDIAN_BASES.PRESENTATION,
+      message:"The preview includes empty photo or interview placeholders.",recommendation:"Review the final page before sharing; empty editor placeholders are not finished content.",evidence:{count:placeholders.length}});
     compressed=paint.nodes.filter(node=>{
       if(node.kind!=="text"||!node.sourceAttributes.textLength||node.characterSpacing>=0)return false;
       const naturalWidth=node.bounds.width-node.characterSpacing*(node.text.length-1);
       return naturalWidth>0&&node.bounds.width/naturalWidth<.72;
     });
-  }catch{}
+  }catch(error){
+    add(findings,{section:"LAYOUT",code:"PRESENTATION_UNAVAILABLE",severity:"BLOCK_EXPORT",basis:QUALITY_GUARDIAN_BASES.PRESENTATION,
+      message:error?.code==='TIMELINE_SCENE_RECOVERY_REQUIRED'?"Your saved layout needs recovery before export.":"The timeline could not be rendered, so its layout has not passed review.",
+      recommendation:"Review the timeline or restore a prior version from History, then run this check again.",evidence:{code:String(error?.code||'RENDER_FAILED')}});
+  }
   if(compressed.length)add(findings,{
     section:"READABILITY",code:"COMPRESSED_PRESENTATION_TEXT",severity:"REVIEW",
     basis:QUALITY_GUARDIAN_BASES.PRESENTATION,

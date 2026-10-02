@@ -1,3 +1,4 @@
+import {serializeFounderPresentation,assertCompleteFounderPresentation} from '../presentation/founder-presentation-serializer.js';
 import {installMonthFields,monthFieldMarkup} from "./month-field.js";
 import {installFocusTrap} from "./responsive.js";
 import {
@@ -240,7 +241,8 @@ export function parseStudentName(fullName){
 export function buildExportFilename(fullName,formatId,{now=new Date()}={}){
   const {firstName,lastName}=parseStudentName(fullName);
   const format=exportFormat(formatId);
-  return`${lastName}_${firstName}_Timeline_${localDateStamp(now)}.${format.extension}`;
+  const variant={'png-1920x1080':'1920x1080','png-2560x1440':'2560x1440','pdf-letter-landscape':'Letter','pdf-a4-landscape':'A4','pptx-editable':'Editable'}[format.id];
+  return`${lastName}_${firstName}_Timeline_${localDateStamp(now)}_${variant}.${format.extension}`;
 }
 
 export function filterEventsForAudience(events,audience=DEFAULT_EXPORT_AUDIENCE){
@@ -400,6 +402,7 @@ export function buildExportRequest(document,state={},options={}){
       `Complete the ${renderInput.audience.label} recipient details before exporting.`
     );
   }
+  assertCompleteFounderPresentation(serializeFounderPresentation(renderInput.timeline,renderInput.rendererOptions));
   const now=options.now||new Date();
   return{
     contract:"D1-UXR-002-EXPORT-REQUEST-V1",
@@ -524,12 +527,14 @@ function exportBlockReason({
   hasStudentName,
   detailsComplete,
   audience,
-  entitlementBlocked
+  entitlementBlocked,
+  presentationError
 }={}){
   if(entitlementBlocked)return null;
   if(empty)return"Add at least one event in Builder, then come back here to export.";
   if(!hasStudentName)return"Add your name in Builder before exporting.";
   if(!detailsComplete)return`Fill in the ${audience.label} recipient details above before exporting.`;
+  if(presentationError)return presentationError;
   if(exporting)return"Preparing your file…";
   return null;
 }
@@ -547,6 +552,9 @@ export function buildExportScreenModel(document,state={},options={}){
   }catch{
     /* Incomplete or malformed profile data blocks export; it must not block app startup. */
   }
+  let presentationError=null;
+  if(!empty){try{const input=buildExportPreviewInput(document,normalized);assertCompleteFounderPresentation(serializeFounderPresentation(input.timeline,input.rendererOptions));}
+    catch(error){presentationError=String(error?.message||"The timeline cannot be rendered for export yet.");}}
   const theme=THEMES_BY_ID[document?.theme]||THEMES_BY_ID[DEFAULT_THEME_ID];
   const detailsComplete=audienceDetailsComplete(
     normalized.audience,
@@ -568,14 +576,15 @@ export function buildExportScreenModel(document,state={},options={}){
     empty,
     eventCount,
     controlsDisabled:empty||normalized.exporting||entitlement.canMutate!==true,
-    exportActionDisabled:empty||normalized.exporting||!detailsComplete||!hasStudentName||entitlementBlocked,
+    exportActionDisabled:empty||normalized.exporting||!detailsComplete||!hasStudentName||entitlementBlocked||!!presentationError,
     exportBlockedReason:exportBlockReason({
       empty,
       exporting:normalized.exporting,
       hasStudentName,
       detailsComplete,
       audience,
-      entitlementBlocked
+      entitlementBlocked,
+      presentationError
     }),
     entitlementBlocked,
     entitlementReason:String(entitlement.reason||"Timeline export is unavailable."),
@@ -724,7 +733,7 @@ function renderExportReadiness(document,report,readinessCurrent){
     <div class="export022ReadinessHead"><h2 id="export022ReadinessTitle">Guardian readiness</h2><span>${quality.current?quality.state==="READY"?"CHECKED":"REVIEW":"NOT CHECKED"}</span></div>
     <p><strong>${escapeHtml(quality.headline)}</strong></p><p>${escapeHtml(quality.summary)}</p>
     ${quality.ai?`<details><summary>AI review receipt</summary><p>${escapeHtml(quality.model)} · ${escapeHtml(quality.receiptId)} · store: false</p></details>`:""}
-    ${quality.findings.slice(0,4).map((finding)=>`<div class="export022Finding"><small>${escapeHtml(finding.basis||"MISSIONMED RULE")}</small><p>${escapeHtml(finding.message||"Review this item in Guardian.")}</p><button type="button" class="button secondary" data-quality-guardian-open="true" data-export-quality-finding="${escapeHtml(finding.id||"")}">${finding.actionMode==="FIX_FOR_ME"?"Fix in Guardian":"Review in Guardian"}</button></div>`).join("")}
+    ${quality.findings.slice(0,4).map((finding)=>`<div class="export022Finding"><small>${escapeHtml(finding.code==="SMALL_PRINT_TEXT"?"PRINT SIZE CHECK":finding.basis||"MISSIONMED RULE")}</small><p>${escapeHtml(finding.message||"Review this item in Guardian.")}</p><button type="button" class="button secondary" data-quality-guardian-open="true" data-export-quality-finding="${escapeHtml(finding.id||"")}">${finding.actionMode==="FIX_FOR_ME"?"Fix in Guardian":"Review in Guardian"}</button></div>`).join("")}
     <button type="button" class="button secondary" data-quality-guardian-open="true"${disabledAttribute(!document?.events?.length)}>Check my Timeline</button>
   </section>`;
 }
@@ -911,7 +920,9 @@ export async function executeExportRequest(request,{
   const metadata={
     ...baseMetadata,
     downloadAttempted:true,
-    downloaded:delivery?.downloaded===true
+    downloaded:delivery?.downloaded===true,
+    savedFileVerified:delivery?.downloaded===true&&delivery?.verification!=='browser-download-dispatched',
+    browserHandoffOnly:delivery?.verification==='browser-download-dispatched'
   };
   if(!metadata.downloaded){
     throw new ExportBoundaryError(
@@ -929,7 +940,7 @@ export async function executeExportRequest(request,{
       {cause,partial:metadata}
     );
   }
-  toast(`Exported · ${request.filename}`,{tone:"success"});
+  toast(`${delivery?.verification==='browser-download-dispatched'?'Download requested':'Exported'} · ${request.filename}`,{tone:"success"});
   return{
     status:"downloaded",
     completed:true,

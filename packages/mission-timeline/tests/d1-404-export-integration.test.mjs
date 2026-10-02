@@ -129,7 +129,7 @@ test("active Export preserves explicit audience, format, filename, and collapsed
   );
   assert.equal(
     buildExportFilename(document.studentProfile.fullName,"pdf-letter-landscape",{now:fixedNow}),
-    "Osei_Amara_Timeline_2026-07-29.pdf"
+    "Osei_Amara_Timeline_2026-07-29_Letter.pdf"
   );
 
   const html=renderExportScreen(document,{

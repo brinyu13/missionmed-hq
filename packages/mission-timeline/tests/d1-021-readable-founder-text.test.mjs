@@ -23,7 +23,8 @@ test('short CV duration labels use readable side text while retaining date geome
     const label=resolved.nodes.find(node=>node.kind==='text'&&node.text===title);
     const bar=resolved.nodes.find(node=>node.semanticRef===label?.semanticRef&&node.sourceAttributes['data-continuous-duration-arrow']);
     assert.ok(label&&bar,title);
-    assert.equal(label.fontSize,20);
+    assert.equal(label.fontSize,18);
+    assert.match(label.fontFamily,/American Typewriter/);
     assert.equal(label.characterSpacing,0,'Native output must not recreate horizontal squeezing');
     assert.equal(label.sourceAttributes.textLength,undefined);
     assert.match(label.sourceAttributes['data-arrow-label-placement'],/^outside-/);
@@ -45,7 +46,7 @@ test('long medical-school profile values wrap at full size with separate native 
   assert.ok(lines.length>=3);
   assert.equal(lines.map(line=>line.text).join(' '),'Medical school: Carol Davila University of Medicine and Pharmacy');
   for(const [index,line] of lines.entries()){
-    assert.equal(line.fontSize,17);assert.equal(line.characterSpacing,0);assert.equal(line.sourceAttributes.textLength,undefined);
+    assert.equal(line.fontSize,19);assert.equal(line.characterSpacing,0);assert.equal(line.sourceAttributes.textLength,undefined);
     assert.ok(line.bounds.x+line.bounds.width<350,'School text must stay beside the fixed profile photo');
     if(index)assert.ok(line.bounds.y>=lines[index-1].bounds.y+lines[index-1].bounds.height);
   }

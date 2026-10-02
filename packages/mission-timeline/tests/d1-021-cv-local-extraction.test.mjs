@@ -73,7 +73,7 @@ test("021 accepted source entries hydrate name and exam profile with provenance,
   state.candidates[0].expanded=true;state.candidates[2].expanded=true;
   assert.match(renderIntake(state),/Name from the CV header/);
   assert.match(renderIntake(state),/Not stated — review/);
-  state.candidates.forEach(candidate=>{candidate.decision='accepted';candidate.visibilityState='ADVISOR_ONLY';});
+  state.candidates.forEach(candidate=>{candidate.decision='accepted';candidate.fields.acceptProfileClaims=true;candidate.visibilityState='ADVISOR_ONLY';});
   let serial=0;const batch=buildApprovalBatch(state,[],{idFactory:prefix=>`${prefix}-${++serial}`});
   const document={events:[],studentProfile:{},builder:{}};
   applyApprovalBatchToDocument(document,batch);
@@ -113,7 +113,7 @@ test('021 calendar-invalid and ambiguous numeric dates cannot manufacture quick-
     assert.equal(candidate.startDate,'',date);
     assert.notEqual(candidate.confidence.level,'HIGH',date);
     assert.equal(candidate.safeToBulkAccept,false,date);
-    const state=createIntakeState({candidates:result.mapped});state.stage='review';state.candidates[0].decision='accepted';
+    const state=createIntakeState({candidates:result.mapped});state.stage='review';state.candidates[0].decision='accepted';state.candidates[0].fields.acceptProfileClaims=true;
     assert.throws(()=>buildApprovalBatch(state,[]),error=>error.code==='INTAKE_ACCEPTED_CANDIDATE_INVALID',date);
   }
   const european=pipeline(pagesFor(['USMLE','USMLE Step 1 Passed | Synthetic Hospital | 31/12/2022'])).candidates[0];
@@ -149,7 +149,7 @@ test('021 medical graduation uses its own endpoint, preserves year precision and
 
 test('021 enriching a manual exam tags only the new source-derived field and preserves manual authority',()=>{
   const candidate={id:'score',title:'USMLE Step 2 CK — 251',categoryId:'exams',eventType:'milestone',startDate:'2023-03',visibilityState:'ADVISOR_ONLY',fields:{canonicalType:'STEP_2_CK',score:'251',result:''},provenance:[{sourceExcerpt:'USMLE Step 2 CK — 251',sourceSha256:fixture.sourceSha256}]};
-  const state=createIntakeState({candidates:[candidate]});state.stage='review';state.candidates[0].decision='accepted';
+  const state=createIntakeState({candidates:[candidate]});state.stage='review';state.candidates[0].decision='accepted';state.candidates[0].fields.acceptProfileClaims=true;
   const doc={events:[],exams:[{id:'manual',system:'USMLE',examId:'step-2-ck',examDate:'2023-03',result:'Passed',score:''}]};
   applyApprovalBatchToDocument(doc,buildApprovalBatch(state,[]));
   assert.equal(doc.exams[0].result,'Passed');assert.equal(doc.exams[0].score,'251');
@@ -168,7 +168,7 @@ test('021 physical golden degree keeps its source study period through visibilit
   let state=createIntakeState({candidates:[extracted]});state.stage='review';
   state=transitionIntake(state,{type:'EDIT_CANDIDATE',id:'golden-md',patch:{visibilityState:'INTERVIEWER_SAFE'}});
   assert.equal(state.candidates[0].eventType,'duration','Visibility editing cannot coerce a degree to a milestone');
-  state.candidates[0].decision='accepted';
+  state.candidates[0].decision='accepted';state.candidates[0].fields.acceptProfileClaims=true;
   const document={id:'golden-md-regression',events:[],studentProfile:{}};
   applyApprovalBatchToDocument(document,buildApprovalBatch(state,[]));
   assert.equal(document.studentProfile.graduationDate,'2022-06');

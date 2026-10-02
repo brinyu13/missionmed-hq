@@ -1,5 +1,5 @@
 import {buildImagePdf,canvasJpegPage} from "../export/pdf-writer.js";
-import {serializeFounderPresentationAsync} from "../presentation/founder-presentation-serializer.js";
+import {serializeFounderPresentationAsync,assertCompleteFounderPresentation} from "../presentation/founder-presentation-serializer.js";
 import {canvasPng,rasterizePresentationSvg,inlinePresentationSvgSources} from "../presentation/svg-rasterizer.js";
 import {visibleFounderPresentationTitle} from '../presentation/resolved-founder-presentation.js';
 
@@ -26,6 +26,7 @@ export function printRasterSize(format){
 export function createLocalExportAdapter({
   resolveObjectUrl=()=>null,
   triggerDownload=null,
+  inlineSvg=inlinePresentationSvgSources,
   rasterize=rasterizePresentationSvg
 }={}){
   const download=triggerDownload||((blob,filename)=>{
@@ -37,7 +38,7 @@ export function createLocalExportAdapter({
     document.body.append(anchor);
     anchor.click();
     anchor.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
     return{downloaded:true,verification:"browser-download-dispatched"};
   });
 
@@ -65,8 +66,9 @@ export function createLocalExportAdapter({
         currentMonth:new Date().toISOString().slice(0,7),
         mediaResolver:(item)=>resolveObjectUrl(item?.mediaId||item?.id,item)
       });
+      assertCompleteFounderPresentation(rendered);
       if(output.kind==="PPTX"){
-        const inlined=await inlinePresentationSvgSources(rendered.svg);
+        const inlined=await inlineSvg(rendered.svg);
         const {createEditableFounderPptx}=await import("../presentation/editable-pptx.js");
         const artifact=await createEditableFounderPptx({svg:inlined.svg,document:input.timeline});
         return{...artifact,eventCount:input.timeline.events.length,warnings:[...inlined.warnings,...artifact.warnings]};

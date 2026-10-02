@@ -1,3 +1,4 @@
+import {resolveFounderPresentationSvg,materialPresentationCollisions} from './resolved-founder-presentation.js';
 import {buildKeynoteClassicScene} from "../uxr-002/board-renderer.js";
 import {CATEGORY_DEFINITIONS} from "../uxr-002/adaptive-layout.js";
 import {serializeLocked407FPortableSvg} from "../uxr-002/locked-407f-export.js";
@@ -230,13 +231,12 @@ function founderCategoryKeyProjection(document,scene){
 
 function advancedSceneProjection(document,resolvedById=new Map()){
   if(!document?.advanced||typeof document.advanced!=="object")return null;
-  let scene;
-  try{
-    scene=reconcileAdvancedScene(document.advanced,{revision:document.revision});
-  }catch{
-    return null;
+  const scene=reconcileAdvancedScene(document.advanced,{revision:document.revision});
+  const validity=validateSceneGraph(scene);
+  if(!validity.valid){
+    const error=new TypeError('Your saved layout needs recovery before it can be displayed or exported.');
+    error.code='TIMELINE_SCENE_RECOVERY_REQUIRED';error.details=validity.errors;throw error;
   }
-  if(!validateSceneGraph(scene).valid)return null;
   const legacyMedia=new Map((document.advanced.media||[]).map((item)=>[String(item?.id||""),item]));
   return{
     ...scene,
@@ -297,16 +297,21 @@ export function buildFounderPresentationScene(document,{
   scope="INTERVIEWER_SAFE",
   audience=null,
   currentMonth=null,
-  mediaById=new Map()
+  mediaById=new Map(),
+  measureText=null
 }={}){
   const projected=projectFounderPresentationDocument(document,{scope:audience||scope});
   let scene=buildKeynoteClassicScene(projected,{
     currentMonth:presentationCurrentMonth(projected,currentMonth),
-    audience:"EVERYTHING"
+    audience:"EVERYTHING",
+    ...(measureText?{measureText}:{})
   });
   if(projected.theme&&projected.theme!==DEFAULT_THEME_ID){
     scene=applyThemeToScene(scene,projected.theme);
   }
+  const sources=new Map(projected.events.map(event=>[String(event.id),event]));
+  for(const key of ['events','arrows','flags'])scene[key]=(scene[key]||[]).map(item=>({...item,sourceDateWording:sources.get(String(item.id))?.fields?.sourceDateWording||null}));
+  if(measureText)scene.measureText=measureText;
   scene.mediaProjection=mediaProjection(projected,mediaById);
   const advanced=advancedProjection(projected,mediaById);
   if(advanced)scene.advancedProjection={...(scene.advancedProjection||{}),...advanced};
@@ -354,4 +359,42 @@ export async function serializeFounderPresentationAsync(document,{
     }));
   }
   return serializeFounderPresentation(projected,{...options,mediaById:resolvedById});
+}
+
+// Validate the audience-projected render result, not the count of private source facts.
+export function assertCompleteFounderPresentation(rendered){
+  const omitted=rendered?.scene?.omissions||[];
+  if(!omitted.length&&!(rendered?.scene?.events||[]).length){const error=new TypeError('Add at least one event visible to this audience before exporting.');error.code='TIMELINE_EXPORT_EMPTY';throw error;}
+  if(omitted.length){
+    const error=new TypeError(`Review ${omitted.length} event${omitted.length===1?'':'s'} with missing or invalid dates before exporting. Every included event must appear in your timeline.`);
+    error.code='TIMELINE_EXPORT_INCOMPLETE';error.eventIds=omitted.map(item=>String(item.id));throw error;
+  }
+  const paint=resolveFounderPresentationSvg(rendered.svg,{measureText:rendered.scene.measureText});
+  const expected=new Set(rendered.scene.events.map(event=>String(event.id)));
+  const represented=new Set(paint.nodes.map(node=>String(node.semanticRef||'')));
+  const normalized=value=>String(value||'').replace(/\s+/g,' ').trim();
+  const missingFields=[];
+  for(const event of rendered.scene.arrows||[]){
+    const text=normalized(paint.nodes.filter(node=>node.kind==='text'&&node.semanticRef===String(event.id)).map(node=>node.text).join(' '));
+    for(const field of ['title','siteName'])if(event[field]&&!text.includes(normalized(event[field])))missingFields.push({id:String(event.id),field});
+  }
+  if(missingFields.length){const error=new TypeError('Some material event details are missing from the visible timeline. Review the layout before exporting.');error.code='TIMELINE_EXPORT_MISSING_FIELDS';error.fields=missingFields;throw error;}
+
+  const missing=[...expected].filter(id=>!represented.has(id));
+  if(missing.length){const error=new TypeError('Some included events are absent from the exported timeline.');error.code='TIMELINE_EXPORT_INCOMPLETE';error.eventIds=missing;throw error;}
+  {
+    const unreadable=paint.nodes.filter(node=>node.kind==='text'&&(
+      node.sourceAttributes['data-text-overflow']==='true'||node.bounds.x<-.5||node.bounds.y<-.5||
+      node.bounds.x+node.bounds.width>1920.5||node.bounds.y+node.bounds.height>1080.5));
+    if(unreadable.length){
+      const error=new TypeError('Some visible text does not fit on the exported page. Adjust the layout before exporting; all source text has been preserved.');
+      error.code='TIMELINE_EXPORT_TEXT_OVERFLOW';error.elementIds=[...new Set(unreadable.map(node=>node.semanticRef||node.groupId||node.id))];throw error;
+    }
+  }
+  const collisions=materialPresentationCollisions(paint);
+  if(collisions.length){
+    const error=new TypeError('Some event text overlaps another event or a template card. Adjust the layout and review the preview before exporting.');
+    error.code='TIMELINE_EXPORT_TEXT_COLLISION';error.elementIds=[...new Set(collisions.flatMap(c=>c.elementIds))];throw error;
+  }
+  return rendered;
 }
