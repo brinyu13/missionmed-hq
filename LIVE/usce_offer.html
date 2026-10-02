@@ -540,13 +540,15 @@ a:focus-visible,button:focus-visible,textarea:focus-visible{outline:3px solid va
       </div>
     </section>
 
-    <p class="footer-note">Questions? <a href="mailto:clinicals@missionmedinstitute.com">Contact Clinicals</a> or reply to the original coordinator email. Asking a question does not record a response. Do not forward your private offer link. Decline opens a separate confirmation step before the final decision is recorded.</p>
+    <p class="footer-note">Questions? <a id="clinicalsContact" href="mailto:">Contact Clinicals</a> or reply to the original coordinator email. Asking a question does not record a response. Do not forward your private offer link. Decline opens a separate confirmation step before the final decision is recorded.</p>
   </main>
 </div>
 
 <script>
 (function(){
   'use strict';
+  const clinicalsContact = document.getElementById('clinicalsContact');
+  if (clinicalsContact) clinicalsContact.href = 'mailto:clinicals@missionmedinstitute.com';
 
   // MM-USCE-OFFER-FLOW-003: Live adapter ready. No Supabase from browser,
   // no service-role data, no email sends, no payment trigger before acceptance.

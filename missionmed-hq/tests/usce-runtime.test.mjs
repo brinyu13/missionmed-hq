@@ -67,12 +67,14 @@ try{
  await check('expired session readback unauthenticated',async()=>assert.equal((await(await request('/api/auth/session?audience=usce_admin',{token:session({expiresAt:new Date(now-1).toISOString()}).token})).json()).authenticated,false));
  for(const[name,change,status]of[
  ['valid legacy signed administrator handoff exchange',{},200],
+ ['accepted WordPress USCE relay legacy aud hq handoff exchange',{aud:'hq'},200],
  ['valid explicit USCE signed administrator handoff exchange',{auth_audience:'usce_admin'},200],
  ['explicit sibling signed handoff rejected',{auth_audience:'arena'},401],
  ['subscriber signed handoff rejected',{roles:['subscriber']},403],
  ['expired signed handoff rejected',{exp:1},401]
  ])await check(name,async()=>assert.equal((await request('/api/auth/session?audience=usce_admin&token='+encodeURIComponent(handoff(change)))).status,status));
  await check('nonUSCE login audience rejected',async()=>assert.equal((await request('/api/auth/session?audience=arena')).status,400));
+ await check('frontend legacy hq audience rejected without weakening USCE gate',async()=>assert.equal((await request('/api/auth/session?audience=hq')).status,400));
  await check('invalid CSRF logout denied',async()=>assert.equal((await request('/api/auth/logout',{token:admin.token,method:'POST'})).status,403));
  await check('valid CSRF logout clears cookie',async()=>{const r=await request('/api/auth/logout',{token:admin.token,csrf:admin.payload.csrfToken,method:'POST'});assert.equal(r.status,200);assert.match(r.headers.get('set-cookie'),/Max-Age=0/)});
  await check('relay exact CDN target and fragment-only',async()=>{const t=handoff(),r=await request('/api/usce/admin/auth/relay?target='+encodeURIComponent('https://evil.example.test/')+'&token='+encodeURIComponent(t));assert.equal(r.status,302);const u=new URL(r.headers.get('location'));assert.equal(u.origin,'https://cdn.missionmedinstitute.com');assert.equal(u.pathname,'/html-system/LIVE/usce_admin.html');assert.equal(u.searchParams.has('token'),false);assert.equal(new URLSearchParams(u.hash.slice(1)).get('mmhq_handoff_token'),t)});
