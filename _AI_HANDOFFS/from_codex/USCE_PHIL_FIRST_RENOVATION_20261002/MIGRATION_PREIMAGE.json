@@ -1,0 +1,312 @@
+{
+  "captured_at": "2026-10-02T17:17:56.307Z",
+  "source_commit": "2fa5b99bd5d374eed77614be3e68ae4c964bd72f",
+  "sql_sha256": "b5322488152cfb214ba1dca77f51a437ac411207c86d6c97e39a1eec65621778",
+  "history": [
+    {
+      "version": "20260324190000",
+      "name": "mr_904a_crm_email_schema"
+    },
+    {
+      "version": "20260324223000",
+      "name": "mr_903a_command_center_phase1"
+    },
+    {
+      "version": "20260325120110",
+      "name": "remote_schema"
+    },
+    {
+      "version": "20260325153000",
+      "name": "mr_903b_command_center_rest_views"
+    },
+    {
+      "version": "20260327195500",
+      "name": "mac_6_command_center_core_infrastructure"
+    },
+    {
+      "version": "20260327213000",
+      "name": "mac_6_1_command_center_integration_layer"
+    },
+    {
+      "version": "20260328120000",
+      "name": "mcc_402_read_write_rpc"
+    },
+    {
+      "version": "20260329235500",
+      "name": "mr_te_951_testimonial_engine_additions"
+    },
+    {
+      "version": "20260330163000",
+      "name": "nmcc_2d_hq_rpc_reads"
+    },
+    {
+      "version": "20260330170000",
+      "name": "nmcc_3b_task_linked_entities"
+    },
+    {
+      "version": "20260330190000",
+      "name": "nmcc_2e_command_center_backfill_rpc"
+    },
+    {
+      "version": "20260330193000",
+      "name": "nmcc_2e_backfill_anchor_support"
+    },
+    {
+      "version": "20260330204500",
+      "name": "nmcc_4_hq_live_crud_rpc"
+    },
+    {
+      "version": "20260402021500",
+      "name": "vrs9d_media_system_schema"
+    },
+    {
+      "version": "20260406120000",
+      "name": "vdrl_080_drill_registry"
+    },
+    {
+      "version": "20260411103300",
+      "name": "vdrl_081_drill_registry_control_layer"
+    },
+    {
+      "version": "20260411153000",
+      "name": "vdrl_082_menu_categories"
+    },
+    {
+      "version": "20260411164000",
+      "name": "vdrl_083_drill_menu_write_rls"
+    },
+    {
+      "version": "20260415120000",
+      "name": "tournamed_qstat_core_async"
+    },
+    {
+      "version": "20260416153000",
+      "name": "stat_private_generate_bot_attempt_digest_schema_fix"
+    },
+    {
+      "version": "20260420110000",
+      "name": "stat_canon_schema"
+    },
+    {
+      "version": "20260420111000",
+      "name": "stat_dataset_ingest"
+    },
+    {
+      "version": "20260420112000",
+      "name": "stat_canon_helpers"
+    },
+    {
+      "version": "20260420113000",
+      "name": "stat_canon_rpcs"
+    },
+    {
+      "version": "20260420114000",
+      "name": "stat_backfill"
+    },
+    {
+      "version": "20260422123000",
+      "name": "avatar_locker_identity_stat"
+    },
+    {
+      "version": "20260422124500",
+      "name": "stat_tier_a_supabase_staging_safe_mode"
+    },
+    {
+      "version": "20260423213000",
+      "name": "avatar_hardening_rls_rpc"
+    },
+    {
+      "version": "20260423220000",
+      "name": "e3_stat_beta_tables"
+    },
+    {
+      "version": "20260423223000",
+      "name": "e3_stat_beta_rls"
+    },
+    {
+      "version": "20260423230000",
+      "name": "e3_stat_session_match_rpcs"
+    },
+    {
+      "version": "20260423233000",
+      "name": "e3_stat_telemetry_rpcs"
+    },
+    {
+      "version": "20260424111407",
+      "name": "remote_schema"
+    },
+    {
+      "version": "20260424121038",
+      "name": "create_bootstrap_match_rpc"
+    },
+    {
+      "version": "20260424130000",
+      "name": "usce_portal_guard"
+    },
+    {
+      "version": "20260424150000",
+      "name": "usce_rls_policies"
+    },
+    {
+      "version": "20260424164000",
+      "name": "stat_avatar_snapshot_replay_bridge"
+    },
+    {
+      "version": "20260426123000",
+      "name": "e3_stat_write_order_repair"
+    },
+    {
+      "version": "20260426140000",
+      "name": "usce_portal_rpc"
+    },
+    {
+      "version": "20260426141000",
+      "name": "usce_search_indexes"
+    },
+    {
+      "version": "20260426142000",
+      "name": "usce_cron_jobs"
+    },
+    {
+      "version": "20260426143000",
+      "name": "usce_seed_programs"
+    },
+    {
+      "version": "20260426150000",
+      "name": "e3_stat_write_order_schema_compat"
+    },
+    {
+      "version": "20260426161000",
+      "name": "dboc_iv_schema"
+    },
+    {
+      "version": "20260426162000",
+      "name": "dboc_iv_rls"
+    },
+    {
+      "version": "20260426170000",
+      "name": "mmos_arena_intel_question_metadata"
+    },
+    {
+      "version": "20260426171000",
+      "name": "mmos_arena_intel_qstat_answers_v1_view"
+    },
+    {
+      "version": "20260426172000",
+      "name": "mmos_arena_intel_student_profiles_enrollment"
+    },
+    {
+      "version": "20260426173000",
+      "name": "mmos_arena_intel_pipeline_core"
+    },
+    {
+      "version": "20260426174000",
+      "name": "mmos_arena_intel_performance_snapshots"
+    },
+    {
+      "version": "20260426175000",
+      "name": "mmos_arena_intel_diagnostic_plan_engine"
+    },
+    {
+      "version": "20260426183000",
+      "name": "mmos_arena_intel_complete_study_task_rpc"
+    },
+    {
+      "version": "20260427131000",
+      "name": "mr_stat_human_async_duel_contract_repair_035"
+    },
+    {
+      "version": "20260501183000",
+      "name": "stat_player_search_public_cards"
+    },
+    {
+      "version": "20260503101000",
+      "name": "usce_public_intake_requests"
+    },
+    {
+      "version": "20260503123000",
+      "name": "usce_public_intake_rpc"
+    },
+    {
+      "version": "20260503170000",
+      "name": "usce_public_intake_admin_read_rpc"
+    },
+    {
+      "version": "20260505120000",
+      "name": "usce_full_offer_engine_automation"
+    },
+    {
+      "version": "20260505215000",
+      "name": "gmail_metadata_comms_review_write"
+    },
+    {
+      "version": "20260507143000",
+      "name": "stat_diagnostic_snapshot_job_layer"
+    },
+    {
+      "version": "20260512152258",
+      "name": "ahp_013_profile_rls_identity_hardening"
+    },
+    {
+      "version": "20260512201200",
+      "name": "ahp_014_registration_profile_contract"
+    },
+    {
+      "version": "20260513064500",
+      "name": "ahp_015_registration_matchpoints_bonus"
+    },
+    {
+      "version": "20260513115000",
+      "name": "ahp_016_registration_pressure_bonus_update"
+    },
+    {
+      "version": "20260514120412",
+      "name": "mm_sched_012_scheduler_v1_foundation"
+    },
+    {
+      "version": "20260514160000",
+      "name": "statv3_ai_rivals"
+    },
+    {
+      "version": "20260517194712",
+      "name": "statv3_human_roster_search_avatar_repair_056"
+    },
+    {
+      "version": "20260526123000",
+      "name": "arena_beta_access_gating"
+    },
+    {
+      "version": "20260531221500",
+      "name": "e9_stat_v3_classmate_avatar_roster"
+    },
+    {
+      "version": "20260531223600",
+      "name": "e9_stat_v3_classmate_profile_avatar_fallback"
+    },
+    {
+      "version": "20260619164000",
+      "name": "usce_offer_decline_action_contract"
+    },
+    {
+      "version": "20260905221718",
+      "name": "hb_360a_005r_x_ranklist_resolver_lockdown"
+    }
+  ],
+  "real_fingerprints": [
+    {
+      "kind": "intakes",
+      "n": 88,
+      "fingerprint": "6bac8e8a7bef9f2fa9a7b5a269273d323f4cf5e76b47d22ebc2c11a3a579a4ee"
+    },
+    {
+      "kind": "offers",
+      "n": 66,
+      "fingerprint": "26347be663fc344051f6402df8677a885c53f6d7d270f2332b3cc01a97789326"
+    }
+  ],
+  "structure_before": {
+    "claims": null,
+    "activity": null,
+    "revision": false
+  }
+}
