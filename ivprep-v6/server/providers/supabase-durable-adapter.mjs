@@ -30,6 +30,7 @@ const TABLES = new Set([
 // Actor context may revalidate protected evidence, but this adapter must not
 // acquire a new mutation surface for sessions, analyses or private recordings.
 const CONTEXT_READ_TABLES = new Set(['ivoc_sessions', 'ivoc_results', 'ivoc_recordings']);
+const MAX_CONTEXT_READ_RESPONSE_BYTES = 4 * 1024 * 1024;
 const RPCS = new Set([
   'ivprep_bind_provider_dispatch',
   'ivprep_claim_provider_job',
@@ -180,8 +181,42 @@ export class IvPrepSupabaseRest {
         body: body == null ? null : JSON.stringify(body),
         signal: controller.signal,
       });
-      const text = await response.text();
-      if (!response.ok || text.length > 64 * 1024) throw new Error('IV Prep database operation failed closed.');
+      if (!response.ok) throw new Error('IV Prep database operation failed closed.');
+      const contextRead = CONTEXT_READ_TABLES.has(path.slice(1).split('?')[0])
+        && method === 'GET' && body == null && prefer == null;
+      let text;
+      if (contextRead) {
+        // Protected history has up to 50 validated envelopes. Give only these
+        // GET/no-body/no-Prefer reads their own byte budget; never enlarge the
+        // provider, RPC, write or general database response limit.
+        const declared = response.headers?.get('content-length');
+        if (declared != null && (!/^\d+$/u.test(declared) || Number(declared) > MAX_CONTEXT_READ_RESPONSE_BYTES)) {
+          await response.body?.cancel?.();
+          throw new Error('IV Prep database operation failed closed.');
+        }
+        if (response.body?.getReader) {
+          const reader = response.body.getReader(); const decoder = new TextDecoder('utf-8', { fatal: true });
+          let bytes = 0; const parts = [];
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              bytes += value.byteLength;
+              if (bytes > MAX_CONTEXT_READ_RESPONSE_BYTES) throw new Error('IV Prep database operation failed closed.');
+              parts.push(decoder.decode(value, { stream: true }));
+            }
+            parts.push(decoder.decode()); text = parts.join('');
+          } catch (error) {
+            await reader.cancel().catch(() => {}); throw error;
+          } finally { reader.releaseLock(); }
+        } else {
+          text = await response.text();
+          if (new TextEncoder().encode(text).byteLength > MAX_CONTEXT_READ_RESPONSE_BYTES) throw new Error('IV Prep database operation failed closed.');
+        }
+      } else {
+        text = await response.text();
+        if (text.length > 64 * 1024) throw new Error('IV Prep database operation failed closed.');
+      }
       if (!text) return null;
       const value = JSON.parse(text);
       if (value == null) throw new Error('IV Prep database response is invalid.');
