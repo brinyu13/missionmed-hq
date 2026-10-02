@@ -3190,7 +3190,7 @@ function wireChrome() {
   });
   $('#context-analyze')?.addEventListener('click', () => { void analyzeLastAnswer(); });
   $('#post-open-filmroom')?.addEventListener('click', (event) => {
-    void openLastSavedFilmRoom(event.currentTarget);
+    void openLastSavedFilmRoom(event.currentTarget, { autoplay: false });
   });
 }
 

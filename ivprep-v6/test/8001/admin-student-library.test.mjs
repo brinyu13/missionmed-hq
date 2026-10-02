@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { buildAdminStudentProgress } from '../../public/studio/presentation-view-model.mjs';
 import { IvocApi } from '../../public/ivoc-standalone/app/api.mjs';
-import { createAdminReviewGate, isAdminReview, resolveAdminStudentRefreshSelection } from '../../public/studio/review-scope.mjs';
+import { createAdminReviewGate, isAdminReview, mayPresentSavedReview, resolveAdminStudentRefreshSelection } from '../../public/studio/review-scope.mjs';
 import { readFileSync } from 'node:fs';
 
 import {
@@ -256,4 +256,30 @@ test('actual student-library renderer keeps a refreshed selection or exposes los
   assert.match(selector.children[0].textContent, /Selected student unavailable/u);
   assert.match(host.children.at(-1).children[0].textContent, /no replacement account was selected/u);
   assert.equal(host.children[0].children[0].disabled, false);
+});
+
+test('actual Results navigation opens selected Admin Film Room paused rather than starting private audio', async () => {
+  const source = readFileSync(new URL('../../public/studio/studio.mjs', import.meta.url), 'utf8');
+  const helper = source.slice(source.indexOf('async function openLastSavedFilmRoom('), source.indexOf('\nasync function analyzeLastAnswer('));
+  const handlerStart = source.indexOf("  $('#post-open-filmroom')?.addEventListener('click',");
+  const handler = source.slice(handlerStart, source.indexOf('\n  });', handlerStart) + '\n  });'.length);
+  let plays = 0; let pauses = 0; let click; let pending;
+  const video = { pause() { pauses += 1; }, async play() { plays += 1; } };
+  const button = { addEventListener(type, listener) { assert.equal(type, 'click'); click = listener; } };
+  const state = { role: 'admin', view: 'postanswer', lastSaved: {
+    reviewScope: 'admin', sessionDetail: { recording: { id: 'selected-recording' } },
+  }, adminLibrary: { async playback(id) { assert.equal(id, 'selected-recording'); return { url: '/private-selected-playback' }; } } };
+  const $ = selector => selector === '#post-open-filmroom' ? button : selector === '#playback' ? video : null;
+  const open = new Function('state', 'playbackReviewRequest', 'isAdminReview', 'adminReviewGate',
+    'mayPresentSavedReview', 'presentFilmRoomAnalytics', 'renderFilmRoomSpine', '$', 'setView', 'el',
+    `return ${helper};`)(state, 0, isAdminReview, createAdminReviewGate(), mayPresentSavedReview,
+    () => ({}), () => {}, $, view => { state.view = view; }, () => ({}));
+  new Function('$', 'openLastSavedFilmRoom', handler)($, (...args) => { pending = open(...args); return pending; });
+  click({ currentTarget: button });
+  await pending;
+  assert.equal(state.view, 'filmroom');
+  assert.equal(video.src, '/private-selected-playback');
+  assert.equal(plays, 0);
+  assert.equal(pauses, 1);
+  assert.equal(button.disabled, false);
 });

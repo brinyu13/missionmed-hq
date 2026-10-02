@@ -26,6 +26,20 @@ the actual production route and deployment.
   recording. Next safe slice is student-owned capture → explicit Admin refresh
   → selected student's Results/Film Room → existing review contract. Preserve
   owner-only recording/spine writes; never relabel Admin media as student work.
+- **Teaching slice release candidate:** `7180393` + `e780826`, student-owned browser practice instructions,
+  explicit selected-student refresh and status-only review through existing APIs.
+  Reopening the related in-flight subject-selection boundary; no capture delegation.
+  Found and fixed candidate server bug where omitted review notes erased stored
+  notes: PATCH now omits that column, including concurrent-note preservation.
+  64 focused route/consumer checks PASS, plus actual Results → Film Room paused
+  regression. Fresh independent review identified and then passed that no-autoplay
+  correction; source review/CSRF/selection/privacy and notes-preservation PASS.
+  Deployment and actual UI verification pending; no teacher-audio/Hot Seat claim.
+- **Next retained coaching binding:** Builder's optional interviewer-name field
+  currently stays in local wizard state; opening/middle/close labels are not proof
+  of implemented contextual name-use coaching. Complete a bounded observable,
+  opt-in evidence path after the teaching slice; never imply a universal ranking
+  rule, claim verified faculty identity or infer rapport/personality from counts.
 - **Current healthy role/style release:** source `c6b408f18d097fa05543c096e49f74072598820d`,
   deployment `74753088-0b13-47b8-abd7-f034250c1078` SUCCESS, image
   `sha256:6d03e30a5b9287c0d85091280a2bda353524ffc54ea0a9557aa8ab4d6c1520e4`,
