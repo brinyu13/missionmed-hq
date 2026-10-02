@@ -14,7 +14,7 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
-- **Founder live-POV override, 2026-10-02: acceptance REOPENED; candidate implementation ready for deployment.**
+- **Founder live-POV override, 2026-10-02: recovery LIVE; candidate-question stall reopened fix-forward.**
   Founder confirms physical camera/mic and native multi-turn AI entry work;
   preserve those gains. Navigation, calibration Analytics, runtime composition,
   follow-up quality and closing are NOT accepted by historical tests/flags.
@@ -40,12 +40,33 @@ the actual production route and deployment.
   exact closing, multiple candidate questions and truthful professional signoff.
   Explicit one-shot closing action uses native instruction append; instructions
   are NOT proof of model compliance or automatic semantic phase detection.
-  74 focused tests PASS. Actual spontaneous bait response, count adherence and
-  multi-question spoken closing remain genuine conversation acceptance gates.
+  Recovery source `b6312f2cd4131b84abed27cdfc09c504e3fa0bbc` deployed SUCCESS as
+  `d7c4d197-4033-4892-9c1f-d913da8fc6e0`; image
+  `sha256:e1385ddb589f5770f35942a1a0fcdaccf809844128d0b648b0433b4788436d68`, V2 config unchanged.
+  Health200, anonymous product/bootstrap401 and four exact runtime source hashes
+  verified. Filtered artifact `5987891b20ed1d68e683f9894e0c17229c7042487c5af057ebc1f6d16212caaa`;
+  stage `/var/folders/xs/k4jpy4k177g_flhq3wp7p21r0000gn/T/ivoc-release-artifact-ebBBgQ/stage`.
+  Actual Chrome: visible physical video; bounded calibration populated voice,
+  pitch and face signals and stopped automatically; distinct AI room with rails
+  and eight-lane Flight Recorder. Genuine Founder answer received a content-specific
+  follow-up in canonical transcript; explicit closing control produced the exact
+  closing question. Candidate then asked an unavailable program-policy question;
+  interviewer promised to think and stalled. FAIL, not accepted closing. Finish
+  saved a 245.9-second private recording; Results/full report and Film Room opened;
+  persisted timeline rendered and clicking a measured point sought playback.
+  These checks do NOT establish audible two-sided replay or automatic closing.
+  Source gap: native client delegation had no result handler. Its causal role in
+  this particular stall is unproven because no delegation event was captured.
+  Bounded fix-forward: explicit client delegation, truthful no-backend-result
+  response with exact delegation identity, no invented program facts, duplicate
+  suppression and recoverable send failure. Independent review found no P0/P1.
+  34 affected tests PASS; earlier broader recovery run75 PASS. Genuine multiple
+  candidate questions, professional signoff and automatic count adherence remain
+  live conversation gates, not inferred from prompt tests.
   Known-good runtime preserved: `d6ab5544-0674-4f43-a31b-1dc69a3465a1`, source
   `638c7a279e4dfe3aaafa7163aec0f531533fddcc`, exact image/artifact below.
-  Next: clean push/readback -> filtered artifact -> leased deployment -> actual
-  non-human production POV. No Founder-acceptance-ready claim before staging.
+  Next: deploy this bounded stall recovery, cold-reload persistence verification,
+  then specific candidate-question scenario. No final acceptance claim yet.
 - **RISE/HQ successor repair, 2026-10-02: DEPLOYED; genuine Student role POV OPEN.**
   DR-361 is filed/pushed/read back in MissionMed OS commit
   `08f9a08035d20669f244efd4aaff4e9cf35d4332`. Current live issuer policy is

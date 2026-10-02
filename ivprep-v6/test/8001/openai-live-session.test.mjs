@@ -159,7 +159,7 @@ test('all four Builder roles and styles reach exact broker instructions without 
       const call = calls.at(-1);
       assert.equal(call.url, 'https://api.openai.com/v1/live/sessions');
       assert.deepEqual(call.request, {
-        session: { model: 'gpt-live-1', instructions, audio: { output: { voice: 'marin' } }, store: false },
+        session: { model: 'gpt-live-1', delegation: { type: 'client' }, instructions, audio: { output: { voice: 'marin' } }, store: false },
         transport: { type: 'webrtc', sdp: 'v=0\r\no=offer' },
       });
     }

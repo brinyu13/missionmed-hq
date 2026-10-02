@@ -52,6 +52,32 @@ test('closing uses native instruction append without extra playback or hangup', 
   assert.equal(sent[0].type, 'session.instructions.append');
   assert.equal(sent[0].delegation_id, null);
 });
+test('unhandled native client delegation receives a truthful one-shot continuation', () => {
+  const sent = [];
+  const live = new LiveInterviewSession({ createSession() {}, endSession() {}, PeerConnection: class {} });
+  live.channel = { readyState: 'open', send: value => sent.push(JSON.parse(value)) };
+  const event = { type: 'session.delegation.created', delegation: { id: 'item_test_1', target: 'client' } };
+  live.handleEvent(JSON.stringify(event)); assert.equal(sent.length, 0);
+  live.state = 'active'; live.handleEvent(JSON.stringify(event)); live.handleEvent(JSON.stringify(event));
+  assert.equal(sent.length, 1); assert.equal(sent[0].delegation_id, 'item_test_1');
+  assert.equal(sent[0].type, 'session.instructions.append');
+  assert.match(sent[0].content, /no additional lookup or backend result/);
+  assert.match(sent[0].content, /do not invent program policy/);
+  live.handleEvent(JSON.stringify({ ...event, delegation: { id: 'item_response', target: 'responses' } }));
+  assert.equal(sent.length, 1);
+  live.state = 'closed'; live.handleEvent(JSON.stringify({ ...event, delegation: { id: 'item_late', target: 'client' } }));
+  assert.equal(sent.length, 1);
+});
+test('failed delegation send remains recoverable without dropping the active session', () => {
+  const live = new LiveInterviewSession({ createSession() {}, endSession() {}, PeerConnection: class {} });
+  live.state = 'active';
+  live.channel = { readyState: 'open', send() { throw Error('channel changed'); } };
+  const event = JSON.stringify({ type: 'session.delegation.created', delegation: { id: 'retry_1', target: 'client' } });
+  assert.doesNotThrow(() => live.handleEvent(event));
+  assert.equal(live.state, 'active'); assert.equal(live.handledDelegations.has('retry_1'), false);
+  let sent = 0; live.channel.send = () => sent++;
+  live.handleEvent(event); assert.equal(sent, 1); assert.equal(live.handledDelegations.has('retry_1'), true);
+});
 test('calibration is bounded, separate, cancellable and never finalizes a recorded answer', () => {
   const actions = []; const timers = new Map(); let next = 0;
   const preview = new AnalyticsPreview({

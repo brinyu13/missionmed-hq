@@ -76,6 +76,7 @@ export class LiveInterviewSession {
     this.openingQuestion = null;
     this.openingRequested = false;
     this.closingRequested = false;
+    this.handledDelegations = new Set();
     this.startGeneration = 0;
     this.cancelStart = null;
     this.overallStartTimer = null;
@@ -113,6 +114,25 @@ export class LiveInterviewSession {
     try { event = JSON.parse(typeof raw === 'string' ? raw : raw?.data || '{}'); }
     catch { return; }
     this.onEvent(event);
+    if (event.type === 'session.delegation.created') {
+      const delegation = event.delegation;
+      if (this.state !== 'active' || this.channel?.readyState !== 'open'
+        || delegation?.target !== 'client' || !/^[A-Za-z0-9_-]{1,160}$/.test(delegation.id || '')
+        || this.handledDelegations.has(delegation.id)) return;
+      // No owner lookup or reasoning backend is wired to this speech adapter.
+      // Return that actual limitation instead of leaving a provider request pending.
+      try { this.channel.send(JSON.stringify({
+        type: 'session.instructions.append', event_id: 'ivoc-context-limit-' + delegation.id,
+        delegation_id: delegation.id,
+        content: 'The application has no additional lookup or backend result for this request. Respond now using only the authorized context already supplied. If the needed fact is missing, say that you do not have verified information about it; do not invent program policy or promise further checking. Then invite the candidate to continue or ask their next question. Preserve the current interview phase and do not restart the question pool.',
+      })); } catch {
+        this.emitStatus('active', 'The interviewer could not receive the context update. Please repeat your question.');
+        return;
+      }
+      this.handledDelegations.add(delegation.id);
+      if (this.handledDelegations.size > 64) this.handledDelegations.delete(this.handledDelegations.values().next().value);
+      return;
+    }
     if (event.type === 'session.started') {
       clearTimeout(this.startTimer);
       this.startedResolve?.(event);
@@ -185,6 +205,7 @@ export class LiveInterviewSession {
     this.activeTranscriptIds = { applicant: null, interviewer: null };
     this.openingQuestion = String(openingQuestion || '').trim();
     this.closingRequested = false;
+    this.handledDelegations.clear();
     if (!this.openingQuestion || this.openingQuestion.length > 1_000) {
       throw new TypeError('A bounded opening question is required.');
     }
