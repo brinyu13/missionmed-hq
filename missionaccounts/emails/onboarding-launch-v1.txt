@@ -1,0 +1,28 @@
+Subject: Your MyMissionMed Account is ready
+
+MissionMed ExamPrep
+
+Hi {{first_name}},
+
+Dr J's ExamPrep program has grown, and MyMissionMed Account now gives you one private place to finish onboarding and see the parts of your ExamPrep account that are live today: your profile, attendance, exam plan, account balance, and payment setup when it applies to you.
+
+Dr J is still your teacher. MissionMed provides the secure account and billing workspace around her ExamPrep program.
+
+Please sign in within 48 hours and complete every item marked Incomplete. You can save your progress, leave, and return at any time. This pilot deadline is a request for readiness; access enforcement is not active.
+
+Username: {{username}}
+
+Open MyMissionMed Account:
+{{account_url}}
+
+Use your existing MissionMed password. If you have not set one or cannot sign in, use this secure account link:
+{{password_setup_url}}
+
+MissionMed staff will never ask you to email a password or card number.
+
+Completing onboarding does not create a charge. Saving a payment method does not authorize billing. Any billing authorization is a separate step that you read and accept yourself.
+
+Need help? Reply to this email or contact {{support_email}}.
+
+Dr J
+MissionMed ExamPrep

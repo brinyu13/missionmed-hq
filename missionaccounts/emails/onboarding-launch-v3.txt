@@ -1,0 +1,39 @@
+Subject: Your MyMissionMed Account is ready
+
+MISSIONMED EXAMPREP
+
+Hi {{first_name}},
+
+Your Dr J ExamPrep home is ready.
+
+Dr J's ExamPrep program has been upgraded with a private MyMissionMed Account. Dr J remains your teacher and the heart of the program; MissionMed now provides the secure, centralized workspace around it.
+
+This reduces scattered links and repetitive account administration, giving Dr J more time to focus on teaching.
+
+WHAT IS READY TODAY
+- Your plan: See your ExamPrep profile and exam plan.
+- Your progress: Review recorded attendance and onboarding status.
+- Your account: See balances and payment setup when applicable.
+
+YOUR SECURE ACCOUNT
+Username: {{username}}
+
+Open MyMissionMed Account:
+{{account_url}}
+
+Use your existing MissionMed password. If you have not set one or cannot sign in, use this secure account link:
+{{password_setup_url}}
+
+MissionMed staff will never ask you to email a password or card number.
+
+Please complete your setup within 48 hours. Finish every item marked Incomplete. You can save, leave, and return at any time. This pilot deadline is a readiness request; access enforcement is not active.
+
+PAYMENT SAFETY
+Completing onboarding creates no charge. Adding a payment method creates no charge and does not authorize billing. Billing authorization is a separate step that you read and accept yourself when applicable.
+
+Need help? Reply to this email or contact {{support_email}}.
+
+Dr J
+MissionMed ExamPrep
+
+Private student communication from MissionMed Institute. Do not forward secure account links.

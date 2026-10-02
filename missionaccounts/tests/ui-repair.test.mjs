@@ -171,7 +171,7 @@ test('onboarding UI recovers saves, keeps student role guards, and uses truthful
  assert.match(bind,/error\?\.status===409/);
  assert.match(bind,/label:'Reload'/);
  assert.match(fn('missionAccountsStatusBanner'),/state\?\.user\?\.role==='student'/);
- assert.match(fn('viewMeOnboarding'),/const actionable=\['profile','contact','exam_plan'/);
+ assert.match(fn('viewMeOnboarding'),/const actionable=\(data\.required_steps/);
  assert.match(fn('viewMeOnboarding'),/Save changes/);
 });
 

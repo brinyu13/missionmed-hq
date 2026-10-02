@@ -39,6 +39,25 @@ const validProfile = {
   expected_revision: 0,
 };
 
+test('missing canonical email is supplied by authenticated account without overwriting existing contact or causing billing', async () => {
+  const store = new PreviewStore();
+  store.previewStudentRecord.email = null;
+  store.previewStudentRecord.phone = '+15555550123';
+  const baseline = [store.notifications.size, store.autoChargeDispatches.size, store.hostedInvoiceDispatches.size, store.chargesByDay.size];
+  await withServer({ config, store, stripeGateway: new StripeGateway() }, async base => {
+    const response = await fetch(`${base}/api/me/onboarding`, { headers: studentHeaders });
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.onboarding.student.email, 'student.preview@invalid.local');
+    assert.equal(body.onboarding.progress.contact, true);
+    store.previewStudentRecord.email = 'existing-contact@example.test';
+    const retained = await fetch(`${base}/api/me/onboarding`, { headers: studentHeaders });
+    assert.equal((await retained.json()).onboarding.student.email, 'existing-contact@example.test');
+  });
+  await assert.rejects(store.syncStudentAccountEmail({ studentId, accountEmail:'other@example.test',actorId:'different-student',actorRole:'student' }), /canonical student/);
+  assert.deepEqual([store.notifications.size, store.autoChargeDispatches.size, store.hostedInvoiceDispatches.size, store.chargesByDay.size], baseline);
+});
+
 async function withServer(options, run) {
   const server = createMissionAccountsServer(options);
   server.listen(0, '127.0.0.1');
@@ -82,7 +101,7 @@ test('student saves, resumes, edits, and idempotently replays only their onboard
     assert.equal(initialBody.onboarding.status, 'NOT_STARTED');
     assert.equal(initialBody.onboarding.student.display_name, 'Preview Student');
     assert.equal(initialBody.onboarding.student.student_id, undefined);
-    assert.deepEqual(initialBody.onboarding.missing_steps, ['PROFILE', 'EXAM_PLAN', 'PAYMENT_METHOD', 'BILLING_CONSENT']);
+    assert.deepEqual(initialBody.onboarding.missing_steps, ['PAYMENT_METHOD', 'BILLING_CONSENT']);
 
     const headers = { ...studentHeaders, 'idempotency-key': 'onboard-profile-0001' };
     const first = await fetch(`${base}/api/me/onboarding`, { method: 'POST', headers, body: JSON.stringify(validProfile) });
@@ -196,7 +215,22 @@ test('ambiguous canonical identity cannot read a previously saved onboarding pro
   });
 });
 
-test('completion is server-derived and sponsored students do not require payment or consent', async () => {
+test('only payment and billing authorization gate DIRECT completion; optional details never block sponsored completion', async () => {
+  const minimal = new PreviewStore();
+  minimal.previewStudentRecord.phone = null;
+  assert.deepEqual(minimal.onboardingState(studentId).missing_steps, ['PAYMENT_METHOD','BILLING_CONSENT']);
+  minimal.seedPaymentMethod(studentId, { status:'on_file',brand:'visa',last4:'4242' });
+  assert.deepEqual(minimal.onboardingState(studentId).missing_steps, ['BILLING_CONSENT']);
+  minimal.billingConsents.set(studentId,{state:'authorized',terms_version:'approved-v1'});
+  assert.equal(minimal.onboardingState(studentId).status,'COMPLETE');
+  assert.deepEqual(minimal.onboardingState(studentId).optional_missing_steps,['PROFILE','CONTACT','EXAM_PLAN']);
+  assert.equal(minimal.onboardingState(studentId).profile,null);
+  for (const sponsor of ['UCC','MUL']) {
+    const exempt = new PreviewStore(); exempt.previewStudentRecord.sponsor_type=sponsor;
+    assert.equal(exempt.onboardingState(studentId).status,'COMPLETE');
+    assert.deepEqual(exempt.onboardingState(studentId).required_steps,[]);
+    assert.equal(exempt.onboardingState(studentId).payment_requirement,'NOT_APPLICABLE');
+  }
   const direct = new PreviewStore();
   direct.previewStudentRecord.phone = '+15555550123';
   await direct.saveStudentOnboarding({ studentId, profile: validProfile, expectedRevision: 0, actorId: studentId, actorRole: 'student', requestId: 'direct-profile-0001' });
@@ -329,4 +363,120 @@ test('production HTML exposes accessible responsive onboarding routes without ad
   assert.match(runtime, /'onboarding-save': 'onboarding'/);
   assert.match(runtime, /mutation\('\/me\/onboarding'/);
   assert.doesNotMatch(runtime.slice(runtime.indexOf("action === 'onboarding-save'"), runtime.indexOf("action === 'onboarding-save'") + 700), /charge|notification|invoice|dispatch/i);
+});
+
+test('phone can be saved by its student and satisfies CONTACT for DIRECT, UCC and MUL without billing side effects', async () => {
+  for (const sponsor of ['DIRECT', 'UCC', 'MUL']) {
+    const store = new PreviewStore();
+    store.previewStudentRecord.sponsor_type = sponsor;
+    store.previewStudentRecord.phone = null;
+    store.examPlans.set(studentId, { id: 'test-plan', student_id: studentId, state: 'submitted' });
+    if (sponsor === 'DIRECT') {
+      store.seedPaymentMethod(studentId, { status: 'on_file', brand: 'visa', last4: '4242' });
+      store.billingConsents.set(studentId, { state: 'authorized', terms_version: 'approved-v1' });
+    }
+    const before = JSON.stringify([store.chargesByDay.size, store.notifications.size, store.autoChargeDispatches.size, store.hostedInvoiceDispatches.size]);
+    await withServer({ config, store, stripeGateway: new StripeGateway() }, async base => {
+      const headers = { ...studentHeaders, 'idempotency-key': 'phone-completion-' + sponsor };
+      const body = JSON.stringify({ ...validProfile, phone: '+1 (555) 555-0123' });
+      const first = await fetch(base + '/api/me/onboarding', { method: 'POST', headers, body });
+      assert.equal(first.status, 201);
+      const saved = (await first.json()).onboarding;
+      assert.equal(saved.status, 'COMPLETE');
+      assert.equal(saved.student.phone, '+1 (555) 555-0123');
+      assert.equal(saved.profile.phone, undefined);
+      assert.deepEqual(saved.missing_steps, []);
+      if (sponsor !== 'DIRECT') assert.equal(saved.payment_requirement, 'NOT_APPLICABLE');
+      const retry = await fetch(base + '/api/me/onboarding', { method: 'POST', headers, body });
+      assert.equal((await retry.json()).duplicate, true);
+      const reloaded = (await (await fetch(base + '/api/me/onboarding', { headers: studentHeaders })).json()).onboarding;
+      assert.equal(reloaded.status, 'COMPLETE');
+      assert.equal(reloaded.revision, 1);
+      const stale = await fetch(base + '/api/me/onboarding', {
+        method: 'POST', headers: { ...studentHeaders, 'idempotency-key': 'phone-stale-' + sponsor },
+        body: JSON.stringify({ phone: '+15555550124', expected_revision: 0 }),
+      });
+      assert.equal(stale.status, 409);
+      assert.equal(store.previewStudentRecord.phone, '+1 (555) 555-0123');
+    });
+    assert.equal(JSON.stringify([store.chargesByDay.size, store.notifications.size, store.autoChargeDispatches.size, store.hostedInvoiceDispatches.size]), before);
+  }
+});
+
+test('short profile and invalid phone inputs name the field and never mutate', async () => {
+  const store = new PreviewStore();
+  await withServer({ config, store, stripeGateway: new StripeGateway() }, async base => {
+    for (const [field, value] of [['school_name','A'], ['mailing_line1','AB'], ['mailing_city','A'], ['mailing_region','A'], ['mailing_postal_code','A'], ['phone','abc'], ['phone','123']]) {
+      const response = await fetch(base + '/api/me/onboarding', {
+        method: 'POST', headers: { ...studentHeaders, 'idempotency-key': 'validation-' + field + '-' + value },
+        body: JSON.stringify({ [field]: value, expected_revision: 0 }),
+      });
+      assert.equal(response.status, 400);
+      const error = await response.json();
+      assert.equal(error.field, field);
+      assert.equal(store.onboardingProfiles.size, 0);
+    }
+  });
+});
+
+test('phone-only save preserves profile and cannot cross student or spoof completion', async () => {
+  const store = new PreviewStore();
+  await store.saveStudentOnboarding({ studentId, profile: { school_name: 'School' }, expectedRevision: 0, actorId: studentId, actorRole: 'student', requestId: 'phone-initial-profile' });
+  await withServer({ config, store, stripeGateway: new StripeGateway() }, async base => {
+    const save = await fetch(base + '/api/me/onboarding', {
+      method: 'POST', headers: { ...studentHeaders, 'idempotency-key': 'phone-only-save-0001' },
+      body: JSON.stringify({ phone: '+15555550123', expected_revision: 1 }),
+    });
+    const state = (await save.json()).onboarding;
+    assert.equal(state.profile.school_name, 'School');
+    assert.equal(state.progress.contact, true);
+    assert.equal(state.status, 'IN_PROGRESS');
+    assert.ok(state.optional_missing_steps.includes('PROFILE'));
+    const denied = await fetch(base + '/api/me/onboarding', {
+      method: 'POST', headers: { ...studentHeaders, 'x-missionaccounts-local-user': '00000000-0000-4000-8000-000000000002', 'idempotency-key': 'phone-other-student' },
+      body: JSON.stringify({ phone: '+15555550999', expected_revision: 2 }),
+    });
+    assert.ok([403,404].includes(denied.status));
+    const spoof = await fetch(base + '/api/me/onboarding', {
+      method: 'POST', headers: { ...studentHeaders, 'idempotency-key': 'phone-spoof-complete' },
+      body: JSON.stringify({ complete: true, expected_revision: 2 }),
+    });
+    assert.equal(spoof.status, 400);
+    assert.equal(store.previewStudentRecord.phone, '+15555550123');
+  });
+});
+
+test('provider save uses the v2 private RPC with canonical phone and changed-field custody', async () => {
+  const original = globalThis.fetch;
+  let called;
+  globalThis.fetch = async (url, options) => {
+    called = { url, body: JSON.parse(options.body) };
+    return new Response(JSON.stringify({ accepted: true }), { status: 200 });
+  };
+  try {
+    const store = new SupabaseRestStore({ url: 'https://provider.invalid', serviceKey: 'test-only-service-key' });
+    await store.saveStudentOnboarding({ studentId, profile: { phone: '+15555550123' }, changedFields: ['phone'], expectedRevision: 2, actorId: studentId, actorRole: 'student', requestId: 'phone-provider-test' });
+    assert.match(called.url, /rpc\/api_save_student_onboarding_v2$/);
+    assert.equal(called.body.p_phone, '+15555550123');
+    assert.deepEqual(called.body.p_changed_fields, ['phone']);
+    assert.equal(called.body.p_actor_id, studentId);
+  } finally { globalThis.fetch = original; }
+});
+
+test('an incomplete student can submit the required exam plan without a circular completion gate', async () => {
+  const store = new PreviewStore();
+  store.previewStudentRecord.phone = null;
+  await withServer({ config: { ...config, features: { ...features, examPlans: true } }, store, stripeGateway: new StripeGateway() }, async base => {
+    const response = await fetch(base + '/api/me/exam-plan', {
+      method: 'POST', headers: { ...studentHeaders, 'idempotency-key': 'incomplete-exam-path' },
+      body: JSON.stringify({ step: 's1', exam_on: '2027-03-01' }),
+    });
+    assert.equal(response.status, 201);
+    const state = store.onboardingState(studentId);
+    assert.equal(state.progress.exam_plan, true);
+    assert.equal(state.progress.contact, false);
+    assert.notEqual(state.status, 'COMPLETE');
+    assert.ok(state.optional_missing_steps.includes('PROFILE'));
+    assert.ok(state.optional_missing_steps.includes('CONTACT'));
+  });
 });

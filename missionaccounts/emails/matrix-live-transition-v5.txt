@@ -1,0 +1,41 @@
+Dr J ExamPrep: Complete your Matrix setup
+
+DR J EXAMPREP · IMPORTANT ACCOUNT UPDATE
+
+Your live-session access is moving to Matrix.
+
+Today, Dr J sends your Zoom link by email. That process is changing. MissionMed Matrix will soon become the way you access upcoming Dr J ExamPrep live sessions.
+
+ACTION REQUIRED
+Complete your MyMissionMed onboarding now so your account is ready.
+Complete my setup: {{onboarding_url}}
+
+Once live-session access moves to Matrix, completed onboarding will be required to access JOIN LIVE SESSION. Complete your setup now. Don't wait until your next live session to discover you can't join.
+
+Hi {{first_name}},
+
+We're completing the move of Dr J ExamPrep live-session access into MissionMed Matrix. Right now, Dr J manually sends Zoom links by email for each live session. That process is being retired. Once the transition is complete, you'll sign into MissionMed Matrix and select JOIN LIVE SESSION to access Dr J's upcoming live classes.
+
+Complete your MyMissionMed onboarding now.
+
+Once Matrix becomes the live-session access point, your required onboarding must be complete to join Dr J's live sessions. If your setup is incomplete, JOIN LIVE SESSION will remain unavailable until you finish. Individual Zoom links will no longer be sent by email as an alternative to completing onboarding. Complete your setup now so your account is ready before you need it. Your current ExamPrep enrollment still controls access.
+
+YOUR MYMISSIONMED SETUP
+Username: {{username}}
+Status: ACTION REQUIRED — ONBOARDING INCOMPLETE
+What to do: Sign in and complete every required onboarding item until your account shows ✓ Complete.
+Complete my setup: {{onboarding_url}}
+{{credential_block}}
+
+Don't wait until your next live session.
+
+Complete your onboarding now to keep your Dr J ExamPrep live-session access ready. Once Matrix becomes the access point, incomplete onboarding means JOIN LIVE SESSION will remain unavailable until your required setup is complete. Individual Zoom links will not be emailed separately as an alternative.
+
+Complete my setup: {{onboarding_url}}
+
+Warm wishes,
+Dr J
+Dr J ExamPrep · MissionMed Institute
+
+Need help? Reply to this email or contact info@missionmedinstitute.com.
+This account update is for Dr J ExamPrep students.
