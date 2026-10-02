@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-10-01 America/New_York
+Updated: 2026-10-02 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`, `DR-350` (narrow packaging); `DR-340` QA grant revoked
 Branch: `codex/ivoc-foreman-9200`
@@ -14,6 +14,14 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Release held for an executable startup correction:** independent review of
+  `4526266` found that server transcript readiness can consume the browser's old
+  15-second media deadline before SDP arrives (3-second provider setup plus
+  12.001-second attachment reproduces failure). Candidate `5efbe9b` is clean and
+  remotely read back, 112 focused checks PASS, but NOT deployed. Correct separate
+  setup/media deadlines and late-cancellation cleanup under epoch 4077, then
+  independent review → tracked release → exact Film Room reload → bounded live
+  attachment/teardown canary. No full audible interview acceptance inferred.
 - **Live fix-forward, 2026-10-02 03:50 UTC:** current deployment
   `d7617c00-b524-402d-88ee-c8f6c9230b09`, source `c6a0201f77547e8342b86e5cb682bb31978485e0`,
   image `sha256:00c8ab8332f0ea359b19211deddb73db22a8b8b2412075bd5e26502d5e55d0ab`,
