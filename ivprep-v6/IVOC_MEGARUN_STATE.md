@@ -25,10 +25,33 @@ the actual production route and deployment.
   Progress without a Library detour, reversed responses, stale failures and Compare
   compatibility. Independent bounded review found no remaining P0/P1; its small
   stale-error consistency note was corrected with focused regression coverage.
-  Source correction is not yet deployed. No camera, audio, provider, DB or visual
-  composition change. Epoch4106 released normally/read back before expanding the
-  exact test-file lease; epoch4108 keeper is active. Current healthy rollback is
-  `c25eaa4` / `f6186d77`, exact custody below.
+  LIVE source `b7eef10a80ea2e672362bb4c50c007986f17d214`, deployment
+  `f4d9e7e1-2858-41a0-a69b-6061bfe613dd` SUCCESS, image
+  `sha256:d8f477e4ab98419d014371f3f8abb21a0f7eb0c946d3621d0cd98f0deb12cf31`,
+  artifact `773f0596d9825623fcb053ca89d884e1571b2c265477c6ec891320afab8a408c`.
+  Exact runtime studio hash `a72ad4ec0e705ac866346e79007f9273b4e4ad2c5bdc9ea406a741812e55ec3e`
+  matches source. Health200, anonymous product/bootstrap401, config unchanged.
+  No camera, audio, provider, DB or visual composition change. Epoch4106 released
+  normally/read back before expanding the exact test-file lease; deployment4109
+  released normally/read back; epoch4108 covers the final ledger receipt.
+  Fresh independent production wp:1 POV compatibility PASS: Home → Progress
+  retains 19 completed saves / 1520.9 s / 3 questions / 5 days; Analytics history
+  loads, Library retains 33 total rows, Results retains `4f708360` and Compare
+  retains that attempt against `ed7bbd75` with measured evidence and truthful
+  unavailable coaching. Foreman cold reload also confirms current Founder
+  admission and exact Progress totals. No new capture/provider/data action;
+  new genuine save → Progress acceptance remains part of the physical-session gate.
+  Healthy rollback is `c25eaa4` / `f6186d77`, exact custody below.
+- **Current continuation boundary:** independent review of the remaining bounded
+  IVOC-owned history/learning-loop work found no other P0/P1 after this correction.
+  Do not turn that bounded result into whole-product certification. New protected
+  owner work requires the exact RISE/WP successor authority below; genuine media,
+  current source-qualified CV/story data, additional authenticated roles, real
+  recurrence and Webex completion remain event-gated. Active embodiment still
+  needs the outstanding bounded numeric allowance/current OS activation decision;
+  inactive preparation is not a production avatar. No repeated unchanged audits
+  or fabricated identities/speech. All current runtime code is deployed; ensuing
+  commit is ledger-only. Epoch4108 is released at the final safe boundary.
 - **Own Answer Library race correction, source epoch 4106:** fresh independent
   actual-renderer probes found Review A → Review B resolving backwards reopened
   A; a late Review also hijacked navigation Home. Shared Review/Play action and
@@ -1544,11 +1567,16 @@ the actual production route and deployment.
   role evidence; positive current-CV and consented-story owner data; and completed
   Webex media while its owner reports `RECORDING PROCESSING`. Recheck only after
   the relevant user, provider or session event changes.
-- **C — OWNER-SCOPED INTEGRATION REQUIRED:** no currently authorized owner-side
-  engineering remains. File Vault, StoryForge and RISE projections plus IVOC
-  consumers are deployed through their owner boundaries. Genuine current-CV
-  and consented-story positive data remain category B, not engineering stops.
-- **D — EXPLICITLY DEFERRED:** active LemonSlice/provider execution. Match
+- **C — OWNER-SCOPED INTEGRATION REQUIRED (current correction):** ordinary
+  Student RISE eligibility handoff remains open despite the deployed projection.
+  Exact current WP files differ from registered/local sources; the dated receipt
+  above records the hashes and narrow successor-authority question. Preserve live
+  preimages and existing eligibility; never grant RISE from IVOC admission alone.
+  Genuine File Vault/CV and consented-story positive data remain category B.
+- **D — EXPLICITLY DEFERRED / AUTHORITY GATED:** the newer interview-season brief
+  reopened embodiment preparation. Active LemonSlice/provider execution waits on
+  bounded spend and current activation authority; do not call the preparation a
+  live provider or treat historical deferral as permission to omit the lane. Match
   Bridge cross-product pickup remains low priority because the IVOC-owned
   consent/version/revocation clip seam is already live accepted.
 - **Prior 96% estimate withdrawn:** the rejected runtime composition showed that
