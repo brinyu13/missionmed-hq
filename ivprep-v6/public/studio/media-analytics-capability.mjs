@@ -2,6 +2,9 @@
 // Dimensions and play() are not proof of a visible camera image: a live device
 // can deliver black pixels indefinitely. Only a tiny local aggregate is used;
 // no frame or pixel array leaves the browser.
+export const CAMERA_BLACK_MESSAGE = 'Camera connected, but its image is black. Uncover or illuminate the camera, or choose another camera.';
+const trackAvailable = (track) => track.readyState === 'live' && track.enabled !== false && track.muted !== true;
+
 export function summarizeVideoFramePixels(pixels) {
   if (!pixels || pixels.length < 4 || pixels.length % 4 !== 0) return Object.freeze({ visible: false, mean: 0, max: 0 });
   let total = 0; let maximum = 0; let lit = 0;
@@ -26,10 +29,43 @@ export function createMediaAnalyticsBridge() {
     sink: null,
     audioContext: null,
     trackListeners: [],
+    frameRecoveryTimer: null,
+    frameRecoveryIdentity: null,
+    stopFrameRecovery() {
+      clearInterval(this.frameRecoveryTimer);
+      this.frameRecoveryTimer = null;
+      this.frameRecoveryIdentity = null;
+    },
+    watchFrameRecovery(video, stream, canvas, context) {
+      this.stopFrameRecovery();
+      const identity = {};
+      this.frameRecoveryIdentity = identity;
+      // One tiny local sample per half-second, only after a black-image failure.
+      // Do not acquire media, start an interview, or retain raw camera pixels.
+      this.frameRecoveryTimer = setInterval(() => {
+        if (this.frameRecoveryIdentity !== identity) return;
+        if (this.media.stream !== stream || video.srcObject !== stream
+          || this.frameVisibility.stream !== stream || this.frameVisibility.reason !== 'black_image'
+          || !stream.getVideoTracks().some((track) => track.readyState === 'live')) {
+          this.stopFrameRecovery();
+          return;
+        }
+        if (!stream.getVideoTracks().some(trackAvailable) || video.paused || video.ended
+          || video.videoWidth < 16 || video.videoHeight < 16) return;
+        try {
+          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+          if (!summarizeVideoFramePixels(context.getImageData(0, 0, canvas.width, canvas.height).data).visible) return;
+        } catch { return; }
+        this.frameVisibility = Object.freeze({ stream, visible: true, reason: 'image_verified' });
+        this.stopFrameRecovery();
+        window.dispatchEvent?.(new CustomEvent('ivoc-media-liveness'));
+      }, 500);
+      this.frameRecoveryTimer?.unref?.();
+    },
     refreshLiveness() {
       const stream = this.media.stream;
-      const cam = Boolean(stream?.getVideoTracks?.().some((track) => track.readyState === 'live'));
-      const rawMic = Boolean(stream?.getAudioTracks?.().some((track) => track.readyState === 'live'));
+      const cam = Boolean(stream?.getVideoTracks?.().some(trackAvailable));
+      const rawMic = Boolean(stream?.getAudioTracks?.().some(trackAvailable));
       this.media = Object.freeze({
         ...this.media,
         cam,
@@ -57,8 +93,10 @@ export function createMediaAnalyticsBridge() {
       this.stopMedia({ keepContext: true });
       if (!(stream instanceof MediaStream)) throw new TypeError('A browser media stream is required.');
       const tracks = stream.getTracks();
+      // A temporarily muted live microphone still needs its processing graph;
+      // unmute should restore readiness without another capture request.
       const mic = tracks.some((track) => track.kind === 'audio' && track.readyState === 'live');
-      const cam = tracks.some((track) => track.kind === 'video' && track.readyState === 'live');
+      const cam = tracks.some((track) => track.kind === 'video' && trackAvailable(track));
       let AC = null; let analyser = null; let data = null; let source = null; let sink = null;
       if (mic) {
         const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -72,7 +110,8 @@ export function createMediaAnalyticsBridge() {
         }
       }
       this.ownsStream = ownsStream; this.source = source; this.sink = sink;
-      this.media = Object.freeze({ cam, mic: Boolean(mic && AC && analyser && data), stream, AC, analyser, data });
+      this.media = Object.freeze({ cam, mic: Boolean(tracks.some((track) => track.kind === 'audio' && trackAvailable(track))
+        && AC && analyser && data), stream, AC, analyser, data });
       this.frameVisibility = Object.freeze({ stream, visible: false, reason: 'unchecked' });
       this.watchTracks(stream);
       return this.media;
@@ -86,9 +125,10 @@ export function createMediaAnalyticsBridge() {
       canvas.width = 64; canvas.height = 48;
       const context = canvas.getContext('2d', { willReadFrequently: true });
       if (!context) throw new Error('Camera image could not be checked in this browser.');
+      this.stopFrameRecovery();
       const deadline = Date.now() + timeoutMs;
       do {
-        if (this.media.stream !== stream || !stream.getVideoTracks().some((track) => track.readyState === 'live')) {
+        if (this.media.stream !== stream || video.srcObject !== stream || !stream.getVideoTracks().some(trackAvailable)) {
           throw new Error('Camera disconnected while checking the preview. Reconnect it.');
         }
         let summary;
@@ -106,7 +146,8 @@ export function createMediaAnalyticsBridge() {
         await new Promise((resolve) => setTimeout(resolve, 100));
       } while (true);
       this.frameVisibility = Object.freeze({ stream, visible: false, reason: 'black_image' });
-      throw new Error('Camera connected, but its image is black. Uncover or illuminate the camera, or choose another camera.');
+      this.watchFrameRecovery(video, stream, canvas, context);
+      throw new Error(CAMERA_BLACK_MESSAGE);
     },
     async replaceTrack(kind, deviceId) {
       const constraint = kind === 'audio' ? { audio: { deviceId: { exact: deviceId } }, video: false } : { video: { deviceId: { exact: deviceId } }, audio: false };
@@ -158,6 +199,7 @@ export function createMediaAnalyticsBridge() {
       }
     },
     stopMedia({ keepContext = false } = {}) {
+      this.stopFrameRecovery();
       for (const { track, refresh } of this.trackListeners) {
         for (const name of ['ended', 'mute', 'unmute']) track.removeEventListener?.(name, refresh);
       }

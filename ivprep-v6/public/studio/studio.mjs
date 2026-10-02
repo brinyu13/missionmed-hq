@@ -14,6 +14,7 @@
 
 import {
   AdminStudentLibraryCapability,
+  CAMERA_BLACK_MESSAGE,
   buildLongitudinalModel,
   COLLECTIONS,
   compareAttempts,
@@ -1843,7 +1844,7 @@ async function switchDevice(kind, deviceId) {
 
 function liveTrack(kind) {
   const tracks = kind === 'video' ? bridge.media.stream?.getVideoTracks?.() : bridge.media.stream?.getAudioTracks?.();
-  return tracks?.find((track) => track.readyState === 'live') || null;
+  return tracks?.find((track) => track.readyState === 'live' && track.enabled !== false && track.muted !== true) || null;
 }
 
 function videoSurfaceBound(video) {
@@ -3917,6 +3918,8 @@ async function boot() {
     if (document.visibilityState === 'visible') void refreshDevices();
   });
   window.addEventListener('ivoc-media-liveness', () => {
+    if (bridge.frameVisibility.visible && bridge.frameVisibility.stream === bridge.media.stream
+      && state.deviceError === CAMERA_BLACK_MESSAGE.toUpperCase()) state.deviceError = null;
     renderDeviceCheck();
     if (state.view === 'training' || state.view === 'simulation') evaluateReadiness();
   });

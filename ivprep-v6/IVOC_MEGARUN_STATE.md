@@ -14,6 +14,23 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Black-frame recovery candidate, epoch 4085:** independent reproduction found
+  that a black first image left readiness cached false after the same stream became
+  lit. The bridge now retries one tiny local sample per 500 ms only after this
+  failure; exact stream/surface/generation guards cancel stale work, stop/rebind
+  cleans up, and only real visible pixels clear the matching error/enable Continue.
+  No capture restart, upload or automatic interview start. Muted/disabled tracks
+  stay unready; live muted microphones retain their processing graph for unmute.
+  Independent review PASS after that regression was caught and corrected; 68 focused
+  checks PASS. Await exact tracked deployment and normal live readiness verification.
+- **Admin review current POV:** Founder actor `wp:1` selected genuine `wp:142`
+  in Admin library, opened that student's Results/full measured report and Film Room,
+  and playback advanced to 19.443 s without media error. The historical recording's
+  displayed image was black, so no visible-student or audible conversation proof is
+  claimed. Switching back to Student presentation cleared the selected-student
+  review and returned to own Library; no notes/review status/data were changed.
+  Completed previous source/deployment leases 4061/4071/4072/4073/4075/4076/4077
+  were released normally and canonical readback confirmed release.
 - **Current release, 2026-10-02 04:20 UTC:** source
   `399a87518a412a6f94efe81a113e0f0640155e26`, deployment
   `62590a0f-1168-4e08-a751-e871a5d1d6b8` SUCCESS, image
