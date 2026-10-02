@@ -803,7 +803,7 @@ export function createIvocHandler({
   fetchImpl = fetch,
   contextProvider = null,
   applicationIntelligence = null,
-  candidateAudioCaptureEnabled = false,
+  candidateAudioCaptureEnabled = true,
 } = {}) {
   const mediaBase = '';
   const db = repository || createIvocRepository({

@@ -31,7 +31,15 @@ the actual production route and deployment.
   all 21 original replay rows and 18 saved rows retained, zero source rows,
   FORCE RLS / no browser grants / no service DELETE / no public function execute
   verified after migration. 87 integrated focused checks PASS, independent
-  correction review PASS. Source-aware disabled-capture deployment pending.
+  correction review PASS. Source-aware disabled-capture baseline is live:
+  source `5f3f23fbc8442e7f50c37bc7734c04f1ab163988`, deployment
+  `668bb5a5-5149-4347-91ce-c52ba92835de`, image
+  `sha256:2461d22f39c652e53233d21ef1c9f3af5f2c4c5491072e560a3b134120006e48`,
+  artifact `12b12f81e14c060fd706b8969bc91f34f2cebd280d259c4863db11774f504596`.
+  Seven runtime file hashes match; health 200 and anonymous product/bootstrap
+  401; deployment epoch 4058 released normally. Use this source-aware baseline
+  for capture-activation rollback; older runtimes do not filter source rows.
+  Activation changes only the default capture gate; analysis remains disabled.
 - **Containment independent live PASS:** genuine Founder/Admin actual UI showed
   unavailable unsafe coaching, retained measured Analytics and provisional
   Film Room conversation, paused playback, exact question/version retry. Admin
