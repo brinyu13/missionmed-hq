@@ -4,6 +4,7 @@ import { CANDIDATE_CAPTURE_VERSION } from './candidate-audio.mjs';
 // storage. These in-process brands reject client JSON, not attest DB origin.
 const prompts = new WeakSet();
 const sources = new WeakSet();
+export const isSelfPracticeAnswerSource = value => sources.has(value);
 const MAX_MS = 43_200_000;
 const audioMimes = new Set(['audio/webm', 'audio/webm;codecs=opus', 'audio/mp4', 'audio/ogg;codecs=opus']);
 const uuid = value => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(value);

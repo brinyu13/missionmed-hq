@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { resolveSelfPracticePrompt, validateSelfPracticeAnswerSource, mapSelfPracticeAnswerSegments } from '../../ivoc/answer-source.mjs';
+import { resolveSelfPracticePrompt, validateSelfPracticeAnswerSource, mapSelfPracticeAnswerSegments, isSelfPracticeAnswerSource } from '../../ivoc/answer-source.mjs';
 
 const sessionId = '00000000-0000-4000-8000-000000000001';
 const parentId = '00000000-0000-4000-8000-000000000002';
@@ -42,6 +42,9 @@ const segment = (startMs = 0, endMs = 1000, id = 's1') => ({ id, startMs, endMs 
 test('owned sealed stem maps independent source/session/replay offsets without creating a spoken question', () => {
   const input = fixture(); const before = structuredClone(input);
   const answerSource = validated(input);
+  assert.equal(isSelfPracticeAnswerSource(answerSource), true);
+  assert.equal(isSelfPracticeAnswerSource(Object.freeze(JSON.parse(JSON.stringify(answerSource)))), false);
+  assert.equal(isSelfPracticeAnswerSource(null), false);
   const result = mapSelfPracticeAnswerSegments({ answerSource, segments: [segment()] });
   assert.deepEqual(result.segments[0], { id: 's1', sourceRecordingId: sourceId, replayRecordingId: parentId,
     sourceMedia: { startMs: 0, endMs: 1000 }, session: { startMs: 200, endMs: 1200 }, replayMedia: { startMs: 100, endMs: 1100 } });
