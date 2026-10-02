@@ -1,4 +1,5 @@
 const START_TIMEOUT_MS = 15_000;
+const OVERALL_START_TIMEOUT_MS = 90_000;
 
 function transcriptEvent(event) {
   const type = String(event?.type || '');
@@ -74,6 +75,9 @@ export class LiveInterviewSession {
     this.remoteAudioTrackId = null;
     this.openingQuestion = null;
     this.openingRequested = false;
+    this.startGeneration = 0;
+    this.cancelStart = null;
+    this.overallStartTimer = null;
   }
 
   emitStatus(state, detail = null) {
@@ -178,14 +182,18 @@ export class LiveInterviewSession {
     this.emitTelemetry('configured');
     const peer = new this.PeerConnection();
     this.peer = peer;
+    const generation = ++this.startGeneration;
+    const current = () => this.startGeneration === generation && this.peer === peer;
     peer.addTrack(audioTrack);
     const audioBound = new Promise((resolve, reject) => {
       this.audioBoundResolve = resolve;
       this.audioBoundReject = reject;
-      this.audioBoundTimer = setTimeout(() => reject(new Error('InterviewBrain audio did not bind in time.')), START_TIMEOUT_MS);
     });
+    // Observe rejection immediately even while ICE/server custody is pending.
+    audioBound.catch(() => {});
     peer.ontrack = async (event) => {
       const track = event.track;
+      if (!current()) { track?.stop?.(); return; }
       if (track?.kind && track.kind !== 'audio') {
         track.stop?.();
         return;
@@ -203,7 +211,9 @@ export class LiveInterviewSession {
         if (!this.audioElement) throw new Error('Interviewer playback surface is unavailable.');
         this.audioElement.srcObject = stream;
         await this.audioElement.play?.();
+        if (!current()) return;
         await this.onAuthoritativeAudioStream(stream);
+        if (!current()) return;
         this.audioAuthority = 'bound';
         this.emitTelemetry('bound');
         clearTimeout(this.audioBoundTimer);
@@ -211,6 +221,7 @@ export class LiveInterviewSession {
         this.audioBoundResolve = null;
         this.audioBoundReject = null;
       } catch (error) {
+        if (!current()) return;
         this.remoteAudioTrackId = null;
         clearTimeout(this.audioBoundTimer);
         this.audioBoundReject?.(error);
@@ -220,49 +231,90 @@ export class LiveInterviewSession {
       }
     };
     peer.onconnectionstatechange = () => {
+      if (!current()) return;
       if (['failed', 'disconnected'].includes(peer.connectionState)) {
         this.emitStatus('error', `WebRTC ${peer.connectionState}`);
       }
     };
     const channel = peer.createDataChannel('oai-events');
     this.channel = channel;
-    channel.onmessage = (event) => this.handleEvent(event);
+    channel.onmessage = (event) => { if (current()) this.handleEvent(event); };
     const started = new Promise((resolve, reject) => {
       this.startedResolve = resolve;
       this.startedReject = reject;
-      this.startTimer = setTimeout(() => reject(new Error('InterviewBrain did not start in time.')), START_TIMEOUT_MS);
     });
+    started.catch(() => {});
+    const cancelled = new Promise((_, reject) => {
+      this.cancelStart = reject;
+      this.overallStartTimer = setTimeout(() => reject(new Error('InterviewBrain startup did not finish in time.')), OVERALL_START_TIMEOUT_MS);
+    });
+    // Retain the returned provider identity even if cancellation wins the
+    // awaiting race. Once published, normal stop owns cleanup instead.
+    let returnedId = null, published = false, lateCleanup = null;
+    const cleanupLate = () => {
+      if (!returnedId || published) return Promise.resolve();
+      return lateCleanup ||= Promise.resolve().then(() => this.endSession(returnedId, { keepalive: true }));
+    };
+    cancelled.catch(() => cleanupLate()).catch(() => {});
+    const step = value => Promise.race([value, cancelled]);
     try {
-      const offer = await peer.createOffer();
-      await peer.setLocalDescription(offer);
-      await waitForIce(peer);
-      const created = await this.createSession({
+      const offer = await step(peer.createOffer());
+      await step(peer.setLocalDescription(offer));
+      await step(waitForIce(peer));
+      if (!current()) throw new Error('InterviewBrain startup was stopped.');
+      const creating = Promise.resolve(this.createSession({
         sdp: peer.localDescription?.sdp || offer.sdp,
         voice,
         context,
         ivocSessionId,
+      })).then(async created => {
+        returnedId = created?.session?.id || null;
+        if (!current()) {
+          // Cancellation cannot abort server creation; hang up only its exact
+          // late returned identity, without rebinding any browser media.
+          await cleanupLate();
+          throw new Error('InterviewBrain startup was stopped.');
+        }
+        return created;
       });
+      creating.catch(() => {});
+      const created = await step(creating);
+      if (!current()) {
+        await cleanupLate();
+        throw new Error('InterviewBrain startup was stopped.');
+      }
       this.sessionId = created.session.id;
+      published = true;
       if (created.audioAuthority?.mode !== 'single'
           || created.audioAuthority?.authority !== 'openai-gpt-live-native') {
         throw new Error('InterviewBrain audio authority is invalid.');
       }
-      await peer.setRemoteDescription({ type: 'answer', sdp: created.transport.sdp });
-      await Promise.all([started, audioBound]);
+      // These are negotiation/media deadlines, not server-create deadlines.
+      if (this.startedReject) this.startTimer = setTimeout(() => this.startedReject?.(new Error('InterviewBrain did not start in time.')), START_TIMEOUT_MS);
+      if (this.audioBoundReject) this.audioBoundTimer = setTimeout(() => this.audioBoundReject?.(new Error('InterviewBrain audio did not bind in time.')), START_TIMEOUT_MS);
+      await step(peer.setRemoteDescription({ type: 'answer', sdp: created.transport.sdp }));
+      await step(Promise.all([started, audioBound]));
+      if (!current()) throw new Error('InterviewBrain startup was stopped.');
+      clearTimeout(this.overallStartTimer);
       this.requestOpening(this.openingQuestion);
       return Object.freeze({ id: this.sessionId, model: created.session.model, audioAuthority: this.diagnostics() });
     } catch (error) {
+      if (!current()) { await cleanupLate(); throw error; }
       clearTimeout(this.startTimer);
       clearTimeout(this.audioBoundTimer);
       this.startedResolve = null;
       this.startedReject = null;
       await this.stop({ notifyServer: Boolean(this.sessionId) });
-      this.emitStatus('error', String(error?.message || error));
+      if (this.startGeneration === generation + 1) this.emitStatus('error', String(error?.message || error));
       throw error;
     }
   }
 
   async stop({ notifyServer = true, keepalive = false } = {}) {
+    const generation = ++this.startGeneration;
+    this.cancelStart?.(new Error('InterviewBrain startup was stopped.'));
+    this.cancelStart = null;
+    clearTimeout(this.overallStartTimer);
     const id = this.sessionId;
     this.sessionId = null;
     clearTimeout(this.startTimer);
@@ -283,11 +335,11 @@ export class LiveInterviewSession {
       this.audioElement.pause?.();
       this.audioElement.srcObject = null;
     }
-    if (notifyServer && id) await this.endSession(id, { keepalive });
     this.startedAtMs = null;
     this.openingQuestion = null;
     this.openingRequested = false;
-    this.emitStatus('closed', 'Interview ended');
+    if (notifyServer && id) await this.endSession(id, { keepalive });
+    if (this.startGeneration === generation) this.emitStatus('closed', 'Interview ended');
     return Object.freeze({ ok: true });
   }
 }
