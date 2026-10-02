@@ -27,6 +27,9 @@ const TABLES = new Set([
   'ivprep_provider_control',
   'ivprep_provider_reservations',
 ]);
+// Actor context may revalidate protected evidence, but this adapter must not
+// acquire a new mutation surface for sessions, analyses or private recordings.
+const CONTEXT_READ_TABLES = new Set(['ivoc_sessions', 'ivoc_results', 'ivoc_recordings']);
 const RPCS = new Set([
   'ivprep_bind_provider_dispatch',
   'ivprep_claim_provider_job',
@@ -191,7 +194,10 @@ export class IvPrepSupabaseRest {
   }
 
   table(name, query = '', options = {}) {
-    if (!TABLES.has(name) || (query && !query.startsWith('?'))) throw new Error('IV Prep table operation is not approved.');
+    const contextRead = CONTEXT_READ_TABLES.has(name)
+      && (options.method === undefined || options.method === 'GET')
+      && options.body == null && options.prefer == null;
+    if ((!TABLES.has(name) && !contextRead) || (query && !query.startsWith('?'))) throw new Error('IV Prep table operation is not approved.');
     return this.request(`/${name}${query}`, options);
   }
 
