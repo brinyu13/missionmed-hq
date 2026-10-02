@@ -50,3 +50,5 @@ Actual compatible C18 frontend rollback applied usce_offer.html 3615c4e3a09a8923
 Actual frontend reapply usce_offer.html final05f460fa3af85e826a37d404869d8605843b18bca79dd9e8356f5cb3300a7614 public/R2/source exact200 no-store. Admin three label associations independently APPROVE; scripts identical to approved foundation30d. Applicant variants independently APPROVE05f460.
 
 Fix-forward independent_j10_labels: source/R2/public exacte6586f33a32d7fcec79162d897f9cac31dac19afa86d1ead922e651940258eaf200 no-store; before987fd4c0450547f3ac7c4b2d7afcbade538536bf123f43a939050886f08893dc backup verified. No sibling/global/provider-email mutation. Live browser acceptance separate.
+
+Fix-forward independent_j10_month_selection: source/R2/public exact6ccd46e49fb10ca123b08530e45a83ec0e730b55384b3cad47cd1ced95f47a27200 no-store; beforee6586f33a32d7fcec79162d897f9cac31dac19afa86d1ead922e651940258eaf backup verified. No sibling/global/provider-email mutation. Live browser acceptance separate.

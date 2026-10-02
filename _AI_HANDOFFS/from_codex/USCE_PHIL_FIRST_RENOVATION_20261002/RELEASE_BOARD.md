@@ -4,7 +4,7 @@ Mission USCE-PHIL-FIRST-RENOVATION-20261002; state INDEPENDENT_ACCEPTANCE. Relea
 
 DR359/360 and canonical Founder Chrome/brinyu/StoryForge steering ratified; Phil personal login superseded. Fresh universal/mission BOOT passed using canonical HQ .git, immutable MR0799638e678. Root sole integrator with exact owned fences. Astra authored experience candidate and cannot final verify. IVOC/siblings/unrelated dirty state preserved.
 
-Serving source/custody: frozen C18 source2a7e1fc, routec54d63; Railway deployment98875fa0/image06a5aa SUCCESS/health status:ok/all18 SSH filesystem hashes exact; start node missionmed-hq/usce-gateway.mjs. CDN admine6586f3/applicant05f460 source/R2/public exact200 no-store. Full pins in STATE.md, CRITICAL_SYSTEMS_MANIFEST.json, RUNTIME_BUNDLE_C.md and CDN_RELEASE.md.
+Serving source/custody: frozen C18 source2a7e1fc, routec54d63; Railway deployment98875fa0/image06a5aa SUCCESS/health status:ok/all18 SSH filesystem hashes exact; start node missionmed-hq/usce-gateway.mjs. CDN admin6ccd46e/applicant05f460 source/R2/public exact200 no-store. Full pins in STATE.md, CRITICAL_SYSTEMS_MANIFEST.json, RUNTIME_BUNDLE_C.md and CDN_RELEASE.md.
 
 Migrations all applied once: b532/20261002131800, f7cd/20261002142841,97884/20261002162044;75 history entries/original74 preserved. Service-only owner/ACL/SECDEF/searchpath readback approved. No history replay/repair/down.
 
@@ -32,3 +32,5 @@ Temporary holds/QA recipient restriction will be deliberately removed after boun
 Fresh /root/usce_fresh_acceptance has exclusive Chrome, begins from normal entry/goals without builder walkthrough. Next: stable controlled transport, independent walkthrough/fix-forward, recoverable own-case/mail cleanup, normal config and fresh final readback, canonical OS handback and acceptance. No stop at a report/build/PR.
 
 Independent J10 static-label correction e6586f33 approved (19 associations, two custom names, named months group, scripts unchanged), published source/R2/public200 no-store. Native Chrome confirm tool stalls when target tab is background; selecting the verified USCE tab and visible actual dialog succeeds. Synthetic old Accept paperwork blocked->blocked revision5->6 recorded once, brinyu/source/reason/time 2026-10-02T17:45:34.810716-04:00. No product dialog rewrite. Root returns exclusive Chrome to fresh verifier; acceptance remains pending.
+
+Current admin6ccd46e month selection exposes pressed state: exact two aria-only additions independently approved with43 actual extracted lifecycle checks. Source/R2/public200 no-store verified; frontend behavior and provider contracts unchanged. Fresh reviewer targeted reacceptance pending; root controller healthy.

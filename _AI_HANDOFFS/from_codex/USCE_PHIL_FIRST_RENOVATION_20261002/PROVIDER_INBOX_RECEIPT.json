@@ -1,0 +1,57 @@
+{
+  "claim_id": "2f4adc3b-7d19-44be-9119-cc0b8e8bfd86",
+  "offer_id": "2f3839ae-0b61-4460-94d9-960e2e60455b",
+  "provider": {
+    "message_id": "9027b2d1-cccb-47a5-b281-20ad096bcbde",
+    "to": [
+      {
+        "Email": "info+usce-qa-20261002@missionmedinstitute.com",
+        "Name": ""
+      }
+    ],
+    "subject": "[USCE QA TEST] Independent synthetic offer revision B - no business obligation",
+    "status": "Sent",
+    "received_at": "2026-10-02T17:54:11.0000000-04:00",
+    "events": [
+      {
+        "type": "Delivered",
+        "received_at": "2026-10-02T17:54:11.0000000-04:00",
+        "recipient": "info+usce-qa-20261002@missionmedinstitute.com",
+        "details": {
+          "DeliveryMessage": "smtp;250 2.0.0 OK  1790978051 46e09a7af769-822768d4a01si7204822a34.2 - gsmtp",
+          "DestinationServer": "aspmx.l.google.com. (173.194.192.27)",
+          "DestinationIP": "173.194.192.27"
+        }
+      }
+    ]
+  },
+  "inbox": {
+    "message_id": "1a0fe9c4da80380b",
+    "thread_id": "1a0fe9c4da80380b",
+    "label_ids": [
+      "UNREAD",
+      "CATEGORY_PERSONAL",
+      "SENT",
+      "INBOX"
+    ],
+    "to": [
+      "info+usce-qa-20261002@missionmedinstitute.com"
+    ],
+    "from": [
+      "MMI Clinical Rotations <info@missionmedinstitute.com>"
+    ],
+    "reply_to": [
+      "clinicals@missionmedinstitute.com"
+    ],
+    "provider_message_id": [
+      "9027b2d1-cccb-47a5-b281-20ad096bcbde"
+    ],
+    "subject": [
+      "[USCE QA TEST] Independent synthetic offer revision B - no business obligation"
+    ],
+    "date": [
+      "Fri, 02 Oct 2026 21:54:10 +0000"
+    ]
+  },
+  "scope": "Exactly one fresh independent clearly labeled synthetic QA send to approved MissionMed test alias. No raw capability, body or credential in this receipt. Delivery/inbox is not opened/replied, payment, enrollment, or placement."
+}

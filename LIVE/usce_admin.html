@@ -2199,7 +2199,8 @@ a,button,input,select,textarea{touch-action:manipulation}
       b.innerHTML = '<span>'+esc(m)+'</span>' + prefTag;
       if (prefIdx > -1) b.classList.add('is-preferred');
       if (preselected.has(m)) b.classList.add('is-on');
-      b.addEventListener('click', ()=> { b.classList.toggle('is-on'); updatePreflight(); });
+      b.setAttribute('aria-pressed', String(b.classList.contains('is-on')));
+      b.addEventListener('click', ()=> { b.classList.toggle('is-on'); b.setAttribute('aria-pressed', String(b.classList.contains('is-on'))); updatePreflight(); });
       ofMonths.appendChild(b);
     });
 
