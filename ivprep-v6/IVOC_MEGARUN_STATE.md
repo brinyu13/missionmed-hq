@@ -2,10 +2,10 @@
 
 Updated: 2026-10-02 America/New_York
 Mission: `IVOC-CONVERGE-8001`
-Authority: `DR-290`, `DR-350` (narrow packaging); `DR-340` QA grant revoked
+Authority: `DR-290`, `DR-350` (narrow packaging), `DR-361` (current RISE eligibility successor); `DR-340` QA grant revoked
 Branch: `codex/ivoc-foreman-9200`
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
-Current terminal status: `ACTIVE P0 USER-JOURNEY RECOVERY — NOT COMPLETE`
+Current terminal status: `FOUNDER ACCEPTANCE READY — PRODUCT NOT COMPLETE`
 
 This is the one living requirement ledger required by the final Founder
 completion directive. A status of `LIVE UNVERIFIED` means the capability is
@@ -13,6 +13,121 @@ present in the active source lineage but has not yet passed acceptance against
 the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
+
+- **RISE/HQ successor repair, 2026-10-02: DEPLOYED; genuine Student role POV OPEN.**
+  DR-361 is filed/pushed/read back in MissionMed OS commit
+  `08f9a08035d20669f244efd4aaff4e9cf35d4332`. Current live issuer policy is
+  `MMED_Access_Gate::user_can_access_app(user, rise)`, including its existing
+  registered-user baseline and restricted-role denial. The historical
+  course-only description below is not current authority. No entitlement,
+  enrollment, role, user, database or provider configuration was changed.
+  A signed server-only owner endpoint now supplies subject/audience/nonce/source
+  bound 30-second current eligibility. Every delegated projection checks the
+  owner again; denied/unavailable/stale/invalid proof fails closed. Original HQ
+  session expiry still caps the result. No reusable RISE token or cookie is
+  minted; original login/RISE functions and current Access Gate remain unchanged.
+  Independent source review caught a missing-gate legacy fallback; the endpoint
+  now returns 503 if the current gate is unavailable, with regression coverage.
+  Final independent review APPROVE; 36 focused tests, PHP lint, Node syntax and
+  diff checks PASS. Original issuer bytes are recoverable exactly by removing
+  the additive block. No student admission was inferred from IVOC access alone.
+  Runtime source `638c7a279e4dfe3aaafa7163aec0f531533fddcc`, non-force pushed and
+  remotely read back. Railway `d6ab5544-0674-4f43-a31b-1dc69a3465a1` SUCCESS;
+  image `sha256:ab3c83b4d4db4cf07a85fb0861adb44fbaa3e75824f5f0f5a3da9d3017ce860d`;
+  filtered artifact `061dcba872f0c1325001f24ada10f08f13ac830c2d469f3b05b7bd52fff6c035`
+  (1200 files), preserved at
+  `/var/folders/xs/k4jpy4k177g_flhq3wp7p21r0000gn/T/ivoc-release-artifact-6RWmqv/stage`.
+  Runtime server SHA `891c3068dd26a8971f35477b50a76c11523ef72e1e67e69f96f1e87d86ce29ab`
+  and resolver SHA `046328ca8fb2ce7a1ca39b6651cc1dec19364f496c09a1fd2256abac52884f4a`
+  match source. Health200; anonymous product/bootstrap401; unchanged config.
+  Kinsta issuer SHA `8a7fcb5c604e89b55f1fe45d784179d96195d23be6f37cc0a3e166c56c25c7a2`;
+  HQ handoff remains `8cfb8dadf7193c63722ab3d217f319460922324d9e12fa934c902d02a9fa1813`;
+  Access Gate remains `222f24843c3a67a660a6353ee1621529f5b786a651eeb8003baebf103aae40af`.
+  All three preimages are outside webroot in Kinsta `/tmp/ivoc-dr361-preimage.qaL4uf/`.
+  Rollback: exact former issuer preimage + preserved `f4d9e7e1` runtime artifact
+  `773f0596d9825623fcb053ca89d884e1571b2c265477c6ec891320afab8a408c`, source
+  `b7eef10a80ea2e672362bb4c50c007986f17d214`, image recorded below. Preserve newer
+  source; redeploy exact artifact if provider removal prevents ID rollback.
+  Actual deployed HQ -> WP owner receipts verify fresh eligible wp:1/Admin and
+  wp:142/non-Admin; anonymous owner endpoint403. These are integration proofs,
+  NOT fabricated authenticated role POV. Fresh independent production UI PASS:
+  normal Matrix -> IVOC shows wp:1 Founder/Admin; SUNY returns 44 results/four
+  pages; selected Downstate Primary Care/Internal Medicine identity and exact
+  release survive Step 5 -> Back. Foreman independently searched/selected the
+  same verified program. No new recording, provider session or private-data write.
+  REGISTRY epoch4113, SHARED:AUTH4114 and deployment4117 released normally and
+  remotely confirmed; PRODUCT4118 protects this final ledger-only receipt and
+  is released after its commit/push/readback. No presentation/media graph changes.
+- **Current continuation boundary: FOUNDER ACCEPTANCE READY, not IVOC complete.**
+  The authorized RISE successor blocker is resolved. Remaining non-human paths
+  were exercised within their changed boundary; historical media acceptance is
+  neither invalidated nor upgraded by this auth release. Consolidated acceptance
+  below replaces repeated unchanged physical/role/source-data/provider audits.
+  New genuine failure reopens fix-forward; no component-count percentage claimed.
+
+### One consolidated genuine-human acceptance run
+
+Plan a 20-30 minute test window after the required people/data are available;
+this is a test-session budget, not a product-completion estimate. Use normal
+Matrix entry at https://missionmedinstitute.com/member-dashboard/ -> IV Prep
+On-Call. Current Founder Chrome is staged on the verified Program selection.
+
+1. **Self Practice, two genuine recordings:** select one question, connect the
+   physical camera/mic and visibly confirm video. Speak a real answer, finish,
+   save, inspect evidence-linked coaching/full Analytics and Film Room playback.
+   Retry the SAME question, save again, open Compare and confirm the correct two
+   attempts and measured evidence. Check Progress immediately after save.
+2. **AI Mock, one genuine recording:** normal Builder -> selected SUNY program
+   (or another actual RISE result) -> authorized context -> readiness -> Start.
+   Confirm a distinct Interview Room, visible video, one audible interviewer,
+   real answer -> contextual follow-up -> response. Interrupt once while the
+   AI is speaking, continue, request the next pool question, observe Analytics,
+   finish and save. Check Results/full Analytics/transcript, then Film Room:
+   actually HEAR interviewer question + candidate answer + follow-up + response.
+   Cold reload and replay both voices again; confirm Library/Progress persistence.
+   Inspect hidden-overlay measurement and Student/Film Room overlay controls
+   where permitted. Missing signals stay truthful; no true eye-gaze claim.
+3. **Role/private-media extension with genuine logins:** existing wp:107
+   (`brian_test`) is currently an Admin; existing wp:142 is currently a subscriber
+   with owner-confirmed IVOC and RISE eligibility. Use their real normal sessions,
+   not an Admin role-view button or revoked QA grant. Verify second Admin selects
+   the test student and reviews only the authorized student's attempts; verify
+   ordinary Student Matrix entry/search and denied Admin/cross-owner access.
+   A separate existing genuinely non-entitled/revoked identity is still needed
+   for that negative case; none is identified yet. Do not create one or request
+   passwords in chat. wp:1/wp:107/wp:142 owner checks are not login acceptance.
+4. **Optional data-ready extension in the SAME AI run:** one designated real
+   student must upload their actual current CV to canonical File Vault and
+   authorize bounded IVOC use. An authorized File Vault manager reviews the
+   extracted structured facts and publishes the current clean version through
+   existing `POST /wp-json/mmed/v2/file-vault/files/{fileId}/projections/ivoc-cv`
+   with exact `version_uuid`, genuine `authorization_ref`, and 1-120 reviewed
+   unique fact entries. Raw upload alone is insufficient; each replacement CV
+   needs current-version review. No new storage/API or invented facts.
+   For one actual owned StoryForge story: genuine Admin approval and existing
+   promotion to IV Prep On-Call (`expectedVersion`, `confirmReplace:false`), then
+   the genuine Student grants current-version `/storyforge/api/ivoc/consent`
+   with an approved <=60-word summary and explicit tips inclusion choice.
+   Re-read version after promotion; edits invalidate stale consent. Student
+   explicitly selects these sources in IVOC. Verify proactive/reactive questioning
+   cites authorized material without exposing unrelated stories/documents.
+
+This one run can close current physical media, same-question learning loop,
+spoken follow-up/barge-in/next-question, two-sided durable replay, save-to-Progress,
+program-aware questioning, and (if sessions/data are present) role/privacy and
+positive CV/story gates. It cannot manufacture time-separated recurrence or
+completed Webex media; those stay event-gated, without unchanged polling.
+
+**No-spend embodiment disposition:** the existing inactive Actor saved-setup
+reader, fictional profiles, Director/Actor boundary, single audio authority,
+generation/response identity and stale-output/cancellation contracts are retained.
+Paid activation is NOT ready/accepted: actual provider cancellation/audio/motion/
+sink acknowledgement and approved profile mapping remain activation prerequisites.
+No paid LemonSlice call, new audible path or external TTS work was performed.
+Do not repeat a spend question now; once activation-ready, one bounded request
+must name numeric cap, duration, session count, kill/rollback and proof sought.
+
+### Historical release receipts (superseded where current receipt differs)
 
 - **Progress/history freshness correction, source epochs 4106 → 4108:** fresh
   independent actual-source POV probe reproduced Progress retaining its previous
@@ -42,7 +157,7 @@ the actual production route and deployment.
   admission and exact Progress totals. No new capture/provider/data action;
   new genuine save → Progress acceptance remains part of the physical-session gate.
   Healthy rollback is `c25eaa4` / `f6186d77`, exact custody below.
-- **Current continuation boundary:** independent review of the remaining bounded
+- **Prior continuation boundary (superseded by DR-361 above):** independent review of the remaining bounded
   IVOC-owned history/learning-loop work found no other P0/P1 after this correction.
   Do not turn that bounded result into whole-product certification. New protected
   owner work requires the exact RISE/WP successor authority below; genuine media,
@@ -79,7 +194,7 @@ the actual production route and deployment.
   restored visible wp:1 Founder/Admin and 33/33 own saved answers without
   credentials/MFA or privileged bypass. Expiry cause is not established. No
   private media playback, provider or data mutation occurred.
-- **RISE WordPress hard stop:** live auth files do not match either local base.
+- **Historical RISE WordPress hard stop — RESOLVED by DR-361 above:** live auth files did not match either local base.
   Live HQ handoff SHA-256 `8cfb8dadf7193c63722ab3d217f319460922324d9e12fa934c902d02a9fa1813`;
   live RISE SSO `3e9e3eedc7b703d63f814544b48ec2c0d0eefa589b28e0cf72d1af6a33c88ab9`.
   No existing RISE entitlement-introspection endpoint was found in the inspected
@@ -111,7 +226,7 @@ the actual production route and deployment.
   are not atomic admission: future activation still requires its own gate, real
   cancellation/audio/motion/sink acknowledgements and approved spending/profile
   mappings. Deployment custody is recorded above; no active avatar acceptance.
-- **RISE ordinary-student dependency reclassified:** existing owner policy admits
+- **Historical RISE ordinary-student dependency (superseded owner-policy description):** existing owner policy admits
   current 3893/3646 students, while IVOC's internal delegation requires RISE
   claims absent from ordinary HQ/CAM handoff. DR-322/323 permit bounded owner-auth
   integration without expanding entitlement depth. OWNER-SCOPED ENGINEERING,
@@ -1567,12 +1682,12 @@ the actual production route and deployment.
   role evidence; positive current-CV and consented-story owner data; and completed
   Webex media while its owner reports `RECORDING PROCESSING`. Recheck only after
   the relevant user, provider or session event changes.
-- **C — OWNER-SCOPED INTEGRATION REQUIRED (current correction):** ordinary
-  Student RISE eligibility handoff remains open despite the deployed projection.
-  Exact current WP files differ from registered/local sources; the dated receipt
-  above records the hashes and narrow successor-authority question. Preserve live
-  preimages and existing eligibility; never grant RISE from IVOC admission alone.
-  Genuine File Vault/CV and consented-story positive data remain category B.
+- **C — OWNER-SCOPED INTEGRATION: RISE SUCCESSOR COMPLETED:** DR-361 binds exact
+  current live preimages and the deployed fresh owner-proof repair. Integration
+  and independent Founder regression PASS; genuine ordinary/negative browser
+  acceptance remains category B. Never grant RISE from IVOC admission alone.
+  Canonical File Vault/CV and StoryForge producers already exist; the minimum
+  genuine positive data/review/consent actions are specified above, category B.
 - **D — EXPLICITLY DEFERRED / AUTHORITY GATED:** the newer interview-season brief
   reopened embodiment preparation. Active LemonSlice/provider execution waits on
   bounded spend and current activation authority; do not call the preparation a
@@ -1690,7 +1805,7 @@ the actual production route and deployment.
 | 17 | Provider-neutral embodiment adapter and Brain/session separation | LIVE VERIFIED | Production Admin readback returns `missionmed.ivoc.embodiment.v1`: MissionMed InterviewBrain is the Director, providers are Actor-only, students select profiles rather than engines, and the adapter contract requires one audio authority plus generation/response identities. |
 | 17 | Flush/interruption/motion contract, Admin preview and cost controls | REOPENED R4 / PROVIDER INACTIVE | The historical public contract declared flush/cancel flags but did not execute those effects. Current inactive candidate requires actual acknowledgements and correct sink-drain lifecycle (dated receipt above). Admin policy still exposes bounded 45 s/no-retry/reservation requirements; current production transport/sink wiring and real avatar acceptance remain unverified. |
 | 17 | Fictional 10–15 avatar configuration model | LIVE VERIFIED | Authenticated `brinyu` Admin readback returned 12 fictional profiles spanning Program Director, Faculty and Chief Resident with Dove/Peacock/Owl/Eagle styles; every entry explicitly forbids person cloning and carries no provider voice or avatar asset identity. |
-| 17 | Active LemonSlice provider integration | R4 ACTIVE PREPARATION / PAID GATE WAITING | Interview-season Founder brief reopens this delivery lane. Software preparation proceeds; numeric provider allowance and current OS activation reconciliation remain required before provider creation. One bounded allowance question is outstanding; do not repeatedly ask or silently bill. |
+| 17 | Active LemonSlice provider integration | INACTIVE PREPARATION / ACTIVATION NOT ACCEPTED | Existing no-spend contracts and saved-setup reader retained. Real cancellation/audio/motion/sink acknowledgements and profile mappings remain prerequisites; no paid session authorized. Ask one numeric-cap decision only when activation-ready, not now. |
 | 18 | Dr Brian/brinyu Admin and second authorized Admin | LIVE UNVERIFIED | `wp:1` Founder/Admin is live accepted. Current WordPress authority verifies `wp:107` (`brian_test`) as an administrator; the production IVOC allowlist and dedicated entitlement now include `wp:107`. Final acceptance still requires a genuine authenticated `wp:107` browser session; no session was forged. |
 | 18 | Entitled 360 student and non-entitled/revoked/expired denials | LIVE VERIFIED ENTRY / FULL ACCEPTANCE WAITING | Ordinary course-entitled `wp:142` authenticated as `subscriber`, loaded production Home and 193 questions after the static-module fix, and navigated AI Mock to Device Calibration with Founder/Admin controls absent. Negative-role/revoked/expired production identities and the full student media journey remain unverified. |
 | 18 | Wrong-role/wrong-mentor denial and actor/subject separation | LIVE UNVERIFIED | Requires authenticated production negative-path acceptance. |
@@ -1756,12 +1871,13 @@ the actual production route and deployment.
    when available; run second-Admin and negative/wrong-owner acceptance only
    from genuine authenticated identities. Do not forge evidence or restore the
    revoked Founder QA grant.
-4. Resume the ordinary 360 RISE-delegation owner lane only when current RISE
-   authority and MissionMed OS `CURRENT.md` reconcile to the deployed owner
-   projection; do not grant cross-product Admin/private-beta access by proxy.
+4. DR-361 ordinary RISE owner reconciliation is deployed and integration-verified.
+   Use a genuine existing eligible Student/negative session when supplied for
+   remaining browser acceptance; do not re-audit resolved custody or mint roles.
 5. Recheck Webex only when the owner changes from `RECORDING PROCESSING` to a
    completed private recording.
 6. Accept longitudinal recurrence only after enough genuine saved sessions
    exist. Do not manufacture recurrence.
-7. Active LemonSlice execution remains deferred. Create the final handoff only
-   after the external evidence above closes and the terminal marker is true.
+7. No paid LemonSlice execution. Current authorized stopping packet is FOUNDER
+   ACCEPTANCE READY; full product completion remains unclaimed until the genuine
+   evidence above and remaining Founder ledger are satisfied.
