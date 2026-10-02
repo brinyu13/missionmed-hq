@@ -106,6 +106,8 @@ export class DurableStudioSession {
       context: {
         goal: wizard.goal || null,
         interviewer: wizard.interviewer || null,
+        interviewerStyle: ['Dove', 'Peacock', 'Owl', 'Eagle'].includes(wizard.interviewerStyle)
+          ? wizard.interviewerStyle : null,
         program: wizard.program || null,
         programId: verifiedProgram ? wizard.programId : null,
         programReleaseId: verifiedProgram ? wizard.programReleaseId : null,

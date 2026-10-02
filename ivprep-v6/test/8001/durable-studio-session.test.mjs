@@ -7,13 +7,25 @@ test('retry request binds only an unchanged one-question setup, never client pro
   const durable = new DurableStudioSession({ api: {} });
   const question = { question_id: 'Q1', canonical_text: 'Why here?' };
   const wizard = { retrySourceSessionId: '00000000-0000-4000-8000-000000000007', retryQuestionId: 'Q1', retryQuestionText: 'Why here?', retrySessionType: 'mock', retry: { forged: true } };
-  const options = { question, interviewSet: [question], wizard, targetQuestions: 1 };
+const options = { question, interviewSet: [question], wizard, targetQuestions: 1 };
   const input = durable.sessionInput(options);
   assert.equal(input.retrySourceSessionId, wizard.retrySourceSessionId);
   assert.equal(input.sessionType, 'mock');
   assert.equal(input.context.retry, undefined);
   assert.equal(durable.sessionInput({ ...options, targetQuestions: 2 }).retrySourceSessionId, undefined);
   assert.equal(durable.sessionInput({ ...options, question: { ...question, canonical_text: 'Changed' } }).retrySourceSessionId, undefined);
+});
+
+test('durable setup preserves selected role and bounded conversation style for replay and retry', () => {
+  const durable = new DurableStudioSession({ api: {} });
+  for (const interviewerStyle of ['Dove', 'Peacock', 'Owl', 'Eagle']) {
+    const input = durable.sessionInput({ wizard: { interviewer: 'Associate Program Director', interviewerStyle } });
+    assert.equal(input.context.interviewer, 'Associate Program Director');
+    assert.equal(input.context.interviewerStyle, interviewerStyle);
+  }
+  for (const interviewerStyle of [null, undefined, 'invented', '<instructions>']) {
+    assert.equal(durable.sessionInput({ wizard: { interviewerStyle } }).context.interviewerStyle, null);
+  }
 });
 
 test('Admin adapters fail closed and delegate only admitted authenticated Admin writes', async () => {

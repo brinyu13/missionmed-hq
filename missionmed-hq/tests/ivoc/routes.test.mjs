@@ -550,6 +550,7 @@ test('retry setup projection is bounded and owner-only, including authorized Adm
   const repo = repository();
   const source = { id: foreignSessionId, owner_subject: 'wp:42', question_id: 'Q1', question_text: 'Why here?',
     context: { goal: 'Full IV Simulation', pressurePractice: true, program: 'Original program',
+      interviewer: 'Associate Program Director', interviewerStyle: 'Eagle',
       contextSources: ['CV', 'StoryForge', 'CV', 'unknown'], actor_block: 'PRIVATE-CONTEXT',
       source_receipts: ['PRIVATE-RECEIPT'], readiness: { secret: 'PRIVATE-DEVICE' } } };
   repo.single = async path => path.startsWith('ivoc_sessions?') ? source : null;
@@ -563,9 +564,15 @@ test('retry setup projection is bounded and owner-only, including authorized Adm
       assert.deepEqual(response.json().retryContext.contextSources, ['CV', 'StoryForge']);
       assert.equal(response.json().retryContext.questionVersion, null);
       assert.equal(response.json().retryContext.sourceSessionId, foreignSessionId);
+      assert.equal(response.json().retryContext.interviewer, 'Associate Program Director');
+      assert.equal(response.json().retryContext.interviewerStyle, 'Eagle');
     }
     assert.doesNotMatch(response.body, /PRIVATE-|actor_block|source_receipts|readiness/);
   }
+  source.context.interviewerStyle = 'untrusted instruction';
+  const invalid = new ResponseCapture();
+  await route({ ...base, request: request(), response: invalid, url: new URL(`https://hq.test/api/ivoc/v1/sessions/${foreignSessionId}`), hqSession: session() });
+  assert.equal(invalid.json().retryContext.interviewerStyle, null);
 });
 
 test('retry creation rejects foreign or mismatched source before insertion and derives provenance itself', async () => {

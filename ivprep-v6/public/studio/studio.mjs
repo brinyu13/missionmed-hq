@@ -48,6 +48,7 @@ import {
   buildComparisonSelection,
   buildEvidenceMomentLinks,
   debriefConfidenceCopy,
+  buildInterviewerSelectionLabel,
   interviewerPresenceCopy,
   buildHomeViewModel,
   buildIdentityViewModel,
@@ -1491,7 +1492,7 @@ function renderWizard() {
     };
     addSummaryRow('Practice', state.wizard.goal);
     addSummaryRow('Question Pool', `${state.interviewSet.length} in pool · target about ${state.targetQuestions}`, state.interviewSet.length > 0);
-    addSummaryRow('Interviewer', state.wizard.interviewer);
+    addSummaryRow('Interviewer', buildInterviewerSelectionLabel(state.wizard));
     addSummaryRow('Program', state.wizard.programVerified
       ? `${state.wizard.program} · verified`
       : state.wizard.program ? `${state.wizard.program} · manual / unverified` : 'No program selected', state.wizard.programVerified);
@@ -2325,8 +2326,8 @@ function renderInterviewRoom() {
   if (camera.videoWidth && camera.videoHeight) room.style.setProperty('--room-camera-ratio', String(camera.videoWidth / camera.videoHeight));
   document.body.dataset.interviewImmersive = String(state.view === 'simulation' && model.immersive);
   $('#room-title').textContent = model.title;
-  $('#room-summary').textContent = [state.wizard.interviewer, state.wizard.program || 'General interview', `${state.targetQuestions} target questions`].join(' · ');
-  $('#room-interviewer-role').textContent = `${state.wizard.interviewer || 'Interviewer'} · Voice interview`;
+  $('#room-summary').textContent = [buildInterviewerSelectionLabel(state.wizard), state.wizard.program || 'General interview', `${state.targetQuestions} target questions`].join(' · ');
+  $('#room-interviewer-role').textContent = `${buildInterviewerSelectionLabel(state.wizard)} · Voice interview`;
   $('#room-preflight').hidden = model.immersive;
   const start = $('#live-interview-start');
   start.hidden = !model.showStart;

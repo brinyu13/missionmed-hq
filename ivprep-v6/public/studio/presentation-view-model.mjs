@@ -13,6 +13,7 @@ export function buildRetryIntent({ detail = null, reviewScope = null, catalog = 
     return unavailable('This question has changed or is no longer available. Choose a current question from the library.');
   }
   const sourceGoal = ['Full IV Simulation', 'Guided Mock IV Practice', 'Individual Question'].includes(source.goal) ? source.goal : null;
+  const sourceStyle = ['Dove', 'Peacock', 'Owl', 'Eagle'].includes(source.interviewerStyle) ? source.interviewerStyle : null;
   const goal = sourceGoal || 'Individual Question';
   const sources = Array.isArray(source.contextSources) ? source.contextSources
     .filter(item => ['CV', 'File Vault', 'MCC', 'Top 3', 'Prior IVOC'].includes(item)) : [];
@@ -22,10 +23,12 @@ export function buildRetryIntent({ detail = null, reviewScope = null, catalog = 
   if (source.program) notes.push('Reselect the program to refresh its verified intelligence.');
   if (source.contextSources?.includes('StoryForge')) notes.push('Select StoryForge again to confirm current story consent.');
   if (goal === 'Individual Question' && source.pressurePractice) notes.push('Pressure is unavailable for Individual Question.');
+  if (!sourceStyle) notes.push('Original conversation style unavailable; using Owl. You can choose another style.');
   return Object.freeze({ available: true, sourceSessionId: detail.id, question,
     launchMode: detail.interviewerProvider === 'openai-gpt-live' ? 'ai' : 'practice',
     wizard: { goal, retrySessionType: detail.sessionType, pressurePractice: goal !== 'Individual Question' && source.pressurePractice === true,
       interviewer: source.interviewer || 'Program Director', environment: source.environment || 'MissionMed',
+      interviewerStyle: sourceStyle || 'Owl',
       program: source.program || '', programId: null, programReleaseId: null, programVerified: false,
       contextSources: sources, storyForgeInclude: false, storyForgeOptIn: null,
       focus: String(drill?.text || '').slice(0, 500) },
@@ -63,6 +66,13 @@ export function debriefConfidenceCopy(confidence = {}) {
   return label
     ? `AI-estimated evidence confidence: ${label}. This qualitative estimate concerns the cited evidence—not a validated performance or readiness score.`
     : 'AI-estimated evidence confidence is unavailable. Review the cited evidence and its limitations; no performance or readiness score is established.';
+}
+
+export function buildInterviewerSelectionLabel(wizard = {}) {
+  const role = ['Program Director', 'Faculty', 'Chief Resident', 'Associate Program Director'].includes(wizard.interviewer)
+    ? wizard.interviewer : 'Interviewer';
+  const style = ['Dove', 'Peacock', 'Owl', 'Eagle'].includes(wizard.interviewerStyle) ? wizard.interviewerStyle : null;
+  return style ? `${role} · ${style}` : role;
 }
 
 // Stable IDs keep the reviewed answer selected when history is reordered or refreshed.

@@ -12,6 +12,7 @@ import {
   buildComparisonSelection,
   buildEvidenceMomentLinks,
   debriefConfidenceCopy,
+  buildInterviewerSelectionLabel,
   interviewerPresenceCopy,
   buildHomeViewModel,
   buildIdentityViewModel,
@@ -38,6 +39,7 @@ test('retry retains owner question and goal without reusing stale context author
   const detail = { id: 'own', sessionType: 'mock', interviewerProvider: 'openai-gpt-live', retryContext: {
     schema: 'ivoc.retry-intent.v1', sourceSessionId: 'own', questionId: 'Q1', questionText: question.canonical_text,
     goal: 'Guided Mock IV Practice', pressurePractice: true, program: 'Original program',
+    interviewer: 'Associate Program Director', interviewerStyle: 'Eagle',
     contextSources: ['CV', 'RISE', 'StoryForge', 'private-unrecognized'],
   } };
   const retry = buildRetryIntent({ detail, catalog: [question], drill: { text: 'Name your own contribution.' } });
@@ -46,6 +48,8 @@ test('retry retains owner question and goal without reusing stale context author
   assert.equal(retry.wizard.goal, 'Guided Mock IV Practice');
   assert.equal(retry.wizard.retrySessionType, 'mock');
   assert.equal(retry.wizard.pressurePractice, true);
+  assert.equal(retry.wizard.interviewer, 'Associate Program Director');
+  assert.equal(retry.wizard.interviewerStyle, 'Eagle');
   assert.equal(retry.wizard.programVerified, false);
   assert.equal(retry.wizard.programId, null);
   assert.equal(retry.wizard.storyForgeOptIn, null);
@@ -57,6 +61,21 @@ test('retry retains owner question and goal without reusing stale context author
   assert.equal(buildRetryIntent({ detail, catalog: [{ ...question, canonical_text: 'Edited question' }] }).available, false);
   assert.equal(buildRetryIntent({ detail: { ...detail, id: 'different' }, catalog: [question] }).available, false);
   assert.equal(buildRetryIntent({ detail: null }).available, false);
+  const historical = buildRetryIntent({ detail: { ...detail, retryContext: { ...detail.retryContext, interviewerStyle: null } }, catalog: [question] });
+  assert.equal(historical.wizard.interviewerStyle, 'Owl');
+  assert.match(historical.notes.join(' '), /Original conversation style unavailable; using Owl/);
+});
+
+test('review and runtime identify the actual role and style through the same presentation adapter', () => {
+  for (const interviewer of ['Program Director', 'Faculty', 'Chief Resident', 'Associate Program Director']) {
+    for (const interviewerStyle of ['Dove', 'Peacock', 'Owl', 'Eagle']) {
+      assert.equal(buildInterviewerSelectionLabel({ interviewer, interviewerStyle }), `${interviewer} · ${interviewerStyle}`);
+    }
+  }
+  assert.equal(buildInterviewerSelectionLabel({ interviewer: 'Unknown', interviewerStyle: 'Fake' }), 'Interviewer');
+  const source = readFileSync(new URL('../../public/studio/studio.mjs', import.meta.url), 'utf8');
+  assert.match(source, /addSummaryRow\('Interviewer', buildInterviewerSelectionLabel\(state.wizard\)\)/);
+  assert.match(source, /#room-interviewer-role'\).*buildInterviewerSelectionLabel\(state.wizard\)/);
 });
 
 test('actual retry transition seeds exactly one question and never starts capture or provider', async () => {

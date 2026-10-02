@@ -14,13 +14,39 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Current healthy release:** source `33034a1dd7d31b6d8f7c55c40f7d98b6e9712510`,
+  deployment `d1505c5a-78d7-4fda-a907-154623e13e75` SUCCESS, image
+  `sha256:78b93941d7adf549c0633fb60c26bba3f0faa9831e7e7a56518e07339c85599b`,
+  artifact `c8b5148c11f8c6010c7e67a5c5b4eea0c96811ada8a54f4da4de047855e9eb56`.
+  Four changed runtime hashes match source; health 200; anonymous product and
+  bootstrap 401. Epoch 4040 released normally and provider-confirmed; product
+  4039 released normally. Independent live MR142-071 Results PASS: qualitative
+  AI-estimated confidence and non-performance/readiness disclaimer; citations,
+  limitations and measured timing/voice/clipping unchanged. No provider call,
+  capture, playback or new rows in that check. Rollback `44f5404` / `50493273`
+  with its exact image/config above. Inactive R4 contract is deployed, not wired.
+- **New executable role/style defect:** current Builder exposes four roles and
+  Dove/Peacock/Owl/Eagle, but its native adapter drops style and maps Associate
+  Program Director to Program Director. Durable/retry intent also loses style.
+  Reopened this real capability-binding gap ahead of further avatar preparation;
+  fix only adapters, bounded server policy, persistence/retry and summary copy.
+  Existing native media/transport/voice and candidate.2 composition stay intact.
+- **Role/style candidate reviewed:** worker `9e958359` plus durable/retry and
+  summary adapters retain all four roles and all four styles, including APD.
+  Missing historical style is explicitly disclosed and defaults to Owl; invalid
+  explicit native style fails before provider fetch. 94 focused checks and fresh
+  independent source review PASS. No model/voice/transport, context privacy,
+  question-order or pressure-policy changes. Authenticated production Builder
+  baseline captured after resolving a stale Chrome browser identifier; live
+  deployment and visible summary/retry verification pending. Spoken style
+  differentiation remains unverified, not inferred from instruction binding.
 - **Confidence-copy candidate:** saved Results no longer converts uncalibrated
   model estimates into precise-looking percentages. The view-model labels the
   allowlisted qualitative estimate explicitly AI-estimated, concerning cited
   evidence, not a validated performance/readiness score. Missing/invalid labels
   remain unavailable. Raw evidence, measured detector values, citations and
   limits are unchanged. 40 focused checks and independent two-file review PASS;
-  live copy verification pending. Candidate.2 composition is unchanged.
+  live copy verification PASS on `33034a1` above. Candidate.2 composition is unchanged.
 - **R4 inactive lifecycle preparation:** `022d72f` plus review correction
   `5740d32` replace declarative flush flags with required acknowledged cancellation,
   audio-flush and motion-flush effects. Pending/failed cleanup blocks new output;
