@@ -18,13 +18,21 @@ the actual production route and deployment.
   transcription → semantic → persistence reproduction proves the whole two-sided
   recording can label interviewer words as student answers. This is an engineering
   defect, not proof of a live student incident. Production has no ffmpeg decoder.
-  Containment in progress: no processing of mixed/unproven audio, no unsafe saved
+  Containment deployed: no processing of mixed/unproven audio, no unsafe saved
   semantic/name/prior-IVOC projection; keep original rows, full replay, measured
   Analytics and provisional native conversation. Native and inactive Context Pack
   readers must both reject old longitudinal receipts. Complete candidate-only
   source capture and actual asked-question/range binding remains executable work;
   containment alone is not full Analytics acceptance.
-- **Attribution containment release candidate:** HQ `fc3a9a7` denies unproven
+- **Attribution containment live:** source `5274186851df063d870045ccd2b64f3255e3a608`,
+  deployment `90c91e4a-9235-4071-a451-e0003ff07d37` SUCCESS, image
+  `sha256:187a7509980259a030689ec5f00db52a0c0a92a8df6e1a956f6970d44d62b471`,
+  artifact `ecd7b24e733a9b66743ad3ac63a9cf1795ba5df0dcdd3f8252871f77f735e7e8`.
+  Seven changed runtime hashes match exact source; health 200; anonymous product
+  and bootstrap 401; config unchanged. Deployment epoch 4053 released normally
+  and provider-confirmed. Rollback source `586ee6a` / deployment `43be768c` and
+  exact image below (provider now marks predecessor REMOVED; exact-source
+  redeploy remains available). HQ `fc3a9a7` denies unproven
   processing before download/provider/canonical writes; historical unsafe batch
   text/ranges/coaching are withheld on read, not deleted. Parent UI requires an
   explicit verified source, retains provisional live transcript and measured
@@ -34,9 +42,9 @@ the actual production route and deployment.
   (not a live application failure). Current DB aggregate: 22 active context packs
   have array receipts, zero carry a prior-IVOC longitudinal projection. No data,
   schema, provider configuration or audio topology change in this containment.
-  Deployment/readback and actual changed Results/Film Room checks remain pending.
+  Independent actual changed Results/Film Room checks are in progress.
 - **Optional name observations:** local `60b3fdc` captures explicit default-off
-  manual-name opt-in and exact saved-attempt lexical evidence. Release held until
+  manual-name opt-in and exact saved-attempt lexical evidence. Deployed with
   attribution containment; absent verified candidate speech remains UNASSESSED.
   No rapport/personality scoring. Current Results baseline captured from actual
   authenticated Founder UI before the changed unavailable-state presentation.
