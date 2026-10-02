@@ -2751,6 +2751,9 @@ function renderDeviceCheck() {
   const microphoneLive = Boolean(liveTrack('audio') && media.mic);
   const preview = $('#devicecheck-stage video') || $('#builder-readiness-stage video');
   const surfaceLive = videoSurfaceReady(preview);
+  if (surfaceLive && microphoneLive && $('#signals-state')?.textContent === 'Connect camera + microphone first.') {
+    $('#signals-state').textContent = 'Devices connected. Try Analytics to see your measured signals.';
+  }
   const adminDiagnostics = state.role === 'admin';
   const rows = [
     ['Camera', cameraLive ? 'ready' : 'pending', cameraLive ? 'LIVE' : 'NOT CONNECTED'],
@@ -2759,9 +2762,9 @@ function renderDeviceCheck() {
       ? `${preview.videoWidth}×${preview.videoHeight} IMAGE VERIFIED`
       : bridge.frameVisibility.reason === 'black_image' ? 'BLACK CAMERA IMAGE' : 'NO VISIBLE FRAME'],
     [adminDiagnostics ? 'Audio context' : 'Microphone processing', media.AC?.state === 'running' ? 'ready' : 'pending', adminDiagnostics ? (media.AC?.state || 'IDLE').toUpperCase() : media.AC?.state === 'running' ? 'READY' : 'CONNECT DEVICES FIRST'],
-    [adminDiagnostics ? 'Vision worker' : 'Visual coaching', diagnostics.active ? 'ready' : 'pending', adminDiagnostics ? (diagnostics.active ? 'RUNNING' : 'IDLE') : diagnostics.active ? 'READY DURING PRACTICE' : 'CONNECT DEVICES FIRST'],
-    [adminDiagnostics ? 'Face landmarks' : 'Face + head tracking', diagnostics.active ? 'ready' : 'pending', diagnostics.active ? 'AVAILABLE DURING PRACTICE' : 'AWAITING DEVICES'],
-    ['Body + hands tracking', diagnostics.active ? 'ready' : 'pending', diagnostics.active ? 'AVAILABLE DURING PRACTICE' : 'AWAITING DEVICES'],
+    [adminDiagnostics ? 'Vision worker' : 'Visual coaching', diagnostics.active ? 'ready' : 'pending', adminDiagnostics ? (diagnostics.active ? 'RUNNING' : 'IDLE') : diagnostics.active ? 'MEASURING' : cameraLive ? 'TRY ANALYTICS BELOW' : 'CONNECT DEVICES FIRST'],
+    [adminDiagnostics ? 'Face landmarks' : 'Face + head tracking', signalPreview?.active && state.bus.latest?.FACE?.available ? 'ready' : 'pending', signalPreview?.active ? (state.bus.latest?.FACE?.available ? 'FACE MEASURED' : 'FINDING YOUR FACE') : cameraLive ? 'TRY ANALYTICS BELOW' : 'AWAITING DEVICES'],
+    ['Body + hands tracking', signalPreview?.active && state.bus.latest?.HANDS?.available ? 'ready' : 'pending', signalPreview?.active ? (state.bus.latest?.HANDS?.available ? 'CHECK HANDS IN SIGNALS' : 'FINDING BODY / HANDS') : cameraLive ? 'TRY ANALYTICS BELOW' : 'AWAITING DEVICES'],
   ];
   host.replaceChildren();
   for (const [name, level, text] of rows) {
@@ -3431,6 +3434,7 @@ async function mountAnalytics() {
         : status === 'complete' ? 'Check complete. Review the measured signals below; missing signals do not block your interview.'
           : 'Check stopped. Your interview is not being recorded.';
       if (!active) signalRack?.stop();
+      renderDeviceCheck();
     },
   });
 
@@ -3466,6 +3470,7 @@ async function mountAnalytics() {
       if (Number.isFinite(origin) && (signalPreview?.active || ['STARTING', 'RUNNING'].includes(state.session.state))) {
         if (measurementTimeline.ingest(detail, frame, performance.now() - origin)) {
           renderMeasurementTimeline($(signalPreview?.active ? '#signals-timeline' : '#room-flight-recorder'), measurementTimeline.snapshot(), { compact: true });
+          if (signalPreview?.active) renderDeviceCheck();
         }
       }
       renderStatusRail();
