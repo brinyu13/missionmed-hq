@@ -94,6 +94,247 @@ function registry() {
   return value;
 }
 
+const LIVE_SESSION_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const LIVE_HEADERS = { origin: 'http://hq.local', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': CSRF };
+const LIVE_BODY = { sdp: 'v=0\r\no=offer', voice: 'marin', context: { questionIds: ['CORE-01'] }, ivocSessionId: LIVE_SESSION_ID };
+const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
+async function until(predicate) {
+  for (let count = 0; count < 100; count++) { if (predicate()) return; await new Promise(resolve => setImmediate(resolve)); }
+  assert.fail('Expected lifecycle milestone was not reached.');
+}
+const startLive = (handler, extra = {}) => invoke(handler, { path: '/api/ivprep-v6/live/sessions', method: 'POST',
+  headers: LIVE_HEADERS, body: JSON.stringify(LIVE_BODY), ...extra });
+const endLive = (handler, id = 'live_fixture_0001') => invoke(handler, { path: `/api/ivprep-v6/live/sessions/${id}/end`, method: 'POST', headers: LIVE_HEADERS, body: '{}' });
+const attachedReceipt = identity => ({ observation_id: identity.observationId, session_id: identity.ivocSessionId,
+  owner_subject: identity.ownerSubject, provider_session_id: identity.providerSessionId, kind: 'attached', seq: 1 });
+function observerFixture(identity, { ready = Promise.resolve(attachedReceipt(identity)), drain = null, events = [] } = {}) {
+  const completed = deferred();
+  return { ready, completion: completed.promise, finish: async () => {
+    events.push(['finish', identity.providerSessionId]);
+    const outcome = { observationId: identity.observationId,
+      ...(drain ? await drain : { status: 'INCOMPLETE', reason: 'finish_timeout', terminalPersisted: true }) };
+    completed.resolve(outcome); return outcome;
+  } };
+}
+function liveHarness({ guard, context, create, observe, hangup } = {}) {
+  const enrolled = registry(), events = []; let generation = 0;
+  const handler = createIvPrepHqHandler({ registry: enrolled, now: () => NOW,
+    flags: { enabled: true, adminCanaryEnabled: true, videoEnabled: false },
+    liveSessionGuard: async identity => { events.push(['guard', identity]); if (guard) return guard(identity); },
+    liveContextResolver: async identity => { events.push(['context', identity]); return context ? context(identity) : { actorBlock: 'authorized fixture', receipt: 'fixture' }; },
+    liveSessionBroker: { create: async input => { events.push(['create', input]); return create ? create(input)
+      : { session: { id: `live_fixture_${String(++generation).padStart(4, '0')}`, model: 'unchanged-model' }, transport: { type: 'webrtc', sdp: 'unchanged-sdp' } }; },
+      hangup: async id => { events.push(['hangup', id]); if (hangup) return hangup(id); return { ok: true }; } },
+    liveTranscriptObserver: async identity => {
+      events.push(['observe', identity]);
+      assert.equal(enrolled.bindingFor(`live:${identity.providerSessionId}`).subject, identity.ownerSubject);
+      assert.equal(enrolled.terminationHandlers.has(`live:${identity.providerSessionId}`), true, 'termination must be armed before attachment');
+      return observe ? observe(identity, events) : observerFixture(identity, { events });
+    },
+  });
+  return { handler, enrolled, events };
+}
+
+test('owner-authorized observation attaches exact server identity before unchanged SDP201', async () => {
+  const h = liveHarness(); const result = await startLive(h.handler);
+  assert.equal(result.status, 201); assert.equal(result.body.transport.sdp, 'unchanged-sdp');
+  assert.deepEqual(h.events.map(event => event[0]), ['guard', 'context', 'guard', 'create', 'observe']);
+  const identity = h.events.at(-1)[1];
+  assert.deepEqual(Object.keys(identity).sort(), ['ivocSessionId', 'observationId', 'ownerSubject', 'providerSessionId']);
+  assert.equal(identity.ownerSubject, 'wp:1'); assert.equal(identity.ivocSessionId, LIVE_SESSION_ID);
+  assert.equal(identity.providerSessionId, result.body.session.id); assert.match(identity.observationId, /^[a-f0-9-]{36}$/u);
+  assert.equal(JSON.stringify(result.body).includes('observation'), false);
+  assert.deepEqual(h.events.find(event => event[0] === 'create')[1].context, LIVE_BODY.context);
+  assert.equal((await endLive(h.handler)).status, 200);
+});
+
+test('subject is reserved before body/context awaits so concurrent live creates never double pay', async () => {
+  const pending = deferred(); const h = liveHarness({ context: () => pending.promise });
+  const first = startLive(h.handler); await until(() => h.events.some(event => event[0] === 'context'));
+  assert.equal((await startLive(h.handler)).status, 409);
+  assert.equal(h.events.filter(event => event[0] === 'create').length, 0);
+  pending.resolve({ actorBlock: 'fixture' }); assert.equal((await first).status, 201);
+  assert.equal(h.events.filter(event => event[0] === 'create').length, 1);
+  await endLive(h.handler);
+});
+
+test('foreign/inactive guard and client event extensions deny before paid creation or attachment', async () => {
+  const denied = liveHarness({ guard: () => { throw new Error('private source-owner details'); } });
+  const result = await startLive(denied.handler);
+  assert.equal(result.status, 503); assert.deepEqual(result.body, { error: 'ivprep_live_start_failed' });
+  assert.deepEqual(denied.events.map(event => event[0]), ['guard']);
+  const h = liveHarness();
+  assert.equal((await startLive(h.handler, { body: JSON.stringify({ ...LIVE_BODY, events: [] }) })).status, 400);
+  assert.equal(h.events.length, 0);
+  assert.equal((await startLive(h.handler)).status, 201, 'invalid request releases only its own reservation');
+  await endLive(h.handler);
+});
+
+test('revocation/revision drift after awaited context blocks paid create', async () => {
+  for (const kind of ['logout', 'entitlement', 'revision']) {
+    const pending = deferred(); const h = liveHarness({ context: () => pending.promise });
+    const starting = startLive(h.handler); await until(() => h.events.some(event => event[0] === 'context'));
+    if (kind === 'logout') h.enrolled.recordLogout({ cookieFingerprint: 'a'.repeat(64) });
+    if (kind === 'entitlement') h.enrolled.revokeEntitlement('wp:1');
+    if (kind === 'revision') h.enrolled.grantSyntheticEntitlement({ subject: 'wp:1', revision: 'changed', voice: true, expiresAtMs: NOW + 120_000 });
+    pending.resolve({ actorBlock: 'fixture' }); assert.equal((await starting).status, 503, kind);
+    assert.equal(h.events.some(event => ['create', 'observe'].includes(event[0])), false);
+  }
+});
+
+test('observer factory/readiness failure and wrong receipt identity clean original provider with generic503', async () => {
+  for (const kind of ['factory', 'malformed-contract', 'ready-reject', 'wrong-owner', 'wrong-session', 'wrong-provider', 'wrong-observation', 'already-ended']) {
+    const h = liveHarness({ observe: (identity, events) => {
+      if (kind === 'factory') throw new Error('secret provider/transcript fixture');
+      const receipt = attachedReceipt(identity);
+      if (kind === 'wrong-owner') receipt.owner_subject = 'wp:2';
+      if (kind === 'wrong-session') receipt.session_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+      if (kind === 'wrong-provider') receipt.provider_session_id = 'foreign_live_provider';
+      if (kind === 'wrong-observation') receipt.observation_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+      const observer = observerFixture(identity, { events, ready: kind === 'ready-reject' ? Promise.reject(new Error('private root')) : Promise.resolve(receipt) });
+      if (kind === 'malformed-contract') observer.ready = null;
+      if (kind === 'already-ended') observer.completion = Promise.resolve({ status: 'INCOMPLETE', reason: 'socket_closed', terminalPersisted: true });
+      return observer;
+    } });
+    const result = await startLive(h.handler); assert.equal(result.status, 503, kind);
+    assert.deepEqual(result.body, { error: 'ivprep_live_start_failed' });
+    assert.deepEqual(h.events.filter(event => event[0] === 'hangup'), [['hangup', 'live_fixture_0001']]);
+    if (kind !== 'factory') assert.equal(h.events.filter(event => event[0] === 'finish').length, 1);
+  }
+});
+
+test('logout while readiness is pending cannot publish SDP and drains the attached observer', async () => {
+  const ready = deferred(); let identity;
+  const h = liveHarness({ observe: (input, events) => { identity = input; return observerFixture(input, { events, ready: ready.promise }); } });
+  const starting = startLive(h.handler); await until(() => identity);
+  h.enrolled.recordLogout({ cookieFingerprint: 'a'.repeat(64) });
+  ready.resolve(attachedReceipt(identity)); const result = await starting;
+  assert.equal(result.status, 503);
+  assert.equal(h.events.filter(event => event[0] === 'hangup').length, 1);
+  assert.equal(h.events.filter(event => event[0] === 'finish').length, 1);
+});
+
+test('end waits for observer drain after single provider hangup without claiming closed transcript', async () => {
+  const drain = deferred();
+  const h = liveHarness({ observe: (identity, events) => observerFixture(identity, { events, drain: drain.promise }) });
+  assert.equal((await startLive(h.handler)).status, 201);
+  let responded = false; const ending = endLive(h.handler).then(result => { responded = true; return result; });
+  await until(() => h.events.some(event => event[0] === 'finish')); assert.equal(responded, false);
+  assert.deepEqual(h.events.slice(-2).map(event => event[0]), ['hangup', 'finish']);
+  drain.resolve({ status: 'INCOMPLETE', reason: 'finish_timeout', terminalPersisted: true });
+  const result = await ending; assert.equal(result.status, 200);
+  assert.deepEqual(result.body, { session: { id: 'live_fixture_0001', state: 'ended' } });
+  assert.equal((await endLive(h.handler)).status, 200);
+  assert.equal(h.events.filter(event => event[0] === 'hangup').length, 1);
+  assert.equal(h.events.filter(event => event[0] === 'finish').length, 1);
+});
+
+test('failed hangup still drains observer; missing terminal persistence or wrong observation remains fail closed', async () => {
+  for (const kind of ['hangup', 'negative-hangup', 'unpersisted', 'wrong-observation', 'drain-reject']) {
+    const h = liveHarness({ hangup: kind === 'hangup' ? () => { throw new Error('private provider'); }
+      : kind === 'negative-hangup' ? () => ({ ok: false }) : null,
+      observe: (identity, events) => observerFixture(identity, { events, drain: kind === 'unpersisted'
+        ? Promise.resolve({ status: 'INCOMPLETE', reason: 'persistence_failure', terminalPersisted: false })
+        : kind === 'wrong-observation' ? Promise.resolve({ observationId: 'foreign-observation', status: 'PROVIDER_CLOSED', terminalPersisted: true })
+          : kind === 'drain-reject' ? Promise.reject(new Error('private SQL')) : null }) });
+    assert.equal((await startLive(h.handler)).status, 201);
+    assert.equal((await endLive(h.handler)).status, 503);
+    assert.equal(h.events.filter(event => event[0] === 'finish').length, 1);
+    assert.equal((await startLive(h.handler)).status, 409, 'unknown cleanup cannot be hidden by starting another provider');
+  }
+});
+
+test('observer cannot activate without owner guard and session identity cannot drift during create', async () => {
+  assert.throws(() => createIvPrepHqHandler({ liveTranscriptObserver: async () => ({}) }), /owner session guard/u);
+  const created = deferred(); const h = liveHarness({ create: () => created.promise });
+  const ownerSession = session(); const starting = startLive(h.handler, { hqSession: ownerSession });
+  await until(() => h.events.some(event => event[0] === 'create'));
+  ownerSession.user.id = 2;
+  created.resolve({ session: { id: 'late_provider_0001' }, transport: { sdp: 'never-published' } });
+  assert.equal((await starting).status, 503);
+  assert.deepEqual(h.events.filter(event => event[0] === 'hangup'), [['hangup', 'late_provider_0001']]);
+  assert.equal(h.events.some(event => event[0] === 'observe'), false);
+});
+
+test('bounded readiness timeout cleans provider and finishes observer without returning SDP', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const ready = deferred();
+  const h = liveHarness({ observe: (identity, events) => observerFixture(identity, { events, ready: ready.promise }) });
+  const starting = startLive(h.handler); await until(() => h.events.some(event => event[0] === 'observe'));
+  // Allow the factory continuation to install the readiness watchdog.
+  await new Promise(resolve => setImmediate(resolve)); t.mock.timers.tick(16_001);
+  assert.equal((await starting).status, 503);
+  assert.equal(h.events.filter(event => event[0] === 'hangup').length, 1);
+  assert.equal(h.events.filter(event => event[0] === 'finish').length, 1);
+});
+
+test('bounded drain timeout retains guard and cannot retry cleanup into a second provider', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] }); const drain = deferred();
+  const h = liveHarness({ observe: (identity, events) => observerFixture(identity, { events, drain: drain.promise }) });
+  assert.equal((await startLive(h.handler)).status, 201);
+  const ending = endLive(h.handler); await until(() => h.events.some(event => event[0] === 'finish'));
+  t.mock.timers.tick(24_001); assert.equal((await ending).status, 503);
+  assert.equal((await startLive(h.handler)).status, 409);
+  drain.resolve({ status: 'INCOMPLETE', reason: 'finish_timeout', terminalPersisted: true });
+  assert.equal((await endLive(h.handler)).status, 503);
+  assert.equal(h.events.filter(event => event[0] === 'hangup').length, 1);
+  assert.equal(h.events.filter(event => event[0] === 'finish').length, 1);
+});
+
+test('late observer factory after timeout drains only that observation after original hangup', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] }); const factory = deferred(); let identity;
+  const h = liveHarness({ observe: (input) => { identity = input; return factory.promise; } });
+  const starting = startLive(h.handler); await until(() => identity);
+  await new Promise(resolve => setImmediate(resolve)); t.mock.timers.tick(16_001);
+  await until(() => h.events.some(event => event[0] === 'hangup'));
+  await new Promise(resolve => setImmediate(resolve)); t.mock.timers.tick(16_001);
+  assert.equal((await starting).status, 503);
+  factory.resolve(observerFixture(identity, { events: h.events }));
+  await until(() => h.events.some(event => event[0] === 'finish'));
+  assert.deepEqual(h.events.filter(event => ['hangup', 'finish'].includes(event[0])).map(event => event[0]), ['hangup', 'finish']);
+  assert.equal((await startLive(h.handler)).status, 409, 'late completion does not upgrade failed custody or clear the retained guard');
+});
+
+test('shutdown/logout/end coalesce one cleanup and await observer drain', async () => {
+  const hangup = deferred(), drain = deferred();
+  const h = liveHarness({ hangup: () => hangup.promise, observe: (identity, events) => observerFixture(identity, { events, drain: drain.promise }) });
+  assert.equal((await startLive(h.handler)).status, 201);
+  const ending = endLive(h.handler); await until(() => h.events.some(event => event[0] === 'hangup'));
+  h.enrolled.recordLogout({ cookieFingerprint: 'a'.repeat(64) });
+  const shutdown = h.handler.shutdown(); hangup.resolve({ ok: true });
+  await until(() => h.events.some(event => event[0] === 'finish'));
+  drain.resolve({ status: 'PROVIDER_CLOSED', reason: 'provider_closed', terminalPersisted: true });
+  assert.equal((await ending).status, 200); assert.deepEqual(await shutdown, { ok: true, stopped: 1 });
+  assert.equal(h.events.filter(event => event[0] === 'hangup').length, 1);
+  assert.equal(h.events.filter(event => event[0] === 'finish').length, 1);
+});
+
+test('provider creation that returns after shutdown or logout is never attached or published and is hung up', async () => {
+  for (const kind of ['shutdown', 'logout']) {
+    const created = deferred(); const h = liveHarness({ create: () => created.promise });
+    const starting = startLive(h.handler); await until(() => h.events.some(event => event[0] === 'create'));
+    const shutdown = kind === 'shutdown' ? h.handler.shutdown() : null;
+    if (kind === 'logout') h.enrolled.recordLogout({ cookieFingerprint: 'a'.repeat(64) });
+    created.resolve({ session: { id: 'late_provider_0001' }, transport: { type: 'webrtc', sdp: 'never-published' } });
+    assert.equal((await starting).status, 503, kind);
+    if (shutdown) assert.deepEqual(await shutdown, { ok: true, stopped: 1 });
+    assert.deepEqual(h.events.filter(event => event[0] === 'hangup'), [['hangup', 'late_provider_0001']]);
+    assert.equal(h.events.some(event => event[0] === 'observe'), false);
+    if (shutdown) assert.equal((await startLive(h.handler)).status, 503);
+  }
+});
+
+test('shutdown during awaited guard or context cancels pending start before any provider exists', async () => {
+  for (const phase of ['guard', 'context']) {
+    const pending = deferred(); const h = liveHarness({ [phase]: () => pending.promise });
+    const starting = startLive(h.handler); await until(() => h.events.some(event => event[0] === phase));
+    const shutdown = h.handler.shutdown(); pending.resolve({ actorBlock: 'fixture' });
+    assert.equal((await starting).status, 503);
+    assert.deepEqual(await shutdown, { ok: true, stopped: 1 });
+    assert.equal(h.events.some(event => ['create', 'observe', 'hangup'].includes(event[0])), false);
+  }
+});
+
 test('feature flags, bearer auth, and missing entitlement deny before product data', async () => {
   const off = createIvPrepHqHandler({ registry: registry(), now: () => NOW, flags: { enabled: false, adminCanaryEnabled: false, videoEnabled: false } });
   assert.equal((await invoke(off)).status, 503);
