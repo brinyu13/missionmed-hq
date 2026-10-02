@@ -14,6 +14,27 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **CURRENT PRODUCTION:** source `89168e2b7267dc709b410ec4d98540a4a0ac81ea`,
+  deployment `82f86a78-eaac-4ea2-bda1-cfb26d9983c6` SUCCESS, image
+  `sha256:e43d0a68b4a0f44197f4e64dbb909f00f22c96439f49420bebeb46107b863bea`,
+  artifact `6eef1e79b5311c20ca7c44c1925563778c530b5d722bca9b3f9f3a856087a730`.
+  Three exact runtime hashes matched; configuration unchanged; health 200;
+  anonymous product/bootstrap 401. Fresh authenticated Founder calibration
+  rendered the real microphone meter (-55.0 dBFS observed) despite the still-black
+  FaceTime camera. No black image was accepted, no provider session started, no
+  new recording created. Capture stopped by reload. Eight camera regressions and
+  independent startup/teardown review PASS; live physical black→lit remains OPEN.
+  Nearest previous healthy runtime is `d09eea11` / `f83e28c` with exact image/artifact
+  below; `62590a0f` / `399a875` remains the pre-camera-change rollback. Retain new
+  source and additive data on any runtime restore.
+- **NEXT CRITICAL ACTION:** once FaceTime supplies a visible image and genuine
+  applicant speech is available, use normal Home → AI Mock → readiness → room,
+  prove same-session server transcript attachment and terminal persistence, then
+  real follow-up/barge-in → save → audibly two-sided replay after cold reload.
+  Do not fabricate human speech/identities or promote approximate transcript
+  fragments to canonical answer boundaries. Keep this evidence dependency distinct
+  from completed engineering; full learning-loop/Founder-ledger completion is NOT
+  asserted. The camera/lid question was asked once; no unchanged polling loop.
 - **Startup follow-on, epoch 4088:** independent repro caught initial/during-wait
   camera mute ending the wait prematurely. Exact captured-stream liveness now
   keeps the existing bounded 5 s startup wait, while readiness still requires
@@ -21,7 +42,7 @@ the actual production route and deployment.
   found that the working microphone meter was skipped after image failure; it
   now starts before image verification. Eight focused camera regressions plus
   independent replacement/end-between-await probes PASS; no false image claim.
-  Await reviewed follow-on deployment. Physical image is still black; one new
+  Follow-on is deployed on `82f86a78` above. Physical image is still black; one new
   asynchronous question asks whether the camera/lid is covered, without blocking
   independent engineering. No AI session/recording created by these device checks.
 - **Black-frame recovery LIVE DEPLOYED, epoch 4085:** independent reproduction found
@@ -40,7 +61,8 @@ the actual production route and deployment.
   Authenticated normal calibration loaded and refused the still-black real image;
   capture stopped by reload. Same-stream physical black→lit recovery remains
   UNVERIFIED until the actual device supplies a visible image. Source lease4085
-  released normally/read back; deployment lease4086 maintained for fix-forward.
+  released normally/read back. Source4088/deployment4086 also released normally
+  and canonical readback confirmed before fresh deployment lease4089.
 - **Admin review current POV:** Founder actor `wp:1` selected genuine `wp:142`
   in Admin library, opened that student's Results/full measured report and Film Room,
   and playback advanced to 19.443 s without media error. The historical recording's
