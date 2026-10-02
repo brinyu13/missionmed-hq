@@ -10,6 +10,7 @@ import {
 } from "../ingestion/file-inspector.js";
 import {
   parseCvBlocks,
+  cvProfileHeaderBlocks,
   parseResumeBlocks,
   parseUnknownBlocks
 } from "../ingestion/cv-parser.js";
@@ -353,6 +354,9 @@ function categoryFields(candidate,categoryId,provenance){
     sourceProvenance:provenance,
     extractionConfidence:candidate?.confidence?structuredClone(candidate.confidence):null,
     datePrecision:candidate?.datePrecision?structuredClone(candidate.datePrecision):null,
+    sourceDateWording:Object.fromEntries(['start','end'].map(edge=>[edge,{raw:String(candidate.dateRange?.[edge]?.raw||''),normalizedMonth:candidate.dateRange?.[edge]?.timelineMonth||null,precision:candidate.dateRange?.[edge]?.precision||null}])),
+    sourceCategoryToken:String(candidate.originalExtraction?.rawText||'').split('|').at(-1)?.trim()||'',
+
     inferredFields:[...(candidate?.inferredFields||[])].map((item)=>structuredClone(item)),
     mappingRationale:String(candidate?.mappingRationale||""),
     mappingReviewRequired:MAPPING_REVIEW_REQUIRED.has(
@@ -370,6 +374,15 @@ function categoryFields(candidate,categoryId,provenance){
       ...(candidate.profileNameClaim?{
         profileFullName:String(candidate.profileNameClaim.value),
         profileNameProvenance:[structuredClone(candidate.profileNameClaim.provenance)]
+      }:{}),
+      ...(candidate.profileNameClaim||Object.keys(candidate.profileHeaderClaims||{}).length||candidate.profileHeaderConflicts?.length?{
+        profileHeaderReviewRequired:true,acceptProfileClaims:false,
+        profileHeaderConflicts:[...(candidate.profileHeaderConflicts||[])],
+        profileHeaderConflictProvenance:[...(candidate.profileHeaderConflictProvenance||[])].map(item=>structuredClone(item)),
+        profileMedicalSchool:candidate.profileHeaderClaims?.medicalSchool?.value||'',
+        profileMedicalSchoolProvenance:candidate.profileHeaderClaims?.medicalSchool?[candidate.profileHeaderClaims.medicalSchool.provenance]:[],
+        profileDegree:candidate.profileHeaderClaims?.degree?.value||'',
+        profileDegreeProvenance:candidate.profileHeaderClaims?.degree?[candidate.profileHeaderClaims.degree.provenance]:[]
       }:{}),
       medicalSchool:organization,
       medicalSchoolCountry:sourceCountry,
@@ -446,7 +459,9 @@ function categoryFields(candidate,categoryId,provenance){
 
 /** Only explicit personal-name header forms qualify; arbitrary title lines do not. */
 export function sourceProfileNameClaim(sourceBlocks=[],sourceDocument={}){
-  const first=sourceBlocks.filter(block=>Number(block.pageNumber)===1&&String(block.text||"").trim())
+  const explicit=cvProfileHeaderBlocks(sourceBlocks).filter(block=>/^(?:full name|name):/i.test(block.text));
+  if(new Set(explicit.map(block=>block.text.replace(/^(?:full name|name):\s*/i,'').trim())).size>1)return null;
+  const first=explicit[0]||sourceBlocks.filter(block=>Number(block.pageNumber)===1&&String(block.text||"").trim())
     .sort((a,b)=>(Number(a.lineNumber)||0)-(Number(b.lineNumber)||0))[0];
   if(!first||!['unknown','personal'].includes(String(first.section||'unknown')))return null;
   const raw=String(first.text).trim();
@@ -467,6 +482,31 @@ export function sourceProfileNameClaim(sourceBlocks=[],sourceDocument={}){
   }};
 }
 
+export function sourceProfileHeaderClaims(sourceBlocks=[],sourceDocument={}){
+ const blocks=cvProfileHeaderBlocks(sourceBlocks),claims={};
+ for(const [field,label] of [['medicalSchool','medical school'],['degree','degree']]){
+  const matches=blocks.filter(block=>block.text.toLowerCase().startsWith(label+':'));
+  const values=[...new Set(matches.map(block=>block.text.slice(block.text.indexOf(':')+1).trim()))];
+  if(values.length!==1)continue;
+  // Degree claims are literal supported credentials, never conclusions from a role/title.
+  if(field==='degree'&&!/^(?:M\.?D\.?|D\.?O\.?|MBBS|MBChB|MBBCh)$/i.test(values[0]))continue;
+  const block=matches[0];claims[field]={value:values[0],provenance:{sourceDocumentId:String(sourceDocument.id||''),sourceSha256:String(sourceDocument.sha256||''),fileName:String(sourceDocument.fileName||''),sourceBlockId:String(block.id||''),pageNumber:1,sourceExcerpt:block.text,extractionMethod:'EXPLICIT_CV_PROFILE_HEADER',evidenceFields:[field]}};
+ }
+ return claims;
+}
+
+function conflictingProfileHeaders(sourceBlocks=[],sourceDocument={}){
+ const blocks=cvProfileHeaderBlocks(sourceBlocks);
+ const labels=[['fullName',/^(?:full name|name):\s*(.+)$/i],['medicalSchool',/^medical school:\s*(.+)$/i],['degree',/^degree:\s*(.+)$/i]];
+ const conflicts=[],provenance=[];
+ for(const [field,pattern] of labels){
+  const matches=blocks.map(block=>({block,value:block.text.match(pattern)?.[1]?.trim()})).filter(item=>item.value);
+  if(new Set(matches.map(item=>item.value.toLowerCase().replace(/\s+/g,' '))).size<=1)continue;
+  conflicts.push(field);
+  provenance.push(...matches.map(({block})=>({sourceDocumentId:String(sourceDocument.id||sourceDocument.objectId||''),sourceSha256:String(sourceDocument.sha256||''),fileName:String(sourceDocument.fileName||sourceDocument.name||''),sourceBlockId:String(block.id||''),pageNumber:Number(block.pageNumber)||1,sourceExcerpt:block.text,extractionMethod:'CONFLICTING_CV_PROFILE_HEADER',evidenceFields:[field]})));
+ }
+ return{conflicts,provenance};
+}
 function explicitExamOutcome(candidate){
   if(!['STEP_1','STEP_2_CK','STEP_3'].includes(String(candidate.canonicalType||'').toUpperCase()))return{result:'',score:''};
   const sources=[String(candidate.title||''),...(candidate.provenance||[]).map(item=>String(item.sourceExcerpt||item.excerpt||''))];
@@ -713,8 +753,20 @@ export function createD1408PdfIntakeAdapter({
       const records=parseRecords(effectiveType,sectionResult.blocks);
       const legacyCandidates=buildCandidates(records,sourceDocument);
       const profileNameClaim=sourceProfileNameClaim(sectionResult.blocks,sourceDocument);
-      if(profileNameClaim)for(const candidate of legacyCandidates){
-        if(categoryIdFor(candidate)==='education'&&exactDegree(candidate))candidate.profileNameClaim=profileNameClaim;
+      const profileHeaders=sourceProfileHeaderClaims(sectionResult.blocks,sourceDocument);
+      const headerConflicts=conflictingProfileHeaders(sectionResult.blocks,sourceDocument);
+      const medicalEntries=legacyCandidates.filter(candidate=>categoryIdFor(candidate)==='education'&&(exactDegree(candidate)||/\bmedical education\b/i.test(candidate.title)));
+      for(const candidate of medicalEntries){
+        if(medicalEntries.length===1){
+          if(profileNameClaim)candidate.profileNameClaim=profileNameClaim;
+          candidate.profileHeaderClaims=profileHeaders;
+          candidate.profileHeaderConflicts=headerConflicts.conflicts;
+          candidate.profileHeaderConflictProvenance=headerConflicts.provenance;
+        }else{
+          // No one education entry owns a shared profile header or graduation claim.
+          candidate.profileHeaderConflicts=['medicalEducationSource'];
+          candidate.profileHeaderConflictProvenance=headerConflicts.provenance;
+        }
       }
       const candidates=legacyCandidates.map(mapD1408CandidateToUxr);
       const sourceBlocks=sectionResult.blocks.map((block)=>({

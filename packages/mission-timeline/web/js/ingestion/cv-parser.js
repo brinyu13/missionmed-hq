@@ -36,6 +36,17 @@ function recordFromPublication(block){
   };
 }
 
+// Only explicitly labelled first-page profile data before dated chronology qualify.
+export function cvProfileHeaderBlocks(blocks=[]){
+ const header=[];
+ for(const block of blocks){
+  if(Number(block.pageNumber)!==1||!['unknown','personal'].includes(block.section||'unknown')||DATE_HINT.test(block.text))break;
+  if(/^(?:full name|name|medical school|degree):\s*\S/i.test(block.text))header.push(block);
+ }
+ // A standalone Degree: entry can be a legitimate education record. Require profile context.
+ return header.some(block=>/^(?:full name|name|medical school):/i.test(block.text))?header:[];
+}
+const SOURCE_CATEGORY_TOKENS=new Set(['education','exams','exam','usmle','work','research','personal','volunteer','clinical','usce','usce clinic','usce teaching hospital']);
 function recordFromPipe(block){
   const parts=block.text.split("|").map((part)=>part.trim()).filter(Boolean);
   if(parts.length<2)return null;
@@ -43,6 +54,7 @@ function recordFromPipe(block){
   if(dateIndex<0)return null;
   const dates=parts[dateIndex];
   const rest=parts.filter((_,index)=>index!==dateIndex);
+  const explicitCategory=rest.length>=3&&SOURCE_CATEGORY_TOKENS.has(rest.at(-1).toLowerCase())?rest.pop().toLowerCase():null;
   return {
     section:block.section,
     pageNumber:block.pageNumber,
@@ -56,7 +68,7 @@ function recordFromPipe(block){
     experienceType:"",
     specialty:"",
     rawText:block.text,
-    fields:{}
+    fields:explicitCategory?{explicitCategory}:{}
   };
 }
 
@@ -189,7 +201,8 @@ function orientCredentialRecord(record){
 }
 
 export function parseCvBlocks(blocks){
-  blocks=joinDateContinuations(blocks||[]);
+  const profileIds=new Set(cvProfileHeaderBlocks(blocks||[]).map(block=>block.id));
+  blocks=joinDateContinuations((blocks||[]).filter(block=>!profileIds.has(block.id)));
   const records=[];
   const consumed=new Set();
   const orientation=sectionEntryOrientation(blocks);

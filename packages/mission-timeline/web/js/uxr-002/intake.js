@@ -358,7 +358,7 @@ export function candidateQuestions(candidate){
     const ongoing=ONGOING_FIELD_BY_CATEGORY[candidate.categoryId];
     if(ongoing)questions.push({key:ongoing,kind:"toggle",extra:ongoing,label:"I am still doing this"});
   }
-  if(fields.mappingReviewRequired===true||String(fields.canonicalType||"").toUpperCase()==="UNCLASSIFIED"){
+  if(fields.categoryConfirmed!==true&&(fields.mappingReviewRequired===true||String(fields.canonicalType||"").toUpperCase()==="UNCLASSIFIED")){
     questions.push({key:"categoryId",kind:"category",field:"categoryId",label:"Which part of your story is this?"});
   }
   const institution=INSTITUTION_FIELD_BY_CATEGORY[candidate?.categoryId];
@@ -378,7 +378,7 @@ function normalizeCandidate(value,index,existingEvents){
     sourceCategory.toLowerCase()==="unclassified";
   const candidate={
     id:String(value?.id||`candidate-${index+1}`),
-    categoryId:categoryResolved?sourceCategory:categoryNeedsReview?"":"personal",
+    categoryId:categoryNeedsReview&&sourceFields.categoryConfirmed!==true?"":categoryResolved?sourceCategory:"personal",
     title:String(value?.title||"").trim(),
     startDate:String(value?.startDate||value?.date||""),
     endDate:value?.endDate?String(value.endDate):null,
@@ -700,6 +700,15 @@ export function transitionIntake(current,action,{existingEvents=[]}={}){
       }
       if(patch.fields&&typeof patch.fields==="object")candidate.fields={...candidate.fields,...patch.fields};
       if(!CATEGORIES.some(({id})=>id===candidate.categoryId))candidate.categoryId="";
+      if(Object.hasOwn(patch,'categoryId')&&candidate.categoryId){
+        candidate.fields={...candidate.fields,categoryConfirmed:true,mappingReviewRequired:false};
+      }
+      for(const [field,edge] of [['startDate','start'],['endDate','end']]){
+        if(Object.hasOwn(patch,field)&&String(patch[field]||'')!==String(state.candidates[index][field]||'')){
+          const precision=candidate.fields?.datePrecision?.[edge];
+          if(['SEASON','VAGUE_RANGE'].includes(precision))candidate.fields={...candidate.fields,datePrecision:{...candidate.fields.datePrecision,[edge]:'MONTH'},sourceDateWording:{...candidate.fields.sourceDateWording,[edge]:null}};
+        }
+      }
       if(Object.hasOwn(patch,"visibilityState")){
         candidate.visibilityState=patch.visibilityState===VISIBILITY.ADVISOR_ONLY
           ?VISIBILITY.ADVISOR_ONLY
@@ -914,6 +923,16 @@ function approvalProvenance(candidate,fileName=""){
 }
 
 function candidateEvent(candidate,id,fileName=""){
+  const fields=clone(candidate.fields);
+  if(fields.profileHeaderConflicts?.length||
+    ((fields.profileHeaderReviewRequired===true||
+      (fields.rescueProfileClaims!==true&&['profileNameProvenance','profileMedicalSchoolProvenance','profileDegreeProvenance'].some(key=>fields[key]?.length)))&&
+      fields.acceptProfileClaims!==true)){
+    // An event approval is not approval to persist unconfirmed CV profile claims.
+    for(const key of ['profileFullName','profileNameProvenance','profileMedicalSchool','profileMedicalSchoolProvenance',
+      'profileDegree','profileDegreeProvenance','profileHeaderConflicts','profileHeaderConflictProvenance',
+      'profileHeaderReviewRequired','acceptProfileClaims'])delete fields[key];
+  }
   return bindImportedBuilderEvent022({
     id,
     title:candidate.title,
@@ -935,7 +954,7 @@ function candidateEvent(candidate,id,fileName=""){
     lane:null,
     sourceType:"document-intake",
     provenance:approvalProvenance(candidate,fileName),
-    fields:clone(candidate.fields)
+    fields
   });
 }
 
@@ -977,7 +996,12 @@ function cvProfilePrefill(candidates=[]){
   const degree=medicalDegree||graduation||education.find((candidate)=>
     String(candidate.fields?.canonicalType||"").toUpperCase()==="EDUCATION"
   );
-  if(!degree)return null;
+  if(!degree||degree.fields?.profileHeaderConflicts?.length)return null;
+  const extractedProfileClaim=degree.fields?.profileHeaderReviewRequired===true||
+    (degree.fields?.rescueProfileClaims!==true&&
+      ['profileNameProvenance','profileMedicalSchoolProvenance','profileDegreeProvenance']
+        .some(field=>degree.fields?.[field]?.length));
+  if(extractedProfileClaim&&degree.fields?.acceptProfileClaims!==true)return null;
   // A separate BSc graduation must never supply the medical degree's date.
   const graduationEdge=degree.endDate?"end":degree.eventType==="milestone"||String(degree.fields?.canonicalType||"").toUpperCase()==="GRADUATION"?"start":"end";
   const graduationDate=graduationEdge==="start"?degree.startDate:degree.endDate;
@@ -989,6 +1013,7 @@ function cvProfilePrefill(candidates=[]){
       ?String(degree.fields.profileFullName||'').trim():"",
     fullNameProvenance:clone(degree.fields?.profileNameProvenance||[]),
     medicalSchool:String(
+      degree.fields?.profileMedicalSchool||
       degree.fields?.medicalSchool||
       degree.siteName||
       explicitMedicalSchoolFromDegreeTitle(degree)||
@@ -997,7 +1022,8 @@ function cvProfilePrefill(candidates=[]){
     medicalSchoolCountry:String(degree.fields?.medicalSchoolCountry||degree.fields?.sourceCountry||"").trim(),
     graduationDate:graduationDate?String(graduationDate).slice(0,graduationDatePrecision==="YEAR"?4:7):"",
     graduationDatePrecision,
-    degree:String(degree.fields?.degree||"").trim(),
+    degree:String(degree.fields?.profileDegree||degree.fields?.degree||"").trim(),
+    medicalSchoolProvenance:clone(degree.fields?.profileMedicalSchoolProvenance||[]),
     degreeProvenance:clone(degree.fields?.profileDegreeProvenance||[]),
     verificationStatus:"unverified-source-claimed",
     provenance:approvalProvenance(degree)
@@ -1189,7 +1215,7 @@ export function applyApprovalBatchToDocument(document,batch){
         patch[field]=prefill[field];
         fieldProvenance[field]={sourceType:'document-intake',sourceCandidateId:prefill.sourceCandidateId,
           sourceEventId:sourceEvent?.id||null,visibilityState:prefill.visibilityState,
-          provenance:clone(field==='fullName'?prefill.fullNameProvenance:field==='degree'&&prefill.degreeProvenance?.length?prefill.degreeProvenance:prefill.provenance)};
+          provenance:clone(field==='fullName'?prefill.fullNameProvenance:field==='degree'&&prefill.degreeProvenance?.length?prefill.degreeProvenance:field==='medicalSchool'&&prefill.medicalSchoolProvenance?.length?prefill.medicalSchoolProvenance:prefill.provenance)};
       }
     }
     if(Object.keys(patch).length)patch.fieldProvenance=fieldProvenance;
@@ -1551,6 +1577,15 @@ const INTERNAL_CANDIDATE_FIELDS=new Set([
   "duplicateGroupIds",
   "conflictIds",
   "privacy",
+  "sourceDateWording",
+  "sourceCategoryToken",
+  "categoryConfirmed",
+  "profileHeaderReviewRequired",
+  "profileHeaderConflicts",
+  "profileHeaderConflictProvenance",
+  "acceptProfileClaims",
+  "profileMedicalSchoolProvenance",
+  "profileDegreeProvenance",
   "aiOriginalSemantic"
 ]);
 
@@ -1558,7 +1593,7 @@ function reviewField(candidate,field){
   const value=candidate.fields?.[field.key]??"";
   const attributes=`data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-extra="${escapeHtml(field.key)}"`;
   if(field.type==="select"){
-    return`<label>${escapeHtml(field.label)} <select ${attributes}>${field.key==="result"?`<option value=""${value?"":" selected"}>Not stated — review</option>`:""}${field.options.map((option)=>`<option value="${escapeHtml(option)}"${String(value)===option?" selected":""}>${escapeHtml(option)}</option>`).join("")}</select></label>`;
+    return`<label>${escapeHtml(field.label)} <select ${attributes}>${!field.options.some(option=>String(option)===String(value))||field.key==="result"?`<option value=""${value?"":" selected"}>Not stated — review</option>`:""}${field.options.map((option)=>`<option value="${escapeHtml(option)}"${String(value)===option?" selected":""}>${escapeHtml(option)}</option>`).join("")}</select></label>`;
   }
   if(field.type==="checkbox"){
     const checked=value===true||value==="true";
@@ -1600,8 +1635,11 @@ export function candidateDatePrecision(candidate,field){
   return String(inferred?.sourcePrecision||"").toUpperCase();
 }
 
-const candidateDateLabel=(candidate,field)=>candidateDatePrecision(candidate,field)==="YEAR"
-  ?String(candidate[field]||"").slice(0,4):String(candidate[field]||"");
+const candidateDateLabel=(candidate,field)=>{
+ const edge=field==='endDate'?'end':'start',wording=candidate.fields?.sourceDateWording?.[edge];
+ if(wording?.raw&&wording.normalizedMonth===candidate[field]&&['SEASON','VAGUE_RANGE'].includes(wording.precision))return wording.raw;
+ return candidateDatePrecision(candidate,field)==='YEAR'?String(candidate[field]||'').slice(0,4):String(candidate[field]||'');
+};
 
 function candidateMonthField(candidate,field,label,value){
   const id=`intake-${encodeURIComponent(candidate.id)}-${field}`;
@@ -1642,7 +1680,8 @@ function candidateEvidenceMarkup(candidate){
   return`<details class="source-snippet candidate-evidence" aria-label="Extraction evidence">
     <summary>Source and confidence${source?` · ${escapeHtml(source.locator)}`:""}</summary>
     ${candidate.sourceSnippet?`<blockquote>“${escapeHtml(candidate.sourceSnippet)}”</blockquote>`:""}
-    ${candidate.fields?.profileFullName?`<p class="secondary-body">Name from the ${candidate.fields.rescueProfileClaims?'visible Timeline header and profile':'CV header'}: <strong>${escapeHtml(candidate.fields.profileFullName)}</strong>. Accepting this entry fills an empty profile name.</p>`:""}
+    ${candidate.fields?.profileFullName?`<p class="secondary-body">Name from the ${candidate.fields.rescueProfileClaims?'visible Timeline header and profile':'CV header'}: <strong>${escapeHtml(candidate.fields.profileFullName)}</strong>. ${candidate.fields.profileHeaderReviewRequired?'Confirm profile details separately to fill an empty profile name.':'Accepting this entry fills an empty profile name.'}</p>`:""}
+    ${candidate.fields?.profileMedicalSchool||candidate.fields?.profileDegree?`<p class="secondary-body">Explicit CV profile: ${escapeHtml([candidate.fields.profileMedicalSchool,candidate.fields.profileDegree].filter(Boolean).join(' · '))}. Confirm separately before empty profile fields are filled; the experience institution remains unchanged.</p>`:''}
     ${source?`<p class="secondary-body"><strong>${escapeHtml(source.fileName)}</strong> · ${escapeHtml(source.locator)}</p>`:""}
     <p class="secondary-body">Source confidence: ${escapeHtml(candidate.confidence)}. Review eligibility also accounts for duplicates and open checks.</p>
     <p class="secondary-body">Extracted dates: ${escapeHtml(candidateDateLabel(candidate,"startDate")||"Needs review")}${candidate.openEnded?" – ongoing":candidate.endDate?` – ${escapeHtml(candidateDateLabel(candidate,"endDate"))}`:""} · ${escapeHtml(dateStatus)}</p>
@@ -1805,6 +1844,7 @@ function candidateMarkup(candidate,{lane="medium",suggestions=[],parser=null}={}
     ${candidate.duplicate?`<div class="duplicate-banner">Looks like a duplicate of '${escapeHtml(candidate.duplicate.eventTitle)}'</div>`:""}
     ${candidateSuggestionsMarkup(suggestions)}
     ${fields}
+    ${candidate.fields?.profileHeaderReviewRequired?`<section class="card" data-cv-profile-review aria-label="Optional profile details from CV header"><strong>Optional profile details from your CV header</strong><p>${escapeHtml([candidate.fields.profileFullName,candidate.fields.profileMedicalSchool,candidate.fields.profileDegree].filter(Boolean).join(' · '))}</p><p class="secondary-body">Source: ${escapeHtml([...(candidate.fields.profileNameProvenance||[]),...(candidate.fields.profileMedicalSchoolProvenance||[]),...(candidate.fields.profileDegreeProvenance||[]),...(candidate.fields.profileHeaderConflictProvenance||[])].map(item=>`Page ${item.pageNumber||1}: ${item.sourceExcerpt}`).join(' · '))}</p>${candidate.fields.profileHeaderConflicts?.length?'<p class="secondary-body">Conflicting CV profile headers need review. Add the dated experience separately, then correct your profile in Builder.</p>':`<label><input type="checkbox" data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-extra="acceptProfileClaims"${candidate.fields.acceptProfileClaims===true?' checked':''}> Use these details in my profile</label><p class="secondary-body">Leave unchecked to add only the experience. Existing profile values will remain unchanged.</p>`}</section>`:''}
     ${candidate.fields?.rescueProfileClaims?`<p class="secondary-body" role="note" data-rescue-profile-review>Visible profile details: ${[candidate.fields.profileFullName?`Name: ${escapeHtml(candidate.fields.profileFullName)}`:'',candidate.fields.degree?`Degree: ${escapeHtml(candidate.fields.degree)}`:''].filter(Boolean).join(' · ')}. Accepting this entry fills empty profile fields using this entry's visibility.</p>`:""}
     ${["startDate","endDate"].some((field)=>candidateDatePrecision(candidate,field)==="YEAR")?'<p class="candidate-year-warning" role="note">The source gives years only. Months remain unconfirmed; accepting keeps year-only precision.</p>':""}
     ${candidateEvidenceMarkup(candidate)}
