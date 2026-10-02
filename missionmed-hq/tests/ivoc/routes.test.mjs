@@ -176,6 +176,55 @@ const base = {
   cookieFingerprint: 'f'.repeat(64), hqSessionMaxTtlSeconds: 28_800, expectedOrigin: 'https://hq.test',
 };
 
+test('server transcript read is session-authorized, cold-readable and rechecks owner/mentor/admission custody', async () => {
+  const sid = foreignSessionId;
+  const oid = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+  const root = { observation_id: oid, seq: 1, session_id: sid, owner_subject: 'wp:7',
+    provider_session_id: 'private_provider_identity', kind: 'attached', speaker: null, provider_event_id: null,
+    fragment_text: null, provider_start_ms: null, provider_end_ms: null, server_received_at: '2026-10-02T04:00:00Z',
+    terminal_status: null, terminal_reason: null };
+  const records = [root, { ...root, seq: 2, kind: 'fragment', speaker: 'input',
+    fragment_text: 'Private  exact transcript.', provider_start_ms: 100, provider_end_ms: 200 },
+  { ...root, seq: 3, kind: 'terminal', terminal_status: 'PROVIDER_CLOSED', terminal_reason: 'provider_closed' }];
+  for (const scenario of ['owner', 'admin', 'assigned', 'foreign', 'revoked', 'owner_changed', 'admission_changed']) {
+    let reads = 0, assigned = true, row = { id: sid, owner_subject: 'wp:7', state: 'saved', interviewer_provider: 'openai-gpt-live' };
+    let refreshes = 0;
+    const reg = registry(); reg.refreshSubject = async () => { refreshes++; };
+    reg.isRevoked = () => scenario === 'admission_changed' && refreshes > 1;
+    const repo = repository();
+    repo.single = async path => {
+      if (path.startsWith('ivoc_sessions?')) return { ...row };
+      if (path.includes('mentor_subject=')) return assigned ? { id: 'review-1' } : null;
+      return null;
+    };
+    repo.request = async path => {
+      if (!path.startsWith('ivoc_live_transcript_events?')) return [];
+      reads++; assert.match(path, /owner_subject=eq.wp%3A7/);
+      if (scenario === 'revoked') assigned = false;
+      if (scenario === 'owner_changed') row = { ...row, owner_subject: 'wp:8' };
+      if (path.includes('kind=eq.attached')) return [root];
+      if (path.includes('order=seq.desc')) return [{ seq: 3 }];
+      return records;
+    };
+    const route = createIvocHandler({ repository: repo, registry: reg, storage: {},
+      env: { IVPREP_ENABLED: 'true', IVPREP_ADMIN_CANARY_ENABLED: 'true', MMHQ_SESSION_SECRET: 's'.repeat(64) } });
+    const response = new ResponseCapture();
+    const roles = scenario === 'admin' ? ['administrator'] : ['assigned', 'revoked'].includes(scenario) ? ['mentor'] : ['student'];
+    await route({ ...base, request: request('GET'), response, url: new URL(`https://hq.test/api/ivoc/v1/sessions/${sid}`),
+      hqSession: session(['owner', 'owner_changed', 'admission_changed'].includes(scenario) ? 7 : 42, roles) });
+    const allowed = ['owner', 'admin', 'assigned'].includes(scenario);
+    assert.equal(response.status, allowed ? 200 : 404, scenario);
+    if (allowed) {
+      assert.equal(response.json().liveTranscript.status, 'AVAILABLE');
+      assert.equal(response.json().liveTranscript.observations[0].fragments[0].text, 'Private  exact transcript.');
+      assert.equal(response.json().analysisAvailability.status, 'UNAVAILABLE');
+      assert.doesNotMatch(response.body, /private_provider_identity|bbbbbbbb|canonical_ref/);
+    } else assert.doesNotMatch(response.body, /Private  exact transcript/);
+    if (scenario === 'foreign') assert.equal(reads, 0);
+    assert.equal(repo.updates.length + repo.upserts.length + repo.batches.length, 0);
+  }
+});
+
 function candidateCaptureHarness() {
   const repo = repository();
   const sid = '00000000-0000-4000-8000-000000000042';

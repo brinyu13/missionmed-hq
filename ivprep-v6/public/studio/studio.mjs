@@ -16,6 +16,7 @@ import {
   AdminStudentLibraryCapability,
   CAMERA_BLACK_MESSAGE,
   buildLongitudinalModel,
+  buildLiveTranscriptReview,
   COLLECTIONS,
   compareAttempts,
   createConversationRecordingMix,
@@ -36,6 +37,7 @@ import {
   projectContextResults,
   projectTranscriptMetrics,
   resultLaneReadouts,
+  renderLiveTranscriptReview,
   selectCorrection,
   statusRail,
 } from './capability-adapter.mjs';
@@ -3739,12 +3741,18 @@ function renderFilmRoomSpine(session, envelope = null) {
       ].filter(Boolean).join(' · ') || 'Session details unavailable'),
     );
   }
+  const nativeReview = buildLiveTranscriptReview(session);
+  const nativeRendered = renderLiveTranscriptReview(host, nativeReview, { document,
+    speakerLabel: speaker => reviewTurnSpeakerLabel(speaker, { role: state.role, ownerDisplayName }),
+  });
+  if (nativeRendered && nativeReview.observations.some(observation => observation.rows.length)) return;
   const turns = persistedConversationTurns({ sessionDetail: session, envelope });
   const canonicalTranscript = turns.length > 0 && turns.every((turn) => turn.canonical);
   const evidence = buildCandidateAnalysisState(session).available && Array.isArray(session?.spine?.evidence)
     ? session.spine.evidence : [];
-  host.replaceChildren();
+  if (!nativeRendered) host.replaceChildren();
   if (!turns.length) {
+    if (nativeRendered) return;
     const empty = document.createElement('div');
     empty.className = 'empty-state';
     empty.innerHTML = '<strong>No persisted transcript yet</strong>This recording has no saved conversation turns.';
@@ -3753,7 +3761,9 @@ function renderFilmRoomSpine(session, envelope = null) {
   }
   const label = document.createElement('div');
   label.className = 'microcap';
-  label.textContent = canonicalTranscript
+  label.textContent = nativeRendered
+    ? (canonicalTranscript ? 'Earlier saved answer transcript · recording timeline' : 'Earlier browser-saved text · separate approximate recording offsets')
+    : canonicalTranscript
     ? (state.role === 'admin' ? 'Canonical transcript' : 'Saved transcript')
     : 'Live interview transcript · saved privately with this answer';
   const timeline = document.createElement('div');

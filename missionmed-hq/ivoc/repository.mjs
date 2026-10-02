@@ -33,16 +33,37 @@ function requireConfig(value, name) {
   return normalized;
 }
 
+async function boundedTranscriptJson(response) {
+  if (!response.ok) throw new Error('ivoc_transcript_read_unavailable');
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error('ivoc_transcript_read_unavailable');
+  const chunks = []; let bytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > 4 * 1024 * 1024) throw new Error('ivoc_transcript_read_limit');
+      chunks.push(Buffer.from(value));
+    }
+    return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  } finally {
+    for (const chunk of chunks) chunk.fill(0);
+    await reader.cancel().catch(() => {});
+  }
+}
+
 export function createIvocRepository({ baseUrl, serviceRoleKey, fetchImpl = fetch } = {}) {
   const root = requireConfig(baseUrl, 'supabase_url').replace(/\/+$/u, '');
   const key = requireConfig(serviceRoleKey, 'service_role_key');
 
   async function request(tablePath, { method = 'GET', body, prefer = '', signal } = {}) {
     const table = String(tablePath || '').split(/[?&]/u, 1)[0];
-    if (!TABLES.includes(table)) throw new Error('ivoc_table_not_allowed');
+    const transcriptRead = table === 'ivoc_live_transcript_events';
+    if (transcriptRead ? method !== 'GET' || body !== undefined : !TABLES.includes(table)) throw new Error('ivoc_table_not_allowed');
     const response = await fetchImpl(`${root}/rest/v1/${tablePath}`, {
       method,
-      signal,
+      signal: transcriptRead ? AbortSignal.any([AbortSignal.timeout(10_000), ...(signal ? [signal] : [])]) : signal,
       headers: {
         Accept: 'application/json',
         apikey: key,
@@ -52,6 +73,7 @@ export function createIvocRepository({ baseUrl, serviceRoleKey, fetchImpl = fetc
       },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
+    if (transcriptRead) return boundedTranscriptJson(response);
     const payload = await response.json().catch(() => null);
     if (!response.ok) {
       const error = new Error('ivoc_persistence_failed');

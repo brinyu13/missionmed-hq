@@ -14,6 +14,19 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Server transcript → Film Room: SOURCE CANDIDATE, epoch 4095.** Exact
+  server-captured fragments now have a bounded, owner-scoped cold-read projection
+  through the existing authorized session detail. Current actor/owner/mentor
+  custody is rechecked after the read; browser DB grants remain denied. Film Room
+  uses a separate non-seekable presentation adapter, preserves whitespace and
+  both speakers, labels partial capture and approximate provider time, and does
+  not promote text into canonical turns, heard audio, answer ranges or coaching.
+  79 focused route/read/render/review checks PASS, including real observer → sink
+  → fresh reader with offline transport. Production table still has 0 events;
+  no schema/provider/media mutation. Independent source acceptance PASS after
+  correcting read-error/root-only suppression of earlier saved text; exact actual
+  renderer regressions pass. Deployment pending. Real spoken/two-sided replay
+  acceptance remains separate and OPEN.
 - **CURRENT PRODUCTION:** source `89168e2b7267dc709b410ec4d98540a4a0ac81ea`,
   deployment `82f86a78-eaac-4ea2-bda1-cfb26d9983c6` SUCCESS, image
   `sha256:e43d0a68b4a0f44197f4e64dbb909f00f22c96439f49420bebeb46107b863bea`,

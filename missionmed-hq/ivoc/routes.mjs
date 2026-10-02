@@ -11,6 +11,7 @@ import { createFileVaultCvProjectionSource } from './file-vault-projection.mjs';
 import { createStoryForgeProjectionSource } from './storyforge-projection.mjs';
 import { createRiseProgramProjectionSource } from './rise-projection.mjs';
 import { createIvocRepository } from './repository.mjs';
+import { readLiveTranscriptReview } from './live-transcript-review.mjs';
 import { createIvocStorage } from './storage.mjs';
 import { allocateCandidateCapture, isCandidateAudio, isConversationRecording, publicCaptureReceipt, recordingSealTimebase, sealCandidateCapture } from './candidate-audio.mjs';
 import { rebuildSelfPracticeAnswerSource, packageSelfPracticeAnalysis, projectSelfPracticeAnalysis } from './self-practice-analysis.mjs';
@@ -1898,8 +1899,18 @@ export function createIvocHandler({
         const sourceRecording = row.context?.promptReceipt && recording
           ? await db.single(`ivoc_recordings?parent_recording_id=eq.${recording?.id}&recording_role=eq.candidate_audio&select=*&limit=1`) : null;
         const practice = practiceReadModel(row, recording, sourceRecording, result, contextEnabled && contextTranscriptEnabled && row.owner_subject === actor);
+        const liveTranscript = await readLiveTranscriptReview(db, row);
+        // Optional paged transcript reads can outlast a role/assignment change.
+        await registry.refreshSubject?.({ hqSession, cookieFingerprint });
+        const freshAdmission = strictProjectHqSession({ request, hqSession, cookieFingerprint, registry, now: now(), maxSessionTtlSeconds: hqSessionMaxTtlSeconds });
+        const freshRow = await db.single(`ivoc_sessions?id=eq.${row.id}&select=*&limit=1`);
+        if (!freshAdmission.ok || freshAdmission.subject !== actor || freshRow?.owner_subject !== row.owner_subject
+          || freshRow?.interviewer_provider !== row.interviewer_provider
+          || !(await canReadSession({ row: freshRow, actor, session: hqSession, admission: freshAdmission }))) {
+          sendError(response, 404, 'not_found', mediaBase); return true;
+        }
         await audit({ actor, owner: row.owner_subject, sessionId: row.id, action: 'session_read', decision: 'allow', reason: row.owner_subject === actor ? 'owner' : 'authorized_review' });
-        sendJson(response, 200, withPracticeReadModel(publicSession(row, recording, result, review, spine, null, { includeRetryContext: row.owner_subject === actor }), practice), mediaBase); return true;
+        sendJson(response, 200, { ...withPracticeReadModel(publicSession(row, recording, result, review, spine, null, { includeRetryContext: row.owner_subject === actor }), practice), liveTranscript }, mediaBase); return true;
       }
 
       match = pathname.match(/^\/api\/ivoc\/v1\/recordings\/([0-9a-f-]{36})\/playback-url$/u);

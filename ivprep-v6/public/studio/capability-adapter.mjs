@@ -25,3 +25,4 @@ export { buildLongitudinalModel, compareAttempts } from './longitudinal-model.mj
 export { MetricBus, selectCorrection, statusRail } from './metric-bus.mjs';
 export { CAMERA_BLACK_MESSAGE, createMediaAnalyticsBridge, loadAnalyticsCapabilityModules } from './media-analytics-capability.mjs';
 export { resultLaneReadouts } from '../analytics/di-groups-ui.mjs';
+export { buildLiveTranscriptReview, renderLiveTranscriptReview } from './live-transcript-review.mjs';
