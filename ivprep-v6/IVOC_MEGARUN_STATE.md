@@ -14,6 +14,15 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Current healthy teaching-review release:** source `586ee6abd9db8b859049ffae0f23920ae0f971c5`,
+  deployment `43be768c-8b73-434a-8d76-6eaf2efe5ae7` SUCCESS, image
+  `sha256:697603296d7aa9849c9e4691ec9819e0596471fa0e4f04d9b239daf339994496`,
+  artifact `93a59a3ce7f69255d3f5c23a197b9caa40c5bdeb4c501e24b333be360128597d`.
+  Six changed runtime hashes match source; health 200; anonymous product/bootstrap
+  401. Deployment/HQ epochs 4047/4046 released normally and provider-confirmed.
+  No schema/config changes. Rollback is `c6b408f` / `74753088` and exact image/config
+  below. Actual authenticated review UI acceptance is in progress; browser command
+  delays are tooling limitations, not evidence of an application outage.
 - **R4 inactive instruction resolver:** source `02033d1` reuses the native
   bounded role/style/pressure/question-order policy and current authorized pack.
   Requires an injected server-owned active-session reader; rejects mismatched
