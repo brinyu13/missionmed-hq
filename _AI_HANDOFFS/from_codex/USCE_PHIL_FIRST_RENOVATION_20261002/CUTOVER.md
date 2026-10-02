@@ -29,3 +29,28 @@ Deployment9b004388-1217-45a0-941b-ce23be966ad1 SUCCESS, image sha256:d30302b8cf1
   "outbound_held": true,
   "qa_alias_verified": true
 }
+
+## Reviewed C18 production cutover
+
+```json
+{
+  "deployment": "b4fde0e2-5c0b-4589-9caf-fff5021e0b7c",
+  "status": "SUCCESS",
+  "image": "sha256:65e846c9c1ced5895b2d96c9be4adbf3c8f3d4ae344a11024d1639dced88ed7b",
+  "source_commit": "2a7e1fc63f2ce158e07a185249a8da00150b6556",
+  "closure_files": 18,
+  "route_sha256": "c54d63a12cdbb6b3a307cc4131e551f20e5d73388835b155328d0181369091dc",
+  "outbound_held": true,
+  "time": "2026-10-02T20:28:26.137240+00:00"
+}
+```
+
+Healthy HTTP200/statusok. Initial verification incorrectly expected an ok boolean after SUCCESS and stopped before receipt/pin writes; corrected readback without repeating upload/deploy. Previous e52 held release nowREMOVED. No unsafe send or data rollback. Shared default-branch Dependabot alerts4(form-data/ws/esbuild in root package-lock.json) were classified read-only; C18 contains neither package-lock nor external dependencies and imports only local/built-in Node modules. No shared dependency change.
+
+C18 held exact-image recovery redeploy dispatched without from-source. No SQL/token/claims reversal. Provider status readback pending.
+
+Recovery readback after image assertion: Railway redeploy rebuilds retained source and yielded new image1441a8; command not replayed. Deployment2b79c0c8 SUCCESS, oldb4fde REMOVED. All18 remote filesystem hashes equal qualified C18 closure via SSH, same file/service manifest/property mapping, routec54d63 and gatewayc45132 exact. Source recovery custody proved; no mutation until resolved.
+
+Exact C18 held recovery: {"deployment": "2b79c0c8-c132-426f-84c4-ec53be288bdd", "image": "sha256:1441a8b39f2a37429a183df7999cca6529eee56d7c5e60e65f432718acb032ab", "health": "status:ok", "outbound_held": true}; compatible deployed additive schema untouched. This is current guarded artifact reinstallation, not a return to an unsafe historical sender.
+
+Recovery completed: guarded C18 same-image reinstallation, exact compatible operations baseline frontend rollback and StoryForge reapply; all checks held, no SQL reversal, no email/payment/business write. Final normal production config restoration and independent accepted-case continuity remain separate.

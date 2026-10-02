@@ -216,9 +216,9 @@
       "environment_id": "ed3353f7-bcc7-4e25-a000-3c9fc628a9a7",
       "environment": "production",
       "public_origin": "https://missionmed-usce-gateway-production.up.railway.app",
-      "current_deployment_id": "7e79d3de-50c0-4721-bb4e-0c7c39c411cd",
-      "current_image_digest": "sha256:9b5d6a025fcb6f05381665f46fd1765dd55e411b5a07dcb3d32818fb961edf63",
-      "runtime_evidence": "Accepted guarded18file source redeployed with controlled QA-only dry-run configuration; one active SUCCESS deployment.",
+      "current_deployment_id": "2b79c0c8-c132-426f-84c4-ec53be288bdd",
+      "current_image_digest": "sha256:65e846c9c1ced5895b2d96c9be4adbf3c8f3d4ae344a11024d1639dced88ed7b",
+      "runtime_evidence": "Exact C18 held image recovery SUCCESS; compatible frontend rollback/reapply verified; fresh F/U/O pending.",
       "start_command": "node missionmed-hq/usce-gateway.mjs",
       "active_source_roots": [
         "missionmed-hq/usce-gateway.mjs",
@@ -233,7 +233,7 @@
       "inactive_lookalikes": [
         "app/api/usce/**"
       ],
-      "runtime_bundle_manifest": "_AI_HANDOFFS/from_codex/USCE_PHIL_FIRST_RENOVATION_20261002/RUNTIME_BUNDLE_B.md",
+      "runtime_bundle_manifest": "_AI_HANDOFFS/from_codex/USCE_PHIL_FIRST_RENOVATION_20261002/RUNTIME_BUNDLE_C.md",
       "authority": "MissionMed_OS/decisions/DR-359_usce_phil_first_renovation_authority.md",
       "required_env": [
         {
@@ -246,7 +246,8 @@
         "Verify isolated project/service/environment pins and claim-fenced sender before cutover.",
         "Never treat shared main HQ as this runtime owner."
       ],
-      "deployment_source": "Explicit manual upload of qualified dedicated18file closure; stale GitHub automatic source disconnected; see RUNTIME_SOURCE.md."
+      "deployment_source": "Explicit manual upload of qualified dedicated18file closure; stale GitHub automatic source disconnected; see RUNTIME_SOURCE.md.",
+      "source_commit": "2a7e1fc63f2ce158e07a185249a8da00150b6556"
     }
   },
   "protected_paths": [
@@ -441,7 +442,7 @@
       "id": "cdn_usce_admin_live",
       "system": "usce_admin",
       "url": "https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html",
-      "approved_sha256": "a4733a50e49a8dead724b5107277ceb088d29366dcc829191d252a43640f47b5",
+      "approved_sha256": "987fd4c0450547f3ac7c4b2d7afcbade538536bf123f43a939050886f08893dc",
       "required_markers": [
         "/api/usce/admin/public-intake-requests",
         "action=mmhq_usce_admin_auth_relay",
@@ -454,9 +455,10 @@
         "hydrateSavedOffer",
         "uniqueTimelineEvents",
         "Apply selected template",
-        "authAudience: 'usce_admin'"
+        "authAudience: 'usce_admin'",
+        "usce-storyforge-foundation"
       ],
-      "local_source_note": "Root-integrated Astra accessibility, saved-term hydration, explicit template, event dedupe and token/write-fence fix-forward. Exact serving custody CDN_RELEASE.md; independentF/U/O separate.",
+      "local_source_note": "Exact independently reviewed StoryForge foundation plus C18 manual provenance, sender proof and modal fence; serving custody CDN_RELEASE.md. Fresh final F/U/O separate.",
       "local_source_required": true,
       "local_source_path": "LIVE/usce_admin.html"
     },
@@ -479,7 +481,7 @@
       "url": "https://missionmedinstitute.com/storyforge/",
       "approved_sha256": "1b43b433be1716deffd314a0c3f36ea4dc8cc6ae214680c8df41ce7058d0442c",
       "required_markers": [
-        "StoryForge V5 · MissionMed",
+        "StoryForge V5 \u00b7 MissionMed",
         "Dr Brian's IV Prep On-Call",
         "Opening your private story workspace"
       ],
@@ -624,7 +626,7 @@
       "id": "cdn_usce_offer_live",
       "system": "usce_admin",
       "url": "https://cdn.missionmedinstitute.com/html-system/LIVE/usce_offer.html",
-      "approved_sha256": "68a97ea4418edc36b91a5e497f300fb43c63cacb7a6beb429ee6cc880224ce6e",
+      "approved_sha256": "05f460fa3af85e826a37d404869d8605843b18bca79dd9e8356f5cb3300a7614",
       "local_source_required": true,
       "local_source_path": "LIVE/usce_offer.html",
       "required_markers": [
@@ -633,9 +635,10 @@
         "decline_notify_future",
         "decline_no_notify",
         "clinicalsContact",
-        "referrerpolicy=\"no-referrer\""
+        "referrerpolicy=\"no-referrer\"",
+        "usce-storyforge-foundation"
       ],
-      "local_source_note": "Applicant companion under the same USCE owner; no missing-token demo, shared-main decline navigation or financial/placement commitment."
+      "local_source_note": "Exact independently reviewed StoryForge foundation plus C18 manual provenance, sender proof and modal fence; serving custody CDN_RELEASE.md. Fresh final F/U/O separate."
     }
   ],
   "route_checks": [
@@ -749,7 +752,7 @@
       "url": "https://missionmedinstitute.com/storyforge/",
       "method": "GET",
       "expected_status": 200,
-      "body_contains": "StoryForge V5 · MissionMed",
+      "body_contains": "StoryForge V5 \u00b7 MissionMed",
       "expected_headers": {
         "cache-control": "no-store, max-age=0",
         "x-storyforge-route": "wordpress-gateway"
@@ -986,7 +989,7 @@
       "source_of_truth": [
         "LIVE/usce_admin.html",
         "LIVE/usce_offer.html",
-        "_AI_HANDOFFS/from_codex/USCE_PHIL_FIRST_RENOVATION_20261002/RUNTIME_BUNDLE_B.md",
+        "_AI_HANDOFFS/from_codex/USCE_PHIL_FIRST_RENOVATION_20261002/RUNTIME_BUNDLE_C.md",
         "_AI_HANDOFFS/from_codex/USCE_PHIL_FIRST_RENOVATION_20261002/MIGRATION_LEDGER.md"
       ],
       "routes_or_assets": [
@@ -1006,10 +1009,13 @@
         "postmark": "Claim-fenced sender and exact controlled-recipient QA guard; no unbounded live sending.",
         "fix_forward_sql_source": "supabase/migrations/20261002182503_usce_phil_first_fix_forward.sql",
         "fix_forward_sql_sha256": "f7cd9dce466e0d16453123e55bb451f2878c0ddecea6191ad31561bf5c1ecfee",
-        "fix_forward_actual_provider_version": "20261002142841"
+        "fix_forward_actual_provider_version": "20261002142841",
+        "operations_sql_source": "supabase/migrations/20261002193404_usce_phil_first_operations_handoff.sql",
+        "operations_sql_sha256": "97884ce076b591a93b67c799c775a0a920650e6968c246526676b5678440dfbf",
+        "operations_actual_provider_version": "20261002162044"
       },
       "rollback_evidence": [
-        "_AI_HANDOFFS/from_codex/USCE_PHIL_FIRST_RENOVATION_20261002/RUNTIME_BUNDLE_B.md",
+        "_AI_HANDOFFS/from_codex/USCE_PHIL_FIRST_RENOVATION_20261002/RUNTIME_BUNDLE_C.md",
         "_AI_HANDOFFS/from_codex/USCE_PHIL_FIRST_RENOVATION_20261002/CDN_BACKUPS.md",
         "_AI_HANDOFFS/from_codex/USCE_PHIL_FIRST_RENOVATION_20261002/CUTOVER.md",
         "_AI_HANDOFFS/from_codex/USCE_PHIL_FIRST_RENOVATION_20261002/MIGRATION_LEDGER.md"
@@ -1209,7 +1215,7 @@
         "Use only mission-owned synthetic cases; never require a real applicant row to pass.",
         "Verify durable note save/reload, draft/revision/preview/send claim and actual communication evidence.",
         "Verify named visible prompt textbox, keyboard containment, cancel/Escape and return focus.",
-        "Verify denied/non-admin access; report Phil identity and human acceptance separately."
+        "Verify denied/non-admin access and actual brinyu administrator behavior; final independent acceptance remains required."
       ]
     },
     {

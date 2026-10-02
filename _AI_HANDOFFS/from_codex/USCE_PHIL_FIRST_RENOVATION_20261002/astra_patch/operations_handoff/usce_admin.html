@@ -416,128 +416,20 @@
 @media(max-width:760px){.mm-cx{padding:12px 10px 40px}.mm-cx .mm-hq-grid{display:block}.mm-cx.mm-case-open .mm-hq-grid>.mm-card:first-child{display:none}.mm-cx:not(.mm-case-open) #mmDetailCard{display:none}.mm-cx .mm-builder-grid,.mm-cx .mm-ops-grid,.mm-cx .mm-prefs-grid{grid-template-columns:1fr}.mm-cx .mm-detail-body,.mm-cx .mm-detail-head{padding:16px}.mm-cx .mm-modal{width:calc(100vw - 20px);max-height:92vh;overflow:auto}.mm-cx .mm-form-actions .mm-btn{width:100%;justify-content:center}}
 @media(prefers-reduced-motion:reduce){.mm-cx *{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 </style>
-<style id="usce-storyforge-foundation">
-/* USCE workspace foundation, adapted from immutable StoryForge 9934fb49d7529f4f607530c5a0c98e99c07ea91c.
-   Visual tokens/layout only. System fonts; no external font or product dependency. */
-:root{color-scheme:dark;--sf-bg:#0a0d14;--sf-bg2:#0f1522;--sf-card:#121927;--sf-card2:#161f31;--sf-edge:#243046;--sf-edge2:#31405c;--sf-tx:#e9eefb;--sf-dim:#7e8ba6;--sf-mid:#aab8d1;--sf-cy:#39d6ff;--sf-green:#4ade9d;--sf-red:#ff8296;--sf-amber:#ffd087;--sf-font:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--sf-hdr:60px;--sf-rail:184px}
-html{background:var(--sf-bg);scroll-padding-top:80px}
-body{margin:0;background:var(--sf-bg);font-family:var(--sf-font)}
-a,button,input,select,textarea{touch-action:manipulation}
-:focus-visible{outline:2px solid var(--sf-cy)!important;outline-offset:4px!important}
-::selection{background:#39d6ff44;color:var(--sf-tx)}
-.sf-skip{position:fixed;z-index:999999;left:12px;top:-80px;padding:12px 18px;background:var(--sf-cy);color:#0a0d14;font-weight:700;border-radius:8px}
-.sf-skip:focus{top:8px}
-@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
-
-.mm-cx{--mm-navy:var(--sf-tx);--mm-navy-2:var(--sf-mid);--mm-navy-3:var(--sf-cy);--mm-ink:var(--sf-tx);--mm-paper:var(--sf-bg2);--mm-paper-2:var(--sf-card2);--mm-line:var(--sf-edge);--mm-line-2:var(--sf-edge2);--mm-muted:var(--sf-mid);--mm-gold:var(--sf-cy);--mm-gold-2:var(--sf-cy);--mm-gold-soft:#39d6ff12;--mm-success:var(--sf-green);--mm-danger:var(--sf-red);--mm-warn:var(--sf-amber);--mm-radius:16px;--mm-shadow:0 4px 18px #0002;--mm-shadow-lg:0 24px 70px #0008;background:var(--sf-bg);padding:84px 24px 40px calc(var(--sf-rail) + 24px);font-family:var(--sf-font)}
-.mm-cx .mm-topbar{position:fixed;inset:0 0 auto;height:var(--sf-hdr);margin:0;padding:0 24px;z-index:40;background:var(--sf-bg2);border-bottom:1px solid var(--sf-edge);flex-wrap:nowrap;gap:12px}
-.mm-cx .mm-brand-mark{width:32px;height:32px;border-radius:9px;background:#39d6ff14;border:1px solid #39d6ff55;color:var(--sf-cy);box-shadow:none}
-.mm-cx .mm-brand-text{font-size:14px;line-height:1.25;letter-spacing:-.02em}.mm-cx .mm-brand-text small{font-size:10px;margin-top:2px;letter-spacing:.08em}
-.mm-cx .sf-open-full{font-size:11px;color:var(--sf-cy);text-decoration:none;padding:8px;border:1px solid var(--sf-edge2);border-radius:7px}.mm-cx .sf-open-full:hover{text-decoration:underline}
-.mm-cx .mm-runtime-pill{font-size:10px;padding:7px 10px;background:var(--sf-card);color:var(--sf-mid);border-color:var(--sf-edge);box-shadow:none}
-.mm-cx .mm-runtime-pill.live{background:#4ade9d0c;color:var(--sf-green);border-color:#4ade9d44}
-.mm-cx .mm-runtime-pill.blocked{background:#ff547012;color:var(--sf-red);border-color:#ff547055}
-.mm-cx .sf-rail{position:fixed;left:0;top:60px;bottom:0;width:var(--sf-rail);z-index:30;padding:24px 12px;background:var(--sf-bg2);border-right:1px solid var(--sf-edge);display:flex;flex-direction:column;gap:6px}
-.mm-cx .sf-rail-title{font-size:10px;letter-spacing:.13em;color:var(--sf-mid);text-transform:uppercase;padding:0 12px 14px;font-weight:750}
-.mm-cx .sf-rail button{font:600 13px var(--sf-font);color:var(--sf-mid);text-align:left;border:1px solid transparent;background:transparent;border-radius:9px;min-height:44px;padding:10px 12px;display:flex;gap:12px;align-items:center;cursor:pointer}
-.mm-cx .sf-rail button span{font-size:16px;width:18px;text-align:center}
-.mm-cx .sf-rail button:hover:not(:disabled){background:var(--sf-card2);color:var(--sf-tx)}
-.mm-cx .sf-rail button[aria-current="page"]{background:#39d6ff12;border-color:#39d6ff35;color:var(--sf-cy)}
-.mm-cx .sf-rail button:disabled{opacity:.45;cursor:not-allowed}
-.mm-cx .sf-rail-note{margin-top:auto;border-top:1px solid var(--sf-edge);padding:16px 12px 0;font-size:11px;color:var(--sf-mid);line-height:1.6}
-.mm-cx .sf-rail-note b{display:block;color:var(--sf-tx);font-size:12px;font-weight:600;margin-bottom:4px}
-.mm-cx .mm-hero{padding:0;margin:0 0 20px;background:none;box-shadow:none;border:0;border-radius:0;color:var(--sf-tx);overflow:visible}
-.mm-cx .mm-hero::after{display:none}.mm-cx .mm-eyebrow{font-size:10px;letter-spacing:.14em;color:var(--sf-cy);margin-bottom:8px}
-.mm-cx .mm-hero h1{font-size:26px;letter-spacing:-.035em;line-height:1.2;margin:0 0 7px;font-weight:700}
-.mm-cx .mm-hero p{color:var(--sf-mid);font-size:13px;max-width:800px}
-.mm-cx .mm-adapter-banner{padding:10px 14px;margin-bottom:18px;border:1px solid var(--sf-edge);background:var(--sf-bg2);color:var(--sf-mid);border-radius:10px;font-size:12px}
-.mm-cx .mm-adapter-banner strong{color:var(--sf-tx)}
-.mm-cx .mm-adapter-banner.live{background:var(--sf-bg2);border-color:var(--sf-edge)}
-.mm-cx .mm-adapter-banner.blocked{background:#ff547010;border-color:#ff547055;color:var(--sf-red)}
-.mm-cx .mm-hq-grid{grid-template-columns:minmax(280px,330px) minmax(0,1fr);gap:18px}
-.mm-cx .mm-card,.mm-cx .mm-modal{background:var(--sf-card);border:1px solid var(--sf-edge);box-shadow:var(--mm-shadow);overflow:hidden}
-.mm-cx .mm-stats{gap:6px;padding:14px}.mm-cx .mm-stat{background:var(--sf-bg2);padding:9px 7px;border-color:var(--sf-edge);border-radius:8px}
-.mm-cx .mm-stat b{font-size:21px;font-variant-numeric:tabular-nums;color:var(--sf-tx);font-weight:650}
-.mm-cx .mm-stat small{font-size:9px;letter-spacing:.015em;text-transform:none;color:var(--sf-mid)}
-.mm-cx .mm-hq-toolbar{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:14px}
-.mm-cx #mmSearch,.mm-cx #mmWorkFilter{grid-column:1/-1}.mm-cx #mmRefreshCases{grid-column:1/-1;justify-self:start;min-height:32px}
-.mm-cx .mm-input,.mm-cx .mm-select,.mm-cx .mm-textarea,.mm-cx .mm-hq-toolbar input,.mm-cx .mm-hq-toolbar select,.mm-cx .mm-live-link{background:var(--sf-bg2);border-color:var(--sf-edge2);color:var(--sf-tx);min-width:0}
-.mm-cx input::placeholder,.mm-cx textarea::placeholder{color:var(--sf-mid);opacity:.9}
-.mm-cx .mm-hq-toolbar input,.mm-cx .mm-hq-toolbar select{width:100%;min-height:38px;font-size:12px}
-.mm-cx .mm-req-list{max-height:calc(100vh - 410px);min-height:180px;padding:8px}
-.mm-cx .mm-req-item{background:transparent;border:1px solid var(--sf-edge);padding:13px 12px;margin-bottom:8px;border-radius:10px}
-.mm-cx .mm-req-item:hover{background:var(--sf-card2)}
-.mm-cx .mm-req-item.is-active{background:#39d6ff0b;border-color:#39d6ff88;box-shadow:inset 3px 0 var(--sf-cy)}
-.mm-cx .mm-req-name{font-size:13px}.mm-cx .mm-req-time{font-size:10px;color:var(--sf-mid)}
-.mm-cx .mm-case-next{font-size:11px;line-height:1.5;color:var(--sf-mid)}
-.mm-cx .mm-status-badge{font-size:9px;letter-spacing:.035em}.mm-cx .mm-status-new,.mm-cx .mm-status-retained{background:#39d6ff14;color:var(--sf-cy)}
-.mm-cx .mm-status-in_progress,.mm-cx .mm-status-offered,.mm-cx .mm-status-offer_sent{background:#8a7dff20;color:#c3b9ff}
-.mm-cx .mm-detail{min-height:620px}.mm-cx .mm-detail-head{padding:18px 20px;gap:14px;background:var(--sf-card)}
-.mm-cx .mm-detail-head h2{font-size:21px;letter-spacing:-.025em}
-.mm-cx .mm-detail-actions{width:100%;flex-direction:row;align-items:center;flex-wrap:wrap;justify-content:space-between}
-.mm-cx .mm-detail-actions .mm-tabs{width:100%;order:3}
-.mm-cx .mm-tabs{border:0;border-bottom:1px solid var(--sf-edge);background:transparent;border-radius:0;padding:0;gap:18px}
-.mm-cx .mm-tabs button{border-radius:0;border-bottom:2px solid transparent;padding:8px 2px;font-size:12px;min-height:42px}
-.mm-cx .mm-tabs button.is-active{background:transparent;color:var(--sf-cy);border-bottom-color:var(--sf-cy);box-shadow:none}
-.mm-cx .mm-detail-body{padding:18px 20px 24px}
-.mm-cx .mm-btn{min-height:40px;border-radius:8px;box-shadow:none;font-size:12px;letter-spacing:0;justify-content:center}
-.mm-cx .mm-btn-primary{background:var(--sf-cy);color:var(--sf-bg);border:1px solid var(--sf-cy);box-shadow:none}
-.mm-cx .mm-btn-primary:hover{background:#86e8ff;box-shadow:none;transform:none}
-.mm-cx .mm-btn-dark{background:#39d6ff16;color:var(--sf-cy);border:1px solid #39d6ff66;box-shadow:none}
-.mm-cx .mm-btn-ghost{background:var(--sf-card2);color:var(--sf-tx);border:1px solid var(--sf-edge2)}
-.mm-cx .mm-btn-danger{background:#ff54700d;color:var(--sf-red);border-color:#ff547050}
-.mm-cx .mm-btn-success{background:var(--sf-green);color:var(--sf-bg);box-shadow:none}
-.mm-cx .mm-btn:disabled{opacity:.43}.mm-cx .mm-build-offer-top{padding:9px 14px;min-width:0}
-.mm-cx .mm-pref-card,.mm-cx .mm-admin-next,.mm-cx .mm-preflight,.mm-cx .mm-stat,.mm-cx .mm-comm,.mm-cx .mm-email,.mm-cx .mm-admin-tracker,.mm-cx .mm-month,.mm-cx .mm-inline-check{background:var(--sf-bg2);border-color:var(--sf-edge)}
-.mm-cx .mm-comm.in,.mm-cx .mm-comm.out,.mm-cx .mm-comm.sys{background:var(--sf-bg2)}
-.mm-cx .mm-month.is-on{background:#39d6ff15;color:var(--sf-cy);border-color:var(--sf-cy);box-shadow:none}
-.mm-cx .mm-month .mm-pref-tag,.mm-cx .mm-admin-waiting{color:var(--sf-cy);background:#39d6ff12}
-.mm-cx .mm-admin-tracker{margin-top:0}.mm-cx .mm-admin-tracker-head{background:var(--sf-bg2);padding:14px}
-.mm-cx .mm-admin-stage-grid{background:var(--sf-bg2);gap:6px;padding:10px}
-.mm-cx .mm-admin-stage{clip-path:none!important;border:1px solid var(--sf-edge2);border-radius:6px;background:var(--sf-card2);color:var(--sf-mid);font-size:9px;min-height:44px;font-weight:600;letter-spacing:0;animation:none}
-.mm-cx .mm-admin-stage.complete{background:#4ade9d14;border-color:#4ade9d44;color:var(--sf-green)}
-.mm-cx .mm-admin-stage.active{background:#39d6ff16;border-color:#39d6ff88;color:var(--sf-cy);animation:none}
-.mm-cx .mm-admin-stage.issue{background:#ff547012;border-color:#ff547066;color:var(--sf-red);animation:none}
-.mm-cx .mm-admin-tracker-body{padding:12px;gap:10px}.mm-cx .mm-admin-next b{font-size:13px}
-.mm-cx .mm-builder,.mm-cx .mm-composer{background:var(--sf-bg2)}.mm-cx .mm-tl-dir.note{color:#c3b9ff}.mm-cx .mm-tl-dir.out{color:var(--sf-cy)}
-.mm-cx .mm-builder-note{background:#39d6ff0b;border-color:var(--sf-edge);color:var(--sf-mid)}
-.mm-cx .mm-modal-head,.mm-cx .mm-modal-foot,.mm-cx .mm-email-head{background:var(--sf-bg2)}
-.mm-cx .mm-email-body,.mm-cx .mm-email-body.is-source{background:var(--sf-card);color:var(--sf-tx)}
-.mm-cx .mm-email-subject[contenteditable="true"],.mm-cx .mm-email-body[contenteditable="true"]{background:#39d6ff0a;color:var(--sf-tx)}
-.mm-cx .mm-email-preview-frame{color-scheme:light}
-.mm-cx .mm-approve-bar .mm-check{background:var(--sf-card2)}.mm-cx .mm-toast{background:var(--sf-card2);border:1px solid var(--sf-edge);border-left:3px solid var(--sf-cy);color:var(--sf-tx)}
-.mm-cx .mm-kv{grid-template-columns:115px minmax(0,1fr)}.mm-cx .mm-kv dd{overflow-wrap:anywhere}
-.mm-cx .mm-req-meta,.mm-cx .mm-hint{color:var(--sf-mid)}
-.mm-cx #mmOfferReadOnlyStatus{border:1px solid #39d6ff55;background:#39d6ff0b!important;color:var(--sf-mid)!important;padding:12px;border-radius:10px}
-@media(min-width:1600px){.mm-cx .mm-hq-grid{grid-template-columns:350px minmax(0,1fr)}.mm-cx [data-panel="hq"]{max-width:1500px;margin:auto}}
-@media(max-width:1100px) and (min-width:761px){:root{--sf-rail:148px}.mm-cx{padding-left:calc(var(--sf-rail) + 16px);padding-right:16px}.mm-cx .sf-rail{padding:20px 8px}.mm-cx .sf-rail button{padding:10px 8px}.mm-cx .mm-hq-grid{grid-template-columns:260px minmax(0,1fr);gap:12px}.mm-cx .mm-prefs-grid{grid-template-columns:1fr}.mm-cx .mm-builder-grid,.mm-cx .mm-ops-grid{grid-template-columns:1fr}.mm-cx .mm-detail-body,.mm-cx .mm-detail-head{padding:14px}.mm-cx .mm-admin-tracker-body{grid-template-columns:1fr}}
-@media(max-width:760px){.mm-cx{padding:132px 12px 28px}.mm-cx .mm-topbar{padding:0 14px}.mm-cx .mm-brand-text{font-size:12px}.mm-cx .mm-brand-text small{font-size:9px}.mm-cx .mm-runtime-pill{font-size:9px;letter-spacing:0;padding:6px 8px}.mm-cx .sf-rail{top:60px;bottom:auto;width:100%;height:56px;padding:6px 8px;flex-direction:row;gap:4px;border-right:0;border-bottom:1px solid var(--sf-edge);overflow-x:auto}.mm-cx .sf-rail-title,.mm-cx .sf-rail-note{display:none}.mm-cx .sf-rail button{min-width:max-content;padding:8px 11px;gap:6px;font-size:12px}.mm-cx .sf-rail button span{display:none}.mm-cx .mm-hero{margin-bottom:14px}.mm-cx .mm-hero h1{font-size:24px}.mm-cx .mm-hero p{font-size:12px}.mm-cx .mm-adapter-banner{margin-bottom:14px}.mm-cx .mm-hq-grid{display:block}.mm-cx .mm-req-list{max-height:none}.mm-cx .mm-stats{grid-template-columns:repeat(4,1fr)}.mm-cx .mm-detail{min-height:0}.mm-cx .mm-detail-actions{gap:10px}.mm-cx .mm-tabs{gap:18px}.mm-cx .mm-detail-body,.mm-cx .mm-detail-head{padding:16px}.mm-cx .mm-admin-stage-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.mm-cx .mm-admin-stage{margin:0;min-height:40px}.mm-cx .mm-modal{max-height:92dvh}.mm-cx .mm-kv{grid-template-columns:90px minmax(0,1fr)}html{scroll-padding-top:132px}}
-@media(max-width:760px){.mm-cx .mm-brand-mark{display:none}.mm-cx .mm-brand-text{font-size:11px}.mm-cx .mm-runtime{flex-wrap:nowrap;gap:5px}.mm-cx .sf-open-full{font-size:10px;max-width:68px;line-height:1.2;text-align:center;padding:6px}.mm-cx .mm-topbar{gap:6px}.mm-cx .mm-runtime-pill{white-space:nowrap}}
-</style>
 </head>
 <body>
 
 <div class="mm-cx" id="mmCx">
-<a class="sf-skip" href="#mmWorkspace">Skip to clinicals workspace</a>
-<nav class="sf-rail" aria-label="Clinicals workspace">
-<div class="sf-rail-title">Workspace</div>
-<button type="button" data-sf-nav="cases" aria-current="page"><span aria-hidden="true">▤</span>Cases</button>
-<button type="button" data-sf-nav="overview" disabled><span aria-hidden="true">◫</span>Summary</button>
-<button type="button" data-sf-nav="comms" disabled><span aria-hidden="true">◷</span>Activity</button>
-<button type="button" data-sf-nav="offer" disabled><span aria-hidden="true">◇</span>Offer</button>
-<button type="button" data-sf-nav="audit" disabled><span aria-hidden="true">↺</span>History</button>
-<div class="sf-rail-note"><b>Clinicals coordination</b>Review each case, record evidence, and confirm the next step.</div>
-</nav>
 
   <div class="mm-topbar">
     <div class="mm-brand">
       <div class="mm-brand-mark">M</div>
       <div class="mm-brand-text">
-        MissionMed Clinicals
-        <small>Coordinator workspace</small>
+        MissionMed Clinicals HQ
+        <small>Internal Offer System</small>
       </div>
     </div>
-    <div class="mm-runtime"><a class="sf-open-full" href="https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html" target="_blank" rel="noopener noreferrer" hidden>Open full workspace ↗</a>
+    <div class="mm-runtime">
       <span class="mm-runtime-pill" id="mmRuntimePill"><span class="mm-dot"></span><span id="mmRuntimeText">Checking session</span></span>
     </div>
   </div>
@@ -640,10 +532,10 @@ a,button,input,select,textarea{touch-action:manipulation}
   </section>
 
   <!-- ============== HQ DASHBOARD ============== -->
-  <section class="mm-panel is-active" data-panel="hq" id="mmWorkspace" tabindex="-1" aria-label="Clinicals cases">
+  <section class="mm-panel is-active" data-panel="hq">
     <div class="mm-hero">
-      <span class="mm-eyebrow">Case management</span>
-      <h1>Clinicals workspace</h1>
+      <span class="mm-eyebrow">HQ Coordinator Workspace</span>
+      <h1>Clinicals cases</h1>
       <p>Review preferences, log outreach, track the thread, build the offer, and send with coordinator approval.</p>
     </div>
     <div class="mm-adapter-banner" id="mmAdapterBanner">
@@ -682,7 +574,7 @@ a,button,input,select,textarea{touch-action:manipulation}
           </select>
         </div>
         <div class="mm-hq-list-header">
-          <h3>Case queue</h3>
+          <h3>Requests</h3>
           <span class="mm-count-pill" id="mmReqCount">0</span>
         </div>
         <div class="mm-req-list" id="mmReqList"></div>
@@ -844,7 +736,7 @@ a,button,input,select,textarea{touch-action:manipulation}
                 <div class="mm-builder" id="mmOpsPanel" style="margin-top:14px;">
                   <h4>Manual coordinator status records</h4><p class="mm-hint">These are coordinator records. Saving does not take payment, reserve a place, approve documents, or grant course access. Confirm each with its owning system.</p>
                   <div class="mm-ops-grid">
-                    <div class="mm-field" style="margin:0;"><label class="mm-label" for="mmOpsPayment">Payment</label>
+                    <div class="mm-field" style="margin:0;"><label class="mm-label">Payment</label>
                       <select class="mm-select" id="mmOpsPayment">
                         <option value="pending">Pending</option>
                         <option value="handoff_shown">Handoff shown</option>
@@ -853,7 +745,7 @@ a,button,input,select,textarea{touch-action:manipulation}
                         <option value="failed">Failed</option>
                         <option value="refunded">Refunded</option>
                       </select></div>
-                    <div class="mm-field" style="margin:0;"><label class="mm-label" for="mmOpsPaperwork">Paperwork</label>
+                    <div class="mm-field" style="margin:0;"><label class="mm-label">Paperwork</label>
                       <select class="mm-select" id="mmOpsPaperwork">
                         <option value="not_started">Not started</option>
                         <option value="requested">Requested</option>
@@ -861,7 +753,7 @@ a,button,input,select,textarea{touch-action:manipulation}
                         <option value="approved">Approved</option>
                         <option value="blocked">Blocked</option>
                       </select></div>
-                    <div class="mm-field" style="margin:0;"><label class="mm-label" for="mmOpsLearndash">Course access</label>
+                    <div class="mm-field" style="margin:0;"><label class="mm-label">Course access</label>
                       <select class="mm-select" id="mmOpsLearndash">
                         <option value="locked">Locked</option>
                         <option value="ready">Ready</option>
@@ -3067,35 +2959,6 @@ CONFIG.gmailMailboxes[0];
   state.requests = []; state.offers = []; state.adapter = 'booting';
   renderRequestList(); switchView('hq'); loadLiveQueue();
 
-})();
-</script>
-<script id="usce-foundation-navigation">
-/* Presentation navigation delegates to existing case/tab controls; no data mutations. */
-(function(){
-  const root=document.getElementById('mmCx'),rail=root.querySelector('.sf-rail');
-  const full=root.querySelector('.sf-open-full');if(full)full.hidden=window.top===window.self;
-  function sync(){
-    const selected=root.classList.contains('mm-case-open');
-    rail.querySelectorAll('[data-sf-nav]').forEach(button=>{
-      const tab=button.dataset.sfNav;
-      button.disabled=tab!=='cases'&&!selected;
-      const active=selected?root.querySelector('#mmDetTabs [data-tab="'+tab+'"]')?.classList.contains('is-active'):tab==='cases';
-      if(active)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');
-    });
-  }
-  rail.addEventListener('click',event=>{
-    const button=event.target.closest('[data-sf-nav]');if(!button||button.disabled)return;
-    if(button.dataset.sfNav==='cases'){
-      root.querySelector('#mmCaseBack').click();
-      if(!root.classList.contains('mm-case-open'))root.querySelector('#mmSearch').focus();
-    }else{
-      root.querySelector('#mmDetTabs [data-tab="'+button.dataset.sfNav+'"]').click();
-      root.querySelector('#mmWorkspace').scrollIntoView({block:'start'});
-    }
-    sync();
-  });
-  new MutationObserver(sync).observe(root,{attributes:true,attributeFilter:['class'],subtree:true});
-  sync();
 })();
 </script>
 </body>

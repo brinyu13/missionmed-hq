@@ -30,3 +30,21 @@ Astra root-integrated b4ffb2a0bd81947aac244f07b961cd9b78ba84f2dcddf2abe0dd69ae01
 Fix-forward pre_token_write_fence: source/R2/public exact11ace28cca98ca6988ccae2f1ca2a005867a9308484ad1ea5fada61c1a085e6b200 no-store; beforeb4ffb2a0bd81947aac244f07b961cd9b78ba84f2dcddf2abe0dd69ae01346a83 backup verified. No sibling/global/provider-email mutation. Live browser acceptance separate.
 
 Fix-forward pre_message_linebreak: source/R2/public exacta4733a50e49a8dead724b5107277ceb088d29366dcc829191d252a43640f47b5200 no-store; before11ace28cca98ca6988ccae2f1ca2a005867a9308484ad1ea5fada61c1a085e6b backup verified. No sibling/global/provider-email mutation. Live browser acceptance separate.
+
+## StoryForge foundation versioned QA preview
+
+Only own versioned BACKUPS/storyforge_foundation_preview objects published. Admin30d47e4404914fc1a6c78df838251beb633a6ea07d9553c28a9af79616c6690a and applicant e77aef5a0eaf5d1af75822fa633da9eeec0022cb01090e3bcdb2a4c205b49f61 source/R2/public200 exact. No LIVE frontend change yet; actual Chrome visual qualification required.
+
+No-clobber QA-only applicant contrast correction object storyforge_foundation_preview_v2/usce_offer.html exact 05f460fa3af85e826a37d404869d8605843b18bca79dd9e8356f5cb3300a7614; LIVE unchanged.
+
+StoryForge LIVE cutover 2026-10-02T20:44:23.751592+00:00: {"asset": "usce_admin.html", "sha256": "30d47e4404914fc1a6c78df838251beb633a6ea07d9553c28a9af79616c6690a", "http": 200, "cache_control": "no-cache, no-store, must-revalidate", "cf_cache": "DYNAMIC"}; exact prior a4733a50e49a8dead724b5107277ceb088d29366dcc829191d252a43640f47b5 retained in pre_storyforge_live/usce_admin.html. Foreman root lease; no WordPress/plugin/global/sibling/email mutation.
+
+StoryForge LIVE cutover 2026-10-02T20:44:29.533578+00:00: {"asset": "usce_offer.html", "sha256": "05f460fa3af85e826a37d404869d8605843b18bca79dd9e8356f5cb3300a7614", "http": 200, "cache_control": "no-cache, no-store, must-revalidate", "cf_cache": "DYNAMIC"}; exact prior 68a97ea4418edc36b91a5e497f300fb43c63cacb7a6beb429ee6cc880224ce6e retained in pre_storyforge_live/usce_offer.html. Foreman root lease; no WordPress/plugin/global/sibling/email mutation.
+
+Actual compatible C18 frontend rollback applied usce_admin.html d90b7bb85dfcec5e410155e8d6c9d130c4c787dc60a802cb267c998fc0e4af16 from qualified_c18_recovery; public/R2 exact200 no-store, provider held.
+
+Actual frontend reapply usce_admin.html final987fd4c0450547f3ac7c4b2d7afcbade538536bf123f43a939050886f08893dc public/R2/source exact200 no-store. Admin three label associations independently APPROVE; scripts identical to approved foundation30d. Applicant variants independently APPROVE05f460.
+
+Actual compatible C18 frontend rollback applied usce_offer.html 3615c4e3a09a892315907a5c64b9645fb34cd25f75015f1791e2f3c0bc34944f from qualified_c18_recovery; public/R2 exact200 no-store, provider held.
+
+Actual frontend reapply usce_offer.html final05f460fa3af85e826a37d404869d8605843b18bca79dd9e8356f5cb3300a7614 public/R2/source exact200 no-store. Admin three label associations independently APPROVE; scripts identical to approved foundation30d. Applicant variants independently APPROVE05f460.

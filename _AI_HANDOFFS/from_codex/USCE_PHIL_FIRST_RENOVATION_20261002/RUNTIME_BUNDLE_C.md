@@ -38,3 +38,7 @@ Independent-approved J8 route and recipient/claim guard. Exact18-file closure; n
 ```
 
 Root integrated qualification: 130 substantive assertions passed (27operations+31recipient+10send+12sender+50runtime); Node counts81 tests because runtime50 assertions run as one suite. Exact C18 source-root qualification50/50 passed independently of the canonical source invocation. Network intercepted; no provider send. J8 real PostgreSQL81 checks independently passed earlier. An earlier cwd-only repeat still imported canonical source and is not counted as bundle proof.
+
+Held production deployment b4fde0e2-5c0b-4589-9caf-fff5021e0b7c SUCCESS; sha256:65e846c9c1ced5895b2d96c9be4adbf3c8f3d4ae344a11024d1639dced88ed7b. /health200/statusok. Current source2a7e1fc63f2ce158e07a185249a8da00150b6556. Live correction/recovery acceptance pending.
+
+Exact C18 held recovery: {"deployment": "2b79c0c8-c132-426f-84c4-ec53be288bdd", "image": "sha256:1441a8b39f2a37429a183df7999cca6529eee56d7c5e60e65f432718acb032ab", "health": "status:ok", "outbound_held": true}; compatible deployed additive schema untouched. This is current guarded artifact reinstallation, not a return to an unsafe historical sender.
