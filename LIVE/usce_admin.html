@@ -561,19 +561,19 @@ a,button,input,select,textarea{touch-action:manipulation}
       <div class="mm-card mm-card-pad" id="mmFormCard">
         <div class="mm-form-step is-active" data-formstep="1">
           <div class="mm-row">
-            <div class="mm-field"><label class="mm-label">Full name</label><input class="mm-input" id="f_name" placeholder="Jane Applicant"></div>
-            <div class="mm-field"><label class="mm-label">Email</label><input class="mm-input" id="f_email" type="email" placeholder="jane at example dot com"></div>
+            <div class="mm-field"><label class="mm-label" for="f_name">Full name</label><input class="mm-input" id="f_name" placeholder="Jane Applicant"></div>
+            <div class="mm-field"><label class="mm-label" for="f_email">Email</label><input class="mm-input" id="f_email" type="email" placeholder="jane at example dot com"></div>
           </div>
           <div class="mm-row">
-            <div class="mm-field"><label class="mm-label">Phone</label><input class="mm-input" id="f_phone" type="tel" placeholder="(555) 555-5555"></div>
-            <div class="mm-field"><label class="mm-label">Program level</label>
+            <div class="mm-field"><label class="mm-label" for="f_phone">Phone</label><input class="mm-input" id="f_phone" type="tel" placeholder="(555) 555-5555"></div>
+            <div class="mm-field"><label class="mm-label" for="f_program">Program level</label>
               <select class="mm-select" id="f_program">
                 <option value="MS3">MS3</option><option value="MS4">MS4</option>
                 <option value="IMG">International Medical Graduate</option>
                 <option value="PA">PA Student</option><option value="Resident">Resident</option>
               </select></div>
           </div>
-          <div class="mm-field"><label class="mm-label">Medical school / institution</label>
+          <div class="mm-field"><label class="mm-label" for="f_school">Medical school / institution</label>
             <input class="mm-input" id="f_school" placeholder="e.g. Caribbean Medical School"></div>
         </div>
 
@@ -600,15 +600,15 @@ a,button,input,select,textarea{touch-action:manipulation}
             <div class="mm-hint">Click to select; the number shows your priority order. Click again to deselect.</div>
           </div>
           <div class="mm-row">
-            <div class="mm-field"><label class="mm-label">Rotation length</label>
+            <div class="mm-field"><label class="mm-label" for="f_length">Rotation length</label>
               <select class="mm-select" id="f_length">
                 <option>2 weeks</option><option selected>4 weeks</option>
                 <option>6 weeks</option><option>8 weeks</option>
               </select></div>
-            <div class="mm-field"><label class="mm-label">Earliest start</label>
+            <div class="mm-field"><label class="mm-label" for="f_start">Earliest start</label>
               <input class="mm-input" id="f_start" type="date"></div>
           </div>
-          <div class="mm-field"><label class="mm-label">Notes for the coordinator (optional)</label>
+          <div class="mm-field"><label class="mm-label" for="f_notes">Notes for the coordinator (optional)</label>
             <textarea class="mm-textarea" id="f_notes" rows="3" placeholder="Anything we should know?"></textarea></div>
         </div>
 
@@ -754,11 +754,11 @@ a,button,input,select,textarea{touch-action:manipulation}
                 </div>
                 <div class="mm-composer" id="mmComposer">
                   <div class="mm-field" style="margin-bottom: 8px;">
-                    <label class="mm-label">Subject</label>
+                    <label class="mm-label" for="cmpSubject">Subject</label>
                     <input class="mm-input" id="cmpSubject">
                   </div>
                   <div class="mm-field" style="margin-bottom: 0;">
-                    <label class="mm-label">Body</label>
+                    <label class="mm-label" for="cmpBody">Body</label>
                     <textarea class="mm-textarea" id="cmpBody" rows="5"></textarea>
                   </div>
                   <div class="mm-composer-actions">
@@ -777,7 +777,7 @@ a,button,input,select,textarea{touch-action:manipulation}
                 <h4>Prepare this offer</h4><p class="mm-hint">Requested preferences are not confirmed availability. Saving a draft or preparing a link does not send an email or reserve a place.</p><p id="mmDraftState" role="status" class="mm-hint">No unsaved changes</p>
                 <div class="mm-builder-grid">
                   <div class="mm-field" style="margin:0;">
-                    <label class="mm-label">Program</label>
+                    <label class="mm-label" for="mmOfProgram">Program</label>
                     <select class="mm-select" id="mmOfProgram">
                       <option>Core Rotation Access</option>
                       <option>Elective Rotation Access</option>
@@ -785,13 +785,13 @@ a,button,input,select,textarea{touch-action:manipulation}
                       <option>Observership</option>
                     </select>
                   </div>
-                  <div class="mm-field" style="margin:0;"><label class="mm-label">Specialty</label>
+                  <div class="mm-field" style="margin:0;"><label class="mm-label" for="mmOfSpecialty">Specialty</label>
                     <select class="mm-select" id="mmOfSpecialty"></select>
-                    <input class="mm-input mm-other-field" id="mmOfSpecialtyOther" placeholder="Type the specialty or rotation"></div>
-                  <div class="mm-field" style="margin:0;"><label class="mm-label">Location</label>
+                    <input class="mm-input mm-other-field" id="mmOfSpecialtyOther" aria-label="Custom specialty" placeholder="Type the specialty or rotation"></div>
+                  <div class="mm-field" style="margin:0;"><label class="mm-label" for="mmOfLocation">Location</label>
                     <select class="mm-select" id="mmOfLocation"></select>
-                    <input class="mm-input mm-other-field" id="mmOfLocationOther" placeholder="Type the city, state, or preferred region"></div>
-                  <div class="mm-field" style="margin:0;"><label class="mm-label">Rotation length</label>
+                    <input class="mm-input mm-other-field" id="mmOfLocationOther" aria-label="Custom location" placeholder="Type the city, state, or preferred region"></div>
+                  <div class="mm-field" style="margin:0;"><label class="mm-label" for="mmOfLength">Rotation length</label>
                     <select class="mm-select" id="mmOfLength">
                       <option>2 weeks</option><option selected>4 weeks</option>
                       <option>6 weeks</option><option>8 weeks</option>
@@ -799,25 +799,25 @@ a,button,input,select,textarea{touch-action:manipulation}
                 </div>
 
                 <div class="mm-field" style="margin-top:14px;">
-                  <label class="mm-label">Offered months (select one or more)</label>
-                  <div class="mm-month-grid" id="mmOfMonths"></div>
+                  <label class="mm-label" id="mmOfferedMonthsLabel">Offered months (select one or more)</label>
+                  <div class="mm-month-grid" id="mmOfMonths" role="group" aria-labelledby="mmOfferedMonthsLabel"></div>
                   <div class="mm-legend"><span><i class="l-pref"></i> Student ranked this month</span><span>Tap to include in offer</span></div>
                 </div>
 
                 <div class="mm-builder-grid" style="margin-top: 6px;">
-                  <div class="mm-field" style="margin:0;"><label class="mm-label">Offer expires in</label>
+                  <div class="mm-field" style="margin:0;"><label class="mm-label" for="mmOfExpire">Offer expires in</label>
                     <select class="mm-select" id="mmOfExpire">
                       <option value="24">24 hours</option>
                       <option value="48" selected>48 hours</option>
                       <option value="72">72 hours</option>
                       <option value="120">5 days</option>
                     </select></div>
-                  <div class="mm-field" style="margin:0;"><label class="mm-label">Start date</label>
+                  <div class="mm-field" style="margin:0;"><label class="mm-label" for="mmOfStart">Start date</label>
                     <input class="mm-input" id="mmOfStart" type="date"></div>
                 </div>
 
                 <div class="mm-field" style="margin-top: 10px;">
-                  <label class="mm-label">Message template</label>
+                  <label class="mm-label" for="mmMessageChoice">Message template</label>
                   <select class="mm-select" id="mmMessageChoice">
                     <option value="availability">Availability confirmed</option>
                     <option value="alternate">Alternate option recommended</option>
@@ -829,12 +829,12 @@ a,button,input,select,textarea{touch-action:manipulation}
                 </div>
 
                 <div class="mm-field" style="margin-top: 10px;">
-                  <label class="mm-label">Student-facing instructions / next steps</label>
+                  <label class="mm-label" for="mmOfInstructions">Student-facing instructions / next steps</label>
                   <textarea class="mm-textarea" id="mmOfInstructions" rows="2" placeholder="e.g. Please confirm within 48 hours. Orientation packet will follow."></textarea>
                 </div>
 
                 <div class="mm-field" style="margin-top: 6px;">
-                  <label class="mm-label">Internal notes (not sent to student)</label>
+                  <label class="mm-label" for="mmOfInternal">Internal notes (not sent to student)</label>
                   <textarea class="mm-textarea" id="mmOfInternal" rows="2" placeholder="Coordinator-only notes about this offer, site contact, prerequisites, etc."></textarea>
                 </div>
 

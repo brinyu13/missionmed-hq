@@ -216,9 +216,9 @@
       "environment_id": "ed3353f7-bcc7-4e25-a000-3c9fc628a9a7",
       "environment": "production",
       "public_origin": "https://missionmed-usce-gateway-production.up.railway.app",
-      "current_deployment_id": "2b79c0c8-c132-426f-84c4-ec53be288bdd",
-      "current_image_digest": "sha256:65e846c9c1ced5895b2d96c9be4adbf3c8f3d4ae344a11024d1639dced88ed7b",
-      "runtime_evidence": "Exact C18 held image recovery SUCCESS; compatible frontend rollback/reapply verified; fresh F/U/O pending.",
+      "current_deployment_id": "98875fa0-499f-412a-a596-b2dc2fd72200",
+      "current_image_digest": "sha256:06a5aa2c13fa1a401fe8354f3be31965aa31f23a831a6c2858bf39025293a1bf",
+      "runtime_evidence": "Exact C18 all18 SSH hashes verified; controlled independent single-recipient QA transport ready, normal config and fresh F/U/O pending.",
       "start_command": "node missionmed-hq/usce-gateway.mjs",
       "active_source_roots": [
         "missionmed-hq/usce-gateway.mjs",
@@ -442,7 +442,7 @@
       "id": "cdn_usce_admin_live",
       "system": "usce_admin",
       "url": "https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html",
-      "approved_sha256": "987fd4c0450547f3ac7c4b2d7afcbade538536bf123f43a939050886f08893dc",
+      "approved_sha256": "e6586f33a32d7fcec79162d897f9cac31dac19afa86d1ead922e651940258eaf",
       "required_markers": [
         "/api/usce/admin/public-intake-requests",
         "action=mmhq_usce_admin_auth_relay",

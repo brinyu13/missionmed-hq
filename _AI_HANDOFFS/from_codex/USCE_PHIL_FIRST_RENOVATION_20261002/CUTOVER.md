@@ -54,3 +54,7 @@ Recovery readback after image assertion: Railway redeploy rebuilds retained sour
 Exact C18 held recovery: {"deployment": "2b79c0c8-c132-426f-84c4-ec53be288bdd", "image": "sha256:1441a8b39f2a37429a183df7999cca6529eee56d7c5e60e65f432718acb032ab", "health": "status:ok", "outbound_held": true}; compatible deployed additive schema untouched. This is current guarded artifact reinstallation, not a return to an unsafe historical sender.
 
 Recovery completed: guarded C18 same-image reinstallation, exact compatible operations baseline frontend rollback and StoryForge reapply; all checks held, no SQL reversal, no email/payment/business write. Final normal production config restoration and independent accepted-case continuity remain separate.
+
+Controlled independent QA transport staged: offer live enabled, offer dry-run false, exact MissionMed test recipient guard retained, intake held; same C18 retained source redeploy dispatched without from-source. No send performed by config change.
+
+Controlled independent QA transport ready 2026-10-02T21:24:24.944290+00:00: {"deployment": "98875fa0-499f-412a-a596-b2dc2fd72200", "image": "sha256:06a5aa2c13fa1a401fe8354f3be31965aa31f23a831a6c2858bf39025293a1bf", "health": "status:ok", "source_files_verified": 18, "recipient_guard_exact": true, "intake_held": true, "offer_qa_live_enabled": true}; root sends none, reviewer may send exactly one labeled synthetic offer to approved inbox. Normal safe configuration restoration remains required.
