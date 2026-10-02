@@ -188,3 +188,37 @@ test('native and inactive Actor resolvers quarantine historical longitudinal or 
     assert.equal((await createIvocContextPackResolver({ rest })({ subject: SUBJECT, sessionId: SESSION_ID })).actorBlock, ACTOR_BLOCK);
   }
 });
+
+test('source-shaped prior receipts cannot bypass stored active owner identity or Prior IVOC opt-in', async () => {
+  const prior = { owner_app: 'ivoc', projection_type: 'ivoc.longitudinal_summary', projection_id: `ivoc-longitudinal:${SUBJECT}`,
+    source_version: `source-bound-long-${'a'.repeat(32)}`, source_receipt_hash: 'b'.repeat(64), authorization_basis: 'owner_policy', degraded: null };
+  for (const current of [null, { id: SESSION_ID, owner_subject: 'wp:7', state: 'active', context: { contextSources: ['Prior IVOC'] } },
+    { id: PACK_ID, owner_subject: SUBJECT, state: 'active', context: { contextSources: ['Prior IVOC'] } },
+    { id: SESSION_ID, owner_subject: SUBJECT, state: 'saved', context: { contextSources: ['Prior IVOC'] } },
+    { id: SESSION_ID, owner_subject: SUBJECT, state: 'active', context: {} }]) {
+    const calls = [];
+    const rest = { table: async (table, query) => { calls.push({ table, query });
+      if (table === 'ivoc_context_packs') return [{ ...packRow(), source_receipts: [prior] }];
+      if (table === 'ivoc_sessions' && query.includes('limit=1')) return current ? [current] : [];
+      throw new Error('Historical reads must not run before exact stored owner/session opt-in.'); } };
+    assert.equal(await createIvocContextPackResolver({ rest })({ subject: SUBJECT, sessionId: SESSION_ID }), null);
+    assert.deepEqual(calls.map(call => call.table), ['ivoc_context_packs', 'ivoc_sessions']);
+    assert.match(calls[1].query, /id=eq\.aaaaaaaa.*owner_subject=eq\.wp%3A3472/u);
+    await assert.rejects(() => createIvocActorInstructionResolver({ rest, readSessionContext: async () => activeSession() })({ subject: SUBJECT, sessionId: SESSION_ID }), /context pack is unavailable/u);
+  }
+});
+
+test('legacy, malformed and duplicate prior provenance deny without querying historical sessions', async () => {
+  const validShape = { owner_app: 'ivoc', projection_type: 'ivoc.longitudinal_summary', projection_id: `ivoc-longitudinal:${SUBJECT}`,
+    source_version: `source-bound-long-${'a'.repeat(32)}`, source_receipt_hash: 'b'.repeat(64), authorization_basis: 'owner_policy', degraded: null };
+  for (const receipts of [[{ projection_type: 'ivoc.longitudinal_summary', source_version: 'long-legacy' }],
+    [{ ...validShape, owner_app: 'browser' }], [{ ...validShape, projection_id: 'ivoc-longitudinal:wp:7' }],
+    [{ ...validShape, source_receipt_hash: 'not-a-hash' }], [{ ...validShape, authorization_basis: 'admin' }],
+    [{ ...validShape, degraded: { state: 'unavailable' } }], [validShape, validShape]]) {
+    let reads = 0;
+    const rest = { table: async table => { assert.equal(table, 'ivoc_context_packs'); reads += 1;
+      return [{ ...packRow(), source_receipts: receipts }]; } };
+    assert.equal(await createIvocContextPackResolver({ rest })({ subject: SUBJECT, sessionId: SESSION_ID }), null);
+    assert.equal(reads, 1);
+  }
+});

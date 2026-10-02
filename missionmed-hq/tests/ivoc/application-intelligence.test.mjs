@@ -6,7 +6,12 @@ import {
   createIvocProjectionProvider,
   longitudinalProjection,
   readSessionContextReceipts,
+  readSourceBoundLongitudinalProjection,
+  validateSourceBoundPriorIvocPack,
 } from '../../ivoc/application-intelligence.mjs';
+import { rebuildSelfPracticeAnswerSource, packageSelfPracticeAnalysis } from '../../ivoc/self-practice-analysis.mjs';
+import { createContextIntelligenceProvider } from '../../ivoc/context-provider.mjs';
+import { createIvocActorInstructionResolver, createIvocContextPackResolver } from '../../../ivprep-v6/server/providers/ivoc-context-pack-resolver.mjs';
 
 const SESSION_ID = '00000000-0000-4000-8000-000000000042';
 const NOW = '2026-09-20T14:55:00.000Z';
@@ -43,6 +48,172 @@ function sessionRow() {
     started_at: NOW,
   };
 }
+
+// Synthetic contract fixtures only: no physical capture or genuine recurrence claim.
+async function savedSourcePractice(number) {
+  const uuid = value => `00000000-0000-4000-8000-${String(value).padStart(12, '0')}`;
+  const sid = uuid(number), pid = uuid(number + 100), cid = uuid(number + 200);
+  const row = { id: sid, owner_subject: 'wp:42', state: 'saved', session_type: 'question', interviewer_provider: 'missionmed-static',
+    question_id: 'CORE-01', question_text: 'Tell me about yourself.', context: { targetQuestions: 1, questionIds: ['CORE-01'],
+      promptReceipt: { schema: 'ivoc.self-practice-prompt.v1', workflow: 'SELF_PRACTICE', questionId: 'CORE-01', version: 1,
+        text: 'Tell me about yourself.', approval: 'ACTIVE_AT_SELECTION', issuedAt: NOW } } };
+  const parent = { id: pid, session_id: sid, owner_subject: 'wp:42', recording_role: 'conversation', status: 'saved',
+    storage_object_key: `private/replay-${number}`, size_bytes: 1000, etag: 'parent-etag', sealed_at: NOW,
+    mime_type: 'video/webm', duration_ms: 1000, paused_spans: [], recording_timebase: { clock: 'browser-monotonic-session',
+      recordingId: pid, sessionId: sid, ownerSubject: 'wp:42', recordingStartSessionMs: 0, recordingDurationMs: 1000,
+      playableDurationMs: 1000, pausedSpans: [] } };
+  const source = { id: cid, session_id: sid, owner_subject: 'wp:42', recording_role: 'candidate_audio', status: 'saved',
+    parent_recording_id: pid, storage_object_key: `private/microphone-${number}`, size_bytes: 10, etag: 'source-etag', sealed_at: NOW,
+    mime_type: 'audio/webm', duration_ms: 800, paused_spans: [], capture_receipt: { schema: 'ivoc.candidate-audio.v1',
+      captureVersion: 'direct-mic-v1', status: 'SEALED', recordingId: cid, sessionId: sid, parentRecordingId: pid,
+      allocatedAt: NOW, sealedAt: NOW, assurance: 'CLIENT_MIC_CAPTURE_DECLARATION', analysisEligibility: 'UNVERIFIED',
+      sizeBytes: 10, etag: 'source-etag', mime: 'audio/webm', timing: { clock: 'browser-monotonic-session', clientAttested: true,
+        recordingStartSessionMs: 100, recordingDurationMs: 800, playableDurationMs: 800, pausedSpans: [] } } };
+  const answerSource = rebuildSelfPracticeAnswerSource({ session: row, parentRecording: parent, sourceRecording: source });
+  const pattern = { facet: 'structure', polarity: 'weakness', text: 'The supplied response has no concrete event.', transcriptSegmentIds: ['seg-1'] };
+  const provider = createContextIntelligenceProvider({ apiKey: 'offline-test-key', fetchImpl: async url => url.endsWith('/transcriptions')
+    ? Response.json({ text: 'I learned a lot.', segments: [{ start: 0, end: .5, text: 'I learned a lot.' }] })
+    : Response.json({ status: 'completed', output_text: JSON.stringify({ questionIntent: { label: 'GENERAL', score: .9 },
+      answerStage: { label: 'UNSUPPORTED', score: .9 }, score: .9, coverage: .9, semanticObservations: [],
+      coachingPatterns: [pattern, pattern], contextTags: [], limitations: ['Synthetic contract evidence, not model quality.'] }) }) });
+  const result = await provider.analyze({ sessionId: sid, answerId: 'answer-1', answerSource,
+    audio: Buffer.from('test-audio'), mimeType: 'audio/webm', transcriptEnabled: true });
+  const envelope = packageSelfPracticeAnalysis({ answerSource, session: row, result, createdAt: NOW });
+  return { row, parent, source, result: { session_id: sid, owner_subject: 'wp:42', candidate_analysis: JSON.parse(JSON.stringify(envelope)) } };
+}
+
+async function priorFixture() {
+  const saved = await Promise.all([savedSourcePractice(1), savedSourcePractice(2)]);
+  const current = { ...sessionRow(), state: 'active', context: { contextSources: ['Prior IVOC'] } };
+  const repo = repository(); const single = repo.single; const paths = [];
+  const data = { current, sessions: saved.map(item => item.row), results: saved.map(item => item.result),
+    recordings: saved.flatMap(item => [item.parent, item.source]), onRead: null };
+  repo.request = async path => {
+    paths.push(path); if (data.onRead) await data.onRead(path);
+    return path.startsWith('ivoc_sessions?') ? data.sessions : path.startsWith('ivoc_results?') ? data.results
+      : path.startsWith('ivoc_recordings?') ? data.recordings : [];
+  };
+  repo.single = async path => {
+    paths.push(path); if (data.onRead) await data.onRead(path);
+    return path.startsWith(`ivoc_sessions?id=eq.${SESSION_ID}`) ? data.current : single(path);
+  };
+  return { repo, data, paths, saved };
+}
+
+test('source-bound Prior IVOC aggregates cited patterns across two distinct sessions without fabricated pattern scores', async () => {
+  const h = await priorFixture();
+  const projection = await readSourceBoundLongitudinalProjection({ repository: h.repo, actor: 'wp:42', session: h.data.current });
+  assert.equal(projection.projection_type, 'ivoc.longitudinal_summary');
+  assert.deepEqual(projection.payload.recurring.weaknesses[0].sessions, h.saved.map(item => item.row.id));
+  assert.equal(projection.payload.recurring.weaknesses[0].evidence_refs.length, 4);
+  assert.match(projection.source_version, /^source-bound-long-[0-9a-f]{32}$/u);
+  assert.equal(JSON.stringify(projection).includes('private/'), false);
+  assert.equal(JSON.stringify(projection).includes('I learned a lot.'), false);
+  assert.equal(Object.hasOwn(projection.payload.recurring.weaknesses[0], 'score'), false);
+  assert.equal(h.paths.some(path => path.startsWith('ivoc_coaching_evidence?')), false);
+  h.data.sessions = [h.saved[0].row];
+  assert.equal(await readSourceBoundLongitudinalProjection({ repository: h.repo, actor: 'wp:42', session: h.data.current }), null);
+  h.data.sessions = [h.saved[0].row, h.saved[0].row];
+  assert.equal(await readSourceBoundLongitudinalProjection({ repository: h.repo, actor: 'wp:42', session: h.data.current }), null);
+});
+
+test('Prior IVOC opt-in and current owner identity gate all historical reads', async () => {
+  const h = await priorFixture();
+  for (const current of [{ ...h.data.current, context: {} }, { ...h.data.current, owner_subject: 'wp:7' },
+    { ...h.data.current, id: '../unsafe' }]) {
+    assert.equal(await readSourceBoundLongitudinalProjection({ repository: h.repo, actor: 'wp:42', session: current }), null);
+  }
+  assert.deepEqual(h.paths, []);
+});
+
+test('AVAILABLE source custody does not make zero/low analysis-quality evidence eligible for recurrence', async () => {
+  for (const [score, coverage, eligible] of [[0, .9, false], [.9, 0, false], [.64, .9, false], [.9, .64, false], [.65, .65, true]]) {
+    const h = await priorFixture();
+    const analysis = h.data.results[1].candidate_analysis.result.analysis;
+    assert.equal(analysis.status, 'AVAILABLE'); analysis.score = score; analysis.coverage = coverage;
+    const projection = await readSourceBoundLongitudinalProjection({ repository: h.repo, actor: 'wp:42', session: h.data.current });
+    assert.equal(Boolean(projection), eligible, `score=${score}, coverage=${coverage}`);
+    if (projection) {
+      assert.match(projection.minimization.fields_excluded_reason.analysis_quality, /not calibration, per-pattern scores, or speaker identity proof/u);
+      assert.equal(Object.hasOwn(projection.payload.recurring.weaknesses[0], 'score'), false);
+    }
+  }
+});
+
+test('active, foreign, mixed, legacy and tampered saved analyses cannot contribute recurrence', async () => {
+  const mutations = [h => { h.data.sessions[1].state = 'active'; }, h => { h.data.sessions[1].owner_subject = 'wp:7'; },
+    h => { h.data.sessions[1].interviewer_provider = 'openai-gpt-live'; }, h => { delete h.data.sessions[1].context.promptReceipt; },
+    h => { h.data.results[1].owner_subject = 'wp:7'; }, h => { h.data.results[1].candidate_analysis = null; },
+    h => { h.data.results[1].candidate_analysis.result.analysis.coachingPatterns[0].transcriptSegmentIds = ['missing']; },
+    h => { h.data.recordings[3].parent_recording_id = SESSION_ID; }, h => { h.data.recordings[3].owner_subject = 'wp:7'; },
+    h => { h.data.recordings[3].recording_role = 'conversation'; }, h => { h.data.recordings[2].etag = 'mutated'; },
+    h => { h.data.recordings.push(h.data.recordings[3]); }, h => { h.data.results.push(h.data.results[1]); }];
+  for (const mutate of mutations) {
+    const h = await priorFixture(); mutate(h);
+    assert.equal(await readSourceBoundLongitudinalProjection({ repository: h.repo, actor: 'wp:42', session: h.data.current }), null);
+  }
+});
+
+test('prepared Prior IVOC actor packs revalidate exact source and semantic fingerprints on HQ/native/inactive reads', async () => {
+  const h = await priorFixture(); const service = createIvocApplicationIntelligence({ repository: h.repo, now: () => Date.parse(NOW) });
+  await service.prepareSession({ actor: 'wp:42', sessionRow: h.data.current });
+  const pack = h.repo.upserts.find(entry => entry.table === 'ivoc_context_packs').body;
+  assert.equal(pack.source_receipts.some(receipt => receipt.projection_type === 'ivoc.longitudinal_summary'), true);
+  assert.equal(pack.pack.signals.some(signal => signal.rule_id === 'AIS-R10'), true);
+  const rest = { table: async (table, query) => { const path = `${table}${query}`;
+    if (query.includes('limit=1')) { const row = await h.repo.single(path); return row ? [row] : []; }
+    return h.repo.request(path); } };
+  const native = createIvocContextPackResolver({ rest });
+  const context = { goal: 'Individual question', interviewer: 'Program Director · balanced', pressurePractice: false,
+    questionIds: ['CORE-01'], targetQuestions: 1, program: 'General residency interview', environment: 'MissionMed · interview only' };
+  const inactive = createIvocActorInstructionResolver({ rest, readSessionContext: async () => ({ ownerSubject: 'wp:42', sessionId: SESSION_ID, state: 'active', context }) });
+  assert.ok(await service.getActorContext({ actor: 'wp:42', sessionId: SESSION_ID }));
+  assert.ok(await native({ subject: 'wp:42', sessionId: SESSION_ID }));
+  assert.ok(await inactive({ subject: 'wp:42', sessionId: SESSION_ID }));
+  // Same pattern IDs/sessions but changed valid semantic wording must change provenance.
+  h.data.results[1].candidate_analysis.result.analysis.coachingPatterns[0].text = 'A differently worded safe observation.';
+  assert.equal(await service.getActorContext({ actor: 'wp:42', sessionId: SESSION_ID }), null);
+  assert.equal(await native({ subject: 'wp:42', sessionId: SESSION_ID }), null);
+  await assert.rejects(() => inactive({ subject: 'wp:42', sessionId: SESSION_ID }), /context pack is unavailable/u);
+  assert.equal(pack.invalidated_at, null, 'read rejection does not rewrite or destroy the prepared pack');
+});
+
+test('source pack read rejects deselection, ownership/state drift and asynchronous source/pack mutation', async () => {
+  for (const kind of ['deselection', 'owner', 'state', 'async-source', 'async-pack']) {
+    const h = await priorFixture(); const service = createIvocApplicationIntelligence({ repository: h.repo, now: () => Date.parse(NOW) });
+    await service.prepareSession({ actor: 'wp:42', sessionRow: h.data.current });
+    const pack = h.repo.upserts.find(entry => entry.table === 'ivoc_context_packs').body;
+    if (kind === 'deselection') h.data.current.context.contextSources = [];
+    if (kind === 'owner') h.data.current.owner_subject = 'wp:7';
+    if (kind === 'state') h.data.current.state = 'saved';
+    let reads = 0;
+    h.data.onRead = async path => {
+      if (kind === 'async-source' && path.startsWith('ivoc_results?') && ++reads === 2) h.data.recordings[3].etag = 'changed-in-flight';
+      if (kind === 'async-pack' && path.startsWith('ivoc_sessions?id=')) pack.actor_block += '\nchanged-in-flight';
+    };
+    assert.equal(await service.getActorContext({ actor: 'wp:42', sessionId: SESSION_ID }), null, kind);
+  }
+  const h = await priorFixture();
+  h.data.onRead = async () => { h.data.current.context.contextSources = []; };
+  assert.equal(await readSourceBoundLongitudinalProjection({ repository: h.repo, actor: 'wp:42', session: h.data.current }), null);
+});
+
+test('Prior IVOC receipt must exactly match current provenance including freshness and consent fields', async () => {
+  const h = await priorFixture(); const service = createIvocApplicationIntelligence({ repository: h.repo, now: () => Date.parse(NOW) });
+  await service.prepareSession({ actor: 'wp:42', sessionRow: h.data.current });
+  const receipts = h.repo.upserts.find(entry => entry.table === 'ivoc_context_packs').body.source_receipts;
+  const validate = sourceReceipts => validateSourceBoundPriorIvocPack({ repository: h.repo, actor: 'wp:42', sessionId: SESSION_ID, sourceReceipts });
+  assert.equal(await validate(receipts), true);
+  const mutations = [receipt => { receipt.fresh_until = '2020-01-01T00:00:00.000Z'; },
+    receipt => { receipt.consent_ref = 'browser-invented'; }, receipt => { receipt.extra = 'not-issued'; },
+    receipt => { delete receipt.fresh_until; }, receipt => { receipt.source_receipt_hash = '0'.repeat(64); },
+    receipt => { receipt.source_version = `source-bound-long-${'0'.repeat(32)}`; }];
+  for (const mutate of mutations) {
+    const changed = structuredClone(receipts);
+    mutate(changed.find(receipt => receipt.projection_type === 'ivoc.longitudinal_summary'));
+    assert.equal(await validate(changed), false);
+  }
+});
 
 test('session preparation persists one fail-closed pack and pins its server receipt', async () => {
   const repo = repository();

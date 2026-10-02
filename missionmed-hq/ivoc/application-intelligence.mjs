@@ -1,5 +1,6 @@
-import { canonicalJson, hashValue, sha256Hex } from '../../ivoc/intelligence/index.mjs';
+import { canonicalJson, hashValue, sha256Hex, sourceReceiptFromProjection } from '../../ivoc/intelligence/index.mjs';
 import { assembleContextPack, contextReceiptRef } from '../../ivoc/intelligence/pack/assemble.mjs';
+import { projectSelfPracticeAnalysis } from './self-practice-analysis.mjs';
 
 const CONTEXT_PACK_SCHEMA = 'ivoc.interview_context_pack.v1';
 const LONGITUDINAL_DIMENSION = 'semantic.coaching_pattern';
@@ -210,14 +211,98 @@ export function longitudinalProjection(rows, subjectId) {
   });
 }
 
-async function readLongitudinalProjection() {
-  // Historical batch evidence was derived from whole recordings without a
-  // recording-bound candidate-only source receipt. Saved state, high confidence
-  // and repeated observations cannot establish who spoke. Keep the deterministic
-  // aggregator above, but do not hydrate InterviewBrain from unverified evidence.
-  // Re-enable this reader only with a verified candidate-source join, never a
-  // client-supplied label or a date/session-type cutoff. Original rows stay intact.
-  return null;
+const ownedSubject = value => typeof value === 'string' && /^wp:[1-9][0-9]{0,19}$/u.test(value);
+const sessionIdentity = value => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(value);
+const selectedPriorIvoc = session => Array.isArray(session?.context?.contextSources) && session.context.contextSources.includes('Prior IVOC');
+const SOURCE_BOUND_PRIOR_POLICY = 'self-practice-source-bound-prior-v1';
+const snapshot = value => structuredClone(value);
+
+/** Server-owned rows only; legacy evidence tables and raw media are never read. */
+export async function readSourceBoundLongitudinalProjection({ repository, actor, session } = {}) {
+  if (!ownedSubject(actor) || !sessionIdentity(session?.id) || session.owner_subject !== actor
+    || session.state !== 'active' || !selectedPriorIvoc(session)) return null;
+  const current = snapshot(session);
+  const fetched = await repository.request(`ivoc_sessions?owner_subject=eq.${encodeURIComponent(actor)}&state=eq.saved&id=neq.${current.id}&select=*&order=ended_at.desc,id.asc&limit=50`);
+  const sessions = snapshot(Array.isArray(fetched) ? fetched.slice(0, 50) : []).filter(row => sessionIdentity(row?.id)
+    && row.id !== current.id && row.owner_subject === actor && row.state === 'saved');
+  const unique = sessions.filter(row => sessions.filter(other => other.id === row.id).length === 1);
+  if (unique.length < 2) return null;
+  const ids = unique.map(row => row.id).sort().join(',');
+  const [results, recordings] = await Promise.all([
+    repository.request(`ivoc_results?session_id=in.(${ids})&owner_subject=eq.${encodeURIComponent(actor)}&candidate_analysis=not.is.null&select=session_id,owner_subject,candidate_analysis`).then(snapshot),
+    repository.request(`ivoc_recordings?session_id=in.(${ids})&owner_subject=eq.${encodeURIComponent(actor)}&status=eq.saved&select=*`).then(snapshot),
+  ]);
+  if (!Array.isArray(results) || !Array.isArray(recordings)) return null;
+  const groups = new Map(); const sources = new Map();
+  for (const row of unique) {
+    const candidates = results.filter(result => result?.session_id === row.id && result.owner_subject === actor);
+    if (candidates.length !== 1) continue;
+    const envelope = candidates[0].candidate_analysis;
+    const parents = recordings.filter(recording => recording?.id === envelope?.receipt?.replayRecordingId);
+    const stems = recordings.filter(recording => recording?.id === envelope?.receipt?.sourceRecordingId);
+    if (parents.length !== 1 || stems.length !== 1) continue;
+    const projection = projectSelfPracticeAnalysis({ candidateAnalysis: envelope, session: row,
+      parentRecording: parents[0], sourceRecording: stems[0] });
+    if (!projection.available || projection.result.analysis.status !== 'AVAILABLE') continue;
+    // Reuse the existing conservative recurrence floor only at analysis level.
+    // These uncalibrated AI estimates are neither individual pattern scores nor
+    // source/speaker identity proof; source validation above is independent.
+    const quality = projection.result.analysis;
+    if (!Number.isFinite(quality.score) || !Number.isFinite(quality.coverage)
+      || quality.score < MIN_LONGITUDINAL_CONFIDENCE || quality.coverage < MIN_LONGITUDINAL_CONFIDENCE) continue;
+    sources.set(row.id, { sessionId: row.id, envelopeHash: hashValue(envelope), createdAt: projection.receipt.createdAt });
+    for (const evidence of projection.spine.evidence.filter(item => item.dimension === LONGITUDINAL_DIMENSION)) {
+      const { facet, polarity } = evidence.interpretation;
+      if (!LONGITUDINAL_FACETS.includes(facet) || !LONGITUDINAL_POLARITIES.includes(polarity) || !evidence.refs.length) continue;
+      const key = `${polarity}:${facet}`;
+      const group = groups.get(key) || { facet, polarity, sessions: new Set(), evidence: new Set() };
+      group.sessions.add(row.id); group.evidence.add(evidence.id); groups.set(key, group);
+    }
+  }
+  const recurring = { weaknesses: [], strengths: [] }; const contributors = new Set();
+  for (const [, group] of [...groups].sort(([a], [b]) => a.localeCompare(b))) {
+    if (group.sessions.size < 2) continue;
+    const sessions = [...group.sessions].sort(); sessions.forEach(id => contributors.add(id));
+    recurring[group.polarity === 'weakness' ? 'weaknesses' : 'strengths'].push({
+      facet: group.facet, sessions, evidence_refs: [...group.evidence].sort() });
+  }
+  if (!contributors.size) return null;
+  if (hashValue(session) !== hashValue(current)) return null;
+  const provenance = [...contributors].sort().map(id => sources.get(id));
+  const payload = { recurring };
+  const sourceHash = hashValue({ policy: SOURCE_BOUND_PRIOR_POLICY, subject_id: actor, payload, contributors: provenance });
+  const sourceVersion = `source-bound-long-${sourceHash.slice(0, 32)}`;
+  return Object.freeze({ projection_id: `ivoc-longitudinal:${actor}`, owner_app: 'ivoc', projection_type: 'ivoc.longitudinal_summary',
+    schema_version: '1', subject_id: actor, source_version: sourceVersion,
+    produced_at: provenance.map(source => source.createdAt).sort().at(-1),
+    authorization: { basis: 'owner_policy', scope: ['recurring'] },
+    minimization: { fields_included: ['recurring'], fields_excluded_reason: {
+      transcript_text: 'Only cited AI-draft execution facets are aggregated; no raw transcript or media is included.',
+      analysis_quality: 'Analysis-level AI estimates are a conservative filter, not calibration, per-pattern scores, or speaker identity proof.',
+      biometric_identity: 'Separate mic custody remains client-declared, not biometric identity or acoustic isolation proof.' } },
+    payload, source_receipt: { owner_ref: `ivoc:${actor}@${sourceVersion}`, hash: sourceHash }, revocation: { revocable: true } });
+}
+
+/** Shared HQ/native/Actor gate. No longitudinal receipt is grandfathered in. */
+export async function validateSourceBoundPriorIvocPack({ repository, actor, sessionId, sourceReceipts } = {}) {
+  if (!Array.isArray(sourceReceipts) || sourceReceipts.some(receipt => !receipt || typeof receipt !== 'object'
+    || typeof receipt.projection_type !== 'string')) return false;
+  const prior = sourceReceipts.filter(receipt => receipt.projection_type === 'ivoc.longitudinal_summary');
+  if (!prior.length) return true;
+  if (!ownedSubject(actor) || !sessionIdentity(sessionId) || prior.length !== 1) return false;
+  if (prior[0].owner_app !== 'ivoc' || prior[0].projection_id !== `ivoc-longitudinal:${actor}`
+    || !/^source-bound-long-[0-9a-f]{32}$/u.test(prior[0].source_version || '')
+    || !/^[0-9a-f]{64}$/u.test(prior[0].source_receipt_hash || '')
+    || prior[0].authorization_basis !== 'owner_policy' || prior[0].degraded) return false;
+  const path = `ivoc_sessions?id=eq.${sessionId}&owner_subject=eq.${encodeURIComponent(actor)}&select=id,owner_subject,state,context&limit=1`;
+  const current = snapshot(await repository.single(path));
+  if (!current || current.id !== sessionId || current.owner_subject !== actor || current.state !== 'active' || !selectedPriorIvoc(current)) return false;
+  const projection = await readSourceBoundLongitudinalProjection({ repository, actor, session: current });
+  if (!projection || hashValue(prior[0]) !== hashValue(sourceReceiptFromProjection(projection))) return false;
+  const again = snapshot(await repository.single(path));
+  if (hashValue(current) !== hashValue(again)) return false;
+  const rechecked = await readSourceBoundLongitudinalProjection({ repository, actor, session: again });
+  return Boolean(rechecked && hashValue(projection) === hashValue(rechecked));
 }
 
 export function createIvocProjectionProvider({ repository, fileVaultSource = null, storyForgeSource = null, riseSource = null } = {}) {
@@ -243,7 +328,7 @@ export function createIvocProjectionProvider({ repository, fileVaultSource = nul
       repository.single(
         `ivoc_mentor_priority_sets?subject_id=eq.${encodeURIComponent(actor)}&select=*&order=version.desc&limit=1`,
       ),
-      readLongitudinalProjection(repository, actor, safeText(session?.id, 120) || null),
+      readSourceBoundLongitudinalProjection({ repository, actor, session }),
       needsFileVault
         ? fileVaultSource.read({ actor, sessionId: safeText(session?.id, 120), authorization })
         : null,
@@ -333,13 +418,15 @@ export function createIvocApplicationIntelligence({
       if (!row) return null;
       // An already prepared pack can predate the read-side quarantine. Do not
       // reuse its rendered actor block, or try to remove guessed text from it.
-      if (!Array.isArray(row.source_receipts)
-          || row.source_receipts.some(receipt => !receipt || typeof receipt !== 'object'
-            || typeof receipt.projection_type !== 'string'
-            || receipt.projection_type === 'ivoc.longitudinal_summary')) return null;
+      const saved = snapshot(row);
+      if (!await validateSourceBoundPriorIvocPack({ repository, actor, sessionId, sourceReceipts: saved.source_receipts })) return null;
+      if (saved.source_receipts.some(receipt => receipt.projection_type === 'ivoc.longitudinal_summary')) {
+        const again = await repository.single(`ivoc_context_packs?session_id=eq.${encodeURIComponent(sessionId)}&owner_subject=eq.${encodeURIComponent(actor)}&invalidated_at=is.null&select=pack_id,pack_version,actor_block,source_receipts&limit=1`);
+        if (hashValue(saved) !== hashValue(again)) return null;
+      }
       return Object.freeze({
-        receipt: contextReceiptRef({ pack_id: row.pack_id, pack_version: row.pack_version }),
-        actorBlock: row.actor_block,
+        receipt: contextReceiptRef({ pack_id: saved.pack_id, pack_version: saved.pack_version }),
+        actorBlock: saved.actor_block,
       });
     },
   });
