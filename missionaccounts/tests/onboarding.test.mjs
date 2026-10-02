@@ -428,3 +428,21 @@ test('provider save uses the v2 private RPC with canonical phone and changed-fie
     assert.equal(called.body.p_actor_id, studentId);
   } finally { globalThis.fetch = original; }
 });
+
+test('an incomplete student can submit the required exam plan without a circular completion gate', async () => {
+  const store = new PreviewStore();
+  store.previewStudentRecord.phone = null;
+  await withServer({ config: { ...config, features: { ...features, examPlans: true } }, store, stripeGateway: new StripeGateway() }, async base => {
+    const response = await fetch(base + '/api/me/exam-plan', {
+      method: 'POST', headers: { ...studentHeaders, 'idempotency-key': 'incomplete-exam-path' },
+      body: JSON.stringify({ step: 's1', exam_on: '2027-03-01' }),
+    });
+    assert.equal(response.status, 201);
+    const state = store.onboardingState(studentId);
+    assert.equal(state.progress.exam_plan, true);
+    assert.equal(state.progress.contact, false);
+    assert.notEqual(state.status, 'COMPLETE');
+    assert.ok(state.missing_steps.includes('PROFILE'));
+    assert.ok(state.missing_steps.includes('CONTACT'));
+  });
+});
