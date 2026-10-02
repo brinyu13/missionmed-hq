@@ -58,6 +58,7 @@ import {
   resolveAdminStudentSelection,
   buildAdminStudentProgress,
   buildComparisonSelection,
+  buildTeachingComparison,
   buildEvidenceMomentLinks,
   buildNameUseReview,
   buildCandidateAnalysisState,
@@ -83,6 +84,125 @@ import { publicAdmissionState } from '../../server/admission-contract.mjs';
 import { summarizeVideoFramePixels } from '../../public/studio/media-analytics-capability.mjs';
 
 const row = (rows, label) => rows.find(([name]) => name === label);
+
+function teachingDetail(id, startMs = 1000) {
+  const binding = { status: 'SOURCE_BOUND', sourceRecordingId: `mic-${id}`, replayRecordingId: `replay-${id}`,
+    assurance: 'CLIENT_MIC_CAPTURE_DECLARATION', biometricIdentity: 'UNVERIFIED' };
+  return { id, ownerSubject: 'wp:1', state: 'saved', sessionType: 'question', interviewerProvider: 'missionmed-static',
+    questionId: 'CORE-10', questionText: 'Tell me about an error.',
+    recording: { id: binding.replayRecordingId, sessionId: id, status: 'saved', recordingRole: 'conversation', durationMs: 20_000 },
+    analysisAvailability: { status: 'AVAILABLE', workflow: 'SELF_PRACTICE', sessionId: id, replayRecordingId: binding.replayRecordingId },
+    spine: { sourceBinding: binding, candidateAttribution: { status: 'UNVERIFIED' }, setupPrompt: {
+      schema: 'ivoc.self-practice-prompt.v1', workflow: 'SELF_PRACTICE', approval: 'ACTIVE_AT_SELECTION',
+      questionId: 'CORE-10', version: 1, text: 'Tell me about an error.' } },
+    contextAnalysis: { sessionId: id, sourceBinding: binding,
+      question: { questionId: 'CORE-10', revision: 1, canonicalText: 'Tell me about an error.' },
+      transcript: { status: 'AVAILABLE', segments: [{ id: 'seg-1', startMs, endMs: startMs + 1000, text: 'I checked the dose.' }] },
+      analysis: { status: 'AVAILABLE', score: .75, coverage: .8, limitations: ['Synthetic contract fixture; no model-quality acceptance.'],
+        coachingPatterns: [{ facet: 'specificity', polarity: 'weakness', text: 'Name the action you took.', transcriptSegmentIds: ['seg-1'] }] } } };
+}
+
+const teachingComparison = (baseline, current, extra = {}) => buildTeachingComparison({ baseline, current,
+  subject: 'wp:1', baselineId: 'earlier', currentId: 'later', ...extra });
+
+test('teaching comparison retains two exact replay offsets and cited coaching without inferring improvement', () => {
+  const baseline = teachingDetail('earlier', 1000); const current = teachingDetail('later', 7000);
+  const original = structuredClone([baseline, current]);
+  const comparison = teachingComparison(baseline, current);
+  assert.equal(comparison.available, true);
+  for (const [side, id, offset] of [[comparison.baseline, 'earlier', 1000], [comparison.current, 'later', 7000]]) {
+    assert.equal(side.sessionId, id); assert.equal(side.recordingId, `replay-${id}`);
+    assert.equal(side.sourceRecordingId, `mic-${id}`); assert.equal(side.durationMs, 20_000);
+    assert.deepEqual(side.question, { questionId: 'CORE-10', revision: 1, canonicalText: 'Tell me about an error.' });
+    assert.equal(side.coaching.improvement.text, 'Name the action you took.');
+    assert.deepEqual(side.coaching.drill.refs, ['seg-1']);
+    assert.equal(side.moments.length, 1); assert.equal(side.moments[0].startMs, offset);
+    assert.equal(side.moments[0].endMs, offset + 1000); assert.equal(side.moments[0].available, true);
+    assert.equal(Object.isFrozen(side), true);
+  }
+  assert.match(comparison.limitation, /not measured improvement/);
+  assert.match(comparison.limitation, /not biometric/);
+  assert.equal(Object.hasOwn(comparison, 'improved'), false);
+  assert.deepEqual([baseline, current], original);
+});
+
+test('teaching comparison requires expected distinct IDs and explicit exact ownership', () => {
+  for (const extra of [{ subject: null }, { subject: 'wp:2' }, { baselineId: null }, { baselineId: 'wrong' },
+    { currentId: 'wrong' }, { currentId: 'earlier' }]) {
+    assert.equal(teachingComparison(teachingDetail('earlier'), teachingDetail('later'), extra).available, false);
+  }
+  for (const change of [d => { delete d.ownerSubject; }, d => { d.ownerSubject = 'wp:2'; },
+    d => { d.id = 'wrong'; }, d => { d.recording.sessionId = 'wrong'; },
+    d => { d.recording.id = 'replay-earlier'; }, d => { d.contextAnalysis.sourceBinding.sourceRecordingId = 'mic-earlier'; }]) {
+    const current = teachingDetail('later'); change(current);
+    assert.equal(teachingComparison(teachingDetail('earlier'), current).available, false);
+  }
+});
+
+test('teaching comparison rejects missing or changed prompt identity, version and mode', () => {
+  for (const change of [d => { d.contextAnalysis.question.revision = 2; d.spine.setupPrompt.version = 2; },
+    d => { delete d.contextAnalysis.question.revision; }, d => { d.contextAnalysis.question.revision = '1'; },
+    d => { d.spine.setupPrompt.version = 2; }, d => { delete d.spine.setupPrompt; },
+    d => { d.contextAnalysis.question.questionId = d.questionId = d.spine.setupPrompt.questionId = 'CORE-11'; },
+    d => { d.contextAnalysis.question.canonicalText = d.questionText = d.spine.setupPrompt.text = 'Changed prompt'; },
+    d => { d.sessionType = 'quick'; }, d => { d.sessionType = 'mock'; },
+    d => { d.interviewerProvider = 'openai-gpt-live'; }, d => { d.state = 'active'; }]) {
+    const current = teachingDetail('later'); change(current);
+    assert.equal(teachingComparison(teachingDetail('earlier'), current).available, false);
+  }
+  const left = teachingDetail('earlier'); const right = teachingDetail('later');
+  left.sessionType = right.sessionType = 'quick';
+  assert.equal(teachingComparison(left, right).available, true);
+});
+
+test('teaching comparison never promotes legacy or unavailable/native evidence into coaching', () => {
+  for (const change of [d => { delete d.contextAnalysis; }, d => { d.analysisAvailability.status = 'READY'; },
+    d => { d.contextAnalysis.analysis.status = 'UNAVAILABLE'; }, d => { d.contextAnalysis.transcript.status = 'UNAVAILABLE'; },
+    d => { d.contextAnalysis.sourceBinding.assurance = 'PROVIDER_ATTESTED'; },
+    d => { d.contextAnalysis.sourceBinding.biometricIdentity = 'VERIFIED'; },
+    d => { d.spine.sourceBinding = null; }, d => { d.contextAnalysis.analysis.coachingPatterns = []; },
+    d => { d.recording.recordingRole = 'candidate_audio'; }, d => { d.recording.status = 'uploading'; }]) {
+    const current = teachingDetail('later'); change(current);
+    current.liveTranscript = { status: 'AVAILABLE', events: [{ text: 'Native fragment', approximate: true }] };
+    assert.equal(teachingComparison(teachingDetail('earlier'), current).available, false);
+  }
+});
+
+test('teaching comparison rejects ambiguous, missing, forged and out-of-range cited moments without clamping', () => {
+  for (const change of [d => { d.contextAnalysis.transcript.segments.push({ id: 'seg-1', startMs: 4000, endMs: 5000 }); },
+    d => { d.contextAnalysis.transcript.segments = []; }, d => { d.contextAnalysis.transcript.segments[0].startMs = null; },
+    d => { d.contextAnalysis.transcript.segments[0].startMs = '1000'; },
+    d => { d.contextAnalysis.transcript.segments[0].startMs = -1; },
+    d => { d.contextAnalysis.transcript.segments[0].endMs = 1000; },
+    d => { d.contextAnalysis.transcript.segments[0].endMs = 20_001; },
+    d => { d.recording.durationMs = null; }, d => { d.recording.durationMs = '20000'; },
+    d => { d.contextAnalysis.analysis.coachingPatterns[0].transcriptSegmentIds = ['absent']; },
+    d => { const ref = 'x'.repeat(96); d.contextAnalysis.transcript.segments[0].id = ref;
+      d.contextAnalysis.analysis.coachingPatterns[0].transcriptSegmentIds = [`${ref}overlong`]; }]) {
+    const current = teachingDetail('later'); change(current);
+    const comparison = teachingComparison(teachingDetail('earlier'), current);
+    assert.equal(comparison.available, false); assert.equal(Object.hasOwn(comparison, 'current'), false);
+  }
+});
+
+test('teaching comparison retains every bounded citation across strength and improvement without an eight-ref truncation', () => {
+  const baseline = teachingDetail('earlier'); const current = teachingDetail('later');
+  for (const detail of [baseline, current]) {
+    detail.contextAnalysis.transcript.segments = Array.from({ length: 16 }, (_, index) => ({
+      id: `seg-${index + 1}`, startMs: index * 1000, endMs: index * 1000 + 500 }));
+    detail.contextAnalysis.analysis.coachingPatterns = [
+      { facet: 'structure', polarity: 'strength', text: 'Names the sequence.',
+        transcriptSegmentIds: detail.contextAnalysis.transcript.segments.slice(0, 8).map(segment => segment.id) },
+      { facet: 'specificity', polarity: 'weakness', text: 'Name your contribution.',
+        transcriptSegmentIds: detail.contextAnalysis.transcript.segments.slice(8).map(segment => segment.id) },
+    ];
+  }
+  const comparison = teachingComparison(baseline, current);
+  assert.equal(comparison.available, true);
+  assert.equal(comparison.current.moments.length, 16);
+  assert.equal(comparison.current.moments.at(-1).ref, 'seg-16');
+  assert.equal(comparison.current.moments.at(-1).startMs, 15_000);
+});
 
 test('saved name observations cold-reload from exact selected detail, never actor/Builder state', () => {
   const payload = { sessionId: 'selected', nameUseCoaching: { schema: 'ivoc.name-use.v1', enabled: true,

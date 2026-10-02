@@ -1,5 +1,5 @@
 import { buildLongitudinalModel, canCompareAttempts } from './longitudinal-model.mjs';
-import { projectInterviewerNameUse, selfPracticeAnalysisAvailability, sourceBoundSelfPracticeResult } from '../capabilities/context-results.mjs';
+import { projectInterviewerNameUse, projectContextResults, selfPracticeAnalysisAvailability, sourceBoundSelfPracticeResult } from '../capabilities/context-results.mjs';
 
 export function buildNameUseReview(saved = null) {
   const detail = saved?.sessionDetail ?? saved?.session;
@@ -124,6 +124,73 @@ export function buildComparisonSelection(attempts = [], { currentId = null, base
     && attempt.at !== null && current.at !== null && attempt.at <= current.at);
   const baseline = eligible.find((attempt) => attempt.id === baselineId) || eligible[0] || null;
   return Object.freeze({ current, baseline, eligible: Object.freeze(eligible) });
+}
+
+// Presentation only: callers resolve fresh authorized details (or an owner-bound
+// library wrapper). These structural checks do not authenticate browser JSON.
+export function buildTeachingComparison({ baseline, current, subject, baselineId, currentId } = {}) {
+  const unavailable = reason => Object.freeze({ available: false, reason });
+  const bounded = (value, max = 240) => typeof value === 'string' && value.length > 0
+    && value.length <= max && value.trim() === value;
+  if (!bounded(subject) || !bounded(baselineId) || !bounded(currentId)
+    || baselineId === currentId || baseline?.id !== baselineId || current?.id !== currentId) {
+    return unavailable('SELECTED_ATTEMPTS_MISMATCH');
+  }
+  if (baseline.ownerSubject !== subject || current.ownerSubject !== subject) return unavailable('OWNER_MISMATCH');
+  if (baseline.state !== 'saved' || current.state !== 'saved'
+    || !['question', 'quick'].includes(baseline.sessionType) || baseline.sessionType !== current.sessionType
+    || baseline.interviewerProvider !== 'missionmed-static' || current.interviewerProvider !== 'missionmed-static') {
+    return unavailable('SELF_PRACTICE_MODE_MISMATCH');
+  }
+  const left = sourceBoundSelfPracticeResult(baseline);
+  const right = sourceBoundSelfPracticeResult(current);
+  if (!left || !right) return unavailable('SOURCE_BOUND_COACHING_UNAVAILABLE');
+  const promptMatches = (detail, result) => {
+    const prompt = detail.spine?.setupPrompt;
+    const question = result.question;
+    return prompt?.schema === 'ivoc.self-practice-prompt.v1' && prompt.workflow === 'SELF_PRACTICE'
+      && prompt.approval === 'ACTIVE_AT_SELECTION' && bounded(question?.questionId, 120)
+      && bounded(question.canonicalText, 4000) && Number.isSafeInteger(question.revision) && question.revision > 0
+      && prompt.questionId === question.questionId && prompt.version === question.revision
+      && prompt.text === question.canonicalText;
+  };
+  if (!promptMatches(baseline, left) || !promptMatches(current, right)
+    || left.question.questionId !== right.question.questionId || left.question.revision !== right.question.revision
+    || left.question.canonicalText !== right.question.canonicalText) return unavailable('PROMPT_MISMATCH');
+  if (baseline.recording.id === current.recording.id
+    || left.sourceBinding.sourceRecordingId === right.sourceBinding.sourceRecordingId) return unavailable('RECORDING_MISMATCH');
+  const side = (detail, result) => {
+    const recording = detail.recording;
+    if (!bounded(recording.id) || !bounded(result.sourceBinding.sourceRecordingId)
+      || recording.status !== 'saved' || recording.sessionId !== detail.id || recording.recordingRole !== 'conversation'
+      || !Number.isSafeInteger(recording.durationMs) || recording.durationMs <= 0
+      || result.transcript?.status !== 'AVAILABLE' || result.analysis?.status !== 'AVAILABLE') return null;
+    // Never allow projection truncation to convert a malformed reference into a
+    // different valid citation. The server already validates genuine envelopes.
+    if (!Array.isArray(result.analysis.coachingPatterns) || result.analysis.coachingPatterns.length > 40
+      || result.analysis.coachingPatterns.some(pattern => !Array.isArray(pattern?.transcriptSegmentIds)
+        || pattern.transcriptSegmentIds.some(ref => !bounded(ref, 96)))) return null;
+    const assessment = projectContextResults(result);
+    const refs = [...new Set([assessment.strongest, assessment.improvement, assessment.drill]
+      .filter(Boolean).flatMap(item => item.refs))];
+    if (!refs.length || refs.length > 16 || !Array.isArray(result.transcript.segments)) return null;
+    if (refs.some(ref => {
+      const matches = result.transcript.segments.filter(segment => segment?.id === ref);
+      return matches.length !== 1 || !Number.isSafeInteger(matches[0].startMs) || !Number.isSafeInteger(matches[0].endMs);
+    })) return null;
+    const moments = refs.flatMap(ref => buildEvidenceMomentLinks(result, [ref], recording.durationMs));
+    if (moments.length !== refs.length || moments.some(moment => !moment.available)) return null;
+    return Object.freeze({ sessionId: detail.id, recordingId: recording.id,
+      sourceRecordingId: result.sourceBinding.sourceRecordingId, durationMs: recording.durationMs,
+      question: Object.freeze({ questionId: result.question.questionId, revision: result.question.revision,
+        canonicalText: result.question.canonicalText }),
+      coaching: Object.freeze({ strongest: assessment.strongest, improvement: assessment.improvement,
+        drill: assessment.drill, confidence: assessment.confidence }), moments: Object.freeze(moments) });
+  };
+  const baselineSide = side(baseline, left); const currentSide = side(current, right);
+  if (!baselineSide || !currentSide) return unavailable('CITED_COACHING_UNAVAILABLE');
+  return Object.freeze({ available: true, baseline: baselineSide, current: currentSide,
+    limitation: 'Side-by-side AI coaching describes cited evidence, not measured improvement or a performance/readiness score. Source custody is a client microphone declaration, not biometric identity or acoustic-isolation verification. Timing uses sealed client-attested maps, not independently measured speech boundaries.' });
 }
 
 const readyMetric = (metrics, key) => metrics?.[key]?.available === true;

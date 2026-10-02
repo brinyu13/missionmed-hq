@@ -14,6 +14,18 @@ the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
+- **Retry teaching comparison SOURCE CANDIDATE, epoch 4097:** same-owner,
+  same-version/prompt Self Practice answers can project their saved coaching/drills
+  side by side with exact recording-specific, paused citation links. Existing
+  measured deltas remain separate; no improvement/grade is inferred. Fresh own
+  library membership (whose authorized rows omit ownerSubject) or current Admin
+  subject receipts bind detail reads. Selection/actor/role changes and changed
+  recording/citation ranges invalidate pending replay. Native approximate fragments,
+  legacy mixed audio and missing source-bound coaching remain unavailable.
+  83 focused model/actual-handler/review regressions PASS; independent PASS after
+  correcting the omitted-owner compatibility issue, with actual server projection
+  reachability and stale-metadata/error probes. No schema/provider
+  mutation. Genuine spoken retry/coaching usefulness acceptance remains OPEN.
 - **Server transcript → Film Room: LIVE DEPLOYED, epoch 4095.** Exact
   server-captured fragments now have a bounded, owner-scoped cold-read projection
   through the existing authorized session detail. Current actor/owner/mentor

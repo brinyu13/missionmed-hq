@@ -48,6 +48,7 @@ import {
   buildPracticeEntryIntent,
   buildAdminStudentProgress,
   buildComparisonSelection,
+  buildTeachingComparison,
   buildEvidenceMomentLinks,
   buildNameUseReview,
   buildCandidateAnalysisState,
@@ -2827,6 +2828,118 @@ async function renderLongitudinal() {
 
 let compareRenderId = 0;
 
+// Detail ownership is bound only by a fresh authorized library receipt. An
+// Admin's broader GET permission must not leak another subject into own review.
+async function readComparisonDetails(selection, { subject, adminReview, isCurrent }) {
+  const ids = [selection.baseline.id, selection.current.id];
+  if (!isCurrent()) return null;
+  if (adminReview) {
+    const details = await Promise.all(ids.map(sessionId => state.adminLibrary.sessionForStudent({ subject, sessionId, isCurrent })));
+    return isCurrent() && details.every(Boolean) ? details : null;
+  }
+  if (!subject || state.admission?.identity?.subject !== subject) throw new Error('Authenticated account changed.');
+  const library = await state.durable.library('own');
+  if (!isCurrent() || state.admission?.identity?.subject !== subject) return null;
+  // scope=own is server-filtered to the authenticated actor. Unlike scope=all,
+  // its rows omit ownerSubject. Exact membership is the ownership receipt, as
+  // in resolveOwnSavedReview; a detail read alone is insufficient for Admins.
+  const rows = ids.map(id => (library?.sessions || []).filter(row => row.id === id));
+  if (rows.some(matches => matches.length !== 1
+    || (matches[0].ownerSubject != null && matches[0].ownerSubject !== subject))) {
+    throw new Error('Selected attempts are no longer available in your library.');
+  }
+  const details = await Promise.all(ids.map(id => state.durable.api.session(id)));
+  if (!isCurrent() || state.admission?.identity?.subject !== subject) return null;
+  return details.map((detail, index) => {
+    if (detail?.id !== ids[index] || (detail.ownerSubject != null && detail.ownerSubject !== subject)) {
+      throw new Error('Saved attempt identity changed. Refresh your library.');
+    }
+    return { ...detail, ownerSubject: subject };
+  });
+}
+
+async function renderTeachingComparison(host, selection, { subject, adminReview, isCurrent, isScopeCurrent }) {
+  host.append(el('p', 'microcap', 'Loading saved answer coaching…'));
+  try {
+    const details = await readComparisonDetails(selection, { subject, adminReview, isCurrent });
+    if (!details || !isCurrent()) return;
+    const makeModel = pair => buildTeachingComparison({ baseline: pair[0], current: pair[1], subject,
+      baselineId: selection.baseline.id, currentId: selection.current.id });
+    const model = makeModel(details);
+    if (!model.available) {
+      const copy = model.reason === 'SELF_PRACTICE_MODE_MISMATCH'
+        ? 'Coaching comparison is available for Self Practice answers. These interview recordings still have the measured comparison above.'
+        : model.reason === 'PROMPT_MISMATCH'
+          ? 'These answers do not use the same saved question version. Review their coaching individually in Results.'
+          : 'Saved coaching comparison is unavailable for these answers. Both attempts need supported transcript-based coaching for the same Self Practice question. Review each answer in Results; the measured comparison above remains available.';
+      host.replaceChildren(el('p', 'canon-muted', copy));
+      return;
+    }
+    const note = el('p', 'canon-muted', 'Compare the cited evidence from each answer. These saved coaching observations do not establish a grade or prove improvement. Each replay opens paused in its own recording.');
+    const limits = el('p', 'canon-muted', 'Coaching uses the saved microphone recordings and their timing. It does not independently verify who spoke, whether other voices were captured, or the exact boundaries of speech.');
+    const grid = el('div', 'compare-selectors');
+    const status = el('p', 'canon-muted', '');
+    let opening = false;
+    for (const [sideKey, title] of [['baseline', 'Earlier answer'], ['current', 'Selected answer']]) {
+      const side = model[sideKey];
+      const card = el('article', 'context-assessment-card');
+      card.append(el('h3', '', title), el('p', 'microcap', `Saved attempt ${side.sessionId.slice(0, 8)}`));
+      for (const [key, label] of [['strongest', 'Strongest supported moment'], ['improvement', 'Practice priority'], ['drill', 'Next drill']]) {
+        const claim = side.coaching[key];
+        card.append(el('strong', '', label), el('p', '', claim?.text || 'No supported coaching was saved for this part of the answer.'));
+        if (!claim) continue;
+        const actions = el('div', 'btn-row');
+        for (const moment of side.moments.filter(item => claim.refs.includes(item.ref))) {
+          const action = el('button', 'btn btn-quiet'); action.type = 'button';
+          action.append(el('span', '', moment.label)); action.disabled = !moment.available;
+          action.addEventListener('click', async () => {
+            if (!isCurrent() || opening || !moment.available) return;
+            opening = true; action.disabled = true; status.textContent = '';
+            const previousSaved = state.lastSaved;
+            let targetSaved = null;
+            try {
+              // Re-read authorization and evidence at click time; do not replay a
+              // stale citation against replaced media or another selected pair.
+              const fresh = await readComparisonDetails(selection, { subject, adminReview, isCurrent });
+              if (!fresh || !isCurrent()) return;
+              const refreshed = makeModel(fresh);
+              const exact = refreshed.available && refreshed[sideKey];
+              const freshMoment = exact && exact.moments.find(item => item.ref === moment.ref && item.available
+                && item.startMs === moment.startMs && item.endMs === moment.endMs);
+              if (!exact || exact.recordingId !== side.recordingId || !freshMoment) {
+                throw new Error('This evidence changed. Refresh the comparison before replaying it.');
+              }
+              const detail = fresh[sideKey === 'baseline' ? 0 : 1];
+              targetSaved = { persisted: true, ...(adminReview ? { reviewScope: 'admin' } : {}),
+                session: detail, sessionDetail: detail, analytics: detail.results?.payload?.analytics || null,
+                recording: { recording: detail.recording } };
+              state.lastSaved = targetSaved;
+              await openLastSavedFilmRoom(action, { autoplay: false, moment: freshMoment, expectedSaved: targetSaved,
+                canContinue: isScopeCurrent });
+              if (state.view === 'compare' && state.lastSaved === targetSaved) {
+                state.lastSaved = previousSaved;
+                if (isCurrent()) status.textContent = 'Private replay could not open. Please try again.';
+              }
+            } catch {
+              if (targetSaved && state.view === 'compare' && state.lastSaved === targetSaved) state.lastSaved = previousSaved;
+              if (isCurrent()) status.textContent = 'This saved evidence could not be opened. Refresh the comparison and try again.';
+            } finally {
+              opening = false; action.disabled = !moment.available;
+            }
+          });
+          actions.append(action);
+        }
+        card.append(actions);
+      }
+      card.append(el('p', 'canon-muted', debriefConfidenceCopy(side.coaching.confidence)));
+      grid.append(card);
+    }
+    host.replaceChildren(el('h2', '', 'What changed in your answer?'), note, grid, limits, status);
+  } catch {
+    if (isCurrent()) host.replaceChildren(el('p', 'canon-muted', 'Saved coaching could not be loaded. The measured comparison above is still available.'));
+  }
+}
+
 async function renderCompare() {
   const host = $('#compare-body');
   if (!host) return;
@@ -2834,10 +2947,12 @@ async function renderCompare() {
   const saved = state.lastSaved;
   const adminReview = isAdminReview(saved);
   const role = state.role;
+  const actor = state.admission?.identity?.subject;
   const subject = adminReview ? saved?.session?.ownerSubject : state.admission?.identity?.subject;
   const scope = `${adminReview ? 'admin' : 'own'}:${subject || ''}`;
-  const isCurrent = () => renderId === compareRenderId && state.view === 'compare'
-    && state.role === role && state.lastSaved === saved;
+  const isScopeCurrent = () => renderId === compareRenderId && state.role === role
+    && state.admission?.identity?.subject === actor;
+  const isCurrent = () => isScopeCurrent() && state.view === 'compare' && state.lastSaved === saved;
   host.replaceChildren(el('p', 'microcap', 'Loading saved attempts…'));
   try {
     if (adminReview && (role !== 'admin' || !subject)) throw new Error('Select an authorized student first.');
@@ -2901,7 +3016,9 @@ async function renderCompare() {
     }
     const note = document.createElement('p'); note.className = 'microcap long-note';
     note.textContent = 'Same question and recording mode. Signed changes describe recorded signals, not answer quality. Captured mic level varies with device and setup; it is not calibrated loudness.';
-    host.replaceChildren(heading, selectors, table, note);
+    const teaching = el('section', '');
+    host.replaceChildren(heading, selectors, table, note, teaching);
+    await renderTeachingComparison(teaching, selection, { subject, adminReview, isCurrent, isScopeCurrent });
   } catch (error) {
     if (!isCurrent()) return;
     emptyEvidence(host, 'Comparison unavailable', String(error?.message || 'Authenticated Answer History required').toUpperCase().slice(0, 120));
@@ -3801,8 +3918,8 @@ function renderFilmRoomSpine(session, envelope = null) {
 }
 
 let playbackReviewRequest = 0;
-async function openLastSavedFilmRoom(button, { autoplay = true, moment = null, expectedSaved = state.lastSaved } = {}) {
-  if (state.lastSaved !== expectedSaved) return;
+async function openLastSavedFilmRoom(button, { autoplay = true, moment = null, expectedSaved = state.lastSaved, canContinue = () => true } = {}) {
+  if (state.lastSaved !== expectedSaved || !canContinue()) return;
   const requestId = ++playbackReviewRequest;
   const originView = state.view;
   if (button) button.disabled = true;
@@ -3822,7 +3939,7 @@ async function openLastSavedFilmRoom(button, { autoplay = true, moment = null, e
         : await state.durable.playback(recordingId);
       playbackUrl = signed?.url || null;
     }
-    if (requestId !== playbackReviewRequest || state.view !== originView
+    if (!canContinue() || requestId !== playbackReviewRequest || state.view !== originView
       || !mayPresentSavedReview({ saved, currentSaved: state.lastSaved, role: state.role, ticket, gate: adminReviewGate })) return;
     if (!playbackUrl) throw new Error('This answer has no available private recording. No earlier recording was opened.');
     state.filmGroups?.ingestResult(presentFilmRoomAnalytics(saved?.analytics || saved?.sessionDetail?.results?.payload?.analytics));
@@ -3843,7 +3960,7 @@ async function openLastSavedFilmRoom(button, { autoplay = true, moment = null, e
         video.addEventListener('error', failed, { once: true });
         if (video.readyState >= 1) ready();
       });
-      if (requestId !== playbackReviewRequest || state.view !== 'filmroom'
+      if (!canContinue() || requestId !== playbackReviewRequest || state.view !== 'filmroom'
         || !mayPresentSavedReview({ saved, currentSaved: state.lastSaved, role: state.role, ticket, gate: adminReviewGate })) return;
       if (Number.isFinite(video.duration) && moment.endMs > video.duration * 1000) throw new Error('This citation is outside the playable recording. No seek was performed.');
       video.pause();
@@ -3853,7 +3970,7 @@ async function openLastSavedFilmRoom(button, { autoplay = true, moment = null, e
       await video.play().catch(() => {});
     }
   } catch (error) {
-    if (requestId === playbackReviewRequest && ['filmroom', originView].includes(state.view) && state.lastSaved === expectedSaved) {
+    if (canContinue() && requestId === playbackReviewRequest && ['filmroom', originView].includes(state.view) && state.lastSaved === expectedSaved) {
       $(state.view === 'filmroom' ? '#filmroom-provenance' : '#post-provenance')?.append(el('p', 'unavailable', String(error?.message || 'Recording unavailable.')));
     }
   } finally {
