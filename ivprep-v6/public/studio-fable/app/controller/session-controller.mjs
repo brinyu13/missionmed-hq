@@ -159,6 +159,20 @@ export class SessionController extends EventTarget {
     try { return this.completeSave(record,await this.durable.finish(Promise.resolve(this.lastSave.analytics))); }
     catch(error) { this.lastSave.error=String(error?.message||error);this.setPhase('SAVE_FAILED',{error:this.lastSave.error,retryable:true}); return null; }
   }
+  candidateAudioRetryAvailable(id){
+    return Boolean(!this.navigationLocked&&this.account?.subject&&this.durable?.candidateRetry?.sessionId===id&&this.durable.candidateRecorder);
+  }
+  async retryCandidateAudio(id,{isCurrent=()=>true}={}){
+    const account=this.account,durable=this.durable,subject=account?.subject;
+    const current=()=>isCurrent()&&this.account===account&&this.durable===durable&&this.account?.subject===subject;
+    if(!this.candidateAudioRetryAvailable(id))throw new Error('The retained microphone upload is unavailable. Your full recording is unchanged.');
+    const own=await this.freshOwnLibrary({isCurrent:current});
+    if(!current())return null;
+    if(!own?.sessions?.some(s=>s.id===id&&s.ownerSubject===subject&&s.state==='saved')||!this.candidateAudioRetryAvailable(id))throw new Error('This microphone recording is not in your current saved account.');
+    const result=await durable.retryCandidateAudio();
+    if(!current())return null;
+    return result;
+  }
   releaseMedia() {
     this.engine?.destroy?.({releaseMedia:true}); this.engine=null; this.engineMode=null;
     if(this.video) this.video.srcObject=null;

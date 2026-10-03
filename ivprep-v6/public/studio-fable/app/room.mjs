@@ -72,14 +72,14 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   </div>`;
 
   const $=id=>main.querySelector('#'+id),room=$('room'),rails=new RailsController(main);
-  const recorder=new LiveRecorder($('recorder'),{window:'1M'}),history=new TraceHistory(),events=[],turns=[];
+  const recorder=new LiveRecorder($('recorder'),{window:'1M'}),history=new TraceHistory(),events=[],turns=[];let captions=[];
   let timer=null,idleTimer=null,roomFault=null,lastCueId=null,disposeDevices=null;
   const counts={smiles:0,nods:0,gestures:0};
   const current=()=>!disposed&&isCurrent();
   const observer=mode==='mock'?new NativeInterviewObserver({questions:plan,config:conductorConfig(settings,{durationMin:cfg.durationMin}),context:{specialty:session.program?.specialty||null},now:()=>controller.elapsed*1000}):null;
   const at=()=>controller.elapsed;
   const mark=(kind,label)=>events.push({t:at(),kind,label});
-  function renderTranscript(){ $('transcript').innerHTML=turns.map(t=>'<div class="turn '+t.speaker+'"><b>'+(t.speaker==='interviewer'?'Interviewer':'You')+'</b><span>'+esc(t.text)+'</span></div>').join('')||'<p class="note">The conversation appears here as you speak.</p>'; }
+  function renderTranscript(){ const rows=captions.length?captions:turns;$('transcript').innerHTML=rows.map(t=>'<div class="turn '+t.speaker+'"><b>'+(t.speaker==='interviewer'?'Interviewer':'You')+'</b><span>'+esc(t.text)+'</span></div>').join('')||'<p class="note">The conversation appears here as you speak.</p>';if(captions.length)$('transcript').insertAdjacentHTML('beforeend','<p class="note">Live captions use approximate fragment timing, not confirmed turn boundaries. Recording is authoritative for what was heard.</p>'); }
   function addTurn(speaker,text,event={}) {
     if(!current()||finished||saving||!text)return;
     const before=observer?.snapshot();
@@ -98,6 +98,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     onSpeaking(on){if(!current()||saving)return;$('presence').dataset.speaking=String(on);$('presence-state').textContent=on?'speaking':'listening';},
     onFinal(text,directive,event){addTurn('interviewer',text,event);},
     onApplicantFinal(text,event){addTurn('applicant',text,event);},
+    onCaptions(groups){if(!current()||saving)return;captions=groups;renderTranscript();},
     onStatus(status){if(!current()||saving)return;if(status.state==='active')$('presence-sub').textContent='Your interviewer is listening';if(status.state==='closed'&&started)providerFailed();},
     onProviderFailed:providerFailed
   };
@@ -203,6 +204,6 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     saveRecord={id:uid('att'),at:Date.now(),mode,fixture:false,engineMode:'real',transport:mode==='mock'?'gpt-live':'none',questionId:plan[0].question_id,questionText:plan[0].canonical_text,durationS:at(),samples,events,turns,conductor:snap,hooks:hookLedger(snap),closing:closingLedger(snap),debriefLane:debrief.change[0]?.lane||null,priorityLane:debrief.change[0]?.lane||null,priorityText:debrief.change[0]?.text||null,retryOf:session.retryOf||null,calibrationUsed:Boolean(engine.personalCalibration),program:session.program?{id:session.program.id,name:session.program.name,verified:session.program.verified}:null,endReason:reason,settings:{...settings}};
     try{const saved=await controller.finishSession({record:saveRecord});if(saved.saveError)showSaveFailure(saved.saveError);else showSaved(saved);}catch(error){showSaveFailure(error.message);}
   }
-  renderPlan();
+  renderPlan();renderTranscript();
   return ()=>{disposed=true;disposeDevices?.();detach();recorder.destroy();document.querySelector('.sheet-backdrop')?.remove();if(!finished&&!controller.navigationLocked)void controller.release('route_change');};
 }

@@ -24,7 +24,7 @@ export const FILTERS = [
   { id: 'behavioral', label: 'Behavioral' },
   { id: 'story', label: 'Personal story', tags: ['PERSONAL', 'BACKGROUND', 'HOBBIES', 'ADVERSITY', 'TRADITIONAL'] },
   { id: 'challenging', label: 'Challenging', tags: ['RED_FLAGS', 'WEAKNESSES', 'FAILURE', 'MISTAKE_SAFETY', 'ETHICS', 'STRESS_PRESSURE', 'CONFLICT'] },
-  { id: 'custom', label: 'Custom / admin', hint: 'Governance-added questions', source: ['custom', 'mentor', 'cv_generated'] },
+  { id: 'custom', label: 'Custom / admin', hint: 'Governance-added questions', source: ['custom', 'admin_custom', 'mentor', 'cv_generated'] },
   { id: 'all', label: 'Full library' },
 ];
 

@@ -96,7 +96,15 @@ export async function mountResults(main, id, {isCurrent=()=>true}={}) {
       </aside>
     </div>`;
   renderProviderTranscript(main,a);
-  return appendFullReport(main,a);
+  const disposeReport=appendFullReport(main,a);let disposed=false;
+  if(controller.candidateAudioRetryAvailable(a.id)){
+    const panel=document.createElement('section');panel.className='housing panel';
+    panel.innerHTML='<h2 class="t-h3">Your full recording is saved.</h2><p>The separate microphone upload for answer analysis needs a retry. Keep this page open until it saves.</p><button type="button" class="btn btn-secondary">Retry microphone audio save</button><p class="note" role="status"></p>';
+    main.querySelector('#full-analytics')?.before(panel);
+    const button=panel.querySelector('button'),status=panel.querySelector('[role="status"]');
+    button.onclick=async()=>{button.disabled=true;try{const result=await controller.retryCandidateAudio(a.id,{isCurrent:()=>!disposed&&isCurrent()});if(disposed||!isCurrent())return;if(result?.retried){status.textContent='Microphone audio saved. Reopen Results for fresh answer analysis.';button.textContent='Microphone audio saved';}else{status.textContent='The microphone upload is still unavailable. Your full recording is unchanged.';button.disabled=false;}}catch(error){if(!disposed&&isCurrent()){status.textContent=error.message;button.disabled=false;}}};
+  }
+  return ()=>{disposed=true;disposeReport();};
 }
 
 export async function mountFilm(main,id,params=new URLSearchParams(),{isCurrent=()=>true}={}) {

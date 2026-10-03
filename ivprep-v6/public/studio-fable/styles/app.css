@@ -101,6 +101,7 @@ main.view { flex: 1; width: 100%; max-width: 1360px; margin: 0 auto; padding: 28
 .q-row strong { font-family: var(--font-editorial); font-weight: 400; font-size: 16px; }
 .q-row small { display: block; color: var(--dim); font-size: 12px; margin-top: 3px; }
 .q-row .state { display: grid; justify-items: end; gap: 6px; }
+.program-prepare > .panel > .q-list { max-height: min(32vh, 330px); overflow-y: auto; overscroll-behavior: contain; }
 .q-filter { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
 .q-filter button { min-height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink2); font-size: 12.5px; font-weight: 700; }
 .q-filter button[aria-pressed="true"] { border-color: var(--gold-flat); color: var(--gold-flat); background: #ffb84d12; }
@@ -183,7 +184,9 @@ details.customize[open] summary::after { content: '–'; }
 /* ---------- Responsive ---------- */
 @media (max-width: 1240px) {
   .shell { grid-template-columns: var(--rail-w-compact) minmax(0, 1fr); }
-  .rail-item span, .rail-nav .brand small, .rail-foot .identity-text, .rail-advanced { display: none; }
+  .rail-item span, .rail-nav .brand small, .rail-foot .identity-text { display: none; }
+  .rail-advanced summary { letter-spacing:0; font-size:9px; }
+  .rail-advanced[open] { position:absolute; bottom:16px; left:12px; width:280px; padding:12px; background:var(--s3); border:1px solid var(--edge); border-radius:12px; box-shadow:var(--bevel); }
   .rail-item { justify-content: center; padding: 0; } .rail-item i { font-size: 17px; width: auto; }
   .rail-nav .brand strong { font-size: 13px; text-align: center; }
 }
@@ -202,6 +205,7 @@ details.customize[open] summary::after { content: '–'; }
   .rail-nav { position: fixed; inset: var(--topbar-h) auto 0 0; width: min(300px, 86vw); height: auto; transform: translateX(-104%); transition: transform var(--e-fast); box-shadow: 20px 0 60px #0008; }
   .rail-nav[data-open="true"] { transform: none; }
   .rail-item span, .rail-foot .identity-text, .rail-advanced { display: block; }
+  .rail-advanced[open] { position:static; width:auto; padding:0; border:0; box-shadow:none; }
   .rail-item { justify-content: flex-start; padding: 0 10px; min-height: 46px; }
 }
 @media (max-width: 760px) {

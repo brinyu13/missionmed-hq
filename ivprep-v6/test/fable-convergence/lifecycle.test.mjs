@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {beginMeasurementEpoch,invalidateDeviceCalibration} from '../../public/studio-fable/app/adapters/engine-adapter.mjs';
-import {GptLiveInterviewer} from '../../public/studio-fable/app/adapters/live-adapter.mjs';
+import {GptLiveInterviewer,LiveCaptionGroups} from '../../public/studio-fable/app/adapters/live-adapter.mjs';
+import {LiveInterviewSession} from '../../public/capabilities/live-interview.mjs';
 import {SessionController} from '../../public/studio-fable/app/controller/session-controller.mjs';
 import {DurableStudioSession} from '../../public/studio/durable-session.mjs';
 import {LiveAnalyticsMediaBridge} from '../../public/live-analytics/media-bridge.mjs';
@@ -10,6 +11,30 @@ import {bindSubject} from '../../public/studio-fable/app/state.mjs';
 if(!globalThis.CustomEvent)globalThis.CustomEvent=class extends Event{constructor(type,init={}){super(type);this.detail=init.detail;}};
 globalThis.document={hidden:false,addEventListener(){},removeEventListener(){},getElementById(){return null;}};
 const deferred=()=>{let resolve;const promise=new Promise(r=>{resolve=r;});return{promise,resolve};};
+test('timed GPT-Live fragments preserve spaces/repetition and independent overlapping captions, never finals',()=>{
+  const captions=new LiveCaptionGroups();
+  const event=(speaker,delta,start,end,id)=>({type:'session.'+speaker+'_transcript.delta',delta,start_ms:start,end_ms:end,event_id:id});
+  captions.ingest(event('input','I worked',100,300,'a'));
+  captions.ingest(event('output','Tell me',200,400,'b'));
+  const update=captions.ingest(event('input',' on research research',300,500,'c'));
+  assert.deepEqual(update.groups.map(g=>g.text),['I worked on research research','Tell me']);
+  assert.equal(update.groups.every(g=>g.final===false&&g.timingBasis==='PROVIDER_FRAGMENT'),true);
+  assert.equal(captions.ingest(event('input',' on research research',300,500,'c')),null);
+  assert.equal(captions.ingest(event('input','invalid',-1,0,'bad')),null);
+  captions.ingest(event('output',' why?',2200,2400,'d'));assert.equal(captions.groups.length,3);
+  for(let n=0;n<50;n++)captions.ingest(event('input','x'.repeat(1000),500+n,501+n,'large-'+n));
+  assert.ok(captions.chars<=32768);
+});
+test('actual native teardown release reaches exact Durable owner while stale transcript/status callbacks remain rejected',async()=>{
+  let native,lateTranscripts=0;const durable={accountSession:{id:'session-1'},events:[],recordLiveAudioTelemetry(e){this.events.push(e);}};
+  class Native extends LiveInterviewSession {constructor(options){super({...options,PeerConnection:class{}});}async start(){native=this;this.audioAuthority='configured';this.startedAtMs=0;this.emitTelemetry('configured');this.audioAuthority='bound';this.emitTelemetry('bound');return{};}}
+  const live=new GptLiveInterviewer({account:{apiClient:{createLiveInterview(){},endLiveInterview(){}}},durable,
+    LiveInterviewSessionCtor:Native,onApplicantFinal(){lateTranscripts++;}});
+  await live.connect({ivocSessionId:'session-1',openingQuestion:'Tell me about yourself.'});
+  await live.stop();native.onTranscript({speaker:'applicant',final:true,text:'late'});
+  native.emitTelemetry('bound');native.emitTelemetry('released');
+  assert.deepEqual(durable.events.map(e=>e.state),['configured','bound','released']);assert.equal(lateTranscripts,0);
+});
 test('actual bridge/pipeline retains clock across rehearsal, abandonment and recording',()=>{
   let now=100;const bridge=new LiveAnalyticsMediaBridge({now:()=>now});const pipeline=bridge.ensureAnalytics();
   pipeline.beginAnswer();const clock=bridge.sessionClock;let timingStarts=0;

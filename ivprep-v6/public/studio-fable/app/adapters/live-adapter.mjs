@@ -21,6 +21,23 @@ const ENGINE = '/iv-prep-on-call/assets';
 export const STEER_KINDS = new Set(['QUESTION', 'FOLLOW_HOOK', 'PROBE_VAGUE', 'CLARIFY_CONTRADICTION', 'MID_CANDIDATE_QUESTION', 'BOUNDED_ANSWER', 'PROFESSIONAL_CLOSE']);
 const FINAL_WAIT_MS = 45_000;
 
+// GPT-Live has timed fragments, not transcript-done/turn-final events. These
+// groups are captions only; they never manufacture canonical turns or drive AI.
+export class LiveCaptionGroups {
+  constructor(){this.groups=[];this.current={};this.ids=new Set();this.chars=0;}
+  ingest(event){
+    const speaker=event.type==='session.input_transcript.delta'?'applicant':event.type==='session.output_transcript.delta'?'interviewer':null;
+    if(!speaker||typeof event.delta!=='string'||!Number.isInteger(event.start_ms)||!Number.isInteger(event.end_ms)||event.start_ms<0||event.end_ms<event.start_ms)return null;
+    if(event.event_id&&this.ids.has(event.event_id))return null;
+    if(this.groups.length>=256||this.chars+event.delta.length>32768)return null;
+    if(event.event_id){this.ids.add(event.event_id);if(this.ids.size>2048)this.ids.delete(this.ids.values().next().value);}
+    let group=this.current[speaker];
+    if(!group||event.start_ms>group.endMs+1500){group={speaker,text:'',startMs:event.start_ms,endMs:event.end_ms,timingBasis:'PROVIDER_FRAGMENT',final:false};this.groups.push(group);this.current[speaker]=group;}
+    group.text+=event.delta;group.endMs=Math.max(group.endMs,event.end_ms);this.chars+=event.delta.length;
+    return {group:{...group},groups:this.groups.map(g=>({...g}))};
+  }
+}
+
 // Pure, testable: build the wire event for a directive (same shape as requestOpening/requestClosing).
 export function steerEvent(directive) {
   const content = String(directive?.content || '').trim();
@@ -44,14 +61,15 @@ export function createSpeakingGate({ onThreshold = 0.015, offThreshold = 0.008, 
 
 export class GptLiveInterviewer {
   constructor({ account, audioElement, engine = null, recordingMix = null, durable = null,
-    onLine = () => {}, onSpeaking = () => {}, onFinal = () => {}, onApplicantFinal = () => {}, onStatus = () => {}, onApplicantPartial = () => {},
+    onLine = () => {}, onSpeaking = () => {}, onFinal = () => {}, onApplicantFinal = () => {}, onStatus = () => {}, onApplicantPartial = () => {}, onCaptions = () => {},
     LiveInterviewSessionCtor = null, moduleLoader = path => import(path), now = () => performance.now() } = {}) {
     this.account = account; this.audioElement = audioElement; this.engine = engine; this.recordingMix = recordingMix; this.durable = durable;
-    this.onLine = onLine; this.onSpeaking = onSpeaking; this.onFinal = onFinal; this.onApplicantFinal = onApplicantFinal; this.onStatus = onStatus; this.onApplicantPartial = onApplicantPartial;
+    this.onLine = onLine; this.onSpeaking = onSpeaking; this.onFinal = onFinal; this.onApplicantFinal = onApplicantFinal; this.onStatus = onStatus; this.onApplicantPartial = onApplicantPartial;this.onCaptions=onCaptions;
     this.Ctor = LiveInterviewSessionCtor; this.load=moduleLoader;this.now = now;this.generation=0;
     this.live = null; this.pending = null; this.name = 'Program Director'; this.kind = 'gpt-live'; this.label = 'GPT-Live · native interviewer';
     this.finalIds = new Set(); this.sentIds = new Set(); this.stopping = false; this.openingObserved = false;
     this.gate = createSpeakingGate(); this.tapTimer = null; this.analyser = null; this.failed = false; this.lastInterviewerText = '';
+    this.captions=new LiveCaptionGroups();this.releasing=null;
   }
 
   async connect({ audioTrack, voice = 'marin', context, ivocSessionId, openingQuestion }) {
@@ -68,7 +86,10 @@ export class GptLiveInterviewer {
       audioElement: this.audioElement,
       onStatus: (status) => { if(!current())return;this.onStatus(status); if (status.state === 'error' || status.state === 'closed') this.resolvePending(null, status); },
       onTranscript: (event) => {if(current())this.handleTranscript(event);},
-      onTelemetry: (event) => {if(current())this.durable?.recordLiveAudioTelemetry?.(event);},
+      onEvent:(event)=>{if(!current())return;const update=this.captions.ingest(event);if(update){this.onCaptions(update.groups);if(update.group.speaker==='interviewer')this.onLine(update.group.text,{partial:true});}},
+      // stop invalidates ordinary callbacks, but the actual sole-owner release
+      // receipt must still reach this exact Durable session before Results seal.
+      onTelemetry: (event) => {if(current()||(this.releasing===live&&event.state==='released'&&this.durable?.accountSession?.id===ivocSessionId))this.durable?.recordLiveAudioTelemetry?.(event);},
       onAuthoritativeAudioStream: async (stream) => {
         if(!current())return;
         if (this.recordingMix) await this.recordingMix.attachAuthoritativeAudio(stream);
@@ -111,7 +132,7 @@ export class GptLiveInterviewer {
     if (event.final && identity) { this.finalIds.add(identity); if(this.finalIds.size>256) this.finalIds.delete(this.finalIds.values().next().value); }
     this.durable?.recordLiveTranscript?.(event);
     if (event.speaker === 'interviewer') {
-      if (!event.final) { this.onLine(event.text, { partial: true }); return; }
+      if (!event.final) { if(event.type!=='session.output_transcript.delta')this.onLine(event.text,{partial:true});return; }
       const text = String(event.text || '').trim(); if (!text) return;
       this.lastInterviewerText = text;
       this.onLine(text, { typing: false });
@@ -166,7 +187,8 @@ export class GptLiveInterviewer {
     clearInterval(this.tapTimer); this.tapTimer = null;
     this.cancel();
     if (!this.live) return;
-    const live = this.live; this.live = null;
+    const live = this.live; this.live = null;this.releasing=live;
     try { await live.stop({ notifyServer: true, keepalive }); } catch { /* server hangup remains authoritative on its side */ }
+    finally{if(this.releasing===live)this.releasing=null;}
   }
 }

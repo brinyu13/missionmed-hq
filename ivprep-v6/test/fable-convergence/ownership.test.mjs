@@ -39,3 +39,18 @@ test('derived presentation metadata cannot replace canonical account/session ide
   const result=await c.library();assert.equal(result.attempts[0].id,id);assert.equal(result.attempts[0].ownerSubject,'wp:1');assert.equal(result.attempts[0].persisted,true);
   assert.equal(result.attempts[0].remote.id,id);assert.equal(result.attempts[0].at,null);
 });
+test('retained microphone retry requires fresh own saved membership and exact retained session',async()=>{
+  const{c}=harness();let retries=0;c.phase='SAVED';
+  Object.assign(c.durable,{candidateRetry:{sessionId:id},candidateRecorder:{},retryCandidateAudio:async()=>{retries++;return{retried:true};}});
+  assert.equal(c.candidateAudioRetryAvailable('another-session'),false);
+  assert.equal((await c.retryCandidateAudio(id)).retried,true);assert.equal(retries,1);
+  c.phase='LIVE';await assert.rejects(c.retryCandidateAudio(id),/unavailable/);assert.equal(retries,1);
+  c.phase='SAVED';c.durable.library=async()=>({sessions:[]});
+  await assert.rejects(c.retryCandidateAudio(id),/current saved account/);assert.equal(retries,1);
+});
+test('revoked admission or account replacement cannot retry another owner microphone blob',async()=>{
+  const wait=deferred(),{c}=harness({library:async()=>{await wait.promise;return{sessions:[{id,state:'saved'}]};}});let retries=0;c.phase='SAVED';
+  Object.assign(c.durable,{candidateRetry:{sessionId:id},candidateRecorder:{},retryCandidateAudio:async()=>{retries++;return{retried:true};}});
+  const result=c.retryCandidateAudio(id);await new Promise(resolve=>setImmediate(resolve));c.account={...c.account,subject:'wp:2'};wait.resolve();
+  assert.equal(await result,null);assert.equal(retries,0);
+});

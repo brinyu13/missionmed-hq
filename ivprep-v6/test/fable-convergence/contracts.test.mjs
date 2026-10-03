@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {loadQuestions} from '../../public/studio-fable/app/questions.mjs';
+import {loadQuestions,queryQuestions} from '../../public/studio-fable/app/questions.mjs';
 import * as corpus from '../../public/questions/question-store.mjs';
 import {projectOwnRetry} from '../../public/studio-fable/app/adapters/retry.mjs';
 import {toWizard,defaultSettings} from '../../public/studio-fable/app/settings/interviewer.mjs';
@@ -8,6 +8,10 @@ import {DurableStudioSession} from '../../public/studio/durable-session.mjs';
 import {NativeInterviewObserver} from '../../public/studio-fable/app/brain/native-observer.mjs';
 import {masteryState} from '../../public/studio-fable/app/model/teaching.mjs';
 const id='f13869aa-2b3e-4b65-9f66-1288fb459444';
+test('Custom selector includes the current governed admin_custom source',()=>{
+  const q={question_id:'CUSTOM-1',canonical_text:'Current custom question',source:'admin_custom',tags:[]};
+  assert.deepEqual(queryQuestions({questions:[q],filter:'custom'}),[q]);
+});
 test('current corpus keeps 193 IDs and applies fresh governance without cached/fictional fallback',async()=>{
   let calls=0;const account={mode:'REAL',api:{questions:async()=>{calls++;return{questions:calls===1?[]:[{questionId:'CORE-01',status:'hidden'}]};}}};
   const first=await loadQuestions({account,moduleLoader:async()=>corpus}),second=await loadQuestions({account,moduleLoader:async()=>corpus});

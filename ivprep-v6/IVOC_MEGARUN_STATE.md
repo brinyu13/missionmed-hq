@@ -73,10 +73,48 @@ the actual production route and deployment.
   but the candidate URL parser rejected relative URLs. Corrected only this
   consumer: exact recording identity, same origin, exact private playback route.
   28 focused tests PASS; independently observed failure is not marked accepted.
-- Next executable action: deploy private-replay correction, reopen this exact
-  saved attempt, visually/audibly verify playback and cold reload; continue AI,
-  RISE/context, Admin and capability preservation. No full candidate journey is
-  LIVE VERIFIED yet.
+- Private-replay correction `244547431c5fc8d8f3cee1ecbd55ef2be98a7524`
+  deployed SUCCESS `0688b642-c7ce-4993-b696-dbe12f4a29ac`, image
+  `sha256:f025f46047d8e4f836af4f42376206077e68308c7ade53e569e3756068eca0ff`.
+  Health200 and anonymous root/candidate/current bootstrap401. Deployment lease4446
+  released/read back. Exact tracked rollback artifact: `ivoc-release-artifact-7rKbQ8/source.tar`,
+  SHA256 `622d4fe3f13b6ae4ccea489512a1e02e947e8cb6071291c3b557aa5b73fdd78e`.
+- Foreman and fresh non-builder normal Home -> Review -> c7fe94c0 Film Room:
+  actual 1280x720 saved video, native Play, bounded Pace seek and cold reload PASS.
+  Audible correctness remains UNVERIFIED; no tool hearing is inferred from tracks.
+  Native WebM duration begins Infinity then resolves23.161 after playback; native
+  scrubber behavior remains UNVERIFIED. StoryForge reveal/open-state and Practice
+  footer regressions independently PASS. Real RISE search -> Abington/Internal
+  Medicine -> readable single result -> selection retained in mock setup PASS.
+  Program-specific conversation remains UNVERIFIED.
+- Bounded real AI probe `bd40c90a-287e-4048-96b8-775c0dcbffb8` reached distinct REC
+  room with physical video and real instruments. It is NOT a genuine accepted
+  multi-turn interview. Save FAIL `audio_authority_evidence_invalid`: actual POST
+  retained configured/bound but the adapter discarded Native's released receipt
+  after stopping invalidated ordinary callbacks. Corrected only the exact-owner
+  teardown callback; strict server validation unchanged. Media already sealed;
+  failed probe's original page retained for recovery, not falsely marked saved.
+- Current GPT-Live events are timed deltas without turn-final messages. New room
+  incorrectly waited for finals and displayed only the latest output fragment.
+  Added bounded independent caption groups preserving exact spaces/repeated words
+  and overlap, with approximate timing labels; no invented finals, canonical turn
+  attribution, speech-boundary inference or scripted AI control. Native provider,
+  recording and canonical transcript owners remain unchanged. Official contract:
+  https://developers.openai.com/api/docs/guides/live-conversations#display-captions
+- 33 focused tests PASS, including actual Native teardown, caption overlap/bounds,
+  and retained microphone retry with fresh own-subject membership. Also corrected
+  actual admin_custom filtering, bounded Prepare results and compact Advanced entry.
+- Independent source preservation reconciliation assigned all142 unique rows:
+  PRIMARY39 / CONTEXTUAL14 / ADVANCED23 / ADMIN-MENTOR14 / BACKGROUND41 /
+  OWNER1 / PROVIDER-GATED3 / DEFERRED3 / SUPERSEDED4. Source homes are NOT live parity.
+  R046 microphone retry fixed in current patch. Remaining executable gaps:
+  R036 primary-person reselect; R070/078 mentor-priority projection; R139 durable
+  calibration resolution; R104 account preferences; R021/136 Bait Lab QA workflow;
+  R137 exact hook references; R114 own question-history joins; clear Admin entry
+  and return navigation. R104/R136 are requirements, not accepted deferrals.
+- Next executable action: safely deploy AI receipt/caption/retry correction, rerun
+  normal AI save/replay, continue the above preservation gaps and role/context POV.
+  No full candidate journey or final presentation promotion is LIVE VERIFIED yet.
 
 - **Founder live-POV override, 2026-10-02: recovery LIVE; candidate-question stall reopened fix-forward.**
   Founder confirms physical camera/mic and native multi-turn AI entry work;
