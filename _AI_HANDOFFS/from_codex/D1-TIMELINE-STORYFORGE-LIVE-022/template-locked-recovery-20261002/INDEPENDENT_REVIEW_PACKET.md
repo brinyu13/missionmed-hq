@@ -1,10 +1,13 @@
-# Independent engineering/artifact challenge (not Fable 5.1)
-OUTCOME: independently find correctness, source loss, visual-template deviation, false readiness or export defects. No redesign. Report only evidence, severity, repro, and smallest correction.
-BASE SHA: 9d07904596f05cc2d9f4f4485c0801fe87709002; recovery origin 3f650a10fa46f637fc656dd3f13d0ce18ea7093b. Frozen dirty candidate source manifest SHA-256 c773d309d72dfaae682ee17e210d6984b148aded0b45c08a1f9b7efc57022a10 in CANDIDATE_REVIEW_MANIFEST.json. Verify hashes of files you inspect; report drift.
-WRITE PATHS: only this ignored folder INDEPENDENT_REVIEW.md and reviewer-owned temporary evidence files prefixed independent-. No application source or tracked test writes.
-READ-ONLY DEPENDENCIES: TEMPLATE_CONTRACT.md/json, candidate source manifest, packages/mission-timeline, synthetic browser-exports and baseline inputs. Parent owns native Keynote and browser; do not interact with them.
-DONORS: actual hashed 2025 original/golden referenced by contract. No rejected experimental composition. Do not read parent conclusions or defect ledger before sealing findings.
-TESTS: choose adversarial data different from existing 20 cases. Inspect real PNG/PPTX/SVG outputs; run isolated Node tests. Specifically assess recovered engineering and new gates without treating tests as product acceptance. Synthetic only. Source provenance/privacy, manual layout preservation, unknown/conflicting dates, cross-document cached preview, actual export coverage, fonts and editability.
-FORBIDDEN: source edits, deployment, provider mutation, new visual grammar, private reference publication, self-merge. Do not claim to be Fable. Name actual model only if known from invocation. Existing Fable workspace remains read only.
-HANDOFF: INDEPENDENT_REVIEW.md plus evidence hashes, exact tests and limitations. Report to parent.
-STOP AFTER COMMIT: no commit authorized; stop after sealed report.
+# Independent candidate challenge (not Fable)
+OUTCOME: Independently challenge G1/G2/G4 fidelity, factual survival, actual exports and new automatic composition. Find real regressions and visual limitations. Do not equate collision clearance with sendability.
+BASE SHA: 65c1a80677aed2a4247e8c5bb765d3715872e109
+WRITE PATHS: only ignored .timeline-recovery-20261002/founder-decisions-20261003/INDEPENDENT_REVIEW.md and reviewer-generated diagnostics under its review/ directory. No source changes.
+READ-ONLY DEPENDENCIES: current source manifest review-source-manifest.json; source, exact fixtures, current canonical TEMPLATE_CONTRACT.md plus FOUNDER_DECISIONS.md (latest direct user decisions supersede resolved gates); actual 2025 golden/Keynote at recorded authority paths; browser-exports/ M01, M02, M03, M06 all actual five-format exports. Current M14 artifact predates one tie-break change; do not seal M14.
+DONORS: actual reference only for visuals. No rejected Gantt/Experience Key.
+TESTS: compare four exports to source facts and reference; inspect actual PNG/PDF and native PPTX XML/editable recovery; challenge new profile compact treatment, milestone institution coverage, source-span text grouping, same-date flag packing. Reproduce suspected async-media export issue: buildExportRequest is synchronous and may block stored media before local adapter can resolve. Explore preview/edit/export parity and manual state preservation. Report exact reproduction if real.
+FORBIDDEN: UI/provider mutation, deployment, source edits, changing visual grammar, claims of Fable identity. Legacy-test worker writes only 13 tests; ignore those changes for source seal.
+HANDOFF: INDEPENDENT_REVIEW.md with source hash verification, priority-ranked findings, four-fixture visual verdicts, factual counts, limitations. This is independently reviewing source at exact SHA plus real artifacts; do not claim founder acceptance.
+STOP AFTER COMMIT: report-only; no commit authority. Stop after saved report and parent summary.
+
+
+Authorized final recheck target: 7e5b6314434ee9b86fb7bb2dc0c55ba278d28b07. Media regression fixes were independently challenged and sealed. Exact current report and review diagnostics root: /Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/founder-decisions-20261003. No source edits/deployment authorized by this packet.

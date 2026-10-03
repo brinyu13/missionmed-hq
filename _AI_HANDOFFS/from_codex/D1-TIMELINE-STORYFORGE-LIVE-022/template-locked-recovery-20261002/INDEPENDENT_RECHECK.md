@@ -1,3 +1,7 @@
+# Historical earlier-phase evidence
+
+This file concerns the earlier 3ab6923 candidate, not the current founder-decision candidate. Current independent review is INDEPENDENT_REVIEW.md at 7e5b631. Original raw sealed evidence remains in the prior template-locked local evidence directory and Git commitc1fc1b6.
+
 # Independent repaired candidate recheck
 
 SEALED. Independent Codex engineering/artifact review, not Fable 5.1. Specific model identity was not exposed by the invocation. No source/UI/provider/deployment/commit mutations were performed. All reviewer writes use this report or the permitted `independent-recheck-*` prefix.

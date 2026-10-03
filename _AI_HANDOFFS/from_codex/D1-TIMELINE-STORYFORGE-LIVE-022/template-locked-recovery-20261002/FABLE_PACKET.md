@@ -1,13 +1,13 @@
-# Fable 5.1 bounded challenger packet — NOT LAUNCHED
+# Fable 5.1 packet — prepared, NOT LAUNCHED
 
-OUTCOME: adversarially test whether varied synthetic histories become excellent instances of the same 2025 template. Seal findings before receiving implementation conclusions.
-BASE SHA: 3ab692393505c0cb64a7faddd9e3730b50300367. Frozen candidate manifest: CANDIDATE_FINAL_MANIFEST.json. Recovery base 3f650a10fa46f637fc656dd3f13d0ce18ea7093b. Reverify exact hashes before execution.
-WRITE PATHS: only isolated .timeline-recovery-20261002/challenge-evidence in the Fable worktree, under applicable custody. No application source writes in this packet.
-READ-ONLY DEPENDENCIES: locked TEMPLATE_CONTRACT.md and verified reference hash/grammar, frozen candidate, synthetic test inputs.
-DONORS: none. Rejected numbered/Gantt/Experience-Key experiment forbidden as donor.
-TESTS: all 20 requested scenarios; dates, provenance, omissions, direct labels, geometry, typography, manual overlays, save/reopen, selected-audience privacy, all exports, actual native editability and false readiness.
-FORBIDDEN: redesign, continuation policy, fabricated facts, production, schema, private Founder imagery upload, source writes, deployment, self-merge.
-HANDOFF: seal findings and output hashes, actual model identity, per-scenario evidence and limits before comparison with Astra findings.
-STOP AFTER COMMIT: no source commit authorized; stop after sealing evidence. A later source packet requires exact write paths and a renewed lease.
+Fable 5.1 is not an available model in this session. Do not impersonate it. Current independent reviewer is explicitly not Fable.
 
-Availability: this session's subagent tool does not offer Fable 5.1. Do not substitute another model and label it Fable. Packet prepared; actual Fable execution remains pending.
+OUTCOME: independently challenge whether current Builder produces excellent instances of the SAME 2025 template across normal/sparse/dense/overlap and adversarial histories. Report source-fact loss, template deviations, collisions, false readiness, privacy and artifact failures. No redesign.
+BASE SHA: 7e5b6314434ee9b86fb7bb2dc0c55ba278d28b07; reverify hashes in CANDIDATE_FINAL_MANIFEST.json and current HEAD before assignment. If source changes, rebind packet.
+WRITE PATHS: none in product/source; after launch authorize a fresh report-only directory within the task evidence root and record it before writes. Fable sibling remains read-only unless a new bounded packet explicitly changes that.
+READ-ONLY DEPENDENCIES: BOOT, Brain AGENTS, Timeline authority/handoffs, TEMPLATE_CONTRACT.md/json, founder decisions, actual reference, current source, synthetic fixtures and artifacts.
+DONORS: locked actual2025reference and synthetic fixtures; rejected experiments are not visual donors.
+TESTS: all20categories, source-to-visible coverage, missing media, legacy privacy metadata, imported/reopened PPTX, native font/geometry checks, Letter/A4 readability, manual geometry preservation, same-date and extreme density. Inspect actual exports, not onlyscreenshots.
+FORBIDDEN: source edits, consolidation, abbreviating supplied meaning, seventh key row, Gantt/directory/continuation/replacement, real student data, provider writes, deploy, self-merge, relabeling another model asFable.
+HANDOFF: exact reproduction, fixture, actual artifact, severity, all material facts status, mechanical versus visual verdict and test limits; exact hashes. Do not read parent conclusions until independent first pass where practical.
+STOP AFTER COMMIT: report-only task has no source commit; stop after report seal. If a future implementation packet permits a commit, stop after that bounded commit. Foreman owns integration.

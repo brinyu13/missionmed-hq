@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "missionmed-founder-2025-grammar/1",
+  "schemaVersion": "missionmed-founder-2025-grammar/2",
   "sourceSha256": "113d22efb8ca2c00c29d8e57b92c1eb24ff2c66931f7138bbf23daa66dbba706",
   "goldenSha256": "bf48d25b2d46a75c868f98692d480147f8c7d8f234955608a27ca50b3b808836",
   "locked": {
@@ -15,9 +15,9 @@
     "duration": "category-arrow-with-direct-label-and-date",
     "milestone": "pole-and-date-pennant",
     "examResultMarker": "explicit-result-flag-attached-to-study-arrow-below-ribbon",
-    "profile": "mounted-white-paper-with-portrait",
-    "photos": "white-snapshot-frames",
-    "interview": "program-logo-purple-ribbon-date",
+    "profile": "mounted-white-paper; portrait only when supplied; editing slot retained",
+    "photos": "white-snapshot-frames for supplied photos; no empty final frames",
+    "interview": "supplied program/logo/date only; omit each unpopulated object",
     "annotations": "authored-sticky-notes-and-pointers",
     "colorKeyIds": [
       "work",
@@ -107,7 +107,8 @@
       "Baskerville",
       "Futura-Bold",
       "Futura-Medium"
-    ]
+    ],
+    "education": "degree completion pole/pennant; source-linked school/span in profile; no duration arrow or seventh key row"
   },
   "parametric": [
     "confirmed-facts",
@@ -118,20 +119,26 @@
     "wrapping",
     "authored-geometry",
     "authored-media-crops",
-    "audience-projection"
+    "audience-projection",
+    "optional-furniture-omission-per-G1",
+    "bounded-single-year-axis-context-padding-with-each-year-labeled",
+    "automatic-profile-blank-paper-compaction-preserving-width-bottom-corners-and-fonts"
   ],
   "prohibited": [
     "numbered-experience-directory",
     "gantt-replacement",
     "automatic-continuation",
     "automatic-fact-abbreviation",
-    "silent-material-omission"
+    "silent-material-omission",
+    "education-seventh-key-row",
+    "education-duration-arrow",
+    "final-photo-or-logo-placeholders",
+    "fabricated-interview-program-or-date",
+    "rotation-consolidation-without-authority"
   ],
   "undefined": [
     "extreme-density-consolidation",
-    "education-seventh-key-row",
     "automatic-year-compression",
-    "absent-furniture-policy",
     "minimum-print-font-size"
   ],
   "sourceUnits": "1920x1080 native-reference coordinate space",
@@ -177,5 +184,18 @@
     ],
     "svg": "shared underlying presentation and diagnostic artifact; not an advertised additional export format",
     "keynote": "PPTX import compatibility; native save/reopen proof is fixture-specific"
+  },
+  "founderDecisions": {
+    "source": "Direct founder message: FOUNDER DECISIONS \u2014 RESUME EXECUTION",
+    "G1": "OPTION B: omit absent photo/interview/logo objects from program-facing exports; keep editor slots",
+    "G2": "OPTION A: preserve institution in existing milestone adjacent label with wrapping/fitting",
+    "G3": "continue technical search in existing grammar; no consolidation/new layout authorized",
+    "G4": "degree milestone plus source-linked school and span in existing profile"
+  },
+  "parametricGuards": {
+    "automaticProfileCompaction": "only without authored profile geometry; supplied photo and text must fit; editor slots remain",
+    "axisContext": "up to one empty context year before/after for flag placement; no source-date change or merged year",
+    "milestonePlacement": "general above ribbon; explicit exam-result markers retain native study-arrow attachment",
+    "media": "privacy projection before resolution; attached media load failures block final export"
   }
 }

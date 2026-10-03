@@ -1,700 +1,937 @@
 {
-  "sourceCommit": "3ab692393505c0cb64a7faddd9e3730b50300367",
-  "acceptance": "NOT ACCEPTED FOR RELEASE OR SENDING",
+  "sourceHead": "7e5b6314434ee9b86fb7bb2dc0c55ba278d28b07",
+  "createdAt": "2026-10-03T05:08:57.774895+00:00",
+  "classification": "REPAIRED CANDIDATE \u2014 NOT FOUNDER ACCEPTED",
+  "artifactRoot": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/founder-decisions-20261003",
+  "previousEvidenceRoot": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked",
   "files": {
-    "M01.svg": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M01.svg",
-      "sha256": "215a9f3a1fb67bd0ccb1dfb6e96db2465556fcd6c15a1cf035794b4d5fd72026",
-      "bytes": 627078,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M01-diagnostic.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M01-diagnostic.png",
-      "sha256": "ea7d6dd0bed456a136c7bc087e9750a8aa795cdd532764b84743d96240542f9d",
-      "bytes": 1852546,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M01-browser-metrics.json": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M01-browser-metrics.json",
-      "sha256": "f964527a7c4f3130a0b98fa73cafe8d5eaa45df18285e6630fde68543c466d0a",
-      "bytes": 12157,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M02.svg": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M02.svg",
-      "sha256": "63d6d160e57fe06af6954797aa3031448652dcae9644fbd7b6513c3b06f7093b",
-      "bytes": 619680,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M02-diagnostic.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M02-diagnostic.png",
-      "sha256": "cac83fef4312545365a9c38d77dd63c28d7619ae3eccd85630a1b3feff391437",
-      "bytes": 1808809,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M02-browser-metrics.json": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M02-browser-metrics.json",
-      "sha256": "d49a01b9bee33c1ea01fcd548bd164467e9f3b1da79ac76e166df46b05413a2c",
-      "bytes": 7920,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M03.svg": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M03.svg",
-      "sha256": "861e8cf0f33496cf20ee58104a1cde016dc4589025fc7bc3f0cfe63c5555d966",
-      "bytes": 653160,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M03-diagnostic.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M03-diagnostic.png",
-      "sha256": "34d0bb0b53d8a1b29e4e2189c99a96022ad027d949b9fc60ac92ee36641eb198",
-      "bytes": 2034260,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M03-browser-metrics.json": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M03-browser-metrics.json",
-      "sha256": "ed868e0b89aa8a8cafca6dd540679236c56543e59b48f15f24388d51ed5d9b2c",
-      "bytes": 27502,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M04.svg": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M04.svg",
-      "sha256": "689cb99cfeabecbe1758ab3c20b5c71fbd5c5b215858e787a388f250e1a77dca",
-      "bytes": 634126,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M04-diagnostic.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M04-diagnostic.png",
-      "sha256": "cba1f1b7fb525ddd890787ef9c0668e54c38312d9844ff791278027b96e4143a",
-      "bytes": 1858106,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M04-browser-metrics.json": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M04-browser-metrics.json",
-      "sha256": "115b795088237a24394d595a8eb4d49ca0ead6eb253059a1f5cbc24df5c21bf9",
-      "bytes": 15243,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M05.svg": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M05.svg",
-      "sha256": "c3db09fa49f0097ac6e33c5207e576d599c719f5706c26875a81a2077fdc035d",
-      "bytes": 633823,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M05-diagnostic.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M05-diagnostic.png",
-      "sha256": "3cb12413625fa93220d7bec213e2ca4aafada4f5d2d0f36cab78e92f73220b4b",
-      "bytes": 1915908,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M05-browser-metrics.json": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M05-browser-metrics.json",
-      "sha256": "63847e817f03c192774d42cc966c4ee7f93e709aa49d2906b052dd8001814a88",
-      "bytes": 16531,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M05-png-1920x1080.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M05-png-1920x1080.png",
-      "sha256": "3cb12413625fa93220d7bec213e2ca4aafada4f5d2d0f36cab78e92f73220b4b",
-      "bytes": 1915908,
-      "classification": "CURRENT TECHNICAL EXPORT - NOT ACCEPTED"
-    },
-    "M05-png-2560x1440.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M05-png-2560x1440.png",
-      "sha256": "ffccedab41f2b1bd401b804a099cf85e608ec7ee21c2befd85921e04cf2aa83d",
-      "bytes": 3553168,
-      "classification": "CURRENT TECHNICAL EXPORT - NOT ACCEPTED"
-    },
-    "M05-pptx-editable.pptx": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M05-pptx-editable.pptx",
-      "sha256": "85aac24413bd9f518ee15409c49824aee78b41a008f2f21f7868a80757617747",
-      "bytes": 477345,
-      "classification": "CURRENT TECHNICAL EXPORT - NOT ACCEPTED"
-    },
-    "M05-pdf-letter-landscape.pdf": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M05-pdf-letter-landscape.pdf",
-      "sha256": "318eddddb6bb24a5d7d3205521123cd5031830c086c6214a3128395fd9153e64",
-      "bytes": 1008186,
-      "classification": "CURRENT TECHNICAL EXPORT - NOT ACCEPTED"
-    },
-    "M05-pdf-a4-landscape.pdf": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M05-pdf-a4-landscape.pdf",
-      "sha256": "176938c074b9579ae25dc101cdbf1c393d273cce31ff78addf1f01c06fc36a74",
-      "bytes": 1101793,
-      "classification": "CURRENT TECHNICAL EXPORT - NOT ACCEPTED"
-    },
-    "M06.svg": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M06.svg",
-      "sha256": "346c4fcacf887a5135a57126e3ecc4d49b5e44aee423f06f74bbae6a64f4a7f4",
-      "bytes": 621610,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M06-diagnostic.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M06-diagnostic.png",
-      "sha256": "2a7aa41b7d7db992d9e0bc8d1f406255e3643073ef1e389f29eb61aec347d500",
-      "bytes": 1755227,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M06-browser-metrics.json": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M06-browser-metrics.json",
-      "sha256": "cd149ade9be6e7aa81b5899a0a23d32712aaa68953e3ea9ce938c39c1756254c",
-      "bytes": 9556,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M07.svg": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M07.svg",
-      "sha256": "0c7ea6d13b94ad1dcec7f1ca3f568b35120b08b1b303238c88bfcaeb98eda69c",
-      "bytes": 624110,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M07-diagnostic.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M07-diagnostic.png",
-      "sha256": "3943a151f17b86895dfe0f9397efc121900d30d28c4ecf7dd2dead9738583918",
-      "bytes": 1842761,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M07-browser-metrics.json": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M07-browser-metrics.json",
-      "sha256": "5de0bd3558a2070672831621b57b998a23030e63940995b075d8af8232818ea8",
-      "bytes": 10321,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M07-png-1920x1080.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M07-png-1920x1080.png",
-      "sha256": "3943a151f17b86895dfe0f9397efc121900d30d28c4ecf7dd2dead9738583918",
-      "bytes": 1842761,
-      "classification": "CURRENT TECHNICAL EXPORT - NOT ACCEPTED"
-    },
-    "M07-png-2560x1440.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M07-png-2560x1440.png",
-      "sha256": "48901636df12e0d08a45367e1e92bf682c91bb53c3b0a6b1c6bcab568e514059",
-      "bytes": 3459170,
-      "classification": "CURRENT TECHNICAL EXPORT - NOT ACCEPTED"
-    },
-    "M07-pptx-editable.pptx": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M07-pptx-editable.pptx",
-      "sha256": "bddf03855148d41bd2c09731a74e83542a73d9ef33c89c48e4eb5a5c879764f9",
-      "bytes": 475193,
-      "classification": "CURRENT TECHNICAL EXPORT - NOT ACCEPTED"
-    },
-    "M07-pdf-letter-landscape.pdf": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M07-pdf-letter-landscape.pdf",
-      "sha256": "57b6d19371c010db834618d76b87c3acce97c868a5b7bdcf8cf9310a590d879f",
-      "bytes": 929031,
-      "classification": "CURRENT TECHNICAL EXPORT - NOT ACCEPTED"
-    },
-    "M07-pdf-a4-landscape.pdf": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M07-pdf-a4-landscape.pdf",
-      "sha256": "bae19e95f701288463bc65c3e75627e32077f1be23a1726bb3181d58697a9d8f",
-      "bytes": 1014946,
-      "classification": "CURRENT TECHNICAL EXPORT - NOT ACCEPTED"
-    },
-    "M08.svg": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M08.svg",
-      "sha256": "c697943562dac7fbc26ccdb0d636b8b005720b19c30863166cbc031bccbc17ec",
-      "bytes": 627322,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M08-diagnostic.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M08-diagnostic.png",
-      "sha256": "52cf182b703695053ab8a2b8b298ad32d4d3adec43da242ca1579e404730f0c8",
-      "bytes": 1845699,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M08-browser-metrics.json": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M08-browser-metrics.json",
-      "sha256": "43da1e0536572e086975954c5cf7db7e2be019f6255a99a14de63a16ac6314af",
-      "bytes": 11906,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M09.svg": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M09.svg",
-      "sha256": "9b3fca3c876153597d1164767fa6c18d0d10520e18b5ec6e7eaa4398c7162677",
-      "bytes": 618491,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M09-diagnostic.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M09-diagnostic.png",
-      "sha256": "6855ed956ce8ac71b87926ede39b645a861077c46a15d66ccdeaabac8f064b6f",
-      "bytes": 1838400,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M09-browser-metrics.json": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M09-browser-metrics.json",
-      "sha256": "a32d3b7959a95fdac96f35c2f5e63445487f991883354e5b8fe3ab5760dbab09",
-      "bytes": 7238,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M09-png-1920x1080.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M09-png-1920x1080.png",
-      "sha256": "6855ed956ce8ac71b87926ede39b645a861077c46a15d66ccdeaabac8f064b6f",
-      "bytes": 1838400,
-      "classification": "CURRENT TECHNICAL EXPORT - NOT ACCEPTED"
-    },
-    "M09-png-2560x1440.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M09-png-2560x1440.png",
-      "sha256": "e00e9cef1ec05aeeeaef1b59106a79ef28974dc213cbc4b1e40c152aff7aed6d",
-      "bytes": 3470767,
-      "classification": "CURRENT TECHNICAL EXPORT - NOT ACCEPTED"
-    },
-    "M09-pptx-editable.pptx": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M09-pptx-editable.pptx",
-      "sha256": "4f550ecd4f90fc65dd907b1916a85d4e5af1b1e0315423b2fa6dab9cff80bae0",
-      "bytes": 473502,
-      "classification": "CURRENT TECHNICAL EXPORT - NOT ACCEPTED"
-    },
-    "M09-pdf-letter-landscape.pdf": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M09-pdf-letter-landscape.pdf",
-      "sha256": "0a65cd43b9c5ea343c14bb2cb7be612e1469d6fdb964db5b9ffcf1bb9c709fd5",
-      "bytes": 895541,
-      "classification": "CURRENT TECHNICAL EXPORT - NOT ACCEPTED"
-    },
-    "M09-pdf-a4-landscape.pdf": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M09-pdf-a4-landscape.pdf",
-      "sha256": "55a44c9fd35994ba2e13a464c5a10344524f37790ec237a7322e6b92c0fcc34e",
-      "bytes": 980732,
-      "classification": "CURRENT TECHNICAL EXPORT - NOT ACCEPTED"
-    },
-    "M10.svg": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M10.svg",
-      "sha256": "a7041346213f7bc169a893947419ef22a0b0767cc590532861b6f39b9a187566",
-      "bytes": 620087,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M10-diagnostic.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M10-diagnostic.png",
-      "sha256": "fe4b5d8c39c3ebcc025e02d9ab301e7655db745b8a2b90abdd300f4814d43a00",
-      "bytes": 1803226,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M10-browser-metrics.json": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M10-browser-metrics.json",
-      "sha256": "0f3dfbb7687cd04b36a05533cb2e5f40b3b47c3179a7d8e35c09752535cea8cd",
-      "bytes": 7857,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M10-png-1920x1080.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M10-png-1920x1080.png",
-      "sha256": "fe4b5d8c39c3ebcc025e02d9ab301e7655db745b8a2b90abdd300f4814d43a00",
-      "bytes": 1803226,
-      "classification": "CURRENT TECHNICAL EXPORT - NOT ACCEPTED"
-    },
-    "M10-png-2560x1440.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M10-png-2560x1440.png",
-      "sha256": "f80da1743d9bd53ee30ed0d6013af75b83e0c6924e0c4b80b4384682a797178c",
-      "bytes": 3394523,
-      "classification": "CURRENT TECHNICAL EXPORT - NOT ACCEPTED"
-    },
-    "M10-pptx-editable.pptx": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M10-pptx-editable.pptx",
-      "sha256": "715129b12fea0bef91d3824afb9b351c3cbe6f315d865e09fed207f0fc893844",
-      "bytes": 473937,
-      "classification": "CURRENT TECHNICAL EXPORT - NOT ACCEPTED"
-    },
-    "M10-pdf-letter-landscape.pdf": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M10-pdf-letter-landscape.pdf",
-      "sha256": "18edd273e566e223ccd7fe52a457561dd97e9ae7a0288af4bffd905bc265f74c",
-      "bytes": 923211,
-      "classification": "CURRENT TECHNICAL EXPORT - NOT ACCEPTED"
-    },
-    "M10-pdf-a4-landscape.pdf": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M10-pdf-a4-landscape.pdf",
-      "sha256": "7d34f687f10531b58d40b5465883c7ee3d542deac41d843f4f6bdff2da28b6b4",
-      "bytes": 1013348,
-      "classification": "CURRENT TECHNICAL EXPORT - NOT ACCEPTED"
-    },
-    "M11.svg": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M11.svg",
-      "sha256": "52eb6b0f2e29a6ef7d8776b1bc20f514b97feee89b4c7aeeaca4c20e6bd56515",
-      "bytes": 619374,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M11-diagnostic.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M11-diagnostic.png",
-      "sha256": "2b4693670f7fb7003aaa39e36f19c35ff27cbcd6b8f841c65f64d967cbda0bc8",
-      "bytes": 1790638,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M11-browser-metrics.json": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M11-browser-metrics.json",
-      "sha256": "3707603da307a29ac37159015db7bb3242a6500d9da5da0942646bf69d202a77",
-      "bytes": 7457,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M11-png-1920x1080.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M11-png-1920x1080.png",
-      "sha256": "2b4693670f7fb7003aaa39e36f19c35ff27cbcd6b8f841c65f64d967cbda0bc8",
-      "bytes": 1790638,
-      "classification": "CURRENT TECHNICAL EXPORT - NOT ACCEPTED"
-    },
-    "M11-png-2560x1440.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M11-png-2560x1440.png",
-      "sha256": "c420af54c7562aae9d74b3a53283a2d2913871fc2140b4ecf95e7ed4ebe36c8f",
-      "bytes": 3376369,
-      "classification": "CURRENT TECHNICAL EXPORT - NOT ACCEPTED"
-    },
-    "M11-pptx-editable.pptx": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M11-pptx-editable.pptx",
-      "sha256": "e17a5795e3b6774b47314afcaf6d86253c9986114ac244d373c2dd88d1d21a1b",
-      "bytes": 473668,
-      "classification": "CURRENT TECHNICAL EXPORT - NOT ACCEPTED"
-    },
-    "M11-pdf-letter-landscape.pdf": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M11-pdf-letter-landscape.pdf",
-      "sha256": "30c23688a64c3b29d27289ea73f1f75c15af9fe060b48f1ac4ed54b1e0987e98",
-      "bytes": 888619,
-      "classification": "CURRENT TECHNICAL EXPORT - NOT ACCEPTED"
-    },
-    "M11-pdf-a4-landscape.pdf": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M11-pdf-a4-landscape.pdf",
-      "sha256": "74c7103e9164eb635933488ca6dcc44e205cf33235165987a9ad18ae473c9730",
-      "bytes": 972080,
-      "classification": "CURRENT TECHNICAL EXPORT - NOT ACCEPTED"
-    },
-    "M12.svg": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M12.svg",
-      "sha256": "dfe4e1aec4f2577f244ec1ad6d8fd6c2040e8522bd29781c84ee68727b4dda1f",
-      "bytes": 616897,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M12-diagnostic.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M12-diagnostic.png",
-      "sha256": "e1b76647a2639888f33ac7a0e76880808859284baed75c6fa0e4f8c4a03b5c0a",
-      "bytes": 1809975,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M12-browser-metrics.json": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M12-browser-metrics.json",
-      "sha256": "e30782f7984a5370da6d7fbde11238c16a631739f2ba46f9ed14cca0e1bbc4b9",
-      "bytes": 6227,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M13.svg": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M13.svg",
-      "sha256": "c9c2d4a10128d6110bd2e78bf2f6c43c6114d4bc8439a25bfdf74b6b9ae8460b",
-      "bytes": 616903,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M13-diagnostic.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M13-diagnostic.png",
-      "sha256": "6f8ce5982a79e1a30b473db6267f2c12fe7622a3b79262fbe5fac909d207e5dd",
-      "bytes": 1811224,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M13-browser-metrics.json": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M13-browser-metrics.json",
-      "sha256": "afbd341ad00f8e12cc10a3feeace942cf588d569af8364296370a28506468e19",
-      "bytes": 6231,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M14.svg": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M14.svg",
-      "sha256": "f786468ab852966b26d5bc6db6060176f636d6b1bbcfb6b1f6ae2a801f42a6a8",
-      "bytes": 619541,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M14-diagnostic.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M14-diagnostic.png",
-      "sha256": "5e7383199d0d0efa74318a20f3528349b8749cb6f96f317b7678d038c43c6d50",
-      "bytes": 1813929,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M14-browser-metrics.json": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M14-browser-metrics.json",
-      "sha256": "8edb03151e6f9a7597c0435c5a5c727db91293dcd401ca0bcec28e8b0e58815a",
-      "bytes": 8536,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M15.svg": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M15.svg",
-      "sha256": "fcea27c63520159d91a85c9a072038aa9a3f8804b6ce47c7437d4b6dc8a933dc",
-      "bytes": 618713,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M15-diagnostic.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M15-diagnostic.png",
-      "sha256": "1d56d5cb6976e0c724734edb1e6eba3d1b05203124089b76d4d6354919e9948a",
-      "bytes": 1819508,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M15-browser-metrics.json": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M15-browser-metrics.json",
-      "sha256": "918589bee13eafac61d821eebeaac7f7b1b52d5ece547c02a636bc253653ef99",
-      "bytes": 7357,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M16.svg": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M16.svg",
-      "sha256": "5a9c0fb8f32ff77d85e56fe59e17ed4192d98abc779b101ec04029fb06ff5823",
-      "bytes": 619333,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M16-diagnostic.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M16-diagnostic.png",
-      "sha256": "3023500256eae40e62a595d2913df80251697add2fbd26077b92005a28d1e6f6",
-      "bytes": 1811157,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M16-browser-metrics.json": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M16-browser-metrics.json",
-      "sha256": "117be3e96c4420899ebff37e659c88f9862fff47f299dcaf6dd51cea1f7411af",
-      "bytes": 7495,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M16-png-1920x1080.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M16-png-1920x1080.png",
-      "sha256": "3023500256eae40e62a595d2913df80251697add2fbd26077b92005a28d1e6f6",
-      "bytes": 1811157,
-      "classification": "CURRENT TECHNICAL EXPORT - NOT ACCEPTED"
-    },
-    "M16-png-2560x1440.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M16-png-2560x1440.png",
-      "sha256": "29120408caa01a326da2eaf5c758d8bc4cba1e2e19f354f7eb4dec1a3ac0b607",
-      "bytes": 3422286,
-      "classification": "CURRENT TECHNICAL EXPORT - NOT ACCEPTED"
-    },
-    "M16-pptx-editable.pptx": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M16-pptx-editable.pptx",
-      "sha256": "145b656421927ef4910d73759850772f9dd27114ffe13ba32c14191051b9f8ea",
-      "bytes": 473779,
-      "classification": "CURRENT TECHNICAL EXPORT - NOT ACCEPTED"
-    },
-    "M16-pdf-letter-landscape.pdf": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M16-pdf-letter-landscape.pdf",
-      "sha256": "5ecc0dc81f54cf04f1f777111ac08a6fc8b8a1df104f4f6e1be13ba1074d8057",
-      "bytes": 894136,
-      "classification": "CURRENT TECHNICAL EXPORT - NOT ACCEPTED"
-    },
-    "M16-pdf-a4-landscape.pdf": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M16-pdf-a4-landscape.pdf",
-      "sha256": "a524ac2c9782a0bc92c835a344da35de65be0dfe2654fe838d42e01f8b15f012",
-      "bytes": 978105,
-      "classification": "CURRENT TECHNICAL EXPORT - NOT ACCEPTED"
-    },
-    "M17.svg": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M17.svg",
-      "sha256": "062b4d6b81968873bf3ac579ca6e4a3891109d35032b7ba7f900d91d11918725",
-      "bytes": 616037,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M17-diagnostic.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M17-diagnostic.png",
-      "sha256": "b287c55dbb3857d3dc10f0878ab1dc519b42d156b7ec0b606e873341cc6551ce",
-      "bytes": 1790773,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M17-browser-metrics.json": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M17-browser-metrics.json",
-      "sha256": "d9f76af309661f58bd74f3bd26cc09a7da9abab40967da0d00beae24fb2806bf",
-      "bytes": 5317,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M18.svg": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M18.svg",
-      "sha256": "a3b7af1755a307f8c074919896c98bfe5a576dd3335afb38e8fe357981978f44",
-      "bytes": 616897,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M18-diagnostic.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M18-diagnostic.png",
-      "sha256": "1a099f9e0088253e357471a4095ee7ca05732bd53a33064887826e4f9b55ffac",
-      "bytes": 1810475,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M18-browser-metrics.json": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M18-browser-metrics.json",
-      "sha256": "a09fe21286bac645e6cb23941200209713130ed77fea39b9634733b131bfc4b8",
-      "bytes": 6227,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M19.svg": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M19.svg",
-      "sha256": "bad3e9d33c04907f32619569aa422e70d749fc6dff5417fa68470acbcc9e85a5",
-      "bytes": 634212,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M19-diagnostic.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M19-diagnostic.png",
-      "sha256": "5899963dc424d5468f6a0ed9accb50e6f2923637b007102fe7f628d7137af21f",
-      "bytes": 1874399,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M19-browser-metrics.json": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M19-browser-metrics.json",
-      "sha256": "966ea22a7175e2ebc8f711cd2103a217d6a10f3e28c762a66ea04fc505ecc3de",
-      "bytes": 15254,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M20.svg": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M20.svg",
-      "sha256": "85ad31db2b780f8954a6717204108f165a02b276c15f4c76c64d43bc7f724ed5",
-      "bytes": 684929,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M20-diagnostic.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M20-diagnostic.png",
-      "sha256": "f71ad003fc691362be2bedd62d6b2981d0dd57f830e7ee6997c6e13a93128345",
-      "bytes": 2223295,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M20-browser-metrics.json": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M20-browser-metrics.json",
-      "sha256": "4d4882439970de6ce6ff956e279aa35cd9e55ea415ac246e30f66ab3f0816c80",
-      "bytes": 48166,
-      "classification": "CURRENT DIAGNOSTIC - NOT ACCEPTED"
-    },
-    "M09-native-source-de83.pptx": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M09-native-source-de83.pptx",
-      "sha256": "5ca70aa62442b8e9fe50276e57bde89dd219efe5c9350783fe24531f5f0247c9",
-      "bytes": 473503,
-      "classification": "NATIVE EDIT/SAVE/REOPEN PROOF FROM de83ce9f; source differs only in nonvisual axis metadata"
-    },
-    "M09-final-native-edit-proof.key": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M09-final-native-edit-proof.key",
-      "sha256": "6c289edaad90e5f5d0eda3a77baeae6d89697edffece331bb6b0c572eb2d79ff",
-      "bytes": 1260668,
-      "classification": "NATIVE EDIT/SAVE/REOPEN PROOF FROM de83ce9f; source differs only in nonvisual axis metadata"
-    },
-    "M09-final-native-preview.jpg": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M09-final-native-preview.jpg",
-      "sha256": "32313055abba27364e0c4cff2f7177cc6a13ae710efafc8e20324789e6580442",
-      "bytes": 122790,
-      "classification": "NATIVE EDIT/SAVE/REOPEN PROOF FROM de83ce9f; source differs only in nonvisual axis metadata"
-    },
-    "final-diagnostic-contact-01-10.jpg": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/final-diagnostic-contact-01-10.jpg",
-      "sha256": "a8628d44d8c40c31a7554ebb026a4f5cd353d5b1f72f0bd72f62760004a0e19d",
-      "bytes": 1180216,
-      "classification": "CURRENT INSPECTION EVIDENCE - NOT ACCEPTED"
-    },
-    "final-diagnostic-contact-11-20.jpg": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/final-diagnostic-contact-11-20.jpg",
-      "sha256": "6a296bca888e002327c944318d1c56007784b8f398519eb5570fca8b1a415681",
-      "bytes": 1130263,
-      "classification": "CURRENT INSPECTION EVIDENCE - NOT ACCEPTED"
-    },
-    "M05-final-pdf-inspection.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M05-final-pdf-inspection.png",
-      "sha256": "8c3d6230a6f17254afbbf6b48ed794cf21ea4b4c6680e27deb7351d4f30b1f5d",
-      "bytes": 1109583,
-      "classification": "CURRENT INSPECTION EVIDENCE - NOT ACCEPTED"
-    },
-    "M09-final-pdf-inspection.png": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/M09-final-pdf-inspection.png",
-      "sha256": "437c33a046491e2596a19b9ea4092dabc0d5a8018ffa870218503b091fdb7bad",
-      "bytes": 1020146,
-      "classification": "CURRENT INSPECTION EVIDENCE - NOT ACCEPTED"
-    },
-    "final-matrix-receipt.json": {
-      "path": "/Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/template-locked/browser-exports/final-matrix-receipt.json",
-      "sha256": "043629092668d1ae944cba21c1618157ef54b471c5edb28674d669a0c6fde845",
-      "bytes": 5332,
-      "classification": "CURRENT INSPECTION EVIDENCE - NOT ACCEPTED"
+    "browser-exports/M01-browser-metrics.json": {
+      "sha256": "c82691b018faa1bc7ad32f660b3f9a0e4353a6cdd49e7af64a94355baf59dd6b",
+      "bytes": 9693
+    },
+    "browser-exports/M01-diagnostic.png": {
+      "sha256": "5119a0dd9d5a741f4509e21396dd3efce253e5ad0a5968f166599794bc699fef",
+      "bytes": 1930819
+    },
+    "browser-exports/M01-pdf-a4-landscape.pdf": {
+      "sha256": "4dd18b2ae46f9ab7c74d4cc239580b060e27b351e716f2ccbb672378fdc16a0e",
+      "bytes": 1023917
+    },
+    "browser-exports/M01-pdf-letter-landscape.pdf": {
+      "sha256": "c212fdecc435a97de5aef1ddeee57eb9dc273031188ae40ba195c7ea774e62d7",
+      "bytes": 937290
+    },
+    "browser-exports/M01-png-1920x1080.png": {
+      "sha256": "5119a0dd9d5a741f4509e21396dd3efce253e5ad0a5968f166599794bc699fef",
+      "bytes": 1930819
+    },
+    "browser-exports/M01-png-2560x1440.png": {
+      "sha256": "46f86d1248547a54312a84e7c2c4286b8c85c679ed491a38fcd580f79d6cf81a",
+      "bytes": 3643679
+    },
+    "browser-exports/M01-pptx-editable.pptx": {
+      "sha256": "6523b88bdab5fe51c53dee860e8d7cc9e9751abde46c8ecd1e3a73b0023370f9",
+      "bytes": 474857
+    },
+    "browser-exports/M01.svg": {
+      "sha256": "6b92a071d3ad4eb88fc25b96c039d639b8e2014825c0b35ac282d8e7aae3949c",
+      "bytes": 624094
+    },
+    "browser-exports/M02-browser-metrics.json": {
+      "sha256": "72c3952e6e610fd718b11b7d8b871f828438b4e3bf9ad9edb4321eef08806b34",
+      "bytes": 5438
+    },
+    "browser-exports/M02-diagnostic.png": {
+      "sha256": "51b58970dbbc71554dfaf17dc2c30cc5935660f4e69c201ba6622a8a12a68f74",
+      "bytes": 1881668
+    },
+    "browser-exports/M02-pdf-a4-landscape.pdf": {
+      "sha256": "6d2cb338991602a153b4e879e08fb6b0ee4add4930c96b2f5ca2e17a4a9d22b5",
+      "bytes": 962617
+    },
+    "browser-exports/M02-pdf-letter-landscape.pdf": {
+      "sha256": "4c0d3a4263fc1427cbb6040516093adc84df6dc29dd31ac3c24f04959cd66353",
+      "bytes": 880168
+    },
+    "browser-exports/M02-png-1920x1080.png": {
+      "sha256": "51b58970dbbc71554dfaf17dc2c30cc5935660f4e69c201ba6622a8a12a68f74",
+      "bytes": 1881668
+    },
+    "browser-exports/M02-png-2560x1440.png": {
+      "sha256": "995186212fc95674601be063a9f779c27109922c991f4443e72fd7a493c71845",
+      "bytes": 3586259
+    },
+    "browser-exports/M02-pptx-editable.pptx": {
+      "sha256": "4066a67eacefa361b6cd13e4c0db2a46d4667c9b27d1e79cd667720949bb6304",
+      "bytes": 472454
+    },
+    "browser-exports/M02.svg": {
+      "sha256": "0cb6d9ade9c80c0d883bac75e63c11a40643911afb7f625eb53006816ffb1796",
+      "bytes": 616656
+    },
+    "browser-exports/M03-browser-metrics.json": {
+      "sha256": "2f36cc019d99f440d1054df3409009c3ff0399b21102e39a17b666d3bb4bbfa0",
+      "bytes": 25064
+    },
+    "browser-exports/M03-diagnostic.png": {
+      "sha256": "9f236efb0fc82bc880437efe3ec83ef23e9cc8681b2c93c4b4c936f9097208d4",
+      "bytes": 2110560
+    },
+    "browser-exports/M03-pdf-a4-landscape.pdf": {
+      "sha256": "a6bb46a45aea440ee0353f2064b55fef8877f3650b0af1641a457d161950c1d2",
+      "bytes": 1200916
+    },
+    "browser-exports/M03-pdf-letter-landscape.pdf": {
+      "sha256": "581ce76384eeb65ca71f31f26435cbe00423cddb2b6a1b4d0dc646aa4f455db7",
+      "bytes": 1099089
+    },
+    "browser-exports/M03-png-1920x1080.png": {
+      "sha256": "9f236efb0fc82bc880437efe3ec83ef23e9cc8681b2c93c4b4c936f9097208d4",
+      "bytes": 2110560
+    },
+    "browser-exports/M03-png-2560x1440.png": {
+      "sha256": "469940401f42a3728037360bf399d005ad9c202ec9d72086ce00c24873fdc7da",
+      "bytes": 3855585
+    },
+    "browser-exports/M03-pptx-editable.pptx": {
+      "sha256": "a09efd466019eeba26c2edd28da5265203aeb39937c116d41829f71e2895fbe9",
+      "bytes": 481005
+    },
+    "browser-exports/M03.svg": {
+      "sha256": "4356aef9f97032d70e1e16d96d981a1b771ac23a62d7f20c369e64d72b32c5a0",
+      "bytes": 649555
+    },
+    "browser-exports/M04-browser-metrics.json": {
+      "sha256": "96437ef0ddfffb651b35db0d152a8299d5e791f1b080fc5dac8e3e6051dda78d",
+      "bytes": 12773
+    },
+    "browser-exports/M04-diagnostic.png": {
+      "sha256": "caef462e3ae09fec50716df87ffaef65ac04d1d97e3ebe06bd0f7470b5e994e8",
+      "bytes": 1934243
+    },
+    "browser-exports/M04-pdf-a4-landscape.pdf": {
+      "sha256": "ce5a8e46738eb543784d07e147ef86e8d374e2269c64fd58ea7942919dd43b12",
+      "bytes": 1057797
+    },
+    "browser-exports/M04-pdf-letter-landscape.pdf": {
+      "sha256": "05ec3e4d0257b76d21448ce478e0ff348833fd3d21d06d8d3c01aa382207eb29",
+      "bytes": 968591
+    },
+    "browser-exports/M04-png-1920x1080.png": {
+      "sha256": "caef462e3ae09fec50716df87ffaef65ac04d1d97e3ebe06bd0f7470b5e994e8",
+      "bytes": 1934243
+    },
+    "browser-exports/M04-png-2560x1440.png": {
+      "sha256": "96a6dc92d4e56a90d24cc3412b863dec9a2df5e4ded25186d24624dd707cae30",
+      "bytes": 3646318
+    },
+    "browser-exports/M04-pptx-editable.pptx": {
+      "sha256": "d59809212cc367d5a4f4925ab7e80250f6e495e222a69712807d8e9d91951e90",
+      "bytes": 476209
+    },
+    "browser-exports/M04.svg": {
+      "sha256": "a3ea421663e308d1ce4ce8e804df9121c461fb44a6b3310fd05913ce92cf1238",
+      "bytes": 631135
+    },
+    "browser-exports/M05-browser-metrics.json": {
+      "sha256": "59aced32c8b8e9f73ab0373eb0b0032c10ff495a8068cfa69ca22fbe2cdeec0e",
+      "bytes": 14182
+    },
+    "browser-exports/M05-diagnostic.png": {
+      "sha256": "1990fd60fabe5a8c8d503a356a1821722fd38e085fa0b007752afcbae34290cc",
+      "bytes": 1985936
+    },
+    "browser-exports/M05-pdf-a4-landscape.pdf": {
+      "sha256": "94a84e24ae6c45e1816bb3d5499da540c77bdc814bd9575033f9d338eef34a13",
+      "bytes": 1087588
+    },
+    "browser-exports/M05-pdf-letter-landscape.pdf": {
+      "sha256": "6594fcd38195d848628ce6ee003630390ffc3195710cb1ee0ce4b4899c2ebea1",
+      "bytes": 995664
+    },
+    "browser-exports/M05-png-1920x1080.png": {
+      "sha256": "1990fd60fabe5a8c8d503a356a1821722fd38e085fa0b007752afcbae34290cc",
+      "bytes": 1985936
+    },
+    "browser-exports/M05-png-2560x1440.png": {
+      "sha256": "1ee3d5b1190a354c60dcaea4d53d7dafca6d38f52f922704f70fa4fc7d6e8b1d",
+      "bytes": 3718944
+    },
+    "browser-exports/M05-pptx-editable.pptx": {
+      "sha256": "a9803e07f25457df928fce0a07c785069579c2247571ec7b9b2dc2c1218377d6",
+      "bytes": 475418
+    },
+    "browser-exports/M05.svg": {
+      "sha256": "561df7e115600fb18d6de16db5c9a490ad9e4ba7f5f18267988cfead9416f26d",
+      "bytes": 630730
+    },
+    "browser-exports/M06-browser-metrics.json": {
+      "sha256": "10994f03727b61e4b842ed516b289e5e0d8d1ed5498756517a46f6bf15cf2cee",
+      "bytes": 6554
+    },
+    "browser-exports/M06-diagnostic.png": {
+      "sha256": "7a36937bac2f3eac21c9f3b10953225cc20d00c0f7bf28a79b09d864364c2f7a",
+      "bytes": 1942720
+    },
+    "browser-exports/M06-pdf-a4-landscape.pdf": {
+      "sha256": "936f5cbae17fddf43679c74e0c2fd3e4a8c7bab38e809465313a1a330f4ce113",
+      "bytes": 1044805
+    },
+    "browser-exports/M06-pdf-letter-landscape.pdf": {
+      "sha256": "7a9338823e4f4d19a5046768e5001d60b090afb8dcc9a0ffe6d7c2c1ff19d314",
+      "bytes": 957015
+    },
+    "browser-exports/M06-png-1920x1080.png": {
+      "sha256": "7a36937bac2f3eac21c9f3b10953225cc20d00c0f7bf28a79b09d864364c2f7a",
+      "bytes": 1942720
+    },
+    "browser-exports/M06-png-2560x1440.png": {
+      "sha256": "cc0d281d5bcac512fb9fe03119af574de176230c80109b0e7e74c9cb34bbd170",
+      "bytes": 3654928
+    },
+    "browser-exports/M06-pptx-editable.pptx": {
+      "sha256": "165c04232ce9fc00370f945a62ad6ef8e63e00b2901cd2442b8f7ef7b12ed8cb",
+      "bytes": 482881
+    },
+    "browser-exports/M06.svg": {
+      "sha256": "cae8f79e35c0afb7e8c7b0cfe7d5965934fe8490c516190a25c14b97dde34ce9",
+      "bytes": 634651
+    },
+    "browser-exports/M07-browser-metrics.json": {
+      "sha256": "08514901d6b170bb876021cd51ac566456bd5034fdb2fe0474ca8fb0b5edee84",
+      "bytes": 7972
+    },
+    "browser-exports/M07-diagnostic.png": {
+      "sha256": "eb5d32253a68f7caba1205bdca33e9e0b1ad885e6fbba457f4350baf3a716958",
+      "bytes": 1914451
+    },
+    "browser-exports/M07-pdf-a4-landscape.pdf": {
+      "sha256": "d2ff73733d4fbe0cfd159e21d207e28a992042677648a23a637369e04c06c043",
+      "bytes": 1000551
+    },
+    "browser-exports/M07-pdf-letter-landscape.pdf": {
+      "sha256": "c8aa026b07ea536a50951f4068938d584b6a2826ce7e1438459c190afbe04044",
+      "bytes": 916451
+    },
+    "browser-exports/M07-png-1920x1080.png": {
+      "sha256": "eb5d32253a68f7caba1205bdca33e9e0b1ad885e6fbba457f4350baf3a716958",
+      "bytes": 1914451
+    },
+    "browser-exports/M07-png-2560x1440.png": {
+      "sha256": "f375ec9542afd7935cb6661bb485a0e2d6cfe6563e9c9ac2f44e5cc969c3e4c1",
+      "bytes": 3623376
+    },
+    "browser-exports/M07-pptx-editable.pptx": {
+      "sha256": "80e44c2c8b0a0f94363d6cc566987fe8c601d39c590706fd53853f6dbeacf14d",
+      "bytes": 473281
+    },
+    "browser-exports/M07.svg": {
+      "sha256": "9fa38e9f20518a5879e4bf3c3196d6a7ed407024d4218de69cccc9e41ab274b5",
+      "bytes": 621017
+    },
+    "browser-exports/M08-browser-metrics.json": {
+      "sha256": "bf908256b53c2a243a31a8ae91561831268fc46573c2ee2a7291910c5557efed",
+      "bytes": 9412
+    },
+    "browser-exports/M08-diagnostic.png": {
+      "sha256": "f5dfc6ee536c5856a580516082562d9094f74ba5fe9165f16a61df9ab99d5be5",
+      "bytes": 1919197
+    },
+    "browser-exports/M08-pdf-a4-landscape.pdf": {
+      "sha256": "ededc3774856a8db7f59519d51d5520220d8fd2ae1cec6f18bcda317c07c3b73",
+      "bytes": 1037354
+    },
+    "browser-exports/M08-pdf-letter-landscape.pdf": {
+      "sha256": "089c3b255c117b6688cfae46dd68886960a3e2f3c5129cf60a6e050b71e801c2",
+      "bytes": 942655
+    },
+    "browser-exports/M08-png-1920x1080.png": {
+      "sha256": "f5dfc6ee536c5856a580516082562d9094f74ba5fe9165f16a61df9ab99d5be5",
+      "bytes": 1919197
+    },
+    "browser-exports/M08-png-2560x1440.png": {
+      "sha256": "54c77b40dbbc2077cd6e2baf3f70bf2a169e83d44b7eaa90d69004b1a679bf31",
+      "bytes": 3624400
+    },
+    "browser-exports/M08-pptx-editable.pptx": {
+      "sha256": "a6f8b3f256d56e5083990bf5be15e6cd0a847393db57ac1195fcff495ade797b",
+      "bytes": 474398
+    },
+    "browser-exports/M08.svg": {
+      "sha256": "8e71e676120e1cf3e4f94741b5d62169b5e8cff8402076ab169f809d57fb6ef1",
+      "bytes": 624280
+    },
+    "browser-exports/M09-browser-metrics.json": {
+      "sha256": "011a1c78733b86993e812dd8f51e46df116e39c263656934f7a7257ef1331e8a",
+      "bytes": 4889
+    },
+    "browser-exports/M09-diagnostic.png": {
+      "sha256": "ba26aa40248eee8f665a6c04427b00a37baa08eccdc1ec1c0e483078348f9fb1",
+      "bytes": 1908688
+    },
+    "browser-exports/M09-pdf-a4-landscape.pdf": {
+      "sha256": "47890c4425a3caf21333e4c6805361072af309a619667ff01e375d8cb773295c",
+      "bytes": 965249
+    },
+    "browser-exports/M09-pdf-letter-landscape.pdf": {
+      "sha256": "2ec200414334e3b7a3178e19a7bf1765027c889fe01e898b72b1b69304da9291",
+      "bytes": 882020
+    },
+    "browser-exports/M09-png-1920x1080.png": {
+      "sha256": "ba26aa40248eee8f665a6c04427b00a37baa08eccdc1ec1c0e483078348f9fb1",
+      "bytes": 1908688
+    },
+    "browser-exports/M09-png-2560x1440.png": {
+      "sha256": "e6f8d0ca924f9fff28c79db3a463195c861ece9e94c84f5dbc028f150dd2e3a0",
+      "bytes": 3634707
+    },
+    "browser-exports/M09-pptx-editable.pptx": {
+      "sha256": "16d666d87cb70b3dbbe066a0a8797851e5812100d5844bb52fda4d982ebb44dd",
+      "bytes": 471583
+    },
+    "browser-exports/M09.svg": {
+      "sha256": "211b990fed6c56545f790f94bc62ec8a66efcd995f072e10f2161ee2db7d695f",
+      "bytes": 615398
+    },
+    "browser-exports/M10-browser-metrics.json": {
+      "sha256": "bce44e66d0da2a8a74aab629489a807e8d7c7ab318dfa65ea47e89afe6075e2b",
+      "bytes": 5508
+    },
+    "browser-exports/M10-diagnostic.png": {
+      "sha256": "c76a2664170efc4fc48da646b5a5f0ad439d28559078bd431af21a4d84ce6435",
+      "bytes": 1876168
+    },
+    "browser-exports/M10-pdf-a4-landscape.pdf": {
+      "sha256": "825b6f6dcf7aac9f3426dad8a207b10b07586a7da6f88658c438233e862496bd",
+      "bytes": 998603
+    },
+    "browser-exports/M10-pdf-letter-landscape.pdf": {
+      "sha256": "d5ccce42cebf971f8cc27f166de6fa5ed02e5e80a948eff729bb19320a6f0db3",
+      "bytes": 910067
+    },
+    "browser-exports/M10-png-1920x1080.png": {
+      "sha256": "c76a2664170efc4fc48da646b5a5f0ad439d28559078bd431af21a4d84ce6435",
+      "bytes": 1876168
+    },
+    "browser-exports/M10-png-2560x1440.png": {
+      "sha256": "36f31a9f015e234c17d2a9596e3c283be4bbda3d9f5f07cb15b467b86a4d2b5a",
+      "bytes": 3558814
+    },
+    "browser-exports/M10-pptx-editable.pptx": {
+      "sha256": "c4d3c5bbceab2af4bc7d0583259e552116c47b781e556cfbd8d2ef8ddb86a25b",
+      "bytes": 472015
+    },
+    "browser-exports/M10.svg": {
+      "sha256": "ae7baf3187db776734d682936557e13ff6db7fe48986e866c314012cb0366e0d",
+      "bytes": 616994
+    },
+    "browser-exports/M11-browser-metrics.json": {
+      "sha256": "3cce60c9cdad2abd8d1ba7bc96dfd56436d1bb3abf00d9bf6f7c860690c4c52a",
+      "bytes": 5108
+    },
+    "browser-exports/M11-diagnostic.png": {
+      "sha256": "faa408d39406174cfcc15bbae6984decc943bf0106e215aa8743b95c97077a56",
+      "bytes": 1864130
+    },
+    "browser-exports/M11-pdf-a4-landscape.pdf": {
+      "sha256": "40c9e8f114c28c407d6db2a25497822b7b86242a892ea5188edec86de815efe0",
+      "bytes": 957973
+    },
+    "browser-exports/M11-pdf-letter-landscape.pdf": {
+      "sha256": "d413feaedf2823727fca8bcdca9c27208fa2450872bce00aedb29dbf31511990",
+      "bytes": 875469
+    },
+    "browser-exports/M11-png-1920x1080.png": {
+      "sha256": "faa408d39406174cfcc15bbae6984decc943bf0106e215aa8743b95c97077a56",
+      "bytes": 1864130
+    },
+    "browser-exports/M11-png-2560x1440.png": {
+      "sha256": "633b83c4377622c13b98a38e9364c8a4c30c5735c6c2edd37aefbf25f6b5098d",
+      "bytes": 3540175
+    },
+    "browser-exports/M11-pptx-editable.pptx": {
+      "sha256": "7f945afba9d7abd65bb757c28e5c6ea45e87e92a6fa306e258b9c418abf91d3a",
+      "bytes": 471742
+    },
+    "browser-exports/M11.svg": {
+      "sha256": "e245cc77da0c1f1a1d679e4027ae9424f3fc443c038c900bdd7fb2fef71d7795",
+      "bytes": 616281
+    },
+    "browser-exports/M12-browser-metrics.json": {
+      "sha256": "92ff2a435a258698de0c358a00a0500fbe9bbc0f368cc99399f11e2505d8203b",
+      "bytes": 3878
+    },
+    "browser-exports/M12-diagnostic.png": {
+      "sha256": "73ed770ada62eac0a4f1f26b417dea192db9f859f182380da4edc04e25a0a066",
+      "bytes": 1878523
+    },
+    "browser-exports/M12.svg": {
+      "sha256": "4cbc0461ebf2363a6e2407142819ab026e71c34436ec822ac5363f3981bb4242",
+      "bytes": 613804
+    },
+    "browser-exports/M13-browser-metrics.json": {
+      "sha256": "d9cfdf03af3936852309116a8930bf61910869ea514b8f9bda5e3fe6a7ef2da9",
+      "bytes": 3882
+    },
+    "browser-exports/M13-diagnostic.png": {
+      "sha256": "b2ae0746524116b7cee6d5bff163c530fbde87cf95d1fa3b6ec971ec25da1225",
+      "bytes": 1879640
+    },
+    "browser-exports/M13.svg": {
+      "sha256": "5b91875eef3c9d057f715ef11dd5dc047ac508d714e19f1666112e69370c9b37",
+      "bytes": 613810
+    },
+    "browser-exports/M14-browser-metrics.json": {
+      "sha256": "a6eda6801b6626b020bb8084571f7cc2255fd3dca29da53d8e2fd951deced3cc",
+      "bytes": 5780
+    },
+    "browser-exports/M14-diagnostic.png": {
+      "sha256": "c96770a60db1b05531e0747c1df8c1f235891194147ca583c069616a83108257",
+      "bytes": 1895980
+    },
+    "browser-exports/M14-pdf-a4-landscape.pdf": {
+      "sha256": "c4186761704d7e4c34390ab1e4646f2491b5196cc543fd2c2c703ff2dc0a59b3",
+      "bytes": 957695
+    },
+    "browser-exports/M14-pdf-letter-landscape.pdf": {
+      "sha256": "6a5eab1f9df24896b0e0ba1612842382b10c67e4c3180616c0ddaf5f26daea1b",
+      "bytes": 877409
+    },
+    "browser-exports/M14-png-1920x1080.png": {
+      "sha256": "c96770a60db1b05531e0747c1df8c1f235891194147ca583c069616a83108257",
+      "bytes": 1895980
+    },
+    "browser-exports/M14-png-2560x1440.png": {
+      "sha256": "50cf4226c6b6bae122a913860d42aa66ec4b8175df58867421b1a7f03c9c1c93",
+      "bytes": 3626637
+    },
+    "browser-exports/M14-pptx-editable.pptx": {
+      "sha256": "54de516607e4e2bf2e6308f96463ab7b3bd836f7b34fbb42baca62ce85861600",
+      "bytes": 472510
+    },
+    "browser-exports/M14.svg": {
+      "sha256": "8de09ddcf2d66fea9b2e5a7ab5746ff9bf28605f751b119159d08723ae40cc3e",
+      "bytes": 617199
+    },
+    "browser-exports/M15-browser-metrics.json": {
+      "sha256": "8ef8192fdd56185bcc1612095d0ec785ccbb177a7f62e2faf30a7674b21d89ae",
+      "bytes": 5158
+    },
+    "browser-exports/M15-diagnostic.png": {
+      "sha256": "772bc456e5481c3de672852e83000ff66f0e60e39942c107d49c6c0d48bfe48a",
+      "bytes": 1894755
+    },
+    "browser-exports/M15-pdf-a4-landscape.pdf": {
+      "sha256": "600cd04c9b51a131c84f204e24b2b51cd6d7f4332fb129330c7c4dcb40e5c2d2",
+      "bytes": 952154
+    },
+    "browser-exports/M15-pdf-letter-landscape.pdf": {
+      "sha256": "2afbc4b3f8b480ebd113c62452f47c1b01d44d16d82dc19fd901a05d5b30c799",
+      "bytes": 872174
+    },
+    "browser-exports/M15-png-1920x1080.png": {
+      "sha256": "772bc456e5481c3de672852e83000ff66f0e60e39942c107d49c6c0d48bfe48a",
+      "bytes": 1894755
+    },
+    "browser-exports/M15-png-2560x1440.png": {
+      "sha256": "f8ca31f201f504c8a7f20c3e970e80421a6ef71b6693557874d9623d0160c1eb",
+      "bytes": 3623220
+    },
+    "browser-exports/M15-pptx-editable.pptx": {
+      "sha256": "cdd17bb806e7355b8ef6e723ac91d455d369278644dad84936a3876c8e1ca391",
+      "bytes": 472044
+    },
+    "browser-exports/M15.svg": {
+      "sha256": "f5c9c96ce25d63281c5ec69b5b40c213f08167f599553410bc433088f0790b24",
+      "bytes": 615910
+    },
+    "browser-exports/M16-browser-metrics.json": {
+      "sha256": "82e87aea6687dfe7b6423759396bcef60626dcb31c06fecea61bc6509c800af1",
+      "bytes": 5146
+    },
+    "browser-exports/M16-diagnostic.png": {
+      "sha256": "33896aadc5f639217335d34b02552ab48a8005cfa799c03cffce04dc36152024",
+      "bytes": 1881310
+    },
+    "browser-exports/M16-pdf-a4-landscape.pdf": {
+      "sha256": "5f15adba23f11d7fab79826f3523704779722a73962cce2c84e832c1c99e68fa",
+      "bytes": 963319
+    },
+    "browser-exports/M16-pdf-letter-landscape.pdf": {
+      "sha256": "074a449b515c64af1090e9c58560a24f455224eab5b35339555e9ce40d993249",
+      "bytes": 880930
+    },
+    "browser-exports/M16-png-1920x1080.png": {
+      "sha256": "33896aadc5f639217335d34b02552ab48a8005cfa799c03cffce04dc36152024",
+      "bytes": 1881310
+    },
+    "browser-exports/M16-png-2560x1440.png": {
+      "sha256": "4fada615787d54f02ec393728d30cc01c354b747b5addf5ca588aae592af5dbc",
+      "bytes": 3585634
+    },
+    "browser-exports/M16-pptx-editable.pptx": {
+      "sha256": "de3985b74fc088807cc35f3ea304d96e5427ab7033c5c279e84b4a29a61effbd",
+      "bytes": 471858
+    },
+    "browser-exports/M16.svg": {
+      "sha256": "130bd6101e9f9a0bb17fd4ac68f1b0f61af2b40b8edb524c0b4b7456bb2bd65e",
+      "bytes": 616240
+    },
+    "browser-exports/M17-browser-metrics.json": {
+      "sha256": "fa89ea92beb7a217fe753765e6ae4554ad50c4134eeefd7ef64f30868968c40a",
+      "bytes": 3253
+    },
+    "browser-exports/M17-diagnostic.png": {
+      "sha256": "b501bee2ff225d0e5d62a0c7d2d776bc27b55ab2f2afbd506426de439884a0c9",
+      "bytes": 1860344
+    },
+    "browser-exports/M17.svg": {
+      "sha256": "9ebc6dc9a46d5452916a337364e3e5bc4b1161f401c854dadb98cec6465f5fb2",
+      "bytes": 613171
+    },
+    "browser-exports/M18-browser-metrics.json": {
+      "sha256": "c2234f3180a0dc9b6e48799bdd877f08aa8bf352e39b333f64062800fb721574",
+      "bytes": 3878
+    },
+    "browser-exports/M18-diagnostic.png": {
+      "sha256": "38079e28f2a326d0527b305eb08af65cac2827539e3b7f1053cbe462f2840725",
+      "bytes": 1879056
+    },
+    "browser-exports/M18.svg": {
+      "sha256": "4964f2dee90840a7e080c0297ceb3d741cc3e2e4251b91837bb418d0432f3bbb",
+      "bytes": 613804
+    },
+    "browser-exports/M19-browser-metrics.json": {
+      "sha256": "1b585708e40304ed3cc44c9fec289747e23a8e080ad69cbf480cef2f5a6b2dc8",
+      "bytes": 12760
+    },
+    "browser-exports/M19-diagnostic.png": {
+      "sha256": "a5ebfb7da4a8e855c3dd8c72c73080c1fc96d95341c4faabf2d88ccc87ece8e3",
+      "bytes": 1948892
+    },
+    "browser-exports/M19-pdf-a4-landscape.pdf": {
+      "sha256": "37c061180e1148dbceaa3b5356722cd69bededb44d300470a82dc5c68184965a",
+      "bytes": 1063405
+    },
+    "browser-exports/M19-pdf-letter-landscape.pdf": {
+      "sha256": "23885c2a86ef0c7d0b6732f5cd2211e3681f0c12ed19758a743f68e927d856fb",
+      "bytes": 974304
+    },
+    "browser-exports/M19-png-1920x1080.png": {
+      "sha256": "a5ebfb7da4a8e855c3dd8c72c73080c1fc96d95341c4faabf2d88ccc87ece8e3",
+      "bytes": 1948892
+    },
+    "browser-exports/M19-png-2560x1440.png": {
+      "sha256": "773883a9c88712a2ffa2d6ae493591ba1b80d360b39ecdbdf7f3541b11e056c0",
+      "bytes": 3675198
+    },
+    "browser-exports/M19-pptx-editable.pptx": {
+      "sha256": "80fcbbb2881cd95233084ff898e8a9663ef2f07e55a30cfc6c961451333826ff",
+      "bytes": 475952
+    },
+    "browser-exports/M19.svg": {
+      "sha256": "7a086dd9d7832265a2ca8208973f4c41ac60c21c6cd9113441efeab986f1fa2e",
+      "bytes": 631170
+    },
+    "browser-exports/M20-browser-metrics.json": {
+      "sha256": "b3f144f102f1f971e3191af36aeba9aa376bc311ffc0796aa887077c579de2ef",
+      "bytes": 44032
+    },
+    "browser-exports/M20-diagnostic.png": {
+      "sha256": "fdc59b091a72e57858a200d58ddf2bead38f4c7d357a2d91618ccafe36a7e183",
+      "bytes": 2324026
+    },
+    "browser-exports/M20-pdf-a4-landscape.pdf": {
+      "sha256": "b63c02242a7c561b079b74b14bcc4daf05edbaf31ebef75cd6ad5e6963953e37",
+      "bytes": 1431271
+    },
+    "browser-exports/M20-pdf-letter-landscape.pdf": {
+      "sha256": "f88cbe6af9ae1e940c17c772c14ed4ec8994722b871bc6915126a43b244ab2c7",
+      "bytes": 1311700
+    },
+    "browser-exports/M20-png-1920x1080.png": {
+      "sha256": "fdc59b091a72e57858a200d58ddf2bead38f4c7d357a2d91618ccafe36a7e183",
+      "bytes": 2324026
+    },
+    "browser-exports/M20-png-2560x1440.png": {
+      "sha256": "1974fca98ced7079648111a9eb59385e5715d7e5059caad414ae3a551308f622",
+      "bytes": 4108155
+    },
+    "browser-exports/M20-pptx-editable.pptx": {
+      "sha256": "2025b1a779f74e259f5b47fd2fcef1727ced7bc74b8952fc6e7ed13a6f20d913",
+      "bytes": 488231
+    },
+    "browser-exports/M20.svg": {
+      "sha256": "abf97855cb4a89dfd78800fcd8f6c2e67d70873c03c55daf63ebfc92c8c6f6c1",
+      "bytes": 681929
+    },
+    "browser-exports/final-matrix-receipt.json": {
+      "sha256": "e0c571d2fbf85b528422debb30d757001b15671c260674e2d194a5b5538e3ad6",
+      "bytes": 2149
+    },
+    "baseline/F01.document.json": {
+      "sha256": "2646c9c22c550e67d469a60ba3a1a8995ef7eeab00682096991c879069bcf151",
+      "bytes": 1892
+    },
+    "baseline/F02.document.json": {
+      "sha256": "5eb174bd0b843165213e4246131535ce4c7589f9ba63e1f132ed60d1816f1935",
+      "bytes": 16856
+    },
+    "baseline/F04.document.json": {
+      "sha256": "21cba977257a6ef500c696e4be1585679ef6e86c0aabd7b8125e687d34ebed02",
+      "bytes": 2228
+    },
+    "baseline/F05.document.json": {
+      "sha256": "773578aec35b2db98222847d471d4f3029d58f12975f30858cf370fc827805c7",
+      "bytes": 4704
+    },
+    "baseline/G01.document.json": {
+      "sha256": "bd5a8fd239b859bbb9278c687d1d1941730b6046eae115cf23bd8857957fbb44",
+      "bytes": 2352
+    },
+    "baseline/M01.document.json": {
+      "sha256": "929a6e865cc2b5b129cf2bfb84dd07e5d84e97cc5951ff7549a212f365197dc3",
+      "bytes": 2980
+    },
+    "baseline/M02.document.json": {
+      "sha256": "306b7b1e4e44f7412d7a9570d379d2df78bb6f584560eb4b394c6882784ac867",
+      "bytes": 1280
+    },
+    "baseline/M03.document.json": {
+      "sha256": "3afc5df85aec7721e8c03d2d09372303e34595e034e4cf0f2a8263b1029c836c",
+      "bytes": 10792
+    },
+    "baseline/M04.document.json": {
+      "sha256": "8be42d891022e9d5ae25c5352d0233917a4e52d1df79c8f0fa3949500357eab5",
+      "bytes": 2973
+    },
+    "baseline/M05.document.json": {
+      "sha256": "13d269b5889fc31cdaa9bb8b92712588cde2bbb23410661f9ed675acc303544a",
+      "bytes": 5632
+    },
+    "baseline/M06.document.json": {
+      "sha256": "9b5585b6b7abf9303c339d05d11268008fd3af6d5b370172a68b5501d76be1cc",
+      "bytes": 1735
+    },
+    "baseline/M07.document.json": {
+      "sha256": "b238cd1e21591c45bc935fbc7d11a672abd24623d2aeac7d0c71f1b673e8b6f3",
+      "bytes": 2162
+    },
+    "baseline/M08.document.json": {
+      "sha256": "439564636bff6e4cbaa345a881860fa3e71b75475d13d76e6360cccfd04cb220",
+      "bytes": 2196
+    },
+    "baseline/M09.document.json": {
+      "sha256": "2a8594a3170dcf5ca90851a3a79256461c633f197cab863e1771333772f49f9b",
+      "bytes": 966
+    },
+    "baseline/M10.document.json": {
+      "sha256": "8f33d907ed28cf122797be8e63d37b2a165bff4aef23c5a7f0b9afb3ab908432",
+      "bytes": 1080
+    },
+    "baseline/M11.document.json": {
+      "sha256": "6b6e6c05b6f18cd4b6cd598f4558efd4b023b804a2af7c7f3146bd42c0e50f86",
+      "bytes": 1198
+    },
+    "baseline/M12.document.json": {
+      "sha256": "958a72780b045c15256b124f240e186b2c2a4da90049a37ea3d9237b1b061d24",
+      "bytes": 874
+    },
+    "baseline/M13.document.json": {
+      "sha256": "7067a3d23c3c760663155d2491bce84b9aa23d18001df9f41ae89054c2b005bc",
+      "bytes": 863
+    },
+    "baseline/M14.document.json": {
+      "sha256": "04e45ed38b2a4c9999a6aff033af6caabbd9c0f32d0ceaa6dfc44ec608ced8c0",
+      "bytes": 1656
+    },
+    "baseline/M15.document.json": {
+      "sha256": "ec15406da458cddd151c03a6795439cde0643f222f68c899c798d6a07f001208",
+      "bytes": 1298
+    },
+    "baseline/M16.document.json": {
+      "sha256": "fbfd83604ba77f45d0e49df1dc04d85d5ef059ca1e988496e57caf32f8d08fb4",
+      "bytes": 1120
+    },
+    "baseline/M17.document.json": {
+      "sha256": "e35e75aaa6ae29a65658a2f37dc9bfdef2951c3617440458c5822a0f10aca4a2",
+      "bytes": 314
+    },
+    "baseline/M18.document.json": {
+      "sha256": "1d5622b850193ddf9464079210c7620ee99c9dd2607fe0b6d01a8b0354769976",
+      "bytes": 948
+    },
+    "baseline/M19.document.json": {
+      "sha256": "7ec234ea629f086f2752d5aefb4584670234d0c8854ccc7d356c09d03663268b",
+      "bytes": 2598
+    },
+    "baseline/M20.document.json": {
+      "sha256": "02d7e6e1b7213cbed16d0ab72acf199c828f0199b07cceb7ec3d9acbe516e210",
+      "bytes": 20362
+    },
+    "baseline/X01.document.json": {
+      "sha256": "eb0c870a8143e3541d356ca6458189f1e27eae224a1675f7a625f55df5e2b502",
+      "bytes": 1501
+    },
+    "baseline/X02.document.json": {
+      "sha256": "a74dad41b01e61e067e6caae10e959beb46ff1b5718cb7f0503549ba24e50e3f",
+      "bytes": 1497
+    },
+    "baseline/invalid-scene.document.json": {
+      "sha256": "8bfb4f902657f46a458cdace68b7ac24a8e2fbc3d90a9bf65ed3010f42a2e508",
+      "bytes": 2987
+    },
+    "baseline/long-token.document.json": {
+      "sha256": "1aaac68f970ac1e2132763c1898635e8152f8ab9053222acfea5f64ee568bb2e",
+      "bytes": 2228
+    },
+    "baseline/profile-overflow.document.json": {
+      "sha256": "2f5333196089bf2197ca944ee8a562f6af576c144873c43ddc15d4483f21b226",
+      "bytes": 2373
+    },
+    "native-proofs/M01-candidate-native-proof.key": {
+      "sha256": "7a8eb7d77634e106fa4912e48f7f54c36a19bc1fe8ccf2f46a8015469c7fcb19",
+      "bytes": 1270438
+    },
+    "native-proofs/M01-native-preview.jpg": {
+      "sha256": "6cc34a23fef1b01660f46baec88c60498c4840b7b65b1f59c029ebb55ad95131",
+      "bytes": 127934
+    },
+    "native-proofs/M02-candidate-native-proof.key": {
+      "sha256": "c2c21fb66c63c80990af0e8a6e146df7ca0f2d1153dbe12582b5a2c48d95a0f3",
+      "bytes": 1252509
+    },
+    "native-proofs/M02-native-preview.jpg": {
+      "sha256": "38035eca8ad8a57e3a9f1bb962bb3bfe9b19e4c3f30f58416b7da087fa80f377",
+      "bytes": 119468
+    },
+    "native-proofs/M03-candidate-native-proof.key": {
+      "sha256": "b12be8ee36dbb9476a7f3ff6bf9592161895e11cbff736735c8881fd2ee822c0",
+      "bytes": 1326096
+    },
+    "native-proofs/M03-native-preview.jpg": {
+      "sha256": "a5e8b8a0b975000dcc2958cc303110f549d7fb63872514d04ca7563e11371c5c",
+      "bytes": 156333
+    },
+    "native-proofs/M06-candidate-native-proof.key": {
+      "sha256": "7b1594ab3abef20e62968cdfc6e2e1d8f4903d26017c0faf05a34117ba48d747",
+      "bytes": 1271427
+    },
+    "native-proofs/M06-native-preview.jpg": {
+      "sha256": "1c90b9fd9e556233b1343ff07eadbff83f287cd1a9dac7c4c85dd2d0e2ce57ed",
+      "bytes": 133496
+    },
+    "pdf-inspection/M01.png": {
+      "sha256": "8af909f66ab34055ca44fc741b596d57c510b77652a47fbb551b9d1ea9097386",
+      "bytes": 865392
+    },
+    "pdf-inspection/M02.png": {
+      "sha256": "8044395ea1c92632274bdc524acf0fb9ffeee4e49dc36c48c12a87b2baf32261",
+      "bytes": 825107
+    },
+    "pdf-inspection/M03.png": {
+      "sha256": "e1c78b35dfc41763275e008009418135cf2614353a453b2e2179fbf4fbdd27c1",
+      "bytes": 988432
+    },
+    "pdf-inspection/M06.png": {
+      "sha256": "69b339e496204797da44af361941ae3046087315583a5e9ab7b8deafbc8231db",
+      "bytes": 852835
+    },
+    "review/M01-a4.png": {
+      "sha256": "a38486c2fefba405d00313562bcbd568f2cba20d7b1517aa36254fa859d761bf",
+      "bytes": 904272
+    },
+    "review/M01-letter.png": {
+      "sha256": "2b21fbee37cb9fc32734da95d9810f93d69eb05315cc01b0e4d3e4048bec9fc0",
+      "bytes": 906838
+    },
+    "review/M02-a4.png": {
+      "sha256": "19e152ec73012c3d5420df6ea60b14a6e4e83bd81ef77f327ce46307749904d5",
+      "bytes": 859707
+    },
+    "review/M02-letter.png": {
+      "sha256": "98cf88b3a1f0354f703af0acbabec44cb86fc887533d15474b366bb54c6db3d0",
+      "bytes": 863317
+    },
+    "review/M03-a4.png": {
+      "sha256": "56d754be749fa142aeb19945cd568a2e0d6507c11a99dfb29737cecfb9adf0f0",
+      "bytes": 1030837
+    },
+    "review/M03-letter.png": {
+      "sha256": "b08a383c46492da5a88e5e18a16c11fe4822a43e0e67e895026cd8a1dd2c113d",
+      "bytes": 1033609
+    },
+    "review/M06-a4.png": {
+      "sha256": "dd103191a627295af588017ffff428c12d07ef5f0f9008794cfd92bfc34c9922",
+      "bytes": 891019
+    },
+    "review/M06-letter.png": {
+      "sha256": "f362445df7df537bf41bbf6b84afcd7c6e538d3968ff6b6cc34282601d54f29f",
+      "bytes": 888992
+    },
+    "review/actual-artifacts-c1f2346.json": {
+      "sha256": "c47397e1ccb5b2a8e7ef99806e7dc1e51118506fd76d8c2c7ed8543dd6bd54a0",
+      "bytes": 5479
+    },
+    "review/actual-pptx-review.json": {
+      "sha256": "4c4321b33fde6cb0058142cf7708cf34edb6490e8337dc45f60dfaf08fd7c6cd",
+      "bytes": 50245
+    },
+    "review/composition-challenge-stdout.txt": {
+      "sha256": "36729e09c50862d7a40ae6bc307571b33aa05dcae4f391958480d9ee2a54c84a",
+      "bytes": 4270
+    },
+    "review/composition-challenge.json": {
+      "sha256": "36729e09c50862d7a40ae6bc307571b33aa05dcae4f391958480d9ee2a54c84a",
+      "bytes": 4270
+    },
+    "review/composition-challenge.mjs": {
+      "sha256": "a7d633a7130d9b24568af214fe59fea4608d6d5d0b63d313f1292ec09172898d",
+      "bytes": 4145
+    },
+    "review/final-artifact-manifest.json": {
+      "sha256": "fd9a8d9b8e34f7769124c14e6521bb7514647d3fc6763441c2a9df486c94d600",
+      "bytes": 17469
+    },
+    "review/final-media-boundary.mjs": {
+      "sha256": "734155b77d00c521aefb055eebe0f0a8418f6c4d0f2a7538349308cdb5d5a809",
+      "bytes": 3712
+    },
+    "review/final-media-c1f2346.json": {
+      "sha256": "91ed95792daf96c6fb0e0f20bc45686c8e6cfdb558e36c48fe87515ab9bc937e",
+      "bytes": 4379
+    },
+    "review/final-media-post-alias.json": {
+      "sha256": "5a180ccb576215f0ecacfd710a8193efe00a7198916034191047f8e912d488df",
+      "bytes": 4384
+    },
+    "review/final-source-start.json": {
+      "sha256": "9fdfb2d88ed2d7b3524c93832a125b7be7feb658f96480754f7e6c82b9f40b6b",
+      "bytes": 427
+    },
+    "review/focused-tests-post-alias.txt": {
+      "sha256": "83da5ca7c68eaa06ee6c93594cd4749d9a42ee25bdf5ac108e937a22abe81b16",
+      "bytes": 3408
+    },
+    "review/focused-tests.txt": {
+      "sha256": "16c4205e62dc6dd33a08115dd1a7f5cf78a06c96e9a9faa8beeeff564087a22f",
+      "bytes": 3293
+    },
+    "review/inspect-pptx.mjs": {
+      "sha256": "4bc9c641c613e7de09bf30915eeea6f0dce11545b0d810f438b47a8466292602",
+      "bytes": 2619
+    },
+    "review/legacy-media-privacy.json": {
+      "sha256": "03a48419da6f4c6333f8f77793387de237b28091110064c570959df663e88d13",
+      "bytes": 331
+    },
+    "review/native-text-id-check.json": {
+      "sha256": "230b11d508b9b6c9c6a89c9a8818a5a4e9175c33bdf0bc1d597f2c100c357843",
+      "bytes": 307
+    },
+    "review/pdf-render.json": {
+      "sha256": "394389abf5c41c149a1d817b9eabdd7bea8c6ab81a37c4c495beeef32d709a5f",
+      "bytes": 707
+    },
+    "review/png-and-revision-parity.json": {
+      "sha256": "0b9b3a58f21680b867eba79cff5dd34f4575d523a5b6a9692cb82fb12b593cba",
+      "bytes": 2928
+    },
+    "review/pptx-revision-parity.json": {
+      "sha256": "6a8f0cd0eb26e2cae320eef4c2766ae537ea2f481889c690d7854af260a47bfb",
+      "bytes": 1071
+    },
+    "review/sealed-evidence-index.json": {
+      "sha256": "40169b936fb09fae5cff66ee82b786897d1d9d160bad02fdd6a825da755f0a7e",
+      "bytes": 5761
+    },
+    "review/sealed-final-artifacts.json": {
+      "sha256": "fe0b8310caa22c5f95a70ed27dffe4d869678707d58da944a650615bb7143763",
+      "bytes": 9851
+    },
+    "review/sealed-final-parity.json": {
+      "sha256": "25f0dbb860fb41648c2f7f40fb78067d584a0977f22dbc46a88c974f06c84d5b",
+      "bytes": 2319
+    },
+    "review/sealed-final-source.json": {
+      "sha256": "bc9fef08d96b08cc033385ba699d93d2314a676f1bb4411746d0a7bd8372ea79",
+      "bytes": 489
+    },
+    "review/source-seal-c1f2346.json": {
+      "sha256": "2811b9a3913ba71757aec2b396c003dc0f764c365817d8b13ca88f7cd3bd70e1",
+      "bytes": 1132
+    },
+    "review/source-start.json": {
+      "sha256": "ba0561dc88470852084ed2c9ab2256be450cf125ab2c74294ff900ca07d42455",
+      "bytes": 283
+    },
+    "review/stored-media-before-privacy-fix.json": {
+      "sha256": "2ad4b319281da08db70bc3207109337d7b9b3ac2f57e4191b5e2e0be6bbd488e",
+      "bytes": 806
+    },
+    "review/stored-media-final.json": {
+      "sha256": "f0b768a1de2b50a20d7d4d222625178f72e6ddf7658ab529cd3d3bd63a93cf60",
+      "bytes": 712
+    },
+    "review/stored-media-final.mjs": {
+      "sha256": "7e86641fa73ec29a66ac5459f7dd3e28cb809978d55407ae8091829ce9126c28",
+      "bytes": 3667
+    },
+    "review/stored-media-initial-observation.json": {
+      "sha256": "4772c65a3957628f72201e244baff857e22fd82b6797d81b6c24394cacb1ea96",
+      "bytes": 717
+    },
+    "review/stored-media-repro.json": {
+      "sha256": "2ad4b319281da08db70bc3207109337d7b9b3ac2f57e4191b5e2e0be6bbd488e",
+      "bytes": 806
+    },
+    "review/stored-media-repro.mjs": {
+      "sha256": "2741ce5264aaa2c1c06b60346561670e90cb3dd7fcfa50c52314da016de86309",
+      "bytes": 3667
+    },
+    "review/stored-media-sealed-final.json": {
+      "sha256": "f0b768a1de2b50a20d7d4d222625178f72e6ddf7658ab529cd3d3bd63a93cf60",
+      "bytes": 712
+    },
+    "review/stored-media-sealed-final.mjs": {
+      "sha256": "012ba4036484cfd6bd8153804b102bc37f5240ab075f6ccaf34e0a786a32ac77",
+      "bytes": 3674
+    },
+    "INDEPENDENT_REVIEW.md": {
+      "sha256": "138bf133baca494e811475735f62e282b762220a4481a32c6ffebe94e2304faa",
+      "bytes": 12920
+    },
+    "full-test-sealed-candidate.log": {
+      "sha256": "c3332cc1802805f7ed8ff5974ce983267def7e5b55d3fc7cb015ac9bcf03bf19",
+      "bytes": 161328
+    },
+    "typecheck-sealed.log": {
+      "sha256": "a061fcde3c377171bf4c0cffde52127b08fd3011e11e23605349b1bfc7325735",
+      "bytes": 116
+    },
+    "build-sealed.log": {
+      "sha256": "63e308b25b3e0ee5f165b1326f619d41f9a3121aebc9b80b20539c8a9c8ee67c",
+      "bytes": 138
+    },
+    "final-native-parity.json": {
+      "sha256": "2cc15c0a923ac06863311cd2cd4f6078a143ada2e16e4f2378290e9ccbf922c3",
+      "bytes": 1021
+    },
+    "final-artifact-batch-binding.json": {
+      "sha256": "8c5e5d3bb85f272921ff866754a8453bff9fbaac91814c22969ba3505117d168",
+      "bytes": 308
+    },
+    "final-matrix-quality.json": {
+      "sha256": "63b95a5927dc74bcc123bb0dd8c00a6a4842b9b41799eaa0bd15679161c12cb4",
+      "bytes": 7530
+    },
+    "native-inspection.md": {
+      "sha256": "bd8240322aa80d59fe68df2ab86263701e79c5d26277b8b57f56314982d9ec02",
+      "bytes": 1740
+    },
+    "CANDIDATE_FINAL_MANIFEST.json": {
+      "sha256": "716f15f3ee84996461a3f2846c4a7ab3e5eb2d8712678d70fb4c3c3908e8b024",
+      "bytes": 49618
     }
-  },
-  "pptxInspection": [
-    {
-      "id": "M05",
-      "slideCount": 1,
-      "slideSize": {
-        "cx": "18288000",
-        "cy": "10287000"
-      },
-      "editableShapes": 100,
-      "textRuns": 58,
-      "fonts": [
-        "American Typewriter",
-        "Baskerville",
-        "Futura"
-      ],
-      "placeholderTextRemains": true,
-      "zipIntegrity": null
-    },
-    {
-      "id": "M07",
-      "slideCount": 1,
-      "slideSize": {
-        "cx": "18288000",
-        "cy": "10287000"
-      },
-      "editableShapes": 66,
-      "textRuns": 37,
-      "fonts": [
-        "American Typewriter",
-        "Baskerville",
-        "Futura"
-      ],
-      "placeholderTextRemains": true,
-      "zipIntegrity": null
-    },
-    {
-      "id": "M09",
-      "slideCount": 1,
-      "slideSize": {
-        "cx": "18288000",
-        "cy": "10287000"
-      },
-      "editableShapes": 45,
-      "textRuns": 27,
-      "fonts": [
-        "American Typewriter",
-        "Baskerville",
-        "Futura"
-      ],
-      "placeholderTextRemains": true,
-      "zipIntegrity": null
-    },
-    {
-      "id": "M10",
-      "slideCount": 1,
-      "slideSize": {
-        "cx": "18288000",
-        "cy": "10287000"
-      },
-      "editableShapes": 51,
-      "textRuns": 28,
-      "fonts": [
-        "American Typewriter",
-        "Baskerville",
-        "Futura"
-      ],
-      "placeholderTextRemains": true,
-      "zipIntegrity": null
-    },
-    {
-      "id": "M11",
-      "slideCount": 1,
-      "slideSize": {
-        "cx": "18288000",
-        "cy": "10287000"
-      },
-      "editableShapes": 49,
-      "textRuns": 27,
-      "fonts": [
-        "American Typewriter",
-        "Baskerville",
-        "Futura"
-      ],
-      "placeholderTextRemains": true,
-      "zipIntegrity": null
-    },
-    {
-      "id": "M16",
-      "slideCount": 1,
-      "slideSize": {
-        "cx": "18288000",
-        "cy": "10287000"
-      },
-      "editableShapes": 48,
-      "textRuns": 27,
-      "fonts": [
-        "American Typewriter",
-        "Baskerville",
-        "Futura"
-      ],
-      "placeholderTextRemains": true,
-      "zipIntegrity": null
-    }
-  ],
-  "nativeLimitation": "M09 tested in Keynote, PowerPoint unverified; all-fixture native acceptance unverified",
-  "excluded": "Unlisted exports in browser-exports are historical or auxiliary. They do not become current evidence by existing."
+  }
 }

@@ -1,6 +1,6 @@
 # 2025 Founder Keynote Template Contract
 
-Status: visual authority LOCKED; native reference inspection verified; M09 native edit/save/reopen verified; broader acceptance pending. This describes the existing exemplar, not a redesign or a license to generalize unsupported policies.
+Status: visual authority LOCKED. Founder G1/G2/G4 implemented; current four-fixture exports inspected, broader acceptance pending. This describes the existing exemplar, not a redesign or a license to generalize unsupported policies.
 
 Authority: current MissionMed OS DR-200 and passport explicitly select 2025 and supersede 2024; DR-362 pins this recovery worktree. Both universal and 022 BOOT passed on 2026-10-02. Direct current Founder instruction forbids replacement visualization and removes the previous checkpoint request to reconfirm 2025.
 
@@ -15,7 +15,7 @@ Both files were rehashed and the actual golden inspected in this session. Privat
 - General milestones sit above the ribbon on poles with waving gray date pennants and adjacent black labels. Exam-attempt result flags are a distinct native exception: explicit passed/failed flags attach to their blue study arrows below the ribbon. Appropriate USA markers reuse the authorized flag asset. Dates remain source-grounded.
 - Experiences use direct, category-colored right-pointing arrows below the axis. A compact date caption sits above each arrow. Short event labels are on the arrow, with institution/location directly nearby. A distant numbered lookup directory is forbidden.
 - Six exemplar color-key rows: Work Experience (green), Personal (Not on CV) (purple), USMLE Studies (blue), USCE: Teaching Hosp (orange), USCE: Clinics (lighter orange), Research Experience (yellow). Preserve the pinned paper key treatment. Default swatches now use the golden's embedded Display P3 profile converted to sRGB: work #00882B, personal #763F9B, exams #0565C0, teaching-hospital clinical #DF6A0F, clinic #F49018, research #DCBE23. These are color-managed flat raster samples (minor quantization is possible), not claimed native source fill values. Native arrow labels are white; general milestone pennants are gray with white dates.
-- Lower-left white profile paper uses black corner mounts and a portrait. It contains applicant identity and relevant summary fields. A black-on-white readable hierarchy and full material values must survive export.
+- Lower-left white profile paper uses black corner mounts and a portrait when supplied. It contains applicant identity and relevant summary fields. A black-on-white readable hierarchy and full material values must survive export.
 - Personal photos use white snapshot frames and slight rotations. Optional authored notes use sticky paper and hand-drawn pointers. Preserve authorship, layers, geometry, crops and provenance.
 - Authored interview program/logo, purple ribbon, and date form a separate marker on the right. Reference example program/date are not defaults for other applicants.
 - Artifact typography is separate from app-shell typography. Native inventory finds AmericanTypewriter, AmericanTypewriter-Bold, Baskerville, Futura-Bold, Futura-Medium; 18/19/20/23/36 sizes occur. Native Keynote inspector verified title American Typewriter Regular 36 pt; GP/Medical Officer and Step 1 labels American Typewriter Regular 18 pt; date Baskerville Regular 18 pt; institution Baskerville Regular 19 pt; year Futura Bold 23 pt; key Futura Medium 18 pt; profile label American Typewriter Bold 19 pt. Profile uses mixed label/value styling; cross-platform substitution remains an acceptance check. Do not impose Arial or invented minimum sizes.
@@ -31,10 +31,24 @@ Both files were rehashed and the actual golden inspected in this session. Privat
 - Last-good preview may be reused only for the same document, owner, viewer, subject and surface, with a visible stale warning. Broken saved layout must remain recoverable.
 - Material content that does not fit blocks readiness/export with an actionable finding. Test coverage or event-ID counts cannot certify visual sendability.
 
-## Undefined policy branches
+## Founder decisions now locked
 
-No general exemplar-backed rule has yet been found for consolidation, approved abbreviations, extreme density, arbitrary continuation, Education as a seventh legend category versus degree milestone, or suppressing template furniture when missing. Do not invent these rules. Produce fixture-specific gates with actual exports only after trying authorized spacing/wrapping. Continue independent engineering repairs while those branches remain stopped.
+G1 Option B: unpopulated profile-photo, snapshot, program-logo and interview objects are omitted from the program-facing export. Their editor controls/slots remain. Never export PROFILE PHOTO, DROP PHOTO, blank PROGRAM LOGO, Date pending, fabricated images/programs/dates. Independently supplied program/date/logo elements survive without inventing absent companions.
 
-## Current limitations
+G2 Option A: milestone labels retain the supplied institution beside the pole/pennant. Wrap/fit inside the existing grammar. Full visible field coverage is mandatory.
 
-The initial capture-stream failure was recovered. The authoritative .key opened in Keynote and was inspected without edits. Actual M09 PPTX was opened, visually inspected, edited/restored, saved as a separate native .key, closed and reopened successfully. Its placeholder content still prevents sendable acceptance. PowerPoint and all-fixture native acceptance remain unverified. See NATIVE_EXPORT_REPORT.md. There is no automatic consolidation policy. General milestones may not be moved below the ribbon to clear a collision; explicit study/result flags retain their native exception.
+G4: completed education maps to the degree completion milestone; source-linked school and education span remain in the existing profile. No education arrow or seventh key row. Unknown/open-ended completion cannot be inferred; keep a human review hold.
+
+G3: technical placement search continues. No consolidation, abbreviation, directory, Gantt, legend change or continuation authorization. Exhaust technical options for a specific fixture before a bounded product gate.
+
+## Current parametric implementation and guards
+
+Automatic general flags search left/right adjacent labels and above-ribbon vertical spacing, keeping date anchors. A bounded empty context year may make room beside the title; every year stays separately labeled and no event date changes. Native exam-result markers remain attached to study arrows.
+
+Only automatic, unauthored profile paper may shrink unused vertical space while retaining width, bottom anchor, native corners, fonts and all supplied text/media. Authored profile geometry is preserved and collision-gates if needed. Empty editor slots remain available.
+
+Attached media is projected by normalized audience visibility before resolution. Valid stored media may resolve asynchronously; unresolved or failed images stop final export, rather than vanishing. Native font sizes are retained; this does not certify readability after shrinking to a Letter/A4 handout.
+
+## Remaining limits
+
+No general rule authorizes consolidation, inferred abbreviations, automatic multi-year grouping or continuation. M03 dense has all 24 facts but remains demanding to scan; M20 has46 facts and a mechanical pass but is not accepted for sendability. Native PowerPoint and universal layout acceptance remain unverified. Final founder acceptance of actual exported artifacts is still required.

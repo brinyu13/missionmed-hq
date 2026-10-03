@@ -1,32 +1,34 @@
-# Synthetic acceptance matrix
+# Current synthetic acceptance matrix
 
-Every case uses the same hash-pinned2025 Founder template. A technical gate pass is not sendability. Latest completed browser export batch binds 3ab692393505c0cb64a7faddd9e3730b50300367. See final-artifact-batch-binding.json and ARTIFACT_MANIFEST.json in the local evidence directory.
+Source 7e5b6314434ee9b86fb7bb2dc0c55ba278d28b07. Every fixture uses the same 2025 template.16 mechanical passes,4 correct source-review holds; previous phase 6/4/10. No material fact was removed to obtain a pass. No claim of20 visual/sendability passes.
 
-| ID | Required case | Events | Mechanical export outcome | Product acceptance |
-|---|---|---:|---|---|
-| M01 | normal IMG | 6 | TIMELINE_EXPORT_MISSING_FIELDS | NOT ACCEPTED |
-| M02 | sparse IMG | 2 | TIMELINE_EXPORT_MISSING_FIELDS | NOT ACCEPTED |
-| M03 | dense IMG | 24 | TIMELINE_EXPORT_MISSING_FIELDS | NOT ACCEPTED |
-| M04 | 10+ year chronology | 6 | TIMELINE_EXPORT_MISSING_FIELDS | NOT ACCEPTED |
-| M05 | many rotations | 12 | PASS — five actual formats generated | NOT ACCEPTED |
-| M06 | overlapping clinical research and work | 3 | TIMELINE_EXPORT_TEXT_COLLISION | NOT ACCEPTED |
-| M07 | multiple explicit gaps | 4 | PASS — five actual formats generated | NOT ACCEPTED |
-| M08 | prior residency training | 4 | TIMELINE_EXPORT_MISSING_FIELDS | NOT ACCEPTED |
-| M09 | long institution names | 1 | PASS — five actual formats generated | NOT ACCEPTED |
-| M10 | long event titles | 1 | PASS — five actual formats generated | NOT ACCEPTED |
-| M11 | partial dates | 1 | PASS — five actual formats generated | NOT ACCEPTED |
-| M12 | unknown dates | 1 | TIMELINE_EXPORT_INCOMPLETE | Correctly held for human review; not export-ready |
-| M13 | conflicting dates | 1 | TIMELINE_EXPORT_INCOMPLETE | Correctly held for human review; not export-ready |
-| M14 | same-date events | 3 | TIMELINE_EXPORT_MISSING_FIELDS | NOT ACCEPTED |
-| M15 | multiple explicit exam attempts | 2 | TIMELINE_EXPORT_MISSING_FIELDS | NOT ACCEPTED |
-| M16 | late correction with manual overlay | 1 | PASS — five actual formats generated | NOT ACCEPTED |
-| M17 | minimal source data | 0 | TIMELINE_EXPORT_EMPTY | Correctly held for human review; not export-ready |
-| M18 | ambiguous source data | 1 | TIMELINE_EXPORT_INCOMPLETE | Correctly held for human review; not export-ready |
-| M19 | nontraditional pathway | 5 | TIMELINE_EXPORT_MISSING_FIELDS | NOT ACCEPTED |
-| M20 | extreme legitimate density | 46 | TIMELINE_EXPORT_TEXT_OVERFLOW | NOT ACCEPTED |
+| ID | Case | Events | Export gate | Guardian findings after normal Builder migration | Acceptance limit |
+|---|---|---:|---|---|---|
+| M01 | normal IMG | 6 | PASS; five actual formats | none mechanically | Four-fixture visual review; founder pending |
+| M02 | sparse IMG | 2 | PASS; five actual formats | none mechanically | Four-fixture visual review; founder pending |
+| M03 | dense IMG | 24 | PASS; five actual formats | none mechanically | Density caveat; founder pending |
+| M04 | 10+ year chronology | 6 | PASS; five actual formats | none mechanically | Not individually founder accepted |
+| M05 | many rotations | 12 | PASS; five actual formats | COLLISION_RISK | Not individually founder accepted |
+| M06 | overlapping clinical/research/work | 3 | PASS; five actual formats | none mechanically | Four-fixture visual review; founder pending |
+| M07 | multiple explicit gaps | 4 | PASS; five actual formats | none mechanically | Not individually founder accepted |
+| M08 | prior residency/training | 4 | PASS; five actual formats | none mechanically | Not individually founder accepted |
+| M09 | long institution names | 1 | PASS; five actual formats | COLLISION_RISK | Not individually founder accepted |
+| M10 | long event titles | 1 | PASS; five actual formats | LONG_EVENT_LABELS | Not individually founder accepted |
+| M11 | partial dates | 1 | PASS; five actual formats | none mechanically | Not individually founder accepted |
+| M12 | unknown dates | 1 | TIMELINE_EXPORT_INCOMPLETE | INVALID_DATE, EVENTS_NOT_RENDERABLE, EXPORT_BLOCKED | Source review hold |
+| M13 | conflicting dates | 1 | TIMELINE_EXPORT_INCOMPLETE | END_BEFORE_START, EVENTS_NOT_RENDERABLE, EXPORT_BLOCKED | Source review hold |
+| M14 | same-date events | 3 | PASS; five actual formats | none mechanically | Not individually founder accepted |
+| M15 | multiple explicit exams/attempts | 2 | PASS; five actual formats | none mechanically | Not individually founder accepted |
+| M16 | late correction/manual overlay | 1 | PASS; five actual formats | none mechanically | Not individually founder accepted |
+| M17 | minimal source data | 0 | TIMELINE_EXPORT_EMPTY | STUDENT_NAME_MISSING, EMPTY_TIMELINE, EXPORT_BLOCKED | Source review hold |
+| M18 | ambiguous source data | 1 | TIMELINE_EXPORT_INCOMPLETE | CATEGORY_REVIEW, INVALID_DATE, EVENTS_NOT_RENDERABLE, EXPORT_BLOCKED | Source review hold |
+| M19 | nontraditional pathway | 5 | PASS; five actual formats | none mechanically | Not individually founder accepted |
+| M20 | extreme legitimate density | 46 | PASS; five actual formats | EXCESSIVE_DENSITY | NOT SENDABLE; more technical work |
 
-Six fixtures currently pass the mechanical export gate: M05/M07/M09/M10/M11/M16. Four inputs are correctly held for missing/conflicting/ambiguous source facts. Ten require mapping/layout work. All 20 diagnostic PNG/SVG files exist. Actual exporter generates1920/2560 PNG, editablePPTX, Letter/A4 PDF only for gate-passing cases. Older files for now-blocked cases are historical, not accepted.
+Five advertised formats:1920×1080PNG,2560×1440PNG,LetterPDF,A4PDF,editablePPTX. Diagnostic SVG/PNG for blocked cases are not final exports. Final receipt and exact hashes in ARTIFACT_MANIFEST.json, root /Users/brianb/MissionMed_worktrees/timeline-astra6-recovery-20261002/.timeline-recovery-20261002/founder-decisions-20261003.
 
-M03 has zero measured material collisions after unequal-year spacing, but still blocks milestone institution omissions; it is not visually polished enough to certify. M20 remains overflow/occlusion blocked. M06 remains color-key occlusion blocked; M14 has same-date marker collisions behind its first missing-field gate. No source labels, dates or institutions were deleted to make this matrix pass.
+All20 Builder-migrated SVGs match raw fixture SVGs byte-for-byte. Raw minimal fixtures omit schema categories/background and produce artificial format findings; these are preserved in raw-minimal-fixture-quality.json and are not reported as actual Builder state. Normalized findings are in final-matrix-quality.json.
 
-Coverage beyond composition: long600-character token; shared cache document/owner/viewer/subject/audience isolation; scene-only object recovery; manual lane/axis preservation; per-field coverage; paint-order occlusion; non-USA flags; unknown precision; profile consent/conflicts; source PDF extraction; local browser save/reopen; real disposable PostgreSQL RLS and71 admin-workflow assertions. Actual synthetic PDF browser import/profile consent/category review/9-event acceptance/local IndexedDB reload passed. Final authenticated production flows and PowerPoint remain unverified. M09 actual Keynote edit/save/reopen passed; this is not all-fixture native acceptance.
+Additional G4 tests preserve multiple source-linked school spans/year precision. Media privacy covers12 canonical/legacy cases plus explicit LOR sharing. Stored-media resolution and failed-image negative tests coverPNG/PDF/PPTX. Full suite 348 TS + 1249 JS; typecheck/localbuild pass. Prior actual PDF intake/consent/9-event save/reload and real PostgreSQL/RLS evidence retained, not rerun this phase.
+
+All four current PPTXs inspected in Keynote. M03 edit/restore/save/reopen;M01/M06 reopen;M02 reopen not verified. Both PDF sizes independently rendered/inspected for the four. Native PowerPoint/live authenticated roles remain unverified.

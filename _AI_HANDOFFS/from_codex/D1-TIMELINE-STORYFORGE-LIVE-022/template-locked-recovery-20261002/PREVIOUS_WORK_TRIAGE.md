@@ -16,7 +16,7 @@ All 26 initial dirty/untracked files were hashed and copied before edits. PREIMA
 | uxr-002/export-screen.js | KEEP WITH MODIFICATION | Keep distinct format filenames and truthful download receipt; remove multipage/ZIP UI. |
 | uxr-002/intake-d1-408-adapter.js | KEEP WITH MODIFICATION | Keep extraction evidence; explicit profile acceptance and conflicting claim review repaired by Sol. |
 | uxr-002/intake.js | KEEP WITH MODIFICATION | Keep useful intake extraction; profile preview/acceptance consent remains a separate human decision. |
-| uxr-002/locked-407f-export.js | KEEP WITH MODIFICATION | Keep full profile wrapping without clipping; fixed native fonts and a long-token data-loss bug. Restore institution names in dense rendering. Conservative within-template placement now passes M05/M09; dense branches remain blocked. |
+| uxr-002/locked-407f-export.js | KEEP WITH MODIFICATION | Keep full profile wrapping without clipping; fixed native fonts and a long-token data-loss bug. Restore institution names in dense rendering. Current G1/G2/G4 implementation and within-template placement give16/20 mechanical passes;4 source holds remain. Dense visual acceptance is still limited. |
 | uxr-002/quality-guardian.js | KEEP WITH MODIFICATION | Keep truthful missing identity/incomplete/invalid-scene findings. Remove adaptive claims and arbitrary 9pt acceptance; add measured text/collision checks. |
 | styles/407f-upgrade.css | KEEP WITH MODIFICATION | Keep full-preview fit/scroll corrections; remove adaptive-composer paging styles. |
 | tests/d1-023-active-preview-recovery.test.mjs | KEEP | Cross-document identity isolation and visible recovery regression. |
@@ -34,3 +34,8 @@ All 26 initial dirty/untracked files were hashed and copied before edits. PREIMA
 ## Claims still unverified
 
 Full authenticated browser save/reopen ownership/versioning (real local PostgreSQL tests pass); real student/advisor browser import; native PowerPoint appearance; all supported Word ingestion paths; destination download receipts; Fable 5.1 challenge; production acceptance. Passing focused tests does not verify these. Historical Work screenshots, prose and runtime IDs are not live release proof.
+
+
+## Current continuation disposition
+
+All prior repair commits are preserved. Approved omission policy, institution wrapping, degree/profile mapping, curve bounds, same-date placement, and automatic blank-paper compaction are KEEP WITH MODIFICATION of the existing renderer. Stored-media resolution, final load-failure gates and normalized private-media projection are KEEP. Legacy tests expecting empty placeholders or education arrows are OBSOLETE expectations and were updated to approved semantics. None is authority for a replacement visual. No previous UNVERIFIED claim is upgraded by test count alone. Current four-fixture actual exports and native evidence supersede their old artifact limits only; broader live/PowerPoint/Word/destination/Fable claims remain unverified.

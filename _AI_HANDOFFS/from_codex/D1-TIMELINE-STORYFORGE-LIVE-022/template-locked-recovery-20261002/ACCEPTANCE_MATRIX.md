@@ -1,17 +1,24 @@
-# Acceptance matrix — NOT ACCEPTED FOR RELEASE
+# Acceptance matrix — founder review candidate, not release-authorized
 
-| Mandatory criterion | Result | Verified evidence / limit |
+Source 7e5b6314434ee9b86fb7bb2dc0c55ba278d28b07. Four-fixture evidence is bounded; the entire Builder is not finished.
+
+| Mandatory criterion | Current result | Evidence / limit |
 |---|---|---|
-| Factually correct | PARTIAL | Source/provenance/consent/conflict regressions and actual synthetic PDF review pass. All 20 fixtures preserve source facts. Unresolved mappings remain held. |
-| No material silent omissions | IMPROVED / BLOCKED CASES | Missing source dates, event fields, invalid scenes and occlusion fail closed. Milestone institutions are visibly blocked, not silently discarded. |
-| Faithful to 2025 template | PARTIAL | Authority, native fonts, palette, arrows, pennants and single-slide grammar locked; rejected architecture removed. Education and missing-slot policies unresolved. |
-| Immediately understandable | FAIL FOR DENSE CASES | M05/M09 actual outputs are readable; M03 is mechanically clearer but visually scattered; M14/M20 remain unreadable. |
-| Visually polished | NOT ACCEPTED | Empty photo/interview placeholders and remaining dense placement fail the required standard. |
-| Professionally sendable | NO | No exact current export is certified for sending to a program. |
-| Editable where required | PARTIAL PASS | Six current PPTX files contain native editable shapes/text. Actual M09 imported into Keynote, edited/restored, saved and reopened. PowerPoint and full matrix native acceptance remain unverified. |
-| Reliable | PARTIAL |348 TypeScript + 1228 JavaScript tests pass; typecheck/build pass; real disposable PostgreSQL RLS and71 workflow assertions pass. Local UI PDF/import/reload passes. Authenticated live role flow unverified. |
-| Testable | PASS FOR LOCAL ENGINEERING |20 deterministic fixtures; source/artifact hash manifests; negative gates; independent consumer reproducers. This does not imply product acceptance. |
+| Factually correct | SOURCE FIDELITY PASS; source review remains | 6/2/24/3 events' native visible titles, institutions and source dates survive. M02 supplies different milestone/profile institutions; both are preserved, but that discrepancy needs source review before sending. |
+| No material silent omissions | Four-fixture PASS | Actual SVG/PPTX native text and recovery fields inspected; unknown/conflicting/ambiguous/empty inputs held; missing supplied media fails closed. |
+| Faithful to2025 | Four-fixture bounded PASS | Native grammar/palette/fonts/six-key retained; approved G1/G2/G4 implemented. |
+| Immediately understandable | QUALIFIED | M01/M02/M06 readable; M03 dense right-side cluster demands scanning. M20 not accepted. |
+| Visually polished | PARTIAL | Four actual artifacts improved; dense handout readability and extreme chronology still need work. |
+| Professionally sendable | FOUNDER PENDING | No exact export certified for program send by founder; M20 remains NO. |
+| Editable | BOUNDED PASS | Four editable PPTXs inspected natively in Keynote; M03 edit/restore/reopen, M01/M06 reopen; PowerPoint and M02 reopen unverified. |
+| Reliable | LOCAL PASS / LIVE UNVERIFIED |348 TS + 1249 JS, typecheck/build; prior real PostgreSQL/PDF intake evidence retained. Current authenticated production roles/delivery not certified. |
+| Testable | PASS FOR LOCAL ENGINEERING |20 fixtures, negative gates, immutable source/artifact hashes;31 independent focused tests and saved artifact review. |
 
-Only scoped coordination leases were mutated remotely. No product DB mutation, deployment, activation, push, or external send. Protected release authority has not been requested because release acceptance conditions do not pass.
+| Checkpoint fixture | Material source facts survived | Mechanical | Visual/template review | Remaining warning |
+|---|---|---|---|---|
+| M01 normal | YES;6 events | PASS | Template PASS | Sparse lower-right after optional object omission; founder pending |
+| M02 sparse | YES;2 events | PASS | Template PASS | Source school mismatch retained; substantial unused space; founder pending |
+| M03 dense | YES;24 events | PASS | Template PASS; polish QUALIFIED | Harder to scan; small text at Letter/A4 handout scale |
+| M06 overlapping | YES;3 events | PASS | Template PASS | Wide vertical gaps around fixed key; founder pending |
 
-Fable 5.1 is unavailable in this session. The available-model independent review is engineering evidence and is explicitly not the requested Fable challenge. Final Founder test: NO; the machine is improved but not finished.
+Independent report is available-model engineering/artifact review, not Fable 5.1. No push/deployment/product DB change/send. Only coordination leases used remotely. Final protected deployment still requires founder acceptance and release authority.

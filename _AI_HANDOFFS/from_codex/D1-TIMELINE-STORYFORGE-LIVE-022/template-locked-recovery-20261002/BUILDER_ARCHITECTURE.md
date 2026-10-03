@@ -20,8 +20,16 @@ Audience projection -> recoverable saved-scene validation -> known-date/material
 
 ## Remaining acceptance work
 
-The existing pipeline does not need a wholesale rewrite. Outstanding work is explicit template mapping policy, more capable composition within approved grammar, missing-furniture policy, broader native format acceptance, authenticated browser import/save/reopen/delivery, and Fable challenge. Disposable PostgreSQL tests validate real authorization/persistence seams but cannot certify production role flows.
+The existing pipeline does not need a wholesale rewrite. G1/G2/G4 mapping policy is now implemented. Outstanding work is dense visual polish, broader native format acceptance, authenticated browser import/save/reopen/delivery, and an actual Fable challenge if that model becomes available. Disposable PostgreSQL tests validate real authorization/persistence seams but cannot certify production role flows.
 
 Composition returns the exact composed scene plus SVG. Adaptive year widths are materialized as effective weights; first manual geometry freezes that axis. Pointer preview/commit uses the same dated inner width while decorative outer ribbon bleed stays fixed. Source facts and semantic dates never change with these operations.
 
 Supported local intake formats are PDF and DOCX. Legacy binary DOC is explicitly rejected by the existing format gate; it is not claimed as supported. DOCX extraction retains section/quote provenance because page numbering is not stable. Actual browser proof in this run uses PDF; DOCX malformed/archive/provenance paths are covered by tests.
+
+## Founder-decision implementation
+
+Verified education durations produce an unchanged semantic event plus source-linked profile educationRecords and a completion flag. The renderer does not infer completion. Full start/end precision and institutions are checked in visible output. General milestone institutions wrap beside their flags.
+
+Export request projection filters events and media with the same normalized privacy semantics, including supported legacy aliases, before the EVERYTHING presentation pass. Explicit advisor-recipient sharing remains scoped. Pending stored media is admitted to async resolution only; missing resolution or image-load warnings fail final output. Editor slots use showEmptySlots; final adapters force them off.
+
+The composition search stays in one 1920×1080 scene: eligible arrow placement, above-ribbon milestone fitting, individual year context/widths, and guarded automatic profile-paper compaction. Explicit manual geometry remains authoritative. Preview/editor/export consume the composed axis. All20 fixture SVGs are byte-identical before/after actual Builder migrateDocument schema normalization; Guardian warnings were evaluated on normalized documents, not schema-incomplete raw fixtures.

@@ -1,95 +1,80 @@
-# Independent Timeline candidate review
+# Independent Timeline review — founder decisions
 
-Status: SEALED before reading any parent conclusions, defect ledger, SOL report or Fable report. This is an independent Codex engineering/artifact review, not Fable 5.1. The invocation did not expose a specific model identifier.
+Sealed 2026-10-03. This is an independent engineering and saved-artifact review, not Fable 5.1, native-application acceptance, founder acceptance, or deployment authority.
 
-Verdict: do not treat this candidate as accepted for release. The focused suite passes, but independent adversarial cases expose the defects below. None is a production incident claim.
+**Final bounded result:** No unresolved regression was found within the checks below at `7e5b6314434ee9b86fb7bb2dc0c55ba278d28b07`. The four requested fixtures pass factual survival and saved-artifact inspection. Two independently reproduced media-boundary failures were repaired and retested; a parent-discovered image-load omission was also independently checked. This does not establish universal layout sendability or acceptance of M20.
 
-## Custody and scope
+## Identity, scope and custody
 
-- HEAD: `9d07904596f05cc2d9f4f4485c0801fe87709002`; recovery origin from packet: `3f650a10fa46f637fc656dd3f13d0ce18ea7093b`.
-- Frozen manifest SHA-256: `c773d309d72dfaae682ee17e210d6984b148aded0b45c08a1f9b7efc57022a10`. All 371 files matched before review and after the experiments. No source drift.
-- Both actual authority files rehashed correctly: .key `113d22efb8ca2c00c29d8e57b92c1eb24ff2c66931f7138bbf23daa66dbba706`; golden PNG `bf48d25b2d46a75c868f98692d480147f8c7d8f234955608a27ca50b3b808836`. The golden was visually inspected privately. No reference applicant content was used in generated fixtures.
-- Only reviewer-owned `independent-*` evidence and this report were written. No application source, tracked test, provider, deployment, browser/native UI or commit operation occurred.
+The initial packet named `65c1a80677aed2a4247e8c5bb765d3715872e109`. At initial inspection, its 186 source hashes matched with zero drift; HEAD had advanced to the allowed legacy-test commit `69fff864e983c579a4b19ecedf97077c65c92d68`. See `review/source-start.json` (original source manifest SHA `b758e3f6f06c21bd54fb163be0d1155112e83a5cf7821f01944dd522e50433fe`). Parent authorized the subsequent bounded media repairs and final source recheck. Intermediate drift observations were retained rather than portrayed as frozen-source passes.
 
-## Actionable findings
+Final HEAD and manifest HEAD both equal `7e5b6314434ee9b86fb7bb2dc0c55ba278d28b07`. All 353 source/test hashes match; scoped Git status is clean. Final manifest SHA-256: `716f15f3ee84996461a3f2846c4a7ab3e5eb2d8712678d70fb4c3c3908e8b024`. Verification time: 2026-10-03T05:06:06Z. See `review/sealed-final-source.json`.
 
-### 1. P1: shared preview caches can disclose another document or audience after a render failure
+The actual reference PNG was visually inspected. Both reference files were rehashed:
 
-`web/js/uxr-002/preview.js:67-94` keys the singleton cache by audience/class, or a caller-supplied surface key, without document ID, owner, viewer or subject. Render document A successfully, then render document B with a malformed saved scene under the normal default options. B returns A's SVG, including `Synthetic SECRET_CACHE_A`, marked as last-good. The visible stale notice does not cure the cross-owner disclosure. Real callers remain in `uxr-002/app.js:426-477` and `uxr-002/home.js:56`.
+- `FOUNDER_KEYNOTE_2025_TEMPLATE.key`: `113d22efb8ca2c00c29d8e57b92c1eb24ff2c66931f7138bbf23daa66dbba706`.
+- `FOUNDER_KEYNOTE_2025_GOLDEN.001.png`: `bf48d25b2d46a75c868f98692d480147f8c7d8f234955608a27ca50b3b808836`.
 
-A second independent probe demonstrates that `last-good-builder-preview.js:5-6,20-34` keys only by document ID. Render an EVERYTHING preview, switch to INTERVIEWER_SAFE and force the renderer to throw. The previous synthetic student-only text returns. The newer identity guard in `407f-engineering-adapter.js` passes its tests, but does not repair these shared helpers.
+Full authority paths are recorded in `review/source-seal-c1f2346.json`. The latest direct G1/G2/G4 decisions were read and take precedence over previously unresolved gates. Sources and exports were read only. Writes were limited to this report and this directory's `review/` diagnostics. No UI, browser, native app, provider, deployment, source edit, or commit was performed by this reviewer. Earlier template-locked seals were untouched.
 
-Smallest correction: include document, owner, viewer, subject, audience and surface identity in both cache records and reuse checks. Never reuse an unbound cache entry. Preserve same-identity stale recovery. Add direct shared-helper tests, including explicit `surfaceKey` and same-ID owner/viewer changes.
+## Priority-ranked findings and resolution
 
-Evidence: `independent-adversarial.mjs`, `independent-adversarial-results.json`, `independent-cross-document-cache.html`.
+1. **P1 — private media crossed the actual public export boundary; closed at final target.** `buildExportPreviewInput` had retained ADVISOR_ONLY media and then instructed the renderer to use EVERYTHING. Direct public serialization excluded the photo, while request-path serialization painted it. The first repair excluded canonical `visibilityState` values but still admitted the supported legacy `visibility` field: ADVISOR_ONLY, STUDENT_ONLY, ADVISOR, STUDENT and whitespace variants could be resolved and painted. This was reproduced through actual request → local adapter control flow, not inferred solely from source. Evidence: `stored-media-before-privacy-fix.json`, `legacy-media-privacy.json`, `final-media-c1f2346.json`. The final shared normalization/projection fixes both paths. `final-media-post-alias.json` records 12 private cases: zero retained media, zero resolver calls, zero painted media, unchanged input. Explicit LOR-only sharing remains included only for LOR, and excluded for Interview-safe and Professional Connection. The focused regression also checks canonical-private versus legacy-safe precedence.
 
-### 2. P1: export collision checks accept an opaque overlay hiding the entire identity/profile card
+2. **P2 — synchronous completeness gate blocked valid stored media before async resolution; closed.** On the initial source, a profile photo with a storagePath and a resolver that could produce an image failed `buildExportRequest` with TIMELINE_EXPORT_MISSING_FIELDS. Calling the async serializer and actual adapter directly resolved it once and painted it. Initial output provenance is explicitly documented in `stored-media-initial-observation.json`: it reconstructs the tool observation because the original diagnostic JSON was overwritten during the second reproduction. It is not mislabeled as an untouched original capture. On final source, `stored-media-sealed-final.json` shows synchronous request acceptance, one resolver call and painted media, while the private control is excluded. Missing resolution still rejects PNG/PDF/PPTX before rasterization/inlining. Deferral is limited to pending media; it does not waive the final artifact gate.
 
-`web/js/presentation/resolved-founder-presentation.js:175` starts collision checks only from text whose role is `event`. A valid authored black rectangle at `(13,661,545,410)` overlays the complete profile card. The final SVG places the opaque rectangle at paint index 52, after the profile text at indices 32-35. `assertCompleteFounderPresentation` still allows export. With a valid theme, background and categories, Guardian returns only the ordinary unfinished-furniture REVIEW finding, with no profile-occlusion finding.
+3. **P2 — attached-image load failure could export an empty area; parent-discovered, final behavior independently checked.** The adapter now rejects MEDIA_FAIL_SOFT warnings before encoding or native PPTX construction. `final-media-post-alias.json` exercises PNG, PDF and PPTX with an injected load failure and separately with an unresolved expected ID. All six negative cases return TIMELINE_EXPORT_MISSING_FIELDS for the expected media and never encode. This independently proves adapter control flow; the reviewer did not perform a browser network/404 test.
 
-A real editable PPTX was generated successfully from this SVG. Its native validation returns no errors. This demonstrates that structural editability is not material visibility.
+## Four-fixture factual and visual verdicts
 
-Smallest correction: check material identity, profile and authored text against later opaque objects, preserving intentional text-on-backing relationships. Block the actual final export when required content is obscured. Do not rearrange manual layers automatically.
+The actual 1920 PNGs and rendered Letter/A4 PDFs were visually inspected, alongside the actual reference PNG. Both PNG dimensions were verified. Final PNGs and both PDFs are byte-identical to the inspected iteration-2 artifacts. Final PPTX contents match iteration-2 except `docProps/core.xml`; slide XML, recovery records, media and relationships are unchanged. These comparisons were performed by this reviewer, not accepted from a parent summary.
 
-Evidence: `independent-profile-occluded.svg`, `independent-profile-occluded.pptx`, result JSON files. Geometry/paint order establishes this finding; no substitute renderer is used to claim native visual acceptance.
+| Fixture | Source events | Visible representation | Independent visual verdict |
+|---|---:|---|---|
+| M01 normal | 6 | 4 arrows, 2 milestones | Clear direct event labels, institutions and dates. The title, ribbon, six-row key and framed profile retain the reference grammar. Empty image/interview objects are absent. The lower-right area is sparse after optional furniture removal. |
+| M02 sparse | 2 | 1 arrow, 1 milestone | The long work period and degree remain legible, with substantial unused space. No invented content fills the space. The input itself supplies Synthetic Hospital for the degree milestone and Synthetic Medical College in the profile; both survive. That source inconsistency is not introduced by rendering and is not adjudicated by this synthetic fixture. |
+| M03 dense | 24 | 22 arrows, 2 milestones | All numbered hospital rotations and baseline events remain separate and nearby their dates/institutions. No observed material clipping or furniture occlusion in the saved PNG/PDFs. The clustered right half is demanding to scan; native PNG readability does not imply comfortable Letter handout reading. Roughly 18px labels become about 7.4pt when a 1920-unit board spans an 11-inch page. Density remains a visual acceptance limitation. |
+| M06 overlapping | 3 | 3 full-span arrows | All three Jan 2023–Dec 2024 periods are visible; the key no longer hides arrow bodies. The compact lower-left profile retains its paper/corners and full-size text. Large vertical gaps around the key remain, but there is no replacement layout or consolidated record list. |
 
-### 3. P2: milestone institution disappears while export completeness reports success
+Both PDF page sizes preserve the same content and aspect ratio with white page margins. Eight PDF renders completed without diagnostics. The 2560 PNGs have the expected 2560×1440 dimensions; downsample comparison differs only at the low level expected from rasterization/resampling (mean absolute RGB differences roughly 1.0–1.6/255), not evidence of a content change.
 
-The probe uses a confirmed `Clinical license awarded` milestone at `Synthetic Licensing Council`. The institution remains in source but no visible text node contains it. `board-renderer.js:740-805` does not carry the institution into the flag projection; `locked-407f-export.js:389-430` draws only title/date. The new completeness check at `founder-presentation-serializer.js:377-379` checks title/siteName only for arrows.
+Actual native PPTX XML was inspected, not merely recovery metadata. Event title, site, start and end text survived for all 6/2/24/3 source events. Corresponding recovered factual fields match the source, and SVG text matches the PPTX text. Each recovery text object was checked against its actual native shape ID/text. M01/M02/M03/M06 have 33/18/87/22 native text objects and 10/6/28/7 native groups; all structural validations and factual checks pass. Files are 16:9, with no duplicate native IDs or missing image relationships. See `actual-pptx-review.json` and `native-text-id-check.json`. This establishes native editable objects and material text presence, not native font rendering or a successful Keynote edit/save/reopen journey.
 
-The gate passes, and a real exported PPTX has no visible `Synthetic Licensing Council` text. Its editability validation passes. Hidden recovery facts do not make a printed artifact complete.
+## Composition and regression challenge
 
-Smallest correction: retain source-grounded material institution/location in the milestone presentation, or block the unsupported case with an actionable finding. Extend visible field coverage to milestones rather than relying on event-ID presence.
+- Two distinct completed education spans retain their individual source links, titles, schools and YEAR-precision start/end wording in the existing profile, with two completion flags, zero education arrows and six legend rows. No source mutation. This extends beyond the four saved fixtures, which contain no completed education-duration profile spans.
+- Three same-month milestones remain distinct, retain full institutions/date text and keep the six-row key. M14 was checked at source level only; its saved artifacts are outside this seal.
+- Explicit M06 profile geometry stays exactly `13,661,545,410` and collision-gates instead of silently compacting an authored layout. Automatic M06 compaction with a long school, visa text and supplied profile photo retains visible content and grows to `13,785,545,286`; no photo placeholder substitutes for the supplied image.
+- Editing retains empty slots while program-facing output omits them. Tested edit/export axes match for M01/M02/M03/M06/M14; export request projection SVG equals public renderer SVG for these fixtures. Automatic composition does not mutate the source. These are source/helper checks, not live pointer or keyboard acceptance.
+- Independently executed final tests: **31 passed, 0 failed, 0 skipped** across founder decisions, education mapping and presentation privacy. Log: `focused-tests-post-alias.txt`. The parent's broader suite and local build results are not recast as independent reviewer execution.
 
-Evidence: `independent-milestone-site-loss.svg`, `independent-milestone-site-loss.pptx`, `independent-native-adversarial-results.json`.
+## Evidence hashes and limits
 
-### 4. P2: generic relocation text invents a USA marker for a non-USA event
+`review/sealed-final-artifacts.json` is the exact final artifact identity/mtime inventory, SHA-256 `fe0b8310caa22c5f95a70ed27dffe4d869678707d58da944a650615bb7143763`. `sealed-final-parity.json` SHA-256 is `25f0dbb860fb41648c2f7f40fb78067d584a0977f22dbc46a88c974f06c84d5b`. The final matrix receipt mtime is 2026-10-03T05:04:10Z and SHA-256 `e0c571d2fbf85b528422debb30d757001b15671c260674e2d194a5b5538e3ad6`.
 
-`locked-407f-export.js:405` selects the USA asset for any title matching `relocat`, `moved`, `citizen` or `immigra`, regardless of country. The independent `Moved to Canada` fixture produces `data-founder-usa-flag-asset-sha256` and a USA flag, and passes the completeness gate and real PPTX generation.
+The receipt is not a visual verdict for all 20 cases. M20 was not visually inspected in this bounded four-fixture review; its dense-layout sendability remains unaccepted here even if a mechanical gate passes. No real student facts, universal overflow guarantee, native application compatibility, provider delivery or deployment were accepted. Media tests use synthetic data and an inert renderer stub; load-failure tests inject rasterizer warnings. The actual exported four-fixture PNG/PDF/PPTX files provide separate real artifact evidence.
 
-Smallest correction: require explicit confirmed USA destination/citizenship context before assigning the USA asset. Otherwise use the authorized generic milestone treatment. Add Canada and non-USA citizenship cases.
+Reviewer evidence index: `review/sealed-evidence-index.json`, SHA-256 `40169b936fb09fae5cff66ee82b786897d1d9d160bad02fdd6a825da755f0a7e`. The report is sealed after the following artifact inventory; no further work is authorized by this report.
 
-Evidence: `independent-non-usa-relocation.svg`, `independent-non-usa-relocation.pptx`, adversarial results.
-
-### 5. P2: a schema-valid stored scene can silently lose authored non-event objects
-
-`editor/scene-graph.js:186-188` retains only stored scene objects of type `event`; it rebuilds text/media/elements solely from compatibility arrays. A supported, valid scene containing an authored text object, with no legacy text replica, renders without that text and passes export. No recovery error occurs. The probe's `SYNTHETIC_SCENE_ONLY_AUTHORED` remains in saved input and is absent from SVG.
-
-This is a saved-document boundary finding. I have not shown that ordinary current UI saving creates such a document. The accepted schema nevertheless treats it as valid and the serializer silently drops its authored content.
-
-Smallest correction: detect scene objects with no compatibility representation and preserve them, or fail closed with the existing recoverable-layout error. Do not silently rebuild a materially different scene.
-
-Evidence: `independent-scene-only-text.svg`, adversarial script/results.
-
-## Additional boundary observation
-
-An event with normalized coordinates but `datePrecision: UNKNOWN` and raw wording `date unavailable` displays `2/22 - 8/23` and passes export. `source-date-wording.js` handles YEAR, SEASON and VAGUE_RANGE but falls through for UNKNOWN. This is a synthetic persisted-input boundary probe; ordinary ingestion reachability was not demonstrated. Reject inconsistent normalized/unknown data or preserve uncertainty. Evidence: `independent-unknown-precision.svg` and results.
-
-## Artifact inspection and limitations
-
-- The actual M01 browser PNG and golden PNG were visually inspected. The candidate retains recognizable template furniture, but empty photo/interview placeholders remain exported. Contract policy for absent furniture is undefined; I do not invent a removal policy or call these artifacts sendable.
-- Actual M01 and F01 saved PPTX files were structurally inspected. Each has one 20 by 11.25 inch slide and six image parts; M01 has 41 native text shapes, F01 has 31. Text and shapes are editable in OOXML. This does not prove native Keynote edit behavior, crops, font resolution or visual fidelity.
-- Native font sizes are converted by `.75` in `editable-pptx.js:94`: the M01 title is 27 pt, arrow labels 13.5 pt, years 17.25 pt, against contract values described as 36/18/23 pt. Relative pixel proportions may explain the conversion. Reconcile literal native sizes versus proportional canvas scaling during parent-owned native acceptance; do not blindly change the conversion based only on this review.
-- Golden PNG uses Display P3 while the browser PNG is untagged. `independent-color-samples.json` records different raw swatch pixels, but those values are not a color-managed comparison and are not asserted to be the native fill values. Native fill matching remains unverified.
-- A reviewer MuPDF raster attempt did not preserve the SVG background/typography and was discarded. It supplies no product evidence.
-- No browser interactions, native opening, provider calls, live authorization tests or production acceptance were performed. No claim of whole-product privacy completeness or release readiness is made.
-
-## Reproduction and evidence
-
-From the worktree root:
-
-```sh
-node .timeline-recovery-20261002/template-locked/independent-adversarial.mjs
-```
-
-The script creates synthetic SVG/PPTX cases and result JSON under the allowed ignored folder. Seven independent scenarios differ from the existing 20-case fixture matrix. Three real PPTX cases pass structural export validation while retaining the identified defects.
-
-Focused command run:
-
-```sh
-node --test packages/mission-timeline/tests/d1-023-active-preview-recovery.test.mjs packages/mission-timeline/tests/d1-023-date-uncertainty.test.mjs packages/mission-timeline/tests/d1-023-export-completeness.test.mjs packages/mission-timeline/tests/d1-023-guardian-readiness.test.mjs packages/mission-timeline/tests/d1-023-presentation-scene-safety.test.mjs packages/mission-timeline/tests/d1-023-text-layout.test.mjs packages/mission-timeline/tests/d1-024-template-density.test.mjs packages/mission-timeline/tests/d1-024-template-lock.test.mjs
-```
-
-Result: 51 tests passed, zero failed. Log: `independent-focused-tests.log`. This is regression evidence, not visual/product acceptance. `independent-final-source-check.json` records the 371-file final drift check. `independent-evidence-manifest.json` binds report and evidence SHA-256 values.
-
-Sealed independently; stop after report. No commit authorized or created.
+| Final artifact | SHA-256 |
+|---|---|
+| M01-png-1920x1080.png | `5119a0dd9d5a741f4509e21396dd3efce253e5ad0a5968f166599794bc699fef` |
+| M01-png-2560x1440.png | `46f86d1248547a54312a84e7c2c4286b8c85c679ed491a38fcd580f79d6cf81a` |
+| M01-pdf-letter-landscape.pdf | `c212fdecc435a97de5aef1ddeee57eb9dc273031188ae40ba195c7ea774e62d7` |
+| M01-pdf-a4-landscape.pdf | `4dd18b2ae46f9ab7c74d4cc239580b060e27b351e716f2ccbb672378fdc16a0e` |
+| M01-pptx-editable.pptx | `6523b88bdab5fe51c53dee860e8d7cc9e9751abde46c8ecd1e3a73b0023370f9` |
+| M02-png-1920x1080.png | `51b58970dbbc71554dfaf17dc2c30cc5935660f4e69c201ba6622a8a12a68f74` |
+| M02-png-2560x1440.png | `995186212fc95674601be063a9f779c27109922c991f4443e72fd7a493c71845` |
+| M02-pdf-letter-landscape.pdf | `4c0d3a4263fc1427cbb6040516093adc84df6dc29dd31ac3c24f04959cd66353` |
+| M02-pdf-a4-landscape.pdf | `6d2cb338991602a153b4e879e08fb6b0ee4add4930c96b2f5ca2e17a4a9d22b5` |
+| M02-pptx-editable.pptx | `4066a67eacefa361b6cd13e4c0db2a46d4667c9b27d1e79cd667720949bb6304` |
+| M03-png-1920x1080.png | `9f236efb0fc82bc880437efe3ec83ef23e9cc8681b2c93c4b4c936f9097208d4` |
+| M03-png-2560x1440.png | `469940401f42a3728037360bf399d005ad9c202ec9d72086ce00c24873fdc7da` |
+| M03-pdf-letter-landscape.pdf | `581ce76384eeb65ca71f31f26435cbe00423cddb2b6a1b4d0dc646aa4f455db7` |
+| M03-pdf-a4-landscape.pdf | `a6bb46a45aea440ee0353f2064b55fef8877f3650b0af1641a457d161950c1d2` |
+| M03-pptx-editable.pptx | `a09efd466019eeba26c2edd28da5265203aeb39937c116d41829f71e2895fbe9` |
+| M06-png-1920x1080.png | `7a36937bac2f3eac21c9f3b10953225cc20d00c0f7bf28a79b09d864364c2f7a` |
+| M06-png-2560x1440.png | `cc0d281d5bcac512fb9fe03119af574de176230c80109b0e7e74c9cb34bbd170` |
+| M06-pdf-letter-landscape.pdf | `7a9338823e4f4d19a5046768e5001d60b090afb8dcc9a0ffe6d7c2c1ff19d314` |
+| M06-pdf-a4-landscape.pdf | `936f5cbae17fddf43679c74e0c2fd3e4a8c7bab38e809465313a1a330f4ce113` |
+| M06-pptx-editable.pptx | `165c04232ce9fc00370f945a62ad6ef8e63e00b2901cd2442b8f7ef7b12ed8cb` |
