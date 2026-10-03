@@ -70,6 +70,7 @@ test('actual HTTP bootstrap rejects cross-origin and missing nonce', async () =>
 test('gateway generates only its server credential, pins origin and suppresses cookies', async () => {
   const { response, json } = await post('/interviewiq/api/commands', { type: 'synthetic-command', requestId: randomUUID() });
   assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-security-policy'), "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; media-src 'self' blob:; worker-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
   assert.equal(json.forwarded.url, 'https://interviewiq-production.up.railway.app/api/commands');
   assert.equal(json.forwarded.gatewayMatched, true);
   assert.equal(json.forwarded.authorizationPresent, true);

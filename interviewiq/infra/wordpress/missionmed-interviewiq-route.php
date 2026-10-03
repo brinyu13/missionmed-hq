@@ -121,7 +121,7 @@ function mmiiqg_asset($release, $relative) {
 
 function mmiiqg_security_headers() {
     mmiiq_private_headers();
-    header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; font-src 'self'; media-src 'self' blob:; worker-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+    header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; media-src 'self' blob:; worker-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
     header('Permissions-Policy: microphone=(self), camera=()');
     header('X-Frame-Options: DENY');
     header('Cross-Origin-Resource-Policy: same-origin');
