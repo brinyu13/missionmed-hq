@@ -35,8 +35,10 @@ function event(id,visibilityState="INTERVIEWER_SAFE"){
     title:id,
     categoryId:"education",
     eventType:"duration",
-    startDate:"2021-01",
-    endDate:"2025-05",
+    // These tests isolate export audience/delivery; dense overlapping geometry
+    // is covered by the matrix and must fail the final artifact gate.
+    startDate:id==="safe-two"?"2025-01":id==="advisor-one"?"2023-01":"2021-01",
+    endDate:id==="safe-two"?"2025-05":id==="advisor-one"?"2023-05":"2021-05",
     visibilityState
   };
 }

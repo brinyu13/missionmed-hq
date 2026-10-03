@@ -5,6 +5,7 @@ import {renderLastGoodBuilderPreview,clearLastGoodBuilderPreview} from '../web/j
 import {timelineLastGoodRenderCache} from '../web/js/presentation/last-good-render-cache.js';
 import {createEmptySceneGraph,synchronizeAdvancedSceneDocument} from '../web/js/editor/scene-graph.js';
 import {serializeFounderPresentation as render,assertCompleteFounderPresentation as gate} from '../web/js/presentation/founder-presentation-serializer.js';
+import {FOUNDER_2025_MATRIX} from './fixtures/founder-2025-matrix.mjs';
 import {resolveFounderPresentationSvg} from '../web/js/presentation/resolved-founder-presentation.js';
 import {analyzeTimelineQuality} from '../web/js/uxr-002/quality-guardian.js';
 const event=(extra={})=>({id:'event',title:'Clinical Analyst',siteName:'Synthetic Polar Hospital',categoryId:'work',eventType:'duration',startDate:'2022-02',endDate:'2023-08',visibilityState:'INTERVIEWER_SAFE',...extra});
@@ -56,4 +57,10 @@ test('adjacent personal phases cannot override independently locked lanes',()=>{
  const nodes=resolveFounderPresentationSvg(r.svg).nodes;
  const y=id=>nodes.find(n=>n.semanticRef===id&&n.kind==='path'&&!n.lineOnly&&n.bounds.height>10).bounds.y;
  assert.notEqual(y('first'),y('second'));assert.equal(r.scene.arrows.find(a=>a.id==='first').lane,1);assert.equal(r.scene.arrows.find(a=>a.id==='second').lane,4);
+});
+
+test('long overlapping chronology cannot export arrows hidden behind template furniture',()=>{
+ const d=FOUNDER_2025_MATRIX.find(f=>f.id==='M06').document;
+ assert.throws(()=>gate(render(d)),e=>e.code==='TIMELINE_EXPORT_TEXT_COLLISION');
+ assert.ok(analyzeTimelineQuality(d).findings.some(f=>f.code==='PRESENTATION_TEXT_COLLISION'&&f.severity==='BLOCK_EXPORT'));
 });

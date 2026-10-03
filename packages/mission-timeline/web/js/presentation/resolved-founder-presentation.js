@@ -151,7 +151,7 @@ export function visibleFounderPresentationTitle(svgOrResolved){
 }
 
 // Final-artifact gate: intentional layering inside one event or furniture group
-// is allowed. Text touching another event or mounted card is not readable.
+// is allowed. Material text and event shapes cannot be hidden by another group.
 // Uses oriented bounds, matching the existing collision engine's SAT test.
 export function materialPresentationCollisions(resolved){
   const polygon=({x,y,width,height,rotation=0})=>{
@@ -172,7 +172,7 @@ export function materialPresentationCollisions(resolved){
     !(n.kind==='path'&&(n.lineOnly||n.style.fill==='none'||n.bounds.width<1||n.bounds.height<1)))
     .map(n=>({...n,paintOrder:resolved.nodes.indexOf(n),polygon:polygon(n.occlusionBounds||n.bounds)}));
   const found=new Map();
-  for(const text of parts.filter(n=>n.kind==='text'))for(const other of parts){
+  for(const text of parts.filter(n=>n.kind==='text'||(n.role==='event'&&n.kind==='path'&&!n.lineOnly&&n.style.fill!=='none')))for(const other of parts){
     if(text.role!=='event'&&(other.paintOrder<=text.paintOrder||other.groupId===text.groupId))continue;
     if(other.kind!=='text'&&(other.style.fill==='none'||other.style.fill==='transparent'||Number(other.style['fill-opacity']??1)===0))continue;
     if(text.groupId===other.groupId||other.groupId==='furniture:axis'||

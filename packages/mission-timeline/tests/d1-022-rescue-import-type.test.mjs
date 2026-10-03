@@ -11,6 +11,10 @@ test('actual RT012 Rescue with stale CV upload guess records current Rescue in d
   const doc=JSON.parse(bytes),beforeEvents=structuredClone(doc.events),state=hydrateIntakeState(doc.intake,{existingEvents:doc.events});
   assert.equal(state.detectedType,'CV');assert.equal(state.file.timelineRescue,true);assert.equal(state.extraction.parser.effectiveType,'TIMELINE_RESCUE');
   assert.equal(state.candidates.length,9);const cv=structuredClone(state.lastAcceptedCvImport);assert.equal(cv.documentType,'CV');
+  // Rescue left this publication unclassified: model the required human correction
+  // before expecting all nine suggestions to merge. Never infer the category on reload.
+  const unclassified=state.candidates.find(c=>!c.categoryId);assert.ok(unclassified);
+  unclassified.categoryId='research';unclassified.fields={...unclassified.fields,categoryConfirmed:true};
   for(const c of state.candidates)c.decision='merge';
   const machine=new IntakeStateMachine({initialState:state,existingEvents:doc.events,narrationDelay:null,clock:fixed}),versions=[];
   await machine.approveAccepted({saveVersion:async(name)=>versions.push(name),applyBatch:async batch=>applyApprovalBatchToDocument(doc,batch)});
