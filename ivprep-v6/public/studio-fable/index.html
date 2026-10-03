@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en" data-app="ivoc-fable51-production-candidate">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="ivoc-candidate" content="fable51-integration-donor-20261002">
+<title>IV Prep On-Call · MissionMed</title>
+<link rel="stylesheet" href="/iv-prep-on-call/assets/studio-fable/styles/foundation.css">
+<link rel="stylesheet" href="/iv-prep-on-call/assets/studio-fable/styles/app.css">
+<link rel="stylesheet" href="/iv-prep-on-call/assets/studio-fable/styles/room.css">
+<!-- Silero VAD vendor globals are injected the same way production does (vad-silero.mjs expects globalThis.vad). Real-engine mode only. -->
+<script src="/iv-prep-on-call/assets/vendor/vad-web/0.0.30/ort.min.js" defer></script>
+<script src="/iv-prep-on-call/assets/vendor/vad-web/0.0.30/bundle.min.js" defer></script>
+</head>
+<body data-mode="app">
+<a class="skip" href="#main">Skip to content</a>
+<div class="shell">
+  <!-- Founder amendment A: compact StoryForge-family LEFT RAIL. Hidden in the live Interview Room. -->
+  <nav class="rail-nav" id="rail-nav" aria-label="Application" data-open="false">
+    <a class="brand" href="#/home" aria-label="IV Prep On-Call home"><strong>IV Prep <span>On-Call</span></strong><small>MissionMed Matrix</small></a>
+    <ul class="rail-list">
+      <li><a class="rail-item" href="#/home" data-route="home"><i>⌂</i><span>Home</span></a></li>
+      <li><a class="rail-item" href="#/practice" data-route="practice"><i>⌁</i><span>Practice an Answer</span></a></li>
+      <li><a class="rail-item" href="#/mock" data-route="mock"><i>▣</i><span>Mock Interview</span></a></li>
+      <li><a class="rail-item" href="#/prepare" data-route="prepare"><i>◇</i><span>Prepare for a Program</span></a></li>
+      <li><a class="rail-item" href="#/review" data-route="review"><i>▲</i><span>Review &amp; Improve</span></a></li>
+    </ul>
+    <div class="rail-sep" role="presentation"></div>
+    <ul class="rail-list rail-utility">
+      <li><a class="rail-item" href="#/devices" data-route="devices"><i>⌖</i><span>Devices &amp; Calibration</span></a></li>
+    </ul>
+    <div class="rail-foot">
+      <div class="identity"><span class="identity-mark" id="identity-initials">·</span><span class="identity-text"><strong id="identity-name">Connecting…</strong><span id="identity-sub">checking account</span></span></div>
+      <details class="rail-advanced"><summary>Advanced</summary><a href="#/progress" data-route="progress">Progress</a><a href="/iv-prep-on-call/advanced/#newsession">Application &amp; context</a><a href="/iv-prep-on-call/advanced/#vault">Answer Library</a><a href="/iv-prep-on-call/advanced/#mentor" data-admin-link hidden>Admin, student review &amp; Live Mock Studio</a></details>
+    </div>
+  </nav>
+  <header class="mobile-bar" id="mobile-bar">
+    <button class="menu-toggle" type="button" id="menu-toggle" aria-label="Open navigation" aria-expanded="false" aria-controls="rail-nav">☰</button>
+    <a class="brand" href="#/home"><strong>IV Prep <span>On-Call</span></strong></a>
+    <span class="mobile-ident" id="identity-mobile">·</span>
+  </header>
+  <main class="view" id="main" tabindex="-1"></main>
+</div>
+<script type="module" src="/iv-prep-on-call/assets/studio-fable/app/main.mjs"></script>
+</body>
+</html>

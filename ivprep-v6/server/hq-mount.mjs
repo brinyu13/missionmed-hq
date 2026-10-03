@@ -181,6 +181,9 @@ function staticFile(pathname) {
   // /iv-prep-on-call/legacy/ for comparison and rollback, but it is no longer what the
   // hosted route serves.
   if (pathname === PRODUCT_PREFIX || pathname === `${PRODUCT_PREFIX}/`) relativePath = 'studio/index.html';
+  // Preserve the current deep capability/Admin surfaces during Fable convergence.
+  else if (pathname === `${PRODUCT_PREFIX}/advanced` || pathname === `${PRODUCT_PREFIX}/advanced/`) relativePath = 'studio/index.html';
+  else if (pathname === `${PRODUCT_PREFIX}/candidate` || pathname === `${PRODUCT_PREFIX}/candidate/`) relativePath = 'studio-fable/index.html';
   else if (pathname === `${LIVE_ANALYTICS_PREFIX}/`) relativePath = 'live-analytics/index.html';
   else if (pathname.startsWith(`${LIVE_ANALYTICS_PREFIX}/`)) relativePath = `live-analytics/${pathname.slice(`${LIVE_ANALYTICS_PREFIX}/`.length)}`;
   else if (pathname === `${PRODUCT_PREFIX}/legacy` || pathname === `${PRODUCT_PREFIX}/legacy/`) relativePath = 'aaa/index.html';

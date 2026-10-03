@@ -1,0 +1,133 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {beginMeasurementEpoch} from '../../public/studio-fable/app/adapters/engine-adapter.mjs';
+import {GptLiveInterviewer} from '../../public/studio-fable/app/adapters/live-adapter.mjs';
+import {SessionController} from '../../public/studio-fable/app/controller/session-controller.mjs';
+import {DurableStudioSession} from '../../public/studio/durable-session.mjs';
+import {LiveAnalyticsMediaBridge} from '../../public/live-analytics/media-bridge.mjs';
+import {bindSubject} from '../../public/studio-fable/app/state.mjs';
+if(!globalThis.CustomEvent)globalThis.CustomEvent=class extends Event{constructor(type,init={}){super(type);this.detail=init.detail;}};
+globalThis.document={hidden:false,addEventListener(){},removeEventListener(){},getElementById(){return null;}};
+const deferred=()=>{let resolve;const promise=new Promise(r=>{resolve=r;});return{promise,resolve};};
+test('actual bridge/pipeline retains clock across rehearsal, abandonment and recording',()=>{
+  let now=100;const bridge=new LiveAnalyticsMediaBridge({now:()=>now});const pipeline=bridge.ensureAnalytics();
+  pipeline.beginAnswer();const clock=bridge.sessionClock;let timingStarts=0;
+  const real={bridge,pipeline,video:{},transcript:{stop(){}},projector:{reset(){}},behavior:{reset(){},beginInterview(){}},startTranscriptTiming(){timingStarts++;}};
+  now=5000;beginMeasurementEpoch(real);assert.equal(bridge.sessionClock,clock);assert.ok(pipeline.answer);
+  pipeline.abandonAnswer('leave_calibration');now=7000;beginMeasurementEpoch(real);
+  assert.equal(bridge.sessionClock,clock);assert.ok(pipeline.answer,'re-entry restarts sampling answer');
+  now=8000;beginMeasurementEpoch(real,{mediaStartedAt:7900});
+  assert.equal(bridge.sessionClock,clock);assert.equal(pipeline.session.active.mediaStartedAtMs,7800);
+  assert.equal(timingStarts,3);pipeline.destroy();
+});
+for(const delayed of ['native','api'])test('stop during '+delayed+' import never starts a provider',async()=>{
+  const wait=deferred();let starts=0;
+  class Native{async start(){starts++;}async stop(){}}
+  const live=new GptLiveInterviewer({account:{},LiveInterviewSessionCtor:delayed==='api'?Native:null,
+    moduleLoader:async path=>{if(path.includes(delayed==='native'?'live-interview':'api-client'))await wait.promise;return path.includes('live-interview')?{LiveInterviewSession:Native}:{};}});
+  const connecting=live.connect({openingQuestion:'Question'});await live.stop();wait.resolve();
+  await assert.rejects(connecting,/cancelled/);assert.equal(starts,0);assert.equal(live.live,null);
+});
+test('stop during native start tears down the published owner and rejects late completion',async()=>{
+  const wait=deferred();let stops=0;
+  class Native{async start(){await wait.promise;}async stop(){stops++;}}
+  const live=new GptLiveInterviewer({account:{apiClient:{}},LiveInterviewSessionCtor:Native});
+  const connecting=live.connect({openingQuestion:'Question'});await live.stop();wait.resolve();
+  await assert.rejects(connecting,/cancelled/);assert.equal(stops,1);assert.equal(live.live,null);
+});
+test('obsolete device startup cannot overwrite a newer READY owner',async()=>{
+  const wait=deferred();let factories=0;const engines=[];
+  const c=new SessionController({engineFactory:async()=>{const n=++factories;const e={stream:{},destroyed:false,
+    async start(){if(n===1)await wait.promise;},destroy(){this.destroyed=true;}};engines.push(e);return e;}});
+  c.account={mode:'REAL',subject:'wp:1'};c.durable={ready:true};c.video={};c.audioElement={};
+  const first=c.acquire();await Promise.resolve();await c.release('cancelled');const second=await c.acquire();
+  assert.equal(c.phase,'READY');wait.resolve();await assert.rejects(first,/cancelled/);
+  assert.equal(c.phase,'READY');assert.equal(c.engine,second);assert.equal(second.destroyed,false);
+  assert.equal(await c.acquire(),second);assert.equal(factories,2);
+});
+test('obsolete lazy engine result is never published or started',async()=>{
+  const wait=deferred();let starts=0;const c=new SessionController({engineFactory:async()=>{await wait.promise;return{start:async()=>{starts++;},destroy(){}};}});
+  c.account={mode:'REAL',subject:'wp:1'};c.durable={ready:true};c.video={};c.audioElement={};
+  const acquiring=c.acquire();await c.release('cancelled');wait.resolve();await assert.rejects(acquiring,/cancelled/);
+  assert.equal(starts,0);assert.equal(c.engine,null);assert.equal(c.phase,'IDLE');
+});
+test('preflight device replacement must drain before recording or replacement capture',async()=>{
+  const wait=deferred();let starts=0;const c=new SessionController();
+  c.engine={stream:{},switchDevice:()=>wait.promise,destroy(){}};c.phase='READY';
+  c.startOwnedSession=async()=>{starts++;};
+  const changing=c.switchDevice('camera','selected-camera');
+  await assert.rejects(c.startSession({mode:'practice'}),/device change.*finishing/);
+  const rejected=assert.rejects(changing,/cancelled/);
+  await c.release('left_preflight');
+  await assert.rejects(c.acquire(),/device change.*finishing/);
+  wait.resolve({});await rejected;assert.equal(c.deviceSwitchOperation,null);assert.equal(starts,0);
+  c.engine={stream:{}};c.phase='LIVE';
+  await assert.rejects(c.switchDevice('camera','selected-camera'),/before recording/);
+});
+test('cancelled durable preparation drains before replacement recording can start',async()=>{
+  const wait=deferred();let creates=0,abandoned=0;
+  const api={bootstrap:async()=>({entitlement:{admitted:true}}),createSession:async()=>{creates++;if(creates===1)await wait.promise;return{id:'session-'+creates};},
+    abandonSession:async()=>{abandoned++;return{};}};
+  const durable=new DurableStudioSession({api,recordingFactory:()=>({startedAt:100,start:async()=>true,destroy(){}})});await durable.bootstrap();
+  const stream={getAudioTracks:()=>[{kind:'audio'}]},engine=()=>({stream,beginSession:async()=>{},destroy(){}});
+  const c=new SessionController({mixFactory:()=>null});c.account={subject:'wp:1'};c.durable=durable;c.engine=engine();c.phase='READY';
+  const first=c.startSession({mode:'practice',question:{question_id:'CORE-01',canonical_text:'Question'},interviewSet:[],wizard:{},targetQuestions:1});
+  await c.release('cancelled');c.engine=engine();c.phase='READY';
+  await assert.rejects(c.startSession({mode:'practice'}),/previous.*closing/);
+  wait.resolve();await assert.rejects(first,/cancelled/);assert.equal(abandoned,1);assert.equal(c.phase,'READY');assert.equal(durable.accountSession,null);
+  await c.startSession({mode:'practice',question:{question_id:'CORE-01',canonical_text:'Question'},interviewSet:[],wizard:{},targetQuestions:1});
+  assert.equal(c.phase,'LIVE');assert.equal(durable.accountSession.id,'session-2');assert.equal(c.durableActive,true);
+});
+test('release and cancelled-start cleanup both drain before replacing the shared Durable owner',{timeout:3000},async t=>{
+  const begin=deferred(),abandon=deferred();let creates=0,abandons=0;const destroyed=[];
+  const api={bootstrap:async()=>({entitlement:{admitted:true}}),createSession:async()=>({id:'session-'+(++creates)}),
+    abandonSession:async()=>{abandons++;await abandon.promise;return{};}};
+  let recorders=0;
+  const durable=new DurableStudioSession({api,recordingFactory:()=>{const id=++recorders;return{startedAt:100,start:async()=>true,destroy(){destroyed.push(id);}};}});
+  await durable.bootstrap();const stream={getAudioTracks:()=>[{kind:'audio'}]};
+  const c=new SessionController();c.account={subject:'wp:1'};c.durable=durable;
+  c.engine={stream,beginSession:()=>begin.promise,destroy(){}};c.phase='READY';
+  const input={mode:'practice',question:{question_id:'CORE-01',canonical_text:'Question'},interviewSet:[],wizard:{},targetQuestions:1};
+  const first=c.startSession(input);const failed=assert.rejects(first,/cancelled/);
+  for(let tick=0;!c.durableActive&&tick<100;tick++)await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(c.durableActive,true,'recording must reach the paused measurement boundary');
+  t.diagnostic('initial recording started');
+  const releasing=c.release('cancelled');
+  for(let tick=0;!abandons&&tick<100;tick++)await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(abandons,1,'release must begin durable cleanup');
+  t.diagnostic('release cleanup is waiting');
+  c.engine={stream,beginSession:async()=>{},destroy(){}};c.phase='READY';begin.resolve();
+  await new Promise(resolve=>setImmediate(resolve));
+  await assert.rejects(c.startSession(input),/previous.*closing/);
+  assert.equal(creates,1);assert.equal(abandons,1);
+  abandon.resolve();await releasing;await failed;
+  t.diagnostic('both old operations drained');
+  assert.equal(c.phase,'READY');assert.equal(abandons,1,'duplicate cleanup must not abandon twice');
+  await c.startSession(input);assert.equal(durable.accountSession.id,'session-2');
+  assert.ok(durable.recorder);assert.equal(c.phase,'LIVE');assert.equal(c.durableActive,true);
+  assert.deepEqual(destroyed,[1],'old cleanup must not destroy the replacement recorder');
+});
+function saveHarness({failEvidence=false,failPersistence=false}={}){
+  const writes=[];let seals=0;
+  const api={bootstrap:async()=>({entitlement:{admitted:true}}),createSession:async()=>({id:'f13869aa-2b3e-4b65-9f66-1288fb459444'}),
+    saveResults:async(id,envelope)=>{writes.push(envelope);if(failPersistence&&writes.length===1)throw new Error('temporary_save_failure');return{};}};
+  const durable=new DurableStudioSession({api,recordingFactory:()=>({startedAt:100,start:async()=>true,
+    stopAndSeal:async()=>{seals++;return{recording:{id:'recording-1',status:'saved'},recordingDurationMs:1000};},destroy(){}})});
+  const c=new SessionController();c.account={subject:'wp:1'};c.durable=durable;
+  c.engine={finish:async()=>{if(failEvidence)throw new Error('evidence_failure');return{analytics:{schema:'missionmed.ivprep.analytics.session.v1',events:[],durationMs:1000}};},destroy(){}};
+  bindSubject('wp:1');return{c,durable,writes,seals:()=>seals};
+}
+test('evidence-seal failure cannot retry into a saved analytics:null attempt',async()=>{
+  const h=saveHarness({failEvidence:true});await h.durable.bootstrap();await h.durable.start({stream:{}});h.c.durableActive=true;
+  const result=await h.c.finishSession({record:{samples:[],events:[]}});
+  assert.equal(result.persisted,false);assert.equal(h.c.lastSave.retryable,false);
+  assert.equal(await h.c.retrySave(),null);assert.equal(h.writes.length,0);assert.equal(h.c.phase,'SAVE_FAILED');
+});
+test('persistence retry retains measured evidence and exact sealed recording',async()=>{
+  const h=saveHarness({failPersistence:true});await h.durable.bootstrap();await h.durable.start({stream:{}});h.c.durableActive=true;
+  const record={samples:[],events:[],questionText:'Question'};await h.c.finishSession({record});
+  assert.equal(h.c.lastSave.retryable,true);const saved=await h.c.retrySave();
+  assert.equal(saved.persisted,true);assert.equal(h.seals(),1);
+  assert.deepEqual({...h.writes[1],capturedAt:h.writes[0].capturedAt},h.writes[0]);
+  assert.equal(h.writes[1].analytics.schema,'missionmed.ivprep.analytics.session.v1');assert.equal(h.c.phase,'SAVED');
+});

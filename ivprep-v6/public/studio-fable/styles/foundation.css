@@ -1,0 +1,125 @@
+/* IVOC Fable 5.1 Dream Experience — design tokens.
+   StoryForge/Matrix-family premium grammar (navy night world, cream ink, gold reserved for the one primary action
+   and for the success lock) with a simulator instrument identity (cyan/teal/violet traces, Rajdhani numerics).
+   Rules that are load-bearing:
+     - Gold is the ONE primary action per screen and the success lock. Never decoration.
+     - Green only for in-corridor states. Amber = needs attention. Red = hardware fault only.
+     - UNAVAILABLE is always the literal word, never a blank or a zero.
+     - Nothing below 11px. Motion communicates state only. */
+
+@font-face { font-family: Archivo; src: url('/iv-prep-on-call/assets/studio/astra-fonts/archivo-normal.7150c0ec5ad3.woff2') format('woff2'); font-style: normal; font-weight: 100 900; font-display: swap; }
+@font-face { font-family: Archivo; src: url('/iv-prep-on-call/assets/studio/astra-fonts/archivo-italic.e1989a572737.woff2') format('woff2'); font-style: italic; font-weight: 100 900; font-display: swap; }
+@font-face { font-family: Lora; src: url('/iv-prep-on-call/assets/studio/astra-fonts/lora-normal.6b102ab35aa1.woff2') format('woff2'); font-style: normal; font-weight: 400 700; font-display: swap; }
+@font-face { font-family: Lora; src: url('/iv-prep-on-call/assets/studio/astra-fonts/lora-italic.3d536d49566e.woff2') format('woff2'); font-style: italic; font-weight: 400 700; font-display: swap; }
+@font-face { font-family: Rajdhani; src: url('/iv-prep-on-call/assets/studio/astra-fonts/rajdhani-500.4745b75b6e92.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+@font-face { font-family: Rajdhani; src: url('/iv-prep-on-call/assets/studio/astra-fonts/rajdhani-600.35f7e628ec8e.woff2') format('woff2'); font-weight: 600; font-display: swap; }
+@font-face { font-family: Rajdhani; src: url('/iv-prep-on-call/assets/studio/astra-fonts/rajdhani-700.7597c31a957a.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+
+:root {
+  --bg: #060a12;
+  --bg2: #0a1020;
+  --s1: #0d1526;
+  --s2: #121c30;
+  --s3: #19253c;
+  --s4: #223150;
+  --line: #243149;
+  --edge: #35466a;
+  --ink: #f6f1e7;
+  --ink2: #cfd6e4;
+  --dim: #8e9bb3;
+  --faint: #5f6c86;
+
+  --gold-a: #ff7a3d;
+  --gold-b: #ffc15d;
+  --gold: linear-gradient(92deg, var(--gold-a), var(--gold-b));
+  --gold-flat: #ffb84d;
+  --cream: #f7efd8;
+
+  --ok: #2fbf63;
+  --warn: #ffa928;
+  --bad: #e5484d;
+  --cyan: #39d6ff;
+  --teal: #2fe7b0;
+  --violet: #a696ff;
+  --ice: #9fd8ff;
+
+  --housing: linear-gradient(180deg, #141d38, #0c1224);
+  --bevel: inset 0 1px 0 #ffffff1a, inset 0 -2px 0 #00000066, 0 24px 60px #000a;
+  --recess: inset 0 6px 24px #000c;
+  --chamfer: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+  --chamfer-sm: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+
+  --font-display: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+  --font-editorial: 'Lora', Georgia, serif;
+  --font-num: 'Rajdhani', ui-monospace, monospace;
+
+  --e-fast: 160ms cubic-bezier(.2, .8, .2, 1);
+  --e-page: 280ms cubic-bezier(.25, .9, .25, 1);
+  --e-snap: 90ms cubic-bezier(.3, .9, .4, 1);
+
+  --focus-ring: 0 0 0 2px #ffffff, 0 0 0 5px rgba(57, 214, 255, .55);
+  --topbar-h: 60px;
+  --rail-w: 232px;
+  --rail-w-compact: 72px;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 15px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+a { color: inherit; }
+a.btn, .goal, .goal-tile, .brand, a.q-row, .devices-link, .evidence a { text-decoration: none; }
+img { display: block; max-width: 100%; }
+[hidden] { display: none !important; }
+:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 6px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Type ramp — nothing under 11px. */
+.t-kick { font: 800 11px/1.2 var(--font-display); letter-spacing: .18em; text-transform: uppercase; color: var(--dim); }
+.t-kick.gold { color: var(--gold-flat); }
+.t-hero { font: 800 italic clamp(30px, 4vw, 48px)/1.02 var(--font-display); letter-spacing: -.01em; text-transform: uppercase; }
+.t-hero em { font-style: italic; color: var(--gold-flat); }
+.t-h2 { font: 800 italic 24px/1.08 var(--font-display); text-transform: uppercase; letter-spacing: .01em; }
+.t-h3 { font: 800 16px/1.2 var(--font-display); letter-spacing: .02em; }
+.t-edit { font: 400 16px/1.55 var(--font-editorial); color: var(--ink2); }
+.t-edit-lg { font: 400 19px/1.5 var(--font-editorial); color: var(--ink); }
+.t-label { font: 700 11.5px/1.3 var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+.t-num { font-family: var(--font-num); font-variant-numeric: tabular-nums; font-weight: 700; }
+.t-tech { font: 600 12px/1.3 var(--font-num); letter-spacing: .06em; color: var(--dim); }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 20px; border-radius: 10px; font-weight: 700; letter-spacing: .02em; transition: transform var(--e-fast), background var(--e-fast), box-shadow var(--e-fast); white-space: nowrap; }
+.btn:active { transform: translateY(1px); }
+.btn-primary { background: var(--gold); color: #1a1206; clip-path: var(--chamfer-sm); border-radius: 0; box-shadow: 0 10px 30px rgba(255, 170, 70, .25); padding: 0 24px; }
+.btn-primary:hover { filter: brightness(1.05); }
+.btn-secondary { background: var(--s3); border: 1px solid var(--edge); color: var(--ink); }
+.btn-secondary:hover { background: var(--s4); }
+.btn-quiet { color: var(--ink2); background: transparent; border: 1px solid transparent; }
+.btn-quiet:hover { border-color: var(--line); color: var(--ink); }
+.btn-danger { background: transparent; border: 1px solid #7a3338; color: #ffb3b6; }
+.btn-lg { min-height: 54px; font-size: 16px; padding: 0 30px; }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+
+/* Housings */
+.housing { background: var(--housing); box-shadow: var(--bevel); border-radius: 14px; border: 1px solid #ffffff10; }
+.recess { background: #080d19; box-shadow: var(--recess); border-radius: 10px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; min-height: 24px; padding: 0 9px; border-radius: 999px; font: 700 11px/1 var(--font-display); letter-spacing: .1em; text-transform: uppercase; border: 1px solid var(--line); color: var(--ink2); background: #ffffff08; }
+.chip.ok { border-color: #2fbf6355; color: #8fe7ad; }
+.chip.warn { border-color: #ffa92855; color: #ffcb7a; }
+.chip.bad { border-color: #e5484d66; color: #ff9ea1; }
+.chip.cyan { border-color: #39d6ff55; color: #9ae9ff; }
+.chip.gold { border-color: #ffb84d66; color: #ffd68a; }
+.chip.fixture { border-color: #a696ff77; color: #cdc3ff; background: #a696ff14; }
+.unavail { font: 700 11px/1 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: #ffcb7a; background: repeating-linear-gradient(135deg, #ffa92822 0 6px, transparent 6px 12px); padding: 4px 8px; border-radius: 6px; border: 1px dashed #ffa92866; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+}

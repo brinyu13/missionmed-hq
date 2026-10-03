@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-10-02 America/New_York
+Updated: 2026-10-03 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`, `DR-350` (narrow packaging), `DR-361` (current RISE eligibility successor); `DR-340` QA grant revoked
 Branch: `codex/ivoc-foreman-9200`
@@ -13,6 +13,45 @@ present in the active source lineage but has not yet passed acceptance against
 the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
+
+### Current Fable-to-production convergence — 2026-10-03
+
+- **IN PROGRESS, approximately 30% of this integration run; not final acceptance.**
+  Winning donor `e88e799fac61885baae26686e4e7da0b65e4330b` is ported to
+  `public/studio-fable/` through stable adapters to the existing engine. The
+  142-row capability map remains required; advanced capabilities retain their
+  existing protected surface at `/advanced/`. Additive `/candidate/` is the
+  canary route; the current product root remains unchanged pending acceptance.
+- Implemented: one capture/native interviewer/recorder owner; distinct readiness
+  and live room; real calibration and preflight device selection; real instrument
+  rails/Flight Recorder; fresh own-subject history, Results/full Analytics,
+  private Film Room, canonical Retry/Compare and current question governance.
+  No fixture engine, browser speech, external TTS or synthetic applicant data is
+  used by the active candidate import graph. Bounded scalar trace is additional
+  derived evidence, not another canonical transcript or raw landmark store.
+- Independent source review cleared acquisition/import/cleanup races and fresh
+  account/subject gates. Focused regression now covers cancellation drain,
+  device-switch/start exclusion, retained exact save retry, no analytics-null
+  saves, scope refresh, stale signing, governed corpus and unique bounded seeks.
+  92 affected lifecycle/media tests PASS. Four unchanged historical static
+  `analytics/media-devices.test.mjs` assertions look for the old in-page audio
+  graph in `studio.mjs`; those fail on the unchanged source baseline. Actual
+  media-bridge/liveness and two-sided recording tests PASS; this is not physical
+  or audible POV acceptance. No historical failure is silently marked fixed.
+- Lease renewal diagnosis: system Python 3.9.6 rejects valid provider timestamps
+  with five fractional digits. Pure parser reproduction confirmed this; installed
+  Python 3.14.6 accepts equivalent instants under the unchanged strict OS client.
+  Old PRODUCT leases were released normally. Current keeper uses Python 3.14,
+  exact logical scope, unchanged fencing/TTL validation and bounded renewal.
+  Provider readback confirms epoch4436/lease9c5ed9e9-844b-45d1-ae00-0eba1c6c0760.
+  No OS authority, DB, provider configuration or production source was rewritten.
+- Current live rollback remains `a5985ddb-3b63-4765-801c-e15a0b27e9a9`, source
+  `91c4877d5a598cf84876596ca3f880e011f4665d`, image/artifact recorded below.
+  Fresh Chrome normal Matrix entry shows genuine wp:1 Founder/Admin and own
+  saved history; that does not establish new-candidate media acceptance.
+- Next executable action: clean source commit/non-force push/readback, DR-350
+  filtered artifact validation, fresh SHARED deployment lease, additive canary,
+  then actual UI journeys and fix-forward. No candidate is LIVE VERIFIED yet.
 
 - **Founder live-POV override, 2026-10-02: recovery LIVE; candidate-question stall reopened fix-forward.**
   Founder confirms physical camera/mic and native multi-turn AI entry work;
