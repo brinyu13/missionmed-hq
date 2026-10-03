@@ -1,4 +1,4 @@
-import {serializeFounderPresentation,assertCompleteFounderPresentation} from '../presentation/founder-presentation-serializer.js';
+import {serializeFounderPresentation,assertCompleteFounderPresentation,normalizePresentationVisibility} from '../presentation/founder-presentation-serializer.js';
 import {installMonthFields,monthFieldMarkup} from "./month-field.js";
 import {installFocusTrap} from "./responsive.js";
 import {
@@ -250,7 +250,7 @@ export function filterEventsForAudience(events,audience=DEFAULT_EXPORT_AUDIENCE)
   const source=Array.isArray(events)?events:[];
   const baseVisible=new Set(["INTERVIEWER_SAFE","INTERVIEW_SAFE","FULL_STORY"]);
   const included=source.filter((event)=>{
-    const visibility=String(event?.visibilityState||"INTERVIEWER_SAFE").toUpperCase();
+    const visibility=normalizePresentationVisibility(event?.visibilityState||event?.visibility);
     if(baseVisible.has(visibility))return true;
     if(visibility!=="ADVISOR_ONLY"||!selection.scope)return false;
     const scopes=Array.isArray(event?.fields?.exportAudiences)
@@ -265,7 +265,7 @@ export function filterEventsForAudience(events,audience=DEFAULT_EXPORT_AUDIENCE)
     included:clone(included),
     excludedIds:excluded.map((event)=>String(event?.id||"")).filter(Boolean),
     excludedAdvisorOnlyIds:excluded
-      .filter((event)=>event?.visibilityState==="ADVISOR_ONLY")
+      .filter((event)=>normalizePresentationVisibility(event?.visibilityState||event?.visibility)==="ADVISOR_ONLY")
       .map((event)=>String(event?.id||""))
       .filter(Boolean),
     policy:{

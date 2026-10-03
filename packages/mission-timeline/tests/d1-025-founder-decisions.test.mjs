@@ -167,8 +167,8 @@ test('actual program-facing export boundary excludes private photos before the r
  const {buildExportRequest,buildExportPreviewInput}=await import('../web/js/uxr-002/export-screen.js');
  const {createLocalExportAdapter}=await import('../web/js/uxr-002/export-adapter.js');
  const document=base();
- for(const visibilityState of ['ADVISOR_ONLY','STUDENT_ONLY','HIDDEN']){
-  document.mediaItems=[{id:'private-photo',type:'profilePhoto',visibilityState,resolvedUrl:pixel}];
+ for(const field of ['visibilityState','visibility'])for(const value of ['ADVISOR_ONLY','STUDENT_ONLY','HIDDEN','ADVISOR','STUDENT',' advisor ']){
+  document.mediaItems=[{id:'private-photo',type:'profilePhoto',[field]:value,resolvedUrl:pixel}];
   const before=JSON.stringify(document),request=buildExportRequest(document,{audience:'INTERVIEWER_SAFE'});
   assert.deepEqual(request.renderInput.timeline.mediaItems,[]);
   let painted='';await createLocalExportAdapter({resolveObjectUrl:()=>{throw Error('private asset must not be resolved');},rasterize:async svg=>{painted=svg;return{canvas:{toBlob:cb=>cb(new Blob(['synthetic-test'],{type:'image/png'}))},warnings:[]};}}).generate(request);
@@ -189,4 +189,22 @@ test('image fetch failures stop PNG, PDF and PPTX rather than exporting a missin
   const adapter=createLocalExportAdapter({inlineSvg:async()=>({svg:'unused',warnings:['MEDIA_FAIL_SOFT:broken-photo']}),rasterize:async()=>({warnings:['MEDIA_FAIL_SOFT:broken-photo'],canvas:{toBlob:()=>{throw Error('missing media cannot be encoded');}}})});
   await assert.rejects(()=>adapter.generate(request),e=>e.code==='TIMELINE_EXPORT_MISSING_FIELDS'&&e.fields[0].id==='broken-photo');
  }
+});
+
+
+test('legacy event visibility aliases honor the same public and explicit-recipient boundary',async()=>{
+ const {filterEventsForAudience}=await import('../web/js/uxr-002/export-screen.js');
+ const records=[
+  {id:'advisor',visibility:' advisor '},
+  {id:'student',visibility:'STUDENT'},
+  {id:'hidden',visibility:'HIDDEN'},
+  {id:'safe',visibility:'SAFE'},
+  {id:'full',visibility:'FULL'},
+  {id:'shared',visibility:'ADVISOR',fields:{exportAudiences:['LOR_WRITER']}}
+ ];
+ const projected=filterEventsForAudience(records,'INTERVIEWER_SAFE');
+ assert.deepEqual(projected.included.map(e=>e.id),['safe','full']);
+ assert.deepEqual(projected.excludedAdvisorOnlyIds,['advisor','shared']);
+ assert.deepEqual(filterEventsForAudience(records,'LOR_WRITER').included.map(e=>e.id),['safe','full','shared']);
+ assert.deepEqual(filterEventsForAudience([{id:'conflict',visibilityState:'STUDENT_ONLY',visibility:'SAFE'}]).included,[]);
 });

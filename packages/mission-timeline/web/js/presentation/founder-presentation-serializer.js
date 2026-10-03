@@ -28,7 +28,7 @@ const VISIBLE_BY_SCOPE=Object.freeze({
   LOR_WRITER:new Set(["INTERVIEWER_SAFE","FULL_STORY","ADVISOR_ONLY"])
 });
 
-function visibility(value){
+export function normalizePresentationVisibility(value){
   const normalized=String(value||"INTERVIEWER_SAFE").trim().toUpperCase();
   if(normalized==="VISIBLE"||normalized==="SAFE")return"INTERVIEWER_SAFE";
   if(normalized==="ADVISOR")return"ADVISOR_ONLY";
@@ -69,7 +69,7 @@ export function projectFounderPresentationDocument(document,{scope="INTERVIEWER_
   }
   const normalizedScope=String(scope||"INTERVIEWER_SAFE").toUpperCase();
   const allowed=VISIBLE_BY_SCOPE[normalizedScope]||VISIBLE_BY_SCOPE.INTERVIEWER_SAFE;
-  const events=projectPresentationExamEvents(document).filter(event=>allowed.has(visibility(event?.visibilityState||event?.visibility)));
+  const events=projectPresentationExamEvents(document).filter(event=>allowed.has(normalizePresentationVisibility(event?.visibilityState||event?.visibility)));
   const visibleEventIds=new Set(events.map(event=>String(event.id)));
   const fields=projectPresentationFields(document,{allowed,visibleEventIds});
   return{
@@ -79,7 +79,7 @@ export function projectFounderPresentationDocument(document,{scope="INTERVIEWER_
     events:projectPresentationEventFields(events,fields),
     exams:fields.exams,
     mediaItems:(document.mediaItems||[]).filter((item)=>allowed.has(
-      visibility(item?.visibilityState||item?.visibility)
+      normalizePresentationVisibility(item?.visibilityState||item?.visibility)
     )),
     metadata:{...(document.metadata||{})}
   };
