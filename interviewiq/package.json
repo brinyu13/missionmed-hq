@@ -1,0 +1,20 @@
+{
+  "name": "@missionmed/interviewiq",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node server/app.mjs",
+    "build": "node scripts/build-ui.mjs",
+    "test": "node --test tests/unit/*.test.mjs",
+    "test:postgres": "bash scripts/run-postgres-tests.sh"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.1095.0",
+    "jose": "6.2.4",
+    "pg": "8.22.0"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "approvedPrototypeSha256": "9c6db6695507a9e6d300f01ced31150c380f2bc8d951f148139f5bb7df5d9718",
+  "assets": {
+    "index.html": "d7419095b18428f550c4accd4a04b45350654b2178fe3d39da0170f2a1f10f0f",
+    "styles.css": "ae4196e482d1e632914a1c0c9b260454a47391afe7f0bb61dfd17ba27837d64b",
+    "app.js": "be5f26a655c7dda8b8c0accf705fd981d563030c8a5fa20e200d12601f36d74d"
+  }
+}

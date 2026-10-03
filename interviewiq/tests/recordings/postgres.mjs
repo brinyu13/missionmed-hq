@@ -1,0 +1,59 @@
+// Real isolated PostgreSQL only. Never accepts provider URLs.
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+import {randomUUID,randomInt,createHash} from 'node:crypto';
+import {createDatabase} from '../../server/db.mjs';
+import {syncActor} from '../../server/records.mjs';
+import {createPostgresRecordingStore,createRecordingsService} from '../../server/recordings.mjs';
+import {audioObjectKey} from '../../server/storage.mjs';
+const connectionFile=process.env.IIQ_RECORDING_TEST_CONNECTION;
+assert.match(connectionFile||'',/^\/tmp\/iiq-pg18\.[A-Za-z0-9]+\/connection\.json$/);
+const connections=JSON.parse(fs.readFileSync(connectionFile,'utf8'));
+const url=new URL(connections.databaseUrl);assert.equal(url.pathname,'/iiq_test');assert.ok(url.searchParams.get('host').startsWith('/tmp/iiq-pg18.'));
+assert.equal(connections.syntheticOnly,true);assert.equal(connections.unixSocketOnly,true);
+const database=createDatabase({databaseUrl:connections.databaseUrl});await database.verifyRuntimeRole();
+const wpBase=randomInt(1000000,2000000000);
+const actors=Object.fromEntries(['student','other','mentor','admin'].map((name,index)=>[name,{id:randomUUID(),wpUserId:wpBase+index,role:name==='other'?'student':name,tier:name==='student'||name==='other'?'360':name==='mentor'?'assigned_mentor':'admin',eligible:true,assignments:[],displayName:'SYNTHETIC RECORDING TEST '+name,zone:'UTC'}]));
+actors.mentor.assignments=[actors.student.id];
+const interviewId=randomUUID(),otherInterview=randomUUID();
+const audio=Buffer.concat([Buffer.from('1a45dfa3','hex'),Buffer.alloc(40,2)]),sha256=createHash('sha256').update(audio).digest('hex');
+let passed=0,providerCalls=0,storageCalls=0;
+async function check(name,fn){try{await fn();console.log(`ok ${++passed} - ${name}`);}catch(error){console.error(`not ok - ${name}: ${error.code||error.name} ${error.message}`);throw error;}}
+const tx=(actor,fn)=>database.withActor(actor,fn,{write:true});
+const store=createPostgresRecordingStore({database});
+const objects=new Map();
+const storage={configured:true,prefix:'interviewiq-test-recordings',async put({objectKey,body}){storageCalls++;objects.set(objectKey,Buffer.from(body));},async get({objectKey}){if(!objects.has(objectKey))throw Error('Missing audio');return objects.get(objectKey);}};
+const transcription={async transcribeSegment(){providerCalls++;return {text:'RAW_PROVIDER_RESULT: I did not say yes.',providerId:'openai',modelId:'gpt-4o-transcribe',latencyMs:7};}};
+const bootstrap=actor=>database.withActor(actor,async db=>({actor:{id:actor.id},state:{debriefs:(await db.query('SELECT edited_text FROM iiq.debriefs WHERE owner_id=$1',[actor.id])).rows},version:0}));
+const service=createRecordingsService({store,storage,transcription,bootstrap});
+const context={revalidateActor:async()=>actors.student};
+const payload=(seq=0)=>({segmentId:randomUUID(),seq,contentType:'audio/webm;codecs=opus',audioBase64:audio.toString('base64'),durationMs:4000});
+function reservePayload(id,seq){const segmentId=randomUUID();return {segmentId,seq,mimeType:'audio/webm',durationMs:4000,sha256,byteCount:audio.length,objectKey:audioObjectKey({prefix:storage.prefix,ownerId:actors.student.id,recordingId:id,segmentId,seq,contentType:'audio/webm'})};}
+try{
+  for(const actor of Object.values(actors))await tx(actor,db=>syncActor(db,actor));
+  for(const [actor,id]of [[actors.student,interviewId],[actors.other,otherInterview]])await tx(actor,async db=>{await db.query("INSERT INTO iiq.interviews(id,owner_id,status,confirmed_occurred) VALUES($1,$2,'completed',true)",[id,actor.id]);await db.query("INSERT INTO iiq.debriefs(owner_id,interview_id,occurrence,edited_text) VALUES($1,$2,'happened','PRIVATE_EDITED_CANARY')",[actor.id,id]);});
+  let first;const requestId=randomUUID();
+  await check('create uses current owner and happened debrief',async()=>{first=await service.create(actors.student,{interviewId,requestId,mimeType:'audio/webm;codecs=opus'});assert.equal(first.status,'listening');assert.equal(first.nextSeq,0);});
+  await check('replayed create returns one durable session',async()=>{const second=await service.create(actors.student,{interviewId,requestId,mimeType:'audio/webm'});assert.equal(second.recordingId,first.recordingId);const {rows:[r]}=await tx(actors.student,db=>db.query('SELECT count(*)::integer AS n FROM iiq.recording_sessions WHERE client_session_key=$1',[requestId]));assert.equal(r.n,1);});
+  await check('cross-owner interview cannot create a recording',()=>assert.rejects(service.create(actors.student,{interviewId:otherInterview,requestId:randomUUID(),mimeType:'audio/webm'}),e=>e.status===404));
+  for(const name of ['other','mentor','admin'])await check(`${name} cannot read student recording`,()=>assert.rejects(service.status(actors[name],first.recordingId),e=>[403,404].includes(e.status)));
+  const data=payload();
+  await check('complete segment stores actual provider text separately from edited account',async()=>{const r=await service.segment(actors.student,first.recordingId,data,context);assert.equal(r.segment.status,'complete');assert.equal(r.segment.text,'RAW_PROVIDER_RESULT: I did not say yes.');assert.equal(r.bootstrap.state.debriefs[0].edited_text,'PRIVATE_EDITED_CANARY');});
+  await check('completed replay creates no duplicate storage/provider/transcript',async()=>{await service.segment(actors.student,first.recordingId,data,context);assert.equal(providerCalls,1);assert.equal(storageCalls,1);const r=await store.status(actors.student,first.recordingId);assert.equal(r.chunks.length,1);});
+  await check('changed segment UUID with reused sequence fails closed',()=>assert.rejects(service.segment(actors.student,first.recordingId,payload(0),context),e=>e.code==='recording_segment_reused'));
+  await check('missing earlier sequence fails without reservation',()=>assert.rejects(service.segment(actors.student,first.recordingId,payload(3),context),e=>e.code==='recording_sequence_gap'));
+  await check('pause/resume persists one recording ID',async()=>{assert.equal((await service.action(actors.student,first.recordingId,'pause',{requestId:randomUUID()})).status,'paused');assert.equal((await service.action(actors.student,first.recordingId,'resume',{requestId:randomUUID()})).status,'listening');});
+  let pending,claim;
+  await check('chunk metadata reserves durably before any object exists',async()=>{pending=reservePayload(first.recordingId,1);const r=await store.reserve(actors.student,first.recordingId,pending);assert.equal(r.chunk.status,'pending');assert.equal(objects.has(r.chunk.object_key),false);});
+  await check('unfinished pending chunk prevents finish',()=>assert.rejects(service.action(actors.student,first.recordingId,'finish',{requestId:randomUUID()}),e=>e.code==='recording_pending'));
+  await check('concurrent claim returns one winner',async()=>{const results=await Promise.all([store.claim(actors.student,first.recordingId,1),store.claim(actors.student,first.recordingId,1)]);assert.equal(results.filter(Boolean).length,1);claim=results.find(Boolean);assert.ok(await store.claimValid(actors.student,claim));});
+  await check('stale claim recovery produces a new fence and rejects old completion',async()=>{const recovery=createPostgresRecordingStore({database,clock:()=>Date.now()+100000});const newer=await recovery.claim(actors.student,first.recordingId,1);assert.ok(newer);assert.notEqual(String(newer.version),String(claim.version));assert.equal(await store.complete(actors.student,claim,{text:'STALE_RESULT',providerId:'openai',modelId:'gpt-4o-transcribe',latencyMs:1}),false);assert.equal(await store.claimValid(actors.student,claim),false);claim=newer;});
+  await check('new fence can commit only one immutable matching raw segment',async()=>{assert.equal(await store.complete(actors.student,claim,{text:'RECOVERED_PROVIDER_RESULT',providerId:'openai',modelId:'gpt-4o-transcribe',latencyMs:2}),true);assert.equal(await store.complete(actors.student,claim,{text:'REWRITE',providerId:'openai',modelId:'gpt-4o-transcribe',latencyMs:2}),false);const r=await store.status(actors.student,first.recordingId);assert.equal(r.chunks[1].transcript,'RECOVERED_PROVIDER_RESULT');});
+  await check('finish is durable and idempotent',async()=>{const r=await service.action(actors.student,first.recordingId,'finish',{requestId:randomUUID()});assert.equal(r.status,'completed');assert.equal((await service.action(actors.student,first.recordingId,'finish',{requestId:randomUUID()})).status,'completed');});
+  await check('new audio cannot be appended after finish',()=>assert.rejects(service.segment(actors.student,first.recordingId,payload(2),context),e=>e.code==='recording_not_active'));
+  const next=await service.create(actors.student,{interviewId,requestId:randomUUID(),mimeType:'audio/webm'});
+  await check('cancel fences an in-flight provider result',async()=>{await store.reserve(actors.student,next.recordingId,reservePayload(next.recordingId,0));const inFlight=await store.claim(actors.student,next.recordingId,0);await service.action(actors.student,next.recordingId,'cancel',{requestId:randomUUID()});assert.equal(await store.claimValid(actors.student,inFlight),false);assert.equal(await store.complete(actors.student,inFlight,{text:'CANCELLED',providerId:'openai',modelId:'gpt-4o-transcribe',latencyMs:1}),false);});
+  await check('changed occurrence prevents further provider claims',async()=>{await tx(actors.student,db=>db.query("UPDATE iiq.debriefs SET occurrence='not_happened' WHERE interview_id=$1",[interviewId]));await assert.rejects(service.create(actors.student,{interviewId,requestId:randomUUID(),mimeType:'audio/webm'}),e=>e.code==='recording_context_unavailable');});
+  await check('service never changed edited-account text',async()=>{const {rows:[row]}=await tx(actors.student,db=>db.query('SELECT edited_text FROM iiq.debriefs WHERE interview_id=$1',[interviewId]));assert.equal(row.edited_text,'PRIVATE_EDITED_CANARY');});
+  console.log(`PASS ${passed} recording orchestration assertions against real PostgreSQL; private object/provider doubles only.`);
+}finally{await database.close();}

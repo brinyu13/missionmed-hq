@@ -1,0 +1,283 @@
+'use strict';
+const $=s=>document.querySelector(s);
+const main=()=>document.getElementById('main');
+let noticeTimer=null;
+function notice(msg){ const n=$('#toast'); n.textContent=msg; n.classList.add('show'); n.onclick=()=>n.classList.remove('show'); clearTimeout(noticeTimer); noticeTimer=setTimeout(()=>n.classList.remove('show'), /denied|first|cannot|not |failed|does not exist/i.test(msg)?7000:4200); }
+function btn(act, label, extra='', cls='btn'){ return `<button class="${cls}" data-act="${act}" ${extra}>${label}</button>`; }
+function link(act, label, extra=''){ return `<button class="link" data-act="${act}" ${extra}>${label}</button>`; }
+function chip(text, cls=''){ return `<span class="chip ${cls}">${text}</span>`; }
+function sim(){ return ""; }
+function pulseSVG(i){ const L=lifecycleStage(i); const lab=STAGES.map((st,k)=>st+(L.done.includes(k)?' done':L.now===k?' current':L.block.includes(k)?' blocked':'')).join(', '); return `<div class="lifeline" role="img" aria-label="Lifecycle: ${lab}">${STAGES.map((st,k)=>`<i class="${L.block.includes(k)?'block':L.now===k?'now':L.done.includes(k)?'done':''}" title="${st}"></i>`).join('')}</div>`; }
+function pulseDots(i){ const L=lifecycleStage(i); return `<span class="pulsebadge" aria-hidden="true">${STAGES.map((st,k)=>`<i style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${L.done.includes(k)?'#4ade9d':L.now===k?'#ffb340':'#31405c'}"></i>`).join('')}</span>`; }
+function fmtDateOnly(d){ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(d||''); if(!m) return d; return new Intl.DateTimeFormat('en-US',{timeZone:'UTC',weekday:'short',month:'short',day:'numeric'}).format(new Date(Date.UTC(+m[1],+m[2]-1,+m[3]))); }
+function title(i){ return i.program? P(i.program).name.replace('Fictional ','') : (i.programName||i.unresolved_input||'Unnamed offer'); }
+function metaLine(i){
+  const prog=P(i.program);
+  const when = i.instant? `${fmtInZone(i.instant,i.zone)} <span class="zone">· ${fmtTime(i.instant,F.student_zone)} ${actor.role==='mentor'?'student time':'your time'}</span>` : i.date? `${fmtDateOnly(i.date)} · time not set` : 'Date not yet known';
+  return `${i.program?esc(prog.specialty)+' · '+esc(prog.track):esc(i.track||'Track not supplied')+' · name supplied by you; registry unresolved'} · ${when}`;
+}
+function stateLabel(i){ if(isInactive(i))return ({cancelled:'Cancelled',declined:'Declined',postponed:'Postponed',waitlisted:'Waitlisted',no_show:'Did not take place'})[i.state]; if(!i.program&&!coreOnly()) return 'Identity to confirm'; const db=S.debriefs[i.id]; if(actor.role==='mentor'&&i.preparationStatus?.debrief_state)return i.preparationStatus.debrief_state; if(i.instant&&i.instant<=now()){ if(db?.occurrence==='yes') return db.saved?'Captured':'Capturing'; if(db?.occurrence==='no') return 'Did not take place'; return 'Awaiting your confirmation'; } if(i.instant||i.date) return 'Scheduled'; return 'Offer saved'; }
+function renderIdentify(i){
+  if(coreOnly()||!F.programs.length)return `<h2>Program details</h2><p class="lead">Use the name and track from your invitation. These are your supplied details; registry verification is not active. Saving does not start research.</p><label class="f" for="identity-name">Program name from invitation</label><input id="identity-name" value="${esc(i.programName||i.unresolved_input||'')}" maxlength="500"><label class="f" for="identity-track">Track (optional)</label><input id="identity-track" value="${esc(i.track||'')}" maxlength="300" placeholder="For example, categorical or preliminary"><div class="row" style="margin-top:.75rem">${btn('manual-identity-save','Save program details',`data-id="${i.id}"`)}${btn('open-section','Schedule & details',`data-id="${i.id}" data-section="schedule"`,'btn ghost')}</div>${coreOnly()?comingSoonPanel('Program registry and RISE research'):''}`;
+
+  const cands=identityCandidates(i);
+  const vf=(pid)=>visibleFacts(pid);
+  const card=(p)=>{ const v=vf(p.id); const f=v.facts.find(x=>x.status==='supported'); const sr=f&&source(f.sources[0]); const dup=sameProgramElsewhere(i,p.id); return `<button class="choice" data-act="resolve" data-id="${i.id}" data-program="${p.id}"><b>${esc(p.name.replace('Fictional ',''))}</b>${dup? `<small><span class="chip warn">you already have an interview here (${dup.instant?fmtShort(dup.instant):'date unknown'})</span> Confirm only if this is a second invitation.</small>`:''}<small>${esc(p.specialty)} · <strong>${esc(p.track)}</strong> · ${zoneShort(p.zone)} time</small><small style="margin-top:.4rem">${v.allow? (sr? 'Tells them apart: '+esc(sr.text)+' ('+sr.id+', '+fmtShort(sr.retrieved_at)+')' : 'No supporting source yet') : 'Registry identity only; shared research is not available to you.'}</small></button>`; };
+  let head, body;
+  if(cands.length>=2){ head=`<h2>Which program sent this?</h2><p class="lead">The invitation says “${esc(i.unresolved_input)}”. ${cands.length} programs match. They are not the same place${cands.some(p=>p.track!==cands[0].track)?' and they are different tracks':''}, so InterviewIQ will not guess.</p>`; body=`<div class="grid2">${cands.map(card).join('')}</div>`; }
+  else if(cands.length===1){ head=`<h2>Looks like one program. Confirm it.</h2><p class="lead">The invitation says “${esc(i.unresolved_input)}”. One registry program matches; confirming starts research for it.</p>`; body=`<div class="grid2">${card(cands[0])}</div>`; }
+  else { head=`<h2>No registry match yet.</h2><p class="lead">The invitation says “${esc(i.unresolved_input)}”. Nothing in the program registry matches that name. Choose from the registry if you recognise it, or leave it unresolved; scheduling works either way and research waits.</p>`; body=`<div class="grid2">${F.programs.map(card).join('')}</div>`; }
+  return `${head}<label class="f" for="program-search">Search the program registry</label><input id="program-search" type="search" placeholder="Program, hospital or city"><div id="program-search-results" class="grid2"></div>${body}
+  <p style="margin-top:1rem" class="tiny">Confirming starts one research request for this interview automatically. If you confirm the wrong one, correct it from Schedule & details; the request is retargeted, not duplicated.</p>
+  `;
+}
+/* ---------------- Brief ---------------- */
+function provenance(f){
+  return `<div class="src ${f.status==='supported'?'ok':f.status.startsWith('conflict')?'conf':'unk'}"><b>${esc(f.claim)} <span class="chip ${f.status==='supported'?'ok':f.status==='unknown'?'':'bad'}">${esc(f.status)}</span></b>
+  ${f.sources.length? f.sources.map(source).map(s=>`<div class="src ${s.status==='stale'?'stale':s.status.startsWith('conflict')?'conf':'ok'}" style="margin:.3rem 0"><b>${esc(s.title)}</b>“${esc(s.text)}” — ${esc(s.publisher)}, ${esc(s.location)}<br><code>retrieved ${s.retrieved_at.slice(0,10)} · applies ${esc(s.applies)} · ${esc(s.status)} · ${esc(s.url)}</code></div>`).join('') : '<span class="tiny">No source. Reported as unknown; nothing is inferred from names, photos or other programs.</span>'}</div>`;
+}
+function reviewedReports(programId){ return (S.shared[programId]||[]).filter(r=>!r.retracted); }
+function researchStrip(i, rs){
+  const stateCls={available:'ok',partial:'warn',failed:'bad','provider outage':'bad'}[rs.state]||'sky';
+  return `<div class="panel" style="display:flex;gap:1rem;align-items:flex-start;flex-wrap:wrap;margin-bottom:1rem"><div style="flex:1;min-width:16rem">${chip('Research · '+rs.state, stateCls)} <span class="tiny">${esc(rs.text)}</span></div><div class="row noprint">${['available','partial'].includes(rs.state)? btn('research-refresh','Refresh',`data-id="${i.id}"`,'btn sm sim') : btn('research-refresh','Check / retry',`data-id="${i.id}"`,'btn sm sim')}</div></div>`;
+}
+function lineageDetails(i){ return `<details><summary>Request lineage (yours only)</summary><ul class="hist">${(S.demands[i.id]?.history||[]).map(h=>`<li><time>${fmtStamp(h.at)}</time>${esc(h.state)} — ${esc(h.reason)}</li>`).join('')||'<li class="tiny">No request yet; it starts when the program is confirmed.</li>'}</ul><p class="tiny">${esc(S.demands[i.id]?.id||'no request')} → shared result for ${esc(i.program||'unresolved')}. Other students' requests are never shown.</p></details>`; }
+function sourceDiff(facts){
+  // what changed: newest retrieval vs older applicable sources
+  const items=[];
+  for(const f of facts){ const srcs=f.sources.map(source); if(srcs.length>=2){ const sorted=srcs.slice().sort((a,b)=>a.retrieved_at<b.retrieved_at?-1:1); const o=sorted[0], n=sorted[sorted.length-1]; items.push(`${fmtShort(n.retrieved_at)}: a newer source (“${esc(n.text)}”, applies ${esc(n.applies)}) disagrees with the ${esc(o.applies)} source (“${esc(o.text)}”). Treated as a conflict, not an update.`); } }
+  return items;
+}
+function renderBrief(i){
+  const prog=P(i.program); const rs=researchState(i); const vf=visibleFacts(i.program);
+  const st=storyFor(i.owner); const lg=S.learning[i.owner]; const pname=prog.name.replace('Fictional ','');
+  if(!vf.allow) return `<h2>Shared research is not available to you.</h2><p class="lead">${esc(vf.reason)}.</p>${researchStrip(i,rs)}<p>Your own notes, schedule, rehearsal and day sheet still work; they will not show program facts. ${capabilities.contributions===true? link('nav','See how research access works',`data-to="contribute"`):''}</p>${lineageDetails(i)}`;
+  const facts=vf.facts; const sup=facts.filter(f=>f.status==='supported'), conf=facts.filter(f=>f.status.startsWith('conflict')), unk=facts.filter(f=>f.status==='unknown');
+  if(!['available','partial'].includes(rs.state)) return `<h2>What we know so far</h2><p class="lead">The confirmed program is ${esc(pname)} (${esc(prog.track)}). ${esc(rs.short)} The brief fills in when findings arrive. You can already prepare with your own experience.</p>${researchStrip(i,rs)}
+    <div class="brief"><div class="ans"><h4>Why it matters to you</h4><p>${st? 'Your approved experience — “'+esc(st.text)+'” — is available for preparation now.' : 'No approved experience is in use. Preparation stays general until you allow one in Settings.'}</p></div></div><div style="margin-top:1rem">${lineageDetails(i)}</div>`;
+  const reports=reviewedReports(i.program); const diffs=sourceDiff(facts);
+  const areas=['Identity and tracks','Leadership','Curriculum and rotations','Clinical sites and patient population','Distinctive pathways','Public resident information','Education and simulation','Research and mentorship','Fellowships and published graduate outcomes','Eligibility and visa rules','Published benefits and logistics','Legitimately available interview instructions','Recent changes','Publicly authorized MissionMed connections'];
+  const areaState=a=>a==='Identity and tracks'?'supported — '+prog.track+' track, from the registry release':facts.filter(f=>f.area===a).map(f=>f.status+' — '+f.claim).join('; ')||'unknown — no permitted finding';
+  const known=areas.filter(a=>!areaState(a).startsWith('unknown')).length;
+  const visaUnknown=unk.some(f=>/visa/i.test(f.claim));
+  return `<h2>The brief</h2><p class="lead">Five answers first. Every claim keeps its source and date underneath.</p>${researchStrip(i,rs)}
+  <div class="brief">
+    <div class="ans"><h4>What matters here</h4>${sup.length? sup.map(f=>`<p>${esc(f.claim)}. <small>${f.sources.map(sid=>'“'+esc(source(sid).text)+'”').join(' ')} (${f.sources.join(', ')}, ${fmtShort(source(f.sources[0]).retrieved_at)})</small></p>`).join('') : '<p>No supported fact yet.</p>'}</div>
+    <div class="ans"><h4>Why it matters to you</h4><p>${st? esc(bridge(prog.id, st)) : 'No approved experience is in use, so this answer stays general. Allow one in Settings to make it yours.'}</p>${visaUnknown? '<p><b>Visa sponsorship is unknown for this program.</b> Ask before you invest more preparation; nothing about you is inferred.</p>':''}${lg?.status==='confirmed'? '<p><small>Your confirmed practice goal — '+esc(lg.goal)+' — is carried into every rehearsal for this interview.</small></p>':''}</div>
+    <div class="ans ${conf.length||unk.length?'warn':''}"><h4>What is uncertain</h4>${conf.map(f=>`<p>${esc(f.claim)}: sources disagree (${f.sources.map(sid=>'“'+esc(source(sid).text)+'” '+(source(sid).status==='stale'?'— applies '+esc(source(sid).applies)+', stale':'— applicability unknown')).join('; ')}). Not resolved by majority; ask the program.</p>`).join('')}${unk.map(f=>`<p>${esc(f.claim)}: unknown. No permitted source found; nothing is inferred.</p>`).join('')}${!conf.length&&!unk.length?'<p>No conflicts in the available evidence.</p>':''}<p><small>${facts.length} claim${facts.length===1?'':'s'} researched; ${known} of 14 required areas have findings, ${14-known} remain explicitly unknown (list below).</small></p></div>
+    <div class="ans"><h4>What to use</h4><p>Use: ${sup.map(f=>esc(f.claim)).join('; ')||'nothing yet'}. ${conf.length?'Ask, do not assert: '+conf.map(f=>esc(f.claim)).join('; ')+'. ':''}${unk.length?'Ask, do not infer: '+unk.map(f=>esc(f.claim)).join('; ')+'.':''}</p><div class="row noprint">${btn('open-section','Draft your Why-Program points',`data-id="${i.id}" data-section="why"`,'btn sm')}${btn('open-section','Rehearse the program\'s question',`data-id="${i.id}" data-section="rehearse"`,'btn ghost sm')}</div></div>
+    <div class="ans"><h4>What changed</h4><p>Last refreshed ${S.results[i.program]?.refreshed_at? fmtStamp(S.results[i.program].refreshed_at) : 'unknown'}.</p>${diffs.map(d=>`<p>${d}</p>`).join('')}${S.changes.filter(c=>c.to===i.id&&c.kind==='research').slice(0,2).map(c=>'<p>'+esc(c.text)+'</p>').join('')}
+      ${reports.length? `<p><b>What past applicants reported (reviewed)</b> — ${reports.length} report${reports.length>1?'s':''}, de-identified, labelled as experience not fact:</p>${reports.map(r=>`<p class="src ok">“${esc(r.excerpt)}” <code>experience report · approved ${fmtShort(r.at)} · version ${r.version}</code></p>`).join('')}` : `<p><small>No reviewed applicant report for this program yet. Reports appear here only after permitted use, de-identification and review.</small></p>`}</div>
+  </div>
+  <div style="margin-top:1rem">
+    <details><summary>Every claim and its source</summary>${facts.map(provenance).join('')}<p class="tiny">Official facts, attributed experience and analysis are kept distinct. A reachable URL or several models citing one source do not make a claim supported.</p></details>
+    <details><summary>All 14 research areas</summary><ul class="hist">${areas.map(a=>`<li><b>${a}</b> <span class="tiny">${esc(areaState(a))}</span></li>`).join('')}</ul></details>
+    ${lineageDetails(i)}
+  </div>`;
+}
+/* ---------------- Why ---------------- */
+function whyMatches(i, text){
+  const prog=P(i.program); if(!prog) return [];
+  const sents=(text||'').split(/(?<=[.!?])\s+/);
+  const out=[];
+  for(const f of prog.fact_ids.map(fact)){ if(f.status==='supported') continue; const terms=(f.keywords||f.claim.toLowerCase().split(/[^a-z0-9-]+/).filter(w=>w.length>4)).slice(0,8); const hit=sents.find(sn=>{ const l=sn.toLowerCase(); return terms.some(t=>l.includes(String(t).toLowerCase())) && !/\?\s*$/.test(sn.trim()) && !/^\s*(ask|question|i would ask|i want to ask|could you|do you|is |are |how |does )/i.test(sn.trim()); }); if(hit) out.push({id:f.id, claim:f.claim, status:f.status, sentence:hit.trim()}); }
+  return out;
+}
+function whyWarningHTML(i, text){ const warn=whyMatches(i,text); return warn.length? `<div class="panel rust" style="margin-top:.5rem"><b>Unresolved claim in your draft.</b> ${warn.map(f=>esc(f.claim)+' is '+esc(f.status.split(';')[0])+' — in “'+esc(f.sentence)+'”').join('; ')}. Ask it as a question for the program rather than stating it.</div>` : ''; }
+function renderWhy(i){
+  const prog=P(i.program); const st=storyFor(i.owner); const w=S.why[i.id]||{text:'',basis:null,edited:false}; const vf=visibleFacts(i.program);
+  const sup=vf.facts.find(f=>f.status==='supported');
+  const text=w.text||'';
+  return `<h2>Why this program, in your words</h2><p class="lead">Three things stay separate: what the program says, what you actually did, and the phrasing we suggest. You own the final words.</p>
+  <div class="three">
+    <div class="panel"><h4>Program fact</h4>${!vf.allow? '<p class="tiny">Shared research is not available to you; no program fact is shown.</p>' : sup? `<p>${esc(sup.claim)}</p><small>${sup.sources.join(', ')} · ${fmtShort(source(sup.sources[0]).retrieved_at)} · supported</small>` : '<p>No supported fact yet.</p>'}</div>
+    <div class="panel"><h4>Your approved experience</h4>${st? `<p>${esc(st.text)}</p><small>${esc(st.consent)} · ${link('nav','change in Settings',`data-to="settings"`)}</small>` : `<p>No experience in use.</p><small>Story consent is off. ${link('nav','Allow it in Settings',`data-to="settings"`)}</small>`}</div>
+    <div class="panel amber"><h4>Suggested phrasing</h4>${vf.allow? `<p>${esc(suggestWhy(i).text)}</p><small>A suggestion, never a fact. ${btn('why-suggest','Use this as a starting point',`data-id="${i.id}"`,'btn sm')}</small>` : '<p class="tiny">No suggestion without program facts. Write from your own experience.</p>'}</div>
+  </div>
+  <label class="f" for="why-${i.id}">Your talking points</label>
+  <textarea id="why-${i.id}" data-autosave="why" data-id="${i.id}" placeholder="Write it the way you would say it.">${esc(text)}</textarea>
+  <div id="why-warn-${i.id}" aria-live="polite">${whyWarningHTML(i,text)}</div>
+  <div class="row" style="margin-top:.6rem">${btn('why-save','Save my wording',`data-id="${i.id}"`)}<span class="tiny">${w.edited?'Saved · yours':'Not saved yet'}${w.basis?.fact?' · rests on '+w.basis.fact+(w.basis.story?' and your approved experience':''):''}</span></div>
+  <label class="f" for="q-${i.id}">Questions you want to ask</label>
+  <textarea id="q-${i.id}" placeholder="One per line.">${esc(S.questions[i.id]||'')}</textarea>
+  <div class="row" style="margin-top:.6rem">${btn('questions-save','Save my questions',`data-id="${i.id}"`,'btn quiet')}<span class="tiny">Private. Printed only if you choose.</span></div>`;
+}
+/* ---------------- Rehearse ---------------- */
+function renderRehearse(i){
+  const prog=P(i.program); const st=storyFor(i.owner); const lg=S.learning[i.owner]; const vf=visibleFacts(i.program);
+  const attempts=(S.practice[i.id]||[]).filter(a=>!a.discarded); const a=attempts[attempts.length-1];
+  const sup=vf.facts.find(f=>f.status==='supported');
+  const h=hoursUntil(i);
+  const lastDone=attempts.filter(x=>x.reflection).slice(-1)[0];
+  const stopcue = h!=null && h<=24*7 && attempts.some(x=>x.feedback) && (!a || a.reflection) ? `<div class="panel amber" style="margin-bottom:1rem"><b>Stop researching. Rehearse.</b> ${hoursLabel(h)} and already rehearsed once. A second attempt with one specific change is worth more than another source.</div>` : '';
+  const loopStep = !a||a.reflection? 0 : !a.feedback? 1 : !a.retry? 3 : !a.reflection? 4 : 5;
+  const loop=`<div class="loop" role="list" aria-label="Teaching loop">${['Evidence','Diagnosis','Specific change','Retry','Reflection','Next time'].map((s,k)=>`<div role="listitem" class="${k<loopStep?'done':k===loopStep?'on':''}">${s}</div>`).join('')}</div>`;
+  const ctx=`<details><summary>What the coach receives, and what it never receives</summary><dl class="kv"><dt>Student</dt><dd>${esc(i.owner)}</dd><dt>Interview</dt><dd>${esc(prog.name.replace('Fictional ',''))} · ${esc(prog.track)}</dd><dt>Program fact</dt><dd>${sup?esc(sup.claim):'none visible'}</dd><dt>Your experience</dt><dd>${st?'your consented experience':'none — consent off'}</dd><dt>Practice goal</dt><dd>${lg?.status==='confirmed'?esc(lg.goal):'none confirmed'}</dd><dt>Carried from last time</dt><dd>${esc(a?.basis?.carried||lastDone?.nextChange||lastDone?.change||'nothing yet')}</dd><dt>Never sent</dt><dd>raw debrief speech, private notes, other students, your application</dd></dl><p class="tiny">IV Prep On-Call owns recorded mock practice. Only the context listed above is permitted in the handoff.</p></details>`;
+  const qf=questionFor(prog, st);
+  if(!a || a.reflection){
+    const carry=lastDone?(lastDone.nextChange||lastDone.change):null;
+    return `<h2>Rehearse your program answer</h2><p class="lead">Mechanical wording checks use your current permitted preparation context. They do not verify facts or assess interview readiness.</p>${stopcue}${loop}
+    <div class="panel"><h4>Why this question</h4><p>${sup? esc(sup.claim)+' is the supported fact for this program' : 'No program fact is visible'}${st? '; your consented experience is '+esc(storyDesc(st).short):'; no experience is in use'}${lg?.status==='confirmed'?'; your confirmed goal is “'+esc(lg.goal)+'”':''}. ${qf.adapted? 'This is a general practice question. It is not a claim about what the program will ask.' : 'The question below comes from the current program preparation context.'}</p><p class="q">“${esc(qf.text)}”</p>${qf.adapted?chip(qf.generic?'general practice question':'adapted to your experience','warn'):chip('practice question','ok')}
+    ${carry? `<div class="panel amber" style="margin:.75rem 0"><b>Last time you left one change to try:</b> ${esc(carry)}</div>`:''}
+    <div class="row" style="margin-top:.75rem">${btn('practice-start','Start rehearsal',`data-id="${i.id}" data-program="${i.program}"`)}${btn('ivoc-handoff','Rehearse live in IV Prep On-Call',`data-id="${i.id}"`,'btn sim')}<span class="tiny">recorded mock practice is IV Prep On-Call's</span></div>${(S.ivoc?.[i.id]||[]).length? `<div class="panel sky" style="margin-top:.75rem"><h4>Returned from IV Prep On-Call</h4>${(S.ivoc[i.id]).map(r=>`<p>${fmtStamp(r.at)} · session ${esc(r.session)} · ${esc(r.summary)}<br><small>Learning signal returned: “${esc(r.signal)}” — ${r.accepted?'accepted into your practice goal':'awaiting your confirmation'}</small></p>${r.accepted?'':`<div class="row">${btn('ivoc-accept','Make this my practice goal',`data-id="${i.id}" data-k="${r.id}"`,'btn sm')}${btn('ivoc-dismiss','Not this one',`data-id="${i.id}" data-k="${r.id}"`,'btn ghost sm')}</div>`}`).join('')}</div>`:''}</div>
+    <div style="margin-top:.75rem">${ctx}</div>
+    ${attempts.length? `<details style="margin-top:.5rem"><summary>Past attempts (${attempts.length})</summary>${attempts.map(x=>`<div class="src ${x.reflection?'ok':''}"><b>${fmtStamp(x.at)}</b>${esc((x.retry||x.draft||'').slice(0,160))}${x.reflection?'<br><small>Reflection: '+esc(x.reflection)+' · Next time: '+esc(x.nextChange||x.change||'')+'</small>':''}</div>`).join('')}</details>`:''}
+    `;
+  }
+  let body='';
+  const diagList=(d,which)=>`<ul class="hist">${d.map((x,k)=>`<li><span class="${x.informational?'tiny':x.overruled?'tiny':x.ok?'ok-t':'bad-t'}">${x.informational?'·':x.overruled?'↷':x.ok?'✓':'✗'}</span> ${x.goal?'<b>Your goal · </b>':''}${esc(x.text)}${!x.ok&&x.hits&&x.hits.length&&x.k!=='closing'?' <span class="tiny">(triggered by: '+x.hits.slice(0,3).map(esc).join(', ')+')</span>':''}${x.overruled?' <span class="tiny">(overruled by you)</span>':''}${!x.ok&&!x.informational&&!x.overruled&&which?` <button class="link over" data-act="practice-overrule" data-id="${i.id}" data-which="${which}" data-k="${k}">Overrule this check</button>`:''}</li>`).join('')}</ul>`;
+  if(!a.feedback){
+    body=`<p class="q">“${esc(a.question)}”</p>${a.adapted?chip(a.generic?'general practice question':'adapted to your experience','warn'):chip('practice question','ok')}${a.basis?.carried? `<div class="panel amber" style="margin:.6rem 0"><b>Start from last time:</b> ${esc(a.basis.carried)}</div>`:''}<label class="f" for="draft-${i.id}">Your answer</label><textarea id="draft-${i.id}" data-autosave="draft" data-id="${i.id}" placeholder="Three sentences: the moment, the connection, what you carry forward.">${esc(a.draft)}</textarea>
+    <div class="row" style="margin-top:.6rem">${btn('practice-feedback','Get feedback',`data-id="${i.id}"`)}${a.permission?chip(a.permission,'warn'):''}${btn('practice-cancel','Discard attempt',`data-id="${i.id}"`,'btn ghost sm')}</div>`;
+  } else if(!a.retry){
+    body=`<div class="panel"><h4>Diagnosis of what you wrote</h4>${diagList(a.diagnosis,'diagnosis')}<small>Mechanical checks on your own words, with the words that triggered them. Not a score; not a judgment of you. A false flag is yours to overrule.</small></div>
+    <div class="panel amber" style="margin-top:.75rem"><h4>One specific change</h4><p>${esc(a.change)}</p></div>
+    <p class="tiny" style="margin:.6rem 0 0">What this program's coach emphasises: “${esc(coachEmphasis(P(a.program), storyFor(i.owner)).text)}” <span class="tiny">(${coachEmphasis(P(a.program), storyFor(i.owner)).adapted?'general coaching principle':'program guidance, unchanged'}; it is not about your draft)</span></p>
+    <label class="f" for="retry-${i.id}">Retry with that change</label><textarea id="retry-${i.id}" data-autosave="retry" data-id="${i.id}">${esc(a.retryDraft||a.draft)}</textarea>
+    <div class="row" style="margin-top:.6rem">${btn('practice-retry','Save my retry',`data-id="${i.id}"`)}<span class="tiny">Your first draft is kept. Compare, don't overwrite.</span>${btn('practice-cancel','Discard attempt',`data-id="${i.id}"`,'btn ghost sm')}</div>`;
+  } else {
+    const d2=a.retryDiagnosis||[]; const delta=retryDelta(a);
+    body=`<div class="grid2"><div class="panel"><h4>First draft</h4><p>${esc(a.draft)||'<i>empty</i>'}</p></div><div class="panel moss"><h4>Retry</h4><p>${esc(a.retry)}</p>${diagList(d2,'retryDiagnosis')}</div></div>
+    <div class="panel" style="margin-top:.75rem"><h4>What changed between the two</h4><p>${delta.fixed.length?'Fixed: '+delta.fixed.join(', ')+'. ':'Nothing fixed yet. '}${delta.still.length?'Still open: '+delta.still.join(', ')+'.':'All checks pass.'}</p>${a.nextChange?`<p><b>Next time:</b> ${esc(a.nextChange)}</p>`:''}</div>
+    <h3 style="margin-top:1rem">Reflection</h3><p class="tiny">Your judgment, not ours. It decides what the next rehearsal starts from.</p><div class="chips">${['The change helped','Still unclear','I need another try','The question surprised me'].map(c=>`<button data-act="practice-reflect" data-id="${i.id}" data-v="${esc(c)}">${c}</button>`).join('')}</div><p style="margin-top:.6rem">${btn('practice-cancel','Discard attempt',`data-id="${i.id}"`,'btn ghost sm')}</p>`;
+  }
+  return `<h2>Rehearsal</h2><p class="tiny">Mechanical wording checks · transparent checks on your words, not a factual verification or an IV Prep On-Call assessment.</p>${loop}${body}<div style="margin-top:1rem">${ctx}</div>`;
+}
+/* ---------------- Day ---------------- */
+function renderDay(i){
+  const prog=P(i.program); const st=storyFor(i.owner); const w=S.why[i.id]; const qs=S.questions[i.id]; const ps=S.ui.printSel; const note=persona(i.owner)?.private_note;
+  const vf=visibleFacts(i.program); const facts=vf.facts; const sup=facts.filter(f=>f.status==='supported'), open=facts.filter(f=>f.status!=='supported');
+  const rs=researchState(i);
+  const cancelled=isInactive(i);
+  const h=hoursUntil(i);
+  const printctl=`<div class="printctl noprint"><div class="row" style="justify-content:space-between"><div class="row"><label class="f" style="margin:0;display:inline-flex;gap:.4rem;align-items:center"><input type="checkbox" data-act="essentials" ${S.ui.essentials?'checked':''}> Essentials only</label></div><div class="row">${btn('print','Print / save PDF',`data-id="${i.id}"`)}</div></div>
+  <p class="tiny" style="margin:.5rem 0 .25rem">Choose what goes on paper. Private items are off by default.</p><div class="printsel">${[['story','Approved experience'],['note','Private note'],['points','Why points & questions'],['support','Evidence support page']].map(([k,l])=>`<label><input type="checkbox" data-act="printsel" data-k="${k}" ${ps[k]?'checked':''}> ${l}</label>`).join('')}</div></div>`;
+  return `<h2>Interview day</h2><p class="lead">Everything needed, nothing else. ${h!=null&&h>0?hoursLabel(h)+'.':''}</p>${printctl}
+  <div class="day ${S.ui.essentials?'essentials':''}" id="daysheet">
+    <div class="hero"><div><div class="d">${i.instant? fmtDate(i.instant,i.zone) : i.date? i.date+' · time not set' : 'Date not yet known'}${cancelled?' · CANCELLED':''}</div><div class="time">${i.instant? fmtTime(i.instant,i.zone) : '— : —'}</div><div class="you">${i.instant? fmtTime(i.instant,F.student_zone)+' your time ('+zoneShort(F.student_zone)+') · program time '+zoneShort(i.zone) : 'No start time; nothing is invented.'}</div></div><div><div class="d">${esc(prog.name.replace('Fictional ',''))}</div><div class="you">${esc(prog.specialty)} · ${esc(prog.track)} · ${esc(i.id)}</div>${pulseDots(i)}</div></div>
+    <div class="body">
+      ${cancelled?`<div class="panel rust"><b>This interview is cancelled.</b> The sheet is historical. ${link('open-section','Restore it',`data-id="${i.id}" data-section="schedule"`)}</div>`:''}
+      <div class="join"><b>How you join</b>${i.format?esc(i.format)+' · ':''}<code>${esc(i.joining||'joining details not provided')}</code><div class="tiny" style="margin-top:.35rem">${i.joinVerified? 'Checked by you '+fmtStamp(i.joinVerified)+'.' : 'Not yet checked by you. Open the original invitation and confirm the link and time.'} ${!cancelled? btn('join-verify', i.joinVerified?'Check again':'I checked this',`data-id="${i.id}"`,'btn sm quiet noprint'):''}</div></div>
+      ${renderScheduleWarnings(myInterviews(),i.id)}<div class="cols"><section><h4>Duration & travel</h4><p>${i.duration? i.duration+' minutes' : 'Duration unknown'} · ${i.travel_minutes!=null? 'travel buffer before ~'+i.travel_minutes+' min (your estimate)' : i.format==='virtual'?'no travel (virtual)':'travel time unknown'}</p>${i.related.map(e=>`<p><b>${esc(e.kind)}</b> ${fmtInZone(e.instant,i.zone)} (${fmtTime(e.instant,F.student_zone)} your time), ${e.duration_minutes==null?'duration unknown':e.duration_minutes+' min'}. ${esc(relatedStatus(i,e))}</p>`).join('')}</section>
+      <section><h4>Facts to lean on</h4>${!vf.allow? '<p class="tiny">Shared research is not available to you.</p>' : sup.length? sup.map(f=>`<p>${esc(f.claim)} <small>(${f.sources.join(', ')}, ${fmtShort(source(f.sources[0]).retrieved_at)})</small></p>`).join('') : `<p>${esc(rs.short)} No supported fact yet.</p>`}${open.length?`<p class="tiny">Open: ${open.map(f=>esc(f.claim)+' — '+esc(f.status.split(';')[0])).join('; ')}. Ask; do not assert.</p>`:''}</section></div>
+      <div class="cols ess-hide"><section class="${ps.points?'':'print-exclude'}"><h4>Your Why-Program anchors</h4>${w?.text? `<p>${esc(w.text)}</p>` : `<p class="tiny">No talking points saved yet. ${cancelled?'':link('open-section','Draft them now',`data-id="${i.id}" data-section="why" class="link noprint"`)}</p>`}</section>
+      <section class="${ps.points?'':'print-exclude'}"><h4>Questions you want to ask</h4>${qs? qs.split('\n').filter(Boolean).map(q=>`<p>${esc(q)}</p>`).join('') : '<p class="tiny">None saved.</p>'}</section></div>
+      <div class="cols ess-hide"><section class="${ps.story?'':'print-exclude'}"><h4>Your chosen experience</h4>${st? `<p>${esc(st.text)}</p>` : '<p class="tiny">Consent off; nothing included.</p>'}</section>
+      <section class="${ps.note?'':'print-exclude'}"><h4>Private note</h4><p>${esc(note||'')}</p></section></div>
+      <section class="ess-hide"><h4>Live help during the real interview</h4><p class="tiny">Off. Listening, cues, camera analytics, a phone companion and answer assistance are separately gated experiments and are disabled for actual interviews.</p></section>
+      <div class="fine">${(()=>{const off=[['story','approved experience'],['note','private note'],['points','Why points and questions']].filter(([k])=>!ps[k]).map(x=>x[1]); return off.length? '<span class="print-only">Left off this copy by your choice: '+off.join(', ')+'. · </span><span class="noprint">Will be left off the printed copy: '+off.join(', ')+'. · </span>':'';})()}Generated for ${esc(i.owner)} · as of ${fmtStamp(now())} · zones: program ${esc(i.zone||prog.zone)}, you ${esc(F.student_zone)} · registry ${esc(F.registry_release)} · sources carry their own dates · unknown stays unknown · a printed copy cannot be recalled · this sheet is not permission to use notes during an interview · PRIVATE INTERVIEW WORKSPACE</div>
+    </div>
+  </div>
+  <div class="day support ${ps.support?'':'print-exclude'} noprint-screen" style="margin-top:1rem;${ps.support?'':'display:none'}"><div class="body"><h3>Evidence support page</h3><p class="tiny">${esc(prog.name)} · for ${esc(i.owner)} · page 2 of the day sheet</p>${vf.allow? facts.map(provenance).join('') : '<p class="tiny">Shared research is not available to you.</p>'}<div class="fine">Support page for ${esc(prog.name)} · as of ${fmtStamp(now())}</div></div></div>`;
+}
+
+/* ---------------- Debrief ---------------- */
+function renderEncounterFields(i,db){
+  const f=db.fields,precision=['exact','estimated','unknown','not applicable','prefer not to share'];
+  const select=(id,label,options,value)=>`<label class="f" for="${id}">${label}</label><select id="${id}" data-autosave="structure" data-id="${i.id}">${options.map(x=>`<option value="${esc(x)}" ${x===value?'selected':''}>${esc(x)}</option>`).join('')}</select>`;
+  return `<details style="margin:.8rem 0" open><summary>Actual encounters · individual details</summary><p class="tiny">Count actual interviews, including panels or groups. Socials stay separate. Add one row for each encounter you want to record; a row does not infer a total.</p><label class="f" for="enc-count-${i.id}">Total actual encounters (blank = unknown)</label><input id="enc-count-${i.id}" type="number" min="0" max="100" value="${f.encounter_count??''}" data-autosave="structure" data-id="${i.id}">${select('enc-count-precision-'+i.id,'How certain is the total?',precision,f.encounter_count_precision||'unknown')}
+  ${(f.encounters||[]).map((e,k)=>`<div class="panel pad" style="margin:.5rem 0"><h4>Encounter ${k+1}</h4>${select('enc-format-'+e.id,'Format',['individual','panel','group','unknown','not applicable','prefer not to share'],e.format)}<label class="f" for="enc-roles-${e.id}">People you met (choose all that apply)</label><select id="enc-roles-${e.id}" multiple data-encounter-roles="true" data-autosave="structure" data-id="${i.id}">${['faculty','program director','associate program director','chief resident','residents','coordinator','other','unknown','prefer not to share'].map(r=>`<option ${(e.roles||[]).includes(r)?'selected':''}>${r}</option>`).join('')}</select><label class="f" for="enc-duration-${e.id}">Duration in minutes (blank = unknown)</label><input type="number" id="enc-duration-${e.id}" min="1" max="1440" value="${e.duration_minutes??''}" data-autosave="structure" data-id="${i.id}">${select('enc-precision-'+e.id,'Duration certainty',precision,e.duration_precision)}<div class="row" style="margin-top:.5rem">${btn('encounter-remove','Remove this encounter',`data-id="${i.id}" data-encounter="${e.id}"`,'btn ghost sm')}</div></div>`).join('')}
+  ${btn('encounter-add','Add actual encounter',`data-id="${i.id}"`,'btn ghost sm')}</details>
+  ${[['emphasized_topics','Emphasized topics'],['program_information','Program information learned']].map(([key,label])=>{const value=f[key]||{text:'',certainty:'unknown'};return `<label class="f" for="db-${key}-${i.id}">${label} (your recollection, private)</label><textarea id="db-${key}-${i.id}" data-autosave="structure" data-id="${i.id}">${esc(value.text)}</textarea>${select('db-'+key+'-certainty-'+i.id,'How certain is this recollection?',['recalled','estimated','unknown','not applicable','prefer not to share'],value.certainty)}`;}).join('')}`;
+}
+function renderDebrief(i){
+  const db=getDebrief(i); const prog=P(i.program);
+  if(isInactive(i)) return `<h2>No report for this inactive interview</h2><p class="lead">Cancelled, postponed, declined and no-show interviews never produce a report. ${link('open-section','Restore the schedule',`data-id="${i.id}" data-section="schedule"`)} if that changes.</p>`;
+  if(!i.instant || i.instant>now()) return `<h2>Nothing to report yet</h2><p class="lead">The debrief opens after the scheduled time has passed, and only once you say it happened.</p>`;
+  if(db.occurrence==null) return `<h2>Did the interview happen?</h2><p class="lead">${fmtDate(i.instant,i.zone)} has passed. A passed time is not attendance; nothing is recorded until you answer.</p>
+    <div class="three">${[['yes','Yes, it happened','Two minutes while it is fresh.'],['no','No — postponed, cancelled or missed','Keep the record true. No report.'],['later','Not yet','Ask me again later. Nothing is assumed.']].map(([v,b,s])=>`<button class="choice" data-act="occurrence" data-id="${i.id}" data-v="${v}"><b>${b}</b><small>${s}</small></button>`).join('')}</div>`;
+  if(db.occurrence==='no') return `<h2>Recorded: it did not take place</h2><p class="lead">No report was created. If it was postponed, add the new date in Schedule & details.</p><div class="row">${btn('occurrence','Change my answer',`data-id="${i.id}" data-v="clear"`,'btn ghost')}${btn('open-section','Update schedule',`data-id="${i.id}" data-section="schedule"`,'btn quiet')}</div>`;
+  if(db.occurrence==='later') return `<h2>We will ask again</h2><p class="lead">Dismissed for now. The interview stays “awaiting your confirmation”.</p>${btn('occurrence','Answer now',`data-id="${i.id}" data-v="clear"`,'btn ghost')}`;
+  // capture
+  const sp=db.speech; 
+  const speechBox=`<div class="speech" id="speech-${i.id}" aria-live="polite" aria-label="Raw speech transcription">${db.raw.length? db.raw.map((r,k)=>`<span class="seg ${!r.complete&&sp.status==='live'?'live':''}">${esc(r.text)}</span>`).join('') : '<span class="seg pending">Your transcription appears here as you speak. Your editable account stays separate.</span>'}</div>`;
+  const spState = sp.status==='live'?chip('listening','ok'):sp.status==='paused'?chip('paused','warn'):sp.status==='denied'?chip('microphone denied','bad'):sp.status==='network'?chip('network lost','bad'):sp.status==='background'?chip('app backgrounded','warn'):sp.status==='done'?chip('capture complete','ok'):chip('ready');
+  const chipLabels={individual_count:'Individual conversations',individual_duration:'Each lasted',roles:'Who you met',formats:'Formats',impression:'How it felt'};
+  const chipsRow=(k,opts,multi)=>`<div class="chips" role="group" aria-label="${chipLabels[k]||k}">${opts.map(o=>{ const v=db.fields[k]; const on=multi? (v||[]).includes(o) : v===o; return `<button data-act="field" data-id="${i.id}" data-k="${k}" data-v="${esc(o)}" data-multi="${multi?1:0}" aria-pressed="${on}">${esc(o)}</button>`; }).join('')}</div>`;
+  const exits=`<div class="grid2" style="margin-top:1.25rem">
+    <div class="panel moss"><h3>Keep for yourself</h3><p class="tiny">Private learning. Changes your next rehearsal. Never shared.</p>${renderLearningControls(i.owner, i)}</div>
+    <div class="panel"><h3>Share one sentence, if you want</h3><p class="tiny">Optional. Only a de-identified excerpt goes to review; never raw speech, edits, your story or your name.</p>${renderShareControls(i)}</div></div>`;
+  const prop=db.proposed? `<div class="panel amber" style="margin-top:.75rem"><h4>Proposed structure (from your words, not accepted yet)</h4><dl class="kv"><dt>Individual conversations</dt><dd>${esc(db.proposed.individual_count??'unknown')}</dd><dt>Resident group</dt><dd>${db.proposed.resident_group==null?'unknown':db.proposed.resident_group?'yes':'no'}</dd></dl>${db.proposedConfirmed? chip('confirmed by you','ok') : `<div class="row">${btn('proposal-confirm','Yes, that is right',`data-id="${i.id}"`,'btn sm')}${btn('proposal-reject','No, I will set it myself',`data-id="${i.id}"`,'btn ghost sm')}</div>`}</div>`:'';
+  return `<h2>Give me two minutes while it is fresh.</h2><p class="lead">Say what happened; tap what you remember. Unknown, estimated and “prefer not to say” are real answers. ${chip('occurrence confirmed by you','ok')} ${link('occurrence','Wrong? Change my answer',`data-id="${i.id}" data-v="clear"`)}</p>
+  <div class="grid2"><div>
+    <div class="voiceHead ${sp.status==='live'?'live':''}"><span class="mic" aria-hidden="true">●</span><div><b>${sp.status==='live'?'Listening…':sp.status==='paused'?'Paused':sp.status==='denied'?'Microphone denied':sp.status==='network'?'Network lost':sp.status==='background'?'Backgrounded':sp.status==='done'?'Finished':'Ready to listen'}</b><small>Voice first. Typing is always available. Your microphone is used only while you choose to capture.</small></div></div>
+    <div class="row" style="margin-bottom:.5rem">${btn('speech-start', sp.status==='paused'||sp.status==='background'||sp.status==='network'?'Resume':'Speak',`data-id="${i.id}"`)}${btn('speech-pause','Pause',`data-id="${i.id}"`,'btn ghost')+btn('speech-finish','Finish',`data-id="${i.id}"`,'btn ghost')}${spState}<span class="timer" id="timer-${i.id}">${db.latency.length? 'first text in '+db.latency[0]+' ms':''}</span></div>
+    ${speechBox}
+    ${sp.pausedReason?`<p class="tiny" style="margin-top:.3rem">${esc(sp.pausedReason)}</p>`:''}
+    
+    <label class="f" for="edited-${i.id}">Your account, in your words (never overwritten by speech)</label><textarea id="edited-${i.id}" data-autosave="edited" data-id="${i.id}" placeholder="Edit freely. Resuming speech only adds to the raw box above.">${esc(db.edited)}</textarea>
+    <div class="row" style="margin-top:.5rem">${btn('propose','Propose structure from my words',`data-id="${i.id}"`,'btn ghost sm')}</div>${prop}
+  </div><div>
+    <h4 style="margin-bottom:.3rem">Individual conversations</h4>${chipsRow('individual_count',['1','2','3','4+','unknown','prefer not to say'])}
+    <h4 style="margin:.8rem 0 .3rem">General duration recollection (optional)</h4>${chipsRow('individual_duration',['under 15 min','15–30 min','over 30 min','estimated ~20','unknown','not applicable'])}
+    <h4 style="margin:.8rem 0 .3rem">Who you met</h4>${chipsRow('roles',['faculty','program director','associate program director','chief resident','residents','coordinator','other','unknown','prefer not to share'],true)}
+    <h4 style="margin:.8rem 0 .3rem">Formats</h4>${chipsRow('formats',['individual','panel','group','resident group','social (separate)','unknown'],true)}
+    ${renderEncounterFields(i,db)}
+    <h4 style="margin:.8rem 0 .3rem">Resident social</h4>${chipsRow('social',['attended','skipped','none offered','unknown','prefer not to say'])}
+    <h4 style="margin:.8rem 0 .3rem">Question categories asked</h4>${chipsRow('categories',['why this program','your story','teamwork / handoff','clinical reasoning','conflict','ethics','research','personal','unknown'],true)}
+    <h4 style="margin:.8rem 0 .3rem">Unexpected questions</h4>${chipsRow('unexpected',['none','one','several','unknown'])}
+    <h4 style="margin:.8rem 0 .3rem">Difficult questions</h4>${chipsRow('difficult',['none','one','several','prefer not to say'])}
+    <h4 style="margin:.8rem 0 .3rem">How it felt (your interpretation, not a fact)</h4>${chipsRow('impression',['went well','mixed','rough','prefer not to say'])}
+    <h4 style="margin:.8rem 0 .3rem">Red flags / concerns</h4>${chipsRow('redflags',['none noticed','some','serious','prefer not to say'])}
+    <h4 style="margin:.8rem 0 .3rem">Follow-up</h4>${chipsRow('followup',['thank-you sent','thank-you planned','second look requested','nothing planned','not applicable'],true)}
+    <label class="f" for="narr-${i.id}">Free narrative (optional, private)</label><textarea id="narr-${i.id}" data-autosave="narrative" data-id="${i.id}" placeholder="Anything else, in your words.">${esc(db.narrative||'')}</textarea>
+    <h4 style="margin:.8rem 0 .3rem">Questions you remember</h4>
+    <div class="row qrow"><input id="qsel-${i.id}" type="text" aria-label="Question you remember" placeholder="A question you remember"><select id="qrec-${i.id}" aria-label="How you recall it"><option value="paraphrase">paraphrase</option><option value="exact">exact wording</option></select>${btn('question-add','Add',`data-id="${i.id}"`,'btn sm')}</div>
+    <ul class="hist">${db.questions.map((q,k)=>`<li>“${esc(q.text)}” <span class="tiny">${esc(q.recollection)} · ${esc(q.permission)}</span></li>`).join('')}</ul>
+    <p class="tiny">Questions stay private until you confirm permitted use. Exact wording claimed by you is still labelled as your recollection.</p>
+    <div class="row" style="margin-top:.75rem">${btn('debrief-save', db.saved?'Saved · save again':'Save (resume anytime)',`data-id="${i.id}"`)}${db.saved?chip('saved · private','ok'):chip('draft · private')}<span class="tiny" id="autosave-${i.id}" aria-live="polite">${db.autosavedAt?'Autosaved '+fmtStamp(db.autosavedAt):'Saves after you pause typing'}</span></div>
+  </div></div>${exits}`;
+}
+function renderMentorNotes(studentId){
+  if(actor.role!=='student'||studentId!==actor.id)return '';
+  const priority=S.mentorPriority?.[studentId],nudges=(S.mentorNudges||[]).filter(n=>n.student===studentId);
+  if(!priority&&!nudges.length)return '';
+  return `<div class="panel sky" style="margin-top:.8rem"><h4>From your mentor</h4>${priority?`<p><b>Priority:</b> ${esc(priority.text)}</p>`:''}${nudges.map(n=>`<p>${esc(n.text)} <small>${fmtStamp(n.at)}</small></p>`).join('')}</div>`;
+}
+function renderLearningControls(studentId,i){
+  const lg=S.learning[studentId],mentorNotes=renderMentorNotes(studentId);
+  if(!lg)return `${mentorNotes}<p class="tiny">Choose one observation to carry into your next rehearsal. Nothing is inferred from your face or voice.</p><label class="f" for="goal-${esc(studentId)}">Your practice goal</label><input id="goal-${esc(studentId)}" placeholder="One thing I want to try next time"><div class="row" style="margin-top:.5rem">${btn('learning-propose','Propose this goal',`data-student="${esc(studentId)}"`,'btn sm')}</div>`;
+  return `${mentorNotes}<p>Practice goal: <b>“${esc(lg.goal)}”</b> ${chip(esc(lg.status),lg.status==='confirmed'?'ok':lg.status==='revoked'?'bad':'warn')}</p><p class="tiny">Source: ${esc(lg.source)} · set ${fmtStamp(lg.at)}</p><label class="f" for="goal-${esc(studentId)}">Correct it</label><input id="goal-${esc(studentId)}" value="${esc(lg.goal)}"><div class="row" style="margin-top:.5rem">${lg.status!=='confirmed'?btn('learning-confirm','Confirm',`data-student="${esc(studentId)}"`,'btn sm'):''}${btn('learning-correct','Save correction',`data-student="${esc(studentId)}"`,'btn ghost sm')}${lg.status!=='revoked'?btn('learning-revoke','Revoke',`data-student="${esc(studentId)}"`,'btn ghost sm'):''}</div><label class="f" style="display:inline-flex;gap:.4rem;align-items:center;margin-top:.6rem"><input type="checkbox" data-act="mentor-visible" data-student="${esc(studentId)}" ${lg.mentorVisible?'checked':''} ${lg.status!=='confirmed'?'disabled':''}> Let my assigned mentor see this preparation gap</label>`;
+}
+function renderShareControls(i){
+  const q=S.reviewQueue.find(r=>r.interview===i.id&&!['rejected','retracted'].includes(r.status));
+  if(q)return `<p>Sent to review: “${esc(q.excerpt)}” ${chip(esc(q.status),q.status==='approved'?'ok':'warn')}</p><p class="tiny">Only the reviewed excerpt can reach other entitled students. Retraction removes regenerated copies; paper cannot be recalled.</p>${btn('share-retract','Retract',`data-id="${esc(i.id)}"`,'btn ghost sm')}`;
+  return `<label class="f" for="excerpt-${esc(i.id)}">The exact excerpt you want to share</label><textarea id="excerpt-${esc(i.id)}" placeholder="Write or paste only the sentence you choose to share"></textarea><label class="f" style="display:flex;gap:.4rem"><input type="checkbox" id="permitted-${esc(i.id)}">I confirm I am permitted to share these words.</label><label class="f" style="display:flex;gap:.4rem"><input type="checkbox" id="deid-${esc(i.id)}">I removed names and details that could identify a person.</label><div class="row" style="margin-top:.5rem">${btn('share-send','Send to review',`data-id="${esc(i.id)}"`,'btn sm')}<span class="tiny">Only this excerpt and program enter review. Your account, raw speech, story and private notes remain private.</span></div>`;
+}
+
+/* ---------------- Learned ---------------- */
+function renderLearned(i){
+  const lg=S.learning[i.owner]; const db=S.debriefs[i.id]; const future=myInterviews().filter(x=>x.id!==i.id && x.instant && x.instant>now() && !isInactive(x));
+  return `<h2>What changed because of this interview</h2><p class="lead">One observation, carried forward on purpose.</p>
+  <div class="grid2"><div class="panel moss">${renderLearningControls(i.owner,i)}</div>
+  <div class="panel"><h4>Where it shows up next</h4>${lg?.status==='confirmed'? (future.length? future.map(x=>`<p>${esc(title(x))} (${fmtShort(x.instant)}): the rehearsal context carries “${esc(lg.goal)}”; ${/clos/i.test(lg.goal)?'the diagnosis checks your closing sentence first and the specific change names your goal':'the specific change names your goal'}. ${link('open-interview','Open',`data-id="${x.id}"`)}</p>`).join('') : '<p>No upcoming interview yet; it will apply to the next one you add.</p>') : '<p class="tiny">Nothing changes until you confirm the goal. Revoking removes it from every future rehearsal context.</p>'}
+  <h4 style="margin-top:.8rem">Your report</h4><p class="tiny">${db?.saved? 'Saved privately. '+(db.questions.length)+' question(s), '+Object.keys(db.fields).length+' selections, '+db.raw.length+' raw segments, '+(db.edited?'an edited account':'no edited account')+'.' : 'Not saved yet.'}</p></div></div>
+  <details style="margin-top:1rem"><summary>Later: a consented handoff to RankList IQ</summary><p class="tiny">RankList owns ranking. If you consent, a versioned copy of this interview's logistics and your reviewed learning (never raw speech) could be handed off later, with correction and removal rules. No handoff is sent until an authorized integration is available.</p>${(()=>{const rk=S.rank[i.owner]||{consent:false,version:0}; return `<div class="row">${btn('rank-consent', rk.consent?'Withdraw consent':'Consent to a future handoff (version '+(rk.version+1)+')','','btn ghost sm')}${rk.consent?chip('consented · version '+rk.version,'ok'):chip('no consent')}</div>`;})()}</details>`;
+}
+
+/* ---------------- Schedule ---------------- */
+function renderSchedule(i){
+  const ov=S.ui.sub.overlap; const st=S.ui.sub.sched||{};
+  const date=st.date??(i.date||(i.wall?i.wall.slice(0,10):'')), time=st.time??(i.wall?i.wall.slice(11,16):''), zone=st.zone??(i.zone||P(i.program)?.zone||F.student_zone);
+  return `<h2>Schedule & details</h2><p class="lead">Named zone plus the exact moment. Unknown stays unknown; nothing is rounded into a fact.</p>${renderScheduleWarnings(myInterviews(),i.id)}
+  <div class="grid2"><div>
+    <div class="inline"><div><label class="f" for="sd-date">Date</label><input type="date" id="sd-date" value="${esc(date)}"></div><div><label class="f" for="sd-time">Start time</label><input type="time" id="sd-time" value="${esc(time)}"></div><div><label class="f" for="sd-zone">Program's zone</label><select id="sd-zone">${ZONES.map(z=>`<option ${z===zone?'selected':''}>${z}</option>`).join('')}</select></div></div>
+    <label class="f" style="display:inline-flex;gap:.4rem;align-items:center"><input type="checkbox" id="sd-allday" ${!i.wall&&i.date?'checked':''}> Time not known yet (date only)</label>
+    <div class="inline"><div><label class="f" for="sd-dur">Duration (min, blank = unknown)</label><input type="number" id="sd-dur" min="1" max="1440" value="${i.duration??''}"></div><div><label class="f" for="sd-travel">Travel buffer before (min, your estimate)</label><input type="number" id="sd-travel" min="0" value="${i.travel_minutes??''}"></div><div><label class="f" for="sd-format">Format</label><select id="sd-format">${['','virtual','in person','hybrid','unknown'].map(f=>`<option ${f===(i.format||'')?'selected':''}>${f}</option>`).join('')}</select></div></div>
+    <label class="f" for="sd-join">Joining details / location (from the invitation)</label><input type="text" id="sd-join" value="${esc(i.joining||'')}">
+    ${ov? `<div class="panel amber" style="margin-top:.6rem"><b>${esc(ov.msg)}</b><div class="row" style="margin-top:.4rem">${ov.cands.map((c,k)=>btn('schedule-save','Use '+c.label+' ('+fmtTime(c.instant,'UTC').replace(' UTC','')+' UTC)',`data-id="${i.id}" data-fold="${k}"`,'btn sm')).join('')}</div></div>`:''}
+    ${S.ui.sub.dst? `<div class="panel sky" style="margin-top:.6rem"><b>Daylight-saving check (not saved):</b> ${esc(S.ui.sub.dst)}</div>`:''}
+    <div class="row" style="margin-top:.75rem">${btn('schedule-save','Save schedule',`data-id="${i.id}"`)}${!isInactive(i)?btn('postpone','Postpone',`data-id="${i.id}"`,'btn ghost')+btn('waitlist','Mark waitlisted',`data-id="${i.id}"`,'btn ghost')+btn('cancel','Cancel this interview',`data-id="${i.id}"`,'btn ghost'):btn('restore','Restore previous status',`data-id="${i.id}"`,'btn warn')}</div>
+    
+    <details style="margin-top:.5rem"><summary>Offer details</summary><label class="f" for="of-name">Name on the invitation</label><input type="text" id="of-name" value="${esc(i.unresolved_input||'')}"><label class="f" for="of-track">Track (optional)</label><input id="of-track" value="${esc(i.track||'')}" maxlength="300"><label class="f" for="of-deadline">Scheduling deadline (blank = unknown)</label><input type="date" id="of-deadline" value="${esc(i.deadline||'')}"><label class="f" for="of-program">Program link</label><select id="of-program"><option value="">unresolved</option>${F.programs.map(p=>`<option value="${p.id}" ${p.id===i.program?'selected':''}>${esc(p.name)} · ${p.track}</option>`).join('')}</select><div class="row" style="margin-top:.5rem">${btn('offer-save','Save offer details',`data-id="${i.id}"`,'btn sm')}${btn('disposition','Decline this offer',`data-id="${i.id}" data-v="declined"`,'btn ghost sm')}</div></details>
+  </div><div>
+    <h4>Related events</h4>${i.related.length? i.related.map((e,k)=>{
+      const wall=e.wall||(e.instant?wallString(new Date(e.instant),e.zone||i.zone):e.date||'');
+      return `<div class="panel" style="margin-bottom:.5rem"><b>${esc(e.kind)}</b> ${chip(e.status==='cancelled'?'cancelled':'scheduled',e.status==='cancelled'?'warn':'')} · ${e.instant?fmtInZone(e.instant,e.zone||i.zone):esc(e.date)+' · time not set'} · ${e.duration_minutes==null?'duration unknown':e.duration_minutes+' min'}<p class="tiny" style="margin:.3rem 0">${esc(relatedStatus(i,e))} A social is not an interview encounter.</p>
+      ${e.status==='cancelled'?btn('related-lifecycle','Restore event',`data-id="${i.id}" data-k="${k}" data-action="restore"`,'btn ghost sm'):`<div class="inline"><div><label class="f" for="rel-date-${k}">Event date</label><input type="date" id="rel-date-${k}" value="${esc(wall.slice(0,10))}"></div><div><label class="f" for="rel-time-${k}">Event start (blank = unknown)</label><input type="time" id="rel-time-${k}" value="${esc(wall.slice(11,16))}"></div></div><label class="f" for="rel-zone-${k}">Event timezone</label><select id="rel-zone-${k}">${[...new Set([e.zone||i.zone,...ZONES])].map(z=>`<option ${z===(e.zone||i.zone)?'selected':''}>${esc(z)}</option>`).join('')}</select><label class="f" for="rel-dur-${k}">Event duration (min, blank = unknown)</label><input type="number" min="1" max="1440" id="rel-dur-${k}" value="${e.duration_minutes??''}">${foldSelect('rel-fold-'+k)}<div class="row">${btn('related-save','Save event details',`data-id="${i.id}" data-k="${k}"`,'btn ghost sm')}${btn('related-lifecycle','Cancel event',`data-id="${i.id}" data-k="${k}" data-action="cancel"`,'btn ghost sm')}</div>`}</div>`;
+    }).join('') : '<p class="tiny">None.</p>'}
+    <h4 style="margin-top:1rem">History</h4><ul class="hist">${i.history.slice().reverse().map(h=>`<li><time>${fmtStamp(h.at)}</time><b>${esc(h.what)}</b> ${esc(h.detail)}</li>`).join('')||'<li class="tiny">Supplied as-is; no changes yet.</li>'}</ul>
+    <p class="tiny" style="margin-top:.6rem">Your schedule is saved here. Delivery of reminders or publication to another calendar requires an available authorized integration.</p>
+  </div></div>`;
+}
+
