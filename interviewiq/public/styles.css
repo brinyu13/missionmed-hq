@@ -662,3 +662,5 @@ body[data-admin-preview="true"] main{top:calc(var(--hdr) + 48px)}
 body[data-admin-preview="true"] #advBanner{min-height:48px}
 @media(max-width:860px){body[data-admin-preview="true"] #rail{overflow-x:auto;justify-content:flex-start}body[data-admin-preview="true"] #rail .rtab{display:flex;flex:0 0 auto;min-width:65px}body[data-admin-preview="true"] .viewChip{display:none}.administratorViewSwitch button{font-size:9px;padding:6px 7px}}
 @media(prefers-reduced-motion:reduce){.iiqOpening::before,.iiqOpening .introLogo,.iiqOpening .introCreator,.iiqOpening .introProgram,.iiqOpening .introProduct,.iiqOpening .introSubtitle,.iiqOpening .introStatus{animation:none!important}.iiqOpening{transition:opacity .25s ease,visibility 0s linear .25s}}
+
+body[data-role="admin"] .founderChip,body[data-role="admin"] .roleReadOnly,body[data-admin-preview="true"] .founderChip,body[data-admin-preview="true"] .roleReadOnly{display:none}
