@@ -145,3 +145,19 @@ test('three same-month milestones fit without moving dates, merging labels or ch
  assert.deepEqual(out.scene.composedAxis.segmentWeights.map(x=>x.id),['2022','2023']);
  assert.equal(JSON.stringify(document),before);
 });
+
+
+test('stored media reaches async resolution before the final gate, which still rejects a missing asset',async()=>{
+ const {buildExportRequest}=await import('../web/js/uxr-002/export-screen.js');
+ const {createLocalExportAdapter}=await import('../web/js/uxr-002/export-adapter.js');
+ const {analyzeTimelineQuality}=await import('../web/js/uxr-002/quality-guardian.js');
+ const document=base();document.mediaItems=[{id:'stored-profile',type:'profilePhoto',storagePath:'synthetic-profile.png'}];
+ const request=buildExportRequest(document,{formatId:'png-1920x1080'});
+ const report=analyzeTimelineQuality(document);
+ assert.ok(report.findings.some(f=>f.code==='MEDIA_PENDING_RESOLUTION'));
+ let calls=0,painted='';
+ const adapter=createLocalExportAdapter({resolveObjectUrl:async id=>{assert.equal(id,'stored-profile');calls++;return pixel;},rasterize:async svg=>{painted=svg;return{canvas:{toBlob:cb=>cb(new Blob(['synthetic-test'],{type:'image/png'}))},warnings:[]};}});
+ await adapter.generate(request);assert.equal(calls,1);assert.match(painted,/data-frame-slot="profile" data-media-state="filled"/);
+ const missing=createLocalExportAdapter({resolveObjectUrl:async()=>null,rasterize:async()=>{throw Error('unresolved asset reached rasterizer');}});
+ await assert.rejects(()=>missing.generate(request),e=>e.code==='TIMELINE_EXPORT_MISSING_FIELDS'&&e.fields.some(f=>f.id==='stored-profile'));
+});

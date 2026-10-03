@@ -402,7 +402,7 @@ export function buildExportRequest(document,state={},options={}){
       `Complete the ${renderInput.audience.label} recipient details before exporting.`
     );
   }
-  assertCompleteFounderPresentation(serializeFounderPresentation(renderInput.timeline,renderInput.rendererOptions));
+  assertCompleteFounderPresentation(serializeFounderPresentation(renderInput.timeline,renderInput.rendererOptions),{allowPendingMedia:true});
   const now=options.now||new Date();
   return{
     contract:"D1-UXR-002-EXPORT-REQUEST-V1",
@@ -553,7 +553,7 @@ export function buildExportScreenModel(document,state={},options={}){
     /* Incomplete or malformed profile data blocks export; it must not block app startup. */
   }
   let presentationError=null;
-  if(!empty){try{const input=buildExportPreviewInput(document,normalized);assertCompleteFounderPresentation(serializeFounderPresentation(input.timeline,input.rendererOptions));}
+  if(!empty){try{const input=buildExportPreviewInput(document,normalized);assertCompleteFounderPresentation(serializeFounderPresentation(input.timeline,input.rendererOptions),{allowPendingMedia:true});}
     catch(error){presentationError=String(error?.message||"The timeline cannot be rendered for export yet.");}}
   const theme=THEMES_BY_ID[document?.theme]||THEMES_BY_ID[DEFAULT_THEME_ID];
   const detailsComplete=audienceDetailsComplete(

@@ -276,7 +276,12 @@ function inspectReadability(document,findings){
       basis:QUALITY_GUARDIAN_BASES.SOURCE_FACT,elementIds:omitted.map(item=>item.id),
       message:`${omitted.length} included event${omitted.length===1?' cannot':'s cannot'} appear on the timeline.`,
       recommendation:"Review missing or invalid dates before exporting. No event will be silently omitted.",evidence:{count:omitted.length}});
-    try{assertCompleteFounderPresentation(rendered);}catch(error){
+    const pendingMedia=rendered.scene.mediaProjection?.pendingIds||[];
+    if(pendingMedia.length)add(findings,{section:"READABILITY",code:"MEDIA_PENDING_RESOLUTION",severity:"REVIEW",
+      basis:QUALITY_GUARDIAN_BASES.PRESENTATION,elementIds:pendingMedia,
+      message:"Attached images must load before the final export can be verified.",
+      recommendation:"Preview your images. Export will stop if any attached image cannot be loaded.",evidence:{count:pendingMedia.length}});
+    try{assertCompleteFounderPresentation(rendered,{allowPendingMedia:true});}catch(error){
       if(['TIMELINE_EXPORT_MISSING_FIELDS','TIMELINE_EXPORT_INCOMPLETE'].includes(error.code)&&!omitted.length)
         add(findings,{section:"CHRONOLOGY",code:error.code,severity:"BLOCK_EXPORT",basis:QUALITY_GUARDIAN_BASES.SOURCE_FACT,
           elementIds:error.eventIds||error.fields?.map(field=>field.id)||[],message:error.message,

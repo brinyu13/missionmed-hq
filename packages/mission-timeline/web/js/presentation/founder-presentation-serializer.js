@@ -113,13 +113,13 @@ function photoOrder(item,index){
 }
 
 function mediaProjection(document,resolvedById=new Map()){
-  const projected={profilePhoto:null,logo:null,photos:[],expectedIds:[]};
+  const projected={profilePhoto:null,logo:null,photos:[],expectedIds:[],pendingIds:[]};
   (document.mediaItems||[]).forEach((item,index)=>{
     const role=mediaRole(item);
     if(!role)return;
     projected.expectedIds.push(String(item.id||`${role}-${index}`));
     const source=resolvedById.get(String(item.id))||directMediaSource(item);
-    if(!source)return;
+    if(!source){projected.pendingIds.push(String(item.id||`${role}-${index}`));return;}
     const record={
       id:String(item.id||`${role}-${index}`),
       source,
@@ -362,7 +362,7 @@ export async function serializeFounderPresentationAsync(document,{
 }
 
 // Validate the audience-projected render result, not the count of private source facts.
-export function assertCompleteFounderPresentation(rendered){
+export function assertCompleteFounderPresentation(rendered,{allowPendingMedia=false}={}){
   const omitted=rendered?.scene?.omissions||[];
   if(!omitted.length&&!(rendered?.scene?.events||[]).length){const error=new TypeError('Add at least one event visible to this audience before exporting.');error.code='TIMELINE_EXPORT_EMPTY';throw error;}
   if(omitted.length){
@@ -377,7 +377,7 @@ export function assertCompleteFounderPresentation(rendered){
   const normalized=value=>String(value||'').replace(/\s+/g,' ').trim();
   const missingFields=[];
   const paintedMedia=new Set(paint.nodes.filter(node=>node.kind==='image').map(node=>node.sourceAttributes['data-media-id']).filter(Boolean));
-  for(const id of rendered.scene.mediaProjection?.expectedIds||[])if(!paintedMedia.has(id))missingFields.push({id,field:'media'});
+  for(const id of rendered.scene.mediaProjection?.expectedIds||[])if(!paintedMedia.has(id)&&!(allowPendingMedia&&rendered.scene.mediaProjection.pendingIds.includes(id)))missingFields.push({id,field:'media'});
   const interviewDate=String(rendered.scene.interviewTarget?.date||'').trim();
   const exactInterview=/^(\d{4})-(\d{2})-(\d{2})$/.exec(interviewDate);
   const dayValid=!exactInterview||new Date(Date.UTC(+exactInterview[1],+exactInterview[2]-1,+exactInterview[3])).toISOString().slice(0,10)===interviewDate;
