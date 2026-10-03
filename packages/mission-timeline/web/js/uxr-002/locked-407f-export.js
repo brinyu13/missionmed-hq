@@ -113,13 +113,13 @@ function metrics(scene){
     ...(scene?.flags||[]).map((flag)=>flag.month),
     scene?.interviewMarker?.month
   ].filter(Boolean).map(monthIndex);
-  const firstYear=months.length
+  const firstYear=(months.length
     ?Math.floor(Math.min(...months)/12)
-    :Number(scene?.span?.firstYear)||new Date().getUTCFullYear();
+    :Number(scene?.span?.firstYear)||new Date().getUTCFullYear())-(scene.autoAxisPadding?.before||0);
   const lastCandidate=months.length
     ?Math.floor(Math.max(...months)/12)
     :Number(scene?.span?.lastYear)||firstYear+1;
-  const lastYear=Math.max(firstYear,lastCandidate);
+  const lastYear=Math.max(firstYear,lastCandidate)+(scene.autoAxisPadding?.after||0);
   if(scene.autoYearWeights){
     const segments=[];let total=0;
     for(let year=firstYear;year<=lastYear;year++){const weight=scene.autoYearWeights.get(year)||1;segments.push({id:String(year),label:String(year),weight});total+=weight;}
@@ -384,7 +384,7 @@ function milestoneGeometry(flag,index,scale,scene,{interview=false}={}){
   // attach to their study arrow, as the Founder exemplar shows. The gap
   // under the plaque can hold a pennant and a single-line label; unresolved
   // long/simultaneous labels are quality findings, never moved below the axis.
-  const automaticY=studyBox?studyBox.y-58:crossesTitle?87:(index%2===0?58:65);
+  const automaticY=scene.autoFlagGeometry?.get(String(flag.id))?.y??(studyBox?studyBox.y-58:crossesTitle?87:(index%2===0?58:65));
   const defaultPoleBottom=studyBox?.y??FOUNDER_PORTABLE_GEOMETRY.axisTop;
   return {object,overridden,x,y:overridden?pixel(overridden.y):automaticY,width:overridden?Math.max(.25,Number(overridden.width)||50):50,height:overridden?Math.max(.25,Number(overridden.height)||64):64,rotation:overridden?Number(overridden.rotation)||0:0,defaultPoleBottom};
 }
@@ -403,7 +403,8 @@ function flagMarkup(flag,index,scale,scene,{interview=false}={}){
      its label off the board. The pole stays on the date; the label flips to the left of the
      flag when there is no room to its right. */
   const labelWidth=String((interview?"Interview":flag.title)||"").length*9.5+8;
-  const flipLabel=!overridden&&x+56+labelWidth>WIDTH-8;
+  const labelLayout=scene.autoFlagLabels?.get(String(flag.id));
+  const flipLabel=labelLayout?.flip??(x+56+Math.max(labelWidth,Math.min(420,String(flag.siteName||"").length*10))>WIDTH-8);
   const sx=placed.width/50,sy=placed.height/64,rotation=placed.rotation;
   const axisAnchored=!!overridden&&placed.object?.presentation?.guardianAnchor==='axis'&&rotation===0;
   const anchoredPoleBottom=axisAnchored?(FOUNDER_PORTABLE_GEOMETRY.axisTop-y)/sy:64;
@@ -414,10 +415,13 @@ function flagMarkup(flag,index,scale,scene,{interview=false}={}){
   const title=interview?"Interview":flag.title;
   const useUsFlag=!interview&&/\b(?:united states(?: of america)?|u\.s\.(?:a\.?)?|usa)\b/i.test(title);
   if(useUsFlag){
-    const poleX=bx+4;
-    const usaFlag=FOUNDER_KEYNOTE_CONTRACT.assets.usaFlag;
-    const ink=boardInk(scene);
-    return`<g data-event-kind="flag" data-event-id="${xml(flag.id)}" data-founder-milestone-style="usa" aria-label="${xml(flag.ariaLabel)}"${transform}><line x1="${poleX}" y1="${by+2}" x2="${poleX}" y2="${overridden?anchoredPoleBottom:FOUNDER_PORTABLE_GEOMETRY.axisTop}" stroke="#A9AFB2" stroke-width="4"/><image data-founder-usa-flag-asset-sha256="${usaFlag.sha256}" href="${xml(founderKeynoteAssetUrl(usaFlag))}" x="${bx}" y="${by}" width="50" height="41" preserveAspectRatio="xMinYMin meet"/><text data-board-ink-role="flag-label" x="${bx+54}" y="${by+31}" fill="${ink}" font-family="${TYPE.event}" font-size="18">${xml(title)}</text><text data-board-ink-role="flag-date" x="${bx+54}" y="${by+52}" fill="${ink}" font-family="${TYPE.event}" font-size="18">${xml(presentationDateWording(flag.month,flag.datePrecision?.start,flag.sourceDateWording?.start))}</text></g>`;
+    const poleX=bx+4,usaFlag=FOUNDER_KEYNOTE_CONTRACT.assets.usaFlag,ink=boardInk(scene);
+    const labelX=flipLabel?bx-8:bx+54;
+    const available=Math.max(1,flipLabel?placed.x-24:WIDTH-placed.x-70);
+    const lines=wrapPresentationText(String(title||'')+(flag.siteName?' — '+String(flag.siteName):''),{width:Math.min(labelLayout?.width||420,available),size:18,family:TYPE.event,measureText:scene.measureText||measurePresentationText});
+    const anchor=flipLabel?' text-anchor="end"':'';
+    const label=lines.map((line,i)=>`<text data-board-ink-role="flag-label" data-material-field="title" x="${labelX}" y="${by+19+i*21}"${anchor} fill="${ink}" font-family="${TYPE.event}" font-size="18">${xml(line)}</text>`).join('');
+    return`<g data-event-kind="flag" data-event-id="${xml(flag.id)}" data-founder-milestone-style="usa" aria-label="${xml(flag.ariaLabel)}"${transform}><line x1="${poleX}" y1="${by+2}" x2="${poleX}" y2="${overridden?anchoredPoleBottom:FOUNDER_PORTABLE_GEOMETRY.axisTop}" stroke="#A9AFB2" stroke-width="4"/><image data-founder-usa-flag-asset-sha256="${usaFlag.sha256}" href="${xml(founderKeynoteAssetUrl(usaFlag))}" x="${bx}" y="${by}" width="50" height="41" preserveAspectRatio="xMinYMin meet"/>${label}<text data-board-ink-role="flag-date" x="${labelX}" y="${by+19+lines.length*21}"${anchor} fill="${ink}" font-family="${TYPE.event}" font-size="18">${xml(presentationDateWording(flag.month,flag.datePrecision?.start,flag.sourceDateWording?.start))}</text></g>`;
   }
   /* AAA-019 Keynote fidelity (016 §3 "Milestone flags"): the golden milestone is a waving
      grey pennant planted on the ribbon with a white date chip inside and the label beside it —
@@ -432,9 +436,13 @@ function flagMarkup(flag,index,scale,scene,{interview=false}={}){
   const pennant=`<path d="M${poleX} ${by+2}C${poleX+16} ${by-4},${poleX+34} ${by+8},${poleX+52} ${by+2}L${poleX+52} ${by+36}C${poleX+36} ${by+42},${poleX+18} ${by+30},${poleX} ${by+36}Z" fill="${fill}" stroke="${edge}" stroke-width="1.2"/><path d="M${poleX+2} ${by+4}C${poleX+16} ${by-1},${poleX+34} ${by+10},${poleX+50} ${by+5}" stroke="${light}" stroke-opacity=".8" stroke-width="1"/>`;
   const chip=`<text data-founder-pennant-date="true" x="${poleX+26}" y="${by+24}" text-anchor="middle" fill="#FFFFFF" font-family="${TYPE.event}" font-size="18">${xml(presentationDateWording(flag.month,flag.datePrecision?.start,flag.sourceDateWording?.start))}</text>`;
   const labelX=flipLabel?poleX-8:poleX+60;
-  const lines=wrapPresentationText(String(title||''),{width:Math.max(1,flipLabel?labelX-16:WIDTH-labelX-16),size:18,family:TYPE.arrowLabel,measureText:scene.measureText||measurePresentationText});
+  const available=Math.max(1,flipLabel?placed.x-8-16:WIDTH-placed.x-64-16);
+  const wrapWidth=Math.min(labelLayout?.width||420,available);
+  const measureText=scene.measureText||measurePresentationText;
+  const adjacentLabel=String(title||'')+(!interview&&flag.siteName?' — '+String(flag.siteName):'');
+  const lines=wrapPresentationText(adjacentLabel,{width:wrapWidth,size:18,family:TYPE.arrowLabel,measureText});
   const resultPrivacy=flag.presentationRedactions?.includes('EXAM_RESULT_PRIVATE')?' data-exam-result-private="true"':'';
-  const label=lines.map((line,lineIndex)=>`<text${resultPrivacy} data-board-ink-role="flag-label" x="${labelX}" y="${by+22+lineIndex*21}"${flipLabel?' text-anchor="end"':""} fill="${boardInk(scene)}" font-family="${TYPE.arrowLabel}" font-size="18">${xml(line)}</text>`).join("");
+  const label=lines.map((line,lineIndex)=>`<text${resultPrivacy} data-board-ink-role="flag-label" data-material-field="title" x="${labelX}" y="${by+22+lineIndex*21}"${flipLabel?' text-anchor="end"':""} fill="${boardInk(scene)}" font-family="${TYPE.arrowLabel}" font-size="18">${xml(line)}</text>`).join("");
   return`<g data-event-kind="${interview?"interview-marker":"flag"}"${interview?"":` data-event-id="${xml(flag.id)}"`} data-founder-milestone-style="pennant"${examResult?` data-exam-result="${examResult}"`:""} aria-label="${xml(flag.ariaLabel)}"${transform}><line x1="${poleX}" y1="${by}" x2="${poleX}" y2="${poleBottom}" stroke="#8E9398" stroke-width="3"/><circle cx="${poleX}" cy="${by}" r="2.5" fill="#B9BDC1"/>${pennant}${chip}${label}</g>`;
 }
 
@@ -481,7 +489,7 @@ function profileMarkup(scene){
   const profile=scene?.profile||{};
   const photo=scene?.mediaProjection?.profilePhoto;
   const geometry=scene?.founderPresentation?.profileGeometry||FOUNDER_PORTABLE_GEOMETRY.profile;
-  const {x,y,width,height}=geometry;
+  let {x,y,width,height}=geometry;
   const base=FOUNDER_PORTABLE_GEOMETRY.profile;
   const sx=width/base.width,sy=height/base.height;
   /* Golden card content model: bold label / roman value pairs, one per line. The student's
@@ -502,16 +510,16 @@ function profileMarkup(scene){
   const measureText=scene.measureText||measurePresentationText;
   let rowY=54;
   const textRows=[];
-  const emitLines=(text,label,size,weight)=>{
+  const emitLines=(text,label,size,weight,eventId=null,field=null)=>{
     let remaining=String(text||'').trim().replace(/\s+/g,' ');let index=0;
     while(remaining){
-      const width=rowY-size<photoY+photoHeight+12?296:base.width-68;
+      const width=(photo||scene.showEmptySlots)&&rowY-size<photoY+photoHeight+12?296:base.width-68;
       const lines=wrapPresentationText(remaining,{width,size,family:TYPE.profile,weight,measureText});
       const line=lines[0]||'';
       const overflow=rowY+size*.34>base.height-18||measureText(line,size,TYPE.profile,weight)>width+.01;
       const prefix=label?`${label}: `:'';
       const contents=index===0&&prefix&&line.startsWith(prefix)?`<tspan font-weight="700">${xml(prefix)}</tspan>${xml(line.slice(prefix.length))}`:xml(line);
-      textRows.push(`<text data-profile-field="${xml(label||'Name')}" data-profile-line="${index}" data-text-overflow="${overflow}" x="34" y="${rowY}" fill="#171D26" font-family="${TYPE.profile}" font-size="${size}" font-weight="${weight}">${contents}</text>`);
+      textRows.push(`<text${eventId?` data-event-id="${xml(eventId)}" data-material-field="${xml(field||"educationSpan")}"`:""} data-profile-field="${xml(label||'Name')}" data-profile-line="${index}" data-text-overflow="${overflow}" x="34" y="${rowY}" fill="#171D26" font-family="${TYPE.profile}" font-size="${size}" font-weight="${weight}">${contents}</text>`);
       // The wrapper normalizes whitespace only; never truncate content to fit.
       remaining=remaining.slice(line.length).trimStart();rowY+=size*1.2;index++;
     }
@@ -519,11 +527,27 @@ function profileMarkup(scene){
   emitLines(profile.fullName||"Your journey",null,19,700);
   rowY+=13;
   for(const [label,value] of rows){emitLines(`${label}: ${value}`,label,19,400);rowY+=6;}
+  for(const record of profile.educationRecords||[]){
+    const start=presentationDateWording(record.startDate,record.datePrecision?.start,record.sourceDateWording?.start);
+    const end=record.openEnded?'Ongoing':presentationDateWording(record.endDate,record.datePrecision?.end,record.sourceDateWording?.end);
+    emitLines(`${record.title}${record.school?' — '+record.school:''}: ${start} – ${end}`,'Education',19,400,record.eventId,'educationSpan');rowY+=6;
+  }
   const rowMarkup=textRows.join('');
-  const photoLayer=photo
+  const photoLayer=!photo&&!scene.showEmptySlots?"":photo
     ?`<g data-frame-slot="profile" data-media-state="filled" data-media-id="${xml(photo.id)}"><rect x="${photoX}" y="${photoY}" width="${photoWidth}" height="${photoHeight}" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="7"/>${croppedImageMarkup({href:photo.source,x:photoX,y:photoY,width:photoWidth,height:photoHeight,crop:photo.crop,naturalAspect:photo.naturalAspect,attributes:`data-profile-photo-slot="true" data-media-id="${xml(photo.id)}"`})}</g>`
     :`<g data-frame-slot="profile" data-media-state="empty"><rect data-profile-photo-slot="true" data-media-state="empty" x="${photoX}" y="${photoY}" width="${photoWidth}" height="${photoHeight}" fill="#C9C2AE" stroke="#FFFFFF" stroke-width="7"/><text x="${photoX+photoWidth/2}" y="${photoY+photoHeight/2+7}" text-anchor="middle" fill="#6D6753" font-family="${TYPE.profile}" font-size="17" font-weight="700" pointer-events="none">PROFILE PHOTO</text></g>`;
-  return`<g data-artifact-chrome="profile" data-founder-geometry="${x},${y},${width},${height}" transform="translate(${x} ${y}) scale(${sx} ${sy})"><image href="${xml(LOCKED_407F_ASSETS.paper)}" x="0" y="0" width="${base.width}" height="${base.height}" preserveAspectRatio="none"/>${rowMarkup}${photoLayer}</g>`;
+  let paper=`<image href="${xml(LOCKED_407F_ASSETS.paper)}" x="0" y="0" width="${base.width}" height="${base.height}" preserveAspectRatio="none"/>`;
+  let renderScaleY=sy;
+  if(scene.autoCompactProfile&&!scene.founderPresentation?.profileGeometryExplicit){
+    // Keep the native lower-left paper and full-size type/corners. Remove only
+    // surplus blank paper when a full-span experience cannot clear furniture.
+    const contentHeight=Math.ceil(Math.max(164,rowY+18,photo?photoY+photoHeight+20:0));
+    height=Math.min(base.height,contentHeight);y=base.y+base.height-height;renderScaleY=1;
+    const strip=32;
+    const slice=(targetY,sourceY,h)=>`<svg data-crop-zoom="1" data-profile-paper-slice="true" x="0" y="${targetY}" width="${base.width}" height="${h}" viewBox="0 ${sourceY} ${base.width} ${h}" preserveAspectRatio="none"><image href="${xml(LOCKED_407F_ASSETS.paper)}" x="0" y="0" width="${base.width}" height="${base.height}" preserveAspectRatio="none"/></svg>`;
+    paper=slice(0,0,strip)+`<rect x="7" y="${strip}" width="${base.width-14}" height="${height-strip*2}" fill="#FFFFFF"/>`+slice(height-strip,base.height-strip,strip);
+  }
+  return`<g data-artifact-chrome="profile" data-founder-geometry="${x},${y},${width},${height}" transform="translate(${x} ${y}) scale(${sx} ${renderScaleY})">${paper}${rowMarkup}${photoLayer}</g>`;
 }
 
 export function photoFrameGeometry(scene,index){
@@ -555,6 +579,7 @@ function photoFrames(scene){
     const {x,y,width,height,rotation}=photoFrameGeometry(scene,index);
     const slot=`photo${index+1}`;
     const photo=exact.get(slot)||rest.shift()||null;
+    if(!photo&&!scene.showEmptySlots)return "";
     const content=photo
       ?croppedImageMarkup({href:photo.source,x:x+9,y:y+9,width:width-18,height:height-31,crop:photo.crop,naturalAspect:photo.naturalAspect,attributes:`data-media-id="${xml(photo.id)}"`})
       :`<rect data-media-state="empty" x="${x+9}" y="${y+9}" width="${width-18}" height="${height-31}" fill="#D6D8D5"/><text x="${x+width/2}" y="${y+height/2}" text-anchor="middle" fill="#515B62" font-family="${TYPE.event}" font-size="18" pointer-events="none">DROP PHOTO ${index+1}</text>`;
@@ -563,15 +588,20 @@ function photoFrames(scene){
 }
 
 function interviewMarkup(scene,scale){
-  const target=scene?.interviewTarget||{};
-  const marker=scene?.interviewMarker;
-  const logo=scene?.mediaProjection?.logo;
+  const target=scene?.interviewTarget||{},marker=scene?.interviewMarker,logo=scene?.mediaProjection?.logo;
+  const program=String(target.programName||target.prog||"").trim();
+  if(!marker&&!logo&&!program&&!scene.showEmptySlots)return "";
   const {x,y,width}=FOUNDER_PORTABLE_GEOMETRY.interview;
+  const hasHeader=!!logo||!!program||scene.showEmptySlots;
   const logoLayer=logo
     ?`<g data-frame-slot="logo" data-media-state="filled" data-media-id="${xml(logo.id)}"><image data-program-logo="true" data-media-id="${xml(logo.id)}" href="${xml(logo.source)}" x="${x+8}" y="${y+5}" width="${width-16}" height="42" preserveAspectRatio="xMidYMid meet"/></g>`
-    :`<g data-frame-slot="logo" data-media-state="empty"><rect x="${x}" y="${y}" width="${width}" height="52" fill="transparent"/><text x="${x+width/2}" y="${y+31}" text-anchor="middle" fill="#4A5670" font-family="${TYPE.axis}" font-size="16" font-weight="700" pointer-events="none">${xml(String(target.programName||target.prog||"PROGRAM LOGO").toUpperCase())}</text></g>`;
+    :hasHeader?`<g data-frame-slot="logo" data-media-state="${program?'text':'empty'}"><rect x="${x}" y="${y}" width="${width}" height="52" fill="transparent"/><text x="${x+width/2}" y="${y+31}" text-anchor="middle" fill="#4A5670" font-family="${TYPE.axis}" font-size="16" font-weight="700" pointer-events="none">${xml((program||"PROGRAM LOGO").toUpperCase())}</text></g>`:"";
   const ribbonY=y+62;
-  return`${marker?flagMarkup(marker,0,scale,scene,{interview:true}):""}<g data-interview-destination="407f-ribbon"><rect x="${x}" y="${y}" width="${width}" height="52" fill="#FFFFFF" fill-opacity=".4" stroke="#26314D" stroke-opacity=".45" stroke-dasharray="4 3"/>${logoLayer}<path d="M${x} ${ribbonY}H${x+width}L${x+width-10} ${ribbonY+18}L${x+width} ${ribbonY+36}H${x}L${x+10} ${ribbonY+18}Z" fill="#7E4BB6"/><text x="${x+width/2}" y="${ribbonY+25}" text-anchor="middle" fill="#FFFFFF" font-family="${TYPE.title}" font-size="18" font-weight="700">${xml(target.label||"YOUR BIG INTERVIEW")}</text><text data-board-ink-role="interview-date" x="${x+width/2}" y="${ribbonY+58}" text-anchor="middle" fill="${boardInk(scene)}" font-family="${TYPE.event}" font-size="18">${marker?`Interview · ${xml(formatMonth(marker.month))}`:"Date pending"}</text></g>`;
+  const rawDate=String(target.date||'');
+  const exactDay=/^(\d{4})-(\d{2})-(\d{2})$/.exec(rawDate);
+  const dateLabel=exactDay?`${MONTHS[Number(exactDay[2])-1]} ${Number(exactDay[3])}, ${exactDay[1]}`:formatMonth(marker?.month);
+  const date=marker?`Interview · ${xml(dateLabel)}`:scene.showEmptySlots?"Date pending":"";
+  return`${marker?flagMarkup(marker,0,scale,scene,{interview:true}):""}<g data-interview-destination="407f-ribbon">${hasHeader?`<rect x="${x}" y="${y}" width="${width}" height="52" fill="#FFFFFF" fill-opacity=".4" stroke="#26314D" stroke-opacity=".45" stroke-dasharray="4 3"/>`:""}${logoLayer}<path d="M${x} ${ribbonY}H${x+width}L${x+width-10} ${ribbonY+18}L${x+width} ${ribbonY+36}H${x}L${x+10} ${ribbonY+18}Z" fill="#7E4BB6"/><text x="${x+width/2}" y="${ribbonY+25}" text-anchor="middle" fill="#FFFFFF" font-family="${TYPE.title}" font-size="18" font-weight="700">${xml(target.label||"YOUR BIG INTERVIEW")}</text>${date?`<text data-board-ink-role="interview-date" x="${x+width/2}" y="${ribbonY+58}" text-anchor="middle" fill="${boardInk(scene)}" font-family="${TYPE.event}" font-size="18">${date}</text>`:""}</g>`;
 }
 
 function explanationMarkup(scene,explanation,index,scale){
@@ -776,11 +806,51 @@ function avoidAutomaticArrowCollisions(scene,svg){
   return changed?{...scene,autoArrowGeometry:placements,autoSiteOffsets:siteOffsets}:null;
 }
 
+// Place native pennants and their adjacent labels in the existing upper band.
+// Same-date poles remain on the same date. No title/site abbreviation or merging.
+function avoidAutomaticMilestoneCollisions(scene,svg){
+  const eligible=(scene.flags||[]).filter(flag=>!presentationEventObject(scene,flag.id)?.geometry&&
+    !(flag.examAttemptId&&(scene.arrows||[]).some(a=>a.study&&a.examAttemptId===flag.examAttemptId)));
+  if(!eligible.length)return null;
+  const ids=new Set(eligible.map(f=>'event:'+f.id));
+  const resolved=resolveFounderPresentationSvg(svg,{measureText:scene.measureText});
+  const visible=n=>n.bounds&&n.groupId&&Number(n.style.opacity??1)>0&&Number(n.style['fill-opacity']??1)>0&&
+    !n.sourceAttributes['data-board-background']&&!n.sourceAttributes['data-advanced-background']&&
+    !(n.kind==='path'&&(n.lineOnly||n.style.fill==='none'));
+  const occupied=resolved.nodes.filter(n=>visible(n)&&n.groupId!=='furniture:axis'&&!ids.has(n.groupId)).map(n=>n.occlusionBounds||n.bounds);
+  const intersects=(a,b)=>a.x<b.x+b.width+5&&a.x+a.width+5>b.x&&a.y<b.y+b.height+1&&a.y+a.height+1>b.y;
+  let next={...scene,autoFlagGeometry:new Map(scene.autoFlagGeometry||[]),autoFlagLabels:new Map(scene.autoFlagLabels||[])},changed=false;
+  for(const flag of eligible){
+    const index=scene.flags.indexOf(flag),scale=metrics(next),original=milestoneGeometry(flag,index,scale,next);
+    let best=null;
+    for(const width of [420,320,240,560])for(const flip of [false,true]){
+      const variant={...next,autoFlagLabels:new Map(next.autoFlagLabels).set(String(flag.id),{width,flip})};
+      const parts=resolveFounderPresentationSvg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">${flagMarkup(flag,index,scale,variant)}</svg>`,{measureText:scene.measureText}).nodes.filter(visible).map(n=>n.occlusionBounds||n.bounds);
+      if(!parts.length)continue;
+      const ys=[original.y,...Array.from({length:334},(_,i)=>4.5+i*.25)].sort((a,b)=>scene.autoMilestoneTopDown?a-b:Math.abs(a-original.y)-Math.abs(b-original.y)||a-b);
+      for(const y of ys){
+        const shifted=parts.map(b=>({...b,y:b.y+y-original.y}));
+        if(shifted.every(b=>b.x>=8&&b.x+b.width<=1912&&b.y>=2&&b.y+b.height<=125&&!occupied.some(other=>intersects(b,other)))){
+          const cost=(scene.autoMilestoneTopDown?y:Math.abs(y-original.y))+(flip?8:0)+Math.abs(width-420)/40;
+          if(!best||cost<best.cost)best={cost,y,width,flip,parts:shifted};
+          break;
+        }
+      }
+    }
+    if(best){next.autoFlagGeometry.set(String(flag.id),{y:best.y});next.autoFlagLabels.set(String(flag.id),{width:best.width,flip:best.flip});occupied.push(...best.parts);changed=true;}
+    else occupied.push(...resolved.nodes.filter(n=>visible(n)&&n.groupId==='event:'+flag.id).map(n=>n.occlusionBounds||n.bounds));
+  }
+  return changed?next:null;
+}
+
 export function composeLocked407FPortableSvg(scene,options={}){
   const compose=input=>{
-    const first=serializePlacedPortableSvg(input,options);
-    const adjusted=avoidAutomaticArrowCollisions(input,first);
-    return{scene:adjusted||input,svg:adjusted?serializePlacedPortableSvg(adjusted,options):first};
+    let placed=input,svg=serializePlacedPortableSvg(placed,options);
+    const flags=avoidAutomaticMilestoneCollisions(placed,svg);
+    if(flags){placed=flags;svg=serializePlacedPortableSvg(placed,options);}
+    const arrows=avoidAutomaticArrowCollisions(placed,svg);
+    if(arrows){placed=arrows;svg=serializePlacedPortableSvg(placed,options);}
+    return{scene:placed,svg};
   };
   let best=compose(scene);
   // Nonuniform year widths are present in the Founder exemplar. Existing
@@ -788,6 +858,10 @@ export function composeLocked407FPortableSvg(scene,options={}){
   if(scene.founderPresentation?.axis?.mode==='manual'||(scene.arrows||[]).some(a=>a.manualOffset?.laneLocked||Number(a.manualOffset?.x)||Number(a.manualOffset?.y)||presentationEventObject(scene,a.id)?.geometry)||(scene.flags||[]).some(f=>presentationEventObject(scene,f.id)?.geometry))return best;
   const score=svg=>{const r=resolveFounderPresentationSvg(svg,{measureText:scene.measureText});return 1000*r.nodes.filter(n=>n.kind==='text'&&(n.bounds.x<-.5||n.bounds.y<-.5||n.bounds.x+n.bounds.width>WIDTH+.5||n.bounds.y+n.bounds.height>HEIGHT+.5)).length+materialPresentationCollisions(r).length;};
   let bestScore=score(best.svg);if(!bestScore)return best;
+  if(!scene.showEmptySlots&&!scene.founderPresentation?.profileGeometryExplicit){
+    const compact=compose({...scene,autoCompactProfile:true}),compactScore=score(compact.svg);
+    if(compactScore<bestScore){best=compact;bestScore=compactScore;if(!bestScore)return best;}
+  }
   const counts=new Map();
   const count=month=>{const year=Math.floor(monthIndex(month)/12);counts.set(year,(counts.get(year)||0)+1);};
   for(const arrow of scene.arrows||[]){count(arrow.startMonth);count(arrow.endMonth);}
@@ -797,7 +871,19 @@ export function composeLocked407FPortableSvg(scene,options={}){
     const candidate=compose({...scene,autoYearWeights:weights}),candidateScore=score(candidate.svg);
     if(candidateScore<bestScore){best=candidate;bestScore=candidateScore;if(!bestScore)break;}
   }
-  if(best.scene.autoYearWeights){
+  // A sparse single-year history may put several simultaneous pennants below
+  // the fixed title plaque. Expand the visible date range by at most one year
+  // per side, preserving individually labelled years and linear month mapping.
+  // This adds axis context only; it never creates an event or changes its date.
+  if(bestScore&&scene.flags?.length>1){
+    for(const autoAxisPadding of [null,{before:0,after:1},{before:1,after:0},{before:1,after:1}]){
+      const candidate=compose({...scene,autoAxisPadding,autoMilestoneTopDown:true}),candidateScore=score(candidate.svg);
+      const flagPenalty=result=>[...(result.scene.autoFlagLabels?.values()||[])].reduce((sum,label)=>sum+(label.flip?1:0),0)+
+        resolveFounderPresentationSvg(result.svg,{measureText:scene.measureText}).nodes.filter(n=>n.sourceAttributes['data-board-ink-role']==='flag-label').length;
+      if(candidateScore<bestScore||(candidateScore===bestScore&&flagPenalty(candidate)<flagPenalty(best))){best=candidate;bestScore=candidateScore;}
+    }
+  }
+  if(best.scene.autoYearWeights||best.scene.autoAxisPadding){
     const axis=metrics(best.scene);
     best.scene={...best.scene,composedAxis:{mode:'manual',startYear:axis.firstYear,endYear:axis.lastYear,includeFuture:false,
       segmentWeights:axis.segments.map(({id,weight})=>({id,weight}))}};

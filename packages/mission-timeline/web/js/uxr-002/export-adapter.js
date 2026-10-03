@@ -63,6 +63,7 @@ export function createLocalExportAdapter({
       const height=print?print.height:output.height;
       const rendered=await serializeFounderPresentationAsync(input.timeline,{
         ...input.rendererOptions,
+        showEmptySlots:false,
         currentMonth:new Date().toISOString().slice(0,7),
         mediaResolver:(item)=>resolveObjectUrl(item?.mediaId||item?.id,item)
       });

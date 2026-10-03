@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {serializeFounderPresentation} from '../web/js/presentation/founder-presentation-serializer.js';
+import {serializeFounderPresentation,assertCompleteFounderPresentation} from '../web/js/presentation/founder-presentation-serializer.js';
 import {resolveFounderPresentationSvg} from '../web/js/presentation/resolved-founder-presentation.js';
 import {FOUNDER_2025_MATRIX} from './fixtures/founder-2025-matrix.mjs';
 
@@ -114,4 +114,34 @@ test('painted Bezier bounds use exact extrema instead of invisible control-point
   assert.ok(Math.abs(paths[0].bounds.height-75)<1e-9,'cubic peak is 75, not its 100px control hull');
   assert.ok(Math.abs(paths[1].bounds.height-50)<1e-9,'quadratic peak is 50, not its 100px control hull');
   for(const path of paths){assert.equal(path.bounds.x,0);assert.equal(path.bounds.width,200);}
+});
+
+
+test('supplied media that cannot render is an explicit hold, not an empty optional slot',()=>{
+ const document=base();document.mediaItems=[{id:'lost-profile',type:'profilePhoto',storagePath:'missing-local-fixture'}];
+ const out=render(document);assert.throws(()=>assertCompleteFounderPresentation(out),e=>e.code==='TIMELINE_EXPORT_MISSING_FIELDS'&&e.fields.some(f=>f.id==='lost-profile'&&f.field==='media'));
+ document.mediaItems[0].visibilityState='ADVISOR_ONLY';
+ assert.doesNotThrow(()=>assertCompleteFounderPresentation(render(document)),'private assets do not block a public export');
+});
+
+test('education span cannot disappear while its degree flag remains',()=>{
+ const document=base();document.events=[{id:'school',title:'Medical degree',siteName:'Synthetic College',categoryId:'education',eventType:'duration',startDate:'2018-09',endDate:'2022-06',visibilityState:'INTERVIEWER_SAFE'}];
+ const out=render(document);assert.doesNotThrow(()=>assertCompleteFounderPresentation(out));
+ out.svg=out.svg.replace(/<text[^>]*data-material-field="educationSpan"[\s\S]*?<\/text>/g,'');
+ assert.throws(()=>assertCompleteFounderPresentation(out),e=>e.code==='TIMELINE_EXPORT_MISSING_FIELDS'&&e.fields.some(f=>f.field==='education.startDate'));
+});
+
+test('exact interview day survives and invalid dates are held for correction',()=>{
+ const document=base();document.metadata.interview={date:'2026-11-19'};
+ assert.match(render(document).svg,/Interview · Nov 19, 2026/);
+ for(const date of ['undetermined','2026-02-31']){document.metadata.interview.date=date;assert.throws(()=>assertCompleteFounderPresentation(render(document)),e=>e.code==='TIMELINE_EXPORT_MISSING_FIELDS'&&e.fields.some(f=>f.id==='interview'));}
+});
+
+test('three same-month milestones fit without moving dates, merging labels or changing the key',()=>{
+ const document=structuredClone(FOUNDER_2025_MATRIX.find(item=>item.id==='M14').document),before=JSON.stringify(document),out=render(document);
+ assert.doesNotThrow(()=>assertCompleteFounderPresentation(out));
+ assert.equal(out.scene.flags.length,3);assert.ok(out.scene.flags.every(flag=>flag.month==='2023-05'));
+ assert.equal(out.scene.founderPresentation.categoryKey.length,6);
+ assert.deepEqual(out.scene.composedAxis.segmentWeights.map(x=>x.id),['2022','2023']);
+ assert.equal(JSON.stringify(document),before);
 });

@@ -1,4 +1,5 @@
 import {resolveFounderPresentationSvg,materialPresentationCollisions} from './resolved-founder-presentation.js';
+import {presentationDateWording} from './source-date-wording.js';
 import {buildKeynoteClassicScene} from "../uxr-002/board-renderer.js";
 import {CATEGORY_DEFINITIONS} from "../uxr-002/adaptive-layout.js";
 import {serializeLocked407FPortableSvg,composeLocked407FPortableSvg} from "../uxr-002/locked-407f-export.js";
@@ -112,10 +113,11 @@ function photoOrder(item,index){
 }
 
 function mediaProjection(document,resolvedById=new Map()){
-  const projected={profilePhoto:null,logo:null,photos:[]};
+  const projected={profilePhoto:null,logo:null,photos:[],expectedIds:[]};
   (document.mediaItems||[]).forEach((item,index)=>{
     const role=mediaRole(item);
     if(!role)return;
+    projected.expectedIds.push(String(item.id||`${role}-${index}`));
     const source=resolvedById.get(String(item.id))||directMediaSource(item);
     if(!source)return;
     const record={
@@ -207,15 +209,8 @@ function founderAxisProjection(document){
 function founderCategoryKeyProjection(document,scene){
   const explicit=new Map((Array.isArray(document?.presentationOverrides?.categoryKey)
     ?document.presentationOverrides.categoryKey:[]).map((item)=>[String(item?.id||""),item]));
-  // The six Founder rows remain the default. A visible education duration has
-  // its own canonical color; it must not inherit the Work Experience identity.
+  // Approved G4: education is a degree milestone/profile span, never a seventh key row.
   const defaults=[...FOUNDER_COLOR_KEY_ROWS];
-  if(scene?.arrows?.some((arrow)=>arrow.categoryId==="education")){
-    const category=CATEGORY_DEFINITIONS.find((item)=>item.id==="education");
-    const stored=(document.categories||[]).find((item)=>item.id==="education");
-    defaults.push({...category,...(stored?.label?{label:stored.label}:{}),
-      ...(/^#[0-9a-f]{6}$/i.test(String(stored?.color||""))?{color:stored.color}:{})});
-  }
   return defaults.map((fallback,index)=>{
     const value=explicit.get(fallback.id)||fallback;
     const color=/^#[0-9a-f]{6}$/i.test(String(value.color||""))
@@ -262,6 +257,7 @@ function founderPresentationProjection(document,resolvedById,scene){
       document?.presentationOverrides?.colorKeyGeometry,
       {x:20,y:300,width:284,height:346}
     )),
+    profileGeometryExplicit:!!document?.presentationOverrides?.profileGeometry,
     profileGeometry:Object.freeze(boundedGeometry(
       document?.presentationOverrides?.profileGeometry,
       {x:13,y:661,width:545,height:410}
@@ -298,7 +294,8 @@ export function buildFounderPresentationScene(document,{
   audience=null,
   currentMonth=null,
   mediaById=new Map(),
-  measureText=null
+  measureText=null,
+  showEmptySlots=false
 }={}){
   const projected=projectFounderPresentationDocument(document,{scope:audience||scope});
   let scene=buildKeynoteClassicScene(projected,{
@@ -310,8 +307,9 @@ export function buildFounderPresentationScene(document,{
     scene=applyThemeToScene(scene,projected.theme);
   }
   const sources=new Map(projected.events.map(event=>[String(event.id),event]));
-  for(const key of ['events','arrows','flags'])scene[key]=(scene[key]||[]).map(item=>({...item,sourceDateWording:sources.get(String(item.id))?.fields?.sourceDateWording||null}));
+  for(const key of ['events','arrows','flags'])scene[key]=(scene[key]||[]).map(item=>({...item,sourceDateWording:item.sourceDateWording||sources.get(String(item.id))?.fields?.sourceDateWording||null}));
   if(measureText)scene.measureText=measureText;
+  scene.showEmptySlots=showEmptySlots===true;
   scene.mediaProjection=mediaProjection(projected,mediaById);
   const advanced=advancedProjection(projected,mediaById);
   if(advanced)scene.advancedProjection={...(scene.advancedProjection||{}),...advanced};
@@ -378,6 +376,16 @@ export function assertCompleteFounderPresentation(rendered){
   const represented=new Set(paint.nodes.map(node=>String(node.semanticRef||'')));
   const normalized=value=>String(value||'').replace(/\s+/g,' ').trim();
   const missingFields=[];
+  const paintedMedia=new Set(paint.nodes.filter(node=>node.kind==='image').map(node=>node.sourceAttributes['data-media-id']).filter(Boolean));
+  for(const id of rendered.scene.mediaProjection?.expectedIds||[])if(!paintedMedia.has(id))missingFields.push({id,field:'media'});
+  const interviewDate=String(rendered.scene.interviewTarget?.date||'').trim();
+  const exactInterview=/^(\d{4})-(\d{2})-(\d{2})$/.exec(interviewDate);
+  const dayValid=!exactInterview||new Date(Date.UTC(+exactInterview[1],+exactInterview[2]-1,+exactInterview[3])).toISOString().slice(0,10)===interviewDate;
+  if(interviewDate&&(!rendered.scene.interviewMarker||!dayValid))missingFields.push({id:'interview',field:'date'});
+  for(const record of rendered.scene.profile?.educationRecords||[]){
+    const text=normalized(paint.nodes.filter(node=>node.kind==='text'&&node.semanticRef===String(record.eventId)&&node.sourceAttributes['data-material-field']==='educationSpan').map(node=>node.text).join(' '));
+    for(const [field,value] of [['title',record.title],['school',record.school],['startDate',presentationDateWording(record.startDate,record.datePrecision?.start,record.sourceDateWording?.start)],['endDate',presentationDateWording(record.endDate,record.datePrecision?.end,record.sourceDateWording?.end)]])if(value&&!text.includes(normalized(value)))missingFields.push({id:String(record.eventId),field:'education.'+field});
+  }
   for(const event of [...(rendered.scene.arrows||[]),...(rendered.scene.flags||[])]){
     const text=normalized(paint.nodes.filter(node=>node.kind==='text'&&node.semanticRef===String(event.id)).map(node=>node.text).join(' '));
     for(const field of ['title','siteName'])if(event[field]&&!text.includes(normalized(event[field])))missingFields.push({id:String(event.id),field});

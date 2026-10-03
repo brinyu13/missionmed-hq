@@ -53,10 +53,29 @@ function pathCommands(value,matrix){
   return result;
 }
 function pathBounds(commands){
-  const coords=commands.flatMap(c=>c.close?[]:[{x:c.x,y:c.y},...(c.curve?[{x:c.curve.x1,y:c.curve.y1},...(c.curve.type==='cubic'?[{x:c.curve.x2,y:c.curve.y2}]:[])]:[])]);
+  // Bezier controls bound a hull, not the painted curve. Exact extrema avoid
+  // treating a pennant's invisible control handles as collisions with the axis.
+  const coords=[];let previous=null,start=null;
+  const roots=(p0,p1,p2,p3)=>{
+    if(p3===undefined){const d=p0-2*p1+p2;return Math.abs(d)<1e-12?[]:[(p0-p1)/d];}
+    const a=-p0+3*p1-3*p2+p3,b=2*(p0-2*p1+p2),c=p1-p0;
+    if(Math.abs(a)<1e-12)return Math.abs(b)<1e-12?[]:[-c/b];
+    const d=b*b-4*a*c;return d<0?[]:[(-b+Math.sqrt(d))/(2*a),(-b-Math.sqrt(d))/(2*a)];
+  };
+  for(const command of commands){
+    if(command.close){previous=start;continue;}
+    if(command.moveTo)start=command;
+    if(command.curve&&previous){
+      const q=command.curve,cubic=q.type==='cubic';
+      const ts=new Set([...roots(previous.x,q.x1,cubic?q.x2:command.x,cubic?command.x:undefined),...roots(previous.y,q.y1,cubic?q.y2:command.y,cubic?command.y:undefined)]);
+      for(const t of ts)if(t>0&&t<1){const u=1-t;const at=k=>cubic?u*u*u*previous[k]+3*u*u*t*q[k+'1']+3*u*t*t*q[k+'2']+t*t*t*command[k]:u*u*previous[k]+2*u*t*q[k+'1']+t*t*command[k];coords.push({x:at('x'),y:at('y')});}
+    }
+    coords.push({x:command.x,y:command.y});previous=command;
+  }
   const x=Math.min(...coords.map(p=>p.x)),y=Math.min(...coords.map(p=>p.y));
   return{x,y,width:Math.max(.01,...coords.map(p=>p.x-x)),height:Math.max(.01,...coords.map(p=>p.y-y)),rotation:0};
 }
+
 const textWidth=measurePresentationText;
 
 // This projection reads the exact canonical paint tree. It never re-lays out
@@ -79,7 +98,8 @@ export function resolveFounderPresentationSvg(svg,{advancedGroups=[],measureText
     let groupId=context.groupId,semanticRef=context.semanticRef,role=context.role;
     const objectId=a['data-scene-object'];
     const furniture=a['data-artifact-chrome']||a['data-artifact-photo-frame']&&`photo-${a['data-artifact-photo-frame']}`;
-    if(a['data-event-id']){semanticRef=a['data-event-id'];role=a['data-event-kind']==='explanation'?'annotation':'event';groupId=makeGroup(`event:${semanticRef}`,groupId,role,semanticRef);}
+    if(a['data-profile-field']&&a['data-event-id']){semanticRef=a['data-event-id'];}
+    else if(a['data-event-id']){semanticRef=a['data-event-id'];role=a['data-event-kind']==='explanation'?'annotation':'event';groupId=makeGroup(`event:${semanticRef}`,groupId,role,semanticRef);}
     else if(objectId){role=a['data-scene-object-type']==='media'?'media':'annotation';groupId=makeGroup(`object:${objectId}`,null,role,null);}
     else if(furniture){role=furniture==='profile'?'profile':'furniture';groupId=makeGroup(`furniture:${furniture}`,groupId,role,null);}
     else if(a['data-layer']==='axis'){role='furniture';groupId=makeGroup('furniture:axis',null,role,null);}

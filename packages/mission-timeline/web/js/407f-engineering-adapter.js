@@ -1679,6 +1679,7 @@ export async function boot407FEngineeringAdapter({
       audience:options.audience||"EVERYTHING",
       currentMonth:options.currentMonth||currentMonth(),
       resourceNamespace:`timeline-${surface}`,
+      showEmptySlots:surface==="edit",
       mediaById
     });}catch(error){
       if(surface!=="edit"||error?.code!=="TIMELINE_SCENE_RECOVERY_REQUIRED")throw error;
