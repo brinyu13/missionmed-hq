@@ -10,7 +10,7 @@ function requireOwn(i){if(!owns(i))throw Error('You cannot change this interview
 function requireStudent(){if(actor.role!=='student')throw Error('Only students can change their own interviews.');}
 function requireMentor(){if(actor.role!=='mentor')throw Error('This action requires the assigned mentor.');}
 function requireAdmin(){if(actor.role!=='admin')throw Error('This action requires an administrator.');}
-function go(route){stopSpeech();S.ui.route=route;S.ui.sub={};S.ui.drawer=null;render();main().scrollTo?.({top:0});main().focus({preventScroll:true});}
+function go(route){stopSpeech();S.ui.route=route;S.ui.sub={};S.ui.drawer=null;render();main().scrollTo?.({top:0});if(!document.body.classList.contains('opening-active'))main().focus({preventScroll:true});}
 function privateCommand(el,name,data={},options){const i=iv(el);requireOwn(i);if(name==='debrief.save'&&data.fields){const key='structure-'+i.id;clearTimeout(autosaveTimers.get(key));autosaveTimers.delete(key);}return command(name,i.id,data,options);}
 function latestAttempt(i){const a=S.practice[i.id]?.at(-1);if(!a)throw Error('Start an attempt first.');return a;}
 function structuredDebriefFields(i){

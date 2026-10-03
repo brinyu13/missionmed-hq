@@ -58,6 +58,11 @@ test('reduced motion uses short fade, never staged movement',()=>{
 test('Skip during the final fade still immediately restores shell interaction',()=>{
  const a=opening();a.tick(4500);a.node.querySelector('[data-skip-opening]').click();assert.equal(a.node.hidden,true);assert.notEqual(a.w.document.getElementById('main').inert,true);assert.equal(a.timers.size,0);a.dom.window.close();
 });
+test('real Matrix Calendar bridge preserves entrance focus and timing through rerender',()=>{
+ const a=opening();a.w.eval(fs.readFileSync(new URL('../../infra/wordpress/matrix-v2-discovery/iiq-1203-v1/calendar-entry.js',import.meta.url),'utf8'));
+ assert.equal(a.w.eval('S.ui.route'),'calendar');assert.equal(a.w.document.getElementById('main').inert,true);assert.equal(a.w.document.activeElement,a.node.querySelector('[data-skip-opening]'));
+ a.tick(4999);assert.equal(a.node.hidden,false);a.tick(5000);assert.equal(a.node.hidden,true);assert.notEqual(a.w.document.getElementById('main').inert,true);assert.equal(a.w.document.activeElement,a.w.document.getElementById('main'));a.dom.window.close();
+});
 test('blocked session storage still does not replay within entry',()=>{
  const a=opening({storageFails:true});a.tick(5000);a.w.eval('showOpening()');assert.equal(a.node.hidden,true);assert.equal(a.timers.size,0);a.dom.window.close();
 });

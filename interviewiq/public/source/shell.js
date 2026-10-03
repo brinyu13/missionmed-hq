@@ -415,6 +415,7 @@ function render(){
   renderDrawer();
   applyDrafts();
   markComingSoonActions();
+  if(document.body.classList.contains('opening-active'))for(const id of ['main','hdr','rail','drawer'])document.getElementById(id).inert=true;
 }
 function renderSpeechOnly(iid){
   const i=S.interviews.find(x=>x.id===iid); const db=getDebrief(i); const box=document.getElementById('speech-'+iid); if(!box) return;
