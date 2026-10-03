@@ -89,6 +89,13 @@ function mmiiqg_read_release($runtime_root = null, $release_id = null) {
     return array('root' => $current, 'manifest' => $manifest);
 }
 
+/** Extensionless aliases avoid front-server static-file interception; no generic file mapping. */
+function mmiiqg_versioned_asset_relative($relative) {
+    if ($relative === 'styles') { return 'styles.css'; }
+    if ($relative === 'app') { return 'app.js'; }
+    return $relative;
+}
+
 function mmiiqg_asset($release, $relative) {
     if (!is_array($release) || !is_string($relative)
         || !preg_match('#^[A-Za-z0-9_-][A-Za-z0-9_./-]*$#D', $relative)
@@ -211,7 +218,7 @@ function mmiiqg_handle() {
     $relative = $path === '/interviewiq/' ? 'index.html' : substr($path, strlen('/interviewiq/'));
     $release_id = null;
     if (preg_match('#^releases/([a-f0-9]{40,64})/(.+)$#D', $relative, $versioned)) {
-        $release_id = $versioned[1]; $relative = $versioned[2];
+        $release_id = $versioned[1]; $relative = mmiiqg_versioned_asset_relative($versioned[2]);
     }
     $release = mmiiqg_read_release(null, $release_id);
     $asset = mmiiqg_asset($release, $relative);
