@@ -147,15 +147,15 @@ function pixel(value){
 function presentation(arrow,scene){
   const rows=new Map((scene?.founderPresentation?.categoryKey||FOUNDER_COLOR_KEY_ROWS)
     .map((item)=>[item.id,item]));
-  if(arrow.categoryId==="exams")return{slug:"usmle",color:rows.get("exams")?.color||"#3A78C9"};
+  if(arrow.categoryId==="exams")return{slug:"usmle",color:rows.get("exams")?.color||"#0565C0"};
   if(arrow.categoryId==="clinical"){
     return /clinic|ambulatory|outpatient/i.test(arrow.siteName)
-      ?{slug:"cl",color:rows.get("clinical-clinic")?.color||"#E89B3C"}
-      :{slug:"th",color:rows.get("clinical-hospital")?.color||"#C8641C"};
+      ?{slug:"cl",color:rows.get("clinical-clinic")?.color||"#F49018"}
+      :{slug:"th",color:rows.get("clinical-hospital")?.color||"#DF6A0F"};
   }
-  if(arrow.categoryId==="personal")return{slug:"personal",color:rows.get("personal")?.color||"#8A5BBF"};
-  if(arrow.categoryId==="research")return{slug:"res",color:rows.get("research")?.color||"#D4B636"};
-  if(arrow.categoryId==="work")return{slug:"work",color:rows.get("work")?.color||"#3F9B52"};
+  if(arrow.categoryId==="personal")return{slug:"personal",color:rows.get("personal")?.color||"#763F9B"};
+  if(arrow.categoryId==="research")return{slug:"res",color:rows.get("research")?.color||"#DCBE23"};
+  if(arrow.categoryId==="work")return{slug:"work",color:rows.get("work")?.color||"#00882B"};
   if(arrow.categoryId==="education")return{slug:"education",color:rows.get("education")?.color||"#2C6E8F"};
   throw new TypeError(`Unsupported event category: ${String(arrow.categoryId)}`);
 }
@@ -317,7 +317,7 @@ function arrowMarkup(arrow,index,layout,scale,scene){
   const titleY=box.y+22-(titleLines.length-1)*11;
   // Short chronology bars retain their exact dates/width. Their full readable
   // label sits beside the bar instead of crushing glyphs into a few pixels.
-  const titleColor=titleFits?String(arrow?.label?.color||"#FFFFFF"):outsideInk;
+  const titleColor=titleFits?"#FFFFFF":outsideInk;
   const titleMarkup=`<text data-arrow-label-placement="${titleFits?'inside':outsideLeft?'outside-left':'outside-right'}" data-board-ink-role="${titleFits?'inside-arrow':'outside-arrow'}" x="${titleX}" y="${titleY}" text-anchor="${titleAnchor}" fill="${xml(titleColor)}" font-family="${TYPE.arrowLabel}" font-size="18" font-weight="400">${titleLines.length===1?xml(title):titleLines.map((line,i)=>`<tspan x="${titleX}" dy="${i?22:0}">${xml(line)}</tspan>`).join('')}</text>`;
   const lor=arrow.lorSubmitted
     ?`<g data-lor-submitted="true" transform="translate(${box.x2-38} ${box.y-10})"><path d="M0 0H20V22L10 16L0 22Z" fill="#F3E7B3" stroke="#8C6B20"/><text x="10" y="14" text-anchor="middle" fill="#6C5018" font-family="Arial" font-size="11" font-weight="800">★</text></g>`
@@ -409,17 +409,16 @@ function flagMarkup(flag,index,scale,scene,{interview=false}={}){
   }
   /* AAA-019 Keynote fidelity (016 §3 "Milestone flags"): the golden milestone is a waving
      grey pennant planted on the ribbon with a white date chip inside and the label beside it —
-     not the old 72×92 signpost sprite. Drawn as vector so it scales with export DPI. Personal
-     milestones keep the purple family. The pole foot lands exactly on the ribbon's top edge. */
-  const personal=flag.categoryId==="personal";
+     not the old 72×92 signpost sprite. Drawn as vector so it scales with export DPI. General
+     milestones remain gray; only explicit exam results change their flag color. The pole foot lands exactly on the ribbon's top edge. */
   const examResult=!interview&&flag.categoryId==="exams"?flag.examResult:null;
-  const fill=examResult==="Failed"?"#C92113":examResult==="Passed"?"#379B43":personal?"#8A5BBF":"#A6AAAE";
-  const edge=examResult==="Failed"?"#982018":examResult==="Passed"?"#267333":personal?"#5B3A86":"#6E7378";
-  const light=examResult==="Failed"?"#F07A66":examResult==="Passed"?"#75C877":personal?"#B08BD9":"#C9CDD1";
+  const fill=examResult==="Failed"?"#C92113":examResult==="Passed"?"#379B43":"#A6AAAE";
+  const edge=examResult==="Failed"?"#982018":examResult==="Passed"?"#267333":"#6E7378";
+  const light=examResult==="Failed"?"#F07A66":examResult==="Passed"?"#75C877":"#C9CDD1";
   const poleX=bx+4;
   const poleBottom=overridden?anchoredPoleBottom:placed.defaultPoleBottom;
   const pennant=`<path d="M${poleX} ${by+2}C${poleX+16} ${by-4},${poleX+34} ${by+8},${poleX+52} ${by+2}L${poleX+52} ${by+36}C${poleX+36} ${by+42},${poleX+18} ${by+30},${poleX} ${by+36}Z" fill="${fill}" stroke="${edge}" stroke-width="1.2"/><path d="M${poleX+2} ${by+4}C${poleX+16} ${by-1},${poleX+34} ${by+10},${poleX+50} ${by+5}" stroke="${light}" stroke-opacity=".8" stroke-width="1"/>`;
-  const chip=`<rect x="${poleX+8}" y="${by+10}" width="36" height="18" rx="3" fill="#FFFFFF" fill-opacity=".92"/><text x="${poleX+26}" y="${by+23}" text-anchor="middle" fill="#3B4048" font-family="${TYPE.event}" font-size="13">${xml(presentationDateWording(flag.month,flag.datePrecision?.start,flag.sourceDateWording?.start))}</text>`;
+  const chip=`<text data-founder-pennant-date="true" x="${poleX+26}" y="${by+24}" text-anchor="middle" fill="#FFFFFF" font-family="${TYPE.event}" font-size="18">${xml(presentationDateWording(flag.month,flag.datePrecision?.start,flag.sourceDateWording?.start))}</text>`;
   const labelX=flipLabel?poleX-8:poleX+60;
   const lines=wrapPresentationText(String(title||''),{width:Math.max(1,flipLabel?labelX-16:WIDTH-labelX-16),size:18,family:TYPE.arrowLabel,measureText:scene.measureText||measurePresentationText});
   const resultPrivacy=flag.presentationRedactions?.includes('EXAM_RESULT_PRIVATE')?' data-exam-result-private="true"':'';

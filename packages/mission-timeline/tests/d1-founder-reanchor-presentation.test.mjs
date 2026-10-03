@@ -70,7 +70,7 @@ test("one deterministic portable serializer supplies preview/export composition 
   assert.equal(first.svg,second.svg);
   // The historical serialization digest predates measured text and the native font audit.
   // Immutable authority/assets remain hash-locked above; this digest is a technical regression, not visual acceptance.
-  assert.equal(sha256(first.svg),"fe7f8638fb67360f4f978000b57bc45951b2854732c3e3e15f9c60c741fb7f91");
+  assert.equal(sha256(first.svg),"b1a7c20c57cbb35b3704ed67c5da67be78383160616b19ee126a79da6fff7eab");
   assert.match(first.svg,/viewBox="0 0 1920 1080"/);
   assert.match(first.svg,/data-founder-canvas="1920x1080"/);
   assert.match(first.svg,new RegExp(`data-founder-keynote-source-sha256="${FOUNDER_KEYNOTE_CONTRACT.source.sha256}"`));

@@ -62,13 +62,15 @@ export const FOUNDER_KEYNOTE_CONTRACT=Object.freeze({
  * The IDs remain stable so future user-managed labels can be versioned without
  * weakening existing timelines.
  */
+// sRGB projection of flat legend swatches in the hash-pinned Display P3 golden.
+// Values are color-managed raster evidence, not an invented palette or native-fill claim.
 export const FOUNDER_COLOR_KEY_ROWS=Object.freeze([
-  Object.freeze({id:"work",label:"Work Experience",color:"#3F9B52"}),
-  Object.freeze({id:"personal",label:"Personal (Not on CV)",color:"#8A5BBF"}),
-  Object.freeze({id:"exams",label:"USMLE Studies",color:"#3A78C9"}),
-  Object.freeze({id:"clinical-hospital",label:"USCE: Teaching Hosp",color:"#C8641C"}),
-  Object.freeze({id:"clinical-clinic",label:"USCE: Clinics",color:"#E89B3C"}),
-  Object.freeze({id:"research",label:"Research Experience",color:"#D4B636"})
+  Object.freeze({id:"work",label:"Work Experience",color:"#00882B"}),
+  Object.freeze({id:"personal",label:"Personal (Not on CV)",color:"#763F9B"}),
+  Object.freeze({id:"exams",label:"USMLE Studies",color:"#0565C0"}),
+  Object.freeze({id:"clinical-hospital",label:"USCE: Teaching Hosp",color:"#DF6A0F"}),
+  Object.freeze({id:"clinical-clinic",label:"USCE: Clinics",color:"#F49018"}),
+  Object.freeze({id:"research",label:"Research Experience",color:"#DCBE23"})
 ]);
 
 export const FOUNDER_PRESENTATION_DEFAULTS=Object.freeze({
@@ -99,10 +101,11 @@ export const FOUNDER_TEMPLATE_GRAMMAR=Object.freeze({
   goldenSha256:FOUNDER_KEYNOTE_CONTRACT.verifiedEvidence.pngSha256,
   locked:Object.freeze({canvas:FOUNDER_KEYNOTE_CONTRACT.canvas,slideCount:1,
     background:"textured-blue-board",title:"centered-framed-plaque",axis:"navy-chevron-year-ribbon",
-    duration:"category-arrow-with-direct-label-and-date",milestone:"pole-and-date-pennant",
+    duration:"category-arrow-with-direct-label-and-date",milestone:"pole-and-date-pennant",examResultMarker:"explicit-result-flag-attached-to-study-arrow-below-ribbon",
     profile:"mounted-white-paper-with-portrait",photos:"white-snapshot-frames",
     interview:"program-logo-purple-ribbon-date",annotations:"authored-sticky-notes-and-pointers",
     colorKeyIds:Object.freeze(FOUNDER_COLOR_KEY_ROWS.map(row=>row.id)),
+    colors:Object.freeze({profile:"Display P3 golden converted to sRGB",rows:FOUNDER_COLOR_KEY_ROWS,insideArrowText:"#FFFFFF"}),
     typography:Object.freeze({
       title:Object.freeze({family:"American Typewriter",size:36,weight:400}),
       arrowLabel:Object.freeze({family:"American Typewriter",size:18,weight:400}),

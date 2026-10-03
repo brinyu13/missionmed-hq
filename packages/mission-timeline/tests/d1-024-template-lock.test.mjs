@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {FOUNDER_TEMPLATE_GRAMMAR} from '../web/js/presentation/founder-keynote-contract.js';
+import {FOUNDER_TEMPLATE_GRAMMAR,FOUNDER_COLOR_KEY_ROWS} from '../web/js/presentation/founder-keynote-contract.js';
 import {serializeFounderPresentation,assertCompleteFounderPresentation} from '../web/js/presentation/founder-presentation-serializer.js';
 import {resolveFounderPresentationSvg} from '../web/js/presentation/resolved-founder-presentation.js';
 import {FOUNDER_2025_MATRIX} from './fixtures/founder-2025-matrix.mjs';
@@ -33,4 +33,20 @@ test('late corrections, manual overlay and JSON save/reopen are deterministic wi
   const first=serializeFounderPresentation(d).svg,again=serializeFounderPresentation(JSON.parse(before)).svg;
   assert.equal(first,again);assert.equal(JSON.stringify(d),before);
   assert.match(first,/Corrected Medical Officer title/);assert.match(first,/Reviewed source correction/);
+});
+
+test('category colors use the color-managed 2025 golden swatches and white native arrow labels',()=>{
+ assert.deepEqual(FOUNDER_COLOR_KEY_ROWS.map(r=>r.color),['#00882B','#763F9B','#0565C0','#DF6A0F','#F49018','#DCBE23']);
+ const r=serializeFounderPresentation(FOUNDER_2025_MATRIX.find(f=>f.id==='M05').document);
+ const nodes=resolveFounderPresentationSvg(r.svg).nodes;
+ for(const n of nodes.filter(n=>n.sourceAttributes['data-arrow-label-placement']==='inside'))assert.equal(n.style.fill,'#FFFFFF');
+ assert.match(r.svg,/#DF6A0F/);assert.equal(FOUNDER_TEMPLATE_GRAMMAR.locked.examResultMarker,'explicit-result-flag-attached-to-study-arrow-below-ribbon');
+});
+
+test('general milestone pennants stay gray with white date text as in the reference',()=>{
+ const d=structuredClone(FOUNDER_2025_MATRIX.find(f=>f.id==='M09').document);
+ d.events=[{id:'personal-marker',categoryId:'personal',eventType:'milestone',title:'Married',startDate:'2023-06',visibilityState:'INTERVIEWER_SAFE'}];
+ const nodes=resolveFounderPresentationSvg(serializeFounderPresentation(d).svg).nodes.filter(n=>n.semanticRef==='personal-marker');
+ assert.ok(nodes.some(n=>n.kind==='path'&&n.style.fill==='#A6AAAE'));
+ const date=nodes.find(n=>n.sourceAttributes['data-founder-pennant-date']);assert.equal(date.style.fill,'#FFFFFF');assert.equal(date.fontSize,18);
 });
