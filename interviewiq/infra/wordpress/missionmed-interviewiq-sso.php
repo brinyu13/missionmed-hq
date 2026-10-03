@@ -271,7 +271,7 @@ function mmiiq_introspection_permission($request) {
     }
     $body = (string) $request->get_body();
     $signature = (string) $request->get_header('x-mmed-iiq-proof');
-    if ($request->get_method() !== 'POST' || $request->get_header('origin') !== ''
+    if ($request->get_method() !== 'POST' || (string) $request->get_header('origin') !== ''
         || strlen($body) > 4096 || strlen($body) < 2 || !preg_match('/^[a-f0-9]{64}$/D', $signature)
         || !hash_equals(hash_hmac('sha256', "mmiiq-introspection-request-v1\n" . $body,
             mmiiq_setting('INTERVIEWIQ_OWNER_PROOF_SECRET')), $signature)) {

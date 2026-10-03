@@ -26,7 +26,7 @@ class MMED_Access_Gate { public static function get_full_access_course_ids() { r
 class Request {
     public function __construct(public $body, public $headers = array(), public $method = 'POST') {}
     public function get_body() { return $this->body; }
-    public function get_header($name) { return $this->headers[strtolower($name)] ?? ''; }
+    public function get_header($name) { return $this->headers[strtolower($name)] ?? null; }
     public function get_method() { return $this->method; }
 }
 function is_wp_error($v) { return $v instanceof WP_Error; }
@@ -189,7 +189,9 @@ check('valid owner proof rechecks state and binds request bytes', function () {
     eq($p['request_sha256'], hash('sha256', $request->body)); eq($p['session_verifier'], proof_input()['session_verifier']);
     eq($GLOBALS['meta_writes'], array());
 });
-check('server proof not callable from browser', function () { error_code(mmiiq_introspection_permission(signed_request(proof_input(), array('origin' => $GLOBALS['wp_origin']))), 'owner_proof_denied'); });
+check('server proof accepts absent Origin represented by WordPress null', function () { $r = signed_request(proof_input()); eq($r->get_header('origin'), null); eq(mmiiq_introspection_permission($r), true); });
+check('server proof accepts an empty Origin header', function () { eq(mmiiq_introspection_permission(signed_request(proof_input(), array('origin' => ''))), true); });
+check('server proof not callable from browser', function () { foreach (array($GLOBALS['wp_origin'], 'https://attacker.invalid', 'null') as $origin) { error_code(mmiiq_introspection_permission(signed_request(proof_input(), array('origin' => $origin))), 'owner_proof_denied'); } });
 check('owner proof rejects tampered body', function () { $r = signed_request(proof_input()); $r->body .= ' '; error_code(mmiiq_introspection_permission($r), 'owner_proof_denied'); });
 check('owner proof rejects wrong signing domain', function () { $r = signed_request(proof_input()); $r->headers['x-mmed-iiq-proof'] = hash_hmac('sha256', $r->body, mmiiq_setting('INTERVIEWIQ_OWNER_PROOF_SECRET')); error_code(mmiiq_introspection_permission($r), 'owner_proof_denied'); });
 check('owner proof rejects stale request', function () { error_code(mmiiq_introspection_permission(signed_request(proof_input(array('iat' => time() - 31)))), 'owner_proof_invalid'); });
