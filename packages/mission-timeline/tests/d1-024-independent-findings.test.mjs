@@ -5,6 +5,7 @@ import {renderLastGoodBuilderPreview,clearLastGoodBuilderPreview} from '../web/j
 import {timelineLastGoodRenderCache} from '../web/js/presentation/last-good-render-cache.js';
 import {createEmptySceneGraph,synchronizeAdvancedSceneDocument} from '../web/js/editor/scene-graph.js';
 import {serializeFounderPresentation as render,assertCompleteFounderPresentation as gate} from '../web/js/presentation/founder-presentation-serializer.js';
+import {resolveFounderPresentationSvg} from '../web/js/presentation/resolved-founder-presentation.js';
 import {analyzeTimelineQuality} from '../web/js/uxr-002/quality-guardian.js';
 const event=(extra={})=>({id:'event',title:'Clinical Analyst',siteName:'Synthetic Polar Hospital',categoryId:'work',eventType:'duration',startDate:'2022-02',endDate:'2023-08',visibilityState:'INTERVIEWER_SAFE',...extra});
 const doc=(extra={})=>({id:'independent-doc',studentOwnerId:'owner',revision:1,theme:'keynote-classic',studentProfile:{fullName:'Synthetic SECRET_CACHE',medicalSchool:'Synthetic Cedar College'},events:[event()],advanced:{background:{kind:'theme'},media:[],textBlocks:[],elements:[],groups:[]},...extra});
@@ -47,4 +48,12 @@ test('scene-only authored text is preserved for recoverable repair, not silently
 test('normalized coordinates with UNKNOWN precision cannot invent date certainty',()=>{
  const r=render(doc({events:[event({fields:{datePrecision:{start:'UNKNOWN',end:'UNKNOWN'}}})]}));
  assert.match(r.svg,/Date needed/);assert.throws(()=>gate(r),e=>e.code==='TIMELINE_EXPORT_INCOMPLETE');
+});
+
+test('adjacent personal phases cannot override independently locked lanes',()=>{
+ const d=doc({events:[event({id:'first',categoryId:'personal',startDate:'2020-01',endDate:'2020-12',lane:1,manualOffset:{laneLocked:true}}),event({id:'second',categoryId:'personal',startDate:'2021-01',endDate:'2021-12',lane:4,manualOffset:{laneLocked:true}})]});
+ const r=render(d);assert.doesNotMatch(r.svg,/data-personal-band-separator/);
+ const nodes=resolveFounderPresentationSvg(r.svg).nodes;
+ const y=id=>nodes.find(n=>n.semanticRef===id&&n.kind==='path'&&!n.lineOnly&&n.bounds.height>10).bounds.y;
+ assert.notEqual(y('first'),y('second'));assert.equal(r.scene.arrows.find(a=>a.id==='first').lane,1);assert.equal(r.scene.arrows.find(a=>a.id==='second').lane,4);
 });

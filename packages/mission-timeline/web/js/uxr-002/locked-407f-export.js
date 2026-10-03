@@ -227,7 +227,7 @@ function presentationEventObject(scene,id){
 function personalBandSegments(scene){
   // Join only exact monthly adjacency. Gaps, concurrent periods, and manual
   // placement remain independent; no missing personal history is fabricated.
-  const arrows=(scene?.arrows||[]).filter(arrow=>arrow.categoryId==="personal"&&!presentationEventObject(scene,arrow.id)?.geometry)
+  const arrows=(scene?.arrows||[]).filter(arrow=>arrow.categoryId==="personal"&&!presentationEventObject(scene,arrow.id)?.geometry&&!arrow.manualOffset?.laneLocked&&!Number(arrow.manualOffset?.x)&&!Number(arrow.manualOffset?.y))
     .sort((a,b)=>monthIndex(a.startMonth)-monthIndex(b.startMonth)||String(a.id).localeCompare(String(b.id)));
   const result=new Map();let chain=[];
   const finish=()=>{if(chain.length>1)chain.forEach((arrow,index)=>result.set(arrow.id,{first:chain[0],index,count:chain.length,terminal:index===chain.length-1}));chain=[];};
