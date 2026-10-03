@@ -43,14 +43,24 @@ the actual production route and deployment.
   Python 3.14.6 accepts equivalent instants under the unchanged strict OS client.
   Old PRODUCT leases were released normally. Current keeper uses Python 3.14,
   exact logical scope, unchanged fencing/TTL validation and bounded renewal.
-  Provider readback confirms epoch4436/lease9c5ed9e9-844b-45d1-ae00-0eba1c6c0760.
+  Provider readback confirmed renewed PRODUCT epoch4436 and deployment epoch4439;
+  both released normally. Correction PRODUCT epoch4440 is renewing successfully.
   No OS authority, DB, provider configuration or production source was rewritten.
-- Current live rollback remains `a5985ddb-3b63-4765-801c-e15a0b27e9a9`, source
-  `91c4877d5a598cf84876596ca3f880e011f4665d`, image/artifact recorded below.
+- Additive canary deployed SUCCESS as `d1de9a63-dc0b-4283-990a-893945c96148`,
+  source `2b68bba2ab11c07716ae9162eb72b7dc6baf47f8`, image
+  `sha256:0b9b6eed3a325443d631f5b0eab86cb0404fdd9ef349b4c411890f6b43ef5721`.
+  Health200, anonymous root/candidate/bootstrap401 confirmed; root remains legacy.
+  Exact prior rollback artifact remains `ivoc-release-artifact-oHPlRP/source.tar`,
+  source `91c4877d5a598cf84876596ca3f880e011f4665d`; provider normally removed its
+  predecessor deployment `a5985ddb-3b63-4765-801c-e15a0b27e9a9` after activation.
   Fresh Chrome normal Matrix entry shows genuine wp:1 Founder/Admin and own
-  saved history; that does not establish new-candidate media acceptance.
-- Next executable action: clean source commit/non-force push/readback, DR-350
-  filtered artifact validation, fresh SHARED deployment lease, additive canary,
+  saved history; candidate Practice setup reaches distinct READY room. Neither
+  observation establishes new-candidate physical or audible media acceptance.
+- Independent review found saved calibration invalidation did not clear producer
+  face/pitch/behavior baselines after a device switch. Corrected through existing
+  producer reset contracts, including unfinished rehearsal accumulation. 27 focused
+  tests PASS with actual bridge/pipeline/behavior regression across measurement epochs.
+- Next executable action: deploy this correction via fresh fenced DR-350 artifact,
   then actual UI journeys and fix-forward. No candidate is LIVE VERIFIED yet.
 
 - **Founder live-POV override, 2026-10-02: recovery LIVE; candidate-question stall reopened fix-forward.**

@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {beginMeasurementEpoch} from '../../public/studio-fable/app/adapters/engine-adapter.mjs';
+import {beginMeasurementEpoch,invalidateDeviceCalibration} from '../../public/studio-fable/app/adapters/engine-adapter.mjs';
 import {GptLiveInterviewer} from '../../public/studio-fable/app/adapters/live-adapter.mjs';
 import {SessionController} from '../../public/studio-fable/app/controller/session-controller.mjs';
 import {DurableStudioSession} from '../../public/studio/durable-session.mjs';
 import {LiveAnalyticsMediaBridge} from '../../public/live-analytics/media-bridge.mjs';
+import {BehaviorIntelligenceRuntime} from '../../public/live-analytics/behavior-intelligence-runtime.mjs';
 import {bindSubject} from '../../public/studio-fable/app/state.mjs';
 if(!globalThis.CustomEvent)globalThis.CustomEvent=class extends Event{constructor(type,init={}){super(type);this.detail=init.detail;}};
 globalThis.document={hidden:false,addEventListener(){},removeEventListener(){},getElementById(){return null;}};
@@ -19,6 +20,24 @@ test('actual bridge/pipeline retains clock across rehearsal, abandonment and rec
   now=8000;beginMeasurementEpoch(real,{mediaStartedAt:7900});
   assert.equal(bridge.sessionClock,clock);assert.equal(pipeline.session.active.mediaStartedAtMs,7800);
   assert.equal(timingStarts,3);pipeline.destroy();
+});
+test('device change clears actual face/pitch/behavior calibration through rehearsal and recording epochs',()=>{
+  let now=100;const bridge=new LiveAnalyticsMediaBridge({now:()=>now}),pipeline=bridge.ensureAnalytics();
+  const behavior=new BehaviorIntelligenceRuntime({now:()=>now});
+  const prior={pitchMedianHz:160,smileBaseline:.25,browBaseline:.1,periocularBaseline:.1,speechLufsK:-20};
+  behavior.setBaseline(prior);pipeline.setPersonalCalibration(prior);
+  behavior.calibration.ingestAudio({atMs:100,speaking:true,loudness:{speechLufsK:-20},pitch:{medianHz:160}});
+  assert.equal(pipeline.pitchTrack.calibrationMedianHz,160);assert.equal(pipeline.faceFamily.hasPersonalBaseline(),true);
+  pipeline.beginPersonalFaceBaseline();let cancellation=null;
+  const real={bridge,pipeline,behavior,video:{},transcript:{stop(){}},projector:{reset(){}},
+    cancelFaceBaseline(reason){cancellation=reason;pipeline.endPersonalFaceBaseline();},startTranscriptTiming(){}};
+  invalidateDeviceCalibration(real);
+  assert.equal(cancellation,'DEVICE_CHANGED_RECALIBRATION_REQUIRED');assert.equal(behavior.baseline,null);
+  assert.deepEqual(behavior.calibration.pitch,[]);assert.deepEqual(behavior.calibration.loudness,[]);
+  const assertCleared=()=>{assert.equal(behavior.baseline,null);assert.equal(pipeline.pitchTrack.calibrationMedianHz,null);
+    assert.equal(pipeline.faceFamily.hasPersonalBaseline(),false);assert.equal(pipeline.faceBaselineCapturing,false);};
+  assertCleared();now=5000;beginMeasurementEpoch(real);assertCleared();
+  now=8000;beginMeasurementEpoch(real,{mediaStartedAt:7900});assertCleared();pipeline.destroy();
 });
 for(const delayed of ['native','api'])test('stop during '+delayed+' import never starts a provider',async()=>{
   const wait=deferred();let starts=0;

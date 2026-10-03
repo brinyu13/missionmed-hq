@@ -1,6 +1,12 @@
 // The production 3528C composition root is reused, never duplicated.
 // Rehearsal and recording have distinct epochs but retain one capture stream.
 const ENGINE='/iv-prep-on-call/assets';
+export function invalidateDeviceCalibration(real) {
+  real.cancelFaceBaseline?.('DEVICE_CHANGED_RECALIBRATION_REQUIRED');
+  real.behavior.setBaseline(null);
+  real.behavior.reset(real.bridge.sessionClock.sessionMs());
+  real.pipeline.clearPersonalCalibration();
+}
 // New measurement answer, not a new capture/session clock. The bridge owns it.
 export function beginMeasurementEpoch(real,{mediaStartedAt=null}={}) {
   const clock=real.bridge.sessionClock;
@@ -93,7 +99,7 @@ export async function createEngine({mode='real',video,overlayCanvas,csrfToken=''
       try{
         const devices=await real.switchDevice(kind,id);
         if(destroyed)throw new Error('The device change was cancelled.');
-        baselines.invalidateForDeviceChange(subject);baseline=null;return devices;
+        baselines.invalidateForDeviceChange(subject);baseline=null;invalidateDeviceCalibration(real);return devices;
       }finally{if(destroyed)real.destroy({releaseMedia:true});}
     },
     reselectPrimary(){return real.pipeline.reselectPrimary();},
