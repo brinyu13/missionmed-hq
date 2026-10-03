@@ -3,6 +3,14 @@ import {serializeFounderPresentationAsync,assertCompleteFounderPresentation} fro
 import {canvasPng,rasterizePresentationSvg,inlinePresentationSvgSources} from "../presentation/svg-rasterizer.js";
 import {visibleFounderPresentationTitle} from '../presentation/resolved-founder-presentation.js';
 
+function requireLoadedMedia(warnings=[]){
+  const missing=warnings.filter(value=>String(value).startsWith('MEDIA_FAIL_SOFT:'));
+  if(!missing.length)return;
+  const error=new TypeError('An attached image could not be loaded. Reconnect or remove that image before exporting.');
+  error.code='TIMELINE_EXPORT_MISSING_FIELDS';error.fields=missing.map(value=>({id:String(value).slice('MEDIA_FAIL_SOFT:'.length),field:'media'}));
+  throw error;
+}
+
 function pageDimensions(format){
   if(format?.page?.name==="A4")return{pageWidth:841.89,pageHeight:595.28};
   return{pageWidth:792,pageHeight:612};
@@ -70,11 +78,13 @@ export function createLocalExportAdapter({
       assertCompleteFounderPresentation(rendered);
       if(output.kind==="PPTX"){
         const inlined=await inlineSvg(rendered.svg);
+        requireLoadedMedia(inlined.warnings);
         const {createEditableFounderPptx}=await import("../presentation/editable-pptx.js");
         const artifact=await createEditableFounderPptx({svg:inlined.svg,document:input.timeline});
         return{...artifact,eventCount:input.timeline.events.length,warnings:[...inlined.warnings,...artifact.warnings]};
       }
       const rasterized=await rasterize(rendered.svg,{width,height});
+      requireLoadedMedia(rasterized.warnings);
       const canvas=rasterized.canvas;
       const blob=output.kind==="PNG"
         ?await canvasPng(canvas)

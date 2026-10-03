@@ -179,3 +179,14 @@ test('actual program-facing export boundary excludes private photos before the r
  assert.equal(buildExportPreviewInput(document,{audience:'PROFESSIONAL_CONNECTION'}).timeline.mediaItems.length,0);
  assert.equal(buildExportPreviewInput(document,{audience:'INTERVIEWER_SAFE'}).timeline.mediaItems.length,0);
 });
+
+
+test('image fetch failures stop PNG, PDF and PPTX rather than exporting a missing supplied image',async()=>{
+ const {buildExportRequest}=await import('../web/js/uxr-002/export-screen.js');
+ const {createLocalExportAdapter}=await import('../web/js/uxr-002/export-adapter.js');
+ for(const formatId of ['png-1920x1080','pdf-letter-landscape','pptx-editable']){
+  const request=buildExportRequest(base(),{formatId});
+  const adapter=createLocalExportAdapter({inlineSvg:async()=>({svg:'unused',warnings:['MEDIA_FAIL_SOFT:broken-photo']}),rasterize:async()=>({warnings:['MEDIA_FAIL_SOFT:broken-photo'],canvas:{toBlob:()=>{throw Error('missing media cannot be encoded');}}})});
+  await assert.rejects(()=>adapter.generate(request),e=>e.code==='TIMELINE_EXPORT_MISSING_FIELDS'&&e.fields[0].id==='broken-photo');
+ }
+});
