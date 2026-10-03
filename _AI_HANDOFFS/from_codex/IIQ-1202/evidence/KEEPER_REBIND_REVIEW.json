@@ -1,0 +1,38 @@
+{
+  "schema": "missionmed.interviewiq.keeper-rebinding-review.v1",
+  "mission": "IIQ-1202",
+  "reviewer": "/root/preservation_redteam",
+  "reviewedAt": "2026-10-03T18:44:54.464043+00:00",
+  "verdict": "APPROVE",
+  "script": {
+    "path": "/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/IIQ-1202/registry/product_keeper_final.py",
+    "sha256": "b2a840d020ae9a8b4e44ad81a945392ace9e3b212e46c7a639c6d5e16097bc5a"
+  },
+  "observedDiff": [
+    "BASE changed from 538e97fb13b268683ebacc39d2e80cf551b11b5b to approved 0d67338b1398b4800516aab02adbd73efef2422e",
+    "Source session label changed to iiq-1202-final-filing-source-20261003"
+  ],
+  "unchanged": "Protocol, transport, owner and source write-path scope unchanged.",
+  "expiryReceipt": {
+    "path": "/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/IIQ-1202/registry/FINAL_KEEPER_EXPIRY_READBACK.json",
+    "sha256": "721cc49efc6cc313b52d2450c68dd23cf751a713bc6909701e9db67ff48ac321",
+    "inactiveEpochs": [
+      4404,
+      4405,
+      4406
+    ],
+    "activeRegistryCount": 0
+  },
+  "executionConditions": [
+    "Fresh zero-REGISTRY readback immediately before ordinary reacquisition.",
+    "Only source and Brain leases for final filing; no remaining provider mutation scope.",
+    "No forced release or nonce reuse."
+  ],
+  "rootReportedControlLapse": {
+    "observationSource": "Direct root report; this reviewer did not witness the copy operation.",
+    "description": "Root copied two already-redacted postdeployment receipts in the same exec after failed CHECK and before asserting exit.",
+    "reportedBoundary": "No database, API or source-code change.",
+    "closureRequirement": "Disclose lapse and narrow impact truthfully; do not imply continuously healthy keepers."
+  },
+  "reviewerMutations": "This private review receipt only; no source or authority changes."
+}

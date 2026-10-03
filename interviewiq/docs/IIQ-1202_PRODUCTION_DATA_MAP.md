@@ -201,3 +201,28 @@ platform backups and broader restoration were not reconfigured or certified by
 this bounded PG mission. Preserve the user-ID/UUID mapping and coordinate a separate
 WP disaster recovery with the owner; the IIQ PG dump includes actors and their
 stable WP bindings but not WordPress accounts, sessions or secrets.
+
+
+## Final IIQ-1202 verification
+
+Independent verification reached **DATA_PRESERVATION_GATE_VERIFIED**, all 14
+Founder criteria, on 2026-10-03. API source
+`0d67338b1398b4800516aab02adbd73efef2422e` deployed as
+`f29e040c-d550-4d38-87f1-8b4f5bab1246`, image
+`sha256:a9db4974256841befeb3044ae6c9c720b879c966613d77e2db6f7cd73b58b5b9`.
+All 27 runtime/package hashes and readiness matched the approved source. The sole
+runtime behavior change rejects effective DELETE privilege drift; no production
+migration, UI, auth or integration activation occurred. All 28 application-table
+full-row fingerprints matched initial, predeploy and postdeploy observations; the
+full migration-ledger row, including applied_at, matched the populated backup.
+Fresh postdeploy read-only isolation passed five groups, and the independent
+disposable preservation run passed 89/89 checks, including all A-O gates.
+
+The final independent receipt is
+`_AI_HANDOFFS/from_codex/IIQ-1202/evidence/FINAL_14_GATE_INDEPENDENT_VERIFICATION.json`,
+SHA-256 `f1004b98688f21d5dd63d2a003965573d4fec9a112ffff2285ac5be2e0c3c168`.
+Earlier CORE authenticated reload/new-session proof is separate; no new production
+login or visual/device acceptance is claimed. PITR remains disabled; WordPress
+disaster recovery, provider snapshot restoration and prior-image redeploy
+availability remain unverified. No production rollback occurred. This documentation
+addendum does not change the deployed API source or enable unfinished integrations.

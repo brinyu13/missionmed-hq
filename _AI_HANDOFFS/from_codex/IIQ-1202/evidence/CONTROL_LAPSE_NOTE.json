@@ -1,0 +1,28 @@
+{
+  "schema": "missionmed.interviewiq.control-lapse-note.v1",
+  "reportedBy": "/root Foreman",
+  "recordedAt": "2026-10-03T18:43:53.519964+00:00",
+  "operation": "After source CHECK returned KEEPER_CONTROL_UNAVAILABLE, the Foreman copied exactly two already-redacted postdeploy receipts in the same script.",
+  "copies": [
+    {
+      "source": "/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/IIQ-1202/independent/PRODUCTION_POSTDEPLOY_BASELINE.json",
+      "copy": "/Users/brianb/.codex/worktrees/iiq-1200-production/interviewiq-1000/_AI_HANDOFFS/from_codex/IIQ-1202/evidence/PRODUCTION_POSTDEPLOY_BASELINE.json",
+      "sha256": "e69e1901bf60e85be7e5cf8cc78e33a4db39cce0a87af5a9344ae8b382d97a60",
+      "byteComparison": "PASS"
+    },
+    {
+      "source": "/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/IIQ-1202/independent/PRODUCTION_POSTDEPLOY_READ_ONLY_RLS.json",
+      "copy": "/Users/brianb/.codex/worktrees/iiq-1200-production/interviewiq-1000/_AI_HANDOFFS/from_codex/IIQ-1202/evidence/PRODUCTION_POSTDEPLOY_READ_ONLY_RLS.json",
+      "sha256": "5b3358cc3c17109ab17113319ecd99280e89d4a0247cb76917bafd0a1817b5c2",
+      "byteComparison": "PASS"
+    }
+  ],
+  "rootReportedNoDatabaseApiOrProductCodeMutation": true,
+  "receiptCopiesPreserved": true,
+  "providerExpiryProof": {
+    "path": "/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/IIQ-1202/registry/FINAL_KEEPER_EXPIRY_READBACK.json",
+    "sha256": "721cc49efc6cc313b52d2450c68dd23cf751a713bc6909701e9db67ff48ac321"
+  },
+  "keeperProcessEndingCause": "UNKNOWN; not inferred",
+  "response": "Authority mutations held. Root reacquisition and fresh READY required before further protected writes. No permission is retroactively claimed."
+}

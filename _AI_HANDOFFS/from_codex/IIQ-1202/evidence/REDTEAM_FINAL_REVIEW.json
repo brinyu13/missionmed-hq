@@ -1,0 +1,81 @@
+{
+  "schema": "missionmed.interviewiq.independent-redteam-review.v1",
+  "mission": "IIQ-1202",
+  "authority": "DR-370",
+  "authorityCommit": "05038b5a838194d30c544a19e0314ab10ee1794c",
+  "reviewedAt": "2026-10-03T17:52:51.015290+00:00",
+  "reviewer": "/root/preservation_redteam",
+  "verdict": "APPROVE",
+  "blockingFindings": [],
+  "scope": "Frozen migration, preservation and disposable-test guard source only; no production execution authorization.",
+  "sourceRoot": "/Users/brianb/.codex/worktrees/iiq-1200-production/interviewiq-1000/interviewiq",
+  "frozenSha256": {
+    "scripts/migrate.mjs": "62651f32756704f8bdbd9681962ac90729a228a01a1037195302bf8d87fa1b59",
+    "scripts/disposable-db-guard.mjs": "6b8e2d41c64bd74d1d629a2dc0746992b8de4fcce7079c542cef51d0d8ff099e",
+    "scripts/migration-preservation-gate.mjs": "f28a01b3815cab69d3329e35fbebca7a267fb8d2a5e5b49bde781514fa6b5c3e",
+    "scripts/run-postgres-tests.sh": "4e27442b7dc1712076af79da7b5522e5ad6a515ff48cd35bf0d36b8adc4bd469",
+    "tests/preservation/guards.mjs": "fe9e1c9c72283900b4f7dda69ea4f47bcf3d46c1b68b6a9998677f9aea52e709",
+    "tests/preservation/preservation.test.mjs": "262df7b03ab64925c2140f1f337ed162e9de78f3f8f0e60b18e6d3fda1569129",
+    "tests/postgres/migrations.test.mjs": "e5e90dc0a9feb62193a5b22a4c65f7525f195824a51332ebf20b53419f56c166",
+    "tests/postgres/security.test.mjs": "90f68fb040c5aa50acc30125911a1fb19ca09865953e14990c231912629fea91",
+    "tests/postgres/runtime-qualification.test.mjs": "9ef1b933531024e98b6ee2477494c9cfcf2df442a0e44900d996da2f0c14e81a",
+    "tests/domain-review/commands.test.mjs": "fe3d1ea36960ac60df2c88cf57d2a63c02fec08f7a236cb683f6517e5bdf501e",
+    "tests/api/core-http.test.mjs": "84b788e4e037eeb6c828254767937547f205e9c3898cb0f0cc4c9ad97206e7ae",
+    "tests/recordings/postgres.mjs": "06b0881aecc96da7cb5f48a4e9891391f478e2c3e980577c4fac3e9748e5a226",
+    "tests/helpers/preview-server.mjs": "8882313adaba890004f4a814c1f5c7f8031c3e929bcfcabccea03617d92b9c4e",
+    "infra/postgres/bootstrap.sql": "0abf9e462826e345941ee449bd659b2542fcc43abd8b173a93ff3320ccc902cb",
+    "infra/postgres/migrations/20261003042028_iiq_1200_initial.sql": "f4b546469c3830388a11c1b9bb7b59f30c477759598e3bbff3b774a246215edf"
+  },
+  "independentChecks": {
+    "inertAdversarial": {
+      "passed": 50,
+      "failed": 0
+    },
+    "entryPointDenial": {
+      "passed": 33,
+      "failed": 0
+    },
+    "databaseConnections": 0,
+    "networkConnections": 0,
+    "productionAccess": false,
+    "credentialAccess": false,
+    "sourceWrites": 0
+  },
+  "resolvedFindings": [
+    {
+      "priority": "P1",
+      "finding": "Inherited libpq PGHOSTADDR/service settings could redirect fixture tools before qualification.",
+      "resolution": "Shared guard rejects unapproved PG variables; shell preflight precedes writes; dump, createdb and restore children strip PG variables. Independent parser and entry-point denial checks pass."
+    },
+    {
+      "finding": "Known bootstrap bypass",
+      "resolution": "Pinned immutable bootstrap bytes and refusal when product schema or ledger exists."
+    },
+    {
+      "finding": "Known incomplete restore receipt",
+      "resolution": "Consistent private hashed backup, freshness, exact restore source, all baseline table counts and fingerprints, migration-ledger preservation and zero integrity counters required."
+    },
+    {
+      "finding": "Known incomplete Founder protocol",
+      "resolution": "Unknown or destructive SQL requires exact target, SQL and recovery hashes plus hashed inventory, rationale, alternatives, rollback/forward-repair and successful isolated dry-run materials."
+    },
+    {
+      "finding": "Known weak TLS/startup overrides",
+      "resolution": "Disabled and weak modes, certificate rejection bypass, global TLS bypass and PGOPTIONS rejected; migration search_path pinned to pg_catalog."
+    }
+  ],
+  "builderEvidenceReadback": {
+    "path": "/tmp/iiq-pg18.572pIy/preservation-receipt.json",
+    "sha256": "8409ac5a5cc4ceff1ab2a2b9d77e2b00478fb9f68ed25050871465a03df92f72",
+    "passed": 89,
+    "failed": 0,
+    "gates": "A-O all PASS",
+    "independentlyExecutedByThisReviewer": false
+  },
+  "limits": [
+    "Custom TLS checkServerIdentity implementation requires separate exact-wrapper independent review; generic guard cannot prove arbitrary callback semantics.",
+    "Hash-bound approval receipts do not prove original Founder intent; independent operator must verify original authorization.",
+    "No production backup, restore, provider configuration, runtime deployment or feature continuation is approved by this source verdict.",
+    "Receipt creation is the only persistent review output; it is outside product source."
+  ]
+}

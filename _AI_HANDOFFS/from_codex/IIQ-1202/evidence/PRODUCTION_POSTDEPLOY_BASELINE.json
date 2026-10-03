@@ -1,0 +1,391 @@
+{
+  "at": "2026-10-03T18:35:20.569Z",
+  "reviewer": "/root/core_launch_verifier",
+  "mode": "READ_ONLY_REPEATABLE_READ",
+  "project": "b317b67c-78f2-4a0d-97a7-3421c18a375f",
+  "environment": "a3d3d5be-100e-4242-b441-d0922545c91e",
+  "service": "84ecd61e-e8c5-4f86-9aab-7d8c08fe1b40",
+  "identity": {
+    "database": "railway",
+    "role": "postgres",
+    "read_only": "on",
+    "version": "18.6 (Debian 18.6-1.pgdg13+2)",
+    "timezone": "UTC"
+  },
+  "strict_tls": true,
+  "tables": [
+    {
+      "name": "access_grants",
+      "rls": true,
+      "force_rls": true,
+      "owner": "iiq_owner",
+      "effective_delete": false,
+      "effective_truncate": false
+    },
+    {
+      "name": "actors",
+      "rls": true,
+      "force_rls": true,
+      "owner": "iiq_owner",
+      "effective_delete": false,
+      "effective_truncate": false
+    },
+    {
+      "name": "audit_events",
+      "rls": true,
+      "force_rls": true,
+      "owner": "iiq_owner",
+      "effective_delete": false,
+      "effective_truncate": false
+    },
+    {
+      "name": "consents",
+      "rls": true,
+      "force_rls": true,
+      "owner": "iiq_owner",
+      "effective_delete": false,
+      "effective_truncate": false
+    },
+    {
+      "name": "contribution_credits",
+      "rls": true,
+      "force_rls": true,
+      "owner": "iiq_owner",
+      "effective_delete": false,
+      "effective_truncate": false
+    },
+    {
+      "name": "debriefs",
+      "rls": true,
+      "force_rls": true,
+      "owner": "iiq_owner",
+      "effective_delete": false,
+      "effective_truncate": false
+    },
+    {
+      "name": "followups",
+      "rls": true,
+      "force_rls": true,
+      "owner": "iiq_owner",
+      "effective_delete": false,
+      "effective_truncate": false
+    },
+    {
+      "name": "interview_history",
+      "rls": true,
+      "force_rls": true,
+      "owner": "iiq_owner",
+      "effective_delete": false,
+      "effective_truncate": false
+    },
+    {
+      "name": "interviews",
+      "rls": true,
+      "force_rls": true,
+      "owner": "iiq_owner",
+      "effective_delete": false,
+      "effective_truncate": false
+    },
+    {
+      "name": "learning_signals",
+      "rls": true,
+      "force_rls": true,
+      "owner": "iiq_owner",
+      "effective_delete": false,
+      "effective_truncate": false
+    },
+    {
+      "name": "mentor_gaps",
+      "rls": true,
+      "force_rls": true,
+      "owner": "iiq_owner",
+      "effective_delete": false,
+      "effective_truncate": false
+    },
+    {
+      "name": "mentor_notes",
+      "rls": true,
+      "force_rls": true,
+      "owner": "iiq_owner",
+      "effective_delete": false,
+      "effective_truncate": false
+    },
+    {
+      "name": "outbox_events",
+      "rls": true,
+      "force_rls": true,
+      "owner": "iiq_owner",
+      "effective_delete": false,
+      "effective_truncate": false
+    },
+    {
+      "name": "policies",
+      "rls": true,
+      "force_rls": true,
+      "owner": "iiq_owner",
+      "effective_delete": false,
+      "effective_truncate": false
+    },
+    {
+      "name": "policy_authorities",
+      "rls": true,
+      "force_rls": true,
+      "owner": "iiq_owner",
+      "effective_delete": false,
+      "effective_truncate": false
+    },
+    {
+      "name": "practice_attempts",
+      "rls": true,
+      "force_rls": true,
+      "owner": "iiq_owner",
+      "effective_delete": false,
+      "effective_truncate": false
+    },
+    {
+      "name": "preparation",
+      "rls": true,
+      "force_rls": true,
+      "owner": "iiq_owner",
+      "effective_delete": false,
+      "effective_truncate": false
+    },
+    {
+      "name": "recording_chunks",
+      "rls": true,
+      "force_rls": true,
+      "owner": "iiq_owner",
+      "effective_delete": false,
+      "effective_truncate": false
+    },
+    {
+      "name": "recording_sessions",
+      "rls": true,
+      "force_rls": true,
+      "owner": "iiq_owner",
+      "effective_delete": false,
+      "effective_truncate": false
+    },
+    {
+      "name": "related_events",
+      "rls": true,
+      "force_rls": true,
+      "owner": "iiq_owner",
+      "effective_delete": false,
+      "effective_truncate": false
+    },
+    {
+      "name": "request_idempotency",
+      "rls": true,
+      "force_rls": true,
+      "owner": "iiq_owner",
+      "effective_delete": false,
+      "effective_truncate": false
+    },
+    {
+      "name": "research_demands",
+      "rls": true,
+      "force_rls": true,
+      "owner": "iiq_owner",
+      "effective_delete": false,
+      "effective_truncate": false
+    },
+    {
+      "name": "research_missions",
+      "rls": true,
+      "force_rls": true,
+      "owner": "iiq_owner",
+      "effective_delete": false,
+      "effective_truncate": false
+    },
+    {
+      "name": "research_submissions",
+      "rls": true,
+      "force_rls": true,
+      "owner": "iiq_owner",
+      "effective_delete": false,
+      "effective_truncate": false
+    },
+    {
+      "name": "review_items",
+      "rls": true,
+      "force_rls": true,
+      "owner": "iiq_owner",
+      "effective_delete": false,
+      "effective_truncate": false
+    },
+    {
+      "name": "revisions",
+      "rls": true,
+      "force_rls": true,
+      "owner": "iiq_owner",
+      "effective_delete": false,
+      "effective_truncate": false
+    },
+    {
+      "name": "shared_reports",
+      "rls": true,
+      "force_rls": true,
+      "owner": "iiq_owner",
+      "effective_delete": false,
+      "effective_truncate": false
+    },
+    {
+      "name": "speech_segments",
+      "rls": true,
+      "force_rls": true,
+      "owner": "iiq_owner",
+      "effective_delete": false,
+      "effective_truncate": false
+    }
+  ],
+  "fingerprints": [
+    {
+      "table": "access_grants",
+      "row_count": 0,
+      "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "table": "actors",
+      "row_count": 2,
+      "aggregate_sha256": "f0a7d4898ae9881ad5b3b62f6b85b7d08262713a4b8a6d75cf337e4afdb0a151"
+    },
+    {
+      "table": "audit_events",
+      "row_count": 9,
+      "aggregate_sha256": "77a91838dc0b32c6039274d4b4fce83e69032df6cb93587606b0e8ef71e9cd28"
+    },
+    {
+      "table": "consents",
+      "row_count": 0,
+      "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "table": "contribution_credits",
+      "row_count": 0,
+      "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "table": "debriefs",
+      "row_count": 0,
+      "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "table": "followups",
+      "row_count": 0,
+      "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "table": "interview_history",
+      "row_count": 9,
+      "aggregate_sha256": "77ecb04576e63b9f99404b2887e795ccd1d2e8292551fd800447b586700ac9ba"
+    },
+    {
+      "table": "interviews",
+      "row_count": 3,
+      "aggregate_sha256": "198bba636e055b71c0caab85392acad21d71b70dea1873bd9eee57841e507f5e"
+    },
+    {
+      "table": "learning_signals",
+      "row_count": 0,
+      "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "table": "mentor_gaps",
+      "row_count": 0,
+      "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "table": "mentor_notes",
+      "row_count": 0,
+      "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "table": "outbox_events",
+      "row_count": 0,
+      "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "table": "policies",
+      "row_count": 0,
+      "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "table": "policy_authorities",
+      "row_count": 0,
+      "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "table": "practice_attempts",
+      "row_count": 0,
+      "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "table": "preparation",
+      "row_count": 0,
+      "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "table": "recording_chunks",
+      "row_count": 0,
+      "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "table": "recording_sessions",
+      "row_count": 0,
+      "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "table": "related_events",
+      "row_count": 0,
+      "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "table": "request_idempotency",
+      "row_count": 9,
+      "aggregate_sha256": "8d2c4217eaed0008f1bfd2bb84fda904396f053899f496e1dc7979445661035c"
+    },
+    {
+      "table": "research_demands",
+      "row_count": 0,
+      "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "table": "research_missions",
+      "row_count": 0,
+      "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "table": "research_submissions",
+      "row_count": 0,
+      "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "table": "review_items",
+      "row_count": 0,
+      "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "table": "revisions",
+      "row_count": 9,
+      "aggregate_sha256": "1d419533c3c1ef39f6ac04a9d7b4233ffbf72ab6acfc9405a5d0ffac113d2451"
+    },
+    {
+      "table": "shared_reports",
+      "row_count": 0,
+      "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "table": "speech_segments",
+      "row_count": 0,
+      "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "migrations": [
+    {
+      "name": "20261003042028_iiq_1200_initial.sql",
+      "sha256": "f4b546469c3830388a11c1b9bb7b59f30c477759598e3bbff3b774a246215edf"
+    }
+  ],
+  "raw_rows_retrieved": false
+}

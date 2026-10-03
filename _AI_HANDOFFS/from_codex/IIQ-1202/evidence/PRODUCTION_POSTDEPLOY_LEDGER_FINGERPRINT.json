@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "at": "2026-10-03T18:38:54.367Z",
+  "reviewer": "/root/core_launch_verifier",
+  "mode": "READ_ONLY_POSTDEPLOY_FULL_LEDGER_FINGERPRINT",
+  "project": "b317b67c-78f2-4a0d-97a7-3421c18a375f",
+  "environment": "a3d3d5be-100e-4242-b441-d0922545c91e",
+  "service": "84ecd61e-e8c5-4f86-9aab-7d8c08fe1b40",
+  "strict_tls": true,
+  "ledger": {
+    "row_count": 1,
+    "aggregate_sha256": "521fade2b01076e7fe3fc582d918b6c79af027ffac4d73ed4b994fc74efd46fb"
+  },
+  "allLedgerFieldsMatchCurrentBackupSnapshot": true,
+  "productionMutations": 0
+}

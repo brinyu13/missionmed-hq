@@ -1,0 +1,33 @@
+{
+  "status": "APPROVED_DOCUMENTATION_ONLY",
+  "reviewer": "/root/core_launch_verifier",
+  "at": "2026-10-03T18:49:30.633371+00:00",
+  "authority": "DR-370 / IIQ-1202",
+  "report": {
+    "source": "/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/IIQ-1202/FINAL_REPORT_DRAFT.md",
+    "sha256": "66a9e43622193d688a6193876a92816eab46550005baceb15bedd9625132825e",
+    "destination": "_AI_HANDOFFS/from_codex/IIQ-1202/IIQ-1202_FINAL_GATE.md"
+  },
+  "dataMapAppend": {
+    "source": "/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/IIQ-1202/independent/APPROVED_DATA_MAP_FINAL_APPEND.md",
+    "sha256": "9720cac13484e207f3cadf599b098d8317980f2984335e9cb8da75e41fedce4b",
+    "destination": "interviewiq/docs/IIQ-1202_PRODUCTION_DATA_MAP.md",
+    "operation": "Append exactly these reviewed bytes; preserve existing map content."
+  },
+  "correctionsRequired": [],
+  "reviewBasis": [
+    "Final14gate receiptf1004b98688f21d5dd63d2a003965573d4fec9a112ffff2285ac5be2e0c3c168.",
+    "Independent live deployment/file/data/ledger/RLS evidence and actual populated backup restore review.",
+    "Builder257 inherited regression count verified against seven exact hashed logs.",
+    "Independent redteam receipt confirms50 inert+33 entrypoint denial probes, no database/network execution.",
+    "Draft accurately distinguishes prior login evidence, JSDOM testing, disabled PITR, unverified WP/provider restore and rollback availability.",
+    "Control lapse is retained as source-evidence copies after failed CHECK, without describing it as authorized or changing production preservation conclusions."
+  ],
+  "conditions": [
+    "Fresh exact source lease must be READY and CHECK must succeed immediately before any protected copy/append/commit. A failed CHECK must abort the orchestration call before writes.",
+    "Report copy must match exact approved hash; data-map append must match reviewed bytes.",
+    "Redacted receipt copies must preserve original bytes/hashes; no private dumps/credentials/identifiers or row contents may enter Git.",
+    "No app runtime/source behavior, API deployment, PostgreSQL schema/data, WordPress/auth/UI or integration change is approved.",
+    "Final OS/Brain closure is separately reviewed and is not authorized by this documentation receipt."
+  ]
+}

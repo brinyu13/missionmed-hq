@@ -1,0 +1,264 @@
+{
+  "schema": "missionmed.interviewiq.independent-preservation-final.v1",
+  "result": "DATA_PRESERVATION_GATE_VERIFIED",
+  "status": "PASS",
+  "reviewer": "/root/core_launch_verifier",
+  "at": "2026-10-03T18:40:56.541369+00:00",
+  "authority": "Founder IIQ-1202 / DR-370",
+  "acceptanceCriteriaPassed": 14,
+  "acceptanceCriteriaTotal": 14,
+  "gates": [
+    {
+      "number": 1,
+      "criterion": "Actual production data location verified",
+      "status": "PASS",
+      "evidence": "Exact Railway project/environment/PostgreSQL/volume; strict TLS fresh catalog."
+    },
+    {
+      "number": 2,
+      "criterion": "Canonical ownership/IDs understood",
+      "status": "PASS",
+      "evidence": "Actor UUID/WP bindings, composite owner FKs, 2 current WP\u2194PG mappings match."
+    },
+    {
+      "number": 3,
+      "criterion": "Current production data durable beyond browser/deployment filesystem",
+      "status": "PASS",
+      "evidence": "Fresh pre/post API deployment fingerprints and actual separate PostgreSQL volume prove persisted current data survives API restart. Earlier CORE live reload/new-session proof and unchanged UI/API business logic remain distinct; no new WP login smoke claimed."
+    },
+    {
+      "number": 4,
+      "criterion": "Migration path verified",
+      "status": "PASS",
+      "evidence": "Dedicated nonruntime target/hash/ledger/evidence gate; actual additive N\u2192N+1 and replay tested in disposable PG18."
+    },
+    {
+      "number": 5,
+      "criterion": "Destructive shortcuts audited",
+      "status": "PASS",
+      "evidence": "All DB entrypoints inventoried; bootstrap immutable/existing-target forbidden; transaction escape and unknown/destructive SQL gated."
+    },
+    {
+      "number": 6,
+      "criterion": "Production test/reset paths guarded",
+      "status": "PASS",
+      "evidence": "Seven fixture entrypoints and harness refuse production before network; duplicate/effective targets, private marker, random actual cluster and libpq environment checked."
+    },
+    {
+      "number": 7,
+      "criterion": "Backup configuration verified",
+      "status": "PASS",
+      "evidence": "Provider actual daily/weekly/monthly schedules and current manual snapshot; PITR disabled explicitly documented."
+    },
+    {
+      "number": 8,
+      "criterion": "Safe restore evidence exists OR exact remaining restore limitation explicitly identified",
+      "status": "PASS",
+      "evidence": "Current populated 29-table logical backup restored in isolated PG18 and independently matched to earlier live baseline; no provider snapshot restore or WP DR certification claimed."
+    },
+    {
+      "number": 9,
+      "criterion": "Application rollback/data rollback distinction established",
+      "status": "PASS",
+      "evidence": "Separate application and database rollback contract; byte-verified old runtime reads/edits forward schema and retains new field. No live rollback executed. Prior provider image digest is recorded, but CLI old deployment is REMOVED and canRedeploy is not exposed; provider redeploy availability is unverified."
+    },
+    {
+      "number": 10,
+      "criterion": "Automated preservation tests pass",
+      "status": "PASS",
+      "evidence": "Independent bare npm run test:preservation 89/89, all A\u2013O; new private socket cluster stopped."
+    },
+    {
+      "number": 11,
+      "criterion": "RLS/student isolation still passes",
+      "status": "PASS",
+      "evidence": "Fresh actual production read-only runtime A/B interviews/history checks; local populated event/command checks. Empty live related_events caveat explicit."
+    },
+    {
+      "number": 12,
+      "criterion": "Invariant written durable project authority",
+      "status": "PASS",
+      "evidence": "Product source/docs/AGENTS committed and pushed0d67338b1398b4800516aab02adbd73efef2422e; 61 approved file hashes independently match. OS DR370/inheritance and Brain product/pack pointers committed with byte-readback custody."
+    },
+    {
+      "number": 13,
+      "criterion": "Future task inheritance established",
+      "status": "PASS",
+      "evidence": "Repository AGENTS and three docs, OS invariant/passport/parent+owner BOOT gates, and Brain record/generated pack require future preservation inheritance. Volatile final mission-status synchronization remains Foreman closeout, separate from presence of durable invariant."
+    },
+    {
+      "number": 14,
+      "criterion": "No production user data destroyed",
+      "status": "PASS",
+      "evidence": "All28 application-table full-row fingerprints are exactly unchanged from initial baseline through predeploy and postdeploy. Full ledger row fingerprint including applied_at matches populated backup/restore. All verifier production actions were read-only; no fixtures or data mutation."
+    }
+  ],
+  "sourceCommit": "0d67338b1398b4800516aab02adbd73efef2422e",
+  "deployment": "f29e040c-d550-4d38-87f1-8b4f5bab1246",
+  "deploymentInstance": "8c0c5e3a-f07f-4761-8999-0ce2f2c7693a",
+  "image": "sha256:a9db4974256841befeb3044ae6c9c720b879c966613d77e2db6f7cd73b58b5b9",
+  "readyz": {
+    "service": "interviewiq",
+    "status": "ready",
+    "release": "0d67338b1398b4800516aab02adbd73efef2422e"
+  },
+  "exactRuntimeFilesVerified": 27,
+  "preservationTests": {
+    "checks": 89,
+    "passed": 89,
+    "failed": 0
+  },
+  "preservationTestGroups": {
+    "guard": {
+      "checks": 28,
+      "passed": 28,
+      "failed": 0
+    },
+    "policy": {
+      "checks": 23,
+      "passed": 23,
+      "failed": 0
+    },
+    "transport": {
+      "checks": 7,
+      "passed": 7,
+      "failed": 0
+    },
+    "evidence": {
+      "checks": 15,
+      "passed": 15,
+      "failed": 0
+    },
+    "A-O": {
+      "checks": 15,
+      "passed": 15,
+      "failed": 0
+    },
+    "runtime-guard": {
+      "checks": 1,
+      "passed": 1,
+      "failed": 0
+    }
+  },
+  "productionDataComparison": {
+    "initialObservedAt": "2026-10-03T16:43:53.266Z",
+    "predeployObservedAt": "2026-10-03T17:53:06.690Z",
+    "postdeployObservedAt": "2026-10-03T18:35:20.569Z",
+    "all28FullRowFingerprintsIdentical": true,
+    "rowCounts": {
+      "access_grants": 0,
+      "actors": 2,
+      "audit_events": 9,
+      "consents": 0,
+      "contribution_credits": 0,
+      "debriefs": 0,
+      "followups": 0,
+      "interview_history": 9,
+      "interviews": 3,
+      "learning_signals": 0,
+      "mentor_gaps": 0,
+      "mentor_notes": 0,
+      "outbox_events": 0,
+      "policies": 0,
+      "policy_authorities": 0,
+      "practice_attempts": 0,
+      "preparation": 0,
+      "recording_chunks": 0,
+      "recording_sessions": 0,
+      "related_events": 0,
+      "request_idempotency": 9,
+      "research_demands": 0,
+      "research_missions": 0,
+      "research_submissions": 0,
+      "review_items": 0,
+      "revisions": 9,
+      "shared_reports": 0,
+      "speech_segments": 0
+    },
+    "aggregateFingerprintSha256": "b109010666e2f0181ab21ebe3191623a91c4ee2e3b136727ad1eabee4428a23c",
+    "ledgerAllFieldsMatchBackup": {
+      "row_count": 1,
+      "aggregate_sha256": "521fade2b01076e7fe3fc582d918b6c79af027ffac4d73ed4b994fc74efd46fb"
+    },
+    "currentRestoreAll29TablesMatch": true,
+    "wordpressPostgresIdentityMappingsMatch": true
+  },
+  "productionIsolation": {
+    "freshPostdeployReadOnlyGroupsPassed": 5,
+    "productionMutations": 0,
+    "rawIdentifiersOrContentLogged": false
+  },
+  "evidence": [
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/IIQ-1202/independent/RUNTIME_DEPLOYMENT_INDEPENDENT_APPROVAL_FINAL.json",
+      "sha256": "126a57b04b4baa415e1d904562ebbe886c52dc91d8df8b12fe4a7673d0579de2"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/IIQ-1202/independent/COMMIT_AND_PREDEPLOY_INDEPENDENT_REVIEW.json",
+      "sha256": "fa414990c577ec4cdf95eedf83360ead8dca2f722b02651dd7ed6ec2eda41422"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/IIQ-1202/independent/PRESERVATION_TESTS_INDEPENDENT_FINAL.json",
+      "sha256": "a166d7afceda0cf35ec142430f30a729bd29affbc8b8971d0da500428abb9152"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/IIQ-1202/independent/RESTORE_EVIDENCE_INDEPENDENT_REVIEW.json",
+      "sha256": "678e0f6af395d231740653c4ceac9debd7837ac4ec718fd54dabe1a4efbefa2b"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/IIQ-1202/independent/WORDPRESS_POSTGRES_IDENTITY_COMPARISON.json",
+      "sha256": "8d5a5017dc4394adebc28c44b90ca343aeb8ebd559a0fbaf6ec2091c887201fd"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/IIQ-1202/independent/PRODUCTION_READ_ONLY_RLS.json",
+      "sha256": "bcab990280459f6005940e8094cc684d0872e8fb3780a0debbb41ed745797c91"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/IIQ-1202/independent/PRODUCTION_PREDEPLOY_BASELINE.json",
+      "sha256": "35996197f3d2b2b665c1ad625f9900ab6018ebaae7507adfeefa57fd50bb0c88"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/IIQ-1202/independent/PRODUCTION_POSTDEPLOY_BASELINE.json",
+      "sha256": "e69e1901bf60e85be7e5cf8cc78e33a4db39cce0a87af5a9344ae8b382d97a60"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/IIQ-1202/independent/PRODUCTION_POSTDEPLOY_READ_ONLY_RLS.json",
+      "sha256": "5b3358cc3c17109ab17113319ecd99280e89d4a0247cb76917bafd0a1817b5c2"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/IIQ-1202/independent/PRODUCTION_POSTDEPLOY_LEDGER_FINGERPRINT.json",
+      "sha256": "a8d739ba8e89ee22912d0f1f2400b0311831b65157389d23f70640a608af8d1a"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/IIQ-1202/independent/DEPLOYED_RUNTIME_INDEPENDENT_READBACK.json",
+      "sha256": "ab09637953f42aa2f53cfff3eb65506ea546ad1bb3d6e50e54621f259b1628c2"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/IIQ-1202/backup/PRESERVATION_EVIDENCE-2026-10-03T172020732Z.json",
+      "sha256": "2f87febf1da49e7a2bec9f83d0a5ece10b223e442167c5170d1726569f746636"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/IIQ-1202/backup/PROVIDER_BACKUP_CONFIGURATION.json",
+      "sha256": "b1718d9d92eabb3bab66e3527cd99fad2b1b1244bf86bb5b7ad52797d80d2b05"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/IIQ-1202/registry/inheritance/remote_custody.json",
+      "sha256": "0e86372fca943a61e9c9900072381ad7ef1b9dde29e6799769bcdb842ea4cb89"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/IIQ-1202/registry/brain_remote_custody.json",
+      "sha256": "fe11c90660da224bfd36f707be0089b8ebd05125e46d80bd030abbc46884830f"
+    }
+  ],
+  "limitations": [
+    "The actual current-data logical restore was executed by Foreman through independently reviewed control code; verifier checked exact artifact custody and independent live-to-restored fingerprints rather than rerunning that same production-copy restore.",
+    "Provider snapshot exists and schedules are read back; future scheduled executions, provider snapshot restoration and PITR are not claimed. PITR remains disabled.",
+    "WordPress platform disaster recovery, a new postdeploy authenticated browser session, and newly provisioned QA users are outside this preservation-only verification. Existing CORE login/reload proof is identified as earlier evidence.",
+    "New UI compatibility uses actual approved app.js in JSDOM and real migrated local PostgreSQL; no new visual browser acceptance is claimed.",
+    "Provider prior-image redeploy eligibility is unverified; no actual production application or database rollback occurred.",
+    "Privileged operators still require actual human authority, fresh leases and exact CA/hostname wrapper review; hash-bound JSON receipts cannot cryptographically prove human consent or arbitrary TLS callback semantics.",
+    "The result proves preserved observed state and enforced operational gates, not impossibility of future loss or zero-RPO infrastructure disaster recovery."
+  ],
+  "authorityCloseout": "Foreman must recover any unavailable keeper and retain an explicit narrow lapse note before further protected mutations or registry closeout. Root reported two redacted evidence copies after a failed source CHECK, with no DB/API/source-code mutation; this verifier did not authorize those copies. This does not alter the independently observed unchanged production data.",
+  "featureScope": "Preservation gate verified only; no advanced feature activation, new integration or broader IIQ-1200 completion is authorized by this receipt."
+}
