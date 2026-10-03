@@ -664,3 +664,8 @@ body[data-admin-preview="true"] #advBanner{min-height:48px}
 @media(prefers-reduced-motion:reduce){.iiqOpening::before,.iiqOpening .introLogo,.iiqOpening .introCreator,.iiqOpening .introProgram,.iiqOpening .introProduct,.iiqOpening .introSubtitle,.iiqOpening .introStatus{animation:none!important}.iiqOpening{transition:opacity .25s ease,visibility 0s linear .25s}}
 
 body[data-role="admin"] .founderChip,body[data-role="admin"] .roleReadOnly,body[data-admin-preview="true"] .founderChip,body[data-admin-preview="true"] .roleReadOnly{display:none}
+
+/* Keep the approved title and administrator controls inside narrow viewports. */
+@media(max-width:520px){.introLockup{min-width:0;max-width:100%}.introProduct{font-size:clamp(38px,15vw,68px)}}
+@media(max-width:640px){body[data-role="admin"] .storyforgeHeaderActions .hSearch,body[data-admin-preview="true"] .storyforgeHeaderActions .hSearch{min-width:0}}
+@media(max-width:860px){body[data-admin-preview="true"] #rail .rtab{width:auto}}
