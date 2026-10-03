@@ -1,0 +1,54 @@
+{
+  "at": "2026-10-03T17:15:25.362Z",
+  "status": "PASS",
+  "project": "b317b67c-78f2-4a0d-97a7-3421c18a375f",
+  "environment": "a3d3d5be-100e-4242-b441-d0922545c91e",
+  "service": "84ecd61e-e8c5-4f86-9aab-7d8c08fe1b40",
+  "read_only": true,
+  "synthetic_records_created": false,
+  "raw_ids_or_content_output": false,
+  "checks": [
+    {
+      "name": "Actual production runtime role and object custody qualification",
+      "pass": true
+    },
+    {
+      "name": "Direct NOINHERIT runtime login cannot read private interviews",
+      "pass": true
+    },
+    {
+      "name": "Existing owner A sees expected own counts and zero opposite-owner targeted data",
+      "pass": true,
+      "own_counts": {
+        "interviews": 1,
+        "related_events": 0,
+        "interview_history": 6
+      },
+      "opposite_counts": {
+        "interviews": 0,
+        "related_events": 0,
+        "interview_history": 0
+      }
+    },
+    {
+      "name": "Existing owner B sees expected own counts and zero opposite-owner targeted data",
+      "pass": true,
+      "own_counts": {
+        "interviews": 2,
+        "related_events": 0,
+        "interview_history": 3
+      },
+      "opposite_counts": {
+        "interviews": 0,
+        "related_events": 0,
+        "interview_history": 0
+      }
+    },
+    {
+      "name": "Transaction-local actor context cleared, no-actor read returns zero",
+      "pass": true
+    }
+  ],
+  "note": "Database RLS read-only proof with existing actor bindings; no new WordPress eligibility/login proof. related_events is empty, so event privacy is policy/catalog plus empty-table negative coverage.",
+  "finished_at": "2026-10-03T17:15:33.144Z"
+}

@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "at": "2026-10-03T17:30:03.491Z",
+  "reviewer": "/root/core_launch_verifier",
+  "mode": "READ_ONLY_IDENTITY_AGGREGATE",
+  "project": "b317b67c-78f2-4a0d-97a7-3421c18a375f",
+  "environment": "a3d3d5be-100e-4242-b441-d0922545c91e",
+  "service": "84ecd61e-e8c5-4f86-9aab-7d8c08fe1b40",
+  "strict_tls": true,
+  "mapping_count": 2,
+  "mapping_sha256": "3d62237d832990185b28382ab9c0ce962e00f4febca4fec709f580eaede6c659",
+  "wordpress_mapping_matches": true,
+  "raw_identifiers_logged": false,
+  "production_mutations": 0
+}

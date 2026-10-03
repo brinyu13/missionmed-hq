@@ -1,0 +1,27 @@
+{
+  "at": "2026-10-03T17:48:34.993574+00:00",
+  "project": "b317b67c-78f2-4a0d-97a7-3421c18a375f",
+  "environment": "a3d3d5be-100e-4242-b441-d0922545c91e",
+  "service": "7a9cbfe6-6e01-4155-b387-67babb90ee14",
+  "apiDeployment": "7ecda6b1-c2cb-4cdc-a8eb-cf82c628cb48",
+  "apiImage": "sha256:29e6930266a5a8109bf86315f0d7a3b1ad24b2d253a3af89f17aa178fbfe40f0",
+  "postgresDeployment": "c6d31a80-26cb-4b78-9700-1d111867fbdb",
+  "apiVolumeMounts": [],
+  "preDeployCommand": null,
+  "nonsecretFlags": {
+    "INTERVIEWIQ_ENABLED": "true",
+    "INTERVIEWIQ_LAUNCH_MODE": "core",
+    "INTERVIEWIQ_SPEECH_ENABLED": "false",
+    "INTERVIEWIQ_RELEASE": "df7d051d996f6c5cb1f0a787a3eec4a03e91afec",
+    "NODE_ENV": null,
+    "NODE_EXTRA_CA_CERTS": "/app/server/postgres-ca.pem"
+  },
+  "readiness": {
+    "service": "interviewiq",
+    "status": "ready",
+    "release": "df7d051d996f6c5cb1f0a787a3eec4a03e91afec"
+  },
+  "migrationPlan": "none",
+  "rollbackPlan": "Previous qualified API image only; retain current PostgreSQL volume and data; no database restore",
+  "productionRecordsMutated": false
+}

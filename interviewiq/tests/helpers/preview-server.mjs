@@ -10,12 +10,13 @@ import {createDatabase} from '../../server/db.mjs';
 import {createAuthorizer,proof} from '../../server/auth.mjs';
 import {createCommands} from '../../server/commands.mjs';
 import {createHandler} from '../../server/http.mjs';
+import {readDisposableConnectionFile,qualifyDisposableConnection} from '../../scripts/disposable-db-guard.mjs';
 
-const connection=JSON.parse(await fs.readFile(process.argv[2],'utf8'));
+const connection=readDisposableConnectionFile(process.argv[2]);
 if(connection.syntheticOnly!==true || connection.unixSocketOnly!==true || !connection.databaseUrl?.includes('host=/tmp/iiq-pg18.'))throw Error('Disposable local test database required.');
 const port=Number(process.env.IIQ_QA_PORT||8112),origin=`http://127.0.0.1:${port}`;
 const config={enabled:true,databaseUrl:connection.databaseUrl,publicOrigin:'https://missionmedinstitute.com',jwtIssuer:'https://missionmedinstitute.com',jwtSecret:randomBytes(48).toString('hex'),ownerProofSecret:randomBytes(48).toString('hex'),gatewaySecret:randomBytes(48).toString('hex'),ownerIntrospectionUrl:origin+'/__qa/proof',ownerTimeoutMs:1000,maxBodyBytes:262144,release:'LOCAL-QA-SYNTHETIC-OWNERS'};
-const database=createDatabase(config);await database.verifyRuntimeRole();
+const database=createDatabase(config);await qualifyDisposableConnection(database.pool,config.databaseUrl,{role:'iiq_runtime_test'});await database.verifyRuntimeRole();
 const ids={student:randomUUID(),other:randomUUID(),mentor:randomUUID(),admin:randomUUID()},wp=Math.floor(Math.random()*1e8)+3e8;
 const actors=Object.fromEntries(Object.entries(ids).map(([key,id],index)=>[key,{id,sub:id,wpUserId:wp+index,role:key==='mentor'?'mentor':key==='admin'?'admin':'student',tier:key==='mentor'?'assigned_mentor':key==='admin'?'admin':'360',eligible:true,assignments:key==='mentor'?[ids.student]:[],displayName:key==='student'?'QA Student':key==='other'?'Other QA Student':key==='mentor'?'QA Mentor':'QA Admin',firstName:'QA Student',zone:'America/New_York',verifier:randomBytes(32).toString('hex')}]));
 const csrf=randomBytes(24).toString('hex');

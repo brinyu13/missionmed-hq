@@ -1,0 +1,9 @@
+{
+  "mapping_count": 2,
+  "mapping_sha256": "3d62237d832990185b28382ab9c0ce962e00f4febca4fec709f580eaede6c659",
+  "unique_actors": 2,
+  "invalid_uuid_count": 0,
+  "observedAt": "2026-10-03T17:21:18.340432+00:00",
+  "mode": "read_only_aggregate",
+  "raw_identifiers_logged": false
+}

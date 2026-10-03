@@ -1,0 +1,716 @@
+{
+  "schema": "missionmed.interviewiq.preservation-tests.v1",
+  "status": "PASS",
+  "observedAt": "2026-10-03T17:47:22.262Z",
+  "baselineCommit": "538e97fb13b268683ebacc39d2e80cf551b11b5b",
+  "environment": {
+    "syntheticOnly": true,
+    "unixSocketOnly": true,
+    "directory": "/tmp/iiq-pg18.572pIy"
+  },
+  "groups": {
+    "guard": {
+      "checks": 28,
+      "passed": 28,
+      "failed": 0
+    },
+    "policy": {
+      "checks": 23,
+      "passed": 23,
+      "failed": 0
+    },
+    "transport": {
+      "checks": 7,
+      "passed": 7,
+      "failed": 0
+    },
+    "evidence": {
+      "checks": 15,
+      "passed": 15,
+      "failed": 0
+    },
+    "A-O": {
+      "checks": 15,
+      "passed": 15,
+      "failed": 0
+    },
+    "runtime-guard": {
+      "checks": 1,
+      "passed": 1,
+      "failed": 0
+    }
+  },
+  "total": {
+    "checks": 89,
+    "passed": 89,
+    "failed": 0
+  },
+  "gates": {
+    "A": {
+      "description": "Create interviews in schema N",
+      "status": "PASS"
+    },
+    "B": {
+      "description": "Migrate N to additive N+1",
+      "status": "PASS"
+    },
+    "C": {
+      "description": "Original interviews still exist",
+      "status": "PASS"
+    },
+    "D": {
+      "description": "Interview IDs unchanged",
+      "status": "PASS"
+    },
+    "E": {
+      "description": "Owner bindings unchanged",
+      "status": "PASS"
+    },
+    "F": {
+      "description": "Dates, wall times, timezones, UTC instants, folds and nulls unchanged",
+      "status": "PASS"
+    },
+    "G": {
+      "description": "Related events intact",
+      "status": "PASS"
+    },
+    "H": {
+      "description": "Cancel/restore history intact",
+      "status": "PASS"
+    },
+    "I": {
+      "description": "Added nullable fields are safe",
+      "status": "PASS"
+    },
+    "J": {
+      "description": "Old record opens in current approved UI",
+      "status": "PASS"
+    },
+    "K": {
+      "description": "Unchanged old runtime reads forward-schema data",
+      "status": "PASS"
+    },
+    "L": {
+      "description": "Student A is denied student B data",
+      "status": "PASS"
+    },
+    "M": {
+      "description": "Fixture/test/reset paths refuse production",
+      "status": "PASS"
+    },
+    "N": {
+      "description": "Migration and request replay preserve records",
+      "status": "PASS"
+    },
+    "O": {
+      "description": "Backup and isolated restore preserve representative records",
+      "status": "PASS"
+    }
+  },
+  "checks": [
+    {
+      "group": "guard",
+      "name": "qualified local URL and effective pg parser agree",
+      "status": "PASS"
+    },
+    {
+      "group": "guard",
+      "name": "production NODE_ENV is refused before connection",
+      "status": "PASS"
+    },
+    {
+      "group": "guard",
+      "name": "runtime database environment is refused before connection",
+      "status": "PASS"
+    },
+    {
+      "group": "guard",
+      "name": "provider context is refused before connection",
+      "status": "PASS"
+    },
+    {
+      "group": "guard",
+      "name": "database password environment is refused before connection",
+      "status": "PASS"
+    },
+    {
+      "group": "guard",
+      "name": "PGHOSTADDR libpq override is refused before connection",
+      "status": "PASS"
+    },
+    {
+      "group": "guard",
+      "name": "PGSERVICE libpq override is refused before connection",
+      "status": "PASS"
+    },
+    {
+      "group": "guard",
+      "name": "PGSERVICEFILE libpq override is refused before connection",
+      "status": "PASS"
+    },
+    {
+      "group": "guard",
+      "name": "PGSYSCONFDIR libpq override is refused before connection",
+      "status": "PASS"
+    },
+    {
+      "group": "guard",
+      "name": "PGPASSFILE libpq override is refused before connection",
+      "status": "PASS"
+    },
+    {
+      "group": "guard",
+      "name": "PGSSLMODE libpq override is refused before connection",
+      "status": "PASS"
+    },
+    {
+      "group": "guard",
+      "name": "remote PGHOST is refused before connection",
+      "status": "PASS"
+    },
+    {
+      "group": "guard",
+      "name": "remote PGDATABASE is refused before connection",
+      "status": "PASS"
+    },
+    {
+      "group": "guard",
+      "name": "wrong protocol is refused before connection",
+      "status": "PASS"
+    },
+    {
+      "group": "guard",
+      "name": "remote authority is refused before connection",
+      "status": "PASS"
+    },
+    {
+      "group": "guard",
+      "name": "wrong database is refused before connection",
+      "status": "PASS"
+    },
+    {
+      "group": "guard",
+      "name": "wrong login is refused before connection",
+      "status": "PASS"
+    },
+    {
+      "group": "guard",
+      "name": "embedded password is refused before connection",
+      "status": "PASS"
+    },
+    {
+      "group": "guard",
+      "name": "duplicate host is refused before connection",
+      "status": "PASS"
+    },
+    {
+      "group": "guard",
+      "name": "duplicate port is refused before connection",
+      "status": "PASS"
+    },
+    {
+      "group": "guard",
+      "name": "unknown hostaddr is refused before connection",
+      "status": "PASS"
+    },
+    {
+      "group": "guard",
+      "name": "connection options is refused before connection",
+      "status": "PASS"
+    },
+    {
+      "group": "guard",
+      "name": "wrong socket port is refused before connection",
+      "status": "PASS"
+    },
+    {
+      "group": "guard",
+      "name": "loose socket prefix is refused before connection",
+      "status": "PASS"
+    },
+    {
+      "group": "guard",
+      "name": "fragment is refused before connection",
+      "status": "PASS"
+    },
+    {
+      "group": "guard",
+      "name": "missing harness custody marker is refused",
+      "status": "PASS"
+    },
+    {
+      "group": "guard",
+      "name": "wrong live PostgreSQL cluster identity is refused",
+      "status": "PASS"
+    },
+    {
+      "group": "guard",
+      "name": "libpq child environment excludes all inherited PG parameters",
+      "status": "PASS"
+    },
+    {
+      "group": "policy",
+      "name": "production bootstrap is immutable and virgin-target only",
+      "status": "PASS"
+    },
+    {
+      "group": "transport",
+      "name": "disabled URL fails before connection",
+      "status": "PASS"
+    },
+    {
+      "group": "transport",
+      "name": "require URL fails before connection",
+      "status": "PASS"
+    },
+    {
+      "group": "transport",
+      "name": "absent effective TLS fails before connection",
+      "status": "PASS"
+    },
+    {
+      "group": "transport",
+      "name": "disabled certificate check fails before connection",
+      "status": "PASS"
+    },
+    {
+      "group": "transport",
+      "name": "global TLS bypass fails before connection",
+      "status": "PASS"
+    },
+    {
+      "group": "transport",
+      "name": "unreviewed startup options fails before connection",
+      "status": "PASS"
+    },
+    {
+      "group": "transport",
+      "name": "strict effective TLS without URL override remains compatible",
+      "status": "PASS"
+    },
+    {
+      "group": "policy",
+      "name": "nullable addition is explicitly additive",
+      "status": "PASS"
+    },
+    {
+      "group": "policy",
+      "name": "DROP cannot be labeled additive",
+      "status": "PASS"
+    },
+    {
+      "group": "policy",
+      "name": "DELETE cannot be labeled additive",
+      "status": "PASS"
+    },
+    {
+      "group": "policy",
+      "name": "TRUNCATE cannot be labeled additive",
+      "status": "PASS"
+    },
+    {
+      "group": "policy",
+      "name": "rename cannot be labeled additive",
+      "status": "PASS"
+    },
+    {
+      "group": "policy",
+      "name": "type rewrite cannot be labeled additive",
+      "status": "PASS"
+    },
+    {
+      "group": "policy",
+      "name": "NOT NULL cannot be labeled additive",
+      "status": "PASS"
+    },
+    {
+      "group": "policy",
+      "name": "data default cannot be labeled additive",
+      "status": "PASS"
+    },
+    {
+      "group": "policy",
+      "name": "dynamic execution cannot be labeled additive",
+      "status": "PASS"
+    },
+    {
+      "group": "policy",
+      "name": "COPY cannot be labeled additive",
+      "status": "PASS"
+    },
+    {
+      "group": "policy",
+      "name": "DML CTE cannot be labeled additive",
+      "status": "PASS"
+    },
+    {
+      "group": "policy",
+      "name": "arbitrary SELECT cannot be labeled additive",
+      "status": "PASS"
+    },
+    {
+      "group": "policy",
+      "name": "embedded COMMIT cannot escape migration transaction",
+      "status": "PASS"
+    },
+    {
+      "group": "policy",
+      "name": "embedded ROLLBACK cannot escape migration transaction",
+      "status": "PASS"
+    },
+    {
+      "group": "policy",
+      "name": "embedded BEGIN cannot escape migration transaction",
+      "status": "PASS"
+    },
+    {
+      "group": "policy",
+      "name": "embedded SAVEPOINT escape cannot escape migration transaction",
+      "status": "PASS"
+    },
+    {
+      "group": "policy",
+      "name": "embedded RELEASE escape cannot escape migration transaction",
+      "status": "PASS"
+    },
+    {
+      "group": "policy",
+      "name": "embedded START TRANSACTION cannot escape migration transaction",
+      "status": "PASS"
+    },
+    {
+      "group": "policy",
+      "name": "unterminated SQL body fails closed",
+      "status": "PASS"
+    },
+    {
+      "group": "policy",
+      "name": "inert commented destructive words do not become executable",
+      "status": "PASS"
+    },
+    {
+      "group": "evidence",
+      "name": "exact backup/evidence receipt contract accepted (synthetic unit only)",
+      "status": "PASS"
+    },
+    {
+      "group": "evidence",
+      "name": "wrong target is refused",
+      "status": "PASS"
+    },
+    {
+      "group": "evidence",
+      "name": "stale backup is refused",
+      "status": "PASS"
+    },
+    {
+      "group": "evidence",
+      "name": "wrong restore backup is refused",
+      "status": "PASS"
+    },
+    {
+      "group": "evidence",
+      "name": "wrong restored fingerprint is refused",
+      "status": "PASS"
+    },
+    {
+      "group": "evidence",
+      "name": "changed counts is refused",
+      "status": "PASS"
+    },
+    {
+      "group": "evidence",
+      "name": "missing ledger preservation is refused",
+      "status": "PASS"
+    },
+    {
+      "group": "evidence",
+      "name": "inconsistent snapshot is refused",
+      "status": "PASS"
+    },
+    {
+      "group": "evidence",
+      "name": "missing whole table count is refused",
+      "status": "PASS"
+    },
+    {
+      "group": "evidence",
+      "name": "missing table fingerprint is refused",
+      "status": "PASS"
+    },
+    {
+      "group": "evidence",
+      "name": "orphan integrity is refused",
+      "status": "PASS"
+    },
+    {
+      "group": "evidence",
+      "name": "nonlocal restore is refused",
+      "status": "PASS"
+    },
+    {
+      "group": "evidence",
+      "name": "false restore status is refused",
+      "status": "PASS"
+    },
+    {
+      "group": "evidence",
+      "name": "altered backup size is refused",
+      "status": "PASS"
+    },
+    {
+      "group": "evidence",
+      "name": "changed receipt bytes are refused",
+      "status": "PASS"
+    },
+    {
+      "group": "policy",
+      "name": "unknown/destructive SQL requires exact Founder authorization",
+      "status": "PASS"
+    },
+    {
+      "group": "policy",
+      "name": "synthetic exact Founder authorization contract is hash-bound (no execution)",
+      "status": "PASS"
+    },
+    {
+      "group": "A-O",
+      "name": "A: Create interviews in schema N",
+      "status": "PASS"
+    },
+    {
+      "group": "A-O",
+      "name": "B: Migrate N to additive N+1",
+      "status": "PASS"
+    },
+    {
+      "group": "A-O",
+      "name": "C: Original interviews still exist",
+      "status": "PASS"
+    },
+    {
+      "group": "A-O",
+      "name": "D: Interview IDs unchanged",
+      "status": "PASS"
+    },
+    {
+      "group": "A-O",
+      "name": "E: Owner bindings unchanged",
+      "status": "PASS"
+    },
+    {
+      "group": "A-O",
+      "name": "F: Dates, wall times, timezones, UTC instants, folds and nulls unchanged",
+      "status": "PASS"
+    },
+    {
+      "group": "A-O",
+      "name": "G: Related events intact",
+      "status": "PASS"
+    },
+    {
+      "group": "A-O",
+      "name": "H: Cancel/restore history intact",
+      "status": "PASS"
+    },
+    {
+      "group": "A-O",
+      "name": "I: Added nullable fields are safe",
+      "status": "PASS"
+    },
+    {
+      "group": "A-O",
+      "name": "J: Old record opens in current approved UI",
+      "status": "PASS"
+    },
+    {
+      "group": "A-O",
+      "name": "K: Unchanged old runtime reads forward-schema data",
+      "status": "PASS"
+    },
+    {
+      "group": "A-O",
+      "name": "L: Student A is denied student B data",
+      "status": "PASS"
+    },
+    {
+      "group": "A-O",
+      "name": "M: Fixture/test/reset paths refuse production",
+      "status": "PASS"
+    },
+    {
+      "group": "A-O",
+      "name": "N: Migration and request replay preserve records",
+      "status": "PASS"
+    },
+    {
+      "group": "A-O",
+      "name": "O: Backup and isolated restore preserve representative records",
+      "status": "PASS"
+    },
+    {
+      "group": "runtime-guard",
+      "name": "DELETE privilege drift is refused and restored",
+      "status": "PASS"
+    }
+  ],
+  "backupRestore": {
+    "sha256": "a84af8dece8ac508b633bb19a091097698a7bab33e9a7986586e0b9e683b4e2b",
+    "sourceFingerprint": "d32d3047b66b73af24cda353f63fa9515c00ca55b4ee1b71b4aa390f12acebee",
+    "restoredFingerprint": "d32d3047b66b73af24cda353f63fa9515c00ca55b4ee1b71b4aa390f12acebee",
+    "tables": [
+      {
+        "table": "iiq.access_grants",
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "table": "iiq.actors",
+        "count": 2,
+        "sha256": "48fdfd10972923ad7efeebc9c4ec1bc5e66b6997249121bebd5c8e03e338ccc2"
+      },
+      {
+        "table": "iiq.audit_events",
+        "count": 11,
+        "sha256": "f4db083b17b14e11e178a7c1dba2d6fa99403dade2d055f58509082d4833379d"
+      },
+      {
+        "table": "iiq.consents",
+        "count": 1,
+        "sha256": "3b4453af852fde00a1ebdc41c654ee0ef4d7c4e0439f92e0ba407a1fac6c3af9"
+      },
+      {
+        "table": "iiq.contribution_credits",
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "table": "iiq.debriefs",
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "table": "iiq.followups",
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "table": "iiq.interview_history",
+        "count": 11,
+        "sha256": "4edc87724395a30b161b84eee74299cd6e5615dc92529c327b0ea3a9ae625031"
+      },
+      {
+        "table": "iiq.interviews",
+        "count": 5,
+        "sha256": "d0c63d7e5fcda0fd499a611c5b1f3743a89cad6abe4132aaf36991f6b2699f24"
+      },
+      {
+        "table": "iiq.learning_signals",
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "table": "iiq.mentor_gaps",
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "table": "iiq.mentor_notes",
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "table": "iiq.outbox_events",
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "table": "iiq.policies",
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "table": "iiq.policy_authorities",
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "table": "iiq.practice_attempts",
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "table": "iiq.preparation",
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "table": "iiq.recording_chunks",
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "table": "iiq.recording_sessions",
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "table": "iiq.related_events",
+        "count": 1,
+        "sha256": "b254710d971e3931fa3d90725d0914133c61edb5b5e2e76e455ff8415ed270d0"
+      },
+      {
+        "table": "iiq.request_idempotency",
+        "count": 11,
+        "sha256": "818d38cf9bb292fa561961ea060ffa61f7ffe8217edd2c0fa22786cedaafb585"
+      },
+      {
+        "table": "iiq.research_demands",
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "table": "iiq.research_missions",
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "table": "iiq.research_submissions",
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "table": "iiq.review_items",
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "table": "iiq.revisions",
+        "count": 11,
+        "sha256": "b72b2ec43b47c39959ae8cc7d8fbd86e28b72de69780d0b92b1eeb2e155b6f50"
+      },
+      {
+        "table": "iiq.shared_reports",
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "table": "iiq.speech_segments",
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "table": "iiq_migrations.applied",
+        "count": 2,
+        "sha256": "012152114ac25f5f54f913a4e2c8ce446b5cc70ed752b78801a2cc5171863e62"
+      }
+    ],
+    "disposableOnly": true
+  },
+  "productionMutation": false,
+  "inheritedRegressionCountsIncluded": false,
+  "limitations": [
+    "UI functional DOM check uses actual approved app.js in JSDOM; no visual/browser acceptance claimed.",
+    "Old runtime is byte-verified baseline server code on real forward schema; no production rollback performed."
+  ]
+}

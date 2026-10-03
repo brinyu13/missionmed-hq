@@ -1,0 +1,20 @@
+✔ actual protected HTTP bootstrap creates only caller identity and rejects bypasses (345.394875ms)
+✔ invalid DST create is atomic; valid undated offer persists on fresh read (416.760417ms)
+✔ same request replays once; altered replay and competing stale writes cannot duplicate (453.505542ms)
+✔ identity, explicit DST fold, related events and cancel/restore preserve one record (1067.880208ms)
+✔ private preparation and debrief survive reload; exact questions and correction stay private (1666.131875ms)
+✔ student/mentor/admin read models and direct identifiers enforce private boundaries (1337.027333ms)
+✔ learning sharing is explicit and correction requires reconfirmation (404.081333ms)
+✔ optional excerpt is deduplicated and withdrawal revokes only shared permission (885.045375ms)
+✔ real typed rehearsal uses current context, preserves first draft and supports student correction (582.150042ms)
+✔ mentor priority is visible to its target, while unassigned notes and policy bypasses are denied (232.1865ms)
+✔ attendance correction withdraws the shared review but preserves private text (630.897375ms)
+✔ export is caller scoped even for admin and stale session is denied before data reads (228.921958ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8910.31425

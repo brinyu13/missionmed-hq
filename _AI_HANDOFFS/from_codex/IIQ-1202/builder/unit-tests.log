@@ -1,0 +1,44 @@
+
+> @missionmed/interviewiq@0.1.0 test
+> node --test tests/unit/*.test.mjs
+
+✔ every request rechecks current owner; logout revocation is not cached (30.253333ms)
+✔ signed owner response cannot be replayed for another nonce (2.496583ms)
+✔ owner proof wrongSubject fails closed (1.633167ms)
+✔ owner proof wrongSession fails closed (1.352083ms)
+✔ owner proof wrongWp fails closed (1.201708ms)
+✔ owner proof wrongAudience fails closed (1.025166ms)
+✔ owner proof wrongRequest fails closed (1.086083ms)
+✔ owner proof expired fails closed (1.159292ms)
+✔ owner proof future fails closed (1.190083ms)
+✔ owner proof longTTL fails closed (1.041375ms)
+✔ tampered owner response and unavailable owner fail closed (3.636459ms)
+✔ role changes require token refresh; malformed assignment is denied (2.158792ms)
+✔ wrong audience, expired or long-lived token is rejected before owner call (2.258417ms)
+✔ malformed and client-altered token claims cannot become a session (1.893542ms)
+✔ debrief uncertainty and private exact/paraphrase questions remain explicit (1.7375ms)
+✔ structure proposal uses latest explicit count and never infers a missing resident group (0.715375ms)
+✔ each actual encounter has its own bounded duration, format, roles and certainty (1.160667ms)
+✔ postpone and waitlist preserve the original disposition without inventing attendance (2.882041ms)
+✔ related-event cancellation and restoration are owner/interview scoped and preserve timing (0.475334ms)
+✔ related event reschedules preserve date-only unknowns and reject an unselected DST fold (26.798458ms)
+✔ wording feedback is input-derived and never labels claims verified (2.445458ms)
+✔ confirmed closing goal changes feedback priority; unavailable context is explicitly skipped (0.36725ms)
+✔ New York spring gap rejects without mutating submitted object (27.066667ms)
+✔ New York overlap requires explicit fold and resolves distinct instants (5.640667ms)
+✔ non-hour transition and non-US zones preserve actual offset (1.708458ms)
+✔ undated and date-only offers do not fabricate an instant (0.864125ms)
+✔ invalid dates, zones, duration, time and fold fail validation (1.922ms)
+✔ conflict distinguishes overlap, travel and unknown duration without week-wide false conflicts (0.286666ms)
+✔ command rejects client actor/role authority and invalid versions (2.218416ms)
+✔ digest is stable across property order and excludes version for exact action replay (1.0495ms)
+✔ plain object validator rejects prototype keys and non-object payloads (0.208333ms)
+✔ JSON reader bounds both declared and chunked bodies (5.846708ms)
+ℹ tests 32
+ℹ suites 0
+ℹ pass 32
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 179.318542

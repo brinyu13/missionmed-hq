@@ -1,0 +1,268 @@
+{
+  "schema": "missionmed.interviewiq.preservation-evidence.v1",
+  "status": "PASS",
+  "target": {
+    "host": "zephyr.proxy.rlwy.net",
+    "port": 15943,
+    "database": "railway",
+    "serverMajor": 18
+  },
+  "provider": {
+    "project": "b317b67c-78f2-4a0d-97a7-3421c18a375f",
+    "environment": "a3d3d5be-100e-4242-b441-d0922545c91e",
+    "service": "84ecd61e-e8c5-4f86-9aab-7d8c08fe1b40",
+    "volume": "a064b82e-f6c1-4742-aa14-4484dcc842a4",
+    "volumeInstance": "1257e92d-b600-4f1d-a9a9-f763f310f7df",
+    "privateHost": "postgres.railway.internal"
+  },
+  "productionMutation": false,
+  "identity": {
+    "database": "railway",
+    "role": "postgres",
+    "read_only": "on",
+    "version": "18.6 (Debian 18.6-1.pgdg13+2)",
+    "version_num": 180006
+  },
+  "backup": {
+    "path": "/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/IIQ-1202/backup/interviewiq-current-2026-10-03T172020732Z.dump",
+    "sha256": "80e1661f752940dafebed691b3aeb3d67670d68a68bb498156d4810130f6d0ae",
+    "bytes": 196249,
+    "format": "custom",
+    "capturedAt": "2026-10-03T17:20:48.108Z",
+    "snapshotConsistent": true,
+    "rolesContainPasswords": false
+  },
+  "restore": {
+    "completedAt": "2026-10-03T17:20:49.254Z",
+    "sourceBackupSha256": "80e1661f752940dafebed691b3aeb3d67670d68a68bb498156d4810130f6d0ae",
+    "destination": {
+      "host": "/tmp/iiq1202-restore-E55aut/socket",
+      "database": "iiq_preservation_restore",
+      "serverMajor": 18,
+      "unixSocketOnly": true,
+      "disposable": true
+    },
+    "sourceCounts": {
+      "iiq.access_grants": 0,
+      "iiq.actors": 2,
+      "iiq.audit_events": 9,
+      "iiq.consents": 0,
+      "iiq.contribution_credits": 0,
+      "iiq.debriefs": 0,
+      "iiq.followups": 0,
+      "iiq.interview_history": 9,
+      "iiq.interviews": 3,
+      "iiq.learning_signals": 0,
+      "iiq.mentor_gaps": 0,
+      "iiq.mentor_notes": 0,
+      "iiq.outbox_events": 0,
+      "iiq.policies": 0,
+      "iiq.policy_authorities": 0,
+      "iiq.practice_attempts": 0,
+      "iiq.preparation": 0,
+      "iiq.recording_chunks": 0,
+      "iiq.recording_sessions": 0,
+      "iiq.related_events": 0,
+      "iiq.request_idempotency": 9,
+      "iiq.research_demands": 0,
+      "iiq.research_missions": 0,
+      "iiq.research_submissions": 0,
+      "iiq.review_items": 0,
+      "iiq.revisions": 9,
+      "iiq.shared_reports": 0,
+      "iiq.speech_segments": 0,
+      "iiq_migrations.applied": 1
+    },
+    "restoredCounts": {
+      "iiq.access_grants": 0,
+      "iiq.actors": 2,
+      "iiq.audit_events": 9,
+      "iiq.consents": 0,
+      "iiq.contribution_credits": 0,
+      "iiq.debriefs": 0,
+      "iiq.followups": 0,
+      "iiq.interview_history": 9,
+      "iiq.interviews": 3,
+      "iiq.learning_signals": 0,
+      "iiq.mentor_gaps": 0,
+      "iiq.mentor_notes": 0,
+      "iiq.outbox_events": 0,
+      "iiq.policies": 0,
+      "iiq.policy_authorities": 0,
+      "iiq.practice_attempts": 0,
+      "iiq.preparation": 0,
+      "iiq.recording_chunks": 0,
+      "iiq.recording_sessions": 0,
+      "iiq.related_events": 0,
+      "iiq.request_idempotency": 9,
+      "iiq.research_demands": 0,
+      "iiq.research_missions": 0,
+      "iiq.research_submissions": 0,
+      "iiq.review_items": 0,
+      "iiq.revisions": 9,
+      "iiq.shared_reports": 0,
+      "iiq.speech_segments": 0,
+      "iiq_migrations.applied": 1
+    },
+    "sourceFingerprint": "e2390e24bdef1ce91cf7917554b57992955e54bf01c8d16c8e7e2a3e559d786c",
+    "restoredFingerprint": "e2390e24bdef1ce91cf7917554b57992955e54bf01c8d16c8e7e2a3e559d786c",
+    "recordsPreserved": true,
+    "integrity": {
+      "orphan_interviews": 0,
+      "orphan_events": 0,
+      "orphan_history": 0,
+      "unvalidated_constraints": 0
+    },
+    "migrationLedgerPreserved": true,
+    "tableFingerprints": [
+      {
+        "table": "iiq.access_grants",
+        "row_count": 0,
+        "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "iiq.actors",
+        "row_count": 2,
+        "aggregate_sha256": "f0a7d4898ae9881ad5b3b62f6b85b7d08262713a4b8a6d75cf337e4afdb0a151"
+      },
+      {
+        "table": "iiq.audit_events",
+        "row_count": 9,
+        "aggregate_sha256": "77a91838dc0b32c6039274d4b4fce83e69032df6cb93587606b0e8ef71e9cd28"
+      },
+      {
+        "table": "iiq.consents",
+        "row_count": 0,
+        "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "iiq.contribution_credits",
+        "row_count": 0,
+        "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "iiq.debriefs",
+        "row_count": 0,
+        "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "iiq.followups",
+        "row_count": 0,
+        "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "iiq.interview_history",
+        "row_count": 9,
+        "aggregate_sha256": "77ecb04576e63b9f99404b2887e795ccd1d2e8292551fd800447b586700ac9ba"
+      },
+      {
+        "table": "iiq.interviews",
+        "row_count": 3,
+        "aggregate_sha256": "198bba636e055b71c0caab85392acad21d71b70dea1873bd9eee57841e507f5e"
+      },
+      {
+        "table": "iiq.learning_signals",
+        "row_count": 0,
+        "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "iiq.mentor_gaps",
+        "row_count": 0,
+        "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "iiq.mentor_notes",
+        "row_count": 0,
+        "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "iiq.outbox_events",
+        "row_count": 0,
+        "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "iiq.policies",
+        "row_count": 0,
+        "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "iiq.policy_authorities",
+        "row_count": 0,
+        "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "iiq.practice_attempts",
+        "row_count": 0,
+        "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "iiq.preparation",
+        "row_count": 0,
+        "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "iiq.recording_chunks",
+        "row_count": 0,
+        "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "iiq.recording_sessions",
+        "row_count": 0,
+        "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "iiq.related_events",
+        "row_count": 0,
+        "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "iiq.request_idempotency",
+        "row_count": 9,
+        "aggregate_sha256": "8d2c4217eaed0008f1bfd2bb84fda904396f053899f496e1dc7979445661035c"
+      },
+      {
+        "table": "iiq.research_demands",
+        "row_count": 0,
+        "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "iiq.research_missions",
+        "row_count": 0,
+        "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "iiq.research_submissions",
+        "row_count": 0,
+        "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "iiq.review_items",
+        "row_count": 0,
+        "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "iiq.revisions",
+        "row_count": 9,
+        "aggregate_sha256": "1d419533c3c1ef39f6ac04a9d7b4233ffbf72ab6acfc9405a5d0ffac113d2451"
+      },
+      {
+        "table": "iiq.shared_reports",
+        "row_count": 0,
+        "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "iiq.speech_segments",
+        "row_count": 0,
+        "aggregate_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "iiq_migrations.applied",
+        "row_count": 1,
+        "aggregate_sha256": "521fade2b01076e7fe3fc582d918b6c79af027ffac4d73ed4b994fc74efd46fb"
+      }
+    ],
+    "rolesRecreatedWithoutPasswords": true,
+    "elapsedSeconds": 28.516,
+    "serverStopped": true
+  }
+}

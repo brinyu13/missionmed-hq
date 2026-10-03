@@ -1,0 +1,59 @@
+{
+  "status": "READ_ONLY_AUDIT_COMPLETE_GUARDS_PENDING",
+  "reviewer": "/root/core_launch_verifier",
+  "at": "2026-10-03T16:38:57.289669+00:00",
+  "source_commit": "538e97fb13b268683ebacc39d2e80cf551b11b5b",
+  "source_sha256": {
+    "scripts/migrate.mjs": "ee58d5cf9443761adf6aa829cfa647e190835ec9b3b1ef3fb17724412ad60bb0",
+    "scripts/run-postgres-tests.sh": "74ea43f5069981daf4cdc9c2bcd1529341b226381100ecb5132822852210ca6e",
+    "tests/postgres/migrations.test.mjs": "a59accc1f64861592d82d48fe7198aca7b763090e915e038271a9937a14ea899",
+    "tests/postgres/security.test.mjs": "2e25c76625bc6c5fde060a0fc6005b9b245bf44c362ae3e69ea5c5fb920d09be",
+    "tests/api/core-http.test.mjs": "344e60cde613d3fd51a72d378b7a2b373d9d72c05afe82b620a762fc9c363113",
+    "tests/domain-review/commands.test.mjs": "3cdbe6fc26c088b4eddf5bfcb8ed93b9d1a306b6762fd8bfd8badc3fca71d8b6",
+    "tests/postgres/runtime-qualification.test.mjs": "98a94f3ded7879dc2f6675849bc52464961dbeec606c790c4ce55a0d28a2e077",
+    "tests/recordings/postgres.mjs": "3157c59bb0f968eacf5a3604712e39131b698da8080cc1202f2c4976c3be920e",
+    "server/db.mjs": "39b8935a70ff5b3e04455702e530c48c6c09fd0cee67159a6a7d17970ad0a63b",
+    "server/app.mjs": "7dfb13f748bc1dd8804174c75982ff612671444eebca7c3fe7194b50a4572e76",
+    "server/records.mjs": "5cce31da0738dd0d281b66180c39a6dad56273e34cdbd97ea71d64cad4e8f819",
+    "Dockerfile": "b03a386ea2993ce2d2e927313738826ae831d36b435416ef8f442177d78834b2",
+    "infra/postgres/migrations/20261003042028_iiq_1200_initial.sql": "f4b546469c3830388a11c1b9bb7b59f30c477759598e3bbff3b774a246215edf"
+  },
+  "findings": [
+    {
+      "id": "IIQ1202-V1",
+      "severity": "HIGH_OPERATIONAL_GUARD_GAP",
+      "path": "tests/api/core-http.test.mjs:11",
+      "detail": "Any nonempty test database URL accepted before synthetic mutations; standalone migrations test connects privileged URL before local-target checks."
+    },
+    {
+      "id": "IIQ1202-V2",
+      "severity": "HIGH_OPERATIONAL_GUARD_GAP",
+      "path": "scripts/migrate.mjs:34",
+      "detail": "Duplicate URL host or port parameters bypass first-value local checks while pg resolves last-value target. Confirmed with inert pg.Client constructor only; no network connection."
+    },
+    {
+      "id": "IIQ1202-V3",
+      "severity": "HIGH_FUTURE_MIGRATION_GAP",
+      "path": "scripts/migrate.mjs:19",
+      "detail": "No additive-only policy/current-data recovery prerequisite/survival check; inner transaction control can escape stripped outer transaction. Independent receipt currently binds hash and target but alone does not enforce preservation."
+    },
+    {
+      "id": "IIQ1202-V4",
+      "severity": "RECOVERY_EVIDENCE_GAP",
+      "detail": "Prelaunch empty database restore proof is not current-data restore proof. Current readonly production snapshot has persisted data and requires qualified current backup and isolated restore."
+    }
+  ],
+  "safe_baseline": [
+    "No startup reset/seed/migration operation in Docker/startApp",
+    "Core runtime commands contain no DELETE/TRUNCATE; lifecycle cancellation/restore is soft status update with history",
+    "Live28tables all FORCE RLS, owneriiq_owner; effective runtime role noDELETE/noTRUNCATE",
+    "Live one applied migration remains exact initial checksum",
+    "No production tests or writes executed for this audit"
+  ],
+  "production_baseline": "/tmp/iiq1202-independent-production-baseline.json",
+  "limits": [
+    "No claim of zero historical data loss from current counts alone",
+    "IIQ1202 exact directive/authority pending receipt from Foreman; read-only audit authorized",
+    "Guard implementation, isolated preservation tests and current data backup/restore require independent review"
+  ]
+}

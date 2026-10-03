@@ -1,0 +1,298 @@
+{
+  "schema": "missionmed.interviewiq.preservation-builder-receipt.v1",
+  "status": "PASS",
+  "observedAt": "2026-10-03T17:49:28.941Z",
+  "baselineCommit": "538e97fb13b268683ebacc39d2e80cf551b11b5b",
+  "command": "npm --prefix interviewiq run test:preservation",
+  "prerequisite": "npm ci in interviewiq installs pinned devDependency jsdom24.1.3; PostgreSQL18 bin at default path or IIQ_PG_BIN",
+  "preservation": {
+    "path": "PRESERVATION_A_O_RECEIPT.json",
+    "sha256": "8409ac5a5cc4ceff1ab2a2b9d77e2b00478fb9f68ed25050871465a03df92f72",
+    "originalPath": "/tmp/iiq-pg18.572pIy/preservation-receipt.json",
+    "groups": {
+      "guard": {
+        "checks": 28,
+        "passed": 28,
+        "failed": 0
+      },
+      "policy": {
+        "checks": 23,
+        "passed": 23,
+        "failed": 0
+      },
+      "transport": {
+        "checks": 7,
+        "passed": 7,
+        "failed": 0
+      },
+      "evidence": {
+        "checks": 15,
+        "passed": 15,
+        "failed": 0
+      },
+      "A-O": {
+        "checks": 15,
+        "passed": 15,
+        "failed": 0
+      },
+      "runtime-guard": {
+        "checks": 1,
+        "passed": 1,
+        "failed": 0
+      }
+    },
+    "total": {
+      "checks": 89,
+      "passed": 89,
+      "failed": 0
+    },
+    "gates": {
+      "A": {
+        "description": "Create interviews in schema N",
+        "status": "PASS"
+      },
+      "B": {
+        "description": "Migrate N to additive N+1",
+        "status": "PASS"
+      },
+      "C": {
+        "description": "Original interviews still exist",
+        "status": "PASS"
+      },
+      "D": {
+        "description": "Interview IDs unchanged",
+        "status": "PASS"
+      },
+      "E": {
+        "description": "Owner bindings unchanged",
+        "status": "PASS"
+      },
+      "F": {
+        "description": "Dates, wall times, timezones, UTC instants, folds and nulls unchanged",
+        "status": "PASS"
+      },
+      "G": {
+        "description": "Related events intact",
+        "status": "PASS"
+      },
+      "H": {
+        "description": "Cancel/restore history intact",
+        "status": "PASS"
+      },
+      "I": {
+        "description": "Added nullable fields are safe",
+        "status": "PASS"
+      },
+      "J": {
+        "description": "Old record opens in current approved UI",
+        "status": "PASS"
+      },
+      "K": {
+        "description": "Unchanged old runtime reads forward-schema data",
+        "status": "PASS"
+      },
+      "L": {
+        "description": "Student A is denied student B data",
+        "status": "PASS"
+      },
+      "M": {
+        "description": "Fixture/test/reset paths refuse production",
+        "status": "PASS"
+      },
+      "N": {
+        "description": "Migration and request replay preserve records",
+        "status": "PASS"
+      },
+      "O": {
+        "description": "Backup and isolated restore preserve representative records",
+        "status": "PASS"
+      }
+    }
+  },
+  "inheritedRegressions": {
+    "groups": [
+      {
+        "name": "migration",
+        "checks": 7,
+        "passed": 7,
+        "failed": 0,
+        "log": "migration-tests.log",
+        "sha256": "30d1cbd9b4a6c6e2ce0df5d8a24680f3d9cc83598971eb01c43aa8a1c10d9d76",
+        "originalLog": "/tmp/iiq-pg18.wHzJ5q/migration-tests.log"
+      },
+      {
+        "name": "security",
+        "checks": 125,
+        "passed": 125,
+        "failed": 0,
+        "log": "test.log",
+        "sha256": "2fdb4977396b16824245c3133b182b9d2aa44e49cd62c497699864ea873b7df2",
+        "originalLog": "/tmp/iiq-pg18.wHzJ5q/test.log"
+      },
+      {
+        "name": "domain",
+        "checks": 38,
+        "passed": 38,
+        "failed": 0,
+        "log": "domain-tests.log",
+        "sha256": "0b114590bf0e31a3714a15aa671ec4bada79c67d898170a2d87eb5ceaa2481d5",
+        "originalLog": "/tmp/iiq-pg18.wHzJ5q/domain-tests.log"
+      },
+      {
+        "name": "runtime",
+        "checks": 22,
+        "passed": 22,
+        "failed": 0,
+        "log": "runtime-qualification.log",
+        "sha256": "76c297088ba002e79a8856d089e926baa5ff6cc12641e0585840f2c3e79a5159",
+        "originalLog": "/tmp/iiq-pg18.wHzJ5q/runtime-qualification.log"
+      },
+      {
+        "name": "coreHttp",
+        "checks": 12,
+        "passed": 12,
+        "failed": 0,
+        "log": "core-http.log",
+        "sha256": "ee561b0860ec0de669d20aa4aaf520d9988bb3db126e5ad1573065430b5eab31",
+        "originalLog": "/tmp/iiq-pg18.wHzJ5q/core-http.log"
+      },
+      {
+        "name": "recordingsPostgres",
+        "checks": 21,
+        "passed": 21,
+        "failed": 0,
+        "log": "recordings-postgres.log",
+        "sha256": "7834e6d8827104e1ad88c6ff3199be1320b217c63f04072487fb0e1286c4ed5c",
+        "originalLog": "/tmp/iiq-pg18.wHzJ5q/recordings-postgres.log"
+      },
+      {
+        "name": "unit",
+        "checks": 32,
+        "passed": 32,
+        "failed": 0,
+        "log": "unit-tests.log",
+        "sha256": "295efd6c92dc6114d988df1be764d6454e15a35ebf39b810de4008050776ae8d",
+        "originalLog": "/tmp/iiq-pg18.wHzJ5q/unit-tests.log"
+      }
+    ],
+    "total": {
+      "checks": 257,
+      "passed": 257,
+      "failed": 0
+    },
+    "counting": "Separate inherited regression checks; not added to or represented as new preservation checks"
+  },
+  "sourceFiles": [
+    {
+      "path": "interviewiq/package.json",
+      "sha256": "db2d1af8272af74c493cd1a60322f92b084f984201842513dfe620718d982e03",
+      "bytes": 576
+    },
+    {
+      "path": "interviewiq/package-lock.json",
+      "sha256": "7378c96fa99630b65bd5cecb0c5a18d30e9078131c683fcab93248e7bf464701",
+      "bytes": 50890
+    },
+    {
+      "path": "interviewiq/scripts/disposable-db-guard.mjs",
+      "sha256": "6b8e2d41c64bd74d1d629a2dc0746992b8de4fcce7079c542cef51d0d8ff099e",
+      "bytes": 7011
+    },
+    {
+      "path": "interviewiq/scripts/migration-preservation-gate.mjs",
+      "sha256": "f28a01b3815cab69d3329e35fbebca7a267fb8d2a5e5b49bde781514fa6b5c3e",
+      "bytes": 10136
+    },
+    {
+      "path": "interviewiq/scripts/migrate.mjs",
+      "sha256": "62651f32756704f8bdbd9681962ac90729a228a01a1037195302bf8d87fa1b59",
+      "bytes": 9924
+    },
+    {
+      "path": "interviewiq/scripts/run-postgres-tests.sh",
+      "sha256": "4e27442b7dc1712076af79da7b5522e5ad6a515ff48cd35bf0d36b8adc4bd469",
+      "bytes": 3704
+    },
+    {
+      "path": "interviewiq/server/db.mjs",
+      "sha256": "0c5674fff2418769e3ad416918f4b9d31fa3901323d3d9eac26b3cae4adff3eb",
+      "bytes": 5013
+    },
+    {
+      "path": "interviewiq/tests/preservation/guards.mjs",
+      "sha256": "fe9e1c9c72283900b4f7dda69ea4f47bcf3d46c1b68b6a9998677f9aea52e709",
+      "bytes": 12566
+    },
+    {
+      "path": "interviewiq/tests/preservation/preservation.test.mjs",
+      "sha256": "262df7b03ab64925c2140f1f337ed162e9de78f3f8f0e60b18e6d3fda1569129",
+      "bytes": 18201
+    },
+    {
+      "path": "interviewiq/tests/api/core-http.test.mjs",
+      "sha256": "84b788e4e037eeb6c828254767937547f205e9c3898cb0f0cc4c9ad97206e7ae",
+      "bytes": 16701
+    },
+    {
+      "path": "interviewiq/tests/domain-review/commands.test.mjs",
+      "sha256": "fe3d1ea36960ac60df2c88cf57d2a63c02fec08f7a236cb683f6517e5bdf501e",
+      "bytes": 21882
+    },
+    {
+      "path": "interviewiq/tests/helpers/preview-server.mjs",
+      "sha256": "8882313adaba890004f4a814c1f5c7f8031c3e929bcfcabccea03617d92b9c4e",
+      "bytes": 9808
+    },
+    {
+      "path": "interviewiq/tests/postgres/migrations.test.mjs",
+      "sha256": "e5e90dc0a9feb62193a5b22a4c65f7525f195824a51332ebf20b53419f56c166",
+      "bytes": 3375
+    },
+    {
+      "path": "interviewiq/tests/postgres/runtime-qualification.test.mjs",
+      "sha256": "9ef1b933531024e98b6ee2477494c9cfcf2df442a0e44900d996da2f0c14e81a",
+      "bytes": 5106
+    },
+    {
+      "path": "interviewiq/tests/postgres/security.test.mjs",
+      "sha256": "90f68fb040c5aa50acc30125911a1fb19ca09865953e14990c231912629fea91",
+      "bytes": 35016
+    },
+    {
+      "path": "interviewiq/tests/recordings/postgres.mjs",
+      "sha256": "06b0881aecc96da7cb5f48a4e9891391f478e2c3e980577c4fac3e9748e5a226",
+      "bytes": 10291
+    }
+  ],
+  "productionBackupReceipt": {
+    "path": "/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/IIQ-1202/backup/PRESERVATION_EVIDENCE-2026-10-03T172020732Z.json",
+    "sha256": "2f87febf1da49e7a2bec9f83d0a5ece10b223e442167c5170d1726569f746636",
+    "strengthenedGate": "PASS read-only"
+  },
+  "localServersStopped": [
+    "/tmp/iiq-pg18.IfZLcY",
+    "/tmp/iiq-pg18.wHzJ5q",
+    "/tmp/iiq-pg18.572pIy"
+  ],
+  "preservedEarlierReceipts": [
+    {
+      "path": "/tmp/iiq-pg18.HKeMgN/preservation-receipt.json",
+      "status": "FAIL",
+      "cause": "Builder K archive cwd wrong; corrected and reran full suite"
+    },
+    {
+      "path": "/tmp/iiq-pg18.hOiYAf/preservation-receipt.json",
+      "status": "FAIL",
+      "cause": "Independent runner missing jsdom without NODE_PATH; pinned devDependency and reran bare full suite"
+    }
+  ],
+  "productionMutation": false,
+  "committed": false,
+  "limitations": [
+    "UI functional DOM check uses actual approved app.js in JSDOM; no visual/browser acceptance claimed.",
+    "Old runtime is byte-verified baseline server code on real forward schema; no production rollback performed.",
+    "Additive SQL classification is deliberately conservative, not a complete SQL parser or human authorization proof.",
+    "Recovery and Founder receipt shape/hash validation supplements independent review of actual source evidence.",
+    "TLS gate rejects explicit weak settings; custom hostname-verification semantics belong to the separately reviewed production maintenance wrapper."
+  ]
+}

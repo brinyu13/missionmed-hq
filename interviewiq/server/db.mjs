@@ -33,7 +33,7 @@ export function createDatabase(config) {
             WHERE a.grantee=0 AND a.privilege_type IN ('CREATE','USAGE'))
           FROM pg_namespace WHERE nspname='iiq') AS schema_safe,
         (SELECT count(*)>=28 AND bool_and(c.relowner::regrole::text='iiq_owner' AND c.relrowsecurity AND c.relforcerowsecurity
-          AND NOT has_table_privilege('iiq_authenticated',c.oid,'TRUNCATE,TRIGGER,REFERENCES')
+          AND NOT has_table_privilege('iiq_authenticated',c.oid,'DELETE,TRUNCATE,TRIGGER,REFERENCES')
           AND NOT has_table_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER,REFERENCES'))
           FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
           WHERE n.nspname='iiq' AND c.relkind IN ('r','p')) AS tables_safe,

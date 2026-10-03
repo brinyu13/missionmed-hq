@@ -1,0 +1,39 @@
+{
+  "status": "CURRENT_DATA_LOGICAL_BACKUP_AND_ISOLATED_RESTORE_VERIFIED",
+  "reviewer": "/root/core_launch_verifier",
+  "at": "2026-10-03T17:23:57.115804+00:00",
+  "builder_restore_receipt": "backup/PRESERVATION_EVIDENCE-2026-10-03T172020732Z.json",
+  "builder_restore_receipt_sha256": "2f87febf1da49e7a2bec9f83d0a5ece10b223e442167c5170d1726569f746636",
+  "independent_prework_live_baseline": "independent/iiq1202-independent-production-baseline-utc.json",
+  "independent_live_baseline_sha256": "8512408777f3879dc233d744e9b0ee8545a71e17d68241d88ef3dbe2f9ec926f",
+  "backup_sha256": "80e1661f752940dafebed691b3aeb3d67670d68a68bb498156d4810130f6d0ae",
+  "backup_bytes": 196249,
+  "checks": {
+    "exact_approved_control_script": true,
+    "actual_backup_file_sha256_size_verified": true,
+    "private_dump0600_directory0700": true,
+    "all28restored_iiq_tables_match_independent_live_snapshot": true,
+    "29th_migration_ledger_preserved": true,
+    "roles_nonsuperuser_nobypassrls": true,
+    "zero_orphan_interviews_events_history": true,
+    "zero_unvalidated_constraints": true,
+    "restore_destination_new_private_unix_socket_cluster": true,
+    "temporary_restore_server_stopped": true,
+    "production_data_mutation": false,
+    "raw_private_records_logged": false
+  },
+  "evidence_limit": "Independent reviewer examined exact control code, backup bytes and modes, restored fingerprint/integrity artifacts and own separately captured production fingerprints. Did not independently replay the entire restore; did not restore provider volume snapshot or restore over production. No claim of historical zero loss before the initial independent baseline.",
+  "provider_configuration_observed": {
+    "daily_retention_days": 6,
+    "weekly_retention_days": 27,
+    "monthly_retention_days": 89,
+    "manual_snapshot_listed": "1eb771f8-d68f-4913-ba09-b81168771a5b",
+    "provider_snapshot_restore_tested": false
+  },
+  "remaining_gates": [
+    "Frozen guard source and A-O preservation tests",
+    "Actual minimal runtime restart/deployment preservation evidence",
+    "Final production aggregate and ledger comparison with concurrent-write reconciliation if needed",
+    "Final durable data-map/contract/state custody"
+  ]
+}

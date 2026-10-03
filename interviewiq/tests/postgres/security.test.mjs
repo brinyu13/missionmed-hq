@@ -1,15 +1,16 @@
 // Real PostgreSQL tests: all domain queries use the non-owner runtime login.
 import pg from 'pg';
 import assert from 'node:assert/strict';
+import {assertDisposableTarget,qualifyDisposableConnection} from '../../scripts/disposable-db-guard.mjs';
 const {Client}=pg;
 for(const key of ['IIQ_TEST_DATABASE_URL','IIQ_TEST_ADMIN_DATABASE_URL','IIQ_TEST_QUEUE_DATABASE_URL']) {
-  const u=new URL(process.env[key]||'http://missing');
-  if(u.pathname!=='/iiq_test'||!u.searchParams.get('host')?.startsWith('/tmp/iiq-pg18.'))throw new Error('Disposable harness database required');
+  assertDisposableTarget(process.env[key],{role:({IIQ_TEST_DATABASE_URL:'iiq_runtime_test',IIQ_TEST_ADMIN_DATABASE_URL:'iiq_test_admin',IIQ_TEST_QUEUE_DATABASE_URL:'iiq_queue_test'})[key]});
 }
 const runtime=new Client({connectionString:process.env.IIQ_TEST_DATABASE_URL});
 const adminDb=new Client({connectionString:process.env.IIQ_TEST_ADMIN_DATABASE_URL});
 const queueDb=new Client({connectionString:process.env.IIQ_TEST_QUEUE_DATABASE_URL});
 await Promise.all([runtime.connect(),adminDb.connect(),queueDb.connect()]);
+await Promise.all([[runtime,'IIQ_TEST_DATABASE_URL'],[adminDb,'IIQ_TEST_ADMIN_DATABASE_URL'],[queueDb,'IIQ_TEST_QUEUE_DATABASE_URL']].map(([client,key])=>qualifyDisposableConnection(client,process.env[key])));
 const ids=Object.fromEntries(['a','b','m','d','ia','ib','prep','session','chunk','segment','consent','review','mission','submission','signal'].map((key,i)=>[key,`00000000-0000-4000-8000-${String(i+1).padStart(12,'0')}`]));
 const actors={a:{id:ids.a,wp:101,role:'student',tier:'360'},b:{id:ids.b,wp:102,role:'student',tier:'ivprep_complete'},m:{id:ids.m,wp:103,role:'mentor',tier:'assigned_mentor',assignments:[ids.a]},d:{id:ids.d,wp:104,role:'admin',tier:'admin'}};
 let passed=0;

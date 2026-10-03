@@ -1,0 +1,30 @@
+✔ normal NOINHERIT runtime and effective role pass catalog qualification (18.639083ms)
+✔ effective application role drift BYPASSRLS fails startup (14.918541ms)
+✔ effective application role drift SUPERUSER fails startup (23.666334ms)
+✔ effective application role drift LOGIN fails startup (11.817958ms)
+✔ effective application role drift INHERIT fails startup (9.264416ms)
+✔ effective application role drift CREATEDB fails startup (12.100375ms)
+✔ effective application role drift CREATEROLE fails startup (11.88325ms)
+✔ effective application role drift REPLICATION fails startup (9.237459ms)
+✔ runtime implicit inheritance is rejected (18.603417ms)
+✔ schema-owner membership is rejected (33.869583ms)
+✔ worker membership is rejected (18.930375ms)
+✔ unexpected indirect membership is rejected even with SET disabled (16.418458ms)
+✔ missing effective SET permission is rejected (10.369541ms)
+✔ elevated schema owner is rejected (17.632791ms)
+✔ unexpected effective schema CREATE is rejected (39.601583ms)
+✔ public schema access drift is rejected (16.161959ms)
+✔ disabled RLS is rejected (16.990875ms)
+✔ removed forced RLS is rejected (12.202625ms)
+✔ effective TRUNCATE bypass privilege is rejected (21.125625ms)
+✔ effective DELETE privilege drift is rejected (66.21575ms)
+✔ unexpected direct login SELECT is rejected (23.444125ms)
+✔ PUBLIC function execution is rejected (12.961334ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1053.695084

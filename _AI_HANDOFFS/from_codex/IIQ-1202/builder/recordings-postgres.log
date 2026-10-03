@@ -1,0 +1,22 @@
+ok 1 - create uses current owner and happened debrief
+ok 2 - replayed create returns one durable session
+ok 3 - cross-owner interview cannot create a recording
+ok 4 - other cannot read student recording
+ok 5 - mentor cannot read student recording
+ok 6 - admin cannot read student recording
+ok 7 - complete segment stores actual provider text separately from edited account
+ok 8 - completed replay creates no duplicate storage/provider/transcript
+ok 9 - changed segment UUID with reused sequence fails closed
+ok 10 - missing earlier sequence fails without reservation
+ok 11 - pause/resume persists one recording ID
+ok 12 - chunk metadata reserves durably before any object exists
+ok 13 - unfinished pending chunk prevents finish
+ok 14 - concurrent claim returns one winner
+ok 15 - stale claim recovery produces a new fence and rejects old completion
+ok 16 - new fence can commit only one immutable matching raw segment
+ok 17 - finish is durable and idempotent
+ok 18 - new audio cannot be appended after finish
+ok 19 - cancel fences an in-flight provider result
+ok 20 - changed occurrence prevents further provider claims
+ok 21 - service never changed edited-account text
+PASS 21 recording orchestration assertions against real PostgreSQL; private object/provider doubles only.

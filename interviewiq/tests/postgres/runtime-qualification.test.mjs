@@ -5,10 +5,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import pg from 'pg';
 import {createDatabase} from '../../server/db.mjs';
+import {readDisposableConnectionFile,qualifyDisposableConnection} from '../../scripts/disposable-db-guard.mjs';
 
 const file=process.env.IIQ_RUNTIME_TEST_CONNECTION;
 assert.match(file||'',/^\/tmp\/iiq-pg18\.[A-Za-z0-9]+\/connection\.json$/);
-const connection=JSON.parse(fs.readFileSync(file,'utf8'));
+const connection=readDisposableConnectionFile(file);
 assert.equal(connection.syntheticOnly,true);assert.equal(connection.unixSocketOnly,true);
 for(const value of [connection.databaseUrl,connection.adminDatabaseUrl]) {
   const url=new URL(value);assert.equal(url.pathname,'/iiq_test');
@@ -17,6 +18,8 @@ for(const value of [connection.databaseUrl,connection.adminDatabaseUrl]) {
 const database=createDatabase({databaseUrl:connection.databaseUrl});
 const admin=new pg.Client({connectionString:connection.adminDatabaseUrl});
 await admin.connect();
+await qualifyDisposableConnection(admin,connection.adminDatabaseUrl,{role:'iiq_test_admin'});
+await qualifyDisposableConnection(database.pool,connection.databaseUrl,{role:'iiq_runtime_test'});
 const runtime=new URL(connection.databaseUrl).username;
 assert.equal(runtime,'iiq_runtime_test');
 async function drift(apply,restore,code='unsafe_database_role') {
@@ -43,6 +46,7 @@ try {
   await test('disabled RLS is rejected',()=>drift('ALTER TABLE iiq.interviews DISABLE ROW LEVEL SECURITY','ALTER TABLE iiq.interviews ENABLE ROW LEVEL SECURITY','unsafe_database_custody'));
   await test('removed forced RLS is rejected',()=>drift('ALTER TABLE iiq.interviews NO FORCE ROW LEVEL SECURITY','ALTER TABLE iiq.interviews FORCE ROW LEVEL SECURITY','unsafe_database_custody'));
   await test('effective TRUNCATE bypass privilege is rejected',()=>drift('GRANT TRUNCATE ON iiq.interviews TO iiq_authenticated','REVOKE TRUNCATE ON iiq.interviews FROM iiq_authenticated','unsafe_database_custody'));
+  await test('effective DELETE privilege drift is rejected',()=>drift('GRANT DELETE ON iiq.interviews TO iiq_authenticated','REVOKE DELETE ON iiq.interviews FROM iiq_authenticated','unsafe_database_custody'));
   await test('unexpected direct login SELECT is rejected',()=>drift('GRANT SELECT ON iiq.interviews TO iiq_runtime_test','REVOKE SELECT ON iiq.interviews FROM iiq_runtime_test','unsafe_database_custody'));
   await test('PUBLIC function execution is rejected',()=>drift('GRANT EXECUTE ON FUNCTION iiq.publish_report(uuid,text,jsonb) TO PUBLIC','REVOKE EXECUTE ON FUNCTION iiq.publish_report(uuid,text,jsonb) FROM PUBLIC','unsafe_database_custody'));
 } finally {await database.close();await admin.end();}

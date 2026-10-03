@@ -1,0 +1,22 @@
+{
+  "status": "PASS",
+  "at": "2026-10-03T17:33:04.893Z",
+  "reviewer": "/root/core_launch_verifier",
+  "project": "b317b67c-78f2-4a0d-97a7-3421c18a375f",
+  "environment": "a3d3d5be-100e-4242-b441-d0922545c91e",
+  "service": "84ecd61e-e8c5-4f86-9aab-7d8c08fe1b40",
+  "apiService": "7a9cbfe6-6e01-4155-b387-67babb90ee14",
+  "mode": "READ_ONLY_CANDIDATE_RUNTIME_ROLE_QUALIFICATION",
+  "candidateSha256": "0c5674fff2418769e3ad416918f4b9d31fa3901323d3d9eac26b3cae4adff3eb",
+  "identity": {
+    "database": "railway",
+    "username": "iiq_runtime",
+    "read_only": "on",
+    "major": 18
+  },
+  "strict_tls": true,
+  "exactCandidateFunction": true,
+  "poolQueryBoundToReadonlyRuntimeClient": true,
+  "selectQueryCount": 2,
+  "production_mutations": 0
+}

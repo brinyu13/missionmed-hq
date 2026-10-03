@@ -1,0 +1,126 @@
+ok 1 - all 28 tables enable and force row-level security
+ok 2 - effective student research policy is minimized and disabled without custody
+ok 3 - runtime and internal roles have least-privilege attributes
+ok 4 - runtime cannot assume schema owner
+ok 5 - runtime has no implicit table permissions
+ok 6 - missing claims return no private rows
+ok 7 - verified a self identity inserts
+ok 8 - verified b self identity inserts
+ok 9 - verified m self identity inserts
+ok 10 - verified d self identity inserts
+ok 11 - actor cannot claim another WP identity
+ok 12 - admin cannot impersonate student actor row
+ok 13 - student a creates own logistics
+ok 14 - student b creates own logistics
+ok 15 - student sees own logistics only
+ok 16 - cross-student insert denied
+ok 17 - cross-student update affects zero rows
+ok 18 - record owner cannot be reassigned
+ok 19 - admin sees logistics for both students
+ok 20 - assigned mentor sees one student logistics
+ok 21 - unassigned mentor sees zero logistics
+ok 22 - mentor cannot update assigned logistics
+ok 23 - private preparation can be saved by owner
+ok 24 - cross-owner child reference fails
+ok 25 - owner creates private debrief with deferred occurrence
+ok 26 - owner creates recording session
+ok 27 - chunk metadata commits before provider transcription
+ok 28 - reused chunk key cannot carry a different digest
+ok 29 - chunk immutable digest cannot change during retry
+ok 30 - provider retry metadata updates safely
+ok 31 - segment mismatched digest fails
+ok 32 - verified segment stores original raw separately
+ok 33 - duplicate segment rejected
+ok 34 - b cannot read another student's preparation
+ok 35 - b cannot read another student's debriefs
+ok 36 - b cannot read another student's recording_sessions
+ok 37 - b cannot read another student's recording_chunks
+ok 38 - b cannot read another student's speech_segments
+ok 39 - m cannot read another student's preparation
+ok 40 - m cannot read another student's debriefs
+ok 41 - m cannot read another student's recording_sessions
+ok 42 - m cannot read another student's recording_chunks
+ok 43 - m cannot read another student's speech_segments
+ok 44 - d cannot read another student's preparation
+ok 45 - d cannot read another student's debriefs
+ok 46 - d cannot read another student's recording_sessions
+ok 47 - d cannot read another student's recording_chunks
+ok 48 - d cannot read another student's speech_segments
+ok 49 - raw transcript has no update privilege
+ok 50 - raw transcript has no delete privilege
+ok 51 - DST gap is rejected atomically
+ok 52 - ambiguous DST fold requires explicit choice
+ok 53 - earlier DST fold with exact matching instant accepted
+ok 54 - later DST fold with exact matching instant accepted
+ok 55 - fold and instant mismatch rejected
+ok 56 - date-only all-day event has no fabricated instant
+ok 57 - timezone database validates unknown zones
+ok 58 - duration requires known precision
+ok 59 - completion requires explicit occurred confirmation
+ok 60 - row versions increment and stale update affects zero
+ok 61 - unconfirmed learning is private
+ok 62 - explicit confirmed learning is visible to assigned mentor
+ok 63 - learning revocation removes mentor visibility
+ok 64 - assigned profiles expose only ID/display name
+ok 65 - mentor own priority and in-app nudge persist
+ok 66 - student receives only its own priority and nudge
+ok 67 - revoked assignment removes mentor note access
+ok 68 - mentor cannot nudge unassigned student
+ok 69 - owner logs revision and identity-only idempotency
+ok 70 - duplicate request ID cannot replace original digest
+ok 71 - audit append validates actual actor
+ok 72 - valid audit is immutable
+ok 73 - owner appends minimized outbox
+ok 74 - owner cannot mark own queue as sent
+ok 75 - queue worker can dispatch but cannot read private content
+ok 76 - admin has no blanket queue visibility
+ok 77 - private owner grants publication consent
+ok 78 - unconsented review insert denied
+ok 79 - unconfirmed interview cannot be shared as experience
+ok 80 - explicit excerpt enters separate review
+ok 81 - student cannot self-approve review
+ok 82 - admin cannot rewrite original excerpt
+ok 83 - pending review cannot publish
+ok 84 - admin decides quality separately from execution
+ok 85 - student cannot publish even approved excerpt
+ok 86 - publication is one record per approved permitted review
+ok 87 - entitled recipient sees only public report columns
+ok 88 - private report linkage is not granted
+ok 89 - unqualified and legacy tiers cannot read deep research
+ok 90 - owner consent revocation retracts derived report immediately
+ok 91 - revoked consent cannot be republished
+ok 92 - research mission has public-only package
+ok 93 - original research submission is immutable
+ok 94 - research repair appends with same-owner parent
+ok 95 - duplicate research upload digest is rejected
+ok 96 - research contribution starts with separate pending decisions
+ok 97 - credit denied when actual policy is absent
+ok 98 - arbitrary admin policy authority string does not authorize credit
+ok 99 - runtime admin cannot mint actual policy custody
+ok 100 - synthetic-only privileged test custody is installed explicitly
+ok 101 - effective filed policy never exposes terms or approval records to student
+ok 102 - policy alone cannot skip execution or quality review
+ok 103 - unverified execution cannot earn credit after quality approval
+ok 104 - verified execution and accepted quality permit separately decided credit
+ok 105 - repeat credit for same review is denied
+ok 106 - repair review cannot mint a second logical mission credit
+ok 107 - access grant cannot invent seven-day terms
+ok 108 - access grant is limited to approved program and actual fixture duration
+ok 109 - grant cannot be extended by direct update
+ok 110 - contribution grants cover only current approved policy and same program
+ok 111 - research publication exists before adversarial quality downgrade
+ok 112 - read-time review prerequisites deny stale projection/grant even when propagation is disabled in a rolled-back drift probe
+ok 113 - direct quality-only repair downgrade normalizes decisions and removes recipient visibility and tier-none access atomically
+ok 114 - direct grant restoration while repair is unapproved is denied
+ok 115 - reapproval does not automatically restore access or publication
+ok 116 - explicit restoration reuses exact grant window and explicit republish reuses report identity
+ok 117 - loss of verified execution suspends only contribution eligibility until explicit restoration
+ok 118 - direct status-only pending downgrade also retracts and suspends
+ok 119 - policy shutdown immediately removes contribution access
+ok 120 - consent revocation revokes credit and grant atomically
+ok 121 - retracted contribution cannot be reinstated by direct update
+ok 122 - malformed actor claims fail closed
+ok 123 - transaction-local identity cannot leak to next request
+ok 124 - DDL and TRUNCATE are denied to runtime
+ok 125 - PUBLIC cannot execute identity/publication helpers
+PASS 125 real PostgreSQL security/constraint assertions; synthetic only.

@@ -1,0 +1,39 @@
+ok 1 - mission creation fails closed without a real owner capability
+ok 2 - student mission builds only explicit public fields
+ok 3 - same active program/standard reuses the durable mission
+ok 4 - admin cannot create a student mission
+ok 5 - malformed original remains immutable in quarantine
+ok 6 - package instructions and internal URLs are inert quarantine data
+ok 7 - mission/program identity mismatch quarantines rather than rebinds
+ok 8 - source-linked permitted package enters separate review
+ok 9 - duplicate bytes return original submission without additional review
+ok 10 - cross-student upload and repair are denied
+ok 11 - repair adds linked version and preserves exact original
+ok 12 - student cannot decide quality
+ok 13 - quality review is independent from execution verification
+ok 14 - editable execution declarations cannot become trusted receipts
+ok 15 - trusted-adapter test receipt persists in immutable audit independently
+ok 16 - publication fails closed when owner service is absent
+ok 17 - publication receipt must bind exact reviewed body and program
+ok 18 - actual-owner-shaped test receipt permits local publication once
+ok 19 - credit remains unavailable while contributions are disabled
+ok 20 - policy request cannot lower protected enrollment floor
+ok 21 - unfiled standalone access cannot be switched on
+ok 22 - exact filed synthetic policy can be enabled by admin
+ok 23 - credit and exact-duration grant form one atomic decision
+ok 24 - replay cannot mint another credit for same mission
+ok 25 - grant commands require exact grant and subject pairing
+ok 26 - real quality repair handler retracts owner projection and suspends local eligibility without forfeiting credit
+ok 27 - repair cannot create another mission credit or change the original grant window
+ok 28 - Admin cannot reinstate grant while qualifying review remains in repair
+ok 29 - same-review reapproval requires explicit publication and original-window grant restoration
+ok 30 - repair downgrade during owner outage is locally effective and has durable versioned withdrawal intent
+ok 31 - approved repaired version explicitly restores same mission grant without new units or extended expiry
+ok 32 - outage retraction denies local view immediately and queues owner work honestly
+ok 33 - retracted contribution cannot be resurrected by a quality decision
+ok 34 - terminal withdrawal of repaired approval reverses original mission credit and cannot be reinstated
+ok 35 - mentor priority remains within a fresh assignment
+ok 36 - mentor cannot nudge without explicit confirmed gap
+ok 37 - student-approved gap permits only its own in-app nudge
+ok 38 - revoked learning consent stops future nudges
+PASS 38 domain review/research/mentor integration assertions; controlled provider doubles only.

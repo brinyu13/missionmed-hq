@@ -1,0 +1,8 @@
+ok 1 - initial migration and exact checksum recorded once
+ok 2 - unchanged replay is a no-op
+ok 3 - local mode cannot point at a provider
+ok 4 - production apply requires independent approval before connecting
+ok 5 - changed applied bytes fail closed
+ok 6 - failed DDL rolls back schema and migration ledger together
+ok 7 - non-owner runtime cannot read or modify migration ledger
+PASS 7 migration custody/rollback assertions; synthetic only.

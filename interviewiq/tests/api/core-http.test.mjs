@@ -7,8 +7,9 @@ import {createDatabase} from '../../server/db.mjs';
 import {createAuthorizer,proof} from '../../server/auth.mjs';
 import {createCommands} from '../../server/commands.mjs';
 import {createHandler} from '../../server/http.mjs';
+import {assertDisposableTarget,qualifyDisposableConnection} from '../../scripts/disposable-db-guard.mjs';
 
-assert.ok(process.env.IIQ_TEST_DATABASE_URL,'Run with a disposable synthetic PostgreSQL database.');
+assertDisposableTarget(process.env.IIQ_TEST_DATABASE_URL,{role:'iiq_runtime_test'});
 const config={enabled:true,databaseUrl:process.env.IIQ_TEST_DATABASE_URL,publicOrigin:'https://missionmedinstitute.com',jwtIssuer:'https://missionmedinstitute.com',
   jwtSecret:randomBytes(48).toString('hex'),ownerProofSecret:randomBytes(48).toString('hex'),gatewaySecret:randomBytes(48).toString('hex'),
   ownerIntrospectionUrl:'https://missionmedinstitute.com/wp-json/missionmed-interviewiq/v1/introspect',ownerTimeoutMs:1000,maxBodyBytes:262144,release:'synthetic-http-test'};
@@ -36,6 +37,7 @@ const owners={ivocAvailable:false,async getProgram(_actor,id){assert.equal(id,pr
 const commands=createCommands({database,owners,config});
 let server,base,interviewId;
 before(async()=>{
+  await qualifyDisposableConnection(database.pool,config.databaseUrl,{role:'iiq_runtime_test'});
   await database.verifyRuntimeRole();
   server=createServer(createHandler({config,database,authorize,commands,owners,logger:x=>safeLogs.push(x)}));
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));base=`http://127.0.0.1:${server.address().port}`;

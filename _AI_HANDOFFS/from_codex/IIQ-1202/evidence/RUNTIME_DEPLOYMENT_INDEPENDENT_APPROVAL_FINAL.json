@@ -1,0 +1,276 @@
+{
+  "schema": "missionmed.interviewiq.independent-preservation-release-approval.v1",
+  "status": "APPROVED_RUNTIME_DEPLOYMENT",
+  "reviewer": "/root/core_launch_verifier",
+  "at": "2026-10-03T17:50:12.332248+00:00",
+  "authority": "DR-370 / IIQ-1202",
+  "baselineCommit": "538e97fb13b268683ebacc39d2e80cf551b11b5b",
+  "target": {
+    "project": "b317b67c-78f2-4a0d-97a7-3421c18a375f",
+    "environment": "a3d3d5be-100e-4242-b441-d0922545c91e",
+    "apiService": "7a9cbfe6-6e01-4155-b387-67babb90ee14",
+    "databaseService": "84ecd61e-e8c5-4f86-9aab-7d8c08fe1b40"
+  },
+  "authorizedScope": [
+    "Commit/push exact reviewed source/docs/tests under source lease.",
+    "Deploy exact package using unchanged Dockerfile with only runtime db.mjs DELETE privilege drift rejection.",
+    "Align railway.json readiness path/timeout with verified existing live /readyz 90 setting.",
+    "Update only nonsecret INTERVIEWIQ_RELEASE from df7d051d996f6c5cb1f0a787a3eec4a03e91afec to exact reviewed commit containing this manifest, under fresh exact provider lease."
+  ],
+  "excluded": [
+    "No production migration or bootstrap.",
+    "No database service/volume mutation or restore over production.",
+    "No WordPress, eligibility, identity, UI asset, remote owner integration or API business-logic change.",
+    "No new QA-account provisioning or production fixtures."
+  ],
+  "runtimeManifest": {
+    ".dockerignore": "08b5c8058776d906a3220eb30270ecc76cb8dbd22f5d8b8cab732644f123b737",
+    "Dockerfile": "b03a386ea2993ce2d2e927313738826ae831d36b435416ef8f442177d78834b2",
+    "package-lock.json": "7378c96fa99630b65bd5cecb0c5a18d30e9078131c683fcab93248e7bf464701",
+    "package.json": "db2d1af8272af74c493cd1a60322f92b084f984201842513dfe620718d982e03",
+    "railway.json": "e4aa17081961f84e1add9334d0ca21614498d5cf8b305574e5d559f865a23e71",
+    "server/admin-commands.mjs": "02d89221a9aba87853c17df28db9a25cf1b11b0fdcb323121f8abe8dbeb5967f",
+    "server/app.mjs": "7dfb13f748bc1dd8804174c75982ff612671444eebca7c3fe7194b50a4572e76",
+    "server/auth.mjs": "e752b4a99426dae9a63eda2d6d2d2610eb5597800ddcf1d770b5be2c4c1b2db7",
+    "server/commands.mjs": "2ae6b0ce3587190dd0d637d4dd5556d692ae58d0291b77e718ee840321f0895d",
+    "server/config.mjs": "e4c066180d48783fce20d72b9c841e3f14870ff5ba2c306754745282de2c9177",
+    "server/core-read-model.mjs": "adf4a62c76e4214623794676c7f7f9d5282e75b1f28e600e37ce7ac82eb1e8e4",
+    "server/db.mjs": "0c5674fff2418769e3ad416918f4b9d31fa3901323d3d9eac26b3cae4adff3eb",
+    "server/debrief.mjs": "7e6b11d7418303b47a76362f96abcfcf5b9fd1ec110c25cd3a3df3e7c283ce4b",
+    "server/errors.mjs": "56eee370fef00c0d3636aa9fd5a55841670b5dba89bd40e3b77b2bb3bb123d71",
+    "server/http.mjs": "09a077e924452287de039f3e459d7c0020f033ea3e2fb8eb86af8ef1729de39a",
+    "server/integrations/ivoc.mjs": "7ec01c3b260a251a070956b7a5350b43bdc5f5806cbb067cf54c8f0bdcf6b66a",
+    "server/integrations/rise-read.mjs": "83fe7bee425e7279a5989a922c693a501e914622f0b46b6c30942f33db9c24ac",
+    "server/owner-services.mjs": "795d01977f33777c423a976ec34c5b71c177ba4e30dadaded9788ace68dabedc",
+    "server/postgres-ca.pem": "aea2dc33cf96f7360466a69ca8ed5d4a0e8259a4233bf4bdb29dc87efbaa665c",
+    "server/private-commands.mjs": "1b4cfb98136af0fe54c555872f6f22be8b155658b5f483f78425920da18deac8",
+    "server/read-model.mjs": "edeabd92d6db6c0db84194a80e49684bd61c777d62f8be91d6fc9408790391fc",
+    "server/recordings.mjs": "5f7ca05c5dd57d89a972d01e04797822b3fb6d351c6784309eea4b66e4de4d75",
+    "server/records.mjs": "5cce31da0738dd0d281b66180c39a6dad56273e34cdbd97ea71d64cad4e8f819",
+    "server/rehearsal.mjs": "40fdda65e35595ef40dc66b33b91ac18a6bbdc6628ec0dcc483041b2913a28e1",
+    "server/research-commands.mjs": "ecde98d00e5eea0978ee9721b811e839288af2010f94b3bf270ec80f49a9c924",
+    "server/storage.mjs": "1a2d02d5a3334055efd56537a2d7ed98f0a16cb37e93f6e43eb884b78d5e0249",
+    "server/time.mjs": "7d87b37ff26106cc900d798b0fe167fbc13620221a037bb66465a114829f26fc",
+    "server/transcription/openai-gpt-4o-transcribe.mjs": "7692a46160b9273baff3425b1dd3a9ef01f19000c52d3d80e3647786947da6ee",
+    "server/transcription/openai-whisper1.mjs": "f81f234c7e3511ad5b3a20d98c5725d16028ea491a8a746b69efa9363947decf",
+    "server/validation.mjs": "7ba2edc012b2ff15c3c78e22ad142f49ed046e944347a8ca0ce34fccb20cd3db"
+  },
+  "reviewedSourceManifest": {
+    ".dockerignore": "08b5c8058776d906a3220eb30270ecc76cb8dbd22f5d8b8cab732644f123b737",
+    "AGENTS.md": "23e8d4eb0d82bca571c495d2ca858f5398cddbc38bed07a6fb87da0a6dc93da4",
+    "Dockerfile": "b03a386ea2993ce2d2e927313738826ae831d36b435416ef8f442177d78834b2",
+    "docs/IIQ-1202_MIGRATION_SAFETY_CONTRACT.md": "246af263b86a0dca57b533eee47cf452208f97a95ab521413a62954f11217c59",
+    "docs/IIQ-1202_PRODUCTION_DATA_MAP.md": "f6dede6e748b4b3e5f990a14a2701b7bcf45fd50a0808559451e1d1730a2eb85",
+    "docs/IIQ_PRODUCTION_DATA_PRESERVATION_INVARIANT.md": "b53d8bf880dafb95baf5b5513b9bbaf9c70fbc5d83fe61d7138fbb4c5744ee60",
+    "package-lock.json": "7378c96fa99630b65bd5cecb0c5a18d30e9078131c683fcab93248e7bf464701",
+    "package.json": "db2d1af8272af74c493cd1a60322f92b084f984201842513dfe620718d982e03",
+    "railway.json": "e4aa17081961f84e1add9334d0ca21614498d5cf8b305574e5d559f865a23e71",
+    "scripts/build-ui.mjs": "850f1d86a29f294903e2bdd3239cebe25d2f295257c1aab90650e2b6415a7454",
+    "scripts/disposable-db-guard.mjs": "6b8e2d41c64bd74d1d629a2dc0746992b8de4fcce7079c542cef51d0d8ff099e",
+    "scripts/migrate.mjs": "62651f32756704f8bdbd9681962ac90729a228a01a1037195302bf8d87fa1b59",
+    "scripts/migration-preservation-gate.mjs": "f28a01b3815cab69d3329e35fbebca7a267fb8d2a5e5b49bde781514fa6b5c3e",
+    "scripts/package-core-release.mjs": "7a0ffa6c17a4d290a6743c607b35df8a9b114d45c5f28c90875051054480e112",
+    "scripts/run-postgres-tests.sh": "4e27442b7dc1712076af79da7b5522e5ad6a515ff48cd35bf0d36b8adc4bd469",
+    "server/admin-commands.mjs": "02d89221a9aba87853c17df28db9a25cf1b11b0fdcb323121f8abe8dbeb5967f",
+    "server/app.mjs": "7dfb13f748bc1dd8804174c75982ff612671444eebca7c3fe7194b50a4572e76",
+    "server/auth.mjs": "e752b4a99426dae9a63eda2d6d2d2610eb5597800ddcf1d770b5be2c4c1b2db7",
+    "server/commands.mjs": "2ae6b0ce3587190dd0d637d4dd5556d692ae58d0291b77e718ee840321f0895d",
+    "server/config.mjs": "e4c066180d48783fce20d72b9c841e3f14870ff5ba2c306754745282de2c9177",
+    "server/core-read-model.mjs": "adf4a62c76e4214623794676c7f7f9d5282e75b1f28e600e37ce7ac82eb1e8e4",
+    "server/db.mjs": "0c5674fff2418769e3ad416918f4b9d31fa3901323d3d9eac26b3cae4adff3eb",
+    "server/debrief.mjs": "7e6b11d7418303b47a76362f96abcfcf5b9fd1ec110c25cd3a3df3e7c283ce4b",
+    "server/errors.mjs": "56eee370fef00c0d3636aa9fd5a55841670b5dba89bd40e3b77b2bb3bb123d71",
+    "server/http.mjs": "09a077e924452287de039f3e459d7c0020f033ea3e2fb8eb86af8ef1729de39a",
+    "server/integrations/ivoc.mjs": "7ec01c3b260a251a070956b7a5350b43bdc5f5806cbb067cf54c8f0bdcf6b66a",
+    "server/integrations/rise-read.mjs": "83fe7bee425e7279a5989a922c693a501e914622f0b46b6c30942f33db9c24ac",
+    "server/owner-services.mjs": "795d01977f33777c423a976ec34c5b71c177ba4e30dadaded9788ace68dabedc",
+    "server/postgres-ca.pem": "aea2dc33cf96f7360466a69ca8ed5d4a0e8259a4233bf4bdb29dc87efbaa665c",
+    "server/private-commands.mjs": "1b4cfb98136af0fe54c555872f6f22be8b155658b5f483f78425920da18deac8",
+    "server/read-model.mjs": "edeabd92d6db6c0db84194a80e49684bd61c777d62f8be91d6fc9408790391fc",
+    "server/recordings.mjs": "5f7ca05c5dd57d89a972d01e04797822b3fb6d351c6784309eea4b66e4de4d75",
+    "server/records.mjs": "5cce31da0738dd0d281b66180c39a6dad56273e34cdbd97ea71d64cad4e8f819",
+    "server/rehearsal.mjs": "40fdda65e35595ef40dc66b33b91ac18a6bbdc6628ec0dcc483041b2913a28e1",
+    "server/research-commands.mjs": "ecde98d00e5eea0978ee9721b811e839288af2010f94b3bf270ec80f49a9c924",
+    "server/storage.mjs": "1a2d02d5a3334055efd56537a2d7ed98f0a16cb37e93f6e43eb884b78d5e0249",
+    "server/time.mjs": "7d87b37ff26106cc900d798b0fe167fbc13620221a037bb66465a114829f26fc",
+    "server/transcription/openai-gpt-4o-transcribe.mjs": "7692a46160b9273baff3425b1dd3a9ef01f19000c52d3d80e3647786947da6ee",
+    "server/transcription/openai-whisper1.mjs": "f81f234c7e3511ad5b3a20d98c5725d16028ea491a8a746b69efa9363947decf",
+    "server/validation.mjs": "7ba2edc012b2ff15c3c78e22ad142f49ed046e944347a8ca0ce34fccb20cd3db",
+    "tests/api/core-http.test.mjs": "84b788e4e037eeb6c828254767937547f205e9c3898cb0f0cc4c9ad97206e7ae",
+    "tests/domain-review/commands.test.mjs": "fe3d1ea36960ac60df2c88cf57d2a63c02fec08f7a236cb683f6517e5bdf501e",
+    "tests/helpers/preview-server.mjs": "8882313adaba890004f4a814c1f5c7f8031c3e929bcfcabccea03617d92b9c4e",
+    "tests/integrations/ivoc.test.mjs": "f72b50e9543a4fcc2cb5a798b87e418fa2964a1b5eb6d4ee0ad280a281e547fd",
+    "tests/integrations/rise-read.test.mjs": "cfa6e64ed4a00027b7887b4c48bedc08e607a6c348b4663a7b9fb78ce62c0493",
+    "tests/postgres/migrations.test.mjs": "e5e90dc0a9feb62193a5b22a4c65f7525f195824a51332ebf20b53419f56c166",
+    "tests/postgres/runtime-qualification.test.mjs": "9ef1b933531024e98b6ee2477494c9cfcf2df442a0e44900d996da2f0c14e81a",
+    "tests/postgres/security.test.mjs": "90f68fb040c5aa50acc30125911a1fb19ca09865953e14990c231912629fea91",
+    "tests/preservation/guards.mjs": "fe9e1c9c72283900b4f7dda69ea4f47bcf3d46c1b68b6a9998677f9aea52e709",
+    "tests/preservation/preservation.test.mjs": "262df7b03ab64925c2140f1f337ed162e9de78f3f8f0e60b18e6d3fda1569129",
+    "tests/recordings/postgres.mjs": "06b0881aecc96da7cb5f48a4e9891391f478e2c3e980577c4fac3e9748e5a226",
+    "tests/recordings/service.test.mjs": "b914b1ae184523760b0a86004754e0f7662e73a9494234239737961afd78aa32",
+    "tests/recordings/storage.test.mjs": "2b924b8e063567cf9bd2d16d349d8d9d8104268872cfcd8ae7ed7a4b4281acdc",
+    "tests/ui/ui-contract.test.mjs": "dc110bfb54a5c949f7ff737a5930b1a4bc30ed8ecb742d855534c8378ffab4e3",
+    "tests/unit/auth.test.mjs": "0950a023531214ba179d58bf6b1388e35cf025dde4df4df91b752508a6239673",
+    "tests/unit/debrief.test.mjs": "c92fa73a1bb5671f702946755351add35c74c8df6c83b9bde4a81541ced01b32",
+    "tests/unit/records.test.mjs": "4d7fea272cb171e7168fccc6b8eaf57a1cfa83499b7d506721f12bb67b95a8a4",
+    "tests/unit/rehearsal.test.mjs": "e9288726fcb4002b7ef9ba6143b87ff3aa5fa46def3bdcbd9dbce69a9017fe3f",
+    "tests/unit/time.test.mjs": "cedc20acc09cf622d1d579463cb222ce37e008a44d48d8ba0e34fb8c5c288a10",
+    "tests/unit/validation.test.mjs": "d8a499b4156ecc426cebbd1f2f285f9d4410f3c0c4099d037394559b13f41e2f",
+    "tests/wordpress/auth-gateway-http.test.mjs": "d19300423422757ffcffd8353f3f7c97dec3807d5d7a89f7474d1227301f2f18"
+  },
+  "unchangedAppliedMigrationSha256": "f4b546469c3830388a11c1b9bb7b59f30c477759598e3bbff3b774a246215edf",
+  "unchangedBootstrapSha256": "0abf9e462826e345941ee449bd659b2542fcc43abd8b173a93ff3320ccc902cb",
+  "testEvidence": {
+    "path": "/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/IIQ-1202/independent/PRESERVATION_TESTS_INDEPENDENT_FINAL.json",
+    "sha256": "a166d7afceda0cf35ec142430f30a729bd29affbc8b8971d0da500428abb9152",
+    "command": "npm run test:preservation",
+    "counts": {
+      "checks": 89,
+      "passed": 89,
+      "failed": 0
+    },
+    "groups": {
+      "guard": {
+        "checks": 28,
+        "passed": 28,
+        "failed": 0
+      },
+      "policy": {
+        "checks": 23,
+        "passed": 23,
+        "failed": 0
+      },
+      "transport": {
+        "checks": 7,
+        "passed": 7,
+        "failed": 0
+      },
+      "evidence": {
+        "checks": 15,
+        "passed": 15,
+        "failed": 0
+      },
+      "A-O": {
+        "checks": 15,
+        "passed": 15,
+        "failed": 0
+      },
+      "runtime-guard": {
+        "checks": 1,
+        "passed": 1,
+        "failed": 0
+      }
+    },
+    "disposableClusterStopped": true,
+    "failedPriorAttempt": {
+      "path": "/tmp/iiq-pg18.hOiYAf/preservation-receipt.json",
+      "reason": "Missing undeclared jsdom; repaired by exact devDependency/lockfile, then full independent rerun."
+    },
+    "finalFixture": "Removed inert custom TLS hostname callback in positive unit fixture; full bare-command rerun confirms final source."
+  },
+  "productionDependenciesUnchanged": true,
+  "existingLockfilePackageEntriesUnchanged": true,
+  "runtimeContainerExcludesTestsMigrationsAndDevDependencies": true,
+  "liveCandidateQualification": "/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/IIQ-1202/independent/CANDIDATE_LIVE_RUNTIME_QUALIFICATION.json",
+  "currentRestoreReview": "/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/IIQ-1202/independent/RESTORE_EVIDENCE_INDEPENDENT_REVIEW.json",
+  "identityMappingReview": "/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/IIQ-1202/independent/WORDPRESS_POSTGRES_IDENTITY_COMPARISON.json",
+  "productionRlsReview": "/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/IIQ-1202/independent/PRODUCTION_READ_ONLY_RLS.json",
+  "gates": [
+    {
+      "number": 1,
+      "criterion": "Actual production data location verified",
+      "status": "PASS",
+      "evidence": "Exact Railway project/environment/PostgreSQL/volume; strict TLS fresh catalog."
+    },
+    {
+      "number": 2,
+      "criterion": "Canonical ownership/IDs understood",
+      "status": "PASS",
+      "evidence": "Actor UUID/WP bindings, composite owner FKs, 2 current WP\u2194PG mappings match."
+    },
+    {
+      "number": 3,
+      "criterion": "Current production data durable beyond browser/deployment filesystem",
+      "status": "PASS_PREDEPLOY_POSTDEPLOY_PENDING",
+      "evidence": "Separate PostgreSQL volume and unchanged browser/API architecture; prior launch reload/session proof. New guard-only API deployment comparison pending."
+    },
+    {
+      "number": 4,
+      "criterion": "Migration path verified",
+      "status": "PASS",
+      "evidence": "Dedicated nonruntime target/hash/ledger/evidence gate; actual additive N\u2192N+1 and replay tested in disposable PG18."
+    },
+    {
+      "number": 5,
+      "criterion": "Destructive shortcuts audited",
+      "status": "PASS",
+      "evidence": "All DB entrypoints inventoried; bootstrap immutable/existing-target forbidden; transaction escape and unknown/destructive SQL gated."
+    },
+    {
+      "number": 6,
+      "criterion": "Production test/reset paths guarded",
+      "status": "PASS",
+      "evidence": "Seven fixture entrypoints and harness refuse production before network; duplicate/effective targets, private marker, random actual cluster and libpq environment checked."
+    },
+    {
+      "number": 7,
+      "criterion": "Backup configuration verified",
+      "status": "PASS",
+      "evidence": "Provider actual daily/weekly/monthly schedules and current manual snapshot; PITR disabled explicitly documented."
+    },
+    {
+      "number": 8,
+      "criterion": "Safe restore evidence exists OR exact remaining restore limitation explicitly identified",
+      "status": "PASS",
+      "evidence": "Current populated 29-table logical backup restored in isolated PG18 and independently matched to earlier live baseline; no provider snapshot restore or WP DR certification claimed."
+    },
+    {
+      "number": 9,
+      "criterion": "Application rollback/data rollback distinction established",
+      "status": "PASS",
+      "evidence": "Contract and actual Docker start contain no seed/migrate/restore; old runtime reads and edits forward schema while preserving added data."
+    },
+    {
+      "number": 10,
+      "criterion": "Automated preservation tests pass",
+      "status": "PASS",
+      "evidence": "Independent bare npm run test:preservation 89/89, all A\u2013O; new private socket cluster stopped."
+    },
+    {
+      "number": 11,
+      "criterion": "RLS/student isolation still passes",
+      "status": "PASS",
+      "evidence": "Fresh actual production read-only runtime A/B interviews/history checks; local populated event/command checks. Empty live related_events caveat explicit."
+    },
+    {
+      "number": 12,
+      "criterion": "Invariant written durable project authority",
+      "status": "PASS_PREDEPLOY_COMMIT_PENDING",
+      "evidence": "Exact invariant in reviewed repo AGENTS/docs and independently approved OS DR370/Brain records; product source commit/push pending."
+    },
+    {
+      "number": 13,
+      "criterion": "Future task inheritance established",
+      "status": "PASS_PREDEPLOY_COMMIT_PENDING",
+      "evidence": "Mandatory repository AGENTS, OS owner/parent BOOT gate/passport and Brain product/pack routing; final volatile acceptance update remains pending."
+    },
+    {
+      "number": 14,
+      "criterion": "No production user data destroyed",
+      "status": "PASS_THROUGH_RESTORE_POSTDEPLOY_PENDING",
+      "evidence": "Independent initial live fingerprints exactly match current backup/restore. All verifier production operations read-only; final postdeploy aggregate comparison pending."
+    }
+  ],
+  "finalGateStatus": "PENDING_ACTUAL_DEPLOYMENT_CUSTODY_AND_POSTDEPLOY_PRESERVATION",
+  "conditions": [
+    "Recheck exact healthy current leases and live deployment preimages immediately before mutation.",
+    "Commit must contain exact reviewed hashes; retain approved prior image for application rollback.",
+    "Verify provider readiness/deployed file hashes and all-other-config unchanged.",
+    "Recompare production counts/full-row fingerprints and migration ledger after restart; reconcile legitimate concurrent edits without resets.",
+    "Do not claim a new authenticated browser session or WP disaster recovery from this API/read-only review.",
+    "Do not unblock feature work until final independent 14-gate acceptance."
+  ],
+  "supersedesPreparedApprovalSha256": "330941f73253a0a4a50eda9149f10f16f2d2d12f234d8e4c475fcbe794941fdc",
+  "remainingTlsBoundary": "Transport helper rejects weak flags/effective TLS=false; original independent operator must still review the actual CA/hostname/pin wrapper. It cannot prove arbitrary custom callback semantics.",
+  "reviewedSourceManifestSha256": "900f2804cca3d4c70283761ce8baccfc4ab3f8a252e4c2b3ebd082c8cd656e04"
+}

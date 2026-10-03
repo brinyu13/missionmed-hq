@@ -1,0 +1,87 @@
+{
+  "authority": "DR-370",
+  "at": "2026-10-03T17:19:44.433061+00:00",
+  "before": {
+    "volumeInstance": {
+      "environmentId": "a3d3d5be-100e-4242-b441-d0922545c91e",
+      "id": "1257e92d-b600-4f1d-a9a9-f763f310f7df",
+      "mountPath": "/var/lib/postgresql/data",
+      "serviceId": "84ecd61e-e8c5-4f86-9aab-7d8c08fe1b40",
+      "sizeMB": 50000,
+      "state": "READY",
+      "volumeId": "a064b82e-f6c1-4742-aa14-4484dcc842a4"
+    },
+    "volumeInstanceBackupList": [],
+    "volumeInstanceBackupScheduleList": []
+  },
+  "pricingBasis": "Existing provider plan; incremental backup storage on existing volume, no upgrade or subscription. Exact billed bytes depend on provider.",
+  "status": "SCHEDULES_AND_CURRENT_SNAPSHOT_VERIFIED",
+  "scheduleMutation": {
+    "volumeInstanceBackupScheduleUpdate": true
+  },
+  "snapshotMutation": {
+    "volumeInstanceBackupCreate": {
+      "workflowId": "createVolumeInstanceBackup/1257e92d-b600-4f1d-a9a9-f763f310f7df"
+    }
+  },
+  "after": {
+    "volumeInstance": {
+      "environmentId": "a3d3d5be-100e-4242-b441-d0922545c91e",
+      "id": "1257e92d-b600-4f1d-a9a9-f763f310f7df",
+      "mountPath": "/var/lib/postgresql/data",
+      "serviceId": "84ecd61e-e8c5-4f86-9aab-7d8c08fe1b40",
+      "sizeMB": 50000,
+      "state": "READY",
+      "volumeId": "a064b82e-f6c1-4742-aa14-4484dcc842a4"
+    },
+    "volumeInstanceBackupList": [
+      {
+        "createdAt": "2026-10-03T17:19:46.833Z",
+        "expiresAt": null,
+        "id": "1eb771f8-d68f-4913-ba09-b81168771a5b",
+        "name": "IIQ-1202 current production preservation",
+        "usedMB": null
+      }
+    ],
+    "volumeInstanceBackupScheduleList": [
+      {
+        "createdAt": "2026-10-03T17:19:45.025Z",
+        "cron": "22 22 1 * *",
+        "id": "63265638-3965-44c1-83df-749d5836436b",
+        "kind": "MONTHLY",
+        "name": "Monthly",
+        "retentionSeconds": 7689600
+      },
+      {
+        "createdAt": "2026-10-03T17:19:44.858Z",
+        "cron": "40 5 * * *",
+        "id": "94a8948f-3525-4f03-96cc-cb12782ebdc0",
+        "kind": "DAILY",
+        "name": "Daily",
+        "retentionSeconds": 518400
+      },
+      {
+        "createdAt": "2026-10-03T17:19:44.947Z",
+        "cron": "1 13 * * 6",
+        "id": "bf2c8f5e-d6e8-45a1-95be-252b78728967",
+        "kind": "WEEKLY",
+        "name": "Weekly",
+        "retentionSeconds": 2332800
+      }
+    ]
+  },
+  "snapshotReadback": {
+    "volumeInstanceBackupList": [
+      {
+        "createdAt": "2026-10-03T17:19:46.833Z",
+        "expiresAt": null,
+        "id": "1eb771f8-d68f-4913-ba09-b81168771a5b",
+        "name": "IIQ-1202 current production preservation",
+        "referencedMB": 866,
+        "usedMB": 0,
+        "volumeInstanceSizeMB": 50000
+      }
+    ]
+  },
+  "snapshotReadbackAt": "2026-10-03T17:24:50.247935+00:00"
+}
