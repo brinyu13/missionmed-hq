@@ -229,10 +229,12 @@ function audienceEvents(events, audience) {
   if (normalized === "EVERYTHING") {
     return { audience: normalized, included: source.slice(), excluded: [] };
   }
+  const privateToInterviewer=(event)=>
+    ["ADVISOR_ONLY","STUDENT_ONLY","FULL_STORY"].includes(String(event?.visibilityState||"").toUpperCase());
   return {
     audience: normalized,
-    included: source.filter((event) => event?.visibilityState !== "ADVISOR_ONLY"),
-    excluded: source.filter((event) => event?.visibilityState === "ADVISOR_ONLY")
+    included: source.filter((event) => !privateToInterviewer(event)),
+    excluded: source.filter(privateToInterviewer)
   };
 }
 
@@ -612,6 +614,68 @@ function eventDatePrecision(event,field){
   return value?.[field]||event?.fields?.inferredFields?.find(item=>item.field===`${field}Date`)?.sourcePrecision||null;
 }
 
+function educationProfileRecord(event){
+  return{
+    eventId:String(event.id),
+    title:String(event.title||""),
+    school:String(event.siteName||""),
+    startDate:event.startDate??null,
+    endDate:event.endDate??null,
+    openEnded:!!event.openEnded,
+    datePrecision:structuredClone(event.fields?.datePrecision??event.datePrecision??null),
+    sourceDateWording:structuredClone(event.fields?.sourceDateWording??event.sourceDateWording??null),
+    provenance:structuredClone(Array.isArray(event.provenance)?event.provenance:[])
+  };
+}
+
+function educationEndReviewReason(event){
+  if(event.openEnded)return"education-ongoing-completion-unconfirmed";
+  const fieldEnd=event.fields?.sourceDateWording?.end;
+  const directEnd=event.sourceDateWording?.end;
+  const startPrecisions=[eventDatePrecision(event,'start'),event.fields?.sourceDateWording?.start?.precision,event.sourceDateWording?.start?.precision].map(value=>String(value||'').toUpperCase());
+  if(startPrecisions.includes('UNKNOWN'))return"education-start-precision-needs-review";
+  if(fieldEnd?.normalizedMonth&&directEnd?.normalizedMonth&&fieldEnd.normalizedMonth!==directEnd.normalizedMonth){
+    return"education-end-source-conflict";
+  }
+  const sourceEnd=fieldEnd??directEnd;
+  const precision=String(eventDatePrecision(event,'end')||sourceEnd?.precision||'').toUpperCase();
+  const sourcePrecisions=[fieldEnd?.precision,directEnd?.precision].map(value=>String(value||'').toUpperCase());
+  if(['UNKNOWN','SEASON','VAGUE_RANGE'].includes(precision)||
+    sourcePrecisions.some(value=>['UNKNOWN','SEASON','VAGUE_RANGE'].includes(value)))return"education-end-precision-needs-review";
+  if([fieldEnd,directEnd].some(source=>source?.normalizedMonth&&source.normalizedMonth!==event.endDate))return"education-end-source-conflict";
+  return null;
+}
+
+function projectEducationDurations(events){
+  const displayEvents=[],omissions=[];
+  for(const event of events){
+    if(event.categoryId!=="education"||isMilestone(event)){
+      displayEvents.push(event);
+      continue;
+    }
+    const reason=educationEndReviewReason(event);
+    if(reason){
+      omissions.push({id:String(event.id),title:String(event.title||"Untitled event"),reason});
+      continue;
+    }
+    const precisions=[eventDatePrecision(event,'end'),event.fields?.sourceDateWording?.end?.precision,event.sourceDateWording?.end?.precision].map(value=>String(value||'').toUpperCase());
+    const endPrecision=precisions.includes('YEAR')?'YEAR':precisions.find(Boolean)||null;
+    const sourceEnd=event.fields?.sourceDateWording?.end??event.sourceDateWording?.end??null;
+    displayEvents.push({
+      ...event,
+      eventType:"milestone",
+      startDate:event.endDate,
+      endDate:null,
+      openEnded:false,
+      fields:{...event.fields,
+        datePrecision:{start:endPrecision},
+        sourceDateWording:{start:structuredClone(sourceEnd),end:null}
+      }
+    });
+  }
+  return{displayEvents,omissions};
+}
+
 function eventDateLabel(event,value,field){
   return eventDatePrecision(event,field)==='YEAR'?String(value||'').slice(0,4):formatMonth(value);
 }
@@ -789,6 +853,7 @@ function buildFlags(events, segments, measureText) {
       },
       month,
       datePrecision:{start:eventDatePrecision(event,'start'),end:null},
+      sourceDateWording:structuredClone(event.fields?.sourceDateWording??event.sourceDateWording??null),
       dangerDot:!!event.dangerDot,
       presentationRedactions:[...(event.presentationRedactions||[])],
       // Only an explicitly supplied result controls the native attempt pennant.
@@ -1022,18 +1087,24 @@ export function buildKeynoteClassicScene(
   }
   const filtered = audienceEvents(projectPresentationExamEvents(timeline), audience);
   const projectedFields=projectPresentationFields(timeline,{allowed:new Set(filtered.audience==='EVERYTHING'?['INTERVIEWER_SAFE','INTERVIEW_SAFE','FULL_STORY','ADVISOR_ONLY','STUDENT_ONLY']:['INTERVIEWER_SAFE','INTERVIEW_SAFE','SAFE','VISIBLE']),visibleEventIds:new Set(filtered.included.map(event=>String(event.id)))});
-  const validated = validateRenderableEvents(projectPresentationEventFields(filtered.included,projectedFields));
+  const projectedEvents=projectPresentationEventFields(filtered.included,projectedFields);
+  const educationRecords=projectedEvents
+    .filter(event=>event?.categoryId==="education"&&!isMilestone(event))
+    .map(educationProfileRecord);
+  const validated = validateRenderableEvents(projectedEvents);
   const explanationEvents=validated.renderable.filter(
     (event)=>event?.fields?.builderDomain==="explanation"
   );
-  const timelineEvents=validated.renderable.filter(
+  const sourceTimelineEvents=validated.renderable.filter(
     (event)=>event?.fields?.builderDomain!=="explanation"
   );
+  const educationProjection=projectEducationDurations(sourceTimelineEvents);
+  const timelineEvents=educationProjection.displayEvents;
   const span = deriveTimelineSpan(validated.renderable, {
     currentMonth: normalizedCurrent,
     interviewMonth
   });
-  const segments = allocateSegments(span, validated.renderable);
+  const segments = allocateSegments(span, [...timelineEvents,...explanationEvents]);
   const axis = buildAxis(segments);
   const engineeringLaneResult=assignStableLanes(timelineEvents,{previousLaneById});
   const laneResult = canonicalPresentationLanes(timelineEvents);
@@ -1137,6 +1208,7 @@ export function buildKeynoteClassicScene(
     interviewTarget:{...interviewTarget},
     profile:{
       fullName,
+      educationRecords,
       medicalSchool:String(profile.medicalSchool||""),
       degree:String(profile.degree||""),
       status:String(
@@ -1168,7 +1240,7 @@ export function buildKeynoteClassicScene(
       label:"LOR submitted",
       symbol:"★"
     },
-    omissions: validated.omitted,
+    omissions: [...validated.omitted,...educationProjection.omissions],
     audience: {
       mode: filtered.audience,
       excludedAdvisorOnlyIds: filtered.excluded.map((event) => String(event?.id ?? ""))
@@ -1177,7 +1249,7 @@ export function buildKeynoteClassicScene(
       role: "application",
       ariaLabel,
       description: `${fullName}'s ${firstYear}–${lastYear} timeline in Keynote Classic.`,
-      tabOrder: chronologicalIds(validated.renderable),
+      tabOrder: chronologicalIds([...timelineEvents,...explanationEvents]),
       eventLabels: Object.fromEntries(events.map((event) => [event.id, event.ariaLabel])),
       interviewMarkerLabel: interviewMarker?.ariaLabel ?? null
     }
