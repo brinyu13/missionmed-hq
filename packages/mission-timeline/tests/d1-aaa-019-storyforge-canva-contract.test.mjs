@@ -104,13 +104,16 @@ test("AAA-019 Founder frames are real objects: every slot is addressable, filled
   const svg=serializeFounderPresentation({
     version:1,events:[],studentProfile:{fullName:"Synthetic Student"},
     mediaItems:[{id:"m1",type:"photo",placement:"photo2",url:"data:image/png;base64,AAAA",crop:{x:70,y:30,zoom:2},naturalAspect:1.5}]
-  },{scope:"INTERVIEWER_SAFE",currentMonth:"2027-01"}).svg;
+  },{scope:"INTERVIEWER_SAFE",currentMonth:"2027-01",showEmptySlots:true}).svg;
   for(const slot of ["profile","photo1","photo2","photo3","logo"]){
     assert.match(svg,new RegExp(`data-frame-slot="${slot}"`),slot);
   }
   assert.match(svg,/data-frame-slot="photo2" data-media-state="filled" data-media-id="m1"/);
   assert.match(svg,/data-crop-zoom="2" data-crop-x="70" data-crop-y="30"/);
   assert.match(svg,/data-frame-slot="photo1" data-media-state="empty"/);
+  const final=serializeFounderPresentation({events:[],studentProfile:{fullName:'Synthetic Student'},mediaItems:[{id:'m1',type:'photo',placement:'photo2',url:'data:image/png;base64,AAAA'}]},{scope:'INTERVIEWER_SAFE',currentMonth:'2027-01'}).svg;
+  assert.match(final,/data-frame-slot="photo2" data-media-state="filled"/);
+  assert.doesNotMatch(final,/data-media-state="empty"|data-frame-slot="profile"|data-frame-slot="logo"/);
   const moved=photoFrameGeometry({founderPresentation:{photoFrames:{"2":{x:-50,y:2000,width:9999,height:10,rotation:400}}}},1);
   assert.equal(moved.x,0);
   assert.equal(moved.width,1920);

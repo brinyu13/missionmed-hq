@@ -244,8 +244,10 @@ test("scene theming is pure, board-only, and retokens canonical arrows, flags, a
   assert.equal(themed.board.background.kind, "radial-gradient");
   assert.equal(themed.axis.style.color, "#D9C489");
   assert.equal(themed.axis.tickStyle.color, "#66738F");
-  assert.equal(themed.arrows[0].fill, "#5FA8CE");
+  assert.equal(themed.arrows.find(arrow=>arrow.id==='clinical-1').fill, expectedPalettes['mission-navy'].clinical);
   assert.equal(themed.arrows[0].label.color, "#191C21");
+  assert.equal(themed.flags.find(flag=>flag.id==='education-1').month,'2025-05');
+  assert.equal(themed.profile.educationRecords[0].eventId,'education-1');
   assert.equal(themed.flags[0].plate.fill, "#22304F");
   assert.equal(themed.flags[0].label.color, "#F2F4F8");
   assert.equal(themed.interviewMarker.plate.fill, "#22304F");

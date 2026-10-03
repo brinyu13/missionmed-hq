@@ -201,7 +201,7 @@ test("D1-406 export projection remains raster-safe while retaining locked 407F a
   assert.match(svg,/data-artifact-chrome="color-key"/);
   assert.match(svg,/data-artifact-chrome="profile"/);
   assert.match(svg,/data-artifact-chrome="photo-frames"/);
-  assert.match(svg,/data-interview-destination="407f-ribbon"/);
+  assert.doesNotMatch(svg,/data-interview-destination="407f-ribbon"|Date pending|PROGRAM LOGO/,'unpopulated interview furniture is absent from final output');
 });
 
 test("D1-406 recovery wiring preserves 407F visuals while closing keyboard and target-size gaps",()=>{

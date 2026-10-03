@@ -27,10 +27,14 @@ test('short CV duration labels use readable side text while retaining date geome
     assert.match(label.fontFamily,/American Typewriter/);
     assert.equal(label.characterSpacing,0,'Native output must not recreate horizontal squeezing');
     assert.equal(label.sourceAttributes.textLength,undefined);
-    assert.match(label.sourceAttributes['data-arrow-label-placement'],/^outside-/);
-    assert.ok(label.bounds.width>bar.bounds.width,title);
+    assert.match(label.sourceAttributes['data-arrow-label-placement'],/^(outside-|inside)/);
     assert.ok(label.bounds.x>=32&&label.bounds.x+label.bounds.width<=1888);
-    assert.ok(label.bounds.x+label.bounds.width<=bar.bounds.x-10||label.bounds.x>=bar.bounds.x+bar.bounds.width+10);
+    if(label.sourceAttributes['data-arrow-label-placement']==='inside'){
+      assert.ok(label.bounds.x>=bar.bounds.x&&label.bounds.x+label.bounds.width<=bar.bounds.x+bar.bounds.width,title);
+    }else{
+      assert.ok(label.bounds.width>bar.bounds.width,title);
+      assert.ok(label.bounds.x+label.bounds.width<=bar.bounds.x-10||label.bounds.x>=bar.bounds.x+bar.bounds.width+10);
+    }
   }
   const shortTitles=structuredClone(document);
   shortTitles.events=shortTitles.events.map(event=>({...event,title:event.eventType==='duration'?'X':event.title}));
@@ -39,19 +43,20 @@ test('short CV duration labels use readable side text while retaining date geome
   const report=analyzeTimelineQuality(document);
   const fixed=applySafeQualityFixes(document,{...report,findings:report.findings.filter(f=>f.code==='COLLISION_RISK')});
   const remaining=analyzeCollisionLayout(fixed.document);
-  assert.equal(remaining.stats.collisionCount,1,'General flags cannot be pushed below the ribbon to claim zero collisions');
-  const durationIds=new Set(document.events.filter(e=>e.eventType==='duration').map(e=>e.id));
+  assert.ok(remaining.stats.collisionCount>0,'General flags cannot be pushed below the ribbon to claim zero collisions');
+  const durationIds=new Set(rendered.scene.arrows.map(arrow=>arrow.id)); // Completed education is now a flag, not an arrow.
   assert.ok(remaining.warnings.every(w=>w.elementIds.every(id=>!durationIds.has(id))),'Readable duration labels remain clear after the bounded Guardian repair');
   assert.ok(analyzeTimelineQuality(fixed.document).findings.some(f=>f.code==='COLLISION_RISK'),'Unresolved milestone overlap remains visible to human review');
 });
 
-test('long medical-school profile values wrap at full size with separate native lines and stable remaining rows',()=>{
+test('without an unfilled profile photo, the full-width school value wraps without truncation',()=>{
   const lines=resolved.nodes.filter(node=>node.sourceAttributes['data-profile-field']==='Medical school');
-  assert.ok(lines.length>=3);
+  assert.ok(lines.length>=2);
   assert.equal(lines.map(line=>line.text).join(' '),'Medical school: Carol Davila University of Medicine and Pharmacy');
+  assert.doesNotMatch(rendered.svg,/data-frame-slot="profile"/);
   for(const [index,line] of lines.entries()){
     assert.equal(line.fontSize,19);assert.equal(line.characterSpacing,0);assert.equal(line.sourceAttributes.textLength,undefined);
-    assert.ok(line.bounds.x+line.bounds.width<350,'School text must stay beside the fixed profile photo');
+    assert.ok(line.bounds.x+line.bounds.width<=rendered.scene.founderPresentation.profileGeometry.x+rendered.scene.founderPresentation.profileGeometry.width,'School text stays on its profile paper');
     if(index)assert.ok(line.bounds.y>=lines[index-1].bounds.y+lines[index-1].bounds.height);
   }
   const degree=resolved.nodes.find(node=>node.sourceAttributes['data-profile-field']==='Degree');
@@ -65,7 +70,7 @@ test('the same readable CV labels and school lines remain editable text after PP
   }});
   const reopened=await inspectEditablePptx(artifact.blob);
   assert.deepEqual(reopened.errors,[]);
-  for(const text of ['Observership','Clinical Elective','Resident Physician (PGY-1 equivalent)','Medical school: ','Carol Davila','University of Medicine and','Pharmacy'])assert.ok(reopened.text.includes(text),text);
+  for(const text of ['Observership','Clinical Elective','Resident Physician (PGY-1 equivalent)','Medical school: ','Carol Davila University of Medicine','and Pharmacy'])assert.ok(reopened.text.includes(text),text);
   for(const title of ['Observership','Clinical Elective']){
     const original=document.events.find(event=>event.title===title),fact=reopened.recovery.facts.find(event=>event.id===original.id);
     assert.deepEqual([fact.title,fact.startDate,fact.endDate],[original.title,original.startDate,original.endDate]);

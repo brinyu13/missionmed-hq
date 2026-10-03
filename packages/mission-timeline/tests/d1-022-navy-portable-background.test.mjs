@@ -14,7 +14,7 @@ test('Navy portable board text uses the accepted light ink outside event fills',
  const s=applyThemeToScene(buildKeynoteClassicScene({studentProfile:{fullName:'Synthetic Theme Check'},events:[
   {id:'work-1',title:'A deliberately long outside label',siteName:'Synthetic Hospital',categoryId:'work',eventType:'duration',startDate:'2024-01',endDate:'2024-01',visibilityState:'INTERVIEWER_SAFE'},
   {id:'move-1',title:'Relocated to USA',categoryId:'personal',eventType:'milestone',startDate:'2023-06',visibilityState:'INTERVIEWER_SAFE'}
- ]},{currentMonth:'2026-07'}),'mission-navy');
+ ],metadata:{interview:{date:'2026-11',programName:'Synthetic Program'}}},{currentMonth:'2026-07'}),'mission-navy');
  const svg=serializeLocked407FPortableSvg(s),ink=THEME_DEFINITIONS.find(t=>t.id==='mission-navy').ink;
  for(const role of ['caption','site','outside-arrow','flag-label','flag-date','interview-date']){
   assert.match(svg,new RegExp(`data-board-ink-role="${role}"[^>]*fill="${ink}"`));

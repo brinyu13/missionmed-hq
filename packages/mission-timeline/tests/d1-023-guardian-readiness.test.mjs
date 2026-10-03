@@ -12,6 +12,7 @@ test('unrenderable facts block readiness rather than silently disappearing',()=>
 test('a render failure is not a clean layout pass',()=>{
  const doc=document();doc.events[0].categoryId='unsupported';const report=analyzeTimelineQuality(doc);assert.equal(report.state,'BLOCKED');assert.ok(report.findings.some(f=>f.code==='PRESENTATION_UNAVAILABLE'));
 });
-test('empty optional furniture cannot produce unconditional Ready',()=>{
- const report=analyzeTimelineQuality(document());assert.notEqual(report.state,'READY');assert.ok(report.findings.some(f=>f.code==='UNFINISHED_PRESENTATION_FURNITURE'));
+test('empty optional furniture does not block an otherwise complete program-facing export',()=>{
+ const report=analyzeTimelineQuality(document());assert.equal(report.state,'READY');assert.equal(report.findings.some(f=>f.code==='UNFINISHED_PRESENTATION_FURNITURE'),false);
+ assert.equal(buildExportReadiness(document(),report).state,'READY');
 });

@@ -192,19 +192,22 @@ test("Founder artifact correction builds adaptive year segments across the near-
 
 test("Founder artifact correction renders exact 30px 402A sprite arrows with PowerPoint date composition", () => {
   const rendered = scene();
-  const arrow = rendered.arrows.find(({ id }) => id === "medical-school");
+  const arrow = rendered.arrows.find(({ id }) => id === "clinical");
+  assert.equal(rendered.arrows.some(({id})=>id==='medical-school'),false);
+  assert.equal(rendered.flags.find(({id})=>id==='medical-school')?.month,'2022-12');
+  assert.equal(rendered.profile.educationRecords[0].eventId,'medical-school');
   assert.equal(arrow.shaftHeight, 30);
   assert.equal(arrow.headLength, 15);
   assert.equal(arrow.headHeight, 30);
   assert.equal(arrow.leftRadius, 0);
-  assert.equal(arrow.fill, "#2C6E8F");
+  assert.equal(arrow.fill, "#C8641C");
   const svg = serializeKeynoteClassicSvg(rendered);
   assert.match(svg, /\.locked407F-arrow:before[^}]*width:9px/);
   assert.match(svg, /\.locked407F-arrow:after[^}]*width:15px/);
-  assert.match(svg, /data-event-id="medical-school"[^>]*--sc:url/);
-  assert.match(svg, /<div class="locked407F-ads">Jan 2021<\/div>/);
-  assert.match(svg, /<div class="locked407F-ade">Dec 2022<\/div>/);
-  assert.match(svg, /<div class="locked407F-al">Medical school<\/div>/);
+  assert.match(svg, /data-event-id="clinical"[^>]*--sc:url/);
+  assert.match(svg, /<div class="locked407F-ads">Jan 2023<\/div>/);
+  assert.match(svg, /<div class="locked407F-ade">Dec 2024<\/div>/);
+  assert.match(svg, /<div class="locked407F-al">US clinical rotations<\/div>/);
 });
 
 test("M4 contrast-tests both candidates, prefers passing white, uses passing primary ink, and falls back to bare above text when neither candidate passes", () => {
@@ -281,6 +284,7 @@ test("Founder artifact correction labels every open span within its own date com
       event({
         id: "open-near-axis",
         title: "First open role",
+        categoryId: "work",
         startDate: "2021-01",
         endDate: null,
         openEnded: true
@@ -331,8 +335,8 @@ test("Founder artifact correction renders milestone sprites above the top axis",
     assert.equal(flag.plate.borderWidth, 1);
   }
   const svg = serializeKeynoteClassicSvg(rendered);
-  assert.equal((svg.match(/data-event-kind="flag"/g) || []).length, 2);
-  assert.equal((svg.match(/class="locked407F-fmark"/g) || []).length, 3);
+  assert.equal((svg.match(/data-event-kind="flag"/g) || []).length, 3);
+  assert.equal((svg.match(/class="locked407F-fmark"/g) || []).length, 4);
 });
 
 test("Founder artifact correction integrates the interview marker into the upper-right logo and ribbon language", () => {
@@ -370,10 +374,10 @@ test("M4 exposes application/event accessibility metadata, chronological tab ord
     rendered.accessibility.ariaLabel,
     "Timeline visualization, 7 events; use Tab to move between events"
   );
-  assert.equal(rendered.accessibility.tabOrder[0], "medical-school");
+  assert.equal(rendered.accessibility.tabOrder[0], "study-window");
   assert.match(
     rendered.accessibility.eventLabels["medical-school"],
-    /Medical school, Education, Jan 2021 to Dec 2022/
+    /Medical school, Education, Dec 2022/
   );
   assert.match(
     rendered.accessibility.eventLabels["step-2"],
@@ -425,6 +429,7 @@ test("Founder artifact correction widens short spans to the canonical 52px sprit
     event({
       id: "one-month",
       title: "One month",
+      categoryId: "work",
       startDate: "2019-01",
       endDate: "2019-01"
     }),

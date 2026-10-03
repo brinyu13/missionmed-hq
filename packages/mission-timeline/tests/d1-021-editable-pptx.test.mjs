@@ -76,7 +76,9 @@ test('reopening an edited PPTX preserves the edit and treats recovery facts as a
 });
 
 test('final SVG geometry, rotation, curves and native group identity drive the export projection',()=>{
-  const scene=resolveFounderPresentationSvg(rendered.svg,{advancedGroups:document.advanced.groups});
+  // An empty final photo slot is omitted; populate one to inspect its native rotation.
+  const withPhoto={...document,mediaItems:[...document.mediaItems,{id:'frame-photo',type:'photo',placement:'photo1',resolvedUrl:pixel,visibilityState:'INTERVIEWER_SAFE'}]};
+  const scene=resolveFounderPresentationSvg(serializeFounderPresentation(withPhoto,{scope:'INTERVIEWER_SAFE',currentMonth:'2027-01'}).svg,{advancedGroups:document.advanced.groups});
   const title=scene.nodes.find(n=>n.kind==='text'&&n.text.startsWith('Timeline:'));
   assert.equal(title.bounds.rotation,0);assert.ok(title.fontFamily.includes('American Typewriter'));
   assert.ok(scene.nodes.some(n=>n.kind==='path'&&n.commands.some(c=>c.curve?.type==='cubic')));

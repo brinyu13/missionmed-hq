@@ -33,10 +33,12 @@ test('opaque profile occlusion blocks actual final export and Guardian readiness
  assert.throws(()=>gate(render(d)),e=>e.code==='TIMELINE_EXPORT_TEXT_COLLISION');
  assert.ok(analyzeTimelineQuality(d).findings.some(f=>f.code==='PRESENTATION_TEXT_COLLISION'&&f.severity==='BLOCK_EXPORT'));
 });
-test('unsupported milestone institution cannot silently disappear into a successful export',()=>{
+test('milestone institution is visible beside its flag in a successful export',()=>{
  const d=doc({events:[event({eventType:'milestone',title:'Clinical license awarded',siteName:'Synthetic Licensing Council',endDate:null})]});
  const r=render(d);assert.equal(r.scene.flags[0].siteName,'Synthetic Licensing Council');
- assert.throws(()=>gate(r),e=>e.code==='TIMELINE_EXPORT_MISSING_FIELDS'&&e.fields.some(f=>f.field==='siteName'));
+ const label=resolveFounderPresentationSvg(r.svg).nodes.filter(node=>node.semanticRef==='event'&&node.kind==='text'&&node.sourceAttributes['data-board-ink-role']==='flag-label').map(node=>node.text).join(' ').replace(/\s+/g,' ');
+ assert.ok(label.includes('Clinical license awarded')&&label.includes('Synthetic Licensing Council'),label);
+ assert.doesNotThrow(()=>gate(r));
 });
 for(const title of ['Moved to Canada','Citizenship awarded','Immigration to Australia','Relocated to India'])test('generic relocation does not invent USA: '+title,()=>{
  assert.doesNotMatch(render(doc({events:[event({title,eventType:'milestone',categoryId:'personal',endDate:null,siteName:''})]})).svg,/<image data-founder-usa-flag-asset-sha256/);
@@ -59,8 +61,10 @@ test('adjacent personal phases cannot override independently locked lanes',()=>{
  assert.notEqual(y('first'),y('second'));assert.equal(r.scene.arrows.find(a=>a.id==='first').lane,1);assert.equal(r.scene.arrows.find(a=>a.id==='second').lane,4);
 });
 
-test('long overlapping chronology cannot export arrows hidden behind template furniture',()=>{
+test('long overlapping chronology composes without hiding source arrows behind template furniture',()=>{
  const d=FOUNDER_2025_MATRIX.find(f=>f.id==='M06').document;
- assert.throws(()=>gate(render(d)),e=>e.code==='TIMELINE_EXPORT_TEXT_COLLISION');
- assert.ok(analyzeTimelineQuality(d).findings.some(f=>f.code==='PRESENTATION_TEXT_COLLISION'&&f.severity==='BLOCK_EXPORT'));
+ const before=JSON.stringify(d),r=render(d),ids=new Set(resolveFounderPresentationSvg(r.svg).nodes.map(node=>node.semanticRef));
+ for(const event of d.events)assert.ok(ids.has(event.id),`missing source event ${event.id}`);
+ assert.doesNotThrow(()=>gate(r));
+ assert.equal(JSON.stringify(d),before);
 });

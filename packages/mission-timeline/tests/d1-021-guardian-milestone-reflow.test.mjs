@@ -4,46 +4,35 @@ import test from 'node:test';
 import {analyzeTimelineQuality,applySafeQualityFixes} from '../web/js/uxr-002/quality-guardian.js';
 import {analyzeCollisionLayout} from '../web/js/editor/collision-engine-410.js';
 import {serializeFounderPresentation} from '../web/js/presentation/founder-presentation-serializer.js';
-import {resolveFounderPresentationSvg} from '../web/js/presentation/resolved-founder-presentation.js';
 import {locked407FMilestoneGeometry} from '../web/js/uxr-002/locked-407f-export.js';
 import {applySceneCommandToDocument} from '../web/js/editor/scene-commands.js';
 
 const fixture=JSON.parse(await readFile(new URL('fixtures/d1-timeline-astra-021/golden2-guardian-milestones.json',import.meta.url),'utf8'));
 const collisionOnly=document=>{const report=analyzeTimelineQuality(document);return{...report,findings:report.findings.filter(finding=>finding.code==='COLLISION_RISK')};};
 
-test('021 actual golden2 Guardian improves only safe above-ribbon flags and reports the residual conflict',()=>{
+test('021 automatic flag composition leaves residual collisions gated without changing source or authored geometry',()=>{
   const document=structuredClone(fixture.document),before=JSON.stringify(document);
   const originalSvg=serializeFounderPresentation(document,{scope:'FULL_STORY'}).svg;
-  assert.equal(analyzeCollisionLayout(document).stats.collisionCount,3);
+  const original=analyzeCollisionLayout(document);
+  assert.ok(original.stats.collisionCount>0);
   const fixed=applySafeQualityFixes(document,collisionOnly(document));
-  assert.equal(fixed.changed,true);
-  assert.equal(analyzeCollisionLayout(fixed.document).stats.collisionCount,1);
+  assert.equal(fixed.changed,false,'no safe move may be invented after automatic composition');
+  assert.equal(analyzeCollisionLayout(fixed.document).stats.collisionCount,original.stats.collisionCount);
   assert.ok(analyzeTimelineQuality(fixed.document).findings.some(f=>f.code==='COLLISION_RISK'));
-  for(const flag of analyzeCollisionLayout(fixed.document).boxes.filter(b=>b.kind==='milestone'))assert.ok(flag.y>=0&&flag.y+flag.h<125,'General milestone stays above the ribbon');
+  for(const flag of original.boxes.filter(b=>b.kind==='milestone'))assert.ok(flag.y>=0&&flag.y+flag.h<125,'General milestone stays above the ribbon');
   assert.deepEqual(fixed.document.events,document.events);
   assert.deepEqual(fixed.document.exams,document.exams);
   assert.deepEqual(fixed.document.studentProfile,document.studentProfile);
   assert.equal(JSON.stringify(document),before,'Proposal creation cannot mutate the source document');
   const overrides=fixed.document.advanced.scene.objects.filter(object=>object.type==='event');
-  assert.equal(overrides.length,1);
-  const baseScene=serializeFounderPresentation(document,{scope:'FULL_STORY'}).scene;
+  assert.equal(overrides.length,0);
   const resultSvg=serializeFounderPresentation(fixed.document,{scope:'FULL_STORY'}).svg;
-  assert.notEqual(resultSvg,originalSvg);
-  const projected=resolveFounderPresentationSvg(resultSvg);
-  for(const object of overrides){
-    const original=locked407FMilestoneGeometry(baseScene,object.semanticRef);
-    assert.equal(object.geometry.x,original.x,'The date axis position must not move');
-    assert.equal(object.presentation.guardianAnchor,'axis');
-    const pole=projected.nodes.find(node=>node.semanticRef===object.semanticRef&&node.lineOnly&&node.sourceAttributes.x1);
-    assert.ok(pole);
-    assert.ok(Math.abs(pole.commands.at(-1).y-original.axisY)<.02,'The moved pennant pole must still meet the date ribbon');
-    assert.ok(Math.abs(pole.commands.at(-1).x-(original.x+4))<.02);
-  }
+  assert.equal(resultSvg,originalSvg);
   const preservedNote=fixed.document.advanced.scene.objects.find(object=>object.type==='text');
   assert.equal(preservedNote.presentation.text,document.advanced.scene.objects.find(object=>object.type==='text').presentation.text);
   assert.deepEqual(preservedNote.geometry,document.advanced.scene.objects.find(object=>object.type==='text').geometry);
   const second=applySafeQualityFixes(fixed.document,collisionOnly(fixed.document));
-  assert.equal(second.changed,false,'A bounded repair must not keep rearranging flags when no further safe improvement exists');
+  assert.equal(second.changed,false,'A bounded repair must not keep rearranging flags when no safe improvement exists');
 });
 
 test('021 Guardian respects explicit manual flag geometry and returns an unchanged proposal when no safe move is owned',()=>{

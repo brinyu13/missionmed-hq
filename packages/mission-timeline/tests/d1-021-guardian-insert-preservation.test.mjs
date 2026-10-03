@@ -8,20 +8,26 @@ import {reconcileAdvancedScene,sceneGraphFromLegacy} from '../web/js/editor/scen
 import {applyDocumentTo407FState,apply407FStateToDocument} from '../web/js/407f-engineering-adapter.js';
 import {serializeFounderPresentation} from '../web/js/presentation/founder-presentation-serializer.js';
 import {locked407FMilestoneGeometry} from '../web/js/uxr-002/locked-407f-export.js';
+import {applySceneCommandToDocument} from '../web/js/editor/scene-commands.js';
 
 const fixture=JSON.parse(await readFile(new URL('fixtures/d1-timeline-astra-021/golden2-guardian-milestones.json',import.meta.url),'utf8'));
 const adapter=await readFile(new URL('../web/js/407f-engineering-adapter.js',import.meta.url),'utf8');
 const eventOverrides=d=>d.advanced.scene.objects.filter(o=>o.type==='event').map(o=>({id:o.id,semanticRef:o.semanticRef,geometry:o.geometry,presentation:o.presentation}));
-function fixedGolden(){
+function authoredGolden(){
   const document=structuredClone(fixture.document),report=analyzeTimelineQuality(document);
   const fixed=applySafeQualityFixes(document,{...report,findings:report.findings.filter(f=>f.code==='COLLISION_RISK')});
-  assert.equal(fixed.changed,true);
-  assert.equal(eventOverrides(fixed.document).length,1); // One safe above-ribbon repair; the remaining pair stays gated.
-  return fixed.document;
+  assert.equal(fixed.changed,false,'automatic composition leaves no safe Guardian move');
+  const scene=serializeFounderPresentation(document,{scope:'FULL_STORY'}).scene;
+  const flag=scene.flags[0],position=locked407FMilestoneGeometry(scene,flag.id);
+  const geometry={x:position.x,y:position.y-4,width:position.width,height:position.height,rotation:position.rotation};
+  const authored=applySceneCommandToDocument(document,{kind:'geometry',target:{type:'event',id:flag.id},geometry,create:{type:'event',semanticRef:flag.id,presentation:{eventType:'milestone'}}});
+  assert.equal(authored.changed,true);
+  assert.equal(eventOverrides(authored.document).length,1);
+  return authored.document;
 }
 
-test('021 actual Add image callback retains Guardian flag geometry, anchors and facts',async()=>{
-  const document=fixedGolden(),before=structuredClone(document),mutations=[];
+test('021 actual Add image callback retains authored flag geometry, anchors and facts',async()=>{
+  const document=authoredGolden(),before=structuredClone(document),mutations=[];
   const source={name:'synthetic-added-image.png',type:'image/png',size:100};
   const context={store:{document,async mutateWithBlobs(label,mutator){mutations.push(label);mutator(document);}},
     chooseLocalFile:async()=>source,uid:()=> 'added-synthetic-image',imageMetrics:async()=>({width:200,height:120}),createMediaElement,
@@ -44,8 +50,8 @@ test('021 actual Add image callback retains Guardian flag geometry, anchors and 
   assert.equal(sceneGraphFromLegacy(document.advanced).objects.filter(o=>o.type==='event').length,0,'Preserve the exact old rebuilding defect in the regression');
 });
 
-test('021 Builder score preference roundtrip retains the existing Guardian offsets',()=>{
-  const document=fixedGolden(),before=eventOverrides(document);
+test('021 Builder score preference roundtrip retains authored flag offsets',()=>{
+  const document=authoredGolden(),before=eventOverrides(document);
   const state=applyDocumentTo407FState(document,{user:{},builder:{},profile:{},wiz:{}});
   const exam=state.builder.exams.find(e=>e.examId==='step-2-ck');
   assert.ok(exam);exam.showScoreOnTimeline=true;exam.showScoreTouched=true;
