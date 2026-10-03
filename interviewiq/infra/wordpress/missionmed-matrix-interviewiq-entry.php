@@ -15,7 +15,7 @@ function mmiiq_discovery_is_matrix() {
 }
 function mmiiq_discovery_assets() {
     if (!mmiiq_discovery_is_matrix() || !mmiiq_discovery_access() || !wp_script_is('mmed-dashboard-v2-js', 'enqueued')) { return; }
-    $base = content_url('/mu-plugins/missionmed-interviewiq-discovery/iiq-1203-v1/');
+    $base = content_url('/uploads/missionmed-interviewiq-discovery/iiq-1203-v1/');
     $copy = 'Add your scheduled interviews. Prepare smarter for every program.';
     $app = array('id'=>'interviewiq', 'name'=>'INTERVIEWIQ', 'cat'=>'Match tools', 'hue'=>'#ffd16b', 'launch'=>home_url('/interviewiq/?iiq_entry=calendar'), 'sub'=>$copy, 'adminSub'=>$copy, 'one'=>$copy, 'problem'=>'I need to keep my scheduled interviews organized.', 'how'=>'Add your scheduled interviews to your private InterviewIQ Calendar. Open, edit, reschedule, cancel or restore an interview from your account.', 'benefits'=>array(array('Month Calendar','See your scheduled interviews.'),array('Saved interviews','Open, edit and reschedule your interview.')), 'outcome'=>'Your scheduled interviews stay organized and ready to open.', 'when'=>'When you receive or change an interview invitation.', 'cta'=>'ADD YOUR SCHEDULED INTERVIEW');
     $payload = array('app'=>$app,'art'=>array('pencil'=>$base.'pencil.svg','cinematic'=>$base.'cinematic.svg'));
@@ -67,7 +67,7 @@ function mmiiq_discovery_calendar_bridge() {
     if (!$access || ($access['role'] ?? '') !== 'student') { return; }
     ob_start(function($html) {
         if (strpos($html, '</body>') === false || strpos($html, 'id="main"') === false) { return $html; }
-        $src = content_url('/mu-plugins/missionmed-interviewiq-discovery/iiq-1203-v1/calendar-entry.js');
+        $src = content_url('/uploads/missionmed-interviewiq-discovery/iiq-1203-v1/calendar-entry.js');
         $html = str_replace('</body>', '<script src="'.esc_url($src).'" defer></script></body>', $html);
         if (!headers_sent()) { header('Content-Length: '.strlen($html)); }
         return $html;
