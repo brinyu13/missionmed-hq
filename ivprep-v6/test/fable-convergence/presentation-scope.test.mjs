@@ -35,6 +35,15 @@ test('favorites and overlay writes cannot silently change the default mock densi
   assert.equal(Object.hasOwn(stored().visibility.ivocFable,'density'),false);
   assert.equal(stored().visibility.analyticsVisible,true);
 });
+test('explicit default reset removes only the density override',async()=>{
+  const {c,stored}=setup();await saveOwnVisibility(c,{density:'interview',overlaysVisible:true,favoriteQuestions:['CORE-01']});
+  const result=await saveOwnVisibility(c,{density:'default'});
+  assert.equal(result.densityPersisted,false);assert.equal(result.density,'coached');
+  assert.equal(stored().visibility.analyticsVisible,true);
+  assert.equal(stored().visibility.ivocFable.overlaysVisible,true);
+  assert.deepEqual(stored().visibility.ivocFable.favoriteQuestions,['CORE-01']);
+  assert.equal(stored().visibility.otherOwnerField,'preserve');
+});
 test('late preference/mentor responses and queued writes cannot cross account or view',async()=>{
   const {c}=setup();let resolve,writes=0;const wait=new Promise(r=>resolve=r);
   c.account.api.preferences=async()=>{await wait;return null;};

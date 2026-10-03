@@ -141,10 +141,33 @@ the actual production route and deployment.
   implemented candidate capabilities, not proof of live parity or audible behavior.
   No final-turn events are fabricated from native timed deltas; question plan and
   closing claims now explicitly remain unverified when finals are unavailable.
-- Next executable action: finish independent review, commit/read back, safely deploy
-  the preservation patch and verify Admin return/scope, own question history and
-  preferences through actual visible UI. Then continue native conversation/closing,
-  genuine-role and viewport acceptance; no final candidate promotion is accepted.
+- Preservation source `dc45c2cbd017f1ea0317680a818b4e394b0178e2` deployed SUCCESS
+  `d052eb47-8b07-4ec5-b6d4-3311357c664d`, image
+  `sha256:710ba3ee16801e4bb874819c995c39686c1b545ecab4036a75410f21e1aa518d`.
+  Health200, anonymous candidate/current bootstrap401; product root unchanged.
+  Exact tracked rollback artifact `ivoc-release-artifact-4x8Qf6/source.tar`,
+  SHA256 `46378432ccf0a6959e82aaa8318c88fbb399adb792fc0f4a0428a3513de944e3`.
+  PRODUCT4449 and deployment4450 released normally with remote readback.
+- Actual authenticated Admin entry -> authorized different-student history ->
+  Results/full Analytics -> Film Room retains actor/selected-owner labels; Student
+  presentation clears delegated review and returns own Library; Back returns to
+  candidate. This is Admin scope/navigation acceptance, NOT a negative-role identity
+  test. Admitted offline Bait Lab exposes all34 fictional fixtures with truthful
+  non-provider labeling. Own CORE-01 favorite save/cold-reload/removal PASS; original
+  favorite restored. Explicit density save/cold-reload PASS; restoring its original
+  default remains pending the visible default-reset control in this patch.
+- Independent actual 1440x900/390x844 QA found mobile off-screen launch/Compare/full
+  Analytics controls, CSS-hidden question Preview, wrapped drawer actions and white
+  Prepare filters. Current presentation-only patch wraps those existing actions,
+  bounds grid tracks, exposes the same Preview, styles existing filters and adds an
+  async route-loading cue. No overflow hiding, duplicated capability or redesign.
+  Default-density reset uses the serialized fresh owner merge; unrelated preferences
+  preserved. 29 focused lifecycle/preference/review tests PASS; independent review
+  found no lifecycle/privacy blocker. Mobile visual acceptance is still UNVERIFIED.
+- Next executable action: commit/read back and safely deploy this narrow viewport
+  patch; verify mobile launch/Results/Preview and restore own analytics defaults via
+  the actual UI. Then continue genuine conversation/closing, real-role and 142-row
+  live parity acceptance. No final promotion or two-sided audible acceptance claimed.
 
 - **Founder live-POV override, 2026-10-02: recovery LIVE; candidate-question stall reopened fix-forward.**
   Founder confirms physical camera/mic and native multi-turn AI entry work;

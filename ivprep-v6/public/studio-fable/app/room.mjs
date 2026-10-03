@@ -68,6 +68,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       <div class="under-stage" id="under-stage"><span id="engine-label">Nothing is measured yet.</span><button class="transcript-toggle" type="button" id="transcript-toggle" aria-expanded="false">Transcript</button></div>
       <div class="note" id="primary-recovery" role="status" aria-live="polite" hidden><span data-primary-status></span> <button class="btn btn-quiet" type="button" data-reselect-primary>Lock to me</button></div>
       <p class="note" id="room-preference-note" role="status" hidden></p>
+      <details class="expert"><summary>Display options</summary><button class="btn btn-quiet" type="button" id="reset-density">Use default analytics view</button></details>
     <div class="transcript" id="transcript" hidden></div>
     ${deviceControlsMarkup()}
 
@@ -82,7 +83,8 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   const counts={smiles:0,nods:0,gestures:0};
   const current=()=>!disposed&&isCurrent();
   function saveVisibility(patch){
-    Promise.resolve().then(()=>saveOwnVisibility(controller,patch,{isCurrent:current})).then(saved=>{if(current()&&saved){state.preferences.densityPersisted=saved.densityPersisted===true;commit();$('room-preference-note').hidden=true;}}).catch(()=>{
+    $('room-preference-note').hidden=false;$('room-preference-note').textContent='Saving display preference…';
+    Promise.resolve().then(()=>saveOwnVisibility(controller,patch,{isCurrent:current})).then(saved=>{if(current()&&saved){state.preferences.densityPersisted=saved.densityPersisted===true;commit();$('room-preference-note').textContent='Display preference saved to your account.';}}).catch(()=>{
       if(!current())return;$('room-preference-note').hidden=false;$('room-preference-note').textContent='Your display changed, but the account preference could not be saved. Try the control again.';
     });
   }
@@ -195,6 +197,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     sheet.onkeydown=e=>{if(e.key==='Escape'){sheet.remove();return;}if(e.key!=='Tab')return;const b=[...sheet.querySelectorAll('button')],first=b[0],last=b.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}};
   }
   room.querySelector('.density').addEventListener('click',e=>{const b=e.target.closest('[data-density]');if(!b)return;density=b.dataset.density;room.dataset.density=density;room.querySelectorAll('[data-density]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));state.preferences.density=density;commit();saveVisibility({density});});
+  $('reset-density').addEventListener('click',()=>{density=mode==='mock'?'interview':'coached';room.dataset.density=density;room.querySelectorAll('.density [data-density]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.density===density)));state.preferences.density='coached';state.preferences.densityPersisted=false;commit();saveVisibility({density:'default'});});
   $('guides').addEventListener('click',e=>{const on=e.currentTarget.getAttribute('aria-pressed')!=='true';overlaysVisible=on;e.currentTarget.setAttribute('aria-pressed',String(on));$('stage').dataset.guides=String(on);engine?.setOverlayVisibility({face:on,hands:on,body:on,position:on});state.preferences.overlaysVisible=on;commit();saveVisibility({overlaysVisible:on});});
   $('transcript-toggle').addEventListener('click',e=>{$('transcript').hidden=!$('transcript').hidden;e.currentTarget.setAttribute('aria-expanded',String(!$('transcript').hidden));});
   function resetIdle(){if(disposed)return;$('stage').dataset.idle='false';clearTimeout(idleTimer);idleTimer=setTimeout(()=>{if(current())$('stage').dataset.idle='true';},4000);}

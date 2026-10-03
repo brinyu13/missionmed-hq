@@ -39,14 +39,15 @@ export function saveOwnVisibility(controller, patch, {isCurrent = () => true} = 
     if (!current()) return null;
     const {densityPersisted, ...next} = presentationPreferences(fresh);
     const densityChanged = patch.density === 'coached' || patch.density === 'interview';
+    const densityReset = patch.density === 'default';
     if (patch.density === 'coached' || patch.density === 'interview') next.density = patch.density;
     if (typeof patch.overlaysVisible === 'boolean') next.overlaysVisible = patch.overlaysVisible;
     if (Array.isArray(patch.favoriteQuestions)) next.favoriteQuestions = presentationPreferences({visibility:{ivocFable:{favoriteQuestions:patch.favoriteQuestions}}}).favoriteQuestions;
     const visibility = object(fresh?.visibility);
     const ownVisibility = {...object(visibility.ivocFable),...next};
-    if (!densityPersisted && !densityChanged) delete ownVisibility.density;
+    if (densityReset || !densityPersisted && !densityChanged) delete ownVisibility.density;
     const result = await account.api.savePreferences({ calibration:object(fresh?.calibration),
-      visibility:{...visibility,ivocFable:ownVisibility,...(densityChanged?{analyticsVisible:next.density==='coached'}:{})},
+      visibility:{...visibility,ivocFable:ownVisibility,...(densityReset?{analyticsVisible:true}:densityChanged?{analyticsVisible:next.density==='coached'}:{})},
       coachingEnabled:fresh?.coachingEnabled !== false, recordingDefault:fresh?.recordingDefault !== false });
     return current() ? presentationPreferences(result) : null;
   });
