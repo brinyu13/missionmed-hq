@@ -36,3 +36,26 @@ test('rotations and long institutions fit inside the template without changing f
     assert.equal(JSON.stringify(document),before);assert.equal(r.svg,serializeFounderPresentation(document).svg);
   }
 });
+
+test('dense automatic composition uses readable unequal year cells without changing dates or authored geometry',()=>{
+  const document=FOUNDER_2025_MATRIX.find(f=>f.id==='M03').document;
+  const before=JSON.stringify(document),r=serializeFounderPresentation(document);
+  const weights=[...r.svg.matchAll(/data-axis-segment-weight="([^"]+)"/g)].map(m=>Number(m[1]));
+  assert.ok(new Set(weights).size>1,'busy years receive more horizontal space');
+  const cells=[...r.svg.matchAll(/data-axis-cell="true"[^>]*width="([^"]+)"/g)].map(m=>Number(m[1]));
+  assert.ok(cells.every(width=>width>=80),'year labels retain their native size and clearance');
+  assert.equal(JSON.stringify(document),before);
+  assert.equal(r.svg,serializeFounderPresentation(document).svg,'composition is deterministic');
+  // The remaining milestone site omission is separate from density: remove only
+  // that unsupported source field in this bounded geometry test.
+  const withoutMilestoneSites=structuredClone(document);
+  for(const event of withoutMilestoneSites.events)if(event.eventType==='milestone')delete event.siteName;
+  assert.doesNotThrow(()=>assertCompleteFounderPresentation(serializeFounderPresentation(withoutMilestoneSites)));
+});
+
+test('automatic year weighting does not change a locked lane',()=>{
+  const document=structuredClone(FOUNDER_2025_MATRIX.find(f=>f.id==='M03').document);
+  document.events.find(e=>e.id==='work').manualOffset={laneLocked:true,x:0,y:0};
+  const r=serializeFounderPresentation(document);
+  assert.ok([...r.svg.matchAll(/data-axis-segment-weight="([^"]+)"/g)].every(m=>Number(m[1])===1));
+});

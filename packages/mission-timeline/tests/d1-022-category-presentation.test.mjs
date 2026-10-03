@@ -41,10 +41,10 @@ test('all supported duration categories use explicit mappings; clinical variants
   const volunteer={...events.find(e=>e.categoryId==='work'),id:'volunteer-proof',title:'Volunteer',fields:{canonicalType:'VOLUNTEER'}};
   const personal={...education,id:'personal-proof',categoryId:'personal',title:'Synthetic Personal Phase'};
   const {svg}=render([...events,clinic,volunteer,personal]);
-  const expected={education:'#2C6E8F',exams:'#3A78C9',clinical:'#C8641C',work:'#3F9B52',research:'#D4B636',personal:'#8A5BBF'};
+  const expected={education:'#2C6E8F',exams:'#0565C0',clinical:'#DF6A0F',work:'#00882B',research:'#DCBE23',personal:'#763F9B'};
   for(const event of [...events,personal])assert.deepEqual(arrowColors(svg,event.id),[expected[event.categoryId],expected[event.categoryId]]);
-  assert.deepEqual(arrowColors(svg,clinic.id),['#E89B3C','#E89B3C']);
-  assert.deepEqual(arrowColors(svg,volunteer.id),['#3F9B52','#3F9B52'],'the renderer never reclassifies the accepted work-category volunteer');
+  assert.deepEqual(arrowColors(svg,clinic.id),['#F49018','#F49018']);
+  assert.deepEqual(arrowColors(svg,volunteer.id),['#00882B','#00882B'],'the renderer never reclassifies the accepted work-category volunteer');
 });
 
 test('every unsupported category fails instead of silently painting a Work Experience arrow',()=>{

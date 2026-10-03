@@ -116,7 +116,7 @@ export const FOUNDER_TEMPLATE_GRAMMAR=Object.freeze({
       profile:Object.freeze({family:"American Typewriter",size:19,labelsWeight:700,valuesWeight:400})
     }),
     nativeFontNames:Object.freeze(["AmericanTypewriter","AmericanTypewriter-Bold","Baskerville","Futura-Bold","Futura-Medium"])}),
-  parametric:Object.freeze(["confirmed-facts","source-date-precision","placement","spacing","wrapping","authored-geometry","authored-media-crops","audience-projection"]),
+  parametric:Object.freeze(["confirmed-facts","source-date-precision","placement","spacing","nonuniform-year-widths","wrapping","authored-geometry","authored-media-crops","audience-projection"]),
   prohibited:Object.freeze(["numbered-experience-directory","gantt-replacement","automatic-continuation","automatic-fact-abbreviation","silent-material-omission"]),
   undefined:Object.freeze(["extreme-density-consolidation","education-seventh-key-row","automatic-year-compression","absent-furniture-policy","minimum-print-font-size"])
 });

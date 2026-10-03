@@ -1,4 +1,4 @@
-import {resolveFounderPresentationSvg} from '../presentation/resolved-founder-presentation.js';
+import {resolveFounderPresentationSvg,materialPresentationCollisions} from '../presentation/resolved-founder-presentation.js';
 import {presentationDateWording} from '../presentation/source-date-wording.js';
 /*
  * Raster-safe export projection for the protected 407F renderer.
@@ -120,6 +120,18 @@ function metrics(scene){
     ?Math.floor(Math.max(...months)/12)
     :Number(scene?.span?.lastYear)||firstYear+1;
   const lastYear=Math.max(firstYear,lastCandidate);
+  if(scene.autoYearWeights){
+    const segments=[];let total=0;
+    for(let year=firstYear;year<=lastYear;year++){const weight=scene.autoYearWeights.get(year)||1;segments.push({id:String(year),label:String(year),weight});total+=weight;}
+    // Preserve enough cell width for the unchanged 23px year typography and notch.
+    const minPercent=Math.min(96/segments.length,80/CONTENT_WIDTH*100);
+    const flexible=96-minPercent*segments.length;
+    let cursor=2;
+    for(const segment of segments){segment.startPercent=cursor;cursor+=minPercent+flexible*segment.weight/total;segment.endPercent=cursor;}
+    const byYear=new Map(segments.map(s=>[Number(s.id),s]));
+    const at=(month,after=0)=>{const index=monthIndex(month)+after,year=Math.floor(index/12),within=((index%12)+12)%12,s=byYear.get(year);return s?s.startPercent+(s.endPercent-s.startPercent)*within/12:year<firstYear?2:98;};
+    return{firstYear,lastYear,segments,xPercent:month=>at(month),widthPercent:(start,end)=>Math.max(0,at(end,1)-at(start))};
+  }
   const totalMonths=(lastYear-firstYear+1)*12;
   const segments=[];
   for(let year=firstYear;year<=lastYear;year+=1){
@@ -765,7 +777,21 @@ function avoidAutomaticArrowCollisions(scene,svg){
 }
 
 export function serializeLocked407FPortableSvg(scene,options={}){
-  const first=serializePlacedPortableSvg(scene,options);
-  const adjusted=avoidAutomaticArrowCollisions(scene,first);
-  return adjusted?serializePlacedPortableSvg(adjusted,options):first;
+  const compose=input=>{const first=serializePlacedPortableSvg(input,options),adjusted=avoidAutomaticArrowCollisions(input,first);return adjusted?serializePlacedPortableSvg(adjusted,options):first;};
+  let best=compose(scene);
+  // Nonuniform year widths are present in the Founder exemplar. Adapt only
+  // automatic composition: never reflow an authored axis or locked geometry.
+  if(scene.founderPresentation?.axis?.mode==='manual'||(scene.arrows||[]).some(a=>a.manualOffset?.laneLocked||Number(a.manualOffset?.x)||Number(a.manualOffset?.y)||presentationEventObject(scene,a.id)?.geometry)||(scene.flags||[]).some(f=>presentationEventObject(scene,f.id)?.geometry))return best;
+  const score=svg=>{const r=resolveFounderPresentationSvg(svg,{measureText:scene.measureText});return 1000*r.nodes.filter(n=>n.kind==='text'&&(n.bounds.x<-.5||n.bounds.y<-.5||n.bounds.x+n.bounds.width>WIDTH+.5||n.bounds.y+n.bounds.height>HEIGHT+.5)).length+materialPresentationCollisions(r).length;};
+  let bestScore=score(best);if(!bestScore)return best;
+  const counts=new Map();
+  const count=month=>{const year=Math.floor(monthIndex(month)/12);counts.set(year,(counts.get(year)||0)+1);};
+  for(const arrow of scene.arrows||[]){count(arrow.startMonth);count(arrow.endMonth);}
+  for(const flag of scene.flags||[])count(flag.month);
+  for(const strength of [.5,1,2,4]){
+    const weights=new Map([...counts].map(([year,count])=>[year,Math.min(8,1+Math.sqrt(count)*strength)]));
+    const candidate=compose({...scene,autoYearWeights:weights}),candidateScore=score(candidate);
+    if(candidateScore<bestScore){best=candidate;bestScore=candidateScore;if(!bestScore)break;}
+  }
+  return best;
 }
