@@ -1,0 +1,181 @@
+{
+  "schemaVersion": "missionmed-founder-2025-grammar/1",
+  "sourceSha256": "113d22efb8ca2c00c29d8e57b92c1eb24ff2c66931f7138bbf23daa66dbba706",
+  "goldenSha256": "bf48d25b2d46a75c868f98692d480147f8c7d8f234955608a27ca50b3b808836",
+  "locked": {
+    "canvas": {
+      "width": 1920,
+      "height": 1080,
+      "orientation": "landscape"
+    },
+    "slideCount": 1,
+    "background": "textured-blue-board",
+    "title": "centered-framed-plaque",
+    "axis": "navy-chevron-year-ribbon",
+    "duration": "category-arrow-with-direct-label-and-date",
+    "milestone": "pole-and-date-pennant",
+    "examResultMarker": "explicit-result-flag-attached-to-study-arrow-below-ribbon",
+    "profile": "mounted-white-paper-with-portrait",
+    "photos": "white-snapshot-frames",
+    "interview": "program-logo-purple-ribbon-date",
+    "annotations": "authored-sticky-notes-and-pointers",
+    "colorKeyIds": [
+      "work",
+      "personal",
+      "exams",
+      "clinical-hospital",
+      "clinical-clinic",
+      "research"
+    ],
+    "colors": {
+      "profile": "Display P3 golden converted to sRGB",
+      "rows": [
+        {
+          "id": "work",
+          "label": "Work Experience",
+          "color": "#00882B"
+        },
+        {
+          "id": "personal",
+          "label": "Personal (Not on CV)",
+          "color": "#763F9B"
+        },
+        {
+          "id": "exams",
+          "label": "USMLE Studies",
+          "color": "#0565C0"
+        },
+        {
+          "id": "clinical-hospital",
+          "label": "USCE: Teaching Hosp",
+          "color": "#DF6A0F"
+        },
+        {
+          "id": "clinical-clinic",
+          "label": "USCE: Clinics",
+          "color": "#F49018"
+        },
+        {
+          "id": "research",
+          "label": "Research Experience",
+          "color": "#DCBE23"
+        }
+      ],
+      "insideArrowText": "#FFFFFF"
+    },
+    "typography": {
+      "title": {
+        "family": "American Typewriter",
+        "size": 36,
+        "weight": 400
+      },
+      "arrowLabel": {
+        "family": "American Typewriter",
+        "size": 18,
+        "weight": 400
+      },
+      "date": {
+        "family": "Baskerville",
+        "size": 18,
+        "weight": 400
+      },
+      "institution": {
+        "family": "Baskerville",
+        "size": 19,
+        "weight": 400
+      },
+      "year": {
+        "family": "Futura",
+        "size": 23,
+        "weight": 700
+      },
+      "colorKey": {
+        "family": "Futura",
+        "size": 18,
+        "weight": 500
+      },
+      "profile": {
+        "family": "American Typewriter",
+        "size": 19,
+        "labelsWeight": 700,
+        "valuesWeight": 400
+      }
+    },
+    "nativeFontNames": [
+      "AmericanTypewriter",
+      "AmericanTypewriter-Bold",
+      "Baskerville",
+      "Futura-Bold",
+      "Futura-Medium"
+    ]
+  },
+  "parametric": [
+    "confirmed-facts",
+    "source-date-precision",
+    "placement",
+    "spacing",
+    "nonuniform-year-widths",
+    "wrapping",
+    "authored-geometry",
+    "authored-media-crops",
+    "audience-projection"
+  ],
+  "prohibited": [
+    "numbered-experience-directory",
+    "gantt-replacement",
+    "automatic-continuation",
+    "automatic-fact-abbreviation",
+    "silent-material-omission"
+  ],
+  "undefined": [
+    "extreme-density-consolidation",
+    "education-seventh-key-row",
+    "automatic-year-compression",
+    "absent-furniture-policy",
+    "minimum-print-font-size"
+  ],
+  "sourceUnits": "1920x1080 native-reference coordinate space",
+  "geometry": {
+    "canvas": {
+      "width": 1920,
+      "height": 1080,
+      "aspectRatio": "16:9"
+    },
+    "title": {
+      "x": 648,
+      "y": 0,
+      "width": 596,
+      "height": 83
+    },
+    "axis": {
+      "y": 125,
+      "height": 36,
+      "bleedsToCanvasEdges": true,
+      "datedSpanPercent": [
+        2,
+        98
+      ],
+      "nonuniformYearWidthsAllowed": true,
+      "automaticMultiYearGroupingAllowed": false
+    }
+  },
+  "exportExpectations": {
+    "pptx": "single-slide editable text, shapes and media; native target app inspection required",
+    "png": [
+      {
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "width": 2560,
+        "height": 1440
+      }
+    ],
+    "pdf": [
+      "Letter landscape raster page",
+      "A4 landscape raster page"
+    ],
+    "svg": "shared underlying presentation and diagnostic artifact; not an advertised additional export format",
+    "keynote": "PPTX import compatibility; native save/reopen proof is fixture-specific"
+  }
+}

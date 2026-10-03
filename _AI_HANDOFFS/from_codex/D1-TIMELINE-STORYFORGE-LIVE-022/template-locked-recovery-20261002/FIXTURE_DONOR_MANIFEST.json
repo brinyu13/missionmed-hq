@@ -1,0 +1,89 @@
+[
+  {
+    "path": "_AI_HANDOFFS/from_cowork/D1-TIMELINE-FABLE5-STORYFORGE-AAA-019/evidence/fixtures/synthetic-cv.pdf",
+    "donor": "/Users/brianb/MissionMed_worktrees/D1-Timeline-Astra-AAA-021/_AI_HANDOFFS/from_cowork/D1-TIMELINE-FABLE5-STORYFORGE-AAA-019/evidence/fixtures/synthetic-cv.pdf",
+    "sha256": "d261c62ac4e71f123cc048d1db096af04126032ac4830ef6c8f8cacd09f4a81d",
+    "bytes": 24242,
+    "destinationExists": false
+  },
+  {
+    "path": "_AI_HANDOFFS/from_codex/D1-TIMELINE-ASTRA6-AAA-FINAL-021/evidence/browser/pdf-segmentation-repair-review-document.json",
+    "donor": "/Users/brianb/MissionMed_worktrees/D1-Timeline-Astra-AAA-021/_AI_HANDOFFS/from_codex/D1-TIMELINE-ASTRA6-AAA-FINAL-021/evidence/browser/pdf-segmentation-repair-review-document.json",
+    "sha256": "d758109f90b1fbcd49f68c6be723afae4de263e1a317db808248ea784f763450",
+    "bytes": 44193,
+    "destinationExists": false,
+    "syntheticProfile": "",
+    "syntheticMarked": true,
+    "events": 0,
+    "keys": [
+      "schemaVersion",
+      "id",
+      "title",
+      "createdAt",
+      "updatedAt",
+      "studentProfile",
+      "categories",
+      "events",
+      "exams",
+      "medicalSchoolNormalizationQueue"
+    ]
+  },
+  {
+    "path": "_AI_HANDOFFS/from_codex/D1-TIMELINE-STORYFORGE-LIVE-022/evidence/canary-execution/022-be026e5a64ebd9ed/052-a2-document.json",
+    "donor": "/Users/brianb/MissionMed_worktrees/D1-Timeline-Astra-AAA-021/_AI_HANDOFFS/from_codex/D1-TIMELINE-STORYFORGE-LIVE-022/evidence/canary-execution/022-be026e5a64ebd9ed/052-a2-document.json",
+    "sha256": "5bf07bf029a3dd0de972f648f39e3c7ad702c1158706b07d1e6bc37e8206eb66",
+    "bytes": 895954,
+    "destinationExists": false,
+    "syntheticProfile": "Ana Popescu",
+    "syntheticMarked": true,
+    "events": 9,
+    "keys": [
+      "schemaVersion",
+      "id",
+      "title",
+      "createdAt",
+      "updatedAt",
+      "studentProfile",
+      "categories",
+      "events",
+      "exams",
+      "medicalSchoolNormalizationQueue"
+    ]
+  },
+  {
+    "path": "_AI_HANDOFFS/from_codex/D1-TIMELINE-STORYFORGE-LIVE-022/evidence/canary-execution/022-be026e5a64ebd9ed/roundtrip-companion/roundtrip022-6e7d95a679f2ff9c42c72800c97c8e08/012-synthetic-document.json",
+    "donor": "/Users/brianb/MissionMed_worktrees/D1-Timeline-Astra-AAA-021/_AI_HANDOFFS/from_codex/D1-TIMELINE-STORYFORGE-LIVE-022/evidence/canary-execution/022-be026e5a64ebd9ed/roundtrip-companion/roundtrip022-6e7d95a679f2ff9c42c72800c97c8e08/012-synthetic-document.json",
+    "sha256": "0e72230af2ae328f68bdcc027eabc4d5212e4eef4b7bc621c95b0137f298c110",
+    "bytes": 1075298,
+    "destinationExists": false,
+    "syntheticProfile": "Ana Popescu",
+    "syntheticMarked": true,
+    "events": 9,
+    "keys": [
+      "schemaVersion",
+      "id",
+      "title",
+      "createdAt",
+      "updatedAt",
+      "studentProfile",
+      "categories",
+      "events",
+      "exams",
+      "medicalSchoolNormalizationQueue"
+    ]
+  },
+  {
+    "path": "_AI_HANDOFFS/from_codex/D1-TIMELINE-STORYFORGE-LIVE-022/evidence/theme-reload-compatibility-r5/before-407f-engineering-adapter.js",
+    "donor": "/Users/brianb/MissionMed_worktrees/D1-Timeline-Astra-AAA-021/_AI_HANDOFFS/from_codex/D1-TIMELINE-STORYFORGE-LIVE-022/evidence/theme-reload-compatibility-r5/before-407f-engineering-adapter.js",
+    "sha256": "ddc8f143830926a8f0c42819391e1fba93cb163c7dcf1554a4051d410502226e",
+    "bytes": 442820,
+    "destinationExists": false
+  },
+  {
+    "path": "_AI_HANDOFFS/from_codex/D1-TIMELINE-STORYFORGE-LIVE-022/evidence/theme-reload-compatibility-r5/before-index.html",
+    "donor": "/Users/brianb/MissionMed_worktrees/D1-Timeline-Astra-AAA-021/_AI_HANDOFFS/from_codex/D1-TIMELINE-STORYFORGE-LIVE-022/evidence/theme-reload-compatibility-r5/before-index.html",
+    "sha256": "0759a058b12a8f546255d0eff65da0c55312c52dedc92a3ca867c50f32628e73",
+    "bytes": 487732,
+    "destinationExists": false
+  }
+]
