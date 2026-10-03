@@ -9,7 +9,7 @@ const rail=()=>document.getElementById('rail');
 const advBanner=()=>document.getElementById('advBanner');
 const drawerEl=()=>document.getElementById('drawer');
 
-function roleName(){ return actor.role; }
+function roleName(){ return studentPreview()?'student':actor.role; }
 function firstName(){ return actor.firstName||actor.first_name||(actor.displayName||actor.display_name||'Student').split(/\s+/)[0]; }
 function initials(){ return (actor.displayName||actor.display_name||firstName()).split(/\s+/).map(x=>x[0]).slice(0,2).join('').toUpperCase(); }
 function viewLabel(){ return roleName()==='admin'?'Administrator View':roleName()==='mentor'?'Mentor View':'Student View'; }
@@ -37,9 +37,38 @@ function railNavButton([route,label,short]){
   const b=badgeFor(route);
   return `<button type="button" data-act="nav" data-to="${route}" class="rtab ${active?'on':''} ${['intel','growth','contribute'].includes(route)?'secondary':''}" ${active?'aria-current="page"':''} aria-label="${esc(label)}"><span class="rtl">${esc(label)}${coreOnly()&&!coreRoute(route)?comingSoonBadge():''}</span><span class="rts" aria-hidden="true">${esc(short)}</span>${b?`<span class="badge">${b}</span>`:''}</button>`;
 }
-function personaSelect(){ return `<div class="roleSwitch"><div class="rsLbl">Signed in</div><span class="on">${esc(viewLabel())}</span></div>`; }
+function personaSelect(){ return `<div class="roleSwitch"><div class="rsLbl">Signed in</div><span class="on">${esc(viewLabel())}${studentPreview()?' · Preview':''}</span></div>`; }
+function administratorViewSwitch(){
+  if(actor.role!=='admin')return '';
+  return `<div class="administratorViewSwitch" role="group" aria-label="InterviewIQ view"><button type="button" data-act="switch-view" data-view="student" aria-pressed="${studentPreview()}">STUDENT VIEW</button><button type="button" data-act="switch-view" data-view="admin" aria-pressed="${!studentPreview()}">ADMIN VIEW</button></div>`;
+}
+async function switchAdministratorView(view){
+  if(actor.role!=='admin')throw Error('Only administrators can switch views.');
+  if(!['student','admin'].includes(view))return;
+  if(pendingCommands.size||activeActions.size>1)throw Error('Wait for the current action to finish before switching views.');
+  if((view==='student')===studentPreview())return;
+  await stopSpeech();
+  if(view==='student')administratorWorkspace={S,F,capabilities,integrations,version,drafts:new Map(draftValues)};
+  clearPrivateMemory();
+  if(view==='student'){
+    // No student picker, fabricated identity, fixture records or admin review data.
+    const zone=F.student_zone;
+    administratorPreview=true;
+    F={programs:[],facts:[],sources:[],personas:[actor],student_zone:zone,registry_release:F.registry_release,label:''};
+    S={persona:actor.id,online:true,storageOk:true,interviews:[],ui:defaultUI(),reviewQueue:[],mentorAssigned:[],changes:[],contrib:{missions:{},submissions:[],ledger:[],grants:{}},policy:{audit:[],suspended:{}},lastVisit:now()};
+    for(const key of ownKeys)S[key]={};
+    capabilities={coreOnly:true};integrations={};S.ui.cal.ym=ymOf(todayKey());
+  }else{
+    const saved=administratorWorkspace;
+    administratorPreview=false;administratorWorkspace=null;
+    ({S,F,capabilities,integrations,version}=saved);
+    for(const [key,value] of saved.drafts)draftValues.set(key,value);
+  }
+  render();main().focus({preventScroll:true});
+}
 function renderShell(){
   document.body.dataset.role = roleName()==='mentor'?'advisor':roleName();
+  document.body.dataset.adminPreview=String(studentPreview());
   const items=navItems(); if(!items.some(x=>x[0]===S.ui.route) && !['experiments','contribute'].includes(S.ui.route)) S.ui.route=items[0][0];
   const student=roleName()==='student';
   rail().innerHTML=`
@@ -57,12 +86,12 @@ function renderShell(){
     <div class="storyforgeBrand" aria-label="MissionMed InterviewIQ"><div class="storyforgeBrandTitle"><span>MissionMed</span><b>//InterviewIQ</b></div><div class="storyforgeBrandSub">MISSION:RESIDENCY DIVISION</div></div>
     <span class="founderChip">PRIVATE · YOUR INTERVIEW WORKSPACE</span>
     <div class="storyforgeHeaderActions">
-      <span class="viewChip roleReadOnly" title="Your signed MissionMed role">${viewLabel()}</span>
+      ${administratorViewSwitch()}<span class="viewChip roleReadOnly" title="Your signed MissionMed role remains unchanged">${viewLabel()}${studentPreview()?' · Preview':''}</span>
       ${roleName()==='admin'&&S.ui.subject?`<div class="b1515SubjectChip" role="status"><span>VIEWING INTERVIEWIQ FOR</span><b>${esc(S.ui.subject)}</b></div>`:''}
       <form class="hSearch" id="omniform" role="search"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg><input id="omni" type="search" placeholder="${student?'Search interviews and programs…':roleName()==='mentor'?'Search your students…':'Search review and policy…'}" autocomplete="off" aria-label="Search"><span class="kbd">/</span></form>
       ${student?'<button class="btnCatch" type="button" data-act="add-interview">＋ <span class="bc-txt">Add interview</span></button>':''}
     </div>`;
-  const ab=advBanner(); ab.classList.toggle('show', roleName()==='mentor'); ab.querySelector('span').innerHTML = roleName()==='mentor'? '<b>Mentor View</b> · Students’ private preparation, raw speech and notes remain invisible. You see logistics and student-approved gaps only.' : '';
+  const ab=advBanner(); ab.classList.toggle('show', roleName()==='mentor'||studentPreview()); ab.querySelector('span').innerHTML = studentPreview()?'<b>Student View · Administrator preview</b> · No student data loaded. Changes are not saved.':roleName()==='mentor'? '<b>Mentor View</b> · Students’ private preparation, raw speech and notes remain invisible. You see logistics and student-approved gaps only.' : '';
   document.body.classList.remove('is-booting');
 }
 

@@ -36,6 +36,10 @@ function mmiiq_matrix_entry() {
         (function(url){
             'use strict';
             function install(){
+                // Scoped obsolete page artifact; shared MR/template owners stay intact.
+                var legacy=document.querySelector('section#mm107-hero');
+                var heading=legacy&&legacy.querySelector('h1');
+                if(window.mmedDashboardV2&&window.mmedDashboardV2.experience==='matrix2'&&heading&&heading.textContent.replace(/\s+/g,'')==="YouDon'tHavetoFigureThisOutAlone"){legacy.remove();}
                 var sidebar=document.getElementById('sos-sidebar');
                 if(!sidebar||sidebar.querySelector('[data-mmed-interviewiq-entry]'))return;
                 var sections=sidebar.querySelectorAll('.sos-nav-section');

@@ -2,13 +2,16 @@
 // Signed bootstrap is the only source of identity. Tokens and private drafts stay in memory.
 let S=null, F={}, actor=null, capabilities={}, integrations={}, version=null;
 let session=null, commandQueue=Promise.resolve(), serverClockOffset=0;
+let administratorPreview=false, administratorWorkspace=null;
+const studentPreview=()=>administratorPreview===true&&actor?.role==='admin';
+function previewError(){return Error('Administrator Student Preview does not save changes or run integrations. Return to Admin View for your administrator tools.');}
 const draftValues=new Map(),pendingCommands=new Map();
 const clone=o=>JSON.parse(JSON.stringify(o));
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ownKeys=['why','questions','practice','debriefs','learning','rank','demands','results','shared','consents','mentorPriority'];
 const defaultUI=()=>({route:'home',open:null,section:null,essentials:false,printSel:{story:false,note:false,points:false,support:false},sub:{},cal:{ym:new Date().toISOString().slice(0,7),view:'month',sel:null},drawer:null});
 const CORE_COMMANDS=new Set(['interview.create','interview.identity','interview.schedule','interview.lifecycle','event.create','event.update']);
-const CORE_ACTIONS=new Set(['nav','matrix','open-interview','open-card','close-interview','close-card','open-section','section','cal-nav','cal-today','cal-view','cal-day','cal-item','drawer-close','add-interview','new-offer','add-interview-save','date-undated','add-related-pick','add-related-save','offer-save','manual-identity-save','disposition','schedule-save','cancel','restore','postpone','waitlist','related-save','related-lifecycle','join-verify']);
+const CORE_ACTIONS=new Set(['switch-view','nav','matrix','open-interview','open-card','close-interview','close-card','open-section','section','cal-nav','cal-today','cal-view','cal-day','cal-item','drawer-close','add-interview','new-offer','add-interview-save','date-undated','add-related-pick','add-related-save','offer-save','manual-identity-save','disposition','schedule-save','cancel','restore','postpone','waitlist','related-save','related-lifecycle','join-verify']);
 const coreOnly=()=>capabilities.coreOnly===true;
 const coreRoute=route=>['home','calendar','interviews','settings'].includes(route);
 const coreSection=section=>['identify','schedule'].includes(section);
@@ -31,6 +34,7 @@ async function refreshSession(){
   session={token:signed.token,nonce:signed.nonce||first.nonce,apiBase:sameOriginURL(first.api_base||'/interviewiq/api').pathname.replace(/\/$/,''),expiresAt:Number.isFinite(expires)?expires:Date.now()+(signed.ttl_seconds||60)*1000};
 }
 async function apiFetch(path,options={},retried=false){
+  if(studentPreview())throw previewError();
   if(coreOnly()&&path!=='/bootstrap'&&!(path==='/commands'&&CORE_COMMANDS.has(JSON.parse(options.body||'{}').command))){openComingSoon('This integration');const error=Error('COMING SOON: this integration is not active.');error.code='coming_soon';throw error;}
   if(!session||session.expiresAt<Date.now()+5000){try{await refreshSession();}catch(error){if(error.status===401||error.status===403)lockWorkspace('Your session ended. Sign in through MissionMed and reopen the workspace.');throw error;}}
   const headers=new Headers(options.headers||{});headers.set('Authorization','Bearer '+session.token);headers.set('Accept','application/json');
@@ -59,6 +63,7 @@ function applyBootstrap(input){
 }
 async function refreshWorkspace(){const identity=actor?.id,b=await apiFetch('/bootstrap');if(identity&&identity!==actor?.id)throw Error('The account changed while the workspace was loading. Reopen the intended workspace.');applyBootstrap(b);return b;}
 async function command(name,interviewId=null,data={},options={}){
+  if(studentPreview())throw previewError();
   if(coreOnly()&&!CORE_COMMANDS.has(name)){openComingSoon(name.split('.')[0]);return {comingSoon:true};}
   const identity=actor?.id,requestKey=JSON.stringify([identity,name,interviewId,data]);
   const draftSnapshot=savedDraftIds(name,interviewId,data).map(id=>[draftKey(id),pendingDraft(id,undefined)]);
@@ -108,6 +113,7 @@ function clearPrivateMemory(){
   if(typeof autosaveTimers!=='undefined'){for(const timer of autosaveTimers.values())clearTimeout(timer);autosaveTimers.clear();}
 }
 function lockWorkspace(message){
+  administratorPreview=false;administratorWorkspace=null;
   clearPrivateMemory();S=null;F={};actor=null;capabilities={};integrations={};version=null;session=null;
   for(const id of ['rail','hdr','drawer']){const e=document.getElementById(id);if(e){e.innerHTML='';e.inert=false;e.classList.remove('open');}}
   const main=document.getElementById('main');main.inert=false;main.innerHTML=`<section class="pageIntro" style="padding:48px"><div class="h1">Your workspace is <em>protected</em>.</div><p role="alert">${esc(message)}</p><div class="row"><button class="rowBtn pri" id="retry-connection">Reopen workspace</button><a class="rowBtn" href="/member-dashboard/">Back to Matrix</a></div></section>`;

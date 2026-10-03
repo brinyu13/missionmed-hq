@@ -1,16 +1,35 @@
-const OPENING_TAB_KEY='interviewiq_opening_seen_this_tab'; const OPENING_MINIMUM_MS=1650; const OPENING_REDUCED_MOTION_MS=650;
+'use strict';
+const OPENING_TAB_KEY='interviewiq_opening_seen_this_tab';
+const OPENING_TOTAL_MS=5000, OPENING_FADE_MS=650, OPENING_REDUCED_MOTION_MS=1000;
+let openingShown=false;
 function showOpening(){
-  const node=document.getElementById('interviewiqOpening'); if(!node) return;
-  let seen=false; try{ seen=sessionStorage.getItem(OPENING_TAB_KEY)==='1'; }catch(e){}
-  if(seen){ node.hidden=true; return; }
+  const node=document.getElementById('interviewiqOpening');if(!node)return;
+  let seen=openingShown;try{seen=seen||sessionStorage.getItem(OPENING_TAB_KEY)==='1';}catch{}
+  if(seen){node.hidden=true;return;}
+  openingShown=true;
   const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if(!reduced) document.body.classList.add('motion-enabled');
-  node.hidden=false; node.dataset.phase='forming'; document.body.classList.add('opening-active');
-  const status=node.querySelector('[data-opening-status]'); const t0=performance.now();
-  setTimeout(()=>{ if(!node.hidden&&status) status.textContent='Preparing your workspace…'; }, 700);
-  let finished=false;
-  const finish=()=>{ if(finished) return; finished=true; try{ sessionStorage.setItem(OPENING_TAB_KEY,'1'); }catch(e){} node.dataset.phase='leaving'; document.body.classList.remove('opening-active'); setTimeout(()=>{ node.hidden=true; document.getElementById('main').focus({preventScroll:true}); }, reduced?0:260); };
-  node.querySelector('[data-skip-opening]').addEventListener('click',finish);
-  const minimum=reduced?OPENING_REDUCED_MOTION_MS:OPENING_MINIMUM_MS;
-  setTimeout(finish, Math.max(minimum, reduced?minimum:2400));
+  const shell=['main','hdr','rail','drawer'].map(id=>document.getElementById(id)).filter(Boolean);
+  const priorInert=shell.map(el=>el.inert);shell.forEach(el=>{el.inert=true;});
+  const timers=new Set();let finished=false,cleaned=false;
+  const later=(fn,ms)=>{const id=setTimeout(()=>{timers.delete(id);fn();},ms);timers.add(id);};
+  const skip=node.querySelector('[data-skip-opening]');
+  node.hidden=false;node.dataset.phase='forming';node.dataset.motion=reduced?'reduced':'full';
+  document.body.classList.add('opening-active');
+  const cleanup=()=>{
+    if(cleaned)return;cleaned=true;timers.forEach(clearTimeout);timers.clear();
+    node.hidden=true;document.body.classList.remove('opening-active');
+    shell.forEach((el,k)=>{el.inert=priorInert[k];});
+    skip?.removeEventListener('click',skipOpening);
+    document.getElementById('main')?.focus({preventScroll:true});
+  };
+  const finish=immediate=>{
+    if(finished){if(immediate)cleanup();return;}finished=true;
+    timers.forEach(clearTimeout);timers.clear();
+    try{sessionStorage.setItem(OPENING_TAB_KEY,'1');}catch{}
+    if(immediate){cleanup();return;}
+    node.dataset.phase='leaving';later(cleanup,reduced?250:OPENING_FADE_MS);
+  };
+  const skipOpening=()=>finish(true);
+  skip?.addEventListener('click',skipOpening);skip?.focus({preventScroll:true});
+  later(()=>finish(false),reduced?OPENING_REDUCED_MOTION_MS-250:OPENING_TOTAL_MS-OPENING_FADE_MS);
 }

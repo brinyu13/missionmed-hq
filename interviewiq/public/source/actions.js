@@ -38,6 +38,7 @@ function foldSelect(id){return `<label class="f" for="${id}">Clock offset (only 
 function safeNavigate(url){const u=new URL(url,location.origin);if(!['http:','https:'].includes(u.protocol))throw Error('The integration returned an invalid destination.');location.assign(u.href);}
 async function saveThenNotice(name,id,data,message){await command(name,id,data);notice(message||'Saved.');}
 const A={
+  'switch-view'(el){return switchAdministratorView(el.dataset.view);},
   nav(el){if(el.dataset.to!=='interviews')S.ui.open=null;go(el.dataset.to);},
   'coming-soon'(el){openComingSoon(labelForAction(el));},
   'manual-identity-save'(el){return privateCommand(el,'interview.identity',{program:null,programName:val('identity-name').trim(),unresolved_input:val('identity-name').trim(),track:val('identity-track').trim()});},
@@ -55,7 +56,7 @@ const A={
   'cal-day'(el){const day=el.dataset.day;S.ui.cal.sel=day;openDrawer({kind:'day',day,returnTo:'[data-cal-day="'+day+'"]'});},
   'cal-item'(el){openDrawer({kind:'item',item:el.dataset.item,returnTo:S.ui.drawer?.returnTo||null});},
   'drawer-close'(){closeDrawer();},
-  'add-interview'(el){requireStudent();openDrawer({kind:'add',day:el.dataset.day||null,form:{},returnTo:el.dataset.day?'[data-cal-day="'+el.dataset.day+'"]':null});},
+  'add-interview'(el){if(!studentPreview())requireStudent();openDrawer({kind:'add',day:el.dataset.day||null,form:{},returnTo:el.dataset.day?'[data-cal-day="'+el.dataset.day+'"]':null});},
   'new-offer'(el){return A['add-interview'](el);},
   async 'add-interview-save'(el){
     requireStudent();const d=S.ui.drawer;if(d?.kind!=='add')return;
@@ -136,6 +137,7 @@ const A={
   nudge(el){requireMentor();return command('mentor.nudge',null,{studentId:el.dataset.student,text:val('nudge-'+el.dataset.student)});}
 };
 async function dispatchAction(button){
+  if(studentPreview()&&!new Set(['switch-view','nav','matrix','cal-nav','cal-today','cal-view','cal-day','drawer-close','add-interview','new-offer','close-interview','close-card']).has(button.dataset.act)){notice(previewError().message);return;}
   if(!S)return;if(coreOnly()&&!CORE_ACTIONS.has(button.dataset.act)){openComingSoon(labelForAction(button));return;}if(button.disabled)return;const name=button.dataset.act,handler=A[name];if(!handler){notice('This action is not available.');return;}
   const key=[name,button.dataset.id,button.dataset.sub,button.dataset.student].join(':');if(activeActions.has(key))return;
   activeActions.add(key);button.setAttribute('aria-busy','true');
@@ -178,7 +180,7 @@ let searchTimer=null,searchSequence=0;
 function scheduleProgramSearch(q,id){clearTimeout(searchTimer);if(coreOnly())return;if(q.trim().length<2)return;const seq=++searchSequence;searchTimer=setTimeout(async()=>{try{const r=await apiFetch('/programs?q='+encodeURIComponent(q.trim()));if(seq!==searchSequence)return;for(const p of r.programs||[]){const ix=F.programs.findIndex(x=>x.id===p.id);if(ix<0)F.programs.push(p);else F.programs[ix]={...F.programs[ix],...p,fact_ids:F.programs[ix].fact_ids||p.fact_ids||[]};}const select=document.getElementById('ad-program');if(select){const current=select.value;select.innerHTML='<option value="">I will confirm later</option>'+(r.programs||[]).map(p=>`<option value="${esc(p.id)}">${esc(p.name)} · ${esc(p.track)}</option>`).join('');select.value=current;}if(id==='program-search'){const box=document.getElementById('program-search-results');if(box)box.innerHTML=(r.programs||[]).map(p=>`<button class="choice" data-act="resolve" data-id="${esc(S.ui.open)}" data-program="${esc(p.id)}"><b>${esc(p.name)}</b><small>${esc(p.specialty)} · ${esc(p.track)}</small></button>`).join('')||'<p>No registry matches. Keep the offer unresolved.</p>';}}catch(error){notice(error.message);}},300);}
 function runCommand(query){
   const t=(query||'').toLowerCase().trim();if(!t)return;
-  if(actor.role!=='student'){go(actor.role==='mentor'?(/calendar/.test(t)?'mentorcal':'mentor'):(/policy|access|grant/.test(t)?'policy':'review'));return;}
+  if(roleName()!=='student'){go(roleName()==='mentor'?(/calendar/.test(t)?'mentorcal':'mentor'):(/policy|access|grant/.test(t)?'policy':'review'));return;}
   const list=rankedInterviews(myInterviews());const byName=list.find(i=>title(i).toLowerCase().split(/[^a-z]+/).some(w=>w.length>3&&t.includes(w)));
   const section=/day|print|join|sheet/.test(t)?'day':/debrief|happen|capture|report|reflect/.test(t)?'debrief':/rehears|practi|mock|question/.test(t)?'rehearse':/why|talking|points/.test(t)?'why':/brief|research|evidence|source|fact/.test(t)?'brief':/schedule|date|time|reschedul|cancel|zone/.test(t)?'schedule':/learn|goal|lesson/.test(t)?'learned':null;
   const routes=[[/privacy|consent|setting|export|experiment|boundar|camera/,'settings'],[/calendar|month|agenda|week/,'calendar'],[/growth|goal|learn/,'growth'],[/intel|rise|cheat/,'intel'],[/prepare|prep\b/,'prepare'],[/contribut|mission|research access/,'contribute']];

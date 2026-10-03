@@ -2,13 +2,16 @@
 // Signed bootstrap is the only source of identity. Tokens and private drafts stay in memory.
 let S=null, F={}, actor=null, capabilities={}, integrations={}, version=null;
 let session=null, commandQueue=Promise.resolve(), serverClockOffset=0;
+let administratorPreview=false, administratorWorkspace=null;
+const studentPreview=()=>administratorPreview===true&&actor?.role==='admin';
+function previewError(){return Error('Administrator Student Preview does not save changes or run integrations. Return to Admin View for your administrator tools.');}
 const draftValues=new Map(),pendingCommands=new Map();
 const clone=o=>JSON.parse(JSON.stringify(o));
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ownKeys=['why','questions','practice','debriefs','learning','rank','demands','results','shared','consents','mentorPriority'];
 const defaultUI=()=>({route:'home',open:null,section:null,essentials:false,printSel:{story:false,note:false,points:false,support:false},sub:{},cal:{ym:new Date().toISOString().slice(0,7),view:'month',sel:null},drawer:null});
 const CORE_COMMANDS=new Set(['interview.create','interview.identity','interview.schedule','interview.lifecycle','event.create','event.update']);
-const CORE_ACTIONS=new Set(['nav','matrix','open-interview','open-card','close-interview','close-card','open-section','section','cal-nav','cal-today','cal-view','cal-day','cal-item','drawer-close','add-interview','new-offer','add-interview-save','date-undated','add-related-pick','add-related-save','offer-save','manual-identity-save','disposition','schedule-save','cancel','restore','postpone','waitlist','related-save','related-lifecycle','join-verify']);
+const CORE_ACTIONS=new Set(['switch-view','nav','matrix','open-interview','open-card','close-interview','close-card','open-section','section','cal-nav','cal-today','cal-view','cal-day','cal-item','drawer-close','add-interview','new-offer','add-interview-save','date-undated','add-related-pick','add-related-save','offer-save','manual-identity-save','disposition','schedule-save','cancel','restore','postpone','waitlist','related-save','related-lifecycle','join-verify']);
 const coreOnly=()=>capabilities.coreOnly===true;
 const coreRoute=route=>['home','calendar','interviews','settings'].includes(route);
 const coreSection=section=>['identify','schedule'].includes(section);
@@ -31,6 +34,7 @@ async function refreshSession(){
   session={token:signed.token,nonce:signed.nonce||first.nonce,apiBase:sameOriginURL(first.api_base||'/interviewiq/api').pathname.replace(/\/$/,''),expiresAt:Number.isFinite(expires)?expires:Date.now()+(signed.ttl_seconds||60)*1000};
 }
 async function apiFetch(path,options={},retried=false){
+  if(studentPreview())throw previewError();
   if(coreOnly()&&path!=='/bootstrap'&&!(path==='/commands'&&CORE_COMMANDS.has(JSON.parse(options.body||'{}').command))){openComingSoon('This integration');const error=Error('COMING SOON: this integration is not active.');error.code='coming_soon';throw error;}
   if(!session||session.expiresAt<Date.now()+5000){try{await refreshSession();}catch(error){if(error.status===401||error.status===403)lockWorkspace('Your session ended. Sign in through MissionMed and reopen the workspace.');throw error;}}
   const headers=new Headers(options.headers||{});headers.set('Authorization','Bearer '+session.token);headers.set('Accept','application/json');
@@ -59,6 +63,7 @@ function applyBootstrap(input){
 }
 async function refreshWorkspace(){const identity=actor?.id,b=await apiFetch('/bootstrap');if(identity&&identity!==actor?.id)throw Error('The account changed while the workspace was loading. Reopen the intended workspace.');applyBootstrap(b);return b;}
 async function command(name,interviewId=null,data={},options={}){
+  if(studentPreview())throw previewError();
   if(coreOnly()&&!CORE_COMMANDS.has(name)){openComingSoon(name.split('.')[0]);return {comingSoon:true};}
   const identity=actor?.id,requestKey=JSON.stringify([identity,name,interviewId,data]);
   const draftSnapshot=savedDraftIds(name,interviewId,data).map(id=>[draftKey(id),pendingDraft(id,undefined)]);
@@ -108,6 +113,7 @@ function clearPrivateMemory(){
   if(typeof autosaveTimers!=='undefined'){for(const timer of autosaveTimers.values())clearTimeout(timer);autosaveTimers.clear();}
 }
 function lockWorkspace(message){
+  administratorPreview=false;administratorWorkspace=null;
   clearPrivateMemory();S=null;F={};actor=null;capabilities={};integrations={};version=null;session=null;
   for(const id of ['rail','hdr','drawer']){const e=document.getElementById(id);if(e){e.innerHTML='';e.inert=false;e.classList.remove('open');}}
   const main=document.getElementById('main');main.inert=false;main.innerHTML=`<section class="pageIntro" style="padding:48px"><div class="h1">Your workspace is <em>protected</em>.</div><p role="alert">${esc(message)}</p><div class="row"><button class="rowBtn pri" id="retry-connection">Reopen workspace</button><a class="rowBtn" href="/member-dashboard/">Back to Matrix</a></div></section>`;
@@ -686,7 +692,7 @@ const rail=()=>document.getElementById('rail');
 const advBanner=()=>document.getElementById('advBanner');
 const drawerEl=()=>document.getElementById('drawer');
 
-function roleName(){ return actor.role; }
+function roleName(){ return studentPreview()?'student':actor.role; }
 function firstName(){ return actor.firstName||actor.first_name||(actor.displayName||actor.display_name||'Student').split(/\s+/)[0]; }
 function initials(){ return (actor.displayName||actor.display_name||firstName()).split(/\s+/).map(x=>x[0]).slice(0,2).join('').toUpperCase(); }
 function viewLabel(){ return roleName()==='admin'?'Administrator View':roleName()==='mentor'?'Mentor View':'Student View'; }
@@ -714,9 +720,38 @@ function railNavButton([route,label,short]){
   const b=badgeFor(route);
   return `<button type="button" data-act="nav" data-to="${route}" class="rtab ${active?'on':''} ${['intel','growth','contribute'].includes(route)?'secondary':''}" ${active?'aria-current="page"':''} aria-label="${esc(label)}"><span class="rtl">${esc(label)}${coreOnly()&&!coreRoute(route)?comingSoonBadge():''}</span><span class="rts" aria-hidden="true">${esc(short)}</span>${b?`<span class="badge">${b}</span>`:''}</button>`;
 }
-function personaSelect(){ return `<div class="roleSwitch"><div class="rsLbl">Signed in</div><span class="on">${esc(viewLabel())}</span></div>`; }
+function personaSelect(){ return `<div class="roleSwitch"><div class="rsLbl">Signed in</div><span class="on">${esc(viewLabel())}${studentPreview()?' · Preview':''}</span></div>`; }
+function administratorViewSwitch(){
+  if(actor.role!=='admin')return '';
+  return `<div class="administratorViewSwitch" role="group" aria-label="InterviewIQ view"><button type="button" data-act="switch-view" data-view="student" aria-pressed="${studentPreview()}">STUDENT VIEW</button><button type="button" data-act="switch-view" data-view="admin" aria-pressed="${!studentPreview()}">ADMIN VIEW</button></div>`;
+}
+async function switchAdministratorView(view){
+  if(actor.role!=='admin')throw Error('Only administrators can switch views.');
+  if(!['student','admin'].includes(view))return;
+  if(pendingCommands.size||activeActions.size>1)throw Error('Wait for the current action to finish before switching views.');
+  if((view==='student')===studentPreview())return;
+  await stopSpeech();
+  if(view==='student')administratorWorkspace={S,F,capabilities,integrations,version,drafts:new Map(draftValues)};
+  clearPrivateMemory();
+  if(view==='student'){
+    // No student picker, fabricated identity, fixture records or admin review data.
+    const zone=F.student_zone;
+    administratorPreview=true;
+    F={programs:[],facts:[],sources:[],personas:[actor],student_zone:zone,registry_release:F.registry_release,label:''};
+    S={persona:actor.id,online:true,storageOk:true,interviews:[],ui:defaultUI(),reviewQueue:[],mentorAssigned:[],changes:[],contrib:{missions:{},submissions:[],ledger:[],grants:{}},policy:{audit:[],suspended:{}},lastVisit:now()};
+    for(const key of ownKeys)S[key]={};
+    capabilities={coreOnly:true};integrations={};S.ui.cal.ym=ymOf(todayKey());
+  }else{
+    const saved=administratorWorkspace;
+    administratorPreview=false;administratorWorkspace=null;
+    ({S,F,capabilities,integrations,version}=saved);
+    for(const [key,value] of saved.drafts)draftValues.set(key,value);
+  }
+  render();main().focus({preventScroll:true});
+}
 function renderShell(){
   document.body.dataset.role = roleName()==='mentor'?'advisor':roleName();
+  document.body.dataset.adminPreview=String(studentPreview());
   const items=navItems(); if(!items.some(x=>x[0]===S.ui.route) && !['experiments','contribute'].includes(S.ui.route)) S.ui.route=items[0][0];
   const student=roleName()==='student';
   rail().innerHTML=`
@@ -734,12 +769,12 @@ function renderShell(){
     <div class="storyforgeBrand" aria-label="MissionMed InterviewIQ"><div class="storyforgeBrandTitle"><span>MissionMed</span><b>//InterviewIQ</b></div><div class="storyforgeBrandSub">MISSION:RESIDENCY DIVISION</div></div>
     <span class="founderChip">PRIVATE · YOUR INTERVIEW WORKSPACE</span>
     <div class="storyforgeHeaderActions">
-      <span class="viewChip roleReadOnly" title="Your signed MissionMed role">${viewLabel()}</span>
+      ${administratorViewSwitch()}<span class="viewChip roleReadOnly" title="Your signed MissionMed role remains unchanged">${viewLabel()}${studentPreview()?' · Preview':''}</span>
       ${roleName()==='admin'&&S.ui.subject?`<div class="b1515SubjectChip" role="status"><span>VIEWING INTERVIEWIQ FOR</span><b>${esc(S.ui.subject)}</b></div>`:''}
       <form class="hSearch" id="omniform" role="search"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg><input id="omni" type="search" placeholder="${student?'Search interviews and programs…':roleName()==='mentor'?'Search your students…':'Search review and policy…'}" autocomplete="off" aria-label="Search"><span class="kbd">/</span></form>
       ${student?'<button class="btnCatch" type="button" data-act="add-interview">＋ <span class="bc-txt">Add interview</span></button>':''}
     </div>`;
-  const ab=advBanner(); ab.classList.toggle('show', roleName()==='mentor'); ab.querySelector('span').innerHTML = roleName()==='mentor'? '<b>Mentor View</b> · Students’ private preparation, raw speech and notes remain invisible. You see logistics and student-approved gaps only.' : '';
+  const ab=advBanner(); ab.classList.toggle('show', roleName()==='mentor'||studentPreview()); ab.querySelector('span').innerHTML = studentPreview()?'<b>Student View · Administrator preview</b> · No student data loaded. Changes are not saved.':roleName()==='mentor'? '<b>Mentor View</b> · Students’ private preparation, raw speech and notes remain invisible. You see logistics and student-approved gaps only.' : '';
   document.body.classList.remove('is-booting');
 }
 
@@ -1072,6 +1107,7 @@ function renderSpeechOnly(iid){
 }
 function focusSection(){ const el=document.querySelector('.section'); if(el){ el.focus({preventScroll:false}); document.getElementById('main').scrollTo({top:0}); } }
 
+
 'use strict';
 function renderMe(){
   const p=me(),st=p.approved_story,lg=S.learning[actor.id];
@@ -1173,6 +1209,7 @@ function foldSelect(id){return `<label class="f" for="${id}">Clock offset (only 
 function safeNavigate(url){const u=new URL(url,location.origin);if(!['http:','https:'].includes(u.protocol))throw Error('The integration returned an invalid destination.');location.assign(u.href);}
 async function saveThenNotice(name,id,data,message){await command(name,id,data);notice(message||'Saved.');}
 const A={
+  'switch-view'(el){return switchAdministratorView(el.dataset.view);},
   nav(el){if(el.dataset.to!=='interviews')S.ui.open=null;go(el.dataset.to);},
   'coming-soon'(el){openComingSoon(labelForAction(el));},
   'manual-identity-save'(el){return privateCommand(el,'interview.identity',{program:null,programName:val('identity-name').trim(),unresolved_input:val('identity-name').trim(),track:val('identity-track').trim()});},
@@ -1190,7 +1227,7 @@ const A={
   'cal-day'(el){const day=el.dataset.day;S.ui.cal.sel=day;openDrawer({kind:'day',day,returnTo:'[data-cal-day="'+day+'"]'});},
   'cal-item'(el){openDrawer({kind:'item',item:el.dataset.item,returnTo:S.ui.drawer?.returnTo||null});},
   'drawer-close'(){closeDrawer();},
-  'add-interview'(el){requireStudent();openDrawer({kind:'add',day:el.dataset.day||null,form:{},returnTo:el.dataset.day?'[data-cal-day="'+el.dataset.day+'"]':null});},
+  'add-interview'(el){if(!studentPreview())requireStudent();openDrawer({kind:'add',day:el.dataset.day||null,form:{},returnTo:el.dataset.day?'[data-cal-day="'+el.dataset.day+'"]':null});},
   'new-offer'(el){return A['add-interview'](el);},
   async 'add-interview-save'(el){
     requireStudent();const d=S.ui.drawer;if(d?.kind!=='add')return;
@@ -1271,6 +1308,7 @@ const A={
   nudge(el){requireMentor();return command('mentor.nudge',null,{studentId:el.dataset.student,text:val('nudge-'+el.dataset.student)});}
 };
 async function dispatchAction(button){
+  if(studentPreview()&&!new Set(['switch-view','nav','matrix','cal-nav','cal-today','cal-view','cal-day','drawer-close','add-interview','new-offer','close-interview','close-card']).has(button.dataset.act)){notice(previewError().message);return;}
   if(!S)return;if(coreOnly()&&!CORE_ACTIONS.has(button.dataset.act)){openComingSoon(labelForAction(button));return;}if(button.disabled)return;const name=button.dataset.act,handler=A[name];if(!handler){notice('This action is not available.');return;}
   const key=[name,button.dataset.id,button.dataset.sub,button.dataset.student].join(':');if(activeActions.has(key))return;
   activeActions.add(key);button.setAttribute('aria-busy','true');
@@ -1313,7 +1351,7 @@ let searchTimer=null,searchSequence=0;
 function scheduleProgramSearch(q,id){clearTimeout(searchTimer);if(coreOnly())return;if(q.trim().length<2)return;const seq=++searchSequence;searchTimer=setTimeout(async()=>{try{const r=await apiFetch('/programs?q='+encodeURIComponent(q.trim()));if(seq!==searchSequence)return;for(const p of r.programs||[]){const ix=F.programs.findIndex(x=>x.id===p.id);if(ix<0)F.programs.push(p);else F.programs[ix]={...F.programs[ix],...p,fact_ids:F.programs[ix].fact_ids||p.fact_ids||[]};}const select=document.getElementById('ad-program');if(select){const current=select.value;select.innerHTML='<option value="">I will confirm later</option>'+(r.programs||[]).map(p=>`<option value="${esc(p.id)}">${esc(p.name)} · ${esc(p.track)}</option>`).join('');select.value=current;}if(id==='program-search'){const box=document.getElementById('program-search-results');if(box)box.innerHTML=(r.programs||[]).map(p=>`<button class="choice" data-act="resolve" data-id="${esc(S.ui.open)}" data-program="${esc(p.id)}"><b>${esc(p.name)}</b><small>${esc(p.specialty)} · ${esc(p.track)}</small></button>`).join('')||'<p>No registry matches. Keep the offer unresolved.</p>';}}catch(error){notice(error.message);}},300);}
 function runCommand(query){
   const t=(query||'').toLowerCase().trim();if(!t)return;
-  if(actor.role!=='student'){go(actor.role==='mentor'?(/calendar/.test(t)?'mentorcal':'mentor'):(/policy|access|grant/.test(t)?'policy':'review'));return;}
+  if(roleName()!=='student'){go(roleName()==='mentor'?(/calendar/.test(t)?'mentorcal':'mentor'):(/policy|access|grant/.test(t)?'policy':'review'));return;}
   const list=rankedInterviews(myInterviews());const byName=list.find(i=>title(i).toLowerCase().split(/[^a-z]+/).some(w=>w.length>3&&t.includes(w)));
   const section=/day|print|join|sheet/.test(t)?'day':/debrief|happen|capture|report|reflect/.test(t)?'debrief':/rehears|practi|mock|question/.test(t)?'rehearse':/why|talking|points/.test(t)?'why':/brief|research|evidence|source|fact/.test(t)?'brief':/schedule|date|time|reschedul|cancel|zone/.test(t)?'schedule':/learn|goal|lesson/.test(t)?'learned':null;
   const routes=[[/privacy|consent|setting|export|experiment|boundar|camera/,'settings'],[/calendar|month|agenda|week/,'calendar'],[/growth|goal|learn/,'growth'],[/intel|rise|cheat/,'intel'],[/prepare|prep\b/,'prepare'],[/contribut|mission|research access/,'contribute']];
@@ -1374,21 +1412,40 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden&&speechCapt
 window.addEventListener('online',()=>void flushAudio());
 
 
-const OPENING_TAB_KEY='interviewiq_opening_seen_this_tab'; const OPENING_MINIMUM_MS=1650; const OPENING_REDUCED_MOTION_MS=650;
+'use strict';
+const OPENING_TAB_KEY='interviewiq_opening_seen_this_tab';
+const OPENING_TOTAL_MS=5000, OPENING_FADE_MS=650, OPENING_REDUCED_MOTION_MS=1000;
+let openingShown=false;
 function showOpening(){
-  const node=document.getElementById('interviewiqOpening'); if(!node) return;
-  let seen=false; try{ seen=sessionStorage.getItem(OPENING_TAB_KEY)==='1'; }catch(e){}
-  if(seen){ node.hidden=true; return; }
+  const node=document.getElementById('interviewiqOpening');if(!node)return;
+  let seen=openingShown;try{seen=seen||sessionStorage.getItem(OPENING_TAB_KEY)==='1';}catch{}
+  if(seen){node.hidden=true;return;}
+  openingShown=true;
   const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if(!reduced) document.body.classList.add('motion-enabled');
-  node.hidden=false; node.dataset.phase='forming'; document.body.classList.add('opening-active');
-  const status=node.querySelector('[data-opening-status]'); const t0=performance.now();
-  setTimeout(()=>{ if(!node.hidden&&status) status.textContent='Preparing your workspace…'; }, 700);
-  let finished=false;
-  const finish=()=>{ if(finished) return; finished=true; try{ sessionStorage.setItem(OPENING_TAB_KEY,'1'); }catch(e){} node.dataset.phase='leaving'; document.body.classList.remove('opening-active'); setTimeout(()=>{ node.hidden=true; document.getElementById('main').focus({preventScroll:true}); }, reduced?0:260); };
-  node.querySelector('[data-skip-opening]').addEventListener('click',finish);
-  const minimum=reduced?OPENING_REDUCED_MOTION_MS:OPENING_MINIMUM_MS;
-  setTimeout(finish, Math.max(minimum, reduced?minimum:2400));
+  const shell=['main','hdr','rail','drawer'].map(id=>document.getElementById(id)).filter(Boolean);
+  const priorInert=shell.map(el=>el.inert);shell.forEach(el=>{el.inert=true;});
+  const timers=new Set();let finished=false,cleaned=false;
+  const later=(fn,ms)=>{const id=setTimeout(()=>{timers.delete(id);fn();},ms);timers.add(id);};
+  const skip=node.querySelector('[data-skip-opening]');
+  node.hidden=false;node.dataset.phase='forming';node.dataset.motion=reduced?'reduced':'full';
+  document.body.classList.add('opening-active');
+  const cleanup=()=>{
+    if(cleaned)return;cleaned=true;timers.forEach(clearTimeout);timers.clear();
+    node.hidden=true;document.body.classList.remove('opening-active');
+    shell.forEach((el,k)=>{el.inert=priorInert[k];});
+    skip?.removeEventListener('click',skipOpening);
+    document.getElementById('main')?.focus({preventScroll:true});
+  };
+  const finish=immediate=>{
+    if(finished){if(immediate)cleanup();return;}finished=true;
+    timers.forEach(clearTimeout);timers.clear();
+    try{sessionStorage.setItem(OPENING_TAB_KEY,'1');}catch{}
+    if(immediate){cleanup();return;}
+    node.dataset.phase='leaving';later(cleanup,reduced?250:OPENING_FADE_MS);
+  };
+  const skipOpening=()=>finish(true);
+  skip?.addEventListener('click',skipOpening);skip?.focus({preventScroll:true});
+  later(()=>finish(false),reduced?OPENING_REDUCED_MOTION_MS-250:OPENING_TOTAL_MS-OPENING_FADE_MS);
 }
 
 void boot();
