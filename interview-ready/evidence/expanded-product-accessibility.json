@@ -1,0 +1,121 @@
+{
+  "incomplete": [
+    {
+      "id": "aria-prohibited-attr",
+      "targets": [
+        [
+          "#catnav-online"
+        ]
+      ]
+    },
+    {
+      "id": "color-contrast",
+      "targets": [
+        [
+          ".title > b"
+        ],
+        [
+          ".title > span"
+        ],
+        [
+          "#page-online > .route-intro > .intro-copy > .eyebrow"
+        ],
+        [
+          "#page-online > .route-intro > .intro-copy > h1"
+        ],
+        [
+          "#page-online > .route-intro > .intro-copy > p"
+        ],
+        [
+          "#page-online > .route-intro > .intro-number[aria-hidden=\"true\"]"
+        ],
+        [
+          ".ecosystem-strip > div:nth-child(1) > .eyebrow"
+        ],
+        [
+          ".ecosystem-strip > div:nth-child(1) > h3"
+        ],
+        [
+          ".ecosystem-strip > div:nth-child(1) > p"
+        ],
+        [
+          "button[data-eco=\"none\"]"
+        ],
+        [
+          "button[data-eco=\"Elgato\"]"
+        ],
+        [
+          "button[data-eco=\"Logitech\"]"
+        ],
+        [
+          "button[data-eco=\"Sony\"]"
+        ],
+        [
+          "button[data-eco=\"Canon\"]"
+        ],
+        [
+          "button[data-eco=\"Nikon\"]"
+        ],
+        [
+          "button[data-eco=\"Shure\"]"
+        ],
+        [
+          "button[data-eco=\"DJI\"]"
+        ],
+        [
+          ".ecosystem-answer"
+        ],
+        [
+          ".tiers > .in.tier.reveal:nth-child(1) > .product-visual > .product-wordmark"
+        ],
+        [
+          ".tiers > .in.tier.reveal:nth-child(1) > .product-visual > .product-wordmark > small"
+        ],
+        [
+          ".tiers > .in.tier.reveal:nth-child(1) > .product-visual > .photo-link[target=\"_blank\"][rel=\"noopener noreferrer\"]"
+        ],
+        [
+          ".tiers > .in.tier.reveal:nth-child(1) > .product-content > .actions > .gold[target=\"_blank\"][rel=\"noopener noreferrer\"]"
+        ],
+        [
+          ".tiers > .pick.in.tier > .product-visual > .product-wordmark"
+        ],
+        [
+          ".tiers > .pick.in.tier > .product-visual > .product-wordmark > small"
+        ],
+        [
+          ".tiers > .pick.in.tier > .product-visual > .photo-link[target=\"_blank\"][rel=\"noopener noreferrer\"]"
+        ],
+        [
+          ".tiers > .pick.in.tier > .product-content > .actions > .gold[target=\"_blank\"][rel=\"noopener noreferrer\"]"
+        ],
+        [
+          "article[aria-label=\"First Class: Shure MV7+\"] > .product-visual > .product-wordmark"
+        ],
+        [
+          "article[aria-label=\"First Class: Shure MV7+\"] > .product-visual > .product-wordmark > small"
+        ],
+        [
+          "article[aria-label=\"First Class: Shure MV7+\"] > .product-visual > .photo-link[target=\"_blank\"][rel=\"noopener noreferrer\"]"
+        ],
+        [
+          "article[aria-label=\"First Class: Shure MV7+\"] > .product-content > .actions > .gold[target=\"_blank\"][rel=\"noopener noreferrer\"]"
+        ],
+        [
+          "article[aria-label=\"Private Jet: Shure SM7B\"] > .product-visual > .product-wordmark"
+        ],
+        [
+          "article[aria-label=\"Private Jet: Shure SM7B\"] > .product-visual > .product-wordmark > small"
+        ],
+        [
+          "article[aria-label=\"Private Jet: Shure SM7B\"] > .product-visual > .photo-link[target=\"_blank\"][rel=\"noopener noreferrer\"]"
+        ],
+        [
+          "article[aria-label=\"Private Jet: Shure SM7B\"] > .product-content > .actions > .gold[target=\"_blank\"][rel=\"noopener noreferrer\"]"
+        ]
+      ]
+    }
+  ],
+  "passes": 31,
+  "violations": []
+}

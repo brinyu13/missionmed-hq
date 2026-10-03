@@ -1,0 +1,322 @@
+[
+  {
+    "asin": "B0CW1S7XP5",
+    "model": "Elgato Facecam MK.2",
+    "rating": 4.3,
+    "ratingCount": 1591,
+    "observedAt": "2026-10-03T00:36Z",
+    "availability": "In Stock",
+    "decision": "owner-exception",
+    "url": "https://www.amazon.com/dp/B0CW1S7XP5"
+  },
+  {
+    "asin": "B0CTJ7PVN1",
+    "model": "Shure MV7+",
+    "rating": 4.7,
+    "ratingCount": 1107,
+    "observedAt": "2026-10-03T00:37:19.498Z",
+    "availability": "In Stock",
+    "decision": "include",
+    "url": "https://www.amazon.com/dp/B0CTJ7PVN1"
+  },
+  {
+    "asin": "B0002E4Z8M",
+    "model": "Shure SM7B",
+    "rating": 4.8,
+    "ratingCount": 12198,
+    "observedAt": "2026-10-03T00:37:25.311Z",
+    "availability": "In Stock",
+    "decision": "include",
+    "url": "https://www.amazon.com/dp/B0002E4Z8M"
+  },
+  {
+    "asin": "B0CCSVYWMH",
+    "model": "Shure SM7dB",
+    "rating": 4.4,
+    "ratingCount": 964,
+    "observedAt": "2026-10-03T00:37:30.957Z",
+    "availability": "In Stock",
+    "decision": "hold",
+    "url": "https://www.amazon.com/dp/B0CCSVYWMH"
+  },
+  {
+    "asin": "B0BQM4TKF7",
+    "model": "RØDE PodMic USB",
+    "rating": 4.2,
+    "ratingCount": 1303,
+    "observedAt": "2026-10-03T00:39:20.106Z",
+    "availability": "In Stock",
+    "decision": "hold",
+    "url": "https://www.amazon.com/dp/B0BQM4TKF7"
+  },
+  {
+    "asin": "B085TFF7M1",
+    "model": "Logitech C920x HD Pro",
+    "rating": 4.6,
+    "ratingCount": 22025,
+    "observedAt": "2026-10-03T00:40:05.745Z",
+    "availability": "In Stock",
+    "decision": "include",
+    "url": "https://www.amazon.com/dp/B085TFF7M1"
+  },
+  {
+    "asin": "B09NBWWP79",
+    "model": "Logitech Brio Ultra 4K",
+    "rating": 4.5,
+    "ratingCount": 1311,
+    "observedAt": "2026-10-03T00:40:12.376Z",
+    "availability": "In Stock",
+    "decision": "include",
+    "url": "https://www.amazon.com/dp/B09NBWWP79"
+  },
+  {
+    "asin": "B0BFJ4CRKD",
+    "model": "Logitech MX Brio",
+    "rating": 4.4,
+    "ratingCount": 1479,
+    "observedAt": "2026-10-03T00:40:18.065Z",
+    "availability": "In Stock",
+    "decision": "hold",
+    "url": "https://www.amazon.com/dp/B0BFJ4CRKD"
+  },
+  {
+    "asin": "B07L755X9G",
+    "model": "Elgato Key Light",
+    "rating": 4.5,
+    "ratingCount": 4303,
+    "observedAt": "2026-10-03T00:41:07.014Z",
+    "availability": "In Stock",
+    "decision": "include",
+    "url": "https://www.amazon.com/dp/B07L755X9G"
+  },
+  {
+    "asin": "B0GYDFGCCQ",
+    "model": "Elgato Key Light Air MK.2",
+    "rating": 3.8,
+    "ratingCount": 14,
+    "observedAt": "2026-10-03T00:41:12.868Z",
+    "availability": "In Stock",
+    "decision": "hold",
+    "url": "https://www.amazon.com/dp/B0GYDFGCCQ"
+  },
+  {
+    "asin": "B097QZGRCQ",
+    "model": "Logitech Litra Glow",
+    "rating": 4.5,
+    "ratingCount": 3402,
+    "observedAt": "2026-10-03T00:41:18.279Z",
+    "availability": "In Stock",
+    "decision": "include",
+    "url": "https://www.amazon.com/dp/B097QZGRCQ"
+  },
+  {
+    "asin": "B09738CV2G",
+    "model": "Elgato Stream Deck MK.2",
+    "rating": 4.8,
+    "ratingCount": 10363,
+    "observedAt": "2026-10-03T00:50:43.918Z",
+    "availability": "In Stock",
+    "decision": "include",
+    "url": "https://www.amazon.com/dp/B09738CV2G"
+  },
+  {
+    "asin": "B0BJL8SJ59",
+    "model": "Elgato Stream Deck +",
+    "rating": 4.6,
+    "ratingCount": 4613,
+    "observedAt": "2026-10-03T00:50:46.694Z",
+    "availability": "In Stock",
+    "decision": "include",
+    "url": "https://www.amazon.com/dp/B0BJL8SJ59"
+  },
+  {
+    "asin": "B0CVY4566H",
+    "model": "Elgato Stream Deck Neo",
+    "rating": 4.6,
+    "ratingCount": 1338,
+    "observedAt": "2026-10-03T00:50:50.527Z",
+    "availability": "In Stock",
+    "decision": "include",
+    "url": "https://www.amazon.com/dp/B0CVY4566H"
+  },
+  {
+    "asin": "B0D92VDW76",
+    "model": "Sony ZV-E10 II + 16–50mm kit",
+    "rating": 4.0,
+    "ratingCount": 270,
+    "observedAt": "2026-10-03T00:56:55.197Z",
+    "availability": "In Stock",
+    "decision": "hold",
+    "url": "https://www.amazon.com/dp/B0D92VDW76"
+  },
+  {
+    "asin": "B0CG19QXWD",
+    "model": "DJI Osmo Pocket 3",
+    "rating": 4.5,
+    "ratingCount": 10545,
+    "observedAt": "2026-10-03T00:57:00.641Z",
+    "availability": "In Stock",
+    "decision": "include",
+    "url": "https://www.amazon.com/dp/B0CG19QXWD"
+  },
+  {
+    "asin": "B0BTTV6CT1",
+    "model": "Canon EOS R50 + RF-S 18–45mm kit",
+    "rating": 4.5,
+    "ratingCount": 1643,
+    "observedAt": "2026-10-03T00:57:22.847Z",
+    "availability": "In Stock",
+    "decision": "include",
+    "url": "https://www.amazon.com/dp/B0BTTV6CT1"
+  },
+  {
+    "asin": "B0B527QM4X",
+    "model": "Nikon Z30 + 16–50mm kit",
+    "rating": 4.4,
+    "ratingCount": 242,
+    "observedAt": "2026-10-03T00:57:45.471Z",
+    "availability": "In Stock",
+    "decision": "hold",
+    "url": "https://www.amazon.com/dp/B0B527QM4X"
+  },
+  {
+    "asin": "B07FKG8PGZ",
+    "model": "Samson Q2U recording pack (black)",
+    "rating": 4.6,
+    "ratingCount": 1046,
+    "observedAt": "2026-10-03T00:58:06.828Z",
+    "availability": "In Stock",
+    "decision": "include",
+    "url": "https://www.amazon.com/dp/B07FKG8PGZ"
+  },
+  {
+    "asin": "B00N1YPXW2",
+    "model": "Blue Yeti USB (Blackout)",
+    "rating": 4.6,
+    "ratingCount": 57093,
+    "observedAt": "2026-10-03T00:58:10.110Z",
+    "availability": "In Stock",
+    "decision": "include",
+    "url": "https://www.amazon.com/dp/B00N1YPXW2"
+  },
+  {
+    "asin": "B09KN3FMY7",
+    "model": "BAGSMART compression packing cubes, 6-piece, BM0104003AN",
+    "rating": 4.5,
+    "ratingCount": 13524,
+    "observedAt": "2026-10-03T00:59:13.685Z",
+    "availability": "In Stock",
+    "decision": "include",
+    "url": "https://www.amazon.com/dp/B09KN3FMY7"
+  },
+  {
+    "asin": "B09VPHVT2Z",
+    "model": "Anker 737 24K 140W",
+    "rating": 4.4,
+    "ratingCount": 17598,
+    "observedAt": "2026-10-03T00:59:34.981Z",
+    "availability": "In Stock",
+    "decision": "hold",
+    "url": "https://www.amazon.com/dp/B09VPHVT2Z"
+  },
+  {
+    "asin": "B01M0A3BKH",
+    "model": "Samsonite Freeform 21-inch spinner (black)",
+    "rating": 4.3,
+    "ratingCount": 19262,
+    "observedAt": "2026-10-03T01:00:08.106Z",
+    "availability": "In Stock",
+    "decision": "hold",
+    "url": "https://www.amazon.com/dp/B01M0A3BKH"
+  },
+  {
+    "asin": "B0DCBB2YTR",
+    "model": "Anker A1695 25K 165W",
+    "rating": 4.4,
+    "ratingCount": 12349,
+    "observedAt": "2026-10-03T01:00:12.096Z",
+    "availability": "In Stock",
+    "decision": "hold",
+    "url": "https://www.amazon.com/dp/B0DCBB2YTR"
+  },
+  {
+    "asin": "B0C4WC8QJR",
+    "model": "Tide to Go pens, 3 count",
+    "rating": 4.7,
+    "ratingCount": 10112,
+    "observedAt": "2026-10-03T01:01:50.705Z",
+    "availability": "In Stock",
+    "decision": "include",
+    "url": "https://www.amazon.com/dp/B0C4WC8QJR"
+  },
+  {
+    "asin": "B07BL7JXHV",
+    "model": "Travelpro Maxlite 5 21-inch spinner (black)",
+    "rating": 4.4,
+    "ratingCount": 12559,
+    "observedAt": "2026-10-03T01:02:10.523Z",
+    "availability": "In Stock",
+    "decision": "hold",
+    "url": "https://www.amazon.com/dp/B07BL7JXHV"
+  },
+  {
+    "asin": "B07K3FN5MR",
+    "model": "Elgato Cam Link 4K",
+    "rating": 4.6,
+    "ratingCount": 14007,
+    "observedAt": "2026-10-03T01:02:36.201Z",
+    "availability": "In Stock",
+    "decision": "include",
+    "url": "https://www.amazon.com/dp/B07K3FN5MR"
+  },
+  {
+    "asin": "B097376LKF",
+    "model": "Elgato Wave Mic Arm LP",
+    "rating": 4.6,
+    "ratingCount": 5020,
+    "observedAt": "2026-10-03T01:02:51.207Z",
+    "availability": "In Stock",
+    "decision": "include",
+    "url": "https://www.amazon.com/dp/B097376LKF"
+  },
+  {
+    "asin": "B0CVYHHPX6",
+    "model": "Elgato Wave Neo",
+    "rating": 4.3,
+    "ratingCount": 423,
+    "observedAt": "2026-10-03T01:02:55.401Z",
+    "availability": "In Stock",
+    "decision": "hold",
+    "url": "https://www.amazon.com/dp/B0CVYHHPX6"
+  },
+  {
+    "asin": "B014VBGUCA",
+    "model": "Amazon Essentials packing cubes, 4 piece, black",
+    "rating": 4.7,
+    "ratingCount": 43703,
+    "observedAt": "2026-10-03T01:03:17.691Z",
+    "availability": "In Stock",
+    "decision": "include",
+    "url": "https://www.amazon.com/dp/B014VBGUCA"
+  },
+  {
+    "asin": "B004HMRQF4",
+    "model": "Samsill Professional Padfolio, faux leather, letter size, black",
+    "rating": 4.7,
+    "ratingCount": 5387,
+    "observedAt": "2026-10-03T01:03:40.618Z",
+    "availability": "In Stock",
+    "decision": "include",
+    "url": "https://www.amazon.com/dp/B004HMRQF4"
+  },
+  {
+    "asin": "B08CK9X9Z8",
+    "model": "Anker PowerExpand A8313 USB-C to Gigabit Ethernet",
+    "rating": 4.8,
+    "ratingCount": 6589,
+    "observedAt": "2026-10-03T01:04:41.197Z",
+    "availability": "In Stock",
+    "decision": "include",
+    "url": "https://www.amazon.com/dp/B08CK9X9Z8"
+  }
+]

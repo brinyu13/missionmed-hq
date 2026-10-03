@@ -1,0 +1,15 @@
+{
+  "result": "PASS",
+  "checks": [
+    "60 paths / 15 categories / four tiers",
+    "rating qualification and explicit exceptions",
+    "exact listing source requirements",
+    "public rating/price exclusion",
+    "11 routes",
+    "no media upload transport",
+    "JavaScript syntax",
+    "deterministic bundle"
+  ],
+  "uniquePurchaseCandidates": 21,
+  "bundleSha256": "4b54cebc6a22c9de03b084c438f5c8b745a4ff66eed4fd7261bdbb7beb7716f1"
+}

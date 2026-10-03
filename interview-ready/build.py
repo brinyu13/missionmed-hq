@@ -1,0 +1,32 @@
+"""Reproducible, dependency-free single-file STAGING candidate build."""
+from pathlib import Path
+import base64, hashlib, json, mimetypes, re
+
+ROOT = Path(__file__).resolve().parent
+def uri(path):
+    p = ROOT / path
+    mime = mimetypes.guess_type(p.name)[0] or 'application/octet-stream'
+    return f'data:{mime};base64,' + base64.b64encode(p.read_bytes()).decode()
+
+old = {'CREST':'crest.png','HERO_ONLINE':'hero-online.jpg','HERO_INPERSON':'hero-inperson.jpg',
+       'TILE_CAMERA':'tile-camera.jpg','TILE_MIC':'tile-mic.jpg','TILE_LIGHT':'tile-light.jpg',
+       'TILE_ACC':'tile-accessories.jpg','TILE_TRAVEL':'tile-travel.jpg','TILE_KIT':'tile-kit.jpg',
+       'MOUNTAIN':'mountain-band.jpg','DRBRIAN':'dr-brian.jpg'}
+source = (ROOT / 'src.html').read_text()
+for key, value in old.items():
+    source = source.replace('{{'+key+'}}', uri('img/'+value))
+source = source.replace('<!-- EDITORIAL_CSS -->', '<style>'+(ROOT/'editorial.css').read_text()+'</style>')
+assets={p.name:uri(str(p.relative_to(ROOT))) for p in (ROOT/'img').glob('*.webp')}
+source = source.replace('<!-- EDITORIAL_SCRIPTS -->', '<script>const ASSET = '+json.dumps(assets)+'; const RESEARCH = '+(ROOT/'catalog.json').read_text().replace('</','<\\/')+';\n'+(ROOT/'editorial.js').read_text()+'</script>')
+source = re.sub(r'(?<![A-Za-z0-9/])img/[A-Za-z0-9_.-]+\.(?:webp|jpg|png)', lambda m: uri(m[0]), source)
+for key, value in old.items():
+    source = source.replace('{{'+key+'}}', uri('img/'+value))
+assert '{{' not in source and '<!-- EDITORIAL_' not in source
+assert 'img/' not in source, 'Unbundled local asset'
+out = ROOT/'dist/interview-ready.html'
+out.parent.mkdir(exist_ok=True)
+out.write_text(source)
+manifest = {'sha256':hashlib.sha256(out.read_bytes()).hexdigest(),'bytes':out.stat().st_size,
+            'inputs':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in [ROOT/'src.html', ROOT/'editorial.css', ROOT/'editorial.js', ROOT/'catalog.json']}}
+(ROOT/'dist/build-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+print(json.dumps(manifest,indent=2))

@@ -1,0 +1,45 @@
+{
+  "observedAt": "2026-10-03T02:46:11.361072+00:00",
+  "scope": "Builder local candidate QA; not independent or physical-device acceptance",
+  "bundle": {
+    "sha256": "4b54cebc6a22c9de03b084c438f5c8b745a4ff66eed4fd7261bdbb7beb7716f1",
+    "bytes": 1425215,
+    "inputs": {
+      "src.html": "98623c1e4f18b9cf48fd4643f7636f2e12576dda9ed490ca64938b7920895b8c",
+      "editorial.css": "d22e49621f9e5e73b6945499a32e04af051141f534b97b3cdef7f4551587e7ae",
+      "editorial.js": "2713f43365d9ce4a47f19786fa48fb2c68e53cf295e950f6cfa26111ed93b95d",
+      "catalog.json": "b894e169b0806312e8c234a43f8f64b10cab178dfa1bba72cb9fd7e3ea1f0103"
+    }
+  },
+  "localHttpStatus": 200,
+  "localBodySha256": "4b54cebc6a22c9de03b084c438f5c8b745a4ff66eed4fd7261bdbb7beb7716f1",
+  "localBodyMatchesBuild": true,
+  "flowCases": 24,
+  "flowFailures": [],
+  "responsiveCases": 55,
+  "responsiveFailures": [],
+  "categoryCases": 15,
+  "accessibilityAudits": 22,
+  "accessibilityViolations": 0,
+  "manualAccessibilityItems": [
+    "color-contrast",
+    "video-caption"
+  ],
+  "evidenceHashes": {
+    "static-qa.json": "66c3fd6751bd87027d7436e39294b52c7c48a89a3807627b3e6e8caba3fbcc7a",
+    "browser-flows.json": "bbed33ab2d68ac413253b931024627532d6b7fa0651bf79ac4ccc56caf977dfe",
+    "responsive-qa.json": "8444d0007ef51f13e8289fbc1a1fcd69fbfd44c7ead667361b0a6b603b829d43",
+    "categories-qa.json": "4c683e6717ecacba239f1f789c3a61c3b2cdf4f797df9d917c9f617c0e18f5f5",
+    "final-accessibility.json": "97430a65818261314fe03e5639700f99ff5dd61e508d29646e43a70ab014678c"
+  },
+  "notEstablished": [
+    "Founder visual acceptance",
+    "STAGING publication",
+    "Physical camera/microphone quality",
+    "Safari/iOS",
+    "Real interview-platform acceptance",
+    "Independent release verification",
+    "Complete product-photo reuse rights",
+    "Photorealistic try-on integration"
+  ]
+}

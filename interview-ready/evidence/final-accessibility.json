@@ -1,0 +1,2150 @@
+[
+  {
+    "route": "home",
+    "width": 1440,
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "targets": [
+          [
+            "span > b"
+          ],
+          [
+            "span > small"
+          ],
+          [
+            "#railnav > a[data-nav=\"home\"][aria-current=\"page\"][href$=\"#home\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"online\"][href$=\"#online\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"in-person\"][href$=\"#in-person\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"test\"][href$=\"#test\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"checklist\"][href$=\"#checklist\"] > span"
+          ],
+          [
+            "a[data-nav=\"dress\"][href$=\"#dress\"] > span"
+          ],
+          [
+            "a[href$=\"#wardrobe\"][data-nav=\"wardrobe\"] > span"
+          ],
+          [
+            "a[href$=\"#community\"][data-nav=\"community\"] > span"
+          ],
+          [
+            "a[href$=\"#experts\"][data-nav=\"experts\"] > span"
+          ],
+          [
+            "a[href$=\"#prime-day\"][data-nav=\"prime-day\"] > span"
+          ],
+          [
+            ".kit > b"
+          ],
+          [
+            "#kitCountRail"
+          ],
+          [
+            ".kit > a[href$=\"#kit\"]"
+          ],
+          [
+            "#railReady"
+          ],
+          [
+            ".rail-purpose"
+          ],
+          [
+            ".guide-brand"
+          ],
+          [
+            ".guide-brand > small"
+          ],
+          [
+            ".guide-title"
+          ],
+          [
+            ".guide-title > small"
+          ],
+          [
+            ".guide-masthead > p"
+          ],
+          [
+            ".hero-copy > p"
+          ],
+          [
+            ".gold.btn[href$=\"#online\"]"
+          ],
+          [
+            ".tile[href$=\"#online/webcam\"][data-depth=\"\"] > .cap > b"
+          ],
+          [
+            ".tile[href$=\"#online/webcam\"][data-depth=\"\"] > .cap > span"
+          ],
+          [
+            "a[href$=\"#online/mic\"] > .cap > b"
+          ],
+          [
+            "a[href$=\"#online/mic\"] > .cap > span"
+          ],
+          [
+            "a[href$=\"#online/light\"] > .cap > b"
+          ],
+          [
+            "a[href$=\"#online/light\"] > .cap > span"
+          ],
+          [
+            "a[href$=\"#online/accessories\"] > .cap > b"
+          ],
+          [
+            "a[href$=\"#online/accessories\"] > .cap > span"
+          ],
+          [
+            "a[href$=\"#in-person/luggage\"] > .cap > b"
+          ],
+          [
+            "a[href$=\"#in-person/luggage\"] > .cap > span"
+          ],
+          [
+            "a[href$=\"#in-person/emergency\"] > .cap > b"
+          ],
+          [
+            "a[href$=\"#in-person/emergency\"] > .cap > span"
+          ],
+          [
+            ".purpose-mini > p"
+          ],
+          [
+            ".path[href$=\"#online\"][data-depth=\"\"] > .path-num"
+          ],
+          [
+            ".path[href$=\"#online\"][data-depth=\"\"] > .path-num > .arrow"
+          ],
+          [
+            ".path[href$=\"#online\"][data-depth=\"\"] > b"
+          ],
+          [
+            ".path[href$=\"#online\"][data-depth=\"\"] > span"
+          ],
+          [
+            ".path[href$=\"#in-person\"][data-depth=\"\"] > .path-num"
+          ],
+          [
+            ".path[href$=\"#in-person\"][data-depth=\"\"] > .path-num > .arrow"
+          ],
+          [
+            ".path[href$=\"#in-person\"][data-depth=\"\"] > b"
+          ],
+          [
+            ".path[href$=\"#in-person\"][data-depth=\"\"] > span"
+          ],
+          [
+            ".path[href$=\"#test\"][data-depth=\"\"] > .path-num"
+          ],
+          [
+            ".path[href$=\"#test\"][data-depth=\"\"] > .path-num > .arrow"
+          ],
+          [
+            ".path[href$=\"#test\"][data-depth=\"\"] > b"
+          ],
+          [
+            ".path[href$=\"#test\"][data-depth=\"\"] > span"
+          ],
+          [
+            ".path[href$=\"#checklist\"][data-depth=\"\"] > .path-num"
+          ],
+          [
+            ".path[href$=\"#checklist\"][data-depth=\"\"] > .path-num > .arrow"
+          ],
+          [
+            ".path[href$=\"#checklist\"][data-depth=\"\"] > b"
+          ],
+          [
+            ".path[href$=\"#checklist\"][data-depth=\"\"] > span"
+          ],
+          [
+            ".featured-pick > .eyebrow"
+          ],
+          [
+            ".feature-top > div:nth-child(2) > h3"
+          ],
+          [
+            ".feature-top > div:nth-child(2) > p"
+          ],
+          [
+            ".gold.sm[href$=\"#online/webcam\"]"
+          ],
+          [
+            ".feature-bottom > div:nth-child(1) > b"
+          ],
+          [
+            ".feature-bottom > div:nth-child(1) > p"
+          ],
+          [
+            ".feature-bottom > div:nth-child(2) > b"
+          ],
+          [
+            ".feature-bottom > div:nth-child(2) > p"
+          ],
+          [
+            ".research-note"
+          ],
+          [
+            ".research-note > a[target=\"_blank\"][rel=\"noopener noreferrer\"]"
+          ],
+          [
+            ".footer-script"
+          ]
+        ]
+      }
+    ],
+    "passes": 38,
+    "violations": [],
+    "timestamp": "2026-10-03T02:36:07.689Z"
+  },
+  {
+    "route": "online",
+    "width": 1440,
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "targets": [
+          [
+            "span > b"
+          ],
+          [
+            "span > small"
+          ],
+          [
+            "#railnav > a[data-nav=\"home\"][href$=\"#home\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"online\"][aria-current=\"page\"][href$=\"#online\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"in-person\"][href$=\"#in-person\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"test\"][href$=\"#test\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"checklist\"][href$=\"#checklist\"] > span"
+          ],
+          [
+            "a[data-nav=\"dress\"][href$=\"#dress\"] > span"
+          ],
+          [
+            "a[href$=\"#wardrobe\"][data-nav=\"wardrobe\"] > span"
+          ],
+          [
+            "a[href$=\"#community\"][data-nav=\"community\"] > span"
+          ],
+          [
+            "a[href$=\"#experts\"][data-nav=\"experts\"] > span"
+          ],
+          [
+            "a[href$=\"#prime-day\"][data-nav=\"prime-day\"] > span"
+          ],
+          [
+            ".kit > b"
+          ],
+          [
+            "#kitCountRail"
+          ],
+          [
+            ".kit > a[href$=\"#kit\"]"
+          ],
+          [
+            "#railReady"
+          ],
+          [
+            ".rail-purpose"
+          ],
+          [
+            ".title > b"
+          ],
+          [
+            ".title > span"
+          ],
+          [
+            ".tag"
+          ],
+          [
+            "#page-online > .route-intro > .intro-copy > .eyebrow"
+          ],
+          [
+            "#page-online > .route-intro > .intro-copy > h1"
+          ],
+          [
+            "#page-online > .route-intro > .intro-copy > p"
+          ],
+          [
+            "#page-online > .route-intro > .intro-number[aria-hidden=\"true\"]"
+          ],
+          [
+            ".ecosystem-strip > div:nth-child(1) > .eyebrow"
+          ],
+          [
+            ".ecosystem-strip > div:nth-child(1) > h2"
+          ],
+          [
+            ".ecosystem-strip > div:nth-child(1) > p"
+          ],
+          [
+            "button[data-eco=\"none\"]"
+          ],
+          [
+            "button[data-eco=\"Elgato\"]"
+          ],
+          [
+            "button[data-eco=\"Logitech\"]"
+          ],
+          [
+            "button[data-eco=\"Sony\"]"
+          ],
+          [
+            "button[data-eco=\"Canon\"]"
+          ],
+          [
+            "button[data-eco=\"Nikon\"]"
+          ],
+          [
+            "button[data-eco=\"Shure\"]"
+          ],
+          [
+            "button[data-eco=\"DJI\"]"
+          ],
+          [
+            ".ecosystem-answer"
+          ],
+          [
+            ".tier.in.pending:nth-child(1) > .product-visual > .product-wordmark"
+          ],
+          [
+            ".tier.in.pending:nth-child(1) > .product-visual > .product-wordmark > small"
+          ],
+          [
+            ".tier.in.pending:nth-child(1) > .product-visual > .photo-link[target=\"_blank\"][rel=\"noopener noreferrer\"]"
+          ],
+          [
+            ".tier.in.pending:nth-child(1) > .product-content > .actions > .gold.sm[target=\"_blank\"]"
+          ],
+          [
+            ".pick > .product-visual > .product-wordmark"
+          ],
+          [
+            ".pick > .product-visual > .product-wordmark > small"
+          ],
+          [
+            ".pick > .product-visual > .photo-link[target=\"_blank\"][rel=\"noopener noreferrer\"]"
+          ],
+          [
+            ".pick > .product-content > .actions > .gold.sm[target=\"_blank\"]"
+          ],
+          [
+            ".tier.in.pending:nth-child(3) > .product-visual > .photo-link[target=\"_blank\"][rel=\"noopener noreferrer\"]"
+          ],
+          [
+            ".tier.in.pending:nth-child(3) > .product-content > .actions > .gold.sm[target=\"_blank\"]"
+          ],
+          [
+            ".tier.in.pending:nth-child(4) > .product-visual > .product-wordmark"
+          ],
+          [
+            ".tier.in.pending:nth-child(4) > .product-visual > .product-wordmark > small"
+          ],
+          [
+            ".tier.in.pending:nth-child(4) > .product-visual > .photo-link[target=\"_blank\"][rel=\"noopener noreferrer\"]"
+          ],
+          [
+            ".tier.in.pending:nth-child(4) > .product-content > .actions > .gold.sm[target=\"_blank\"]"
+          ]
+        ]
+      }
+    ],
+    "passes": 47,
+    "violations": [],
+    "timestamp": "2026-10-03T02:36:09.068Z"
+  },
+  {
+    "route": "in-person",
+    "width": 1440,
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "targets": [
+          [
+            "span > b"
+          ],
+          [
+            "span > small"
+          ],
+          [
+            "#railnav > a[data-nav=\"home\"][href$=\"#home\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"online\"][href$=\"#online\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"in-person\"][aria-current=\"page\"][href$=\"#in-person\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"test\"][href$=\"#test\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"checklist\"][href$=\"#checklist\"] > span"
+          ],
+          [
+            "a[data-nav=\"dress\"][href$=\"#dress\"] > span"
+          ],
+          [
+            "a[href$=\"#wardrobe\"][data-nav=\"wardrobe\"] > span"
+          ],
+          [
+            "a[href$=\"#community\"][data-nav=\"community\"] > span"
+          ],
+          [
+            "a[href$=\"#experts\"][data-nav=\"experts\"] > span"
+          ],
+          [
+            "a[href$=\"#prime-day\"][data-nav=\"prime-day\"] > span"
+          ],
+          [
+            ".kit > b"
+          ],
+          [
+            "#kitCountRail"
+          ],
+          [
+            ".kit > a[href$=\"#kit\"]"
+          ],
+          [
+            "#railReady"
+          ],
+          [
+            ".rail-purpose"
+          ],
+          [
+            ".title > b"
+          ],
+          [
+            ".title > span"
+          ],
+          [
+            ".tag"
+          ],
+          [
+            "#page-in-person > .travel.route-intro > .intro-copy > .eyebrow"
+          ],
+          [
+            "#page-in-person > .travel.route-intro > .intro-copy > h1"
+          ],
+          [
+            "#page-in-person > .travel.route-intro > .intro-copy > p"
+          ],
+          [
+            "#page-in-person > .travel.route-intro > .intro-number[aria-hidden=\"true\"]"
+          ],
+          [
+            "#catalog-in-person > .tiers > .tier:nth-child(1) > .product-visual > .product-wordmark"
+          ],
+          [
+            "#catalog-in-person > .tiers > .tier:nth-child(1) > .product-visual > .product-wordmark > small"
+          ],
+          [
+            "#catalog-in-person > .tiers > .pick.tier > .product-visual > .product-wordmark"
+          ],
+          [
+            "#catalog-in-person > .tiers > .pick.tier > .product-visual > .product-wordmark > small"
+          ],
+          [
+            "#catalog-in-person > .tiers > .pick.tier > .product-visual > .photo-link[target=\"_blank\"][rel=\"noopener noreferrer\"]"
+          ],
+          [
+            "#catalog-in-person > .tiers > .pick.tier > .product-content > .actions > .gold[target=\"_blank\"][rel=\"noopener noreferrer\"]"
+          ],
+          [
+            ".tier.pending:nth-child(3) > .product-visual > .product-wordmark"
+          ],
+          [
+            ".tier.pending:nth-child(3) > .product-visual > .product-wordmark > small"
+          ],
+          [
+            "#catalog-in-person > .tiers > .tier.pending:nth-child(4) > .product-visual > .product-wordmark"
+          ],
+          [
+            "#catalog-in-person > .tiers > .tier.pending:nth-child(4) > .product-visual > .product-wordmark > small"
+          ]
+        ]
+      }
+    ],
+    "passes": 46,
+    "violations": [],
+    "timestamp": "2026-10-03T02:36:10.697Z"
+  },
+  {
+    "route": "test",
+    "width": 1440,
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "targets": [
+          [
+            "span > b"
+          ],
+          [
+            "span > small"
+          ],
+          [
+            "#railnav > a[data-nav=\"home\"][href$=\"#home\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"online\"][href$=\"#online\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"in-person\"][href$=\"#in-person\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"test\"][aria-current=\"page\"][href$=\"#test\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"checklist\"][href$=\"#checklist\"] > span"
+          ],
+          [
+            "a[data-nav=\"dress\"][href$=\"#dress\"] > span"
+          ],
+          [
+            "a[href$=\"#wardrobe\"][data-nav=\"wardrobe\"] > span"
+          ],
+          [
+            "a[href$=\"#community\"][data-nav=\"community\"] > span"
+          ],
+          [
+            "a[href$=\"#experts\"][data-nav=\"experts\"] > span"
+          ],
+          [
+            "a[href$=\"#prime-day\"][data-nav=\"prime-day\"] > span"
+          ],
+          [
+            ".kit > b"
+          ],
+          [
+            "#kitCountRail"
+          ],
+          [
+            ".kit > a[href$=\"#kit\"]"
+          ],
+          [
+            "#railReady"
+          ],
+          [
+            ".rail-purpose"
+          ],
+          [
+            ".title > b"
+          ],
+          [
+            ".title > span"
+          ],
+          [
+            ".tag"
+          ],
+          [
+            "#page-test > .route-intro > .intro-copy > .eyebrow"
+          ],
+          [
+            "#page-test > .route-intro > .intro-copy > h1"
+          ],
+          [
+            "#page-test > .route-intro > .intro-copy > p"
+          ],
+          [
+            "#page-test > .route-intro > .intro-number[aria-hidden=\"true\"]"
+          ],
+          [
+            ".head > span"
+          ],
+          [
+            ".eye > span"
+          ],
+          [
+            "#camEmpty > b"
+          ],
+          [
+            "#camEmpty > span"
+          ],
+          [
+            "#camStart"
+          ],
+          [
+            "#micStart"
+          ],
+          [
+            ".studio-verdict > h3"
+          ],
+          [
+            "#verdict"
+          ]
+        ]
+      },
+      {
+        "id": "video-caption",
+        "targets": [
+          [
+            "#cam"
+          ]
+        ]
+      }
+    ],
+    "passes": 41,
+    "violations": [],
+    "timestamp": "2026-10-03T02:36:12.358Z"
+  },
+  {
+    "route": "checklist",
+    "width": 1440,
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "targets": [
+          [
+            "span > b"
+          ],
+          [
+            "span > small"
+          ],
+          [
+            "#railnav > a[data-nav=\"home\"][href$=\"#home\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"online\"][href$=\"#online\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"in-person\"][href$=\"#in-person\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"test\"][href$=\"#test\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"checklist\"][aria-current=\"page\"][href$=\"#checklist\"] > span"
+          ],
+          [
+            "a[data-nav=\"dress\"][href$=\"#dress\"] > span"
+          ],
+          [
+            "a[href$=\"#wardrobe\"][data-nav=\"wardrobe\"] > span"
+          ],
+          [
+            "a[href$=\"#community\"][data-nav=\"community\"] > span"
+          ],
+          [
+            "a[href$=\"#experts\"][data-nav=\"experts\"] > span"
+          ],
+          [
+            "a[href$=\"#prime-day\"][data-nav=\"prime-day\"] > span"
+          ],
+          [
+            ".kit > b"
+          ],
+          [
+            "#kitCountRail"
+          ],
+          [
+            ".kit > a[href$=\"#kit\"]"
+          ],
+          [
+            "#railReady"
+          ],
+          [
+            ".rail-purpose"
+          ],
+          [
+            ".title > b"
+          ],
+          [
+            ".title > span"
+          ],
+          [
+            ".tag"
+          ],
+          [
+            ".journey > .intro-copy > .eyebrow"
+          ],
+          [
+            ".journey > .intro-copy > h1"
+          ],
+          [
+            ".journey > .intro-copy > p"
+          ],
+          [
+            ".journey > .intro-number[aria-hidden=\"true\"]"
+          ],
+          [
+            "#modeOnline"
+          ]
+        ]
+      }
+    ],
+    "passes": 42,
+    "violations": [],
+    "timestamp": "2026-10-03T02:36:13.708Z"
+  },
+  {
+    "route": "dress",
+    "width": 1440,
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "targets": [
+          [
+            "span > b"
+          ],
+          [
+            "span > small"
+          ],
+          [
+            "#railnav > a[data-nav=\"home\"][href$=\"#home\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"online\"][href$=\"#online\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"in-person\"][href$=\"#in-person\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"test\"][href$=\"#test\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"checklist\"][href$=\"#checklist\"] > span"
+          ],
+          [
+            "a[data-nav=\"dress\"][aria-current=\"page\"][href$=\"#dress\"] > span"
+          ],
+          [
+            "a[data-nav=\"wardrobe\"][href$=\"#wardrobe\"] > span"
+          ],
+          [
+            "a[href$=\"#community\"][data-nav=\"community\"] > span"
+          ],
+          [
+            "a[href$=\"#experts\"][data-nav=\"experts\"] > span"
+          ],
+          [
+            "a[href$=\"#prime-day\"][data-nav=\"prime-day\"] > span"
+          ],
+          [
+            ".kit > b"
+          ],
+          [
+            "#kitCountRail"
+          ],
+          [
+            ".kit > a[href$=\"#kit\"]"
+          ],
+          [
+            "#railReady"
+          ],
+          [
+            ".rail-purpose"
+          ],
+          [
+            ".title > b"
+          ],
+          [
+            ".title > span"
+          ],
+          [
+            ".tag"
+          ],
+          [
+            "#page-dress > .fashion.route-intro > .intro-copy > .eyebrow"
+          ],
+          [
+            "#page-dress > .fashion.route-intro > .intro-copy > h1"
+          ],
+          [
+            "#page-dress > .fashion.route-intro > .intro-copy > p"
+          ],
+          [
+            "#page-dress > .fashion.route-intro > .intro-number[aria-hidden=\"true\"]"
+          ],
+          [
+            "#figure > .cap"
+          ],
+          [
+            "label[for=\"facePhoto\"]"
+          ],
+          [
+            "#faceClear"
+          ],
+          [
+            ".look-preview > .note"
+          ],
+          [
+            "#saveLook"
+          ]
+        ]
+      }
+    ],
+    "passes": 44,
+    "violations": [],
+    "timestamp": "2026-10-03T02:36:15.105Z"
+  },
+  {
+    "route": "wardrobe",
+    "width": 1440,
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "targets": [
+          [
+            "span > b"
+          ],
+          [
+            "span > small"
+          ],
+          [
+            "#railnav > a[data-nav=\"home\"][href$=\"#home\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"online\"][href$=\"#online\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"in-person\"][href$=\"#in-person\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"test\"][href$=\"#test\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"checklist\"][href$=\"#checklist\"] > span"
+          ],
+          [
+            "a[data-nav=\"dress\"][href$=\"#dress\"] > span"
+          ],
+          [
+            "a[data-nav=\"wardrobe\"][aria-current=\"page\"][href$=\"#wardrobe\"] > span"
+          ],
+          [
+            "a[href$=\"#community\"][data-nav=\"community\"] > span"
+          ],
+          [
+            "a[href$=\"#experts\"][data-nav=\"experts\"] > span"
+          ],
+          [
+            "a[href$=\"#prime-day\"][data-nav=\"prime-day\"] > span"
+          ],
+          [
+            ".kit > b"
+          ],
+          [
+            "#kitCountRail"
+          ],
+          [
+            ".kit > a[href$=\"#kit\"]"
+          ],
+          [
+            "#railReady"
+          ],
+          [
+            ".rail-purpose"
+          ],
+          [
+            ".title > b"
+          ],
+          [
+            ".title > span"
+          ],
+          [
+            ".tag"
+          ],
+          [
+            "#page-wardrobe > .travel.route-intro > .intro-copy > .eyebrow"
+          ],
+          [
+            "#page-wardrobe > .travel.route-intro > .intro-copy > h1"
+          ],
+          [
+            "#page-wardrobe > .travel.route-intro > .intro-copy > p"
+          ],
+          [
+            "#page-wardrobe > .travel.route-intro > .intro-number[aria-hidden=\"true\"]"
+          ],
+          [
+            ".gold.sm[href$=\"#dress\"]"
+          ]
+        ]
+      }
+    ],
+    "passes": 39,
+    "violations": [],
+    "timestamp": "2026-10-03T02:36:16.455Z"
+  },
+  {
+    "route": "community",
+    "width": 1440,
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "targets": [
+          [
+            "span > b"
+          ],
+          [
+            "span > small"
+          ],
+          [
+            "#railnav > a[data-nav=\"home\"][href$=\"#home\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"online\"][href$=\"#online\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"in-person\"][href$=\"#in-person\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"test\"][href$=\"#test\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"checklist\"][href$=\"#checklist\"] > span"
+          ],
+          [
+            "a[data-nav=\"dress\"][href$=\"#dress\"] > span"
+          ],
+          [
+            "a[data-nav=\"wardrobe\"][href$=\"#wardrobe\"] > span"
+          ],
+          [
+            "a[href$=\"#community\"][data-nav=\"community\"][aria-current=\"page\"] > span"
+          ],
+          [
+            "a[href$=\"#experts\"][data-nav=\"experts\"] > span"
+          ],
+          [
+            "a[href$=\"#prime-day\"][data-nav=\"prime-day\"] > span"
+          ],
+          [
+            ".kit > b"
+          ],
+          [
+            "#kitCountRail"
+          ],
+          [
+            ".kit > a[href$=\"#kit\"]"
+          ],
+          [
+            "#railReady"
+          ],
+          [
+            ".rail-purpose"
+          ],
+          [
+            ".title > b"
+          ],
+          [
+            ".title > span"
+          ],
+          [
+            ".tag"
+          ],
+          [
+            "#page-community > .fashion.route-intro > .intro-copy > .eyebrow"
+          ],
+          [
+            "#page-community > .fashion.route-intro > .intro-copy > h1"
+          ],
+          [
+            "#page-community > .fashion.route-intro > .intro-copy > p"
+          ],
+          [
+            "#page-community > .fashion.route-intro > .intro-number[aria-hidden=\"true\"]"
+          ],
+          [
+            "button[data-example=\"0\"]"
+          ],
+          [
+            "button[data-example=\"1\"]"
+          ],
+          [
+            "button[data-example=\"2\"]"
+          ]
+        ]
+      }
+    ],
+    "passes": 39,
+    "violations": [],
+    "timestamp": "2026-10-03T02:36:16.758Z"
+  },
+  {
+    "route": "experts",
+    "width": 1440,
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "targets": [
+          [
+            "span > b"
+          ],
+          [
+            "span > small"
+          ],
+          [
+            "#railnav > a[data-nav=\"home\"][href$=\"#home\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"online\"][href$=\"#online\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"in-person\"][href$=\"#in-person\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"test\"][href$=\"#test\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"checklist\"][href$=\"#checklist\"] > span"
+          ],
+          [
+            "a[data-nav=\"dress\"][href$=\"#dress\"] > span"
+          ],
+          [
+            "a[data-nav=\"wardrobe\"][href$=\"#wardrobe\"] > span"
+          ],
+          [
+            "a[href$=\"#community\"][data-nav=\"community\"] > span"
+          ],
+          [
+            "a[href$=\"#experts\"][data-nav=\"experts\"][aria-current=\"page\"] > span"
+          ],
+          [
+            "a[href$=\"#prime-day\"][data-nav=\"prime-day\"] > span"
+          ],
+          [
+            ".kit > b"
+          ],
+          [
+            "#kitCountRail"
+          ],
+          [
+            ".kit > a[href$=\"#kit\"]"
+          ],
+          [
+            "#railReady"
+          ],
+          [
+            ".rail-purpose"
+          ],
+          [
+            ".title > b"
+          ],
+          [
+            ".title > span"
+          ],
+          [
+            ".tag"
+          ],
+          [
+            "#page-experts > .route-intro > .intro-copy > .eyebrow"
+          ],
+          [
+            "#page-experts > .route-intro > .intro-copy > h1"
+          ],
+          [
+            "#page-experts > .route-intro > .intro-copy > p"
+          ],
+          [
+            "#page-experts > .route-intro > .intro-number[aria-hidden=\"true\"]"
+          ],
+          [
+            ".expert-feature.in:nth-child(1) > .expert-poster"
+          ],
+          [
+            ".expert-feature.in:nth-child(2) > .expert-poster"
+          ],
+          [
+            ".expert-feature.in:nth-child(3) > .expert-poster"
+          ],
+          [
+            ".expert-feature.in:nth-child(4) > .expert-poster"
+          ],
+          [
+            ".expert-feature.pending:nth-child(5) > .expert-poster"
+          ],
+          [
+            ".expert-feature.pending:nth-child(6) > .expert-poster"
+          ],
+          [
+            ".expert-feature.pending:nth-child(7) > .expert-poster"
+          ],
+          [
+            ".expert-feature.pending:nth-child(8) > .expert-poster"
+          ],
+          [
+            ".expert-feature.pending:nth-child(9) > .expert-poster"
+          ],
+          [
+            ".expert-feature.pending:nth-child(10) > .expert-poster"
+          ],
+          [
+            ".expert-feature.pending:nth-child(11) > .expert-poster"
+          ],
+          [
+            ".expert-feature.pending:nth-child(12) > .expert-poster"
+          ],
+          [
+            ".expert-feature.pending:nth-child(13) > .expert-poster"
+          ]
+        ]
+      }
+    ],
+    "passes": 39,
+    "violations": [],
+    "timestamp": "2026-10-03T02:36:18.156Z"
+  },
+  {
+    "route": "prime-day",
+    "width": 1440,
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "targets": [
+          [
+            "span > b"
+          ],
+          [
+            "span > small"
+          ],
+          [
+            "#railnav > a[data-nav=\"home\"][href$=\"#home\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"online\"][href$=\"#online\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"in-person\"][href$=\"#in-person\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"test\"][href$=\"#test\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"checklist\"][href$=\"#checklist\"] > span"
+          ],
+          [
+            "a[data-nav=\"dress\"][href$=\"#dress\"] > span"
+          ],
+          [
+            "a[data-nav=\"wardrobe\"][href$=\"#wardrobe\"] > span"
+          ],
+          [
+            "a[href$=\"#community\"][data-nav=\"community\"] > span"
+          ],
+          [
+            "a[href$=\"#experts\"][data-nav=\"experts\"] > span"
+          ],
+          [
+            "a[href$=\"#prime-day\"][data-nav=\"prime-day\"][aria-current=\"page\"] > span"
+          ],
+          [
+            ".kit > b"
+          ],
+          [
+            "#kitCountRail"
+          ],
+          [
+            ".kit > a[href$=\"#kit\"]"
+          ],
+          [
+            "#railReady"
+          ],
+          [
+            ".rail-purpose"
+          ],
+          [
+            ".title > b"
+          ],
+          [
+            ".title > span"
+          ],
+          [
+            ".tag"
+          ],
+          [
+            "#page-prime-day > .travel.route-intro > .intro-copy > .eyebrow"
+          ],
+          [
+            "#page-prime-day > .travel.route-intro > .intro-copy > h1"
+          ],
+          [
+            "#page-prime-day > .travel.route-intro > .intro-copy > p"
+          ],
+          [
+            "#page-prime-day > .travel.route-intro > .intro-number[aria-hidden=\"true\"]"
+          ],
+          [
+            ".pick.tier.in:nth-child(1) > .product-visual > .product-wordmark"
+          ],
+          [
+            ".pick.tier.in:nth-child(1) > .product-visual > .product-wordmark > small"
+          ],
+          [
+            ".pick.tier.in:nth-child(1) > .product-visual > .photo-link[target=\"_blank\"][rel=\"noopener noreferrer\"]"
+          ],
+          [
+            ".pick.tier.in:nth-child(1) > .product-content > .actions > .gold.sm[target=\"_blank\"]"
+          ],
+          [
+            ".shopping-story > .pick.tier.in:nth-child(2) > .product-visual > .product-wordmark"
+          ],
+          [
+            ".shopping-story > .pick.tier.in:nth-child(2) > .product-visual > .product-wordmark > small"
+          ],
+          [
+            ".shopping-story > .pick.tier.in:nth-child(2) > .product-visual > .photo-link[target=\"_blank\"][rel=\"noopener noreferrer\"]"
+          ],
+          [
+            ".shopping-story > .pick.tier.in:nth-child(2) > .product-content > .actions > .gold.sm[target=\"_blank\"]"
+          ],
+          [
+            ".pick.tier.pending:nth-child(3) > .product-visual > .product-wordmark"
+          ],
+          [
+            ".pick.tier.pending:nth-child(3) > .product-visual > .product-wordmark > small"
+          ],
+          [
+            ".pick.tier.pending:nth-child(3) > .product-visual > .photo-link[target=\"_blank\"][rel=\"noopener noreferrer\"]"
+          ],
+          [
+            ".pick.tier.pending:nth-child(3) > .product-content > .actions > .gold.sm[target=\"_blank\"]"
+          ],
+          [
+            ".pick.tier.pending:nth-child(4) > .product-visual > .product-wordmark"
+          ],
+          [
+            ".pick.tier.pending:nth-child(4) > .product-visual > .product-wordmark > small"
+          ],
+          [
+            ".pick.tier.pending:nth-child(4) > .product-visual > .photo-link[target=\"_blank\"][rel=\"noopener noreferrer\"]"
+          ],
+          [
+            ".pick.tier.pending:nth-child(4) > .product-content > .actions > .gold.sm[target=\"_blank\"]"
+          ]
+        ]
+      }
+    ],
+    "passes": 42,
+    "violations": [],
+    "timestamp": "2026-10-03T02:36:19.600Z"
+  },
+  {
+    "route": "kit",
+    "width": 1440,
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "targets": [
+          [
+            "span > b"
+          ],
+          [
+            "span > small"
+          ],
+          [
+            "#railnav > a[data-nav=\"home\"][href$=\"#home\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"online\"][href$=\"#online\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"in-person\"][href$=\"#in-person\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"test\"][href$=\"#test\"] > span"
+          ],
+          [
+            "#railnav > a[data-nav=\"checklist\"][href$=\"#checklist\"] > span"
+          ],
+          [
+            "a[data-nav=\"dress\"][href$=\"#dress\"] > span"
+          ],
+          [
+            "a[data-nav=\"wardrobe\"][href$=\"#wardrobe\"] > span"
+          ],
+          [
+            "a[href$=\"#community\"][data-nav=\"community\"] > span"
+          ],
+          [
+            "a[href$=\"#experts\"][data-nav=\"experts\"] > span"
+          ],
+          [
+            "a[href$=\"#prime-day\"][data-nav=\"prime-day\"] > span"
+          ],
+          [
+            ".kit > b"
+          ],
+          [
+            "#kitCountRail"
+          ],
+          [
+            ".kit > a[href$=\"#kit\"]"
+          ],
+          [
+            "#railReady"
+          ],
+          [
+            ".rail-purpose"
+          ],
+          [
+            ".title > b"
+          ],
+          [
+            ".title > span"
+          ],
+          [
+            ".tag"
+          ],
+          [
+            "#page-kit > .travel.route-intro > .intro-copy > .eyebrow"
+          ],
+          [
+            "#page-kit > .travel.route-intro > .intro-copy > h1"
+          ],
+          [
+            "#page-kit > .travel.route-intro > .intro-copy > p"
+          ],
+          [
+            "#page-kit > .travel.route-intro > .intro-number[aria-hidden=\"true\"]"
+          ],
+          [
+            ".empty-state > .eyebrow"
+          ],
+          [
+            ".empty-state > h3"
+          ],
+          [
+            ".empty-state > p"
+          ],
+          [
+            ".gold.btn[href$=\"#test\"]"
+          ],
+          [
+            ".ghost.btn[href$=\"#online\"]"
+          ]
+        ]
+      }
+    ],
+    "passes": 39,
+    "violations": [],
+    "timestamp": "2026-10-03T02:36:20.914Z"
+  },
+  {
+    "route": "home",
+    "width": 390,
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "targets": [
+          [
+            ".guide-brand"
+          ],
+          [
+            ".guide-brand > small"
+          ],
+          [
+            ".guide-title"
+          ],
+          [
+            ".guide-title > small"
+          ],
+          [
+            ".hero-copy > h1"
+          ],
+          [
+            ".hero-copy > p"
+          ],
+          [
+            ".gold.btn[href$=\"#online\"]"
+          ],
+          [
+            ".tile[href$=\"#online/webcam\"][data-depth=\"\"] > .cap > b"
+          ],
+          [
+            ".tile[href$=\"#online/webcam\"][data-depth=\"\"] > .cap > span"
+          ],
+          [
+            "a[href$=\"#online/mic\"] > .cap > b"
+          ],
+          [
+            "a[href$=\"#online/mic\"] > .cap > span"
+          ],
+          [
+            "a[href$=\"#online/light\"] > .cap > b"
+          ],
+          [
+            "a[href$=\"#online/light\"] > .cap > span"
+          ],
+          [
+            "a[href$=\"#online/accessories\"] > .cap > b"
+          ],
+          [
+            "a[href$=\"#online/accessories\"] > .cap > span"
+          ],
+          [
+            "a[href$=\"#in-person/luggage\"] > .cap > b"
+          ],
+          [
+            "a[href$=\"#in-person/luggage\"] > .cap > span"
+          ],
+          [
+            "a[href$=\"#in-person/emergency\"] > .cap > b"
+          ],
+          [
+            "a[href$=\"#in-person/emergency\"] > .cap > span"
+          ],
+          [
+            ".path[href$=\"#online\"][data-depth=\"\"] > .path-num"
+          ],
+          [
+            ".path[href$=\"#online\"][data-depth=\"\"] > .path-num > .arrow"
+          ],
+          [
+            ".path[href$=\"#online\"][data-depth=\"\"] > b"
+          ],
+          [
+            ".path[href$=\"#online\"][data-depth=\"\"] > span"
+          ],
+          [
+            ".path[href$=\"#in-person\"][data-depth=\"\"] > .path-num"
+          ],
+          [
+            ".path[href$=\"#in-person\"][data-depth=\"\"] > .path-num > .arrow"
+          ],
+          [
+            ".path[href$=\"#in-person\"][data-depth=\"\"] > b"
+          ],
+          [
+            ".path[href$=\"#in-person\"][data-depth=\"\"] > span"
+          ],
+          [
+            ".path[href$=\"#test\"][data-depth=\"\"] > .path-num"
+          ],
+          [
+            ".path[href$=\"#test\"][data-depth=\"\"] > .path-num > .arrow"
+          ],
+          [
+            ".path[href$=\"#test\"][data-depth=\"\"] > b"
+          ],
+          [
+            ".path[href$=\"#test\"][data-depth=\"\"] > span"
+          ],
+          [
+            ".path[href$=\"#checklist\"][data-depth=\"\"] > .path-num"
+          ],
+          [
+            ".path[href$=\"#checklist\"][data-depth=\"\"] > .path-num > .arrow"
+          ],
+          [
+            ".path[href$=\"#checklist\"][data-depth=\"\"] > b"
+          ],
+          [
+            ".path[href$=\"#checklist\"][data-depth=\"\"] > span"
+          ],
+          [
+            ".featured-pick > .eyebrow"
+          ],
+          [
+            ".feature-top > div:nth-child(2) > h3"
+          ],
+          [
+            ".feature-top > div:nth-child(2) > p"
+          ],
+          [
+            ".gold.sm[href$=\"#online/webcam\"]"
+          ],
+          [
+            ".feature-bottom > div:nth-child(1) > b"
+          ],
+          [
+            ".feature-bottom > div:nth-child(1) > p"
+          ],
+          [
+            ".feature-bottom > div:nth-child(2) > b"
+          ],
+          [
+            ".feature-bottom > div:nth-child(2) > p"
+          ],
+          [
+            ".research-note"
+          ],
+          [
+            ".research-note > a[target=\"_blank\"][rel=\"noopener noreferrer\"]"
+          ],
+          [
+            ".footer-script"
+          ],
+          [
+            "#mobilebar > a[data-nav=\"home\"][aria-current=\"page\"][href$=\"#home\"] > span"
+          ],
+          [
+            "#mobilebar > a[data-nav=\"online\"][href$=\"#online\"] > span"
+          ],
+          [
+            "#mobilebar > a[data-nav=\"in-person\"][href$=\"#in-person\"] > span"
+          ],
+          [
+            "#mobilebar > a[data-nav=\"test\"][href$=\"#test\"] > span"
+          ],
+          [
+            "#mobilebar > a[data-nav=\"checklist\"][href$=\"#checklist\"] > span"
+          ],
+          [
+            "#moreBtn > span"
+          ]
+        ]
+      }
+    ],
+    "passes": 37,
+    "violations": [],
+    "timestamp": "2026-10-03T02:36:22.266Z"
+  },
+  {
+    "route": "online",
+    "width": 390,
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "targets": [
+          [
+            ".title > b"
+          ],
+          [
+            ".title > span"
+          ],
+          [
+            "#page-online > .route-intro > .intro-copy > .eyebrow"
+          ],
+          [
+            "#page-online > .route-intro > .intro-copy > h1"
+          ],
+          [
+            "#page-online > .route-intro > .intro-copy > p"
+          ],
+          [
+            "#page-online > .route-intro > .intro-number[aria-hidden=\"true\"]"
+          ],
+          [
+            ".ecosystem-strip > div:nth-child(1) > .eyebrow"
+          ],
+          [
+            ".ecosystem-strip > div:nth-child(1) > h2"
+          ],
+          [
+            ".ecosystem-strip > div:nth-child(1) > p"
+          ],
+          [
+            "button[data-eco=\"none\"]"
+          ],
+          [
+            "button[data-eco=\"Elgato\"]"
+          ],
+          [
+            "button[data-eco=\"Logitech\"]"
+          ],
+          [
+            "button[data-eco=\"Sony\"]"
+          ],
+          [
+            "button[data-eco=\"Canon\"]"
+          ],
+          [
+            "button[data-eco=\"Nikon\"]"
+          ],
+          [
+            "button[data-eco=\"Shure\"]"
+          ],
+          [
+            "button[data-eco=\"DJI\"]"
+          ],
+          [
+            ".ecosystem-answer"
+          ],
+          [
+            ".tier.pending:nth-child(1) > .product-visual > .product-wordmark"
+          ],
+          [
+            ".tier.pending:nth-child(1) > .product-visual > .product-wordmark > small"
+          ],
+          [
+            ".tier.pending:nth-child(1) > .product-visual > .photo-link[target=\"_blank\"][rel=\"noopener noreferrer\"]"
+          ],
+          [
+            ".tier.pending:nth-child(1) > .product-content > .actions > .gold.sm[target=\"_blank\"]"
+          ],
+          [
+            ".tiers > .pick.tier.pending > .product-visual > .product-wordmark"
+          ],
+          [
+            ".tiers > .pick.tier.pending > .product-visual > .product-wordmark > small"
+          ],
+          [
+            ".tiers > .pick.tier.pending > .product-visual > .photo-link[target=\"_blank\"][rel=\"noopener noreferrer\"]"
+          ],
+          [
+            ".tiers > .pick.tier.pending > .product-content > .actions > .gold.sm[target=\"_blank\"]"
+          ],
+          [
+            ".tiers > .tier.pending:nth-child(3) > .product-visual > .photo-link[target=\"_blank\"][rel=\"noopener noreferrer\"]"
+          ],
+          [
+            ".tiers > .tier.pending:nth-child(3) > .product-content > .actions > .gold.sm[target=\"_blank\"]"
+          ],
+          [
+            "#catalog-online > .tiers > .tier.pending:nth-child(4) > .product-visual > .product-wordmark"
+          ],
+          [
+            "#catalog-online > .tiers > .tier.pending:nth-child(4) > .product-visual > .product-wordmark > small"
+          ],
+          [
+            ".tiers > .tier.pending:nth-child(4) > .product-visual > .photo-link[target=\"_blank\"][rel=\"noopener noreferrer\"]"
+          ],
+          [
+            ".tiers > .tier.pending:nth-child(4) > .product-content > .actions > .gold.sm[target=\"_blank\"]"
+          ]
+        ]
+      }
+    ],
+    "passes": 47,
+    "violations": [],
+    "timestamp": "2026-10-03T02:36:23.677Z"
+  },
+  {
+    "route": "in-person",
+    "width": 390,
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "targets": [
+          [
+            ".title > b"
+          ],
+          [
+            ".title > span"
+          ],
+          [
+            "#page-in-person > .travel.route-intro > .intro-copy > .eyebrow"
+          ],
+          [
+            "#page-in-person > .travel.route-intro > .intro-copy > h1"
+          ],
+          [
+            "#page-in-person > .travel.route-intro > .intro-copy > p"
+          ],
+          [
+            "#page-in-person > .travel.route-intro > .intro-number[aria-hidden=\"true\"]"
+          ],
+          [
+            "#catalog-in-person > .tiers > .tier.pending:nth-child(1) > .product-visual > .product-wordmark"
+          ],
+          [
+            "#catalog-in-person > .tiers > .tier.pending:nth-child(1) > .product-visual > .product-wordmark > small"
+          ],
+          [
+            "#catalog-in-person > .tiers > .pick.tier.pending > .product-visual > .product-wordmark"
+          ],
+          [
+            "#catalog-in-person > .tiers > .pick.tier.pending > .product-visual > .product-wordmark > small"
+          ],
+          [
+            "#catalog-in-person > .tiers > .pick.tier.pending > .product-visual > .photo-link[target=\"_blank\"][rel=\"noopener noreferrer\"]"
+          ],
+          [
+            "#catalog-in-person > .tiers > .pick.tier.pending > .product-content > .actions > .gold.sm[target=\"_blank\"]"
+          ],
+          [
+            ".tiers > .tier.pending:nth-child(3) > .product-visual > .product-wordmark"
+          ],
+          [
+            ".tiers > .tier.pending:nth-child(3) > .product-visual > .product-wordmark > small"
+          ],
+          [
+            "#catalog-in-person > .tiers > .tier.pending:nth-child(4) > .product-visual > .product-wordmark"
+          ],
+          [
+            "#catalog-in-person > .tiers > .tier.pending:nth-child(4) > .product-visual > .product-wordmark > small"
+          ]
+        ]
+      }
+    ],
+    "passes": 46,
+    "violations": [],
+    "timestamp": "2026-10-03T02:36:25.136Z"
+  },
+  {
+    "route": "test",
+    "width": 390,
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "targets": [
+          [
+            ".title > b"
+          ],
+          [
+            ".title > span"
+          ],
+          [
+            "#page-test > .route-intro > .intro-copy > .eyebrow"
+          ],
+          [
+            "#page-test > .route-intro > .intro-copy > h1"
+          ],
+          [
+            "#page-test > .route-intro > .intro-copy > p"
+          ],
+          [
+            "#page-test > .route-intro > .intro-number[aria-hidden=\"true\"]"
+          ],
+          [
+            ".head > span"
+          ],
+          [
+            ".eye > span"
+          ],
+          [
+            "#camEmpty > b"
+          ],
+          [
+            "#camEmpty > span"
+          ],
+          [
+            "#camStart"
+          ],
+          [
+            "#micStart"
+          ],
+          [
+            ".studio-verdict > h3"
+          ],
+          [
+            "#verdict"
+          ]
+        ]
+      },
+      {
+        "id": "video-caption",
+        "targets": [
+          [
+            "#cam"
+          ]
+        ]
+      }
+    ],
+    "passes": 40,
+    "violations": [],
+    "timestamp": "2026-10-03T02:36:26.462Z"
+  },
+  {
+    "route": "checklist",
+    "width": 390,
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "targets": [
+          [
+            ".title > b"
+          ],
+          [
+            ".title > span"
+          ],
+          [
+            ".journey > .intro-copy > .eyebrow"
+          ],
+          [
+            ".journey > .intro-copy > h1"
+          ],
+          [
+            ".journey > .intro-copy > p"
+          ],
+          [
+            ".journey > .intro-number[aria-hidden=\"true\"]"
+          ],
+          [
+            "#modeOnline"
+          ],
+          [
+            "#mobilebar > a[data-nav=\"home\"][href$=\"#home\"] > span"
+          ],
+          [
+            "#mobilebar > a[data-nav=\"online\"][href$=\"#online\"] > span"
+          ],
+          [
+            "#mobilebar > a[data-nav=\"in-person\"][href$=\"#in-person\"] > span"
+          ],
+          [
+            "#mobilebar > a[data-nav=\"test\"][href$=\"#test\"] > span"
+          ],
+          [
+            "#mobilebar > a[data-nav=\"checklist\"][aria-current=\"page\"][href$=\"#checklist\"] > span"
+          ],
+          [
+            "#moreBtn > span"
+          ]
+        ]
+      }
+    ],
+    "passes": 41,
+    "violations": [],
+    "timestamp": "2026-10-03T02:36:27.867Z"
+  },
+  {
+    "route": "dress",
+    "width": 390,
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "targets": [
+          [
+            ".title > b"
+          ],
+          [
+            ".title > span"
+          ],
+          [
+            "#page-dress > .fashion.route-intro > .intro-copy > .eyebrow"
+          ],
+          [
+            "#page-dress > .fashion.route-intro > .intro-copy > h1"
+          ],
+          [
+            "#page-dress > .fashion.route-intro > .intro-copy > p"
+          ],
+          [
+            "#page-dress > .fashion.route-intro > .intro-number[aria-hidden=\"true\"]"
+          ],
+          [
+            "#figure > .cap"
+          ],
+          [
+            "label[for=\"facePhoto\"]"
+          ],
+          [
+            "#faceClear"
+          ],
+          [
+            ".look-preview > .note"
+          ],
+          [
+            "#saveLook"
+          ],
+          [
+            "#mobilebar > a[data-nav=\"home\"][href$=\"#home\"] > span"
+          ],
+          [
+            "#mobilebar > a[data-nav=\"online\"][href$=\"#online\"] > span"
+          ]
+        ]
+      }
+    ],
+    "passes": 43,
+    "violations": [],
+    "timestamp": "2026-10-03T02:36:29.184Z"
+  },
+  {
+    "route": "wardrobe",
+    "width": 390,
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "targets": [
+          [
+            ".title > b"
+          ],
+          [
+            ".title > span"
+          ],
+          [
+            "#page-wardrobe > .travel.route-intro > .intro-copy > .eyebrow"
+          ],
+          [
+            "#page-wardrobe > .travel.route-intro > .intro-copy > h1"
+          ],
+          [
+            "#page-wardrobe > .travel.route-intro > .intro-copy > p"
+          ],
+          [
+            "#page-wardrobe > .travel.route-intro > .intro-number[aria-hidden=\"true\"]"
+          ],
+          [
+            ".gold.sm[href$=\"#dress\"]"
+          ]
+        ]
+      }
+    ],
+    "passes": 38,
+    "violations": [],
+    "timestamp": "2026-10-03T02:36:30.495Z"
+  },
+  {
+    "route": "community",
+    "width": 390,
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "targets": [
+          [
+            ".title > b"
+          ],
+          [
+            ".title > span"
+          ],
+          [
+            "#page-community > .fashion.route-intro > .intro-copy > .eyebrow"
+          ],
+          [
+            "#page-community > .fashion.route-intro > .intro-copy > h1"
+          ],
+          [
+            "#page-community > .fashion.route-intro > .intro-copy > p"
+          ],
+          [
+            "#page-community > .fashion.route-intro > .intro-number[aria-hidden=\"true\"]"
+          ],
+          [
+            "button[data-example=\"0\"]"
+          ],
+          [
+            "button[data-example=\"1\"]"
+          ],
+          [
+            "button[data-example=\"2\"]"
+          ],
+          [
+            "#mobilebar > a[data-nav=\"home\"][href$=\"#home\"] > span"
+          ],
+          [
+            "#mobilebar > a[data-nav=\"online\"][href$=\"#online\"] > span"
+          ]
+        ]
+      }
+    ],
+    "passes": 38,
+    "violations": [],
+    "timestamp": "2026-10-03T02:36:31.811Z"
+  },
+  {
+    "route": "experts",
+    "width": 390,
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "targets": [
+          [
+            ".title > b"
+          ],
+          [
+            ".title > span"
+          ],
+          [
+            "#page-experts > .route-intro > .intro-copy > .eyebrow"
+          ],
+          [
+            "#page-experts > .route-intro > .intro-copy > h1"
+          ],
+          [
+            "#page-experts > .route-intro > .intro-copy > p"
+          ],
+          [
+            "#page-experts > .route-intro > .intro-number[aria-hidden=\"true\"]"
+          ],
+          [
+            ".in.expert-feature:nth-child(1) > .expert-poster"
+          ],
+          [
+            ".in.expert-feature:nth-child(2) > .expert-poster"
+          ],
+          [
+            ".expert-feature.pending:nth-child(3) > .expert-poster"
+          ],
+          [
+            ".expert-feature.pending:nth-child(4) > .expert-poster"
+          ],
+          [
+            ".expert-feature.pending:nth-child(5) > .expert-poster"
+          ],
+          [
+            ".expert-feature.pending:nth-child(6) > .expert-poster"
+          ],
+          [
+            ".expert-feature.pending:nth-child(7) > .expert-poster"
+          ],
+          [
+            ".expert-feature.pending:nth-child(8) > .expert-poster"
+          ],
+          [
+            ".expert-feature.pending:nth-child(9) > .expert-poster"
+          ],
+          [
+            ".expert-feature.pending:nth-child(10) > .expert-poster"
+          ],
+          [
+            ".expert-feature.pending:nth-child(11) > .expert-poster"
+          ],
+          [
+            ".expert-feature.pending:nth-child(12) > .expert-poster"
+          ],
+          [
+            ".expert-feature.pending:nth-child(13) > .expert-poster"
+          ],
+          [
+            "#mobilebar > a[data-nav=\"home\"][href$=\"#home\"] > span"
+          ],
+          [
+            "#mobilebar > a[data-nav=\"online\"][href$=\"#online\"] > span"
+          ],
+          [
+            "#mobilebar > a[data-nav=\"in-person\"][href$=\"#in-person\"] > span"
+          ],
+          [
+            "#mobilebar > a[data-nav=\"test\"][href$=\"#test\"] > span"
+          ],
+          [
+            "#mobilebar > a[data-nav=\"checklist\"][href$=\"#checklist\"] > span"
+          ],
+          [
+            "#moreBtn > span"
+          ]
+        ]
+      }
+    ],
+    "passes": 38,
+    "violations": [],
+    "timestamp": "2026-10-03T02:36:33.201Z"
+  },
+  {
+    "route": "prime-day",
+    "width": 390,
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "targets": [
+          [
+            ".title > b"
+          ],
+          [
+            ".title > span"
+          ],
+          [
+            "#page-prime-day > .travel.route-intro > .intro-copy > .eyebrow"
+          ],
+          [
+            "#page-prime-day > .travel.route-intro > .intro-copy > h1"
+          ],
+          [
+            "#page-prime-day > .travel.route-intro > .intro-copy > p"
+          ],
+          [
+            "#page-prime-day > .travel.route-intro > .intro-number[aria-hidden=\"true\"]"
+          ],
+          [
+            ".pick.in.tier > .product-visual > .product-wordmark"
+          ],
+          [
+            ".pick.in.tier > .product-visual > .product-wordmark > small"
+          ],
+          [
+            ".pick.in.tier > .product-visual > .photo-link[target=\"_blank\"][rel=\"noopener noreferrer\"]"
+          ],
+          [
+            ".pick.in.tier > .product-content > .actions > .gold.sm[target=\"_blank\"]"
+          ],
+          [
+            ".shopping-story > .pick.tier.pending:nth-child(2) > .product-visual > .product-wordmark"
+          ],
+          [
+            ".shopping-story > .pick.tier.pending:nth-child(2) > .product-visual > .product-wordmark > small"
+          ],
+          [
+            ".shopping-story > .pick.tier.pending:nth-child(2) > .product-visual > .photo-link[target=\"_blank\"][rel=\"noopener noreferrer\"]"
+          ],
+          [
+            ".shopping-story > .pick.tier.pending:nth-child(2) > .product-content > .actions > .gold.sm[target=\"_blank\"]"
+          ],
+          [
+            ".pick.tier.pending:nth-child(3) > .product-visual > .product-wordmark"
+          ],
+          [
+            ".pick.tier.pending:nth-child(3) > .product-visual > .product-wordmark > small"
+          ],
+          [
+            ".pick.tier.pending:nth-child(3) > .product-visual > .photo-link[target=\"_blank\"][rel=\"noopener noreferrer\"]"
+          ],
+          [
+            ".pick.tier.pending:nth-child(3) > .product-content > .actions > .gold.sm[target=\"_blank\"]"
+          ],
+          [
+            ".pick.tier.pending:nth-child(4) > .product-visual > .product-wordmark"
+          ],
+          [
+            ".pick.tier.pending:nth-child(4) > .product-visual > .product-wordmark > small"
+          ],
+          [
+            ".pick.tier.pending:nth-child(4) > .product-visual > .photo-link[target=\"_blank\"][rel=\"noopener noreferrer\"]"
+          ],
+          [
+            ".pick.tier.pending:nth-child(4) > .product-content > .actions > .gold.sm[target=\"_blank\"]"
+          ]
+        ]
+      }
+    ],
+    "passes": 41,
+    "violations": [],
+    "timestamp": "2026-10-03T02:36:34.639Z"
+  },
+  {
+    "route": "kit",
+    "width": 390,
+    "incomplete": [
+      {
+        "id": "color-contrast",
+        "targets": [
+          [
+            ".title > b"
+          ],
+          [
+            ".title > span"
+          ],
+          [
+            "#page-kit > .travel.route-intro > .intro-copy > .eyebrow"
+          ],
+          [
+            "#page-kit > .travel.route-intro > .intro-copy > h1"
+          ],
+          [
+            "#page-kit > .travel.route-intro > .intro-copy > p"
+          ],
+          [
+            "#page-kit > .travel.route-intro > .intro-number[aria-hidden=\"true\"]"
+          ],
+          [
+            ".empty-state > .eyebrow"
+          ],
+          [
+            ".empty-state > h3"
+          ],
+          [
+            ".empty-state > p"
+          ],
+          [
+            ".gold.btn[href$=\"#test\"]"
+          ],
+          [
+            ".ghost.btn[href$=\"#online\"]"
+          ]
+        ]
+      }
+    ],
+    "passes": 38,
+    "violations": [],
+    "timestamp": "2026-10-03T02:36:35.928Z"
+  }
+]

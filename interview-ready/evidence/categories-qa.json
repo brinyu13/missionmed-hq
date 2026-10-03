@@ -1,0 +1,169 @@
+[
+  {
+    "route": "online/webcam",
+    "cards": 4,
+    "content": "Cameras & webcams",
+    "destinations": [
+      "https://www.amazon.com/dp/B085TFF7M1",
+      "https://www.amazon.com/dp/B09NBWWP79",
+      "https://www.amazon.com/dp/B0CW1S7XP5",
+      "https://www.amazon.com/dp/B0BTTV6CT1"
+    ],
+    "selected": [
+      "webcam"
+    ]
+  },
+  {
+    "route": "online/mic",
+    "cards": 4,
+    "content": "Microphones & audio",
+    "destinations": [
+      "https://www.amazon.com/dp/B07FKG8PGZ",
+      "https://www.amazon.com/dp/B00N1YPXW2",
+      "https://www.amazon.com/dp/B0CTJ7PVN1",
+      "https://www.amazon.com/dp/B0002E4Z8M"
+    ],
+    "selected": [
+      "mic"
+    ]
+  },
+  {
+    "route": "online/light",
+    "cards": 4,
+    "content": "Lighting",
+    "destinations": [
+      "https://www.amazon.com/dp/B097QZGRCQ",
+      "https://www.amazon.com/dp/B07L755X9G",
+      "https://www.amazon.com/dp/B07L755X9G"
+    ],
+    "selected": [
+      "light"
+    ]
+  },
+  {
+    "route": "online/mount",
+    "cards": 4,
+    "content": "Mounting & capture",
+    "destinations": [
+      "https://www.amazon.com/dp/B097376LKF",
+      "https://www.amazon.com/dp/B07K3FN5MR"
+    ],
+    "selected": [
+      "mount"
+    ]
+  },
+  {
+    "route": "online/background",
+    "cards": 4,
+    "content": "Background & room",
+    "destinations": [],
+    "selected": [
+      "background"
+    ]
+  },
+  {
+    "route": "online/power",
+    "cards": 4,
+    "content": "Power & connectivity",
+    "destinations": [
+      "https://www.amazon.com/dp/B08CK9X9Z8"
+    ],
+    "selected": [
+      "power"
+    ]
+  },
+  {
+    "route": "online/accessories",
+    "cards": 4,
+    "content": "Control & accessories",
+    "destinations": [
+      "https://www.amazon.com/dp/B0CVY4566H",
+      "https://www.amazon.com/dp/B09738CV2G",
+      "https://www.amazon.com/dp/B0BJL8SJ59"
+    ],
+    "selected": [
+      "accessories"
+    ]
+  },
+  {
+    "route": "in-person/padfolio",
+    "cards": 4,
+    "content": "Portfolio & documents",
+    "destinations": [
+      "https://www.amazon.com/dp/B004HMRQF4"
+    ],
+    "selected": [
+      "padfolio"
+    ]
+  },
+  {
+    "route": "in-person/documents",
+    "cards": 4,
+    "content": "Travel documents",
+    "destinations": [],
+    "selected": [
+      "documents"
+    ]
+  },
+  {
+    "route": "in-person/packing",
+    "cards": 4,
+    "content": "Packing cubes",
+    "destinations": [
+      "https://www.amazon.com/dp/B014VBGUCA",
+      "https://www.amazon.com/dp/B014VBGUCA",
+      "https://www.amazon.com/dp/B014VBGUCA",
+      "https://www.amazon.com/dp/B09KN3FMY7"
+    ],
+    "selected": [
+      "packing"
+    ]
+  },
+  {
+    "route": "in-person/garment",
+    "cards": 4,
+    "content": "Garment care",
+    "destinations": [],
+    "selected": [
+      "garment"
+    ]
+  },
+  {
+    "route": "in-person/powertravel",
+    "cards": 4,
+    "content": "Portable power",
+    "destinations": [],
+    "selected": [
+      "powertravel"
+    ]
+  },
+  {
+    "route": "in-person/grooming",
+    "cards": 4,
+    "content": "Finishing details",
+    "destinations": [],
+    "selected": [
+      "grooming"
+    ]
+  },
+  {
+    "route": "in-person/emergency",
+    "cards": 4,
+    "content": "Emergency kit",
+    "destinations": [
+      "https://www.amazon.com/dp/B0C4WC8QJR"
+    ],
+    "selected": [
+      "emergency"
+    ]
+  },
+  {
+    "route": "in-person/luggage",
+    "cards": 4,
+    "content": "Luggage & arrival",
+    "destinations": [],
+    "selected": [
+      "luggage"
+    ]
+  }
+]

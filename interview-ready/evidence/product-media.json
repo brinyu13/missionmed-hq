@@ -1,0 +1,39 @@
+[
+  {
+    "model": "Elgato Stream Deck MK.2",
+    "url": "https://keystone.corsair.com/en/Stream_Deck_MK_2/download/39044/?page=press_kit",
+    "source": "https://keystone.corsair.com/en/Stream_Deck_MK_2/press-kit/",
+    "purpose": "Public manufacturer press-kit image used for editorial product coverage in the local founder-review candidate.",
+    "sha256": "d29e2d635b1e19764456eb3b8e3cd660921cb1372e66c205c4eeef3bd9068aff",
+    "mime": "image/png",
+    "bytes": 7744447,
+    "observedOn": "2026-10-03",
+    "asin": "B09738CV2G",
+    "derivative": "img/product-stream-deck-mk2.webp",
+    "crop": [
+      1899,
+      502,
+      4726,
+      3045
+    ],
+    "derivativeSha256": "eb5272a1c259bd6f07b26ce60981a5f08b3e198d1abebf694d70505ffa818d45",
+    "localSource": "sources/product-stream-deck-mk2.png"
+  },
+  {
+    "model": "Elgato Facecam MK.2",
+    "asin": "B0CW1S7XP5",
+    "source": "https://keystone.corsair.com/en/Facecam_MK_2/download/30757/?page=press_kit",
+    "localSource": "sources/product-facecam-mk2.png",
+    "derivative": "img/product-facecam-mk2.webp",
+    "sha256": "68101445bd2c269d3d87bd45be6e056f79babf84caccd1150e7e8e5081b16944",
+    "derivativeSha256": "24f88538c59ed48c82cec523e3fe350d52edcd7c530ae241dbcaefab3078248f",
+    "observedAt": "2026-10-03T01:35:38.512728+00:00",
+    "use": "Public manufacturer press-kit product image for editorial product identification in local founder review. Broader commercial reuse requires rights review.",
+    "crop": [
+      547,
+      675,
+      1613,
+      1641
+    ]
+  }
+]

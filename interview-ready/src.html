@@ -1,0 +1,748 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Interview Ready · MissionMed</title>
+<meta name="description" content="MissionMed Interview Ready: prepare for online and in-person residency interviews. Test your setup, work your checklist, plan your look, and compare curated gear in four tiers.">
+<meta name="theme-color" content="#071a33">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob: https://i.ytimg.com; media-src blob:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy-950:#040f22; --navy-900:#071a33; --navy-800:#0b2447; --navy-700:#123461; --navy-600:#1b4479;
+  --ivory:#f7f3ea; --ivory-2:#efe9db; --white:#ffffff;
+  --gold:#d8b25c; --gold-2:#e9cf8a; --gold-deep:#b58d2f;
+  --text:#eef3fb; --muted:#aab8cf; --muted-2:#7f8fa8;
+  --ok:#5fd39b; --warn:#f0b35a; --bad:#f06b6b;
+  --card:rgba(10,30,60,.72); --card-border:rgba(216,178,92,.22); --card-border-2:rgba(255,255,255,.08);
+  --radius:18px; --rail:248px; --serif:"Cormorant Garamond",Georgia,"Times New Roman",serif; --sans:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --shadow:0 22px 60px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.04) inset;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{margin:0;font-family:var(--sans);color:var(--text);background:var(--navy-950);line-height:1.5;min-height:100vh;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0;z-index:-2;background:
+  radial-gradient(1200px 700px at 15% -10%, #1a3f74 0%, transparent 60%),
+  radial-gradient(900px 600px at 95% 10%, #0f2d58 0%, transparent 55%),
+  radial-gradient(800px 500px at 50% 110%, #1d3b66 0%, transparent 60%),
+  linear-gradient(180deg,#071a33 0%,#040f22 100%)}
+body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.35;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .06 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E")}
+a{color:var(--gold-2)}
+img{max-width:100%;display:block}
+button{font:inherit}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:6px}
+.skip{position:absolute;left:-999px;top:8px;background:var(--gold);color:#1a1300;padding:8px 14px;border-radius:8px;z-index:100;font-weight:600}
+.skip:focus{left:12px}
+
+/* ---------- shell ---------- */
+.shell{display:grid;grid-template-columns:var(--rail) 1fr;min-height:100vh}
+.rail{position:sticky;top:0;height:100vh;padding:22px 18px;border-right:1px solid rgba(255,255,255,.06);background:linear-gradient(180deg,rgba(7,26,51,.9),rgba(4,15,34,.95));backdrop-filter:blur(12px);display:flex;flex-direction:column;gap:18px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--white)}
+.brand img{height:40px;width:auto}
+.brand small{display:block;font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold-2);margin-top:2px}
+.rail nav{display:flex;flex-direction:column;gap:3px;margin-top:4px}
+.rail nav a{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:12px;color:var(--muted);text-decoration:none;font-size:14px;font-weight:500;transition:background .2s,color .2s,transform .2s}
+.rail nav a svg{width:18px;height:18px;flex:none;opacity:.85}
+.rail nav a:hover{background:rgba(255,255,255,.05);color:var(--white)}
+.rail nav a[aria-current=page]{background:linear-gradient(90deg,rgba(216,178,92,.18),rgba(216,178,92,.04));color:var(--white);box-shadow:inset 3px 0 0 var(--gold)}
+.rail .kit{margin-top:auto;padding:14px;border:1px solid var(--card-border);border-radius:14px;background:rgba(216,178,92,.06)}
+.rail .kit b{display:block;font-size:13px;color:var(--gold-2)}
+.rail .kit span{font-size:12.5px;color:var(--muted)}
+.rail .kit a{display:inline-block;margin-top:8px;font-size:13px;font-weight:600}
+main{min-width:0;padding:0 0 100px}
+.topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 28px;background:linear-gradient(180deg,rgba(4,15,34,.9),rgba(4,15,34,.65) 80%,transparent);backdrop-filter:blur(10px)}
+.topbar .title{font-family:var(--serif);font-size:13px;letter-spacing:.34em;text-transform:uppercase;color:var(--ivory-2)}
+.topbar .title b{font-weight:600;color:var(--gold-2)}
+.topbar .tag{font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);text-align:right}
+.topbar .tag i{display:block;width:60px;height:1px;background:var(--gold);margin:6px 0 0 auto}
+.page{display:none;padding:10px 28px 0;max-width:1320px;margin:0 auto;animation:fade .5s ease both}
+.page.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+h1,h2,h3,h4{font-family:var(--serif);font-weight:600;line-height:1.08;margin:0;color:var(--white)}
+h1{font-size:clamp(38px,4.6vw,62px)}
+h2{font-size:clamp(28px,3vw,40px)}
+h3{font-size:22px}
+.eyebrow{font-size:11px;letter-spacing:.26em;text-transform:uppercase;color:var(--gold-2);font-weight:600}
+.lede{color:var(--muted);font-size:16px;max-width:62ch}
+p{margin:.5em 0}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:12px 20px;border-radius:10px;border:1px solid transparent;font-weight:600;font-size:14px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;text-decoration:none;transition:transform .2s,box-shadow .2s,background .2s}
+.btn.gold{background:linear-gradient(180deg,var(--gold-2),var(--gold));color:#1b1300;box-shadow:0 8px 24px rgba(216,178,92,.25)}
+.btn.gold:hover{transform:translateY(-1px);box-shadow:0 12px 30px rgba(216,178,92,.35)}
+.btn.ghost{border-color:rgba(216,178,92,.5);color:var(--gold-2);background:rgba(216,178,92,.06)}
+.btn.ghost:hover{background:rgba(216,178,92,.14)}
+.btn.sm{padding:8px 13px;font-size:12px;text-transform:none;letter-spacing:0}
+.btn.plain{background:rgba(255,255,255,.06);color:var(--white);border-color:rgba(255,255,255,.1)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.section{margin-top:48px}
+.section-head{display:flex;align-items:end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.card{background:var(--card);border:1px solid var(--card-border-2);border-radius:var(--radius);box-shadow:var(--shadow);backdrop-filter:blur(8px)}
+.card.gold{border-color:var(--card-border)}
+.grid{display:grid;gap:16px}
+.grid.c2{grid-template-columns:repeat(2,1fr)}
+.grid.c3{grid-template-columns:repeat(3,1fr)}
+.grid.c4{grid-template-columns:repeat(4,1fr)}
+.grid.c6{grid-template-columns:repeat(6,1fr)}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:11.5px;font-weight:600;letter-spacing:.04em;background:rgba(255,255,255,.08);color:var(--muted)}
+.pill.gold{background:rgba(216,178,92,.16);color:var(--gold-2)}
+.pill.ok{background:rgba(95,211,155,.14);color:var(--ok)}
+.pill.warn{background:rgba(240,179,90,.14);color:var(--warn)}
+.pill.bad{background:rgba(240,107,107,.14);color:var(--bad)}
+.note{font-size:12.5px;color:var(--muted-2)}
+.reveal{opacity:0;transform:translateY(16px);transition:opacity .7s ease,transform .7s ease}
+.reveal.in{opacity:1;transform:none}
+
+/* ---------- hero (Gear Guide 2 composition) ---------- */
+.hero{display:grid;grid-template-columns:1.22fr 1fr;gap:12px;margin-top:6px}
+.hero .panel{position:relative;min-height:420px;border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);isolation:isolate}
+.hero .panel .bg{position:absolute;inset:0;background-size:cover;background-position:right center;transform:scale(1.04);transition:transform 1.2s ease;will-change:transform;z-index:-1}
+.hero .panel:hover .bg{transform:scale(1.08)}
+.hero .panel .veil{position:absolute;inset:0;z-index:-1}
+.hero .left .veil{background:linear-gradient(90deg,rgba(7,26,51,1) 0%,rgba(7,26,51,.96) 34%,rgba(7,26,51,.35) 55%,rgba(5,20,45,.05) 75%)}
+.hero .right .veil{background:linear-gradient(180deg,rgba(7,26,51,.96) 0%,rgba(7,26,51,.8) 30%,rgba(5,20,45,.25) 65%,rgba(5,20,45,.75) 100%)}
+.hero .inner{position:relative;padding:38px 36px;height:100%;display:flex;flex-direction:column;justify-content:flex-end;gap:12px}
+.hero .left .inner{max-width:58%}
+.hero h1{text-shadow:0 2px 20px rgba(0,0,0,.4)}
+.hero .script{position:absolute;right:26px;top:26%;font-family:var(--serif);font-style:italic;font-size:26px;line-height:1.1;color:var(--gold-2);transform:rotate(-8deg);text-align:center;text-shadow:0 2px 12px rgba(0,0,0,.6)}
+.hero .script::after{content:"";display:block;width:70%;height:2px;background:var(--gold);margin:6px auto 0;transform:rotate(4deg)}
+.hero .right .inner{justify-content:flex-start}
+.hero .right h2{font-size:clamp(26px,2.6vw,36px)}
+.hero .right .foot{margin-top:auto;display:flex;justify-content:space-between;align-items:end;gap:12px}
+.hero .frame{border:1px solid rgba(255,255,255,.6);padding:10px 14px;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--white);background:rgba(5,20,45,.55);backdrop-filter:blur(4px)}
+.paths{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:12px}
+.path{position:relative;display:flex;flex-direction:column;gap:6px;padding:18px 18px 16px;border-radius:14px;border:1px solid rgba(216,178,92,.22);background:linear-gradient(180deg,rgba(14,38,72,.9),rgba(8,24,48,.95));color:var(--white);text-decoration:none;overflow:hidden;transition:transform .25s,border-color .25s,box-shadow .25s}
+.path::before{content:"";position:absolute;inset:0;background:radial-gradient(240px 120px at 20% 0%,rgba(216,178,92,.18),transparent 70%);opacity:0;transition:opacity .3s}
+.path:hover{transform:translateY(-3px);border-color:rgba(216,178,92,.55);box-shadow:0 18px 40px rgba(0,0,0,.4)}
+.path:hover::before{opacity:1}
+.path b{font-family:var(--serif);font-size:22px;font-weight:600}
+.path span{font-size:13px;color:var(--muted)}
+.path .arrow{position:absolute;right:16px;top:16px;color:var(--gold-2);font-size:18px}
+.tiles{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+.tile{position:relative;border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,.1);background:var(--navy-800);text-decoration:none;color:var(--white);min-height:150px;display:flex;flex-direction:column;justify-content:flex-end;transition:transform .25s,border-color .25s}
+.tile img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.9;transition:transform .6s}
+.tile:hover{transform:translateY(-3px);border-color:rgba(216,178,92,.5)}
+.tile:hover img{transform:scale(1.06)}
+.tile .cap{position:relative;padding:10px 12px;background:linear-gradient(180deg,transparent,rgba(5,20,45,.95) 45%)}
+.tile .cap b{display:block;font-size:11.5px;letter-spacing:.18em;text-transform:uppercase}
+.tile .cap span{font-size:11.5px;color:var(--muted)}
+.trust{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:12px}
+.trust .card{padding:16px 18px;display:flex;align-items:center;gap:14px}
+.trust img{width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid var(--gold)}
+.trust b{font-family:var(--serif);font-size:22px;display:block;color:var(--white)}
+.trust small{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.band{position:relative;margin-top:44px;border-radius:var(--radius);overflow:hidden;min-height:200px;display:flex;align-items:center;justify-content:space-between;padding:36px;gap:20px}
+.band .bg{position:absolute;inset:0;background-size:cover;background-position:center 6%;z-index:-1;transform:translateY(var(--py,0))}
+.band .veil{position:absolute;inset:0;background:linear-gradient(90deg,rgba(5,20,45,.9),rgba(5,20,45,.35));z-index:-1}
+.band .script{font-family:var(--serif);font-style:italic;font-size:34px;color:var(--gold-2);line-height:1.05}
+.band img.logo{height:54px;width:auto;opacity:.95}
+
+/* ---------- catalog ---------- */
+.cat-nav{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 6px}
+.cat-nav button{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:var(--muted);padding:8px 13px;border-radius:999px;font-size:13px;cursor:pointer}
+.cat-nav button[aria-pressed=true]{background:rgba(216,178,92,.18);border-color:rgba(216,178,92,.5);color:var(--white)}
+.tiers{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:14px}
+.tier{position:relative;display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:16px;border:1px solid rgba(255,255,255,.1);background:linear-gradient(180deg,rgba(14,38,72,.85),rgba(8,24,48,.95));transition:transform .25s,border-color .25s,box-shadow .25s}
+.tier:hover{transform:translateY(-3px);box-shadow:0 18px 40px rgba(0,0,0,.4)}
+.tier.pick{border-color:rgba(216,178,92,.6);box-shadow:0 0 0 1px rgba(216,178,92,.35),0 20px 50px rgba(0,0,0,.45)}
+.tier .lvl{display:flex;align-items:center;gap:10px}
+.tier .lvl svg{width:26px;height:26px;color:var(--gold)}
+.tier .lvl b{font-family:var(--serif);font-size:21px;font-weight:600}
+.tier .lvl small{display:block;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+.tier h4{font-family:var(--sans);font-size:15px;font-weight:600;color:var(--white);line-height:1.3}
+.tier .why{font-size:13px;color:var(--muted)}
+.tier .why b{color:var(--gold-2);font-weight:600}
+.tier dl{margin:0;font-size:12.5px;display:grid;gap:5px}
+.tier dt{color:var(--muted-2);font-size:11px;letter-spacing:.12em;text-transform:uppercase}
+.tier dd{margin:0;color:var(--text)}
+.tier .actions{margin-top:auto;display:flex;gap:8px;flex-wrap:wrap}
+.tier .pickbadge{position:absolute;top:-10px;left:18px;background:linear-gradient(180deg,var(--gold-2),var(--gold));color:#1b1300;font-size:10px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;padding:4px 10px;border-radius:999px}
+.tier .verify{font-size:11px;color:var(--warn)}
+details.more{font-size:13px;color:var(--muted)}
+details.more summary{cursor:pointer;color:var(--gold-2);font-weight:600;list-style:none}
+details.more summary::-webkit-details-marker{display:none}
+details.more ul{margin:6px 0 0;padding-left:18px}
+.disclosure{font-size:12px;color:var(--muted-2);border-top:1px solid rgba(255,255,255,.08);padding-top:12px;margin-top:28px}
+
+/* ---------- setup test ---------- */
+.test-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:16px}
+.preview{position:relative;aspect-ratio:16/9;background:#000;border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,.1)}
+.preview video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+.preview .guide{position:absolute;inset:0;pointer-events:none}
+.preview .guide .eye{position:absolute;left:0;right:0;top:38%;border-top:1px dashed rgba(216,178,92,.8)}
+.preview .guide .eye span{position:absolute;right:10px;top:-18px;font-size:11px;color:var(--gold-2);letter-spacing:.1em;text-transform:uppercase}
+.preview .guide .head{position:absolute;left:30%;right:30%;top:12%;bottom:18%;border:1px solid rgba(255,255,255,.35);border-radius:46% 46% 40% 40%}
+.preview .guide .head span{position:absolute;left:50%;bottom:-20px;transform:translateX(-50%);font-size:11px;color:rgba(255,255,255,.7);white-space:nowrap}
+.preview .empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--muted);text-align:center;padding:20px}
+.meter{height:12px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;position:relative}
+.meter i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--ok),var(--gold),var(--bad));transition:width .08s linear}
+.meter .target{position:absolute;top:-4px;bottom:-4px;left:55%;width:2px;background:var(--gold-2)}
+.result{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06)}
+.result .dot{width:12px;height:12px;border-radius:50%;flex:none;margin-top:4px;background:var(--muted-2)}
+.result.ok .dot{background:var(--ok)} .result.warn .dot{background:var(--warn)} .result.bad .dot{background:var(--bad)}
+.result b{display:block;font-size:14px}
+.result span{font-size:13px;color:var(--muted)}
+select,input[type=text],input[type=number],textarea{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);color:var(--white);padding:10px 12px;border-radius:10px;font:inherit}
+select option{color:#111}
+label.lbl{display:block;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:10px 0 6px}
+.big{font-family:var(--serif);font-size:44px;line-height:1;color:var(--white)}
+.big small{font-family:var(--sans);font-size:13px;color:var(--muted);margin-left:6px}
+
+/* ---------- checklist ---------- */
+.seg{display:inline-flex;border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:3px;background:rgba(255,255,255,.04)}
+.seg button{border:0;background:transparent;color:var(--muted);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:600}
+.seg button[aria-pressed=true]{background:linear-gradient(180deg,var(--gold-2),var(--gold));color:#1b1300}
+.phase{margin-top:18px}
+.phase h3{display:flex;align-items:center;gap:10px;font-size:20px}
+.phase h3 .pill{font-family:var(--sans)}
+.items{display:grid;gap:8px;margin-top:10px}
+.item{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06)}
+.item input{width:20px;height:20px;margin-top:2px;accent-color:var(--gold)}
+.item label{flex:1;cursor:pointer}
+.item label b{display:block;font-size:14px;font-weight:600}
+.item label span{font-size:12.5px;color:var(--muted)}
+.item.done label b{text-decoration:line-through;color:var(--muted)}
+.item .auto{font-size:11px;color:var(--ok)}
+.progress{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
+.progress i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-2));width:0;transition:width .4s}
+
+/* ---------- lookbook ---------- */
+.look{display:grid;grid-template-columns:1fr 1.2fr;gap:16px}
+.figure{position:relative;aspect-ratio:3/4;border-radius:14px;overflow:hidden;background:linear-gradient(180deg,#132d55,#0a1f3f);border:1px solid rgba(255,255,255,.1);display:flex;align-items:flex-end;justify-content:center}
+.figure svg{width:70%;height:auto}
+.figure .face{position:absolute;top:9%;left:50%;transform:translateX(-50%);width:17%;aspect-ratio:1;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.4)}
+.figure .cap{position:absolute;left:12px;bottom:12px;font-size:11px;color:var(--muted);background:rgba(5,20,45,.7);padding:4px 8px;border-radius:6px}
+.swatches{display:flex;gap:8px;flex-wrap:wrap}
+.swatch{width:34px;height:34px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0}
+.swatch[aria-pressed=true]{border-color:var(--gold-2);box-shadow:0 0 0 2px rgba(216,178,92,.3)}
+.looks{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.looks .card{padding:12px}
+.minifig{display:flex;gap:4px;height:46px;border-radius:8px;overflow:hidden}
+.minifig i{flex:1}
+.vote{display:flex;gap:8px;flex-wrap:wrap}
+.vote button{border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);color:var(--muted);padding:7px 11px;border-radius:999px;font-size:12.5px;cursor:pointer}
+.vote button[aria-pressed=true]{background:rgba(216,178,92,.18);border-color:rgba(216,178,92,.5);color:var(--white)}
+.flag{border:1px dashed rgba(216,178,92,.45);background:rgba(216,178,92,.06);padding:12px 14px;border-radius:12px;font-size:13px;color:var(--ivory-2)}
+
+/* ---------- mobile ---------- */
+.mobilebar{display:none}.drawer{display:none}
+@media (max-width:1100px){
+  .grid.c4,.tiers,.paths{grid-template-columns:repeat(2,1fr)}
+  .tiles,.grid.c6{grid-template-columns:repeat(3,1fr)}
+  .trust{grid-template-columns:1fr}
+  .hero{grid-template-columns:1fr}
+  .hero .left .inner{max-width:100%}
+  .test-grid,.look{grid-template-columns:1fr}
+}
+@media (max-width:900px){
+  .shell{grid-template-columns:1fr}
+  .rail{display:none}
+  main{padding-bottom:90px}
+  .topbar{padding:12px 16px}
+  .page{padding:6px 16px 0}
+  .mobilebar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:40;background:rgba(4,15,34,.94);backdrop-filter:blur(12px);border-top:1px solid rgba(255,255,255,.08);padding:8px 6px calc(8px + env(safe-area-inset-bottom));justify-content:space-around}
+  .mobilebar a,.mobilebar button{display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--muted);text-decoration:none;font-size:10.5px;background:none;border:0;padding:4px 6px}
+  .mobilebar a[aria-current=page]{color:var(--gold-2)}
+  .mobilebar svg{width:20px;height:20px}
+  .drawer{position:fixed;inset:0;z-index:50;background:rgba(4,15,34,.96);padding:22px 18px;display:none;flex-direction:column;gap:6px;overflow:auto}
+  .drawer.open{display:flex}
+  .drawer a{padding:12px 14px;border-radius:12px;color:var(--white);text-decoration:none;font-size:16px;border:1px solid rgba(255,255,255,.06)}
+  .drawer a[aria-current=page]{background:rgba(216,178,92,.16);color:var(--gold-2)}
+}
+@media (max-width:600px){
+  .grid.c2,.grid.c3,.grid.c4,.tiers,.paths,.looks{grid-template-columns:1fr}
+  .tiles,.grid.c6{grid-template-columns:repeat(2,1fr)}
+  .hero .panel{min-height:360px}
+  .hero .script{display:none}
+  .band{flex-direction:column;align-items:flex-start}
+  h1{font-size:36px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+  .reveal{opacity:1;transform:none}
+  .band .bg{transform:none!important}
+}
+</style>
+<!-- EDITORIAL_CSS -->
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="shell">
+  <aside class="rail" aria-label="Interview Ready navigation">
+    <a class="brand" href="#home"><img src="{{CREST}}" alt=""><span><b style="font-family:var(--serif);font-size:22px;font-weight:700;line-height:1">MissionMed</b><small>Interview Ready</small></span></a>
+    <nav id="railnav"></nav>
+    <div class="kit"><b>My Interview Kit</b><span id="kitCountRail">Nothing saved yet.</span><br><a href="#kit">Open my kit →</a></div>
+  </aside>
+  <main id="main">
+    <header class="topbar">
+      <div class="title"><b>Interview Ready</b> · Look prepared. Feel confident.</div>
+      <div class="tag">Residency interview readiness<i></i></div>
+    </header>
+
+    <!-- ================= HOME ================= -->
+    <section class="page" id="page-home" data-title="Home">
+      <!-- Editorial Home is constructed after the preserved engine loads. -->
+      <p id="disclosure-home"></p>
+    </section>
+
+    <!-- ================= CATALOG (online / in-person / prime day) ================= -->
+    <section class="page" id="page-online" data-title="Online Interview Gear">
+      <span class="eyebrow">Online interview gear</span>
+      <h2>Look and sound like the physician you are</h2>
+      <p class="lede">Choose a category. Each one shows four levels so you can compare without being overwhelmed. If the setup test said your current gear is fine, you can skip this entirely.</p>
+      <div class="cat-nav" id="catnav-online" role="tablist"></div>
+      <div id="catalog-online"></div>
+      <p class="disclosure" data-disclosure></p>
+    </section>
+
+    <section class="page" id="page-in-person" data-title="In-Person Essentials">
+      <span class="eyebrow">In-person essentials</span>
+      <h2>Arrive composed, with everything in its place</h2>
+      <p class="lede">Travel day is part of the interview. These categories cover the things that go wrong between your front door and the program's lobby.</p>
+      <div class="cat-nav" id="catnav-in-person" role="tablist"></div>
+      <div id="catalog-in-person"></div>
+      <p class="disclosure" data-disclosure></p>
+    </section>
+
+    <section class="page" id="page-prime-day" data-title="Prime Day Picks">
+      <span class="eyebrow">Seasonal</span>
+      <h2>Prime Day Picks</h2>
+      <div id="primeday"></div>
+      <p class="disclosure" data-disclosure></p>
+    </section>
+
+    <!-- ================= KIT ================= -->
+    <section class="page" id="page-kit" data-title="My Interview Kit">
+      <span class="eyebrow">Saved recommendations</span>
+      <h2>My Interview Kit</h2>
+      <p class="lede">Everything you've saved, in one place. Purchases happen on Amazon; this list stays on your device.</p>
+      <div id="kit"></div>
+      <p class="disclosure" data-disclosure></p>
+    </section>
+
+    <!-- ================= TEST MY SETUP ================= -->
+    <section class="page" id="page-test" data-title="Test My Setup">
+      <span class="eyebrow">Two-minute diagnostic</span>
+      <h2>Test My Setup</h2>
+      <p class="lede">Everything runs in your browser. Nothing is uploaded or stored; the short audio clip lives in memory only until you leave this page.</p>
+      <div class="test-grid" style="margin-top:18px">
+        <div class="card" style="padding:16px">
+          <h3>Camera & framing</h3>
+          <div class="preview" style="margin-top:10px">
+            <video id="cam" autoplay playsinline muted></video>
+            <div class="guide" aria-hidden="true"><div class="head"><span>Keep your head inside the oval</span></div><div class="eye"><span>Eye line</span></div></div>
+            <div class="empty" id="camEmpty"><b>Camera preview off</b><span>Start the camera test to see your framing, headroom and exposure.</span></div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center">
+            <button class="btn gold sm" id="camStart">Start camera test</button>
+            <button class="btn plain sm" id="camStop" disabled>Stop</button>
+            <select id="camSelect" aria-label="Camera" style="width:auto;min-width:200px;flex:1"></select>
+          </div>
+          <div id="camResults" style="display:grid;gap:8px;margin-top:12px"></div>
+        </div>
+        <div style="display:grid;gap:16px;align-content:start">
+          <div class="card" style="padding:16px">
+            <h3>Microphone & room</h3>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center">
+              <button class="btn gold sm" id="micStart">Start mic test</button>
+              <button class="btn plain sm" id="micRecord" disabled>Record 5 s</button>
+              <button class="btn plain sm" id="micStop" disabled>Stop</button>
+            </div>
+            <select id="micSelect" aria-label="Microphone" style="margin-top:10px"></select>
+            <label class="lbl">Live level <span class="note">(aim for the gold line while speaking normally)</span></label>
+            <div class="meter"><i id="micMeter"></i><span class="target"></span></div>
+            <div style="display:flex;gap:18px;margin-top:10px;flex-wrap:wrap"><div class="big" id="micPeak">–<small>peak</small></div><div class="big" id="micNoise">–<small>noise floor</small></div></div>
+            <audio id="micPlayback" controls style="width:100%;margin-top:10px;display:none"></audio>
+            <div id="micResults" style="display:grid;gap:8px;margin-top:12px"></div>
+          </div>
+          <div class="card" style="padding:16px">
+            <h3>Environment</h3>
+            <div id="envResults" style="display:grid;gap:8px;margin-top:10px"></div>
+            <button class="btn ghost sm" id="envRun" style="margin-top:10px">Check my environment</button>
+          </div>
+        </div>
+      </div>
+      <div class="card gold" style="padding:18px;margin-top:16px">
+        <h3>Verdict</h3>
+        <div id="verdict" class="note" style="margin-top:6px;font-size:14px;color:var(--ivory-2)">Run the tests above. If everything passes, you don't need to buy anything. If something fails, we'll point you to the one category that fixes it.</div>
+      </div>
+    </section>
+
+    <!-- ================= CHECKLIST ================= -->
+    <section class="page" id="page-checklist" data-title="Interview Checklist">
+      <div class="section-head"><div><span class="eyebrow">Persistent checklist</span><h2>Interview Checklist</h2></div>
+        <div class="seg" role="group" aria-label="Interview mode"><button id="modeOnline" aria-pressed="true">Online</button><button id="modeInPerson" aria-pressed="false">In-person</button></div></div>
+      <p class="lede">Progress is saved on this device. Items the setup test can prove are checked for you automatically.</p>
+      <div style="display:flex;align-items:center;gap:12px;margin-top:10px"><div class="progress" style="flex:1"><i id="clProgress"></i></div><span class="note" id="clPct">0%</span><button class="btn plain sm" id="clReset">Reset</button></div>
+      <div id="checklist"></div>
+    </section>
+
+    <!-- ================= DRESS ================= -->
+    <section class="page" id="page-dress" data-title="Dress for the Interview">
+      <span class="eyebrow">Interview lookbook</span>
+      <h2>Dress for the Interview</h2>
+      <p class="lede">Build a look from explicit choices. This is a visual approximation of colour and silhouette, not garment fit, and nothing you choose here is inferred from a photo.</p>
+      <div class="look" style="margin-top:18px">
+        <div class="card" style="padding:14px">
+          <div class="figure" id="figure"></div>
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">
+            <label class="btn plain sm" for="facePhoto">Add face photo (stays on device)</label><input id="facePhoto" type="file" accept="image/*" class="sr-only">
+            <button class="btn plain sm" id="faceClear">Remove photo</button>
+          </div>
+          <p class="note">The photo is only drawn into the preview in your browser. It is never uploaded and is discarded when you close the page.</p>
+        </div>
+        <div class="card" style="padding:16px;display:grid;gap:12px;align-content:start" id="lookbuilder"></div>
+      </div>
+      <div class="section">
+        <div class="section-head"><div><span class="eyebrow">Dr. Brian's guidance</span><h2>What interviewers actually notice</h2></div></div>
+        <div class="grid c3" id="dressguide"></div>
+      </div>
+    </section>
+
+    <section class="page" id="page-wardrobe" data-title="My Wardrobe">
+      <div class="section-head"><div><span class="eyebrow">Saved looks</span><h2>My Wardrobe</h2></div><a class="btn ghost sm" href="#dress">Build a new look</a></div>
+      <p class="lede">Compare the looks you've saved and choose the one you'll wear. Saved on this device.</p>
+      <div class="looks" id="wardrobe" style="margin-top:16px"></div>
+    </section>
+
+    <section class="page" id="page-community" data-title="Community Looks">
+      <span class="eyebrow">Opt-in feedback</span>
+      <h2>Community Looks</h2>
+      <p class="lede">Get structured feedback on interview presentation from MissionMed classmates. Votes judge the outfit and readiness, never the person.</p>
+      <div class="grid c2" style="margin-top:16px">
+        <div class="card" style="padding:16px">
+          <h3>How sharing will work</h3>
+          <label class="lbl">Visibility</label>
+          <select id="visibility"><option value="private">Private (only me)</option><option value="community">MissionMed classmates</option><option value="public">Public</option></select>
+          <p class="note" id="visNote">Private is the default. Nothing is shared unless you choose otherwise.</p>
+          <label class="lbl">Feedback categories</label>
+          <div class="vote" id="voteCats"></div>
+          <p class="note">One vote per person per look; reports go to MissionMed moderators; public looks never show your name or photo unless you turn that on separately.</p>
+        </div>
+        <div class="card gold" style="padding:16px">
+          <h3>Status</h3>
+          <div class="flag" id="communityFlag"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="page-experts" data-title="Expert Reviews">
+      <span class="eyebrow">Resource layer</span>
+      <h2>Expert Reviews</h2>
+      <p class="lede">Three kinds of evidence, kept separate: what buyers say on Amazon, what independent reviewers test, and what Dr. Brian recommends for a residency interview specifically.</p>
+      <div class="grid c3" id="experts" style="margin-top:16px"></div>
+      <p class="note" style="margin-top:14px">Links open the reviewer's own channel or a search on it. MissionMed does not host their content and these reviewers have not endorsed MissionMed.</p>
+    </section>
+  </main>
+</div>
+
+<nav class="mobilebar" aria-label="Quick navigation" id="mobilebar"></nav>
+<div class="drawer" id="drawer" aria-label="All sections"></div>
+
+<script>
+/* =====================================================================
+   CONFIG — routine curation lives here (seasonal state, affiliate tag,
+   charity copy). Edit this block; no other code changes are needed.
+   ===================================================================== */
+const IR_CONFIG = {
+  affiliateTag: "",                 // Amazon Associates tag. Empty = links carry no tag (not yet verified).
+  primeDay: { active: false, label: "Prime Day", startsISO: null, endsISO: null },
+  charityCopy: "MissionMed intends to direct affiliate proceeds to charitable causes; details will be published once the arrangement is finalized.",
+  communityBackend: false,          // true when the MissionMed community/moderation service is connected
+  matrixPersistence: false          // true when the Matrix account sync seam is connected
+};
+const DISCLOSURE = "Product links open the exact Amazon listing. Prices, ratings and availability can change; check them before buying. MissionMed may earn from qualifying purchases when affiliate links are used.";
+
+/* ---------- navigation ---------- */
+const NAV = [
+  ["home","Home","M3 11l9-8 9 8v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"],
+  ["online","Online Interview Gear","M4 5h16v11H4zM8 20h8M12 16v4"],
+  ["in-person","In-Person Essentials","M4 8h16v12H4zM8 8V5h8v3M4 13h16"],
+  ["test","Test My Setup","M12 3a4 4 0 014 4v5a4 4 0 01-8 0V7a4 4 0 014-4zM5 12a7 7 0 0014 0M12 19v2"],
+  ["checklist","Interview Checklist","M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"],
+  ["dress","Dress for the Interview","M8 3l4 2 4-2 3 4-3 2v12H8V9L5 7z"],
+  ["wardrobe","My Wardrobe","M4 7h16v13H4zM4 7l8-4 8 4M12 7v13"],
+  ["community","Community Looks","M8 11a3 3 0 100-6 3 3 0 000 6zM16 11a3 3 0 100-6 3 3 0 000 6zM2 20a6 6 0 0112 0M10 20a6 6 0 0112 0"],
+  ["experts","Expert Reviews","M12 3l2.6 5.5 6 .8-4.4 4.2 1.1 6L12 16.6 6.7 19.5l1.1-6L3.4 9.3l6-.8z"],
+  ["prime-day","Prime Day Picks","M20 12l-8 8-8-8V4h8z M9 8h.01"]
+];
+const ico = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
+document.getElementById('railnav').innerHTML = NAV.map(([id,l,d])=>`<a href="#${id}" data-nav="${id}">${ico(d)}<span>${l}</span></a>`).join('');
+document.getElementById('mobilebar').innerHTML = NAV.slice(0,5).map(([id,l,d])=>`<a href="#${id}" data-nav="${id}">${ico(d)}<span>${l.split(' ')[0]==='Online'?'Online':l.split(' ')[0]==='In-Person'?'In-person':l.split(' ').slice(0,2).join(' ').replace('Test My','Test').replace('Interview Checklist','Checklist')}</span></a>`).join('') + `<button id="moreBtn" aria-label="More sections">${ico("M4 6h16M4 12h16M4 18h16")}<span>More</span></button>`;
+document.getElementById('drawer').innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><b style="font-family:var(--serif);font-size:22px">Interview Ready</b><button class="btn plain sm" id="drawerClose">Close</button></div>` + NAV.map(([id,l])=>`<a href="#${id}" data-nav="${id}">${l}</a>`).join('') + `<a href="#kit" data-nav="kit">My Interview Kit</a>`;
+document.getElementById('moreBtn').onclick=()=>document.getElementById('drawer').classList.add('open');
+document.getElementById('drawerClose').onclick=()=>document.getElementById('drawer').classList.remove('open');
+document.getElementById('drawer').addEventListener('click',e=>{if(e.target.tagName==='A')document.getElementById('drawer').classList.remove('open')});
+
+/* ---------- store (device-local; Matrix seam is a flag) ---------- */
+const store = {
+  get(k,d){try{const v=localStorage.getItem('ir:'+k);return v?JSON.parse(v):d}catch(e){return d}},
+  set(k,v){try{localStorage.setItem('ir:'+k,JSON.stringify(v))}catch(e){}}
+};
+
+/* ---------- catalog data ---------- */
+const TIERS = [
+  {id:"pe",name:"Premium Economy",sub:"Smart & solid",icon:"M12 3c3 4 3 9 0 18M5 9c4 1 10 1 14 0"},
+  {id:"bc",name:"Business Class",sub:"Best value",icon:"M4 10h16v10H4zM8 10V6h8v4M4 14h16"},
+  {id:"fc",name:"First Class",sub:"Premium experience",icon:"M6 20V9a3 3 0 013-3h6a3 3 0 013 3v11M6 13h12M9 20v-3M15 20v-3"},
+  {id:"pj",name:"Private Jet",sub:"No compromises",icon:"M3 14l18-9-6 15-3-6z"}
+];
+/* Product names are Dr. Brian's curation list. "verified:false" means the live Amazon
+   listing (price, rating, availability) has not been re-checked by MissionMed yet, so the
+   card sends you to Amazon to read it there rather than repeating a number here. */
+const CATALOG = {online:[], 'in-person':[]};
+const amazonUrl = name => { const item = typeof name === "object" ? name : [...CATALOG.online,...CATALOG["in-person"]].flatMap(c=>c.items).find(i=>i.name===name); const u = new URL(item?.asin ? "https://www.amazon.com/dp/"+item.asin : "https://www.amazon.com/s"); if(!item?.asin)u.searchParams.set("k",typeof name === "string" ? name : name.name); if (IR_CONFIG.affiliateTag) u.searchParams.set("tag", IR_CONFIG.affiliateTag); return u.toString(); };
+const esc = s => String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const tierOf = id => TIERS.find(t=>t.id===id);
+const kit = { list(){return store.get('kit',[])}, has(k){return this.list().some(x=>x.key===k)}, toggle(item,cat,group){ let l=this.list(); if(l.some(x=>x.key===item.key)) l=l.filter(x=>x.key!==item.key); else l.push({key:item.key,name:item.name,tier:item.t,cat,group}); store.set('kit',l); renderKitCount(); } };
+function renderKitCount(){ const n=kit.list().length; document.getElementById('kitCountRail').textContent = n? `${n} item${n>1?'s':''} saved.` : 'Nothing saved yet.'; }
+
+function tierCard(item,cat,group){
+  const t=tierOf(item.t); const pick=cat.pick===item.t; const saved=kit.has(item.key);
+  return `<article class="tier ${pick?'pick':''}" aria-label="${esc(t.name)}: ${esc(item.name)}">
+    ${pick?'<span class="pickbadge">Dr. Brian\'s pick</span>':''}
+    <div class="lvl">${ico(t.icon)}<div><b>${t.name}</b><small>${t.sub}</small></div></div>
+    <h4>${esc(item.name)}</h4>
+    <p class="why"><b>Why Dr. Brian recommends it:</b> ${esc(item.why)}</p>
+    <dl><dt>Best for</dt><dd>${esc(item.best)}</dd>${item.up?`<dt>Moving up gains</dt><dd>${esc(item.up)}</dd>`:''}${item.down?`<dt>Moving down costs</dt><dd>${esc(item.down)}</dd>`:''}</dl>
+    <details class="more"><summary>Pros, cons & setup</summary>${item.pros.length?`<b>Pros</b><ul>${item.pros.map(p=>`<li>${esc(p)}</li>`).join('')}</ul>`:''}${item.cons.length?`<b>Cons</b><ul>${item.cons.map(p=>`<li>${esc(p)}</li>`).join('')}</ul>`:''}${item.setup?`<p><b>Setup:</b> ${esc(item.setup)}</p>`:''}</details>
+    <span class="verify">Price, rating and availability: read on Amazon (not reproduced here).</span>
+    <div class="actions"><a class="btn gold sm" href="${amazonUrl(item.name)}" target="_blank" rel="noopener sponsored">Check on Amazon ↗</a><button class="btn plain sm" data-kit="${esc(item.key)}" aria-pressed="${saved}">${saved?'Saved ✓':'Save to kit'}</button></div>
+  </article>`;
+}
+function renderCatalog(group){
+  const cats=CATALOG[group]; cats.forEach(c=>c.items.forEach(i=>i.key=`${group}:${c.id}:${i.t}`));
+  const nav=document.getElementById('catnav-'+group); const host=document.getElementById('catalog-'+group);
+  const cur = (location.hash.split('/')[1]) || cats[0].id;
+  nav.innerHTML = cats.map(c=>`<button role="tab" aria-pressed="${c.id===cur}" data-cat="${c.id}">${esc(c.name)}</button>`).join('');
+  const cat = cats.find(c=>c.id===cur)||cats[0];
+  host.innerHTML = `<div class="section-head" style="margin-top:14px"><div><h3 style="font-size:26px">${esc(cat.name)}</h3><p class="lede" style="font-size:14px">${esc(cat.intro)}</p></div><span class="pill gold">4 levels · compare side by side</span></div>
+    <div class="tiers">${cat.items.map(i=>tierCard(i,cat,group)).join('')}</div>`;
+  nav.querySelectorAll('button').forEach(b=>b.onclick=()=>{location.hash=`#${group}/${b.dataset.cat}`});
+}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-kit]'); if(!b) return; const key=b.dataset.kit; const [group,catId,tier]=key.split(':'); const cat=CATALOG[group]?.find(c=>c.id===catId); const item=cat?.items.find(i=>i.t===tier); if(!item){store.set("kit",kit.list().filter(x=>x.key!==key));renderKitCount();renderKit();return} kit.toggle(item,cat.name,group); const s=kit.has(key); b.textContent=s?'Saved ✓':'Save to kit'; b.setAttribute('aria-pressed',s); if(document.getElementById('page-kit').classList.contains('active')) renderKit(); });
+function renderKit(){
+  const l=kit.list(); const host=document.getElementById('kit');
+  if(!l.length){host.innerHTML=`<div class="card" style="padding:22px;margin-top:16px"><b>Your kit is empty.</b><p class="note">Save recommendations from any category. Run <a href="#test">Test My Setup</a> first so you only save what you need.</p></div>`;return}
+  host.innerHTML=`<div class="grid c2" style="margin-top:16px">${l.map(x=>`<div class="card" style="padding:14px;display:flex;justify-content:space-between;gap:12px;align-items:center"><div><span class="pill gold">${esc(tierOf(x.tier).name)}</span><b style="display:block;margin-top:6px">${esc(x.name)}</b><span class="note">${esc(x.cat)}</span></div><div style="display:flex;gap:6px;flex-direction:column"><a class="btn gold sm" href="${amazonUrl(x.name)}" target="_blank" rel="noopener sponsored">Amazon ↗</a><button class="btn plain sm" data-kit="${esc(x.key)}" aria-pressed="true">Remove</button></div></div>`).join('')}</div>`;
+}
+function renderPrimeDay(){
+  const p=IR_CONFIG.primeDay; const host=document.getElementById('primeday');
+  const picks=[...CATALOG.online,...CATALOG["in-person"]].map(c=>({c,i:c.items.find(x=>x.t===c.pick)}));
+  host.innerHTML = (p.active
+    ? `<p class="lede">${esc(p.label)} is on. Deals change by the hour, so every link below goes straight to the live listing.</p>`
+    : `<p class="lede">No Amazon sale event is active right now, so there are no deal claims on this page. These are the picks worth watching when the next event is announced; the links always show today's real price.</p>`)
+    + `<div class="grid c3" style="margin-top:16px">${picks.map(({c,i})=>`<div class="card" style="padding:14px"><span class="pill gold">${esc(c.name)}</span><b style="display:block;margin-top:8px">${esc(i.name)}</b><span class="note">${esc(tierOf(i.t).name)} · Dr. Brian's pick</span><div style="margin-top:10px"><a class="btn ghost sm" href="${amazonUrl(i.name)}" target="_blank" rel="noopener sponsored">Check price ↗</a></div></div>`).join('')}</div>`;
+}
+
+/* ---------- setup test ---------- */
+const results = { cam:{}, mic:{}, env:{} };
+const resultEl=(k,level,title,msg)=>`<div class="result ${level}"><span class="dot"></span><div><b>${esc(title)}</b><span>${esc(msg)}</span></div></div>`;
+let camStream=null, camTimer=null, camEpoch=0;
+async function listDevices(){ try{ const d=await navigator.mediaDevices.enumerateDevices(); const cs=document.getElementById('camSelect'), ms=document.getElementById('micSelect'); const cv=cs.value, mv=ms.value; cs.innerHTML=d.filter(x=>x.kind==='videoinput').map((x,i)=>`<option value="${x.deviceId}">${esc(x.label||'Camera '+(i+1))}</option>`).join('')||'<option value="">No camera found</option>'; ms.innerHTML=d.filter(x=>x.kind==='audioinput').map((x,i)=>`<option value="${x.deviceId}">${esc(x.label||'Microphone '+(i+1))}</option>`).join('')||'<option value="">No microphone found</option>'; if(cv)cs.value=cv; if(mv)ms.value=mv; }catch(e){} }
+async function startCam(){
+  const out=document.getElementById('camResults'); out.innerHTML='';
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){out.innerHTML=resultEl('cam','bad','Camera not supported','This browser cannot access a camera. Try current Chrome, Safari or Edge.');results.cam={status:'fail'};verdict();return}
+  stopCam();results.cam={};verdict();
+  const epoch=camEpoch; document.getElementById("camStart").disabled=true;
+  const id=document.getElementById('camSelect').value;
+  try{ const pendingStream=await navigator.mediaDevices.getUserMedia({video:{deviceId:id?{exact:id}:undefined,width:{ideal:1280},height:{ideal:720}},audio:false}); if(epoch!==camEpoch||!document.getElementById("page-test").classList.contains("active")){pendingStream.getTracks().forEach(t=>t.stop());return} camStream=pendingStream; document.getElementById("camStart").disabled=false; }
+  catch(e){ if(epoch!==camEpoch)return; document.getElementById('camStart').disabled=false; const denied=e.name==='NotAllowedError'; out.innerHTML=resultEl('cam','bad',denied?'Camera permission denied':'No camera available',denied?'Allow camera access in the browser address bar, then try again. Interview platforms will ask for the same permission.':'No camera was found. Connect a webcam or use another device.'); results.cam={status:'fail'}; verdict(); return }
+  const v=document.getElementById('cam'); v.srcObject=camStream; document.getElementById('camEmpty').style.display='none';
+  document.getElementById('camStop').disabled=false; await listDevices(); if(epoch!==camEpoch||!camStream)return;
+  const track=camStream.getVideoTracks()[0];track.addEventListener('ended',()=>{if(epoch!==camEpoch)return;stopCam();results.cam={status:"fail"};out.innerHTML=resultEl("cam","bad","Camera disconnected","Reconnect the device and restart the camera test.");verdict();},{once:true}); const s=track.getSettings();
+  const canvas=document.createElement('canvas'); const ctx=canvas.getContext('2d',{willReadFrequently:true});
+  let samples=[],cameraSignature="";
+  camTimer=setInterval(()=>{ if(!v.videoWidth) return; canvas.width=160;canvas.height=90; ctx.drawImage(v,0,0,160,90); const d=ctx.getImageData(48,10,64,60).data; let sum=0,n=0; for(let i=0;i<d.length;i+=4){sum+=0.2126*d[i]+0.7152*d[i+1]+0.0722*d[i+2];n++} const face=sum/n; const bg=ctx.getImageData(0,0,160,90).data; let bs=0,bn=0; for(let i=0;i<bg.length;i+=16){bs+=0.2126*bg[i]+0.7152*bg[i+1]+0.0722*bg[i+2];bn++} samples.push({face,bg:bs/bn}); if(samples.length>20)samples.shift();
+    const f=samples.reduce((a,b)=>a+b.face,0)/samples.length, b=samples.reduce((a,b)=>a+b.bg,0)/samples.length;
+    const exp = f<70?['bad','Centre zone is dark','The centre of the image is dark. Confirm your face is inside the guide; move a soft light in front of you or face a window.'] : f>200?['warn','Centre zone is very bright','Dim the light or move it further away.'] : ['ok','Exposure looks good','The centre zone is within the guidance range. Confirm your face and eyes are clearly visible.'];
+    const contrast = (b-f)>25?['warn','Background brighter than you','A window or lamp behind you is winning. Move so the light is in front of you.']:['ok','Background is behind you in brightness','The whole-frame average is not substantially brighter than the centre zone. Confirm this visually.'];
+    results.cam={status: exp[0]==='bad'?'fail':exp[0]==='warn'||contrast[0]==='warn'||((s.width||0)<1280||(s.height||0)<720)?'warn':'pass', res:`${s.width||'?'}×${s.height||'?'}`, face:Math.round(f), exposure:exp[0], contrast:contrast[0]};
+    const signature=JSON.stringify([exp[0],contrast[0],results.cam.res]);if(signature===cameraSignature)return;cameraSignature=signature;
+    out.innerHTML = resultEl('cam','ok','Camera working',`${track.label||'Camera'} · ${results.cam.res}${s.frameRate?' · '+Math.round(s.frameRate)+' fps':''}`)
+      + resultEl('cam',exp[0],exp[1],exp[2]) + resultEl('cam',contrast[0],contrast[1],contrast[2])
+      + resultEl('cam','ok','Framing guide','Keep your head in the oval with a little headroom, eyes on the dashed line, and the lens at eye level. If you are looking down at the camera, raise the laptop; that is free.')
+      + (((s.width||0)<1280||(s.height||0)<720)?resultEl('cam','warn','Reported frame below 1280 × 720','The camera reports a frame smaller than 1280 × 720. Check the selected device and settings, then rehearse your actual interview app before considering a purchase.'):'');
+    verdict();
+  },700);
+}
+function stopCam(){ camEpoch++; document.getElementById("camStart").disabled=false; if(camTimer)clearInterval(camTimer); camTimer=null; if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null} const v=document.getElementById('cam'); if(v) v.srcObject=null; const e=document.getElementById('camEmpty'); if(e) e.style.display=''; const b=document.getElementById('camStop'); if(b) b.disabled=true; }
+document.getElementById('camStart').onclick=startCam; document.getElementById('camStop').onclick=stopCam;
+document.getElementById('camSelect').onchange=()=>{ if(camStream) startCam(); };
+
+let micStream=null, micCtx=null, micRaf=null, recorder=null, recordingTimer=null, micEpoch=0, peak=-120, noiseFloor=null, clipCount=0, levelHist=[];
+async function startMic(){
+  const out=document.getElementById('micResults'); out.innerHTML='';
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){out.innerHTML=resultEl('m','bad','Microphone not supported','This browser cannot access a microphone.');results.mic={status:'fail'};verdict();return}
+  stopMic();results.mic={};verdict();
+  const epoch=micEpoch; document.getElementById('micStart').disabled=true;
+  const id=document.getElementById('micSelect').value;
+  try{ const pendingStream=await navigator.mediaDevices.getUserMedia({audio:{deviceId:id?{exact:id}:undefined,echoCancellation:false,noiseSuppression:false,autoGainControl:false},video:false}); if(epoch!==micEpoch||!document.getElementById("page-test").classList.contains("active")){pendingStream.getTracks().forEach(t=>t.stop());return} micStream=pendingStream;document.getElementById("micStart").disabled=false; }
+  catch(e){ if(epoch!==micEpoch)return;document.getElementById('micStart').disabled=false; const denied=e.name==='NotAllowedError'; out.innerHTML=resultEl('m','bad',denied?'Microphone permission denied':'No microphone available',denied?'Allow microphone access in the browser address bar, then try again.':'No microphone was found.'); results.mic={status:'fail'}; verdict(); return }
+  await listDevices(); if(epoch!==micEpoch||!micStream)return;
+  micStream.getAudioTracks()[0].addEventListener("ended",()=>{if(epoch!==micEpoch)return;stopMic();results.mic={status:"fail"};out.innerHTML=resultEl("m","bad","Microphone disconnected","Reconnect the device and restart the microphone test.");verdict();},{once:true});
+  micCtx=new (window.AudioContext||window.webkitAudioContext)(); try{await micCtx.resume()}catch(e){} if(epoch!==micEpoch||!micStream||!micCtx)return; const src=micCtx.createMediaStreamSource(micStream); const an=micCtx.createAnalyser(); an.fftSize=2048; src.connect(an);
+  const buf=new Float32Array(an.fftSize); peak=-120; noiseFloor=null; clipCount=0; levelHist=[]; const t0=performance.now();let lastMicReport=0,lastMicSignature="";
+  document.getElementById('micRecord').disabled=!window.MediaRecorder; document.getElementById('micStop').disabled=false;
+  out.innerHTML=resultEl('m','ok','Listening','Stay silent for 2 seconds so we can measure the room, then speak normally for 5 seconds.');
+  const loop=()=>{ an.getFloatTimeDomainData(buf); let s=0,p=0; for(let i=0;i<buf.length;i++){const a=Math.abs(buf[i]); s+=buf[i]*buf[i]; if(a>p)p=a;} const rms=Math.sqrt(s/buf.length); const db=20*Math.log10(rms||1e-6); const t=performance.now()-t0;
+    if(t<2000){ noiseFloor=noiseFloor===null?db:Math.max(noiseFloor,db); }
+    else { levelHist.push(db); if(levelHist.length>600) levelHist.shift(); if(p>=0.99) clipCount++; peak=Math.max(peak,20*Math.log10(p||1e-6)); }
+    const pct=Math.max(0,Math.min(100,(db+60)/60*100)); document.getElementById('micMeter').style.width=pct+'%';
+    document.getElementById('micPeak').innerHTML=`${t<2000?'…':Math.round(peak)}<small>dBFS peak</small>`; document.getElementById('micNoise').innerHTML=`${noiseFloor===null?'…':Math.round(noiseFloor)}<small>dBFS noise floor</small>`;
+    if(t>7000 && levelHist.length>100 && t-lastMicReport>=1000){lastMicReport=t; const speaking=levelHist.filter(x=>x>-45); const avg=speaking.length?speaking.reduce((a,b)=>a+b,0)/speaking.length:-60; const spread= speaking.length? Math.max(...speaking)-Math.min(...speaking):0;
+      const lvl = avg<-35?['warn','Level is low','Your voice averages below -35 dBFS. Move closer to the mic (6 to 8 inches) or raise input gain in system settings before buying anything.'] : clipCount>5?['bad','Clipping detected','The signal is hitting the ceiling. Lower input gain or back away from the mic.'] : ['ok','Level is healthy','Your speaking level sits in the sweet spot. No microphone purchase needed for level.'];
+      const nf = noiseFloor>-40?['bad','Room is loud',`Noise floor ${Math.round(noiseFloor)} dBFS. HVAC, fans or street noise will be audible. Close doors, silence fans where possible and move closer before evaluating equipment.`] : noiseFloor>-50?['warn','Some background noise',`Noise floor ${Math.round(noiseFloor)} dBFS. Acceptable; turn off fans and notifications during the interview.`] : ['ok','Quiet room',`Noise floor ${Math.round(noiseFloor)} dBFS. Excellent.`];
+      const cons = spread>30?['warn','Inconsistent level','Your level swings widely; keep a steady distance from the mic. Rehearse microphone technique before considering equipment changes.']:['ok','Consistent level','Steady distance and delivery.'];
+      results.mic={status:(lvl[0]==='bad'||nf[0]==='bad')?'fail':(lvl[0]==='warn'||nf[0]==='warn'||cons[0]==='warn')?'warn':'pass', avg:Math.round(avg), noise:Math.round(noiseFloor), clip:clipCount, level:lvl[0], noiseLevel:nf[0]};
+      const signature=[lvl[0],nf[0],cons[0],Math.round(noiseFloor)].join(':');if(signature!==lastMicSignature){lastMicSignature=signature;
+      out.innerHTML=resultEl('m','ok','Microphone working',micStream.getAudioTracks()[0].label||'Microphone')+resultEl('m',lvl[0],lvl[1],lvl[2])+resultEl('m',nf[0],nf[1],nf[2])+resultEl('m',cons[0],cons[1],cons[2])+resultEl('m','ok','Echo check','Record 5 seconds and play it back with headphones. If your voice sounds hollow or distant, you are too far from the mic or the room needs soft furnishings (Background & environment).');
+      verdict();}
+    }
+    micRaf=requestAnimationFrame(loop); };
+  loop();
+}
+function stopMic(){ micEpoch++; document.getElementById("micStart").disabled=false;clearTimeout(recordingTimer);recordingTimer=null;document.getElementById("micRecord").textContent="Record 5 s"; if(micRaf)cancelAnimationFrame(micRaf); micRaf=null; if(recorder&&recorder.state!=='inactive')recorder.stop(); recorder=null; if(micCtx){micCtx.close().catch(()=>{});micCtx=null} if(micStream){micStream.getTracks().forEach(t=>t.stop());micStream=null} document.getElementById('micRecord').disabled=true; document.getElementById('micStop').disabled=true; document.getElementById('micMeter').style.width='0'; }
+document.getElementById('micStart').onclick=startMic; document.getElementById('micStop').onclick=stopMic;
+document.getElementById('micRecord').onclick=()=>{ if(!micStream||!window.MediaRecorder) return; const chunks=[];const epoch=micEpoch;let clipRecorder;try{clipRecorder=new MediaRecorder(micStream)}catch(e){announce('Local recording is unavailable in this browser. Use your interview app to rehearse playback.');return}recorder=clipRecorder;clipRecorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};clipRecorder.onstop=()=>{ const a=document.getElementById('micPlayback');if(epoch!==micEpoch||!document.getElementById('page-test').classList.contains('active'))return; if(a.src) URL.revokeObjectURL(a.src); a.src=URL.createObjectURL(new Blob(chunks,{type:clipRecorder.mimeType}));a.style.display='block';};clipRecorder.start(); const b=document.getElementById('micRecord'); b.disabled=true; b.textContent='Recording…'; recordingTimer=setTimeout(()=>{ if(clipRecorder.state==='recording')clipRecorder.stop(); if(epoch===micEpoch){b.disabled=!micStream;b.textContent='Record 5 s';} },5000); };
+
+
+function runEnv(){
+  const out=document.getElementById('envResults'); const ua=navigator.userAgent; const br=/Edg\//.test(ua)?'Edge':/Chrome\//.test(ua)?'Chrome':/Safari\//.test(ua)?'Safari':/Firefox\//.test(ua)?'Firefox':'Browser';
+  const c=navigator.connection||{}; const rows=[];
+  rows.push(['ok','Browser',`${br} · ${screen.width}×${screen.height} screen · ${navigator.hardwareConcurrency||'?'} CPU threads. Current Chrome, Edge or Safari all run Zoom, Teams and Webex in-browser; the desktop app is more reliable on the day.`]);
+  rows.push([navigator.onLine?'ok':'bad','Connectivity',navigator.onLine?`Online${c.effectiveType?' · '+c.effectiveType:''}${c.downlink?' · ~'+c.downlink+' Mbps estimate':''}${c.rtt?' · '+c.rtt+' ms latency':''}. Use a wired connection on interview day and turn other devices off Wi-Fi.`:'You appear to be offline.']);
+  rows.push(['warn','Backup plan','Have the interview link on your phone with the hotspot ready, and the program coordinator\'s number written down. Practice the switch once.']);
+  rows.push(['warn','Do Not Disturb','Turn on Do Not Disturb or Focus mode, close messaging apps, and silence the phone. Notifications are heard through the mic.']);
+  if(navigator.getBattery){ navigator.getBattery().then(b=>{ rows.push([b.charging?'ok':'warn','Power',b.charging?`Plugged in (${Math.round(b.level*100)}%). Good.`:`On battery at ${Math.round(b.level*100)}%. Plug in for the interview.`]); render(); }); } else rows.push(['warn','Power','Plug the laptop in for the interview; battery status is not readable in this browser.']);
+  function render(){ out.innerHTML=rows.map(r=>resultEl('e',r[0],r[1],r[2])).join(''); results.env={status:'pass',online:navigator.onLine}; verdict(); }
+  render();
+}
+document.getElementById('envRun').onclick=runEnv;
+function verdict(){
+  const v=document.getElementById('verdict'); const c=results.cam, m=results.mic, e=results.env; const parts=[]; const buy=[];
+  if(c.status==='pass'){ parts.push(c.exposure==='ok'?'Camera: good. Keep what you have.':'Camera works; fix the lighting, not the camera.'); if(c.exposure==='bad') buy.push(['Lighting','#online/light']); }
+  else if(c.status==='fail') { parts.push('Camera: could not be tested.'); }
+  if(m.status==='pass'){ parts.push(m.level==='ok'&&m.noiseLevel==='ok'?'Audio: good. Your microphone does not need replacing.':'Audio: workable with changes noted above.'); if(m.noiseLevel==='bad') buy.push(['Microphones (dynamic, Business Class)','#online/mic']); if(m.level==='warn') buy.push(['Mounting (get the mic closer)','#online/mount']); }
+  else if(m.status==='fail') parts.push('Audio: could not be tested.');
+  if(e.status) parts.push('Environment: reviewed.');
+  if(!parts.length) return;
+  v.innerHTML = parts.map(p=>`<div>${esc(p)}</div>`).join('') + (buy.length? `<p style="margin-top:8px"><b>One thing worth fixing with gear:</b> ${buy.map(b=>`<a href="${b[1]}">${esc(b[0])}</a>`).join(', ')}.</p>` : (c.status==='pass'&&m.status==='pass'?`<p style="margin-top:8px;color:var(--ok)"><b>You do not need to buy anything.</b> Spend the time on your answers instead.</p>`:''));
+  const done=store.get('auto',{}); if(c.status==='pass') done.cam=true; if(m.status==='pass') done.mic=true; if(e.status) done.env=true; store.set('auto',done); renderChecklist();
+}
+
+/* ---------- checklist ---------- */
+const CHECKLIST = {
+  online:[
+    ["One week before",[["Run Test My Setup","Camera, mic, lighting and environment.","setup"],["Confirm the platform and install the desktop app","Zoom, Teams or Webex; sign in once so there are no update prompts on the day."],["Confirm the time zone","Write the interview time in your local zone and the program's."],["Research the program","Mission, curriculum, three specific things you can mention."],["Prepare your questions","Three for faculty, three for residents."],["Choose the outfit","See Dress for the Interview; hang it, steam it, decide on accessories."]]],
+    ["72 hours before",[["Wired internet in place","Ethernet or powerline; Wi-Fi only as backup."],["Backup device ready","Phone with the link, hotspot tested, coordinator number saved."],["Background cleared","Plain wall, one lamp for depth, nothing distracting."]]],
+    ["Night before",[["Re-run the microphone test","Confirm the room is still quiet.","mic"],["Charge everything","Laptop, phone, headphones, power bank."],["Print or stage your notes","Question list and program notes beside the camera, not below it."],["Set the alarm, confirm the link","Interview link opens; calendar invite accepted."]]],
+    ["Morning of",[["Restart the computer","Clears updates and memory."],["Close every other app","Messaging, email, cloud sync."],["Lighting on, camera at eye level","Quick preview in the platform."],["Water within reach, out of frame",""]]],
+    ["30 minutes before",[["Do Not Disturb on","Phone silenced, notifications off."],["Join 5 minutes early","Audio and video checked in the waiting room."],["Breathe","You prepared for this."]]]
+  ],
+  "in-person":[
+    ["One week before",[["Travel booked and confirmed","Flights or drive, hotel, ground transport."],["Program research done","Three specific points you can raise."],["Questions prepared","Faculty and resident lists."],["Outfit chosen and fitted","See Dress for the Interview; shoes broken in."],["Padfolio loaded","Five CV copies, pen, notepad."]]],
+    ["72 hours before",[["Emergency kit packed","Lint roller, stain pen, sewing kit, shoe wipes, safety pins."],["Documents pouch","ID, confirmations, program contacts, itinerary."],["Chargers and power bank",""],["Weather checked","Umbrella, coat, appropriate shoes."]]],
+    ["Travel day",[["Suit in garment bag or folder","Hang it on arrival."],["Phone charged, itinerary offline","Screenshots of confirmations."],["Steam the suit at the hotel","Or hang it in the bathroom during a hot shower."],["Lay out tomorrow's outfit",""]]],
+    ["Morning of",[["Check the mirror in daylight","Lint, collar, shoes, nails."],["Padfolio, documents, mints, phone","One bag."],["Arrive 15 minutes early","Know the building entrance and the parking plan."]]],
+    ["Arrival",[["Phone silenced","Off or in a bag, not a pocket."],["Names of the coordinator and interviewers","Write them in the padfolio."],["Posture, handshake, eye contact","You belong in the room."]]]
+  ]
+};
+let mode=store.get('mode','online'); if(!["online","in-person"].includes(mode))mode="online";
+function renderChecklist(){
+  const done=store.get('done',{}), auto=store.get('auto',{}); const host=document.getElementById('checklist'); if(!host) return;
+  document.getElementById('modeOnline').setAttribute('aria-pressed',mode==='online'); document.getElementById('modeInPerson').setAttribute('aria-pressed',mode==='in-person');
+  let total=0, n=0;
+  host.innerHTML = CHECKLIST[mode].map(([phase,items],pi)=>`<div class="phase"><h3>${esc(phase)}<span class="pill">${items.length}</span></h3><div class="items">${items.map(([t,d,a],ii)=>{ const k=`${mode}:${pi}:${ii}`; const isAuto=a&&auto[a]; const checked=!!done[k]||isAuto; total++; if(checked)n++; return `<div class="item ${checked?'done':''}"><input type="checkbox" id="c-${k.replace(/:/g,'-')}" data-k="${k}" ${checked?'checked':''}><label for="c-${k.replace(/:/g,'-')}"><b>${esc(t)}</b><span>${esc(d)}</span>${isAuto?'<br><span class="auto">✓ Verified by Test My Setup</span>':''}</label></div>`}).join('')}</div></div>`).join('');
+  const pct=total?Math.round(n/total*100):0; document.getElementById('clProgress').style.width=pct+'%'; document.getElementById('clPct').textContent=pct+'%';
+  host.querySelectorAll('input').forEach(i=>i.onchange=()=>{ const d=store.get('done',{}); d[i.dataset.k]=i.checked; store.set('done',d); renderChecklist(); });
+}
+document.getElementById('modeOnline').onclick=()=>{mode='online';store.set('mode',mode);renderChecklist()};
+document.getElementById('modeInPerson').onclick=()=>{mode='in-person';store.set('mode',mode);renderChecklist()};
+document.getElementById('clReset').onclick=()=>{ if(confirm('Clear all checklist progress on this device?')){store.set('done',{});store.set('auto',{});renderChecklist();} };
+
+/* ---------- lookbook ---------- */
+const PALETTE = {navy:"#1b2a4a",charcoal:"#3a3d44",black:"#17191c",grey:"#8d9199",burgundy:"#5b1f2b",white:"#f4f1ea",lightblue:"#bfd3e6",ivory:"#efe6d2",tan:"#b08a5a",brown:"#4a3222",oxblood:"#4b1d1d",gold:"#d8b25c",silver:"#c9ccd1"};
+const PIECES = [
+  {id:"outer",label:"Jacket / blazer / suit jacket",opts:["navy","charcoal","black","grey","burgundy"],def:"navy"},
+  {id:"top",label:"Shirt / blouse / top",opts:["white","lightblue","ivory"],def:"white"},
+  {id:"bottom",label:"Trousers / skirt / dress",opts:["navy","charcoal","black","grey"],def:"navy"},
+  {id:"shoes",label:"Shoes",opts:["black","brown","oxblood"],def:"black"},
+  {id:"accent",label:"Tie / scarf / accent",opts:["none","burgundy","navy","gold","silver"],def:"none"}
+];
+const SILHOUETTES=[["jacket-trousers","Jacket + trousers"],["jacket-skirt","Jacket + skirt"],["dress-blazer","Dress + blazer"],["suit-no-tie","Suit, open collar"]];
+let look=store.get('look',{sil:"jacket-trousers",outer:"navy",top:"white",bottom:"navy",shoes:"black",accent:"none",fit:"regular",name:""});
+let faceURL=null;
+function figureSVG(l){ const c=k=>PALETTE[l[k]]||'#333'; const skirt=l.sil==='jacket-skirt'; const dress=l.sil==='dress-blazer';
+  return `<svg viewBox="0 0 200 300" aria-hidden="true"><ellipse cx="100" cy="290" rx="70" ry="8" fill="rgba(0,0,0,.35)"/>
+    <circle cx="100" cy="42" r="26" fill="#d9b99b"/>
+    <path d="M62 78 L138 78 L150 200 L50 200 Z" fill="${dress?c('top'):c('top')}"/>
+    ${dress?`<path d="M58 78 L142 78 L160 230 L40 230 Z" fill="${c('bottom')}"/>`:''}
+    <path d="M48 80 L92 80 L100 120 L108 80 L152 80 L164 205 L36 205 Z" fill="${c('outer')}"/>
+    <path d="M92 80 L100 120 L108 80 L104 78 L96 78 Z" fill="${c('top')}"/>
+    ${l.accent!=='none'?`<path d="M97 82 L103 82 L104 125 L100 132 L96 125 Z" fill="${PALETTE[l.accent]}"/>`:''}
+    ${skirt?`<path d="M52 200 L148 200 L156 250 L44 250 Z" fill="${c('bottom')}"/><rect x="66" y="250" width="22" height="32" fill="#d9b99b"/><rect x="112" y="250" width="22" height="32" fill="#d9b99b"/>` : dress?`` : `<path d="M52 200 L148 200 L146 282 L108 282 L100 230 L92 282 L54 282 Z" fill="${c('bottom')}"/>`}
+    <path d="M58 282 L92 282 L92 292 L54 292 Z" fill="${c('shoes')}"/><path d="M108 282 L142 282 L146 292 L108 292 Z" fill="${c('shoes')}"/></svg>`; }
+function renderLook(){
+  const f=document.getElementById('figure'); f.innerHTML=figureSVG(look)+(faceURL?`<img class="face" src="${faceURL}" alt="">`:'')+`<span class="cap">Visual approximation · ${esc(SILHOUETTES.find(s=>s[0]===look.sil)[1])} · ${esc(look.fit)} fit</span>`;
+  const b=document.getElementById('lookbuilder');
+  b.innerHTML=`<div><label class="lbl">Silhouette</label><div class="vote">${SILHOUETTES.map(s=>`<button data-sil="${s[0]}" aria-pressed="${look.sil===s[0]}">${s[1]}</button>`).join('')}</div></div>
+    <div><label class="lbl">Fit / presentation preference</label><div class="vote">${['slim','regular','relaxed'].map(x=>`<button data-fit="${x}" aria-pressed="${look.fit===x}">${x}</button>`).join('')}</div></div>
+    ${PIECES.map(p=>`<div><label class="lbl">${p.label}</label><div class="swatches">${p.opts.map(o=>`<button class="swatch" title="${o}" aria-label="${p.label}: ${o}" data-piece="${p.id}" data-val="${o}" aria-pressed="${look[p.id]===o}" style="background:${o==='none'?'transparent':PALETTE[o]};${o==='none'?'border:1px dashed #889':''}"></button>`).join('')}</div></div>`).join('')}
+    <div><label class="lbl">Name this look</label><input type="text" id="lookName" value="${esc(look.name||'')}" placeholder="e.g. Day 1 · Internal Medicine"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn gold sm" id="saveLook">Save to My Wardrobe</button><a class="btn ghost sm" href="#wardrobe">Compare saved looks</a></div>
+    <div class="flag" id="lookAdvice"></div>`;
+  b.querySelectorAll('[data-sil]').forEach(x=>x.onclick=()=>{look.sil=x.dataset.sil;persistLook()});
+  b.querySelectorAll('[data-fit]').forEach(x=>x.onclick=()=>{look.fit=x.dataset.fit;persistLook()});
+  b.querySelectorAll('[data-piece]').forEach(x=>x.onclick=()=>{look[x.dataset.piece]=x.dataset.val;persistLook()});
+  b.querySelector('#lookName').oninput=e=>{look.name=e.target.value;store.set('look',look)};
+  b.querySelector('#saveLook').onclick=()=>{ const w=store.get('wardrobe',[]); w.push({...look,id:Date.now(),name:look.name||`Look ${w.length+1}`}); store.set('wardrobe',w); location.hash='#wardrobe'; };
+  const adv=[]; if(look.outer==='black'&&look.sil!=='dress-blazer') adv.push('Black suits read formal-evening; navy or charcoal photographs warmer and is the safer interview default.'); if(look.top==='white'||look.top==='lightblue') adv.push('White or light blue under a dark jacket gives the clean contrast interviewers expect.'); if(look.shoes==='brown'&&look.outer==='black') adv.push('Brown shoes with a black jacket is the one combination to avoid.'); if(look.accent==='gold'||look.accent==='silver') adv.push('Keep metallic accents small: a tie bar, a pin, a simple necklace.'); if(!adv.length) adv.push('Clean, classic combination. Make sure it fits well through the shoulders; fit matters more than brand.');
+  document.getElementById('lookAdvice').innerHTML='<b>Dr. Brian:</b> '+esc(adv.join(' '));
+}
+function persistLook(){store.set('look',look);renderLook()}
+document.getElementById('facePhoto').onchange=e=>{ const f=e.target.files[0]; if(!f) return; if(faceURL) URL.revokeObjectURL(faceURL); faceURL=URL.createObjectURL(f); renderLook(); };
+document.getElementById('faceClear').onclick=()=>{ if(faceURL) URL.revokeObjectURL(faceURL); faceURL=null; document.getElementById('facePhoto').value=''; renderLook(); };
+function renderWardrobe(){
+  const w=store.get('wardrobe',[]); const sel=store.get('selectedLook',null); const host=document.getElementById('wardrobe');
+  if(!w.length){host.innerHTML=`<div class="card" style="padding:22px;grid-column:1/-1"><b>No saved looks yet.</b><p class="note">Build one in <a href="#dress">Dress for the Interview</a> and save it here to compare.</p></div>`;return}
+  host.innerHTML=w.map(l=>`<div class="card ${sel===l.id?'gold':''}" style="padding:12px"><div class="minifig">${['outer','top','bottom','shoes'].map(k=>`<i style="background:${PALETTE[l[k]]}"></i>`).join('')}${l.accent!=='none'?`<i style="flex:.4;background:${PALETTE[l.accent]}"></i>`:''}</div><b style="display:block;margin-top:8px">${esc(l.name)}</b><span class="note">${esc(SILHOUETTES.find(s=>s[0]===l.sil)[1])} · ${esc(l.fit)}</span>${sel===l.id?'<div class="pill gold" style="margin-top:6px">Selected for the interview</div>':''}<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap"><button class="btn gold sm" data-sel="${l.id}">${sel===l.id?'Selected':'Wear this'}</button><button class="btn plain sm" data-edit="${l.id}">Edit</button><button class="btn plain sm" data-del="${l.id}">Delete</button></div></div>`).join('');
+  host.querySelectorAll('[data-sel]').forEach(b=>b.onclick=()=>{store.set('selectedLook',+b.dataset.sel);renderWardrobe()});
+  host.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{look={...w.find(x=>x.id===+b.dataset.edit)};delete look.id;store.set('look',look);location.hash='#dress'});
+  host.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{store.set('wardrobe',w.filter(x=>x.id!==+b.dataset.del));if(sel===+b.dataset.del)store.set('selectedLook',null);renderWardrobe()});
+}
+const VOTES=["Best Overall Interview Look","Most Professional","Best Color Combination","Best Finishing & Accessories","Most Interview-Ready"];
+document.getElementById('voteCats').innerHTML=VOTES.map(v=>`<button aria-pressed="false" disabled>${v}</button>`).join('');
+document.getElementById('visibility').onchange=e=>{document.getElementById('visNote').textContent={private:'Private is the default. Nothing is shared unless you choose otherwise.',community:'Classmates in your MissionMed session will see the outfit figure only. Your name and face photo stay hidden.',public:'Public looks are anonymous by default and are reviewed by moderators before they appear.'}[e.target.value]};
+document.getElementById('communityFlag').innerHTML = IR_CONFIG.communityBackend ? 'Community sharing is live.' : '<b>Community sharing is not switched on yet.</b> The opt-in controls, visibility levels and vote categories you see here are the final design, but no look leaves your device until the MissionMed community and moderation service is connected. Nothing is being collected in the meantime.';
+const DRESS_GUIDE=[["Fit over label","A well-fitted navy or charcoal suit from any store beats an expensive one that pulls at the shoulders. Get it tailored; it is the cheapest upgrade on this page."],["Contrast on camera","Light shirt, dark jacket. Fine patterns moiré on video; solid colours hold."],["Shoes and belt","Polished, matching, broken in. People notice shoes on the walk to the room."],["Accessories, minimal","One watch, one ring, small earrings. Nothing that moves or catches light during a video call."],["Hair and grooming","Off the face, consistent with how you'll look as a resident. Decide a week before, not the night before."],["Comfort is confidence","If you can't sit, walk and raise your arms comfortably, it is the wrong outfit for a six-hour interview day."]];
+document.getElementById('dressguide').innerHTML=DRESS_GUIDE.map(([t,d])=>`<div class="card" style="padding:16px"><h3 style="font-size:20px">${t}</h3><p class="note" style="font-size:13.5px;color:var(--muted)">${d}</p></div>`).join('');
+
+/* ---------- experts ---------- */
+const EXPERTS=[];
+document.getElementById('experts').innerHTML=EXPERTS.map(g=>`<div class="card" style="padding:16px"><span class="eyebrow">${g.kind}</span><div style="display:grid;gap:10px;margin-top:10px">${g.items.map(([n,d,u])=>`<div><a href="${u}" ${u.startsWith('http')?'target="_blank" rel="noopener"':''} style="font-weight:600;color:var(--white)">${n} ${u.startsWith('http')?'↗':'→'}</a><div class="note">${d}</div></div>`).join('')}</div></div>`).join('');
+
+/* ---------- router ---------- */
+function route(){
+  const h=(location.hash||'#home').slice(1); const [page]=h.split('/'); const id=['home','online','in-person','test','checklist','dress','wardrobe','community','experts','prime-day','kit'].includes(page)?page:'home';
+  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id==='page-'+id));
+  document.querySelectorAll('[data-nav]').forEach(a=>{ if(a.dataset.nav===id) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
+  document.title = (document.getElementById('page-'+id).dataset.title||'Interview Ready') + ' · Interview Ready · MissionMed';
+  if(id==='online'||id==='in-person') renderCatalog(id);
+  if(id==='kit') renderKit(); if(id==='prime-day') renderPrimeDay(); if(id==='checklist') renderChecklist(); if(id==='dress') renderLook(); if(id==='wardrobe') renderWardrobe();
+  if(id!=='test'){ stopCam(); stopMic(); }
+  else listDevices();
+  window.scrollTo({top:0,behavior:'instant' in window?'instant':'auto'});
+  document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
+}
+setTimeout(()=>document.querySelectorAll('.reveal').forEach(e=>e.classList.add('in')),1800);
+const obs=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');obs.unobserve(e.target)}}),{threshold:.12});
+document.querySelectorAll('[data-disclosure]').forEach(p=>p.textContent=DISCLOSURE); document.getElementById('disclosure-home').textContent=DISCLOSURE;
+window.addEventListener('hashchange',()=>route()); renderKitCount();
+if(!matchMedia('(prefers-reduced-motion: reduce)').matches){ window.addEventListener('scroll',()=>{ document.querySelectorAll('[data-parallax] .bg').forEach(bg=>{ const r=bg.parentElement.getBoundingClientRect(); bg.style.setProperty('--py',((r.top-innerHeight/2)*-0.08)+'px'); }); },{passive:true}); }
+</script>
+<!-- EDITORIAL_SCRIPTS -->
+</body>
+</html>

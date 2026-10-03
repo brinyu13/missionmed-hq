@@ -1,0 +1,184 @@
+[
+  {
+    "output": "img/hero-online-board.webp",
+    "source": "sources/gear-guide-2.png",
+    "source_sha256": "8e50a7a8df658543c551c3f6a78d1058437d62609371d2098d89c17866d71468",
+    "bounds": [
+      0,
+      72,
+      806,
+      437
+    ],
+    "sha256": "69188a11fd2a412fbb9f86046aa05d2ec16a5b87409d60af8aa166d1834dd293",
+    "bytes": 48118
+  },
+  {
+    "output": "img/hero-inperson-board.webp",
+    "source": "sources/gear-guide-2.png",
+    "source_sha256": "8e50a7a8df658543c551c3f6a78d1058437d62609371d2098d89c17866d71468",
+    "bounds": [
+      810,
+      72,
+      1448,
+      437
+    ],
+    "sha256": "2575b8cfd561797c4b0a68205bfd23ea27654f9a7dadd23335ccd8b6fdb7dd77",
+    "bytes": 56048
+  },
+  {
+    "output": "img/interview-portrait.webp",
+    "source": "sources/gear-guide-2.png",
+    "source_sha256": "8e50a7a8df658543c551c3f6a78d1058437d62609371d2098d89c17866d71468",
+    "bounds": [
+      405,
+      82,
+      680,
+      326
+    ],
+    "sha256": "1e89933a936a499782180f1910ad85d7f0e3f9dc5934547d38de04afba73d31e",
+    "bytes": 11810
+  },
+  {
+    "output": "img/style-portrait.webp",
+    "source": "sources/gear-guide-1.png",
+    "source_sha256": "462b8f126b6b7cb94ff3da81e9f9bce5cfd78a6c4c765bb775b70752417be22f",
+    "bounds": [
+      422,
+      94,
+      665,
+      406
+    ],
+    "sha256": "04e5b43f0174093a5954a104ba59d933cc127cc4996d9a9644b0f09d91efa56a",
+    "bytes": 14908
+  },
+  {
+    "output": "img/travel-detail.webp",
+    "source": "sources/gear-guide-2.png",
+    "source_sha256": "8e50a7a8df658543c551c3f6a78d1058437d62609371d2098d89c17866d71468",
+    "bounds": [
+      1000,
+      206,
+      1438,
+      433
+    ],
+    "sha256": "e1bc7ed021ef601ce62fc300476734333e206e3acc389995505696b798c01dd0",
+    "bytes": 23266
+  },
+  {
+    "output": "img/purpose-landscape.webp",
+    "source": "sources/gear-guide-2.png",
+    "source_sha256": "8e50a7a8df658543c551c3f6a78d1058437d62609371d2098d89c17866d71468",
+    "bounds": [
+      1214,
+      437,
+      1448,
+      590
+    ],
+    "sha256": "eac2f8891be3a43e6ca05ec83a09e813ac3df5caea1ecffc6f0a2474ff49b95d",
+    "bytes": 8138
+  },
+  {
+    "output": "img/mountain-panorama.webp",
+    "source": "sources/gear-guide-2.png",
+    "source_sha256": "8e50a7a8df658543c551c3f6a78d1058437d62609371d2098d89c17866d71468",
+    "bounds": [
+      0,
+      896,
+      1448,
+      929
+    ],
+    "sha256": "2bcb4f8b1bd354b0f9e0cb1223ed5266641b0950d5c9ec3f4a1034c524828aba",
+    "bytes": 5252
+  },
+  {
+    "output": "img/category-camera.webp",
+    "source": "sources/gear-guide-2.png",
+    "source_sha256": "8e50a7a8df658543c551c3f6a78d1058437d62609371d2098d89c17866d71468",
+    "bounds": [
+      29,
+      456,
+      188,
+      546
+    ],
+    "sha256": "fda43ef688f4359a379e197321b6ef647eb97000dbdef21bc6338cce38532063",
+    "bytes": 3814
+  },
+  {
+    "output": "img/category-microphone.webp",
+    "source": "sources/gear-guide-2.png",
+    "source_sha256": "8e50a7a8df658543c551c3f6a78d1058437d62609371d2098d89c17866d71468",
+    "bounds": [
+      202,
+      452,
+      357,
+      546
+    ],
+    "sha256": "b5ac55caa6cff13ecfc18fe23a979396395e4e534c87a5706b532ea9c2e06fa6",
+    "bytes": 2282
+  },
+  {
+    "output": "img/category-lighting.webp",
+    "source": "sources/gear-guide-2.png",
+    "source_sha256": "8e50a7a8df658543c551c3f6a78d1058437d62609371d2098d89c17866d71468",
+    "bounds": [
+      374,
+      457,
+      529,
+      546
+    ],
+    "sha256": "cc2f27e7e4ea289803e9587369db3f1dc08b83a45af9fad082f5cc6ac977998a",
+    "bytes": 2028
+  },
+  {
+    "output": "img/category-accessories.webp",
+    "source": "sources/gear-guide-2.png",
+    "source_sha256": "8e50a7a8df658543c551c3f6a78d1058437d62609371d2098d89c17866d71468",
+    "bounds": [
+      546,
+      457,
+      702,
+      546
+    ],
+    "sha256": "45c69c17cb5322233bd23b4deb7c8098d9cb62a9980e469f438ffc73a07d45ba",
+    "bytes": 2764
+  },
+  {
+    "output": "img/category-travel.webp",
+    "source": "sources/gear-guide-2.png",
+    "source_sha256": "8e50a7a8df658543c551c3f6a78d1058437d62609371d2098d89c17866d71468",
+    "bounds": [
+      718,
+      450,
+      874,
+      546
+    ],
+    "sha256": "f63381f605bc377c62026f8efae30cb0614d6ed6e7e69afef1534d481856833f",
+    "bytes": 2366
+  },
+  {
+    "output": "img/category-emergency.webp",
+    "source": "sources/gear-guide-2.png",
+    "source_sha256": "8e50a7a8df658543c551c3f6a78d1058437d62609371d2098d89c17866d71468",
+    "bounds": [
+      887,
+      458,
+      1042,
+      546
+    ],
+    "sha256": "82c9a5320eb485defbfc4aafc99e7eb0142ac608822d0d615ca5c835aa9b8b48",
+    "bytes": 2298
+  },
+  {
+    "output": "img/mountain-mark.webp",
+    "source": "sources/gear-guide-2.png",
+    "source_sha256": "8e50a7a8df658543c551c3f6a78d1058437d62609371d2098d89c17866d71468",
+    "bounds": [
+      78,
+      10,
+      185,
+      49
+    ],
+    "sha256": "a36afeb672fd37ef4e0aaf3c735f816c193ea8084cd05c12d68e64a30d2fedfe",
+    "bytes": 1584
+  }
+]

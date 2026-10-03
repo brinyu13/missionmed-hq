@@ -1,0 +1,106 @@
+[
+  {
+    "test": "Save exact product and reload kit",
+    "result": "PASS",
+    "asin": "B09NBWWP79"
+  },
+  {
+    "test": "Checklist reload and mode separation",
+    "result": "PASS"
+  },
+  {
+    "test": "Outfit preset/save/edit without duplicate/select/reload",
+    "result": "PASS"
+  },
+  {
+    "test": "Community editorial example opens editable private look",
+    "result": "PASS"
+  },
+  {
+    "test": "Fitting-room rehearsal persists",
+    "result": "PASS"
+  },
+  {
+    "test": "Photo uses temporary object URL; no image upload request",
+    "result": "PASS",
+    "requests": []
+  },
+  {
+    "test": "Remove local face photo",
+    "result": "PASS"
+  },
+  {
+    "test": "Simulated denied camera/mic permissions fail readiness",
+    "result": "PASS"
+  },
+  {
+    "test": "Synthetic lit 1280×720 camera, clean microphone and online environment",
+    "result": "PASS",
+    "scope": "Simulated measurements; physical-device acceptance still required",
+    "peakDbfs": -20,
+    "micAvgDbfs": -23,
+    "noiseDbfs": -103
+  },
+  {
+    "test": "Five-second recording creates local Blob playback",
+    "result": "PASS"
+  },
+  {
+    "test": "Leave diagnostics stops every synthetic media track and clears playback",
+    "result": "PASS"
+  },
+  {
+    "test": "Late permission resolution after route exit stops stream",
+    "result": "PASS"
+  },
+  {
+    "test": "Ecosystem selection persists and explains total audio chain",
+    "result": "PASS",
+    "selected": "true"
+  },
+  {
+    "test": "Mobile dialog focus trap, Escape and focus restoration",
+    "result": "PASS"
+  },
+  {
+    "test": "Normal motion enables depth/parallax; pause disables motion",
+    "result": "PASS"
+  },
+  {
+    "test": "Reduced motion shows all content and disables animated treatment",
+    "result": "PASS"
+  },
+  {
+    "test": "Synthetic dark camera and clipping microphone fail readiness",
+    "result": "PASS"
+  },
+  {
+    "test": "Offline environment fails connectivity without automatic notification completion",
+    "result": "PASS"
+  },
+  {
+    "test": "Kit removal persists and returns thoughtful empty state",
+    "result": "PASS"
+  },
+  {
+    "test": "Legacy saved kit is preserved and marked for exact-model recheck",
+    "result": "PASS"
+  },
+  {
+    "test": "Content Security Policy permits local diagnostics/Blob recording",
+    "result": "PASS"
+  },
+  {
+    "test": "Stable mic result avoids per-frame announcements/checklist writes",
+    "result": "PASS",
+    "resultUpdatesOver2500ms": 0
+  },
+  {
+    "test": "Synthetic device-disconnect events invalidate readiness and release tracks",
+    "result": "PASS"
+  },
+  {
+    "test": "Starting a new pending diagnostic clears earlier measured checklist completion",
+    "result": "PASS"
+  }
+]

@@ -1,0 +1,22 @@
+[
+  {
+    "path": "src.html",
+    "sha256": "d1ef700c5f9dc2779b7969aa92dddc93d62505e4f2e6eda280b6e1929cf9df4f",
+    "donorEqualsPreservedInput": true
+  },
+  {
+    "path": "build.sh",
+    "sha256": "5d2e9b6dc295e2003ac7fec13f93fd175cf2bdf974c779dfcaa72d67f6e04e96",
+    "donorEqualsPreservedInput": true
+  },
+  {
+    "path": "qa.py",
+    "sha256": "768175cba8ba574f894adcc102166f9691adae1cb860997ea54d9734dc1dcc2f",
+    "donorEqualsPreservedInput": true
+  },
+  {
+    "path": "dist/interview-ready.html",
+    "sha256": "d966b653f9fbca83387e131f1c67b2d38157b249a36cccc89e81d8d426f137c5",
+    "donorEqualsPreservedInput": true
+  }
+]
