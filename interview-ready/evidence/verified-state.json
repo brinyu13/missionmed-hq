@@ -1,0 +1,26 @@
+{
+  "recordedAt": "2026-10-03T02:47:58.708343+00:00",
+  "mission": "IR-INTERVIEW-READY-0002",
+  "worktree": "/Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002",
+  "branch": "codex/ir-interview-ready-0002-storyforge",
+  "baseCommit": "0feee579b0a9f2c90529220899f6cf6d21b8cd05",
+  "implementationCommit": "37707c1eb5ca5ba9513916ddf0f5784a562fca4f",
+  "compiledPayload": {
+    "sha256": "4b54cebc6a22c9de03b084c438f5c8b745a4ff66eed4fd7261bdbb7beb7716f1",
+    "bytes": 1425215,
+    "inputs": {
+      "src.html": "98623c1e4f18b9cf48fd4643f7636f2e12576dda9ed490ca64938b7920895b8c",
+      "editorial.css": "d22e49621f9e5e73b6945499a32e04af051141f534b97b3cdef7f4551587e7ae",
+      "editorial.js": "2713f43365d9ce4a47f19786fa48fb2c68e53cf295e950f6cfa26111ed93b95d",
+      "catalog.json": "b894e169b0806312e8c234a43f8f64b10cab178dfa1bba72cb9fd7e3ea1f0103"
+    }
+  },
+  "qaSummary": "interview-ready/evidence/qa-summary.json",
+  "stagingAfter": "interview-ready/evidence/staging-after.json",
+  "scope": "Local review candidate only; STAGING target remains unchanged",
+  "preservedUntrackedInput": "_AI_INPUTS/",
+  "protectedMutations": [],
+  "pushed": false,
+  "founderAccepted": false,
+  "productionReleased": false
+}

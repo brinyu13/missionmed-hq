@@ -15,7 +15,7 @@ The localhost server serves only `interview-ready/dist/` on loopback port 8762. 
 
 ## Exact custody and authority
 
-Worktree: `/Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002`. Branch: `codex/ir-interview-ready-0002-storyforge`. Remote: `https://github.com/brinyu13/missionmed-hq.git`. Starting commit: `0feee579b0a9f2c90529220899f6cf6d21b8cd05`. Initial untracked `_AI_INPUTS/` remains preservation-only and excluded from the implementation commit.
+Worktree: `/Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002`. Branch: `codex/ir-interview-ready-0002-storyforge`. Remote: `https://github.com/brinyu13/missionmed-hq.git`. Starting commit: `0feee579b0a9f2c90529220899f6cf6d21b8cd05`. Implementation commit: `37707c1eb5ca5ba9513916ddf0f5784a562fca4f`. Initial untracked `_AI_INPUTS/` remains preservation-only and excluded from the implementation commit. The subsequent closeout commit changes only documentation/state evidence.
 
 The expected 0001 donor Git pointer is invalid on this host and its metadata contains lock files. No donor files, metadata or locks were changed. The preserved prior-run input supplied the functioning chassis. End-of-run hashes of donor source/build/QA/distribution still equal the preserved input. The historical report was read and its 11 routes, storage, diagnostics and broad UI claims checked against source/runtime; 60 generic entries were not treated as 60 verified recommendations.
 
