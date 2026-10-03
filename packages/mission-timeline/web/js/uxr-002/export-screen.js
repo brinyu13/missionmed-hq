@@ -354,6 +354,9 @@ export function buildExportPreviewInput(document,state={}){
   const selectedAudience=exportAudience(normalized.audience);
   const timeline=clone(document);
   timeline.events=projectPresentationExamEvents(document,filtered.included);
+  // EVERYTHING below is safe only after every audience-scoped collection is
+  // projected. Media follows the same explicit sharing policy as events.
+  timeline.mediaItems=filterEventsForAudience(document.mediaItems,normalized.audience).included;
   const fields=projectPresentationFields(document,{allowed:new Set([...filtered.policy.baselineVisibility,...(selectedAudience.scope?['ADVISOR_ONLY']:[])]),visibleEventIds:new Set(filtered.included.map(event=>String(event.id)))});
   timeline.events=projectPresentationEventFields(timeline.events,fields);
   timeline.studentProfile=fields.studentProfile;

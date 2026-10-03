@@ -161,3 +161,21 @@ test('stored media reaches async resolution before the final gate, which still r
  const missing=createLocalExportAdapter({resolveObjectUrl:async()=>null,rasterize:async()=>{throw Error('unresolved asset reached rasterizer');}});
  await assert.rejects(()=>missing.generate(request),e=>e.code==='TIMELINE_EXPORT_MISSING_FIELDS'&&e.fields.some(f=>f.id==='stored-profile'));
 });
+
+
+test('actual program-facing export boundary excludes private photos before the resolver and artifact',async()=>{
+ const {buildExportRequest,buildExportPreviewInput}=await import('../web/js/uxr-002/export-screen.js');
+ const {createLocalExportAdapter}=await import('../web/js/uxr-002/export-adapter.js');
+ const document=base();
+ for(const visibilityState of ['ADVISOR_ONLY','STUDENT_ONLY','HIDDEN']){
+  document.mediaItems=[{id:'private-photo',type:'profilePhoto',visibilityState,resolvedUrl:pixel}];
+  const before=JSON.stringify(document),request=buildExportRequest(document,{audience:'INTERVIEWER_SAFE'});
+  assert.deepEqual(request.renderInput.timeline.mediaItems,[]);
+  let painted='';await createLocalExportAdapter({resolveObjectUrl:()=>{throw Error('private asset must not be resolved');},rasterize:async svg=>{painted=svg;return{canvas:{toBlob:cb=>cb(new Blob(['synthetic-test'],{type:'image/png'}))},warnings:[]};}}).generate(request);
+  assert.doesNotMatch(painted,/private-photo/);assert.equal(JSON.stringify(document),before);
+ }
+ document.mediaItems=[{id:'shared-photo',type:'profilePhoto',visibilityState:'ADVISOR_ONLY',resolvedUrl:pixel,fields:{exportAudiences:['LOR_WRITER']}}];
+ assert.equal(buildExportPreviewInput(document,{audience:'LOR_WRITER'}).timeline.mediaItems.length,1);
+ assert.equal(buildExportPreviewInput(document,{audience:'PROFESSIONAL_CONNECTION'}).timeline.mediaItems.length,0);
+ assert.equal(buildExportPreviewInput(document,{audience:'INTERVIEWER_SAFE'}).timeline.mediaItems.length,0);
+});
