@@ -13,6 +13,7 @@ import { mountCalibration } from './calibration.mjs';
 import { masteryState, streak } from './model/teaching.mjs';
 import { projectOwnRetry } from './adapters/retry.mjs';
 import { attemptSnapshot, canCompareAttempts } from '../../studio/longitudinal-model.mjs';
+import { readOwnPresentation } from './adapters/own-presentation.mjs';
 
 const main = document.getElementById('main');
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -22,6 +23,17 @@ export const session = { questionId: null, mode: 'practice', mockSet: null, conf
 let teardown = null;
 let generation = 0, acceptedHash = '#/home', revertingHash = false;
 const guarded = () => true;
+const ownQuestions = () => loadQuestions({attempts:state.attempts,favorites:state.preferences.favoriteQuestions});
+async function hydrateOwnPresentation(isCurrent) {
+  try {
+    const own = await readOwnPresentation(controller,{isCurrent});
+    if (!own || !isCurrent()) return;
+    state.mentorPriority = own.mentorPriority;
+    state.preferences = {...state.preferences,...own.preferences};
+  } catch {
+    if (isCurrent()) state.mentorPriority = null;
+  }
+}
 
 function salutation() { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; }
 
@@ -42,8 +54,8 @@ function renderIdentity(account) {
 
 // ---------- HOME: "What should I do now?" ----------
 async function renderHome(isCurrent = guarded) {
-  await controller.library({isCurrent});
-  const { questions } = await loadQuestions(); if (!isCurrent()) return;
+  await Promise.all([controller.library({isCurrent}),hydrateOwnPresentation(isCurrent)]);
+  const { questions } = await ownQuestions(); if (!isCurrent()) return;
   const attempts = attemptsByRecency();
   const last = attempts[0] || null;
   const daysSince = last ? Math.floor((Date.now() - last.at) / 86_400_000) : null;
@@ -93,8 +105,8 @@ async function renderHome(isCurrent = guarded) {
 
 // ---------- PRACTICE: one question (selector drawer for all 193) + sticky dock ----------
 async function renderPractice(params, isCurrent = guarded) {
-  await controller.library({isCurrent});
-  const { questions, store, source, governance } = await loadQuestions(); if (!isCurrent()) return;
+  await Promise.all([controller.library({isCurrent}),hydrateOwnPresentation(isCurrent)]);
+  const { questions, store, source, governance } = await ownQuestions(); if (!isCurrent()) return;
   const attempts = attemptsByRecency();
   let selected = params.get('q') || session.questionId || 'CORE-01';
   let retryOf=null;
@@ -109,7 +121,7 @@ async function renderPractice(params, isCurrent = guarded) {
     const q = questions.find((x) => x.question_id === selected) || questions[0];
     const m = masteryState(attempts, q.question_id);
     const lastForQ = attempts.find((a) => a.questionId === q.question_id);
-    const priority = retryOf?.priorityText || lastForQ?.priorityText || null;
+    const priority = retryOf?.priorityText || state.mentorPriority || lastForQ?.priorityText || null;
     const core = questions.filter((x) => x.core_priority).slice(0, 10);
     main.innerHTML = `
       <div class="setup" data-screen="practice">
@@ -139,8 +151,8 @@ async function renderPractice(params, isCurrent = guarded) {
 
 // ---------- MOCK SETUP: Selected Question Tray + Easy/Advanced interviewer + sticky action dock ----------
 async function renderMock(params, isCurrent = guarded) {
-  await controller.library({isCurrent});
-  const { questions, store, source, governance } = await loadQuestions(); if (!isCurrent()) return;
+  await Promise.all([controller.library({isCurrent}),hydrateOwnPresentation(isCurrent)]);
+  const { questions, store, source, governance } = await ownQuestions(); if (!isCurrent()) return;
   const attempts = attemptsByRecency();
   if(params.get('retry')){
     const saved=await controller.sessionDetail(params.get('retry'),{isCurrent});if(!isCurrent())return;
@@ -304,7 +316,16 @@ async function route() {
     else if(name==='prepare')await renderPrepare(isCurrent);
     else if(name==='review')await renderReview(isCurrent);
     else if(name==='progress')await renderProgress(isCurrent);
+    else if(name==='bait-lab') {
+      const account=controller.account,fresh=await account.api.bootstrap();
+      if(!isCurrent()||controller.account!==account)return;
+      if(account.role!=='admin'||fresh.identity?.subject!==account.subject||fresh.identity.admin!==true||fresh.entitlement?.admitted!==true)throw new Error('This QA tool requires your current Admin account.');
+      const {mountBaitLab}=await import('./bait-lab.mjs');
+      if(isCurrent())teardown=await mountBaitLab(main,{controller,isCurrent});
+    }
     else if(['devices','room','results','film','compare'].includes(name)) {
+      if(name==='devices'||name==='room')await hydrateOwnPresentation(isCurrent);
+      if(!isCurrent())return;
       const cleanup=await (name==='devices'?mountCalibration(main,{isCurrent}):name==='room'?mountRoom(main,{session,isCurrent}):name==='results'?mountResults(main,parts[1],{isCurrent}):name==='film'?mountFilm(main,parts[1],params,{isCurrent}):mountCompare(main,parts[1],parts[2],{isCurrent}));
       if(isCurrent())teardown=cleanup;else cleanup?.();
     }
@@ -320,10 +341,10 @@ controller.addEventListener('account', (e) => renderIdentity(e.detail));
 // A failed admission never becomes local/demo mode.
 controller.connectAccount().then(account=>{
   renderIdentity(account);
-  document.querySelector('[data-admin-link]').hidden=account.role!=='admin';
+  document.querySelectorAll('[data-admin-link]').forEach(link=>{link.hidden=account.role!=='admin';});
   void route();
 }).catch(error=>{
   renderIdentity(null);
-  document.querySelector('[data-admin-link]').hidden=true;
+  document.querySelectorAll('[data-admin-link]').forEach(link=>{link.hidden=true;});
   main.innerHTML='<section class="housing panel"><h1 class="t-h2">Sign in through Matrix</h1><p class="t-edit">'+esc(error.message)+'</p><a class="btn btn-primary" href="https://missionmedinstitute.com/member-dashboard/">Open MissionMed Matrix ▸</a></section>';
 });

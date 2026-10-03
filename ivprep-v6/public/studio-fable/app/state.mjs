@@ -2,13 +2,13 @@
 // account data, never browser-global localStorage or a second persistence owner.
 const listeners = new Set();
 let subject = null;
-export const state = { attempts: [], calibration: null, preferences: { density: 'coached', reducedMotion: false }, mentorPriority: null, program: null };
+export const state = { attempts: [], calibration: null, preferences: { density: 'coached', densityPersisted: false, overlaysVisible: false, favoriteQuestions: [], reducedMotion: false }, mentorPriority: null, program: null };
 export function bindSubject(next) {
   if (!/^wp:[1-9][0-9]*$/.test(String(next || ''))) throw new Error('Authenticated IVOC subject required');
   if (subject === next) return;
   subject = next;
   state.attempts = []; state.program = null; state.calibration = null; state.mentorPriority = null;
-  state.preferences = { density: 'coached', reducedMotion: false };
+  state.preferences = { density: 'coached', densityPersisted: false, overlaysVisible: false, favoriteQuestions: [], reducedMotion: false };
   try {
     const saved = JSON.parse(localStorage.getItem('ivoc.fable.preferences.v1:' + subject) || 'null');
     if (saved?.density === 'interview' || saved?.density === 'coached') state.preferences.density = saved.density;

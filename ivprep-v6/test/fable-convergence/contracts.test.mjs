@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {loadQuestions,queryQuestions} from '../../public/studio-fable/app/questions.mjs';
+import {loadQuestions,queryQuestions,ownQuestionRecords} from '../../public/studio-fable/app/questions.mjs';
 import * as corpus from '../../public/questions/question-store.mjs';
 import {projectOwnRetry} from '../../public/studio-fable/app/adapters/retry.mjs';
 import {toWizard,defaultSettings} from '../../public/studio-fable/app/settings/interviewer.mjs';
 import {DurableStudioSession} from '../../public/studio/durable-session.mjs';
 import {NativeInterviewObserver} from '../../public/studio-fable/app/brain/native-observer.mjs';
-import {masteryState} from '../../public/studio-fable/app/model/teaching.mjs';
+import {masteryState,closingLedger} from '../../public/studio-fable/app/model/teaching.mjs';
 const id='f13869aa-2b3e-4b65-9f66-1288fb459444';
 test('Custom selector includes the current governed admin_custom source',()=>{
   const q={question_id:'CUSTOM-1',canonical_text:'Current custom question',source:'admin_custom',tags:[]};
@@ -43,7 +43,31 @@ test('native observer does not drive an 8-second script, timeout close or automa
   observer.ingestFinal({speaker:'applicant',text:'What about teaching?'});assert.equal(observer.snapshot().closing.candidateQuestions.length,2);
   assert.equal(observer.tick(),null);assert.equal(observer.snapshot().state,'CANDIDATE_QUESTIONS');
 });
+test('absence of native final messages cannot claim a missed closing or an observed question number',()=>{
+  const observer=new NativeInterviewObserver({questions:corpus.createDefaultQuestionStore().core().slice(0,2)});observer.start();observer.requestEnd('leave');
+  assert.equal(observer.snapshot().finalObservationCount,0);assert.equal(closingLedger(observer.snapshot()).status,'unverified');
+});
 test('coverage rings never turn missing metrics into Stable/mastery/priority-cleared evidence',()=>{
   const now=Date.now(),attempts=[0,1,2].map(i=>({questionId:'CORE-01',at:now-i*1000,priorityLane:i===0?null:'pace'}));
   assert.equal(masteryState(attempts,'CORE-01',now).state,'Rehearsed');assert.equal(masteryState(attempts,'CORE-01',now+22*86400000).state,'Not recent');
+});
+test('question statistics join own saved sessions and never invent educator marks',async()=>{
+  const attempts=[{id,questionId:'CORE-01',ownerSubject:'wp:1',persisted:true,at:1,priorityText:'Too slow'},
+    {id:'foreign',questionId:'CORE-02',ownerSubject:'wp:2',persisted:true,at:1},
+    {id:'unsaved',questionId:'CORE-03',ownerSubject:'wp:1',persisted:false,at:1}];
+  assert.equal(ownQuestionRecords(attempts,'wp:1').length,1);
+  const {questions,store}=await loadQuestions({account:{mode:'REAL',subject:'wp:1',api:{questions:async()=>({questions:[]})}},attempts,favorites:['CORE-01'],moduleLoader:async()=>corpus});
+  assert.equal(questions.find(q=>q.question_id==='CORE-01').stats.attempts,1);
+  assert.equal(questions.find(q=>q.question_id==='CORE-02').stats.attempts,0);
+  assert.equal(queryQuestions({questions,store,filter:'needs'}).length,0);
+  assert.deepEqual(queryQuestions({questions,store,filter:'favorites'}).map(q=>q.question_id),['CORE-01']);
+  assert.ok(!queryQuestions({questions,store,filter:'never'}).some(q=>q.question_id==='CORE-01'));
+});
+test('current review-status contract is recognized without inventing needs-work verdicts',async()=>{
+  const attempts=[{id,questionId:'CORE-01',ownerSubject:'wp:1',persisted:true,at:1,remote:{review:{status:'reviewed'}}},
+    {id:'other',questionId:'CORE-02',ownerSubject:'wp:1',persisted:true,at:1,remote:{reviewStatus:'reviewed'}}];
+  const {questions,store}=await loadQuestions({account:{mode:'REAL',subject:'wp:1',api:{questions:async()=>({questions:[]})}},attempts,moduleLoader:async()=>corpus});
+  assert.equal(questions.find(q=>q.question_id==='CORE-01').stats.mentorReviewed,1);
+  assert.equal(questions.find(q=>q.question_id==='CORE-02').stats.mentorReviewed,1);
+  assert.equal(queryQuestions({questions,store,filter:'needs'}).length,0);
 });

@@ -1,6 +1,84 @@
 // The production 3528C composition root is reused, never duplicated.
 // Rehearsal and recording have distinct epochs but retain one capture stream.
+import {COACHING_CONFIG} from '../../../analytics/coaching-config.mjs';
 const ENGINE='/iv-prep-on-call/assets';
+const RESOLUTION_KEYS=['readiness','framing','faceBaseline','smile','nods','hands','gesture','volume','pitch','pace','volumeRange','pauseHold','paceRange'];
+const RESOLUTION_VALUES=new Set(['resolved','partial','not']);
+const PROFILE_FIELDS={audio:['sampleRate','channelCount','echoCancellation','noiseSuppression','autoGainControl'],video:['width','height','frameRate']};
+const projectedResolutions=value=>Object.fromEntries(RESOLUTION_KEYS.filter(key=>RESOLUTION_VALUES.has(value?.[key])).map(key=>[key,value[key]]));
+function safeResolutionProfile(value) {
+  if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).some(key=>!Object.hasOwn(PROFILE_FIELDS,key)))return null;
+  const profile={};
+  for(const [kind,fields]of Object.entries(PROFILE_FIELDS)) {
+    const part=value[kind];
+    if(!part||typeof part!=='object'||Array.isArray(part)||Object.keys(part).some(key=>!fields.includes(key)))return null;
+    if(Object.values(part).some(v=>typeof v!=='boolean'&&(typeof v!=='number'||!Number.isFinite(v))))return null;
+    profile[kind]=Object.fromEntries(fields.filter(key=>Object.hasOwn(part,key)).map(key=>[key,part[key]]));
+  }
+  return profile;
+}
+function resolutionBinding(subject,record,deviceProfile,now) {
+  const profile=safeResolutionProfile(record?.deviceProfile),current=safeResolutionProfile(deviceProfile);
+  if(!/^wp:[1-9][0-9]*$/.test(String(subject||''))||record?.schemaVersion!==1||record.configVersion!==COACHING_CONFIG.version
+    ||!Number.isSafeInteger(record.createdAtMs)||record.createdAtMs<0||record.createdAtMs>now
+    ||record.staleAtMs!==record.createdAtMs+COACHING_CONFIG.baseline.staleAfterDays*86_400_000||now>=record.staleAtMs
+    ||!profile||!current||JSON.stringify(profile)!==JSON.stringify(current))return null;
+  return {subject,configVersion:record.configVersion,createdAtMs:record.createdAtMs,staleAtMs:record.staleAtMs,deviceProfile:profile};
+}
+// Presentation metadata only. BaselineStore remains the sole calibration authority.
+export class CalibrationResolutionStore {
+  constructor({storage=globalThis.localStorage,now=()=>Date.now()}={}) {this.storage=storage;this.now=now;}
+  key(subject) {if(!/^wp:[1-9][0-9]*$/.test(String(subject||'')))throw new Error('An admitted calibration subject is required.');return 'ivoc.fable.calibration-resolution.v1:'+subject;}
+  clear(subject) {try{this.storage.removeItem(this.key(subject));}catch{}}
+  save(subject,baseline,resolved) {
+    const binding=resolutionBinding(subject,baseline,baseline?.deviceProfile,this.now());
+    if(!binding)throw new Error('A current device-bound personal baseline is required to save the calibration record.');
+    const record={schema:'ivoc.fable.calibration-resolution.v1',binding,resolved:projectedResolutions(resolved)};
+    this.storage.setItem(this.key(subject),JSON.stringify(record));
+    const saved=this.load(subject,baseline,{deviceProfile:baseline.deviceProfile});
+    if(!saved)throw new Error('The calibration resolution record could not be saved.');
+    return saved;
+  }
+  load(subject,baseline,{deviceProfile=baseline?.deviceProfile}={}) {
+    try {
+      const binding=resolutionBinding(subject,baseline,deviceProfile,this.now());
+      const raw=this.storage.getItem(this.key(subject));
+      if(!raw)return null;
+      const record=JSON.parse(raw),resolved=projectedResolutions(record?.resolved);
+      if(!binding||record?.schema!=='ivoc.fable.calibration-resolution.v1'
+        ||Object.keys(record).some(key=>!['schema','binding','resolved'].includes(key))
+        ||JSON.stringify(record.binding)!==JSON.stringify(binding)||!record.resolved||typeof record.resolved!=='object'||Array.isArray(record.resolved)
+        ||Object.keys(resolved).length!==Object.keys(record.resolved).length) {this.clear(subject);return null;}
+      return {at:binding.createdAtMs,staleAt:binding.staleAtMs,resolved,engineMode:'real',fixture:false,corridors:baseline.corridors};
+    }catch{this.clear(subject);return null;}
+  }
+}
+// React only to the real producer's bounded primary-lock state, never raw geometry.
+export function bindPrimaryRecovery(host,{engine,isCurrent=()=>true}={}) {
+  const button=host?.querySelector('[data-reselect-primary]'),copy=host?.querySelector('[data-primary-status]');
+  if(!host||!button||!copy)return()=>{};
+  let disposed=false,pending=false;
+  const current=()=>!disposed&&isCurrent();
+  const update=detail=>{
+    if(!current()||detail?.state!=='primary-lock')return;
+    const lock=detail.primaryLock,required=lock?.selectionRequired===true||lock?.state==='PRIMARY_SELECTION_REQUIRED';
+    if(required)pending=false;
+    else if(lock?.state==='PRIMARY_LOCKED')pending=false;
+    host.hidden=!required&&!pending;button.disabled=!required;
+    copy.textContent=required?'Select yourself. Person-specific measurements are withheld until your lock is stable.':'Center yourself in the guide. Measurements remain withheld while selection restarts.';
+  };
+  const listener=event=>update(event.detail);
+  const click=()=>{
+    if(!current()||button.disabled)return;
+    try{
+      if(engine.reselectPrimary()===true){pending=true;button.disabled=true;copy.textContent='Center yourself in the guide. Measurements remain withheld while selection restarts.';}
+      else copy.textContent='Person selection is not ready. Measurements remain withheld; try again when the camera is connected.';
+    }catch{copy.textContent='Person selection could not restart. Measurements remain withheld; reconnect the camera before trying again.';}
+  };
+  engine.events.addEventListener('state',listener);button.addEventListener('click',click);
+  update({state:'primary-lock',primaryLock:engine.real?.pipeline?.diagnostics?.().primaryLock});
+  return()=>{disposed=true;engine.events.removeEventListener('state',listener);button.removeEventListener('click',click);host.hidden=true;};
+}
 export function invalidateDeviceCalibration(real) {
   real.cancelFaceBaseline?.('DEVICE_CHANGED_RECALIBRATION_REQUIRED');
   real.behavior.setBaseline(null);
@@ -28,6 +106,7 @@ export async function createEngine({mode='real',video,overlayCanvas,csrfToken=''
   ]);
   const real=new RealAnalyticsEngine({video,overlayCanvas,csrfToken});
   const events=new EventTarget(); const baselines=new BaselineStore();
+  const resolutions=new CalibrationResolutionStore({storage:baselines.storage,now:baselines.now});
   let recordingOrigin=null; let baseline=null;let destroyed=false;
   const bus=new MetricBus(), timeline=new MeasurementTimeline(); let readouts={};
   const diagnostic=event=>{
@@ -72,6 +151,11 @@ export async function createEngine({mode='real',video,overlayCanvas,csrfToken=''
       applyBaseline(baselines.load(subject,{deviceProfile:profile()})); return stream;
     },
     get latest(){return real.latest;},get stream(){return real.bridge.media.stream;},get audioContext(){return real.bridge.audioContext;},get personalCalibration(){return baseline;},
+    get calibrationResolution(){
+      const current=baselines.load(subject,{deviceProfile:profile()});
+      if(current?.createdAtMs!==baseline?.createdAtMs||current?.configVersion!==baseline?.configVersion)return null;
+      return resolutions.load(subject,current,{deviceProfile:profile()});
+    },
     setPhase(){},beginAnswer(){
       recordingOrigin=null;previousCounts={smiles:0,nods:0,gestures:0};
       beginMeasurementEpoch(real);applyBaseline(baseline);
@@ -87,7 +171,7 @@ export async function createEngine({mode='real',video,overlayCanvas,csrfToken=''
       const derived=real.behavior.calibrationDerived();
       if(!derived || !Object.values(derived).some(value=>typeof value==='number'&&Number.isFinite(value))) throw new Error('Speak during rehearsal before saving a personal calibration.');
       const record=baselines.save(subject,derived,{deviceProfile:profile()}); applyBaseline(record);
-      return {at:record.createdAtMs,staleAt:record.staleAtMs,resolved:{...resolved},engineMode:'real',fixture:false,corridors:record.corridors};
+      return resolutions.save(subject,record,resolved);
     },
     beginFaceBaseline(){return real.pipeline.beginPersonalFaceBaseline();},
     endFaceBaseline(){return real.pipeline.endPersonalFaceBaseline();},
@@ -99,7 +183,7 @@ export async function createEngine({mode='real',video,overlayCanvas,csrfToken=''
       try{
         const devices=await real.switchDevice(kind,id);
         if(destroyed)throw new Error('The device change was cancelled.');
-        baselines.invalidateForDeviceChange(subject);baseline=null;invalidateDeviceCalibration(real);return devices;
+        baselines.invalidateForDeviceChange(subject);resolutions.clear(subject);baseline=null;invalidateDeviceCalibration(real);return devices;
       }finally{if(destroyed)real.destroy({releaseMedia:true});}
     },
     reselectPrimary(){return real.pipeline.reselectPrimary();},

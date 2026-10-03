@@ -6,6 +6,8 @@ import { conductorConfig, toWizard, defaultSettings } from './settings/interview
 import { liveContext } from './adapters/context-adapter.mjs';
 import { awaitVisibleCamera } from './adapters/media-readiness.mjs';
 import {mountDeviceControls,deviceControlsMarkup} from './adapters/device-controls.mjs';
+import {bindPrimaryRecovery} from './adapters/engine-adapter.mjs';
+import {saveOwnVisibility} from './adapters/own-presentation.mjs';
 import { NativeInterviewObserver } from './brain/native-observer.mjs';
 import { substantiveQuestionPlan } from '../../capabilities/interview-progression.mjs';
 import { leftRailMarkup, rightRailMarkup, RailsController } from './instruments/rails.mjs';
@@ -21,7 +23,8 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   const plan=substantiveQuestionPlan(mode==='mock'?(session.mockSet||questions.filter(q=>q.core_priority).slice(0,5)):[practiceQ]);
   if(!plan.length)throw new Error('Choose at least one current interview question.');
   const cfg=session.config||{},settings=session.settings||defaultSettings();
-  let density=mode==='mock'?'interview':(state.preferences?.density||'coached');
+  let density=mode==='mock'&&!state.preferences?.densityPersisted?'interview':(state.preferences?.density||'coached');
+  let overlaysVisible=state.preferences?.overlaysVisible===true;
   let disposed=false,starting=false,started=false,saving=false,finished=false,engine=null,interviewer=null,saveRecord=null,deviceSwitching=false;
   main.innerHTML = `
   <div class="room" id="room" data-density="${density}" data-mode="${mode}">
@@ -42,13 +45,13 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
         <div class="presence-tag"><span class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="t-tech" id="presence-state">waiting</span></div>
         <div class="line" id="presence-line">${mode === 'mock' ? 'The interviewer will begin when you are ready.' : esc(practiceQ.canonical_text)}</div>
       </section>
-      <div class="stage" id="stage" data-guides="false" data-idle="false">
+      <div class="stage" id="stage" data-guides="${overlaysVisible}" data-idle="false">
         <canvas id="overlay"></canvas>
         <div class="frame-guide" aria-hidden="true"></div>
         <span class="tag" id="stage-tag"><i></i>You</span>
         <div class="captions" id="captions" hidden><span></span></div>
         <div class="controls" id="controls">
-          <button class="ctl-icon" type="button" id="guides" aria-pressed="false" title="Framing guide">⌖</button>
+          <button class="ctl-icon" type="button" id="guides" aria-pressed="${overlaysVisible}" title="Framing guide">⌖</button>
           <button class="btn btn-primary" type="button" id="primary-action">Start answer</button>
           <button class="btn btn-quiet" type="button" id="end">Finish &amp; save</button>
         </div>
@@ -63,6 +66,8 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
         </div>
       </div>
       <div class="under-stage" id="under-stage"><span id="engine-label">Nothing is measured yet.</span><button class="transcript-toggle" type="button" id="transcript-toggle" aria-expanded="false">Transcript</button></div>
+      <div class="note" id="primary-recovery" role="status" aria-live="polite" hidden><span data-primary-status></span> <button class="btn btn-quiet" type="button" data-reselect-primary>Lock to me</button></div>
+      <p class="note" id="room-preference-note" role="status" hidden></p>
     <div class="transcript" id="transcript" hidden></div>
     ${deviceControlsMarkup()}
 
@@ -73,9 +78,14 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
 
   const $=id=>main.querySelector('#'+id),room=$('room'),rails=new RailsController(main);
   const recorder=new LiveRecorder($('recorder'),{window:'1M'}),history=new TraceHistory(),events=[],turns=[];let captions=[];
-  let timer=null,idleTimer=null,roomFault=null,lastCueId=null,disposeDevices=null;
+  let timer=null,idleTimer=null,roomFault=null,lastCueId=null,disposeDevices=null,disposePrimary=null;
   const counts={smiles:0,nods:0,gestures:0};
   const current=()=>!disposed&&isCurrent();
+  function saveVisibility(patch){
+    Promise.resolve().then(()=>saveOwnVisibility(controller,patch,{isCurrent:current})).then(saved=>{if(current()&&saved){state.preferences.densityPersisted=saved.densityPersisted===true;commit();$('room-preference-note').hidden=true;}}).catch(()=>{
+      if(!current())return;$('room-preference-note').hidden=false;$('room-preference-note').textContent='Your display changed, but the account preference could not be saved. Try the control again.';
+    });
+  }
   const observer=mode==='mock'?new NativeInterviewObserver({questions:plan,config:conductorConfig(settings,{durationMin:cfg.durationMin}),context:{specialty:session.program?.specialty||null},now:()=>controller.elapsed*1000}):null;
   const at=()=>controller.elapsed;
   const mark=(kind,label)=>events.push({t:at(),kind,label});
@@ -84,7 +94,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     if(!current()||finished||saving||!text)return;
     const before=observer?.snapshot();
     turns.push({speaker,text,t:at(),identity:event.identity||null,timingBasis:'MESSAGE_RECEIPT',state:before?.state||'PRACTICE',n:before?.n||1});
-    observer?.ingestFinal({speaker,text});
+    observer?.ingestFinal({speaker,text,identity:event.identity||null,sessionId:controller.durable.accountSession?.id||null});
     const snap=observer?.snapshot();
     if(speaker==='interviewer' && snap?.n!==before?.n)mark('question','Q'+snap.n);
     if(speaker==='applicant' && snap?.hooks.length>before?.hooks.length)mark('hook','Hook: '+snap.hooks.at(-1).span);
@@ -105,7 +115,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   function providerFailed(){if(!current()||!started||saving)return;roomFault={message:'Interviewer disconnected',detail:'Finish and save what you recorded, then start another interview.'};$('presence-sub').textContent=roomFault.detail;mark('gap','Interviewer disconnected');}
   function renderPlan(){
     if(!observer){$('plan').innerHTML='<span class="label"><b>Practice</b> · '+esc(practiceQ.canonical_text.slice(0,60))+'</span>';return;}
-    const snap=observer.snapshot(),phase=snap.state==='FOLLOWUP'?'Follow-up · hook followed':snap.state==='CANDIDATE_QUESTIONS'?'Your questions':snap.state==='PROFESSIONAL_CLOSE'?'Sign-off · finish when ready':snap.state==='CLOSING_INVITE'?'Wrapping up':'Question '+snap.n+' of '+snap.N;
+    const snap=observer.snapshot(),phase=started&&snap.finalObservationCount===0?snap.N+' questions planned':snap.state==='FOLLOWUP'?'Follow-up · hook followed':snap.state==='CANDIDATE_QUESTIONS'?'Your questions':snap.state==='PROFESSIONAL_CLOSE'?'Sign-off · finish when ready':snap.state==='CLOSING_INVITE'?'Wrapping up':'Question '+snap.n+' of '+snap.N;
     $('plan').innerHTML='<span class="seg">'+snap.plan.map(q=>'<span class="pip '+(q.status==='ASKED'?'asked':q.status==='CURRENT'?'current':'')+'" title="Q'+q.n+' · '+esc(q.text)+'"></span>').join('')+'<span class="pip closing '+(snap.closing.reached?'asked':'')+'" title="Your questions"></span></span><span class="label"><b>'+phase+'</b></span>';
   }
   async function connect(){
@@ -115,6 +125,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       controller.mountVideo($('stage'),$('overlay'));
       engine=await controller.acquire({mode:'real',overlayCanvas:$('overlay')});
       if(!current())return;
+      disposePrimary?.();disposePrimary=bindPrimaryRecovery($('primary-recovery'),{engine,isCurrent:current});
       const video=controller.mountVideo($('stage'),$('overlay'));
       await awaitVisibleCamera(video,controller.stream,{isCurrent:current});
       if(!controller.stream.getAudioTracks().some(t=>t.readyState==='live'&&t.enabled&&!t.muted))throw new Error('Your microphone is not ready. Connect it before starting.');
@@ -122,7 +133,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       if(!current()){disposeDevices?.();return;}
       $('stage').dataset.previewReady='true';
       $('start-session').disabled=false;$('enter-note').textContent='Preview visible · microphone connected. Nothing is recorded until you start.';
-      $('connect-real').textContent='Check preview again';engine.setOverlayVisibility({face:false,hands:false,body:false,position:false});
+      $('connect-real').textContent='Check preview again';engine.setOverlayVisibility({face:overlaysVisible,hands:overlaysVisible,body:overlaysVisible,position:overlaysVisible});
     }catch(error){if(current()){$('enter-note').textContent=error.message;$('start-session').disabled=true;}}
     finally{starting=false;if(current()){$('connect-real').disabled=false;main.querySelectorAll('[data-device-kind]').forEach(select=>{select.disabled=controller.phase!=='READY'||!select.options.length;});}}
   }
@@ -183,8 +194,8 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     sheet.querySelector('#leave').onclick=()=>{sheet.remove();if(!closingReached)observer.requestEnd('leave');void finishSession('finished');};
     sheet.onkeydown=e=>{if(e.key==='Escape'){sheet.remove();return;}if(e.key!=='Tab')return;const b=[...sheet.querySelectorAll('button')],first=b[0],last=b.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}};
   }
-  room.querySelector('.density').addEventListener('click',e=>{const b=e.target.closest('[data-density]');if(!b)return;density=b.dataset.density;room.dataset.density=density;room.querySelectorAll('[data-density]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));state.preferences.density=density;commit();});
-  $('guides').addEventListener('click',e=>{const on=e.currentTarget.getAttribute('aria-pressed')!=='true';e.currentTarget.setAttribute('aria-pressed',String(on));$('stage').dataset.guides=String(on);engine?.setOverlayVisibility({face:on,hands:on,body:on,position:on});});
+  room.querySelector('.density').addEventListener('click',e=>{const b=e.target.closest('[data-density]');if(!b)return;density=b.dataset.density;room.dataset.density=density;room.querySelectorAll('[data-density]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));state.preferences.density=density;commit();saveVisibility({density});});
+  $('guides').addEventListener('click',e=>{const on=e.currentTarget.getAttribute('aria-pressed')!=='true';overlaysVisible=on;e.currentTarget.setAttribute('aria-pressed',String(on));$('stage').dataset.guides=String(on);engine?.setOverlayVisibility({face:on,hands:on,body:on,position:on});state.preferences.overlaysVisible=on;commit();saveVisibility({overlaysVisible:on});});
   $('transcript-toggle').addEventListener('click',e=>{$('transcript').hidden=!$('transcript').hidden;e.currentTarget.setAttribute('aria-expanded',String(!$('transcript').hidden));});
   function resetIdle(){if(disposed)return;$('stage').dataset.idle='false';clearTimeout(idleTimer);idleTimer=setTimeout(()=>{if(current())$('stage').dataset.idle='true';},4000);}
   $('stage').addEventListener('mousemove',resetIdle);$('stage').addEventListener('keydown',resetIdle);
@@ -205,5 +216,5 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     try{const saved=await controller.finishSession({record:saveRecord});if(saved.saveError)showSaveFailure(saved.saveError);else showSaved(saved);}catch(error){showSaveFailure(error.message);}
   }
   renderPlan();renderTranscript();
-  return ()=>{disposed=true;disposeDevices?.();detach();recorder.destroy();document.querySelector('.sheet-backdrop')?.remove();if(!finished&&!controller.navigationLocked)void controller.release('route_change');};
+  return ()=>{disposed=true;disposeDevices?.();disposePrimary?.();detach();recorder.destroy();document.querySelector('.sheet-backdrop')?.remove();if(!finished&&!controller.navigationLocked)void controller.release('route_change');};
 }

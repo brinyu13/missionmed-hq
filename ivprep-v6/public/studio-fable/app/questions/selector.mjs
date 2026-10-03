@@ -2,6 +2,9 @@
 // Scales to the full 193-question library: search, eight filters, reorder, remove, preview, select.
 // Question identities are the store's own `question_id`s; nothing here mints or renames one.
 import { FILTERS, queryQuestions, CATEGORY_LABELS } from '../questions.mjs';
+import {state} from '../state.mjs';
+import {controller} from '../controller/session-controller.mjs';
+import {saveOwnVisibility} from '../adapters/own-presentation.mjs';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const tagLine = (q) => (q.tags || []).slice(0, 2).map((t) => CATEGORY_LABELS[t] || t).join(' · ');
@@ -26,20 +29,21 @@ export function mountTray(host, set, { onChange }) {
 
 // Selector: a dedicated drawer (no page scroll; the list scrolls inside).
 export function openSelector({ questions, store, set, attempts = [], max = 30, single = false, onDone }) {
-  let filter = 'recommended'; let search = ''; let preview = null;
+  let filter = 'recommended'; let search = ''; let preview = null; let disposed=false,notice='';
+  const favorite=new Set(state.preferences.favoriteQuestions||[]);
   const drawer = document.createElement('div'); drawer.className = 'drawer-backdrop'; drawer.id = 'selector';
   const selected = () => new Set(set.map((q) => q.question_id));
   const draw = () => {
-    const rows = queryQuestions({ questions, store, filter, search, attempts });
+    const rows = queryQuestions({ questions:questions.map(q=>({...q,favorite:favorite.has(q.question_id)})), store, filter, search, attempts });
     const sel = selected();
     drawer.innerHTML = `<div class="housing drawer" role="dialog" aria-modal="true" aria-labelledby="selector-title">
       <header class="drawer-head"><div><div class="t-kick gold">${single ? 'Choose the question' : 'Add / change questions'}</div><h2 class="t-h2" id="selector-title">${questions.length} canonical questions</h2></div><button type="button" class="btn btn-quiet" id="selector-close" aria-label="Close">Done</button></header>
       <div class="drawer-tools"><input class="search" id="selector-search" type="search" placeholder="Search text, tag or ID…" value="${esc(search)}" aria-label="Search questions"><div class="q-filter" role="group" aria-label="Filters">${FILTERS.map((f) => `<button type="button" data-filter="${f.id}" aria-pressed="${filter === f.id}" title="${esc(f.hint || '')}">${f.label}</button>`).join('')}</div></div>
       <div class="drawer-body">
-        <div class="q-list" role="listbox" aria-label="Questions" id="selector-list">${rows.map((q) => `<div class="q-row ${sel.has(q.question_id) ? 'picked' : ''}" data-q="${esc(q.question_id)}"><button type="button" class="q-pick" data-pick="${esc(q.question_id)}" aria-pressed="${sel.has(q.question_id)}"><strong>${esc(q.canonical_text)}</strong><small>${tagLine(q)}${q.core_priority ? ' · Core' : ''}${q.behavioral ? ' · behavioral' : ''}</small></button><button type="button" class="ctl-icon" data-preview="${esc(q.question_id)}" aria-label="Preview">i</button></div>`).join('') || '<p class="note">No questions match.</p>'}</div>
+        <div class="q-list" role="listbox" aria-label="Questions" id="selector-list">${rows.map((q) => `<div class="q-row ${sel.has(q.question_id) ? 'picked' : ''}" data-q="${esc(q.question_id)}"><button type="button" class="q-pick" data-pick="${esc(q.question_id)}" aria-pressed="${sel.has(q.question_id)}"><strong>${esc(q.canonical_text)}</strong><small>${tagLine(q)}${q.core_priority ? ' · Core' : ''}${q.behavioral ? ' · behavioral' : ''} · ${q.stats?.attempts||0} saved reps${q.stats?.mentorReviewed?' · educator reviewed':''}</small></button><button type="button" class="ctl-icon" data-favorite="${esc(q.question_id)}" aria-label="${favorite.has(q.question_id)?'Remove favorite':'Add favorite'} ${esc(q.question_id)}" aria-pressed="${favorite.has(q.question_id)}">${favorite.has(q.question_id)?'★':'☆'}</button><button type="button" class="ctl-icon" data-preview="${esc(q.question_id)}" aria-label="Preview">i</button></div>`).join('') || '<p class="note">No questions match.</p>'}</div>
         <aside class="drawer-side"><div class="t-label">${single ? 'Selected' : `Selected · ${set.length} of ${max}`}</div><ol class="mini-tray">${set.map((q) => `<li>${esc(q.canonical_text)}</li>`).join('') || '<li class="note">Nothing selected yet.</li>'}</ol>${preview ? `<div class="preview"><div class="t-label">Preview</div><p>${esc(preview.canonical_text)}</p><small class="t-tech">${esc(preview.question_id)} · ${(preview.tags || []).map((t) => CATEGORY_LABELS[t] || t).join(', ')} · difficulty ${preview.difficulty ?? '–'}${preview.followup_eligible ? ' · follow-up eligible' : ''}</small></div>` : ''}</aside>
       </div>
-      <footer class="drawer-foot"><span class="t-tech">${single ? 'One question for this rep.' : 'Order is the interview order. Core first is only a default.'}</span><button type="button" class="btn btn-primary" id="selector-done">Use these ${single ? '' : `${set.length} question${set.length === 1 ? '' : 's'}`} ▸</button></footer>
+      <footer class="drawer-foot"><span class="t-tech" role="status">${notice?esc(notice):single ? 'One question for this rep.' : 'Order is the interview order. Core first is only a default.'}</span><button type="button" class="btn btn-primary" id="selector-done">Use these ${single ? '' : `${set.length} question${set.length === 1 ? '' : 's'}`} ▸</button></footer>
     </div>`;
     const input = drawer.querySelector('#selector-search'); input.addEventListener('input', (e) => { search = e.target.value; draw(); const i = drawer.querySelector('#selector-search'); i.focus(); i.setSelectionRange(search.length, search.length); });
     if (!search) drawer.querySelector('#selector-search').focus({ preventScroll: true });
@@ -47,6 +51,12 @@ export function openSelector({ questions, store, set, attempts = [], max = 30, s
   drawer.addEventListener('click', (e) => {
     const b = e.target.closest('button'); if (!b) { if (e.target === drawer) close(); return; }
     if (b.dataset.filter) { filter = b.dataset.filter; draw(); return; }
+    if(b.dataset.favorite){
+      const id=b.dataset.favorite;if(!questions.some(q=>q.question_id===id))return;
+      if(favorite.has(id))favorite.delete(id);else favorite.add(id);
+      state.preferences.favoriteQuestions=[...favorite];notice='Saving favorite…';draw();
+      void saveOwnVisibility(controller,{favoriteQuestions:[...favorite]},{isCurrent:()=>!disposed}).then(result=>{if(disposed)return;notice=result?'Favorites saved to your account.':'Favorite not saved; reopen to refresh.';draw();}).catch(()=>{if(!disposed){notice='Favorite not saved. Try again from a refreshed question library.';draw();}});return;
+    }
     if (b.dataset.preview) { preview = questions.find((q) => q.question_id === b.dataset.preview) || null; draw(); return; }
     if (b.dataset.pick) {
       const q = questions.find((x) => x.question_id === b.dataset.pick); if (!q) return;
@@ -60,7 +70,7 @@ export function openSelector({ questions, store, set, attempts = [], max = 30, s
   });
   const onKey = (e) => { if (e.key === 'Escape') close(); };
   document.addEventListener('keydown', onKey);
-  function close() { document.removeEventListener('keydown', onKey); drawer.remove(); onDone?.(set); }
+  function close() { disposed=true;document.removeEventListener('keydown', onKey); drawer.remove(); onDone?.(set); }
   document.body.append(drawer); draw();
   return close;
 }

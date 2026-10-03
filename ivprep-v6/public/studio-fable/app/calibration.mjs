@@ -6,6 +6,7 @@ import { state, commit } from './state.mjs';
 import { controller } from './controller/session-controller.mjs';
 import { awaitVisibleCamera } from './adapters/media-readiness.mjs';
 import {mountDeviceControls,deviceControlsMarkup} from './adapters/device-controls.mjs';
+import {bindPrimaryRecovery} from './adapters/engine-adapter.mjs';
 import { leftRailMarkup, rightRailMarkup, RailsController } from './instruments/rails.mjs';
 import { recorderMarkup, LiveRecorder } from './instruments/flight-recorder.mjs';
 import { TraceHistory } from './model/trace-reducer.mjs';
@@ -33,10 +34,10 @@ export async function mountCalibration(main, { isCurrent = () => true } = {}) {
   let disposed = false, connecting = false, deviceSwitching=false;
   const current = () => !disposed && isCurrent();
   const ctx = { started: false, neutralMs: 0, smileBase: 0, nodBase: 0, gestureBase: 0, volSeen: new Set(), pauseMs: 0, paceHeld: false, wpmMax: -Infinity, wpmMin: Infinity };
-  let stepIndex = 0; const resolved = {}; let engine = null; let timer = null; let latest = null; let lastT = 0;let disposeDevices=null;
+  let stepIndex = 0; const resolved = {}; let engine = null; let timer = null; let latest = null; let lastT = 0;let disposeDevices=null,disposePrimary=null;
   main.innerHTML = `
     <div class="cal-screen">
-    <div class="screen-head"><div><div class="t-kick gold">Devices &amp; calibration</div><h1 class="t-hero">Instrument <em>rehearsal.</em></h1><p class="t-edit">Not a tech check. You smile, nod, gesture, read, vary your volume and pace, and watch every instrument respond truthfully before any interview. Unresolved instruments stay dark; nothing is invented.</p></div><div style="display:flex;gap:8px;align-items:center">${state.calibration ? `<span class="chip ok">Calibrated ${new Date(state.calibration.at).toLocaleDateString()}</span>` : '<span class="chip warn">Not calibrated</span>'}</div></div>
+    <div class="screen-head"><div><div class="t-kick gold">Devices &amp; calibration</div><h1 class="t-hero">Instrument <em>rehearsal.</em></h1><p class="t-edit">Not a tech check. You smile, nod, gesture, read, vary your volume and pace, and watch every instrument respond truthfully before any interview. Unresolved instruments stay dark; nothing is invented.</p></div><div style="display:flex;gap:8px;align-items:center"><span class="chip warn" id="calibration-record-state">Connect devices to verify saved calibration</span></div></div>
     <div class="cal">
       <aside class="housing panel"><div class="t-label" style="margin-bottom:10px">Rehearsal</div><div class="cal-steps" id="cal-steps"></div></aside>
       <div class="cal-stage-col">
@@ -44,6 +45,7 @@ export async function mountCalibration(main, { isCurrent = () => true } = {}) {
         <div class="stage" id="stage" data-guides="true"><canvas id="overlay"></canvas><div class="frame-guide" aria-hidden="true"></div><span class="tag"><i style="background:var(--cyan);animation:none"></i>Calibration · not recorded</span>
           <div class="stage-enter" id="enter"><div><div class="t-kick gold">Step 1 · Devices</div><h2 class="t-h2" style="margin:8px 0 6px">Connect to begin</h2><p>Raw frames never leave your browser. This rehearsal is not recorded or saved as a rep.</p><div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px"><button class="btn btn-primary btn-lg" type="button" id="connect-real">Connect camera + mic ▸</button></div><p class="note" id="enter-note" style="margin-top:12px"></p></div></div>
         </div>
+        <div class="note" id="primary-recovery" role="status" aria-live="polite" hidden><span data-primary-status></span> <button class="btn btn-quiet" type="button" data-reselect-primary>Lock to me</button></div>
         ${deviceControlsMarkup()}
         <div class="cal-actions"><button class="btn btn-primary" type="button" id="next-step" disabled>Next step ▸</button><button class="btn btn-quiet" type="button" id="skip-step">Skip this step</button><span class="t-tech" id="step-state">Waiting</span><span style="flex:1"></span></div>
         <section class="recorder" id="recorder" data-mode="live" style="height:150px">${recorderMarkup({ mode: 'live' })}</section>
@@ -52,13 +54,20 @@ export async function mountCalibration(main, { isCurrent = () => true } = {}) {
     </div>
     <details class="advanced cal-lower-wrap" id="cal-lower"><summary><span>Head / Face · Body / Hands plates and instrument resolution</span><span>show</span></summary>
     <div class="two-col cal-lower" style="margin-top:12px"><aside class="rail" id="rail-left" aria-label="Teaching rail" style="grid-template-columns:repeat(2,1fr);display:grid">${leftRailMarkup()}</aside>
-      <section class="housing panel"><div class="t-label" style="margin-bottom:8px">Instrument resolution</div><div class="resolve-list" id="resolve-list"></div><p class="note" style="margin-top:10px">RESOLVED = the real producer responded under the pass condition. PARTIAL = responded without meeting it. NOT RESOLVED = the producer is unavailable in this environment (for example Pace requires supported timed-word measurements).</p></section>
+      <section class="housing panel"><div class="t-label" style="margin-bottom:8px">Instrument resolution</div><div class="resolve-list" id="resolve-list"></div><p class="note" style="margin-top:10px">RESOLVED = the real producer responded under the pass condition. PARTIAL = responded without meeting it. NOT RESOLVED = the producer is unavailable in this environment (for example Pace requires supported timed-word measurements).</p><details class="advanced" id="saved-calibration-record" hidden><summary>Your saved calibration</summary><p class="note">These labels belong to your saved account/device baseline, not this new rehearsal.</p><div class="resolve-list" id="saved-resolve-list"></div></details></section>
     </div></details>
     </div>`;
   const $ = (id) => main.querySelector(`#${id}`);
   const rails = new RailsController(main);
   const recorder = new LiveRecorder($('recorder'), { window: '1M' });
   const history = new TraceHistory();
+  function renderCalibrationRecord(){
+    state.calibration=engine?.calibrationResolution||null;commit();
+    const saved=state.calibration,chip=$('calibration-record-state');
+    chip.className='chip '+(saved?'ok':'warn');chip.textContent=saved?'Calibrated '+new Date(saved.at).toLocaleDateString():'No current saved resolution record';
+    $('saved-calibration-record').hidden=!saved;
+    $('saved-resolve-list').innerHTML=saved?Object.entries(INSTRUMENTS).map(([key,label])=>`<div class="resolve" data-state="${saved.resolved[key]||'not'}"><span>${label}</span><span class="r">${saved.resolved[key]==='resolved'?'Resolved':saved.resolved[key]==='partial'?'Partial':'Not resolved'}</span></div>`).join(''):'';
+  }
 
   function renderSteps() {
     $('cal-steps').innerHTML = steps.map((s, i) => `<div class="cal-step" data-state="${i < stepIndex ? (s.skipped ? 'partial' : 'resolved') : i === stepIndex ? 'current' : ''}"><i>${i < stepIndex ? (s.skipped ? '–' : '✓') : i + 1}</i><div><strong>${s.title}</strong><small>${s.resolves.map((r) => INSTRUMENTS[r]).join(' · ') || 'summary'}</small></div><span class="res">${i < stepIndex ? (s.skipped ? 'skipped' : 'done') : i === stepIndex ? 'now' : ''}</span></div>`).join('');
@@ -86,14 +95,17 @@ export async function mountCalibration(main, { isCurrent = () => true } = {}) {
     try {
       controller.mountVideo($('stage'),$('overlay'));
       engine=await controller.acquire({mode:'real',overlayCanvas:$('overlay')});
+      if(!current())return;
+      disposePrimary?.();disposePrimary=bindPrimaryRecovery($('primary-recovery'),{engine,isCurrent:current});
       const video=controller.mountVideo($('stage'),$('overlay'));
       await awaitVisibleCamera(video,controller.stream,{isCurrent:current});
       if(!current())return;
       if(!controller.stream.getAudioTracks().some(t=>t.readyState==='live'&&t.enabled&&!t.muted))throw new Error('Connect your microphone to begin rehearsal.');
+      renderCalibrationRecord();
       ctx.started=true;resolved.readiness='resolved';$('enter').remove();
       engine.beginAnswer();engine.setOverlayVisibility({face:true,hands:true,body:true,position:true});
       disposeDevices=await mountDeviceControls(main.querySelector('[data-device-controls]'),{engine,video,getStream:()=>controller.stream,isCurrent:current,canSwitch:()=>controller.phase==='READY',switchDevice:(kind,id)=>controller.switchDevice(kind,id),onSwitching:(value,ready)=>{deviceSwitching=value;if(!value)ctx.started=ready;$('skip-step').disabled=value;evaluate();},onChanged:()=>{
-        state.calibration=null;commit();engine.beginAnswer();history.samples=[];history.lastT=-Infinity;latest=null;lastT=0;
+        renderCalibrationRecord();engine.beginAnswer();history.samples=[];history.lastT=-Infinity;latest=null;lastT=0;
         for(const key of Object.keys(resolved))delete resolved[key];resolved.readiness='resolved';
         steps.forEach(step=>{delete step.skipped;});Object.assign(ctx,{neutralMs:0,smileBase:0,nodBase:0,gestureBase:0,pauseMs:0,paceHeld:false,wpmMax:-Infinity,wpmMin:Infinity});ctx.volSeen.clear();
         stepIndex=1;renderSteps();evaluate();
@@ -127,6 +139,7 @@ export async function mountCalibration(main, { isCurrent = () => true } = {}) {
     if(step.id==='seal'){
       try{
         state.calibration=engine.sealCalibration(resolved);commit();
+        renderCalibrationRecord();
         $('step-state').textContent='Personal calibration saved for this account and device profile.';
         $('next-step').disabled=true;
       }catch(error){$('step-state').textContent=error.message+' Continue reading or speaking naturally while these instruments respond, then try again.';}
@@ -144,5 +157,5 @@ export async function mountCalibration(main, { isCurrent = () => true } = {}) {
   });
   renderSteps(); evaluate();
   // Keep capture only. Rehearsal evidence is abandoned before a recording begins.
-  return ()=>{disposed=true;disposeDevices?.();clearInterval(timer);engine?.events.removeEventListener('frame',frameListener);engine?.abandonPreview();recorder.destroy();};
+  return ()=>{disposed=true;disposeDevices?.();disposePrimary?.();clearInterval(timer);engine?.events.removeEventListener('frame',frameListener);engine?.abandonPreview();recorder.destroy();};
 }

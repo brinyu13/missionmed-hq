@@ -63,12 +63,26 @@ export function projectSavedAttempt(saved, subject) {
     durationS:durationMs===null?null:Math.max(0,durationMs/1000),recordingId:recordingMatches?recording.id:null,
     samples:realTrace && Array.isArray(f.samples)?f.samples.filter(sample):[],
     events:realTrace && Array.isArray(f.events)?f.events.filter(sample):[],
-    turns:projectReplayTurns(detail,durationMs),hooks:Array.isArray(f.hooks)?f.hooks:[],closing:f.closing||null,
+    turns:projectReplayTurns(detail,durationMs),hooks:Array.isArray(f.hooks)?f.hooks.map(h=>({...h,replay:hookReplayBinding(h,detail,durationMs)})):[],closing:f.closing||null,
     conductor:f.conductor||null,settings:f.settings||null,transport:f.transport||null,calibrationUsed:f.calibrationUsed===true,
     priorityLane:f.debrief?.lane||null,priorityText:f.debrief?.text||null,analytics,detail,remote:detail,saved,
     comparison:attemptSnapshot({...row,...detail,recording}),
     sealed:{schema:analytics.schema||null,durationMs},measurementTimeline:analytics.flightRecorder||null,
     traceUnavailable:!realTrace,traceDecimated:f.retention?.decimated===true};
+}
+// Exact unique reference and exact character range, never a transcript-text join.
+// Receipt timestamps locate provisional text, not measured speech boundaries.
+export function hookReplayBinding(hook,detail,durationMs) {
+  const ref=hook?.reference,conversation=detail?.results?.payload?.liveConversation;
+  if(!ref||ref.basis!=='PROVISIONAL_TRANSCRIPT'||ref.sessionId!==detail.id||conversation?.sessionId!==detail.id
+    ||conversation.clock!=='recording-observed'||conversation.timingBasis!=='MESSAGE_RECEIPT')return null;
+  const matches=(conversation.turns||[]).filter(t=>t.id===ref.turnId);
+  if(matches.length!==1)return null;
+  const turn=matches[0],start=ref.startChar,end=ref.endChar;
+  if(turn.speaker!=='student'||!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<0||end<=start
+    ||typeof turn.text!=='string'||turn.text.slice(start,end)!==hook.span)return null;
+  const at=bounded(turn.startMs,durationMs),until=bounded(turn.endMs,durationMs);
+  return at!==null&&until!==null&&until>=at?{at:at/1000,timing:'message-receipt',turnId:ref.turnId,startChar:start,endChar:end}:null;
 }
 export function nearestComparable(attempt, sessions=[]) {
   if(!attempt?.comparison) return null;

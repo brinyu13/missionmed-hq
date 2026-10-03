@@ -1,15 +1,15 @@
 // GPT-Live adapter — REAL CURRENT ENGINE transport wrapped, not rewritten.
 //
 // Wraps `LiveInterviewSession` (ivprep-v6/public/capabilities/live-interview.mjs, verbatim) so the
-// conductor's bounded DIRECTIVES drive the native full-duplex interviewer:
+// native InterviewBrain retains conversation authority. Bounded user directives:
 //   • opening question   → LiveInterviewSession.start({ openingQuestion }) (its own requestOpening)
 //   • QUESTION / FOLLOW_HOOK / PROBE_VAGUE / CLARIFY_CONTRADICTION / MID_CANDIDATE_QUESTION /
 //     BOUNDED_ANSWER / PROFESSIONAL_CLOSE → steer(): the exact `session.instructions.append`
 //     wire shape requestOpening/requestClosing already use, event_id `ivoc-steer-<directive.id>`
 //   • CLOSING_INVITE     → LiveInterviewSession.requestClosing(content) (one-shot guard preserved)
 //   • END                → stop({ notifyServer: true })
-// Interviewer finals arrive through onTranscript({speaker:'interviewer', final:true}) and resolve the
-// pending directive; applicant finals are forwarded to the conductor. The authoritative remote audio
+// A supported final transcript may resolve a pending directive; current GPT-Live
+// timed deltas are captions only, never synthesized finals or a second Director. The authoritative remote audio
 // stream (the one audible element, owned by LiveInterviewSession) is tapped with an AnalyserNode to
 // drive interviewerTurnStarted/Ended on the behavior runtime (source REMOTE_VAD) so LISTENING is real.
 // Barge-in stays provider-native: no extra mute/TTS loop is introduced here.
@@ -122,7 +122,7 @@ export class GptLiveInterviewer {
         if (edge === 'started') { this.onSpeaking(true); this.engine?.interviewerTurn?.('started', { questionId: this.pending?.directive?.questionId || null, source: 'REMOTE_VAD' }); }
         if (edge === 'ended') { this.onSpeaking(false); this.engine?.interviewerTurn?.('ended', { questionId: this.pending?.directive?.questionId || null, source: 'REMOTE_VAD' }); }
       }, 50);
-    } catch { /* tap is optional; transcript finals still drive the conductor */ }
+    } catch { /* optional observational tap; native provider remains in control */ }
   }
 
   handleTranscript(event) {

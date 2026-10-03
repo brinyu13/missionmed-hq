@@ -79,6 +79,7 @@ import { mountAdminControls, mountAdminMentorControls } from './admin-controls.m
 import { AnalyticsPreview } from '../capabilities/analytics-preview.mjs';
 import { InterviewProgression, substantiveQuestionPlan } from '../capabilities/interview-progression.mjs';
 import { MeasurementTimeline, renderMeasurementTimeline } from './flight-recorder-view.mjs';
+import { advancedEntryRole, reviewScopeLabel } from './advanced-entry.mjs';
 
 const interviewProgression = new InterviewProgression();
 const measurementTimeline = new MeasurementTimeline();
@@ -241,6 +242,7 @@ function applyRole(role) {
   // The analytics cockpit gets the real role so its own founder surfaces follow suit.
   state.analytics?.onViewChange?.(state.view, state.role === 'student' ? 'student' : 'admin');
   renderInterviewRoom();
+  renderReviewScopeLabel();
 }
 
 /* ------------------------------------------------------------------ router */
@@ -296,6 +298,7 @@ function setView(view, { focus = false } = {}) {
   }
   if (view === 'vault') void renderVault();
   renderAdminReviewControl();
+  renderReviewScopeLabel();
   if (focus) $('#main-content')?.focus?.({ preventScroll: true });
   window.scrollTo({ top: 0, behavior: 'auto' });
 }
@@ -490,6 +493,14 @@ function renderAdminReviewControl() {
   });
 }
 
+function renderReviewScopeLabel() {
+  const label = $('#review-scope-label');
+  if (label) label.textContent = state.admission?.admitted ? reviewScopeLabel({
+    identity: state.admission.identity, role: state.role, saved: state.lastSaved,
+    selected: state.adminCreditSubject, view: state.view,
+  }) : '';
+}
+
 async function renderAdminStudentLibrary(host) {
   const renderId = ++adminStudentLibraryRenderId;
   const previousSubject = state.adminCreditSubject?.subject;
@@ -511,6 +522,7 @@ async function renderAdminStudentLibrary(host) {
     if (renderId !== adminStudentLibraryRenderId || state.role !== 'admin' || state.view !== 'mentor') return;
     if (!library.students.length) {
       state.adminCreditSubject = null;
+      renderReviewScopeLabel();
       if (previousSubject) { state.adminControls?.destroy(); state.adminControls = null; }
       const empty = document.createElement('div');
       empty.className = 'empty-state';
@@ -554,6 +566,7 @@ async function renderAdminStudentLibrary(host) {
       const student = library.students.find((item) => item.subject === selector.value);
       if (!student) {
         state.adminCreditSubject = null;
+        renderReviewScopeLabel();
         state.adminMentorControls?.destroy(); state.adminMentorControls = null;
         if (previousSubject) { state.adminControls?.destroy(); state.adminControls = null; }
         rows.append(el('p', 'microcap', previousSubject
@@ -567,6 +580,7 @@ async function renderAdminStudentLibrary(host) {
         actorSubject: state.admission?.identity?.subject, onOwnSaved: hydrateHome,
       });
       state.adminCreditSubject = { subject: student.subject, displayName: student.displayName };
+      renderReviewScopeLabel();
       void state.adminControls?.selectSubject(student.subject, student.displayName);
       void state.adminMentorControls?.selectSubject(student.subject, student.displayName);
       const progress = buildAdminStudentProgress(student);
@@ -4278,6 +4292,7 @@ async function boot() {
   const entryHash = String(location.hash || '');
   const entryGeneration = adminReviewViewGeneration;
   wireChrome();
+  $('#candidate-return').hidden = !location.pathname.replace(/\/$/, '').endsWith('/advanced');
   applyRole('student');
   wireCockpit();
   startAudioDebug();
@@ -4358,7 +4373,8 @@ async function boot() {
   // Do not undo navigation or an Admin role selection made while boot awaited
   // account data. A cold review URL never grants delegated student selection.
   if (entryGeneration !== adminReviewViewGeneration || location.hash !== entryHash) return;
-  const hash = String(location.hash || '').replace('#', '');
+  applyRole(advancedEntryRole(entryHash, permittedRoles()));
+  const hash = String(location.hash || '').replace('#', '').split('?')[0];
   setView(CRUMBS[hash] ? hash : 'home');
 }
 

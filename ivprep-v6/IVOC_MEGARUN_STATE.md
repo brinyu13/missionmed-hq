@@ -112,9 +112,39 @@ the actual production route and deployment.
   calibration resolution; R104 account preferences; R021/136 Bait Lab QA workflow;
   R137 exact hook references; R114 own question-history joins; clear Admin entry
   and return navigation. R104/R136 are requirements, not accepted deferrals.
-- Next executable action: safely deploy AI receipt/caption/retry correction, rerun
-  normal AI save/replay, continue the above preservation gaps and role/context POV.
-  No full candidate journey or final presentation promotion is LIVE VERIFIED yet.
+- AI receipt/caption correction source `08f46ae70bca1afa702566ad4df0bb6629a3ecc1`
+  deployed SUCCESS `bc982dd1-6b26-43da-9f03-68530e2935fb`, image
+  `sha256:2822ec90233dbddca20277c14de81d6d3b480ec4180a4f4e73f2dd8546723eaa`.
+  Health200, anonymous candidate/current bootstrap401; root remains legacy.
+  Exact tracked rollback artifact `ivoc-release-artifact-W3rOh0/source.tar`,
+  SHA256 `8495a167ac3b71e0b17351a1cc31131bf5da7b56aea5b893468afb06599f7a59`.
+  Deployment lease4448 released normally and remotely read back.
+- Fresh normal Admin Home -> Mock -> two-question/5-minute setup -> READY ->
+  physical FaceTime video -> REC with real instruments -> Finish/save -> full
+  Results -> Film -> cold reload/play PASS for bounded 32.851-second session
+  `1ca228aa-b4e9-42c4-a72d-8fd903023fbb`. Ambient microphone speech appeared in
+  accumulated approximate captions. This is NOT genuine interview-answer,
+  contextual follow-up, audible two-sided replay or ordinary-360 acceptance.
+  The old failed probe/page remains preserved; no release receipt was fabricated.
+- Fresh non-builder Admin QA passed authorized student selection, separate saved
+  history, Results/full Analytics and loaded Film/transcript. It found unclear
+  Admin entry, missing persistent actor/selected-owner labels and no return to
+  candidate. The current bounded patch addresses those presentation gaps only;
+  backend admission/role/media-owner authorization remains unchanged.
+- Current bounded preservation patch implements R036 real primary-person reselect;
+  R070/078 fresh own Mentor priority; R139 baseline-bound resolution-only reload;
+  R104 serialized fresh account-preference merges; R021/136 admitted-Admin offline
+  fictional Bait Lab; R137 exact identity/range receipt references; R114 own saved
+  question statistics/favorites. 112 focused convergence tests plus new preference
+  and current review-status regressions PASS. Independent source review found no
+  P0/P1 blocker; its two P2 preference/review projection defects are corrected. These are
+  implemented candidate capabilities, not proof of live parity or audible behavior.
+  No final-turn events are fabricated from native timed deltas; question plan and
+  closing claims now explicitly remain unverified when finals are unavailable.
+- Next executable action: finish independent review, commit/read back, safely deploy
+  the preservation patch and verify Admin return/scope, own question history and
+  preferences through actual visible UI. Then continue native conversation/closing,
+  genuine-role and viewport acceptance; no final candidate promotion is accepted.
 
 - **Founder live-POV override, 2026-10-02: recovery LIVE; candidate-question stall reopened fix-forward.**
   Founder confirms physical camera/mic and native multi-turn AI entry work;
