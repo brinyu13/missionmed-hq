@@ -80,3 +80,15 @@ export function validReplaySeek(value, durationS) {
   const time=finite(value), duration=finite(durationS);
   return time!==null && time>=0 && duration!==null && duration>0 && time<=duration ? time : null;
 }
+// HQ returns a relative, short-lived authenticated playback route, not a public
+// storage URL. Resolve it against the page without widening media authority.
+export function privatePlaybackUrl(signed, recordingId, pageUrl) {
+  if(!recordingId || signed?.recordingId!==recordingId || typeof signed.url!=='string')return null;
+  try{
+    const page=new URL(pageUrl),url=new URL(signed.url,page);
+    const transport=page.protocol==='https:' || (page.protocol==='http:'&&['localhost','127.0.0.1','[::1]'].includes(page.hostname));
+    return transport && url.origin===page.origin && !url.username && !url.password
+      && url.pathname==='/api/ivoc/v1/recordings/'+encodeURIComponent(recordingId)+'/playback'
+      ? url.href : null;
+  }catch{return null;}
+}

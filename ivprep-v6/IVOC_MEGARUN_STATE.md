@@ -60,8 +60,23 @@ the actual production route and deployment.
   face/pitch/behavior baselines after a device switch. Corrected through existing
   producer reset contracts, including unfinished rehearsal accumulation. 27 focused
   tests PASS with actual bridge/pipeline/behavior regression across measurement epochs.
-- Next executable action: deploy this correction via fresh fenced DR-350 artifact,
-  then actual UI journeys and fix-forward. No candidate is LIVE VERIFIED yet.
+- Calibration correction source `04d7b7098a4ed755c748e56bb9835c5d0c3e052b`
+  deployed SUCCESS `78abed98-bd9a-4d06-98e2-12735f625aab`, image
+  `sha256:89c254d62d5501a53d06d30bc66b27b72469128e27a0d1267b757cfdf62a1a98`.
+  Health200; anonymous root/candidate/bootstrap401; deployment lease4441 released/readback.
+- Actual normal Chrome Home -> Practice -> readiness -> real FaceTime video ->
+  Start recorded answer -> distinct REC room, real face/body/pitch/variety/timed
+  word pace -> Finish -> private save -> full Results verified as a bounded
+  23-second Admin-device test, not student-role or AI conversational acceptance.
+  Session `c7fe94c0-4ad2-4a17-81a8-db900509d966` survived a cold Results/Film reload.
+  Film playback FAIL: HQ returns the authorized relative playback route (200),
+  but the candidate URL parser rejected relative URLs. Corrected only this
+  consumer: exact recording identity, same origin, exact private playback route.
+  28 focused tests PASS; independently observed failure is not marked accepted.
+- Next executable action: deploy private-replay correction, reopen this exact
+  saved attempt, visually/audibly verify playback and cold reload; continue AI,
+  RISE/context, Admin and capability preservation. No full candidate journey is
+  LIVE VERIFIED yet.
 
 - **Founder live-POV override, 2026-10-02: recovery LIVE; candidate-question stall reopened fix-forward.**
   Founder confirms physical camera/mic and native multi-turn AI entry work;

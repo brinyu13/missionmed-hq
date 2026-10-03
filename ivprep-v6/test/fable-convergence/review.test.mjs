@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {projectReplayTurns,projectSavedAttempt,validReplaySeek} from '../../public/studio-fable/app/adapters/saved-review.mjs';
+import {projectReplayTurns,projectSavedAttempt,validReplaySeek,privatePlaybackUrl} from '../../public/studio-fable/app/adapters/saved-review.mjs';
 import {bindOwnLibrary,bindOwnRow} from '../../public/studio-fable/app/adapters/own-scope.mjs';
 import {sealDerivedEvidence} from '../../public/studio-fable/app/adapters/derived-evidence.mjs';
 const id='f13869aa-2b3e-4b65-9f66-1288fb459444';
@@ -33,6 +33,18 @@ test('repeated provisional receipts keep distinct IDs, never join by text',()=>{
 test('missing and out-of-range replay times never become zero',()=>{
   for(const value of [null,undefined,'',-1,10,NaN])assert.equal(validReplaySeek(value,9),null);
   assert.equal(validReplaySeek(0,9),0);assert.equal(validReplaySeek('7',9),7);
+});
+test('Film Room consumes the actual HQ relative private-playback contract without broadening it',()=>{
+  const page='https://hq.test/iv-prep-on-call/candidate/#/film/'+id;
+  const path='/api/ivoc/v1/recordings/'+id+'/playback?token=opaque-test-ticket&expires=123';
+  const signed={recordingId:id,url:path};
+  assert.equal(privatePlaybackUrl(signed,id,page),'https://hq.test'+path);
+  assert.equal(privatePlaybackUrl({...signed,url:'https://hq.test'+path},id,page),'https://hq.test'+path);
+  for(const url of ['javascript:alert(1)','data:video/webm;base64,AA','https://other.test'+path,'/api/ivoc/v1/recordings/other/playback','https://user:pass@hq.test'+path])
+    assert.equal(privatePlaybackUrl({...signed,url},id,page),null);
+  assert.equal(privatePlaybackUrl({...signed,recordingId:'other'},id,page),null);
+  assert.equal(privatePlaybackUrl(signed,id,'http://hq.test/'),null);
+  assert.equal(privatePlaybackUrl(signed,id,'http://127.0.0.1:7002/'),'http://127.0.0.1:7002'+path);
 });
 test('derived trace is scalar, bounded and does not duplicate private transcript/raw meshes',()=>{
   const evidence=sealDerivedEvidence({samples:Array.from({length:7200},(_,i)=>({t:i/2,vol:.4,state:'ANSWERING',landmarks:[{x:1,y:2}]})),

@@ -2,7 +2,7 @@
 
 import { deriveDebrief } from './model/teaching.mjs';
 import { renderFilmLanes } from './instruments/flight-recorder.mjs';
-import { projectSavedAttempt, nearestComparable, validReplaySeek } from './adapters/saved-review.mjs';
+import { projectSavedAttempt, nearestComparable, validReplaySeek, privatePlaybackUrl } from './adapters/saved-review.mjs';
 import { buildRetryIntent } from '../../studio/presentation-view-model.mjs';
 import { compareAttempts } from '../../studio/longitudinal-model.mjs';
 import { DI_GROUPS, resultLaneReadouts } from '../../analytics/di-groups-ui.mjs';
@@ -105,7 +105,7 @@ export async function mountFilm(main,id,params=new URLSearchParams(),{isCurrent=
   let url=null;
   if(a.recordingId)try{
     const signed=await controller.playbackUrl(a,{isCurrent});if(!isCurrent())return noop;
-    const parsed=new URL(signed.url);if(parsed.protocol==='https:')url=parsed.href;
+    url=privatePlaybackUrl(signed,a.recordingId,main.ownerDocument.location.href);
   }catch{if(!isCurrent())return noop;}
   const d=deriveDebrief(a);
   main.innerHTML='<div class="screen-head"><div><div class="t-kick gold">Film Room · '+fmtDate(a.at)+'</div><h1 class="t-hero">Every claim is <em>evidence.</em></h1><p class="t-edit">'+esc(a.questionText)+'</p></div><div class="review-actions"><a class="btn btn-secondary" href="#/results/'+a.id+'">← Debrief</a><a class="btn btn-quiet" href="#/review">Your recordings</a></div></div><div class="film"><div><div class="stage" id="film-stage">'+(url?'<video id="playback" controls playsinline preload="metadata" src="'+esc(url)+'"></video>':'<div class="playback-unavailable"><h2 class="t-h3">Playback unavailable</h2><p>Your answer is retained. Reopen Film Room for a fresh private playback link.</p><a class="btn btn-secondary" href="#/review">Back to recordings</a></div>')+'</div><div class="recorder" id="film-recorder" data-mode="film"></div></div><aside class="film-side"><section class="housing moment"><div class="t-label">Moments</div><div class="evidence moments">'+([...d.worked,...d.allChange].filter(m=>validReplaySeek(m.at,a.durationS)!==null).map(m=>'<button type="button" data-seek="'+Math.max(0,m.at-2)+'" '+(url?'':'disabled')+'><span class="at">'+fmt(m.at)+'</span><span class="lane">'+esc(m.lane)+'</span><span>'+esc(m.text)+'</span></button>').join('')||'<p class="note">No bounded teaching moment was saved.</p>')+'</div></section><section class="housing moment"><div class="t-label">Conversation</div><div class="transcript" style="max-height:300px;grid-column:auto;margin-top:8px">'+transcriptMarkup(a,Boolean(url))+'</div><p class="note">≈ means text arrival, not a measured speech boundary. Replay is authoritative for what was actually heard.</p></section></aside></div>';

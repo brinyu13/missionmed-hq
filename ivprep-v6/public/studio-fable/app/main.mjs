@@ -128,7 +128,7 @@ async function renderPractice(params, isCurrent = guarded) {
             <p class="note">${state.calibration ? '' : '<a href="#/devices">Calibrate first</a> to get personal corridors.'}</p>
           </aside>
         </div>
-        <div class="dock"><div class="dock-state"><strong>${esc(q.canonical_text)}</strong><small>${priority ? `Priority on screen: ${esc(priority)}` : 'First rep on this question'}</small></div><div class="dock-actions"><a class="btn btn-quiet" href="#/home">Back</a><button class="btn btn-primary btn-lg" type="button" id="go-room">Enter the room ▸</button></div></div>
+        <div class="dock"><div class="dock-state"><strong>${esc(q.canonical_text)}</strong><small>${priority ? `Priority on screen: ${esc(priority)}` : m.reps ? `Practice again · ${m.reps} saved rep${m.reps===1?'':'s'}` : 'First rep on this question'}</small></div><div class="dock-actions"><a class="btn btn-quiet" href="#/home">Back</a><button class="btn btn-primary btn-lg" type="button" id="go-room">Enter the room ▸</button></div></div>
       </div>`;
     main.querySelector('.q-list').addEventListener('click', (e) => { const b = e.target.closest('[data-q]'); if (!b) return; if(selected!==b.dataset.q)retryOf=null;selected = b.dataset.q; session.questionId = selected; draw(); });
     main.querySelector('#open-selector').addEventListener('click', () => { const one = [q]; openSelector({ questions, store, set: one, attempts, single: true, max: 1, onDone: () => { const next=one[0]?.question_id || selected;if(next!==selected)retryOf=null;selected=next;session.questionId = selected; draw(); } }); });
@@ -157,13 +157,14 @@ async function renderMock(params, isCurrent = guarded) {
   if (!isCurrent()) return;
   const sources = buildContextSources({mentorPriorities:mentor,durableAvailable:true,contextCapabilities:controller.account.capabilities.contextSources,programVerified:Boolean(useProgram?.verified)});
   session.contextSources = session.contextSources.filter(name => sources.some(s => s.name===name && s.available));
-  let storyRevealed = false;
+  let storyRevealed = false, contextOpen = false;
   if (!session.mockSet) session.mockSet = defaultMockSet(questions, session.settings.targetQuestions || 5);
   const set = session.mockSet;
   const st = session.settings;
   const cfg = session.config;
   const draw = () => {
     if (!isCurrent()) return;
+    contextOpen = main.querySelector('#interview-context')?.open ?? contextOpen;
     const preset = EASY_PRESETS.find((p) => p.id === st.preset) || EASY_PRESETS[0];
     main.innerHTML = `
       <div class="setup" data-screen="mock">
@@ -190,7 +191,7 @@ async function renderMock(params, isCurrent = guarded) {
                 <div class="field" style="grid-column:1/-1"><small class="note">The interviewer is instructed to invite your questions and sign off. Choose "Wrap up" when you are ready for this part of the interview. Voice is managed by your account.</small></div>
               </div>
             </details>
-<details class="advanced" style="margin-top:12px"><summary><span>Interview context</span><span>choose</span></summary><div class="advanced-body"><p class="note" style="grid-column:1/-1">Only the sources you choose are checked for this interview. Missing or unauthorized information stays unavailable.</p>${sources.filter(s=>s.name!=='RISE'&&s.name!=='StoryForge'&&s.name!=='File Vault').map(s=>`<label class="field"><span><input type="checkbox" data-context="${s.name}" ${session.contextSources.includes(s.name)?'checked':''} ${s.available?'':'disabled'}> ${esc(s.name)}</span><small class="note">${s.available?esc(s.detail):'Not connected'}</small></label>`).join('')}<div style="grid-column:1/-1"><button class="btn btn-secondary" type="button" id="story-reveal" ${sources.find(s=>s.name==='StoryForge')?.available?'':'disabled'}>Show StoryForge suggestions</button>${storyRevealed?`<p class="note">Only approved matching story summaries may be included. Showing this option does not include them.</p><label><input type="checkbox" data-context="StoryForge" ${session.contextSources.includes('StoryForge')?'checked':''}> Include authorized matching stories in this interview</label>`:''}<p class="note"><a href="/iv-prep-on-call/advanced/#newsession">Manage application facts / update CV</a></p></div></div></details>
+<details class="advanced" id="interview-context" ${contextOpen?'open':''} style="margin-top:12px"><summary><span>Interview context</span><span>choose</span></summary><div class="advanced-body"><p class="note" style="grid-column:1/-1">Only the sources you choose are checked for this interview. Missing or unauthorized information stays unavailable.</p>${sources.filter(s=>s.name!=='RISE'&&s.name!=='StoryForge'&&s.name!=='File Vault').map(s=>`<label class="field"><span><input type="checkbox" data-context="${s.name}" ${session.contextSources.includes(s.name)?'checked':''} ${s.available?'':'disabled'}> ${esc(s.name)}</span><small class="note">${s.available?esc(s.detail):'Not connected'}</small></label>`).join('')}<div style="grid-column:1/-1"><button class="btn btn-secondary" type="button" id="story-reveal" ${sources.find(s=>s.name==='StoryForge')?.available?'':'disabled'}>Show StoryForge suggestions</button>${storyRevealed?`<p class="note">Only approved matching story summaries may be included. Showing this option does not include them.</p><label><input type="checkbox" data-context="StoryForge" ${session.contextSources.includes('StoryForge')?'checked':''}> Include authorized matching stories in this interview</label>`:''}<p class="note"><a href="/iv-prep-on-call/advanced/#newsession">Manage application facts / update CV</a></p></div></div></details>
             <div class="t-label" style="margin:12px 0 6px">Length</div>
             <div class="option-row">${[5, 15, 25].map((m) => `<button type="button" class="option" data-min="${m}" aria-pressed="${cfg.durationMin === m}">${m} min<small>approximate session length</small></button>`).join('')}</div>
             <ul class="checks" style="margin-top:12px"><li class="${state.calibration ? 'on' : 'warn'}"><i>${state.calibration ? '✓' : '!'}</i>${state.calibration ? 'Calibrated' : 'Not calibrated · global ranges'}</li><li class="${useProgram ? 'on' : ''}"><i>${useProgram ? '✓' : '·'}</i>${useProgram ? `Program: ${esc(state.program.name)}` : 'No program context (general interview)'}</li><li class="${controller.account?.mode === 'REAL' ? 'on' : 'warn'}"><i>${controller.account?.mode === 'REAL' ? '✓' : '!'}</i>${controller.account?.mode === 'REAL' ? (controller.account.liveInterviewAvailable ? 'GPT-Live interviewer · saved to your account' : 'Live interviewer unavailable · choose Self Practice') : 'Sign in through Matrix'}</li></ul>
