@@ -38,7 +38,11 @@ test('short CV duration labels use readable side text while retaining date geome
   assert.equal(JSON.stringify(document),before);
   const report=analyzeTimelineQuality(document);
   const fixed=applySafeQualityFixes(document,{...report,findings:report.findings.filter(f=>f.code==='COLLISION_RISK')});
-  assert.equal(analyzeCollisionLayout(fixed.document).stats.collisionCount,0,'Readable labels must preserve the actual Guardian-repaired populated layout');
+  const remaining=analyzeCollisionLayout(fixed.document);
+  assert.equal(remaining.stats.collisionCount,1,'General flags cannot be pushed below the ribbon to claim zero collisions');
+  const durationIds=new Set(document.events.filter(e=>e.eventType==='duration').map(e=>e.id));
+  assert.ok(remaining.warnings.every(w=>w.elementIds.every(id=>!durationIds.has(id))),'Readable duration labels remain clear after the bounded Guardian repair');
+  assert.ok(analyzeTimelineQuality(fixed.document).findings.some(f=>f.code==='COLLISION_RISK'),'Unresolved milestone overlap remains visible to human review');
 });
 
 test('long medical-school profile values wrap at full size with separate native lines and stable remaining rows',()=>{

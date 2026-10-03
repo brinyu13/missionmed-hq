@@ -16,7 +16,7 @@ function fixedGolden(){
   const document=structuredClone(fixture.document),report=analyzeTimelineQuality(document);
   const fixed=applySafeQualityFixes(document,{...report,findings:report.findings.filter(f=>f.code==='COLLISION_RISK')});
   assert.equal(fixed.changed,true);
-  assert.equal(eventOverrides(fixed.document).length,2);
+  assert.equal(eventOverrides(fixed.document).length,1); // One safe above-ribbon repair; the remaining pair stays gated.
   return fixed.document;
 }
 

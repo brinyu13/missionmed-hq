@@ -85,3 +85,35 @@ test('axis editing uses effective widths and freezes displayed axis with first m
   for(let i=0;i<prior.length;i++)assert.ok(Math.abs(movedCells[i].x-prior[i].x)<.001,'first event edit preserves displayed axis');
   assert.equal(JSON.stringify(document),before);assert.deepEqual(moved.document.events,document.events);
 });
+
+
+test('every year boundary previews and commits the pointer movement at each zoom, including bleed cells',async()=>{
+  const {calculateAxisBoundaryDrag}=await import('../web/js/407f-engineering-adapter.js');
+  const {readFile}=await import('node:fs/promises');
+  const {setAxisPresentationOverride,setAxisSegmentWeights}=await import('../web/js/uxr-002/advanced-studio.js');
+  const source=await readFile(new URL('../web/js/407f-engineering-adapter.js',import.meta.url),'utf8');
+  const start=source.indexOf('      if(axisPointer){\n        const pending=axisPointer;');
+  const end=source.indexOf('      if(railPointer){',start);
+  const move=new Function('axisPointer','event','calculateAxisBoundaryDrag',source.slice(start,end));
+  const document=structuredClone(FOUNDER_2025_MATRIX.find(f=>f.id==='M03').document);document.mode='advanced';document.layoutLock=false;
+  const cells=svg=>[...svg.matchAll(/data-axis-segment-id="([^"]+)" data-axis-segment-weight="([^"]+)" data-axis-date-width="([^"]+)"[^>]*><rect data-axis-cell="true" x="([^"]+)" y="[^"]+" width="([^"]+)"/g)].map(m=>({id:m[1],weight:+m[2],dateWidth:+m[3],x:+m[4],width:+m[5]}));
+  const old=cells(serializeFounderPresentation(document).svg);assert.equal(old.length,6);
+  for(let index=0;index<old.length-1;index++)for(const screenScale of [.5,1,2])for(const dx of [-3,3]){
+    const transforms={},pending={startX:0,index,weights:old.map(({id,weight})=>({id,weight})),leftBox:old[index],rightBox:old[index+1],
+      pairDateWidth:old[index].dateWidth+old[index+1].dateWidth,screenScale,
+      left:{setAttribute:(_,value)=>transforms.left=value},right:{setAttribute:(_,value)=>transforms.right=value}};
+    move(pending,{clientX:dx,preventDefault(){}},calculateAxisBoundaryDrag);
+    const previewX=Number(/^translate\(([^ ]+)/.exec(transforms.right)[1]);
+    assert.ok(Math.abs(previewX-old[index+1].x-dx/screenScale)<.001,'preview follows pointer');
+    const ranged=setAxisPresentationOverride(document,{startYear:2020,endYear:2025,includeFuture:false});
+    const committed=setAxisSegmentWeights(ranged.document,pending.preview);assert.equal(committed.changed,true);
+    const next=cells(serializeFounderPresentation(committed.document).svg);
+    assert.ok(Math.abs(next[index+1].x-previewX)<.001,'commit equals actual pointer preview');
+    for(let i=0;i<old.length;i++)if(i!==index&&i!==index+1){assert.ok(Math.abs(next[i].x-old[i].x)<.001);assert.ok(Math.abs(next[i].width-old[i].width)<.001);}
+  }
+  for(const dx of [-10000,10000]){
+    const result=calculateAxisBoundaryDrag({leftWeight:7,rightWeight:7,pairDateWidth:1000,boundaryX:500,dx});
+    assert.ok(result.leftWeight>=.25&&result.leftWeight<=8);assert.ok(result.rightWeight>=.25&&result.rightWeight<=8);
+    assert.equal(result.leftWeight+result.rightWeight,14);
+  }
+});

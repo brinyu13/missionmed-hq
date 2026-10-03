@@ -399,6 +399,16 @@ function rotationLorStateFromDocument(document){
   return createRotationLorState(records);
 }
 
+// Axis weights describe the dated inner span; the first/last ribbon cells also
+// contain decorative bleed. Convert pointer travel using dated geometry only.
+export function calculateAxisBoundaryDrag({leftWeight,rightWeight,pairDateWidth,screenScale=1,boundaryX,dx}){
+  const pairWeight=leftWeight+rightWeight;
+  const nextLeft=Math.max(Math.max(.25,pairWeight-8),Math.min(Math.min(8,pairWeight-.25),
+    leftWeight+dx/Math.max(.0001,screenScale)/Math.max(1,pairDateWidth)*pairWeight));
+  return{leftWeight:nextLeft,rightWeight:pairWeight-nextLeft,
+    boundaryX:boundaryX+(nextLeft-leftWeight)/pairWeight*pairDateWidth};
+}
+
 export function timelineWithLorPresentation(document){
   const projected=applyActiveSpecialtyVariant(document);
   const target=activeTargetSpecialty(projected);
@@ -8238,12 +8248,13 @@ export async function boot407FEngineeringAdapter({
           id:String(segment.dataset.axisSegmentId||""),
           weight:Math.max(.25,Number(segment.dataset.axisSegmentWeight)||1)
         }));
-        const leftBox=left.getBBox?.(),rightBox=right.getBBox?.();
+        const leftBox=left.querySelector?.("[data-axis-cell]")?.getBBox?.()||left.getBBox?.();
+        const rightBox=right.querySelector?.("[data-axis-cell]")?.getBBox?.()||right.getBBox?.();
         if(!leftBox?.width||!rightBox?.width)return;
         axisPointer={
           startX:event.clientX,index,segments,weights,left,right,leftBox,rightBox,
-          pairWeight:weights[index].weight+weights[index+1].weight,
-          pairPixelWidth:Math.max(1,left.getBoundingClientRect().width+right.getBoundingClientRect().width),modeAtPress:store.document.mode,
+          pairDateWidth:(Number(left.dataset.axisDateWidth)||leftBox.width)+(Number(right.dataset.axisDateWidth)||rightBox.width),
+          screenScale:Math.hypot(left.getScreenCTM?.()?.a||0,left.getScreenCTM?.()?.b||0)||left.getBoundingClientRect().width/leftBox.width,modeAtPress:store.document.mode,
           preview:weights.map((item)=>({...item})),moved:false
         };
         left.dataset.advancedAxisDragging="left";
@@ -8607,10 +8618,11 @@ export async function boot407FEngineeringAdapter({
         const dx=event.clientX-pending.startX;
         if(!pending.moved&&Math.abs(dx)<3)return;
         pending.moved=true;
-        const leftOriginal=pending.weights[pending.index].weight;
-        const delta=dx/pending.pairPixelWidth*pending.pairWeight;
-        const leftWeight=Math.max(.25,Math.min(pending.pairWeight-.25,leftOriginal+delta));
-        const rightWeight=pending.pairWeight-leftWeight;
+        const {leftWeight,rightWeight,boundaryX}=calculateAxisBoundaryDrag({
+          leftWeight:pending.weights[pending.index].weight,rightWeight:pending.weights[pending.index+1].weight,
+          pairDateWidth:pending.pairDateWidth,screenScale:pending.screenScale,
+          boundaryX:pending.rightBox.x,dx
+        });
         pending.preview=pending.weights.map((item,index)=>index===pending.index
           ?{...item,weight:leftWeight}
           :index===pending.index+1
@@ -8618,9 +8630,8 @@ export async function boot407FEngineeringAdapter({
             :{...item});
         const pairStart=pending.leftBox.x;
         const pairEnd=pending.rightBox.x+pending.rightBox.width;
-        const pairWidth=Math.max(1,pairEnd-pairStart);
-        const nextLeftWidth=pairWidth*(leftWeight/pending.pairWeight);
-        const nextRightX=pairStart+nextLeftWidth;
+        const nextLeftWidth=boundaryX-pairStart;
+        const nextRightX=boundaryX;
         const nextRightWidth=pairEnd-nextRightX;
         pending.left.setAttribute("transform",`translate(${pairStart} 0) scale(${nextLeftWidth/Math.max(1,pending.leftBox.width)} 1) translate(${-pending.leftBox.x} 0)`);
         pending.right.setAttribute("transform",`translate(${nextRightX} 0) scale(${nextRightWidth/Math.max(1,pending.rightBox.width)} 1) translate(${-pending.rightBox.x} 0)`);

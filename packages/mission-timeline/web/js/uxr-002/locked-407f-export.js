@@ -361,7 +361,7 @@ function axisMarkup(scale){
     const fontSize=23;
     const notch=index===0?"":`<path data-axis-notch="true" d="M${sx-11} ${y+1}L${sx} ${mid}L${sx-11} ${y+height-1}" fill="none" stroke="#DCE6F4" stroke-opacity=".85" stroke-width="2"/>`;
     /* A transparent cell rect keeps the per-year hit/drag geometry the axis handles use. */
-    return`<g data-segment-kind="${kind}" data-axis-segment-id="${xml(segment.id)}" data-axis-segment-weight="${segment.weight}"><rect data-axis-cell="true" x="${sx}" y="${y}" width="${Math.max(1,segmentWidth)}" height="${height}" fill="transparent"/>${notch}<text x="${sx+segmentWidth/2+(index===0?0:4)}" y="${y+27}" text-anchor="middle" fill="#FFFFFF" font-family="${TYPE.axis}" font-size="${fontSize}" font-weight="700">${xml(segment.label)}</text></g>`;
+    return`<g data-segment-kind="${kind}" data-axis-segment-id="${xml(segment.id)}" data-axis-segment-weight="${segment.weight}" data-axis-date-width="${width*(segment.endPercent-segment.startPercent)/96}"><rect data-axis-cell="true" x="${sx}" y="${y}" width="${Math.max(1,segmentWidth)}" height="${height}" fill="transparent"/>${notch}<text x="${sx+segmentWidth/2+(index===0?0:4)}" y="${y+27}" text-anchor="middle" fill="#FFFFFF" font-family="${TYPE.axis}" font-size="${fontSize}" font-weight="700">${xml(segment.label)}</text></g>`;
   }).join("")}<rect data-axis-hit-target="true" x="0" y="${y-8}" width="${WIDTH}" height="${height+16}" fill="transparent" pointer-events="all"/></g>`;
 }
 
