@@ -4,3 +4,6 @@ node_modules/
 coverage/
 test-results/
 playwright-report/
+
+# Independently verified public CA; never a private key.
+!server/postgres-ca.pem
