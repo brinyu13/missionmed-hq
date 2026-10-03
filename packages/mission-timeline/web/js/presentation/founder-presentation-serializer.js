@@ -1,7 +1,7 @@
 import {resolveFounderPresentationSvg,materialPresentationCollisions} from './resolved-founder-presentation.js';
 import {buildKeynoteClassicScene} from "../uxr-002/board-renderer.js";
 import {CATEGORY_DEFINITIONS} from "../uxr-002/adaptive-layout.js";
-import {serializeLocked407FPortableSvg} from "../uxr-002/locked-407f-export.js";
+import {serializeLocked407FPortableSvg,composeLocked407FPortableSvg} from "../uxr-002/locked-407f-export.js";
 import {DEFAULT_THEME_ID,applyThemeToScene} from "../uxr-002/themes.js";
 import {reconcileAdvancedScene,validateSceneGraph} from "../editor/scene-graph.js";
 import {projectPresentationFields,projectPresentationEventFields} from './presentation-field-privacy.js';
@@ -320,11 +320,13 @@ export function buildFounderPresentationScene(document,{
 }
 
 export function serializeFounderPresentation(document,options={}){
-  const scene=buildFounderPresentationScene(document,options);
-  const svg=serializeFounderScene(scene,{
+  const initialScene=buildFounderPresentationScene(document,options);
+  const composed=composeLocked407FPortableSvg(initialScene,{
     layers:options.layers||"",
     resourceNamespace:options.resourceNamespace||""
   });
+  const scene=composed.scene;
+  const svg=injectRootAttributes(composed.svg,{...founderContractAttributes(),"data-founder-serializer":FOUNDER_PRESENTATION_SERIALIZER,"data-founder-default-background":FOUNDER_PRESENTATION_DEFAULTS.background,"data-founder-canvas":"1920x1080"});
   return{
     scene,
     svg,

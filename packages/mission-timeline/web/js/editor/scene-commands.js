@@ -1,3 +1,4 @@
+import {serializeFounderPresentation} from '../presentation/founder-presentation-serializer.js';
 import {
   TIMELINE_SCENE_OBJECT_TYPES,
   assertPresentationOnlyCommand,
@@ -360,13 +361,20 @@ function semanticSnapshot(document={}){
   });
 }
 
-export function applySceneCommandToDocument(document={},command={}){
+export function applySceneCommandToDocument(document={},command={},{scope='EVERYTHING'}={}){
   const semanticBefore=semanticSnapshot(document);
   const synchronized=synchronizeAdvancedSceneDocument(document);
   const migration=migrateAdvancedScene(synchronized.advanced,{revision:synchronized.revision});
   const result=executeSceneCommand(migration.scene,command);
   if(!result.changed)return{document,changed:false,selection:result.selection,label:null,scene:migration.scene};
   const next=clone(synchronized);
+  // Freeze the displayed automatic axis when the first authored event geometry
+  // is committed. Otherwise adding geometry disables adaptive weighting and
+  // moves the date axis underneath the object the user just placed.
+  if(['geometry','move','resize','rotate'].includes(command.kind)&&['event','group'].includes(command.target?.type)&&document.presentationOverrides?.axis?.mode!=='manual'){
+    const composed=serializeFounderPresentation(document,{scope}).scene.composedAxis;
+    if(composed)next.presentationOverrides={...(next.presentationOverrides||{}),axis:clone(composed)};
+  }
   next.advanced=projectSceneGraphToLegacy(next.advanced,result.scene);
   if(semanticSnapshot(next)!==semanticBefore){
     throw new Error("Presentation command attempted to alter semantic Timeline facts.");

@@ -59,3 +59,29 @@ test('automatic year weighting does not change a locked lane',()=>{
   const r=serializeFounderPresentation(document);
   assert.ok([...r.svg.matchAll(/data-axis-segment-weight="([^"]+)"/g)].every(m=>Number(m[1])===1));
 });
+
+
+test('axis editing uses effective widths and freezes displayed axis with first manual event geometry',async()=>{
+  const {setAxisPresentationOverride,setAxisSegmentWeights}=await import('../web/js/uxr-002/advanced-studio.js');
+  const {applySceneCommandToDocument}=await import('../web/js/editor/scene-commands.js');
+  const {locked407FMilestoneGeometry}=await import('../web/js/uxr-002/locked-407f-export.js');
+  const document=structuredClone(FOUNDER_2025_MATRIX.find(f=>f.id==='M03').document);document.mode='advanced';
+  const before=JSON.stringify(document),rendered=serializeFounderPresentation(document);
+  const cells=svg=>[...svg.matchAll(/data-axis-segment-id="([^"]+)" data-axis-segment-weight="([^"]+)"[^>]*><rect data-axis-cell="true" x="([^"]+)" y="[^"]+" width="([^"]+)"/g)].map(m=>({id:m[1],weight:+m[2],x:+m[3],width:+m[4]}));
+  const prior=cells(rendered.svg),index=2,dx=3;
+  const pairWeight=prior[index].weight+prior[index+1].weight,pairWidth=prior[index].width+prior[index+1].width;
+  const weights=prior.map((c,i)=>({id:c.id,weight:c.weight+(i===index?dx/pairWidth*pairWeight:i===index+1?-dx/pairWidth*pairWeight:0)}));
+  const range=setAxisPresentationOverride(document,{startYear:2020,endYear:2025,includeFuture:false});
+  const edited=setAxisSegmentWeights(range.document,weights);assert.equal(edited.changed,true);
+  const after=cells(serializeFounderPresentation(edited.document).svg);
+  assert.ok(Math.abs(after[index+1].x-prior[index+1].x-dx)<.001,'3px right drag moves exactly3px right');
+  for(const i of [0,1,4,5])assert.ok(Math.abs(after[i].width-prior[i].width)<.001,'untouched year cells stay fixed');
+  const geometry=locked407FMilestoneGeometry(rendered.scene,'degree');
+  const flagX=Number(/data-event-id="degree"[^>]*>[\s\S]*?<line x1="([^"]+)"/.exec(rendered.svg)[1])-4;
+  assert.ok(Math.abs(geometry.x-flagX)<.001,'geometry consumers use the rendered axis');
+  const moved=applySceneCommandToDocument(document,{kind:'geometry',target:{type:'event',id:'degree'},geometry:{x:geometry.x,y:geometry.y-5,width:50,height:64,rotation:0},create:{type:'event',semanticRef:'degree',aspectLocked:false,presentation:{eventType:'milestone'}}});
+  assert.equal(moved.changed,true);assert.equal(moved.document.presentationOverrides.axis.mode,'manual');
+  const movedCells=cells(serializeFounderPresentation(moved.document).svg);
+  for(let i=0;i<prior.length;i++)assert.ok(Math.abs(movedCells[i].x-prior[i].x)<.001,'first event edit preserves displayed axis');
+  assert.equal(JSON.stringify(document),before);assert.deepEqual(moved.document.events,document.events);
+});

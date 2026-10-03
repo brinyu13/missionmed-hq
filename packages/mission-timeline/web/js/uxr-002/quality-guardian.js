@@ -621,8 +621,10 @@ function reflowMilestonePresentation(document){
     if(!placed||placed.rotation||placed.object?.locked||placed.object?.groupId||
       (placed.object&&placed.object.presentation?.guardianAnchor!=='axis'))continue;
     const axis=initial.fixedRegions.find(region=>region.id==='furniture:axis');
-    const below=axis?axis.y+axis.h+12:185;
-    const positions=[8,58,below,below+64,below+128,below+192]
+    const flag=scene.flags.find(flag=>String(flag.id)===String(box.id));
+    // Attached exam-result flags keep their native study-arrow relationship.
+    if(flag?.examAttemptId&&scene.arrows.some(arrow=>arrow.study&&arrow.examAttemptId===flag.examAttemptId))continue;
+    const positions=[8,58,87]
       .filter(y=>Math.abs(y-placed.y)>.01).sort((a,b)=>Math.abs(a-placed.y)-Math.abs(b-placed.y));
     let best=null;
     for(const y of positions){
@@ -631,7 +633,7 @@ function reflowMilestonePresentation(document){
         geometry:{x:placed.x,y,width:placed.width,height:placed.height,rotation:0},
         create:{type:'event',semanticRef:box.id,aspectLocked:false,presentation:{eventType:'milestone',guardianAnchor:'axis'}},
         label:'Quality Guardian: separate milestone flags'
-      });
+      },{scope:'FULL_STORY'});
       if(!result.changed)continue;
       const review=analyzeCollisionLayout(result.document,{scope:'FULL_STORY'});
       const candidate=review.boxes.find(item=>item.id===box.id);
@@ -643,7 +645,7 @@ function reflowMilestonePresentation(document){
       if(score<bestScore){bestScore=score;best=result.document;}
       if(bestScore===0)break;
     }
-    if(best){document.advanced=best.advanced;moved++;}
+    if(best){document.advanced=best.advanced;document.presentationOverrides=best.presentationOverrides;moved++;}
     if(bestScore===0)break;
   }
   return{changed:moved>0,moved,before:initial.stats.collisionCount,after:bestScore};

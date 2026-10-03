@@ -127,7 +127,7 @@ function metrics(scene){
     const minPercent=Math.min(96/segments.length,80/CONTENT_WIDTH*100);
     const flexible=96-minPercent*segments.length;
     let cursor=2;
-    for(const segment of segments){segment.startPercent=cursor;cursor+=minPercent+flexible*segment.weight/total;segment.endPercent=cursor;}
+    for(const segment of segments){segment.startPercent=cursor;cursor+=minPercent+flexible*segment.weight/total;segment.endPercent=cursor;segment.weight=(segment.endPercent-segment.startPercent)*total/96;}
     const byYear=new Map(segments.map(s=>[Number(s.id),s]));
     const at=(month,after=0)=>{const index=monthIndex(month)+after,year=Math.floor(index/12),within=((index%12)+12)%12,s=byYear.get(year);return s?s.startPercent+(s.endPercent-s.startPercent)*within/12:year<firstYear?2:98;};
     return{firstYear,lastYear,segments,xPercent:month=>at(month),widthPercent:(start,end)=>Math.max(0,at(end,1)-at(start))};
@@ -776,22 +776,35 @@ function avoidAutomaticArrowCollisions(scene,svg){
   return changed?{...scene,autoArrowGeometry:placements,autoSiteOffsets:siteOffsets}:null;
 }
 
-export function serializeLocked407FPortableSvg(scene,options={}){
-  const compose=input=>{const first=serializePlacedPortableSvg(input,options),adjusted=avoidAutomaticArrowCollisions(input,first);return adjusted?serializePlacedPortableSvg(adjusted,options):first;};
+export function composeLocked407FPortableSvg(scene,options={}){
+  const compose=input=>{
+    const first=serializePlacedPortableSvg(input,options);
+    const adjusted=avoidAutomaticArrowCollisions(input,first);
+    return{scene:adjusted||input,svg:adjusted?serializePlacedPortableSvg(adjusted,options):first};
+  };
   let best=compose(scene);
-  // Nonuniform year widths are present in the Founder exemplar. Adapt only
-  // automatic composition: never reflow an authored axis or locked geometry.
+  // Nonuniform year widths are present in the Founder exemplar. Existing
+  // authored axes, lanes and event geometry are preserved.
   if(scene.founderPresentation?.axis?.mode==='manual'||(scene.arrows||[]).some(a=>a.manualOffset?.laneLocked||Number(a.manualOffset?.x)||Number(a.manualOffset?.y)||presentationEventObject(scene,a.id)?.geometry)||(scene.flags||[]).some(f=>presentationEventObject(scene,f.id)?.geometry))return best;
   const score=svg=>{const r=resolveFounderPresentationSvg(svg,{measureText:scene.measureText});return 1000*r.nodes.filter(n=>n.kind==='text'&&(n.bounds.x<-.5||n.bounds.y<-.5||n.bounds.x+n.bounds.width>WIDTH+.5||n.bounds.y+n.bounds.height>HEIGHT+.5)).length+materialPresentationCollisions(r).length;};
-  let bestScore=score(best);if(!bestScore)return best;
+  let bestScore=score(best.svg);if(!bestScore)return best;
   const counts=new Map();
   const count=month=>{const year=Math.floor(monthIndex(month)/12);counts.set(year,(counts.get(year)||0)+1);};
   for(const arrow of scene.arrows||[]){count(arrow.startMonth);count(arrow.endMonth);}
   for(const flag of scene.flags||[])count(flag.month);
   for(const strength of [.5,1,2,4]){
     const weights=new Map([...counts].map(([year,count])=>[year,Math.min(8,1+Math.sqrt(count)*strength)]));
-    const candidate=compose({...scene,autoYearWeights:weights}),candidateScore=score(candidate);
+    const candidate=compose({...scene,autoYearWeights:weights}),candidateScore=score(candidate.svg);
     if(candidateScore<bestScore){best=candidate;bestScore=candidateScore;if(!bestScore)break;}
   }
+  if(best.scene.autoYearWeights){
+    const axis=metrics(best.scene);
+    best.scene={...best.scene,composedAxis:{mode:'manual',startYear:axis.firstYear,endYear:axis.lastYear,includeFuture:false,
+      segmentWeights:axis.segments.map(({id,weight})=>({id,weight}))}};
+  }
   return best;
+}
+
+export function serializeLocked407FPortableSvg(scene,options={}){
+  return composeLocked407FPortableSvg(scene,options).svg;
 }
