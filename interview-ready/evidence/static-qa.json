@@ -1,15 +1,18 @@
 {
   "result": "PASS",
   "checks": [
-    "60 paths / 15 categories / four tiers",
+    "45 paths / 15 categories / three tiers in order",
     "rating qualification and explicit exceptions",
     "exact listing source requirements",
-    "public rating/price exclusion",
+    "public Amazon rating/price exclusion",
+    "sourced fashion products and complete outfit persistence",
     "11 routes",
     "no media upload transport",
+    "mobile snap controls and reduced-motion alternative",
     "JavaScript syntax",
     "deterministic bundle"
   ],
-  "uniquePurchaseCandidates": 21,
-  "bundleSha256": "4b54cebc6a22c9de03b084c438f5c8b745a4ff66eed4fd7261bdbb7beb7716f1"
+  "uniquePurchaseCandidates": 19,
+  "fashionProducts": 17,
+  "bundleSha256": "e89a7bd07d1bf21338f19581d10ed9d3c789a7c72acca361eced1fa7b2b9057f"
 }

@@ -1,0 +1,12 @@
+{
+  "result": "PASS",
+  "observedAt": "2026-10-04T06:42:24.782842+00:00",
+  "verifiedAssets": 40,
+  "servedEqualsBundle": true,
+  "bundleSha256": "e89a7bd07d1bf21338f19581d10ed9d3c789a7c72acca361eced1fa7b2b9057f",
+  "originalBoardInputsPreserved": true,
+  "ownerBoardHashes": {
+    "1": "462b8f126b6b7cb94ff3da81e9f9bce5cfd78a6c4c765bb775b70752417be22f",
+    "2": "8e50a7a8df658543c551c3f6a78d1058437d62609371d2098d89c17866d71468"
+  }
+}

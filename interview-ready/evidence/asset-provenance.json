@@ -2,6 +2,7 @@
   {
     "output": "img/hero-online-board.webp",
     "source": "sources/gear-guide-2.png",
+    "masked_source_rectangles": [],
     "source_sha256": "8e50a7a8df658543c551c3f6a78d1058437d62609371d2098d89c17866d71468",
     "bounds": [
       0,
@@ -13,8 +14,81 @@
     "bytes": 48118
   },
   {
+    "output": "img/hero-online-photo.webp",
+    "source": "sources/gear-guide-2.png",
+    "masked_source_rectangles": [
+      [
+        352,
+        228,
+        435,
+        393
+      ]
+    ],
+    "source_sha256": "8e50a7a8df658543c551c3f6a78d1058437d62609371d2098d89c17866d71468",
+    "bounds": [
+      352,
+      76,
+      806,
+      437
+    ],
+    "sha256": "77dd4dda3c9f996867416305f53ea414a535661b970a0c0b249a5528e8eb0f5d",
+    "bytes": 26142
+  },
+  {
+    "output": "img/mountain-landscape-masked.webp",
+    "source": "sources/gear-guide-2.png",
+    "masked_source_rectangles": [
+      [
+        793,
+        880,
+        1448,
+        896
+      ],
+      [
+        14,
+        925,
+        255,
+        1064
+      ],
+      [
+        259,
+        925,
+        496,
+        1064
+      ],
+      [
+        501,
+        925,
+        705,
+        1064
+      ],
+      [
+        708,
+        925,
+        975,
+        1064
+      ],
+      [
+        981,
+        925,
+        1448,
+        1064
+      ]
+    ],
+    "source_sha256": "8e50a7a8df658543c551c3f6a78d1058437d62609371d2098d89c17866d71468",
+    "bounds": [
+      0,
+      880,
+      1448,
+      1086
+    ],
+    "sha256": "a026f43e620fe770d53b9ca8ac128fc992b6a66319ab9b07b8c9c92e72b6e9a6",
+    "bytes": 9598
+  },
+  {
     "output": "img/hero-inperson-board.webp",
     "source": "sources/gear-guide-2.png",
+    "masked_source_rectangles": [],
     "source_sha256": "8e50a7a8df658543c551c3f6a78d1058437d62609371d2098d89c17866d71468",
     "bounds": [
       810,
@@ -28,6 +102,7 @@
   {
     "output": "img/interview-portrait.webp",
     "source": "sources/gear-guide-2.png",
+    "masked_source_rectangles": [],
     "source_sha256": "8e50a7a8df658543c551c3f6a78d1058437d62609371d2098d89c17866d71468",
     "bounds": [
       405,
@@ -41,6 +116,7 @@
   {
     "output": "img/style-portrait.webp",
     "source": "sources/gear-guide-1.png",
+    "masked_source_rectangles": [],
     "source_sha256": "462b8f126b6b7cb94ff3da81e9f9bce5cfd78a6c4c765bb775b70752417be22f",
     "bounds": [
       422,
@@ -54,6 +130,7 @@
   {
     "output": "img/travel-detail.webp",
     "source": "sources/gear-guide-2.png",
+    "masked_source_rectangles": [],
     "source_sha256": "8e50a7a8df658543c551c3f6a78d1058437d62609371d2098d89c17866d71468",
     "bounds": [
       1000,
@@ -67,6 +144,7 @@
   {
     "output": "img/purpose-landscape.webp",
     "source": "sources/gear-guide-2.png",
+    "masked_source_rectangles": [],
     "source_sha256": "8e50a7a8df658543c551c3f6a78d1058437d62609371d2098d89c17866d71468",
     "bounds": [
       1214,
@@ -80,6 +158,7 @@
   {
     "output": "img/mountain-panorama.webp",
     "source": "sources/gear-guide-2.png",
+    "masked_source_rectangles": [],
     "source_sha256": "8e50a7a8df658543c551c3f6a78d1058437d62609371d2098d89c17866d71468",
     "bounds": [
       0,
@@ -93,6 +172,7 @@
   {
     "output": "img/category-camera.webp",
     "source": "sources/gear-guide-2.png",
+    "masked_source_rectangles": [],
     "source_sha256": "8e50a7a8df658543c551c3f6a78d1058437d62609371d2098d89c17866d71468",
     "bounds": [
       29,
@@ -106,6 +186,7 @@
   {
     "output": "img/category-microphone.webp",
     "source": "sources/gear-guide-2.png",
+    "masked_source_rectangles": [],
     "source_sha256": "8e50a7a8df658543c551c3f6a78d1058437d62609371d2098d89c17866d71468",
     "bounds": [
       202,
@@ -119,6 +200,7 @@
   {
     "output": "img/category-lighting.webp",
     "source": "sources/gear-guide-2.png",
+    "masked_source_rectangles": [],
     "source_sha256": "8e50a7a8df658543c551c3f6a78d1058437d62609371d2098d89c17866d71468",
     "bounds": [
       374,
@@ -132,6 +214,7 @@
   {
     "output": "img/category-accessories.webp",
     "source": "sources/gear-guide-2.png",
+    "masked_source_rectangles": [],
     "source_sha256": "8e50a7a8df658543c551c3f6a78d1058437d62609371d2098d89c17866d71468",
     "bounds": [
       546,
@@ -145,6 +228,7 @@
   {
     "output": "img/category-travel.webp",
     "source": "sources/gear-guide-2.png",
+    "masked_source_rectangles": [],
     "source_sha256": "8e50a7a8df658543c551c3f6a78d1058437d62609371d2098d89c17866d71468",
     "bounds": [
       718,
@@ -158,6 +242,7 @@
   {
     "output": "img/category-emergency.webp",
     "source": "sources/gear-guide-2.png",
+    "masked_source_rectangles": [],
     "source_sha256": "8e50a7a8df658543c551c3f6a78d1058437d62609371d2098d89c17866d71468",
     "bounds": [
       887,
@@ -171,6 +256,7 @@
   {
     "output": "img/mountain-mark.webp",
     "source": "sources/gear-guide-2.png",
+    "masked_source_rectangles": [],
     "source_sha256": "8e50a7a8df658543c551c3f6a78d1058437d62609371d2098d89c17866d71468",
     "bounds": [
       78,

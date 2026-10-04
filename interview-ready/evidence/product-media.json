@@ -35,5 +35,95 @@
       1613,
       1641
     ]
+  },
+  {
+    "model": "Logitech Brio Ultra 4K",
+    "asin": "B09NBWWP79",
+    "source": "https://www.logitech.com/en-us/products/webcams/brio-4k-hdr-webcam.html",
+    "url": "https://resource.logitech.com/w_1800,h_1800,c_limit,q_auto,f_auto,dpr_1.0/d_transparent.gif/content/dam/logitech/en/products/webcams/brio/gallery/brio-gallery-1.png?v=1",
+    "observedAt": "2026-10-04T05:42:15.769941+00:00",
+    "localSource": "sources/product-brio.png",
+    "derivative": "img/product-brio.webp",
+    "sha256": "009fc26a9929331f7e32dabb1cb45177bc0b15c59de958601b72393c094aa4c7",
+    "derivativeSha256": "1e8c4e11f02cc1284177e3ef9b33296e49f1abeb58133420b0d2fe64780904bb",
+    "crop": [
+      162,
+      227,
+      1440,
+      1219
+    ],
+    "rights": "Public manufacturer/retailer product asset used in the local editorial founder-review candidate. Commercial publication permission is not asserted; review the applicable source rights before publication."
+  },
+  {
+    "model": "Logitech Litra Glow",
+    "asin": "B097QZGRCQ",
+    "source": "https://www.logitech.com/en-us/products/lighting/litra-glow.html",
+    "url": "https://resource.logitech.com/c_fill,q_auto,f_auto,dpr_1.0/d_transparent.gif/content/dam/logitech/en/products/lighting/litra-glow/gallery/litra-glow-streaming-light-front-view-graphite.png",
+    "observedAt": "2026-10-04T05:42:15.769941+00:00",
+    "localSource": "sources/product-litra.png",
+    "derivative": "img/product-litra.webp",
+    "sha256": "1f9f2b920442c65287b861cbf3075f66ecbf6d2665c7bee08b4a11893659489a",
+    "derivativeSha256": "5d6608629c6a8941403acfefb0d4b79502b51f1c065957b7f3d252ccee877394",
+    "crop": [
+      485,
+      100,
+      1114,
+      1374
+    ],
+    "rights": "Public manufacturer/retailer product asset used in the local editorial founder-review candidate. Commercial publication permission is not asserted; review the applicable source rights before publication."
+  },
+  {
+    "model": "Elgato Stream Deck +",
+    "asin": "B0BJL8SJ59",
+    "source": "https://keystone.corsair.com/en/Stream_Deck_Plus/press-kit/",
+    "url": "https://keystone.corsair.com/en/Stream_Deck_Plus/download/38213/?page=press_kit",
+    "observedAt": "2026-10-04T05:42:15.769941+00:00",
+    "localSource": "sources/product-stream-plus.png",
+    "derivative": "img/product-stream-plus.webp",
+    "sha256": "5901274006945da55737874dadbeb997d49882a013a4fcf5c401b6acfea0265d",
+    "derivativeSha256": "4bdbbf582260e7c1199e2fbfc431653de9987cc72fd76005e0170c960750c69e",
+    "crop": [
+      1290,
+      544,
+      4704,
+      3240
+    ],
+    "rights": "Public manufacturer/retailer product asset used in the local editorial founder-review candidate. Commercial publication permission is not asserted; review the applicable source rights before publication."
+  },
+  {
+    "model": "Elgato Cam Link 4K",
+    "asin": "B07K3FN5MR",
+    "source": "https://keystone.corsair.com/en/Cam_Link_4K/press-kit/",
+    "url": "https://keystone.corsair.com/en/Cam_Link_4K/download/34851/?page=press_kit",
+    "observedAt": "2026-10-04T05:42:15.769941+00:00",
+    "localSource": "sources/product-camlink.png",
+    "derivative": "img/product-camlink.webp",
+    "sha256": "45e01ba25f87b4fcf7cabf63438e86bfc15dd503a8d8ad28d7e914d0987c2f05",
+    "derivativeSha256": "1e78d6b660c382fefb0c671038246699137bc93295faffb15f4337b385dc0479",
+    "crop": [
+      624,
+      560,
+      2242,
+      1593
+    ],
+    "rights": "Public manufacturer/retailer product asset used in the local editorial founder-review candidate. Commercial publication permission is not asserted; review the applicable source rights before publication."
+  },
+  {
+    "model": "Elgato Wave Mic Arm LP",
+    "asin": "B097376LKF",
+    "source": "https://keystone.corsair.com/en/Wave_Mic_Arm_LP/press-kit/",
+    "url": "https://keystone.corsair.com/en/Wave_Mic_Arm_LP/download/50822/?page=press_kit",
+    "observedAt": "2026-10-04T05:42:15.769941+00:00",
+    "localSource": "sources/product-arm-lp.png",
+    "derivative": "img/product-arm-lp.webp",
+    "sha256": "6de186b1f58bf5627571da4fb2da3f96d61a20b738f7f25b4c405005018507aa",
+    "derivativeSha256": "f511d518130556191f4e7b49a7580c7114e7cce2fcc082af6f60c053cc772c13",
+    "crop": [
+      0,
+      1714,
+      6000,
+      4000
+    ],
+    "rights": "Public manufacturer/retailer product asset used in the local editorial founder-review candidate. Commercial publication permission is not asserted; review the applicable source rights before publication."
   }
 ]

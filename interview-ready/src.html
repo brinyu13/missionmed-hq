@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Interview Ready · MissionMed</title>
-<meta name="description" content="MissionMed Interview Ready: prepare for online and in-person residency interviews. Test your setup, work your checklist, plan your look, and compare curated gear in four tiers.">
+<meta name="description" content="MissionMed Interview Ready: prepare for online and in-person residency interviews. Test your setup, work your checklist, build complete outfits, and compare Business Class, First Class and Private Jet.">
 <meta name="theme-color" content="#071a33">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob: https://i.ytimg.com; media-src blob:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -291,7 +291,7 @@ label.lbl{display:block;font-size:12px;letter-spacing:.1em;text-transform:upperc
     <section class="page" id="page-online" data-title="Online Interview Gear">
       <span class="eyebrow">Online interview gear</span>
       <h2>Look and sound like the physician you are</h2>
-      <p class="lede">Choose a category. Each one shows four levels so you can compare without being overwhelmed. If the setup test said your current gear is fine, you can skip this entirely.</p>
+      <p class="lede">Compare Business Class, First Class and Private Jet side by side. Keep gear that already passes your setup check.</p>
       <div class="cat-nav" id="catnav-online" role="tablist"></div>
       <div id="catalog-online"></div>
       <p class="disclosure" data-disclosure></p>
@@ -484,7 +484,6 @@ const store = {
 
 /* ---------- catalog data ---------- */
 const TIERS = [
-  {id:"pe",name:"Premium Economy",sub:"Smart & solid",icon:"M12 3c3 4 3 9 0 18M5 9c4 1 10 1 14 0"},
   {id:"bc",name:"Business Class",sub:"Best value",icon:"M4 10h16v10H4zM8 10V6h8v4M4 14h16"},
   {id:"fc",name:"First Class",sub:"Premium experience",icon:"M6 20V9a3 3 0 013-3h6a3 3 0 013 3v11M6 13h12M9 20v-3M15 20v-3"},
   {id:"pj",name:"Private Jet",sub:"No compromises",icon:"M3 14l18-9-6 15-3-6z"}
@@ -495,7 +494,7 @@ const TIERS = [
 const CATALOG = {online:[], 'in-person':[]};
 const amazonUrl = name => { const item = typeof name === "object" ? name : [...CATALOG.online,...CATALOG["in-person"]].flatMap(c=>c.items).find(i=>i.name===name); const u = new URL(item?.asin ? "https://www.amazon.com/dp/"+item.asin : "https://www.amazon.com/s"); if(!item?.asin)u.searchParams.set("k",typeof name === "string" ? name : name.name); if (IR_CONFIG.affiliateTag) u.searchParams.set("tag", IR_CONFIG.affiliateTag); return u.toString(); };
 const esc = s => String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const tierOf = id => TIERS.find(t=>t.id===id);
+const tierOf = id => TIERS.find(t=>t.id===id)||{name:'Earlier saved choice',sub:'Recheck before buying',icon:'M4 10h16v10H4z'};
 const kit = { list(){return store.get('kit',[])}, has(k){return this.list().some(x=>x.key===k)}, toggle(item,cat,group){ let l=this.list(); if(l.some(x=>x.key===item.key)) l=l.filter(x=>x.key!==item.key); else l.push({key:item.key,name:item.name,tier:item.t,cat,group}); store.set('kit',l); renderKitCount(); } };
 function renderKitCount(){ const n=kit.list().length; document.getElementById('kitCountRail').textContent = n? `${n} item${n>1?'s':''} saved.` : 'Nothing saved yet.'; }
 
@@ -636,7 +635,7 @@ function verdict(){
 /* ---------- checklist ---------- */
 const CHECKLIST = {
   online:[
-    ["One week before",[["Run Test My Setup","Camera, mic, lighting and environment.","setup"],["Confirm the platform and install the desktop app","Zoom, Teams or Webex; sign in once so there are no update prompts on the day."],["Confirm the time zone","Write the interview time in your local zone and the program's."],["Research the program","Mission, curriculum, three specific things you can mention."],["Prepare your questions","Three for faculty, three for residents."],["Choose the outfit","See Dress for the Interview; hang it, steam it, decide on accessories."]]],
+    ["One week before",[["Run Test My Setup","Camera, mic, lighting and environment.","setup"],["Confirm the platform and install the desktop app","Zoom, Teams or Webex; sign in once so there are no update prompts on the day."],["Confirm the time zone","Write the interview time in your local zone and the program's."],["Research the program","Mission, curriculum, three specific things you can mention."],["Prepare your questions","Three for faculty, three for residents."],["Choose the outfit","See Dress for the Interview; hang it, follow the care label and choose accessories."]]],
     ["72 hours before",[["Wired internet in place","Ethernet or powerline; Wi-Fi only as backup."],["Backup device ready","Phone with the link, hotspot tested, coordinator number saved."],["Background cleared","Plain wall, one lamp for depth, nothing distracting."]]],
     ["Night before",[["Re-run the microphone test","Confirm the room is still quiet.","mic"],["Charge everything","Laptop, phone, headphones, power bank."],["Print or stage your notes","Question list and program notes beside the camera, not below it."],["Set the alarm, confirm the link","Interview link opens; calendar invite accepted."]]],
     ["Morning of",[["Restart the computer","Clears updates and memory."],["Close every other app","Messaging, email, cloud sync."],["Lighting on, camera at eye level","Quick preview in the platform."],["Water within reach, out of frame",""]]],
@@ -645,7 +644,7 @@ const CHECKLIST = {
   "in-person":[
     ["One week before",[["Travel booked and confirmed","Flights or drive, hotel, ground transport."],["Program research done","Three specific points you can raise."],["Questions prepared","Faculty and resident lists."],["Outfit chosen and fitted","See Dress for the Interview; shoes broken in."],["Padfolio loaded","Five CV copies, pen, notepad."]]],
     ["72 hours before",[["Emergency kit packed","Lint roller, stain pen, sewing kit, shoe wipes, safety pins."],["Documents pouch","ID, confirmations, program contacts, itinerary."],["Chargers and power bank",""],["Weather checked","Umbrella, coat, appropriate shoes."]]],
-    ["Travel day",[["Suit in garment bag or folder","Hang it on arrival."],["Phone charged, itinerary offline","Screenshots of confirmations."],["Steam the suit at the hotel","Or hang it in the bathroom during a hot shower."],["Lay out tomorrow's outfit",""]]],
+    ["Travel day",[["Suit in garment bag or folder","Hang it on arrival."],["Phone charged, itinerary offline","Screenshots of confirmations."],["Check garment care after arrival","Follow the fabric care label; allow time for suitable pressing or professional care."],["Lay out tomorrow's outfit",""]]],
     ["Morning of",[["Check the mirror in daylight","Lint, collar, shoes, nails."],["Padfolio, documents, mints, phone","One bag."],["Arrive 15 minutes early","Know the building entrance and the parking plan."]]],
     ["Arrival",[["Phone silenced","Off or in a bag, not a pocket."],["Names of the coordinator and interviewers","Write them in the padfolio."],["Posture, handshake, eye contact","You belong in the room."]]]
   ]

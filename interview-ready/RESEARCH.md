@@ -1,3 +1,41 @@
+# Current completion research — October 4, 2026 UTC
+
+This section supersedes the earlier catalog counts, media-preview behavior, outfit planner and research-only provider status below. Historical observations are retained as evidence, not silently reused as current listings.
+
+## Products and display boundary
+
+All 19 currently linked Amazon destinations were read from the visible exact listing today. `evidence/amazon-refresh-2026-10-04.json` records model title, ASIN, rating, count, stock and timestamp. Eighteen meet the 4.5 rule; Facecam MK.2 remains the permitted Elgato exception at 4.3. The original 32-listing ledger and 11 held choices remain historical. The public app has 45 paths across 15 categories and three tiers, plus DJI/Blue alternatives; this is not 45 unique products.
+
+[Amazon Associates policies](https://affiliate-program.amazon.com/help/operating/policies) were rechecked. No authoritative Associates tag or authorized product API was available. Manual rating/count/price observations stay outside the public bundle; exact product links provide current commerce information. There are no invented Prime, Choice, sale or charity claims.
+
+Seven exact gear photographs and 17 exact retailer garment/accessory photographs now have local optimized derivatives. `evidence/product-media.json` and `evidence/fashion-sources.json` tie source URL, original hash, derivative hash and rights status together. Manufacturer/retailer public access supports this local editorial review; commercial publication permission is not asserted. Shure's media endpoint denied acquisition, and some other gear lacks an accepted reusable exact photo. Those cards show a clearly labeled independent review thumbnail or preparation scene and link to original product photos. No generated imitation of a real model was added.
+
+Nine selected Quince color variants have dated USD prices from product metadata. Other retailer prices are omitted when the exact selected variant was not verified. Ann Taylor's black Seasonless Stretch pair, Banana Republic's navy hopsack pair and J.Crew's deep-navy Ludlow pair are sourced outfit options. The Brooks Brothers MA03526 red silk knit tie has photographed identity, sizing/care and an explicit fulfillment/return caution; no price promise. The Quince short shirt dress is a conditional dinner option, not a universal formal-interview recommendation. Stock and fit depend on selected size; outfit subtotals exclude unpriced pieces, tax, shipping and tailoring.
+
+Thirteen product-specific independent review entries use original video thumbnails or labeled images for written reviews. Automatic thumbnail requests to YouTube's image CDN replace the prior opt-in-only preview pattern. No videos/articles were copied and no endorsement of MissionMed is implied. Utility/travel items without an independent test say so. The Style filter links AAMC rehearsal guidance and does not invent garment reviews.
+
+## Try-on provider comparison and implemented boundary
+
+| Existing solution | Primary evidence | Decision |
+| --- | --- | --- |
+| FASHN hosted tryon-v1.6 | [Model API](https://docs.fashn.ai/api-reference/tryon-v1-6), [API flow](https://docs.fashn.ai/api-overview/api-fundamentals), [retention](https://docs.fashn.ai/api-overview/data-retention-privacy) | Selected adapter target. One output / one credit; tops, bottoms or one-pieces. This does not establish accessories, exact sizing or whole-outfit photorealism. |
+| FASHN self-hosted | Model/parser primary sources retained below | Core license does not clear all pipeline dependencies; hold commercial deployment. |
+| IDM-VTON | [Official repository](https://github.com/yisol/IDM-VTON) | Non-commercial license path; hold default commercial use. |
+| CatVTON | [Official repository/license](https://github.com/Zheng-Chong/CatVTON) | Code, checkpoints and demo are CC BY-NC-SA 4.0; commercial integration held. Hardware/model quality unbenchmarked here. |
+| OOTDiffusion | [Official license](https://github.com/levihsu/OOTDiffusion/blob/main/LICENSE) | CC BY-NC-SA 4.0; commercial integration held. No model weights or runtime installed. |
+
+FASHN's newer Try-On Max is another documented path, but this adapter deliberately uses the established, bounded-cost v1.6 garment endpoint. Provider privacy is external processing: standard output CDN retention is three days, base64 output availability 60 minutes, and temporary base64 input copies are cleaned after processing with a one-day backstop. Request records are not automatically deleted. The provider states no training without separate express opt-in.
+
+`tryon_adapter.py` implements consent checks, metadata stripping, image limits, a single paid POST without automatic retry, bounded polling, safe errors and base64 output validation. Canceling polling does not cancel or refund a provider job. Seven synthetic tests passed; no provider credential, photo upload or spend occurred. The UI exposes the local outfit collage and complete integration boundary honestly.
+
+**One exact activation blocker:** the approved MissionMed server-side FASHN gateway has not been provisioned. That gateway must supply session authorization, server credential custody and per-user rate/cost controls before this module can be activated. The static app retains connect-src none.
+
+## Current authority and acceptance
+
+The exact mission/product/publication record is still absent in current MissionMed OS. Protected CDN/WordPress/Matrix writes remain closed. An ordinary October 4 readback of the STAGING object returned 403, so its current bytes are unverified; no bypass or remote mutation followed. Local founder review, builder QA and source filing are separate from deployment, rights clearance, real-device acceptance and independent approval.
+
+# Historical October 3 research — retained evidence, superseded where noted
+
 # Interview Ready research and integration decisions
 
 Research date: October 3, 2026 UTC, during October 2 local evening. These are builder findings, not founder approval or evergreen listing claims. Exact observations/times are in `evidence/amazon-observations.json`; manufacturer and review links accompany recommendations in `catalog.json`.

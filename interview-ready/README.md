@@ -1,8 +1,10 @@
-# MissionMed Interview Ready — IR-INTERVIEW-READY-0002
+# MissionMed Interview Ready — founder completion candidate
 
-Founder-review candidate reconstructed from the preserved Fable 0001 implementation. The existing hash router, media diagnostic, local persistence and checklist remain the chassis. This candidate is local; the published STAGING object has not been changed.
+The accepted 0002 application remains the chassis. This October 4, 2026 pass changes its presentation, comparison, research, style experience and motion while preserving hash routing, the media diagnostic, kit, checklist and earlier saved looks. **Local review candidate; STAGING has not been published by this pass.**
 
 ## Build and review
+
+From the assigned worktree:
 
 ```sh
 ./interview-ready/build.sh
@@ -10,40 +12,37 @@ python3 interview-ready/qa.py
 python3 -m http.server 8762 --bind 127.0.0.1 --directory interview-ready/dist
 ```
 
-Open `http://127.0.0.1:8762/interview-ready.html`. Serve only `dist/`, not the repository or research evidence. Python 3 builds the single HTML file without additional packages. `qa.py` checks catalog policy, route presence, absence of upload transport, JavaScript syntax and deterministic output. It uses Node on PATH or the bundled Codex runtime; it does **not** run browser or physical-device tests.
+Open `http://127.0.0.1:8762/interview-ready.html#home`. Serve only `dist/`; source ledgers and private task inputs must not be served. Python 3 builds the single HTML without extra packages. Asset extraction, image acquisition and the unactivated server adapter use the existing Pillow runtime. Never add a provider credential to this static app.
 
-Routes: `#home #online #in-person #test #checklist #dress #wardrobe #community #experts #prime-day #kit`. Category deep links retain the original identifiers, including `#in-person/padfolio`.
+All original route identifiers remain: home, online, in-person, test, checklist, dress, wardrobe, community, experts, prime-day and kit. The old prime-day hash now presents evergreen **Deals Worth Watching** without event or discount claims.
 
-## Source boundaries
+## Current experience
 
-- `src.html`: preserved engine and markup, media lifecycle corrections, configuration and original storage namespace.
-- `editorial.css` / `editorial.js`: board reconstruction, route presentation, product evidence, ecosystems, Style Studio, motion and accessible interactions.
-- `curate.py` → `catalog.json` / `evidence/amazon-observations.json`: recommendations and separate internal listing observations. Run the curator only after deliberate source-backed curation changes; it is not a web scraper.
-- `extract_assets.py`: deterministic crops of the exact PNG boards, with SHA-256 provenance. Requires Pillow.
-- `optimize_product_media.py`: deterministic crops of two manufacturer press images. Requires Pillow.
-- `build.py`: embeds production assets, CSS and catalog into `dist/interview-ready.html`; records hashes in `dist/build-manifest.json`.
-- `qa-support/`: axe-core 4.10.3 and synthetic device fixtures used only through developer browser QA. Neither is bundled.
+- Exactly three shopping tiers: Business Class, First Class, Private Jet. Fifteen categories / 45 paths; some paths are preparation plans requiring no purchase. Desktop and wide tablet compare the same anatomy horizontally; phone uses horizontal snap, position, previous/next and keyboard controls.
+- Nineteen distinct Amazon destinations refreshed October 4 UTC. Eighteen meet 4.5; Facecam MK.2 is the explicitly permitted 4.3 Elgato exception. Numeric Amazon stars, review counts, prices and badges are kept out of the bundle pending an authorized display mechanism. Links are centralized in `amazonUrl()`; no unverified Associates tag.
+- Seven exact-model local gear images; video-review thumbnails beside other reviewed products, clearly labeled, and original manufacturer photo links. Thirteen independent review entries and a filtered media library. Some products still lack reusable exact-model images or an independent review; the UI says so.
+- Seventeen real clothing/accessory products with source photos and shop links, four complete outfit starting points, nine garment slots, 28 substantive education topics, explicit personal preferences and explainable rules. The stylist considers palette, cut, proportions, camera context, formality, climate, known prices and slots marked owned. It does not infer traits from photos or promise measured fit.
+- Private wardrobe save/edit/select/compare, local outfit collages, face and full-body references, and opt-in text feedback exports. No community publication or student gallery backend.
+- Scroll depth, cinematic route transitions, masked section entrances, ambient light, animated navigation/progress and photo interactions. Editing controls stay stable. Pause motion and prefers-reduced-motion provide static alternatives.
 
-The exact inputs were `Gear Guide 2.png` and `Gear Guide 1.png`, both 1448 × 1086. No newer `(1).jpeg` was found. Originals remain in `sources/`; the people were not regenerated or replaced. Category crops are board illustrations, not exact-model product photos.
+## Source and provenance
 
-## Catalog policy
+`src.html` retains the engine. `editorial.css` / `editorial.js` hold the earlier board reconstruction; `completion.css` / `completion.js` extend that same app. `fashion.json` and `catalog.json` are dated curated data. `build.py` embeds source, data and optimized assets and writes `dist/build-manifest.json`.
 
-There are 60 tier paths across 15 categories, comprising 21 distinct product destinations and preparation plans that require no purchase. Thirty-two Amazon listings were observed during October 3, 2026 UTC research. Eleven failed the default 4.5 threshold and remain held. Facecam MK.2 is the explicit Elgato exception; its observed 4.3 rating is retained internally, never rounded upward.
+`extract_assets.py` derives production imagery from the exact owner PNGs. Originals are preserved; the people were not regenerated. The new portrait layer separates moving photography from readable hero text. The mountain layer masks all generated commerce/trust claims before output. `evidence/asset-provenance.json` records crops, masks and hashes.
 
-`amazonUrl()` centralizes links. `IR_CONFIG.affiliateTag` remains empty because no authoritative tag was verified. Cards link to genuine `/dp/ASIN` destinations. Numeric Amazon ratings, review counts, prices, Prime badges and deals are excluded from the public bundle pending a compliant authorized API mechanism. Independent reviews sit beside relevant products and are also indexed under Expert Reviews.
+`hydrate_media.py` deliberately refreshes image URLs already verified in the source ledgers; it does not refresh prices/stock or replace accepted model/variant data. `--only brio` limits it to a named source key. Public access to a manufacturer/retailer asset is not asserted as commercial reuse permission. Read `RESEARCH.md` before publication.
 
-Two exact-model Elgato press images are included for local editorial review. Other model images are linked at their sources while reuse rights remain unconfirmed. Read `RESEARCH.md` and `evidence/product-media.json` before wider publication.
+## Privacy and try-on boundary
 
-## Privacy and truthful capability
+Camera, microphone and five-second playback stay in the browser. Media tracks release on route exit/hiding/page exit. Photo references use temporary Blob URLs and do not enter localStorage or an outbound request. Kit, checklist and text outfit plans retain the `ir:` storage namespace.
 
-Camera, microphone and the five-second recording run in the browser. Tracks stop on route exit, document hiding and page exit; late permission responses are released. Face photos are temporary Blob URLs, not stored in localStorage or sent to a service. Kit, checklist, outfit plans and fitting checks use the existing `ir:` namespace on this device. There is no account sync, community upload or telemetry backend.
+CSP disallows application connections, forms and object/embed content. Fonts and review thumbnails cause ordinary requests to Google Fonts and YouTube's image CDN. Review and shopping destinations open only on user navigation. Thumbnails are visible automatically; older opt-in-only preview documentation is superseded.
 
-The CSP blocks outbound application connections, forms and object/embed content. Google Fonts are external CSS/font requests. A YouTube thumbnail is fetched only after “Load YouTube preview”; original-review and Amazon links leave the app on explicit navigation.
+`tryon_adapter.py` is a tested, **unactivated** FASHN server module: explicit destination/retention/spend consent, bounded single-output requests, metadata stripping, size limits, base64-only output and safe errors. Seven synthetic transport tests pass. It is not an authenticated/rate-limited deployed gateway. Exact activation blocker: **the approved MissionMed server-side FASHN gateway has not been provisioned.** No credential, paid request or real-person upload occurred.
 
-Camera exposure uses a fixed central sample, not face detection. Browser online status is not a speed/packet-loss test. Style Studio offers outfit palettes and rehearsal checks, not measured fit or photorealistic try-on. FASHN and IDM-VTON were researched; no photo-processing service was activated. Prime Day remains evergreen. Community Looks contains three labeled editorial examples.
+## Verification and publication
 
-## Verification and publication boundary
+Current evidence: `evidence/static-qa.json`, `completion-browser-qa-2026-10-04.json`, `feedback-download-2026-10-04.json`, media/provenance ledgers and the completion screenshots. These are builder QA, not independent approval. Physical camera/mic acceptance, actual interview-platform rehearsal, Safari/iOS, asset publication rights and founder visual acceptance remain pending.
 
-`evidence/static-qa.json`, `browser-flows.json`, `responsive-qa.json`, `categories-qa.json`, `final-accessibility.json` and screenshots document builder QA. Synthetic media is distinguished from physical camera/mic acceptance. Automated accessibility retains manual review for gradients/photos and the live self-preview. Founder acceptance, real-device/platform rehearsal and Safari/iOS checks remain pending.
-
-MissionMed OS lacks exact mission/product/authority registration. The current Critical Systems Contract requires registration and a decision before protected CDN/WordPress/Matrix changes. The historical report's STAGING exemption does not override that rule. Read `TASK_PACKET.md` and the scoped handoff before publication. No LIVE release, backend activation or protected navigation integration occurred.
+MissionMed OS still lacks the exact IR mission/product/publication authority record. The existing protected-system contract controls CDN/WordPress/Matrix publication; the historical report's exemption is not revived. An ordinary October 4 STAGING readback returned HTTP 403. Current remote bytes therefore remain unverified. No bypass, protected publication, production mutation or provider activation was attempted.

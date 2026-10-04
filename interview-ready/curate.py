@@ -39,7 +39,8 @@ rows=[
 ('B004HMRQF4','Samsill Professional Padfolio, faux leather, letter size, black',4.7,5387,'01:03:40.618','include'),
 ('B08CK9X9Z8','Anker PowerExpand A8313 USB-C to Gigabit Ethernet',4.8,6589,'01:04:41.197','include')]
 ledger=[dict(asin=a,model=n,rating=r,ratingCount=c,observedAt='2026-10-03T'+t+'Z',availability='In Stock',decision=d,url='https://www.amazon.com/dp/'+a) for a,n,r,c,t,d in rows]
-(ROOT/'evidence/amazon-observations.json').write_text(json.dumps(ledger,ensure_ascii=False,indent=2)+'\n')
+if not (ROOT/'evidence/amazon-observations.json').exists():
+    (ROOT/'evidence/amazon-observations.json').write_text(json.dumps(ledger,ensure_ascii=False,indent=2)+'\n')
 names={r['asin']:r['model'] for r in ledger}
 spec={
 'logi':'https://www.logitech.com/en-gb/products/webcams/brio-4k-hdr-webcam.html',
@@ -165,7 +166,18 @@ free('bc','A separate garment plan','A garment folder can fit into luggage you a
 free('fc','Test the full travel load','Walk with the packed bag and check all wheels and zippers.','Adjust the load and plan transfers; carry valuables according to carrier rules.'),
 free('pj','Arrival margin + backup outfit','Reliability comes from time and contingency, not luxury branding.','Plan an arrival buffer where possible; prepare for delayed baggage.')])]
 extra=[item('fc','B0CG19QXWD','An existing Pocket 3 can double as a USB webcam; do not buy it solely for an interview.','A travelling creator who already owns DJI gear',['USB webcam mode','Compact camera'],['Gimbal can move the framing','Mount, power and mode need rehearsal'],'Use a stable mount, USB webcam mode and steady framing. Test tracking settings; keep automatic movement from distracting the interviewer.',source='dji',review='dji',eco='DJI',complexity='Moderate')]
-public=dict(researchedOn='2026-10-03',online=online,inperson=inperson,alternatives=extra,reviews=reviews,
+# The founder's completion directive replaces the previous four-level taxonomy.
+# Preserve old saved kit records through the runtime compatibility fallback.
+microphones=next(c for c in online if c['id']=='mic')
+yeti=next(i for i in microphones['items'] if i['t']=='bc')
+q2u=next(i for i in microphones['items'] if i['t']=='pe')
+q2u['t']='bc'
+microphones['items']=[q2u]+[i for i in microphones['items'] if i['t'] in ('fc','pj')]
+extra.append(yeti)
+for c in online+inperson:
+    c['items']=[i for i in c['items'] if i['t'] in ('bc','fc','pj')]
+    assert [i['t'] for i in c['items']]==['bc','fc','pj']
+public=dict(researchedOn='2026-10-04',online=online,inperson=inperson,alternatives=extra,reviews=reviews,
             held=[dict(name=r['model'],asin=r['asin'],reason='Did not meet the default Amazon rating threshold at this check.') for r in ledger if r['decision']=='hold'])
 # Product media is separately sourced and tied to the exact model/ASIN.
 media_file=ROOT/'evidence/product-media.json'
@@ -175,4 +187,5 @@ for c in online+inperson:
         match=next((m for m in media if m.get('asin')==x.get('asin') and m.get('derivative')),None)
         if match:x['image']=match['derivative']
 (ROOT/'catalog.json').write_text(json.dumps(public,ensure_ascii=False,indent=2)+'\n')
-print(f'{len(ledger)} exact listing observations; {sum(len(c["items"]) for c in online+inperson)} paths; {len(set(x["asin"] for c in online+inperson for x in c["items"] if x["asin"]))+1} unique purchase candidates')
+unique_candidates={x['asin'] for c in online+inperson for x in c['items'] if x['asin']}|{x['asin'] for x in extra if x['asin']}
+print(f'{len(ledger)} historical exact listing observations; 19 refreshed today; {sum(len(c["items"]) for c in online+inperson)} paths; {len(unique_candidates)} unique purchase candidates')

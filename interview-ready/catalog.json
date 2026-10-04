@@ -1,34 +1,11 @@
 {
-  "researchedOn": "2026-10-03",
+  "researchedOn": "2026-10-04",
   "online": [
     {
       "id": "webcam",
       "name": "Cameras & webcams",
       "intro": "Light and eye-level framing come first. Interview platforms may compress video; a 4K sensor does not guarantee a 4K call.",
       "items": [
-        {
-          "t": "pe",
-          "asin": "B085TFF7M1",
-          "name": "Logitech C920x HD Pro Webcam",
-          "why": "A familiar 1080p route when your built-in camera is the weak link.",
-          "best": "A well-lit desk on a limited budget",
-          "pros": [
-            "1080p video",
-            "Simple USB connection"
-          ],
-          "cons": [
-            "Limited headroom in difficult light"
-          ],
-          "setup": "Raise to eye level; test autofocus in the actual interview app.",
-          "source": "https://support.logi.com/hc/nl/articles/17368441997847-C920-Technical-Specifications",
-          "review": null,
-          "ecosystem": "Logitech",
-          "complexity": "Simple",
-          "box": "Exact C920x variant is linked on Amazon. Manufacturer specifications are for the C920 family; included software and accessories differ by variant.",
-          "up": "More control or convenience; more cost and rehearsal.",
-          "down": "",
-          "exception": false
-        },
         {
           "t": "bc",
           "asin": "B09NBWWP79",
@@ -55,7 +32,8 @@
           "box": "Check the selected listing and package contents before ordering.",
           "up": "More control or convenience; more cost and rehearsal.",
           "down": "Simpler equipment is sufficient when the setup test passes.",
-          "exception": false
+          "exception": false,
+          "image": "img/product-brio.webp"
         },
         {
           "t": "fc",
@@ -124,7 +102,7 @@
       "intro": "Choose USB for the shortest reliable path. XLR buys studio flexibility, and adds an interface, cables and gain decisions.",
       "items": [
         {
-          "t": "pe",
+          "t": "bc",
           "asin": "B07FKG8PGZ",
           "name": "Samson Q2U recording pack (black)",
           "why": "A dynamic microphone with direct USB and an XLR growth path.",
@@ -150,34 +128,6 @@
           "box": "Recording pack includes a desk tripod, windscreen, USB and XLR cables; confirm the selected pack.",
           "up": "More control or convenience; more cost and rehearsal.",
           "down": "",
-          "exception": false
-        },
-        {
-          "t": "bc",
-          "asin": "B00N1YPXW2",
-          "name": "Blue Yeti USB (Blackout)",
-          "why": "A practical choice if you already own one and have a quiet room. More expensive does not mean better noise isolation than a dynamic mic.",
-          "best": "Quiet rooms and existing Yeti owners",
-          "pros": [
-            "USB simplicity",
-            "Onboard gain and monitoring"
-          ],
-          "cons": [
-            "Condenser hears room noise",
-            "Bulky desktop footprint"
-          ],
-          "setup": "Select cardioid. Speak into the SIDE, not the top; keep gain low and the mic near you.",
-          "source": "https://www.logitechg.com/en-us/products/streaming-gear/yeti-premium-usb-microphone.html",
-          "review": {
-            "by": "The Podcast Host",
-            "title": "Blue Yeti · technique, value and limitations",
-            "url": "https://www.thepodcasthost.com/equipment/blue-yeti-podcasting-review/"
-          },
-          "ecosystem": "Logitech / Blue",
-          "complexity": "Simple",
-          "box": "Check the selected listing and package contents before ordering.",
-          "up": "More control or convenience; more cost and rehearsal.",
-          "down": "Simpler equipment is sufficient when the setup test passes.",
           "exception": false
         },
         {
@@ -248,29 +198,6 @@
       "intro": "Make your face easy to see. Window position, glare and backlight matter before brightness specifications.",
       "items": [
         {
-          "t": "pe",
-          "asin": null,
-          "name": "Window + soft room light",
-          "why": "Use a window in front of you; the first upgrade may be moving the desk.",
-          "best": "Applicants whose current equipment already works",
-          "pros": [
-            "No purchase",
-            "Familiar setup"
-          ],
-          "cons": [
-            "Requires a deliberate rehearsal"
-          ],
-          "setup": "Test at the actual interview time. Add a curtain if sunlight is harsh.",
-          "source": null,
-          "review": null,
-          "ecosystem": "Universal",
-          "complexity": "Simple",
-          "box": "Use what you already own.",
-          "up": "More control or convenience; more cost and rehearsal.",
-          "down": "",
-          "exception": false
-        },
-        {
           "t": "bc",
           "asin": "B097QZGRCQ",
           "name": "Logitech Litra Glow",
@@ -291,7 +218,8 @@
           "box": "Check the selected listing and package contents before ordering.",
           "up": "More control or convenience; more cost and rehearsal.",
           "down": "Simpler equipment is sufficient when the setup test passes.",
-          "exception": false
+          "exception": false,
+          "image": "img/product-litra.webp"
         },
         {
           "t": "fc",
@@ -360,29 +288,6 @@
       "intro": "Solve the position first. A capture card is only for a camera with a supported clean HDMI output.",
       "items": [
         {
-          "t": "pe",
-          "asin": null,
-          "name": "Raise your existing camera",
-          "why": "A stable stack or stand puts the lens at eye height.",
-          "best": "Applicants whose current equipment already works",
-          "pros": [
-            "No purchase",
-            "Familiar setup"
-          ],
-          "cons": [
-            "Requires a deliberate rehearsal"
-          ],
-          "setup": "Check stability and ventilation. Keep the lens just above the screen.",
-          "source": null,
-          "review": null,
-          "ecosystem": "Universal",
-          "complexity": "Simple",
-          "box": "Use what you already own.",
-          "up": "More control or convenience; more cost and rehearsal.",
-          "down": "",
-          "exception": false
-        },
-        {
           "t": "bc",
           "asin": null,
           "name": "Reuse the camera’s own mount",
@@ -427,7 +332,8 @@
           "box": "Check the selected listing and package contents before ordering.",
           "up": "More control or convenience; more cost and rehearsal.",
           "down": "Simpler equipment is sufficient when the setup test passes.",
-          "exception": false
+          "exception": false,
+          "image": "img/product-arm-lp.webp"
         },
         {
           "t": "pj",
@@ -451,7 +357,8 @@
           "box": "Check the selected listing and package contents before ordering.",
           "up": "",
           "down": "Simpler equipment is sufficient when the setup test passes.",
-          "exception": false
+          "exception": false,
+          "image": "img/product-camlink.webp"
         }
       ],
       "pick": "bc"
@@ -461,29 +368,6 @@
       "name": "Background & room",
       "intro": "Choose an uncluttered, private space. A visible wall, a virtual background or a backdrop can all work after a rehearsal.",
       "items": [
-        {
-          "t": "pe",
-          "asin": null,
-          "name": "A quiet, uncluttered corner",
-          "why": "Make the room support the conversation.",
-          "best": "Applicants whose current equipment already works",
-          "pros": [
-            "No purchase",
-            "Familiar setup"
-          ],
-          "cons": [
-            "Requires a deliberate rehearsal"
-          ],
-          "setup": "Remove private documents and distractions from the frame.",
-          "source": null,
-          "review": null,
-          "ecosystem": "Universal",
-          "complexity": "Simple",
-          "box": "Use what you already own.",
-          "up": "More control or convenience; more cost and rehearsal.",
-          "down": "",
-          "exception": false
-        },
         {
           "t": "bc",
           "asin": null,
@@ -562,29 +446,6 @@
       "intro": "A browser online signal is not a bandwidth or call-quality test. Rehearse the actual platform and a backup connection.",
       "items": [
         {
-          "t": "pe",
-          "asin": null,
-          "name": "Charger + a tested backup",
-          "why": "Use the charger and phone you own.",
-          "best": "Applicants whose current equipment already works",
-          "pros": [
-            "No purchase",
-            "Familiar setup"
-          ],
-          "cons": [
-            "Requires a deliberate rehearsal"
-          ],
-          "setup": "Plug in; confirm you can open the interview link and contact the coordinator offline.",
-          "source": null,
-          "review": null,
-          "ecosystem": "Universal",
-          "complexity": "Simple",
-          "box": "Use what you already own.",
-          "up": "More control or convenience; more cost and rehearsal.",
-          "down": "",
-          "exception": false
-        },
-        {
           "t": "bc",
           "asin": "B08CK9X9Z8",
           "name": "Anker PowerExpand A8313 USB-C to Gigabit Ethernet",
@@ -662,29 +523,6 @@
       "name": "Control & accessories",
       "intro": "Shortcuts are optional. Keep interview notes concise and avoid a teleprompter that makes your answers sound read.",
       "items": [
-        {
-          "t": "pe",
-          "asin": null,
-          "name": "Keyboard shortcuts + paper notes",
-          "why": "Start with the controls you already know.",
-          "best": "Applicants whose current equipment already works",
-          "pros": [
-            "No purchase",
-            "Familiar setup"
-          ],
-          "cons": [
-            "Requires a deliberate rehearsal"
-          ],
-          "setup": "Practice mute/unmute in the actual platform; do not map a shortcut that conflicts with another app.",
-          "source": null,
-          "review": null,
-          "ecosystem": "Universal",
-          "complexity": "Simple",
-          "box": "Use what you already own.",
-          "up": "More control or convenience; more cost and rehearsal.",
-          "down": "",
-          "exception": false
-        },
         {
           "t": "bc",
           "asin": "B0CVY4566H",
@@ -768,7 +606,8 @@
           "box": "Check the selected listing and package contents before ordering.",
           "up": "",
           "down": "Simpler equipment is sufficient when the setup test passes.",
-          "exception": false
+          "exception": false,
+          "image": "img/product-stream-plus.webp"
         }
       ],
       "pick": "bc"
@@ -780,29 +619,6 @@
       "name": "Portfolio & documents",
       "intro": "A clean CV, pen and question list are enough. Follow the program’s instructions about what to bring.",
       "items": [
-        {
-          "t": "pe",
-          "asin": null,
-          "name": "The folder you already own",
-          "why": "Present flat, clean copies without buying a new accessory.",
-          "best": "Applicants whose current equipment already works",
-          "pros": [
-            "No purchase",
-            "Familiar setup"
-          ],
-          "cons": [
-            "Requires a deliberate rehearsal"
-          ],
-          "setup": "Bring requested documents, a pen and program notes; avoid unnecessary personal records.",
-          "source": null,
-          "review": null,
-          "ecosystem": "Universal",
-          "complexity": "Simple",
-          "box": "Use what you already own.",
-          "up": "More control or convenience; more cost and rehearsal.",
-          "down": "",
-          "exception": false
-        },
         {
           "t": "bc",
           "asin": "B004HMRQF4",
@@ -882,29 +698,6 @@
       "intro": "Separate access essentials from the papers you may hand to a program.",
       "items": [
         {
-          "t": "pe",
-          "asin": null,
-          "name": "Offline itinerary",
-          "why": "Save the address, arrival instructions and coordinator contact.",
-          "best": "Applicants whose current equipment already works",
-          "pros": [
-            "No purchase",
-            "Familiar setup"
-          ],
-          "cons": [
-            "Requires a deliberate rehearsal"
-          ],
-          "setup": "Use your device’s private offline storage; avoid publishing travel details.",
-          "source": null,
-          "review": null,
-          "ecosystem": "Universal",
-          "complexity": "Simple",
-          "box": "Use what you already own.",
-          "up": "More control or convenience; more cost and rehearsal.",
-          "down": "",
-          "exception": false
-        },
-        {
           "t": "bc",
           "asin": null,
           "name": "ID in a secure pouch",
@@ -981,29 +774,6 @@
       "name": "Packing cubes",
       "intro": "Organize soft clothing without compressing tailoring. Cubes do not make a suit wrinkle-proof.",
       "items": [
-        {
-          "t": "pe",
-          "asin": "B014VBGUCA",
-          "name": "Amazon Essentials packing cubes, 4 piece, black",
-          "why": "Four mesh-top organizers separate essentials in the luggage you own.",
-          "best": "Occasional travel",
-          "pros": [
-            "Visible contents",
-            "Multiple organizer sizes"
-          ],
-          "cons": [
-            "No compression mechanism"
-          ],
-          "setup": "Use for soft layers and accessories; pack the suit separately. Current listing is Amazon Essentials, previously Amazon Basics.",
-          "source": "https://www.amazon.com/dp/B014VBGUCA",
-          "review": null,
-          "ecosystem": "Universal",
-          "complexity": "Simple",
-          "box": "Check the selected listing and package contents before ordering.",
-          "up": "More control or convenience; more cost and rehearsal.",
-          "down": "",
-          "exception": false
-        },
         {
           "t": "bc",
           "asin": "B09KN3FMY7",
@@ -1087,29 +857,6 @@
       "intro": "Follow the fabric care label. Hotel steam and a new steamer are not substitutes for correct pressing.",
       "items": [
         {
-          "t": "pe",
-          "asin": null,
-          "name": "Hang on arrival",
-          "why": "Give your outfit time to settle before morning.",
-          "best": "Applicants whose current equipment already works",
-          "pros": [
-            "No purchase",
-            "Familiar setup"
-          ],
-          "cons": [
-            "Requires a deliberate rehearsal"
-          ],
-          "setup": "Use a suitable hanger; avoid wet bathroom exposure for delicate garments.",
-          "source": null,
-          "review": null,
-          "ecosystem": "Universal",
-          "complexity": "Simple",
-          "box": "Use what you already own.",
-          "up": "More control or convenience; more cost and rehearsal.",
-          "down": "",
-          "exception": false
-        },
-        {
           "t": "bc",
           "asin": null,
           "name": "Ask about hotel pressing",
@@ -1186,29 +933,6 @@
       "name": "Portable power",
       "intro": "Pack your original charger and actual cables. No unqualified power bank is substituted just to fill a tier.",
       "items": [
-        {
-          "t": "pe",
-          "asin": null,
-          "name": "Your original phone charger",
-          "why": "A familiar charger is enough for a hotel stay.",
-          "best": "Applicants whose current equipment already works",
-          "pros": [
-            "No purchase",
-            "Familiar setup"
-          ],
-          "cons": [
-            "Requires a deliberate rehearsal"
-          ],
-          "setup": "Charge overnight; keep itinerary accessible offline.",
-          "source": null,
-          "review": null,
-          "ecosystem": "Universal",
-          "complexity": "Simple",
-          "box": "Use what you already own.",
-          "up": "More control or convenience; more cost and rehearsal.",
-          "down": "",
-          "exception": false
-        },
         {
           "t": "bc",
           "asin": null,
@@ -1287,29 +1011,6 @@
       "intro": "Choose a routine you can repeat comfortably. Presentation preferences are yours; fit and cleanliness matter more than a label.",
       "items": [
         {
-          "t": "pe",
-          "asin": null,
-          "name": "A daylight mirror check",
-          "why": "Check collar, lint, clean nails and shoes.",
-          "best": "Applicants whose current equipment already works",
-          "pros": [
-            "No purchase",
-            "Familiar setup"
-          ],
-          "cons": [
-            "Requires a deliberate rehearsal"
-          ],
-          "setup": "Do the last check before leaving the hotel.",
-          "source": null,
-          "review": null,
-          "ecosystem": "Universal",
-          "complexity": "Simple",
-          "box": "Use what you already own.",
-          "up": "More control or convenience; more cost and rehearsal.",
-          "down": "",
-          "exception": false
-        },
-        {
           "t": "bc",
           "asin": null,
           "name": "A small care pouch",
@@ -1386,29 +1087,6 @@
       "name": "Emergency kit",
       "intro": "Small problems need small fixes. Build a familiar pouch rather than an expensive “interview kit.”",
       "items": [
-        {
-          "t": "pe",
-          "asin": null,
-          "name": "Lint roller + spare pen",
-          "why": "Use familiar essentials you already have.",
-          "best": "Applicants whose current equipment already works",
-          "pros": [
-            "No purchase",
-            "Familiar setup"
-          ],
-          "cons": [
-            "Requires a deliberate rehearsal"
-          ],
-          "setup": "Check the outfit and writing tools before leaving.",
-          "source": null,
-          "review": null,
-          "ecosystem": "Universal",
-          "complexity": "Simple",
-          "box": "Use what you already own.",
-          "up": "More control or convenience; more cost and rehearsal.",
-          "down": "",
-          "exception": false
-        },
         {
           "t": "bc",
           "asin": "B0C4WC8QJR",
@@ -1487,29 +1165,6 @@
       "name": "Luggage & arrival",
       "intro": "Use luggage that meets your specific airline and fare limits. Product marketing does not establish airline approval.",
       "items": [
-        {
-          "t": "pe",
-          "asin": null,
-          "name": "Use your existing bag",
-          "why": "Clean and functional beats new and unfamiliar.",
-          "best": "Applicants whose current equipment already works",
-          "pros": [
-            "No purchase",
-            "Familiar setup"
-          ],
-          "cons": [
-            "Requires a deliberate rehearsal"
-          ],
-          "setup": "Measure including wheels/handles against current airline limits.",
-          "source": null,
-          "review": null,
-          "ecosystem": "Universal",
-          "complexity": "Simple",
-          "box": "Use what you already own.",
-          "up": "More control or convenience; more cost and rehearsal.",
-          "down": "",
-          "exception": false
-        },
         {
           "t": "bc",
           "asin": null,
@@ -1611,6 +1266,34 @@
       "box": "Check the selected listing and package contents before ordering.",
       "up": "",
       "down": "",
+      "exception": false
+    },
+    {
+      "t": "bc",
+      "asin": "B00N1YPXW2",
+      "name": "Blue Yeti USB (Blackout)",
+      "why": "A practical choice if you already own one and have a quiet room. More expensive does not mean better noise isolation than a dynamic mic.",
+      "best": "Quiet rooms and existing Yeti owners",
+      "pros": [
+        "USB simplicity",
+        "Onboard gain and monitoring"
+      ],
+      "cons": [
+        "Condenser hears room noise",
+        "Bulky desktop footprint"
+      ],
+      "setup": "Select cardioid. Speak into the SIDE, not the top; keep gain low and the mic near you.",
+      "source": "https://www.logitechg.com/en-us/products/streaming-gear/yeti-premium-usb-microphone.html",
+      "review": {
+        "by": "The Podcast Host",
+        "title": "Blue Yeti · technique, value and limitations",
+        "url": "https://www.thepodcasthost.com/equipment/blue-yeti-podcasting-review/"
+      },
+      "ecosystem": "Logitech / Blue",
+      "complexity": "Simple",
+      "box": "Check the selected listing and package contents before ordering.",
+      "up": "More control or convenience; more cost and rehearsal.",
+      "down": "Simpler equipment is sufficient when the setup test passes.",
       "exception": false
     }
   ],

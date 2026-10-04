@@ -1,10 +1,13 @@
 {
-  "sha256": "4b54cebc6a22c9de03b084c438f5c8b745a4ff66eed4fd7261bdbb7beb7716f1",
-  "bytes": 1425215,
+  "sha256": "e89a7bd07d1bf21338f19581d10ed9d3c789a7c72acca361eced1fa7b2b9057f",
+  "bytes": 2494620,
   "inputs": {
-    "src.html": "98623c1e4f18b9cf48fd4643f7636f2e12576dda9ed490ca64938b7920895b8c",
+    "src.html": "3ae67c9166f557d75b105f3f974fa53a43c8417236bef5856118dff2297d63c7",
     "editorial.css": "d22e49621f9e5e73b6945499a32e04af051141f534b97b3cdef7f4551587e7ae",
-    "editorial.js": "2713f43365d9ce4a47f19786fa48fb2c68e53cf295e950f6cfa26111ed93b95d",
-    "catalog.json": "b894e169b0806312e8c234a43f8f64b10cab178dfa1bba72cb9fd7e3ea1f0103"
+    "editorial.js": "7c533b5fcc82af8fa7a12ed953d24168eb0c06a84cbdb80c5de5004b64031245",
+    "catalog.json": "da6b8f712d32d9fb4d6536161a7386b81bad1af1ee7f9d2c78d3a82d54e81ccd",
+    "completion.css": "9a1fed84dd0cd81f2e1ea86c766841a3d44d01add151a18338e6092e54d42781",
+    "completion.js": "a27b4de5112a099b7c78bf169f89ceaacfbd7b2647c1f11fcf0bd450c2d556b0",
+    "fashion.json": "5d4023d61b3c22bd30a9ff4a0ce68f1c62b159e6279f66943ea191ef4253123e"
   }
 }

@@ -15,9 +15,9 @@ old = {'CREST':'crest.png','HERO_ONLINE':'hero-online.jpg','HERO_INPERSON':'hero
 source = (ROOT / 'src.html').read_text()
 for key, value in old.items():
     source = source.replace('{{'+key+'}}', uri('img/'+value))
-source = source.replace('<!-- EDITORIAL_CSS -->', '<style>'+(ROOT/'editorial.css').read_text()+'</style>')
+source = source.replace('<!-- EDITORIAL_CSS -->', '<style>'+(ROOT/'editorial.css').read_text()+'\n'+(ROOT/'completion.css').read_text()+'</style>')
 assets={p.name:uri(str(p.relative_to(ROOT))) for p in (ROOT/'img').glob('*.webp')}
-source = source.replace('<!-- EDITORIAL_SCRIPTS -->', '<script>const ASSET = '+json.dumps(assets)+'; const RESEARCH = '+(ROOT/'catalog.json').read_text().replace('</','<\\/')+';\n'+(ROOT/'editorial.js').read_text()+'</script>')
+source = source.replace('<!-- EDITORIAL_SCRIPTS -->', '<script>const ASSET = '+json.dumps(assets)+'; const RESEARCH = '+(ROOT/'catalog.json').read_text().replace('</','<\\/')+'; const FASHION = '+(ROOT/'fashion.json').read_text().replace('</','<\\/')+';\n'+(ROOT/'editorial.js').read_text()+'\n'+(ROOT/'completion.js').read_text()+'</script>')
 source = re.sub(r'(?<![A-Za-z0-9/])img/[A-Za-z0-9_.-]+\.(?:webp|jpg|png)', lambda m: uri(m[0]), source)
 for key, value in old.items():
     source = source.replace('{{'+key+'}}', uri('img/'+value))
@@ -27,6 +27,6 @@ out = ROOT/'dist/interview-ready.html'
 out.parent.mkdir(exist_ok=True)
 out.write_text(source)
 manifest = {'sha256':hashlib.sha256(out.read_bytes()).hexdigest(),'bytes':out.stat().st_size,
-            'inputs':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in [ROOT/'src.html', ROOT/'editorial.css', ROOT/'editorial.js', ROOT/'catalog.json']}}
+            'inputs':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in [ROOT/'src.html', ROOT/'editorial.css', ROOT/'editorial.js', ROOT/'catalog.json', ROOT/'completion.css', ROOT/'completion.js', ROOT/'fashion.json']}}
 (ROOT/'dist/build-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
 print(json.dumps(manifest,indent=2))

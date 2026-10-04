@@ -1,0 +1,521 @@
+{
+  "observedAt": "2026-10-04T06:41:20.813Z",
+  "origin": "http://localhost:8762",
+  "bundleSha256": "e89a7bd07d1bf21338f19581d10ed9d3c789a7c72acca361eced1fa7b2b9057f",
+  "reducedMotion": false,
+  "routes": [
+    {
+      "width": 1440,
+      "route": "home",
+      "overflow": 0,
+      "photographs": 12,
+      "tiers": [],
+      "violations": []
+    },
+    {
+      "width": 1440,
+      "route": "online",
+      "overflow": 0,
+      "photographs": 8,
+      "tiers": [
+        {
+          "id": "bc",
+          "left": 26,
+          "top": 755,
+          "width": 383
+        },
+        {
+          "id": "fc",
+          "left": 426,
+          "top": 755,
+          "width": 383
+        },
+        {
+          "id": "pj",
+          "left": 825,
+          "top": 755,
+          "width": 383
+        }
+      ],
+      "violations": []
+    },
+    {
+      "width": 1440,
+      "route": "in-person",
+      "overflow": 0,
+      "photographs": 4,
+      "tiers": [
+        {
+          "id": "bc",
+          "left": 26,
+          "top": 610,
+          "width": 383
+        },
+        {
+          "id": "fc",
+          "left": 426,
+          "top": 610,
+          "width": 383
+        },
+        {
+          "id": "pj",
+          "left": 825,
+          "top": 610,
+          "width": 383
+        }
+      ],
+      "violations": []
+    },
+    {
+      "width": 1440,
+      "route": "test",
+      "overflow": 0,
+      "photographs": 1,
+      "tiers": [],
+      "violations": []
+    },
+    {
+      "width": 1440,
+      "route": "checklist",
+      "overflow": 0,
+      "photographs": 1,
+      "tiers": [],
+      "violations": []
+    },
+    {
+      "width": 1440,
+      "route": "dress",
+      "overflow": 0,
+      "photographs": 12,
+      "tiers": [],
+      "violations": []
+    },
+    {
+      "width": 1440,
+      "route": "wardrobe",
+      "overflow": 0,
+      "photographs": 9,
+      "tiers": [],
+      "violations": []
+    },
+    {
+      "width": 1440,
+      "route": "community",
+      "overflow": 0,
+      "photographs": 16,
+      "tiers": [],
+      "violations": []
+    },
+    {
+      "width": 1440,
+      "route": "experts",
+      "overflow": 0,
+      "photographs": 14,
+      "tiers": [],
+      "violations": []
+    },
+    {
+      "width": 1440,
+      "route": "prime-day",
+      "overflow": 0,
+      "photographs": 8,
+      "tiers": [],
+      "violations": []
+    },
+    {
+      "width": 1440,
+      "route": "kit",
+      "overflow": 0,
+      "photographs": 1,
+      "tiers": [],
+      "violations": []
+    },
+    {
+      "width": 390,
+      "route": "home",
+      "overflow": 0,
+      "photographs": 12,
+      "tiers": [],
+      "violations": []
+    },
+    {
+      "width": 390,
+      "route": "online",
+      "overflow": 0,
+      "photographs": 8,
+      "tiers": [
+        {
+          "id": "bc",
+          "left": 16,
+          "top": 1041,
+          "width": 315
+        },
+        {
+          "id": "fc",
+          "left": 346,
+          "top": 1041,
+          "width": 315
+        },
+        {
+          "id": "pj",
+          "left": 676,
+          "top": 1041,
+          "width": 315
+        }
+      ],
+      "violations": []
+    },
+    {
+      "width": 390,
+      "route": "in-person",
+      "overflow": 0,
+      "photographs": 4,
+      "tiers": [
+        {
+          "id": "bc",
+          "left": 16,
+          "top": 749,
+          "width": 315
+        },
+        {
+          "id": "fc",
+          "left": 346,
+          "top": 749,
+          "width": 315
+        },
+        {
+          "id": "pj",
+          "left": 676,
+          "top": 749,
+          "width": 315
+        }
+      ],
+      "violations": []
+    },
+    {
+      "width": 390,
+      "route": "test",
+      "overflow": 0,
+      "photographs": 1,
+      "tiers": [],
+      "violations": []
+    },
+    {
+      "width": 390,
+      "route": "checklist",
+      "overflow": 0,
+      "photographs": 1,
+      "tiers": [],
+      "violations": []
+    },
+    {
+      "width": 390,
+      "route": "dress",
+      "overflow": 0,
+      "photographs": 12,
+      "tiers": [],
+      "violations": []
+    },
+    {
+      "width": 390,
+      "route": "wardrobe",
+      "overflow": 0,
+      "photographs": 9,
+      "tiers": [],
+      "violations": []
+    },
+    {
+      "width": 390,
+      "route": "community",
+      "overflow": 0,
+      "photographs": 16,
+      "tiers": [],
+      "violations": []
+    },
+    {
+      "width": 390,
+      "route": "experts",
+      "overflow": 0,
+      "photographs": 14,
+      "tiers": [],
+      "violations": []
+    },
+    {
+      "width": 390,
+      "route": "prime-day",
+      "overflow": 0,
+      "photographs": 8,
+      "tiers": [],
+      "violations": []
+    },
+    {
+      "width": 390,
+      "route": "kit",
+      "overflow": 0,
+      "photographs": 1,
+      "tiers": [],
+      "violations": []
+    }
+  ],
+  "tierNavigation": {
+    "nextFirstClass": true,
+    "nextPrivateJet": true,
+    "keyboardPrevious": true
+  },
+  "stylist": {
+    "blackSuitPreference": true,
+    "coldWeatherAdvice": true,
+    "knownPriceBudget100Observed72": true,
+    "ownedPiecesPreserved": true,
+    "stablePointerAction": true
+  },
+  "kit": {
+    "saved": true,
+    "persisted": true
+  },
+  "experts": {
+    "audioCount": 4,
+    "audioTitles": [
+      "Blue Yeti · technique, value and limitations",
+      "MV7+ · sound tests and comparisons",
+      "Q2U · USB and XLR tested",
+      "Studio microphones · SM7B at 08:13"
+    ],
+    "styleGuidance": true
+  },
+  "checklist": {
+    "onlinePercent": "15%",
+    "onlineTimeZoneChecked": true,
+    "inPersonPercent": "5%",
+    "inPersonTravelChecked": true
+  },
+  "setup": {
+    "diagnostic": {
+      "playback": {
+        "paused": false,
+        "source": true,
+        "visible": "block"
+      },
+      "tracks": [
+        {
+          "kind": "video",
+          "state": "live"
+        },
+        {
+          "kind": "audio",
+          "state": "live"
+        }
+      ],
+      "verdict": "Your measured setup looks ready.\n\n3/3 check areas completed. These are browser measurements, not a certification of interview quality.\n\nYou do not need to buy anything on the basis of these measurements. Listen to playback, confirm your framing and rehearse your actual platform.\n\nAlways check eye line, echo, power, notifications and your backup plan yourself.",
+      "videoWidth": 1280
+    },
+    "release": {
+      "audioSourceRemoved": true,
+      "tracks": [
+        {
+          "kind": "video",
+          "state": "ended"
+        },
+        {
+          "kind": "audio",
+          "state": "ended"
+        }
+      ]
+    }
+  },
+  "photos": {
+    "localBody": true,
+    "localFace": true,
+    "removed": true,
+    "noPhotoAfterReload": true,
+    "storageHasImageData": false
+  },
+  "motion": {
+    "before": {
+      "animations": [
+        {
+          "duration": 400,
+          "iterations": 1,
+          "name": "transition",
+          "playState": "running"
+        },
+        {
+          "duration": 250,
+          "iterations": 1,
+          "name": "transition",
+          "playState": "running"
+        },
+        {
+          "duration": 250,
+          "iterations": 1,
+          "name": "transition",
+          "playState": "running"
+        },
+        {
+          "duration": 120,
+          "iterations": 1,
+          "name": "transition",
+          "playState": "running"
+        },
+        {
+          "duration": 120,
+          "iterations": 1,
+          "name": "transition",
+          "playState": "running"
+        },
+        {
+          "duration": 1000,
+          "iterations": 1,
+          "name": "transition",
+          "playState": "running"
+        },
+        {
+          "duration": 1000,
+          "iterations": 1,
+          "name": "transition",
+          "playState": "running"
+        },
+        {
+          "duration": 1100,
+          "iterations": 1,
+          "name": "transition",
+          "playState": "running"
+        },
+        {
+          "duration": 400,
+          "iterations": 1,
+          "name": "transition",
+          "playState": "running"
+        },
+        {
+          "duration": 300,
+          "iterations": 1,
+          "name": "transition",
+          "playState": "running"
+        },
+        {
+          "duration": 1000,
+          "iterations": 1,
+          "name": "transition",
+          "playState": "running"
+        },
+        {
+          "duration": 1100,
+          "iterations": 1,
+          "name": "transition",
+          "playState": "running"
+        },
+        {
+          "duration": 28000,
+          "iterations": null,
+          "name": "studio-orbit",
+          "playState": "running"
+        },
+        {
+          "duration": 7000,
+          "iterations": null,
+          "name": "purpose-light",
+          "playState": "running"
+        },
+        {
+          "duration": 650,
+          "iterations": 1,
+          "name": "editorial-enter",
+          "playState": "running"
+        },
+        {
+          "duration": 14000,
+          "iterations": null,
+          "name": "light-travel",
+          "playState": "running"
+        },
+        {
+          "duration": 22000,
+          "iterations": null,
+          "name": "landscape-pan",
+          "playState": "running"
+        },
+        {
+          "duration": 900,
+          "iterations": 1,
+          "name": "route-trace",
+          "playState": "running"
+        },
+        {
+          "duration": 850,
+          "iterations": 1,
+          "name": "transition",
+          "playState": "running"
+        }
+      ],
+      "classes": "motion-enabled",
+      "imageTransform": "matrix(1.16, 0, 0, 1.16, 0, 42.2489)",
+      "reduced": false
+    },
+    "after": {
+      "depth": "72.40826568603515px",
+      "imageTransform": "matrix(1.16, 0, 0, 1.16, 0, 77.9988)",
+      "scrollY": 119.5
+    },
+    "paused": {
+      "animations": 0,
+      "button": "Resume motion",
+      "classes": "motion-paused",
+      "imageTransform": "none"
+    },
+    "reduced": {
+      "animations": 0,
+      "heroVisible": true,
+      "imageTransform": "none",
+      "reduced": true
+    },
+    "homeFinal": {
+      "before": {
+        "imageTransform": "matrix(1, 0, 0, 1, 0, 7.23266)"
+      },
+      "after": {
+        "scrollY": 278,
+        "imageTransform": "matrix(1, 0, 0, 1, 0, 18.72)"
+      }
+    }
+  },
+  "feedback": {
+    "initiallyDisabled": true,
+    "optInEnables": true,
+    "downloadReceipt": "feedback-download-2026-10-04.json"
+  },
+  "limitations": [
+    "Synthetic media only; physical camera/microphone, actual interview-platform call, Safari/iOS and founder acceptance remain pending.",
+    "FASHN gateway is unprovisioned; no paid request, real-person upload or service activation occurred."
+  ],
+  "finalHomeResponsive": [
+    {
+      "width": 1024,
+      "ctaVisible": true,
+      "headline": "Your Next Chapter\nStarts Here.",
+      "heroWidth": 846,
+      "overflow": 0
+    },
+    {
+      "width": 768,
+      "ctaVisible": true,
+      "headline": "Your Next Chapter\nStarts Here.",
+      "heroWidth": 768,
+      "overflow": 0
+    },
+    {
+      "width": 390,
+      "ctaVisible": true,
+      "headline": "Your Next Chapter\nStarts Here.",
+      "heroWidth": 390,
+      "overflow": 0
+    },
+    {
+      "width": 375,
+      "ctaVisible": true,
+      "headline": "Your Next Chapter\nStarts Here.",
+      "heroWidth": 375,
+      "overflow": 0
+    }
+  ]
+}
