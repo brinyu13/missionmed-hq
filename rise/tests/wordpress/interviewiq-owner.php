@@ -18,7 +18,7 @@ class SyntheticRequest {
 function add_action($name, $callback) { global $hooks; $hooks[$name]=$callback; }
 function add_filter(...$args) {}
 function register_rest_route($namespace, $route, $options) {
-    check($namespace === 'missionmed/v1' && $route === '/interviewiq-owner/rise/introspect' && $options['methods'] === 'POST', 'isolated route');
+    check($namespace === 'missionmed/v1' && in_array($route, array('/interviewiq-owner/rise/introspect', '/interviewiq-owner/rise/job-introspect'), true) && $options['methods'] === 'POST', 'isolated route');
 }
 function is_wp_error($x) { return $x instanceof WP_Error; }
 function wp_json_encode($x) { return json_encode($x); }
