@@ -14,6 +14,7 @@ import { masteryState, streak } from './model/teaching.mjs';
 import { projectOwnRetry } from './adapters/retry.mjs';
 import { attemptSnapshot, canCompareAttempts } from '../../studio/longitudinal-model.mjs';
 import { readOwnPresentation } from './adapters/own-presentation.mjs';
+import { filterOwnAttempts, ownHistoryProgress, formatHistoryEvidence } from './adapters/history-view-model.mjs';
 
 const main = document.getElementById('main');
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -262,40 +263,51 @@ async function renderPrepare(isCurrent = guarded) {
 }
 // ---------- REVIEW & IMPROVE ----------
 async function renderReview(isCurrent = guarded) {
-  const lib = await controller.library({isCurrent}); if (!isCurrent()) return;
-  const attempts = lib.attempts.slice().sort((a, b) => b.at - a.at);
+  const account=controller.account,durable=controller.durable,subject=account?.subject;
+  const current=()=>isCurrent()&&controller.account===account&&controller.durable===durable&&controller.account?.subject===subject;
+  const lib = await controller.library({isCurrent:current}); if (!current()) return;
+  const attempts=filterOwnAttempts(lib,subject);
+  const unfinished=ownHistoryProgress(lib,subject).unfinished;
+  const rowsMarkup=filtered=>filtered.map((a) => { const same = attempts.find(x=>x.at<a.at&&canCompareAttempts(attemptSnapshot(x.remote),attemptSnapshot(a.remote))); return `<div class="attempt-row"><span class="when">${fmtDate(a.at)}</span><div><strong>${esc(a.questionText)}</strong><small>${a.mode === 'mock' ? 'Mock interview' : 'Practice'} · ${fmtDur(a.durationS)} · account${a.priorityText ? ` · change: ${esc(a.priorityText)}` : ''}</small></div><div class="attempt-actions"><a class="btn btn-secondary" href="#/results/${a.id}">Debrief</a><a class="btn btn-quiet" href="#/film/${a.id}">Film Room</a>${same ? `<a class="btn btn-quiet" href="#/compare/${same.id}/${a.id}">Compare</a>` : ''}</div></div>`; }).join('') || (attempts.length?'<p class="note">No matching saved reps. Change the question or evidence filter.</p>':'<p class="note">Nothing saved yet.</p>');
   const latest = attempts[0];
   main.innerHTML = `
     <div class="screen-head"><div><div class="t-kick gold">Review &amp; improve</div><h1 class="t-hero">What <em>changed?</em></h1><p class="t-edit">Your latest debrief first. Open the Film Room, compare two reps on the same question, and see your progress over time.</p></div><div class="review-actions"><span class="t-tech">${lib.source === 'account' ? 'Private account history' : 'History unavailable'}</span><a class="btn btn-secondary" href="#/progress">Progress</a></div></div>
     ${latest ? `<section class="housing panel latest-debrief"><div><div class="t-label">Latest debrief</div><div class="t-edit-lg" style="margin:6px 0">${esc(latest.questionText)}</div><div class="note">${latest.mode === 'mock' ? 'Mock interview' : 'Practice'} · ${fmtDate(latest.at)} · ${fmtDur(latest.durationS)}${latest.priorityText ? ` · the one thing to change: ${esc(latest.priorityText)}` : ''}</div></div><a class="btn btn-primary" href="#/results/${latest.id}">Open debrief ▸</a></section>` : '<section class="housing panel"><p class="t-edit">No saved reps yet. <a href="#/practice">Practice one answer</a> to get your first debrief.</p></section>'}
     <section class="housing panel"><div class="t-label" style="margin-bottom:8px">All reps</div>
-      ${attempts.map((a) => { const same = attempts.find(x=>x.at<a.at&&canCompareAttempts(attemptSnapshot(x.remote),attemptSnapshot(a.remote))); return `<div class="attempt-row"><span class="when">${fmtDate(a.at)}</span><div><strong>${esc(a.questionText)}</strong><small>${a.mode === 'mock' ? 'Mock interview' : 'Practice'} · ${fmtDur(a.durationS)} · account${a.priorityText ? ` · change: ${esc(a.priorityText)}` : ''}</small></div><div class="attempt-actions"><a class="btn btn-secondary" href="#/results/${a.id}">Debrief</a><a class="btn btn-quiet" href="#/film/${a.id}">Film Room</a>${same ? `<a class="btn btn-quiet" href="#/compare/${same.id}/${a.id}">Compare</a>` : ''}</div></div>`; }).join('') || '<p class="note">Nothing saved yet.</p>'}
-    </section>`;
+      <div class="option-row"><label class="field">Question<input class="search" id="history-query" type="search" placeholder="Question or ID"></label><label class="field">Evidence<select id="history-evidence"><option value="all">All evidence states</option><option value="semantic">Supported semantic evidence</option><option value="transcript">Transcript available</option><option value="pending">Evidence pending</option></select></label><label class="field">Mode<select id="history-mode"><option value="all">Practice and Mock</option><option value="practice">Practice</option><option value="mock">Mock interview</option></select></label></div><p class="note" role="status" id="history-count"></p><div id="history-rows"></div>
+    </section>
+    ${unfinished.length?'<details class="housing panel expert" style="margin-top:16px"><summary>Unfinished sessions · '+unfinished.length+'</summary><p class="note">These are not completed saved reps. Use your account library to inspect or end an interrupted session; retained unsaved media still requires its original page.</p>'+unfinished.map(row=>'<div class="attempt-row"><span class="when">'+fmtDate(Date.parse(row.startedAt||row.createdAt))+'</span><div><strong>'+esc(row.questionText||row.title||'Interview session')+'</strong><small>Not completed</small></div></div>').join('')+'<a class="btn btn-secondary" href="/iv-prep-on-call/advanced/#vault">Manage unfinished sessions</a></details>':''}`;
+  const paint=()=>{if(!current())return;const filters={query:main.querySelector('#history-query').value,evidence:main.querySelector('#history-evidence').value,mode:main.querySelector('#history-mode').value},filtered=filterOwnAttempts(lib,subject,filters);main.querySelector('#history-rows').innerHTML=rowsMarkup(filtered);main.querySelector('#history-count').textContent=filtered.length+' of '+attempts.length+' saved reps';};
+  main.querySelector('#history-query').oninput=paint;main.querySelector('#history-evidence').onchange=paint;main.querySelector('#history-mode').onchange=paint;paint();
 }
 
 // ---------- PROGRESS ----------
 async function renderProgress(isCurrent = guarded) {
-  const lib = await controller.library({isCurrent});
-  const {buildLongitudinalModel} = await import("/iv-prep-on-call/assets/studio/longitudinal-model.mjs");
-  const longitudinal = buildLongitudinalModel(lib.sessions.filter(row=>row.ownerSubject===controller.account.subject));
-  const { questions } = await loadQuestions(); if (!isCurrent()) return;
-  const attempts = attemptsByRecency();
+  const account=controller.account,durable=controller.durable,subject=account?.subject;
+  const current=()=>isCurrent()&&controller.account===account&&controller.durable===durable&&controller.account?.subject===subject;
+  const lib = await controller.library({isCurrent:current});
+  if(!current())return;
+  const progress=ownHistoryProgress(lib,subject),longitudinal=progress.model;
+  const { questions } = await loadQuestions({account}); if (!current()) return;
+  const attempts = filterOwnAttempts(lib,subject);
   const core = questions.filter((q) => q.core_priority).slice(0, 10);
   const hooksTaken = attempts.reduce((n, a) => n + (a.hooks || []).filter((h) => h.taken).length, 0);
   const hooksLeft = attempts.reduce((n, a) => n + (a.hooks || []).length, 0);
-  const closes = attempts.filter((a) => a.mode === 'mock'); const closed = closes.filter((a) => a.closing?.status === 'delivered' || a.closing?.status === 'local').length;
   main.innerHTML = `
     <div class="screen-head"><div><div class="t-kick gold">Progress</div><h1 class="t-hero">Earned, <em>not farmed.</em></h1><p class="t-edit">Every number here comes from a saved rep. Nothing is seeded, awarded or estimated.</p></div></div>
     <div class="progress-grid">
       <div class="housing panel"><div class="t-label">Day streak</div><div class="streak">${streak(attempts)}</div><p class="note">Consecutive days with at least one saved rep. Missing a day resets it. ${longitudinal.totals.activeDays} total active days.</p></div>
       <div class="housing panel"><div class="t-label">Reps</div><div class="streak">${attempts.length}</div><p class="note">${attempts.filter((a) => a.mode === 'mock').length} mock interviews · ${attempts.filter((a) => a.mode !== 'mock').length} practice reps</p></div>
-      <div class="housing panel"><div class="t-label">Hooks taken</div><div class="streak">${hooksTaken}<span style="font-size:22px;color:var(--dim)"> / ${hooksLeft}</span></div><p class="note">Hooks you left in mocks that the interviewer followed.</p></div>
-      <div class="housing panel"><div class="t-label">Closings reached</div><div class="streak">${closed}<span style="font-size:22px;color:var(--dim)"> / ${closes.length}</span></div><p class="note">Mocks that reached "Do you have any questions for me?"</p></div>
+      <div class="housing panel"><div class="t-label">Observed hooks followed</div><div class="streak">${hooksTaken}<span style="font-size:22px;color:var(--dim)"> / ${hooksLeft}</span></div><p class="note">Saved qualifying hook observations only. Missing turn boundaries do not prove no contextual follow-up occurred.</p></div>
+      <div class="housing panel"><div class="t-label">Closing text observed</div><div class="streak">${progress.closing.observed?progress.closing.reached:'—'}<span style="font-size:22px;color:var(--dim)"> / ${progress.closing.observed}</span></div><p class="note">${progress.closing.unverified} mocks have no verified closing observation. Confirm what was heard in replay.</p></div>
+      <div class="housing panel"><div class="t-label">Recorded practice</div><div class="streak">${progress.durationAvailable?fmtDur(longitudinal.totals.recordedMs/1000):'Unavailable'}</div><p class="note">Measured duration of private saved media. Attempts without a duration do not add time.</p></div>
+      <div class="housing panel"><div class="t-label">Question breadth</div><div class="streak">${longitudinal.totals.uniqueQuestions}</div><p class="note">Distinct saved question IDs or historical titles; not inferred coverage of every question inside a mock.</p></div>
     </div>
     <section class="housing panel" style="margin-top:16px"><div class="t-label" style="margin-bottom:10px">Core 10 practice history</div>
       <div class="mastery-list">${core.map((q) => { const m = masteryState(attempts, q.question_id); return `<div class="mastery-row"><span>${esc(q.canonical_text)}</span><span class="mastery-ring">${[1, 2, 3, 4].map((i) => `<i class="${i <= m.segments ? 'on' : ''}"></i>`).join('')}</span><span class="state">${m.state}${m.reps ? ` · ${m.reps}` : ''}</span></div>`; }).join('')}</div>
       <p class="note" style="margin-top:10px">Unpracticed → Attempted (1) → Rehearsed (2+). Not recent means no saved rep in 21 days. Rings show rep coverage, not mastery, readiness, or proof that a priority was corrected.</p>
-    </section>`;
+    </section>
+    <section class="full-analytics"><div class="screen-head"><div><div class="t-kick gold">Evidence over time</div><h2 class="t-h2">Your saved observations.</h2><p class="note">Validated student-safe evidence only. Unavailable means no supported measurement; these are not readiness or population rankings.</p></div></div><div class="analytics-grid">${longitudinal.attempts.slice(0,6).map(a=>`<section class="housing verdict"><div class="t-kick">${fmtDate(a.at)}</div><h3>${esc(a.title)}</h3><dl class="analytics-readouts"><div><dt>Answer duration</dt><dd>${formatHistoryEvidence(a.metrics.answerDurationMs,'ms')}</dd></div><div><dt>Captured mic level</dt><dd>${formatHistoryEvidence(a.metrics.capturedLevelDbfs,'dBFS')}</dd></div><div><dt>Digital clipping</dt><dd>${formatHistoryEvidence(a.metrics.digitalClippingFraction,'fraction')}</dd></div><div><dt>Microphone coverage</dt><dd>${formatHistoryEvidence(a.metrics.microphoneCoverage,'fraction')}</dd></div><div><dt>Camera coverage</dt><dd>${formatHistoryEvidence(a.metrics.cameraCoverage,'fraction')}</dd></div></dl><a class="btn btn-secondary" href="#/results/${esc(a.id)}">Open this debrief</a></section>`).join('')||'<p class="note">No saved evidence yet.</p>'}</div></section>`;
 }
 
 // ---------- Router ----------

@@ -164,10 +164,41 @@ the actual production route and deployment.
   Default-density reset uses the serialized fresh owner merge; unrelated preferences
   preserved. 29 focused lifecycle/preference/review tests PASS; independent review
   found no lifecycle/privacy blocker. Mobile visual acceptance is still UNVERIFIED.
-- Next executable action: commit/read back and safely deploy this narrow viewport
-  patch; verify mobile launch/Results/Preview and restore own analytics defaults via
-  the actual UI. Then continue genuine conversation/closing, real-role and 142-row
-  live parity acceptance. No final promotion or two-sided audible acceptance claimed.
+- Viewport source `26234451a982e6bc4e980df72c74e7291e638fb1` deployed SUCCESS
+  `6a78bcc4-feb8-4ee1-b7b8-bc8b128b6966`, image
+  `sha256:855ee1fdc52d5a0acf430d86da320755beeaac20f8b8f33dfad0c46fb5583d77`.
+  Health200, anonymous candidate/bootstrap401; exact rollback artifact
+  `ivoc-release-artifact-M77P4K/source.tar`, SHA256
+  `8e7e8c155677da597b5cd04074a96589b87e870f040be12026b7ba02af8ab2b2`.
+  PRODUCT4451 and deployment4452 released normally with remote readback.
+  Fresh independent actual390x844 QA: Mock launch, Review Compare, Results Full
+  Analytics and question Preview PASS/no horizontal overflow. Actual1440x900
+  drawer89px rows keep Favorite/Preview aligned; dark Prepare filters PASS.
+  Minor narrow evidence columns remain P2; report sticky-header offset corrected
+  in the next patch. No media/provider acceptance inferred from viewport checks.
+- Visible Display options -> default analytics reset -> account save -> cold reload
+  PASS. Own original preference restored: Practice Coached, Mock Interview-only;
+  no devices/provider started in this preference verification.
+- Remaining142-row triage found executable R057 filters/unfinished visibility and
+  R059/060 longitudinal projection gaps. Current bounded patch connects canonical
+  Answer History question/evidence/mode filters, read-only unfinished status with
+  existing account-library recovery, recorded-time/question-identity breadth and
+  six validated evidence rows from the existing longitudinal model. Progress now
+  separates missing closing observations instead of displaying false0/all claims.
+  R073 instrument controls remain at their preserved Advanced Lab home, now linked
+  contextually from full Results; Expert counts are NOT accepted supersession.
+  Independent review caught an account-switch-after-question-read race before release;
+  full Progress/Review chains now bind account object, subject and Durable owner.
+  Five exact-function scope/route harness cases PASS; unknown recorded durations
+  display Unavailable rather than fabricated0:00. 22 affected own-scope/history/review
+  tests PASS. No schema/auth/provider
+  change, duplicate history store, private context receipt or invented measurement.
+- Next executable action: independent patch review, commit/read back, safe deployment
+  and actual filter/Progress/Advanced handoff checks. Then continue real conversation,
+  closing, real-role and 142-row live parity acceptance. No final root promotion or
+  two-sided audible acceptance claimed. Genuine speech/hearing remains a precise
+  physical-evidence gate under the current Fable integration directive, not a global
+  engineering stop.
 
 - **Founder live-POV override, 2026-10-02: recovery LIVE; candidate-question stall reopened fix-forward.**
   Founder confirms physical camera/mic and native multi-turn AI entry work;
