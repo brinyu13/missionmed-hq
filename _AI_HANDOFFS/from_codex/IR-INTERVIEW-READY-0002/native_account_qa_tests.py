@@ -1,6 +1,9 @@
 """Small in-memory fixtures. Never create a native identity or call a provider."""
 import contextlib
 import dataclasses
+import concurrent.futures
+import os
+import threading
 import hashlib
 import importlib.util
 import io
@@ -23,10 +26,44 @@ spec.loader.exec_module(qa)
 class SpyGate:
     def __init__(self):
         self.actions = []
-        self.admission = type('FixtureAdmission', (), {'creation_hook_inventory_sha256': '3' * 64})()
+        self.admission = type('FixtureAdmission', (), {'creation_hook_inventory_sha256': '3' * 64,'mode':'native'})()
 
     def require(self, action):
         self.actions.append(action)
+
+    @contextlib.contextmanager
+    def dispatch(self,action):
+        yield qa.Dispatch(time.monotonic()+qa.IO_SECONDS,action=action)
+
+
+class PipeChild:
+    """Injected local pipes only; never starts a process or network request."""
+    def __init__(self,chunks=(),delay=0,code=0):
+        r,w=os.pipe();self.stdin=os.fdopen(w,'wb',buffering=0);self.input_fd=r
+        r,w=os.pipe();self.stdout=os.fdopen(r,'rb',buffering=0);self.output_fd=w
+        r,w=os.pipe();self.stderr=os.fdopen(r,'rb',buffering=0);self.error_fd=w
+        self.returncode=None;self.stopped=threading.Event();self.done=threading.Event();self.private_input=bytearray()
+        def run():
+            try:
+                while True:
+                    block=os.read(self.input_fd,8192)
+                    if not block:break
+                    self.private_input.extend(block)
+                for chunk in chunks:
+                    if self.stopped.wait(delay):break
+                    os.write(self.output_fd,chunk)
+                self.returncode=code if not self.stopped.is_set() else -9
+            finally:
+                for fd in (self.input_fd,self.output_fd,self.error_fd):os.close(fd)
+                self.done.set()
+        self.worker=threading.Thread(target=run,daemon=True);self.worker.start()
+    def poll(self):
+        if not self.done.is_set():return None
+        self.worker.join();return self.returncode
+    def kill(self):self.stopped.set()
+    def wait(self,timeout=None):
+        if not self.done.wait(timeout):raise subprocess.TimeoutExpired('fixture',timeout)
+        self.worker.join();return self.returncode
 
 
 class Fixtures(unittest.TestCase):
@@ -47,7 +84,7 @@ class Fixtures(unittest.TestCase):
         local = tuple(expected.items()) + tuple((p, digest(files[p])) for p in authorities)
         runtime = tuple((name, digest(name.encode())) for name in ('package', 'gateway', 'html', 'pointer'))
         a = qa.Admission('1' * 64, '2' * 64, digest(b'runner-fixture'), digest(b'tests-fixture'),
-                         local, runtime, qa.ALLOWED_ACTIONS, '3' * 64)
+                         local, runtime, qa.ALLOWED_ACTIONS-{'creation_inventory_read'}, '3' * 64)
         calls = []
         def control(action, binding):
             calls.append(action)
@@ -70,7 +107,7 @@ class Fixtures(unittest.TestCase):
         with mock.patch.dict(qa.EXPECTED_SOURCE, expected, clear=True), \
              mock.patch.object(Path, 'is_symlink', return_value=False), \
              mock.patch.object(Path, 'read_bytes', lambda p: files[str(p)]):
-            gate = qa.Gate(a, control, a.control_contract_sha256)
+            gate = qa.Gate(a, control, a.control_contract_sha256,deadline=time.monotonic()+60)
             gate.require('create_a'); gate.require('state_post'); gate.require('logout')
             self.assertEqual(calls, ['create_a', 'state_post', 'logout'])
             files[str(qa.HERE / 'native_account_qa.py')] = b'drift'
@@ -92,9 +129,9 @@ class Fixtures(unittest.TestCase):
              mock.patch.object(Path, 'read_bytes', lambda p: files[str(p)]):
             for proof in failures:
                 with self.assertRaisesRegex(qa.Stop, '^guard$'):
-                    qa.Gate(a, lambda *args: proof, a.control_contract_sha256).require('state_post')
+                    qa.Gate(a, lambda *args: proof, a.control_contract_sha256,deadline=time.monotonic()+60).require('state_post')
             with self.assertRaisesRegex(qa.Stop, '^not_admitted$'):
-                qa.Gate(a, control, '0' * 64).require('create_a')
+                qa.Gate(a, control, '0' * 64,deadline=time.monotonic()+60).require('create_a')
 
     def test_exact_authority_and_runtime_package_are_required(self):
         a, _, expected, _, _ = self.gate_fixture()
@@ -108,7 +145,7 @@ class Fixtures(unittest.TestCase):
 
     def test_collision_stops_without_creating_or_modifying(self):
         gate = SpyGate(); codes = []
-        def pipe(code):
+        def pipe(code,**kwargs):
             codes.append(code)
             return {'collision': True}
         with self.assertRaisesRegex(qa.Stop, '^collision$'):
@@ -124,7 +161,7 @@ class Fixtures(unittest.TestCase):
     def test_private_create_uses_named_subscriber_stdin_only(self):
         gate = SpyGate(); codes = []
         identity = qa.Identity('a', qa.NAMES[0], qa.EMAILS[0], 'fixture-private-password')
-        def pipe(code):
+        def pipe(code,**kwargs):
             codes.append(code)
             return {'ok': True, 'uid': 123}
         qa.create_identity(gate, identity, pipe)
@@ -148,8 +185,10 @@ class Fixtures(unittest.TestCase):
 
     def test_inventory_remains_private_and_is_read_only(self):
         gate = SpyGate(); codes = []
-        private = {'sha256': '3' * 64, 'callbacks': [['user_register', 10, 'fixture_callback', 1, '4' * 64]]}
-        def pipe(code):
+        gate.admission.mode='inventory'
+        rows=[['user_register',10,'fixture_callback',1,'4'*64]]
+        private={'schema':'ir.native.hook_inventory.v1','sha256':hashlib.sha256(json.dumps(rows,separators=(',',':')).encode()).hexdigest(),'count':1,'callbacks':rows}
+        def pipe(code,**kwargs):
             codes.append(code); return private
         self.assertTrue(qa.creation_inventory_read(gate, pipe) == private)
         self.assertEqual(gate.actions, ['creation_inventory_read'])
@@ -166,7 +205,7 @@ class Fixtures(unittest.TestCase):
         self.assertNotIn(secret, repr(caught.exception))
         client = qa.CookieClient(SpyGate())
         self.assertEqual(repr(client), '<CookieClient private>')
-        with mock.patch.object(client.opener, 'open', side_effect=RuntimeError(secret)):
+        with mock.patch.object(qa, 'curl_reply', side_effect=RuntimeError(secret)):
             with self.assertRaises(qa.Stop) as caught:
                 client.request('app_get', qa.APP)
         self.assertNotIn(secret, str(caught.exception))
@@ -191,7 +230,7 @@ class Fixtures(unittest.TestCase):
 
     def test_wrong_endpoint_or_cross_origin_redirect_stops_before_transport(self):
         client = qa.CookieClient(SpyGate())
-        with mock.patch.object(client.opener, 'open', side_effect=AssertionError('no transport')):
+        with mock.patch.object(qa, 'curl_reply', side_effect=AssertionError('no transport')):
             for action, target in (('login', '/unrelated/'), ('logout', '/wp-admin/'),
                                    ('state_post', '/wp-json/other/'), ('app_get', 'https://fictional.example/')):
                 with self.assertRaises(qa.Stop):
@@ -224,6 +263,108 @@ class Fixtures(unittest.TestCase):
             for code in codes:
                 result = subprocess.run([php, '-l'], input=code.encode(), capture_output=True)
                 self.assertEqual(result.returncode, 0, 'fixed PHP diagnostic syntax failure')
+
+    def test_private_curl_config_cookie_and_post_have_no_argv_env_files_or_retry(self):
+        gate=qa.Gate(None,None,deadline=time.monotonic()+60);gate.require=mock.Mock()
+        client=qa.CookieClient(gate);children=[]
+        response=b'HTTP/1.1 200 OK\r\nSet-Cookie: session=fixture-private-cookie; Path=/; Secure\r\n\r\n{}'
+        def popen(argv,**kwargs):
+            self.assertEqual(tuple(argv),qa.CURL_ARGV);self.assertEqual(argv[1],'-q')
+            self.assertEqual(kwargs['env'],qa.PRIVATE_ENV)
+            child=PipeChild([response]);children.append(child);return child
+        with mock.patch.object(qa.subprocess,'Popen',side_effect=popen):
+            client.request('state_post',qa.ENDPOINT,'POST',b'fixture-private-body',{'X-WP-Nonce':'fixture-private-nonce'})
+            client.request('state_get',qa.ENDPOINT)
+        self.assertEqual(len(children),2)
+        config=bytes(children[0].private_input).decode()
+        self.assertIn('data-raw = "fixture-private-body"',config)
+        self.assertIn('fixture-private-nonce',config)
+        self.assertIn('fixture-private-cookie',bytes(children[1].private_input).decode())
+        self.assertIn('proto = "=https"',config);self.assertIn('max-redirs = 0',config)
+        self.assertIn('proxy = ""',config);self.assertIn('noproxy = "*"',config)
+        self.assertNotIn('cookie-jar',config);self.assertNotIn('location',config)
+        self.assertTrue(gate.drain())
+
+    def test_actual_capture_slow_drip_dns_caps_and_nonzero_are_finite_private_stop(self):
+        for mode in ('header-drip','body-drip','dns','body-cap','header-cap','nonzero'):
+            with self.subTest(mode=mode):
+                gate=qa.Gate(None,None,deadline=time.monotonic()+.04);gate.require=mock.Mock()
+                chunks=[b'x']*100;delay=.01;code=0
+                if mode=='body-drip':chunks=[b'HTTP/1.1 200 OK\r\n\r\n']+[b'x']*100
+                elif mode=='dns':chunks=[b'HTTP/1.1 200 OK\r\n\r\n'];delay=.2
+                elif mode=='body-cap':chunks=[b'HTTP/1.1 200 OK\r\n\r\n'+b'x'*65];delay=0
+                elif mode=='header-cap':chunks=[b'HTTP/1.1 200 OK\r\nX: '+b'x'*100];delay=0
+                elif mode=='nonzero':chunks=[b'fixture-private-error'];delay=0;code=6
+                child=None;started=time.monotonic()
+                def popen(*args,**kwargs):
+                    nonlocal child
+                    child=PipeChild(chunks,delay,code);return child
+                with mock.patch.object(qa.subprocess,'Popen',side_effect=popen) as launch, \
+                     mock.patch.object(qa,'BODY_CAP',64),mock.patch.object(qa,'HEADER_CAP',64):
+                    client=qa.CookieClient(gate)
+                    with self.assertRaises(qa.Stop) as caught:client.request('state_post',qa.ENDPOINT,'POST',b'{}')
+                    with self.assertRaises(qa.Stop):client.request('state_post',qa.ENDPOINT,'POST',b'{}')
+                    self.assertEqual(launch.call_count,1)  # Explicit second call is blocked; no transport retry.
+                self.assertLess(time.monotonic()-started,.5)
+                self.assertNotIn('fixture-private',str(caught.exception));self.assertIsNotNone(child.poll())
+                self.assertFalse(child.worker.is_alive());self.assertTrue(gate.drain())
+
+    def test_expired_admission_has_no_transport_and_nested_budget_is_smaller(self):
+        gate=qa.Gate(None,None,deadline=time.monotonic()+60);gate.require=mock.Mock()
+        with gate.dispatch('lock_lifecycle') as outer:
+            outer.deadline=time.monotonic()+.02
+            with gate.dispatch('state_post') as inner:self.assertLessEqual(inner.deadline,outer.deadline)
+        gate.deadline=time.monotonic()-1
+        with mock.patch.object(qa.subprocess,'Popen',side_effect=AssertionError('no I/O')) as launch:
+            with self.assertRaises(qa.Stop):qa.CookieClient(gate).request('state_post',qa.ENDPOINT,'POST',b'{}')
+            launch.assert_not_called()
+        queued=qa.Gate(None,None,deadline=time.monotonic()+60);queued.require=mock.Mock()
+        with queued.dispatch('state_post') as budget:
+            queued.close()
+            with mock.patch.object(qa.subprocess,'Popen',side_effect=AssertionError('no I/O')) as launch:
+                with self.assertRaises(qa.Stop):qa.private_capture(qa.CURL_ARGV,b'private',budget)
+                launch.assert_not_called()
+
+    def test_real_race_deadline50ms_drains311ms_workers_and_cancels_queued_dispatch(self):
+        gate=qa.Gate(None,None,deadline=time.monotonic()+.05);gate.require=mock.Mock();trace=[]
+        class Client:
+            def __init__(self,status):self.status=status
+            def state(self,cmd):
+                with gate.dispatch('state_post'):
+                    trace.append('start');time.sleep(.311);trace.append('end')
+                    return self.status,{'revision':1}
+        with self.assertRaises(qa.Stop):qa.race(gate,(Client(200),Client(409)),0)
+        self.assertEqual(trace.count('end'),2);self.assertTrue(gate.closed);self.assertTrue(gate.drain())
+        self.assertFalse(any(t.is_alive() for t in gate.threads))
+        queue=qa.Gate(None,None,deadline=time.monotonic()+.05);queue.require=mock.Mock();entered=threading.Event();seen=[]
+        def first():
+            with queue.dispatch('state_post'):entered.set();time.sleep(.1);seen.append('ended')
+        pool=concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        queue.submit(pool,first);self.assertTrue(entered.wait(1))
+        later=queue.submit(pool,lambda:seen.append('queued-dispatch'))
+        time.sleep(.06);queue.close();pool.shutdown(wait=False,cancel_futures=True);queue.threads.extend(pool._threads)
+        self.assertTrue(queue.drain());self.assertTrue(later.cancelled());self.assertEqual(seen,['ended'])
+
+    def test_inventory_entry_is_separate_strict_and_inventory_only_capture_cap(self):
+        gate=SpyGate();gate.admission.mode='inventory';rows=[['user_register',10,'fixture',1,'4'*64]]
+        value={'schema':'ir.native.hook_inventory.v1','sha256':hashlib.sha256(json.dumps(rows,separators=(',',':')).encode()).hexdigest(),'count':1,'callbacks':rows}
+        def pipe(code,**kwargs):
+            self.assertEqual(kwargs['max_bytes'],qa.INVENTORY_CAP);self.assertLessEqual(kwargs['timeout'],qa.IO_SECONDS)
+            self.assertNotIn('wp_insert_user(',code);return value
+        self.assertEqual(qa.creation_inventory_read(gate,pipe),value)
+        for override in ({'extra':'private'},{'count':2},{'sha256':'0'*64},{'callbacks':[['x',True,'f',1,'4'*64]]}):
+            with self.assertRaises(qa.Stop):qa.creation_inventory_read(gate,lambda *a,**kw:dict(value,**override))
+        identity=qa.Identity('a',qa.NAMES[0],qa.EMAILS[0],'fixture-private')
+        with self.assertRaises(qa.Stop):qa.create_identity(gate,identity,pipe)
+
+    def test_unreaped_private_process_keeps_dispatch_active_and_prevents_release_eligibility(self):
+        gate=qa.Gate(None,None,deadline=time.monotonic()+60);gate.require=mock.Mock()
+        child=mock.Mock();child.poll.return_value=None;child.wait.side_effect=subprocess.TimeoutExpired('fixture',1)
+        child.stdin=io.BytesIO();child.stdout=io.BytesIO();child.stderr=io.BytesIO()
+        with mock.patch.object(qa.subprocess,'Popen',return_value=child),mock.patch.object(qa.os,'set_blocking',side_effect=OSError('fixture-private')):
+            with self.assertRaisesRegex(qa.Stop,'^containment$'):
+                with gate.dispatch('state_post') as budget:qa.private_capture(qa.CURL_ARGV,b'private',budget)
+        self.assertFalse(gate.drain());self.assertEqual(len(gate.active),1)
 
 
 if __name__ == '__main__':

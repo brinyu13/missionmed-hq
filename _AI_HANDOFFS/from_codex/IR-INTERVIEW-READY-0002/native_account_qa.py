@@ -7,16 +7,21 @@ checks to execute_native(); this file never retrieves coordination credentials.
 from __future__ import annotations
 
 import concurrent.futures
+import contextlib
 import dataclasses
+import email.parser
 import hashlib
 import html.parser
 import http.cookiejar
 import json
+import math
+import os
 import re
 import secrets
 import select
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -33,6 +38,7 @@ APP = '/interview-ready/app/'
 ACCOUNT = '/my-account/'
 ENDPOINT = '/wp-json/missionmed-ir/v1/state'
 SSH_ARGV = ('ssh', '-T', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10',
+            '-o', 'StrictHostKeyChecking=yes',
             'missionmed-kinsta', 'wp', '--path=/www/theresidencyacademy_209/public',
             'eval-file', '/dev/stdin')
 NAMES = ('mm_ir_phase1_qa_a_20261004', 'mm_ir_phase1_qa_b_20261004')
@@ -52,13 +58,21 @@ ALLOWED_ACTIONS = frozenset({
     'native_connection_loss',
 })
 SHA = re.compile(r'[0-9a-f]{64}\Z')
+IO_SECONDS = 12
+REAP_SECONDS = 2
+DRAIN_SECONDS = 15
+BODY_CAP = 2 * 1024 * 1024
+HEADER_CAP = 65536
+INVENTORY_CAP = 1024 * 1024
+CURL_ARGV = ('/usr/bin/curl', '-q', '--config', '-')
+PRIVATE_ENV = {'PATH': '/usr/bin:/bin', 'LANG': 'C', 'LC_ALL': 'C'}
 
 
 class Stop(Exception):
     """Only fixed, non-sensitive failure categories can escape private transports."""
     def __init__(self, category='private_operation_failed'):
         if category not in {'dormant', 'admission', 'guard', 'drift', 'collision',
-                            'private_operation_failed', 'native_assertion', 'not_admitted'}:
+                            'private_operation_failed', 'native_assertion', 'not_admitted', 'containment'}:
             category = 'private_operation_failed'
         self.category = category
         super().__init__(category)
@@ -80,7 +94,8 @@ class Admission:
     local_preimages: tuple[tuple[str, str], ...]
     runtime_preimages: tuple[tuple[str, str], ...]
     actions: frozenset[str]
-    creation_hook_inventory_sha256: str
+    creation_hook_inventory_sha256: str | None
+    mode: str = 'native'
 
     def fingerprint(self):
         return hashlib.sha256(json.dumps(dataclasses.asdict(self), sort_keys=True,
@@ -88,11 +103,18 @@ class Admission:
 
     def validate(self):
         for value in (self.review_sha256, self.control_contract_sha256,
-                      self.runner_sha256, self.tests_sha256, self.creation_hook_inventory_sha256):
+                      self.runner_sha256, self.tests_sha256):
             if not SHA.fullmatch(value):
                 raise Stop('admission')
         if not self.actions or not self.actions <= ALLOWED_ACTIONS:
             raise Stop('admission')
+        if self.mode == 'inventory':
+            require(self.actions == frozenset({'creation_inventory_read'}) and
+                    self.creation_hook_inventory_sha256 is None)
+        else:
+            require(self.mode == 'native' and isinstance(self.creation_hook_inventory_sha256,str) and
+                    SHA.fullmatch(self.creation_hook_inventory_sha256) and
+                    'creation_inventory_read' not in self.actions)
         local = dict(self.local_preimages)
         if len(local) != len(self.local_preimages) or not EXPECTED_SOURCE.keys() <= local.keys():
             raise Stop('admission')
@@ -123,14 +145,29 @@ class SafeStatus:
 
 class Gate:
     def __init__(self, admission: Admission | None, control: Callable | None,
-                 control_contract_sha256: str | None = None):
+                 control_contract_sha256: str | None = None, *, deadline=None):
         self.admission = admission
         self.control = control
         self.control_contract_sha256 = control_contract_sha256
+        self.deadline = deadline
+        self.lock = threading.RLock(); self.local = threading.local()
+        self.closed = False; self.active = {}; self.futures = []; self.threads = []
+        self.drain_deadline = None
+
+    def close(self):
+        with self.lock:
+            self.closed = True
+            if self.drain_deadline is None:self.drain_deadline=time.monotonic()+DRAIN_SECONDS
+            for future in self.futures:future.cancel()
+
+    def open_check(self):
+        if self.closed or type(self.deadline) not in (int,float) or not math.isfinite(self.deadline) or time.monotonic()>=self.deadline:
+            self.close();raise Stop('guard')
 
     def require(self, action):
         if self.admission is None or self.control is None:
             raise Stop('dormant')
+        with self.lock:self.open_check()
         a = self.admission
         a.validate()
         if self.control_contract_sha256 != a.control_contract_sha256 or action not in a.actions:
@@ -153,9 +190,106 @@ class Gate:
                         proof.current_binding, proof.independent_admission))):
                 raise Stop('guard')
         except Stop:
+            self.close()
             raise
         except Exception:
+            self.close()
             raise Stop('guard') from None
+        with self.lock:self.open_check()
+
+    @contextlib.contextmanager
+    def dispatch(self, action):
+        self.require(action)
+        with self.lock:
+            self.open_check()
+            parent=getattr(self.local,'budget',None)
+            limit=min(self.deadline,time.monotonic()+IO_SECONDS,parent.deadline if parent else self.deadline)
+            budget=Dispatch(limit,action=action,gate=self);key=uuid.uuid4().hex;self.active[key]=budget
+            self.local.budget=budget
+        try:yield budget
+        except BaseException:
+            self.close();raise
+        finally:
+            self.local.budget=parent
+            with self.lock:
+                if budget.child is None or budget.child.poll() is not None:self.active.pop(key,None)
+
+    def submit(self, pool, function, *args):
+        with self.lock:
+            self.open_check();future=pool.submit(function,*args);self.futures.append(future);return future
+
+    def drain(self):
+        self.close()
+        for thread in self.threads:
+            thread.join(max(0,self.drain_deadline-time.monotonic()))
+        with self.lock:
+            return not self.active and all(f.done() for f in self.futures) and not any(t.is_alive() for t in self.threads)
+
+
+@dataclasses.dataclass(repr=False)
+class Dispatch:
+    deadline: float
+    child: object = None
+    action: str | None = None
+    gate: object = None
+    started: bool = False
+
+    def remaining(self):
+        left=self.deadline-time.monotonic();require(left>0);return left
+
+    def begin(self):
+        if self.gate is not None:
+            with self.gate.lock:
+                self.gate.open_check();self.remaining();self.started=True
+        else:self.remaining();self.started=True
+
+
+def private_capture(argv, data, budget, *, cap=65536, on_line=None, header_cap=None):
+    """Finite nonblocking stdin/capture/reap; unresolved child remains owned."""
+    child=None
+    try:
+        budget.begin()
+        child=subprocess.Popen(argv,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
+                               env=PRIVATE_ENV)
+        budget.child=child
+        streams={child.stdout:bytearray(),child.stderr:bytearray()};readers=list(streams)
+        for stream in (*readers,child.stdin):os.set_blocking(stream.fileno(),False)
+        pending=memoryview(data);notified=False
+        while readers or pending:
+            left=budget.remaining()
+            readable,writable,_=select.select(readers,[child.stdin] if pending else [],[],min(left,.1))
+            if writable:
+                count=os.write(child.stdin.fileno(),pending[:8192]);pending=pending[count:]
+                if not pending:child.stdin.close()
+            for stream in readable:
+                block=os.read(stream.fileno(),8192)
+                if not block:readers.remove(stream);continue
+                streams[stream].extend(block)
+                require(len(streams[stream])<=(cap if stream is child.stdout else 65536))
+                if header_cap is not None and stream is child.stdout:
+                    head=bytes(streams[stream]);offset=0
+                    while True:
+                        end=head.find(b'\r\n\r\n',offset)
+                        if end<0:require(len(head)-offset<=header_cap);break
+                        require(end+4<=header_cap)
+                        if head[offset:offset+12].startswith(b'HTTP/') and re.match(rb'HTTP/[^ ]+ 1\d\d ',head[offset:]):
+                            offset=end+4;continue
+                        require(len(head)-(end+4)<=BODY_CAP);break
+                if on_line and stream is child.stdout and not notified and b'\n' in streams[stream]:
+                    require(bytes(streams[stream]).split(b'\n',1)[0]==b'{"held":true}')
+                    notified=True;on_line()
+        child.wait(timeout=budget.remaining())
+        require(child.returncode==0 and not streams[child.stderr] and (not on_line or notified))
+        return bytes(streams[child.stdout])
+    except Stop:raise
+    except Exception:raise Stop() from None
+    finally:
+        if child:
+            if child.poll() is None:
+                try:child.kill();child.wait(timeout=REAP_SECONDS)
+                except Exception:raise Stop('containment') from None
+            for stream in (child.stdin,child.stdout,child.stderr):
+                if stream:stream.close()
 
 
 @dataclasses.dataclass(repr=False)
@@ -175,59 +309,29 @@ def require(condition):
         raise Stop('native_assertion')
 
 
-def private_pipe(code: str, *, on_line=None, timeout=20):
+def private_pipe(code: str, *, on_line=None, timeout=12, max_bytes=65536, budget=None):
     """Fixed argv; private stdin/stdout/stderr, bounded memory, no temp files.
 
     Never print a child exception/output. No process environment is constructed,
     exported or used to carry a QA credential. PHP receives only SSH stdin.
     """
-    child = None
     try:
-        child = subprocess.Popen(SSH_ARGV, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE)
-        child.stdin.write(code.encode())
-        child.stdin.close()
-        buffers = {child.stdout: bytearray(), child.stderr: bytearray()}
-        active = list(buffers)
-        deadline = time.monotonic() + timeout
-        notified = False
-        while active:
-            left = deadline - time.monotonic()
-            if left <= 0:
-                raise Stop()
-            readable, _, _ = select.select(active, [], [], min(left, 1))
-            for pipe in readable:
-                block = pipe.read1(8192)
-                if not block:
-                    active.remove(pipe)
-                    continue
-                buffers[pipe].extend(block)
-                if len(buffers[pipe]) > 65536:
-                    raise Stop()
-                if on_line and pipe is child.stdout and not notified and b'\n' in buffers[pipe]:
-                    line = bytes(buffers[pipe]).split(b'\n', 1)[0]
-                    require(line == b'{"held":true}')
-                    notified = True
-                    on_line()
-        child.wait(timeout=max(0.1, deadline - time.monotonic()))
-        require(child.returncode == 0 and not buffers[child.stderr])
-        result = bytes(buffers[child.stdout]).decode()
+        require(0<timeout<=IO_SECONDS and max_bytes in {65536,INVENTORY_CAP})
+        budget=budget or Dispatch(time.monotonic()+timeout)
+        require(max_bytes==65536 or budget.action=='creation_inventory_read')
+        result=private_capture(SSH_ARGV,code.encode(),budget,cap=max_bytes,on_line=on_line).decode()
         if on_line:
-            require(notified)
             result = result.split('\n', 1)[1]
         return json.loads(result)
     except Stop:
         raise
     except Exception:
         raise Stop() from None
-    finally:
-        if child:
-            if child.poll() is None:
-                child.kill()
-                child.wait()
-            for pipe in (child.stdin, child.stdout, child.stderr):
-                if pipe:
-                    pipe.close()
+
+
+def owner_pipe(gate, action, pipe, code, **kwargs):
+    with gate.dispatch(action) as budget:
+        return pipe(code,timeout=budget.remaining(),budget=budget,**kwargs)
 
 
 def php_preamble():
@@ -256,7 +360,8 @@ function ir_inventory(){
   }}
  }
  usort($rows,function($a,$b){return strcmp(wp_json_encode($a),wp_json_encode($b));});
- return ['sha256'=>hash('sha256',wp_json_encode($rows)),'callbacks'=>$rows];
+ return ['schema'=>'ir.native.hook_inventory.v1','sha256'=>hash('sha256',wp_json_encode($rows)),
+         'count'=>count($rows),'callbacks'=>$rows];
 }
 function ir_owner($name,$uid){
  $u=get_user_by('login',$name);
@@ -273,7 +378,7 @@ def collision_read(gate, pipe=private_pipe):
 foreach($names as $n){if(username_exists($n)||email_exists($n.'@fictional.example')){echo '{"collision":true}';return;}}
 echo '{"collision":false}';
 """
-    response = pipe(code)
+    response = owner_pipe(gate,'collision_read',pipe,code)
     if response != {'collision': False}:
         raise Stop('collision')
 
@@ -286,10 +391,21 @@ def creation_inventory_read(gate, pipe=private_pipe):
     unknown callbacks are never admitted by this fixture or by a digest alone.
     """
     gate.require('creation_inventory_read')
-    result = pipe(php_preamble() + "echo wp_json_encode(ir_inventory());\n")
-    require(type(result) is dict and set(result) == {'sha256', 'callbacks'} and
+    require(gate.admission.mode=='inventory')
+    result = owner_pipe(gate,'creation_inventory_read',pipe,php_preamble() + "echo wp_json_encode(ir_inventory());\n",max_bytes=INVENTORY_CAP)
+    require(type(result) is dict and set(result) == {'schema','sha256','count','callbacks'} and
+            result['schema']=='ir.native.hook_inventory.v1' and
             type(result['sha256']) is str and SHA.fullmatch(result['sha256']) and
-            type(result['callbacks']) is list)
+            type(result['callbacks']) is list and type(result['count']) is int and
+            0<=result['count']<=10000 and result['count']==len(result['callbacks']))
+    for row in result['callbacks']:
+        require(type(row) is list and len(row)==5 and type(row[0]) is str and 0<len(row[0])<=256 and
+                type(row[1]) is int and -(2**31)<=row[1]<2**31 and
+                type(row[2]) is str and 0<len(row[2])<=2048 and type(row[3]) is int and 0<=row[3]<=1000 and
+                type(row[4]) is str and (SHA.fullmatch(row[4]) or row[4]=='internal_or_eval') and
+                not any(ord(c)<32 for c in row[0]+row[2]))
+    encoded=json.dumps(result['callbacks'],ensure_ascii=True,separators=(',',':')).replace('/','\\/').encode()
+    require(hashlib.sha256(encoded).hexdigest()==result['sha256'])
     return result
 
 
@@ -311,7 +427,8 @@ if(metadata_exists('user',$id,'_mmed_ir_state_v1')){ir_fail();}
 if(!function_exists('learndash_user_get_enrolled_courses')||learndash_user_get_enrolled_courses($id)){ir_fail();}
 echo wp_json_encode(['ok'=>true,'uid'=>(int)$id]);
 """
-    response = pipe(code)
+    require(gate.admission.mode=='native')
+    response = owner_pipe(gate,'create_a' if identity.username==NAMES[0] else 'create_b',pipe,code)
     if response == {'collision': True}:
         raise Stop('collision')
     require(type(response) is dict and set(response) == {'ok', 'uid'} and
@@ -342,11 +459,6 @@ class FormParser(html.parser.HTMLParser):
             self.current = None
 
 
-class NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, *args, **kwargs):
-        return None
-
-
 @dataclasses.dataclass(repr=False)
 class Reply:
     status: int
@@ -359,7 +471,6 @@ class CookieClient:
     def __init__(self, gate):
         self.gate = gate
         self.jar = http.cookiejar.CookieJar()
-        self.opener = urllib.request.build_opener(NoRedirect(), urllib.request.HTTPCookieProcessor(self.jar))
         self.context = None
 
     def __repr__(self):
@@ -373,6 +484,7 @@ class CookieClient:
         return result
 
     def request(self, action, target, method='GET', body=None, headers=None):
+        require(set(headers or {})<={'Content-Type','Origin','X-WP-Nonce','X-IR-Subject','Sec-Fetch-Site'})
         url = self.url(target)
         parts = urllib.parse.urlsplit(url)
         try:
@@ -392,20 +504,17 @@ class CookieClient:
             require(action in {'state_get', 'state_post', 'rejection_post'} and
                     parts.path == ENDPOINT and query in ({}, {'owner': ['other']}) and method in {'GET', 'POST'})
         # The guard's real runtime readback precedes every read and mutation.
-        self.gate.require(action)
         request_headers = {'User-Agent': 'MissionMed-IR-bounded-native-QA',
                            'Referer': ORIGIN + APP, 'Sec-Fetch-Site': 'same-origin'}
         request_headers.update(headers or {})
         try:
             request = urllib.request.Request(url, data=body, method=method, headers=request_headers)
-            try:
-                response = self.opener.open(request, timeout=12)
-            except urllib.error.HTTPError as e:
-                response = e
-            with response:
-                data = response.read(2 * 1024 * 1024 + 1)
-                require(len(data) <= 2 * 1024 * 1024)
-                return Reply(response.status, response.headers, data, url)
+            self.jar.add_cookie_header(request)
+            with self.gate.dispatch(action) as budget:
+                reply=curl_reply(request,budget)
+                response=type('PrivateCookieResponse',(),{'info':lambda _:reply.headers})()
+                self.jar.extract_cookies(response,request)
+                return reply
         except Stop:
             raise
         except Exception:
@@ -494,6 +603,42 @@ class CookieClient:
         self.jar.clear()
 
 
+def curl_quote(value):
+    require(type(value) is str and '\x00' not in value)
+    return '"'+value.replace('\\','\\\\').replace('"','\\"').replace('\r','\\r').replace('\n','\\n').replace('\t','\\t')+'"'
+
+
+def curl_reply(request, budget, capture=private_capture):
+    """No redirect/retry/file jar. Private URL, headers and body use stdin."""
+    parts=urllib.parse.urlsplit(request.full_url)
+    require(parts.scheme=='https' and parts.netloc==urllib.parse.urlsplit(ORIGIN).netloc and
+            not parts.username and not parts.password and request.get_method() in {'GET','POST'})
+    config=['silent','show-error','include','no-netrc','proxy = ""','noproxy = "*"',
+            'proto = "=https"','proto-redir = "=https"','max-redirs = 0',
+            'connect-timeout = '+curl_quote(str(min(8,budget.remaining()))),
+            'max-time = '+curl_quote(str(budget.remaining())),
+            'url = '+curl_quote(request.full_url),'request = '+curl_quote(request.get_method())]
+    for name,value in request.header_items():
+        require(not any(c in name+value for c in '\r\n\x00'))
+        config.append('header = '+curl_quote(name+': '+value))
+    if request.data is not None:
+        require(len(request.data)<=BODY_CAP)
+        config.append('data-raw = '+curl_quote(request.data.decode('utf-8')))
+    data=capture(CURL_ARGV,('\n'.join(config)+'\n').encode(),budget,
+                 cap=BODY_CAP+HEADER_CAP,header_cap=HEADER_CAP)
+    offset=0
+    while True:
+        end=data.find(b'\r\n\r\n',offset)
+        require(0<=end<HEADER_CAP)
+        head=data[offset:end];line,_,fields=head.partition(b'\r\n')
+        match=re.fullmatch(rb'HTTP/(?:1\.[01]|2|3) (\d{3})(?: [^\r\n]*)?',line)
+        require(match is not None);status=int(match[1]);offset=end+4
+        if 100<=status<200:continue
+        headers=email.parser.BytesParser().parsebytes(fields+b'\r\n\r\n')
+        require(200<=status<=599 and len(data)-offset<=BODY_CAP)
+        return Reply(status,headers,data[offset:],request.full_url)
+
+
 def command(revision, marker):
     require(marker in {'online:0:1', 'online:0:2', 'online:0:3', 'online:0:4'})
     return {'expectedRevision': revision, 'commandId': str(uuid.uuid4()),
@@ -509,7 +654,7 @@ $rows=get_user_meta($uid,'_mmed_ir_state_v1',false);
 if(!is_array($rows)){ir_fail();}
 echo wp_json_encode(['count'=>count($rows),'state'=>count($rows)===1?$rows[0]:null]);
 """
-    result = pipe(code)
+    result = owner_pipe(gate,'metadata_read',pipe,code)
     require(type(result) is dict and set(result) == {'count', 'state'})
     return result
 
@@ -534,7 +679,7 @@ echo '{"released":true}';
     def compete():
         status, _ = client.state(command(revision, 'online:0:4'))
         require(status == 503)
-    require(pipe(code, on_line=compete, timeout=20) == {'released': True})
+    require(owner_pipe(gate,'lock_lifecycle',pipe,code,on_line=compete) == {'released': True})
     require(client.state()[1]['revision'] == revision)
 
 
@@ -554,14 +699,25 @@ try{
 }finally{$wpdb=$owner;if($held&&!$closed){try{$r=mysqli_query($h,"SELECT RELEASE_LOCK('".$lock."')");if($r){mysqli_free_result($r);}}catch(Throwable $e){}}}
 echo '{"isolated_seam":true}';
 """
-    require(pipe(code) == {'isolated_seam': True})
+    require(owner_pipe(gate,'native_connection_loss',pipe,code) == {'isolated_seam': True})
 
 
 def race(gate, sessions, revision):
     commands = [command(revision, marker) for marker in ('online:0:1', 'online:0:2')]
-    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
-        futures = [pool.submit(session.state, cmd) for session, cmd in zip(sessions, commands)]
-        results = [future.result() for future in futures]
+    pool=concurrent.futures.ThreadPoolExecutor(max_workers=2);results=[]
+    try:
+        futures=[gate.submit(pool,session.state,cmd) for session,cmd in zip(sessions,commands)]
+        results=[future.result(timeout=max(.001,gate.deadline-time.monotonic())) for future in futures]
+    except BaseException:
+        gate.close();raise Stop() from None
+    finally:
+        pool.shutdown(wait=False,cancel_futures=True)
+        gate.threads.extend(pool._threads)
+        # Normal completed races retain admission for subsequent fixed work.
+        limit=gate.drain_deadline if gate.closed else time.monotonic()+DRAIN_SECONDS
+        for thread in pool._threads:thread.join(max(0,limit-time.monotonic()))
+        if any(thread.is_alive() for thread in pool._threads):
+            gate.close();raise Stop('containment')
     require(sorted(status for status, _ in results) == [200, 409])
     winner = next(state for status, state in results if status == 200)
     require(winner['revision'] == revision + 1)
@@ -575,6 +731,7 @@ def execute_native(gate, *, pipe=private_pipe, client_factory=CookieClient):
     lease keeper healthy for the entire run. A failure stops; never automatically
     retries create/login/POST, modifies collisions, or cleans retained fixtures.
     """
+    require(gate.admission.mode=='native')
     gate.require('collision_read')
     identities = [Identity(label, name, email, secrets.token_urlsafe(36))
                   for label, name, email in zip(('a', 'b'), NAMES, EMAILS)]

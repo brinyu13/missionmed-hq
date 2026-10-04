@@ -291,10 +291,13 @@ class Fixtures(unittest.TestCase):
         self.assertFalse(runner.drain_manual_operation(session,seconds=.01))
 
     def test_per_artifact_review_roles_preserve_wrapper_independence(self):
+        self.assertEqual(runner.MANUAL_BUILDER,'/root/phase1_matrix_release_implementation')
         record={'verdict':'APPROVE','independentReviewer':runner.BUILDER,'reportFile':'REVIEW.md','reportSha256':'6'*64}
         with patch.object(runner,'digest',return_value='6'*64):
             with self.assertRaises(runner.Stop):runner.report_record(record)
             runner.report_record(record,role='install_artifact')
+            # Historical donor helper author is not the current helper builder.
+            runner.report_record(dict(record,independentReviewer='/root/integration_lease_runner'))
             for role in ('wrapper','install_artifact'):
                 for author in (runner.OWNER,runner.MANUAL_BUILDER):
                     with self.assertRaises(runner.Stop):runner.report_record(dict(record,independentReviewer=author),role=role)
@@ -350,7 +353,7 @@ class Fixtures(unittest.TestCase):
         session.readback=lambda _: {'wrong':True}
         with self.assertRaises(runner.Stop):session.native_control(qa,native,'state_post','a'*64)
 
-    def test_real_native_admission_types_and_auth_block_release(self):
+    def test_real_native_admission_types_and_auth_failure_drains_before_release(self):
         qa=runner.load_module('native_type_fixture',runner.HERE/'native_account_qa.py',runner.NATIVE_SHA)
         session=self.session('auth');contract=session.contract
         contract['sourcePreimages']={p:runner.digest(runner.ROOT/p) for p in qa.EXPECTED_SOURCE}
@@ -360,20 +363,21 @@ class Fixtures(unittest.TestCase):
         value=runner.native_admission(qa,contract,'d'*64)
         self.assertIs(type(value),qa.Admission)
         value.validate()
-        gate=qa.Gate(value,lambda action,binding:session.native_control(qa,value,action,binding),contract['runnerSha256'])
+        gate=qa.Gate(value,lambda action,binding:session.native_control(qa,value,action,binding),contract['runnerSha256'],deadline=session.deadline)
         gate.require('state_get')  # Real consumer accepts the adapter's actual SafeStatus type.
         session.client.calls.clear()
         with patch.object(qa,'execute_native',side_effect=AssertionError('no native execution')) as native:
             self.assertIsNone(runner.run_session(session,qa=qa,native_review_digest='d'*64))
-            native.assert_not_called()
-        self.assertEqual(session.client.calls,['release'])
+            native.assert_called_once()
+        self.assertEqual(session.client.calls[-1],'release');self.assertTrue(session.native_gate.drain())
 
-    def test_auth_block_precedes_controls_consumption_and_capabilities(self):
-        with patch.object(runner,'read_json',side_effect=AssertionError('no control read')) as read, \
+    def test_missing_auth_or_inventory_qualification_precedes_consumption_and_capabilities(self):
+        with patch.object(runner,'read_json',return_value={'spec':{}}), \
              patch.object(runner,'load_module',side_effect=AssertionError('no private capability')) as load, \
              patch.object(runner.subprocess,'Popen',side_effect=AssertionError('no SSH')) as ssh:
-            with self.assertRaises(runner.Stop):runner.execute('auth',self.directory/'approval',self.directory/'read',1)
-            read.assert_not_called();load.assert_not_called();ssh.assert_not_called()
+            for phase in ('auth','auth_inventory'):
+                with self.assertRaises(runner.Stop):runner.execute(phase,self.directory/'approval',self.directory/'read',1)
+            load.assert_not_called();ssh.assert_not_called()
         self.assertEqual(list(self.directory.iterdir()),[])
 
     def test_real_fullref_candidate_snapshot_all_35_committed_inputs(self):
@@ -413,6 +417,148 @@ class Fixtures(unittest.TestCase):
         self.assertEqual(actual['sourcePreimages']['interview-ready/integration/release.py'],manifest['buildInputs']['integration/release.py'])
         self.assertGreaterEqual(len(actual['sourcePreimages']),35)
         self.assertFalse((fixture/'control').exists())
+        for phase in ('auth_inventory','auth'):
+            auth=copy.deepcopy(exact);q=auth['qualifications']
+            for kind in ('installProviderClear','nativeContainment','bootstrapSafety' if phase=='auth_inventory' else 'reachableHooks'):
+                name=kind.upper()+'.md';(fixture/name).write_text('LOCAL FIXTURE ONLY: '+kind+'\n')
+                q[kind]={'verdict':'APPROVE','independentReviewer':'fixture-independent',
+                    'reportFile':name,'reportSha256':runner.digest(fixture/name)}
+            q['runtimeReadback']['runtimeBindings']=bindings
+            q['installProviderClear'].update(phase='install',released=True,activeIR=0,pendingIR=0,observedUnix=time.time())
+            q['nativeContainment'].update(nativeSha256=runner.NATIVE_SHA,nativeTestsSha256=runner.NATIVE_TESTS_SHA,
+                transport='curl-stdin-v1',finiteContainmentQualified=True,curlExecutable='/usr/bin/curl',
+                curlVersion='8.7.1',curlAsynchDNS=True)
+            if phase=='auth_inventory':
+                auth['nativeActions']=['creation_inventory_read']
+                q['bootstrapSafety'].update(bootstrapEffectsQualified=True,reachableInventoryEffectsQualified=True)
+            else:
+                auth.update(hookInventorySha256='c'*64,nativeActions=['collision_read','create_a','create_b','login','logout',
+                    'app_get','state_get','state_post','rejection_post','metadata_read','lock_lifecycle'])
+                q['reachableHooks'].update(hookInventorySha256='c'*64,reachableEffectsQualified=True,
+                    bootstrapEffectsQualified=True,inventoryReadReleased=True,inventoryBindingSha256='d'*64)
+            with patch.object(runner,'HERE',fixture),patch.object(runner,'load_module',side_effect=AssertionError('no private capability')):
+                qualified=runner.snapshot(phase,auth)
+                self.assertEqual(qualified['spec'],auth)
+                q['nativeContainment']['finiteContainmentQualified']=False
+                with self.assertRaises(runner.Stop):runner.snapshot(phase,auth)
+
+    def test_auth_real_race50ms311ms_workers_end_before_release_with_stop_drain_keeper(self):
+        qa=runner.load_module('native_race_fixture',runner.HERE/'native_account_qa.py',runner.NATIVE_SHA)
+        session=self.session('auth',seconds=.05);contract=session.contract;trace=[]
+        contract['sourcePreimages']={p:runner.digest(runner.ROOT/p) for p in qa.EXPECTED_SOURCE}
+        contract['runnerSha256']=runner.digest(Path(runner.__file__));contract['testsSha256']=runner.digest(runner.HERE/'runtime_native_runner_tests.py')
+        contract['spec'].update(nativeActions=sorted(qa.ALLOWED_ACTIONS-{'creation_inventory_read'}),hookInventorySha256='c'*64)
+        original=session.client.release
+        def release(handle):trace.append('release');original(handle)
+        session.client.release=release;heartbeat=session.client.heartbeat
+        def renew(handle):
+            if session.native_gate is not None and session.native_gate.closed:
+                self.assertEqual(runner.read_json(self.directory/'STATUS.json')['state'],'STOP');trace.append('drain-renew')
+            return heartbeat(handle)
+        session.client.heartbeat=renew
+        def native(gate):
+            class Client:
+                def __init__(self,status):self.status=status
+                def state(self,cmd):
+                    with gate.dispatch('state_post'):
+                        trace.append('start');time.sleep(.311);trace.append('end')
+                        return self.status,{'revision':1}
+            return qa.race(gate,(Client(200),Client(409)),0)
+        with patch.object(qa,'execute_native',side_effect=native),patch.object(runner,'MANUAL_RENEW_SECONDS',.02):
+            self.assertIsNone(runner.run_session(session,qa=qa,native_review_digest='d'*64))
+        self.assertEqual(trace.count('start'),2);self.assertEqual(trace.count('end'),2)
+        self.assertIn('drain-renew',trace);self.assertEqual(trace[-1],'release')
+        self.assertFalse(any(t.is_alive() for t in session.native_gate.threads))
+        self.assertEqual(runner.read_json(self.directory/'RESULT.json')['release'],'RELEASED')
+
+    def test_native_unresolved_dispatch_defers_release_and_inventory_receipt_is_aggregate_only(self):
+        qa=runner.load_module('native_unresolved_fixture',runner.HERE/'native_account_qa.py',runner.NATIVE_SHA)
+        session=self.session('auth');contract=session.contract
+        contract['sourcePreimages']={p:runner.digest(runner.ROOT/p) for p in qa.EXPECTED_SOURCE}
+        contract['runnerSha256']=runner.digest(Path(runner.__file__));contract['testsSha256']=runner.digest(runner.HERE/'runtime_native_runner_tests.py')
+        contract['spec'].update(nativeActions=sorted(qa.ALLOWED_ACTIONS-{'creation_inventory_read'}),hookInventorySha256='c'*64)
+        def unresolved(gate):
+            gate.active['fixture']=qa.Dispatch(time.monotonic()+1,child=Mock(poll=Mock(return_value=None)))
+            raise qa.Stop('containment')
+        with patch.object(qa,'execute_native',side_effect=unresolved):
+            self.assertIsNone(runner.run_session(session,qa=qa,native_review_digest='d'*64))
+        self.assertNotIn('release',session.client.calls)
+        self.assertEqual(runner.read_json(self.directory/'RESULT.json')['release'],'RELEASE_DEFERRED')
+        value={'schema':'ir.native.hook_inventory.v1','sha256':'a'*64,'count':1,'callbacks':[['fixture-private-callback']]}
+        safe=runner.safe_inventory_report(value)
+        self.assertNotIn('fixture-private',json.dumps(safe));self.assertNotIn('callbacks',safe)
+
+    def test_native_receipt_or_drain_fence_failure_never_releases_before_worker_end(self):
+        qa=runner.load_module('native_failure_fixture',runner.HERE/'native_account_qa.py',runner.NATIVE_SHA)
+        for mode in ('receipt','fence'):
+            with self.subTest(mode=mode),tempfile.TemporaryDirectory(prefix='ir-native-failure-fixture-') as tmp:
+                session=self.session('auth');session.directory=Path(tmp).resolve();trace=[];entered=threading.Event()
+                contract=session.contract;contract['sourcePreimages']={p:runner.digest(runner.ROOT/p) for p in qa.EXPECTED_SOURCE}
+                contract['runnerSha256']=runner.digest(Path(runner.__file__));contract['testsSha256']=runner.digest(runner.HERE/'runtime_native_runner_tests.py')
+                contract['spec'].update(nativeActions=sorted(qa.ALLOWED_ACTIONS-{'creation_inventory_read'}),hookInventorySha256='c'*64)
+                original=session.client.release
+                def release(handle):trace.append('release');original(handle)
+                session.client.release=release;beat=session.client.heartbeat
+                def heartbeat(handle):
+                    if mode=='fence' and session.native_gate is not None and session.native_gate.closed:session.client.changed=True
+                    return beat(handle)
+                session.client.heartbeat=heartbeat
+                def native(gate):
+                    def work():
+                        with gate.dispatch('state_post'):entered.set();time.sleep(.08);trace.append('end')
+                    worker=threading.Thread(target=work);gate.threads.append(worker);worker.start()
+                    self.assertTrue(entered.wait(1));raise qa.Stop()
+                writer=runner.atomic
+                def write(directory,name,value):
+                    if mode=='receipt' and name=='STATUS.json' and value.get('state')=='STOP':raise OSError('fixture-private')
+                    return writer(directory,name,value)
+                with patch.object(qa,'execute_native',side_effect=native),patch.object(runner,'atomic',side_effect=write), \
+                     patch.object(runner,'MANUAL_RENEW_SECONDS',.01):
+                    self.assertIsNone(runner.run_session(session,qa=qa,native_review_digest='d'*64))
+                self.assertIn('end',trace);self.assertFalse(any(t.is_alive() for t in session.native_gate.threads))
+                if 'release' in trace:self.assertLess(trace.index('end'),trace.index('release'))
+                if mode=='fence':self.assertNotIn('release',trace)
+
+    def test_inventory_mode_has_only_read_action_and_cli_omits_private_registry(self):
+        qa=runner.load_module('native_inventory_fixture',runner.HERE/'native_account_qa.py',runner.NATIVE_SHA)
+        contract=copy.deepcopy(self.contract);contract['phase']='auth_inventory'
+        contract['sourcePreimages']={p:runner.digest(runner.ROOT/p) for p in qa.EXPECTED_SOURCE}
+        contract['spec']['nativeActions']=['creation_inventory_read'];contract['testsSha256']=runner.digest(runner.HERE/'runtime_native_runner_tests.py')
+        inventory=runner.native_admission(qa,contract,'d'*64)
+        self.assertEqual(inventory.mode,'inventory');self.assertIsNone(inventory.creation_hook_inventory_sha256)
+        self.assertEqual(inventory.actions,frozenset({'creation_inventory_read'}))
+        private={'phase':'auth_inventory','result':'BOUNDED_PHASE_COMPLETE','nativeReport':{'inventorySha256':'a'*64},
+            'privateInventory':{'callbacks':[['fixture-private-callback']]}}
+        output=io.StringIO()
+        with patch.object(runner,'execute',return_value=private),contextlib.redirect_stdout(output):
+            self.assertEqual(runner.main(['--execute','--phase','auth_inventory','--approval','fixture','--read-admission','fixture']),0)
+        self.assertNotIn('fixture-private',output.getvalue());self.assertNotIn('privateInventory',output.getvalue())
+
+    def test_only_admitted_route_refresh_and_pointer_restore_markers_use_install_guard_and_drain(self):
+        session=self.session(seconds=60);session.renew();session.closing=True
+        runner.atomic(self.directory,'READY.json',session.status('READY'))
+        with patch.object(runner,'snapshot',return_value=session.contract):
+            runner.check_install_guard(self.directory,session.binding,session.contract)
+            for name in ('refresh-ir-html','refresh-home-html','restore-pointer'):
+                marker=dict(self.operation(session,'COMPLETE'),operation=name)
+                runner.atomic(self.directory,'MANUAL_OPERATION.json',marker)
+                self.assertEqual(runner.manual_operation_record(self.directory,session.binding,session.initial_fence),marker)
+                self.assertTrue(runner.drain_manual_operation(session,seconds=.01))
+            for name in ('refresh-all','purge-site-cache','refresh-matrix'):
+                runner.atomic(self.directory,'MANUAL_OPERATION.json',dict(marker,operation=name))
+                with self.assertRaises(runner.Stop):runner.manual_operation_record(self.directory,session.binding,session.initial_fence)
+        self.assertNotIn('release',session.client.calls)
+
+    def test_typed_layout_preimage_is_runtime_only_closed_and_lowerhex64(self):
+        value={'schema':'ir.runtime_native.layout_preimage.v1','sha256':'a'*64}
+        self.assertTrue(runner.valid_preimage(runner.RUNTIME,value))
+        for path in (runner.GATEWAY,runner.RUNTIME+'/current','other'):
+            self.assertFalse(runner.valid_preimage(path,value))
+        for wrong in ({'schema':'other','sha256':'a'*64},{**value,'extra':'private'},
+                      {'schema':value['schema']},{**value,'sha256':'A'*64},{**value,'sha256':True},[],None):
+            self.assertFalse(runner.valid_preimage(runner.RUNTIME,wrong))
+        for path in (runner.GATEWAY,runner.RUNTIME,runner.RUNTIME+'/current'):
+            self.assertTrue(runner.valid_preimage(path,'ABSENT'));self.assertTrue(runner.valid_preimage(path,'b'*64))
 
     def test_native_report_is_closed_status_only(self):
         value={'mode':'native','result':'PASS_BOUNDED_PROTOCOL_CHECKS','checks':8,'identities_retained':2,

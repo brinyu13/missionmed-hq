@@ -1,7 +1,7 @@
-"""Dormant INSTALL-only lease wrapper; AUTH execution remains blocked.
+"""Dormant exact-reviewed INSTALL/AUTH inventory/native lease wrapper.
 
 No provider, credential, SSH or native capability is invoked on import/default.
-AUTH requires separately reviewed native deadline containment before enabling.
+AUTH requires separately reviewed finite containment and semantic hook gates.
 """
 import argparse
 from datetime import datetime, timezone
@@ -10,7 +10,6 @@ import importlib.util
 import json
 import math
 import re
-import signal
 import subprocess
 import sys
 import tarfile
@@ -26,20 +25,21 @@ OS_ROOT = Path('/Users/brianb/MissionMed_worktrees/IR-PHASE1-REGISTRY-20261004-R
 OS_HEAD = 'bc1d36fcb9f7bdda4bcd4ba507078b7787d802a2'
 OWNER = 'codex-ir-phase1-foreman'
 BUILDER = '/root/phase1_native_qa_runner'
-MANUAL_BUILDER = '/root/integration_lease_runner'
+MANUAL_BUILDER = '/root/phase1_matrix_release_implementation'
 ORIGIN = 'https://github.com/brinyu13/missionmed-hq.git'
 REF = 'refs/heads/codex/ir-interview-ready-0002-storyforge'
 TRANSPORT_SHA = '6bab4c948b28202b7a803228f2123d5c95137030f16eb129c427b4ddcc487cad'
 CLIENT_SHA = '36e37a487de0ec99191492c3ef286695bc4d8721cdac70f5c62863576e5c1431'
-NATIVE_SHA = 'a6f94593ee60b3f01031954f1594eff0a9edbadb3109581e272e8a6e7ed8b6cf'
-NATIVE_TESTS_SHA = 'f26e1b6864cda582ac388de7c6ff1585d9e80adea58da02032638c330938e51e'
+NATIVE_SHA = 'c84bc76264749e732e0e2555d942d64086a18cf625dd8f5006c529d32977e8f1'
+NATIVE_TESTS_SHA = '20f3510bd448acb876195eaba9592ca8d6845a1233f880b1deb8d872445e5015'
 AUTHORITY = {'DR-375_ir_phase1_production_authority.md': '05803e16c985437a6400aa261e55bdb57f50ed2a0c7200f904fcffc49155a508',
              'DR-376_ir_phase1_bounded_execution_annex.md': '452a9e6259f6ae2f9e1441c725f79156b2d099d88a38af694b248e345b7dbe0e'}
 RUNTIME = 'wp-content/mu-plugins/missionmed-interview-ready-runtime'
 GATEWAY = 'wp-content/mu-plugins/missionmed-interview-ready.php'
 PHASE_PATHS = {'install': (GATEWAY, RUNTIME),
-               'auth': ('wp-includes/user.php', 'wp-includes/meta.php', GATEWAY)}
-DOMAINS = {'install': ('MATRIX-SHELL',), 'auth': ('AUTH',)}
+               'auth': ('wp-includes/user.php', 'wp-includes/meta.php', GATEWAY),
+               'auth_inventory': ('wp-includes/user.php', 'wp-includes/meta.php', GATEWAY)}
+DOMAINS = {'install': ('MATRIX-SHELL',), 'auth': ('AUTH',), 'auth_inventory': ('AUTH',)}
 PACKAGE_FILES = ('interview-ready-candidate.tar.gz', 'release-manifest.json', 'release-plan.json', 'package-receipt.json')
 RUNTIME_KEYS = frozenset({'package', 'gateway', 'html', 'matrix', 'gate', 'buildManifest', 'pointer'})
 REQUIRED_INPUTS = frozenset({'src.html','editorial.css','editorial.js','catalog.json','completion.css','completion.js',
@@ -50,21 +50,20 @@ COMMIT = re.compile(r'[0-9a-f]{40}\Z')
 REPORT = re.compile(r'[A-Z0-9_]+\.md\Z')
 PUBLIC_UUID = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\Z')
 MANUAL_OPERATIONS = frozenset({'mkdir-root','mkdir-releases','mkdir-stage','transfer','extract','lint',
-    'publish-release','prepare-pointer','publish-pointer','publish-gateway','readback','withdraw-gateway','withdraw-pointer'})
+    'publish-release','prepare-pointer','publish-pointer','publish-gateway','readback','withdraw-gateway','withdraw-pointer',
+    'refresh-ir-html','refresh-home-html','restore-pointer'})
 MANUAL_SCHEMA = 'ir.runtime_native.manual_operation.v1'
 MANUAL_DRAIN_SECONDS = 20
 MANUAL_DISPATCH_MARGIN = 30
 MANUAL_SERVER_MARGIN = 20
 MANUAL_RENEW_SECONDS = 5
+NATIVE_ACTIONS = frozenset({'collision_read','create_a','create_b','login','logout','app_get',
+    'state_get','state_post','rejection_post','metadata_read','lock_lifecycle','native_connection_loss'})
 
 
 class Stop(RuntimeError):
     def __init__(self):
         super().__init__('RUNTIME_NATIVE_STOP')
-
-
-class Deadline(BaseException):
-    pass
 
 
 def check(value):
@@ -125,6 +124,13 @@ def report_record(record, *, role='wrapper'):
     return record
 
 
+def valid_preimage(path, value):
+    if type(value) is str:return value=='ABSENT' or SHA.fullmatch(value) is not None
+    return (path==RUNTIME and type(value) is dict and set(value)=={'schema','sha256'} and
+            value['schema']=='ir.runtime_native.layout_preimage.v1' and
+            type(value['sha256']) is str and SHA.fullmatch(value['sha256']) is not None)
+
+
 def snapshot(phase, spec):
     """Local sealed artifacts only; absent final qualification fails closed."""
     check(phase in PHASE_PATHS and type(spec) is dict)
@@ -132,6 +138,7 @@ def snapshot(phase, spec):
                 'qualifiedPreimages','qualifications','controlDirectory'}
     if phase == 'auth':
         required |= {'hookInventorySha256','nativeActions'}
+    if phase == 'auth_inventory':required |= {'nativeActions'}
     check(set(spec) == required and COMMIT.fullmatch(spec['sourceHead']) and COMMIT.fullmatch(spec['sourceCommit']))
     check(head(ROOT) == spec['sourceHead'] and head(OS_ROOT) == OS_HEAD)
     directory = Path(spec['controlDirectory'])
@@ -195,23 +202,40 @@ def snapshot(phase, spec):
           runtime['buildManifest'] == artifacts[release+'build-manifest.json']['sha256'])
     check(local['interview-ready/integration/missionmed-interview-ready.php']==runtime['gateway'])
     check(type(spec['qualifiedPreimages']) is dict and set(spec['qualifiedPreimages'])=={GATEWAY,RUNTIME,RUNTIME+'/current'} and
-          all(v == 'ABSENT' or SHA.fullmatch(v) for v in spec['qualifiedPreimages'].values()))
+          all(valid_preimage(path,value) for path,value in spec['qualifiedPreimages'].items()))
     qualifications = spec['qualifications']
     expected_qualifications = {'phaseDecision','recovery','runtimeReadback'}
+    if phase != 'install':
+        expected_qualifications |= {'installProviderClear','nativeContainment'}
+        expected_qualifications.add('reachableHooks' if phase=='auth' else 'bootstrapSafety')
+        check(type(spec['nativeActions']) is list and spec['nativeActions'] and
+              len(spec['nativeActions'])==len(set(spec['nativeActions'])))
     if phase == 'auth':
-        expected_qualifications |= {'installProviderClear','reachableHooks'}
         check(SHA.fullmatch(spec['hookInventorySha256']) is not None and
               type(spec['nativeActions']) is list and spec['nativeActions'] and
-              len(spec['nativeActions']) == len(set(spec['nativeActions'])))
+              len(spec['nativeActions']) == len(set(spec['nativeActions'])) and
+              set(spec['nativeActions']) <= NATIVE_ACTIONS and
+              NATIVE_ACTIONS-{'native_connection_loss'} <= set(spec['nativeActions']))
     check(set(qualifications) == expected_qualifications)
     for record in qualifications.values():
         report_record(record,role='install_artifact' if phase=='install' else 'wrapper')
     check(qualifications['recovery'].get('qualifiedPreimages')==spec['qualifiedPreimages'])
-    if phase=='auth':
-        hooks=qualifications['reachableHooks']
-        check(hooks.get('hookInventorySha256')==spec['hookInventorySha256'] and
-              hooks.get('reachableEffectsQualified') is True and hooks.get('bootstrapEffectsQualified') is True and
+    if phase!='install':
+        containment=qualifications['nativeContainment']
+        check(containment.get('nativeSha256')==NATIVE_SHA and containment.get('nativeTestsSha256')==NATIVE_TESTS_SHA and
+              containment.get('transport')=='curl-stdin-v1' and containment.get('finiteContainmentQualified') is True and
+              containment.get('curlExecutable')=='/usr/bin/curl' and containment.get('curlVersion')=='8.7.1' and
+              containment.get('curlAsynchDNS') is True and
               qualifications['runtimeReadback'].get('runtimeBindings')==spec['runtimeBindings'])
+        if phase=='auth':
+            hooks=qualifications['reachableHooks']
+            check(hooks.get('hookInventorySha256')==spec['hookInventorySha256'] and
+                  hooks.get('reachableEffectsQualified') is True and hooks.get('bootstrapEffectsQualified') is True and
+                  hooks.get('inventoryReadReleased') is True and SHA.fullmatch(hooks.get('inventoryBindingSha256','')))
+        else:
+            check(spec['nativeActions']==['creation_inventory_read'])
+            bootstrap=qualifications['bootstrapSafety']
+            check(bootstrap.get('bootstrapEffectsQualified') is True and bootstrap.get('reachableInventoryEffectsQualified') is True)
         clear=qualifications['installProviderClear'];observed=clear.get('observedUnix')
         check(clear.get('phase')=='install' and clear.get('released') is True and
               type(clear.get('activeIR')) is int and clear['activeIR']==0 and
@@ -303,6 +327,7 @@ class Session:
         self.deadline=time.monotonic()+seconds; self.lock=threading.RLock(); self.event=threading.Event()
         self.deadline_unix=time.time()+seconds; self.closing=False
         self.initial_fence=fence(handle); self.failed=False; self.actual_snapshot=actual_snapshot; self.readback=readback
+        self.native_gate=None
 
     def __repr__(self):
         return '<Session private>'
@@ -314,6 +339,7 @@ class Session:
 
     def stop(self):
         self.failed=True; self.closing=True; self.event.set()
+        if self.native_gate is not None:self.native_gate.close()
         try: atomic(self.directory,'FAILURE.json',{'state':'STOP','bindingSha256':self.binding})
         except BaseException: pass
         try:
@@ -332,12 +358,28 @@ class Session:
             if verify_runtime:
                 check(self.readback(self.contract['spec']['runtimeBindings'])==self.contract['spec']['runtimeBindings'])
                 check(expiry(self.handle)>time.time() and time.monotonic()<self.deadline)
-            atomic(self.directory,'STATUS.json',self.status('HEALTHY'))
+            atomic(self.directory,'STATUS.json',self.status('STOP' if self.native_gate is not None and self.native_gate.closed else 'HEALTHY'))
 
     def keeper(self):
         while not self.event.wait(MANUAL_RENEW_SECONDS):
-            try: self.renew()
+            try:
+                if self.native_gate is not None and (self.native_gate.closed or time.monotonic()>=self.deadline):
+                    self.native_gate.close();self.renew_native_drain()
+                else:self.renew()
             except BaseException: self.stop(); return
+
+    def renew_native_drain(self):
+        with self.lock:
+            check(self.native_gate is not None and self.native_gate.closed and not self.closing and
+                  self.contract['phase'] in {'auth','auth_inventory'} and
+                  fence(self.handle)==self.initial_fence and expiry(self.handle)>time.time())
+            atomic(self.directory,'STATUS.json',self.status('STOP'))
+            check(self.actual_snapshot(self.contract['phase'],self.contract['spec'])==self.contract)
+            check(self.readback(self.contract['spec']['runtimeBindings'])==self.contract['spec']['runtimeBindings'])
+            check(expiry(self.handle)>time.time())
+            self.handle=self.client.heartbeat(self.handle)
+            check(fence(self.handle)==self.initial_fence and expiry(self.handle)>time.time())
+            atomic(self.directory,'STATUS.json',self.status('STOP'))
 
     def renew_drain(self, owned):
         """Retain the existing fence for owned work; never reopen dispatch."""
@@ -436,16 +478,28 @@ def drain_manual_operation(session, *, seconds=MANUAL_DRAIN_SECONDS):
 
 def native_admission(qa, contract, review_digest):
     spec=contract['spec']
+    inventory=contract['phase']=='auth_inventory'
     check(set(spec['nativeActions']) <= qa.ALLOWED_ACTIONS and
-          (qa.ALLOWED_ACTIONS-{'native_connection_loss','creation_inventory_read'}) <= set(spec['nativeActions']))
+          (spec['nativeActions']==['creation_inventory_read'] if inventory else
+           'creation_inventory_read' not in spec['nativeActions'] and
+           (qa.ALLOWED_ACTIONS-{'native_connection_loss','creation_inventory_read'}) <= set(spec['nativeActions'])))
     local=list(contract['sourcePreimages'].items())
     local.extend((str(OS_ROOT/'decisions'/name),sha) for name,sha in contract['authority'].items())
     local.extend([(str(Path(__file__)),contract['runnerSha256']),
                   (str(HERE/'runtime_native_runner_tests.py'),contract['testsSha256'])])
     value=qa.Admission(review_digest,contract['runnerSha256'],NATIVE_SHA,NATIVE_TESTS_SHA,
-        tuple(local),tuple(sorted(spec['runtimeBindings'].items())),frozenset(spec['nativeActions']),spec['hookInventorySha256'])
+        tuple(local),tuple(sorted(spec['runtimeBindings'].items())),frozenset(spec['nativeActions']),
+        None if inventory else spec['hookInventorySha256'],'inventory' if inventory else 'native')
     value.validate()
     return value
+
+
+def safe_inventory_report(value):
+    check(type(value) is dict and set(value)=={'schema','sha256','count','callbacks'} and
+          value['schema']=='ir.native.hook_inventory.v1' and SHA.fullmatch(value['sha256']) and
+          type(value['count']) is int and 0<=value['count']<=10000 and value['count']==len(value['callbacks']))
+    return {'mode':'inventory','result':'PASS_PRIVATE_INVENTORY_READ',
+            'inventorySha256':value['sha256'],'callbacksCount':value['count']}
 
 
 def safe_native_report(value):
@@ -462,11 +516,8 @@ def safe_native_report(value):
 def run_session(session, *, qa=None, native_review_digest=None):
     thread=None; result=None; released=False;deferred=False
     try:
-        # Independent review found native worker deadline containment unresolved.
-        # Reject AUTH before heartbeat/readback/harness; retain finally release
-        # for a pre-existing caller handle. No control can override this block.
-        check(session.contract['phase']=='install')
-        session.renew(verify_runtime=session.contract['phase']=='auth')
+        check(session.contract['phase'] in PHASE_PATHS and (session.contract['phase']=='install' or qa is not None))
+        session.renew(verify_runtime=session.contract['phase']!='install')
         atomic(session.directory,'READY.json',session.status('READY'))
         thread=threading.Thread(target=session.keeper,daemon=True,name='ir-runtime-native-keeper');thread.start()
         if session.contract['phase']=='install':
@@ -481,22 +532,30 @@ def run_session(session, *, qa=None, native_review_digest=None):
                     result={'phase':'install','result':'FOREMAN_STOP_ACCEPTED'};break
             check(result is not None and not session.failed)
         else:
-            check(qa is not None and threading.current_thread() is threading.main_thread() and signal.getitimer(signal.ITIMER_REAL)==(0.0,0.0))
             admitted=native_admission(qa,session.contract,native_review_digest)
-            gate=qa.Gate(admitted,lambda action,binding:session.native_control(qa,admitted,action,binding),session.contract['runnerSha256'])
-            old_handler=signal.getsignal(signal.SIGALRM)
-            def alarm(signum, frame): raise Deadline()
-            try:
-                signal.signal(signal.SIGALRM,alarm)
-                signal.setitimer(signal.ITIMER_REAL,max(.001,session.deadline-time.monotonic()))
-                # Sole admitted entry; no caller-supplied identity/helper/function.
-                result=safe_native_report(qa.execute_native(gate))
-            finally:
-                signal.setitimer(signal.ITIMER_REAL,0);signal.signal(signal.SIGALRM,old_handler)
+            gate=qa.Gate(admitted,lambda action,binding:session.native_control(qa,admitted,action,binding),
+                         session.contract['runnerSha256'],deadline=session.deadline)
+            session.native_gate=gate
+            # Fixed read-only entry precedes a separately admitted create run.
+            result=qa.creation_inventory_read(gate) if session.contract['phase']=='auth_inventory' else safe_native_report(qa.execute_native(gate))
+            if session.contract['phase']=='auth_inventory':safe_inventory_report(result)
             check(not session.failed and time.monotonic()<session.deadline)
     except BaseException:
-        session.stop();result=None
+        if session.native_gate is None:session.stop()
+        else:
+            session.failed=True;session.native_gate.close()
+            try:atomic(session.directory,'STATUS.json',session.status('STOP'))
+            except BaseException:session.stop()
+        result=None
     finally:
+        native_drained=True
+        if session.native_gate is not None:
+            session.native_gate.close()
+            try:atomic(session.directory,'STATUS.json',session.status('STOP'))
+            except BaseException:session.stop();result=None
+            # Receipt failure cannot skip the private workers' finite drain.
+            try:native_drained=session.native_gate.drain()
+            except BaseException:native_drained=False
         # Close dispatch before waiting: helper guard2 must reread this STOP
         # after exclusive ACTIVE publication and before any remote capability.
         session.closing=True
@@ -518,7 +577,7 @@ def run_session(session, *, qa=None, native_review_digest=None):
             except BaseException:
                 session.stop();result=None
                 dispatch_closed=not (session.directory/'STATUS.json').exists() and not (session.directory/'STATUS.json').is_symlink()
-        drained=dispatch_closed and (thread is None or not thread.is_alive()) and drain_manual_operation(session)
+        drained=native_drained and dispatch_closed and (thread is None or not thread.is_alive()) and drain_manual_operation(session)
         if not drained:
             deferred=True;session.stop();result=None
         else:
@@ -530,15 +589,14 @@ def run_session(session, *, qa=None, native_review_digest=None):
             atomic(session.directory,'RESULT.json',{'phase':session.contract['phase'],
                 'result':'BOUNDED_PHASE_COMPLETE' if result is not None and not session.failed else 'STOP',
                 'release':'RELEASED' if released else 'RELEASE_DEFERRED' if deferred else 'RELEASE_FAILED','bindingSha256':session.binding,
-                'nativeReport':result if result is not None and session.contract['phase']=='auth' else None})
+                'nativeReport':safe_inventory_report(result) if result is not None and session.contract['phase']=='auth_inventory' else
+                               result if result is not None and session.contract['phase']=='auth' else None})
         except BaseException: session.stop();result=None
     return result if released and not session.failed else None
 
 
 def execute(phase, approval_path, read_path, seconds=3600):
-    # INSTALL only until exact non-builder review of native worker containment.
-    # This precedes control reads/consumption and every private capability.
-    check(phase=='install')
+    check(phase in PHASE_PATHS)
     approval=read_json(approval_path); actual=snapshot(phase,approval['spec'])
     admission=read_json(read_path)
     binding=validate_controls(phase,approval,admission,actual,digest(approval_path),seconds)
@@ -546,8 +604,8 @@ def execute(phase, approval_path, read_path, seconds=3600):
     directory=Path(actual['spec']['controlDirectory']);check(not directory.exists())
     canonical_client=load_module('ir_runtime_canonical_client',OS_ROOT/'tools/engineering_os_lease.py',CLIENT_SHA)
     scope=scope_for(canonical_client,phase)
-    if phase=='auth':
-        check(threading.current_thread() is threading.main_thread() and signal.getitimer(signal.ITIMER_REAL)==(0.0,0.0))
+    if phase!='install':
+        check(threading.current_thread() is threading.main_thread())
     directory.mkdir(mode=0o700)
     marker=HERE/('RUNTIME_NATIVE_READ_CONSUMED_'+digest(read_path)+'.json')
     with marker.open('xb') as stream:
@@ -568,13 +626,16 @@ def execute(phase, approval_path, read_path, seconds=3600):
     session=Session(client,handle,actual,binding,directory,seconds)
     qa=None
     try:
-        if phase=='auth': qa=load_module('ir_native_reviewed_harness',HERE/'native_account_qa.py',NATIVE_SHA)
+        if phase!='install': qa=load_module('ir_native_reviewed_harness',HERE/'native_account_qa.py',NATIVE_SHA)
     except BaseException:
         # Acquisition already happened; no loaded-harness failure may leak lease.
         session.stop()
     result=run_session(session,qa=qa,native_review_digest=approval['reportSha256'])
     value={'phase':phase,'result':'STOP' if result is None else 'BOUNDED_PHASE_COMPLETE'}
     if phase=='auth' and result is not None:value['nativeReport']=result
+    if phase=='auth_inventory' and result is not None:
+        value['nativeReport']=safe_inventory_report(result)
+        value['privateInventory']=result  # Private process-memory API only; CLI excludes it.
     return value
 
 
@@ -584,7 +645,7 @@ class PrivateParser(argparse.ArgumentParser):
 
 def main(argv=None):
     parser=PrivateParser(description=__doc__)
-    parser.add_argument('--execute',action='store_true');parser.add_argument('--phase',choices=('install','auth'))
+    parser.add_argument('--execute',action='store_true');parser.add_argument('--phase',choices=('install','auth','auth_inventory'))
     parser.add_argument('--approval',type=Path);parser.add_argument('--read-admission',type=Path)
     parser.add_argument('--max-seconds',type=int,default=3600)
     try: args=parser.parse_args(argv)
@@ -598,7 +659,7 @@ def main(argv=None):
     try:
         check(args.phase and args.approval and args.read_admission)
         result=execute(args.phase,args.approval,args.read_admission,args.max_seconds)
-        print(json.dumps(result));return 0 if result['result']!='STOP' else 1
+        print(json.dumps({k:v for k,v in result.items() if k!='privateInventory'}));return 0 if result['result']!='STOP' else 1
     except BaseException:
         print('RUNTIME_NATIVE_STOP');return 1
 
