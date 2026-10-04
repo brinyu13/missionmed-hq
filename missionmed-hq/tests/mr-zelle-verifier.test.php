@@ -6,6 +6,8 @@
 define('ABSPATH', __DIR__);
 define('MINUTE_IN_SECONDS', 60);
 function add_action(...$args) {}
+function add_filter(...$args) {}
+function missionmed_protected_mail_restore_transport() {}
 function absint($v) { return abs((int)$v); }
 function sanitize_key($v) { return preg_replace('/[^a-z0-9_\-]/', '', strtolower($v)); }
 function sanitize_text_field($v) { return trim(strip_tags($v)); }
@@ -107,6 +109,7 @@ class FakeOrder {
     }
 }
 require dirname(__DIR__, 2) . '/wp-content/mu-plugins/missionmed-mr-zelle-verifier.php';
+class WC_Order extends FakeOrder {}
 function check($truth, $message) { if (!$truth) throw new Exception('FAIL: ' . $message); ++$GLOBALS['assertions']; }
 function reset_case() {
     $GLOBALS['options'] = [MM_MR_ZELLE_MODE_OPTION => MM_MR_ZELLE_MODE_AUTOMATED];
@@ -125,6 +128,18 @@ function claim($o) { check(mm_mr_zelle_record_claim($o, 'Test Payer'), 'claim re
 function run($o) { return mm_mr_zelle_run_verification($o, 'test payer'); }
 function test($name, $fn) { reset_case(); $fn(); ++$GLOBALS['cases']; echo "PASS $name\n"; }
 $GLOBALS['assertions'] = $GLOBALS['cases'] = 0;
+
+test('authenticated mail routing is target-only and restores prior context', function() {
+    $o=new WC_Order(1001); $email=(object)['id'=>'customer_processing_order','object'=>$o];
+    $callback=function(...$args){check($GLOBALS['missionmed_system_smtp_active']===true,'protected route active during send');check($args===['controlled'],'arguments unchanged');return true;};
+    check(mm_mr_zelle_customer_mail_callback($callback,$email)===$callback,'unpaid mail route unchanged');
+    $o->status='processing';$GLOBALS['missionmed_system_smtp_active']=false;
+    $r=mm_mr_zelle_customer_mail_callback($callback,$email);check($r('controlled')===true,'provider result retained');
+    check($GLOBALS['missionmed_system_smtp_active']===false,'route flag restored');
+    $o->payment='stripe';check(mm_mr_zelle_customer_mail_callback($callback,$email)===$callback,'Stripe transport unchanged');
+    try {mm_mr_zelle_protected_mail(function(){throw new Exception('controlled failure');});}catch(Exception $e){}
+    check($GLOBALS['missionmed_system_smtp_active']===false,'exception also restores route');
+});
 
 test('customer email next steps are scoped to paid target orders', function() {
     $o=order(); $email=(object)['id'=>'customer_processing_order'];

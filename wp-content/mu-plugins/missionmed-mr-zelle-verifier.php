@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mission Residency Zelle Payment Verifier
  * Description: Fail-closed Mission Residency Zelle verification with administrator and automated-email providers.
- * Version: 2026.10.04.2
+ * Version: 2026.10.04.3
  */
 
 defined( 'ABSPATH' ) || exit;
@@ -406,7 +406,7 @@ function mm_mr_zelle_notify_admin( $order ) {
 			'This link requires an authenticated administrator with WooCommerce management permission.',
 		)
 	);
-	$sent = wp_mail( get_option( 'admin_email' ), 'ZELLE PAYMENT VERIFICATION REQUEST — ORDER #' . $order->get_order_number(), $body );
+	$sent = mm_mr_zelle_protected_mail( 'wp_mail', get_option( 'admin_email' ), 'ZELLE PAYMENT VERIFICATION REQUEST — ORDER #' . $order->get_order_number(), $body );
 	$order->update_meta_data( '_mm_zelle_admin_notification', $sent ? 'sent' : 'failed' );
 	$order->update_meta_data( '_mm_zelle_admin_notified_at', time() );
 	mm_mr_zelle_audit( $order, $sent ? 'admin_notified' : 'admin_notification_failed', 'admin_confirmation' );
@@ -719,6 +719,30 @@ function mm_mr_zelle_email_next_steps( $order, $sent_to_admin, $plain_text, $ema
 	}
 }
 add_action( 'woocommerce_email_after_order_table', 'mm_mr_zelle_email_next_steps', 20, 4 );
+
+function mm_mr_zelle_protected_mail( $callback, ...$args ) {
+	// Reuse DR-342/343's authenticated, fail-closed Workspace route. Do not
+	// silently fall back to unsigned default mail if that guard is unavailable.
+	if ( ! function_exists( 'missionmed_protected_mail_restore_transport' ) ) {
+		return false;
+	}
+	$prior = $GLOBALS['missionmed_system_smtp_active'] ?? false;
+	$GLOBALS['missionmed_system_smtp_active'] = true;
+	try {
+		return $callback( ...$args );
+	} finally {
+		$GLOBALS['missionmed_system_smtp_active'] = $prior;
+	}
+}
+
+function mm_mr_zelle_customer_mail_callback( $callback, $email ) {
+	$order = $email->object ?? null;
+	if ( ! $order instanceof WC_Order || ! $order->is_paid() || ! mm_mr_zelle_order_identity( $order ) || ! in_array( $email->id, array( 'customer_processing_order', 'customer_completed_order' ), true ) ) {
+		return $callback;
+	}
+	return function ( ...$args ) use ( $callback ) { return mm_mr_zelle_protected_mail( $callback, ...$args ); };
+}
+add_filter( 'woocommerce_mail_callback', 'mm_mr_zelle_customer_mail_callback', 20, 2 );
 
 add_action(
 	'wp',
