@@ -742,6 +742,7 @@ export function renderLocalLayoutReview(state={},canFix=true){
       <dt>Received</dt><dd>${escapeHtml(receipt.providerReceipt.receivedAt)}</dd>
       <dt>Layout digest</dt><dd>${escapeHtml(receipt.sceneDigest)}</dd>
       <dt>Recommendations / applied / rejected</dt><dd>${receipt.recommended} / ${receipt.applied} / ${receipt.rejected}</dd>
+      ${receipt.rejectionCodes?.length?`<dt>Validation holds</dt><dd>${receipt.rejectionCodes.map(escapeHtml).join(', ')}</dd>`:''}
       <dt>Provider storage</dt><dd>store: false</dd>
       <dt>Biography</dt><dd>Unchanged</dd></dl></details>`:''}
   </section>`;
@@ -766,7 +767,8 @@ export function renderQualityGuardian(report,{
     ${aiComplete
       ?`<p class="status-chip" data-quality-ai-status="COMPLETE">Live AI review · ${escapeHtml(report.ai.model)} · Standard ${escapeHtml(report.ai.standardVersion)}</p>`
       :`<p class="status-chip" data-quality-ai-status="${escapeHtml(report.ai?.status||"UNAVAILABLE")}">${escapeHtml(report.ai?.unavailableMessage||"Quick check · MissionMed rules only")}</p>`}
-    ${aiComplete?`<details class="quality-provider-receipt"><summary>AI review receipt</summary><dl><dt>Provider response</dt><dd>${escapeHtml(report.ai.providerReceipt.responseId)}</dd><dt>Model</dt><dd>${escapeHtml(report.ai.providerReceipt.model)}</dd><dt>Received</dt><dd>${escapeHtml(report.ai.providerReceipt.receivedAt||"")}</dd><dt>Provider storage</dt><dd>store: false</dd></dl></details>`:""}
+    ${aiComplete?`<details class="quality-provider-receipt"><summary>AI review receipt</summary><dl><dt>Provider response</dt><dd>${escapeHtml(report.ai.providerReceipt.responseId)}</dd><dt>Model</dt><dd>${escapeHtml(report.ai.providerReceipt.model)}</dd><dt>Received</dt><dd>${escapeHtml(report.ai.providerReceipt.receivedAt||"")}</dd>${receipt.rejectionCodes?.length?`<dt>Validation holds</dt><dd>${receipt.rejectionCodes.map(escapeHtml).join(', ')}</dd>`:''}
+      <dt>Provider storage</dt><dd>store: false</dd></dl></details>`:""}
     ${reviewViewer?`<section data-quality-oversight aria-label="Founder and mentor quality summary">
       <h3>Review summary</h3>
       <dl>

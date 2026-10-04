@@ -50,6 +50,7 @@ export function createLocalLayoutReview(store,{
       const receipt={status:result.applied?'APPLIED':'REVIEWED',scope:'LOCAL_GEOMETRY_ONLY',sceneDigest:projection.sceneDigest,
         consentVersion:LAYOUT_CRITIC_CONSENT_VERSION,providerReceipt:safeReceipt(value.providerReceipt),
         recommended:value.recommendations.length,applied:result.applied,rejected:result.rejected.length,
+        rejectionCodes:[...new Set(result.rejected.map(item=>item.code).filter(code=>/^LAYOUT_CRITIC_[A-Z_]+$/.test(code||'')))],
         before:result.before,after:result.after,sourceUnchanged:true};
       if(result.applied){
         if(store.entitlement?.canMutate!==true)throw failure('LAYOUT_CRITIC_PERMISSION_CHANGED');
