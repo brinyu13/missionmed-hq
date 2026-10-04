@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "missionmed-founder-2025-grammar/2",
+  "schemaVersion": "missionmed-founder-2025-grammar/3",
   "sourceSha256": "113d22efb8ca2c00c29d8e57b92c1eb24ff2c66931f7138bbf23daa66dbba706",
   "goldenSha256": "bf48d25b2d46a75c868f98692d480147f8c7d8f234955608a27ca50b3b808836",
   "locked": {
@@ -108,7 +108,21 @@
       "Futura-Bold",
       "Futura-Medium"
     ],
-    "education": "degree completion pole/pennant; source-linked school/span in profile; no duration arrow or seventh key row"
+    "education": "degree completion pole/pennant; source-linked school/span in profile; no duration arrow or seventh key row",
+    "profileFieldsWhenSupplied": [
+      "name",
+      "visaStatus",
+      "aamc",
+      "step1",
+      "step2Ck",
+      "step2Cs",
+      "step3",
+      "usceSummary",
+      "researchSummary",
+      "emrExperience",
+      "languages",
+      "hobbies"
+    ]
   },
   "parametric": [
     "confirmed-facts",
@@ -197,5 +211,18 @@
     "axisContext": "up to one empty context year before/after for flag placement; no source-date change or merged year",
     "milestonePlacement": "general above ribbon; explicit exam-result markers retain native study-arrow attachment",
     "media": "privacy projection before resolution; attached media load failures block final export"
+  },
+  "acceptanceStatus": "ALL_PRIOR_CANDIDATE_VISUALS_REJECTED_2026-10-04",
+  "recoveryEvidence20261004": {
+    "defaultSnapshotSvgRotations": [
+      10,
+      6,
+      0
+    ],
+    "rotationEvidence": "Actual golden clockwise appearance; historical IWA raw angles350/354 use opposite SVG sign convention",
+    "exactSnapshotDimensions": "NOT_REVALIDATED_IN_NATIVE_KEYNOTE",
+    "populatedPhotoReplay": "PENDING_REFERENCE_PHOTO_USE_PERMISSION",
+    "allSourceValuesPreserved": "required after audience projection",
+    "derivedSummaryRule": "Only complete audience-visible exact month histories yield inclusive union months; any uncountable duration yields null and no fallback row; supplied summaries preserved"
   }
 }

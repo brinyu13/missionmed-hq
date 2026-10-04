@@ -1,3 +1,19 @@
+# 2026-10-04 continuation outcomes
+
+- D27 CLOSED in tested paths: missing AAMC/EMR/languages/hobbies/authored summaries/Step2CS/Other details mapped through privacy and visible exports; UI correction/reopen regression covered.
+- D28 OPEN: earlier empty/sparse media fixtures cannot establish populated template fidelity. All previous visual PASS claims superseded by Founder rejection.
+- D29 CLOSED: partial exact month subset misrepresented as whole aggregate; independently reproduced, repaired to unknown/null, rechecked.
+- D30 OPEN:17–19-line full profiles overflow. Source strings and19pt text retained; final export holds. Bounded engineering work remains, no new product grammar requested.
+- D31 PARTIAL: clockwise photo tilt corrected; exact sizing/crops/authentic media/native visual acceptance unverified. Native capture failure recorded, no personal media reused without authorization.
+
+# Founder rejection — 2026-10-04
+
+The Founder rejected every October3 candidate visual: “none of these versions look right”; M01 was only the closest, and the photographs were missing. All prior visual/template PASS labels below are superseded as product acceptance. Mechanical test and artifact-custody evidence remains valid within its stated scope. Do not treat the prior four-fixture independent judgment as founder acceptance or as sufficient visual fidelity.
+
+Current recovery must test a fully populated profile, photo frames and annotations against the actual locked2025reference. The previous fixtures had no photographs and sparse profile data, so they did not establish that result. No deployment. G1/G2/G4 remain binding; photographs are omitted only when absent, never removed from the populated template grammar. Current work/evidence: .timeline-recovery-20261002/populated-reference-20261004/.
+
+Earlier checkpoint follows as historical evidence, not current visual acceptance.
+
 # Verified defect ledger
 
 Status concerns the exact local candidate, not production. See CANDIDATE_FINAL_MANIFEST.json and independent reports.
@@ -36,3 +52,6 @@ Do not change applicant facts to satisfy a renderer. Unknown categories/dates re
 | D26 | Curve control-point hull falsely reports bounds outside actual pennant | REPAIRED | Quadratic/cubic extrema bound painted curves; fitting/collision tests exercise actual geometry. |
 
 Current source 7e5b631;348 TS + 1249 JS pass. Independent 31 tests pass. Remaining broad acceptance: actual live authenticated workflows, PowerPoint, full delivery/destination proof, exhaustive density and final founder acceptance. The normal/sparse/dense/overlap checkpoint is materially improved, not a certification of every legitimate history.
+
+
+D27 OPEN: supplied AAMC, EMR experience, languages, hobbies, authored summaries and historical Step2CS profile details do not all survive current profile projection/rendering. Reproducing with synthetic full-profile input; bounded mapping and privacy repair assigned to Sol, rendering/UI owned by Foreman. D28 OPEN: sparse no-photo fixtures were incorrectly treated as sufficient visual evidence; no new candidate accepted.

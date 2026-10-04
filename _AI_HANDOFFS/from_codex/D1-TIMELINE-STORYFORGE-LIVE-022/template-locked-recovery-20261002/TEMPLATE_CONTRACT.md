@@ -1,6 +1,6 @@
 # 2025 Founder Keynote Template Contract
 
-Status: visual authority LOCKED. Founder G1/G2/G4 implemented; current four-fixture exports inspected, broader acceptance pending. This describes the existing exemplar, not a redesign or a license to generalize unsupported policies.
+Status: visual authority LOCKED. Founder rejected all four prior candidate visuals on 2026-10-04. G1/G2/G4 remain binding; product and visual acceptance are NOT established. This describes the existing exemplar, not a redesign or a license to generalize unsupported policies.
 
 Authority: current MissionMed OS DR-200 and passport explicitly select 2025 and supersede 2024; DR-362 pins this recovery worktree. Both universal and 022 BOOT passed on 2026-10-02. Direct current Founder instruction forbids replacement visualization and removes the previous checkpoint request to reconfirm 2025.
 
@@ -52,3 +52,11 @@ Attached media is projected by normalized audience visibility before resolution.
 ## Remaining limits
 
 No general rule authorizes consolidation, inferred abbreviations, automatic multi-year grouping or continuation. M03 dense has all 24 facts but remains demanding to scan; M20 has46 facts and a mechanical pass but is not accepted for sendability. Native PowerPoint and universal layout acceptance remain unverified. Final founder acceptance of actual exported artifacts is still required.
+
+## Populated-profile recovery — 2026-10-04
+
+Reference inspection confirms the identity/AAMC, Step 1/2 CK/2 CS/3, experience summaries, EMR experience, languages and hobbies treatment on the existing paper, using 19pt mixed bold-label/roman-value American Typewriter. Only supplied audience-visible fields are populated. School/degree/span remain under G4. Optional Builder controls now preserve these values and provenance; profile field completeness is checked in visible export text. Summary wording is preserved without inferring publications or other missing facts.
+
+The actual golden's first and second snapshot frames tilt clockwise. Historical IWA metadata reports 350 and354 degrees; SVG's opposite rotation convention requires +10 and+6. Authored geometry overrides retain their own rotation. Exact frame sizing remains under review: stored IWA image geometry includes native image/frame treatment and must not be blindly used as the SVG outer frame. Native Keynote inspection was unavailable this continuation due a macOS capture error. No reference personal imagery was copied, extracted into fixtures or uploaded. A private reference-only replay awaits explicit photo-use permission under the synthetic-fixtures rule.
+
+Derived clinical/research month summaries require complete exact-month visible spans. Any uncountable visible duration yields unknown/null and no derived row. Authored summary wording is preserved; all original timeline facts remain. A partial exact subset is never represented as the whole total.
