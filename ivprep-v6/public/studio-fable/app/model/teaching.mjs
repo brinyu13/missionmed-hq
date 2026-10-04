@@ -76,12 +76,13 @@ export function hookLedger(conductorSnapshot) {
   return hooks.filter((h) => h.span).map((h) => ({
     questionId: h.questionId, span: h.span, category: h.category, decision: h.decision, blockedBy: h.blockedBy, reference:h.reference || null,
     taken: h.bitTaken === true, attempted: h.decision === 'FOLLOW_HOOK' || h.bitTaken === true, followUp: h.followUp,
-    verdict: h.decision === 'OBSERVED' ? (h.bitTaken === true ? 'Follow-up observed in the conversation transcript' : h.bitTaken === false ? 'Hook logged; no matching follow-up observed' : 'Hook logged; follow-up not yet verified') : h.decision === 'FOLLOW_HOOK' ? (h.bitTaken ? 'Interviewer took it' : h.bitTaken === false ? 'Follow-up sent, interviewer did not take it' : 'Follow-up sent') : h.blockedBy === 'DEPTH' ? 'Good hook, follow-up budget already used on this question' : h.blockedBy === 'TIME' ? 'Good hook, closing reserve reached' : h.blockedBy === 'PHASE' ? 'Logged during closing, not followed' : h.decision === 'PROBE_VAGUE' ? 'Vague claim, interviewer asked for an example' : h.decision === 'CLARIFY_CONTRADICTION' ? 'Contradiction, interviewer asked you to reconcile' : 'Not strong enough to follow',
+    verdict: h.decision === 'OBSERVED_FRAGMENT' ? (h.bitTaken === true ? 'Matching follow-up text observed; confirm the exchange in replay' : 'Possible hook in live captions; follow-up unverified') : h.decision === 'OBSERVED' ? (h.bitTaken === true ? 'Follow-up observed in the conversation transcript' : h.bitTaken === false ? 'Hook logged; no matching follow-up observed' : 'Hook logged; follow-up not yet verified') : h.decision === 'FOLLOW_HOOK' ? (h.bitTaken ? 'Interviewer took it' : h.bitTaken === false ? 'Follow-up sent, interviewer did not take it' : 'Follow-up sent') : h.blockedBy === 'DEPTH' ? 'Good hook, follow-up budget already used on this question' : h.blockedBy === 'TIME' ? 'Good hook, closing reserve reached' : h.blockedBy === 'PHASE' ? 'Logged during closing, not followed' : h.decision === 'PROBE_VAGUE' ? 'Vague claim, interviewer asked for an example' : h.decision === 'CLARIFY_CONTRADICTION' ? 'Contradiction, interviewer asked you to reconcile' : 'Not strong enough to follow',
   }));
 }
 
 export function closingLedger(snapshot) {
   if (!snapshot) return { status: 'n/a', label: 'Practice rep (no interviewer)' };
+  if(snapshot.closing?.reached&&snapshot.closing.delivery==='observed_fragment')return {status:'observed',label:'Closing text observed · confirm in replay',candidateQuestions:snapshot.closing.candidateQuestions.length,closeDelivered:snapshot.closeSent>0};
   if(snapshot.finalObservationCount===0)return {status:'unverified',label:'Closing not verified · confirm in the recording'};
   const c = snapshot.closing || {};
   if (c.skipped) return { status: 'skipped', label: `Skipped: ${c.reason === 'student_hard_stop' ? 'you left before the close' : c.reason}` };

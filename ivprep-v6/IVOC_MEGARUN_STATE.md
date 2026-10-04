@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-10-03 America/New_York
+Updated: 2026-10-04 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`, `DR-350` (narrow packaging), `DR-361` (current RISE eligibility successor); `DR-340` QA grant revoked
 Branch: `codex/ivoc-foreman-9200`
@@ -478,6 +478,20 @@ the actual production route and deployment.
   142-row live parity acceptance. No final root promotion or two-sided audible
   acceptance claimed. Genuine speech/hearing remains a precise physical-evidence
   gate under the current directive, not a global engineering stop.
+- Native observation gap reproduced: actual GPT-Live timed deltas reached captions
+  and canonical custody but the final-only teaching observer remained Q1/no hooks/
+  no closing. Separate bounded per-speaker fragment observations now update only
+  presentation evidence; zero manufactured finals, provider sends or second
+  transcript ledger. Conservative affirmative matches reject quoted/negated
+  phases; withheld/resolved provisional hooks and ambiguous-ID marks retract.
+  Detached snapshots restore actual transition marks. Closing text is OBSERVED,
+  not audible delivery. Recording/transcript/provider owners remain unchanged.
+  Actual Native.handleEvent adapter regression failed before and passes after;
+  66 focused lifecycle/observation/review/scope cases PASS, independently rerun;
+  exact Room callback invalidation/retraction checks PASS. Live release pending
+  under maintained PRODUCT epoch4480. Production
+  Results baseline captured; no layout redesign or root promotion. Official
+  fragment contract: https://developers.openai.com/api/docs/guides/live-conversations#transcript-deltas
 
 - **Founder live-POV override, 2026-10-02: recovery LIVE; candidate-question stall reopened fix-forward.**
   Founder confirms physical camera/mic and native multi-turn AI entry work;

@@ -10,6 +10,7 @@ import {bindPrimaryRecovery} from './adapters/engine-adapter.mjs';
 import {saveOwnVisibility} from './adapters/own-presentation.mjs';
 import {overlayLayers,liveOverlayVisibility} from './adapters/overlay-view-model.mjs';
 import { NativeInterviewObserver } from './brain/native-observer.mjs';
+import {applyNativeObservationMarks} from './model/native-observation-marks.mjs';
 import { substantiveQuestionPlan } from '../../capabilities/interview-progression.mjs';
 import { leftRailMarkup, rightRailMarkup, RailsController } from './instruments/rails.mjs';
 import { recorderMarkup, LiveRecorder } from './instruments/flight-recorder.mjs';
@@ -112,19 +113,19 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     const before=observer?.snapshot();
     turns.push({speaker,text,t:at(),identity:event.identity||null,timingBasis:'MESSAGE_RECEIPT',state:before?.state||'PRACTICE',n:before?.n||1});
     observer?.ingestFinal({speaker,text,identity:event.identity||null,sessionId:controller.durable.accountSession?.id||null});
-    const snap=observer?.snapshot();
-    if(speaker==='interviewer' && snap?.n!==before?.n)mark('question','Q'+snap.n);
-    if(speaker==='applicant' && snap?.hooks.length>before?.hooks.length)mark('hook','Hook: '+snap.hooks.at(-1).span);
-    if(speaker==='interviewer' && snap?.state==='FOLLOWUP')mark('followup','Hook followed');
-    if(snap?.closing.reached&&!before?.closing.reached)mark('closing','Candidate questions');
-    if(snap?.state==='PROFESSIONAL_CLOSE'&&before?.state!==snap.state)mark('closing','Sign-off');
+    markObservations(before,speaker);
     renderTranscript();renderPlan();
+  }
+  function markObservations(before,speaker){
+    const snap=observer?.snapshot();
+    applyNativeObservationMarks(events,before,snap,speaker,at());
   }
   const callbacks={
     onLine(text){if(!current()||saving)return;$('presence-line').textContent=text;},
     onSpeaking(on){if(!current()||saving)return;$('presence').dataset.speaking=String(on);$('presence-state').textContent=on?'speaking':'listening';},
     onFinal(text,directive,event){addTurn('interviewer',text,event);},
     onApplicantFinal(text,event){addTurn('applicant',text,event);},
+    onTranscriptFragment(event){if(!current()||finished||saving||!observer)return;const before=observer.snapshot();if(observer.ingestFragment(event)){markObservations(before,event.type==='session.input_transcript.delta'?'applicant':'interviewer');renderPlan();}},
     onCaptions(groups){if(!current()||saving)return;captions=groups;renderTranscript();},
     onStatus(status){if(!current()||saving)return;if(status.state==='active')$('presence-sub').textContent='Your interviewer is listening';if(status.state==='closed'&&started)providerFailed();},
     onProviderFailed:providerFailed
@@ -132,7 +133,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   function providerFailed(){if(!current()||!started||saving)return;roomFault={message:'Interviewer disconnected',detail:'Finish and save what you recorded, then start another interview.'};$('presence-sub').textContent=roomFault.detail;mark('gap','Interviewer disconnected');}
   function renderPlan(){
     if(!observer){$('plan').innerHTML='<span class="label"><b>Practice</b> · '+esc(practiceQ.canonical_text.slice(0,60))+'</span>';return;}
-    const snap=observer.snapshot(),phase=started&&snap.finalObservationCount===0?snap.N+' questions planned':snap.state==='FOLLOWUP'?'Follow-up · hook followed':snap.state==='CANDIDATE_QUESTIONS'?'Your questions':snap.state==='PROFESSIONAL_CLOSE'?'Sign-off · finish when ready':snap.state==='CLOSING_INVITE'?'Wrapping up':'Question '+snap.n+' of '+snap.N;
+    const snap=observer.snapshot(),phase=snap.state==='CLOSING_INVITE'?'Wrapping up':started&&snap.finalObservationCount===0&&snap.fragmentTextObservationCount===0?snap.N+' questions planned':snap.state==='FOLLOWUP'?'Follow-up · hook followed':snap.state==='CANDIDATE_QUESTIONS'?'Your questions':snap.state==='PROFESSIONAL_CLOSE'?'Sign-off · finish when ready':'Question '+snap.n+' of '+snap.N;
     $('plan').innerHTML='<span class="seg">'+snap.plan.map(q=>'<span class="pip '+(q.status==='ASKED'?'asked':q.status==='CURRENT'?'current':'')+'" title="Q'+q.n+' · '+esc(q.text)+'"></span>').join('')+'<span class="pip closing '+(snap.closing.reached?'asked':'')+'" title="Your questions"></span></span><span class="label"><b>'+phase+'</b></span>';
   }
   async function connect(){
@@ -186,7 +187,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       disposeDevices?.();main.querySelector('[data-device-controls]').remove();
       $('primary-action').hidden=true;$('engine-label').textContent='Recording privately to your account';$('end').disabled=false;
       $('presence-sub').textContent=mode==='mock'?'Speak naturally. Your interviewer can hear you.':'Answer the question. Finish & save when you are done.';
-      mark('recording','Recording started');mark('question','Q1');recordDensity();renderPlan();
+      mark('recording','Recording started');mark('question','Q1 planned');recordDensity();renderPlan();
       timer=setInterval(()=>{if(!current())return;$('clock').textContent=fmt(at());recorder.setData(history.samples,events);recorder.tick(at());},500);resetIdle();
     }catch(error){if(current()){$('enter-note').textContent=error.message;$('start-session').disabled=!controller.stream;$('connect-real').disabled=false;}engine?.events.removeEventListener('frame',onFrame);engine?.events.removeEventListener('state',onState);engine?.events.removeEventListener('word-timing',onWord);}
     finally{starting=false;if(current()){setDensityControls(false);if(!started)main.querySelectorAll('[data-device-kind]').forEach(select=>{select.disabled=controller.phase!=='READY'||!select.options.length;});}}
