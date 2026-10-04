@@ -434,6 +434,21 @@ function eventYearRange(document={}){
   return years.length?{startYear:Math.min(...years),endYear:Math.max(...years)}:null;
 }
 
+export function resetAdvancedEventLayout(document={},eventId){
+  const id=String(eventId||''),event=(document.events||[]).find(event=>String(event.id)===id);
+  if(document.mode!==ADVANCED_MODE||!event)return{document,changed:false,error:'Choose an event in Advanced Studio.'};
+  const objects=(document.advanced?.scene?.objects||[]).filter(object=>object.type==='event'&&
+    (String(object.semanticRef||'')===id||String(object.id)===id));
+  const grouped=(document.advanced?.scene?.groups||[]).some(group=>(group.childIds||[]).some(child=>objects.some(object=>String(object.id)===String(child))));
+  if(document.layoutLock===true||grouped||objects.some(object=>object.locked||object.groupId))return{document,changed:false,error:'Unlock and ungroup this event before resetting its layout.'};
+  if(!objects.length&&!Object.hasOwn(event,'manualOffset'))return{document,changed:false};
+  const next=clone(document),removedIds=objects.map(object=>String(object.id));
+  if(next.advanced?.scene)next.advanced.scene.objects=next.advanced.scene.objects.filter(object=>!removedIds.includes(String(object.id)));
+  delete next.events.find(event=>String(event.id)===id).manualOffset;
+  return{document:next,changed:true,
+    mutation:{label:'Reset event layout',history:true,undoSteps:1}};
+}
+
 function displayedAxisYearRange(document={}){
   // The existing composer can add a bounded context year. Its saved snapshot
   // describes what is painted; it must never become a source-date constraint.

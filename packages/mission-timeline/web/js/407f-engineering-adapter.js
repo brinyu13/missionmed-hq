@@ -43,6 +43,7 @@ import {
 } from "./uxr-002/quality-guardian.js";
 import {createLocalLayoutReview,isLocalLayoutReviewLocation} from './uxr-002/local-layout-review.js';
 import {reflowLocalLayoutCriticDateAnchors} from './presentation/layout-critic-projection.js';
+import {locked407FMilestoneGeometry} from './uxr-002/locked-407f-export.js';
 import {
   appendTimelineAiFeedback,
   classifyTimelineAiCandidateOutcome
@@ -111,6 +112,7 @@ import {
   renderAdvancedStudio,
   renderModeDialog,
   resetAxisPresentationOverride,
+  resetAdvancedEventLayout,
   resetColorKeyGeometryPresentationOverride,
   resetCategoryKeyPresentationOverride,
   resizeMediaElement,
@@ -427,6 +429,27 @@ export function mountLocalLayoutReview407F(dialog,{store,location=globalThis.loc
   // for a real geometry review; synthetic Guardian results never run this path.
   void controller.capabilities();
   return {destroy(){closed=true;},controller};
+}
+
+export function advancedEventGeometry407F(document,id,source,renderOptions={}){
+  const object=(document.advanced?.scene?.objects||[]).find(object=>object.type==='event'&&
+    (String(object.semanticRef||'')===String(id)||String(object.id)===String(id)));
+  if(object)return {...clone(object.geometry),rotation:Number(object.geometry?.rotation)||0,locked:object.locked===true,aspectLocked:object.aspectLocked!==false};
+  if(!source)return null;
+  const event=(document.events||[]).find(event=>String(event.id)===String(id));
+  if(source.dataset?.eventKind==='flag'||event?.eventType==='milestone'){
+    try{
+      const geometry=locked407FMilestoneGeometry(serializeFounderPresentation(document,{scope:'EVERYTHING',...renderOptions}).scene,id);
+      if(!geometry)return null;
+      return {x:geometry.x,y:geometry.y,width:geometry.width,height:geometry.height,rotation:geometry.rotation,locked:false,aspectLocked:false};
+    }catch{return null;}
+  }
+  const body=source.querySelector?.('[data-continuous-duration-arrow],image')||source;
+  try{
+    const box=body.getBBox?.();
+    return box&&[box.x,box.y,box.width,box.height].every(Number.isFinite)&&box.width>0&&box.height>0
+      ?{x:box.x,y:box.y,width:box.width,height:box.height,rotation:0,locked:false,aspectLocked:false}:null;
+  }catch{return null;}
 }
 
 export function applyHumanAxisPresentation407F(document,result,renderOptions={}){
@@ -6784,6 +6807,7 @@ export async function boot407FEngineeringAdapter({
       if(target.type==="media")return[{action:"crop",label:"Crop",icon:"⌗"},...common];
       if(target.type==="text")return[{action:"edit-text",label:"Edit text",icon:"✎",keys:"Enter"},...common];
       if(target.type==="group")return[{action:"ungroup",label:"Ungroup",icon:"⧈",keys:"⇧⌘G"},...common];
+      if(target.type==="event")return[{action:"reset-event-layout",label:"Reset event layout",icon:"↺"}];
       if(["element"].includes(target.type))return common;
       return[];
     };
@@ -6821,6 +6845,17 @@ export async function boot407FEngineeringAdapter({
     const runAdvancedQuickAction=(action,target,anchor=null)=>{
       const selection=canvasController?.state?.advancedSelection||target;
       switch(action){
+        case"reset-event-layout":{
+          const eventTarget=target?.type==="event"?target:selection;
+          if(eventTarget?.type!=="event"||store.entitlement.canMutate!==true)return false;
+          const result=resetAdvancedEventLayout(store.document,eventTarget.id);
+          if(result.error){bridge.toast(result.error);return false;}
+          if(!result.changed){bridge.toast('This event already uses its automatic layout.');return false;}
+          store.replace(result.document,{label:'Reset event layout'});
+          syncBridgeStateFromStore();
+          commitAdvancedSelection(eventTarget,{announce:'Event layout reset',toast:'Event layout reset'});
+          return true;
+        }
         case"duplicate":return duplicateAdvancedSelection(selection);
         case"delete":return deleteAdvancedSelection(selection);
         case"lock":return lockAdvancedSelection(selection,true);
@@ -6863,6 +6898,7 @@ export async function boot407FEngineeringAdapter({
         {action:"layers",label:"Layers…"}
       ];
       const lockedNow=selectionIsLocked(selection);
+      if(selection.type==="event")return[{action:"reset-event-layout",label:"Reset event layout",disabled:lockedNow},{action:"layers",label:"Layers…"}];
       if(selection.type==="frame"){
         const filled=advancedFrameItem(store.document,selection.id);
         return filled
@@ -6974,7 +7010,7 @@ export async function boot407FEngineeringAdapter({
       event.preventDefault();
       const object=advancedObjectForTarget(event.target);
       let selection=canvasController?.state?.advancedSelection||null;
-      if(object&&!["event","color-key","profile","axis"].includes(object.type)){
+      if(object&&!["color-key","profile","axis"].includes(object.type)){
         const key=`${object.type}:${object.id}`;
         const already=selection?.type==="multi"
           ?(selection.members||[]).some((member)=>`${member.type}:${member.id}`===key)
@@ -7277,19 +7313,18 @@ export async function boot407FEngineeringAdapter({
       // Tokens bind paint/button proxies to the exact SVG visual, not their expanded hit box.
       return sceneVisualNode(paired||canvasHost.querySelector(selector)||(type==="event"?null:fallback));
     };
+    const nativeEventGeometryCache=new WeakMap();
     const eventPresentationItem=(id)=>{
-      const object=(store.document.advanced?.scene?.objects||[]).find((candidate)=>
-        candidate?.type==="event"&&(
-          String(candidate.semanticRef||"")===String(id)||
-          String(candidate.id||"")===String(id)
-        )
-      );
-      return object?{
-        ...clone(object.geometry),
-        rotation:Number(object.geometry?.rotation)||0,
-        locked:object.locked===true,
-        aspectLocked:object.aspectLocked!==false
-      }:null;
+      const source=canvasHost.querySelector(advancedEventSelector(id)),signature=JSON.stringify([
+        store.document.id,store.document.studentOwnerId,currentMonth(),timelineRenderSignature(store.document)
+      ]);
+      const cached=source?nativeEventGeometryCache.get(source):null;
+      if(cached?.signature===signature)return clone(cached.geometry);
+      const geometry=advancedEventGeometry407F(store.document,id,source,{
+        scope:'EVERYTHING',currentMonth:currentMonth(),mediaById:liveMediaById(store.document)
+      });
+      if(source&&geometry)nativeEventGeometryCache.set(source,{signature,geometry:clone(geometry)});
+      return geometry;
     };
     const advancedObjectForTarget=(target,{deep=false}={})=>{
       const directPresentationItem=(type)=>{
@@ -7590,13 +7625,7 @@ export async function boot407FEngineeringAdapter({
     };
     const advancedItemFor=(target)=>{
       if(target.type==="event"){
-        const item=eventPresentationItem(target.id);
-        if(item)return item;
-        const source=canvasHost.querySelector(advancedEventSelector(target.id));
-        const visual=source?.querySelector?.("[data-continuous-duration-arrow],image")||source;
-        const box=visual?.getBBox?.();
-        return box?.width>0&&box?.height>0
-          ?{x:box.x,y:box.y,width:box.width,height:box.height,rotation:0,locked:false,aspectLocked:false}:null;
+        return eventPresentationItem(target.id);
       }
       const collection=target.type==="media"?store.document.advanced?.media
         :target.type==="text"?store.document.advanced?.textBlocks
@@ -7887,10 +7916,9 @@ export async function boot407FEngineeringAdapter({
         const object=advancedObjectForTarget(rotateHandle);
         if(!object)return;
         if(object.type==="event"&&!Number.isFinite(Number(object.item.x))){
-          const node=object.element.querySelector?.('[data-continuous-duration-arrow],image')||object.element;
-          const box=node.getBBox?.();
-          if(!box?.width||!box?.height)return;
-          object.item={...object.item,x:box.x,y:box.y,width:box.width,height:box.height};
+          const geometry=eventPresentationItem(object.id);
+          if(!geometry)return;
+          object.item=geometry;
         }
         const direction=["ArrowLeft","ArrowDown"].includes(key)?-1:1;
         const rotation=Number(object.item.rotation||0)+direction*(event.shiftKey||key==="Enter"||key===" "?15:1);
@@ -8458,7 +8486,7 @@ export async function boot407FEngineeringAdapter({
       try{
         const box=geometryElement.getBBox?.();
         if(
-          object.type!=="group"&&
+          !["group","event"].includes(object.type)&&
           !object.element.hasAttribute?.("data-scene-object")&&
           !["color-key","profile","frame"].includes(object.type)&&
           box&&Number.isFinite(box.x)&&Number.isFinite(box.y)&&box.width>0&&box.height>0

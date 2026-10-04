@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {mountLocalLayoutReview407F,applyHumanAxisPresentation407F} from '../web/js/407f-engineering-adapter.js';
+import {mountLocalLayoutReview407F,applyHumanAxisPresentation407F,advancedEventGeometry407F,timelineRenderSignature} from '../web/js/407f-engineering-adapter.js';
 import {LAYOUT_CRITIC_CONSENT_VERSION,projectLayoutCritic,applyLayoutRecommendations} from '../web/js/presentation/layout-critic-projection.js';
-import {setAxisPresentationOverride,setAxisSegmentWeights,resetAxisPresentationOverride,renderAdvancedPresentationControls} from '../web/js/uxr-002/advanced-studio.js';
+import {setAxisPresentationOverride,setAxisSegmentWeights,resetAxisPresentationOverride,renderAdvancedPresentationControls,resetAdvancedEventLayout} from '../web/js/uxr-002/advanced-studio.js';
+import {resolveFounderPresentationSvg} from '../web/js/presentation/resolved-founder-presentation.js';
 import {buildFounderPresentationScene,serializeFounderPresentation} from '../web/js/presentation/founder-presentation-serializer.js';
 import {applyLocalLayoutCriticSceneCommand,applySceneCommandToDocument} from '../web/js/editor/scene-commands.js';
 import {TimelineStore,migrateDocument} from '../web/js/uxr-002/store.js';
@@ -235,4 +236,72 @@ test('044 automatic control defaults follow canonical contextual year allocation
   const rendered=serializeFounderPresentation(document,renderOptions),controls=renderAdvancedPresentationControls(document),axis=rendered.scene.composedAxis;
   assert.ok(axis);assert.match(controls,new RegExp(`value="${axis.startYear}" data-axis-override-field="startYear"`));assert.match(controls,new RegExp(`value="${axis.endYear}" data-axis-override-field="endYear"`));
   const narrow=setAxisPresentationOverride(document,{startYear:2023,endYear:2023,includeFuture:false});assert.equal(narrow.changed,true,narrow.error);assert.deepEqual(narrow.document.events,document.events);
+});
+function longMilestoneFixture(){
+  const document=profileOnlyEducationFixture();document.events=document.events.filter(event=>event.id==='displayed-work');
+  document.events.push({...structuredClone(document.events[0]),id:'long-publication',categoryId:'research',eventType:'milestone',startDate:'2018-06',endDate:null,title:'Synthetic publication with a long descriptive title about longitudinal clinical outcomes and complete source wording',siteName:'Synthetic Journal of Clinical Outcomes and Longitudinal Research'});
+  return document;
+}
+test('044 native long-label milestone acquisition never uses painted group bounds as scalable 50 by 64 flag geometry',()=>{
+  const document=longMilestoneFixture(),before=JSON.stringify(document),source={dataset:{eventKind:'flag'},getBBox:()=>({x:300,y:40,width:1100,height:160}),querySelector:()=>null};
+  const geometry=advancedEventGeometry407F(document,'long-publication',source,renderOptions);
+  assert.equal(geometry.width,50);assert.equal(geometry.height,64);assert.equal(JSON.stringify(document),before,'selection does not materialize a scene override');
+  const native=serializeFounderPresentation(document,renderOptions),paint=svg=>resolveFounderPresentationSvg(svg).nodes.filter(node=>node.semanticRef==='long-publication'&&node.kind==='text');
+  const moved=applySceneCommandToDocument(document,{kind:'geometry',target:{type:'event',id:'long-publication'},geometry:{...geometry,y:geometry.y+5},create:{type:'event',semanticRef:'long-publication',aspectLocked:false,presentation:{eventType:'milestone'}}},renderOptions);
+  assert.equal(moved.changed,true);const resetAxis=resetAxisPresentationOverride(moved.document).document,after=serializeFounderPresentation(resetAxis,renderOptions);
+  const text=node=>({text:node.text,fontSize:node.fontSize,fontFamily:node.fontFamily,width:node.bounds.width});
+  assert.deepEqual(paint(after.svg).map(text),paint(native.svg).map(text),'title, institution and date typography never stretch after first move or axis reset');
+  assert.deepEqual(resetAxis.events,document.events);assert.equal(resetAxis.advanced.scene.objects.find(object=>object.semanticRef==='long-publication').geometry.width,50);
+  const durationBody={getBBox:()=>({x:120,y:400,width:650,height:43.567795})},durationSource={dataset:{eventKind:'arrow'},querySelector:()=>durationBody};
+  assert.deepEqual(advancedEventGeometry407F(document,'displayed-work',durationSource,renderOptions),{x:120,y:400,width:650,height:43.567795,rotation:0,locked:false,aspectLocked:false});
+  const authored=applySceneCommandToDocument(document,{kind:'geometry',target:{type:'event',id:'long-publication'},geometry:{x:700,y:65,width:85,height:78,rotation:8},create:{type:'event',semanticRef:'long-publication',aspectLocked:false,presentation:{eventType:'milestone'}}},renderOptions).document;
+  const stored=authored.advanced.scene.objects.find(object=>object.semanticRef==='long-publication').geometry;
+  const preserved=advancedEventGeometry407F(authored,'long-publication',source,renderOptions);
+  for(const field of ['x','y','width','height','rotation'])assert.equal(preserved[field],stored[field],'authored '+field+' preserved');
+});
+test('044 reset event layout removes only chosen visual placement and preserves source facts, photos, axis and other manual geometry',()=>{
+  let document=longMilestoneFixture();
+  document=setAxisPresentationOverride(document,{startYear:2012,endYear:2026,includeFuture:false}).document;
+  for(const [id,geometry] of [['long-publication',{x:350,y:60,width:900,height:160,rotation:0}],['displayed-work',{x:100,y:600,width:800,height:43.567795,rotation:0}]])document=applySceneCommandToDocument(document,{kind:'geometry',target:{type:'event',id},geometry,create:{type:'event',semanticRef:id,aspectLocked:false,presentation:{eventType:id==='long-publication'?'milestone':'duration'}}},renderOptions).document;
+  document.events.find(event=>event.id==='long-publication').manualOffset={x:20,y:15,laneLocked:true};
+  document.presentationOverrides.photoFrames={1:{x:1100,y:600,width:240,height:180,rotation:6}};
+  document.mediaItems=[{id:'synthetic-photo',placement:'photo1',visibilityState:'INTERVIEWER_SAFE',source:{fixture:'local-only'}}];
+  const before=JSON.stringify(document),other=structuredClone(document.advanced.scene.objects.find(object=>object.semanticRef==='displayed-work')),axis=structuredClone(document.presentationOverrides.axis);
+  const reset=resetAdvancedEventLayout(document,'long-publication');assert.equal(reset.changed,true);assert.equal(reset.mutation.undoSteps,1);
+  assert.ok(!reset.document.advanced.scene.objects.some(object=>object.semanticRef==='long-publication'));
+  assert.deepEqual(reset.document.advanced.scene.objects.find(object=>object.semanticRef==='displayed-work'),other);assert.deepEqual(reset.document.presentationOverrides.axis,axis);
+  assert.deepEqual(reset.document.mediaItems,document.mediaItems);assert.deepEqual(reset.document.presentationOverrides.photoFrames,document.presentationOverrides.photoFrames);
+  const facts=events=>events.map(({manualOffset,...event})=>event);assert.deepEqual(facts(reset.document.events),facts(document.events));assert.equal(JSON.stringify(document),before);
+  const native=advancedEventGeometry407F(reset.document,'long-publication',{dataset:{eventKind:'flag'}},renderOptions);assert.equal(native.width,50);assert.equal(native.height,64);
+  assert.equal(resetAdvancedEventLayout(reset.document,'long-publication').changed,false);
+  const locked=structuredClone(document);locked.advanced.scene.objects.find(object=>object.semanticRef==='long-publication').locked=true;assert.equal(resetAdvancedEventLayout(locked,'long-publication').changed,false);
+});
+test('044 active native acquisition and reset event action are wired through actual Advanced controls',async()=>{
+  const source=await readFile(new URL('../web/js/407f-engineering-adapter.js',import.meta.url),'utf8');
+  assert.match(source,/const eventPresentationItem=\(id\)=>\{[\s\S]*?advancedEventGeometry407F/);
+  assert.match(source,/!\["group","event"\]\.includes\(object.type\)/,'pointer start cannot replace event geometry with a painted label group bbox');
+  assert.match(source,/if\(target.type==="event"\)return\[\{action:"reset-event-layout",label:"Reset event layout"/);
+  assert.match(source,/if\(selection.type==="event"\)return\[\{action:"reset-event-layout"/);
+  const begin=source.indexOf('case"reset-event-layout":{')+'case"reset-event-layout":'.length,end=source.indexOf('case"duplicate":',begin),action=source.slice(begin,end).trim();
+  let document=longMilestoneFixture();document.events.find(event=>event.id==='long-publication').manualOffset={x:100};
+  const store={document,entitlement:{canMutate:true},replace(next){this.document=next;}},target={type:'event',id:'long-publication'};let sync=0,selected=0;
+  const executed=new Function('target','selection','store','resetAdvancedEventLayout','bridge','syncBridgeStateFromStore','commitAdvancedSelection',action)(target,target,store,resetAdvancedEventLayout,{toast(){}},()=>sync++,()=>selected++);
+  assert.equal(executed,true);assert.equal(sync,1);assert.equal(selected,1);assert.ok(!store.document.events.find(event=>event.id==='long-publication').manualOffset);
+  store.entitlement.canMutate=false;assert.equal(new Function('target','selection','store','resetAdvancedEventLayout','bridge','syncBridgeStateFromStore','commitAdvancedSelection',action)(target,target,store,resetAdvancedEventLayout,{toast(){}},()=>{},()=>{}),false);
+});
+test('044 actual pointer geometry acquisition retains the native flag box despite an enormous painted label bbox',async()=>{
+  const source=await readFile(new URL('../web/js/407f-engineering-adapter.js',import.meta.url),'utf8'),begin=source.indexOf('const geometryElement=object.type==="event"'),end=source.indexOf('const resizeZone=',begin);
+  const document=longMilestoneFixture(),svg={getBoundingClientRect:()=>({width:960,height:540})};
+  const node={dataset:{eventKind:'flag'},querySelector:()=>null,closest:()=>svg,getBoundingClientRect:()=>({left:100,top:20,right:900,bottom:100,width:800,height:80}),getBBox:()=>({x:200,y:40,width:1600,height:160}),hasAttribute:()=>false};
+  const geometry=advancedEventGeometry407F(document,'long-publication',node,renderOptions),object={type:'event',id:'long-publication',item:geometry,element:node};
+  const bounds=new Function('object','clearAdvancedAlignmentGuides',source.slice(begin,end)+'return modelBounds;')(object,()=>{});
+  assert.deepEqual(bounds,{x:geometry.x,y:geometry.y,width:50,height:64});assert.equal(object.item.width,50);assert.equal(object.item.height,64);
+});
+test('044 native geometry cache reuses the same painted source and invalidates for changed timeline or owner',async()=>{
+  const source=await readFile(new URL('../web/js/407f-engineering-adapter.js',import.meta.url),'utf8'),begin=source.indexOf('const nativeEventGeometryCache='),end=source.indexOf('const advancedObjectForTarget=',begin);
+  const store={document:longMilestoneFixture()},node={};let calls=0;
+  const item=new Function('store','canvasHost','advancedEventSelector','timelineRenderSignature','advancedEventGeometry407F','currentMonth','liveMediaById','clone',source.slice(begin,end)+'return eventPresentationItem;')(store,{querySelector:()=>node},id=>id,timelineRenderSignature,()=>{calls++;return{x:100,y:50,width:50,height:64,rotation:0};},()=>renderOptions.currentMonth,()=>new Map(),structuredClone);
+  item('long-publication');item('long-publication');assert.equal(calls,1);
+  store.document.events[1].title+=' Revised';item('long-publication');assert.equal(calls,2);
+  store.document.studentOwnerId='other-synthetic-owner';item('long-publication');assert.equal(calls,3);
 });
