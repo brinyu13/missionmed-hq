@@ -1,6 +1,8 @@
 import { AppError,notFound,requireValue } from './errors.mjs';
 import * as v from './validation.mjs';
 import { schedule,validDate } from './time.mjs';
+import { ensureDemand } from './research-demand.mjs';
+export { ensureDemand } from './research-demand.mjs';
 
 export async function syncActor(db,actor) {
   const {rows:[existing]}=await db.query('SELECT id,wp_user_id,display_name FROM iiq.actors WHERE id=$1',[actor.id]);
@@ -38,20 +40,6 @@ export function scheduleValues(x) {
 }
 export function deadline(value) {
   requireValue(value===null || value===undefined || validDate(value),'invalid_deadline','Enter a valid deadline date.');return value||null;
-}
-export async function ensureDemand(db,row,{refresh=false}={}) {
-  const status=row.program_id?'queued':'waiting_identity';
-  const {rows:[demand]}=await db.query(`INSERT INTO iiq.research_demands(owner_id,interview_id,program_id,status)
-    VALUES($1,$2,$3,$4) ON CONFLICT(interview_id) DO UPDATE SET program_id=EXCLUDED.program_id,
-      status=CASE WHEN research_demands.program_id IS DISTINCT FROM EXCLUDED.program_id OR $5 THEN EXCLUDED.status ELSE research_demands.status END,
-      requested_at=CASE WHEN $5 THEN now() ELSE research_demands.requested_at END
-    RETURNING *`,[row.owner_id,row.id,row.program_id,status,refresh]);
-  if(row.program_id && (refresh || status==='queued')) {
-    await db.query(`INSERT INTO iiq.outbox_events(owner_id,topic,dedupe_key,payload)
-      VALUES($1,'rise.research_requested',$2,$3::jsonb) ON CONFLICT(dedupe_key) DO NOTHING`,
-      [row.owner_id,`research:${demand.id}:${row.program_id}:${refresh?demand.version:0}`,JSON.stringify({demandId:demand.id,programId:row.program_id})]);
-  }
-  return demand;
 }
 export async function updateGap(db,row) {
   await db.query(`INSERT INTO iiq.mentor_gaps(owner_id,interview_id,research_state,preparation_saved,question_count,practice_count,debrief_state,followup_state)
