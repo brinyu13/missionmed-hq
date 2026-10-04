@@ -23,7 +23,7 @@ const main = document.getElementById('main');
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmtDate = (ms) => Number.isFinite(ms)?new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }):'Date unavailable';
 const fmtDur = (s) => Number.isFinite(s)?`${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`:'Duration unavailable';
-export const session = { questionId: null, mode: 'practice', mockSet: null, config: { targetQuestions: null, style: 'Owl', pressure: false, durationMin: 15, maxDepth: 1 }, settings: defaultSettings(), program: null, retryOf: null, retry: null, priority: null, contextSources: [] };
+export const session = { questionId: null, mode: null, mockSet: null, config: { targetQuestions: null, style: 'Owl', pressure: false, durationMin: 15, maxDepth: 1 }, settings: defaultSettings(), program: null, retryOf: null, retry: null, priority: null, contextSources: [] };
 let teardown = null;
 let generation = 0, acceptedHash = '#/home', revertingHash = false;
 const guarded = () => true;
@@ -160,7 +160,7 @@ async function renderPractice(params, isCurrent = guarded) {
       </div>`;
     main.querySelector('.q-list').addEventListener('click', (e) => { const b = e.target.closest('[data-q]'); if (!b) return; if(selected!==b.dataset.q)retryOf=null;selected = b.dataset.q; session.questionId = selected; draw(); });
     main.querySelector('#open-selector').addEventListener('click', () => { const one = [q]; openSelector({ questions, store, set: one, attempts, single: true, max: 1, onDone: () => { const next=one[0]?.question_id || selected;if(next!==selected)retryOf=null;selected=next;session.questionId = selected; draw(); } }); });
-    main.querySelector('#go-room').addEventListener('click', () => { session.mode = 'practice'; session.questionId = q.question_id; session.retryOf = retryOf?.id || null; session.retry = retryOf || null; session.priority = priority; location.hash = '#/room'; });
+    main.querySelector('#go-room').addEventListener('click', () => { session.mode = 'practice'; session.questionId = q.question_id; session.retryOf = retryOf?.id || null; session.retry = retryOf || null; session.priority = priority; location.hash = '#/room?mode=practice'; });
   };
   draw();
 }
@@ -245,7 +245,7 @@ async function renderMock(params, isCurrent = guarded) {
     const questionsChanged=()=>{if(session.retry&&(set.length!==1||set[0]?.question_id!==session.retry.questionId)){session.retry=null;session.retryOf=null;}draw();};
     mountTray(main.querySelector('#tray'), set, { onChange: questionsChanged });
     main.querySelector('#open-selector').addEventListener('click', () => openSelector({ questions, store, set, attempts, onDone: questionsChanged }));
-    main.querySelector('#go-room').addEventListener('click', () => { session.mode = 'mock'; session.program = useProgram ? state.program : null; location.hash = '#/room'; });
+    main.querySelector('#go-room').addEventListener('click', () => { session.mode = 'mock'; session.program = useProgram ? state.program : null; location.hash = '#/room?mode=mock'; });
     main.querySelector('#story-reveal').addEventListener('click', () => { storyRevealed = true; draw(); });
     main.querySelectorAll('[data-context]').forEach(input=>input.addEventListener('change',()=>{session.contextSources=input.checked?[...new Set([...session.contextSources,input.dataset.context])]:session.contextSources.filter(name=>name!==input.dataset.context);}));
     main.querySelector('#advanced').addEventListener('toggle', (e) => { st.advanced = e.target.open; main.querySelector('#advanced summary span:last-child').textContent = st.advanced ? 'on' : 'collapsed'; });
@@ -403,6 +403,14 @@ async function route() {
   if(controller.navigationLocked && location.hash!==acceptedHash){revertingHash=true;location.hash=acceptedHash;return;}
   const legacyRoute=legacyPresentationEntry(location.pathname,location.hash);
   if(legacyRoute){location.replace(legacyRoute);return;}
+  // Readiness setup is intentionally ephemeral, not a second private context
+  // store. A cold room cannot silently choose Practice or restart a provider.
+  const [entryPath,entryQuery]=(location.hash||'#/home').replace(/^#\/?/,'').split('?');
+  if(entryPath==='room'&&!['mock','practice'].includes(session.mode)){
+    const requestedMode=new URLSearchParams(entryQuery||'').get('mode');
+    location.hash=requestedMode==='mock'?'#/mock?recover=room':requestedMode==='practice'?'#/practice?recover=room':'#/home';
+    return;
+  }
   const ticket=++generation,isCurrent=()=>ticket===generation;
   if(teardown){teardown();teardown=null;}
   const hash=location.hash||'#/home';acceptedHash=hash;
@@ -413,8 +421,10 @@ async function route() {
   try{
     if(!controller.account)throw new Error('Sign in through Matrix to continue.');
     if(name==='home')await renderHome(isCurrent);
-    else if(name==='practice')await renderPractice(params,isCurrent);
-    else if(name==='mock')await renderMock(params,isCurrent);
+    else if(name==='practice'||name==='mock'){
+      await (name==='mock'?renderMock(params,isCurrent):renderPractice(params,isCurrent));
+      if(isCurrent()&&params.get('recover')==='room')main.insertAdjacentHTML('afterbegin','<p class="note" role="status">This page was refreshed. Review your setup before entering the room again. No interview has restarted.</p>');
+    }
     else if(name==='prepare')await renderPrepare(isCurrent);
     else if(name==='review')await renderReview(isCurrent);
     else if(name==='progress')await renderProgress(isCurrent);

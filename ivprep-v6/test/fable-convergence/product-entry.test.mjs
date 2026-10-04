@@ -64,7 +64,7 @@ async function mountedRouter(hash,locked=false){
   const targets=[];const location={pathname:'/iv-prep-on-call/',hash,replace:value=>targets.push(value)};
   // A legacy handoff must return before any Fable render/capture work. Guarded
   // navigation must return even earlier and retain the current live room.
-  const context={controller:{navigationLocked:locked},location,legacyPresentationEntry,
+  const context={controller:{navigationLocked:locked},location,legacyPresentationEntry,session:{mode:null},URLSearchParams,
     revertingHash:false,acceptedHash:'#/room'};
   const {route}=runInNewContext(source.slice(start,end)+'\n({route})',context);
   await route();return{targets,location,context};
@@ -81,4 +81,15 @@ test('actual active-interview navigation guard precedes any legacy redirect',asy
   const result=await mountedRouter('#filmroom?session=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',true);
   assert.deepEqual(result.targets,[]);assert.equal(result.location.hash,'#/room');
   assert.equal(result.context.revertingHash,true);
+});
+test('cold readiness returns to its explicit setup mode without launching or silently choosing Practice',async()=>{
+  for(const [entry,recovery]of [['#/room?mode=mock','#/mock?recover=room'],['#/room?mode=practice','#/practice?recover=room'],['#/room','#/home'],['#/room?mode=https://evil.test','#/home']]){
+    const result=await mountedRouter(entry);
+    assert.equal(result.location.hash,recovery);
+    assert.deepEqual(result.targets,[]);
+  }
+});
+test('locked interview navigation is preserved ahead of cold readiness recovery',async()=>{
+  const result=await mountedRouter('#/room?mode=practice',true);
+  assert.equal(result.location.hash,'#/room');assert.equal(result.context.revertingHash,true);
 });
