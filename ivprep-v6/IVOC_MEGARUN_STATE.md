@@ -16,6 +16,23 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 R056 FILM CITATION FIX-FORWARD (PRODUCT4624):
+  Actual authenticated candidate Film Room for saved own attempt1ca228aa:
+  native playback started, then clicking the measured Pace moment sought to its
+  two-second lead-in but remained playing (paused=false, observed4.507849s).
+  This violated paused citation review. Existing guarded Film seek now pauses
+  the same private video before setting time; moments/transcript/hook buttons,
+  Flight Recorder and route citations share it. No new playback/audio owner,
+  recording/schema/provider/overlay change. Exact-function regression failed
+  before fix;42 focused replay/evidence/ownership checks +syntax/diff PASS.
+  IMPLEMENTED_NEEDS_ACCEPTANCE until deployed/live play ->citation ->paused
+  inspection ->cold reload. Independent R109 review passed and source/ledger
+  d68dc7fc33878a8a1189346b2c403b122d17bff0 remotely read back; expanded PRODUCT4622
+  normally released and remotely confirmed. Admin selected-student Film retained
+  wp:1 actor/wp:142 owner and transcript citation paused at5.433s; exiting Admin
+  cleared selected-student media/review and restored the actor's own history.
+  No alternate-role identity or audible two-sided proof inferred.
+
 - 2026-10-04 R109 CALIBRATION / CURRENT AUTHENTICATED REVIEW SUBSET:
   d8a82056cf0eaa15439962696238c3fd0e5f43aa adds calibration-only Devices,
   Visual signals, Voice signals and Signal health tabs through the existing

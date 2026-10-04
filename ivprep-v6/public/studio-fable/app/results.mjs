@@ -151,7 +151,7 @@ export async function mountFilm(main,id,params=new URLSearchParams(),{isCurrent=
     main.querySelector('.film-side')?.append(section);
   }
   if(a.traceDecimated){const note=document.createElement('p');note.className='note';note.textContent='Flight Recorder is sampled for durable storage. Not every measured instant is retained; the full recording is unchanged.';host.before(note);}
-  const seek=value=>{const t=validReplaySeek(value,a.durationS);if(current()&&video&&t!==null)video.currentTime=t;};
+  const seek=value=>{const t=validReplaySeek(value,a.durationS);if(current()&&video&&t!==null){video.pause();video.currentTime=t;}};
   let lanes=null;
   if(a.samples.length)lanes=renderFilmLanes(host,{samples:a.samples,events:a.events,durationS:a.durationS,onSeek:seek,playback:video,label:'Flight Recorder · replay'});
   else renderMeasurementTimeline(host,a.measurementTimeline,{playback:video});
