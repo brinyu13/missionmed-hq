@@ -4,11 +4,24 @@ import {loadQuestions,queryQuestions,ownQuestionRecords} from '../../public/stud
 import * as corpus from '../../public/questions/question-store.mjs';
 import {projectOwnRetry} from '../../public/studio-fable/app/adapters/retry.mjs';
 import {toWizard,defaultSettings} from '../../public/studio-fable/app/settings/interviewer.mjs';
+import * as interviewer from '../../public/studio-fable/app/settings/interviewer.mjs';
+import {interviewTeachingPolicy} from '../../public/capabilities/interview-progression.mjs';
 import {DurableStudioSession} from '../../public/studio/durable-session.mjs';
 import {createLiveContext} from '../../public/studio/live-context-adapter.mjs';
 import {NativeInterviewObserver} from '../../public/studio-fable/app/brain/native-observer.mjs';
 import {masteryState,closingLedger} from '../../public/studio-fable/app/model/teaching.mjs';
 const id='f13869aa-2b3e-4b65-9f66-1288fb459444';
+test('a target of12 survives a shorter selected pool into durable and native interview contracts',()=>{
+  assert.equal(typeof interviewer.resolveMockQuestionTarget,'function');
+  const pool=corpus.createDefaultQuestionStore().core().slice(0,2);
+  const targetQuestions=interviewer.resolveMockQuestionTarget(12,pool.length),settings={...defaultSettings(),targetQuestions};
+  const options={question:pool[0],interviewSet:pool,wizard:toWizard(settings),targetQuestions,interviewerProvider:'openai-gpt-live'};
+  assert.equal(new DurableStudioSession().sessionInput(options).context.targetQuestions,12);
+  const native=createLiveContext(options);assert.equal(native.targetQuestions,12);assert.equal(native.questionIds.length,2);
+  assert.match(interviewTeachingPolicy(targetQuestions),/exactly 12 planned substantive questions/);
+  assert.match(interviewTeachingPolicy(targetQuestions),/pool is shorter.*additional distinct/s);
+  assert.match(interviewTeachingPolicy(targetQuestions),/does NOT count against the substantive target/);
+});
 test('Custom selector includes the current governed admin_custom source',()=>{
   const q={question_id:'CUSTOM-1',canonical_text:'Current custom question',source:'admin_custom',tags:[]};
   assert.deepEqual(queryQuestions({questions:[q],filter:'custom'}),[q]);

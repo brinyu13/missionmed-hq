@@ -16,6 +16,23 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 R006 Mock setup implementation: restores all required5/10/15/25
+  duration controls plus Advanced numeric target1–30. Untouched target follows
+  selected pool; explicit target is pinned through Room readiness, native context,
+  Durable Start and sealed saved settings. Target12 with a shorter pool retains
+  exact existing authorized distinct-question/closing policy; Self Practice and
+  own Retry remain target1. Editing target away from1 clears Retry metadata; an
+  untouched Retry whose pool changes follows the new pool, not a sticky target1.
+  No scripted provider driver or fabricated question IDs.
+  Actual retained target/duration handlers reject invalid/stale edits; actual Room
+  Start/finish and affected lifecycle/context regression41 PASS; syntax/diff PASS.
+  Independent non-builder source review PASS incl19 direct regressions, noP0/P1.
+  PRODUCT4527 heartbeat active;7 exact paths. Safe candidate release next.
+  UI baseline/changed visual/live target acceptance UNVERIFIED because the current
+  Chrome client block prevents authenticated product use. Do not retry unchanged
+  browser state or equate tests with visual/behavioral acceptance. Root unpromoted.
+  Next executable step: independent source review -> clean remote commit -> guarded
+  candidate release; resume authenticated POV on a changed browser-access event.
 - 2026-10-04 R084/R087/R088/R104 account-switch recovery: independent pure
   current-function reproduction proved owner-omitted library rows could bind to
   a cached actor after a cookie change. HQ own-library/non-null preferences now
@@ -37,15 +54,27 @@ the actual production route and deployment.
   New regressions reproduced FAIL before/PASS after; 93 directly affected checks
   plus31 review/history/Calendar/Results/Admin/context checks PASS; diff check PASS.
   PRODUCT4521 released/readback before exact lifecycle-test scope expansion;
-  PRODUCT4524 and HQ PATH4522 heartbeat/fence active. Bash3 empty-array preflight
+  PRODUCT4524 and HQ PATH4522 normally released/remote confirmed. Bash3 empty-array preflight
   compatibility handled by an in-memory expansion correction only; no guard or
   OS/source mutation. All dirty files are root-owned exact mission scope.
-  Independent final review/release/live POV pending; healthy61aa63e/deed28ac/image
-  456fcf/artifact2YgD0Z remains rollback. No DB/schema/auth grants/private-media
+  Independent final source review PASS. Clean non-force pushed/read-back source
+  cc3a76c185122cd78bda3aca01aab413f185f1a1 deployed SUCCESS
+  58570a5a-7074-4d8e-913c-79292bf51a41/image
+  sha256:7adc3eb32ab52edeceadd026f657df61c7d82dcfc5fdaaa30d3c7c394baa2ecf.
+  Exact filtered1268-file artifacttAmBol/source.tar SHA
+  b413ae4ed0277450e649db50fd79be0513644a4d6561838dba95e663141681cd.
+  Health200/anonymous root,candidate,bootstrap401. SHARED4525 normally released/
+  remote confirmed. Authenticated live POV UNVERIFIED: existing Chrome reload and
+  exactly one fresh same-browser attempt hit ERR_BLOCKED_BY_CLIENT. Independent
+  non-builder confirmed same client block once, closed its error tab. WAITING for
+  changed Chrome access event, not repeated audits; no security/extension bypass.
+  Last POV-known-good61aa63e/deed28ac/image456fcf/artifact2YgD0Z remains rollback;
+  cc3 is runtime healthy, not fully POV accepted. No DB/schema/auth grants/private-media
   permissions/capture engine/provider behavior change; no fabricated live proof.
   Full142/user-journey acceptance still open; unsupported30% stays withdrawn.
-  Next executable step: reviewed guarded release -> normal own Home/Review/
-  Results/paused Film cold reload; then R006 missing10-minute/target retention.
+  Browser gate does not stop independent engineering: R006 missing10-minute/target
+  work resumed immediately. On changed browser event: normal own Home/Review/
+  Results/paused Film cold reload, then visible Mock setup/target acceptance.
 - Admin-reload source61aa63eb7889326b8328b95352832bebcf82cc17 LIVE
   SUCCESSdeed28ac-d2a9-49e1-b899-6f3c95f3f27a, image
   sha256:456fcf4779bc9ceea744deebac136b98f5b92836c77363ada4ea2c14e8292258.

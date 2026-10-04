@@ -3,7 +3,7 @@
 import { state, commit, attemptsByRecency } from './state.mjs';
 import { loadQuestions, CATEGORY_LABELS, defaultMockSet } from './questions.mjs';
 import { trayMarkup, mountTray, openSelector } from './questions/selector.mjs';
-import { EASY_PRESETS, ROLES, STYLES, CURIOSITY, PACING, defaultSettings, applyPreset, describe as describeSettings } from './settings/interviewer.mjs';
+import { EASY_PRESETS, ROLES, STYLES, CURIOSITY, PACING, defaultSettings, applyPreset, resolveMockQuestionTarget, describe as describeSettings } from './settings/interviewer.mjs';
 import { controller } from './controller/session-controller.mjs';
 import { accountLabel } from './adapters/account-adapter.mjs';
 import { searchPrograms } from './adapters/context-adapter.mjs';
@@ -21,7 +21,7 @@ const main = document.getElementById('main');
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmtDate = (ms) => Number.isFinite(ms)?new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }):'Date unavailable';
 const fmtDur = (s) => Number.isFinite(s)?`${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`:'Duration unavailable';
-export const session = { questionId: null, mode: 'practice', mockSet: null, config: { targetQuestions: 5, style: 'Owl', pressure: false, durationMin: 15, maxDepth: 1 }, settings: defaultSettings(), program: null, retryOf: null, retry: null, priority: null, contextSources: [] };
+export const session = { questionId: null, mode: 'practice', mockSet: null, config: { targetQuestions: null, style: 'Owl', pressure: false, durationMin: 15, maxDepth: 1 }, settings: defaultSettings(), program: null, retryOf: null, retry: null, priority: null, contextSources: [] };
 let teardown = null;
 let generation = 0, acceptedHash = '#/home', revertingHash = false;
 const guarded = () => true;
@@ -174,6 +174,7 @@ async function renderMock(params, isCurrent = guarded) {
     if(!retry||retry.intent.launchMode!=='ai')throw new Error('This retry is unavailable or the question changed. Choose current questions for a new mock.');
     session.mockSet=[retry.intent.question];session.retry=retry.record;session.retryOf=retry.record.id;
     session.contextSources=retry.intent.wizard.contextSources.slice();session.program=null;
+    session.config.targetQuestions=null; // single-question Retry follows its pool; a later pool edit is a new mock
     Object.assign(session.settings,{role:retry.intent.wizard.interviewer,style:retry.intent.wizard.interviewerStyle,
       pressure:retry.intent.wizard.pressurePractice,advanced:true,targetQuestions:1});
   }else{session.retry=null;session.retryOf=null;}
@@ -190,6 +191,8 @@ async function renderMock(params, isCurrent = guarded) {
   const cfg = session.config;
   const draw = () => {
     if (!isCurrent()) return;
+    const targetQuestions = resolveMockQuestionTarget(cfg.targetQuestions, set.length);
+    st.targetQuestions = targetQuestions;
     contextOpen = main.querySelector('#interview-context')?.open ?? contextOpen;
     const preset = EASY_PRESETS.find((p) => p.id === st.preset) || EASY_PRESETS[0];
     main.innerHTML = `
@@ -213,17 +216,18 @@ async function renderMock(params, isCurrent = guarded) {
                 <div class="field"><label class="t-label">Interruption</label><div class="seg"><button type="button" data-interrupt="0" aria-pressed="${!st.interruption}">Never</button><button type="button" data-interrupt="1" aria-pressed="${st.interruption}">Long answers</button></div></div>
                 <div class="field"><label class="t-label">Pacing</label><div class="seg">${PACING.map((c) => `<button type="button" data-pacing="${c}" aria-pressed="${st.pacing === c}">${c}</button>`).join('')}</div></div>
                 <div class="field"><label class="t-label" for="adv-max">Follow-up limit</label><input id="adv-max" type="number" min="0" max="8" value="${st.maxFollowUps}"></div>
+                <div class="field"><label class="t-label" for="adv-target">Target questions</label><input id="adv-target" type="number" min="1" max="30" step="1" value="${targetQuestions}" aria-describedby="target-note"><small class="note" id="target-note">1–30 main questions. Your selected pool guides the interview; follow-ups and closing questions are additional.</small></div>
                 <div class="field"><label class="t-label">Program emphasis</label><div class="seg">${['Light', 'Normal', 'Strong'].map((c) => `<button type="button" data-emphasis="${c}" aria-pressed="${st.programEmphasis === c}">${c}</button>`).join('')}</div></div>
                 <div class="field" style="grid-column:1/-1"><small class="note">The interviewer is instructed to invite your questions and sign off. Choose "Wrap up" when you are ready for this part of the interview. Voice is managed by your account.</small></div>
               </div>
             </details>
 <details class="advanced" id="interview-context" ${contextOpen?'open':''} style="margin-top:12px"><summary><span>Interview context</span><span>choose</span></summary><div class="advanced-body"><p class="note" style="grid-column:1/-1">Only the sources you choose are checked for this interview. Missing or unauthorized information stays unavailable.</p>${sources.filter(s=>s.name!=='RISE'&&s.name!=='StoryForge'&&s.name!=='File Vault').map(s=>`<label class="field"><span><input type="checkbox" data-context="${s.name}" ${session.contextSources.includes(s.name)?'checked':''} ${s.available?'':'disabled'}> ${esc(s.name)}</span><small class="note">${s.available?esc(s.detail):'Not connected'}</small></label>`).join('')}<div style="grid-column:1/-1"><button class="btn btn-secondary" type="button" id="story-reveal" ${sources.find(s=>s.name==='StoryForge')?.available?'':'disabled'}>Show StoryForge suggestions</button>${storyRevealed?`<p class="note">Only approved matching story summaries may be included. Showing this option does not include them.</p><label><input type="checkbox" data-context="StoryForge" ${session.contextSources.includes('StoryForge')?'checked':''}> Include authorized matching stories in this interview</label>`:''}<p class="note"><a href="/iv-prep-on-call/advanced/#newsession">Manage application facts / update CV</a></p></div></div></details>
             <div class="t-label" style="margin:12px 0 6px">Length</div>
-            <div class="option-row">${[5, 15, 25].map((m) => `<button type="button" class="option" data-min="${m}" aria-pressed="${cfg.durationMin === m}">${m} min<small>approximate session length</small></button>`).join('')}</div>
+            <div class="option-row">${[5, 10, 15, 25].map((m) => `<button type="button" class="option" data-min="${m}" aria-pressed="${cfg.durationMin === m}">${m} min<small>approximate session length</small></button>`).join('')}</div>
             <ul class="checks" style="margin-top:12px"><li class="${state.calibration ? 'on' : 'warn'}"><i>${state.calibration ? '✓' : '!'}</i>${state.calibration ? 'Calibrated' : 'Not calibrated · global ranges'}</li><li class="${useProgram ? 'on' : ''}"><i>${useProgram ? '✓' : '·'}</i>${useProgram ? `Program: ${esc(state.program.name)}` : 'No program context (general interview)'}</li><li class="${controller.account?.mode === 'REAL' ? 'on' : 'warn'}"><i>${controller.account?.mode === 'REAL' ? '✓' : '!'}</i>${controller.account?.mode === 'REAL' ? (controller.account.liveInterviewAvailable ? 'GPT-Live interviewer · saved to your account' : 'Live interviewer unavailable · choose Self Practice') : 'Sign in through Matrix'}</li></ul>
           </aside>
         </div>
-        <div class="dock" id="dock"><div class="dock-state"><strong>${set.length} questions · ${esc(describeSettings(st))}</strong><small>Camera and mic connect inside the room. "Wrap up" still asks the closing question.</small></div><div class="dock-actions"><a class="btn btn-quiet" href="#/home">Back</a><button class="btn btn-primary btn-lg" type="button" id="go-room" ${set.length && controller.account?.liveInterviewAvailable ? '' : 'disabled'}>Enter the Interview Room ▸</button></div></div>
+        <div class="dock" id="dock"><div class="dock-state"><strong>${targetQuestions === set.length ? `${targetQuestions} questions` : `Target ${targetQuestions} · ${set.length} selected`} · ${esc(describeSettings(st))}</strong><small>Camera and mic connect inside the room. "Wrap up" still asks the closing question.</small></div><div class="dock-actions"><a class="btn btn-quiet" href="#/home">Back</a><button class="btn btn-primary btn-lg" type="button" id="go-room" ${set.length && controller.account?.liveInterviewAvailable ? '' : 'disabled'}>Enter the Interview Room ▸</button></div></div>
       </div>`;
     const questionsChanged=()=>{if(session.retry&&(set.length!==1||set[0]?.question_id!==session.retry.questionId)){session.retry=null;session.retryOf=null;}draw();};
     mountTray(main.querySelector('#tray'), set, { onChange: questionsChanged });
@@ -235,6 +239,16 @@ async function renderMock(params, isCurrent = guarded) {
     main.querySelector('#adv-role').addEventListener('change', (e) => { st.role = e.target.value; });
     main.querySelector('#adv-style').addEventListener('change', (e) => { st.style = e.target.value; });
     main.querySelector('#adv-max').addEventListener('change', (e) => { st.maxFollowUps = Math.max(0, Math.min(8, Number(e.target.value) || 0)); });
+    main.querySelector('#adv-target').addEventListener('change', (e) => {
+      if (!isCurrent()) return;
+      const target = Number(e.target.value);
+      if (!Number.isInteger(target) || target < 1 || target > 30) {
+        e.target.value = String(resolveMockQuestionTarget(cfg.targetQuestions, set.length));
+        return;
+      }
+      if (target !== 1 && session.retry) { session.retry = null; session.retryOf = null; }
+      cfg.targetQuestions = target; st.targetQuestions = target; draw();
+    });
     main.querySelector('.ready-card').addEventListener('click', (e) => {
       if (!isCurrent()) return;
       const b = e.target.closest('button'); if (!b || b.id === 'go-room') return;
@@ -247,7 +261,7 @@ async function renderMock(params, isCurrent = guarded) {
       else if (b.dataset.emphasis) st.programEmphasis = b.dataset.emphasis;
       else if (b.dataset.min) {
         const minutes = Number(b.dataset.min);
-        if (![5,15,25].includes(minutes)) return;
+        if (![5,10,15,25].includes(minutes)) return;
         cfg.durationMin = minutes; st.durationMin = minutes;
       }
       else return;

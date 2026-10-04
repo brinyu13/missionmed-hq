@@ -24,6 +24,13 @@ export function defaultSettings() {
   return { preset: 'balanced', role: 'Program Director', style: 'Owl', depth: 1, curiosity: 'Normal', pressure: false, interruption: false, pacing: 'Normal', maxFollowUps: 4, programEmphasis: 'Normal', targetQuestions: 5, durationMin: 15, voice: 'marin', advanced: false };
 }
 
+// An untouched Mock follows its selected pool. An explicit target may exceed the
+// pool; the existing native policy supplies distinct authorized questions.
+export function resolveMockQuestionTarget(value, poolLength) {
+  if (Number.isInteger(value) && value >= 1 && value <= 30) return value;
+  return Math.max(1, Math.min(30, Number.isInteger(poolLength) ? poolLength : 1));
+}
+
 export function applyPreset(settings, presetId) {
   const p = EASY_PRESETS.find((x) => x.id === presetId) || EASY_PRESETS[0];
   return { ...settings, preset: p.id, style: p.style, depth: p.depth, pressure: p.pressure, role: p.id === 'warm' ? 'Faculty' : p.id === 'direct' ? 'Chief Resident' : 'Program Director' };

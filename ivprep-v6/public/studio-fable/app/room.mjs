@@ -2,7 +2,7 @@
 import { state, uid, commit } from './state.mjs';
 import { loadQuestions } from './questions.mjs';
 import { controller } from './controller/session-controller.mjs';
-import { conductorConfig, toWizard, defaultSettings } from './settings/interviewer.mjs';
+import { conductorConfig, toWizard, defaultSettings, resolveMockQuestionTarget } from './settings/interviewer.mjs';
 import { liveContext } from './adapters/context-adapter.mjs';
 import { awaitVisibleCamera } from './adapters/media-readiness.mjs';
 import {mountDeviceControls,deviceControlsMarkup} from './adapters/device-controls.mjs';
@@ -26,7 +26,9 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   const practiceQ=questions.find(q=>q.question_id===session.questionId)||questions[0];
   const plan=substantiveQuestionPlan(mode==='mock'?(session.mockSet||questions.filter(q=>q.core_priority).slice(0,5)):[practiceQ]);
   if(!plan.length)throw new Error('Choose at least one current interview question.');
-  const cfg=session.config||{},settings=session.settings||defaultSettings();
+  const cfg=session.config||{};
+  const targetQuestions=mode==='mock'?resolveMockQuestionTarget(cfg.targetQuestions,plan.length):1;
+  const settings={...(session.settings||defaultSettings()),targetQuestions};
   let density=mode==='mock'&&!state.preferences?.densityPersisted?'interview':(state.preferences?.density||'coached');
   let initialPresentationMode=null;
   let overlaysVisible=state.preferences?.overlaysVisible===true;
@@ -63,7 +65,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
         </div>
         <div class="stage-enter" id="enter">
           <div>
-            <div class="t-kick gold">${mode === 'mock' ? 'Mock interview' : 'Practice rep'} · ${plan.length} question${plan.length > 1 ? 's' : ''}</div>
+            <div class="t-kick gold">${mode === 'mock' ? 'Mock interview' : 'Practice rep'} · ${targetQuestions} question${targetQuestions > 1 ? 's' : ''}${mode === 'mock' && targetQuestions !== plan.length ? ` · ${plan.length} selected` : ''}</div>
             <h2 class="t-h2" style="margin:8px 0 6px">${mode === 'mock' ? 'Ready for your interview?' : 'Ready for your answer?'}</h2>
             <p>${mode === 'mock' ? `Priority: ${esc(session.priority || 'leave one natural hook the interviewer can follow')}.` : `Priority: ${esc(session.priority || 'finish the answer in under 90 seconds')}.`} Connect your camera and microphone. Check your visible preview, then start when you are ready.</p>
             <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px"><button class="btn btn-primary btn-lg" type="button" id="connect-real">Connect camera + mic</button><button class="btn btn-primary btn-lg" type="button" id="start-session" disabled>${mode === 'mock' ? 'Start Interview' : 'Start recorded answer'} ▸</button></div>
@@ -187,11 +189,11 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     try{
       await awaitVisibleCamera(controller.video,controller.stream,{isCurrent:current});
       const wizard=toWizard(settings,{program:session.program,mode,contextSources:session.contextSources||[],retry:session.retry||null});
-      const context=mode==='mock'?await liveContext({wizard,interviewSet:plan,targetQuestions:plan.length}):null;
+      const context=mode==='mock'?await liveContext({wizard,interviewSet:plan,targetQuestions}):null;
       if(!current())return;
       observer?.start(); // before provider callbacks; native start owns the sole opening question
       engine.events.addEventListener('frame',onFrame);engine.events.addEventListener('state',onState);engine.events.addEventListener('word-timing',onWord);
-      const result=await controller.startSession({mode,question:plan[0],interviewSet:plan,wizard,targetQuestions:plan.length,openingQuestion:plan[0].canonical_text,context,voice:settings.voice||'marin',...callbacks});
+      const result=await controller.startSession({mode,question:plan[0],interviewSet:plan,wizard,targetQuestions,openingQuestion:plan[0].canonical_text,context,voice:settings.voice||'marin',...callbacks});
       if(!current())return;
       interviewer=result.interviewer;started=true;$('enter').remove();$('enter-note').hidden=true;$('rec').dataset.state='recording';$('rec-text').textContent='REC';
       disposeDevices?.();main.querySelector('[data-device-controls]').remove();
