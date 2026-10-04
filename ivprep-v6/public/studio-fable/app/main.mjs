@@ -17,6 +17,7 @@ import { readOwnPresentation } from './adapters/own-presentation.mjs';
 import { filterOwnAttempts, ownHistoryProgress, formatHistoryEvidence } from './adapters/history-view-model.mjs';
 import {readOwnCalendar,calendarHomeAction} from './adapters/calendar-view-model.mjs';
 import {ENVIRONMENTS,normalizeEnvironment,selectedEnvironment,environmentChoicesMarkup} from './adapters/environment-profile.mjs';
+import {legacyPresentationEntry} from './adapters/product-entry.mjs';
 
 const main = document.getElementById('main');
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -438,7 +439,9 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { const g 
 addEventListener('hashchange', route);
 controller.addEventListener('account', (e) => renderIdentity(e.detail));
 // A failed admission never becomes local/demo mode.
-controller.connectAccount().then(account=>{
+const legacyEntry=legacyPresentationEntry(location.pathname,location.hash);
+if(legacyEntry)location.replace(legacyEntry);
+else controller.connectAccount().then(account=>{
   renderIdentity(account);
   document.querySelectorAll('[data-admin-link]').forEach(link=>{link.hidden=account.role!=='admin';});
   void route();

@@ -16,6 +16,25 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 NORMAL ENTRY CONVERGENCE (PRODUCT4630):
+  SHARED4626 normally released at16:28:36Z and remote readback confirmed.
+  Independent non-builder normal Home->Review->saved mock1ca228aa confirms
+  saved Program Director/Owl, Full Analytics focus, actual private Play->Pace
+  citation paused4.278s, and the same behavior after cold reload. No hearing
+  or alternate-role claim. Root320px readiness has documentWidth320, all four
+  tabs contained, Connect reachable and Signal health click correct/idle;
+  viewport restored. Independent readiness pointer incident remains recorded.
+  Remaining normal-entry gap: Matrix product root still served old Studio.
+  Narrow mount now serves the identical Fable HTML at root and candidate,
+  keeping /advanced/ unchanged. Known plain legacy deep hashes retain their
+  exact existing review/query fragment at constant same-origin /advanced/
+  before Fable account startup; modern slash routes/Home/Progress stay Fable.
+  No auth/actor-subject/provider/media/persistence/owner contract recreation.
+ 58 focused entry/HQ admission/saved Admin review checks PASS; independent
+  scoped source review PASS. This is IMPLEMENTED_NEEDS_ACCEPTANCE until safe
+  deployment and actual authenticated normal-entry/legacy restoration POV.
+  Current healthy49a/fc897/image520558 is rollback; root promotion not yet live.
+
 - 2026-10-04 CURRENT RELEASE / CHANGED LIVE POV (SHARED4626):
   Clean pushed runtime49a0bbb65a3ee70a158fc63b6da897e83c992d62 deployed SUCCESS
   fc897116-a141-4fe8-9d6d-f54f63f6ab35; image

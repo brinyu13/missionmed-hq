@@ -176,12 +176,11 @@ async function readPcm(request) {
 
 function staticFile(pathname) {
   let relativePath;
-  // Y1-Y2-CAM-V6-3506: the product surface is now the approved 3492 Performance Studio
-  // shell. The pre-Fable 3440 AAA shell remains on disk and reachable at
-  // /iv-prep-on-call/legacy/ for comparison and rollback, but it is no longer what the
-  // hosted route serves.
-  if (pathname === PRODUCT_PREFIX || pathname === `${PRODUCT_PREFIX}/`) relativePath = 'studio/index.html';
-  // Preserve the current deep capability/Admin surfaces during Fable convergence.
+  // Fable owns the product presentation; the same protected engine/assets remain
+  // underneath it. Deep capability/Admin surfaces retain their existing owner.
+  if (pathname === PRODUCT_PREFIX || pathname === `${PRODUCT_PREFIX}/`) relativePath = 'studio-fable/index.html';
+  // Legacy bookmarks are routed here by the presentation-entry adapter, never by
+  // recreating admission or actor/subject logic in presentation code.
   else if (pathname === `${PRODUCT_PREFIX}/advanced` || pathname === `${PRODUCT_PREFIX}/advanced/`) relativePath = 'studio/index.html';
   else if (pathname === `${PRODUCT_PREFIX}/candidate` || pathname === `${PRODUCT_PREFIX}/candidate/`) relativePath = 'studio-fable/index.html';
   else if (pathname === `${LIVE_ANALYTICS_PREFIX}/`) relativePath = 'live-analytics/index.html';
