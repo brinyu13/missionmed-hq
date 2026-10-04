@@ -16,6 +16,28 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 CURRENT RUNTIME:23798cfb56fb742c69d8e61693a6ef7b6e2e51c4,
+  SUCCESS a8934a26-486e-440a-a7cd-4584da42d541, image
+  sha256:e090a74aecb7baf3146bc2b653bb3da10d8ac022149773777880a63deb38067d.
+  Exact1276-file tRwoU0 artifact/source.tar SHA
+  fc95633e8ecdea403d95e121e288836fdd2c5bd8f7c3cc4ab9159e05aca4fe90.
+  Health200/anonymous root,candidate,bootstrap401. Fresh authenticated brinyu
+  cold Home ->Devices ->Connect ->actual FaceTime preview; center and voice rail
+  contained, separately readable Camera/Microphone fields visually PASS. Native
+  picker option activation was not independently proven by this tooling check;
+  no alternate camera selection/provider/recording fabricated. Existing actions
+  remain reachable in the center scroll. Returned Home, capture released, actual
+  protected Fable Home left open in Chrome.52 affected calibration/lifecycle
+  checks and independent two-line correction review PASS. PRODUCT4567/SHARED4568
+  normally released/provider-confirmed. Exact750e7/Tb0Fo4,552d/97GqS0 and genuine
+  POV-known-good61aa/2YgD0Z rollback artifacts retained; REMOVED is normal rollout,
+  restore exact artifact rather than resetting source. Current authenticated
+  access WAITING is superseded. Full142, all11 physical rehearsal steps, full
+  current spoken mock/barge-in/two-sided cold replay and genuine role/data gates
+  remain open. No validated percentage/terminal completion. NEXT EXECUTABLE:
+  R027 stable recorder video input plus controller/engine/native/mix/candidate-only
+  recording coordination and Finish/release rollback regressions; READY-only
+  guard stays until proven. Continue independent current production POV work.
 - 2026-10-04 live containment fix-forward: source8bc0691, SUCCESS deployment
   750e7aea-9b65-42c8-b07d-78d110339711, image
   sha256:f0e7a67babc4c8d06ffbe9c4d586e4cd6e703d6eb63afdb04b22aac7c479a314,
