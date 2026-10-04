@@ -16,6 +16,43 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 CURRENT LIVE-ROOM CORRECTION / SHARED4787:
+  Deployed source7efbb12191eae2f42b2d542516e90f32a2269e2a, SUCCESS
+  a05c3009-378d-4029-9e90-c880ae715e65, image
+  sha256:a11cf22aca4e2b422fdc7a41853224e18612bbad28a4bde44cc8a22b11babf14.
+  DR350 jP2Ck7/stage:1297 tracked files, archiveSHA
+  98722dfcd242b3cef81626ca81a53284734bb2115683458c8f00835a80e51d20.
+  Health200/ok, anonymous root/v1bootstrap401; six MR owner paths unchanged.
+  Independent source review PASS after three concrete corrections;476 focused
+  checks PASS (81 directly affected checks after final canvas/density checks).
+  Actual brinyu Admin Home ->Mock5/Owl ->Readiness ->real visible FaceTime
+  preview ->Start ->distinct LIVE/REC room. Face TRACKED/body IN FRAME without
+  manual Lock to me; face orientation proxy observed35–80%, not true eye gaze.
+  Dominant AI voice presence, real1280x720 secondary camera, one Finish & save,
+  settings gear and solid-block recorder deck all visible. Live1440x900,
+  1512x982,1728x1117:document exactlyviewport; both rails/recorder/presence/
+  End entirely in bounds and rail scrollHeight==clientHeight. No clipped rails.
+  Hide self view ->samevideo remainsplaying +TRACKED/IN FRAME measurement;
+  Show ->Interview only hides rails/canvases,recorder44px ->Coached restores.
+  Gear opens contained popover with5camera/11mic options; no device switch
+  retested because switching engine unchanged. Preview/Start controls disappear.
+  Finish ->successful private save ->Results/Full Analytics ->Film Room:
+  real replay visibly plays1280x720 and advances; twelve lanes contain actual
+  presence/hand/framing/smile/recording marks. Framing mark seeks to2s before
+  its persisted timestamp. Exact saved120s session
+  6f52096f-a4a8-4a5f-b9e7-572e841a171f; cold Film recheck assigned independent
+  non-builder read-only verifier. Corrected live checkpoint:
+  /tmp/ivoc-room-recovery.wKO0ZD/corrected-live-1440.jpg.
+  This was a bounded engine/render/save test, NOT a completed contextual Mock.
+  It contains an opening interviewer fragment and brief candidate fragment,
+  no claimed answer-grounded follow-up/barge-in/closing or audible HEAR BOTH.
+  Current tools cannot hear playback or supply deliberate physical calibration/
+  semantic-hook speech. Those exact gates remain UNVERIFIED. No Founder retest
+  requested; no all-ledger completion claim. Active LemonSlice still deferred
+  byDR290; labelled voice presence is not a fabricated avatar/video provider.
+  New healthy runtime/artifact is current reversible rollback for changed scopes;
+  previous6da/1eec/DM2KCK source/artifact remains preserved (ID nowREMOVED).
+
 - 2026-10-04 FOUNDER SCREENSHOT ADDENDUM / PRODUCT4774→4779:
   Presentation remains recovered Fable/Astra lineage above capability adapters;
   no new design/provider/audio/session/storage owner. Actual pre-mutation
