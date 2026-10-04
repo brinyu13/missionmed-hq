@@ -29,8 +29,10 @@ export function mountEnvironmentProfile(room,{profile,isCurrent=()=>true,isLive=
   const role=room.querySelector('[data-people-interviewer]');if(role)role.textContent=interviewerRole;
   const hiddenNote=room.querySelector('.self-view-hidden');
   // Move the existing controls, not a duplicate audible/recording/runtime owner.
-  if(profile.controlPlacement==='top')room.querySelector('[data-environment-bar]').append(room.querySelector('#controls'));
-  else if(profile.simulated)room.querySelector('[data-environment-controls]').append(room.querySelector('#controls'));
+  if(room.dataset.cockpit!=='true'){
+    if(profile.controlPlacement==='top')room.querySelector('[data-environment-bar]').append(room.querySelector('#controls'));
+    else if(profile.simulated)room.querySelector('[data-environment-controls]').append(room.querySelector('#controls'));
+  }
   const listeners=[];let disposed=false;
   const current=()=>!disposed&&isCurrent();
   const bind=(node,event,handler)=>{if(node){node.addEventListener(event,handler);listeners.push(()=>node.removeEventListener(event,handler));}};

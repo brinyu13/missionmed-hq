@@ -90,7 +90,7 @@ export function invalidateDeviceCalibration(real) {
 // New measurement answer, not a new capture/session clock. The bridge owns it.
 export function beginMeasurementEpoch(real,{mediaStartedAt=null}={}) {
   const clock=real.bridge.sessionClock;
-  real.transcript.stop(); real.pipeline.abandonAnswer('preflight_complete');
+  real.transcript.stop(); real.pipeline.abandonAnswer('preflight_complete', { preservePrimary: true });
   real.history=[]; real.events=[]; real.lastHistoryAt=-Infinity; real.lastRecordedState=null;
   real.lastCounts={smiles:0,nods:0,gestures:0}; real.latestAudioSpeaking=false;
   real.projector.reset();
@@ -178,7 +178,7 @@ export async function createEngine({mode='real',video,overlayCanvas,csrfToken=''
     },
     beginFaceBaseline(){return real.pipeline.beginPersonalFaceBaseline();},
     endFaceBaseline(){return real.pipeline.endPersonalFaceBaseline();},
-    abandonPreview(){real.pipeline.abandonAnswer('preflight_complete');real.transcript.stop();},
+    abandonPreview(){real.pipeline.abandonAnswer('preflight_complete', { preservePrimary: true });real.transcript.stop();},
     interviewerTurn(kind,{questionId=null,source='REMOTE_VAD'}={}) {const atMs=real.clock?.sessionMs()||0; if(kind==='started') real.behavior.interviewerTurnStarted({atMs,questionId,source}); else real.behavior.interviewerTurnEnded({atMs,questionId});},
     setOverlayVisibility(value){return real.setOverlayVisibility(value);},
     async switchDevice(kind,id,coordinator) {

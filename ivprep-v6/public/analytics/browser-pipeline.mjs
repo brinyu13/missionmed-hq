@@ -19,7 +19,7 @@ const HOLISTIC_MODEL = `${IVPREP_ASSET_ROOT}/vendor/mediapipe/models/holistic_la
 const FACE_MODEL = `${IVPREP_ASSET_ROOT}/vendor/mediapipe/models/face_detector/blaze_face_short_range/float16/latest/blaze_face_short_range.tflite`;
 const ANALYTICS_ROOT = `${IVPREP_ASSET_ROOT}/analytics`;
 const FACE_WORKER = `${ANALYTICS_ROOT}/face-detector-worker.mjs`;
-const WORKER_REVISION = '3522c-primary-face-association-1';
+const WORKER_REVISION = '8001-primary-observation-epoch-1';
 const FACE_INITIALIZATION_WARNING_MS = 10_000;
 const HOLISTIC_FRAME_TIMEOUT_MIN_MS = 1_000;
 const HOLISTIC_FRAME_TIMEOUT_MAX_MS = 5_000;
@@ -159,6 +159,9 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     this.kWeightedLoudness = null;
     this.estimatedSyllableRate = new EstimatedSyllableRate();
     this.lastPrimaryLock = null;
+    this.lastPrimaryLockAtMs = null;
+    this.lastPrimaryFaceCount = null;
+    this.primaryCarry = null;
     this.visionSourceMode = 'camera';
     this.visionVideo = null;
     this.hiddenAt = null;
@@ -547,6 +550,20 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     this.workerErrors = [];
     let generation = this.generation;
     const answerEpoch = this.answerEpoch;
+    const carry = this.primaryCarry;
+    this.primaryCarry = null; // one boundary only; never a reusable identity token
+    const atMs = this.session.clock.sessionMs();
+    const capturedNow = this.now();
+    const preservePrimary = Boolean(carry && !document.hidden
+      && this.visionSourceMode === 'camera' && this.cameraMediaIsLive()
+      && carry.video === video && video.srcObject === carry.stream && video.paused !== true
+      && carry.stream === this.bridge.media.stream
+      && carry.track === this.bridge.media.stream?.getVideoTracks?.()[0]
+      && carry.generation === generation && carry.clock === this.session.clock
+      && carry.answerEpoch === answerEpoch - 1
+      && atMs >= carry.atMs && atMs - carry.atMs <= 1_000
+      && capturedNow >= carry.capturedAt && capturedNow - carry.capturedAt <= 1_000
+      && this.worker && this.faceWorker && this.workerReady && this.faceWorkerReady);
     if (!this.worker) {
       this.workerReady = false;
       generation = ++this.generation;
@@ -586,7 +603,7 @@ export class BrowserAnalyticsPipeline extends EventTarget {
         wasmRoot: `${VENDOR_ROOT}/wasm`,
         faceDetectorModelUrl: FACE_MODEL,
       });
-    } else this.faceWorker.postMessage({ type: 'reset', generation, answerEpoch });
+    } else this.faceWorker.postMessage({ type: 'reset', generation, answerEpoch, preservePrimary, timestampMs: atMs });
     const schedule = () => {
       if (!this.answer || this.answerSealed || generation !== this.generation || answerEpoch !== this.answerEpoch) return;
       const delay = Math.round(1_000 / this.targetFps);
@@ -831,11 +848,16 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     }
     if (message.type === 'primary-lock') {
       this.lastPrimaryLock = message.primaryLock || null;
+      this.lastPrimaryLockAtMs = Number.isFinite(message.timestampMs) ? message.timestampMs : null;
+      this.lastPrimaryFaceCount = Number.isFinite(message.faceCount) ? message.faceCount : null;
       this.dispatch('state', { state: 'primary-lock', atMs: message.timestampMs, primaryLock: this.lastPrimaryLock });
       this.forwardPendingVision(message.faceCount, generation, message.answerEpoch, message.visionEpoch, message.frameId, message.timestampMs, message.faceInferenceMs, message);
       return;
     }
     if (message.type === 'primary-selection-restarted') {
+      this.primaryCarry = null;
+      this.lastPrimaryLockAtMs = null;
+      this.lastPrimaryFaceCount = null;
       this.lastPrimaryLock = message.primaryLock || null;
       this.dispatch('state', { state: 'primary-lock', atMs: message.timestampMs, primaryLock: this.lastPrimaryLock });
       return;
@@ -1021,11 +1043,14 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     this.dispatch('state', { state: 'partial', subsystem, atMs, message: reason });
   }
 
-  resetEphemeralVisionState() {
+  resetEphemeralVisionState({ preservePrimary = false } = {}) {
     const message = { type: 'reset', generation: this.generation, answerEpoch: this.answerEpoch };
     try { this.worker?.postMessage?.(message); } catch {}
-    try { this.faceWorker?.postMessage?.(message); } catch {}
+    try { this.faceWorker?.postMessage?.({ ...message, preservePrimary }); } catch { this.primaryCarry = null; }
+    if (!preservePrimary) this.primaryCarry = null;
     this.lastPrimaryLock = null;
+    this.lastPrimaryLockAtMs = null;
+    this.lastPrimaryFaceCount = null;
   }
 
   markVisionUnavailable(reason) {
@@ -1088,6 +1113,7 @@ export class BrowserAnalyticsPipeline extends EventTarget {
   }
 
   onVisibilityChange() {
+    if (document.hidden && this.primaryCarry) this.resetEphemeralVisionState();
     if (!this.answer || this.answerSealed) return;
     const at = this.session.clock.sessionMs();
     if (document.hidden) {
@@ -1102,7 +1128,10 @@ export class BrowserAnalyticsPipeline extends EventTarget {
   }
 
   prepareEnd(endAt = this.now()) {
-    if (!this.answer) return null;
+    if (!this.answer) {
+      if (this.primaryCarry) this.resetEphemeralVisionState();
+      return null;
+    }
     if (this.answerSealed) return this.sealedEndAt;
     if (!Number.isFinite(endAt)) throw new TypeError('Analytics end timestamp must be finite.');
     this.answerSealed = true;
@@ -1119,6 +1148,7 @@ export class BrowserAnalyticsPipeline extends EventTarget {
   }
 
   reselectPrimary() {
+    this.primaryCarry = null;
     if (!this.answer || this.answerSealed || !this.faceWorker) return false;
     const timestampMs = this.session.clock.sessionMs();
     this.faceWorker.postMessage({
@@ -1131,7 +1161,10 @@ export class BrowserAnalyticsPipeline extends EventTarget {
   }
 
   endAnswer({ transcript = '', mediaAvailable = false, endAt = undefined } = {}) {
-    if (!this.answer) return null;
+    if (!this.answer) {
+      if (this.primaryCarry) this.resetEphemeralVisionState();
+      return null;
+    }
     if (!this.answerSealed) this.prepareEnd(endAt ?? this.now());
     const finalEndAt = this.sealedEndAt;
     let result = null;
@@ -1152,9 +1185,30 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     return result;
   }
 
-  abandonAnswer(reason = 'abandoned') {
-    if (!this.answer) return false;
-    this.stopSampling({ terminateWorker: false });
+  abandonAnswer(reason = 'abandoned', { preservePrimary = false } = {}) {
+    const requested = reason === 'preflight_complete' && preservePrimary === true;
+    if (!this.answer) {
+      if (!requested && this.primaryCarry) this.resetEphemeralVisionState();
+      return false;
+    }
+    const atMs = this.session.clock.sessionMs();
+    const video = this.visionVideo, stream = this.bridge.media?.stream;
+    const lock = this.lastPrimaryLock;
+    const trusted = requested && !document.hidden && !this.answerSealed
+      && this.hiddenAt === null && this.visionDisconnectedAt === null
+      && this.visionSourceMode === 'camera' && this.cameraMediaIsLive()
+      && video && video.srcObject === stream && video.paused !== true
+      && this.workerReady && this.faceWorkerReady
+      && lock?.state === 'PRIMARY_LOCKED' && lock.selectionRequired !== true
+      && lock.bystanderCount === 0 && this.lastPrimaryFaceCount === 1
+      && Number.isFinite(this.lastPrimaryLockAtMs)
+      && atMs >= this.lastPrimaryLockAtMs && atMs - this.lastPrimaryLockAtMs <= 1_000;
+    this.primaryCarry = trusted ? {
+      video, stream, track: stream.getVideoTracks()[0], generation: this.generation,
+      clock: this.session.clock, answerEpoch: this.answerEpoch, atMs: this.lastPrimaryLockAtMs,
+      capturedAt: this.now(),
+    } : null;
+    this.stopSampling({ terminateWorker: false, preservePrimary: trusted });
     this.session.observationGap({ startMs: this.answer.startedAtMs, endMs: this.session.clock.sessionMs(), reason });
     this.session.abandonAnswer();
     this.answer = null;
@@ -1169,7 +1223,7 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     return true;
   }
 
-  stopSampling({ terminateWorker = false } = {}) {
+  stopSampling({ terminateWorker = false, preservePrimary = false } = {}) {
     clearInterval(this.audioTimer);
     this.stopAdvancedAudio();
     clearTimeout(this.visionTimer);
@@ -1182,7 +1236,8 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     this.inFlightVision = null;
     this.frameInFlight = false;
     this.visionEpoch += 1;
-    if (!terminateWorker) this.resetEphemeralVisionState();
+    if (!terminateWorker) this.resetEphemeralVisionState({ preservePrimary });
+    else this.primaryCarry = null;
     if (terminateWorker && (this.worker || this.faceWorker)) {
       clearTimeout(this.faceInitTimer);
       this.faceInitTimer = null;

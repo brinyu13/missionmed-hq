@@ -18,7 +18,7 @@ for (const count of [1, 3, 5, 30]) test('native policy preserves substantive tar
 });
 test('native instructions cover hook, no-hook, interruption, multiple candidate questions and sign-off', () => {
   const policy = interviewTeachingPolicy(3);
-  for (const text of ['teaching moment with my son', 'What happened?', 'Do not always ask a follow-up',
+  for (const text of ['varied wording', 'one specific follow-up', 'Do not always ask a follow-up',
     'silence, trailing audio', 'one or more candidate questions', 'Any other questions?', 'do not invent program details',
     'PROFESSIONAL SIGN-OFF', 'Do not claim the recording is saved']) assert.ok(policy.includes(text), text);
   // Prompt contract coverage, not a claim that a real model obeyed it audibly.

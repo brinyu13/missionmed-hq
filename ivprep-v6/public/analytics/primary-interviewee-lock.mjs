@@ -228,6 +228,32 @@ export class PrimaryIntervieweeLock {
     return this.snapshot(at, []);
   }
 
+  beginObservationEpoch(atMs, { preservePrimary = false } = {}) {
+    const at = finiteTimestamp(atMs);
+    const trusted = preservePrimary === true
+      && this.state === PRIMARY_LOCK_STATE.PRIMARY_LOCKED
+      && this.primaryBox && this.primaryTrackId
+      && this.lastFaceCount === 1 && this.knownBystanders.length === 0
+      && !this.selectionRestartRequired && !this.reacquisitionAmbiguous
+      && this.lastAtMs !== null && at >= this.lastAtMs
+      && this.lastSeenAtMs !== null && at >= this.lastSeenAtMs
+      && at - this.lastSeenAtMs <= 1_000;
+    if (!trusted) return this.reset();
+    // Geometry remains transient inside the safety worker. New-answer evidence
+    // is withheld until fresh observations pass the ordinary continuity hold.
+    const box = this.primaryBox, trackId = this.primaryTrackId;
+    const lastSeenAtMs = this.lastSeenAtMs;
+    this.reset();
+    this.primaryBox = box;
+    this.primaryTrackId = trackId;
+    this.lastSeenAtMs = lastSeenAtMs;
+    this.lastAtMs = at;
+    this.state = PRIMARY_LOCK_STATE.REACQUIRING;
+    this.continuity = 'observation_epoch_reacquiring';
+    this.setWithheld(at, 'primary_reacquiring');
+    return this.snapshot(at, []);
+  }
+
   setWithheld(atMs, reason) {
     if (this.openWithheld?.reason === reason) return;
     this.closeWithheld(atMs);
@@ -361,7 +387,17 @@ export class PrimaryIntervieweeLock {
     const classification = this.matchPrimary(atMs, boxes);
     const matched = classification.matched;
     const outsideContinuity = boxes.filter((box) => !classification.matches.includes(box));
-    this.rememberBystanders(atMs, outsideContinuity);
+    // Only a narrowly overlapping, same-center area-threshold jitter may be
+    // withheld without exclusion memory. A spatially discontinuous singleton
+    // may be a replacement person and must never inherit the old primary lock.
+    this.rememberBystanders(atMs, outsideContinuity.filter((box) => {
+      const areaRatio = box.area / this.primaryBox.area;
+      const areaJitter = boxes.length === 1 && classification.matches.length === 0
+        && centerDistance(this.primaryBox, box) <= 0.04
+        && intersectionOverUnion(this.primaryBox, box) >= 0.3
+        && areaRatio >= 0.38 && areaRatio <= 2.65;
+      return !areaJitter || this.knownBystanderMatches(atMs, box);
+    }));
     if (classification.matches.length > 1) this.reacquisitionAmbiguous = true;
     if (matched && this.state === PRIMARY_LOCK_STATE.PRIMARY_LOCKED) {
       this.updatePrimaryMotion(atMs, matched);

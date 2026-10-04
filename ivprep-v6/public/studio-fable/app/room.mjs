@@ -37,7 +37,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   let layers=overlayLayers(state.preferences?.overlayLayers);
   let disposed=false,starting=false,started=false,saving=false,finished=false,engine=null,interviewer=null,saveRecord=null,deviceSwitching=false;
   main.innerHTML = `
-  <div class="room" id="room" data-density="${density}" data-mode="${mode}">
+  <div class="room" id="room" data-cockpit="true" data-phase="readiness" data-density="${density}" data-mode="${mode}">
     <div class="room-strip">
       <button class="exit" type="button" id="exit" aria-label="Leave the room">‹ Leave</button>
       <div class="plan" id="plan" aria-label="Question plan"></div>
@@ -45,6 +45,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
         <div class="density" role="group" aria-label="Analytics density"><button type="button" data-density="interview" aria-pressed="${density === 'interview'}">Interview only</button><button type="button" data-density="coached" aria-pressed="${density === 'coached'}">Coached</button></div>
         <span class="rec" id="rec" data-state="ready"><i></i><span id="rec-text">READY</span></span>
         <span class="clock" id="clock">00:00</span>
+        <button class="btn btn-primary" type="button" id="end">Finish &amp; save</button>
       </div>
     </div>
     <aside class="rail" id="rail-left" aria-label="Teaching rail">${leftRailMarkup()}</aside>
@@ -52,6 +53,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       ${environmentControlsMarkup(profile,{mode})}
       <div class="meeting-stage">
       <section class="presence" id="presence" data-speaking="false" aria-live="polite">
+        <div class="interviewer-embodiment" data-embodiment-host aria-label="AI interviewer presence"><span class="t-kick">${mode==='mock'?'AI voice interviewer':'Self Practice'}</span></div>
         <div class="orb" aria-hidden="true">${mode === 'mock' ? 'PD' : 'Q'}</div>
         <div class="who"><strong id="presence-name">${mode === 'mock' ? `${esc(settings.style || 'Owl')} · ${esc(settings.role || 'Program Director')}` : 'Practice rep'}</strong><span id="presence-sub">${mode === 'mock' ? 'Starts only when you choose Start Interview' : 'Your private answer recording'}</span></div>
         <div class="presence-tag"><span class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="t-tech" id="presence-state">waiting</span></div>
@@ -64,9 +66,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
         <p class="self-view-hidden" hidden>Self view hidden · your camera, recording, and enabled measurements continue.</p>
         <div class="captions" id="captions" hidden><span></span></div>
         <div class="controls" id="controls">
-          <button class="ctl-icon" type="button" id="guides" aria-pressed="${overlaysVisible}" aria-label="Show tracking overlays" title="Show tracking overlays">⌖</button>
           <button class="btn btn-primary" type="button" id="primary-action">Start answer</button>
-          <button class="btn btn-quiet" type="button" id="end">Finish &amp; save</button>
         </div>
         <div class="stage-enter" id="enter">
           <div>
@@ -81,12 +81,14 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       </div>
       <p class="note readiness-status" id="enter-note" role="status" aria-live="polite"></p>
       ${profile.simulated?'<div class="environment-controls" data-environment-controls></div>':''}
-      <div class="under-stage" id="under-stage"><span id="engine-label">Nothing is measured yet.</span><button class="transcript-toggle" type="button" id="transcript-toggle" aria-expanded="false">Transcript</button></div>
+      <div class="under-stage" id="under-stage"><span id="engine-label">Nothing is measured yet.</span><button class="transcript-toggle" type="button" id="transcript-toggle" aria-expanded="false">Transcript</button>${!profile.simulated?'<button type="button" class="btn btn-quiet" data-self-view aria-pressed="true" disabled>Hide self view</button>':''}</div>
+      <details class="room-settings" id="room-settings"><summary aria-label="Room settings">⚙ Settings</summary><div class="room-settings-panel">
       <div class="note" id="primary-recovery" role="status" aria-live="polite" hidden><span data-primary-status></span> <button class="btn btn-quiet" type="button" data-reselect-primary>Lock to me</button></div>
       <p class="note" id="room-preference-note" role="status" hidden></p>
-      <details class="expert"><summary>Display options</summary><button class="btn btn-quiet" type="button" id="reset-density">Use default analytics view</button><p class="note">Choose overlay layers below. Use the tracking-overlays button on your video to show or hide them. Measurement continues while overlays are hidden.</p><div class="review-actions" id="overlay-layers" role="group" aria-label="Tracking overlay layers">${[['face','Face'],['bodyHands','Body / hands'],['position','Framing']].map(([key,label])=>'<button class="btn btn-quiet" type="button" data-overlay-layer="'+key+'" aria-pressed="'+layers[key]+'">'+label+'</button>').join('')}</div></details>
+      <h3 class="t-label">Analytics display</h3><button class="btn btn-quiet" type="button" id="reset-density">Use default analytics view</button><button class="btn btn-quiet" type="button" id="guides" aria-pressed="${overlaysVisible}" aria-label="Show tracking overlays">Tracking overlays</button><p class="note">Measurements continue when overlays or self view are hidden.</p><div class="review-actions" id="overlay-layers" role="group" aria-label="Tracking overlay layers">${[['face','Face'],['bodyHands','Body / hands'],['position','Framing']].map(([key,label])=>'<button class="btn btn-quiet" type="button" data-overlay-layer="'+key+'" aria-pressed="'+layers[key]+'">'+label+'</button>').join('')}</div>
+      <details class="expert" data-room-devices open><summary>Devices</summary>${deviceControlsMarkup()}</details>
+      </div></details>
     <div class="transcript" id="transcript" hidden></div>
-    <details class="expert" data-room-devices open><summary>Devices</summary>${deviceControlsMarkup()}</details>
 
     </div>
     <aside class="rail" id="rail-right" aria-label="Voice rail">${rightRailMarkup()}</aside>
@@ -95,7 +97,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
 
   const $=id=>main.querySelector('#'+id),room=$('room'),rails=new RailsController(main);
   const recorder=new LiveRecorder($('recorder'),{window:'1M'}),history=new TraceHistory(),events=[],turns=[];let captions=[];
-  let timer=null,idleTimer=null,roomFault=null,lastCueId=null,disposeDevices=null,disposePrimary=null;
+  let timer=null,idleTimer=null,roomFault=null,lastCueId=null,lastFraming=null,disposeDevices=null,disposePrimary=null;
   const counts={smiles:0,nods:0,gestures:0};
   const current=()=>!disposed&&scopeCurrent();
   const disposeEnvironment=mountEnvironmentProfile(room,{profile,isCurrent:current,isLive:()=>started&&!saving&&!finished,interviewerRole:settings.role});
@@ -200,6 +202,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     if(!started||saving||disposed)return;
     const f=roomFault?{...e.detail,fault:roomFault}:e.detail;
     rails.ingest(f);history.push(f);
+    if(f.bodyHands?.framing&&f.bodyHands.framing!==lastFraming){lastFraming=f.bodyHands.framing;events.push({t:f.t,kind:'framing',label:lastFraming,state:f.state});}
     for(const [field,value,kind,label]of [['smiles',f.headFace?.smileEvents,'smile','Smile pattern'],['nods',f.headFace?.nods,'nod','Head nod'],['gestures',f.bodyHands?.gestures,'gesture','Gesture unit']]){
       if(Number.isFinite(value)&&value>counts[field]){counts[field]=value;events.push({t:f.t,kind,label,state:f.state});}
     }
@@ -224,7 +227,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       engine.events.addEventListener('frame',onFrame);engine.events.addEventListener('state',onState);engine.events.addEventListener('word-timing',onWord);
       const result=await controller.startSession({mode,question:plan[0],interviewSet:plan,wizard,targetQuestions,openingQuestion:plan[0].canonical_text,context,voice:selectedAdminVoice(settings,account,mode),...callbacks});
       if(!current())return;
-      interviewer=result.interviewer;started=true;$('enter').remove();$('enter-note').hidden=true;$('rec').dataset.state='recording';$('rec-text').textContent='REC';
+      interviewer=result.interviewer;started=true;room.dataset.phase='live';$('room-settings').open=false;$('enter').remove();$('enter-note').hidden=true;$('rec').dataset.state='recording';$('rec-text').textContent='REC';
       main.querySelector('[data-room-devices]').open=false;
       $('primary-action').hidden=true;$('engine-label').textContent='Recording privately to your account';$('end').disabled=false;
       $('presence-sub').textContent=mode==='mock'?'Speak naturally. Your interviewer can hear you.':'Answer the question. Finish & save when you are done.';
@@ -274,7 +277,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   }
   async function retrySave(){if(saving)return;saving=true;$('end').disabled=true;const saved=await controller.retrySave();if(saved)showSaved(saved);else showSaveFailure(controller.lastSave?.error||'Save is still unavailable.');}
   async function finishSession(reason){
-    if(saving||finished||!started)return;saving=true;disposeEnvironment.refresh();detach();$('end').disabled=true;
+    if(saving||finished||!started)return;saving=true;room.dataset.phase='saving';disposeEnvironment.refresh();detach();$('end').disabled=true;
     $('rec').dataset.state='saving';$('rec-text').textContent='SAVING';mark('recording','Recording stopped');
     const samples=history.slice(),snap=observer?.snapshot()||null,debrief=deriveDebrief({samples,events,turns});
     saveRecord={id:uid('att'),at:Date.now(),mode,fixture:false,engineMode:'real',transport:mode==='mock'?'gpt-live':'none',questionId:plan[0].question_id,questionText:plan[0].canonical_text,durationS:at(),samples,events,turns,conductor:snap,hooks:hookLedger(snap),closing:closingLedger(snap),debriefLane:debrief.change[0]?.lane||null,priorityLane:debrief.change[0]?.lane||null,priorityText:debrief.change[0]?.text||null,retryOf:session.retryOf||null,calibrationUsed:Boolean(engine.personalCalibration),program:session.program?{id:session.program.id,name:session.program.name,verified:session.program.verified}:null,endReason:reason,settings:{...settings,initialPresentationMode}};

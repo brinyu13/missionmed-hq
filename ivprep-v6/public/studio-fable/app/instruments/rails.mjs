@@ -11,6 +11,17 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 const human = (reason) => String(reason || 'unavailable').toLowerCase().replace(/[_·]+/g, ' ').replace(/\s+/g, ' ').trim();
 const ticks = (n) => `<span class="ticks">${'<i></i>'.repeat(Math.min(12, Math.max(0, n)))}</span>`;
 
+export function pitchRailState(frame={}){
+  const pitch=frame.pitch||{};
+  if(frame.speaking!==true)return {label:'Listening',tone:'hold'};
+  if(pitch.available!==true)return {label:'Unavailable',tone:'hold'};
+  if(pitch.voiced!==true)return {label:'Unvoiced',tone:'hold'};
+  if(pitch.referenceBasis!=='FIXED_PERSONAL_CALIBRATION_MEDIAN')return {label:'Calibrate',tone:'hold'};
+  if(pitch.coachingAvailable!==true)return {label:'Awaiting evidence',tone:'hold'};
+  if(['pitch-high','pitch-low'].includes(frame.cue?.id))return {label:'Toward your range',tone:'adj'};
+  return {label:'Personal range',tone:'hold'};
+}
+
 export function leftRailMarkup() {
   return `
   <div class="correction" id="correction" data-state="idle" aria-live="polite">
@@ -82,7 +93,7 @@ export function rightRailMarkup() {
     <div class="inst-val"><b id="vol-score">—</b><span id="vol-raw">speech-gated</span></div>
   </section>
   <section class="inst" aria-label="Pitch instrument">
-    <div class="inst-head" data-provenance="RECOVERED SELECTED DESIGN" title="Pitch piano · recovered 3521 design; producer: pitch-f0 NSDF, semitones from own median, never coached"><span class="t-label">Pitch</span><span class="verb hold" id="pitch-verb">Not coached</span></div>
+    <div class="inst-head" data-provenance="RECOVERED SELECTED DESIGN" title="Pitch piano · recovered 3521 design; producer: pitch-f0 NSDF, semitones from own median; calibrated corrections use the single arbiter"><span class="t-label">Pitch</span><span class="verb hold" id="pitch-verb">Awaiting evidence</span></div>
     <div class="piano" id="piano" data-available="false">
       <svg viewBox="0 0 ${W} 60" role="img" aria-label="Speaker-relative pitch occupancy">
         <g id="piano-keys">${keys}</g>${blacks}
@@ -186,6 +197,7 @@ export class RailsController {
 
   renderRight(frame) {
     const s = frame.speedWpm || {}; const v = frame.volume || {}; const p = frame.pitch || {}; const m = frame.volumeModulation || {};
+    const pitchState=pitchRailState(frame),pitchVerb=this.$('pitch-verb');pitchVerb.textContent=pitchState.label;pitchVerb.className='verb '+pitchState.tone;
     // PACE with hold-last-valid: bright ≤2 s, dim ≤8 s, then LAST label.
     const speedo = this.$('speedo');
     if (s.available && Number.isFinite(s.wordsPerMinute)) { this.hold.pace = { wpm: s.wordsPerMinute, score: s.score, cue: s.cue }; this.hold.paceAt = frame.t; }

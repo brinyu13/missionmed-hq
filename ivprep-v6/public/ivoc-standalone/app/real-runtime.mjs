@@ -544,6 +544,10 @@ export class RealAnalyticsEngine extends EventTarget {
         register: finite(pitch.register),
         variationSemitones: finite(pitch.variationSemitones),
         voicedFrames: finite(pitch.voicedFrames),
+        referenceBasis: pitch.referenceBasis === 'FIXED_PERSONAL_CALIBRATION_MEDIAN' ? pitch.referenceBasis : 'CURRENT_OBSERVED_MEDIAN',
+        coachingAvailable: behavior?.pitch?.available === true && behavior?.conversation?.state === 'ANSWERING'
+          && Number.isFinite(behavior.pitch.atMs) && Number.isFinite(snapshot?.atMs) && snapshot.atMs >= behavior.pitch.atMs && snapshot.atMs-behavior.pitch.atMs<=1000,
+        coachingCue: behavior?.cue?.id === 'pitch-high' || behavior?.cue?.id === 'pitch-low' ? behavior.cue.id : null,
       },
       headFace: {
         nods,
@@ -556,7 +560,7 @@ export class RealAnalyticsEngine extends EventTarget {
         smileEventsUnavailableReason: smilesLiveAvailable ? null : head.smileEvents?.reason || 'PERSONAL_BASELINE_REQUIRED',
         faceBaseline: { ...this.faceBaselineState },
         presence: head.facePresent ? 'TRACKED' : 'SEARCHING',
-        cameraFacingPct: facingRatio == null ? (head.orientation?.cameraFacingProxy === true ? 100 : 0) : Math.round(facingRatio * 100),
+        cameraFacingPct: facingRatio == null ? (typeof head.orientation?.cameraFacingProxy === 'boolean' ? (head.orientation.cameraFacingProxy ? 100 : 0) : null) : Math.round(facingRatio * 100),
         mouthActive: head.mouthCornerElevation?.active === true,
         eyesActive: head.periocularContraction?.active === true,
       },

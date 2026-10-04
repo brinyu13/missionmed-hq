@@ -33,6 +33,38 @@ test('initial acquisition uses elapsed stability and creates one anonymous sessi
   assert.deepEqual(locked.withheldIntervals, [{ startMs: 0, endMs: 650, reason: 'primary_lock_candidate' }]);
 });
 
+test('a singleton area-jitter frame does not misclassify the returning primary as a bystander', () => {
+  const tracker = new PrimaryIntervieweeLock();
+  const original = acquire(tracker).primaryTrackId;
+  const jitterScale = Math.sqrt(0.4);
+  const jitter = tracker.update({ atMs: 800, candidates: [face(0.51, 0.38, 0.18 * jitterScale, 0.24 * jitterScale)] });
+  assert.equal(jitter.state, PRIMARY_LOCK_STATE.PRIMARY_TEMPORARILY_OCCLUDED);
+  assert.equal(jitter.primaryUsable, false, 'the discontinuous detection remains withheld');
+  assert.equal(jitter.primaryTrackId, original);
+  assert.equal(tracker.update({ atMs: 1_000, candidates: [face(0.51)] }).state, PRIMARY_LOCK_STATE.REACQUIRING);
+  assert.equal(tracker.update({ atMs: 1_299, candidates: [face(0.51)] }).primaryUsable, false);
+  const restored = tracker.update({ atMs: 1_300, candidates: [face(0.51)] });
+  assert.equal(restored.state, PRIMARY_LOCK_STATE.PRIMARY_LOCKED);
+  assert.equal(restored.primaryTrackId, original);
+  assert.equal(restored.primaryUsable, true);
+  assert.equal(restored.selectionRequired, false);
+  assert.equal(restored.reacquisitionCount, 1);
+  const later = tracker.update({ atMs: 4_000, candidates: [face(0.51)] });
+  assert.equal(later.state, PRIMARY_LOCK_STATE.PRIMARY_LOCKED);
+  assert.equal(later.selectionRequired, false);
+});
+
+test('a spatially discontinuous singleton replacement cannot inherit the primary identity', () => {
+  const tracker = new PrimaryIntervieweeLock();
+  const original = acquire(tracker).primaryTrackId;
+  assert.equal(tracker.update({atMs:900,candidates:[face(.82)]}).primaryUsable,false);
+  tracker.update({atMs:1200,candidates:[face(.60)]});
+  const replacement = tracker.update({atMs:1500,candidates:[face(.60)]});
+  assert.equal(replacement.primaryUsable,false);
+  assert.equal(replacement.primaryTrackId,original);
+  assert.equal(replacement.continuity,'bystander_reacquisition_unsafe');
+});
+
 test('A: a three-second background bystander does not clear or steal the primary lock', () => {
   const tracker = new PrimaryIntervieweeLock();
   const original = acquire(tracker).primaryTrackId;
@@ -254,4 +286,51 @@ test('reset destroys track, geometry, and withheld interval state', () => {
   assert.equal(reset.primaryFaceBox, null);
   assert.deepEqual(reset.withheldIntervals, []);
   assert.equal(reset.reacquisitionCount, 0);
+});
+
+test('a fresh isolated primary crosses an observation epoch only after fresh continuity', () => {
+  const tracker = new PrimaryIntervieweeLock();
+  const original = acquire(tracker).primaryTrackId;
+  const carried = tracker.beginObservationEpoch(800, { preservePrimary: true });
+  assert.equal(carried.state, PRIMARY_LOCK_STATE.REACQUIRING);
+  assert.equal(carried.primaryTrackId, original);
+  assert.equal(carried.primaryUsable, false);
+  assert.equal(carried.reacquisitionCount, 0);
+  assert.equal(carried.excludedDurationMs, 0);
+  assert.equal(carried.withheldIntervals.length, 1);
+  assert.equal(tracker.update({ atMs: 900, candidates: [face(.51)] }).primaryUsable, false);
+  assert.equal(tracker.update({ atMs: 1_199, candidates: [face(.51)] }).primaryUsable, false);
+  const confirmed = tracker.update({ atMs: 1_200, candidates: [face(.51)] });
+  assert.equal(confirmed.primaryUsable, true);
+  assert.equal(confirmed.primaryTrackId, original);
+  assert.equal(confirmed.reacquisitionCount, 1);
+});
+
+for (const [name, prepare, at] of [
+  ['not explicitly requested', () => {}, 800],
+  ['stale primary', () => {}, 1_651],
+  ['backwards timestamp', () => {}, 649],
+  ['co-occurring bystander', tracker => tracker.update({ atMs: 750, candidates: [face(.51), face(.82)] }), 800],
+  ['remembered bystander', tracker => { tracker.update({ atMs: 700, candidates: [face(.51), face(.82)] }); tracker.update({ atMs: 750, candidates: [face(.51)] }); }, 800],
+  ['selection required', tracker => tracker.update({ atMs: 6_000, candidates: [] }), 6_001],
+  ['crossing ambiguity', tracker => tracker.update({ atMs: 750, candidates: [face(.51), face(.55)] }), 800],
+]) test('observation carry rejects ' + name, () => {
+  const tracker = new PrimaryIntervieweeLock();
+  acquire(tracker); prepare(tracker);
+  const value = tracker.beginObservationEpoch(at, { preservePrimary: name !== 'not explicitly requested' });
+  assert.equal(value.state, PRIMARY_LOCK_STATE.SEARCHING);
+  assert.equal(value.primaryTrackId, null);
+  assert.equal(value.primaryUsable, false);
+});
+
+test('carried primary never admits a discontinuous replacement', () => {
+  const tracker = new PrimaryIntervieweeLock();
+  const original = acquire(tracker).primaryTrackId;
+  tracker.beginObservationEpoch(800, { preservePrimary: true });
+  for (const atMs of [900, 1_200, 2_000]) {
+    const value = tracker.update({ atMs, candidates: [face(.82)] });
+    assert.equal(value.primaryUsable, false);
+    assert.equal(value.primaryTrackId, original);
+  }
+  assert.equal(tracker.update({ atMs: 3_200, candidates: [face(.82)] }).state, PRIMARY_LOCK_STATE.PRIMARY_SELECTION_REQUIRED);
 });

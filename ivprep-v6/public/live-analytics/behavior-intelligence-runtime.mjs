@@ -1,6 +1,6 @@
 import { ConversationStateMachine } from '../analytics/conversation-state.mjs';
 import { CalibrationSession } from '../analytics/calibration-session.mjs';
-import { derivePersonalCorridors } from '../analytics/coaching-config.mjs';
+import { derivePersonalCorridors, COACHING_CONFIG } from '../analytics/coaching-config.mjs';
 import { FacialActivityTracker } from '../analytics/facial-activity.mjs';
 import { GestureUnitDetector } from '../analytics/gesture-units.mjs';
 import { NodDetector } from '../analytics/nod-detector.mjs';
@@ -87,6 +87,7 @@ export class BehaviorIntelligenceRuntime {
     this.coachingMode = 'TRAINING';
     this.latestCue = null;
     this.audio = Object.freeze({ available: false, reason: 'NO_AUDIO_FRAMES' });
+    this.pitch = Object.freeze({ available: false, reason: 'NO_VALIDATED_CALIBRATED_PITCH' });
     this.wordTiming = Object.freeze({ tier: 'E', wordsPerMinute: null, available: false, reason: 'NO_OBSERVED_WORD_TIMESTAMPS' });
     this.latest = this.snapshot(atMs);
     return this.latest;
@@ -220,6 +221,25 @@ export class BehaviorIntelligenceRuntime {
   #audio(detail) {
     const atMs = Number(detail.atMs);
     if (!Number.isFinite(atMs)) return this.latest;
+    // Producer silence is not sustained pitch evidence, even if no independent
+    // event happened during the gap. Preserve arbiter budgets, restart dwell.
+    if (this.lastAudioAtMs !== null && atMs - this.lastAudioAtMs > 1000) {
+      for (const id of ['pitch-high', 'pitch-low']) this.cues.firstSeen.delete(id);
+      if (this.latestCue?.id?.startsWith('pitch-')) this.latestCue = null;
+    }
+    const pitch=detail.pitch,summary=pitch?.summary,reference=this.baseline?.pitchMedianHz;
+    const fresh=typeof detail.atMs==='number'&&atMs>=0&&(this.lastAudioAtMs===null||atMs>this.lastAudioAtMs);
+    const validPitch=fresh&&detail.available===true&&pitch?.voiced===true&&summary?.available===true
+      &&typeof pitch.f0Hz==='number'&&Number.isFinite(pitch.f0Hz)&&pitch.f0Hz>=COACHING_CONFIG.pitch.minimumHz&&pitch.f0Hz<=COACHING_CONFIG.pitch.maximumHz
+      &&typeof pitch.clarity==='number'&&Number.isFinite(pitch.clarity)&&pitch.clarity>=.7&&pitch.clarity<=1
+      &&typeof reference==='number'&&Number.isFinite(reference)&&reference>0
+      &&summary.referenceBasis==='FIXED_PERSONAL_CALIBRATION_MEDIAN'&&typeof summary.referenceHz==='number'
+      &&Number.isFinite(summary.referenceHz)&&Math.abs(summary.referenceHz-reference)<=.001
+      &&Number.isInteger(summary.voicedFrames)&&summary.voicedFrames>=COACHING_CONFIG.pitch.minimumVoicedFrames
+      &&typeof summary.voicedRatio==='number'&&Number.isFinite(summary.voicedRatio)&&summary.voicedRatio>=.7&&summary.voicedRatio<=1;
+    this.pitch=deepFreeze(validPitch?{available:true,voiced:true,f0Hz:pitch.f0Hz,referenceHz:reference,
+      referenceBasis:summary.referenceBasis,semitonesFromSpeakerMedian:12*Math.log2(pitch.f0Hz/reference),coverage:summary.voicedRatio,atMs}
+      :{available:false,reason:'NO_VALIDATED_CALIBRATED_PITCH'});
     const level = dbfs(Number(detail.rms));
     const deltaMs = this.lastAudioAtMs === null ? 0 : Math.max(0, Math.min(250, atMs - this.lastAudioAtMs));
     this.lastAudioAtMs = atMs;
@@ -378,7 +398,14 @@ export class BehaviorIntelligenceRuntime {
   #arbitrate(atMs) {
     const loudness = this.audio?.loudness;
     const loudnessCorridor = this.#corridors().loudnessLufsK;
+    const pitchCorridor=this.#corridors().pitchHz;
+    const pitchReady=this.pitch.available===true&&atMs>=this.pitch.atMs&&atMs-this.pitch.atMs<=1000
+      &&this.conversation.state==='ANSWERING'&&this.audio?.speaking===true&&pitchCorridor?.basis==='PERSONAL_CALIBRATION';
+    const pitchHigh=pitchReady&&this.pitch.f0Hz>pitchCorridor.maximum,pitchLow=pitchReady&&this.pitch.f0Hz<pitchCorridor.minimum;
+    if(this.latestCue?.id?.startsWith('pitch-')&&!((this.latestCue.id==='pitch-high'&&pitchHigh)||(this.latestCue.id==='pitch-low'&&pitchLow)))this.latestCue=null;
     const candidates = [
+      {id:'pitch-high',active:pitchHigh,priority:1.5,message:'Return toward your personal pitch range',minimumDwellMs:10_000,confidence:pitchReady?'MODERATE':'UNAVAILABLE',coverage:this.pitch.coverage},
+      {id:'pitch-low',active:pitchLow,priority:1.5,message:'Return toward your personal pitch range',minimumDwellMs:10_000,confidence:pitchReady?'MODERATE':'UNAVAILABLE',coverage:this.pitch.coverage},
       {
         id: 'orientation-away',
         active: this.orientation.orientation === 'AWAY' && this.conversation.state === 'ANSWERING',
@@ -440,6 +467,7 @@ export class BehaviorIntelligenceRuntime {
       nod: this.nod,
       notes: this.notes,
       audio: this.audio,
+      pitch: this.pitch,
       wordTiming: this.wordTiming,
       turnMetrics: this.turnMetrics.snapshot(atMs),
       interviewerChannel: this.interviewerChannel,
@@ -474,6 +502,9 @@ export class BehaviorIntelligenceRuntime {
 
   setBaseline(derived = null) {
     this.baseline = derived && typeof derived === 'object' ? deepFreeze({ ...derived }) : null;
+    this.pitch=Object.freeze({available:false,reason:'CALIBRATION_CHANGED_RECHECK_PITCH'});
+    for(const id of ['pitch-high','pitch-low'])this.cues.firstSeen.delete(id);
+    if(this.latestCue?.id?.startsWith('pitch-'))this.latestCue=null;
     this.latest = this.snapshot(this.latest?.atMs ?? 0);
     return this.latest;
   }

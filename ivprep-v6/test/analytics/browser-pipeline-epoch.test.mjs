@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
+import { PrimaryIntervieweeLock, primaryLockDiagnostic } from '../../public/analytics/primary-interviewee-lock.mjs';
 
 if (!globalThis.CustomEvent) globalThis.CustomEvent = class CustomEvent extends Event { constructor(type, init = {}) { super(type);this.detail=init.detail; } };
 globalThis.document = {
@@ -10,6 +13,118 @@ globalThis.document = {
 };
 
 const { BrowserAnalyticsPipeline, visionFrameDimensions, visionFrameWatchdogMs } = await import('../../public/analytics/browser-pipeline.mjs');
+
+const faceResetSource = readFileSync(new URL('../../public/analytics/face-detector-worker.mjs', import.meta.url), 'utf8');
+const resetBody = faceResetSource.slice(faceResetSource.indexOf('function reset(message)'), faceResetSource.indexOf('function reselectPrimary(message)'));
+const primaryFace = x => ({ left: x - .09, top: .26, width: .18, height: .24 });
+
+function carryFixture() {
+  const previous = { Worker: globalThis.Worker, setTimeout: globalThis.setTimeout, clearTimeout: globalThis.clearTimeout };
+  let now = 0;
+  const track = { readyState: 'live', enabled: true, muted: false };
+  let camera = track;
+  const stream = { getVideoTracks: () => [camera], getAudioTracks: () => [] };
+  const video = { srcObject: stream, paused: false, readyState: 4, videoWidth: 640, videoHeight: 480 };
+  const bridge = { media: { cam: true, stream } };
+  const workers = [];
+  globalThis.setTimeout = () => 1;
+  globalThis.clearTimeout = () => {};
+  globalThis.Worker = class {
+    constructor(url) {
+      this.face = url.includes('face-detector-worker'); this.messages = []; workers.push(this);
+      if (this.face) {
+        this.tracker = new PrimaryIntervieweeLock();
+        this.scope = { generation: 0, activeAnswerEpoch: 0, primaryLock: this.tracker, ready: true, self: { postMessage() {} } };
+        vm.createContext(this.scope); vm.runInContext(resetBody + ';this.reset = reset;', this.scope);
+      }
+    }
+    postMessage(message) {
+      this.messages.push(message);
+      if (!this.face) return;
+      if (message.type === 'init') { this.scope.generation = message.generation; this.scope.activeAnswerEpoch = message.answerEpoch; }
+      if (message.type === 'reset') this.scope.reset(message);
+    }
+    terminate() {}
+  };
+  const pipeline = new BrowserAnalyticsPipeline({ bridge, now: () => now });
+  pipeline.beginAnswer({ videoElement: video });
+  pipeline.workerReady = true; pipeline.faceWorkerReady = true;
+  const safety = workers.find(worker => worker.face);
+  safety.tracker.update({ atMs: 0, candidates: [primaryFace(.5)] });
+  const acquired = safety.tracker.update({ atMs: 650, candidates: [primaryFace(.5)] });
+  now = 650;
+  const publish = value => pipeline.onFaceWorkerMessage({ type: 'primary-lock', generation: pipeline.generation,
+    answerEpoch: pipeline.answerEpoch, visionEpoch: pipeline.visionEpoch, timestampMs: now,
+    faceCount: value.faceCount, primaryLock: primaryLockDiagnostic(value) }, pipeline.generation);
+  publish(acquired);
+  return { pipeline, safety, video, bridge, track, acquired, setNow: value => { now = value; },
+    setTrack: value => { camera = value; }, publish,
+    close() { pipeline.destroy(); document.hidden = false; Object.assign(globalThis, previous); } };
+}
+
+test('preflight carry uses the actual worker reset contract and still requires fresh continuity', () => {
+  const f = carryFixture();
+  try {
+    const oldEpoch = f.pipeline.answerEpoch;
+    f.pipeline.abandonAnswer('preflight_complete', { preservePrimary: true });
+    assert.ok(f.pipeline.primaryCarry);
+    assert.equal(f.safety.tracker.state, 'PRIMARY_LOCKED', 'same-epoch stop parks, not admits, the lock');
+    f.setNow(800); f.pipeline.beginAnswer({ videoElement: f.video });
+    assert.equal(f.pipeline.answerEpoch, oldEpoch + 1);
+    assert.equal(f.pipeline.primaryCarry, null);
+    assert.equal(f.safety.tracker.state, 'REACQUIRING');
+    assert.equal(f.safety.tracker.primaryTrackId, f.acquired.primaryTrackId);
+    assert.equal(f.safety.tracker.snapshot(800).primaryUsable, false);
+    assert.equal(f.safety.tracker.update({ atMs: 900, candidates: [primaryFace(.5)] }).primaryUsable, false);
+    const confirmed = f.safety.tracker.update({ atMs: 1_200, candidates: [primaryFace(.5)] });
+    assert.equal(confirmed.primaryUsable, true);
+    assert.equal(confirmed.primaryTrackId, f.acquired.primaryTrackId);
+    assert.equal(f.safety.messages.at(-1).preservePrimary, true);
+    assert.equal('primaryFaceBox' in f.safety.messages.at(-1), false);
+  } finally { f.close(); }
+});
+
+for (const [name, change] of [
+  ['changed camera track', f => f.setTrack({ readyState: 'live', enabled: true, muted: false })],
+  ['changed video', f => { f.video = { ...f.video }; }],
+  ['changed stream', f => { f.bridge.media.stream = { ...f.bridge.media.stream }; f.video.srcObject = f.bridge.media.stream; }],
+  ['changed worker generation', f => { f.pipeline.generation += 1; f.safety.scope.generation = f.pipeline.generation; }],
+  ['changed capture clock', f => { f.pipeline.session.clock = new Proxy(f.pipeline.session.clock, { get: (target, key) => typeof target[key] === 'function' ? target[key].bind(target) : target[key] }); }],
+  ['stale carry', f => f.setNow(1_651)],
+  ['backwards clock', f => f.setNow(649)],
+  ['hidden page', () => { document.hidden = true; }],
+  ['camera unavailable', f => { f.track.muted = true; }],
+  ['vision invalidation', f => f.pipeline.invalidateVision('camera_changed')],
+  ['hide then show', f => { document.hidden = true; f.pipeline.onVisibilityChange(); document.hidden = false; }],
+  ['normal end preparation', f => f.pipeline.prepareEnd()],
+  ['normal end', f => f.pipeline.endAnswer()],
+  ['ordinary sampling reset', f => f.pipeline.stopSampling()],
+  ['explicit reselection', f => f.pipeline.reselectPrimary()],
+]) test('preflight carry falls back to a fresh lock after ' + name, () => {
+  const f = carryFixture();
+  try {
+    f.pipeline.abandonAnswer('preflight_complete', { preservePrimary: true });
+    assert.ok(f.pipeline.primaryCarry); change(f);
+    f.pipeline.beginAnswer({ videoElement: f.video });
+    assert.equal(f.pipeline.primaryCarry, null);
+    assert.equal(f.safety.tracker.primaryTrackId, null);
+    assert.equal(f.safety.tracker.state, 'SEARCHING');
+  } finally { f.close(); }
+});
+
+for (const [name, before] of [
+  ['non-preflight abandonment', f => f.pipeline.abandonAnswer('superseded', { preservePrimary: true })],
+  ['selection-required primary', f => { f.setNow(6_000); const value = f.safety.tracker.update({ atMs: 6_000, candidates: [] }); f.publish(value); f.pipeline.abandonAnswer('preflight_complete', { preservePrimary: true }); }],
+  ['co-occurring bystander', f => { f.setNow(750); f.publish(f.safety.tracker.update({ atMs: 750, candidates: [primaryFace(.5), primaryFace(.82)] })); f.pipeline.abandonAnswer('preflight_complete', { preservePrimary: true }); }],
+  ['remembered bystander', f => { f.safety.tracker.update({ atMs: 700, candidates: [primaryFace(.5), primaryFace(.82)] }); f.setNow(750); f.publish(f.safety.tracker.update({ atMs: 750, candidates: [primaryFace(.5)] })); f.pipeline.abandonAnswer('preflight_complete', { preservePrimary: true }); }],
+]) test('preflight carry cannot preserve ' + name, () => {
+  const f = carryFixture();
+  try {
+    before(f); f.pipeline.beginAnswer({ videoElement: f.video });
+    assert.equal(f.safety.tracker.primaryTrackId, null);
+    assert.equal(f.safety.tracker.state, 'SEARCHING');
+  } finally { f.close(); }
+});
 
 test('vision capture preserves source aspect ratio inside the 480 by 270 analysis box',()=>{
   assert.deepEqual(visionFrameDimensions(1_280,720),{width:480,height:270});

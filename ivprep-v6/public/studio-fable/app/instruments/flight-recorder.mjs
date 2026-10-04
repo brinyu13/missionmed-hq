@@ -12,6 +12,26 @@ import { intervalRuns } from '../model/trace-reducer.mjs';
 const COLORS = { vol: '#2fe7b0', pitch: '#a696ff', pace: '#39d6ff', variety: '#ffb84d' };
 const WINDOWS = { '30S': 30, '1M': 60, '3M': 180, '5M': 300, FULL: Infinity };
 
+// Reuse the recovered Film Room lane grammar in a compact live deck. These are
+// observed bands/marks on the existing recording clock, not new producers.
+export function compactRecorderLanes(samples, events) {
+  const runs=(key)=>intervalRuns(samples,key).map(r=>({t:r.startT,end:r.endT+.5,value:r.value}));
+  const marks=(kinds)=>events.filter(e=>kinds.includes(e.kind)&&Number.isFinite(e.t)).map(e=>({...e,value:e.label||e.kind}));
+  return [
+    {name:'Conversation',kind:'state',bands:runs('state')},
+    {name:'Hands',kind:'hands',bands:runs('hands')},
+    {name:'Framing / presence',kind:'presence',bands:runs('presence'),marks:marks(['framing'])},
+    {name:'Gestures',marks:marks(['gesture'])},
+    {name:'Smiles',marks:marks(['smile'])},
+    {name:'Nods',marks:marks(['nod'])},
+    {name:'Coaching',marks:marks(['cue'])},
+    {name:'Question / turn',marks:marks(['question','answer','followup','closing','overlap'])},
+    {name:'Hooks',marks:marks(['hook'])},
+    {name:'Recording',marks:marks(['recording'])},
+    {name:'Signal gaps',kind:'gap',bands:runs('signalGap'),marks:marks(['gap'])},
+  ];
+}
+
 export function recorderMarkup({ mode = 'live' } = {}) {
   return `
   <div class="recorder-head" data-provenance="RECOVERED + MODERNIZED" title="Flight Recorder · recovered 3528C 14-lane deck + 3527 shared 0–10 axis, modernized to solid blocks/bands and 12 replay lanes; reducer: ivoc.trace-reducer.v1 (null = gap)">
@@ -19,7 +39,7 @@ export function recorderMarkup({ mode = 'live' } = {}) {
     <div style="display:flex;gap:10px;align-items:center"><span class="t-tech" id="fr-clock">00:00</span><div class="windows" id="fr-windows">${Object.keys(WINDOWS).map((w) => `<button type="button" data-window="${w}" aria-pressed="${w === (mode === 'film' ? 'FULL' : '1M')}">${w}</button>`).join('')}</div></div>
   </div>
   <div class="recorder-body"><canvas id="fr-canvas" aria-label="Voice traces on a shared 0 to 10 axis"></canvas></div>
-  <div class="recorder-events"><canvas id="fr-events" aria-label="Session events"></canvas></div>`;
+  <div class="recorder-events"><canvas id="fr-events" aria-label="Conversation, hands, framing, gestures, smiles, nods, coaching, question turns, hooks, recording and signal gaps"></canvas></div>`;
 }
 
 const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
@@ -44,7 +64,7 @@ export class LiveRecorder {
     const canvas = this.root.querySelector('#fr-canvas'); const evCanvas = this.root.querySelector('#fr-events'); if (!canvas) return;
     const dpr = Math.min(devicePixelRatio || 1, 2);
     const W = Math.max(10, canvas.clientWidth); const H = Math.max(10, canvas.clientHeight);
-    if (canvas.width !== Math.round(W * dpr)) { canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); }
+    if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) { canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); }
     const ctx = canvas.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
     const span = WINDOWS[this.windowKey] === Infinity ? Math.max(30, this.now) : WINDOWS[this.windowKey];
     const t1 = this.now; const t0 = Math.max(0, t1 - span);
@@ -92,9 +112,31 @@ export class LiveRecorder {
     // Events strip.
     if (evCanvas) {
       const EW = Math.max(10, evCanvas.clientWidth); const EH = Math.max(6, evCanvas.clientHeight);
-      if (evCanvas.width !== Math.round(EW * dpr)) { evCanvas.width = Math.round(EW * dpr); evCanvas.height = Math.round(EH * dpr); }
+      if (evCanvas.width !== Math.round(EW * dpr) || evCanvas.height !== Math.round(EH * dpr)) { evCanvas.width = Math.round(EW * dpr); evCanvas.height = Math.round(EH * dpr); }
       const ectx = evCanvas.getContext('2d'); ectx.setTransform(dpr, 0, 0, dpr, 0, 0); ectx.clearRect(0, 0, EW, EH);
       ectx.font = '700 11px Archivo, sans-serif'; ectx.textAlign = 'center'; ectx.textBaseline = 'middle';
+      if(EH>=80){
+        const deck=compactRecorderLanes(visible,this.events),cellW=EW/3,rowH=EH/4;
+        deck.forEach((lane,index)=>{
+          const col=index%3,row=Math.floor(index/3),left=col*cellW,labelW=Math.min(126,cellW*.36),top=row*rowH;
+          const tx=t=>left+labelW+((t-t0)/Math.max(1e-6,t1-t0))*(cellW-labelW-12);
+          ectx.fillStyle='#b7c3d7';ectx.textAlign='left';ectx.fillText(lane.name,left+3,top+rowH/2);
+          ectx.fillStyle='#ffffff08';ectx.fillRect(left+labelW,top+4,cellW-labelW-12,rowH-8);
+          for(const band of lane.bands||[]){
+            if(band.end<t0||band.t>t1)continue;
+            const unknown=band.value==='UNAVAILABLE'||band.value==='SEARCHING'||band.value==null;
+            ectx.fillStyle=unknown?'#ffb84d55':lane.kind==='gap'?(band.value?'#e5484d':'#31435b'):lane.kind==='state'?({ANSWERING:'#2fbf63',LISTENING:'#3f6bd8',THINKING:'#8b7cf7',PAUSE:'#ffc24b'}[band.value]||'#57628a'):lane.kind==='hands'?(band.value==='NONE'?'#7f8ca3':'#2fe7b0'):'#2fe7b0';
+            const begin=tx(Math.max(t0,band.t)),end=tx(Math.min(t1,band.end));
+            ectx.fillRect(begin,top+6,Math.max(0,end-begin),rowH-12);
+          }
+          for(const ev of lane.marks||[]){
+            if(ev.t<t0||ev.t>t1)continue;
+            ectx.fillStyle=ev.kind==='overlap'?'#ffb84d':ev.kind==='gap'?'#e5484d':ev.kind==='recording'?'#ff6b74':ev.kind==='hook'?'#a696ff':'#39d6ff';
+            ectx.fillRect(tx(ev.t)-2,top+5,4,rowH-10);
+          }
+        });
+        return;
+      }
       const glyph = { question: ['◆', '#39d6ff'], followup: ['◇', '#d9a6ff'], overlap: ['≋', '#ffb84d'], cue: ['↕', '#ffa928'], recording: ['●', '#ff6b74'], smile: ['☺', '#ffb84d'], nod: ['◦', '#9fd8ff'], gesture: ['✦', '#2fe7b0'], hook: ['⚓', '#a696ff'], closing: ['■', '#39d6ff'], transition: ['·', '#5f6c86'], answer: ['·', '#5f6c86'] };
       for (const ev of this.events) {
         if (ev.t < t0 || ev.t > t1) continue;
@@ -129,7 +171,7 @@ export function renderFilmLanes(host, { samples = [], events = [], durationS = n
       ${laneRow('Voice · 0–10', 'VOICE', '<canvas data-voice></canvas>', 'voice')}
       ${laneRow('Conversation state', 'BEHAVIOR', runs('state', (v) => STATE_CLASS[v] || 'setup'))}
       ${laneRow('Hand visibility', 'BEHAVIOR', runs('hands', (v) => v === 'BOTH' ? 'both' : v === 'NONE' ? 'none' : v === 'UNAVAILABLE' ? 'gap' : 'one'))}
-      ${laneRow('Framing / presence', 'BEHAVIOR', runs('presence', (v) => v === 'TRACKED' ? 'tracked' : 'searching'))}
+      ${laneRow('Framing / presence', 'BEHAVIOR', runs('presence', (v) => v === 'TRACKED' ? 'tracked' : 'searching') + pins('framing'))}
       ${laneRow('Gestures', 'EVENTS', pins('gesture'))}
       ${laneRow('Smiles', 'EVENTS', pins('smile'))}
       ${laneRow('Head nods', 'EVENTS', pins('nod'))}

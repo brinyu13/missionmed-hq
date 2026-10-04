@@ -8,6 +8,17 @@ import {
 } from '../../server/providers/openai-live-session.mjs';
 import { createLiveContext } from '../../public/studio/live-context-adapter.mjs';
 
+test('native Bottom Lining policy is semantic, bounded and absent when substantive follow-ups are disabled',()=>{
+  const instructions=buildLiveInterviewInstructions(CONTEXT,ACTOR_CONTEXT);
+  for(const law of ['BOTTOM LINING / CONVERSATIONAL HOOKS','varied wording','result without method','factual contradiction','already explained','irrelevant tangent','protected personal topics','per-answer and total follow-up limits','Reserve room for mandatory closing','do not authorize a second scripted turn controller'])assert.ok(instructions.includes(law),law);
+  assert.doesNotMatch(instructions,/teaching moment with my son yesterday|→ “What happened/);
+  assert.match(instructions,/exact listed order/);assert.match(instructions,/Do you have any questions for me/);
+  const policy={schema:'ivoc.interview-policy.v1',version:1,maxFollowUpsPerAnswer:0,defaultFollowUpDepth:0,defaultPressureEnabled:false};
+  const disabled=buildLiveInterviewInstructions(CONTEXT,{...ACTOR_CONTEXT,interviewPolicy:policy});
+  assert.doesNotMatch(disabled,/BOTTOM LINING \/ CONVERSATIONAL HOOKS/);
+  assert.match(disabled,/No substantive follow-ups are permitted/);
+});
+
 test('Guided preference reaches native instructions separately from authorized evidence', async () => {
   const calls = [];
   const broker = new OpenAiLiveSessionBroker({ apiKey: 'unit-only', fetchImpl: async (_url, options) => {

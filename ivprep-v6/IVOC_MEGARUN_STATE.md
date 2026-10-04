@@ -5,7 +5,7 @@ Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`, `DR-350` (narrow packaging), `DR-361` (current RISE eligibility successor); `DR-340` QA grant revoked
 Branch: `codex/ivoc-foreman-9200`
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
-Current continuation boundary: `LIVE STARTUP/SAVE RECOVERY VERIFIED — FULL SPOKEN POV ACCEPTANCE UNVERIFIED`
+Current continuation boundary: `FOUNDER LIVE-ROOM ADDENDUM FIX-FORWARD — CURRENT ENGINE PRESERVED; LIVE ACCEPTANCE PENDING`
 
 This is the one living requirement ledger required by the final Founder
 completion directive. A status of `LIVE UNVERIFIED` means the capability is
@@ -15,6 +15,44 @@ the actual production route and deployment.
 ## Foreman 9300 overnight reactivation — current dated evidence
 
 ### Current Fable-to-production convergence — 2026-10-03
+
+- 2026-10-04 FOUNDER SCREENSHOT ADDENDUM / PRODUCT4774→4779:
+  Presentation remains recovered Fable/Astra lineage above capability adapters;
+  no new design/provider/audio/session/storage owner. Actual pre-mutation
+  production baseline captured at /tmp/ivoc-room-recovery.wKO0ZD/before.jpg.
+  Deterministically reproduced singleton face-box jitter falsely remembering
+  the candidate as a bystander; narrow fix retains all crossing/person guards.
+  Fresh same-camera preflight primary carry revalidates geometry before use;
+  changed/stale/hidden/ambiguous input falls back to normal selection rules.
+  Missing facing evidence now unavailable rather than fabricated0%.
+  Nonzero WPM with score0 can represent an observed extreme pace, not signal0;
+  raw WPM and unavailable/held state remain distinct.
+  Room settings/device/detector controls move into a gear popover; one persistent
+  Finish & save, dominant clearly-labelled AI voice presence, secondary self-view
+  and hide control preserve the same video/capture/measurement owners.
+  Recovered donor12-lane grammar supplies compact solid-block live bands and
+  expanded seekable Film lanes; new framing-change marks persist via existing
+  bounded derived evidence. No fabricated smile/nod/gesture/hook counts.
+  Personal validated voiced pitch enters the existing single correction arbiter
+  with freshness, coverage, dwell and cue limits; no gender/emotion/personality
+  claims. Native Bottom Lining uses semantic varied unresolved/relevant hooks,
+  protected-topic guards, budgets and closing, not a hardcoded bait phrase.
+  Fragment hook/follow-up marks remain qualified text observations, not proof
+  of an audible conversation.476 focused checks PASS at this implementation
+  boundary; production viewport/physical action/spoken acceptance pending.
+  DR290 still withholds active paid LemonSlice; embodiment host is presentation
+  only and publishes no audio. No provider/env/auth/schema/owner mutation.
+  Preserved rollback: source6da0e6a / deployment1eec4d31 / DM2KCK/stage.
+  Founder retest NOT requested; next deploy under narrow shared lease, verify
+  actual cockpit at1440x900/1512x982/1728x1117, real tracking/render/save/reload,
+  then continue remaining executable ledger. Deliberate human smile/nod/hand
+  actions, calibrated voiced pitch and genuine spoken varied-hook/HEAR BOTH
+  remain separate acceptance gates, not inferred from tests.
+  Fresh independent review caught and root corrected replacement-person lock
+  transfer, pitch dwell across an unobserved producer gap, and Interview-only
+  CSS density override. Narrow jitter guard requires same center/overlap/area;
+  spatially discontinuous singleton remains excluded. Canvas height-only resize
+  now refreshes backing geometry. No privacy or measurement-while-hidden bypass.
 
 - 2026-10-04 LIVE STARTUP RECOVERY / BOUNDED POV (SHARED4686):
   Source6da0e6a793a3c77c68507bd1575151768ecfd513, Railway deployment

@@ -88,8 +88,15 @@ function analyze(message) {
 
 function reset(message) {
   if (message.generation !== generation) return;
+  // The same-epoch stop only parks the local lock. A new epoch independently
+  // validates its freshness/isolation and withholds it for fresh continuity.
+  const parkPrimary = message.preservePrimary === true && message.answerEpoch === activeAnswerEpoch;
   activeAnswerEpoch = message.answerEpoch;
-  primaryLock?.reset();
+  if (!parkPrimary) {
+    if (message.preservePrimary === true && Number.isFinite(message.timestampMs)) {
+      primaryLock?.beginObservationEpoch(message.timestampMs, { preservePrimary: true });
+    } else primaryLock?.reset();
+  }
   if (ready) self.postMessage({ type: 'ready', generation, answerEpoch: activeAnswerEpoch });
 }
 
