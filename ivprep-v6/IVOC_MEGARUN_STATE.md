@@ -503,8 +503,23 @@ the actual production route and deployment.
   independently reproduced. Minimum composition correction uses the existing
   wrapping review-actions container for all three actions; exact Film/Compare
   links and Full Analytics scroll/focus are unchanged. 8 focused regressions
-  PASS independently; live geometry verification pending. No redesign, capability
-  owner change or root promotion.
+  PASS independently. Sourcec8c583aa81d007996933aae52cecfbf718738642 is LIVE as
+  aa4c1cb5-2055-4698-b9e5-e2e3a93f7f9e, image
+  sha256:85b8f57a125852455a74c8b5c37173cf2525aeb4cf89fbdf037e636f4c33e792.
+  Exact1264-file tracked artifact ivoc-release-artifact-8oiSCw/source.tar, SHA256
+  b900e7cb6461b249dbfab08081776af478e04bc79392282c6f2412822b8e66ef.
+  Health200; anonymous root/candidate/bootstrap401. Actual authenticated Results
+  at1129/1218/390px: all actions separated/in viewport; temporary viewport reset.
+  Keyboard Full Analytics scroll/focus, Compare -> exact selected Results and
+  Film Room links PASS. Current screenshot captured once; no gallery. Independent
+  visible-UI Admin -> genuine authorized student history -> Results -> paused
+  Film Room -> library -> clear selection -> own Home PASS; actor/subject explicit,
+  no own fallback. No private media played; negative-role and audible acceptance
+  not inferred. PRODUCT4484/deployment4485 normally released/read back.
+  Exact16efa32 artifact above remains rollback. No redesign, capability owner
+  change or root promotion. Next critical action remains the genuine spoken
+  current-candidate Mock -> follow-up/barge-in/move-on/closing -> saved two-sided
+  heard cold replay; no synthetic answer/provider smoke may substitute for it.
 
 - **Founder live-POV override, 2026-10-02: recovery LIVE; candidate-question stall reopened fix-forward.**
   Founder confirms physical camera/mic and native multi-turn AI entry work;
