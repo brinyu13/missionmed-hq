@@ -16,7 +16,11 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
-- **IN PROGRESS, approximately 30% of this integration run; not final acceptance.**
+- **IN PROGRESS; final acceptance incomplete.** The repeated30% estimate is
+  withdrawn: it was a coarse, stale acceptance estimate, not a newly calculated
+  weighted completion measure. Source wiring and individual checks must not be
+  conflated with complete current-candidate user journeys. No replacement
+  percentage is claimed until the weighted acceptance basis is explicit.
   Winning donor `e88e799fac61885baae26686e4e7da0b65e4330b` is ported to
   `public/studio-fable/` through stable adapters to the existing engine. The
   142-row capability map remains required; advanced capabilities retain their
@@ -439,16 +443,38 @@ the actual production route and deployment.
   delegation, preserving geometry, exact background scrubbing and pin behavior.
   Actual render/click regression failed before and passed after;31 distinct
   affected Film/replay/review/scope cases PASS; independent source review PASS.
-  Keyboard/live acceptance awaits candidate deployment;
+  Keyboard/live acceptance PASS on the release below;
   no Analytics producer, clock, media or owner contract changed. Ledger-only
   PRODUCT4475 was normally released/read back before this PRODUCT4476 patch.
 - Bounded independent moving-hand frame review remains UNVERIFIED: a blurred
   frame cannot separate detector delay from spatial offset. Current native WebM
   menu exposes no playback-speed control. No fabricated coordinate correction
   or unsupported eye-gaze was added; no repeated unchanged replay audit planned.
-- Next executable action: deploy/verify Film mark click and keyboard lead-in,
-  characterize affected moving-hand replay alignment when observable,
-  then continue real conversation/closing, full physical calibration, real-role and
+- Film mark source `b670ce8f61ca7e95825b51fd0c277ad7e7011dc6` deployed SUCCESS
+  `28270725-3179-4825-8a87-13650dff918d`, image
+  `sha256:becba34089823feee50cd725db8f51c622aa618376708e8baeca0341f4466127`.
+  Health200 and anonymous root/candidate/bootstrap401. Exact1261-file tracked
+  artifact `ivoc-release-artifact-ERqMBf/source.tar`, SHA256
+  `83a4985882c5d96e3d01fe67ae3bb24d8b89068c0c9c15ee891fba0bb2d197dd`.
+  PRODUCT4476/deployment4477 normally released/remotely read back. Foreman and
+  independent actual own c7fe mark PASS: data-seek14.332 ->12.332 by mouse and
+  Enter, paused; lanes retain composition and keyboard focus is visible. Actual
+  native playback after seek renders the saved frame and fresh face/body/hand
+  redraws; systematic hand alignment and audible replay are not inferred.
+  Exact324 artifact remains the rollback identity; no root promotion.
+- R114 independent visible question collections PASS: Never practiced excludes
+  genuinely practiced CORE01/02, retains CORE03; Needs work is educator-marked
+  and honestly empty, as is Favorites; drawer returns normally. Favorite write/
+  reload persistence remains unverified pending bounded own-account check.
+- Founder priority correction: stop spending critical-path time on optional
+  moving-hand characterization and secondary favorite checks; no favorite write
+  was performed. Next critical action is the normal production AI journey:
+  genuine candidate answer -> grounded follow-up -> barge-in -> pool move-on ->
+  multiple closing questions/signoff -> save -> actually hear both voices after
+  cold reload. Tooling cannot supply human speech or hear system playback; this
+  exact physical evidence requirement remains waiting for genuine participation,
+  not replaceable with another provider check or synthetic applicant. Continue
+  independent executable core work while it waits, then full calibration, real-role and
   142-row live parity acceptance. No final root promotion or two-sided audible
   acceptance claimed. Genuine speech/hearing remains a precise physical-evidence
   gate under the current directive, not a global engineering stop.
