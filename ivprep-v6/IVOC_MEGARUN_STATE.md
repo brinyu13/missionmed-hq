@@ -16,6 +16,12 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 actual authenticated production320x844 POV found a question-picker
+  usability FAIL: wrapping filters consumed232px and left only45.7px of question
+  list with preview open. Narrow CSS-only fix keeps every filter in a horizontally
+  scrollable row; canonical193 questions, selection, preview, preferences and engine
+  remain unchanged. 20 focused contract/presentation/layout tests PASS. Production
+  usability remains UNVERIFIED until exact candidate deployment and visible check.
 - **IN PROGRESS; final acceptance incomplete.** The repeated30% estimate is
   withdrawn: it was a coarse, stale acceptance estimate, not a newly calculated
   weighted completion measure. Source wiring and individual checks must not be

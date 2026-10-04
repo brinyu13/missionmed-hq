@@ -314,3 +314,8 @@ main.view:has(.setup), main.view:has(.cal-screen) { padding: 20px 24px 20px; }
   .drawer-side:has(.preview) > .t-label, .drawer-side:has(.preview) > .mini-tray { display: none; }
 }
 @media (max-width: 760px) { .advanced-body { grid-template-columns: 1fr; } .dock { border-radius: 10px; padding: 10px 12px; flex-wrap: wrap; } .dock .dock-state { width: 100%; } .dock .dock-state small { display: none; } .dock .dock-actions { width: 100%; flex-wrap: wrap; justify-content: flex-end; } .drawer-body .q-row { padding: 6px; gap: 3px; } .drawer-body .q-row > .btn { padding: 0 7px; font-size: 12px; } }
+@media (max-width: 760px) {
+  /* Keep the question list usable when preview is open; retain every filter. */
+  .drawer-tools .q-filter { flex-wrap: nowrap; min-width: 0; overflow-x: auto; margin-bottom: 0; padding: 3px 2px 6px; }
+  .drawer-tools .q-filter button { flex: 0 0 auto; white-space: nowrap; }
+}
