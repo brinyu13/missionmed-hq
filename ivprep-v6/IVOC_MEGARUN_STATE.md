@@ -243,8 +243,28 @@ the actual production route and deployment.
   plus owner comparison/presentation/longitudinal suites PASS after updating one
   obsolete source-string assertion. Positive live coaching needs genuine qualifying
   saved evidence; current own library reports none, not synthetic acceptance.
-- Next executable action: deploy and independently accept the replay correction
-  and comparison selectors/truthful coaching fallback, then continue real conversation,
+- Comparison/overlay correction `11a143e31ba54a4c508490042e5602710789f56a`
+  deployed SUCCESS `25c7b8cc-55dc-40f9-9e24-020d004c878d`, image
+  `sha256:be6f861c2880815b95e9674f5025e0bcfa74786f3c2f9d4a6a07cd4ee1ce557e`.
+  Health200, anonymous candidate/bootstrap401; exact rollback artifact
+  `ivoc-release-artifact-eE6hDl/source.tar`, SHA256
+  `b5c3f4a8a63cc9ac6a1b3d89c3a99355ac42129a8c78e3391bbfc837f42d01bb`.
+  PRODUCT4457/deployment4458 released/remotely read back. Independent actual
+  Compare selections/change/reload/measured rows and truthful AI-coaching fallback
+  PASS; replay layer change now clears old geometry. Hand/finger spatial alignment
+  is UNVERIFIED: reviewer observed an offset relative to a moving raised hand.
+  Do not infer correctness from equal canvas/video boxes or assume detector cause.
+- R068 candidate correction reuses the existing minimized Scheduler calendar
+  owner for Prepare and Home next-action context; it does not infer a RISE identity
+  from an event title, retain join URLs, or add an owner API. Fresh admission
+  before/after and account/Durable/subject/role/route cancellation guard private
+  projection reads. Independent review reproduced optional Calendar blocking Home;
+  corrected with asynchronous next-action-slot hydration. Actual never-settling
+  Calendar/Home regression and all11 targeted tests PASS; live acceptance pending.
+  Non-MissionMed skins and richer readiness remain in their protected Advanced
+  homes, not claimed as newly accepted candidate composition.
+- Next executable action: deploy and independently accept Calendar/status correction,
+  resolve replay hand-alignment evidence, then continue real conversation,
   closing, real-role and 142-row live parity acceptance. No final root promotion or
   two-sided audible acceptance claimed. Genuine speech/hearing remains a precise
   physical-evidence gate under the current Fable integration directive, not a global

@@ -15,6 +15,7 @@ import { projectOwnRetry } from './adapters/retry.mjs';
 import { attemptSnapshot, canCompareAttempts } from '../../studio/longitudinal-model.mjs';
 import { readOwnPresentation } from './adapters/own-presentation.mjs';
 import { filterOwnAttempts, ownHistoryProgress, formatHistoryEvidence } from './adapters/history-view-model.mjs';
+import {readOwnCalendar,calendarHomeAction} from './adapters/calendar-view-model.mjs';
 
 const main = document.getElementById('main');
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -24,7 +25,7 @@ export const session = { questionId: null, mode: 'practice', mockSet: null, conf
 let teardown = null;
 let generation = 0, acceptedHash = '#/home', revertingHash = false;
 const guarded = () => true;
-const ownQuestions = () => loadQuestions({attempts:state.attempts,favorites:state.preferences.favoriteQuestions});
+const ownQuestions = (account=controller.account) => loadQuestions({account,attempts:state.attempts,favorites:state.preferences.favoriteQuestions});
 async function hydrateOwnPresentation(isCurrent) {
   try {
     const own = await readOwnPresentation(controller,{isCurrent});
@@ -55,15 +56,19 @@ function renderIdentity(account) {
 
 // ---------- HOME: "What should I do now?" ----------
 async function renderHome(isCurrent = guarded) {
-  await Promise.all([controller.library({isCurrent}),hydrateOwnPresentation(isCurrent)]);
-  const { questions } = await ownQuestions(); if (!isCurrent()) return;
+  const account=controller.account,durable=controller.durable,subject=account?.subject;
+  const current=()=>isCurrent()&&controller.account===account&&controller.durable===durable&&account?.subject===subject;
+  const calendarPending=readOwnCalendar(controller,{isCurrent:current});
+  await Promise.all([controller.library({isCurrent:current}),hydrateOwnPresentation(current)]);
+  if(!current())return;
+  const { questions } = await ownQuestions(account); if (!current()) return;
   const attempts = attemptsByRecency();
   const last = attempts[0] || null;
   const daysSince = last ? Math.floor((Date.now() - last.at) / 86_400_000) : null;
-  const upcoming = state.program;
+  const selectedProgram=state.program;
   let now;
   if (!attempts.length) now = { kick: 'Start here', title: 'One answer. Five minutes.', body: 'Record "Tell me about yourself" once, privately. You get a debrief with evidence and the one thing to change next.', cta: 'Practice this question', href: '#/practice?q=CORE-01', plan: ['Pick the question (preselected)', 'Quick readiness check', 'Answer on camera', 'Debrief with evidence'] };
-  else if (upcoming) now = { kick: `${esc(upcoming.name)} · ${esc(upcoming.when || 'upcoming')}`, title: 'Run a program mock.', body: `The interviewer will know what you authorized about ${esc(upcoming.name)}. Five questions, a closing question, a debrief.`, cta: 'Start program mock', href: '#/mock?program=1', plan: ['Program context loaded', 'Readiness check', 'Interview Room', 'Results and Film Room'] };
+  else if (selectedProgram?.verified) now = { title: 'Run a program mock.', body: `Rehearse for your selected program, ${esc(selectedProgram.name)}. Authorized intelligence is checked when you start.`, cta: 'Start program mock', href: '#/mock?program=1', plan: ['Selected program retained', 'Readiness check', 'Interview Room', 'Results and Film Room'] };
   else if (last && last.debriefLane && daysSince < 7) now = { kick: 'Your next rep', title: 'Retry and clear the priority.', body: `Last time on "${esc(last.questionText)}" the one thing to change was ${esc(last.priorityText || last.debriefLane)}. Retry the same question with that priority on screen.`, cta: 'Retry this question', href: `#/${last.mode==='mock'?'mock':'practice'}?q=${encodeURIComponent(last.questionId)}&retry=${last.id}`, plan: ['Same question', 'Priority on screen while you answer', 'Compare the two reps'] };
   else if (daysSince >= 7) now = { kick: `${daysSince} days since your last rep`, title: 'One rep keeps the plan alive.', body: 'Pick up where you left off with the Core question you have practiced least.', cta: 'Practice now', href: '#/practice', plan: ['Least-practiced Core question', 'Readiness check', 'Answer and debrief'] };
   else now = { kick: 'Your next rep', title: 'Step into a full mock.', body: 'Five questions, contextual follow-ups, and practice asking your own questions before the closing.', cta: 'Start mock interview', href: '#/mock', plan: ['Default 5 Core questions', 'Readiness check', 'Interview Room', 'Results'] };
@@ -102,6 +107,14 @@ async function renderHome(isCurrent = guarded) {
         <div class="table-list">${core.slice(0, 5).map((q) => { const m = masteryState(attempts, q.question_id); return `<div class="attempt-row" style="padding:7px 0"><span class="mastery-ring" aria-label="${m.state}">${[1, 2, 3, 4].map((i) => `<i class="${i <= m.segments ? 'on' : ''}"></i>`).join('')}</span><div><strong style="font-size:13px;font-weight:600">${esc(q.canonical_text)}</strong><small>${m.state}${m.reps ? ` · ${m.reps} rep${m.reps > 1 ? 's' : ''}` : ''}</small></div><a class="btn btn-quiet" style="min-height:32px;padding:0 10px;font-size:12.5px" href="#/practice?q=${q.question_id}">Rep</a></div>`; }).join('')}</div>
       </div>
     </section>`;
+  // Optional owner timing never holds Home or the core launch actions hostage.
+  void calendarPending.then(calendar=>{
+    if(!current())return;const next=calendarHomeAction(calendar);if(!next)return;
+    const card=main.querySelector('.now-card');if(!card)return;
+    card.querySelector('h2').textContent=next.title;card.querySelector('p').textContent=next.body;
+    card.querySelector('ol').innerHTML=next.plan.map((text,index)=>'<li><i>'+(index+1)+'</i>'+esc(text)+'</li>').join('');
+    for(const link of [card.querySelector('.btn-primary'),main.querySelector('.hero-actions .btn-primary')]){link.href=next.href;link.textContent=next.cta+' ▸';}
+  });
 }
 
 // ---------- PRACTICE: one question (selector drawer for all 193) + sticky dock ----------
@@ -240,26 +253,35 @@ async function renderMock(params, isCurrent = guarded) {
 }
 
 // ---------- PREPARE FOR A PROGRAM ----------
+function calendarMarkup(value){
+  if(value?.state==='loading')return '<h3 class="t-h3">Interview calendar</h3><p class="note">Checking your authorized schedule…</p>';
+  if(value?.state!=='ready')return '<h3 class="t-h3">Interview calendar unavailable</h3><p class="note">No interview timing was inferred. You can continue preparing for a program.</p>';
+  const {projection}=value,next=projection.nextEvent;
+  return '<h3 class="t-h3">'+esc(next?next.title:'Calendar connected')+'</h3><p class="note">'+esc(next?new Date(next.startsAt).toLocaleString()+' · '+next.provider.toUpperCase()+' · '+next.status.toUpperCase():projection.eventCount+' authorized appointments · none upcoming.')+'</p>'+(next?'<p class="note">Join details '+(next.joinAvailable?'are available in your connected calendar.':'are not available yet.')+' Select your verified program separately.</p>':'');
+}
 async function renderPrepare(isCurrent = guarded) {
-  const {questions}=await loadQuestions();if(!isCurrent())return;
+  const account=controller.account,durable=controller.durable,subject=account?.subject;
+  const current=()=>isCurrent()&&controller.account===account&&controller.durable===durable&&account?.subject===subject;
+  const {questions}=await loadQuestions({account});if(!current())return;
+  let calendar={state:'loading'};
   let filters={q:'',specialty:'',jurisdiction:'',programType:'',page:1},result={rows:[],total:0,page:1,totalPages:0},querySequence=0,error=null;
   const draw=()=>{
-    if(!isCurrent())return;const p=state.program;
+    if(!current())return;const p=state.program;
     const fit=questions.filter(q=>(q.tags||[]).some(t=>['PROGRAM_FIT','MOTIVATION','SPECIALTY'].includes(t))).slice(0,4);
     main.innerHTML=`<div class="screen-head"><div><div class="t-kick gold">Prepare for a program</div><h1 class="t-hero">Know <em>the room.</em></h1><p class="t-edit">Search RISE, select your program, and rehearse with verified interview context.</p></div><a class="btn btn-quiet" href="#/home">Back</a></div>
     <div class="two-col program-prepare"><section class="housing panel"><form id="program-form"><label class="t-label" for="program-search">Find your program</label><input class="search" id="program-search" type="search" placeholder="Program name, city or specialty" value="${esc(filters.q)}"><div class="two-col" style="margin:12px 0"><label class="field">Specialty<input type="text" name="specialty" value="${esc(filters.specialty)}" placeholder="All specialties"></label><label class="field">State<input type="text" name="jurisdiction" value="${esc(filters.jurisdiction)}" placeholder="All states"></label><label class="field">Program type<input type="text" name="programType" value="${esc(filters.programType)}" placeholder="All program types"></label></div><button type="submit" class="btn btn-primary">Search programs ▸</button></form>
     <p class="note" role="status" id="search-state">${error?esc(error):result.total+' verified results'}</p><div class="q-list" style="margin-top:12px">${result.rows.map(pr=>`<button type="button" class="q-row" data-program="${esc(pr.id)}" aria-pressed="${p?.id===pr.id}"><div><strong>${esc(pr.name)}</strong><small>${esc(pr.city)} · ${esc(pr.specialty)}</small></div><span class="chip ok">Verified identity</span></button>`).join('')}</div>
     <div style="display:flex;gap:8px;margin-top:12px"><button type="button" class="btn btn-secondary" id="prev-page" ${result.page>1?'':'disabled'}>Previous</button><span class="note">Page ${result.page} / ${Math.max(1,result.totalPages)}</span><button type="button" class="btn btn-secondary" id="next-page" ${result.page<result.totalPages?'':'disabled'}>Next</button></div>
     ${p?`<div class="program-card"><div class="t-label">Selected program</div><h3>${esc(p.name)}</h3><p class="note">RISE identity and release retained. Available verified intelligence is checked when your interview starts. Missing leadership or program facts are not invented.</p><a class="btn btn-secondary" target="_blank" rel="noopener" href="https://missionmedinstitute.com/member-dashboard/">Open RISE from Matrix</a></div>`:''}
-    </section><aside class="housing panel ready-card"><div class="t-kick gold">Rehearse for your program</div><div class="q-list" style="margin:12px 0">${fit.map(q=>`<a class="q-row" href="#/practice?q=${q.question_id}"><strong>${esc(q.canonical_text)}</strong></a>`).join('')}</div><button class="btn btn-primary btn-lg" type="button" id="program-mock" ${p?.verified&&controller.account.liveInterviewAvailable?'':'disabled'}>Program mock ▸</button><p class="note">${p?.verified?'Your interview uses only authorized program intelligence.':'Choose a verified program first.'}</p><a class="btn btn-quiet" href="#/mock">General mock instead</a></aside></div>`;
-    main.querySelector('#program-form').onsubmit=e=>{e.preventDefault();const form=e.currentTarget;filters={q:form.querySelector('#program-search').value,specialty:form.elements.specialty.value,jurisdiction:form.elements.jurisdiction.value,programType:form.elements.programType.value,page:1};state.program=null;commit();void search();};
-    main.querySelectorAll('[data-program]').forEach(b=>b.onclick=()=>{const pr=result.rows.find(x=>x.id===b.dataset.program);if(!pr?.verified)return;state.program={...pr,fixture:false};commit();draw();});
-    main.querySelector('#program-mock').onclick=()=>{if(state.program?.verified)location.hash='#/mock?program=1';};
-    main.querySelector('#prev-page').onclick=()=>{filters.page=Math.max(1,filters.page-1);void search();};
-    main.querySelector('#next-page').onclick=()=>{filters.page++;void search();};
+    </section><aside class="housing panel ready-card"><div class="t-kick gold">Rehearse for your program</div><div class="q-list" style="margin:12px 0">${fit.map(q=>`<a class="q-row" href="#/practice?q=${q.question_id}"><strong>${esc(q.canonical_text)}</strong></a>`).join('')}</div><button class="btn btn-primary btn-lg" type="button" id="program-mock" ${p?.verified&&account.liveInterviewAvailable?'':'disabled'}>Program mock ▸</button><p class="note">${p?.verified?'Your interview uses only authorized program intelligence.':'Choose a verified program first.'}</p><a class="btn btn-quiet" href="#/mock">General mock instead</a><section data-interview-calendar style="margin-top:20px">${calendarMarkup(calendar)}</section></aside></div>`;
+    main.querySelector('#program-form').onsubmit=e=>{e.preventDefault();if(!current())return;const form=e.currentTarget;filters={q:form.querySelector('#program-search').value,specialty:form.elements.specialty.value,jurisdiction:form.elements.jurisdiction.value,programType:form.elements.programType.value,page:1};state.program=null;commit();void search();};
+    main.querySelectorAll('[data-program]').forEach(b=>b.onclick=()=>{if(!current())return;const pr=result.rows.find(x=>x.id===b.dataset.program);if(!pr?.verified)return;state.program={...pr,fixture:false};commit();draw();});
+    main.querySelector('#program-mock').onclick=()=>{if(current()&&state.program?.verified)location.hash='#/mock?program=1';};
+    main.querySelector('#prev-page').onclick=()=>{if(!current())return;filters.page=Math.max(1,filters.page-1);void search();};
+    main.querySelector('#next-page').onclick=()=>{if(!current())return;filters.page++;void search();};
   };
-  async function search(){const ticket=++querySequence;const status=main.querySelector('#search-state');if(status)status.textContent='Searching RISE…';try{const found=await searchPrograms(controller.account,filters);if(!isCurrent()||ticket!==querySequence)return;result=found;error=null;}catch(cause){if(!isCurrent()||ticket!==querySequence)return;result={rows:[],page:1,total:0,totalPages:0};error='Verified program search is unavailable for this account right now. You can still run a general interview.';}draw();}
-  draw();await search();
+  async function search(){if(!current())return;const ticket=++querySequence;const status=main.querySelector('#search-state');if(status)status.textContent='Searching RISE…';try{const found=await searchPrograms(account,filters);if(!current()||ticket!==querySequence)return;result=found;error=null;}catch(cause){if(!current()||ticket!==querySequence)return;result={rows:[],page:1,total:0,totalPages:0};error='Verified program search is unavailable for this account right now. You can still run a general interview.';}draw();}
+  draw();await Promise.all([search(),readOwnCalendar(controller,{isCurrent:current}).then(value=>{if(!current()||!value)return;calendar=value;const host=main.querySelector('[data-interview-calendar]');if(host)host.innerHTML=calendarMarkup(calendar);})]);
 }
 // ---------- REVIEW & IMPROVE ----------
 async function renderReview(isCurrent = guarded) {
