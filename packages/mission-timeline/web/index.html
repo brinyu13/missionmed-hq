@@ -1535,6 +1535,7 @@ const BUILDER_STEPS_404=[
 ];
 const CORE_REQUIRED=['name','school','country','grad','degree'];
 const WORK_AUTHORIZATION_404=[
+  'Authorized to work in the U.S.',
   'U.S. Citizen',
   'Permanent Resident / Green Card',
   'Employment Authorization Document',
@@ -1547,7 +1548,7 @@ const WORK_AUTHORIZATION_404=[
 function needsResidencyVisaQuestion404(w){
   const status=String(w.visa||'').trim();
   if(!status)return false;
-  if(status==='U.S. Citizen'||status==='Permanent Resident / Green Card')return false;
+  if(status==='Authorized to work in the U.S.'||status==='U.S. Citizen'||status==='Permanent Resident / Green Card')return false;
   return !(status==='Employment Authorization Document'&&w.eadStatus==='Active and unrestricted');
 }
 function announceBuilder404(message){

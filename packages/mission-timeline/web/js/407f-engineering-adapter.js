@@ -573,6 +573,7 @@ export function applyDocumentTo407FState(document,state){
     grad:profile.graduationDate||"",
     gradPrecision:profile.graduationDatePrecision||"",
     profileFieldProvenance:clone(profile.fieldProvenance||{}),
+    sourceVisaStatus:profile.visaStatus||"",
     notGraduated:profile.graduationExpected===true,
     degree:profile.degree||"",
     degreeOther:profile.degreeOther||"",
@@ -605,6 +606,22 @@ export function applyDocumentTo407FState(document,state){
 }
 
 export function apply407FStateToDocument(state,document){
+  const authorization=state.wiz?.visa||state.profile?.visa||"";
+  const sourceVisaStatus=state.wiz?.sourceVisaStatus??document.studentProfile?.visaStatus??"";
+  const profileFieldProvenance={
+    ...clone(state.wiz?.profileFieldProvenance||{}),
+    ...clone(document.studentProfile?.fieldProvenance||{})
+  };
+  // Preserve custody when an older document already uses the same source
+  // wording as a visa alias; that alias must not gain independent public consent.
+  if(authorization==="Authorized to work in the U.S."&&sourceVisaStatus===authorization&&
+     !profileFieldProvenance.visaStatus&&profileFieldProvenance.currentUsWorkAuthorization){
+    profileFieldProvenance.visaStatus=clone(profileFieldProvenance.currentUsWorkAuthorization);
+  }
+  if(authorization==="Authorized to work in the U.S."&&sourceVisaStatus===authorization&&
+     !profileFieldProvenance.currentUsWorkAuthorization&&profileFieldProvenance.visaStatus){
+    profileFieldProvenance.currentUsWorkAuthorization=clone(profileFieldProvenance.visaStatus);
+  }
   const canonicalPayloads=state.user?.canonicalEventPayloads||{};
   const renderedEvents=(state.user?.events||[]).map((event,index)=>
     event407FToDocument(
@@ -661,7 +678,9 @@ export function apply407FStateToDocument(state,document){
     graduationExpected:!!state.wiz?.notGraduated,
     degree:state.wiz?.degree||"",
     degreeOther:state.wiz?.degreeOther||"",
-    visaStatus:state.wiz?.visa||state.profile?.visa||"",
+    // Authorization-only wording does not establish a visa classification.
+    visaStatus:authorization==="Authorized to work in the U.S."?sourceVisaStatus:authorization,
+    fieldProvenance:profileFieldProvenance,
     currentUsWorkAuthorization:
       state.wiz?.visa||state.profile?.visa||"",
     workAuthorizationOther:state.wiz?.visaOther||"",
