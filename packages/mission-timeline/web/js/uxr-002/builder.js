@@ -79,6 +79,7 @@ export function countryFlag(code=""){
 }
 
 export const WORK_AUTHORIZATION_OPTIONS=Object.freeze([
+  "Authorized to work in the U.S.",
   "U.S. Citizen",
   "Permanent Resident / Green Card",
   "Employment Authorization Document",
@@ -129,6 +130,8 @@ export function needsResidencyVisaQuestion(profile={}){
   const status=normalizeWorkAuthorization(profile).currentUsWorkAuthorization;
   if(!status)return false;
   if([
+    // Authorization alone does not establish a visa subtype or sponsorship need.
+    "Authorized to work in the U.S.",
     "U.S. Citizen",
     "Permanent Resident / Green Card"
   ].includes(status))return false;
@@ -1347,7 +1350,11 @@ function profileFromForm(form,current={}){
     degree:formValue(form,"degree"),
     degreeOther:formValue(form,"degreeOther").trim(),
     currentUsWorkAuthorization:currentAuthorization,
-    visaStatus:currentAuthorization,
+    // A source-stated authorization fact does not supply a visa classification.
+    // Keep its consent on the authorization field rather than copying an
+    // imported private claim into an unbound presentation alias.
+    visaStatus:currentAuthorization==="Authorized to work in the U.S."
+      ?String(current.visaStatus||""):currentAuthorization,
     workAuthorizationOther:formValue(form,"workAuthorizationOther").trim(),
     eadStatus:formValue(form,"eadStatus"),
     residencyVisaTypesOpenTo:formValue(form,"residencyVisaTypesOpenTo")
