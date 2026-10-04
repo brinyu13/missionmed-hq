@@ -16,6 +16,28 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 R069 ENVIRONMENT PROFILE IMPLEMENTED / PRODUCTION POV PENDING
+  (PRODUCT4583 ->normally released before test-scope expansion ->PRODUCT4585):
+  exact base a2565417faa34b9e6530f56fde5d29cb848018ac. Actual authenticated Mock
+  baseline captured before mutation. Fable progressive Interview environment
+  disclosure now contains MissionMed/Webex/Zoom/Teams visual choices and retained
+  Back/return setup state. Whitelisted selected environment reaches the existing
+  wizard/Durable context; canonical Retry inherits it, deliberate changed Retry
+  clears retry metadata rather than falsifying its source. Versioned presentation
+  adapter owns no media/provider/session/database. Same student video/overlay,
+  rails, recording mix, captions and existing controls remain; Webex Stack/Side
+  by side, Zoom Speaker/Gallery, Teams top controls/People compose real roles only.
+  Every external-reference profile says SIMULATED TRAINING ENVIRONMENT with an
+  explicit non-affiliation/no-platform-connection notice. Self-view hide is only
+  available LIVE, opacity-only, and clearly preserves capture/recording/measurement.
+  Seven focused regressions PASS (selected Durable environment failed before fix);
+  all339 Fable checks PASS; independent narrow24checks/source review PASS with no
+  executable P0/P1. Existing VM fixture contexts import the new adapters; assertions
+  unchanged. This is IMPLEMENTED_NEEDS_ACCEPTANCE, not full R069 LIVE VERIFIED.
+  Actual viewport/readiness/layout/video/overlay/persistence acceptance next.
+  Current serving rollback confirmed SUCCESS: b745a31 /3f15a2bb-c639-4888-a2bd-
+  ddcc9efe1b76, exact ztixJD artifact/image retained. Root remains unpromoted.
+
 - 2026-10-04 CURRENT RUNTIME / DEVICE-STATE POV FIX VERIFIED (PRODUCT4581):
   source b745a31bc156158c8cc5c0de4d6bfc2a4811d98a, SUCCESS deployment
   3f15a2bb-c639-4888-a2bd-ddcc9efe1b76, image

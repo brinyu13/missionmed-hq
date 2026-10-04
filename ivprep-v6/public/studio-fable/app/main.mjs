@@ -16,6 +16,7 @@ import { attemptSnapshot, canCompareAttempts } from '../../studio/longitudinal-m
 import { readOwnPresentation } from './adapters/own-presentation.mjs';
 import { filterOwnAttempts, ownHistoryProgress, formatHistoryEvidence } from './adapters/history-view-model.mjs';
 import {readOwnCalendar,calendarHomeAction} from './adapters/calendar-view-model.mjs';
+import {ENVIRONMENTS,normalizeEnvironment,selectedEnvironment,environmentChoicesMarkup} from './adapters/environment-profile.mjs';
 
 const main = document.getElementById('main');
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -176,7 +177,7 @@ async function renderMock(params, isCurrent = guarded) {
     session.contextSources=retry.intent.wizard.contextSources.slice();session.program=null;
     session.config.targetQuestions=null; // single-question Retry follows its pool; a later pool edit is a new mock
     Object.assign(session.settings,{goal:retry.intent.wizard.goal,practiceFocus:'',role:retry.intent.wizard.interviewer,style:retry.intent.wizard.interviewerStyle,
-      pressure:retry.intent.wizard.pressurePractice,advanced:true,targetQuestions:1});
+      pressure:retry.intent.wizard.pressurePractice,environment:normalizeEnvironment(retry.intent.wizard.environment),advanced:true,targetQuestions:1});
   }else{session.retry=null;session.retryOf=null;}
   session.priority = session.retry?.priorityText || state.mentorPriority || null;
   const useProgram = params.get('program') === '1' && state.program;
@@ -185,7 +186,7 @@ async function renderMock(params, isCurrent = guarded) {
   if (!isCurrent()) return;
   const sources = buildContextSources({mentorPriorities:mentor,durableAvailable:true,contextCapabilities:controller.account.capabilities.contextSources,programVerified:Boolean(useProgram?.verified)});
   session.contextSources = session.contextSources.filter(name => sources.some(s => s.name===name && s.available));
-  let storyRevealed = false, contextOpen = false;
+  let storyRevealed = false, contextOpen = false, environmentOpen = false;
   if (!session.mockSet) session.mockSet = defaultMockSet(questions, session.settings.targetQuestions || 5);
   const set = session.mockSet;
   const st = session.settings;
@@ -199,6 +200,7 @@ async function renderMock(params, isCurrent = guarded) {
     const targetQuestions = resolveMockQuestionTarget(cfg.targetQuestions, set.length, {goal:st.goal});
     st.targetQuestions = targetQuestions;
     contextOpen = main.querySelector('#interview-context')?.open ?? contextOpen;
+    environmentOpen = main.querySelector('#interview-environment')?.open ?? environmentOpen;
     const preset = EASY_PRESETS.find((p) => p.id === st.preset) || EASY_PRESETS[0];
     main.innerHTML = `
       <div class="setup" data-screen="mock">
@@ -229,12 +231,13 @@ async function renderMock(params, isCurrent = guarded) {
               </div>
             </details>
 <details class="advanced" id="interview-context" ${contextOpen?'open':''} style="margin-top:12px"><summary><span>Interview context</span><span>choose</span></summary><div class="advanced-body"><p class="note" style="grid-column:1/-1">Only the sources you choose are checked for this interview. Missing or unauthorized information stays unavailable.</p>${sources.filter(s=>s.name!=='RISE'&&s.name!=='StoryForge'&&s.name!=='File Vault').map(s=>`<label class="field"><span><input type="checkbox" data-context="${s.name}" ${session.contextSources.includes(s.name)?'checked':''} ${s.available?'':'disabled'}> ${esc(s.name)}</span><small class="note">${s.available?esc(s.detail):'Not connected'}</small></label>`).join('')}<div style="grid-column:1/-1"><button class="btn btn-secondary" type="button" id="story-reveal" ${sources.find(s=>s.name==='StoryForge')?.available?'':'disabled'}>Show StoryForge suggestions</button>${storyRevealed?`<p class="note">Only approved matching story summaries may be included. Showing this option does not include them.</p><label><input type="checkbox" data-context="StoryForge" ${session.contextSources.includes('StoryForge')?'checked':''}> Include authorized matching stories in this interview</label>`:''}<p class="note"><a href="/iv-prep-on-call/advanced/#newsession">Manage application facts / update CV</a></p></div></div></details>
+            <details class="advanced" id="interview-environment" ${environmentOpen?'open':''} style="margin-top:12px"><summary><span>Interview environment</span><span>${selectedEnvironment(st,session.retry)}</span></summary><div class="advanced-body">${environmentChoicesMarkup(selectedEnvironment(st,session.retry))}<p class="note" style="grid-column:1/-1">Practice in a familiar meeting layout. These are MissionMed training simulations, not connections to Webex, Zoom, or Teams. Your interviewer and private recording stay the same.</p></div></details>
             <div class="t-label" style="margin:12px 0 6px">Length</div>
             <div class="option-row">${[5, 10, 15, 25].map((m) => `<button type="button" class="option" data-min="${m}" aria-pressed="${cfg.durationMin === m}">${m} min<small>approximate session length</small></button>`).join('')}</div>
             <ul class="checks" style="margin-top:12px"><li class="${state.calibration ? 'on' : 'warn'}"><i>${state.calibration ? '✓' : '!'}</i>${state.calibration ? 'Calibrated' : 'Not calibrated · global ranges'}</li><li class="${useProgram ? 'on' : ''}"><i>${useProgram ? '✓' : '·'}</i>${useProgram ? `Program: ${esc(state.program.name)}` : 'No program context (general interview)'}</li><li class="${controller.account?.mode === 'REAL' ? 'on' : 'warn'}"><i>${controller.account?.mode === 'REAL' ? '✓' : '!'}</i>${controller.account?.mode === 'REAL' ? (controller.account.liveInterviewAvailable ? 'GPT-Live interviewer · saved to your account' : 'Live interviewer unavailable · choose Self Practice') : 'Sign in through Matrix'}</li></ul>
           </aside>
         </div>
-        <div class="dock" id="dock"><div class="dock-state"><strong>${targetQuestions === set.length ? `${targetQuestions} questions` : `Target ${targetQuestions} · ${set.length} selected`} · ${esc(describeSettings(st,{interviewPolicy:policy}))}</strong><small>Camera and mic connect inside the room. "Wrap up" still asks the closing question.</small></div><div class="dock-actions"><a class="btn btn-quiet" href="#/home">Back</a><button class="btn btn-primary btn-lg" type="button" id="go-room" ${set.length && controller.account?.liveInterviewAvailable ? '' : 'disabled'}>Enter the Interview Room ▸</button></div></div>
+        <div class="dock" id="dock"><div class="dock-state"><strong>${targetQuestions === set.length ? `${targetQuestions} questions` : `Target ${targetQuestions} · ${set.length} selected`} · ${esc(describeSettings(st,{interviewPolicy:policy}))}</strong><small>${selectedEnvironment(st,session.retry)}${selectedEnvironment(st,session.retry)==='MissionMed'?'':' simulation'} · Camera and mic connect inside the room. "Wrap up" still asks the closing question.</small></div><div class="dock-actions"><a class="btn btn-quiet" href="#/home">Back</a><button class="btn btn-primary btn-lg" type="button" id="go-room" ${set.length && controller.account?.liveInterviewAvailable ? '' : 'disabled'}>Enter the Interview Room ▸</button></div></div>
       </div>`;
     const questionsChanged=()=>{if(session.retry&&(set.length!==1||set[0]?.question_id!==session.retry.questionId)){session.retry=null;session.retryOf=null;}draw();};
     mountTray(main.querySelector('#tray'), set, { onChange: questionsChanged });
@@ -276,7 +279,12 @@ async function renderMock(params, isCurrent = guarded) {
     main.querySelector('.ready-card').addEventListener('click', (e) => {
       if (!isCurrent()) return;
       const b = e.target.closest('button'); if (!b || b.id === 'go-room') return;
-      if (b.dataset.preset) { Object.assign(st, applyPreset(st, b.dataset.preset,{interviewPolicy:policy})); st.advanced = false; }
+      if (b.dataset.environment) {
+        if (!ENVIRONMENTS.includes(b.dataset.environment)) return;
+        st.environment = b.dataset.environment;
+        if(session.retry && selectedEnvironment(st,session.retry)!==st.environment){session.retry=null;session.retryOf=null;}
+      }
+      else if (b.dataset.preset) { Object.assign(st, applyPreset(st, b.dataset.preset,{interviewPolicy:policy})); st.advanced = false; }
       else if (b.dataset.depth != null) st.depth = Number(b.dataset.depth);
       else if (b.dataset.curiosity) st.curiosity = b.dataset.curiosity;
       else if (b.dataset.pressure != null) st.pressure = st.goal !== 'Individual Question' && b.dataset.pressure === '1';

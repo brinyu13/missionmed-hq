@@ -6,6 +6,7 @@ import {sealDerivedEvidence} from '../../public/studio-fable/app/adapters/derive
 import {projectSavedAttempt} from '../../public/studio-fable/app/adapters/saved-review.mjs';
 import {toWizard,defaultSettings,resolveMockQuestionTarget} from '../../public/studio-fable/app/settings/interviewer.mjs';
 import {assertMicrophoneReady} from '../../public/studio-fable/app/adapters/media-readiness.mjs';
+import {environmentProfile,selectedEnvironment} from '../../public/studio-fable/app/adapters/environment-profile.mjs';
 
 const source=readFileSync(new URL('../../public/studio-fable/app/room.mjs',import.meta.url),'utf8');
 const section=(from,to)=>source.slice(source.indexOf(from),source.indexOf(to,source.indexOf(from)));
@@ -17,7 +18,7 @@ function roomFixture(density,{mode='practice',target=null,goal='Guided Mock IV P
   element('reset-density').addEventListener=(_type,fn)=>{handler.reset=fn;};
   const events=[],samples=[{t:1,vol:4,signalGap:false}];let filed=null,resolveCamera,launched=null,contextInput=null;
   const plan=[{question_id:'CORE-01',canonical_text:'Tell me about yourself.'}];
-  const setup=vm.runInNewContext(section('  const cfg=session.config||{};',"  let density=" )+'\n({settings,targetQuestions})',{session:{config:{targetQuestions:target},settings:{...defaultSettings(),goal,practiceFocus:focus,pressure:true}},mode,plan,defaultSettings,resolveMockQuestionTarget});
+  const setup=vm.runInNewContext(section('  const cfg=session.config||{};',"  let density=" )+'\n({settings,targetQuestions})',{session:{config:{targetQuestions:target},settings:{...defaultSettings(),goal,practiceFocus:focus,pressure:true}},mode,plan,defaultSettings,resolveMockQuestionTarget,environmentProfile,selectedEnvironment});
   const {settings,targetQuestions}=setup;
   const camera=new Promise(resolve=>{resolveCamera=resolve;});
   const context={density,initialPresentationMode:null,starting:false,started:false,saving:false,finished:false,disposed:false,deviceSwitching:false,
@@ -26,7 +27,7 @@ function roomFixture(density,{mode='practice',target=null,goal='Guided Mock IV P
     engine:{audioContext:{state:'running'},events:{addEventListener(){},removeEventListener(){}},personalCalibration:null},settings,session:{priority},mode,targetQuestions,plan,
     awaitVisibleCamera:()=>camera,assertMicrophoneReady,toWizard,liveContext:async input=>{contextInput=input;return{};},observer:null,callbacks:{},onFrame(){},onState(){},onWord(){},
     mark:(kind,label)=>events.push({t:2,kind,label}),events,turns:[],saveRecord:null,at:()=>2,renderPlan(){},recorder:{setData(){},tick(){}},history:{slice:()=>samples},
-    timer:null,setInterval:()=>1,resetIdle(){},disposeDevices:null,state:{preferences:{}},commit(){},saveVisibility(){},
+    timer:null,setInterval:()=>1,resetIdle(){},disposeDevices:null,disposeEnvironment:{refresh(){}},state:{preferences:{}},commit(){},saveVisibility(){},
     detach(){},deriveDebrief:()=>({change:[]}),hookLedger:()=>[],closingLedger:()=>null,uid:()=> 'attempt',showSaveFailure(){},showSaved(){},
   };
   const helperStart=source.indexOf('  function setDensityControls(');

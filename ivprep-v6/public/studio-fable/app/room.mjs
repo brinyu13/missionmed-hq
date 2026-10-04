@@ -6,6 +6,7 @@ import { conductorConfig, toWizard, defaultSettings, resolveMockQuestionTarget }
 import { liveContext } from './adapters/context-adapter.mjs';
 import { awaitVisibleCamera,assertMicrophoneReady } from './adapters/media-readiness.mjs';
 import {mountDeviceControls,deviceControlsMarkup} from './adapters/device-controls.mjs';
+import {selectedEnvironment,environmentProfile,environmentControlsMarkup,mountEnvironmentProfile} from './adapters/environment-profile.mjs';
 import {bindPrimaryRecovery} from './adapters/engine-adapter.mjs';
 import {saveOwnVisibility} from './adapters/own-presentation.mjs';
 import {overlayLayers,liveOverlayVisibility} from './adapters/overlay-view-model.mjs';
@@ -29,6 +30,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   const cfg=session.config||{};
   const targetQuestions=mode==='mock'?resolveMockQuestionTarget(cfg.targetQuestions,plan.length,{goal:session.retry?.wizard?.goal||session.settings?.goal}):1;
   const settings={...(session.settings||defaultSettings()),targetQuestions};
+  const profile=environmentProfile(selectedEnvironment(settings,session.retry));
   let density=mode==='mock'&&!state.preferences?.densityPersisted?'interview':(state.preferences?.density||'coached');
   let initialPresentationMode=null;
   let overlaysVisible=state.preferences?.overlaysVisible===true;
@@ -47,6 +49,8 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     </div>
     <aside class="rail" id="rail-left" aria-label="Teaching rail">${leftRailMarkup()}</aside>
     <div class="stage-col">
+      ${environmentControlsMarkup(profile,{mode})}
+      <div class="meeting-stage">
       <section class="presence" id="presence" data-speaking="false" aria-live="polite">
         <div class="orb" aria-hidden="true">${mode === 'mock' ? 'PD' : 'Q'}</div>
         <div class="who"><strong id="presence-name">${mode === 'mock' ? `${esc(settings.style || 'Owl')} · ${esc(settings.role || 'Program Director')}` : 'Practice rep'}</strong><span id="presence-sub">${mode === 'mock' ? 'Starts only when you choose Start Interview' : 'Your private answer recording'}</span></div>
@@ -57,6 +61,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
         <canvas id="overlay"></canvas>
         <div class="frame-guide" aria-hidden="true"></div>
         <span class="tag" id="stage-tag"><i></i>You</span>
+        <p class="self-view-hidden" hidden>Self view hidden · your camera, recording, and enabled measurements continue.</p>
         <div class="captions" id="captions" hidden><span></span></div>
         <div class="controls" id="controls">
           <button class="ctl-icon" type="button" id="guides" aria-pressed="${overlaysVisible}" aria-label="Show tracking overlays" title="Show tracking overlays">⌖</button>
@@ -72,7 +77,9 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
           </div>
         </div>
       </div>
+      </div>
       <p class="note readiness-status" id="enter-note" role="status" aria-live="polite"></p>
+      ${profile.simulated?'<div class="environment-controls" data-environment-controls></div>':''}
       <div class="under-stage" id="under-stage"><span id="engine-label">Nothing is measured yet.</span><button class="transcript-toggle" type="button" id="transcript-toggle" aria-expanded="false">Transcript</button></div>
       <div class="note" id="primary-recovery" role="status" aria-live="polite" hidden><span data-primary-status></span> <button class="btn btn-quiet" type="button" data-reselect-primary>Lock to me</button></div>
       <p class="note" id="room-preference-note" role="status" hidden></p>
@@ -90,6 +97,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   let timer=null,idleTimer=null,roomFault=null,lastCueId=null,disposeDevices=null,disposePrimary=null;
   const counts={smiles:0,nods:0,gestures:0};
   const current=()=>!disposed&&scopeCurrent();
+  const disposeEnvironment=mountEnvironmentProfile(room,{profile,isCurrent:current,isLive:()=>started&&!saving&&!finished,interviewerRole:settings.role});
   function applyOverlays(){
     if(!current())return;
     $('guides').setAttribute('aria-pressed',String(overlaysVisible));
@@ -219,7 +227,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     }catch(error){if(current()){$('stage').dataset.previewReady='false';$('enter-note').textContent=error.message;
       if(error.code==='ivoc_interview_policy_changed'){const back=document.createElement('a');back.href='#/mock';back.textContent=' Return to interview setup';$('enter-note').append(back);}
       $('start-session').disabled=true;$('connect-real').disabled=false;}engine?.events.removeEventListener('frame',onFrame);engine?.events.removeEventListener('state',onState);engine?.events.removeEventListener('word-timing',onWord);}
-    finally{starting=false;if(current()){setDensityControls(false);await disposeDevices?.refresh?.().catch(()=>{});}}
+    finally{starting=false;if(current()){setDensityControls(false);disposeEnvironment.refresh();await disposeDevices?.refresh?.().catch(()=>{});}}
   }
   $('connect-real').addEventListener('click',()=>void connect());$('start-session').addEventListener('click',()=>void start());
   $('end').disabled=true;$('primary-action').hidden=true;
@@ -260,12 +268,12 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   }
   async function retrySave(){if(saving)return;saving=true;$('end').disabled=true;const saved=await controller.retrySave();if(saved)showSaved(saved);else showSaveFailure(controller.lastSave?.error||'Save is still unavailable.');}
   async function finishSession(reason){
-    if(saving||finished||!started)return;saving=true;detach();$('end').disabled=true;
+    if(saving||finished||!started)return;saving=true;disposeEnvironment.refresh();detach();$('end').disabled=true;
     $('rec').dataset.state='saving';$('rec-text').textContent='SAVING';mark('recording','Recording stopped');
     const samples=history.slice(),snap=observer?.snapshot()||null,debrief=deriveDebrief({samples,events,turns});
     saveRecord={id:uid('att'),at:Date.now(),mode,fixture:false,engineMode:'real',transport:mode==='mock'?'gpt-live':'none',questionId:plan[0].question_id,questionText:plan[0].canonical_text,durationS:at(),samples,events,turns,conductor:snap,hooks:hookLedger(snap),closing:closingLedger(snap),debriefLane:debrief.change[0]?.lane||null,priorityLane:debrief.change[0]?.lane||null,priorityText:debrief.change[0]?.text||null,retryOf:session.retryOf||null,calibrationUsed:Boolean(engine.personalCalibration),program:session.program?{id:session.program.id,name:session.program.name,verified:session.program.verified}:null,endReason:reason,settings:{...settings,initialPresentationMode}};
     try{const saved=await controller.finishSession({record:saveRecord});if(saved.saveError)showSaveFailure(saved.saveError);else showSaved(saved);}catch(error){showSaveFailure(error.message);}
   }
   applyOverlays();renderPlan();renderTranscript();
-  return ()=>{disposed=true;disposeDevices?.();disposePrimary?.();detach();recorder.destroy();document.querySelector('.sheet-backdrop')?.remove();if(!finished&&!controller.navigationLocked)void controller.release('route_change');};
+  return ()=>{disposed=true;disposeEnvironment();disposeDevices?.();disposePrimary?.();detach();recorder.destroy();document.querySelector('.sheet-backdrop')?.remove();if(!finished&&!controller.navigationLocked)void controller.release('route_change');};
 }

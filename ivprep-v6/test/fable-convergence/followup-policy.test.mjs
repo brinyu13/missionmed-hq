@@ -11,6 +11,7 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import * as settings from '../../public/studio-fable/app/settings/interviewer.mjs';
 import {resolveFollowUps} from '../../public/capabilities/interview-policy.mjs';
+import {ENVIRONMENTS,selectedEnvironment,environmentChoicesMarkup} from '../../public/studio-fable/app/adapters/environment-profile.mjs';
 if(!globalThis.CustomEvent)globalThis.CustomEvent=class extends Event{constructor(type,init={}){super(type);this.detail=init.detail;}};
 
 const policy={schema:'ivoc.interview-policy.v1',version:3,maxFollowUpsPerAnswer:1,defaultFollowUpDepth:1,defaultPressureEnabled:false};
@@ -100,7 +101,7 @@ test('actual Practice and Mock draw functions render with an admitted policy wit
     const st=settings.defaultSettings();
     const context={main,controller:{interviewPolicy:policy,account:{mode:'REAL',liveInterviewAvailable:true}},isCurrent:()=>true,
       st,cfg:{durationMin:15,targetQuestions:null},set:[question],questions:[question],attempts:[],selected:'CORE-01',retryOf:null,state:{},session:{contextSources:[]},
-      contextOpen:false,storyRevealed:false,sources:[],useProgram:false,store:{},esc:String,trayMarkup:()=>'',mountTray(){},masteryState:()=>({state:'New',reps:0}),CATEGORY_LABELS:{},
+      contextOpen:false,environmentOpen:false,ENVIRONMENTS,selectedEnvironment,environmentChoicesMarkup,storyRevealed:false,sources:[],useProgram:false,store:{},esc:String,trayMarkup:()=>'',mountTray(){},masteryState:()=>({state:'New',reps:0}),CATEGORY_LABELS:{},
       EASY_PRESETS:settings.EASY_PRESETS,PRACTICE_GOALS:settings.PRACTICE_GOALS,ROLES:settings.ROLES,STYLES:settings.STYLES,CURIOSITY:settings.CURIOSITY,PACING:settings.PACING,
       applyPreset:settings.applyPreset,describeSettings:settings.describe,resolveMockQuestionTarget:settings.resolveMockQuestionTarget,resolveFollowUps};
     context.resolveFollowUpPreferences=settings.resolveFollowUpPreferences;
@@ -122,7 +123,7 @@ function mockDrawHarness(initial={}) {
   const st={...settings.defaultSettings(),policyVersion:4,...initial};
   const controller={interviewPolicy:{...policy,version:4,maxFollowUpsPerAnswer:2},account:{mode:'REAL',liveInterviewAvailable:true}};
   const context={main,controller,isCurrent:()=>current,st,cfg:{durationMin:15,targetQuestions:null},set:[question],questions:[question],attempts:[],state:{},session:{contextSources:[]},
-    contextOpen:false,storyRevealed:false,sources:[],useProgram:false,store:{},esc:String,trayMarkup:()=>'',mountTray(){},
+    contextOpen:false,environmentOpen:false,ENVIRONMENTS,selectedEnvironment,environmentChoicesMarkup,storyRevealed:false,sources:[],useProgram:false,store:{},esc:String,trayMarkup:()=>'',mountTray(){},
     EASY_PRESETS:settings.EASY_PRESETS,PRACTICE_GOALS:settings.PRACTICE_GOALS,ROLES:settings.ROLES,STYLES:settings.STYLES,CURIOSITY:settings.CURIOSITY,PACING:settings.PACING,
     applyPreset:settings.applyPreset,describeSettings:settings.describe,resolveMockQuestionTarget:settings.resolveMockQuestionTarget,resolveFollowUps,resolveFollowUpPreferences:settings.resolveFollowUpPreferences};
   vm.runInNewContext(source.slice(from,to)+'\ndraw();\nglobalThis.redraw=draw;',context);

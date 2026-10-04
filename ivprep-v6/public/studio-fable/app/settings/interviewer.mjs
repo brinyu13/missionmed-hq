@@ -8,6 +8,7 @@
 // No engineering/provider parameters are exposed (model, temperature, VAD, keys).
 import {normalizePracticeFocus} from '../../../studio/live-context-adapter.mjs';
 import {normalizeInterviewPolicy,resolveFollowUps} from '../../../capabilities/interview-policy.mjs';
+import {selectedEnvironment} from '../adapters/environment-profile.mjs';
 
 export const PRACTICE_GOALS = Object.freeze(['Full IV Simulation', 'Guided Mock IV Practice', 'Individual Question']);
 
@@ -25,7 +26,7 @@ export const PACING = ['Relaxed', 'Normal', 'Brisk'];
 export const VOICES = ['marin', 'meridian', 'gleam', 'vesper', 'stone', 'willow']; // current source allow-list; student default marin, audition is Admin-only
 
 export function defaultSettings() {
-  return { goal: 'Guided Mock IV Practice', practiceFocus: '', preset: 'balanced', role: 'Program Director', style: 'Owl', depth: 1, curiosity: 'Normal', pressure: false, interruption: false, pacing: 'Normal', maxFollowUps: 4, programEmphasis: 'Normal', targetQuestions: 5, durationMin: 15, voice: 'marin', advanced: false };
+  return { goal: 'Guided Mock IV Practice', practiceFocus: '', environment:'MissionMed', preset: 'balanced', role: 'Program Director', style: 'Owl', depth: 1, curiosity: 'Normal', pressure: false, interruption: false, pacing: 'Normal', maxFollowUps: 4, programEmphasis: 'Normal', targetQuestions: 5, durationMin: 15, voice: 'marin', advanced: false };
 }
 
 export function normalizeMockPracticeFocus(value) {
@@ -95,7 +96,7 @@ export function toWizard(settings, { program = null, mode = 'mock', contextSourc
     interviewer: ROLES.includes(settings.role) ? settings.role : 'Program Director',
     interviewerStyle: ['Dove', 'Peacock', 'Owl', 'Eagle'].includes(settings.style) ? settings.style : 'Owl',
     pressurePractice: goal !== 'Individual Question' && settings.pressure === true,
-    environment: 'MissionMed',
+    environment: selectedEnvironment(settings,retry),
     analyticsEnabled: true,
     contextSources: [...new Set(contextSources.filter(source => ['CV','File Vault','StoryForge','MCC','Top 3','Prior IVOC'].includes(source))), ...(program?.verified ? ['RISE'] : [])],
     ...(policy?{followUpDepth:followUps.depth,maxFollowUps:followUps.maxFollowUps,interviewPolicyVersion:policy.version}:{}),
@@ -105,7 +106,7 @@ export function toWizard(settings, { program = null, mode = 'mock', contextSourc
   }
   if (goal === 'Guided Mock IV Practice' && focusBits.length) wizard.focus = focusBits.join('; ').slice(0, 500);
   if (retry) Object.assign(wizard,{retrySourceSessionId:retry.id,retryQuestionId:retry.questionId,retryQuestionText:retry.questionText,retrySessionType:retry.remote?.sessionType,
-    environment:retry.wizard?.environment||wizard.environment});
+    environment:selectedEnvironment(settings,retry)});
   // Own Retry already resolves current membership and the exact saved question.
   // Preserve its canonical goal after applying current interviewer settings.
   return wizard;
