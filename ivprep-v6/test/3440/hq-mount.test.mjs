@@ -116,10 +116,11 @@ function observerFixture(identity, { ready = Promise.resolve(attachedReceipt(ide
     completed.resolve(outcome); return outcome;
   } };
 }
-function liveHarness({ guard, context, create, observe, hangup } = {}) {
+function liveHarness({ guard, context, create, observe, hangup, report = () => {} } = {}) {
   const enrolled = registry(), events = []; let generation = 0;
   const handler = createIvPrepHqHandler({ registry: enrolled, now: () => NOW,
     flags: { enabled: true, adminCanaryEnabled: true, videoEnabled: false },
+    reportLiveStartFailure: report,
     liveSessionGuard: async identity => { events.push(['guard', identity]); if (guard) return guard(identity); },
     liveContextResolver: async identity => { events.push(['context', identity]); return context ? context(identity) : { actorBlock: 'authorized fixture', receipt: 'fixture' }; },
     liveSessionBroker: { create: async input => { events.push(['create', input]); return create ? create(input)
@@ -156,6 +157,28 @@ test('subject is reserved before body/context awaits so concurrent live creates 
   pending.resolve({ actorBlock: 'fixture' }); assert.equal((await first).status, 201);
   assert.equal(h.events.filter(event => event[0] === 'create').length, 1);
   await endLive(h.handler);
+});
+
+test('startup diagnostics retain only the failed stage and bounded provider status', async () => {
+  for (const stage of ['session_guard', 'context_pack', 'provider_create', 'transcript_factory']) {
+    const reports = [];
+    const privateError = Object.assign(new Error('private transcript and token must not escape'),
+      stage === 'provider_create' ? { code: 'OPENAI_LIVE_REQUEST_FAILED', status: 401 } : {});
+    const fail = () => { throw privateError; };
+    const h = liveHarness({ report: record => reports.push(record),
+      ...(stage === 'session_guard' ? {guard: fail} : stage === 'context_pack' ? {context: fail}
+        : stage === 'provider_create' ? {create: fail} : {observe: fail}) });
+    const result = await startLive(h.handler);
+    assert.equal(result.status, 503);
+    assert.deepEqual(result.body, {error: 'ivprep_live_start_failed'});
+    assert.deepEqual(reports, [{event:'ivoc_live_start_failure',stage,
+      category:stage === 'provider_create' ? 'provider_request' : 'startup_failed',
+      providerStatus:stage === 'provider_create' ? 401 : null}]);
+    assert.equal(JSON.stringify(reports).includes(privateError.message),false);
+  }
+  const h = liveHarness({create:()=>{throw new TypeError('private invalid context');},
+    report:()=>{throw new Error('diagnostic sink unavailable');}});
+  assert.equal((await startLive(h.handler)).status,503,'diagnostics never prevent ordinary cleanup');
 });
 
 test('foreign/inactive guard and client event extensions deny before paid creation or attachment', async () => {

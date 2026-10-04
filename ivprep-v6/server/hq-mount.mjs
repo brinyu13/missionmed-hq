@@ -225,6 +225,7 @@ export function createIvPrepHqHandler({
   liveContextResolver = null,
   liveSessionGuard = null,
   liveTranscriptObserver = null,
+  reportLiveStartFailure = record => console.error(JSON.stringify(record)),
   liveKitSignalOrigin = null,
   runtimeState = async () => Object.freeze({
     mode: 'disabled',
@@ -555,6 +556,7 @@ export function createIvPrepHqHandler({
           throw new Error('Live authorization changed.');
         }
       };
+      let startStage = 'request';
       try {
       let body;
       try { body = await readJson(request); }
@@ -575,9 +577,11 @@ export function createIvPrepHqHandler({
       }
       live.ivocSessionId = body.ivocSessionId;
       if (liveSessionGuard) {
+        startStage = 'session_guard';
         await liveSessionGuard({ ownerSubject: live.subject, ivocSessionId: live.ivocSessionId });
         assertCurrent();
       }
+        startStage = 'context_pack';
         const actorContext = await liveContextResolver({
           subject: admission.subject,
           sessionId: body.ivocSessionId,
@@ -585,9 +589,11 @@ export function createIvPrepHqHandler({
         assertCurrent();
         if (!actorContext) throw new Error('IVOC context pack is unavailable.');
         if (liveSessionGuard) {
+          startStage = 'session_recheck';
           await liveSessionGuard({ ownerSubject: live.subject, ivocSessionId: live.ivocSessionId });
           assertCurrent();
         }
+        startStage = 'provider_create';
         const created = await liveSessionBroker.create({
           sdp: body.sdp,
           voice: body.voice,
@@ -599,6 +605,7 @@ export function createIvPrepHqHandler({
         live.bindingId = `live:${live.id}`;
         liveSessions.set(live.id, live);
         assertCurrent();
+        startStage = 'provider_binding';
         await registry.bindInterview({
           interviewId: live.bindingId,
           subject: admission.subject,
@@ -609,6 +616,7 @@ export function createIvPrepHqHandler({
         registry.setTerminationHandler?.(live.bindingId, () => terminateLive(live));
         assertCurrent();
         if (liveTranscriptObserver) {
+          startStage = 'transcript_factory';
           const identity = Object.freeze({ ownerSubject: live.subject, ivocSessionId: live.ivocSessionId,
             providerSessionId: live.id, observationId: randomUUID() });
           live.observationId = identity.observationId;
@@ -630,6 +638,7 @@ export function createIvPrepHqHandler({
           });
           const observer = await boundedLiveWait(live.observerPending, LIVE_OBSERVER_WAIT_MS);
           assertCurrent();
+          startStage = 'transcript_ready';
           const ready = await boundedLiveWait(observer.ready, LIVE_OBSERVER_WAIT_MS);
           if (ready?.observation_id !== identity.observationId || ready.session_id !== live.ivocSessionId
             || ready.owner_subject !== live.subject || ready.provider_session_id !== live.id
@@ -641,6 +650,13 @@ export function createIvPrepHqHandler({
       sendJson(response, 201, created);
       return true;
       } catch (error) {
+        // Closed vocabulary only. Never log error.message, SDP, credentials,
+        // subject, context, transcript, or the provider response body.
+        try { reportLiveStartFailure({ event: 'ivoc_live_start_failure', stage: startStage,
+          category: error?.code === 'OPENAI_LIVE_REQUEST_FAILED' ? 'provider_request'
+            : error instanceof TypeError ? 'invalid_contract' : 'startup_failed',
+          providerStatus: error?.code === 'OPENAI_LIVE_REQUEST_FAILED' && Number.isInteger(error.status)
+            && error.status >= 400 && error.status <= 599 ? error.status : null }); } catch { /* Diagnostics cannot change cleanup. */ }
         if (live.id) await terminateLive(live);
         else live.state = 'ended';
         if (error?.code === 'ivoc_interview_policy_changed') {

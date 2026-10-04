@@ -5,7 +5,7 @@ Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`, `DR-350` (narrow packaging), `DR-361` (current RISE eligibility successor); `DR-340` QA grant revoked
 Branch: `codex/ivoc-foreman-9200`
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
-Current continuation boundary: `FOUNDER ACCEPTANCE READY — FULL PRODUCT COMPLETION UNCLAIMED`
+Current continuation boundary: `P0 LIVE INTERVIEW STARTUP RECOVERY — FOUNDER ACCEPTANCE READY REOPENED`
 
 This is the one living requirement ledger required by the final Founder
 completion directive. A status of `LIVE UNVERIFIED` means the capability is
@@ -15,6 +15,18 @@ the actual production route and deployment.
 ## Foreman 9300 overnight reactivation — current dated evidence
 
 ### Current Fable-to-production convergence — 2026-10-03
+
+- 2026-10-04 FOUNDER LIVE START FAILURE (PRODUCT4677):
+  Genuine Founder screenshots and independent root reproduction confirm visible
+  FaceTime camera/mic readiness, then POST /api/ivprep-v6/live/sessions503
+  ivprep_live_start_failed, abandoned Mock and return to readiness. Current
+  c915d394/fda8fab runtime remains infrastructure rollback, not accepted Mock.
+  Private sessions/context packs exist; no observer attachment persisted.
+  Exact two-question policy4/Owl context passes native source validation.
+  Closed-vocabulary server startup-stage diagnostics added; no secrets, SDP,
+  applicant/transcript text, identity or provider body logged. Root preserved
+  the Founder's separate active Self Practice capture. Startup is executable P0,
+  not a human-evidence wait; prior engineering-exhausted fallback invalidated.
 
 - 2026-10-04 FINAL NORMAL-ENTRY EVIDENCE BOUNDARY (PRODUCT4641):
   Independent non-builder actual root Home ->Practice Core02 ->Back; Mock
