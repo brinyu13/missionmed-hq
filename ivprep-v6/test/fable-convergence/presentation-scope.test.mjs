@@ -3,11 +3,12 @@ import assert from 'node:assert/strict';
 import {readOwnPresentation,saveOwnVisibility,presentationPreferences} from '../../public/studio-fable/app/adapters/own-presentation.mjs';
 import {advancedEntryRole,reviewScopeLabel} from '../../public/studio/advanced-entry.mjs';
 function setup() {
-  let stored={calibration:{version:7},visibility:{analyticsVisible:true,otherOwnerField:'preserve'},coachingEnabled:false,recordingDefault:false};
+  let stored={scopeSubject:'wp:1',calibration:{version:7},visibility:{analyticsVisible:true,otherOwnerField:'preserve'},coachingEnabled:false,recordingDefault:false};
   const c={account:{mode:'REAL',subject:'wp:1',role:'admin',api:{
-    bootstrap:async()=>({entitlement:{admitted:true},identity:{subject:'wp:1',admin:true}}),
+    identity:{subject:'wp:1',admin:true},
+    bootstrap:async()=>({entitlement:{admitted:true},identity:{subject:'wp:1',admin:true},preferences:stored}),
     mentorPriorities:async()=>({subjectId:'wp:1',priorities:[{text:'Name your contribution.'}]}),
-    preferences:async()=>stored,savePreferences:async value=>(stored=value),
+    preferences:async()=>stored,savePreferences:async value=>(stored={scopeSubject:'wp:1',...value}),
   }}};
   return {c,stored:()=>stored};
 }
@@ -17,6 +18,51 @@ test('Home/Practice priorities come only from fresh admitted own subject',async(
   await assert.rejects(readOwnPresentation(c),/account changed/);
   c.account.api.bootstrap=async()=>({entitlement:{admitted:false},identity:{subject:'wp:1',admin:true}});
   await assert.rejects(readOwnPresentation(c),/access changed/);
+});
+test('preference reads and merges require the request-bound owner receipt, including ABA actor changes',async()=>{
+  for(const operation of ['read','write'])for(const scopeSubject of [undefined,'wp:2']){
+    const{c}=setup();let writes=0;c.account.api.preferences=async()=>({scopeSubject,visibility:{ivocFable:{favoriteQuestions:['CORE-02']}}});
+    c.account.api.savePreferences=async()=>{writes++;return null;};
+    await assert.rejects(operation==='read'?readOwnPresentation(c):saveOwnVisibility(c,{overlaysVisible:true}),/account.*changed/i);
+    assert.equal(writes,0);
+  }
+});
+test('preference reads recheck actual admission after the response, not the cached actor label',async()=>{
+  const{c}=setup();let actor='wp:1';c.account.api.bootstrap=async()=>({entitlement:{admitted:true},identity:{subject:actor,admin:true}});
+  c.account.api.preferences=async()=>{actor='wp:2';return{scopeSubject:'wp:1',visibility:{}};};
+  await assert.rejects(readOwnPresentation(c),/access.*changed/i);
+});
+test('null preference GET during an ABA login uses the atomic admitted bootstrap projection',async()=>{
+  const{c,stored}=setup();
+  stored().visibility.ivocFable={favoriteQuestions:['CORE-02'],density:'interview'};
+  // Another actor with no preferences can return null while bootstrap before
+  // and after the request correctly identifies the original admitted actor.
+  c.account.api.preferences=async()=>null;
+  const read=await readOwnPresentation(c);
+  assert.deepEqual(read.preferences.favoriteQuestions,['CORE-02']);
+  assert.equal(read.preferences.density,'interview');
+  await saveOwnVisibility(c,{overlaysVisible:true});
+  assert.deepEqual(stored().calibration,{version:7});
+  assert.equal(stored().visibility.otherOwnerField,'preserve');
+  assert.deepEqual(stored().visibility.ivocFable.favoriteQuestions,['CORE-02']);
+  assert.equal(stored().visibility.ivocFable.density,'interview');
+  assert.equal(stored().coachingEnabled,false);assert.equal(stored().recordingDefault,false);
+});
+test('null preference GET cannot infer defaults from a bootstrap missing its preference projection',async()=>{
+  for(const operation of ['read','write']){
+    const{c}=setup();let writes=0;c.account.api.preferences=async()=>null;
+    c.account.api.bootstrap=async()=>({entitlement:{admitted:true},identity:{subject:'wp:1',admin:true}});
+    c.account.api.savePreferences=async()=>{writes++;return null;};
+    await assert.rejects(operation==='read'?readOwnPresentation(c):saveOwnVisibility(c,{overlaysVisible:true}),/preference.*unavailable/i);
+    assert.equal(writes,0);
+  }
+});
+test('a genuinely admitted account with no saved preferences retains default behavior',async()=>{
+  const{c,stored}=setup();c.account.api.preferences=async()=>null;
+  c.account.api.bootstrap=async()=>({entitlement:{admitted:true},identity:{subject:'wp:1',admin:true},preferences:null});
+  assert.equal((await readOwnPresentation(c)).preferences.densityPersisted,false);
+  await saveOwnVisibility(c,{overlaysVisible:true});
+  assert.deepEqual(stored().calibration,{});assert.equal(stored().visibility.ivocFable.overlaysVisible,true);
 });
 test('preference writes are serialized fresh merges and preserve other subsystems',async()=>{
   const {c,stored}=setup();await Promise.all([saveOwnVisibility(c,{density:'interview'}),saveOwnVisibility(c,{overlaysVisible:true}),saveOwnVisibility(c,{favoriteQuestions:['CORE-01','CORE-01','bad id']})]);

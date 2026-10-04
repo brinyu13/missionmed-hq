@@ -1866,9 +1866,10 @@ export function createIvocHandler({
       if (request.method === 'GET' && pathname === `${API_PREFIX}/library`) {
         const scope = url.searchParams.get('scope') || 'own';
         const adminAll = scope === 'all' && isAdmin(hqSession, admission);
+        const assignedScope = scope === 'assigned' && (isMentor(hqSession) || isAdmin(hqSession, admission));
         let rows;
         if (adminAll) rows = await db.request('ivoc_sessions?select=*&order=created_at.desc&limit=200');
-        else if (scope === 'assigned' && (isMentor(hqSession) || isAdmin(hqSession, admission))) {
+        else if (assignedScope) {
           const reviews = isAdmin(hqSession, admission)
             ? await db.request('ivoc_reviews?status=neq.revoked&select=session_id')
             : await db.request(`ivoc_reviews?mentor_subject=eq.${encodeURIComponent(actor)}&status=neq.revoked&select=session_id`);
@@ -1883,7 +1884,9 @@ export function createIvocHandler({
         const evidence = ids.length ? await db.request(`ivoc_coaching_evidence?session_id=in.(${ids.join(',')})&select=session_id,dimension`) : [];
         const sourceRecordings = results.some(result => result.candidate_analysis)
           ? await db.request(`ivoc_recordings?session_id=in.(${ids.join(',')})&recording_role=eq.candidate_audio&select=*`) : [];
-        sendJson(response, 200, { sessions: rows.map((row) => {
+        // Bind the minimized own projection to THIS authenticated request.
+        // No client subject claim or other student's owner identity is added.
+        sendJson(response, 200, { ...(!adminAll && !assignedScope ? { scopeSubject: actor } : {}), sessions: rows.map((row) => {
           const detail = publicSession(
           row,
           recordings.find((x) => x.session_id === row.id && isConversationRecording(x)),
@@ -1974,14 +1977,14 @@ export function createIvocHandler({
 
       if (request.method === 'GET' && pathname === `${API_PREFIX}/preferences`) {
         const row = await db.single(`ivoc_preferences?owner_subject=eq.${encodeURIComponent(actor)}&select=*&limit=1`);
-        sendJson(response, 200, row ? { calibration: row.calibration, visibility: row.visibility, coachingEnabled: row.coaching_enabled, recordingDefault: row.recording_default } : null, mediaBase); return true;
+        sendJson(response, 200, row ? { scopeSubject: actor, calibration: row.calibration, visibility: row.visibility, coachingEnabled: row.coaching_enabled, recordingDefault: row.recording_default } : null, mediaBase); return true;
       }
       if (request.method === 'PUT' && pathname === `${API_PREFIX}/preferences`) {
         const input = await readJson(request);
         const existing = await db.single(`ivoc_preferences?owner_subject=eq.${encodeURIComponent(actor)}&select=owner_subject&limit=1`);
         const body = { calibration: input.calibration && typeof input.calibration === 'object' ? input.calibration : {}, visibility: input.visibility && typeof input.visibility === 'object' ? input.visibility : {}, coaching_enabled: input.coachingEnabled !== false, recording_default: input.recordingDefault !== false };
         const row = existing ? await db.update(`ivoc_preferences?owner_subject=eq.${encodeURIComponent(actor)}&select=*`, body) : await db.insert('ivoc_preferences', { owner_subject: actor, ...body });
-        sendJson(response, 200, { calibration: row.calibration, visibility: row.visibility, coachingEnabled: row.coaching_enabled, recordingDefault: row.recording_default }, mediaBase); return true;
+        sendJson(response, 200, { scopeSubject: actor, calibration: row.calibration, visibility: row.visibility, coachingEnabled: row.coaching_enabled, recordingDefault: row.recording_default }, mediaBase); return true;
       }
 
       sendError(response, 404, 'not_found', mediaBase); return true;

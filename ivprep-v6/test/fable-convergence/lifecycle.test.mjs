@@ -5,6 +5,7 @@ import {GptLiveInterviewer,LiveCaptionGroups} from '../../public/studio-fable/ap
 import {LiveInterviewSession} from '../../public/capabilities/live-interview.mjs';
 import {SessionController} from '../../public/studio-fable/app/controller/session-controller.mjs';
 import {DurableStudioSession} from '../../public/studio/durable-session.mjs';
+import {IvocApi} from '../../public/ivoc-standalone/app/api.mjs';
 import {LiveAnalyticsMediaBridge} from '../../public/live-analytics/media-bridge.mjs';
 import {BehaviorIntelligenceRuntime} from '../../public/live-analytics/behavior-intelligence-runtime.mjs';
 import {bindSubject} from '../../public/studio-fable/app/state.mjs';
@@ -110,12 +111,14 @@ test('preflight device replacement must drain before recording or replacement ca
 });
 test('cancelled durable preparation drains before replacement recording can start',async()=>{
   const wait=deferred();let creates=0,abandoned=0;
-  const api={bootstrap:async()=>({entitlement:{admitted:true}}),createSession:async()=>{creates++;if(creates===1)await wait.promise;return{id:'session-'+creates};},
+  const api={identity:{subject:'wp:1',admin:false},bootstrap:async()=>({entitlement:{admitted:true},identity:{subject:'wp:1',admin:false}}),createSession:async()=>{creates++;if(creates===1)await wait.promise;return{id:'session-'+creates};},
     abandonSession:async()=>{abandoned++;return{};}};
   const durable=new DurableStudioSession({api,recordingFactory:()=>({startedAt:100,start:async()=>true,destroy(){}})});await durable.bootstrap();
   const stream={getAudioTracks:()=>[{kind:'audio'}]},engine=()=>({stream,beginSession:async()=>{},destroy(){}});
-  const c=new SessionController({mixFactory:()=>null});c.account={subject:'wp:1'};c.durable=durable;c.engine=engine();c.phase='READY';
+  const c=new SessionController({mixFactory:()=>null});c.account={mode:'REAL',subject:'wp:1',role:'student',api};c.durable=durable;c.engine=engine();c.phase='READY';
   const first=c.startSession({mode:'practice',question:{question_id:'CORE-01',canonical_text:'Question'},interviewSet:[],wizard:{},targetQuestions:1});
+  for(let tick=0;!creates&&tick<100;tick++)await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(creates,1,'cancel the in-flight durable preparation, not the new admission read');
   await c.release('cancelled');c.engine=engine();c.phase='READY';
   await assert.rejects(c.startSession({mode:'practice'}),/previous.*closing/);
   wait.resolve();await assert.rejects(first,/cancelled/);assert.equal(abandoned,1);assert.equal(c.phase,'READY');assert.equal(durable.accountSession,null);
@@ -124,12 +127,12 @@ test('cancelled durable preparation drains before replacement recording can star
 });
 test('release and cancelled-start cleanup both drain before replacing the shared Durable owner',{timeout:3000},async t=>{
   const begin=deferred(),abandon=deferred();let creates=0,abandons=0;const destroyed=[];
-  const api={bootstrap:async()=>({entitlement:{admitted:true}}),createSession:async()=>({id:'session-'+(++creates)}),
+  const api={identity:{subject:'wp:1',admin:false},bootstrap:async()=>({entitlement:{admitted:true},identity:{subject:'wp:1',admin:false}}),createSession:async()=>({id:'session-'+(++creates)}),
     abandonSession:async()=>{abandons++;await abandon.promise;return{};}};
   let recorders=0;
   const durable=new DurableStudioSession({api,recordingFactory:()=>{const id=++recorders;return{startedAt:100,start:async()=>true,destroy(){destroyed.push(id);}};}});
   await durable.bootstrap();const stream={getAudioTracks:()=>[{kind:'audio'}]};
-  const c=new SessionController();c.account={subject:'wp:1'};c.durable=durable;
+  const c=new SessionController();c.account={mode:'REAL',subject:'wp:1',role:'student',api};c.durable=durable;
   c.engine={stream,beginSession:()=>begin.promise,destroy(){}};c.phase='READY';
   const input={mode:'practice',question:{question_id:'CORE-01',canonical_text:'Question'},interviewSet:[],wizard:{},targetQuestions:1};
   const first=c.startSession(input);const failed=assert.rejects(first,/cancelled/);
@@ -153,11 +156,11 @@ test('release and cancelled-start cleanup both drain before replacing the shared
 });
 function saveHarness({failEvidence=false,failPersistence=false}={}){
   const writes=[];let seals=0;
-  const api={bootstrap:async()=>({entitlement:{admitted:true}}),createSession:async()=>({id:'f13869aa-2b3e-4b65-9f66-1288fb459444'}),
+  const api={identity:{subject:'wp:1',admin:false},bootstrap:async()=>({entitlement:{admitted:true},identity:{subject:'wp:1',admin:false}}),createSession:async()=>({id:'f13869aa-2b3e-4b65-9f66-1288fb459444'}),
     saveResults:async(id,envelope)=>{writes.push(envelope);if(failPersistence&&writes.length===1)throw new Error('temporary_save_failure');return{};}};
   const durable=new DurableStudioSession({api,recordingFactory:()=>({startedAt:100,start:async()=>true,
     stopAndSeal:async()=>{seals++;return{recording:{id:'recording-1',status:'saved'},recordingDurationMs:1000};},destroy(){}})});
-  const c=new SessionController();c.account={subject:'wp:1'};c.durable=durable;
+  const c=new SessionController();c.account={mode:'REAL',subject:'wp:1',role:'student',api};c.durable=durable;
   c.engine={finish:async()=>{if(failEvidence)throw new Error('evidence_failure');return{analytics:{schema:'missionmed.ivprep.analytics.session.v1',events:[],durationMs:1000}};},destroy(){}};
   bindSubject('wp:1');return{c,durable,writes,seals:()=>seals};
 }
@@ -166,6 +169,59 @@ test('evidence-seal failure cannot retry into a saved analytics:null attempt',as
   const result=await h.c.finishSession({record:{samples:[],events:[]}});
   assert.equal(result.persisted,false);assert.equal(h.c.lastSave.retryable,false);
   assert.equal(await h.c.retrySave(),null);assert.equal(h.writes.length,0);assert.equal(h.c.phase,'SAVE_FAILED');
+});
+test('a rejected real API account switch cannot later start under the cached actor',async t=>{
+  const previousFetch=globalThis.fetch;t.after(()=>{globalThis.fetch=previousFetch;});
+  let actor='wp:1',creates=0,recorders=0;
+  globalThis.fetch=async(path,options={})=>({ok:true,json:async()=>{
+    if(path.endsWith('/bootstrap'))return{entitlement:{admitted:true},identity:{subject:actor,admin:true},csrfToken:'fixture-csrf'};
+    if(path.endsWith('/sessions')&&options.method==='POST'){creates++;return{id:'fixture-session',ownerSubject:actor};}
+    return{};
+  }});
+  const api=new IvocApi(),durable=new DurableStudioSession({api,recordingFactory:()=>{recorders++;return{startedAt:100,start:async()=>true,destroy(){}};}});
+  await durable.bootstrap();const c=new SessionController();
+  c.account={mode:'REAL',subject:'wp:1',role:'admin',api};c.durable=durable;
+  c.engine={stream:{getAudioTracks:()=>[]},beginSession:async()=>{},destroy(){}};c.phase='READY';
+  actor='wp:2';await assert.rejects(c.freshOwnLibrary(),/access changed/);
+  assert.equal(api.identity.subject,'wp:2');assert.equal(durable.ready,true);
+  await assert.rejects(c.startSession({mode:'practice',question:{question_id:'CORE-01',canonical_text:'Question'},interviewSet:[],wizard:{},targetQuestions:1}),/access changed/);
+  assert.equal(creates,0);assert.equal(recorders,0);assert.notEqual(c.phase,'LIVE');
+});
+test('overlapping actual bootstrap responses cannot replace Start effective actor or strand STARTING',async t=>{
+  const previousFetch=globalThis.fetch;t.after(()=>{globalThis.fetch=previousFetch;});
+  let actor='wp:1',creates=0,recorders=0,bootstrapCalls=0,parallelRejected=false,parallel,c;
+  globalThis.fetch=async(path,options={})=>{
+    if(path.endsWith('/bootstrap')){
+      const requestActor=actor,number=++bootstrapCalls;
+      return{ok:true,json:()=>{
+        if(number===1)queueMicrotask(()=>{actor='wp:2';parallel=c.freshOwnLibrary().catch(()=>{parallelRejected=true;});});
+        return Promise.resolve({entitlement:{admitted:true},identity:{subject:requestActor,admin:true},csrfToken:'fixture-'+requestActor});
+      }};
+    }
+    if(path.endsWith('/sessions')&&options.method==='POST'){
+      assert.equal(options.headers['X-MMHQ-CSRF'],'fixture-'+actor);creates++;
+      return{ok:true,json:async()=>({id:'fixture-session'})};
+    }
+    throw new Error('Unexpected fixture request');
+  };
+  const api=new IvocApi();api.identity={subject:'wp:1',admin:true};api.csrfToken='fixture-wp:1';
+  const durable=new DurableStudioSession({api,recordingFactory:()=>{recorders++;return{startedAt:100,start:async()=>true,destroy(){}};}});
+  durable.bootstrapPayload={entitlement:{admitted:true},identity:{subject:'wp:1',admin:true}};
+  c=new SessionController();c.account={mode:'REAL',subject:'wp:1',role:'admin',api};c.durable=durable;
+  c.engine={stream:{getAudioTracks:()=>[]},beginSession:async()=>{},destroy(){}};c.phase='READY';
+  await assert.rejects(c.startSession({mode:'practice',question:{question_id:'CORE-01',canonical_text:'Question'},interviewSet:[],wizard:{},targetQuestions:1}),/access changed/);
+  await parallel;assert.equal(parallelRejected,true);assert.equal(bootstrapCalls,2);
+  assert.equal(creates,0);assert.equal(recorders,0);assert.equal(c.phase,'READY');
+  assert.equal(c.account.subject,'wp:1');assert.equal(api.identity.subject,'wp:2');
+});
+test('retained save retries reject a changed account without replacing pending owner evidence',async()=>{
+  const h=saveHarness({failPersistence:true});await h.durable.bootstrap();await h.durable.start({stream:{}});h.c.durableActive=true;
+  await h.c.finishSession({record:{samples:[],events:[]}});
+  const session=h.durable.accountSession,recording=h.durable.pendingRecording,analytics=h.c.lastSave.analytics;
+  h.c.account.api.bootstrap=async()=>({entitlement:{admitted:true},identity:{subject:'wp:2',admin:false}});
+  assert.equal(await h.c.retrySave(),null);assert.equal(h.writes.length,1);
+  assert.equal(h.durable.accountSession,session);assert.equal(h.durable.pendingRecording,recording);
+  assert.equal(h.c.lastSave.analytics,analytics);assert.equal(h.c.phase,'SAVE_FAILED');
 });
 test('persistence retry retains measured evidence and exact sealed recording',async()=>{
   const h=saveHarness({failPersistence:true});await h.durable.bootstrap();await h.durable.start({stream:{}});h.c.durableActive=true;

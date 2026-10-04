@@ -16,6 +16,36 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 R084/R087/R088/R104 account-switch recovery: independent pure
+  current-function reproduction proved owner-omitted library rows could bind to
+  a cached actor after a cookie change. HQ own-library/non-null preferences now
+  include a request-bound scopeSubject; pinned client account/role/API/Durable
+  guards reject wrong/missing receipts and revalidate admission after reads.
+  Reviewer correction: null preference GET resolves only from the atomic fresh
+  admitted bootstrap projection, preserving calibration/favorites/other controls
+  through login ABA; missing projection fails closed, genuine unsaved null retains
+  defaults. Actual IvocApi+Durable reproduction additionally proved rejected
+  actor switch could still Start; fresh pinned admission now precedes session
+  creation/recorder/provider and retained save retry. Retry keeps original owner
+  recording/evidence and verifies returned saved identity after normal cleanup.
+  Final concurrency correction: overlapping real IvocApi bootstrap responses may
+  replace effective identity/CSRF without replacing its object. Synchronous exact
+  effective actor/admin assertions before writes and private publication reject
+  this separately from structural ownership guards, preserving normal cleanup.
+  Actual concurrent Start/library regression rejects with zero creates/recorders
+  and restores READY, never silently adopts another actor or strands STARTING.
+  New regressions reproduced FAIL before/PASS after; 93 directly affected checks
+  plus31 review/history/Calendar/Results/Admin/context checks PASS; diff check PASS.
+  PRODUCT4521 released/readback before exact lifecycle-test scope expansion;
+  PRODUCT4524 and HQ PATH4522 heartbeat/fence active. Bash3 empty-array preflight
+  compatibility handled by an in-memory expansion correction only; no guard or
+  OS/source mutation. All dirty files are root-owned exact mission scope.
+  Independent final review/release/live POV pending; healthy61aa63e/deed28ac/image
+  456fcf/artifact2YgD0Z remains rollback. No DB/schema/auth grants/private-media
+  permissions/capture engine/provider behavior change; no fabricated live proof.
+  Full142/user-journey acceptance still open; unsupported30% stays withdrawn.
+  Next executable step: reviewed guarded release -> normal own Home/Review/
+  Results/paused Film cold reload; then R006 missing10-minute/target retention.
 - Admin-reload source61aa63eb7889326b8328b95352832bebcf82cc17 LIVE
   SUCCESSdeed28ac-d2a9-49e1-b899-6f3c95f3f27a, image
   sha256:456fcf4779bc9ceea744deebac136b98f5b92836c77363ada4ea2c14e8292258.

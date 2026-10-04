@@ -6,14 +6,32 @@ const object = value => value && typeof value === 'object' && !Array.isArray(val
 function owner(controller, isCurrent) {
   const account = controller.account;
   if (account?.mode !== 'REAL' || !/^wp:[1-9][0-9]*$/.test(account.subject || '')) throw new Error('Sign in through Matrix.');
-  return { account, current: () => isCurrent() && controller.account === account };
+  const subject=account.subject,role=account.role,api=account.api;
+  return { account, current: () => isCurrent() && controller.account === account
+    &&account.subject===subject&&account.role===role&&account.api===api };
+}
+function requireOwnPreferences(value,subject) {
+  if(value!==null&&value?.scopeSubject!==subject)throw new Error('Your preference account changed. Return to Matrix.');
+}
+function assertEffectiveActor(account){
+  if(account.api.identity?.subject!==account.subject||Boolean(account.api.identity?.admin)!==(account.role==='admin'))
+    throw new Error('Your account access changed. Return to Matrix.');
+}
+function resolveOwnPreferences(value,validatedAdmission) {
+  if(value!==null)return value;
+  // A null GET has no actor receipt. Resolve it only from the same response
+  // that atomically proved admission, not from defaults or a cached bootstrap.
+  if(!Object.hasOwn(validatedAdmission,'preferences')
+    ||validatedAdmission.preferences!==null&&(!validatedAdmission.preferences||typeof validatedAdmission.preferences!=='object'||Array.isArray(validatedAdmission.preferences)))
+    throw new Error('Your preference projection is unavailable. Return to Matrix.');
+  return validatedAdmission.preferences;
 }
 async function admission(account, current) {
   const fresh = await account.api.bootstrap();
   if (!current()) return false;
   if (fresh?.entitlement?.admitted !== true || fresh.identity?.subject !== account.subject
     || Boolean(fresh.identity.admin) !== (account.role === 'admin')) throw new Error('Your account access changed. Return to Matrix.');
-  return true;
+  return fresh;
 }
 export function presentationPreferences(value) {
   const own = object(object(value?.visibility).ivocFable);
@@ -28,17 +46,26 @@ export async function readOwnPresentation(controller, {isCurrent = () => true} =
   if (!await admission(account,current)) return null;
   const [preferences,mentor] = await Promise.all([account.api.preferences(), account.api.mentorPriorities().catch(() => null)]);
   if (!current()) return null;
+  requireOwnPreferences(preferences,account.subject);
   if (mentor && mentor.subjectId !== account.subject) throw new Error('Mentor priority account changed.');
+  const validatedAdmission=await admission(account,current);
+  if (!validatedAdmission) return null;
+  assertEffectiveActor(account);
+  const ownPreferences=resolveOwnPreferences(preferences,validatedAdmission);
   const first = mentor?.priorities?.find(item => typeof item?.text === 'string' && item.text.trim());
-  return {subject:account.subject, preferences:presentationPreferences(preferences), mentorPriority:first?.text || null};
+  return {subject:account.subject, preferences:presentationPreferences(ownPreferences), mentorPriority:first?.text || null};
 }
 export function saveOwnVisibility(controller, patch, {isCurrent = () => true} = {}) {
   const {account,current} = owner(controller,isCurrent);
   const previous = writes.get(account) || Promise.resolve();
   const operation = previous.catch(() => {}).then(async () => {
     if (!current() || !await admission(account,current)) return null;
-    const fresh = await account.api.preferences();
+    const received = await account.api.preferences();
     if (!current()) return null;
+    requireOwnPreferences(received,account.subject);
+    const validatedAdmission=await admission(account,current);
+    if (!validatedAdmission) return null;
+    const fresh=resolveOwnPreferences(received,validatedAdmission);
     const {densityPersisted, ...next} = presentationPreferences(fresh);
     const densityChanged = patch.density === 'coached' || patch.density === 'interview';
     const densityReset = patch.density === 'default';
@@ -50,10 +77,15 @@ export function saveOwnVisibility(controller, patch, {isCurrent = () => true} = 
     const visibility = object(fresh?.visibility);
     const ownVisibility = {...object(visibility.ivocFable),...next};
     if (densityReset || !densityPersisted && !densityChanged) delete ownVisibility.density;
+    assertEffectiveActor(account);
     const result = await account.api.savePreferences({ calibration:object(fresh?.calibration),
       visibility:{...visibility,ivocFable:ownVisibility,...(densityReset?{analyticsVisible:true}:densityChanged?{analyticsVisible:next.density==='coached'}:{})},
       coachingEnabled:fresh?.coachingEnabled !== false, recordingDefault:fresh?.recordingDefault !== false });
-    return current() ? presentationPreferences(result) : null;
+    if(!current())return null;
+    requireOwnPreferences(result,account.subject);
+    if(!await admission(account,current))return null;
+    assertEffectiveActor(account);
+    return presentationPreferences(result);
   });
   writes.set(account, operation);
   return operation;

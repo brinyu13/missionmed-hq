@@ -11,6 +11,21 @@ import { projectDerivedPriority } from '../adapters/saved-review.mjs';
 const ENGINE = '/iv-prep-on-call/assets';
 export const recordings = new Map();
 const LOCKED = new Set(['STARTING','LIVE','SAVING','SAVE_FAILED']);
+function assertEffectiveActor(account){
+  if(account?.api?.identity?.subject!==account?.subject
+    ||Boolean(account?.api?.identity?.admin)!==(account?.role==='admin')){
+    state.attempts=[];throw new Error('Your account access changed. Return to Matrix and sign in again.');
+  }
+}
+async function revalidateOwnAdmission(account,current) {
+  const admission=await account.api.bootstrap();
+  if(!current())return false;
+  if(admission?.entitlement?.admitted!==true||admission.identity?.subject!==account.subject
+    ||Boolean(admission.identity.admin)!==(account.role==='admin')){
+    state.attempts=[];throw new Error('Your account access changed. Return to Matrix and sign in again.');
+  }
+  return true;
+}
 export class SessionController extends EventTarget {
   constructor({ accountFactory = connectAccount, engineFactory = createEngine, liveFactory = options => new GptLiveInterviewer(options), mixFactory = null } = {}) {
     super(); Object.assign(this,{ accountFactory,engineFactory,liveFactory,mixFactory });
@@ -82,25 +97,32 @@ export class SessionController extends EventTarget {
     if (this.navigationLocked || !this.stream || !this.durable?.ready) throw new Error('Connect your camera and microphone before starting.');
     if (options.mode==='mock' && !this.account.liveInterviewAvailable) throw new Error('The live interviewer is unavailable. Try again, or choose Self Practice.');
     const ticket=++this.generation;
-    const current=()=>ticket===this.generation;
-    const engine=this.engine,durable=this.durable;
+    const engine=this.engine,durable=this.durable,account=this.account,subject=account.subject,role=account.role,api=account.api,durableApi=durable.api;
+    const current=()=>ticket===this.generation&&this.engine===engine&&this.durable===durable&&this.account===account
+      &&account.subject===subject&&account.role===role&&account.api===api&&durable.api===durableApi;
     let ownedLive=null;
     const {mode,question,interviewSet,wizard,targetQuestions}=options;
     const input={question,interviewSet,wizard,targetQuestions,interviewerProvider:mode==='mock'?'openai-gpt-live':'missionmed-static'};
     this.setPhase('STARTING');
     try {
+      if(!await revalidateOwnAdmission(account,current))throw new Error('Interview startup was cancelled.');
+      assertEffectiveActor(account);
       await durable.prepare(input);
       if (!current()) throw new Error('Interview startup was cancelled.');
+      assertEffectiveActor(account);
       const makeMix=mode==='mock'?(this.mixFactory || (await import(ENGINE+'/capabilities/conversation-recording.mjs')).createConversationRecordingMix):null;
       if(!current())throw new Error('Interview startup was cancelled.');
+      assertEffectiveActor(account);
       this.mix=mode==='mock'?makeMix({candidateStream:engine.stream,audioContext:engine.audioContext}):null;
       await durable.start({...input,stream:this.mix?.stream || engine.stream,candidateStream:engine.stream});
       if (!current()) throw new Error('Interview startup was cancelled.');
+      assertEffectiveActor(account);
       this.durableActive=true; this.recordingOrigin=durable.recorder.startedAt;
       await engine.beginSession?.({recordingOrigin:this.recordingOrigin});
       if(!current())throw new Error('Interview startup was cancelled.');
+      assertEffectiveActor(account);
       if (mode==='mock') {
-        const live=this.liveFactory({...options,account:this.account,audioElement:this.audioElement,engine,recordingMix:this.mix,durable,
+        const live=this.liveFactory({...options,account,audioElement:this.audioElement,engine,recordingMix:this.mix,durable,
           onStatus:status=>{options.onStatus?.(status);if(status.state==='error' && current()) options.onProviderFailed?.(status.detail);} });
         ownedLive=live;this.live=live; // publish before awaiting, so cancellation owns this connection
         await live.connect({audioTrack:engine.stream.getAudioTracks()[0],voice:options.voice,context:options.context,ivocSessionId:durable.accountSession.id,openingQuestion:options.openingQuestion});
@@ -156,9 +178,21 @@ export class SessionController extends EventTarget {
     if(!this.lastSave.retryable || !this.lastSave.analytics){
       this.setPhase('SAVE_FAILED',{error:'The measured evidence could not be sealed. This attempt cannot be marked saved without it.',retryable:false});return null;
     }
-    const record=this.lastSave.record; this.setPhase('SAVING');
-    try { return this.completeSave(record,await this.durable.finish(Promise.resolve(this.lastSave.analytics))); }
-    catch(error) { this.lastSave.error=String(error?.message||error);this.setPhase('SAVE_FAILED',{error:this.lastSave.error,retryable:true}); return null; }
+    const pending=this.lastSave,account=this.account,durable=this.durable,subject=account?.subject,role=account?.role,api=account?.api,durableApi=durable.api;
+    const sessionId=durable.accountSession?.id,record=pending.record,ticket=this.generation;
+    const current=()=>this.generation===ticket&&this.lastSave===pending&&this.account===account&&this.durable===durable&&account?.subject===subject
+      &&account?.role===role&&account?.api===api&&durable.api===durableApi;
+    this.setPhase('SAVING');
+    try {
+      if(!await revalidateOwnAdmission(account,()=>current()&&durable.accountSession?.id===sessionId))return null;
+      assertEffectiveActor(account);
+      const saved=await durable.finish(Promise.resolve(pending.analytics));
+      if(!current())return null;
+      assertEffectiveActor(account);
+      if(!sessionId||saved?.session?.id!==sessionId)throw new Error('The saved attempt identity changed. Return to Matrix.');
+      return this.completeSave(record,saved);
+    }
+    catch(error) { if(current()){pending.error=String(error?.message||error);this.setPhase('SAVE_FAILED',{error:pending.error,retryable:true});}return null; }
   }
   candidateAudioRetryAvailable(id){
     return Boolean(!this.navigationLocked&&this.account?.subject&&this.durable?.candidateRetry?.sessionId===id&&this.durable.candidateRecorder);
@@ -170,6 +204,7 @@ export class SessionController extends EventTarget {
     const own=await this.freshOwnLibrary({isCurrent:current});
     if(!current())return null;
     if(!own?.sessions?.some(s=>s.id===id&&s.ownerSubject===subject&&s.state==='saved')||!this.candidateAudioRetryAvailable(id))throw new Error('This microphone recording is not in your current saved account.');
+    assertEffectiveActor(account);
     const result=await durable.retryCandidateAudio();
     if(!current())return null;
     return result;
@@ -201,14 +236,19 @@ export class SessionController extends EventTarget {
   async release(reason='release') { const abandoned=this.abandon(reason);this.releaseMedia();this.setPhase('IDLE',{reason});await abandoned; }
   async freshOwnLibrary({isCurrent=()=>true}={}) {
     if(!this.account?.subject || !this.durable?.ready) throw new Error('Sign in through Matrix to view your recordings.');
-    const account=this.account,subject=account.subject,durable=this.durable;
-    const current=()=>isCurrent()&&this.account===account&&this.durable===durable&&this.account.subject===subject;
-    const admission=await account.api.bootstrap();
-    if(!current())return null;
-    if(admission?.entitlement?.admitted!==true||admission.identity?.subject!==subject||Boolean(admission.identity.admin)!==(account.role==='admin')){
+    const account=this.account,subject=account.subject,role=account.role,api=account.api,durable=this.durable,durableApi=durable.api;
+    const current=()=>isCurrent()&&this.account===account&&this.durable===durable&&account.subject===subject
+      &&account.role===role&&account.api===api&&durable.api===durableApi;
+    if(!await revalidateOwnAdmission(account,current))return null;
+    const own=await durable.library('own');if(!current())return null;
+    // The own projection omits per-row owners. Bind only its request-scoped
+    // server receipt, never infer that an unchanged client label means an
+    // unchanged cookie. The receipt also rejects an A -> B -> A login race.
+    if(own?.scopeSubject!==subject){
       state.attempts=[];throw new Error('Your account access changed. Return to Matrix and sign in again.');
     }
-    const own=await durable.library('own');if(!current())return null;
+    if(!await revalidateOwnAdmission(account,current))return null;
+    assertEffectiveActor(account);
     return bindOwnLibrary(own,subject);
   }
   async library({isCurrent=()=>true}={}) {
@@ -226,21 +266,27 @@ export class SessionController extends EventTarget {
     return {source:'account',attempts,sessions:own.sessions||[]};
   }
   async playbackUrl(attempt,{isCurrent=()=>true}={}) {
-    const account=this.account,durable=this.durable;
-    const current=()=>isCurrent()&&this.account===account&&this.durable===durable;
+    const account=this.account,durable=this.durable,subject=account?.subject,role=account?.role,api=account?.api,durableApi=durable?.api;
+    const current=()=>isCurrent()&&this.account===account&&this.durable===durable&&account?.subject===subject
+      &&account?.role===role&&account?.api===api&&durable?.api===durableApi;
     if(attempt.ownerSubject!==this.account?.subject || !attempt.recordingId) throw new Error('This recording is not in your account.');
     const own=await this.freshOwnLibrary({isCurrent:current});
     if(!current()||!own?.sessions.some(row=>row.id===attempt.id&&row.recording?.id===attempt.recordingId))throw new Error('This recording is no longer available in your account.');
     const result=await durable.playback(attempt.recordingId);
     if(!current())throw new Error('Account or review changed during playback setup.');
+    if(!await revalidateOwnAdmission(account,current))throw new Error('Account or review changed during playback setup.');
+    assertEffectiveActor(account);
     return result;
   }
   async sessionDetail(id,{isCurrent=()=>true}={}) {
     if(!this.account?.subject || !this.durable?.ready || !isCurrent()) return null;
-    const account=this.account,durable=this.durable,subject=account.subject;
-    const current=()=>isCurrent()&&this.account===account&&this.durable===durable&&this.account.subject===subject;
+    const account=this.account,durable=this.durable,subject=account.subject,role=account.role,api=account.api,durableApi=durable.api;
+    const current=()=>isCurrent()&&this.account===account&&this.durable===durable&&account.subject===subject
+      &&account.role===role&&account.api===api&&durable.api===durableApi;
     const saved=await resolveOwnSavedReview({route:{view:'postanswer',sessionId:id},library:()=>this.freshOwnLibrary({isCurrent:current}),session:value=>durable.api.session(value),isCurrent:current});
     if(!current() || saved?.session?.ownerSubject!==subject) return null;
+    if(!await revalidateOwnAdmission(account,current))return null;
+    assertEffectiveActor(account);
     const detail=bindOwnRow(saved.sessionDetail,subject);
     return detail?{...saved,sessionDetail:detail,reviewScope:'own',scopeSubject:subject}:null;
   }

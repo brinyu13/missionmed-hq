@@ -1361,6 +1361,7 @@ test('Admin all-student library exposes stable owner identity without leaking it
   });
   assert.equal(adminResponse.status, 200);
   assert.equal(adminResponse.json().sessions[0].ownerSubject, 'wp:42');
+  assert.equal(Object.hasOwn(adminResponse.json(), 'scopeSubject'), false);
 
   const ownerResponse = new ResponseCapture();
   await route({
@@ -1369,7 +1370,21 @@ test('Admin all-student library exposes stable owner identity without leaking it
     hqSession: session(),
   });
   assert.equal(ownerResponse.status, 200);
+  assert.equal(ownerResponse.json().scopeSubject, 'wp:42');
   assert.equal(Object.hasOwn(ownerResponse.json().sessions[0], 'ownerSubject'), false);
+});
+
+test('own preference projection binds its request actor without granting a client-selected subject', async () => {
+  const repo = repository();
+  repo.single = async path => path.startsWith('ivoc_preferences?owner_subject=eq.wp%3A42')
+    ? { calibration: { version: 7 }, visibility: { analyticsVisible: true }, coaching_enabled: true, recording_default: true } : null;
+  const { route } = handler(repo); const response = new ResponseCapture();
+  await route({ ...base, request: request('GET'), response,
+    url: new URL('https://hq.test/api/ivoc/v1/preferences?subject=wp:1'), hqSession: session() });
+  assert.equal(response.status, 200);
+  assert.equal(response.json().scopeSubject, 'wp:42');
+  assert.deepEqual(response.json().calibration, { version: 7 });
+  assert.equal(Object.hasOwn(response.json(), 'ownerSubject'), false);
 });
 
 test('results reject multiple bound provider audio tracks instead of accepting split authority', async () => {
