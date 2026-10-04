@@ -521,6 +521,20 @@ the actual production route and deployment.
   current-candidate Mock -> follow-up/barge-in/move-on/closing -> saved two-sided
   heard cold replay; no synthetic answer/provider smoke may substitute for it.
 
+- Current native-observation POV check found a real preflight recovery defect:
+  playback1280x720/readyState4 but visibly black; Start correctly withheld. Both
+  Room and Calibration mounted camera selectors only after visible-frame success,
+  preventing recovery, and the error was clipped inside the video overlay. No
+  provider or recording was started. Source correction mounts same-owner device
+  controls before verification, keeps Start/Next fail-closed, initializes recovered
+  calibration once, withholds stale rehearsal signals, and puts readiness status
+  in document flow. Independent review reproduced a post-refresh disposal race;
+  adapter and consumer current guards corrected. 53 focused lifecycle/readiness/
+  calibration/presentation regressions PASS. This is IMPLEMENTED_NEEDS_LIVE_CHECK,
+  not physical camera or spoken interview acceptance; actual black-frame cause
+  remains undetermined. Current candidate.c8c583/aa4c1cb5 and its exact tracked
+  artifact remain healthy runtime baseline before this candidate deployment.
+
 - **Founder live-POV override, 2026-10-02: recovery LIVE; candidate-question stall reopened fix-forward.**
   Founder confirms physical camera/mic and native multi-turn AI entry work;
   preserve those gains. Navigation, calibration Analytics, runtime composition,

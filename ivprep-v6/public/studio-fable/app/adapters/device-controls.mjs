@@ -36,7 +36,7 @@ export async function mountDeviceControls(host,{engine,video,getStream,isCurrent
       ready=true;
       status.textContent='Preview visible. Device changed; recalibrate for this setup.';
     }catch(error){if(current())status.textContent=error.message;}
-    finally{switching=false;if(current()){await refresh().catch(()=>{});onSwitching(false,ready);}}
+    finally{switching=false;if(current()){await refresh().catch(()=>{});if(current())onSwitching(false,ready);}}
   }
   const deviceChange=()=>{void refresh().catch(()=>{if(current())status.textContent='Device list unavailable. Reconnect to check your devices.';});};
   selects.forEach(select=>select.addEventListener('change',change));mediaDevices.addEventListener?.('devicechange',deviceChange);

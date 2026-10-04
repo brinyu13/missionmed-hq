@@ -43,8 +43,9 @@ export async function mountCalibration(main, { isCurrent = () => true } = {}) {
       <div class="cal-stage-col">
         <section class="housing cal-prompt" id="cal-prompt"></section>
         <div class="stage" id="stage" data-guides="true"><canvas id="overlay"></canvas><div class="frame-guide" aria-hidden="true"></div><span class="tag"><i style="background:var(--cyan);animation:none"></i>Calibration · not recorded</span>
-          <div class="stage-enter" id="enter"><div><div class="t-kick gold">Step 1 · Devices</div><h2 class="t-h2" style="margin:8px 0 6px">Connect to begin</h2><p>Raw frames never leave your browser. This rehearsal is not recorded or saved as a rep.</p><div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px"><button class="btn btn-primary btn-lg" type="button" id="connect-real">Connect camera + mic ▸</button></div><p class="note" id="enter-note" style="margin-top:12px"></p></div></div>
+          <div class="stage-enter" id="enter"><div><div class="t-kick gold">Step 1 · Devices</div><h2 class="t-h2" style="margin:8px 0 6px">Connect to begin</h2><p>Raw frames never leave your browser. This rehearsal is not recorded or saved as a rep.</p><div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px"><button class="btn btn-primary btn-lg" type="button" id="connect-real">Connect camera + mic ▸</button></div></div></div>
         </div>
+        <p class="note readiness-status" id="enter-note" role="status" aria-live="polite"></p>
         <div class="note" id="primary-recovery" role="status" aria-live="polite" hidden><span data-primary-status></span> <button class="btn btn-quiet" type="button" data-reselect-primary>Lock to me</button></div>
         ${deviceControlsMarkup()}
         <div class="cal-actions"><button class="btn btn-primary" type="button" id="next-step" disabled>Next step ▸</button><button class="btn btn-quiet" type="button" id="skip-step">Skip this step</button><span class="t-tech" id="step-state">Waiting</span><span style="flex:1"></span></div>
@@ -85,10 +86,27 @@ export async function mountCalibration(main, { isCurrent = () => true } = {}) {
     return remaining==null?'Start rehearsal first':(snapshot.phase==='READING_PASSAGE'?'Reading baseline':'Delivery rehearsal')+' · '+remaining+' s remaining. Keep speaking naturally.';
   }
   function evaluate() {
-    const s = steps[stepIndex]; const pass = Boolean(s.check(latest, ctx));
-    $('next-step').disabled = deviceSwitching || !(pass || s.id === 'seal' || s.id === 'devices' && ctx.started);
+    const s = steps[stepIndex]; const pass = Boolean(ctx.started && s.check(latest, ctx));
+    $('next-step').disabled = deviceSwitching || !ctx.started || !(pass || s.id === 'seal');
     $('step-state').textContent = s.id === 'seal' ? calibrationStatus() : pass ? 'Responded · pass' : ctx.started ? 'Watching for the response…' : 'Waiting';
     if (pass) for (const r of s.resolves) resolved[r] = 'resolved';
+  }
+  function resetRehearsal(){
+    renderCalibrationRecord();history.samples=[];history.lastT=-Infinity;latest=null;lastT=0;
+    for(const key of Object.keys(resolved))delete resolved[key];
+    steps.forEach(step=>{delete step.skipped;});Object.assign(ctx,{started:false,neutralMs:0,smileBase:0,nodBase:0,gestureBase:0,pauseMs:0,pauseStartedAt:null,pauseLastAt:null,paceHeld:false,wpmMax:-Infinity,wpmMin:Infinity});ctx.volSeen.clear();
+    stepIndex=0;renderSteps();evaluate();
+  }
+  function completeReadiness(){
+    if(!current())return;
+    renderCalibrationRecord();ctx.started=true;resolved.readiness='resolved';$('enter')?.remove();$('enter-note').hidden=true;
+    engine.beginAnswer();engine.setOverlayVisibility({face:true,hands:true,body:true,position:true});
+    // Initial black-preview recovery must initialize rehearsal exactly once.
+    if(timer===null){
+      engine.events.addEventListener('frame',frameListener);
+      timer=setInterval(()=>{if(!current())return;recorder.setData(history.samples,[]);recorder.tick(latest?.t||0);evaluate();},500);
+    }
+    stepIndex=1;renderSteps();evaluate();
   }
   async function begin() {
     if(connecting || disposed)return;connecting=true;$('connect-real').disabled=true;$('enter-note').textContent='Connecting…';
@@ -98,27 +116,25 @@ export async function mountCalibration(main, { isCurrent = () => true } = {}) {
       if(!current())return;
       disposePrimary?.();disposePrimary=bindPrimaryRecovery($('primary-recovery'),{engine,isCurrent:current});
       const video=controller.mountVideo($('stage'),$('overlay'));
+      disposeDevices?.();disposeDevices=await mountDeviceControls(main.querySelector('[data-device-controls]'),{engine,video,getStream:()=>controller.stream,isCurrent:current,canSwitch:()=>!connecting&&controller.phase==='READY',switchDevice:(kind,id)=>controller.switchDevice(kind,id),onSwitching:(value,ready)=>{
+        if(!current())return;
+        deviceSwitching=value;
+        if(value){ctx.started=false;delete resolved.readiness;}
+        else if(ready)completeReadiness();
+        else{$('enter-note').hidden=false;$('enter-note').textContent='The selected devices are not ready. Check the message below and choose another device.';}
+        $('skip-step').disabled=value;evaluate();
+      },onChanged:resetRehearsal});
+      if(!current()){disposeDevices?.();return;}
       await awaitVisibleCamera(video,controller.stream,{isCurrent:current});
       if(!current())return;
       if(!controller.stream.getAudioTracks().some(t=>t.readyState==='live'&&t.enabled&&!t.muted))throw new Error('Connect your microphone to begin rehearsal.');
-      renderCalibrationRecord();
-      ctx.started=true;resolved.readiness='resolved';$('enter').remove();
-      engine.beginAnswer();engine.setOverlayVisibility({face:true,hands:true,body:true,position:true});
-      disposeDevices=await mountDeviceControls(main.querySelector('[data-device-controls]'),{engine,video,getStream:()=>controller.stream,isCurrent:current,canSwitch:()=>controller.phase==='READY',switchDevice:(kind,id)=>controller.switchDevice(kind,id),onSwitching:(value,ready)=>{deviceSwitching=value;if(!value)ctx.started=ready;$('skip-step').disabled=value;evaluate();},onChanged:()=>{
-        renderCalibrationRecord();engine.beginAnswer();history.samples=[];history.lastT=-Infinity;latest=null;lastT=0;
-        for(const key of Object.keys(resolved))delete resolved[key];resolved.readiness='resolved';
-        steps.forEach(step=>{delete step.skipped;});Object.assign(ctx,{neutralMs:0,smileBase:0,nodBase:0,gestureBase:0,pauseMs:0,pauseStartedAt:null,pauseLastAt:null,paceHeld:false,wpmMax:-Infinity,wpmMin:Infinity});ctx.volSeen.clear();
-        stepIndex=1;renderSteps();evaluate();
-      }});
-      if(!current()){disposeDevices?.();return;}
-      engine.events.addEventListener('frame',frameListener);
-      timer=setInterval(()=>{if(!current())return;recorder.setData(history.samples,[]);recorder.tick(latest?.t||0);evaluate();},500);
-      stepIndex=1;renderSteps();evaluate();
+      completeReadiness();
     } catch(error){if(current()){$('enter-note').textContent=error.message;$('connect-real').disabled=false;}}
-    finally{connecting=false;}
+    finally{connecting=false;if(current())main.querySelectorAll('[data-device-kind]').forEach(select=>{select.disabled=controller.phase!=='READY'||!select.options.length;});}
   }
   const frameListener=e=>{if(current())onFrame(e.detail);};
   function onFrame(f) {
+    if(!ctx.started||deviceSwitching)return;
     latest = f; rails.ingest(f); history.push(f);
     const s = steps[stepIndex]; const dt = Math.max(0, f.t - lastT); lastT = f.t;
     if (s.id === 'neutral' && f.headFace?.presence === 'TRACKED') ctx.neutralMs += dt * 1000;

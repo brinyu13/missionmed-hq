@@ -67,10 +67,10 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
             <h2 class="t-h2" style="margin:8px 0 6px">${mode === 'mock' ? 'Ready for your interview?' : 'Ready for your answer?'}</h2>
             <p>${mode === 'mock' ? `Priority: ${esc(session.priority || 'leave one natural hook the interviewer can follow')}.` : `Priority: ${esc(session.priority || 'finish the answer in under 90 seconds')}.`} Connect your camera and microphone. Check your visible preview, then start when you are ready.</p>
             <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px"><button class="btn btn-primary btn-lg" type="button" id="connect-real">Connect camera + mic</button><button class="btn btn-primary btn-lg" type="button" id="start-session" disabled>${mode === 'mock' ? 'Start Interview' : 'Start recorded answer'} ▸</button></div>
-            <p class="note" id="enter-note" style="margin-top:12px"></p>
           </div>
         </div>
       </div>
+      <p class="note readiness-status" id="enter-note" role="status" aria-live="polite"></p>
       <div class="under-stage" id="under-stage"><span id="engine-label">Nothing is measured yet.</span><button class="transcript-toggle" type="button" id="transcript-toggle" aria-expanded="false">Transcript</button></div>
       <div class="note" id="primary-recovery" role="status" aria-live="polite" hidden><span data-primary-status></span> <button class="btn btn-quiet" type="button" data-reselect-primary>Lock to me</button></div>
       <p class="note" id="room-preference-note" role="status" hidden></p>
@@ -138,6 +138,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   }
   async function connect(){
     if(!current()||starting||started||deviceSwitching)return;starting=true;$('connect-real').disabled=true;
+    $('stage').dataset.previewReady='false';$('start-session').disabled=true;
     setDensityControls(true);
     $('enter-note').textContent='Connecting your camera and microphone…';
     try{
@@ -146,10 +147,19 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       if(!current())return;
       disposePrimary?.();disposePrimary=bindPrimaryRecovery($('primary-recovery'),{engine,isCurrent:current});
       const video=controller.mountVideo($('stage'),$('overlay'));
-      await awaitVisibleCamera(video,controller.stream,{isCurrent:current});
-      if(!controller.stream.getAudioTracks().some(t=>t.readyState==='live'&&t.enabled&&!t.muted))throw new Error('Your microphone is not ready. Connect it before starting.');
-      disposeDevices?.();disposeDevices=await mountDeviceControls(main.querySelector('[data-device-controls]'),{engine,video,getStream:()=>controller.stream,isCurrent:current,canSwitch:()=>!starting&&!started&&controller.phase==='READY',switchDevice:(kind,id)=>controller.switchDevice(kind,id),onSwitching:(value,ready)=>{deviceSwitching=value;$('start-session').disabled=value||!ready;$('connect-real').disabled=value;},onChanged:()=>{state.calibration=null;commit();}});
+      // Selection must remain available when the acquired camera renders black.
+      // The same capture owner switches devices; no second stream or readiness bypass.
+      disposeDevices?.();disposeDevices=await mountDeviceControls(main.querySelector('[data-device-controls]'),{engine,video,getStream:()=>controller.stream,isCurrent:current,canSwitch:()=>!starting&&!started&&controller.phase==='READY',switchDevice:(kind,id)=>controller.switchDevice(kind,id),onSwitching:(value,ready)=>{
+        if(!current())return;
+        deviceSwitching=value;$('start-session').disabled=value||!ready;$('connect-real').disabled=value;
+        $('stage').dataset.previewReady=String(!value&&ready);
+        $('enter-note').textContent=value?'Checking your selected camera and microphone…':ready?'Preview visible · microphone connected. Nothing is recorded until you start.':'The selected devices are not ready. Check the message below, choose another device, or check the preview again.';
+        if(!value&&ready){$('connect-real').textContent='Check preview again';applyOverlays();}
+      },onChanged:()=>{state.calibration=null;commit();}});
       if(!current()){disposeDevices?.();return;}
+      await awaitVisibleCamera(video,controller.stream,{isCurrent:current});
+      if(!current())return;
+      if(!controller.stream.getAudioTracks().some(t=>t.readyState==='live'&&t.enabled&&!t.muted))throw new Error('Your microphone is not ready. Connect it before starting.');
       $('stage').dataset.previewReady='true';
       $('start-session').disabled=false;$('enter-note').textContent='Preview visible · microphone connected. Nothing is recorded until you start.';
       $('connect-real').textContent='Check preview again';applyOverlays();
@@ -183,13 +193,13 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       engine.events.addEventListener('frame',onFrame);engine.events.addEventListener('state',onState);engine.events.addEventListener('word-timing',onWord);
       const result=await controller.startSession({mode,question:plan[0],interviewSet:plan,wizard,targetQuestions:plan.length,openingQuestion:plan[0].canonical_text,context,voice:settings.voice||'marin',...callbacks});
       if(!current())return;
-      interviewer=result.interviewer;started=true;$('enter').remove();$('rec').dataset.state='recording';$('rec-text').textContent='REC';
+      interviewer=result.interviewer;started=true;$('enter').remove();$('enter-note').hidden=true;$('rec').dataset.state='recording';$('rec-text').textContent='REC';
       disposeDevices?.();main.querySelector('[data-device-controls]').remove();
       $('primary-action').hidden=true;$('engine-label').textContent='Recording privately to your account';$('end').disabled=false;
       $('presence-sub').textContent=mode==='mock'?'Speak naturally. Your interviewer can hear you.':'Answer the question. Finish & save when you are done.';
       mark('recording','Recording started');mark('question','Q1 planned');recordDensity();renderPlan();
       timer=setInterval(()=>{if(!current())return;$('clock').textContent=fmt(at());recorder.setData(history.samples,events);recorder.tick(at());},500);resetIdle();
-    }catch(error){if(current()){$('enter-note').textContent=error.message;$('start-session').disabled=!controller.stream;$('connect-real').disabled=false;}engine?.events.removeEventListener('frame',onFrame);engine?.events.removeEventListener('state',onState);engine?.events.removeEventListener('word-timing',onWord);}
+    }catch(error){if(current()){$('stage').dataset.previewReady='false';$('enter-note').textContent=error.message;$('start-session').disabled=true;$('connect-real').disabled=false;}engine?.events.removeEventListener('frame',onFrame);engine?.events.removeEventListener('state',onState);engine?.events.removeEventListener('word-timing',onWord);}
     finally{starting=false;if(current()){setDensityControls(false);if(!started)main.querySelectorAll('[data-device-kind]').forEach(select=>{select.disabled=controller.phase!=='READY'||!select.options.length;});}}
   }
   $('connect-real').addEventListener('click',()=>void connect());$('start-session').addEventListener('click',()=>void start());

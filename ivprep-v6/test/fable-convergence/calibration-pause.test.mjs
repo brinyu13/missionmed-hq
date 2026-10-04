@@ -7,20 +7,20 @@ const source=readFileSync(new URL('../../public/studio-fable/app/calibration.mjs
 const stepsSource=source.slice(source.indexOf('const STEPS = ['),source.indexOf('\nconst INSTRUMENTS'));
 const frameSource=source.slice(source.indexOf('  function onFrame(f) {'),source.indexOf("\n  $('connect-real')"));
 const entrySource=source.slice(source.indexOf('  function enterStep() {'),source.indexOf("\n  $('next-step')"));
-const deviceSource=source.slice(source.indexOf('onChanged:()=>{')+'onChanged:()=>{'.length,source.indexOf('\n      }});'));
+const deviceSource=source.slice(source.indexOf('  function resetRehearsal(){'),source.indexOf('  function completeReadiness(){'));
 
 function rehearsal(){
-  const needle={dataset:{held:'false'}},ctx={pauseMs:0,pauseStartedAt:null,pauseLastAt:null,paceHeld:false,volSeen:new Set()};
-  const scope={ctx,resolved:{},main:{querySelector:()=>needle},rails:{ingest(){}},history:{push(){},samples:[]},engine:{beginAnswer(){}},
+  const needle={dataset:{held:'false'}},ctx={started:true,pauseMs:0,pauseStartedAt:null,pauseLastAt:null,paceHeld:false,volSeen:new Set()};
+  const scope={ctx,deviceSwitching:false,resolved:{},main:{querySelector:()=>needle},rails:{ingest(){}},history:{push(){},samples:[]},engine:{beginAnswer(){}},
     renderCalibrationRecord(){},renderSteps(){},evaluate(){}};
   const run=vm.runInNewContext(stepsSource+`
     let latest=null,lastT=0,stepIndex=STEPS.findIndex(s=>s.id==='pause');
     const steps=STEPS;
     ${frameSource}
     ${entrySource}
-    function changedDevice(){${deviceSource}}
+    ${deviceSource}
     ({sample:onFrame,pass:()=>steps[stepIndex].check(latest,ctx),enter:enterStep,
-      device:()=>{changedDevice();stepIndex=STEPS.findIndex(s=>s.id==='pause');}});
+      device:()=>{resetRehearsal();ctx.started=true;stepIndex=STEPS.findIndex(s=>s.id==='pause');}});
   `,scope);
   return{ctx,pass:run.pass,enter:run.enter,device:run.device,sample:(t,speaking=false,held=true)=>{
     needle.dataset.held=String(held);run.sample({t,speaking});return run.pass();
