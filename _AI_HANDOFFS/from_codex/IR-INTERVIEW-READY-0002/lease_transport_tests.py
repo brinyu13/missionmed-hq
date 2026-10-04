@@ -82,7 +82,7 @@ class TransportTests(unittest.TestCase):
 
     def test_key_selector_rejects_partial_masked_missing_ambiguous(self):
         self.assertEqual(transport._select_existing_key(rows()), KEY)
-        for value in (None, '', 'sb_secret_short', 'sb_secret_' + '*' * 40,
+        for value in (None, '', 'sb_secret_', 'sb_secret_' + '*' * 40,
                       'sb_secret_' + 'a' * 40, 'sb_secret_' + 'masked' + '1Ab_' * 10,
                       'sb_secret_' + 'redacted' + 'Ab12' * 10, KEY + '\n'):
             with self.subTest(shape='fictional invalid'), self.assertRaises(transport.TransportError):
@@ -92,6 +92,28 @@ class TransportTests(unittest.TestCase):
                     b'{"api_keys": []}', b'[null]', b'not json', b'x' * (transport.MAX_BYTES + 1)):
             with self.subTest(shape='invalid response'), self.assertRaises(transport.TransportError):
                 transport._select_existing_key(raw)
+
+    def test_short_opaque_suffix_passes_shape_only_without_external_read(self):
+        with patch.object(transport, '_private_worker', side_effect=AssertionError('external read forbidden')), \
+             patch.object(transport, 'load_existing_management_token', side_effect=AssertionError('custody forbidden')), \
+             patch.object(transport, 'authentication_probe', side_effect=AssertionError('probe forbidden')):
+            for suffix in ('Ab1_', 'FakeFixture_A1-b2', 'Ab1_' * 7 + 'Z9-'):
+                with self.subTest(shape='fictional short suffix'):
+                    self.assertLess(len(suffix), 32)
+                    self.assertEqual(transport._select_existing_key(rows('sb_secret_' + suffix)),
+                                     'sb_secret_' + suffix)
+
+    def test_short_suffix_keeps_other_guards_and_constant_errors(self):
+        for value in (None, 123, b'sb_secret_FakeFixture_A1-b2', '', 'sb_secret_',
+                      'sb_secret_****', 'sb_secret_masked_A1', 'sb_secret_REDACTED_a1',
+                      'sb_secret_placeholder_A1', 'sb_secret_unrevealed_A1',
+                      'sb_secret_Ab1_\n', 'sb_secret_Ab1_\x00', 'sb_secret_Ab1_ ',
+                      'sb_secret_Ab1_é', 'sb_secret_Ab1_!', 'sb_publishable_Ab1_',
+                      'sb_secret_aaa', 'sb_secret_Ab1Ab1', 'sb_secret_' + 'Ab1_' * 32 + 'Z'):
+            with self.subTest(shape='fictional invalid'):
+                with self.assertRaises(transport.TransportError) as caught:
+                    transport._secret(value)
+                self.assertEqual(str(caught.exception), 'existing coordination credential format unavailable')
 
     def test_reveal_single_fixed_operation_and_private_failure(self):
         calls = []
@@ -130,6 +152,30 @@ class TransportTests(unittest.TestCase):
         self.assertEqual(calls, [('health', KEY)])
         with self.assertRaises(transport.TransportError):
             transport.authentication_probe(KEY, get=lambda *args: (401, b'private'))
+
+    def test_health_worker_returns_status_without_reading_rest_root_body(self):
+        for status in (200, 401):
+            with self.subTest(status=status):
+                response = unittest.mock.Mock(status=status)
+                response.read.side_effect = AssertionError('REST root body must not be read')
+                connection = unittest.mock.Mock()
+                connection.getresponse.return_value = response
+                output = io.BytesIO()
+                tls_context = object()
+                with patch('http.client.HTTPSConnection', return_value=connection) as https, \
+                     patch('ssl.create_default_context', return_value=tls_context), \
+                     patch.object(sys, 'argv', ['fixture', 'health']), \
+                     patch.object(sys, 'stdin', unittest.mock.Mock(buffer=io.BytesIO(KEY.encode('ascii')))), \
+                     patch.object(sys, 'stdout', unittest.mock.Mock(buffer=output)), \
+                     patch.object(sys, 'exit', side_effect=AssertionError('worker failed')):
+                    exec(transport._GET_WORKER, {})
+                self.assertEqual(output.getvalue(), str(status).encode('ascii') + b'\n')
+                response.read.assert_not_called()
+                connection.close.assert_called_once_with()
+                https.assert_called_once_with(transport.PROJECT + '.supabase.co',
+                                              timeout=10, context=tls_context)
+                connection.request.assert_called_once_with('GET', '/rest/v1/',
+                    headers={'apikey': KEY, 'Accept': 'application/json'})
 
     def test_private_stdin_is_closed_before_output_collection(self):
         process = unittest.mock.Mock(stdin=io.BytesIO(), stdout=io.BytesIO(), stderr=io.BytesIO())

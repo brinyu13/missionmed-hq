@@ -26,8 +26,8 @@ TOKEN_FILE = '/Users/brianb/.supabase/access-token'
 MAX_BYTES = 256 * 1024
 TOTAL_SECONDS = 60.0
 TOKEN_RE = re.compile(r'sbp_(?:oauth_)?[a-f0-9]{40}\Z', re.ASCII)
-# Shape validation rejects obvious masks/partials; it cannot prove gateway validity.
-SECRET_RE = re.compile(r'sb_secret_[A-Za-z0-9_-]{32,128}\Z', re.ASCII)
+# Nonempty suffix plus local shape guards cannot prove a complete key or REST authentication.
+SECRET_RE = re.compile(r'sb_secret_[A-Za-z0-9_-]{1,128}\Z', re.ASCII)
 RPC_URLS = frozenset(BASE_URL + '/rest/v1/rpc/' + name for name in (
     'mmos_acquire_lease', 'mmos_acquire_product_lease',
     'mmos_acquire_registry_lease', 'mmos_acquire_scoped_lease_v2',
@@ -218,7 +218,8 @@ try:
     connection = http.client.HTTPSConnection(host, timeout=10, context=ssl.create_default_context())
     connection.request('GET', path, headers=headers)
     response = connection.getresponse()
-    if response.status != 200:
+    # Authentication needs status only; do not read the private REST root schema.
+    if mode == 'health' or response.status != 200:
         sys.stdout.buffer.write(str(response.status).encode() + b'\n')
     else:
         body = response.read(262145)
