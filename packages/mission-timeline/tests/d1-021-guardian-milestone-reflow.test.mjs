@@ -10,15 +10,15 @@ import {applySceneCommandToDocument} from '../web/js/editor/scene-commands.js';
 const fixture=JSON.parse(await readFile(new URL('fixtures/d1-timeline-astra-021/golden2-guardian-milestones.json',import.meta.url),'utf8'));
 const collisionOnly=document=>{const report=analyzeTimelineQuality(document);return{...report,findings:report.findings.filter(finding=>finding.code==='COLLISION_RISK')};};
 
-test('021 automatic flag composition leaves residual collisions gated without changing source or authored geometry',()=>{
+test('021 automatic flag composition fits complete labels without changing source or authored geometry',()=>{
   const document=structuredClone(fixture.document),before=JSON.stringify(document);
   const originalSvg=serializeFounderPresentation(document,{scope:'FULL_STORY'}).svg;
   const original=analyzeCollisionLayout(document);
-  assert.ok(original.stats.collisionCount>0);
+  assert.equal(original.stats.collisionCount,0);
   const fixed=applySafeQualityFixes(document,collisionOnly(document));
   assert.equal(fixed.changed,false,'no safe move may be invented after automatic composition');
   assert.equal(analyzeCollisionLayout(fixed.document).stats.collisionCount,original.stats.collisionCount);
-  assert.ok(analyzeTimelineQuality(fixed.document).findings.some(f=>f.code==='COLLISION_RISK'));
+  assert.equal(analyzeTimelineQuality(fixed.document).findings.some(f=>f.code==='COLLISION_RISK'),false);
   for(const flag of original.boxes.filter(b=>b.kind==='milestone'))assert.ok(flag.y>=0&&flag.y+flag.h<125,'General milestone stays above the ribbon');
   assert.deepEqual(fixed.document.events,document.events);
   assert.deepEqual(fixed.document.exams,document.exams);
