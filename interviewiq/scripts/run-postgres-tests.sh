@@ -21,6 +21,7 @@ for ARG in "$@"; do
   case "$ARG" in
     --keep) KEEP_REQUESTED=true ;;
     --preservation) MODE=preservation ;;
+    --research-dispatch) MODE=research-dispatch ;;
     *) echo 'Unknown PostgreSQL harness argument.' >&2; exit 1 ;;
   esac
 done
@@ -51,6 +52,8 @@ fs.writeFileSync(`${directory}/connection.json`,JSON.stringify({directory,pgBin:
 JS
 if [[ "$MODE" == preservation ]]; then
   node "$ROOT/tests/preservation/preservation.test.mjs" | tee "$RUN_DIR/preservation-tests.log"
+elif [[ "$MODE" == research-dispatch ]]; then
+  node --test "$ROOT/tests/postgres/research-dispatch.test.mjs" | tee "$RUN_DIR/research-dispatch-tests.log"
 else
   node "$ROOT/tests/postgres/migrations.test.mjs" | tee "$RUN_DIR/migration-tests.log"
   node "$ROOT/tests/postgres/security.test.mjs" | tee "$RUN_DIR/test.log"

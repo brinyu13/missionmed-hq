@@ -5,7 +5,7 @@ let session=null, commandQueue=Promise.resolve(), serverClockOffset=0;
 let administratorPreview=false, administratorWorkspace=null;
 const studentPreview=()=>administratorPreview===true&&actor?.role==='admin';
 function previewError(){return Error('Administrator Student Preview does not save changes or run integrations. Return to Admin View for your administrator tools.');}
-const draftValues=new Map(),pendingCommands=new Map();
+const draftValues=new Map(),pendingCommands=new Map(),researchBriefs=new Map();
 const clone=o=>JSON.parse(JSON.stringify(o));
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ownKeys=['why','questions','practice','debriefs','learning','rank','demands','results','shared','consents','mentorPriority'];
@@ -14,12 +14,15 @@ const CORE_COMMANDS=new Set(['interview.create','interview.identity','interview.
 const CORE_ACTIONS=new Set(['switch-view','nav','matrix','open-interview','open-card','close-interview','close-card','open-section','section','cal-nav','cal-today','cal-view','cal-day','cal-item','drawer-close','add-interview','new-offer','add-interview-save','date-undated','add-related-pick','add-related-save','offer-save','manual-identity-save','disposition','schedule-save','cancel','restore','postpone','waitlist','related-save','related-lifecycle','join-verify']);
 const coreOnly=()=>capabilities.coreOnly===true;
 const coreRoute=route=>['home','calendar','interviews','settings'].includes(route);
-const coreSection=section=>['identify','schedule'].includes(section);
+const deepResearch=()=>capabilities.deepResearch===true&&!studentPreview()&&actor?.role==='student';
+const coreCommand=name=>CORE_COMMANDS.has(name)||deepResearch()&&name==='research.check';
+const coreAction=name=>CORE_ACTIONS.has(name)||deepResearch()&&['resolve','research-refresh','research-advance'].includes(name);
+const coreSection=section=>deepResearch()&&section==='brief'||['identify','schedule'].includes(section);
 function comingSoonBadge(){return '<span class="chip warn" style="font-size:9px;white-space:normal">COMING SOON</span>';}
 function comingSoonPanel(label){return `<div class="panel amber pad" role="status" style="margin-bottom:1rem">${comingSoonBadge()}<h3>${esc(label||'This capability')}</h3><p>This capability is a preview. Its live integration is not active in this release. No recording, research, sharing or remote action will run, and text entered here is not saved.</p><p class="tiny">Your saved interviews and Calendar remain available.</p><button class="btn ghost sm" data-act="nav" data-to="calendar">Open Calendar</button></div>`;}
 function openComingSoon(label){if(!S)return;openDrawer({kind:'coming-soon',label:label||'This capability'});}
 function labelForAction(button){return button.dataset.label||button.dataset.app||button.dataset.section||button.textContent?.replace(/COMING SOON/g,'').trim()||'This capability';}
-function markComingSoonActions(){if(!coreOnly())return;for(const button of document.querySelectorAll('[data-act]')){const action=button.dataset.act;if(!CORE_ACTIONS.has(action)){button.disabled=false;button.removeAttribute('aria-disabled');button.dataset.comingSoon='true';if(!button.querySelector('[data-soon-badge]')){const badge=document.createElement('span');badge.dataset.soonBadge='true';badge.className='chip warn';badge.style.fontSize='9px';badge.textContent='COMING SOON';button.append(badge);}}}for(const button of document.querySelectorAll('button[disabled]:not([data-act])')){button.disabled=false;button.removeAttribute('aria-disabled');button.dataset.act='coming-soon';button.insertAdjacentHTML('beforeend',comingSoonBadge());}}
+function markComingSoonActions(){if(!coreOnly())return;for(const button of document.querySelectorAll('[data-act]')){const action=button.dataset.act;if(!coreAction(action)){button.disabled=false;button.removeAttribute('aria-disabled');button.dataset.comingSoon='true';if(!button.querySelector('[data-soon-badge]')){const badge=document.createElement('span');badge.dataset.soonBadge='true';badge.className='chip warn';badge.style.fontSize='9px';badge.textContent='COMING SOON';button.append(badge);}}}for(const button of document.querySelectorAll('button[disabled]:not([data-act])')){button.disabled=false;button.removeAttribute('aria-disabled');button.dataset.act='coming-soon';button.insertAdjacentHTML('beforeend',comingSoonBadge());}}
 function normalizeRole(role){return ({administrator:'admin',advisor:'mentor',admin:'admin',mentor:'mentor',student:'student'})[role]||null;}
 function sameOriginURL(value){const u=new URL(value,location.origin);if(u.origin!==location.origin)throw Error('The signed service address does not match this site.');return u;}
 function apiError(body,status){const message=body?.error?.message||body?.message||`Request failed (${status}).`;const err=new Error(message);err.status=status;err.code=body?.error?.code;return err;}
@@ -35,7 +38,7 @@ async function refreshSession(){
 }
 async function apiFetch(path,options={},retried=false){
   if(studentPreview())throw previewError();
-  if(coreOnly()&&path!=='/bootstrap'&&!(path==='/commands'&&CORE_COMMANDS.has(JSON.parse(options.body||'{}').command))){openComingSoon('This integration');const error=Error('COMING SOON: this integration is not active.');error.code='coming_soon';throw error;}
+  if(coreOnly()&&path!=='/bootstrap'&&!(deepResearch()&&path.startsWith('/programs?'))&&!(path==='/commands'&&coreCommand(JSON.parse(options.body||'{}').command))){openComingSoon('This integration');const error=Error('COMING SOON: this integration is not active.');error.code='coming_soon';throw error;}
   if(!session||session.expiresAt<Date.now()+5000){try{await refreshSession();}catch(error){if(error.status===401||error.status===403)lockWorkspace('Your session ended. Sign in through MissionMed and reopen the workspace.');throw error;}}
   const headers=new Headers(options.headers||{});headers.set('Authorization','Bearer '+session.token);headers.set('Accept','application/json');
   if(options.method&&options.method!=='GET')headers.set('X-IIQ-Nonce',session.nonce);
@@ -46,6 +49,7 @@ async function apiFetch(path,options={},retried=false){
 }
 function applyBootstrap(input){
   const b=input?.bootstrap||input;
+  researchBriefs.clear();
   if(!b?.actor?.id||!normalizeRole(b.actor.role)||!b.state)throw Error('The service returned an incomplete signed workspace.');
   const sameActor=actor?.id===b.actor.id&&normalizeRole(actor.role)===normalizeRole(b.actor.role);
   const ui=sameActor&&S?.ui?S.ui:defaultUI();
@@ -64,7 +68,7 @@ function applyBootstrap(input){
 async function refreshWorkspace(){const identity=actor?.id,b=await apiFetch('/bootstrap');if(identity&&identity!==actor?.id)throw Error('The account changed while the workspace was loading. Reopen the intended workspace.');applyBootstrap(b);return b;}
 async function command(name,interviewId=null,data={},options={}){
   if(studentPreview())throw previewError();
-  if(coreOnly()&&!CORE_COMMANDS.has(name)){openComingSoon(name.split('.')[0]);return {comingSoon:true};}
+  if(coreOnly()&&!coreCommand(name)){openComingSoon(name.split('.')[0]);return {comingSoon:true};}
   const identity=actor?.id,requestKey=JSON.stringify([identity,name,interviewId,data]);
   const draftSnapshot=savedDraftIds(name,interviewId,data).map(id=>[draftKey(id),pendingDraft(id,undefined)]);
   const work=async()=>{
@@ -77,6 +81,8 @@ async function command(name,interviewId=null,data={},options={}){
       pendingCommands.delete(requestKey);
       for(const [key,value] of draftSnapshot)if(draftValues.get(key)===value)draftValues.delete(key);
       if(result?.bootstrap||result?.actor)applyBootstrap(result);else await refreshWorkspace();
+      const checked=result?.researchCheck,d=checked&&S.demands[checked.interviewId];
+      if(deepResearch()&&d&&checked.research&&d.requestId===checked.requestId&&d.programId===checked.programId&&d.registryReleaseId===checked.registryReleaseId&&d.version===checked.version)researchBriefs.set(checked.interviewId,checked);
       if(options.render!==false)render();
       return result;
     }catch(error){
@@ -107,7 +113,7 @@ function savedDraftIds(name,id,data){
   return [];
 }
 function clearPrivateMemory(){
-  draftValues.clear();pendingCommands.clear();void stopSpeech();
+  researchBriefs.clear();draftValues.clear();pendingCommands.clear();void stopSpeech();
   if(typeof pendingAudio!=='undefined')pendingAudio.clear();
   if(typeof speechSessions!=='undefined')speechSessions.clear();
   if(typeof autosaveTimers!=='undefined'){for(const timer of autosaveTimers.values())clearTimeout(timer);autosaveTimers.clear();}

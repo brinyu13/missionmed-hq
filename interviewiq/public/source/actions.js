@@ -48,7 +48,7 @@ const A={
   'open-card'(el){return A['open-interview'](el);},
   'close-interview'(){stopSpeech();S.ui.open=null;render();main().focus();},
   'close-card'(){A['close-interview']();},
-  'open-section'(el){const i=iv(el);requireOwn(i);stopSpeech();S.ui.drawer=null;S.ui.open=i.id;S.ui.section=el.dataset.section;S.ui.route='interviews';render();focusSection();},
+  async 'open-section'(el){const i=iv(el);requireOwn(i);stopSpeech();S.ui.drawer=null;S.ui.open=i.id;S.ui.section=el.dataset.section;S.ui.route='interviews';render();focusSection();if(deepResearch()&&el.dataset.section==='brief'&&S.demands[i.id]?.requestId)return privateCommand(el,'research.check',{});},
   section(el){return A['open-section'](el);},
   'cal-nav'(el){S.ui.cal.ym=shiftYm(S.ui.cal.ym,+el.dataset.n);S.ui.cal.sel=S.ui.cal.ym+'-01';render();},
   'cal-today'(){S.ui.cal.ym=ymOf(todayKey());S.ui.cal.sel=todayKey();render();document.querySelector('[data-cal-day="'+todayKey()+'"]')?.focus();},
@@ -75,7 +75,7 @@ const A={
   resolve(el){return privateCommand(el,'interview.identity',{program:el.dataset.program});},
   'offer-save'(el){return privateCommand(el,'interview.identity',{program:val('of-program')||null,unresolved_input:val('of-name'),...(coreOnly()||!F.programs.length?{programName:val('of-name').trim(),track:val('of-track').trim()}:{}),deadline:val('of-deadline')||null});},
   disposition(el){return privateCommand(el,'interview.lifecycle',{action:'decline'});},
-  'research-refresh'(el){return privateCommand(el,'research.refresh',{});},
+  'research-refresh'(el){return privateCommand(el,deepResearch()?'research.check':'research.refresh',{});},
   'research-advance'(el){return A['research-refresh'](el);},
   async outage(){await refreshWorkspace();render();notice('Workspace connection refreshed.');},
   async 'schedule-save'(el){const i=iv(el);requireOwn(i);const data=el.dataset.fold!=null?{...S.ui.sub.sched,fold:+el.dataset.fold}:scheduleInput('sd-');if(data.allDay)data.time=null;if(el.dataset.fold==null&&data.date===i.date&&data.time===i.wall?.slice(11,16)&&data.zone===i.zone)data.fold=i.fold??null;const cands=validateSchedule(data);if(cands.length){S.ui.sub.overlap=foldMessage(cands);S.ui.sub.sched=data;render();return;}await command('interview.schedule',i.id,data,{render:false});S.ui.sub={};render();notice('Schedule saved.');},
@@ -138,7 +138,7 @@ const A={
 };
 async function dispatchAction(button){
   if(studentPreview()&&!new Set(['switch-view','nav','matrix','cal-nav','cal-today','cal-view','cal-day','drawer-close','add-interview','new-offer','close-interview','close-card']).has(button.dataset.act)){notice(previewError().message);return;}
-  if(!S)return;if(coreOnly()&&!CORE_ACTIONS.has(button.dataset.act)){openComingSoon(labelForAction(button));return;}if(button.disabled)return;const name=button.dataset.act,handler=A[name];if(!handler){notice('This action is not available.');return;}
+  if(!S)return;if(coreOnly()&&!coreAction(button.dataset.act)){openComingSoon(labelForAction(button));return;}if(button.disabled)return;const name=button.dataset.act,handler=A[name];if(!handler){notice('This action is not available.');return;}
   const key=[name,button.dataset.id,button.dataset.sub,button.dataset.student].join(':');if(activeActions.has(key))return;
   activeActions.add(key);button.setAttribute('aria-busy','true');
   try{await handler(button);}
@@ -177,7 +177,7 @@ window.addEventListener('beforeunload',ev=>{if(autosaveTimers.size||pendingAudio
 window.addEventListener('pagehide',()=>stopSpeech());
 window.addEventListener('beforeprint',()=>document.querySelectorAll('.support').forEach(el=>el.style.display=S.ui.printSel.support?'block':'none'));
 let searchTimer=null,searchSequence=0;
-function scheduleProgramSearch(q,id){clearTimeout(searchTimer);if(coreOnly())return;if(q.trim().length<2)return;const seq=++searchSequence;searchTimer=setTimeout(async()=>{try{const r=await apiFetch('/programs?q='+encodeURIComponent(q.trim()));if(seq!==searchSequence)return;for(const p of r.programs||[]){const ix=F.programs.findIndex(x=>x.id===p.id);if(ix<0)F.programs.push(p);else F.programs[ix]={...F.programs[ix],...p,fact_ids:F.programs[ix].fact_ids||p.fact_ids||[]};}const select=document.getElementById('ad-program');if(select){const current=select.value;select.innerHTML='<option value="">I will confirm later</option>'+(r.programs||[]).map(p=>`<option value="${esc(p.id)}">${esc(p.name)} · ${esc(p.track)}</option>`).join('');select.value=current;}if(id==='program-search'){const box=document.getElementById('program-search-results');if(box)box.innerHTML=(r.programs||[]).map(p=>`<button class="choice" data-act="resolve" data-id="${esc(S.ui.open)}" data-program="${esc(p.id)}"><b>${esc(p.name)}</b><small>${esc(p.specialty)} · ${esc(p.track)}</small></button>`).join('')||'<p>No registry matches. Keep the offer unresolved.</p>';}}catch(error){notice(error.message);}},300);}
+function scheduleProgramSearch(q,id){clearTimeout(searchTimer);if(coreOnly()&&!deepResearch())return;if(q.trim().length<2)return;const seq=++searchSequence,identity=actor?.id;searchTimer=setTimeout(async()=>{try{const r=await apiFetch('/programs?q='+encodeURIComponent(q.trim()));if(seq!==searchSequence||actor?.id!==identity||studentPreview()||coreOnly()&&!deepResearch())return;for(const p of r.programs||[]){const ix=F.programs.findIndex(x=>x.id===p.id);if(ix<0)F.programs.push(p);else F.programs[ix]={...F.programs[ix],...p,fact_ids:F.programs[ix].fact_ids||p.fact_ids||[]};}const select=document.getElementById('ad-program');if(select){const current=select.value;select.innerHTML='<option value="">I will confirm later</option>'+(r.programs||[]).map(p=>`<option value="${esc(p.id)}">${esc(p.name)} · ${esc(p.track)}</option>`).join('');select.value=current;}if(id==='program-search'){const box=document.getElementById('program-search-results');if(box)box.innerHTML=(r.programs||[]).map(p=>`<button class="choice" data-act="resolve" data-id="${esc(S.ui.open)}" data-program="${esc(p.id)}"><b>${esc(p.name)}</b><small>${esc(p.specialty)} · ${esc(p.track)}</small></button>`).join('')||'<p>No registry matches. Keep the offer unresolved.</p>';}}catch(error){notice(error.message);}},300);}
 function runCommand(query){
   const t=(query||'').toLowerCase().trim();if(!t)return;
   if(roleName()!=='student'){go(roleName()==='mentor'?(/calendar/.test(t)?'mentorcal':'mentor'):(/policy|access|grant/.test(t)?'policy':'review'));return;}

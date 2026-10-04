@@ -1,3 +1,4 @@
+import {readResearchProofConfig} from './research-job-runtime.mjs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { AppError } from './errors.mjs';
@@ -17,6 +18,8 @@ export function readConfig(env = process.env) {
     port: integer('PORT', 4186, 1, 65535),
     enabled: bool('INTERVIEWIQ_ENABLED'),
     coreOnly: text('INTERVIEWIQ_LAUNCH_MODE','core') !== 'full',
+    deepResearch:{enabled:bool('INTERVIEWIQ_DEEP_RESEARCH_ENABLED'),ownerId:text('INTERVIEWIQ_DEEP_RESEARCH_OWNER_ID'),programId:text('INTERVIEWIQ_DEEP_RESEARCH_PROGRAM_ID'),requestSecret:text('INTERVIEWIQ_RESEARCH_JOB_REQUEST_SECRET')},
+    researchProof:readResearchProofConfig(env),
     researchMissionsEnabled: bool('INTERVIEWIQ_RESEARCH_MISSIONS_ENABLED'),
     rise: {enabled:bool('INTERVIEWIQ_RISE_ENABLED'),requestSecret:text('INTERVIEWIQ_RISE_REQUEST_SECRET'),researchCoverageEnabled:bool('INTERVIEWIQ_RESEARCH_MISSIONS_ENABLED')},
     databaseUrl: text('INTERVIEWIQ_DATABASE_URL'),
@@ -47,6 +50,18 @@ export function readConfig(env = process.env) {
       throw new AppError(503, 'invalid_configuration', 'Enabled InterviewIQ requires database and server-only authentication configuration.');
   if(config.enabled&&config.researchMissionsEnabled&&(!config.rise.enabled||Buffer.byteLength(config.rise.requestSecret)<32))
     throw new AppError(503,'invalid_configuration','Research missions require the configured authenticated RISE connection.');
+  if(config.deepResearch.enabled){
+    const d=config.deepResearch;
+    if(!config.enabled||!config.rise.enabled||!config.researchProof.enabled||Buffer.byteLength(config.rise.requestSecret)<32||
+      !/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$(?![\s\S])/.test(d.ownerId)||
+      !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,179}$(?![\s\S])/.test(d.programId)||Buffer.byteLength(d.requestSecret)<32)
+      throw new AppError(503,'invalid_configuration','Deep research requires the bounded owner, program and qualified owner connections.');
+    for(const [key,value] of Object.entries(env))if(key!=='INTERVIEWIQ_RESEARCH_JOB_REQUEST_SECRET'&&/SECRET|TOKEN|HMAC|JWT|GATEWAY|SIGNING|API_KEY/.test(key)&&typeof value==='string'&&value.trim()===d.requestSecret)
+      throw new AppError(503,'invalid_configuration','Research credentials must be separated.');
+    for(const address of [config.databaseUrl,env.INTERVIEWIQ_RESEARCH_PROOF_DATABASE_URL]){let u;try{u=new URL(address);}catch{throw new AppError(503,'invalid_configuration','Research database configuration is invalid.');}if(decodeURIComponent(u.password)===d.requestSecret)throw new AppError(503,'invalid_configuration','Research credentials must be separated.');}
+    config.rise.researchResultsEnabled=true;
+  }
+  Object.freeze(config.deepResearch);
   if (config.speech.enabled && !config.speech.apiKey)
     throw new AppError(503, 'invalid_configuration', 'Speech is enabled without provider configuration.');
   if(config.speech.enabled) {

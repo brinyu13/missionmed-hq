@@ -1,3 +1,5 @@
+import {RESEARCH_PROOF_PATH} from './research-job-runtime.mjs';
+import {deepResearchEnabled} from './research-dispatch.mjs';
 import {createHash,randomUUID,timingSafeEqual} from 'node:crypto';
 import {AppError,requireValue} from './errors.mjs';
 import {jsonBody} from './validation.mjs';
@@ -15,7 +17,7 @@ export function publicError(error) {
   if(error?.code==='42501')return new AppError(403,'access_denied','This action is not available for your current access.');
   return new AppError(503,'service_unavailable','This operation could not be completed. Your unsaved text is kept. Please retry.');
 }
-export function createHandler({config,database,authorize,commands,owners,recordings=null,logger=()=>{}}) {
+export function createHandler({config,database,authorize,commands,owners,recordings=null,researchProof=null,logger=()=>{}}) {
   return async function handle(req,res) {
     const requestId=randomUUID();
     const send=(status,value)=>{
@@ -37,20 +39,21 @@ export function createHandler({config,database,authorize,commands,owners,recordi
         return send(200,{service:'interviewiq',status:config.enabled?'ready':'disabled',release:config.release});
       }
       if(!config.enabled)throw new AppError(503,'feature_unavailable','InterviewIQ is not available yet.');
+      if(path===RESEARCH_PROOF_PATH){if(!researchProof||req.method!=='POST'||req.url!==RESEARCH_PROOF_PATH)return send(503,{error:'research_authority_unavailable'});const result=await researchProof.handle(req);return send(result.status,result.body);}
       requireValue(secretEquals(req.headers['x-mmed-iiq-gateway'],config.gatewaySecret),'gateway_required','Use the MissionMed InterviewIQ entry.',403);
       requireValue(req.headers.origin===config.publicOrigin && !req.headers.cookie,'origin_denied','This request did not come through the authorized entry.',403);
       const route=resolveRoute(req.method,path,url);
       const actor=await authorize(req,`${req.method} ${path}`);
       if(config.coreOnly) {
         requireValue(actor.role==='admin' || (actor.role==='student' && ['360','ivprep_complete'].includes(actor.tier)), 'core_access_required','InterviewIQ is not available for your current access.',403);
-        requireValue(route==='bootstrap' || route==='commands'||route==='programs'&&researchEnabled(config,actor),'coming_soon','COMING SOON — this integration is not active. Your saved calendar is unchanged.',503);
+        requireValue(route==='bootstrap' || route==='commands'||route==='programs'&&(researchEnabled(config,actor)||deepResearchEnabled(config,actor)),'coming_soon','COMING SOON — this integration is not active. Your saved calendar is unchanged.',503);
       }
       if(route==='bootstrap')return send(200,await commands.bootstrap(actor));
       if(route==='programs'){
         if(config.researchMissionsEnabled===true)requireResearch(config,actor);
         return send(200,await owners.searchPrograms(actor,{q:url.searchParams.get('q')||''}));
       }
-      if(route==='commands')return send(200,await commands.execute(actor,await jsonBody(req,config.maxBodyBytes)));
+      if(route==='commands')return send(200,await commands.execute(actor,await jsonBody(req,config.maxBodyBytes),{revalidateActor:()=>authorize(req,`${req.method} ${path}`)}));
       if(!recordings)throw new AppError(503,'speech_unavailable','Speech capture is unavailable. You can keep typing your private debrief.');
       const id=path.split('/')[3];
       if(route==='recording-status')return send(200,await recordings.status(actor,id));

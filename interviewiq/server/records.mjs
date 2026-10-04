@@ -1,3 +1,4 @@
+import {deepResearchEnabled,requireDeepResearch,demandBinding} from './research-dispatch.mjs';
 import { AppError,notFound,requireValue } from './errors.mjs';
 import * as v from './validation.mjs';
 import { schedule,validDate } from './time.mjs';
@@ -57,6 +58,8 @@ export async function updateGap(db,row) {
 
 export async function writeInterview({db,actor,command,data,interviewId,owners,config={}}) {
   requireValue(actor.role==='student','student_required','Use your student workspace for this action.',403);
+  let researchBinding;
+  if(data.program&&deepResearchEnabled(config,actor))requireDeepResearch(config,actor,data.program);
   if(command==='interview.create') {
     v.onlyKeys(data,['unresolved_input','program','programName','track','deadline','schedule','format','joining']);
     const name=v.text(data.unresolved_input||data.programName,'Invitation name',500,{empty:false});
@@ -69,8 +72,9 @@ export async function writeInterview({db,actor,command,data,interviewId,owners,c
       local_date,local_time,timezone,start_at,fold,all_day,duration_minutes,travel_minutes,format,joining,status,duration_precision)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING *`,
       [actor.id,program?.id||null,program?.name||manualName,program?.track||manualTrack,name,due,...scheduleValues(sched),sched.instant?'scheduled':'offered',sched.duration===null?'unknown':'estimated']);
-    if(!config.coreOnly)await ensureDemand(db,row);await history(db,row,'Offer saved',{date:sched.date,timezone:sched.zone});if(!config.coreOnly)await updateGap(db,row);
-    return {type:'interview',id:row.id,interviewId:row.id};
+    if(!config.coreOnly||deepResearchEnabled(config,actor)&&program){const d=await ensureDemand(db,row,{registryReleaseId:program?.registryReleaseId});if(program&&deepResearchEnabled(config,actor))researchBinding=demandBinding(d,program.registryReleaseId);}
+    await history(db,row,'Offer saved',{date:sched.date,timezone:sched.zone});if(!config.coreOnly)await updateGap(db,row);
+    return {type:'interview',id:row.id,interviewId:row.id,...(researchBinding?{researchBinding}:{})};
   }
   const row=await interview(db,actor,interviewId,{lock:true});
   if(command==='interview.identity') {
@@ -82,7 +86,8 @@ export async function writeInterview({db,actor,command,data,interviewId,owners,c
     const manualTrack=v.text(data.track===undefined?(row.program_track||''):data.track,'Track',200);
     const {rows:[updated]}=await db.query(`UPDATE iiq.interviews SET program_id=$3,program_name=$4,program_track=$5,unresolved_input=$6,deadline_date=$7
       WHERE id=$1 AND owner_id=$2 RETURNING *`,[row.id,actor.id,program?.id||null,program?.name||manualName,program?.track||manualTrack,name,due]);
-    if(!config.coreOnly)await ensureDemand(db,updated);await history(db,row,'Program identity updated',{from:row.program_id,to:program?.id||null});
+    if(!config.coreOnly||deepResearchEnabled(config,actor)){const d=await ensureDemand(db,updated,{registryReleaseId:program?.registryReleaseId});if(program&&deepResearchEnabled(config,actor))researchBinding=demandBinding(d,program.registryReleaseId);}
+    await history(db,row,'Program identity updated',{from:row.program_id,to:program?.id||null});
   } else if(command==='interview.schedule') {
     v.onlyKeys(data,['date','time','zone','allDay','fold','duration','travel_minutes','format','joining']);
     const s=scheduleColumns(data);
@@ -130,5 +135,5 @@ export async function writeInterview({db,actor,command,data,interviewId,owners,c
     v.onlyKeys(data,[]);requireValue(Boolean(row.program_id),'identity_required','Confirm the exact program first.');await ensureDemand(db,row,{refresh:true});
     await history(db,row,'Research refresh requested',{});
   } else throw new AppError(404,'unknown_command','This action is unavailable.');
-  if(!config.coreOnly)await updateGap(db,row);return {type:'interview',id:row.id,interviewId:row.id};
+  if(!config.coreOnly)await updateGap(db,row);return {type:'interview',id:row.id,interviewId:row.id,...(researchBinding?{researchBinding}:{})};
 }

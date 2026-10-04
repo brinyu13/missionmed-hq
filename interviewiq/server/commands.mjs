@@ -1,3 +1,4 @@
+import {deepResearchEnabled,captureResearchBinding,checkCommittedResearch,createRiseResearchJobTransport} from './research-dispatch.mjs';
 import {AppError,requireValue} from './errors.mjs';
 import {commandEnvelope} from './validation.mjs';
 import {syncActor,revision,writeInterview} from './records.mjs';
@@ -14,16 +15,17 @@ function coreActor(actor,config) { if(config.coreOnly) requireValue(actor.role==
 const interviewCommands=new Set(['interview.create','interview.identity','interview.schedule','interview.lifecycle','event.create','event.update','research.refresh']);
 const debriefCommands=new Set(['debrief.occurrence','debrief.save','debrief.propose','debrief.accept','debrief.reject']);
 const learningCommands=new Set(['learning.propose','learning.confirm','learning.correct','learning.revoke','learning.mentor']);
-export function createCommands({database,owners,config,clock,speechAvailable=false,additionalCommands={}}) {
+export function createCommands({database,owners,config,clock,speechAvailable=false,additionalCommands={},researchTransport=createRiseResearchJobTransport(config.deepResearch)}) {
   const settings={owners,config,clock,speechAvailable};
   async function bootstrap(actor) {coreActor(actor,config);return database.withActor(actor,async db=>{await syncActor(db,actor);return readModel(db,actor,settings);});}
-  async function execute(actor,body) {
+  async function execute(actor,body,{revalidateActor}={}) {
     coreActor(actor,config);
     const envelope=commandEnvelope(body);
     if(config.coreOnly) {
-      requireValue(coreCommands.has(envelope.command)||researchEnabled(config,actor)&&researchCommands.has(envelope.command),'coming_soon','COMING SOON — this integration is not active. Your saved calendar is unchanged.',503);
-      requireValue(!envelope.data.program||envelope.command==='mission.create','coming_soon','Canonical program lookup is coming soon. Enter the program name from your invitation.',503);
+      requireValue(coreCommands.has(envelope.command)||envelope.command==='research.check'&&deepResearchEnabled(config,actor)||researchEnabled(config,actor)&&researchCommands.has(envelope.command),'coming_soon','COMING SOON — this integration is not active. Your saved calendar is unchanged.',503);
+      requireValue(!envelope.data.program||envelope.command==='mission.create'||deepResearchEnabled(config,actor),'coming_soon','Canonical program lookup is coming soon. Enter the program name from your invitation.',503);
     }
+    if(envelope.command==='research.check')requireValue(envelope.interviewId&&Object.keys(envelope.data).length===0,'invalid_research_check','Choose an existing interview without changing its request.');
     if(envelope.command==='research.read'){
       requireResearch(config,actor);
       return database.withActor(actor,async db=>{
@@ -31,7 +33,7 @@ export function createCommands({database,owners,config,clock,speechAvailable=fal
         return {type:'research_read',research:await readResearch({db,actor,config,data:envelope.data})};
       });
     }
-    return database.withActor(actor,async db=>{
+    const result=await database.withActor(actor,async db=>{
       await syncActor(db,actor);
       const {rows:[prior]}=await db.query('SELECT * FROM iiq.request_idempotency WHERE owner_id=$1 AND request_key=$2',[actor.id,envelope.requestId]);
       if(prior) {
@@ -39,13 +41,15 @@ export function createCommands({database,owners,config,clock,speechAvailable=fal
         // Rebuild from current owner permissions rather than replaying a stale
         // cached body that could contain revoked story or shared context.
         const currentRead=await readModel(db,actor,settings);
-        return {bootstrap:currentRead,replayed:true,resultId:prior.result_id,...(prior.result_type==='interview'?{interviewId:prior.result_id}:{}),
+        const {rows:[audit]}=deepResearchEnabled(config,actor)?await db.query("SELECT metadata FROM iiq.audit_events WHERE owner_id=$1 AND event_type=$2 AND metadata->>'requestId'=$3",[actor.id,envelope.command,envelope.requestId]):{rows:[]};
+        return {bootstrap:currentRead,...(audit?.metadata?.researchBinding?{researchBinding:audit.metadata.researchBinding}:{}),replayed:true,resultId:prior.result_id,...(prior.result_type==='interview'?{interviewId:prior.result_id}:{}),
           ...(prior.result_type==='export'?{export:privateExport(currentRead,actor)}:{})};
       }
       const current=await revision(db,actor);
       requireValue(current===envelope.expectedVersion,'version_conflict','This workspace changed. Your unsaved text is kept; review the latest version and try again.',409,{version:current});
       const context={db,actor,...envelope,owners,config,clock};let result;
-      if(interviewCommands.has(envelope.command)) result=await writeInterview(context);
+      if(envelope.command==='research.check')result={type:'research',id:envelope.interviewId,interviewId:envelope.interviewId,researchBinding:await captureResearchBinding({...context,interviewId:envelope.interviewId})};
+      else if(interviewCommands.has(envelope.command)) result=await writeInterview(context);
       else if(debriefCommands.has(envelope.command))result=await writeDebrief(context);
       else if(envelope.command==='prep.save')result=await writePreparation(context);
       else if(learningCommands.has(envelope.command))result=await writeLearning(context);
@@ -62,9 +66,21 @@ export function createCommands({database,owners,config,clock,speechAvailable=fal
       await db.query('INSERT INTO iiq.revisions(owner_id,revision,reason,request_key) VALUES($1,$2,$3,$4)',[actor.id,next,envelope.command,envelope.requestId]);
       await db.query('INSERT INTO iiq.request_idempotency(owner_id,request_key,request_digest,result_type,result_id,result_revision) VALUES($1,$2,$3,$4,$5,$6)',[actor.id,envelope.requestId,envelope.bodyHash,result.type,result.id,next]);
       await db.query(`INSERT INTO iiq.audit_events(owner_id,actor_id,event_type,object_type,object_id,metadata) VALUES($1,$1,$2,$3,$4,$5::jsonb)`,
-        [actor.id,envelope.command,result.type,result.id,JSON.stringify({requestId:envelope.requestId,revision:next})]);
+        [actor.id,envelope.command,result.type,result.id,JSON.stringify({requestId:envelope.requestId,revision:next,...(result.researchBinding?{researchBinding:result.researchBinding}:{})})]);
       return {bootstrap:await readModel(db,actor,settings),...result};
     },{write:true});
+    const binding=result.researchBinding;delete result.researchBinding;
+    if(binding&&deepResearchEnabled(config,actor)&&typeof revalidateActor==='function'){
+      const work=()=>checkCommittedResearch({database,actor,interviewId:binding.interviewId,expectedRequestId:binding.requestId,owners,transport:researchTransport,revalidateActor,config});
+      if(envelope.command==='research.check'){
+        try{result.researchCheck=await work();}catch{result.researchCheck={status:'unavailable'};}
+        const latest=await revalidateActor();requireValue(latest?.id===actor.id&&latest.wpUserId===actor.wpUserId&&deepResearchEnabled(config,latest),'research_unavailable','Current research access could not be verified.',403);
+        result.bootstrap=await bootstrap(latest);
+        const own=result.bootstrap.state.interviews.find(i=>i.id===binding.interviewId),demand=result.bootstrap.state.demands[binding.interviewId];
+        if(!own||['cancelled','declined','no_show'].includes(own.state)||own.program!==binding.programId||demand?.requestId!==binding.requestId||demand?.version!==result.researchCheck?.version)result.researchCheck={status:'changed'};
+      }else {void work().catch(()=>{});}
+    }
+    return result;
   }
   return {bootstrap,execute};
 }

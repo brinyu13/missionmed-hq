@@ -18,6 +18,8 @@ function metaLine(i){
 }
 function stateLabel(i){ if(isInactive(i))return ({cancelled:'Cancelled',declined:'Declined',postponed:'Postponed',waitlisted:'Waitlisted',no_show:'Did not take place'})[i.state]; if(!i.program&&!coreOnly()) return 'Identity to confirm'; const db=S.debriefs[i.id]; if(actor.role==='mentor'&&i.preparationStatus?.debrief_state)return i.preparationStatus.debrief_state; if(i.instant&&i.instant<=now()){ if(db?.occurrence==='yes') return db.saved?'Captured':'Capturing'; if(db?.occurrence==='no') return 'Did not take place'; return 'Awaiting your confirmation'; } if(i.instant||i.date) return 'Scheduled'; return 'Offer saved'; }
 function renderIdentify(i){
+  if(deepResearch())return `<h2>Confirm the program</h2><p class="lead">Keep the invitation details and schedule. Confirm the exact registry program to request research.</p><label class="f" for="program-search">Find the program</label><input id="program-search" placeholder="Program or hospital name" value=""><div id="program-search-results"></div><p class="tiny">Current program: ${esc(i.programName||i.unresolved_input)}. Research remains limited to the authorized test program.</p>`;
+
   if(coreOnly()||!F.programs.length)return `<h2>Program details</h2><p class="lead">Use the name and track from your invitation. These are your supplied details; registry verification is not active. Saving does not start research.</p><label class="f" for="identity-name">Program name from invitation</label><input id="identity-name" value="${esc(i.programName||i.unresolved_input||'')}" maxlength="500"><label class="f" for="identity-track">Track (optional)</label><input id="identity-track" value="${esc(i.track||'')}" maxlength="300" placeholder="For example, categorical or preliminary"><div class="row" style="margin-top:.75rem">${btn('manual-identity-save','Save program details',`data-id="${i.id}"`)}${btn('open-section','Schedule & details',`data-id="${i.id}" data-section="schedule"`,'btn ghost')}</div>${coreOnly()?comingSoonPanel('Program registry and RISE research'):''}`;
 
   const cands=identityCandidates(i);
@@ -49,6 +51,7 @@ function sourceDiff(facts){
   return items;
 }
 function renderBrief(i){
+  if(deepResearch())return renderResearchBrief(i);
   const prog=P(i.program); const rs=researchState(i); const vf=visibleFacts(i.program);
   const st=storyFor(i.owner); const lg=S.learning[i.owner]; const pname=prog.name.replace('Fictional ','');
   if(!vf.allow) return `<h2>Shared research is not available to you.</h2><p class="lead">${esc(vf.reason)}.</p>${researchStrip(i,rs)}<p>Your own notes, schedule, rehearsal and day sheet still work; they will not show program facts. ${capabilities.contributions===true? link('nav','See how research access works',`data-to="contribute"`):''}</p>${lineageDetails(i)}`;
@@ -281,3 +284,13 @@ function renderSchedule(i){
   </div></div>`;
 }
 
+
+function renderResearchBrief(i){
+ const d=S.demands[i.id],checked=researchBriefs.get(i.id),r=checked&&d&&checked.requestId===d.requestId&&checked.version===d.version&&checked.registryReleaseId===d.registryReleaseId?checked.research:null;
+ const action=d?.requestId?btn('research-refresh','Check research',`data-id="${esc(i.id)}"`,'btn sm'):btn('open-section','Confirm program',`data-id="${esc(i.id)}" data-section="identify"`,'btn sm');
+ const header=`<h2>The brief</h2><p class="lead">Program evidence from RISE, with sources and dates.</p><div class="panel pad"><b>${esc(d?.status||'Waiting for program identity')}</b> ${action}<p class="tiny">Checking uses the saved request. It does not start a new paid research run.</p></div>`;
+ if(!r)return header+'<p>Current findings have not been read back in this view. Check research to load available evidence. Your interview stays saved if research is unavailable.</p>';
+ const facts=r.facts.map(f=>`<div class="ans"><h4>${esc(f.field.replace(/^research\./,'').replaceAll('_',' '))}</h4><pre style="white-space:pre-wrap;overflow-wrap:anywhere;font:inherit">${esc(typeof f.value==='string'?f.value:JSON.stringify(f.value,null,2))}</pre><p class="tiny">Retrieved ${esc(f.retrievedAt)}${f.asOf?' · '+esc(f.asOf.label):''}</p>${f.sources.map(s=>`<div class="tiny">${s.urls.map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(u)}</a>`).join('<br>')}<br>Retrieved ${esc(s.retrievedAt)}${s.reviewedAt?' · Reviewed '+esc(s.reviewedAt):''}</div>`).join('')}</div>`).join('');
+ const missing=r.coverage.fields.filter(f=>!r.facts.some(v=>v.field===f.field));
+ return header+`<div class="brief">${facts||'<p>No current supported facts are available.</p>'}<div class="ans warn"><h4>What remains uncertain</h4><ul>${missing.map(f=>`<li>${esc(f.field.replace(/^research\./,'').replaceAll('_',' '))}: ${esc(f.state==='SUPPORTED'?'Evidence exists; no public factual value available':f.state.toLowerCase())}</li>`).join('')||'<li>All fields have current findings. Verify important details with the program.</li>'}</ul><p>${r.facts.length} of ${r.coverage.fields.length} fields have displayed findings. Observed ${esc(r.coverage.observedAt)}.</p></div></div>`;
+}

@@ -5,7 +5,7 @@ let session=null, commandQueue=Promise.resolve(), serverClockOffset=0;
 let administratorPreview=false, administratorWorkspace=null;
 const studentPreview=()=>administratorPreview===true&&actor?.role==='admin';
 function previewError(){return Error('Administrator Student Preview does not save changes or run integrations. Return to Admin View for your administrator tools.');}
-const draftValues=new Map(),pendingCommands=new Map();
+const draftValues=new Map(),pendingCommands=new Map(),researchBriefs=new Map();
 const clone=o=>JSON.parse(JSON.stringify(o));
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ownKeys=['why','questions','practice','debriefs','learning','rank','demands','results','shared','consents','mentorPriority'];
@@ -14,12 +14,15 @@ const CORE_COMMANDS=new Set(['interview.create','interview.identity','interview.
 const CORE_ACTIONS=new Set(['switch-view','nav','matrix','open-interview','open-card','close-interview','close-card','open-section','section','cal-nav','cal-today','cal-view','cal-day','cal-item','drawer-close','add-interview','new-offer','add-interview-save','date-undated','add-related-pick','add-related-save','offer-save','manual-identity-save','disposition','schedule-save','cancel','restore','postpone','waitlist','related-save','related-lifecycle','join-verify']);
 const coreOnly=()=>capabilities.coreOnly===true;
 const coreRoute=route=>['home','calendar','interviews','settings'].includes(route);
-const coreSection=section=>['identify','schedule'].includes(section);
+const deepResearch=()=>capabilities.deepResearch===true&&!studentPreview()&&actor?.role==='student';
+const coreCommand=name=>CORE_COMMANDS.has(name)||deepResearch()&&name==='research.check';
+const coreAction=name=>CORE_ACTIONS.has(name)||deepResearch()&&['resolve','research-refresh','research-advance'].includes(name);
+const coreSection=section=>deepResearch()&&section==='brief'||['identify','schedule'].includes(section);
 function comingSoonBadge(){return '<span class="chip warn" style="font-size:9px;white-space:normal">COMING SOON</span>';}
 function comingSoonPanel(label){return `<div class="panel amber pad" role="status" style="margin-bottom:1rem">${comingSoonBadge()}<h3>${esc(label||'This capability')}</h3><p>This capability is a preview. Its live integration is not active in this release. No recording, research, sharing or remote action will run, and text entered here is not saved.</p><p class="tiny">Your saved interviews and Calendar remain available.</p><button class="btn ghost sm" data-act="nav" data-to="calendar">Open Calendar</button></div>`;}
 function openComingSoon(label){if(!S)return;openDrawer({kind:'coming-soon',label:label||'This capability'});}
 function labelForAction(button){return button.dataset.label||button.dataset.app||button.dataset.section||button.textContent?.replace(/COMING SOON/g,'').trim()||'This capability';}
-function markComingSoonActions(){if(!coreOnly())return;for(const button of document.querySelectorAll('[data-act]')){const action=button.dataset.act;if(!CORE_ACTIONS.has(action)){button.disabled=false;button.removeAttribute('aria-disabled');button.dataset.comingSoon='true';if(!button.querySelector('[data-soon-badge]')){const badge=document.createElement('span');badge.dataset.soonBadge='true';badge.className='chip warn';badge.style.fontSize='9px';badge.textContent='COMING SOON';button.append(badge);}}}for(const button of document.querySelectorAll('button[disabled]:not([data-act])')){button.disabled=false;button.removeAttribute('aria-disabled');button.dataset.act='coming-soon';button.insertAdjacentHTML('beforeend',comingSoonBadge());}}
+function markComingSoonActions(){if(!coreOnly())return;for(const button of document.querySelectorAll('[data-act]')){const action=button.dataset.act;if(!coreAction(action)){button.disabled=false;button.removeAttribute('aria-disabled');button.dataset.comingSoon='true';if(!button.querySelector('[data-soon-badge]')){const badge=document.createElement('span');badge.dataset.soonBadge='true';badge.className='chip warn';badge.style.fontSize='9px';badge.textContent='COMING SOON';button.append(badge);}}}for(const button of document.querySelectorAll('button[disabled]:not([data-act])')){button.disabled=false;button.removeAttribute('aria-disabled');button.dataset.act='coming-soon';button.insertAdjacentHTML('beforeend',comingSoonBadge());}}
 function normalizeRole(role){return ({administrator:'admin',advisor:'mentor',admin:'admin',mentor:'mentor',student:'student'})[role]||null;}
 function sameOriginURL(value){const u=new URL(value,location.origin);if(u.origin!==location.origin)throw Error('The signed service address does not match this site.');return u;}
 function apiError(body,status){const message=body?.error?.message||body?.message||`Request failed (${status}).`;const err=new Error(message);err.status=status;err.code=body?.error?.code;return err;}
@@ -35,7 +38,7 @@ async function refreshSession(){
 }
 async function apiFetch(path,options={},retried=false){
   if(studentPreview())throw previewError();
-  if(coreOnly()&&path!=='/bootstrap'&&!(path==='/commands'&&CORE_COMMANDS.has(JSON.parse(options.body||'{}').command))){openComingSoon('This integration');const error=Error('COMING SOON: this integration is not active.');error.code='coming_soon';throw error;}
+  if(coreOnly()&&path!=='/bootstrap'&&!(deepResearch()&&path.startsWith('/programs?'))&&!(path==='/commands'&&coreCommand(JSON.parse(options.body||'{}').command))){openComingSoon('This integration');const error=Error('COMING SOON: this integration is not active.');error.code='coming_soon';throw error;}
   if(!session||session.expiresAt<Date.now()+5000){try{await refreshSession();}catch(error){if(error.status===401||error.status===403)lockWorkspace('Your session ended. Sign in through MissionMed and reopen the workspace.');throw error;}}
   const headers=new Headers(options.headers||{});headers.set('Authorization','Bearer '+session.token);headers.set('Accept','application/json');
   if(options.method&&options.method!=='GET')headers.set('X-IIQ-Nonce',session.nonce);
@@ -46,6 +49,7 @@ async function apiFetch(path,options={},retried=false){
 }
 function applyBootstrap(input){
   const b=input?.bootstrap||input;
+  researchBriefs.clear();
   if(!b?.actor?.id||!normalizeRole(b.actor.role)||!b.state)throw Error('The service returned an incomplete signed workspace.');
   const sameActor=actor?.id===b.actor.id&&normalizeRole(actor.role)===normalizeRole(b.actor.role);
   const ui=sameActor&&S?.ui?S.ui:defaultUI();
@@ -64,7 +68,7 @@ function applyBootstrap(input){
 async function refreshWorkspace(){const identity=actor?.id,b=await apiFetch('/bootstrap');if(identity&&identity!==actor?.id)throw Error('The account changed while the workspace was loading. Reopen the intended workspace.');applyBootstrap(b);return b;}
 async function command(name,interviewId=null,data={},options={}){
   if(studentPreview())throw previewError();
-  if(coreOnly()&&!CORE_COMMANDS.has(name)){openComingSoon(name.split('.')[0]);return {comingSoon:true};}
+  if(coreOnly()&&!coreCommand(name)){openComingSoon(name.split('.')[0]);return {comingSoon:true};}
   const identity=actor?.id,requestKey=JSON.stringify([identity,name,interviewId,data]);
   const draftSnapshot=savedDraftIds(name,interviewId,data).map(id=>[draftKey(id),pendingDraft(id,undefined)]);
   const work=async()=>{
@@ -77,6 +81,8 @@ async function command(name,interviewId=null,data={},options={}){
       pendingCommands.delete(requestKey);
       for(const [key,value] of draftSnapshot)if(draftValues.get(key)===value)draftValues.delete(key);
       if(result?.bootstrap||result?.actor)applyBootstrap(result);else await refreshWorkspace();
+      const checked=result?.researchCheck,d=checked&&S.demands[checked.interviewId];
+      if(deepResearch()&&d&&checked.research&&d.requestId===checked.requestId&&d.programId===checked.programId&&d.registryReleaseId===checked.registryReleaseId&&d.version===checked.version)researchBriefs.set(checked.interviewId,checked);
       if(options.render!==false)render();
       return result;
     }catch(error){
@@ -107,7 +113,7 @@ function savedDraftIds(name,id,data){
   return [];
 }
 function clearPrivateMemory(){
-  draftValues.clear();pendingCommands.clear();void stopSpeech();
+  researchBriefs.clear();draftValues.clear();pendingCommands.clear();void stopSpeech();
   if(typeof pendingAudio!=='undefined')pendingAudio.clear();
   if(typeof speechSessions!=='undefined')speechSessions.clear();
   if(typeof autosaveTimers!=='undefined'){for(const timer of autosaveTimers.values())clearTimeout(timer);autosaveTimers.clear();}
@@ -416,6 +422,8 @@ function metaLine(i){
 }
 function stateLabel(i){ if(isInactive(i))return ({cancelled:'Cancelled',declined:'Declined',postponed:'Postponed',waitlisted:'Waitlisted',no_show:'Did not take place'})[i.state]; if(!i.program&&!coreOnly()) return 'Identity to confirm'; const db=S.debriefs[i.id]; if(actor.role==='mentor'&&i.preparationStatus?.debrief_state)return i.preparationStatus.debrief_state; if(i.instant&&i.instant<=now()){ if(db?.occurrence==='yes') return db.saved?'Captured':'Capturing'; if(db?.occurrence==='no') return 'Did not take place'; return 'Awaiting your confirmation'; } if(i.instant||i.date) return 'Scheduled'; return 'Offer saved'; }
 function renderIdentify(i){
+  if(deepResearch())return `<h2>Confirm the program</h2><p class="lead">Keep the invitation details and schedule. Confirm the exact registry program to request research.</p><label class="f" for="program-search">Find the program</label><input id="program-search" placeholder="Program or hospital name" value=""><div id="program-search-results"></div><p class="tiny">Current program: ${esc(i.programName||i.unresolved_input)}. Research remains limited to the authorized test program.</p>`;
+
   if(coreOnly()||!F.programs.length)return `<h2>Program details</h2><p class="lead">Use the name and track from your invitation. These are your supplied details; registry verification is not active. Saving does not start research.</p><label class="f" for="identity-name">Program name from invitation</label><input id="identity-name" value="${esc(i.programName||i.unresolved_input||'')}" maxlength="500"><label class="f" for="identity-track">Track (optional)</label><input id="identity-track" value="${esc(i.track||'')}" maxlength="300" placeholder="For example, categorical or preliminary"><div class="row" style="margin-top:.75rem">${btn('manual-identity-save','Save program details',`data-id="${i.id}"`)}${btn('open-section','Schedule & details',`data-id="${i.id}" data-section="schedule"`,'btn ghost')}</div>${coreOnly()?comingSoonPanel('Program registry and RISE research'):''}`;
 
   const cands=identityCandidates(i);
@@ -447,6 +455,7 @@ function sourceDiff(facts){
   return items;
 }
 function renderBrief(i){
+  if(deepResearch())return renderResearchBrief(i);
   const prog=P(i.program); const rs=researchState(i); const vf=visibleFacts(i.program);
   const st=storyFor(i.owner); const lg=S.learning[i.owner]; const pname=prog.name.replace('Fictional ','');
   if(!vf.allow) return `<h2>Shared research is not available to you.</h2><p class="lead">${esc(vf.reason)}.</p>${researchStrip(i,rs)}<p>Your own notes, schedule, rehearsal and day sheet still work; they will not show program facts. ${capabilities.contributions===true? link('nav','See how research access works',`data-to="contribute"`):''}</p>${lineageDetails(i)}`;
@@ -680,6 +689,16 @@ function renderSchedule(i){
 }
 
 
+function renderResearchBrief(i){
+ const d=S.demands[i.id],checked=researchBriefs.get(i.id),r=checked&&d&&checked.requestId===d.requestId&&checked.version===d.version&&checked.registryReleaseId===d.registryReleaseId?checked.research:null;
+ const action=d?.requestId?btn('research-refresh','Check research',`data-id="${esc(i.id)}"`,'btn sm'):btn('open-section','Confirm program',`data-id="${esc(i.id)}" data-section="identify"`,'btn sm');
+ const header=`<h2>The brief</h2><p class="lead">Program evidence from RISE, with sources and dates.</p><div class="panel pad"><b>${esc(d?.status||'Waiting for program identity')}</b> ${action}<p class="tiny">Checking uses the saved request. It does not start a new paid research run.</p></div>`;
+ if(!r)return header+'<p>Current findings have not been read back in this view. Check research to load available evidence. Your interview stays saved if research is unavailable.</p>';
+ const facts=r.facts.map(f=>`<div class="ans"><h4>${esc(f.field.replace(/^research\./,'').replaceAll('_',' '))}</h4><pre style="white-space:pre-wrap;overflow-wrap:anywhere;font:inherit">${esc(typeof f.value==='string'?f.value:JSON.stringify(f.value,null,2))}</pre><p class="tiny">Retrieved ${esc(f.retrievedAt)}${f.asOf?' · '+esc(f.asOf.label):''}</p>${f.sources.map(s=>`<div class="tiny">${s.urls.map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(u)}</a>`).join('<br>')}<br>Retrieved ${esc(s.retrievedAt)}${s.reviewedAt?' · Reviewed '+esc(s.reviewedAt):''}</div>`).join('')}</div>`).join('');
+ const missing=r.coverage.fields.filter(f=>!r.facts.some(v=>v.field===f.field));
+ return header+`<div class="brief">${facts||'<p>No current supported facts are available.</p>'}<div class="ans warn"><h4>What remains uncertain</h4><ul>${missing.map(f=>`<li>${esc(f.field.replace(/^research\./,'').replaceAll('_',' '))}: ${esc(f.state==='SUPPORTED'?'Evidence exists; no public factual value available':f.state.toLowerCase())}</li>`).join('')||'<li>All fields have current findings. Verify important details with the program.</li>'}</ul><p>${r.facts.length} of ${r.coverage.fields.length} fields have displayed findings. Observed ${esc(r.coverage.observedAt)}.</p></div></div>`;
+}
+
 
 'use strict';
 /* ============================================================
@@ -908,9 +927,9 @@ function renderDrawer(){
     }
   } else if(d.kind==='add'){
     const st=d.form||{}; const date=st.schedule?.date??st.date??d.day??''; const time=st.schedule?.time??st.time??''; const zone=st.schedule?.zone??st.zone??F.student_zone;
-    inner=`<h2>Add an <em>interview</em></h2><p class="tiny">Write the program name and track from the invitation. A date is not needed. ${coreOnly()?'Registry verification and research are coming soon; your schedule saves now.':'Research starts only when the exact program is confirmed.'}</p>
+    inner=`<h2>Add an <em>interview</em></h2><p class="tiny">Write the program name and track from the invitation. A date is not needed. ${coreOnly()&&!deepResearch()?'Registry verification and research are coming soon; your schedule saves now.':'Research starts only when the exact program is confirmed.'}</p>
       <label class="f" for="ad-name">Name on the invitation</label><input type="text" id="ad-name" value="${esc(st.unresolved_input||st.name||'')}" placeholder="Program name as shown on your invitation">
-      <label class="f" for="ad-track">Track (optional)</label><input id="ad-track" value="${esc(st.track||'')}" maxlength="300" placeholder="Categorical, preliminary, or another supplied track"><label class="f" for="ad-program">Program registry ${coreOnly()?'· COMING SOON':'(if already known)'}</label><select id="ad-program"><option value="">I will confirm later</option>${F.programs.map(p=>`<option value="${p.id}" ${st.program===p.id?'selected':''}>${esc(p.name.replace('Fictional ',''))} · ${p.track}</option>`).join('')}</select>
+      <label class="f" for="ad-track">Track (optional)</label><input id="ad-track" value="${esc(st.track||'')}" maxlength="300" placeholder="Categorical, preliminary, or another supplied track"><label class="f" for="ad-program">Program registry ${coreOnly()&&!deepResearch()?'· COMING SOON':'(if already known)'}</label><select id="ad-program"><option value="">I will confirm later</option>${F.programs.map(p=>`<option value="${p.id}" ${st.program===p.id?'selected':''}>${esc(p.name.replace('Fictional ',''))} · ${p.track}</option>`).join('')}</select>
       <div class="inline"><div><label class="f" for="ad-date">Date (optional)</label><input type="date" id="ad-date" value="${esc(date)}"></div><div><label class="f" for="ad-time">Start time (optional)</label><input type="time" id="ad-time" value="${esc(time)}"></div><div><label class="f" for="ad-zone">Program’s zone</label><select id="ad-zone">${ZONES.map(z=>`<option ${z===zone?'selected':''}>${z}</option>`).join('')}</select></div></div>
       <div class="inline"><div><label class="f" for="ad-format">Format</label><select id="ad-format">${['','virtual','in person','hybrid','unknown'].map(f=>`<option value="${f}" ${f===(st.schedule?.format||st.format||'')?'selected':''}>${f||'—'}</option>`).join('')}</select></div><div><label class="f" for="ad-deadline">Scheduling deadline (optional)</label><input type="date" id="ad-deadline" value="${esc(st.deadline||'')}"></div><div><label class="f" for="ad-join">Joining details</label><input type="text" id="ad-join" value="${esc(st.schedule?.joining||st.joining||'')}" placeholder="from the invitation"></div></div>
       ${d.overlap? `<div class="panel amber" style="margin-top:10px;padding:12px 14px"><b>${esc(d.overlap.msg)}</b><div class="row" style="margin-top:6px">${d.overlap.cands.map((c,k)=>`<button class="btn sm" type="button" data-act="add-interview-save" data-fold="${k}">Use ${esc(c.label)}</button>`).join('')}</div></div>`:''}
@@ -1220,7 +1239,7 @@ const A={
   'open-card'(el){return A['open-interview'](el);},
   'close-interview'(){stopSpeech();S.ui.open=null;render();main().focus();},
   'close-card'(){A['close-interview']();},
-  'open-section'(el){const i=iv(el);requireOwn(i);stopSpeech();S.ui.drawer=null;S.ui.open=i.id;S.ui.section=el.dataset.section;S.ui.route='interviews';render();focusSection();},
+  async 'open-section'(el){const i=iv(el);requireOwn(i);stopSpeech();S.ui.drawer=null;S.ui.open=i.id;S.ui.section=el.dataset.section;S.ui.route='interviews';render();focusSection();if(deepResearch()&&el.dataset.section==='brief'&&S.demands[i.id]?.requestId)return privateCommand(el,'research.check',{});},
   section(el){return A['open-section'](el);},
   'cal-nav'(el){S.ui.cal.ym=shiftYm(S.ui.cal.ym,+el.dataset.n);S.ui.cal.sel=S.ui.cal.ym+'-01';render();},
   'cal-today'(){S.ui.cal.ym=ymOf(todayKey());S.ui.cal.sel=todayKey();render();document.querySelector('[data-cal-day="'+todayKey()+'"]')?.focus();},
@@ -1247,7 +1266,7 @@ const A={
   resolve(el){return privateCommand(el,'interview.identity',{program:el.dataset.program});},
   'offer-save'(el){return privateCommand(el,'interview.identity',{program:val('of-program')||null,unresolved_input:val('of-name'),...(coreOnly()||!F.programs.length?{programName:val('of-name').trim(),track:val('of-track').trim()}:{}),deadline:val('of-deadline')||null});},
   disposition(el){return privateCommand(el,'interview.lifecycle',{action:'decline'});},
-  'research-refresh'(el){return privateCommand(el,'research.refresh',{});},
+  'research-refresh'(el){return privateCommand(el,deepResearch()?'research.check':'research.refresh',{});},
   'research-advance'(el){return A['research-refresh'](el);},
   async outage(){await refreshWorkspace();render();notice('Workspace connection refreshed.');},
   async 'schedule-save'(el){const i=iv(el);requireOwn(i);const data=el.dataset.fold!=null?{...S.ui.sub.sched,fold:+el.dataset.fold}:scheduleInput('sd-');if(data.allDay)data.time=null;if(el.dataset.fold==null&&data.date===i.date&&data.time===i.wall?.slice(11,16)&&data.zone===i.zone)data.fold=i.fold??null;const cands=validateSchedule(data);if(cands.length){S.ui.sub.overlap=foldMessage(cands);S.ui.sub.sched=data;render();return;}await command('interview.schedule',i.id,data,{render:false});S.ui.sub={};render();notice('Schedule saved.');},
@@ -1310,7 +1329,7 @@ const A={
 };
 async function dispatchAction(button){
   if(studentPreview()&&!new Set(['switch-view','nav','matrix','cal-nav','cal-today','cal-view','cal-day','drawer-close','add-interview','new-offer','close-interview','close-card']).has(button.dataset.act)){notice(previewError().message);return;}
-  if(!S)return;if(coreOnly()&&!CORE_ACTIONS.has(button.dataset.act)){openComingSoon(labelForAction(button));return;}if(button.disabled)return;const name=button.dataset.act,handler=A[name];if(!handler){notice('This action is not available.');return;}
+  if(!S)return;if(coreOnly()&&!coreAction(button.dataset.act)){openComingSoon(labelForAction(button));return;}if(button.disabled)return;const name=button.dataset.act,handler=A[name];if(!handler){notice('This action is not available.');return;}
   const key=[name,button.dataset.id,button.dataset.sub,button.dataset.student].join(':');if(activeActions.has(key))return;
   activeActions.add(key);button.setAttribute('aria-busy','true');
   try{await handler(button);}
@@ -1349,7 +1368,7 @@ window.addEventListener('beforeunload',ev=>{if(autosaveTimers.size||pendingAudio
 window.addEventListener('pagehide',()=>stopSpeech());
 window.addEventListener('beforeprint',()=>document.querySelectorAll('.support').forEach(el=>el.style.display=S.ui.printSel.support?'block':'none'));
 let searchTimer=null,searchSequence=0;
-function scheduleProgramSearch(q,id){clearTimeout(searchTimer);if(coreOnly())return;if(q.trim().length<2)return;const seq=++searchSequence;searchTimer=setTimeout(async()=>{try{const r=await apiFetch('/programs?q='+encodeURIComponent(q.trim()));if(seq!==searchSequence)return;for(const p of r.programs||[]){const ix=F.programs.findIndex(x=>x.id===p.id);if(ix<0)F.programs.push(p);else F.programs[ix]={...F.programs[ix],...p,fact_ids:F.programs[ix].fact_ids||p.fact_ids||[]};}const select=document.getElementById('ad-program');if(select){const current=select.value;select.innerHTML='<option value="">I will confirm later</option>'+(r.programs||[]).map(p=>`<option value="${esc(p.id)}">${esc(p.name)} · ${esc(p.track)}</option>`).join('');select.value=current;}if(id==='program-search'){const box=document.getElementById('program-search-results');if(box)box.innerHTML=(r.programs||[]).map(p=>`<button class="choice" data-act="resolve" data-id="${esc(S.ui.open)}" data-program="${esc(p.id)}"><b>${esc(p.name)}</b><small>${esc(p.specialty)} · ${esc(p.track)}</small></button>`).join('')||'<p>No registry matches. Keep the offer unresolved.</p>';}}catch(error){notice(error.message);}},300);}
+function scheduleProgramSearch(q,id){clearTimeout(searchTimer);if(coreOnly()&&!deepResearch())return;if(q.trim().length<2)return;const seq=++searchSequence,identity=actor?.id;searchTimer=setTimeout(async()=>{try{const r=await apiFetch('/programs?q='+encodeURIComponent(q.trim()));if(seq!==searchSequence||actor?.id!==identity||studentPreview()||coreOnly()&&!deepResearch())return;for(const p of r.programs||[]){const ix=F.programs.findIndex(x=>x.id===p.id);if(ix<0)F.programs.push(p);else F.programs[ix]={...F.programs[ix],...p,fact_ids:F.programs[ix].fact_ids||p.fact_ids||[]};}const select=document.getElementById('ad-program');if(select){const current=select.value;select.innerHTML='<option value="">I will confirm later</option>'+(r.programs||[]).map(p=>`<option value="${esc(p.id)}">${esc(p.name)} · ${esc(p.track)}</option>`).join('');select.value=current;}if(id==='program-search'){const box=document.getElementById('program-search-results');if(box)box.innerHTML=(r.programs||[]).map(p=>`<button class="choice" data-act="resolve" data-id="${esc(S.ui.open)}" data-program="${esc(p.id)}"><b>${esc(p.name)}</b><small>${esc(p.specialty)} · ${esc(p.track)}</small></button>`).join('')||'<p>No registry matches. Keep the offer unresolved.</p>';}}catch(error){notice(error.message);}},300);}
 function runCommand(query){
   const t=(query||'').toLowerCase().trim();if(!t)return;
   if(roleName()!=='student'){go(roleName()==='mentor'?(/calendar/.test(t)?'mentorcal':'mentor'):(/policy|access|grant/.test(t)?'policy':'review'));return;}
