@@ -687,20 +687,8 @@ function projectEducationDurations(events){
       omissions.push({id:String(event.id),title:String(event.title||"Untitled event"),reason});
       continue;
     }
-    const precisions=[eventDatePrecision(event,'end'),event.fields?.sourceDateWording?.end?.precision,event.sourceDateWording?.end?.precision].map(value=>String(value||'').toUpperCase());
-    const endPrecision=precisions.includes('YEAR')?'YEAR':precisions.find(Boolean)||null;
-    const sourceEnd=event.fields?.sourceDateWording?.end??event.sourceDateWording?.end??null;
-    displayEvents.push({
-      ...event,
-      eventType:"milestone",
-      startDate:event.endDate,
-      endDate:null,
-      openEnded:false,
-      fields:{...event.fields,
-        datePrecision:{start:endPrecision},
-        sourceDateWording:{start:structuredClone(sourceEnd),end:null}
-      }
-    });
+    // A source education range is material profile coverage, not evidence of
+    // a degree completion. Explicit source milestones retain their own flags.
   }
   return{displayEvents,omissions};
 }
@@ -1199,6 +1187,25 @@ export function buildKeynoteClassicScene(
   });
   const ariaLabel = `Timeline visualization, ${events.length} events; use Tab to move between events`;
   const profile=projectedFields.studentProfile;
+  // Timeline is an editorial summary of the source profile. Keep every
+  // audience-visible source value; account for intentional paper omissions.
+  const excludedProfileFields=['hobbies','languages','emrExperience'].map(field=>({
+    field,reason:'optional-source-narrative'
+  }));
+  const normalizedProfileValue=value=>String(value||'').replace(/\s+/g,' ').trim();
+  for(const [field,recordField] of [['medicalSchool','school'],['degree','title']]){
+    const value=field==='degree'&&profile.degree==='Other'&&String(profile.degreeOther||'').trim()
+      ?normalizedProfileValue(`Other: ${profile.degreeOther}`):normalizedProfileValue(profile[field]);
+    const covering=educationRecords.find(record=>value&&normalizedProfileValue(record[recordField])===value);
+    if(covering)excludedProfileFields.push({field,reason:'covered-by-education-span',eventId:covering.eventId,recordField});
+  }
+  const profileDisplay={
+    policy:'automatic-2025-editorial-summary',
+    includedFields:['fullName','status','aamcDisplay','medicalSchool','degree','specialty','step1','step2','step2Cs','step3','usceSummary','researchSummary']
+      .filter(field=>!excludedProfileFields.some(item=>item.field===field)),
+    excludedFields:excludedProfileFields,
+    educationEventIds:educationRecords.map(record=>record.eventId)
+  };
   const exams=projectedFields.exams;
   const categoryMonths=(list,categoryId)=>{
     const durations=(list||[]).filter((event)=>
@@ -1279,6 +1286,7 @@ export function buildKeynoteClassicScene(
     events,
     interviewMarker,
     interviewTarget:{...interviewTarget},
+    profileDisplay,
     profile:{
       fullName,
       educationRecords,

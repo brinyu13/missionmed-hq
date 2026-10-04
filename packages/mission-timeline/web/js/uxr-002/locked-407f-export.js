@@ -503,23 +503,24 @@ function profileMarkup(scene){
      details. Explicit summaries retain the applicant's wording; derived months
      are only a fallback and must not replace authored facts. */
   const months=(value)=>Number(value)>0?`${Number(value)} month${Number(value)===1?"":"s"}`:"";
+  const displayFields=scene?.profileDisplay?.includedFields;
   const rows=[
-    ["Name",profile.fullName,"identity"],
-    ["Visa Status",profile.status,"identity"],
-    ["AAMC",profile.aamcDisplay,"identity"],
-    ["Medical school",profile.medicalSchool,"education"],
-    ["Degree",profile.degree,"education"],
-    ["Specialty",profile.specialty,"education"],
-    ["Step 1",profile.step1,"exams"],
-    ["Step 2 CK",profile.step2,"exams"],
-    ["Step 2 CS",profile.step2Cs,"exams"],
-    ["Step 3",profile.step3,"exams"],
-    ["USCE",profile.usceSummary||months(profile.usceMonths),"experience"],
-    ["Research",profile.researchSummary||months(profile.researchMonths),"experience"],
-    ["EMR Experience",profile.emrExperience,"personal"],
-    ["Languages fluent in",profile.languages,"languages"],
-    ["Hobbies",profile.hobbies,"hobbies"]
-  ].filter(([,value])=>String(value||"").trim());
+    ["Name",profile.fullName,"identity","fullName"],
+    ["Visa Status",profile.status,"identity","status"],
+    ["AAMC",profile.aamcDisplay,"identity","aamcDisplay"],
+    ["Medical school",profile.medicalSchool,"education","medicalSchool"],
+    ["Degree",profile.degree,"education","degree"],
+    ["Specialty",profile.specialty,"education","specialty"],
+    ["Step 1",profile.step1,"exams","step1"],
+    ["Step 2 CK",profile.step2,"exams","step2"],
+    ["Step 2 CS",profile.step2Cs,"exams","step2Cs"],
+    ["Step 3",profile.step3,"exams","step3"],
+    ["USCE",profile.usceSummary||months(profile.usceMonths),"experience","usceSummary"],
+    ["Research",profile.researchSummary||months(profile.researchMonths),"experience","researchSummary"],
+    ["EMR Experience",profile.emrExperience,"personal","emrExperience"],
+    ["Languages fluent in",profile.languages,"languages","languages"],
+    ["Hobbies",profile.hobbies,"hobbies","hobbies"]
+  ].filter(([,value,,field])=>String(value||"").trim()&&(!displayFields||displayFields.includes(field)));
   const photoX=351,photoY=20,photoWidth=170,photoHeight=170;
   const measureText=scene.measureText||measurePresentationText;
   const layoutRows=(orderedRows,lineHeight,groupGap)=>{

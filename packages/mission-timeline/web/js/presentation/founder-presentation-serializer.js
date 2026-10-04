@@ -398,7 +398,7 @@ export async function serializeFounderPresentationAsync(document,{
 // Validate the audience-projected render result, not the count of private source facts.
 export function assertCompleteFounderPresentation(rendered,{allowPendingMedia=false}={}){
   const omitted=rendered?.scene?.omissions||[];
-  if(!omitted.length&&!(rendered?.scene?.events||[]).length){const error=new TypeError('Add at least one event visible to this audience before exporting.');error.code='TIMELINE_EXPORT_EMPTY';throw error;}
+  if(!omitted.length&&!(rendered?.scene?.events||[]).length&&!(rendered?.scene?.profile?.educationRecords||[]).length){const error=new TypeError('Add at least one event visible to this audience before exporting.');error.code='TIMELINE_EXPORT_EMPTY';throw error;}
   if(omitted.length){
     const error=new TypeError(`Review ${omitted.length} event${omitted.length===1?'':'s'} with missing or invalid dates before exporting. Every included event must appear in your timeline.`);
     error.code='TIMELINE_EXPORT_INCOMPLETE';error.eventIds=omitted.map(item=>String(item.id));throw error;
@@ -406,13 +406,23 @@ export function assertCompleteFounderPresentation(rendered,{allowPendingMedia=fa
   const uncertain=[...(rendered.scene.arrows||[]),...(rendered.scene.flags||[])].filter(event=>Object.values(event.datePrecision||{}).includes('UNKNOWN'));
   if(uncertain.length){const error=new TypeError('Confirm unknown dates before exporting; normalized coordinates do not establish a source date.');error.code='TIMELINE_EXPORT_INCOMPLETE';error.eventIds=uncertain.map(event=>String(event.id));throw error;}
   const paint=resolveFounderPresentationSvg(rendered.svg,{measureText:rendered.scene.measureText});
-  const expected=new Set(rendered.scene.events.map(event=>String(event.id)));
+  const expected=new Set([...rendered.scene.events.map(event=>String(event.id)),...(rendered.scene.profile?.educationRecords||[]).map(record=>String(record.eventId))]);
   const represented=new Set(paint.nodes.map(node=>String(node.semanticRef||'')));
   const normalized=value=>String(value||'').replace(/\s+/g,' ').trim();
   const missingFields=[];
   const profileFields={fullName:'Name',status:'Visa Status',aamcDisplay:'AAMC',medicalSchool:'Medical school',degree:'Degree',specialty:'Specialty',step1:'Step 1',step2:'Step 2 CK',step2Cs:'Step 2 CS',step3:'Step 3',usceSummary:'USCE',researchSummary:'Research',emrExperience:'EMR Experience',languages:'Languages fluent in',hobbies:'Hobbies'};
+  const displayFields=rendered.scene.profileDisplay?.includedFields;
   for(const [field,label] of Object.entries(profileFields)){
     const value=normalized(rendered.scene.profile?.[field]);
+    if(displayFields&&!displayFields.includes(field)){
+      const exclusion=rendered.scene.profileDisplay.excludedFields?.find(item=>item.field===field);
+      const narrative=['hobbies','languages','emrExperience'].includes(field)&&exclusion?.reason==='optional-source-narrative';
+      const record=(rendered.scene.profile?.educationRecords||[]).find(item=>String(item.eventId)===String(exclusion?.eventId));
+      const duplicate=['medicalSchool','degree'].includes(field)&&exclusion?.reason==='covered-by-education-span'&&record&&
+        normalized(record[field==='medicalSchool'?'school':'title'])===value;
+      if(value&&!narrative&&!duplicate)missingFields.push({id:'profile',field});
+      continue;
+    }
     if(!value)continue;
     const text=normalized(paint.nodes.filter(node=>node.kind==='text'&&node.sourceAttributes['data-profile-field']===label).map(node=>node.text).join(' '));
     if(!text.includes(value))missingFields.push({id:'profile',field});
