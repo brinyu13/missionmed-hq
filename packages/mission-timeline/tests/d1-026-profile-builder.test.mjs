@@ -50,3 +50,12 @@ test('export completeness detects profile facts removed after projection',()=>{
   rendered.svg=rendered.svg.replace(/<text[^>]*data-profile-field="EMR Experience"[^>]*>[\s\S]*?<\/text>/g,'');
   assert.throws(()=>assertCompleteFounderPresentation(rendered),error=>error.code==='TIMELINE_EXPORT_MISSING_FIELDS'&&error.fields.some(field=>field.field==='emrExperience'));
 });
+
+// The actual golden shows clockwise tilts. Historical IWA angles 350/354 use
+// the opposite sign convention from SVG; they are not SVG -10/-6 degrees.
+test('photo frames retain the reference clockwise tilt and explicit manual geometry',async()=>{
+  const {photoFrameGeometry}=await import('../web/js/uxr-002/locked-407f-export.js');
+  assert.deepEqual([0,1,2].map(index=>photoFrameGeometry({},index).rotation),[10,6,0]);
+  const scene={founderPresentation:{photoFrames:{'1':{x:620,y:760,width:180,height:240,rotation:-4}}}};
+  assert.deepEqual(photoFrameGeometry(scene,0),{x:620,y:760,width:180,height:240,rotation:-4});
+});

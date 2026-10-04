@@ -45,8 +45,8 @@ const FOUNDER_PORTABLE_GEOMETRY=Object.freeze({
   colorKey:Object.freeze({x:20,y:300,width:284,height:346}),
   profile:Object.freeze({x:13,y:661,width:545,height:410}),
   photos:Object.freeze([
-    Object.freeze({x:599,y:776,width:176,height:235,rotation:-10}),
-    Object.freeze({x:753,y:884,width:223,height:140,rotation:-6}),
+    Object.freeze({x:599,y:776,width:176,height:235,rotation:10}),
+    Object.freeze({x:753,y:884,width:223,height:140,rotation:6}),
     Object.freeze({x:992,y:878,width:233,height:175,rotation:0})
   ]),
   interview:Object.freeze({x:1666,y:238,width:220,height:136})
@@ -544,7 +544,7 @@ function profileMarkup(scene){
   for(const record of profile.educationRecords||[]){
     const start=presentationDateWording(record.startDate,record.datePrecision?.start,record.sourceDateWording?.start);
     const end=record.openEnded?'Ongoing':presentationDateWording(record.endDate,record.datePrecision?.end,record.sourceDateWording?.end);
-    emitLines(`${record.title}${record.school?' — '+record.school:''}`,'Education',19,400,record.eventId,'educationSpan');
+    emitLines(`${record.title}${record.school?' — '+record.school:''}:`,'Education',19,400,record.eventId,'educationSpan');
     emitLines(`${start} – ${end}`,'Education',19,400,record.eventId,'educationSpan');rowY+=6;
   }
   const rowMarkup=textRows.join('');
