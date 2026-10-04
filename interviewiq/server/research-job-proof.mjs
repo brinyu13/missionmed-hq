@@ -112,7 +112,10 @@ export function createResearchJobProof({enabled=false,proofSecret,eligibilitySec
       requireValue(JSON.stringify(first)===JSON.stringify(last));
       const seconds=check(),exp=Math.min(input.iat+30,wp.exp,seconds+30);
       requireValue(Math.abs(seconds-input.iat)<=30&&exp>seconds);
-      const payload=JSON.stringify({...input,allowed:true,reason:'current_committed_demand',exp});
+      // Service-only accounting identity, verified by WP and the second DB read.
+      // This is a research grant, never a browser session or admin capability.
+      const payload=JSON.stringify({...input,allowed:true,reason:'current_committed_demand',exp,
+        wpUserId:last.wpUserId,role:wp.role,tier:wp.tier});
       return {status:200,body:{payload,signature:mac(proofSecret,'iiq-job-proof-v1\nresponse',payload)}};
     }catch{return {status:403,body:{error:'research_authority_denied'}};}
     finally{controller.abort();}

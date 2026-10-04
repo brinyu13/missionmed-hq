@@ -50,7 +50,7 @@ for(const [role,tier] of [['student','360'],['student','ivprep_complete'],['admi
   test(`fresh committed proof: ${role}/${tier}/${phase}`,async()=>{
     const h=harness({wp:{role,tier}}),value=input({phase}),r=request(value),result=await h.handler(r);
     assert.equal(result.status,200);assert.equal(result.body.signature,sign(secret,'iiq-job-proof-v1\nresponse',result.body.payload));
-    const payload=JSON.parse(result.body.payload);assert.deepEqual(payload,{...value,allowed:true,reason:'current_committed_demand',exp:seconds+30});
+    const payload=JSON.parse(result.body.payload);assert.deepEqual(payload,{...value,allowed:true,reason:'current_committed_demand',exp:seconds+30,wpUserId:90001,role,tier});
     assert.equal(h.log.reads.length,2);assert.deepEqual(h.log.reads[0],binding);
     assert.equal(h.log.nonce[0].requestHash,sha(r.body));assert.equal(h.log.nonce[0].issuer,'rise-research-proof');
     assert.equal(Date.parse(h.log.nonce[0].expiresAt),time+90000);
@@ -112,6 +112,12 @@ for(const key of [...Object.keys(binding),'requestSha256','wpUserId','lifecycle'
 test('missing record, durable store outage and nonboolean nonce admission deny',async()=>{
   await deny(harness({read:()=>null}));await deny(harness({nonceError:true}));
   const h=harness();h.proofReader.consumeNonce=async()=>1;await deny(h);assert.equal(h.log.wp.length,0);
+});
+for(const wpUserId of [0,-1,1.5,'90001',null,Number.MAX_SAFE_INTEGER+1])test(`unsafe accounting identity ${wpUserId} never reaches WP`,async()=>{
+  const h=harness({read:(_n,row)=>({...row,wpUserId})});await deny(h);assert.equal(h.log.wp.length,0);
+});
+for(const claims of [{wpUserId:90001},{role:'admin'},{tier:'admin'}])test(`caller cannot inject accounting claims ${JSON.stringify(claims)}`,async()=>{
+  await deny(harness(),request(input(claims)),{noEffects:true});
 });
 test('same request replay denied across factory recreation and simultaneous attempts',async()=>{
   const used=new Set(),a=harness({used}),b=harness({used}),r=request();
