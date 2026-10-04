@@ -6,6 +6,7 @@ import { createIvocContextPackResolver } from '../../server/providers/ivoc-conte
 import { createIvocApplicationIntelligence } from '../../../missionmed-hq/ivoc/application-intelligence.mjs';
 import { rebuildSelfPracticeAnswerSource, packageSelfPracticeAnalysis } from '../../../missionmed-hq/ivoc/self-practice-analysis.mjs';
 import { createContextIntelligenceProvider } from '../../../missionmed-hq/ivoc/context-provider.mjs';
+import { projectInterviewPolicy } from '../../public/capabilities/interview-policy.mjs';
 
 // Execute the production class (including its real allowlists/request path),
 // without importing the unrelated optional LiveKit worker dependency.
@@ -17,6 +18,10 @@ const IvPrepSupabaseRest = vm.runInNewContext(`${exactClass}\nIvPrepSupabaseRest
 });
 const REF = 'bscnrgqlwsyygyfrbhfn';
 const SESSION = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const POLICY_QUERY = '?select=version,schema_name,pressure_defaults&order=version.desc&limit=1';
+const policyRow = () => ({ version: 4, schema_name: 'ivoc.admin_config.v1', pressure_defaults: {
+  max_follow_ups_per_answer: 4, default_follow_up_intensity: 1, default_pressure_enabled: false,
+} });
 function adapter(reply = () => []) {
   const calls = [];
   const rest = new IvPrepSupabaseRest({ url: `https://${REF}.supabase.co`, expectedProjectRef: REF,
@@ -68,6 +73,7 @@ async function sourceHistory() {
     interviewer_provider: 'gpt-live', started_at: '2026-09-20T14:55:00.000Z', context: { contextSources: ['Prior IVOC'] } };
   const data = { saved, current, pack: null };
   const reply = url => {
+    if (url.pathname.endsWith('/ivoc_admin_config_versions')) return [policyRow()];
     if (url.pathname.endsWith('/ivoc_context_packs')) return data.pack ? [data.pack] : [];
     if (url.pathname.endsWith('/ivoc_sessions')) return url.searchParams.get('id') === `eq.${SESSION}`
       ? [data.current] : data.saved.map(item => item.row);
@@ -106,6 +112,46 @@ test('real context adapter permits exactly GET reads of protected source tables'
     assert.equal(options.redirect, 'error');
   }
   assert.throws(() => rest.table('ivoc_private_unknown', '?select=*'), /not approved/);
+});
+
+test('real adapter loads current server policy for native startup, not a client policy substitute', async () => {
+  const pack = { pack_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', pack_version: 'c'.repeat(64),
+    actor_block: 'AUTHORIZED APPLICATION CONTEXT\nfixture', source_receipts: [] };
+  const { rest, calls } = adapter(url => url.pathname.endsWith('/ivoc_context_packs') ? [pack] : [policyRow()]);
+  const result = await createIvocContextPackResolver({ rest })({ subject: 'wp:1', sessionId: SESSION });
+  assert.deepEqual(result, { receipt: `ctxpack:${pack.pack_id}@${pack.pack_version}`, actorBlock: pack.actor_block,
+    interviewPolicy: { schema: 'ivoc.interview-policy.v1', version: 4, maxFollowUpsPerAnswer: 4,
+      defaultFollowUpDepth: 1, defaultPressureEnabled: false } });
+  assert.equal(calls.length, 2);
+  assert.equal(new URL(calls[0].url).searchParams.get('owner_subject'), 'eq.wp:1');
+  assert.equal(new URL(calls[1].url).pathname, '/rest/v1/ivoc_admin_config_versions');
+  assert.equal(new URL(calls[1].url).search, POLICY_QUERY);
+  assert.equal(calls[1].options.method, 'GET');
+});
+
+test('server policy read grants no config writes, arbitrary columns or larger private-history budget', async () => {
+  const { rest, calls } = adapter(() => [policyRow()]);
+  await rest.table('ivoc_admin_config_versions', POLICY_QUERY);
+  await rest.table('ivoc_admin_config_versions', POLICY_QUERY, { method: 'GET' });
+  for (const method of ['POST', 'PATCH', 'DELETE', 'PUT', 'HEAD', 'get', null]) {
+    assert.throws(() => rest.table('ivoc_admin_config_versions', POLICY_QUERY, { method }), /not approved/);
+  }
+  for (const options of [{ body: {} }, { prefer: 'return=representation' }]) {
+    assert.throws(() => rest.table('ivoc_admin_config_versions', POLICY_QUERY, options), /not approved/);
+  }
+  for (const query of ['', '?select=*', '?select=pressure_defaults&limit=1000']) {
+    assert.throws(() => rest.table('ivoc_admin_config_versions', query), /not approved/);
+  }
+  assert.equal(calls.length, 2, 'blocked operations never reach the database');
+  const { rest: oversized } = adapter(() => new Response(JSON.stringify('x'.repeat(64 * 1024))));
+  await assert.rejects(() => oversized.table('ivoc_admin_config_versions', POLICY_QUERY), /failed closed/);
+  for (const policy of [[], [{ ...policyRow(), schema_name: 'unrecognized' }], [{ ...policyRow(), pressure_defaults: {} }]]) {
+    const { rest: invalid } = adapter(url => url.pathname.endsWith('/ivoc_context_packs') ? [{
+      pack_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', pack_version: 'c'.repeat(64),
+      actor_block: 'AUTHORIZED APPLICATION CONTEXT\nfixture', source_receipts: [],
+    }] : policy);
+    assert.equal(await createIvocContextPackResolver({ rest: invalid })({ subject: 'wp:1', sessionId: SESSION }), null);
+  }
 });
 
 test('actual native resolver reaches the protected session read and rejects stale prior-context custody', async () => {
@@ -163,7 +209,8 @@ test('real adapter/native and HQ agree on valid source history larger than the o
   const expected = await h.hq.getActorContext({ actor: 'wp:1', sessionId: SESSION });
   assert.ok(expected);
   const { rest, calls } = adapter(h.reply);
-  assert.deepEqual(await createIvocContextPackResolver({ rest })({ subject: 'wp:1', sessionId: SESSION }), expected);
+  assert.deepEqual(await createIvocContextPackResolver({ rest })({ subject: 'wp:1', sessionId: SESSION }),
+    { ...expected, interviewPolicy: projectInterviewPolicy(policyRow()) });
   assert.ok(calls.filter(call => new URL(call.url).pathname.endsWith('/ivoc_results')).length >= 2);
   assert.ok(calls.every(call => call.options.method === 'GET' && call.options.body === null && !call.options.headers.Prefer));
 });

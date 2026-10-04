@@ -16,6 +16,18 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 NATIVE STARTUP POLICY READ REPAIR (PRODUCT4681):
+  Diagnostic runtime c64801b5/source6dc34c9 reproduced the actual visible Start
+  failure at context_pack, before provider creation. Independently reproduced
+  with the real IvPrepSupabaseRest: valid owned pack -> blocked canonical
+  ivoc_admin_config_versions read. The adapter omitted this required table.
+  Permit only exact GET current version/schema/pressure projection, no body or
+  Prefer, no config writes/arbitrary columns and no enlarged history budget.
+  Real-adapter regression failed before patch;57 focused tests PASS afterward.
+  Missing/invalid policy remains fail-closed; no client policy substitution.
+  Media, auth, provider/audio authority, transcript and storage are unchanged.
+  Live Mock remains UNVERIFIED until actual production startup acceptance.
+
 - 2026-10-04 FOUNDER LIVE START FAILURE (PRODUCT4677):
   Genuine Founder screenshots and independent root reproduction confirm visible
   FaceTime camera/mic readiness, then POST /api/ivprep-v6/live/sessions503

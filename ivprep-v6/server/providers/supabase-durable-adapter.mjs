@@ -31,6 +31,9 @@ const TABLES = new Set([
 // Actor context may revalidate protected evidence, but this adapter must not
 // acquire a new mutation surface for sessions, analyses or private recordings.
 const CONTEXT_READ_TABLES = new Set(['ivoc_sessions', 'ivoc_results', 'ivoc_recordings']);
+// Native startup must read the canonical follow-up ceiling. Permit only the
+// minimized current-policy projection, never Admin configuration mutations.
+const INTERVIEW_POLICY_QUERY = '?select=version,schema_name,pressure_defaults&order=version.desc&limit=1';
 const MAX_CONTEXT_READ_RESPONSE_BYTES = 4 * 1024 * 1024;
 const RPCS = new Set([
   'ivprep_bind_provider_dispatch',
@@ -230,10 +233,12 @@ export class IvPrepSupabaseRest {
   }
 
   table(name, query = '', options = {}) {
-    const contextRead = CONTEXT_READ_TABLES.has(name)
-      && (options.method === undefined || options.method === 'GET')
+    const readOnly = (options.method === undefined || options.method === 'GET')
       && options.body == null && options.prefer == null;
-    if ((!TABLES.has(name) && !contextRead) || (query && !query.startsWith('?'))) throw new Error('IV Prep table operation is not approved.');
+    const contextRead = CONTEXT_READ_TABLES.has(name)
+      && readOnly;
+    const policyRead = name === 'ivoc_admin_config_versions' && query === INTERVIEW_POLICY_QUERY && readOnly;
+    if ((!TABLES.has(name) && !contextRead && !policyRead) || (query && !query.startsWith('?'))) throw new Error('IV Prep table operation is not approved.');
     return this.request(`/${name}${query}`, options);
   }
 
