@@ -16,6 +16,17 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 bounded independent R050/R133 review found an executable coaching P1:
+  actual symmetric corridor score260WPM=0 said 'too slow'; above-corridor
+  -6LUFS-K scored1.1 yet said 'below'. Producer is unchanged. Consumer now carries
+  its existing bounded direction enums through trace/seal, labels only unanimous
+  qualified-run direction, and uses neutral wording for legacy/mixed/unknown cues.
+  Speech, cadence, decimation, recording-bound seek and private ownership guards
+  remain unchanged. Regression failed before correction;43 affected tests PASS.
+  Independent actual-scoring/invalid-cue/listening/decimation review PASS/noP0/P1;
+  live acceptance pending, no physical or audible claim.
+  Exact4505 PRODUCT lease is maintained for four named source/test files and this
+  ledger. Current healthy rollback726d313/90da7913/image1236118/artifacteHmGoI.
 - 2026-10-04 actual authenticated production320x844 POV found a question-picker
   usability FAIL: wrapping filters consumed232px and left only45.7px of question
   list with preview open. Narrow CSS-only fix keeps every filter in a horizontally

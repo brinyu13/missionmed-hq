@@ -1,6 +1,7 @@
 // Bounded presentation trace, never another canonical transcript or raw biometric store.
 const text=(v,n=240)=>typeof v==='string'?v.slice(0,n):null;
 const number=v=>typeof v==='number'&&Number.isFinite(v)?v:null;
+const cue=v=>v===-1||v===0||v===1?v:null;
 const thin=(items,limit)=>items.length<=limit?items:items.filter((_,i)=>i%Math.ceil(items.length/limit)===0);
 const settingKeys=new Set(['preset','role','style','depth','curiosity','pressure','interruption','pacing','maxFollowUps','programEmphasis','targetQuestions','durationMin','voice','advanced']);
 const hookReference=value=>value&&value.basis==='PROVISIONAL_TRANSCRIPT'&&typeof value.sessionId==='string'&&/^[0-9a-f-]{36}$/.test(value.sessionId)
@@ -13,6 +14,7 @@ export function sealDerivedEvidence(record={}) {
     ...Object.fromEntries(['t','vol','pitch','pace','variety','facing','nods','smiles','gestures','wpm','loudness','f0Hz'].map(k=>[k,number(s[k])])),
     state:text(s.state,32),hands:text(s.hands,32),presence:text(s.presence,32),loudnessUnit:text(s.loudnessUnit,32),
     speaking:s.speaking===true,signalGap:s.signalGap===true,
+    paceCue:cue(s.paceCue),volumeCue:cue(s.volumeCue),
     scores:Object.fromEntries(['pace','volume','variety'].map(k=>[k,number(s.scores?.[k])]))
   }));
   const events=thin((Array.isArray(record.events)?record.events:[]).filter(e=>e?.fixture!==true&&number(e?.t)!==null&&e.t>=0),512)

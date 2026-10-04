@@ -28,6 +28,12 @@ function longestRun(samples, predicate, minS = 4) {
   return best && best.endT - best.startT >= minS ? best : null;
 }
 
+function runDirection(samples, run, key) {
+  const values = samples.filter(s => finite(s.t) && s.t >= run.startT && s.t <= run.endT).map(s => s[key]);
+  return values.length && values.every(v => v === -1) ? -1
+    : values.length && values.every(v => v === 1) ? 1 : null;
+}
+
 export function deriveDebrief(attempt) {
   const samples = attempt.samples || [];
   const events = attempt.events || [];
@@ -43,15 +49,26 @@ export function deriveDebrief(attempt) {
     else if (decimated) {
       const first = samples.find((s) => speechScore(s, 'pace') && (s.scores.pace < 7 || s.scores.pace > 8.5));
       change.push({ lane: 'pace', text: `Pace was outside the displayed range in ${pct(1 - f)} of retained speech samples. Missing intervals prevent a continuous-duration claim.`, at: first.t, priority: 0.8 });
-    } else { const fast = longestRun(samples, (s) => speechScore(s, 'pace') && s.scores.pace > 8.5, 3); const slow = longestRun(samples, (s) => speechScore(s, 'pace') && s.scores.pace < 7, 3); const run = fast || slow; if (run) change.push({ lane: 'pace', text: `Pace left the displayed range for ${Math.round(run.endT - run.startT)} s at ${fmt(run.startT)} (${fast ? 'too fast' : 'too slow'}).`, at: run.startT, priority: 0.8 }); }
+    } else {
+      const run = longestRun(samples, (s) => speechScore(s, 'pace') && (s.scores.pace < 7 || s.scores.pace > 8.5), 3);
+      if (run) {
+        const direction = runDirection(samples, run, 'paceCue');
+        const label = direction === -1 ? ' (too fast)' : direction === 1 ? ' (too slow)' : '';
+        change.push({ lane: 'pace', text: `Pace left the displayed range for ${Math.round(run.endT - run.startT)} s at ${fmt(run.startT)}${label}.`, at: run.startT, priority: 0.8 });
+      }
+    }
   }
   const volMeasured = dwell(samples, (s) => speechScore(s, 'volume'));
   if (volMeasured.count >= 6) {
-    const low = decimated ? null : longestRun(samples, (s) => speechScore(s, 'volume') && s.scores.volume < 7, 4);
+    const outside = decimated ? null : longestRun(samples, (s) => speechScore(s, 'volume') && s.scores.volume < 7, 4);
     const inF = dwell(samples, (s) => speechScore(s, 'volume') && s.scores.volume >= 7).count / volMeasured.count;
     facts.push({ lane: 'volume', text: `Volume in corridor in ${pct(inF)} of retained speech samples`, value: inF });
-    if (decimated && inF < 0.7) change.push({ lane: 'volume', text: `Volume was below the displayed corridor in ${pct(1 - inF)} of retained speech samples. Missing intervals prevent a continuous-duration claim.`, at: samples.find((s) => speechScore(s, 'volume') && s.scores.volume < 7).t, priority: 0.7 });
-    else if (low) change.push({ lane: 'volume', text: `Volume dropped below the displayed corridor for ${Math.round(low.endT - low.startT)} s at ${fmt(low.startT)}.`, at: low.startT, priority: 0.7 });
+    if (decimated && inF < 0.7) change.push({ lane: 'volume', text: `Volume was outside the displayed corridor in ${pct(1 - inF)} of retained speech samples. Missing intervals prevent a continuous-duration claim.`, at: samples.find((s) => speechScore(s, 'volume') && s.scores.volume < 7).t, priority: 0.7 });
+    else if (outside) {
+      const direction = runDirection(samples, outside, 'volumeCue');
+      const position = direction === -1 ? 'above' : direction === 1 ? 'below' : 'outside';
+      change.push({ lane: 'volume', text: `Volume stayed ${position} the displayed corridor for ${Math.round(outside.endT - outside.startT)} s at ${fmt(outside.startT)}.`, at: outside.startT, priority: 0.7 });
+    }
     else if (inF >= 0.7) worked.push({ lane: 'volume', text: `Volume held in the displayed corridor in ${pct(inF)} of retained speech samples.`, at: samples.find((s) => speechScore(s, 'volume'))?.t ?? null });
   }
   const varMeasured = dwell(samples, (s) => speechScore(s, 'variety'));

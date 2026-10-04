@@ -10,6 +10,7 @@ export const TRACE_REDUCER_VERSION = 'ivoc.trace-reducer.v1';
 
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 const clamp01 = (v) => (v === null ? null : Math.max(0, Math.min(1, v)));
+const cue = (v) => v === -1 || v === 0 || v === 1 ? v : null;
 
 // Versioned, visible normalisations (never per-window auto-normalised).
 export const NORMALISATION = Object.freeze({
@@ -58,6 +59,10 @@ export function traceSample(frame) {
       volume: vol === null ? null : num(volume.score),
       variety: varietyNorm === null ? null : num(variety.score),
     },
+    // Existing producer cues carry direction; symmetric scores cannot. Legacy
+    // traces without these bounded enums remain direction-unavailable.
+    paceCue: pace === null || num(speed.score) === null ? null : cue(speed.cue),
+    volumeCue: vol === null || num(volume.score) === null ? null : cue(volume.cue),
     signalGap,
   });
 }

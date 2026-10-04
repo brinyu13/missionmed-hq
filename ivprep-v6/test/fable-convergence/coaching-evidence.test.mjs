@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
 import {traceSample} from '../../public/studio-fable/app/model/trace-reducer.mjs';
 import {deriveDebrief} from '../../public/studio-fable/app/model/teaching.mjs';
 import {projectDerivedPriority,projectSavedAttempt} from '../../public/studio-fable/app/adapters/saved-review.mjs';
@@ -16,6 +17,51 @@ const legacyHeld=()=>[
 ];
 const evidence=samples=>({schema:'ivoc.fable51.evidence.v1',fixture:false,clock:'recording-observed',samples,events:[],
   debrief:{lane:'pace',text:'Pace left your range for 26 s at 00:06 (too slow).'}});
+
+// Execute the current producer's score and direction functions, not a parallel
+// score implementation. No device/provider or synthetic production attempt.
+async function currentScoring() {
+  const source=await readFile(new URL('../../public/ivoc-standalone/app/real-runtime.mjs',import.meta.url),'utf8');
+  return Function(source.slice(source.indexOf('const clamp'),source.indexOf('function stateName'))
+    + '; return {score:corridorScore,direction};')();
+}
+test('current producer cues survive trace, sealing and cold review without reversing high/low evidence',async()=>{
+  const {score,direction}=await currentScoring();
+  for(const [wpm,lu,paceLabel,volumeLabel] of [[260,-6,'too fast','above'],[80,-45,'too slow','below']]) {
+    const samples=Array.from({length:9},(_,i)=>traceSample(frame(i/2,{
+      speedWpm:{available:true,wordsPerMinute:wpm,score:score(wpm,[140,175]),cue:direction(wpm,[140,175])},
+      volume:{available:true,normalized:.5,scientificValue:lu,scientificUnit:'LUFS-K',score:score(lu,[-30,-18]),cue:direction(lu,[-30,-18])},
+    })));
+    assert.equal(samples[0].paceCue,direction(wpm,[140,175]));
+    assert.equal(samples[0].volumeCue,direction(lu,[-30,-18]));
+    const sealed=sealDerivedEvidence({samples,events:[]});
+    assert.equal(sealed.samples[0].paceCue,samples[0].paceCue);
+    assert.equal(sealed.samples[0].volumeCue,samples[0].volumeCue);
+    for(const trace of [samples,JSON.parse(JSON.stringify(sealed)).samples]) {
+      const d=deriveDebrief({samples:trace,events:[]});
+      assert.match(d.allChange.find(c=>c.lane==='pace').text,new RegExp(paceLabel));
+      assert.match(d.allChange.find(c=>c.lane==='volume').text,new RegExp(volumeLabel));
+      assert.equal(d.change[0].at,0);
+    }
+    assert.match(projectDerivedPriority(JSON.parse(JSON.stringify(sealed)),4).text,new RegExp(paceLabel));
+    const volumeOnly=JSON.parse(JSON.stringify(sealed));
+    volumeOnly.samples=volumeOnly.samples.map(s=>({...s,pace:null,scores:{...s.scores,pace:null}}));
+    assert.match(projectDerivedPriority(volumeOnly,4).text,new RegExp(volumeLabel));
+  }
+});
+test('legacy symmetric scores and mixed or invalid direction cues cannot invent coaching direction',()=>{
+  for(const cues of [Array(9).fill(undefined),Array(9).fill(2),Array.from({length:9},(_,i)=>i%2?-1:1)]) {
+    const samples=speech().map((s,i)=>({...s,paceCue:cues[i],volumeCue:cues[i],vol:.5,scores:{...s.scores,volume:5}}));
+    const d=deriveDebrief({samples,events:[]});
+    for(const change of d.allChange) assert.doesNotMatch(change.text,/too slow|too fast|above|below/);
+    const decimated=deriveDebrief({samples,events:[],traceDecimated:true});
+    for(const change of decimated.allChange) assert.doesNotMatch(change.text,/too slow|too fast|above|below/);
+  }
+  const unavailable=traceSample(frame(0,{speaking:false,speedWpm:{available:true,wordsPerMinute:260,score:0,cue:-1},volume:{available:true,normalized:.5,score:0,cue:-1}}));
+  assert.equal(unavailable.paceCue,null);assert.equal(unavailable.volumeCue,null);
+  const sealed=sealDerivedEvidence({samples:[{...speech()[0],paceCue:'-1',volumeCue:NaN}]});
+  assert.equal(sealed.samples[0].paceCue,null);assert.equal(sealed.samples[0].volumeCue,null);
+});
 
 test('actual trace reducer withholds teaching scores when speech or a producer is unavailable',()=>{
   for(const extra of [{speaking:false},{speedWpm:{available:false,score:5}},
