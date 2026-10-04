@@ -16,6 +16,57 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 CURRENT FIX-FORWARD / SHARED4787:
+  Current serving source acfd95bf413c3fa53f5b838950f0ba0e7573c81f, SUCCESS
+  cb5ccd6b-f7c1-45c7-b439-15b93f38d8c8, image
+  sha256:bbe06d001722daa8c99ca13f0dfa758d7aadc0b5457b70748794b98501414f96.
+  DR350 ppcfoR/stage:1297 tracked files, archiveSHA
+  1fbe0b084825d3bb54ddc01d2604d433e752eb12095eecc09f2585a9507452ce.
+  Health200/ok; anonymous product/v1bootstrap401. Six MR successor paths remain
+  byte-identical to ownerf7c8163. No auth/provider/schema/environment changes.
+  Cold readiness formerly defaulted to Practice1: source0ec71c3 now recovers
+  explicit Mock/Practice to setup, unknown mode to Home, without provider restart
+  or private configuration persistence. Source6d292a6 restores reachable controls
+  in short desktop windows; requested900/982/1117px cockpit rules unchanged.
+  Independent actual brinyu/Admin Home ->Mock5 ->Ready ->cold reload ->Mock5
+  setup review notice ->Ready PASS. At1304x552 Connect and Start are fully
+  reachable by document scroll; Start correctly awaits connection.383 affected
+  Fable checks and21 targeted readiness/layout checks PASS; source review PASS.
+  Independent cold Film replay of saved120s session6f52096f PASS: visibly moving
+  real1280x720 playback, reload restores same recording and twelve evidence lanes.
+  Main live tracking/viewport/hidden-measurement/save proof below remains ratcheted.
+  Results incorrectly described final detector unavailability as no saved evidence.
+  acfd95b now separates admitted retained scalar observations from finish readouts.
+  No canonical record rewrite, reconstructed gaps, time-coverage percentages or
+  inferred psychological/eye-gaze score. LUFS-K/dBFS are separate unit ranges.
+  Independent source review caught and verified the preferred-unit correction;
+  41 focused regression checks PASS. Actual cold production saved Results ->Full
+  Analytics displays195tracked samples,32–91% orientation-proxy range,4hand-visible
+  samples/195retained hand observations,2smile events and26framing observations.
+  No retained nod/gesture events are invented. Candidate speech ranges and
+  unavailable pace remain qualified; last face/body snapshot stays unavailable.
+  Captured-evidence link ->same Film6f52096f at1.853s, paused real1280x720 frame;
+  report screenshot /tmp/ivoc-room-recovery.wKO0ZD/results-after-1440.jpg.
+  Fresh non-builder production Home ->Debrief ->Full Analytics PASS: retained
+  visual evidence, separate finish snapshot and separate loudness units; smile
+  replay link ->same private Film recording at14.0887s, paused. No new capture,
+  provider or data/settings writes. Browser viewport reset; child tabs closed.
+  Product leases4779,4796,4799,4805 released normally; remote readback confirmed.
+  Current source/artifact is verified rollback for these changed scopes, not full
+  Founder acceptance.379ce3c4/NvJmij and a05c3009/jP2Ck7 exact artifacts retained;
+  provider marked prior IDs REMOVED, so recovery must use exact retained artifact.
+  Deliberate physical smile/nod/head/hand/gesture/framing +personal-pitch rehearsal,
+  genuine spoken varied-hook follow-up/barge-in/closing, and actually HEAR BOTH
+  after cold replay remain UNVERIFIED: tools cannot supply genuine human action
+  or independently hear playback. No substitute provider test or Founder retest
+  requested. No new independent engineering defect remains in this bounded sweep;
+  existing genuine identity/owner-data/recurrence/provider gates below stay open.
+  Active paid LemonSlice remains authority-gated byDR290; embodiment host/config
+  seam publishes no competing audio/brain and is not a live avatar claim.
+  Next exact acceptance condition: genuine physical/spoken Mock evidence and
+  audible saved replay; fix-forward any resulting real defect, never mark the
+  Founder terminal objective complete from these component/render checks.
+
 - 2026-10-04 CURRENT LIVE-ROOM CORRECTION / SHARED4787:
   Deployed source7efbb12191eae2f42b2d542516e90f32a2269e2a, SUCCESS
   a05c3009-378d-4029-9e90-c880ae715e65, image
