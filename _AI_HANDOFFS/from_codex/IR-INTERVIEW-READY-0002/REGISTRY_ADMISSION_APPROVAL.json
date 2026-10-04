@@ -1,0 +1,9 @@
+{
+  "verdict": "APPROVE",
+  "reviewer": "phase1_registration_contract_review",
+  "sources": {
+    "lease_transport.py": "6bab4c948b28202b7a803228f2123d5c95137030f16eb129c427b4ddcc487cad",
+    "register_phase1.py": "82cc46596206bd3f69caa75b442738647d446d26644a21f9dc6695974ea62a0f",
+    "run_authenticated_registration.py": "46c3668665bdfcdc293d7ebfe9af16b75b1fa0b0eeb69dad6a0ce5a793d0f6a5"
+  }
+}
