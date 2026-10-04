@@ -6,25 +6,10 @@ import {evaluateInterviewiqResearchEligibility} from '../src/interviewiq-researc
 const HASH=/^[a-f0-9]{64}$(?![\s\S])/;
 const unavailable=()=>{throw Error('interviewiq_research_store_unavailable');};
 const sha=value=>createHash('sha256').update(value).digest('hex');
-const LINK_CATALOG_SHA='9fc1e0da5d3ab596672e33e2400e4a943b3f5826a5212104bcd60d0b65a95158';
+import {researchLinkCatalog,LINK_CATALOG_SHA} from './interviewiq-job-origin.mjs';
+export {researchLinkCatalog} from './interviewiq-job-origin.mjs';
 const RIGHTS_BODY_SHA='65b23dcd11d177be0fa5c5c04e37e43e6cd23d033e640ef027486274b965c6f1';
 
-export async function researchLinkCatalog(client) {
-  return (await client.query(`SELECT c.relname,c.relkind,c.relpersistence,c.relowner::regrole::text AS owner,c.relrowsecurity,c.relforcerowsecurity,
-    n.nspowner::regrole::text AS schema_owner,
-    (SELECT jsonb_agg(jsonb_build_object('column',a.attname,'type',format_type(a.atttypid,a.atttypmod),'required',a.attnotnull,'identity',a.attidentity,'generated',a.attgenerated,'acl',a.attacl,'default',pg_get_expr(d.adbin,d.adrelid)) ORDER BY a.attnum)
-      FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped) AS columns,
-    (SELECT jsonb_agg(jsonb_build_object('grantee',CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE a.grantee::regrole::text END,'privilege',a.privilege_type,'grantable',a.is_grantable)
-      ORDER BY a.grantee::regrole::text COLLATE "C",a.privilege_type COLLATE "C") FROM aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a) AS acl,
-    (SELECT jsonb_agg(jsonb_build_object('name',p.polname,'command',p.polcmd,'permissive',p.polpermissive,'roles',(SELECT jsonb_agg(r::regrole::text ORDER BY r::regrole::text COLLATE "C") FROM unnest(p.polroles) r),
-      'using',pg_get_expr(p.polqual,p.polrelid),'check',pg_get_expr(p.polwithcheck,p.polrelid)) ORDER BY p.polname COLLATE "C") FROM pg_policy p WHERE p.polrelid=c.oid) AS policies,
-    (SELECT jsonb_agg(jsonb_build_object('name',conname,'validated',convalidated,'definition',pg_get_constraintdef(oid)) ORDER BY conname COLLATE "C") FROM pg_constraint WHERE conrelid=c.oid) AS constraints,
-    (SELECT jsonb_agg(pg_get_indexdef(indexrelid) ORDER BY pg_get_indexdef(indexrelid) COLLATE "C") FROM pg_index WHERE indrelid=c.oid) AS indexes,
-    (SELECT jsonb_agg(pg_get_ruledef(oid) ORDER BY rulename COLLATE "C") FROM pg_rewrite WHERE ev_class=c.oid) AS rules,
-    (SELECT jsonb_agg(pg_get_triggerdef(oid) ORDER BY tgname COLLATE "C") FROM pg_trigger WHERE tgrelid=c.oid AND NOT tgisinternal) AS triggers
-    FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='rise_runtime'
-      AND c.relname IN ('iiq_research_job_links','iiq_research_link_migrations') ORDER BY c.relname COLLATE "C"`)).rows;
-}
 
 async function qualify(client) {
   const {rows:[role]}=await client.query(`SELECT current_user AS name,rolsuper,rolbypassrls,rolcreatedb,rolcreaterole,rolreplication,
@@ -116,8 +101,8 @@ export function createInterviewiqResearchAcceptance({enabled=false,registryIndex
         const {rows:[job]}=await client.query('SELECT release_id,program_specialty_id FROM rise_runtime.research_jobs WHERE job_id=$1',[outcome.jobId]);
         if(job?.release_id!==binding.registryReleaseId||job.program_specialty_id!==binding.programId)unavailable();
       }
-      await client.query(`INSERT INTO rise_runtime.iiq_research_job_links(owner_id,request_id,demand_id,interview_id,program_id,release_id,request_sha256,subject_key,job_id,disposition)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,[ownerId,requestId,binding.demandId,binding.interviewId,binding.programId,binding.registryReleaseId,bodyHash,quotaKey,outcome.jobId,outcome.jobId?'JOB':'NO_OP']);
+      await client.query(`INSERT INTO rise_runtime.iiq_research_job_links(owner_id,request_id,demand_id,interview_id,program_id,release_id,request_sha256,subject_key,job_id,disposition,created_job)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,[ownerId,requestId,binding.demandId,binding.interviewId,binding.programId,binding.registryReleaseId,bodyHash,quotaKey,outcome.jobId,outcome.jobId?'JOB':'NO_OP',result.quotaReserved===true]);
       return outcome;
     });
   }});

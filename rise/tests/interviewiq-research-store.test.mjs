@@ -6,7 +6,7 @@ import {createHash,createHmac,randomUUID} from 'node:crypto';
 import pg from 'pg';
 import {qualifyLocalHarness} from '../tools/migrate-interviewiq-owner.mjs';
 import {createCommittedResearchProof} from '../adapters/interviewiq-job-auth.mjs';
-import {createInterviewiqResearchAcceptance} from '../adapters/interviewiq-research-store.mjs';
+import {createInterviewiqResearchAcceptance,researchLinkCatalog} from '../adapters/interviewiq-research-store.mjs';
 import {createRiseResearchStore,subjectKey} from '../adapters/postgres-runtime.mjs';
 import {DEEP_RESEARCH_DOMAIN_KEYS} from '../src/research-router.mjs';
 
@@ -59,17 +59,33 @@ test('real isolated PostgreSQL preserves accounting, request identity and privat
       await assert.rejects(admin.query(sql));await admin.query('ROLLBACK');
       assert.deepEqual((await admin.query('SELECT to_jsonb(r) AS data FROM rise_runtime.registry_releases r')).rows,before.rows);
     });
+    const historicalOwner=randomUUID();
+    await admin.query(`INSERT INTO rise_runtime.iiq_research_job_links(owner_id,request_id,demand_id,interview_id,program_id,release_id,request_sha256,subject_key,disposition)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,'NO_OP')`,[historicalOwner,randomUUID(),randomUUID(),randomUUID(),program(0).programSpecialtyId,RELEASE,'d'.repeat(64),'e'.repeat(64)]);
+    const historic=(await admin.query('SELECT to_jsonb(l) AS row FROM rise_runtime.iiq_research_job_links l')).rows[0].row;
+    const originSql=fs.readFileSync(new URL('../sql/20261004094448_iiq_1204_research_origin.sql',import.meta.url),'utf8');
+    await admin.query(originSql);
+    await t.test('origin expansion retains historical rows verbatim with unknown nullable origin',async()=>{
+      const row=(await admin.query('SELECT to_jsonb(l) AS row FROM rise_runtime.iiq_research_job_links l WHERE owner_id=$1',[historicalOwner])).rows[0].row;
+      assert.deepEqual(row,{...historic,created_job:null});
+      await assert.rejects(admin.query(originSql));await admin.query('ROLLBACK');
+      assert.deepEqual((await admin.query('SELECT to_jsonb(l) AS row FROM rise_runtime.iiq_research_job_links l WHERE owner_id=$1',[historicalOwner])).rows[0].row,row);
+    });
+    t.diagnostic('ORIGIN_LINK_CATALOG='+JSON.stringify(await researchLinkCatalog(admin)));
+    t.diagnostic('ORIGIN_LINK_CATALOG_SHA256='+createHash('sha256').update(JSON.stringify(await researchLinkCatalog(admin))).digest('hex'));
     pool=new pg.Pool({...connection,user:'rise_app_login',connectionTimeoutMillis:1000,max:6});
     const store=createInterviewiqResearchAcceptance(config,{pool});
-    const count=async table=>Number((await admin.query(`SELECT count(*)::int AS count FROM rise_runtime.${table}`)).rows[0].count);
+    // Existing suite counts new links; the retained pre-migration NO_OP is additional protected history.
+    const count=async table=>Number((await admin.query(`SELECT count(*)::int AS count FROM rise_runtime.${table}`)).rows[0].count)-(table==='iiq_research_job_links'?1:0);
     let first,outcome;
     await t.test('concurrent delivery reserves once and shares the exact existing quota identity',async()=>{
       first=await input();const results=await Promise.all([store.acceptJob(first),store.acceptJob(first)]);assert.deepEqual(results[0],results[1]);outcome=results[0];
       assert.equal(outcome.status,'QUEUED');assert.deepEqual(Object.keys(outcome).sort(),['jobId','status']);
       assert.equal(await count('research_jobs'),1);assert.equal(await count('iiq_research_job_links'),1);
+      assert.equal((await admin.query('SELECT created_job FROM rise_runtime.iiq_research_job_links WHERE job_id=$1',[outcome.jobId])).rows[0].created_job,true);
       const generic=await createRiseResearchStore({pool,subjectHmacKey:HMAC});const quota=await generic.readQuota({subject:'wp:90001'});
       assert.equal(quota.reservedCount,1);assert.equal(quota.used,1);
-      assert.equal((await admin.query('SELECT subject_key FROM rise_runtime.iiq_research_job_links')).rows[0].subject_key,subjectKey('wp:90001',HMAC));
+      assert.equal((await admin.query('SELECT subject_key FROM rise_runtime.iiq_research_job_links WHERE job_id IS NOT NULL')).rows[0].subject_key,subjectKey('wp:90001',HMAC));
     });
     await t.test('fresh factory and proof reconcile retained request after restart',async()=>{
       const fresh=await input({binding:first.binding});assert.deepEqual(await createInterviewiqResearchAcceptance(config,{pool}).acceptJob(fresh),outcome);
@@ -83,6 +99,7 @@ test('real isolated PostgreSQL preserves accounting, request identity and privat
     await t.test('second student shares active public program job without receiving requester data or charge',async()=>{
       const second=await input({wpUserId:90002});assert.deepEqual(await store.acceptJob(second),outcome);
       assert.equal(await count('iiq_research_job_links'),2);assert.equal(await count('research_jobs'),1);
+      assert.equal((await admin.query('SELECT created_job FROM rise_runtime.iiq_research_job_links WHERE owner_id=$1',[second.ownerId])).rows[0].created_job,false);
       const row=(await admin.query('SELECT requester_subject_key FROM rise_runtime.research_jobs WHERE job_id=$1',[outcome.jobId])).rows[0];
       assert.equal(row.requester_subject_key,subjectKey('wp:90001',HMAC));
     });
@@ -199,6 +216,63 @@ test('real isolated PostgreSQL preserves accounting, request identity and privat
     await t.test('unexpected insertion rule is rejected before any linked effect',async()=>{
       await admin.query('CREATE RULE synthetic_extra_effect AS ON INSERT TO rise_runtime.iiq_research_job_links DO ALSO NOTIFY synthetic_effect');
       await assert.rejects(store.acceptJob(await input({n:10})));await admin.query('DROP RULE synthetic_extra_effect ON rise_runtime.iiq_research_job_links');
+    });
+    await t.test('origin classification protects expired jobs and does not starve generic borrowers',async()=>{
+      const generic=await createRiseResearchStore({pool,subjectHmacKey:HMAC});
+      const classify=async id=>(await pool.query('SELECT rise_runtime.iiq_research_origin_class($1) AS origin',[id])).rows[0].origin;
+      const protectedJob=(await admin.query("SELECT job_id FROM rise_runtime.iiq_research_job_links WHERE created_job=true AND job_id<>$1 LIMIT 1",[outcome.jobId])).rows[0].job_id;
+      assert.equal(await classify(protectedJob),'INTERVIEWIQ');
+      await admin.query("UPDATE rise_runtime.research_jobs SET status='RUNNING',attempt_count=3,lease_token=$2,worker_id='lost-synthetic-worker',lease_expires_at=clock_timestamp()-interval '1 minute' WHERE job_id=$1",[protectedJob,randomUUID()]);
+      const snapshot=async()=>(await admin.query(`SELECT to_jsonb(j) AS row FROM rise_runtime.research_jobs j WHERE job_id=$1`,[protectedJob])).rows;
+      const before=await snapshot(),accounting=(await admin.query('SELECT to_jsonb(q) AS row FROM rise_runtime.research_quota_ledgers q ORDER BY subject_key')).rows;
+      const reserved=await generic.reserveJob({subject:'wp:90100',session:{capabilities:['rise:private-beta']},releaseId:RELEASE,program:program(11)});
+      const borrowed=await input({n:11,wpUserId:90101});const shared=await store.acceptJob(borrowed);assert.equal(reserved.quotaReserved,true);assert.equal(shared.jobId,(await admin.query('SELECT job_id FROM rise_runtime.research_jobs WHERE program_specialty_id=$1',[program(11).programSpecialtyId])).rows[0].job_id);
+      assert.equal(await classify(shared.jobId),'GENERIC');
+      assert.equal((await admin.query('SELECT created_job FROM rise_runtime.iiq_research_job_links WHERE owner_id=$1',[borrowed.ownerId])).rows[0].created_job,false);
+      const claim=await generic.claimNextJob({workerId:'synthetic-generic-worker'});assert.equal(claim.job.jobId,shared.jobId);
+      assert.deepEqual(await snapshot(),before);
+      const quotaAfter=(await admin.query('SELECT to_jsonb(q) AS row FROM rise_runtime.research_quota_ledgers q WHERE subject_key<>$1 ORDER BY subject_key',[subjectKey('wp:90100',HMAC)])).rows;
+      assert.deepEqual(quotaAfter,accounting);
+      await admin.query('UPDATE rise_runtime.iiq_research_job_links SET created_job=NULL WHERE job_id=$1 AND created_job=true',[protectedJob]);
+      assert.equal(await classify(protectedJob),'UNKNOWN');assert.equal(await generic.claimNextJob({workerId:'synthetic-unknown-worker'}),null);assert.deepEqual(await snapshot(),before);
+      await admin.query('UPDATE rise_runtime.iiq_research_job_links SET created_job=true WHERE job_id=$1 AND created_job IS NULL',[protectedJob]);
+      assert.equal(await classify(randomUUID()),'UNKNOWN');
+    });
+    await t.test('origin uniqueness, NO_OP shape and ancestor integrity fail closed',async()=>{
+      const classify=async id=>(await pool.query('SELECT rise_runtime.iiq_research_origin_class($1) AS origin',[id])).rows[0].origin;
+      const root=(await admin.query("SELECT job_id FROM rise_runtime.iiq_research_job_links WHERE created_job=true LIMIT 1")).rows[0].job_id;
+      await assert.rejects(admin.query(`INSERT INTO rise_runtime.iiq_research_job_links SELECT owner_id,$2,demand_id,interview_id,program_id,release_id,request_sha256,subject_key,job_id,disposition,created_at,true FROM rise_runtime.iiq_research_job_links WHERE job_id=$1 AND created_job=true`,[root,randomUUID()]));
+      await assert.rejects(admin.query('UPDATE rise_runtime.iiq_research_job_links SET created_job=true WHERE owner_id=$1',[historicalOwner]));
+      const child=randomUUID();
+      await admin.query(`INSERT INTO rise_runtime.research_jobs(job_id,dedupe_key,release_id,program_specialty_id,acgme_id,specialty,state_code,requester_subject_key,request_source,provider_key,model_key,router_revision,quota_window_start,root_job_id,parent_job_id,stage_ordinal,research_stage,student_charge_key)
+        SELECT $2,$3,release_id,program_specialty_id,acgme_id,specialty,state_code,requester_subject_key,request_source,provider_key,model_key,router_revision,quota_window_start,job_id,job_id,2,'TERRA_DELTA',student_charge_key FROM rise_runtime.research_jobs WHERE job_id=$1`,[root,child,'f'.repeat(64)]);
+      assert.equal(await classify(child),'INTERVIEWIQ');
+      await admin.query('UPDATE rise_runtime.research_jobs SET parent_job_id=job_id WHERE job_id=$1',[child]);assert.equal(await classify(child),'UNKNOWN');
+      await admin.query('UPDATE rise_runtime.research_jobs SET parent_job_id=$2,root_job_id=$3 WHERE job_id=$1',[child,root,outcome.jobId===root?child:outcome.jobId]);assert.equal(await classify(child),'UNKNOWN');
+      await admin.query('UPDATE rise_runtime.research_jobs SET parent_job_id=$2,root_job_id=$2,program_specialty_id=$3 WHERE job_id=$1',[child,root,'synthetic-other-program']);assert.equal(await classify(child),'UNKNOWN');
+      await admin.query('UPDATE rise_runtime.research_jobs SET root_job_id=NULL,parent_job_id=NULL WHERE job_id=$1',[child]);assert.equal(await classify(child),'GENERIC');
+    });
+    await t.test('generic reaper rejects origin table persistence or table ACL drift',async()=>{
+      const generic=await createRiseResearchStore({pool,subjectHmacKey:HMAC});
+      const before=(await admin.query('SELECT to_jsonb(j) AS row FROM rise_runtime.research_jobs j ORDER BY job_id')).rows;
+      await admin.query('ALTER TABLE rise_runtime.iiq_research_job_links SET UNLOGGED');
+      await assert.rejects(generic.claimNextJob({workerId:'synthetic-catalog-denial'}));
+      await admin.query('ALTER TABLE rise_runtime.iiq_research_job_links SET LOGGED');
+      await admin.query('GRANT UPDATE(created_job) ON rise_runtime.iiq_research_job_links TO rise_app_runtime');
+      await assert.rejects(generic.claimNextJob({workerId:'synthetic-catalog-denial'}));
+      await admin.query('REVOKE UPDATE(created_job) ON rise_runtime.iiq_research_job_links FROM rise_app_runtime');
+      assert.deepEqual((await admin.query('SELECT to_jsonb(j) AS row FROM rise_runtime.research_jobs j ORDER BY job_id')).rows,before);
+    });
+    await t.test('missing or tampered classifier stops claims before reaper mutations',async()=>{
+      const generic=await createRiseResearchStore({pool,subjectHmacKey:HMAC});
+      const before=(await admin.query('SELECT to_jsonb(j) AS row FROM rise_runtime.research_jobs j ORDER BY job_id')).rows;
+      await admin.query('ALTER FUNCTION rise_runtime.iiq_research_origin_class(uuid) RENAME TO synthetic_hidden_origin');
+      await assert.rejects(generic.claimNextJob({workerId:'synthetic-denial'}));
+      await admin.query('ALTER FUNCTION rise_runtime.synthetic_hidden_origin(uuid) RENAME TO iiq_research_origin_class');
+      await admin.query('GRANT EXECUTE ON FUNCTION rise_runtime.iiq_research_origin_class(uuid) TO PUBLIC');
+      await assert.rejects(generic.claimNextJob({workerId:'synthetic-denial'}));
+      await admin.query('REVOKE EXECUTE ON FUNCTION rise_runtime.iiq_research_origin_class(uuid) FROM PUBLIC');
+      assert.deepEqual((await admin.query('SELECT to_jsonb(j) AS row FROM rise_runtime.research_jobs j ORDER BY job_id')).rows,before);
     });
     await t.test('column-only mutation grant cannot evade immutable-history qualification',async()=>{
       await admin.query('GRANT UPDATE(request_sha256) ON rise_runtime.iiq_research_job_links TO rise_app_runtime');

@@ -217,6 +217,71 @@ function completionMatrix(parsed, job, citations) {
   return result;
 }
 
+const RECOVERY_MAX_BYTES = 8 * 1024 * 1024;
+const recoveryError = code => Object.assign(new Error("Research provider recovery execution failed"), {code});
+const RECOVERY_CODES = new Set(['OPENAI_PROVIDER_HTTP_ERROR','OPENAI_IDENTITY_MISMATCH','DOSSIER_FIELD_SHAPE_INVALID',
+  'DOSSIER_CROSS_FIELD_INCONSISTENT','DOSSIER_REQUEST_EMPTY','DOSSIER_COMPLETION_INVALID','DOSSIER_FINDING_MISSING',
+  'RESEARCH_RECOVERY_ABORTED','RESEARCH_RECOVERY_RESPONSE_TOO_LARGE','RESEARCH_RECOVERY_CHECKPOINT_FAILED']);
+
+function recoveryAccounting(payload) {
+  const u=payload?.usage;
+  const valid=u && typeof u==='object' && Number.isSafeInteger(u.input_tokens) && u.input_tokens>=0
+    && Number.isSafeInteger(u.output_tokens) && u.output_tokens>=0
+    && (u.input_tokens_details?.cached_tokens===undefined || (Number.isSafeInteger(u.input_tokens_details.cached_tokens)
+      && u.input_tokens_details.cached_tokens>=0 && u.input_tokens_details.cached_tokens<=u.input_tokens));
+  return {known:Boolean(valid), usage:valid?{input_tokens:u.input_tokens,output_tokens:u.output_tokens,
+    input_tokens_details:{cached_tokens:u.input_tokens_details?.cached_tokens??0}}:{},
+    webSearchCalls:Array.isArray(payload?.output)?payload.output.filter(x=>x?.type==='web_search_call').length:0,
+    responseId:typeof payload?.id==='string' && /^resp_[a-zA-Z0-9_-]{1,180}$(?![\s\S])/.test(payload.id)?payload.id:null};
+}
+
+async function recoveryWait(run, signal, timeoutMs = null) {
+  if (signal.aborted) throw recoveryError('RESEARCH_RECOVERY_ABORTED');
+  let listener, timer;
+  try {
+    return await Promise.race([Promise.resolve().then(() => {
+      if (signal.aborted) throw recoveryError('RESEARCH_RECOVERY_ABORTED');
+      return run();
+    }), new Promise((_, reject) => {
+      listener = () => reject(recoveryError('RESEARCH_RECOVERY_ABORTED'));
+      signal.addEventListener('abort', listener, {once:true});
+      if (timeoutMs !== null) timer = setTimeout(() => reject(recoveryError('RESEARCH_RECOVERY_CHECKPOINT_FAILED')), timeoutMs);
+    })]);
+  } finally {
+    signal.removeEventListener('abort', listener);
+    clearTimeout(timer);
+  }
+}
+
+async function checkpointRawResponse(response, {signal, checkpointResponse}, providerKey, modelKey) {
+  const reader = response.body?.getReader();
+  if (!reader) throw recoveryError('RESEARCH_RECOVERY_CHECKPOINT_FAILED');
+  const chunks = []; let size = 0;
+  try {
+    while (true) {
+      const {done, value} = await recoveryWait(() => reader.read(), signal);
+      if (done) break;
+      size += value.byteLength;
+      if (size > RECOVERY_MAX_BYTES) throw recoveryError('RESEARCH_RECOVERY_RESPONSE_TOO_LARGE');
+      chunks.push(Buffer.from(value));
+    }
+    const raw = Buffer.concat(chunks);
+    const record = Object.freeze({rawBodyBase64:raw.toString('base64'),
+      sha256:createHash('sha256').update(raw).digest('hex'), httpStatus:response.status,
+      providerKey, modelKey, receivedAt:new Date().toISOString()});
+    await recoveryWait(async () => {
+      try { await checkpointResponse(record); }
+      catch { throw recoveryError('RESEARCH_RECOVERY_CHECKPOINT_FAILED'); }
+    }, signal, 5000);
+    if (signal.aborted) throw recoveryError('RESEARCH_RECOVERY_ABORTED');
+    return raw.toString('utf8');
+  } finally {
+    // Cancellation is best-effort and must not wait on an uncooperative stream.
+    Promise.resolve(reader.cancel()).catch(() => {});
+    reader.releaseLock();
+  }
+}
+
 export function createOpenAiResearchProvider({ providerKey, apiKey = process.env.RISE_OPENAI_API_KEY ?? process.env.OPENAI_API_KEY, fetchImpl = fetch } = {}) {
   const configuration = PROVIDERS[providerKey];
   if (!configuration) throw new Error(`Unsupported OpenAI research provider: ${providerKey}`);
@@ -224,13 +289,23 @@ export function createOpenAiResearchProvider({ providerKey, apiKey = process.env
   return {
     providerKey,
     modelKey: configuration.modelKey,
-    async execute({ job }) {
+    async execute({ job, recovery }) {
+      if (recovery !== undefined && (typeof recovery?.checkpointResponse !== 'function' || !(recovery.signal instanceof AbortSignal))) {
+        throw Object.assign(recoveryError('RESEARCH_RECOVERY_INVALID'), {costKnown:true, actualCostUsd:0});
+      }
       const controller = new AbortController();
+      const checkpointResponse = recovery?.checkpointResponse;
+      const outerSignal = recovery?.signal;
+      const onAbort = () => controller.abort();
+      if (outerSignal) {
+        outerSignal.addEventListener('abort', onAbort, {once:true});
+        if (outerSignal.aborted) controller.abort();
+      }
       const timeout = setTimeout(() => controller.abort(), 180_000);
       let responsePayload = null;
       const started = Date.now();
       try {
-        const response = await fetchImpl(API_URL, {
+        const dispatch = () => fetchImpl(API_URL, {
           method: "POST",
           signal: controller.signal,
           headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -248,12 +323,18 @@ export function createOpenAiResearchProvider({ providerKey, apiKey = process.env
             metadata: { ticket: "P1-RISE-5012F", job_id: job.jobId, task_class: job.taskClass, contract: "DOSSIER_V2" },
           }),
         });
-        responsePayload = await response.json().catch(() => ({}));
+        const response = recovery === undefined ? await dispatch()
+          : await recoveryWait(dispatch, controller.signal);
+        responsePayload = recovery === undefined ? await response.json().catch(() => ({}))
+          : JSON.parse(await checkpointRawResponse(response, {signal:controller.signal, checkpointResponse}, providerKey, configuration.modelKey));
         if (!response.ok) {
           const error = Object.assign(new Error(`OpenAI research request failed with HTTP ${response.status}`), {
             code: "OPENAI_PROVIDER_HTTP_ERROR", providerResponseId: responsePayload?.id ?? null,
           });
           throw error;
+        }
+        if (recovery !== undefined && (!recoveryAccounting(responsePayload).known || !recoveryAccounting(responsePayload).responseId || !Array.isArray(responsePayload?.output))) {
+          throw recoveryError('RESEARCH_RECOVERY_FAILED');
         }
         const parsed = JSON.parse(outputText(responsePayload));
         if (String(parsed.program_identity?.acgme_id) !== String(job.acgmeId)) {
@@ -266,7 +347,7 @@ export function createOpenAiResearchProvider({ providerKey, apiKey = process.env
         const dossierCompletion = evaluateDossierCompletion(mergedCompletion);
         const dossierSourceUrls = [...citations].sort();
         const retrievedAt = new Date().toISOString();
-        const providerRunId = responsePayload.id;
+        const providerRunId = recovery === undefined ? responsePayload.id : recoveryAccounting(responsePayload).responseId;
         const identity = canonicalProgramSpecialtyIdentity(job.acgmeId, job.specialty);
         const seenFields = new Set();
         const claims = [];
@@ -331,7 +412,8 @@ export function createOpenAiResearchProvider({ providerKey, apiKey = process.env
         }
         const rawBytes = Buffer.from(JSON.stringify(responsePayload));
         const webSearchCalls = (responsePayload.output ?? []).filter((item) => item?.type === "web_search_call").length;
-        const actualCostUsd = calculateOpenAiResearchCost({ providerKey, usage: responsePayload.usage, webSearchCalls });
+        const usage = recovery === undefined ? (responsePayload.usage ?? {}) : recoveryAccounting(responsePayload).usage;
+        const actualCostUsd = calculateOpenAiResearchCost({ providerKey, usage, webSearchCalls });
         const ingest = {
           provider: "OPENAI",
           campaignId: "P1-RISE-5012F",
@@ -346,10 +428,11 @@ export function createOpenAiResearchProvider({ providerKey, apiKey = process.env
           providerKey,
           modelKey: configuration.modelKey,
         };
+        if (recovery !== undefined && controller.signal.aborted) throw recoveryError('RESEARCH_RECOVERY_ABORTED');
         return {
           providerKey, modelKey: configuration.modelKey, providerResponseId: providerRunId,
           networkUsed: true, newSpendUsd: actualCostUsd, actualCostUsd,
-          latencyMs: Date.now() - started, usage: responsePayload.usage ?? {}, webSearchCalls,
+          latencyMs: Date.now() - started, usage, webSearchCalls,
           publicationState: "REVIEW_REQUIRED", canonicalPromotion: "REVIEW_REQUIRED",
           programSpecialtyId: job.programSpecialtyId, acgmeId: job.acgmeId,
           specialty: job.specialty, state: job.state,
@@ -374,6 +457,14 @@ export function createOpenAiResearchProvider({ providerKey, apiKey = process.env
           ingest,
         };
       } catch (error) {
+        if (recovery !== undefined) {
+          controller.abort();
+          error = recoveryError(RECOVERY_CODES.has(error?.code) ? error.code : 'RESEARCH_RECOVERY_FAILED');
+          const accounting=recoveryAccounting(responsePayload);
+          error.actualCostUsd=accounting.known?calculateOpenAiResearchCost({providerKey,usage:accounting.usage,webSearchCalls:accounting.webSearchCalls}):0;
+          error.costKnown=accounting.known;error.usage=accounting.usage;error.providerResponseId=accounting.responseId;
+          throw error;
+        }
         const webSearchCalls = (responsePayload?.output ?? []).filter((item) => item?.type === "web_search_call").length;
         const cost = responsePayload?.usage
           ? calculateOpenAiResearchCost({ providerKey, usage: responsePayload.usage, webSearchCalls })
@@ -385,6 +476,7 @@ export function createOpenAiResearchProvider({ providerKey, apiKey = process.env
         throw error;
       } finally {
         clearTimeout(timeout);
+        outerSignal?.removeEventListener('abort', onAbort);
       }
     },
   };

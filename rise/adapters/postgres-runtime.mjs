@@ -1,5 +1,6 @@
 import { createHash, createHmac, randomUUID } from "node:crypto";
 import pg from "pg";
+import {genericResearchOriginPredicates} from "./interviewiq-job-origin.mjs";
 import {
   AUTHORIZED_COMBINED_SPEND_USD,
   AUTHORIZED_PROVIDER_KEYS,
@@ -2373,11 +2374,13 @@ export async function createRiseResearchStore({
       return withSubject(pool, systemKey, async (client) => {
         const { controls, providers } = await readResearchControls(client, { lock: true });
         if (!controls.globalEnabled || controls.emergencyKillSwitch) return null;
+        const origin = await genericResearchOriginPredicates(client);
         const expired = await client.query(`
           SELECT ${RESEARCH_JOB_PROJECTION}, requester_subject_key AS "requesterSubjectKey"
           FROM rise_runtime.research_jobs
           WHERE status IN ('LEASED', 'RUNNING', 'NORMALIZING', 'PROMOTING')
             AND lease_expires_at <= now()
+            AND ${origin.expired}
           FOR UPDATE
         `);
         for (const row of expired.rows) {
@@ -2419,6 +2422,7 @@ export async function createRiseResearchStore({
           FROM rise_runtime.research_jobs j
           JOIN rise_runtime.research_provider_routes p USING(provider_key)
           WHERE j.status = 'QUEUED' AND p.enabled = true
+            AND ${origin.queued}
             AND (
               (j.task_class = 'PROVIDER_BENCHMARK' AND p.provider_key IN ('OPENAI_TERRA','OPENAI_SOL')
                 AND p.state IN ('BENCHMARKING','PRODUCTION_APPROVED') AND p.network_allowed AND p.spend_allowed)
