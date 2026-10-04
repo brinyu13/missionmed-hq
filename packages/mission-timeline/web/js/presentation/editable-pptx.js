@@ -41,10 +41,14 @@ function paintOptions(paint,resolved){
   const s=paint.style,gradientId=String(s.fill||'').match(/^url\(#([^)]*)\)/)?.[1];
   const gradient=gradientId?resolved.gradients[gradientId]:null;
   const invisible=s.fill==='none'||s.fill==='transparent'||paint.lineOnly;
+  const photoShadow=paint.sourceAttributes?.['data-photo-paper']==='true'&&
+    /url\(#d1406-(?:[a-z0-9_-]+-)?photo-shadow\)/.test(String(s.filter||''));
   return{
     fill:{color:color(gradient?.stops.at(-1)?.color||s.fill),transparency:invisible?100:100-clamp(s['fill-opacity']??s.opacity??1)*100},
     line:{color:color(s.stroke),width:s.stroke&&s.stroke!=='none'?(Number(s['stroke-width'])||1)*.75:0,transparency:s.stroke&&s.stroke!=='none'?100-clamp(s['stroke-opacity']??1)*100:100,...(paint.endArrow?{endArrowType:'triangle'}:{})},
-    ...(s.filter?{shadow:{type:'outer',color:'141E32',opacity:.35,blur:2,offset:1.5,angle:90}}:{})
+    // PptxGenJS takes blur/offset in points; the SVG reference uses px at 96 dpi.
+    ...(photoShadow?{shadow:{type:'outer',color:'000000',opacity:.5,blur:5*.75,offset:9*.75,angle:137.2}}
+      :s.filter?{shadow:{type:'outer',color:'141E32',opacity:.35,blur:2,offset:1.5,angle:90}}:{})
   };
 }
 function gradientNode(gradient){

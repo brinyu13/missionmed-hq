@@ -45,12 +45,19 @@ const FOUNDER_PORTABLE_GEOMETRY=Object.freeze({
   colorKey:Object.freeze({x:20,y:300,width:284,height:346}),
   profile:Object.freeze({x:13,y:661,width:545,height:410}),
   photos:Object.freeze([
-    Object.freeze({x:599,y:776,width:176,height:235,rotation:10}),
-    Object.freeze({x:753,y:884,width:223,height:140,rotation:6}),
-    Object.freeze({x:992,y:878,width:233,height:175,rotation:0})
+    Object.freeze({x:607.4708862304688,y:782.659423828125,width:195.9185791015625,height:260.55804443359375,rotation:10}),
+    Object.freeze({x:749.3143310546875,y:888.0833740234375,width:243.38780212402344,height:166.1234588623047,rotation:6}),
+    Object.freeze({x:981.880615234375,y:870.6946411132812,width:253.4744873046875,height:200.90078735351562,rotation:0})
   ]),
   interview:Object.freeze({x:1666,y:238,width:220,height:136})
 });
+// Opaque paper and photo aperture measured within each original frame image.
+// The raw box includes transparent shadow padding, so these are separate layers.
+const FOUNDER_PHOTO_PIXELS=Object.freeze([
+  Object.freeze({width:408,height:543,paper:[9,1,400,515],aperture:[23,16,385,501]}),
+  Object.freeze({width:507,height:347,paper:[9,1,498,317],aperture:[23,16,483,303]}),
+  Object.freeze({width:528,height:419,paper:[9,1,519,390],aperture:[23,16,504,376]})
+]);
 function xml(value){
   return String(value??"").replace(/[&<>"']/g,(character)=>({
     "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&apos;"
@@ -513,7 +520,7 @@ function profileMarkup(scene){
     ["Languages fluent in",profile.languages,"languages"],
     ["Hobbies",profile.hobbies,"hobbies"]
   ].filter(([,value])=>String(value||"").trim());
-  const photoX=351,photoY=20,photoWidth=169,photoHeight=170;
+  const photoX=351,photoY=20,photoWidth=170,photoHeight=170;
   const measureText=scene.measureText||measurePresentationText;
   const layoutRows=(orderedRows,lineHeight,groupGap)=>{
     let rowY=32;
@@ -608,15 +615,25 @@ function photoFrames(scene){
     if(/^photo[123]$/.test(slot)&&!exact.has(slot))exact.set(slot,photo);
   }
   const rest=photos.filter((photo)=>exact.get(String(photo.slot||""))!==photo);
-  return`<g data-artifact-chrome="photo-frames">${FOUNDER_PORTABLE_GEOMETRY.photos.map((_,index)=>{
+  // Assign source photos to slots 1, 2, 3, then paint the original back-to-front
+  // stack 3, 2, 1. Reversing before assignment swaps unslotted source photos.
+  const slots=FOUNDER_PORTABLE_GEOMETRY.photos.map((_,index)=>({
+    index,photo:exact.get(`photo${index+1}`)||rest.shift()||null
+  }));
+  return`<g data-artifact-chrome="photo-frames">${slots.reverse().map(({index,photo})=>{
     const {x,y,width,height,rotation}=photoFrameGeometry(scene,index);
     const slot=`photo${index+1}`;
-    const photo=exact.get(slot)||rest.shift()||null;
     if(!photo&&!scene.showEmptySlots)return "";
+    const pixels=FOUNDER_PHOTO_PIXELS[index];
+    const scaled=([left,top,right,bottom])=>({
+      x:x+left/pixels.width*width,y:y+top/pixels.height*height,
+      width:(right-left)/pixels.width*width,height:(bottom-top)/pixels.height*height
+    });
+    const paper=scaled(pixels.paper),aperture=scaled(pixels.aperture);
     const content=photo
-      ?croppedImageMarkup({href:photo.source,x:x+9,y:y+9,width:width-18,height:height-31,crop:photo.crop,naturalAspect:photo.naturalAspect,attributes:`data-media-id="${xml(photo.id)}"`})
-      :`<rect data-media-state="empty" x="${x+9}" y="${y+9}" width="${width-18}" height="${height-31}" fill="#D6D8D5"/><text x="${x+width/2}" y="${y+height/2}" text-anchor="middle" fill="#515B62" font-family="${TYPE.event}" font-size="18" pointer-events="none">DROP PHOTO ${index+1}</text>`;
-    return`<g data-artifact-photo-frame="${index+1}" data-frame-slot="${slot}" data-media-state="${photo?"filled":"empty"}"${photo?` data-media-id="${xml(photo.id)}"`:""} data-founder-geometry="${x},${y},${width},${height},${rotation}" transform="rotate(${rotation} ${x+width/2} ${y+height/2})"><rect x="${x}" y="${y}" width="${width}" height="${height}" fill="#FDFBF4"/>${content}</g>`;
+      ?croppedImageMarkup({href:photo.source,x:aperture.x,y:aperture.y,width:aperture.width,height:aperture.height,crop:photo.crop,naturalAspect:photo.naturalAspect,attributes:`data-photo-aperture="true" data-media-id="${xml(photo.id)}"`})
+      :`<rect data-photo-aperture="true" data-media-state="empty" x="${aperture.x}" y="${aperture.y}" width="${aperture.width}" height="${aperture.height}" fill="#D6D8D5"/><text x="${aperture.x+aperture.width/2}" y="${aperture.y+aperture.height/2}" text-anchor="middle" fill="#515B62" font-family="${TYPE.event}" font-size="18" pointer-events="none">DROP PHOTO ${index+1}</text>`;
+    return`<g data-artifact-photo-frame="${index+1}" data-frame-slot="${slot}" data-media-state="${photo?"filled":"empty"}"${photo?` data-media-id="${xml(photo.id)}"`:""} data-founder-geometry="${x},${y},${width},${height},${rotation}" transform="rotate(${rotation} ${x+width/2} ${y+height/2})"><rect data-photo-paper="true" x="${paper.x}" y="${paper.y}" width="${paper.width}" height="${paper.height}" fill="#FFFFFF" filter="url(#d1406-photo-shadow)"/>${content}</g>`;
   }).join("")}</g>`;
 }
 
@@ -809,7 +826,7 @@ function serializePlacedPortableSvg(scene,{layers="",resourceNamespace=""}={}){
   const titleId="d1406-portable-title";
   const descriptionId="d1406-portable-description";
   const board=FOUNDER_KEYNOTE_CONTRACT.assets.board;
-  const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${WIDTH} ${HEIGHT}" width="${WIDTH}" height="${HEIGHT}" role="img" aria-labelledby="${titleId} ${descriptionId}" data-renderer="${xml(scene?.renderer)}" data-artifact-language="407f-powerpoint-keynote" data-export-projection="native-svg" data-locked-407f-source-sha256="${LOCKED_407F_SOURCE_SHA256}"><title id="${titleId}">${xml(scene?.accessibility?.ariaLabel)}</title><desc id="${descriptionId}">${xml(scene?.accessibility?.description)}</desc><defs>${background(scene)}<linearGradient id="d1406-axis" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2F4A78"/><stop offset=".16" stop-color="#22395F"/><stop offset=".7" stop-color="#182B4C"/><stop offset="1" stop-color="#101F3A"/></linearGradient><filter id="d1406-arrow-shadow" x="-20%" y="-40%" width="140%" height="180%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#141E32" flood-opacity=".48"/></filter><marker id="d1406-red-arrowhead" markerWidth="10" markerHeight="14" refX="10" refY="7" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L10 7L0 14Z" fill="#C73A25"/></marker>${arrowDefinitions(arrows,layout,scale,scene)}</defs><rect data-board-background="true" data-founder-board-source="${xml(board.sourcePath)}" data-founder-board-asset-sha256="${board.sha256}" x="0" y="0" width="1920" height="1080" fill="url(#d1406-board)"/>${advancedBackgroundLayer(scene)}${axisMarkup(scale)}<g data-layer="events">${flags.map((flag,index)=>flagMarkup(flag,index,scale,scene)).join("")}${arrows.map((arrow,index)=>arrowMarkup(arrow,index,layout,scale,scene)).join("")}</g>${chrome(scene,scale)}</svg>`;
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${WIDTH} ${HEIGHT}" width="${WIDTH}" height="${HEIGHT}" role="img" aria-labelledby="${titleId} ${descriptionId}" data-renderer="${xml(scene?.renderer)}" data-artifact-language="407f-powerpoint-keynote" data-export-projection="native-svg" data-locked-407f-source-sha256="${LOCKED_407F_SOURCE_SHA256}"><title id="${titleId}">${xml(scene?.accessibility?.ariaLabel)}</title><desc id="${descriptionId}">${xml(scene?.accessibility?.description)}</desc><defs>${background(scene)}<linearGradient id="d1406-axis" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2F4A78"/><stop offset=".16" stop-color="#22395F"/><stop offset=".7" stop-color="#182B4C"/><stop offset="1" stop-color="#101F3A"/></linearGradient><filter id="d1406-arrow-shadow" x="-20%" y="-40%" width="140%" height="180%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#141E32" flood-opacity=".48"/></filter><filter id="d1406-photo-shadow" x="-25%" y="-25%" width="150%" height="150%"><feDropShadow dx="-6.603568780525887" dy="6.114971738353651" stdDeviation="5" flood-color="#000000" flood-opacity=".5"/></filter><marker id="d1406-red-arrowhead" markerWidth="10" markerHeight="14" refX="10" refY="7" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L10 7L0 14Z" fill="#C73A25"/></marker>${arrowDefinitions(arrows,layout,scale,scene)}</defs><rect data-board-background="true" data-founder-board-source="${xml(board.sourcePath)}" data-founder-board-asset-sha256="${board.sha256}" x="0" y="0" width="1920" height="1080" fill="url(#d1406-board)"/>${advancedBackgroundLayer(scene)}${axisMarkup(scale)}<g data-layer="events">${flags.map((flag,index)=>flagMarkup(flag,index,scale,scene)).join("")}${arrows.map((arrow,index)=>arrowMarkup(arrow,index,layout,scale,scene)).join("")}</g>${chrome(scene,scale)}</svg>`;
   return namespacePortableSvgResources(
     appendLayers(svg,`${advancedSceneMarkup(scene)}${layers}`),
     resourceNamespace

@@ -91,7 +91,11 @@ test("one deterministic portable serializer supplies preview/export composition 
   assert.doesNotMatch(first.svg,/data-artifact-photo-frame=|data-frame-slot="profile"|data-media-state="empty"/);
   assert.match(first.svg,/data-frame-slot="logo" data-media-state="text"/,'an authored interview program remains populated');
   const editing=serializeFounderPresentation(fixture,{scope:'INTERVIEWER_SAFE',currentMonth:'2027-01',showEmptySlots:true});
-  for(const geometry of ['599,776,176,235,10','753,884,223,140,6','992,878,233,175,0'])assert.match(editing.svg,new RegExp(`data-founder-geometry="${geometry}"`));
+  for(const geometry of [
+    '607.4708862304688,782.659423828125,195.9185791015625,260.55804443359375,10',
+    '749.3143310546875,888.0833740234375,243.38780212402344,166.1234588623047,6',
+    '981.880615234375,870.6946411132812,253.4744873046875,200.90078735351562,0'
+  ])assert.match(editing.svg,new RegExp(`data-founder-geometry="${geometry}"`));
   assert.match(first.svg,/M[^ ]+ 125H/);
   assert.match(first.svg,/font-family="'American Typewriter',Rockwell,'Courier New',serif" font-size="36"/);
   // AAA-019 Keynote fidelity: year numerals are native 23px Futura on one continuous band.
