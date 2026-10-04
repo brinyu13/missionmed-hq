@@ -515,39 +515,57 @@ function profileMarkup(scene){
   ].filter(([,value])=>String(value||"").trim());
   const photoX=351,photoY=20,photoWidth=169,photoHeight=170;
   const measureText=scene.measureText||measurePresentationText;
-  let rowY=32;
-  const textRows=[];
-  const emitLines=(text,label,size,weight,eventId=null,field=null)=>{
-    let remaining=String(text||'').trim().replace(/\s+/g,' ');let index=0;
-    while(remaining){
-      const width=(photo||scene.showEmptySlots)&&rowY-size<photoY+photoHeight+12?317:base.width-44;
-      const lines=wrapPresentationText(remaining,{width,size,family:TYPE.profile,weight,measureText});
-      const line=lines[0]||'';
-      const overflow=rowY+size*.34>base.height-18||measureText(line,size,TYPE.profile,weight)>width+.01;
-      const prefix=label?`${label}: `:'';
-      const contents=index===0&&prefix&&line.startsWith(prefix)?`<tspan font-weight="700">${xml(prefix)}</tspan>${xml(line.slice(prefix.length))}`:xml(line);
-      textRows.push(`<text${eventId?` data-event-id="${xml(eventId)}" data-material-field="${xml(field||"educationSpan")}"`:""} data-profile-field="${xml(label||'Name')}" data-profile-line="${index}" data-text-overflow="${overflow}" x="22" y="${rowY}" fill="#171D26" font-family="${TYPE.profile}" font-size="${size}" font-weight="${weight}">${contents}</text>`);
-      // The wrapper normalizes whitespace only; never truncate content to fit.
-      remaining=remaining.slice(line.length).trimStart();rowY+=size*1.2;index++;
+  const layoutRows=(orderedRows,lineHeight,groupGap)=>{
+    let rowY=32;
+    const lines=[];
+    const emitLines=(text,label,eventId=null,field=null)=>{
+      let remaining=String(text||'').trim().replace(/\s+/g,' '),index=0,pendingWidth=null,pendingLines=[];
+      while(remaining){
+        const width=(photo||scene.showEmptySlots)&&rowY-19<photoY+photoHeight+12?317:base.width-44;
+        const prefix=label?`${label}: `:'';
+        // A bold label is wider than its roman value. Measure the same runs
+        // that the SVG and editable export will paint, including after wrapping.
+        const measure=(value,size,family,weight)=>index===0&&prefix&&value.startsWith(prefix)
+          ?measureText(prefix,size,family,700)+measureText(value.slice(prefix.length),size,family,400)
+          :measureText(value,size,family,weight);
+        if(pendingWidth!==width||!pendingLines.length){
+          pendingLines=wrapPresentationText(remaining,{width,size:19,family:TYPE.profile,weight:400,measureText:measure});pendingWidth=width;
+        }
+        const line=pendingLines.shift()||remaining;
+        const overflow=rowY+19*.34>base.height-18||measure(line,19,TYPE.profile,400)>width+.01;
+        lines.push({text:line,label,index,eventId,field,y:rowY,prefix:index===0&&line.startsWith(prefix)?prefix:'',overflow});
+        remaining=remaining.slice(line.length).trimStart();rowY+=lineHeight;index++;
+      }
+    };
+    let previousGroup=null;
+    for(const [label,value,group] of orderedRows){
+      if(previousGroup&&previousGroup!==group)rowY+=groupGap;
+      emitLines(`${label}: ${value}`,label);previousGroup=group;
     }
+    for(const record of profile.educationRecords||[]){
+      const start=presentationDateWording(record.startDate,record.datePrecision?.start,record.sourceDateWording?.start);
+      const end=record.openEnded?'Ongoing':presentationDateWording(record.endDate,record.datePrecision?.end,record.sourceDateWording?.end);
+      emitLines(`${record.title}${record.school?' — '+record.school:''}:`,'Education',record.eventId,'educationSpan');
+      emitLines(`${start} – ${end}`,'Education',record.eventId,'educationSpan');rowY+=groupGap;
+    }
+    return{lines,rowY,lineHeight,groupGap,fits:lines.every(line=>!line.overflow)};
   };
-  // Group spacing may contract to fit the existing paper; the font never shrinks.
-  const estimateLines=rows.reduce((count,[label,value])=>count+wrapPresentationText(`${label}: ${value}`,{
-    width:(photo||scene.showEmptySlots)?317:base.width-44,size:19,family:TYPE.profile,weight:400,measureText
-  }).length,0);
-  const groupGap=estimateLines>14?0:6;
-  let previousGroup=null;
-  for(const [label,value,group] of rows){
-    if(previousGroup&&previousGroup!==group)rowY+=groupGap;
-    emitLines(`${label}: ${value}`,label,19,400);previousGroup=group;
+  // Keep the reference paper, portrait aperture and 19pt text. Search bounded
+  // spacing and put school/degree after exams when that uses the wider area
+  // below the portrait. No value is abbreviated, omitted or moved to a key.
+  const afterExams=[...rows.filter(row=>row[2]==='identity'),...rows.filter(row=>row[2]==='exams'),
+    ...rows.filter(row=>row[2]==='education'),...rows.filter(row=>!['identity','exams','education'].includes(row[2]))];
+  let chosen=null;
+  search:for(const lineHeight of [22.8,22,21,20.5])for(const groupGap of [6,4,2,0])for(const orderedRows of [rows,afterExams]){
+    const layout=layoutRows(orderedRows,lineHeight,groupGap);
+    if(!chosen||layout.rowY<chosen.rowY)chosen=layout;
+    if(layout.fits){chosen=layout;break search;}
   }
-  for(const record of profile.educationRecords||[]){
-    const start=presentationDateWording(record.startDate,record.datePrecision?.start,record.sourceDateWording?.start);
-    const end=record.openEnded?'Ongoing':presentationDateWording(record.endDate,record.datePrecision?.end,record.sourceDateWording?.end);
-    emitLines(`${record.title}${record.school?' — '+record.school:''}:`,'Education',19,400,record.eventId,'educationSpan');
-    emitLines(`${start} – ${end}`,'Education',19,400,record.eventId,'educationSpan');rowY+=6;
-  }
-  const rowMarkup=textRows.join('');
+  const rowY=chosen.rowY;
+  const rowMarkup=chosen.lines.map(({text,label,index,eventId,field,y,prefix,overflow})=>{
+    const contents=prefix?`<tspan font-weight="700">${xml(prefix)}</tspan>${xml(text.slice(prefix.length))}`:xml(text);
+    return`<text${eventId?` data-event-id="${xml(eventId)}" data-material-field="${xml(field||"educationSpan")}"`:""} data-profile-field="${xml(label||'Name')}" data-profile-line="${index}" data-profile-line-height="${chosen.lineHeight}" data-text-overflow="${overflow}" x="22" y="${y}" fill="#171D26" font-family="${TYPE.profile}" font-size="19" font-weight="400">${contents}</text>`;
+  }).join('');
   const photoLayer=!photo&&!scene.showEmptySlots?"":photo
     ?`<g data-frame-slot="profile" data-media-state="filled" data-media-id="${xml(photo.id)}"><rect x="${photoX}" y="${photoY}" width="${photoWidth}" height="${photoHeight}" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="7"/>${croppedImageMarkup({href:photo.source,x:photoX,y:photoY,width:photoWidth,height:photoHeight,crop:photo.crop,naturalAspect:photo.naturalAspect,attributes:`data-profile-photo-slot="true" data-media-id="${xml(photo.id)}"`})}</g>`
     :`<g data-frame-slot="profile" data-media-state="empty"><rect data-profile-photo-slot="true" data-media-state="empty" x="${photoX}" y="${photoY}" width="${photoWidth}" height="${photoHeight}" fill="#C9C2AE" stroke="#FFFFFF" stroke-width="7"/><text x="${photoX+photoWidth/2}" y="${photoY+photoHeight/2+7}" text-anchor="middle" fill="#6D6753" font-family="${TYPE.profile}" font-size="17" font-weight="700" pointer-events="none">PROFILE PHOTO</text></g>`;
