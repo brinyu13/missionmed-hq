@@ -26,7 +26,7 @@ test('stacked rehearsal grows naturally instead of stranding controls below a vi
   assert.match(tablet,/\.cal\s*\{[^}]*grid-template-columns:\s*1fr/);
 });
 test('containment preserves the approved rehearsal, real video and all measurement/action surfaces',()=>{
-  for(const token of ['cal-steps','cal-prompt','id="stage"','deviceControlsMarkup()','deviceReadinessMarkup()','id="next-step"','id="skip-step"','id="recorder"','rightRailMarkup()'])assert.ok(source.includes(token),token);
+  for(const token of ['cal-steps','cal-prompt','id="stage"','deviceControlsMarkup()','deviceReadinessMarkup({fullPanels:true})','id="next-step"','id="skip-step"','id="recorder"','rightRailMarkup()'])assert.ok(source.includes(token),token);
   assert.match(cockpit,/\.cal \.stage video\s*\{[^}]*object-fit:\s*contain/);
 });
 test('camera and microphone fields cannot inherit the general 360px secondary-column layout',()=>{

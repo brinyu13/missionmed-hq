@@ -38,6 +38,14 @@ body[data-mode="room"] main.view { max-width: none; padding: 0; animation: none;
 .density button[aria-pressed="true"] { background: #ffffff12; color: var(--ink); }
 
 /* Rails */
+.cal .readiness-full { min-width: 0; max-height: 260px; overflow: auto; }
+.readiness-full .readiness-tabs { display: flex; flex-wrap: wrap; gap: 4px; }
+.readiness-full [role="tab"] { padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; font-size: 11px; }
+.readiness-full [role="tab"][aria-selected="true"] { background: #ffffff12; color: var(--ink); }
+.readiness-full [role="tab"]:focus-visible { outline: 2px solid var(--gold-flat); outline-offset: 2px; }
+.readiness-full meter { width: 100%; margin: 8px 0; }
+.readiness-full .resolve small { grid-column: 1 / -1; color: var(--dim); font-size: 11px; overflow-wrap: anywhere; }
+.readiness-full .resolve[hidden] { display: none; }
 .rail { display: grid; gap: 10px; align-content: start; min-height: 0; overflow: auto; }
 .plate { background: linear-gradient(180deg, #121b31, #0b1223); border: 1px solid #ffffff10; border-radius: 14px; box-shadow: var(--bevel); padding: 12px 12px 10px; display: grid; gap: 8px; }
 .plate-head { display: flex; justify-content: space-between; align-items: center; }

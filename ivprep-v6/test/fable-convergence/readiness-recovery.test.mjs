@@ -196,7 +196,7 @@ test('preview status uses the existing local pixel aggregate; no dimensions-only
   sample.dispose();assert.equal(canvas.width,0);assert.equal(canvas.height,0);
 });
 test('actual Calibration mounts the read-only view before pixel verification; only authenticated Admin gets diagnostic copy',async()=>{
-  assert.match(calibration,/\$\{deviceReadinessMarkup\(\)\}/);
+  assert.match(calibration,/\$\{deviceReadinessMarkup\(\{fullPanels:true\}\)\}/);
   const f=calibrationFixture();let captured;
   f.scope.mountDeviceReadiness=(_host,options)=>{captured=options;return f.scope.deviceReadiness;};
   vm.runInContext(section(calibration,'  const deviceReadiness=','  function renderCalibrationRecord()'),f.scope);

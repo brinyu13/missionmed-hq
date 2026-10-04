@@ -6,7 +6,7 @@ import { state, commit } from './state.mjs';
 import { controller } from './controller/session-controller.mjs';
 import { awaitVisibleCamera } from './adapters/media-readiness.mjs';
 import {mountDeviceControls,deviceControlsMarkup} from './adapters/device-controls.mjs';
-import {mountDeviceReadiness,deviceReadinessMarkup} from './adapters/device-readiness.mjs';
+import {mountDeviceReadiness,deviceReadinessMarkup,readinessCapabilities} from './adapters/device-readiness.mjs';
 import {bindPrimaryRecovery} from './adapters/engine-adapter.mjs';
 import { leftRailMarkup, rightRailMarkup, RailsController } from './instruments/rails.mjs';
 import { recorderMarkup, LiveRecorder } from './instruments/flight-recorder.mjs';
@@ -49,7 +49,7 @@ export async function mountCalibration(main, { isCurrent = () => true } = {}) {
         <p class="note readiness-status" id="enter-note" role="status" aria-live="polite"></p>
         <div class="note" id="primary-recovery" role="status" aria-live="polite" hidden><span data-primary-status></span> <button class="btn btn-quiet" type="button" data-reselect-primary>Lock to me</button></div>
         ${deviceControlsMarkup()}
-        ${deviceReadinessMarkup()}
+        ${deviceReadinessMarkup({fullPanels:true})}
         <div class="cal-actions"><button class="btn btn-primary" type="button" id="next-step" disabled>Next step ▸</button><button class="btn btn-quiet" type="button" id="skip-step">Skip this step</button><span class="t-tech" id="step-state">Waiting</span><span style="flex:1"></span></div>
         <section class="recorder" id="recorder" data-mode="live" style="height:150px">${recorderMarkup({ mode: 'live' })}</section>
       </div>
@@ -65,6 +65,7 @@ export async function mountCalibration(main, { isCurrent = () => true } = {}) {
   const recorder = new LiveRecorder($('recorder'), { window: '1M' });
   const history = new TraceHistory();
   const deviceReadiness=mountDeviceReadiness(main.querySelector('[data-device-readiness]'),{
+    fullPanels:true,getCapabilities:()=>readinessCapabilities(controller.account,controller.durable,typeof MediaRecorder==='function'),
     getEngine:()=>engine,getStream:()=>controller.stream,getVideo:()=>controller.video,isCurrent:current,isSwitching:()=>deviceSwitching,
     previewVerified:()=>Boolean(verifiedCapture&&verifiedCapture.stream===controller.stream&&verifiedCapture.video===controller.video&&verifiedCapture.track===controller.stream?.getVideoTracks?.()[0]),
     onCaptureInvalidated:()=>{verifiedCapture=null;},
