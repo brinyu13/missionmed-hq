@@ -1,3 +1,7 @@
+## 2026-10-04 bounded base renovation ACTIVE
+
+Direct Founder resumption supersedes prior wider pause only for Version1 base shell. Canonical authority OS9150c3b / DR359/360. Current evidence: BASE_FIRST_20261004/STATE.md. No Astra; Journey=NEXT; IVOC excluded.
+
 # USCE renovation state
 
 2026-10-04 steering: broader renovation remains PAUSED. Only bounded authentication continuation resumed. Current source/deployment/browser truth and remaining human-login/security acceptance limits are recorded in [AUTH_CONTINUATION_20261004/STATE.md](AUTH_CONTINUATION_20261004/STATE.md). Earlier serving snapshots below are historical; this continuation does not grant final renovation F/U/O acceptance.
