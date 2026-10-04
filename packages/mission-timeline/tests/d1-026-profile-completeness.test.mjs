@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {buildKeynoteClassicScene} from '../web/js/uxr-002/board-renderer.js';
-import {projectFounderPresentationDocument} from '../web/js/presentation/founder-presentation-serializer.js';
+import {projectFounderPresentationDocument,serializeFounderPresentation} from '../web/js/presentation/founder-presentation-serializer.js';
 
 // Every name, identifier and institution in this file is synthetic.
 const event=(id,categoryId,startDate,endDate,visibilityState='INTERVIEWER_SAFE')=>({
@@ -122,7 +122,7 @@ test('missing optional facts remain empty and unconfirmed Step 2 CS attempts are
   assert.equal(scene(source).profile.step2Cs,'Passed');
 });
 
-test('visible exact-month source spans form an inclusive union; private and uncertain spans add no months',()=>{
+test('an uncertain visible clinical span withholds the aggregate rather than exporting an exact subset',()=>{
   const source=document();source.events=[
     event('clinical-a','clinical','2024-01','2024-03'),
     event('clinical-b','clinical','2024-03','2024-04'),
@@ -136,10 +136,48 @@ test('visible exact-month source spans form an inclusive union; private and unce
     event('research-backwards','research','2025-05','2025-04')
   ];
   const before=JSON.stringify(source),publicProfile=scene(source).profile;
-  assert.equal(publicProfile.usceMonths,4,'Jan–Apr are four months even with March overlap');
+  assert.equal(publicProfile.usceMonths,null,'visible unknown and year-only spans prevent an unqualified clinical total');
   assert.equal(publicProfile.researchMonths,4,'Jan–Apr are four months even with February overlap');
-  assert.equal(scene(source,'EVERYTHING').profile.usceMonths,12,'advisor-only May–Dec become visible only in the broader audience');
+  assert.equal(scene(source,'EVERYTHING').profile.usceMonths,null,'broader audience still has an unknown clinical aggregate');
   assert.equal(JSON.stringify(source),before);
+});
+
+test('complete exact-month source spans retain the inclusive union and private history cannot poison public totals',()=>{
+  const source=document();source.events=[
+    event('clinical-a','clinical','2024-01','2024-03'),
+    event('clinical-b','clinical','2024-03','2024-04'),
+    {...event('private-year','clinical','2023-01','2023-12','ADVISOR_ONLY'),fields:{datePrecision:'YEAR'}}
+  ];
+  const before=JSON.stringify(source);
+  assert.equal(scene(source).profile.usceMonths,4,'overlapping March counts once');
+  assert.equal(scene(source,'EVERYTHING').profile.usceMonths,null,'visible advisor-only year span makes that audience total unknown');
+  assert.equal(scene(source).profile.researchMonths,null,'no sourced research duration is unknown, not zero');
+  assert.equal(JSON.stringify(source),before);
+});
+
+test('each visible imprecise or ongoing span withholds an otherwise exact derived total',()=>{
+  const imprecise=[
+    ['year-endpoint',{fields:{datePrecision:{start:'YEAR',end:'YEAR'}}}],
+    ['year-scalar',{fields:{datePrecision:'YEAR'}}],
+    ['season-wording',{fields:{sourceDateWording:{start:{raw:'Spring 2023',precision:'SEASON'},end:{raw:'Summer 2023',precision:'SEASON'}}}}],
+    ['unknown',{datePrecision:{start:'UNKNOWN',end:'UNKNOWN'}}],
+    ['ongoing',{openEnded:true,endDate:null}],
+    ['ongoing-stale-end',{openEnded:true}]
+  ];
+  for(const [kind,extra] of imprecise){
+    const source=document();source.events=[
+      event('exact','clinical','2024-01','2024-02'),
+      {...event(kind,'clinical','2023-01','2023-12'),...extra}
+    ];
+    source.studentProfile.usceSummary='Authored clinical experience summary';
+    const before=JSON.stringify(source),rendered=serializeFounderPresentation(source,{currentMonth:'2026-10',scope:'INTERVIEWER_SAFE'});
+    const profile=rendered.scene.profile;
+    assert.equal(profile.usceMonths,null,kind);
+    assert.equal(profile.usceSummary,'Authored clinical experience summary',kind);
+    assert.ok(rendered.svg.includes('Authored clinical experience summary'),`${kind} retains the authored profile wording`);
+    assert.ok(!rendered.svg.includes('USCE: 2 months'),`${kind} does not export a partial fallback`);
+    assert.equal(JSON.stringify(source),before,kind);
+  }
 });
 
 test('a public Step 2 CS attempt with a private result does not disclose that result',()=>{

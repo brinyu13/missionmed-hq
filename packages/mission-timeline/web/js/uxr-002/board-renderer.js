@@ -1149,26 +1149,29 @@ export function buildKeynoteClassicScene(
   const profile=projectedFields.studentProfile;
   const exams=projectedFields.exams;
   const categoryMonths=(list,categoryId)=>{
-    const spans=(list||[])
-      .filter((event)=>{
-        if(String(event?.categoryId||"")!==categoryId||isMilestone(event)||event?.openEnded)return false;
-        if(!/^\d{4}-(?:0[1-9]|1[0-2])$/.test(String(event.startDate||""))||
-           !/^\d{4}-(?:0[1-9]|1[0-2])$/.test(String(event.endDate||"")))return false;
-        // A normalized month is not proof that a year, season or unknown
-        // source date supplied that month. Do not manufacture month totals.
-        return['start','end'].every(side=>[
-          typeof event.fields?.datePrecision==='string'?event.fields.datePrecision:event.fields?.datePrecision?.[side],
-          typeof event.datePrecision==='string'?event.datePrecision:event.datePrecision?.[side],
-          event.fields?.sourceDateWording?.[side]?.precision,event.sourceDateWording?.[side]?.precision
-        ].every(precision=>!precision||String(precision).toUpperCase()==='MONTH'));
-      })
-      .map((event)=>{
-        const start=monthIndex(event.startDate);
-        const end=monthIndex(event.endDate);
-        return[start,end];
-      })
-      .filter(([start,end])=>end>=start)
-      .sort((left,right)=>left[0]-right[0]);
+    const durations=(list||[]).filter((event)=>
+      String(event?.categoryId||"")===categoryId&&!isMilestone(event));
+    if(!durations.length)return null;
+    const spans=[];
+    for(const event of durations){
+      if(event?.openEnded||
+         !/^\d{4}-(?:0[1-9]|1[0-2])$/.test(String(event.startDate||""))||
+         !/^\d{4}-(?:0[1-9]|1[0-2])$/.test(String(event.endDate||"")))return null;
+      // A normalized month is not proof that a year, season or unknown
+      // source date supplied that month. Any such visible duration makes the
+      // aggregate unknown, even when other spans are exact.
+      const exact=['start','end'].every(side=>[
+        typeof event.fields?.datePrecision==='string'?event.fields.datePrecision:event.fields?.datePrecision?.[side],
+        typeof event.datePrecision==='string'?event.datePrecision:event.datePrecision?.[side],
+        event.fields?.sourceDateWording?.[side]?.precision,event.sourceDateWording?.[side]?.precision
+      ].every(precision=>!precision||String(precision).toUpperCase()==='MONTH'));
+      if(!exact)return null;
+      const start=monthIndex(event.startDate);
+      const end=monthIndex(event.endDate);
+      if(end<start)return null;
+      spans.push([start,end]);
+    }
+    spans.sort((left,right)=>left[0]-right[0]);
     let total=0,cursor=-Infinity;
     for(const [start,end] of spans){
       const from=Math.max(start,cursor+1);
