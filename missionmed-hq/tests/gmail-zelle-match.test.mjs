@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {canonicalSignatureInput,findExactZelleMatch,normalizeMatchInput,normalizeAmount,normalizePayer,parseChaseZelleMessage} from '../routes/gmail-zelle-match.mjs';
+import crypto from 'node:crypto';
+import {canonicalSignatureInput,findExactZelleMatch,normalizeMatchInput,normalizeAmount,normalizePayer,parseChaseZelleMessage,handleGmailZelleMatchRoute,ZELLE_MATCH_PATH} from '../routes/gmail-zelle-match.mjs';
 
 // Synthetic/redacted observed schema; never evidence of real payment acceptance.
 const mailbox='info@missionmedinstitute.com', now=Math.floor(Date.now()/1000);
@@ -71,4 +72,32 @@ test('truncated search review',async()=>assert.equal((await match([fixture()],{}
 test('no receipt locked',async()=>assert.equal((await match([])).state,'not_found'));
 test('Gmail outage locked',async()=>{
  const p={input:input(),credentials:{},scopes:[],mintToken:async()=>({ok:true,accessToken:'synthetic'}),gmailGetJson:async()=>({ok:false,error:'provider_error'})};assert.equal((await findExactZelleMatch(p)).state,'provider_unavailable');assert.equal((await findExactZelleMatch({...p,mintToken:async()=>({ok:false,error:'unavailable'})})).state,'provider_unavailable');
+});
+test('same bank reference with conflicting authenticated amount is held',async()=>{
+ const result=await match([fixture(),fixture({id:'msg_fixture_02',amount:'2.00'})]);
+ assert.equal(result.state,'needs_review');assert.equal(result.error,'conflicting_transaction_evidence');
+});
+test('request route authentication and replay boundaries',async()=>{
+ const previous=process.env.MMHQ_HANDOFF_SECRET;
+ process.env.MMHQ_HANDOFF_SECRET='synthetic-test-secret-not-a-credential';
+ async function call({method='POST',headers={},body=payload(),readError=false}={}){
+  const response={writeHead(status,headers){this.status=status;this.headers=headers;},end(raw){this.body=JSON.parse(raw);}};
+  await handleGmailZelleMatchRoute({method,headers},response,new URL('https://example.test'+ZELLE_MATCH_PATH),{readJsonBody:async()=>{if(readError)throw new Error('synthetic');return body;},now:()=>now*1000});
+  return response;
+ }
+ function signed(p,stamp=String(now),nonce=crypto.randomBytes(16).toString('hex')){
+  return {'x-mmed-zelle-timestamp':stamp,'x-mmed-zelle-nonce':nonce,'x-mmed-zelle-signature':crypto.createHmac('sha256',process.env.MMHQ_HANDOFF_SECRET).update(canonicalSignatureInput(stamp,nonce,p)).digest('hex')};
+ }
+ try{
+  assert.equal((await call({method:'GET'})).status,405);
+  assert.equal((await call({readError:true})).status,400);
+  for(const body of [null,[],42])assert.equal((await call({body})).status,400);
+  assert.equal((await call()).status,401);
+  assert.equal((await call({headers:signed(payload(),String(now-301))})).body.error,'signature_expired');
+  assert.equal((await call({headers:signed(payload()),body:{...payload(),expected_amount:'2.00'}})).body.error,'signature_invalid');
+  // Valid signature with invalid protocol stops before accessing Gmail/config.
+  const bad={...payload(),protocol_version:1},headers=signed(bad);
+  assert.equal((await call({headers,body:bad})).status,422);
+  assert.equal((await call({headers,body:bad})).body.error,'request_replay');
+ }finally{if(previous===undefined)delete process.env.MMHQ_HANDOFF_SECRET;else process.env.MMHQ_HANDOFF_SECRET=previous;}
 });
