@@ -1,3 +1,7 @@
+# Current profile fitting delta — 2026-10-04
+
+Source8f987fc repairs the previously reproduced17-line long-school/19-line combined profile overflow via bounded spacing and wrapping within the same paper and19-point typography. Both now pass actual export generation with all source fields retained. Five added regressions cover full-text fit, oversized fail-closed, authored geometry/crop and native editable text. Independent Codex review found no new regression;19 focused tests pass. Actual H02/H03 PNG, Letter/A4 PDF and native PPTX text were independently inspected. Report SHA256 `2833c232fb2e6b3b7256cc42d6ee4658903b9190520cf6f85031efeb0981ceb5`. H03 native text rectangles overlap by2.3units although raster glyphs do not visibly touch; actual Keynote/PowerPoint rendering remains unverified. Moderate longer profiles and an added education span still block honestly. Broad long-profile capacity, authentic photographs, dense visual fidelity and founder acceptance remain open. Earlier D04 limits below are historical, not current proof of exhaustive support.
+
 # 2026-10-04 continuation outcomes
 
 - D27 CLOSED in tested paths: missing AAMC/EMR/languages/hobbies/authored summaries/Step2CS/Other details mapped through privacy and visible exports; UI correction/reopen regression covered.

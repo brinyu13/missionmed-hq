@@ -224,5 +224,28 @@
     "populatedPhotoReplay": "PENDING_REFERENCE_PHOTO_USE_PERMISSION",
     "allSourceValuesPreserved": "required after audience projection",
     "derivedSummaryRule": "Only complete audience-visible exact month histories yield inclusive union months; any uncountable duration yields null and no fallback row; supplied summaries preserved"
+  },
+  "profileFitImplementation20261004": {
+    "sourceCommit": "8f987fcdfe0a5b7e04e592569fa51a50778eb963",
+    "fontSize": 19,
+    "paper": [
+      545,
+      410
+    ],
+    "lineHeightCandidates": [
+      22.8,
+      22,
+      21,
+      20.5
+    ],
+    "groupGapCandidates": [
+      6,
+      4,
+      2,
+      0
+    ],
+    "educationAfterExamsCandidate": true,
+    "overflow": "retain-full-text-and-block-export",
+    "status": "bounded technical repair independently reviewed; native-app rendering and founder visual acceptance remain unverified"
   }
 }
