@@ -70,6 +70,12 @@ export function toWizard(settings, { program = null, mode = 'mock', contextSourc
   if (focusBits.length) { wizard.goal = mode === 'practice' ? 'Individual Question' : 'Guided Mock IV Practice'; wizard.focus = focusBits.join('; ').slice(0, 500); }
   if (retry) Object.assign(wizard,{retrySourceSessionId:retry.id,retryQuestionId:retry.questionId,retryQuestionText:retry.questionText,retrySessionType:retry.remote?.sessionType,
     environment:retry.wizard?.environment||wizard.environment});
+  // Own Retry already resolves current membership and the exact saved question.
+  // Preserve its canonical goal after applying current interviewer settings.
+  if (['Full IV Simulation','Guided Mock IV Practice','Individual Question'].includes(retry?.wizard?.goal)) {
+    wizard.goal = retry.wizard.goal;
+    if (wizard.goal === 'Individual Question') wizard.pressurePractice = false;
+  }
   return wizard;
 }
 

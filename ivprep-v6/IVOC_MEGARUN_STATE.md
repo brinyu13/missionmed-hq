@@ -286,8 +286,27 @@ the actual production route and deployment.
   calibration/preservation tests PASS. Independent source review PASS; guidance
   now directs Next while paused, not after speech resets the observed interval.
   Physical full rehearsal remains UNVERIFIED.
-- Next executable action: independently review/deploy the calibration and bounded
-  RISE-read correction, rerun real program selection, resolve replay hand-alignment
+- Calibration/RISE source `38739c30a0bab094ea5098331c02a813cd02bc02` deployed
+  SUCCESS `4e983225-67bf-4e1c-bcc4-99a321951f76`, image
+  `sha256:c88e75a5c2ea6f64c2de329baf33a5af2bc3d5813e759de68b902e6757c37aa5`.
+  Health200, anonymous candidate/current bootstrap401; exact filtered tracked
+  artifact `ivoc-release-artifact-Z5aMEl/source.tar`, SHA256
+  `b92d2e0d530ed232a1feefd8aff2c5a066325b32b9451da88e895eb044905024`.
+  PRODUCT4461/PATH4462 and deployment4463 released normally with remote readback.
+  Foreman and fresh independent normal Home -> Prepare initial6245 results ->
+  Abington/Internal Medicine single readable result -> selection -> Program Mock
+  context retained PASS. Program-aware conversation is not inferred; physical
+  full calibration rehearsal remains UNVERIFIED. RISE owner/auth/data unchanged.
+- Independent R052 review reproduced an own saved Full IV Simulation retry
+  silently becoming Guided Mock IV Practice in the current settings adapter.
+  Regression failed before correction; the adapter now preserves only the three
+  canonical admitted retry goals, with Individual Question pressure disabled.
+  New Mock defaults, fresh context/consent, exact source/question identity and
+  durable/native engine owners remain unchanged. All30 focused convergence
+  contracts/preservation and57 affected owner/context/privacy cases PASS;
+  independent source review PASS/noP0/P1. Live correction pending.
+- Next executable action: independently review/deploy the bounded retry-goal
+  correction, verify the normal saved-attempt Retry setup, resolve replay hand-alignment
   evidence, then continue real conversation,
   closing, real-role and 142-row live parity acceptance. No final root promotion or
   two-sided audible acceptance claimed. Genuine speech/hearing remains a precise

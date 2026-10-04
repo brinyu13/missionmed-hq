@@ -5,6 +5,7 @@ import * as corpus from '../../public/questions/question-store.mjs';
 import {projectOwnRetry} from '../../public/studio-fable/app/adapters/retry.mjs';
 import {toWizard,defaultSettings} from '../../public/studio-fable/app/settings/interviewer.mjs';
 import {DurableStudioSession} from '../../public/studio/durable-session.mjs';
+import {createLiveContext} from '../../public/studio/live-context-adapter.mjs';
 import {NativeInterviewObserver} from '../../public/studio-fable/app/brain/native-observer.mjs';
 import {masteryState,closingLedger} from '../../public/studio-fable/app/model/teaching.mjs';
 const id='f13869aa-2b3e-4b65-9f66-1288fb459444';
@@ -19,11 +20,11 @@ test('current corpus keeps 193 IDs and applies fresh governance without cached/f
   await assert.rejects(loadQuestions({account:{...account,api:{questions:async()=>{throw new Error('governance failure');}}},moduleLoader:async()=>corpus}),/governance failure/);
   await assert.rejects(loadQuestions({account,moduleLoader:async()=>{throw new Error('engine unavailable');}}),/engine unavailable/);
 });
-function saved(provider='openai-gpt-live'){
+function saved(provider='openai-gpt-live',goal='Full IV Simulation'){
   const q=corpus.createDefaultQuestionStore().core()[0];
   return{reviewScope:'own',scopeSubject:'wp:1',sessionDetail:{id,state:'saved',ownerSubject:'wp:1',sessionType:'mock',questionId:q.question_id,questionText:q.canonical_text,
     interviewerProvider:provider,retryContext:{schema:'ivoc.retry-intent.v1',sourceSessionId:id,questionId:q.question_id,questionText:q.canonical_text,
-      goal:'Full IV Simulation',interviewer:'Faculty',interviewerStyle:'Dove',pressurePractice:true,environment:'Webex',contextSources:['CV','StoryForge','RISE'],program:'Original program'}}};
+    goal,interviewer:'Faculty',interviewerStyle:'Dove',pressurePractice:true,environment:'Webex',contextSources:['CV','StoryForge','RISE'],program:'Original program'}}};
 }
 test('Retry preserves canonical mode/question, refreshes context and requires renewed StoryForge/program selection',()=>{
   const catalog=corpus.createDefaultQuestionStore().all(),s=saved(),retry=projectOwnRetry(s,catalog,'wp:1');
@@ -31,8 +32,25 @@ test('Retry preserves canonical mode/question, refreshes context and requires re
   const wizard=toWizard({...defaultSettings(),role:'Faculty',style:'Dove',pressure:true},{retry:retry.record,contextSources:retry.intent.wizard.contextSources});
   const input=new DurableStudioSession().sessionInput({question:retry.intent.question,interviewSet:[retry.intent.question],wizard,targetQuestions:1,interviewerProvider:'openai-gpt-live'});
   assert.equal(input.sessionType,'mock');assert.equal(input.retrySourceSessionId,id);assert.equal(input.questionText,retry.intent.question.canonical_text);assert.equal(input.context.environment,'Webex');
+  assert.equal(input.context.goal,'Full IV Simulation');
   assert.equal(projectOwnRetry(s,catalog,'wp:2'),null);assert.equal(projectOwnRetry({...s,reviewScope:'admin'},catalog,'wp:1'),null);
   assert.equal(projectOwnRetry(s,catalog.map(q=>q.question_id===retry.intent.question.question_id?{...q,canonical_text:'changed'}:q),'wp:1'),null);
+});
+test('own retry preserves all canonical goals through durable and native context without changing new mocks',()=>{
+  const catalog=corpus.createDefaultQuestionStore().all(),settings={...defaultSettings(),pressure:true};
+  for(const [goal,nativeGoal] of [['Full IV Simulation','Full interview simulation'],['Guided Mock IV Practice','Coached practice'],['Individual Question','Individual question']]){
+    const retry=projectOwnRetry(saved('openai-gpt-live',goal),catalog,'wp:1');
+    const wizard=toWizard(settings,{retry:retry.record});
+    const options={question:retry.intent.question,interviewSet:[retry.intent.question],wizard,targetQuestions:1,interviewerProvider:'openai-gpt-live'};
+    const input=new DurableStudioSession().sessionInput(options),native=createLiveContext(options);
+    assert.equal(wizard.goal,goal);assert.equal(input.context.goal,goal);assert.equal(native.goal,nativeGoal);
+    assert.equal(input.context.pressurePractice,goal!=='Individual Question');assert.equal(native.pressurePractice,goal!=='Individual Question');
+    assert.equal(Object.hasOwn(input.context,'practiceFocus'),goal==='Guided Mock IV Practice');assert.equal(Object.hasOwn(native,'practiceFocus'),goal==='Guided Mock IV Practice');
+    assert.equal(input.retrySourceSessionId,id);assert.equal(input.sessionType,'mock');assert.deepEqual(native.questionIds,[retry.intent.question.question_id]);
+  }
+  assert.equal(toWizard(settings).goal,'Guided Mock IV Practice');
+  assert.equal(toWizard(settings,{retry:{wizard:{goal:'unrecognized'}}}).goal,'Guided Mock IV Practice');
+  assert.equal(toWizard(settings,{mode:'practice'}).goal,'Individual Question');
 });
 test('native observer does not drive an 8-second script, timeout close or automatic teardown',()=>{
   let now=0;const observer=new NativeInterviewObserver({questions:corpus.createDefaultQuestionStore().core().slice(0,2),now:()=>now});
