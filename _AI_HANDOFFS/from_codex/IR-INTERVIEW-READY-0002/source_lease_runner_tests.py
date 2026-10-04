@@ -167,7 +167,7 @@ class RunnerTests(unittest.TestCase):
             authentication_probe=Mock(return_value=200), ApikeyOnlyLeaseOpener=Mock(),
             BASE_URL='fixture-url', PROJECT='fixture-project')
         with patch.object(runner, 'HERE', self.directory), patch.object(runner, 'snapshot', return_value=self.actual), \
-             patch.object(runner, 'load_module', side_effect=[transport, canonical_client]) as modules, \
+             patch.object(runner, 'load_module', side_effect=[canonical_client, transport, canonical_client]) as modules, \
              patch.object(runner, 'orchestrate', return_value=True):
             bad = dict(admission, bindingSha256='wrong')
             admission_path.write_bytes(runner.canonical(bad))
@@ -182,7 +182,37 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(client.acquire_writer.call_args.kwargs['binding'], binding)
             with self.assertRaises(FileExistsError):
                 runner.execute(approval_path, admission_path, self.directory / 'retry', 1)
-            self.assertEqual(modules.call_count, 2)
+            self.assertEqual(modules.call_count, 3)
+
+    def test_actual_canonical_scope_before_credential_capability(self):
+        canonical_client = runner.load_module('fixture_actual_canonical_lease',
+            runner.OS_ROOT / 'tools/engineering_os_lease.py', self.actual['canonicalClientSha256'])
+        scope = canonical_client.path_scope(runner.ORIGIN, runner.REF, 'interview-ready')
+        self.assertTrue(scope.startswith('PATH:'))
+        self.assertEqual(len(scope), 69)
+        with self.assertRaises(canonical_client.LeaseDenied):
+            canonical_client.path_scope(runner.ORIGIN, 'codex/bare-ref', 'interview-ready')
+        approval = self.approval()
+        approval.update(expiresUnix=__import__('time').time() + 60,
+                        reportFile='fixture.md', reportSha256='fixture')
+        admission = {'schema': 'ir.source_lease.read_admission.v1', 'verdict': 'APPROVE',
+            'independentReviewer': 'fixture-independent',
+            'bindingSha256': runner.validate_approval(approval, self.actual),
+            'approvalSha256': 'fixture', 'maxSeconds': 1,
+            'expiresUnix': __import__('time').time() + 60,
+            'reportFile': 'fixture.md', 'reportSha256': 'fixture'}
+        # Gate fixtures admit only local controls; actual canonical helper rejects ref.
+        with patch.object(runner, 'snapshot', return_value=self.actual), \
+             patch.object(runner, 'read_json', side_effect=[approval, admission]), \
+             patch.object(runner, 'digest', return_value='fixture'), \
+             patch.object(runner, 'REF', 'codex/bare-ref'), \
+             patch.object(runner, 'load_module', return_value=canonical_client) as modules:
+            with self.assertRaises(canonical_client.LeaseDenied):
+                runner.execute(self.directory / 'approval.json', self.directory / 'admission.json',
+                               self.directory / 'must-not-exist', 1)
+            modules.assert_called_once()
+            self.assertEqual(modules.call_args.args[0], 'ir_canonical_lease')
+            self.assertFalse((self.directory / 'must-not-exist').exists())
 
     def test_worker_guard_stale_terminal_or_wrong_binding_stop(self):
         value = {'state': 'HEALTHY', 'bindingSha256': self.binding,

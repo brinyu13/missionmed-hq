@@ -22,7 +22,7 @@ OS_HEAD = '84754150b8c834ac25466860ab98600b5d5c1b9e'
 SOURCE_BASE = '15488295c9e7d135d3a9e51a1b5feb571c2922e2'
 TRANSPORT_SHA = '6bab4c948b28202b7a803228f2123d5c95137030f16eb129c427b4ddcc487cad'
 ORIGIN = 'https://github.com/brinyu13/missionmed-hq.git'
-REF = 'codex/ir-interview-ready-0002-storyforge'
+REF = 'refs/heads/codex/ir-interview-ready-0002-storyforge'
 OWNER = 'codex-ir-phase1-foreman'
 PATHS = ['interview-ready/integration/missionmed-interview-ready.php',
          'interview-ready/account.js', 'interview-ready/build.py',
@@ -266,6 +266,9 @@ def execute(approval_path, admission_path, directory, max_seconds=3600):
         report = HERE / document['reportFile']
         if report.parent != HERE or digest(report) != document['reportSha256']:
             raise Stop('REVIEW_REPORT_DENIED')
+    # Canonical scope validation is pure local and precedes any credential capability.
+    canonical_client = load_module('ir_canonical_lease', OS_ROOT / 'tools/engineering_os_lease.py', actual['canonicalClientSha256'])
+    scope = canonical_client.path_scope(ORIGIN, REF, 'interview-ready')
     directory.mkdir(mode=0o700)  # unique, nonexisting control directory only
     # Mark the approval consumed BEFORE any retrieval. Failed reads cannot retry.
     marker = HERE / ('SOURCE_LEASE_READ_CONSUMED_' + digest(admission_path) + '.json')
@@ -273,14 +276,12 @@ def execute(approval_path, admission_path, directory, max_seconds=3600):
         marker.chmod(0o600)
         stream.write(canonical({'bindingSha256': binding, 'state': 'CONSUMED'}))
     transport = load_module('ir_source_transport', HERE / 'lease_transport.py', actual['transportSha256'])
-    canonical_client = load_module('ir_canonical_lease', OS_ROOT / 'tools/engineering_os_lease.py', actual['canonicalClientSha256'])
     key = transport.retrieve_existing_key()
     if transport.authentication_probe(key) != 200:
         raise Stop('AUTHENTICATION_DENIED')
     client_type = canonical_client.SupabaseLeaseClient
     client = client_type(base_url=transport.BASE_URL, project_ref=transport.PROJECT, api_key=key,
                          opener=transport.ApikeyOnlyLeaseOpener(key, client_type._open_no_redirect))
-    scope = canonical_client.path_scope(ORIGIN, REF, 'interview-ready')
     lease = client.acquire_writer(scope=scope, write_paths=PATHS, owner_id=OWNER,
         session_id='ir-phase1-account-source-20261004-' + uuid.uuid4().hex, binding=binding)
     return orchestrate(client, lease, actual, binding, directory, max_seconds=max_seconds)

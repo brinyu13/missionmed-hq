@@ -12,8 +12,8 @@ Preserved unrelated dirty packet/checkpoint, `supabase/.temp/cli-latest`, and `_
 
 | File | SHA256 |
 | --- | --- |
-| source_lease_runner.py | db2f5660f664efbe2561c313c184cc9e53015294f37fd841b7277d575e6f9b5f |
-| source_lease_runner_tests.py | 3692591941dad46df66eb597d64ddabc6ad73019abf3b280cdb5599d7b613a29 |
+| source_lease_runner.py | 6acfab5b3b7a9131916b0aa37740b768cdefd521315a0761ff710803d223aa91 |
+| source_lease_runner_tests.py | 6d60aed4c03b104136c9dead48a97b68a0dc455fa2666a826873d081e537edd6 |
 | lease_transport.py, unchanged | 6bab4c948b28202b7a803228f2123d5c95137030f16eb129c427b4ddcc487cad |
 | PHASE1_ACCOUNT_WORKER_PACKET.md, Foreman prospective packet | 45d19d350a36707a4574669e7889fc18e787e85f01b3c57da3bbb004eae4186f |
 | R2 tools/engineering_os_lease.py, unchanged | 36e37a487de0ec99191492c3ef286695bc4d8721cdac70f5c62863576e5c1431 |
@@ -51,7 +51,7 @@ python3 /Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002/_AI_HANDOFFS/
 
 The control directory must not exist and must be a direct child of the handoff directory. Admission is consumed with exclusive-create `SOURCE_LEASE_READ_CONSUMED_<admission-byte-sha256>.json` BEFORE retrieval. A failed retrieval/probe cannot reuse that admission with a new control directory. The runner itself executes no shell/worker commands. Unchanged transport performs its already-reviewed bounded private credential path. Retrieval happens once, actual separate authentication probe must return HTTP200, and the same private key constructs the canonical `SupabaseLeaseClient` with the exact `ApikeyOnlyLeaseOpener`.
 
-Canonical `path_scope` receives origin `https://github.com/brinyu13/missionmed-hq.git`, ref `codex/ir-interview-ready-0002-storyforge`, relative path `interview-ready`. `acquire_writer` receives exactly the six packet paths, owner `codex-ir-phase1-foreman`, unique `ir-phase1-account-source-20261004-<uuidhex>` session, and approved contract digest. No invented PRODUCT scope or shared domain.
+Canonical `path_scope` receives origin `https://github.com/brinyu13/missionmed-hq.git`, ref `refs/heads/codex/ir-interview-ready-0002-storyforge`, relative path `interview-ready`. `acquire_writer` receives exactly the six packet paths, owner `codex-ir-phase1-foreman`, unique `ir-phase1-account-source-20261004-<uuidhex>` session, and approved contract digest. No invented PRODUCT scope or shared domain.
 
 Immediate canonical heartbeat must succeed before READY. A daemon keeper renews every five seconds; canonical heartbeat validates timestamps, epoch and nonce. Atomic status/READY retain leaseId, epoch, hashed nonce, exact paths/scope, sourceBASE/current sourceHead and packet digest. No key/raw nonce/response/environment/header/exception text enters receipts. Thread exception values and tracebacks are suppressed.
 
@@ -69,6 +69,10 @@ Executed locally:
 python3 _AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/source_lease_runner_tests.py
 ```
 
-Result: eight tests PASS, 0.053 seconds in final fixture run. Fixtures cover approval/hash/path/base rejection before credential capability; expiry; immediate heartbeat/READY; initial renewal failure with no READY and finally release; keeper failure STOP/finally release; bounded timeout and release failure; one-use separate read admission with mock retrieval/probe/canonical scope/acquisition; stale/terminal/wrong-binding worker guard; no raw fixture nonce/key/error in receipts. All provider/credential operations are mocks or never imported.
+Result: nine tests PASS, 0.071 seconds in final fixture run. Fixtures cover actual dormant canonical `path_scope` validation and malformed-ref rejection before transport capability loads; approval/hash/path/base rejection before credential capability; expiry; immediate heartbeat/READY; initial renewal failure with no READY and finally release; keeper failure STOP/finally release; bounded timeout and release failure; one-use separate read admission with mock retrieval/probe/canonical scope/acquisition; stale/terminal/wrong-binding worker guard; no raw fixture nonce/key/error in receipts. All provider/credential operations are mocks or never imported.
 
 Dormant command was executed without `--execute`; result: `DORMANT: independent exact-byte approval and fresh read admission required`. This is builder evidence, not actual provider authentication, lease health, worker implementation, or production acceptance. No actual execution was attempted. Next action: fresh independent exact-code review and read admission, after the finalized packet/checkpoint source commit.
+
+## Canonical ref correction supersession
+
+Independent review held the initial runner before any actual read: canonical `resource_key` requires a ref beginning `refs/heads/`, and the original bare branch would have failed after authentication. This correction supersedes the initial runner/test byte hashes and requires fresh exact-byte approval and read admission. Canonical ref is now `refs/heads/codex/ir-interview-ready-0002-storyforge`. Canonical scope construction occurs locally before control-directory creation, admission consumption, transport loading or credential access. The focused fixture imports the unchanged actual canonical module and proves the normalized ref succeeds while a malformed ref stops before any transport import. Approval schema, six source paths/preimages, owner, fencing, status guards and release behavior remain unchanged. Correction started at source HEAD `648a15a74e54894464638511c2eee1383e923491`; no actual credential/provider execution occurred.
