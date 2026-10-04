@@ -217,6 +217,28 @@ function pinMeasuredAutomaticEvents(document,projection){
   if(next.presentationOverrides?.axis?.mode==='manual')next.presentationOverrides.axis.localLayoutCriticAuto=true;
   return next;
 }
+// Reuse the canonical date composition after any axis edit. AI-owned anchors
+// retain their chosen y and native shape; human-authored geometry stays exact.
+export function reflowLocalLayoutCriticDateAnchors(document,renderOptions={},measuredTargets=null){
+  const options=snapshotRenderOptions(renderOptions),objects=document.advanced?.scene?.objects||[];
+  const anchors=measuredTargets||objects.filter(object=>{
+    const event=(document.events||[]).find(event=>String(event.id)===String(object.semanticRef||object.id));
+    return object.type==='event'&&object.presentation?.localLayoutCriticAuto===true&&event&&!hasManualPlacement(event,object,document)&&document.layoutLock!==true;
+  }).map(object=>({eventId:String(object.semanticRef||object.id),objectId:object.id,geometry:object.geometry}));
+  if(!anchors.length)return clone(document);
+  const unpinned=clone(document),ids=new Set(anchors.map(target=>String(target.objectId)));
+  if(unpinned.advanced?.scene)unpinned.advanced.scene.objects=(unpinned.advanced.scene.objects||[]).filter(object=>!ids.has(String(object.id)));
+  const dated=render(unpinned,options);let next=clone(document);
+  for(const target of anchors){
+    const body=dated.paint.nodes.find(node=>node.semanticRef===target.eventId&&node.sourceAttributes['data-continuous-duration-arrow']);
+    const flag=locked407FMilestoneGeometry(dated.rendered.scene,target.eventId),geometry=flag||body?.bounds;
+    if(!geometry)throw error('LAYOUT_CRITIC_DATE_REFLOW_UNAVAILABLE');
+    const placed=applyLocalLayoutCriticSceneCommand(next,{kind:'geometry',target:{type:'event',id:target.objectId},geometry:{...target.geometry,x:geometry.x,width:geometry.width},
+      create:{type:'event',semanticRef:target.eventId,aspectLocked:false,presentation:{eventType:flag?'milestone':'duration',localLayoutCriticAuto:true,...(flag?{guardianAnchor:'axis'}:{})}},label:'Reflow native date anchors'},options);
+    if(placed.changed)next=placed.document;
+  }
+  return next;
+}
 function unrelatedPaintPreserved(before,after,{movedId=null,axisChange=false}={}){
   // Furniture/media/annotations stay exact. Automatic dated events can change
   // x under year weights, but vertical commands must only translate their target.
@@ -260,19 +282,7 @@ export async function applyLayoutRecommendations(document,output,expected,{sourc
         if(!resized.changed||resized.error){reject(index,'LAYOUT_CRITIC_AXIS_REJECTED');continue;}
         candidate=resized.document;
         candidate.presentationOverrides.axis.localLayoutCriticAuto=true;
-        const unpinned=clone(candidate);
-        if(unpinned.advanced?.scene)unpinned.advanced.scene.objects=(unpinned.advanced.scene.objects||[]).filter(object=>object.presentation?.localLayoutCriticAuto!==true);
-        const dated=render(unpinned,current.localContext.options);
-        for(const target of current.localContext.targetMap.values()){
-          if(!target.editable)continue;
-          const body=dated.paint.nodes.find(node=>node.semanticRef===target.eventId&&node.sourceAttributes['data-continuous-duration-arrow']);
-          const flag=locked407FMilestoneGeometry(dated.rendered.scene,target.eventId);
-          const datedGeometry=target.kind==='MILESTONE'?flag:body?.bounds;
-          if(!datedGeometry)throw error('LAYOUT_CRITIC_DATE_REFLOW_UNAVAILABLE');
-          const placed=applyLocalLayoutCriticSceneCommand(candidate,{kind:'geometry',target:{type:'event',id:target.objectId},geometry:{...target.geometry,x:datedGeometry.x,width:datedGeometry.width},
-            create:{type:'event',semanticRef:target.eventId,aspectLocked:false,presentation:{eventType:target.kind==='MILESTONE'?'milestone':'duration',localLayoutCriticAuto:true,...(target.kind==='MILESTONE'?{guardianAnchor:'axis'}:{})}},label:'Local geometry review: reflow native date anchors'},current.localContext.options);
-          if(placed.changed)candidate=placed.document;
-        }
+        candidate=reflowLocalLayoutCriticDateAnchors(candidate,current.localContext.options,[...current.localContext.targetMap.values()].filter(target=>target.editable));
       }else{
         const target=current.localContext.targetMap.get(op.targetId),initialTarget=projection.localContext.targetMap.get(op.targetId);
         if(!target||target.eventId!==initialTarget.eventId||!initialTarget.editable){reject(index,'LAYOUT_CRITIC_TARGET_REJECTED');continue;}

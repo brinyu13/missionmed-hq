@@ -42,6 +42,7 @@ import {
   renderLocalLayoutReview
 } from "./uxr-002/quality-guardian.js";
 import {createLocalLayoutReview,isLocalLayoutReviewLocation} from './uxr-002/local-layout-review.js';
+import {reflowLocalLayoutCriticDateAnchors} from './presentation/layout-critic-projection.js';
 import {
   appendTimelineAiFeedback,
   classifyTimelineAiCandidateOutcome
@@ -426,6 +427,15 @@ export function mountLocalLayoutReview407F(dialog,{store,location=globalThis.loc
   // for a real geometry review; synthetic Guardian results never run this path.
   void controller.capabilities();
   return {destroy(){closed=true;},controller};
+}
+
+export function applyHumanAxisPresentation407F(document,result,renderOptions={}){
+  if(!result?.changed||result.error)return result;
+  try{
+    const next=reflowLocalLayoutCriticDateAnchors(result.document,renderOptions);
+    if(next.presentationOverrides?.axis)delete next.presentationOverrides.axis.localLayoutCriticAuto;
+    return {...result,document:next};
+  }catch{return {document,changed:false,error:'Timeline date anchors could not be updated. Your layout is unchanged.'};}
 }
 
 export function calculateAxisBoundaryDrag({leftWeight,rightWeight,pairDateWidth,screenScale=1,boundaryX,dx}){
@@ -4334,6 +4344,9 @@ export async function boot407FEngineeringAdapter({
     });
     bridge.toast("Keep the Color Key and profile card separate so your Timeline stays readable.");
   };
+  const finishHumanAxisEdit=(result)=>applyHumanAxisPresentation407F(store.document,result,{
+    scope:'EVERYTHING',currentMonth:currentMonth(),mediaById:liveMediaById(store.document)
+  });
   const onKernelPresentationGesture=(event)=>{
     const detail=event.detail||{};
     if(detail.surface!=="edit"||store.entitlement.canMutate!==true)return;
@@ -4346,6 +4359,7 @@ export async function boot407FEngineeringAdapter({
       result=range.changed
         ?setAxisSegmentWeights(range.document,detail.segmentWeights)
         :range;
+      result=finishHumanAxisEdit(result);
     }else if(detail.kind==="color-key-move"||detail.kind==="color-key-resize"){
       result=setColorKeyGeometryPresentationOverride(store.document,detail.geometry||{});
       const nextKey=furnitureGeometryFor(result.document,"colorKeyGeometry");
@@ -4917,15 +4931,15 @@ export async function boot407FEngineeringAdapter({
       const result=mode==="manual"
         ?setAxisPresentationOverride(store.document,{})
         :resetAxisPresentationOverride(store.document);
-      applyPresentationControlResult(result);
+      applyPresentationControlResult(finishHumanAxisEdit(result));
     },
     onAxisChange:(changes)=>{
       applyPresentationControlResult(
-        setAxisPresentationOverride(store.document,changes)
+        ()=>finishHumanAxisEdit(setAxisPresentationOverride(store.document,changes))
       );
     },
     onAxisReset:()=>{
-      applyPresentationControlResult(resetAxisPresentationOverride(store.document));
+      applyPresentationControlResult(()=>finishHumanAxisEdit(resetAxisPresentationOverride(store.document)));
     },
     onAxisWeightChange:(id,weight)=>{
       const axis=store.document.presentationOverrides?.axis;
@@ -4934,12 +4948,12 @@ export async function boot407FEngineeringAdapter({
       for(let year=Number(axis.startYear);year<=Number(axis.endYear);year+=1)ids.push(String(year));
       if(axis.includeFuture!==false)ids.push("FUTURE");
       const prior=new Map((axis.segmentWeights||[]).map((item)=>[String(item.id),Number(item.weight)]));
-      applyPresentationControlResult(setAxisSegmentWeights(store.document,ids.map((segmentId)=>({
+      applyPresentationControlResult(()=>finishHumanAxisEdit(setAxisSegmentWeights(store.document,ids.map((segmentId)=>({
         id:segmentId,weight:segmentId===id?weight:(prior.get(segmentId)||1)
-      }))));
+      })))));
     },
     onAxisWeightReset:()=>{
-      applyPresentationControlResult(setAxisPresentationOverride(store.document,{segmentWeights:null}));
+      applyPresentationControlResult(()=>finishHumanAxisEdit(setAxisPresentationOverride(store.document,{segmentWeights:null})));
     },
     onCategoryKeyChange:(id,changes)=>{
       applyPresentationControlResult(
@@ -8891,7 +8905,12 @@ export async function boot407FEngineeringAdapter({
           endYear:Number(years.at(-1)),
           includeFuture:pending.preview.some(({id})=>id==="FUTURE")
         });
-        const result=setAxisSegmentWeights(range.document,pending.preview);
+        const result=finishHumanAxisEdit(setAxisSegmentWeights(range.document,pending.preview));
+        if(result.error||!result.changed){
+          showAdvancedAxisBoundaryHandles();
+          if(result.error)bridge.toast(result.error);
+          return;
+        }
         if(result.changed){
           store.replace(result.document,{label:"Resize Timeline year boundary"});
           syncBridgeStateFromStore();
