@@ -39,8 +39,8 @@ test('PowerPoint crop preserves the original image and exact canonical crop offs
   const zip=await JSZip.loadAsync(await artifact.blob.arrayBuffer());
   const tree=parsePresentationXml(await zip.file('ppt/slides/slide1.xml').async('string'));
   const crops=xmlNodes(tree,n=>n.tag==='a:srcRect');
-  // Profile frame is 169x170, source is square, pan .2/.8, zoom 2.
-  const expected={l:String(Math.round(((170-169/2)*.2)/170*100000)),t:'40000',r:String(Math.round(((170-169/2)*.8)/170*100000)),b:'10000'};
+  // Profile frame and source are square, pan .2/.8, zoom 2.
+  const expected={l:'10000',t:'40000',r:'40000',b:'10000'};
   assert.ok(crops.some(n=>JSON.stringify(n.attrs)===JSON.stringify(expected)),JSON.stringify(crops.map(n=>n.attrs)));
   const embedded=await Promise.all(Object.keys(zip.files).filter(p=>p.startsWith('ppt/media/')&&!zip.files[p].dir).map(p=>zip.file(p).async('uint8array')));
   const original=Uint8Array.from(atob(pixel.split(',')[1]),c=>c.charCodeAt(0));

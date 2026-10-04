@@ -940,11 +940,11 @@ export function composeLocked407FPortableSvg(scene,options={}){
     const candidate=compose({...scene,autoYearWeights:weights}),candidateScore=score(candidate.svg);
     if(candidateScore<bestScore){best=candidate;bestScore=candidateScore;if(!bestScore)break;}
   }
-  // A sparse single-year history may put several simultaneous pennants below
-  // the fixed title plaque. Expand the visible date range by at most one year
-  // per side, preserving individually labelled years and linear month mapping.
-  // This adds axis context only; it never creates an event or changes its date.
-  if(bestScore&&scene.flags?.length>1){
+  // Context beside the existing year ribbon can also keep simultaneous duration
+  // arrows clear of the fixed legend and photos. Search at most one empty year
+  // per side, retaining separately labelled years and linear month mapping.
+  // This never creates an event or changes a date; authored axes return above.
+  if(bestScore&&(scene.flags?.length>1||scene.arrows?.length)){
     for(const autoAxisPadding of [null,{before:0,after:1},{before:1,after:0},{before:1,after:1}]){
       const candidate=compose({...scene,autoAxisPadding,autoMilestoneTopDown:true}),candidateScore=score(candidate.svg);
       const flagPenalty=result=>[...(result.scene.autoFlagLabels?.values()||[])].reduce((sum,label)=>sum+(label.flip?1:0),0)+
