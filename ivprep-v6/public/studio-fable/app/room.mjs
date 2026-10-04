@@ -104,7 +104,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       if(!current())return;$('room-preference-note').hidden=false;$('room-preference-note').textContent='Your display changed, but the account preference could not be saved. Try the control again.';
     });
   }
-  const observer=mode==='mock'?new NativeInterviewObserver({questions:plan,config:conductorConfig(settings,{durationMin:cfg.durationMin}),context:{specialty:session.program?.specialty||null},now:()=>controller.elapsed*1000}):null;
+  const observer=mode==='mock'?new NativeInterviewObserver({questions:plan,config:conductorConfig(settings,{durationMin:cfg.durationMin,interviewPolicy:controller.interviewPolicy}),context:{specialty:session.program?.specialty||null},now:()=>controller.elapsed*1000}):null;
   const at=()=>controller.elapsed;
   const mark=(kind,label)=>events.push({t:at(),kind,label});
   function setDensityControls(disabled){room.querySelectorAll('.density [data-density]').forEach(button=>{button.disabled=disabled;});$('reset-density').disabled=disabled;}
@@ -188,7 +188,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     $('enter-note').textContent='Preparing your private recording…';
     try{
       await awaitVisibleCamera(controller.video,controller.stream,{isCurrent:current});
-      const wizard=toWizard(settings,{program:session.program,mode,contextSources:session.contextSources||[],retry:session.retry||null,priority:session.priority});
+      const wizard=toWizard(settings,{program:session.program,mode,contextSources:session.contextSources||[],retry:session.retry||null,priority:session.priority,interviewPolicy:controller.interviewPolicy});
       const context=mode==='mock'?await liveContext({wizard,interviewSet:plan,targetQuestions}):null;
       if(!current())return;
       observer?.start(); // before provider callbacks; native start owns the sole opening question
@@ -201,7 +201,9 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       $('presence-sub').textContent=mode==='mock'?'Speak naturally. Your interviewer can hear you.':'Answer the question. Finish & save when you are done.';
       mark('recording','Recording started');mark('question','Q1 planned');recordDensity();renderPlan();
       timer=setInterval(()=>{if(!current())return;$('clock').textContent=fmt(at());recorder.setData(history.samples,events);recorder.tick(at());},500);resetIdle();
-    }catch(error){if(current()){$('stage').dataset.previewReady='false';$('enter-note').textContent=error.message;$('start-session').disabled=true;$('connect-real').disabled=false;}engine?.events.removeEventListener('frame',onFrame);engine?.events.removeEventListener('state',onState);engine?.events.removeEventListener('word-timing',onWord);}
+    }catch(error){if(current()){$('stage').dataset.previewReady='false';$('enter-note').textContent=error.message;
+      if(error.code==='ivoc_interview_policy_changed'){const back=document.createElement('a');back.href='#/mock';back.textContent=' Return to interview setup';$('enter-note').append(back);}
+      $('start-session').disabled=true;$('connect-real').disabled=false;}engine?.events.removeEventListener('frame',onFrame);engine?.events.removeEventListener('state',onState);engine?.events.removeEventListener('word-timing',onWord);}
     finally{starting=false;if(current()){setDensityControls(false);if(!started)main.querySelectorAll('[data-device-kind]').forEach(select=>{select.disabled=controller.phase!=='READY'||!select.options.length;});}}
   }
   $('connect-real').addEventListener('click',()=>void connect());$('start-session').addEventListener('click',()=>void start());

@@ -12,7 +12,7 @@ const start=source.indexOf(marker)+marker.length,end=source.indexOf('\n    });',
 const handlerSource=source.slice(start,end)+'\n}';
 function fixture(){
   const st=defaultSettings(),cfg={durationMin:15};let current=true,draws=0;
-  const handle=vm.runInNewContext('('+handlerSource+')',{st,cfg,applyPreset,isCurrent:()=>current,draw:()=>{draws++;}});
+  const handle=vm.runInNewContext('('+handlerSource+')',{st,cfg,applyPreset,policy:null,isCurrent:()=>current,draw:()=>{draws++;}});
   return {st,cfg,draws:()=>draws,leave:()=>{current=false;},choose:min=>handle({target:{closest:()=>({dataset:{min:String(min)}})}})};
 }
 test('actual Length handler retains the chosen plan in observation and saved settings independently of recorded duration',()=>{

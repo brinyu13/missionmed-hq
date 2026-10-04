@@ -2,11 +2,12 @@
 //
 // Every setting maps to something real: the production wizard contract consumed by
 // DurableStudioSession.sessionInput() / createLiveContext() (server-allow-listed context fields),
-// or to the conductor's own policy (depth, follow-up limit, pressure, pacing). Nothing here reaches
-// the provider directly; `normalizeLiveInterviewContext` on the server rejects unknown fields, so
-// fields it does not know are folded into `practiceFocus` (bounded, 500 chars) or kept client-side.
+// or to the observer policy (depth, follow-up limit, pressure, pacing). Nothing here reaches
+// the provider directly. Typed follow-up preferences carry a version, while the
+// server independently resolves and enforces the current Admin ceiling.
 // No engineering/provider parameters are exposed (model, temperature, VAD, keys).
 import {normalizePracticeFocus} from '../../../studio/live-context-adapter.mjs';
+import {normalizeInterviewPolicy,resolveFollowUps} from '../../../capabilities/interview-policy.mjs';
 
 export const PRACTICE_GOALS = Object.freeze(['Full IV Simulation', 'Guided Mock IV Practice', 'Individual Question']);
 
@@ -40,17 +41,19 @@ export function resolveMockQuestionTarget(value, poolLength, {goal} = {}) {
   return Math.max(1, Math.min(30, Number.isInteger(poolLength) ? poolLength : 1));
 }
 
-export function applyPreset(settings, presetId) {
+export function applyPreset(settings, presetId, {interviewPolicy} = {}) {
   const p = EASY_PRESETS.find((x) => x.id === presetId) || EASY_PRESETS[0];
-  return { ...settings, preset: p.id, style: p.style, depth: p.depth, pressure: settings.goal !== 'Individual Question' && p.pressure, role: p.id === 'warm' ? 'Faculty' : p.id === 'direct' ? 'Chief Resident' : 'Program Director' };
+  const followUps=resolveFollowUps({...settings,depth:p.depth},interviewPolicy);
+  return { ...settings, ...followUps, preset: p.id, style: p.style, pressure: settings.goal !== 'Individual Question' && p.pressure, role: p.id === 'warm' ? 'Faculty' : p.id === 'direct' ? 'Chief Resident' : 'Program Director' };
 }
 
 // Conductor policy (client-side, deterministic). Closing invariant is not configurable.
-export function conductorConfig(settings, { durationMin } = {}) {
+export function conductorConfig(settings, { durationMin,interviewPolicy } = {}) {
   const curiosityThreshold = { Low: 0.72, Normal: 0.62, High: 0.55 }[settings.curiosity] ?? 0.62;
+  const followUps=resolveFollowUps(settings,interviewPolicy);
   return {
-    maxDepth: Math.max(0, Math.min(2, Number(settings.depth) || 0)),
-    maxFollowUps: Math.max(0, Math.min(8, Number(settings.maxFollowUps) || 0)),
+    maxDepth: followUps.depth,
+    maxFollowUps: followUps.maxFollowUps,
     maxCandidateQuestions: 2,
     pressure: settings.pressure === true,
     style: settings.style,
@@ -62,7 +65,7 @@ export function conductorConfig(settings, { durationMin } = {}) {
 }
 
 // Production wizard contract (DurableStudioSession.sessionInput + createLiveContext).
-export function toWizard(settings, { program = null, mode = 'mock', contextSources = [], retry = null, priority = null } = {}) {
+export function toWizard(settings, { program = null, mode = 'mock', contextSources = [], retry = null, priority = null,interviewPolicy } = {}) {
   const goal = mode === 'practice' ? 'Individual Question' : PRACTICE_GOALS.includes(retry?.wizard?.goal) ? retry.wizard.goal : PRACTICE_GOALS.includes(settings.goal) ? settings.goal : 'Guided Mock IV Practice';
   const focusBits = [];
   if (goal === 'Guided Mock IV Practice') {
@@ -74,9 +77,11 @@ export function toWizard(settings, { program = null, mode = 'mock', contextSourc
   if (settings.pacing && settings.pacing !== 'Normal') focusBits.push(`${settings.pacing.toLowerCase()} pacing`);
   if (settings.interruption) focusBits.push('may interrupt long answers politely');
   if (settings.programEmphasis && settings.programEmphasis !== 'Normal') focusBits.push(`${settings.programEmphasis.toLowerCase()} emphasis on program fit`);
-  const depth=Math.max(0,Math.min(2,Number(settings.depth)||0));
-  const followUps=Math.max(0,Math.min(8,Number(settings.maxFollowUps)||0));
-  focusBits.push(`at most ${depth} follow-ups per answer and ${followUps} substantive follow-ups total; closing questions do not consume this budget`);
+  const policy=interviewPolicy?normalizeInterviewPolicy(interviewPolicy):null;
+  const followUps=resolveFollowUps(settings,policy);
+  // Legacy setup remains compatible. Current account policy travels as typed
+  // preferences; the server owns the ceiling, not student-authored focus text.
+  if(!policy)focusBits.push(`at most ${followUps.depth} follow-ups per answer and ${followUps.maxFollowUps} substantive follow-ups total; closing questions do not consume this budget`);
   const wizard = {
     goal,
     interviewer: ROLES.includes(settings.role) ? settings.role : 'Program Director',
@@ -85,6 +90,7 @@ export function toWizard(settings, { program = null, mode = 'mock', contextSourc
     environment: 'MissionMed',
     analyticsEnabled: true,
     contextSources: [...new Set(contextSources.filter(source => ['CV','File Vault','StoryForge','MCC','Top 3','Prior IVOC'].includes(source))), ...(program?.verified ? ['RISE'] : [])],
+    ...(policy?{followUpDepth:followUps.depth,maxFollowUps:followUps.maxFollowUps,interviewPolicyVersion:policy.version}:{}),
   };
   if (program?.verified && program.programId && program.programReleaseId) {
     wizard.program = program.name; wizard.programId = program.programId; wizard.programReleaseId = program.programReleaseId; wizard.programVerified = true;
@@ -97,7 +103,8 @@ export function toWizard(settings, { program = null, mode = 'mock', contextSourc
   return wizard;
 }
 
-export function describe(settings) {
+export function describe(settings,{interviewPolicy}={}) {
   const p = EASY_PRESETS.find((x) => x.id === settings.preset);
-  return settings.advanced ? `${settings.role} · ${settings.style} · follow-ups ${settings.depth}/question (max ${settings.maxFollowUps}) · ${settings.curiosity.toLowerCase()} curiosity · ${settings.pacing.toLowerCase()} pace${settings.pressure ? ' · pressure' : ''}${settings.interruption ? ' · may interrupt' : ''}` : `${p?.label || 'Balanced'} · ${p?.hint || ''}`;
+  const followUps=resolveFollowUps(settings,interviewPolicy);
+  return settings.advanced ? `${settings.role} · ${settings.style} · follow-ups ${followUps.depth}/question (max ${followUps.maxFollowUps}) · ${settings.curiosity.toLowerCase()} curiosity · ${settings.pacing.toLowerCase()} pace${settings.pressure ? ' · pressure' : ''}${settings.interruption ? ' · may interrupt' : ''}` : interviewPolicy ? `${p?.label||'Balanced'} · ${settings.role} · up to ${followUps.depth} follow-ups per answer` : `${p?.label || 'Balanced'} · ${p?.hint || ''}`;
 }

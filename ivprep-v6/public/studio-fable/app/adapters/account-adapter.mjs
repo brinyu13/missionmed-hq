@@ -1,4 +1,5 @@
 import { bindSubject } from '../state.mjs';
+import {normalizeInterviewPolicy} from '../../../capabilities/interview-policy.mjs';
 const ENGINE = '/iv-prep-on-call/assets';
 let cached = null;
 let inflight = null;
@@ -18,10 +19,12 @@ export async function connectAccount({ force = false } = {}) {
     const subject = bootstrap.identity?.subject;
     if (!durable.ready || admission?.admitted !== true || !/^wp:[1-9][0-9]*$/.test(String(subject || ''))) throw new Error('Sign in through MissionMed Matrix to open IV Prep On-Call.');
     if (admission.identity?.subject !== subject) throw new Error('IVOC account identity changed. Return to Matrix and sign in again.');
+    let interviewPolicy=null;
+    try{interviewPolicy=normalizeInterviewPolicy(bootstrap.interviewPolicy);}catch{/* No valid policy means no AI launch, not a fabricated default. */}
     bindSubject(subject);
     cached = Object.freeze({ mode:'REAL', identity:bootstrap.identity, subject, role:bootstrap.identity.admin === true ? 'admin' : 'student',
       display:bootstrap.identity.displayName || admission.identity.displayName || 'Student', csrfToken:api.csrfToken || '',
-      liveInterviewAvailable:admission.runtime?.liveInterviewAvailable === true,
+      liveInterviewAvailable:admission.runtime?.liveInterviewAvailable === true&&interviewPolicy!==null,interviewPolicy,
       capabilities:bootstrap.capabilities || {}, entitlement:bootstrap.entitlement, admission, durable, api, apiClient, reasons:[] });
     return cached;
   })().finally(() => { inflight = null; });

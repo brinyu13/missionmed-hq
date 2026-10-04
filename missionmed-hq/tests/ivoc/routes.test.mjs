@@ -35,6 +35,20 @@ test('session preference validation precedes storage and cannot become hidden pr
   assert.equal(individual.context.pressurePractice, false);
 });
 
+test('typed follow-up preferences are bounded before persistence and cannot grant an Admin ceiling',async()=>{
+  const repo=repository();const{route}=handler(repo);
+  repo.single=async path=>path.startsWith('ivoc_admin_config_versions?')?{schema_name:'ivoc.admin_config.v1',version:3,pressure_defaults:{max_follow_ups_per_answer:1,default_follow_up_intensity:1,default_pressure_enabled:false}}:null;
+  const call=async context=>{const response=new ResponseCapture();await route({...base,request:request('POST',{sessionType:'mock',context},{origin:'https://hq.test','sec-fetch-site':'same-origin','x-mmhq-csrf':'a'.repeat(24)}),response,url:new URL('https://hq.test/api/ivoc/v1/sessions'),hqSession:session()});return response;};
+  for(const context of [{followUpDepth:1},{followUpDepth:'1',maxFollowUps:4,interviewPolicyVersion:3},{followUpDepth:3,maxFollowUps:4,interviewPolicyVersion:3},{followUpDepth:1,maxFollowUps:9,interviewPolicyVersion:3},{followUpDepth:1,maxFollowUps:4,interviewPolicyVersion:0}]){
+    const response=await call(context);assert.equal(response.status,400);assert.equal(response.json().error,'invalid_follow_up_settings');
+  }
+  assert.equal(repo.inserts.length,0);
+  const stale=await call({followUpDepth:1,maxFollowUps:4,interviewPolicyVersion:2});assert.equal(stale.status,409);assert.equal(stale.json().error,'ivoc_interview_policy_changed');assert.equal(repo.inserts.length,0);
+  assert.equal((await call({goal:'Full IV Simulation',followUpDepth:2,maxFollowUps:4,interviewPolicyVersion:3,interviewPolicy:{maxFollowUpsPerAnswer:99}})).status,201);
+  const context=repo.inserts.find(row=>row.table==='ivoc_sessions').body.context;
+  assert.equal(context.followUpDepth,1);assert.equal(context.maxFollowUps,4);assert.equal(context.interviewPolicyVersion,3);assert.equal(context.interviewPolicy,undefined);
+});
+
 function request(method = 'GET', body = null, headers = {}) {
   const stream = Readable.from(body == null ? [] : [Buffer.from(JSON.stringify(body))]);
   stream.method = method;
@@ -433,6 +447,13 @@ test('bootstrap exposes only non-secret owner-connector availability', async () 
   assert.equal(response.json().capabilities.contextSources.fileVault.connected, true);
   assert.equal(response.json().capabilities.contextSources.rise.connected, true);
   assert.doesNotMatch(response.body, /missionmed\.example|rise\.example|authorization|cookie/u);
+});
+
+test('student bootstrap exposes only the minimized current interview policy, not private Admin configuration',async()=>{
+  const repo=repository();repo.single=async path=>path.startsWith('ivoc_admin_config_versions?')?{schema_name:'ivoc.admin_config.v1',version:4,pressure_defaults:{max_follow_ups_per_answer:2,default_follow_up_intensity:1,default_pressure_enabled:false},changed_by:'private-actor',credits:{private:true}}:null;
+  const{route}=handler(repo);const response=new ResponseCapture();await route({...base,request:request('GET'),response,url:new URL('https://hq.test/api/ivoc/v1/bootstrap'),hqSession:session()});
+  assert.equal(response.status,200);assert.deepEqual(response.json().interviewPolicy,{schema:'ivoc.interview-policy.v1',version:4,maxFollowUpsPerAnswer:2,defaultFollowUpDepth:1,defaultPressureEnabled:false});
+  assert.doesNotMatch(response.body,/private-actor|"credits"/);
 });
 
 test('authenticated program search proxies the bounded RISE owner result without exposing the owner URL', async () => {

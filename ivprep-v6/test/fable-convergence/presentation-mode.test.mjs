@@ -8,7 +8,7 @@ import {toWizard,defaultSettings,resolveMockQuestionTarget} from '../../public/s
 
 const source=readFileSync(new URL('../../public/studio-fable/app/room.mjs',import.meta.url),'utf8');
 const section=(from,to)=>source.slice(source.indexOf(from),source.indexOf(to,source.indexOf(from)));
-function roomFixture(density,{mode='practice',target=null,goal='Guided Mock IV Practice',focus='',priority=null}={}){
+function roomFixture(density,{mode='practice',target=null,goal='Guided Mock IV Practice',focus='',priority=null,interviewPolicy=null}={}){
   const elements=new Map(),buttons=['interview','coached'].map(value=>({dataset:{density:value},disabled:false,setAttribute(){}}));
   const element=id=>{if(!elements.has(id))elements.set(id,{dataset:{},hidden:false,disabled:false,textContent:'',remove(){},setAttribute(){}});return elements.get(id);};
   const room=element('room');room.querySelectorAll=()=>buttons;
@@ -21,7 +21,7 @@ function roomFixture(density,{mode='practice',target=null,goal='Guided Mock IV P
   const camera=new Promise(resolve=>{resolveCamera=resolve;});
   const context={density,initialPresentationMode:null,starting:false,started:false,saving:false,finished:false,disposed:false,deviceSwitching:false,
     current:()=>true,$:element,room,main:{querySelectorAll:()=>[],querySelector:()=>({remove(){}})},
-    controller:{video:{},stream:{},elapsed:2,startSession:async input=>{launched=input;return{interviewer:{}};},finishSession:async({record})=>{filed=record;return{saveError:'retry retained'};}},
+    controller:{video:{},stream:{},elapsed:2,interviewPolicy,startSession:async input=>{launched=input;return{interviewer:{}};},finishSession:async({record})=>{filed=record;return{saveError:'retry retained'};}},
     engine:{events:{addEventListener(){},removeEventListener(){}},personalCalibration:null},settings,session:{priority},mode,targetQuestions,plan,
     awaitVisibleCamera:()=>camera,toWizard,liveContext:async input=>{contextInput=input;return{};},observer:null,callbacks:{},onFrame(){},onState(){},onWord(){},
     mark:(kind,label)=>events.push({t:2,kind,label}),events,turns:[],saveRecord:null,at:()=>2,renderPlan(){},recorder:{setData(){},tick(){}},history:{slice:()=>samples},
@@ -58,6 +58,12 @@ test('actual Room resolves and pins Mock target through context, Start and seale
   }
   const practice=roomFixture('coached',{target:30}),pending=practice.start();practice.releaseCamera();await pending;
   assert.equal(practice.launched().targetQuestions,1);assert.equal(practice.contextInput(),null);
+});
+test('actual Room passes current bounded follow-up settings to the same native and Durable Start wizard',async()=>{
+  const interviewPolicy={schema:'ivoc.interview-policy.v1',version:4,maxFollowUpsPerAnswer:0,defaultFollowUpDepth:0,defaultPressureEnabled:false};
+  const f=roomFixture('interview',{mode:'mock',interviewPolicy}),pending=f.start();f.releaseCamera();await pending;
+  assert.equal(f.launched().wizard.followUpDepth,0);assert.equal(f.launched().wizard.maxFollowUps,0);assert.equal(f.launched().wizard.interviewPolicyVersion,4);
+  assert.equal(f.contextInput().wizard,f.launched().wizard);assert.equal(f.context.started,true);
 });
 test('actual Room Start files the initial display mode without changing measurement or canonical wizard inputs',async()=>{
   for(const density of ['interview','coached']){

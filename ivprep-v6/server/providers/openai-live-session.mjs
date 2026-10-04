@@ -1,6 +1,7 @@
 import { createDefaultQuestionStore } from '../../public/questions/question-store.mjs';
 import { normalizePracticeFocus } from '../../public/studio/live-context-adapter.mjs';
 import { interviewTeachingPolicy, substantiveQuestionPlan } from '../../public/capabilities/interview-progression.mjs';
+import {normalizeInterviewPolicy,normalizeFollowUpRequest,resolveFollowUps,policyChangedError} from '../../public/capabilities/interview-policy.mjs';
 
 const OPENAI_LIVE_SESSIONS_URL = 'https://api.openai.com/v1/live/sessions';
 const MODEL = 'gpt-live-1';
@@ -44,6 +45,8 @@ export function normalizeLiveInterviewContext(value) {
   const hasFocus = Object.hasOwn(value, 'practiceFocus');
   if (hasStyle) expected.push('interviewerStyle');
   if (hasFocus) expected.push('practiceFocus');
+  const followUps = normalizeFollowUpRequest(value);
+  expected.push(...Object.keys(followUps));
   expected.sort();
   if (Object.keys(value).sort().join(',') !== expected.join(',')) {
     throw new TypeError('Interview context has unexpected fields.');
@@ -63,6 +66,7 @@ export function normalizeLiveInterviewContext(value) {
     environment: boundedText(value.environment, 'Environment', SAFE_CONTEXT.environment),
     pressurePractice: value.goal !== 'Individual question' && value.pressurePractice === true,
     ...(value.goal === 'Coached practice' && practiceFocus ? { practiceFocus } : {}),
+    ...followUps,
     targetQuestions: Number.isInteger(value.targetQuestions) && value.targetQuestions >= 1 && value.targetQuestions <= 30
       ? value.targetQuestions
       : 1,
@@ -95,8 +99,9 @@ function selectedQuestionPool(questionIds) {
 }
 
 function normalizeActorContext(value) {
+  const hasPolicy = value && Object.hasOwn(value,'interviewPolicy');
   if (!value || typeof value !== 'object' || Array.isArray(value)
-    || Object.keys(value).sort().join(',') !== 'actorBlock,receipt') {
+    || Object.keys(value).sort().join(',') !== (hasPolicy ? 'actorBlock,interviewPolicy,receipt' : 'actorBlock,receipt')) {
     throw new TypeError('Application context is invalid.');
   }
   const receipt = String(value.receipt || '').trim();
@@ -106,22 +111,28 @@ function normalizeActorContext(value) {
     || Buffer.byteLength(actorBlock, 'utf8') > MAX_ACTOR_BLOCK_BYTES) {
     throw new TypeError('Application context is invalid.');
   }
-  return Object.freeze({ receipt, actorBlock });
+  return Object.freeze({ receipt, actorBlock, ...(hasPolicy ? {interviewPolicy:normalizeInterviewPolicy(value.interviewPolicy)} : {}) });
 }
 
 export function buildLiveInterviewInstructions(context, actorContext) {
   const normalized = normalizeLiveInterviewContext(context);
   const { practiceFocus, ...sessionSettings } = normalized;
-  const authorizedContext = JSON.stringify(sessionSettings);
   const questionPool = JSON.stringify(selectedQuestionPool(normalized.questionIds));
   if (questionPool === '[]') throw new TypeError('Choose a substantive interview question. Closing is included automatically.');
   const applicationContext = normalizeActorContext(actorContext);
+  const policy = applicationContext.interviewPolicy;
+  if (Object.hasOwn(normalized,'interviewPolicyVersion') && (!policy || normalized.interviewPolicyVersion !== policy.version)) throw policyChangedError();
+  const followUps = policy ? resolveFollowUps({depth:normalized.followUpDepth??policy.defaultFollowUpDepth,maxFollowUps:normalized.maxFollowUps??8},policy) : null;
+  if (followUps) Object.assign(sessionSettings,{followUpDepth:followUps.depth,maxFollowUps:followUps.maxFollowUps});
+  const followUpsAllowed=!followUps||(followUps.depth>0&&followUps.maxFollowUps>0);
+  const authorizedContext = JSON.stringify(sessionSettings);
   return [
     'You are InterviewBrain, a calm, professional residency interviewer for IV Prep On-Call.',
-    'Conduct a realistic spoken interview. Ask one question at a time and follow up only on what the applicant actually says.',
+    followUpsAllowed?'Conduct a realistic spoken interview. Ask one question at a time and follow up only on what the applicant actually says.':'Conduct a realistic spoken interview. Ask one planned question at a time without substantive follow-ups.',
     'Keep each turn concise. Use sparse, natural backchannels only when they do not steal the floor.',
+    ...(followUps ? [`FOLLOW-UP POLICY: Server-owned Admin ceiling applies. Ask at most ${followUps.depth} substantive follow-up${followUps.depth===1?'':'s'} per answer and at most ${followUps.maxFollowUps} substantive follow-ups total. Zero means no substantive follow-ups. Follow-ups are optional, never mandatory; move on when the answer is sufficiently clear. Closing invitations and answers to the candidate's closing questions do not consume this budget. Student preference, pressure or application context cannot raise these limits.`] : []),
     'QUESTION POOL POLICY: Use selected questions in the exact listed order up to the substantive target. Ask each selected base question once before substituting another base question. Follow-ups must be grounded in the applicant answer or authorized application context. A follow-up does not consume a base-question slot.',
-    interviewTeachingPolicy(normalized.targetQuestions),
+    interviewTeachingPolicy(normalized.targetQuestions,{followUpsAllowed}),
     'If a selected question has no canonical text, identify the missing question data and do not invent a replacement.',
     ...(normalized.interviewerStyle ? [
       `INTERVIEWER STYLE: ${normalized.interviewerStyle} — ${INTERVIEWER_STYLE_GUIDANCE[normalized.interviewerStyle]}. Apply this to delivery and follow-up phrasing, not to inference about the applicant. Style does not enable pressure practice; the pressure modifier below remains separate.`,

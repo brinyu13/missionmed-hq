@@ -8,6 +8,7 @@ import { bindOwnLibrary, bindOwnRow } from '../adapters/own-scope.mjs';
 import { resolveOwnSavedReview } from '../../../studio/review-scope.mjs';
 import { sealDerivedEvidence } from '../adapters/derived-evidence.mjs';
 import { projectDerivedPriority } from '../adapters/saved-review.mjs';
+import {normalizeInterviewPolicy,policyChangedError} from '../../../capabilities/interview-policy.mjs';
 const ENGINE = '/iv-prep-on-call/assets';
 export const recordings = new Map();
 const LOCKED = new Set(['STARTING','LIVE','SAVING','SAVE_FAILED']);
@@ -17,12 +18,18 @@ function assertEffectiveActor(account){
     state.attempts=[];throw new Error('Your account access changed. Return to Matrix and sign in again.');
   }
 }
-async function revalidateOwnAdmission(account,current) {
+async function revalidateOwnAdmission(account,current,{interviewPolicyVersion,onPolicy}={}) {
   const admission=await account.api.bootstrap();
   if(!current())return false;
   if(admission?.entitlement?.admitted!==true||admission.identity?.subject!==account.subject
     ||Boolean(admission.identity.admin)!==(account.role==='admin')){
     state.attempts=[];throw new Error('Your account access changed. Return to Matrix and sign in again.');
+  }
+  if(interviewPolicyVersion!=null){
+    let policy=null;
+    try{policy=normalizeInterviewPolicy(admission.interviewPolicy);}catch{/* Fail before recording/provider startup. */}
+    if(policy)onPolicy?.(policy);
+    if(!policy||policy.version!==interviewPolicyVersion)throw policyChangedError();
   }
   return true;
 }
@@ -33,12 +40,14 @@ export class SessionController extends EventTarget {
     this.video=null; this.audioElement=null; this.live=null; this.mix=null; this.durableActive=false;
     this.generation=0; this.lastSave=null; this.finishing=null; this.recordingOrigin=null;
     this.startingOperation=null;this.cleanupOperation=null;this.deviceSwitchOperation=null;
+    this.currentInterviewPolicy=null;
   }
   setPhase(phase,detail=null) { this.phase=phase; this.dispatchEvent(new CustomEvent('phase',{detail:{phase,detail}})); }
   get stream() { return this.engine?.stream || null; }
   get real() { return this.engineMode === 'real'; }
   get navigationLocked() { return LOCKED.has(this.phase); }
   get elapsed() { return this.recordingOrigin == null ? 0 : Math.max(0,(performance.now()-this.recordingOrigin)/1000); }
+  get interviewPolicy(){return this.currentInterviewPolicy||this.account?.interviewPolicy||null;}
   ensureVideoElement() {
     if (!this.video) { this.video=document.createElement('video'); this.video.id='cam'; this.video.autoplay=true; this.video.muted=true; this.video.playsInline=true; }
     if (!this.audioElement) { this.audioElement=document.createElement('audio'); this.audioElement.id='live-interviewer-audio'; this.audioElement.autoplay=true; document.body.append(this.audioElement); }
@@ -52,6 +61,7 @@ export class SessionController extends EventTarget {
   }
   async connectAccount() {
     this.account=await this.accountFactory(); this.durable=this.account.durable;
+    this.currentInterviewPolicy=this.account.interviewPolicy||null;
     this.dispatchEvent(new CustomEvent('account',{detail:this.account})); return this.account;
   }
   async acquire({ mode='real',overlayCanvas=null,cameraDeviceId='',microphoneDeviceId='' }={}) {
@@ -105,14 +115,25 @@ export class SessionController extends EventTarget {
     const input={question,interviewSet,wizard,targetQuestions,interviewerProvider:mode==='mock'?'openai-gpt-live':'missionmed-static'};
     this.setPhase('STARTING');
     try {
-      if(!await revalidateOwnAdmission(account,current))throw new Error('Interview startup was cancelled.');
+      if(!await revalidateOwnAdmission(account,current,{interviewPolicyVersion:mode==='mock'?wizard?.interviewPolicyVersion:undefined,
+        onPolicy:policy=>{this.currentInterviewPolicy=policy;}}))throw new Error('Interview startup was cancelled.');
       assertEffectiveActor(account);
-      await durable.prepare(input);
+      try{await durable.prepare(input);}catch(error){
+        if(error.payload?.error==='ivoc_interview_policy_changed'){
+          await revalidateOwnAdmission(account,current,{interviewPolicyVersion:wizard?.interviewPolicyVersion,onPolicy:policy=>{this.currentInterviewPolicy=policy;}});
+          throw policyChangedError();
+        }
+        throw error;
+      }
       if (!current()) throw new Error('Interview startup was cancelled.');
       assertEffectiveActor(account);
       const makeMix=mode==='mock'?(this.mixFactory || (await import(ENGINE+'/capabilities/conversation-recording.mjs')).createConversationRecordingMix):null;
       if(!current())throw new Error('Interview startup was cancelled.');
       assertEffectiveActor(account);
+      if(mode==='mock'&&wizard?.interviewPolicyVersion!=null){
+        if(!await revalidateOwnAdmission(account,current,{interviewPolicyVersion:wizard.interviewPolicyVersion,onPolicy:policy=>{this.currentInterviewPolicy=policy;}}))throw new Error('Interview startup was cancelled.');
+        assertEffectiveActor(account);
+      }
       this.mix=mode==='mock'?makeMix({candidateStream:engine.stream,audioContext:engine.audioContext}):null;
       await durable.start({...input,stream:this.mix?.stream || engine.stream,candidateStream:engine.stream});
       if (!current()) throw new Error('Interview startup was cancelled.');

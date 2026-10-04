@@ -161,6 +161,7 @@ test('prepared Prior IVOC actor packs revalidate exact source and semantic finge
   assert.equal(pack.source_receipts.some(receipt => receipt.projection_type === 'ivoc.longitudinal_summary'), true);
   assert.equal(pack.pack.signals.some(signal => signal.rule_id === 'AIS-R10'), true);
   const rest = { table: async (table, query) => { const path = `${table}${query}`;
+    if(table==='ivoc_admin_config_versions')return[{schema_name:'ivoc.admin_config.v1',version:3,pressure_defaults:{max_follow_ups_per_answer:1,default_follow_up_intensity:1,default_pressure_enabled:false}}];
     if (query.includes('limit=1')) { const row = await h.repo.single(path); return row ? [row] : []; }
     return h.repo.request(path); } };
   const native = createIvocContextPackResolver({ rest });

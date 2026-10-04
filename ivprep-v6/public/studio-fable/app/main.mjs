@@ -6,6 +6,7 @@ import { trayMarkup, mountTray, openSelector } from './questions/selector.mjs';
 import { EASY_PRESETS, PRACTICE_GOALS, ROLES, STYLES, CURIOSITY, PACING, defaultSettings, applyPreset, normalizeMockPracticeFocus, resolveMockQuestionTarget, describe as describeSettings } from './settings/interviewer.mjs';
 import { controller } from './controller/session-controller.mjs';
 import { accountLabel } from './adapters/account-adapter.mjs';
+import {resolveFollowUps} from '../../capabilities/interview-policy.mjs';
 import { searchPrograms } from './adapters/context-adapter.mjs';
 import { mountRoom } from './room.mjs';
 import { mountResults, mountFilm, mountCompare } from './results.mjs';
@@ -192,6 +193,10 @@ async function renderMock(params, isCurrent = guarded) {
   const cfg = session.config;
   const draw = () => {
     if (!isCurrent()) return;
+    const policy=controller.interviewPolicy;
+    if(policy&&st.policyVersion==null){st.depth=policy.defaultFollowUpDepth;st.pressure=st.goal!=='Individual Question'&&policy.defaultPressureEnabled;}
+    if(policy)st.policyVersion=policy.version;
+    Object.assign(st,resolveFollowUps(st,policy));
     const targetQuestions = resolveMockQuestionTarget(cfg.targetQuestions, set.length, {goal:st.goal});
     st.targetQuestions = targetQuestions;
     contextOpen = main.querySelector('#interview-context')?.open ?? contextOpen;
@@ -206,19 +211,19 @@ async function renderMock(params, isCurrent = guarded) {
           </section>
           <aside class="housing panel ready-card">
             <div class="t-kick gold">Interviewer</div>
-            <div class="preset-row" role="group" aria-label="Easy mode">${EASY_PRESETS.map((p) => `<button type="button" class="option" data-preset="${p.id}" aria-pressed="${st.preset === p.id && !st.advanced}">${p.label}<small>${p.hint}</small></button>`).join('')}</div>
+            <div class="preset-row" role="group" aria-label="Easy mode">${EASY_PRESETS.map((p) => `<button type="button" class="option" data-preset="${p.id}" aria-pressed="${st.preset === p.id && !st.advanced}">${p.label}<small>${policy?esc(describeSettings({...applyPreset(st,p.id,{interviewPolicy:policy}),advanced:false},{interviewPolicy:policy})):p.hint}</small></button>`).join('')}</div>
             <details class="advanced" id="advanced" ${st.advanced ? 'open' : ''}><summary><span>Advanced interviewer settings</span><span>${st.advanced ? 'on' : 'collapsed'}</span></summary>
               <div class="advanced-body">
                 <div class="field"><label class="t-label" for="adv-goal">Practice goal</label><select id="adv-goal">${PRACTICE_GOALS.map(goal => `<option ${st.goal === goal ? 'selected' : ''}>${goal}</option>`).join('')}</select></div>
                 <div class="field"><label class="t-label" for="adv-focus">Coaching focus</label><input id="adv-focus" type="text" maxlength="200" ${st.goal === 'Guided Mock IV Practice' ? '' : 'disabled'} placeholder="One thing you want to practice" value="${esc(st.practiceFocus || '')}"><small class="note">${st.goal === 'Guided Mock IV Practice' && !st.practiceFocus && session.priority ? `Current priority: ${esc(session.priority.slice(0,200))}. Add your own focus to replace it.` : 'Optional for Guided Practice. Full Simulation and Individual Question do not use a coaching focus.'}</small></div>
                 <div class="field"><label class="t-label" for="adv-role">Role</label><select id="adv-role">${ROLES.map((r) => `<option ${st.role === r ? 'selected' : ''}>${r}</option>`).join('')}</select></div>
                 <div class="field"><label class="t-label" for="adv-style">Style</label><select id="adv-style">${Object.entries(STYLES).map(([k, v]) => `<option value="${k}" ${st.style === k ? 'selected' : ''}>${k} · ${v}</option>`).join('')}</select></div>
-                <div class="field"><label class="t-label">Follow-up depth</label><div class="seg">${[0, 1, 2].map((d) => `<button type="button" data-depth="${d}" aria-pressed="${st.depth === d}">${d === 0 ? 'None' : d === 1 ? 'One' : 'Two'}</button>`).join('')}</div></div>
+                <div class="field"><label class="t-label">Follow-up depth</label><div class="seg">${[0, 1, 2].map((d) => `<button type="button" data-depth="${d}" aria-pressed="${st.depth === d}" ${policy&&d>policy.maxFollowUpsPerAnswer?'disabled':''}>${d === 0 ? 'None' : d === 1 ? 'One' : 'Two'}</button>`).join('')}</div>${policy?`<small class="note">Your account allows up to ${policy.maxFollowUpsPerAnswer} follow-ups per answer.</small>`:''}</div>
                 <div class="field"><label class="t-label">Curiosity</label><div class="seg">${CURIOSITY.map((c) => `<button type="button" data-curiosity="${c}" aria-pressed="${st.curiosity === c}">${c}</button>`).join('')}</div></div>
                 <div class="field"><label class="t-label">Pressure</label><div class="seg"><button type="button" data-pressure="0" aria-pressed="${!st.pressure}">Off</button><button type="button" data-pressure="1" aria-pressed="${st.pressure}" ${st.goal === 'Individual Question' ? 'disabled' : ''}>On</button></div></div>
                 <div class="field"><label class="t-label">Interruption</label><div class="seg"><button type="button" data-interrupt="0" aria-pressed="${!st.interruption}">Never</button><button type="button" data-interrupt="1" aria-pressed="${st.interruption}">Long answers</button></div></div>
                 <div class="field"><label class="t-label">Pacing</label><div class="seg">${PACING.map((c) => `<button type="button" data-pacing="${c}" aria-pressed="${st.pacing === c}">${c}</button>`).join('')}</div></div>
-                <div class="field"><label class="t-label" for="adv-max">Follow-up limit</label><input id="adv-max" type="number" min="0" max="8" value="${st.maxFollowUps}"></div>
+                <div class="field"><label class="t-label" for="adv-max">Follow-up limit</label><input id="adv-max" type="number" min="0" max="8" value="${st.maxFollowUps}" ${policy?.maxFollowUpsPerAnswer===0?'disabled':''}></div>
                 <div class="field"><label class="t-label" for="adv-target">Target questions</label><input id="adv-target" type="number" min="1" max="30" step="1" value="${targetQuestions}" ${st.goal === 'Individual Question' ? 'disabled' : ''} aria-describedby="target-note"><small class="note" id="target-note">${st.goal === 'Individual Question' ? 'One selected question, without pressure practice.' : '1–30 main questions. Your selected pool guides the interview; follow-ups and closing questions are additional.'}</small></div>
                 <div class="field"><label class="t-label">Program emphasis</label><div class="seg">${['Light', 'Normal', 'Strong'].map((c) => `<button type="button" data-emphasis="${c}" aria-pressed="${st.programEmphasis === c}">${c}</button>`).join('')}</div></div>
                 <div class="field" style="grid-column:1/-1"><small class="note">The interviewer is instructed to invite your questions and sign off. Choose "Wrap up" when you are ready for this part of the interview. Voice is managed by your account.</small></div>
@@ -230,7 +235,7 @@ async function renderMock(params, isCurrent = guarded) {
             <ul class="checks" style="margin-top:12px"><li class="${state.calibration ? 'on' : 'warn'}"><i>${state.calibration ? '✓' : '!'}</i>${state.calibration ? 'Calibrated' : 'Not calibrated · global ranges'}</li><li class="${useProgram ? 'on' : ''}"><i>${useProgram ? '✓' : '·'}</i>${useProgram ? `Program: ${esc(state.program.name)}` : 'No program context (general interview)'}</li><li class="${controller.account?.mode === 'REAL' ? 'on' : 'warn'}"><i>${controller.account?.mode === 'REAL' ? '✓' : '!'}</i>${controller.account?.mode === 'REAL' ? (controller.account.liveInterviewAvailable ? 'GPT-Live interviewer · saved to your account' : 'Live interviewer unavailable · choose Self Practice') : 'Sign in through Matrix'}</li></ul>
           </aside>
         </div>
-        <div class="dock" id="dock"><div class="dock-state"><strong>${targetQuestions === set.length ? `${targetQuestions} questions` : `Target ${targetQuestions} · ${set.length} selected`} · ${esc(describeSettings(st))}</strong><small>Camera and mic connect inside the room. "Wrap up" still asks the closing question.</small></div><div class="dock-actions"><a class="btn btn-quiet" href="#/home">Back</a><button class="btn btn-primary btn-lg" type="button" id="go-room" ${set.length && controller.account?.liveInterviewAvailable ? '' : 'disabled'}>Enter the Interview Room ▸</button></div></div>
+        <div class="dock" id="dock"><div class="dock-state"><strong>${targetQuestions === set.length ? `${targetQuestions} questions` : `Target ${targetQuestions} · ${set.length} selected`} · ${esc(describeSettings(st,{interviewPolicy:policy}))}</strong><small>Camera and mic connect inside the room. "Wrap up" still asks the closing question.</small></div><div class="dock-actions"><a class="btn btn-quiet" href="#/home">Back</a><button class="btn btn-primary btn-lg" type="button" id="go-room" ${set.length && controller.account?.liveInterviewAvailable ? '' : 'disabled'}>Enter the Interview Room ▸</button></div></div>
       </div>`;
     const questionsChanged=()=>{if(session.retry&&(set.length!==1||set[0]?.question_id!==session.retry.questionId)){session.retry=null;session.retryOf=null;}draw();};
     mountTray(main.querySelector('#tray'), set, { onChange: questionsChanged });
@@ -258,7 +263,7 @@ async function renderMock(params, isCurrent = guarded) {
     });
     main.querySelector('#adv-role').addEventListener('change', (e) => { st.role = e.target.value; });
     main.querySelector('#adv-style').addEventListener('change', (e) => { st.style = e.target.value; });
-    main.querySelector('#adv-max').addEventListener('change', (e) => { st.maxFollowUps = Math.max(0, Math.min(8, Number(e.target.value) || 0)); });
+    main.querySelector('#adv-max').addEventListener('change', (e) => { if(!isCurrent())return;Object.assign(st,resolveFollowUps({...st,maxFollowUps:e.target.value},policy));draw(); });
     main.querySelector('#adv-target').addEventListener('change', (e) => {
       if (!isCurrent() || st.goal === 'Individual Question') return;
       const target = Number(e.target.value);
@@ -272,7 +277,7 @@ async function renderMock(params, isCurrent = guarded) {
     main.querySelector('.ready-card').addEventListener('click', (e) => {
       if (!isCurrent()) return;
       const b = e.target.closest('button'); if (!b || b.id === 'go-room') return;
-      if (b.dataset.preset) { Object.assign(st, applyPreset(st, b.dataset.preset)); st.advanced = false; }
+      if (b.dataset.preset) { Object.assign(st, applyPreset(st, b.dataset.preset,{interviewPolicy:policy})); st.advanced = false; }
       else if (b.dataset.depth != null) st.depth = Number(b.dataset.depth);
       else if (b.dataset.curiosity) st.curiosity = b.dataset.curiosity;
       else if (b.dataset.pressure != null) st.pressure = st.goal !== 'Individual Question' && b.dataset.pressure === '1';

@@ -10,6 +10,8 @@ const PACK_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const PACK_VERSION = 'c'.repeat(64);
 const ACTOR_BLOCK = 'AUTHORIZED APPLICATION CONTEXT\nPROGRAM: none\nAPPLICANT FACTS:\n- none provided\nATTENTION:\n- none\nRULES:\n- Stay factual.';
 const SUBJECT = 'wp:3472';
+const POLICY={schema:'ivoc.interview-policy.v1',version:3,maxFollowUpsPerAnswer:1,defaultFollowUpDepth:1,defaultPressureEnabled:false};
+const policyRow=()=>({schema_name:'ivoc.admin_config.v1',version:3,pressure_defaults:{max_follow_ups_per_answer:1,default_follow_up_intensity:1,default_pressure_enabled:false}});
 const CONTEXT = {
   goal: 'Full interview simulation', interviewer: 'Associate Program Director · balanced', interviewerStyle: 'Owl',
   pressurePractice: true, questionIds: ['CORE-01', 'MR142-001'], targetQuestions: 5,
@@ -31,6 +33,7 @@ test('stored inactive Actor reader preserves native setup policy, minimizes outp
   const resolve = createStoredIvocActorInstructionResolver({ rest: { table: async (name, query, options) => {
     calls.push({ name, query });
     assert.equal(options, undefined, 'GET-only storage contract');
+    if(name==='ivoc_admin_config_versions')return[policyRow()];
     if (name === 'ivoc_sessions') {
       assert.match(query, /id=eq\.aaaaaaaa.*owner_subject=eq\.wp%3A3472&state=eq.active&select=id,owner_subject,state,context&limit=1/u);
       return [row];
@@ -42,11 +45,11 @@ test('stored inactive Actor reader preserves native setup policy, minimizes outp
   const context = createLiveContext({ wizard: { ...row.context, focus: row.context.practiceFocus },
     interviewSet: row.context.questionIds.map(question_id => ({ question_id })), targetQuestions: 5 });
   assert.deepEqual(output, { receipt: `ctxpack:${PACK_ID}@${PACK_VERSION}`, instructions: buildLiveInterviewInstructions(context, {
-    receipt: `ctxpack:${PACK_ID}@${PACK_VERSION}`, actorBlock: ACTOR_BLOCK,
+    receipt: `ctxpack:${PACK_ID}@${PACK_VERSION}`, actorBlock: ACTOR_BLOCK,interviewPolicy:POLICY,
   }) });
   assert.equal(Object.isFrozen(output), true);
   assert.doesNotMatch(JSON.stringify(output), /private unverified|private name|owner_subject|source_receipts/u);
-  assert.deepEqual(calls.map(c => c.name), ['ivoc_sessions', 'ivoc_context_packs', 'ivoc_context_packs', 'ivoc_sessions']);
+  assert.deepEqual(calls.map(c => c.name), ['ivoc_sessions', 'ivoc_context_packs','ivoc_admin_config_versions', 'ivoc_context_packs','ivoc_admin_config_versions', 'ivoc_sessions']);
   assert.equal(fetch.mock.callCount(), 0);
 });
 
@@ -80,7 +83,7 @@ test('stored Individual setup cannot carry stale Guided focus or pressure, and l
   const row = storedSession();
   row.context.goal = 'Individual Question';
   row.context.interviewerStyle = null;
-  const output = await createStoredIvocActorInstructionResolver({ rest: { table: async name => name === 'ivoc_sessions' ? [row] : [packRow()] } })({ subject: SUBJECT, sessionId: SESSION_ID });
+  const output = await createStoredIvocActorInstructionResolver({ rest: { table: async name => name === 'ivoc_sessions' ? [row] : name==='ivoc_admin_config_versions'?[policyRow()]:[packRow()] } })({ subject: SUBJECT, sessionId: SESSION_ID });
   assert.doesNotMatch(output.instructions, /Make my research|"pressurePractice":true|"interviewerStyle"/u);
   assert.match(output.instructions, /"pressurePractice":false/u);
 });
@@ -93,6 +96,7 @@ test('stored Actor rejects session changes during asynchronous pack reads', asyn
     let packReads = 0;
     const resolve = createStoredIvocActorInstructionResolver({ rest: { table: async name => {
       if (name === 'ivoc_sessions') return [row];
+      if(name==='ivoc_admin_config_versions')return[policyRow()];
       if (++packReads === 1) change(row);
       return [packRow()];
     } } });
@@ -106,6 +110,7 @@ test('stored Actor rejects pack invalidation, replacement or content change duri
     let reads = 0;
     const resolve = createStoredIvocActorInstructionResolver({ rest: { table: async name => {
       if (name === 'ivoc_sessions') return [storedSession()];
+      if(name==='ivoc_admin_config_versions')return[policyRow()];
       return ++reads === 1 ? [packRow()] : later;
     } } });
     await assert.rejects(resolve({ subject: SUBJECT, sessionId: SESSION_ID }), /pack changed during preparation/u);
@@ -118,6 +123,7 @@ test('context-pack resolver owner-binds one active pack and returns only the Act
     rest: {
       async table(name, query) {
         calls.push({ name, query });
+        if(name==='ivoc_admin_config_versions')return[policyRow()];
         return [packRow()];
       },
     },
@@ -126,12 +132,13 @@ test('context-pack resolver owner-binds one active pack and returns only the Act
   assert.deepEqual(resolved, {
     receipt: `ctxpack:${PACK_ID}@${PACK_VERSION}`,
     actorBlock: ACTOR_BLOCK,
+    interviewPolicy:POLICY,
   });
   assert.equal(calls[0].name, 'ivoc_context_packs');
   assert.match(calls[0].query, /session_id=eq\.aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/u);
   assert.match(calls[0].query, /owner_subject=eq\.wp%3A3472/u);
   assert.match(calls[0].query, /invalidated_at=is\.null/u);
-  assert.deepEqual(Object.keys(resolved).sort(), ['actorBlock', 'receipt']);
+  assert.deepEqual(Object.keys(resolved).sort(), ['actorBlock','interviewPolicy', 'receipt']);
   assert.doesNotMatch(JSON.stringify(resolved), /source_receipts|owner_subject|program_ref/u);
 });
 
@@ -150,6 +157,7 @@ test('inactive Actor resolver reuses native policy with exact server identity an
     readSessionContext: async (input) => { calls.push({ reader: input }); return activeSession(); },
     rest: { async table(name, query) {
       calls.push({ name, query });
+      if(name==='ivoc_admin_config_versions')return[policyRow()];
       return [{ ...packRow(), pack: { privateNote: 'do-not-expose-private-note' },
         source_receipts: [{ projection_type: 'ivoc.mentor_priorities', owner_ref: 'do-not-expose-source' }] }];
     } },
@@ -161,7 +169,7 @@ test('inactive Actor resolver reuses native policy with exact server identity an
   assert.match(calls[1].query, /owner_subject=eq\.wp%3A3472/u);
   assert.match(calls[1].query, /session_id=eq\.aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/u);
   assert.match(calls[1].query, /invalidated_at=is\.null/u);
-  const actorContext = { receipt: `ctxpack:${PACK_ID}@${PACK_VERSION}`, actorBlock: ACTOR_BLOCK };
+  const actorContext = { receipt: `ctxpack:${PACK_ID}@${PACK_VERSION}`, actorBlock: ACTOR_BLOCK,interviewPolicy:POLICY };
   assert.deepEqual(output, { receipt: actorContext.receipt, instructions: buildLiveInterviewInstructions(CONTEXT, actorContext) });
   assert.equal(Object.isFrozen(output), true);
   assert.deepEqual(Object.keys(output).sort(), ['instructions', 'receipt']);
@@ -172,7 +180,7 @@ test('inactive Actor resolver reuses native policy with exact server identity an
   assert.match(output.instructions, /"questionIds":\["CORE-01","MR142-001"\]/u);
   assert.doesNotMatch(JSON.stringify(output), /do-not-expose|source_receipts|ownerSubject|actorBlock|apiKey/u);
   assert.ok(Buffer.byteLength(output.instructions, 'utf8') <= 64 * 1024);
-  assert.equal(calls.length, 2);
+  assert.equal(calls.length, 3);
 });
 
 test('Actor resolver requires the explicit internal reader and never accepts client instruction/identity extensions', async () => {
@@ -240,7 +248,8 @@ test('context snapshot remains stable across async pack reads and requires no pr
   const context = { ...CONTEXT, questionIds: [...CONTEXT.questionIds] };
   const resolve = createIvocActorInstructionResolver({
     readSessionContext: async () => activeSession(context),
-    rest: { async table() {
+    rest: { async table(name) {
+      if(name==='ivoc_admin_config_versions')return[policyRow()];
       context.interviewerStyle = 'Eagle';
       context.pressurePractice = false;
       context.questionIds.reverse();
@@ -249,7 +258,7 @@ test('context snapshot remains stable across async pack reads and requires no pr
   });
   const output = await resolve({ subject: SUBJECT, sessionId: SESSION_ID });
   assert.equal(output.instructions, buildLiveInterviewInstructions(CONTEXT, {
-    receipt: `ctxpack:${PACK_ID}@${PACK_VERSION}`, actorBlock: ACTOR_BLOCK,
+    receipt: `ctxpack:${PACK_ID}@${PACK_VERSION}`, actorBlock: ACTOR_BLOCK,interviewPolicy:POLICY,
   }));
   assert.equal(providerFetch.mock.callCount(), 0);
 });
@@ -279,7 +288,7 @@ test('native and inactive Actor resolvers quarantine historical longitudinal or 
     assert.equal(stored.actor_block, ACTOR_BLOCK, 'original pack is not overwritten');
   }
   for (const projection_type of ['file_vault.cv', 'storyforge.stories', 'rise.program_intelligence', 'ivoc.mentor_priorities']) {
-    const rest = { async table() { return [{ ...packRow(), source_receipts: [{ projection_type }] }]; } };
+    const rest = { async table(name) { return name==='ivoc_admin_config_versions'?[policyRow()]:[{ ...packRow(), source_receipts: [{ projection_type }] }]; } };
     assert.equal((await createIvocContextPackResolver({ rest })({ subject: SUBJECT, sessionId: SESSION_ID })).actorBlock, ACTOR_BLOCK);
   }
 });

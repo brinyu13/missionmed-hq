@@ -644,6 +644,9 @@ export function createIvPrepHqHandler({
       } catch (error) {
         if (live.id) await terminateLive(live);
         else live.state = 'ended';
+        if (error?.code === 'ivoc_interview_policy_changed') {
+          sendJson(response,409,{error:error.code}); return true;
+        }
         sendJson(response, liveSessionGuard || liveTranscriptObserver || !(error instanceof TypeError) ? 503 : 400,
           { error: liveSessionGuard || liveTranscriptObserver || !(error instanceof TypeError) ? 'ivprep_live_start_failed' : 'ivprep_invalid_request' });
         return true;

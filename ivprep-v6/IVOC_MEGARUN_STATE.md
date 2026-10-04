@@ -16,6 +16,30 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 R022 Admin follow-up policy implementation: current production
+  config read is v4, ceiling2/default1/pressureoff; historical v3 notes are not
+  current policy. One strict minimized policy adapter feeds setup controls,
+  Easy presets/observer, typed native/Durable context and saved setup. Actual
+  production ContextPack resolver reads current server policy; student focus
+  cannot raise the ceiling. HQ session creation rejects stale versions before
+  insertion, clamps requests, strips client authority snapshots. Pinned admission
+  rechecks after preparation/lazy import reject observed stale changes before
+  recording/provider, retaining current policy for setup recovery. Native start
+  rechecks independently and cleans up on later policy change. Zero-depth/total
+  omits probing guidance, not mandatory candidate questions/sign-off.
+  New regressions reproduced FAIL before/PASS after. Independent review caught
+  and root corrected a setup-scope error and preparation race before release;
+  actual Practice/Mock draw and Room Start tests now cover them.152 affected
+  regressions PASS; independent correction review PASS,4 targeted checks PASS,
+  no remaining executable P0/P1 in this patch. No atomic guarantee after the final
+  fresh policy read is claimed. Scope: PRODUCT4535→4538, HQ PATH4536→4537; old handles released
+  normally/remote confirmed before exact test/helper scope expansion. No schema,
+  identity grant, provider/model/voice, audio mix, clock or root promotion changes.
+  Live release/visual/spoken acceptance pending; Chrome access still WAITING for
+  a changed client-access event, not repeatedly polled. R022 remains LIVE
+  UNVERIFIED until current UI/spoken behavior passes. No percentage or completion
+  claim. Next: final independent correction review, guarded release, then continue
+  preservation matrix and genuine interview/replay/role acceptance as available.
 - 2026-10-04 R004 goal/focus correction: bounded read-only review proved missing
   three-goal selection and ignored editable/displayed focus. Existing Advanced
   settings now expose canonical Full/Guided/Individual goals and a200-character

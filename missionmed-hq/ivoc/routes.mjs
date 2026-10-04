@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { admissionRegistry } from '../../ivprep-v6/server/admission-registry.mjs';
 import { strictProjectHqSession, validateIvPrepMutation } from '../../ivprep-v6/server/admission-contract.mjs';
 import { normalizePracticeFocus } from '../../ivprep-v6/public/studio/live-context-adapter.mjs';
+import {projectInterviewPolicy,normalizeFollowUpRequest} from '../../ivprep-v6/public/capabilities/interview-policy.mjs';
 import { CANDIDATE_AUDIO_ATTRIBUTION_REASON, createContextIntelligenceProvider, resolveContextQuestion as resolveApprovedPracticeQuestion } from './context-provider.mjs';
 import { createIvocApplicationIntelligence, readSessionContextReceipts } from './application-intelligence.mjs';
 import { createFileVaultCvProjectionSource } from './file-vault-projection.mjs';
@@ -1027,6 +1028,7 @@ export function createIvocHandler({
     try {
       if (request.method === 'GET' && pathname === `${API_PREFIX}/bootstrap`) {
         const preferences = await db.single(`ivoc_preferences?owner_subject=eq.${encodeURIComponent(actor)}&select=*&limit=1`);
+        const policyRow = await db.single('ivoc_admin_config_versions?select=version,schema_name,pressure_defaults&order=version.desc&limit=1');
         sendJson(response, 200, {
           identity: { subject: actor, displayName: displayName(hqSession), roles: rolesOf(hqSession), admin: isAdmin(hqSession, admission), mentor: isMentor(hqSession) },
           entitlement: { admitted: true, founder: admission.entitlement?.founder === true, voice: true, video: admission.entitlement?.video === true },
@@ -1039,6 +1041,7 @@ export function createIvocHandler({
             },
           },
           csrfToken: admission.csrfToken,
+          interviewPolicy: projectInterviewPolicy(policyRow),
           preferences: preferences ? { calibration: preferences.calibration, visibility: preferences.visibility, coachingEnabled: preferences.coaching_enabled, recordingDefault: preferences.recording_default } : null,
         }, mediaBase);
         return true;
@@ -1421,6 +1424,15 @@ export function createIvocHandler({
         let practiceFocus;
         try { practiceFocus = normalizePracticeFocus(context.practiceFocus); }
         catch { sendError(response, 400, 'invalid_practice_focus', mediaBase); return true; }
+        try { Object.assign(context,normalizeFollowUpRequest(context)); }
+        catch { sendError(response,400,'invalid_follow_up_settings',mediaBase);return true; }
+        delete context.interviewPolicy; // A client snapshot never grants a ceiling.
+        if(context.interviewPolicyVersion!=null){
+          const policy=projectInterviewPolicy(await db.single('ivoc_admin_config_versions?select=version,schema_name,pressure_defaults&order=version.desc&limit=1'));
+          if(!policy||policy.version!==context.interviewPolicyVersion){sendError(response,409,'ivoc_interview_policy_changed',mediaBase);return true;}
+          context.followUpDepth=Math.min(context.followUpDepth,policy.maxFollowUpsPerAnswer);
+          if(context.followUpDepth===0)context.maxFollowUps=0;
+        }
         delete context.practiceFocus;
         if (context.goal === 'Guided Mock IV Practice' && practiceFocus) context.practiceFocus = practiceFocus;
         if (context.goal === 'Individual Question') context.pressurePractice = false;

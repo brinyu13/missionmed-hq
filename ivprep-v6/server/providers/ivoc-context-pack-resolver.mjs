@@ -2,6 +2,7 @@ import { buildLiveInterviewInstructions, normalizeLiveInterviewContext } from '.
 import { validateSourceBoundPriorIvocPack } from '../../../missionmed-hq/ivoc/application-intelligence.mjs';
 import { hashValue } from '../../../ivoc/intelligence/index.mjs';
 import { createLiveContext, normalizePracticeFocus } from '../../public/studio/live-context-adapter.mjs';
+import {projectInterviewPolicy,normalizeFollowUpRequest} from '../../public/capabilities/interview-policy.mjs';
 
 const MAX_ACTOR_BLOCK_BYTES = 6 * 1024;
 const MAX_ACTOR_INSTRUCTIONS_BYTES = 64 * 1024;
@@ -60,9 +61,13 @@ export function createIvocContextPackResolver({ rest } = {}) {
     const packVersion = exactPackVersion(row?.pack_version);
     const actorBlock = boundedActorBlock(row?.actor_block);
     if (!packId || !packVersion || !actorBlock) return null;
+    const policyRows = await rest.table('ivoc_admin_config_versions','?select=version,schema_name,pressure_defaults&order=version.desc&limit=1');
+    const interviewPolicy = Array.isArray(policyRows) && policyRows.length === 1 ? projectInterviewPolicy(policyRows[0]) : null;
+    if (!interviewPolicy) return null;
     return Object.freeze({
       receipt: `ctxpack:${packId}@${packVersion}`,
       actorBlock,
+      interviewPolicy,
     });
   };
 }
@@ -130,6 +135,7 @@ function storedInterviewContext(value) {
     wizard: {
       goal: value.goal, interviewer: value.interviewer, environment: value.environment,
       pressurePractice: value.pressurePractice,
+      ...normalizeFollowUpRequest(value),
       ...(value.interviewerStyle != null ? { interviewerStyle: value.interviewerStyle } : {}),
       ...(focus ? { focus } : {}),
     },
