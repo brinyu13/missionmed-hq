@@ -1,0 +1,9 @@
+{
+  "observedAt": "2026-10-04T13:50:13.581778+00:00",
+  "check": "Unapproved production configuration is refused before bundle mutation",
+  "result": "PASS",
+  "exitCode": 2,
+  "bundleUnchanged": true,
+  "bundleSha256": "305b8a00c5b7765a2750e2b59aae7d3c36c3b84857e2322fbbdf94706159be80",
+  "reason": "usage: build.py [-h] [--production]\nbuild.py: error: Production build blocked: protected release acceptance has not been recorded; the production site is not registered with Amazon Associates; account-backed personal tools have not passed isolation and persistence QA; commercial product-image rights are incomplete"
+}

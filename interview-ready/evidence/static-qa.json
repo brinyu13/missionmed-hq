@@ -1,18 +1,24 @@
 {
   "result": "PASS",
+  "scope": "Static builder validation only; not account, independent, production or live acceptance",
   "checks": [
-    "45 paths / 15 categories / three tiers in order",
-    "rating qualification and explicit exceptions",
+    "preserved engine: 45 paths / 15 categories / three tiers in order",
+    "Phase 1: seven online categories / 21 ordered tier paths",
+    "dated rating qualification and explicit exceptions",
     "exact listing source requirements",
+    "verified affiliate tag and required disclosure",
     "public Amazon rating/price exclusion",
-    "sourced fashion products and complete outfit persistence",
-    "11 routes",
+    "public guide / account personal-tool configuration",
+    "Phase 2 route deferral and charity disabled",
+    "preserved fashion data and UI hooks; Phase 2 deferred",
     "no media upload transport",
     "mobile snap controls and reduced-motion alternative",
     "JavaScript syntax",
     "deterministic bundle"
   ],
-  "uniquePurchaseCandidates": 19,
-  "fashionProducts": 17,
-  "bundleSha256": "e89a7bd07d1bf21338f19581d10ed9d3c789a7c72acca361eced1fa7b2b9057f"
+  "phase1OnlineCategories": 7,
+  "phase1OnlineTierPaths": 21,
+  "preservedUniquePurchaseCandidates": 19,
+  "preservedFashionProducts": 17,
+  "bundleSha256": "305b8a00c5b7765a2750e2b59aae7d3c36c3b84857e2322fbbdf94706159be80"
 }

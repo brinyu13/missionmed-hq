@@ -23,7 +23,14 @@ assert 'ratingCount' not in html and '"rating":' not in html, 'Private observati
 assert '{{' not in html and '<!-- EDITORIAL_' not in html and 'src="img/' not in html
 for r in ('home','online','in-person','test','checklist','dress','wardrobe','community','experts','prime-day','kit'):
     assert f'id="page-{r}"' in html
-assert 'affiliateTag: ""' in html or "affiliateTag: ''" in html
+assert 'affiliateTag: "missionmatch-20"' in html
+assert 'As an Amazon Associate I earn from qualifying purchases.' in html
+phase1=json.loads((ROOT/'phase1.json').read_text())
+assert phase1['associates']['trackingId']=='missionmatch-20'
+assert phase1['associates']['verifiedAt'] and phase1['associates']['evidenceUrl']
+assert phase1['publicGuide'] and phase1['personalToolsRequireAccount']
+assert phase1['deferredRoutes']==['in-person','dress','wardrobe','community']
+assert not phase1['charity']['enabled'] and not phase1['charity']['copy']
 assert 'fetch(' not in html and 'XMLHttpRequest' not in html, 'No media upload transport'
 assert 'FASHN' in html and 'Photorealistic virtual try-on is not available' in html
 assert 'Premium Economy' not in html
@@ -42,6 +49,6 @@ for script in re.findall(r'<script>(.*?)</script>',html,flags=re.S):
 before=hashlib.sha256((ROOT/'dist/interview-ready.html').read_bytes()).hexdigest()
 subprocess.run(['python3',str(ROOT/'build.py')],check=True,capture_output=True)
 assert before==hashlib.sha256((ROOT/'dist/interview-ready.html').read_bytes()).hexdigest(), 'Build must be deterministic'
-result={'result':'PASS','checks':['45 paths / 15 categories / three tiers in order','rating qualification and explicit exceptions','exact listing source requirements','public Amazon rating/price exclusion','sourced fashion products and complete outfit persistence','11 routes','no media upload transport','mobile snap controls and reduced-motion alternative','JavaScript syntax','deterministic bundle'],'uniquePurchaseCandidates':len({x['asin'] for x in purchase}),'fashionProducts':len(fashion['products']),'bundleSha256':before}
+result={'result':'PASS','scope':'Static builder validation only; not account, independent, production or live acceptance','checks':['preserved engine: 45 paths / 15 categories / three tiers in order','Phase 1: seven online categories / 21 ordered tier paths','dated rating qualification and explicit exceptions','exact listing source requirements','verified affiliate tag and required disclosure','public Amazon rating/price exclusion','public guide / account personal-tool configuration','Phase 2 route deferral and charity disabled','preserved fashion data and UI hooks; Phase 2 deferred','no media upload transport','mobile snap controls and reduced-motion alternative','JavaScript syntax','deterministic bundle'],'phase1OnlineCategories':len(catalog['online']),'phase1OnlineTierPaths':sum(len(c['items']) for c in catalog['online']),'preservedUniquePurchaseCandidates':len({x['asin'] for x in purchase}),'preservedFashionProducts':len(fashion['products']),'bundleSha256':before}
 (ROOT/'evidence/static-qa.json').write_text(json.dumps(result,indent=2)+'\n')
 print(json.dumps(result,indent=2))

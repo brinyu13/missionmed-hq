@@ -1,0 +1,24 @@
+{
+  "observedAt": "2026-10-04T13:22:38.471250+00:00",
+  "checks": [
+    {
+      "url": "https://missionmedinstitute.com/",
+      "status": 200,
+      "finalUrl": "https://missionmedinstitute.com/",
+      "bytes": 547335,
+      "interviewReadyLinkFound": false
+    },
+    {
+      "url": "https://missionmedinstitute.com/my-account/",
+      "status": 200,
+      "finalUrl": "https://missionmedinstitute.com/my-account/",
+      "bytes": 644279,
+      "interviewReadyLinkFound": false
+    },
+    {
+      "url": "https://missionmedinstitute.com/interview-ready/",
+      "status": 404
+    }
+  ],
+  "scope": "Anonymous read-only live preflight; not launch or authenticated role acceptance."
+}

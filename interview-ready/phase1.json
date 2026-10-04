@@ -1,0 +1,28 @@
+{
+  "schema": "missionmed.interview-ready.phase1.v1",
+  "releaseState": "founder-preview",
+  "publicGuide": true,
+  "personalToolsRequireAccount": true,
+  "accountPersistenceReady": false,
+  "enabledRoutes": ["home", "online", "test", "checklist", "kit", "experts", "prime-day"],
+  "deferredRoutes": ["in-person", "dress", "wardrobe", "community"],
+  "associates": {
+    "trackingId": "missionmatch-20",
+    "verifiedAt": "2026-10-04T13:05:11Z",
+    "evidenceUrl": "https://affiliate-program.amazon.com/home/account/tag/manage",
+    "siteRegistrationComplete": false,
+    "productionSite": "https://missionmedinstitute.com",
+    "numericAmazonContentEnabled": false,
+    "apiAccessVerified": false
+  },
+  "event": {
+    "name": "Prime Big Deal Days",
+    "startsISO": "2026-10-06T07:01:00Z",
+    "endsISO": "2026-10-08T07:00:00Z",
+    "displayDates": "October 6–7, 2026",
+    "verifiedAt": "2026-10-04T13:05:11Z",
+    "source": "https://www.aboutamazon.com/news/retail/amazon-prime-big-deals-day-2026-when-october-6-7",
+    "offersVerified": false
+  },
+  "charity": {"enabled": false, "copy": "", "approvalEvidence": null}
+}

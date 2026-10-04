@@ -1,6 +1,8 @@
-# MissionMed Interview Ready — founder completion candidate
+# MissionMed Interview Ready — Phase 1 execution checkpoint
 
-The accepted 0002 application remains the chassis. This October 4, 2026 pass changes its presentation, comparison, research, style experience and motion while preserving hash routing, the media diagnostic, kit, checklist and earlier saved looks. **Local review candidate; STAGING has not been published by this pass.**
+The accepted 0002 application remains the chassis. Phase 1 focuses the existing experience on online interview technology while preserving the accepted visual CSS, photography, motion, diagnostic and saved-state compatibility. **Local founder preview; protected integration and production release are not complete.**
+
+The Founder selected a public read-only guide with a free MissionMed account for personal tools. That boundary is recorded in `phase1.json`; account integration is not connected in this static preview. Kit and checklist explicitly label their current device-local persistence.
 
 ## Build and review
 
@@ -14,24 +16,28 @@ python3 -m http.server 8762 --bind 127.0.0.1 --directory interview-ready/dist
 
 Open `http://127.0.0.1:8762/interview-ready.html#home`. Serve only `dist/`; source ledgers and private task inputs must not be served. Python 3 builds the single HTML without extra packages. Asset extraction, image acquisition and the unactivated server adapter use the existing Pillow runtime. Never add a provider credential to this static app.
 
-All original route identifiers remain: home, online, in-person, test, checklist, dress, wardrobe, community, experts, prime-day and kit. The old prime-day hash now presents evergreen **Deals Worth Watching** without event or discount claims.
+All original route identifiers remain. Phase 1 enables home, online, test, checklist, kit, experts and prime-day. In-person, dress, wardrobe and community are preserved behind intentional Phase 2 states. **Deals Worth Watching** uses the official October 6–7, 2026 event announcement and date-bounded upcoming/active/ended states. No product discount, price or Prime eligibility is asserted.
+
+`python3 interview-ready/build.py --production` refuses output while release acceptance, Associates site registration, account persistence or commercial-media rights remain incomplete. This check does not authorize deployment.
 
 ## Current experience
 
-- Exactly three shopping tiers: Business Class, First Class, Private Jet. Fifteen categories / 45 paths; some paths are preparation plans requiring no purchase. Desktop and wide tablet compare the same anatomy horizontally; phone uses horizontal snap, position, previous/next and keyboard controls.
-- Nineteen distinct Amazon destinations refreshed October 4 UTC. Eighteen meet 4.5; Facecam MK.2 is the explicitly permitted 4.3 Elgato exception. Numeric Amazon stars, review counts, prices and badges are kept out of the bundle pending an authorized display mechanism. Links are centralized in `amazonUrl()`; no unverified Associates tag.
-- Seven exact-model local gear images; video-review thumbnails beside other reviewed products, clearly labeled, and original manufacturer photo links. Thirteen independent review entries and a filtered media library. Some products still lack reusable exact-model images or an independent review; the UI says so.
-- Seventeen real clothing/accessory products with source photos and shop links, four complete outfit starting points, nine garment slots, 28 substantive education topics, explicit personal preferences and explainable rules. The stylist considers palette, cut, proportions, camera context, formality, climate, known prices and slots marked owned. It does not infer traits from photos or promise measured fit.
-- Private wardrobe save/edit/select/compare, local outfit collages, face and full-body references, and opt-in text feedback exports. No community publication or student gallery backend.
+- Exactly three tiers: Business Class, First Class, Private Jet. Phase 1 has seven online categories / 21 paths; some paths deliberately recommend using existing equipment. Desktop and wide tablet show all three simultaneously; mobile retains snap and previous/next controls.
+- Actual Amazon destinations and dated qualification evidence remain centralized in the catalog. `missionmatch-20` was verified in authenticated Associates Central and is added by `amazonUrl()`. The production domain is not yet on the account site list. No purchase/session-conversion attribution is claimed from merely verifying tagged URLs.
+- Three commercially reusable Creative Commons product photographs now have visible author, license and derivative credits. Several remaining manufacturer assets still lack confirmed commercial permission, and some products have only an exact-model review thumbnail or editorial scene. Complete product-media hydration remains a release condition.
+- Product-adjacent review links include a newly verified firsthand Litra Glow review. Setup chains and category-specific tier tradeoffs are explicit. An independent review was not found for every accessory; missing evidence is labeled.
+- Seventeen clothing/accessory products, outfit rules, wardrobe and try-on adapter are preserved for Phase 2 and are not Phase 1 navigation destinations.
 - Scroll depth, cinematic route transitions, masked section entrances, ambient light, animated navigation/progress and photo interactions. Editing controls stay stable. Pause motion and prefers-reduced-motion provide static alternatives.
 
 ## Source and provenance
 
-`src.html` retains the engine. `editorial.css` / `editorial.js` hold the earlier board reconstruction; `completion.css` / `completion.js` extend that same app. `fashion.json` and `catalog.json` are dated curated data. `build.py` embeds source, data and optimized assets and writes `dist/build-manifest.json`.
+`src.html` retains the engine. `editorial.css` / `editorial.js` hold the earlier board reconstruction; `completion.css` / `completion.js` extend that same app. `phase1.json`, `phase1.js` and `phase1.css` apply release boundaries and event behavior. The accepted `editorial.css` and `completion.css` are unchanged by Phase 1. `build.py` embeds source, data and optimized assets and writes `dist/build-manifest.json`.
 
 `extract_assets.py` derives production imagery from the exact owner PNGs. Originals are preserved; the people were not regenerated. The new portrait layer separates moving photography from readable hero text. The mountain layer masks all generated commerce/trust claims before output. `evidence/asset-provenance.json` records crops, masks and hashes.
 
 `hydrate_media.py` deliberately refreshes image URLs already verified in the source ledgers; it does not refresh prices/stock or replace accepted model/variant data. `--only brio` limits it to a named source key. Public access to a manufacturer/retailer asset is not asserted as commercial reuse permission. Read `RESEARCH.md` before publication.
+
+`prepare_licensed_media.py` derives the licensed Canon R50, Shure SM7B and Stream Deck + images from preserved originals and records hashes/crops/licenses in `evidence/product-media.json`. It uses the bundled Pillow runtime. Only the photograph derivatives carry their stated Creative Commons licenses; this does not relicense the application or imply an endorsement.
 
 ## Privacy and try-on boundary
 
@@ -43,6 +49,6 @@ CSP disallows application connections, forms and object/embed content. Fonts and
 
 ## Verification and publication
 
-Current evidence: `evidence/static-qa.json`, `completion-browser-qa-2026-10-04.json`, `feedback-download-2026-10-04.json`, media/provenance ledgers and the completion screenshots. These are builder QA, not independent approval. Physical camera/mic acceptance, actual interview-platform rehearsal, Safari/iOS, asset publication rights and founder visual acceptance remain pending.
+Current Phase 1 evidence: `evidence/static-qa.json`, `phase1-browser-qa.json`, `phase1-production-guard.json`, `phase1-live-preflight.json`, media/provenance ledgers and Phase 1 screenshots. Earlier completion evidence remains historical. These are builder QA, not independent approval. Physical device acceptance, human account/role journeys, Safari/iOS and complete product-media rights remain pending.
 
-MissionMed OS still lacks the exact IR mission/product/publication authority record. The existing protected-system contract controls CDN/WordPress/Matrix publication; the historical report's exemption is not revived. An ordinary October 4 STAGING readback returned HTTP 403. Current remote bytes therefore remain unverified. No bypass, protected publication, production mutation or provider activation was attempted.
+MissionMed OS still lacks the exact IR mission/passport/publication authority record. A concrete bounded registration packet is prepared in the scoped handoff folder. Independent review is required before canonical protected registration and integration. An October 4 public readback finds `/interview-ready/` HTTP 404; the historical STAGING readback was 403. No protected publication, account/backend/schema mutation or provider activation was attempted. Charity messaging remains disabled; Amazon prohibits a charity incentive for Special Links, and ALSAC cause-marketing/logo authorization has not been established.

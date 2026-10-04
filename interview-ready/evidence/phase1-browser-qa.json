@@ -1,0 +1,596 @@
+{
+  "observedAt": "2026-10-04T13:48:32.003Z",
+  "bundleSha256": "3b8631905e285d7461fded6a9f4e3c9d41761826d01a92e02b4fdf1110a8f69f",
+  "target": "http://127.0.0.1:8762/interview-ready.html",
+  "technique": "Actual Chrome DOM through documented CDP development API; responsive emulation and programmatic UI events. Not independent verification or physical-device acceptance.",
+  "comparison": [
+    {
+      "category": "Cameras & webcams",
+      "width": 1440,
+      "overflow": false,
+      "deck": {
+        "width": 1182,
+        "scrollWidth": 1182
+      },
+      "tiers": [
+        {
+          "tier": "bc",
+          "left": 26,
+          "top": 755,
+          "width": 383
+        },
+        {
+          "tier": "fc",
+          "left": 426,
+          "top": 755,
+          "width": 383
+        },
+        {
+          "tier": "pj",
+          "left": 825,
+          "top": 755,
+          "width": 383
+        }
+      ],
+      "amazonLinks": [
+        "https://www.amazon.com/dp/B09NBWWP79?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B09NBWWP79?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B0CW1S7XP5?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B0CW1S7XP5?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B0BTTV6CT1?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B0BTTV6CT1?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B0CG19QXWD?tag=missionmatch-20"
+      ]
+    },
+    {
+      "category": "Microphones & audio",
+      "width": 1440,
+      "overflow": false,
+      "deck": {
+        "width": 1182,
+        "scrollWidth": 1182
+      },
+      "tiers": [
+        {
+          "tier": "bc",
+          "left": 26,
+          "top": 755,
+          "width": 383
+        },
+        {
+          "tier": "fc",
+          "left": 426,
+          "top": 755,
+          "width": 383
+        },
+        {
+          "tier": "pj",
+          "left": 825,
+          "top": 755,
+          "width": 383
+        }
+      ],
+      "amazonLinks": [
+        "https://www.amazon.com/dp/B07FKG8PGZ?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B07FKG8PGZ?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B0CTJ7PVN1?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B0CTJ7PVN1?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B0002E4Z8M?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B0002E4Z8M?tag=missionmatch-20"
+      ]
+    },
+    {
+      "category": "Lighting",
+      "width": 1440,
+      "overflow": false,
+      "deck": {
+        "width": 1182,
+        "scrollWidth": 1182
+      },
+      "tiers": [
+        {
+          "tier": "bc",
+          "left": 26,
+          "top": 755,
+          "width": 383
+        },
+        {
+          "tier": "fc",
+          "left": 426,
+          "top": 755,
+          "width": 383
+        },
+        {
+          "tier": "pj",
+          "left": 825,
+          "top": 755,
+          "width": 383
+        }
+      ],
+      "amazonLinks": [
+        "https://www.amazon.com/dp/B097QZGRCQ?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B097QZGRCQ?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B07L755X9G?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B07L755X9G?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B07L755X9G?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B07L755X9G?tag=missionmatch-20"
+      ]
+    },
+    {
+      "category": "Mounting & capture",
+      "width": 1441,
+      "overflow": false,
+      "deck": {
+        "width": 1182,
+        "scrollWidth": 1182
+      },
+      "tiers": [
+        {
+          "tier": "bc",
+          "left": 26,
+          "top": 755,
+          "width": 383
+        },
+        {
+          "tier": "fc",
+          "left": 426,
+          "top": 755,
+          "width": 383
+        },
+        {
+          "tier": "pj",
+          "left": 825,
+          "top": 755,
+          "width": 383
+        }
+      ],
+      "amazonLinks": [
+        "https://www.amazon.com/dp/B097376LKF?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B097376LKF?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B07K3FN5MR?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B07K3FN5MR?tag=missionmatch-20"
+      ]
+    },
+    {
+      "category": "Background & room",
+      "width": 1440,
+      "overflow": false,
+      "deck": {
+        "width": 1182,
+        "scrollWidth": 1182
+      },
+      "tiers": [
+        {
+          "tier": "bc",
+          "left": 26,
+          "top": 755,
+          "width": 383
+        },
+        {
+          "tier": "fc",
+          "left": 426,
+          "top": 755,
+          "width": 383
+        },
+        {
+          "tier": "pj",
+          "left": 825,
+          "top": 755,
+          "width": 383
+        }
+      ],
+      "amazonLinks": []
+    },
+    {
+      "category": "Power & connectivity",
+      "width": 1441,
+      "overflow": false,
+      "deck": {
+        "width": 1182,
+        "scrollWidth": 1182
+      },
+      "tiers": [
+        {
+          "tier": "bc",
+          "left": 26,
+          "top": 755,
+          "width": 383
+        },
+        {
+          "tier": "fc",
+          "left": 426,
+          "top": 755,
+          "width": 383
+        },
+        {
+          "tier": "pj",
+          "left": 825,
+          "top": 755,
+          "width": 383
+        }
+      ],
+      "amazonLinks": [
+        "https://www.amazon.com/dp/B08CK9X9Z8?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B08CK9X9Z8?tag=missionmatch-20"
+      ]
+    },
+    {
+      "category": "Control & accessories",
+      "width": 1441,
+      "overflow": false,
+      "deck": {
+        "width": 1182,
+        "scrollWidth": 1182
+      },
+      "tiers": [
+        {
+          "tier": "bc",
+          "left": 26,
+          "top": 755,
+          "width": 383
+        },
+        {
+          "tier": "fc",
+          "left": 426,
+          "top": 755,
+          "width": 383
+        },
+        {
+          "tier": "pj",
+          "left": 825,
+          "top": 755,
+          "width": 383
+        }
+      ],
+      "amazonLinks": [
+        "https://www.amazon.com/dp/B0CVY4566H?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B0CVY4566H?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B09738CV2G?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B09738CV2G?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B0BJL8SJ59?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B0BJL8SJ59?tag=missionmatch-20"
+      ]
+    }
+  ],
+  "secondary": [
+    {
+      "category": "Cameras & webcams",
+      "width": 1024,
+      "overflow": false,
+      "deck": {
+        "width": 794,
+        "scrollWidth": 794
+      },
+      "tiers": [
+        {
+          "tier": "bc",
+          "left": 26,
+          "top": 826,
+          "width": 253
+        },
+        {
+          "tier": "fc",
+          "left": 296,
+          "top": 826,
+          "width": 253
+        },
+        {
+          "tier": "pj",
+          "left": 567,
+          "top": 826,
+          "width": 253
+        }
+      ],
+      "amazonLinks": [
+        "https://www.amazon.com/dp/B09NBWWP79?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B09NBWWP79?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B0CW1S7XP5?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B0CW1S7XP5?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B0BTTV6CT1?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B0BTTV6CT1?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B0CG19QXWD?tag=missionmatch-20"
+      ]
+    },
+    {
+      "category": "Cameras & webcams",
+      "width": 390,
+      "overflow": false,
+      "deck": {
+        "width": 374,
+        "scrollWidth": 991
+      },
+      "tiers": [
+        {
+          "tier": "bc",
+          "left": 16,
+          "top": 1041,
+          "width": 315
+        },
+        {
+          "tier": "fc",
+          "left": 346,
+          "top": 1041,
+          "width": 315
+        },
+        {
+          "tier": "pj",
+          "left": 676,
+          "top": 1041,
+          "width": 315
+        }
+      ],
+      "amazonLinks": [
+        "https://www.amazon.com/dp/B09NBWWP79?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B09NBWWP79?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B0CW1S7XP5?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B0CW1S7XP5?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B0BTTV6CT1?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B0BTTV6CT1?tag=missionmatch-20",
+        "https://www.amazon.com/dp/B0CG19QXWD?tag=missionmatch-20"
+      ]
+    }
+  ],
+  "accessibility1440": [
+    {
+      "overflow": false,
+      "url": "#home",
+      "violations": [],
+      "width": 1440
+    },
+    {
+      "overflow": false,
+      "url": "#online/webcam",
+      "violations": [],
+      "width": 1440
+    },
+    {
+      "overflow": false,
+      "url": "#online/mic",
+      "violations": [],
+      "width": 1440
+    },
+    {
+      "overflow": false,
+      "url": "#online/light",
+      "violations": [],
+      "width": 1440
+    },
+    {
+      "overflow": false,
+      "url": "#online/mount",
+      "violations": [],
+      "width": 1440
+    },
+    {
+      "overflow": false,
+      "url": "#online/background",
+      "violations": [],
+      "width": 1440
+    },
+    {
+      "overflow": false,
+      "url": "#online/power",
+      "violations": [],
+      "width": 1440
+    },
+    {
+      "overflow": false,
+      "url": "#online/accessories",
+      "violations": [],
+      "width": 1440
+    },
+    {
+      "overflow": false,
+      "url": "#test",
+      "violations": [],
+      "width": 1440
+    },
+    {
+      "overflow": false,
+      "url": "#checklist",
+      "violations": [],
+      "width": 1440
+    },
+    {
+      "overflow": false,
+      "url": "#kit",
+      "violations": [],
+      "width": 1440
+    },
+    {
+      "overflow": false,
+      "url": "#experts",
+      "violations": [],
+      "width": 1440
+    },
+    {
+      "overflow": false,
+      "url": "#prime-day",
+      "violations": [],
+      "width": 1440
+    },
+    {
+      "overflow": false,
+      "url": "#dress",
+      "violations": [],
+      "width": 1440
+    }
+  ],
+  "accessibility390": [
+    {
+      "focus": "H1",
+      "overflow": false,
+      "title": "Your Next ChapterStarts Here.",
+      "url": "#home",
+      "violations": [],
+      "width": 390
+    },
+    {
+      "focus": "H1",
+      "overflow": false,
+      "title": "Your story.Clearly seen.",
+      "url": "#online/webcam",
+      "violations": [],
+      "width": 390
+    },
+    {
+      "focus": "H1",
+      "overflow": false,
+      "title": "Welcome to yourinterview studio.",
+      "url": "#test",
+      "violations": [],
+      "width": 390
+    },
+    {
+      "focus": "H1",
+      "overflow": false,
+      "title": "One next chapter.A clear path there.",
+      "url": "#checklist",
+      "violations": [],
+      "width": 390
+    },
+    {
+      "focus": "H1",
+      "overflow": false,
+      "title": "Only what you need.All in one place.",
+      "url": "#kit",
+      "violations": [],
+      "width": 390
+    },
+    {
+      "focus": "H1",
+      "overflow": false,
+      "title": "Listen. Watch.Make a better choice.",
+      "url": "#experts",
+      "violations": [],
+      "width": 390
+    },
+    {
+      "focus": "H1",
+      "overflow": false,
+      "title": "Buy thoughtfully.Timing comes second.",
+      "url": "#prime-day",
+      "violations": [],
+      "width": 390
+    },
+    {
+      "focus": "H1",
+      "overflow": false,
+      "title": "In-Person Essentials",
+      "url": "#in-person",
+      "violations": [],
+      "width": 390
+    },
+    {
+      "focus": "H1",
+      "overflow": false,
+      "title": "Style Studio",
+      "url": "#dress",
+      "violations": [],
+      "width": 390
+    },
+    {
+      "focus": "H1",
+      "overflow": false,
+      "title": "My Wardrobe",
+      "url": "#wardrobe",
+      "violations": [],
+      "width": 390
+    },
+    {
+      "focus": "H1",
+      "overflow": false,
+      "title": "Community Looks",
+      "url": "#community",
+      "violations": [],
+      "width": 390
+    }
+  ],
+  "localPersistence": [
+    {
+      "check": "checklist local toggle and refresh",
+      "before": false,
+      "toggled": true,
+      "refreshed": true,
+      "pass": true
+    },
+    {
+      "check": "kit save and rendered removal control",
+      "hasCard": true,
+      "hasRemove": true
+    }
+  ],
+  "motion": {
+    "fullMotion": {
+      "enabled": true,
+      "story": "0px",
+      "image": "matrix(1, 0, 0, 1, 0, 6.70767)",
+      "ambient": "studio-orbit"
+    },
+    "afterScroll": {
+      "enabled": true,
+      "story": "0px",
+      "image": "matrix(1, 0, 0, 1, 0, 18.72)"
+    },
+    "initialReducedMotion": {
+      "query": true,
+      "enabled": false,
+      "button": "Reduced motion enabled",
+      "image": "none",
+      "ambient": "none"
+    }
+  },
+  "limitations": [
+    "Account-backed persistence and role isolation are not implemented or verified.",
+    "Programmatic events do not establish a human keyboard/pointer journey. Mirrored Playwright results were discarded.",
+    "No physical camera, microphone, Safari or iOS tests in this phase.",
+    "Current product-specific offers and commercial rights for all product imagery are not complete.",
+    "No protected deployment or live acceptance.",
+    "Mobile route sweep preceded the final three licensed-photo and copy refresh; final whole-document desktop sweep used the stated bundle."
+  ],
+  "focusedFollowup": {
+    "observedAt": "2026-10-04T13:51:58.373Z",
+    "bundleSha256": "305b8a00c5b7765a2750e2b59aae7d3c36c3b84857e2322fbbdf94706159be80",
+    "routes": [
+      {
+        "url": "#prime-day",
+        "reviewAdjacent": true,
+        "width": 1440,
+        "overflow": false,
+        "violations": []
+      },
+      {
+        "url": "#online/light",
+        "reviewAdjacent": true,
+        "width": 1440,
+        "overflow": false,
+        "violations": []
+      }
+    ],
+    "imageLoading": "All active light and event images completed after normal lazy loading.",
+    "instrumentation": "Two stylesheet XHR attempts during axe runs were blocked by the existing connect-src CSP. Reload without axe produced no captured network failures or runtime exceptions; CSP was preserved.",
+    "networkWithoutAxe": {
+      "runtimeExceptions": 0,
+      "networkFailures": 0,
+      "httpErrors": 0,
+      "hasMore": false,
+      "truncated": false
+    }
+  },
+  "nativeKeyboard": {
+    "observedAt": "2026-10-04T13:59:37.119Z",
+    "tabFocus": "Actual native Tab reached Skip to content",
+    "returnResult": {
+      "active": "MAIN",
+      "id": "main",
+      "hash": "#home"
+    },
+    "scope": "Skip-link subset only, not a complete keyboard journey"
+  },
+  "browserRestored": {
+    "viewportOverride": false,
+    "cdpMediaOverride": false,
+    "normalWidth": 1163,
+    "normalReducedMotion": true
+  }
+}

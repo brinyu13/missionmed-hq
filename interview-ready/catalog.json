@@ -30,16 +30,17 @@
           "ecosystem": "Logitech",
           "complexity": "Simple",
           "box": "Check the selected listing and package contents before ordering.",
-          "up": "More control or convenience; more cost and rehearsal.",
-          "down": "Simpler equipment is sufficient when the setup test passes.",
+          "up": "The Brio adds field-of-view choices to a typical built-in camera. Lighting and a stable 1080p call remain the first priorities.",
+          "down": "Keep your existing webcam if framing, exposure and reliability already pass the rehearsal.",
           "exception": false,
-          "image": "img/product-brio.webp"
+          "image": "img/product-brio.webp",
+          "offerState": "check-on-amazon"
         },
         {
           "t": "fc",
           "asin": "B0CW1S7XP5",
           "name": "Elgato Facecam MK.2",
-          "why": "Manual Camera Hub control is useful if you already run an Elgato studio. Owner-approved Elgato exception to the rating threshold.",
+          "why": "Manual Camera Hub control is useful if you already run an Elgato studio. Rehearse the fixed-focus working distance before choosing it.",
           "best": "Existing Elgato owners who value repeatable control",
           "pros": [
             "1080p60 capability",
@@ -60,10 +61,11 @@
           "ecosystem": "Elgato",
           "complexity": "Moderate",
           "box": "Check the selected listing and package contents before ordering.",
-          "up": "More control or convenience; more cost and rehearsal.",
-          "down": "Simpler equipment is sufficient when the setup test passes.",
+          "up": "Camera Hub gives repeatable manual image control. It trades the Brio’s autofocus and 4K sensor for a fixed-focus Elgato workflow.",
+          "down": "The Brio is the simpler choice if you want adjustable framing without managing exposure presets.",
           "exception": true,
-          "image": "img/product-facecam-mk2.webp"
+          "image": "img/product-facecam-mk2.webp",
+          "offerState": "check-on-amazon"
         },
         {
           "t": "pj",
@@ -89,9 +91,19 @@
           "ecosystem": "Canon RF",
           "complexity": "Advanced",
           "box": "This ASIN is the camera + RF-S 18–45mm lens kit. Capture card, HDMI cable, stable mount and continuous power are separate.",
-          "up": "",
-          "down": "Simpler equipment is sufficient when the setup test passes.",
-          "exception": false
+          "up": "An interchangeable lens and larger camera sensor offer creative control beyond a webcam, with a complete capture and power chain.",
+          "down": "A webcam saves setup time, desk space and companion-hardware cost; interview platforms may erase much of the visible difference.",
+          "exception": false,
+          "image": "img/product-canon-r50-cc.webp",
+          "imageCredit": {
+            "author": "CNEcija12345",
+            "license": "CC BY-SA 4.0",
+            "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+            "source": "https://commons.wikimedia.org/wiki/File:Canon_EOS_R50_Black.jpg",
+            "caption": "R50 with a lens; confirm the RF-S 18–45mm kit contents on Amazon.",
+            "changes": "EXIF orientation normalized, resized, metadata removed and WebP encoded"
+          },
+          "offerState": "check-on-amazon"
         }
       ],
       "pick": "bc"
@@ -126,9 +138,10 @@
           "ecosystem": "USB / XLR",
           "complexity": "Simple",
           "box": "Recording pack includes a desk tripod, windscreen, USB and XLR cables; confirm the selected pack.",
-          "up": "More control or convenience; more cost and rehearsal.",
-          "down": "",
-          "exception": false
+          "up": "Direct USB keeps the first setup short; XLR leaves room for a later interface. Close speaking technique matters more than the next tier.",
+          "down": "Use a good headset or built-in mic if playback is clear and background noise is controlled.",
+          "exception": false,
+          "offerState": "check-on-amazon"
         },
         {
           "t": "fc",
@@ -156,9 +169,10 @@
           "ecosystem": "Shure / USB-XLR",
           "complexity": "Moderate",
           "box": "MV7+ microphone and USB-C cable. This microphone-only variant needs a stand or arm.",
-          "up": "More control or convenience; more cost and rehearsal.",
-          "down": "Simpler equipment is sufficient when the setup test passes.",
-          "exception": false
+          "up": "MV7+ adds USB processing and touch control while keeping an XLR option. A stand or arm remains a separate need.",
+          "down": "Q2U gives you the core USB/XLR paths with fewer processing choices to rehearse.",
+          "exception": false,
+          "offerState": "check-on-amazon"
         },
         {
           "t": "pj",
@@ -185,9 +199,19 @@
           "ecosystem": "XLR",
           "complexity": "Advanced",
           "box": "Microphone with yoke/windscreen. Interface, XLR cable, arm and optional booster are separate.",
-          "up": "",
-          "down": "Simpler equipment is sufficient when the setup test passes.",
-          "exception": false
+          "up": "SM7B suits an established broadcast chain with deliberate microphone placement and clean gain. It is not a USB upgrade.",
+          "down": "MV7+ removes the required interface and XLR chain when used over USB; Q2U reduces cost and complexity further.",
+          "exception": false,
+          "image": "img/product-shure-sm7b-cc.webp",
+          "imageCredit": {
+            "author": "Christoph Soltmannowski",
+            "license": "CC BY 3.0",
+            "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
+            "source": "https://commons.wikimedia.org/wiki/File:Marius_Bear_SM7B.jpg",
+            "caption": "SM7B in use; arm and accessories are separate.",
+            "changes": "EXIF orientation normalized, resized, metadata removed and WebP encoded; cropped to the microphone, excluding the person"
+          },
+          "offerState": "check-on-amazon"
         }
       ],
       "pick": "bc"
@@ -208,18 +232,24 @@
             "Compact placement"
           ],
           "cons": [
-            "Less coverage than a large panel"
+            "Less coverage than a large panel",
+            "Included cable may constrain placement"
           ],
           "setup": "Raise above eye level, soften reflections in glasses and match room colour temperature.",
           "source": "https://www.logitech.com/en-us/products/lighting/litra-glow.html",
-          "review": null,
+          "review": {
+            "by": "GamesRadar+ · Aleksha McLoughlin",
+            "title": "Litra Glow · lighting, controls and cable tested",
+            "url": "https://www.gamesradar.com/logitech-litra-glow-review/"
+          },
           "ecosystem": "Logitech",
           "complexity": "Simple",
           "box": "Check the selected listing and package contents before ordering.",
-          "up": "More control or convenience; more cost and rehearsal.",
-          "down": "Simpler equipment is sufficient when the setup test passes.",
+          "up": "A compact USB light makes front lighting more repeatable than changing window light. Position it before buying a stronger panel.",
+          "down": "A suitable window and existing lamp may give you the light you need without another device.",
           "exception": false,
-          "image": "img/product-litra.webp"
+          "image": "img/product-litra.webp",
+          "offerState": "check-on-amazon"
         },
         {
           "t": "fc",
@@ -246,9 +276,10 @@
           "ecosystem": "Elgato",
           "complexity": "Moderate",
           "box": "Key Light, Master Mount L, power supply and cable clips; verify the exact listing.",
-          "up": "More control or convenience; more cost and rehearsal.",
-          "down": "Simpler equipment is sufficient when the setup test passes.",
-          "exception": false
+          "up": "A larger desk-mounted Key Light adds soft output and Control Center/Stream Deck control. Pairing and a stable clamp are part of setup.",
+          "down": "Litra Glow uses less desk space and fewer network-control steps. Start there when one small light solves the problem.",
+          "exception": false,
+          "offerState": "check-on-amazon"
         },
         {
           "t": "pj",
@@ -275,9 +306,10 @@
           "ecosystem": "Elgato",
           "complexity": "Moderate",
           "box": "Check the selected listing and package contents before ordering.",
-          "up": "",
-          "down": "Simpler equipment is sufficient when the setup test passes.",
-          "exception": false
+          "up": "Two independently placed panels let you balance key and fill rather than pushing one light harder. This is a two-unit plan, not a bundle ASIN.",
+          "down": "One well-placed panel may be sufficient. A second unit doubles the lights to power, mount, pair and rehearse.",
+          "exception": false,
+          "offerState": "check-on-amazon"
         }
       ],
       "pick": "bc"
@@ -306,9 +338,10 @@
           "ecosystem": "Universal",
           "complexity": "Simple",
           "box": "Use what you already own.",
-          "up": "More control or convenience; more cost and rehearsal.",
-          "down": "Simpler equipment is sufficient when the setup test passes.",
-          "exception": false
+          "up": "A secure existing monitor mount may already put the camera at eye level. Check stability before adding hardware.",
+          "down": "Do not buy a capture device or microphone arm to solve a camera-height problem.",
+          "exception": false,
+          "offerState": "no-purchase"
         },
         {
           "t": "fc",
@@ -330,10 +363,11 @@
           "ecosystem": "Elgato / Universal",
           "complexity": "Moderate",
           "box": "Check the selected listing and package contents before ordering.",
-          "up": "More control or convenience; more cost and rehearsal.",
-          "down": "Simpler equipment is sufficient when the setup test passes.",
+          "up": "An adjustable low-profile arm brings a compatible microphone closer without filling the camera frame. It does not mount every camera.",
+          "down": "Keep a stable desk stand if it gives comfortable speaking distance without transmitting knocks.",
           "exception": false,
-          "image": "img/product-arm-lp.webp"
+          "image": "img/product-arm-lp.webp",
+          "offerState": "check-on-amazon"
         },
         {
           "t": "pj",
@@ -355,10 +389,11 @@
           "ecosystem": "HDMI / Elgato",
           "complexity": "Advanced",
           "box": "Check the selected listing and package contents before ordering.",
-          "up": "",
-          "down": "Simpler equipment is sufficient when the setup test passes.",
+          "up": "Cam Link converts a compatible camera’s clean HDMI output into a USB webcam feed. It serves a mirrorless capture need, not an arm upgrade.",
+          "down": "A USB webcam needs no HDMI capture device. Keep a complete, tested USB path when it already looks good.",
           "exception": false,
-          "image": "img/product-camlink.webp"
+          "image": "img/product-camlink.webp",
+          "offerState": "check-on-amazon"
         }
       ],
       "pick": "bc"
@@ -387,9 +422,10 @@
           "ecosystem": "Universal",
           "complexity": "Simple",
           "box": "Use what you already own.",
-          "up": "More control or convenience; more cost and rehearsal.",
-          "down": "Simpler equipment is sufficient when the setup test passes.",
-          "exception": false
+          "up": "A tidy real background with soft furnishings can reduce distractions and room reflections without buying a backdrop.",
+          "down": "Start by removing distractions; extra styling does not improve interview answers.",
+          "exception": false,
+          "offerState": "no-purchase"
         },
         {
           "t": "fc",
@@ -410,9 +446,10 @@
           "ecosystem": "Universal",
           "complexity": "Simple",
           "box": "Use what you already own.",
-          "up": "More control or convenience; more cost and rehearsal.",
-          "down": "Simpler equipment is sufficient when the setup test passes.",
-          "exception": false
+          "up": "A rehearsed platform background offers privacy when the room cannot be changed. Test edge artifacts in your actual lighting.",
+          "down": "A real tidy background is more predictable if software masking breaks around hair, glasses or hands.",
+          "exception": false,
+          "offerState": "no-purchase"
         },
         {
           "t": "pj",
@@ -433,9 +470,10 @@
           "ecosystem": "Universal",
           "complexity": "Simple",
           "box": "Use what you already own.",
-          "up": "",
-          "down": "Simpler equipment is sufficient when the setup test passes.",
-          "exception": false
+          "up": "A dedicated repeatable room removes last-minute variation in framing, noise and lighting. Reliability comes from rehearsal.",
+          "down": "A shared room can work well with a quiet-time agreement and a tested backup location.",
+          "exception": false,
+          "offerState": "no-purchase"
         }
       ],
       "pick": "pe"
@@ -465,9 +503,10 @@
           "ecosystem": "USB-C / Ethernet",
           "complexity": "Simple",
           "box": "Check the selected listing and package contents before ordering.",
-          "up": "More control or convenience; more cost and rehearsal.",
-          "down": "Simpler equipment is sufficient when the setup test passes.",
-          "exception": false
+          "up": "A compatible wired adapter removes Wi-Fi as the primary connection. Your router, ISP and computer still need reliable power.",
+          "down": "Keep stable Wi-Fi if the actual platform rehearsal is reliable; an adapter cannot repair an ISP outage.",
+          "exception": false,
+          "offerState": "check-on-amazon"
         },
         {
           "t": "fc",
@@ -488,9 +527,10 @@
           "ecosystem": "Universal",
           "complexity": "Simple",
           "box": "Use what you already own.",
-          "up": "More control or convenience; more cost and rehearsal.",
-          "down": "Simpler equipment is sufficient when the setup test passes.",
-          "exception": false
+          "up": "A tested cellular hotspot covers one class of home-network failure. Rehearse data limits, signal and the exact join flow.",
+          "down": "Use the existing wired connection as primary; a hotspot is a fallback, not a speed or quality guarantee.",
+          "exception": false,
+          "offerState": "no-purchase"
         },
         {
           "t": "pj",
@@ -511,9 +551,10 @@
           "ecosystem": "Universal",
           "complexity": "Simple",
           "box": "Use what you already own.",
-          "up": "",
-          "down": "Simpler equipment is sufficient when the setup test passes.",
-          "exception": false
+          "up": "A charged second device with the invite and coordinator contact covers a computer failure as well as a connection change.",
+          "down": "A hotspot plus a working primary computer may be enough. Avoid buying another device purely for one interview.",
+          "exception": false,
+          "offerState": "no-purchase"
         }
       ],
       "pick": "bc"
@@ -546,10 +587,11 @@
           },
           "ecosystem": "Elgato",
           "complexity": "Moderate",
-          "box": "Check the selected listing and package contents before ordering.",
-          "up": "More control or convenience; more cost and rehearsal.",
-          "down": "Simpler equipment is sufficient when the setup test passes.",
-          "exception": false
+          "box": "Stream Deck Neo with integrated stand and fixed 90 cm USB-C cable. Stream Deck software is a free download; confirm current OS requirements and your computer port.",
+          "up": "Eight visible keys cover a small set of tested actions. The USB-C connection and app compatibility must fit your computer.",
+          "down": "Keyboard shortcuts cost nothing. Only add a control surface if it removes a problem you have rehearsed.",
+          "exception": false,
+          "offerState": "check-on-amazon"
         },
         {
           "t": "fc",
@@ -565,7 +607,7 @@
             "More preparation than keyboard shortcuts"
           ],
           "setup": "Use a small interview profile with only needed controls. Test every plugin and shortcut before the call.",
-          "source": "https://www.elgato.com/us/en/p/stream-deck-mk2",
+          "source": "https://help.elgato.com/hc/en-us/articles/18208816152333-Elgato-Stream-Deck-MK-2-Technical-Specifications",
           "review": {
             "by": "EposVox",
             "title": "Stream Deck MK.2 · is it worth it?",
@@ -573,11 +615,12 @@
           },
           "ecosystem": "Elgato",
           "complexity": "Moderate",
-          "box": "Check the selected listing and package contents before ordering.",
-          "up": "More control or convenience; more cost and rehearsal.",
-          "down": "Simpler equipment is sufficient when the setup test passes.",
+          "box": "Stream Deck MK.2, desktop stand, USB cable and quick-start guide. Elgato notes that cable packaging changed from USB-C/USB-A to USB-C/USB-C; confirm the selected seller’s pack and your computer port.",
+          "up": "Fifteen visible keys give an ongoing teaching or recording workflow more dedicated actions than Neo. More keys do not improve interview answers.",
+          "down": "Neo covers a small interview profile with less hardware. Keep a keyboard if it already works reliably.",
           "exception": false,
-          "image": "img/product-stream-deck-mk2.webp"
+          "image": "img/product-stream-deck-mk2.webp",
+          "offerState": "check-on-amazon"
         },
         {
           "t": "pj",
@@ -603,11 +646,20 @@
           },
           "ecosystem": "Elgato",
           "complexity": "Advanced",
-          "box": "Check the selected listing and package contents before ordering.",
-          "up": "",
-          "down": "Simpler equipment is sufficient when the setup test passes.",
+          "box": "Stream Deck + controller with eight keys, four dials and touch strip. XLR Dock and USB Hub accessories are separate; confirm the selected package and USB connection.",
+          "up": "Four dials and a touch strip add granular studio controls alongside eight keys. XLR Dock and USB Hub are optional separate accessories.",
+          "down": "MK.2 gives more dedicated keys; Neo or keyboard shortcuts simplify a small interview workflow.",
           "exception": false,
-          "image": "img/product-stream-plus.webp"
+          "image": "img/product-stream-plus-cc.webp",
+          "offerState": "check-on-amazon",
+          "imageCredit": {
+            "author": "TaurusEmerald",
+            "license": "CC BY-SA 4.0",
+            "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+            "source": "https://commons.wikimedia.org/wiki/File:Elgato_Stream_Deck_%2B.jpg",
+            "caption": "Stream Deck + photographed in use; key layouts are customizable.",
+            "changes": "EXIF orientation normalized, resized, metadata removed and WebP encoded"
+          }
         }
       ],
       "pick": "bc"

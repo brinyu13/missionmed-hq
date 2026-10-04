@@ -1,0 +1,133 @@
+=== MissionMed Preflight ===
+cwd: /Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002
+repo_root: /Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002
+branch: codex/ir-interview-ready-0002-storyforge
+HEAD: a8f47649a917f92743ec161d83f587cb58a4a921
+mode: edit
+upstream: origin/codex/ir-interview-ready-0002-storyforge
+status_short:
+ M interview-ready/README.md
+ M interview-ready/TASK_PACKET.md
+ M interview-ready/build.py
+ M interview-ready/catalog.json
+ M interview-ready/completion.js
+ M interview-ready/dist/build-manifest.json
+ M interview-ready/dist/interview-ready.html
+ M interview-ready/editorial.js
+ M interview-ready/evidence/product-media.json
+ M interview-ready/evidence/static-qa.json
+ M interview-ready/qa.py
+ M interview-ready/src.html
+?? _AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/IR_PHASE1_EXECUTION_CHECKPOINT_2026-10-04.md
+?? _AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/PHASE1_REGISTRATION_REQUEST.md
+?? _AI_INPUTS/
+?? interview-ready/evidence/phase1-authority-preflight.json
+?? interview-ready/evidence/phase1-browser-qa.json
+?? interview-ready/evidence/phase1-live-preflight.json
+?? interview-ready/evidence/phase1-production-guard.json
+?? interview-ready/evidence/phase1-source-refresh.json
+?? interview-ready/img/product-canon-r50-cc.webp
+?? interview-ready/img/product-shure-sm7b-cc.webp
+?? interview-ready/img/product-stream-plus-cc.webp
+?? interview-ready/phase1.css
+?? interview-ready/phase1.js
+?? interview-ready/phase1.json
+?? interview-ready/prepare_licensed_media.py
+status_branch_short:
+## codex/ir-interview-ready-0002-storyforge...origin/codex/ir-interview-ready-0002-storyforge
+ M interview-ready/README.md
+ M interview-ready/TASK_PACKET.md
+ M interview-ready/build.py
+ M interview-ready/catalog.json
+ M interview-ready/completion.js
+ M interview-ready/dist/build-manifest.json
+ M interview-ready/dist/interview-ready.html
+ M interview-ready/editorial.js
+ M interview-ready/evidence/product-media.json
+ M interview-ready/evidence/static-qa.json
+ M interview-ready/qa.py
+ M interview-ready/src.html
+?? _AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/IR_PHASE1_EXECUTION_CHECKPOINT_2026-10-04.md
+?? _AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/PHASE1_REGISTRATION_REQUEST.md
+?? _AI_INPUTS/
+?? interview-ready/evidence/phase1-authority-preflight.json
+?? interview-ready/evidence/phase1-browser-qa.json
+?? interview-ready/evidence/phase1-live-preflight.json
+?? interview-ready/evidence/phase1-production-guard.json
+?? interview-ready/evidence/phase1-source-refresh.json
+?? interview-ready/img/product-canon-r50-cc.webp
+?? interview-ready/img/product-shure-sm7b-cc.webp
+?? interview-ready/img/product-stream-plus-cc.webp
+?? interview-ready/phase1.css
+?? interview-ready/phase1.js
+?? interview-ready/phase1.json
+?? interview-ready/prepare_licensed_media.py
+[WARN] Repo root differs from expected MissionMed root: /Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002
+[INFO] Running from subdirectory inside repo.
+[PASS] Branch is non-main.
+
+tracked_dirty_files:
+  - interview-ready/README.md
+  - interview-ready/TASK_PACKET.md
+  - interview-ready/build.py
+  - interview-ready/catalog.json
+  - interview-ready/completion.js
+  - interview-ready/dist/build-manifest.json
+  - interview-ready/dist/interview-ready.html
+  - interview-ready/editorial.js
+  - interview-ready/evidence/product-media.json
+  - interview-ready/evidence/static-qa.json
+  - interview-ready/qa.py
+  - interview-ready/src.html
+untracked_files:
+  - _AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/IR_PHASE1_EXECUTION_CHECKPOINT_2026-10-04.md
+  - _AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/PHASE1_REGISTRATION_REQUEST.md
+  - _AI_INPUTS/
+  - interview-ready/evidence/phase1-authority-preflight.json
+  - interview-ready/evidence/phase1-browser-qa.json
+  - interview-ready/evidence/phase1-live-preflight.json
+  - interview-ready/evidence/phase1-production-guard.json
+  - interview-ready/evidence/phase1-source-refresh.json
+  - interview-ready/img/product-canon-r50-cc.webp
+  - interview-ready/img/product-shure-sm7b-cc.webp
+  - interview-ready/img/product-stream-plus-cc.webp
+  - interview-ready/phase1.css
+  - interview-ready/phase1.js
+  - interview-ready/phase1.json
+  - interview-ready/prepare_licensed_media.py
+
+=== DIRTY-STATE TRIAGE REQUIRED ===
+[INFO] Dirty repo is not an automatic blocker.
+[INFO] Classify each dirty file as related/unrelated to the intended task.
+[INFO] Continue only when edit scope is explicit and does not overlap unrelated risky files.
+
+declared_edit_scope:
+  - interview-ready
+  - _AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002
+[WARN] Dirty overlap detected: dirty 'interview-ready/README.md' overlaps declared scope 'interview-ready'.
+[WARN] Dirty overlap detected: dirty 'interview-ready/TASK_PACKET.md' overlaps declared scope 'interview-ready'.
+[WARN] Dirty overlap detected: dirty 'interview-ready/build.py' overlaps declared scope 'interview-ready'.
+[WARN] Dirty overlap detected: dirty 'interview-ready/catalog.json' overlaps declared scope 'interview-ready'.
+[WARN] Dirty overlap detected: dirty 'interview-ready/completion.js' overlaps declared scope 'interview-ready'.
+[WARN] Dirty overlap detected: dirty 'interview-ready/dist/build-manifest.json' overlaps declared scope 'interview-ready'.
+[WARN] Dirty overlap detected: dirty 'interview-ready/dist/interview-ready.html' overlaps declared scope 'interview-ready'.
+[WARN] Dirty overlap detected: dirty 'interview-ready/editorial.js' overlaps declared scope 'interview-ready'.
+[WARN] Dirty overlap detected: dirty 'interview-ready/evidence/product-media.json' overlaps declared scope 'interview-ready'.
+[WARN] Dirty overlap detected: dirty 'interview-ready/evidence/static-qa.json' overlaps declared scope 'interview-ready'.
+[WARN] Dirty overlap detected: dirty 'interview-ready/qa.py' overlaps declared scope 'interview-ready'.
+[WARN] Dirty overlap detected: dirty 'interview-ready/src.html' overlaps declared scope 'interview-ready'.
+[WARN] Dirty overlap detected: dirty '_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/IR_PHASE1_EXECUTION_CHECKPOINT_2026-10-04.md' overlaps declared scope '_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002'.
+[WARN] Dirty overlap detected: dirty '_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/PHASE1_REGISTRATION_REQUEST.md' overlaps declared scope '_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002'.
+[FAIL] Sensitive dirty overlap: dirty 'interview-ready/evidence/phase1-authority-preflight.json' overlaps declared scope 'interview-ready'.
+[WARN] Dirty overlap detected: dirty 'interview-ready/evidence/phase1-browser-qa.json' overlaps declared scope 'interview-ready'.
+[WARN] Dirty overlap detected: dirty 'interview-ready/evidence/phase1-live-preflight.json' overlaps declared scope 'interview-ready'.
+[WARN] Dirty overlap detected: dirty 'interview-ready/evidence/phase1-production-guard.json' overlaps declared scope 'interview-ready'.
+[WARN] Dirty overlap detected: dirty 'interview-ready/evidence/phase1-source-refresh.json' overlaps declared scope 'interview-ready'.
+[WARN] Dirty overlap detected: dirty 'interview-ready/img/product-canon-r50-cc.webp' overlaps declared scope 'interview-ready'.
+[WARN] Dirty overlap detected: dirty 'interview-ready/img/product-shure-sm7b-cc.webp' overlaps declared scope 'interview-ready'.
+[WARN] Dirty overlap detected: dirty 'interview-ready/img/product-stream-plus-cc.webp' overlaps declared scope 'interview-ready'.
+[WARN] Dirty overlap detected: dirty 'interview-ready/phase1.css' overlaps declared scope 'interview-ready'.
+[WARN] Dirty overlap detected: dirty 'interview-ready/phase1.js' overlaps declared scope 'interview-ready'.
+[WARN] Dirty overlap detected: dirty 'interview-ready/phase1.json' overlaps declared scope 'interview-ready'.
+[WARN] Dirty overlap detected: dirty 'interview-ready/prepare_licensed_media.py' overlaps declared scope 'interview-ready'.
+[INFO] Preflight result: FAIL (1 unsafe condition(s)).

@@ -1,0 +1,47 @@
+{
+  "observedAt": "2026-10-04T13:32:35.048636+00:00",
+  "scope": "Primary-source follow-up and original editorial tier comparison; no price, rating or availability publication.",
+  "sources": [
+    {
+      "url": "https://www.elgato.com/us/en/p/stream-deck-neo",
+      "facts": [
+        "eight keys",
+        "fixed USB-C cable",
+        "current manufacturer system requirements"
+      ]
+    },
+    {
+      "url": "https://www.elgato.com/us/en/p/stream-deck-plus",
+      "facts": [
+        "eight keys and four dials",
+        "touch strip",
+        "XLR Dock and USB Hub are separate"
+      ]
+    },
+    {
+      "url": "https://help.elgato.com/hc/en-us/articles/18208816152333-Elgato-Stream-Deck-MK-2-Technical-Specifications",
+      "facts": [
+        "fifteen keys",
+        "stand and USB cable",
+        "packaging changed from USB-C/USB-A to USB-C/USB-C"
+      ]
+    },
+    {
+      "url": "https://www.gamesradar.com/logitech-litra-glow-review/",
+      "facts": [
+        "Firsthand testing with video calls, G Hub and manual controls",
+        "Included cable may constrain positioning"
+      ],
+      "use": "Linked adjacent to Litra Glow; original paraphrase, no copied imagery or current-price claim"
+    },
+    {
+      "url": "https://service.anker.com/product-description/a085g000004x2CtAAI/powerexpand-usbc-to-gigabit-ethernet-adapter",
+      "facts": [
+        "Official A8313 manual label and 1 Gbps Ethernet port"
+      ],
+      "contradiction": "A third-party manual search title incorrectly labeled this model 2.5 Gbps. Manufacturer source confirms the existing 1 Gbps recommendation."
+    }
+  ],
+  "repair": "Replaced a 404 Stream Deck MK.2 product-page link with the exact-model official technical specification page.",
+  "followupObservedAt": "2026-10-04T13:50:00.740339+00:00"
+}

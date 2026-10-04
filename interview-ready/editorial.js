@@ -4,7 +4,7 @@ CATALOG['in-person']=RESEARCH.inperson;
 const allItems=()=>[...CATALOG.online,...CATALOG['in-person']].flatMap(c=>c.items);
 const keyFor=(g,c,i)=>`${g}:${c.id}:${i.t}:${i.asin||'plan'}`;
 for(const g of ['online','in-person'])CATALOG[g].forEach(c=>c.items.forEach(i=>i.key=keyFor(g,c,i)));
-const external=(u,label,cls='')=>`<a class="${cls}" href="${esc(u)}" target="_blank" rel="noopener noreferrer">${label} ↗</a>`;
+const external=(u,label,cls='')=>`<a class="${cls}" href="${esc(u)}" target="_blank" rel="${/^https:\/\/(www\.)?amazon\.com\//.test(u)?'noopener sponsored':'noopener noreferrer'}">${label} ↗</a>`;
 const main=document.getElementById('main'); main.setAttribute('tabindex','-1');
 document.querySelector('.skip').onclick=e=>{e.preventDefault();main.focus();};
 document.querySelector('.topbar .title').innerHTML='<b>INTERVIEW READY</b><br><span style="font-size:8px;letter-spacing:.19em">LOOK PREPARED. FEEL CONFIDENT. DO MORE GOOD.</span>';

@@ -447,13 +447,13 @@ label.lbl{display:block;font-size:12px;letter-spacing:.1em;text-transform:upperc
    charity copy). Edit this block; no other code changes are needed.
    ===================================================================== */
 const IR_CONFIG = {
-  affiliateTag: "",                 // Amazon Associates tag. Empty = links carry no tag (not yet verified).
-  primeDay: { active: false, label: "Prime Day", startsISO: null, endsISO: null },
-  charityCopy: "MissionMed intends to direct affiliate proceeds to charitable causes; details will be published once the arrangement is finalized.",
+  affiliateTag: "missionmatch-20",  // Verified in authenticated Associates Central, 2026-10-04.
+  primeDay: { active: false, label: "Prime Big Deal Days", startsISO: "2026-10-06T07:01:00Z", endsISO: "2026-10-08T07:00:00Z" },
+  charityCopy: "",                  // Disabled: no charity incentive or unapproved branding.
   communityBackend: false,          // true when the MissionMed community/moderation service is connected
   matrixPersistence: false          // true when the Matrix account sync seam is connected
 };
-const DISCLOSURE = "Product links open the exact Amazon listing. Prices, ratings and availability can change; check them before buying. MissionMed may earn from qualifying purchases when affiliate links are used.";
+const DISCLOSURE = "As an Amazon Associate I earn from qualifying purchases. Amazon is the merchant and checkout destination. Check the exact model, current price, availability and return terms on Amazon before buying.";
 
 /* ---------- navigation ---------- */
 const NAV = [

@@ -1,5 +1,17 @@
 # IR-INTERVIEW-READY-0002 checkpoint
 
+## Phase 1 execution checkpoint — 2026-10-04
+
+Founder accepted chassis `a8f47649a917f92743ec161d83f587cb58a4a921` and authorized production through the existing protected release process. This is the same product/worktree/branch. Exact new directive SHA256 `d0060e54ed28f095e42d65ee7b88f2e690a7980dfbfeb055e989f73e6acf4d0a`. Founder explicitly selected public read-only guide with free registered-account personal tools after the Amazon public-content requirement was identified.
+
+Scoped safe local edits: product frontend/data/build/QA and this product handoff folder. No shared auth, WordPress/Matrix, protected manifest or production mutation without canonical registration. Current OS `1e8374664751ad911280d83d8c60e200a224245d`, universal BOOT PASS; exact IR routes still absent. Unrelated OS activity log and HQ dirty work remain preserved. REGISTRY requires a clean tracked checkout and independent review. Registration packet: `PHASE1_REGISTRATION_REQUEST.md` in the scoped handoff folder. No decision identifier reserved outside a lease.
+
+Authenticated Chrome confirms tracking ID `missionmatch-20`. Required site listing is not complete; no API application/access is verified. No tax/payment/credential changes. Primary Amazon confirms October 6–7 event. No product discounts asserted. Charity messages disabled both for lack of ALSAC authorization and Amazon's charity-incentive restriction.
+
+Phase 1 source boundaries preserve future-route code/data while hiding its navigation and presenting an intentional Phase 2 moment for direct links. Accepted visual CSS/motion, imagery and three-tier anatomy remain inherited. Account-backed persistence and integration remain protected prerequisites, not silently replaced by localStorage.
+
+Phase 1 local checkpoint bundle: SHA256 `305b8a00c5b7765a2750e2b59aae7d3c36c3b84857e2322fbbdf94706159be80`, 2,984,618 bytes. Static/deterministic and negative production-guard checks PASS; actual Chrome responsive/axe/local persistence/motion evidence is dated in `evidence/phase1-browser-qa.json`. These are builder checks. Account/production/live acceptance is NOT achieved. Public `/interview-ready/` returned 404. Full current state delta and exact next action are filed in `IR_PHASE1_EXECUTION_CHECKPOINT_2026-10-04.md`. Independent reviewer assignment is pending; no canonical protected registration, backend/auth/schema, Matrix, WordPress or deployment mutation occurred.
+
 Outcome: reconstruct the existing MissionMed Interview Ready app for founder review, preserving its engine. Risk: HIGH (existing frontend modification). Exact base: `0feee579b0a9f2c90529220899f6cf6d21b8cd05`, branch `codex/ir-interview-ready-0002-storyforge`.
 
 Authorized local write scope: `interview-ready/` and `_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/`. `_AI_INPUTS/` is an untracked, related, preservation-only input. No tracked dirty paths existed at start. The donor files are hash-identical to the preserved input. The donor Git pointer is invalid on this host; no donor metadata, locks, or files will be repaired or changed. No active Git process was observed in the process inventory, but that alone does not establish lock removal authority.
