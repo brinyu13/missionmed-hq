@@ -47,3 +47,27 @@ OPEN/CLEAN; head85c8351e8d8c978dac28d28325140734cafc432c; historical Railway che
 ## ANY WAITING DEPENDENCY
 
 No current repair/deployment justified. Shared AUTH contention cleared and Root test lease is positively released by authoritative released_at readback. Credential/MFA interaction is unavailable to the agent. Terminal closure still needs a current normal human administrator login → /usce-admin/ and a current real nonadministrator denial check; a truly expired signed-session browser test is not asserted. Phil's single normal login may supply his personal-login acceptance, without technical steps. No account duplication or permission weakening to manufacture these proofs. Broader renovation cleanup/final F/U/O remains paused.
+
+## 2026-10-04 acceptance continuation
+
+Previous turn made concrete progress: real browser recovery checks, independently reviewed documentation, and exact-path commit/push92ad1a9ac1d03dfb283aefb94d37d468dac94ffb. Current continuation refreshed BOOT PASS and inspected both referenced layout images without resuming paused feature work. Both currently available USCE Chrome tabs expose a working protected queue; neither establishes observed fresh human password login or a signed-in nonadministrator. Account-holder session handoff requested; no credentials/MFA requested in chat.
+
+New Root live test used an authentic retained WordPress handoff from the earlier actual relay, naturally expired before the test (issued1791126614, expiry1791126674; raw token stayed solely in browser-control process memory). Under AUTH lease d2641d63-286d-45bf-80b0-1d38381f9991, set only isolated test tab's cached bearer to that credential and performed ordinary reload. Actual network: session200, scoped WordPress relay302, fresh session200, protected queue200. Final direct session probe authenticated=true/sessionPersistent=true; cached fixture replaced and fragment cleared. Test tab closed; released=true. Earlier session response body was unavailable after navigation, so its authentication payload and a401 are not asserted. No source, runtime settings, cookies of sibling tabs, product data, accounts or provider configuration changed.
+
+This adds live naturally expired signed **WordPress handoff** recovery. It does not prove expiry of the persistent **HQ-issued session**: the earliest captured legitimate HQ session expires2026-10-04T23:10:14.938Z, after this test. No production TTL shortening, signing-key read, forged identity or authorization bypass was used.
+
+| Required browser acceptance | Current evidence and limit |
+| --- | --- |
+| 1. Authorized WordPress admin opens normal route | Root and independent Chrome brinyu entry PASS; existing authenticated session. |
+| 2. Protected admin UI renders | Root and independent live Chrome PASS. |
+| 3. Inbound queue loads | Live queue200 and independent rendered queue PASS. |
+| 4. Direct revisit | Independent fresh-tab normal revisit PASS. |
+| 5. Browser refresh | Root and independent live refresh PASS. |
+| 6. Logout → login → revisit | Actual HQ logout/re-entry PASS; fresh WordPress credential/MFA cycle remains unobserved. |
+| 7. Expired HQ recovery | Invalid cache and naturally expired signed WP handoff recover live; current-source expiry tests PASS. Actual HQ-issued session expiry remains unobserved. |
+| 8. Anonymous/unauthorized blocked | Live anonymous API queue401 PASS; separate fresh anonymous Chrome UI has not been established. |
+| 9. Real non-admin remains403 | Current focused contracts and live-source gate PASS; current real non-admin Chrome403 remains unobserved. |
+| 10. No normal raw JSON destination | Exercised normal entry/recovery paths PASS; not asserted for unobserved credential/role cycles. |
+| 11. No manual technical recovery for user | Exercised normal entry/reload/revisit auto-recover PASS. Token substitution was developer-only negative QA, never the user's procedure. |
+
+Full terminal acceptance remains unproven. No active job/session is waiting for deployment and no repeated deployment is justified. Remaining unavailable human authentication/role sessions and actual HQ expiry require new live evidence; historical results, screenshots and local tests do not substitute for it. Broader renovation remains paused and unaccepted.
