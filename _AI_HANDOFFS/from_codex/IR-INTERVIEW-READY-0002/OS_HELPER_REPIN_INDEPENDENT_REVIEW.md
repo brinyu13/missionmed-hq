@@ -1,0 +1,21 @@
+# Independent manual helper OS custody repin review
+
+Verdict: **APPROVE_WITH_CONDITIONS — exact current helper pin for INSTALL phaseDecision sealing.** Reviewer `/root/phase1_native_qa_runner`, Sol6.1 High, 2026-10-04, independent of helper/plan builder `/root/integration_lease_runner`. Observed source BASE/HEAD `4b020fafdbf60bcbab1ddb92edb98dd0be759bb2`. This report accepts the helper only; its author's wrapper acceptance comes exclusively from the separate non-builder Matrix report below. No executable controls, actual lease/runtime operation, AUTH or final production approval is supplied.
+
+| Artifact | SHA256 |
+| --- | --- |
+| manual_runtime_operations.py (29,671 bytes) | `cfcb92fd110b03bbb6b9012dbf08cdde6bb4de6ce331d84dd4c7f47cc343a47f` |
+| MANUAL_RUNTIME_OPERATIONS_HANDOFF.md | `19b87b7f29e73c1182d22bc5dca17fad11d48641be89b9f89355952bb0131bcc` |
+| Pinned wrapper dependency | `f1a5ee7ee7930d8d9a0beee69aea205868370ed3f35ede5dcec7ab10051d08c6` |
+| Separate OS_CUSTODY_REPIN_INDEPENDENT_REVIEW.md | `ae640f4a9cffc79e36cd0325235e1bf945db4e9046907afb4d597e47efbc2a57` |
+| Preserved MANUAL_RUNTIME_OPERATIONS_FINAL_INDEPENDENT_REVIEW.md | `b512c4bb0f2b4371a8c7f59269d75fc07cf9dbc0df05007ae551dcd79b6bbead` |
+
+Independent Git-object/worktree comparison proved the helper equals its BASE object, SHA256 `f2843a86f9995c147023807ee20d056f0ade17a8da23e4cc3b811b433cf2a3a6`, with exactly one RUNNER_SHA literal replacement: previous714c09d781b75c62e0296cd0f064879dbfeb7fb96c37833fb81cffa95dd617da to currentf1a5ee7ee7930d8d9a0beee69aea205868370ed3f35ede5dcec7ab10051d08c6. No guard/role/deadline/marker/drain/remote operation/output behavior changed. Handoff retains its entire BASE content and adds only eight provenance lines. Helper and embedded remote AST parse; remote bytes are exactly BASE-identical, SHA256 `7c9bbf981a16e64470e59a8537bb24bdb3f450c3f740a5b97f43fc08f7c22dc9`. Default invocation exits0 DORMANT without SSH capability.
+
+Read the separate Matrix repin review, whose exact hash matched. It independently qualifies the wrapper's sole OS_HEAD change to canonical OS `bc1d36fcb9f7bdda4bcd4ba507078b7787d802a2`, unchanged routed IR authority/client/transport bytes/records and actual35-input snapshot compatibility. This reviewer does not reapprove its own wrapper or repeat its tests. The prior accepted actual helper/wrapper pair, guard2, same-operation COMPLETE-before-release, UNCERTAIN/lost-marker release deferral and per-artifact reviewer-role checks remain preserved in b512c4bb. No broad fixture replay was warranted by this literal-only delta.
+
+Current helper may be bound in snapshot-qualified `phaseDecision.manualOperationsSha256=cfcb92fd110b03bbb6b9012dbf08cdde6bb4de6ce331d84dd4c7f47cc343a47f`; `installPlanSha256` remains `6a1cd7a25ee809a0abe99bf77992cc1be4f03e28db19a4d0c7f97f8c8b355a97`; `manualOperationMode` remains exact install or recovery. Seal this report's exact reportFile/reportSha256/independent reviewer alongside the separate non-builder top-level wrapper/read reports. Top-level approval must continue excluding wrapper builder/helper builder/Foreman; this helper/plan qualification uses install_artifact role only. No old control authorizes changed bytes.
+
+Foreman must custody-commit the separately accepted exact artifacts/reports, freeze actual resulting sourceHead, bind product sourceCommit b61c2ce/fullref package16f8/current OS/authority and real phase/recovery/runtime/shared-preimage evidence, then obtain exact one-use INSTALL controls. Three ABSENT preimages, >=30second margins, exclusive ACTIVE/guard2, exact same-identity COMPLETE, unknown-custody deferral and separately qualified remote preimage/postimage/shared preservation remain mandatory. Recovery requires fresh installed bindings/provider-clear evidence and restores code/pointer only while retaining identities/history/state/siblings. Public pilot exposure and native/browser/cache/final-production limits remain as previously accepted; AUTH remains blocked.
+
+Only this report was written. No helper/wrapper/handoff/test/product/package/OS edit, stage/commit/HEAD mutation, provider/SSH/credential/runtime/native action or deployment. **STOP UNCOMMITTED for Foreman custody and Matrix exact-control sealing.**

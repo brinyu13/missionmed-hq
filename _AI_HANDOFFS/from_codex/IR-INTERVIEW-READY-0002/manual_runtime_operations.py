@@ -20,7 +20,7 @@ import uuid
 
 sys.dont_write_bytecode = True
 HERE = Path(__file__).resolve().parent
-RUNNER_SHA = '714c09d781b75c62e0296cd0f064879dbfeb7fb96c37833fb81cffa95dd617da'
+RUNNER_SHA = 'f1a5ee7ee7930d8d9a0beee69aea205868370ed3f35ede5dcec7ab10051d08c6'
 PLAN_SHA = '6a1cd7a25ee809a0abe99bf77992cc1be4f03e28db19a4d0c7f97f8c8b355a97'
 SOURCE = 'b61c2ce000ff90f73d240ac9781a2b035eb30bba'
 PACKAGE = Path('/private/tmp/ir-phase1-qualified-fullref-20261004')

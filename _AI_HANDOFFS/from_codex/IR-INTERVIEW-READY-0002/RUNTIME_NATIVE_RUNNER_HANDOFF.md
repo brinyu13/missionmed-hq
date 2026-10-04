@@ -4,7 +4,7 @@
 
 | File | SHA256 | Bytes |
 | --- | --- | ---: |
-| `runtime_native_runner.py` | `714c09d781b75c62e0296cd0f064879dbfeb7fb96c37833fb81cffa95dd617da` | 33285 |
+| `runtime_native_runner.py` | `f1a5ee7ee7930d8d9a0beee69aea205868370ed3f35ede5dcec7ab10051d08c6` | 33285 |
 | `runtime_native_runner_tests.py` | `660e199a22c0660e965d91c62b2d61d9b454d8694b6633ec3e5209f2e25a1a24` | 25082 |
 
 ## Local verification and preserved inputs
@@ -13,7 +13,7 @@
 
 Coverage: dormant/missing artifacts; full actual package snapshot; actual pure canonical scope validation; approval/read digest/expiry/drift; consumption before retrieval/no retry; expiry/fence/source/runtime mismatch; receipt-failure release; serialized guard/type fixtures; AUTH refusal before control reads/capabilities and before an existing-handle heartbeat/native call; constant errors and closed aggregate fields. The earlier immediate Deadline mock did not prove real racing-worker containment. No native deadline containment PASS is claimed; AUTH stays disabled until a separate delayed-race/drain correction and non-builder review. Actual delayed fake operation0.05s admission/0.4s completion now releases AFTER completion; UNCERTAIN/invalid/active-timeout markers defer release without cleanup; source/fence drift, strict marker schema, stable deadline/minimum30s margins and closing-keeper behavior pass. All operations are local mocks.
 
-Unchanged pins: canonical R2 OS `81c3ac794b0b3436c7ce66cada31b9f2a1e05356`, client `36e37a487de0ec99191492c3ef286695bc4d8721cdac70f5c62863576e5c1431`, transport `6bab4c948b28202b7a803228f2123d5c95137030f16eb129c427b4ddcc487cad`, DR375 `05803e16c985437a6400aa261e55bdb57f50ed2a0c7200f904fcffc49155a508`, DR376 `452a9e6259f6ae2f9e1441c725f79156b2d099d88a38af694b248e345b7dbe0e`. Native harness/test pins remain `a6f94593ee60b3f01031954f1594eff0a9edbadb3109581e272e8a6e7ed8b6cf` / `f26e1b6864cda582ac388de7c6ff1585d9e80adea58da02032638c330938e51e`, subject to `NATIVE_QA_INDEPENDENT_REVIEW.md` and its conditions. This wrapper builder is not its own harness/wrapper verifier.
+Current custody pin: canonical R2 OS `bc1d36fcb9f7bdda4bcd4ba507078b7787d802a2`; unchanged dependency pins: client `36e37a487de0ec99191492c3ef286695bc4d8721cdac70f5c62863576e5c1431`, transport `6bab4c948b28202b7a803228f2123d5c95137030f16eb129c427b4ddcc487cad`, DR375 `05803e16c985437a6400aa261e55bdb57f50ed2a0c7200f904fcffc49155a508`, DR376 `452a9e6259f6ae2f9e1441c725f79156b2d099d88a38af694b248e345b7dbe0e`. Native harness/test pins remain `a6f94593ee60b3f01031954f1594eff0a9edbadb3109581e272e8a6e7ed8b6cf` / `f26e1b6864cda582ac388de7c6ff1585d9e80adea58da02032638c330938e51e`, subject to `NATIVE_QA_INDEPENDENT_REVIEW.md` and its conditions. This wrapper builder is not its own harness/wrapper verifier.
 
 ## Fixed phases and prospective commands
 
@@ -71,3 +71,11 @@ Immediate validated heartbeat precedes INSTALL READY; keeper renews every five s
 Failure closes new dispatch with best-effort FAILURE/STOP and attempts canonical release only after the operation coordination checks below pass. If durable dispatch closure cannot be proven, the keeper is still alive, source/fence/expiry drifts, or the owned operation is ACTIVE after drain/UNCERTAIN/invalid, release is deferred and RESULT says STOP/RELEASE_DEFERRED. Unknown markers are retained. Storage failure never proves remote completion; no automatic retry/release/cleanup follows. AUTH stays blocked.
 
 **STOP UNCOMMITTED:** exact three-file prep awaits independent non-builder review and explicit Foreman custody/HEAD permission. No execution or final acceptance follows this builder handoff.
+
+## Minimal OS custody repin — 2026-10-04
+
+Foreman-authorized source BASE `4b020fafdbf60bcbab1ddb92edb98dd0be759bb2`. Canonical OS fast-forwarded from `81c3ac794b0b3436c7ce66cada31b9f2a1e05356` to `bc1d36fcb9f7bdda4bcd4ba507078b7787d802a2` through unrelated partner/USCE additions. Foreman verified unchanged IR mission/authority entries/profile/passport/products/BOOT/DR-375/376/registration and fresh mission-profile BOOT PASS at HQtip0feee579b0a9f2c90529220899f6cf6d21b8cd05. This worker independently read the actual OS/source HEAD and byte-compared routed BOOT/passport/DR-375/376/registration against81c3; all matched. No new IR authority or product behavior is introduced.
+
+Runner diff is exactly one OS_HEAD literal. Handoff current OS/runner hash updated; historical review reports/pins are preserved. Product commit b61c2ce, fullref16f8 package, wrapper tests/native harness/client/transport/authority hashes and unconditional AUTH block remain unchanged. No repack or product source edit. Validation: AST compile PASS, default DORMANT, only the actual35-input/fullref candidate snapshot fixture replayed PASS (1test,1.177seconds); no repeated full suite or runtime/provider capability.
+
+Exactly runtime_native_runner.py and this handoff changed, uncommitted. No staging/commit/HEAD, SSH/provider/credential/runtime/flags/deployment action. Fresh Matrix independent exact-byte repin review and updated helper pin/control custody are still required. **STOP for Foreman custody; no prior control authorizes changed bytes.**
