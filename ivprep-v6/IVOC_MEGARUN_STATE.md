@@ -389,12 +389,55 @@ the actual production route and deployment.
   projection regression PASS; all44 affected lifecycle/privacy/review/preferences/
   overlays tests PASS. Independent source review PASS/noP0/P1. Live filing remains
   UNVERIFIED until the next actual saved attempt, not falsely backfilled.
-- Next executable action: deploy the bounded saved-mode/replay-status patch,
-  verify its affected visible controls, then continue real conversation,
-  closing, real-role and 142-row live parity acceptance. No final root promotion or
-  two-sided audible acceptance claimed. Genuine speech/hearing remains a precise
-  physical-evidence gate under the current Fable integration directive, not a global
-  engineering stop.
+- Presentation-mode/replay-status source `264675ddf7860a9b0d8305043df3e5a096aa7706`
+  deployed SUCCESS `c8a91504-96bf-4adc-aae3-efd38bf26dcf`, image
+  `sha256:32a958021235df390e5cbaabc43377b32c8311e960df0e4a2264a57ed36bc549`.
+  Health200, anonymous candidate/bootstrap401 and fresh authenticated brinyu
+  Home cold reload PASS. Exact filtered tracked artifact
+  `ivoc-release-artifact-6Rn1mT/source.tar`, SHA256
+  `b2ca60104f04e1ce63acbcff536d302c9c954595d8ad8d5d4145582fb0415c53`.
+  PRODUCT4471 and deployment4472 normally released/remotely read back. Initial
+  display-mode live filing still needs a new genuine attempt; no backfill.
+- Genuine optional-replay restart defect: native Play -> pause -> seek to
+  beginning -> Play on c7fe94c0 reproduced `Packet timestamp mismatch`
+  (minimum21989001, received128000) in the face-safety VIDEO detector. Temporary
+  debugger was removed/disabled and its owned tab closed. Session-relative
+  playback clocks restart but reused detectors retain their timestamp minima.
+  Adapter-only correction preserves endPlayback then terminates both ephemeral
+  playback workers through the existing generation fence; next epoch creates
+  fresh detectors. Shared/live producers, recording/audio, saved Analytics and
+  canonical clock are unchanged. Actual producer lifecycle regression failed
+  before correction, passed after; all43 affected cases PASS; independent
+  source review PASS/no blocker.
+- Replay restart source `32419939caf7c72608e681117f67af70f8732f15` deployed
+  SUCCESS `f534c740-00ee-49da-a86a-b124eb202503`, image
+  `sha256:60c50ce1158caaf641f70a5bdcd6ba6d118a534e93476af409f79f83b6beb0f1`.
+  Health200, anonymous candidate/bootstrap401, authenticated Home reload PASS.
+  Exact filtered tracked artifact `ivoc-release-artifact-HtUxpj/source.tar`, SHA256
+  `ff17b0f2a00b3ffbcc1657e86ebfceeda03a7d9a791875bc2561f0ab64e57662`.
+  PRODUCT4473/deployment4474 normally released and remotely read back. Foreman
+  and independent actual Film replay PASS: pause clears, native Home -> Play
+  restores visible video and face/body overlays; Face-off/body-only redraw and
+  visible finger tracks return. Hand/finger spatial alignment remains UNVERIFIED,
+  not inferred from those tracks, one frame or equal canvas boxes. No audible
+  two-sided proof is claimed. Previous exact264 artifact is preserved for rollback.
+- Independent actual visible setup parity PASS: Guided focus survives Back/Next;
+  Individual Question sets target1 and clears Pressure; high curiosity/two
+  follow-ups do not enable Pressure; Easy restores collapsed Advanced controls.
+  Preserved Advanced environment home exposes all four labelled simulation choices
+  and returns normally to candidate. Saved context, actual room skin and native
+  instructions are not inferred from navigation; no provider/capture started.
+- Actual R109 idle guidance PASS: normal candidate Home -> Advanced application
+  builder -> Readiness -> Devices/Visual/Voice/Signal health exposes0 of10 live
+  checks, awaiting-camera/microphone states and explicit connect guidance;
+  Recording is browser-supported, not recorded/accepted. Questionless launch
+  remains disabled. No capture/provider, permission or saved baseline was created;
+  active full calibration and genuine transcript acceptance remain UNVERIFIED.
+- Next executable action: characterize affected moving-hand replay alignment,
+  then continue real conversation/closing, full physical calibration, real-role and
+  142-row live parity acceptance. No final root promotion or two-sided audible
+  acceptance claimed. Genuine speech/hearing remains a precise physical-evidence
+  gate under the current directive, not a global engineering stop.
 
 - **Founder live-POV override, 2026-10-02: recovery LIVE; candidate-question stall reopened fix-forward.**
   Founder confirms physical camera/mic and native multi-turn AI entry work;
@@ -2271,28 +2314,6 @@ must name numeric cap, duration, session count, kill/rollback and proof sought.
 | 18 | Entitled 360 student and non-entitled/revoked/expired denials | LIVE VERIFIED ENTRY / FULL ACCEPTANCE WAITING | Ordinary course-entitled `wp:142` authenticated as `subscriber`, loaded production Home and 193 questions after the static-module fix, and navigated AI Mock to Device Calibration with Founder/Admin controls absent. Negative-role/revoked/expired production identities and the full student media journey remain unverified. |
 | 18 | Wrong-role/wrong-mentor denial and actor/subject separation | LIVE UNVERIFIED | Requires authenticated production negative-path acceptance. |
 | 18 | Private media, signed/revocable playback, no public leakage, audit trail | LIVE UNVERIFIED | Owner signed playback, reload, transcript-spine authorization, `context_persist` audit and anonymous HTTP 401 passed. Wrong-owner/negative-role denial and revocation remain. |
-
-- Presentation-mode/replay-status source `264675ddf7860a9b0d8305043df3e5a096aa7706`
-  deployed SUCCESS `c8a91504-96bf-4adc-aae3-efd38bf26dcf`, image
-  `sha256:32a958021235df390e5cbaabc43377b32c8311e960df0e4a2264a57ed36bc549`.
-  Health200, anonymous candidate/bootstrap401 and fresh authenticated brinyu
-  Home cold reload PASS. Exact filtered tracked artifact
-  `ivoc-release-artifact-6Rn1mT/source.tar`, SHA256
-  `b2ca60104f04e1ce63acbcff536d302c9c954595d8ad8d5d4145582fb0415c53`.
-  PRODUCT4471 and deployment4472 normally released/remotely read back. Initial
-  display-mode live filing still needs a new genuine attempt; no backfill.
-- Genuine optional-replay restart defect REOPENED: native Play -> pause ->
-  seek to beginning -> Play on c7fe94c0 reproduced `Packet timestamp mismatch`
-  (minimum21989001, received128000) in the face-safety VIDEO detector. Temporary
-  debugger was removed/disabled and its owned tab closed. Session-relative
-  playback clocks restart but reused detectors retain their timestamp minima.
-  Current adapter-only correction preserves endPlayback then terminates both
-  ephemeral playback workers through the existing generation fence; the next
-  epoch creates fresh detectors. Shared/live producers, recording/audio,
-  saved Analytics and canonical clock are unchanged. Actual producer lifecycle
-  regression failed before correction, passed after; all43 affected convergence
-  cases PASS. Production correction pending. Hand/finger spatial alignment is
-  UNVERIFIED, not inferred from detector output or matching canvas boxes.
 
 ## Current production and governance gates
 
