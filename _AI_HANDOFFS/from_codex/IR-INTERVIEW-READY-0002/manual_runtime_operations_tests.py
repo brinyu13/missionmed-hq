@@ -67,6 +67,25 @@ class UpgradeFixtures(unittest.TestCase):
         self.assertEqual(self.run_op('readback','upgrade-recovery')['runtimeBindings'],m.OLD_BINDINGS)
         self.assertEqual(self.exchange,[1,2,1,2])
 
+    def test_exact_published_resume_preserves_old_objects_and_cannot_republish(self):
+        for op in ('mkdir-stage','transfer','extract','lint','publish-release'):self.run_op(op)
+        self.assertEqual(self.run_op('readback','upgrade-resume')['runtimeBindings'],m.OLD_BINDINGS)
+        for op in ('mkdir-stage','transfer','extract','lint','publish-release','restore-pointer'):
+            with self.assertRaises(RuntimeError):self.run_op(op,'upgrade-resume')
+        self.run_op('prepare-pointer','upgrade-resume');self.run_op('publish-pointer','upgrade-resume')
+        self.assertEqual(self.run_op('readback','upgrade-resume')['runtimeBindings'],m.BINDINGS)
+        self.assert_old_preserved();self.assertEqual(self.exchange,[1,2,1])
+        self.assertEqual(os.readlink(self.root/m.RUNTIME/m.BACKUP_POINTER),m.OLD_POINTER)
+
+    def test_resume_pointer_requires_exact_published_not_old_prepared_or_drift(self):
+        with self.assertRaises((RuntimeError,FileNotFoundError)):self.run_op('prepare-pointer','upgrade-resume')
+        for op in ('mkdir-stage','transfer','extract','lint','publish-release'):self.run_op(op)
+        archive=self.root/m.RUNTIME/m.STAGE/'interview-ready-candidate.tar.gz';value=archive.read_bytes();archive.write_bytes(value+b'drift')
+        with self.assertRaises(RuntimeError):self.run_op('prepare-pointer','upgrade-resume')
+        archive.write_bytes(value);self.run_op('prepare-pointer','upgrade-resume')
+        with self.assertRaises(RuntimeError):self.run_op('prepare-pointer','upgrade-resume')
+        self.assertEqual(self.exchange,[1]);self.assert_old_preserved()
+
     def test_new_collision_wrong_pointer_and_unknown_layout_stop_before_mutation(self):
         runtime=self.root/m.RUNTIME
         (runtime/m.STAGE).mkdir()
@@ -147,7 +166,7 @@ class UpgradeFixtures(unittest.TestCase):
             with self.assertRaises(RuntimeError):self.run_op('refresh-home-html')
         self.assert_old_preserved()
 
-    def test_guard2_closure_never_dispatches_ssh_and_retains_uncertainty(self):
+    def test_guard2_closure_never_dispatches_ssh_and_completes_cancelled_marker(self):
         runner=m.load_runner();directory=Path(self.temp.name).resolve()/'control';directory.mkdir()
         args=SimpleNamespace(control_directory=directory,binding='1'*64,operation='stage')
         contract={'spec':{'qualifications':{'phaseDecision':{'manualOperationMode':'upgrade'}},'qualifiedPreimages':m.QUALIFIED_PREIMAGES}}
@@ -155,7 +174,17 @@ class UpgradeFixtures(unittest.TestCase):
         with patch.object(m,'local_guard',side_effect=[(contract,status),m.Stop()]),patch.object(m.subprocess,'Popen') as popen:
             with self.assertRaises(m.Stop):m.remote_step(args,runner,'mkdir-stage')
             popen.assert_not_called()
-        marker=runner.manual_operation_record(directory,args.binding,status['fenceSha256']);self.assertEqual(marker['state'],'UNCERTAIN')
+        marker=runner.manual_operation_record(directory,args.binding,status['fenceSha256']);self.assertEqual(marker['state'],'COMPLETE')
+
+    def test_popen_attempt_failure_stays_uncertain(self):
+        runner=m.load_runner();directory=Path(self.temp.name).resolve()/'control';directory.mkdir()
+        args=SimpleNamespace(control_directory=directory,binding='1'*64,operation='stage')
+        contract={'spec':{'qualifications':{'phaseDecision':{'manualOperationMode':'upgrade'}},'qualifiedPreimages':m.QUALIFIED_PREIMAGES}}
+        status={'fenceSha256':'2'*64}
+        with patch.object(m,'local_guard',return_value=(contract,status)),patch.object(m.subprocess,'Popen',side_effect=OSError('private suppressed')) as popen:
+            with self.assertRaises(m.Stop):m.remote_step(args,runner,'mkdir-stage')
+            self.assertEqual(popen.call_count,1)
+        self.assertEqual(runner.manual_operation_record(directory,args.binding,status['fenceSha256'])['state'],'UNCERTAIN')
 
     def test_actual_remote_ack_complete_precedes_closing_postguard(self):
         runner=m.load_runner();directory=Path(self.temp.name).resolve()/'control';directory.mkdir()
@@ -219,6 +248,46 @@ class UpgradeFixtures(unittest.TestCase):
                 approval=saved;contract=approval['contract'];spec=contract['spec'];phase=spec['qualifications']['phaseDecision'];status=saved_status
                 path.write_bytes(m.canonical(approval));args.approval_sha256=m.digest(path);args.binding=hashlib.sha256(runner.canonical(contract)).hexdigest()
                 runner.atomic(control,'READY.json',dict(status,state='READY'));runner.atomic(control,'STATUS.json',status)
+
+            # The clear was fresh at initial READY, while a later own HEALTHY
+            # operation can safely occur >300s later inside unchanged deadline.
+            clear=spec['qualifications']['recovery']['priorInstallProviderClear']
+            clear['observedUnix']=time.time()-400
+            initial=time.time()-399
+            ready=dict(status,state='READY',updatedUnix=initial)
+            def seal():
+                path.write_bytes(m.canonical(approval));args.approval_sha256=m.digest(path)
+                args.binding=hashlib.sha256(runner.canonical(contract)).hexdigest()
+                status['bindingSha256']=args.binding;ready['bindingSha256']=args.binding
+                runner.atomic(control,'READY.json',ready);runner.atomic(control,'STATUS.json',status)
+            seal();self.assertEqual(m.local_guard(args,runner)[0],contract)
+            for observed in (initial-300,initial+1,float('inf')):
+                clear['observedUnix']=observed
+                if observed==float('inf'):
+                    with self.assertRaises(ValueError):m.canonical(approval)
+                else:
+                    seal()
+                    with self.assertRaises((m.Stop,runner.Stop)):m.local_guard(args,runner)
+            clear['observedUnix']=initial-1
+            # Resume needs an exact PUBLISHED initial preimage and explicit
+            # retirement evidence; expiry never becomes released=true.
+            phase['manualOperationMode']='upgrade-resume';args.operation='publish-pointer'
+            spec['qualifiedPreimages']=m.RESUME_PREIMAGES;recovery=spec['qualifications']['recovery'];recovery['qualifiedPreimages']=m.RESUME_PREIMAGES
+            clear.update(retirement='RETIRED_BY_EXPIRY',released=False,expired=True,guard2NotDispatched=True,priorClaimId='12345678-1234-4234-8234-123456789abc',priorBindingSha256='3'*64,expiresUnix=initial-2,qualifiedPreimages=m.RESUME_PREIMAGES)
+            seal();self.assertEqual(m.local_guard(args,runner)[0],contract)
+            for field,bad in [('released',True),('expired',False),('guard2NotDispatched',False),('expiresUnix',initial),('priorClaimId','not-uuid'),('priorBindingSha256','bad'),('retirement','UNKNOWN'),('qualifiedPreimages',m.QUALIFIED_PREIMAGES)]:
+                old=clear[field];clear[field]=bad;seal()
+                with self.assertRaises((m.Stop,runner.Stop)):m.local_guard(args,runner)
+                clear[field]=old
+            for operation in ('stage','extract','publish-release','restore-pointer'):
+                args.operation=operation;seal()
+                with self.assertRaises((m.Stop,runner.Stop)):m.local_guard(args,runner)
+            args.operation='publish-pointer'
+            for preimages in (m.QUALIFIED_PREIMAGES,m.preimage_for('PREPARED',m.OLD_BINDINGS['pointer']),m.RECOVERY_PREIMAGES):
+                spec['qualifiedPreimages']=preimages;recovery['qualifiedPreimages']=preimages;seal()
+                with self.assertRaises((m.Stop,runner.Stop)):m.local_guard(args,runner)
+            spec['qualifiedPreimages']=m.RESUME_PREIMAGES;recovery['qualifiedPreimages']=m.RESUME_PREIMAGES
+            clear.update(retirement='RELEASED',released=True);seal();self.assertEqual(m.local_guard(args,runner)[0],contract)
 
     def test_default_dormant_and_compile_without_capability(self):
         for path in (HERE/'manual_runtime_operations.py',Path(__file__)):compile(path.read_bytes(),str(path),'exec')

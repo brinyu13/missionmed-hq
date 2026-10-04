@@ -21,7 +21,7 @@ import uuid
 sys.dont_write_bytecode = True
 HERE = Path(__file__).resolve().parent
 RUNNER_SHA = '4aab4b5b37625134572cd231ac326cc6d8b95eb2aee94e70175cf92a48185dc3'
-PLAN_SHA = '8920d9a21fb5cebf61ef2b995b3995e42400c5d3b48ef9890b9103fd122d7f0f'
+PLAN_SHA = '80e86a5e2413a21cecf2ce75ed165dea7268824949a5a2b49a2ee5102291288b'
 SOURCE = '8717ebd04ad1cd60e66ef197b55080d58492e2be'
 PACKAGE = Path('/private/tmp/ir-phase1-renderfix-20261004')
 WEBROOT = '/www/theresidencyacademy_209/public'
@@ -99,13 +99,25 @@ def local_guard(args, runner):
     for record in (qualification,recovery):
         runner.report_record(record,role='install_artifact');check(record['independentReviewer'] not in (BUILDER,runner.OWNER))
     check(qualification.get('manualOperationsSha256')==digest(Path(__file__)) and qualification.get('installPlanSha256')==PLAN_SHA)
-    mode=qualification.get('manualOperationMode');check(mode in ('upgrade','upgrade-recovery'))
+    mode=qualification.get('manualOperationMode');check(mode in ('upgrade','upgrade-resume','upgrade-recovery'))
     check(recovery.get('oldRuntimeBindings')==OLD_BINDINGS and recovery.get('upgradeRuntimeBindings')==BINDINGS and recovery.get('qualifiedPreimages')==spec['qualifiedPreimages'])
     if mode=='upgrade':check(spec['qualifiedPreimages']==QUALIFIED_PREIMAGES and args.operation!='restore-pointer')
+    elif mode=='upgrade-resume':check(spec['qualifiedPreimages']==RESUME_PREIMAGES and args.operation in ('publish-pointer','readback','refresh-ir-html','refresh-home-html'))
     else:check(spec['qualifiedPreimages'] in (RECOVERY_PREIMAGES,INTERRUPTED_PREIMAGES) and args.operation in ('restore-pointer','readback','refresh-ir-html','refresh-home-html'))
     clear=recovery.get('priorInstallProviderClear',{});runner.report_record(clear,role='install_artifact');observed=clear.get('observedUnix')
-    check(clear['independentReviewer'] not in (BUILDER,runner.OWNER) and clear.get('phase')=='install' and clear.get('released') is True and type(clear.get('activeIR')) is int and clear['activeIR']==0 and type(clear.get('pendingIR')) is int and clear['pendingIR']==0 and type(observed) in (int,float) and math.isfinite(observed) and 0<=time.time()-observed<300)
     status=runner.check_install_guard(args.control_directory,args.binding,contract);ready=runner.read_json(args.control_directory/'READY.json');now=time.time()
+    admitted=ready.get('updatedUnix')
+    check(clear['independentReviewer'] not in (BUILDER,runner.OWNER) and clear.get('phase')=='install' and type(clear.get('activeIR')) is int and clear['activeIR']==0 and type(clear.get('pendingIR')) is int and clear['pendingIR']==0)
+    # Independent pre-acquisition clear stays bound to immutable initial READY;
+    # current own HEALTHY source/fence/deadline supplies every later guard.
+    check(type(observed) in (int,float) and math.isfinite(observed) and type(admitted) in (int,float) and math.isfinite(admitted) and 0<observed<=admitted<=now and admitted<observed+300)
+    if mode=='upgrade-resume':
+        check(clear.get('qualifiedPreimages')==RESUME_PREIMAGES)
+        if clear.get('retirement')=='RELEASED':check(clear.get('released') is True)
+        else:
+            ended=clear.get('expiresUnix')
+            check(clear.get('retirement')=='RETIRED_BY_EXPIRY' and clear.get('released') is False and clear.get('expired') is True and clear.get('guard2NotDispatched') is True and type(clear.get('priorClaimId')) is str and runner.PUBLIC_UUID.fullmatch(clear['priorClaimId']) and SHA.fullmatch(clear.get('priorBindingSha256','')) and type(ended) in (int,float) and math.isfinite(ended) and 0<ended<=observed and ended<admitted)
+    else:check(clear.get('released') is True)
     check(status.get('phase')=='install' and ready.get('phase')=='install' and ready.get('bindingSha256')==args.binding and ready.get('sourceHead')==contract['sourceHead'] and SHA.fullmatch(status.get('fenceSha256','')) is not None and status['fenceSha256']==ready.get('fenceSha256'))
     check(type(status.get('deadlineUnix')) in (int,float) and math.isfinite(status['deadlineUnix']) and status['deadlineUnix']==ready.get('deadlineUnix') and status['deadlineUnix']-now>=runner.MANUAL_DISPATCH_MARGIN and datetime.fromisoformat(status['expiresAt'].replace('Z','+00:00')).timestamp()-now>=runner.MANUAL_SERVER_MARGIN)
     return contract,status
@@ -163,6 +175,7 @@ def preimage_for(layout_name,pointer_sha):
         'sha256':LAYOUT_DIGESTS[layout_name]},RUNTIME+'/current':pointer_sha}
 
 QUALIFIED_PREIMAGES=preimage_for('OLD',OLD_BINDINGS['pointer'])
+RESUME_PREIMAGES=preimage_for('PUBLISHED',OLD_BINDINGS['pointer'])
 RECOVERY_PREIMAGES=preimage_for('UPGRADED',BINDINGS['pointer'])
 INTERRUPTED_PREIMAGES=preimage_for('EXCHANGED',BINDINGS['pointer'])
 CACHE_VENDOR={'wp-content/mu-plugins/kinsta-mu-plugins.php':'fac0c7361bdc6c02e150b60aaf02c82044141ef1276afbfd73684d37f8491e13',
@@ -271,7 +284,8 @@ def cache_refresh():
         return {'status':response.status,'bytes':len(value),'responseSha256':sha(value)}
 
 def main():
-    require(MODE in ('upgrade','upgrade-recovery'));shared_check()
+    require(MODE in ('upgrade','upgrade-resume','upgrade-recovery'));shared_check()
+    if MODE=='upgrade-resume':require(OP in ('prepare-pointer','publish-pointer','readback','refresh-ir-html','refresh-home-html'))
     receipt={};after=None
     if OP=='mkdir-stage':
         require(MODE=='upgrade');layout_check('OLD');stage.mkdir(mode=0o700);after='STAGE'
@@ -289,9 +303,9 @@ def main():
     elif OP=='publish-release':
         require(MODE=='upgrade');layout_check('PAYLOAD');renameat2(payload/RUNTIME/'releases'/HTML,release,1);after='PUBLISHED'
     elif OP=='prepare-pointer':
-        require(MODE=='upgrade');layout_check('PUBLISHED');temporary.symlink_to(POINTER);after='PREPARED'
+        require(MODE in ('upgrade','upgrade-resume'));layout_check('PUBLISHED');temporary.symlink_to(POINTER);after='PREPARED'
     elif OP=='publish-pointer':
-        require(MODE=='upgrade');layout_check('PREPARED');renameat2(temporary,current,2);layout_check('EXCHANGED')
+        require(MODE in ('upgrade','upgrade-resume'));layout_check('PREPARED');renameat2(temporary,current,2);layout_check('EXCHANGED')
         renameat2(temporary,backup,1);after='UPGRADED'
     elif OP=='restore-pointer':
         require(MODE=='upgrade-recovery' and RECOVERY_LAYOUT in ('UPGRADED','EXCHANGED'));layout_check(RECOVERY_LAYOUT)
@@ -300,11 +314,11 @@ def main():
         if RECOVERY_LAYOUT=='EXCHANGED':layout_check('RESTORE_TEMP');renameat2(temporary,backup,1)
         after='RESTORED'
     elif OP=='readback':
-        after=find_layout(('OLD','UPGRADED') if MODE=='upgrade' else (RECOVERY_LAYOUT,'RESTORED'))
-        active=OLD_BINDINGS if after in ('OLD','RESTORED') else BINDINGS
+        after=find_layout(('OLD','UPGRADED') if MODE=='upgrade' else ('PUBLISHED','UPGRADED') if MODE=='upgrade-resume' else (RECOVERY_LAYOUT,'RESTORED'))
+        active=OLD_BINDINGS if after in ('OLD','PUBLISHED','RESTORED') else BINDINGS
         receipt['runtimeBindings']=active
     elif OP in CACHE_FORMS:
-        after='UPGRADED' if MODE=='upgrade' else 'RESTORED';layout_check(after);receipt['cacheReceipt']=cache_refresh()
+        after='UPGRADED' if MODE in ('upgrade','upgrade-resume') else 'RESTORED';layout_check(after);receipt['cacheReceipt']=cache_refresh()
     else:require(False)
     measured=layout_check(after);shared_check()
     value={'operation':OP,'sharedChecked':15,'result':'PASS','layoutSha256':measured};value.update(receipt)
@@ -394,7 +408,7 @@ def remote_step(args, runner, operation):
         check(len(archive)==ARCHIVE_BYTES and hashlib.sha256(archive).hexdigest()==BINDINGS['package'])
         constants['ARCHIVE_DATA']=base64.b64encode(archive).decode('ascii')
     code='\n'.join(name+' = '+repr(value) for name,value in constants.items())+'\n'+REMOTE_SOURCE
-    child=None;record=None;completed=False
+    child=None;record=None;completed=False;dispatched=False
     try:
         record=begin_marker(args,runner,status,operation)
         # Guard2 follows exclusive ACTIVE publication and precedes ANY SSH.
@@ -403,6 +417,8 @@ def remote_step(args, runner, operation):
         check(runner.manual_operation_record(args.control_directory,args.binding,record['fenceSha256'])==record)
         remaining=record['deadlineUnix']-time.time()
         check(0<remaining<=10)
+        # Crossing the Popen attempt is the conservative dispatch boundary.
+        dispatched=True
         child=subprocess.Popen(['ssh','-T','-o','BatchMode=yes','-o','StrictHostKeyChecking=yes',
             '-o','ConnectTimeout=8','missionmed-kinsta','python3','-'],
             stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL)
@@ -411,12 +427,12 @@ def remote_step(args, runner, operation):
         output,_=child.communicate(code.encode(),timeout=remaining)
         check(child.returncode==0 and len(output)<=4096)
         value=json.loads(output)
-        after={'mkdir-stage':('STAGE',),'transfer':('ARCHIVE',),'extract':('PAYLOAD',),'lint':('PAYLOAD',),'publish-release':('PUBLISHED',),'prepare-pointer':('PREPARED',),'publish-pointer':('UPGRADED',),'restore-pointer':('RESTORED',),'readback':('OLD','UPGRADED') if constants['MODE']=='upgrade' else (constants['RECOVERY_LAYOUT'],'RESTORED'),'refresh-ir-html':('UPGRADED',) if constants['MODE']=='upgrade' else ('RESTORED',),'refresh-home-html':('UPGRADED',) if constants['MODE']=='upgrade' else ('RESTORED',)}[operation]
+        after={'mkdir-stage':('STAGE',),'transfer':('ARCHIVE',),'extract':('PAYLOAD',),'lint':('PAYLOAD',),'publish-release':('PUBLISHED',),'prepare-pointer':('PREPARED',),'publish-pointer':('UPGRADED',),'restore-pointer':('RESTORED',),'readback':('OLD','UPGRADED') if constants['MODE']=='upgrade' else ('PUBLISHED','UPGRADED') if constants['MODE']=='upgrade-resume' else (constants['RECOVERY_LAYOUT'],'RESTORED'),'refresh-ir-html':('UPGRADED',) if constants['MODE'] in ('upgrade','upgrade-resume') else ('RESTORED',),'refresh-home-html':('UPGRADED',) if constants['MODE'] in ('upgrade','upgrade-resume') else ('RESTORED',)}[operation]
         check(value.get('layoutSha256') in {LAYOUT_DIGESTS[name] for name in after})
         expected={'operation':operation,'sharedChecked':15,'result':'PASS','layoutSha256':value['layoutSha256']}
         if operation=='readback':
             measured=value.get('runtimeBindings');check(measured in (OLD_BINDINGS,BINDINGS))
-            layout=value['layoutSha256'];check(measured==(OLD_BINDINGS if layout in (LAYOUT_DIGESTS['OLD'],LAYOUT_DIGESTS['RESTORED']) else BINDINGS));expected['runtimeBindings']=measured
+            layout=value['layoutSha256'];check(measured==(OLD_BINDINGS if layout in (LAYOUT_DIGESTS['OLD'],LAYOUT_DIGESTS['PUBLISHED'],LAYOUT_DIGESTS['RESTORED']) else BINDINGS));expected['runtimeBindings']=measured
         if operation in CACHE_FORMS:
             receipt=value.get('cacheReceipt');check(type(receipt) is dict and set(receipt)=={'status','bytes','responseSha256'} and type(receipt['status']) is int and 200<=receipt['status']<300 and type(receipt['bytes']) is int and 0<=receipt['bytes']<=65536 and SHA.fullmatch(receipt['responseSha256']))
             expected['cacheReceipt']=receipt
@@ -429,13 +445,14 @@ def remote_step(args, runner, operation):
         return value
     except BaseException:
         if record is not None and not completed:
-            try:transition_marker(args,runner,record,'UNCERTAIN')
+            try:transition_marker(args,runner,record,'UNCERTAIN' if dispatched else 'COMPLETE')
             except BaseException:pass  # Invalid/unwritable ACTIVE remains a release-defer condition.
         if child is not None and child.poll() is None:
             try:
                 child.kill();child.wait(timeout=2)
             except BaseException:pass
-        # SSH kill/timeout/invalid output never supplies completion evidence.
+        # A pre-Popen cancellation proves nondispatch; an attempted SSH, including
+        # Popen failure/kill/timeout/invalid output, never proves completion.
         # A COMPLETE marker stays COMPLETE if only the postguard closes.
         raise Stop() from None
 
