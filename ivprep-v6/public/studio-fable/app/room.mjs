@@ -8,6 +8,7 @@ import { awaitVisibleCamera } from './adapters/media-readiness.mjs';
 import {mountDeviceControls,deviceControlsMarkup} from './adapters/device-controls.mjs';
 import {bindPrimaryRecovery} from './adapters/engine-adapter.mjs';
 import {saveOwnVisibility} from './adapters/own-presentation.mjs';
+import {overlayLayers,liveOverlayVisibility} from './adapters/overlay-view-model.mjs';
 import { NativeInterviewObserver } from './brain/native-observer.mjs';
 import { substantiveQuestionPlan } from '../../capabilities/interview-progression.mjs';
 import { leftRailMarkup, rightRailMarkup, RailsController } from './instruments/rails.mjs';
@@ -17,7 +18,9 @@ import { deriveDebrief, hookLedger, closingLedger } from './model/teaching.mjs';
 const esc = s => String(s ?? '').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmt = s => String(Math.floor(s/60)).padStart(2,'0')+':'+String(Math.floor(s%60)).padStart(2,'0');
 export async function mountRoom(main,{session,isCurrent=()=>true}) {
-  const {questions}=await loadQuestions(); if(!isCurrent())return ()=>{};
+  const account=controller.account,durable=controller.durable,subject=account?.subject;
+  const scopeCurrent=()=>isCurrent()&&controller.account===account&&controller.durable===durable&&controller.account?.subject===subject;
+  const {questions}=await loadQuestions({account}); if(!scopeCurrent())return ()=>{};
   const mode=session.mode==='mock'?'mock':'practice';
   const practiceQ=questions.find(q=>q.question_id===session.questionId)||questions[0];
   const plan=substantiveQuestionPlan(mode==='mock'?(session.mockSet||questions.filter(q=>q.core_priority).slice(0,5)):[practiceQ]);
@@ -25,6 +28,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   const cfg=session.config||{},settings=session.settings||defaultSettings();
   let density=mode==='mock'&&!state.preferences?.densityPersisted?'interview':(state.preferences?.density||'coached');
   let overlaysVisible=state.preferences?.overlaysVisible===true;
+  let layers=overlayLayers(state.preferences?.overlayLayers);
   let disposed=false,starting=false,started=false,saving=false,finished=false,engine=null,interviewer=null,saveRecord=null,deviceSwitching=false;
   main.innerHTML = `
   <div class="room" id="room" data-density="${density}" data-mode="${mode}">
@@ -51,7 +55,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
         <span class="tag" id="stage-tag"><i></i>You</span>
         <div class="captions" id="captions" hidden><span></span></div>
         <div class="controls" id="controls">
-          <button class="ctl-icon" type="button" id="guides" aria-pressed="${overlaysVisible}" title="Framing guide">⌖</button>
+          <button class="ctl-icon" type="button" id="guides" aria-pressed="${overlaysVisible}" aria-label="Show tracking overlays" title="Show tracking overlays">⌖</button>
           <button class="btn btn-primary" type="button" id="primary-action">Start answer</button>
           <button class="btn btn-quiet" type="button" id="end">Finish &amp; save</button>
         </div>
@@ -68,7 +72,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       <div class="under-stage" id="under-stage"><span id="engine-label">Nothing is measured yet.</span><button class="transcript-toggle" type="button" id="transcript-toggle" aria-expanded="false">Transcript</button></div>
       <div class="note" id="primary-recovery" role="status" aria-live="polite" hidden><span data-primary-status></span> <button class="btn btn-quiet" type="button" data-reselect-primary>Lock to me</button></div>
       <p class="note" id="room-preference-note" role="status" hidden></p>
-      <details class="expert"><summary>Display options</summary><button class="btn btn-quiet" type="button" id="reset-density">Use default analytics view</button></details>
+      <details class="expert"><summary>Display options</summary><button class="btn btn-quiet" type="button" id="reset-density">Use default analytics view</button><p class="note">Choose overlay layers below. Use the tracking-overlays button on your video to show or hide them. Measurement continues while overlays are hidden.</p><div class="review-actions" id="overlay-layers" role="group" aria-label="Tracking overlay layers">${[['face','Face'],['bodyHands','Body / hands'],['position','Framing']].map(([key,label])=>'<button class="btn btn-quiet" type="button" data-overlay-layer="'+key+'" aria-pressed="'+layers[key]+'">'+label+'</button>').join('')}</div></details>
     <div class="transcript" id="transcript" hidden></div>
     ${deviceControlsMarkup()}
 
@@ -81,10 +85,18 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   const recorder=new LiveRecorder($('recorder'),{window:'1M'}),history=new TraceHistory(),events=[],turns=[];let captions=[];
   let timer=null,idleTimer=null,roomFault=null,lastCueId=null,disposeDevices=null,disposePrimary=null;
   const counts={smiles:0,nods:0,gestures:0};
-  const current=()=>!disposed&&isCurrent();
+  const current=()=>!disposed&&scopeCurrent();
+  function applyOverlays(){
+    if(!current())return;
+    $('guides').setAttribute('aria-pressed',String(overlaysVisible));
+    $('stage').dataset.guides=String(overlaysVisible&&layers.position);
+    $('overlay-layers').querySelectorAll('[data-overlay-layer]').forEach(button=>button.setAttribute('aria-pressed',String(layers[button.dataset.overlayLayer])));
+    engine?.setOverlayVisibility(liveOverlayVisibility({overlaysVisible,overlayLayers:layers}));
+  }
   function saveVisibility(patch){
+    if(!current())return;
     $('room-preference-note').hidden=false;$('room-preference-note').textContent='Saving display preference…';
-    Promise.resolve().then(()=>saveOwnVisibility(controller,patch,{isCurrent:current})).then(saved=>{if(current()&&saved){state.preferences.densityPersisted=saved.densityPersisted===true;commit();$('room-preference-note').textContent='Display preference saved to your account.';}}).catch(()=>{
+    Promise.resolve().then(()=>current()?saveOwnVisibility(controller,patch,{isCurrent:current}):null).then(saved=>{if(current()&&saved){state.preferences.densityPersisted=saved.densityPersisted===true;commit();$('room-preference-note').textContent='Display preference saved to your account.';}}).catch(()=>{
       if(!current())return;$('room-preference-note').hidden=false;$('room-preference-note').textContent='Your display changed, but the account preference could not be saved. Try the control again.';
     });
   }
@@ -121,7 +133,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     $('plan').innerHTML='<span class="seg">'+snap.plan.map(q=>'<span class="pip '+(q.status==='ASKED'?'asked':q.status==='CURRENT'?'current':'')+'" title="Q'+q.n+' · '+esc(q.text)+'"></span>').join('')+'<span class="pip closing '+(snap.closing.reached?'asked':'')+'" title="Your questions"></span></span><span class="label"><b>'+phase+'</b></span>';
   }
   async function connect(){
-    if(starting||started||disposed||deviceSwitching)return;starting=true;$('connect-real').disabled=true;
+    if(!current()||starting||started||deviceSwitching)return;starting=true;$('connect-real').disabled=true;
     $('enter-note').textContent='Connecting your camera and microphone…';
     try{
       controller.mountVideo($('stage'),$('overlay'));
@@ -135,7 +147,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       if(!current()){disposeDevices?.();return;}
       $('stage').dataset.previewReady='true';
       $('start-session').disabled=false;$('enter-note').textContent='Preview visible · microphone connected. Nothing is recorded until you start.';
-      $('connect-real').textContent='Check preview again';engine.setOverlayVisibility({face:overlaysVisible,hands:overlaysVisible,body:overlaysVisible,position:overlaysVisible});
+      $('connect-real').textContent='Check preview again';applyOverlays();
     }catch(error){if(current()){$('enter-note').textContent=error.message;$('start-session').disabled=true;}}
     finally{starting=false;if(current()){$('connect-real').disabled=false;main.querySelectorAll('[data-device-kind]').forEach(select=>{select.disabled=controller.phase!=='READY'||!select.options.length;});}}
   }
@@ -153,7 +165,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   const onState=e=>{if(!started||saving||disposed)return;const d=e.detail||{};if(['partial','recovering','unavailable'].includes(d.state)){roomFault={message:d.subsystem==='audio'?'Check microphone':'Check camera',detail:d.message||''};mark('gap',d.subsystem||'Signal unavailable');}else if(['recovered','running'].includes(d.state))roomFault=null;};
   const onWord=e=>{if(current()&&e.detail?.state==='unavailable')$('pace-basis').textContent='Timed-word pace unavailable';};
   async function start(){
-    if(starting||started||disposed||deviceSwitching)return;starting=true;$('start-session').disabled=true;$('connect-real').disabled=true;
+    if(!current()||starting||started||deviceSwitching)return;starting=true;$('start-session').disabled=true;$('connect-real').disabled=true;
     main.querySelectorAll('[data-device-kind]').forEach(select=>{select.disabled=true;});
     $('enter-note').textContent='Preparing your private recording…';
     try{
@@ -196,9 +208,10 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     sheet.querySelector('#leave').onclick=()=>{sheet.remove();if(!closingReached)observer.requestEnd('leave');void finishSession('finished');};
     sheet.onkeydown=e=>{if(e.key==='Escape'){sheet.remove();return;}if(e.key!=='Tab')return;const b=[...sheet.querySelectorAll('button')],first=b[0],last=b.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}};
   }
-  room.querySelector('.density').addEventListener('click',e=>{const b=e.target.closest('[data-density]');if(!b)return;density=b.dataset.density;room.dataset.density=density;room.querySelectorAll('[data-density]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));state.preferences.density=density;commit();saveVisibility({density});});
-  $('reset-density').addEventListener('click',()=>{density=mode==='mock'?'interview':'coached';room.dataset.density=density;room.querySelectorAll('.density [data-density]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.density===density)));state.preferences.density='coached';state.preferences.densityPersisted=false;commit();saveVisibility({density:'default'});});
-  $('guides').addEventListener('click',e=>{const on=e.currentTarget.getAttribute('aria-pressed')!=='true';overlaysVisible=on;e.currentTarget.setAttribute('aria-pressed',String(on));$('stage').dataset.guides=String(on);engine?.setOverlayVisibility({face:on,hands:on,body:on,position:on});state.preferences.overlaysVisible=on;commit();saveVisibility({overlaysVisible:on});});
+  room.querySelector('.density').addEventListener('click',e=>{if(!current())return;const b=e.target.closest('[data-density]');if(!b)return;density=b.dataset.density;room.dataset.density=density;room.querySelectorAll('[data-density]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));state.preferences.density=density;commit();saveVisibility({density});});
+  $('reset-density').addEventListener('click',()=>{if(!current())return;density=mode==='mock'?'interview':'coached';room.dataset.density=density;room.querySelectorAll('.density [data-density]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.density===density)));state.preferences.density='coached';state.preferences.densityPersisted=false;commit();saveVisibility({density:'default'});});
+  $('guides').addEventListener('click',()=>{if(!current())return;overlaysVisible=!overlaysVisible;applyOverlays();state.preferences.overlaysVisible=overlaysVisible;commit();saveVisibility({overlaysVisible});});
+  $('overlay-layers').addEventListener('click',event=>{if(!current())return;const button=event.target.closest('[data-overlay-layer]');if(!button)return;const key=button.dataset.overlayLayer;if(!Object.hasOwn(layers,key))return;layers={...layers,[key]:!layers[key]};applyOverlays();state.preferences.overlayLayers=layers;commit();saveVisibility({overlayLayers:{[key]:layers[key]}});});
   $('transcript-toggle').addEventListener('click',e=>{$('transcript').hidden=!$('transcript').hidden;e.currentTarget.setAttribute('aria-expanded',String(!$('transcript').hidden));});
   function resetIdle(){if(disposed)return;$('stage').dataset.idle='false';clearTimeout(idleTimer);idleTimer=setTimeout(()=>{if(current())$('stage').dataset.idle='true';},4000);}
   $('stage').addEventListener('mousemove',resetIdle);$('stage').addEventListener('keydown',resetIdle);
@@ -218,6 +231,6 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     saveRecord={id:uid('att'),at:Date.now(),mode,fixture:false,engineMode:'real',transport:mode==='mock'?'gpt-live':'none',questionId:plan[0].question_id,questionText:plan[0].canonical_text,durationS:at(),samples,events,turns,conductor:snap,hooks:hookLedger(snap),closing:closingLedger(snap),debriefLane:debrief.change[0]?.lane||null,priorityLane:debrief.change[0]?.lane||null,priorityText:debrief.change[0]?.text||null,retryOf:session.retryOf||null,calibrationUsed:Boolean(engine.personalCalibration),program:session.program?{id:session.program.id,name:session.program.name,verified:session.program.verified}:null,endReason:reason,settings:{...settings}};
     try{const saved=await controller.finishSession({record:saveRecord});if(saved.saveError)showSaveFailure(saved.saveError);else showSaved(saved);}catch(error){showSaveFailure(error.message);}
   }
-  renderPlan();renderTranscript();
+  applyOverlays();renderPlan();renderTranscript();
   return ()=>{disposed=true;disposeDevices?.();disposePrimary?.();detach();recorder.destroy();document.querySelector('.sheet-backdrop')?.remove();if(!finished&&!controller.navigationLocked)void controller.release('route_change');};
 }

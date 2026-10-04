@@ -10,6 +10,7 @@ import { buildLiveTranscriptReview, renderLiveTranscriptReview } from '../../stu
 import { renderMeasurementTimeline } from '../../studio/flight-recorder-view.mjs';
 import { loadQuestions } from './questions.mjs';
 import { controller } from './controller/session-controller.mjs';
+import { replayOverlays } from './adapters/replay-overlays.mjs';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmt = (s) => Number.isFinite(s)?`${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`:'Unavailable';
@@ -111,24 +112,39 @@ export async function mountResults(main, id, {isCurrent=()=>true}={}) {
 }
 
 export async function mountFilm(main,id,params=new URLSearchParams(),{isCurrent=()=>true}={}) {
-  const a=await resolveAttempt(id,isCurrent);if(!isCurrent())return noop;
+  const account=controller.account,durable=controller.durable;
+  let disposed=false;
+  const current=()=>!disposed&&isCurrent()&&controller.account===account&&controller.durable===durable;
+  const a=await resolveAttempt(id,current);if(!current())return noop;
   if(!a){unavailable(main);return noop;}
   let url=null;
   if(a.recordingId)try{
-    const signed=await controller.playbackUrl(a,{isCurrent});if(!isCurrent())return noop;
+    const signed=await controller.playbackUrl(a,{isCurrent:current});if(!current())return noop;
     url=privatePlaybackUrl(signed,a.recordingId,main.ownerDocument.location.href);
-  }catch{if(!isCurrent())return noop;}
+  }catch{if(!current())return noop;}
   const d=deriveDebrief(a);
   main.innerHTML='<div class="screen-head"><div><div class="t-kick gold">Film Room · '+fmtDate(a.at)+'</div><h1 class="t-hero">Every claim is <em>evidence.</em></h1><p class="t-edit">'+esc(a.questionText)+'</p></div><div class="review-actions"><a class="btn btn-secondary" href="#/results/'+a.id+'">← Debrief</a><a class="btn btn-quiet" href="#/review">Your recordings</a></div></div><div class="film"><div><div class="stage" id="film-stage">'+(url?'<video id="playback" controls playsinline preload="metadata" src="'+esc(url)+'"></video>':'<div class="playback-unavailable"><h2 class="t-h3">Playback unavailable</h2><p>Your answer is retained. Reopen Film Room for a fresh private playback link.</p><a class="btn btn-secondary" href="#/review">Back to recordings</a></div>')+'</div><div class="recorder" id="film-recorder" data-mode="film"></div></div><aside class="film-side"><section class="housing moment"><div class="t-label">Moments</div><div class="evidence moments">'+([...d.worked,...d.allChange].filter(m=>validReplaySeek(m.at,a.durationS)!==null).map(m=>'<button type="button" data-seek="'+Math.max(0,m.at-2)+'" '+(url?'':'disabled')+'><span class="at">'+fmt(m.at)+'</span><span class="lane">'+esc(m.lane)+'</span><span>'+esc(m.text)+'</span></button>').join('')||'<p class="note">No bounded teaching moment was saved.</p>')+'</div></section><section class="housing moment"><div class="t-label">Conversation</div><div class="transcript" style="max-height:300px;grid-column:auto;margin-top:8px">'+transcriptMarkup(a,Boolean(url))+'</div><p class="note">≈ means text arrival, not a measured speech boundary. Replay is authoritative for what was actually heard.</p></section></aside></div>';
   renderProviderTranscript(main,a);
-  const video=main.querySelector('#playback'),host=main.querySelector('#film-recorder');let disposed=false;
+  const video=main.querySelector('#playback'),host=main.querySelector('#film-recorder');
+  let overlay=null;
+  if(video){
+    const panel=document.createElement('details');panel.className='expert replay-overlay-options';
+    panel.innerHTML='<summary>Video overlays</summary><p class="note">Optional landmarks are redrawn locally from this saved video, not the original live detector output. They never change your saved measurements. Eye gaze is not measured.</p><button type="button" class="btn btn-quiet" aria-pressed="false">Show replay overlays</button><p class="note" role="status">Overlays are off.</p>';
+    main.querySelector('#film-stage').after(panel);
+    const button=panel.querySelector('button'),status=panel.querySelector('[role="status"]');
+    overlay=replayOverlays({video,isCurrent:current,onStatus:value=>{
+      if(!current())return;
+      status.textContent={off:'Overlays are off.',loading:'Loading local video overlays…',ready:'Play your recording to redraw supported face and body/hand landmarks.',drawn:'Overlay drawn from saved video. Use Face and Body / Hands to choose layers.',unavailable:'Replay overlays are unavailable. Your recording and saved Analytics are unchanged.'}[value];
+    }});
+    button.onclick=async()=>{if(!current())return;button.disabled=true;const enabled=await overlay.setEnabled(button.getAttribute('aria-pressed')!=='true');if(current()){button.setAttribute('aria-pressed',String(enabled));button.textContent=enabled?'Hide replay overlays':'Show replay overlays';button.disabled=false;}};
+  }
   if(a.hooks.length){
     const section=document.createElement('section');section.className='housing moment';
     section.innerHTML='<div class="t-label">Referenced hooks</div>'+a.hooks.map(h=>'<q>'+esc(h.span)+'</q>'+(h.replay?'<button type="button" class="btn btn-quiet" data-seek="'+Math.max(0,h.replay.at-2)+'" '+(video?'':'disabled')+'>≈ '+fmt(h.replay.at)+' · replay referenced text</button>':'<p class="note">Exact replay reference unavailable</p>')).join('')+'<p class="note">Text receipt timing is approximate. References are not proof of semantic answer boundaries or audible follow-up.</p>';
     main.querySelector('.film-side')?.append(section);
   }
   if(a.traceDecimated){const note=document.createElement('p');note.className='note';note.textContent='Flight Recorder is sampled for durable storage. Not every measured instant is retained; the full recording is unchanged.';host.before(note);}
-  const seek=value=>{const t=validReplaySeek(value,a.durationS);if(!disposed&&isCurrent()&&video&&t!==null)video.currentTime=t;};
+  const seek=value=>{const t=validReplaySeek(value,a.durationS);if(current()&&video&&t!==null)video.currentTime=t;};
   let lanes=null;
   if(a.samples.length)lanes=renderFilmLanes(host,{samples:a.samples,events:a.events,durationS:a.durationS,onSeek:seek,playback:video,label:'Flight Recorder · replay'});
   else renderMeasurementTimeline(host,a.measurementTimeline,{playback:video});
@@ -137,6 +153,7 @@ export async function mountFilm(main,id,params=new URLSearchParams(),{isCurrent=
   const start=validReplaySeek(params.get('t'),a.durationS),loaded=()=>{if(start!==null)seek(start);};
   video?.addEventListener('loadedmetadata',loaded,{once:true});
   return ()=>{disposed=true;main.removeEventListener('click',click);lanes?.destroy?.();
+    overlay?.destroy();
     if(!lanes)renderMeasurementTimeline(host,null,{playback:null});
     if(video){video.removeEventListener('loadedmetadata',loaded);video.pause();video.removeAttribute('src');video.load();}
   };

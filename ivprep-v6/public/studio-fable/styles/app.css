@@ -159,6 +159,13 @@ details.customize[open] summary::after { content: '–'; }
 .expert table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12.5px; }
 .expert td { padding: 6px 4px; border-top: 1px solid #ffffff0c; color: var(--ink2); }
 .expert td:last-child { text-align: right; font-family: var(--font-num); }
+.replay-overlay-options { margin: 10px 0; }
+.ca-student-playback-stage { position: relative; width: 100%; height: 100%; }
+.ca-student-playback-stage video { display: block; width: 100%; height: 100%; object-fit: cover; }
+.ca-student-surface-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+.ca-student-overlay-controls { position: absolute; top: 10px; left: 10px; display: flex; gap: 8px; flex-wrap: wrap; z-index: 2; }
+.ca-student-overlay-controls button { background: #0b1222; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; color: var(--ink2); }
+.ca-student-overlay-controls button[aria-pressed="true"], #overlay-layers button[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
 .table-list { display: grid; gap: 6px; }
 .compare-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
 .delta { font: 700 14px/1 var(--font-num); letter-spacing: .04em; }

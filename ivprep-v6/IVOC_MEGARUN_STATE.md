@@ -193,8 +193,35 @@ the actual production route and deployment.
   display Unavailable rather than fabricated0:00. 22 affected own-scope/history/review
   tests PASS. No schema/auth/provider
   change, duplicate history store, private context receipt or invented measurement.
-- Next executable action: independent patch review, commit/read back, safe deployment
-  and actual filter/Progress/Advanced handoff checks. Then continue real conversation,
+- History source `9e417ba7ef456529e6bd9f7e46a94a4349c43096` deployed SUCCESS
+  `d0e23172-62fc-4f43-b5c3-088c6d2134da`, image
+  `sha256:b8bd71f791c655691aff0e56efb25ef97929f65706f17d2218b18a68a062a752`.
+  Health200, anonymous candidate/bootstrap401; exact filtered tracked artifact
+  `ivoc-release-artifact-R4zA9W/source.tar`, SHA256
+  `c773c67a31775ffff873dfcbc6f29e82113867be9703899c38536e16a83656ee`.
+  PRODUCT4453 and deployment4454 released normally/read back. Independent actual
+  production QA PASS: 24 Review reps (11 Practice/13 Mock), CORE-01 search17,
+  no-match recovery24; evidence honestly0 supported/0 transcript/24 pending.
+  Progress35:51 recorded time, four-question breadth, six validated evidence rows;
+  closing0/1 explicitly separates12 unverified Mock closings. Full Analytics ->
+  Advanced Lab10 instruments -> candidate return PASS; idle values stay unavailable.
+  Actual390px Review/Progress filters fit/no horizontal overflow. Foreman normal
+  Compare -> latest Results -> Retry retained CORE-01/mode/current settings PASS;
+  no capture/provider started. Positive canonical filters/live DI remain UNVERIFIED.
+- Current R037 correction gives independent Face, Body/Hands and Framing display
+  selection through the existing engine; master hiding does not stop measurement.
+  Layer preferences use serialized fresh account merges. Film Room optional overlays
+  reuse the existing ephemeral playback owner over signed private video: locally
+  redrawn landmarks, NOT persisted original geometry or replacement measurements.
+  Late import/cancellation and exact account/Durable binding are guarded. Source
+  implementation/testing is not yet live visual overlay acceptance. Independent
+  review found Room's queued preference save could capture a replaced account;
+  Room now pins mount account/Durable/subject before question loading and guards
+  deferred writes/handlers. Five actual-function race cases and all65 affected
+  media/review/preferences/overlay-owner tests PASS; independent correction15 PASS.
+- Next executable action: independently review overlay patch, focused tests,
+  safely deploy and verify visible replay layers/cleanup. Then continue comparison
+  selector/teaching preservation, real conversation,
   closing, real-role and 142-row live parity acceptance. No final root promotion or
   two-sided audible acceptance claimed. Genuine speech/hearing remains a precise
   physical-evidence gate under the current Fable integration directive, not a global

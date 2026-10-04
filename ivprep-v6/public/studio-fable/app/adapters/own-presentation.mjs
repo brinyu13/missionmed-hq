@@ -1,6 +1,7 @@
 // Fresh actor-scoped read/merge over the existing IVOC preferences contract.
 // Presentation never supplies a subject or recreates admission/mentor authority.
 const writes = new WeakMap();
+import {overlayLayers} from './overlay-view-model.mjs';
 const object = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 function owner(controller, isCurrent) {
   const account = controller.account;
@@ -19,6 +20,7 @@ export function presentationPreferences(value) {
   return { density: own.density === 'interview' || own.density === 'coached' ? own.density : value?.visibility?.analyticsVisible === false ? 'interview' : 'coached',
     densityPersisted: own.density === 'interview' || own.density === 'coached',
     overlaysVisible: own.overlaysVisible === true,
+    overlayLayers: overlayLayers(own.overlayLayers),
     favoriteQuestions: Array.isArray(own.favoriteQuestions) ? [...new Set(own.favoriteQuestions.filter(id => typeof id === 'string' && /^[A-Z0-9][A-Z0-9._:-]{0,119}$/.test(id)))].slice(0,256) : [] };
 }
 export async function readOwnPresentation(controller, {isCurrent = () => true} = {}) {
@@ -42,6 +44,8 @@ export function saveOwnVisibility(controller, patch, {isCurrent = () => true} = 
     const densityReset = patch.density === 'default';
     if (patch.density === 'coached' || patch.density === 'interview') next.density = patch.density;
     if (typeof patch.overlaysVisible === 'boolean') next.overlaysVisible = patch.overlaysVisible;
+    if (patch.overlayLayers && typeof patch.overlayLayers === 'object' && !Array.isArray(patch.overlayLayers))
+      next.overlayLayers = overlayLayers({...next.overlayLayers,...Object.fromEntries(Object.entries(patch.overlayLayers).filter(([key,value])=>['face','bodyHands','position'].includes(key)&&typeof value==='boolean'))});
     if (Array.isArray(patch.favoriteQuestions)) next.favoriteQuestions = presentationPreferences({visibility:{ivocFable:{favoriteQuestions:patch.favoriteQuestions}}}).favoriteQuestions;
     const visibility = object(fresh?.visibility);
     const ownVisibility = {...object(visibility.ivocFable),...next};

@@ -22,12 +22,21 @@ test('preference writes are serialized fresh merges and preserve other subsystem
   const {c,stored}=setup();await Promise.all([saveOwnVisibility(c,{density:'interview'}),saveOwnVisibility(c,{overlaysVisible:true}),saveOwnVisibility(c,{favoriteQuestions:['CORE-01','CORE-01','bad id']})]);
   assert.deepEqual(stored().calibration,{version:7});assert.equal(stored().visibility.otherOwnerField,'preserve');
   assert.equal(stored().coachingEnabled,false);assert.equal(stored().recordingDefault,false);
-  assert.deepEqual(presentationPreferences(stored()),{density:'interview',densityPersisted:true,overlaysVisible:true,favoriteQuestions:['CORE-01']});
+  assert.deepEqual(presentationPreferences(stored()),{density:'interview',densityPersisted:true,overlaysVisible:true,overlayLayers:{face:true,bodyHands:true,position:true},favoriteQuestions:['CORE-01']});
   assert.equal(Object.hasOwn(stored().visibility.ivocFable,'densityPersisted'),false);
 });
 test('mock defaults remain distinct until density is explicitly saved',()=>{
   assert.equal(presentationPreferences({visibility:{analyticsVisible:true}}).densityPersisted,false);
   assert.equal(presentationPreferences({visibility:{ivocFable:{density:'coached'}}}).densityPersisted,true);
+});
+test('overlay layer writes merge independently without resetting visibility or density',async()=>{
+  const {c,stored}=setup();await saveOwnVisibility(c,{overlaysVisible:true});
+  await Promise.all([saveOwnVisibility(c,{overlayLayers:{face:false}}),saveOwnVisibility(c,{overlayLayers:{bodyHands:false,unexpected:true}})]);
+  const result=presentationPreferences(stored());
+  assert.deepEqual(result.overlayLayers,{face:false,bodyHands:false,position:true});
+  assert.equal(result.overlaysVisible,true);assert.equal(result.densityPersisted,false);
+  assert.equal(stored().visibility.otherOwnerField,'preserve');
+  await saveOwnVisibility(c,{overlaysVisible:false});assert.deepEqual(presentationPreferences(stored()).overlayLayers,result.overlayLayers);
 });
 test('favorites and overlay writes cannot silently change the default mock density',async()=>{
   const {c,stored}=setup();await saveOwnVisibility(c,{favoriteQuestions:['CORE-01'],overlaysVisible:true});
