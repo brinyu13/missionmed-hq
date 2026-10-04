@@ -1,14 +1,73 @@
 """One fenced canonical registry transaction. Secrets remain in process memory."""
 from pathlib import Path
+from dataclasses import dataclass
 import argparse, datetime, hashlib, json, os, selectors, subprocess, sys, time
 sys.dont_write_bytecode=True
-ROOT=Path('/Users/brianb/MissionMed_worktrees/IR-PHASE1-REGISTRY-20261004')
+ROOT=Path('/Users/brianb/MissionMed_worktrees/IR-PHASE1-REGISTRY-20261004-R2')
 PRODUCT=Path('/Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002')
 HANDOFF=PRODUCT/'_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002'
-sys.path.insert(0,str(ROOT/'tools'))
-from mission_registry_registrar import MissionRegistryRegistrar, canonical_decision_numbers, refresh_canonical
-from engineering_os_lease import SupabaseLeaseClient
 MISSION='IR-INTERVIEW-READY-0002'
+INITIAL_SOURCE_NAMES=('lease_transport.py','register_phase1.py','run_authenticated_registration.py',
+    'PHASE1_INDEPENDENT_CONTRACT_REVIEW.md','PHASE1_REGISTRATION_REQUEST.md','MATRIX_LINEAGE_REVIEW.md')
+DOCUMENT_NAMES=INITIAL_SOURCE_NAMES[3:]
+ADMISSION_NAME='REGISTRY_ADMISSION_APPROVAL_R2.json'
+NORMAL_REVIEW_NAME='NORMAL_REGISTRY_ADMISSION_REVIEW_R2.md'
+CANDIDATE_NAME='REGISTRY_STAGED_CANDIDATE_R2.json'
+STAGED_APPROVAL_NAME='REGISTRY_STAGED_APPROVAL_R2.json'
+CUSTODY_NAME='REGISTRY_CUSTODY_RECEIPT_R2.json'
+EVIDENCE_NAMES=(*DOCUMENT_NAMES,NORMAL_REVIEW_NAME,ADMISSION_NAME)
+R2_ARTIFACT_NAMES=(ADMISSION_NAME,NORMAL_REVIEW_NAME,CANDIDATE_NAME,STAGED_APPROVAL_NAME,CUSTODY_NAME)
+
+@dataclass(frozen=True)
+class EvidenceSnapshot:
+    data: bytes
+    sha256: str
+    modified_ns: int
+
+    @property
+    def text(self): return self.data.decode('utf-8')
+
+def snapshot(p):
+    # Hash and copied text are always derived from this single opened-file read.
+    with p.open('rb') as source:
+        data=source.read()
+        modified_ns=os.fstat(source.fileno()).st_mtime_ns
+    return EvidenceSnapshot(data,hashlib.sha256(data).hexdigest(),modified_ns)
+
+def capture_evidence(here=None):
+    here=HANDOFF if here is None else here
+    return {name:snapshot(here/name) for name in EVIDENCE_NAMES}
+
+def assert_sources_current(expected,here=None):
+    here=HANDOFF if here is None else here
+    if set(expected)!=set(INITIAL_SOURCE_NAMES) or any(digest(here/name)!=value for name,value in expected.items()):
+        raise RuntimeError('initial source evidence changed')
+
+def assert_evidence_current(evidence,here=None):
+    here=HANDOFF if here is None else here
+    if set(evidence)!=set(EVIDENCE_NAMES) or any(digest(here/name)!=item.sha256 for name,item in evidence.items()):
+        raise RuntimeError('sealed admission evidence changed')
+
+def validate_evidence(evidence,expected_hashes,initial_sources):
+    if set(expected_hashes)!=set(EVIDENCE_NAMES) or {name:item.sha256 for name,item in evidence.items()}!=expected_hashes:
+        raise RuntimeError('immutable evidence digest mismatch')
+    if set(initial_sources)!=set(INITIAL_SOURCE_NAMES):
+        raise RuntimeError('initial source set mismatch')
+    if any(evidence[name].sha256!=initial_sources[name] for name in DOCUMENT_NAMES):
+        raise RuntimeError('initial document evidence mismatch')
+    admission=json.loads(evidence[ADMISSION_NAME].text)
+    if (admission.get('schema')!='missionmed.ir.registry.admission.r2.v1' or
+            admission.get('verdict')!='APPROVE' or
+            admission.get('reviewer')!='phase1_registration_contract_review' or
+            admission.get('sources')!=initial_sources or
+            admission.get('normalReviewSha256')!=evidence[NORMAL_REVIEW_NAME].sha256):
+        raise RuntimeError('independent admission evidence mismatch')
+    if 'APPROVE WITH CONDITIONS' not in evidence[DOCUMENT_NAMES[0]].text:
+        raise RuntimeError('prospective review unavailable')
+
+def copied_evidence(evidence):
+    return ''.join('\n\n## Sealed admission evidence: '+name+'\n\nSHA256 '+evidence[name].sha256+'\n\n'+evidence[name].text for name in EVIDENCE_NAMES)
+
 
 def run(argv,cwd=ROOT):
     p=subprocess.run(argv,cwd=cwd,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=90,text=True)
@@ -17,15 +76,24 @@ def run(argv,cwd=ROOT):
 
 def digest(p): return hashlib.sha256(p.read_bytes()).hexdigest()
 def write_json(p,d): p.write_text(json.dumps(d,indent=2)+'\n')
-def client():
+def client(lease_client_type):
     from lease_transport import existing_lease_client
-    return existing_lease_client(SupabaseLeaseClient)
+    return existing_lease_client(lease_client_type)
 
-def main():
+def main(*,expected_evidence_hashes=None,initial_sources=None,client_factory=None):
     parser=argparse.ArgumentParser();parser.add_argument('--execute',action='store_true');args=parser.parse_args()
     if not args.execute: print('No mutation. --execute requires independent prospective review; staged review remains mandatory.');return
-    review=HANDOFF/'PHASE1_INDEPENDENT_CONTRACT_REVIEW.md'
-    if not review.is_file() or 'APPROVE WITH CONDITIONS' not in review.read_text(): raise RuntimeError('prospective review unavailable')
+    if expected_evidence_hashes is None or initial_sources is None or client_factory is None:
+        raise RuntimeError('same-process sealed independent admission required')
+    expected_evidence_hashes=dict(expected_evidence_hashes);initial_sources=dict(initial_sources)
+    evidence=capture_evidence()
+    validate_evidence(evidence,expected_evidence_hashes,initial_sources)
+    assert_sources_current(initial_sources);assert_evidence_current(evidence)
+    if any((HANDOFF/name).exists() for name in (CANDIDATE_NAME,STAGED_APPROVAL_NAME,CUSTODY_NAME)):
+        raise RuntimeError('pre-existing R2 stage or custody artifact')
+    sys.path.insert(0,str(ROOT/'tools'))
+    from mission_registry_registrar import MissionRegistryRegistrar, canonical_decision_numbers, refresh_canonical
+    from engineering_os_lease import SupabaseLeaseClient
     refresh_canonical(ROOT)
     # These are prospective binding names, never reserved IDs. Allocation occurs
     # only after acquire; a remote advance causes release/retry, never rebinding.
@@ -34,13 +102,14 @@ def main():
     decisions=[f'decisions/{ids[0]}_ir_phase1_production_authority.md',f'decisions/{ids[1]}_ir_phase1_bounded_execution_annex.md']
     handoff='handoffs/from_codex/IR_INTERVIEW_READY_0002/REGISTRATION_TO_CODEX.md'
     paths=sorted(['CURRENT.md','missions.json','products_index.json','authority_index.json','registry/boot_dependency_manifest.json','PRODUCT_PASSPORTS/interview-ready.md',handoff,*decisions])
-    api=client();txn=None
+    assert_sources_current(initial_sources);assert_evidence_current(evidence)
+    api=client_factory(SupabaseLeaseClient);txn=None
     try:
+        assert_sources_current(initial_sources);assert_evidence_current(evidence)
         txn=MissionRegistryRegistrar(ROOT,api).begin(mission_id=MISSION,write_paths=paths,owner_id='codex-ir-phase1-foreman',session_id='ir-phase1-20261004-registration',decision_count=2,wait_timeout=60,heartbeat_interval=5)
         if list(txn.allocation.decision_ids)!=ids: raise RuntimeError('prospective path allocation changed; release and retry required')
         stamp=datetime.datetime.now(datetime.timezone.utc).isoformat()
-        packet=HANDOFF/'PHASE1_REGISTRATION_REQUEST.md'
-        body=packet.read_text().split('## Continuation and prospective exact execution contract')[1]+'''\n\nAdditional binding conditions: Named QA identities are exactly mm_ir_phase1_qa_a_20261004 and mm_ir_phase1_qa_b_20261004, no-course subscriber accounts with fictional .example addresses, private memory-only credentials, no mail, no enrollment grants; collision stops creation instead of modifying existing identity. Advisory lock failure or connection loss fails closed with no write, mandatory finally release, tested CAS/conflict/idempotency/recovery. Exact live host is SSH missionmed-kinsta, webroot /www/theresidencyacademy_209/public, no symlink outside dedicated release root. Qualified before/after shared origin/cache-busted public digests and actual renderer selections are binding, not inferred from old lock. Independent source/asset/media/recovery and final release approval must name exact staged and live bytes. Provider-clear after REGISTRY release must be read independently before product acquisition.\n''' 
+        body=evidence['PHASE1_REGISTRATION_REQUEST.md'].text.split('## Continuation and prospective exact execution contract',1)[1]+'''\n\nAdditional binding conditions: Named QA identities are exactly mm_ir_phase1_qa_a_20261004 and mm_ir_phase1_qa_b_20261004, no-course subscriber accounts with fictional .example addresses, private memory-only credentials, no mail, no enrollment grants; collision stops creation instead of modifying existing identity. Advisory lock failure or connection loss fails closed with no write, mandatory finally release, tested CAS/conflict/idempotency/recovery. Exact live host is SSH missionmed-kinsta, webroot /www/theresidencyacademy_209/public, no symlink outside dedicated release root. Qualified before/after shared origin/cache-busted public digests and actual renderer selections are binding, not inferred from old lock. Independent source/asset/media/recovery and final release approval must name exact staged and live bytes. Provider-clear after REGISTRY release must be read independently before product acquisition.\n'''
         header=lambda decision,scope: f'---\ndecision: {decision}\ndate: 2026-10-04\ndecider: Brian\nscope: {scope}\nevidence: Direct Founder Phase1 and continuation instructions; independently reviewed prospective contract.\nrollback: Exact isolated IR code/pointer preimage only; preserve private state, identities, all sibling runtime and existing leases.\nexpiry: Live verification closure, Founder revocation, or protected gate failure.\n---\n\n'
         authority=header(ids[0]+' Interview Ready Phase1 production authority','Existing accepted Interview Ready chassis through canonical free-account online-gear production release and live verification.')+f'''# Founder outcome and consent
 
@@ -52,8 +121,9 @@ Bounded exact implementation/storage/provider/Matrix guard contract: {decisions[
 
 Permanent exclusions: no production data deletion/reset/reseed/restore, payment/purchase/provider spend, new billing/API credentials, unrelated auth/entitlement/router edits, Matrix core edit/repoint/cache/lock rewrite, StJude branding/donation incentive or Phase2 launch. Account state rollback is code-only; never roll back or transfer user state. Synthetic QA is new isolated no-course accounts without messaging, private credential custody, retained identity/history.
 '''
-        annex=header(ids[1]+' Interview Ready bounded execution annex','Exact IR source/runtime, self-only WP metadata contract, dedicated-only discovery guard, leases and release operations.')+'# Contract'+body+f'\n\nGoverned by {ids[0]}. Source packet SHA256 {digest(packet)}. Independent prospective review SHA256 {digest(review)}. Exact shared lineage evidence is recorded in the registration handoff below; it does not approve existing shell drift. No broader exception exists.\n'
+        annex=header(ids[1]+' Interview Ready bounded execution annex','Exact IR source/runtime, self-only WP metadata contract, dedicated-only discovery guard, leases and release operations.')+'# Contract'+body+f'\n\nGoverned by {ids[0]}. Source packet SHA256 {evidence["PHASE1_REGISTRATION_REQUEST.md"].sha256}. Independent prospective review SHA256 {evidence["PHASE1_INDEPENDENT_CONTRACT_REVIEW.md"].sha256}. Exact shared lineage evidence is recorded in the registration handoff below; it does not approve existing shell drift. No broader exception exists.\n'+copied_evidence(evidence)
         def write_candidate():
+            assert_sources_current(initial_sources);assert_evidence_current(evidence)
             (ROOT/decisions[0]).write_text(authority);(ROOT/decisions[1]).write_text(annex)
             passport=ROOT/'PRODUCT_PASSPORTS/interview-ready.md';passport.write_text(f'''# MissionMed Interview Ready
 
@@ -72,19 +142,22 @@ Release gates: exact owner manifest and recovery, scoped healthy leases, indepen
             for i,path in enumerate(decisions): d['entries'].insert(i,{'id':f'IR_PHASE1_{ids[i].replace("-","_")}','title': ['Interview Ready Phase1 Founder production authority','Interview Ready bounded execution and dedicated-only guard contract'][i],'path':path,'level':1,'scope_tags':['interview_ready','wordpress_wrapper','auth_session','matrix_discovery','lease_v2','guarded_release'],'status':'ACTIVE_AFTER_CANONICAL_CUSTODY_INDEPENDENT_REVIEW_BOOT_AND_REGISTRY_RELEASE','filing_status':'CANONICAL_PUSH_AND_REMOTE_READBACK_REQUIRED','verification_status':'PRODUCTION_AND_LIVE_ACCEPTANCE_PENDING','external_state_controls':True,'successor':None,'ratified_by':'Brian','mission_id':MISSION,'registration_paths':paths})
             write_json(p,d)
             p=ROOT/'registry/boot_dependency_manifest.json';d=json.loads(p.read_text());d['mission_profiles'][MISSION]={'required_state':'active','authority_markers':[MISSION,*ids],'os_dependencies':[*decisions,'PRODUCT_PASSPORTS/interview-ready.md',handoff]};write_json(p,d)
-            p=ROOT/handoff;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(f'# Interview Ready Phase1 registration\n\nAllocated {ids} while fenced at canonical base {txn.allocation.remote_head}. Prospective independent review follows. Production remains unapproved. Normal leases, guard/recovery and independent exact-byte acceptance remain binding. Founder directive SHA256 783a29048a0f5b17aa901a532689ec9c918841a7c055f06e2e62c04c45a8f2b7. Exact paths: '+json.dumps(paths)+'\n\n'+review.read_text()+'\n\n## Shared lineage preservation evidence\n\n'+(HANDOFF/'MATRIX_LINEAGE_REVIEW.md').read_text())
+            p=ROOT/handoff;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(f'# Interview Ready Phase1 registration\n\nAllocated {ids} while fenced at canonical base {txn.allocation.remote_head}. Sealed current master and independent normal admission evidence follows. Historical transport approvals retain their explicit supersession in the master. Production remains unapproved. Normal leases, guard/recovery and independent exact-byte acceptance remain binding. Founder directive SHA256 783a29048a0f5b17aa901a532689ec9c918841a7c055f06e2e62c04c45a8f2b7. Exact paths: '+json.dumps(paths)+copied_evidence(evidence))
             import mmos_status
             mmos_status.ROOT=ROOT
             (ROOT/'CURRENT.md').write_text('\n'.join(mmos_status.build_current())+'\n')
             run(['python3',str(ROOT/'tools/validate_boot_dependencies.py'),'--hq-git-dir','/Users/brianb/MissionMed/.git','--os-root',str(ROOT),'--mission-profile',MISSION])
             run(['git','add','--',*paths])
         txn.run_guarded(write_candidate);txn.revalidate()
+        assert_sources_current(initial_sources);assert_evidence_current(evidence)
         staged={p:digest(ROOT/p) for p in paths}
         receipt={'schema':'missionmed.ir.registry.staged.v1','mission':MISSION,'root':str(ROOT),'canonicalBase':txn.allocation.remote_head,'decisionIds':ids,'paths':staged,'leaseId':txn.handle.lease_id,'fencingEpoch':txn.handle.fencing_epoch,'nonceSha256':txn.allocation.nonce_sha256}
-        write_json(HANDOFF/'REGISTRY_STAGED_CANDIDATE.json',receipt)
-        print('REGISTRY_STAGED_REVIEW_READY '+json.dumps({'decisionIds':ids,'receipt':str(HANDOFF/'REGISTRY_STAGED_CANDIDATE.json')}),flush=True)
-        approval=HANDOFF/'REGISTRY_STAGED_APPROVAL.json';deadline=time.monotonic()+600
+        receipt['evidenceSha256']=expected_evidence_hashes
+        write_json(HANDOFF/CANDIDATE_NAME,receipt)
+        print('REGISTRY_STAGED_REVIEW_READY '+json.dumps({'decisionIds':ids,'receipt':str(HANDOFF/CANDIDATE_NAME)}),flush=True)
+        approval=HANDOFF/STAGED_APPROVAL_NAME;deadline=time.monotonic()+600
         while time.monotonic()<deadline:
+            assert_sources_current(initial_sources);assert_evidence_current(evidence)
             txn.heartbeat()
             if approval.is_file():
                 a=json.loads(approval.read_text())
@@ -94,6 +167,7 @@ Release gates: exact owner manifest and recovery, scoped healthy leases, indepen
         else: raise RuntimeError('staged review deadline exceeded')
         txn.revalidate()
         def custody():
+            assert_sources_current(initial_sources);assert_evidence_current(evidence)
             assert {p:digest(ROOT/p) for p in paths}==staged
             changed=run(['git','diff','--cached','--name-only']).splitlines();assert sorted(changed)==paths
             run(['git','commit','-m','Register Interview Ready Phase1 bounded production authority'])
@@ -104,7 +178,7 @@ Release gates: exact owner manifest and recovery, scoped healthy leases, indepen
             return local
         head=txn.run_guarded(custody)
         txn.release();txn=None
-        write_json(HANDOFF/'REGISTRY_CUSTODY_RECEIPT.json',{'mission':MISSION,'head':head,'decisionIds':ids,'paths':staged,'registryReleased':True,'productionLive':False,'verifiedAt':stamp})
+        write_json(HANDOFF/CUSTODY_NAME,{'mission':MISSION,'head':head,'decisionIds':ids,'paths':staged,'evidenceSha256':expected_evidence_hashes,'registryReleased':True,'productionLive':False,'verifiedAt':stamp})
         print('REGISTRY_CUSTODY_VERIFIED_RELEASED '+head,flush=True)
     finally:
         if txn is not None:
