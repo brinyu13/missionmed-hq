@@ -111,3 +111,19 @@ test('profile boundary owns no runtime and Room preserves existing stage/overlay
   assert.ok(css.includes('[data-self-view="false"] .stage video'));
   assert.ok(css.includes('[data-meeting-live="true"]'));assert.ok(css.includes('@media(max-width:760px)'));
 });
+
+test('mobile Room puts the same video stage before teaching rails and contains min-content overflow',()=>{
+  const css=readFileSync(new URL('../../public/studio-fable/styles/room.css',import.meta.url),'utf8');
+  const mobile=css.slice(css.indexOf('@media (max-width: 760px)'));
+  assert.match(mobile,/\.stage-col\s*\{[^}]*grid-row:\s*2;/);
+  assert.match(mobile,/#rail-left\s*\{[^}]*grid-row:\s*3;/);
+  assert.match(mobile,/#rail-right\s*\{[^}]*grid-row:\s*4;/);
+  assert.match(mobile,/\.room\[data-density="interview"\]\s*\{[^}]*grid-template-rows:\s*44px auto 44px;/);
+  assert.match(mobile,/\.room\[data-density="interview"\] \.recorder\s*\{[^}]*grid-row:\s*3;/);
+  assert.match(css,/\.room > \*\s*\{[^}]*min-width:\s*0;/);
+  assert.match(mobile,/\.room-strip\s*\{[^}]*grid-template-columns:\s*auto minmax\(0,1fr\) auto;/);
+  assert.match(mobile,/\.recorder-head\s*\{[^}]*flex-wrap:\s*wrap;/);
+  assert.match(mobile,/\.recorder-head > div:last-child\s*\{[^}]*flex-wrap:\s*wrap;/);
+  assert.match(css,/@media\s*\(max-width:\s*360px\)\s*\{[^}]*#rail-left, #rail-right\s*\{[^}]*grid-template-columns:\s*minmax\(0,1fr\);/);
+  // This is a source-boundary regression sentinel, not visual/media acceptance.
+});

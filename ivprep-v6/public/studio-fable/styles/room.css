@@ -5,6 +5,7 @@ body[data-mode="room"] .fixture-banner { display: none; }
 body[data-mode="room"] main.view { max-width: none; padding: 0; animation: none; }
 
 .room { --left-w: 236px; --right-w: 272px; --rec-h: 164px; min-height: 100vh; display: grid; grid-template-rows: 48px minmax(0, 1fr) var(--rec-h); grid-template-columns: var(--left-w) minmax(0, 1fr) var(--right-w); gap: 10px; padding: 10px 12px 12px; background: radial-gradient(1200px 600px at 50% -10%, #142039 0%, #060a12 60%); }
+.room > * { min-width: 0; }
 .room[data-density="interview"] { --rec-h: 44px; grid-template-columns: minmax(0, 1fr); }
 .room[data-density="interview"] .rail { display: none; }
 .room[data-density="interview"] .stage-col, .room[data-density="interview"] .recorder { grid-column: 1; }
@@ -282,7 +283,7 @@ body[data-mode="room"] main.view { max-width: none; padding: 0; animation: none;
 .film-side .moment { padding: 14px 16px; }
 
 @media (max-width: 1100px) {
-  .room { --left-w: 0px; --right-w: 0px; grid-template-columns: 1fr; grid-template-rows: 48px auto auto auto var(--rec-h); }
+  .room { --left-w: 0px; --right-w: 0px; grid-template-columns: minmax(0,1fr); grid-template-rows: 48px auto auto auto var(--rec-h); }
   .stage { min-height: 48vh; }
   #rail-right { grid-template-columns: repeat(4, 1fr); }
   /* Touch targets: every room control ≥ 44px on tablet/phone */
@@ -300,13 +301,20 @@ body[data-mode="room"] main.view { max-width: none; padding: 0; animation: none;
 @media (max-width: 760px) {
   .room { padding: 8px; gap: 8px; --rec-h: 110px; grid-template-rows: 44px auto auto auto var(--rec-h); }
   .stage { min-height: 46vh; max-height: 52vh; }
-  .stage-col { grid-template-rows: minmax(46vh, 1fr); }
+  /* Reorder CSS grid areas only: never recreate the live video/overlay/controller. */
+  .stage-col { grid-row: 2; grid-template-rows: minmax(46vh, 1fr); }
+  .room[data-density="interview"] { grid-template-rows: 44px auto 44px; }
+  .room[data-density="interview"] .recorder { grid-row: 3; }
   .presence { grid-template-columns: auto 1fr; padding: 8px 10px; gap: 10px; }
   .presence .presence-tag { display: none; }
   .presence .line { font-size: 14px; min-height: 0; }
   .presence .orb { width: 34px; height: 34px; font-size: 10px; }
-  #rail-right { grid-template-columns: repeat(2, 1fr); gap: 8px; }
-  #rail-left { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  #rail-right { grid-row: 4; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+  #rail-left { grid-row: 3; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+  .rail > * { min-width: 0; }
+  .plate-head, .inst-head, .inst-val { flex-wrap: wrap; }
+  .row { grid-template-columns: minmax(0,76px) minmax(0,1fr); }
+  .row .v { overflow-wrap: anywhere; }
   .room[data-mode="mock"] #rail-left .plate { display: none; }
   .room[data-mode="mock"] #rail-left { grid-template-columns: 1fr; }
   .inst { padding: 8px 10px; gap: 4px; }
@@ -315,7 +323,8 @@ body[data-mode="room"] main.view { max-width: none; padding: 0; animation: none;
   .speedometer { max-width: 170px; margin: 0 auto; }
   .piano svg { max-height: 44px; }
   .ribbon { height: 20px; }
-  .room-strip { grid-template-columns: auto 1fr auto; }
+  .room-strip { grid-template-columns: auto minmax(0,1fr) auto; gap: 8px; }
+  .room-status { gap: 6px; }
   .plan .label { display: none; }
   .density { display: none; }
   .clock { font-size: 14px; min-width: 44px; }
@@ -323,9 +332,14 @@ body[data-mode="room"] main.view { max-width: none; padding: 0; animation: none;
   .controls .btn { padding: 0 14px; font-size: 14px; }
   .stage .captions { bottom: 62px; font-size: 13px; }
   .composer textarea { min-height: 48px; }
-  .recorder { padding: 6px 8px; }
+  .recorder { grid-row: 5; padding: 6px 8px; }
+  .recorder-head { flex-wrap: wrap; gap: 4px; }
+  .recorder-head > div:last-child { flex-wrap: wrap; min-width: 0; max-width: 100%; }
   .recorder-head .legend span:not(.t-label) { display: none; }
   .plate .scan { aspect-ratio: 3 / 2; }
+}
+@media (max-width: 360px) {
+  #rail-left, #rail-right { grid-template-columns: minmax(0,1fr); }
 }
 
 /* R-069: approved meeting grammar around the same student tile/audio engine.

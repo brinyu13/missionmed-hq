@@ -16,6 +16,23 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 R069 ACTUAL PRODUCTION POV / MOBILE FIX-FORWARD (PRODUCT4594):
+  source 686dd8a9006a539f00a4b98bec322afbde73eb2e deployed as
+  42225458-b47d-49bb-a772-76145511031b; health200 and anonymous product/bootstrap401.
+  brinyu ADMIN normal Mock setup retained Zoom across Back/return. Actual Zoom
+  practice recorded123s, switched Speaker/Gallery, visibly rendered real
+  face/hand landmarks, and hid/restored self-view without stopping measurement
+  or recording. Save ->Results ->Film Room ->cold reload ->visible moving replay
+  passed for attempt9ec27c17-67e8-4742-8343-cff5fb3b3e4c; saved Retry restored Zoom.
+  No genuine answer, audible replay, two-sided AI or alternate-device claim.
+  Actual390/320 viewport exposed teaching rails before video and horizontal
+  overflow360px at320 (min-content Room strip/rails/Flight Recorder).
+  Narrow CSS-only correction puts existing stage before rails, bounds grid
+  tracks, wraps retained recorder controls and uses single-column rails <=360.
+  New sentinel FAILED before fix; affected27/27 PASS after. Mobile LIVE VERIFIED
+  remains open pending deployment/actual viewport check. Root remains unpromoted;
+  retained rollback686dd8a /42225458 and exact1282-file stage-iLDYds.
+
 - 2026-10-04 R069 ENVIRONMENT PROFILE IMPLEMENTED / PRODUCTION POV PENDING
   (PRODUCT4583 ->normally released before test-scope expansion ->PRODUCT4585):
   exact base a2565417faa34b9e6530f56fde5d29cb848018ac. Actual authenticated Mock
