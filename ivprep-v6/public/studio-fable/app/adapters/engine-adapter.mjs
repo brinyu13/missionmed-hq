@@ -81,8 +81,10 @@ export function bindPrimaryRecovery(host,{engine,isCurrent=()=>true}={}) {
 }
 export function invalidateDeviceCalibration(real) {
   real.cancelFaceBaseline?.('DEVICE_CHANGED_RECALIBRATION_REQUIRED');
+  // A new input invalidates device-bound baselines, not the active interview.
+  // Resetting the whole behavior runtime erases turns and leaves it in SETUP.
+  real.behavior.calibration.reset(real.bridge.sessionClock.sessionMs());
   real.behavior.setBaseline(null);
-  real.behavior.reset(real.bridge.sessionClock.sessionMs());
   real.pipeline.clearPersonalCalibration();
 }
 // New measurement answer, not a new capture/session clock. The bridge owns it.

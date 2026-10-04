@@ -16,6 +16,33 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 R027 ACTUAL PRODUCTION MEDIA POV / FIX-FORWARD (PRODUCT4577):
+  deployed a13a7f7d78a63e727c5cbcc43b3ef9ce239405a9, SUCCESS
+  0d7caaa3-7ea6-4e6c-9091-3df0806c9121, image
+  sha256:751ec93eb4c0e09cb8628de7bff7a098ddaa999a684ef1483db726d6ba3c882c.
+  Exact1279-file 7moLeB/source.tar SHA
+  33052d00f015dfa9cf9d152d4c52511592e88ac873d9c51027cdb2689c154e9f;
+  clean source/non-force remote readback.352 affected checks and independent
+  controller/mechanics review PASS. Health200;anonymous root,candidate,bootstrap401.
+  Normal authenticated brinyu Home ->Practice ->Room ->Connect ->real visible
+  FaceTime video ->Start ->distinct REC state ->collapsed Devices ->same physical
+  camera and microphone reacquisition ->43s Finish/save ->Results/full supported
+  evidence ->Film Room ->visible replay ->cold reload ->visible replay advances ->
+  account history25reps PASS subset. Attemptac0472f5-eca2-4ef2-b8ee-cde0374068e1.
+  Only one real physical camera was available; no alternate hardware, meaningful
+  spoken answer, native provider conversation or audible HEAR BOTH was fabricated.
+  POV exposed a genuine defect: calibration invalidation reset the entire behavior
+  runtime, leaving the retained conversation lane SETUP after the first device
+  change. Fix now resets only device calibration, preserving current conversation,
+  turn evidence, notes and interviewer channel.Three actual-runtime regressions
+  FAIL before/PASS after;355 affected checks PASS. Independent narrow review and
+  deployed repeat remain pending. SHARED4575 normally released/provider-confirmed.
+  Current healthy a13/0d7 runtime is candidate-only and NOT root-promoted or full
+  R027/journey LIVE VERIFIED.237/a893/tRwoU0 exact rollback retained; no source
+  rollback/history rewrite. NEXT: review ->guarded fix-forward ->repeat affected
+  device-change/save/cold-replay POV, then remaining142 capability/role/context and
+  genuine native multi-turn/barge-in/two-sided replay gates. Goal remains active.
+
 - 2026-10-04 R027 COORDINATED DEVICE CANDIDATE (PRODUCT4573): actual camera
   frames feed a stable generated recorder video track without DOM/canvas/rAF;
   device timestamps are rebased monotonically. Controller ->engine ->capture
