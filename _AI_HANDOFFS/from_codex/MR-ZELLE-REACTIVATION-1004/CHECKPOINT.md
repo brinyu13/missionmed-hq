@@ -83,6 +83,18 @@ New verified HQ deployment during this tranche: `7c7ed32e-3725-43b5-9236-4b9c378
 
 Next: finish real-hook compatibility/settings checks; integrate only scoped matcher delta onto the current HQ deployment lineage; obtain fresh native recovery and exact runtime/config preimages, then guarded deployment with public automation dormant and exact controlled canary. Do not request payment yet.
 
+### Fresh read-only runtime evidence after candidate commit f888294
+
+- Installed LearnDash settings: grant only `processing` and `completed`; deny `pending`, `on-hold`, `cancelled`, `refunded`, `failed`, `checkout-draft`.
+- Current product readback: variation 5867 -> parent5504, card549, nonvirtual, course3646; variation5865 -> parent3576, card3099, nonvirtual, course5227. Thus canonical Woo completion may yield processing, which is an explicit allowed enrollment status; do not force completed or change virtual flags merely for testing.
+- Matrix `MMED_Access_Gate` uses current LearnDash courses; enrolled course options [3646,5227,3893,3848], full-access programs [3893,5227]. Registered baseline apps exist independently of purchase. Prepayment acceptance must prove ZERO purchase-derived protected access, not incorrectly demand removal of baseline registered access. Existing enrolled access remains preserved.
+- Matrix direct-route/REST guard calls that same resolver. LearnDash access change clears tier cache. No separate Matrix permission write is appropriate.
+- Hub course-specific welcome templates for Complete/foundation are disabled historical placeholders. Do not activate stale Match Prep Pro/Masterclass templates. Inspect canonical Woo customer email/receipt and actual postpayment state during controlled acceptance rather than asserting those disabled templates send.
+- MyKinsta Chrome tab 315031696 is at login; current session expired. Founder sign-in requested through an asynchronous question; tab marked handoff. Fresh provider-native recovery gate remains UNVERIFIED, so no production mutation permitted yet.
+- Railway runtime read-only SSH session 84879 terminated with connection failure after polling; no remote command output/mutation. Latest deployment-list readback above remains valid for its time, but current runtime byte readback still needed before deployment. Do not treat this failed session as alive or restart a deployment.
+
+Current next actions: wait for requested MyKinsta sign-in while completing remaining source/runtime checks; refresh Railway runtime access and current deploy lineage; obtain exact preimages, deploy reversible candidate, complete nonfinancial production QA and then prepare the one real-payment boundary. No new real controlled order exists yet.
+
 ## Critical remaining implementation (do not skip)
 
 1. WordPress integration and HTTP-handler security are locally synthetic-tested as above, but actual installed Woo hook/settings compatibility, source review and production acceptance remain mandatory.
