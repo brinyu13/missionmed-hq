@@ -33,6 +33,11 @@ the actual production route and deployment.
   Comprehensive Analytics itself is readable and scrolls to the correct target;
   14 focusedreview/Film/Results/layout tests PASS; independent source review PASS.
   Corrected coaching layout remains UNVERIFIED pending the next guarded release.
+- Actual320px paused Film POV also found page overflow704px: replay stage inherited
+  live-room46vh minimum height, transferring a690px minimum into its16:9 grid.
+  Replay-only stage/child constraints remove that minimum without touching live
+  camera sizing, overlays, recording, timeline or playback handlers. Included in
+  the same bounded presentation fix-forward; live recheck pending, no audible claim.
 - **IN PROGRESS; final acceptance incomplete.** The repeated30% estimate is
   withdrawn: it was a coarse, stale acceptance estimate, not a newly calculated
   weighted completion measure. Source wiring and individual checks must not be

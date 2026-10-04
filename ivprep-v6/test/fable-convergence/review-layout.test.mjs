@@ -16,3 +16,9 @@ test('coaching evidence labels cannot inherit the Flight Recorder 150px grid tra
 test('Flight Recorder retains its own dimensional lane composition',()=>{
   assert.match(room,/\.lane\s*\{[^}]*display:\s*grid[^}]*grid-template-columns:\s*150px minmax\(0, 1fr\)/);
 });
+
+test('replay stage and grid children cannot transfer live-room viewport minimums into page overflow',()=>{
+  assert.match(app,/\.film > \*\s*\{[^}]*min-width:\s*0/);
+  assert.match(app,/\.film \.stage\s*\{[^}]*min-height:\s*0[^}]*max-height:\s*none/);
+  assert.match(room,/\.film \.stage\s*\{[^}]*aspect-ratio:\s*16 \/ 9/);
+});

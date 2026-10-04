@@ -88,6 +88,8 @@ main.view { flex: 1; width: 100%; max-width: 1360px; margin: 0 auto; padding: 28
 .analytics-readouts dt { color:var(--ink2); }
 .analytics-readouts dd { margin:0; font-family:var(--font-num); color:var(--ink); overflow-wrap:anywhere; }
 .playback-unavailable { padding:24px; color:var(--ink); }
+.film > * { min-width: 0; }
+.film .stage { min-height: 0; max-height: none; }
 @media (max-width:760px) { .analytics-grid { grid-template-columns:1fr; } }
 @media (max-width:960px) { .full-analytics { scroll-margin-top: calc(var(--topbar-h) + 12px); } }
 
