@@ -433,7 +433,21 @@ the actual production route and deployment.
   Recording is browser-supported, not recorded/accepted. Questionless launch
   remains disabled. No capture/provider, permission or saved baseline was created;
   active full calibration and genuine transcript acceptance remain UNVERIFIED.
-- Next executable action: characterize affected moving-hand replay alignment,
+- Live continuous Film marks exposed a concrete interaction defect: the hand
+  band starting14.8s sought15.823s instead of the advertised two-second lead-in.
+  Continuous bands now use native labelled buttons and the existing data-seek
+  delegation, preserving geometry, exact background scrubbing and pin behavior.
+  Actual render/click regression failed before and passed after;31 distinct
+  affected Film/replay/review/scope cases PASS; independent source review PASS.
+  Keyboard/live acceptance awaits candidate deployment;
+  no Analytics producer, clock, media or owner contract changed. Ledger-only
+  PRODUCT4475 was normally released/read back before this PRODUCT4476 patch.
+- Bounded independent moving-hand frame review remains UNVERIFIED: a blurred
+  frame cannot separate detector delay from spatial offset. Current native WebM
+  menu exposes no playback-speed control. No fabricated coordinate correction
+  or unsupported eye-gaze was added; no repeated unchanged replay audit planned.
+- Next executable action: deploy/verify Film mark click and keyboard lead-in,
+  characterize affected moving-hand replay alignment when observable,
   then continue real conversation/closing, full physical calibration, real-role and
   142-row live parity acceptance. No final root promotion or two-sided audible
   acceptance claimed. Genuine speech/hearing remains a precise physical-evidence

@@ -1,0 +1,40 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {renderFilmLanes} from '../../public/studio-fable/app/instruments/flight-recorder.mjs';
+
+function fixture(){
+  const listeners=new Map(),seeks=[],clock={},heads=[];
+  const context=new Proxy({}, {get:(_target,key)=>key==='fillStyle'||key==='font'?undefined:()=>{},set:()=>true});
+  const canvas={clientWidth:200,clientHeight:40,getContext:()=>context};
+  const track={getBoundingClientRect:()=>({left:100,width:200}),append:head=>heads.push(head)};
+  const host={innerHTML:'',querySelector:selector=>selector==='[data-voice]'?canvas:selector==='#film-clock'?clock:null,
+    querySelectorAll:()=>[track],addEventListener:(name,fn)=>listeners.set(name,fn),removeEventListener:(name,fn)=>{if(listeners.get(name)===fn)listeners.delete(name);}};
+  const playback={currentTime:0,addEventListener:(name,fn)=>listeners.set('video:'+name,fn),removeEventListener:(name,fn)=>{if(listeners.get('video:'+name)===fn)listeners.delete('video:'+name);}};
+  const priorDocument=globalThis.document,priorRatio=globalThis.devicePixelRatio;
+  globalThis.document={createElement:()=>({style:{}})};globalThis.devicePixelRatio=1;
+  const samples=[{t:14.8,hands:'RIGHT',state:'ANSWERING',presence:'TRACKED',signalGap:false},{t:16,hands:'RIGHT',state:'ANSWERING',presence:'TRACKED',signalGap:false}];
+  const lanes=renderFilmLanes(host,{samples,events:[{t:6,kind:'smile',label:'Smile pattern'}],durationS:23.161,playback,onSeek:t=>seeks.push(t)});
+  const click=(element,clientX=236)=>listeners.get('click')({target:{closest:selector=>selector==='[data-seek]'?element:selector==='[data-track]'?track:null},clientX});
+  return{host,listeners,seeks,click,lanes,restore(){lanes.destroy();if(priorDocument===undefined)delete globalThis.document;else globalThis.document=priorDocument;if(priorRatio===undefined)delete globalThis.devicePixelRatio;else globalThis.devicePixelRatio=priorRatio;}};
+}
+test('continuous Film marks use native buttons and seek from their own start with two-second lead-in',()=>{
+  const f=fixture();
+  try{
+    const run=f.host.innerHTML.match(/<(button|span)\b([^>]*class="run one"[^>]*)>/);
+    const seek=run[2].match(/data-seek="([^"]+)"/);
+    f.click(seek?{dataset:{seek:seek[1]}}:null);
+    assert.equal(f.seeks[0],12.8);
+    assert.equal(run[1],'button');assert.match(run[2],/type="button"/);
+    assert.match(run[2],/aria-label="hands RIGHT/);
+    assert.ok(run[2].includes(`left:${14.8/23.161*100}%;width:${(16-14.8+.5)/23.161*100}%`));
+  }finally{f.restore();}
+});
+test('existing event lead-in, exact empty-track scrubbing, start clamp and cleanup remain unchanged',()=>{
+  const f=fixture();
+  try{
+    f.click({dataset:{seek:'6'}});assert.equal(f.seeks.at(-1),4);
+    f.click(null,250);assert.equal(f.seeks.at(-1),23.161*.75);
+    f.click({dataset:{seek:'1'}});assert.equal(f.seeks.at(-1),0);
+    f.lanes.destroy();assert.equal(f.listeners.size,0);
+  }finally{f.restore();}
+});
