@@ -3,6 +3,7 @@
 Execution requires independent review of these exact bytes. Never log a request,
 response, credential, worker output or caught exception. No retries or key fallback.
 """
+import base64
 import copy
 from contextlib import contextmanager
 import hmac
@@ -112,6 +113,34 @@ def _token(value):
     if not isinstance(value, str) or TOKEN_RE.fullmatch(value) is None:
         raise TransportError('existing management credential format unavailable')
     return value
+
+
+# Go strings.TrimSpace uses Unicode White_Space, excluding Python's U+001C–001F.
+_GO_WHITESPACE = '\u0009\u000a\u000b\u000c\u000d\u0020\u0085\u00a0\u1680' + \
+                 '\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a' + \
+                 '\u2028\u2029\u202f\u205f\u3000'
+_STD_BASE64_RE = re.compile(r'(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?\Z', re.ASCII)
+_HEX_RE = re.compile(r'(?:[0-9a-fA-F]{2})*\Z', re.ASCII)
+
+
+def _decode_keychain_value(value):
+    """One go-keyring v0.2.6 Get decode; token validation remains the caller's."""
+    try:
+        value = value.strip(_GO_WHITESPACE)
+        if value.startswith('go-keyring-encoded:'):
+            payload = value[len('go-keyring-encoded:'):]
+            if _HEX_RE.fullmatch(payload) is None:
+                raise ValueError()
+            return bytes.fromhex(payload).decode('utf-8')
+        if value.startswith('go-keyring-base64:'):
+            payload = value[len('go-keyring-base64:'):].replace('\r', '').replace('\n', '')
+            if _STD_BASE64_RE.fullmatch(payload) is None:
+                raise ValueError()
+            # StdEncoding is non-Strict: do not require zero unused padding bits.
+            return base64.b64decode(payload, validate=True).decode('utf-8')
+        return value
+    except Exception:
+        raise TransportError('existing management credential format unavailable') from None
 
 
 def _secret(value):
@@ -256,7 +285,7 @@ def _read_keychain(account, deadline):
     if code != 0:
         raise TransportError('existing keychain custody requires owner action')
     try:
-        return raw.decode('utf-8')
+        return _decode_keychain_value(raw.decode('utf-8'))
     except Exception:
         raise TransportError('existing management credential format unavailable') from None
 

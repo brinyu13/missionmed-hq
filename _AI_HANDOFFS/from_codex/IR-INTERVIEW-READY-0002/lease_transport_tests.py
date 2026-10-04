@@ -1,5 +1,6 @@
 """Fixture-only tests: never read real environment, keychain, token file or APIs."""
 import io
+import base64
 import json
 import sys
 import unittest
@@ -356,6 +357,143 @@ class TransportTests(unittest.TestCase):
             with self.assertRaisesRegex(transport.TransportError, 'size bound'):
                 transport._private_worker('fixture source', [], transport.time.monotonic() + 60, limit=10)
             process.kill.assert_called_once()
+
+
+class KeyringDecodeTests(unittest.TestCase):
+    def setUp(self):
+        # Any accidental real custody or network operation fails the fixture run.
+        for owner, name in ((transport.subprocess, 'Popen'), (transport.os, 'open'),
+                            (transport.urllib.request, 'urlopen'), (transport, '_private_get')):
+            guard = patch.object(owner, name, side_effect=AssertionError('real operation forbidden'))
+            guard.start()
+            self.addCleanup(guard.stop)
+        empty_environment = patch.object(transport.os, 'environ', {})
+        empty_environment.start()
+        self.addCleanup(empty_environment.stop)
+
+    def envelope(self, value):
+        return 'go-keyring-base64:' + base64.b64encode(value.encode()).decode('ascii')
+
+    def test_encodings_plain_legacy_and_non_strict_padding_bits(self):
+        oauth = TOKEN.replace('sbp_', 'sbp_oauth_')
+        for value, expected in ((TOKEN, TOKEN), (self.envelope(TOKEN), TOKEN),
+                                (self.envelope(oauth), oauth),
+                                ('go-keyring-encoded:' + TOKEN.encode().hex(), TOKEN),
+                                ('go-keyring-encoded:' + TOKEN.encode().hex().upper(), TOKEN)):
+            with self.subTest(shape='synthetic accepted'):
+                self.assertEqual(transport._token(transport._decode_keychain_value(value)), expected)
+        self.assertEqual(transport._decode_keychain_value('go-keyring-base64:Zh=='), 'f')
+        self.assertEqual(transport._decode_keychain_value('go-keyring-base64:Zm9='), 'fo')
+        self.assertEqual(transport._decode_keychain_value('go-keyring-base64:77+/'), '\uffff')
+        for prefix in ('go-keyring-base64:', 'go-keyring-encoded:'):
+            self.assertEqual(transport._decode_keychain_value(prefix), '')
+
+    def test_exact_go_whitespace_and_base64_crlf(self):
+        whitespace = ''.join(chr(code) for code in (
+            *range(9, 14), 32, 0x85, 0xa0, 0x1680, *range(0x2000, 0x200b),
+            0x2028, 0x2029, 0x202f, 0x205f, 0x3000))
+        for value in (TOKEN, self.envelope(TOKEN), 'go-keyring-encoded:' + TOKEN.encode().hex()):
+            self.assertEqual(transport._decode_keychain_value(whitespace + value + whitespace), TOKEN)
+        payload = self.envelope(TOKEN).split(':', 1)[1]
+        self.assertEqual(transport._decode_keychain_value(
+            'go-keyring-base64:\r\n' + '\r\n'.join(payload) + '\r\n'), TOKEN)
+        for char in ('\x1c', '\x1d', '\x1e', '\x1f', '\ufeff'):
+            self.assertEqual(transport._decode_keychain_value(char + TOKEN + char), char + TOKEN + char)
+            with self.assertRaises(transport.TransportError):
+                transport._token(transport._decode_keychain_value(char + TOKEN + char))
+
+    def test_malformed_and_decoded_invalid_values_fail_closed(self):
+        malformed = ('!', 'Zg', 'Zg=', 'Zg===', 'Zm9v=', 'Zg==AAAA', 'Zg==!',
+                     'Z g==', 'Z\t g==', '-_8=', '====', 'A===', 'A', 'é', '/w==')
+        values = ['go-keyring-base64:' + value for value in malformed]
+        values += ['go-keyring-encoded:' + value for value in ('a', 'gg', '61 62', 'ff')]
+        for value in values:
+            with self.subTest(shape='synthetic malformed'), self.assertRaises(transport.TransportError) as caught:
+                transport._decode_keychain_value(value)
+            self.assertEqual(str(caught.exception), 'existing management credential format unavailable')
+            self.assertTrue(caught.exception.__suppress_context__)
+        for value in (self.envelope(TOKEN), ' ' + TOKEN, TOKEN + '\n', '\x00',
+                      '{"token":"fictional"}', TOKEN.upper(), 'sbp_' + 'a' * 39):
+            with self.assertRaises(transport.TransportError):
+                transport._token(transport._decode_keychain_value(self.envelope(value)))
+        for value in ('', 'unknown:' + TOKEN, 'GO-KEYRING-BASE64:' + TOKEN):
+            with self.assertRaises(transport.TransportError):
+                transport._token(transport._decode_keychain_value(value))
+
+    def test_both_native_slots_decode_once_and_malformed_stops_selected_slot(self):
+        for selected in ('supabase', 'access-token'):
+            def worker(source, accounts, deadline):
+                return (3, b'') if accounts[0] != selected else (0, self.envelope(TOKEN).encode())
+            with patch.object(transport.sys, 'platform', 'darwin'), \
+                 patch.object(transport, '_private_worker', side_effect=worker) as native, \
+                 patch.object(transport, '_decode_keychain_value', wraps=transport._decode_keychain_value) as decode:
+                self.assertEqual(transport.load_existing_management_token(environment={},
+                    file_reader=lambda *args: self.fail('file fallback forbidden')), TOKEN)
+                decode.assert_called_once()
+                self.assertEqual([call.args[1][0] for call in native.call_args_list],
+                                 ['supabase'] if selected == 'supabase' else ['supabase', 'access-token'])
+            for raw in (b'go-keyring-base64:PRIVATE_FIXTURE!', b'\xff',
+                        self.envelope(self.envelope(TOKEN)).encode()):
+                def malformed(source, accounts, deadline):
+                    return (3, b'') if accounts[0] != selected else (0, raw)
+                with patch.object(transport.sys, 'platform', 'darwin'), \
+                     patch.object(transport, '_private_worker', side_effect=malformed) as native:
+                    with self.assertRaises(transport.PhaseError) as caught:
+                        transport.load_existing_management_token(environment={},
+                            file_reader=lambda *args: self.fail('file fallback forbidden'))
+                    self.assertEqual(caught.exception.phase,
+                        'keychain_supabase' if selected == 'supabase' else 'keychain_access_token')
+                    self.assertEqual(caught.exception.kind, 'management_format_unavailable')
+                    public = str(caught.exception) + caught.exception.public_status()
+                    for private in ('PRIVATE_FIXTURE', TOKEN, self.envelope(TOKEN), 'UnicodeDecodeError'):
+                        self.assertNotIn(private, public)
+                    self.assertEqual(native.call_count, 1 if selected == 'supabase' else 2)
+
+    def test_native_custody_deadline_errors_and_size_classifications_unchanged(self):
+        with patch.object(transport.sys, 'platform', 'darwin'), \
+             patch.object(transport.time, 'monotonic', return_value=10), \
+             patch.object(transport, '_private_worker', return_value=(0, TOKEN.encode())) as worker:
+            self.assertEqual(transport._read_keychain('supabase', 70), TOKEN)
+            self.assertEqual(worker.call_args.args[2], 20)
+            self.assertEqual(transport._read_keychain('supabase', 15), TOKEN)
+            self.assertEqual(worker.call_args.args[2], 15)
+        for failure, kind in (
+            (transport.DeadlineExceeded('transport deadline exceeded'), 'deadline_exceeded'),
+            (transport.TransportError('transport size bound exceeded'), 'size_bound_exceeded')):
+            with patch.object(transport.sys, 'platform', 'darwin'), \
+                 patch.object(transport, '_private_worker', side_effect=failure), \
+                 patch.object(transport, '_decode_keychain_value') as decode:
+                with self.assertRaises(transport.PhaseError) as caught:
+                    transport.load_existing_management_token(environment={},
+                        file_reader=lambda *args: self.fail('file fallback forbidden'))
+                self.assertEqual(caught.exception.kind, kind)
+                decode.assert_not_called()
+        for code in (3, 4, 5, 6):
+            with patch.object(transport.sys, 'platform', 'darwin'), \
+                 patch.object(transport, '_private_worker', return_value=(code, b'PRIVATE_FIXTURE')), \
+                 patch.object(transport, '_decode_keychain_value') as decode:
+                with self.assertRaises(transport.AbsentCredential if code == 3 else transport.TransportError):
+                    transport._read_keychain('supabase', transport.time.monotonic() + 60)
+                decode.assert_not_called()
+
+    def test_environment_and_file_values_are_never_decoded_or_trimmed(self):
+        def absent(*args):
+            raise transport.AbsentCredential()
+        with patch.object(transport, '_decode_keychain_value', side_effect=AssertionError('decode forbidden')):
+            self.assertEqual(transport.load_existing_management_token(environment={'SUPABASE_ACCESS_TOKEN': TOKEN}), TOKEN)
+            for value in (self.envelope(TOKEN), ' ' + TOKEN, TOKEN + '\n'):
+                with self.assertRaises(transport.TransportError):
+                    transport.load_existing_management_token(environment={'SUPABASE_ACCESS_TOKEN': value},
+                        keychain_reader=lambda *args: self.fail('keychain forbidden'))
+                with self.assertRaises(transport.PhaseError) as caught:
+                    transport.load_existing_management_token(environment={}, keychain_reader=absent,
+                        file_reader=lambda *args: value)
+                self.assertEqual(caught.exception.phase, 'exact_existing_file')
+            with patch.object(transport.os, 'open', return_value=7), \
+                 patch.object(transport.os, 'fstat', return_value=type('Stat', (), {'st_mode': 0o100600, 'st_size': 100})()), \
+                 patch.object(transport.os, 'read', return_value=self.envelope(TOKEN).encode()), \
+                 patch.object(transport.os, 'close'):
+                self.assertEqual(transport._read_token_file(transport.time.monotonic() + 60), self.envelope(TOKEN))
 
 
 if __name__ == '__main__':
