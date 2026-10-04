@@ -1,6 +1,6 @@
 # USCE auth continuation — 2026-10-04
 
-**Current authorized entry works; terminal acceptance remains conditional on current human-login/nonadministrator browser checks.** No current auth defect reproduced and no production repair or redeployment made. Broader renovation remains paused; this auth continuation does not confer final F/U/O acceptance.
+**Current administrator and student role checks PASS: brinyu reaches the protected queue; the signed-in Incognito student receives403 and no queue.** Terminal acceptance remains conditional on the limits in the latest continuation below, including actual HQ-issued session expiry. No current auth defect reproduced and no production repair or redeployment made. Broader renovation remains paused; this auth continuation does not confer final F/U/O acceptance. Earlier waiting-session statements are historical and superseded by the latest role evidence.
 
 ## ROOT CAUSE
 
@@ -34,7 +34,7 @@ Root actual CSRF-protected HQ logout200/authenticated=false, own tab bearer clea
 
 Fresh focused verifier: current integrated runtime50/50; strict session9/9; live WP source boundaries8/8; PHP lint PASS. Administrator role, expiration, audience, CSRF before RPC, nonadmin denial, isolated gateway and credential-log contracts intact. Live anonymous queue401, anonymous session200/authenticated=false, unrelated IVOC route404. Phil WP ID36/philaperri remains administrator/manage_options=true by fresh read-only WP query; no account/password/role mutation or temporary administrator.
 
-Current real nonadministrator browser403 and fresh password/MFA lifecycle are not yet observed; historical September evidence is not substituted. Independent verdict in INDEPENDENT.md is APPROVE WITH CONDITIONS for current bounded entry-to-queue only. No LOR restore gate, auth protection, provider boundary, IVOC or unrelated system touched.
+Initial verification snapshot: real nonadministrator browser403 and fresh password/MFA lifecycle had not yet been observed. The later prepared-role section supersedes the missing-student limitation with Root current-live403; credential interaction remains Founder-reported. Historical September evidence is not substituted. Independent verdict in INDEPENDENT.md is APPROVE WITH CONDITIONS for the bounded current evidence. No LOR restore gate, auth protection, provider boundary, IVOC or unrelated system touched.
 
 ## ROLLBACK
 
@@ -46,7 +46,7 @@ OPEN/CLEAN; head85c8351e8d8c978dac28d28325140734cafc432c; historical Railway che
 
 ## ANY WAITING DEPENDENCY
 
-No current repair/deployment justified. Shared AUTH contention cleared and Root test lease is positively released by authoritative released_at readback. Credential/MFA interaction is unavailable to the agent. Terminal closure still needs a current normal human administrator login → /usce-admin/ and a current real nonadministrator denial check; a truly expired signed-session browser test is not asserted. Phil's single normal login may supply his personal-login acceptance, without technical steps. No account duplication or permission weakening to manufacture these proofs. Broader renovation cleanup/final F/U/O remains paused.
+Initial waiting snapshot: shared AUTH contention cleared and Root test lease was positively released by authoritative released_at readback; human login and student sessions were unavailable then. The later prepared-role section supersedes that unavailable-session dependency. No current repair/deployment justified. True HQ-issued session expiry and an agent-witnessed fresh WordPress logout/login cycle remain unproven; current sign-ins are Founder-reported and role paths verified. No account duplication or permission weakening to manufacture proofs. Broader renovation cleanup/final F/U/O remains paused.
 
 ## 2026-10-04 acceptance continuation
 
@@ -63,11 +63,25 @@ This adds live naturally expired signed **WordPress handoff** recovery. It does 
 | 3. Inbound queue loads | Live queue200 and independent rendered queue PASS. |
 | 4. Direct revisit | Independent fresh-tab normal revisit PASS. |
 | 5. Browser refresh | Root and independent live refresh PASS. |
-| 6. Logout → login → revisit | Actual HQ logout/re-entry PASS; fresh WordPress credential/MFA cycle remains unobserved. |
+| 6. Logout → login → revisit | Actual HQ logout/re-entry PASS; Founder reports prepared admin/student sign-ins. Agent did not witness credential/MFA or fresh WP logout/login cycle. |
 | 7. Expired HQ recovery | Invalid cache and naturally expired signed WP handoff recover live; current-source expiry tests PASS. Actual HQ-issued session expiry remains unobserved. |
-| 8. Anonymous/unauthorized blocked | Live anonymous API queue401 PASS; separate fresh anonymous Chrome UI has not been established. |
-| 9. Real non-admin remains403 | Current focused contracts and live-source gate PASS; current real non-admin Chrome403 remains unobserved. |
+| 8. Anonymous/unauthorized blocked | Live anonymous API queue401 PASS. Actual Chrome credentials-omitted relay request redirects to WP login200 with password form/no auth JSON; this is browser-request proof, not a separate anonymous top-level UI visit. |
+| 9. Real non-admin remains403 | Root current signed-in Incognito student normal-route relay403, explicit denial/no queue/no auth JSON PASS; independent verifier's direct student read blocked by browser ownership, so that live evidence remains Root-attributed. |
 | 10. No normal raw JSON destination | Exercised normal entry/recovery paths PASS; not asserted for unobserved credential/role cycles. |
 | 11. No manual technical recovery for user | Exercised normal entry/reload/revisit auto-recover PASS. Token substitution was developer-only negative QA, never the user's procedure. |
 
-Full terminal acceptance remains unproven. No active job/session is waiting for deployment and no repeated deployment is justified. Remaining unavailable human authentication/role sessions and actual HQ expiry require new live evidence; historical results, screenshots and local tests do not substitute for it. Broader renovation remains paused and unaccepted.
+Pre-role snapshot: full terminal acceptance remained unproven and human authentication/role sessions were then unavailable. The later prepared-role section resolves the student-session dependency. No active deployment job is waiting and no repeated deployment is justified. Actual HQ expiry and the stated credential-cycle limitation remain open; historical results, screenshots and local tests do not substitute for missing live evidence. Broader renovation remains paused and unaccepted.
+
+## 2026-10-04 prepared role-session verification — approximately3:10p.m. ET
+
+Founder supplied current main-Chrome administrator and Incognito student sign-ins and explicitly reported ready. This resolves the missing student-session dependency. Human credential interaction is Founder-reported, not agent-witnessed; no passwords, MFA, identity changes or new QA accounts were requested or used.
+
+Root confirmed actual Incognito window label and a signed-in member-dashboard session in tab315031855 before ordinary navigation to /usce-admin/. Visible denial: "USCE administrator access is required." Network /wp-admin/admin-post.php?action=mmhq_usce_admin_auth_relay403. No protected queue or raw authentication_required JSON. Screenshot /tmp/usce-student-denied-20261004.jpg contains the public wrapper/denial only.
+
+Fresh normal Chrome tab315031874 visibly Howdybrinyu, protected workspace, Casesupdated and queue. Refresh completes through scoped WP302 and renders the queue again. Synthetic-only search filter used, no case actions/exports. Old main tab315031871 had transient tool/renderer-control timeouts; preserved it and verified in a fresh normal tab without browser restart, global logout, credential/cookie/storage changes, or production fix. Current synthetic-only app screenshot /tmp/usce-admin-role-verified-20261004.jpg. Source implementation unchanged; this continuation starts from documentation HEAD6f1fc7afb671bac06ff6432bae37a04fda887d27.
+
+Fresh independent verifier separately opened own normal Chrome tab315031876 and passed main admin entry/refresh: brinyu, Liveprotected, Casesupdated, queue rendered, no raw auth JSON. Its attempted student-tab claim was refused because Root owns that browser tab; no bypass attempted. Student live403 remains Root-observed, supported by prior independent source/security checks. INDEPENDENT.md records APPROVE WITH CONDITIONS, attribution and this direct-read limitation; no full terminal/renovation acceptance.
+
+Root also performed an actual Chrome GET to the same sanctioned relay with credentials omitted, preserving both signed-in sessions. It redirected to /wp-login.php200, with a normal password form and no authentication_required JSON. Only response metadata/booleans recorded; no HTML, nonce, token or credential exported. This does not assert an anonymous top-level screenshot.
+
+No deployment, provider/source/configuration/data/role/credential changes. IVOC, sibling systems, LOR gate, unrelated active tabs and dirty files preserved. The currently captured legitimate HQ-issued credential still expires2026-10-04T23:10:14.938Z (7:10p.m. ET), so true live HQ-session expiry remains pending. Existing session recovery, ordinary role paths, and Founder-reported sign-ins do not substitute for that timed check or an agent-witnessed fresh WordPress logout/login cycle.
