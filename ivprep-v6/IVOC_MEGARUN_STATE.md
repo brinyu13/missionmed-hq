@@ -20,8 +20,19 @@ the actual production route and deployment.
   usability FAIL: wrapping filters consumed232px and left only45.7px of question
   list with preview open. Narrow CSS-only fix keeps every filter in a horizontally
   scrollable row; canonical193 questions, selection, preview, preferences and engine
-  remain unchanged. 20 focused contract/presentation/layout tests PASS. Production
-  usability remains UNVERIFIED until exact candidate deployment and visible check.
+  remain unchanged. 20 focused contract/presentation/layout tests PASS; independent
+  source review PASS. Exactd428560 release SUCCESSc941136b, imageb65ea9ab,
+  tracked1267-file artifact2gCfIT SHAde8982d9. Health200/anonymous401. Actual
+  Chrome320x844 preview-open question list250.7px/filter41px; all11 filters retained,
+  keyboard reaches/activates Full library, search/preview/Done work, no page overflow.
+  PRODUCT4498/deployment4499 normally released and remotely read back. Root unchanged.
+- Same actual320px Home -> Review24/24 -> saved1ca Results -> Full Analytics POV
+  found an additional layout FAIL: evidence-label `.lane` inherited the recorder's
+  150px grid, leaving coaching prose only27.3px. Exact CSS override restores block
+  labels without changing measurements, links, recorder layout or capability logic.
+  Comprehensive Analytics itself is readable and scrolls to the correct target;
+  14 focusedreview/Film/Results/layout tests PASS; independent source review PASS.
+  Corrected coaching layout remains UNVERIFIED pending the next guarded release.
 - **IN PROGRESS; final acceptance incomplete.** The repeated30% estimate is
   withdrawn: it was a coarse, stale acceptance estimate, not a newly calculated
   weighted completion measure. Source wiring and individual checks must not be

@@ -142,7 +142,7 @@ details.customize[open] summary::after { content: '–'; }
 .evidence button:hover { border-color: #39d6ff55; }
 .evidence.moments button { grid-template-columns: 1fr; gap: 6px; }
 .evidence .at { font: 700 12.5px/1 var(--font-num); color: var(--cyan); letter-spacing: .06em; }
-.evidence .lane { font: 700 10.5px/1 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+.evidence .lane { display: block; min-height: 0; font: 700 10.5px/1 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
 .hook-ledger { display: grid; gap: 8px; }
 .hook-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 10px; background: #ffffff06; border: 1px solid #ffffff0c; overflow-wrap: anywhere; }
 .hook-row q { font-family: var(--font-editorial); font-size: 15px; }
