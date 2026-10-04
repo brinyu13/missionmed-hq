@@ -6,7 +6,8 @@ import {
 } from "../editor/scene-graph.js";
 import {applySceneCommandToDocument} from "../editor/scene-commands.js";
 import {advancedElementPreviewMarkup} from "./locked-407f-export.js";
-import {buildFounderPresentationScene} from '../presentation/founder-presentation-serializer.js';
+import {buildFounderPresentationScene,serializeFounderPresentation} from '../presentation/founder-presentation-serializer.js';
+import {parsePresentationXml,xmlNodes} from '../presentation/presentation-xml.js';
 
 const freezeDeep=(value)=>{
   if(!value||typeof value!=="object"||Object.isFrozen(value))return value;
@@ -427,7 +428,22 @@ function eventYearRange(document={}){
   // Profile-only education spans are preserved on paper, while actual degree
   // flags, experiences and interview dates continue to constrain this range.
   const scene=buildFounderPresentationScene(document,{scope:'EVERYTHING'});
-  return{startYear:scene.span.firstYear,endYear:scene.span.lastYear};
+  const months=[...(scene.arrows||[]).flatMap(arrow=>[arrow.startMonth,arrow.endMonth]),
+    ...(scene.flags||[]).map(flag=>flag.month),scene.interviewMarker?.month].filter(Boolean);
+  const years=months.map(month=>Number(String(month).slice(0,4))).filter(Number.isInteger);
+  return years.length?{startYear:Math.min(...years),endYear:Math.max(...years)}:null;
+}
+
+function displayedAxisYearRange(document={}){
+  // The existing composer can add a bounded context year. Its saved snapshot
+  // describes what is painted; it must never become a source-date constraint.
+  const rendered=serializeFounderPresentation(document,{scope:'EVERYTHING'}),scene=rendered.scene;
+  const axis=scene.composedAxis;
+  if(axis)return{startYear:axis.startYear,endYear:axis.endYear};
+  const years=xmlNodes(parsePresentationXml(rendered.svg),node=>/^\d{4}$/.test(node.attrs?.['data-axis-segment-id']||''))
+    .map(node=>Number(node.attrs['data-axis-segment-id']));
+  return years.length?{startYear:Math.min(...years),endYear:Math.max(...years)}:
+    {startYear:scene.span.firstYear,endYear:scene.span.lastYear};
 }
 
 export function effectiveAxisOverride(document={}){
@@ -453,7 +469,8 @@ export function effectiveAxisOverride(document={}){
 export function setAxisPresentationOverride(document={},changes={}){
   const next=normalizeAdvancedStudioDocument(document);
   if(next.mode!==ADVANCED_MODE)return{document:next,changed:false,error:"Axis editing is available in Advanced Studio."};
-  const fallback=eventYearRange(next);
+  const required=eventYearRange(next);
+  const fallback=required||displayedAxisYearRange(next);
   const prior=effectiveAxisOverride(next)||{mode:"manual",...fallback,includeFuture:true};
   const candidate={...prior,...changes,mode:"manual"};
   candidate.startYear=Number(candidate.startYear);
@@ -461,8 +478,7 @@ export function setAxisPresentationOverride(document={},changes={}){
   if(!Number.isInteger(candidate.startYear)||!Number.isInteger(candidate.endYear)||candidate.startYear<1900||candidate.endYear>2200||candidate.startYear>candidate.endYear||candidate.endYear-candidate.startYear>30){
     return{document:next,changed:false,error:"Choose a 1900–2200 ordered axis range of no more than 31 years."};
   }
-  const required=eventYearRange(next);
-  if(candidate.startYear>required.startYear||candidate.endYear<required.endYear){
+  if(required&&(candidate.startYear>required.startYear||candidate.endYear<required.endYear)){
     return{document:next,changed:false,error:`Axis must include all visible dates (${required.startYear}–${required.endYear}).`};
   }
   next.presentationOverrides={...(next.presentationOverrides||{}),axis:{
@@ -2136,8 +2152,8 @@ export function renderBackgroundPanel(document={},{
 export function renderAdvancedPresentationControls(document={}){
   const state=normalizeAdvancedStudioDocument(document);
   if(state.mode!==ADVANCED_MODE)return"";
-  const automatic=eventYearRange(state);
   const axis=effectiveAxisOverride(state);
+  const automatic=axis||displayedAxisYearRange(state);
   const key=effectiveCategoryKey(state);
   const customKey=Array.isArray(state.presentationOverrides?.categoryKey);
   const keyGeometry=effectiveColorKeyGeometry(state)||COLOR_KEY_GEOMETRY_DEFAULT;
