@@ -32,6 +32,11 @@ function outputText(payload){
   for(const item of Array.isArray(payload.output)?payload.output:[])for(const content of Array.isArray(item?.content)?item.content:[])if(content?.type==='output_text'&&typeof content.text==='string')return content.text;
   return '';
 }
+function hasProviderRefusal(payload){
+  if(payload.refusal!=null)return true;
+  return Array.isArray(payload.output)&&payload.output.some(item=>item?.type==='refusal'||item?.refusal!=null||
+    (Array.isArray(item?.content)&&item.content.some(content=>content?.type==='refusal'||content?.refusal!=null)));
+}
 export function createLocalLayoutCritic({
   apiKey=process.env.TIMELINE_AI_API_KEY||process.env.OPENAI_API_KEY||'',fetchImpl=globalThis.fetch,
   timeoutMs=timelineAiProviderTimeoutMs022(),saveReceipt=receipt=>privateReceipt(receipt,receiptDirectory)
@@ -65,8 +70,13 @@ export function createLocalLayoutCritic({
       if(combined.aborted)throw failure('LAYOUT_CRITIC_CANCELLED',499);
       response=await fetchImpl(endpoint,{method:'POST',headers:{authorization:`Bearer ${apiKey}`,'content-type':'application/json'},body,signal:combined});
       if(!response.ok)throw failure('LAYOUT_CRITIC_PROVIDER_UNAVAILABLE',503);
-      payload=await response.json();text=outputText(payload||{});
-      if(!text||payload.status==='incomplete')throw failure('LAYOUT_CRITIC_PROVIDER_OUTPUT_INVALID');
+      payload=await response.json();
+      // HTTP 200 and parseable text do not prove successful model completion.
+      // Reject terminal errors/refusals and every noncompleted response before
+      // attaching transport evidence, saving a receipt or reporting COMPLETE.
+      if(!payload||typeof payload!=='object'||Array.isArray(payload)||payload.status!=='completed'||payload.error!=null||hasProviderRefusal(payload))throw failure('LAYOUT_CRITIC_PROVIDER_OUTPUT_INVALID');
+      text=outputText(payload);
+      if(!text)throw failure('LAYOUT_CRITIC_PROVIDER_OUTPUT_INVALID');
       result=validateLayoutRecommendations(input.projection,JSON.parse(text),digest);
       attachProviderReceipt(result,response,payload,body,text);
       const providerReceipt=getProviderReceipt(result);

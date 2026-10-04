@@ -19,7 +19,7 @@ const mockKey='local-test-placeholder-not-a-real-key';
 function provider(p,{recommendations=[],responseId='resp_local_unit',model='gpt-6.1-sol',status=200}={}){
   const calls=[],receipts=[];
   const service=createLocalLayoutCritic({apiKey:mockKey,fetchImpl:async (url,init)=>{
-    calls.push({url,init});return new Response(JSON.stringify({id:responseId,model,status:'completed',output_text:JSON.stringify(result(p,recommendations))}),{status,headers:{'x-request-id':'request_local_unit'}});
+    calls.push({url,init});return new Response(JSON.stringify({id:responseId,model,status:'completed',error:null,output_text:JSON.stringify(result(p,recommendations))}),{status,headers:{'x-request-id':'request_local_unit'}});
   },saveReceipt:async receipt=>{receipts.push(receipt);}});
   return {service,calls,receipts};
 }
@@ -73,7 +73,7 @@ test('missing receipt, unexpected model, invalid output, refusal, failure and ti
   for(const config of [{responseId:null},{model:'other-model'},{status:503}]){
     const {service,receipts}=provider(p,config);await assert.rejects(()=>service.analyze(consent(p)),error=>error.code.startsWith('LAYOUT_CRITIC_'));assert.equal(receipts.length,0);
   }
-  for(const responseBody of [{id:'resp_refusal',model:'gpt-6.1-sol',output:[]},{id:'resp_bad',model:'gpt-6.1-sol',output_text:'not-json'},{id:'resp_bad',model:'gpt-6.1-sol',output_text:JSON.stringify({sceneDigest:p.sceneDigest,recommendations:[{kind:'SET_TITLE',text:'INVENTED_UNIT_BIOGRAPHY'}]})}]){
+  for(const responseBody of [{id:'resp_refusal',model:'gpt-6.1-sol',status:'completed',output:[]},{id:'resp_bad',model:'gpt-6.1-sol',status:'completed',output_text:'not-json'},{id:'resp_bad',model:'gpt-6.1-sol',status:'completed',output_text:JSON.stringify({sceneDigest:p.sceneDigest,recommendations:[{kind:'SET_TITLE',text:'INVENTED_UNIT_BIOGRAPHY'}]})}]){
     let saved=0;const service=createLocalLayoutCritic({apiKey:mockKey,fetchImpl:async()=>new Response(JSON.stringify(responseBody)),saveReceipt:async()=>saved++});
     await assert.rejects(()=>service.analyze(consent(p)));assert.equal(saved,0);
   }
@@ -185,4 +185,26 @@ test('global Guided layout lock permits truthful read-only review and rejects ev
   const noOp=await applyLayoutRecommendations(document,{sceneDigest:analysis.sceneDigest,recommendations:analysis.recommendations},p.sceneDigest,options);
   assert.equal(noOp.applied,0);assert.equal(noOp.sourceUnchanged,true);assert.equal(JSON.stringify(document),before);
   assert.throws(()=>validateLayoutRecommendations(p.input,result(p,[move(p)]),p.sceneDigest),{code:'LAYOUT_CRITIC_OPERATION_REJECTED'});
+});
+
+
+test('HTTP 200 failed/error/refusal/noncompleted responses reject parseable output before saving any receipt',async()=>{
+  const p=await projectLayoutCritic(minimal(),options);
+  const complete={id:'resp_guard_unit',model:'gpt-6.1-sol',status:'completed',error:null,output_text:JSON.stringify(result(p))};
+  const rejected=[
+    ...['failed','incomplete','in_progress','queued','cancelled','',undefined].map(status=>({...complete,status})),
+    {...complete,error:{code:'unit_provider_error',message:'UNIT_ERROR_DO_NOT_EXPOSE'}},
+    {...complete,refusal:'UNIT_REFUSAL_DO_NOT_EXPOSE'},
+    {...complete,output:[{type:'message',content:[{type:'refusal',refusal:'UNIT_REFUSAL_DO_NOT_EXPOSE'}]}]},
+    {...complete,output:[{type:'refusal',refusal:'UNIT_REFUSAL_DO_NOT_EXPOSE'}]}
+  ];
+  for(const payload of rejected){
+    let saves=0;
+    const service=createLocalLayoutCritic({apiKey:mockKey,fetchImpl:async()=>new Response(JSON.stringify(payload),{status:200}),saveReceipt:async()=>saves++});
+    await assert.rejects(()=>service.analyze(consent(p)),error=>error.code==='LAYOUT_CRITIC_PROVIDER_OUTPUT_INVALID'&&!error.message.includes('DO_NOT_EXPOSE'));
+    assert.equal(saves,0);
+  }
+  const receipts=[];
+  const success=createLocalLayoutCritic({apiKey:mockKey,fetchImpl:async()=>new Response(JSON.stringify(complete),{status:200}),saveReceipt:async receipt=>receipts.push(receipt)});
+  const response=await success.analyze(consent(p));assert.equal(response.status,'COMPLETE');assert.equal(response.providerReceipt.responseId,'resp_guard_unit');assert.equal(receipts.length,1);
 });
