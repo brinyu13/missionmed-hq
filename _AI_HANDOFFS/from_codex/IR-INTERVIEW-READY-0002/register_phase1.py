@@ -18,25 +18,8 @@ def run(argv,cwd=ROOT):
 def digest(p): return hashlib.sha256(p.read_bytes()).hexdigest()
 def write_json(p,d): p.write_text(json.dumps(d,indent=2)+'\n')
 def client():
-    process=subprocess.Popen(['supabase','projects','api-keys','--project-ref','brxqytrfdisrgakrxkhd','--output','json'],cwd='/tmp',stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL)
-    raw=bytearray();deadline=time.monotonic()+60
-    try:
-        selector=selectors.DefaultSelector();selector.register(process.stdout,selectors.EVENT_READ)
-        while selector.get_map():
-            if time.monotonic()>deadline: raise RuntimeError('credential transport deadline exceeded')
-            for key,_ in selector.select(timeout=1):
-                chunk=os.read(key.fileobj.fileno(),min(8192,262145-len(raw)))
-                if not chunk:selector.unregister(key.fileobj);break
-                raw.extend(chunk)
-                if len(raw)>262144: raise RuntimeError('credential transport size bound exceeded')
-        if process.wait(timeout=max(1,deadline-time.monotonic())): raise RuntimeError('credential transport failed closed')
-    finally:
-        if process.poll() is None:process.kill();process.wait()
-    data=json.loads(raw)
-    rows=data if isinstance(data,list) else data.get('api_keys',[])
-    matching=[x for x in rows if x.get('name')=='missionmed_lease_runtime_v5' and x.get('type')=='secret' and isinstance(x.get('api_key'),str) and x['api_key'].startswith('sb_secret_')]
-    if len(matching)!=1: raise RuntimeError('existing coordination credential unavailable')
-    return SupabaseLeaseClient(base_url='https://brxqytrfdisrgakrxkhd.supabase.co',project_ref='brxqytrfdisrgakrxkhd',api_key=matching[0]['api_key'])
+    from lease_transport import existing_lease_client
+    return existing_lease_client(SupabaseLeaseClient)
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--execute',action='store_true');args=parser.parse_args()
