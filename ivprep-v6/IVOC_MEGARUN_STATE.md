@@ -33,6 +33,20 @@ the actual production route and deployment.
   R022 is a separate confirmed executable gap: project authoritative versioned
   Admin follow-up policy into controls and trusted native instructions, not merely
   user focus text. Continue that next; no engineering-exhausted/completion claim.
+  Clean remotely confirmed source4e299f841619735ade6a64c96cf4d3a8251e798d
+  deployed SUCCESSbe56a618-a2a4-46cb-8bc3-1b84cd6c9ddf, image
+  sha256:d5efc273df8fa145e67d8352c65c099b03344afcad587b40727b5232b51ff303;
+  filtered1269-file artifactb801lS SHA
+  a040484986ee860093ebe14fa21a77991547312ab0e6be2e4127344b109b268e.
+  Health200/root,candidate,bootstrap401. PRODUCT4531 and SHARED4532 normally
+  released/remote confirmed; ledger receiptPRODUCT4533. Prior healthy032a/ab8/
+  VbnwFn and last POV-known-good61aa/deed28/2YgD0Z exact artifacts retained.
+  Fresh visual/behavioral acceptance remains UNVERIFIED; root unpromoted.
+  R022 current-path correction: native production consumes
+  createIvocContextPackResolver in server/providers/ivoc-context-pack-resolver.mjs
+  via supabase-durable-adapter, not only application-intelligence.getActorContext.
+  Patch the actual trusted resolver plus minimized bootstrap and shared policy
+  adapters; reject stale policy before recording/provider. No architecture reset.
 - 2026-10-04 R006 Mock setup implementation: restores all required5/10/15/25
   duration controls plus Advanced numeric target1–30. Untouched target follows
   selected pool; explicit target is pinned through Room readiness, native context,
