@@ -1,0 +1,15 @@
+{
+  "mission": "IR-INTERVIEW-READY-0002",
+  "diagnosticAdmissionCommit": "2fe618d797e705bf543f6318f61740287d7a46d5",
+  "helperSha256": "995334b55423ce6c0dc571893f64fdfd699539a744df90afd046b9afbfa0604d",
+  "wrapperSha256": "46c3668665bdfcdc293d7ebfe9af16b75b1fa0b0eeb69dad6a0ce5a793d0f6a5",
+  "observedExitCode": 1,
+  "phase": "keychain_supabase",
+  "error": "deadline_exceeded",
+  "elapsedSeconds": 10.015,
+  "managementRevealReached": false,
+  "authenticationProbeReached": false,
+  "registryAdmissionReached": false,
+  "cause": "Native existing-item read exceeded its deadline. Locked status, permission denial and identity validity remain unproven.",
+  "nextAction": "Owner checks/restores existing Supabase CLI identity custody through normal macOS channel; no automated retry, new credential, grant or rotation. Separate bounded review admission is required before another attempt."
+}
