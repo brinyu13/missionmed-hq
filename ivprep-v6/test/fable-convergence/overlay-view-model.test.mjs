@@ -34,6 +34,8 @@ function fixture(){
   class Pipeline extends EventTarget {
     constructor(options){super();this.options=options;this.started=[];this.destroyed=false;records.pipelines.push(this);}
     beginPlayback(value){this.started.push(value);return true;}
+    endPlayback(){return true;}
+    stopSampling(){}
     destroy(){this.destroyed=true;}
   }
   class Owner {
@@ -81,6 +83,47 @@ test('replay redraw is opt-in, playback-only and uses existing owner over exact 
   f.invalidate();assert.equal(pipeline.beginPlayback({videoElement:f.video}),false);assert.equal(pipeline.started.length,1);
   assert.equal(owner.consumeOverlay({pipelineMs:0},'playback'),false);assert.equal(owner.cleared,true);
   overlay.destroy();assert.equal(owner.destroyed,true);assert.equal(pipeline.destroyed,true);
+});
+test('actual playback epochs terminate their paired detectors before a restarted relative clock',async()=>{
+  const priorDocument=globalThis.document,priorCustomEvent=globalThis.CustomEvent;
+  globalThis.document={hidden:false,addEventListener(){},removeEventListener(){},getElementById(){return null;}};
+  if(!globalThis.CustomEvent)globalThis.CustomEvent=class extends Event{constructor(type,init={}){super(type);this.detail=init.detail;}};
+  const {BrowserAnalyticsPipeline}=await import('../../public/analytics/browser-pipeline.mjs');
+  let now=0;
+  class ActualPlayback extends BrowserAnalyticsPipeline{
+    constructor(options){super({...options,now:()=>now});}
+    startVision(){
+      const detector=()=>({terminated:false,lastTimestamp:-1,postMessage(){},terminate(){this.terminated=true;},
+        accept(timestamp){assert.ok(timestamp>this.lastTimestamp,'detector timestamps must increase');this.lastTimestamp=timestamp;}});
+      this.worker??=detector();this.faceWorker??=detector();
+      this.workerReady=true;this.faceWorkerReady=true;
+    }
+  }
+  const f=fixture();f.video.readyState=4;
+  const overlay=replayOverlays({...f.options,load:async()=>[{BrowserAnalyticsPipeline:ActualPlayback},f.loaded[1]]});
+  try{
+    await overlay.setEnabled(true);const pipeline=f.records.owners[0].options.playbackPipeline;
+    for(const reason of ['playback_paused','playback_seek','overlay_layers_changed']){
+      pipeline.beginPlayback({videoElement:f.video});
+      const oldFace=pipeline.faceWorker,oldBody=pipeline.worker,generation=pipeline.generation;
+      now+=23000;const priorTimestamp=pipeline.session.clock.sessionMs();
+      oldFace.accept(priorTimestamp);oldBody.accept(priorTimestamp);
+      assert.equal(pipeline.endPlayback(reason),true);
+      assert.equal(oldFace.terminated,true);assert.equal(oldBody.terminated,true);
+      assert.equal(pipeline.faceWorker,null);assert.equal(pipeline.worker,null);
+      assert.equal(pipeline.generation,generation+1);assert.equal(pipeline.session,null);
+      assert.equal(pipeline.endPlayback(reason),false);assert.equal(pipeline.generation,generation+1);
+      pipeline.beginPlayback({videoElement:f.video});now+=128;
+      const restartedTimestamp=pipeline.session.clock.sessionMs();
+      assert.ok(restartedTimestamp<priorTimestamp);assert.notEqual(pipeline.faceWorker,oldFace);
+      pipeline.faceWorker.accept(restartedTimestamp);pipeline.worker.accept(restartedTimestamp);
+      pipeline.endPlayback(reason);
+    }
+  }finally{
+    overlay.destroy();
+    if(priorDocument===undefined)delete globalThis.document;else globalThis.document=priorDocument;
+    if(priorCustomEvent===undefined)delete globalThis.CustomEvent;else globalThis.CustomEvent=priorCustomEvent;
+  }
 });
 test('late playback owner import cannot bind after route or account cancellation',async()=>{
   for(const cancel of ['destroy','account']){

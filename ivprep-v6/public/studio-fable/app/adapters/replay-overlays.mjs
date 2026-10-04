@@ -34,6 +34,17 @@ export function replayOverlays({video,documentRef=video?.ownerDocument,isCurrent
         });
         const begin=pipeline.beginPlayback.bind(pipeline);
         pipeline.beginPlayback=options=>current()?begin(options):false;
+        const end=pipeline.endPlayback.bind(pipeline);
+        pipeline.endPlayback=reason=>{
+          const ended=end(reason);
+          // Each playback epoch starts a new relative clock. MediaPipe VIDEO
+          // detectors retain their last timestamp across a reset message, so
+          // they cannot be reused after pause/seek/layer restart. Only this
+          // ephemeral replay pipeline owns these workers; live capture is not
+          // involved. The producer's generation fence rejects late replies.
+          if(ended)exactPipeline.stopSampling({terminateWorker:true});
+          return ended;
+        };
         owner=new StudentSurfaceOverlayController({pipeline:{setInstrumentation(){},setOverlayConsumer(){}},playbackPipeline:pipeline,documentRef,
           surfaceIds:{playback:video.id,playbackViews:['filmroom']}});
         const exactOwner=owner;

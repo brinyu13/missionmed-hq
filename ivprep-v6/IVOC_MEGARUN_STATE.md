@@ -2272,6 +2272,28 @@ must name numeric cap, duration, session count, kill/rollback and proof sought.
 | 18 | Wrong-role/wrong-mentor denial and actor/subject separation | LIVE UNVERIFIED | Requires authenticated production negative-path acceptance. |
 | 18 | Private media, signed/revocable playback, no public leakage, audit trail | LIVE UNVERIFIED | Owner signed playback, reload, transcript-spine authorization, `context_persist` audit and anonymous HTTP 401 passed. Wrong-owner/negative-role denial and revocation remain. |
 
+- Presentation-mode/replay-status source `264675ddf7860a9b0d8305043df3e5a096aa7706`
+  deployed SUCCESS `c8a91504-96bf-4adc-aae3-efd38bf26dcf`, image
+  `sha256:32a958021235df390e5cbaabc43377b32c8311e960df0e4a2264a57ed36bc549`.
+  Health200, anonymous candidate/bootstrap401 and fresh authenticated brinyu
+  Home cold reload PASS. Exact filtered tracked artifact
+  `ivoc-release-artifact-6Rn1mT/source.tar`, SHA256
+  `b2ca60104f04e1ce63acbcff536d302c9c954595d8ad8d5d4145582fb0415c53`.
+  PRODUCT4471 and deployment4472 normally released/remotely read back. Initial
+  display-mode live filing still needs a new genuine attempt; no backfill.
+- Genuine optional-replay restart defect REOPENED: native Play -> pause ->
+  seek to beginning -> Play on c7fe94c0 reproduced `Packet timestamp mismatch`
+  (minimum21989001, received128000) in the face-safety VIDEO detector. Temporary
+  debugger was removed/disabled and its owned tab closed. Session-relative
+  playback clocks restart but reused detectors retain their timestamp minima.
+  Current adapter-only correction preserves endPlayback then terminates both
+  ephemeral playback workers through the existing generation fence; the next
+  epoch creates fresh detectors. Shared/live producers, recording/audio,
+  saved Analytics and canonical clock are unchanged. Actual producer lifecycle
+  regression failed before correction, passed after; all43 affected convergence
+  cases PASS. Production correction pending. Hand/finger spatial alignment is
+  UNVERIFIED, not inferred from detector output or matching canvas boxes.
+
 ## Current production and governance gates
 
 - Latest healthy MissionMed HQ production is the exact deployment/source/image
