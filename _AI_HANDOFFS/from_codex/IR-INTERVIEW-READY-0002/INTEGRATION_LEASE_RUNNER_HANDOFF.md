@@ -91,3 +91,61 @@ PYTHONDONTWRITEBYTECODE=1 python3 /Users/brianb/MissionMed_worktrees/IR-INTERVIE
 Result: fourteen fixtures PASS, 2.223 seconds; dormant invocation returns `DORMANT: independent exact-byte approval and fresh read admission required`. Tests retain the nine settled cases and add healthy-status/terminal-status/RESULT/all-receipt failure with release attempt, no false successful return, whitelisted phase/errno/no raw fixture key or nonce, missing/stale/wrong recovery approval, immutable original proof/current partial drift and changed HEAD worker fence. Fixture clients perform no provider work. Builder evidence does not admit execution or certify real authentication, lease health, worker completion or production.
 
 Only this handoff, runner and test file are assigned writes/staging/commit. The six partial product paths, QA worker files, uncommitted checkpoint/review, unrelated dirty `supabase/.temp/cli-latest` and `_AI_INPUTS/` remain outside this commit. Future commit identity is reported by scoped Git output and builder's final handoff. Stop after commit; Foreman explicitly rebinds new HEAD, and independent reviewers author fresh controls after that binding.
+
+## Fresh live-render repair packet (2026-10-04)
+
+The following typed packet supersedes the historical recovery admission for this runner only. Historical reports/consumed controls remain sealed. No implementation or runtime action is admitted by this text alone.
+
+<!-- LIVE_RENDER_REPAIR_PACKET_BEGIN -->
+{
+  "change": "COUNT_ONE_RENDERED_ACCOUNT_COMPARISON_s.revision<0_TO_0>s.revision",
+  "diagnosisFile": "LIVE_RENDER_COMPATIBILITY_DIAGNOSIS.md",
+  "diagnosisSha256": "5f31e00f4704532bea3cd6e8985242e83f8df1459ccad3b6bcdcb6b1c145230f",
+  "preserve": "ACCOUNT_SOURCE_STATE_ENGINE_GATEWAY_SHARED_ASSETS_AND_RUNTIME",
+  "runtimeAdmission": "SEPARATE_NEW_COMMITTED_PACKAGE_REVIEW_PRESENT_OWNER_PREIMAGES_AND_FRESH_INSTALL_REQUIRED",
+  "schema": "ir.live_render_source_repair.packet.v1",
+  "sourceBASE": "2db1f985e4678f8429af7b45969cde5729bd26d8",
+  "sourcePreimages": {
+    "interview-ready/build.py": "252faef3ee21ed66d7d0eb331c113c533eb28a0de2e5e0cfcf4c4d7f686ac1e1",
+    "interview-ready/evidence/integration-worker-handoff.md": "fce9c8c8597b721892a63b4705203eb1b1c672dc070819c8f99088f1970d1e0f",
+    "interview-ready/integration/release.test.py": "98401d50a70d9a037602775e92273e81d9aab3a1c2ce4201fbf2f3762282e592"
+  },
+  "verification": "BUILT_INLINE_SCRIPT_PARSE_SAFE_COMPARISON_SOURCE_ACCOUNT_BYTES_AND_EXISTING_PACKAGE_GATES",
+  "writePaths": [
+    "interview-ready/build.py",
+    "interview-ready/integration/release.test.py",
+    "interview-ready/evidence/integration-worker-handoff.md"
+  ]
+}
+<!-- LIVE_RENDER_REPAIR_PACKET_END -->
+
+## Fresh repair runner custody and reviewed control contract
+
+Current runner SHA256 12d4c346a879867d68965621dc90c2789899375fb010cfd8066850d4a7318953; tests SHA256 2864c9edc995498c554b00fc555b39b46eb980377a53c3a8d1a420bd79d4c293. Typed packet canonical SHA256 a59585b87eb4119bdf848de69080c6c949d0449e4be1c3f0d323e80e2760a79f is extracted only from the single begin/end block above. Diagnosis SHA256 5f31e00f4704532bea3cd6e8985242e83f8df1459ccad3b6bcdcb6b1c145230f. Whole handoff bytes intentionally are not self-pinned in the packet; final report SHA is supplied separately. Packet has no executable approval or runner/test self-hash cycle.
+
+This new admission replaces the original a7 source/recovered0566 snapshot logic. SOURCE_BASE is immutable2db1f985e4678f8429af7b45969cde5729bd26d8; exactly three Git-object preimages and current working-tree preimages must match the packet. Ten-path/checkpoint/native-QA adoption is no longer admissible for this runner. OS_HEAD is bc1d36fcb9f7bdda4bcd4ba507078b7787d802a2; current unchanged DR376/registration/client/transport hashes remain mandatory. OS adoption basis is Foreman's already qualified unchanged routed IR records with unrelated OS additions. No OS mutation or broader authority reconciliation was performed here.
+
+snapshot() obtains actual local sourceHead, not a constant equal to the helper commit that cannot exist until after bytes are frozen. After Foreman commits this preparation and any independently reviewed custody reports, the reviewer must bind that exact actual HEAD and all snapshot bytes into fresh controls. Independently signed approval.contract must equal snapshot() exactly. New HEAD with unchanged fixed three preimages is eligible only through new independent controls; old source-head controls fail. The worker's HEAD fence continues to require that admitted HEAD before every write/commit, allowing the worker to commit only after checking the precommit HEAD and then stop as instructed by Foreman. No automatic adoption or self-approval is implied.
+
+Fresh controls (Foreman/reviewers author, not created by this builder):
+
+- Approval schema ir.live_render_source_lease.approval.v1, verdict APPROVE, independentReviewer distinct from owner/builder, fresh expiresUnix <=now+3600, contract exact snapshot, reportFile/reportSha256 for an independent actual exact-byte report.
+- Embedded repairReview schema ir.live_render_source_lease.repair_review.v1, verdict APPROVE, independently assigned reviewer distinct from owner/builder, canonical contract bindingSha256, fresh expiresUnix and separate actual reportFile/reportSha256. Report affirms only the typed count-one build repair, focused package regression and product handoff under exact three paths.
+- Separate read admission schema ir.live_render_source_lease.read_admission.v1, verdict APPROVE, reviewer distinct from owner/builder, bindingSha256 exact canonical snapshot, approvalSha256 exact approval file bytes, maxSeconds equal CLI bound <=3600, fresh expiresUnix and third distinct reportFile/reportSha256. All three actual report bytes are checked locally before any credential-capable import.
+
+Use new distinct LIVE_RENDER_SOURCE_APPROVAL.json and LIVE_RENDER_SOURCE_READ_ADMISSION.json names; never replace previous controls/reports. Proposed new unique control directory SOURCE_LIVE_RENDER_REPAIR_LEASE_20261004_1 must not exist. Canonical path_scope stays exact origin https://github.com/brinyu13/missionmed-hq.git, canonical ref refs/heads/codex/ir-interview-ready-0002-storyforge, relativePath interview-ready, owner codex-ir-phase1-foreman. New session is ir-phase1-live-render-source-20261004-uuidhex. New exclusive consumption marker is SOURCE_LIVE_RENDER_REPAIR_LEASE_READ_CONSUMED_<read-admission-byte-SHA256>.json; prior markers are retained and old schema controls fail before capabilities. Any fresh-read failure consumes the one-use admission; it is not retry permission.
+
+Prospective invocation only after independent review/controls and Foreman's current admission:
+
+    python3 -B /Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002/_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/integration_lease_runner.py --execute --approval /Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002/_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/LIVE_RENDER_SOURCE_APPROVAL.json --read-admission /Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002/_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/LIVE_RENDER_SOURCE_READ_ADMISSION.json --control-directory /Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002/_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/SOURCE_LIVE_RENDER_REPAIR_LEASE_20261004_1 --max-seconds 3600
+
+The worker must call check_worker_guard(controlDirectory,binding,approvedSourceHead) immediately before each of the three permitted product writes and immediately before the one exact three-product-path commit. This runner does not grant writes to gateway/account source/manifest/phase1/other paths, package install, cache invalidation, native QA or provider mutation outside existing canonical source lease operations. New package generation/review/present-owner pointer activation/cache/live acceptance require separate admission after source repair.
+
+Executed locally only:
+
+    python3 -B _AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/integration_lease_runner_tests.py
+    python3 -B _AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/integration_lease_runner.py
+
+18 focused fixtures PASS; default DORMANT exit0; runner/tests compile PASS. Existing five-second keeper, immediate canonical renewal, ten-second worker freshness, finally release/cancellation/receipt failures/redaction and maximum3600 remain tested. New fixtures cover exact fresh base/three paths/current+Git preimage drift, independent repair review, old approval/read schema and packet expansion rejection, distinct newly bound custody HEAD, and KeyboardInterrupt release without false READY. Existing actual canonical-ref fixture is pure local; fake client/transport adapters perform no provider/credential/network operations. Byte comparison proves check_worker_guard and orchestrate are unchanged from BASE2db1f98. No transport/canonical RPC or source protocol rewrite occurred.
+
+STOP UNCOMMITTED for Matrix independent exact helper/packet review. Only runner, its existing tests and this handoff were written; no actual credentials/retrieval/probe/provider/native/runtime/source-product/OS write, HEAD change, stage or commit occurred. Historical preceding recovery prose and receipts remain historical, not current admission.

@@ -20,7 +20,7 @@ import uuid
 ROOT = Path(__file__).resolve().parents[3]
 HERE = Path(__file__).resolve().parent
 OS_ROOT = Path('/Users/brianb/MissionMed_worktrees/IR-PHASE1-REGISTRY-20261004-R2')
-OS_HEAD = '81c3ac794b0b3436c7ce66cada31b9f2a1e05356'
+OS_HEAD = 'bc1d36fcb9f7bdda4bcd4ba507078b7787d802a2'
 DECISION_SHA = '452a9e6259f6ae2f9e1441c725f79156b2d099d88a38af694b248e345b7dbe0e'
 AUTHORITY_HANDOFF = 'handoffs/from_codex/IR_INTERVIEW_READY_0002/REGISTRATION_TO_CODEX.md'
 AUTHORITY_HANDOFF_SHA = 'ed3a5cb6c439147471860a78654aeecbaca367d6ed2f7cd92c4159d331f6556d'
@@ -30,31 +30,21 @@ AUTHORITY_ADOPTION = {
     'historicalDecisionSha256': '32ad43957a4b9a245e5eb715c998692bf0ad8ed13d0766d88ab0e9955b7513bd',
     'currentOSHead': OS_HEAD, 'currentDecisionSha256': DECISION_SHA,
     'currentAuthorityHandoffSha256': AUTHORITY_HANDOFF_SHA,
-    'basis': 'FOREMAN_VERIFIED_EN_EM_DASH_TO_ASCII_NORMALIZATION_ONLY',
+    'basis': 'FOREMAN_VERIFIED_ROUTED_IR_UNCHANGED_OS_ADDITIONS',
 }
-SOURCE_BASE = 'a7adc5eb4107dc26d3dce38cae7195ad8b9868f3'
+SOURCE_BASE = '2db1f985e4678f8429af7b45969cde5729bd26d8'
 TRANSPORT_SHA = '6bab4c948b28202b7a803228f2123d5c95137030f16eb129c427b4ddcc487cad'
 ORIGIN = 'https://github.com/brinyu13/missionmed-hq.git'
 REF = 'refs/heads/codex/ir-interview-ready-0002-storyforge'
 OWNER = 'codex-ir-phase1-foreman'
-PATHS = ['interview-ready/integration/matrix-entry.js', 'interview-ready/integration/matrix-entry.test.js', 'interview-ready/integration/missionmed-interview-ready.php', 'interview-ready/integration/gateway.test.php', 'interview-ready/build.py', 'interview-ready/integration/release.py', 'interview-ready/integration/release.test.py', 'interview-ready/phase1.json', '_SYSTEM/CRITICAL_SYSTEMS_MANIFEST.json', 'interview-ready/evidence/integration-worker-handoff.md']
-BASE_PREIMAGES = {'interview-ready/integration/matrix-entry.js': 'ABSENT', 'interview-ready/integration/matrix-entry.test.js': 'ABSENT', 'interview-ready/integration/missionmed-interview-ready.php': 'f32df31e1c20af86d4c6fe48ee380832dbc2dc6d60a107e58bb7bc11f7a20243', 'interview-ready/integration/gateway.test.php': 'ba23b7d6bdedce44a85db34d4a4411513d4cb4067dd63cbe67cbfc970b19cc90', 'interview-ready/build.py': 'ab463c64dbe9fef819183508480a31769fae331b8a2b720c0aaef7f7bbf115ad', 'interview-ready/integration/release.py': 'ABSENT', 'interview-ready/integration/release.test.py': 'ABSENT', 'interview-ready/phase1.json': '0f44ee256a985b26a6a25bd2f10a431ef8f38c24197d2a1598299676484daa18', '_SYSTEM/CRITICAL_SYSTEMS_MANIFEST.json': '41a35e9d3fd5dee394ceee2a66d0cfd4fe1959bca5535f1c58bf36ee764c33ec', 'interview-ready/evidence/integration-worker-handoff.md': 'ABSENT'}
+PATHS = ['interview-ready/build.py', 'interview-ready/integration/release.test.py', 'interview-ready/evidence/integration-worker-handoff.md']
+BASE_PREIMAGES = {'interview-ready/build.py': '252faef3ee21ed66d7d0eb331c113c533eb28a0de2e5e0cfcf4c4d7f686ac1e1', 'interview-ready/integration/release.test.py': '98401d50a70d9a037602775e92273e81d9aab3a1c2ce4201fbf2f3762282e592', 'interview-ready/evidence/integration-worker-handoff.md': 'fce9c8c8597b721892a63b4705203eb1b1c672dc070819c8f99088f1970d1e0f'}
 INTERVAL = 5.0
-CHECKPOINT_HEAD = '0566cf093aaa0058632c7ca2b4e09c0ecef8b075'
-CHECKPOINT_FILE = 'IR_PHASE1_INTERRUPTION_CHECKPOINT_20261004_1929.md'
-INTERRUPTION_REVIEW_FILE = 'INTEGRATION_LEASE_INTERRUPTION_REVIEW.md'
-CHECKPOINT_SHA = '63c57989a0ac670d14f2a0383a1d0c0c1a25a211017beb6c67e63577d905032e'
-INTERRUPTION_REVIEW_SHA = '59f4fdf7a8a7a7c719a73c79fe2842a615b568907a0d066a4919d01ce099c592'
-PACKET_SHA = 'c3a6e15b98938220f10406014e992cdc9cbd4359451187c737a4a0c3d8813cbc'
-CHECKPOINT_DRAFTS = {
-    '_SYSTEM/CRITICAL_SYSTEMS_MANIFEST.json': '5bd21265a8d8c48986ada406e7cf2802a6cb755200892448adbd58474b8eb150',
-    'interview-ready/build.py': '2776ea801ad4440bfaf3446ebe311febe758f162e775a0cf623a4ff8acd1a432',
-    'interview-ready/integration/missionmed-interview-ready.php': '406c97135c6ea768f990390a588adfeca037c1b69c0c4b158f67e47b3c940c65',
-    'interview-ready/phase1.json': 'c552cc20f09a7dce76c91a22bfd507e91c6d33b78b043df9f420fdf57d1351c0',
-    'interview-ready/integration/matrix-entry.js': '238d936904fce777174f22fb352e99fce118192ca9a469be392246c6a65366ad',
-    'interview-ready/integration/release.py': '7a4ad5d0cd3465124de98de2eb8e91a61ad3f3780c7754a6363c90acb978bf0e',
-    '_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/native_account_qa.py': '9c4452da53981fb70de6afae504fe38ee9cd0445d1e4187464220124d947b7b5',
-}
+BUILDER = 'codex-ir-live-render-source-runner-builder'
+PACKET_SHA = 'a59585b87eb4119bdf848de69080c6c949d0449e4be1c3f0d323e80e2760a79f'
+PACKET_FILE = 'INTEGRATION_LEASE_RUNNER_HANDOFF.md'
+DIAGNOSIS_FILE = 'LIVE_RENDER_COMPATIBILITY_DIAGNOSIS.md'
+DIAGNOSIS_SHA = '5f31e00f4704532bea3cd6e8985242e83f8df1459ccad3b6bcdcb6b1c145230f'
 
 
 class Stop(RuntimeError):
@@ -126,21 +116,29 @@ def original_preimages(root):
     return images
 
 
+def repair_packet():
+    text = (HERE / PACKET_FILE).read_text()
+    begin = '<!-- LIVE_RENDER_REPAIR_PACKET_BEGIN -->'
+    end = '<!-- LIVE_RENDER_REPAIR_PACKET_END -->'
+    if text.count(begin) != 1 or text.count(end) != 1:
+        raise Stop('PACKET_DENIED')
+    packet = json.loads(text.split(begin, 1)[1].split(end, 1)[0])
+    if (packet.get('schema') != 'ir.live_render_source_repair.packet.v1'
+            or hashlib.sha256(canonical(packet)).hexdigest() != PACKET_SHA):
+        raise Stop('PACKET_DENIED')
+    return packet
+
+
 def snapshot(root=ROOT, os_root=OS_ROOT):
     return {'sourceBASE': SOURCE_BASE, 'sourceHead': head(root), 'osHead': head(os_root),
             'writePaths': PATHS, 'sourcePreimages': preimages(root),
             'originalSourcePreimages': original_preimages(root),
-            'recovery': {'checkpointHead': CHECKPOINT_HEAD,
-                         'checkpointFile': CHECKPOINT_FILE,
-                         'checkpointSha256': digest(HERE / CHECKPOINT_FILE),
-                         'interruptionReviewFile': INTERRUPTION_REVIEW_FILE,
-                         'interruptionReviewSha256': digest(HERE / INTERRUPTION_REVIEW_FILE),
-                         'checkpointDrafts': CHECKPOINT_DRAFTS,
-                         'observedNativeQaSha256': digest(root / next(name for name in CHECKPOINT_DRAFTS if name not in PATHS))},
+            'repairPacket': repair_packet(),
+            'diagnosisSha256': digest(HERE / DIAGNOSIS_FILE),
             'runnerSha256': digest(Path(__file__)),
             'testsSha256': digest(HERE / 'integration_lease_runner_tests.py'),
             'transportSha256': digest(HERE / 'lease_transport.py'),
-            'workerPacketSha256': digest(HERE / 'MATRIX_RELEASE_WORKER_PACKET.md'),
+            'workerPacketSha256': hashlib.sha256(canonical(repair_packet())).hexdigest(),
             'canonicalClientSha256': digest(os_root / 'tools/engineering_os_lease.py'),
             'decisionSha256': digest(os_root / 'decisions/DR-376_ir_phase1_bounded_execution_annex.md'),
             'authorityHandoffSha256': digest(os_root / AUTHORITY_HANDOFF),
@@ -171,26 +169,29 @@ def validate_approval(approval, actual, now=None):
             or actual['canonicalClientSha256'] != CLIENT_SHA
             or actual['authorityAdoption'] != AUTHORITY_ADOPTION
             or actual['writePaths'] != PATHS
-            or actual['recovery']['checkpointHead'] != CHECKPOINT_HEAD
-            or actual['recovery']['checkpointDrafts'] != CHECKPOINT_DRAFTS
-            or actual['recovery']['checkpointSha256'] != CHECKPOINT_SHA
-            or actual['recovery']['interruptionReviewSha256'] != INTERRUPTION_REVIEW_SHA
-            or any(actual['sourcePreimages'][name] != value for name, value in CHECKPOINT_DRAFTS.items()
-                   if name in PATHS)):
+            or actual['sourcePreimages'] != BASE_PREIMAGES
+            or hashlib.sha256(canonical(actual['repairPacket'])).hexdigest() != PACKET_SHA
+            or actual['diagnosisSha256'] != DIAGNOSIS_SHA
+            or actual['repairPacket']['sourceBASE'] != SOURCE_BASE
+            or actual['repairPacket']['writePaths'] != PATHS
+            or actual['repairPacket']['sourcePreimages'] != BASE_PREIMAGES
+            or not isinstance(actual['sourceHead'], str)
+            or len(actual['sourceHead']) != 40
+            or any(c not in '0123456789abcdef' for c in actual['sourceHead'])):
         raise Stop('PIN_MISMATCH')
-    if (approval.get('schema') != 'ir.integration_source_lease.approval.v1'
+    if (approval.get('schema') != 'ir.live_render_source_lease.approval.v1'
             or approval.get('verdict') != 'APPROVE'
-            or approval.get('independentReviewer') in (None, '', OWNER)
+            or approval.get('independentReviewer') in (None, '', OWNER, BUILDER)
             or approval.get('contract') != actual or not fresh(approval, now)):
         raise Stop('APPROVAL_DENIED')
     binding = hashlib.sha256(canonical(actual)).hexdigest()
-    recovery = approval.get('recoveryReview', {})
-    if (recovery.get('schema') != 'ir.integration_source_lease.recovery_review.v1'
-            or recovery.get('verdict') != 'APPROVE'
-            or recovery.get('independentReviewer') in (None, '', OWNER)
-            or recovery.get('bindingSha256') != binding or not fresh(recovery, now)
-            or not recovery.get('reportFile') or not recovery.get('reportSha256')):
-        raise Stop('RECOVERY_REVIEW_DENIED')
+    repair = approval.get('repairReview', {})
+    if (repair.get('schema') != 'ir.live_render_source_lease.repair_review.v1'
+            or repair.get('verdict') != 'APPROVE'
+            or repair.get('independentReviewer') in (None, '', OWNER, BUILDER)
+            or repair.get('bindingSha256') != binding or not fresh(repair, now)
+            or not repair.get('reportFile') or not repair.get('reportSha256')):
+        raise Stop('REPAIR_REVIEW_DENIED')
     return binding
 
 
@@ -392,9 +393,9 @@ def execute(approval_path, admission_path, directory, max_seconds=3600):
     approval = read_json(approval_path)
     binding = validate_approval(approval, actual)
     admission = read_json(admission_path)
-    if (admission.get('schema') != 'ir.integration_source_lease.read_admission.v1'
+    if (admission.get('schema') != 'ir.live_render_source_lease.read_admission.v1'
             or admission.get('verdict') != 'APPROVE'
-            or admission.get('independentReviewer') in (None, '', OWNER)
+            or admission.get('independentReviewer') in (None, '', OWNER, BUILDER)
             or admission.get('bindingSha256') != binding
             or admission.get('approvalSha256') != digest(approval_path)
             or not fresh(admission, time.time())
@@ -402,7 +403,7 @@ def execute(approval_path, admission_path, directory, max_seconds=3600):
             or not 0 < max_seconds <= 3600):
         raise Stop('READ_ADMISSION_DENIED')
     # Reports are separate reviewer artifacts; their exact bytes must exist locally.
-    reports = (approval, admission, approval['recoveryReview'])
+    reports = (approval, admission, approval['repairReview'])
     if len({document['reportFile'] for document in reports}) != 3:
         raise Stop('SEPARATE_REVIEW_REPORT_DENIED')
     for document in reports:
@@ -414,7 +415,7 @@ def execute(approval_path, admission_path, directory, max_seconds=3600):
     scope = canonical_client.path_scope(ORIGIN, REF, 'interview-ready')
     directory.mkdir(mode=0o700)  # unique, nonexisting control directory only
     # Mark the approval consumed BEFORE any retrieval. Failed reads cannot retry.
-    marker = HERE / ('SOURCE_INTEGRATION_LEASE_READ_CONSUMED_' + digest(admission_path) + '.json')
+    marker = HERE / ('SOURCE_LIVE_RENDER_REPAIR_LEASE_READ_CONSUMED_' + digest(admission_path) + '.json')
     with marker.open('xb') as stream:
         marker.chmod(0o600)
         stream.write(canonical({'bindingSha256': binding, 'state': 'CONSUMED'}))
@@ -435,7 +436,7 @@ def execute(approval_path, admission_path, directory, max_seconds=3600):
         phase = 'ACQUIRE'
         breadcrumb(directory, phase, binding)
         lease = client.acquire_writer(scope=scope, write_paths=PATHS, owner_id=OWNER,
-            session_id='ir-phase1-integration-source-20261004-' + uuid.uuid4().hex, binding=binding)
+            session_id='ir-phase1-live-render-source-20261004-' + uuid.uuid4().hex, binding=binding)
     except BaseException as error:
         safe_diagnostic(phase, error)
         raise Stop('EXECUTION_STOP') from None

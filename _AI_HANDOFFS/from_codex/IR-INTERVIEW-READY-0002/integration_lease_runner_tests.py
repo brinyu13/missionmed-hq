@@ -67,10 +67,10 @@ class RunnerTests(unittest.TestCase):
         self.temp.cleanup()
 
     def approval(self):
-        return {'schema': 'ir.integration_source_lease.approval.v1', 'verdict': 'APPROVE',
+        return {'schema': 'ir.live_render_source_lease.approval.v1', 'verdict': 'APPROVE',
                 'independentReviewer': 'fixture-independent', 'contract': copy.deepcopy(self.actual),
                 'expiresUnix': 2000,
-                'recoveryReview': {'schema': 'ir.integration_source_lease.recovery_review.v1',
+                'repairReview': {'schema': 'ir.live_render_source_lease.repair_review.v1',
                     'verdict': 'APPROVE', 'independentReviewer': 'fixture-recovery-reviewer',
                     'expiresUnix': 2000,
                     'bindingSha256': runner.hashlib.sha256(runner.canonical(self.actual)).hexdigest(),
@@ -156,14 +156,14 @@ class RunnerTests(unittest.TestCase):
         admission_report = self.directory / 'admission.md'
         admission_report.write_text('separate fresh read admission fixture report')
         approval = self.approval()
-        approval['recoveryReview'].update(expiresUnix=__import__('time').time() + 60,
+        approval['repairReview'].update(expiresUnix=__import__('time').time() + 60,
             reportSha256=runner.digest(recovery_report))
         approval.update(expiresUnix=__import__('time').time() + 60,
                         reportFile=report.name, reportSha256=runner.digest(report))
         approval_path = self.directory / 'approval.json'
         approval_path.write_bytes(runner.canonical(approval))
         binding = runner.validate_approval(approval, self.actual)
-        admission = {'schema': 'ir.integration_source_lease.read_admission.v1', 'verdict': 'APPROVE',
+        admission = {'schema': 'ir.live_render_source_lease.read_admission.v1', 'verdict': 'APPROVE',
             'independentReviewer': 'fixture-independent', 'bindingSha256': binding,
             'approvalSha256': runner.digest(approval_path), 'maxSeconds': 1,
             'expiresUnix': __import__('time').time() + 60,
@@ -206,10 +206,10 @@ class RunnerTests(unittest.TestCase):
         with self.assertRaises(canonical_client.LeaseDenied):
             canonical_client.path_scope(runner.ORIGIN, 'codex/bare-ref', 'interview-ready')
         approval = self.approval()
-        approval['recoveryReview'].update(expiresUnix=__import__('time').time() + 60)
+        approval['repairReview'].update(expiresUnix=__import__('time').time() + 60)
         approval.update(expiresUnix=__import__('time').time() + 60,
                         reportFile='fixture.md', reportSha256='fixture')
-        admission = {'schema': 'ir.integration_source_lease.read_admission.v1', 'verdict': 'APPROVE',
+        admission = {'schema': 'ir.live_render_source_lease.read_admission.v1', 'verdict': 'APPROVE',
             'independentReviewer': 'fixture-independent',
             'bindingSha256': runner.validate_approval(approval, self.actual),
             'approvalSha256': 'fixture', 'maxSeconds': 1,
@@ -303,31 +303,86 @@ class RunnerTests(unittest.TestCase):
         self.assertIn('"phase":"HEALTHY_STATUS"', output.getvalue())
         self.assertNotIn('fixture-', output.getvalue())
 
-    def test_partial_recovery_requires_fresh_review_and_exact_custody(self):
+    def test_fresh_repair_requires_independent_review_and_exact_base(self):
+        self.assertEqual(self.actual['sourceBASE'], '2db1f985e4678f8429af7b45969cde5729bd26d8')
         self.assertEqual(self.actual['originalSourcePreimages'], runner.BASE_PREIMAGES)
-        self.assertNotEqual(self.actual['sourcePreimages'], runner.BASE_PREIMAGES)
-        self.assertEqual(self.actual['recovery']['checkpointDrafts'], runner.CHECKPOINT_DRAFTS)
+        self.assertEqual(self.actual['sourcePreimages'], runner.BASE_PREIMAGES)
+        self.assertEqual(self.actual['writePaths'], [
+            'interview-ready/build.py', 'interview-ready/integration/release.test.py',
+            'interview-ready/evidence/integration-worker-handoff.md'])
         runner.validate_approval(self.approval(), self.actual, now=1000)
-        for change in ('missing', 'stale', 'owner', 'binding'):
+        for change in ('missing', 'stale', 'owner', 'builder', 'binding'):
             approval = self.approval()
             if change == 'missing':
-                approval.pop('recoveryReview')
+                approval.pop('repairReview')
             elif change == 'stale':
-                approval['recoveryReview']['expiresUnix'] = 999
+                approval['repairReview']['expiresUnix'] = 999
             elif change == 'owner':
-                approval['recoveryReview']['independentReviewer'] = runner.OWNER
+                approval['repairReview']['independentReviewer'] = runner.OWNER
+            elif change == 'builder':
+                approval['repairReview']['independentReviewer'] = runner.BUILDER
             else:
-                approval['recoveryReview']['bindingSha256'] = 'wrong'
+                approval['repairReview']['bindingSha256'] = 'wrong'
             with self.assertRaises(runner.Stop):
                 runner.validate_approval(approval, self.actual, now=1000)
-        altered = copy.deepcopy(self.actual)
-        altered['sourcePreimages']['interview-ready/build.py'] = 'wrong'
+        for field in ('sourcePreimages', 'originalSourcePreimages'):
+            altered = copy.deepcopy(self.actual)
+            altered[field]['interview-ready/build.py'] = 'wrong'
+            with self.assertRaises(runner.Stop):
+                runner.validate_approval(self.approval(), altered, now=1000)
+
+    def test_old_recovery_controls_and_packet_rejected(self):
+        approval = self.approval()
+        approval['schema'] = 'ir.integration_source_lease.approval.v1'
+        approval['recoveryReview'] = approval.pop('repairReview')
         with self.assertRaises(runner.Stop):
-            runner.validate_approval(self.approval(), altered, now=1000)
+            runner.validate_approval(approval, self.actual, now=1000)
         altered = copy.deepcopy(self.actual)
-        altered['originalSourcePreimages']['interview-ready/build.py'] = 'wrong'
+        altered['repairPacket']['writePaths'].append('_SYSTEM/CRITICAL_SYSTEMS_MANIFEST.json')
+        approval = self.approval()
+        approval['contract'] = altered
         with self.assertRaises(runner.Stop):
-            runner.validate_approval(self.approval(), altered, now=1000)
+            runner.validate_approval(approval, altered, now=1000)
+
+    def test_old_read_admission_rejected_before_any_capability(self):
+        now = __import__('time').time()
+        approval = self.approval()
+        approval['expiresUnix'] = now + 60
+        approval['repairReview']['expiresUnix'] = now + 60
+        admission = {'schema': 'ir.integration_source_lease.read_admission.v1',
+            'verdict': 'APPROVE', 'independentReviewer': 'fixture-independent',
+            'bindingSha256': runner.validate_approval(approval, self.actual),
+            'approvalSha256': 'fixture', 'maxSeconds': 1, 'expiresUnix': now + 60}
+        with patch.object(runner, 'snapshot', return_value=self.actual), \
+             patch.object(runner, 'read_json', side_effect=[approval, admission]), \
+             patch.object(runner, 'digest', return_value='fixture'), \
+             patch.object(runner, 'load_module') as modules:
+            with self.assertRaises(runner.Stop):
+                runner.execute(self.directory / 'approval.json', self.directory / 'read.json',
+                               self.directory / 'no-controls', 1)
+            modules.assert_not_called()
+            self.assertFalse((self.directory / 'no-controls').exists())
+
+    def test_cancellation_attempts_release_without_false_ready(self):
+        client = FakeClient()
+        with patch.object(client, 'heartbeat', side_effect=KeyboardInterrupt()), \
+             contextlib.redirect_stderr(io.StringIO()) as output:
+            self.assertFalse(runner.orchestrate(client, self.handle, self.actual,
+                self.binding, self.directory, max_seconds=1))
+        self.assertEqual(client.calls, ['release'])
+        self.assertFalse((self.directory / 'SOURCE_LEASE_READY.json').exists())
+        self.assertIn('"errorClass":"INTERRUPTED"', output.getvalue())
+        self.assertEqual(runner.read_json(self.directory / 'SOURCE_LEASE_RESULT.json')['release'], 'RELEASED')
+
+    def test_actual_new_custody_head_is_bound_without_fixed_self_hash_loop(self):
+        actual = copy.deepcopy(self.actual)
+        actual['sourceHead'] = 'c' * 40
+        approval = self.approval()
+        approval['contract'] = actual
+        approval['repairReview']['bindingSha256'] = runner.hashlib.sha256(runner.canonical(actual)).hexdigest()
+        runner.validate_approval(approval, actual, now=1000)
+        with self.assertRaises(runner.Stop):
+            runner.validate_approval(self.approval(), actual, now=1000)
 
     def test_changed_worker_head_stops_even_with_healthy_receipt(self):
         runner.atomic(self.directory, 'SOURCE_LEASE_STATUS.json',
