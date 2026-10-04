@@ -5,12 +5,13 @@ import {resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {randomUUID} from 'node:crypto';
 import {attachProviderReceipt,getProviderReceipt} from '../src/intelligence/provider-receipt.ts';
-import {timelineAiProviderTimeoutMs022} from '../src/intelligence/provider-deadline-022.ts';
 import {LAYOUT_CRITIC_VERSION,LAYOUT_CRITIC_CONSENT_VERSION,LAYOUT_CRITIC_REASON_CODES,validateLayoutCriticInput,validateLayoutRecommendations,layoutCriticDigest} from '../web/js/presentation/layout-critic-projection.js';
 
 export const LOCAL_LAYOUT_CRITIC_PATH='/api/local-layout-critic';
 export const LOCAL_LAYOUT_CRITIC_MODEL='gpt-6.1-sol';
 export const LOCAL_LAYOUT_CRITIC_EFFORT='high';
+// Loopback acceptance runs do not traverse the production WordPress proxy.
+export const LOCAL_LAYOUT_CRITIC_MAX_TIMEOUT_MS=180_000;
 const reason={type:'string',enum:[...LAYOUT_CRITIC_REASON_CODES]},confidence={type:'number',minimum:0,maximum:1};
 export const LOCAL_LAYOUT_CRITIC_OUTPUT_SCHEMA={type:'object',additionalProperties:false,required:['sceneDigest','recommendations'],properties:{
   sceneDigest:{type:'string',pattern:'^[a-f0-9]{64}$'},recommendations:{type:'array',maxItems:30,items:{anyOf:[
@@ -39,7 +40,7 @@ function hasProviderRefusal(payload){
 }
 export function createLocalLayoutCritic({
   apiKey=process.env.TIMELINE_AI_API_KEY||process.env.OPENAI_API_KEY||'',fetchImpl=globalThis.fetch,
-  timeoutMs=timelineAiProviderTimeoutMs022(),saveReceipt=receipt=>privateReceipt(receipt,receiptDirectory)
+  timeoutMs=LOCAL_LAYOUT_CRITIC_MAX_TIMEOUT_MS,saveReceipt=receipt=>privateReceipt(receipt,receiptDirectory)
 }={}){
   const configured=typeof apiKey==='string'&&apiKey.trim().length>=20;
   async function analyze(input,{signal}={}){
@@ -63,7 +64,7 @@ export function createLocalLayoutCritic({
       ].join('\n')}]},{role:'user',content:[{type:'input_text',text:JSON.stringify({sceneDigest:digest,projection:input.projection})}]}],
       text:{format:{type:'json_schema',name:'timeline_local_layout_critic',strict:true,schema:LOCAL_LAYOUT_CRITIC_OUTPUT_SCHEMA}}});
     const controller=new AbortController();
-    const timer=setTimeout(()=>controller.abort(),Math.min(90000,Math.max(1,timeoutMs)));
+    const timer=setTimeout(()=>controller.abort(),Math.min(LOCAL_LAYOUT_CRITIC_MAX_TIMEOUT_MS,Math.max(1,timeoutMs)));
     const combined=signal?AbortSignal.any([signal,controller.signal]):controller.signal;
     let response,payload,text,result;
     try{

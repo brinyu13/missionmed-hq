@@ -730,7 +730,7 @@ export function qualityGuardianViewer(entitlement={},route="home"){
 
 export function renderLocalLayoutReview(state={},canFix=true){
   const receipt=state.receipt;
-  const messages={UNAVAILABLE:'Local AI layout review is unavailable.',READY:'Local AI layout review is ready.',REVIEWING:'AI is reviewing the measured layout…',FAILED:'AI review failed. Your timeline is unchanged.',STALE:'The layout changed during review. Review again to use the current layout.',APPLIED:'Validated layout changes applied.',REVIEWED:'AI review completed; no safe changes were applied.'};
+  const messages={UNAVAILABLE:'Local AI layout review is unavailable.',READY:'Local AI layout review is ready.',REVIEWING:state.stage==='MEASURING'?'Measuring the current layout…':state.stage==='VALIDATING'?'Validating AI recommendations…':'Waiting for the AI layout review…',FAILED:'AI review failed. Your timeline is unchanged.',STALE:'The layout changed during review. Review again to use the current layout.',APPLIED:'Validated layout changes applied.',REVIEWED:'AI review completed; no safe changes were applied.'};
   return `<section data-local-layout-review><h3>Local AI layout review</h3>
     <p>Review layout with AI sends anonymous geometry and measured text bounds to OpenAI. Biography, words, dates, photos and source files stay local. Only validated geometry improvements can be applied.</p>
     <button type="button" class="button secondary" data-local-layout-review-start ${!state.available||state.busy||!canFix?'disabled':''}>${state.busy?'Reviewing layout…':'Review layout with AI'}</button>

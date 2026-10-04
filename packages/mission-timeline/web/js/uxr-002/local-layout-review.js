@@ -27,9 +27,10 @@ export function createLocalLayoutReview(store,{
   }
   async function review(){
     if(active||!state.available||!isLocalLayoutReviewLocation(location)||store.entitlement?.canMutate!==true)return state;
-    active=true;publish({busy:true,status:'REVIEWING',receipt:null,applied:0,rejected:0,errorCode:null});
+    active=true;publish({busy:true,status:'REVIEWING',stage:'MEASURING',receipt:null,applied:0,rejected:0,errorCode:null});
     try{
       const projection=await project(store.document,renderOptions);
+      publish({stage:'PROVIDER'});
       const response=await fetchImpl(LOCAL_LAYOUT_REVIEW_PATH,{method:'POST',credentials:'same-origin',cache:'no-store',
         headers:{'content-type':'application/json','x-timeline-local-layout-critic':'1'},
         body:JSON.stringify({projection:projection.input,sceneDigest:projection.sceneDigest,
@@ -41,6 +42,7 @@ export function createLocalLayoutReview(store,{
       if(value.sceneDigest!==projection.sceneDigest)throw failure('LAYOUT_CRITIC_STALE_SCENE');
       validate(projection.input,output,projection.sceneDigest);
       if(store.entitlement?.canMutate!==true)throw failure('LAYOUT_CRITIC_PERMISSION_CHANGED');
+      publish({stage:'VALIDATING'});
       const source=stableLayoutJson(store.document);
       const result=await apply(store.document,output,projection.sceneDigest,{...renderOptions,sourceDigest:projection.localContext.sourceDigest});
       if(stableLayoutJson(store.document)!==source)throw failure('LAYOUT_CRITIC_STALE_SCENE');
