@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { runInNewContext } from 'node:vm';
-import { parseSavedReviewRoute, resolveOwnSavedReview } from '../../public/studio/review-scope.mjs';
+import { parseSavedReviewRoute, resolveOwnSavedReview, parseAdminSavedReviewRoute, resolveAdminSavedReview } from '../../public/studio/review-scope.mjs';
 
 const htmlUrl = new URL('../../public/studio/index.html', import.meta.url);
 const legacyHtmlUrl = new URL('../../public/aaa/index.html', import.meta.url);
@@ -27,7 +27,7 @@ test('actual production boot restores only the exact own review and opens Film R
   const end = runtime.indexOf('\nvoid boot();', start);
   for (const navigateAway of [false, true]) {
     const calls = [];
-    const location = { hash: `#filmroom?session=${id}` };
+    const location = { hash: `#filmroom?session=${id}`, pathname: '/iv-prep-on-call/advanced/' };
     // GET /sessions/:id returns the public session itself, not { session }.
     const detail = { id, results: { payload: { analytics: { durationMs: 11085 } } } };
     const state = { role: 'student', view: 'home', filmGroups: { ingestResult() {} }, durable: {
@@ -37,7 +37,10 @@ test('actual production boot restores only the exact own review and opens Film R
       api: { session: async value => { calls.push(['session', value]); return detail; } },
     } };
     const noop = () => {};
-    const context = { state, location, adminReviewViewGeneration: 0, parseSavedReviewRoute, resolveOwnSavedReview,
+    const nodes = new Map();
+    const context = { state, location, adminReviewViewGeneration: 0, parseSavedReviewRoute, resolveOwnSavedReview, parseAdminSavedReviewRoute, resolveAdminSavedReview,
+      $: selector => { if (!nodes.has(selector)) nodes.set(selector, { dataset: {}, textContent: '', hidden: false }); return nodes.get(selector); },
+      $$: () => [],
       wireChrome: noop, applyRole: role => { state.role = role; }, wireCockpit: noop, startAudioDebug: noop,
       collectionChips: noop, renderQuestions: noop, renderSet: noop, renderWizard: noop, renderLoadoutConfig: noop,
       renderPostAnswer: noop, renderHomeCorpus: noop, renderDeviceCheck: noop, refreshDevices: async () => {},

@@ -74,7 +74,7 @@ import {
   buildBuilderLaunchOrder,
   liveMockRecordingCheckLabel,
 } from './presentation-view-model.mjs';
-import { clearAdminReviewMedia, createAdminReviewGate, isAdminReview, mayPresentSavedReview, resolveAdminStudentRefreshSelection, resolveReviewDestination, savedReviewHash, parseSavedReviewRoute, resolveOwnSavedReview } from './review-scope.mjs';
+import { clearAdminReviewMedia, createAdminReviewGate, isAdminReview, mayPresentSavedReview, resolveAdminStudentRefreshSelection, resolveReviewDestination, savedReviewHash, parseSavedReviewRoute, resolveOwnSavedReview, parseAdminSavedReviewRoute, resolveAdminSavedReview } from './review-scope.mjs';
 import { mountAdminControls, mountAdminMentorControls } from './admin-controls.mjs';
 import { AnalyticsPreview } from '../capabilities/analytics-preview.mjs';
 import { InterviewProgression, substantiveQuestionPlan } from '../capabilities/interview-progression.mjs';
@@ -4299,6 +4299,7 @@ async function boot() {
   const entryHash = String(location.hash || '');
   const entryGeneration = adminReviewViewGeneration;
   const reviewRoute = parseSavedReviewRoute(entryHash);
+  const adminReviewRoute = parseAdminSavedReviewRoute(entryHash);
   wireChrome();
   $('#candidate-return').hidden = !location.pathname.replace(/\/$/, '').endsWith('/advanced');
   applyRole('student');
@@ -4312,7 +4313,7 @@ async function boot() {
   renderPostAnswer();
   renderHomeCorpus();
   renderDeviceCheck();
-  if (reviewRoute) {
+  if (reviewRoute || adminReviewRoute) {
     for (const panel of $$('[data-view-panel]')) panel.dataset.active = 'false';
     const reviewLoading = $('#saved-review-loading');
     if (reviewLoading) reviewLoading.dataset.active = 'true';
@@ -4363,6 +4364,79 @@ async function boot() {
   // Keep review navigation available if their optional module load fails; no
   // successful measurement or live-session readiness is asserted by this catch.
   try { await mountAnalytics(); } catch { /* Existing saved evidence remains readable. */ }
+
+  if (adminReviewRoute) {
+    if (entryGeneration !== adminReviewViewGeneration || location.hash !== entryHash) return;
+    const admission = state.admission;
+    const durable = state.durable;
+    const bootstrap = durable.bootstrapPayload;
+    const identity = bootstrap?.identity;
+    const api = durable.api;
+    const apiIdentity = api.identity;
+    const library = state.adminLibrary;
+    const actor = admission?.identity?.subject;
+    if (!admission?.admitted || !state.durableAvailable || !durable.ready
+      || !permittedRoles().has('admin') || identity?.admin !== true || identity.subject !== actor
+      || apiIdentity?.admin !== true || apiIdentity.subject !== actor) {
+      setView('vault');
+      return; // Never fall back to an own attempt for a delegated review URL.
+    }
+    // A controlled role transition follows fresh admission. Hide the loading
+    // cue momentarily so applyRole does not treat this as user cancellation.
+    $('#saved-review-loading').dataset.active = 'false';
+    applyRole('admin');
+    $('#saved-review-loading').dataset.active = 'true';
+    let generation = adminReviewViewGeneration;
+    let routeHash = location.hash;
+    let routeView = state.view;
+    const accountCurrent = () => state.admission === admission && admission?.admitted
+      && admission.identity?.subject === actor && state.durable === durable && durable.ready
+      && state.durableAvailable && durable.bootstrapPayload === bootstrap && bootstrap.identity === identity
+      && identity.admin === true && identity.subject === actor && state.adminLibrary === library
+      && durable.api === api && api.identity === apiIdentity;
+    const isCurrent = () => accountCurrent() && state.role === 'admin' && permittedRoles().has('admin')
+      && generation === adminReviewViewGeneration && location.hash === routeHash && state.view === routeView;
+    let restored = null;
+    try {
+      restored = await resolveAdminSavedReview({ route: adminReviewRoute, actorSubject: actor, identity, library, isCurrent });
+      if (!isCurrent()) return;
+      if (restored) {
+        const saved = restored.saved;
+        state.adminCreditSubject = restored.selected;
+        state.lastSaved = saved;
+        state.filmGroups?.ingestResult(presentFilmRoomAnalytics(saved.analytics));
+        renderPostAnswer(saved.analytics);
+        renderContextEvidence(contextResultFromSessionSpine(saved.sessionDetail));
+        setView('postanswer');
+        // Only these synchronous, controlled view changes advance the pin.
+        generation = adminReviewViewGeneration;
+        routeHash = location.hash;
+        routeView = state.view;
+        if (adminReviewRoute.view === 'filmroom') {
+          await openLastSavedFilmRoom(null, { autoplay: false, expectedSaved: saved, canContinue: isCurrent });
+        }
+        return;
+      }
+    } catch { /* Revoked/missing membership returns to the authorized chooser. */ }
+    finally {
+      // Account replacement can occur while private playback is being signed.
+      // Never retain that former account's selected evidence or media.
+      if (!accountCurrent()) {
+        $('#saved-review-loading').dataset.active = 'false';
+        if (restored && state.lastSaved === restored.saved) {
+          clearAdminReviewMedia($('#playback'), state.filmGroups);
+          state.lastSaved = null;
+          state.adminCreditSubject = null;
+          renderPostAnswer(null);
+          renderFilmRoomSpine(null);
+          renderContextEvidence({ transcript: { status: 'UNAVAILABLE', reason: 'NO_SELECTED_ANSWER' } });
+        }
+        if (generation === adminReviewViewGeneration && location.hash === routeHash && state.view === routeView) setView('vault');
+      }
+    }
+    if (isCurrent()) setView('mentor');
+    return;
+  }
 
   if (reviewRoute && state.durableAvailable && state.role === 'student'
     && entryGeneration === adminReviewViewGeneration && location.hash === entryHash) {

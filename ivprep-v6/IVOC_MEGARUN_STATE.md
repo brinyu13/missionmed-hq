@@ -16,6 +16,25 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 R058/R076 Admin cold-review recovery implemented: strictly parsed
+  opaque session UUID + review=admin intent, no subject/credentials/media URL.
+  Fresh admitted Admin and exact bootstrap/API identity.subject -> unique fresh
+  authorized library membership -> existing sessionForStudent owner binding ->
+  Results/paused privateFilm. Pinned actor/account/API/bootstrap/library/role/
+  route/view generations reject stale replies; account replacement clears media
+  and selected evidence. No own-attempt fallback, authorization or provider change.
+  Original reload regressions FAIL before; independent reviewer caught subjectId
+  consumer mismatch before release. Actual server bootstrap identity projection
+  now drives fixtures, reproducing FAIL before corrected subject guard. 54 focused
+  checks PASS, independent corrected source PASS/noP0/P1. An older Admin-render
+  fixture lacked its actual renderReviewScopeLabel dependency; minimal stub added,
+  selected-student refresh test now PASS. Two unrelated historical Astra root
+  lineage/navigation assertions remain stale and are not counted as passing.
+  PRODUCT4516 released/readback before exact scope expansion; PRODUCT4517 keeps
+  seven source/test/ledger paths fenced. Next: immutable guarded candidate release
+  over healthy5cafa1f/9ea2a5e2/imageed1eaf/artifacteJX5Fu -> normal Admin Results/
+  Film cold reload -> independent live verification. Live acceptance still pending,
+  root unpromoted and full142/candidate spoken/role/owner-data gates remain open.
 - 2026-10-04 actual current Founder/Admin POV continued normalFableHome -> Advanced
   Admin -> genuine authorized wp:142 attempt -> Results/fullsupportedreport ->
   privateFilm. Visible actorwp:1 stayed distinct from selected ownerwp:142;

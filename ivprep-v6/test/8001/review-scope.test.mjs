@@ -1,21 +1,74 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { clearAdminReviewMedia, createAdminReviewGate, isAdminReview, mayPresentSavedReview, resolveAdminStudentRefreshSelection, resolveReviewDestination, savedReviewHash, parseSavedReviewRoute, resolveOwnSavedReview } from '../../public/studio/review-scope.mjs';
+import { clearAdminReviewMedia, createAdminReviewGate, isAdminReview, mayPresentSavedReview, resolveAdminStudentRefreshSelection, resolveReviewDestination, savedReviewHash, parseSavedReviewRoute, resolveOwnSavedReview, parseAdminSavedReviewRoute, resolveAdminSavedReview } from '../../public/studio/review-scope.mjs';
 
 const savedId = '4f708360-6a76-477d-a927-caca2989800d';
 
-test('saved review URLs contain only owned-attempt identity, never media or Admin subject', () => {
+test('saved review URLs contain only opaque attempt identity and optional review intent, never media or Admin subject', () => {
   const saved = { persisted: true, session: { id: savedId }, recording: { url: 'https://private.invalid/secret' } };
   for (const view of ['filmroom', 'postanswer']) {
     assert.equal(savedReviewHash(view, saved), `#${view}?session=${savedId}`);
     assert.deepEqual(parseSavedReviewRoute(savedReviewHash(view, saved)), { view, sessionId: savedId });
-    assert.equal(savedReviewHash(view, { ...saved, reviewScope: 'admin' }), `#${view}`);
+    assert.equal(savedReviewHash(view, { ...saved, reviewScope: 'admin' }), `#${view}?session=${savedId}&review=admin`);
     assert.equal(savedReviewHash(view, { ...saved, persisted: false }), `#${view}`);
   }
   assert.equal(savedReviewHash('home', saved), '#home');
   for (const hash of ['#filmroom', '#mentor?session=' + savedId, '#filmroom?session=' + savedId + '&subject=wp:142',
     '#filmroom?session=' + savedId + '&session=' + savedId, '#filmroom?session=https://private.invalid/secret',
     '#filmroom?session=../../student', '#filmroom?session=' + savedId + '#play']) assert.equal(parseSavedReviewRoute(hash), null);
+});
+
+test('Admin review parser accepts only strict intent and never supplies own-route authority', () => {
+  const hash = `#filmroom?session=${savedId}&review=admin`;
+  assert.deepEqual(parseAdminSavedReviewRoute(hash), { view: 'filmroom', sessionId: savedId });
+  assert.equal(parseSavedReviewRoute(hash), null);
+  for (const invalid of [hash + '&subject=wp:142', hash + '&review=admin', hash + '#play',
+    hash.replace('review=admin', 'review=student'), hash.replace(savedId, 'foreign'),
+    `#mentor?session=${savedId}&review=admin`, `#filmroom?review=admin&session=${savedId}`]) {
+    assert.equal(parseAdminSavedReviewRoute(invalid), null);
+  }
+});
+
+function adminFixture() {
+  const row = { id: savedId, ownerSubject: 'wp:142', resultsAvailable: true };
+  const identity = { admin: true, subject: 'wp:1' };
+  const calls = [];
+  return { calls, row, identity, route: { view: 'postanswer', sessionId: savedId }, actorSubject: 'wp:1',
+    library: { overview: async () => { calls.push('overview'); return { students: [
+      { subject: 'wp:142', displayName: 'Selected student', sessions: [row] },
+    ] }; }, sessionForStudent: async args => { calls.push(args); return { id: savedId, ownerSubject: 'wp:142' }; } } };
+}
+test('Admin restore requires fresh authority, unique authorized membership and exact detail ownership', async () => {
+  const valid = adminFixture();
+  const result = await resolveAdminSavedReview(valid);
+  assert.equal(result.selected.subject, 'wp:142');
+  assert.equal(result.saved.reviewScope, 'admin');
+  assert.equal(valid.calls[1].subject, 'wp:142');
+  for (const mutate of [f => { f.identity.admin = false; }, f => { f.identity.subject = 'wp:2'; },
+    f => { f.actorSubject = ''; }, f => { f.isCurrent = () => false; }]) {
+    const f = adminFixture(); mutate(f);
+    assert.equal(await resolveAdminSavedReview(f), null); assert.equal(f.calls.length, 0);
+  }
+  for (const students of [[], [{ subject: 'wp:1', sessions: [{ id: savedId, ownerSubject: 'wp:142', resultsAvailable: true }] }],
+    [{ subject: 'wp:142', sessions: [{ id: savedId, ownerSubject: 'wp:142', resultsAvailable: true },
+      { id: savedId, ownerSubject: 'wp:142', resultsAvailable: true }] }]]) {
+    const f = adminFixture(); f.library.overview = async () => ({ students });
+    assert.equal(await resolveAdminSavedReview(f), null); assert.equal(f.calls.length, 0);
+  }
+  for (const detail of [{ id: 'foreign', ownerSubject: 'wp:142' }, { id: savedId, ownerSubject: 'wp:1' },
+    { id: savedId }, null]) {
+    const f = adminFixture(); f.library.sessionForStudent = async () => detail;
+    assert.equal(await resolveAdminSavedReview(f), null);
+  }
+});
+test('Admin restore cancels across fresh overview and detail boundaries without substituting actor data', async () => {
+  for (const stage of ['overview', 'detail']) {
+    const f = adminFixture(); let current = true; f.isCurrent = () => current;
+    const method = stage === 'overview' ? 'overview' : 'sessionForStudent', original = f.library[method];
+    f.library[method] = async (...args) => { const data = await original(...args); current = false; return data; };
+    assert.equal(await resolveAdminSavedReview(f), null);
+    assert.equal(f.calls.length, stage === 'overview' ? 1 : 2);
+  }
 });
 
 test('cold review resolves exact attempt through own library then fresh authorized detail', async () => {

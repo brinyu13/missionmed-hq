@@ -46,14 +46,44 @@ const savedSessionId = value => typeof value === 'string'
 export function savedReviewHash(view, saved) {
   const id = saved?.session?.id;
   return ['filmroom', 'postanswer'].includes(view) && saved?.persisted === true
-    && !isAdminReview(saved) && savedSessionId(id)
-    ? `#${view}?session=${id}` : `#${view}`;
+    && savedSessionId(id)
+    ? `#${view}?session=${id}${isAdminReview(saved) ? '&review=admin' : ''}` : `#${view}`;
 }
 
 export function parseSavedReviewRoute(hash) {
   if (typeof hash !== 'string') return null;
   const match = /^#(filmroom|postanswer)\?session=([0-9a-f-]+)$/u.exec(hash);
   return match && savedSessionId(match[2]) ? Object.freeze({ view: match[1], sessionId: match[2] }) : null;
+}
+
+export function parseAdminSavedReviewRoute(hash) {
+  if (typeof hash !== 'string') return null;
+  const match = /^#(filmroom|postanswer)\?session=([0-9a-f-]+)&review=admin$/u.exec(hash);
+  return match && savedSessionId(match[2]) ? Object.freeze({ view: match[1], sessionId: match[2] }) : null;
+}
+
+// The fragment is only review intent. Fresh server admission and library
+// membership, not a URL subject or actor fallback, select the student's attempt.
+export async function resolveAdminSavedReview({ route, actorSubject, identity, library, isCurrent = () => true }) {
+  if (!route || !['filmroom', 'postanswer'].includes(route.view) || !savedSessionId(route.sessionId)
+    || identity?.admin !== true || identity.subject !== actorSubject
+    || !/^wp:[1-9][0-9]{0,19}$/u.test(actorSubject || '') || !isCurrent()) return null;
+  const overview = await library.overview();
+  if (!isCurrent()) return null;
+  const matches = (overview?.students || []).flatMap(student => (student.sessions || [])
+    .filter(row => row.id === route.sessionId).map(row => ({ student, row })));
+  if (matches.length !== 1) return null;
+  const { student, row } = matches[0];
+  if (row.ownerSubject !== student.subject || !/^wp:[1-9][0-9]{0,19}$/u.test(student.subject)
+    || (!row.resultsAvailable && row.recording?.status !== 'saved')) return null;
+  // Reuse the existing adapter's second fresh membership check and ownership
+  // binding. It also rejects explicit detail-owner mismatches server-side.
+  const detail = await library.sessionForStudent({ subject: student.subject, sessionId: route.sessionId, isCurrent });
+  if (!isCurrent() || detail?.id !== route.sessionId || detail.ownerSubject !== student.subject) return null;
+  return { selected: { subject: student.subject, displayName: student.displayName },
+    saved: { reviewScope: 'admin', persisted: true, session: row, sessionDetail: detail,
+      analytics: detail.results?.payload?.analytics || null,
+      recording: detail.recording ? { recording: detail.recording } : null } };
 }
 
 export async function resolveOwnSavedReview({ route, library, session, isCurrent = () => true }) {

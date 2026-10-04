@@ -239,8 +239,9 @@ test('actual student-library renderer keeps a refreshed selection or exposes los
   const render = new Function('state', 'adminStudentLibraryRenderId', 'adminReviewGate', 'isAdminReview',
     'clearAdminReviewMedia', '$', 'document', 'el', 'resolveAdminStudentRefreshSelection', 'mountAdminMentorControls',
     'hydrateHome', 'buildAdminStudentProgress', 'metricCard', 'formatEvidence', 'openAdminStudentSession', 'renderAdminOverview',
+    'renderReviewScopeLabel',
     `return ${actual};`)(state, 0, gate, isAdminReview, () => {}, () => null, document, element,
-    resolveAdminStudentRefreshSelection, mentorControls, () => {}, progress, () => new Node('metric'), String, () => {}, () => {});
+    resolveAdminStudentRefreshSelection, mentorControls, () => {}, progress, () => new Node('metric'), String, () => {}, () => {}, () => {});
   const host = new Node('host');
   await render(host);
   let selector = host.children[0].children.find(child => child.tag === 'select');
