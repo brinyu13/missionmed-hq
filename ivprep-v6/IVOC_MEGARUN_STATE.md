@@ -27,7 +27,13 @@ the actual production route and deployment.
   Actual retained target/duration handlers reject invalid/stale edits; actual Room
   Start/finish and affected lifecycle/context regression41 PASS; syntax/diff PASS.
   Independent non-builder source review PASS incl19 direct regressions, noP0/P1.
-  PRODUCT4527 heartbeat active;7 exact paths. Safe candidate release next.
+  Source59f95d801487853bda5442df44d811cacd711215 clean non-force pushed and
+  remotely confirmed. PRODUCT4527 heartbeat active;7 exact paths, releasing next.
+  First deployment lease denied closed. Provider conflict-predicate readback proves
+  only root's still-active PRODUCT4527 intersects its presentation paths; active
+  IIQ AUTH4528 has neither path nor domain conflict and remains untouched. Release
+  root edit lease normally before acquiring fresh deployment authority; no bypass.
+  Safe candidate release next; healthy cc3/58570 runtime unchanged during this event.
   UI baseline/changed visual/live target acceptance UNVERIFIED because the current
   Chrome client block prevents authenticated product use. Do not retry unchanged
   browser state or equate tests with visual/behavioral acceptance. Root unpromoted.
