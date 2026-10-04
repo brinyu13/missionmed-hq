@@ -12,6 +12,9 @@ function phaseTwoMoment(id) {
 }
 const productVisualBeforePhaseOne = productVisual;
 productVisual = function(i,c) {
+  if (PHASE1.assetProfile === 'production' && !i.image) {
+    return `<figure class="product-visual"><div class="product-wordmark">${esc(i.name)}<small>${i.asin?'EXACT MODEL · RESEARCHED SELECTION':'USE WHAT YOU ALREADY OWN'}</small></div>${i.asin?external(i.source||amazonUrl(i),'Original product photos','photo-link'):''}</figure>`;
+  }
   const visual = productVisualBeforePhaseOne(i,c), credit = i.imageCredit;
   if (!credit) return visual;
   return visual.replace('</figure>',`<figcaption class="image-credit">${esc(credit.caption)}<br>${external(credit.source,esc(credit.author))} · ${external(credit.licenseUrl,esc(credit.license))}<br>Resized${credit.changes.includes('cropped')?', cropped':''} photograph.</figcaption></figure>`);

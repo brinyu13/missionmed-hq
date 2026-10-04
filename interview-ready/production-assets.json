@@ -1,0 +1,130 @@
+{
+  "schema": "missionmed.interview-ready.production-assets.v1",
+  "scope": "Phase 1 permitted media payload; not release approval",
+  "defaultPolicy": "deny",
+  "assets": [
+    {
+      "path": "img/hero-online-board.webp",
+      "sha256": "69188a11fd2a412fbb9f86046aa05d2ec16a5b87409d60af8aa166d1834dd293",
+      "basis": "Founder-approved supplied board derivative",
+      "evidence": "evidence/asset-provenance.json"
+    },
+    {
+      "path": "img/hero-online-photo.webp",
+      "sha256": "77dd4dda3c9f996867416305f53ea414a535661b970a0c0b249a5528e8eb0f5d",
+      "basis": "Founder-approved supplied board derivative",
+      "evidence": "evidence/asset-provenance.json"
+    },
+    {
+      "path": "img/mountain-landscape-masked.webp",
+      "sha256": "a026f43e620fe770d53b9ca8ac128fc992b6a66319ab9b07b8c9c92e72b6e9a6",
+      "basis": "Founder-approved supplied board derivative",
+      "evidence": "evidence/asset-provenance.json"
+    },
+    {
+      "path": "img/hero-inperson-board.webp",
+      "sha256": "2575b8cfd561797c4b0a68205bfd23ea27654f9a7dadd23335ccd8b6fdb7dd77",
+      "basis": "Founder-approved supplied board derivative",
+      "evidence": "evidence/asset-provenance.json"
+    },
+    {
+      "path": "img/interview-portrait.webp",
+      "sha256": "1e89933a936a499782180f1910ad85d7f0e3f9dc5934547d38de04afba73d31e",
+      "basis": "Founder-approved supplied board derivative",
+      "evidence": "evidence/asset-provenance.json"
+    },
+    {
+      "path": "img/style-portrait.webp",
+      "sha256": "04e5b43f0174093a5954a104ba59d933cc127cc4996d9a9644b0f09d91efa56a",
+      "basis": "Founder-approved supplied board derivative",
+      "evidence": "evidence/asset-provenance.json"
+    },
+    {
+      "path": "img/travel-detail.webp",
+      "sha256": "e1bc7ed021ef601ce62fc300476734333e206e3acc389995505696b798c01dd0",
+      "basis": "Founder-approved supplied board derivative",
+      "evidence": "evidence/asset-provenance.json"
+    },
+    {
+      "path": "img/purpose-landscape.webp",
+      "sha256": "eac2f8891be3a43e6ca05ec83a09e813ac3df5caea1ecffc6f0a2474ff49b95d",
+      "basis": "Founder-approved supplied board derivative",
+      "evidence": "evidence/asset-provenance.json"
+    },
+    {
+      "path": "img/mountain-panorama.webp",
+      "sha256": "2bcb4f8b1bd354b0f9e0cb1223ed5266641b0950d5c9ec3f4a1034c524828aba",
+      "basis": "Founder-approved supplied board derivative",
+      "evidence": "evidence/asset-provenance.json"
+    },
+    {
+      "path": "img/category-camera.webp",
+      "sha256": "fda43ef688f4359a379e197321b6ef647eb97000dbdef21bc6338cce38532063",
+      "basis": "Founder-approved supplied board derivative",
+      "evidence": "evidence/asset-provenance.json"
+    },
+    {
+      "path": "img/category-microphone.webp",
+      "sha256": "b5ac55caa6cff13ecfc18fe23a979396395e4e534c87a5706b532ea9c2e06fa6",
+      "basis": "Founder-approved supplied board derivative",
+      "evidence": "evidence/asset-provenance.json"
+    },
+    {
+      "path": "img/category-lighting.webp",
+      "sha256": "cc2f27e7e4ea289803e9587369db3f1dc08b83a45af9fad082f5cc6ac977998a",
+      "basis": "Founder-approved supplied board derivative",
+      "evidence": "evidence/asset-provenance.json"
+    },
+    {
+      "path": "img/category-accessories.webp",
+      "sha256": "45c69c17cb5322233bd23b4deb7c8098d9cb62a9980e469f438ffc73a07d45ba",
+      "basis": "Founder-approved supplied board derivative",
+      "evidence": "evidence/asset-provenance.json"
+    },
+    {
+      "path": "img/category-travel.webp",
+      "sha256": "f63381f605bc377c62026f8efae30cb0614d6ed6e7e69afef1534d481856833f",
+      "basis": "Founder-approved supplied board derivative",
+      "evidence": "evidence/asset-provenance.json"
+    },
+    {
+      "path": "img/category-emergency.webp",
+      "sha256": "82c9a5320eb485defbfc4aafc99e7eb0142ac608822d0d615ca5c835aa9b8b48",
+      "basis": "Founder-approved supplied board derivative",
+      "evidence": "evidence/asset-provenance.json"
+    },
+    {
+      "path": "img/mountain-mark.webp",
+      "sha256": "a36afeb672fd37ef4e0aaf3c735f816c193ea8084cd05c12d68e64a30d2fedfe",
+      "basis": "Founder-approved supplied board derivative",
+      "evidence": "evidence/asset-provenance.json"
+    },
+    {
+      "path": "img/product-canon-r50-cc.webp",
+      "sha256": "ebc2a5cde4a0a453f872a6e9c25dbc3c39e9396d063a259f8e4bc93a04a674f3",
+      "basis": "CC BY-SA 4.0",
+      "evidence": "evidence/product-media.json",
+      "author": "CNEcija12345",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": "https://commons.wikimedia.org/wiki/File:Canon_EOS_R50_Black.jpg"
+    },
+    {
+      "path": "img/product-shure-sm7b-cc.webp",
+      "sha256": "b50d9776b8954e9f0f805194d98846cefbd05f2bc97e122ba4eeb8a261965c1a",
+      "basis": "CC BY 3.0",
+      "evidence": "evidence/product-media.json",
+      "author": "Christoph Soltmannowski",
+      "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
+      "source": "https://commons.wikimedia.org/wiki/File:Marius_Bear_SM7B.jpg"
+    },
+    {
+      "path": "img/product-stream-plus-cc.webp",
+      "sha256": "884908e73319988243097fd50c37bf6d2b47eb35f26a1d921db74dfd96047591",
+      "basis": "CC BY-SA 4.0",
+      "evidence": "evidence/product-media.json",
+      "author": "TaurusEmerald",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": "https://commons.wikimedia.org/wiki/File:Elgato_Stream_Deck_%2B.jpg"
+    }
+  ]
+}
