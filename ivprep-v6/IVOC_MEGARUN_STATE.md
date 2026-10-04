@@ -305,8 +305,18 @@ the actual production route and deployment.
   durable/native engine owners remain unchanged. All30 focused convergence
   contracts/preservation and57 affected owner/context/privacy cases PASS;
   independent source review PASS/noP0/P1. Live correction pending.
+- Actual program-search POV also showed previous-query cards still selectable
+  under the new 'Searching RISE' state. Current candidate consumer clears those
+  rows atomically, blocks retained select/launch/paging handlers during the read,
+  and admits only the current query reply. Existing filters/layout/owner API and
+  account/subject/Durable/route guards are preserved. Actual-function regression
+  reproduced the stale result before correction; all22 affected search/Calendar/
+  retry cases PASS. Independent source review PASS/noP0/P1; the retained-handler
+  harness captures the old row before removal and invokes it unconditionally.
+  No owner, authentication, provider or database mutation.
 - Next executable action: independently review/deploy the bounded retry-goal
-  correction, verify the normal saved-attempt Retry setup, resolve replay hand-alignment
+  and pending-search correction, verify normal saved-attempt Retry and current
+  program search, resolve replay hand-alignment
   evidence, then continue real conversation,
   closing, real-role and 142-row live parity acceptance. No final root promotion or
   two-sided audible acceptance claimed. Genuine speech/hearing remains a precise
