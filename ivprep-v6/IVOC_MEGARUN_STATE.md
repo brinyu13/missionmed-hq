@@ -16,6 +16,24 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 actual current Founder/Admin POV continued normalFableHome -> Advanced
+  Admin -> genuine authorized wp:142 attempt -> Results/fullsupportedreport ->
+  privateFilm. Visible actorwp:1 stayed distinct from selected ownerwp:142;
+  unsupported attribution/face signals stayed unavailable, no provider generation,
+  media playback, review-status/credits/preferences writes or impersonation.
+  P1 CODE DEFECT on coldreload: selected review disappears and defaults to own
+ 39-answer Student library. No private student data leaked into that fallback.
+  Exact boundary: studio/review-scope.mjs savedReviewHash excludesAdminreview;
+  studio.mjs boot restores only own-library scoped routes. This is executable,
+  not an external-evidence wait. NEXT ACTION: add a strictly parsed opaque attempt
+  + Admin-view intent; fresh admittedAdmin + current Admin-library membership,
+  exact owner/detail and role/route/generation guards must reauthorize every reload.
+  Never persist signed media URL, role authority or arbitrary student selection;
+  no actor fallback or permission recreation in presentation. Focused coldboot,
+  revoked/mismatched/negative-role, async navigation/role-switch regression ->
+  guarded release -> same normalAdminPOV with reload -> independent verification.
+  PRODUCT4515 files only this evidence, commit/push/release/readback. Healthy
+  runtime5cafa1f/9ea2a5e2/imageed1eaf/artifacteJX5Fu remains unchanged; goal active.
 - Band-continuity source5cafa1f5b93df77a261c1fcc6fcfd8cdc5a95a6b LIVE
   SUCCESS9ea2a5e2-c7f4-4eff-9e6b-41fac42399c2, image
   sha256:ed1eaf010f502449303ac926eea069fdc5bfced79fa46938654830b27005d46e.
