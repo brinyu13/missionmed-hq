@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mission Residency Zelle Payment Verifier
  * Description: Fail-closed Mission Residency Zelle verification with administrator and automated-email providers.
- * Version: 2026.10.04.5
+ * Version: 2026.10.04.6
  */
 
 defined( 'ABSPATH' ) || exit;
@@ -406,7 +406,8 @@ function mm_mr_zelle_notify_admin( $order ) {
 			'This link requires an authenticated administrator with WooCommerce management permission.',
 		)
 	);
-	$sent = mm_mr_zelle_protected_mail( 'wp_mail', get_option( 'admin_email' ), 'ZELLE PAYMENT VERIFICATION REQUEST — ORDER #' . $order->get_order_number(), $body );
+	$recipient = get_option( 'mmed_mr_zelle_admin_notification_email', get_option( 'admin_email' ) );
+	$sent = mm_mr_zelle_protected_mail( 'wp_mail', $recipient, 'ZELLE PAYMENT VERIFICATION REQUEST — ORDER #' . $order->get_order_number(), $body );
 	$order->update_meta_data( '_mm_zelle_admin_notification', $sent ? 'sent' : 'failed' );
 	$order->update_meta_data( '_mm_zelle_admin_notified_at', time() );
 	mm_mr_zelle_audit( $order, $sent ? 'admin_notified' : 'admin_notification_failed', 'admin_confirmation' );
