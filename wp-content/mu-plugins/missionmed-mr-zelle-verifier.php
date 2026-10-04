@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mission Residency Zelle Payment Verifier
  * Description: Fail-closed Mission Residency Zelle verification with administrator and automated-email providers.
- * Version: 2026.10.04.4
+ * Version: 2026.10.04.5
  */
 
 defined( 'ABSPATH' ) || exit;
@@ -651,7 +651,7 @@ function mm_mr_zelle_render_verified_badge( $order_id ) {
 		return;
 	}
 	$rendered = true;
-	echo '<style>.woocommerce-order-received .woocommerce-thankyou-order-received{display:none!important}</style><section class="mmz-verified" role="status" style="max-width:880px;margin:24px auto 0;padding:24px;border:2px solid #1f7955;border-radius:12px;background:#eaf8f1;color:#123c2c;text-align:center"><strong style="display:block;font-size:22px;letter-spacing:.08em">PAYMENT VERIFIED</strong><h2 style="color:#123c2c;margin:10px 0">YOU\'RE IN.</h2><p>Your Mission Residency enrollment is now active.</p><a style="display:inline-block;margin-top:8px;padding:12px 18px;border-radius:8px;background:#123c2c;color:#fff" href="' . esc_url( home_url( '/member-dashboard/' ) ) . '">ENTER MATRIX DASHBOARD →</a></section>';
+	echo '<style>.woocommerce-order-received .woocommerce-thankyou-order-received{display:none!important}.woocommerce .mmz-verified{box-sizing:border-box;overflow-wrap:anywhere}.woocommerce .mmz-verified strong,.woocommerce .mmz-verified h2,.woocommerce .mmz-verified p{color:#123c2c!important}.woocommerce .mmz-verified a{color:#fff!important;box-sizing:border-box;max-width:100%}.mmz-verified a:focus-visible{outline:3px solid #123c2c;outline-offset:3px}</style><section class="mmz-verified" role="status" style="max-width:880px;margin:24px auto 0;padding:24px;border:2px solid #1f7955;border-radius:12px;background:#eaf8f1;color:#123c2c;text-align:center"><strong style="display:block;font-size:22px;letter-spacing:.08em">PAYMENT VERIFIED</strong><h2 style="color:#123c2c;margin:10px 0">YOU\'RE IN.</h2><p>Your Mission Residency enrollment is now active.</p><a style="display:inline-block;margin-top:8px;padding:12px 18px;border-radius:8px;background:#123c2c;color:#fff" href="' . esc_url( home_url( '/member-dashboard/' ) ) . '">ENTER MATRIX DASHBOARD →</a></section>';
 }
 
 function mm_mr_zelle_render_pending( $order_id ) {
@@ -789,6 +789,9 @@ add_action(
 			return;
 		}
 		if ( $order->is_paid() && 'verified' === (string) $order->get_meta( '_mm_zelle_state', true ) ) {
+			remove_action( 'woocommerce_before_thankyou', 'mmps_render_order', 1 );
+			remove_action( 'woocommerce_thankyou', 'mmps_render_order', 1 );
+			remove_action( 'wp_footer', 'mmps_footer_fallback', 5 );
 			if ( function_exists( 'WC' ) && WC()->payment_gateways() ) {
 				$gateways = WC()->payment_gateways()->payment_gateways();
 				if ( isset( $gateways['bacs'] ) ) {
