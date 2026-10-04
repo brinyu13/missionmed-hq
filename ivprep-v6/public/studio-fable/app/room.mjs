@@ -27,6 +27,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   if(!plan.length)throw new Error('Choose at least one current interview question.');
   const cfg=session.config||{},settings=session.settings||defaultSettings();
   let density=mode==='mock'&&!state.preferences?.densityPersisted?'interview':(state.preferences?.density||'coached');
+  let initialPresentationMode=null;
   let overlaysVisible=state.preferences?.overlaysVisible===true;
   let layers=overlayLayers(state.preferences?.overlayLayers);
   let disposed=false,starting=false,started=false,saving=false,finished=false,engine=null,interviewer=null,saveRecord=null,deviceSwitching=false;
@@ -103,6 +104,8 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   const observer=mode==='mock'?new NativeInterviewObserver({questions:plan,config:conductorConfig(settings,{durationMin:cfg.durationMin}),context:{specialty:session.program?.specialty||null},now:()=>controller.elapsed*1000}):null;
   const at=()=>controller.elapsed;
   const mark=(kind,label)=>events.push({t:at(),kind,label});
+  function setDensityControls(disabled){room.querySelectorAll('.density [data-density]').forEach(button=>{button.disabled=disabled;});$('reset-density').disabled=disabled;}
+  function recordDensity(){if(started&&!saving&&!finished)events.push({t:at(),kind:'presentation',label:density==='interview'?'Interview only':'Coached',state:density});}
   function renderTranscript(){ const rows=captions.length?captions:turns;$('transcript').innerHTML=rows.map(t=>'<div class="turn '+t.speaker+'"><b>'+(t.speaker==='interviewer'?'Interviewer':'You')+'</b><span>'+esc(t.text)+'</span></div>').join('')||'<p class="note">The conversation appears here as you speak.</p>';if(captions.length)$('transcript').insertAdjacentHTML('beforeend','<p class="note">Live captions use approximate fragment timing, not confirmed turn boundaries. Recording is authoritative for what was heard.</p>'); }
   function addTurn(speaker,text,event={}) {
     if(!current()||finished||saving||!text)return;
@@ -134,6 +137,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   }
   async function connect(){
     if(!current()||starting||started||deviceSwitching)return;starting=true;$('connect-real').disabled=true;
+    setDensityControls(true);
     $('enter-note').textContent='Connecting your camera and microphone…';
     try{
       controller.mountVideo($('stage'),$('overlay'));
@@ -149,7 +153,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       $('start-session').disabled=false;$('enter-note').textContent='Preview visible · microphone connected. Nothing is recorded until you start.';
       $('connect-real').textContent='Check preview again';applyOverlays();
     }catch(error){if(current()){$('enter-note').textContent=error.message;$('start-session').disabled=true;}}
-    finally{starting=false;if(current()){$('connect-real').disabled=false;main.querySelectorAll('[data-device-kind]').forEach(select=>{select.disabled=controller.phase!=='READY'||!select.options.length;});}}
+    finally{starting=false;if(current()){setDensityControls(false);$('connect-real').disabled=false;main.querySelectorAll('[data-device-kind]').forEach(select=>{select.disabled=controller.phase!=='READY'||!select.options.length;});}}
   }
   const onFrame=e=>{
     if(!started||saving||disposed)return;
@@ -166,6 +170,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   const onWord=e=>{if(current()&&e.detail?.state==='unavailable')$('pace-basis').textContent='Timed-word pace unavailable';};
   async function start(){
     if(!current()||starting||started||deviceSwitching)return;starting=true;$('start-session').disabled=true;$('connect-real').disabled=true;
+    initialPresentationMode=density==='interview'?'interview':'coached';setDensityControls(true);
     main.querySelectorAll('[data-device-kind]').forEach(select=>{select.disabled=true;});
     $('enter-note').textContent='Preparing your private recording…';
     try{
@@ -181,10 +186,10 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       disposeDevices?.();main.querySelector('[data-device-controls]').remove();
       $('primary-action').hidden=true;$('engine-label').textContent='Recording privately to your account';$('end').disabled=false;
       $('presence-sub').textContent=mode==='mock'?'Speak naturally. Your interviewer can hear you.':'Answer the question. Finish & save when you are done.';
-      mark('recording','Recording started');mark('question','Q1');renderPlan();
+      mark('recording','Recording started');mark('question','Q1');recordDensity();renderPlan();
       timer=setInterval(()=>{if(!current())return;$('clock').textContent=fmt(at());recorder.setData(history.samples,events);recorder.tick(at());},500);resetIdle();
     }catch(error){if(current()){$('enter-note').textContent=error.message;$('start-session').disabled=!controller.stream;$('connect-real').disabled=false;}engine?.events.removeEventListener('frame',onFrame);engine?.events.removeEventListener('state',onState);engine?.events.removeEventListener('word-timing',onWord);}
-    finally{starting=false;if(current()&&!started)main.querySelectorAll('[data-device-kind]').forEach(select=>{select.disabled=controller.phase!=='READY'||!select.options.length;});}
+    finally{starting=false;if(current()){setDensityControls(false);if(!started)main.querySelectorAll('[data-device-kind]').forEach(select=>{select.disabled=controller.phase!=='READY'||!select.options.length;});}}
   }
   $('connect-real').addEventListener('click',()=>void connect());$('start-session').addEventListener('click',()=>void start());
   $('end').disabled=true;$('primary-action').hidden=true;
@@ -208,8 +213,8 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     sheet.querySelector('#leave').onclick=()=>{sheet.remove();if(!closingReached)observer.requestEnd('leave');void finishSession('finished');};
     sheet.onkeydown=e=>{if(e.key==='Escape'){sheet.remove();return;}if(e.key!=='Tab')return;const b=[...sheet.querySelectorAll('button')],first=b[0],last=b.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}};
   }
-  room.querySelector('.density').addEventListener('click',e=>{if(!current())return;const b=e.target.closest('[data-density]');if(!b)return;density=b.dataset.density;room.dataset.density=density;room.querySelectorAll('[data-density]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));state.preferences.density=density;commit();saveVisibility({density});});
-  $('reset-density').addEventListener('click',()=>{if(!current())return;density=mode==='mock'?'interview':'coached';room.dataset.density=density;room.querySelectorAll('.density [data-density]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.density===density)));state.preferences.density='coached';state.preferences.densityPersisted=false;commit();saveVisibility({density:'default'});});
+  room.querySelector('.density').addEventListener('click',e=>{if(!current()||starting||saving||finished)return;const b=e.target.closest('[data-density]');if(!b||!['interview','coached'].includes(b.dataset.density))return;density=b.dataset.density;room.dataset.density=density;room.querySelectorAll('[data-density]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));recordDensity();state.preferences.density=density;commit();saveVisibility({density});});
+  $('reset-density').addEventListener('click',()=>{if(!current()||starting||saving||finished)return;density=mode==='mock'?'interview':'coached';room.dataset.density=density;room.querySelectorAll('.density [data-density]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.density===density)));recordDensity();state.preferences.density='coached';state.preferences.densityPersisted=false;commit();saveVisibility({density:'default'});});
   $('guides').addEventListener('click',()=>{if(!current())return;overlaysVisible=!overlaysVisible;applyOverlays();state.preferences.overlaysVisible=overlaysVisible;commit();saveVisibility({overlaysVisible});});
   $('overlay-layers').addEventListener('click',event=>{if(!current())return;const button=event.target.closest('[data-overlay-layer]');if(!button)return;const key=button.dataset.overlayLayer;if(!Object.hasOwn(layers,key))return;layers={...layers,[key]:!layers[key]};applyOverlays();state.preferences.overlayLayers=layers;commit();saveVisibility({overlayLayers:{[key]:layers[key]}});});
   $('transcript-toggle').addEventListener('click',e=>{$('transcript').hidden=!$('transcript').hidden;e.currentTarget.setAttribute('aria-expanded',String(!$('transcript').hidden));});
@@ -228,7 +233,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     if(saving||finished||!started)return;saving=true;detach();$('end').disabled=true;
     $('rec').dataset.state='saving';$('rec-text').textContent='SAVING';mark('recording','Recording stopped');
     const samples=history.slice(),snap=observer?.snapshot()||null,debrief=deriveDebrief({samples,events,turns});
-    saveRecord={id:uid('att'),at:Date.now(),mode,fixture:false,engineMode:'real',transport:mode==='mock'?'gpt-live':'none',questionId:plan[0].question_id,questionText:plan[0].canonical_text,durationS:at(),samples,events,turns,conductor:snap,hooks:hookLedger(snap),closing:closingLedger(snap),debriefLane:debrief.change[0]?.lane||null,priorityLane:debrief.change[0]?.lane||null,priorityText:debrief.change[0]?.text||null,retryOf:session.retryOf||null,calibrationUsed:Boolean(engine.personalCalibration),program:session.program?{id:session.program.id,name:session.program.name,verified:session.program.verified}:null,endReason:reason,settings:{...settings}};
+    saveRecord={id:uid('att'),at:Date.now(),mode,fixture:false,engineMode:'real',transport:mode==='mock'?'gpt-live':'none',questionId:plan[0].question_id,questionText:plan[0].canonical_text,durationS:at(),samples,events,turns,conductor:snap,hooks:hookLedger(snap),closing:closingLedger(snap),debriefLane:debrief.change[0]?.lane||null,priorityLane:debrief.change[0]?.lane||null,priorityText:debrief.change[0]?.text||null,retryOf:session.retryOf||null,calibrationUsed:Boolean(engine.personalCalibration),program:session.program?{id:session.program.id,name:session.program.name,verified:session.program.verified}:null,endReason:reason,settings:{...settings,initialPresentationMode}};
     try{const saved=await controller.finishSession({record:saveRecord});if(saved.saveError)showSaveFailure(saved.saveError);else showSaved(saved);}catch(error){showSaveFailure(error.message);}
   }
   applyOverlays();renderPlan();renderTranscript();

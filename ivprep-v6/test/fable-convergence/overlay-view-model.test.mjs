@@ -50,6 +50,24 @@ function fixture(){
   const loaded=[{BrowserAnalyticsPipeline:Pipeline},{StudentSurfaceOverlayController:Owner}];
   return {records,video,loaded,invalidate:()=>current=false,options:{video,isCurrent:()=>current,onStatus:value=>records.status.push(value),load:async()=>loaded}};
 }
+test('expected end/pause is ready, resume waits for fresh geometry, and genuine failures stay unavailable',async()=>{
+  const f=fixture(),overlay=replayOverlays(f.options);await overlay.setEnabled(true);
+  const pipeline=f.records.pipelines[0];
+  const emit=detail=>{const event=new Event('state');Object.defineProperty(event,'detail',{value:detail});pipeline.dispatchEvent(event);};
+  emit({state:'partial',message:'playback_stopped',subsystem:'vision'});
+  assert.equal(f.records.status.at(-1),'ready');
+  emit({state:'idle',reason:'playback_ended',ephemeralPlayback:true});
+  assert.equal(f.records.status.at(-1),'ready');
+  emit({state:'running',ephemeralPlayback:true});
+  assert.equal(f.records.status.at(-1),'waiting');
+  emit({state:'partial',message:'vision_worker_unavailable',subsystem:'vision'});
+  assert.equal(f.records.status.at(-1),'unavailable');
+  emit({state:'unavailable'});assert.equal(f.records.status.at(-1),'unavailable');
+  await overlay.setEnabled(false);await overlay.setEnabled(true);assert.equal(f.records.status.at(-1),'ready');
+  emit({state:'unavailable'});assert.equal(f.records.status.at(-1),'ready');
+  f.invalidate();emit({state:'running',ephemeralPlayback:true});assert.equal(f.records.status.at(-1),'ready');
+  overlay.destroy();
+});
 test('replay redraw is opt-in, playback-only and uses existing owner over exact video',async()=>{
   const f=fixture(),overlay=replayOverlays(f.options);
   assert.equal(f.records.pipelines.length,0);await overlay.setEnabled(false);assert.equal(f.records.pipelines.length,0);

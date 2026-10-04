@@ -24,7 +24,7 @@ export function sealDerivedEvidence(record={}) {
   const evidence={schema:'ivoc.fable51.evidence.v1',clock:'recording-observed',fixture:false,samples,events,hooks,closing,
     conductor:null,turns:[],debrief:{lane:text(record.priorityLane,32),text:text(record.priorityText,500)},
     transport:text(record.transport,32),calibrationUsed:record.calibrationUsed===true,
-    settings:Object.fromEntries(Object.entries(record.settings||{}).filter(([k,v])=>settingKeys.has(k)&&['string','boolean','number'].includes(typeof v))
+    settings:Object.fromEntries(Object.entries(record.settings||{}).filter(([k,v])=>k==='initialPresentationMode'?['interview','coached'].includes(v):settingKeys.has(k)&&['string','boolean','number'].includes(typeof v))
       .map(([k,v])=>[k,typeof v==='string'?text(v,96):typeof v==='number'?number(v):v])),
     retention:{sampleCount:input.length,retainedSamples:samples.length,eventCount:Array.isArray(record.events)?record.events.length:0,retainedEvents:events.length,decimated:input.length>samples.length}};
   if(new TextEncoder().encode(JSON.stringify(evidence)).byteLength>512*1024)throw new Error('The derived presentation trace exceeds its safe save budget.');

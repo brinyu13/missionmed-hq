@@ -363,9 +363,34 @@ the actual production route and deployment.
   until observed with the affected real hand movement.
   All25 affected replay/overlay/ownership tests PASS; independent source review
   PASS. No coordinate fix or physical/audible acceptance is claimed.
-- Next executable action: repair/verify the exact saved-review handoff and Mock
-  plan filing, resolve replay hand-alignment
-  evidence, then continue real conversation,
+- Replay freshness correction `7f68c5639fa7586b1e6fe3c1f3a855196033d95b`
+  deployed SUCCESS `72bb4c71-ff25-4b76-a8ba-93e11babf089`, image
+  `sha256:b6e73e4583d89d225fdd6f34be4ebaa30ccec9cb04dd0019ed8659d6b96a222b`.
+  Health200, anonymous candidate/current bootstrap401. Exact filtered tracked
+  artifact `ivoc-release-artifact-nO51S9/source.tar`, SHA256
+  `634b5cf8500666435bfbe529b7f4398904d1e6816337423686f1edd754ab1dbc`.
+  PRODUCT4469/deployment4470 normally released with remote readback. Actual own
+  c7fe Film Room visibly plays1280x720 video, draws face/body and moving-hand
+  geometry, and clears after pause. Systematic moving-hand alignment remains
+  UNVERIFIED, not inferred from one frame. Native Home/replay works. Expected end
+  briefly reports overlays unavailable despite successful restart: isolated P2
+  status mapping, not a detector/restart failure; corrected in the current patch.
+- Independent exact-matrix review withdraws R104 standalone-preferences-page
+  FAIL: the requirement is BACKGROUND account persistence. Existing Room controls
+  and serialized fresh own-account merges satisfy the source contract; different-
+  browser live persistence remains UNVERIFIED. Actual admitted Admin Bait Lab
+  R021/136 ->34 fictional offline fixtures ->Home PASS, with explicit non-provider
+  labeling. No native interviewing or recording acceptance is inferred.
+- R003 saved-mode gap is corrected only above the capability boundary: immutable
+  initial Interview-only/Coached enum and recording-relative display changes file
+  in existing bounded derived evidence. Startup holds the display choice; old
+  attempts remain unknown. No environment-skin replacement, schema change or
+  measurement-disable semantics. Actual Room Start/handlers ->seal ->fresh saved
+  projection regression PASS; all44 affected lifecycle/privacy/review/preferences/
+  overlays tests PASS. Independent source review PASS/noP0/P1. Live filing remains
+  UNVERIFIED until the next actual saved attempt, not falsely backfilled.
+- Next executable action: deploy the bounded saved-mode/replay-status patch,
+  verify its affected visible controls, then continue real conversation,
   closing, real-role and 142-row live parity acceptance. No final root promotion or
   two-sided audible acceptance claimed. Genuine speech/hearing remains a precise
   physical-evidence gate under the current Fable integration directive, not a global

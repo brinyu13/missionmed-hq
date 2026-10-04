@@ -25,7 +25,13 @@ export function replayOverlays({video,documentRef=video?.ownerDocument,isCurrent
         // Playback uses only the already authorized video. This bridge has no
         // acquisition methods and beginPlayback never starts the microphone.
         pipeline=new BrowserAnalyticsPipeline({bridge:{media:{}}});
-        pipeline.addEventListener('state',event=>{if(current()&&['partial','unavailable'].includes(event.detail?.state))onStatus('unavailable');});
+        const exactPipeline=pipeline;
+        pipeline.addEventListener('state',event=>{
+          if(!current()||pipeline!==exactPipeline)return;const detail=event.detail||{};
+          if(detail.state==='idle'||detail.state==='partial'&&detail.message==='playback_stopped')onStatus('ready');
+          else if(detail.state==='running')onStatus('waiting');
+          else if(['partial','unavailable'].includes(detail.state))onStatus('unavailable');
+        });
         const begin=pipeline.beginPlayback.bind(pipeline);
         pipeline.beginPlayback=options=>current()?begin(options):false;
         owner=new StudentSurfaceOverlayController({pipeline:{setInstrumentation(){},setOverlayConsumer(){}},playbackPipeline:pipeline,documentRef,
