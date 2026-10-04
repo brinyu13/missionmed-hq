@@ -3,8 +3,16 @@
 if (!defined('ABSPATH')) { exit; }
 
 function mmiiq_rise_setting($key, $fallback = '') {
-    $value = defined($key) ? constant($key) : getenv($key);
-    return $value === false ? $fallback : $value;
+    if (defined($key)) { $value = constant($key); return $value === false ? $fallback : $value; }
+    $value = getenv($key);
+    if ($value !== false) { return $value; }
+    // Dedicated server-only settings follow the existing MissionMed option pattern.
+    // Provisioning must keep this option nonautoloaded; this reader never writes it.
+    $allowed = array('RISE_IIQ_ENABLED', 'RISE_IIQ_OWNER_PROOF_SECRET', 'RISE_IIQ_OWNER_REQUEST_SECRET',
+        'RISE_IIQ_JOB_ENABLED', 'RISE_IIQ_JOB_ELIGIBILITY_SECRET', 'RISE_IIQ_JOB_REQUEST_SECRET', 'RISE_IIQ_JOB_PROOF_SECRET');
+    if (!in_array($key, $allowed, true) || !function_exists('get_option')) { return $fallback; }
+    $stored = get_option('missionmed_rise_interviewiq_settings', array());
+    return is_array($stored) && array_key_exists($key, $stored) && is_scalar($stored[$key]) ? $stored[$key] : $fallback;
 }
 function mmiiq_rise_error() { return new WP_Error('interviewiq_owner_unavailable', 'Owner proof unavailable.', array('status' => 403)); }
 function mmiiq_rise_uuid($x) { return is_string($x) && preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/D', $x); }

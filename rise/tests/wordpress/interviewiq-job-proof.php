@@ -2,7 +2,7 @@
 // Synthetic-only protocol tests. No WordPress config, database, network or user.
 define('ABSPATH', __DIR__ . '/synthetic/');
 const JOB_SECRET = 'synthetic-job-eligibility-key-never-production-123';
-$options = array(); $hooks = array(); $routes = array(); $passed = 0;
+$options = array(); $hooks = array(); $routes = array(); $passed = 0; $riseStoredSettings = array();
 $missing = isset($argv[1]) && strpos($argv[1], '--missing=') === 0 ? substr($argv[1], 10) : '';
 $secretCase = isset($argv[1]) && strpos($argv[1], '--secret-case=') === 0 ? substr($argv[1], 14) : '';
 $storedSettings = array('INTERVIEWIQ_JWT_SECRET'=>'synthetic-canonical-jwt-key-not-production-1',
@@ -31,7 +31,7 @@ function add_filter(...$args){}
 function register_rest_route($namespace,$route,$options){global $routes;$routes[$route]=array($namespace,$options);}
 function is_wp_error($x){return $x instanceof WP_Error;}
 function wp_json_encode($x){return json_encode($x);}
-function get_option($name,$fallback=array()){global $storedSettings;return $name==='missionmed_interviewiq_settings'?$storedSettings:$fallback;}
+function get_option($name,$fallback=array()){global $storedSettings,$riseStoredSettings;return $name==='missionmed_interviewiq_settings'?$storedSettings:($name==='missionmed_rise_interviewiq_settings'?$riseStoredSettings:$fallback);}
 if($missing!=='mmiiq_setting') {function mmiiq_setting($name,$default=''){
     $value=getenv($name);
     if($value===false||$value===''){$stored=get_option('missionmed_interviewiq_settings',array());$value=defined($name)?constant($name):(is_array($stored)?($stored[$name]??$default):$default);}
@@ -71,6 +71,43 @@ function make_job($patch=array(),$raw=null){
 function denied_before_nonce($request,$label){global $options;$count=count($options);check(is_wp_error(mmiiq_rise_job_introspect($request)),$label);check(count($options)===$count,$label.' no nonce side effect');}
 putenv('RISE_IIQ_JOB_ELIGIBILITY_SECRET='.JOB_SECRET);
 require __DIR__.'/../../infra/wordpress/missionmed-rise-interviewiq-owner.php';
+if (isset($argv[1]) && $argv[1] === '--settings') {
+    putenv('RISE_IIQ_JOB_ELIGIBILITY_SECRET'); putenv('RISE_IIQ_JOB_ENABLED');
+    $allowed = array('RISE_IIQ_ENABLED','RISE_IIQ_OWNER_PROOF_SECRET','RISE_IIQ_OWNER_REQUEST_SECRET',
+        'RISE_IIQ_JOB_ENABLED','RISE_IIQ_JOB_ELIGIBILITY_SECRET','RISE_IIQ_JOB_REQUEST_SECRET','RISE_IIQ_JOB_PROOF_SECRET');
+    foreach ($allowed as $key) {
+        putenv($key); $riseStoredSettings = array($key=>'  synthetic untrimmed value  ');
+        check(mmiiq_rise_setting($key,'fallback')==='  synthetic untrimmed value  ','allowlisted scalar retains exact value');
+    }
+    foreach (array('UNRELATED_KEY','MMED_JWT_SECRET','INTERVIEWIQ_JWT_SECRET','INTERVIEWIQ_GATEWAY_SECRET','INTERVIEWIQ_OWNER_PROOF_SECRET') as $key) {
+        $riseStoredSettings=array($key=>'synthetic ignored');check(mmiiq_rise_setting($key,'fallback')==='fallback','unknown option key denied');
+    }
+    foreach (array(null,false,1,'bad',new stdClass()) as $invalid) {
+        $riseStoredSettings=$invalid;check(mmiiq_rise_setting('RISE_IIQ_JOB_ENABLED','fallback')==='fallback','nonarray option denied');
+    }
+    foreach (array(null,array(),new stdClass()) as $invalid) {
+        $riseStoredSettings=array('RISE_IIQ_JOB_ENABLED'=>$invalid);check(mmiiq_rise_setting('RISE_IIQ_JOB_ENABLED','fallback')==='fallback','nonscalar value denied');
+    }
+    $riseStoredSettings=array();check(mmiiq_rise_setting('RISE_IIQ_JOB_ENABLED','fallback')==='fallback','missing key denied');
+    $riseStoredSettings=array('RISE_IIQ_JOB_ENABLED'=>false);check(mmiiq_rise_setting('RISE_IIQ_JOB_ENABLED',true)===false,'stored false preserved');
+    $riseStoredSettings=array('RISE_IIQ_JOB_ENABLED'=>true,'RISE_IIQ_JOB_ELIGIBILITY_SECRET'=>JOB_SECRET);
+    check(mmiiq_rise_job_introspect(make_job()) instanceof WP_REST_Response,'option-backed signed eligible job succeeds');
+    foreach (array(false,1,0,'TRUE','yes','') as $invalid) {
+        $riseStoredSettings['RISE_IIQ_JOB_ENABLED']=$invalid;denied_before_nonce(make_job(),'strict option flag');
+    }
+    $riseStoredSettings['RISE_IIQ_JOB_ENABLED']=true;
+    foreach (array('RISE_IIQ_OWNER_PROOF_SECRET','RISE_IIQ_OWNER_REQUEST_SECRET','RISE_IIQ_JOB_REQUEST_SECRET','RISE_IIQ_JOB_PROOF_SECRET') as $key) {
+        $riseStoredSettings[$key]=JOB_SECRET;denied_before_nonce(make_job(),'option-backed credential separation');unset($riseStoredSettings[$key]);
+    }
+    foreach (array_keys($storedSettings) as $key) {
+        $prior=$storedSettings[$key];$storedSettings[$key]='  '.JOB_SECRET.'  ';denied_before_nonce(make_job(),'effective canonical option collision');$storedSettings[$key]=$prior;
+    }
+    putenv('RISE_IIQ_JOB_ELIGIBILITY_SECRET=');check(mmiiq_rise_setting('RISE_IIQ_JOB_ELIGIBILITY_SECRET','fallback')==='','empty environment blocks option');denied_before_nonce(make_job(),'empty environment remains denied');
+    putenv('RISE_IIQ_JOB_ELIGIBILITY_SECRET=synthetic environment value');check(mmiiq_rise_setting('RISE_IIQ_JOB_ELIGIBILITY_SECRET')==='synthetic environment value','environment wins');putenv('RISE_IIQ_JOB_ELIGIBILITY_SECRET');
+    define('RISE_IIQ_OWNER_REQUEST_SECRET',false);putenv('RISE_IIQ_OWNER_REQUEST_SECRET=synthetic environment');$riseStoredSettings['RISE_IIQ_OWNER_REQUEST_SECRET']='synthetic option';check(mmiiq_rise_setting('RISE_IIQ_OWNER_REQUEST_SECRET','fallback')==='fallback','constant false retains fallback priority');
+    define('RISE_IIQ_OWNER_PROOF_SECRET','synthetic constant');putenv('RISE_IIQ_OWNER_PROOF_SECRET=synthetic environment');$riseStoredSettings['RISE_IIQ_OWNER_PROOF_SECRET']='synthetic option';check(mmiiq_rise_setting('RISE_IIQ_OWNER_PROOF_SECRET')==='synthetic constant','constant wins');
+    echo "PASS $passed synthetic settings checks; no WordPress or production data used\n";exit(0);
+}
 if($secretCase!==''){
     putenv('RISE_IIQ_JOB_ENABLED=true');
     if($secretCase==='env-before-constant'){
