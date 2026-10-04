@@ -573,6 +573,31 @@ the actual production route and deployment.
   Mock -> grounded follow-up/barge-in/move-on/closing -> heard saved cold replay,
   genuine calibration, Student/second-Admin/negative-role gates still unverified.
 
+- Current Home/Review exposed a real evidence-grounding P1: an uncalibrated
+  saved probe displayed “Pace left your range for26s at00:06.” Actual reducer
+  and teaching functions reproduced that exact phrase from held LISTENING
+  scores after only six short answering samples; this does not establish the
+  probe's genuine speech content. Consumer correction gates teaching scores and
+  runs to available answering speech, breaks quiet/listening/time gaps, and uses
+  displayed rather than invented personal ranges. Unknown hands no longer become
+  100% visible; listening gestures are not claimed as answering gestures. Home,
+  Review and saved-detail priorities rederive from recording-bound evidence;
+  saved canonical history, instruments, capture/provider/recording are untouched.
+  Independent review reproduced a second boundary in the actual sealer:
+  alternating answering/listening samples were thinned to all-answering samples
+  and falsely described as600s continuous speech. Corrected duration inference
+  refuses doubled cadence; decimated corrections describe retained-sample
+  percentages and explicitly do not claim continuity. Actual sealer -> cold
+  projection regression covers pace/volume/variety. All66 focused evidence,
+  history/privacy/Film/lifecycle tests PASS; final independent source review
+  PASS/noP0/P1. Production check pending. PRODUCT4495 is heartbeating.
+  Exact rollback remains source0a442cc / deployment39cc25ae / imageba4c76b4 /
+  tracked artifactabhnOp. No root promotion or spoken/audible acceptance.
+  R104 independent-browser acceptance: Chrome is connected; IAB has no tabs or
+  genuine same-account session. WAITING until an authenticated second-browser
+  surface exists; no token transfer or repeated unchanged inventory. Physical
+  speech/hearing and genuine role/data gates remain separate, not global stops.
+
 - **Founder live-POV override, 2026-10-02: recovery LIVE; candidate-question stall reopened fix-forward.**
   Founder confirms physical camera/mic and native multi-turn AI entry work;
   preserve those gains. Navigation, calibration Analytics, runtime composition,

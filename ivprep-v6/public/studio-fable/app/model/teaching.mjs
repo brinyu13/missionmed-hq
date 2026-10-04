@@ -6,12 +6,23 @@ import { dwell, intervalRuns } from './trace-reducer.mjs';
 
 const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 const pct = (f) => `${Math.round(f * 100)}%`;
+const finite = (v) => typeof v === 'number' && Number.isFinite(v);
+const speechScore = (s, lane) => s.speaking === true && s.state === 'ANSWERING'
+  && s.signalGap !== true && finite(s[{ pace: 'pace', volume: 'vol', variety: 'variety' }[lane]])
+  && finite(s.scores?.[lane]);
+const handSample = (s) => s.state === 'ANSWERING' && ['NONE', 'LEFT', 'RIGHT', 'BOTH'].includes(s.hands);
 
 function longestRun(samples, predicate, minS = 4) {
-  let best = null; let cur = null;
+  let best = null; let cur = null; let previousT = null;
+  const close = () => { if (cur && (!best || cur.endT - cur.startT > best.endT - best.startT)) best = cur; cur = null; };
   for (const s of samples) {
+    // TraceHistory retains at 0.5s cadence. Missing, reversed or decimated gaps
+    // cannot prove an uninterrupted duration; never bridge them or listening.
+    if (!finite(s.t)) { close(); previousT = null; continue; }
+    if (previousT !== null && (s.t <= previousT || s.t - previousT > 0.75)) close();
+    previousT = s.t;
     if (predicate(s)) { if (!cur) cur = { startT: s.t, endT: s.t }; else cur.endT = s.t; }
-    else if (cur) { if (!best || cur.endT - cur.startT > best.endT - best.startT) best = cur; cur = null; }
+    else close();
   }
   if (cur && (!best || cur.endT - cur.startT > best.endT - best.startT)) best = cur;
   return best && best.endT - best.startT >= minS ? best : null;
@@ -21,35 +32,41 @@ export function deriveDebrief(attempt) {
   const samples = attempt.samples || [];
   const events = attempt.events || [];
   const answering = samples.filter((s) => s.state === 'ANSWERING');
+  const decimated = attempt.traceDecimated === true;
   const worked = []; const change = []; const facts = [];
-  const paceIn = dwell(samples, (s) => s.scores?.pace != null && s.scores.pace >= 7 && s.scores.pace <= 8.5);
-  const paceMeasured = dwell(samples, (s) => s.scores?.pace != null);
+  const paceIn = dwell(samples, (s) => speechScore(s, 'pace') && s.scores.pace >= 7 && s.scores.pace <= 8.5);
+  const paceMeasured = dwell(samples, (s) => speechScore(s, 'pace'));
   if (paceMeasured.count >= 6) {
     const f = paceIn.count / paceMeasured.count;
     facts.push({ lane: 'pace', text: `Pace in the displayed range in ${pct(f)} of retained speech samples`, value: f });
-    if (f >= 0.6) worked.push({ lane: 'pace', text: `Pace stayed in the displayed range in ${pct(f)} of retained speech samples.`, at: longestRun(samples, (s) => s.scores?.pace != null && s.scores.pace >= 7 && s.scores.pace <= 8.5)?.startT ?? null });
-    else { const fast = longestRun(samples, (s) => s.scores?.pace != null && s.scores.pace > 8.5, 3); const slow = longestRun(samples, (s) => s.scores?.pace != null && s.scores.pace < 7, 3); const run = fast || slow; if (run) change.push({ lane: 'pace', text: `Pace left your range for ${Math.round(run.endT - run.startT)} s at ${fmt(run.startT)} (${fast ? 'too fast' : 'too slow'}).`, at: run.startT, priority: 0.8 }); }
+    if (f >= 0.6) worked.push({ lane: 'pace', text: `Pace stayed in the displayed range in ${pct(f)} of retained speech samples.`, at: longestRun(samples, (s) => speechScore(s, 'pace') && s.scores.pace >= 7 && s.scores.pace <= 8.5)?.startT ?? null });
+    else if (decimated) {
+      const first = samples.find((s) => speechScore(s, 'pace') && (s.scores.pace < 7 || s.scores.pace > 8.5));
+      change.push({ lane: 'pace', text: `Pace was outside the displayed range in ${pct(1 - f)} of retained speech samples. Missing intervals prevent a continuous-duration claim.`, at: first.t, priority: 0.8 });
+    } else { const fast = longestRun(samples, (s) => speechScore(s, 'pace') && s.scores.pace > 8.5, 3); const slow = longestRun(samples, (s) => speechScore(s, 'pace') && s.scores.pace < 7, 3); const run = fast || slow; if (run) change.push({ lane: 'pace', text: `Pace left the displayed range for ${Math.round(run.endT - run.startT)} s at ${fmt(run.startT)} (${fast ? 'too fast' : 'too slow'}).`, at: run.startT, priority: 0.8 }); }
   }
-  const volMeasured = dwell(samples, (s) => s.scores?.volume != null);
+  const volMeasured = dwell(samples, (s) => speechScore(s, 'volume'));
   if (volMeasured.count >= 6) {
-    const low = longestRun(samples, (s) => s.scores?.volume != null && s.scores.volume < 7, 4);
-    const inF = dwell(samples, (s) => s.scores?.volume != null && s.scores.volume >= 7).count / volMeasured.count;
+    const low = decimated ? null : longestRun(samples, (s) => speechScore(s, 'volume') && s.scores.volume < 7, 4);
+    const inF = dwell(samples, (s) => speechScore(s, 'volume') && s.scores.volume >= 7).count / volMeasured.count;
     facts.push({ lane: 'volume', text: `Volume in corridor in ${pct(inF)} of retained speech samples`, value: inF });
-    if (low) change.push({ lane: 'volume', text: `Volume dropped below your corridor for ${Math.round(low.endT - low.startT)} s at ${fmt(low.startT)}.`, at: low.startT, priority: 0.7 });
-    else if (inF >= 0.7) worked.push({ lane: 'volume', text: `Volume held in your corridor in ${pct(inF)} of retained speech samples.`, at: samples.find((s) => s.scores?.volume != null)?.t ?? null });
+    if (decimated && inF < 0.7) change.push({ lane: 'volume', text: `Volume was below the displayed corridor in ${pct(1 - inF)} of retained speech samples. Missing intervals prevent a continuous-duration claim.`, at: samples.find((s) => speechScore(s, 'volume') && s.scores.volume < 7).t, priority: 0.7 });
+    else if (low) change.push({ lane: 'volume', text: `Volume dropped below the displayed corridor for ${Math.round(low.endT - low.startT)} s at ${fmt(low.startT)}.`, at: low.startT, priority: 0.7 });
+    else if (inF >= 0.7) worked.push({ lane: 'volume', text: `Volume held in the displayed corridor in ${pct(inF)} of retained speech samples.`, at: samples.find((s) => speechScore(s, 'volume'))?.t ?? null });
   }
-  const varMeasured = dwell(samples, (s) => s.scores?.variety != null);
+  const varMeasured = dwell(samples, (s) => speechScore(s, 'variety'));
   if (varMeasured.count >= 6) {
-    const v = dwell(samples, (s) => s.scores?.variety != null && s.scores.variety >= 7).count / varMeasured.count;
+    const v = dwell(samples, (s) => speechScore(s, 'variety') && s.scores.variety >= 7).count / varMeasured.count;
     facts.push({ lane: 'variety', text: `Vocal variation in the displayed range in ${pct(v)} of retained speech samples`, value: v });
-    if (v < 0.5) { const flat = longestRun(samples, (s) => s.scores?.variety != null && s.scores.variety < 7, 6); if (flat) change.push({ lane: 'variety', text: `Delivery went flat for ${Math.round(flat.endT - flat.startT)} s at ${fmt(flat.startT)}: pitch and loudness barely moved.`, at: flat.startT, priority: 0.6 }); }
+    if (v < 0.5 && decimated) change.push({ lane: 'variety', text: `Vocal variation was below the displayed range in ${pct(1 - v)} of retained speech samples. Missing intervals prevent a continuous-duration claim.`, at: samples.find((s) => speechScore(s, 'variety') && s.scores.variety < 7).t, priority: 0.6 });
+    else if (v < 0.5) { const flat = longestRun(samples, (s) => speechScore(s, 'variety') && s.scores.variety < 7, 6); if (flat) change.push({ lane: 'variety', text: `Vocal variation fell below the displayed range for ${Math.round(flat.endT - flat.startT)} s at ${fmt(flat.startT)}.`, at: flat.startT, priority: 0.6 }); }
     else worked.push({ lane: 'variety', text: `Vocal variation stayed in the displayed range in ${pct(v)} of retained speech samples.`, at: null });
   }
-  const handsNone = dwell(answering, (s) => s.hands === 'NONE');
+  const handsNone = dwell(answering.filter(handSample), (s) => s.hands === 'NONE');
   if (handsNone.total >= 6) {
-    facts.push({ lane: 'hands', text: `Hands out of view in ${pct(handsNone.fraction)} of retained answering samples`, value: handsNone.fraction });
-    if (handsNone.fraction > 0.35) { const run = longestRun(answering, (s) => s.hands === 'NONE', 5); change.push({ lane: 'hands', text: `Hands were out of view in ${pct(handsNone.fraction)} of retained answering samples${run ? `, longest at ${fmt(run.startT)}` : ''}.`, at: run?.startT ?? null, priority: 0.5 }); }
-    else if (handsNone.fraction < 0.15) worked.push({ lane: 'hands', text: `Hands stayed visible while you answered (${pct(1 - handsNone.fraction)}).`, at: null });
+    facts.push({ lane: 'hands', text: `Hands out of view in ${pct(handsNone.fraction)} of retained answering samples with hand detection available`, value: handsNone.fraction });
+    if (handsNone.fraction > 0.35) { const run = longestRun(samples, (s) => handSample(s) && s.hands === 'NONE', 5); change.push({ lane: 'hands', text: `Hands were out of view in ${pct(handsNone.fraction)} of retained answering samples with hand detection available${run ? `, longest at ${fmt(run.startT)}` : ''}.`, at: run?.startT ?? null, priority: 0.5 }); }
+    else if (handsNone.fraction < 0.15) worked.push({ lane: 'hands', text: `Hands were in view in ${pct(1 - handsNone.fraction)} of retained answering samples with hand detection available.`, at: null });
   }
   const smiles = events.filter((e) => e.kind === 'smile'); const listeningSmiles = smiles.filter((e) => e.state === 'LISTENING').length;
   if (samples.some((s) => Number.isFinite(s.smiles))) {
@@ -57,7 +74,7 @@ export function deriveDebrief(attempt) {
     if (smiles.length === 0 && answering.length > 20) change.push({ lane: 'smiles', text: 'No qualifying smile pattern was observed. Try one while the interviewer is asking.', at: null, priority: 0.4 });
     else if (smiles.length) worked.push({ lane: 'smiles', text: `${smiles.length} smile pattern${smiles.length > 1 ? 's' : ''} observed${listeningSmiles ? `, ${listeningSmiles} while listening` : ''}.`, at: smiles[0].t });
   }
-  const gestures = events.filter((e) => e.kind === 'gesture');
+  const gestures = events.filter((e) => e.kind === 'gesture' && e.state === 'ANSWERING');
   if (gestures.length) worked.push({ lane: 'gestures', text: `${gestures.length} gesture units while answering.`, at: gestures[0].t });
   const gaps = intervalRuns(samples, 'signalGap').filter((r) => r.value === true);
   if (gaps.length) facts.push({ lane: 'gaps', text: `${gaps.length} signal gap${gaps.length > 1 ? 's' : ''} (no evidence during those intervals)`, value: gaps.length });

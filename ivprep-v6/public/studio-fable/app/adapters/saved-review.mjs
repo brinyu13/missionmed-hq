@@ -2,11 +2,26 @@
 import { buildEvidenceMomentLinks } from '../../../studio/presentation-view-model.mjs';
 import { sourceBoundSelfPracticeResult } from '../../../capabilities/context-results.mjs';
 import { attemptSnapshot, canCompareAttempts } from '../../../studio/longitudinal-model.mjs';
+import { deriveDebrief } from '../model/teaching.mjs';
 
 const finite = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value)) ? Number(value) : null;
 const bounded = (value, durationMs) => {
   const n = finite(value); return n !== null && n >= 0 && durationMs !== null && n <= durationMs ? n : null;
 };
+// Saved prose is derived, not authority. Recompute with current evidence rules
+// for Home/Review/Results; never backfill or rewrite the canonical saved attempt.
+export function projectDerivedPriority(evidence, durationS) {
+  if (evidence?.schema !== 'ivoc.fable51.evidence.v1' || evidence.fixture !== false
+      || evidence.clock !== 'recording-observed' || !Number.isFinite(durationS) || durationS < 0) return null;
+  const eligible = item => item?.fixture !== true && typeof item?.t === 'number'
+    && Number.isFinite(item.t) && item.t >= 0 && item.t <= durationS;
+  const debrief = deriveDebrief({
+    samples: Array.isArray(evidence.samples) ? evidence.samples.filter(eligible) : [],
+    events: Array.isArray(evidence.events) ? evidence.events.filter(eligible) : [], turns: [],
+    traceDecimated: evidence.retention?.decimated === true,
+  });
+  return debrief.change[0] ? { lane: debrief.change[0].lane, text: debrief.change[0].text } : null;
+}
 export function projectReplayTurns(detail, durationMs) {
   const envelope = detail?.results?.payload;
   const bound = sourceBoundSelfPracticeResult(detail);
@@ -57,6 +72,7 @@ export function projectSavedAttempt(saved, subject) {
   const realTrace=f.clock==='recording-observed';
   const sample = item => item?.fixture!==true && bounded(item?.t == null ? null : Number(item.t)*1000,durationMs)!==null;
   const at=Date.parse(detail.endedAt||detail.startedAt||detail.createdAt||'');
+  const priority=projectDerivedPriority(f,durationMs===null?null:Math.max(0,durationMs/1000));
   return {id:detail.id,ownerSubject:subject,persisted:true,storage:'account',fixture:false,engineMode:'real',
     at:Number.isFinite(at)?at:null,mode:detail.interviewerProvider==='openai-gpt-live'?'mock':'practice',
     questionId:detail.questionId||null,questionText:detail.questionText||detail.title||'Saved answer',
@@ -65,7 +81,7 @@ export function projectSavedAttempt(saved, subject) {
     events:realTrace && Array.isArray(f.events)?f.events.filter(sample):[],
     turns:projectReplayTurns(detail,durationMs),hooks:Array.isArray(f.hooks)?f.hooks.map(h=>({...h,replay:hookReplayBinding(h,detail,durationMs)})):[],closing:f.closing||null,
     conductor:f.conductor||null,settings:f.settings||null,transport:f.transport||null,calibrationUsed:f.calibrationUsed===true,
-    priorityLane:f.debrief?.lane||null,priorityText:f.debrief?.text||null,analytics,detail,remote:detail,saved,
+    priorityLane:priority?.lane||null,priorityText:priority?.text||null,analytics,detail,remote:detail,saved,
     comparison:attemptSnapshot({...row,...detail,recording}),
     sealed:{schema:analytics.schema||null,durationMs},measurementTimeline:analytics.flightRecorder||null,
     traceUnavailable:!realTrace,traceDecimated:f.retention?.decimated===true};

@@ -7,6 +7,7 @@ import { state, addAttempt } from '../state.mjs';
 import { bindOwnLibrary, bindOwnRow } from '../adapters/own-scope.mjs';
 import { resolveOwnSavedReview } from '../../../studio/review-scope.mjs';
 import { sealDerivedEvidence } from '../adapters/derived-evidence.mjs';
+import { projectDerivedPriority } from '../adapters/saved-review.mjs';
 const ENGINE = '/iv-prep-on-call/assets';
 export const recordings = new Map();
 const LOCKED = new Set(['STARTING','LIVE','SAVING','SAVE_FAILED']);
@@ -215,9 +216,11 @@ export class SessionController extends EventTarget {
     const attempts=(own.sessions||[]).filter(s=>s.ownerSubject===this.account.subject && s.state==='saved').map(s=>{
       const f=s.results?.payload?.analytics?.fable || {};
       const at=Date.parse(s.endedAt||s.startedAt||s.createdAt);
+      const durationS=s.recording?.durationMs==null?null:s.recording.durationMs/1000;
+      const priority=projectDerivedPriority(f,durationS);
       return {...f,id:s.id,at:Number.isFinite(at)?at:null,storage:'account',persisted:true,ownerSubject:s.ownerSubject,
         questionText:s.questionText||s.title||'Saved answer',questionId:s.questionId||null,mode:s.interviewerProvider==='openai-gpt-live'?'mock':'practice',
-        durationS:s.recording?.durationMs==null?null:s.recording.durationMs/1000,remote:s,priorityText:f.debrief?.text||null};
+        durationS,remote:s,debriefLane:priority?.lane||null,priorityLane:priority?.lane||null,priorityText:priority?.text||null};
     });
     state.attempts=attempts;
     return {source:'account',attempts,sessions:own.sessions||[]};

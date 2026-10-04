@@ -54,7 +54,9 @@ export function traceSample(frame) {
     loudnessUnit: volume.available === true ? (volume.scientificUnit || null) : null,
     f0Hz: pitch.available === true && pitch.voiced === true ? num(pitch.f0Hz) : null,
     scores: {
-      pace: num(speed.score), volume: num(volume.score), variety: num(variety.score),
+      pace: pace === null ? null : num(speed.score),
+      volume: vol === null ? null : num(volume.score),
+      variety: varietyNorm === null ? null : num(variety.score),
     },
     signalGap,
   });
