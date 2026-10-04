@@ -5,12 +5,14 @@ Worker must call check_worker_guard immediately before every write and commit.
 """
 import argparse
 from datetime import datetime, timezone
+import errno
 import hashlib
 import importlib.util
 import json
 import math
 from pathlib import Path
 import sys
+import subprocess
 import threading
 import time
 import uuid
@@ -18,7 +20,18 @@ import uuid
 ROOT = Path(__file__).resolve().parents[3]
 HERE = Path(__file__).resolve().parent
 OS_ROOT = Path('/Users/brianb/MissionMed_worktrees/IR-PHASE1-REGISTRY-20261004-R2')
-OS_HEAD = '84754150b8c834ac25466860ab98600b5d5c1b9e'
+OS_HEAD = '81c3ac794b0b3436c7ce66cada31b9f2a1e05356'
+DECISION_SHA = '452a9e6259f6ae2f9e1441c725f79156b2d099d88a38af694b248e345b7dbe0e'
+AUTHORITY_HANDOFF = 'handoffs/from_codex/IR_INTERVIEW_READY_0002/REGISTRATION_TO_CODEX.md'
+AUTHORITY_HANDOFF_SHA = 'ed3a5cb6c439147471860a78654aeecbaca367d6ed2f7cd92c4159d331f6556d'
+CLIENT_SHA = '36e37a487de0ec99191492c3ef286695bc4d8721cdac70f5c62863576e5c1431'
+AUTHORITY_ADOPTION = {
+    'historicalOSHead': '84754150b8c834ac25466860ab98600b5d5c1b9e',
+    'historicalDecisionSha256': '32ad43957a4b9a245e5eb715c998692bf0ad8ed13d0766d88ab0e9955b7513bd',
+    'currentOSHead': OS_HEAD, 'currentDecisionSha256': DECISION_SHA,
+    'currentAuthorityHandoffSha256': AUTHORITY_HANDOFF_SHA,
+    'basis': 'FOREMAN_VERIFIED_EN_EM_DASH_TO_ASCII_NORMALIZATION_ONLY',
+}
 SOURCE_BASE = 'a7adc5eb4107dc26d3dce38cae7195ad8b9868f3'
 TRANSPORT_SHA = '6bab4c948b28202b7a803228f2123d5c95137030f16eb129c427b4ddcc487cad'
 ORIGIN = 'https://github.com/brinyu13/missionmed-hq.git'
@@ -27,6 +40,21 @@ OWNER = 'codex-ir-phase1-foreman'
 PATHS = ['interview-ready/integration/matrix-entry.js', 'interview-ready/integration/matrix-entry.test.js', 'interview-ready/integration/missionmed-interview-ready.php', 'interview-ready/integration/gateway.test.php', 'interview-ready/build.py', 'interview-ready/integration/release.py', 'interview-ready/integration/release.test.py', 'interview-ready/phase1.json', '_SYSTEM/CRITICAL_SYSTEMS_MANIFEST.json', 'interview-ready/evidence/integration-worker-handoff.md']
 BASE_PREIMAGES = {'interview-ready/integration/matrix-entry.js': 'ABSENT', 'interview-ready/integration/matrix-entry.test.js': 'ABSENT', 'interview-ready/integration/missionmed-interview-ready.php': 'f32df31e1c20af86d4c6fe48ee380832dbc2dc6d60a107e58bb7bc11f7a20243', 'interview-ready/integration/gateway.test.php': 'ba23b7d6bdedce44a85db34d4a4411513d4cb4067dd63cbe67cbfc970b19cc90', 'interview-ready/build.py': 'ab463c64dbe9fef819183508480a31769fae331b8a2b720c0aaef7f7bbf115ad', 'interview-ready/integration/release.py': 'ABSENT', 'interview-ready/integration/release.test.py': 'ABSENT', 'interview-ready/phase1.json': '0f44ee256a985b26a6a25bd2f10a431ef8f38c24197d2a1598299676484daa18', '_SYSTEM/CRITICAL_SYSTEMS_MANIFEST.json': '41a35e9d3fd5dee394ceee2a66d0cfd4fe1959bca5535f1c58bf36ee764c33ec', 'interview-ready/evidence/integration-worker-handoff.md': 'ABSENT'}
 INTERVAL = 5.0
+CHECKPOINT_HEAD = '0566cf093aaa0058632c7ca2b4e09c0ecef8b075'
+CHECKPOINT_FILE = 'IR_PHASE1_INTERRUPTION_CHECKPOINT_20261004_1929.md'
+INTERRUPTION_REVIEW_FILE = 'INTEGRATION_LEASE_INTERRUPTION_REVIEW.md'
+CHECKPOINT_SHA = '63c57989a0ac670d14f2a0383a1d0c0c1a25a211017beb6c67e63577d905032e'
+INTERRUPTION_REVIEW_SHA = '59f4fdf7a8a7a7c719a73c79fe2842a615b568907a0d066a4919d01ce099c592'
+PACKET_SHA = 'c3a6e15b98938220f10406014e992cdc9cbd4359451187c737a4a0c3d8813cbc'
+CHECKPOINT_DRAFTS = {
+    '_SYSTEM/CRITICAL_SYSTEMS_MANIFEST.json': '5bd21265a8d8c48986ada406e7cf2802a6cb755200892448adbd58474b8eb150',
+    'interview-ready/build.py': '2776ea801ad4440bfaf3446ebe311febe758f162e775a0cf623a4ff8acd1a432',
+    'interview-ready/integration/missionmed-interview-ready.php': '406c97135c6ea768f990390a588adfeca037c1b69c0c4b158f67e47b3c940c65',
+    'interview-ready/phase1.json': 'c552cc20f09a7dce76c91a22bfd507e91c6d33b78b043df9f420fdf57d1351c0',
+    'interview-ready/integration/matrix-entry.js': '238d936904fce777174f22fb352e99fce118192ca9a469be392246c6a65366ad',
+    'interview-ready/integration/release.py': '7a4ad5d0cd3465124de98de2eb8e91a61ad3f3780c7754a6363c90acb978bf0e',
+    '_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/native_account_qa.py': '9c4452da53981fb70de6afae504fe38ee9cd0445d1e4187464220124d947b7b5',
+}
 
 
 class Stop(RuntimeError):
@@ -74,15 +102,49 @@ def preimages(root):
             for name in PATHS}
 
 
+def original_preimages(root):
+    """Read fixed immutable local Git objects; no shell, credentials or remote."""
+    command = ['git', '--no-replace-objects', '--literal-pathspecs', '-C', str(root)]
+    tree = subprocess.run(command + ['ls-tree', '-rz', SOURCE_BASE, '--', *PATHS],
+                          stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, check=False)
+    if tree.returncode:
+        raise Stop('ORIGINAL_OBJECT_DENIED')
+    images = dict.fromkeys(PATHS, 'ABSENT')
+    for entry in tree.stdout.split(b'\0'):
+        if not entry:
+            continue
+        metadata, name = entry.split(b'\t', 1)
+        mode, kind, oid = metadata.split()
+        name = name.decode('utf-8')
+        if name not in images or kind != b'blob' or mode not in (b'100644', b'100755'):
+            raise Stop('ORIGINAL_OBJECT_DENIED')
+        blob = subprocess.run(command + ['cat-file', 'blob', oid.decode('ascii')],
+                              stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, check=False)
+        if blob.returncode:
+            raise Stop('ORIGINAL_OBJECT_DENIED')
+        images[name] = hashlib.sha256(blob.stdout).hexdigest()
+    return images
+
+
 def snapshot(root=ROOT, os_root=OS_ROOT):
     return {'sourceBASE': SOURCE_BASE, 'sourceHead': head(root), 'osHead': head(os_root),
             'writePaths': PATHS, 'sourcePreimages': preimages(root),
+            'originalSourcePreimages': original_preimages(root),
+            'recovery': {'checkpointHead': CHECKPOINT_HEAD,
+                         'checkpointFile': CHECKPOINT_FILE,
+                         'checkpointSha256': digest(HERE / CHECKPOINT_FILE),
+                         'interruptionReviewFile': INTERRUPTION_REVIEW_FILE,
+                         'interruptionReviewSha256': digest(HERE / INTERRUPTION_REVIEW_FILE),
+                         'checkpointDrafts': CHECKPOINT_DRAFTS,
+                         'observedNativeQaSha256': digest(root / next(name for name in CHECKPOINT_DRAFTS if name not in PATHS))},
             'runnerSha256': digest(Path(__file__)),
             'testsSha256': digest(HERE / 'integration_lease_runner_tests.py'),
             'transportSha256': digest(HERE / 'lease_transport.py'),
             'workerPacketSha256': digest(HERE / 'MATRIX_RELEASE_WORKER_PACKET.md'),
             'canonicalClientSha256': digest(os_root / 'tools/engineering_os_lease.py'),
             'decisionSha256': digest(os_root / 'decisions/DR-376_ir_phase1_bounded_execution_annex.md'),
+            'authorityHandoffSha256': digest(os_root / AUTHORITY_HANDOFF),
+            'authorityAdoption': AUTHORITY_ADOPTION,
             'origin': ORIGIN, 'ref': REF, 'relativePath': 'interview-ready', 'owner': OWNER}
 
 
@@ -102,14 +164,55 @@ def validate_approval(approval, actual, now=None):
     now = time.time() if now is None else now
     if (actual['osHead'] != OS_HEAD or actual['transportSha256'] != TRANSPORT_SHA
             or actual['sourceBASE'] != SOURCE_BASE
-            or actual['sourcePreimages'] != BASE_PREIMAGES):
+            or actual['originalSourcePreimages'] != BASE_PREIMAGES
+            or actual['workerPacketSha256'] != PACKET_SHA
+            or actual['decisionSha256'] != DECISION_SHA
+            or actual['authorityHandoffSha256'] != AUTHORITY_HANDOFF_SHA
+            or actual['canonicalClientSha256'] != CLIENT_SHA
+            or actual['authorityAdoption'] != AUTHORITY_ADOPTION
+            or actual['writePaths'] != PATHS
+            or actual['recovery']['checkpointHead'] != CHECKPOINT_HEAD
+            or actual['recovery']['checkpointDrafts'] != CHECKPOINT_DRAFTS
+            or actual['recovery']['checkpointSha256'] != CHECKPOINT_SHA
+            or actual['recovery']['interruptionReviewSha256'] != INTERRUPTION_REVIEW_SHA
+            or any(actual['sourcePreimages'][name] != value for name, value in CHECKPOINT_DRAFTS.items()
+                   if name in PATHS)):
         raise Stop('PIN_MISMATCH')
     if (approval.get('schema') != 'ir.integration_source_lease.approval.v1'
             or approval.get('verdict') != 'APPROVE'
             or approval.get('independentReviewer') in (None, '', OWNER)
             or approval.get('contract') != actual or not fresh(approval, now)):
         raise Stop('APPROVAL_DENIED')
-    return hashlib.sha256(canonical(actual)).hexdigest()
+    binding = hashlib.sha256(canonical(actual)).hexdigest()
+    recovery = approval.get('recoveryReview', {})
+    if (recovery.get('schema') != 'ir.integration_source_lease.recovery_review.v1'
+            or recovery.get('verdict') != 'APPROVE'
+            or recovery.get('independentReviewer') in (None, '', OWNER)
+            or recovery.get('bindingSha256') != binding or not fresh(recovery, now)
+            or not recovery.get('reportFile') or not recovery.get('reportSha256')):
+        raise Stop('RECOVERY_REVIEW_DENIED')
+    return binding
+
+
+def safe_diagnostic(phase, error):
+    """Whitelist classifications only; never inspect exception text or raw values."""
+    classification = ('OS_ERROR' if isinstance(error, OSError) else
+                      'CONTROL_STOP' if isinstance(error, Stop) else
+                      'INTERRUPTED' if isinstance(error, (KeyboardInterrupt, SystemExit)) else 'EXCEPTION')
+    number = error.errno if isinstance(error, OSError) else None
+    number = number if type(number) is int and number in errno.errorcode else None
+    value = {'phase': phase, 'errorClass': classification, 'errno': number}
+    try:
+        sys.stderr.write(canonical(value).decode('ascii') + '\n')
+        sys.stderr.flush()
+    except BaseException:
+        pass
+    return value
+
+
+def breadcrumb(directory, phase, binding):
+    atomic(directory, 'SOURCE_LEASE_PHASE.json',
+           {'phase': phase, 'bindingSha256': binding, 'updatedUnix': time.time()})
 
 
 def atomic(directory, name, value):
@@ -141,6 +244,8 @@ def load_module(name, path, expected_digest):
 def check_worker_guard(directory, binding, source_head, now=None):
     """Fail closed on stale/terminal status; no authorization to write other paths."""
     now = time.time() if now is None else now
+    if (Path(directory) / 'SOURCE_LEASE_FAILURE.json').exists():
+        raise Stop('WORKER_STOP')
     value = read_json(Path(directory) / 'SOURCE_LEASE_STATUS.json')
     updated = value.get('updatedUnix')
     if (head(ROOT) != source_head or value.get('state') != 'HEALTHY' or value.get('bindingSha256') != binding
@@ -165,6 +270,34 @@ def orchestrate(client, lease, contract, binding, directory, *, max_seconds=3600
     thread = None
     outcome = 'STOP'
     release = 'NOT_ATTEMPTED'
+    phase = 'ACQUIRED'
+    renewal_phase = 'HEARTBEAT'
+    diagnostics = []
+
+    def diagnose(where, error):
+        nonlocal outcome
+        outcome = 'STOP'
+        value = safe_diagnostic(where, error)
+        diagnostics.append(value)
+        try:
+            (directory / 'SOURCE_LEASE_STATUS.json').unlink(missing_ok=True)
+        except BaseException:
+            pass
+        # Best effort durable worker fence; absence never proves healthy receipts.
+        try:
+            with (directory / 'SOURCE_LEASE_FAILURE.json').open('xb') as stream:
+                (directory / 'SOURCE_LEASE_FAILURE.json').chmod(0o600)
+                stream.write(canonical({'state': 'STOP', 'bindingSha256': binding, **value}))
+        except BaseException:
+            pass
+
+    def receipt(name, value, where):
+        try:
+            atomic(directory, name, value)
+            return True
+        except BaseException as error:
+            diagnose(where, error)
+            return False
 
     def record(state, reason):
         return {'state': state, 'reason': reason, 'updatedUnix': time.time(),
@@ -177,35 +310,41 @@ def orchestrate(client, lease, contract, binding, directory, *, max_seconds=3600
                 'approvedPacketDigest': contract['workerPacketSha256']}
 
     def renew():
-        nonlocal handle
+        nonlocal handle, renewal_phase
         with lock:
+            renewal_phase = 'HEARTBEAT'
+            breadcrumb(directory, renewal_phase, binding)
             handle = client.heartbeat(handle)
+            renewal_phase = 'HEALTHY_STATUS'
             atomic(directory, 'SOURCE_LEASE_STATUS.json', record('HEALTHY', 'RENEWED'))
 
     def keeper():
         while not event.wait(interval):
             try:
                 renew()
-            except BaseException:
+            except BaseException as error:
                 failure.append('KEEPER_FAILED')
+                diagnose(renewal_phase, error)
                 try:
-                    atomic(directory, 'SOURCE_LEASE_STATUS.json', record('STOP', 'KEEPER_FAILED'))
-                except BaseException:
-                    pass  # Never emit a thread traceback or exception value.
+                    receipt('SOURCE_LEASE_STATUS.json', record('STOP', 'KEEPER_FAILED'), 'KEEPER_STOP_STATUS')
                 finally:
                     event.set()
                 return
 
     try:
+        breadcrumb(directory, phase, binding)
+        phase = 'INITIAL_RENEWAL'
         renew()  # Immediately validate a real canonical renewal before READY.
         thread = threading.Thread(target=keeper, name='ir-integration-source-lease-keeper', daemon=True)
         thread.start()
         with lock:
             if failure or event.is_set():
                 raise Stop('KEEPER_FAILED')
+            phase = 'READY'
             atomic(directory, 'SOURCE_LEASE_READY.json', record('SOURCE_LEASE_READY', 'RENEWED'))
         deadline = time.monotonic() + max_seconds
         while not event.is_set():
+            phase = 'WAIT'
             stop = directory / 'SOURCE_LEASE_STOP.json'
             if stop.exists():
                 instruction = read_json(stop)
@@ -222,24 +361,29 @@ def orchestrate(client, lease, contract, binding, directory, *, max_seconds=3600
             event.wait(min(0.25, remaining))
         if failure or event.is_set():
             raise Stop('KEEPER_FAILED')
-    except BaseException:
-        outcome = 'STOP'
+    except BaseException as error:
+        diagnose(renewal_phase if phase == 'INITIAL_RENEWAL' else phase, error)
     finally:
         event.set()
         if thread is not None:
-            thread.join(4)
+            try:
+                thread.join(4)
+            except BaseException as error:
+                diagnose('KEEPER_JOIN', error)
         try:
-            atomic(directory, 'SOURCE_LEASE_STATUS.json', record('STOP', outcome))
+            receipt('SOURCE_LEASE_STATUS.json', record('STOP', outcome), 'TERMINAL_STATUS')
         finally:
             try:
                 with lock:
                     client.release(handle)
                 release = 'RELEASED'
-            except BaseException:
+            except BaseException as error:
                 release = 'RELEASE_FAILED'
-            atomic(directory, 'SOURCE_LEASE_RESULT.json',
-                   {'outcome': outcome, 'release': release, 'bindingSha256': binding})
-    return outcome != 'STOP' and release == 'RELEASED'
+                diagnose('RELEASE', error)
+            result_written = receipt('SOURCE_LEASE_RESULT.json',
+                {'outcome': outcome, 'release': release, 'bindingSha256': binding,
+                 'diagnostics': diagnostics}, 'RESULT')
+    return outcome != 'STOP' and release == 'RELEASED' and result_written and not diagnostics
 
 
 def execute(approval_path, admission_path, directory, max_seconds=3600):
@@ -258,7 +402,10 @@ def execute(approval_path, admission_path, directory, max_seconds=3600):
             or not 0 < max_seconds <= 3600):
         raise Stop('READ_ADMISSION_DENIED')
     # Reports are separate reviewer artifacts; their exact bytes must exist locally.
-    for document in (approval, admission):
+    reports = (approval, admission, approval['recoveryReview'])
+    if len({document['reportFile'] for document in reports}) != 3:
+        raise Stop('SEPARATE_REVIEW_REPORT_DENIED')
+    for document in reports:
         report = HERE / document['reportFile']
         if report.parent != HERE or digest(report) != document['reportSha256']:
             raise Stop('REVIEW_REPORT_DENIED')
@@ -271,15 +418,27 @@ def execute(approval_path, admission_path, directory, max_seconds=3600):
     with marker.open('xb') as stream:
         marker.chmod(0o600)
         stream.write(canonical({'bindingSha256': binding, 'state': 'CONSUMED'}))
-    transport = load_module('ir_source_transport', HERE / 'lease_transport.py', actual['transportSha256'])
-    key = transport.retrieve_existing_key()
-    if transport.authentication_probe(key) != 200:
-        raise Stop('AUTHENTICATION_DENIED')
-    client_type = canonical_client.SupabaseLeaseClient
-    client = client_type(base_url=transport.BASE_URL, project_ref=transport.PROJECT, api_key=key,
-                         opener=transport.ApikeyOnlyLeaseOpener(key, client_type._open_no_redirect))
-    lease = client.acquire_writer(scope=scope, write_paths=PATHS, owner_id=OWNER,
-        session_id='ir-phase1-integration-source-20261004-' + uuid.uuid4().hex, binding=binding)
+    phase = 'TRANSPORT_LOAD'
+    try:
+        breadcrumb(directory, phase, binding)
+        transport = load_module('ir_source_transport', HERE / 'lease_transport.py', actual['transportSha256'])
+        phase = 'RETRIEVE'
+        breadcrumb(directory, phase, binding)
+        key = transport.retrieve_existing_key()
+        phase = 'AUTHENTICATE'
+        breadcrumb(directory, phase, binding)
+        if transport.authentication_probe(key) != 200:
+            raise Stop('AUTHENTICATION_DENIED')
+        client_type = canonical_client.SupabaseLeaseClient
+        client = client_type(base_url=transport.BASE_URL, project_ref=transport.PROJECT, api_key=key,
+                             opener=transport.ApikeyOnlyLeaseOpener(key, client_type._open_no_redirect))
+        phase = 'ACQUIRE'
+        breadcrumb(directory, phase, binding)
+        lease = client.acquire_writer(scope=scope, write_paths=PATHS, owner_id=OWNER,
+            session_id='ir-phase1-integration-source-20261004-' + uuid.uuid4().hex, binding=binding)
+    except BaseException as error:
+        safe_diagnostic(phase, error)
+        raise Stop('EXECUTION_STOP') from None
     return orchestrate(client, lease, actual, binding, directory, max_seconds=max_seconds)
 
 

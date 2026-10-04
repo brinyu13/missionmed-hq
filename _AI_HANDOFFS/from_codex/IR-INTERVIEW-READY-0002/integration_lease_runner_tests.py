@@ -1,7 +1,9 @@
 """Small memory-only fixtures. Never import transport or retrieve credentials."""
 import copy
+import contextlib
 from datetime import datetime, timedelta, timezone
 import json
+import io
 from pathlib import Path
 from types import SimpleNamespace
 import tempfile
@@ -67,7 +69,12 @@ class RunnerTests(unittest.TestCase):
     def approval(self):
         return {'schema': 'ir.integration_source_lease.approval.v1', 'verdict': 'APPROVE',
                 'independentReviewer': 'fixture-independent', 'contract': copy.deepcopy(self.actual),
-                'expiresUnix': 2000}
+                'expiresUnix': 2000,
+                'recoveryReview': {'schema': 'ir.integration_source_lease.recovery_review.v1',
+                    'verdict': 'APPROVE', 'independentReviewer': 'fixture-recovery-reviewer',
+                    'expiresUnix': 2000,
+                    'bindingSha256': runner.hashlib.sha256(runner.canonical(self.actual)).hexdigest(),
+                    'reportFile': 'recovery.md', 'reportSha256': 'fixture'}}
 
     def test_approval_hash_paths_base_fail_before_credential_capability(self):
         with patch.object(runner, 'load_module', side_effect=AssertionError('must not import')):
@@ -144,7 +151,13 @@ class RunnerTests(unittest.TestCase):
     def test_execute_once_and_separate_read_admission(self):
         report = self.directory / 'review.md'
         report.write_text('independent fixture report')
+        recovery_report = self.directory / 'recovery.md'
+        recovery_report.write_text('separate independent recovery fixture report')
+        admission_report = self.directory / 'admission.md'
+        admission_report.write_text('separate fresh read admission fixture report')
         approval = self.approval()
+        approval['recoveryReview'].update(expiresUnix=__import__('time').time() + 60,
+            reportSha256=runner.digest(recovery_report))
         approval.update(expiresUnix=__import__('time').time() + 60,
                         reportFile=report.name, reportSha256=runner.digest(report))
         approval_path = self.directory / 'approval.json'
@@ -154,7 +167,7 @@ class RunnerTests(unittest.TestCase):
             'independentReviewer': 'fixture-independent', 'bindingSha256': binding,
             'approvalSha256': runner.digest(approval_path), 'maxSeconds': 1,
             'expiresUnix': __import__('time').time() + 60,
-            'reportFile': report.name, 'reportSha256': runner.digest(report)}
+            'reportFile': admission_report.name, 'reportSha256': runner.digest(admission_report)}
         admission_path = self.directory / 'admission.json'
         admission_path.write_bytes(runner.canonical(admission))
         client = Mock()
@@ -193,6 +206,7 @@ class RunnerTests(unittest.TestCase):
         with self.assertRaises(canonical_client.LeaseDenied):
             canonical_client.path_scope(runner.ORIGIN, 'codex/bare-ref', 'interview-ready')
         approval = self.approval()
+        approval['recoveryReview'].update(expiresUnix=__import__('time').time() + 60)
         approval.update(expiresUnix=__import__('time').time() + 60,
                         reportFile='fixture.md', reportSha256='fixture')
         admission = {'schema': 'ir.integration_source_lease.read_admission.v1', 'verdict': 'APPROVE',
@@ -200,7 +214,7 @@ class RunnerTests(unittest.TestCase):
             'bindingSha256': runner.validate_approval(approval, self.actual),
             'approvalSha256': 'fixture', 'maxSeconds': 1,
             'expiresUnix': __import__('time').time() + 60,
-            'reportFile': 'fixture.md', 'reportSha256': 'fixture'}
+            'reportFile': 'admission.md', 'reportSha256': 'fixture'}
         # Gate fixtures admit only local controls; actual canonical helper rejects ref.
         with patch.object(runner, 'snapshot', return_value=self.actual), \
              patch.object(runner, 'read_json', side_effect=[approval, admission]), \
@@ -227,6 +241,102 @@ class RunnerTests(unittest.TestCase):
         runner.atomic(self.directory, 'SOURCE_LEASE_STATUS.json', value)
         with self.assertRaises(runner.Stop):
             runner.check_worker_guard(self.directory, self.binding, self.actual['sourceHead'], now=1001)
+
+    def test_terminal_status_or_result_write_failure_releases_and_stops(self):
+        original = runner.atomic
+        for failed_name in ('SOURCE_LEASE_STATUS.json', 'SOURCE_LEASE_RESULT.json'):
+            with self.subTest(failed_name=failed_name), tempfile.TemporaryDirectory() as name:
+                directory = Path(name)
+                runner.atomic(directory, 'SOURCE_LEASE_STOP.json',
+                    {'owner': runner.OWNER, 'action': 'DONE', 'leaseId': self.handle.lease_id,
+                     'bindingSha256': self.binding})
+                def fault(location, filename, value):
+                    if filename == failed_name and (filename.endswith('RESULT.json') or value['state'] == 'STOP'):
+                        raise OSError(28, 'fixture-key fixture-private-nonce fixture-private-error')
+                    return original(location, filename, value)
+                client = FakeClient()
+                output = io.StringIO()
+                with patch.object(runner, 'atomic', side_effect=fault), contextlib.redirect_stderr(output):
+                    self.assertFalse(runner.orchestrate(client, self.handle, self.actual,
+                        self.binding, directory, max_seconds=1))
+                self.assertEqual(client.calls, ['heartbeat', 'release'])
+                self.assertIn('"errno":28', output.getvalue())
+                self.assertNotIn('fixture-', output.getvalue())
+                self.assertTrue((directory / 'SOURCE_LEASE_FAILURE.json').is_file())
+                with self.assertRaises(runner.Stop):
+                    runner.check_worker_guard(directory, self.binding, self.actual['sourceHead'])
+                if failed_name.endswith('STATUS.json'):
+                    result = runner.read_json(directory / 'SOURCE_LEASE_RESULT.json')
+                    self.assertEqual(result['outcome'], 'STOP')
+                    self.assertEqual(result['release'], 'RELEASED')
+                else:
+                    self.assertFalse((directory / 'SOURCE_LEASE_RESULT.json').exists())
+                for path in directory.iterdir():
+                    self.assertNotIn('fixture-private-', path.read_text())
+                    self.assertNotIn('fixture-key', path.read_text())
+
+    def test_all_receipt_writes_fail_still_attempts_release(self):
+        client = FakeClient(release_fail=True)
+        with patch.object(runner, 'atomic', side_effect=OSError(28, 'fixture-private-secret')), \
+             contextlib.redirect_stderr(io.StringIO()) as output:
+            self.assertFalse(runner.orchestrate(client, self.handle, self.actual,
+                self.binding, self.directory, max_seconds=1))
+        self.assertEqual(client.calls, ['release'])
+        self.assertIn('"phase":"RELEASE"', output.getvalue())
+        self.assertNotIn('fixture-private-secret', output.getvalue())
+        self.assertFalse((self.directory / 'SOURCE_LEASE_READY.json').exists())
+        self.assertFalse((self.directory / 'SOURCE_LEASE_RESULT.json').exists())
+
+    def test_healthy_status_write_failure_stops_before_ready_and_releases(self):
+        original = runner.atomic
+        def fault(directory, filename, value):
+            if filename == 'SOURCE_LEASE_STATUS.json' and value['state'] == 'HEALTHY':
+                raise OSError(28, 'fixture-key fixture-private-nonce')
+            return original(directory, filename, value)
+        client = FakeClient()
+        with patch.object(runner, 'atomic', side_effect=fault), contextlib.redirect_stderr(io.StringIO()) as output:
+            self.assertFalse(runner.orchestrate(client, self.handle, self.actual,
+                self.binding, self.directory, max_seconds=1))
+        self.assertEqual(client.calls, ['heartbeat', 'release'])
+        self.assertFalse((self.directory / 'SOURCE_LEASE_READY.json').exists())
+        self.assertEqual(runner.read_json(self.directory / 'SOURCE_LEASE_STATUS.json')['state'], 'STOP')
+        self.assertIn('"phase":"HEALTHY_STATUS"', output.getvalue())
+        self.assertNotIn('fixture-', output.getvalue())
+
+    def test_partial_recovery_requires_fresh_review_and_exact_custody(self):
+        self.assertEqual(self.actual['originalSourcePreimages'], runner.BASE_PREIMAGES)
+        self.assertNotEqual(self.actual['sourcePreimages'], runner.BASE_PREIMAGES)
+        self.assertEqual(self.actual['recovery']['checkpointDrafts'], runner.CHECKPOINT_DRAFTS)
+        runner.validate_approval(self.approval(), self.actual, now=1000)
+        for change in ('missing', 'stale', 'owner', 'binding'):
+            approval = self.approval()
+            if change == 'missing':
+                approval.pop('recoveryReview')
+            elif change == 'stale':
+                approval['recoveryReview']['expiresUnix'] = 999
+            elif change == 'owner':
+                approval['recoveryReview']['independentReviewer'] = runner.OWNER
+            else:
+                approval['recoveryReview']['bindingSha256'] = 'wrong'
+            with self.assertRaises(runner.Stop):
+                runner.validate_approval(approval, self.actual, now=1000)
+        altered = copy.deepcopy(self.actual)
+        altered['sourcePreimages']['interview-ready/build.py'] = 'wrong'
+        with self.assertRaises(runner.Stop):
+            runner.validate_approval(self.approval(), altered, now=1000)
+        altered = copy.deepcopy(self.actual)
+        altered['originalSourcePreimages']['interview-ready/build.py'] = 'wrong'
+        with self.assertRaises(runner.Stop):
+            runner.validate_approval(self.approval(), altered, now=1000)
+
+    def test_changed_worker_head_stops_even_with_healthy_receipt(self):
+        runner.atomic(self.directory, 'SOURCE_LEASE_STATUS.json',
+            {'state': 'HEALTHY', 'bindingSha256': self.binding,
+             'sourceHead': self.actual['sourceHead'], 'updatedUnix': 1000,
+             'expiresAt': '2099-01-01T00:00:00Z'})
+        with patch.object(runner, 'head', return_value='changed-head'):
+            with self.assertRaises(runner.Stop):
+                runner.check_worker_guard(self.directory, self.binding, self.actual['sourceHead'], now=1001)
 
 
 if __name__ == '__main__':
