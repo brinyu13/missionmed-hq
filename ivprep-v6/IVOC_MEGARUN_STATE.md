@@ -597,6 +597,28 @@ the actual production route and deployment.
   genuine same-account session. WAITING until an authenticated second-browser
   surface exists; no token transfer or repeated unchanged inventory. Physical
   speech/hearing and genuine role/data gates remain separate, not global stops.
+- Evidence-grounding source4da82b80eaece6918ddad3fb065b211dedf2e986 is LIVE
+  SUCCESS6bb2dde6-d8c5-40b7-adf9-4da1f66137b0, image
+  sha256:82aeb67592740016b3f7be29aff8aadd1e4938cbdce99f1d254574bfaaccc4e7.
+  Exact1266-file tracked artifact ivoc-release-artifact-G3JNUe/source.tar,
+  SHA256ccdbc88298ca36fe814fd8ec2f683849baf2edb158d396063f2de20dbe995672.
+  Health200 and anonymous root/candidate/bootstrap401. Foreman cold-reloaded
+  exact1ca228aa saved Results: the false26s claim becomes4s of qualifying
+  retained speech evidence; personal-range wording is gone, hand availability
+  is explicit and Full Analytics opens normally. No saved-history backfill.
+  Fresh independent visible Home -> Review24/24 -> same debrief -> Full
+  Analytics -> paused Film0:00/autoplayoff -> Home24 PASS/noP0/P1. Current
+  debrief/Analytics screenshots captured once; no gallery. All66 affected tests
+  PASS and source review PASS. PRODUCT4495/deployment4496 were normally released
+  and remotely read back; PRODUCT4497 files this final receipt, then releases.
+  Exact0a442cc/39cc25ae/imageba4/artifactabhnOp remains runtime rollback;
+  Railway removed the predecessor normally, so restore by exact identity rather
+  than repeating rollback on terminalREMOVED. Source/history remain preserved.
+  Genuine current-candidate spoken follow-up/barge-in/pool move-on/closing and
+  both voices HEARD after cold replay remain UNVERIFIED; no new provider probe
+  or synthetic applicant. Physical visible-video success requires changed real
+  camera evidence. Continue independent executable work; do not reopen unchanged
+  waiting conditions or claim full142-row live parity/root promotion/completion.
 
 - **Founder live-POV override, 2026-10-02: recovery LIVE; candidate-question stall reopened fix-forward.**
   Founder confirms physical camera/mic and native multi-turn AI entry work;
