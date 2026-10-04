@@ -88,12 +88,12 @@ test('the same readable CV labels and school lines remain editable text after PP
 });
 
 
-test('Guardian checks actual rendered compression instead of marking a short event list readable',()=>{
-  const crowded={id:'long-manual-heading',theme:'keynote-classic',events:[],advanced:{},studentProfile:{fullName:'Alexandria Montgomery Wellington-Smythe of the Northern Clinical Research Consortium'}};
+test('Guardian blocks a title that cannot fit instead of silently compressing it to claim readiness',()=>{
+  const crowded={id:'long-manual-heading',theme:'keynote-classic',events:[],advanced:{},studentProfile:{fullName:'Alexandria Montgomery Wellington-Smythe of the Northern Clinical Research Consortium '.repeat(4)}};
   const report=analyzeTimelineQuality(crowded);
-  const finding=report.findings.find(item=>item.code==='COMPRESSED_PRESENTATION_TEXT');
+  const finding=report.findings.find(item=>item.code==='TEXT_CONTAINER_OVERFLOW');
   assert.ok(finding);assert.equal(finding.section,'READABILITY');
-  assert.ok(finding.evidence.minimumWidthRatio<.72);
+  assert.equal(finding.severity,'BLOCK_EXPORT');
   assert.ok(finding.elementIds.includes('furniture:title'));
-  assert.ok(!analyzeTimelineQuality(document).findings.some(item=>item.code==='COMPRESSED_PRESENTATION_TEXT'),'Normal exact-CV labels and mild fixed legend fitting are not severe compression');
+  assert.ok(!analyzeTimelineQuality(document).findings.some(item=>item.code==='COMPRESSED_PRESENTATION_TEXT'),'Normal labels and fixed legend retain natural-width native typography');
 });

@@ -378,7 +378,7 @@ function milestoneGeometry(flag,index,scale,scene,{interview=false}={}){
   const flipLabel=x+56+labelWidth>WIDTH-8;
   const footprintLeft=Math.min(x,flipLabel?x-labelWidth-8:x+60);
   const footprintRight=Math.max(x+56,flipLabel?x-8:x+60+labelWidth);
-  const plaque=FOUNDER_PORTABLE_GEOMETRY.title;
+  const plaque=titlePlaqueLayout(scene).plaque;
   const crossesTitle=footprintLeft<plaque.x+plaque.width&&footprintRight>plaque.x;
   // General milestones stay above the ribbon; explicit exam-attempt flags
   // attach to their study arrow, as the Founder exemplar shows. The gap
@@ -459,7 +459,7 @@ function colorKey(scene){
   const base=FOUNDER_PORTABLE_GEOMETRY.colorKey;
   const sx=width/base.width,sy=height/base.height;
   const cardTop=35,left=20,swatchWidth=36,swatchHeight=rows.length>7?26:30,firstRow=cardTop+41;
-  return`<g data-artifact-chrome="color-key" data-canonical-row-count="6" data-founder-geometry="${x},${y},${width},${height}" transform="translate(${x} ${y}) scale(${sx} ${sy})"><image data-paint-inset-top="35" href="${xml(LOCKED_407F_ASSETS.key)}" x="0" y="0" width="${base.width}" height="${base.height}" preserveAspectRatio="none"/><image href="${xml(LOCKED_407F_ASSETS.pin)}" x="${base.width/2-14}" y="-12" width="28" height="28"/><text x="${left}" y="${cardTop+26}" fill="#A8402F" font-family="${TYPE.key}" font-size="18" font-weight="700">COLOR KEY</text><path d="M${left} ${cardTop+31}H${left+100}" stroke="#A8402F" stroke-width="1.2"/>${rows.map(({id,label,color},index)=>{const fit=String(label).length>19?' textLength="190" lengthAdjust="spacingAndGlyphs"':"";const top=firstRow+index*rowPitch;return`<g data-color-key-row="${index}" data-category-id="${xml(id)}"><rect x="${left}" y="${top}" width="${swatchWidth}" height="${swatchHeight}" rx="2" fill="${color}" stroke="#2B2B2B" stroke-width="1"/><text x="${left+swatchWidth+12}" y="${top+21}" fill="#171D26" font-family="${TYPE.key}" font-size="18" font-weight="500"${fit}>${xml(label)}</text></g>`;}).join("")}</g>`;
+  return`<g data-artifact-chrome="color-key" data-canonical-row-count="6" data-founder-geometry="${x},${y},${width},${height}" transform="translate(${x} ${y}) scale(${sx} ${sy})"><image data-paint-inset-top="35" href="${xml(LOCKED_407F_ASSETS.key)}" x="0" y="0" width="${base.width}" height="${base.height}" preserveAspectRatio="none"/><image href="${xml(LOCKED_407F_ASSETS.pin)}" x="${base.width/2-14}" y="-12" width="28" height="28"/><text x="${left}" y="${cardTop+26}" fill="#A8402F" font-family="${TYPE.key}" font-size="18" font-weight="700">COLOR KEY</text><path d="M${left} ${cardTop+31}H${left+100}" stroke="#A8402F" stroke-width="1.2"/>${rows.map(({id,label,color},index)=>{const top=firstRow+index*rowPitch;return`<g data-color-key-row="${index}" data-category-id="${xml(id)}"><rect x="${left}" y="${top}" width="${swatchWidth}" height="${swatchHeight}" rx="2" fill="${color}" stroke="#2B2B2B" stroke-width="1"/><text x="${left+swatchWidth+12}" y="${top+21}" fill="#171D26" font-family="${TYPE.key}" font-size="18" font-weight="500">${xml(label)}</text></g>`;}).join("")}</g>`;
 }
 
 /* AAA-019 — crop rendered in SVG. The stored crop model ({x,y} pan 0–100, zoom 1–4) used
@@ -661,17 +661,36 @@ function explanationMarkup(scene,explanation,index,scale){
   return`<g data-event-kind="explanation" data-event-id="${xml(explanation.id)}" data-founder-note="editable-yellow-sticky" aria-label="${xml(explanation.ariaLabel)}">${pointer}<g transform="rotate(${rotation} ${cx} ${cy})"><rect data-explanation-card="true" x="${x}" y="${y}" width="${width}" height="${height}" fill="#FFF1A0" stroke="#DBC878" stroke-width=".6" filter="url(#d1406-arrow-shadow)"/>${text}</g></g>`;
 }
 
-function chrome(scene,scale){
+function titlePlaqueLayout(scene){
   const headline=String(scene?.headline?.text||scene?.profile?.fullName||"Your journey")
     .replace(/^timeline\s*:\s*/i,"");
-  const plaque=FOUNDER_PORTABLE_GEOMETRY.title;
+  const base=FOUNDER_PORTABLE_GEOMETRY.title;
   const typography=scene?.advancedProjection?.headlineTypography||{};
+  const label=`Timeline: ${headline}`;
+  const fontFamily=typography.font?`${xml(typography.font)},${TYPE.title}`:TYPE.title;
+  const fontSize=Number(typography.size)||36,fontWeight=Number(typography.weight)||400;
+  const textWidth=(scene.measureText||measurePresentationText)(label,fontSize,fontFamily,fontWeight)+fontSize*.12;
+  const center=base.x+base.width/2,maxWidth=2*Math.min(center,WIDTH-center);
+  const width=Math.min(maxWidth,Math.max(base.width,textWidth+96));
+  return{label,typography,fontFamily,fontSize,fontWeight,textWidth,plaque:{...base,x:center-width/2,width}};
+}
+
+function titlePlaqueMarkup(plaque){
+  const base=FOUNDER_PORTABLE_GEOMETRY.title,href=xml(LOCKED_407F_ASSETS.plaque);
+  if(plaque.width===base.width)return`<image href="${href}" x="${plaque.x}" y="${plaque.y}" width="${plaque.width}" height="${plaque.height}" preserveAspectRatio="none"/>`;
+  // Retain the original corner mounts at their native size. Only the plain
+  // center of the existing frame grows to contain the full, uncompressed name.
+  const cap=48;
+  const slice=(x,width,sourceX,sourceWidth)=>`<svg data-crop-zoom="1" data-title-plaque-slice="true" x="${x}" y="${plaque.y}" width="${width}" height="${plaque.height}" viewBox="${sourceX} 0 ${sourceWidth} ${base.height}" preserveAspectRatio="none"><image href="${href}" x="0" y="0" width="${base.width}" height="${base.height}" preserveAspectRatio="none"/></svg>`;
+  return slice(plaque.x,cap,0,cap)+slice(plaque.x+cap,plaque.width-2*cap,cap,base.width-2*cap)+slice(plaque.x+plaque.width-cap,cap,base.width-cap,cap);
+}
+
+function chrome(scene,scale){
+  const {label,typography,fontFamily,fontSize,fontWeight,textWidth,plaque}=titlePlaqueLayout(scene);
   const alignment=typography.alignment==="left"?"start":typography.alignment==="right"?"end":"middle";
   const headlineX=alignment==="start"?plaque.x+48:alignment==="end"?plaque.x+plaque.width-48:plaque.x+plaque.width/2;
-  const fontFamily=typography.font?`${xml(typography.font)},${TYPE.title}`:TYPE.title;
-  const label=`Timeline: ${headline}`;
-  const fit=label.length>26?' textLength="500" lengthAdjust="spacingAndGlyphs"':"";
-  return`<g data-artifact-chrome="title" data-founder-geometry="648,0,596,83"><image href="${xml(LOCKED_407F_ASSETS.plaque)}" x="${plaque.x}" y="${plaque.y}" width="${plaque.width}" height="${plaque.height}" preserveAspectRatio="none"/><text data-board-headline="true" x="${headlineX}" y="56" text-anchor="${alignment}" fill="${xml(typography.color||"#111827")}" font-family="${fontFamily}" font-size="${Number(typography.size)||36}" font-weight="${Number(typography.weight)||400}"${fit}>${xml(label)}</text></g>${colorKey(scene)}${profileMarkup(scene)}${photoFrames(scene)}${interviewMarkup(scene,scale)}${(scene?.explanations||[]).map((explanation,index)=>explanationMarkup(scene,explanation,index,scale)).join("")}`;
+  const overflow=textWidth>plaque.width-96+.01||56-fontSize*.86<plaque.y||56+fontSize*.34>plaque.y+plaque.height;
+  return`<g data-artifact-chrome="title" data-founder-geometry="${plaque.x},${plaque.y},${plaque.width},${plaque.height}">${titlePlaqueMarkup(plaque)}<text data-board-headline="true"${overflow?' data-text-overflow="true"':""} x="${headlineX}" y="56" text-anchor="${alignment}" fill="${xml(typography.color||"#111827")}" font-family="${fontFamily}" font-size="${fontSize}" font-weight="${fontWeight}">${xml(label)}</text></g>${colorKey(scene)}${profileMarkup(scene)}${photoFrames(scene)}${interviewMarkup(scene,scale)}${(scene?.explanations||[]).map((explanation,index)=>explanationMarkup(scene,explanation,index,scale)).join("")}`;
 }
 
 function advancedFlagEmoji(code="US"){

@@ -82,7 +82,10 @@ test("one deterministic portable serializer supplies preview/export composition 
   assert.match(first.svg,/data-continuous-duration-arrow="true"/);
   assert.doesNotMatch(first.svg,/<image data-founder-usa-flag-asset-sha256/); // Generic relocation has no confirmed country.
   assert.match(first.svg,new RegExp(`data-founder-usa-flag-asset-sha256="${FOUNDER_KEYNOTE_CONTRACT.assets.usaFlag.sha256}"`));
-  assert.match(first.svg,/data-founder-geometry="648,0,596,83"/);
+  const plaque=first.svg.match(/data-artifact-chrome="title" data-founder-geometry="([^"]+)"/)[1].split(',').map(Number);
+  assert.equal(plaque[0]+plaque[2]/2,946,'The original plaque center stays fixed');
+  assert.equal(plaque[1],0);assert.equal(plaque[3],83);assert.ok(plaque[2]>=596);
+  if(plaque[2]>596)assert.equal((first.svg.match(/data-title-plaque-slice="true"/g)||[]).length,3,'Width fitting preserves both original corner mounts');
   assert.match(first.svg,/data-founder-geometry="20,300,284,346"/);
   assert.match(first.svg,/data-founder-geometry="13,661,545,410"/);
   assert.doesNotMatch(first.svg,/data-artifact-photo-frame=|data-frame-slot="profile"|data-media-state="empty"/);
