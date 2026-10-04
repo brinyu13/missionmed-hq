@@ -121,6 +121,7 @@ export class DurableStudioSession {
       interviewerProvider,
       analyticsSchema: 'ivoc.analytics.v1',
       recordingEnabled: true,
+      ...(wizard.embodimentCanary===true?{embodimentCanary:true}:{}),
       ...(exactRetry ? { retrySourceSessionId: wizard.retrySourceSessionId } : {}),
       context: {
         goal: wizard.goal || null,

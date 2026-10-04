@@ -13,6 +13,7 @@ import {overlayLayers,liveOverlayVisibility} from './adapters/overlay-view-model
 import { NativeInterviewObserver } from './brain/native-observer.mjs';
 import {applyNativeObservationMarks} from './model/native-observation-marks.mjs';
 import { substantiveQuestionPlan } from '../../capabilities/interview-progression.mjs';
+import {EmbodimentRenderer} from '../../capabilities/embodiment-renderer.mjs';
 import { leftRailMarkup, rightRailMarkup, RailsController } from './instruments/rails.mjs';
 import { recorderMarkup, LiveRecorder } from './instruments/flight-recorder.mjs';
 import { TraceHistory } from './model/trace-reducer.mjs';
@@ -24,6 +25,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   const scopeCurrent=()=>isCurrent()&&controller.account===account&&controller.durable===durable&&controller.account?.subject===subject;
   const {questions}=await loadQuestions({account}); if(!scopeCurrent())return ()=>{};
   const mode=session.mode==='mock'?'mock':'practice';
+  const avatarCanary=mode==='mock'&&account?.role==='admin'&&account?.subject==='wp:1'&&account?.capabilities?.embodimentCanary?.available===true?account.capabilities.embodimentCanary:null;
   const practiceQ=questions.find(q=>q.question_id===session.questionId)||questions[0];
   const plan=substantiveQuestionPlan(mode==='mock'?(session.mockSet||questions.filter(q=>q.core_priority).slice(0,5)):[practiceQ]);
   if(!plan.length)throw new Error('Choose at least one current interview question.');
@@ -74,6 +76,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
             <h2 class="t-h2" style="margin:8px 0 6px">${mode === 'mock' ? 'Ready for your interview?' : 'Ready for your answer?'}</h2>
             <p>${mode === 'mock' ? `Priority: ${esc(session.priority || 'leave one natural hook the interviewer can follow')}.` : `Priority: ${esc(session.priority || 'finish the answer in under 90 seconds')}.`} Connect your camera and microphone. Check your visible preview, then start when you are ready.</p>
             ${mode==='mock'&&account?.mode==='REAL'&&account.role==='admin'?`<details class="expert" style="margin-top:10px;text-align:left"><summary>Admin voice audition</summary><label class="field"><span class="t-label">Native interviewer voice</span><select id="admin-live-voice">${VOICES.map(voice=>`<option value="${voice}" ${selectedAdminVoice(settings,account,mode)===voice?'selected':''}>${voice}</option>`).join('')}</select></label><small class="note">The same real interview and recording path; only the voice changes. Select before Start. Student default remains marin. No external TTS.</small></details>`:''}
+            ${avatarCanary?'<label class="field avatar-canary"><input type="checkbox" id="avatar-canary"> Authorized avatar canary · one 45-second session</label>':''}
             <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px"><button class="btn btn-primary btn-lg" type="button" id="connect-real">Connect camera + mic</button><button class="btn btn-primary btn-lg" type="button" id="start-session" disabled>${mode === 'mock' ? 'Start Interview' : 'Start recorded answer'} ▸</button></div>
           </div>
         </div>
@@ -221,11 +224,14 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       await awaitVisibleCamera(controller.video,controller.stream,{isCurrent:current});
       assertMicrophoneReady(controller.stream,engine.audioContext);
       const wizard=toWizard(settings,{program:session.program,mode,contextSources:session.contextSources||[],retry:session.retry||null,priority:session.priority,interviewPolicy:controller.interviewPolicy});
+      const useAvatar=avatarCanary&&$('avatar-canary')?.checked===true;
+      if(useAvatar)wizard.embodimentCanary=true;
+      const audioRenderer=useAvatar?new EmbodimentRenderer({host:main.querySelector('[data-embodiment-host]'),csrfToken:account.api.csrfToken,sessionId:avatarCanary.sessionId}):null;
       const context=mode==='mock'?await liveContext({wizard,interviewSet:plan,targetQuestions}):null;
       if(!current())return;
       observer?.start(); // before provider callbacks; native start owns the sole opening question
       engine.events.addEventListener('frame',onFrame);engine.events.addEventListener('state',onState);engine.events.addEventListener('word-timing',onWord);
-      const result=await controller.startSession({mode,question:plan[0],interviewSet:plan,wizard,targetQuestions,openingQuestion:plan[0].canonical_text,context,voice:selectedAdminVoice(settings,account,mode),...callbacks});
+      const result=await controller.startSession({mode,question:plan[0],interviewSet:plan,wizard,targetQuestions,openingQuestion:plan[0].canonical_text,context,voice:selectedAdminVoice(settings,account,mode),audioRenderer,...callbacks});
       if(!current())return;
       interviewer=result.interviewer;started=true;room.dataset.phase='live';$('room-settings').open=false;$('enter').remove();$('enter-note').hidden=true;$('rec').dataset.state='recording';$('rec-text').textContent='REC';
       main.querySelector('[data-room-devices]').open=false;

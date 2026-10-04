@@ -15,6 +15,7 @@ import { createRiseProgramProjectionSource } from './rise-projection.mjs';
 import { createIvocRepository } from './repository.mjs';
 import { readLiveTranscriptReview } from './live-transcript-review.mjs';
 import { createIvocStorage } from './storage.mjs';
+import {createEmbodimentCanary} from '../../ivprep-v6/server/providers/lemonslice-embodiment.mjs';
 import { allocateCandidateCapture, isCandidateAudio, isConversationRecording, publicCaptureReceipt, recordingSealTimebase, sealCandidateCapture } from './candidate-audio.mjs';
 import { rebuildSelfPracticeAnswerSource, packageSelfPracticeAnalysis, projectSelfPracticeAnalysis } from './self-practice-analysis.mjs';
 import {
@@ -114,12 +115,12 @@ function sendJson(response, status, payload, mediaBase) {
 
 function sendError(response, status, code, mediaBase) { sendJson(response, status, { error: code }, mediaBase); }
 
-async function readJson(request) {
+async function readJson(request, maxBytes = MAX_BODY_BYTES) {
   const chunks = [];
   let bytes = 0;
   for await (const chunk of request) {
     bytes += chunk.length;
-    if (bytes > MAX_BODY_BYTES) throw Object.assign(new Error('request_too_large'), { status: 413 });
+    if (bytes > maxBytes) throw Object.assign(new Error('request_too_large'), { status: 413 });
     chunks.push(chunk);
   }
   if (!bytes) return {};
@@ -922,6 +923,7 @@ export function createIvocHandler({
   contextProvider = null,
   applicationIntelligence = null,
   candidateAudioCaptureEnabled = true,
+  embodimentFactory = createEmbodimentCanary,
 } = {}) {
   const mediaBase = '';
   // One production replica; duplicate concurrent requests fail before download
@@ -956,6 +958,23 @@ export function createIvocHandler({
     : null;
   const appIntelligence = applicationIntelligence || createIvocApplicationIntelligence({
     repository: db, now, fileVaultSource, storyForgeSource, riseSource,
+  });
+  const embodiment = embodimentFactory({env,fetchImpl,now,
+    claim:async ({actor,sessionId,attemptId,deadlineMs})=>{
+      const row=await db.single(`ivoc_sessions?id=eq.${sessionId}&owner_subject=eq.${encodeURIComponent(actor)}&select=*&limit=1`);
+      if(!row || row.owner_subject!==actor || row.session_type!=='mock' || row.interviewer_provider!=='openai-gpt-live'
+        || row.recording_enabled!==true || row.state!=='active'
+        || row.context?.embodimentCanary!==true || row.context?.embodimentReservation)
+        throw Object.assign(new Error('ivoc_embodiment_session_unavailable'),{status:409});
+      // Existing canonical UUID + conditional reservation, not a synthetic
+      // audit row or a process-local budget. Survives restarts; no DB migration.
+      const claimed=await db.update(`ivoc_sessions?id=eq.${sessionId}&owner_subject=eq.${encodeURIComponent(actor)}&context->embodimentReservation=is.null&updated_at=eq.${encodeURIComponent(row.updated_at)}&select=*`,
+        {context:{...row.context,embodimentReservation:{attemptId,deadlineMs,maxSessions:1,maxSpendUsd:1,claimedAt:new Date(now()).toISOString()}}});
+      if(claimed?.context?.embodimentReservation?.attemptId!==attemptId)
+        throw Object.assign(new Error('ivoc_embodiment_canary_consumed'),{status:409});
+    },
+    recordReceipt:async (sessionId,receipt)=>audit({actor:'wp:1',owner:'wp:1',sessionId,
+      action:'embodiment_canary_stop',decision:receipt.providerConfirmed?'allow':'deny',reason:receipt.providerConfirmed?'provider_terminal':'termination_unconfirmed'}),
   });
   const enabled = bool(env.IVPREP_ENABLED) && bool(env.IVPREP_ADMIN_CANARY_ENABLED);
   const contextEnabled = bool(env.IVOC_CONTEXT_CANDIDATE_ENABLED);
@@ -1034,6 +1053,7 @@ export function createIvocHandler({
           entitlement: { admitted: true, founder: admission.entitlement?.founder === true, voice: true, video: admission.entitlement?.video === true },
           capabilities: {
             candidateAudioCapture: candidateAudioCaptureEnabled === true,
+            ...(actor==='wp:1'&&isAdmin(hqSession,admission)?{embodimentCanary:embodiment.config}:{}),
             contextSources: {
               storyForge: { connected: Boolean(storyForgeSource), requiresAuthorizedData: true },
               rise: { connected: Boolean(riseSource), requiresProgramSelection: true },
@@ -1045,6 +1065,21 @@ export function createIvocHandler({
           preferences: preferences ? { calibration: preferences.calibration, visibility: preferences.visibility, coachingEnabled: preferences.coaching_enabled, recordingDefault: preferences.recording_default } : null,
         }, mediaBase);
         return true;
+      }
+
+      if(pathname.startsWith(`${API_PREFIX}/admin/embodiment-canary`)){
+        if(actor!=='wp:1'||!isAdmin(hqSession,admission)){sendError(response,403,'ivoc_founder_canary_required',mediaBase);return true;}
+        const root=`${API_PREFIX}/admin/embodiment-canary`;
+        if(request.method==='GET'&&pathname===root){sendJson(response,200,embodiment.config,mediaBase);return true;}
+        if(request.method==='GET'&&pathname===`${root}/status`){
+          sendJson(response,200,embodiment.status({actor,sessionId:url.searchParams.get('sessionId'),id:url.searchParams.get('id')}),mediaBase);return true;
+        }
+        if(request.method==='POST'&&[`${root}/start`,`${root}/command`].includes(pathname)){
+          const input=await readJson(request,16384);
+          const result=pathname===`${root}/start`?await embodiment.start({actor,sessionId:input.sessionId}):await embodiment.command({...input,actor});
+          sendJson(response,200,result,mediaBase);return true;
+        }
+        sendError(response,404,'not_found',mediaBase);return true;
       }
 
       if (request.method === 'GET' && pathname === `${API_PREFIX}/questions`) {
@@ -1421,6 +1456,15 @@ export function createIvocHandler({
       if (request.method === 'POST' && pathname === `${API_PREFIX}/sessions`) {
         const input = await readJson(request);
         const context = input.context && typeof input.context === 'object' && !Array.isArray(input.context) ? { ...input.context } : {};
+        delete context.embodimentCanary;delete context.embodimentReservation;
+        const avatarCanary=input.embodimentCanary===true;
+        if(avatarCanary){
+          if(actor!=='wp:1'||!isAdmin(hqSession,admission)||!embodiment.config.available
+            ||input.sessionType!=='mock'||input.interviewerProvider!=='openai-gpt-live'||input.recordingEnabled===false){
+            sendError(response,403,'ivoc_embodiment_canary_not_authorized',mediaBase);return true;
+          }
+          context.embodimentCanary=true;
+        }
         let practiceFocus;
         try { practiceFocus = normalizePracticeFocus(context.practiceFocus); }
         catch { sendError(response, 400, 'invalid_practice_focus', mediaBase); return true; }
@@ -1478,6 +1522,7 @@ export function createIvocHandler({
             sourceGoal: retry.goal, sourcePressurePractice: retry.pressurePractice };
         }
         const row = await db.insert('ivoc_sessions', {
+          ...(avatarCanary?{id:embodiment.config.sessionId}:{}),
           owner_subject: actor, owner_display_name: displayName(hqSession),
           title: safeText(input.title, 200) || 'IV Prep practice session',
           session_type: ['question', 'quick', 'mock'].includes(input.sessionType) ? input.sessionType : 'question',

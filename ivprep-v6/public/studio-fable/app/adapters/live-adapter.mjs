@@ -61,10 +61,11 @@ export function createSpeakingGate({ onThreshold = 0.015, offThreshold = 0.008, 
 }
 
 export class GptLiveInterviewer {
-  constructor({ account, audioElement, engine = null, recordingMix = null, durable = null,
+  constructor({ account, audioElement, engine = null, recordingMix = null, durable = null, audioRenderer = null,
     onLine = () => {}, onSpeaking = () => {}, onFinal = () => {}, onApplicantFinal = () => {}, onStatus = () => {}, onApplicantPartial = () => {}, onCaptions = () => {}, onTranscriptFragment = () => {}, onTranscriptOverlap = () => {},
     LiveInterviewSessionCtor = null, moduleLoader = path => import(path), now = () => performance.now() } = {}) {
     this.account = account; this.audioElement = audioElement; this.engine = engine; this.recordingMix = recordingMix; this.durable = durable;
+    this.audioRenderer=audioRenderer;
     this.onLine = onLine; this.onSpeaking = onSpeaking; this.onFinal = onFinal; this.onApplicantFinal = onApplicantFinal; this.onStatus = onStatus; this.onApplicantPartial = onApplicantPartial;this.onCaptions=onCaptions;this.onTranscriptFragment=onTranscriptFragment;this.onTranscriptOverlap=onTranscriptOverlap;
     this.Ctor = LiveInterviewSessionCtor; this.load=moduleLoader;this.now = now;this.generation=0;
     this.live = null; this.pending = null; this.name = 'Program Director'; this.kind = 'gpt-live'; this.label = 'GPT-Live · native interviewer';
@@ -86,6 +87,7 @@ export class GptLiveInterviewer {
       createSession: apiClient.createLiveInterview,
       endSession: apiClient.endLiveInterview,
       audioElement: this.audioElement,
+      audioRenderer:this.audioRenderer,
       onStatus: (status) => { if(!current())return;this.onStatus(status); if (status.state === 'error' || status.state === 'closed') this.resolvePending(null, status); },
       onTranscript: (event) => {if(current())this.handleTranscript(event);},
       onEvent:(event)=>{if(!current())return;this.onTranscriptFragment(event);const observation=overlaps.ingest(event);if(observation)this.onTranscriptOverlap(observation);const update=this.captions.ingest(event);if(update){this.onCaptions(update.groups);if(update.group.speaker==='interviewer')this.onLine(update.group.text,{partial:true});}},

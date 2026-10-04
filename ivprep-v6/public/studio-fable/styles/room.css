@@ -3,6 +3,11 @@ body[data-mode="room"] .rail-nav, body[data-mode="room"] .mobile-bar { display: 
 body[data-mode="room"] .shell { grid-template-columns: minmax(0, 1fr); }
 body[data-mode="room"] .fixture-banner { display: none; }
 body[data-mode="room"] main.view { max-width: none; padding: 0; animation: none; }
+/* Visual Actor occupies the existing dominant presence; it never moves #cam. */
+.interviewer-embodiment[data-avatar-state="live"], .interviewer-embodiment[data-avatar-state="connected"] {position:absolute;inset:0;display:block;overflow:hidden;border-radius:inherit;}
+.interviewer-embodiment video {width:100%;height:100%;object-fit:contain;background:#050811;}
+.presence:has([data-avatar-state="live"]) .who,.presence:has([data-avatar-state="live"]) .presence-tag,.presence:has([data-avatar-state="live"]) .line {position:relative;z-index:1;background:#050811c9;border-radius:8px;padding:6px 10px;}
+.presence:has([data-avatar-state="live"]) .orb {visibility:hidden;}
 
 .room { --left-w: 236px; --right-w: 272px; --rec-h: 164px; min-height: 100vh; display: grid; grid-template-rows: 48px minmax(0, 1fr) var(--rec-h); grid-template-columns: var(--left-w) minmax(0, 1fr) var(--right-w); gap: 10px; padding: 10px 12px 12px; background: radial-gradient(1200px 600px at 50% -10%, #142039 0%, #060a12 60%); }
 .room > * { min-width: 0; }

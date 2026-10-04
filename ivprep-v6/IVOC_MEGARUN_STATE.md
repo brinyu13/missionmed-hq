@@ -5,7 +5,7 @@ Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`, `DR-350` (narrow packaging), `DR-361` (current RISE eligibility successor); `DR-340` QA grant revoked
 Branch: `codex/ivoc-foreman-9200`
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
-Current continuation boundary: `FOUNDER LIVE-ROOM ADDENDUM FIX-FORWARD — CURRENT ENGINE PRESERVED; LIVE ACCEPTANCE PENDING`
+Current continuation boundary: `CORE VISIBLE EMBODIMENT — NO-SPEND INTEGRATION; NUMERIC CANARY GATE; NO FOUNDER RETEST`
 
 This is the one living requirement ledger required by the final Founder
 completion directive. A status of `LIVE UNVERIFIED` means the capability is
@@ -15,6 +15,39 @@ the actual production route and deployment.
 ## Foreman 9300 overnight reactivation — current dated evidence
 
 ### Current Fable-to-production convergence — 2026-10-03
+
+- 2026-10-04 CORE LEMONSLICE EMBODIMENT / PRODUCT4846 + PATH4847/4848:
+  Founder elevated visible embodiment to CORE; older deferred entries below are
+  historical, not current scope. Preserve recovery source acfd95b / deployment
+  cb5ccd6b / ppcfoR artifact. Current candidate uses the existing provider-neutral
+  host above capabilities; GPT-Live remains sole Brain/audio origin. Native PCM
+  is silently tapped into official websocket-livekit; synchronized returned A/V
+  supplies one audible/recordable track and muted dominant avatar video. No
+  LemonSlice dialogue/LLM/TTS/STT, native duplicate playback or agent worker.
+  Bounded Founder-only opt-in: one canonical UUID, persistent owner-bound CAS,
+  USD1 numeric gate, 45s deadline, 15s provider idle timeout, no paid-create retry.
+  Silence/quiet PCM preserved; old generations/queued output dropped; interruption
+  mutes the recording/output sink until actual interrupted playback acknowledgement.
+  Known/late provider identity receives exact terminate; terminal receipt checked.
+  Official docs/pricing verified 2026-10-04: lemonslice.com/docs/websocket and
+  lemonslice.com/pricing. Existing Founder-provisioned agent_9bdfc50ec0086043;
+  historical Dr Kelly label is not a current asset/likeness verification claim.
+  Read-only existing provider key/session GET succeeds; no paid POST/session.
+  SDK pins and nested production install already exist; feature defaults OFF.
+  93 affected +14 new checks PASS; independent reviewer verified three P1 fixes
+  (quiet PCM, flush fence, late-create cleanup), no remaining executable P0/P1.
+  Root build PASS. Visual/avatar latency, interruption, actual audible BOTH replay
+  and provider termination remain UNVERIFIED until the one paid canary.
+  Pricing bound: <=60s including idle cleanup at doubled USD0.22/min <=USD0.44;
+  existing GPT-Live/LiveKit plus buffer yields requested incremental cap USD1.
+  This is a bounded operational estimate, not a provider-enforced dollar ceiling;
+  no new subscription/upgrade/image generation is authorized by this numeric cap.
+  Local serial three-lease keeper lost4830/4831/4832; mutation paused immediately
+  on discovery. Canonical release rejects expired identities; no force cleanup.
+  Independent renewers acquired4846/4847/4848; remote heartbeat advances/validity
+  confirmed before resumed writes. Previous rows remain expired, never revived.
+  Next: deploy provider-OFF candidate, then require only numeric USD1 authorization
+  for one <=45s canary. Do not request Founder retest or declare completion.
 
 - 2026-10-04 CURRENT FIX-FORWARD / SHARED4787:
   Current serving source acfd95bf413c3fa53f5b838950f0ba0e7573c81f, SUCCESS
@@ -3606,7 +3639,7 @@ must name numeric cap, duration, session count, kill/rollback and proof sought.
 | 17 | Provider-neutral embodiment adapter and Brain/session separation | LIVE VERIFIED | Production Admin readback returns `missionmed.ivoc.embodiment.v1`: MissionMed InterviewBrain is the Director, providers are Actor-only, students select profiles rather than engines, and the adapter contract requires one audio authority plus generation/response identities. |
 | 17 | Flush/interruption/motion contract, Admin preview and cost controls | REOPENED R4 / PROVIDER INACTIVE | The historical public contract declared flush/cancel flags but did not execute those effects. Current inactive candidate requires actual acknowledgements and correct sink-drain lifecycle (dated receipt above). Admin policy still exposes bounded 45 s/no-retry/reservation requirements; current production transport/sink wiring and real avatar acceptance remain unverified. |
 | 17 | Fictional 10–15 avatar configuration model | LIVE VERIFIED | Authenticated `brinyu` Admin readback returned 12 fictional profiles spanning Program Director, Faculty and Chief Resident with Dove/Peacock/Owl/Eagle styles; every entry explicitly forbids person cloning and carries no provider voice or avatar asset identity. |
-| 17 | Active LemonSlice provider integration | INACTIVE PREPARATION / ACTIVATION NOT ACCEPTED | Existing no-spend contracts and saved-setup reader retained. Real cancellation/audio/motion/sink acknowledgements and profile mappings remain prerequisites; no paid session authorized. Ask one numeric-cap decision only when activation-ready, not now. |
+| 17 | Active LemonSlice provider integration | CORE REQUIRED / NO-SPEND IMPLEMENTED / PAID CANARY UNVERIFIED | Founder scope elevation supersedes historical deferral. Audio-driven websocket-livekit Actor, persistent one-session reservation, one audible/recorded return, generation/flush fence and exact termination are implemented; current dated receipt above governs deployment/activation. Numeric USD1 / one 45s canary gate only; no paid session or avatar acceptance claimed. |
 | 18 | Dr Brian/brinyu Admin and second authorized Admin | LIVE UNVERIFIED | `wp:1` Founder/Admin is live accepted. Current WordPress authority verifies `wp:107` (`brian_test`) as an administrator; the production IVOC allowlist and dedicated entitlement now include `wp:107`. Final acceptance still requires a genuine authenticated `wp:107` browser session; no session was forged. |
 | 18 | Entitled 360 student and non-entitled/revoked/expired denials | LIVE VERIFIED ENTRY / FULL ACCEPTANCE WAITING | Ordinary course-entitled `wp:142` authenticated as `subscriber`, loaded production Home and 193 questions after the static-module fix, and navigated AI Mock to Device Calibration with Founder/Admin controls absent. Negative-role/revoked/expired production identities and the full student media journey remain unverified. |
 | 18 | Wrong-role/wrong-mentor denial and actor/subject separation | LIVE UNVERIFIED | Requires authenticated production negative-path acceptance. |
@@ -3679,6 +3712,6 @@ must name numeric cap, duration, session count, kill/rollback and proof sought.
    completed private recording.
 6. Accept longitudinal recurrence only after enough genuine saved sessions
    exist. Do not manufacture recurrence.
-7. No paid LemonSlice execution. Current authorized stopping packet is FOUNDER
-   ACCEPTANCE READY; full product completion remains unclaimed until the genuine
-   evidence above and remaining Founder ledger are satisfied.
+7. Complete every no-spend CORE LemonSlice integration/deployment step, then
+   present LEMONSLICE CANARY READY for numeric USD1 authorization only. No Founder
+   retest or paid session before that gate. Full product completion is unclaimed.

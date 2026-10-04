@@ -44,6 +44,7 @@ export class LiveInterviewSession {
     onEvent = () => {},
     onTelemetry = () => {},
     onAuthoritativeAudioStream = () => {},
+    audioRenderer = null,
     now = () => performance.now(),
   } = {}) {
     if (typeof createSession !== 'function' || typeof endSession !== 'function'
@@ -57,6 +58,8 @@ export class LiveInterviewSession {
     this.onEvent = onEvent;
     this.onTelemetry = onTelemetry;
     this.onAuthoritativeAudioStream = onAuthoritativeAudioStream;
+    this.audioRenderer = audioRenderer;
+    if(audioRenderer)audioRenderer.onFailure=error=>{this.emitStatus('error',error.message);void this.stop({notifyServer:true}).catch(()=>{});};
     this.now = now;
     this.peer = null;
     this.microphoneSender = null;
@@ -116,6 +119,7 @@ export class LiveInterviewSession {
     try { event = JSON.parse(typeof raw === 'string' ? raw : raw?.data || '{}'); }
     catch { return; }
     this.onEvent(event);
+    if(event.type==='session.input_transcript.delta'&&event.delta?.trim())void this.audioRenderer?.interrupt?.();
     if (event.type === 'session.delegation.created') {
       const delegation = event.delegation;
       if (this.state !== 'active' || this.channel?.readyState !== 'open'
@@ -290,15 +294,19 @@ export class LiveInterviewSession {
       const stream = event.streams?.[0] || new MediaStream([track]);
       try {
         if (!this.audioElement) throw new Error('Interviewer playback surface is unavailable.');
-        this.audioElement.srcObject = stream;
+        const heardStream=this.audioRenderer?await this.audioRenderer.render(stream,{microphoneTrack:audioTrack,ivocSessionId}):stream;
+        if(!current()){await this.audioRenderer?.stop?.();return;}
+        this.audioElement.srcObject = heardStream;
+        // Bind the silent, stable rendered tap before the first audible sample.
+        if(this.audioRenderer)await this.onAuthoritativeAudioStream(heardStream);
         await this.audioElement.play?.();
         if (!current()) return;
-        await this.onAuthoritativeAudioStream(stream);
+        if(!this.audioRenderer)await this.onAuthoritativeAudioStream(stream);
         if (!current()) return;
         this.audioAuthority = 'bound';
         this.emitTelemetry('bound');
         clearTimeout(this.audioBoundTimer);
-        this.audioBoundResolve?.(stream);
+        this.audioBoundResolve?.(heardStream);
         this.audioBoundResolve = null;
         this.audioBoundReject = null;
       } catch (error) {
@@ -372,7 +380,7 @@ export class LiveInterviewSession {
       }
       // These are negotiation/media deadlines, not server-create deadlines.
       if (this.startedReject) this.startTimer = setTimeout(() => this.startedReject?.(new Error('InterviewBrain did not start in time.')), START_TIMEOUT_MS);
-      if (this.audioBoundReject) this.audioBoundTimer = setTimeout(() => this.audioBoundReject?.(new Error('InterviewBrain audio did not bind in time.')), START_TIMEOUT_MS);
+      if (this.audioBoundReject) this.audioBoundTimer = setTimeout(() => this.audioBoundReject?.(new Error('InterviewBrain audio did not bind in time.')), this.audioRenderer?25_000:START_TIMEOUT_MS);
       await step(peer.setRemoteDescription({ type: 'answer', sdp: created.transport.sdp }));
       await step(Promise.all([started, audioBound]));
       if (!current()) throw new Error('InterviewBrain startup was stopped.');
@@ -393,6 +401,7 @@ export class LiveInterviewSession {
 
   async stop({ notifyServer = true, keepalive = false } = {}) {
     const generation = ++this.startGeneration;
+    const rendererCleanup=this.audioRenderer?.stop?.({keepalive}); // synchronous mute/flush first
     this.cancelStart?.(new Error('InterviewBrain startup was stopped.'));
     this.cancelStart = null;
     clearTimeout(this.overallStartTimer);
@@ -421,7 +430,7 @@ export class LiveInterviewSession {
     this.startedAtMs = null;
     this.openingQuestion = null;
     this.openingRequested = false;
-    if (notifyServer && id) await this.endSession(id, { keepalive });
+    await Promise.all([rendererCleanup,notifyServer&&id?this.endSession(id,{keepalive}):null]);
     if (this.startGeneration === generation) this.emitStatus('closed', 'Interview ended');
     return Object.freeze({ ok: true });
   }

@@ -299,7 +299,8 @@ export function createIvPrepHqHandler({
       staticAdmissions.delete(staticAdmissions.keys().next().value);
     }
   };
-  const sealedLiveKitSignalOrigin = liveKitSignalOrigin == null ? null : trustedWebSocketOrigin(liveKitSignalOrigin);
+  const canaryOrigin=process.env.IVOC_LEMONSLICE_CANARY_ENABLED==='true'?trustedWebSocketOrigin(process.env.LIVEKIT_URL):null;
+  const sealedLiveKitSignalOrigin = liveKitSignalOrigin == null ? canaryOrigin : trustedWebSocketOrigin(liveKitSignalOrigin);
   if (liveKitSignalOrigin != null && !sealedLiveKitSignalOrigin) {
     throw new Error('LiveKit browser signal origin is invalid.');
   }
