@@ -6,7 +6,7 @@ import {fileURLToPath} from 'node:url';
 import pg from 'pg';
 
 const RUN=/^\/tmp\/iiq-pg18\.[A-Za-z0-9]+$/;
-const USERS=new Set(['iiq_test_admin','iiq_runtime_test','iiq_queue_test']);
+const USERS=new Set(['iiq_test_admin','iiq_runtime_test','iiq_queue_test','iiq_proof_test']);
 const DATABASES=new Set(['iiq_test','iiq_test_restore']);
 const denied=()=>{throw Error('Disposable harness required: production, ambiguous, or unqualified database target refused.');};
 export function refuseProductionEnvironment(environment=process.env) {
