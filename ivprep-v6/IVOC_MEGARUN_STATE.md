@@ -5,7 +5,7 @@ Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`, `DR-350` (narrow packaging), `DR-361` (current RISE eligibility successor); `DR-340` QA grant revoked
 Branch: `codex/ivoc-foreman-9200`
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
-Current continuation boundary: `P0 LIVE INTERVIEW STARTUP RECOVERY — FOUNDER ACCEPTANCE READY REOPENED`
+Current continuation boundary: `LIVE STARTUP/SAVE RECOVERY VERIFIED — FULL SPOKEN POV ACCEPTANCE UNVERIFIED`
 
 This is the one living requirement ledger required by the final Founder
 completion directive. A status of `LIVE UNVERIFIED` means the capability is
@@ -15,6 +15,35 @@ the actual production route and deployment.
 ## Foreman 9300 overnight reactivation — current dated evidence
 
 ### Current Fable-to-production convergence — 2026-10-03
+
+- 2026-10-04 LIVE STARTUP RECOVERY / BOUNDED POV (SHARED4686):
+  Source6da0e6a793a3c77c68507bd1575151768ecfd513, Railway deployment
+  1eec4d31-4b2f-4f19-aa5e-f6e8ee2384be SUCCESS, image
+  sha256:2c7a4c07a745c327a1628eaca11613f36f237649ca186a70873b7935c958d3da.
+  DR350 artifact DM2KCK/stage:1295 tracked files, archiveSHA
+  2c2455f1710671aa9120c1a30efd291471bdd85a8810bcda5215cae33e9e3444.
+  Health200/ok; anonymous product and canonical v1/bootstrap401. All six MR
+  successor paths preserved; no provider/env/auth/schema/owner changes.
+  Actual brinyu Admin normal Home ->Mock(two Core questions/Owl/policy4)
+  ->readiness ->visible FaceTime camera/mic ->Start201 ->distinct REC room,
+  ready overlay removed, interviewer opening question displayed, real face/body
+  Analytics active. No return-to-readiness loop. Finish & save ->provider end200
+  ->private parent/candidate uploads+seal ->Results/Full Analytics ->Film Room
+  ->visible playback ->cold Film reload ->visible advancing1280x720 replay.
+  ->account history shows the new56second Mock among29saved reps. Returned
+  the isolated verification tab to normal Mock setup; no provider left running.
+  Saved actual session b3465881-5fea-4e28-b5f1-7907483a478e lasts56seconds;
+  the only transcript turn is the opening interviewer question, not a claimed
+  completed multi-turn interview. Current tooling cannot supply genuine human
+  speech or hear replay; answer-grounded follow-up/barge-in/HEAR BOTH remain
+  UNVERIFIED, not inferred from startup, transcript or media metadata.
+  New exact artifact/runtime is the current verified startup/save rollback;
+  prior6dc/c648 and fda/c915 artifacts remain preserved. Independent review PASS;
+  PRODUCT4681 released remotely confirmed. No full Founder completion claim.
+  Next executable acceptance: genuine spoken two-question Mock with grounded
+  follow-up/interrupt/closing, then listen to both voices after cold replay.
+  Existing alternate-identity, positive-owner-data and provider/time gates remain
+  explicit; no repeated unchanged audits or new provider probes to fake speech.
 
 - 2026-10-04 NATIVE STARTUP POLICY READ REPAIR (PRODUCT4681):
   Diagnostic runtime c64801b5/source6dc34c9 reproduced the actual visible Start
