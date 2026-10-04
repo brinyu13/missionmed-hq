@@ -208,3 +208,65 @@ test('HTTP 200 failed/error/refusal/noncompleted responses reject parseable outp
   const success=createLocalLayoutCritic({apiKey:mockKey,fetchImpl:async()=>new Response(JSON.stringify(complete),{status:200}),saveReceipt:async receipt=>receipts.push(receipt)});
   const response=await success.analyze(consent(p));assert.equal(response.status,'COMPLETE');assert.equal(response.providerReceipt.responseId,'resp_guard_unit');assert.equal(receipts.length,1);
 });
+
+
+function storedMediaFixture(){
+ const document=minimal();
+ document.mediaItems=[
+  {id:'unit-private-portrait',mediaId:'unit-private-portrait-asset',type:'profilePhoto',placement:'profile',altText:'UNIT_PRIVATE_PORTRAIT_LABEL',visibilityState:'INTERVIEWER_SAFE',naturalAspect:.75},
+  {id:'unit-private-frame',mediaId:'unit-private-frame-asset',type:'photo',placement:'photo1',caption:'UNIT_PRIVATE_FRAME_LABEL',visibilityState:'INTERVIEWER_SAFE',naturalAspect:1.4}
+ ];
+ const mediaById=new Map([['unit-private-portrait','blob:unit-private-portrait-source'],['unit-private-frame','data:image/png;base64,UNIT_PRIVATE_FRAME_IMAGE_BYTES']]);
+ return {document,mediaById};
+}
+
+test('stored portrait and photo frame use exactly the hydrated preview geometry, with private media excluded from provider payload',async()=>{
+ const {document,mediaById}=storedMediaFixture();
+ const renderOptions={...options,mediaById,showEmptySlots:true,resourceNamespace:'unit-hydrated-preview'};
+ const preview=serializeFounderPresentation(document,renderOptions),previewPaint=resolveFounderPresentationSvg(preview.svg);
+ const p=await projectLayoutCritic(document,renderOptions),images=previewPaint.nodes.filter(n=>n.kind==='image'&&n.sourceAttributes['data-media-id']);
+ assert.equal(images.length,2);assert.deepEqual(preview.scene.mediaProjection.pendingIds,[]);
+ assert.deepEqual(p.localContext.paint.nodes.map(n=>({kind:n.kind,groupId:n.groupId,bounds:n.bounds,source:n.source})),previewPaint.nodes.map(n=>({kind:n.kind,groupId:n.groupId,bounds:n.bounds,source:n.source})));
+ const projectedImages=p.input.parts.filter(part=>part.kind==='IMAGE');assert.ok(projectedImages.length>=2);
+ const rounded=box=>Object.fromEntries(['x','y','width','height','rotation'].map(key=>[key,Math.round(Number(box[key]||0)*1e6)/1e6]));
+ for(const image of images)assert.ok(projectedImages.some(part=>JSON.stringify(part.bounds)===JSON.stringify(rounded(image.occlusionBounds||image.bounds))));
+ assert.equal(p.localContext.options.showEmptySlots,true);assert.equal(p.localContext.options.resourceNamespace,'unit-hydrated-preview');assert.notEqual(p.localContext.options.mediaById,mediaById);assert.deepEqual(p.localContext.options.mediaById,mediaById);
+ const {service,calls}=provider(p);await service.analyze(consent(p));
+ const sent=calls[0].init.body;for(const forbidden of ['blob:','data:image','UNIT_PRIVATE','unit-private','Morgan Lake','Medical Officer'])assert.ok(!sent.includes(forbidden),forbidden);
+ const applied=await applyLayoutRecommendations(document,result(p),p.sceneDigest,{...renderOptions,sourceDigest:p.localContext.sourceDigest});
+ assert.equal(applied.applied,0);assert.equal(applied.document,document);assert.equal(applied.sourceUnchanged,true);
+ const colliding=await generatedCollision();colliding.mediaItems=structuredClone(document.mediaItems);
+ const c=await projectLayoutCritic(colliding,renderOptions),fixed=await applyLayoutRecommendations(colliding,result(c,[move(c,400)]),c.sceneDigest,{...renderOptions,sourceDigest:c.localContext.sourceDigest});
+ assert.equal(fixed.applied,1,JSON.stringify(fixed.rejected));
+ const after=await projectLayoutCritic(fixed.document,renderOptions);
+ const media=paint=>paint.nodes.filter(n=>n.kind==='image'&&n.sourceAttributes['data-media-id']).map(n=>({source:n.source,bounds:n.bounds}));
+ assert.deepEqual(media(after.localContext.paint),media(c.localContext.paint));assert.equal(after.localContext.options.mediaById.get('unit-private-portrait'),mediaById.get('unit-private-portrait'));
+});
+
+test('unresolved expected portrait/frame and placed Advanced media reject before any provider call',async()=>{
+ const {document,mediaById}=storedMediaFixture();const valid=await projectLayoutCritic(document,{...options,mediaById}),{service,calls,receipts}=provider(valid);
+ for(const map of [new Map(),new Map([['unit-private-portrait',mediaById.get('unit-private-portrait')]])]){
+  await assert.rejects(async()=>service.analyze(consent(await projectLayoutCritic(document,{...options,mediaById:map}))),{code:'LAYOUT_CRITIC_MEDIA_UNRESOLVED'});
+ }
+ const placed=minimal();placed.advanced.media=[{id:'unit-unresolved-placed',placed:true,x:1100,y:400,width:160,height:100}];
+ await assert.rejects(async()=>service.analyze(consent(await projectLayoutCritic(placed,options))),{code:'LAYOUT_CRITIC_MEDIA_UNRESOLVED'});
+ assert.equal(calls.length,0);assert.equal(receipts.length,0);
+});
+
+test('changed resolved media with identical geometry is privately stale before applying recommendations',async()=>{
+ const {document,mediaById}=storedMediaFixture(),renderOptions={...options,mediaById},p=await projectLayoutCritic(document,renderOptions),before=JSON.stringify(document);
+ mediaById.set('unit-private-portrait','blob:unit-replacement-portrait-source');
+ const changed=await projectLayoutCritic(document,renderOptions);assert.equal(changed.sceneDigest,p.sceneDigest);assert.notEqual(changed.localContext.sourceDigest,p.localContext.sourceDigest);
+ assert.equal(p.localContext.options.mediaById.get('unit-private-portrait'),'blob:unit-private-portrait-source');
+ await assert.rejects(()=>applyLayoutRecommendations(document,result(p,[move(p)]),p.sceneDigest,{...renderOptions,sourceDigest:p.localContext.sourceDigest}),{code:'LAYOUT_CRITIC_STALE_SCENE'});
+ assert.equal(JSON.stringify(document),before);
+ const namespace=await projectLayoutCritic(document,{...renderOptions,resourceNamespace:'changed-render-options'});assert.notEqual(namespace.localContext.sourceDigest,changed.localContext.sourceDigest);
+});
+
+test('media map changes during an asynchronous apply cannot silently complete against a snapshot',async()=>{
+ const {document,mediaById}=storedMediaFixture();let armed=false;
+ const measureText=(text,{fontSize=18}={})=>{if(armed){armed=false;mediaById.set('unit-private-frame','blob:unit-changed-during-apply');}return String(text).length*fontSize*.5;};
+ const renderOptions={...options,mediaById,measureText},p=await projectLayoutCritic(document,renderOptions),before=JSON.stringify(document);armed=true;
+ await assert.rejects(()=>applyLayoutRecommendations(document,result(p),p.sceneDigest,{...renderOptions,sourceDigest:p.localContext.sourceDigest}),{code:'LAYOUT_CRITIC_STALE_SCENE'});
+ assert.equal(JSON.stringify(document),before);
+});

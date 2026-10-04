@@ -70,13 +70,32 @@ function hasManualPlacement(event,object,document){
   const groups=document.advanced?.scene?.groups||document.advanced?.groups||[];
   return !!(event?.manualOffset?.laneLocked||Number(event?.manualOffset?.x)||Number(event?.manualOffset?.y)||(object?.geometry&&object.presentation?.localLayoutCriticAuto!==true)||object?.locked||object?.groupId||groups.some(group=>group.locked&&group.childIds?.includes(object?.id)));
 }
+function localRenderBinding(options){
+  // URL strings remain in browser custody. Only the private source digest binds
+  // their identities; provider input and its scene digest remain geometry-only.
+  const {mediaById=new Map(),...rest}=options;
+  if(!(mediaById instanceof Map))throw error('LAYOUT_CRITIC_RENDER_OPTIONS_INVALID');
+  return {options:Object.fromEntries(Object.entries(rest).filter(([,value])=>typeof value!=='function')),
+    media:[...mediaById.entries()].sort(([a],[b])=>String(a).localeCompare(String(b)))};
+}
+function snapshotRenderOptions({scope='EVERYTHING',currentMonth=null,measureText=null,mediaById=new Map(),...rest}={}){
+  if(!(mediaById instanceof Map))throw error('LAYOUT_CRITIC_RENDER_OPTIONS_INVALID');
+  return {...rest,scope,currentMonth,measureText,mediaById:new Map(mediaById)};
+}
+function assertResolvedMedia(document,rendered,paint){
+  const projection=rendered.scene.mediaProjection||{},images=new Set(paint.nodes.filter(node=>node.kind==='image').map(node=>node.sourceAttributes['data-media-id']).filter(Boolean));
+  const missingNode=xmlNodes(parsePresentationXml(rendered.svg),node=>node.attrs?.['data-media-state']==='missing').length>0;
+  const missingBackground=document.advanced?.background?.kind==='upload'&&rendered.scene.advancedProjection?.background?.kind!=='upload';
+  if(projection.pendingIds?.length||(projection.expectedIds||[]).some(id=>!images.has(id))||missingNode||missingBackground)throw error('LAYOUT_CRITIC_MEDIA_UNRESOLVED');
+}
 function render(document,options){
   const rendered=serializeFounderPresentation(document,options);
   const paint=resolveFounderPresentationSvg(rendered.svg,{measureText:options.measureText,advancedGroups:document.advanced?.groups||[]});
+  assertResolvedMedia(document,rendered,paint);
   return {rendered,paint};
 }
-export async function projectLayoutCritic(document,{scope='EVERYTHING',currentMonth=null,measureText=null}={}){
-  const options={scope,currentMonth,measureText},sourceDigest=await layoutCriticDigest(document),{rendered,paint}=render(document,options);
+export async function projectLayoutCritic(document,renderOptions={}){
+  const options=snapshotRenderOptions(renderOptions),sourceDigest=await layoutCriticDigest({document,renderOptions:localRenderBinding(options)}),{rendered,paint}=render(document,options);
   if(paint.nodes.length>4000||rendered.scene.omissions?.length)throw error('LAYOUT_CRITIC_RENDER_INCOMPLETE');
   const groupIds=new Map(paint.groups.map((group,index)=>[group.id,'g'+String(index+1).padStart(4,'0')]));
   const parts=paint.nodes.filter(painted).map((node,index)=>({
@@ -274,7 +293,7 @@ export async function applyLayoutRecommendations(document,output,expected,{sourc
         if(Object.hasOwn(next,field))candidate[field]=clone(next[field]);else delete candidate[field];
       }
       if(protectedSnapshot(next)!==protectedSnapshot(candidate)){reject(index,'LAYOUT_CRITIC_SEMANTIC_CHANGE');continue;}
-      const proposed=await projectLayoutCritic(candidate,options);
+      const proposed=await projectLayoutCritic(candidate,projection.localContext.options);
       if(!unchangedNativeArrows(current.localContext.paint,proposed.localContext.paint,{allowAxisChange:axisChange,movedIds:new Set(movedId?[movedId]:[])})||!unrelatedPaintPreserved(current.localContext.paint,proposed.localContext.paint,{movedId,axisChange})){
         reject(index,'LAYOUT_CRITIC_NATIVE_GEOMETRY_CHANGE');continue;
       }
@@ -283,5 +302,6 @@ export async function applyLayoutRecommendations(document,output,expected,{sourc
     }catch{reject(index,'LAYOUT_CRITIC_VALIDATION_FAILED');}
   }
   if(stableLayoutJson(document)!==original)throw error('LAYOUT_CRITIC_SOURCE_MUTATED');
+  if(await layoutCriticDigest({document,renderOptions:localRenderBinding(snapshotRenderOptions(options))})!==projection.localContext.sourceDigest)throw error('LAYOUT_CRITIC_STALE_SCENE');
   return {document:next,applied,rejected,before:projection.input.safety,after:current.input.safety,sourceUnchanged:true,candidatesEvaluated:attempts};
 }
