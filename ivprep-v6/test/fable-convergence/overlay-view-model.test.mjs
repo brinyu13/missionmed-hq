@@ -40,7 +40,7 @@ function fixture(){
     constructor(options){this.options=options;this.policies=[];this.destroyed=false;this.playbackEvents=[];records.owners.push(this);}
     configure(value){this.policies.push(value);this.policy=value;}
     onViewChange(view,role){this.view=view;this.role=role;}
-    consumeOverlay(){return true;}
+    consumeOverlay(){this.draws=(this.draws||0)+1;return true;}
     clearOverlay(){this.cleared=true;}
     stopPlayback(reason){this.playbackEvents.push(['stop',reason]);this.clearOverlay();}
     toggleOverlayPart(key){this.playbackEvents.push(['toggle',key]);return true;}
@@ -59,9 +59,9 @@ test('replay redraw is opt-in, playback-only and uses existing owner over exact 
   assert.equal(owner.options.playbackPipeline,pipeline);assert.equal(owner.options.surfaceIds.playback,f.video.id);
   assert.equal(owner.view,'filmroom');assert.equal(owner.role,'student');
   pipeline.beginPlayback({videoElement:f.video});assert.equal(pipeline.started[0].videoElement,f.video);
-  assert.equal(owner.consumeOverlay({},'playback'),true);assert.equal(f.records.status.at(-1),'drawn');
+  assert.equal(owner.consumeOverlay({pipelineMs:0},'playback'),true);assert.equal(f.records.status.at(-1),'drawn');
   f.invalidate();assert.equal(pipeline.beginPlayback({videoElement:f.video}),false);assert.equal(pipeline.started.length,1);
-  assert.equal(owner.consumeOverlay({},'playback'),false);assert.equal(owner.cleared,true);
+  assert.equal(owner.consumeOverlay({pipelineMs:0},'playback'),false);assert.equal(owner.cleared,true);
   overlay.destroy();assert.equal(owner.destroyed,true);assert.equal(pipeline.destroyed,true);
 });
 test('late playback owner import cannot bind after route or account cancellation',async()=>{
@@ -100,10 +100,10 @@ test('unmatched replay frames expire and teardown cancels the exact freshness ti
   const f=fixture(),timers=new Map(),cancelled=[];let next=0;
   const overlay=replayOverlays({...f.options,schedule:(callback,ms)=>{assert.equal(ms,1500);timers.set(++next,callback);return next;},cancel:id=>{cancelled.push(id);timers.delete(id);}});
   await overlay.setEnabled(true);const owner=f.records.owners[0];
-  owner.consumeOverlay({},'playback');owner.consumeOverlay({},'playback');
+  owner.consumeOverlay({pipelineMs:0},'playback');owner.consumeOverlay({pipelineMs:0},'playback');
   assert.deepEqual(cancelled,[1]);assert.equal(timers.size,1);
   timers.get(2)();assert.equal(owner.cleared,true);assert.equal(f.records.status.at(-1),'waiting');
-  owner.consumeOverlay({},'playback');await overlay.setEnabled(false);assert.deepEqual(cancelled,[1,3]);
+  owner.consumeOverlay({pipelineMs:0},'playback');await overlay.setEnabled(false);assert.deepEqual(cancelled,[1,3]);
   assert.equal(owner.destroyed,true);overlay.destroy();
 });
 test('old replay owner cannot cancel the replacement owner freshness expiry',async()=>{
@@ -111,8 +111,28 @@ test('old replay owner cannot cancel the replacement owner freshness expiry',asy
   const overlay=replayOverlays({...f.options,schedule:callback=>{timers.set(++next,callback);return next;},cancel:id=>timers.delete(id)});
   await overlay.setEnabled(true);const old=f.records.owners[0];
   await overlay.setEnabled(false);await overlay.setEnabled(true);const fresh=f.records.owners[1];
-  fresh.consumeOverlay({},'playback');assert.equal(timers.size,1);
+  fresh.consumeOverlay({pipelineMs:0},'playback');assert.equal(timers.size,1);
   old.clearOverlay();assert.equal(old.consumeOverlay({},'playback'),false);assert.equal(old.toggleOverlayPart('face'),false);
   assert.equal(timers.size,1);timers.get(1)();assert.equal(fresh.cleared,true);assert.equal(f.records.status.at(-1),'waiting');
   overlay.destroy();
+});
+test('replay inference age consumes the existing freshness budget instead of restarting it at arrival',async()=>{
+  const f=fixture(),timers=[];
+  const overlay=replayOverlays({...f.options,schedule:(callback,ms)=>{timers.push({callback,ms});return timers.length;},cancel:()=>{}});
+  await overlay.setEnabled(true);const owner=f.records.owners[0];
+  assert.equal(owner.consumeOverlay({pipelineMs:900},'playback'),true);
+  assert.equal(timers[0].ms,600);assert.equal(owner.draws,1);
+  timers[0].callback();assert.equal(owner.cleared,true);assert.equal(f.records.status.at(-1),'waiting');
+  overlay.destroy();
+});
+test('expired or unverifiable replay frames clear prior geometry without drawing or stopping video analysis',async()=>{
+  for(const pipelineMs of [1500,1501,9000,-1,NaN,Infinity,'900',null,undefined]){
+    const f=fixture(),timers=[];
+    const overlay=replayOverlays({...f.options,schedule:(callback,ms)=>{timers.push({callback,ms});return timers.length;},cancel:()=>{}});
+    await overlay.setEnabled(true);const owner=f.records.owners[0],pipeline=f.records.pipelines[0];
+    assert.equal(owner.consumeOverlay({pipelineMs},'playback'),false);
+    assert.equal(owner.draws,undefined);assert.equal(owner.cleared,true);assert.equal(timers.length,0);
+    assert.equal(pipeline.destroyed,false);assert.deepEqual(owner.playbackEvents,[]);
+    assert.equal(f.records.status.at(-1),'waiting');overlay.destroy();
+  }
 });

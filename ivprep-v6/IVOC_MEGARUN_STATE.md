@@ -344,6 +344,25 @@ the actual production route and deployment.
   One broader Admin-renderer test has an unchanged `undefined.textContent` fixture
   failure at `admin-student-library.test.mjs:257`; exact renderer and test match
   live7a689f0. It is not falsely reported fixed or a new boot regression.
+- Review/length correction `ce6488ae3f6b64f20feb4a7b00707f4a12fcea42`
+  deployed SUCCESS `2d3234d0-6098-4076-b5f0-9959a073cfcd`, image
+  `sha256:06cde07a6c6c0291783e8c5142c51ba5c41711c7954cf458f3d0207ec17f14e0`.
+  Health200, anonymous candidate/current bootstrap401. Exact filtered tracked
+  artifact `ivoc-release-artifact-0TJIJ6/source.tar`, SHA256
+  `ad6b6d4473c91c9ea863cc301d2e5df39612ae170c0d1b0a164ad1ac194b172b`.
+  PRODUCT4467 and deployment4468 released normally/remotely read back. Actual
+  exact own saved-review cold reload shows the loading composition, then restores
+  1ca228aa Results/full supported evidence with coaching truthfully unavailable.
+  No new canonical speech or audible replay acceptance is asserted.
+- Independent replay diagnosis found no justified coordinate remap. It proved
+  late inference incorrectly restarted the full1.5s overlay expiry at arrival.
+  Current replay-only consumer rejects expired/unverifiable capture ages and
+  subtracts real inference age from the existing freshness bound. No detector,
+  recording, live capture, audio, seek epoch or persisted Analytics changes.
+  Temporal regression reproduced the bug; spatial alignment remains UNVERIFIED
+  until observed with the affected real hand movement.
+  All25 affected replay/overlay/ownership tests PASS; independent source review
+  PASS. No coordinate fix or physical/audible acceptance is claimed.
 - Next executable action: repair/verify the exact saved-review handoff and Mock
   plan filing, resolve replay hand-alignment
   evidence, then continue real conversation,

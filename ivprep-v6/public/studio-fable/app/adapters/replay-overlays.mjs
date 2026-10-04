@@ -1,6 +1,7 @@
 // Reuse the established ephemeral playback detector/overlay owner. No capture,
 // new persistence, provider session, raw landmark storage or audio publisher.
 const loadOwner=()=>Promise.all([import('../../../analytics/browser-pipeline.mjs'),import('../../../analytics/ui.mjs')]);
+const REPLAY_FRESHNESS_MS=1500;
 export function replayOverlays({video,documentRef=video?.ownerDocument,isCurrent=()=>true,onStatus=()=>{},load=loadOwner,
   schedule=setTimeout,cancel=clearTimeout}={}) {
   let disposed=false,generation=0,owner=null,pipeline=null,freshnessTimer=null;
@@ -44,14 +45,18 @@ export function replayOverlays({video,documentRef=video?.ownerDocument,isCurrent
         const consume=owner.consumeOverlay.bind(owner);
         owner.consumeOverlay=(payload,source)=>{
           if(!current()||owner!==exactOwner){exactOwner.clearOverlay();return false;}
+          const age=payload?.pipelineMs;
+          if(typeof age!=='number'||!Number.isFinite(age)||age<0||age>=REPLAY_FRESHNESS_MS){
+            exactOwner.clearOverlay();onStatus('waiting');return false;
+          }
           stopFreshness(exactOwner);
           const drawn=consume(payload,source);
           if(drawn){
             onStatus('drawn');
-            // No matching detector bitmap is not a frozen measurement. Match
-            // the live owner's 1.5s freshness bound and remove stale geometry.
+            // The capture-to-result inference time already consumed part of
+            // the freshness budget. Arrival does not make old geometry fresh.
             const timer={owner:exactOwner,handle:null};freshnessTimer=timer;
-            timer.handle=schedule(()=>{if(freshnessTimer!==timer)return;freshnessTimer=null;exactOwner.clearOverlay();if(current()&&owner===exactOwner)onStatus('waiting');},1500);
+            timer.handle=schedule(()=>{if(freshnessTimer!==timer)return;freshnessTimer=null;exactOwner.clearOverlay();if(current()&&owner===exactOwner)onStatus('waiting');},REPLAY_FRESHNESS_MS-age);
           }
           return drawn;
         };
