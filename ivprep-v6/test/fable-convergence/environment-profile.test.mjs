@@ -116,6 +116,7 @@ test('mobile Room puts the same video stage before teaching rails and contains m
   const css=readFileSync(new URL('../../public/studio-fable/styles/room.css',import.meta.url),'utf8');
   const mobile=css.slice(css.indexOf('@media (max-width: 760px)'));
   assert.match(mobile,/\.stage-col\s*\{[^}]*grid-row:\s*2;/);
+  assert.match(mobile,/\.room \.stage:not\(\[data-preview-ready="true"\]\) \.stage-enter\s*\{[^}]*position:\s*relative;/);
   assert.match(mobile,/#rail-left\s*\{[^}]*grid-row:\s*3;/);
   assert.match(mobile,/#rail-right\s*\{[^}]*grid-row:\s*4;/);
   assert.match(mobile,/\.room\[data-density="interview"\]\s*\{[^}]*grid-template-rows:\s*44px auto 44px;/);

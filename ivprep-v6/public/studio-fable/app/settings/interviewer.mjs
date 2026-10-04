@@ -9,6 +9,7 @@
 import {normalizePracticeFocus} from '../../../studio/live-context-adapter.mjs';
 import {normalizeInterviewPolicy,resolveFollowUps} from '../../../capabilities/interview-policy.mjs';
 import {selectedEnvironment} from '../adapters/environment-profile.mjs';
+import {normalizeNameUseCoaching} from '../../../capabilities/context-results.mjs';
 
 export const PRACTICE_GOALS = Object.freeze(['Full IV Simulation', 'Guided Mock IV Practice', 'Individual Question']);
 
@@ -26,7 +27,23 @@ export const PACING = ['Relaxed', 'Normal', 'Brisk'];
 export const VOICES = ['marin', 'meridian', 'gleam', 'vesper', 'stone', 'willow']; // current source allow-list; student default marin, audition is Admin-only
 
 export function defaultSettings() {
-  return { goal: 'Guided Mock IV Practice', practiceFocus: '', environment:'MissionMed', preset: 'balanced', role: 'Program Director', style: 'Owl', depth: 1, curiosity: 'Normal', pressure: false, interruption: false, pacing: 'Normal', maxFollowUps: 4, programEmphasis: 'Normal', targetQuestions: 5, durationMin: 15, voice: 'marin', advanced: false };
+  return { goal: 'Guided Mock IV Practice', practiceFocus: '', environment:'MissionMed', interviewerName:'', nameUseCoaching:false, preset: 'balanced', role: 'Program Director', style: 'Owl', depth: 1, curiosity: 'Normal', pressure: false, interruption: false, pacing: 'Normal', maxFollowUps: 4, programEmphasis: 'Normal', targetQuestions: 5, durationMin: 15, voice: 'marin', advanced: false };
+}
+
+// Input/view-model validation only; the existing Durable owner snapshots opt-in.
+export function normalizeManualInterviewerName(value) {
+  if(value==null||value==='')return '';
+  if(typeof value!=='string')throw new TypeError('Use a name of 100 characters or fewer.');
+  if(!value.trim())return '';
+  const valid=normalizeNameUseCoaching({schema:'ivoc.name-use.v1',enabled:true,source:'manual',name:value});
+  if(!valid)throw new TypeError('Use a single-line name of 100 characters or fewer, with at least one letter.');
+  return valid.name;
+}
+
+// This controls presentation of the already-authorized native audition only.
+// Fresh server authorization still owns provider access; Students stay on marin.
+export function selectedAdminVoice(settings,account,mode='mock') {
+  return mode==='mock'&&account?.mode==='REAL'&&account.role==='admin'&&VOICES.includes(settings?.voice)?settings.voice:'marin';
 }
 
 export function normalizeMockPracticeFocus(value) {
@@ -97,6 +114,8 @@ export function toWizard(settings, { program = null, mode = 'mock', contextSourc
     interviewerStyle: ['Dove', 'Peacock', 'Owl', 'Eagle'].includes(settings.style) ? settings.style : 'Owl',
     pressurePractice: goal !== 'Individual Question' && settings.pressure === true,
     environment: selectedEnvironment(settings,retry),
+    interviewerName:normalizeManualInterviewerName(settings.interviewerName),
+    nameUseCoaching:settings.nameUseCoaching===true&&Boolean(normalizeManualInterviewerName(settings.interviewerName)),
     analyticsEnabled: true,
     contextSources: [...new Set(contextSources.filter(source => ['CV','File Vault','StoryForge','MCC','Top 3','Prior IVOC'].includes(source))), ...(program?.verified ? ['RISE'] : [])],
     ...(policy?{followUpDepth:followUps.depth,maxFollowUps:followUps.maxFollowUps,interviewPolicyVersion:policy.version}:{}),

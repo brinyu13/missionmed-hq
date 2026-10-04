@@ -303,6 +303,10 @@ body[data-mode="room"] main.view { max-width: none; padding: 0; animation: none;
   .stage { min-height: 46vh; max-height: 52vh; }
   /* Reorder CSS grid areas only: never recreate the live video/overlay/controller. */
   .stage-col { grid-row: 2; grid-template-rows: minmax(46vh, 1fr); }
+  /* Before pixel readiness, long priority copy must not clip the Connect action.
+     Once ready, the original compact overlay returns over the same video. */
+  .room .stage:has(.stage-enter):not([data-preview-ready="true"]) { max-height: none; }
+  .room .stage:not([data-preview-ready="true"]) .stage-enter { position: relative; min-height: 46vh; }
   .room[data-density="interview"] { grid-template-rows: 44px auto 44px; }
   .room[data-density="interview"] .recorder { grid-row: 3; }
   .presence { grid-template-columns: auto 1fr; padding: 8px 10px; gap: 10px; }

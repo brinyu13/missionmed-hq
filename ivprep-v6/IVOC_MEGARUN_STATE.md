@@ -16,6 +16,31 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 MOBILE PRODUCTION SUBSET / R014 + R018 WIRING (PRODUCT4599):
+  current runtime4c732a3c16ff9216ab616e6f9ba7640d687ea547 /SUCCESS
+  7c7ed32e-3725-43b5-9236-4b9c378e8ce0, image
+  sha256:aff633855fcdaa1a01e4a9483917367d4be41ae105bfb2ca1d0380d0709fc1f5;
+  exact1282-file f2YFWm artifact/tar
+  0d79635c7ab05f4aa88791582b9f49fa9bf5a460deecd789d854a82fd8464ec5.
+  Actual390/320 production viewport now places video before teaching rails and
+  has no horizontal overflow. Real FaceTime video remained visible during REC at
+  both widths;45s Finish/save/Results/Film Room succeeded for
+  bbfc23d4-5069-48a7-9765-e0d0fa3ea6c9. Saved playback visibly renders real video.
+  Narrow320 preflight exposed long readiness text clipping Connect; relative
+  pre-pixel composition now keeps the same video/control owners and flows text.
+  R014 optional manual interviewer name + literal default-off opt-in reaches
+  existing Durable snapshot/seal. Collapsed Full Analytics review consumes only
+  strict saved-owner evidence; UNASSESSED stays truthful and bounded Film links
+  remain paused. R018 Admin-only prestart native selector uses existing six-voice
+  allow-list, same InterviewBrain path; Student/practice remain marin and select
+  freezes while starting/live. No external TTS, new provider mode or spend.
+  Results cancels after account/Durable changes.434 focused/affected checks PASS,
+  including actual handlers ->Durable seal, strict attribution/range/escape and
+  stale-account regressions. New controls/320 containment remain
+  IMPLEMENTED_NEEDS_ACCEPTANCE until deployed and visibly checked. No genuine
+  speech, audible replay, all11 instruments or two-sided AI acceptance claimed.
+  Root unpromoted; previous686dd8a/42225458 exact iLDYds rollback retained.
+
 - 2026-10-04 R069 ACTUAL PRODUCTION POV / MOBILE FIX-FORWARD (PRODUCT4594):
   source 686dd8a9006a539f00a4b98bec322afbde73eb2e deployed as
   42225458-b47d-49bb-a772-76145511031b; health200 and anonymous product/bootstrap401.

@@ -3,7 +3,7 @@
 import { state, commit, attemptsByRecency } from './state.mjs';
 import { loadQuestions, CATEGORY_LABELS, defaultMockSet } from './questions.mjs';
 import { trayMarkup, mountTray, openSelector } from './questions/selector.mjs';
-import { EASY_PRESETS, PRACTICE_GOALS, ROLES, STYLES, CURIOSITY, PACING, defaultSettings, applyPreset, normalizeMockPracticeFocus, resolveMockQuestionTarget, resolveFollowUpPreferences, describe as describeSettings } from './settings/interviewer.mjs';
+import { EASY_PRESETS, PRACTICE_GOALS, ROLES, STYLES, CURIOSITY, PACING, defaultSettings, applyPreset, normalizeMockPracticeFocus, normalizeManualInterviewerName, resolveMockQuestionTarget, resolveFollowUpPreferences, describe as describeSettings } from './settings/interviewer.mjs';
 import { controller } from './controller/session-controller.mjs';
 import { accountLabel } from './adapters/account-adapter.mjs';
 import { searchPrograms } from './adapters/context-adapter.mjs';
@@ -218,6 +218,8 @@ async function renderMock(params, isCurrent = guarded) {
                 <div class="field"><label class="t-label" for="adv-goal">Practice goal</label><select id="adv-goal">${PRACTICE_GOALS.map(goal => `<option ${st.goal === goal ? 'selected' : ''}>${goal}</option>`).join('')}</select></div>
                 <div class="field"><label class="t-label" for="adv-focus">Coaching focus</label><input id="adv-focus" type="text" maxlength="200" ${st.goal === 'Guided Mock IV Practice' ? '' : 'disabled'} placeholder="One thing you want to practice" value="${esc(st.practiceFocus || '')}"><small class="note">${st.goal === 'Guided Mock IV Practice' && !st.practiceFocus && session.priority ? `Current priority: ${esc(session.priority.slice(0,200))}. Add your own focus to replace it.` : 'Optional for Guided Practice. Full Simulation and Individual Question do not use a coaching focus.'}</small></div>
                 <div class="field"><label class="t-label" for="adv-role">Role</label><select id="adv-role">${ROLES.map((r) => `<option ${st.role === r ? 'selected' : ''}>${r}</option>`).join('')}</select></div>
+                <div class="field"><label class="t-label" for="adv-name">Interviewer name (optional)</label><input id="adv-name" type="text" maxlength="100" value="${esc(st.interviewerName || '')}" placeholder="A name you want to practice using" aria-describedby="name-note"><small class="note" id="name-note">Manually supplied for practice, not verified faculty identity.</small></div>
+                <label class="field"><span><input id="adv-name-use" type="checkbox" ${st.nameUseCoaching===true?'checked':''}> Observe possible name mentions</span><small class="note">Off by default. Uses verified saved candidate transcript when available, not a rapport score. Requires the optional name above.</small></label>
                 <div class="field"><label class="t-label" for="adv-style">Style</label><select id="adv-style">${Object.entries(STYLES).map(([k, v]) => `<option value="${k}" ${st.style === k ? 'selected' : ''}>${k} · ${v}</option>`).join('')}</select></div>
                 <div class="field"><label class="t-label">Follow-up depth</label><div class="seg">${[0, 1, 2].map((d) => `<button type="button" data-depth="${d}" aria-pressed="${st.depth === d}" ${policy&&d>policy.maxFollowUpsPerAnswer?'disabled':''}>${d === 0 ? 'None' : d === 1 ? 'One' : 'Two'}</button>`).join('')}</div>${policy?`<small class="note">Your account allows up to ${policy.maxFollowUpsPerAnswer} follow-ups per answer.</small>`:''}</div>
                 <div class="field"><label class="t-label">Curiosity</label><div class="seg">${CURIOSITY.map((c) => `<button type="button" data-curiosity="${c}" aria-pressed="${st.curiosity === c}">${c}</button>`).join('')}</div></div>
@@ -264,6 +266,17 @@ async function renderMock(params, isCurrent = guarded) {
       }
     });
     main.querySelector('#adv-role').addEventListener('change', (e) => { st.role = e.target.value; });
+    main.querySelector('#adv-name').addEventListener('change', (e) => {
+      if(!isCurrent())return;
+      try {st.interviewerName=normalizeManualInterviewerName(e.target.value);if(!st.interviewerName)st.nameUseCoaching=false;e.target.setCustomValidity('');draw();}
+      catch(error){e.target.setCustomValidity(error.message);e.target.reportValidity();main.querySelector('#go-room').disabled=true;}
+    });
+    main.querySelector('#adv-name-use').addEventListener('change', (e) => {
+      if(!isCurrent())return;
+      const input=main.querySelector('#adv-name');
+      try {const name=normalizeManualInterviewerName(input.value);if(e.target.checked&&!name)throw new TypeError('Enter the optional name first.');st.interviewerName=name;st.nameUseCoaching=e.target.checked===true;input.setCustomValidity('');draw();}
+      catch(error){e.target.checked=false;input.setCustomValidity(error.message);input.reportValidity();}
+    });
     main.querySelector('#adv-style').addEventListener('change', (e) => { st.style = e.target.value; });
     main.querySelector('#adv-max').addEventListener('change', (e) => { if(!isCurrent())return;Object.assign(st,resolveFollowUpPreferences({...st,maxFollowUps:e.target.value},policy));draw(); });
     main.querySelector('#adv-target').addEventListener('change', (e) => {

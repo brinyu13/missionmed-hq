@@ -4,25 +4,26 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {sealDerivedEvidence} from '../../public/studio-fable/app/adapters/derived-evidence.mjs';
 import {projectSavedAttempt} from '../../public/studio-fable/app/adapters/saved-review.mjs';
-import {toWizard,defaultSettings,resolveMockQuestionTarget} from '../../public/studio-fable/app/settings/interviewer.mjs';
+import {toWizard,defaultSettings,resolveMockQuestionTarget,selectedAdminVoice} from '../../public/studio-fable/app/settings/interviewer.mjs';
 import {assertMicrophoneReady} from '../../public/studio-fable/app/adapters/media-readiness.mjs';
 import {environmentProfile,selectedEnvironment} from '../../public/studio-fable/app/adapters/environment-profile.mjs';
 
 const source=readFileSync(new URL('../../public/studio-fable/app/room.mjs',import.meta.url),'utf8');
 const section=(from,to)=>source.slice(source.indexOf(from),source.indexOf(to,source.indexOf(from)));
-function roomFixture(density,{mode='practice',target=null,goal='Guided Mock IV Practice',focus='',priority=null,interviewPolicy=null}={}){
+function roomFixture(density,{mode='practice',target=null,goal='Guided Mock IV Practice',focus='',priority=null,interviewPolicy=null,role='student',voice='marin'}={}){
+  const handlers=new Map();
   const elements=new Map(),buttons=['interview','coached'].map(value=>({dataset:{density:value},disabled:false,setAttribute(){}}));
-  const element=id=>{if(!elements.has(id))elements.set(id,{dataset:{},hidden:false,disabled:false,textContent:'',remove(){},setAttribute(){}});return elements.get(id);};
+  const element=id=>{if(!elements.has(id))elements.set(id,{dataset:{},hidden:false,disabled:false,textContent:'',value:'',remove(){},setAttribute(){},addEventListener(type,fn){handlers.set(id+':'+type,fn);}});return elements.get(id);};
   const room=element('room');room.querySelectorAll=()=>buttons;
   const handler={};room.querySelector=()=>({addEventListener:(_type,fn)=>{handler.density=fn;}});
   element('reset-density').addEventListener=(_type,fn)=>{handler.reset=fn;};
   const events=[],samples=[{t:1,vol:4,signalGap:false}];let filed=null,resolveCamera,launched=null,contextInput=null;
   const plan=[{question_id:'CORE-01',canonical_text:'Tell me about yourself.'}];
-  const setup=vm.runInNewContext(section('  const cfg=session.config||{};',"  let density=" )+'\n({settings,targetQuestions})',{session:{config:{targetQuestions:target},settings:{...defaultSettings(),goal,practiceFocus:focus,pressure:true}},mode,plan,defaultSettings,resolveMockQuestionTarget,environmentProfile,selectedEnvironment});
+  const setup=vm.runInNewContext(section('  const cfg=session.config||{};',"  let density=" )+'\n({settings,targetQuestions})',{session:{config:{targetQuestions:target},settings:{...defaultSettings(),goal,practiceFocus:focus,pressure:true,voice}},mode,plan,defaultSettings,resolveMockQuestionTarget,environmentProfile,selectedEnvironment});
   const {settings,targetQuestions}=setup;
   const camera=new Promise(resolve=>{resolveCamera=resolve;});
   const context={density,initialPresentationMode:null,starting:false,started:false,saving:false,finished:false,disposed:false,deviceSwitching:false,
-    current:()=>true,$:element,room,main:{querySelectorAll:()=>[],querySelector:()=>({remove(){}})},
+    current:()=>true,account:{mode:'REAL',role},selectedAdminVoice,$:element,room,main:{querySelectorAll:()=>[],querySelector:()=>({remove(){}})},
     controller:{video:{},stream:{getAudioTracks:()=>[{readyState:'live',enabled:true,muted:false}]},elapsed:2,interviewPolicy,startSession:async input=>{launched=input;return{interviewer:{}};},finishSession:async({record})=>{filed=record;return{saveError:'retry retained'};}},
     engine:{audioContext:{state:'running'},events:{addEventListener(){},removeEventListener(){}},personalCalibration:null},settings,session:{priority},mode,targetQuestions,plan,
     awaitVisibleCamera:()=>camera,assertMicrophoneReady,toWizard,liveContext:async input=>{contextInput=input;return{};},observer:null,callbacks:{},onFrame(){},onState(){},onWord(){},
@@ -35,7 +36,8 @@ function roomFixture(density,{mode='practice',target=null,goal='Guided Mock IV P
   vm.createContext(context);
   vm.runInContext(helpers+section('  async function start(){',"  $('connect-real').addEventListener")+section("  room.querySelector('.density').addEventListener", "  $('guides').addEventListener")+section('  async function finishSession(reason){','  applyOverlays();renderPlan();renderTranscript();')+';this.start=start;this.finish=finishSession;',context);
   return {context,buttons,events,samples,settings,releaseCamera:()=>resolveCamera(),start:()=>context.start(),finish:()=>context.finish('finished'),
-    select:value=>handler.density({target:{closest:()=>buttons.find(b=>b.dataset.density===value)}}),reset:()=>handler.reset(),filed:()=>filed,launched:()=>launched,contextInput:()=>contextInput};
+    select:value=>handler.density({target:{closest:()=>buttons.find(b=>b.dataset.density===value)}}),reset:()=>handler.reset(),filed:()=>filed,launched:()=>launched,contextInput:()=>contextInput,
+    chooseVoice(value){const select=element('admin-live-voice');select.value=value;handlers.get('admin-live-voice:change')({target:select});},voiceElement:()=>element('admin-live-voice')};
 }
 test('actual Room passes the chosen goal and displayed or edited Guided priority into the same Start contract',async()=>{
   for(const goal of ['Full IV Simulation','Guided Mock IV Practice','Individual Question']){
@@ -93,4 +95,24 @@ test('only exact presentation enums are retained; old or malformed values remain
     assert.equal(Object.hasOwn(saved.settings,'initialPresentationMode'),false);
   }
   for(const value of ['interview','coached'])assert.equal(sealDerivedEvidence({settings:{initialPresentationMode:value}}).settings.initialPresentationMode,value);
+});
+
+test('actual Admin preflight selector changes only native Start voice and freezes while starting/live',async()=>{
+  for(const voice of ['marin','meridian','gleam','vesper','stone','willow']){
+    const f=roomFixture('interview',{mode:'mock',role:'admin'});f.chooseVoice(voice);
+    const pending=f.start();assert.equal(f.voiceElement().disabled,true);
+    f.chooseVoice('marin');assert.equal(f.settings.voice,voice);
+    f.releaseCamera();await pending;assert.equal(f.launched().voice,voice);
+    assert.equal(f.voiceElement().disabled,true);f.chooseVoice('stone');assert.equal(f.settings.voice,voice);
+  }
+  const markup=section('  main.innerHTML = `','  const $=');
+  assert.ok(markup.includes("mode==='mock'&&account?.mode==='REAL'&&account.role==='admin'?"));
+  assert.ok(markup.includes('Student default remains marin'));
+});
+test('Student/practice/default/invalid voice remains marin and stale Room cannot launch',async()=>{
+  for(const options of [{mode:'mock',role:'student',voice:'willow'},{mode:'practice',role:'admin',voice:'stone'},{mode:'mock',role:'admin',voice:'external-tts'}]){
+    const f=roomFixture('interview',options),pending=f.start();f.releaseCamera();await pending;assert.equal(f.launched().voice,'marin');
+  }
+  const f=roomFixture('interview',{mode:'mock',role:'admin'}),pending=f.start();f.context.current=()=>false;f.releaseCamera();await pending;assert.equal(f.launched(),null);
+  f.chooseVoice('willow');assert.equal(f.settings.voice,'marin');
 });
