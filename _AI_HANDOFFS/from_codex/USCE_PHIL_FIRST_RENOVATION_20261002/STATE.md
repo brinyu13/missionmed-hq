@@ -1,5 +1,7 @@
 # USCE renovation state
 
+2026-10-04 steering: broader renovation remains PAUSED. Only bounded authentication continuation resumed. Current source/deployment/browser truth and remaining human-login/security acceptance limits are recorded in [AUTH_CONTINUATION_20261004/STATE.md](AUTH_CONTINUATION_20261004/STATE.md). Earlier serving snapshots below are historical; this continuation does not grant final renovation F/U/O acceptance.
+
 INDEPENDENT_ACCEPTANCE in progress. Released foundation/workflows are builder LIVE_VERIFIED; final F/U/O pending.
 
 Founder DR359/360 canonically ratifies bounded USCE execution, Chrome and actual Dr Brian brinyu administrator, StoryForge foundation. Phil personal login is superseded as a gate. No temporary identity. IVOC/siblings/unrelated dirty files preserved.
