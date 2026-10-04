@@ -16,6 +16,30 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 R027 IN PROGRESS, staged audio transaction foundation: actual
+  bridge/native sender/conversation mix reproduction failed four checks before
+  correction. Capture now accepts an optional owner coordinator; native input
+  retarget and silent recording input remain reversible until all composite
+  completion checks pass. Separate no-throw terminal receipt release follows
+  publication. Optional stable candidate-only audio tap excludes interviewer;
+  recording output track identities, single audible authority and clock retained.
+  Independent review reproduced completed/stale rollback silencing and partial
+  completion stranding recording input; both corrected, exact regressions PASS.
+  Independent final review PASS,10 transaction checks;50 affected bridge/native/
+  recording/lifecycle checks, syntax/diff PASS. Clean non-force pushed and remotely
+  read-back source551d257b0fab9f7f5675431dc6d515172b10f8d3 under continuously
+  heartbeating PRODUCT4557. This foundation is NOT deployed/UI-wired or accepted
+  as active device switching. Current runtime remains4080876/552d6735, health200,
+  anonymous candidate/bootstrap401; retained rollback identities unchanged.
+  Controller READY guard deliberately retained. Next implementation: stable
+  candidate-video recorder input, candidate-only recorder wiring, then full
+  controller/adapter coordination and Finish/release failure recovery before
+  active selectors. W3C MediaRecorder forbids track-set mutation during recording;
+  do not simply replace the recorder's camera track or remove the READY guard.
+  Founder reports authenticated Chrome now open/loading: changed access event,
+  inspect it once and resume genuine current production POV immediately after
+  protected receipt/release. That report alone is not tooling or live acceptance.
+  Full142 and physical/role/spoken/replay gates remain open; no percentage claim.
 - 2026-10-04 R030/R031 bounded preflight preservation: independent source audit
   confirmed the Devices screen lacked an explicit microphone meter and live
   readiness checklist. Read-only capability adapter now reads the existing
