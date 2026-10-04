@@ -4,6 +4,7 @@ import {
   assignStableLanes,
   condensedMetrics,
   deriveTimelineSpan,
+  deriveFounderYearAllocation,
   eventDensityForYear,
   monthPositionInSegments,
   placeAlternatingFlags,
@@ -1183,6 +1184,19 @@ export function buildKeynoteClassicScene(
     firstYear,
     lastYear
   });
+  const visibleIds=new Set(timelineEvents.map(event=>String(event.id)));
+  const authoredAxis=timeline?.presentationOverrides?.axis?.mode==="manual";
+  const authoredEvents=(timeline?.advanced?.scene?.objects||[]).some(object=>
+    object.type==="event"&&object.geometry&&visibleIds.has(String(object.semanticRef))
+  )||timelineEvents.some(event=>event.manualOffset?.laneLocked||
+    Number(event.manualOffset?.x)||Number(event.manualOffset?.y));
+  const finalMonths=[...arrowResult.arrows.flatMap(arrow=>[arrow.startMonth,arrow.endMonth]),
+    ...flags.map(flag=>flag.month),interviewMarker?.month].filter(Boolean).map(monthIndex);
+  const automaticAxis=authoredAxis||authoredEvents?{}:deriveFounderYearAllocation(timelineEvents,{
+    firstYear:finalMonths.length?Math.floor(Math.min(...finalMonths)/12):firstYear,
+    lastYear:finalMonths.length?Math.floor(Math.max(...finalMonths)/12):lastYear,
+    measureText,spanEndMonth:normalizedCurrent
+  });
   const ariaLabel = `Timeline visualization, ${events.length} events; use Tab to move between events`;
   const profile=projectedFields.studentProfile;
   const exams=projectedFields.exams;
@@ -1248,6 +1262,7 @@ export function buildKeynoteClassicScene(
       lastYear
     },
     axis,
+    ...automaticAxis,
     laneLayout: {
       laneCount: arrowResult.laneCount,
       condensed: arrowResult.condensed,

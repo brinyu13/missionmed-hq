@@ -162,6 +162,79 @@ export function eventDensityForYear(events,year,{spanEndMonth}={}){
   return overlapMonths/12;
 }
 
+// The locked portable renderer keeps every labelled year and reserves 80px
+// before distributing the remaining width. Its legacy integer allocator uses
+// a different span/condensation contract; feed demand into the portable scale
+// rather than copying those allocated widths and applying the floor twice.
+export function deriveFounderYearAllocation(events,{
+  firstYear,lastYear,measureText,contentWidth=1918,spanEndMonth
+}={}){
+  if(!Number.isInteger(firstYear)||!Number.isInteger(lastYear)||lastYear<firstYear||
+    !Number.isFinite(contentWidth)||contentWidth<=0||typeof measureText!=="function"){
+    throw new TypeError("Founder year allocation requires valid years, width and text measurement.");
+  }
+  const source=(Array.isArray(events)?events:[]).slice().sort((a,b)=>
+    String(a.id).localeCompare(String(b.id))||String(eventStartMonth(a)).localeCompare(String(eventStartMonth(b)))
+  );
+  const demands=new Map();
+  const openEnd=normalizedMonth(spanEndMonth)||monthForYear(lastYear,12);
+  for(let year=firstYear;year<=lastYear;year++){
+    const density=eventDensityForYear(source,year,{spanEndMonth:openEnd});
+    let labelPressure=0,milestonePressure=0;
+    for(const event of source){
+      const startMonth=eventStartMonth(event);
+      if(!startMonth)continue;
+      const start=monthIndex(startMonth),end=isMilestone(event)?start:
+        event.openEnded?monthIndex(openEnd):monthIndex(eventEndMonth(event)||startMonth);
+      if(end<start)continue;
+      const overlap=Math.max(0,Math.min(end,year*12+11)-Math.max(start,year*12)+1);
+      if(!overlap)continue;
+      const label=[event.title,event.siteName].filter(Boolean).join(" — ");
+      const measured=Number(measureText(label,18,600));
+      const pressure=Number.isFinite(measured)?Math.max(0,measured)/160:0;
+      // A multi-year label shares its pressure across its actual span; a short
+      // label or milestone competes for space within its own year.
+      labelPressure+=pressure*overlap/(end-start+1);
+      if(isMilestone(event))milestonePressure+=1;
+    }
+    demands.set(year,Math.min(8,1+density+labelPressure+milestonePressure));
+  }
+  const total=[...demands.values()].reduce((sum,weight)=>sum+weight,0);
+  const count=demands.size,minPercent=Math.min(96/count,80/contentWidth*100);
+  const flexible=96-minPercent*count;
+  let cursor=2;
+  const segmentWeights=[...demands].map(([year,weight])=>{
+    const start=cursor;cursor+=minPercent+flexible*weight/total;
+    return{id:String(year),weight:Math.min(8,Math.max(.25,(cursor-start)*total/96))};
+  });
+  // The effective weights include the portable floor. Freeze these exact
+  // proportions when the first authored geometry command commits, including
+  // when the compositor returns early without a placement refinement.
+  return{
+    autoYearWeights:demands,
+    composedAxis:{mode:"manual",startYear:firstYear,endYear:lastYear,
+      includeFuture:false,segmentWeights}
+  };
+}
+
+export function restoreFounderYearAllocation(scene,{contentWidth=1918}={}){
+  if(!scene?.autoYearWeights||typeof scene.autoYearWeights.get==="function")return scene;
+  const weights=scene.composedAxis?.segmentWeights;
+  if(!Array.isArray(weights)||!weights.length){
+    throw new TypeError("Automatic year weights need their saved composed axis for recovery.");
+  }
+  const total=weights.reduce((sum,item)=>sum+Number(item.weight),0);
+  const minPercent=Math.min(96/weights.length,80/contentWidth*100);
+  const flexible=96-minPercent*weights.length;
+  // Theme projection and JSON transport can strip Map methods. Recover the
+  // latest effective proportions, including a compositor-refined axis, by
+  // removing the same fixed floor before recreating its demand Map.
+  return{...scene,autoYearWeights:new Map(weights.map(item=>[
+    Number(item.id),flexible>1e-8
+      ?Math.max(Number.EPSILON,(Number(item.weight)-minPercent*total/96)*96/flexible):1
+  ]))};
+}
+
 function distributeRealRemainder(values,weights,budget,minWidth,maxWidth){
   const epsilon=1e-7;
   let next=values.slice();

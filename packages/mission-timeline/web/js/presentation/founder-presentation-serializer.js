@@ -1,7 +1,7 @@
 import {resolveFounderPresentationSvg,materialPresentationCollisions} from './resolved-founder-presentation.js';
 import {presentationDateWording} from './source-date-wording.js';
 import {buildKeynoteClassicScene} from "../uxr-002/board-renderer.js";
-import {CATEGORY_DEFINITIONS} from "../uxr-002/adaptive-layout.js";
+import {CATEGORY_DEFINITIONS,restoreFounderYearAllocation} from "../uxr-002/adaptive-layout.js";
 import {serializeLocked407FPortableSvg,composeLocked407FPortableSvg} from "../uxr-002/locked-407f-export.js";
 import {DEFAULT_THEME_ID,applyThemeToScene} from "../uxr-002/themes.js";
 import {reconcileAdvancedScene,validateSceneGraph} from "../editor/scene-graph.js";
@@ -280,7 +280,7 @@ function injectRootAttributes(svg,attributes){
 }
 
 export function serializeFounderScene(scene,{layers="",resourceNamespace=""}={}){
-  const svg=serializeLocked407FPortableSvg(scene,{layers,resourceNamespace});
+  const svg=serializeLocked407FPortableSvg(restoreFounderYearAllocation(scene),{layers,resourceNamespace});
   return injectRootAttributes(svg,{
     ...founderContractAttributes(),
     "data-founder-serializer":FOUNDER_PRESENTATION_SERIALIZER,
@@ -305,6 +305,7 @@ export function buildFounderPresentationScene(document,{
   });
   if(projected.theme&&projected.theme!==DEFAULT_THEME_ID){
     scene=applyThemeToScene(scene,projected.theme);
+    scene=restoreFounderYearAllocation(scene);
   }
   const sources=new Map(projected.events.map(event=>[String(event.id),event]));
   for(const key of ['events','arrows','flags'])scene[key]=(scene[key]||[]).map(item=>({...item,sourceDateWording:item.sourceDateWording||sources.get(String(item.id))?.fields?.sourceDateWording||null}));
@@ -319,10 +320,43 @@ export function buildFounderPresentationScene(document,{
 
 export function serializeFounderPresentation(document,options={}){
   const initialScene=buildFounderPresentationScene(document,options);
-  const composed=composeLocked407FPortableSvg(initialScene,{
+  const compositionOptions={
     layers:options.layers||"",
     resourceNamespace:options.resourceNamespace||""
-  });
+  };
+  let composed=composeLocked407FPortableSvg(initialScene,compositionOptions);
+  if(initialScene.autoYearWeights){
+    const paintRisk=svg=>{
+      const resolved=resolveFounderPresentationSvg(svg,{measureText:initialScene.measureText});
+      const clipped=resolved.nodes.filter(node=>node.kind==='text'&&(
+        node.sourceAttributes['data-text-overflow']==='true'||node.bounds.x<-.5||node.bounds.y<-.5||
+        node.bounds.x+node.bounds.width>1920.5||node.bounds.y+node.bounds.height>1080.5
+      )).length;
+      return clipped*1000+materialPresentationCollisions(resolved).length;
+    };
+    const weightedRisk=paintRisk(composed.svg);
+    let fallback=false,selectedRisk=weightedRisk;
+    if(weightedRisk){
+      // One bounded recovery through the same composer: its existing trials
+      // may find a safer scale from the original baseline. Equal safety keeps
+      // the demand-driven result; source facts and export gates stay intact.
+      const recovered=composeLocked407FPortableSvg({
+        ...initialScene,autoYearWeights:undefined,composedAxis:undefined
+      },compositionOptions);
+      const recoveredRisk=paintRisk(recovered.svg);
+      if(recoveredRisk<weightedRisk){
+        composed=recovered;fallback=true;selectedRisk=recoveredRisk;
+        if(!composed.scene.composedAxis){
+          composed.scene={...composed.scene,composedAxis:{...initialScene.composedAxis,
+            segmentWeights:initialScene.composedAxis.segmentWeights.map(({id})=>({id,weight:1}))}};
+        }
+      }
+    }
+    composed.scene={...composed.scene,autoYearAllocation:{
+      fallback,reason:fallback?'weighted-paint-risk':null,weightedRisk,selectedRisk,
+      adaptive:!!composed.scene.autoYearWeights
+    }};
+  }
   const scene=composed.scene;
   const svg=injectRootAttributes(composed.svg,{...founderContractAttributes(),"data-founder-serializer":FOUNDER_PRESENTATION_SERIALIZER,"data-founder-default-background":FOUNDER_PRESENTATION_DEFAULTS.background,"data-founder-canvas":"1920x1080"});
   return{
