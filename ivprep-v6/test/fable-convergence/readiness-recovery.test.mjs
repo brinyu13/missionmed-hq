@@ -99,6 +99,7 @@ test('real device control verifies exact switched capture and microphone; never 
 test('readiness error is outside the video overlay and oversized preflight controls remain scrollable',()=>{
   for(const source of [room,calibration])assert.match(source,/<\/div>\s*<p class="note readiness-status" id="enter-note" role="status" aria-live="polite">/);
   assert.match(read('styles/room.css'),/\.stage-enter \{[^}]*place-items: safe center;[^}]*overflow: auto;/);
+  assert.match(read('styles/room.css'),/\.room \.stage:has\(\.stage-enter\), \.cal \.stage:has\(\.stage-enter\) \{ min-height: 280px; \}/);
 });
 test('disposed device controls cannot publish readiness after their final awaited device refresh',async()=>{
   const {host,selects}=deviceHost(),states=[];let refreshes=0,releaseRefresh,enteredRefresh;

@@ -114,6 +114,9 @@ body[data-mode="room"] main.view { max-width: none; padding: 0; animation: none;
 /* Readiness errors belong in document flow, never inside a clipped video stage. */
 .readiness-status { margin: 0; }
 .readiness-status:empty, .readiness-status[hidden] { display: none; }
+/* Device controls must not collapse preflight below a usable video/action area.
+   This floor disappears with the readiness overlay; live composition is unchanged. */
+.room .stage:has(.stage-enter), .cal .stage:has(.stage-enter) { min-height: 280px; }
 .under-stage { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 30px; padding: 0 4px; color: var(--dim); font-size: 12.5px; }
 .under-stage .transcript-toggle { color: var(--ink2); font-weight: 700; }
 /* Once the actual frame passes readiness, the preview must remain visible. */

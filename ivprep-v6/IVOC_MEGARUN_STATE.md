@@ -534,6 +534,21 @@ the actual production route and deployment.
   not physical camera or spoken interview acceptance; actual black-frame cause
   remains undetermined. Current candidate.c8c583/aa4c1cb5 and its exact tracked
   artifact remain healthy runtime baseline before this candidate deployment.
+  Source0cd9628 deployed SUCCESS fc4a44cb-812d-4366-bfeb-710fc5196945,
+  image sha256:0320c7461746551089afafc2b02a28223b97046782641e1d20aeb2e1e8a6144a;
+  health200 and anonymous root/candidate/bootstrap401. Exact1265-file tracked
+  artifact ivoc-release-artifact-nOuTrp/source.tar, SHA256
+  cc58c46761d187b58c727534f66b78cb3687d68df1af8727e3495761d315cd60.
+  Independent correction review/source tests16/16 PASS; PRODUCT4488/deployment4490
+  normally released/read back. Current production normal Home -> Mock -> readiness
+  confirms physical FaceTime selection, enabled pickers and visible black-frame
+  error with Start withheld. It also reproduced a28px stage after picker mounting
+  on1233px short viewport. Narrow preflight-only280px floor implemented; live
+  composition remains untouched, pending deployment/visual check. No provider or
+  recording started, no physical black-frame cause inferred. Visible keyboard
+  Q2/Q3 reorder, CORE01 preview, remove/re-add originalfive and empty-pool disabled
+  launch PASS; no provider question-order compliance inferred. Current0cd artifact
+  is safe runtime baseline; previousc8 artifact is retained rollback.
 
 - **Founder live-POV override, 2026-10-02: recovery LIVE; candidate-question stall reopened fix-forward.**
   Founder confirms physical camera/mic and native multi-turn AI entry work;
