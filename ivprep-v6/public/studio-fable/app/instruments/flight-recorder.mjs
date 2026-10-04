@@ -116,7 +116,9 @@ const STATE_CLASS = { LISTENING: 'listening', ANSWERING: 'answering', THINKING: 
 export function renderFilmLanes(host, { samples = [], events = [], durationS = null, onSeek = () => {}, playback = null, label = 'Flight Recorder' } = {}) {
   const end = Math.max(1, durationS || (samples.length ? samples[samples.length - 1].t : 1));
   const pct = (t) => `${Math.max(0, Math.min(100, (t / end) * 100))}%`;
-  const width = (a, b) => `${Math.max(0.3, ((b - a + 0.5) / end) * 100)}%`;
+  // A minimum percentage would widen isolated observations across unknown
+  // intervals in long/decimated recordings. Preserve the measured geometry.
+  const width = (a, b) => `${Math.max(0, ((b - a + 0.5) / end) * 100)}%`;
   const groups = { VOICE: true, BEHAVIOR: true, EVENTS: true, GAPS: true };
   const laneRow = (name, group, inner, cls = '') => `<div class="lane ${cls}" data-group="${group}"><span class="name">${name}</span><div class="track" data-track>${inner}</div></div>`;
   const runs = (key, map) => intervalRuns(samples, key).map((r) => `<button type="button" class="run ${map(r.value)}" data-seek="${r.startT}" style="left:${pct(r.startT)};width:${width(r.startT, r.endT)}" title="${r.value} · ${fmt(r.startT)}–${fmt(r.endT)}" aria-label="${key} ${r.value} · ${fmt(r.startT)}–${fmt(r.endT)}"></button>`).join('');

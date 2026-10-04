@@ -94,8 +94,12 @@ export function intervalRuns(samples, key, value = (s) => s[key]) {
   const runs = [];
   let current = null;
   for (const s of samples) {
+    // Retained points do not prove coverage across omitted or invalid time.
+    // Match the 0.5s trace cadence with the same 0.75s continuity tolerance
+    // used by evidence coaching; never stretch a category across save gaps.
+    if (num(s.t) === null) { if (current) runs.push(current); current = null; continue; }
     const v = value(s);
-    if (current && current.value === v) { current.endT = s.t; continue; }
+    if (current && current.value === v && s.t > current.endT && s.t - current.endT <= 0.75) { current.endT = s.t; continue; }
     if (current) runs.push(current);
     current = { value: v, startT: s.t, endT: s.t };
   }

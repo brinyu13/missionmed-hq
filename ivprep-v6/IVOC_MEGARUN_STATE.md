@@ -16,6 +16,28 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- Smile-coverage source4bd600ab62171995fb0dae7431b4e208866d5419 LIVE
+  SUCCESScc372122-0dff-4c53-8c44-ebbc5b6ff6f5, image
+  sha256:63e8bc4a87cf03f8f84a66ea939e78de50791ab08c67d5288007dc9b5bf5c453.
+  Exact1268-file filtered tracked artifactcagO7L/source.tar,
+  SHAa58f73ea24e23a1a8041fe5863fae36db93070006c552bffbfe273efff1f353e.
+  Health200/anonymous root,candidate,bootstrap401. Authenticated cold savedc7fe
+  Results preserves1smile/1listening; normalHome -> Review24/24 -> latest1ca
+  Results/fullAnalytics -> pausedFilm preserves positive1smile/neutral pace.
+  No new physical/audible claim. PRODUCT4509 and deployment4510 normally
+  released/remotely read back. Prior exactf5d/dc0/image81c2/artifactXhtk5x
+  preserved rollback; root unpromoted. Full142/live core acceptance remains open.
+- 2026-10-04 independent R035/R043 actualproducer1201 alternating detector frames
+  -> seal601 retained points reproduced false continuous hands/framing Film bands
+  across omitted intervals. Categorical runs now split invalid/non-forward/>0.75s
+  time; renderer no longer widens single0.5s observations to0.3% of recording.
+  Three regressions FAIL before/PASS after;50 affected checks PASS. Hand teaching
+  percentages, native seek buttons/2s lead-in, clock, recorder/teardown, audio,
+  auth/privacy and unchanged512KiB persistence budget preserved. Exact5-file
+  PRODUCT4511 maintained; independent source review PASS/noP0/P1, including CSS
+  width/seek/cleanup boundaries. Live deployment/visual acceptance pending.
+  Current rollback4bd600a/cc372122/image63e8bc/artifactcagO7L. No fixtures in
+  production, device/provider/session/data changes or blanket parity claim.
 - 2026-10-04 independent actual producer -> trace -> seal -> cold review found
   R034/R050 P1: one valid SETUP zero followed by24 unavailable ANSWERING frames
   produced smile correction. Producer correctly separates cumulative counts

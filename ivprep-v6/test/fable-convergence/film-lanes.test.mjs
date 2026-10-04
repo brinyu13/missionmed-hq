@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {renderFilmLanes} from '../../public/studio-fable/app/instruments/flight-recorder.mjs';
 
-function fixture(){
+function fixture({samples:inputSamples,durationS=23.161}={}){
   const listeners=new Map(),seeks=[],clock={},heads=[];
   const context=new Proxy({}, {get:(_target,key)=>key==='fillStyle'||key==='font'?undefined:()=>{},set:()=>true});
   const canvas={clientWidth:200,clientHeight:40,getContext:()=>context};
@@ -12,8 +12,8 @@ function fixture(){
   const playback={currentTime:0,addEventListener:(name,fn)=>listeners.set('video:'+name,fn),removeEventListener:(name,fn)=>{if(listeners.get('video:'+name)===fn)listeners.delete('video:'+name);}};
   const priorDocument=globalThis.document,priorRatio=globalThis.devicePixelRatio;
   globalThis.document={createElement:()=>({style:{}})};globalThis.devicePixelRatio=1;
-  const samples=[{t:14.8,hands:'RIGHT',state:'ANSWERING',presence:'TRACKED',signalGap:false},{t:16,hands:'RIGHT',state:'ANSWERING',presence:'TRACKED',signalGap:false}];
-  const lanes=renderFilmLanes(host,{samples,events:[{t:6,kind:'smile',label:'Smile pattern'}],durationS:23.161,playback,onSeek:t=>seeks.push(t)});
+  const samples=inputSamples||[{t:14.8,hands:'RIGHT',state:'ANSWERING',presence:'TRACKED',signalGap:false},{t:15.3,hands:'RIGHT',state:'ANSWERING',presence:'TRACKED',signalGap:false}];
+  const lanes=renderFilmLanes(host,{samples,events:[{t:6,kind:'smile',label:'Smile pattern'}],durationS,playback,onSeek:t=>seeks.push(t)});
   const click=(element,clientX=236)=>listeners.get('click')({target:{closest:selector=>selector==='[data-seek]'?element:selector==='[data-track]'?track:null},clientX});
   return{host,listeners,seeks,click,lanes,restore(){lanes.destroy();if(priorDocument===undefined)delete globalThis.document;else globalThis.document=priorDocument;if(priorRatio===undefined)delete globalThis.devicePixelRatio;else globalThis.devicePixelRatio=priorRatio;}};
 }
@@ -26,7 +26,18 @@ test('continuous Film marks use native buttons and seek from their own start wit
     assert.equal(f.seeks[0],12.8);
     assert.equal(run[1],'button');assert.match(run[2],/type="button"/);
     assert.match(run[2],/aria-label="hands RIGHT/);
-    assert.ok(run[2].includes(`left:${14.8/23.161*100}%;width:${(16-14.8+.5)/23.161*100}%`));
+    assert.ok(run[2].includes(`left:${14.8/23.161*100}%;width:${(15.3-14.8+.5)/23.161*100}%`));
+  }finally{f.restore();}
+});
+test('decimated observed bands do not visually fill unknown intervals with minimum-percent widths',()=>{
+  const samples=Array.from({length:601},(_,t)=>({t,hands:'NONE',presence:'TRACKED',state:'ANSWERING',speaking:false,signalGap:false}));
+  const f=fixture({samples,durationS:600});
+  try{
+    const bands=[...f.host.innerHTML.matchAll(/<button[^>]*class="run (none|tracked)"[^>]*style="left:([^;]+);width:([^"]+)"/g)];
+    assert.equal(bands.length,1202);
+    assert.ok(bands.every(b=>Number.parseFloat(b[3])<=.5/600*100));
+    assert.ok(bands.filter(b=>b[1]==='none').every((b,i,list)=>i===list.length-1||Number.parseFloat(b[2])+Number.parseFloat(b[3])<Number.parseFloat(list[i+1][2])));
+    assert.doesNotMatch(f.host.innerHTML,/hands NONE · 00:00–10:00/);
   }finally{f.restore();}
 });
 test('existing event lead-in, exact empty-track scrubbing, start clamp and cleanup remain unchanged',()=>{

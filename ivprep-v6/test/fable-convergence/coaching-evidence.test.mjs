@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {traceSample} from '../../public/studio-fable/app/model/trace-reducer.mjs';
+import {traceSample,intervalRuns} from '../../public/studio-fable/app/model/trace-reducer.mjs';
 import {deriveDebrief} from '../../public/studio-fable/app/model/teaching.mjs';
 import {projectDerivedPriority,projectSavedAttempt} from '../../public/studio-fable/app/adapters/saved-review.mjs';
 import {SessionController} from '../../public/studio-fable/app/controller/session-controller.mjs';
@@ -33,6 +33,29 @@ async function currentFrameMapper() {
   const start=source.indexOf('  mapFrame('),method=source.slice(start,source.indexOf('\n  clearOverlay()',start));
   return Function('COACHING_CONFIG','mapToLiveScale','CALIBRATION',helpers+'return {'+method+'};')(COACHING_CONFIG,mapToLiveScale,CALIBRATION).mapFrame;
 }
+test('actual alternating detector coverage stays discontinuous after save decimation',async()=>{
+  const mapFrame=await currentFrameMapper();
+  const context={t:0,latest:null,latestAudioSpeaking:false,faceBaselineState:{available:false,capturing:false},wordTimingState:{reason:'WAITING_FOR_TIMED_WORDS'}};
+  const samples=Array.from({length:1201},(_,i)=>{
+    context.t=i*500;const available=i%2===0;
+    const frame=mapFrame.call(context,{metrics:{HEAD_FACE:{facePresent:available},BODY_HANDS:{available,hands:{available,left:{present:false},right:{present:false},bothPresent:false}}}},{conversation:{state:'ANSWERING'}});
+    context.latest=frame;return traceSample(frame);
+  });
+  assert.equal(samples.filter(s=>s.hands==='UNAVAILABLE').length,600);
+  const cold=JSON.parse(JSON.stringify(sealDerivedEvidence({samples,events:[]})));
+  assert.equal(cold.retention.decimated,true);assert.equal(cold.samples.length,601);
+  for(const key of ['hands','presence','state','signalGap']){
+    const runs=intervalRuns(cold.samples,key);
+    assert.equal(runs.length,601);
+    assert.ok(runs.every(r=>r.startT===r.endT));
+  }
+});
+test('categorical evidence runs reject unknown or non-forward time without bridging gaps',()=>{
+  const samples=[{t:0,hands:'NONE'},{t:.5,hands:'NONE'},{t:2,hands:'NONE'},
+    {t:NaN,hands:'NONE'},{t:3,hands:'NONE'},{hands:'NONE'},
+    {t:4,hands:'NONE'},{t:3.5,hands:'NONE'},{t:3.5,hands:'NONE'},{t:4,hands:'NONE'}];
+  assert.deepEqual(intervalRuns(samples,'hands').map(r=>[r.startT,r.endT]),[[0,.5],[2,2],[3,3],[4,4],[3.5,3.5],[3.5,4]]);
+});
 test('actual held smile zero cannot become absence coaching after live detection is unavailable',async()=>{
   const mapFrame=await currentFrameMapper();
   const context={t:0,latest:null,latestAudioSpeaking:false,faceBaselineState:{available:true,capturing:false},wordTimingState:{reason:'WAITING_FOR_TIMED_WORDS'}};
