@@ -13,6 +13,8 @@ import { ZoomAttendanceProvider, createCycleBoundZoomClassifier } from './domain
 import { ZoomS2SClient, parseZoomMeetingRules } from './providers/zoom-s2s-client.mjs';
 import { authenticate, requireRole } from './security/auth.mjs';
 import { PreviewStore, SupabaseRestStore } from './storage/supabase-rest.mjs';
+import { createPartnerCostRouter } from './partner-cost-sharing/router.mjs';
+import { environmentPartnerConfig, environmentPartnerStore } from './partner-cost-sharing/store.mjs';
 
 const modulePath = fileURLToPath(import.meta.url);
 const here = path.dirname(modulePath);
@@ -22,6 +24,7 @@ function environmentConfig() {
   const production = process.env.NODE_ENV === 'production';
   return {
     production,
+    partnerCostSharing: environmentPartnerConfig(),
     localAuth: process.env.MISSIONACCOUNTS_AUTH_MODE === 'local',
     issuer: process.env.MISSIONACCOUNTS_JWT_ISSUER || 'https://missionmedinstitute.com/wp-json/missionmed/v1/missionaccounts',
     audience: process.env.MISSIONACCOUNTS_JWT_AUDIENCE || 'missionaccounts',
@@ -256,9 +259,11 @@ export function createMissionAccountsServer({
   stripeGateway = environmentStripeGateway(),
   notificationGateway = environmentNotificationGateway(),
   zoomProvider = null,
+  partnerStore = undefined,
   publicDir = defaultPublicDir,
   now = () => new Date(),
 } = {}) {
+  const partnerCostRoute = createPartnerCostRouter({ config, authenticate, memberStore: partnerStore === undefined ? (config.partnerCostSharing?.prototype ? null : environmentPartnerStore()) : partnerStore });
   zoomProvider ||= environmentZoomProvider({ cycleProvider: () => store.billingCycles() });
   const zoomConfiguredAtStartup = typeof zoomProvider?.isConfigured === 'function'
     ? zoomProvider.isConfigured() === true
@@ -474,6 +479,7 @@ export function createMissionAccountsServer({
   }
 
   async function handleApi(request, response, url) {
+    if (await partnerCostRoute(request, response, url)) return;
     if (request.method === 'GET' && url.pathname === '/api/config') {
       const stripePublishableKey = String(config.stripePublishableKey || '');
       const stripeState = typeof stripeGateway?.configurationState === 'function'

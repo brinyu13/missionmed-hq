@@ -1,0 +1,202 @@
+// Sanitized historical evidence only. Source originals remain private and outside Git.
+export const RECOVERED_EXPENSES = [
+  {
+    "id": "woo",
+    "vendor": "WooCommerce Subscriptions + Memberships",
+    "amountCents": 47800,
+    "type": "pdf",
+    "description": "Installment payments and membership access rules.",
+    "period": "Jan 12, 2026 \u2013 Jan 12, 2027",
+    "invoiceNumber": "US2026-9231",
+    "category": "Core Website / WordPress",
+    "verified": true,
+    "included": true,
+    "file": "woocommmerce-invoice.pdf",
+    "sha256": "063a4e80a7c0ac3b543e60d68adb216cf84bc17933872d51bc5c7aaef55894aa"
+  },
+  {
+    "id": "elementor",
+    "vendor": "Elementor Pro",
+    "amountCents": 10556,
+    "type": "pdf",
+    "description": "Builds layouts and front-facing MissionMed pages.",
+    "period": "Dec 18, 2025 \u2013 Dec 17, 2026",
+    "invoiceNumber": "INVUS2500284493",
+    "category": "Core Website / WordPress",
+    "verified": true,
+    "included": true,
+    "file": "Elementor-Pro_invoice-ZINV01774470.pdf",
+    "sha256": "9f6ce2d6bf8e0e103f9c52dbb231ba36460e7b23e07fd8d168898a3386c05bf6"
+  },
+  {
+    "id": "learndash",
+    "vendor": "LearnDash + ProPanel",
+    "amountCents": 23840,
+    "type": "pdf",
+    "description": "Organizes courses and learning progress.",
+    "period": "Purchased Nov 19, 2025",
+    "invoiceNumber": "1066299",
+    "category": "Core Website / WordPress",
+    "verified": true,
+    "included": true,
+    "file": "Learndash_invoice_1066299-2.pdf",
+    "sha256": "6ec90acbe33960ea74ba8669e60c7371a48c685abc7cee38c9660a821c1ebc58"
+  },
+  {
+    "id": "formidable",
+    "vendor": "Formidable Forms",
+    "amountCents": 39900,
+    "type": "image",
+    "description": "Collects applications, paperwork, and form submissions.",
+    "period": "Purchased Dec 28, 2025",
+    "invoiceNumber": "28323192",
+    "category": "Core Website / WordPress",
+    "verified": true,
+    "included": true,
+    "file": "Formidable_Invoice_missionmedinstitute_28323192_-1.png",
+    "sha256": "b7e6c10d6d2b94e400a5febd369aa713445b4de68aa631ca5e364e2393bbcc57"
+  },
+  {
+    "id": "kinsta-dec",
+    "vendor": "Kinsta \u00b7 December",
+    "amountCents": 3500,
+    "type": "pdf",
+    "description": "Managed hosting keeps the WordPress website available.",
+    "period": "Dec 3, 2025 \u2013 Jan 3, 2026",
+    "invoiceNumber": "20251218069175",
+    "category": "Hosting / Infrastructure",
+    "verified": true,
+    "included": true,
+    "file": "kinsta_20251218069175.pdf",
+    "sha256": "b8160c09089e043babc491a82edd38c98051802ca4e3c9aa087af26b8d294f82"
+  },
+  {
+    "id": "kinsta-jan",
+    "vendor": "Kinsta \u00b7 January",
+    "amountCents": 3500,
+    "type": "pdf",
+    "description": "Managed hosting keeps the WordPress website available.",
+    "period": "Jan 3 \u2013 Feb 3, 2026",
+    "invoiceNumber": "20260103005214",
+    "category": "Hosting / Infrastructure",
+    "verified": true,
+    "included": true,
+    "file": "kinsta_20260103005214.pdf",
+    "sha256": "581e9fc8e9c10dbc31036b5b049a0d3622dcea4253816f55f36bee35112869be"
+  },
+  {
+    "id": "kinsta-feb",
+    "vendor": "Kinsta \u00b7 February",
+    "amountCents": 3500,
+    "type": "pdf",
+    "description": "Managed hosting keeps the WordPress website available.",
+    "period": "Feb 3 \u2013 Mar 3, 2026",
+    "invoiceNumber": "20260203310534",
+    "category": "Hosting / Infrastructure",
+    "verified": true,
+    "included": true,
+    "file": "kinsta_20260203310534.pdf",
+    "sha256": "a0807b014e923e069be985d04d6abcd1cbdd1c2f794b6c656669aa461b12bd50"
+  }
+];
+export const EXCLUDED_CLAIMS = [
+  {
+    "vendor": "Supabase",
+    "historicalClaimAmountCents": 8236,
+    "currency": "USD",
+    "donorDescription": "3 invoices claimed: February $25, March $25, April $32.36",
+    "donorProofLabel": "Verified",
+    "reason": "Underlying invoices not recovered",
+    "verified": false,
+    "included": false,
+    "currentPayableAmountCents": null
+  },
+  {
+    "vendor": "Railway",
+    "historicalClaimAmountCents": 2022,
+    "currency": "USD",
+    "donorDescription": "2 invoices claimed",
+    "donorProofLabel": "Verified",
+    "reason": "Underlying invoices not recovered",
+    "verified": false,
+    "included": false,
+    "currentPayableAmountCents": null
+  },
+  {
+    "vendor": "Claude / Anthropic",
+    "historicalClaimAmountCents": 20000,
+    "currency": "USD",
+    "donorDescription": "Max 5x plan; 2 months claimed",
+    "donorProofLabel": "Screenshot needed",
+    "reason": "Underlying screenshot/invoice not recovered",
+    "verified": false,
+    "included": false,
+    "currentPayableAmountCents": null
+  },
+  {
+    "vendor": "ChatGPT Pro",
+    "historicalClaimAmountCents": 20000,
+    "currency": "USD",
+    "donorDescription": "Pro subscription claimed",
+    "donorProofLabel": "Screenshot",
+    "reason": "Underlying screenshot not recovered",
+    "verified": false,
+    "included": false,
+    "currentPayableAmountCents": null
+  },
+  {
+    "vendor": "OpenAI API",
+    "historicalClaimAmountCents": 3000,
+    "currency": "USD",
+    "donorDescription": "Credit purchase claimed",
+    "donorProofLabel": "Invoice",
+    "reason": "Underlying invoice not recovered",
+    "verified": false,
+    "included": false,
+    "currentPayableAmountCents": null
+  },
+  {
+    "vendor": "OpenAI Code Developer Usage Overage",
+    "historicalClaimAmountCents": 48000,
+    "currency": "USD",
+    "donorDescription": "12 purchases at $40 claimed",
+    "donorProofLabel": "Bank statement; upload pending",
+    "reason": "Underlying bank evidence not recovered",
+    "verified": false,
+    "included": false,
+    "currentPayableAmountCents": null
+  },
+  {
+    "vendor": "Google AI Ultra",
+    "historicalClaimAmountCents": 24999,
+    "currency": "USD",
+    "donorDescription": "Gemini Ultra; 1 month claimed",
+    "donorProofLabel": "Screenshot needed",
+    "reason": "Underlying screenshot/invoice not recovered",
+    "verified": false,
+    "included": false,
+    "currentPayableAmountCents": null
+  },
+  {
+    "vendor": "Cloudflare",
+    "historicalClaimAmountCents": null,
+    "currency": "USD",
+    "donorDescription": "R2 + streaming claimed",
+    "donorProofLabel": "Pending / TBD",
+    "reason": "No numeric amount or underlying invoice",
+    "verified": false,
+    "included": false,
+    "currentPayableAmountCents": null
+  },
+  {
+    "vendor": "Flow",
+    "historicalClaimAmountCents": null,
+    "currency": "USD",
+    "donorDescription": "AI automation claimed",
+    "donorProofLabel": "Pending / TBD",
+    "reason": "No numeric amount or underlying invoice",
+    "verified": false,
+    "included": false,
+    "currentPayableAmountCents": null
+  }
+];
