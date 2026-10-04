@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mission Residency Zelle Payment Verifier
  * Description: Fail-closed Mission Residency Zelle verification with administrator and automated-email providers.
- * Version: 2026.10.04.6
+ * Version: 2026.10.04.7
  */
 
 defined( 'ABSPATH' ) || exit;
@@ -759,6 +759,16 @@ function mm_mr_zelle_customer_mail_callback( $callback, $email ) {
 	return function ( ...$args ) use ( $callback ) { return mm_mr_zelle_protected_mail( $callback, ...$args ); };
 }
 add_filter( 'woocommerce_mail_callback', 'mm_mr_zelle_customer_mail_callback', 20, 2 );
+
+function mm_mr_zelle_order_detail_styles() {
+	// The inherited Woo table skin uses light headings on a light surface.
+	// Restrict this correction to authorized MR Zelle order-received views.
+	if ( ! function_exists( 'is_order_received_page' ) || ! is_order_received_page() || ! mm_mr_zelle_authorized_order() ) {
+		return;
+	}
+	echo '<style id="mm-zelle-order-details">.woocommerce-order-received .woocommerce-order-details,.woocommerce-order-received .woocommerce-customer-details{background:#fff!important;color:#142b35!important}.woocommerce-order-received .woocommerce-order-details :is(h2,table,th,td,a,span,strong),.woocommerce-order-received .woocommerce-customer-details :is(h2,address,p,span){color:#142b35!important}.woocommerce-order-received .woocommerce-order-details :is(table,th,td){background:#fff!important}.woocommerce-order-received .woocommerce-order-overview,.woocommerce-order-received .woocommerce-order-overview li,.woocommerce-order-received .woocommerce-order-overview strong{color:#142b35!important}.woocommerce-order-received .woocommerce-order-details a{text-decoration:underline}.woocommerce-order-received .woocommerce-order-details a:focus-visible{outline:3px solid #142b35;outline-offset:3px}</style>';
+}
+add_action( 'wp_head', 'mm_mr_zelle_order_detail_styles', 100 );
 
 add_action(
 	'wp',

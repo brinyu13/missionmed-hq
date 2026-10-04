@@ -23,6 +23,7 @@ function current_user_can($cap) { return $cap === 'manage_woocommerce' && $GLOBA
 function get_current_user_id() { return $GLOBALS['user']; }
 function is_user_logged_in() { return get_current_user_id() > 0; }
 function get_query_var($k) { return 0; }
+function is_order_received_page() { return !empty($GLOBALS['received_page']); }
 function esc_html__($s, ...$args) { return $s; }
 function esc_html($s) { return htmlspecialchars($s); }
 function esc_url($s) { return $s; }
@@ -338,5 +339,22 @@ test('final provider failure enters review and stops scheduling', function() {
     check(run($o)==='needs_review','provider exhaustion reviewed');
     check(!wc_get_order($o->id)->is_paid() && $GLOBALS['completions']===0,'failure stays unpaid');
     check(!isset($GLOBALS['cron'][$o->id]),'failure retries bounded');
+});
+test('order detail contrast skin is authorized MR Zelle received-page only', function() {
+    $o=order(); $_REQUEST=['order_id'=>$o->id,'key'=>$o->get_order_key()];
+    $GLOBALS['received_page']=false;
+    ob_start(); mm_mr_zelle_order_detail_styles(); $css=ob_get_clean();
+    check($css==='','ordinary routes untouched');
+    $GLOBALS['received_page']=true; $_REQUEST['key']='wrong';
+    ob_start(); mm_mr_zelle_order_detail_styles(); $css=ob_get_clean();
+    check($css==='','unauthorized orders untouched');
+    $_REQUEST['key']=$o->get_order_key();
+    ob_start(); mm_mr_zelle_order_detail_styles(); $css=ob_get_clean();
+    check(str_contains($css,'mm-zelle-order-details')&&str_contains($css,'#142b35'),'authorized Zelle table readable');
+    check(!str_contains($css,'.mmz-shell')&&!str_contains($css,'footer'),'panel and global footer untouched');
+    $o->payment='stripe'; $o->save();
+    ob_start(); mm_mr_zelle_order_detail_styles(); $css=ob_get_clean();
+    check($css==='','Stripe untouched');
+    $GLOBALS['received_page']=false;
 });
 echo "SYNTHETIC ONLY: {$GLOBALS['cases']} cases, {$GLOBALS['assertions']} assertions passed. Live financial and entitlement acceptance NOT established.\n";
