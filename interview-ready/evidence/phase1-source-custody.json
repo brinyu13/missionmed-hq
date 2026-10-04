@@ -1,0 +1,15 @@
+{
+  "observedAt": "2026-10-04T14:02:27.864988+00:00",
+  "implementationCommit": "9451f72bb7acdd08b5765e2821330626aebc4133",
+  "remoteBranch": "codex/ir-interview-ready-0002-storyforge",
+  "remoteHead": "9451f72bb7acdd08b5765e2821330626aebc4133",
+  "pushVerified": true,
+  "bundleSha256": "305b8a00c5b7765a2750e2b59aae7d3c36c3b84857e2322fbbdf94706159be80",
+  "scope": "Product frontend/data/build/evidence and scoped handoff only",
+  "preservedUntracked": [
+    "_AI_INPUTS/"
+  ],
+  "protectedDeploymentPerformed": false,
+  "independentVerificationPerformed": false,
+  "repositoryNotice": "GitHub reported four existing default-branch dependency vulnerabilities: two high, one moderate, one low. No dependency was introduced or changed here. Exact protected runtime dependency exposure still needs release review; no broad dependency change was attempted."
+}
