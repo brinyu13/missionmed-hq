@@ -16,6 +16,33 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 CURRENT RUNTIME / DEVICE-STATE POV FIX VERIFIED (PRODUCT4581):
+  source b745a31bc156158c8cc5c0de4d6bfc2a4811d98a, SUCCESS deployment
+  3f15a2bb-c639-4888-a2bd-ddcc9efe1b76, image
+  sha256:916208aae87b80038cb625d0e64804789aefdfe51eb1b3df1a7c30c51f417a6f.
+  Exact 1280-file ztixJD/source.tar SHA
+  bcdf8835575ef7a9dfffd37e0cd7ef6e4c90071003d8cb1c7bfcb5342b92d5d0.
+  Clean pushed source; 355 affected +36 behavior checks PASS; independent narrow
+  review PASS. Health200; anonymous root/candidate/bootstrap401. Fresh cold Home
+  ->Practice ->Room ->real visible camera ->REC ->camera and microphone selectors
+  reacquire the physical inputs ->54s Finish/save ->Results ->Film Room ->visible
+  playback after both replacements ->cold reload ->visible replay advances to47s
+  PASS subset. Attempt 460f6b99-f321-471f-9db2-788f6c7176f4. Persisted conversation
+  lane now continues LISTENING/ANSWERING/THINKING/PAUSE through both changes and
+  finish, never SETUP; retained voice/vision evidence and seek controls remain.
+  This ratchets the observed media/state/save/cold-video subset only: same-device
+  reacquisition is not alternate-hardware proof; ambient speech is not a genuine
+  residency answer; no native multi-turn/barge-in or audible HEAR BOTH is claimed.
+  Full R027/current journeys and all142 live parity remain open; root unpromoted.
+  PRODUCT4577 and SHARED4579 normally released/provider-confirmed. Exact a13/0d7
+  (7moLeB) and237/a893 (tRwoU0) runtime rollback artifacts retained without source
+  rollback. Independent next-action review found executable R069: current Fable
+  toWizard hardcodes MissionMed and Room lacks approved simulated environment
+  profile binding; Advanced-only preservation does not complete this boundary.
+  NEXT: bounded R069 Customize selection ->stable wizard/Durable context ->Room
+  presentation profile, retaining the same engine; continue all other open
+  capability/role/context and genuine speech/replay acceptance. Goal remains active.
+
 - 2026-10-04 R027 ACTUAL PRODUCTION MEDIA POV / FIX-FORWARD (PRODUCT4577):
   deployed a13a7f7d78a63e727c5cbcc43b3ef9ce239405a9, SUCCESS
   0d7caaa3-7ea6-4e6c-9091-3df0806c9121, image
