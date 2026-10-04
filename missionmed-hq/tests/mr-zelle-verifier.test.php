@@ -160,6 +160,16 @@ test('strict amount parsing', function() {
     foreach (['1'=>'1.00', '1.2'=>'1.20', '1.23'=>'1.23', '0'=>'0.00'] as $in=>$expected) check(mm_mr_zelle_amount($in) === $expected, 'exact decimals');
     foreach (['1.001','01.00','1e2','-1','NaN','1,000.00'] as $in) check(mm_mr_zelle_amount($in) === '', 'reject noncanonical amount');
 });
+test('closed Zelle orders cannot claim enrollment or invite another payment', function() {
+    $o=order();
+    foreach (['cancelled','failed','refunded'] as $status) { $o->status=$status; check(mm_mr_zelle_is_inactive_order($o), 'closed exact Zelle order'); }
+    foreach (['on-hold','pending','processing','completed'] as $status) { $o->status=$status; check(!mm_mr_zelle_is_inactive_order($o), 'pending and paid paths unchanged'); }
+    $o->status='cancelled';$o->payment='stripe';check(!mm_mr_zelle_is_inactive_order($o), 'Stripe untouched');
+    $o->payment='bacs';$o->save();$_REQUEST=['order_id'=>$o->id];$GLOBALS['user']=$o->user;
+    ob_start();mm_mr_zelle_render_inactive($o->id);$body=ob_get_clean();
+    check(str_contains($body,'THIS ORDER IS NOT ACTIVE') && str_contains($body,'Do not send a payment'), 'truthful closed state');
+    check(!str_contains($body,"YOU'RE IN") && !str_contains($body,'ENTER MATRIX'), 'no false activation CTA');
+});
 test('exact supported identities', function() {
     $o = order(); check(mm_mr_zelle_order_identity($o)['course_id'] === 3646, 'Bootcamp mapping');
     $o->items = [new FakeItem(3576,5865)]; check(mm_mr_zelle_order_identity($o)['course_id'] === 5227, 'Complete mapping');

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mission Residency Zelle Payment Verifier
  * Description: Fail-closed Mission Residency Zelle verification with administrator and automated-email providers.
- * Version: 2026.10.04.3
+ * Version: 2026.10.04.4
  */
 
 defined( 'ABSPATH' ) || exit;
@@ -626,6 +626,21 @@ function mm_mr_zelle_render_queue() {
 	echo '</tbody></table></div>';
 }
 
+function mm_mr_zelle_is_inactive_order( $order ) {
+	return (bool) mm_mr_zelle_order_identity( $order ) && ! $order->is_paid() && $order->has_status( array( 'cancelled', 'failed', 'refunded' ) );
+}
+
+function mm_mr_zelle_render_inactive( $order_id ) {
+	static $rendered = false;
+	$order = wc_get_order( absint( $order_id ) );
+	$authorized = mm_mr_zelle_authorized_order();
+	if ( $rendered || ! mm_mr_zelle_is_inactive_order( $order ) || ! $authorized || $authorized->get_id() !== $order->get_id() ) {
+		return;
+	}
+	$rendered = true;
+	echo '<style>.woocommerce-order-received .mmps-shell,.woocommerce-order-received .woocommerce-thankyou-order-received,.woocommerce-order-received a[href*="/member-dashboard/"]{display:none!important}.woocommerce .mmz-inactive{max-width:880px;margin:24px auto;padding:28px;border:2px solid #65737c;border-radius:12px;background:#0d1d24;color:#fff}.woocommerce .mmz-inactive h2,.woocommerce .mmz-inactive p{color:#fff!important}.woocommerce .mmz-inactive a{color:#f6d79a!important;text-decoration:underline}.mmz-inactive a:focus-visible{outline:3px solid #fff;outline-offset:3px}</style><section class="mmz-inactive" role="status"><h2>THIS ORDER IS NOT ACTIVE</h2><p>This order is closed or could not be completed. It does not confirm enrollment or activate program access. Do not send a payment for this order.</p><p>For help with your enrollment, <a href="' . esc_url( home_url( '/contact/' ) ) . '">contact MissionMed</a>.</p></section>';
+}
+
 function mm_mr_zelle_render_verified_badge( $order_id ) {
 	static $rendered = false;
 	if ( $rendered || ! function_exists( 'wc_get_order' ) ) {
@@ -749,6 +764,28 @@ add_action(
 	function () {
 		$order = mm_mr_zelle_authorized_order();
 		if ( ! $order ) {
+			// Do not let the older generic confirmation disclose a protected order
+			// or claim enrollment when its customer authorization is invalid.
+			$received_id = absint( get_query_var( 'order-received' ) );
+			if ( $received_id && mm_mr_zelle_order_identity( wc_get_order( $received_id ) ) ) {
+				remove_action( 'woocommerce_before_thankyou', 'mmps_render_order', 1 );
+				remove_action( 'woocommerce_thankyou', 'mmps_render_order', 1 );
+				remove_action( 'wp_footer', 'mmps_footer_fallback', 5 );
+			}
+			return;
+		}
+		if ( mm_mr_zelle_is_inactive_order( $order ) ) {
+			remove_action( 'woocommerce_before_thankyou', 'mmps_render_order', 1 );
+			remove_action( 'woocommerce_thankyou', 'mmps_render_order', 1 );
+			remove_action( 'wp_footer', 'mmps_footer_fallback', 5 );
+			if ( function_exists( 'WC' ) && WC()->payment_gateways() ) {
+				$gateways = WC()->payment_gateways()->payment_gateways();
+				if ( isset( $gateways['bacs'] ) ) {
+					remove_action( 'woocommerce_thankyou_bacs', array( $gateways['bacs'], 'thankyou_page' ) );
+				}
+			}
+			add_action( 'woocommerce_before_thankyou', 'mm_mr_zelle_render_inactive', 1, 1 );
+			add_action( 'woocommerce_thankyou', 'mm_mr_zelle_render_inactive', 1, 1 );
 			return;
 		}
 		if ( $order->is_paid() && 'verified' === (string) $order->get_meta( '_mm_zelle_state', true ) ) {
