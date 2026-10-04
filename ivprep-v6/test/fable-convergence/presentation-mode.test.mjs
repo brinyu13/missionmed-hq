@@ -8,7 +8,7 @@ import {toWizard,defaultSettings,resolveMockQuestionTarget} from '../../public/s
 
 const source=readFileSync(new URL('../../public/studio-fable/app/room.mjs',import.meta.url),'utf8');
 const section=(from,to)=>source.slice(source.indexOf(from),source.indexOf(to,source.indexOf(from)));
-function roomFixture(density,{mode='practice',target=null}={}){
+function roomFixture(density,{mode='practice',target=null,goal='Guided Mock IV Practice',focus='',priority=null}={}){
   const elements=new Map(),buttons=['interview','coached'].map(value=>({dataset:{density:value},disabled:false,setAttribute(){}}));
   const element=id=>{if(!elements.has(id))elements.set(id,{dataset:{},hidden:false,disabled:false,textContent:'',remove(){},setAttribute(){}});return elements.get(id);};
   const room=element('room');room.querySelectorAll=()=>buttons;
@@ -16,13 +16,13 @@ function roomFixture(density,{mode='practice',target=null}={}){
   element('reset-density').addEventListener=(_type,fn)=>{handler.reset=fn;};
   const events=[],samples=[{t:1,vol:4,signalGap:false}];let filed=null,resolveCamera,launched=null,contextInput=null;
   const plan=[{question_id:'CORE-01',canonical_text:'Tell me about yourself.'}];
-  const setup=vm.runInNewContext(section('  const cfg=session.config||{};',"  let density=" )+'\n({settings,targetQuestions})',{session:{config:{targetQuestions:target},settings:defaultSettings()},mode,plan,defaultSettings,resolveMockQuestionTarget});
+  const setup=vm.runInNewContext(section('  const cfg=session.config||{};',"  let density=" )+'\n({settings,targetQuestions})',{session:{config:{targetQuestions:target},settings:{...defaultSettings(),goal,practiceFocus:focus,pressure:true}},mode,plan,defaultSettings,resolveMockQuestionTarget});
   const {settings,targetQuestions}=setup;
   const camera=new Promise(resolve=>{resolveCamera=resolve;});
   const context={density,initialPresentationMode:null,starting:false,started:false,saving:false,finished:false,disposed:false,deviceSwitching:false,
     current:()=>true,$:element,room,main:{querySelectorAll:()=>[],querySelector:()=>({remove(){}})},
     controller:{video:{},stream:{},elapsed:2,startSession:async input=>{launched=input;return{interviewer:{}};},finishSession:async({record})=>{filed=record;return{saveError:'retry retained'};}},
-    engine:{events:{addEventListener(){},removeEventListener(){}},personalCalibration:null},settings,session:{},mode,targetQuestions,plan,
+    engine:{events:{addEventListener(){},removeEventListener(){}},personalCalibration:null},settings,session:{priority},mode,targetQuestions,plan,
     awaitVisibleCamera:()=>camera,toWizard,liveContext:async input=>{contextInput=input;return{};},observer:null,callbacks:{},onFrame(){},onState(){},onWord(){},
     mark:(kind,label)=>events.push({t:2,kind,label}),events,turns:[],saveRecord:null,at:()=>2,renderPlan(){},recorder:{setData(){},tick(){}},history:{slice:()=>samples},
     timer:null,setInterval:()=>1,resetIdle(){},disposeDevices:null,state:{preferences:{}},commit(){},saveVisibility(){},
@@ -35,6 +35,19 @@ function roomFixture(density,{mode='practice',target=null}={}){
   return {context,buttons,events,samples,settings,releaseCamera:()=>resolveCamera(),start:()=>context.start(),finish:()=>context.finish('finished'),
     select:value=>handler.density({target:{closest:()=>buttons.find(b=>b.dataset.density===value)}}),reset:()=>handler.reset(),filed:()=>filed,launched:()=>launched,contextInput:()=>contextInput};
 }
+test('actual Room passes the chosen goal and displayed or edited Guided priority into the same Start contract',async()=>{
+  for(const goal of ['Full IV Simulation','Guided Mock IV Practice','Individual Question']){
+    for(const focus of ['', 'name my contribution']){
+      const f=roomFixture('interview',{mode:'mock',target:12,goal,focus,priority:'finish the example'}),pending=f.start();f.releaseCamera();await pending;
+      const launched=f.launched();assert.equal(launched.wizard.goal,goal);
+      assert.equal(launched.targetQuestions,goal==='Individual Question'?1:12);
+      assert.equal(launched.wizard.pressurePractice,goal!=='Individual Question');
+      assert.equal(f.contextInput().wizard,launched.wizard);
+      if(goal==='Guided Mock IV Practice')assert.ok(launched.wizard.focus.includes(focus||'finish the example'));
+      else assert.equal(launched.wizard.focus,undefined);
+    }
+  }
+});
 test('actual Room resolves and pins Mock target through context, Start and sealed saved settings',async()=>{
   for(const target of [null,1,12,30]){
     const f=roomFixture('interview',{mode:'mock',target}),pending=f.start();f.releaseCamera();await pending;

@@ -16,6 +16,23 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 R004 goal/focus correction: bounded read-only review proved missing
+  three-goal selection and ignored editable/displayed focus. Existing Advanced
+  settings now expose canonical Full/Guided/Individual goals and a200-character
+  single-line focus. Guided alone sends edited focus or the displayed current
+  priority through the same native/Durable adapter; Full/Individual omit it.
+  Individual pins target1/pressureoff without erasing the other goals' configured
+  target. Retry retains its exact canonical goal/identity; changing goal clears
+  Retry metadata. Invalid/stale controls fail closed. Actual Room Start carries
+  the chosen goal/focus;69 affected context/Room/lifecycle/ownership regressions
+  PASS, syntax/diff PASS; independent non-builder review26 focused tests PASS,
+  no executable P0/P1. PRODUCT4531 heartbeat maintained. Existing Fable
+  composition/engine retained; no auth/schema/provider changes. UI baseline and
+  fresh authenticated visual/behavioral acceptance remain UNVERIFIED under the
+  previously established Chrome client block; no unchanged retry or root promotion.
+  R022 is a separate confirmed executable gap: project authoritative versioned
+  Admin follow-up policy into controls and trusted native instructions, not merely
+  user focus text. Continue that next; no engineering-exhausted/completion claim.
 - 2026-10-04 R006 Mock setup implementation: restores all required5/10/15/25
   duration controls plus Advanced numeric target1–30. Untouched target follows
   selected pool; explicit target is pinned through Room readiness, native context,

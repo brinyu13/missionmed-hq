@@ -27,7 +27,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   const plan=substantiveQuestionPlan(mode==='mock'?(session.mockSet||questions.filter(q=>q.core_priority).slice(0,5)):[practiceQ]);
   if(!plan.length)throw new Error('Choose at least one current interview question.');
   const cfg=session.config||{};
-  const targetQuestions=mode==='mock'?resolveMockQuestionTarget(cfg.targetQuestions,plan.length):1;
+  const targetQuestions=mode==='mock'?resolveMockQuestionTarget(cfg.targetQuestions,plan.length,{goal:session.retry?.wizard?.goal||session.settings?.goal}):1;
   const settings={...(session.settings||defaultSettings()),targetQuestions};
   let density=mode==='mock'&&!state.preferences?.densityPersisted?'interview':(state.preferences?.density||'coached');
   let initialPresentationMode=null;
@@ -188,7 +188,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     $('enter-note').textContent='Preparing your private recording…';
     try{
       await awaitVisibleCamera(controller.video,controller.stream,{isCurrent:current});
-      const wizard=toWizard(settings,{program:session.program,mode,contextSources:session.contextSources||[],retry:session.retry||null});
+      const wizard=toWizard(settings,{program:session.program,mode,contextSources:session.contextSources||[],retry:session.retry||null,priority:session.priority});
       const context=mode==='mock'?await liveContext({wizard,interviewSet:plan,targetQuestions}):null;
       if(!current())return;
       observer?.start(); // before provider callbacks; native start owns the sole opening question

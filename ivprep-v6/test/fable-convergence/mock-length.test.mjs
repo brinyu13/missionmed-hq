@@ -67,3 +67,10 @@ test('Retry starts at one without leaving an implicit target when its pool becom
     assert.equal(session.retry,null);assert.equal(session.retryOf,null);assert.equal(target,explicit??3);
   }
 });
+test('Individual Question rejects a retained target control without destroying the other goals target',()=>{
+  const marker="main.querySelector('#adv-target').addEventListener('change', ",from=source.indexOf(marker)+marker.length,to=source.indexOf('\n    });',from);
+  const cfg={targetQuestions:12},st={...defaultSettings(),goal:'Individual Question'},session={};let draws=0;
+  const handle=vm.runInNewContext('('+source.slice(from,to)+'\n})',{cfg,st,session,set:[1,2,3],isCurrent:()=>true,draw:()=>draws++,resolveMockQuestionTarget:interviewer.resolveMockQuestionTarget});
+  handle({target:{value:'25'}});assert.equal(cfg.targetQuestions,12);assert.equal(draws,0);
+  assert.equal(interviewer.resolveMockQuestionTarget(cfg.targetQuestions,3,{goal:st.goal}),1);
+});

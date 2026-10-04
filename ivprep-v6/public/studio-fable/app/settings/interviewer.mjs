@@ -6,6 +6,9 @@
 // the provider directly; `normalizeLiveInterviewContext` on the server rejects unknown fields, so
 // fields it does not know are folded into `practiceFocus` (bounded, 500 chars) or kept client-side.
 // No engineering/provider parameters are exposed (model, temperature, VAD, keys).
+import {normalizePracticeFocus} from '../../../studio/live-context-adapter.mjs';
+
+export const PRACTICE_GOALS = Object.freeze(['Full IV Simulation', 'Guided Mock IV Practice', 'Individual Question']);
 
 export const EASY_PRESETS = [
   { id: 'balanced', label: 'Balanced', hint: 'Program Director · one follow-up per question', style: 'Owl', depth: 1, pressure: false },
@@ -21,19 +24,25 @@ export const PACING = ['Relaxed', 'Normal', 'Brisk'];
 export const VOICES = ['marin', 'meridian', 'gleam', 'vesper', 'stone', 'willow']; // current source allow-list; student default marin, audition is Admin-only
 
 export function defaultSettings() {
-  return { preset: 'balanced', role: 'Program Director', style: 'Owl', depth: 1, curiosity: 'Normal', pressure: false, interruption: false, pacing: 'Normal', maxFollowUps: 4, programEmphasis: 'Normal', targetQuestions: 5, durationMin: 15, voice: 'marin', advanced: false };
+  return { goal: 'Guided Mock IV Practice', practiceFocus: '', preset: 'balanced', role: 'Program Director', style: 'Owl', depth: 1, curiosity: 'Normal', pressure: false, interruption: false, pacing: 'Normal', maxFollowUps: 4, programEmphasis: 'Normal', targetQuestions: 5, durationMin: 15, voice: 'marin', advanced: false };
+}
+
+export function normalizeMockPracticeFocus(value) {
+  if (typeof value !== 'string' || value.length > 200) throw new TypeError('Use a practice focus of 200 characters or fewer.');
+  return normalizePracticeFocus(value) || '';
 }
 
 // An untouched Mock follows its selected pool. An explicit target may exceed the
 // pool; the existing native policy supplies distinct authorized questions.
-export function resolveMockQuestionTarget(value, poolLength) {
+export function resolveMockQuestionTarget(value, poolLength, {goal} = {}) {
+  if (goal === 'Individual Question') return 1;
   if (Number.isInteger(value) && value >= 1 && value <= 30) return value;
   return Math.max(1, Math.min(30, Number.isInteger(poolLength) ? poolLength : 1));
 }
 
 export function applyPreset(settings, presetId) {
   const p = EASY_PRESETS.find((x) => x.id === presetId) || EASY_PRESETS[0];
-  return { ...settings, preset: p.id, style: p.style, depth: p.depth, pressure: p.pressure, role: p.id === 'warm' ? 'Faculty' : p.id === 'direct' ? 'Chief Resident' : 'Program Director' };
+  return { ...settings, preset: p.id, style: p.style, depth: p.depth, pressure: settings.goal !== 'Individual Question' && p.pressure, role: p.id === 'warm' ? 'Faculty' : p.id === 'direct' ? 'Chief Resident' : 'Program Director' };
 }
 
 // Conductor policy (client-side, deterministic). Closing invariant is not configurable.
@@ -53,8 +62,14 @@ export function conductorConfig(settings, { durationMin } = {}) {
 }
 
 // Production wizard contract (DurableStudioSession.sessionInput + createLiveContext).
-export function toWizard(settings, { program = null, mode = 'mock', contextSources = [], retry = null } = {}) {
+export function toWizard(settings, { program = null, mode = 'mock', contextSources = [], retry = null, priority = null } = {}) {
+  const goal = mode === 'practice' ? 'Individual Question' : PRACTICE_GOALS.includes(retry?.wizard?.goal) ? retry.wizard.goal : PRACTICE_GOALS.includes(settings.goal) ? settings.goal : 'Guided Mock IV Practice';
   const focusBits = [];
+  if (goal === 'Guided Mock IV Practice') {
+    const edited = normalizeMockPracticeFocus(settings.practiceFocus ?? '');
+    const focus = edited || (typeof priority === 'string' ? normalizeMockPracticeFocus(priority.slice(0,200)) : '');
+    if (focus) focusBits.push(focus);
+  }
   if (settings.curiosity && settings.curiosity !== 'Normal') focusBits.push(`${settings.curiosity.toLowerCase()} curiosity about unresolved details`);
   if (settings.pacing && settings.pacing !== 'Normal') focusBits.push(`${settings.pacing.toLowerCase()} pacing`);
   if (settings.interruption) focusBits.push('may interrupt long answers politely');
@@ -63,10 +78,10 @@ export function toWizard(settings, { program = null, mode = 'mock', contextSourc
   const followUps=Math.max(0,Math.min(8,Number(settings.maxFollowUps)||0));
   focusBits.push(`at most ${depth} follow-ups per answer and ${followUps} substantive follow-ups total; closing questions do not consume this budget`);
   const wizard = {
-    goal: mode === 'practice' ? 'Individual Question' : 'Full IV Simulation',
+    goal,
     interviewer: ROLES.includes(settings.role) ? settings.role : 'Program Director',
     interviewerStyle: ['Dove', 'Peacock', 'Owl', 'Eagle'].includes(settings.style) ? settings.style : 'Owl',
-    pressurePractice: settings.pressure === true,
+    pressurePractice: goal !== 'Individual Question' && settings.pressure === true,
     environment: 'MissionMed',
     analyticsEnabled: true,
     contextSources: [...new Set(contextSources.filter(source => ['CV','File Vault','StoryForge','MCC','Top 3','Prior IVOC'].includes(source))), ...(program?.verified ? ['RISE'] : [])],
@@ -74,15 +89,11 @@ export function toWizard(settings, { program = null, mode = 'mock', contextSourc
   if (program?.verified && program.programId && program.programReleaseId) {
     wizard.program = program.name; wizard.programId = program.programId; wizard.programReleaseId = program.programReleaseId; wizard.programVerified = true;
   }
-  if (focusBits.length) { wizard.goal = mode === 'practice' ? 'Individual Question' : 'Guided Mock IV Practice'; wizard.focus = focusBits.join('; ').slice(0, 500); }
+  if (goal === 'Guided Mock IV Practice' && focusBits.length) wizard.focus = focusBits.join('; ').slice(0, 500);
   if (retry) Object.assign(wizard,{retrySourceSessionId:retry.id,retryQuestionId:retry.questionId,retryQuestionText:retry.questionText,retrySessionType:retry.remote?.sessionType,
     environment:retry.wizard?.environment||wizard.environment});
   // Own Retry already resolves current membership and the exact saved question.
   // Preserve its canonical goal after applying current interviewer settings.
-  if (['Full IV Simulation','Guided Mock IV Practice','Individual Question'].includes(retry?.wizard?.goal)) {
-    wizard.goal = retry.wizard.goal;
-    if (wizard.goal === 'Individual Question') wizard.pressurePractice = false;
-  }
   return wizard;
 }
 
