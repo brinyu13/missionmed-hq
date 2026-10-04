@@ -3,6 +3,7 @@ import {readFile} from 'node:fs/promises';
 import {Readable,Writable} from 'node:stream';
 import {finished} from 'node:stream/promises';
 import test from 'node:test';
+import {runInNewContext} from 'node:vm';
 import {legacyPresentationEntry} from '../../public/studio-fable/app/adapters/product-entry.mjs';
 import {createIvPrepHqHandler} from '../../server/hq-mount.mjs';
 import {InMemoryAdmissionRegistry} from '../../server/admission-registry.mjs';
@@ -53,4 +54,31 @@ test('product, candidate and Advanced static entry all still fail closed anonymo
 test('legacy redirect is selected before connecting the Fable account/controller',async()=>{
   const source=await readFile(new URL('../../public/studio-fable/app/main.mjs',import.meta.url),'utf8');
   assert.match(source,/const legacyEntry=legacyPresentationEntry\(location\.pathname,location\.hash\);\s*if\(legacyEntry\)location\.replace\(legacyEntry\);\s*else controller\.connectAccount\(\)/);
+});
+
+async function mountedRouter(hash,locked=false){
+  const source=await readFile(new URL('../../public/studio-fable/app/main.mjs',import.meta.url),'utf8');
+  const start=source.indexOf('async function route() {');
+  const end=source.indexOf("document.getElementById('menu-toggle')",start);
+  assert.ok(start>=0&&end>start);
+  const targets=[];const location={pathname:'/iv-prep-on-call/',hash,replace:value=>targets.push(value)};
+  // A legacy handoff must return before any Fable render/capture work. Guarded
+  // navigation must return even earlier and retain the current live room.
+  const context={controller:{navigationLocked:locked},location,legacyPresentationEntry,
+    revertingHash:false,acceptedHash:'#/room'};
+  const {route}=runInNewContext(source.slice(start,end)+'\n({route})',context);
+  await route();return{targets,location,context};
+}
+test('actual mounted router hands old own/Admin fragments to Advanced, not Home',async()=>{
+  for(const hash of ['#postanswer?session=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    '#filmroom?session=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa&review=admin','#mentor?view=admin']){
+    const result=await mountedRouter(hash);
+    assert.deepEqual(result.targets,['/iv-prep-on-call/advanced/'+hash]);
+    assert.equal(result.location.hash,hash);
+  }
+});
+test('actual active-interview navigation guard precedes any legacy redirect',async()=>{
+  const result=await mountedRouter('#filmroom?session=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',true);
+  assert.deepEqual(result.targets,[]);assert.equal(result.location.hash,'#/room');
+  assert.equal(result.context.revertingHash,true);
 });

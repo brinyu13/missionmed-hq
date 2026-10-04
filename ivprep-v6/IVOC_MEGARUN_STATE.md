@@ -16,6 +16,26 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 MOUNTED LEGACY ROUTE FIX-FORWARD (PRODUCT4636):
+  Fable product root is live at clean pushed df6afb98088bdf3c6de5cf3e7cb5c12a129dd521,
+  SUCCESS bb875db1-e282-43cd-903f-acf95e873438, image
+  sha256:891651613a49a1fb9dab97d97063f11ad303ae8ac436332cd164b68495ba28b9.
+  Exact1295-file4riHfW artifact/tar
+  b7c688cc92b63fb4893c4999d1fdef141837447021d37b5e7f31d04b989ceee8 retained.
+  Health200; anonymous root/candidate/advanced/bootstrap401. Authenticated normal
+  root visibly shows the Fable Home and brinyu's saved history. Live same-document
+  navigation to old #postanswer?session=1ca228aa incorrectly fell back Home:
+  compatibility redirect was startup-only. Mounted route now resolves that same
+  bounded legacy handoff after the active-interview navigation guard and before
+  teardown/rendering. Exact own/Admin fragments remain on same-origin Advanced.
+  60 affected entry/admission/saved-review checks and independent source review
+  PASS. IMPLEMENTED_NEEDS_ACCEPTANCE pending corrected deployment and actual
+  own/Admin legacy navigation/reload. No provider/media/auth/data changes.
+  SHARED4633 released normally16:46:00Z; remote release readback confirmed.
+  PRODUCT4636 heartbeat/fencing remotely confirmed. Current df6/bb875 exact
+  artifact is infrastructure rollback;49a/fc897 exact owner-preserving artifact
+  also retained. No complete-journey or final acceptance claim.
+
 - 2026-10-04 NORMAL ENTRY CONVERGENCE (PRODUCT4630):
   SHARED4626 normally released at16:28:36Z and remote readback confirmed.
   Independent non-builder normal Home->Review->saved mock1ca228aa confirms

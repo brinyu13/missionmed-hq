@@ -401,6 +401,8 @@ async function renderProgress(isCurrent = guarded) {
 async function route() {
   if(revertingHash){revertingHash=false;return;}
   if(controller.navigationLocked && location.hash!==acceptedHash){revertingHash=true;location.hash=acceptedHash;return;}
+  const legacyRoute=legacyPresentationEntry(location.pathname,location.hash);
+  if(legacyRoute){location.replace(legacyRoute);return;}
   const ticket=++generation,isCurrent=()=>ticket===generation;
   if(teardown){teardown();teardown=null;}
   const hash=location.hash||'#/home';acceptedHash=hash;
