@@ -84,7 +84,8 @@ export function analyzeCollisionLayout(document,{scope="FULL_STORY",width=BASE.w
     add(code,code==='EVENT_COLLISION'?'HIGH':'MEDIUM',[a.owner,b.owner],`${events.get(a.owner)?.title||a.owner} overlaps ${events.get(b.owner)?.title||b.owner} in the rendered presentation.`);
   }
   for(const part of eventParts)for(const region of components.filter(part=>['furniture','profile'].includes(part.role))){
-    if(region.groupId==='furniture:axis'&&(events.get(part.owner)?.eventType==='milestone'||events.get(part.owner)?.mile))continue;
+    // Painted milestone bodies and labels must clear the ribbon. Connector
+    // stems were already excluded by painted(); they alone may meet the axis.
     if(overlap(part,region))add('RESERVED_REGION_COLLISION','MEDIUM',[part.owner,region.groupId],`${events.get(part.owner)?.title||part.owner} overlaps the rendered ${labelForGroup(region.groupId)}.`);
   }
   const objectParts=components.filter(part=>['annotation','media'].includes(part.role));

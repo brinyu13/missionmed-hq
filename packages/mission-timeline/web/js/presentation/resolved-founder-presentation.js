@@ -195,7 +195,7 @@ export function materialPresentationCollisions(resolved){
   for(const text of parts.filter(n=>n.kind==='text'||(n.role==='event'&&n.kind==='path'&&!n.lineOnly&&n.style.fill!=='none')))for(const other of parts){
     if(text.role!=='event'&&(other.paintOrder<=text.paintOrder||other.groupId===text.groupId))continue;
     if(other.kind!=='text'&&(other.style.fill==='none'||other.style.fill==='transparent'||Number(other.style['fill-opacity']??1)===0))continue;
-    if(text.groupId===other.groupId||other.groupId==='furniture:axis'||
+    if(text.groupId===other.groupId||
       !['event','furniture','profile','media','annotation'].includes(other.role))continue;
     if(!overlap(text.polygon,other.polygon))continue;
     const ids=[text.semanticRef,other.semanticRef||other.groupId].sort();
