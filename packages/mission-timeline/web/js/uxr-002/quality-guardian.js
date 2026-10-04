@@ -4,6 +4,7 @@ import {applySceneCommandToDocument} from '../editor/scene-commands.js';
 import {serializeFounderPresentation,assertCompleteFounderPresentation} from '../presentation/founder-presentation-serializer.js';
 import {resolveFounderPresentationSvg,materialPresentationCollisions} from '../presentation/resolved-founder-presentation.js';
 import {locked407FMilestoneGeometry} from './locked-407f-export.js';
+import {createLocalLayoutReview,isLocalLayoutReviewLocation} from './local-layout-review.js';
 
 export const QUALITY_GUARDIAN_SCHEMA="d1-timeline-quality-guardian.1";
 export const QUALITY_GUARDIAN_SECTIONS=Object.freeze([
@@ -727,9 +728,29 @@ export function qualityGuardianViewer(entitlement={},route="home"){
   return"Student view";
 }
 
+export function renderLocalLayoutReview(state={},canFix=true){
+  const receipt=state.receipt;
+  const messages={UNAVAILABLE:'Local AI layout review is unavailable.',READY:'Local AI layout review is ready.',REVIEWING:'AI is reviewing the measured layout…',FAILED:'AI review failed. Your timeline is unchanged.',STALE:'The layout changed during review. Review again to use the current layout.',APPLIED:'Validated layout changes applied.',REVIEWED:'AI review completed; no safe changes were applied.'};
+  return `<section data-local-layout-review><h3>Local AI layout review</h3>
+    <p>Review layout with AI sends anonymous geometry and measured text bounds to OpenAI. Biography, words, dates, photos and source files stay local. Only validated geometry improvements can be applied.</p>
+    <button type="button" class="button secondary" data-local-layout-review-start ${!state.available||state.busy||!canFix?'disabled':''}>${state.busy?'Reviewing layout…':'Review layout with AI'}</button>
+    <p role="status" data-local-layout-review-status>${escapeHtml(messages[state.status]||messages.UNAVAILABLE)}</p>
+    ${receipt?`<details class="quality-provider-receipt"><summary>Local AI layout receipt</summary><dl>
+      <dt>Result</dt><dd>${escapeHtml(messages[receipt.status]||receipt.status)}</dd>
+      <dt>Provider response</dt><dd>${escapeHtml(receipt.providerReceipt.responseId)}</dd>
+      <dt>Model</dt><dd>${escapeHtml(receipt.providerReceipt.model)}</dd>
+      <dt>Received</dt><dd>${escapeHtml(receipt.providerReceipt.receivedAt)}</dd>
+      <dt>Layout digest</dt><dd>${escapeHtml(receipt.sceneDigest)}</dd>
+      <dt>Recommendations / applied / rejected</dt><dd>${receipt.recommended} / ${receipt.applied} / ${receipt.rejected}</dd>
+      <dt>Provider storage</dt><dd>store: false</dd>
+      <dt>Biography</dt><dd>Unchanged</dd></dl></details>`:''}
+  </section>`;
+}
+
 export function renderQualityGuardian(report,{
   viewer="Student view",
   canFix=true,
+  localLayoutReview=null,
   controlClasses={secondary:"button secondary",tertiary:"button tertiary",primary:"button primary"}
 }={}){
   const reviewViewer=viewer!=="Student view";
@@ -741,7 +762,7 @@ export function renderQualityGuardian(report,{
     <h2 id="quality-guardian-title">${escapeHtml(report.headline)}</h2>
     <p>${aiComplete
       ?"Source facts, AI inferences, and presentation recommendations are shown separately."
-      :"Every finding below comes from MissionMed's own checks. Nothing here was reviewed by AI."} Fix for me never changes your biography.</p>
+      :"Every finding below comes from MissionMed's own checks. These findings were not reviewed by AI."} Fix for me never changes your biography.</p>
     ${aiComplete
       ?`<p class="status-chip" data-quality-ai-status="COMPLETE">Live AI review · ${escapeHtml(report.ai.model)} · Standard ${escapeHtml(report.ai.standardVersion)}</p>`
       :`<p class="status-chip" data-quality-ai-status="${escapeHtml(report.ai?.status||"UNAVAILABLE")}">${escapeHtml(report.ai?.unavailableMessage||"Quick check · MissionMed rules only")}</p>`}
@@ -750,12 +771,13 @@ export function renderQualityGuardian(report,{
       <h3>Review summary</h3>
       <dl>
         <div><dt>Issues found</dt><dd>${report.oversight.issueCount}</dd></div>
-        <div><dt>AI layout fixes applied</dt><dd>${report.oversight.appliedFixes.length}</dd></div>
+        <div><dt>Layout fixes applied</dt><dd>${report.oversight.appliedFixes.length}</dd></div>
         <div><dt>Unresolved factual questions</dt><dd>${report.oversight.unresolvedFactualQuestions}</dd></div>
         <div><dt>Student-confirmed exceptions</dt><dd>${report.oversight.studentConfirmedExceptions.length}</dd></div>
         <div><dt>Export readiness</dt><dd>${report.oversight.exportReady?"Ready":"Blocked"}</dd></div>
       </dl>
     </section>`:""}
+    ${localLayoutReview?renderLocalLayoutReview(localLayoutReview,canFix):''}
     <div class="quality-guardian-sections">${report.sections.map((section)=>`<section data-quality-section="${section.id}" data-quality-state="${section.state}">
       <h3>${stateSymbol(section.state)} ${escapeHtml(section.label)} <small>${escapeHtml(section.state)}</small></h3>
       ${section.findings.length?`<ul>${section.findings.map((finding)=>`<li data-quality-finding="${escapeHtml(finding.id)}">
@@ -776,18 +798,23 @@ export function renderQualityGuardian(report,{
 export function openQualityGuardian(store,{stage="DURING_BUILDING",continueToExport=false,opener=document.activeElement}={}){
   const overlay=document.querySelector("#overlay-root");
   if(!overlay)return null;
+  let closed=false,local=null;
+  if(isLocalLayoutReviewLocation())local=createLocalLayoutReview(store,{onState:()=>{if(!closed)show();}});
   const show=()=>{
     const report=analyzeTimelineQuality(store.document,{stage});
     overlay._opener=opener;
     overlay.innerHTML=`<div class="overlay-scrim" data-quality-dismiss><section class="dialog" role="dialog" aria-modal="true" aria-labelledby="quality-guardian-title">${renderQualityGuardian(report,{
       viewer:qualityGuardianViewer(store.entitlement,store.route),
-      canFix:store.entitlement?.canMutate===true
+      canFix:store.entitlement?.canMutate===true,
+      localLayoutReview:local?{...local.state,receipt:Object.hasOwn(local.state,'receipt')?local.state.receipt:store.document?.metadata?.qualityGuardian?.localLayoutReview}:null
     })}</section></div>`;
     const close=()=>{
+      closed=true;
       overlay.replaceChildren();
       overlay._opener=null;
       if(opener?.isConnected)opener.focus();
     };
+    overlay.querySelector('[data-local-layout-review-start]')?.addEventListener('click',()=>local?.review());
     overlay.querySelector("[data-quality-close]")?.addEventListener("click",close);
     overlay.querySelector("[data-quality-dismiss]")?.addEventListener("pointerdown",(event)=>{
       if(event.target.matches("[data-quality-dismiss]"))close();
@@ -811,6 +838,7 @@ export function openQualityGuardian(store,{stage="DURING_BUILDING",continueToExp
     return report;
   };
   const report=show();
+  local?.capabilities();
   if(continueToExport&&report?.exportReady===true){
     // The visible check remains open so the student explicitly chooses Continue.
   }
