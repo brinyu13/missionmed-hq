@@ -32,13 +32,22 @@ the actual production route and deployment.
   the separately reproduced final-refresh race and real allocation path.
   PRODUCT4542 normally released/read back before exact scope expansion4543.
   No schema, provider configuration, identity, audio-authority, clock or root
-  promotion changes. Source/deployment filing follows below when verified.
+  promotion changes. Clean remotely read-back source
+  15cd74df13a4432a1e54ec606c76e9cdf79b9a50 deployed SUCCESS
+  e9ff880e-9530-4cad-a608-3e44409be413, image
+  sha256:30e6cc8145954067408b03806fcdfc54664816fa432bef503f7ae102e3de7ee9.
+  Exact filtered1272-file artifactEYFpwI/source.tar SHA
+  7279fd2873b6db6b29d67996143461b204b6f50321d1243c907f25776d7eabf4.
+  Health200/root,candidate,bootstrap401. PRODUCT4543/SHARED4544 normally
+  released/remote confirmed. Prior healthy4556/5e6/artifactLAUOJn and last
+  POV-known-good61aa/deed28/artifact2YgD0Z exact rollback artifacts retained.
   Fresh authenticated UI/physical acceptance remains UNVERIFIED under the
   established client-access WAITING condition; do not repeat unchanged polls.
   R023 marker audit: current transcript intervals can prove overlap, not actual
   audio interruption/truncation. Do not label overlap as confirmed barge-in.
-  Next executable action: bounded truthful overlap annotation through the
-  current adapter/Flight Recorder, keeping actual interruption acceptance open.
+  Next: bounded R022 None-to-One setup-state triage, then truthful overlap
+  annotation through current adapter/Flight Recorder. Keep genuine spoken
+  follow-up/actual interruption acceptance open; no synthetic conversation.
   Full142/user-journey acceptance remains open; stale30% is not replaced.
 - 2026-10-04 R022 Admin follow-up policy implementation: current production
   config read is v4, ceiling2/default1/pressureoff; historical v3 notes are not
