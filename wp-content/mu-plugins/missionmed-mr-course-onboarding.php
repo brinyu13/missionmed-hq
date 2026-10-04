@@ -24,7 +24,7 @@ function mm_mr_course_onboarding_content( $course_id ) {
 	if ( ! isset( $programs[ $course_id ] ) ) {
 		return '';
 	}
-	return $programs[ $course_id ]['content'] . '<nav class="mm-mr-course-links" aria-label="Program next steps"><a href="' . esc_url( home_url( '/member-dashboard/' ) ) . '">Open Matrix dashboard</a><a href="' . esc_url( home_url( '/my-account/' ) ) . '">My account</a><a href="' . esc_url( home_url( '/contact/' ) ) . '">Contact MissionMed</a></nav>';
+	return $programs[ $course_id ]['content'] . '<nav class="mm-mr-course-links" aria-label="Program next steps"><a href="' . esc_url( home_url( '/member-dashboard/#dashboard' ) ) . '">Open Matrix dashboard</a><a href="' . esc_url( home_url( '/my-account/' ) ) . '">My account</a><a href="' . esc_url( home_url( '/contact/' ) ) . '">Contact MissionMed</a></nav>';
 }
 
 function mm_mr_course_onboarding_template( $content ) {
