@@ -1150,12 +1150,24 @@ export function buildKeynoteClassicScene(
   const exams=projectedFields.exams;
   const categoryMonths=(list,categoryId)=>{
     const spans=(list||[])
-      .filter((event)=>String(event?.categoryId||"")===categoryId&&/^\d{4}-\d{2}$/.test(String(event?.startDate||"")))
+      .filter((event)=>{
+        if(String(event?.categoryId||"")!==categoryId||isMilestone(event)||event?.openEnded)return false;
+        if(!/^\d{4}-(?:0[1-9]|1[0-2])$/.test(String(event.startDate||""))||
+           !/^\d{4}-(?:0[1-9]|1[0-2])$/.test(String(event.endDate||"")))return false;
+        // A normalized month is not proof that a year, season or unknown
+        // source date supplied that month. Do not manufacture month totals.
+        return['start','end'].every(side=>[
+          typeof event.fields?.datePrecision==='string'?event.fields.datePrecision:event.fields?.datePrecision?.[side],
+          typeof event.datePrecision==='string'?event.datePrecision:event.datePrecision?.[side],
+          event.fields?.sourceDateWording?.[side]?.precision,event.sourceDateWording?.[side]?.precision
+        ].every(precision=>!precision||String(precision).toUpperCase()==='MONTH'));
+      })
       .map((event)=>{
         const start=monthIndex(event.startDate);
-        const end=/^\d{4}-\d{2}$/.test(String(event.endDate||""))?monthIndex(event.endDate):start;
-        return[Math.min(start,end),Math.max(start,end)];
+        const end=monthIndex(event.endDate);
+        return[start,end];
       })
+      .filter(([start,end])=>end>=start)
       .sort((left,right)=>left[0]-right[0]);
     let total=0,cursor=-Infinity;
     for(const [start,end] of spans){
@@ -1166,6 +1178,11 @@ export function buildKeynoteClassicScene(
     return total;
   };
   const examValue=(system,examId)=>presentationExamSummary(exams,system,examId);
+  const listValue=value=>Array.isArray(value)
+    ?value.filter(item=>typeof item==='string'&&item.trim()).map(item=>item.trim()).join(', ')
+    :String(value||'');
+  const otherDetail=(base,detail)=>String(base||'')==='Other'&&String(detail||'').trim()
+    ?`Other: ${String(detail).trim()}`:String(base||'');
 
   return {
     renderer: "D1-UXR-002-Keynote-Classic",
@@ -1210,12 +1227,19 @@ export function buildKeynoteClassicScene(
       fullName,
       educationRecords,
       medicalSchool:String(profile.medicalSchool||""),
-      degree:String(profile.degree||""),
-      status:String(
+      degree:otherDetail(profile.degree,profile.degreeOther),
+      degreeOther:String(profile.degreeOther||""),
+      status:otherDetail(
         profile.currentUsWorkAuthorization||
         profile.visaStatus||
-        ""
-      ),
+        "",profile.workAuthorizationOther),
+      workAuthorizationOther:String(profile.workAuthorizationOther||""),
+      aamcDisplay:String(profile.aamcDisplay||profile.aamcId||""),
+      emrExperience:String(profile.emrExperience||""),
+      languages:listValue(profile.languages),
+      hobbies:listValue(profile.hobbies),
+      usceSummary:String(profile.usceSummary||""),
+      researchSummary:String(profile.researchSummary||""),
       specialty:String(
         interviewTarget?.specialtyLabel||
         profile.specialtyGoal||
@@ -1223,11 +1247,12 @@ export function buildKeynoteClassicScene(
       ),
       step1:examValue("USMLE","step-1"),
       step2:examValue("USMLE","step-2-ck"),
+      step2Cs:examValue("USMLE","step-2-cs"),
       step3:examValue("USMLE","step-3"),
       /* AAA-019 Keynote fidelity — the Founder's profile card carries USCE and research
          totals. Derived from the student's own events (whole months, inclusive), never typed. */
-      usceMonths:categoryMonths(events,"clinical"),
-      researchMonths:categoryMonths(events,"research")
+      usceMonths:categoryMonths(sourceTimelineEvents,"clinical"),
+      researchMonths:categoryMonths(sourceTimelineEvents,"research")
     },
     artifact:{
       schemaVersion:"d1-405.canonical-407f-artifact.1",

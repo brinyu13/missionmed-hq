@@ -3,7 +3,12 @@ const normalize=value=>{
   const key=String(value||'INTERVIEWER_SAFE').trim().toUpperCase();
   return({SAFE:'INTERVIEWER_SAFE',VISIBLE:'INTERVIEWER_SAFE',INTERVIEW_SAFE:'INTERVIEWER_SAFE',ADVISOR:'ADVISOR_ONLY',STUDENT:'STUDENT_ONLY',FULL:'FULL_STORY'})[key]||key;
 };
-const profileFields=['fullName','medicalSchool','medicalSchoolCountry','graduationDate','graduationDatePrecision','degree','currentUsWorkAuthorization','visaStatus','specialtyGoal','interviewSeason'];
+const profileFields=[
+  'fullName','medicalSchool','medicalSchoolCountry','graduationDate','graduationDatePrecision',
+  'degree','degreeOther','currentUsWorkAuthorization','workAuthorizationOther','visaStatus',
+  'specialtyGoal','interviewSeason','aamcDisplay','aamcId','emrExperience',
+  'languages','hobbies','usceSummary','researchSummary'
+];
 const sourceEventForCandidate=(events,id)=>text(id)?events.find(event=>(event.provenance||[]).some(item=>text(item.extractionCandidateId)===text(id))):null;
 const eventBinding=event=>({sourceType:'document-intake',sourceEventId:event?.id||null,visibilityState:event?.visibilityState||'ADVISOR_ONLY'});
 
@@ -48,11 +53,21 @@ export function projectPresentationFields(document,{allowed,visibleEventIds}){
     return allowed.has(normalize(binding.visibilityState||binding.visibility));
   };
   const original=document.studentProfile||{},profile={};
+  let redactedAamcAlias=false;
   for(const field of profileFields){
     if(original[field]===undefined)continue;
     const binding=original.fieldProvenance?.[field]||legacyProfileBinding(document,field,original[field]);
     if(visible(binding))profile[field]=original[field];
+    else if((field==='aamcDisplay'||field==='aamcId')&&text(original[field]))redactedAamcAlias=true;
   }
+  // Both names describe one AAMC fact. A hidden alias cannot be recovered by
+  // falling back to its other spelling, even if that spelling has a public link.
+  if(redactedAamcAlias){delete profile.aamcDisplay;delete profile.aamcId;}
+  // Detail fields never stand alone after a private or absent base selection.
+  if(profile.degree!=='Other')delete profile.degreeOther;
+  const authorizationBase=text(original.currentUsWorkAuthorization)
+    ?profile.currentUsWorkAuthorization:profile.visaStatus;
+  if(authorizationBase!=='Other')delete profile.workAuthorizationOther;
   const exams=[];
   for(const originalExam of document.exams||[]){
     if(!visible(originalExam.sourceType==='document-intake'||originalExam.sourceEventId||originalExam.visibilityState?originalExam:null))continue;
