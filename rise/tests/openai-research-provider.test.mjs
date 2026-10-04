@@ -27,7 +27,7 @@ function fixtureResponse(acgmeId = "1854831078") {
     research_summary: "One official source-backed finding.",
   });
   return {
-    id: "resp_fixture_5012e",
+    id: "resp_fixture_5012e", status:"completed", model:"gpt-5.6-terra",
     usage: { input_tokens: 1000, input_tokens_details: { cached_tokens: 200 }, output_tokens: 500 },
     output: [
       { type: "web_search_call", action: { sources: [

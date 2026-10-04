@@ -99,7 +99,7 @@ function validateDossierCrossFieldConsistency(parsed) {
 }
 
 export function calculateOpenAiResearchCost({ providerKey, usage = {}, webSearchCalls = 0 }) {
-  const pricing = PROVIDERS[providerKey];
+  const pricing = typeof providerKey === "string" && Object.hasOwn(PROVIDERS,providerKey) ? PROVIDERS[providerKey] : null;
   if (!pricing) throw new Error(`Unsupported OpenAI research provider: ${providerKey}`);
   const input = Math.max(0, Number(usage.input_tokens) || 0);
   const cached = Math.min(input, Math.max(0, Number(usage.input_tokens_details?.cached_tokens) || 0));
@@ -274,7 +274,7 @@ async function checkpointRawResponse(response, {signal, checkpointResponse}, pro
       catch { throw recoveryError('RESEARCH_RECOVERY_CHECKPOINT_FAILED'); }
     }, signal, 5000);
     if (signal.aborted) throw recoveryError('RESEARCH_RECOVERY_ABORTED');
-    return raw.toString('utf8');
+    return record;
   } finally {
     // Cancellation is best-effort and must not wait on an uncooperative stream.
     Promise.resolve(reader.cancel()).catch(() => {});
@@ -282,63 +282,41 @@ async function checkpointRawResponse(response, {signal, checkpointResponse}, pro
   }
 }
 
-export function createOpenAiResearchProvider({ providerKey, apiKey = process.env.RISE_OPENAI_API_KEY ?? process.env.OPENAI_API_KEY, fetchImpl = fetch } = {}) {
-  const configuration = PROVIDERS[providerKey];
-  if (!configuration) throw new Error(`Unsupported OpenAI research provider: ${providerKey}`);
-  if (!String(apiKey ?? "").trim()) throw new Error("RISE_OPENAI_API_KEY is required");
-  return {
-    providerKey,
-    modelKey: configuration.modelKey,
-    async execute({ job, recovery }) {
-      if (recovery !== undefined && (typeof recovery?.checkpointResponse !== 'function' || !(recovery.signal instanceof AbortSignal))) {
-        throw Object.assign(recoveryError('RESEARCH_RECOVERY_INVALID'), {costKnown:true, actualCostUsd:0});
-      }
-      const controller = new AbortController();
-      const checkpointResponse = recovery?.checkpointResponse;
-      const outerSignal = recovery?.signal;
-      const onAbort = () => controller.abort();
-      if (outerSignal) {
-        outerSignal.addEventListener('abort', onAbort, {once:true});
-        if (outerSignal.aborted) controller.abort();
-      }
-      const timeout = setTimeout(() => controller.abort(), 180_000);
-      let responsePayload = null;
-      const started = Date.now();
-      try {
-        const dispatch = () => fetchImpl(API_URL, {
-          method: "POST",
-          signal: controller.signal,
-          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: configuration.modelKey,
-            store: false,
-            reasoning: { effort: "medium" },
-            max_output_tokens: 16000,
-            max_tool_calls: 8,
-            tools: [{ type: "web_search" }],
-            tool_choice: "auto",
-            include: ["web_search_call.action.sources"],
-            input: buildPrompt(job),
-            text: { format: { type: "json_schema", name: "rise_deep_research_dossier_v2", strict: true, schema: researchSchema(job) } },
-            metadata: { ticket: "P1-RISE-5012F", job_id: job.jobId, task_class: job.taskClass, contract: "DOSSIER_V2" },
-          }),
-        });
-        const response = recovery === undefined ? await dispatch()
-          : await recoveryWait(dispatch, controller.signal);
-        responsePayload = recovery === undefined ? await response.json().catch(() => ({}))
-          : JSON.parse(await checkpointRawResponse(response, {signal:controller.signal, checkpointResponse}, providerKey, configuration.modelKey));
-        if (!response.ok) {
-          const error = Object.assign(new Error(`OpenAI research request failed with HTTP ${response.status}`), {
-            code: "OPENAI_PROVIDER_HTTP_ERROR", providerResponseId: responsePayload?.id ?? null,
-          });
-          throw error;
-        }
-        if (recovery !== undefined && (!recoveryAccounting(responsePayload).known || !recoveryAccounting(responsePayload).responseId || !Array.isArray(responsePayload?.output))) {
-          throw recoveryError('RESEARCH_RECOVERY_FAILED');
-        }
+function snapshotRecoveryJob(job) {
+  const copy=structuredClone(job);
+  if(!copy || !['jobId','programSpecialtyId','acgmeId','specialty','state'].every(k=>typeof copy[k]==='string'&&copy[k].length>0&&copy[k].length<=180) ||
+    !/^[0-9]{10}$(?![\s\S])/.test(copy.acgmeId) || !/^[A-Z]{2}$(?![\s\S])/.test(copy.state))throw recoveryError('RESEARCH_RECOVERY_INVALID');
+  requestedContract(copy);
+  return copy;
+}
+
+function normalizeResponse({job, providerKey, responsePayload, receipt=null, latencyMs=0, strict=false}) {
+  const configuration=typeof providerKey==='string' && Object.hasOwn(PROVIDERS,providerKey)?PROVIDERS[providerKey]:null;
+  if(!configuration) throw recoveryError('RESEARCH_RECOVERY_INVALID');
+  if(strict && (responsePayload?.status!=='completed' || responsePayload?.model!==configuration.modelKey || !recoveryAccounting(responsePayload).known || !recoveryAccounting(responsePayload).responseId || !Array.isArray(responsePayload?.output))) throw recoveryError('RESEARCH_RECOVERY_FAILED');
         const parsed = JSON.parse(outputText(responsePayload));
         if (String(parsed.program_identity?.acgme_id) !== String(job.acgmeId)) {
           throw Object.assign(new Error("OpenAI research response identity mismatch"), { code: "OPENAI_IDENTITY_MISMATCH" });
+        }
+        if(strict) {
+          const identity=parsed.program_identity;
+          if(!identity || !['acgme_id','program_name','institution','specialty','state'].every(k=>typeof identity[k]==='string'&&identity[k].trim().length>0&&identity[k].length<=500) ||
+            identity.specialty.trim().toLowerCase()!==job.specialty.trim().toLowerCase() || identity.state.trim().toUpperCase()!==job.state)throw recoveryError('OPENAI_IDENTITY_MISMATCH');
+          const requested=requestedContract(job), seen=new Set();
+          if(!Array.isArray(parsed.findings)||parsed.findings.length>requested.requestedFields.length+8 ||
+            typeof parsed.research_summary!=='string'||parsed.research_summary.length>2400)throw recoveryError('RESEARCH_RECOVERY_FAILED');
+          for(const f of parsed.findings) {
+            if(!f || !requested.requestedFields.includes(`research.${f.field}`)||seen.has(f.field)||
+              !['FOUND','NOT_FOUND','CONFLICT'].includes(f.status)||typeof f.summary!=='string'||f.summary.length>600||
+              typeof f.value_json!=='string'||f.value_json.length>4000||!Array.isArray(f.source_urls)||f.source_urls.length>8||
+              f.source_urls.some(u=>typeof u!=='string'||u.length>2048))throw recoveryError('RESEARCH_RECOVERY_FAILED');
+            seen.add(f.field);if(f.status!=='NOT_FOUND')JSON.parse(f.value_json);
+          }
+          for(const d of requested.requestedDomains) {
+            const e=parsed.completion_matrix?.[d];
+            if(!e||typeof e.summary!=='string'||e.summary.length>600||!Array.isArray(e.source_urls)||e.source_urls.length>12||
+              e.source_urls.some(u=>typeof u!=='string'||u.length>2048))throw recoveryError('RESEARCH_RECOVERY_FAILED');
+          }
         }
         validateDossierCrossFieldConsistency(parsed);
         const citations = citationUrls(responsePayload);
@@ -346,8 +324,8 @@ export function createOpenAiResearchProvider({ providerKey, apiKey = process.env
         const mergedCompletion = mergeDossierCompletionMatrix(job.taskPayload?.baselineCompletionMatrix ?? {}, completionUpdate);
         const dossierCompletion = evaluateDossierCompletion(mergedCompletion);
         const dossierSourceUrls = [...citations].sort();
-        const retrievedAt = new Date().toISOString();
-        const providerRunId = recovery === undefined ? responsePayload.id : recoveryAccounting(responsePayload).responseId;
+        const retrievedAt = receipt?.receivedAt ?? new Date().toISOString();
+        const providerRunId = !strict ? responsePayload.id : recoveryAccounting(responsePayload).responseId;
         const identity = canonicalProgramSpecialtyIdentity(job.acgmeId, job.specialty);
         const seenFields = new Set();
         const claims = [];
@@ -359,7 +337,7 @@ export function createOpenAiResearchProvider({ providerKey, apiKey = process.env
           // Prefer the finding's direct citations. Structured Responses do not
           // always repeat tool citations inside JSON, so retain the dossier-wide
           // discovery set only when no direct citation survived validation.
-          const sourceUrls = directSourceUrls.length ? directSourceUrls : dossierSourceUrls;
+          const sourceUrls = strict ? directSourceUrls : (directSourceUrls.length ? directSourceUrls : dossierSourceUrls);
           const value = parseValue(finding);
           const claim = createCanonicalEvidenceClaim({
             subjectId: identity.program.id,
@@ -374,7 +352,8 @@ export function createOpenAiResearchProvider({ providerKey, apiKey = process.env
             publicationState: "REVIEW_REQUIRED",
             reviewState: "PENDING",
           });
-          claims.push({ ...claim, provider: "OPENAI", directSourceUrls, dossierSourceUrls, sourceUrls });
+          claims.push({ ...claim, provider: "OPENAI", directSourceUrls, dossierSourceUrls, sourceUrls,
+            ...(strict && finding.status!=="FOUND" ? {evidenceState:finding.status==="CONFLICT"?"CONFLICT":"RESEARCHED_NOT_FOUND"} : {}) });
           benchmarkFindings.push({
             field: finding.field,
             status: finding.status,
@@ -394,7 +373,7 @@ export function createOpenAiResearchProvider({ providerKey, apiKey = process.env
           }
           if (hasFinding) continue;
           const field = domain.fields[0];
-          const sourceUrls = entry.sourceUrls;
+          const sourceUrls = strict ? [...new Set((parsed.completion_matrix?.[domainKey]?.source_urls ?? []).filter(url => citations.has(url)))].sort() : entry.sourceUrls;
           const claim = createCanonicalEvidenceClaim({
             subjectId: identity.program.id,
             field,
@@ -412,15 +391,16 @@ export function createOpenAiResearchProvider({ providerKey, apiKey = process.env
         }
         const rawBytes = Buffer.from(JSON.stringify(responsePayload));
         const webSearchCalls = (responsePayload.output ?? []).filter((item) => item?.type === "web_search_call").length;
-        const usage = recovery === undefined ? (responsePayload.usage ?? {}) : recoveryAccounting(responsePayload).usage;
+        const usage = !strict ? (responsePayload.usage ?? {}) : recoveryAccounting(responsePayload).usage;
         const actualCostUsd = calculateOpenAiResearchCost({ providerKey, usage, webSearchCalls });
+        if(strict && !Number.isFinite(actualCostUsd))throw recoveryError('RESEARCH_RECOVERY_FAILED');
         const ingest = {
           provider: "OPENAI",
           campaignId: "P1-RISE-5012F",
           acgmeId: String(job.acgmeId),
           stagedAt: retrievedAt,
           sourceFile: `openai-responses://${providerRunId}`,
-          sourceFileSha256: sha256(rawBytes),
+          sourceFileSha256: receipt?.sha256 ?? sha256(rawBytes),
           providerRunId,
           idempotencyKey: sha256(`OPENAI\0P1-RISE-5012F\0${job.acgmeId}\0${providerRunId}`),
           claims,
@@ -428,11 +408,11 @@ export function createOpenAiResearchProvider({ providerKey, apiKey = process.env
           providerKey,
           modelKey: configuration.modelKey,
         };
-        if (recovery !== undefined && controller.signal.aborted) throw recoveryError('RESEARCH_RECOVERY_ABORTED');
         return {
           providerKey, modelKey: configuration.modelKey, providerResponseId: providerRunId,
           networkUsed: true, newSpendUsd: actualCostUsd, actualCostUsd,
-          latencyMs: Date.now() - started, usage, webSearchCalls,
+          latencyMs, usage, webSearchCalls,
+          ...(strict ? {costBasis:"configured_estimate", rawResponseSha256:receipt.sha256} : {}),
           publicationState: "REVIEW_REQUIRED", canonicalPromotion: "REVIEW_REQUIRED",
           programSpecialtyId: job.programSpecialtyId, acgmeId: job.acgmeId,
           specialty: job.specialty, state: job.state,
@@ -456,10 +436,105 @@ export function createOpenAiResearchProvider({ providerKey, apiKey = process.env
           },
           ingest,
         };
+}
+
+export function recoverOpenAiResearchResponse({job,providerKey,receipt,latencyMs=0}={}) {
+  let payload=null;
+  try {
+    job=snapshotRecoveryJob(job);
+    const configuration=typeof providerKey==='string' && Object.hasOwn(PROVIDERS,providerKey)?PROVIDERS[providerKey]:null;
+    if(!configuration || receipt?.providerKey!==providerKey || receipt?.modelKey!==configuration.modelKey ||
+      !Number.isInteger(receipt.httpStatus) || receipt.httpStatus<100 || receipt.httpStatus>599 ||
+      typeof receipt.rawBodyBase64!=='string' || receipt.rawBodyBase64.length>Math.ceil(RECOVERY_MAX_BYTES/3)*4 ||
+      typeof receipt.sha256!=='string' || !/^[a-f0-9]{64}$(?![\s\S])/.test(receipt.sha256) ||
+      typeof receipt.receivedAt!=='string' || !Number.isFinite(Date.parse(receipt.receivedAt)) ||
+      new Date(receipt.receivedAt).toISOString()!==receipt.receivedAt) throw recoveryError('RESEARCH_RECOVERY_INVALID');
+    const raw=Buffer.from(receipt.rawBodyBase64,'base64');
+    if(!raw.length || raw.length>RECOVERY_MAX_BYTES || raw.toString('base64')!==receipt.rawBodyBase64 ||
+      createHash('sha256').update(raw).digest('hex')!==receipt.sha256) throw recoveryError('RESEARCH_RECOVERY_INVALID');
+    payload=JSON.parse(new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(raw));
+    if(receipt.httpStatus<200 || receipt.httpStatus>=300) throw Object.assign(recoveryError('OPENAI_PROVIDER_HTTP_ERROR'),{httpStatus:receipt.httpStatus});
+    return normalizeResponse({job,providerKey,responsePayload:payload,receipt,latencyMs,strict:true});
+  } catch(error) {
+    const safe=recoveryError(RECOVERY_CODES.has(error?.code)?error.code:'RESEARCH_RECOVERY_FAILED');
+    const accounting=recoveryAccounting(payload);
+    Object.assign(safe,{costKnown:accounting.known,usage:accounting.usage,providerResponseId:accounting.responseId,
+      actualCostUsd:accounting.known?calculateOpenAiResearchCost({providerKey,usage:accounting.usage,webSearchCalls:accounting.webSearchCalls}):0});
+    if(error?.httpStatus) safe.httpStatus=error.httpStatus;
+    throw safe;
+  }
+}
+
+export function createOpenAiResearchProvider({ providerKey, apiKey = process.env.RISE_OPENAI_API_KEY ?? process.env.OPENAI_API_KEY, fetchImpl = fetch } = {}) {
+  const configuration = typeof providerKey === "string" && Object.hasOwn(PROVIDERS,providerKey) ? PROVIDERS[providerKey] : null;
+  if (!configuration) throw new Error(`Unsupported OpenAI research provider: ${providerKey}`);
+  if (!String(apiKey ?? "").trim()) throw new Error("RISE_OPENAI_API_KEY is required");
+  return {
+    providerKey,
+    modelKey: configuration.modelKey,
+    async execute({ job, recovery }) {
+      if (recovery !== undefined && (typeof recovery?.checkpointResponse !== 'function' || !(recovery.signal instanceof AbortSignal))) {
+        throw Object.assign(recoveryError('RESEARCH_RECOVERY_INVALID'), {costKnown:true, actualCostUsd:0});
+      }
+      if(recovery !== undefined) {
+        try {job=snapshotRecoveryJob(job);} catch {throw Object.assign(recoveryError('RESEARCH_RECOVERY_INVALID'),{costKnown:true,actualCostUsd:0});}
+      }
+      const controller = new AbortController();
+      const checkpointResponse = recovery?.checkpointResponse;
+      const outerSignal = recovery?.signal;
+      const onAbort = () => controller.abort();
+      if (outerSignal) {
+        outerSignal.addEventListener('abort', onAbort, {once:true});
+        if (outerSignal.aborted) controller.abort();
+      }
+      const timeout = setTimeout(() => controller.abort(), 180_000);
+      let responsePayload = null, rawReceipt = null;
+      const started = Date.now();
+      try {
+        const dispatch = () => fetchImpl(API_URL, {
+          method: "POST",
+          signal: controller.signal,
+          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: configuration.modelKey,
+            store: false,
+            reasoning: { effort: "medium" },
+            max_output_tokens: 16000,
+            max_tool_calls: 8,
+            tools: [{ type: "web_search" }],
+            tool_choice: "auto",
+            include: ["web_search_call.action.sources"],
+            input: buildPrompt(job),
+            text: { format: { type: "json_schema", name: "rise_deep_research_dossier_v2", strict: true, schema: researchSchema(job) } },
+            metadata: { ticket: "P1-RISE-5012F", job_id: job.jobId, task_class: job.taskClass, contract: "DOSSIER_V2" },
+          }),
+        });
+        const response = recovery === undefined ? await dispatch()
+          : await recoveryWait(dispatch, controller.signal);
+        if(recovery === undefined) responsePayload=await response.json().catch(()=>({}));
+        else {
+          rawReceipt=await checkpointRawResponse(response,{signal:controller.signal,checkpointResponse},providerKey,configuration.modelKey);
+          responsePayload=JSON.parse(new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(Buffer.from(rawReceipt.rawBodyBase64,'base64')));
+        }
+        if (!response.ok) {
+          const error = Object.assign(new Error(`OpenAI research request failed with HTTP ${response.status}`), {
+            code: "OPENAI_PROVIDER_HTTP_ERROR", httpStatus:response.status, providerResponseId: responsePayload?.id ?? null,
+          });
+          throw error;
+        }
+        if (recovery !== undefined && (!recoveryAccounting(responsePayload).known || !recoveryAccounting(responsePayload).responseId || !Array.isArray(responsePayload?.output))) {
+          throw recoveryError('RESEARCH_RECOVERY_FAILED');
+        }
+        if (recovery !== undefined && controller.signal.aborted) throw recoveryError('RESEARCH_RECOVERY_ABORTED');
+        return recovery === undefined
+          ? normalizeResponse({job,providerKey,responsePayload,latencyMs:Date.now()-started})
+          : recoverOpenAiResearchResponse({job,providerKey,receipt:rawReceipt,latencyMs:Date.now()-started});
       } catch (error) {
         if (recovery !== undefined) {
           controller.abort();
+          const httpStatus=error?.httpStatus;
           error = recoveryError(RECOVERY_CODES.has(error?.code) ? error.code : 'RESEARCH_RECOVERY_FAILED');
+          if(Number.isInteger(httpStatus))error.httpStatus=httpStatus;
           const accounting=recoveryAccounting(responsePayload);
           error.actualCostUsd=accounting.known?calculateOpenAiResearchCost({providerKey,usage:accounting.usage,webSearchCalls:accounting.webSearchCalls}):0;
           error.costKnown=accounting.known;error.usage=accounting.usage;error.providerResponseId=accounting.responseId;

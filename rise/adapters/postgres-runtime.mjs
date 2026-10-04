@@ -985,6 +985,240 @@ export async function createRiseFilterIntelligenceStore({
   };
 }
 
+export async function ingestProviderRecordTransaction(client, { ingest }) {
+        const sourceId = stableDatabaseId("rise_src", `${ingest.provider}:${ingest.providerRunId}`);
+        const identity = await client.query(`
+          SELECT program_identity_id AS "programIdentityId"
+          FROM rise_runtime.canonical_program_identities
+          WHERE acgme_id = $1
+          LIMIT 1
+        `, [ingest.acgmeId]);
+        const canonicalSubjectId = identity.rows[0]?.programIdentityId ?? null;
+        const run = await client.query(`
+          INSERT INTO rise_runtime.provider_ingest_runs (
+            idempotency_key, provider, campaign_id, acgme_id, source_file,
+            source_file_sha256, staged_at, status, new_spend_usd, claim_count
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'INGESTED', $8, $9)
+          ON CONFLICT (idempotency_key) DO UPDATE SET replay_count = rise_runtime.provider_ingest_runs.replay_count + 1
+          RETURNING ingest_run_id, (xmax = 0) AS inserted, replay_count
+        `, [
+          ingest.idempotencyKey, ingest.provider, ingest.campaignId, ingest.acgmeId,
+          ingest.sourceFile, ingest.sourceFileSha256, ingest.stagedAt,
+          Number(ingest.newSpendUsd ?? 0), ingest.claims.length,
+        ]);
+        await client.query(`
+          INSERT INTO rise_runtime.canonical_evidence_sources (
+            source_id, provider, provider_run_id, source_type, source_file_sha256,
+            source_url, source_locator, retrieved_at, rights_state, exposure_state, metadata
+          ) VALUES ($1, $2, $3, 'completed_research_factory', $4, $5, $6, $7, 'REVIEW_REQUIRED', 'INTERNAL_ONLY', $8::jsonb)
+          ON CONFLICT (source_id) DO NOTHING
+        `, [
+          sourceId, ingest.provider, ingest.providerRunId, ingest.sourceFileSha256,
+          databaseEvidenceSourceUrl(ingest.claims.flatMap((claim) => claim.sourceUrls ?? [])),
+          ingest.sourceFile, ingest.stagedAt,
+          JSON.stringify({
+            campaignId: ingest.campaignId, acgmeId: ingest.acgmeId,
+            newSpendUsd: Number(ingest.newSpendUsd ?? 0), providerKey: ingest.providerKey ?? null,
+            modelKey: ingest.modelKey ?? null,
+            claimSourceUrlCount: new Set(ingest.claims.flatMap((claim) => claim.sourceUrls ?? [])).size,
+          }),
+        ]);
+        let insertedClaims = 0;
+        for (const claim of ingest.claims) {
+          const result = await client.query(`
+            INSERT INTO rise_runtime.canonical_evidence_claims (
+              claim_id, subject_id, field, knowledge, canonical_value, assertion_class,
+              publication_state, review_state, conflict_state, source_id, source_locator,
+              observed_period, retrieved_at, content_sha256
+            ) VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, $7, $8, $9, $10, $11, $12::jsonb, $13, $14)
+            ON CONFLICT (content_sha256) DO NOTHING
+          `, [
+            claim.id, canonicalSubjectId ?? claim.subjectId, claim.field, JSON.stringify(claim.knowledge), JSON.stringify(claim.value),
+            claim.assertionClass, claim.publicationState, claim.reviewState, claim.conflictState,
+            sourceId, claim.sourceLocator, JSON.stringify(claim.observedPeriod), claim.retrievedAt, claim.contentSha256,
+          ]);
+          insertedClaims += result.rowCount;
+        }
+        return {
+          ingestRunId: run.rows[0].ingest_run_id,
+          insertedRun: run.rows[0].inserted,
+          replayCount: run.rows[0].replay_count,
+          insertedClaims,
+          claimCount: ingest.claims.length,
+          newSpendUsd: Number(ingest.newSpendUsd ?? 0),
+        };
+}
+
+export async function applyCorpusTransaction(client, {
+      review,
+      actorSubject = "P1-RISE-5012D",
+      reviewedAt,
+      ticket = "P1-RISE-5012D",
+      promotionSourceId = "rise_src_p1_rise_5012d_review",
+    }) {
+      const timestamp = requiredString(reviewedAt, "reviewedAt");
+      if (!Number.isFinite(Date.parse(timestamp))) throw new Error("reviewedAt must be an ISO timestamp");
+      const actorSubjectKey = sha256(`rise-evidence-review\0${actorSubject}`);
+      const events = review.decisions.map((decision) => reviewEvent(decision, actorSubjectKey, timestamp));
+      const eventByClaim = new Map(events.map((event) => [event.sourceClaimId, event]));
+        let insertedReviews = 0;
+        for (const batch of chunks(events)) {
+          const result = await client.query(`
+            INSERT INTO rise_runtime.evidence_claim_review_events (
+              review_id, source_claim_id, disposition, reason_code, rule_version,
+              normalized_value, source_urls, quality_score, actor_subject_key, decision_sha256,
+              overrides_review_id, created_at
+            )
+            SELECT x.review_id, x.source_claim_id, x.disposition, x.reason_code, x.rule_version,
+                   x.normalized_value, x.source_urls, x.quality_score, x.actor_subject_key, x.decision_sha256,
+                   x.overrides_review_id, x.created_at
+            FROM jsonb_to_recordset($1::jsonb) AS x(
+              review_id text, source_claim_id text, disposition text, reason_code text, rule_version text,
+              normalized_value jsonb, source_urls jsonb, quality_score integer,
+              actor_subject_key char(64), decision_sha256 char(64), overrides_review_id text, created_at timestamptz
+            ) ON CONFLICT (decision_sha256) DO NOTHING
+          `, [JSON.stringify(batch.map((event) => ({
+            review_id: event.reviewId, source_claim_id: event.sourceClaimId, disposition: event.disposition,
+            reason_code: event.reasonCode, rule_version: event.ruleVersion, normalized_value: event.normalizedValue,
+            source_urls: event.sourceUrls, quality_score: event.qualityScore, actor_subject_key: event.actorSubjectKey,
+            decision_sha256: event.decisionSha256, overrides_review_id: event.overridesReviewId, created_at: event.createdAt,
+          })))]);
+          insertedReviews += result.rowCount;
+        }
+        const acgmeIds = [...new Set(review.promotions.map((promotion) => promotion.acgmeId))];
+        const identities = await client.query(`
+          SELECT acgme_id::text AS "acgmeId", program_identity_id AS "subjectId"
+          FROM rise_runtime.canonical_program_identities WHERE acgme_id = ANY($1::text[])
+        `, [acgmeIds]);
+        const subjectByAcgme = new Map(identities.rows.map((row) => [row.acgmeId, row.subjectId]));
+        if (subjectByAcgme.size !== acgmeIds.length) throw new Error("Promotion set contains unresolved canonical identities");
+        await client.query(`
+          INSERT INTO rise_runtime.canonical_evidence_sources (
+            source_id, provider, provider_run_id, source_type, source_locator, retrieved_at,
+            rights_state, exposure_state, metadata
+          ) VALUES ($1, 'MISSIONMED_REVIEW', $2, 'canonical_review_promotion',
+                    $3, $4, 'APPROVED', 'PRIVATE_BETA', $5::jsonb)
+          ON CONFLICT (source_id) DO NOTHING
+        `, [promotionSourceId, ticket, `${ticket}/review-factory`, timestamp,
+          JSON.stringify({ ruleVersion: review.ruleVersion, newProviderSpendUsd: 0, ticket })]);
+        const promotionRows = review.promotions.map((promotion) => {
+          const subjectId = subjectByAcgme.get(promotion.acgmeId);
+          const valueSha256 = sha256(promotion.canonicalValue);
+          const claimId = stableDatabaseId("rise_claim", `${ticket}:${subjectId}:${promotion.field}:${valueSha256}`);
+          return {
+            claim_id: claimId, subject_id: subjectId, field: promotion.field,
+            knowledge: { state: "known", value: promotion.canonicalValue }, canonical_value: promotion.canonicalValue,
+            source_id: promotionSourceId, source_locator: `${ticket}/${promotion.acgmeId}/${promotion.field}`,
+            observed_period: { kind: "reviewed_snapshot", label: timestamp.slice(0, 10) }, retrieved_at: timestamp,
+            content_sha256: sha256({ ticket, subjectId, field: promotion.field, value: promotion.canonicalValue }),
+            supersedes_claim_id: promotion.sourceClaimIds[0], source_claim_ids: promotion.sourceClaimIds,
+          };
+        });
+        let insertedPromotions = 0;
+        for (const batch of chunks(promotionRows)) {
+          const result = await client.query(`
+            INSERT INTO rise_runtime.canonical_evidence_claims (
+              claim_id, subject_id, field, knowledge, canonical_value, assertion_class,
+              publication_state, review_state, conflict_state, source_id, source_locator,
+              observed_period, retrieved_at, content_sha256, supersedes_claim_id
+            )
+            SELECT x.claim_id, x.subject_id, x.field, x.knowledge, x.canonical_value,
+                   'source_attributed_reconciled', 'PRIVATE_BETA', 'APPROVED', 'RESOLVED',
+                   x.source_id, x.source_locator, x.observed_period, x.retrieved_at,
+                   x.content_sha256, x.supersedes_claim_id
+            FROM jsonb_to_recordset($1::jsonb) AS x(
+              claim_id text, subject_id text, field text, knowledge jsonb, canonical_value jsonb,
+              source_id text, source_locator text, observed_period jsonb, retrieved_at timestamptz,
+              content_sha256 char(64), supersedes_claim_id text
+            ) ON CONFLICT (content_sha256) DO NOTHING
+          `, [JSON.stringify(batch)]);
+          insertedPromotions += result.rowCount;
+        }
+        const lineage = promotionRows.flatMap((promotion) => promotion.source_claim_ids.map((sourceClaimId, index) => ({
+          promoted_claim_id: promotion.claim_id, source_claim_id: sourceClaimId,
+          review_id: eventByClaim.get(sourceClaimId)?.reviewId, contributor_order: index,
+        }))).filter((row) => row.review_id);
+        let insertedLineage = 0;
+        for (const batch of chunks(lineage)) {
+          const result = await client.query(`
+            INSERT INTO rise_runtime.canonical_claim_promotion_lineage (
+              promoted_claim_id, source_claim_id, review_id, contributor_order
+            ) SELECT x.promoted_claim_id, x.source_claim_id, x.review_id, x.contributor_order
+              FROM jsonb_to_recordset($1::jsonb) AS x(
+                promoted_claim_id text, source_claim_id text, review_id text, contributor_order integer
+              ) ON CONFLICT (promoted_claim_id, source_claim_id) DO NOTHING
+          `, [JSON.stringify(batch)]);
+          insertedLineage += result.rowCount;
+        }
+        return { insertedReviews, insertedPromotions, insertedLineage, reviewCount: events.length, promotionCount: promotionRows.length };
+}
+
+export async function completeJobTransaction(client, {
+      jobId, leaseToken, workerId, status = "COMPLETED", resultSummary,
+      canonicalIngestRunId = null, actualCostUsd = 0, usage = {}, providerResponseId = null,
+      dossier = null,
+    }) {
+      if (!new Set(["COMPLETED", "PARTIAL", "NEEDS_REVIEW"]).has(status)) {
+        throw researchStoreError("RESEARCH_JOB_TRANSITION_INVALID", "Research completion state is invalid");
+      }
+        const selected = await client.query(`
+          SELECT requester_subject_key, quota_window_start, attempt_count, provider_key, model_key,
+                 task_class, estimated_cost_usd, contract_version, task_payload,
+                 root_job_id, stage_ordinal
+          FROM rise_runtime.research_jobs
+          WHERE job_id = $1 AND lease_token = $2 AND worker_id = $3
+            AND status IN ('LEASED', 'RUNNING', 'NORMALIZING', 'PROMOTING')
+            AND lease_expires_at > now()
+          FOR UPDATE
+        `, [jobId, leaseToken, workerId]);
+        if (selected.rowCount !== 1) throw researchStoreError("RESEARCH_JOB_LEASE_LOST", "Research worker lease is no longer valid", 409);
+        await reconcileResearchSpend(client, {
+          jobId, providerKey: selected.rows[0].provider_key, modelKey: selected.rows[0].model_key,
+          estimatedCostUsd: selected.rows[0].estimated_cost_usd, actualCostUsd,
+          usage, providerResponseId,
+        });
+        const updated = await client.query(`
+          UPDATE rise_runtime.research_jobs SET
+            status = $4, result_summary = $5::jsonb, canonical_ingest_run_id = $6,
+            actual_cost_usd = $7, completed_at = now(), lease_token = NULL,
+            lease_expires_at = NULL, heartbeat_at = now(), updated_at = now(),
+            completion_matrix = coalesce($8::jsonb, completion_matrix),
+            completion_score = coalesce($9::numeric, completion_score),
+            dossier_outcome = coalesce($10, dossier_outcome),
+            research_timestamp = coalesce($11::timestamptz, research_timestamp),
+            result_schema_version = coalesce($12, result_schema_version)
+          WHERE job_id = $1 AND lease_token = $2 AND worker_id = $3
+          RETURNING ${RESEARCH_JOB_PROJECTION}
+        `, [
+          jobId, leaseToken, workerId, status, JSON.stringify(resultSummary ?? {}), canonicalIngestRunId, actualCostUsd,
+          dossier?.completionMatrix ? JSON.stringify(dossier.completionMatrix) : null,
+          dossier?.completionScore ?? null, dossier?.dossierOutcome ?? null,
+          dossier?.researchTimestamp ?? null, dossier?.resultSchemaVersion ?? null,
+        ]);
+        const job = updated.rows[0];
+        if (selected.rows[0].task_class === "PROGRAM_DEEP_RESEARCH"
+          && (selected.rows[0].stage_ordinal === null || Number(selected.rows[0].stage_ordinal) === 1)) {
+          await client.query(`
+            UPDATE rise_runtime.research_quota_ledgers
+            SET reserved_count = reserved_count - 1, consumed_count = consumed_count + 1, updated_at = now()
+            WHERE subject_key = $1 AND window_start = $2 AND reserved_count > 0
+          `, [selected.rows[0].requester_subject_key, selected.rows[0].quota_window_start]);
+        }
+        await client.query(`
+          INSERT INTO rise_runtime.research_job_attempts (
+            job_id, attempt_number, provider_key, model_key, status, worker_id,
+            metadata, finished_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, now())
+          ON CONFLICT (job_id, attempt_number, status) DO NOTHING
+        `, [jobId, job.attemptCount, job.providerKey, job.modelKey, status, workerId,
+          JSON.stringify({
+            newSpendUsd: Number(actualCostUsd ?? 0), canonicalIngestRunId, providerResponseId, usage,
+            contractVersion: job.contractVersion, resultSchemaVersion: job.resultSchemaVersion,
+            requestClass: job.requestClass, dossierOutcome: job.dossierOutcome,
+          })]);
+        return researchJobRecord(job, { admin: true });
+}
+
 export async function createRiseCanonicalEvidenceStore({ pool = databasePool() } = {}) {
   await pool.query("SELECT 1 FROM rise_runtime.canonical_evidence_claims LIMIT 1");
   const systemKey = "0".repeat(64);
@@ -1085,69 +1319,7 @@ export async function createRiseCanonicalEvidenceStore({ pool = databasePool() }
       }, { isAdmin: true });
     },
     async ingestProviderRecord({ ingest }) {
-      return withSubject(pool, systemKey, async (client) => {
-        const sourceId = stableDatabaseId("rise_src", `${ingest.provider}:${ingest.providerRunId}`);
-        const identity = await client.query(`
-          SELECT program_identity_id AS "programIdentityId"
-          FROM rise_runtime.canonical_program_identities
-          WHERE acgme_id = $1
-          LIMIT 1
-        `, [ingest.acgmeId]);
-        const canonicalSubjectId = identity.rows[0]?.programIdentityId ?? null;
-        const run = await client.query(`
-          INSERT INTO rise_runtime.provider_ingest_runs (
-            idempotency_key, provider, campaign_id, acgme_id, source_file,
-            source_file_sha256, staged_at, status, new_spend_usd, claim_count
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'INGESTED', $8, $9)
-          ON CONFLICT (idempotency_key) DO UPDATE SET replay_count = rise_runtime.provider_ingest_runs.replay_count + 1
-          RETURNING ingest_run_id, (xmax = 0) AS inserted, replay_count
-        `, [
-          ingest.idempotencyKey, ingest.provider, ingest.campaignId, ingest.acgmeId,
-          ingest.sourceFile, ingest.sourceFileSha256, ingest.stagedAt,
-          Number(ingest.newSpendUsd ?? 0), ingest.claims.length,
-        ]);
-        await client.query(`
-          INSERT INTO rise_runtime.canonical_evidence_sources (
-            source_id, provider, provider_run_id, source_type, source_file_sha256,
-            source_url, source_locator, retrieved_at, rights_state, exposure_state, metadata
-          ) VALUES ($1, $2, $3, 'completed_research_factory', $4, $5, $6, $7, 'REVIEW_REQUIRED', 'INTERNAL_ONLY', $8::jsonb)
-          ON CONFLICT (source_id) DO NOTHING
-        `, [
-          sourceId, ingest.provider, ingest.providerRunId, ingest.sourceFileSha256,
-          databaseEvidenceSourceUrl(ingest.claims.flatMap((claim) => claim.sourceUrls ?? [])),
-          ingest.sourceFile, ingest.stagedAt,
-          JSON.stringify({
-            campaignId: ingest.campaignId, acgmeId: ingest.acgmeId,
-            newSpendUsd: Number(ingest.newSpendUsd ?? 0), providerKey: ingest.providerKey ?? null,
-            modelKey: ingest.modelKey ?? null,
-            claimSourceUrlCount: new Set(ingest.claims.flatMap((claim) => claim.sourceUrls ?? [])).size,
-          }),
-        ]);
-        let insertedClaims = 0;
-        for (const claim of ingest.claims) {
-          const result = await client.query(`
-            INSERT INTO rise_runtime.canonical_evidence_claims (
-              claim_id, subject_id, field, knowledge, canonical_value, assertion_class,
-              publication_state, review_state, conflict_state, source_id, source_locator,
-              observed_period, retrieved_at, content_sha256
-            ) VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, $7, $8, $9, $10, $11, $12::jsonb, $13, $14)
-            ON CONFLICT (content_sha256) DO NOTHING
-          `, [
-            claim.id, canonicalSubjectId ?? claim.subjectId, claim.field, JSON.stringify(claim.knowledge), JSON.stringify(claim.value),
-            claim.assertionClass, claim.publicationState, claim.reviewState, claim.conflictState,
-            sourceId, claim.sourceLocator, JSON.stringify(claim.observedPeriod), claim.retrievedAt, claim.contentSha256,
-          ]);
-          insertedClaims += result.rowCount;
-        }
-        return {
-          ingestRunId: run.rows[0].ingest_run_id,
-          insertedRun: run.rows[0].inserted,
-          replayCount: run.rows[0].replay_count,
-          insertedClaims,
-          claimCount: ingest.claims.length,
-          newSpendUsd: Number(ingest.newSpendUsd ?? 0),
-        };
-      }, { isAdmin: true });
+      return withSubject(pool, systemKey, client => ingestProviderRecordTransaction(client, {ingest}), {isAdmin:true});
     },
     async ensureReviewIdentitySource({
       retrievedAt,
@@ -1297,103 +1469,7 @@ export async function createRiseEvidenceReviewStore({ pool = databasePool() } = 
       ticket = "P1-RISE-5012D",
       promotionSourceId = "rise_src_p1_rise_5012d_review",
     }) {
-      const timestamp = requiredString(reviewedAt, "reviewedAt");
-      if (!Number.isFinite(Date.parse(timestamp))) throw new Error("reviewedAt must be an ISO timestamp");
-      const actorSubjectKey = sha256(`rise-evidence-review\0${actorSubject}`);
-      const events = review.decisions.map((decision) => reviewEvent(decision, actorSubjectKey, timestamp));
-      const eventByClaim = new Map(events.map((event) => [event.sourceClaimId, event]));
-      return withSubject(pool, systemKey, async (client) => {
-        let insertedReviews = 0;
-        for (const batch of chunks(events)) {
-          const result = await client.query(`
-            INSERT INTO rise_runtime.evidence_claim_review_events (
-              review_id, source_claim_id, disposition, reason_code, rule_version,
-              normalized_value, source_urls, quality_score, actor_subject_key, decision_sha256,
-              overrides_review_id, created_at
-            )
-            SELECT x.review_id, x.source_claim_id, x.disposition, x.reason_code, x.rule_version,
-                   x.normalized_value, x.source_urls, x.quality_score, x.actor_subject_key, x.decision_sha256,
-                   x.overrides_review_id, x.created_at
-            FROM jsonb_to_recordset($1::jsonb) AS x(
-              review_id text, source_claim_id text, disposition text, reason_code text, rule_version text,
-              normalized_value jsonb, source_urls jsonb, quality_score integer,
-              actor_subject_key char(64), decision_sha256 char(64), overrides_review_id text, created_at timestamptz
-            ) ON CONFLICT (decision_sha256) DO NOTHING
-          `, [JSON.stringify(batch.map((event) => ({
-            review_id: event.reviewId, source_claim_id: event.sourceClaimId, disposition: event.disposition,
-            reason_code: event.reasonCode, rule_version: event.ruleVersion, normalized_value: event.normalizedValue,
-            source_urls: event.sourceUrls, quality_score: event.qualityScore, actor_subject_key: event.actorSubjectKey,
-            decision_sha256: event.decisionSha256, overrides_review_id: event.overridesReviewId, created_at: event.createdAt,
-          })))]);
-          insertedReviews += result.rowCount;
-        }
-        const acgmeIds = [...new Set(review.promotions.map((promotion) => promotion.acgmeId))];
-        const identities = await client.query(`
-          SELECT acgme_id::text AS "acgmeId", program_identity_id AS "subjectId"
-          FROM rise_runtime.canonical_program_identities WHERE acgme_id = ANY($1::text[])
-        `, [acgmeIds]);
-        const subjectByAcgme = new Map(identities.rows.map((row) => [row.acgmeId, row.subjectId]));
-        if (subjectByAcgme.size !== acgmeIds.length) throw new Error("Promotion set contains unresolved canonical identities");
-        await client.query(`
-          INSERT INTO rise_runtime.canonical_evidence_sources (
-            source_id, provider, provider_run_id, source_type, source_locator, retrieved_at,
-            rights_state, exposure_state, metadata
-          ) VALUES ($1, 'MISSIONMED_REVIEW', $2, 'canonical_review_promotion',
-                    $3, $4, 'APPROVED', 'PRIVATE_BETA', $5::jsonb)
-          ON CONFLICT (source_id) DO NOTHING
-        `, [promotionSourceId, ticket, `${ticket}/review-factory`, timestamp,
-          JSON.stringify({ ruleVersion: review.ruleVersion, newProviderSpendUsd: 0, ticket })]);
-        const promotionRows = review.promotions.map((promotion) => {
-          const subjectId = subjectByAcgme.get(promotion.acgmeId);
-          const valueSha256 = sha256(promotion.canonicalValue);
-          const claimId = stableDatabaseId("rise_claim", `${ticket}:${subjectId}:${promotion.field}:${valueSha256}`);
-          return {
-            claim_id: claimId, subject_id: subjectId, field: promotion.field,
-            knowledge: { state: "known", value: promotion.canonicalValue }, canonical_value: promotion.canonicalValue,
-            source_id: promotionSourceId, source_locator: `${ticket}/${promotion.acgmeId}/${promotion.field}`,
-            observed_period: { kind: "reviewed_snapshot", label: timestamp.slice(0, 10) }, retrieved_at: timestamp,
-            content_sha256: sha256({ ticket, subjectId, field: promotion.field, value: promotion.canonicalValue }),
-            supersedes_claim_id: promotion.sourceClaimIds[0], source_claim_ids: promotion.sourceClaimIds,
-          };
-        });
-        let insertedPromotions = 0;
-        for (const batch of chunks(promotionRows)) {
-          const result = await client.query(`
-            INSERT INTO rise_runtime.canonical_evidence_claims (
-              claim_id, subject_id, field, knowledge, canonical_value, assertion_class,
-              publication_state, review_state, conflict_state, source_id, source_locator,
-              observed_period, retrieved_at, content_sha256, supersedes_claim_id
-            )
-            SELECT x.claim_id, x.subject_id, x.field, x.knowledge, x.canonical_value,
-                   'source_attributed_reconciled', 'PRIVATE_BETA', 'APPROVED', 'RESOLVED',
-                   x.source_id, x.source_locator, x.observed_period, x.retrieved_at,
-                   x.content_sha256, x.supersedes_claim_id
-            FROM jsonb_to_recordset($1::jsonb) AS x(
-              claim_id text, subject_id text, field text, knowledge jsonb, canonical_value jsonb,
-              source_id text, source_locator text, observed_period jsonb, retrieved_at timestamptz,
-              content_sha256 char(64), supersedes_claim_id text
-            ) ON CONFLICT (content_sha256) DO NOTHING
-          `, [JSON.stringify(batch)]);
-          insertedPromotions += result.rowCount;
-        }
-        const lineage = promotionRows.flatMap((promotion) => promotion.source_claim_ids.map((sourceClaimId, index) => ({
-          promoted_claim_id: promotion.claim_id, source_claim_id: sourceClaimId,
-          review_id: eventByClaim.get(sourceClaimId)?.reviewId, contributor_order: index,
-        }))).filter((row) => row.review_id);
-        let insertedLineage = 0;
-        for (const batch of chunks(lineage)) {
-          const result = await client.query(`
-            INSERT INTO rise_runtime.canonical_claim_promotion_lineage (
-              promoted_claim_id, source_claim_id, review_id, contributor_order
-            ) SELECT x.promoted_claim_id, x.source_claim_id, x.review_id, x.contributor_order
-              FROM jsonb_to_recordset($1::jsonb) AS x(
-                promoted_claim_id text, source_claim_id text, review_id text, contributor_order integer
-              ) ON CONFLICT (promoted_claim_id, source_claim_id) DO NOTHING
-          `, [JSON.stringify(batch)]);
-          insertedLineage += result.rowCount;
-        }
-        return { insertedReviews, insertedPromotions, insertedLineage, reviewCount: events.length, promotionCount: promotionRows.length };
-      }, { isAdmin: true });
+      return withSubject(pool, systemKey, client => applyCorpusTransaction(client, {review,actorSubject,reviewedAt,ticket,promotionSourceId}), {isAdmin:true});
     },
     async supersedeLegacyClaims({ currentClaimIds, actorSubject = "P1-RISE-5012D", reviewedAt }) {
       const timestamp = requiredString(reviewedAt, "reviewedAt");
@@ -2504,67 +2580,7 @@ export async function createRiseResearchStore({
       canonicalIngestRunId = null, actualCostUsd = 0, usage = {}, providerResponseId = null,
       dossier = null,
     }) {
-      if (!new Set(["COMPLETED", "PARTIAL", "NEEDS_REVIEW"]).has(status)) {
-        throw researchStoreError("RESEARCH_JOB_TRANSITION_INVALID", "Research completion state is invalid");
-      }
-      return withSubject(pool, systemKey, async (client) => {
-        const selected = await client.query(`
-          SELECT requester_subject_key, quota_window_start, attempt_count, provider_key, model_key,
-                 task_class, estimated_cost_usd, contract_version, task_payload,
-                 root_job_id, stage_ordinal
-          FROM rise_runtime.research_jobs
-          WHERE job_id = $1 AND lease_token = $2 AND worker_id = $3
-            AND status IN ('LEASED', 'RUNNING', 'NORMALIZING', 'PROMOTING')
-            AND lease_expires_at > now()
-          FOR UPDATE
-        `, [jobId, leaseToken, workerId]);
-        if (selected.rowCount !== 1) throw researchStoreError("RESEARCH_JOB_LEASE_LOST", "Research worker lease is no longer valid", 409);
-        await reconcileResearchSpend(client, {
-          jobId, providerKey: selected.rows[0].provider_key, modelKey: selected.rows[0].model_key,
-          estimatedCostUsd: selected.rows[0].estimated_cost_usd, actualCostUsd,
-          usage, providerResponseId,
-        });
-        const updated = await client.query(`
-          UPDATE rise_runtime.research_jobs SET
-            status = $4, result_summary = $5::jsonb, canonical_ingest_run_id = $6,
-            actual_cost_usd = $7, completed_at = now(), lease_token = NULL,
-            lease_expires_at = NULL, heartbeat_at = now(), updated_at = now(),
-            completion_matrix = coalesce($8::jsonb, completion_matrix),
-            completion_score = coalesce($9::numeric, completion_score),
-            dossier_outcome = coalesce($10, dossier_outcome),
-            research_timestamp = coalesce($11::timestamptz, research_timestamp),
-            result_schema_version = coalesce($12, result_schema_version)
-          WHERE job_id = $1 AND lease_token = $2 AND worker_id = $3
-          RETURNING ${RESEARCH_JOB_PROJECTION}
-        `, [
-          jobId, leaseToken, workerId, status, JSON.stringify(resultSummary ?? {}), canonicalIngestRunId, actualCostUsd,
-          dossier?.completionMatrix ? JSON.stringify(dossier.completionMatrix) : null,
-          dossier?.completionScore ?? null, dossier?.dossierOutcome ?? null,
-          dossier?.researchTimestamp ?? null, dossier?.resultSchemaVersion ?? null,
-        ]);
-        const job = updated.rows[0];
-        if (selected.rows[0].task_class === "PROGRAM_DEEP_RESEARCH"
-          && (selected.rows[0].stage_ordinal === null || Number(selected.rows[0].stage_ordinal) === 1)) {
-          await client.query(`
-            UPDATE rise_runtime.research_quota_ledgers
-            SET reserved_count = reserved_count - 1, consumed_count = consumed_count + 1, updated_at = now()
-            WHERE subject_key = $1 AND window_start = $2 AND reserved_count > 0
-          `, [selected.rows[0].requester_subject_key, selected.rows[0].quota_window_start]);
-        }
-        await client.query(`
-          INSERT INTO rise_runtime.research_job_attempts (
-            job_id, attempt_number, provider_key, model_key, status, worker_id,
-            metadata, finished_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, now())
-          ON CONFLICT (job_id, attempt_number, status) DO NOTHING
-        `, [jobId, job.attemptCount, job.providerKey, job.modelKey, status, workerId,
-          JSON.stringify({
-            newSpendUsd: Number(actualCostUsd ?? 0), canonicalIngestRunId, providerResponseId, usage,
-            contractVersion: job.contractVersion, resultSchemaVersion: job.resultSchemaVersion,
-            requestClass: job.requestClass, dossierOutcome: job.dossierOutcome,
-          })]);
-        return researchJobRecord(job, { admin: true });
-      }, { isAdmin: true });
+      return withSubject(pool, systemKey, client => completeJobTransaction(client, {jobId,leaseToken,workerId,status,resultSummary,canonicalIngestRunId,actualCostUsd,usage,providerResponseId,dossier}), {isAdmin:true});
     },
     async scheduleFollowup({ completedJob }) {
       if (!completedJob?.jobId || completedJob.status !== "PARTIAL") {
