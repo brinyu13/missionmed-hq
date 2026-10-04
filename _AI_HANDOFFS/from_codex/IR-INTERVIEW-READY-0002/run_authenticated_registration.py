@@ -21,7 +21,9 @@ def main():
         key = transport.retrieve_existing_key()
         status = transport.authentication_probe(key)
     except transport.TransportError as error:
-        print('AUTHENTICATION_STOP: ' + str(error), flush=True)
+        print('AUTHENTICATION_STOP: ' + (error.public_status()
+              if isinstance(error, transport.PhaseError)
+              else 'phase=unknown; error=failed_closed'), flush=True)
         return 1
     print('AUTHENTICATION_PASS: HTTP ' + str(status) + '; awaiting independent admission', flush=True)
     deadline = time.monotonic() + 600

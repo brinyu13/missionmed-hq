@@ -4,6 +4,7 @@ Execution requires independent review of these exact bytes. Never log a request,
 response, credential, worker output or caught exception. No retries or key fallback.
 """
 import copy
+from contextlib import contextmanager
 import hmac
 import json
 import math
@@ -36,6 +37,66 @@ class TransportError(RuntimeError):
     """Only constant value-free error messages are admitted."""
 
 
+class DeadlineExceeded(TransportError):
+    """Constant deadline classification; no deadline or clock value is exposed."""
+
+
+PHASES = frozenset(('management_token_lookup', 'keychain_supabase',
+                   'keychain_access_token', 'exact_existing_file',
+                   'management_reveal', 'authentication_probe'))
+
+
+# Compare only admitted constant messages; never format an exception.
+_ERROR_KINDS = {
+    'existing keychain custody requires owner action': 'custody_requires_owner_action',
+    'existing credential file requires owner action': 'custody_requires_owner_action',
+    'existing management credential custody requires owner action': 'custody_requires_owner_action',
+    'existing management credential custody unavailable': 'custody_unavailable',
+    'existing keychain custody unavailable': 'custody_unavailable',
+    'existing credential file unavailable': 'custody_unavailable',
+    'existing management credential format unavailable': 'management_format_unavailable',
+    'existing coordination credential format unavailable': 'coordination_format_unavailable',
+    'existing coordination credential unavailable': 'coordination_unavailable',
+    'existing management identity or permission denied': 'management_denied',
+    'existing coordination authentication denied': 'coordination_denied',
+    'transport size bound exceeded': 'size_bound_exceeded',
+}
+
+
+class PhaseError(TransportError):
+    """Only constant phase/kind and monotonic elapsed seconds are public."""
+    def __init__(self, phase, started, *, kind='failed_closed'):
+        self.phase = phase if phase in PHASES else 'unknown'
+        self.kind = kind if kind in {*_ERROR_KINDS.values(), 'deadline_exceeded'} else 'failed_closed'
+        elapsed = time.monotonic() - started
+        self.elapsed_seconds = elapsed if math.isfinite(elapsed) and elapsed >= 0 else 0.0
+        super().__init__('transport deadline exceeded' if self.kind == 'deadline_exceeded'
+                         else 'transport phase failed closed')
+
+    def public_status(self):
+        return (f'phase={self.phase}; error={self.kind}; '
+                f'elapsed_seconds={self.elapsed_seconds:.3f}')
+
+
+@contextmanager
+def _phase(name):
+    # Call sites supply literals only. Inner phases retain their own timing.
+    started = time.monotonic()
+    try:
+        yield
+    except (AbsentCredential, PhaseError):
+        raise
+    except Exception as error:
+        kind = 'failed_closed'
+        if isinstance(error, DeadlineExceeded):
+            kind = 'deadline_exceeded'
+        elif isinstance(error, TransportError) and len(error.args) == 1 and type(error.args[0]) is str:
+            kind = _ERROR_KINDS.get(error.args[0], kind)
+        elif name in ('keychain_supabase', 'keychain_access_token', 'exact_existing_file'):
+            kind = 'custody_requires_owner_action'
+        raise PhaseError(name, started, kind=kind) from None
+
+
 class AbsentCredential(Exception):
     """Confirmed missing custody slot only; never denial or locked custody."""
 
@@ -43,7 +104,7 @@ class AbsentCredential(Exception):
 def _remaining(deadline, ceiling=TOTAL_SECONDS):
     remaining = deadline - time.monotonic()
     if not math.isfinite(remaining) or remaining <= 0:
-        raise TransportError('transport deadline exceeded')
+        raise DeadlineExceeded('transport deadline exceeded')
     return min(remaining, ceiling)
 
 
@@ -239,14 +300,18 @@ def load_existing_management_token(*, deadline=None, environment=None,
         for account in ('supabase', 'access-token'):
             _remaining(deadline)
             try:
-                value = keychain_reader(account, deadline)
+                with _phase('keychain_supabase' if account == 'supabase'
+                            else 'keychain_access_token'):
+                    value = keychain_reader(account, deadline)
+                    _remaining(deadline)
+                    value = _token(value)
             except AbsentCredential:
                 continue
+            return value
+        with _phase('exact_existing_file'):
+            value = file_reader(deadline)
             _remaining(deadline)
             return _token(value)
-        value = file_reader(deadline)
-        _remaining(deadline)
-        return _token(value)
     except TransportError:
         raise
     except AbsentCredential:
@@ -291,14 +356,16 @@ def retrieve_existing_key(*, token_loader=None, get=None):
     token_loader = load_existing_management_token if token_loader is None else token_loader
     get = _private_get if get is None else get
     try:
-        token = _token(token_loader(deadline=deadline))
-        status, raw = get('reveal', token, deadline)
-        _remaining(deadline)
-        if status in (401, 403):
-            raise TransportError('existing management identity or permission denied')
-        if status != 200:
-            raise TransportError('existing key reveal failed closed')
-        return _select_existing_key(raw)
+        with _phase('management_token_lookup'):
+            token = _token(token_loader(deadline=deadline))
+        with _phase('management_reveal'):
+            status, raw = get('reveal', token, deadline)
+            _remaining(deadline)
+            if status in (401, 403):
+                raise TransportError('existing management identity or permission denied')
+            if status != 200:
+                raise TransportError('existing key reveal failed closed')
+            return _select_existing_key(raw)
     except TransportError:
         raise
     except Exception:
@@ -310,14 +377,15 @@ def authentication_probe(api_key, *, get=None):
     deadline = time.monotonic() + TOTAL_SECONDS
     get = _private_get if get is None else get
     try:
-        key = _secret(api_key)
-        status, body = get('health', key, deadline)
-        _remaining(deadline)
-        if len(body) > MAX_BYTES:
-            raise TransportError('transport size bound exceeded')
-        if status != 200:
-            raise TransportError('existing coordination authentication denied')
-        return status
+        with _phase('authentication_probe'):
+            key = _secret(api_key)
+            status, body = get('health', key, deadline)
+            _remaining(deadline)
+            if len(body) > MAX_BYTES:
+                raise TransportError('transport size bound exceeded')
+            if status != 200:
+                raise TransportError('existing coordination authentication denied')
+            return status
     except TransportError:
         raise
     except Exception:

@@ -130,6 +130,91 @@ class TransportTests(unittest.TestCase):
         with self.assertRaises(transport.TransportError):
             transport.authentication_probe(KEY, get=lambda *args: (401, b'private'))
 
+    def test_private_stdin_is_closed_before_output_collection(self):
+        process = unittest.mock.Mock(stdin=io.BytesIO(), stdout=io.BytesIO(), stderr=io.BytesIO())
+        process.poll.return_value = 0
+        process.wait.return_value = 0
+        selector = unittest.mock.MagicMock()
+        def enter():
+            self.assertTrue(process.stdin.closed)
+            return selector
+        selector.__enter__.side_effect = enter
+        selector.get_map.return_value = {}
+        with patch.object(transport.subprocess, 'Popen', return_value=process), \
+             patch.object(transport.selectors, 'DefaultSelector', return_value=selector), \
+             patch.object(transport.time, 'monotonic', return_value=10.0):
+            self.assertEqual(transport._private_worker('fixture', [], 11.0,
+                input_bytes=b'fictional input'), (0, b''))
+        process.kill.assert_not_called()
+
+    def test_phase_deadlines_are_distinct_and_elapsed_only(self):
+        clock = [10.0]
+        calls = []
+        def fail(*args):
+            clock[0] = 12.5
+            transport._remaining(12.0)
+        def absent(*args):
+            calls.append(args[0] if len(args) == 2 else 'file')
+            raise transport.AbsentCredential()
+        def second(account, deadline):
+            if account == 'supabase':
+                return absent(account, deadline)
+            return fail(account, deadline)
+        cases = (
+            ('keychain_supabase', lambda: self.load({}, fail, absent)),
+            ('keychain_access_token', lambda: self.load({}, second, absent)),
+            ('exact_existing_file', lambda: self.load({}, absent, fail)),
+            ('management_token_lookup', lambda: transport.retrieve_existing_key(
+                token_loader=lambda **kwargs: fail(), get=fail)),
+            ('management_reveal', lambda: transport.retrieve_existing_key(
+                token_loader=lambda **kwargs: TOKEN, get=fail)),
+            ('authentication_probe', lambda: transport.authentication_probe(KEY, get=fail)),
+        )
+        with patch.object(transport.time, 'monotonic', side_effect=lambda: clock[0]):
+            for phase, operation in cases:
+                clock[0] = 10.0
+                with self.subTest(phase=phase), self.assertRaises(transport.PhaseError) as caught:
+                    operation()
+                error = caught.exception
+                self.assertEqual(error.public_status(),
+                    f'phase={phase}; error=deadline_exceeded; elapsed_seconds=2.500')
+                self.assertEqual(error.elapsed_seconds, 2.5)
+                self.assertTrue(error.__suppress_context__)
+        self.assertEqual(calls, ['supabase', 'supabase', 'access-token'])
+
+    def test_phase_failure_never_formats_private_exception(self):
+        class PrivateFailure(Exception):
+            def __str__(self):
+                raise AssertionError('private exception must never be formatted')
+        def fail(*args):
+            raise PrivateFailure(KEY, TOKEN, transport.REVEAL_URL)
+        with patch.object(transport.time, 'monotonic', return_value=10.0):
+            with self.assertRaises(transport.PhaseError) as caught:
+                transport.retrieve_existing_key(token_loader=lambda **kwargs: TOKEN, get=fail)
+        self.assertEqual(caught.exception.public_status(),
+            'phase=management_reveal; error=failed_closed; elapsed_seconds=0.000')
+        self.assertNotIn(KEY, str(caught.exception))
+        self.assertNotIn(TOKEN, str(caught.exception))
+        self.assertNotIn(transport.REVEAL_URL, str(caught.exception))
+
+    def test_known_safe_failure_classifications(self):
+        def denied(*args):
+            raise PermissionError(KEY)
+        cases = (
+            (lambda: self.load({}, denied, denied), 'custody_requires_owner_action'),
+            (lambda: transport.retrieve_existing_key(token_loader=lambda **kwargs: 'invalid'),
+             'management_format_unavailable'),
+            (lambda: transport.retrieve_existing_key(token_loader=lambda **kwargs: TOKEN,
+                get=lambda *args: (403, b'private')), 'management_denied'),
+            (lambda: transport.authentication_probe(KEY, get=lambda *args: (401, b'private')),
+             'coordination_denied'),
+        )
+        for operation, kind in cases:
+            with self.subTest(kind=kind), self.assertRaises(transport.PhaseError) as caught:
+                operation()
+            self.assertEqual(caught.exception.kind, kind)
+            self.assertNotIn(KEY, caught.exception.public_status())
+
     def request(self, url=None, method='POST', key=KEY, auth=None):
         return urllib.request.Request(url or sorted(transport.RPC_URLS)[0], data=b'{"fictional":true}',
             method=method, headers={'apikey': key, 'Authorization': auth or 'Bearer ' + key,
