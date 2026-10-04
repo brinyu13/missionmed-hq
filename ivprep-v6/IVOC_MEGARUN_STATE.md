@@ -48,8 +48,14 @@ the actual production route and deployment.
   Chrome access still WAITING for
   a changed client-access event, not repeatedly polled. R022 remains LIVE
   UNVERIFIED until current UI/spoken behavior passes. No percentage or completion
-  claim. Next: finish bounded read-only R023/R025/R029 preservation triage, fix
-  only a directly reproduced executable gap; on changed browser event resume
+  claim. Independent R023/R025/R029 triage reproduced a new executable R029 P1:
+  an ended mic after successful Connect can reach recording before native denial.
+  Next: same-owner usable-mic/AudioContext checks before preparation and after
+  awaited admission/import, plus preflight ended/mute/device updates that disable
+  Start with clear recovery copy (never rewind an active session). R025 consumes
+  authorized server context; spoken adherence unverified. R023 native interruption
+  remains; its requested Flight Recorder interruption marker is a lower-priority
+  preservation gap. On changed browser event resume
   actual candidate Mock, real follow-up/barge-in/closing, save and heard two-sided
   cold replay plus own/Admin role journeys. No engineering-exhausted verdict.
 - 2026-10-04 R004 goal/focus correction: bounded read-only review proved missing
