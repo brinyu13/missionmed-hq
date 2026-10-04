@@ -1,8 +1,9 @@
 {
   "qa_case": {
     "id": "df329ca8-67e4-4871-8117-eaa8afa2a4a1",
-    "status": "in_progress",
-    "was_existing": false
+    "status": "archived",
+    "was_existing": false,
+    "status_note": "Canonical intake was new before recoverable cleanup; offer effective SENT. Now both archived with preserved original evidence."
   },
   "nonqa_baseline": [
     {
@@ -40,7 +41,7 @@
   },
   "source_scope": "LIVE/usce_admin.html only",
   "backend_rebuilt": false,
-  "candidate_sha256": "59d276655122f4a8dd7311d616a84c69cadeb4ed1c4e8e01e495a3cfa176ecf9",
+  "candidate_sha256": "67d76274069354d5bf04de383597be096aa344adba848fab3ca821487d11b8cf",
   "focused_tests": {
     "pass": 42,
     "fail": 0
@@ -55,5 +56,57 @@
     "keyboard selection"
   ],
   "independent_source": "APPROVE_WITH_CONDITIONS",
-  "independent_browser": "PENDING_TOOL_RECOVERY"
+  "independent_browser": "LIVE_FUNCTIONAL_USABILITY_RECOVERY_PASS",
+  "source_commit": "7e3ee3a",
+  "fresh_final": "FINAL_F_U_O_ACCEPTED_BOUNDED_V1",
+  "rollback_reapply": "ACTUALLY_EXERCISED_b5_TO_67_EXACT_R2_PUBLIC_AND_INDEPENDENT_BROWSER",
+  "nonqa_current": [
+    {
+      "non_qa_requests": 88,
+      "non_qa_request_fingerprint": "66bbcc60fa8e7e4059de5f67f77c61c8"
+    }
+  ],
+  "cleanup": {
+    "lease_id": "cc22beda-29f6-4ea8-973a-267d8a5ab63c",
+    "sql_sha256": "cb26981c346a553fc6acf19e42b86b4990ab685cd353c9494712dc3564be534a",
+    "status": "applied",
+    "case_ids": [
+      "796d4c87-1fc6-4311-9988-f83b7872e635",
+      "3bcef32b-a51b-4f12-9db9-de0ea3bc071c",
+      "f1f519aa-ad18-4827-b494-4c6a0a2c13cb",
+      "c211120c-8fbf-4440-bdbe-e9983422c588",
+      "4c783687-016d-49ae-bfa0-c0dbce58b959",
+      "f46642b1-faf9-4b26-8c42-e0cba6105687",
+      "df329ca8-67e4-4871-8117-eaa8afa2a4a1"
+    ],
+    "offer_ids": [
+      "85a0041e-b6b4-4ea2-b154-30c66a92fbce",
+      "4375a0d9-ebe9-4b54-b74e-2f64579144af",
+      "09082aca-83cf-488b-a3c3-fe50be48e917",
+      "dbbe418c-f0a8-47a2-87f2-4cf77a4d5d16",
+      "2f3839ae-0b61-4460-94d9-960e2e60455b",
+      "dd8e42a7-7c22-4930-8a28-b4400fec863c",
+      "a0684d96-ac25-46d6-a773-b479bc90743d"
+    ],
+    "mail_ids": [
+      "1a0fd6c22a3f4edc",
+      "1a0fe0169eacef7e",
+      "1a0fe9c4da80380b",
+      "1a1088034cc0225e"
+    ],
+    "archived_cases": 7,
+    "links_denied": 7,
+    "preserved_hashes": {
+      "intakes": "d975ecf5398533729339dcab38918175",
+      "terms": "e8ab2bc21bbadefca1a804e822829266",
+      "metadata": "c3926052e57dadd8aefc65f4f09b7cad",
+      "claims": "2e787163a34a4a723b73dfb900a9b2df"
+    }
+  },
+  "critical_gate": {
+    "pass": 20,
+    "fail": 0,
+    "warn": 1,
+    "warning": "browser journeys require external evidence; attributed bounded checks recorded"
+  }
 }

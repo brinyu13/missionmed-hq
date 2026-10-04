@@ -442,7 +442,7 @@
       "id": "cdn_usce_admin_live",
       "system": "usce_admin",
       "url": "https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html",
-      "approved_sha256": "b5bfd9743b7f71b160c5d600c525fd245920eb7a89838d70a6ce8dd40b9deaf0",
+      "approved_sha256": "67d76274069354d5bf04de383597be096aa344adba848fab3ca821487d11b8cf",
       "required_markers": [
         "/api/usce/admin/public-intake-requests",
         "action=mmhq_usce_admin_auth_relay",
@@ -458,7 +458,7 @@
         "authAudience: 'usce_admin'",
         "usce-storyforge-foundation"
       ],
-      "local_source_note": "Exact independently reviewed StoryForge foundation plus C18 manual provenance, sender proof and modal fence; serving custody CDN_RELEASE.md. Fresh final F/U/O separate.",
+      "local_source_note": "Version1 Action Command base, independently reviewed source7e3ee3a and live Brian-admin/responsive/rollback/reapply; custody BASE_FIRST_20261004/CDN_RELEASE.md. Existing auth/backend/applicant unchanged.",
       "local_source_required": true,
       "local_source_path": "LIVE/usce_admin.html"
     },

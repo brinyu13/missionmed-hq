@@ -1,3 +1,9 @@
+## 2026-10-04 Version1 base release ACCEPTED
+
+Fresh independent F/U/O accepted deployed Action Command base. Current source7e3ee3a/admin67d762; normal Chrome brinyu entry, queue/detail/Offer/review/send/status/communications, desktop/mobile/keyboard and actual rollback/reapply verified. Seven synthetic fixtures/testlinks and four mail messages cleaned up recoverably; nonQA88 unchanged. Journey=NEXT. No Astra or IVOC. Current definitive custody: BASE_FIRST_20261004/STATE.md and INDEPENDENT_FUO.md.
+
+## Historical pre-base mission records
+
 # USCE renovation release board
 
 Mission USCE-PHIL-FIRST-RENOVATION-20261002; state INDEPENDENT_ACCEPTANCE. Released C18 and StoryForge foundation builder LIVE_VERIFIED, independent F/U/O pending.

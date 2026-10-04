@@ -1,3 +1,9 @@
+## 2026-10-04 Version1 base release ACCEPTED
+
+Fresh independent F/U/O accepted deployed Action Command base. Current source7e3ee3a/admin67d762; normal Chrome brinyu entry, queue/detail/Offer/review/send/status/communications, desktop/mobile/keyboard and actual rollback/reapply verified. Seven synthetic fixtures/testlinks and four mail messages cleaned up recoverably; nonQA88 unchanged. Journey=NEXT. No Astra or IVOC. Current definitive custody: BASE_FIRST_20261004/STATE.md and INDEPENDENT_FUO.md.
+
+## Historical pre-base mission records
+
 ## 2026-10-04 bounded base renovation ACTIVE
 
 Direct Founder resumption supersedes prior wider pause only for Version1 base shell. Canonical authority OS9150c3b / DR359/360. Current evidence: BASE_FIRST_20261004/STATE.md. No Astra; Journey=NEXT; IVOC excluded.

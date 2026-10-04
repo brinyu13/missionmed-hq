@@ -5,10 +5,9 @@
   "owner": "Brian",
   "last_updated_utc": "2026-08-01T14:00:00Z",
   "known_good": {
-    "git_commit": "3f0c27aac55dbf82748b3eaba360006d4041b539",
-    "git_tag": "known-good/2026-06-25-critical-auth-usce-arena-matrix",
-    "railway_deployment": "27280193-c85b-49de-8b03-58e28ba0c9f3",
-    "frontend_preimage_sha256": "b5bfd9743b7f71b160c5d600c525fd245920eb7a89838d70a6ce8dd40b9deaf0"
+    "frontend_preimage_sha256": "b5bfd9743b7f71b160c5d600c525fd245920eb7a89838d70a6ce8dd40b9deaf0",
+    "frontend_candidate_sha256": "67d76274069354d5bf04de383597be096aa344adba848fab3ca821487d11b8cf",
+    "gateway_deployment": "dd1ee4ed-b06b-4049-afb8-92bdaaadf5f0"
   },
   "delegated_locks": {
     "matrix_runtime": "_SYSTEM/KNOWN_GOOD/MATRIX_RUNTIME_LOCK_MANIFEST.json",
@@ -80,73 +79,50 @@
     "missionmed-hq/usce-gateway.mjs"
   ],
   "supabase_projects": {},
-  "postgres_projects": {
-    "storyforge_v5": {
-      "provider": "railway",
-      "project_id": "875e7c17-d06f-4301-a4bb-e61016f153cf",
-      "database_service_id": "a4a66362-c3ba-475a-ae21-2aa46624bafe",
-      "environment_id": "bcef8734-e42b-44df-8488-c2a3de68213f",
-      "schema": "public",
-      "migration_ledger": "public.sf_schema_migrations",
-      "migration_files": [
-        "storyforge-v5/infra/postgres/migrations/20260726150000_b1_500_storyforge_v5_foundation.sql",
-        "storyforge-v5/infra/postgres/migrations/20260727170000_b1_502_storyforge_submit_assignment_gate.sql",
-        "storyforge-v5/infra/postgres/migrations/20260727190000_b1_502_storyforge_background_preference.sql",
-        "storyforge-v5/infra/postgres/migrations/20260728045100_b1_503_story_domain_conformance.sql",
-        "storyforge-v5/infra/postgres/migrations/20260728045444_b1_503_interview_mentor_conformance.sql",
-        "storyforge-v5/infra/postgres/migrations/20260729000100_b1_506_voice_recording_sessions.sql",
-        "storyforge-v5/infra/postgres/migrations/20260729000200_b1_506_feature_flags.sql",
-        "storyforge-v5/infra/postgres/migrations/20260729010000_b1_506a_voice_audit_lifecycle.sql",
-        "storyforge-v5/infra/postgres/migrations/20260730000100_b1_507b_reconciliation_state.sql",
-        "storyforge-v5/infra/postgres/migrations/20260801190000_b1_510i_admin_console.sql",
-        "storyforge-v5/infra/postgres/migrations/20260805190000_b1_511_workflow_taxonomy_mentor_notes.sql",
-        "storyforge-v5/infra/postgres/migrations/20260806130000_b1_511a_wordpress_admin_authority.sql",
-        "storyforge-v5/infra/postgres/migrations/20260806190000_b1_512_concrete_configuration_media.sql",
-        "storyforge-v5/infra/postgres/migrations/20260810190000_b1_514_v2_r1_visibility_consent_activity.sql",
-        "storyforge-v5/infra/postgres/migrations/20260810200000_b1_514_v2_r2_story_versions_provenance.sql",
-        "storyforge-v5/infra/postgres/migrations/20260810210000_b1_514_v2_r3_inspiration.sql",
-        "storyforge-v5/infra/postgres/migrations/20260810220000_b1_514_v2_ra_requests_guest.sql",
-        "storyforge-v5/infra/postgres/migrations/20260810230000_b1_514_v2_preferences_environments.sql",
-        "storyforge-v5/infra/postgres/migrations/20260810240000_b1_514_v2_ra_lifecycle_completion.sql",
-        "storyforge-v5/infra/postgres/migrations/20260810250000_b1_514_v21_authored_segment_writes.sql",
-        "storyforge-v5/infra/postgres/migrations/20260810260000_b1_514_guest_voice_contributions.sql",
-        "storyforge-v5/infra/postgres/migrations/20260810270000_b1_514_request_delivery_attempts.sql",
-        "storyforge-v5/infra/postgres/migrations/20260810280000_b1_514_guest_voice_cleanup_recovery.sql",
-        "storyforge-v5/infra/postgres/migrations/20260812120000_b1_515_v201_reviews_collections_peer.sql"
+  "asset_checks": [
+    {
+      "id": "cdn_usce_admin_live",
+      "system": "usce_admin",
+      "url": "https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html",
+      "approved_sha256": "67d76274069354d5bf04de383597be096aa344adba848fab3ca821487d11b8cf",
+      "required_markers": [
+        "/api/usce/admin/public-intake-requests",
+        "action=mmhq_usce_admin_auth_relay",
+        "/api/auth/session",
+        "https://missionmed-usce-gateway-production.up.railway.app",
+        "Live protected",
+        "mmPromptLabel",
+        "preview_hash",
+        "expected_revision",
+        "hydrateSavedOffer",
+        "uniqueTimelineEvents",
+        "Apply selected template",
+        "authAudience: 'usce_admin'",
+        "usce-storyforge-foundation"
       ],
-      "pending_migration_files": [],
-      "application_role": "storyforge_app",
-      "policy_role": "authenticated",
-      "application_role_must_not_own_tables": true,
-      "application_role_bypassrls": false,
-      "seed_policy": "No demo data. Preserve all canonical V1 and V2 stories, identities, versions, media, governed prompts, and audit history.",
-      "mentor_assignment_policy": "Mentor and administrator reads remain bounded by signed WordPress authority, assignments, visibility, and submission state.",
-      "current_migration_count": 24,
-      "current_storyforge_user_count": 441,
-      "current_active_assignment_count": 0,
-      "system_identifier": "7667256745042145332"
+      "local_source_note": "Version1 Action Command base, independently reviewed source7e3ee3a and live Brian-admin/responsive/rollback/reapply; custody BASE_FIRST_20261004/CDN_RELEASE.md. Existing auth/backend/applicant unchanged.",
+      "local_source_required": true,
+      "local_source_path": "LIVE/usce_admin.html"
     },
-    "timeline_builder": {
-      "provider": "railway",
-      "project_id": "295b3d56-f555-4851-91f4-eb32d7dc88e1",
-      "database_service_id": "134e537e-d48b-4452-acf6-8c3af2ce03db",
-      "environment_id": "d0705d67-83d5-4b53-942d-3862d9906529",
-      "schema": "timeline",
-      "schema_version": "d1-timeline-db-500.1",
-      "migration_files": [
-        "packages/mission-timeline/database/migrations/202607150001_timeline_v1.sql",
-        "packages/mission-timeline/database/migrations/202607150002_timeline_v1_413_hardening.sql",
-        "packages/mission-timeline/database/migrations/202608020003_d1_411c_identity_and_admin_grants.sql",
-        "packages/mission-timeline/database/migrations/202608040004_d1_500_grant_hardening.sql"
+    {
+      "id": "cdn_usce_offer_live",
+      "system": "usce_admin",
+      "url": "https://cdn.missionmedinstitute.com/html-system/LIVE/usce_offer.html",
+      "approved_sha256": "05f460fa3af85e826a37d404869d8605843b18bca79dd9e8356f5cb3300a7614",
+      "local_source_required": true,
+      "local_source_path": "LIVE/usce_offer.html",
+      "required_markers": [
+        "https://missionmed-usce-gateway-production.up.railway.app",
+        "decline_pending",
+        "decline_notify_future",
+        "decline_no_notify",
+        "clinicalsContact",
+        "referrerpolicy=\"no-referrer\"",
+        "usce-storyforge-foundation"
       ],
-      "application_role": "timeline_authenticated",
-      "application_role_must_not_own_tables": true,
-      "application_role_bypassrls": false,
-      "force_row_level_security": true,
-      "seed_policy": "No production seed data. Controlled synthetic fixtures are disposable and must be labeled CONTROLLED_SYNTHETIC."
+      "local_source_note": "Exact independently reviewed StoryForge foundation plus C18 manual provenance, sender proof and modal fence; serving custody CDN_RELEASE.md. Fresh final F/U/O separate."
     }
-  },
-  "asset_checks": [],
+  ],
   "route_checks": [
     {
       "id": "usce_admin_auth_relay",
@@ -326,6 +302,5 @@
     ]
   },
   "scope_filter": "Report-only USCE system; all USCE route, asset, runtime and browser checks retained. Shared sibling acceptance gates are untouched and excluded from execution.",
-  "scope": "USCE V1 base frontend only",
-  "routes": []
+  "scope": "USCE V1 base frontend only"
 }
