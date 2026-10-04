@@ -314,9 +314,38 @@ the actual production route and deployment.
   retry cases PASS. Independent source review PASS/noP0/P1; the retained-handler
   harness captures the old row before removal and invokes it unconditionally.
   No owner, authentication, provider or database mutation.
-- Next executable action: independently review/deploy the bounded retry-goal
-  and pending-search correction, verify normal saved-attempt Retry and current
-  program search, resolve replay hand-alignment
+- Retry/pending-search source `7a689f0232644b11e55f0967993007a1bb49cf7c`
+  deployed SUCCESS `1bc8ae0f-35ca-4632-8e93-eae09a561c54`, image
+  `sha256:21d988398f969773f57df0006ae558bb8553588b110718fb0915dc3330f9260f`.
+  Health200, anonymous candidate/current bootstrap401; exact filtered tracked
+  artifact `ivoc-release-artifact-QHStIF/source.tar`, SHA256
+  `ccf29a3f3af0b05667f0f97e67c07d19b8534cfbedf68b24af61df29c368b6a6`.
+  PRODUCT4464/4465 and deployment4466 released normally/remotely read back.
+  Actual authenticated Home -> Prepare -> filtered search visibly clears pending
+  old cards/paging/launch, then returns readable single selected program PASS.
+  Own Review -> latest Mock Results -> Retry returns exact CORE-01 one-question
+  Mock setup PASS/no media/provider start. Fresh source-goal propagation is
+  covered by actual contracts, not falsely called a new recorded POV acceptance.
+- R006 source review found Mock length selection changed config but persisted
+  settings retained15. Actual-handler regression reproduced5 -> filed15; current
+  correction synchronizes only allowed5/15/25 choices with the saved settings and
+  rejects obsolete-route handlers. Recording duration and manual/provider closing
+  remain independent. Saved-review entry is delayed, not permanently misrouted:
+  fresh non-builder observed the exact own attempt eventually open in Advanced.
+  Actual boot regression proves awaited live-Analytics loading exposes Home while
+  pending and an uncaught rejection prevents restoration. Current narrow patch
+  shows a saved-review loading state and isolates this optional load failure,
+  preserving fresh own membership, exact detail identity, paused Film Room and
+  navigation/role generations. No historical transcript availability is assumed;
+  current old-attempt answer coaching remains truthfully unavailable.
+  Actual role-handler regression now proves Student -> Admin and return invalidate
+  the old restoration without overriding the new role. Four new boot tests and
+  all16 own-review/history tests PASS; independent source review PASS/noP0/P1.
+  One broader Admin-renderer test has an unchanged `undefined.textContent` fixture
+  failure at `admin-student-library.test.mjs:257`; exact renderer and test match
+  live7a689f0. It is not falsely reported fixed or a new boot regression.
+- Next executable action: repair/verify the exact saved-review handoff and Mock
+  plan filing, resolve replay hand-alignment
   evidence, then continue real conversation,
   closing, real-role and 142-row live parity acceptance. No final root promotion or
   two-sided audible acceptance claimed. Genuine speech/hearing remains a precise

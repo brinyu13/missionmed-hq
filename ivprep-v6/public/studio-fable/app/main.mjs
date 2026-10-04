@@ -236,6 +236,7 @@ async function renderMock(params, isCurrent = guarded) {
     main.querySelector('#adv-style').addEventListener('change', (e) => { st.style = e.target.value; });
     main.querySelector('#adv-max').addEventListener('change', (e) => { st.maxFollowUps = Math.max(0, Math.min(8, Number(e.target.value) || 0)); });
     main.querySelector('.ready-card').addEventListener('click', (e) => {
+      if (!isCurrent()) return;
       const b = e.target.closest('button'); if (!b || b.id === 'go-room') return;
       if (b.dataset.preset) { Object.assign(st, applyPreset(st, b.dataset.preset)); st.advanced = false; }
       else if (b.dataset.depth != null) st.depth = Number(b.dataset.depth);
@@ -244,7 +245,11 @@ async function renderMock(params, isCurrent = guarded) {
       else if (b.dataset.interrupt != null) st.interruption = b.dataset.interrupt === '1';
       else if (b.dataset.pacing) st.pacing = b.dataset.pacing;
       else if (b.dataset.emphasis) st.programEmphasis = b.dataset.emphasis;
-      else if (b.dataset.min) cfg.durationMin = Number(b.dataset.min);
+      else if (b.dataset.min) {
+        const minutes = Number(b.dataset.min);
+        if (![5,15,25].includes(minutes)) return;
+        cfg.durationMin = minutes; st.durationMin = minutes;
+      }
       else return;
       draw();
     });

@@ -199,11 +199,13 @@ function applyRole(role) {
   const allowed = permittedRoles();
   const nextRole = allowed.has(role) ? role : 'student';
   const roleChanged = state.role !== nextRole;
-  if (roleChanged) ++vaultActionId;
+  if (roleChanged) {
+    ++vaultActionId;
+    ++adminReviewViewGeneration;
+  }
   if (state.role === 'admin' && nextRole !== 'admin') {
     const hadAdminReview = isAdminReview(state.lastSaved);
     adminReviewGate.invalidate();
-    ++adminReviewViewGeneration;
     ++adminStudentLibraryRenderId;
     ++adminOverviewRenderId;
     state.adminControls?.destroy();
@@ -226,6 +228,9 @@ function applyRole(role) {
       && ['postanswer', 'filmroom', 'compare'].includes(state.view))) setView('vault');
   }
   state.role = nextRole;
+  // Choosing a role while a cold saved-review link is loading cancels that
+  // restoration. Show the existing current screen rather than a stranded cue.
+  if (roleChanged && $('#saved-review-loading')?.dataset.active === 'true') setView(state.view);
   document.body.dataset.role = state.role;
   for (const button of $$('[data-role]')) {
     const authorized = allowed.has(button.dataset.role);
@@ -259,6 +264,8 @@ function setView(view, { focus = false } = {}) {
     return;
   }
   if (state.view === 'filmroom' && view !== 'filmroom') $('#playback')?.pause?.();
+  const reviewLoading = $('#saved-review-loading');
+  if (reviewLoading) reviewLoading.dataset.active = 'false';
   if (state.view !== view) ++adminReviewViewGeneration;
   if (view !== 'devicecheck') { ++signalPreviewGeneration; signalPreview?.stop('leaving'); }
   state.view = view;
@@ -4291,6 +4298,7 @@ function renderHomeCorpus() {
 async function boot() {
   const entryHash = String(location.hash || '');
   const entryGeneration = adminReviewViewGeneration;
+  const reviewRoute = parseSavedReviewRoute(entryHash);
   wireChrome();
   $('#candidate-return').hidden = !location.pathname.replace(/\/$/, '').endsWith('/advanced');
   applyRole('student');
@@ -4304,6 +4312,12 @@ async function boot() {
   renderPostAnswer();
   renderHomeCorpus();
   renderDeviceCheck();
+  if (reviewRoute) {
+    for (const panel of $$('[data-view-panel]')) panel.dataset.active = 'false';
+    const reviewLoading = $('#saved-review-loading');
+    if (reviewLoading) reviewLoading.dataset.active = 'true';
+    $('#crumb').textContent = 'Loading saved review';
+  }
   void refreshDevices();
   navigator.mediaDevices?.addEventListener?.('devicechange', () => void refreshDevices());
   window.addEventListener('focus', () => void refreshDevices());
@@ -4345,9 +4359,11 @@ async function boot() {
 
   wireLiveInterview();
 
-  await mountAnalytics();
+  // Live instruments are not authority for reopening an already saved attempt.
+  // Keep review navigation available if their optional module load fails; no
+  // successful measurement or live-session readiness is asserted by this catch.
+  try { await mountAnalytics(); } catch { /* Existing saved evidence remains readable. */ }
 
-  const reviewRoute = parseSavedReviewRoute(entryHash);
   if (reviewRoute && state.durableAvailable && state.role === 'student'
     && entryGeneration === adminReviewViewGeneration && location.hash === entryHash) {
     const isCurrent = () => state.role === 'student' && entryGeneration === adminReviewViewGeneration
