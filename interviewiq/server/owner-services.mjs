@@ -1,4 +1,9 @@
 import {AppError} from './errors.mjs';
+import {createRiseOwner} from './rise-owner.mjs';
+
+export function createOwnerServices(config={},dependencies={}){
+  return {...unavailableOwners(),...createRiseOwner(config.rise,dependencies)};
+}
 
 // Production composition replaces each unavailable seam only with its registered
 // owner adapter. These failures preserve manual interview and private draft work;

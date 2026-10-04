@@ -55,6 +55,7 @@ else
   node "$ROOT/tests/postgres/migrations.test.mjs" | tee "$RUN_DIR/migration-tests.log"
   node "$ROOT/tests/postgres/security.test.mjs" | tee "$RUN_DIR/test.log"
   node "$ROOT/tests/domain-review/commands.test.mjs" | tee "$RUN_DIR/domain-tests.log"
+  node --test "$ROOT/tests/domain-review/research-workspace.test.mjs" | tee "$RUN_DIR/research-workspace-tests.log"
 fi
 if [[ "$KEEP_REQUESTED" == true ]]; then
   KEEP=true

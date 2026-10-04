@@ -1,6 +1,7 @@
 import {createHash} from 'node:crypto';
 import {AppError,notFound,requireValue} from './errors.mjs';
 import * as v from './validation.mjs';
+import {provisionalSQL,provisionalValues} from './research-workspace.mjs';
 const sha=text=>createHash('sha256').update(text).digest('hex');
 export function requireAdmin(actor){requireValue(actor.role==='admin','admin_required','Administrator review is required.',403);}
 export async function reviewRecord(db,id){const {rows:[row]}=await db.query('SELECT * FROM iiq.review_items WHERE id=$1 FOR UPDATE',[v.uuid(id,'Review')]);if(!row)throw notFound();return row;}
@@ -12,6 +13,8 @@ function publicationReceipt(receipt,review,text,status){
 }
 export async function publishReviewed({db,actor,owners,requestId},review,{sourceRefs=[]}={}){
  requireAdmin(actor);
+ const {rows:provisional}=await db.query(`SELECT r.id FROM iiq.review_items r JOIN iiq.research_submissions s ON s.id=r.submission_id AND s.owner_id=r.owner_id JOIN iiq.research_missions m ON m.id=s.mission_id AND m.owner_id=s.owner_id WHERE ${provisionalSQL} AND r.id=$3`,[...provisionalValues,review.id]);
+ requireValue(provisional.length===0,'coming_soon','Canonical research publication is coming soon. A research package cannot be published as a report.',503);
  requireValue(review.status==='approved'&&review.quality_status==='approved'&&review.permitted_use,'quality_required','Approve permitted, de-identified quality before publication.');
  if(review.publication_status==='published')return {alreadyPublished:true};
  requireValue(typeof owners?.publishReviewedReport==='function','owner_service_unavailable','Program-intelligence publication is unavailable. Nothing was published.',503);

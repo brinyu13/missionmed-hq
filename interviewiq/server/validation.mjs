@@ -58,7 +58,7 @@ export async function jsonBody(request,maximum=262144) {
     if(size>maximum) throw new AppError(413,'payload_too_large','This request is too large.');
     pieces.push(chunk);
   }
-  try {return object(JSON.parse(Buffer.concat(pieces).toString('utf8')));} catch(error) {
+  try {return object(JSON.parse(new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(Buffer.concat(pieces))));} catch(error) {
     if(error instanceof AppError)throw error;
     throw new AppError(400,'invalid_json','The request could not be read.');
   }

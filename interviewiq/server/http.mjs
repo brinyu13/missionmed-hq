@@ -2,6 +2,7 @@ import {createHash,randomUUID,timingSafeEqual} from 'node:crypto';
 import {AppError,requireValue} from './errors.mjs';
 import {jsonBody} from './validation.mjs';
 import {UUID} from './auth.mjs';
+import {researchEnabled,requireResearch} from './research-workspace.mjs';
 
 function secretEquals(a,b) {
   if(typeof a!=='string' || typeof b!=='string' || b.length<32 || a.length>1024)return false;
@@ -42,10 +43,13 @@ export function createHandler({config,database,authorize,commands,owners,recordi
       const actor=await authorize(req,`${req.method} ${path}`);
       if(config.coreOnly) {
         requireValue(actor.role==='admin' || (actor.role==='student' && ['360','ivprep_complete'].includes(actor.tier)), 'core_access_required','InterviewIQ is not available for your current access.',403);
-        requireValue(route==='bootstrap' || route==='commands','coming_soon','COMING SOON — this integration is not active. Your saved calendar is unchanged.',503);
+        requireValue(route==='bootstrap' || route==='commands'||route==='programs'&&researchEnabled(config,actor),'coming_soon','COMING SOON — this integration is not active. Your saved calendar is unchanged.',503);
       }
       if(route==='bootstrap')return send(200,await commands.bootstrap(actor));
-      if(route==='programs')return send(200,await owners.searchPrograms(actor,url.searchParams.get('q')||''));
+      if(route==='programs'){
+        if(config.researchMissionsEnabled===true)requireResearch(config,actor);
+        return send(200,await owners.searchPrograms(actor,{q:url.searchParams.get('q')||''}));
+      }
       if(route==='commands')return send(200,await commands.execute(actor,await jsonBody(req,config.maxBodyBytes)));
       if(!recordings)throw new AppError(503,'speech_unavailable','Speech capture is unavailable. You can keep typing your private debrief.');
       const id=path.split('/')[3];

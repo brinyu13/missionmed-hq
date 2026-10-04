@@ -1,4 +1,5 @@
 import {revision} from './records.mjs';
+import {readResearchSummary,researchEnabled} from './research-workspace.mjs';
 const iso=x=>x instanceof Date?x.toISOString():x||null;
 const date=x=>x instanceof Date?x.toISOString().slice(0,10):x||null;
 const empty=()=>Object.create(null);
@@ -26,9 +27,10 @@ export async function readCoreModel(db,actor,{config,clock=()=>new Date()}) {
     contrib:{missions:empty(),submissions:[],ledger:[],grants:empty()},policy:{contributions:false,standalone:false,mrxCentral:null,audit:[],suspended:empty()},
     mentorAssigned:[],mentorPriority:empty(),mentorNudges:[],rank:empty(),consents:empty(),changes:[],ivoc:empty()};
   const actorView={id:actor.id,role:actor.role,displayName:actor.displayName,firstName:actor.firstName,tier:actor.tier,zone:actor.zone};
+  if(researchEnabled(config,actor))state.research=await readResearchSummary(db,actor,config);
   const integrations={matrix:{available:true,status:'available',url:`${config.publicOrigin}/member-dashboard/`}};
   for(const name of comingSoon)integrations[name]={available:false,status:'coming_soon'};
-  return {actor:actorView,capabilities:{coreOnly:true,comingSoon:[...comingSoon],research:false,researchByProgram:empty(),contributions:false},
+  return {actor:actorView,capabilities:{coreOnly:true,comingSoon:[...comingSoon],research:false,researchMissions:researchEnabled(config,actor),researchByProgram:empty(),contributions:false},
     catalog:{programs,facts:[],sources:[],profiles:[{id:actor.id,displayName:actor.displayName,tier:actor.tier,approved_stories:[]}],student_zone:actor.zone,registry_release:null,storyforgeProjection:null,riseProjections:empty()},
     state,version,server_time:current,integrations};
 }

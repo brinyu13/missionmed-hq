@@ -17,6 +17,8 @@ export function readConfig(env = process.env) {
     port: integer('PORT', 4186, 1, 65535),
     enabled: bool('INTERVIEWIQ_ENABLED'),
     coreOnly: text('INTERVIEWIQ_LAUNCH_MODE','core') !== 'full',
+    researchMissionsEnabled: bool('INTERVIEWIQ_RESEARCH_MISSIONS_ENABLED'),
+    rise: {enabled:bool('INTERVIEWIQ_RISE_ENABLED'),requestSecret:text('INTERVIEWIQ_RISE_REQUEST_SECRET'),researchCoverageEnabled:bool('INTERVIEWIQ_RESEARCH_MISSIONS_ENABLED')},
     databaseUrl: text('INTERVIEWIQ_DATABASE_URL'),
     publicOrigin: text('INTERVIEWIQ_PUBLIC_ORIGIN', 'https://missionmedinstitute.com'),
     jwtIssuer: text('INTERVIEWIQ_JWT_ISSUER', 'https://missionmedinstitute.com'),
@@ -42,7 +44,9 @@ export function readConfig(env = process.env) {
   if (new URL(config.ownerIntrospectionUrl).origin !== config.jwtIssuer || config.jwtIssuer !== config.publicOrigin)
     throw new AppError(503, 'invalid_configuration', 'Identity and introspection must use the same MissionMed owner.');
   if (config.enabled && (!config.databaseUrl || [config.jwtSecret,config.ownerProofSecret,config.gatewaySecret].some(v => v.length < 32)))
-    throw new AppError(503, 'invalid_configuration', 'Enabled InterviewIQ requires database and server-only authentication configuration.');
+      throw new AppError(503, 'invalid_configuration', 'Enabled InterviewIQ requires database and server-only authentication configuration.');
+  if(config.enabled&&config.researchMissionsEnabled&&(!config.rise.enabled||Buffer.byteLength(config.rise.requestSecret)<32))
+    throw new AppError(503,'invalid_configuration','Research missions require the configured authenticated RISE connection.');
   if (config.speech.enabled && !config.speech.apiKey)
     throw new AppError(503, 'invalid_configuration', 'Speech is enabled without provider configuration.');
   if(config.speech.enabled) {

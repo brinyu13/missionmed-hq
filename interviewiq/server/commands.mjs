@@ -7,6 +7,7 @@ import {readModel} from './read-model.mjs';
 import {writeRehearsal} from './rehearsal.mjs';
 import {writeAdmin} from './admin-commands.mjs';
 import {writeResearch} from './research-commands.mjs';
+import {researchEnabled,researchCommands,readResearch,requireResearch} from './research-workspace.mjs';
 
 const coreCommands=new Set(['interview.create','interview.identity','interview.schedule','interview.lifecycle','event.create','event.update']);
 function coreActor(actor,config) { if(config.coreOnly) requireValue(actor.role==='admin' || (actor.role==='student' && ['360','ivprep_complete'].includes(actor.tier)),'core_access_required','InterviewIQ is not available for your current access.',403); }
@@ -20,8 +21,15 @@ export function createCommands({database,owners,config,clock,speechAvailable=fal
     coreActor(actor,config);
     const envelope=commandEnvelope(body);
     if(config.coreOnly) {
-      requireValue(coreCommands.has(envelope.command),'coming_soon','COMING SOON — this integration is not active. Your saved calendar is unchanged.',503);
-      requireValue(!envelope.data.program,'coming_soon','Canonical program lookup is coming soon. Enter the program name from your invitation.',503);
+      requireValue(coreCommands.has(envelope.command)||researchEnabled(config,actor)&&researchCommands.has(envelope.command),'coming_soon','COMING SOON — this integration is not active. Your saved calendar is unchanged.',503);
+      requireValue(!envelope.data.program||envelope.command==='mission.create','coming_soon','Canonical program lookup is coming soon. Enter the program name from your invitation.',503);
+    }
+    if(envelope.command==='research.read'){
+      requireResearch(config,actor);
+      return database.withActor(actor,async db=>{
+        await db.query('SET TRANSACTION READ ONLY');
+        return {type:'research_read',research:await readResearch({db,actor,config,data:envelope.data})};
+      });
     }
     return database.withActor(actor,async db=>{
       await syncActor(db,actor);
@@ -36,7 +44,7 @@ export function createCommands({database,owners,config,clock,speechAvailable=fal
       }
       const current=await revision(db,actor);
       requireValue(current===envelope.expectedVersion,'version_conflict','This workspace changed. Your unsaved text is kept; review the latest version and try again.',409,{version:current});
-      const context={db,actor,...envelope,owners,config};let result;
+      const context={db,actor,...envelope,owners,config,clock};let result;
       if(interviewCommands.has(envelope.command)) result=await writeInterview(context);
       else if(debriefCommands.has(envelope.command))result=await writeDebrief(context);
       else if(envelope.command==='prep.save')result=await writePreparation(context);
@@ -44,7 +52,7 @@ export function createCommands({database,owners,config,clock,speechAvailable=fal
       else if(['story.consent','rank.consent'].includes(envelope.command))result=await writeConsent(context);
       else if(['share.submit','share.retract'].includes(envelope.command))result=await writeShare(context);
       else if(['practice.start','practice.feedback','practice.retry','practice.reflect','practice.overrule','practice.discard'].includes(envelope.command))result=await writeRehearsal(context);
-      else if(['mission.create','submission.upload','submission.repair','submission.decide'].includes(envelope.command))result=await writeResearch(context);
+      else if(researchCommands.has(envelope.command))result=await writeResearch(context);
       else if(['review.approve','review.reject','review.retract','policy.update','grant.revoke','grant.reinstate','mentor.priority','mentor.nudge'].includes(envelope.command))result=await writeAdmin(context);
       else if(additionalCommands[envelope.command])result=await additionalCommands[envelope.command](context);
       else if(envelope.command==='privacy.export') {

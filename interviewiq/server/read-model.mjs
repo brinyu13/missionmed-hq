@@ -1,5 +1,6 @@
 import {revision} from './records.mjs';
 import {readCoreModel} from './core-read-model.mjs';
+import {readResearchSummary,researchEnabled,provisionalSQL,provisionalValues} from './research-workspace.mjs';
 
 const iso=value=>value instanceof Date?value.toISOString():value||null;
 const date=value=>value instanceof Date?value.toISOString().slice(0,10):value||null;
@@ -23,12 +24,17 @@ export async function readModel(db,actor,{owners,config,clock=()=>new Date(),spe
   const {rows:speech}=await db.query('SELECT * FROM iiq.speech_segments WHERE owner_id=$1 ORDER BY created_at,sequence',[actor.id]);
   const {rows:recordings}=await db.query('SELECT * FROM iiq.recording_sessions WHERE owner_id=$1 ORDER BY created_at DESC',[actor.id]);
   const {rows:consents}=await db.query('SELECT * FROM iiq.consents WHERE owner_id=$1',[actor.id]);
-  const {rows:reviews}=await db.query('SELECT * FROM iiq.review_items ORDER BY created_at DESC');
-  const {rows:missions}=await db.query('SELECT * FROM iiq.research_missions ORDER BY created_at DESC');
-  const {rows:submissions}=await db.query('SELECT * FROM iiq.research_submissions ORDER BY created_at DESC');
+  // Provisional originals are private by default, even under admin RLS and with
+  // the new feature disabled. Only the bounded, consent-aware workspace reads them.
+  const provisionalSub=`SELECT s.id FROM iiq.research_submissions s JOIN iiq.research_missions m ON m.id=s.mission_id AND m.owner_id=s.owner_id WHERE ${provisionalSQL}`;
+  const provisionalReview=`SELECT r.id FROM iiq.review_items r WHERE r.submission_id IN (${provisionalSub})`;
+  const {rows:reviews}=await db.query(`SELECT * FROM iiq.review_items WHERE id NOT IN (${provisionalReview}) ORDER BY created_at DESC`,provisionalValues);
+  const {rows:missions}=await db.query(`SELECT m.* FROM iiq.research_missions m WHERE NOT ${provisionalSQL} ORDER BY created_at DESC`,provisionalValues);
+  const {rows:submissions}=await db.query(`SELECT * FROM iiq.research_submissions WHERE id NOT IN (${provisionalSub}) ORDER BY created_at DESC`,provisionalValues);
   const {rows:grants}=await db.query('SELECT * FROM iiq.access_grants');
   const {rows:credits}=await db.query('SELECT * FROM iiq.contribution_credits ORDER BY created_at');
-  const {rows:audit}=await db.query('SELECT * FROM iiq.audit_events ORDER BY created_at DESC LIMIT 100');
+  const {rows:audit}=await db.query(`SELECT * FROM iiq.audit_events WHERE object_id IS NULL OR object_id NOT IN (
+    SELECT m.id FROM iiq.research_missions m WHERE ${provisionalSQL} UNION ${provisionalSub} UNION ${provisionalReview}) ORDER BY created_at DESC LIMIT 100`,provisionalValues);
   const {rows:policyRows}=actor.role==='admin'?await db.query('SELECT * FROM iiq.policies'):{rows:[]};
   const {rows:[effectivePolicy]}=await db.query('SELECT * FROM iiq.effective_research_policy()');
   const {rows:profileRows}=await db.query('SELECT id,display_name FROM iiq.logistics_profiles()');
@@ -90,13 +96,14 @@ export async function readModel(db,actor,{owners,config,clock=()=>new Date(),spe
   state.changes=audit.filter(x=>x.owner_id===actor.id).map((x,index)=>({who:actor.id,actor:'you',seq:version-index,at:iso(x.created_at),kind:x.object_type,text:x.event_type.replaceAll('.',' '),to:x.object_id}));
   for(const note of mentorNotes){if(note.kind==='priority' && !state.mentorPriority[note.target_student_id])state.mentorPriority[note.target_student_id]={text:note.text,at:iso(note.created_at)};}
   state.mentorNudges=mentorNotes.filter(x=>x.kind==='nudge').map(x=>({id:x.id,student:x.target_student_id,text:x.text,at:iso(x.created_at)}));
+  if(researchEnabled(config,actor))state.research=await readResearchSummary(db,actor,config);
   const research=['360','ivprep_complete'].includes(actor.tier)||actor.role==='admin';
   const {rows:accessRows}=await db.query('SELECT p AS program,iiq.deep_research_allowed(p) AS allow FROM unnest($1::text[]) p',[programs.map(x=>x.id)]);
   const researchByProgram=Object.fromEntries(accessRows.map(x=>[x.program,{allow:x.allow,reason:x.allow?'Current protected access or approved contribution grant.':'Current research access is required.'}]));
   const profiles=[{id:actor.id,displayName:actor.displayName,tier:actor.tier,approved_stories:stories,...(stories[0]?{approved_story:stories[0]}:{})},
     ...profileRows.filter(x=>x.id!==actor.id).map(x=>({id:x.id,name:x.display_name,displayName:x.display_name}))];
   return {actor:{id:actor.id,role:actor.role,displayName:actor.displayName,firstName:actor.firstName,tier:actor.tier,zone:actor.zone},
-    capabilities:{research,researchByProgram,contributions:state.policy.contributions===true},catalog:{programs,facts:context.facts||[],sources:context.sources||[],profiles,student_zone:actor.zone,registry_release:context.registryRelease||null,storyforgeProjection:context.storyforgeProjection||null,riseProjections:context.riseProjections||{}},
+    capabilities:{research,researchMissions:researchEnabled(config,actor),researchByProgram,contributions:state.policy.contributions===true},catalog:{programs,facts:context.facts||[],sources:context.sources||[],profiles,student_zone:actor.zone,registry_release:context.registryRelease||null,storyforgeProjection:context.storyforgeProjection||null,riseProjections:context.riseProjections||{}},
     state,version,server_time:current,integrations:{matrix:{available:true,status:'available',url:`${config.publicOrigin}/member-dashboard/`},
       rise:{available:context.status?.rise==='available',status:context.status?.rise||'unavailable',url:`${config.publicOrigin}/rise/`},
       storyforge:{available:context.status?.storyforge==='available',status:context.status?.storyforge||'unavailable',url:`${config.publicOrigin}/storyforge/`},

@@ -4,12 +4,13 @@ import {readConfig} from './config.mjs';
 import {createDatabase} from './db.mjs';
 import {createAuthorizer} from './auth.mjs';
 import {createCommands} from './commands.mjs';
-import {unavailableOwners} from './owner-services.mjs';
+import {createOwnerServices} from './owner-services.mjs';
 import {createHandler} from './http.mjs';
 import {createPrivateAudioStorage} from './storage.mjs';
 import {createPostgresRecordingStore,createRecordingTranscription,createRecordingsService} from './recordings.mjs';
 
-export async function startApp({config=readConfig(),database,owners=unavailableOwners(),authorize,recordings=null,logger=entry=>process.stderr.write(JSON.stringify(entry)+'\n')}={}) {
+export async function startApp({config=readConfig(),database,owners,authorize,recordings=null,logger=entry=>process.stderr.write(JSON.stringify(entry)+'\n')}={}) {
+  owners ||= createOwnerServices(config);
   if(config.enabled) {
     database ||= createDatabase(config);
     await database.verifyRuntimeRole();
