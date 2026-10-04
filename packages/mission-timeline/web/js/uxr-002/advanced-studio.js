@@ -6,6 +6,7 @@ import {
 } from "../editor/scene-graph.js";
 import {applySceneCommandToDocument} from "../editor/scene-commands.js";
 import {advancedElementPreviewMarkup} from "./locked-407f-export.js";
+import {buildFounderPresentationScene} from '../presentation/founder-presentation-serializer.js';
 
 const freezeDeep=(value)=>{
   if(!value||typeof value!=="object"||Object.isFrozen(value))return value;
@@ -422,15 +423,11 @@ function refreshAdvancedScene(document,{deletedObjectIds=[]}={}){
 }
 
 function eventYearRange(document={}){
-  const years=(document.events||[]).flatMap((event)=>[
-    Number(String(event.startDate||event.fields?.rotationStartDate||"").slice(0,4)),
-    Number(String(event.endDate||event.fields?.rotationEndDate||event.startDate||"").slice(0,4))
-  ]).filter(Number.isInteger);
-  const current=new Date().getUTCFullYear();
-  return{
-    startYear:years.length?Math.min(...years):current-1,
-    endYear:years.length?Math.max(...years):current+1
-  };
+  // The same audience/date/G4 projection owns the canvas and its controls.
+  // Profile-only education spans are preserved on paper, while actual degree
+  // flags, experiences and interview dates continue to constrain this range.
+  const scene=buildFounderPresentationScene(document,{scope:'EVERYTHING'});
+  return{startYear:scene.span.firstYear,endYear:scene.span.lastYear};
 }
 
 export function effectiveAxisOverride(document={}){

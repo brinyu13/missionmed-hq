@@ -8905,6 +8905,11 @@ export async function boot407FEngineeringAdapter({
           endYear:Number(years.at(-1)),
           includeFuture:pending.preview.some(({id})=>id==="FUTURE")
         });
+        if(range.error||!range.changed){
+          showAdvancedAxisBoundaryHandles();
+          if(range.error)bridge.toast(range.error);
+          return;
+        }
         const result=finishHumanAxisEdit(setAxisSegmentWeights(range.document,pending.preview));
         if(result.error||!result.changed){
           showAdvancedAxisBoundaryHandles();

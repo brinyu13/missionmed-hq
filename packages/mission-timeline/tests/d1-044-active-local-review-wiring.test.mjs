@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {mountLocalLayoutReview407F,applyHumanAxisPresentation407F} from '../web/js/407f-engineering-adapter.js';
 import {LAYOUT_CRITIC_CONSENT_VERSION,projectLayoutCritic,applyLayoutRecommendations} from '../web/js/presentation/layout-critic-projection.js';
-import {setAxisPresentationOverride,setAxisSegmentWeights,resetAxisPresentationOverride} from '../web/js/uxr-002/advanced-studio.js';
+import {setAxisPresentationOverride,setAxisSegmentWeights,resetAxisPresentationOverride,renderAdvancedPresentationControls} from '../web/js/uxr-002/advanced-studio.js';
+import {buildFounderPresentationScene} from '../web/js/presentation/founder-presentation-serializer.js';
 import {applyLocalLayoutCriticSceneCommand,applySceneCommandToDocument} from '../web/js/editor/scene-commands.js';
 import {TimelineStore,migrateDocument} from '../web/js/uxr-002/store.js';
 import {FOUNDER_2025_MATRIX} from './fixtures/founder-2025-matrix.mjs';
@@ -158,4 +159,53 @@ test('044 actual kernel, numeric and pointer-release UI handlers save date-reflo
     assert.ok(Math.abs(geometry.x-(39.36+1841.28*(8/9)*.5))<.04,path+' uses new year scale');
     assert.equal(geometry.y,450);assert.equal(p.input.axis.editable,false);assert.deepEqual(store.document.events,original.events);
   }
+});
+function profileOnlyEducationFixture(){
+  const document=structuredClone(FOUNDER_2025_MATRIX.find(item=>item.id==='M02').document);
+  document.mode='advanced';document.events=[
+    {...structuredClone(document.events[1]),id:'profile-education',categoryId:'education',title:'Synthetic education span',startDate:'2008-09',endDate:'2012-06',eventType:'duration'},
+    {...structuredClone(document.events[1]),id:'displayed-work',title:'Synthetic displayed experience',startDate:'2012-07',endDate:'2026-03'},
+    {...structuredClone(document.events[1]),id:'excluded-work',title:'Excluded synthetic work',startDate:'1990-01',endDate:'1991-01',visibilityState:'HIDDEN'}
+  ];
+  return document;
+}
+test('044 axis controls and range validation reuse displayed G4/visibility projection while genuine degree flags remain required',()=>{
+  const document=profileOnlyEducationFixture(),before=JSON.stringify(document),scene=buildFounderPresentationScene(document,{scope:'EVERYTHING'});
+  assert.equal(scene.span.firstYear,2012);assert.equal(scene.span.lastYear,2026);
+  assert.equal(scene.profile.educationRecords[0].startDate,'2008-09');
+  const controls=renderAdvancedPresentationControls(document);
+  assert.match(controls,/value="2012" data-axis-override-field="startYear"/);assert.match(controls,/value="2026" data-axis-override-field="endYear"/);
+  const range=setAxisPresentationOverride(document,{startYear:2012,endYear:2026,includeFuture:false});assert.equal(range.changed,true,range.error);assert.deepEqual(range.document.events,document.events);
+  const degree={...structuredClone(document.events[0]),id:'actual-degree',eventType:'milestone',title:'Synthetic degree completion',startDate:'2010-06',endDate:null};
+  const withDegree={...structuredClone(document),events:[...structuredClone(document.events),degree]};
+  const invalid=setAxisPresentationOverride(withDegree,{startYear:2012,endYear:2026,includeFuture:false});assert.equal(invalid.changed,false);assert.match(invalid.error,/2010/);
+  assert.equal(JSON.stringify(document),before);
+});
+test('044 actual pointer boundary with profile-only 2008 education persists visible 2012–2026 widths and preserves human/source geometry',async()=>{
+  let document=profileOnlyEducationFixture();const p=await projectLayoutCritic(document,renderOptions),target=p.localContext.targetMap.get('e0001');
+  document=applyLocalLayoutCriticSceneCommand(document,{kind:'geometry',target:{type:'event',id:target.objectId},geometry:{...target.geometry,y:450},create:{type:'event',semanticRef:target.eventId,aspectLocked:false,presentation:{eventType:'duration',localLayoutCriticAuto:true}}},renderOptions).document;
+  document=resetAxisPresentationOverride(document).document;
+  document.events.push({...structuredClone(document.events[1]),id:'human-event',title:'Human synthetic placement',startDate:'2024-01',endDate:'2025-01'});
+  document=applySceneCommandToDocument(document,{kind:'geometry',target:{type:'event',id:'human-event'},geometry:{x:1100,y:700,width:250,height:40,rotation:0},create:{type:'event',semanticRef:'human-event',aspectLocked:false,presentation:{eventType:'duration'}}},renderOptions).document;
+  document=resetAxisPresentationOverride(document).document;
+  const human=structuredClone(document.advanced.scene.objects.find(object=>object.semanticRef==='human-event'));
+  const records=[],store=new TimelineStore({adapter:{atomicPut:async entries=>records.push(...structuredClone(entries))},entitlement:{schemaVersion:'d1-405.timeline-entitlement.1',access:'FULL',verified:true,canRead:true,canMutate:true}});
+  store.document=migrateDocument(document);const before=JSON.stringify(store.document.events),source=await readFile(new URL('../web/js/407f-engineering-adapter.js',import.meta.url),'utf8');
+  const begin=source.indexOf('if(axisPointer){',source.indexOf('const years=pending.preview')-1500),branch=source.slice(begin,source.indexOf('if(railPointer){',begin));
+  const weights=Array.from({length:15},(_,index)=>({id:String(2012+index),weight:index===11?2.25:index===12?1.25:1}));
+  const segment=()=>({dataset:{advancedAxisDragging:'1'},removeAttribute(){}}),messages=[];
+  new Function('pending','event','store','finishHumanAxisEdit','setAxisPresentationOverride','setAxisSegmentWeights','syncBridgeStateFromStore','canvasController','bridge','showAdvancedAxisBoundaryHandles','announceGlobal','let axisPointer=pending;'+branch)({left:segment(),right:segment(),preview:weights,moved:true},{type:'pointerup'},store,result=>applyHumanAxisPresentation407F(store.document,result,renderOptions),setAxisPresentationOverride,setAxisSegmentWeights,()=>{},{setUiState(){}},{toast:message=>messages.push(message)},()=>{},()=>{});
+  assert.deepEqual(store.document.presentationOverrides.axis.segmentWeights,weights);assert.ok(messages.includes('Year widths updated'));
+  assert.equal(JSON.stringify(store.document.events),before);assert.deepEqual(store.document.advanced.scene.objects.find(object=>object.semanticRef==='human-event'),human);
+  const geometry=store.document.advanced.scene.objects.find(object=>object.semanticRef==='displayed-work').geometry;assert.equal(geometry.y,450);
+  await store.saveNow('SYNTHETIC_PROFILE_AXIS_TEST');const saved=JSON.parse(JSON.stringify(records.find(entry=>entry.store==='documents').value.document));
+  assert.deepEqual(saved.presentationOverrides.axis.segmentWeights,weights);assert.deepEqual(saved.events,store.document.events);
+  const savedProjection=await projectLayoutCritic(saved,renderOptions);assert.equal(savedProjection.input.axis.editable,false);assert.deepEqual(saved.advanced.scene.objects.find(object=>object.semanticRef==='human-event'),human);
+});
+test('044 invalid pointer range cannot enter the weight setter, mutate the document or announce success',async()=>{
+  const source=await readFile(new URL('../web/js/407f-engineering-adapter.js',import.meta.url),'utf8'),begin=source.indexOf('if(axisPointer){',source.indexOf('const years=pending.preview')-1500),branch=source.slice(begin,source.indexOf('if(railPointer){',begin));
+  const store={document:profileOnlyEducationFixture(),replace(){throw Error('Failed range must not replace');}},before=JSON.stringify(store.document),messages=[];
+  const weights=Array.from({length:14},(_,index)=>({id:String(2013+index),weight:1})),segment=()=>({dataset:{},removeAttribute(){}});let weightCalls=0;
+  new Function('pending','event','store','finishHumanAxisEdit','setAxisPresentationOverride','setAxisSegmentWeights','syncBridgeStateFromStore','canvasController','bridge','showAdvancedAxisBoundaryHandles','announceGlobal','let axisPointer=pending;'+branch)({left:segment(),right:segment(),preview:weights,moved:true},{type:'pointerup'},store,result=>result,setAxisPresentationOverride,()=>{weightCalls++;throw Error('Invalid range reached weight setter');},()=>{},{setUiState(){}},{toast:message=>messages.push(message)},()=>{},message=>messages.push(message));
+  assert.equal(weightCalls,0);assert.equal(JSON.stringify(store.document),before);assert.ok(messages.some(message=>message.includes('2012')));assert.ok(!messages.includes('Year widths updated'));
 });
