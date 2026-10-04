@@ -16,6 +16,21 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 changed authenticated browser evidence: normal Founder Chrome
+  account now opens the protected candidate Home as brinyu/ADMIN; own saved reps
+  load. Visible Home action -> Devices -> Connect renders the actual FaceTime HD
+  camera image in the actual calibration surface. This ratchets current preview
+  rendering only, NOT speech, all11 rehearsal steps, student-role acceptance or
+  AI/replay acceptance. Returned Home to release capture; no recording/provider
+  session started. Actual1282x571 surface exposed center/video/readiness overflow
+  into the right voice rail. Narrow CSS containment preserves every existing
+  Fable surface/action/producer and uses implicit rows for added readiness controls,
+  bounded center overflow and natural stacked-screen growth. Three targeted
+  assertions FAIL before;51 affected calibration/lifecycle checks PASS after.
+  Independent CSS review and deployed visual correction still pending; do not
+  infer presentation parity from CSS assertions. Root remains unpromoted; full142
+  and genuine speech/two-sided cold replay/role gates open. No numeric completion
+  claim. Continue stable video/controller R027 integration and current POV.
 - 2026-10-04 R027 IN PROGRESS, staged audio transaction foundation: actual
   bridge/native sender/conversation mix reproduction failed four checks before
   correction. Capture now accepts an optional owner coordinator; native input
