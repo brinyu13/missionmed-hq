@@ -16,6 +16,30 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 R030/R031 bounded preflight preservation: independent source audit
+  confirmed the Devices screen lacked an explicit microphone meter and live
+  readiness checklist. Read-only capability adapter now reads the existing
+  authoritative bridge analyser (RMS dBFS/peak), distinguishes SILENT from
+  UNAVAILABLE and clears switched/lost input. Seven live rows independently
+  expose camera, microphone, exact checked preview, processing, worker readiness,
+  observed face and observed body/hands. A ready worker never manufactures person
+  detection; only advancing accepted vision timestamps can renew the <=1s receipt.
+  Independent review caught audio frames renewing old vision before release;
+  actual projector→mapFrame→mounted consumer now rejects that reproduction and
+  same-engine camera replacement until fresh vision. Authenticated Admin labels
+  differ from Student copy. Existing Fable rehearsal and saved-baseline flows
+  retained; no capture/audio graph/provider/session/recording/privacy mutations.
+  Existing verified pixel gate supplies the capture receipt; current preview
+  status additionally rechecks tiny local pixels every500ms with the existing
+  aggregate (no raw frame export/persistence). Capture-owner changes invalidate
+  receipts; disposal/current guards prevent late publication/clear the canvas.
+  Previous actual Calibration composition fails the new presence regression;
+  81 affected readiness/calibration/lifecycle checks PASS, syntax/diff PASS.
+  Independent correction review PASS,23 focused checks, no P0/P1 found.
+  Guarded release pending. Visual baseline/current UI
+  and physical meter response remain UNVERIFIED under unchanged Chrome-access
+  WAITING; no substituted diagnostic screenshot. PRODUCT4553 heartbeat/fence
+  remotely confirmed. Full142 remains open, no percentage/completion claim.
 - 2026-10-04 R023 truthful overlap annotation: current official GPT-Live docs
   confirm approximate fragment intervals, not completed turns or audio playback
   boundaries (developers.openai.com/api/docs/guides/live-conversations).
@@ -36,9 +60,17 @@ the actual production route and deployment.
   is root-owned and scoped. No schema/provider/identity/root promotion changes.
   Visual baseline/current UI and genuine audio interruption remain UNVERIFIED
   under unchanged Chrome-access WAITING; annotations do not satisfy barge-in.
-  Next: guarded release, then bounded R030/R031 pre-session preservation triage
-  and actual authenticated POV on a changed client-access event. Full142 remains
-  open; no percentage replacement or engineering-exhausted/completion claim.
+  Clean remotely read-back source41d809b43a956764f0edc2be85bc87e895c74562
+  deployed SUCCESS111c1b61-78ff-49f5-9657-1a628dafa737, image
+  sha256:12370e5ed709d938063f19f7e5c0d0ee41d0601937a2b3a547d516a4ce4a30ee.
+  Exact filtered1273-file artifactnepC1Z/source.tar SHA
+  ddff3a97afe0f382e5b03f2bc2729f3e09accb526bef09e75003a56619c50338.
+  Health200/root,candidate,bootstrap401. PRODUCT4551/SHARED4552 normally
+  released/remote confirmed; prior c971/8eb/PaaN59 and last POV-known-good
+  61aa/deed28/2YgD0Z exact rollback artifacts retained.
+  Next: R030/R031 pre-session preservation and actual authenticated POV on a
+  changed client-access event. Full142 remains open; no percentage replacement
+  or engineering-exhausted/completion claim.
 - 2026-10-04 R022 configured-budget correction: actual current Mock handlers
   reproduced depth1/total4 → None0/0 → One1/0 → Two2/0. Setup draw, total edits
   and Easy presets now retain bounded configured total independently from

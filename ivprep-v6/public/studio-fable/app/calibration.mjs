@@ -6,6 +6,7 @@ import { state, commit } from './state.mjs';
 import { controller } from './controller/session-controller.mjs';
 import { awaitVisibleCamera } from './adapters/media-readiness.mjs';
 import {mountDeviceControls,deviceControlsMarkup} from './adapters/device-controls.mjs';
+import {mountDeviceReadiness,deviceReadinessMarkup} from './adapters/device-readiness.mjs';
 import {bindPrimaryRecovery} from './adapters/engine-adapter.mjs';
 import { leftRailMarkup, rightRailMarkup, RailsController } from './instruments/rails.mjs';
 import { recorderMarkup, LiveRecorder } from './instruments/flight-recorder.mjs';
@@ -34,7 +35,7 @@ export async function mountCalibration(main, { isCurrent = () => true } = {}) {
   let disposed = false, connecting = false, deviceSwitching=false;
   const current = () => !disposed && isCurrent();
   const ctx = { started: false, neutralMs: 0, smileBase: 0, nodBase: 0, gestureBase: 0, volSeen: new Set(), pauseMs: 0, pauseStartedAt: null, pauseLastAt: null, paceHeld: false, wpmMax: -Infinity, wpmMin: Infinity };
-  let stepIndex = 0; const resolved = {}; let engine = null; let timer = null; let latest = null; let lastT = 0;let disposeDevices=null,disposePrimary=null;
+  let stepIndex = 0; const resolved = {}; let engine = null; let timer = null; let latest = null; let lastT = 0;let disposeDevices=null,disposePrimary=null,verifiedCapture=null;
   main.innerHTML = `
     <div class="cal-screen">
     <div class="screen-head"><div><div class="t-kick gold">Devices &amp; calibration</div><h1 class="t-hero">Instrument <em>rehearsal.</em></h1><p class="t-edit">Not a tech check. You smile, nod, gesture, read, vary your volume and pace, and watch every instrument respond truthfully before any interview. Unresolved instruments stay dark; nothing is invented.</p></div><div style="display:flex;gap:8px;align-items:center"><span class="chip warn" id="calibration-record-state">Connect devices to verify saved calibration</span></div></div>
@@ -48,6 +49,7 @@ export async function mountCalibration(main, { isCurrent = () => true } = {}) {
         <p class="note readiness-status" id="enter-note" role="status" aria-live="polite"></p>
         <div class="note" id="primary-recovery" role="status" aria-live="polite" hidden><span data-primary-status></span> <button class="btn btn-quiet" type="button" data-reselect-primary>Lock to me</button></div>
         ${deviceControlsMarkup()}
+        ${deviceReadinessMarkup()}
         <div class="cal-actions"><button class="btn btn-primary" type="button" id="next-step" disabled>Next step ▸</button><button class="btn btn-quiet" type="button" id="skip-step">Skip this step</button><span class="t-tech" id="step-state">Waiting</span><span style="flex:1"></span></div>
         <section class="recorder" id="recorder" data-mode="live" style="height:150px">${recorderMarkup({ mode: 'live' })}</section>
       </div>
@@ -62,6 +64,12 @@ export async function mountCalibration(main, { isCurrent = () => true } = {}) {
   const rails = new RailsController(main);
   const recorder = new LiveRecorder($('recorder'), { window: '1M' });
   const history = new TraceHistory();
+  const deviceReadiness=mountDeviceReadiness(main.querySelector('[data-device-readiness]'),{
+    getEngine:()=>engine,getStream:()=>controller.stream,getVideo:()=>controller.video,isCurrent:current,isSwitching:()=>deviceSwitching,
+    previewVerified:()=>Boolean(verifiedCapture&&verifiedCapture.stream===controller.stream&&verifiedCapture.video===controller.video&&verifiedCapture.track===controller.stream?.getVideoTracks?.()[0]),
+    onCaptureInvalidated:()=>{verifiedCapture=null;},
+    isAdmin:()=>controller.account?.role==='admin'&&controller.account.api?.identity?.admin===true&&controller.account.api.identity.subject===controller.account.subject,
+  });
   function renderCalibrationRecord(){
     state.calibration=engine?.calibrationResolution||null;commit();
     const saved=state.calibration,chip=$('calibration-record-state');
@@ -99,6 +107,8 @@ export async function mountCalibration(main, { isCurrent = () => true } = {}) {
   }
   function completeReadiness(){
     if(!current())return;
+    deviceReadiness.refresh(); // invalidate any previous capture before its new pixel receipt
+    verifiedCapture={stream:controller.stream,video:controller.video,track:controller.stream?.getVideoTracks?.()[0]};deviceReadiness.refresh();
     renderCalibrationRecord();ctx.started=true;resolved.readiness='resolved';$('enter')?.remove();$('enter-note').hidden=true;
     engine.beginAnswer();engine.setOverlayVisibility({face:true,hands:true,body:true,position:true});
     // Initial black-preview recovery must initialize rehearsal exactly once.
@@ -114,12 +124,13 @@ export async function mountCalibration(main, { isCurrent = () => true } = {}) {
       controller.mountVideo($('stage'),$('overlay'));
       engine=await controller.acquire({mode:'real',overlayCanvas:$('overlay')});
       if(!current())return;
+      deviceReadiness.refresh();
       disposePrimary?.();disposePrimary=bindPrimaryRecovery($('primary-recovery'),{engine,isCurrent:current});
       const video=controller.mountVideo($('stage'),$('overlay'));
       disposeDevices?.();disposeDevices=await mountDeviceControls(main.querySelector('[data-device-controls]'),{engine,video,getStream:()=>controller.stream,isCurrent:current,canSwitch:()=>!connecting&&controller.phase==='READY',switchDevice:(kind,id)=>controller.switchDevice(kind,id),onSwitching:(value,ready)=>{
         if(!current())return;
         deviceSwitching=value;
-        if(value){ctx.started=false;delete resolved.readiness;}
+        if(value){ctx.started=false;delete resolved.readiness;deviceReadiness.reset();deviceReadiness.refresh();}
         else if(ready)completeReadiness();
         else{$('enter-note').hidden=false;$('enter-note').textContent='The selected devices are not ready. Check the message below and choose another device.';}
         $('skip-step').disabled=value;evaluate();
@@ -185,5 +196,5 @@ export async function mountCalibration(main, { isCurrent = () => true } = {}) {
   });
   renderSteps(); evaluate();
   // Keep capture only. Rehearsal evidence is abandoned before a recording begins.
-  return ()=>{disposed=true;disposeDevices?.();disposePrimary?.();clearInterval(timer);engine?.events.removeEventListener('frame',frameListener);engine?.abandonPreview();recorder.destroy();};
+  return ()=>{disposed=true;deviceReadiness.dispose();disposeDevices?.();disposePrimary?.();clearInterval(timer);engine?.events.removeEventListener('frame',frameListener);engine?.abandonPreview();recorder.destroy();};
 }
