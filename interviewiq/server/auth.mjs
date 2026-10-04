@@ -1,6 +1,7 @@
 import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { jwtVerify } from 'jose';
 import { AppError, requireValue } from './errors.mjs';
+import { bindOwnerSession } from './owner-session.mjs';
 
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ROLES = new Set(['student', 'mentor', 'admin']);
@@ -75,11 +76,12 @@ export function createAuthorizer(config, {fetchImpl = fetch, now = () => Date.no
     if (!Array.isArray(current.assignment_student_ids) || current.assignment_student_ids.length>1000 ||
         !current.assignment_student_ids.every(id=>typeof id==='string' && UUID.test(id))) throw denial();
     requireValue(typeof current.tier==='string' && current.tier.length<=80,'invalid_access','Your access could not be verified.',401);
-    return Object.freeze({
+    const actor=Object.freeze({
       sub:c.sub, id:c.sub, wpUserId:c.wp_user_id, role:current.role, tier:current.tier, eligible:true,
       assignments:Object.freeze([...new Set(current.assignment_student_ids)]),
       displayName:String(c.name || '').slice(0,160), firstName:String(c.first_name || '').slice(0,100),
       zone:typeof c.zone==='string' ? c.zone : 'America/New_York',
     });
+    return bindOwnerSession(actor,{verifier:c.session_verifier,expiresAt:Math.min(c.exp,current.exp)*1000});
   };
 }
