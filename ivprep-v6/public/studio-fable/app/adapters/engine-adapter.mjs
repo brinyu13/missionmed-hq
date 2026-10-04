@@ -179,10 +179,10 @@ export async function createEngine({mode='real',video,overlayCanvas,csrfToken=''
     abandonPreview(){real.pipeline.abandonAnswer('preflight_complete');real.transcript.stop();},
     interviewerTurn(kind,{questionId=null,source='REMOTE_VAD'}={}) {const atMs=real.clock?.sessionMs()||0; if(kind==='started') real.behavior.interviewerTurnStarted({atMs,questionId,source}); else real.behavior.interviewerTurnEnded({atMs,questionId});},
     setOverlayVisibility(value){return real.setOverlayVisibility(value);},
-    async switchDevice(kind,id) {
+    async switchDevice(kind,id,coordinator) {
       if(destroyed)throw new Error('Device capture has closed.');
       try{
-        const devices=await real.switchDevice(kind,id);
+        const devices=await real.switchDevice(kind,id,coordinator);
         if(destroyed)throw new Error('The device change was cancelled.');
         baselines.invalidateForDeviceChange(subject);resolutions.clear(subject);baseline=null;invalidateDeviceCalibration(real);return devices;
       }finally{if(destroyed)real.destroy({releaseMedia:true});}

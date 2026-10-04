@@ -12,14 +12,14 @@ function liveTracks(stream, kind) {
  * audio element therefore remains the one and only audible authority.
  */
 export class ConversationRecordingMix {
-  constructor({ candidateStream, audioContext, MediaStreamCtor = globalThis.MediaStream, retainCandidateAudio = false } = {}) {
+  constructor({ candidateStream, videoStream = candidateStream, audioContext, MediaStreamCtor = globalThis.MediaStream, retainCandidateAudio = false } = {}) {
     if (!candidateStream || !audioContext || typeof MediaStreamCtor !== 'function'
         || typeof audioContext.createMediaStreamSource !== 'function'
         || typeof audioContext.createMediaStreamDestination !== 'function') {
       throw new TypeError('Conversation recording dependencies are required.');
     }
     const candidateAudio = liveTracks(candidateStream, 'audio');
-    const candidateVideo = liveTracks(candidateStream, 'video');
+    const candidateVideo = liveTracks(videoStream, 'video');
     if (candidateAudio.length !== 1 || candidateVideo.length < 1) {
       throw new TypeError('A live candidate camera and microphone are required.');
     }

@@ -183,6 +183,21 @@ export class GptLiveInterviewer {
   }
 
   cancel() { this.resolvePending(null, { state: 'cancelled' }); }
+  async prepareMicrophoneReplacement(track,{isCurrent=()=>true}={}) {
+    const live=this.live,ticket=this.generation,previous=live?.microphoneSender?.track;
+    const current=()=>!this.stopping&&this.live===live&&ticket===this.generation&&isCurrent();
+    if(!current()||!live?.prepareMicrophoneReplacement)throw new Error('The interviewer microphone cannot be changed now.');
+    try {return await live.prepareMicrophoneReplacement(track,{isCurrent:current});}
+    catch(error){
+      // If RTC rollback itself failed, do not leave a live interviewer sending
+      // a soon-to-be-retired input. End only this provider owner; recording can
+      // still be saved. A new provider/session is never silently substituted.
+      if(current()&&previous&&live.microphoneSender?.track!==previous){
+        this.failed=true;await this.stop();error.deviceRecoveryRequired=true;
+      }
+      throw error;
+    }
+  }
   async stop({keepalive=false}={}) {
     this.stopping = true;++this.generation;
     this.remoteSource?.disconnect?.(); this.remoteSource=null; this.analyser?.disconnect?.();

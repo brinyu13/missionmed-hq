@@ -1,5 +1,5 @@
-// Preflight only: reuse the capture owner's switchDevice; never acquire a
-// second stream or replace a track while the interviewer/recorder is active.
+// Selection delegates to the capture/session owner. In-room changes require
+// its coordinated recorder/provider transaction, not a second media pipeline.
 import {awaitVisibleCamera,assertMicrophoneReady,microphoneReadiness} from './media-readiness.mjs';
 export async function mountDeviceControls(host,{engine,video,getStream,isCurrent=()=>true,canSwitch=()=>true,onChanged=()=>{},onSwitching=()=>{},switchDevice=(kind,id)=>engine.switchDevice(kind,id),
   mediaDevices=globalThis.navigator?.mediaDevices,verifyVisible=awaitVisibleCamera,onReadinessChanged=()=>{}}={}) {
@@ -9,7 +9,7 @@ export async function mountDeviceControls(host,{engine,video,getStream,isCurrent
   const status=host.querySelector('[data-device-status]'),selects=[...host.querySelectorAll('[data-device-kind]')];
   let unbindInput=()=>{};
   function checkInput(){
-    if(!current()||switching||!canSwitch())return;
+    if(!current()||switching||!canSwitch('microphone'))return;
     const readiness=microphoneReadiness(getStream(),engine.audioContext);
     if(!readiness.ready){status.textContent=readiness.message;onReadinessChanged(readiness);}
   }
@@ -35,13 +35,13 @@ export async function mountDeviceControls(host,{engine,video,getStream,isCurrent
         option.selected=row.deviceId===id;select.append(option);
       }
       if(!rows.some(row=>row.deviceId===id)&&id){const option=host.ownerDocument.createElement('option');option.value=id;option.textContent=camera?selected.cameraLabel:selected.microphoneLabel;option.selected=true;select.append(option);}
-      select.disabled=switching||!canSwitch()||!select.options.length;
+      select.disabled=switching||!canSwitch(select.dataset.deviceKind)||!select.options.length;
     }
     host.hidden=false;
   }
   async function change(event){
     const select=event.currentTarget;
-    if(!current()||switching||!canSwitch())return;
+    if(!current()||switching||!canSwitch(select.dataset.deviceKind))return;
     let ready=false,verifiedInput=null;
     switching=true;onSwitching(true);selects.forEach(s=>{s.disabled=true;});status.textContent='Checking selected device…';
     try{
@@ -64,8 +64,10 @@ export async function mountDeviceControls(host,{engine,video,getStream,isCurrent
     }}
   }
   const deviceChange=()=>{checkInput();void refresh().then(checkInput).catch(()=>{if(current())status.textContent='Device list unavailable. Reconnect to check your devices.';});};
-  selects.forEach(select=>select.addEventListener('change',change));mediaDevices.addEventListener?.('devicechange',deviceChange);
+  const window=host.ownerDocument?.defaultView;
+  selects.forEach(select=>select.addEventListener('change',change));mediaDevices.addEventListener?.('devicechange',deviceChange);window?.addEventListener?.('focus',deviceChange);
   try{await refresh();}catch{if(current())status.textContent='Device list unavailable. Your current capture remains selected.';}
-  return()=>{disposed=true;unbindInput();selects.forEach(select=>select.removeEventListener('change',change));mediaDevices.removeEventListener?.('devicechange',deviceChange);};
+  const dispose=()=>{disposed=true;unbindInput();selects.forEach(select=>select.removeEventListener('change',change));mediaDevices.removeEventListener?.('devicechange',deviceChange);window?.removeEventListener?.('focus',deviceChange);};
+  dispose.refresh=refresh;return dispose;
 }
 export function deviceControlsMarkup(){return '<section class="housing panel" data-device-controls hidden><div class="two-col"><label class="field">Camera<select data-device-kind="camera" aria-label="Camera"></select></label><label class="field">Microphone<select data-device-kind="microphone" aria-label="Microphone"></select></label></div><p class="note" data-device-status>Choose your devices before you start.</p></section>';}

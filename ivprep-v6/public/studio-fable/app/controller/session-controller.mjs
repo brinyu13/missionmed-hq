@@ -10,6 +10,7 @@ import { sealDerivedEvidence } from '../adapters/derived-evidence.mjs';
 import { projectDerivedPriority } from '../adapters/saved-review.mjs';
 import {normalizeInterviewPolicy,policyChangedError} from '../../../capabilities/interview-policy.mjs';
 import {assertMicrophoneReady,hasUsableMicrophone} from '../adapters/media-readiness.mjs';
+import {StableCameraRecording,supportsStableCameraRecording} from '../../../capabilities/stable-camera-recording.mjs';
 const ENGINE = '/iv-prep-on-call/assets';
 export const recordings = new Map();
 const LOCKED = new Set(['STARTING','LIVE','SAVING','SAVE_FAILED']);
@@ -35,13 +36,14 @@ async function revalidateOwnAdmission(account,current,{interviewPolicyVersion,on
   return true;
 }
 export class SessionController extends EventTarget {
-  constructor({ accountFactory = connectAccount, engineFactory = createEngine, liveFactory = options => new GptLiveInterviewer(options), mixFactory = null } = {}) {
-    super(); Object.assign(this,{ accountFactory,engineFactory,liveFactory,mixFactory });
+  constructor({ accountFactory = connectAccount, engineFactory = createEngine, liveFactory = options => new GptLiveInterviewer(options), mixFactory = null, cameraFactory = null } = {}) {
+    super(); Object.assign(this,{ accountFactory,engineFactory,liveFactory,mixFactory,cameraFactory });
     this.phase='IDLE'; this.engine=null; this.engineMode=null; this.account=null; this.durable=null;
     this.video=null; this.audioElement=null; this.live=null; this.mix=null; this.durableActive=false;
     this.generation=0; this.lastSave=null; this.finishing=null; this.recordingOrigin=null;
     this.startingOperation=null;this.cleanupOperation=null;this.deviceSwitchOperation=null;
     this.currentInterviewPolicy=null;
+    this.recordingVideo=null;this.deviceFault=null;this.onDeviceFailure=()=>{};
   }
   setPhase(phase,detail=null) { this.phase=phase; this.dispatchEvent(new CustomEvent('phase',{detail:{phase,detail}})); }
   get stream() { return this.engine?.stream || null; }
@@ -79,13 +81,26 @@ export class SessionController extends EventTarget {
     if (!this.account) await this.connectAccount();
     if (this.account.mode !== 'REAL' || !this.durable?.ready) throw new Error('Your IVOC account is not ready. Sign in through Matrix.');
     const ticket=++this.generation;
+    const preferred=this.devicePreferences();
     this.setPhase('DEVICES');
+    // A removed remembered USB device must not turn a new session into an
+    // exact-id NotFound error. Explicit selections remain explicit; only saved
+    // preferences are filtered against currently enumerated hardware.
+    if(globalThis.navigator?.mediaDevices?.enumerateDevices){
+      try {
+        const devices=await navigator.mediaDevices.enumerateDevices();
+        if(ticket!==this.generation)throw new Error('Device setup was cancelled.');
+        if(!cameraDeviceId&&devices.some(d=>d.kind==='videoinput'&&d.deviceId===preferred.cameraDeviceId))cameraDeviceId=preferred.cameraDeviceId;
+        if(!microphoneDeviceId&&devices.some(d=>d.kind==='audioinput'&&d.deviceId===preferred.microphoneDeviceId))microphoneDeviceId=preferred.microphoneDeviceId;
+      }catch(error){if(ticket!==this.generation)throw error;/* Enumeration failure uses browser defaults, not stale exact ids. */}
+    }
     const engine=await this.engineFactory({mode,video:this.ensureVideoElement(),overlayCanvas,csrfToken:this.account.csrfToken,subject:this.account.subject});
     try {
       if(ticket!==this.generation)throw new Error('Device setup was cancelled.');
       this.engine=engine; this.engineMode=mode;
       await engine.start({cameraDeviceId,microphoneDeviceId});
       if (ticket !== this.generation) throw new Error('Device setup was cancelled.');
+      this.persistDevicePreferences(engine.real?.currentDevices?.());
       this.setPhase('READY'); return engine;
     } catch(error) {
       const owns=this.engine===engine;
@@ -101,14 +116,50 @@ export class SessionController extends EventTarget {
     try{return await operation;}finally{if(this.startingOperation===operation)this.startingOperation=null;}
   }
   async switchDevice(kind,id) {
-    if(this.phase!=='READY'||!this.engine||this.deviceSwitchOperation)throw new Error('Devices can only change before recording starts.');
-    const engine=this.engine,ticket=this.generation;
-    const operation=engine.switchDevice(kind,id);this.deviceSwitchOperation=operation;
+    if(!this.canSwitchDevice(kind)||this.deviceSwitchOperation)throw new Error('This device cannot change now. Check it before recording starts.');
+    const engine=this.engine,ticket=this.generation,phase=this.phase,live=this.live,mix=this.mix,video=this.recordingVideo;
+    const current=()=>ticket===this.generation&&this.engine===engine&&this.phase===phase&&this.live===live&&this.mix===mix&&this.recordingVideo===video;
+    const assertCurrent=()=>{if(!current())throw new Error('The device change was cancelled.');};
+    const rollback=async participants=>{
+      let failure=null;
+      for(const tx of [...participants].reverse())try{await tx.rollback();}catch(error){failure||=error;}
+      if(failure){if(current()&&live){await live.stop();this.onDeviceFailure('Your interviewer disconnected during a device change. Finish and save this recording.');}throw failure;}
+    };
+    const coordinator={assertCurrent,prepareReplacement:async({incoming,kind:trackKind})=>{
+      const participants=[];
+      try {
+        assertCurrent();
+        if(phase==='LIVE'){
+          if(trackKind==='video')participants.push(await video.prepareCamera(incoming));
+          else {participants.push(mix.prepareCandidateMicrophone(incoming));if(live)participants.push(await live.prepareMicrophoneReplacement(incoming,{isCurrent:current}));}
+        }
+        assertCurrent();
+        return {commit(){assertCurrent();participants.forEach(tx=>tx.commit());},complete(){assertCurrent();participants.forEach(tx=>tx.complete());},
+          rollback:()=>rollback(participants),release(){participants.forEach(tx=>tx.release());}};
+      } catch(error){await rollback(participants);if(error.deviceRecoveryRequired&&current())this.onDeviceFailure('Your interviewer disconnected during a device change. Finish and save this recording.');throw error;}
+    }};
+    const operation=engine.switchDevice(kind,id,coordinator);this.deviceSwitchOperation=operation;
     try{
       const devices=await operation;
       if(ticket!==this.generation||this.engine!==engine)throw new Error('The device change was cancelled.');
+      this.persistDevicePreferences(devices);
       return devices;
     }finally{if(this.deviceSwitchOperation===operation)this.deviceSwitchOperation=null;}
+  }
+  canSwitchDevice(kind) {
+    if(!this.engine||this.deviceFault||!['camera','microphone'].includes(kind))return false;
+    if(this.phase==='READY')return true;
+    if(this.phase!=='LIVE'||!this.durableActive)return false;
+    return kind==='camera'?Boolean(this.recordingVideo&&!this.recordingVideo.closed):Boolean(this.mix?.candidateAudioStream);
+  }
+  devicePreferences() {
+    try {const value=JSON.parse(globalThis.localStorage?.getItem('ivoc.fable.devices.v1:'+this.account?.subject)||'null');
+      return value&&typeof value==='object'?Object.fromEntries(['cameraDeviceId','microphoneDeviceId'].filter(key=>typeof value[key]==='string'&&value[key].length<=512).map(key=>[key,value[key]])):{};
+    } catch{return {};}
+  }
+  persistDevicePreferences(devices) {
+    if(!/^wp:[1-9][0-9]*$/.test(String(this.account?.subject||''))||!devices)return;
+    try {globalThis.localStorage?.setItem('ivoc.fable.devices.v1:'+this.account.subject,JSON.stringify({cameraDeviceId:devices.cameraDeviceId||'',microphoneDeviceId:devices.microphoneDeviceId||''}));}catch{}
   }
   async startOwnedSession(options) {
     if (this.navigationLocked || !this.stream || !this.durable?.ready) throw new Error('Connect your camera and microphone before starting.');
@@ -120,10 +171,12 @@ export class SessionController extends EventTarget {
     const assertOwnedInput=()=>{
       if(engine.stream!==stream||engine.audioContext!==audioContext||stream.getAudioTracks()[0]!==audioTrack)throw new Error('Your microphone setup changed. Reconnect before starting.');
       assertMicrophoneReady(stream,audioContext);
+      this.recordingVideo?.assertHealthy?.();
     };
     const current=()=>ticket===this.generation&&this.engine===engine&&this.durable===durable&&this.account===account
       &&account.subject===subject&&account.role===role&&account.api===api&&durable.api===durableApi;
-    let ownedLive=null;
+    let ownedLive=null,ownedVideo=null;
+    this.deviceFault=null;this.onDeviceFailure=options.onDeviceFailure||(()=>{});
     const {mode,question,interviewSet,wizard,targetQuestions}=options;
     const input={question,interviewSet,wizard,targetQuestions,interviewerProvider:mode==='mock'?'openai-gpt-live':'missionmed-static'};
     this.setPhase('STARTING');
@@ -142,7 +195,8 @@ export class SessionController extends EventTarget {
       if (!current()) throw new Error('Interview startup was cancelled.');
       assertEffectiveActor(account);
       assertOwnedInput();
-      const makeMix=mode==='mock'?(this.mixFactory || (await import(ENGINE+'/capabilities/conversation-recording.mjs')).createConversationRecordingMix):null;
+      const stableCamera=Boolean(this.cameraFactory||supportsStableCameraRecording());
+      const makeMix=mode==='mock'||stableCamera?(this.mixFactory || (await import(ENGINE+'/capabilities/conversation-recording.mjs')).createConversationRecordingMix):null;
       if(!current())throw new Error('Interview startup was cancelled.');
       assertEffectiveActor(account);
       if(mode==='mock'&&wizard?.interviewPolicyVersion!=null){
@@ -150,9 +204,18 @@ export class SessionController extends EventTarget {
         assertEffectiveActor(account);
       }
       assertOwnedInput();
-      this.mix=mode==='mock'?makeMix({candidateStream:engine.stream,audioContext:engine.audioContext}):null;
+      if(stableCamera){
+        const createCamera=this.cameraFactory||((track,opts)=>StableCameraRecording.create(track,opts));
+        ownedVideo=await createCamera(engine.stream.getVideoTracks()[0],{onFault:()=>{
+          if(!current())return;this.deviceFault='The recording camera stopped. Finish and save the available recording, then reconnect.';
+          this.onDeviceFailure(this.deviceFault);
+        }});
+        if(!current()){ownedVideo.destroy();throw new Error('Interview startup was cancelled.');}
+        this.recordingVideo=ownedVideo;
+      }
+      this.mix=makeMix?makeMix({candidateStream:engine.stream,videoStream:this.recordingVideo?.stream||engine.stream,audioContext:engine.audioContext,retainCandidateAudio:true}):null;
       assertOwnedInput();
-      await durable.start({...input,stream:this.mix?.stream || engine.stream,candidateStream:engine.stream,assertCaptureReady:()=>{
+      await durable.start({...input,stream:this.mix?.stream || engine.stream,candidateStream:this.mix?.candidateAudioStream || engine.stream,assertCaptureReady:()=>{
         if(!current())throw new Error('Interview startup was cancelled.');
         assertEffectiveActor(account);assertOwnedInput();
       }});
@@ -175,6 +238,7 @@ export class SessionController extends EventTarget {
       this.setPhase('LIVE');
       return {interviewer:this.live,labels:{transport:mode==='mock'?'gpt-live':'none',recording:'account',account:'REAL'}};
     } catch(error) {
+      ownedVideo?.destroy?.();if(this.recordingVideo===ownedVideo)this.recordingVideo=null;
       if(current()){
         const abandoned=this.abandon('recording_start_failed'),cleanupTicket=this.generation;
         await abandoned;
@@ -209,7 +273,7 @@ export class SessionController extends EventTarget {
       this.setPhase('SAVE_FAILED',{error:this.lastSave.error,retryable:this.lastSave.retryable});
       // Keep durable pendingRecording/pendingAnalytics for exact retry. Release hardware only.
       this.releaseMedia(); return {...record,persisted:false,saveError:this.lastSave.error};
-    } finally { this.mix?.destroy?.(); this.mix=null; }
+    } finally { this.mix?.destroy?.(); this.mix=null;this.recordingVideo?.destroy?.();this.recordingVideo=null; }
   }
   completeSave(record,saved) {
     const attempt={...record,id:saved.session.id,persisted:true,storage:'account',ownerSubject:this.account.subject,saveError:null,
@@ -257,7 +321,7 @@ export class SessionController extends EventTarget {
     this.engine?.destroy?.({releaseMedia:true}); this.engine=null; this.engineMode=null;
     if(this.video) this.video.srcObject=null;
   }
-  queueCleanup({live=null,durable=null,mix=null,sessionId=null,reason='client_exit',keepalive=false}={}) {
+  queueCleanup({live=null,durable=null,mix=null,video=null,sessionId=null,reason='client_exit',keepalive=false}={}) {
     // The reused Durable owner clears its recorder after awaited server cleanup.
     // Serialize every cleanup, including cancelled-start cleanup, before admitting
     // a replacement recording. Captured IDs prevent cleanup from adopting a new owner.
@@ -266,6 +330,7 @@ export class SessionController extends EventTarget {
       if(live)await live.stop({keepalive}).catch(()=>{});
       if(sessionId&&durable?.accountSession?.id===sessionId)await durable.abandon({reason,keepalive}).catch(()=>{});
       mix?.destroy?.();
+      video?.destroy?.();
     });
     this.cleanupOperation=operation;
     operation.finally(()=>{if(this.cleanupOperation===operation)this.cleanupOperation=null;}).catch(()=>{});
@@ -273,9 +338,9 @@ export class SessionController extends EventTarget {
   }
   abandon(reason='client_exit',{keepalive=false}={}) {
     ++this.generation;
-    const live=this.live,durable=this.durable,mix=this.mix,sessionId=durable?.accountSession?.id;
-    this.live=null;this.mix=null;this.durableActive=false;
-    return this.queueCleanup({live,durable,mix,sessionId,reason,keepalive});
+    const live=this.live,durable=this.durable,mix=this.mix,video=this.recordingVideo,sessionId=durable?.accountSession?.id;
+    this.live=null;this.mix=null;this.recordingVideo=null;this.durableActive=false;
+    return this.queueCleanup({live,durable,mix,video,sessionId,reason,keepalive});
   }
   async release(reason='release') { const abandoned=this.abandon(reason);this.releaseMedia();this.setPhase('IDLE',{reason});await abandoned; }
   async freshOwnLibrary({isCurrent=()=>true}={}) {

@@ -16,6 +16,26 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 R027 COORDINATED DEVICE CANDIDATE (PRODUCT4573): actual camera
+  frames feed a stable generated recorder video track without DOM/canvas/rAF;
+  device timestamps are rebased monotonically. Controller ->engine ->capture
+  transaction also retargets the native microphone sender, conversation mix and
+  stable candidate-only audio recorder. Same clock/session/recorder output set;
+  no extra audible output. Finish/release invalidate awaited replacements;
+  failed RTC undo closes only its exact provider instead of reporting healthy
+  input. Student Room retains collapsed Devices disclosure; preferences are
+  subject-scoped, removed saved devices use browser defaults, focus refresh is
+  cleaned up. Unsupported stable-video browsers cannot change camera while
+  recording; preflight selection remains available.22 new camera/controller
+  regressions PASS;350 affected checks passed before final two test additions.
+  Independent mechanics review PASS including actual writer-fault admission
+  reproduction; final UI/controller review and actual Chrome recording/replay
+  remain required. Candidate is NOT root-promoted or LIVE VERIFIED. Current
+  healthy deployed runtime remains23798cf/a8934a26 while guarded release prepares.
+  NEXT: independent final tranche review ->safe exact artifact ->guarded candidate
+  deployment ->normal UI self-practice camera/mic switching, save, cold replay;
+  native multi-turn/HEAR BOTH and genuine roles remain separate acceptance gates.
+
 - 2026-10-04 CURRENT RUNTIME:23798cfb56fb742c69d8e61693a6ef7b6e2e51c4,
   SUCCESS a8934a26-486e-440a-a7cd-4584da42d541, image
   sha256:e090a74aecb7baf3146bc2b653bb3da10d8ac022149773777880a63deb38067d.

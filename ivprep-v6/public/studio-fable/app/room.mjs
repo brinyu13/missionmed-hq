@@ -78,7 +78,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       <p class="note" id="room-preference-note" role="status" hidden></p>
       <details class="expert"><summary>Display options</summary><button class="btn btn-quiet" type="button" id="reset-density">Use default analytics view</button><p class="note">Choose overlay layers below. Use the tracking-overlays button on your video to show or hide them. Measurement continues while overlays are hidden.</p><div class="review-actions" id="overlay-layers" role="group" aria-label="Tracking overlay layers">${[['face','Face'],['bodyHands','Body / hands'],['position','Framing']].map(([key,label])=>'<button class="btn btn-quiet" type="button" data-overlay-layer="'+key+'" aria-pressed="'+layers[key]+'">'+label+'</button>').join('')}</div></details>
     <div class="transcript" id="transcript" hidden></div>
-    ${deviceControlsMarkup()}
+    <details class="expert" data-room-devices open><summary>Devices</summary>${deviceControlsMarkup()}</details>
 
     </div>
     <aside class="rail" id="rail-right" aria-label="Voice rail">${rightRailMarkup()}</aside>
@@ -137,7 +137,8 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     },
     onCaptions(groups){if(!current()||saving)return;captions=groups;renderTranscript();},
     onStatus(status){if(!current()||saving)return;if(status.state==='active')$('presence-sub').textContent='Your interviewer is listening';if(status.state==='closed'&&started)providerFailed();},
-    onProviderFailed:providerFailed
+    onProviderFailed:providerFailed,
+    onDeviceFailure(message){if(!current()||saving||finished)return;roomFault={message:'Device change interrupted',detail:message};$('room-preference-note').hidden=false;$('room-preference-note').textContent=message;mark('gap',message);}
   };
   function providerFailed(){if(!current()||!started||saving)return;roomFault={message:'Interviewer disconnected',detail:'Finish and save what you recorded, then start another interview.'};$('presence-sub').textContent=roomFault.detail;mark('gap','Interviewer disconnected');}
   function renderPlan(){
@@ -158,14 +159,16 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       const video=controller.mountVideo($('stage'),$('overlay'));
       // Selection must remain available when the acquired camera renders black.
       // The same capture owner switches devices; no second stream or readiness bypass.
-      disposeDevices?.();disposeDevices=await mountDeviceControls(main.querySelector('[data-device-controls]'),{engine,video,getStream:()=>controller.stream,isCurrent:current,canSwitch:()=>!starting&&!started&&controller.phase==='READY',switchDevice:(kind,id)=>controller.switchDevice(kind,id),onSwitching:(value,ready)=>{
+      disposeDevices?.();disposeDevices=await mountDeviceControls(main.querySelector('[data-device-controls]'),{engine,video,getStream:()=>controller.stream,isCurrent:current,canSwitch:kind=>!starting&&!saving&&!finished&&(controller.phase==='READY'||(controller.phase==='LIVE'&&controller.canSwitchDevice(kind))),switchDevice:(kind,id)=>controller.switchDevice(kind,id),onSwitching:(value,ready)=>{
         if(!current())return;
+        if(started){deviceSwitching=value;$('room-preference-note').hidden=false;$('room-preference-note').textContent=value?'Changing your device. Finish & save remains available.':ready?'Device changed. This recording continues; recalibrate before your next attempt.':'Device change was not confirmed. Check the message in Devices.';if(!value&&ready){mark('gap','Device changed; personal calibration reset');applyOverlays();}return;}
         deviceSwitching=value;$('start-session').disabled=value||!ready;$('connect-real').disabled=value;
         $('stage').dataset.previewReady=String(!value&&ready);
         $('enter-note').textContent=value?'Checking your selected camera and microphone…':ready?'Preview visible · microphone connected. Nothing is recorded until you start.':'The selected devices are not ready. Check the message below, choose another device, or check the preview again.';
         if(!value&&ready){$('connect-real').textContent='Check preview again';applyOverlays();}
       },onReadinessChanged:readiness=>{
-        if(!current()||starting||started||saving||finished)return;
+        if(!current()||starting||saving||finished)return;
+        if(started){$('room-preference-note').hidden=false;$('room-preference-note').textContent=readiness.message;return;}
         $('start-session').disabled=true;$('stage').dataset.previewReady='false';
         $('enter-note').textContent=readiness.message;$('connect-real').disabled=false;
       },onChanged:()=>{state.calibration=null;commit();}});
@@ -208,7 +211,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       const result=await controller.startSession({mode,question:plan[0],interviewSet:plan,wizard,targetQuestions,openingQuestion:plan[0].canonical_text,context,voice:settings.voice||'marin',...callbacks});
       if(!current())return;
       interviewer=result.interviewer;started=true;$('enter').remove();$('enter-note').hidden=true;$('rec').dataset.state='recording';$('rec-text').textContent='REC';
-      disposeDevices?.();main.querySelector('[data-device-controls]').remove();
+      main.querySelector('[data-room-devices]').open=false;
       $('primary-action').hidden=true;$('engine-label').textContent='Recording privately to your account';$('end').disabled=false;
       $('presence-sub').textContent=mode==='mock'?'Speak naturally. Your interviewer can hear you.':'Answer the question. Finish & save when you are done.';
       mark('recording','Recording started');mark('question','Q1 planned');recordDensity();renderPlan();
@@ -216,7 +219,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     }catch(error){if(current()){$('stage').dataset.previewReady='false';$('enter-note').textContent=error.message;
       if(error.code==='ivoc_interview_policy_changed'){const back=document.createElement('a');back.href='#/mock';back.textContent=' Return to interview setup';$('enter-note').append(back);}
       $('start-session').disabled=true;$('connect-real').disabled=false;}engine?.events.removeEventListener('frame',onFrame);engine?.events.removeEventListener('state',onState);engine?.events.removeEventListener('word-timing',onWord);}
-    finally{starting=false;if(current()){setDensityControls(false);if(!started)main.querySelectorAll('[data-device-kind]').forEach(select=>{select.disabled=controller.phase!=='READY'||!select.options.length;});}}
+    finally{starting=false;if(current()){setDensityControls(false);await disposeDevices?.refresh?.().catch(()=>{});}}
   }
   $('connect-real').addEventListener('click',()=>void connect());$('start-session').addEventListener('click',()=>void start());
   $('end').disabled=true;$('primary-action').hidden=true;

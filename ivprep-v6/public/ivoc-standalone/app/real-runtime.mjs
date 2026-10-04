@@ -169,7 +169,7 @@ export class RealAnalyticsEngine extends EventTarget {
     });
   }
 
-  async switchDevice(kind, deviceId) {
+  async switchDevice(kind, deviceId, coordinator) {
     const deviceKind = kind === 'camera' ? 'camera' : kind === 'microphone' ? 'microphone' : null;
     const id = String(deviceId || '').trim();
     if (!deviceKind) throw new TypeError('Device kind must be camera or microphone.');
@@ -178,9 +178,11 @@ export class RealAnalyticsEngine extends EventTarget {
 
     const clock = this.clock;
     const pipeline = this.pipeline;
-    const media = await this.bridge.switchDevice(deviceKind, id);
+    const media = await this.bridge.switchDevice(deviceKind, id, coordinator);
+    coordinator?.assertCurrent?.();
     this.video.srcObject = media.stream;
     await this.video.play();
+    coordinator?.assertCurrent?.();
     if (clock !== this.clock || pipeline !== this.pipeline) {
       throw new Error('Active analytics identity changed during device switch.');
     }
@@ -196,6 +198,7 @@ export class RealAnalyticsEngine extends EventTarget {
       this.wordTimingState = { state: 'live', reason: 'MICROPHONE_SWITCHING' };
       this.dispatchEvent(new CustomEvent('word-timing-state', { detail: this.wordTimingState }));
       await this.startTranscriptTiming(media.stream);
+      coordinator?.assertCurrent?.();
     }
 
     return this.currentDevices();
