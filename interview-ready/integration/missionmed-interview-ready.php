@@ -189,6 +189,34 @@ final class MMed_IR_Gateway {
         if ($html===false || !hash_equals(basename($current),hash('sha256',$html)) || substr_count($html,self::MARKER)!==1) { return self::error('ir_runtime',503); }
         return $html;
     }
+    // Fixed new IR artifacts only; their bytes are bound inside the qualified HTML.
+    public static function artifact($name,$root=null) {
+        $markers=['matrix-entry.js'=>'MATRIX','account-gate.html'=>'GATE'];
+        if (!isset($markers[$name])) { return self::error('ir_runtime',503); }
+        $html=self::runtime($root); if (is_wp_error($html)) { return $html; }
+        $root=$root ?? __DIR__.'/missionmed-interview-ready-runtime';
+        $directory=realpath($root.'/current');
+        // Recheck the selected HTML to fence a current-pointer change during reads.
+        if (is_link($root) || is_link($root.'/releases') || !$directory || dirname($directory)!==realpath($root.'/releases') || is_link($directory.'/'.$name) || !is_file($directory.'/'.$name) ||
+            !hash_equals(basename($directory),hash('sha256',$html)) || filesize($directory.'/'.$name)>2*1024*1024) { return self::error('ir_runtime',503); }
+        $value=file_get_contents($directory.'/'.$name);
+        $prefix='<!-- MMED_IR_'.$markers[$name].'_SHA256:';
+        if ($value===false || substr_count($html,$prefix)!==1 ||
+            strpos($html,$prefix.hash('sha256',$value).' -->')===false) { return self::error('ir_runtime',503); }
+        return $value;
+    }
+    public static function matrix_footer() {
+        if (!is_user_logged_in() || !is_page('member-dashboard') ||
+            wp_parse_url($_SERVER['REQUEST_URI'] ?? '',PHP_URL_PATH)!=='/member-dashboard/') { return; }
+        $js=self::artifact('matrix-entry.js');
+        if (!is_wp_error($js) && stripos($js,'</script')===false) {
+            echo '<script data-mmed-ir-matrix-addon="v1">'.$js.'</script>';
+        }
+    }
+    public static function account_gate($html,$url) {
+        return str_replace(['{{MMED_IR_ACCOUNT_URL}}','{{MMED_IR_GUIDE_URL}}'],
+            [esc_url($url),esc_url(home_url('/interview-ready/'))],$html);
+    }
     public static function context($uid) {
         return $uid ? ['subject'=>self::subject($uid),'nonce'=>wp_create_nonce('wp_rest'),
             'endpoint'=>home_url('/wp-json/missionmed-ir/v1/state')] : null;
@@ -223,8 +251,10 @@ final class MMed_IR_Gateway {
         if ($private && !is_user_logged_in()) {
             status_header(401); header('Content-Type: text/html; charset=UTF-8');
             $url=add_query_arg(['redirect_to'=>home_url('/interview-ready/app/'),'redirect'=>home_url('/interview-ready/app/')],home_url('/my-account/'));
+            $gate=self::artifact('account-gate.html');
+            if (is_wp_error($gate)) { status_header(503); header('Retry-After: 60'); exit; }
             if (($_SERVER['REQUEST_METHOD'] ?? '')!=='HEAD') {
-                echo '<!doctype html><html lang="en"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Your Interview Ready account</title><main><h1>Prepare with your free MissionMed account.</h1><p>Sign in or create a free account to keep your checklist and kit across devices. No course enrollment is required.</p><a href="'.esc_url($url).'">Sign in or create your free account</a><p><a href="'.esc_url(home_url('/interview-ready/')).'">Explore the buying guide</a></p></main></html>';
+                echo self::account_gate($gate,$url);
             }
             exit;
         }
@@ -274,3 +304,5 @@ add_action('woocommerce_login_form_end',[MMed_IR_Gateway::class,'account_form_re
 add_action('woocommerce_register_form_end',[MMed_IR_Gateway::class,'account_form_return']);
 add_filter('rest_post_dispatch',[MMed_IR_Gateway::class,'api_headers'],20,3);
 add_filter('rest_pre_serve_request',[MMed_IR_Gateway::class,'serve_headers'],100,4);
+
+add_action('wp_footer',[MMed_IR_Gateway::class,'matrix_footer'],100);

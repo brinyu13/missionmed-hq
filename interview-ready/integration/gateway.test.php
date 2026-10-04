@@ -37,6 +37,7 @@ function wp_verify_nonce($n,$a) { return $n==='fixture-nonce' && $a==='wp_rest';
 function wp_create_nonce($a) { return 'fixture-nonce'; }
 function wp_cache_delete($id,$group) { $GLOBALS['cacheDeletes']++; }
 function add_action(...$args) {} function add_filter(...$args) {}
+function is_page($slug) { return $GLOBALS['pageSlug']===$slug; }
 function wp_unslash($v) { return stripslashes($v); }
 function wp_get_nav_menu_object($menu) { return $menu ? (object)['term_id'=>$menu] : false; }
 function get_nav_menu_locations() { return ['primary'=>35,'member'=>57]; }
@@ -173,6 +174,24 @@ expect(MMed_IR_Gateway::runtime($root)===$html,'qualified immutable release');
 file_put_contents($root.'/releases/'.$digest.'/interview-ready.html',$html.'changed'); expect(code(MMed_IR_Gateway::runtime($root),'ir_runtime'),'digest drift rejects');
 unlink($root.'/current'); symlink(sys_get_temp_dir(),$root.'/current'); expect(code(MMed_IR_Gateway::runtime($root),'ir_runtime'),'outside pointer rejects');
 unlink($root.'/current'); unlink($root.'/releases/'.$digest.'/interview-ready.html'); rmdir($root.'/releases/'.$digest); rmdir($root.'/releases'); rmdir($root);
+// Existing 56 account assertions above remain intact. New fixed-artifact boundary.
+$root=sys_get_temp_dir().'/ir-fixed-fixture-'.getmypid(); mkdir($root); mkdir($root.'/releases');
+$js='/* data-mmed-ir-matrix-entry */ window.irFixture=true;';
+$gate='<html><a href="{{MMED_IR_ACCOUNT_URL}}">Free account</a><a href="{{MMED_IR_GUIDE_URL}}">Guide</a></html>';
+$fixed=$html.'<!-- MMED_IR_MATRIX_SHA256:'.hash('sha256',$js).' --><!-- MMED_IR_GATE_SHA256:'.hash('sha256',$gate).' -->';
+$digest=hash('sha256',$fixed); $release=$root.'/releases/'.$digest; mkdir($release);
+file_put_contents($release.'/interview-ready.html',$fixed); file_put_contents($release.'/matrix-entry.js',$js); file_put_contents($release.'/account-gate.html',$gate); symlink($release,$root.'/current');
+expect(MMed_IR_Gateway::artifact('matrix-entry.js',$root)===$js && MMed_IR_Gateway::artifact('account-gate.html',$root)===$gate,'fixed artifacts digest-bound');
+expect(code(MMed_IR_Gateway::artifact('../matrix-entry.js',$root),'ir_runtime') && code(MMed_IR_Gateway::artifact('other.js',$root),'ir_runtime'),'no generic file proxy');
+file_put_contents($release.'/matrix-entry.js',$js.' drift');expect(code(MMed_IR_Gateway::artifact('matrix-entry.js',$root),'ir_runtime'),'fixed artifact byte drift rejects');
+unlink($release.'/matrix-entry.js');symlink($release.'/account-gate.html',$release.'/matrix-entry.js');expect(code(MMed_IR_Gateway::artifact('matrix-entry.js',$root),'ir_runtime'),'fixed artifact symlink rejects');
+unlink($release.'/matrix-entry.js');file_put_contents($release.'/matrix-entry.js',$js);
+$rendered=MMed_IR_Gateway::account_gate($gate,home_url('/my-account/?redirect_to=https%3A%2F%2Fmissionmedinstitute.com%2Finterview-ready%2Fapp%2F'));
+expect(strpos($rendered,'{{MMED_IR_')===false && strpos($rendered,'fixture-nonce')===false && strpos($rendered,'subject')===false && strpos($rendered,'/interview-ready/')!==false,'gate public-private separation and exact destinations');
+$GLOBALS['pageSlug']='member-dashboard';$GLOBALS['uid']=0;$_SERVER['REQUEST_URI']='/member-dashboard/';ob_start();MMed_IR_Gateway::matrix_footer();expect(ob_get_clean()==='','anonymous dashboard emits no addon');
+$GLOBALS['uid']=10;$_SERVER['REQUEST_URI']='/unrelated/';ob_start();MMed_IR_Gateway::matrix_footer();expect(ob_get_clean()==='','unrelated route emits no addon');
+$GLOBALS['pageSlug']='unrelated';$_SERVER['REQUEST_URI']='/member-dashboard/';ob_start();MMed_IR_Gateway::matrix_footer();expect(ob_get_clean()==='','page owner required');
+unlink($root.'/current');foreach(['interview-ready.html','matrix-entry.js','account-gate.html'] as $name){unlink($release.'/'.$name);}rmdir($release);rmdir($root.'/releases');rmdir($root);
 echo json_encode(['builderFixture'=>'PASS','assertions'=>$n,'liveWordPressOrDatabase'=>false])."\n";
 
 }

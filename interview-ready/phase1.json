@@ -43,5 +43,12 @@
     "enabled": false,
     "copy": "",
     "approvalEvidence": null
+  },
+  "builderImplementation": {
+    "accountSource": "independently-reviewed; native acceptance pending",
+    "matrixDiscovery": "dedicated addon candidate; shared selection unchanged",
+    "mediaTreatment": "approved allowlist plus information-only products",
+    "releasePackaging": "local immutable candidate only",
+    "productionAcceptance": "blocked pending independent release and native/live gates"
   }
 }

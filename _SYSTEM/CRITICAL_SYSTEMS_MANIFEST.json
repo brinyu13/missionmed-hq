@@ -207,6 +207,48 @@
           "expected": "production"
         }
       ]
+    },
+    "interview_ready": {
+      "owner": "MissionMed Interview Ready / IR-INTERVIEW-READY-0002",
+      "runtime_owner": "kinsta-wordpress-mu-plugin",
+      "host": "missionmed-kinsta",
+      "webroot": "/www/theresidencyacademy_209/public",
+      "source_of_truth": "interview-ready/",
+      "authority": [
+        "DR-375",
+        "DR-376"
+      ],
+      "release_state": "LOCAL_CANDIDATE_NOT_PRODUCTION_APPROVED",
+      "production_entrypoint": "wp-content/mu-plugins/missionmed-interview-ready.php",
+      "immutable_release_root": "wp-content/mu-plugins/missionmed-interview-ready-runtime/releases/<HTMLsha256>/",
+      "current_pointer": "wp-content/mu-plugins/missionmed-interview-ready-runtime/current",
+      "storage_owner": "Canonical WP self-only user metadata _mmed_ir_state_v1; server UID only",
+      "routes_or_assets": [
+        "/interview-ready/",
+        "/interview-ready/app/",
+        "/wp-json/missionmed-ir/v1/state",
+        "fixed matrix-entry.js and account-gate.html digest-bound inside immutable HTML"
+      ],
+      "dependencies": [
+        "Canonical WordPress session / REST nonce / user metadata",
+        "Normal /my-account/ free-account flow",
+        "Source production-assets.json allowlist",
+        "Dedicated-only Matrix preservation baseline MATRIX_CURRENT_GUARD_BASELINE.md"
+      ],
+      "matrix_guard": {
+        "scope": "new IR addon only; preserve all 15 baseline shared files and current shell/IIQ selections",
+        "shared_core_pass": false,
+        "known_fallback_mismatch": "student-os.16ca42c53ca2e890.js preserved; not reconciled",
+        "runtime_or_lock_mutation": false
+      },
+      "rollback": "Restore only qualified IR MU-plugin/current-pointer preimages; preserve user state, identities, enrollment, history and siblings",
+      "release_gates": [
+        "independent exact-byte package/recovery review",
+        "healthy narrow runtime lease",
+        "native WP/MySQL concurrency/cache acceptance",
+        "live public/no-course/A-B/MR/admin/mobile/motion/isolation acceptance",
+        "fresh shared origin/public equality and actual selected sources"
+      ]
     }
   },
   "protected_paths": [
@@ -298,7 +340,17 @@
     "_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/artifacts/D1-500_KINSTA_FEATURE_OFF_PAYLOAD.tar.gz",
     "_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/artifacts/D1-500_KINSTA_RUNTIME_2e775a88_FEATURE_OFF_PAYLOAD.tar.gz",
     "_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/artifacts/D1-500_KINSTA_RUNTIME_20c89a06_FEATURE_OFF_PAYLOAD.tar.gz",
-    "_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/artifacts/kinsta/wp-content/mu-plugins/missionmed-timeline-route.php"
+    "_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/artifacts/kinsta/wp-content/mu-plugins/missionmed-timeline-route.php",
+    "interview-ready/integration/missionmed-interview-ready.php",
+    "interview-ready/integration/matrix-entry.js",
+    "interview-ready/account.js",
+    "interview-ready/build.py",
+    "interview-ready/integration/release.py",
+    "interview-ready/phase1.json",
+    "interview-ready/production-assets.json",
+    "wp-content/mu-plugins/missionmed-interview-ready.php",
+    "wp-content/mu-plugins/missionmed-interview-ready-runtime/releases/**",
+    "wp-content/mu-plugins/missionmed-interview-ready-runtime/current"
   ],
   "supabase_projects": {
     "ranklistiq": {
@@ -429,7 +481,7 @@
       "url": "https://missionmedinstitute.com/storyforge/",
       "approved_sha256": "1b43b433be1716deffd314a0c3f36ea4dc8cc6ae214680c8df41ce7058d0442c",
       "required_markers": [
-        "StoryForge V5 · MissionMed",
+        "StoryForge V5 \u00b7 MissionMed",
         "Dr Brian's IV Prep On-Call",
         "Opening your private story workspace"
       ],
@@ -682,7 +734,7 @@
       "url": "https://missionmedinstitute.com/storyforge/",
       "method": "GET",
       "expected_status": 200,
-      "body_contains": "StoryForge V5 · MissionMed",
+      "body_contains": "StoryForge V5 \u00b7 MissionMed",
       "expected_headers": {
         "cache-control": "no-store, max-age=0",
         "x-storyforge-route": "wordpress-gateway"
@@ -843,6 +895,45 @@
         501,
         503
       ]
+    },
+    {
+      "id": "interview_ready_public_guide",
+      "system": "interview_ready",
+      "deployment_phase": "AFTER_INDEPENDENT_RELEASE_ACCEPTANCE",
+      "url": "https://missionmedinstitute.com/interview-ready/",
+      "method": "GET",
+      "expected_status": 200,
+      "must_not_status": [
+        404,
+        500
+      ],
+      "private_no_store_required": false
+    },
+    {
+      "id": "interview_ready_anonymous_app",
+      "system": "interview_ready",
+      "deployment_phase": "AFTER_INDEPENDENT_RELEASE_ACCEPTANCE",
+      "url": "https://missionmedinstitute.com/interview-ready/app/",
+      "method": "GET",
+      "expected_status": 401,
+      "must_not_status": [
+        404,
+        500
+      ],
+      "private_no_store_required": true
+    },
+    {
+      "id": "interview_ready_anonymous_state",
+      "system": "interview_ready",
+      "deployment_phase": "AFTER_INDEPENDENT_RELEASE_ACCEPTANCE",
+      "url": "https://missionmedinstitute.com/wp-json/missionmed-ir/v1/state",
+      "method": "GET",
+      "expected_status": 401,
+      "must_not_status": [
+        404,
+        500
+      ],
+      "private_no_store_required": true
     }
   ],
   "systems": {
@@ -1173,6 +1264,24 @@
       "expected_final_state": "SESSION_REQUIRED_OR_GATEWAY_REQUIRED_WITHOUT_DATA",
       "expected_console_errors": 0,
       "manual_or_browser_plugin_required": true
+    },
+    {
+      "id": "interview_ready_phase1",
+      "system": "interview_ready",
+      "deployment_phase": "AFTER_INDEPENDENT_RELEASE_ACCEPTANCE",
+      "url": "https://missionmedinstitute.com/interview-ready/app/",
+      "expected_text": "Interview Ready",
+      "expected_console_errors": 0,
+      "manual_or_browser_plugin_required": true,
+      "required_scenarios": [
+        "public guide contains no nonce/subject/private state",
+        "normal free account/no-course return; checklist/kit save reload",
+        "A/B identity and logout/BFCache isolation",
+        "existing MR/admin/sibling access unchanged",
+        "Matrix ordinary anchor/rerender/fallback/mobile with all 15 shared bytes and selections preserved",
+        "three desktop tiers and mobile/reduced motion",
+        "code-only rollback preserves all private state"
+      ]
     }
   ],
   "new_system_registration": {
