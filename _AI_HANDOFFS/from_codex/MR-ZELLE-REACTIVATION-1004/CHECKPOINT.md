@@ -1,6 +1,6 @@
 # MR-WEB-0912 Zelle reactivation checkpoint - 2026-10-04
 
-Status: IN PROGRESS. NOT DEPLOYED. NOT READY FOR A REAL TEST PAYMENT.
+Status: IN PROGRESS. CANDIDATE DEPLOYED WITH PUBLIC AUTOMATION OFF. NOT READY FOR A REAL TEST PAYMENT.
 This is a resumable implementation checkpoint, not a launch verdict.
 
 ## Founder objective and scope
@@ -110,6 +110,27 @@ MyKinsta rechecked: still at login, with no restored session. Fresh native recov
 Rollback priority after successful deployment: set global mode to `admin_confirmation` and remove exact canary option while retaining secure fallback and the permanent consumed-transaction ledger. Never delete consumed evidence or roll back genuine order/payment state. File/config preimages remain required for catastrophic code rollback; capture them only against then-current hashes and preserve current recipient authority.
 
 ## Critical remaining implementation (do not skip)
+
+### Current continuation - 2026-10-04 15:36 UTC
+
+This entry supersedes the earlier NOT DEPLOYED/login-blocked checkpoints; those remain historical evidence.
+
+- Founder MyKinsta sign-in confirmed. Created native MissionMed Institute Live manual backup `Pre Zelle automation reactivation 2026-10-04 DR-338`, displayed Oct 4, 2026 11:23 AM, expires Oct 18, 2026 11:23 AM, Restore to control available. No backup deleted/restored. Existing daily backup also visible at Oct 4 4:37 AM.
+- Fresh universal/MR-WEB-0912 BOOT PASS at canonical HQ tip `0feee579b0a9f2c90529220899f6cf6d21b8cd05`; REGISTRY clear. Deploy PATH lease epoch4608, controlled-order PATH lease epoch4609. No Supabase application data changed.
+- Detected newer live IVOC deployment `5415359e-ce0f-4f5b-97fd-9bcd406c8961`, source `a4996ac32c38c5184d850080ccf44f1e21b85843`. Normally merged its exact source into the clean release branch; no IVOC changes authored. Release source `523420b4472cd0dcdcf727b41a3a2345f46f70ae`, pushed/read back. Diff against a4996ac remains exactly the same six authorized Zelle paths; IVOC/server/Gmail integration byte-identical to that base.
+- Railway deployment `ea2a27b4-c4b9-43ac-b04c-bcafa6efa26f` SUCCESS, image `sha256:2f7e6ac94e4a2e3cd6c690e35568403b32f7580cd668adf8fa306349e9576459`; health ok. Runtime matcher SHA `ca645ac243f02ef201c8c549ed06f76d8051736b0baa2228d86de049c82bb029`, server SHA `891c3068dd26a8971f35477b50a76c11523ef72e1e67e69f96f1e87d86ce29ab`, IVOC room SHA `bebab01dd702a31b025cc285c9dcbdf81d9d110c195c09d13ac9718fb7030896` match release source.
+- Exact private WP preimages at `/www/theresidencyacademy_209/private-backups/MR-ZELLE-REACTIVATION-20261004T1523Z`. Manifest records original verifier SHA above, options serialized SHA `44e9c4426f17f8eda42530a828003682a284bf355c5d59f0c06e928f8ad9438e`, product snapshot SHA `a12bad3b817b0a69f3e5b436a3e4a01355119a74b3261799b314ca80ae66870e`. New QR previously absent. Files mode0600, directory0700, outside public root.
+- WP verifier deployed atomically, runtime SHA `588ba5c701c382a103ab0beaeb6fd82451a71fbcd02e49798ba71e4707c650d2`. New exact QR deployed; public HTTP200 and SHA `5c7adbb1fde34302e4c15d4f7fbfaa6d1efb1c09c6e1b0510d70028d62b3a838`. BACS instructions field alone updated to text recorded above; all other option fields byte-equivalent on readback. Mode remains `admin_confirmation`; canary absent/0. No public automation activated.
+- Existing controlled account1391 (`kateb`, Founder-authorized test identity) has unrelated course4204, no3646/no5227, no groups, Matrix free tier. Prior9193 remains cancelled/unpaid. No password, role or customer profile changed.
+- Created ONE fresh controlled order **9211** using canonical Woo APIs, exact Bootcamp5504/5867 quantity1, BACS/USD, order-local total **1.00**, on-hold/unpaid. Public prices unchanged (549 card,499 Zelle; Complete3099 PIF/3499 regular). Creation script and private order link at `/tmp/mr-zelle-deploy-tYM1Ep/` locally and corresponding restricted server preimage directory. Do not print or commit order key. No public test pricing mechanism installed. Order creation was admin-prepared, NOT yet proof of browser checkout.
+- Prepayment readback: courses[4204], groups[], Matrixfree; FileVault/scheduler/timeline/Arena purchase-derived access false; customer cannot manageWoo. Baseline access preserved. No financial completion, no entitlement grant, no claim submitted.
+- Read-only signed provider call for the fresh order using canonical normalized billing name returned `{ok:true,state:not_found,match_count:0}` from current live HQ/Gmail. Initial diagnostic calls used unnormalized/different names and were rejected by candidate uniqueness; corrected probe passed without modifying order/payer state. This is connectivity/no-match evidence, NOT a genuine payment acceptance.
+- Browser current Founder session correctly blocked viewing Kate's order by installed Woo owner-verification rule. Do not disable this rule. User Switching plugin is not installed; the existing Temporary Login screen offers WP-admin access, which is inappropriate and was NOT used. Asked Founder for approval for a 30-minute customer-only QA session, no password/role/entitlement change, or manual test-account sign-in. Also asked to confirm actual sending-bank payer name (historically Kathryn Bolante); no new transfer requested.
+- Applied Founder compute directive: Sol6.1 Medium worker performed bounded read-only test preparation only; no production/commit authority delegated. Worker is done. Prior exact creator script not found in scoped handoffs; current order created through explicit current directive to prepare one controlled order, not falsely claimed as recovered old script.
+
+Immediate next: obtain controlled customer session approval/sign-in and actual payer-name confirmation, finish pending/claim security/responsive/contrast/Stripe QA, enable only exact controlled canary after readiness, then give the ONE $1 Founder-send instruction. No payment is requested yet. Independent verification and launch remain pending genuine lifecycle. Refresh shared Railway source before any further deployment; unrelated IVOC work remains active.
+
+Rollback: first retain public admin mode and no canary; never discard consumed fingerprints or real payments. Catastrophic WP rollback uses exact private verifier/option preimages above (preserve current recipient authority). Railway pre-release deployment5415359e/sourcea4996ac is the retained runtime rollback, but check for newer unrelated changes before reverting the whole shared service.
 
 1. WordPress integration and HTTP-handler security are locally synthetic-tested as above, but actual installed Woo hook/settings compatibility, source review and production acceptance remain mandatory.
 2. Live admin fallback still uses a per-request token; the candidate replaces it with a shared bank-reference fingerprint and removes the Gmail-candidate dependency. Deploy and verify that change without fabricating a payment or removing administrator review.
