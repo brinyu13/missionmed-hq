@@ -3,8 +3,9 @@ import {assertResearchGrant} from '../adapters/interviewiq-job-auth.mjs';
 
 // DR-373 grants this operation its own eligibility floor. It creates no RISE
 // session/capabilities, and even administrators use the student spending gates.
-export function evaluateInterviewiqResearchEligibility({program,controls,subjectHash,proof,binding,bodyHash}) {
-  assertResearchGrant(proof,{binding,bodyHash,phase:'reserve'});
+export function evaluateInterviewiqResearchEligibility({program,controls,subjectHash,proof,binding,bodyHash,phase='reserve'}) {
+  if(!['reserve','start','publish'].includes(phase))throw Error('interviewiq_research_phase_unavailable');
+  assertResearchGrant(proof,{binding,bodyHash,phase});
   const c=normalizeResearchControls(controls),scope=programDescriptor(program),reasons=[];
   if(c.emergencyKillSwitch)reasons.push('EMERGENCY_KILL_SWITCH');
   if(!c.globalEnabled)reasons.push('GLOBAL_PAUSED');
