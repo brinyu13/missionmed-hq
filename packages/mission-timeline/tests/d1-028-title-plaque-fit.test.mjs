@@ -6,6 +6,7 @@ import {resolveFounderPresentationSvg,materialPresentationCollisions} from '../w
 import {createEditableFounderPptx} from '../web/js/presentation/editable-pptx.js';
 import {JSZip} from '../web/vendor/presentation/pptx-runtime.js';
 import {measurePresentationText} from '../web/js/presentation/text-layout.js';
+import {analyzeTimelineQuality} from '../web/js/uxr-002/quality-guardian.js';
 import {parsePresentationXml,xmlNodes,xmlText} from '../web/js/presentation/presentation-xml.js';
 
 const documentFor=fullName=>({id:'synthetic-title-fit',theme:'keynote-classic',events:[],advanced:{},studentProfile:{fullName}});
@@ -71,4 +72,29 @@ test('composer places existing milestone labels around the measured title plaque
   assert.equal(materialPresentationCollisions(paint).filter(c=>c.elementIds.includes('furniture:title')).length,0);
   for(const e of doc.events)assert.ok(paint.nodes.filter(n=>n.semanticRef===e.id&&n.kind==='text').map(n=>n.text).join(' ').includes(e.siteName));
   assert.deepEqual(doc.events.map(e=>e.startDate),['2020-06','2025-04']);
+});
+
+
+test('fixed six-row legend keeps its natural font and fits inside the original card',()=>{
+  const {paint}=parts(documentFor('Dr B'));
+  const labels=paint.nodes.filter(n=>n.kind==='text'&&n.groupId==='furniture:color-key'&&n.text!=='COLOR KEY');
+  assert.equal(labels.length,6);
+  for(const label of labels){
+    assert.equal(label.fontSize,18);assert.equal(label.characterSpacing,0);
+    assert.equal(label.sourceAttributes['data-text-overflow'],undefined);
+    assert.ok(label.bounds.x+label.bounds.width<=284+.01);
+  }
+});
+
+test('authored legend overflow retains the full label and blocks final export and Guardian readiness',()=>{
+  const doc=documentFor('Dr B');
+  doc.events=[{id:'work',title:'Medical Officer',categoryId:'work',eventType:'duration',startDate:'2023-01',endDate:'2024-06',visibilityState:'INTERVIEWER_SAFE'}];
+  doc.presentationOverrides={categoryKey:[{id:'work',label:'Clinical Research and Teaching'}]};
+  const before=JSON.stringify(doc),{rendered,paint}=parts(doc);
+  const label=paint.nodes.find(n=>n.text==='Clinical Research and Teaching');
+  assert.equal(label.sourceAttributes['data-text-overflow'],'true');
+  assert.equal(label.fontSize,18);assert.equal(label.characterSpacing,0);
+  assert.throws(()=>assertCompleteFounderPresentation(rendered),e=>e.code==='TIMELINE_EXPORT_TEXT_OVERFLOW'&&e.elementIds.includes('furniture:color-key'));
+  const finding=analyzeTimelineQuality(doc).findings.find(f=>f.code==='TEXT_CONTAINER_OVERFLOW'&&f.elementIds.includes('furniture:color-key'));
+  assert.equal(finding?.severity,'BLOCK_EXPORT');assert.equal(JSON.stringify(doc),before);
 });
