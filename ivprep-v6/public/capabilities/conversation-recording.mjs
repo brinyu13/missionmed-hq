@@ -12,7 +12,7 @@ function liveTracks(stream, kind) {
  * audio element therefore remains the one and only audible authority.
  */
 export class ConversationRecordingMix {
-  constructor({ candidateStream, audioContext, MediaStreamCtor = globalThis.MediaStream } = {}) {
+  constructor({ candidateStream, audioContext, MediaStreamCtor = globalThis.MediaStream, retainCandidateAudio = false } = {}) {
     if (!candidateStream || !audioContext || typeof MediaStreamCtor !== 'function'
         || typeof audioContext.createMediaStreamSource !== 'function'
         || typeof audioContext.createMediaStreamDestination !== 'function') {
@@ -30,10 +30,74 @@ export class ConversationRecordingMix {
     if (mixedAudio.length !== 1) throw new Error('Conversation recording mix is unavailable.');
     this.candidateSource = audioContext.createMediaStreamSource(new MediaStreamCtor(candidateAudio));
     this.candidateSource.connect(this.destination);
+    this.candidateTrack = candidateAudio[0];
+    this.candidateDestination = null;
+    this.candidateAudioStream = null;
+    this.candidateReplacement = null;
+    if (retainCandidateAudio) {
+      try {
+        this.candidateDestination = audioContext.createMediaStreamDestination();
+        const audio = liveTracks(this.candidateDestination.stream, 'audio');
+        if (audio.length !== 1) throw new Error('Candidate recording tap is unavailable.');
+        this.candidateSource.connect(this.candidateDestination);
+        this.candidateAudioStream = new MediaStreamCtor(audio);
+      } catch (error) {
+        this.candidateSource.disconnect();
+        for (const destination of [this.destination, this.candidateDestination]) {
+          for (const track of destination?.stream?.getTracks?.() || []) track.stop?.();
+        }
+        throw error;
+      }
+    }
     this.remoteSource = null;
     this.remoteTrackId = null;
     this.stream = new MediaStreamCtor([...candidateVideo, mixedAudio[0]]);
     this.destroyed = false;
+  }
+
+  // Prepare a silent input only. Output tracks never change while MediaRecorder
+  // is active; the optional candidate-only tap cannot receive interviewer audio.
+  prepareCandidateMicrophone(track) {
+    if (this.destroyed || this.candidateReplacement) throw new Error('Recording microphone replacement is unavailable.');
+    if (track?.kind !== 'audio' || track.readyState !== 'live' || track.enabled === false || track.muted === true) {
+      throw new TypeError('A usable microphone track is required.');
+    }
+    const previous = this.candidateSource, previousTrack = this.candidateTrack;
+    const source = this.audioContext.createMediaStreamSource(new this.MediaStreamCtor([track]));
+    const pending = {source, previous, state:'prepared'};
+    this.candidateReplacement = pending;
+    const connect = node => {
+      node.connect(this.destination);
+      if (this.candidateDestination) node.connect(this.candidateDestination);
+    };
+    return Object.freeze({
+      commit: () => {
+        if (this.destroyed || this.candidateReplacement !== pending || pending.state !== 'prepared') throw new Error('Recording microphone replacement was cancelled.');
+        if (track.readyState !== 'live' || track.enabled === false || track.muted === true) throw new Error('The replacement microphone is no longer usable.');
+        // If the second connection fails, the still-connected original remains.
+        try { connect(source); } catch (error) { source.disconnect(); throw error; }
+        previous.disconnect();this.candidateSource = source;this.candidateTrack = track;pending.state = 'committed';
+      },
+      rollback: () => {
+        if (this.destroyed || this.candidateReplacement !== pending) return false;
+        source.disconnect();
+        if (pending.state === 'committed') {
+          connect(previous);this.candidateSource = previous;this.candidateTrack = previousTrack;
+        }
+        pending.state = 'rolled_back';this.candidateReplacement = null;return true;
+      },
+      complete: () => {
+        // Non-mutating validation: another participant may still reject the
+        // transaction. Retain rollback ownership until every check succeeds.
+        if (this.destroyed || this.candidateReplacement !== pending || pending.state !== 'committed') throw new Error('Recording microphone replacement is not committed.');
+        return true;
+      },
+      release: () => {
+        // Terminal, no-throw bookkeeping only, after capture publication.
+        if (this.candidateReplacement !== pending || pending.state !== 'committed') return false;
+        pending.state = 'complete';this.candidateReplacement = null;return true;
+      },
+    });
   }
 
   attachAuthoritativeAudio(stream) {
@@ -65,8 +129,14 @@ export class ConversationRecordingMix {
     if (this.destroyed) return;
     this.destroyed = true;
     try { this.candidateSource?.disconnect?.(); } catch {}
+    for (const source of [this.candidateReplacement?.source, this.candidateReplacement?.previous]) {
+      try { source?.disconnect?.(); } catch {}
+    }
+    this.candidateReplacement = null;
     try { this.remoteSource?.disconnect?.(); } catch {}
-    for (const track of this.destination?.stream?.getTracks?.() || []) track.stop?.();
+    for (const destination of [this.destination, this.candidateDestination]) {
+      for (const track of destination?.stream?.getTracks?.() || []) track.stop?.();
+    }
     this.remoteSource = null;
     this.remoteTrackId = null;
   }

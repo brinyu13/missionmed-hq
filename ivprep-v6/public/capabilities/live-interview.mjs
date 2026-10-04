@@ -59,6 +59,8 @@ export class LiveInterviewSession {
     this.onAuthoritativeAudioStream = onAuthoritativeAudioStream;
     this.now = now;
     this.peer = null;
+    this.microphoneSender = null;
+    this.microphoneReplacement = null;
     this.channel = null;
     this.sessionId = null;
     this.state = 'idle';
@@ -194,6 +196,52 @@ export class LiveInterviewSession {
     return true;
   }
 
+  // Input replacement does not create a provider session, audible output, new
+  // transcript owner or generation. The capture owner stops the old track only
+  // after recording and analytics consumers have also committed.
+  async prepareMicrophoneReplacement(track, {isCurrent = () => true} = {}) {
+    if (track?.kind !== 'audio' || track.readyState !== 'live' || track.enabled === false || track.muted === true) throw new TypeError('A usable microphone track is required.');
+    const peer = this.peer, sender = this.microphoneSender, generation = this.startGeneration;
+    if (this.state !== 'active' || !peer || !sender?.replaceTrack || this.microphoneReplacement) throw new Error('Interview microphone replacement is unavailable.');
+    const previous = sender.track;
+    if (!previous || previous.readyState !== 'live') throw new Error('The current interview microphone is unavailable.');
+    const pending = {state:'preparing'};
+    this.microphoneReplacement = pending;
+    const owned = () => this.peer === peer && this.microphoneSender === sender && this.startGeneration === generation && this.state === 'active' && this.microphoneReplacement === pending;
+    const rollback = async () => {
+      // stop() invalidates ownership synchronously; never put input back on a
+      // closed peer after an awaited replaceTrack resolves late.
+      if (!owned()) return false;
+      if (sender.track !== previous) await sender.replaceTrack(previous);
+      if (this.microphoneReplacement === pending) this.microphoneReplacement = null;
+      pending.state = 'rolled_back';return true;
+    };
+    try {
+      if (!isCurrent()) throw new Error('Interview microphone replacement was cancelled.');
+      await sender.replaceTrack(track);
+      if (!owned() || !isCurrent()) throw new Error('Interview microphone replacement was cancelled.');
+      if (track.readyState !== 'live' || track.enabled === false || track.muted === true) throw new Error('The replacement microphone is no longer usable.');
+      pending.state = 'prepared';
+      return Object.freeze({
+        commit: () => {
+          if (!owned() || !isCurrent() || pending.state !== 'prepared' || sender.track !== track) throw new Error('Interview microphone replacement was cancelled.');
+          pending.state = 'committed';
+        },
+        rollback,
+        complete: () => {
+          if (!owned() || !isCurrent() || pending.state !== 'committed') throw new Error('Interview microphone replacement was cancelled.');
+          return true;
+        },
+        release: () => {
+          // No provider/audio action, and no throw after irreversible capture
+          // retirement. All fallible validation happens in complete().
+          if (this.microphoneReplacement !== pending || pending.state !== 'committed') return false;
+          this.microphoneReplacement = null;pending.state = 'complete';return true;
+        },
+      });
+    } catch (error) { await rollback();throw error; }
+  }
+
   async start({ audioTrack, voice = 'marin', context, ivocSessionId, openingQuestion } = {}) {
     if (this.state !== 'idle' && this.state !== 'closed') throw new Error('A live interview is already active.');
     if (!audioTrack || audioTrack.kind !== 'audio' || audioTrack.readyState === 'ended') {
@@ -217,7 +265,7 @@ export class LiveInterviewSession {
     this.peer = peer;
     const generation = ++this.startGeneration;
     const current = () => this.startGeneration === generation && this.peer === peer;
-    peer.addTrack(audioTrack);
+    this.microphoneSender = peer.addTrack(audioTrack);
     const audioBound = new Promise((resolve, reject) => {
       this.audioBoundResolve = resolve;
       this.audioBoundReject = reject;
@@ -361,6 +409,8 @@ export class LiveInterviewSession {
     try { this.peer?.close?.(); } catch {}
     this.channel = null;
     this.peer = null;
+    this.microphoneSender = null;
+    this.microphoneReplacement = null;
     if (this.audioAuthority) this.emitTelemetry('released');
     this.audioAuthority = 'released';
     this.remoteAudioTrackId = null;

@@ -244,11 +244,12 @@ export class LiveAnalyticsMediaBridge {
    * Replace one device without rebuilding the session, pipeline, clock, or other
    * device. The outgoing track is removed and stopped after the replacement is live.
    */
-  replaceTrack(kind, deviceId) {
+  replaceTrack(kind, deviceId, {prepareReplacement = null, assertCurrent = () => {}} = {}) {
     const trackKind = kind === 'microphone' ? 'audio' : kind === 'camera' ? 'video' : kind;
     if (trackKind !== 'audio' && trackKind !== 'video') throw new TypeError('Device kind must be audio/video or microphone/camera.');
     const id = String(deviceId || '').trim();
     if (!id) throw new TypeError('deviceId is required.');
+    if ((prepareReplacement !== null && typeof prepareReplacement !== 'function') || typeof assertCurrent !== 'function') throw new TypeError('A device replacement coordinator is required.');
     if (trackKind === 'audio') this.primeAudioContext();
     const epoch = this._lifecycleEpoch;
     const constraints = trackKind === 'audio'
@@ -257,19 +258,42 @@ export class LiveAnalyticsMediaBridge {
 
     return this._enqueue(async () => {
       this._assertEpoch(epoch);
+      assertCurrent();
       const fresh = await this._getUserMedia(constraints);
+      let prepared = null;
+      let media;
       try {
         this._assertEpoch(epoch);
-        return this._installReplacement(trackKind, fresh);
+        assertCurrent();
+        if (prepareReplacement) {
+          const incoming = liveTrack(fresh, trackKind);
+          if (!incoming || incoming.enabled === false || incoming.muted === true) throw new Error('The replacement microphone/camera is not usable.');
+          prepared = await prepareReplacement({kind:trackKind, incoming,
+            outgoing:trackKind === 'audio' ? this._media.microphoneTrack : this._media.cameraTrack, stream:this._media.stream});
+          if (!prepared || !['commit','rollback','complete','release'].every(name => typeof prepared[name] === 'function')) throw new TypeError('A complete device replacement transaction is required.');
+          this._assertEpoch(epoch);assertCurrent();
+        }
+        media = this._installReplacement(trackKind, fresh, {beforeCommit:prepared ? () => {
+          this._assertEpoch(epoch);assertCurrent();
+          if (prepared.commit()?.then) throw new TypeError('Device replacement commit must be synchronous.');
+          // Non-mutating composite validation while the original remains live.
+          // Participants retain rollback receipts until every check succeeds.
+          if (prepared.complete()?.then) throw new TypeError('Device replacement completion must be synchronous.');
+        } : null});
       } catch (error) {
-        this._stopTracks(tracks(fresh));
+        try { await prepared?.rollback?.(); }
+        finally { this._stopTracks(tracks(fresh)); }
         throw error;
       }
+      // Terminal no-throw receipt bookkeeping is outside failed-preparation
+      // cleanup. It must never stop the already-committed replacement input.
+      prepared?.release();
+      return media;
     });
   }
 
-  switchDevice(kind, deviceId) {
-    return this.replaceTrack(kind, deviceId);
+  switchDevice(kind, deviceId, coordinator) {
+    return this.replaceTrack(kind, deviceId, coordinator);
   }
 
   ensureAnalytics() {
@@ -404,13 +428,16 @@ export class LiveAnalyticsMediaBridge {
     return this._media;
   }
 
-  _installReplacement(kind, fresh) {
+  _installReplacement(kind, fresh, {beforeCommit = null} = {}) {
     const incoming = liveTrack(fresh, kind);
     if (!incoming) throw new Error(`No live ${kind} track was returned.`);
     for (const track of tracks(fresh)) if (track !== incoming) this._stopTrack(track);
 
     const stream = this._media.stream;
-    if (!stream) return this._adoptStream(fresh, { ownsStream: true });
+    if (!stream) {
+      if (beforeCommit) throw new Error('The active capture owner is unavailable.');
+      return this._adoptStream(fresh, { ownsStream: true });
+    }
     if (typeof stream.removeTrack !== 'function' || typeof stream.addTrack !== 'function') {
       throw new TypeError('The active MediaStream cannot replace tracks in place.');
     }
@@ -425,7 +452,12 @@ export class LiveAnalyticsMediaBridge {
 
     try {
       if (kind === 'audio') graph = this._buildAudioGraph(stream, microphoneTrack);
+      beforeCommit?.();
     } catch (error) {
+      if (kind === 'audio' && graph.source !== this._source) {
+        this._disconnectGraph(graph.source, graph.analyser, graph.sink);
+        this._stopTracks(graph.sink?.stream?.getTracks?.() || []);
+      }
       try { stream.removeTrack(incoming); } catch {}
       if (outgoing && outgoing.readyState !== 'ended') {
         try { stream.addTrack(outgoing); } catch {}
