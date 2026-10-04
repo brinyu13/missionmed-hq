@@ -29,3 +29,10 @@ test('containment preserves the approved rehearsal, real video and all measureme
   for(const token of ['cal-steps','cal-prompt','id="stage"','deviceControlsMarkup()','deviceReadinessMarkup()','id="next-step"','id="skip-step"','id="recorder"','rightRailMarkup()'])assert.ok(source.includes(token),token);
   assert.match(cockpit,/\.cal \.stage video\s*\{[^}]*object-fit:\s*contain/);
 });
+test('camera and microphone fields cannot inherit the general 360px secondary-column layout',()=>{
+  const picker=rule('.cal [data-device-controls] .two-col');
+  assert.match(picker,/grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
+  const select=rule('.cal [data-device-controls] select');
+  assert.match(select,/min-width:\s*0/);
+  assert.match(select,/width:\s*100%/);
+});

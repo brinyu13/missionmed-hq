@@ -16,6 +16,26 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 live containment fix-forward: source8bc0691, SUCCESS deployment
+  750e7aea-9b65-42c8-b07d-78d110339711, image
+  sha256:f0e7a67babc4c8d06ffbe9c4d586e4cd6e703d6eb63afdb04b22aac7c479a314,
+  exact1276-file Tb0Fo4 artifact/source.tar SHA
+  16866e37de1cc8b938f75573dfc91354bead0dc3fd71547b685c3882b0e4eb95.
+  Health200/anonymous root,candidate,bootstrap401. Authenticated cold Devices
+  reload + actual FaceTime camera PASS; center no longer overlaps voice rail;
+  microphone raw meter responds, not a spoken-pace/conversation acceptance.
+  Independent bounded CSS review PASS. Live scroll check exposed general
+  two-col's360px secondary column collapsing Camera picker; narrow calibration
+  selector override corrected that actual new defect, one new regression FAIL
+  before/PASS after. All controls retained; final deployed picker check pending.
+  Current RISE UI SUNY ->44 readable results ->Internal Medicine ->3 results ->
+  select SUNY Upstate ->Program mock retains exact program label PASS. Actual
+  program-intelligence spoken questioning still UNVERIFIED. Returned Home to
+  release capture, no provider/recording started. PRODUCT4565 and SHARED4566
+  released/provider-confirmed, prior552d/97GqS0 and genuine61aa/2YgD0Z rollback
+  artifacts retained. R027 helpers now shipped dormant; controller READY guard
+  remains, active switching NOT implemented or accepted. Continue full R027 and
+  genuine session/replay/role/presentation gates; full142 remains open.
 - 2026-10-04 changed authenticated browser evidence: normal Founder Chrome
   account now opens the protected candidate Home as brinyu/ADMIN; own saved reps
   load. Visible Home action -> Devices -> Connect renders the actual FaceTime HD
