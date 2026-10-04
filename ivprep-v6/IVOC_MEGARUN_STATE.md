@@ -16,6 +16,22 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 R022 configured-budget correction: actual current Mock handlers
+  reproduced depth1/total4 → None0/0 → One1/0 → Two2/0. Setup draw, total edits
+  and Easy presets now retain bounded configured total independently from
+  effective runtime budget; None/Admin ceiling0 still sends total0 through the
+  unchanged wizard/observer/server resolver. Explicit user total0 remains0;
+  no invented default restoration or ceiling bypass. Four actual-handler
+  regressions FAIL before/PASS after,47 directly affected policy/goal/length/
+  Room/lifecycle tests PASS, syntax/diff PASS. Independent read-only review PASS,
+  no executable P0/P1. PRODUCT4547 heartbeat/fence remotely confirmed. Existing
+  Fable composition, privacy, engine, media and recording boundaries unchanged;
+  no schema/provider/identity/root promotion changes. Current healthy runtime
+  15cd/e9ff/artifactEYFpwI remains serving pending guarded release. Authenticated
+  UI/spoken acceptance remains UNVERIFIED under the unchanged Chrome-access
+  WAITING condition; no repeated browser audit or percentage replacement.
+  Next: guarded deployment/readback, then R023 truthful overlap annotation;
+  actual interruption and complete production POV acceptance remain open.
 - 2026-10-04 R029 microphone-readiness correction: first authoritative candidate
   track must be live/enabled/unmuted and its existing AudioContext running.
   Exact stream/context/track owners are pinned through admission, preparation,

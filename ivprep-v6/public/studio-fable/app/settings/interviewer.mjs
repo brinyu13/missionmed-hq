@@ -41,9 +41,17 @@ export function resolveMockQuestionTarget(value, poolLength, {goal} = {}) {
   return Math.max(1, Math.min(30, Number.isInteger(poolLength) ? poolLength : 1));
 }
 
+// Setup intent is distinct from the effective runtime budget. Choosing None
+// (or an Admin ceiling of zero) must not erase a user's configured total.
+// Runtime/observer adapters still resolve zero while follow-ups are disabled.
+export function resolveFollowUpPreferences(settings,interviewPolicy) {
+  const {depth}=resolveFollowUps(settings,interviewPolicy);
+  return {depth,maxFollowUps:Math.max(0,Math.min(8,Math.floor(Number(settings.maxFollowUps)||0)))};
+}
+
 export function applyPreset(settings, presetId, {interviewPolicy} = {}) {
   const p = EASY_PRESETS.find((x) => x.id === presetId) || EASY_PRESETS[0];
-  const followUps=resolveFollowUps({...settings,depth:p.depth},interviewPolicy);
+  const followUps=resolveFollowUpPreferences({...settings,depth:p.depth},interviewPolicy);
   return { ...settings, ...followUps, preset: p.id, style: p.style, pressure: settings.goal !== 'Individual Question' && p.pressure, role: p.id === 'warm' ? 'Faculty' : p.id === 'direct' ? 'Chief Resident' : 'Program Director' };
 }
 

@@ -103,8 +103,59 @@ test('actual Practice and Mock draw functions render with an admitted policy wit
       contextOpen:false,storyRevealed:false,sources:[],useProgram:false,store:{},esc:String,trayMarkup:()=>'',mountTray(){},masteryState:()=>({state:'New',reps:0}),CATEGORY_LABELS:{},
       EASY_PRESETS:settings.EASY_PRESETS,PRACTICE_GOALS:settings.PRACTICE_GOALS,ROLES:settings.ROLES,STYLES:settings.STYLES,CURIOSITY:settings.CURIOSITY,PACING:settings.PACING,
       applyPreset:settings.applyPreset,describeSettings:settings.describe,resolveMockQuestionTarget:settings.resolveMockQuestionTarget,resolveFollowUps};
+    context.resolveFollowUpPreferences=settings.resolveFollowUpPreferences;
     vm.runInNewContext(source.slice(from,to)+'\ndraw();',context);
     assert.match(main.innerHTML,new RegExp('data-screen="'+(name==='renderMock'?'mock':'practice')+'"'));
     if(name==='renderMock'){assert.match(main.innerHTML,/data-depth="2"[^>]*disabled/);assert.equal(st.depth,1);assert.equal(st.policyVersion,3);}
   }
+});
+
+function mockDrawHarness(initial={}) {
+  const source=readFileSync(new URL('../../public/studio-fable/app/main.mjs',import.meta.url),'utf8');
+  const from=source.indexOf('  const draw = () => {',source.indexOf('async function renderMock'));
+  const to=source.indexOf('\n  draw();',from),nodes=new Map();
+  let current=true;
+  const main={innerHTML:'',querySelector:selector=>{
+    if(!nodes.has(selector))nodes.set(selector,{open:false,handlers:{},addEventListener(name,fn){this.handlers[name]=fn;}});
+    return nodes.get(selector);
+  },querySelectorAll:()=>[]};
+  const st={...settings.defaultSettings(),policyVersion:4,...initial};
+  const controller={interviewPolicy:{...policy,version:4,maxFollowUpsPerAnswer:2},account:{mode:'REAL',liveInterviewAvailable:true}};
+  const context={main,controller,isCurrent:()=>current,st,cfg:{durationMin:15,targetQuestions:null},set:[question],questions:[question],attempts:[],state:{},session:{contextSources:[]},
+    contextOpen:false,storyRevealed:false,sources:[],useProgram:false,store:{},esc:String,trayMarkup:()=>'',mountTray(){},
+    EASY_PRESETS:settings.EASY_PRESETS,PRACTICE_GOALS:settings.PRACTICE_GOALS,ROLES:settings.ROLES,STYLES:settings.STYLES,CURIOSITY:settings.CURIOSITY,PACING:settings.PACING,
+    applyPreset:settings.applyPreset,describeSettings:settings.describe,resolveMockQuestionTarget:settings.resolveMockQuestionTarget,resolveFollowUps,resolveFollowUpPreferences:settings.resolveFollowUpPreferences};
+  vm.runInNewContext(source.slice(from,to)+'\ndraw();\nglobalThis.redraw=draw;',context);
+  return {st,controller,redraw:context.redraw,setCurrent:value=>{current=value;},
+    click:dataset=>nodes.get('.ready-card').handlers.click({target:{closest:()=>({dataset})}}),
+    total:value=>nodes.get('#adv-max').handlers.change({target:{value}}),
+    wizard:()=>settings.toWizard(st,{interviewPolicy:controller.interviewPolicy})};
+}
+
+test('actual Mock None → One → Two controls preserve the configured follow-up budget across redraws',()=>{
+  const view=mockDrawHarness();
+  view.click({depth:'0'});assert.equal(view.st.depth,0);assert.equal(view.st.maxFollowUps,4);assert.equal(view.wizard().maxFollowUps,0);
+  view.redraw();assert.equal(view.st.maxFollowUps,4);
+  view.click({depth:'1'});assert.equal(view.st.depth,1);assert.equal(view.st.maxFollowUps,4);assert.equal(view.wizard().maxFollowUps,4);
+  view.click({depth:'2'});assert.equal(view.st.depth,2);assert.equal(view.wizard().maxFollowUps,4);
+  assert.equal(settings.conductorConfig(view.st,{interviewPolicy:view.controller.interviewPolicy}).maxFollowUps,4);
+});
+test('actual Mock budget edits while None retain intent; an explicit zero is never restored automatically',()=>{
+  const view=mockDrawHarness();view.click({depth:'0'});view.total('6');
+  assert.equal(view.st.maxFollowUps,6);assert.equal(view.wizard().maxFollowUps,0);
+  view.click({depth:'1'});assert.equal(view.wizard().maxFollowUps,6);
+  view.total('0');view.click({depth:'0'});view.click({depth:'2'});view.click({preset:'pressure'});
+  assert.equal(view.st.maxFollowUps,0);assert.equal(view.wizard().maxFollowUps,0);
+});
+test('actual Mock Admin zero ceiling and presets suppress effective follow-ups without erasing the configured budget',()=>{
+  const view=mockDrawHarness({maxFollowUps:7});
+  view.controller.interviewPolicy={...policy,version:5,maxFollowUpsPerAnswer:0,defaultFollowUpDepth:0};view.redraw();view.click({preset:'pressure'});
+  assert.equal(view.st.depth,0);assert.equal(view.st.maxFollowUps,7);assert.equal(view.wizard().maxFollowUps,0);
+  view.controller.interviewPolicy={...policy,version:6,maxFollowUpsPerAnswer:2};view.redraw();view.click({depth:'2'});
+  assert.equal(view.st.maxFollowUps,7);assert.equal(view.wizard().maxFollowUps,7);
+});
+test('actual Mock intent remains bounded and stale retained controls cannot change it',()=>{
+  const view=mockDrawHarness();view.click({depth:'0'});view.total('99');assert.equal(view.st.maxFollowUps,8);
+  view.total('-1');assert.equal(view.st.maxFollowUps,0);
+  view.setCurrent(false);view.total('6');view.click({depth:'2'});assert.equal(view.st.maxFollowUps,0);assert.equal(view.st.depth,0);
 });

@@ -3,10 +3,9 @@
 import { state, commit, attemptsByRecency } from './state.mjs';
 import { loadQuestions, CATEGORY_LABELS, defaultMockSet } from './questions.mjs';
 import { trayMarkup, mountTray, openSelector } from './questions/selector.mjs';
-import { EASY_PRESETS, PRACTICE_GOALS, ROLES, STYLES, CURIOSITY, PACING, defaultSettings, applyPreset, normalizeMockPracticeFocus, resolveMockQuestionTarget, describe as describeSettings } from './settings/interviewer.mjs';
+import { EASY_PRESETS, PRACTICE_GOALS, ROLES, STYLES, CURIOSITY, PACING, defaultSettings, applyPreset, normalizeMockPracticeFocus, resolveMockQuestionTarget, resolveFollowUpPreferences, describe as describeSettings } from './settings/interviewer.mjs';
 import { controller } from './controller/session-controller.mjs';
 import { accountLabel } from './adapters/account-adapter.mjs';
-import {resolveFollowUps} from '../../capabilities/interview-policy.mjs';
 import { searchPrograms } from './adapters/context-adapter.mjs';
 import { mountRoom } from './room.mjs';
 import { mountResults, mountFilm, mountCompare } from './results.mjs';
@@ -196,7 +195,7 @@ async function renderMock(params, isCurrent = guarded) {
     const policy=controller.interviewPolicy;
     if(policy&&st.policyVersion==null){st.depth=policy.defaultFollowUpDepth;st.pressure=st.goal!=='Individual Question'&&policy.defaultPressureEnabled;}
     if(policy)st.policyVersion=policy.version;
-    Object.assign(st,resolveFollowUps(st,policy));
+    Object.assign(st,resolveFollowUpPreferences(st,policy));
     const targetQuestions = resolveMockQuestionTarget(cfg.targetQuestions, set.length, {goal:st.goal});
     st.targetQuestions = targetQuestions;
     contextOpen = main.querySelector('#interview-context')?.open ?? contextOpen;
@@ -263,7 +262,7 @@ async function renderMock(params, isCurrent = guarded) {
     });
     main.querySelector('#adv-role').addEventListener('change', (e) => { st.role = e.target.value; });
     main.querySelector('#adv-style').addEventListener('change', (e) => { st.style = e.target.value; });
-    main.querySelector('#adv-max').addEventListener('change', (e) => { if(!isCurrent())return;Object.assign(st,resolveFollowUps({...st,maxFollowUps:e.target.value},policy));draw(); });
+    main.querySelector('#adv-max').addEventListener('change', (e) => { if(!isCurrent())return;Object.assign(st,resolveFollowUpPreferences({...st,maxFollowUps:e.target.value},policy));draw(); });
     main.querySelector('#adv-target').addEventListener('change', (e) => {
       if (!isCurrent() || st.goal === 'Individual Question') return;
       const target = Number(e.target.value);
