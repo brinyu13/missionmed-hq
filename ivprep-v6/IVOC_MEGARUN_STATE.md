@@ -16,6 +16,39 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 CURRENT RELEASE / CHANGED LIVE POV (SHARED4626):
+  Clean pushed runtime49a0bbb65a3ee70a158fc63b6da897e83c992d62 deployed SUCCESS
+  fc897116-a141-4fe8-9d6d-f54f63f6ab35; image
+  sha256:52055812a8e5312eaa3dd554deb5cc02955720cf266a0dab5b271ddf2fad6d8f.
+  Exact1293-file eqxdMQ artifact/tar
+  62f622f452b94f584ee81b4bead6ca9240a6326c1b1a9ad01d8c91a1c658b70c.
+  Health200; anonymous root/candidate/bootstrap401. Shared rollback retains
+  actual MR523420b /ea2a27b4 /image2f7e6ac; exact1288-file x5J3OF artifact/tar
+  b5f3f8c4d2acbc5107d3c0eb54d2a140ff0157483419696ffd402e0c55ae3d19.
+  Current release preserves the exact six MR owner paths. No sibling semantic,
+  config, commerce, WordPress, authority, database or entitlement mutation.
+  Root authenticated candidate POV: Devices/Visual/Voice/Signal health tabs,
+  ArrowRight/Home/End and pointer selection work; explicit Connect shows actual
+  FaceTime video, live mic meter and5/13 current checks. All11 physical gestures/
+  speech/baseline are NOT accepted. Recording/Transcript account capability rows
+  remain explicitly unverified and outside the13-check denominator.
+  Full/Individual/Guided setup retains the visible high curiosity/brisk pacing/
+  interrupt/strong program options; restored original Balanced preset afterward.
+  Saved mock1ca228aa debrief now displays saved Program Director/Owl; obvious
+  Full Analytics action focuses the supported report. Real Film native playback
+  ->Pace citation pauses at4.278s; cold reload ->Play ->same citation pauses again.
+  This accepts only the changed R056 paused-seek behavior, not HEAR BOTH.
+  Independent read-only readiness QA twice observed a Voice-tab pointer click
+  unexpectedly activate capture, including exclusive browser time. Its tabs
+  closed immediately. Root normal Home-entry reproduction with fresh screenshot
+  and DOM hit-target confirmed exact Voice button and correct idle selection;
+  source tab listener only changes the panel. Cause remains UNVERIFIED, not
+  dismissed or falsely patched. Independent review/Film subset continues without
+  readiness/capture. Root promotion and normal-entry reconciliation remain
+  executable; physical speech/duplex/closing/two-sided hearing and genuine
+  alternate-role/owner-data gates remain separate. No completion percentage or
+  final acceptance claimed.
+
 - 2026-10-04 OWNER-SAFE RELEASE COMPOSITION (SHARED4626):
   MR deployment PATH4608 normally released at15:36:04Z; remote readback and
   completed owner chat confirm the surface is free. MR owner HEADf7c8163 is pushed,
