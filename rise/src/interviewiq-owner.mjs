@@ -1,4 +1,5 @@
 import {createInterviewiqAuthenticator,validProgramId} from '../adapters/interviewiq-auth.mjs';
+import {projectInterviewiqCoverage} from '../adapters/interviewiq-coverage.mjs';
 
 const clean=(x,max,empty=false)=>typeof x==='string'&&x.length<=max&&(empty||x.trim().length>0)&&!/[\u0000-\u001f\u007f]/.test(x);
 function identity(record,release) {
@@ -13,10 +14,11 @@ function identity(record,release) {
 // strict current source-rights and a durable nonce store before enabling it.
 export function createInterviewiqOwner(config={},dependencies={}) {
   const authenticate=createInterviewiqAuthenticator(config,dependencies);
-  const {getRegistry,assertSourceRights}=dependencies;
+  const {getRegistry,assertSourceRights,readCoverage,now=Date.now}=dependencies;
   return async request=>{
     try {
       if(typeof getRegistry!=='function'||typeof assertSourceRights!=='function')throw new Error('unavailable');
+      if(![undefined,false,true].includes(config.coverageEnabled))throw new Error('unavailable');
       const auth=await authenticate(request);
       if((await assertSourceRights())?.current!==true)throw new Error('rights_unavailable');
       const index=await getRegistry();
@@ -27,6 +29,15 @@ export function createInterviewiqOwner(config={},dependencies={}) {
       if(auth.route.kind==='detail') {
         body=programs.find(p=>p.id===auth.route.id);
         if(!body){status=404;body={error:'program_not_found'};}
+        else if(config.coverageEnabled===true){
+          if(typeof readCoverage!=='function')throw new Error('unavailable');
+          let timer;
+          try{
+            const coverage=await Promise.race([readCoverage({programId:body.id,registryReleaseId:index.registryReleaseId}),
+              new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('unavailable')),5000);})]);
+            body={...body,researchCoverage:projectInterviewiqCoverage(coverage,{programId:body.id,registryReleaseId:index.registryReleaseId,now:now()})};
+          }finally{clearTimeout(timer);}
+        }
       } else {
         const {q,page,pageSize}=auth.route;
         const matches=programs.filter(p=>`${p.id} ${p.name} ${p.track}`.toLowerCase().includes(q.toLowerCase()))

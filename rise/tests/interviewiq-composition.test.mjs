@@ -436,6 +436,12 @@ test('default off creates no pool or proof calls',async()=>{
   try{assert.equal((await app.request(PATH,signed())).status,503);assert.equal(app.generic,0);assert.equal(f.state.created,0);assert.equal(f.state.proofs,0);}
   finally{await app.close();}
 });
+test('research coverage has a strict subordinate default-off flag',()=>{
+  assert.equal(readInterviewiqRuntimeConfig(ENV).coverageEnabled,false);
+  assert.equal(readInterviewiqRuntimeConfig({...ENV,RISE_IIQ_RESEARCH_COVERAGE_ENABLED:'true'}).coverageEnabled,true);
+  for(const flag of ['yes','TRUE','2'])assert.throws(()=>readInterviewiqRuntimeConfig({...ENV,RISE_IIQ_RESEARCH_COVERAGE_ENABLED:flag}));
+  for(const flag of ['', 'false','0'])assert.throws(()=>readInterviewiqRuntimeConfig({...ENV,RISE_IIQ_ENABLED:flag,RISE_IIQ_RESEARCH_COVERAGE_ENABLED:'true'}));
+});
 test('strict pool config preserves original URL and prevents URL TLS override',()=>{
   const before=ENV.RISE_DATABASE_URL,c=readInterviewiqRuntimeConfig(ENV);
   assert.equal(ENV.RISE_DATABASE_URL,before);assert.equal(new URL(c.pool.connectionString).search,'');assert.equal(c.pool.ssl.rejectUnauthorized,true);

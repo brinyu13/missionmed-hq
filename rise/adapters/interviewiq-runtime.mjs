@@ -4,6 +4,7 @@ import pg from 'pg';
 import {createInterviewiqOwner} from '../src/interviewiq-owner.mjs';
 import {createInterviewiqStore} from './interviewiq-store.mjs';
 import {createRiseSourceRightsController} from './postgres-runtime.mjs';
+import {createInterviewiqCoverageReader} from './interviewiq-coverage.mjs';
 
 const PREFIX='/api/rise/v1/interviewiq';
 const CA_SHA='cd63116483567f50b0014a4b1411bcfb38befbadaea2a427ba81991f148fd6f2';
@@ -25,6 +26,8 @@ export function isInterviewiqNamespace(raw='') {
 
 export function readInterviewiqRuntimeConfig(env=process.env) {
   const flag=String(env.RISE_IIQ_ENABLED??'').trim();
+  const coverageFlag=String(env.RISE_IIQ_RESEARCH_COVERAGE_ENABLED??'').trim();
+  if(!['','0','false','1','true'].includes(coverageFlag)||['1','true'].includes(coverageFlag)&&!['1','true'].includes(flag))throw unavailable();
   if(!['','0','false','1','true'].includes(flag))throw unavailable();
   if(!['1','true'].includes(flag))return {enabled:false};
   if(env.NODE_TLS_REJECT_UNAUTHORIZED==='0'||Object.keys(env).some(k=>/^PG(?:HOST|HOSTADDR|PORT|DATABASE|USER|PASSWORD|SERVICE|SERVICEFILE|SYSCONFDIR|OPTIONS)$/.test(k)&&env[k]))throw unavailable();
@@ -42,7 +45,7 @@ export function readInterviewiqRuntimeConfig(env=process.env) {
   if([requestSecret,proofSecret].includes(decodeURIComponent(url.password)))throw unavailable();
   url.search='';
   const ca=Buffer.from(String(env.RISE_IIQ_DATABASE_CA_PEM??''));if(sha(ca)!==CA_SHA)throw unavailable();
-  return {enabled:true,requestSecret,proofSecret,pool:{connectionString:url.href,max:4,connectionTimeoutMillis:5000,
+  return {enabled:true,coverageEnabled:['1','true'].includes(coverageFlag),requestSecret,proofSecret,pool:{connectionString:url.href,max:4,connectionTimeoutMillis:5000,
     idleTimeoutMillis:30000,statement_timeout:5000,query_timeout:5000,application_name:'rise-interviewiq-owner',
     ssl:{ca,rejectUnauthorized:true,checkServerIdentity:(_host,cert)=>cert.fingerprint256===LEAF?tls.checkServerIdentity('localhost',cert):unavailable()}}};
 }
@@ -143,7 +146,8 @@ export async function createInterviewiqRuntime({registryIndex,env=process.env}={
     };
     await assertSourceRights();
     const store=createInterviewiqStore({enabled:true,pool});
-    const owner=createInterviewiqOwner(config,{consumeNonce:store.consumeNonce,fetchImpl,getRegistry:async()=>ownerIndex,assertSourceRights});
+    const readCoverage=config.coverageEnabled?createInterviewiqCoverageReader({enabled:true,pool}):undefined;
+    const owner=createInterviewiqOwner(config,{consumeNonce:store.consumeNonce,fetchImpl,getRegistry:async()=>ownerIndex,assertSourceRights,readCoverage});
     let closed=false;
     return Object.freeze({enabled:true,async handle(request){
       if(closed)return deny();

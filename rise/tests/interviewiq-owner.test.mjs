@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {createHash,createHmac,randomUUID} from 'node:crypto';
 import {createInterviewiqAuthenticator,parseInterviewiqRoute,strictFlatJson} from '../adapters/interviewiq-auth.mjs';
 import {createInterviewiqOwner} from '../src/interviewiq-owner.mjs';
+import {DEEP_RESEARCH_DOSSIER_V2} from '../src/research-router.mjs';
 
 const SECRET='synthetic-request-key-not-for-production-123';
 const PROOF='synthetic-proof-key-not-for-production-456';
@@ -17,11 +18,11 @@ function request({path=PATH,actor=ACTOR,rawActor=JSON.stringify(actor),time=NOW/
   return {method:'GET',url:path,body:Buffer.alloc(0),rawHeaders:['X-MMED-IIQ-Owner','rise','X-MMED-IIQ-Timestamp',String(time),
     'X-MMED-IIQ-Nonce',nonce,'X-MMED-IIQ-Actor',Buffer.from(rawActor).toString('base64url'),'X-MMED-IIQ-Signature',mac(SECRET,canonical)]};
 }
-function setup({mutateProof=x=>x,fetchOverride,rights,registry,config=CONFIG}={}) {
+function setup({mutateProof=x=>x,fetchOverride,rights,registry,readCoverage,config=CONFIG}={}) {
   // In-memory nonce store is ONLY an offline fixture. Production composition
   // cannot rely on this test for PostgreSQL replay/restore acceptance.
   const nonces=new Set(),proofs=[],admissions=[];
-  const dependencies={now:()=>NOW,consumeNonce:async p=>{admissions.push(p);if(nonces.has(p.nonce))return false;nonces.add(p.nonce);return true;},
+  const dependencies={now:()=>NOW,readCoverage,consumeNonce:async p=>{admissions.push(p);if(nonces.has(p.nonce))return false;nonces.add(p.nonce);return true;},
     assertSourceRights:rights??(async()=>({current:true})),getRegistry:registry??(async()=>({registryReleaseId:'registry-synthetic-v1',programs:[
       {programSpecialtyId:'acgme:001.im',display:{programName:'Synthetic Residency',track:'Internal Medicine'},privateStudent:'NEVER RETURN',facts:['UNVALIDATED']},
       {programSpecialtyId:'acgme:002.im',display:{programName:'Other Synthetic Residency'}}]})),
@@ -122,6 +123,46 @@ test('source rights outage and absent dependency fail closed',async()=>{
 });
 test('default off and reused key fail closed',async()=>{
   for(const config of [{},{...CONFIG,enabled:false},{...CONFIG,proofSecret:SECRET}])assert.equal((await setup({config}).handler(request())).status,503);
+});
+
+function coverage({programId,registryReleaseId}){
+  const body={programId,registryReleaseId,observedAt:new Date(NOW).toISOString(),fields:DEEP_RESEARCH_DOSSIER_V2.domains.flatMap(d=>d.fields.map(field=>({area:d.key,field,state:'UNKNOWN'}))).sort((a,b)=>a.field.localeCompare(b.field,'en'))};
+  return {...body,receipt:{sha256:sha(JSON.stringify(body)),publicRef:'rise-coverage-v1'}};
+}
+const detail='/api/rise/v1/interviewiq/programs/acgme%3A001.im';
+test('coverage is opt-in, detail-only and public-projected after current proof',async()=>{
+  const calls=[];const readCoverage=async input=>{calls.push(input);return {...coverage(input),private:'PRIVATE_SENTINEL'};};
+  const off=setup({readCoverage});assert.equal((await off.handler(request({path:detail}))).body.researchCoverage,undefined);assert.equal(calls.length,0);
+  const on=setup({config:{...CONFIG,coverageEnabled:true},readCoverage});
+  assert.equal((await on.handler(request())).status,200);assert.equal(calls.length,0);
+  const result=await on.handler(request({path:detail}));assert.equal(result.status,200);assert.equal(result.body.researchCoverage.fields.length,21);
+  assert.deepEqual(calls,[{programId:'acgme:001.im',registryReleaseId:'registry-synthetic-v1'}]);
+  assert.doesNotMatch(JSON.stringify(result),/PRIVATE_SENTINEL|session_verifier|wp_user_id/);
+  assert.equal((await on.handler(request({path:'/api/rise/v1/interviewiq/programs/missing'}))).status,404);assert.equal(calls.length,1);
+});
+for(const [label,mutate] of [
+  ['program',c=>c.programId='wrong'],['release',c=>c.registryReleaseId='wrong'],['incomplete',c=>c.fields.pop()],
+  ['duplicate',c=>c.fields[0]=c.fields[1]],['stale',c=>c.observedAt=new Date(NOW-300001).toISOString()],
+  ['private receipt',c=>c.receipt.publicRef='/private/receipt'],['digest',c=>c.receipt.sha256='b'.repeat(64)],
+])test(`owner rejects ${label} coverage without fallback`,async()=>{
+  const s=setup({config:{...CONFIG,coverageEnabled:true},readCoverage:async input=>{const c=coverage(input);mutate(c);return c;}});
+  const result=await s.handler(request({path:detail}));assert.equal(result.status,503);assert.deepEqual(result.body,{error:'interviewiq_owner_unavailable'});
+});
+test('missing coverage reader and malformed feature flag deny',async()=>{
+  for(const coverageEnabled of [true,'true',1]){
+    const s=setup({config:{...CONFIG,coverageEnabled}});assert.equal((await s.handler(request({path:detail}))).status,503);
+  }
+});
+test('student or rights revocation during coverage prevents response',async()=>{
+  const student=setup({config:{...CONFIG,coverageEnabled:true},readCoverage:async input=>coverage(input),mutateProof:(p,n)=>({...p,allowed:n===1})});
+  assert.equal((await student.handler(request({path:detail}))).status,503);
+  let current=true;
+  const rights=setup({config:{...CONFIG,coverageEnabled:true},rights:async()=>({current}),readCoverage:async input=>{current=false;return coverage(input);}});
+  assert.equal((await rights.handler(request({path:detail}))).status,503);
+});
+for(const [role,tier] of [['admin','admin'],['student','ivprep_complete']])test(`coverage retains ${role}/${tier} current owner context`,async()=>{
+  const s=setup({config:{...CONFIG,coverageEnabled:true},readCoverage:async input=>coverage(input),mutateProof:p=>({...p,role,tier})});
+  assert.equal((await s.handler(request({path:detail,actor:{...ACTOR,auth_role:role,auth_tier:tier}}))).status,200);
 });
 test('store failure denies before proof',async()=>{
   const s=setup();s.dependencies.consumeNonce=async()=>{throw Error('store down');};
