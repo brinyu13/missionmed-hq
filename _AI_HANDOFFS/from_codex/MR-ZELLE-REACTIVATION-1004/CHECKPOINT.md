@@ -95,6 +95,20 @@ Next: finish real-hook compatibility/settings checks; integrate only scoped matc
 
 Current next actions: wait for requested MyKinsta sign-in while completing remaining source/runtime checks; refresh Railway runtime access and current deploy lineage; obtain exact preimages, deploy reversible candidate, complete nonfinancial production QA and then prepare the one real-payment boundary. No new real controlled order exists yet.
 
+### Release composition - current source custody
+
+Do not deploy the earlier reactivation branch as a whole-service checkout. The isolated release worktree is now `/Users/brianb/.codex/worktrees/mr-zelle-release/mr-web-0912-interview-week`, branch `codex/mr-zelle-release-1004`, based on exact currently verified HQ source `4c732a3c16ff9216ab616e6f9ba7640d687ea547`. Three scoped candidate commits were normally cherry-picked without conflict (`f76dc55`, `3103538`, `c66ed2f`). Earlier candidate branch remains preserved, clean and pushed at `2562eaf41ad282f976dc0aca8263ed4eb4f62191`.
+
+Diff against 4c732a3 is exactly the six authorized Zelle paths. `ivprep-v6`, HQ server and approved Gmail DWD integration are byte-identical to current source. Source-only PATH lease epoch 4601; no production write. Tests on the composed branch pass: Node49, PHP26/142. Fresh BOOT PASS.
+
+Railway read-only access recovered on the bounded retry (session31429 completed exit0): runtime matcher SHA `57d2a6aa2f0861ad1b35d8902070e7fffca7bb51417fc0776f48b0e6c9a3763e`, Gmail integration SHA `789a9f68447d8271252fcf15d0870e356228915c256b67a30d4c51317024d598`, server SHA `891c3068dd26a8971f35477b50a76c11523ef72e1e67e69f96f1e87d86ce29ab`. All match 4c732a3. Provider still reports deployment7c7ed32e SUCCESS and health `ok`. CLI warns config-as-code becomes deprecated later; unrelated migration was not performed.
+
+Current active `woocommerce_bacs_settings.instructions` still says to pay `missionmed` and await administrator verification. The new verifier does not override BACS customer-email instructions. At guarded deployment, capture the exact option preimage and update ONLY its `instructions` field to: `Send the exact order amount to Mission Global Group LLC using Zelle email info@missionmedinstitute.com, or scan the Zelle QR shown on your order page. Zelle ID missionmed is also available. After sending, submit the full name used to send the payment on your order page. Your program access remains locked until payment is verified. Do not send a second payment while verification is pending.` Preserve enabled/title/description/account details and all other keys. The current cart already sets the correct per-offer title; do not rewrite global pricing/title to solve email copy.
+
+MyKinsta rechecked: still at login, with no restored session. Fresh native recovery gate remains blocked by Founder sign-in; no backup or runtime mutation attempted. This is the only requested human prerequisite before further deploy preparation, NOT the real-payment boundary.
+
+Rollback priority after successful deployment: set global mode to `admin_confirmation` and remove exact canary option while retaining secure fallback and the permanent consumed-transaction ledger. Never delete consumed evidence or roll back genuine order/payment state. File/config preimages remain required for catastrophic code rollback; capture them only against then-current hashes and preserve current recipient authority.
+
 ## Critical remaining implementation (do not skip)
 
 1. WordPress integration and HTTP-handler security are locally synthetic-tested as above, but actual installed Woo hook/settings compatibility, source review and production acceptance remain mandatory.
