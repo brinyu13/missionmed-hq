@@ -5,7 +5,7 @@ Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`, `DR-350` (narrow packaging), `DR-361` (current RISE eligibility successor); `DR-340` QA grant revoked
 Branch: `codex/ivoc-foreman-9200`
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
-Current continuation boundary: `CORE VISIBLE EMBODIMENT — NO-SPEND INTEGRATION; NUMERIC CANARY GATE; NO FOUNDER RETEST`
+Current continuation boundary: `LEMONSLICE CANARY READY — WAIT ONLY FOR NUMERIC USD1 AUTHORIZATION; NO FOUNDER RETEST`
 
 This is the one living requirement ledger required by the final Founder
 completion directive. A status of `LIVE UNVERIFIED` means the capability is
@@ -15,6 +15,30 @@ the actual production route and deployment.
 ## Foreman 9300 overnight reactivation — current dated evidence
 
 ### Current Fable-to-production convergence — 2026-10-03
+
+- 2026-10-04 LEMONSLICE PROVIDER-OFF RELEASE / SHARED4849:
+  Source605cfdc2b1edcc8cb6a3202b423656119b2ea4e7, SUCCESS deployment
+  6467a165-91d5-4736-bdd8-9b1ec5945c21, image
+  sha256:f27465eaa1603ee32afa49c785133d8e54bad345c8c6def3f458ee73047c1799.
+  DR350 7Y0cU1/stage:1303 tracked files, archiveSHA
+  72ef1a7e8a9f8a3c3ff31932c42a0f9e953a1e8b9d195a40dfb161187809944b.
+  Healthy200/ok; anonymous product/bootstrap/new Admin canary endpoint401.
+  Authenticated brinyu wp:1/Admin bootstrap200 and canary config200/availableFALSE.
+  Renderer/worklet/room served bytes match current Git SHA256 exactly; protected
+  LiveKit UMD200 and actual browser loader exposes Room/TrackSubscribed. No room
+  connection, provider start or canonical session/data write during this check.
+  Server-only existing LemonSlice key provisioned by stdin, no value in files/chat;
+  paid canary flag remains OFF. Existing LiveKit and nested SDK install preserved.
+  Normal Home ->Mock5 ->Ready: avatar option absent;1440x900 document900px,
+  dominant host, hideable self-view, both rails and12-lane recorder retained.
+  Screenshot /tmp/ivoc-embodiment.OEIqG8/room-provider-off-after-1440.jpg.
+  Six MR owner f7c8163 paths remain exact. Recovery cb5ccd6b/acfd95b/ppcfoR
+  artifact preserved; Railway marked old ID REMOVED, use exact artifact redeploy
+  if runtime restoration is needed. No source rollback/schema/identity change.
+  All no-spend integration steps complete. Next authorized boundary: numeric
+  USD1 cap, one reserved Founder session, <=45s, then actual A/V/interruption/
+  recording canary. Current asset/likeness, avatar synchronization/latency and
+  actual audible replay remain UNVERIFIED; no paid session was created.
 
 - 2026-10-04 CORE LEMONSLICE EMBODIMENT / PRODUCT4846 + PATH4847/4848:
   Founder elevated visible embodiment to CORE; older deferred entries below are
