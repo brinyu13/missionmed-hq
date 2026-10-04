@@ -27,6 +27,23 @@ the actual production route and deployment.
   live acceptance pending, no physical or audible claim.
   Exact4505 PRODUCT lease is maintained for four named source/test files and this
   ledger. Current healthy rollback726d313/90da7913/image1236118/artifacteHmGoI.
+- Coaching-direction sourcef5d168875529cba74e673aaaf5fe70e8cdbd79ac LIVE
+  SUCCESSdc0cdbea-38fe-4826-90f9-15de2bed91a1, image
+  sha256:81c2c1b0429e41ee9afa28540cc36a7ee8bdb7765c6bfc8d7a42cfbef10712f8.
+  Exact1268-file filtered tracked artifactivoc-release-artifact-Xhtk5x/source.tar,
+  SHAa7d482a978ad7429d40a0c79f8858985ee4d357f787706e3595e98134b9e683b.
+  Health200/anonymous root,candidate,bootstrap401. Actual authenticated coldHome
+  -> Review24/24 -> saved1ca Results/fullAnalytics -> pausedFilm -> Home PASS;
+  legacy pace direction is neutral across all four surfaces. Same recording
+  1280x720; exact evidence seek4.278s remains paused, recorder00:04. Fresh non-builder
+  same journey PASS/noP0/P1, own temporary tab closed. No playback/capture/provider,
+  account/preferences/data mutation or synthetic applicant. New positive cue filing
+  is source/test-proven, not a newly recorded physical/audible production claim.
+  PRODUCT4505/deployment4506 normally released and remotely read back. Exact prior
+  726d313/90da7913/image1236118/artifacteHmGoI is preserved rollback; no root promotion.
+  Ledger-only PRODUCT4507 files this receipt then releases/readback. Goal remains
+  active: genuine spoken Mock/barge-in/closing/save/both-voices-heard cold replay,
+  changed visible camera, role/data/calibration and full142 live parity still open.
 - 2026-10-04 actual authenticated production320x844 POV found a question-picker
   usability FAIL: wrapping filters consumed232px and left only45.7px of question
   list with preview open. Narrow CSS-only fix keeps every filter in a horizontally
