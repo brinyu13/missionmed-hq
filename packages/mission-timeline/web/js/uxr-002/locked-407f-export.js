@@ -1071,7 +1071,8 @@ export function composeLocked407FPortableSvg(scene,options={}){
   // This never creates an event or changes a date; authored axes return above.
   if(bestScore&&(scene.flags?.length>1||scene.arrows?.length)){
     for(const autoAxisPadding of [null,{before:0,after:1},{before:1,after:0},{before:1,after:1}]){
-      const candidate=compose({...scene,autoAxisPadding,autoMilestoneTopDown:true}),candidateScore=score(candidate.svg);
+      // Retain the selected widths; recompute placements from the original scene.
+      const candidate=compose({...scene,autoYearWeights:best.scene.autoYearWeights,autoAxisPadding,autoMilestoneTopDown:true}),candidateScore=score(candidate.svg);
       const flagPenalty=result=>[...(result.scene.autoFlagLabels?.values()||[])].reduce((sum,label)=>sum+(label.flip?1:0),0)+
         resolveFounderPresentationSvg(result.svg,{measureText:scene.measureText}).nodes.filter(n=>n.sourceAttributes['data-board-ink-role']==='flag-label').length;
       if(candidateScore<bestScore||(candidateScore===bestScore&&flagPenalty(candidate)<flagPenalty(best))){best=candidate;bestScore=candidateScore;}
