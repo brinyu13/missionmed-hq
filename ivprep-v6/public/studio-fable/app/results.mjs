@@ -13,6 +13,7 @@ import { controller } from './controller/session-controller.mjs';
 import { replayOverlays } from './adapters/replay-overlays.mjs';
 import {readOwnComparison,freshTeachingReplay} from './adapters/comparison-view-model.mjs';
 import {nameUseViewMarkup} from './adapters/name-use-view.mjs';
+import {savedInterviewerIdentity} from './adapters/interviewer-review.mjs';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmt = (s) => Number.isFinite(s)?`${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`:'Unavailable';
@@ -73,7 +74,7 @@ export async function mountResults(main, id, {isCurrent=()=>true}={}) {
   const nextQ = a.mode === 'mock' ? (a.hooks?.some((h) => h.attempted && !h.taken) ? 'Practice ending an answer on the hook, not after it.' : 'Retry the question where the one thing to change happened.') : 'Retry the same question with the priority on screen.';
   const taken = hooks.filter((h) => h.taken).length;
   main.innerHTML = `
-    <div class="screen-head"><div><div class="t-kick gold">Debrief · ${a.mode === 'mock' ? 'Mock interview' : 'Practice rep'} · ${fmtDate(a.at)}</div><h1 class="t-hero">What <em>worked.</em> What to <em>change.</em></h1><p class="t-edit">${esc(a.questionText)} · ${fmt(a.durationS)}</p></div><div class="review-actions"><a class="btn btn-secondary" href="#/film/${a.id}">Film Room</a>${earlier ? `<a class="btn btn-quiet" href="#/compare/${earlier.id}/${a.id}">Compare with ${fmtDate(earlier.at).split(',')[0]}</a>` : ''}</div></div>
+    <div class="screen-head"><div><div class="t-kick gold">Debrief · ${a.mode === 'mock' ? 'Mock interview' : 'Practice rep'} · ${fmtDate(a.at)}</div><h1 class="t-hero">What <em>worked.</em> What to <em>change.</em></h1><p class="t-edit">${esc(a.questionText)} · ${fmt(a.durationS)}</p>${a.mode==='mock'&&savedInterviewerIdentity(a)?`<p class="note" data-saved-interviewer>${esc(savedInterviewerIdentity(a))}</p>`:''}</div><div class="review-actions"><a class="btn btn-secondary" href="#/film/${a.id}">Film Room</a>${earlier ? `<a class="btn btn-quiet" href="#/compare/${earlier.id}/${a.id}">Compare with ${fmtDate(earlier.at).split(',')[0]}</a>` : ''}</div></div>
     <div class="results-grid">
       <div class="debrief">
         <section class="housing verdict"><div class="t-kick"><span>What worked</span><span>evidence · click to replay</span></div>

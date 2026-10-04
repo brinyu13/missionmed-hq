@@ -3,6 +3,7 @@ import { validateSourceBoundPriorIvocPack } from '../../../missionmed-hq/ivoc/ap
 import { hashValue } from '../../../ivoc/intelligence/index.mjs';
 import { createLiveContext, normalizePracticeFocus } from '../../public/studio/live-context-adapter.mjs';
 import {projectInterviewPolicy,normalizeFollowUpRequest} from '../../public/capabilities/interview-policy.mjs';
+import {interviewerPreferenceRequest} from '../../public/capabilities/interviewer-preferences.mjs';
 
 const MAX_ACTOR_BLOCK_BYTES = 6 * 1024;
 const MAX_ACTOR_INSTRUCTIONS_BYTES = 64 * 1024;
@@ -136,6 +137,7 @@ function storedInterviewContext(value) {
       goal: value.goal, interviewer: value.interviewer, environment: value.environment,
       pressurePractice: value.pressurePractice,
       ...normalizeFollowUpRequest(value),
+      ...interviewerPreferenceRequest(value),
       ...(value.interviewerStyle != null ? { interviewerStyle: value.interviewerStyle } : {}),
       ...(focus ? { focus } : {}),
     },

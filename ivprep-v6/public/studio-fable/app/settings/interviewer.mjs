@@ -10,6 +10,7 @@ import {normalizePracticeFocus} from '../../../studio/live-context-adapter.mjs';
 import {normalizeInterviewPolicy,resolveFollowUps} from '../../../capabilities/interview-policy.mjs';
 import {selectedEnvironment} from '../adapters/environment-profile.mjs';
 import {normalizeNameUseCoaching} from '../../../capabilities/context-results.mjs';
+import {normalizeInterviewerPreferences} from '../../../capabilities/interviewer-preferences.mjs';
 
 export const PRACTICE_GOALS = Object.freeze(['Full IV Simulation', 'Guided Mock IV Practice', 'Individual Question']);
 
@@ -99,10 +100,6 @@ export function toWizard(settings, { program = null, mode = 'mock', contextSourc
     const focus = edited || (typeof priority === 'string' ? normalizeMockPracticeFocus(priority.slice(0,200)) : '');
     if (focus) focusBits.push(focus);
   }
-  if (settings.curiosity && settings.curiosity !== 'Normal') focusBits.push(`${settings.curiosity.toLowerCase()} curiosity about unresolved details`);
-  if (settings.pacing && settings.pacing !== 'Normal') focusBits.push(`${settings.pacing.toLowerCase()} pacing`);
-  if (settings.interruption) focusBits.push('may interrupt long answers politely');
-  if (settings.programEmphasis && settings.programEmphasis !== 'Normal') focusBits.push(`${settings.programEmphasis.toLowerCase()} emphasis on program fit`);
   const policy=interviewPolicy?normalizeInterviewPolicy(interviewPolicy):null;
   const followUps=resolveFollowUps(settings,policy);
   // Legacy setup remains compatible. Current account policy travels as typed
@@ -112,6 +109,11 @@ export function toWizard(settings, { program = null, mode = 'mock', contextSourc
     goal,
     interviewer: ROLES.includes(settings.role) ? settings.role : 'Program Director',
     interviewerStyle: ['Dove', 'Peacock', 'Owl', 'Eagle'].includes(settings.style) ? settings.style : 'Owl',
+    interviewerPreferences:normalizeInterviewerPreferences({schema:'ivoc.interviewer-preferences.v1',
+      curiosity:CURIOSITY.includes(settings.curiosity)?settings.curiosity.toLowerCase():'normal',
+      pacing:PACING.includes(settings.pacing)?settings.pacing.toLowerCase():'normal',
+      interruption:settings.interruption===true,
+      programEmphasis:['Light','Normal','Strong'].includes(settings.programEmphasis)?settings.programEmphasis.toLowerCase():'normal'}),
     pressurePractice: goal !== 'Individual Question' && settings.pressure === true,
     environment: selectedEnvironment(settings,retry),
     interviewerName:normalizeManualInterviewerName(settings.interviewerName),

@@ -16,6 +16,33 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 R016 ADVANCED PREFERENCES / R013 SAVED IDENTITY (PRODUCT4605):
+  serving candidate a4996ac32c38c5184d850080ccf44f1e21b85843 /SUCCESS
+  5415359e-ce0f-4f5b-97fd-9bcd406c8961, image
+  sha256:4ed10a287998315edb3e855608c34e091ac3a24e88f345e0dbd653f9b1c7579c;
+  exact1284-file egwAeR artifact/tar
+  2d1c1bf4b321bf505153552ac505d1eb665d706af8185ec770ebaca111bacc64.
+  Health200; anonymous root/candidate/bootstrap401. Actual Admin Mock setup
+  binds optional bounded name/explicit opt-in; Full Analytics correctly reports
+  UNASSESSED for a saved attempt without opt-in. Actual prestart Admin selector
+  exposes the six existing native voices; selection works without starting a
+  provider. Student default/server denial unchanged; audible audition UNVERIFIED.
+  Actual320px Connect is reachable and enters visible physical preview readiness.
+  R016 source defect reproduced: curiosity/pacing/interruption/program emphasis
+  were silently dropped outside Guided. Fixed enum-only capability contract now
+  reaches native setup, saved preparation and existing inactive Actor reader for
+  all three goals. Fixed instruction mappings never raise server follow-up limits,
+  fabricate program facts or change audio/session authority. R013 saved header
+  consumes exact schema/session-bound minimized retryContext, not private context
+  or mutable settings. Independent review caught the original invented API fixture;
+  corrected regression executes the actual HQ projection and tests omitted private
+  data and mismatched/absent owner projections.407 affected checks PASS; independent
+  bounded correction review PASS. New R013/R016 source IMPLEMENTED_NEEDS_ACCEPTANCE;
+  deployment and production saved-header/control checks next. No genuine speech,
+  audible two-sided replay, all11 instruments or alternate-role acceptance claimed.
+  Root unpromoted; rollback4c732a3/7c7ed32e exact f2YFWm artifact retained. REMOVED
+  deployment restore uses exact artifact redeploy, never destructive source rollback.
+
 - 2026-10-04 MOBILE PRODUCTION SUBSET / R014 + R018 WIRING (PRODUCT4599):
   current runtime4c732a3c16ff9216ab616e6f9ba7640d687ea547 /SUCCESS
   7c7ed32e-3725-43b5-9236-4b9c378e8ce0, image

@@ -1,4 +1,5 @@
 import {normalizeFollowUpRequest} from '../capabilities/interview-policy.mjs';
+import {interviewerPreferenceRequest} from '../capabilities/interviewer-preferences.mjs';
 const GOALS = Object.freeze({
   'Full IV Simulation': 'Full interview simulation',
   'Guided Mock IV Practice': 'Coached practice',
@@ -38,6 +39,7 @@ export function createLiveContext({ wizard = {}, interviewSet = [], targetQuesti
     pressurePractice: wizard.goal !== 'Individual Question' && wizard.pressurePractice === true,
     ...(practiceFocus ? { practiceFocus } : {}),
     ...normalizeFollowUpRequest(wizard),
+    ...interviewerPreferenceRequest(wizard),
     program: 'General residency interview',
     environment: wizard.analyticsEnabled === true
       ? 'MissionMed · coached analytics'

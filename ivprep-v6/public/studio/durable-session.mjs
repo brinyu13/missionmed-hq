@@ -3,6 +3,7 @@ import { AccountRecordingController } from '../ivoc-standalone/app/recording.mjs
 import { normalizeNameUseCoaching } from '../capabilities/context-results.mjs';
 import { normalizePracticeFocus } from './live-context-adapter.mjs';
 import {normalizeFollowUpRequest} from '../capabilities/interview-policy.mjs';
+import {interviewerPreferenceRequest} from '../capabilities/interviewer-preferences.mjs';
 
 const finiteMs = (value) => Number.isFinite(Number(value))
   ? Math.max(0, Math.round(Number(value)))
@@ -136,6 +137,7 @@ export class DurableStudioSession {
         pressurePractice: wizard.goal !== 'Individual Question' && wizard.pressurePractice === true,
         ...(practiceFocus ? { practiceFocus } : {}),
         ...normalizeFollowUpRequest(wizard),
+        ...interviewerPreferenceRequest(wizard),
         contextSources,
         questionIds: interviewSet.map((item) => String(item?.question_id || '')).filter(Boolean).slice(0, 30),
         targetQuestions: Math.max(1, Math.min(30, Number(targetQuestions) || 1)),

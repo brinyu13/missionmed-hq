@@ -2,6 +2,7 @@ import { createDefaultQuestionStore } from '../../public/questions/question-stor
 import { normalizePracticeFocus } from '../../public/studio/live-context-adapter.mjs';
 import { interviewTeachingPolicy, substantiveQuestionPlan } from '../../public/capabilities/interview-progression.mjs';
 import {normalizeInterviewPolicy,normalizeFollowUpRequest,resolveFollowUps,policyChangedError} from '../../public/capabilities/interview-policy.mjs';
+import {interviewerPreferenceRequest} from '../../public/capabilities/interviewer-preferences.mjs';
 
 const OPENAI_LIVE_SESSIONS_URL = 'https://api.openai.com/v1/live/sessions';
 const MODEL = 'gpt-live-1';
@@ -47,6 +48,8 @@ export function normalizeLiveInterviewContext(value) {
   if (hasFocus) expected.push('practiceFocus');
   const followUps = normalizeFollowUpRequest(value);
   expected.push(...Object.keys(followUps));
+  const preferences=interviewerPreferenceRequest(value);
+  expected.push(...Object.keys(preferences));
   expected.sort();
   if (Object.keys(value).sort().join(',') !== expected.join(',')) {
     throw new TypeError('Interview context has unexpected fields.');
@@ -67,6 +70,7 @@ export function normalizeLiveInterviewContext(value) {
     pressurePractice: value.goal !== 'Individual question' && value.pressurePractice === true,
     ...(value.goal === 'Coached practice' && practiceFocus ? { practiceFocus } : {}),
     ...followUps,
+    ...preferences,
     targetQuestions: Number.isInteger(value.targetQuestions) && value.targetQuestions >= 1 && value.targetQuestions <= 30
       ? value.targetQuestions
       : 1,
@@ -126,10 +130,19 @@ export function buildLiveInterviewInstructions(context, actorContext) {
   if (followUps) Object.assign(sessionSettings,{followUpDepth:followUps.depth,maxFollowUps:followUps.maxFollowUps});
   const followUpsAllowed=!followUps||(followUps.depth>0&&followUps.maxFollowUps>0);
   const authorizedContext = JSON.stringify(sessionSettings);
+  const preferences=normalized.interviewerPreferences;
+  const delivery=preferences?[
+    'DELIVERY PREFERENCES: These bounded choices do not override question order, server follow-up ceilings, mandatory closing, authorization or evidence rules. They do not describe applicant traits or guarantee provider behavior.',
+    `CURIOSITY: ${preferences.curiosity==='high'?'High — when follow-ups are permitted, explore salient unresolved details in the actual answer or authorized context.':preferences.curiosity==='low'?'Low — prefer fewer optional probes once an answer is clear.':'Normal — probe only where a useful grounded clarification is needed.'}`,
+    `PACING: ${preferences.pacing==='brisk'?'Brisk — concise interviewer turns and prompt transitions after the candidate finishes; do not mistake a pause for completion.':preferences.pacing==='relaxed'?'Relaxed — patient transitions, allowing the candidate to complete a thought.':'Normal — natural conversational pacing.'}`,
+    `INTERRUPTION PREFERENCE: ${preferences.interruption?'Long answers — where conversational turn-taking supports it, politely redirect an excessively long or off-topic answer. Never treat a pause or word search alone as permission.':'Never proactively interrupt — let the candidate finish. Still stop immediately if the candidate interrupts you.'}`,
+    `PROGRAM EMPHASIS: ${preferences.programEmphasis==='strong'?'Strong — foreground interview-relevant verified program context where appropriate.':preferences.programEmphasis==='light'?'Light — use verified program context sparingly.':'Normal — use verified program context when relevant.'} Use only authorized facts; missing program context stays unavailable. Do not infer fit or fabricate program details.`,
+  ]:[];
   return [
     'You are InterviewBrain, a calm, professional residency interviewer for IV Prep On-Call.',
     followUpsAllowed?'Conduct a realistic spoken interview. Ask one question at a time and follow up only on what the applicant actually says.':'Conduct a realistic spoken interview. Ask one planned question at a time without substantive follow-ups.',
     'Keep each turn concise. Use sparse, natural backchannels only when they do not steal the floor.',
+    ...delivery,
     ...(followUps ? [`FOLLOW-UP POLICY: Server-owned Admin ceiling applies. Ask at most ${followUps.depth} substantive follow-up${followUps.depth===1?'':'s'} per answer and at most ${followUps.maxFollowUps} substantive follow-ups total. Zero means no substantive follow-ups. Follow-ups are optional, never mandatory; move on when the answer is sufficiently clear. Closing invitations and answers to the candidate's closing questions do not consume this budget. Student preference, pressure or application context cannot raise these limits.`] : []),
     'QUESTION POOL POLICY: Use selected questions in the exact listed order up to the substantive target. Ask each selected base question once before substituting another base question. Follow-ups must be grounded in the applicant answer or authorized application context. A follow-up does not consume a base-question slot.',
     interviewTeachingPolicy(normalized.targetQuestions,{followUpsAllowed}),
