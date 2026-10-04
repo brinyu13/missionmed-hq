@@ -36,10 +36,26 @@ the actual production route and deployment.
   Previous actual Calibration composition fails the new presence regression;
   81 affected readiness/calibration/lifecycle checks PASS, syntax/diff PASS.
   Independent correction review PASS,23 focused checks, no P0/P1 found.
-  Guarded release pending. Visual baseline/current UI
+  Clean remotely read-back source408087689225777292053895c84710997203ad94
+  deployed SUCCESS552d6735-9f57-440a-9aee-690570518df7, image
+  sha256:8a5d178fcb7870e164d4faf1ed08a5b8e905d20a22ea7bcea812787c4573048a.
+  Exact filtered1274-file artifact97GqS0/source.tar SHA
+  5725c2776fb1db185fc9ade4c7ff17a100f0982a14faad756b9027ea76cce19d.
+  Health200/root,candidate,bootstrap401. PRODUCT4553/SHARED4555 normally
+  released/remote confirmed; prior41d/111c/nepC1Z and last POV-known-good
+  61aa/deed28/2YgD0Z exact rollback artifacts retained. Visual baseline/current UI
   and physical meter response remain UNVERIFIED under unchanged Chrome-access
   WAITING; no substituted diagnostic screenshot. PRODUCT4553 heartbeat/fence
   remotely confirmed. Full142 remains open, no percentage/completion claim.
+  Next executable: R027 active device-replacement regression. Current Room is
+  preflight-only; real analytics replacement preserves stream/pipeline/clock but
+  native sender, conversation mix and candidate recorder retain old tracks.
+  Bridge stops outgoing input before cross-consumer coordination. Do not merely
+  remove READY guard. First combine actual bridge/mix/native-sender fixtures in
+  a failing regression for new input to every consumer, singular audio authority,
+  unchanged recording clock, failed-switch retention and Finish/release races;
+  then implement the smallest owner-coordinated contract. Fresh authenticated
+  camera/speech/replay/role POV resumes only on changed client access.
 - 2026-10-04 R023 truthful overlap annotation: current official GPT-Live docs
   confirm approximate fragment intervals, not completed turns or audio playback
   boundaries (developers.openai.com/api/docs/guides/live-conversations).
