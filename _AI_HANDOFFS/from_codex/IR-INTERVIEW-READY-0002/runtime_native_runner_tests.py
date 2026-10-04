@@ -30,6 +30,7 @@ class Client:
         try:
             time.sleep(.005)
             value=copy.copy(handle)
+            value.expires_at=(datetime.now(timezone.utc)+timedelta(seconds=30)).isoformat()
             if self.changed:value.fencing_epoch+=1
             if self.expired:value.expires_at='2000-01-01T00:00:00Z'
             return value
@@ -43,7 +44,7 @@ class Fixtures(unittest.TestCase):
         self.tmp=tempfile.TemporaryDirectory(prefix='ir-runtime-native-fixture-')
         self.directory=Path(self.tmp.name).resolve()
         self.handle=SimpleNamespace(lease_id='fixture-private-id',fencing_epoch=1,nonce='fixture-private-nonce',
-            expires_at=(datetime.now(timezone.utc)+timedelta(seconds=90)).isoformat())
+            expires_at=(datetime.now(timezone.utc)+timedelta(seconds=30)).isoformat())
         self.contract={'phase':'install','sourceHead':'1'*40,'runnerSha256':'2'*64,'testsSha256':'3'*64,
             'sourcePreimages':{},'authority':runner.AUTHORITY,
             'spec':{'controlDirectory':str(self.directory/'control'),
@@ -184,6 +185,74 @@ class Fixtures(unittest.TestCase):
         self.assertEqual(trace,['dispatch','complete','release'])
         self.assertEqual(runner.read_json(self.directory/'RESULT.json')['release'],'RELEASED')
         self.assertEqual(runner.read_json(self.directory/'STATUS.json')['state'],'STOP')
+
+    def test_canonical_ttl30_accepts25_server_remaining_but_requires30_session(self):
+        session=self.session(seconds=60);session.renew()
+        ready=session.status('READY');runner.atomic(self.directory,'READY.json',ready)
+        status=session.status('HEALTHY')
+        status['expiresAt']=(datetime.now(timezone.utc)+timedelta(seconds=25)).isoformat()
+        runner.atomic(self.directory,'STATUS.json',status)
+        with patch.object(runner,'snapshot',return_value=session.contract):
+            self.assertEqual(runner.check_install_guard(self.directory,session.binding,session.contract),status)
+            for remaining in (19,9,-1):
+                runner.atomic(self.directory,'STATUS.json',dict(status,
+                    expiresAt=(datetime.now(timezone.utc)+timedelta(seconds=remaining)).isoformat()))
+                with self.assertRaises(runner.Stop):runner.check_install_guard(self.directory,session.binding,session.contract)
+            short=time.time()+29
+            runner.atomic(self.directory,'READY.json',dict(ready,deadlineUnix=short))
+            runner.atomic(self.directory,'STATUS.json',dict(status,deadlineUnix=short))
+            with self.assertRaises(runner.Stop):runner.check_install_guard(self.directory,session.binding,session.contract)
+
+    def test_owned_active_drain_renews_same_ttl30_fence_with_stop_only(self):
+        session=self.session(seconds=.05);trace=[];errors=[];original=session.client.heartbeat
+        def heartbeat(handle):
+            self.assertEqual(runner.fence(handle),session.initial_fence)
+            if session.closing:
+                self.assertEqual(runner.read_json(self.directory/'STATUS.json')['state'],'STOP')
+                trace.append('drain-renew')
+                with patch.object(runner,'snapshot',return_value=session.contract):
+                    with self.assertRaises(runner.Stop):runner.check_install_guard(self.directory,session.binding,session.contract)
+            return original(handle)
+        session.client.heartbeat=heartbeat
+        original_release=session.client.release
+        def release(handle):trace.append('release');original_release(handle)
+        session.client.release=release
+        def delayed():
+            try:
+                limit=time.monotonic()+1
+                while not (self.directory/'READY.json').exists():
+                    if time.monotonic()>limit:raise AssertionError('fixture readiness')
+                    time.sleep(.002)
+                marker=self.operation(session);runner.atomic(self.directory,'MANUAL_OPERATION.json',marker)
+                time.sleep(.4)
+                runner.atomic(self.directory,'MANUAL_OPERATION.json',dict(marker,state='COMPLETE'));trace.append('complete')
+            except BaseException as error:errors.append(error)
+        worker=threading.Thread(target=delayed);worker.start()
+        # Accelerate the five-second renewal cadence, not operation/lease time.
+        with patch.object(runner,'MANUAL_RENEW_SECONDS',.05):self.assertIsNone(runner.run_session(session))
+        worker.join(1);self.assertFalse(worker.is_alive());self.assertEqual(errors,[])
+        self.assertGreaterEqual(trace.count('drain-renew'),2)
+        self.assertEqual(trace[-2:],['complete','release'])
+        self.assertEqual(runner.read_json(self.directory/'STATUS.json')['state'],'STOP')
+        self.assertEqual(runner.read_json(self.directory/'RESULT.json')['release'],'RELEASED')
+        self.assertEqual(runner.manual_operation_record(self.directory,session.binding,session.initial_fence)['state'],'COMPLETE')
+
+    def test_drain_failed_renewal_or_prior_drift_defers_without_reviving_lease(self):
+        for mode in ('failure','fence','expired','prior-expiry','source'):
+            with self.subTest(mode=mode),tempfile.TemporaryDirectory(prefix='ir-drain-renew-fixture-') as tmp:
+                session=self.session();session.directory=Path(tmp).resolve();session.closing=True
+                marker=self.operation(session);runner.atomic(session.directory,'MANUAL_OPERATION.json',marker)
+                runner.atomic(session.directory,'STATUS.json',session.status('STOP'))
+                if mode=='failure':session.client.heartbeat=Mock(side_effect=runner.Stop())
+                elif mode=='fence':session.client.changed=True
+                elif mode=='expired':session.client.expired=True
+                elif mode=='prior-expiry':session.handle.expires_at='2000-01-01T00:00:00Z'
+                else:session.actual_snapshot=lambda *a:{'drift':True}
+                self.assertFalse(runner.drain_manual_operation(session,seconds=.1))
+                self.assertNotIn('release',session.client.calls)
+                if mode in {'prior-expiry','source'}:self.assertEqual(session.client.calls,[])
+                self.assertEqual(runner.read_json(session.directory/'STATUS.json')['state'],'STOP')
+                self.assertEqual(runner.read_json(session.directory/'MANUAL_OPERATION.json'),marker)
 
     def test_uncertain_invalid_and_active_timeout_defer_release_without_cleanup(self):
         for state in ('UNCERTAIN','ACTIVE','invalid'):

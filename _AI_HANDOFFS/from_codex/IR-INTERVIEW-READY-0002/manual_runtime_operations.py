@@ -20,7 +20,7 @@ import uuid
 
 sys.dont_write_bytecode = True
 HERE = Path(__file__).resolve().parent
-RUNNER_SHA = 'f1a5ee7ee7930d8d9a0beee69aea205868370ed3f35ede5dcec7ab10051d08c6'
+RUNNER_SHA = 'a0c89cd028d1dda1f94672a77f71465ec2c42e9a8c488871565b8f2c4e639956'
 PLAN_SHA = '6a1cd7a25ee809a0abe99bf77992cc1be4f03e28db19a4d0c7f97f8c8b355a97'
 SOURCE = 'b61c2ce000ff90f73d240ac9781a2b035eb30bba'
 PACKAGE = Path('/private/tmp/ir-phase1-qualified-fullref-20261004')
@@ -142,8 +142,8 @@ def local_guard(args, runner):
           status['fenceSha256']==ready.get('fenceSha256'))
     now=time.time()
     check(type(status.get('deadlineUnix')) in (int,float) and math.isfinite(status['deadlineUnix']) and
-          status['deadlineUnix']==ready.get('deadlineUnix') and status['deadlineUnix']-now>=30 and
-          datetime.fromisoformat(status['expiresAt'].replace('Z','+00:00')).timestamp()-now>=30)
+          status['deadlineUnix']==ready.get('deadlineUnix') and status['deadlineUnix']-now>=runner.MANUAL_DISPATCH_MARGIN and
+          datetime.fromisoformat(status['expiresAt'].replace('Z','+00:00')).timestamp()-now>=runner.MANUAL_SERVER_MARGIN)
     return contract,status
 ARTIFACTS = {'wp-content/mu-plugins/missionmed-interview-ready-runtime/releases/158080e62a169bfb6c4b444bfcb47609bd49482ae7815e59ca13437314ba198e/account-gate.html': {'bytes': 36683,
                                                                                                                                                           'sha256': 'da79845723120e8e451b96121c5fe5d9ccd5c2a3ece6c20b5279e252fa6319ff'},

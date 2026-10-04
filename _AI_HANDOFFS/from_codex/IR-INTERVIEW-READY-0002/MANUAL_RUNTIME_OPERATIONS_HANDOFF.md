@@ -78,3 +78,68 @@ This bounded repin supersedes only the current executable RUNNER_SHA and helper 
 The current wrapper bytes were hash-checked at SHA256 f1a5ee7ee7930d8d9a0beee69aea205868370ed3f35ede5dcec7ab10051d08c6, 33,285 bytes. Exact byte comparison against the wrapper at the same baseline proved its only change is OS_HEAD from historical 81c3ac794b0b3436c7ce66cada31b9f2a1e05356 to bc1d36fcb9f7bdda4bcd4ba507078b7787d802a2. Its current Native handoff bytes were hash-checked at 27074433cf56bb297315efe90e34e5dfefdb065ae2abe5fd9975480a1104b9c5. Foreman reports fresh BOOT PASS and unchanged routed IR records/dependencies with only unrelated OS additions; this helper task did not independently repeat that authority review.
 
 Exact helper baseline/literal comparison and local compile PASS. Default invocation exits 0 with DORMANT: independently approved INSTALL manual operation required. No broader tests, remote operation, provider access, credential access, runtime execution, staging, commit or deployment occurred. Plan/package/embedded remote program and operation contract bytes are unchanged. STOP UNCOMMITTED for Native independent review of these exact helper bytes; Foreman owns any later commit and admission.
+
+## Canonical TTL30 alignment (2026-10-04)
+
+This bounded source correction supersedes only the current wrapper/helper pins and the duplicated local deadline margins; prior reviews and attempt receipts remain historical. Baseline 6f1c2c8c8b61226258e0038974f4ead25056a7c9 exact byte comparison PASS: three substitutions only, RUNNER_SHA f1a5ee7ee7930d8d9a0beee69aea205868370ed3f35ede5dcec7ab10051d08c6 to proposed wrapper a0c89cd028d1dda1f94672a77f71465ec2c42e9a8c488871565b8f2c4e639956, session margin literal30 to runner.MANUAL_DISPATCH_MARGIN (30), server margin literal30 to runner.MANUAL_SERVER_MARGIN (20). Actual proposed wrapper bytes/hash and named constants were read. Matrix independent wrapper review remains external to this helper builder; no approval is claimed.
+
+Current helper SHA256 9f797a2dc6e7d88c77aedeeed990e873aa7e75139f44a9f245ca8066094a909a. Historical attempt1 clear review bytes matched f1c3076ef3b93221352d971886c85c9a42d14a7a36be98de6007b73c2bf45571. Canonical server TTL30 permits a healthy dispatch with at least20 seconds server remaining and at least30 seconds actual session remaining; these are separate deadlines. Both guard invocations before dispatch retain the same named-floor requirements. Margin reduction does not extend a lease, acknowledge an operation, bypass STOP, or authorize retries.
+
+REMOTE_SOURCE byte equality to baseline PASS; SHA256 remains 7c9bbf981a16e64470e59a8537bb24bdb3f450c3f740a5b97f43fc08f7c22dc9. Package, plan, remote paths/program, markers, roles, operation UUID/deadline/state, <=10-second dispatch budget, >=30-second session margin, 8-second remote alarm, completion-before-postguard and uncertainty/drain protocol remain unchanged. The earlier prose specifying30 seconds for BOTH deadlines is historical and is superseded here for server expiry only.
+
+AST/compile/default DORMANT exit0 PASS. Focused real local_guard fixtures used synthetic public-only in-memory approval/READY/status objects and fake report/snapshot adapters; no actual files, controls, capabilities or wrapper acquisition were read/created. They accepted canonical remainingTTL30 and boundary server20/session30; rejected server19.999, session29.999 and simulated post-marker guard2 STOP despite healthy margins. These fixtures verify helper duplicated wiring, not independent wrapper review or live provider behavior.
+
+Exact focused fixture command executed locally:
+
+```sh
+python3 -B - <<'PY'
+import runpy,hashlib,types,datetime,subprocess,ast
+from pathlib import Path
+p=Path('_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/manual_runtime_operations.py')
+n=runpy.run_path(str(p)); g=n['local_guard'].__globals__
+base=subprocess.check_output(['git','show','6f1c2c8c8b61226258e0038974f4ead25056a7c9:'+str(p)])
+expected=base.replace(b'f1a5ee7ee7930d8d9a0beee69aea205868370ed3f35ede5dcec7ab10051d08c6',b'a0c89cd028d1dda1f94672a77f71465ec2c42e9a8c488871565b8f2c4e639956',1).replace(b"status['deadlineUnix']-now>=30",b"status['deadlineUnix']-now>=runner.MANUAL_DISPATCH_MARGIN",1).replace(b"timestamp()-now>=30",b"timestamp()-now>=runner.MANUAL_SERVER_MARGIN",1)
+assert p.read_bytes()==expected
+old=ast.parse(base); new=ast.parse(p.read_bytes())
+def remote(tree):
+ return next(ast.literal_eval(x.value) for x in tree.body if isinstance(x,ast.Assign) and any(isinstance(y,ast.Name) and y.id=='REMOTE_SOURCE' for y in x.targets))
+assert remote(old)==remote(new)
+compile(p.read_bytes(),str(p),'exec');ast.parse(remote(new))
+# Synthetic public-only objects; no files/control capabilities are created or read.
+clock=1000.0
+g['time']=types.SimpleNamespace(time=lambda:clock)
+g['digest']=lambda path: g['PLAN_SHA'] if Path(path).name=='EXACT_RUNTIME_INSTALL_RECOVERY_PLAN.md' else 'a'*64
+directory=g['HERE']/'NONEXISTENT_LOCAL_FIXTURE'
+phase={'independentReviewer':'independent-fixture','manualOperationsSha256':'a'*64,'installPlanSha256':g['PLAN_SHA'],'manualOperationMode':'install'}
+spec={'controlDirectory':str(directory),'sourceCommit':g['SOURCE'],'packageDirectory':str(g['PACKAGE']),'packageFiles':g['PACKAGE_FILES'],'runtimeBindings':g['BINDINGS'],'qualifiedPreimages':{g['GATEWAY']:'ABSENT',g['RUNTIME']:'ABSENT',g['RUNTIME']+'/current':'ABSENT'},'qualifications':{'phaseDecision':phase,'recovery':{'independentReviewer':'independent-fixture'}}}
+contract={'phase':'install','spec':spec,'sourceHead':'b'*40}
+binding=hashlib.sha256(g['canonical'](contract)).hexdigest()
+approval={'schema':'ir.runtime_native.approval.v1','phase':'install','independentReviewer':'independent-fixture','contract':contract,'spec':spec}
+ready={'phase':'install','bindingSha256':binding,'sourceHead':contract['sourceHead'],'fenceSha256':'c'*64,'deadlineUnix':1030.0}
+status={'phase':'install','state':'HEALTHY','fenceSha256':'c'*64,'deadlineUnix':1030.0,'expiresAt':datetime.datetime.fromtimestamp(1020,datetime.timezone.utc).isoformat()}
+def guard(*args):
+ g['check'](status['state']=='HEALTHY')
+ return status
+runner=types.SimpleNamespace(OWNER='owner-fixture',BUILDER='wrapper-fixture',MANUAL_DISPATCH_MARGIN=30,MANUAL_SERVER_MARGIN=20,read_json=lambda path:ready if Path(path).name=='READY.json' else approval,fresh=lambda record:True,report_record=lambda *args,**kwargs:None,snapshot=lambda *args:contract,canonical=g['canonical'],check_install_guard=guard)
+args=types.SimpleNamespace(approval=g['HERE']/'NONEXISTENT_APPROVAL.json',approval_sha256='a'*64,control_directory=directory,binding=binding,operation='stage')
+# Canonical TTL30 is usable at remaining30 and at admitted server floor20.
+for seconds in (30,20):
+ status['expiresAt']=datetime.datetime.fromtimestamp(clock+seconds,datetime.timezone.utc).isoformat()
+ n['local_guard'](args,runner)
+def rejected():
+ try:n['local_guard'](args,runner)
+ except n['Stop']:return
+ raise AssertionError('guard accepted fixture')
+status['expiresAt']=datetime.datetime.fromtimestamp(clock+19.999,datetime.timezone.utc).isoformat();rejected()
+status['expiresAt']=datetime.datetime.fromtimestamp(clock+30,datetime.timezone.utc).isoformat()
+status['deadlineUnix']=ready['deadlineUnix']=clock+29.999;rejected()
+status['deadlineUnix']=ready['deadlineUnix']=clock+30
+n['local_guard'](args,runner)
+# Simulate guard2 after marker: STOP prevents dispatch even with both margins healthy.
+status['state']='STOP';rejected()
+print('EXACT_DIFF_REMOTE_AST_AND_FIVE_GUARD_FIXTURES_PASS')
+print('REMOTE_SHA256',hashlib.sha256(remote(new).encode()).hexdigest())
+PY
+```
+
+Default command executed: python3 -B _AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/manual_runtime_operations.py. STOP UNCOMMITTED for Native independent changed-helper review. Only this helper and handoff were written. No provider, SSH, network, credential, runtime, actual marker, stage, commit, deployment or HEAD change occurred. Proposed wrapper approval and fresh execution admission remain Foreman's separate gates.

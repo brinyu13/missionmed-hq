@@ -54,6 +54,8 @@ MANUAL_OPERATIONS = frozenset({'mkdir-root','mkdir-releases','mkdir-stage','tran
 MANUAL_SCHEMA = 'ir.runtime_native.manual_operation.v1'
 MANUAL_DRAIN_SECONDS = 20
 MANUAL_DISPATCH_MARGIN = 30
+MANUAL_SERVER_MARGIN = 20
+MANUAL_RENEW_SECONDS = 5
 
 
 class Stop(RuntimeError):
@@ -333,9 +335,25 @@ class Session:
             atomic(self.directory,'STATUS.json',self.status('HEALTHY'))
 
     def keeper(self):
-        while not self.event.wait(5):
+        while not self.event.wait(MANUAL_RENEW_SECONDS):
             try: self.renew()
             except BaseException: self.stop(); return
+
+    def renew_drain(self, owned):
+        """Retain the existing fence for owned work; never reopen dispatch."""
+        with self.lock:
+            check(self.closing and self.contract['phase']=='install' and
+                  fence(self.handle)==self.initial_fence and expiry(self.handle)>time.time())
+            check(self.actual_snapshot('install',self.contract['spec'])==self.contract)
+            value=manual_operation_record(self.directory,self.binding,self.initial_fence)
+            check(value is not None and {k:v for k,v in value.items() if k!='state'}==owned and
+                  value['state'] in {'ACTIVE','COMPLETE'})
+            if value['state']=='COMPLETE':return
+            # Snapshot work must not revive a lease that expired meanwhile.
+            check(fence(self.handle)==self.initial_fence and expiry(self.handle)>time.time())
+            self.handle=self.client.heartbeat(self.handle)
+            check(fence(self.handle)==self.initial_fence and expiry(self.handle)>time.time())
+            atomic(self.directory,'STATUS.json',self.status('STOP'))
 
     def native_control(self, qa, native_admission, action, binding):
         check(action in native_admission.actions and binding == native_admission.fingerprint())
@@ -362,7 +380,7 @@ def check_install_guard(directory, binding, contract):
           SHA.fullmatch(status.get('fenceSha256','')) and status['fenceSha256']==ready.get('fenceSha256') and
           type(status.get('deadlineUnix')) in (int,float) and math.isfinite(status['deadlineUnix']) and
           status['deadlineUnix']==ready.get('deadlineUnix') and status['deadlineUnix']-now>=MANUAL_DISPATCH_MARGIN and
-          datetime.fromisoformat(status['expiresAt'].replace('Z','+00:00')).timestamp()-now>=MANUAL_DISPATCH_MARGIN)
+          datetime.fromisoformat(status['expiresAt'].replace('Z','+00:00')).timestamp()-now>=MANUAL_SERVER_MARGIN)
     return status
 
 
@@ -389,8 +407,8 @@ def drain_manual_operation(session, *, seconds=MANUAL_DRAIN_SECONDS):
     try:fresh_source()
     except BaseException:return False
     # Expensive read-only source sealing precedes/follows the finite marker
-    # wait; do not repeat it inside the 20-second poll budget.
-    limit=time.monotonic()+min(seconds,MANUAL_DRAIN_SECONDS);owned=None
+    # wait. Renewal also reseals source, within that same marker-wait budget.
+    limit=time.monotonic()+min(seconds,MANUAL_DRAIN_SECONDS);owned=None;renew_at=0
     while True:
         try:
             check(fence(session.handle)==session.initial_fence and expiry(session.handle)>time.time())
@@ -406,6 +424,10 @@ def drain_manual_operation(session, *, seconds=MANUAL_DRAIN_SECONDS):
             if value['state']=='COMPLETE':break
             if value['state']=='UNCERTAIN':return False
             if time.monotonic()>=limit:return False
+            if time.monotonic()>=renew_at:
+                session.renew_drain(owned)
+                renew_at=time.monotonic()+MANUAL_RENEW_SECONDS
+                if time.monotonic()>=limit:return False
         except BaseException:return False
         time.sleep(min(.05,max(0,limit-time.monotonic())))
     try:fresh_source();return True
