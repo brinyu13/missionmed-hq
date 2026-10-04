@@ -922,6 +922,25 @@ test("source-controlled indexes require current runtime authorization pins", asy
     assert.equal(loaded.registryReleaseId, registryIndex.registryReleaseId);
     assert.equal(loaded.activationStatus, "active");
     assert.equal(loaded.artifactActivationStatus, "test_fixture");
+    assert.equal(loaded.activationReceipt.verified, true);
+    assert.equal(
+      loaded.activationReceipt.apiIndexSha256,
+      createHash("sha256").update(await fs.readFile(indexPath)).digest("hex"),
+    );
+    const tamperedReceiptBytes = Buffer.from(JSON.stringify({
+      ...JSON.parse(activationReceiptBytes.toString("utf8")),
+      apiIndexSha256: "0".repeat(64),
+    }));
+    await fs.writeFile(activationReceiptPath, tamperedReceiptBytes);
+    await assert.rejects(loadRegistryIndex(indexPath, {
+      production: true,
+      expectedSha256: indexSha,
+      manifestPath,
+      expectedManifestSha256: manifestSha,
+      expectedSourceAuthorizationSha256s: authorizationSha,
+      activationReceiptPath,
+      expectedActivationReceiptSha256: createHash("sha256").update(tamperedReceiptBytes).digest("hex"),
+    }), /activation receipt is invalid/);
   } finally {
     await fs.rm(directory, { recursive: true, force: true });
   }

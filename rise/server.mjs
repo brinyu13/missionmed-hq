@@ -1270,6 +1270,7 @@ function validateActivationReceipt(receipt, {
   }
   return {
     verified: true,
+    apiIndexSha256,
     action: receipt.action,
     decisionRecordId: String(receipt.decisionRecordId),
     approvedAt: new Date(approvedAt).toISOString(),
