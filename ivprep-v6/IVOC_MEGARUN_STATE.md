@@ -16,6 +16,29 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 R023 truthful overlap annotation: current official GPT-Live docs
+  confirm approximate fragment intervals, not completed turns or audio playback
+  boundaries (developers.openai.com/api/docs/guides/live-conversations).
+  Exact connection-scoped observer validates half-open input/output intervals,
+  emits once per input ID in either arrival order, invalidates conflicting IDs
+  and withholds at bounded capacity. Active owned Room recording alone stamps
+  controller.elapsed/MESSAGE_RECEIPT. Label: “Transcript overlap observed —
+  interruption unverified.” Existing seal/own cold projection reused; actual
+  live Flight Recorder glyph and accessible Film pin retain receipt time and
+  normal two-second pre-roll. No raw text/intervals or manufactured finals enter
+  derived evidence; canonical transcript, audio authority/control and engine
+  unchanged. Actual native→adapter→Room regression FAIL before/PASS after;
+  68 affected native/Room/Film/save/coaching/lifecycle/ownership checks PASS,
+  syntax/diff PASS; independent read-only review PASS (34 focused checks).
+  An unchanged coaching fixture lacked current API identity/own-scope receipt;
+  test fixture corrected under fresh exact scope, production guards untouched.
+  PRODUCT4549 normally released/read back before scope expansion4551; all dirt
+  is root-owned and scoped. No schema/provider/identity/root promotion changes.
+  Visual baseline/current UI and genuine audio interruption remain UNVERIFIED
+  under unchanged Chrome-access WAITING; annotations do not satisfy barge-in.
+  Next: guarded release, then bounded R030/R031 pre-session preservation triage
+  and actual authenticated POV on a changed client-access event. Full142 remains
+  open; no percentage replacement or engineering-exhausted/completion claim.
 - 2026-10-04 R022 configured-budget correction: actual current Mock handlers
   reproduced depth1/total4 → None0/0 → One1/0 → Two2/0. Setup draw, total edits
   and Easy presets now retain bounded configured total independently from
@@ -27,10 +50,18 @@ the actual production route and deployment.
   no executable P0/P1. PRODUCT4547 heartbeat/fence remotely confirmed. Existing
   Fable composition, privacy, engine, media and recording boundaries unchanged;
   no schema/provider/identity/root promotion changes. Current healthy runtime
-  15cd/e9ff/artifactEYFpwI remains serving pending guarded release. Authenticated
+  Clean remotely read-back sourcec9718f6ea77e128f301d77765c07c0a15ae5d633
+  deployed SUCCESS8ebf5168-295a-44d1-94e7-e11bab973be3, image
+  sha256:6a2077497ed5cfc609028bdbccf441806352c92aab175708b2c05f87f0592400.
+  Exact filtered1272-file artifactPaaN59/source.tar SHA
+  d8a88259207c6b68e9c64b7575598be2d5223d84cb84323b2679c31742371054.
+  Health200/root,candidate,bootstrap401. PRODUCT4547/SHARED4548 normally
+  released/remote confirmed. Prior healthy15cd/e9ff/artifactEYFpwI and last
+  POV-known-good61aa/deed28/artifact2YgD0Z exact rollback artifacts retained.
+  Authenticated
   UI/spoken acceptance remains UNVERIFIED under the unchanged Chrome-access
   WAITING condition; no repeated browser audit or percentage replacement.
-  Next: guarded deployment/readback, then R023 truthful overlap annotation;
+  Next: R023 truthful overlap annotation;
   actual interruption and complete production POV acceptance remain open.
 - 2026-10-04 R029 microphone-readiness correction: first authoritative candidate
   track must be live/enabled/unmuted and its existing AudioContext running.

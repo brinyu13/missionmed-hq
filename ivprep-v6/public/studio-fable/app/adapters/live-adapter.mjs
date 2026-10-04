@@ -17,6 +17,7 @@
 // Not touched: provider credentials, session creation (server broker), voice policy, delegation
 // handling (the deployed `session.delegation.created` patch lives inside LiveInterviewSession).
 
+import {TranscriptOverlapObserver} from '../model/transcript-overlap.mjs';
 const ENGINE = '/iv-prep-on-call/assets';
 export const STEER_KINDS = new Set(['QUESTION', 'FOLLOW_HOOK', 'PROBE_VAGUE', 'CLARIFY_CONTRADICTION', 'MID_CANDIDATE_QUESTION', 'BOUNDED_ANSWER', 'PROFESSIONAL_CLOSE']);
 const FINAL_WAIT_MS = 45_000;
@@ -61,10 +62,10 @@ export function createSpeakingGate({ onThreshold = 0.015, offThreshold = 0.008, 
 
 export class GptLiveInterviewer {
   constructor({ account, audioElement, engine = null, recordingMix = null, durable = null,
-    onLine = () => {}, onSpeaking = () => {}, onFinal = () => {}, onApplicantFinal = () => {}, onStatus = () => {}, onApplicantPartial = () => {}, onCaptions = () => {}, onTranscriptFragment = () => {},
+    onLine = () => {}, onSpeaking = () => {}, onFinal = () => {}, onApplicantFinal = () => {}, onStatus = () => {}, onApplicantPartial = () => {}, onCaptions = () => {}, onTranscriptFragment = () => {}, onTranscriptOverlap = () => {},
     LiveInterviewSessionCtor = null, moduleLoader = path => import(path), now = () => performance.now() } = {}) {
     this.account = account; this.audioElement = audioElement; this.engine = engine; this.recordingMix = recordingMix; this.durable = durable;
-    this.onLine = onLine; this.onSpeaking = onSpeaking; this.onFinal = onFinal; this.onApplicantFinal = onApplicantFinal; this.onStatus = onStatus; this.onApplicantPartial = onApplicantPartial;this.onCaptions=onCaptions;this.onTranscriptFragment=onTranscriptFragment;
+    this.onLine = onLine; this.onSpeaking = onSpeaking; this.onFinal = onFinal; this.onApplicantFinal = onApplicantFinal; this.onStatus = onStatus; this.onApplicantPartial = onApplicantPartial;this.onCaptions=onCaptions;this.onTranscriptFragment=onTranscriptFragment;this.onTranscriptOverlap=onTranscriptOverlap;
     this.Ctor = LiveInterviewSessionCtor; this.load=moduleLoader;this.now = now;this.generation=0;
     this.live = null; this.pending = null; this.name = 'Program Director'; this.kind = 'gpt-live'; this.label = 'GPT-Live · native interviewer';
     this.finalIds = new Set(); this.sentIds = new Set(); this.stopping = false; this.openingObserved = false;
@@ -80,13 +81,14 @@ export class GptLiveInterviewer {
     assertCurrent();
     const apiClient = this.account.apiClient || await this.load(`${ENGINE}/aaa/api-client.mjs`);
     assertCurrent();
+    const overlaps=new TranscriptOverlapObserver(); // exact connection generation; no old intervals
     const live = new this.Ctor({
       createSession: apiClient.createLiveInterview,
       endSession: apiClient.endLiveInterview,
       audioElement: this.audioElement,
       onStatus: (status) => { if(!current())return;this.onStatus(status); if (status.state === 'error' || status.state === 'closed') this.resolvePending(null, status); },
       onTranscript: (event) => {if(current())this.handleTranscript(event);},
-      onEvent:(event)=>{if(!current())return;this.onTranscriptFragment(event);const update=this.captions.ingest(event);if(update){this.onCaptions(update.groups);if(update.group.speaker==='interviewer')this.onLine(update.group.text,{partial:true});}},
+      onEvent:(event)=>{if(!current())return;this.onTranscriptFragment(event);const observation=overlaps.ingest(event);if(observation)this.onTranscriptOverlap(observation);const update=this.captions.ingest(event);if(update){this.onCaptions(update.groups);if(update.group.speaker==='interviewer')this.onLine(update.group.text,{partial:true});}},
       // stop invalidates ordinary callbacks, but the actual sole-owner release
       // receipt must still reach this exact Durable session before Results seal.
       onTelemetry: (event) => {if(current()||(this.releasing===live&&event.state==='released'&&this.durable?.accountSession?.id===ivocSessionId))this.durable?.recordLiveAudioTelemetry?.(event);},

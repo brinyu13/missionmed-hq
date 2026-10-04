@@ -128,6 +128,13 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     onFinal(text,directive,event){addTurn('interviewer',text,event);},
     onApplicantFinal(text,event){addTurn('applicant',text,event);},
     onTranscriptFragment(event){if(!current()||finished||saving||!observer)return;const before=observer.snapshot();if(observer.ingestFragment(event)){markObservations(before,event.type==='session.input_transcript.delta'?'applicant':'interviewer');renderPlan();}},
+    onTranscriptOverlap(observation){
+      if(!current()||!started||!controller.durableActive||controller.recordingOrigin==null||finished||saving)return;
+      if(observation.invalidated){for(let i=events.length-1;i>=0;i--)if(events[i].kind==='overlap')events.splice(i,1);return;}
+      if(!Number.isSafeInteger(observation.count)||observation.count<1||observation.count>128)return;
+      const t=at();if(!Number.isFinite(t)||t<0)return;
+      for(let i=0;i<observation.count;i++)events.push({t,kind:'overlap',label:'Transcript overlap observed — interruption unverified.',state:'MESSAGE_RECEIPT'});
+    },
     onCaptions(groups){if(!current()||saving)return;captions=groups;renderTranscript();},
     onStatus(status){if(!current()||saving)return;if(status.state==='active')$('presence-sub').textContent='Your interviewer is listening';if(status.state==='closed'&&started)providerFailed();},
     onProviderFailed:providerFailed

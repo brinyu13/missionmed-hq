@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {renderFilmLanes} from '../../public/studio-fable/app/instruments/flight-recorder.mjs';
+import {renderFilmLanes,LiveRecorder} from '../../public/studio-fable/app/instruments/flight-recorder.mjs';
+import {sealDerivedEvidence} from '../../public/studio-fable/app/adapters/derived-evidence.mjs';
 
-function fixture({samples:inputSamples,durationS=23.161}={}){
+function fixture({samples:inputSamples,events=[{t:6,kind:'smile',label:'Smile pattern'}],durationS=23.161}={}){
   const listeners=new Map(),seeks=[],clock={},heads=[];
   const context=new Proxy({}, {get:(_target,key)=>key==='fillStyle'||key==='font'?undefined:()=>{},set:()=>true});
   const canvas={clientWidth:200,clientHeight:40,getContext:()=>context};
@@ -13,7 +14,7 @@ function fixture({samples:inputSamples,durationS=23.161}={}){
   const priorDocument=globalThis.document,priorRatio=globalThis.devicePixelRatio;
   globalThis.document={createElement:()=>({style:{}})};globalThis.devicePixelRatio=1;
   const samples=inputSamples||[{t:14.8,hands:'RIGHT',state:'ANSWERING',presence:'TRACKED',signalGap:false},{t:15.3,hands:'RIGHT',state:'ANSWERING',presence:'TRACKED',signalGap:false}];
-  const lanes=renderFilmLanes(host,{samples,events:[{t:6,kind:'smile',label:'Smile pattern'}],durationS,playback,onSeek:t=>seeks.push(t)});
+  const lanes=renderFilmLanes(host,{samples,events,durationS,playback,onSeek:t=>seeks.push(t)});
   const click=(element,clientX=236)=>listeners.get('click')({target:{closest:selector=>selector==='[data-seek]'?element:selector==='[data-track]'?track:null},clientX});
   return{host,listeners,seeks,click,lanes,restore(){lanes.destroy();if(priorDocument===undefined)delete globalThis.document;else globalThis.document=priorDocument;if(priorRatio===undefined)delete globalThis.devicePixelRatio;else globalThis.devicePixelRatio=priorRatio;}};
 }
@@ -48,4 +49,25 @@ test('existing event lead-in, exact empty-track scrubbing, start clamp and clean
     f.click({dataset:{seek:'1'}});assert.equal(f.seeks.at(-1),0);
     f.lanes.destroy();assert.equal(f.listeners.size,0);
   }finally{f.restore();}
+});
+test('sealed overlap observation renders a truthful accessible Film pin seeking to receipt time, not an audio boundary',()=>{
+  const cold=JSON.parse(JSON.stringify(sealDerivedEvidence({events:[{t:37.25,kind:'overlap',label:'Transcript overlap observed — interruption unverified.',state:'MESSAGE_RECEIPT'}]})));
+  const f=fixture({events:cold.events,durationS:60});
+  try{
+    const pin=f.host.innerHTML.match(/<button[^>]*class="pin overlap"[^>]*>/)?.[0];
+    assert.ok(pin);assert.match(pin,/data-seek="37.25"/);assert.match(pin,/aria-label="00:37 Transcript overlap observed — interruption unverified./);
+    f.click({dataset:{seek:'37.25'}});assert.equal(f.seeks.at(-1),35.25);
+    assert.doesNotMatch(pin,/confirmed|truncated|heard|interruption verified/);
+  }finally{f.restore();}
+});
+test('actual Live Recorder draws the overlap glyph from receipt events without re-timing the voice traces',()=>{
+  const prior={addEventListener:globalThis.addEventListener,removeEventListener:globalThis.removeEventListener,devicePixelRatio:globalThis.devicePixelRatio},glyphs=[];
+  const ctx=new Proxy({}, {get:()=>()=>{},set:()=>true}),eventCtx=new Proxy({}, {get:(_target,key)=>key==='fillText'?text=>glyphs.push(text):()=>{},set:()=>true});
+  const canvas={clientWidth:200,clientHeight:40,getContext:()=>ctx},evCanvas={clientWidth:200,clientHeight:12,getContext:()=>eventCtx};
+  globalThis.addEventListener=()=>{};globalThis.removeEventListener=()=>{};globalThis.devicePixelRatio=1;
+  const root={querySelector:selector=>selector==='#fr-canvas'?canvas:selector==='#fr-events'?evCanvas:selector==='#fr-clock'?{}:null};
+  let recorder;
+  try{
+    recorder=new LiveRecorder(root);recorder.setData([],[{t:37.25,kind:'overlap'}]);recorder.tick(40);assert.ok(glyphs.includes('≋'));assert.equal(recorder.events[0].t,37.25);
+  }finally{recorder?.destroy();for(const [key,value]of Object.entries(prior)){if(value===undefined)delete globalThis[key];else globalThis[key]=value;}}
 });

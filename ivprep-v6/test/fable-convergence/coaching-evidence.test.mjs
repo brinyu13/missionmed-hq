@@ -223,8 +223,8 @@ test('actual fresh library and saved-review projections agree without changing p
   const row={id,ownerSubject:'wp:1',state:'saved',questionId:'CORE-01',questionText:'Tell me about yourself.',
     endedAt:'2026-10-04T05:00:00Z',interviewerProvider:'openai-gpt-live',recording:{id:'r1',status:'saved',durationMs:33000},
     results:{payload:{analytics:{fable:f}}}};
-  const c=new SessionController();c.account={subject:'wp:1',role:'admin',api:{bootstrap:async()=>({entitlement:{admitted:true},identity:{subject:'wp:1',admin:true}})}};
-  c.durable={ready:true,library:async scope=>{assert.equal(scope,'own');return {sessions:[row]};}};
+  const c=new SessionController();c.account={subject:'wp:1',role:'admin',api:{identity:{subject:'wp:1',admin:true},bootstrap:async()=>({entitlement:{admitted:true},identity:{subject:'wp:1',admin:true}})}};
+  c.durable={ready:true,library:async scope=>{assert.equal(scope,'own');return {scopeSubject:'wp:1',sessions:[row]};}};
   const library=await c.library();assert.equal(library.attempts[0].priorityText,null);assert.equal(library.attempts[0].debriefLane,null);
   const detail=projectSavedAttempt({persisted:true,session:row,sessionDetail:row},'wp:1');assert.equal(detail.priorityText,null);
   assert.equal(projectSavedAttempt({persisted:true,session:row,sessionDetail:row},'wp:2'),null);

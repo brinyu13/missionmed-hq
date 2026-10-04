@@ -95,7 +95,7 @@ export class LiveRecorder {
       if (evCanvas.width !== Math.round(EW * dpr)) { evCanvas.width = Math.round(EW * dpr); evCanvas.height = Math.round(EH * dpr); }
       const ectx = evCanvas.getContext('2d'); ectx.setTransform(dpr, 0, 0, dpr, 0, 0); ectx.clearRect(0, 0, EW, EH);
       ectx.font = '700 11px Archivo, sans-serif'; ectx.textAlign = 'center'; ectx.textBaseline = 'middle';
-      const glyph = { question: ['◆', '#39d6ff'], followup: ['◇', '#d9a6ff'], cue: ['↕', '#ffa928'], recording: ['●', '#ff6b74'], smile: ['☺', '#ffb84d'], nod: ['◦', '#9fd8ff'], gesture: ['✦', '#2fe7b0'], hook: ['⚓', '#a696ff'], closing: ['■', '#39d6ff'], transition: ['·', '#5f6c86'], answer: ['·', '#5f6c86'] };
+      const glyph = { question: ['◆', '#39d6ff'], followup: ['◇', '#d9a6ff'], overlap: ['≋', '#ffb84d'], cue: ['↕', '#ffa928'], recording: ['●', '#ff6b74'], smile: ['☺', '#ffb84d'], nod: ['◦', '#9fd8ff'], gesture: ['✦', '#2fe7b0'], hook: ['⚓', '#a696ff'], closing: ['■', '#39d6ff'], transition: ['·', '#5f6c86'], answer: ['·', '#5f6c86'] };
       for (const ev of this.events) {
         if (ev.t < t0 || ev.t > t1) continue;
         const [g, c] = glyph[ev.kind] || ['·', '#8e9bb3']; ectx.fillStyle = c; ectx.fillText(g, x(ev.t) * (EW / W), EH / 2);
@@ -134,7 +134,7 @@ export function renderFilmLanes(host, { samples = [], events = [], durationS = n
       ${laneRow('Smiles', 'EVENTS', pins('smile'))}
       ${laneRow('Head nods', 'EVENTS', pins('nod'))}
       ${laneRow('Coaching', 'EVENTS', pins('cue'))}
-      ${laneRow('Question / turn', 'EVENTS', pins('question') + pins('followup') + pins('closing'))}
+      ${laneRow('Question / turn', 'EVENTS', pins('question') + pins('followup') + pins('closing') + pins('overlap'))}
       ${laneRow('Hooks', 'EVENTS', pins('hook'))}
       ${laneRow('Recording', 'EVENTS', pins('recording'))}
       ${laneRow('Signal gaps', 'GAPS', runs('signalGap', (v) => v ? 'gap' : 'clear'))}
