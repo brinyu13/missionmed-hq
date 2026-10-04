@@ -12,6 +12,7 @@ import {bindSubject} from '../../public/studio-fable/app/state.mjs';
 if(!globalThis.CustomEvent)globalThis.CustomEvent=class extends Event{constructor(type,init={}){super(type);this.detail=init.detail;}};
 globalThis.document={hidden:false,addEventListener(){},removeEventListener(){},getElementById(){return null;}};
 const deferred=()=>{let resolve;const promise=new Promise(r=>{resolve=r;});return{promise,resolve};};
+const readyStream=()=>{const track={kind:'audio',readyState:'live',enabled:true,muted:false};return{getAudioTracks:()=>[track]};};
 test('timed GPT-Live fragments preserve spaces/repetition and independent overlapping captions, never finals',()=>{
   const captions=new LiveCaptionGroups();
   const event=(speaker,delta,start,end,id)=>({type:'session.'+speaker+'_transcript.delta',delta,start_ms:start,end_ms:end,event_id:id});
@@ -82,7 +83,7 @@ test('stop during native start tears down the published owner and rejects late c
 });
 test('obsolete device startup cannot overwrite a newer READY owner',async()=>{
   const wait=deferred();let factories=0;const engines=[];
-  const c=new SessionController({engineFactory:async()=>{const n=++factories;const e={stream:{},destroyed:false,
+  const c=new SessionController({engineFactory:async()=>{const n=++factories;const e={stream:readyStream(),destroyed:false,
     async start(){if(n===1)await wait.promise;},destroy(){this.destroyed=true;}};engines.push(e);return e;}});
   c.account={mode:'REAL',subject:'wp:1'};c.durable={ready:true};c.video={};c.audioElement={};
   const first=c.acquire();await Promise.resolve();await c.release('cancelled');const second=await c.acquire();
@@ -114,7 +115,7 @@ test('cancelled durable preparation drains before replacement recording can star
   const api={identity:{subject:'wp:1',admin:false},bootstrap:async()=>({entitlement:{admitted:true},identity:{subject:'wp:1',admin:false}}),createSession:async()=>{creates++;if(creates===1)await wait.promise;return{id:'session-'+creates};},
     abandonSession:async()=>{abandoned++;return{};}};
   const durable=new DurableStudioSession({api,recordingFactory:()=>({startedAt:100,start:async()=>true,destroy(){}})});await durable.bootstrap();
-  const stream={getAudioTracks:()=>[{kind:'audio'}]},engine=()=>({stream,beginSession:async()=>{},destroy(){}});
+  const stream=readyStream(),engine=()=>({stream,audioContext:{state:'running'},beginSession:async()=>{},destroy(){}});
   const c=new SessionController({mixFactory:()=>null});c.account={mode:'REAL',subject:'wp:1',role:'student',api};c.durable=durable;c.engine=engine();c.phase='READY';
   const first=c.startSession({mode:'practice',question:{question_id:'CORE-01',canonical_text:'Question'},interviewSet:[],wizard:{},targetQuestions:1});
   for(let tick=0;!creates&&tick<100;tick++)await new Promise(resolve=>setImmediate(resolve));
@@ -131,9 +132,9 @@ test('release and cancelled-start cleanup both drain before replacing the shared
     abandonSession:async()=>{abandons++;await abandon.promise;return{};}};
   let recorders=0;
   const durable=new DurableStudioSession({api,recordingFactory:()=>{const id=++recorders;return{startedAt:100,start:async()=>true,destroy(){destroyed.push(id);}};}});
-  await durable.bootstrap();const stream={getAudioTracks:()=>[{kind:'audio'}]};
+  await durable.bootstrap();const stream=readyStream(),audioContext={state:'running'};
   const c=new SessionController();c.account={mode:'REAL',subject:'wp:1',role:'student',api};c.durable=durable;
-  c.engine={stream,beginSession:()=>begin.promise,destroy(){}};c.phase='READY';
+  c.engine={stream,audioContext,beginSession:()=>begin.promise,destroy(){}};c.phase='READY';
   const input={mode:'practice',question:{question_id:'CORE-01',canonical_text:'Question'},interviewSet:[],wizard:{},targetQuestions:1};
   const first=c.startSession(input);const failed=assert.rejects(first,/cancelled/);
   for(let tick=0;!c.durableActive&&tick<100;tick++)await new Promise(resolve=>setImmediate(resolve));
@@ -143,7 +144,7 @@ test('release and cancelled-start cleanup both drain before replacing the shared
   for(let tick=0;!abandons&&tick<100;tick++)await new Promise(resolve=>setImmediate(resolve));
   assert.equal(abandons,1,'release must begin durable cleanup');
   t.diagnostic('release cleanup is waiting');
-  c.engine={stream,beginSession:async()=>{},destroy(){}};c.phase='READY';begin.resolve();
+  c.engine={stream,audioContext,beginSession:async()=>{},destroy(){}};c.phase='READY';begin.resolve();
   await new Promise(resolve=>setImmediate(resolve));
   await assert.rejects(c.startSession(input),/previous.*closing/);
   assert.equal(creates,1);assert.equal(abandons,1);
@@ -181,7 +182,7 @@ test('a rejected real API account switch cannot later start under the cached act
   const api=new IvocApi(),durable=new DurableStudioSession({api,recordingFactory:()=>{recorders++;return{startedAt:100,start:async()=>true,destroy(){}};}});
   await durable.bootstrap();const c=new SessionController();
   c.account={mode:'REAL',subject:'wp:1',role:'admin',api};c.durable=durable;
-  c.engine={stream:{getAudioTracks:()=>[]},beginSession:async()=>{},destroy(){}};c.phase='READY';
+  c.engine={stream:readyStream(),audioContext:{state:'running'},beginSession:async()=>{},destroy(){}};c.phase='READY';
   actor='wp:2';await assert.rejects(c.freshOwnLibrary(),/access changed/);
   assert.equal(api.identity.subject,'wp:2');assert.equal(durable.ready,true);
   await assert.rejects(c.startSession({mode:'practice',question:{question_id:'CORE-01',canonical_text:'Question'},interviewSet:[],wizard:{},targetQuestions:1}),/access changed/);
@@ -208,7 +209,7 @@ test('overlapping actual bootstrap responses cannot replace Start effective acto
   const durable=new DurableStudioSession({api,recordingFactory:()=>{recorders++;return{startedAt:100,start:async()=>true,destroy(){}};}});
   durable.bootstrapPayload={entitlement:{admitted:true},identity:{subject:'wp:1',admin:true}};
   c=new SessionController();c.account={mode:'REAL',subject:'wp:1',role:'admin',api};c.durable=durable;
-  c.engine={stream:{getAudioTracks:()=>[]},beginSession:async()=>{},destroy(){}};c.phase='READY';
+  c.engine={stream:readyStream(),audioContext:{state:'running'},beginSession:async()=>{},destroy(){}};c.phase='READY';
   await assert.rejects(c.startSession({mode:'practice',question:{question_id:'CORE-01',canonical_text:'Question'},interviewSet:[],wizard:{},targetQuestions:1}),/access changed/);
   await parallel;assert.equal(parallelRejected,true);assert.equal(bootstrapCalls,2);
   assert.equal(creates,0);assert.equal(recorders,0);assert.equal(c.phase,'READY');

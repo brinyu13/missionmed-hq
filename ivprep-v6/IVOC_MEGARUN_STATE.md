@@ -16,6 +16,30 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 R029 microphone-readiness correction: first authoritative candidate
+  track must be live/enabled/unmuted and its existing AudioContext running.
+  Exact stream/context/track owners are pinned through admission, preparation,
+  lazy mix, recording allocation and native connection; lost input fails closed
+  and normal owned cleanup prevents a false LIVE state. Preflight ended/mute/
+  audio-context/device events disable Start with recovery copy; no automatic
+  reapproval after unmute or rewind of an active interview. Reconnect resumes
+  the same context/replaces input through the existing capture owner. Final
+  awaited selector refresh rechecks current ownership/readiness, not cached
+  success. Pinned capture guard crosses actual Durable/AccountRecording awaits;
+  actual allocation regression FAIL before/PASS after with zero MediaRecorder
+  starts. 110 affected readiness/lifecycle/privacy/policy/Room/calibration/
+  recording/mix checks PASS; independent final source review PASS including
+  the separately reproduced final-refresh race and real allocation path.
+  PRODUCT4542 normally released/read back before exact scope expansion4543.
+  No schema, provider configuration, identity, audio-authority, clock or root
+  promotion changes. Source/deployment filing follows below when verified.
+  Fresh authenticated UI/physical acceptance remains UNVERIFIED under the
+  established client-access WAITING condition; do not repeat unchanged polls.
+  R023 marker audit: current transcript intervals can prove overlap, not actual
+  audio interruption/truncation. Do not label overlap as confirmed barge-in.
+  Next executable action: bounded truthful overlap annotation through the
+  current adapter/Flight Recorder, keeping actual interruption acceptance open.
+  Full142/user-journey acceptance remains open; stale30% is not replaced.
 - 2026-10-04 R022 Admin follow-up policy implementation: current production
   config read is v4, ceiling2/default1/pressureoff; historical v3 notes are not
   current policy. One strict minimized policy adapter feeds setup controls,

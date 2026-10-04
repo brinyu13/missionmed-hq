@@ -9,6 +9,7 @@ import { resolveOwnSavedReview } from '../../../studio/review-scope.mjs';
 import { sealDerivedEvidence } from '../adapters/derived-evidence.mjs';
 import { projectDerivedPriority } from '../adapters/saved-review.mjs';
 import {normalizeInterviewPolicy,policyChangedError} from '../../../capabilities/interview-policy.mjs';
+import {assertMicrophoneReady,hasUsableMicrophone} from '../adapters/media-readiness.mjs';
 const ENGINE = '/iv-prep-on-call/assets';
 export const recordings = new Map();
 const LOCKED = new Set(['STARTING','LIVE','SAVING','SAVE_FAILED']);
@@ -67,7 +68,13 @@ export class SessionController extends EventTarget {
   async acquire({ mode='real',overlayCanvas=null,cameraDeviceId='',microphoneDeviceId='' }={}) {
     if (mode !== 'real') throw new Error('Simulated media is not available in production.');
     if(this.deviceSwitchOperation)throw new Error('Your device change is still finishing. Try again when the preview is ready.');
-    if (this.engine && this.phase === 'READY') return this.engine;
+    if (this.engine && this.phase === 'READY') {
+      const engine=this.engine;
+      engine.resumeInputAudio?.(); // reuse the capture owner's context in this user gesture
+      if(!hasUsableMicrophone(engine.stream))await this.switchDevice('microphone',microphoneDeviceId||engine.real?.currentDevices?.().microphoneDeviceId||'');
+      if(this.engine!==engine||this.phase!=='READY')throw new Error('Device setup was cancelled.');
+      return engine;
+    }
     if(this.phase==='DEVICES'||this.navigationLocked)throw new Error('Device or interview startup is already in progress.');
     if (!this.account) await this.connectAccount();
     if (this.account.mode !== 'REAL' || !this.durable?.ready) throw new Error('Your IVOC account is not ready. Sign in through Matrix.');
@@ -106,8 +113,14 @@ export class SessionController extends EventTarget {
   async startOwnedSession(options) {
     if (this.navigationLocked || !this.stream || !this.durable?.ready) throw new Error('Connect your camera and microphone before starting.');
     if (options.mode==='mock' && !this.account.liveInterviewAvailable) throw new Error('The live interviewer is unavailable. Try again, or choose Self Practice.');
+    assertMicrophoneReady(this.stream,this.engine.audioContext);
     const ticket=++this.generation;
     const engine=this.engine,durable=this.durable,account=this.account,subject=account.subject,role=account.role,api=account.api,durableApi=durable.api;
+    const stream=engine.stream,audioContext=engine.audioContext,audioTrack=stream.getAudioTracks()[0];
+    const assertOwnedInput=()=>{
+      if(engine.stream!==stream||engine.audioContext!==audioContext||stream.getAudioTracks()[0]!==audioTrack)throw new Error('Your microphone setup changed. Reconnect before starting.');
+      assertMicrophoneReady(stream,audioContext);
+    };
     const current=()=>ticket===this.generation&&this.engine===engine&&this.durable===durable&&this.account===account
       &&account.subject===subject&&account.role===role&&account.api===api&&durable.api===durableApi;
     let ownedLive=null;
@@ -118,6 +131,7 @@ export class SessionController extends EventTarget {
       if(!await revalidateOwnAdmission(account,current,{interviewPolicyVersion:mode==='mock'?wizard?.interviewPolicyVersion:undefined,
         onPolicy:policy=>{this.currentInterviewPolicy=policy;}}))throw new Error('Interview startup was cancelled.');
       assertEffectiveActor(account);
+      assertOwnedInput();
       try{await durable.prepare(input);}catch(error){
         if(error.payload?.error==='ivoc_interview_policy_changed'){
           await revalidateOwnAdmission(account,current,{interviewPolicyVersion:wizard?.interviewPolicyVersion,onPolicy:policy=>{this.currentInterviewPolicy=policy;}});
@@ -127,6 +141,7 @@ export class SessionController extends EventTarget {
       }
       if (!current()) throw new Error('Interview startup was cancelled.');
       assertEffectiveActor(account);
+      assertOwnedInput();
       const makeMix=mode==='mock'?(this.mixFactory || (await import(ENGINE+'/capabilities/conversation-recording.mjs')).createConversationRecordingMix):null;
       if(!current())throw new Error('Interview startup was cancelled.');
       assertEffectiveActor(account);
@@ -134,20 +149,28 @@ export class SessionController extends EventTarget {
         if(!await revalidateOwnAdmission(account,current,{interviewPolicyVersion:wizard.interviewPolicyVersion,onPolicy:policy=>{this.currentInterviewPolicy=policy;}}))throw new Error('Interview startup was cancelled.');
         assertEffectiveActor(account);
       }
+      assertOwnedInput();
       this.mix=mode==='mock'?makeMix({candidateStream:engine.stream,audioContext:engine.audioContext}):null;
-      await durable.start({...input,stream:this.mix?.stream || engine.stream,candidateStream:engine.stream});
+      assertOwnedInput();
+      await durable.start({...input,stream:this.mix?.stream || engine.stream,candidateStream:engine.stream,assertCaptureReady:()=>{
+        if(!current())throw new Error('Interview startup was cancelled.');
+        assertEffectiveActor(account);assertOwnedInput();
+      }});
       if (!current()) throw new Error('Interview startup was cancelled.');
       assertEffectiveActor(account);
+      assertOwnedInput();
       this.durableActive=true; this.recordingOrigin=durable.recorder.startedAt;
       await engine.beginSession?.({recordingOrigin:this.recordingOrigin});
       if(!current())throw new Error('Interview startup was cancelled.');
       assertEffectiveActor(account);
+      assertOwnedInput();
       if (mode==='mock') {
         const live=this.liveFactory({...options,account,audioElement:this.audioElement,engine,recordingMix:this.mix,durable,
           onStatus:status=>{options.onStatus?.(status);if(status.state==='error' && current()) options.onProviderFailed?.(status.detail);} });
         ownedLive=live;this.live=live; // publish before awaiting, so cancellation owns this connection
         await live.connect({audioTrack:engine.stream.getAudioTracks()[0],voice:options.voice,context:options.context,ivocSessionId:durable.accountSession.id,openingQuestion:options.openingQuestion});
         if (!current()) { await live.stop(); throw new Error('Interview startup was cancelled.'); }
+        assertOwnedInput();
       }
       this.setPhase('LIVE');
       return {interviewer:this.live,labels:{transport:mode==='mock'?'gpt-live':'none',recording:'account',account:'REAL'}};

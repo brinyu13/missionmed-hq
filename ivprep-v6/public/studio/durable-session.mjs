@@ -161,9 +161,10 @@ export class DurableStudioSession {
     return this.accountSession;
   }
 
-  async start({ stream, candidateStream = null, question = null, interviewSet = [], wizard = {}, targetQuestions = 1, interviewerProvider = 'missionmed-static' } = {}) {
+  async start({ stream, candidateStream = null, question = null, interviewSet = [], wizard = {}, targetQuestions = 1, interviewerProvider = 'missionmed-static', assertCaptureReady = () => {} } = {}) {
     const title = question?.canonical_text || 'IV Prep practice session';
     await this.prepare({ question, interviewSet, wizard, targetQuestions, interviewerProvider });
+    assertCaptureReady(); // after preparation, before allocating/starting capture
     if (this.recorder) throw new Error('durable_session_already_active');
     this.clearCandidateCapture();
     const captureOrigin = this.nowMs();
@@ -177,6 +178,7 @@ export class DurableStudioSession {
       questionId: question?.question_id || null,
       sessionNow,
       now: this.nowMs,
+      assertCaptureReady,
     });
     try {
       if (await this.recorder.start() !== true) throw new Error('recording_unavailable');
@@ -202,7 +204,7 @@ export class DurableStudioSession {
         if (!parentRecordingId) throw new Error('candidate_audio_parent_unavailable');
         this.candidateRecorder = this.recordingFactory({ api: this.api, stream: micOnly,
           enabled: true, sessionId: this.accountSession.id, recordingRole: 'candidate_audio',
-          parentRecordingId, sessionNow, now: this.nowMs });
+          parentRecordingId, sessionNow, now: this.nowMs, assertCaptureReady });
         if (await this.candidateRecorder.start() !== true) throw new Error('candidate_audio_unavailable');
         this.candidateAudioCapture = { status: 'RECORDING', parentRecordingId,
           captureReceipt: this.candidateRecorder.captureReceipt, analysisEligibility: 'UNVERIFIED' };

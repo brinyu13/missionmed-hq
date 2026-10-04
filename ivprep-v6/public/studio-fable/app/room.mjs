@@ -4,7 +4,7 @@ import { loadQuestions } from './questions.mjs';
 import { controller } from './controller/session-controller.mjs';
 import { conductorConfig, toWizard, defaultSettings, resolveMockQuestionTarget } from './settings/interviewer.mjs';
 import { liveContext } from './adapters/context-adapter.mjs';
-import { awaitVisibleCamera } from './adapters/media-readiness.mjs';
+import { awaitVisibleCamera,assertMicrophoneReady } from './adapters/media-readiness.mjs';
 import {mountDeviceControls,deviceControlsMarkup} from './adapters/device-controls.mjs';
 import {bindPrimaryRecovery} from './adapters/engine-adapter.mjs';
 import {saveOwnVisibility} from './adapters/own-presentation.mjs';
@@ -157,11 +157,15 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
         $('stage').dataset.previewReady=String(!value&&ready);
         $('enter-note').textContent=value?'Checking your selected camera and microphone…':ready?'Preview visible · microphone connected. Nothing is recorded until you start.':'The selected devices are not ready. Check the message below, choose another device, or check the preview again.';
         if(!value&&ready){$('connect-real').textContent='Check preview again';applyOverlays();}
+      },onReadinessChanged:readiness=>{
+        if(!current()||starting||started||saving||finished)return;
+        $('start-session').disabled=true;$('stage').dataset.previewReady='false';
+        $('enter-note').textContent=readiness.message;$('connect-real').disabled=false;
       },onChanged:()=>{state.calibration=null;commit();}});
       if(!current()){disposeDevices?.();return;}
       await awaitVisibleCamera(video,controller.stream,{isCurrent:current});
       if(!current())return;
-      if(!controller.stream.getAudioTracks().some(t=>t.readyState==='live'&&t.enabled&&!t.muted))throw new Error('Your microphone is not ready. Connect it before starting.');
+      assertMicrophoneReady(controller.stream,engine.audioContext);
       $('stage').dataset.previewReady='true';
       $('start-session').disabled=false;$('enter-note').textContent='Preview visible · microphone connected. Nothing is recorded until you start.';
       $('connect-real').textContent='Check preview again';applyOverlays();
@@ -188,6 +192,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     $('enter-note').textContent='Preparing your private recording…';
     try{
       await awaitVisibleCamera(controller.video,controller.stream,{isCurrent:current});
+      assertMicrophoneReady(controller.stream,engine.audioContext);
       const wizard=toWizard(settings,{program:session.program,mode,contextSources:session.contextSources||[],retry:session.retry||null,priority:session.priority,interviewPolicy:controller.interviewPolicy});
       const context=mode==='mock'?await liveContext({wizard,interviewSet:plan,targetQuestions}):null;
       if(!current())return;

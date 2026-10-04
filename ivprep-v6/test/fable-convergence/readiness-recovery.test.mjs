@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {mountDeviceControls} from '../../public/studio-fable/app/adapters/device-controls.mjs';
+import {assertMicrophoneReady} from '../../public/studio-fable/app/adapters/media-readiness.mjs';
 
 const read=path=>readFileSync(new URL('../../public/studio-fable/'+path,import.meta.url),'utf8');
 const room=read('app/room.mjs'),calibration=read('app/calibration.mjs');
@@ -14,12 +15,12 @@ function fixture(){
   const selects=[{disabled:false,options:[{}]},{disabled:false,options:[{}]}];
   const host={hidden:true},stream={getAudioTracks:()=>[{readyState:'live',enabled:true,muted:false}]};
   let options=null,current=true,visible=false,acquires=0;
-  const engine={events:{adds:0,addEventListener(){this.adds++;}},begins:0,beginAnswer(){this.begins++;},setOverlayVisibility(){}};
+  const engine={audioContext:{state:'running'},events:{adds:0,addEventListener(){this.adds++;}},begins:0,beginAnswer(){this.begins++;},setOverlayVisibility(){}};
   const scope={current:()=>current,$:element,main:{querySelector:()=>host,querySelectorAll:()=>selects},
     controller:{phase:'READY',stream,mountVideo:()=>({}),acquire:async()=>{acquires++;return engine;},switchDevice:async()=>{}},
     mountDeviceControls:async(_host,input)=>{options=input;host.hidden=false;return()=>{};},
-    awaitVisibleCamera:async()=>{if(!visible)throw new Error(black);},bindPrimaryRecovery:()=>()=>{},
-    engine:null,disposePrimary:null,disposeDevices:null,deviceSwitching:false,starting:false,started:false,disposed:false,connecting:false,
+    awaitVisibleCamera:async()=>{if(!visible)throw new Error(black);},assertMicrophoneReady,bindPrimaryRecovery:()=>()=>{},
+    engine:null,disposePrimary:null,disposeDevices:null,deviceSwitching:false,starting:false,started:false,saving:false,finished:false,disposed:false,connecting:false,
     state:{calibration:{old:true}},commit(){},setDensityControls(){},applyOverlays(){},
   };
   vm.createContext(scope);
@@ -44,6 +45,13 @@ test('actual Room connect exposes camera selection after black preview, with Sta
 test('actual Room stale connect cannot publish readiness after the camera wait',async()=>{
   const f=roomFixture();f.scope.awaitVisibleCamera=async()=>{f.setCurrent(false);};await f.scope.connect();
   assert.equal(f.element('start-session').disabled,true);assert.equal(f.element('stage').dataset.previewReady,'false');
+});
+test('actual Room readiness callback disables Start with recovery copy, but never rewinds a live session',async()=>{
+  const f=roomFixture();f.setVisible(true);await f.scope.connect();assert.equal(f.element('start-session').disabled,false);
+  f.options().onReadinessChanged({ready:false,message:'Your microphone disconnected. Reconnect it.'});
+  assert.equal(f.element('start-session').disabled,true);assert.equal(f.element('stage').dataset.previewReady,'false');assert.match(f.element('enter-note').textContent,/microphone disconnected/);
+  f.scope.started=true;f.element('stage').dataset.previewReady='true';f.element('enter-note').textContent='Live interview';
+  f.options().onReadinessChanged({ready:false,message:'Disconnected'});assert.equal(f.element('stage').dataset.previewReady,'true');assert.equal(f.element('enter-note').textContent,'Live interview');
 });
 function calibrationFixture(){
   const f=fixture();Object.assign(f.scope,{ctx:{started:false,volSeen:new Set()},resolved:{},steps:[
@@ -85,8 +93,8 @@ function deviceHost(){
 }
 test('real device control verifies exact switched capture and microphone; never enables failed or disposed recovery',async()=>{
   const {host,selects,status}=deviceHost(),calls=[],states=[];let visible=false,mic=true,current=true;
-  const stream={getAudioTracks:()=>[{readyState:'live',enabled:true,muted:!mic}]},video={};
-  const dispose=await mountDeviceControls(host,{engine:{real:{currentDevices:()=>({cameraDeviceId:'camera',microphoneDeviceId:'mic'})}},video,getStream:()=>stream,isCurrent:()=>current,
+  const track={readyState:'live',enabled:true,muted:false},stream={getAudioTracks:()=>{track.muted=!mic;return[track];}},video={};
+  const dispose=await mountDeviceControls(host,{engine:{audioContext:{state:'running'},real:{currentDevices:()=>({cameraDeviceId:'camera',microphoneDeviceId:'mic'})}},video,getStream:()=>stream,isCurrent:()=>current,
     mediaDevices:{enumerateDevices:async()=>[{kind:'videoinput',deviceId:'camera',label:'Physical camera'},{kind:'audioinput',deviceId:'mic',label:'Microphone'}]},
     switchDevice:async(kind,id)=>{calls.push([kind,id]);},onSwitching:(value,ready)=>states.push([value,ready]),
     verifyVisible:async(actualVideo,actualStream)=>{assert.equal(actualVideo,video);assert.equal(actualStream,stream);if(!visible)throw new Error(black);}});
@@ -105,7 +113,8 @@ test('disposed device controls cannot publish readiness after their final awaite
   const {host,selects}=deviceHost(),states=[];let refreshes=0,releaseRefresh,enteredRefresh;
   const refreshEntered=new Promise(resolve=>{enteredRefresh=resolve;});
   const pendingRefresh=new Promise(resolve=>{releaseRefresh=resolve;});
-  const dispose=await mountDeviceControls(host,{engine:{real:{currentDevices:()=>({})}},video:{},getStream:()=>({getAudioTracks:()=>[{readyState:'live',enabled:true,muted:false}]}),
+  const track={readyState:'live',enabled:true,muted:false},stream={getAudioTracks:()=>[track]};
+  const dispose=await mountDeviceControls(host,{engine:{audioContext:{state:'running'},real:{currentDevices:()=>({})}},video:{},getStream:()=>stream,
     mediaDevices:{enumerateDevices:async()=>{if(++refreshes===2){enteredRefresh();await pendingRefresh;}return[{kind:'videoinput',deviceId:'camera'}];}},
     switchDevice:async()=>{},verifyVisible:async()=>{},onSwitching:(value,ready)=>states.push([value,ready])});
   const camera=selects[0];camera.value='camera';const change=camera.listeners.get('change')({currentTarget:camera});

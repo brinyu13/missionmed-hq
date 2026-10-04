@@ -151,6 +151,7 @@ export async function createEngine({mode='real',video,overlayCanvas,csrfToken=''
       applyBaseline(baselines.load(subject,{deviceProfile:profile()})); return stream;
     },
     get latest(){return real.latest;},get stream(){return real.bridge.media.stream;},get audioContext(){return real.bridge.audioContext;},get personalCalibration(){return baseline;},
+    resumeInputAudio(){return real.bridge.primeAudioContext();},
     get calibrationResolution(){
       const current=baselines.load(subject,{deviceProfile:profile()});
       if(current?.createdAtMs!==baseline?.createdAtMs||current?.configVersion!==baseline?.configVersion)return null;

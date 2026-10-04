@@ -120,9 +120,11 @@ export class AccountRecordingController extends EventTarget {
     sessionNow = null,
     recordingStartSessionMs = null,
     probePlayableDuration = browserPlayableDurationMs,
+    assertCaptureReady = () => {},
   } = {}) {
     super();
     this.api = api;
+    this.assertCaptureReady = assertCaptureReady;
     this.stream = stream;
     this.enabled = enabled && Boolean(globalThis.MediaRecorder) && Boolean(stream);
     this.sessionId = sessionId;
@@ -187,6 +189,7 @@ export class AccountRecordingController extends EventTarget {
   async start() {
     if (this.destroyed) return false;
     if (!this.enabled || this.state !== 'READY') return false;
+    this.assertCaptureReady();
     const candidate = this.recordingRole === 'candidate_audio';
     if (candidate && (!this.parentRecordingId || !this.mime
       || this.stream?.getVideoTracks?.().length || this.stream?.getAudioTracks?.().length !== 1)) {
@@ -200,6 +203,7 @@ export class AccountRecordingController extends EventTarget {
       mime: this.mime || 'video/webm',
     });
     if (this.destroyed) throw new Error('recording_closed');
+    this.assertCaptureReady(); // allocation awaited; never start a stale input owner
     if (candidate) {
       const receipt = this.recording.captureReceipt;
       if (this.recording.recordingRole !== 'candidate_audio'

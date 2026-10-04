@@ -5,6 +5,7 @@ import vm from 'node:vm';
 import {sealDerivedEvidence} from '../../public/studio-fable/app/adapters/derived-evidence.mjs';
 import {projectSavedAttempt} from '../../public/studio-fable/app/adapters/saved-review.mjs';
 import {toWizard,defaultSettings,resolveMockQuestionTarget} from '../../public/studio-fable/app/settings/interviewer.mjs';
+import {assertMicrophoneReady} from '../../public/studio-fable/app/adapters/media-readiness.mjs';
 
 const source=readFileSync(new URL('../../public/studio-fable/app/room.mjs',import.meta.url),'utf8');
 const section=(from,to)=>source.slice(source.indexOf(from),source.indexOf(to,source.indexOf(from)));
@@ -21,9 +22,9 @@ function roomFixture(density,{mode='practice',target=null,goal='Guided Mock IV P
   const camera=new Promise(resolve=>{resolveCamera=resolve;});
   const context={density,initialPresentationMode:null,starting:false,started:false,saving:false,finished:false,disposed:false,deviceSwitching:false,
     current:()=>true,$:element,room,main:{querySelectorAll:()=>[],querySelector:()=>({remove(){}})},
-    controller:{video:{},stream:{},elapsed:2,interviewPolicy,startSession:async input=>{launched=input;return{interviewer:{}};},finishSession:async({record})=>{filed=record;return{saveError:'retry retained'};}},
-    engine:{events:{addEventListener(){},removeEventListener(){}},personalCalibration:null},settings,session:{priority},mode,targetQuestions,plan,
-    awaitVisibleCamera:()=>camera,toWizard,liveContext:async input=>{contextInput=input;return{};},observer:null,callbacks:{},onFrame(){},onState(){},onWord(){},
+    controller:{video:{},stream:{getAudioTracks:()=>[{readyState:'live',enabled:true,muted:false}]},elapsed:2,interviewPolicy,startSession:async input=>{launched=input;return{interviewer:{}};},finishSession:async({record})=>{filed=record;return{saveError:'retry retained'};}},
+    engine:{audioContext:{state:'running'},events:{addEventListener(){},removeEventListener(){}},personalCalibration:null},settings,session:{priority},mode,targetQuestions,plan,
+    awaitVisibleCamera:()=>camera,assertMicrophoneReady,toWizard,liveContext:async input=>{contextInput=input;return{};},observer:null,callbacks:{},onFrame(){},onState(){},onWord(){},
     mark:(kind,label)=>events.push({t:2,kind,label}),events,turns:[],saveRecord:null,at:()=>2,renderPlan(){},recorder:{setData(){},tick(){}},history:{slice:()=>samples},
     timer:null,setInterval:()=>1,resetIdle(){},disposeDevices:null,state:{preferences:{}},commit(){},saveVisibility(){},
     detach(){},deriveDebrief:()=>({change:[]}),hookLedger:()=>[],closingLedger:()=>null,uid:()=> 'attempt',showSaveFailure(){},showSaved(){},

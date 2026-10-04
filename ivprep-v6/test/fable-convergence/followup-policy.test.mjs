@@ -16,6 +16,7 @@ if(!globalThis.CustomEvent)globalThis.CustomEvent=class extends Event{constructo
 const policy={schema:'ivoc.interview-policy.v1',version:3,maxFollowUpsPerAnswer:1,defaultFollowUpDepth:1,defaultPressureEnabled:false};
 const actor={receipt:`ctxpack:bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb@${'c'.repeat(64)}`,actorBlock:'AUTHORIZED APPLICATION CONTEXT\nAPPLICANT FACTS:\n- none provided',interviewPolicy:policy};
 const question={question_id:'CORE-01',canonical_text:'Tell me about yourself.'};
+const readyEngine=()=>{const track={readyState:'live',enabled:true,muted:false};return{stream:{getAudioTracks:()=>[track]},audioContext:{state:'running'}};};
 test('one authoritative cap bounds Easy presets, Advanced summary and observer policy',()=>{
   const requested={...defaultSettings(),depth:2,maxFollowUps:8,advanced:true};
   assert.equal(conductorConfig(requested,{interviewPolicy:policy}).maxDepth,1);
@@ -77,7 +78,7 @@ test('fresh account policy change rejects before prepare, recording or provider 
   const api={identity:{subject:'wp:1',admin:false},bootstrap:async()=>({entitlement:{admitted:true},identity:{subject:'wp:1',admin:false},interviewPolicy:currentPolicy})};
   const durable={api,ready:true,prepare:async()=>{prepare++;},start:async()=>{record++;}};
   const controller=new SessionController({liveFactory:()=>{provider++;throw new Error('No provider allowed.');}});
-  controller.account={subject:'wp:1',role:'student',api,durable,interviewPolicy:policy,liveInterviewAvailable:true};controller.durable=durable;controller.engine={stream:{}};controller.phase='READY';
+  controller.account={subject:'wp:1',role:'student',api,durable,interviewPolicy:policy,liveInterviewAvailable:true};controller.durable=durable;controller.engine=readyEngine();controller.phase='READY';
   await assert.rejects(()=>controller.startSession({mode:'mock',wizard:toWizard(defaultSettings(),{interviewPolicy:policy})}),error=>error.code==='ivoc_interview_policy_changed');
   assert.equal(prepare,0);assert.equal(record,0);assert.equal(provider,0);assert.deepEqual(controller.interviewPolicy,currentPolicy);assert.equal(controller.phase,'READY');
 });
@@ -85,7 +86,7 @@ test('policy changing during durable preparation rejects before recording and ab
   let currentPolicy=policy,records=0,providers=0,abandons=0;
   const api={identity:{subject:'wp:1',admin:false},bootstrap:async()=>({entitlement:{admitted:true},identity:{subject:'wp:1',admin:false},interviewPolicy:currentPolicy})};
   const durable={api,ready:true,accountSession:null,prepare:async()=>{durable.accountSession={id:'prepared-own-session'};currentPolicy={...policy,version:4};},start:async()=>{records++;},abandon:async()=>{abandons++;durable.accountSession=null;}};
-  const controller=new SessionController({mixFactory:()=>null,liveFactory:()=>{providers++;}});controller.account={subject:'wp:1',role:'student',api,interviewPolicy:policy,liveInterviewAvailable:true};controller.durable=durable;controller.engine={stream:{}};controller.phase='READY';
+  const controller=new SessionController({mixFactory:()=>null,liveFactory:()=>{providers++;}});controller.account={subject:'wp:1',role:'student',api,interviewPolicy:policy,liveInterviewAvailable:true};controller.durable=durable;controller.engine=readyEngine();controller.phase='READY';
   await assert.rejects(()=>controller.startSession({mode:'mock',wizard:toWizard(defaultSettings(),{interviewPolicy:policy})}),error=>error.code==='ivoc_interview_policy_changed');
   assert.equal(records,0);assert.equal(providers,0);assert.equal(abandons,1);assert.equal(durable.accountSession,null);assert.equal(controller.interviewPolicy.version,4);
 });
