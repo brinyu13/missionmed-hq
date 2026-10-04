@@ -1,7 +1,7 @@
 import {serializeFounderPresentation} from './founder-presentation-serializer.js';
 import {resolveFounderPresentationSvg} from './resolved-founder-presentation.js';
 import {parsePresentationXml,xmlNodes} from './presentation-xml.js';
-import {applySceneCommandToDocument} from '../editor/scene-commands.js';
+import {applyLocalLayoutCriticSceneCommand} from '../editor/scene-commands.js';
 import {setAxisPresentationOverride,setAxisSegmentWeights} from '../uxr-002/advanced-studio.js';
 import {locked407FMilestoneGeometry} from '../uxr-002/locked-407f-export.js';
 
@@ -191,7 +191,7 @@ function pinMeasuredAutomaticEvents(document,projection){
   let next=clone(document);
   for(const target of projection.localContext.targetMap.values()){
     if(!target.editable)continue;
-    const pinned=applySceneCommandToDocument(next,{kind:'geometry',target:{type:'event',id:target.objectId},geometry:{...target.geometry},
+    const pinned=applyLocalLayoutCriticSceneCommand(next,{kind:'geometry',target:{type:'event',id:target.objectId},geometry:{...target.geometry},
       create:{type:'event',semanticRef:target.eventId,aspectLocked:false,presentation:{eventType:target.kind==='MILESTONE'?'milestone':'duration',localLayoutCriticAuto:true,...(target.kind==='MILESTONE'?{guardianAnchor:'axis'}:{})}},label:'Preserve current automatic composition'},projection.localContext.options);
     if(pinned.changed)next=pinned.document;
   }
@@ -250,7 +250,7 @@ export async function applyLayoutRecommendations(document,output,expected,{sourc
           const flag=locked407FMilestoneGeometry(dated.rendered.scene,target.eventId);
           const datedGeometry=target.kind==='MILESTONE'?flag:body?.bounds;
           if(!datedGeometry)throw error('LAYOUT_CRITIC_DATE_REFLOW_UNAVAILABLE');
-          const placed=applySceneCommandToDocument(candidate,{kind:'geometry',target:{type:'event',id:target.objectId},geometry:{...target.geometry,x:datedGeometry.x,width:datedGeometry.width},
+          const placed=applyLocalLayoutCriticSceneCommand(candidate,{kind:'geometry',target:{type:'event',id:target.objectId},geometry:{...target.geometry,x:datedGeometry.x,width:datedGeometry.width},
             create:{type:'event',semanticRef:target.eventId,aspectLocked:false,presentation:{eventType:target.kind==='MILESTONE'?'milestone':'duration',localLayoutCriticAuto:true,...(target.kind==='MILESTONE'?{guardianAnchor:'axis'}:{})}},label:'Local geometry review: reflow native date anchors'},current.localContext.options);
           if(placed.changed)candidate=placed.document;
         }
@@ -260,7 +260,7 @@ export async function applyLayoutRecommendations(document,output,expected,{sourc
         // Pin actual full native paint before the first authored event command
         // disables automatic composition. No biography/semantic event is edited.
         candidate=pinMeasuredAutomaticEvents(candidate,current);
-        const placed=applySceneCommandToDocument(candidate,{kind:'geometry',target:{type:'event',id:target.objectId},geometry:{...target.geometry,y:op.y},
+        const placed=applyLocalLayoutCriticSceneCommand(candidate,{kind:'geometry',target:{type:'event',id:target.objectId},geometry:{...target.geometry,y:op.y},
           create:{type:'event',semanticRef:target.eventId,aspectLocked:false,presentation:{eventType:target.kind==='MILESTONE'?'milestone':'duration',localLayoutCriticAuto:true,...(target.kind==='MILESTONE'?{guardianAnchor:'axis'}:{})}},label:'Local geometry review: move event vertically'},current.localContext.options);
         if(!placed.changed){reject(index,'LAYOUT_CRITIC_NO_CHANGE');continue;}
         candidate=placed.document;movedId=target.eventId;

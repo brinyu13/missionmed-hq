@@ -4,7 +4,7 @@ import {projectLayoutCritic,applyLayoutRecommendations,layoutCriticDigest,measur
 import {createLocalLayoutCritic,LOCAL_LAYOUT_CRITIC_PATH,LOCAL_LAYOUT_CRITIC_OUTPUT_SCHEMA} from '../scripts/local-layout-critic.mjs';
 import {serializeFounderPresentation} from '../web/js/presentation/founder-presentation-serializer.js';
 import {resolveFounderPresentationSvg} from '../web/js/presentation/resolved-founder-presentation.js';
-import {applySceneCommandToDocument} from '../web/js/editor/scene-commands.js';
+import {applySceneCommandToDocument,applyLocalLayoutCriticSceneCommand} from '../web/js/editor/scene-commands.js';
 import {FOUNDER_2025_MATRIX} from './fixtures/founder-2025-matrix.mjs';
 
 // All inputs here are explicit synthetic unit fixtures. Network is injected;
@@ -136,7 +136,7 @@ async function generatedCollision(two=false){
   const first=await projectLayoutCritic(document,options),target=first.localContext.targetMap.get('e0001');
   // A prior critic-owned automatic anchor is not a user-authored placement.
   // This synthetic same-geometry state deliberately contains a real collision.
-  for(const entry of first.localContext.targetMap.values())document=applySceneCommandToDocument(document,{kind:'geometry',target:{type:'event',id:entry.objectId},geometry:{...entry.geometry,...(entry.eventId===target.eventId?{y:300}:{})},
+  for(const entry of first.localContext.targetMap.values())document=applyLocalLayoutCriticSceneCommand(document,{kind:'geometry',target:{type:'event',id:entry.objectId},geometry:{...entry.geometry,...(entry.eventId===target.eventId?{y:300}:{})},
     create:{type:'event',semanticRef:entry.eventId,aspectLocked:false,presentation:{eventType:'duration',localLayoutCriticAuto:true}}},options).document;
   if(document.presentationOverrides?.axis)document.presentationOverrides.axis.localLayoutCriticAuto=true;
   document.advanced.textBlocks=[{id:'synthetic-obstacle',text:'Synthetic obstacle',x:target.geometry.x+40,y:300,width:180,height:30,size:18,font:'Arial'}];

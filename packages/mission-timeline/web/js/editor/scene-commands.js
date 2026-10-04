@@ -232,7 +232,14 @@ function duplicateGroup(scene,group,command){
   return{changed:true,selection:{type:"group",id}};
 }
 
+// Identity stays inside this module; command fields/options cannot impersonate it.
+const localCriticOrigin=Symbol('local layout critic');
+
 export function executeSceneCommand(inputScene={},command={}){
+  return executeSceneCommandInternal(inputScene,command);
+}
+
+function executeSceneCommandInternal(inputScene={},command={},origin=null){
   assertPresentationOnlyCommand(command);
   const scene=clone(inputScene);
   const validity=validateSceneGraph(scene);
@@ -347,6 +354,19 @@ export function executeSceneCommand(inputScene={},command={}){
   }
 
   if(!changed)return{scene:inputScene,changed:false,selection,label:null};
+  if(origin!==localCriticOrigin){
+    // Human geometry and grouping take ownership, including every transformed
+    // child. Copies/created objects must not inherit automatic ownership.
+    const affected=kind==='geometry'
+      ?group?.childIds||[selection?.id]
+      :['add','duplicate','group'].includes(kind)
+        ?sceneGroupById(scene,selection?.id)?.childIds||[selection?.id]
+        :[];
+    for(const id of affected){
+      const item=sceneObjectById(scene,id);
+      if(item?.presentation)delete item.presentation.localLayoutCriticAuto;
+    }
+  }
   bump(scene);
   const nextValidity=validateSceneGraph(scene);
   if(!nextValidity.valid)throw new TypeError(nextValidity.errors.join(" "));
@@ -361,11 +381,29 @@ function semanticSnapshot(document={}){
   });
 }
 
-export function applySceneCommandToDocument(document={},command={},{scope='EVERYTHING'}={}){
+export function applySceneCommandToDocument(document={},command={},options={}){
+  return applySceneCommandInternal(document,command,options);
+}
+
+// Internal integration seam for the critic's already validated native event
+// geometry. Never accepts an authored target, group, semantic edit or UI origin
+// flag. The private origin identity is passed only here, never on the command.
+export function applyLocalLayoutCriticSceneCommand(document={},command={},options={}){
+  if(document.layoutLock===true)throw new TypeError('The critic cannot edit a globally locked layout.');
+  if(command.kind!=='geometry'||command.target?.type!=='event')throw new TypeError('Automatic critic commands require native event geometry.');
+  const existing=migrateAdvancedScene(synchronizeAdvancedSceneDocument(document).advanced).scene.objects.find(item=>item.id===command.target.id);
+  if(existing&&(existing.type!=='event'||existing.presentation?.localLayoutCriticAuto!==true))throw new TypeError('The critic cannot take ownership of authored geometry.');
+  if(!existing&&(!command.create||command.create.type!=='event'||!command.create.semanticRef||!(document.events||[]).some(event=>event.id===command.create.semanticRef)))throw new TypeError('Automatic geometry requires an existing semantic event.');
+  const trusted=clone(command);
+  if(trusted.create)trusted.create.presentation={...(trusted.create.presentation||{}),localLayoutCriticAuto:true};
+  return applySceneCommandInternal(document,trusted,options,localCriticOrigin);
+}
+
+function applySceneCommandInternal(document={},command={},{scope='EVERYTHING'}={},origin=null){
   const semanticBefore=semanticSnapshot(document);
   const synchronized=synchronizeAdvancedSceneDocument(document);
   const migration=migrateAdvancedScene(synchronized.advanced,{revision:synchronized.revision});
-  const result=executeSceneCommand(migration.scene,command);
+  const result=executeSceneCommandInternal(migration.scene,command,origin);
   if(!result.changed)return{document,changed:false,selection:result.selection,label:null,scene:migration.scene};
   const next=clone(synchronized);
   // Freeze the displayed automatic axis when the first authored event geometry
