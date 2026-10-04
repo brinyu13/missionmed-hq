@@ -5,7 +5,7 @@ Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`, `DR-350` (narrow packaging), `DR-361` (current RISE eligibility successor); `DR-340` QA grant revoked
 Branch: `codex/ivoc-foreman-9200`
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
-Current terminal status: `EXPERIENCE / ANALYTICS / PEDAGOGY RECOVERY — ACCEPTANCE REOPENED`
+Current continuation boundary: `FOUNDER ACCEPTANCE READY — FULL PRODUCT COMPLETION UNCLAIMED`
 
 This is the one living requirement ledger required by the final Founder
 completion directive. A status of `LIVE UNVERIFIED` means the capability is
@@ -15,6 +15,49 @@ the actual production route and deployment.
 ## Foreman 9300 overnight reactivation — current dated evidence
 
 ### Current Fable-to-production convergence — 2026-10-03
+
+- 2026-10-04 FINAL NORMAL-ENTRY EVIDENCE BOUNDARY (PRODUCT4641):
+  Independent non-builder actual root Home ->Practice Core02 ->Back; Mock
+  Easy/Advanced purpose and193-question drawer ->Back; Prepare actual SUNY/
+  Internal Medicine/NY ->3 readable RISE results ->SUNY Upstate selection ->
+  retained Mock program; own saved1ca228aa ->Full Analytics ->Film ->cold reload;
+  Advanced Progress; genuine brinyu Admin selected-account history all PASS.
+  Root separately proved genuine selected wp:142 Results and exact Admin deep
+  fragment/cold restoration. Review tab closed; no confirmed dead control and
+  no new capture/provider/data/settings writes. Current Fable Home remains open
+  in Chrome. No builder-only test is being substituted for a full media journey.
+  Source preservation reconciliation assigned all142 rows to explicit homes;
+  no full142-row LIVE VERIFIED claim. Current source after this receipt differs
+  from deployed fda8fab only in this ledger. Runtime c915d394 remains healthy;
+  exact58tKpv artifact/image and predecessor artifacts above are rollback custody.
+  SHARED4638 released normally17:04:55.083731Z, remotely confirmed; authorized
+  MR owner chat received handback and combined-lineage preservation requirement.
+  Workers stopped. No remaining concrete executable integration defect found
+  by this bounded current-source/current-root sweep. Accepted unchanged scopes
+  stay ratcheted; remaining evidence is NOT marked complete or repeatedly polled.
+  Genuine remaining gates / next-check conditions:
+  - Physical all11 calibration actions, saved personal baseline cold restoration
+    and moving-hand/finger spatial alignment: next genuine device rehearsal.
+    Root live tab selection PASS; independent Voice-tab pointer incident remains
+    UNVERIFIED (source/DOM target investigation found no justified product patch).
+  - Actual candidate speech ->grounded follow-up ->Bottom Lining ->barge-in ->
+    next question ->multiple candidate closing questions/sign-off ->save:
+    next genuine human Mock, not another synthetic provider test.
+  - Film replay HEAR BOTH and sensible synchronization after cold reload:
+    listen to that same genuine saved Mock; this tooling cannot hear playback.
+  - Second Admin, entitled360, negative/wrong-owner/revoked playback and
+    different-browser preferences: genuine authorized login/account evidence,
+    not Founder presentation-role toggles or invented QA grants.
+  - Positive current CV/File Vault and consented StoryForge projections:
+    current authorized owner data/consent event; no raw document duplication.
+  - Meaningful longitudinal recurrence and Webex recording: real new sessions
+    or provider completion event; no repeated unchanged processing audit.
+  True eye-gaze remains unsupported. External TTS and active LemonSlice remain
+  explicitly deferred. Next executable action when evidence arrives: normal
+  root ->Devices & Calibration ->genuine short Mock ->Results ->Film ->cold
+  replay; fix-forward any observed defect under standing authority. Until then
+  FOUNDER ACCEPTANCE READY is the latest directive's fallback, NOT goal achieved
+  or IVOC AAA PRODUCTION COMPLETE. No percentage is invented.
 
 - 2026-10-04 CORRECTED ROOT LIVE POV (SHARED4638):
   Current deployed source fda8fab6eacc84ae7c10b32f622af65a6b4b7b48,
