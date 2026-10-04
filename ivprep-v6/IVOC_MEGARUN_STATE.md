@@ -38,6 +38,32 @@ the actual production route and deployment.
   Replay-only stage/child constraints remove that minimum without touching live
   camera sizing, overlays, recording, timeline or playback handlers. Included in
   the same bounded presentation fix-forward; live recheck pending, no audible claim.
+- Review correction source726d313d0eb638bf038e76478b022a5f0bf94315 LIVE
+  SUCCESS90da7913-7249-484f-84ac-1add4efc21db, image
+  sha256:1236118d7ebc7ac95e322cf35aa8137e0ca57ec348faaf3a5c7f7933e06f542c.
+  Exact1268-file tracked artifactivoc-release-artifact-eHmGoI/source.tar,
+  SHA563f2990347c9cfca79ff139f6ef283ec44173050f2085742d7932b6fadb3f13.
+  Health200/anonymous root,candidate,bootstrap401.15 affectedtestsPASS;
+  independent source reviewPASS. Actual normalHome -> Review24/24 -> 1caResults
+  coaching readabilityPASS(prose132px vs27px); FullAnalytics visible/readable.
+  Film320x844: page320/stage292x164 vsold704/690; saved-frame playback controls
+  fit. Pace marker seeks4.278s, remainspaused, recorder clock00:04. Replay768
+  and desktop1312 fit. Fresh non-builder320x844 picker(search/preview/keyboard
+  Full library/Done) -> Review24/24 -> Results -> FullAnalytics -> pausedFilm ->
+  HomePASS/noP0/P1. Minor narrow pace-prose wrapping remainsP2, not a core blocker.
+  No new capture/provider/session/data/preferences; no audible replay claimed.
+  Separate320px Program POV: readable real Abington/Internal Medicine search,
+  selection -> retained Mock program identityPASS; conversation hydration not claimed.
+  Viewport overrides reset and both temporary tabs closed. PRODUCT4501 and
+  deployment4502 normally released/readback; PRODUCT4503 files this receipt then
+  releases. Prior exactd428560/c941136b/imageb65ea/artifact2gCfIT is rollback;
+  REMOVED is terminal: exact artifact redeploy, no destructive source rollback.
+  Root remains legacy, candidate unpromoted. Next critical proof remains genuine
+  current-candidate visible camera/answer-grounded multi-turn/barge-in/pool move-on/
+  closing -> save -> both voices HEARD after cold replay. Changed physical camera
+  evidence, genuine candidate speech/hearing, real role logins and authorized owner
+  data are not fabricated. No renewed unchanged-provider/device audit or full142-row
+  parity/completion claim. Goal stays active; accepted changed-boundary checks ratchet.
 - **IN PROGRESS; final acceptance incomplete.** The repeated30% estimate is
   withdrawn: it was a coarse, stale acceptance estimate, not a newly calculated
   weighted completion measure. Source wiring and individual checks must not be
