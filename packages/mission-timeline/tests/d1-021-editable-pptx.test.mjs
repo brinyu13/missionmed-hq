@@ -82,7 +82,7 @@ test('final SVG geometry, rotation, curves and native group identity drive the e
   const title=scene.nodes.find(n=>n.kind==='text'&&n.text.startsWith('Timeline:'));
   assert.equal(title.bounds.rotation,0);assert.ok(title.fontFamily.includes('American Typewriter'));
   assert.ok(scene.nodes.some(n=>n.kind==='path'&&n.commands.some(c=>c.curve?.type==='cubic')));
-  assert.ok(scene.nodes.some(n=>Math.abs(n.bounds.rotation+10)<.001),'polaroid frame rotation remains exact');
+  assert.ok(scene.nodes.some(n=>Math.abs(n.bounds.rotation-10)<.001),'polaroid frame retains the golden clockwise rotation');
   assert.equal(scene.groups.find(g=>g.id==='object:group-text').parentId,'advanced-group:proof-group');
   assert.ok(!scene.nodes.some(n=>n.sourceAttributes['data-axis-hit-target']));
   assert.throws(()=>parsePresentationXml('<!DOCTYPE svg [<!ENTITY x SYSTEM "file:///etc/passwd">]><svg/>'),/DTD_DENIED/);
