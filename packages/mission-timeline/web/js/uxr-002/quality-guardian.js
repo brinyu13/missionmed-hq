@@ -1,7 +1,4 @@
-import {
-  analyzeCollisionLayout,
-  deterministicAutoArrange
-} from "../editor/collision-engine-410.js";
+import {analyzeCollisionLayout} from "../editor/collision-engine-410.js";
 import {escapeHtml} from "./utils.js";
 import {applySceneCommandToDocument} from '../editor/scene-commands.js';
 import {serializeFounderPresentation,assertCompleteFounderPresentation} from '../presentation/founder-presentation-serializer.js';
@@ -571,55 +568,57 @@ function clampObject(item){
   return true;
 }
 
-function collisionCount(document){
-  try{
-    return safeArray(analyzeCollisionLayout(document,{scope:"FULL_STORY"})?.warnings)
-      .filter(({severity})=>severity!=="INFO").length;
-  }catch{return Number.POSITIVE_INFINITY;}
-}
+const MAX_LAYOUT_SEARCH_CANDIDATES=8;
 
-function autoArrangeLanesWithoutWorsening(document){
+function autoArrangeLanesWithoutWorsening(document,initial,budget){
   const events=safeArray(document?.events);
-  const originals=events.map((event)=>({event,lane:event.lane,manualOffset:clone(event.manualOffset)}));
-  const before=collisionCount(document);
-  const arranged=deterministicAutoArrange(events,{scope:"FULL_STORY"});
-  const ordered=events.slice().sort((left,right)=>String(left.id).localeCompare(String(right.id)));
-  const laneLimit=Math.max(1,Math.min(10,ordered.length));
-  for(let pass=0;pass<4;pass+=1){
-    let improved=false;
-    for(const event of ordered){
-      const currentLane=Number.isInteger(event.lane)?event.lane:0;
-      let bestLane=currentLane;
-      let bestScore=collisionCount(document);
-      for(let lane=0;lane<laneLimit;lane+=1){
-        event.lane=lane;
-        const score=collisionCount(document);
-        if(score<bestScore){bestScore=score;bestLane=lane;}
-      }
-      event.lane=bestLane;
-      if(bestLane!==currentLane)improved=true;
+  const visible=new Set(initial.boxes.filter(box=>box.kind==='event').map(box=>String(box.id)));
+  const authored=new Set(safeArray(document?.advanced?.scene?.objects)
+    .filter(object=>object.type==='event')
+    .flatMap(object=>[String(object.semanticRef||''),String(object.id||'')]));
+  // The chronological composer ignores unlocked lane values and all milestone
+  // lanes. Do not mutate or serialize those ineffective candidates. An explicit
+  // Advanced event placement also owns its geometry independently of lanes.
+  const ordered=events.filter(event=>visible.has(String(event.id))&&
+    event.manualOffset?.laneLocked&&Number.isInteger(event.lane)&&
+    String(event.eventType??event.kind??event.type??'').toLowerCase()!=='milestone'&&
+    event.categoryId!=='education'&&event.fields?.builderDomain!=='explanation'&&
+    !authored.has(String(event.id)))
+    .sort((left,right)=>String(left.id).localeCompare(String(right.id)));
+  const before=initial.stats.collisionCount;
+  let bestReview=initial,changed=false;
+  const laneLimit=Math.max(1,Math.min(10,events.length));
+  for(const event of ordered){
+    if(!budget.remaining||!bestReview.stats.collisionCount)break;
+    const currentLane=event.lane;
+    let bestLane=currentLane;
+    for(let lane=0;lane<laneLimit&&budget.remaining;lane+=1){
+      if(lane===currentLane)continue;
+      budget.remaining--;
+      event.lane=lane;
+      try{
+        const review=analyzeCollisionLayout(document,{scope:'FULL_STORY'});
+        if(review.stats.collisionCount<bestReview.stats.collisionCount){
+          bestReview=review;bestLane=lane;
+        }
+      }catch{}finally{event.lane=currentLane;}
+      if(!bestReview.stats.collisionCount)break;
     }
-    if(!improved)break;
+    event.lane=bestLane;
+    if(bestLane!==currentLane)changed=true;
   }
-  const after=collisionCount(document);
-  if(!(after<before)){
-    for(const {event,lane,manualOffset} of originals){
-      if(lane===undefined)delete event.lane;else event.lane=lane;
-      if(manualOffset===undefined)delete event.manualOffset;else event.manualOffset=manualOffset;
-    }
-    return{...arranged,changed:false,before,after:before};
-  }
-  return{...arranged,changed:true,before,after};
+  return{changed,before,after:bestReview.stats.collisionCount,review:bestReview};
 }
 
-function reflowMilestonePresentation(document){
-  const initial=analyzeCollisionLayout(document,{scope:'FULL_STORY'});
+function reflowMilestonePresentation(document,initial,budget){
   let bestScore=initial.stats.collisionCount,moved=0;
   if(!bestScore)return{changed:false,moved,before:0,after:0};
   const implicated=new Set(initial.warnings.flatMap(warning=>warning.elementIds));
   const milestones=initial.boxes.filter(box=>box.kind==='milestone'&&implicated.has(box.id)).slice(0,8);
+  let scene=null;
   for(const box of milestones){
-    const scene=serializeFounderPresentation(document,{scope:'FULL_STORY'}).scene;
+    if(!budget.remaining)break;
+    scene=scene||serializeFounderPresentation(document,{scope:'FULL_STORY'}).scene;
     const placed=locked407FMilestoneGeometry(scene,box.id);
     // Respect an explicit Advanced placement/lock. This repair owns only new
     // offsets and its prior offsets; it never changes date-axis x positions.
@@ -633,6 +632,8 @@ function reflowMilestonePresentation(document){
       .filter(y=>Math.abs(y-placed.y)>.01).sort((a,b)=>Math.abs(a-placed.y)-Math.abs(b-placed.y));
     let best=null;
     for(const y of positions){
+      if(!budget.remaining)break;
+      budget.remaining--;
       const result=applySceneCommandToDocument(document,{
         kind:'geometry',target:{type:'event',id:placed.object?.id||box.id},
         geometry:{x:placed.x,y,width:placed.width,height:placed.height,rotation:0},
@@ -650,17 +651,18 @@ function reflowMilestonePresentation(document){
       if(score<bestScore){bestScore=score;best=result.document;}
       if(bestScore===0)break;
     }
-    if(best){document.advanced=best.advanced;document.presentationOverrides=best.presentationOverrides;moved++;}
+    if(best){document.advanced=best.advanced;document.presentationOverrides=best.presentationOverrides;moved++;scene=null;}
     if(bestScore===0)break;
   }
   return{changed:moved>0,moved,before:initial.stats.collisionCount,after:bestScore};
 }
 
 function autoArrangeWithoutWorsening(document){
-  const before=collisionCount(document);
-  const lanes=autoArrangeLanesWithoutWorsening(document);
-  const milestones=reflowMilestonePresentation(document);
-  return{...lanes,changed:lanes.changed||milestones.changed,before,after:collisionCount(document),milestonesMoved:milestones.moved};
+  const initial=analyzeCollisionLayout(document,{scope:'FULL_STORY'});
+  const budget={remaining:MAX_LAYOUT_SEARCH_CANDIDATES};
+  const lanes=autoArrangeLanesWithoutWorsening(document,initial,budget);
+  const milestones=reflowMilestonePresentation(document,lanes.review,budget);
+  return{changed:lanes.changed||milestones.changed,before:initial.stats.collisionCount,after:milestones.after,milestonesMoved:milestones.moved};
 }
 
 export function applySafeQualityFixes(document,report=analyzeTimelineQuality(document)){
