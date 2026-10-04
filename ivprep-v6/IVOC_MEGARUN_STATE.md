@@ -16,6 +16,49 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 R109 CALIBRATION / CURRENT AUTHENTICATED REVIEW SUBSET:
+  d8a82056cf0eaa15439962696238c3fd0e5f43aa adds calibration-only Devices,
+  Visual signals, Voice signals and Signal health tabs through the existing
+  readiness adapter.13 live checks exclude two explicitly labelled capability
+  rows; Pauses unavailable. Independent accepted audio/vision/timed-word clocks,
+  camera-independent microphone, actual pixel checks, device invalidation and
+  disposal preserved. Compact Interview Room unchanged.71 focused checks PASS;
+  independent source review PASS (27 targeted checks). IMPLEMENTED_NEEDS_ACCEPTANCE;
+  no production promotion while the shared MR deployment lease remains active.
+  PRODUCT4616 normally released/read back; expanded PRODUCT4622 heartbeating.
+  Current MR523420b/ea2a27b4 runtime: authenticated Prepare SUNY + Internal Medicine
+  + NY returns three readable RISE programs; selected verified identity reaches
+  Mock setup. Review ->same-question Compare ->Progress shows actual saved
+  measurements/history with no invented improvement grades. Admin own actorwp:1
+  selects genuine subjectwp:142; that student's history/Results correctly names
+  the selected student and exposes saved Analytics, private recording and truthful
+  attribution limitations. No mark-reviewed/credits/mentor-note mutation.
+  These are bounded tool-observable receipts, not alternate-role/negative-role,
+  spoken program influence, physical11-instrument or audible two-sided replay
+  acceptance. Next: preserve the MR successor in an authorized clean release;
+  deploy R013/R016/R109 when the exact provider surface is released, then visible
+  Calibration/control/saved-header POV. Root remains unpromoted.
+
+- 2026-10-04 SHARED RUNTIME SUCCESSOR / DEPLOYMENT HELD (PRODUCT4616):
+  fd9b2e0f4dc4075d69b24b9ea8412fb8d1485e94 clean/non-force pushed and exact
+  remote-read back; 1287-file z5yt0O artifact SHA
+  57b97fc89189963de6730e4f5f1482868e306b65153f6e757497c32c86888b01 retained.
+  Immediately-before-mutation provider truth instead showed SUCCESS
+  ea2a27b4-c4b9-43ac-b04c-bcafa6efa26f /image
+  sha256:2f7e6ac94e4a2e3cd6c690e35568403b32f7580cd668adf8fa306349e9576459.
+  Exact owner runtime source is MR523420b4472cd0dcdcf727b41a3a2345f46f70ae;
+  owner release merged/preserved IVOCa4996ac and changes exactly six Zelle paths.
+  ivprep-v6, HQ IVOC/auth/server are byte-identical to a4996ac. Health200.
+  Active MR deployment PATH lease21879c30-6155-4ed3-bed4-259ea17b1b33 epoch4608
+  reserves providers/railway/missionmed-hq/deployment. No IVOC deploy/rollback
+  was issued. SHARED4611 normally released/provider-confirmed. Next release must
+  preserve exact MR successor; never deploy the older whole fd9b2e0 checkout over
+  it. Exact provider path must be included in the next deployment claim. Recheck
+  only at release handoff/change or after independent engineering is complete.
+  Non-conflicting work continues: bounded R109 calibration signal-health panels
+  and current authenticated Review/Compare/Progress POV. Not a global stop or a
+  completion verdict. Root remains unpromoted; no new production source mutation.
+
 - 2026-10-04 R016 ADVANCED PREFERENCES / R013 SAVED IDENTITY (PRODUCT4605):
   serving candidate a4996ac32c38c5184d850080ccf44f1e21b85843 /SUCCESS
   5415359e-ce0f-4f5b-97fd-9bcd406c8961, image
