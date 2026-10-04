@@ -410,7 +410,7 @@ function flagMarkup(flag,index,scale,scene,{interview=false}={}){
      its label off the board. The pole stays on the date; the label flips to the left of the
      flag when there is no room to its right. */
   const labelWidth=String((interview?"Interview":flag.title)||"").length*9.5+8;
-  const labelLayout=scene.autoFlagLabels?.get(String(flag.id));
+  const labelLayout=scene.autoFlagLabels?.get(String(flag.id))||placed.object?.presentation?.flagLabelLayout;
   const flipLabel=labelLayout?.flip??(x+56+Math.max(labelWidth,Math.min(420,String(flag.siteName||"").length*10))>WIDTH-8);
   const sx=placed.width/50,sy=placed.height/64,rotation=placed.rotation;
   const axisAnchored=!!overridden&&placed.object?.presentation?.guardianAnchor==='axis'&&rotation===0;
@@ -923,35 +923,93 @@ function avoidAutomaticMilestoneCollisions(scene,svg){
   const visible=n=>n.bounds&&n.groupId&&Number(n.style.opacity??1)>0&&Number(n.style['fill-opacity']??1)>0&&
     !n.sourceAttributes['data-board-background']&&!n.sourceAttributes['data-advanced-background']&&
     !(n.kind==='path'&&(n.lineOnly||n.style.fill==='none'));
-  const occupied=resolved.nodes.filter(n=>visible(n)&&n.groupId!=='furniture:axis'&&!ids.has(n.groupId)).map(n=>n.occlusionBounds||n.bounds);
+  const occupied=resolved.nodes.filter(n=>visible(n)&&n.groupId!=='furniture:axis'&&!ids.has(n.groupId)).map(n=>n.occlusionBounds||n.bounds).filter(b=>b.y<125&&b.y+b.height>2);
   const intersects=(a,b)=>a.x<b.x+b.width+5&&a.x+a.width+5>b.x&&a.y<b.y+b.height+1&&a.y+a.height+1>b.y;
-  let next={...scene,autoFlagGeometry:new Map(scene.autoFlagGeometry||[]),autoFlagLabels:new Map(scene.autoFlagLabels||[])},changed=false;
-  for(const flag of eligible){
-    const index=scene.flags.indexOf(flag),scale=metrics(next),original=milestoneGeometry(flag,index,scale,next);
-    let best=null;
+  const scale=metrics(scene),measure=scene.measureText||measurePresentationText;
+  const entries=eligible.map(flag=>{
+    const index=scene.flags.indexOf(flag),original=milestoneGeometry(flag,index,scale,scene);
     const adjacentLabel=String(flag.title||'')+(flag.siteName?' — '+String(flag.siteName):'');
     const family=/\b(?:united states(?: of america)?|u\.s\.(?:a\.?)?|usa)\b/i.test(flag.title)?TYPE.event:TYPE.arrowLabel;
-    const naturalWidth=Math.ceil((scene.measureText||measurePresentationText)(adjacentLabel,18,family));
-    // flagMarkup clamps this measured candidate to the available side of the
-    // date pole. A complete school label can fit one line under the plaque.
-    for(const width of [...new Set([420,320,240,560,naturalWidth])])for(const flip of [false,true]){
-      const variant={...next,autoFlagLabels:new Map(next.autoFlagLabels).set(String(flag.id),{width,flip})};
-      const parts=resolveFounderPresentationSvg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">${flagMarkup(flag,index,scale,variant)}</svg>`,{measureText:scene.measureText}).nodes.filter(visible).map(n=>n.occlusionBounds||n.bounds);
-      if(!parts.length)continue;
-      const ys=[original.y,...Array.from({length:334},(_,i)=>4.5+i*.25)].sort((a,b)=>scene.autoMilestoneTopDown?a-b:Math.abs(a-original.y)-Math.abs(b-original.y)||a-b);
+    const legacyWidths=[...new Set([420,320,240,560,Math.ceil(measure(adjacentLabel,18,family))])];
+    const words=adjacentLabel.split(/\s+/).filter(Boolean),breakpoints=[];
+    // A prefix ending at a source word is a real wrapping breakpoint. Cap
+    // these options before painting; never truncate the actual label text.
+    for(let count=1;count<=Math.min(12,words.length);count++)breakpoints.push(Math.ceil(measure(words.slice(0,count).join(' '),18,family))+.5);
+    const widths=[...new Set([...legacyWidths,...breakpoints.filter(w=>w>=64&&w<=1912)])];
+    const variants=[],seen=new Set();
+    for(const width of widths)for(const flip of [false,true]){
+      const variant={...scene,autoFlagLabels:new Map(scene.autoFlagLabels||[]).set(String(flag.id),{width,flip})};
+      const parts=resolveFounderPresentationSvg(`<svg viewBox="0 0 1920 1080">${flagMarkup(flag,index,scale,variant)}</svg>`,{measureText:scene.measureText}).nodes.filter(visible).map(n=>({...n.occlusionBounds||n.bounds,y:(n.occlusionBounds||n.bounds).y-original.y}));
+      if(!parts.length||parts.some(b=>b.x<8||b.x+b.width>1912))continue;
+      const signature=JSON.stringify(parts);
+      if(seen.has(signature))continue;seen.add(signature);
+      variants.push({width,flip,parts,legacy:legacyWidths.includes(width)});
+    }
+    return{flag,original,variants,originalParts:resolved.nodes.filter(n=>visible(n)&&n.groupId==='event:'+flag.id).map(n=>n.occlusionBounds||n.bounds)};
+  });
+  const limit=8192;let expansions=0;
+  const choices=(entry,blocked,{joint=false}={})=>{
+    const found=[];
+    for(const variant of entry.variants){
+      if(!joint&&!variant.legacy)continue;
+      const lower=Math.max(joint?-Infinity:4.5,2-Math.min(...variant.parts.map(b=>b.y)));
+      const upper=Math.min(joint?Infinity:87.75,125-Math.max(...variant.parts.map(b=>b.y+b.height)));
+      const ys=new Set([entry.original.y,lower,upper]);
+      for(const part of variant.parts)for(const other of blocked){
+        if(part.x>=other.x+other.width+5||part.x+part.width+5<=other.x)continue;
+        const before=other.y-part.y-part.height-1,after=other.y+other.height-part.y+1;
+        // Snap legacy choices to its old quarter-unit grid. The joint pass
+        // also explores exact clearance edges within the same upper band.
+        ys.add(joint?before-.01:4.5+Math.floor((before-4.5)/.25)*.25);
+        ys.add(joint?after+.01:4.5+Math.ceil((after-4.5)/.25)*.25);
+      }
       for(const y of ys){
-        const shifted=parts.map(b=>({...b,y:b.y+y-original.y}));
-        if(shifted.every(b=>b.x>=8&&b.x+b.width<=1912&&b.y>=2&&b.y+b.height<=125&&!occupied.some(other=>intersects(b,other)))){
-          const cost=(scene.autoMilestoneTopDown?y:Math.abs(y-original.y))+(flip?8:0)+Math.abs(width-420)/40;
-          if(!best||cost<best.cost)best={cost,y,width,flip,parts:shifted};
-          break;
+        if(y<lower||y>upper)continue;
+        if(joint){if(expansions>=limit)return found;expansions++;}
+        const shifted=variant.parts.map(b=>({...b,y:b.y+y}));
+        if(shifted.every(b=>b.y>=2&&b.y+b.height<=125&&!blocked.some(other=>intersects(b,other)))){
+          const cost=(scene.autoMilestoneTopDown?y:Math.abs(y-entry.original.y))+(variant.flip?8:0)+Math.abs(variant.width-420)/40;
+          found.push({...variant,y,parts:shifted,cost});
         }
       }
     }
-    if(best){next.autoFlagGeometry.set(String(flag.id),{y:best.y});next.autoFlagLabels.set(String(flag.id),{width:best.width,flip:best.flip});occupied.push(...best.parts);changed=true;}
-    else occupied.push(...resolved.nodes.filter(n=>visible(n)&&n.groupId==='event:'+flag.id).map(n=>n.occlusionBounds||n.bounds));
+    return found.sort((a,b)=>a.cost-b.cost||a.y-b.y||Number(a.flip)-Number(b.flip)||a.width-b.width);
+  };
+  // Preserve the recovered greedy result as the incumbent. Critical clearance
+  // edges replace 334 trial y coordinates for every measured variant.
+  const greedy=new Map();let blocked=occupied.slice();
+  for(const entry of entries){
+    const best=choices(entry,blocked)[0];
+    if(best){greedy.set(String(entry.flag.id),best);blocked.push(...best.parts);}
+    else blocked.push(...entry.originalParts);
   }
-  return changed?next:null;
+  let selected=greedy,strategy='greedy';
+  if(greedy.size<entries.length){
+    // Constrained labels first; date/id tie breaks remain deterministic. A
+    // finite beam retains alternative early choices instead of committing
+    // the first pennant and calling later conflicts globally impossible.
+    const ordered=entries.slice().sort((a,b)=>a.variants.length-b.variants.length||monthIndex(a.flag.month)-monthIndex(b.flag.month)||String(a.flag.id).localeCompare(String(b.flag.id)));
+    let states=[{placed:new Map(),blocked:occupied.slice(),cost:0}];
+    for(const entry of ordered){
+      const next=[];
+      for(const state of states){
+        for(const option of choices(entry,state.blocked,{joint:true}).slice(0,12)){
+          next.push({placed:new Map(state.placed).set(String(entry.flag.id),option),blocked:[...state.blocked,...option.parts],cost:state.cost+option.cost});
+        }
+        if(expansions>=limit)break;
+      }
+      states=next.sort((a,b)=>a.cost-b.cost).slice(0,16);
+      if(!states.length||expansions>=limit)break;
+    }
+    const complete=states.find(state=>state.placed.size===entries.length);
+    if(complete){selected=complete.placed;strategy='joint';}
+  }
+  if(!selected.size)return null;
+  const next={...scene,autoFlagGeometry:new Map(scene.autoFlagGeometry||[]),autoFlagLabels:new Map(scene.autoFlagLabels||[]),autoMilestonePacking:{strategy,expansions,limit,greedyPlaced:greedy.size,total:entries.length}};
+  for(const [id,choice] of selected){
+    next.autoFlagGeometry.set(id,{y:choice.y});next.autoFlagLabels.set(id,{width:choice.width,flip:choice.flip});
+  }
+  return next;
 }
 
 export function composeLocked407FPortableSvg(scene,options={}){

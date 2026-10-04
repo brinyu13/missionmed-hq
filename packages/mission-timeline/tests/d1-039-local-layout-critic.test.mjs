@@ -270,3 +270,30 @@ test('media map changes during an asynchronous apply cannot silently complete ag
  await assert.rejects(()=>applyLayoutRecommendations(document,result(p),p.sceneDigest,{...renderOptions,sourceDigest:p.localContext.sourceDigest}),{code:'LAYOUT_CRITIC_STALE_SCENE'});
  assert.equal(JSON.stringify(document),before);
 });
+
+
+test('pinning a resolved long flag preserves its wrap and side through a safe unrelated duration move and JSON reopen',async()=>{
+  const document=await generatedCollision();
+  document.events.push({id:'degree',title:'Synthetic complete medical degree',siteName:'Synthetic International Academic Medical School and Training Institution',categoryId:'education',eventType:'milestone',startDate:'2025-05',visibilityState:'INTERVIEWER_SAFE'});
+  const before=JSON.stringify(document),p=await projectLayoutCritic(document,options),layout=p.localContext.scene.autoFlagLabels.get('degree');
+  assert.ok(layout.width>420);assert.equal(layout.flip,true);
+  const accepted=await applyLayoutRecommendations(document,result(p,[move(p,400)]),p.sceneDigest,options);
+  assert.equal(accepted.applied,1,JSON.stringify(accepted.rejected));assert.ok(accepted.after.collisionCount<accepted.before.collisionCount);
+  const object=accepted.document.advanced.scene.objects.find(item=>item.semanticRef==='degree');
+  assert.deepEqual(object.presentation.flagLabelLayout,layout);assert.deepEqual(accepted.document.events,document.events);assert.equal(JSON.stringify(document),before);
+  const flagPaint=doc=>paint(doc).nodes.filter(node=>node.groupId==='event:degree').map(node=>({kind:node.kind,text:node.text,bounds:node.bounds,style:node.style,commands:node.commands}));
+  const beforePaint=flagPaint(document),afterPaint=flagPaint(accepted.document);
+  // Canonical scene geometry quantizes to 1/64 px; the saved shape and
+  // all material text, style and wrap decisions remain unchanged.
+  const near=(a,b)=>{
+    if(typeof a==='number'&&typeof b==='number'){assert.ok(Math.abs(a-b)<.04,`${a} vs ${b}`);return;}
+    if(a&&b&&typeof a==='object'&&typeof b==='object'){assert.deepEqual(Object.keys(a),Object.keys(b));for(const key of Object.keys(a))near(a[key],b[key]);return;}
+    assert.deepEqual(a,b);
+  };
+  near(afterPaint,beforePaint);
+  const reopened=JSON.parse(JSON.stringify(accepted.document));assert.deepEqual(flagPaint(reopened),afterPaint);
+  const broken=structuredClone(reopened);delete broken.advanced.scene.objects.find(item=>item.semanticRef==='degree').presentation.flagLabelLayout;
+  assert.notDeepEqual(flagPaint(broken),beforePaint,'the fixture must expose the previous loss of width and side');
+  const reopenedProjection=await projectLayoutCritic(reopened,options);
+  assert.equal(reopenedProjection.localContext.targetMap.get('e0002').editable,true);
+});

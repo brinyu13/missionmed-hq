@@ -21,3 +21,43 @@ test('the actual canonical collision report rejects an overlong milestone painte
   assert.ok(report.warnings.some(item=>item.code==='RESERVED_REGION_COLLISION'&&item.elementIds.includes('furniture:axis')));
   assert.equal(document.events[0].startDate,'2023-06');
 });
+
+
+test('bounded joint packing rescues full milestone labels that greedy placement cannot finish',async()=>{
+  const {serializeFounderPresentation}=await import('../web/js/presentation/founder-presentation-serializer.js');
+  const document={id:'synthetic-joint',theme:'keynote-classic',studentProfile:{fullName:'Synthetic Joint'},
+    events:['2020-02','2020-08','2021-02'].map((date,index)=>({id:'f'+index,title:'Synthetic completed milestone',siteName:'Synthetic Academic Institution',categoryId:'personal',eventType:'milestone',startDate:date,visibilityState:'INTERVIEWER_SAFE'})),
+    presentationOverrides:{axis:{mode:'manual',startYear:2020,endYear:2025,includeFuture:false,segmentWeights:Array.from({length:6},(_,index)=>({id:String(2020+index),weight:1}))}},
+    advanced:{media:[],textBlocks:[],elements:[],groups:[]}};
+  const before=JSON.stringify(document),render=()=>serializeFounderPresentation(document,{scope:'EVERYTHING',currentMonth:'2026-10'});
+  const started=performance.now(),first=render(),elapsed=performance.now()-started,packing=first.scene.autoMilestonePacking;
+  assert.equal(packing.strategy,'joint');assert.ok(packing.greedyPlaced<packing.total);assert.equal(packing.total,3);
+  assert.ok(packing.expansions<=packing.limit);assert.equal(packing.limit,8192);assert.ok(elapsed<2000,`${elapsed} ms`);
+  assert.equal(materialPresentationCollisions(resolveFounderPresentationSvg(first.svg)).length,0);
+  assert.equal(render().svg,first.svg);assert.equal(JSON.stringify(document),before);
+  const resolved=resolveFounderPresentationSvg(first.svg);
+  for(const event of document.events){
+    const nodes=resolved.nodes.filter(node=>node.groupId==='event:'+event.id);
+    const pole=nodes.find(node=>node.kind==='path'&&node.lineOnly);
+    const [year,month]=event.startDate.split('-').map(Number);
+    const expectedX=39.36+1841.28*((year-2020)+(month-1)/12)/6+4; // native pole offset
+    assert.ok(Math.abs(pole.bounds.x-expectedX)<.04);assert.equal(pole.bounds.y+pole.bounds.height,125);
+    const label=nodes.filter(node=>node.kind==='text'&&!/^\d{4}/.test(node.text||''));
+    const text=label.map(node=>node.text).join(' ');
+    assert.ok(text.includes(event.title));assert.ok(text.includes(event.siteName));
+    assert.ok(label.every(node=>Number(node.style['font-size'])===18));
+    assert.ok(nodes.filter(node=>node.kind!=='path'||!node.lineOnly).every(node=>node.bounds.y+node.bounds.height<=125));
+  }
+});
+
+
+test('a constrained upper band preserves the greedy incumbent with finite search and truthful unresolved collisions',async()=>{
+  const {serializeFounderPresentation}=await import('../web/js/presentation/founder-presentation-serializer.js');
+  const document={id:'synthetic-constrained',theme:'keynote-classic',studentProfile:{fullName:'Synthetic Joint'},
+    events:Array.from({length:4},(_,index)=>({id:'f'+index,title:'Synthetic completed milestone',siteName:'Synthetic Academic Institution',categoryId:'personal',eventType:'milestone',startDate:'2020-02',visibilityState:'INTERVIEWER_SAFE'})),
+    presentationOverrides:{axis:{mode:'manual',startYear:2020,endYear:2025,includeFuture:false,segmentWeights:Array.from({length:6},(_,index)=>({id:String(2020+index),weight:1}))}},
+    advanced:{media:[],textBlocks:[],elements:[],groups:[]}};
+  const started=performance.now(),result=serializeFounderPresentation(document,{scope:'EVERYTHING',currentMonth:'2026-10'}),packing=result.scene.autoMilestonePacking;
+  assert.equal(packing.strategy,'greedy');assert.ok(packing.greedyPlaced<packing.total);assert.ok(packing.expansions<=packing.limit);
+  assert.ok(performance.now()-started<2000);assert.ok(materialPresentationCollisions(resolveFounderPresentationSvg(result.svg)).length>0);
+});

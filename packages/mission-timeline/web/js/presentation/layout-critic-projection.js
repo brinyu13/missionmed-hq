@@ -206,15 +206,20 @@ function safelyImproves(before,after){
   return ['collisionCount','axisOverlapCount','crowdingCount','offCanvasCount','overflowCount'].some(field=>after[field]<before[field]);
 }
 function pinMeasuredAutomaticEvents(document,projection){
-  if(document.presentationOverrides?.axis?.mode==='manual')return clone(document);
+  const automaticAxis=document.presentationOverrides?.axis?.mode!=='manual'||document.presentationOverrides.axis.localLayoutCriticAuto===true;
   let next=clone(document);
   for(const target of projection.localContext.targetMap.values()){
     if(!target.editable)continue;
     const pinned=applyLocalLayoutCriticSceneCommand(next,{kind:'geometry',target:{type:'event',id:target.objectId},geometry:{...target.geometry},
       create:{type:'event',semanticRef:target.eventId,aspectLocked:false,presentation:{eventType:target.kind==='MILESTONE'?'milestone':'duration',localLayoutCriticAuto:true,...(target.kind==='MILESTONE'?{guardianAnchor:'axis'}:{})}},label:'Preserve current automatic composition'},projection.localContext.options);
     if(pinned.changed)next=pinned.document;
+    const label=projection.localContext.scene.autoFlagLabels?.get(target.eventId);
+    if(target.kind==='MILESTONE'&&label){
+      const object=next.advanced?.scene?.objects?.find(item=>item.type==='event'&&String(item.semanticRef)===target.eventId);
+      if(object)object.presentation={...object.presentation,flagLabelLayout:{width:label.width,flip:label.flip}};
+    }
   }
-  if(next.presentationOverrides?.axis?.mode==='manual')next.presentationOverrides.axis.localLayoutCriticAuto=true;
+  if(automaticAxis&&next.presentationOverrides?.axis?.mode==='manual')next.presentationOverrides.axis.localLayoutCriticAuto=true;
   return next;
 }
 // Reuse the canonical date composition after any axis edit. AI-owned anchors
