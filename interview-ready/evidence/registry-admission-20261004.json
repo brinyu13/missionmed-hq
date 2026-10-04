@@ -1,0 +1,20 @@
+{
+  "observedAt": "2026-10-04T15:56:14.164888+00:00",
+  "coordinationProject": "brxqytrfdisrgakrxkhd",
+  "canonicalRegistryStaged": false,
+  "irRegistryLeaseAdmitted": false,
+  "legacyCredentialMetadata": {
+    "serviceRole": true,
+    "projectMatches": true,
+    "unexpired": true,
+    "masked": false
+  },
+  "legacyCanonicalRestStatus": 401,
+  "existingNamedSecretCanonicalHeaderStatus": 401,
+  "existingNamedSecretApikeyOnlyStatus": 401,
+  "secretShapeContainsObviousMask": false,
+  "cause": "unresolved; installed CLI omits reveal; no credential/provider/client changes made",
+  "independentReview": "prospective bounded registration approved with conditions; production not approved",
+  "unrelatedHealthyLeases": "preserved; USCE and Timeline V2 observed",
+  "secretsInEvidence": false
+}

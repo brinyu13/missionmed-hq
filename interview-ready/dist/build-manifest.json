@@ -1,6 +1,29 @@
 {
-  "sha256": "305b8a00c5b7765a2750e2b59aae7d3c36c3b84857e2322fbbdf94706159be80",
-  "bytes": 2984618,
+  "sha256": "0e3b3bb3bac6cb37fed846cb8f5d1873c8975c34e0bf407aadb588412b5410a7",
+  "bytes": 1448074,
+  "assetProfile": "production",
+  "releaseApproved": false,
+  "embeddedAssets": {
+    "img/category-accessories.webp": "45c69c17cb5322233bd23b4deb7c8098d9cb62a9980e469f438ffc73a07d45ba",
+    "img/category-camera.webp": "fda43ef688f4359a379e197321b6ef647eb97000dbdef21bc6338cce38532063",
+    "img/category-emergency.webp": "82c9a5320eb485defbfc4aafc99e7eb0142ac608822d0d615ca5c835aa9b8b48",
+    "img/category-lighting.webp": "cc2f27e7e4ea289803e9587369db3f1dc08b83a45af9fad082f5cc6ac977998a",
+    "img/category-microphone.webp": "b5ac55caa6cff13ecfc18fe23a979396395e4e534c87a5706b532ea9c2e06fa6",
+    "img/category-travel.webp": "f63381f605bc377c62026f8efae30cb0614d6ed6e7e69afef1534d481856833f",
+    "img/hero-inperson-board.webp": "2575b8cfd561797c4b0a68205bfd23ea27654f9a7dadd23335ccd8b6fdb7dd77",
+    "img/hero-online-board.webp": "69188a11fd2a412fbb9f86046aa05d2ec16a5b87409d60af8aa166d1834dd293",
+    "img/hero-online-photo.webp": "77dd4dda3c9f996867416305f53ea414a535661b970a0c0b249a5528e8eb0f5d",
+    "img/interview-portrait.webp": "1e89933a936a499782180f1910ad85d7f0e3f9dc5934547d38de04afba73d31e",
+    "img/mountain-landscape-masked.webp": "a026f43e620fe770d53b9ca8ac128fc992b6a66319ab9b07b8c9c92e72b6e9a6",
+    "img/mountain-mark.webp": "a36afeb672fd37ef4e0aaf3c735f816c193ea8084cd05c12d68e64a30d2fedfe",
+    "img/mountain-panorama.webp": "2bcb4f8b1bd354b0f9e0cb1223ed5266641b0950d5c9ec3f4a1034c524828aba",
+    "img/product-canon-r50-cc.webp": "ebc2a5cde4a0a453f872a6e9c25dbc3c39e9396d063a259f8e4bc93a04a674f3",
+    "img/product-shure-sm7b-cc.webp": "b50d9776b8954e9f0f805194d98846cefbd05f2bc97e122ba4eeb8a261965c1a",
+    "img/product-stream-plus-cc.webp": "884908e73319988243097fd50c37bf6d2b47eb35f26a1d921db74dfd96047591",
+    "img/purpose-landscape.webp": "eac2f8891be3a43e6ca05ec83a09e813ac3df5caea1ecffc6f0a2474ff49b95d",
+    "img/style-portrait.webp": "04e5b43f0174093a5954a104ba59d933cc127cc4996d9a9644b0f09d91efa56a",
+    "img/travel-detail.webp": "e1bc7ed021ef601ce62fc300476734333e206e3acc389995505696b798c01dd0"
+  },
   "inputs": {
     "src.html": "46f336c26a90915dcb007e4e89a41b22dc31879e4f154906e2cef285ab55d42c",
     "editorial.css": "d22e49621f9e5e73b6945499a32e04af051141f534b97b3cdef7f4551587e7ae",
@@ -9,8 +32,10 @@
     "completion.css": "9a1fed84dd0cd81f2e1ea86c766841a3d44d01add151a18338e6092e54d42781",
     "completion.js": "b05f8a70857b4994dd4503e9ccb93d27d0d9c12eb6719250e9c5175d29523810",
     "fashion.json": "5d4023d61b3c22bd30a9ff4a0ce68f1c62b159e6279f66943ea191ef4253123e",
-    "phase1.json": "c9e77c41a7e5fea25bf71af399d7affc5f7318f7b543178a613356863626220c",
+    "phase1.json": "0f44ee256a985b26a6a25bd2f10a431ef8f38c24197d2a1598299676484daa18",
     "phase1.css": "3539f0da6933b5c38fad65df4e705319f4fc404f3cd56cb24d81fb4859d7e95f",
-    "phase1.js": "7da829a7ef41593065bd5072e18db83dd8b84b1283747362cae8db13ff8fd281"
+    "phase1.js": "fc7a46267bcb98354008d77451f7e2db03336ec26e064404efdd0ba91f73fcb0",
+    "production-assets.json": "112157eb213d0059c6a11a1d976a2edd9a3df31ea639047a6812ce6d41dcb72f",
+    "build.py": "c119d1bf8c9b6df4c02d765369fa90af849477708c4ca8dfb7eeacd4c0399dea"
   }
 }

@@ -94,3 +94,14 @@ The push also returned GitHub's existing default-branch dependency notice (two h
 Rollback source is the accepted preimage commit. No live state was changed, so there is no production rollback to perform for this checkpoint. A future deploy still needs its own fresh runtime preimage and qualified rollback receipt.
 
 ![Current local Phase 1 Home](/Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002/interview-ready/evidence/screenshots/phase1-home-1440.png)
+
+
+## Compute-policy continuation checkpoint — October 4, 2026
+
+Outcome/product unchanged: existing Interview Ready Phase1 to LIVE+VERIFIED. Same missionmed-hq worktree/branch; accepted chassis a8f47649 preserved; initial Phase1 custody bc7fad3. Root model/reasoning metadata unexposed. Bounded media/build worker ran Sol6.1 Medium; independent contract/Matrix/provider investigations ran Sol6.1 High. No Astra escalation requested.
+
+Completed worker commits: 693e96a lineage report, 86dc2b6 permitted production asset build, 5a4ae4c independent prospective contract review, 1061fd9/44faf75 bounded transport addenda. Amazon confirms production website registered under missionmatch-20; actual save contained adult-audience declaration, no new agreement. Screenshot at interview-ready/evidence/screenshots/associates-site-registered.png. Rights-safe local candidate rebuilt; localhost8762 returns200. This remains a preview, not production.
+
+Protected registration is still not filed: exact canonical client REST authentication returned401 before any OSstage/IRlease/waiter. Existing healthy USCE/Timeline leases and dirty primary OS/HQ are preserved. Fresh clean canonical registration clone /Users/brianb/MissionMed_worktrees/IR-PHASE1-REGISTRY-20261004 is tracked-clean. No production/auth/storage/nav/Matrix deployment mutation. Bounded registry helper candidate exists in this handoff folder and never writes secrets. Sole current blocker is admitted credential transport/provider authentication; a SolHigh worker is binding official reveal retrieval evidence, not changing providers/keys.
+
+Independent prospective approval covers canonical admission and isolated WPself-only metadata/CAS/advisorylock plus new addon-only Matrix guard; exact staged review/custody/release/manifest/leases still required. Shared Matrix drift is openly recorded; no shared-shell PASS or stale override claimed. Next implementation after admission belongs to a fresh SolHigh worker with exact gateway/account paths and tests; routine build/UI fixes remain SolMedium. Final exact-byte/recovery/live gate remains Foreman+independent verifier. Keep _AI_INPUTS and unrelated supabase/.temp/cli-latest untouched.
