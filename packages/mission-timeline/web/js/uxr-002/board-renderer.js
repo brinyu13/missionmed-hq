@@ -24,6 +24,7 @@ import {
 import {projectPresentationFields,projectPresentationEventFields} from '../presentation/presentation-field-privacy.js';
 import {projectPresentationExamEvents,presentationExamSummary} from '../presentation/presentation-exam-display.js';
 import {layoutExplanationText} from './explanation.js';
+import {presentationDayDate,presentationDateWording} from '../presentation/source-date-wording.js';
 
 const freeze = (value) => Object.freeze(value);
 const ENGINEERING_AXIS_WIDTH=Math.round(
@@ -212,12 +213,23 @@ function isProvisional(event) {
   );
 }
 
+function eventSourceDate(event,field){
+  return field==='start'
+    ?event?.startDate??event?.date??event?.startMonth
+    :event?.endDate??event?.endMonth;
+}
+
+function eventLayoutMonth(value){
+  // Axis placement is monthly; source facts keep their validated exact day.
+  return parseMonth(value)||presentationDayDate(value)?.slice(0,7)||null;
+}
+
 function eventStart(event) {
-  return parseMonth(event?.startDate ?? event?.date ?? event?.startMonth);
+  return eventLayoutMonth(eventSourceDate(event,'start'));
 }
 
 function eventEnd(event) {
-  return parseMonth(event?.endDate ?? event?.endMonth);
+  return eventLayoutMonth(eventSourceDate(event,'end'));
 }
 
 function audienceEvents(events, audience) {
@@ -266,7 +278,10 @@ function validateRenderableEvents(events) {
       });
       continue;
     }
-    if (explicitEnd && monthIndex(explicitEnd) < monthIndex(start)) {
+    const exactStart=presentationDayDate(eventSourceDate(event,'start'));
+    const exactEnd=presentationDayDate(eventSourceDate(event,'end'));
+    if (explicitEnd && (monthIndex(explicitEnd) < monthIndex(start)||
+        (exactStart&&exactEnd&&exactEnd<exactStart))) {
       omitted.push({
         id: String(event.id),
         title: String(event?.title ?? "Untitled event"),
@@ -611,7 +626,20 @@ function safeSvgId(value) {
 function eventDatePrecision(event,field){
   const value=event?.fields?.datePrecision||event?.datePrecision;
   if(typeof value==='string')return value;
-  return value?.[field]||event?.fields?.inferredFields?.find(item=>item.field===`${field}Date`)?.sourcePrecision||null;
+  return value?.[field]||event?.fields?.inferredFields?.find(item=>item.field===`${field}Date`)?.sourcePrecision||
+    (presentationDayDate(eventSourceDate(event,field))?'DAY':null);
+}
+
+function eventSourceDateWording(event){
+  const wording=structuredClone(event.fields?.sourceDateWording??event.sourceDateWording??null);
+  let projected=wording;
+  for(const field of ['start','end']){
+    const exact=presentationDayDate(eventSourceDate(event,field));
+    if(exact&&!projected?.[field]){
+      projected={...projected,[field]:{raw:exact,normalizedMonth:exact,precision:'DAY'}};
+    }
+  }
+  return projected;
 }
 
 function educationProfileRecord(event){
@@ -677,7 +705,13 @@ function projectEducationDurations(events){
 }
 
 function eventDateLabel(event,value,field){
-  return eventDatePrecision(event,field)==='YEAR'?String(value||'').slice(0,4):formatMonth(value);
+  const precision=eventDatePrecision(event,field);
+  if(precision==='YEAR')return String(value||'').slice(0,4);
+  const exact=presentationDayDate(eventSourceDate(event,field));
+  if(precision==='DAY'&&exact){
+    return `${formatMonth(exact.slice(0,7)).split(' ')[0]} ${Number(exact.slice(8))}, ${exact.slice(0,4)}`;
+  }
+  return formatMonth(value);
 }
 
 function eventAriaLabel(event, startMonth, endMonth) {
@@ -753,7 +787,10 @@ function buildArrows(events, segments, laneResult, currentMonth, measureText) {
       openEnded,
       startMonth: geometry.startMonth,
       endMonth: geometry.endMonth,
+      startDate:eventSourceDate(event,'start'),
+      endDate:eventSourceDate(event,'end')??null,
       datePrecision:{start:eventDatePrecision(event,'start'),end:eventDatePrecision(event,'end')},
+      sourceDateWording:eventSourceDateWording(event),
       siteName:String(event.siteName||event.location||""),
       dateLabel:event.openEnded
         ?`${eventDateLabel(event,geometry.startMonth,'start')} – Present`
@@ -852,8 +889,9 @@ function buildFlags(events, segments, measureText) {
         fontWeight: 600
       },
       month,
+      startDate:eventSourceDate(event,'start'),
       datePrecision:{start:eventDatePrecision(event,'start'),end:null},
-      sourceDateWording:structuredClone(event.fields?.sourceDateWording??event.sourceDateWording??null),
+      sourceDateWording:eventSourceDateWording(event),
       dangerDot:!!event.dangerDot,
       presentationRedactions:[...(event.presentationRedactions||[])],
       // Only an explicitly supplied result controls the native attempt pennant.
@@ -1546,7 +1584,20 @@ export function serializeKeynoteClassicSvg(scene) {
   // Every board surface and theme is a skin over the protected 407F artifact.
   // Theme application may change presentation tokens in the scene, but it must
   // never route serialization through a parallel geometry implementation.
-  return serializeLocked407FArtifact(scene).replace(
+  // The legacy interactive artifact has month-only date chips. Keep the day
+  // visible in its existing adjacent label without altering the source scene.
+  // The native Founder serializer uses sourceDateWording in its date captions.
+  const withDayLabel=event=>{
+    const sides=event.kind==='arrow'?['start','end']:['start'];
+    const dates=sides.filter(side=>event.datePrecision?.[side]==='DAY')
+      .map(side=>presentationDateWording(
+        event.kind==='flag'?event.month:event[`${side}Month`],
+        'DAY',event.sourceDateWording?.[side]
+      ));
+    return dates.length?{...event,title:`${event.title} — ${dates.join(' – ')}`} : event;
+  };
+  const artifactScene={...scene,arrows:scene.arrows.map(withDayLabel),flags:scene.flags.map(withDayLabel)};
+  return serializeLocked407FArtifact(artifactScene).replace(
     'data-theme="keynote-classic"',
     `data-theme="${xmlEscape(theme.id)}"`
   );
