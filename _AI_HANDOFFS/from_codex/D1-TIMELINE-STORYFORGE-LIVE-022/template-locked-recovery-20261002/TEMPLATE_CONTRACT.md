@@ -64,3 +64,9 @@ Derived clinical/research month summaries require complete exact-month visible s
 ## Profile fitting implementation evidence — 2026-10-04
 
 Source8f987fc uses existing parametric wrapping/spacing permissions: keeps19-point type and545×410 paper; searches line leading22.8/22/21/20.5 and group gaps6/4/2/0; may place education after exam rows to use width below the portrait. These are bounded implementation candidates, not newly founder-approved visual rules. No source abbreviation, truncation or font reduction. Unfittable text blocks final export. H02/H03 actual diagnostics fit; whole-product visual acceptance remains rejected/pending.
+
+## Title fitting implementation evidence — 2026-10-04
+
+Source767d9d7 applies existing parametric geometry permission, not a new visual template. Original plaque center946, top0 and height83 remain; width is at least596 and grows to measured full title width plus two48-unit insets, capped by the existing1920-wide board around that center. Original48-unit end slices preserve corner-mount scale; only the center stretches. Title font, size36 default, exact words and authored typography remain. General milestone placement consumes the resulting bounds. Impossible title fit is flagged and blocks final export; no letter squeezing, silent truncation or smaller-font fallback. Existing six-key wording/colors remain; artificial horizontal stretching of its longest label is removed. Actual native Keynote transport of nonuniform text-only scaling was rejected. This implementation has local engineering evidence, not founder visual acceptance or a final native-pass claim.
+
+2026-10-04 containment correction at68bf4de: authored category labels retain complete natural18-unit type; labels exceeding the original card interior mark overflow and block final export. This is a validator correction, not a new legend grammar. Six authoritative rows and their geometry are unchanged.

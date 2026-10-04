@@ -1,3 +1,9 @@
+2026-10-04 correction:68bf4de changes only locked-407f-export.js and d1-028-title-plaque-fit.test.mjs after independent P2 at767d9d7. Full suite348TS+1276JS passes; new24-case artifacts sealed separately. Standard five actual PNG/SVG/slide XML are byte-identical to767. Source and evidence custody remain separate; no push/deploy.
+
+# Latest state delta — 2026-10-04
+
+Before: clean78e22ef, runtime8f987fc. After: source767d9d7, title plaque geometry repair with four scoped source/test files. Failed native text-group experiment restored exactly before the succeeding source edit. Full validation348TS+1274JS/typecheck; actual matrix16passes4holds plusH01/H02/H03pass. Source fixes preserve prior commits and use the locked2025 grammar. No release candidate/founder acceptance claimed. Native final check pending due native UI; authentic media permission still pending. Current evidence root title-plaque-fit-20261004, earlier native probes separately preserved. Product leases normally released and provider readback shows only the evidence lease. Rollback is a narrow forward correction or explicit revert under fresh custody; no production rollback required.
+
 # Profile fitting repair — 2026-10-04
 
 Source `8f987fcdfe0a5b7e04e592569fa51a50778eb963`, based on `11016fa0102312b1215638b4ffa9f56d684057eb`. **Technical repair only; previous visuals remain founder-rejected, M01 only closest. No finished release candidate or deployment.**
