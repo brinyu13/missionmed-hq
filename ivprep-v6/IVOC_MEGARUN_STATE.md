@@ -16,6 +16,21 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 OWNER-SAFE RELEASE COMPOSITION (SHARED4626):
+  MR deployment PATH4608 normally released at15:36:04Z; remote readback and
+  completed owner chat confirm the surface is free. MR owner HEADf7c8163 is pushed,
+  differs from deployed523420b only in its checkpoint. Normal merge871c678505bc9d5c59e15d26087bcb8ee74b0928
+  preserves all six exact owner paths byte-identically and preserves IVOC7e59ffa
+  byte-identically. No MR semantic/config/order/entitlement/WordPress changes.
+  Fresh BOOT PASS.422 affected IVOC engine/convergence/packaging checks PASS.
+  SHARED4626 explicitly includes providers/railway/missionmed-hq/deployment plus
+  the exact preserved owner paths; heartbeat/fence remotely confirmed. Rollback
+  source523420b /SUCCESS ea2a27b4 /image2f7e6ac retained as an exact filtered
+  source artifact, not the obsolete IVOC-only baseline. Next: clean pushed
+  combined artifact ->fresh provider/health truth ->candidate deploy ->health401
+  ->actual R013/R016/R109 and paused-citation POV; root remains unpromoted.
+  This supersedes the deployment-held entry below without rewriting its evidence.
+
 - 2026-10-04 R056 FILM CITATION FIX-FORWARD (PRODUCT4624):
   Actual authenticated candidate Film Room for saved own attempt1ca228aa:
   native playback started, then clicking the measured Pace moment sought to its
