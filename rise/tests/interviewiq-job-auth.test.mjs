@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash,createHmac,randomUUID} from 'node:crypto';
-import {createInterviewiqJobAuthenticator,createCommittedResearchProof,IIQ_JOB_PATH,IIQ_JOB_BINDING} from '../adapters/interviewiq-job-auth.mjs';
+import {createInterviewiqJobAuthenticator,createCommittedResearchProof,assertResearchGrant,IIQ_JOB_PATH,IIQ_JOB_BINDING} from '../adapters/interviewiq-job-auth.mjs';
 const NOW=1791103000000,REQUEST='synthetic-job-request-secret-123456789',PROOF='synthetic-job-proof-secret-987654321';
 const CONFIG={enabled:true,requestSecret:REQUEST,proofSecret:PROOF};
 const BINDING={requestId:randomUUID(),demandId:randomUUID(),interviewId:randomUUID(),ownerId:randomUUID(),programId:'acgme:001.im',registryReleaseId:'registry-test-v1'};
@@ -57,7 +57,7 @@ function proofSetup({edit=x=>x,fetchOverride}={}) {
   calls.push({url,options});assert.equal(url,'https://interviewiq-production-2016.up.railway.app/api/owner/rise/research-authority');
   assert.equal(options.credentials,'omit');assert.equal(options.redirect,'error');
   assert.equal(options.headers['X-MMED-IIQ-Job-Proof'],mac(PROOF,`iiq-job-proof-v1\nrequest\n${options.body}`));
-  const req=JSON.parse(options.body),payload=JSON.stringify(edit({...req,allowed:true,reason:'current_committed_demand',exp:req.iat+30}));
+  const req=JSON.parse(options.body),payload=JSON.stringify(edit({...req,allowed:true,reason:'current_committed_demand',wpUserId:90001,role:'student',tier:'360',exp:req.iat+30}));
   return new Response(JSON.stringify({payload,signature:mac(PROOF,`iiq-job-proof-v1\nresponse\n${payload}`)}),{headers:{'Content-Type':'application/json'}});
  });
  return {calls,setClock:x=>clock=x,proof:createCommittedResearchProof(CONFIG,{now:()=>clock,fetchImpl})};
@@ -72,7 +72,7 @@ for(const [key,bad] of Object.entries({audience:'wrong',nonce:randomUUID(),iat:N
  test(`signed proof mismatch ${key} denied`,()=>assert.rejects(proofSetup({edit:p=>({...p,[key]:bad})}).proof(proofInput)));
 test('signed escaped duplicate response field rejected',async()=>{
  const s=proofSetup({fetchOverride:async(_url,options)=>{
-  const req=JSON.parse(options.body),payload=JSON.stringify({...req,allowed:true,reason:'current_committed_demand',exp:req.iat+30}).replace('"allowed":','"all\\u006fwed":true,"allowed":');
+  const req=JSON.parse(options.body),payload=JSON.stringify({...req,allowed:true,reason:'current_committed_demand',wpUserId:90001,role:'student',tier:'360',exp:req.iat+30}).replace('"allowed":','"all\\u006fwed":true,"allowed":');
   return new Response(JSON.stringify({payload,signature:mac(PROOF,`iiq-job-proof-v1\nresponse\n${payload}`)}),{headers:{'Content-Type':'application/json'}});
  }});await assert.rejects(s.proof(proofInput));
 });
@@ -85,4 +85,26 @@ test('proof fetch deadline aborts stalled request',async()=>{
 test('proof streaming deadline cancels stalled body',async()=>{
  let cancelled=false;const s=proofSetup({fetchOverride:async()=>new Response(new ReadableStream({cancel(){cancelled=true;}}),{headers:{'Content-Type':'application/json'}})});
  await assert.rejects(s.proof(proofInput));assert.equal(cancelled,true);
+});
+
+for(const change of [{wpUserId:0},{wpUserId:-1},{wpUserId:1.5},{wpUserId:'90001'},{wpUserId:Number.MAX_SAFE_INTEGER+1},{wpUserId:null},
+ {role:'admin',tier:'360'},{role:'student',tier:'admin'},{role:'mentor',tier:'360'},{tier:'unknown'},{session:'synthetic'}])
+ test(`narrow signed accounting claims reject ${JSON.stringify(change)}`,()=>assert.rejects(proofSetup({edit:p=>({...p,...change})}).proof(proofInput)));
+for(const key of ['wpUserId','role','tier'])test(`old or incomplete proof missing ${key} has no fallback`,()=>assert.rejects(proofSetup({edit:p=>{delete p[key];return p;}}).proof(proofInput)));
+test('genuine grant is immutable and clone, phase, digest or binding substitution cannot authorize storage',async()=>{
+ const s=proofSetup(),p=await s.proof(proofInput);assert.deepEqual(assertResearchGrant(p,proofInput),{wpUserId:90001,role:'student',tier:'360'});
+ for(const v of [{...p},JSON.parse(JSON.stringify(p)),{assertFresh(){}}])assert.throws(()=>assertResearchGrant(v,proofInput));
+ for(const input of [{...proofInput,phase:'publish'},{...proofInput,bodyHash:'a'.repeat(64)},
+  {...proofInput,binding:{...BINDING,ownerId:randomUUID()}}])assert.throws(()=>assertResearchGrant(p,input));
+ assert.ok(Object.isFrozen(p)&&Object.isFrozen(p.principal)&&Object.isFrozen(p.binding));
+ s.setClock(NOW+31000);assert.throws(()=>assertResearchGrant(p,proofInput));
+});
+for(const key of IIQ_JOB_BINDING)test(`proof snapshots ${key} before awaited network`,async()=>{
+ const binding={...BINDING},expected={...binding};
+ const s=proofSetup({fetchOverride:async(_url,o)=>{
+  const r=JSON.parse(o.body);binding[key]=key==='programId'||key==='registryReleaseId'?'other-valid-id':randomUUID();
+  const payload=JSON.stringify({...r,allowed:true,reason:'current_committed_demand',exp:r.iat+30,wpUserId:90001,role:'student',tier:'360'});
+  return new Response(JSON.stringify({payload,signature:mac(PROOF,`iiq-job-proof-v1\nresponse\n${payload}`)}),{headers:{'Content-Type':'application/json'}});
+ }});const p=await s.proof({...proofInput,binding});assert.deepEqual(p.binding,expected);
+ assertResearchGrant(p,{...proofInput,binding:expected});assert.throws(()=>assertResearchGrant(p,{...proofInput,binding}));
 });

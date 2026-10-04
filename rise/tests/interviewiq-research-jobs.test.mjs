@@ -14,13 +14,13 @@ function setup({config=CONFIG,editProof=p=>p,registry,rights,accept,omit}={}) {
   getRegistry:async()=>registry?registry(++reads):{registryReleaseId:B.registryReleaseId,programs:[{programSpecialtyId:B.programId,private:'NEVER SEND'}]},
   assertSourceRights:async()=>({current:rights?rights(++rightReads):true}),
   acceptJob:async value=>{accepted.push(value);return accept?accept(value):{jobId,status:'QUEUED',private:'NEVER SEND'};},
-  fetchImpl:async(_url,o)=>{const r=JSON.parse(o.body),payload=JSON.stringify(editProof({...r,allowed:true,reason:'current_committed_demand',exp:r.iat+30}));
+  fetchImpl:async(_url,o)=>{const r=JSON.parse(o.body),payload=JSON.stringify(editProof({...r,allowed:true,reason:'current_committed_demand',wpUserId:90001,role:'student',tier:'360',exp:r.iat+30}));
    return new Response(JSON.stringify({payload,signature:mac(PROOF,`iiq-job-proof-v1\nresponse\n${payload}`)}),{headers:{'Content-Type':'application/json'}});}
  };if(omit)delete deps[omit];return {accepted,jobId,handler:createInterviewiqResearchJobs(config,deps)};
 }
 test('qualified synthetic acceptance signs exact minimal response without forwarding private registry fields',async()=>{
  const s=setup(),r=request(),result=await s.handler(r);assert.equal(result.status,200);assert.equal(result.headers['Cache-Control'],'no-store');
- assert.deepEqual(s.accepted,[{ownerId:B.ownerId,requestId:B.requestId,bodyHash:sha(r.body),binding:B}]);
+ assert.equal(s.accepted.length,1);const {proof,...accepted}=s.accepted[0];assert.deepEqual(accepted,{ownerId:B.ownerId,requestId:B.requestId,bodyHash:sha(r.body),binding:B});assert.equal(proof.principal.wpUserId,90001);
  const p=JSON.parse(result.body.payload);assert.equal(p.jobId,s.jobId);assert.equal(p.status,'QUEUED');
  assert.equal(result.body.signature,mac(REQUEST,`iiq-research-job-v1\nresponse\n${result.body.payload}`));
  assert.doesNotMatch(JSON.stringify(result),/NEVER SEND|private|session|wp_user/);

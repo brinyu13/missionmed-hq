@@ -7,6 +7,7 @@ const PROOF_URL='https://interviewiq-production-2016.up.railway.app/api/owner/ri
 const AUD='rise-interviewiq-research-job',PROOF_AUD='rise-interviewiq-committed-job';
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$(?![\s\S])/;
 const HEX=/^[a-f0-9]{64}$(?![\s\S])/;
+const grants=new WeakSet();
 export const jobSha=value=>createHash('sha256').update(value).digest('hex');
 const mac=(key,value)=>createHmac('sha256',key).update(value).digest('hex');
 const equal=(a,b)=>typeof a==='string'&&HEX.test(a)&&timingSafeEqual(Buffer.from(a,'hex'),Buffer.from(b,'hex'));
@@ -17,6 +18,11 @@ const exactProgramId=value=>validProgramId(value)&&!/[^A-Za-z0-9._:-]/.test(valu
 function validateBinding(value) {
   requireValue(value&&IIQ_JOB_BINDING.every((key,i)=>(i<4?exactJobId:exactProgramId)(value[key])));
   return Object.freeze(Object.fromEntries(IIQ_JOB_BINDING.map(key=>[key,value[key]])));
+}
+export function assertResearchGrant(grant,{binding,bodyHash,phase}) {
+  requireValue(grants.has(grant)&&grant.phase===phase&&grant.bodyHash===bodyHash&&
+    IIQ_JOB_BINDING.every(k=>grant.binding[k]===binding?.[k]));
+  grant.assertFresh();return grant.principal;
 }
 function secrets(config) {
   const {requestSecret,proofSecret,otherSecrets=[]}=config;
@@ -48,7 +54,7 @@ async function responseBody(response,signal) {
 // New service operation, never an interactive session or generic RISE actor.
 export function createCommittedResearchProof(config={}, {fetchImpl=fetch,now=Date.now}={}) {
   return async ({binding,bodyHash,phase})=>{
-    secrets(config);validateBinding(binding);requireValue(HEX.test(bodyHash)&&typeof bodyHash==='string'&&['reserve','start','publish'].includes(phase));
+    secrets(config);binding=validateBinding(binding);requireValue(HEX.test(bodyHash)&&typeof bodyHash==='string'&&['reserve','start','publish'].includes(phase));
     const start=now(),monotonic=performance.now();requireValue(Number.isSafeInteger(start));
     const iat=Math.floor(start/1000),nonce=randomUUID();
     const request={audience:PROOF_AUD,nonce,iat,phase,...Object.fromEntries(IIQ_JOB_BINDING.map(k=>[k,binding[k]])),request_sha256:bodyHash};
@@ -59,14 +65,18 @@ export function createCommittedResearchProof(config={}, {fetchImpl=fetch,now=Dat
         headers:{'Content-Type':'application/json',Accept:'application/json','X-MMED-IIQ-Job-Proof':mac(config.proofSecret,`iiq-job-proof-v1\nrequest\n${raw}`)},body:raw,
       }),controller.signal),['payload','signature']),5000,()=>controller.abort());
       requireValue(typeof envelope.payload==='string'&&equal(envelope.signature,mac(config.proofSecret,`iiq-job-proof-v1\nresponse\n${envelope.payload}`)));
-      const value=strictFlatJson(envelope.payload,[...Object.keys(request),'allowed','reason','exp']);
+      const value=strictFlatJson(envelope.payload,[...Object.keys(request),'allowed','reason','exp','wpUserId','role','tier']);
       const current=now();
       requireValue(Number.isSafeInteger(current)&&current>=start&&current-start<5000&&performance.now()-monotonic<5000&&
         Object.keys(request).every(k=>value[k]===request[k])&&value.allowed===true&&value.reason==='current_committed_demand'&&
-        Number.isSafeInteger(value.exp)&&value.iat<=Math.floor(current/1000)&&value.exp>Math.floor(current/1000)&&value.exp>iat&&value.exp-iat<=30);
-      return Object.freeze({expiresAt:value.exp,assertFresh:()=>{
+        Number.isSafeInteger(value.exp)&&value.iat<=Math.floor(current/1000)&&value.exp>Math.floor(current/1000)&&value.exp>iat&&value.exp-iat<=30&&
+        Number.isSafeInteger(value.wpUserId)&&value.wpUserId>0&&
+        (value.role==='admin'&&value.tier==='admin'||value.role==='student'&&['360','ivprep_complete'].includes(value.tier)));
+      const grant=Object.freeze({expiresAt:value.exp,binding,bodyHash,phase,
+        principal:Object.freeze({wpUserId:value.wpUserId,role:value.role,tier:value.tier}),assertFresh:()=>{
         const time=now();requireValue(Number.isSafeInteger(time)&&time>=start&&time<value.exp*1000&&performance.now()-monotonic<30000);
       }});
+      grants.add(grant);return grant;
     } catch {deny();} finally {controller.abort();}
   };
 }

@@ -69,7 +69,7 @@ function databasePool(options = {}) {
   return sharedPool;
 }
 
-function subjectKey(subject, key) {
+export function subjectKey(subject, key) {
   return createHmac("sha256", key)
     .update("rise-student-state-v1\0")
     .update(String(subject))
@@ -1738,7 +1738,7 @@ const RESEARCH_JOB_PROJECTION = `
   updated_at AS "updatedAt"
 `;
 
-async function readResearchControls(client, { lock = false } = {}) {
+export async function readResearchControls(client, { lock = false } = {}) {
   const controls = await client.query(`
     SELECT ${RESEARCH_CONTROL_PROJECTION}
     FROM rise_runtime.research_router_settings
@@ -1771,14 +1771,14 @@ function providerReservationUsd(provider) {
   return Math.ceil(value * 10_000) / 10_000;
 }
 
-function isReplayRoute(provider) {
+export function isReplayRoute(provider) {
   // 5012A legacy invariant remains exact for replay jobs: actual_cost_usd = 0.
   return provider?.providerKey === "RISE_REPLAY_TEST"
     && provider.state === "TEST_ONLY" && provider.enabled
     && !provider.networkAllowed && !provider.spendAllowed;
 }
 
-function isPaidRoute(provider, states = ["PRODUCTION_APPROVED"]) {
+export function isPaidRoute(provider, states = ["PRODUCTION_APPROVED"]) {
   return AUTHORIZED_PAID_RESEARCH_PROVIDERS.has(provider?.providerKey)
     && states.includes(provider.state) && provider.enabled
     && provider.networkAllowed && provider.spendAllowed;
@@ -1948,6 +1948,131 @@ async function reconcileResearchSpend(client, {
     ON CONFLICT (event_key) DO NOTHING
   `, [eventKey, jobId, providerKey, modelKey, eventType, actual,
     Number(router.rows[0].actual), Number(router.rows[0].reserved), JSON.stringify(usage ?? {}), providerResponseId]);
+}
+
+// Shared reservation engine. Generic callers retain the original predicate and
+// projection; InterviewIQ supplies a distinct verified admission, never a session.
+export async function reserveResearchJobTransaction(client, {
+  key, session, releaseId, program, source = "STUDENT",
+  eligibilityFor = evaluateResearchEligibility, jobProjection = researchJobRecord,
+}) {
+        const { controls, providers } = await readResearchControls(client, { lock: true });
+        const eligibility = eligibilityFor({ program, session, controls, subjectHash: key, source });
+        if (!eligibility.eligible) {
+          throw researchStoreError("RESEARCH_NOT_ELIGIBLE", "This program is outside the active research canary", 403, {
+            reasons: eligibility.reasons,
+          });
+        }
+        const provider = providers.find((candidate) => candidate.providerKey === controls.primaryProvider);
+        if (!provider?.enabled) throw researchStoreError("RESEARCH_PROVIDER_DISABLED", "The selected research provider is paused");
+        if (!(isReplayRoute(provider) || isPaidRoute(provider))) {
+          throw researchStoreError("RESEARCH_PROVIDER_NOT_AUTHORIZED", "The selected provider is not production-approved for on-demand research");
+        }
+        await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [eligibility.scope.programSpecialtyId]);
+        const existing = await client.query(`
+          SELECT ${RESEARCH_JOB_PROJECTION}
+          FROM rise_runtime.research_jobs
+          WHERE program_specialty_id = $1
+            AND task_class = 'PROGRAM_DEEP_RESEARCH'
+            AND status IN ('QUEUED','LEASED','RUNNING','NORMALIZING','PROMOTING','NEEDS_REVIEW')
+          ORDER BY created_at DESC
+          LIMIT 1
+        `, [eligibility.scope.programSpecialtyId]);
+        if (existing.rowCount === 1) {
+          return {
+            job: jobProjection(existing.rows[0]), deduplicated: true, quotaReserved: false,
+            requestClass: "ACTIVE", quota: await readResearchQuota(client, key, controls),
+          };
+        }
+        const routing = await readDossierContext(client, eligibility.scope.acgmeId);
+        if (routing.requestClass === "NO_OP") {
+          return {
+            job: null, deduplicated: true, noOp: true, quotaReserved: false,
+            requestClass: "NO_OP", dossier: routing.prior,
+            quota: await readResearchQuota(client, key, controls),
+          };
+        }
+        let quota = await client.query(`
+          SELECT subject_key, window_start::text AS "windowStart", window_end::text AS "windowEnd",
+                 quota_limit AS "quotaLimit", reserved_count AS "reservedCount",
+                 consumed_count AS "consumedCount", refunded_count AS "refundedCount"
+          FROM rise_runtime.research_quota_ledgers
+          WHERE subject_key = $1 AND current_date >= window_start AND current_date < window_end
+          ORDER BY window_start DESC
+          LIMIT 1
+          FOR UPDATE
+        `, [key]);
+        if (quota.rowCount === 0) {
+          quota = await client.query(`
+            INSERT INTO rise_runtime.research_quota_ledgers (
+              subject_key, window_start, window_end, quota_limit
+            ) VALUES ($1, current_date, current_date + $2::integer, $3)
+            RETURNING subject_key, window_start::text AS "windowStart", window_end::text AS "windowEnd",
+                      quota_limit AS "quotaLimit", reserved_count AS "reservedCount",
+                      consumed_count AS "consumedCount", refunded_count AS "refundedCount"
+          `, [key, controls.quotaWindowDays, controls.defaultQuota]);
+        } else {
+          quota = await client.query(`
+            UPDATE rise_runtime.research_quota_ledgers
+            SET quota_limit = greatest($2::integer, reserved_count + consumed_count), updated_at = now()
+            WHERE subject_key = $1 AND window_start = $3::date
+            RETURNING subject_key, window_start::text AS "windowStart", window_end::text AS "windowEnd",
+                      quota_limit AS "quotaLimit", reserved_count AS "reservedCount",
+                      consumed_count AS "consumedCount", refunded_count AS "refundedCount"
+          `, [key, controls.defaultQuota, quota.rows[0].windowStart]);
+        }
+        const ledger = quota.rows[0];
+        const beforeQuota = quotaRecord(ledger, controls);
+        if (beforeQuota.used >= beforeQuota.quotaLimit) {
+          throw researchStoreError("RESEARCH_QUOTA_EXHAUSTED", "The current research quota is exhausted", 429, {
+            windowEnd: beforeQuota.windowEnd,
+          });
+        }
+        const dedupeKey = researchDedupeKey({
+          programSpecialtyId: eligibility.scope.programSpecialtyId,
+          taskClass: `PROGRAM_${routing.requestClass}_RESEARCH`,
+          providerKey: provider.providerKey,
+          windowKey: sha256(`${ledger.windowStart}\0${routing.requestedDomains.join(",")}`).slice(0, 32),
+        });
+        const estimatedCostUsd = isReplayRoute(provider) ? 0 : providerReservationUsd(provider);
+        const jobId = randomUUID();
+        const inserted = await client.query(`
+          INSERT INTO rise_runtime.research_jobs (
+            job_id, dedupe_key, release_id, program_specialty_id, acgme_id, specialty, state_code,
+            requester_subject_key, request_source, provider_key, model_key, router_revision,
+            quota_window_start, estimated_cost_usd, task_payload, contract_version,
+            result_schema_version, request_class, required_domains, requested_fields,
+            completion_matrix, completion_score, dossier_outcome,
+            root_job_id, parent_job_id, stage_ordinal, research_stage, student_charge_key
+          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb,$16,$17,$18,
+                    $19::text[],$20::text[],$21::jsonb,$22,$23,$1,NULL,1,$24,$8)
+          RETURNING ${RESEARCH_JOB_PROJECTION}
+        `, [
+          jobId, dedupeKey, releaseId, eligibility.scope.programSpecialtyId, eligibility.scope.acgmeId,
+          eligibility.scope.specialty, eligibility.scope.state, key, eligibility.source,
+          provider.providerKey, provider.modelKey, controls.revision, ledger.windowStart,
+          estimatedCostUsd, JSON.stringify(programResearchPayload(program, routing)),
+          DEEP_RESEARCH_DOSSIER_V2.contractVersion, DEEP_RESEARCH_DOSSIER_V2.resultSchemaVersion,
+          routing.requestClass, DEEP_RESEARCH_DOMAIN_KEYS, routing.requestedFields,
+          JSON.stringify(routing.completion.matrix), routing.completion.completionScore, routing.completion.outcome,
+          routing.requestClass === "FULL" ? "TERRA_FULL" : "TERRA_DELTA",
+        ]);
+        await reserveResearchSpend(client, { jobId, provider, estimatedCostUsd });
+        await client.query(`
+          UPDATE rise_runtime.research_quota_ledgers
+          SET reserved_count = reserved_count + 1, updated_at = now()
+          WHERE subject_key = $1 AND window_start = $2
+        `, [key, ledger.windowStart]);
+        await client.query(`
+          INSERT INTO rise_runtime.research_control_audit_events (
+            actor_subject_key, action, target_type, target_id, after_state, reason
+          ) VALUES ($1, 'RESERVE_JOB', 'JOB', $2, $3::jsonb, 'P1-RISE-5012F dossier v2 bounded canary reservation')
+        `, [key, inserted.rows[0].jobId, JSON.stringify(researchJobRecord(inserted.rows[0], { admin: true }))]);
+        return {
+          job: jobProjection(inserted.rows[0]), deduplicated: false, quotaReserved: true,
+          requestClass: routing.requestClass,
+          quota: { ...beforeQuota, reservedCount: beforeQuota.reservedCount + 1, used: beforeQuota.used + 1, remaining: beforeQuota.remaining - 1 },
+        };
 }
 
 export async function createRiseResearchStore({
@@ -2151,125 +2276,9 @@ export async function createRiseResearchStore({
     },
     async reserveJob({ subject, session, releaseId, program, source = "STUDENT" }) {
       const key = subjectKey(subject, hmacKey);
-      return withSubject(pool, key, async (client) => {
-        const { controls, providers } = await readResearchControls(client, { lock: true });
-        const eligibility = evaluateResearchEligibility({ program, session, controls, subjectHash: key, source });
-        if (!eligibility.eligible) {
-          throw researchStoreError("RESEARCH_NOT_ELIGIBLE", "This program is outside the active research canary", 403, {
-            reasons: eligibility.reasons,
-          });
-        }
-        const provider = providers.find((candidate) => candidate.providerKey === controls.primaryProvider);
-        if (!provider?.enabled) throw researchStoreError("RESEARCH_PROVIDER_DISABLED", "The selected research provider is paused");
-        if (!(isReplayRoute(provider) || isPaidRoute(provider))) {
-          throw researchStoreError("RESEARCH_PROVIDER_NOT_AUTHORIZED", "The selected provider is not production-approved for on-demand research");
-        }
-        await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [eligibility.scope.programSpecialtyId]);
-        const existing = await client.query(`
-          SELECT ${RESEARCH_JOB_PROJECTION}
-          FROM rise_runtime.research_jobs
-          WHERE program_specialty_id = $1
-            AND task_class = 'PROGRAM_DEEP_RESEARCH'
-            AND status IN ('QUEUED','LEASED','RUNNING','NORMALIZING','PROMOTING','NEEDS_REVIEW')
-          ORDER BY created_at DESC
-          LIMIT 1
-        `, [eligibility.scope.programSpecialtyId]);
-        if (existing.rowCount === 1) {
-          return {
-            job: researchJobRecord(existing.rows[0]), deduplicated: true, quotaReserved: false,
-            requestClass: "ACTIVE", quota: await readResearchQuota(client, key, controls),
-          };
-        }
-        const routing = await readDossierContext(client, eligibility.scope.acgmeId);
-        if (routing.requestClass === "NO_OP") {
-          return {
-            job: null, deduplicated: true, noOp: true, quotaReserved: false,
-            requestClass: "NO_OP", dossier: routing.prior,
-            quota: await readResearchQuota(client, key, controls),
-          };
-        }
-        let quota = await client.query(`
-          SELECT subject_key, window_start::text AS "windowStart", window_end::text AS "windowEnd",
-                 quota_limit AS "quotaLimit", reserved_count AS "reservedCount",
-                 consumed_count AS "consumedCount", refunded_count AS "refundedCount"
-          FROM rise_runtime.research_quota_ledgers
-          WHERE subject_key = $1 AND current_date >= window_start AND current_date < window_end
-          ORDER BY window_start DESC
-          LIMIT 1
-          FOR UPDATE
-        `, [key]);
-        if (quota.rowCount === 0) {
-          quota = await client.query(`
-            INSERT INTO rise_runtime.research_quota_ledgers (
-              subject_key, window_start, window_end, quota_limit
-            ) VALUES ($1, current_date, current_date + $2::integer, $3)
-            RETURNING subject_key, window_start::text AS "windowStart", window_end::text AS "windowEnd",
-                      quota_limit AS "quotaLimit", reserved_count AS "reservedCount",
-                      consumed_count AS "consumedCount", refunded_count AS "refundedCount"
-          `, [key, controls.quotaWindowDays, controls.defaultQuota]);
-        } else {
-          quota = await client.query(`
-            UPDATE rise_runtime.research_quota_ledgers
-            SET quota_limit = greatest($2::integer, reserved_count + consumed_count), updated_at = now()
-            WHERE subject_key = $1 AND window_start = $3::date
-            RETURNING subject_key, window_start::text AS "windowStart", window_end::text AS "windowEnd",
-                      quota_limit AS "quotaLimit", reserved_count AS "reservedCount",
-                      consumed_count AS "consumedCount", refunded_count AS "refundedCount"
-          `, [key, controls.defaultQuota, quota.rows[0].windowStart]);
-        }
-        const ledger = quota.rows[0];
-        const beforeQuota = quotaRecord(ledger, controls);
-        if (beforeQuota.used >= beforeQuota.quotaLimit) {
-          throw researchStoreError("RESEARCH_QUOTA_EXHAUSTED", "The current research quota is exhausted", 429, {
-            windowEnd: beforeQuota.windowEnd,
-          });
-        }
-        const dedupeKey = researchDedupeKey({
-          programSpecialtyId: eligibility.scope.programSpecialtyId,
-          taskClass: `PROGRAM_${routing.requestClass}_RESEARCH`,
-          providerKey: provider.providerKey,
-          windowKey: sha256(`${ledger.windowStart}\0${routing.requestedDomains.join(",")}`).slice(0, 32),
-        });
-        const estimatedCostUsd = isReplayRoute(provider) ? 0 : providerReservationUsd(provider);
-        const jobId = randomUUID();
-        const inserted = await client.query(`
-          INSERT INTO rise_runtime.research_jobs (
-            job_id, dedupe_key, release_id, program_specialty_id, acgme_id, specialty, state_code,
-            requester_subject_key, request_source, provider_key, model_key, router_revision,
-            quota_window_start, estimated_cost_usd, task_payload, contract_version,
-            result_schema_version, request_class, required_domains, requested_fields,
-            completion_matrix, completion_score, dossier_outcome,
-            root_job_id, parent_job_id, stage_ordinal, research_stage, student_charge_key
-          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb,$16,$17,$18,
-                    $19::text[],$20::text[],$21::jsonb,$22,$23,$1,NULL,1,$24,$8)
-          RETURNING ${RESEARCH_JOB_PROJECTION}
-        `, [
-          jobId, dedupeKey, releaseId, eligibility.scope.programSpecialtyId, eligibility.scope.acgmeId,
-          eligibility.scope.specialty, eligibility.scope.state, key, eligibility.source,
-          provider.providerKey, provider.modelKey, controls.revision, ledger.windowStart,
-          estimatedCostUsd, JSON.stringify(programResearchPayload(program, routing)),
-          DEEP_RESEARCH_DOSSIER_V2.contractVersion, DEEP_RESEARCH_DOSSIER_V2.resultSchemaVersion,
-          routing.requestClass, DEEP_RESEARCH_DOMAIN_KEYS, routing.requestedFields,
-          JSON.stringify(routing.completion.matrix), routing.completion.completionScore, routing.completion.outcome,
-          routing.requestClass === "FULL" ? "TERRA_FULL" : "TERRA_DELTA",
-        ]);
-        await reserveResearchSpend(client, { jobId, provider, estimatedCostUsd });
-        await client.query(`
-          UPDATE rise_runtime.research_quota_ledgers
-          SET reserved_count = reserved_count + 1, updated_at = now()
-          WHERE subject_key = $1 AND window_start = $2
-        `, [key, ledger.windowStart]);
-        await client.query(`
-          INSERT INTO rise_runtime.research_control_audit_events (
-            actor_subject_key, action, target_type, target_id, after_state, reason
-          ) VALUES ($1, 'RESERVE_JOB', 'JOB', $2, $3::jsonb, 'P1-RISE-5012F dossier v2 bounded canary reservation')
-        `, [key, inserted.rows[0].jobId, JSON.stringify(researchJobRecord(inserted.rows[0], { admin: true }))]);
-        return {
-          job: researchJobRecord(inserted.rows[0]), deduplicated: false, quotaReserved: true,
-          requestClass: routing.requestClass,
-          quota: { ...beforeQuota, reservedCount: beforeQuota.reservedCount + 1, used: beforeQuota.used + 1, remaining: beforeQuota.remaining - 1 },
-        };
-      }, { isAdmin: true });
+      return withSubject(pool, key, client => reserveResearchJobTransaction(client, {
+        key, session, releaseId, program, source,
+      }), { isAdmin: true });
     },
     async reserveBenchmarkJobs({ subject, releaseId, programs, providerKeys, batchKey }) {
       const key = subjectKey(subject, hmacKey);
