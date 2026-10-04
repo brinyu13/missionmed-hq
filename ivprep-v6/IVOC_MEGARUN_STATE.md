@@ -488,10 +488,23 @@ the actual production route and deployment.
   not audible delivery. Recording/transcript/provider owners remain unchanged.
   Actual Native.handleEvent adapter regression failed before and passes after;
   66 focused lifecycle/observation/review/scope cases PASS, independently rerun;
-  exact Room callback invalidation/retraction checks PASS. Live release pending
-  under maintained PRODUCT epoch4480. Production
+  exact Room callback invalidation/retraction checks PASS. Source16efa32 deployed
+  SUCCESS as3e100158-c4cf-4cf9-bece-e74b341e7bf9, image
+  sha256:710cc89d11ebfefcfa6d92b3295a42aa987c99e1808bd55ae9b272ce4db49a3c.
+  Health200, anonymous root/candidate/bootstrap401; genuine Founder Chrome cold
+  Home -> Mock and saved Results load. Exact1263-file tracked rollback artifact
+  ivoc-release-artifact-Ez6CeW/source.tar, SHA256
+  cc8e338ae76f7c10033062176e34500fb3961d42771533661a72d24a12bdcec3.
+  PRODUCT4480/deployment4483 normally released/read back. Actual spoken multi-
+  turn/closing and heard cold replay remain unverified. Production
   Results baseline captured; no layout redesign or root promotion. Official
   fragment contract: https://developers.openai.com/api/docs/guides/live-conversations#transcript-deltas
+- Actual Results header had Compare overlapping Full Analytics (~50px at1218px),
+  independently reproduced. Minimum composition correction uses the existing
+  wrapping review-actions container for all three actions; exact Film/Compare
+  links and Full Analytics scroll/focus are unchanged. 8 focused regressions
+  PASS independently; live geometry verification pending. No redesign, capability
+  owner change or root promotion.
 
 - **Founder live-POV override, 2026-10-02: recovery LIVE; candidate-question stall reopened fix-forward.**
   Founder confirms physical camera/mic and native multi-turn AI entry work;
