@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mission Residency Zelle Payment Verifier
  * Description: Fail-closed Mission Residency Zelle verification with administrator and automated-email providers.
- * Version: 2026.10.04.1
+ * Version: 2026.10.04.2
  */
 
 defined( 'ABSPATH' ) || exit;
@@ -315,6 +315,8 @@ function mm_mr_zelle_run_verification( $order, $payer_name, $source = 'request' 
 		$retries = absint( $order->get_meta( '_mm_zelle_retry_count', true ) );
 		if ( $retries >= MM_MR_ZELLE_MAX_RETRIES ) {
 			$order->update_meta_data( '_mm_zelle_state', 'needs_review' );
+			$order->update_meta_data( '_mm_zelle_review_hold', 'retry_limit' );
+			wp_clear_scheduled_hook( MM_MR_ZELLE_CRON_HOOK, array( $order->get_id() ) );
 			mm_mr_zelle_audit( $order, 'needs_review', 'retry_limit' );
 			$order->save();
 			return 'needs_review';
@@ -350,14 +352,20 @@ function mm_mr_zelle_run_verification( $order, $payer_name, $source = 'request' 
 		if ( ! in_array( $state, array( 'not_found', 'provider_unavailable', 'needs_review', 'already_consumed' ), true ) ) {
 			$state = 'needs_review';
 		}
+		// The final unsuccessful attempt must enter review now, not depend on
+		// a thirteenth request after the scheduler has already stopped.
+		$retry_exhausted = in_array( $state, array( 'not_found', 'provider_unavailable' ), true ) && $retries + 1 >= MM_MR_ZELLE_MAX_RETRIES;
+		if ( $retry_exhausted ) {
+			$state = 'needs_review';
+		}
 		$order = wc_get_order( $order->get_id() );
 		if ( $order && ! $order->is_paid() ) {
 			$order->update_meta_data( '_mm_zelle_state', $state );
 			if ( in_array( $state, array( 'needs_review', 'already_consumed' ), true ) ) {
-				$order->update_meta_data( '_mm_zelle_review_hold', $state );
+				$order->update_meta_data( '_mm_zelle_review_hold', $retry_exhausted ? 'retry_limit' : $state );
 				wp_clear_scheduled_hook( MM_MR_ZELLE_CRON_HOOK, array( $order->get_id() ) );
 			}
-			mm_mr_zelle_audit( $order, $state, $result['error'] ?? $source );
+			mm_mr_zelle_audit( $order, $state, $retry_exhausted ? 'retry_limit' : ( $result['error'] ?? $source ) );
 			$order->save();
 			if ( in_array( $state, array( 'not_found', 'provider_unavailable' ), true ) ) {
 				mm_mr_zelle_schedule_retry( $order );
@@ -645,6 +653,16 @@ function mm_mr_zelle_render_pending( $order_id ) {
 	$state     = sanitize_key( (string) $order->get_meta( '_mm_zelle_state', true ) ) ?: 'pending';
 	$submitted = in_array( $state, array( 'awaiting_admin', 'checking', 'not_found', 'provider_unavailable', 'needs_review', 'already_consumed', 'completing' ), true );
 	$title     = $submitted ? 'PAYMENT SUBMITTED FOR VERIFICATION' : 'ONE LAST STEP: COMPLETE YOUR ZELLE PAYMENT';
+	$labels    = array(
+		'awaiting_admin' => 'Awaiting confirmation',
+		'checking' => 'Checking your payment',
+		'not_found' => 'No match yet - we will check again',
+		'provider_unavailable' => 'Verification delayed - we will check again',
+		'needs_review' => 'Awaiting administrator review',
+		'already_consumed' => 'Awaiting administrator review',
+		'completing' => 'Confirming your enrollment',
+	);
+	$status_label = $labels[ $state ] ?? 'Awaiting verification';
 	?>
 	<style>
 	.woocommerce-order-received a[href*="/member-dashboard/"],.woocommerce-order-received .woocommerce-thankyou-order-received{display:none!important}.mmz-shell{max-width:880px;margin:28px auto;padding:clamp(24px,5vw,52px);background:#0d1d24;color:#f8f4ea;border-radius:20px;font-family:Arial,sans-serif;box-sizing:border-box}.woocommerce .mmz-shell,.woocommerce .mmz-shell p,.woocommerce .mmz-shell .mmz-alert,.woocommerce .mmz-shell .mmz-note,.woocommerce .mmz-shell .mmz-card,.woocommerce .mmz-shell .mmz-form label{color:#f8f4ea!important}.mmz-kicker{color:#dcbf86!important;font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase}.mmz-shell h2{color:#fff!important;font-size:clamp(30px,5vw,52px);line-height:1.03;margin:12px 0}.mmz-shell p{font-size:17px;line-height:1.6}.mmz-shell .mmz-alert strong{color:#fff!important}.mmz-shell a{color:#f6d79a!important;text-decoration:underline;text-underline-offset:3px}.mmz-shell a:focus-visible{outline:3px solid #fff;outline-offset:3px}.mmz-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:24px 0}.mmz-card{border:1px solid rgba(255,255,255,.35);padding:16px;border-radius:12px}.mmz-card strong{display:block;color:#dcbf86!important;margin-bottom:5px}.mmz-payment{display:grid;grid-template-columns:minmax(0,1fr) minmax(230px,300px);gap:24px;align-items:center;margin:24px 0}.mmz-id{font-size:clamp(18px,2.5vw,26px);font-weight:800;color:#fff;overflow-wrap:anywhere}.mmz-copy{display:inline-flex;align-items:center;justify-content:center;min-height:48px;margin-top:12px;padding:10px 18px;border:2px solid #dcbf86;border-radius:8px;background:transparent;color:#fff;font-weight:800;cursor:pointer}.mmz-copy:focus-visible{outline:3px solid #fff;outline-offset:3px}.mmz-qr-wrap{padding:16px;background:#fff;border-radius:16px;text-align:center}.mmz-qr{display:block;width:100%;height:auto;max-width:444px;margin:auto}.mmz-form{margin-top:24px;padding-top:24px;border-top:1px solid rgba(255,255,255,.35)}.mmz-form label{display:block;font-weight:700;margin-bottom:8px}.woocommerce .mmz-shell .mmz-form input{width:100%;min-height:50px;padding:12px;border:2px solid #c8d2d7!important;border-radius:8px;box-sizing:border-box;background:#fff!important;color:#0d1d24!important;caret-color:#0d1d24}.woocommerce .mmz-shell .mmz-form input:focus{border-color:#dcbf86!important;outline:3px solid #f6d79a!important;outline-offset:3px;box-shadow:0 0 0 4px #f6d79a!important}.woocommerce .mmz-shell .mmz-form input::placeholder{color:#46565e!important;opacity:1}.woocommerce .mmz-shell .mmz-form button{margin-top:12px;min-height:50px;padding:12px 20px;border:0;border-radius:8px;background:#dcbf86!important;color:#0d1d24!important;font-weight:800;cursor:pointer}.woocommerce .mmz-shell .mmz-form button:focus-visible{outline:3px solid #fff!important;outline-offset:3px}.mmz-note{color:#f8f4ea!important}.mmz-alert{padding:12px;border-left:4px solid #dcbf86;background:rgba(255,255,255,.10)}@media(max-width:600px){.mmz-shell{margin:16px 0;border-radius:14px}.mmz-grid,.mmz-payment{grid-template-columns:1fr}.mmz-payment-info{order:-1}.mmz-id{font-size:20px}.mmz-copy,.mmz-form button{width:100%}.mmz-qr-wrap{max-width:260px;margin:auto}}
@@ -658,7 +676,7 @@ function mm_mr_zelle_render_pending( $order_id ) {
 				<div class="mmz-card"><strong>Order</strong>#<?php echo esc_html( $order->get_order_number() ); ?></div>
 				<div class="mmz-card"><strong>Amount</strong><?php echo wp_kses_post( $order->get_formatted_order_total() ); ?></div>
 				<div class="mmz-card"><strong>Zelle sender</strong><?php echo esc_html( (string) $order->get_meta( '_mm_zelle_payer', true ) ?: 'Submitted' ); ?></div>
-				<div class="mmz-card"><strong>Status</strong>Awaiting verification</div>
+				<div class="mmz-card"><strong>Status</strong><?php echo esc_html( $status_label ); ?></div>
 			</div>
 			<p class="mmz-note">Your program access will remain locked until payment is confirmed. You may close this page. Do not send a second payment.</p>
 		<?php else : ?>
@@ -679,6 +697,28 @@ function mm_mr_zelle_render_pending( $order_id ) {
 	</section>
 	<?php
 }
+
+// Use the existing Woo customer email. Only paid, exact Mission Residency Zelle
+// orders receive program next steps; pending emails and other commerce do not.
+function mm_mr_zelle_email_next_steps( $order, $sent_to_admin, $plain_text, $email ) {
+	if ( $sent_to_admin || ! $order || ! $order->is_paid() || ! mm_mr_zelle_order_identity( $order ) || ! $email || ! in_array( $email->id, array( 'customer_processing_order', 'customer_completed_order' ), true ) ) {
+		return;
+	}
+	$identity = mm_mr_zelle_order_identity( $order );
+	$complete = 5227 === $identity['course_id'];
+	$title = $complete ? 'IV Prep Complete' : 'Interview Bootcamp Week';
+	$description = $complete
+		? 'Interview Bootcamp Week is included as your opening phase, October 8-18, 2026. Your full-season training then continues through your final interviews in February.'
+		: 'Your live online Interview Bootcamp Week runs October 8-18, 2026.';
+	$matrix = home_url( '/member-dashboard/#dashboard' );
+	$course = get_permalink( $identity['course_id'] );
+	if ( $plain_text ) {
+		echo "\n" . $title . " - Your next steps\n" . $description . "\nSign in with the MissionMed account used for enrollment.\nOpen your Matrix: " . esc_url( $matrix ) . "\nOpen your program: " . esc_url( $course ) . "\nFor joining details or access questions: " . esc_url( home_url( '/contact/' ) ) . "\n";
+	} else {
+		echo '<h2>' . esc_html( $title ) . ' - Your next steps</h2><p>' . esc_html( $description ) . '</p><p>Sign in with the MissionMed account used for enrollment.</p><p><a href="' . esc_url( $matrix ) . '">Open your Matrix</a> &middot; <a href="' . esc_url( $course ) . '">Open your program</a></p><p>For joining details or access questions, <a href="' . esc_url( home_url( '/contact/' ) ) . '">contact MissionMed</a>.</p>';
+	}
+}
+add_action( 'woocommerce_email_after_order_table', 'mm_mr_zelle_email_next_steps', 20, 4 );
 
 add_action(
 	'wp',

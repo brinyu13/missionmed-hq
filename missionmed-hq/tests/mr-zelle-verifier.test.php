@@ -22,6 +22,10 @@ function get_current_user_id() { return $GLOBALS['user']; }
 function is_user_logged_in() { return get_current_user_id() > 0; }
 function get_query_var($k) { return 0; }
 function esc_html__($s, ...$args) { return $s; }
+function esc_html($s) { return htmlspecialchars($s); }
+function esc_url($s) { return $s; }
+function home_url($s) { return 'https://missionmedinstitute.com' . $s; }
+function get_permalink($id) { return 'https://missionmedinstitute.com/course/' . $id; }
 function wp_verify_nonce($nonce, $action) { return $nonce === 'synthetic-valid-' . $action; }
 class RequestDenied extends Exception {}
 function wp_die($message, $title, $args) { throw new RequestDenied((string)$args['response']); }
@@ -121,6 +125,21 @@ function claim($o) { check(mm_mr_zelle_record_claim($o, 'Test Payer'), 'claim re
 function run($o) { return mm_mr_zelle_run_verification($o, 'test payer'); }
 function test($name, $fn) { reset_case(); $fn(); ++$GLOBALS['cases']; echo "PASS $name\n"; }
 $GLOBALS['assertions'] = $GLOBALS['cases'] = 0;
+
+test('customer email next steps are scoped to paid target orders', function() {
+    $o=order(); $email=(object)['id'=>'customer_processing_order'];
+    ob_start(); mm_mr_zelle_email_next_steps($o,false,false,$email); check(ob_get_clean()==='', 'pending has no activation next steps');
+    $o->status='processing';
+    ob_start(); mm_mr_zelle_email_next_steps($o,false,false,$email); $body=ob_get_clean();
+    check(str_contains($body,'Interview Bootcamp Week') && str_contains($body,'Open your Matrix') && str_contains($body,'3646'), 'Bootcamp program and next steps');
+    $o->items=[new FakeItem(3576,5865)];
+    ob_start(); mm_mr_zelle_email_next_steps($o,false,true,$email); $body=ob_get_clean();
+    check(str_contains($body,'IV Prep Complete') && str_contains($body,'opening phase') && str_contains($body,'February') && str_contains($body,'5227') && !str_contains($body,'360'), 'Complete program-specific plain text');
+    foreach ([['admin'=>true,'id'=>'customer_processing_order'],['admin'=>false,'id'=>'customer_on_hold_order'],['admin'=>false,'id'=>'new_order']] as $case) {
+        ob_start(); mm_mr_zelle_email_next_steps($o,$case['admin'],false,(object)['id'=>$case['id']]); check(ob_get_clean()==='', 'non-activation email excluded');
+    }
+    $o->payment='stripe'; ob_start(); mm_mr_zelle_email_next_steps($o,false,false,$email); check(ob_get_clean()==='', 'Stripe email unchanged');
+});
 
 test('strict amount parsing', function() {
     foreach (['1'=>'1.00', '1.2'=>'1.20', '1.23'=>'1.23', '0'=>'0.00'] as $in=>$expected) check(mm_mr_zelle_amount($in) === $expected, 'exact decimals');
@@ -258,5 +277,41 @@ test('admin HTTP handler denies customer, GET, invalid nonce and missing attesta
     try { mm_mr_zelle_handle_admin_review(); throw new Exception('handler did not deny'); }
     catch(RequestDenied $e) { check($e->getMessage()==='409','no attestation cannot approve'); }
     check($GLOBALS['completions']===0,'no unauthorized canonical call');
+});
+test('bounded no-match retries enter review on final attempt', function() {
+    $o=claim(order()); $GLOBALS['http']['body']=['ok'=>true,'state'=>'not_found'];
+    for ($i=1; $i<=MM_MR_ZELLE_MAX_RETRIES; ++$i) {
+        unset($GLOBALS['cron'][$o->id]); // A scheduled callback consumes its event.
+        $state=run(wc_get_order($o->id));
+        $current=wc_get_order($o->id);
+        check($current->get_meta('_mm_zelle_retry_count')===$i,'exact bounded attempt count');
+        check(!$current->is_paid() && $GLOBALS['completions']===0,'waiting never activates');
+        if ($i<MM_MR_ZELLE_MAX_RETRIES) {
+            check($state==='not_found' && isset($GLOBALS['cron'][$o->id]),'early miss schedules retry');
+        } else {
+            check($state==='needs_review','final miss enters review immediately');
+            check($current->get_meta('_mm_zelle_review_hold')==='retry_limit','durable review hold');
+            check(!isset($GLOBALS['cron'][$o->id]),'no further scheduled attempt');
+            check($current->get_meta('_mm_zelle_requested_at')!=='','claim retained');
+        }
+    }
+    $calls=$GLOBALS['http_calls'];
+    check(run(wc_get_order($o->id))==='locked','review replay locked');
+    check($GLOBALS['http_calls']===$calls,'no extra provider call after exhaustion');
+    check(count(array_filter($GLOBALS['options'],fn($v,$k)=>str_starts_with($k,'mm_zelle_transaction_v2_'),ARRAY_FILTER_USE_BOTH))===0,'no financial ledger written');
+});
+test('late valid match on final allowed attempt completes once', function() {
+    $o=claim(order()); $o->update_meta_data('_mm_zelle_retry_count',MM_MR_ZELLE_MAX_RETRIES-1); $o->save();
+    check(run($o)==='verified','last permitted match accepted');
+    check($GLOBALS['completions']===1 && wc_get_order($o->id)->is_paid(),'canonical test-double completion');
+    check(!isset($GLOBALS['cron'][$o->id]),'successful match clears retry');
+    check(run(wc_get_order($o->id))==='locked' && $GLOBALS['completions']===1,'paid replay idempotent');
+});
+test('final provider failure enters review and stops scheduling', function() {
+    $o=claim(order()); $o->update_meta_data('_mm_zelle_retry_count',MM_MR_ZELLE_MAX_RETRIES-1); $o->save();
+    $GLOBALS['http']=['code'=>503,'body'=>[]];
+    check(run($o)==='needs_review','provider exhaustion reviewed');
+    check(!wc_get_order($o->id)->is_paid() && $GLOBALS['completions']===0,'failure stays unpaid');
+    check(!isset($GLOBALS['cron'][$o->id]),'failure retries bounded');
 });
 echo "SYNTHETIC ONLY: {$GLOBALS['cases']} cases, {$GLOBALS['assertions']} assertions passed. Live financial and entitlement acceptance NOT established.\n";
