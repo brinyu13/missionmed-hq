@@ -27,7 +27,7 @@ export function createLocalLayoutReview(store,{
   }
   async function review(){
     if(active||!state.available||!isLocalLayoutReviewLocation(location)||store.entitlement?.canMutate!==true)return state;
-    active=true;publish({busy:true,status:'REVIEWING',receipt:null,applied:0,rejected:0});
+    active=true;publish({busy:true,status:'REVIEWING',receipt:null,applied:0,rejected:0,errorCode:null});
     try{
       const projection=await project(store.document,renderOptions);
       const response=await fetchImpl(LOCAL_LAYOUT_REVIEW_PATH,{method:'POST',credentials:'same-origin',cache:'no-store',
@@ -35,7 +35,7 @@ export function createLocalLayoutReview(store,{
         body:JSON.stringify({projection:projection.input,sceneDigest:projection.sceneDigest,
           consent:{version:LAYOUT_CRITIC_CONSENT_VERSION,sceneDigest:projection.sceneDigest,geometryOnly:true}})});
       const value=await response.json();
-      if(!response.ok||value.status!=='COMPLETE')throw failure('LAYOUT_CRITIC_PROVIDER_UNAVAILABLE');
+      if(!response.ok||value.status!=='COMPLETE')throw failure(/^LAYOUT_CRITIC_[A-Z_]+$/.test(value.error?.code||'')?value.error.code:'LAYOUT_CRITIC_PROVIDER_UNAVAILABLE');
       if(value.mode!=='LOCAL_PROVIDER_AI'||value.scope!=='LOCAL_GEOMETRY_ONLY'||value.synthetic!==false||value.productionWrites!==false||value.sourceUnchanged!==true||!value.providerReceipt?.responseId||!value.providerReceipt.model||value.providerReceipt.store!==false)throw failure('LAYOUT_CRITIC_PROVIDER_RECEIPT_REQUIRED');
       const output={sceneDigest:value.sceneDigest,recommendations:value.recommendations};
       if(value.sceneDigest!==projection.sceneDigest)throw failure('LAYOUT_CRITIC_STALE_SCENE');
@@ -59,7 +59,7 @@ export function createLocalLayoutReview(store,{
       }
       return publish({...receipt,receipt,busy:false});
     }catch(error){
-      return publish({status:error.code==='LAYOUT_CRITIC_STALE_SCENE'?'STALE':'FAILED',busy:false,receipt:null,applied:0,rejected:0});
+      return publish({status:error.code==='LAYOUT_CRITIC_STALE_SCENE'?'STALE':'FAILED',busy:false,receipt:null,applied:0,rejected:0,errorCode:/^LAYOUT_CRITIC_[A-Z_]+$/.test(error.code||'')?error.code:'LAYOUT_CRITIC_VALIDATION_FAILED'});
     }finally{active=false;}
   }
   return {capabilities,review,get state(){return {...state};}};

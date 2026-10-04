@@ -734,7 +734,7 @@ export function renderLocalLayoutReview(state={},canFix=true){
   return `<section data-local-layout-review><h3>Local AI layout review</h3>
     <p>Review layout with AI sends anonymous geometry and measured text bounds to OpenAI. Biography, words, dates, photos and source files stay local. Only validated geometry improvements can be applied.</p>
     <button type="button" class="button secondary" data-local-layout-review-start ${!state.available||state.busy||!canFix?'disabled':''}>${state.busy?'Reviewing layout…':'Review layout with AI'}</button>
-    <p role="status" data-local-layout-review-status>${escapeHtml(messages[state.status]||messages.UNAVAILABLE)}</p>
+    <p role="status" data-local-layout-review-status>${escapeHtml(messages[state.status]||messages.UNAVAILABLE)}${state.errorCode?` (${escapeHtml(state.errorCode)})`:''}</p>
     ${receipt?`<details class="quality-provider-receipt"><summary>Local AI layout receipt</summary><dl>
       <dt>Result</dt><dd>${escapeHtml(messages[receipt.status]||receipt.status)}</dd>
       <dt>Provider response</dt><dd>${escapeHtml(receipt.providerReceipt.responseId)}</dd>
