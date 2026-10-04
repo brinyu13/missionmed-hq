@@ -6,6 +6,7 @@ import {SignJWT} from 'jose';
 import {createAuthorizer,proof} from '../../server/auth.mjs';
 import {readOwnerSession} from '../../server/owner-session.mjs';
 import {createRiseOwner} from '../../server/rise-owner.mjs';
+import {MRX_AREAS,buildResearchMission,researchMissionMatches} from '../../server/research-standard.mjs';
 
 const seconds=1791000000,origin='https://missionmed-rise-production.up.railway.app';
 const program={id:'rise:IM:1234567890',name:'Synthetic Program',track:'Internal Medicine',registryReleaseId:'synthetic_registry_v1'};
@@ -131,4 +132,58 @@ test('five-second deadline aborts a stalled transport cleanly',async()=>{
   const h=await fixture();let signal;
   await assert.rejects(h.client((_url,options)=>{signal=options.signal;return new Promise(()=>{});}).getProgram(h.actor,program.id),{code:'owner_service_unavailable'});
   assert.equal(signal.aborted,true);
+});
+
+function coverage(h){
+  const body={programId:program.id,registryReleaseId:program.registryReleaseId,observedAt:new Date(h.now()).toISOString(),
+    fields:Object.entries(MRX_AREAS).flatMap(([area,fields])=>fields.map(field=>({area,field,state:field==='research.visa'?'UNKNOWN':'SUPPORTED'}))).sort((a,b)=>a.field.localeCompare(b.field,'en'))};
+  return {...body,receipt:{sha256:createHash('sha256').update(JSON.stringify(body)).digest('hex'),publicRef:'rise-coverage-v1'}};
+}
+for(const [role,tier] of [['student','360'],['student','ivprep_complete'],['admin','admin']])
+test(`coverage uses authenticated owner detail for ${role}/${tier} and feeds immutable mission`,async()=>{
+  const h=await fixture({role,tier}),c=coverage(h);
+  const owner=h.client(()=>json({...program,researchCoverage:{...c,private:'DO_NOT_EXPORT'},private:'DO_NOT_EXPORT'}),{researchCoverageEnabled:true});
+  const result=await owner.getResearchCoverage(h.actor,program.id);
+  assert.deepEqual(result,{program,coverage:c});assert.equal(h.calls.length,1);
+  assert.equal(h.calls[0].url,`${origin}/api/rise/v1/interviewiq/programs/rise%3AIM%3A1234567890`);
+  assert.ok(h.calls[0].options.headers['X-MMED-IIQ-Signature']);
+  assert.equal(Object.isFrozen(result.coverage.fields[0]),true);assert.throws(()=>result.coverage.fields.pop());
+  const packet=buildResearchMission({...result,missionId:randomUUID(),now:h.now()});
+  h.advance(1000);assert.equal(researchMissionMatches(packet,{program,coverage:coverage(h),now:h.now()}),true);
+  assert.doesNotMatch(JSON.stringify(result),/DO_NOT_EXPORT/);
+});
+test('coverage has its own strict default-off switch and cannot bypass owner enabled',async()=>{
+  const h=await fixture();
+  for(const setting of [undefined,false,'true',1])await assert.rejects(h.client(undefined,{researchCoverageEnabled:setting}).getResearchCoverage(h.actor,program.id),{code:'research_coverage_unavailable'});
+  await assert.rejects(h.client(undefined,{researchCoverageEnabled:true,enabled:false}).getResearchCoverage(h.actor,program.id),{code:'owner_service_unavailable'});
+  assert.equal(h.calls.length,0);
+});
+for(const [role,tier] of [['mentor','assigned_mentor'],['admin','360'],['student','admin']])
+test(`coverage denies mismatched or unentitled ${role}/${tier}`,async()=>{
+  const h=await fixture({role,tier});await assert.rejects(h.client(undefined,{researchCoverageEnabled:true}).getResearchCoverage(h.actor,program.id),{code:'owner_session_required'});assert.equal(h.calls.length,0);
+});
+test('coverage rejects a copied principal and a session expiring during the request',async()=>{
+  const h=await fixture(),owner=h.client(()=>{h.advance(31000);return json({...program,researchCoverage:coverage(h)});},{researchCoverageEnabled:true});
+  await assert.rejects(owner.getResearchCoverage({...h.actor},program.id),{code:'owner_session_required'});assert.equal(h.calls.length,0);
+  await assert.rejects(owner.getResearchCoverage(h.actor,program.id),{code:'owner_service_unavailable'});
+});
+for(const [label,mutate] of [
+  ['missing',x=>delete x.researchCoverage],['wrong identity',x=>x.id='other'],['empty track',x=>x.track=''],
+  ['wrong program',x=>x.researchCoverage.programId='other'],['wrong release',x=>x.researchCoverage.registryReleaseId='other'],
+  ['missing field',x=>x.researchCoverage.fields.pop()],['duplicate',x=>x.researchCoverage.fields[0]=x.researchCoverage.fields[1]],
+  ['unsupported state',x=>x.researchCoverage.fields[0].state='VERIFIED'],['cross area',x=>x.researchCoverage.fields[0].area='visa'],
+  ['bad hash',x=>x.researchCoverage.receipt.sha256='a'.repeat(64)],['wrong label',x=>x.researchCoverage.receipt.publicRef='other'],
+  ['future time',x=>x.researchCoverage.observedAt=new Date(seconds*1000+1).toISOString()],
+  ['old time',x=>x.researchCoverage.observedAt=new Date(seconds*1000-300001).toISOString()],
+  ['bad time',x=>x.researchCoverage.observedAt='2026-02-30T00:00:00.000Z'],
+])test(`coverage fails closed for ${label} without UNKNOWN fallback`,async()=>{
+  const h=await fixture(),body={...program,researchCoverage:coverage(h)};mutate(body);
+  await assert.rejects(h.client(()=>json(body),{researchCoverageEnabled:true}).getResearchCoverage(h.actor,program.id),e=>{
+    assert.equal(e.code,'research_coverage_unavailable');assert.doesNotMatch(inspect(e),/DO_NOT_EXPORT/);return true;
+  });
+});
+test('coverage metadata stays excluded from ordinary identity detail and search',async()=>{
+  const h=await fixture(),body={...program,researchCoverage:coverage(h)};
+  assert.deepEqual(await h.client(()=>json(body),{researchCoverageEnabled:true}).getProgram(h.actor,program.id),program);
+  assert.deepEqual((await h.client(()=>json({registryReleaseId:program.registryReleaseId,programs:[body],page:1,total:1}),{researchCoverageEnabled:true}).searchPrograms(h.actor)).programs,[program]);
 });

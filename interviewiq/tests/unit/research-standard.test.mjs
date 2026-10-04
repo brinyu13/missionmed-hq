@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {buildResearchMission,renderResearchMission,inspectResearchResult,MRX_AREAS,MRX_SCHEMA,MRX_VERSION} from '../../server/research-standard.mjs';
+import {buildResearchMission,renderResearchMission,inspectResearchResult,MRX_AREAS,MRX_SCHEMA,MRX_VERSION,projectResearchCoverage,researchMissionReuseKey,researchMissionMatches} from '../../server/research-standard.mjs';
 
 // Offline synthetic projections. These prove neither current RISE authority nor
 // factual correctness of citations; the production adapter remains unmounted.
@@ -14,6 +14,14 @@ function input(){
       fields:Object.entries(MRX_AREAS).flatMap(([area,fields])=>fields.map(field=>({area,field,state:field==='research.visa'?'UNKNOWN':'SUPPORTED',private:'DO_NOT_EXPORT'})))}};
 }
 const packet=()=>buildResearchMission(input());
+function authenticatedInput(at=now){
+  const a=input();a.now=at;a.coverage.observedAt=iso(at);
+  return signCoverage(a);
+}
+function signCoverage(a){
+  const c=a.coverage,fields=c.fields.map(({area,field,state})=>({area,field,state})).sort((a,b)=>a.field.localeCompare(b.field,'en'));
+  c.receipt.sha256=createHash('sha256').update(JSON.stringify({programId:c.programId,registryReleaseId:c.registryReleaseId,observedAt:c.observedAt,fields})).digest('hex');return a;
+}
 function result(m=packet()){
   const p=clone(m.output_template);p.researched_at=iso(now+1000);p.permitted_use=true;
   p.execution_declaration={provider:'Synthetic provider',model:'Declared future model',configuration:'Research, high effort',completed_at:p.researched_at};
@@ -41,6 +49,47 @@ test('coverage reorder preserves digest; actual state or receipt changes alter i
   const a=input(),b=input();b.coverage.fields.reverse();assert.equal(buildResearchMission(a).coverage_digest,buildResearchMission(b).coverage_digest);
   b.coverage.fields.find(f=>f.field==='research.visa').state='STALE';assert.notEqual(buildResearchMission(a).coverage_digest,buildResearchMission(b).coverage_digest);
   b.coverage.receipt.sha256='b'.repeat(64);assert.notEqual(buildResearchMission(a).coverage_digest,buildResearchMission(b).coverage_digest);
+});
+test('authenticated projection checks owner receipt and preserves only frozen public primitives',()=>{
+  const a=authenticatedInput(),before=clone(a),p=projectResearchCoverage(a);
+  assert.deepEqual(a,before);assert.equal(Object.isFrozen(p.program),true);assert.equal(Object.isFrozen(p.coverage.receipt),true);
+  assert.doesNotMatch(JSON.stringify(p),/DO_NOT_EXPORT/);
+  a.coverage.receipt.sha256='f'.repeat(64);assert.throws(()=>projectResearchCoverage(a),/invalid_coverage_receipt/);
+  assert.throws(()=>projectResearchCoverage(input()),/invalid_coverage_receipt/);
+});
+test('fresh identical gap map reuses original mission without replacing ID, digest, packet or expiry',()=>{
+  const original=authenticatedInput(),m=buildResearchMission(original),bytes=renderResearchMission(m),fresh=authenticatedInput(now+600000);
+  assert.notEqual(buildResearchMission(fresh).coverage_digest,m.coverage_digest);
+  assert.equal(researchMissionReuseKey(original),researchMissionReuseKey(fresh));
+  assert.equal(researchMissionMatches(m,fresh),true);
+  assert.equal(renderResearchMission(m),bytes);assert.equal(m.mission,missionId);assert.equal(m.expires_at,iso(now+7*86400000));
+  fresh.coverage.fields.reverse();assert.equal(researchMissionMatches(m,fresh),true);
+  const reordered=JSON.parse(JSON.stringify(m),(_k,v)=>v&&!Array.isArray(v)&&typeof v==='object'?Object.fromEntries(Object.entries(v).reverse()):v);
+  assert.equal(researchMissionMatches(reordered,fresh),true);
+});
+for(const [label,mutate] of [
+  ['state',a=>a.coverage.fields.find(f=>f.field==='research.visa').state='STALE'],
+  ['new gap',a=>a.coverage.fields.find(f=>f.field==='research.curriculum').state='WEAK'],
+  ['program',a=>{a.program.id='other-program';a.coverage.programId=a.program.id;}],
+  ['release',a=>{a.program.registryReleaseId='registry-next';a.coverage.registryReleaseId=a.program.registryReleaseId;}],
+  ['track',a=>a.program.track='Different track'],['name',a=>a.program.name='Changed canonical name'],
+])test(`reuse refuses changed ${label}`,()=>{
+  const a=authenticatedInput(),m=buildResearchMission(a),b=authenticatedInput(now+1000);mutate(b);signCoverage(b);
+  assert.notEqual(researchMissionReuseKey(a),researchMissionReuseKey(b));assert.equal(researchMissionMatches(m,b),false);
+});
+test('no-gaps is not an unnecessary mission; invalid current coverage remains an error',()=>{
+  const m=buildResearchMission(authenticatedInput()),a=authenticatedInput();a.coverage.fields.forEach(f=>f.state='SUPPORTED');signCoverage(a);
+  assert.equal(researchMissionMatches(m,a),false);assert.throws(()=>researchMissionReuseKey(a),/no_research_gaps/);
+  a.coverage.receipt.sha256='a'.repeat(64);assert.throws(()=>researchMissionMatches(null,a),/invalid_coverage_receipt/);
+});
+test('stored expiry, contract drift and unverified old receipts cannot authorize reuse',()=>{
+  const m=buildResearchMission(authenticatedInput());
+  assert.equal(researchMissionMatches(m,authenticatedInput(now+7*86400000)),false);
+  for(const bad of [null,{}, {...clone(m),policy_version:'other'}, {...clone(m),mission:'other'}, {...clone(m),coverage_digest:'a'.repeat(64)}])
+    assert.equal(researchMissionMatches(bad,authenticatedInput()),false);
+  const old=packet(),before=renderResearchMission(old);assert.equal(researchMissionMatches(old,authenticatedInput()),false);
+  assert.equal(renderResearchMission(old),before);
+  assert.throws(()=>researchMissionMatches(m,{...authenticatedInput(),now:now+300001}),/coverage_not_current/);
 });
 for(const state of ['UNKNOWN','STALE','CONFLICTED','WEAK'])test(`targets actual ${state} gap`,()=>{
   const a=input();a.coverage.fields.find(f=>f.field==='research.visa').state=state;

@@ -1,5 +1,6 @@
 import {AppError} from './errors.mjs';
 import {createRiseReadTransport,validProgramId} from './owner-wire.mjs';
+import {projectResearchCoverage} from './research-standard.mjs';
 
 const invalid=()=>new AppError(503,'invalid_owner_response','Current program identity could not be verified.');
 const text=(x,max,empty=false)=>typeof x==='string' && x.length<=max && (empty||x.trim().length>0) && !/[\u0000-\u001f\u007f]/.test(x);
@@ -13,10 +14,23 @@ function identity(value,release) {
 }
 export function createRiseOwner(config={},dependencies={}) {
   const request=createRiseReadTransport(config,dependencies);
+  const now=dependencies.now??Date.now;
   return Object.freeze({
     async getProgram(actor,id) {
       const result=identity(await request(actor,{kind:'detail',id}));
       if(result.id!==id)throw invalid();return result;
+    },
+    async getResearchCoverage(actor,id) {
+      const unavailable=()=>new AppError(503,'research_coverage_unavailable','Current research coverage is unavailable. Your saved work is unchanged.');
+      if(config.researchCoverageEnabled!==true)throw unavailable();
+      // One authenticated snapshot supplies both registry identity and coverage.
+      // Do not combine identities or timestamps from separate owner requests.
+      const result=await request(actor,{kind:'detail',id});
+      try{
+        const program=identity(result);
+        if(program.id!==id)throw invalid();
+        return projectResearchCoverage({program,coverage:result.researchCoverage,now:now()});
+      }catch{throw unavailable();}
     },
     async searchPrograms(actor,query={}) {
       const result=await request(actor,{kind:'search',query});

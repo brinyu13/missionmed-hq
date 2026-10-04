@@ -26,8 +26,29 @@ This vocabulary defines possible research areas; it does not invent actual gaps.
 
 Coverage must be observed within five minutes. UNKNOWN, STALE, CONFLICTED and WEAK
 fields become requested areas; SUPPORTED fields do not. A program with no gaps
-does not get an unnecessary mission. Future reuse must match the coverage digest,
-program, release and policy version, not merely the program name.
+does not get an unnecessary mission. `coverage_digest` continues to bind the exact
+original snapshot for uploads. It is not the reuse key: a new observation timestamp
+changes that digest even when every research gap remains unchanged.
+
+The authenticated coverage consumer in `server/rise-owner.mjs` uses the existing
+signed owner detail GET, behind strict `researchCoverageEnabled: true` and the
+existing owner enabled flag. It obtains identity and coverage together, validates
+the exact B2 `rise-coverage-v1` receipt hash, freshness and complete state map, and
+returns only frozen public fields. Existing identity/search projections remain
+unchanged. It is not mounted or enabled by this source addition.
+
+`researchMissionReuseKey` uses the policy version, exact canonical identity
+(including name, track and registry release), and complete sorted field-state map.
+Observation time and receipt bytes are excluded. `researchMissionMatches` requires
+fresh authenticated current coverage and a valid, unexpired stored packet, including
+the original B2 receipt at its issuance time. Invalid current coverage throws;
+expired/invalid stored packets or current no-gaps return false. Generic older B1
+packets remain readable but cannot enter this authenticated reuse path.
+
+Future durable wiring must serialize by actor/program, explicitly enforce owner,
+reuse only open/submitted records, and preserve the original mission ID, packet,
+receipt, upload digest and expiry. A repeated read must not extend the mission or
+create credit. These pure helpers neither persist records nor authorize ownership.
 
 The package contains only explicit public identity, status map, timestamps and
 an opaque public receipt label/hash. Private user IDs, internal receipt paths,

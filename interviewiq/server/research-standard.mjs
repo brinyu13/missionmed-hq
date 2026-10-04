@@ -56,6 +56,29 @@ function projection(program,coverage,now){
   need(fields.every(f=>seen.has(f)),'incomplete_coverage');
   return {program:canonical,coverage:{programId:canonical.id,registryReleaseId:canonical.registryReleaseId,observedAt:coverage.observedAt,receipt,fields:rows}};
 }
+// Validate B2's public consistency receipt only AFTER the caller obtains the
+// response through the authenticated owner transport. A digest is not identity.
+export function projectResearchCoverage({program,coverage,now=Date.now()}={}){
+  const p=projection(program,coverage,now),c=p.coverage;
+  const body={programId:c.programId,registryReleaseId:c.registryReleaseId,observedAt:c.observedAt,fields:c.fields};
+  need(c.receipt.publicRef==='rise-coverage-v1'&&c.receipt.sha256===sha(JSON.stringify(body)),'invalid_coverage_receipt');
+  return freeze(p);
+}
+const hasGaps=p=>p.coverage.fields.some(row=>row.state!=='SUPPORTED');
+const reuseKey=p=>sha(JSON.stringify({policyVersion:MRX_VERSION,program:p.program,fields:p.coverage.fields}));
+export function researchMissionReuseKey(input){
+  const p=projectResearchCoverage(input);need(hasGaps(p),'no_research_gaps');return reuseKey(p);
+}
+export function researchMissionMatches(packet,{program,coverage,now=Date.now()}={}){
+  // Invalid current owner evidence must not look like an ordinary cache miss.
+  const current=projectResearchCoverage({program,coverage,now});
+  if(!hasGaps(current))return false;
+  try{
+    validateMission(packet,now);
+    const original=projectResearchCoverage({program:packet.program,coverage:packet.coverage,now:instant(packet.issued_at)});
+    return reuseKey(original)===reuseKey(current);
+  }catch{return false;}
+}
 const instructions=[
   'This is PROVISIONAL_MRX_V1, not a verified canonical MRX standard. Research only the requested fields for the exact program and track.',
   'Use the strongest appropriate research-capable configuration currently available in your provider environment. Record provider, model and configuration accurately; declarations and model power are not proof.',
