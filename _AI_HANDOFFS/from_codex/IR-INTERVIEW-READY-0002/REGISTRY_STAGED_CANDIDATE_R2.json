@@ -1,0 +1,31 @@
+{
+  "schema": "missionmed.ir.registry.staged.v1",
+  "mission": "IR-INTERVIEW-READY-0002",
+  "root": "/Users/brianb/MissionMed_worktrees/IR-PHASE1-REGISTRY-20261004-R2",
+  "canonicalBase": "95a188b9cc30655b374f580775e7dc77be6d7f7a",
+  "decisionIds": [
+    "DR-375",
+    "DR-376"
+  ],
+  "paths": {
+    "CURRENT.md": "75a6da14dc1c1fbdac57280529fd019ea84b69f878c6dcaf9d4d39e8c88dbd6c",
+    "PRODUCT_PASSPORTS/interview-ready.md": "566848c181840f7cd1fc6070707be09b4687ffbd15423d4e5c9f3d7c5faaf74e",
+    "authority_index.json": "fd7e8d73e1707dce796440d695652249d88560ad0e4edcdc428d83dbb3e2adde",
+    "decisions/DR-375_ir_phase1_production_authority.md": "05803e16c985437a6400aa261e55bdb57f50ed2a0c7200f904fcffc49155a508",
+    "decisions/DR-376_ir_phase1_bounded_execution_annex.md": "32ad43957a4b9a245e5eb715c998692bf0ad8ed13d0766d88ab0e9955b7513bd",
+    "handoffs/from_codex/IR_INTERVIEW_READY_0002/REGISTRATION_TO_CODEX.md": "98c069c5abf6100eea20fbeea9b6f6b11f7e0fe835d943aa5cdeb9cf4304939f",
+    "missions.json": "6666ce7aab58d0a278fdad07d5e01293a9cae343e03ae9e03ae107d131a42862",
+    "products_index.json": "a98fc4e4e1982cae01ab336fe30a614e040d38d1b9cba8c048f5e154cb83fc52",
+    "registry/boot_dependency_manifest.json": "180968c23828dfa660c001fd6ec1d2904098b5286309f94a1700215fc9e456bf"
+  },
+  "leaseId": "1526a877-b599-4273-a82b-34386c0f4517",
+  "fencingEpoch": 4665,
+  "nonceSha256": "933994d9895f373943d7be50b7865052d9132d034f6140004f24b448e756a29e",
+  "evidenceSha256": {
+    "PHASE1_INDEPENDENT_CONTRACT_REVIEW.md": "7fd6f092879ca5b0fba04ecfb10e5a4972c131cf0d11f7ac99e69afe91e5bf80",
+    "PHASE1_REGISTRATION_REQUEST.md": "5563d517e9d4cfced50357769dc6077773d937daab65233208d39a398351670a",
+    "MATRIX_LINEAGE_REVIEW.md": "cc7252cbf7326de1ad9d1c734832ab1cfdc1bf93f39818db10bd5ce0a40c79d6",
+    "NORMAL_REGISTRY_ADMISSION_REVIEW_R2.md": "4c3b6fc75855dc88aa22fe9bc51a6bb404fbce63cba90adc20c3bd3d7835a404",
+    "REGISTRY_ADMISSION_APPROVAL_R2.json": "a0879f772fbfef19cd6a8e8190f7ab2bfdd8bc0074e65189bc0f02b2f9fe54bc"
+  }
+}

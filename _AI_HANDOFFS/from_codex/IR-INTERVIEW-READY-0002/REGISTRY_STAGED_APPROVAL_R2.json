@@ -1,0 +1,16 @@
+{
+  "verdict": "APPROVE",
+  "reviewer": "phase1_registration_contract_review",
+  "paths": {
+    "CURRENT.md": "75a6da14dc1c1fbdac57280529fd019ea84b69f878c6dcaf9d4d39e8c88dbd6c",
+    "PRODUCT_PASSPORTS/interview-ready.md": "566848c181840f7cd1fc6070707be09b4687ffbd15423d4e5c9f3d7c5faaf74e",
+    "authority_index.json": "fd7e8d73e1707dce796440d695652249d88560ad0e4edcdc428d83dbb3e2adde",
+    "decisions/DR-375_ir_phase1_production_authority.md": "05803e16c985437a6400aa261e55bdb57f50ed2a0c7200f904fcffc49155a508",
+    "decisions/DR-376_ir_phase1_bounded_execution_annex.md": "32ad43957a4b9a245e5eb715c998692bf0ad8ed13d0766d88ab0e9955b7513bd",
+    "handoffs/from_codex/IR_INTERVIEW_READY_0002/REGISTRATION_TO_CODEX.md": "98c069c5abf6100eea20fbeea9b6f6b11f7e0fe835d943aa5cdeb9cf4304939f",
+    "missions.json": "6666ce7aab58d0a278fdad07d5e01293a9cae343e03ae9e03ae107d131a42862",
+    "products_index.json": "a98fc4e4e1982cae01ab336fe30a614e040d38d1b9cba8c048f5e154cb83fc52",
+    "registry/boot_dependency_manifest.json": "180968c23828dfa660c001fd6ec1d2904098b5286309f94a1700215fc9e456bf"
+  },
+  "canonicalBase": "95a188b9cc30655b374f580775e7dc77be6d7f7a"
+}

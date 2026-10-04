@@ -1,0 +1,14 @@
+{
+  "schema": "missionmed.ir.registry.admission.r2.v1",
+  "verdict": "APPROVE",
+  "reviewer": "phase1_registration_contract_review",
+  "sources": {
+    "lease_transport.py": "6bab4c948b28202b7a803228f2123d5c95137030f16eb129c427b4ddcc487cad",
+    "register_phase1.py": "6e0115270e35003ea2ddfca5086a292b5454d9c1b697a288630581fb8f5141e7",
+    "run_authenticated_registration.py": "871e0f58ca6dcd96097b65d5a3ced880edf0fe0f68e6836c1e10abcd908bc396",
+    "PHASE1_INDEPENDENT_CONTRACT_REVIEW.md": "7fd6f092879ca5b0fba04ecfb10e5a4972c131cf0d11f7ac99e69afe91e5bf80",
+    "PHASE1_REGISTRATION_REQUEST.md": "5563d517e9d4cfced50357769dc6077773d937daab65233208d39a398351670a",
+    "MATRIX_LINEAGE_REVIEW.md": "cc7252cbf7326de1ad9d1c734832ab1cfdc1bf93f39818db10bd5ce0a40c79d6"
+  },
+  "normalReviewSha256": "4c3b6fc75855dc88aa22fe9bc51a6bb404fbce63cba90adc20c3bd3d7835a404"
+}
