@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {projectReplayTurns,projectSavedAttempt,validReplaySeek,privatePlaybackUrl} from '../../public/studio-fable/app/adapters/saved-review.mjs';
+import {projectReplayTurns,projectSavedAttempt,validReplaySeek,privatePlaybackUrl,retainedEvidenceReport} from '../../public/studio-fable/app/adapters/saved-review.mjs';
 import {bindOwnLibrary,bindOwnRow} from '../../public/studio-fable/app/adapters/own-scope.mjs';
 import {sealDerivedEvidence} from '../../public/studio-fable/app/adapters/derived-evidence.mjs';
+import {traceSample} from '../../public/studio-fable/app/model/trace-reducer.mjs';
 const id='f13869aa-2b3e-4b65-9f66-1288fb459444';
 test('own library omitted owner display binds only to admitted scope; explicit mismatch fails',()=>{
   assert.equal(bindOwnRow({id},'wp:1').ownerSubject,'wp:1');assert.equal(bindOwnRow({id,ownerSubject:'wp:2'},'wp:1'),null);
@@ -52,4 +53,49 @@ test('derived trace is scalar, bounded and does not duplicate private transcript
   assert.ok(evidence.samples.length<=1200);assert.ok(evidence.events.length<=512);assert.ok(JSON.stringify(evidence).length<512*1024);
   assert.equal(evidence.samples[0].landmarks,undefined);assert.deepEqual(evidence.turns,[]);assert.equal(evidence.conductor,null);
   assert.equal(evidence.retention.decimated,true);
+});
+test('retained report preserves earlier tracking when the final sample is unavailable',()=>{
+  const a={persisted:true,fixture:false,traceUnavailable:false,durationS:10,
+    samples:[{t:1,presence:'TRACKED',facing:35,hands:'NONE'},
+      {t:2,presence:'TRACKED',facing:80,hands:'BOTH',speaking:true,state:'ANSWERING',wpm:160,loudness:-22,loudnessUnit:'dBFS',f0Hz:185},
+      {t:3,presence:'UNAVAILABLE',facing:null,hands:'UNAVAILABLE'}],
+    events:[{t:1,kind:'smile'},{t:2,kind:'nod'},{t:2,kind:'gesture'},{t:3,kind:'framing'}]};
+  const report=retainedEvidenceReport(a),rows=report.groups.flatMap(g=>g.rows);
+  assert.equal(rows.find(r=>r.label==='Face/head tracking').value,'2 tracked samples retained');
+  assert.equal(rows.find(r=>r.label==='Head orientation proxy').value,'35–80 % camera-facing proxy · 2 retained samples');
+  assert.equal(rows.find(r=>r.label==='Hand visibility').value,'1 with hands visible / 2 retained detection samples');
+  assert.equal(rows.find(r=>r.label==='Voiced pitch').value,'185–185 Hz · 1 retained sample');
+  assert.equal(rows.find(r=>r.label==='Framing observations').value,'1 event retained');
+  assert.ok(report.available);assert.match(report.note,/not percentages of interview time/);
+  const decimated=retainedEvidenceReport({...a,traceDecimated:true,samples:a.samples.map((s,i)=>({...s,t:i*4}))});
+  assert.equal(decimated.groups[0].rows[0].value,'2 tracked samples retained');
+  assert.doesNotMatch(JSON.stringify(decimated),/seconds|continuous|% of/);
+});
+test('retained report withholds fixtures, invalid times, unavailable tracking and non-candidate voice',()=>{
+  const a={persisted:true,fixture:false,traceUnavailable:false,durationS:10,
+    samples:[{t:1,presence:'SEARCHING',facing:0,hands:'UNAVAILABLE'},
+      {t:2,presence:'TRACKED',facing:null,hands:'NONE'},
+      {t:3,speaking:true,state:'LISTENING',wpm:170,f0Hz:180,loudness:-10,loudnessUnit:'dBFS'},
+      {t:4,speaking:true,state:'ANSWERING',signalGap:true,wpm:170,f0Hz:180,loudness:-10,loudnessUnit:'dBFS'},
+      {t:5,fixture:true,presence:'TRACKED',facing:90},
+      {t:11,presence:'TRACKED',facing:90},{t:null,presence:'TRACKED',facing:90}],
+    events:[{t:11,kind:'smile'},{t:1,kind:'smile',fixture:true}]};
+  const rows=retainedEvidenceReport(a).groups.flatMap(g=>g.rows);
+  assert.equal(rows.find(r=>r.label==='Face/head tracking').value,'1 tracked sample retained');
+  for(const label of ['Head orientation proxy','Pace','Loudness (LUFS-K)','Volume (dBFS)','Voiced pitch'])assert.match(rows.find(r=>r.label===label).value,/Unavailable/);
+  assert.equal(rows.find(r=>r.label==='Smile patterns').value,'No qualifying event retained');
+  for(const change of [{persisted:false},{fixture:true},{traceUnavailable:true},{durationS:null}])assert.equal(retainedEvidenceReport({...a,...change}).available,false);
+  assert.equal(retainedEvidenceReport(null).available,false);
+});
+test('producer loudness survives trace, sealing and owned review without mixing LUFS-K and dBFS',()=>{
+  const samples=[[-24,'LUFS-K'],[-20,'LUFS-K'],[-14,'dBFS']].map(([value,unit],i)=>traceSample({
+    t:i+1,speaking:true,state:'ANSWERING',volume:{available:true,normalized:.5,scientificValue:value,scientificUnit:unit}}));
+  const evidence=sealDerivedEvidence({samples,events:[]});
+  const row={id,ownerSubject:'wp:1',state:'saved',recording:{id:'r1',status:'saved',durationMs:5000},
+    results:{payload:{analytics:{fable:evidence}}}};
+  const admitted=projectSavedAttempt({persisted:true,session:row,sessionDetail:row},'wp:1');
+  const voice=retainedEvidenceReport(admitted).groups.find(g=>g.label==='Captured candidate voice').rows;
+  assert.equal(voice.find(r=>r.label==='Loudness (LUFS-K)').value,'-24.0–-20.0 LUFS-K · 2 retained samples');
+  assert.equal(voice.find(r=>r.label==='Volume (dBFS)').value,'-14.0–-14.0 dBFS · 1 retained sample');
+  assert.equal(retainedEvidenceReport(projectSavedAttempt({persisted:true,session:row,sessionDetail:row},'wp:2')).available,false);
 });

@@ -106,6 +106,51 @@ export function nearestComparable(attempt, sessions=[]) {
     && item.at!==null && attempt.comparison.at!==null && item.at<attempt.comparison.at)
     .sort((a,b)=>b.at-a.at)[0]||null;
 }
+// Report only the admitted recording's retained scalar trace. A last-frame
+// readout can be unavailable after capture stops without erasing earlier data.
+// Counts/ranges are not time coverage, continuous runs, or a performance score.
+export function retainedEvidenceReport(attempt) {
+  const unavailable = 'Unavailable — no qualifying sample retained';
+  const groups = [];
+  const duration = attempt?.durationS;
+  const admitted = attempt?.persisted === true && attempt.fixture === false
+    && attempt.traceUnavailable === false && typeof duration === 'number'
+    && Number.isFinite(duration) && duration >= 0;
+  const eligible = item => admitted && item?.fixture !== true && typeof item?.t === 'number'
+    && Number.isFinite(item.t) && item.t >= 0 && item.t <= duration;
+  const samples = (Array.isArray(attempt?.samples) ? attempt.samples : []).filter(eligible);
+  const events = (Array.isArray(attempt?.events) ? attempt.events : []).filter(eligible);
+  const row = (label, selected, value) => ({label, value: selected.length ? value(selected) : unavailable,
+    at: selected.length ? selected[0].t : null});
+  const measured = (items, key, predicate = () => true) => items.filter(s => typeof s[key] === 'number'
+    && Number.isFinite(s[key]) && predicate(s[key]));
+  const range = (items, key, unit, digits = 0) => {
+    const values = items.map(s => s[key]), low = Math.min(...values), high = Math.max(...values);
+    return `${low.toFixed(digits)}–${high.toFixed(digits)} ${unit} · ${items.length} retained sample${items.length === 1 ? '' : 's'}`;
+  };
+  const tracked = samples.filter(s => s.presence === 'TRACKED');
+  const facing = measured(tracked, 'facing', n => n >= 0 && n <= 100);
+  const hands = samples.filter(s => ['NONE','LEFT','RIGHT','BOTH'].includes(s.hands));
+  groups.push({label:'Captured visual evidence', rows:[
+    row('Face/head tracking', tracked, items => `${items.length} tracked sample${items.length === 1 ? '' : 's'} retained`),
+    row('Head orientation proxy', facing, items => range(items,'facing','% camera-facing proxy')),
+    row('Hand visibility', hands, items => `${items.filter(s => s.hands !== 'NONE').length} with hands visible / ${items.length} retained detection samples`),
+    ...[['smile','Smile patterns'],['nod','Head nods'],['gesture','Gesture units'],['framing','Framing observations']].map(([kind,label]) => {
+      const selected = events.filter(e => e.kind === kind);
+      return {label,value:selected.length ? `${selected.length} event${selected.length === 1 ? '' : 's'} retained` : 'No qualifying event retained',
+        at:selected[0]?.t ?? null};
+    }),
+  ]});
+  const speech = samples.filter(s => s.state === 'ANSWERING' && s.speaking === true && s.signalGap !== true);
+  groups.push({label:'Captured candidate voice', rows:[
+    row('Pace', measured(speech,'wpm',n => n > 0), items => range(items,'wpm','WPM')),
+    row('Loudness (LUFS-K)', measured(speech.filter(s => s.loudnessUnit === 'LUFS-K'),'loudness'), items => range(items,'loudness','LUFS-K',1)),
+    row('Volume (dBFS)', measured(speech.filter(s => s.loudnessUnit === 'dBFS'),'loudness'), items => range(items,'loudness','dBFS',1)),
+    row('Voiced pitch', measured(speech,'f0Hz',n => n > 0), items => range(items,'f0Hz','Hz')),
+  ]});
+  return {groups, available:samples.length > 0 || events.length > 0,
+    note:'These are retained observations, not percentages of interview time or a readiness score. Missing intervals are not reconstructed. Open Film Room to inspect the synchronized evidence.'};
+}
 export function validReplaySeek(value, durationS) {
   const time=finite(value), duration=finite(durationS);
   return time!==null && time>=0 && duration!==null && duration>0 && time<=duration ? time : null;
