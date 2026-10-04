@@ -18,11 +18,11 @@ function request({path=PATH,actor=ACTOR,rawActor=JSON.stringify(actor),time=NOW/
   return {method:'GET',url:path,body:Buffer.alloc(0),rawHeaders:['X-MMED-IIQ-Owner','rise','X-MMED-IIQ-Timestamp',String(time),
     'X-MMED-IIQ-Nonce',nonce,'X-MMED-IIQ-Actor',Buffer.from(rawActor).toString('base64url'),'X-MMED-IIQ-Signature',mac(SECRET,canonical)]};
 }
-function setup({mutateProof=x=>x,fetchOverride,rights,registry,readCoverage,config=CONFIG}={}) {
+function setup({mutateProof=x=>x,fetchOverride,rights,registry,readCoverage,readResults,config=CONFIG}={}) {
   // In-memory nonce store is ONLY an offline fixture. Production composition
   // cannot rely on this test for PostgreSQL replay/restore acceptance.
   const nonces=new Set(),proofs=[],admissions=[];
-  const dependencies={now:()=>NOW,readCoverage,consumeNonce:async p=>{admissions.push(p);if(nonces.has(p.nonce))return false;nonces.add(p.nonce);return true;},
+  const dependencies={now:()=>NOW,readCoverage,readResults,consumeNonce:async p=>{admissions.push(p);if(nonces.has(p.nonce))return false;nonces.add(p.nonce);return true;},
     assertSourceRights:rights??(async()=>({current:true})),getRegistry:registry??(async()=>({registryReleaseId:'registry-synthetic-v1',programs:[
       {programSpecialtyId:'acgme:001.im',display:{programName:'Synthetic Residency',track:'Internal Medicine'},privateStudent:'NEVER RETURN',facts:['UNVALIDATED']},
       {programSpecialtyId:'acgme:002.im',display:{programName:'Other Synthetic Residency'}}]})),
@@ -187,3 +187,7 @@ test('auth result never serializes private actor or proof material',async()=>{
   const s=setup(),auth=await createInterviewiqAuthenticator(CONFIG,s.dependencies)(request());
   assert.deepEqual(Object.keys(auth),['route','recheck','assertFresh']);assert.doesNotMatch(JSON.stringify(auth),/session_verifier|11111111|wp_user_id/);
 });
+
+function emptyResults(){const body={programId:'acgme:001.im',registryReleaseId:'registry-synthetic-v1',observedAt:new Date(NOW).toISOString(),fields:DEEP_RESEARCH_DOSSIER_V2.domains.flatMap(d=>d.fields.map(field=>({area:d.key,field,state:'UNKNOWN'}))).sort((a,b)=>a.field.localeCompare(b.field,'en'))};const c={...body,receipt:{sha256:sha(JSON.stringify(body)),publicRef:'rise-coverage-v1'}},v={schema:'rise-interviewiq-research-results-v1',coverage:c,facts:[]};return {...v,receipt:{publicRef:'rise-results-v1',sha256:sha(JSON.stringify(v))}};}
+test('results capability binds current program and preserves final owner proof checks',async()=>{const expected=emptyResults(),s=setup({config:{...CONFIG,resultsEnabled:true},readResults:async input=>{assert.equal(input.programId,'acgme:001.im');return {...expected,raw:'PRIVATE_SENTINEL'};}}),r=await s.handler(request({path:'/api/rise/v1/interviewiq/programs/acgme%3A001.im'}));assert.equal(r.status,200);assert.deepEqual(r.body.researchResults,expected);assert.equal(s.proofs.length,2);assert.doesNotMatch(JSON.stringify(r),/PRIVATE_SENTINEL/);});
+test('results off does not read values; missing or mismatched reader fails closed',async()=>{let reads=0;const s=setup({readResults:async()=>{reads++;return emptyResults();}});assert.equal((await s.handler(request({path:'/api/rise/v1/interviewiq/programs/acgme%3A001.im'}))).status,200);assert.equal(reads,0);for(const readResults of [undefined,async()=>({...emptyResults(),coverage:{...emptyResults().coverage,programId:'other'}})]){const x=setup({config:{...CONFIG,resultsEnabled:true},readResults});assert.equal((await x.handler(request({path:'/api/rise/v1/interviewiq/programs/acgme%3A001.im'}))).status,503);}});

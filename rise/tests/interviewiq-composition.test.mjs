@@ -4,7 +4,7 @@ import http from 'node:http';
 import {PassThrough} from 'node:stream';
 import {createHash,createHmac,randomUUID} from 'node:crypto';
 import {createRiseServer} from '../server.mjs';
-import {createInterviewiqRuntime,readInterviewiqRuntimeConfig,isInterviewiqNamespace,readEmptyInterviewiqBody} from '../adapters/interviewiq-runtime.mjs';
+import {createInterviewiqRuntime,readInterviewiqRuntimeConfig,isInterviewiqNamespace,readEmptyInterviewiqBody,readInterviewiqJobBody} from '../adapters/interviewiq-runtime.mjs';
 
 // Public trust certificate only; no private key or production credential.
 const CA=`-----BEGIN CERTIFICATE-----
@@ -489,3 +489,21 @@ test('empty-body reader is bounded and rejects actual bytes or duplicate framing
   const bytes=stream(),p=readEmptyInterviewiqBody(bytes);bytes.end('x');await assert.rejects(p);bytes.destroy();
   const stalled=stream(),started=Date.now();await assert.rejects(readEmptyInterviewiqBody(stalled));assert.ok(Date.now()-started<1800);stalled.destroy();
 });
+
+const JOB_ENV={...ENV,RISE_IIQ_RESEARCH_JOBS_ENABLED:'true',RISE_IIQ_JOB_REQUEST_SECRET:'synthetic-job-request-secret-1234567890',RISE_IIQ_JOB_PROOF_SECRET:'synthetic-job-proof-secret-1234567890',RISE_STUDENT_STATE_SUBJECT_HMAC_KEY:'synthetic-quota-secret-123456789012345'};
+test('job and result flags remain subordinate and job secrets cannot collide',()=>{
+ assert.equal(readInterviewiqRuntimeConfig(ENV).jobs,undefined);assert.equal(readInterviewiqRuntimeConfig(ENV).resultsEnabled,false);assert.equal(readInterviewiqRuntimeConfig(JOB_ENV).jobs.enabled,true);
+ for(const key of ['RISE_IIQ_RESEARCH_JOBS_ENABLED','RISE_IIQ_RESEARCH_RESULTS_ENABLED']){for(const value of ['yes','TRUE','2'])assert.throws(()=>readInterviewiqRuntimeConfig({...JOB_ENV,[key]:value}));assert.throws(()=>readInterviewiqRuntimeConfig({...JOB_ENV,RISE_IIQ_ENABLED:'false',[key]:'true'}));}
+ for(const key of ['RISE_IIQ_JOB_REQUEST_SECRET','RISE_IIQ_JOB_PROOF_SECRET'])for(const value of ['',SECRET,PROOF,JOB_ENV.RISE_STUDENT_STATE_SUBJECT_HMAC_KEY])assert.throws(()=>readInterviewiqRuntimeConfig({...JOB_ENV,[key]:value}));
+});
+test('ordinary mounted server exposes no worker invocation and disabled jobs deny without proof',async()=>{const f=fixture(),runtime=await createInterviewiqRuntime({registryIndex:INDEX,env:ENV},f),app=await mounted(runtime);try{await assert.rejects(runtime.runResearchJob());assert.equal((await app.request('/api/rise/v1/interviewiq/research-jobs',{'Content-Type':'application/json','Content-Length':'2'},'POST','{}')).status,503);assert.equal(f.state.proofs,0);assert.equal(app.generic,0);}finally{await app.close();await runtime.close();}});
+test('job runtime requires activated canonical index hash and rejects implicit worker startup',async()=>{const f=fixture();await assert.rejects(createInterviewiqRuntime({registryIndex:INDEX,env:JOB_ENV},f));assert.equal(f.state.created,0);await assert.rejects(createInterviewiqRuntime({registryIndex:INDEX,env:ENV,workerEnvelope:{}},f));assert.equal(f.state.created,0);});
+test('job raw ingress preserves bytes and rejects framing ambiguity and truncation',async()=>{
+ const request=(headers=['Content-Length','2'],url='/api/rise/v1/interviewiq/research-jobs')=>Object.assign(new PassThrough(),{method:'POST',url,rawHeaders:headers});
+ const good=request(),promise=readInterviewiqJobBody(good);good.end('{}');assert.equal((await promise).toString(),'{}');
+ for(const h of [[],['Content-Length','2','Content-Length','2'],['Content-Length','2','Transfer-Encoding','chunked'],['Content-Length','16385'],['Content-Length','0']]){const r=request(h);await assert.rejects(readInterviewiqJobBody(r));r.destroy();}
+ const short=request(),p=readInterviewiqJobBody(short);short.end('{');await assert.rejects(p);
+ const wrong=request(['Content-Length','2'],'/api/rise/v1/interviewiq/research-jobs?extra=1');await assert.rejects(readInterviewiqJobBody(wrong));wrong.destroy();
+});
+
+test('new signing secrets cannot equal decoded database password',()=>{for(const key of ['RISE_IIQ_JOB_REQUEST_SECRET','RISE_IIQ_JOB_PROOF_SECRET']){const env={...JOB_ENV};const url=new URL(env.RISE_DATABASE_URL);url.password=env[key];env.RISE_DATABASE_URL=url.href;assert.throws(()=>readInterviewiqRuntimeConfig(env));}});

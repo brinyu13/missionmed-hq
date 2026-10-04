@@ -1,4 +1,5 @@
 import {createInterviewiqAuthenticator,validProgramId} from '../adapters/interviewiq-auth.mjs';
+import {projectInterviewiqResearchResults} from '../adapters/interviewiq-research-results.mjs';
 import {projectInterviewiqCoverage} from '../adapters/interviewiq-coverage.mjs';
 
 const clean=(x,max,empty=false)=>typeof x==='string'&&x.length<=max&&(empty||x.trim().length>0)&&!/[\u0000-\u001f\u007f]/.test(x);
@@ -14,11 +15,11 @@ function identity(record,release) {
 // strict current source-rights and a durable nonce store before enabling it.
 export function createInterviewiqOwner(config={},dependencies={}) {
   const authenticate=createInterviewiqAuthenticator(config,dependencies);
-  const {getRegistry,assertSourceRights,readCoverage,now=Date.now}=dependencies;
+  const {getRegistry,assertSourceRights,readCoverage,readResults,now=Date.now}=dependencies;
   return async request=>{
     try {
       if(typeof getRegistry!=='function'||typeof assertSourceRights!=='function')throw new Error('unavailable');
-      if(![undefined,false,true].includes(config.coverageEnabled))throw new Error('unavailable');
+      if(![undefined,false,true].includes(config.coverageEnabled)||![undefined,false,true].includes(config.resultsEnabled))throw new Error('unavailable');
       const auth=await authenticate(request);
       if((await assertSourceRights())?.current!==true)throw new Error('rights_unavailable');
       const index=await getRegistry();
@@ -36,6 +37,12 @@ export function createInterviewiqOwner(config={},dependencies={}) {
             const coverage=await Promise.race([readCoverage({programId:body.id,registryReleaseId:index.registryReleaseId}),
               new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('unavailable')),5000);})]);
             body={...body,researchCoverage:projectInterviewiqCoverage(coverage,{programId:body.id,registryReleaseId:index.registryReleaseId,now:now()})};
+          }finally{clearTimeout(timer);}
+        }
+        if(status===200&&config.resultsEnabled===true){
+          if(typeof readResults!=='function')throw new Error('unavailable');let timer;
+          try{const results=await Promise.race([readResults({programId:body.id,registryReleaseId:index.registryReleaseId}),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('unavailable')),5000);})]);
+            body={...body,researchResults:projectInterviewiqResearchResults(results,{programId:body.id,registryReleaseId:index.registryReleaseId,now:now()})};
           }finally{clearTimeout(timer);}
         }
       } else {

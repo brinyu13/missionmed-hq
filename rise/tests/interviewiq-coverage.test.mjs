@@ -5,6 +5,7 @@ import {execFileSync} from 'node:child_process';
 import {createHash,randomUUID} from 'node:crypto';
 import pg from 'pg';
 import {createInterviewiqCoverageReader,projectInterviewiqCoverage} from '../adapters/interviewiq-coverage.mjs';
+import {createInterviewiqResearchResultsReader} from '../adapters/interviewiq-research-results.mjs';
 import {qualifyLocalHarness} from '../tools/migrate-interviewiq-owner.mjs';
 import {DEEP_RESEARCH_DOSSIER_V2} from '../src/research-router.mjs';
 
@@ -144,6 +145,35 @@ test('guarded PostgreSQL18 canonical coverage preserves rows and current review 
         VALUES('unresolved-alias','1234567891','unresolved-program','Same name','Synthetic','NY','IM','REVIEW_REQUIRED','INTERNAL_ONLY',$1,$2)`,[s,sha('unresolved')]);
       await claim('research.application_requirements',{subject:'unresolved-alias'});
       assert.ok((await get('unresolved-program')).fields.every(x=>x.state==='UNKNOWN'));
+    });
+    await t.test('factual reader returns current exact value and public provenance without private row metadata',async()=>{
+      const s=await source(),field='research.curriculum',at=date(0),value={rotation:'Community clinic',weeks:4};
+      await admin.query(`INSERT INTO rise_runtime.canonical_evidence_claims(claim_id,subject_id,field,knowledge,canonical_value,assertion_class,publication_state,review_state,source_id,retrieved_at,content_sha256)
+        VALUES('public-fact','facts-program',$1,'{"state":"known"}',$2::jsonb,'source_attributed','PRIVATE_BETA','APPROVED',$3,$4,$5)`,[field,JSON.stringify(value),s,at,sha('public-fact')]);
+      const readResults=createInterviewiqResearchResultsReader({enabled:true,pool}),result=await readResults({programId:'facts-program',registryReleaseId});
+      assert.equal(result.facts.length,1);assert.deepEqual(result.facts[0].value,value);assert.equal(result.facts[0].retrievedAt,at);assert.deepEqual(result.facts[0].sources[0].urls,['https://residency.hospital.edu/evidence']);
+      assert.equal(result.facts[0].claimRef,'rise-claim:'+sha('public-fact'));assert.doesNotMatch(JSON.stringify(result),/PRIVATE_SENTINEL|actor_subject_key|quota|raw_body/);
+      assert.equal((await readResults({programId:'other-facts-program',registryReleaseId})).facts.length,0);
+      await review('public-fact',{disposition:'CONFLICT_REQUIRES_REVIEW'});const conflicted=await readResults({programId:'facts-program',registryReleaseId});
+      assert.equal(conflicted.facts.length,0);assert.equal(conflicted.coverage.fields.find(f=>f.field===field).state,'CONFLICTED');
+    });
+    await t.test('factual reader follows current promotion review without exposing private originals',async()=>{
+      const originalSource=await source({rights:'REVIEW_REQUIRED',exposure:'INTERNAL_ONLY'});
+      const field='research.culture',original=await claim(field,{subject:'promotion-facts',sourceId:originalSource,review:'PENDING',publication:'INTERNAL_ONLY'}),reviewId=await review(original);
+      const s=await source({provider:'MISSIONMED_REVIEW',type:'canonical_review_promotion',url:null}),v={summary:'Residents describe a weekly case conference'};
+      await admin.query(`INSERT INTO rise_runtime.canonical_evidence_claims(claim_id,subject_id,field,knowledge,canonical_value,assertion_class,publication_state,review_state,source_id,retrieved_at,content_sha256)
+        VALUES('promoted-fact','promotion-facts',$1,'{"state":"known"}',$2::jsonb,'source_attributed','PRIVATE_BETA','APPROVED',$3,$4,$5)`,[field,JSON.stringify(v),s,date(0),sha('promoted-fact')]);
+      await admin.query('INSERT INTO rise_runtime.canonical_claim_promotion_lineage(promoted_claim_id,source_claim_id,review_id,contributor_order) VALUES($1,$2,$3,0)',['promoted-fact',original,reviewId]);
+      const readResults=createInterviewiqResearchResultsReader({enabled:true,pool}),r=await readResults({programId:'promotion-facts',registryReleaseId});assert.equal(r.facts.length,1);assert.deepEqual(r.facts[0].value,v);assert.equal(r.facts[0].sources[0].reviewRef,'rise-review:'+sha(reviewId));assert.doesNotMatch(JSON.stringify(r),/PRIVATE_SENTINEL/);
+      for(const [key,sourceOptions] of [['rights',{rights:'REJECTED',exposure:'INTERNAL_ONLY'}],['exposure',{rights:'REVIEW_REQUIRED',exposure:'REJECTED'}]]){
+        const subject='rejected-'+key,originalId=await claim(field,{subject,sourceId:await source(sourceOptions),review:'PENDING',publication:'INTERNAL_ONLY'}),rid=await review(originalId);
+        const promotedId='promoted-'+key,ps=await source({provider:'MISSIONMED_REVIEW',type:'canonical_review_promotion',url:null});
+        await admin.query(`INSERT INTO rise_runtime.canonical_evidence_claims(claim_id,subject_id,field,knowledge,canonical_value,assertion_class,publication_state,review_state,source_id,retrieved_at,content_sha256)
+          VALUES($1,$2,$3,'{"state":"known"}',$4::jsonb,'source_attributed','PRIVATE_BETA','APPROVED',$5,$6,$7)`,[promotedId,subject,field,JSON.stringify(v),ps,date(0),sha(promotedId)]);
+        await admin.query('INSERT INTO rise_runtime.canonical_claim_promotion_lineage(promoted_claim_id,source_claim_id,review_id,contributor_order) VALUES($1,$2,$3,0)',[promotedId,originalId,rid]);
+        const rejected=await readResults({programId:subject,registryReleaseId});assert.equal(rejected.facts.length,0);assert.equal(rejected.coverage.fields.find(x=>x.field===field).state,'WEAK');
+      }
+      await review(original,{disposition:'SUPERSEDED'});assert.equal((await readResults({programId:'promotion-facts',registryReleaseId})).facts.length,0);
     });
     await t.test('read-only transaction rejects mutation and all protected rows remain identical',async()=>{
       const before=(await admin.query("SELECT md5(string_agg(row_to_json(c)::text,',' ORDER BY claim_id)) AS h FROM rise_runtime.canonical_evidence_claims c")).rows;
