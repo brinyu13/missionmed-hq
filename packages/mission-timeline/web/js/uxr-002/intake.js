@@ -1,3 +1,5 @@
+import {MYERAS_PROFILE_FIELDS,myerasDate,myerasReviewErrors,synchronizeMyerasInstitution,synchronizeMyerasOngoing} from './myeras-intake-adapter.js';
+import {parseExactDate} from './exact-date-field.js';
 import {MAX_DIRECT_SOURCE_BYTES,MAX_FILE_BYTES} from "../ingestion/file-inspector.js";
 import {CATEGORIES,VISIBILITY} from "./constants.js";
 import {bindImportedBuilderEvent022} from "./imported-builder-entry-022.js";
@@ -333,8 +335,9 @@ function flaggedCandidateIds(state){
 /* A flagged entry can only ever be demoted out of the bulk-acceptable lane; a LOW entry is
    never promoted because something was flagged on it. */
 export function reviewClassOf(candidate,flagged=new Set()){
+  if(candidate?.fields?.myerasReview&&candidateQuestions(candidate).length)return"low";
   const level=candidate?.confidence==="high"?"high":candidate?.confidence==="medium"?"medium":"low";
-  if(level==="high"&&(candidate?.duplicate||flagged.has(candidate?.id)))return"medium";
+  if(level==="high"&&(candidate?.duplicate||flagged.has(candidate?.id)||Object.keys(myerasReviewErrors(candidate)).length))return"medium";
   return level;
 }
 
@@ -405,7 +408,7 @@ function normalizeCandidate(value,index,existingEvents){
 
 function refreshDuplicates(candidates,existingEvents){
   return candidates.map((candidate)=>{
-    const next={...candidate,duplicate:findDuplicate(candidate,existingEvents)};
+    const next={...candidate,duplicate:candidate.fields?.myerasReview?.mergeEventId?{eventId:candidate.fields.myerasReview.mergeEventId}:findDuplicate(candidate,existingEvents)};
     if(next.decision==="merge"&&!next.duplicate)next.decision="undecided";
     return next;
   });
@@ -430,6 +433,10 @@ export function validateIntakeFile(file){
   const jpegMime="image/jpeg";
   const unknownMime=!type||type==="application/octet-stream";
   const timelineRescue=file?.timelineRescue===true;
+  if(file?.myerasStructured===true){
+    if(extension!=="json"||type!=="application/json"||!Number.isFinite(size)||size<=0||size>2*1024*1024)return{valid:false,error:"MyERAS structured sources must be a JSON file up to 2MB."};
+    return{valid:true,error:null,kind:"myeras-structured",metadata:{name,type,size,lastModified:Number(file.lastModified)||null,myerasStructured:true}};
+  }
   if(timelineRescue){
     const rescueKind=extension==="pptx"&&(unknownMime||type===pptxMime)
       ?"rescue-pptx"
@@ -581,8 +588,14 @@ function positiveDecision(decision){
   return["accepted","merge","add-anyway"].includes(decision);
 }
 
+function myerasProfileClaims(state){return state?.extraction?.parser?.myerasProfileReview?.claims||[];}
+function pendingMyerasReviewCount(state){
+  if(!state?.extraction?.parser?.myerasProfileReview&&!state?.candidates?.some(candidate=>candidate.fields?.myerasReview))return 0;
+  return(state.candidates||[]).filter(candidate=>candidate.fields?.myerasReview&&(candidate.decision==='undecided'||candidate.reviewLater)).length+myerasProfileClaims(state).filter(claim=>claim.decision==='undecided'||claim.decision==='accepted'&&!claim.resolution).length;
+}
+function acceptedMyerasProfileClaims(state){return myerasProfileClaims(state).filter(claim=>claim.decision==='accepted'&&claim.resolution);}
 export function acceptedCount(state){
-  return(state?.candidates||[]).filter((candidate)=>positiveDecision(candidate.decision)).length;
+  return(state?.candidates||[]).filter((candidate)=>positiveDecision(candidate.decision)).length+acceptedMyerasProfileClaims(state).length;
 }
 
 export function bulkAcceptableCandidates(state){
@@ -654,7 +667,7 @@ export function transitionIntake(current,action,{existingEvents=[]}={}){
       return state;
     case"EXTRACTION_SUCCEEDED":
       state.candidates=(action.candidates||[]).map((candidate,index)=>normalizeCandidate(candidate,index,existingEvents));
-      if(!state.candidates.length)throw new Error("EXTRACTION_SUCCEEDED requires at least one candidate.");
+      if(!state.candidates.length&&!action.parser?.myerasProfileReview?.claims?.length)throw new Error("EXTRACTION_SUCCEEDED requires at least one candidate.");
       state.stage=INTAKE_STAGES.REVIEW;
       state.progressIndex=2;
       state.filter="all";
@@ -703,8 +716,18 @@ export function transitionIntake(current,action,{existingEvents=[]}={}){
       if(Object.hasOwn(patch,'categoryId')&&candidate.categoryId){
         candidate.fields={...candidate.fields,categoryConfirmed:true,mappingReviewRequired:false};
       }
+      if(candidate.fields?.myerasReview)synchronizeMyerasInstitution(candidate);
       for(const [field,edge] of [['startDate','start'],['endDate','end']]){
         if(Object.hasOwn(patch,field)&&String(patch[field]||'')!==String(state.candidates[index][field]||'')){
+          if(candidate.fields?.myerasReview){
+            const sourceWording=patch.fields?.sourceDateWording?.[edge];
+            const selectedRaw=sourceWording?.normalizedMonth===patch[field]?sourceWording.raw:null;
+            const date=myerasDate(selectedRaw||patch[field],edge);
+            if(String(patch[field]||'').trim()&&!date.value)throw new Error("Use a source-backed year, month and year, or exact calendar date.");
+            candidate[field]=date.value||null;
+            candidate.fields={...candidate.fields,datePrecision:{...candidate.fields.datePrecision,[edge]:date.precision},sourceDateWording:{...candidate.fields.sourceDateWording,[edge]:{raw:date.raw,precision:date.precision,normalizedMonth:date.value}},
+              myerasCorrections:[...(candidate.fields.myerasCorrections||[]),{field,before:state.candidates[index][field]||null,value:date.value,precision:date.precision,basis:'STUDENT_CHANGE'}]};
+          }
           const precision=candidate.fields?.datePrecision?.[edge];
           if(['SEASON','VAGUE_RANGE'].includes(precision))candidate.fields={...candidate.fields,datePrecision:{...candidate.fields.datePrecision,[edge]:'MONTH'},sourceDateWording:{...candidate.fields.sourceDateWording,[edge]:null}};
         }
@@ -753,6 +776,7 @@ export function transitionIntake(current,action,{existingEvents=[]}={}){
           ongoing:false
         };
       }
+      if(candidate.fields?.myerasReview&&(Object.hasOwn(patch,'openEnded')||priorCategoryId!==candidate.categoryId))synchronizeMyerasOngoing(candidate);
       const ongoingFlag=[
         candidate.fields.currentlyOnRotation,
         candidate.fields.stillWorking,
@@ -778,6 +802,35 @@ export function transitionIntake(current,action,{existingEvents=[]}={}){
       if(candidate)candidate.expanded=!candidate.expanded;
       return state;
     }
+    case"MYERAS_PROFILE_REVIEW":{
+      const claim=myerasProfileClaims(state).find(item=>item.id===action.id);
+      if(!claim)throw new Error("This profile claim is unavailable.");
+      if(Object.hasOwn(action,'choiceIndex')||Object.hasOwn(action,'value')){
+        const choice=action.choiceIndex!=null?claim.choices[Number(action.choiceIndex)]:null;
+        if(action.choiceIndex!=null&&!choice)throw new Error("Choose an available profile source.");
+        if(!choice&&!String(action.reason||'').trim())throw new Error("Describe the evidence for your profile correction.");
+        const value=String(choice?choice.value:action.value||'').trim();
+        if(!value||value.length>12000)throw new Error("Enter a supported profile value.");
+        if(claim.field==='graduationDate'&&!myerasDate(value).value)throw new Error("The graduation date needs a source-backed year, month or exact date.");
+        claim.resolution={basis:choice?'SOURCE_CHOICE':'HUMAN_CORRECTION',value,sourceIds:clone(choice?.sourceIds||[]),provenance:clone(choice?.evidence||[]),keepCurrent:choice?.keepCurrent===true,reason:String(action.reason||'').trim()};
+        claim.decision='undecided';
+      }
+      if(Object.hasOwn(action,'visibilityState'))claim.visibilityState=action.visibilityState==='INTERVIEWER_SAFE'?'INTERVIEWER_SAFE':'ADVISOR_ONLY';
+      if(Object.hasOwn(action,'decision')){
+        if(action.decision==='accepted'&&!claim.resolution)throw new Error("Choose or correct this profile value first.");
+        claim.decision=['accepted','rejected'].includes(action.decision)?action.decision:'undecided';
+      }
+      return state;
+    }
+    case"MYERAS_MERGE_CANDIDATES":{
+      const candidate=state.candidates.find(item=>item.id===action.id),target=state.candidates.find(item=>item.id===action.targetId);
+      if(!candidate?.fields?.myerasReview||!target?.fields?.myerasReview||candidate===target||candidate.fields.myerasReview.mergedInto||target.fields.myerasReview.mergedInto)throw new Error("Both source candidates must be available.");
+      for(const field of ['title','categoryId','startDate','endDate','openEnded','eventType'])if(Object.hasOwn(action.patch||{},field))candidate[field]=clone(action.patch[field]);
+      candidate.fields=clone(action.fields);candidate.provenance=[...candidate.provenance,...clone(target.provenance)];candidate.sourceSnippet=[candidate.sourceSnippet,target.sourceSnippet].filter(Boolean).join('\n');candidate.decision='undecided';
+      target.decision='rejected';target.fields.myerasReview.mergedInto=candidate.id;
+      for(const childId of target.fields.myerasReview.mergedCandidateIds||[]){const child=state.candidates.find(item=>item.id===childId);if(child){child.decision='rejected';child.fields.myerasReview.mergedInto=candidate.id;}}
+      return state;
+    }
     case"DECIDE_CANDIDATE":{
       const candidate=state.candidates.find(({id})=>id===action.id);
       if(!candidate)return state;
@@ -788,11 +841,13 @@ export function transitionIntake(current,action,{existingEvents=[]}={}){
         candidate.expanded=false;
         return state;
       }
+      if(["accepted","merge","add-anyway"].includes(decision)&&Object.keys(myerasReviewErrors(candidate)).length)throw new Error("Resolve the source conflicts and possible duplicates first.");
+      if(candidate.fields?.myerasReview?.mergedInto&&["accepted","merge","add-anyway"].includes(decision))throw new Error("This source was merged into another reviewed candidate.");
       if(["accepted","merge","add-anyway"].includes(decision)&&!CATEGORIES.some(({id})=>id===candidate.categoryId)){
         throw new Error("Choose a category before accepting this suggestion.");
       }
       if(decision==="accepted"&&candidate.duplicate)throw new Error("Resolve the duplicate with Merge or Add anyway.");
-      if(decision==="merge"&&!candidate.duplicate)throw new Error("Merge is available only for duplicate candidates.");
+      if(decision==="merge"&&!candidate.duplicate&&!candidate.fields?.myerasReview?.mergeEventId)throw new Error("Merge is available only for duplicate candidates.");
       candidate.decision=decision;
       candidate.reviewLater=false;
       candidate.expanded=false;
@@ -943,6 +998,7 @@ function candidateEvent(candidate,id,fileName=""){
     openEnded:candidate.openEnded,
     visibilityState:candidate.visibilityState||VISIBILITY.INTERVIEWER_SAFE,
     siteName:String(
+      (candidate.fields?.myerasReview?candidate.fields?.[INSTITUTION_FIELD_BY_CATEGORY[candidate.categoryId]]:null)||
       candidate.fields?.institution||
       candidate.fields?.medicalSchool||
       candidate.fields?.organization||
@@ -1034,8 +1090,9 @@ function cvExamReviewQueue(candidates=[]){
   return candidates.filter((candidate)=>candidate.categoryId==="exams").map((candidate)=>({
     sourceCandidateId:String(candidate.id),
     canonicalType:String(candidate.fields?.canonicalType||""),
+    ...(candidate.fields?.myerasReview?{examSystem:String(candidate.fields.examSystem||''),attempt:candidate.fields.attempt??null}:{}),
     examName:String(candidate.fields?.examName||candidate.title||""),
-    examDate:candidate.startDate?String(candidate.startDate).slice(0,candidateDatePrecision(candidate,"startDate")==="YEAR"?4:7):"",
+    examDate:candidate.startDate?String(candidate.startDate).slice(0,candidateDatePrecision(candidate,"startDate")==="YEAR"?4:candidateDatePrecision(candidate,"startDate")==="DAY"?10:7):"",
     examDatePrecision:candidateDatePrecision(candidate,"startDate"),
     result:String(candidate.fields?.result||""),
     score:String(candidate.fields?.score||""),
@@ -1046,6 +1103,14 @@ function cvExamReviewQueue(candidates=[]){
 }
 
 function mergePatch(existing,candidate,fileName){
+  if(candidate.fields?.myerasReview){
+    const reviewed=candidateEvent(candidate,existing.id,fileName);
+    const nonemptyFields=Object.fromEntries(Object.entries(reviewed.fields||{}).filter(([,value])=>value!=null&&value!==''));
+    const audiences=[existing.visibilityState||'ADVISOR_ONLY',reviewed.visibilityState||'ADVISOR_ONLY'];
+    const visibilityState=['HIDDEN','STUDENT_ONLY','ADVISOR_ONLY','FULL_STORY','INTERVIEWER_SAFE'].find(value=>audiences.includes(value))||'ADVISOR_ONLY';
+    return{title:reviewed.title,categoryId:reviewed.categoryId,startDate:reviewed.startDate,endDate:reviewed.endDate,openEnded:reviewed.openEnded,eventType:reviewed.eventType,
+      visibilityState,siteName:reviewed.siteName||existing.siteName,fields:{...clone(existing.fields||{}),...clone(nonemptyFields)},provenance:[...clone(existing.provenance||[]),...clone(reviewed.provenance)],notes:existing.notes||''};
+  }
   const existingRange=monthRange(existing),candidateRange=monthRange(candidate);
   const start=existingRange&&candidateRange?Math.min(existingRange.start,candidateRange.start):(existingRange?.start??candidateRange?.start);
   const end=existingRange&&candidateRange?Math.max(existingRange.end,candidateRange.end):(existingRange?.end??candidateRange?.end);
@@ -1082,11 +1147,19 @@ export function validateCandidateForApproval(candidate){
   const errors={};
   if(!String(candidate?.title||"").trim())errors.title="Required.";
   if(!CATEGORIES.some(({id})=>id===candidate?.categoryId))errors.categoryId="Choose a category.";
-  const start=monthIndex(candidate?.startDate);
-  const end=candidate?.endDate?monthIndex(candidate.endDate):null;
+  const calendarIndex=(value,edge)=>{
+    if(/^\d{4}-\d{2}-\d{2}$/.test(String(value||''))){const exact=parseExactDate(value);return exact?Date.parse(exact+'T00:00:00Z')/86400000:null;}
+    const month=monthIndex(value);return Number.isFinite(month)?Date.UTC(Math.floor(month/12),month%12+(edge==='end'?1:0),edge==='end'?0:1)/86400000:null;
+  };
+  const start=calendarIndex(candidate?.startDate,'start');
+  const end=candidate?.endDate?calendarIndex(candidate.endDate,'end'):null;
   if(!Number.isFinite(start))errors.startDate="Enter a month and year, like 'Jun 2023'.";
   if(candidate?.endDate&&!Number.isFinite(end))errors.endDate="Enter a month and year, like 'Jun 2023'.";
   else if(Number.isFinite(start)&&Number.isFinite(end)&&end<start)errors.endDate="End must be on or after start.";
+  Object.assign(errors,myerasReviewErrors(candidate));
+  if(candidate?.fields?.myerasReview&&candidate.categoryId==='exams'&&/^STEP_[123]/.test(candidate.fields.canonicalType)&&candidate.fields.examSystem&&candidate.fields.examSystem!=='USMLE')errors.examSystem='Resolve the exam system and canonical exam type disagreement.';
+  if(candidate?.fields?.myerasReview)for(const question of candidateQuestions(candidate))errors[question.extra||question.field]='Confirm this fact from your source before approval.';
+  if(candidate?.fields?.myerasReview&&candidate.eventType==='duration'&&!candidate.endDate&&!candidate.openEnded)errors.endDate='Confirm the end date or mark this experience ongoing.';
   return errors;
 }
 
@@ -1103,7 +1176,9 @@ export function intakeDocumentType(state){
 export function buildApprovalBatch(state,existingEvents,{idFactory=(prefix)=>`${prefix}-${crypto.randomUUID()}`,clock=()=>new Date()}={}){
   if(state.stage!==INTAKE_STAGES.REVIEW)throw new Error("Approval is available only during Review.");
   const positive=state.candidates.filter((candidate)=>positiveDecision(candidate.decision));
-  if(!positive.length)throw new Error(INTAKE_COPY.emptyAccepted);
+  const profileClaims=acceptedMyerasProfileClaims(state);
+  if(!positive.length&&!profileClaims.length)throw new Error(INTAKE_COPY.emptyAccepted);
+  if(pendingMyerasReviewCount(state))throw new Error(`Decide on all ${pendingMyerasReviewCount(state)} remaining MyERAS experience or profile facts before final approval. Accept or leave out each one; reviewing later keeps this import open.`);
   const invalid=positive.map((candidate)=>({id:candidate.id,errors:validateCandidateForApproval(candidate)})).filter(({errors})=>Object.keys(errors).length);
   if(invalid.length){
     const error=new Error("Fix accepted suggestions before adding them.");
@@ -1147,11 +1222,12 @@ export function buildApprovalBatch(state,existingEvents,{idFactory=(prefix)=>`${
     history:{required:true,undoSteps:1},
     version:{name:versionName,kind:"automatic",requiredBeforeMutation:true},
     sourceDocument:state.file?clone(state.file):null,
-    analysis:state.extraction?.parser?clone(state.extraction.parser):null,
+    analysis:state.extraction?.parser?{...clone(state.extraction.parser),...(state.extraction.parser.myerasProfileReview?{myerasSourceDecisions:state.candidates.map(candidate=>({id:candidate.id,decision:candidate.decision})),excludedMyerasCandidates:state.candidates.filter(candidate=>candidate.fields?.myerasReview&&candidate.decision==='rejected').map(candidate=>clone(candidate))}:{} )}:null,
     documentType,
     additions,
     merges,
-    profilePrefill:cvProfilePrefill(positive),
+    myerasProfileClaims:clone(profileClaims),
+    profilePrefill:positive.some(candidate=>candidate.fields?.myerasReview)?null:cvProfilePrefill(positive),
     examReviewQueue:cvExamReviewQueue(positive),
     acceptedCandidateIds:positive.map(({id})=>id),
     acceptedCandidates:positive.map((candidate)=>({
@@ -1166,7 +1242,7 @@ export function buildApprovalBatch(state,existingEvents,{idFactory=(prefix)=>`${
     qualitySuggestions:(state.suggestions||[]).map((suggestion)=>clone(suggestion)),
     candidateDecisions:state.candidates.map(({id,decision})=>({id,decision})),
     remainingCandidates:state.candidates.filter(({decision})=>decision==="undecided").map((candidate)=>clone(candidate)),
-    acceptedCount:positive.length,
+    acceptedCount:positive.length+profileClaims.length,
     addedCount:additions.length,
     mergedCount:merges.length,
     createdAt:clock().toISOString()
@@ -1176,6 +1252,19 @@ export function buildApprovalBatch(state,existingEvents,{idFactory=(prefix)=>`${
 export function applyApprovalBatchToDocument(document,batch){
   if(!document||typeof document!=="object")throw new Error("A timeline document is required.");
   if(batch?.history?.undoSteps!==1||batch?.version?.requiredBeforeMutation!==true)throw new Error("Invalid intake batch contract.");
+  const currentProfile=document.studentProfile||{};
+  const profilePatch={},profileBindings=clone(currentProfile.fieldProvenance||{});
+  for(const claim of batch.myerasProfileClaims||[]){
+    if(!MYERAS_PROFILE_FIELDS.includes(claim.field)||claim.decision!=='accepted'||!claim.resolution)throw new Error("Invalid reviewed MyERAS profile claim.");
+    if(String(currentProfile[claim.field]||'').trim()!==claim.expectedPrior)throw new Error("Your profile changed during review. Import again to compare the current value.");
+    if(claim.resolution.keepCurrent)continue;
+    profilePatch[claim.field]=claim.resolution.value;
+    profileBindings[claim.field]={sourceType:'myeras-profile-intake',claimId:claim.id,visibilityState:claim.visibilityState==='INTERVIEWER_SAFE'?'INTERVIEWER_SAFE':'ADVISOR_ONLY',provenance:clone(claim.resolution.provenance),sourceIds:clone(claim.resolution.sourceIds),review:clone(claim.resolution)};
+    if(claim.field==='graduationDate'){
+      const date=myerasDate(claim.resolution.value);profilePatch.graduationDate=date.precision==='YEAR'?date.raw:date.value.slice(0,7);profilePatch.graduationDatePrecision=date.precision==='DAY'?'MONTH':date.precision;profileBindings.graduationDate.sourceDatePrecision=date.precision;profileBindings.graduationDate.sourceDate=date.raw;profileBindings.graduationDatePrecision=clone(profileBindings.graduationDate);
+    }
+    if(claim.field==='medicalSchool'){profilePatch.medicalSchoolEntryMode='unlisted';profilePatch.medicalSchoolVerificationStatus='unverified-source-claimed';profilePatch.medicalSchoolNormalizationStatus='review-required';profilePatch.medicalSchoolAnalyticsEligible=false;profilePatch.canonicalSchoolId='';profilePatch.medicalSchoolRecord=null;profilePatch.medicalSchoolCity='';profilePatch.medicalSchoolUnlistedSubmission=null;}
+  }
   const nextEvents=clone(Array.isArray(document.events)?document.events:[]);
   const existingIds=new Set(nextEvents.map(({id})=>id));
   for(const addition of batch.additions){
@@ -1259,7 +1348,7 @@ export function applyApprovalBatchToDocument(document,batch){
     exams.push({id:`cv-exam-${item.sourceCandidateId}`,system:'USMLE',examId,
       name:examId==='step-2-ck'?'Step 2 CK':examId==='step-1'?'Step 1':'Step 3',
       result:item.result,score:item.score,examDate:item.examDate,examDatePrecision:item.examDatePrecision,studyStartDate:'',
-      passFailOnly:examId==='step-1',showScoreOnTimeline:Boolean(item.score),showScoreTouched:true,attemptNumberUnconfirmed:true,
+      passFailOnly:examId==='step-1',showScoreOnTimeline:Boolean(item.score),showScoreTouched:true,attemptNumberUnconfirmed:item.attempt==null,...(item.attempt!=null?{attempt:item.attempt}:{}),
       sourceType:'document-intake',sourceCandidateId:item.sourceCandidateId,sourceEventId:sourceEvent?.id||null,
       visibilityState:item.visibilityState,provenance:clone(item.provenance)});
   }
@@ -1272,7 +1361,7 @@ export function applyApprovalBatchToDocument(document,batch){
     sourceFileName:String(batch.sourceDocument?.name||""),
     acceptedCount:Number(batch.acceptedCount)||0,
     eventCount:Number(batch.addedCount)||0,
-    profilePrefilled:!!batch.profilePrefill,
+    profilePrefilled:!!batch.profilePrefill||(batch.myerasProfileClaims||[]).length>0,
     examReviewCount:(batch.examReviewQueue||[]).length
   };
   const nextIntake={
@@ -1295,6 +1384,7 @@ export function applyApprovalBatchToDocument(document,batch){
   };
   nextIntake.lastAcceptedCvImport=acceptedCvImportReceipt(nextIntake.lastImport)||
     acceptedCvImportReceipt(document.intake?.lastImport)||acceptedCvImportReceipt(document.intake?.lastAcceptedCvImport);
+  if(Object.keys(profilePatch).length)document.studentProfile={...document.studentProfile,...profilePatch,fieldProvenance:profileBindings};
   document.events=nextEvents;
   document.intake=nextIntake;
   return{appliedCount:batch.acceptedCount,addedCount:batch.addedCount,mergedCount:batch.mergedCount};
@@ -1421,7 +1511,7 @@ export class IntakeStateMachine{
         return this.dispatch({type:"EXTRACTION_UNREADABLE"});
       }
       const candidates=Array.isArray(response)?response:(response?.candidates||[]);
-      if(!candidates.length)return this.dispatch({type:"EXTRACTION_EMPTY"});
+      if(!candidates.length&&!response?.parser?.myerasProfileReview?.claims?.length)return this.dispatch({type:"EXTRACTION_EMPTY"});
       return this.dispatch({
         type:"EXTRACTION_SUCCEEDED",
         candidates,
@@ -1608,6 +1698,7 @@ function expandedFields(candidate,{includeIdentity=false}={}){
   const frozen=schema.map((field)=>reviewField(candidate,field)).join("");
   const extra=Object.entries(candidate.fields||{}).filter(([key,value])=>
     !schemaKeys.has(key)&&
+    !(candidate.fields?.myerasReview&&(value===''||["stillWorking","ongoing","currentlyOnRotation","sourceDescription"].includes(key)))&&
     !INTERNAL_CANDIDATE_FIELDS.has(key)&&
     ["string","number","boolean"].includes(typeof value)
   ).map(([key,value])=>`<label>${escapeHtml(fieldLabel(key))}
@@ -1643,6 +1734,7 @@ const candidateDateLabel=(candidate,field)=>{
 
 function candidateMonthField(candidate,field,label,value){
   const id=`intake-${encodeURIComponent(candidate.id)}-${field}`;
+  if(candidate.fields?.myerasReview&&candidateDatePrecision(candidate,field)==="DAY")return`<label>${escapeHtml(label)} <input type="text" value="${escapeHtml(value||'')}" data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-field="${field}" aria-label="${escapeHtml(label)} exact source date"></label>`;
   if(candidateDatePrecision(candidate,field)==="YEAR"){
     return`<div class="candidate-month candidate-year"><label for="${id}">${escapeHtml(label)} year
       <input id="${id}" type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" value="${escapeHtml(String(value||"").slice(0,4))}" data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-field="${field}" data-candidate-year-only="true" data-candidate-placeholder-month="${field==="endDate"?"12":"01"}" aria-describedby="${id}-precision">
@@ -1749,6 +1841,10 @@ function rescueComparisonMarkup(state){
 
 function suggestionsMarkup(state){
   const suggestions=visibleSuggestions(state);
+  if(state.extraction?.parser?.myerasProfileReview){
+    const held=(state.candidates||[]).filter(candidate=>Object.keys(myerasReviewErrors(candidate)).length).length;
+    return`<section class="intake-suggestions" aria-label="Source review"><p class="secondary-body">${held?`${held} experience${held===1?'':'s'} need source conflict or duplicate decisions below.`:'Review your source facts and profile choices below. No facts are verified by dismissing a suggestion.'}</p></section>`;
+  }
   if(!suggestions.length){
     if(isTimelineRescueReview(state))return"";
     return`<section class="intake-suggestions empty" aria-label="Document check"><p class="secondary-body">${INTAKE_COPY.suggestionsClear}</p></section>`;
@@ -1780,7 +1876,7 @@ function questionMarkup(candidate,question){
    document leaves genuinely unanswered, and say so when it answers everything. */
 function candidateQuestionsMarkup(candidate){
   const questions=candidateQuestions(candidate);
-  if(!questions.length)return`<p class="secondary-body candidate-questions-clear">${INTAKE_COPY.questionsClear}</p>`;
+  if(!questions.length)return`<p class="secondary-body candidate-questions-clear">${Object.keys(myerasReviewErrors(candidate)).length?'Compare and resolve the conflicting source facts below before accepting.':candidate.fields?.myerasReview?'Review the stated facts and audience before accepting.':INTAKE_COPY.questionsClear}</p>`;
   return`<div class="candidate-questions" data-candidate-questions="${escapeHtml(candidate.id)}">
     <p class="secondary-body">We need ${questions.length} answer${questions.length===1?"":"s"} from you. Everything else came from your document.</p>
     ${questions.map((question)=>questionMarkup(candidate,question)).join("")}
@@ -1942,7 +2038,9 @@ function reviewMarkup(state,{renderPreview=null,existingEvents=[]}={}){
   const accepted=acceptedCount(state);
   const added=state.candidates.filter(candidate=>positiveDecision(candidate.decision)&&candidate.decision!=="merge").length;
   const merged=new Set(state.candidates.filter(candidate=>candidate.decision==="merge").map(candidate=>candidate.duplicate?.eventId||candidate.id)).size;
-  const approveLabel=merged?added?`Add ${added} and update ${merged} events →`:`Update ${merged} existing events →`:`Add ${accepted} accepted events to my timeline →`;
+  const profileCount=acceptedMyerasProfileClaims(state).length;
+  const pendingMyeras=pendingMyerasReviewCount(state);
+  const approveLabel=profileCount&&!added&&!merged?`Apply ${profileCount} reviewed profile facts →`:merged?added?`Add ${added} and update ${merged} events →`:`Update ${merged} existing events →`:`Add ${accepted} accepted events to my timeline →`;
   const high=highConfidenceCount(state);
   const previewEvents=acceptedPreviewEvents(state,existingEvents);
   const preview=typeof renderPreview==="function"
@@ -1950,7 +2048,7 @@ function reviewMarkup(state,{renderPreview=null,existingEvents=[]}={}){
     :`<p class="secondary-body">${previewEvents.length?`${previewEvents.length} accepted suggestion${previewEvents.length===1?"":"s"} in preview.`:"Accepted suggestions appear here."}</p>`;
   return`<section class="intake-stage intake-review" aria-labelledby="intake-title">
     <div class="intake-review-heading">
-      <h1 id="intake-title">Review ${total} suggestions</h1>
+      <h1 id="intake-title">${!total&&myerasProfileClaims(state).length?`Review ${myerasProfileClaims(state).length} profile facts`:`Review ${total} suggestions`}</h1>
       <p>${INTAKE_COPY.reviewSubline}</p>
       <p class="intake-review-basis" data-intake-review-basis="${basis.mode}"><span class="status-chip">${escapeHtml(basis.label)}</span> ${escapeHtml(basis.body)}</p>
       ${providerReceiptMarkup(state.extraction?.parser)}
@@ -1969,7 +2067,8 @@ function reviewMarkup(state,{renderPreview=null,existingEvents=[]}={}){
       <details class="intake-live-preview" aria-label="Live board preview"><summary>Preview accepted suggestions (${accepted})</summary>${preview}</details>
     </div>
     <footer class="intake-review-footer">
-      <button type="button" class="button primary" data-intake-action="approve"${accepted&&!state.approval.inFlight?"":" disabled"}>${accepted?approveLabel:INTAKE_COPY.emptyAccepted}</button>
+      ${pendingMyeras?`<p role="status">Decide on all ${pendingMyeras} remaining MyERAS experience or profile facts. Accept or leave out each one before final approval.</p>`:''}
+      <button type="button" class="button primary" data-intake-action="approve"${accepted&&!state.approval.inFlight&&!pendingMyeras?"":" disabled"}>${pendingMyeras?`Review ${pendingMyeras} remaining facts`:accepted?approveLabel:INTAKE_COPY.emptyAccepted}</button>
       <button type="button" class="button tertiary" data-intake-action="discard-all">Discard all</button>
     </footer>
   </section>`;
@@ -1979,7 +2078,8 @@ function doneMarkup(state){
   const filename=state.approval.fileName||state.file?.name||"document";
   const added=Number(state.approval.addedCount??state.approval.appliedCount)||0;
   const merged=Number(state.approval.mergedCount)||0;
-  const resultLabel=merged?added?`Added ${added} and updated ${merged} events`:`Updated ${merged} events`:`Added ${added} events`;
+  const profileCount=acceptedMyerasProfileClaims(state).length;
+  const resultLabel=profileCount&&!added&&!merged?`Applied ${profileCount} profile facts`:merged?added?`Added ${added} and updated ${merged} events`:`Updated ${merged} events`:`Added ${added} events`;
   return`<section class="intake-stage intake-done" aria-labelledby="intake-title">
     <div class="card success-card">
       <span class="success-check" aria-hidden="true">✓</span>
@@ -2108,16 +2208,18 @@ export function installIntake(root,machine,{
     if(candidateAction){
       const {candidateId}=candidateAction.dataset;
       const action=candidateAction.dataset.candidateAction;
-      if(action==="edit")machine.toggleEdit(candidateId);
-      else{
-        commitVisibleCandidateFields(machine,candidateAction,candidateId);
-        machine.decideCandidate(candidateId,action);
-        if(action==="rejected"&&typeof onCandidateDecision==="function"){
-          const state=machine.snapshot();
-          const candidate=state.candidates.find(({id})=>String(id)===String(candidateId));
-          await onCandidateDecision({candidate,decision:action,state});
+      try{
+        if(action==="edit")machine.toggleEdit(candidateId);
+        else{
+          commitVisibleCandidateFields(machine,candidateAction,candidateId);
+          machine.decideCandidate(candidateId,action);
+          if(action==="rejected"&&typeof onCandidateDecision==="function"){
+            const state=machine.snapshot();
+            const candidate=state.candidates.find(({id})=>String(id)===String(candidateId));
+            await onCandidateDecision({candidate,decision:action,state});
+          }
         }
-      }
+      }catch(error){onError(error);}
       return;
     }
     const target=closest(event.target,"[data-intake-action]");

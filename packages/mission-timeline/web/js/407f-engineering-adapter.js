@@ -1,3 +1,5 @@
+import {createMyerasIntakeAdapter} from './uxr-002/myeras-intake-adapter.js';
+import {installMyerasIntakeUi,myerasEntryMarkup,myerasUploadMarkup,myerasReviewMarkup} from './uxr-002/myeras-intake-ui.js';
 import {TimelineStore} from "./uxr-002/store.js";
 import {prepareTimelineProductionRuntime} from "./production/timeline-production-runtime.js";
 import {installFamilyRuntime022} from "./production/family-runtime-022.js";
@@ -9110,7 +9112,7 @@ export async function boot407FEngineeringAdapter({
   const intakeHost=document.getElementById("intake407F");
   if(intakeHost){
     const localIntakeAdapter=createD1408PdfIntakeAdapter();
-    const intakeAdapter=window.D1_TIMELINE_INTAKE_ADAPTER||(
+    const documentIntakeAdapter=window.D1_TIMELINE_INTAKE_ADAPTER||(
       productionRuntime&&privateMediaStorageEnabled
         ?createProductionCvIntakeAdapter({
           localAdapter:localIntakeAdapter,
@@ -9121,6 +9123,8 @@ export async function boot407FEngineeringAdapter({
         })
         :localIntakeAdapter
     );
+    const intakeAdapter=createMyerasIntakeAdapter({fallbackAdapter:documentIntakeAdapter,
+      existingEvents:()=>clone(store.document.events||[]),existingProfile:()=>clone(store.document.studentProfile||{})});
     window.D1_TIMELINE_INTAKE_ADAPTER=intakeAdapter;
     /* intake.js copies a rejection message straight into state.fileError, which renders as
        the red field error under the CV dropzone. That message has to already be student
@@ -9177,6 +9181,8 @@ export async function boot407FEngineeringAdapter({
         existingEvents:store.document.events,
         renderPreview:renderIntakePreview
       });
+      if(state.stage==="upload")intakeHost.insertAdjacentHTML("beforeend",myerasUploadMarkup());
+      if(state.stage==="review")intakeHost.insertAdjacentHTML("beforeend",myerasReviewMarkup(state));
       if(state.stage==="upload"){
         const serverReady=!!(productionRuntime&&privateMediaStorageEnabled)||!!window.D1_LOCAL_SYNTHETIC_AI;
         intakeHost.insertAdjacentHTML("beforeend",`<section class="intake-stage intake407FRescue" aria-labelledby="timelineRescueTitle" data-timeline-rescue-entry data-rescue-server="${serverReady?"ready":"unavailable"}">
@@ -9385,6 +9391,11 @@ export async function boot407FEngineeringAdapter({
         }
       }
     });
+    const builderEntry=document.getElementById("builderVariantBar");
+    if(builderEntry&&!document.querySelector("[data-myeras-builder-entry]"))builderEntry.insertAdjacentHTML("afterend",myerasEntryMarkup());
+    const cleanupMyeras=installMyerasIntakeUi(document,intakeMachine,{navigate:route=>bridge.go(route),onError:error=>toastStudentError(error,"document")});
+    const cleanupDocumentIntake=intakeCleanup;
+    intakeCleanup=()=>{cleanupMyeras();cleanupDocumentIntake();document.querySelector("[data-myeras-builder-entry]")?.remove();};
     api.intake=Object.freeze({
       machine:intakeMachine,
       adapter:intakeAdapter,
