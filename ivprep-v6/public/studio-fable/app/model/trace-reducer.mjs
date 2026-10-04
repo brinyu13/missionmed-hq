@@ -49,6 +49,8 @@ export function traceSample(frame) {
     facing: num(head.cameraFacingPct),
     nods: num(head.nods),
     smiles: num(head.smileEvents),
+    // A held cumulative count is not evidence of current detector coverage.
+    smileMeasured: head.smileEventsLiveAvailable === true && head.presence === 'TRACKED' && num(head.smileEvents) !== null,
     gestures: num(body.gestures),
     wpm: speed.available === true ? wpm : null,
     loudness: volume.available === true ? num(volume.scientificValue) : null,

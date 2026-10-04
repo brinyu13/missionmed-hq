@@ -6,6 +6,8 @@ import {deriveDebrief} from '../../public/studio-fable/app/model/teaching.mjs';
 import {projectDerivedPriority,projectSavedAttempt} from '../../public/studio-fable/app/adapters/saved-review.mjs';
 import {SessionController} from '../../public/studio-fable/app/controller/session-controller.mjs';
 import {sealDerivedEvidence} from '../../public/studio-fable/app/adapters/derived-evidence.mjs';
+import {COACHING_CONFIG,mapToLiveScale} from '../../public/analytics/coaching-config.mjs';
+import {CALIBRATION} from '../../public/ivoc-standalone/app/data.mjs';
 
 const frame=(t,extra={})=>({t,speaking:true,state:'ANSWERING',
   speedWpm:{available:true,wordsPerMinute:140,score:5},...extra});
@@ -25,6 +27,59 @@ async function currentScoring() {
   return Function(source.slice(source.indexOf('const clamp'),source.indexOf('function stateName'))
     + '; return {score:corridorScore,direction};')();
 }
+async function currentFrameMapper() {
+  const source=await readFile(new URL('../../public/ivoc-standalone/app/real-runtime.mjs',import.meta.url),'utf8');
+  const helpers=source.slice(source.indexOf('const clamp'),source.indexOf('export class RealAnalyticsEngine'));
+  const start=source.indexOf('  mapFrame('),method=source.slice(start,source.indexOf('\n  clearOverlay()',start));
+  return Function('COACHING_CONFIG','mapToLiveScale','CALIBRATION',helpers+'return {'+method+'};')(COACHING_CONFIG,mapToLiveScale,CALIBRATION).mapFrame;
+}
+test('actual held smile zero cannot become absence coaching after live detection is unavailable',async()=>{
+  const mapFrame=await currentFrameMapper();
+  const context={t:0,latest:null,latestAudioSpeaking:false,faceBaselineState:{available:true,capturing:false},wordTimingState:{reason:'WAITING_FOR_TIMED_WORDS'}};
+  const observed=(available,state)=>mapFrame.call(context,{metrics:{HEAD_FACE:{facePresent:available,smileEvents:{available,count:0,reason:available?null:'PERSONAL_BASELINE_REQUIRED'}}}},{conversation:{state}});
+  const frames=[observed(true,'SETUP')];context.latest=frames[0];
+  context.faceBaselineState={available:false,capturing:false,reason:'PERSONAL_BASELINE_REQUIRED'};
+  for(let i=1;i<=24;i++){context.t=i*500;const f=observed(false,'ANSWERING');context.latest=f;frames.push(f);}
+  assert.ok(frames.slice(1).every(f=>f.headFace.smileEvents===0&&f.headFace.smileEventsLiveAvailable===false));
+  const samples=frames.map(traceSample),cold=JSON.parse(JSON.stringify(sealDerivedEvidence({samples,events:[]})));
+  assert.ok(samples.slice(1).every(s=>s.smileMeasured===false));
+  assert.ok(cold.samples.slice(1).every(s=>s.smileMeasured===false));
+  assert.equal(projectDerivedPriority(cold,12),null);
+  assert.ok(!deriveDebrief({samples:cold.samples,events:[]}).facts.some(f=>f.lane==='smiles'));
+});
+test('smile absence requires current contiguous measured coverage; legacy, gaps and decimation are unknown',()=>{
+  const samples=Array.from({length:25},(_,i)=>traceSample(frame(i/2,{speedWpm:{available:false},headFace:{presence:'TRACKED',smileEvents:0,smileEventsLiveAvailable:true}})));
+  for(const input of [samples,JSON.parse(JSON.stringify(sealDerivedEvidence({samples,events:[]}))).samples]){
+    const d=deriveDebrief({samples:input,events:[]});assert.equal(d.change[0]?.lane,'smiles');
+    assert.match(d.change[0].text,/measured answering frames/);
+  }
+  for(const input of [samples.map(({smileMeasured,...s})=>s),samples.map(s=>({...s,smileMeasured:'true'})),samples.map(s=>({...s,smileMeasured:false})),samples.map(s=>({...s,t:s.t*2})),samples.map(s=>s.t===6?{...s,smileMeasured:false}:s)]){
+    assert.ok(!deriveDebrief({samples:input,events:[]}).allChange.some(c=>c.lane==='smiles'));
+  }
+  assert.ok(!deriveDebrief({samples,events:[],traceDecimated:true}).allChange.some(c=>c.lane==='smiles'));
+  const invalid=sealDerivedEvidence({samples:[{...samples[0],smileMeasured:'true'}]});
+  assert.equal(invalid.samples[0].smileMeasured,false);
+});
+test('validated positive smile events survive unavailable or legacy coverage without false absence coaching',()=>{
+  const samples=Array.from({length:25},(_,i)=>({...traceSample(frame(i/2,{speedWpm:{available:false}})),smiles:1}));
+  const events=[{t:1,kind:'smile',state:'LISTENING'}];
+  for(const input of [{samples,events},JSON.parse(JSON.stringify(sealDerivedEvidence({samples,events})))]){
+    const d=deriveDebrief(input);assert.equal(d.facts.find(f=>f.lane==='smiles')?.value,1);
+    assert.ok(d.worked.some(w=>w.lane==='smiles'&&w.at===1));
+    assert.ok(!d.allChange.some(c=>c.lane==='smiles'));
+  }
+});
+test('maximum retained coverage fits the unchanged save budget without dropping evidence or inventing zero',()=>{
+  const samples=Array.from({length:7200},(_,i)=>traceSample(frame(i/2,{speedWpm:{available:false},headFace:{presence:'TRACKED',smileEvents:0,smileEventsLiveAvailable:true}})));
+  const events=Array.from({length:2000},(_,i)=>({t:i,kind:'cue',label:'a'.repeat(5000)}));
+  const sealed=sealDerivedEvidence({samples,events}),cold=JSON.parse(JSON.stringify(sealed));
+  assert.equal(cold.samples.length,1200);assert.equal(cold.events.length,500);
+  assert.ok(new TextEncoder().encode(JSON.stringify(cold)).byteLength<512*1024);
+  assert.ok(cold.samples.every(s=>s.smileMeasured===true&&s.smiles===0));
+  assert.ok(cold.samples.every(s=>s.vol===null&&s.pitch===null&&s.pace===null));
+  assert.ok(cold.samples.every(s=>s.facing===undefined&&s.nods===undefined&&s.gestures===undefined));
+  assert.deepEqual(deriveDebrief({...cold,traceDecimated:true}).allChange,[]);
+});
 test('current producer cues survive trace, sealing and cold review without reversing high/low evidence',async()=>{
   const {score,direction}=await currentScoring();
   for(const [wpm,lu,paceLabel,volumeLabel] of [[260,-6,'too fast','above'],[80,-45,'too slow','below']]) {

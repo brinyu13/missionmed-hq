@@ -86,9 +86,14 @@ export function deriveDebrief(attempt) {
     else if (handsNone.fraction < 0.15) worked.push({ lane: 'hands', text: `Hands were in view in ${pct(1 - handsNone.fraction)} of retained answering samples with hand detection available.`, at: null });
   }
   const smiles = events.filter((e) => e.kind === 'smile'); const listeningSmiles = smiles.filter((e) => e.state === 'LISTENING').length;
-  if (samples.some((s) => Number.isFinite(s.smiles))) {
+  const smileMeasured = samples.filter((s) => s.smileMeasured === true && s.presence === 'TRACKED' && finite(s.smiles));
+  // Missing/legacy/held coverage cannot turn a zero count into a correction.
+  // Retain validated positive events; absence needs an actual continuous run.
+  const noSmileRun = !decimated && !smiles.length && smileMeasured.length && smileMeasured.every((s) => s.smiles === 0)
+    ? longestRun(samples, (s) => s.state === 'ANSWERING' && s.smileMeasured === true && s.presence === 'TRACKED' && s.smiles === 0, 10) : null;
+  if (smiles.length || noSmileRun) {
     facts.push({ lane: 'smiles', text: `${smiles.length} smile patterns (${listeningSmiles} while listening)`, value: smiles.length });
-    if (smiles.length === 0 && answering.length > 20) change.push({ lane: 'smiles', text: 'No qualifying smile pattern was observed. Try one while the interviewer is asking.', at: null, priority: 0.4 });
+    if (noSmileRun) change.push({ lane: 'smiles', text: 'No qualifying smile pattern was observed in measured answering frames. Try one while the interviewer is asking.', at: null, priority: 0.4 });
     else if (smiles.length) worked.push({ lane: 'smiles', text: `${smiles.length} smile pattern${smiles.length > 1 ? 's' : ''} observed${listeningSmiles ? `, ${listeningSmiles} while listening` : ''}.`, at: smiles[0].t });
   }
   const gestures = events.filter((e) => e.kind === 'gesture' && e.state === 'ANSWERING');

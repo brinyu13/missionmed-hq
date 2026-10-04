@@ -16,6 +16,22 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 independent actual producer -> trace -> seal -> cold review found
+  R034/R050 P1: one valid SETUP zero followed by24 unavailable ANSWERING frames
+  produced smile correction. Producer correctly separates cumulative counts
+  from live observability; adapter lost it. Exact correction preserves that flag,
+  requires10s qualified contiguous zero coverage for absence coaching, and treats
+  legacy/gaps/decimation as unknown. Validated positive events remain unchanged.
+  Initial focused gate caught added null-padding payload overflow; optional unknown
+  raw/count scalars now serialize as missing/unavailable, never zero; normalized
+  voice lanes retain explicit null to preserve replay gaps. Unchanged512KiB budget,
+  1200sample/512event caps and retention;47 affected tests PASS, final25 impacted
+  checks PASS after the null-lane preservation. Fresh independent source review
+  actual-producer/cold-unavailable/positive-event/coverage/gap/budget PASS/noP0/P1.
+  No engine/provider/
+  audio/media/auth/clock/schema changes. PRODUCT4509 exact5-file scope maintained;
+  live verification pending. Rollbackf5d1688/dc0cdbea/
+  image81c2c1/artifactXhtk5x is healthy, root unpromoted, full acceptance still open.
 - 2026-10-04 bounded independent R050/R133 review found an executable coaching P1:
   actual symmetric corridor score260WPM=0 said 'too slow'; above-corridor
   -6LUFS-K scored1.1 yet said 'below'. Producer is unchanged. Consumer now carries

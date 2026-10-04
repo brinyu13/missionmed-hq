@@ -11,9 +11,12 @@ const hookReference=value=>value&&value.basis==='PROVISIONAL_TRANSCRIPT'&&typeof
 export function sealDerivedEvidence(record={}) {
   const input=Array.isArray(record.samples)?record.samples:[];
   const samples=thin(input.filter(s=>s?.fixture!==true&&number(s?.t)!==null&&s.t>=0),1200).map(s=>({
-    ...Object.fromEntries(['t','vol','pitch','pace','variety','facing','nods','smiles','gestures','wpm','loudness','f0Hz'].map(k=>[k,number(s[k])])),
+    // Omit unavailable optional raw/count padding, but preserve explicit null
+    // on normalized voice lanes: the replay canvas uses null to break a trace.
+    ...Object.fromEntries(['t','vol','pitch','pace','variety','facing','nods','smiles','gestures','wpm','loudness','f0Hz'].map(k=>[k,number(s[k])]).filter(([k,v])=>v!==null||['vol','pitch','pace','variety'].includes(k))),
     state:text(s.state,32),hands:text(s.hands,32),presence:text(s.presence,32),loudnessUnit:text(s.loudnessUnit,32),
     speaking:s.speaking===true,signalGap:s.signalGap===true,
+    smileMeasured:s.smileMeasured===true,
     paceCue:cue(s.paceCue),volumeCue:cue(s.volumeCue),
     scores:Object.fromEntries(['pace','volume','variety'].map(k=>[k,number(s.scores?.[k])]))
   }));
