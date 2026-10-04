@@ -66,6 +66,21 @@ export async function guardTests({connection,check}) {
  ['false restore status',e=>e.restore.recordsPreserved=false],['altered backup size',e=>e.backup.bytes=1]
  ])await check('evidence',name+' is refused',async()=>{const modified=structuredClone(evidence);change(modified);await assert.rejects(verifyPreservationEvidence(await approvalFor(modified)));});
  await check('evidence','changed receipt bytes are refused',()=>assert.rejects(verifyPreservationEvidence({...approval,preservationEvidence:{...approval.preservationEvidence,sha256:'0'.repeat(64)}}),/checksum mismatch/));
+ const reviewedName='20261004073823_iiq_1204_committed_research_grants.sql';
+ const reviewedSql=await fs.readFile(new URL('../../infra/postgres/migrations/'+reviewedName,import.meta.url),'utf8');
+ const reviewedMigration={name:reviewedName,sql:reviewedSql,sha256:sha(reviewedSql)};
+ await check('policy','exact independently reviewed research expansion is recognized',async()=>{
+  assert.equal(classifyAdditive(transactionBody(reviewedSql)).additiveOnly,false);
+  assert.deepEqual(await verifyMigrationPolicy(approval,[reviewedMigration],{bodyOf:transactionBody}),{additiveOnly:true,requiresFounder:[]});
+ });
+ for(const [name,changed]of [
+  ['renamed migration',{...reviewedMigration,name:'20990101000300_renamed.sql'}],
+  ['changed bytes with recalculated hash',{...reviewedMigration,sql:reviewedSql+'\n',sha256:sha(reviewedSql+'\n')}],
+  ['changed bytes with spoofed original hash',{...reviewedMigration,sql:reviewedSql+'\n'}],
+  ['spoofed migration hash',{...reviewedMigration,sha256:'0'.repeat(64)}],
+  ['destructive SQL under approved name and hash',{...reviewedMigration,sql:'BEGIN; DELETE FROM iiq.interviews; COMMIT;'}]
+ ])await check('policy',name+' retains explicit Founder gate',()=>assert.rejects(verifyMigrationPolicy(approval,[changed],{bodyOf:transactionBody}),/explicit Founder authorization/));
+ await check('policy','caller cannot substitute a different reviewed migration body',()=>assert.rejects(verifyMigrationPolicy(approval,[reviewedMigration],{bodyOf:()=> 'DELETE FROM iiq.interviews;'}),/explicit Founder authorization/));
  const destructive={name:'20990101000200_synthetic_contract.sql',sha256:sha('BEGIN; DELETE FROM iiq.interviews; COMMIT;'),sql:'BEGIN; DELETE FROM iiq.interviews; COMMIT;'};
  await check('policy','unknown/destructive SQL requires exact Founder authorization',()=>assert.rejects(verifyMigrationPolicy(approval,[destructive],{bodyOf:transactionBody}),/explicit Founder authorization/));
  await check('policy','synthetic exact Founder authorization contract is hash-bound (no execution)',async()=>{

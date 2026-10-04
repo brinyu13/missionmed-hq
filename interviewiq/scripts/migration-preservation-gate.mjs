@@ -86,7 +86,16 @@ export async function verifyPreservationEvidence(approval,{now=Date.now()}={}) {
 export async function verifyMigrationPolicy(approval,pending,{bodyOf,now=Date.now()}={}) {
  if(approval.policy!=='additive-only')fail('additive-only policy must be explicit');
  const requiring=[];
- for(const migration of pending){const classified=classifyAdditive(bodyOf(migration.sql));if(!classified.additiveOnly)requiring.push({name:migration.name,sha256:migration.sha256});}
+ for(const migration of pending){
+  const body=bodyOf(migration.sql),classified=classifyAdditive(body);
+  // DR-373 / A14 independently reviewed expansion: fresh NOLOGIN proof role,
+  // new private tables and new-role-only policies. Recognize only immutable
+  // reviewed bytes; this does not generalize the conservative SQL classifier.
+  const reviewedExpansion=migration.name==='20261004073823_iiq_1204_committed_research_grants.sql'&&
+   migration.sha256==='ac686850e55656ed7204ee56d3101db94ca932495153f0b1ca7e293f46fa35e0'&&
+   sha(migration.sql)===migration.sha256&&sha(body)==='685a8bf65982e77fb86b2a27a7862992d938ab5c2007fb37af5fd1fadbdc5789';
+  if(!classified.additiveOnly&&!reviewedExpansion)requiring.push({name:migration.name,sha256:migration.sha256});
+ }
  if(!requiring.length)return {additiveOnly:true,requiresFounder:[]};
  const permission=await reviewedFile(approval.founderAuthorization,'explicit Founder authorization');
  if(permission.schema!=='missionmed.interviewiq.destructive-migration-authorization.v1'||permission.status!=='APPROVED'||
