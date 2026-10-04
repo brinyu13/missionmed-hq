@@ -35,11 +35,23 @@ the actual production route and deployment.
   fresh policy read is claimed. Scope: PRODUCT4535→4538, HQ PATH4536→4537; old handles released
   normally/remote confirmed before exact test/helper scope expansion. No schema,
   identity grant, provider/model/voice, audio mix, clock or root promotion changes.
-  Live release/visual/spoken acceptance pending; Chrome access still WAITING for
+  Clean remotely read-back source4556e68d8b90b4f37a2762e5b2b11cd80ae9fc9f
+  deployed SUCCESS5e6ba601-b99b-4b6b-b8cc-2ad5e3d2377a, image
+  sha256:cfa74f272beeb202f73565b683b60840a356b2c232c0cc62ac6e3bd877c5baa2.
+  Exact filtered1271-file artifactLAUOJn/source.tar SHA
+  9f223a6c51f82f7cc204cdee037e6e074b72716596dbe45586663b2061783624.
+  Health200/root,candidate,bootstrap401. PRODUCT4538/HQ PATH4537/SHARED4539
+  normally released/remote confirmed; receiptPRODUCT4540. Additional26 affected
+  closing/progression/preservation checks PASS (178 total distinct checks).
+  Prior healthy4e/be56/artifactb801lS and last POV-known-good61aa/deed28/2YgD0Z
+  exact rollback identities retained. Fresh UI/spoken acceptance UNVERIFIED.
+  Chrome access still WAITING for
   a changed client-access event, not repeatedly polled. R022 remains LIVE
   UNVERIFIED until current UI/spoken behavior passes. No percentage or completion
-  claim. Next: final independent correction review, guarded release, then continue
-  preservation matrix and genuine interview/replay/role acceptance as available.
+  claim. Next: finish bounded read-only R023/R025/R029 preservation triage, fix
+  only a directly reproduced executable gap; on changed browser event resume
+  actual candidate Mock, real follow-up/barge-in/closing, save and heard two-sided
+  cold replay plus own/Admin role journeys. No engineering-exhausted verdict.
 - 2026-10-04 R004 goal/focus correction: bounded read-only review proved missing
   three-goal selection and ignored editable/displayed focus. Existing Advanced
   settings now expose canonical Full/Guided/Individual goals and a200-character
