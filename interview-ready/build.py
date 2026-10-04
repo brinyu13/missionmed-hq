@@ -59,6 +59,10 @@ def build(asset_profile='preview', output_dir=None, production=False):
                     for group, key in [('online', 'online'), ('in-person', 'inperson')]
                     for category in research[key] for item in category['items']]
     account = input_data['account.js'].decode()
+    # Keep this inline comparison from becoming a false tag during host HTML processing.
+    if account.count('s.revision<0') != 1:
+        raise ValueError('Account comparison seam changed; review required')
+    account = account.replace('s.revision<0', '0>s.revision')
     fashion = json.loads(input_data['fashion.json'])
     if permitted:
         # Deferred sources remain on disk, but no Phase 2 research enters the payload.

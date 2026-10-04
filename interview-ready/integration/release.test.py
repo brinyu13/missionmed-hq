@@ -1,6 +1,6 @@
 """Focused reproducible local package gates; temporary source fixture, no runtime calls."""
 from pathlib import Path
-import hashlib, importlib.util, json, shutil, subprocess, sys, tarfile, tempfile, unittest
+import hashlib, importlib.util, json, re, shutil, subprocess, sys, tarfile, tempfile, unittest
 from unittest import mock
 sys.dont_write_bytecode = True
 HERE = Path(__file__).resolve().parent
@@ -47,6 +47,32 @@ class PackageFixtures(unittest.TestCase):
             self.assertEqual(bundle.extractfile('wp-content/mu-plugins/missionmed-interview-ready.php').read(),(self.root/'integration/missionmed-interview-ready.php').read_bytes())
         plan=json.loads((self.base/'one/release-plan.json').read_text());self.assertFalse(plan['executable']);self.assertFalse(plan['productionApproval'])
         self.assertIn('_mmed_ir_state_v1',plan['rollback']);self.assertIn('matrix-entry.js',manifest['sourceMappings'])
+
+    def test_built_account_comparison_survives_html_processing_without_source_change(self):
+        account=self.root/'account.js';original=account.read_bytes()
+        self.assertEqual(original,(REAL_ROOT/'account.js').read_bytes())
+        self.assertEqual(original.count(b's.revision<0'),1)
+        release.prepare(self.base/'comparison')
+        with tarfile.open(self.base/'comparison/interview-ready-candidate.tar.gz') as bundle:
+            name=next(n for n in bundle.getnames() if n.endswith('/interview-ready.html'))
+            html=bundle.extractfile(name).read().decode()
+        self.assertNotIn('s.revision<0',html);self.assertEqual(html.count('0>s.revision'),1)
+        scripts=re.findall(r'<script\b[^>]*>(.*?)</script>',html,re.I|re.S)
+        self.assertEqual(len(scripts),3)
+        for script in scripts:
+            result=subprocess.run(['node','--check','-'],input=script.encode(),capture_output=True)
+            self.assertEqual(result.returncode,0,result.stderr.decode())
+        self.assertEqual(account.read_bytes(),original)
+        self.assertEqual((REAL_ROOT/'account.js').read_bytes(),original)
+        # Missing or duplicate target comparisons stop before any build output.
+        for label,value in [('missing',original.replace(b's.revision<0',b'0>s.revision')),
+                            ('duplicate',original+b'\n// s.revision<0\n')]:
+            account.write_bytes(value);output=self.base/label
+            result=subprocess.run([sys.executable,'-B',str(self.root/'build.py'),
+                '--asset-profile','production','--output-dir',str(output)],capture_output=True,text=True)
+            self.assertNotEqual(result.returncode,0)
+            self.assertIn('Account comparison seam changed',result.stderr);self.assertFalse(output.exists())
+        account.write_bytes(original)
 
     def test_uncommitted_candidate_is_explicit_and_default_blocks(self):
         p=self.root/'integration/matrix-entry.js';p.write_text(p.read_text()+'\n/* local draft */\n')

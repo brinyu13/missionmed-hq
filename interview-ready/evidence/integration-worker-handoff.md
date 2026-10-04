@@ -57,3 +57,27 @@ Rollback is code-only: restore only the qualified dedicated IR gateway/current-p
 Disposable task outputs: `/private/tmp/ir-integration-final-build-20261004`, `/private/tmp/ir-integration-final-build-result.json`, the two local draft package directories, plus earlier `/tmp/ir-integration-candidate-20261004`, `/tmp/ir-integration-build-result.json` and `/tmp/ir-integration-*.py` edit helpers. These are reproducible private-free local artifacts; no cleanup is performed by this worker.
 
 **STOP AFTER ONE EXACT TEN-PATH COMMIT.** Foreman owns source DONE/release/provider-clear and all subsequent native/runtime work. This worker does not release the lease.
+
+
+## Exact live-render comparison repair — 2026-10-04
+
+Builder `/root/phase1_matrix_release_implementation`, Sol6.1 High. Source custody BASE `8348dc35beffa11cdb2796b7c58fcc68a7355c1b`, immutable source-preimage BASE `2db1f985e4678f8429af7b45969cde5729bd26d8`, canonical OS `bc1d36fcb9f7bdda4bcd4ba507078b7787d802a2`. Actual Foreman source lease `SOURCE_LIVE_RENDER_REPAIR_LEASE_20261004_1`, binding `154bae1c4cf8b974656b761ddcd85d2b32f9ec130899d33ca38ff05032119f40`; hash-qualified helper `12d4c346a879867d68965621dc90c2789899375fb010cfd8066850d4a7318953`. Fresh HEALTHY guard checked immediately before every scoped source write and required again before staging/final commit. Foreman owns keeper/DONE/release; worker never releases/reclaims.
+
+The build now fails unless rendered account input contains exactly one `s.revision<0`, then substitutes only that comparison with `0>s.revision` before inline insertion. `account.js` source is unchanged: SHA256 `018a0e2f3706f2f5cbe64ddb8b8fb2cf2b07b640730c7b3211cbc4397b17518a`. The original and reversed relational comparisons are semantically equivalent; accepted account/CAS/idempotency/privacy/history logic is preserved. This removes the exact false `<0 ... >` opening seen in the served response, without editing any shared processor or adding response-buffer overrides. The responsible host callback remains unidentified; no corrected live-response PASS is claimed.
+
+Focused verification: `python3 -B interview-ready/integration/release.test.py` **6 tests PASS in7.906seconds**. The added regression packages an actual temporary committed fixture, checks exactly one safe comparison/no unsafe comparison, parses all three actual inline scripts through Node stdin, preserves actual account source bytes, and rejects missing/duplicate comparison seams before output. Existing deterministic package/source-state/allowlist/marker/symlink/collision/production-block tests pass. `git diff --check` passes. No broad native/browser suite was repeated because exact byte comparison proves the candidate HTML change is only the one rendered comparison; account source/engine is unchanged.
+
+A production-media candidate was built only in a self-cleaning `ir-render-repair-build-*` temporary directory. New HTML SHA256 `456269800610e4370ab2930bc7ee7007eadc3f36c3ba2116136ef611c15e354c`, 1,464,240 bytes. Its complete bytes equal the old16f8 archive HTML after that single exact replacement, and no other HTML byte differs. Matrix artifact remains `238d936904fce777174f22fb352e99fce118192ca9a469be392246c6a65366ad`/2,839bytes; gate remains `da79845723120e8e451b96121c5fe5d9ccd5c2a3ece6c20b5279e252fa6319ff`/36,683bytes. Gateway remains `819dd734ae7bf61ded755dd3bdda5e64e4945bac05d28bd4aee5cd68f7a9d7f5`. src/editorial/completion/phase1 scripts, account.js, catalog/media policy, phase1.json and packager match admitted BASE bytes. Founder-preview/accountPersistenceReady false/charity-disabled candidate flags remain unchanged, releaseApproved false.
+
+Current source hashes before the single three-path commit:
+
+| Path | SHA256 |
+| --- | --- |
+| interview-ready/build.py | fa3e73e912d9c0f8c114d04f64043ab33bc6d6e21ba8d07c7e8e5e3ca13a050c |
+| interview-ready/integration/release.test.py | cdb53f1a3d747c377d72d9d43953bad31823e439604000704306c471063dccd0 |
+
+Third path is this appended product handoff; self-hash is delivered externally. Previous integration evidence is preserved as historical evidence rather than rewritten. No tracked dist or unrelated dirty/report/helper/input/CLI path is included.
+
+Next steps remain Foreman-owned: repack exact newly committed inputs into a fresh candidate directory, obtain Native independent changed-product/package qualification, and admit a separate present-owner pointer-only upgrade/recovery plan. Preserve the existing gateway819dd7..., old release158080..., old stage16f8... and qualified old pointer provenance; the original ABSENT install controls cannot authorize overwriting those objects. The new immutable release and metadata require fresh exact runtime bindings/control admission. Actual served-script/browser rendering and narrow route-HTML cache/readback gates are required; native AUTH, account identities and final production promotion remain separately blocked. No runtime/provider/SSH/credential/native/cache/deploy/push/merge operation occurred in this repair.
+
+**STOP AFTER ONE EXACT THREE-PATH COMMIT.** Foreman releases the source claim and the independent Native reviewer qualifies resulting product bytes.
