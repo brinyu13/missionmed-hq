@@ -39,6 +39,10 @@ def build(asset_profile='preview', output_dir=None, production=False):
     editorial = (ROOT/'editorial.js').read_text()
     completion = (ROOT/'completion.js').read_text()
     research = json.loads((ROOT/'catalog.json').read_text())
+    account_keys = [f"{group}:{category['id']}:{item['t']}:{item.get('asin') or 'plan'}"
+                    for group, key in [('online', 'online'), ('in-person', 'inperson')]
+                    for category in research[key] for item in category['items']]
+    account = (ROOT/'account.js').read_text()
     fashion = json.loads((ROOT/'fashion.json').read_text())
     if permitted:
         # Deferred sources remain on disk, but no Phase 2 research enters the payload.
@@ -72,7 +76,17 @@ def build(asset_profile='preview', output_dir=None, production=False):
     paths = sorted(allowed) if permitted else [str(p.relative_to(ROOT)) for p in sorted((ROOT/'img').glob('*.webp'))]
     assets = {Path(path).name:uri(path) for path in paths}
     def js(value): return json.dumps(value, ensure_ascii=False).replace('</','<\\/')
-    scripts = '<script>const ASSET = '+js(assets)+'; const RESEARCH = '+js(research)+'; const FASHION = '+js(fashion)+'; const PHASE1 = '+js(phase1)+';\n'+editorial+'\n'+completion+'\n'+(ROOT/'phase1.js').read_text()+'</script>'
+    # Install the account-owned store before any existing engine can read progress.
+    store_pattern = r"const store = \{\n  get\(k,d\).*?\n\};"
+    source, replaced = re.subn(store_pattern, 'const store = IRAccount.store;', source, count=1, flags=re.S)
+    assert replaced == 1, 'Store seam changed; review required'
+    assert account.count('/* MMED_IR_ACCOUNT_CONTEXT */ null') == 1
+    account = account.replace('/* MMED_IR_KIT_KEYS */ []', js(account_keys))
+    privacy_css = "html[data-ir-personal='blocked'] #page-checklist,html[data-ir-personal='blocked'] #page-kit,html[data-ir-personal='blocked'] #kitCountRail {visibility:hidden} html[data-ir-personal='blocked'] [data-kit],html[data-ir-personal='blocked'] [data-remove-kit] {visibility:hidden}"
+    source = source.replace('</head>', '<style>'+privacy_css+'</style><script>document.documentElement.dataset.irPersonal=\"blocked\";\n'+account+'</script></head>')
+    source = source.replace("connect-src 'none'", "connect-src 'self'")
+    attach = "\nIRAccount.attach({catalog:CATALOG,checklist:CHECKLIST,mode:value=>{mode=value;},reset:()=>{mode='online';},render:()=>{renderChecklist();renderKitCount();renderKit();document.querySelectorAll('[data-kit]').forEach(b=>{const saved=kit.has(b.dataset.kit);b.textContent=saved?IRAccount.kitLabel():'Save to kit';b.setAttribute('aria-pressed',saved);});},route,wrapRoute:fn=>{route=fn;},runRoute:()=>route()});"
+    scripts = '<script>const ASSET = '+js(assets)+'; const RESEARCH = '+js(research)+'; const FASHION = '+js(fashion)+'; const PHASE1 = '+js(phase1)+';\n'+editorial+'\n'+completion+'\n'+(ROOT/'phase1.js').read_text()+attach+'</script>'
     source = source.replace('<!-- EDITORIAL_SCRIPTS -->', scripts)
     for key, value in old.items():
         if '{{'+key+'}}' in source:
@@ -84,9 +98,11 @@ def build(asset_profile='preview', output_dir=None, production=False):
     out_dir.mkdir(parents=True, exist_ok=True)
     out = out_dir/'interview-ready.html'
     out.write_text(source)
-    inputs = ['src.html','editorial.css','editorial.js','catalog.json','completion.css','completion.js','fashion.json','phase1.json','phase1.css','phase1.js','production-assets.json','build.py']
+    inputs = ['src.html','editorial.css','editorial.js','catalog.json','completion.css','completion.js','fashion.json','phase1.json','phase1.css','phase1.js','production-assets.json','account.js','integration/missionmed-interview-ready.php','build.py']
     manifest = {'sha256':hashlib.sha256(out.read_bytes()).hexdigest(),'bytes':out.stat().st_size,
                 'assetProfile':asset_profile, 'releaseApproved':production,
+                'accountContextMarker':'/* MMED_IR_ACCOUNT_CONTEXT */ null',
+                'gatewayStorageOwner':'WP self-only _mmed_ir_state_v1',
                 'embeddedAssets':{path:hashlib.sha256((ROOT/path).read_bytes()).hexdigest() for path in paths},
                 'inputs':{name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest() for name in inputs}}
     (out_dir/'build-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
