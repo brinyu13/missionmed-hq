@@ -16,6 +16,37 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- Admin-reload source61aa63eb7889326b8328b95352832bebcf82cc17 LIVE
+  SUCCESSdeed28ac-d2a9-49e1-b899-6f3c95f3f27a, image
+  sha256:456fcf4779bc9ceea744deebac136b98f5b92836c77363ada4ea2c14e8292258.
+  Exact1268-file filtered tracked artifact2YgD0Z/source.tar,
+  SHAba1a90298fcd746562749f5a703f879b3d5788fb861108b447224a649062a38f.
+  Health200/anonymous root,candidate,bootstrap401. Normal authenticated FableHome
+  -> AdvancedAdmin -> genuine authorized wp:142 attempt827b34e6 -> Results/full
+  supportedreport -> coldreload -> pausedFilm -> coldreload retains actorwp:1
+  Admin and exact owner/attempt. Student switch clears selected labels/attempt,
+  private playback src/readouts, opens own39-answer chooser; returns FableHome.
+  Fresh non-builder repeated same normal journey PASS incl exact video#playback
+  source clearance, paused640x480 reload, noP0/P1. OwnQA315031629 closed, viewport
+  unchanged. Historical black frame quality and actual audible playback remain
+  UNVERIFIED; metadata/dimensions never substitute visible-frame/hearing acceptance.
+  No Play/capture/provider/credits/review/consent/preferences/account/data writes,
+  private URL extraction, student screenshot export or identity fabrication.
+  PRODUCT4517/deployment4519 normally released/readback; PRODUCT4520 files this
+  receipt, then commit/push/release. Current runtime becomes known-good rollback;
+  exact prior5cafa1f/9ea2a5e2/imageed1eaf/artifacteJX5Fu preserved. Root unpromoted,
+  full142/live core acceptance open; stale30% remains withdrawn, not replaced.
+  Bounded independent R024/032/033/137-139 pass found no new executableP0/P1:
+  closing/skip, rehearsal abandonment and baseline-bound calibration sealing remain.
+  This is not full142 acceptance or an engineering-exhausted verdict.
+  Exact next critical acceptance: current candidate normalMock -> genuine visible
+  physical camera/mic -> spoken answer/follow-up/barge-in/pool move-on/closing ->
+  save -> both actual voices HEARD after cold Film reload, with honest signal gaps.
+  Genuine speech/hearing and changed physical evidence are external-event-gated;
+  do not fabricate or repeat unchanged device/provider checks. Continue independent
+  unclosed142-row acceptance work without reopening proven scopes; real role logins,
+  authorized current CV/story projections, calibration and provider events remain
+  explicitly unverified until their actual inputs exist. Goal active, not complete.
 - 2026-10-04 R058/R076 Admin cold-review recovery implemented: strictly parsed
   opaque session UUID + review=admin intent, no subject/credentials/media URL.
   Fresh admitted Admin and exact bootstrap/API identity.subject -> unique fresh
