@@ -12,6 +12,7 @@ import { loadQuestions } from './questions.mjs';
 import { controller } from './controller/session-controller.mjs';
 import { replayOverlays } from './adapters/replay-overlays.mjs';
 import {readOwnComparison,freshTeachingReplay} from './adapters/comparison-view-model.mjs';
+import {nameUseViewMarkup} from './adapters/name-use-view.mjs';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmt = (s) => Number.isFinite(s)?`${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`:'Unavailable';
@@ -57,6 +58,8 @@ async function resolveAttempt(id,isCurrent=()=>true) {
 }
 
 export async function mountResults(main, id, {isCurrent=()=>true}={}) {
+  const routeCurrent=isCurrent,account=controller.account,durable=controller.durable;
+  isCurrent=()=>routeCurrent()&&controller.account===account&&controller.durable===durable;
   const a=await resolveAttempt(id,isCurrent);if(!isCurrent())return noop;
   if(!a){unavailable(main);return noop;}
   const {questions}=await loadQuestions();if(!isCurrent())return noop;
@@ -102,6 +105,8 @@ export async function mountResults(main, id, {isCurrent=()=>true}={}) {
     </div>`;
   renderProviderTranscript(main,a);
   const disposeReport=appendFullReport(main,a);let disposed=false;
+  const nameReview=document.createElement('section');nameReview.innerHTML=nameUseViewMarkup(a);
+  main.querySelector('#full-analytics').append(nameReview);
   if(controller.candidateAudioRetryAvailable(a.id)){
     const panel=document.createElement('section');panel.className='housing panel';
     panel.innerHTML='<h2 class="t-h3">Your full recording is saved.</h2><p>The separate microphone upload for answer analysis needs a retry. Keep this page open until it saves.</p><button type="button" class="btn btn-secondary">Retry microphone audio save</button><p class="note" role="status"></p>';

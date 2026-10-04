@@ -2,7 +2,7 @@
 import { state, uid, commit } from './state.mjs';
 import { loadQuestions } from './questions.mjs';
 import { controller } from './controller/session-controller.mjs';
-import { conductorConfig, toWizard, defaultSettings, resolveMockQuestionTarget } from './settings/interviewer.mjs';
+import { conductorConfig, toWizard, defaultSettings, resolveMockQuestionTarget, VOICES, selectedAdminVoice } from './settings/interviewer.mjs';
 import { liveContext } from './adapters/context-adapter.mjs';
 import { awaitVisibleCamera,assertMicrophoneReady } from './adapters/media-readiness.mjs';
 import {mountDeviceControls,deviceControlsMarkup} from './adapters/device-controls.mjs';
@@ -73,6 +73,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
             <div class="t-kick gold">${mode === 'mock' ? 'Mock interview' : 'Practice rep'} · ${targetQuestions} question${targetQuestions > 1 ? 's' : ''}${mode === 'mock' && targetQuestions !== plan.length ? ` · ${plan.length} selected` : ''}</div>
             <h2 class="t-h2" style="margin:8px 0 6px">${mode === 'mock' ? 'Ready for your interview?' : 'Ready for your answer?'}</h2>
             <p>${mode === 'mock' ? `Priority: ${esc(session.priority || 'leave one natural hook the interviewer can follow')}.` : `Priority: ${esc(session.priority || 'finish the answer in under 90 seconds')}.`} Connect your camera and microphone. Check your visible preview, then start when you are ready.</p>
+            ${mode==='mock'&&account?.mode==='REAL'&&account.role==='admin'?`<details class="expert" style="margin-top:10px;text-align:left"><summary>Admin voice audition</summary><label class="field"><span class="t-label">Native interviewer voice</span><select id="admin-live-voice">${VOICES.map(voice=>`<option value="${voice}" ${selectedAdminVoice(settings,account,mode)===voice?'selected':''}>${voice}</option>`).join('')}</select></label><small class="note">The same real interview and recording path; only the voice changes. Select before Start. Student default remains marin. No external TTS.</small></details>`:''}
             <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px"><button class="btn btn-primary btn-lg" type="button" id="connect-real">Connect camera + mic</button><button class="btn btn-primary btn-lg" type="button" id="start-session" disabled>${mode === 'mock' ? 'Start Interview' : 'Start recorded answer'} ▸</button></div>
           </div>
         </div>
@@ -115,7 +116,12 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   const observer=mode==='mock'?new NativeInterviewObserver({questions:plan,config:conductorConfig(settings,{durationMin:cfg.durationMin,interviewPolicy:controller.interviewPolicy}),context:{specialty:session.program?.specialty||null},now:()=>controller.elapsed*1000}):null;
   const at=()=>controller.elapsed;
   const mark=(kind,label)=>events.push({t:at(),kind,label});
-  function setDensityControls(disabled){room.querySelectorAll('.density [data-density]').forEach(button=>{button.disabled=disabled;});$('reset-density').disabled=disabled;}
+  function setDensityControls(disabled){room.querySelectorAll('.density [data-density]').forEach(button=>{button.disabled=disabled;});$('reset-density').disabled=disabled;const voice=$('admin-live-voice');if(voice)voice.disabled=disabled||started||finished;}
+  $('admin-live-voice')?.addEventListener('change',e=>{
+    if(!current()||starting||started||saving||finished)return;
+    settings.voice=selectedAdminVoice({voice:e.target.value},account,mode);
+    e.target.value=settings.voice;
+  });
   function recordDensity(){if(started&&!saving&&!finished)events.push({t:at(),kind:'presentation',label:density==='interview'?'Interview only':'Coached',state:density});}
   function renderTranscript(){ const rows=captions.length?captions:turns;$('transcript').innerHTML=rows.map(t=>'<div class="turn '+t.speaker+'"><b>'+(t.speaker==='interviewer'?'Interviewer':'You')+'</b><span>'+esc(t.text)+'</span></div>').join('')||'<p class="note">The conversation appears here as you speak.</p>';if(captions.length)$('transcript').insertAdjacentHTML('beforeend','<p class="note">Live captions use approximate fragment timing, not confirmed turn boundaries. Recording is authoritative for what was heard.</p>'); }
   function addTurn(speaker,text,event={}) {
@@ -216,7 +222,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       if(!current())return;
       observer?.start(); // before provider callbacks; native start owns the sole opening question
       engine.events.addEventListener('frame',onFrame);engine.events.addEventListener('state',onState);engine.events.addEventListener('word-timing',onWord);
-      const result=await controller.startSession({mode,question:plan[0],interviewSet:plan,wizard,targetQuestions,openingQuestion:plan[0].canonical_text,context,voice:settings.voice||'marin',...callbacks});
+      const result=await controller.startSession({mode,question:plan[0],interviewSet:plan,wizard,targetQuestions,openingQuestion:plan[0].canonical_text,context,voice:selectedAdminVoice(settings,account,mode),...callbacks});
       if(!current())return;
       interviewer=result.interviewer;started=true;$('enter').remove();$('enter-note').hidden=true;$('rec').dataset.state='recording';$('rec-text').textContent='REC';
       main.querySelector('[data-room-devices]').open=false;
