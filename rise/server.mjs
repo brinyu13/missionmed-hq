@@ -20,6 +20,7 @@ const P1_RISE_5012E_FROZEN_BENCHMARK_ACGME_IDS = Object.freeze([
 ]);
 import { assertCurrentSourceRights } from "./src/source-authorization.mjs";
 import { createRiseIvocProgramProjection } from "./src/ivoc-projection.mjs";
+import { createInterviewiqRuntime, isInterviewiqNamespace } from "./adapters/interviewiq-runtime.mjs";
 
 // P1-RISE-5012D binds this runtime to reviewed-evidence build rise_web_b8abd476daab.
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -1444,6 +1445,7 @@ export function createRiseServer({
   evidenceReviewStore,
   researchStore,
   matrixProfileAdapter,
+  interviewiqRuntime,
   adminIdentityResolver,
   logger = createJsonLogger(),
 } = {}) {
@@ -1529,12 +1531,13 @@ export function createRiseServer({
       return payload;
     } catch { return null; }
   };
-  return http.createServer(async (request, response) => {
+  const server = http.createServer(async (request, response) => {
     const requestId = randomUUID();
     const startedAt = performance.now();
     let status = 500;
     let subjectAuditId = null;
     let sourceRightsDecisionId = null;
+    const interviewiqRequest = isInterviewiqNamespace(request.url);
     try {
       const url = new URL(request.url ?? "/", "http://rise.local");
       const preAuthAllowed = await abuse.allowPreAuth({
@@ -1546,6 +1549,16 @@ export function createRiseServer({
         status = 429;
         response.setHeader("Retry-After", "60");
         apiError(response, 429, "PRE_AUTH_RATE_LIMITED", "RISE ingress request budget exceeded", requestId);
+        return;
+      }
+      if (interviewiqRequest) {
+        const result = interviewiqRuntime ? await interviewiqRuntime.handle(request) : { status: 503, body: { error: "interviewiq_owner_unavailable" } };
+        status = result.status;
+        if (status === 503) {
+          response.setHeader("Connection", "close");
+          response.once("finish", () => request.destroy());
+        }
+        sendJson(response, status, result.body, { cache: "no-store", requestId });
         return;
       }
       if (url.pathname === "/api/rise/v1/health") {
@@ -2510,7 +2523,12 @@ export function createRiseServer({
       status = 404;
       apiError(response, 404, "NOT_FOUND", "API route not found", requestId);
     } catch (error) {
-      if (error.code === "BODY_TOO_LARGE") {
+      if (interviewiqRequest) {
+        status = 503;
+        response.setHeader("Connection", "close");
+        response.once("finish", () => request.destroy());
+        sendJson(response, status, { error: "interviewiq_owner_unavailable" }, { cache: "no-store", requestId });
+      } else if (error.code === "BODY_TOO_LARGE") {
         status = 413;
         apiError(response, 413, error.code, error.message, requestId);
       } else if (error.code === "INVALID_JSON") {
@@ -2553,7 +2571,7 @@ export function createRiseServer({
         event: "rise_request",
         requestId,
         method: request.method,
-        path: String(request.url ?? "").split("?", 1)[0],
+        path: interviewiqRequest ? "/api/rise/v1/interviewiq" : String(request.url ?? "").split("?", 1)[0],
         status,
         durationMs,
         subjectAuditId,
@@ -2561,6 +2579,8 @@ export function createRiseServer({
       });
     }
   });
+  server.once("close", () => { void interviewiqRuntime?.close().catch(() => {}); });
+  return server;
 }
 
 export async function loadRegistryIndex(indexPath, {
@@ -2858,7 +2878,9 @@ export async function startFromEnvironment() {
   }
   const host = process.env.RISE_HOST ?? (production ? "0.0.0.0" : "127.0.0.1");
   validateListenConfiguration({ host, authMode, riseEnvironment: process.env.RISE_ENVIRONMENT });
-  const server = createRiseServer({
+  const interviewiqRuntime = await createInterviewiqRuntime({ registryIndex: index });
+  let server;
+  try { server = createRiseServer({
     registryIndex: index,
     webDirectory,
     authMode,
@@ -2875,18 +2897,24 @@ export async function startFromEnvironment() {
     evidenceReviewStore,
     researchStore,
     matrixProfileAdapter,
+    interviewiqRuntime,
     buildId: webBuild.buildId,
     production,
-  });
+  }); } catch (error) { await interviewiqRuntime.close(); throw error; }
   const port = Number.parseInt(process.env.PORT ?? "4177", 10);
-  server.listen(port, host, () => {
+  try { await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(port, host, () => {
+      server.off("error", reject);
     process.stdout.write(`${JSON.stringify({
       service: "missionmed-rise",
       url: `http://${host}:${port}/rise/`,
       registryReleaseId: index.registryReleaseId,
       authMode,
     })}\n`);
-  });
+      resolve();
+    });
+  }); } catch (error) { await interviewiqRuntime.close(); throw error; }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
