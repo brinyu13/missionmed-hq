@@ -1,0 +1,367 @@
+{
+  "source": "CUA actual production DOM computed styles; condensed measurements, not synthetic render",
+  "source_sha": "743a9978bcc1eee0514d39ccde4043748c6e18e0",
+  "method": "WCAG sRGB relative luminance; ancestor alpha compositing on white base; normal 4.5:1, large 3:1",
+  "scope": "Zelle panels and final full main order content; global footer outside certification",
+  "rows": [
+    {
+      "state": "provider_unavailable",
+      "width": 1440,
+      "minContrast": 9.717938970134165,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "provider_unavailable",
+      "width": 1024,
+      "minContrast": 9.717938970134165,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "provider_unavailable",
+      "width": 430,
+      "minContrast": 9.717938970134165,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "provider_unavailable",
+      "width": 390,
+      "minContrast": 9.717938970134165,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "not_found",
+      "width": 1440,
+      "minContrast": 9.717938970134165,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "not_found",
+      "width": 1024,
+      "minContrast": 9.717938970134165,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "not_found",
+      "width": 430,
+      "minContrast": 9.717938970134165,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "not_found",
+      "width": 390,
+      "minContrast": 9.717938970134165,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "needs_review",
+      "width": 1440,
+      "minContrast": 9.717938970134165,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "needs_review",
+      "width": 1024,
+      "minContrast": 9.717938970134165,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "needs_review",
+      "width": 430,
+      "minContrast": 9.717938970134165,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "needs_review",
+      "width": 390,
+      "minContrast": 9.717938970134165,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "cancelled",
+      "width": 1440,
+      "minContrast": 12.398373703008295,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "cancelled",
+      "width": 1024,
+      "minContrast": 12.398373703008295,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "cancelled",
+      "width": 430,
+      "minContrast": 12.398373703008295,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "cancelled",
+      "width": 390,
+      "minContrast": 12.398373703008295,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "already_verified_corrected",
+      "width": 1440,
+      "minContrast": 11.235805680200114,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "already_verified_corrected",
+      "width": 1024,
+      "minContrast": 11.235805680200114,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "already_verified_corrected",
+      "width": 430,
+      "minContrast": 11.235805680200114,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "already_verified_corrected",
+      "width": 390,
+      "minContrast": 11.235805680200114,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "pending_final_source",
+      "width": 1440,
+      "minContrast": 9.717938970134165,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "pending_final_source",
+      "width": 1024,
+      "minContrast": 9.717938970134165,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "pending_final_source",
+      "width": 430,
+      "minContrast": 9.717938970134165,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "pending_final_source",
+      "width": 390,
+      "minContrast": 9.717938970134165,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "awaiting_admin_final_source",
+      "width": 1440,
+      "minContrast": 9.717938970134165,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "awaiting_admin_final_source",
+      "width": 1024,
+      "minContrast": 9.717938970134165,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "awaiting_admin_final_source",
+      "width": 430,
+      "minContrast": 9.717938970134165,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "awaiting_admin_final_source",
+      "width": 390,
+      "minContrast": 9.717938970134165,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "checking_final_source",
+      "width": 1440,
+      "minContrast": 9.717938970134165,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "checking_final_source",
+      "width": 1024,
+      "minContrast": 9.717938970134165,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "checking_final_source",
+      "width": 430,
+      "minContrast": 9.717938970134165,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "checking_final_source",
+      "width": 390,
+      "minContrast": 9.717938970134165,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "post_promotion_pending",
+      "width": 1440,
+      "minContrast": 9.717938970134165,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "post_promotion_pending",
+      "width": 1024,
+      "minContrast": 9.717938970134165,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "post_promotion_pending",
+      "width": 430,
+      "minContrast": 9.717938970134165,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "post_promotion_pending",
+      "width": 390,
+      "minContrast": 9.717938970134165,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "final_order_details",
+      "width": 1440,
+      "minContrast": 12.398373703008295,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "final_order_details",
+      "width": 1024,
+      "minContrast": 12.398373703008295,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "final_order_details",
+      "width": 430,
+      "minContrast": 12.398373703008295,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    },
+    {
+      "state": "final_order_details",
+      "width": 390,
+      "minContrast": 12.398373703008295,
+      "failures": 0,
+      "overflow": false,
+      "expected": true
+    }
+  ],
+  "initial_failures": [
+    {
+      "state": "legacy_already_verified",
+      "widths": [
+        1600,
+        1138,
+        478,
+        433
+      ],
+      "minContrast": 1,
+      "failures": 17,
+      "disposition": "corrected; not counted as exact breakpoint PASS"
+    },
+    {
+      "state": "order_table_attempt1",
+      "widths": [
+        1440,
+        1024,
+        430,
+        390
+      ],
+      "minContrast": 1,
+      "disposition": "theme selector specificity corrected in final 743a997; first immediate reread still served old PHP opcode, settled read confirmed current CSS"
+    }
+  ],
+  "final_table": {
+    "foreground": "rgb(20,43,53)",
+    "background": "rgb(255,255,255)",
+    "headings": [
+      "Product",
+      "Total",
+      "Subtotal",
+      "Total",
+      "Payment method"
+    ]
+  },
+  "copy": "COPY -> COPIED actual browser",
+  "focus": "3px white CTA outline; white input, dark entered text, gold focus",
+  "qr": "loaded; 268px desktop, 228px mobile; original current asset preserved"
+}

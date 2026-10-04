@@ -1,0 +1,28 @@
+{
+  "source": "actual IAB customer-role production checkout after promotion, no financial submission",
+  "mode": "automated_email_match",
+  "canary": 0,
+  "card": {
+    "product": 5504,
+    "variation": 5867,
+    "total": "549.00",
+    "stripe_iframe": [
+      "card number",
+      "expiry",
+      "CVC"
+    ],
+    "payment_submitted": false
+  },
+  "zelle": {
+    "total": "499.00",
+    "selected": true
+  },
+  "complete": {
+    "displayed_pif": "3099.00",
+    "standard_anchor": "3499.00",
+    "early_end": "2026-10-07"
+  },
+  "cart_cleanup": "removed only controlled acceptance cart line; subsequent CART 0",
+  "no_screenshot_requirement": true,
+  "known_issue": "Stripe Link Express Checkout null.elements outside this Zelle scope; primary card UI renders"
+}

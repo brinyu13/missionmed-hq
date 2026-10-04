@@ -1,0 +1,87 @@
+{
+    "at": "2026-10-04T21:01:56+00:00",
+    "orders": {
+        "9220": {
+            "status": "cancelled",
+            "paid": false,
+            "paid_at": null,
+            "fingerprint": "ABSENT",
+            "scheduled": false,
+            "claim_retained": true
+        },
+        "9221": {
+            "status": "cancelled",
+            "paid": false,
+            "paid_at": null,
+            "fingerprint": "ABSENT",
+            "scheduled": false,
+            "claim_retained": false
+        },
+        "9222": {
+            "status": "cancelled",
+            "paid": false,
+            "paid_at": null,
+            "fingerprint": "ABSENT",
+            "scheduled": false,
+            "claim_retained": true
+        }
+    },
+    "user": 1398,
+    "account_disposition": "dormant audit identity retained; undistributed random password; no sessions or protected access",
+    "courses": [
+        4204
+    ],
+    "matrix": "free",
+    "360_access": false,
+    "sessions": 0,
+    "temporary_login": false,
+    "mode": "automated_email_match",
+    "canary": "0",
+    "products": {
+        "5504": [
+            "549",
+            "instock",
+            [
+                3646
+            ]
+        ],
+        "5867": [
+            "549",
+            "instock",
+            [
+                3646
+            ]
+        ],
+        "3576": [
+            "3099",
+            "instock",
+            [
+                5227
+            ]
+        ],
+        "5865": [
+            "3099",
+            "instock",
+            [
+                5227
+            ]
+        ]
+    },
+    "real": {
+        "status": "processing",
+        "paid": true,
+        "amount": "1.00",
+        "paid_at": "2026-10-04T16:16:18+00:00",
+        "ledger_sha256": "1d2a20383ceaea90a2f31dd7c87537465961228f9bc8fa09f44d2a78ea97da6b"
+    },
+    "historical_test_user1391": {
+        "courses": [
+            4204
+        ],
+        "matrix": "free",
+        "temporary_login": false,
+        "sessions": 0
+    },
+    "private_harnesses_disabled": [],
+    "public_harness_routes": []
+}

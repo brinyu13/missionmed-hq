@@ -1,0 +1,50 @@
+{
+    "at": "2026-10-04T20:43:23+00:00",
+    "mode": "automated_email_match",
+    "canary": "0",
+    "smoke_order": 9222,
+    "result": "not_found",
+    "state": "not_found",
+    "retries": "2",
+    "scheduled": 1791146903,
+    "paid": false,
+    "date_paid": null,
+    "fingerprint": "ABSENT",
+    "courses": [
+        4204
+    ],
+    "matrix": "free",
+    "financial_ledger_sha256": "1d2a20383ceaea90a2f31dd7c87537465961228f9bc8fa09f44d2a78ea97da6b",
+    "products": {
+        "5504": [
+            "549",
+            "instock",
+            [
+                3646
+            ]
+        ],
+        "5867": [
+            "549",
+            "instock",
+            [
+                3646
+            ]
+        ],
+        "3576": [
+            "3099",
+            "instock",
+            [
+                5227
+            ]
+        ],
+        "5865": [
+            "3099",
+            "instock",
+            [
+                5227
+            ]
+        ]
+    },
+    "other_mu_drift": [],
+    "source_hash": "1797e42a273772e21ab4bd135b6e1fc21f8269ccf73f0b62ae2e5de87a48e6d9"
+}

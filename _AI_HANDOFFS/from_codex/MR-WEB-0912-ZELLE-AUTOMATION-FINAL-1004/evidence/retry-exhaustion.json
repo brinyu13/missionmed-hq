@@ -1,0 +1,17 @@
+{
+    "at": "2026-10-04T20:25:38+00:00",
+    "fixture": "retry count set to 11; final attempt uses real provider, no synthetic receipt",
+    "state": "needs_review",
+    "retries": "12",
+    "hold": "retry_limit",
+    "scheduled": false,
+    "claim_retained": true,
+    "paid": false,
+    "courses": [
+        4204
+    ],
+    "matrix": "free",
+    "fingerprint": "ABSENT",
+    "replay": "locked",
+    "staff_authenticated_dispatch": true
+}

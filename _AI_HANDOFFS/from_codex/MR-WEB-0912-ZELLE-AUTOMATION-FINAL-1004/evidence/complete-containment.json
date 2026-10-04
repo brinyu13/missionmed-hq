@@ -1,0 +1,20 @@
+{
+    "at": "2026-10-04T20:04:56+00:00",
+    "before": {
+        "courses": [
+            5227,
+            4204
+        ],
+        "matrix": "enrolled",
+        "360_access": false
+    },
+    "after": {
+        "courses": [
+            4204
+        ],
+        "matrix": "free"
+    },
+    "paid": false,
+    "date_paid": null,
+    "status": "cancelled"
+}

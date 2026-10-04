@@ -1,0 +1,19 @@
+{
+    "at": "2026-10-04T19:59:36+00:00",
+    "courses": [
+        5227,
+        4204
+    ],
+    "360_course_id": 3893,
+    "360_access": false,
+    "matrix": "enrolled",
+    "course_http": 200,
+    "onboarding_text": "Welcome to IV Prep CompleteOpening phase: Interview Bootcamp Week \u00b7 October 8\u201318, 2026 \u00b7 Live OnlineInterview Bootcamp Week is included as the opening phase of your full-season training. Complete then continues through your final interviews in February with ongoing training, small-group work, mock interviews, personalized feedback and continued support.Your next stepsSign in with the MissionMed account used for your enrollment.Open your Matrix dashboard to access your Mission Residency environment and available program resources.Begin with Interview Bootcamp Week on October 8. For live-session joining details or access questions, contact MissionMed using the link below.Open your MatrixMy accountContact MissionMed",
+    "onboarding_360": false,
+    "opening_phase": true,
+    "february": true,
+    "matrix_http": 200,
+    "matrix_page_present": true,
+    "mail_accepted": true,
+    "nav_mail_accepted": true
+}

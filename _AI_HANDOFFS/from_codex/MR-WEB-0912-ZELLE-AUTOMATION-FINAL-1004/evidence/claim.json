@@ -1,0 +1,29 @@
+{
+    "at": "2026-10-04T19:50:29+00:00",
+    "pre": {
+        "get_status": 200,
+        "form": true,
+        "user": 1398,
+        "paid": false,
+        "courses": [
+            4204
+        ],
+        "matrix": "free"
+    },
+    "invalid_nonce_status": 403,
+    "post_status": 302,
+    "claimed": "",
+    "requested_at": "",
+    "state": "",
+    "retries": "",
+    "scheduled": false,
+    "admin_notified": "",
+    "paid": false,
+    "status": "on-hold",
+    "date_paid": null,
+    "courses": [
+        4204
+    ],
+    "matrix": "free",
+    "financial_fingerprint": "ABSENT"
+}

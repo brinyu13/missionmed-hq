@@ -1,0 +1,103 @@
+{
+    "at": "2026-10-04T19:49:53+00:00",
+    "real": {
+        "paid": true,
+        "status": "processing",
+        "date_paid": "2026-10-04T16:16:18+00:00",
+        "ledger_sha256": "1d2a20383ceaea90a2f31dd7c87537465961228f9bc8fa09f44d2a78ea97da6b"
+    },
+    "mode": "admin_confirmation",
+    "canary": 0,
+    "products": {
+        "5504": [
+            "549",
+            "instock",
+            [
+                3646
+            ]
+        ],
+        "5867": [
+            "549",
+            "instock",
+            [
+                3646
+            ]
+        ],
+        "3576": [
+            "3099",
+            "instock",
+            [
+                5227
+            ]
+        ],
+        "5865": [
+            "3099",
+            "instock",
+            [
+                5227
+            ]
+        ]
+    },
+    "sources": {
+        "00-arena-anonymous-shell.php": "afb572bc02fa41e13a62a17e6f4486f750ddd912abedd9eff0a2cfd48f013b28",
+        "00-arena-cache-bypass.php": "a23d370aa4f147c54c4769af6f1488f2d3475113283b2bf5c72a62aeee02f183",
+        "arena-route-proxy.php": "536cbeb8896f0e92fee992a790c5126cfc5ce826da50e697a8420c9e470420ca",
+        "drills-route-proxy.php": "cded300bfb02e9afe44860f4da650c4ec6c776cd966026fe91f0a6836ffd783d",
+        "elementor-safe-mode.php": "295a52a9297001991b92686f4c2a7a3dfe27f434f9493ec4b675c8d70f097a06",
+        "health-check-troubleshooting-mode.php": "5521685766e0ad1eba6d05e7cb6c125b2a351aff55f0479a3b10b7c276e9bef8",
+        "ivoncall-route-proxy.php": "e08cc54124f004105117471d367b383728770ad2bb6de71eef4a029195aeb6f5",
+        "kinsta-mu-plugins.php": "fac0c7361bdc6c02e150b60aaf02c82044141ef1276afbfd73684d37f8491e13",
+        "missionmed-arena-identity-guard.php": "774252c3437967ac5300a259a049e357a0ce4dcda7d0899405ecf3fe50b9af01",
+        "missionmed-auth-cookie-scope.php": "3975d79ff80acffaa7189bbd1e6084bbaf386381463f5275f7d730e8fe48b8e4",
+        "missionmed-drills-oncall-enrollment.php": "f66a67ff48846c2f3639ac7bec93a1751902ed813e91b8aca481513c7feb1848",
+        "missionmed-drj-drills-access.php": "30308cdf1b62942b42afb05b57fd91318767ef2cb62df75c7fcb134d8d118d67",
+        "missionmed-drj-examprep-commerce.php": "55e9f5e286aba25e1ee1d48db9dd2cdaa4affa3d15dd490815e3008f069d7e97",
+        "missionmed-examprep-enrollment.php": "a82769268d5b40f889973e997f2ba9771921fbfc34279c13fc644d5f008ef4c6",
+        "missionmed-file-vault-v2-scanner.php": "6b5cf0ebc99227e14f63a2d034c03f5beac591451314b8d55d15c57428f78a5a",
+        "missionmed-homebase-route.php": "2f01812a9287884fd826f70cac528981c155eedc5a2a7e34fd120a92b0d3b7e9",
+        "missionmed-homepage-asset-cleaner.php": "e3756d681c84024d659d808631f33b8d5025f94f4b3a1f790e36e334b7a373f8",
+        "missionmed-homepage-ld-unload.php": "c944681d176e49442662b7b6870aca1b47a5583c2ff304641e59d8251511e4cd",
+        "missionmed-hq-auth-handoff.php": "8cfb8dadf7193c63722ab3d217f319460922324d9e12fa934c902d02a9fa1813",
+        "missionmed-hq-proxy.php": "85e155f7f5e00ac465e1e5d61b4160d0d7a4d2fa97178bbb52adb8d811d3ccb3",
+        "missionmed-hq-route-proxy.php": "d604f3adce2bcfc5b0cdadc160647155fc2729c46465b2db1bcbbbdfdab7d338",
+        "missionmed-interviewiq-route.php": "1b56ef9becc270380ecb50ddf96b900d4e3aaf6a437b63c394ab3064c5ecfba6",
+        "missionmed-interviewiq-sso.php": "bb873be2a3ec7228c88e0e169991f6e6691d9aa0d391ca78b7733fe8e390034e",
+        "missionmed-launch-sev1-fixes.php": "0395ce6aad8fe74fdae3c9beb2482b1246f8c9784d0a888b9fada98a4434274c",
+        "missionmed-legacy-residency-transition.php": "3729e85d64a6bbba7a3b590ef3d726d56e36b2039f58e4071c970f6732e9ea71",
+        "missionmed-login-flow-restore.php": "565397ed7f5f25cc9f8d10cb36a10b34c9123e6361e2d4542bc2e8aef339ce39",
+        "missionmed-lor-studio-contract.php": "e5a2625c8722650f01eba69ba6e9cf3647286e307e1e95c0c4bbca1a80a7f6d1",
+        "missionmed-mail-failclosed.php": "3c6ae6d85d000037cffaf5d9f9807626442043a69d1092dcbf745ff95f946f9b",
+        "missionmed-matrix-account-entry.php": "9bf94300ce6a42325cfa65317a44da15c0018ad25ad295016b630e428578626a",
+        "missionmed-matrix-entitlement-guard.php": "67b264386046379f25d556fbe314f9c921d8449099fea94ba6b27842ee7d3be7",
+        "missionmed-matrix-footer-cleanup.php": "25380ad4765fe9b3c9112625fb96f64243b56cb931684f86d11e0462fe78e45a",
+        "missionmed-matrix-interviewiq-entry.php": "94d1668e8c45cf9fb830c7c10f78151ba25c4adb23904bce0c166ad115767f7c",
+        "missionmed-matrix-lor-studio-entry.php": "ab87e7272aebdf44f82e640f2d0f7f08111caae67f339c874e9ab85eedf08721",
+        "missionmed-matrix-rise-entry.php": "c4fb7aa80810aa7a4a8e09fc2695eb6e8b3d8322060d90f06d8c71d1db6aa0d9",
+        "missionmed-matrix-runtime-pin.php": "cf2251762f7e88357467a9225eae27e19fe67d7ad44311faecce63b506344a0e",
+        "missionmed-missionaccounts-route-open.php": "62e8870b4dc6395f910b28cc20e34b1ae73fee3c086e10abbfa0553d0bc60ff5",
+        "missionmed-missionaccounts-route.php": "045088fb125635032c3f82ea78fbc08f8a9ca7830da1c6007959a02556eb3bbe",
+        "missionmed-mr-alternate.php": "ef5b66e27eaf49a1c0d230039d726a94a28dd3c9a784fb3ed6c63024a7629f2e",
+        "missionmed-mr-course-onboarding.php": "b20c07fadbd139140825e572bb7493101319f2005537b8404321ad3fc8a52531",
+        "missionmed-mr-legacy-popup.php": "725790239f0dacc344e8a349c0d095ee57d069d00f254f54f1b2b6dff009a52b",
+        "missionmed-mr-p0.php": "aa7e296ccce7d9a6812adee731bd19012a13ba02b853eac1fe1340326bfc31f5",
+        "missionmed-mr-primary-routing.php": "07f89f42375c42c0023bfbd1856e991842d1c129d39a180f05208bd82fcab895",
+        "missionmed-mr-zelle-verifier.php": "750e85149098e1518fbb73d14084cd31d0de8ff5abd0cc71ff807557be2983e6",
+        "missionmed-performance-boost.php": "00a51063b4f56366568c96bf3bf276b441875d536c509099e05492d683808ba1",
+        "missionmed-purchase-success.php": "e6b8011768e4e3b89f6ad6b8381b2331741385633984c88e39e1a1ec08e2b302",
+        "missionmed-rise-interviewiq-owner.php": "5a35724726f95b76c9c1695d900b53f72aee8901feacc05903683c27bc853a00",
+        "missionmed-rise-route.php": "752f2e6e8b61f10dad0429e645f55fee9373b2d327e67b1f649b4b903936ca8c",
+        "missionmed-rise-sso.php": "8a7fcb5c604e89b55f1fe45d784179d96195d23be6f37cc0a3e166c56c25c7a2",
+        "missionmed-rlq-bff.php": "c76fff0117ceac00e587fcdb0b8f77019b5bbfb782923738e087aeb9c089a14f",
+        "missionmed-site-icon.php": "b42f4c0754e61d7c3df4335f1c95ca7629696a1cfa51c4285223e3bb1a0cd817",
+        "missionmed-storyforge-route.php": "c2506b5b0ae16fdf140ea6d834e6a45085ff3af5313ac7fb84f672d62d64dc33",
+        "missionmed-stripe-webhook-router.php": "efd4b0626b077785a4483136e9f59829d296e8ee0b10ed7951dec37df9403c2c",
+        "missionmed-supabase-session-cookie-auth.php": "d343f7581e3c131bc9a4f5e6a1f2c2c8966c82b9e88d01e92430989e505dc26f",
+        "missionmed-timeline-route.php": "d4789b1caf29bfbbe42a1a98eea2f1964ed8fc8576154923fd580a802c368d6d",
+        "missionmed-wc-stripe-division-router.php": "751dbdb63c73a07552745d09fe7847194281d75c96aedde301a7aaf4e971d203",
+        "mm-scheduler-webex-broker.php": "5544dccf9504266db42105fea048db6687ad28cd53865b3df8aaeff6c4154455",
+        "mmi-instructor-panel-loader.php": "2aed9fe3a6693d0bdf6be4eadf5ab96454dab04d2daa879d04850a7faf2e33fc",
+        "mmi-mixed-cart-guard.php": "2a6b1f38c30af240da696f4f1778a6a3febd9bd6eebb73fb03ef2d23efe55e4b",
+        "stat-route-proxy.php": "ebd284c602a9a369b22a7ea0eb473f758f3692c966b0ecf12699e14238fa0ab6",
+        "zoom-drill-notes-preview-route.php": "6204e3038f3fcc08fd81f41e33f680614c18b21a18466744a7cf87ddef592e83"
+    }
+}

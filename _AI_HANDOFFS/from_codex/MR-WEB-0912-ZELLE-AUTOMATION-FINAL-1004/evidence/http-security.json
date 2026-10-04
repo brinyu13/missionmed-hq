@@ -1,0 +1,20 @@
+{
+    "at": "2026-10-04T20:40:43+00:00",
+    "user": 1398,
+    "tests": {
+        "customer_admin_action": 403,
+        "cancelled_claim": 403,
+        "wrong_owner_claim": 403
+    },
+    "invalid_guest_get": {
+        "http": 200,
+        "no_customer_panel": true,
+        "no_active_message": true,
+        "no_order_summary": true
+    },
+    "paid": false,
+    "courses": [
+        4204
+    ],
+    "matrix": "free"
+}
