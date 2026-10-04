@@ -376,6 +376,13 @@ export function assertCompleteFounderPresentation(rendered,{allowPendingMedia=fa
   const represented=new Set(paint.nodes.map(node=>String(node.semanticRef||'')));
   const normalized=value=>String(value||'').replace(/\s+/g,' ').trim();
   const missingFields=[];
+  const profileFields={fullName:'Name',status:'Visa Status',aamcDisplay:'AAMC',medicalSchool:'Medical school',degree:'Degree',specialty:'Specialty',step1:'Step 1',step2:'Step 2 CK',step2Cs:'Step 2 CS',step3:'Step 3',usceSummary:'USCE',researchSummary:'Research',emrExperience:'EMR Experience',languages:'Languages fluent in',hobbies:'Hobbies'};
+  for(const [field,label] of Object.entries(profileFields)){
+    const value=normalized(rendered.scene.profile?.[field]);
+    if(!value)continue;
+    const text=normalized(paint.nodes.filter(node=>node.kind==='text'&&node.sourceAttributes['data-profile-field']===label).map(node=>node.text).join(' '));
+    if(!text.includes(value))missingFields.push({id:'profile',field});
+  }
   const paintedMedia=new Set(paint.nodes.filter(node=>node.kind==='image').map(node=>node.sourceAttributes['data-media-id']).filter(Boolean));
   for(const id of rendered.scene.mediaProjection?.expectedIds||[])if(!paintedMedia.has(id)&&!(allowPendingMedia&&rendered.scene.mediaProjection.pendingIds.includes(id)))missingFields.push({id,field:'media'});
   const interviewDate=String(rendered.scene.interviewTarget?.date||'').trim();

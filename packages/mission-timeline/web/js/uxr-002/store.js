@@ -24,6 +24,12 @@ function defaultDocument({id="d1-uxr-002-local-timeline"}={}){
     updatedAt:now,
     studentProfile:{
       fullName:"",
+      aamcDisplay:"",
+      emrExperience:"",
+      languages:"",
+      hobbies:"",
+      usceSummary:"",
+      researchSummary:"",
       medicalSchool:"",
       canonicalSchoolId:"",
       medicalSchoolRecord:null,

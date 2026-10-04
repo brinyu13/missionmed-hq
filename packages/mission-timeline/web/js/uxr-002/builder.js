@@ -968,6 +968,14 @@ function renderCore(document){
       <button type="button" class="school-not-listed-link" data-school-not-listed>School not listed?</button>
       <p class="field-help">U.S. MD/DO records use Department of Education snapshots. Global results combine CC0 Wikidata identities and a separate unverified MissionMed curated supplement. No completeness or current accreditation is claimed. “School not listed” stays explicitly unverified.</p>
     </section>`;
+  const optionalProfileFields=[
+    ["aamcDisplay","AAMC ID",profile.aamcDisplay||profile.aamcId||""],
+    ["emrExperience","EMR experience",profile.emrExperience],
+    ["languages","Languages fluent in",profile.languages],
+    ["hobbies","Hobbies",profile.hobbies],
+    ["usceSummary","USCE summary",profile.usceSummary],
+    ["researchSummary","Research summary",profile.researchSummary]
+  ];
   return`<form class="core-info-form" data-core-form novalidate>
     ${aiPrefill?`<aside class="ai-prefill-summary" role="status"><strong>From your reviewed document.</strong> ${Number(aiPrefill.eventCount)||0} Timeline item(s) were built from your approved source. Check only the highlighted details.</aside>`:""}
     ${textField({id:"fullName",label:"Full name",value:profile.fullName,required:true,placeholder:"e.g., Amara Osei",attributes:'data-profile-field="fullName"'})}
@@ -980,6 +988,10 @@ function renderCore(document){
     ${authorization==="Other"?textField({id:"workAuthorizationOther",label:"Specify current work authorization",value:profile.workAuthorizationOther,attributes:'data-profile-field="workAuthorizationOther"'}):""}
     ${authorization==="Employment Authorization Document"?selectField({id:"eadStatus",label:"EAD status",value:profile.eadStatus,options:["Active and unrestricted","Restricted or expiring","Not sure"]}):""}
     ${needsResidencyVisaQuestion({...profile,currentUsWorkAuthorization:authorization})?selectField({id:"residencyVisaTypesOpenTo",label:"Which residency visa types are you open to?",value:profile.residencyVisaTypesOpenTo,options:["J-1","H-1B","Either","Not sure"],required:true}):""}
+    <details class="profile-optional-details"><summary>More about you (optional)</summary>
+      <p class="field-help">Include only details you want programs to see. Summaries use your wording; confirm the facts before exporting.</p>
+      ${optionalProfileFields.map(([id,label,value])=>textField({id,label,value:Array.isArray(value)?value.join(", "):(value||""),attributes:`data-profile-field="${id}"`})).join("")}
+    </details>
   </form>`;
 }
 
@@ -1320,6 +1332,10 @@ function profileFromForm(form,current={}){
   );
   return{
     ...current,
+    ...Object.fromEntries(["aamcDisplay","emrExperience","languages","hobbies","usceSummary","researchSummary"]
+      .filter(field=>form.elements.namedItem(field))
+      .map(field=>[field,formValue(form,field).trim()])),
+    ...(form.elements.namedItem("aamcDisplay")?{aamcId:formValue(form,"aamcDisplay").trim()}:{}),
     fullName:formValue(form,"fullName").trim(),
     medicalSchool:formValue(form,"medicalSchool").trim(),
     medicalSchoolCountry:formValue(form,"medicalSchoolCountry").trim(),

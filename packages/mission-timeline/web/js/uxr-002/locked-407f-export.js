@@ -492,45 +492,60 @@ function profileMarkup(scene){
   let {x,y,width,height}=geometry;
   const base=FOUNDER_PORTABLE_GEOMETRY.profile;
   const sx=width/base.width,sy=height/base.height;
-  /* Golden card content model: bold label / roman value pairs, one per line. The student's
-     own numbers only — USCE and research months are derived from their events. */
+  /* Native reference: 19pt label/value text, grouped identity, exams and personal
+     details. Explicit summaries retain the applicant's wording; derived months
+     are only a fallback and must not replace authored facts. */
   const months=(value)=>Number(value)>0?`${Number(value)} month${Number(value)===1?"":"s"}`:"";
   const rows=[
-    ["Medical school",profile.medicalSchool],
-    ["Degree",profile.degree],
-    ["Visa status",profile.status],
-    ["Specialty",profile.specialty],
-    ["Step 1",profile.step1],
-    ["Step 2 CK",profile.step2],
-    ["Step 3",profile.step3],
-    ["USCE",months(profile.usceMonths)],
-    ["Research",months(profile.researchMonths)]
+    ["Name",profile.fullName,"identity"],
+    ["Visa Status",profile.status,"identity"],
+    ["AAMC",profile.aamcDisplay,"identity"],
+    ["Medical school",profile.medicalSchool,"education"],
+    ["Degree",profile.degree,"education"],
+    ["Specialty",profile.specialty,"education"],
+    ["Step 1",profile.step1,"exams"],
+    ["Step 2 CK",profile.step2,"exams"],
+    ["Step 2 CS",profile.step2Cs,"exams"],
+    ["Step 3",profile.step3,"exams"],
+    ["USCE",profile.usceSummary||months(profile.usceMonths),"experience"],
+    ["Research",profile.researchSummary||months(profile.researchMonths),"experience"],
+    ["EMR Experience",profile.emrExperience,"personal"],
+    ["Languages fluent in",profile.languages,"languages"],
+    ["Hobbies",profile.hobbies,"hobbies"]
   ].filter(([,value])=>String(value||"").trim());
   const photoX=351,photoY=20,photoWidth=169,photoHeight=170;
   const measureText=scene.measureText||measurePresentationText;
-  let rowY=54;
+  let rowY=32;
   const textRows=[];
   const emitLines=(text,label,size,weight,eventId=null,field=null)=>{
     let remaining=String(text||'').trim().replace(/\s+/g,' ');let index=0;
     while(remaining){
-      const width=(photo||scene.showEmptySlots)&&rowY-size<photoY+photoHeight+12?296:base.width-68;
+      const width=(photo||scene.showEmptySlots)&&rowY-size<photoY+photoHeight+12?317:base.width-44;
       const lines=wrapPresentationText(remaining,{width,size,family:TYPE.profile,weight,measureText});
       const line=lines[0]||'';
       const overflow=rowY+size*.34>base.height-18||measureText(line,size,TYPE.profile,weight)>width+.01;
       const prefix=label?`${label}: `:'';
       const contents=index===0&&prefix&&line.startsWith(prefix)?`<tspan font-weight="700">${xml(prefix)}</tspan>${xml(line.slice(prefix.length))}`:xml(line);
-      textRows.push(`<text${eventId?` data-event-id="${xml(eventId)}" data-material-field="${xml(field||"educationSpan")}"`:""} data-profile-field="${xml(label||'Name')}" data-profile-line="${index}" data-text-overflow="${overflow}" x="34" y="${rowY}" fill="#171D26" font-family="${TYPE.profile}" font-size="${size}" font-weight="${weight}">${contents}</text>`);
+      textRows.push(`<text${eventId?` data-event-id="${xml(eventId)}" data-material-field="${xml(field||"educationSpan")}"`:""} data-profile-field="${xml(label||'Name')}" data-profile-line="${index}" data-text-overflow="${overflow}" x="22" y="${rowY}" fill="#171D26" font-family="${TYPE.profile}" font-size="${size}" font-weight="${weight}">${contents}</text>`);
       // The wrapper normalizes whitespace only; never truncate content to fit.
       remaining=remaining.slice(line.length).trimStart();rowY+=size*1.2;index++;
     }
   };
-  emitLines(profile.fullName||"Your journey",null,19,700);
-  rowY+=13;
-  for(const [label,value] of rows){emitLines(`${label}: ${value}`,label,19,400);rowY+=6;}
+  // Group spacing may contract to fit the existing paper; the font never shrinks.
+  const estimateLines=rows.reduce((count,[label,value])=>count+wrapPresentationText(`${label}: ${value}`,{
+    width:(photo||scene.showEmptySlots)?317:base.width-44,size:19,family:TYPE.profile,weight:400,measureText
+  }).length,0);
+  const groupGap=estimateLines>14?0:6;
+  let previousGroup=null;
+  for(const [label,value,group] of rows){
+    if(previousGroup&&previousGroup!==group)rowY+=groupGap;
+    emitLines(`${label}: ${value}`,label,19,400);previousGroup=group;
+  }
   for(const record of profile.educationRecords||[]){
     const start=presentationDateWording(record.startDate,record.datePrecision?.start,record.sourceDateWording?.start);
     const end=record.openEnded?'Ongoing':presentationDateWording(record.endDate,record.datePrecision?.end,record.sourceDateWording?.end);
-    emitLines(`${record.title}${record.school?' — '+record.school:''}: ${start} – ${end}`,'Education',19,400,record.eventId,'educationSpan');rowY+=6;
+    emitLines(`${record.title}${record.school?' — '+record.school:''}`,'Education',19,400,record.eventId,'educationSpan');
+    emitLines(`${start} – ${end}`,'Education',19,400,record.eventId,'educationSpan');rowY+=6;
   }
   const rowMarkup=textRows.join('');
   const photoLayer=!photo&&!scene.showEmptySlots?"":photo
