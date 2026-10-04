@@ -1,4 +1,4 @@
-import {serializeFounderPresentation} from './founder-presentation-serializer.js';
+import {serializeFounderPresentation,founderMilestoneTemplateGeometry,violatesFounderTemplateBand,FOUNDER_MILESTONE_RIBBON_TOP,FOUNDER_RIBBON_BOTTOM} from './founder-presentation-serializer.js';
 import {resolveFounderPresentationSvg} from './resolved-founder-presentation.js';
 import {parsePresentationXml,xmlNodes} from './presentation-xml.js';
 import {applyLocalLayoutCriticSceneCommand} from '../editor/scene-commands.js';
@@ -45,7 +45,7 @@ function painted(node){
 }
 // Independent painted-part gate: the legacy engines exempt axis encounters too
 // broadly. Only connector strokes are excluded, never flag bodies/date/labels.
-export function measureLayoutCriticSafety(parts){
+export function measureLayoutCriticSafety(parts,targets=[]){
   const collisions=new Set(),axisOverlaps=new Set(),crowding=new Set(),outside=new Set(),overflow=new Set();
   for(const p of parts){
     if(corners(p.bounds).some(point=>point.x<-.5||point.y<-.5||point.x>1920.5||point.y>1080.5))outside.add(p.id);
@@ -63,7 +63,12 @@ export function measureLayoutCriticSafety(parts){
     collisions.add(pair);
     if(a.role==='AXIS'||b.role==='AXIS')axisOverlaps.add(pair);
   }
+  const templateViolationTargets=targets.filter(target=>{
+    const points=parts.filter(part=>target.partIds.includes(part.id)).flatMap(part=>corners(part.bounds));
+    return violatesFounderTemplateBand({...target,bodyTop:points.length?Math.min(...points.map(point=>point.y)):-Infinity,bodyBottom:points.length?Math.max(...points.map(point=>point.y)):Infinity});
+  }).map(target=>target.id).sort();
   return {collisionCount:collisions.size,axisOverlapCount:axisOverlaps.size,crowdingCount:crowding.size,offCanvasCount:outside.size,overflowCount:overflow.size,
+    templateViolationCount:templateViolationTargets.length,templateViolationTargets,
     collisionPairs:[...collisions].sort(),axisOverlapPairs:[...axisOverlaps].sort(),crowdingPairs:[...crowding].sort(),offCanvasParts:[...outside].sort(),overflowParts:[...overflow].sort()};
 }
 function hasManualPlacement(event,object,document){
@@ -106,6 +111,7 @@ export async function projectLayoutCritic(document,renderOptions={}){
     characterCount:node.kind==='text'?node.text.length:0,overflow:node.sourceAttributes['data-text-overflow']==='true'
   }));
   const eventObjects=rendered.scene.founderPresentation?.advancedScene?.objects||[];
+  const templateTargets=new Map(founderMilestoneTemplateGeometry(rendered.scene,paint).map(target=>[target.eventId,target]));
   const targetMap=new Map(),targets=[];
   for(const event of document.events||[]){
     const eventNodes=paint.nodes.filter(node=>node.semanticRef===String(event.id));
@@ -116,13 +122,14 @@ export async function projectLayoutCritic(document,renderOptions={}){
     const id='e'+String(targets.length+1).padStart(4,'0');
     const eventParts=parts.filter(part=>part.groupId===groupIds.get('event:'+event.id));
     const arrow=rendered.scene.arrows?.find(arrow=>String(arrow.id)===String(event.id));
-    const attached=Boolean((flag&&rendered.scene.flags.find(item=>String(item.id)===String(event.id))?.examAttemptId)||(arrow?.study&&rendered.scene.flags?.some(flag=>flag.examAttemptId&&flag.examAttemptId===arrow.examAttemptId)));
+    const templateTarget=templateTargets.get(String(event.id));
+    const attached=templateTarget?.kind==='EXAM_RESULT'||Boolean(arrow?.study&&rendered.scene.flags?.some(flag=>flag.categoryId==='exams'&&flag.examAttemptId&&flag.examAttemptId===arrow.examAttemptId));
     const joined=eventNodes.some(node=>node.sourceAttributes['data-personal-band']);
     const geometry=flag?{x:flag.x,y:flag.y,width:flag.width,height:flag.height,rotation:flag.rotation}:bounds(body.bounds);
     // Full painted arrow bounds, not its shaft or combined text envelope.
     const editable=!hasManualPlacement(event,object,document)&&!attached&&!joined&&Math.abs(geometry.rotation||0)<1e-6&&document.layoutLock!==true;
-    targets.push({id,groupId:eventParts[0]?.groupId||groupIds.get('event:'+event.id),kind:flag?'MILESTONE':'DURATION',editable,
-      geometry:bounds(geometry),partIds:eventParts.map(part=>part.id)});
+    targets.push({id,groupId:eventParts[0]?.groupId||groupIds.get('event:'+event.id),kind:flag?templateTarget.kind:'DURATION',editable,
+      geometry:bounds(geometry),poleFootY:flag?templateTarget.poleFootY:null,attachmentY:flag?templateTarget.attachmentY:null,partIds:eventParts.map(part=>part.id)});
     targetMap.set(id,{eventId:String(event.id),objectId:object?.id||String(event.id),kind:flag?'MILESTONE':'DURATION',geometry,editable});
   }
   if(targets.length>200)throw error('LAYOUT_CRITIC_LIMIT');
@@ -133,7 +140,7 @@ export async function projectLayoutCritic(document,renderOptions={}){
     const id='s'+String(index+1).padStart(4,'0');segmentMap.set(id,String(node.attrs['data-axis-segment-id']));
     return {id,x:round(cell?.attrs.x),width:round(node.attrs['data-axis-date-width']),weight:round(node.attrs['data-axis-segment-weight'])};
   });
-  const safety=measureLayoutCriticSafety(parts);
+  const safety=measureLayoutCriticSafety(parts,targets);
   const input={version:LAYOUT_CRITIC_VERSION,canvas:{width:1920,height:1080},parts,targets,
     axis:{editable:document.layoutLock!==true&&(document.presentationOverrides?.axis?.mode!=='manual'||document.presentationOverrides.axis.localLayoutCriticAuto===true)&&!eventObjects.some(object=>object.type==='event'&&object.geometry&&object.presentation?.localLayoutCriticAuto!==true)&&!(document.events||[]).some(event=>hasManualPlacement(event,null,document)),segments},safety};
   validateLayoutCriticInput(input);
@@ -153,7 +160,7 @@ export function validateLayoutCriticInput(input){
   }
   const ids=new Set();
   for(const target of input.targets){
-    if(!keys(target,['id','groupId','kind','editable','geometry','partIds'])||!alias(target.id)||ids.has(target.id)||!groups.has(target.groupId)||!['DURATION','MILESTONE'].includes(target.kind)||typeof target.editable!=='boolean'||!validBox(target.geometry)||!Array.isArray(target.partIds)||!target.partIds.length||!target.partIds.every(id=>partIds.has(id)))throw error('LAYOUT_CRITIC_INPUT_INVALID');
+    if(!keys(target,['id','groupId','kind','editable','geometry','poleFootY','attachmentY','partIds'])||!alias(target.id)||ids.has(target.id)||!groups.has(target.groupId)||!['DURATION','MILESTONE','EXAM_RESULT'].includes(target.kind)||typeof target.editable!=='boolean'||(target.kind==='EXAM_RESULT'&&target.editable)||!validBox(target.geometry)||(target.poleFootY!==null&&!number(target.poleFootY))||(target.kind==='DURATION'&&target.poleFootY!==null)||(target.attachmentY!==null&&!number(target.attachmentY))||(target.kind!=='EXAM_RESULT'&&target.attachmentY!==null)||!Array.isArray(target.partIds)||!target.partIds.length||!target.partIds.every(id=>partIds.has(id)&&input.parts.find(part=>part.id===id).groupId===target.groupId))throw error('LAYOUT_CRITIC_INPUT_INVALID');
     ids.add(target.id);
   }
   const segments=new Set();
@@ -161,7 +168,7 @@ export function validateLayoutCriticInput(input){
     if(!keys(segment,['id','x','width','weight'])||!alias(segment.id)||segments.has(segment.id)||!number(segment.x)||!number(segment.width,.001,1920)||!number(segment.weight,.001,1000))throw error('LAYOUT_CRITIC_INPUT_INVALID');
     segments.add(segment.id);
   }
-  if(stableLayoutJson(input.safety)!==stableLayoutJson(measureLayoutCriticSafety(input.parts)))throw error('LAYOUT_CRITIC_INPUT_INVALID');
+  if(stableLayoutJson(input.safety)!==stableLayoutJson(measureLayoutCriticSafety(input.parts,input.targets)))throw error('LAYOUT_CRITIC_INPUT_INVALID');
   return input;
 }
 export function validateLayoutRecommendations(input,output,sceneDigest){
@@ -173,6 +180,9 @@ export function validateLayoutRecommendations(input,output,sceneDigest){
     if(op.kind==='SET_EVENT_Y'){
       const target=input.targets.find(target=>target.id===op.targetId);
       if(!keys(op,['kind','targetId','y','reasonCode','confidence'])||!target||!target.editable||!number(op.y,0,1080)||seen.has(op.targetId))throw error('LAYOUT_CRITIC_OPERATION_REJECTED');
+      if(input.parts.filter(part=>target.partIds.includes(part.id)).some(part=>corners(part.bounds).some(point=>
+        target.kind==='MILESTONE'?point.y+op.y-target.geometry.y>FOUNDER_MILESTONE_RIBBON_TOP+.04:
+        target.kind==='DURATION'&&point.y+op.y-target.geometry.y<FOUNDER_RIBBON_BOTTOM-.04)))throw error('LAYOUT_CRITIC_TEMPLATE_FIDELITY_HOLD');
       seen.add(op.targetId);
     }else if(op.kind==='SET_YEAR_WEIGHTS'){
       if(!keys(op,['kind','weights','reasonCode','confidence'])||!input.axis.editable||seen.has('axis')||!Array.isArray(op.weights)||op.weights.length!==input.axis.segments.length||!op.weights.length||!op.weights.every((weight,index)=>keys(weight,['segmentId','weight'])&&weight.segmentId===input.axis.segments[index].id&&number(weight.weight,.25,8)))throw error('LAYOUT_CRITIC_OPERATION_REJECTED');
@@ -201,9 +211,9 @@ function unchangedNativeArrows(before,after,{allowAxisChange=false,movedIds=new 
   });
 }
 function safelyImproves(before,after){
-  for(const field of ['collisionCount','axisOverlapCount','crowdingCount','offCanvasCount','overflowCount'])if(after[field]>before[field])return false;
-  for(const field of ['collisionPairs','axisOverlapPairs','crowdingPairs','offCanvasParts','overflowParts'])if(after[field].some(item=>!before[field].includes(item)))return false;
-  return ['collisionCount','axisOverlapCount','crowdingCount','offCanvasCount','overflowCount'].some(field=>after[field]<before[field]);
+  for(const field of ['collisionCount','axisOverlapCount','crowdingCount','offCanvasCount','overflowCount','templateViolationCount'])if(after[field]>before[field])return false;
+  for(const field of ['collisionPairs','axisOverlapPairs','crowdingPairs','offCanvasParts','overflowParts','templateViolationTargets'])if(after[field].some(item=>!before[field].includes(item)))return false;
+  return ['collisionCount','axisOverlapCount','crowdingCount','offCanvasCount','overflowCount','templateViolationCount'].some(field=>after[field]<before[field]);
 }
 function pinMeasuredAutomaticEvents(document,projection){
   const automaticAxis=document.presentationOverrides?.axis?.mode!=='manual'||document.presentationOverrides.axis.localLayoutCriticAuto===true;
@@ -309,6 +319,9 @@ export async function applyLayoutRecommendations(document,output,expected,{sourc
       }
       if(protectedSnapshot(next)!==protectedSnapshot(candidate)){reject(index,'LAYOUT_CRITIC_SEMANTIC_CHANGE');continue;}
       const proposed=await projectLayoutCritic(candidate,projection.localContext.options);
+      const violations=proposed.input.safety.templateViolationTargets;
+      if(violations.some(id=>!current.input.safety.templateViolationTargets.includes(id))||
+        (!axisChange&&violations.includes(op.targetId))){reject(index,'LAYOUT_CRITIC_TEMPLATE_FIDELITY_HOLD');continue;}
       if(!unchangedNativeArrows(current.localContext.paint,proposed.localContext.paint,{allowAxisChange:axisChange,movedIds:new Set(movedId?[movedId]:[])})||!unrelatedPaintPreserved(current.localContext.paint,proposed.localContext.paint,{movedId,axisChange})){
         reject(index,'LAYOUT_CRITIC_NATIVE_GEOMETRY_CHANGE');continue;
       }

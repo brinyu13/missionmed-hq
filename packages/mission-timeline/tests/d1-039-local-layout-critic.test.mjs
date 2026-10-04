@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {projectLayoutCritic,applyLayoutRecommendations,layoutCriticDigest,measureLayoutCriticSafety,validateLayoutCriticInput,validateLayoutRecommendations,LAYOUT_CRITIC_CONSENT_VERSION} from '../web/js/presentation/layout-critic-projection.js';
 import {createLocalLayoutCritic,LOCAL_LAYOUT_CRITIC_PATH,LOCAL_LAYOUT_CRITIC_OUTPUT_SCHEMA} from '../scripts/local-layout-critic.mjs';
-import {serializeFounderPresentation} from '../web/js/presentation/founder-presentation-serializer.js';
+import {serializeFounderPresentation,assertCompleteFounderPresentation,founderMilestoneTemplateGeometry} from '../web/js/presentation/founder-presentation-serializer.js';
 import {resolveFounderPresentationSvg} from '../web/js/presentation/resolved-founder-presentation.js';
 import {applySceneCommandToDocument,applyLocalLayoutCriticSceneCommand} from '../web/js/editor/scene-commands.js';
+import {setBuilderExamSystem,addBuilderExam,updateBuilderExamAttempt} from '../web/js/uxr-002/exam-integration.js';
 import {FOUNDER_2025_MATRIX} from './fixtures/founder-2025-matrix.mjs';
 
 // All inputs here are explicit synthetic unit fixtures. Network is injected;
@@ -61,6 +62,8 @@ test('real transport uses documented Sol6.1 high, strict structured outputs, sto
   assert.equal(response.mode,'LOCAL_PROVIDER_AI');assert.equal(response.recommendationCount,0);assert.equal(response.sourceUnchanged,true);
   const request=JSON.parse(calls[0].init.body);assert.equal(calls[0].url,'https://api.openai.com/v1/responses');assert.equal(request.model,'gpt-6.1-sol');assert.equal(request.reasoning.effort,'high');assert.equal(request.store,false);assert.equal(request.text.format.strict,true);
   assert.deepEqual(request.text.format.schema,LOCAL_LAYOUT_CRITIC_OUTPUT_SCHEMA);
+  const instructions=request.input[0].content[0].text;
+  assert.match(instructions,/ABOVE ribbon top y=125/);assert.match(instructions,/pole foot exactly on y=125/);assert.match(instructions,/EXAM_RESULT.*genuinely attached/);assert.match(instructions,/BELOW ribbon bottom y=161/);
   assert.ok(!calls[0].init.body.includes('Medical Officer'));assert.ok(!calls[0].init.body.includes('Morgan Lake'));
   assert.equal(response.providerReceipt.responseId,'resp_local_unit');assert.equal(response.providerReceipt.store,false);
   assert.match(response.providerReceipt.inputSha256,/^[a-f0-9]{64}$/);assert.match(response.providerReceipt.outputSha256,/^[a-f0-9]{64}$/);
@@ -130,8 +133,8 @@ test('stale source/geometry rejection and unsafe/no-improvement results leave or
   const empty=await applyLayoutRecommendations(document,result(p),p.sceneDigest,options);assert.equal(empty.applied,0);assert.equal(empty.sourceUnchanged,true);
 });
 
-async function generatedCollision(two=false){
-  let document=minimal();document.mode='advanced';
+async function generatedCollision(two=false,dates=null){
+  let document=minimal();document.mode='advanced';if(dates)Object.assign(document.events[0],dates);
   if(two)document.events.push({...structuredClone(document.events[0]),id:'work-other',title:'Other synthetic work'});
   const first=await projectLayoutCritic(document,options),target=first.localContext.targetMap.get('e0001');
   // A prior critic-owned automatic anchor is not a user-authored placement.
@@ -296,4 +299,121 @@ test('pinning a resolved long flag preserves its wrap and side through a safe un
   assert.notDeepEqual(flagPaint(broken),beforePaint,'the fixture must expose the previous loss of width and side');
   const reopenedProjection=await projectLayoutCritic(reopened,options);
   assert.equal(reopenedProjection.localContext.targetMap.get('e0002').editable,true);
+});
+
+async function generalFlagFixture({y=60,obstacle=true,anchor=true,examCategory=false}={}){
+  let document=minimal();document.events=[{id:'general-flag',title:'Synthetic full milestone',siteName:'Synthetic Institute',categoryId:examCategory?'exams':'personal',eventType:'milestone',startDate:'2024-02',visibilityState:'INTERVIEWER_SAFE'}];
+  const initial=await projectLayoutCritic(document,options),target=initial.localContext.targetMap.get('e0001');
+  document=applyLocalLayoutCriticSceneCommand(document,{kind:'geometry',target:{type:'event',id:target.objectId},geometry:{...target.geometry,y},
+    create:{type:'event',semanticRef:target.eventId,aspectLocked:false,presentation:{eventType:'milestone',localLayoutCriticAuto:true,...(anchor?{guardianAnchor:'axis'}:{})}}},options).document;
+  if(obstacle)document.advanced.textBlocks=[{id:'synthetic-band-obstacle',text:'Synthetic obstacle',x:target.geometry.x+64,y:70,width:160,height:20,size:18,font:'Baskerville'}];
+  return document;
+}
+
+test('collision reduction by moving a general flag below the ribbon is a coded template hold',async()=>{
+  const document=await generalFlagFixture(),original=JSON.stringify(document),p=await projectLayoutCritic(document,options);
+  assert.ok(p.input.safety.collisionCount>0);assert.equal(p.input.safety.templateViolationCount,0);
+  const illegallyMoved=structuredClone(document);illegallyMoved.advanced.scene.objects[0].geometry.y=180;
+  const invalid=await projectLayoutCritic(illegallyMoved,options);
+  assert.equal(invalid.input.safety.collisionCount,0,'fixture exposes the old collision-only acceptance hole');
+  assert.equal(invalid.input.safety.axisOverlapCount,0);assert.equal(invalid.input.safety.templateViolationCount,1);
+  assert.deepEqual(invalid.input.safety.templateViolationTargets,['e0001']);assert.equal(invalid.input.targets[0].poleFootY,125);
+  const proposal=move(p,180);
+  assert.throws(()=>validateLayoutRecommendations(p.input,result(p,[proposal]),p.sceneDigest),{code:'LAYOUT_CRITIC_TEMPLATE_FIDELITY_HOLD'});
+  const held=await applyLayoutRecommendations(document,result(p,[proposal]),p.sceneDigest,options);
+  assert.equal(held.applied,0);assert.equal(held.document,document);assert.equal(JSON.stringify(document),original);
+  assert.deepEqual(held.rejected,[{index:0,code:'LAYOUT_CRITIC_TEMPLATE_FIDELITY_HOLD'}]);
+  const {service,calls,receipts}=provider(p,{recommendations:[proposal]});
+  await assert.rejects(()=>service.analyze(consent(p)),{code:'LAYOUT_CRITIC_TEMPLATE_FIDELITY_HOLD'});
+  assert.equal(calls.length,1);assert.equal(receipts.length,0);
+});
+
+test('bounded above-band move preserves full labels and the exact native pole foot; connectors are excluded from bodies',async()=>{
+  const document=await generalFlagFixture(),p=await projectLayoutCritic(document,options),proposal=move(p,25);
+  assert.doesNotThrow(()=>validateLayoutRecommendations(p.input,result(p,[proposal]),p.sceneDigest));
+  const accepted=await applyLayoutRecommendations(document,result(p,[proposal]),p.sceneDigest,options);
+  assert.equal(accepted.applied,1,JSON.stringify(accepted.rejected));assert.ok(accepted.after.collisionCount<accepted.before.collisionCount);
+  assert.equal(accepted.after.templateViolationCount,0);assert.deepEqual(accepted.document.events,document.events);
+  const after=await projectLayoutCritic(accepted.document,options),target=after.input.targets[0];
+  assert.equal(target.poleFootY,125);
+  const pole=after.localContext.paint.nodes.find(node=>node.semanticRef==='general-flag'&&node.lineOnly);
+  assert.equal(pole.commands.at(-1).y,125);assert.equal(pole.bounds.y,25);
+  assert.ok(!after.input.parts.some(part=>part.groupId===target.groupId&&part.bounds.width===.01),'native connector line is not a painted body');
+  const labels=after.localContext.paint.nodes.filter(node=>node.semanticRef==='general-flag'&&node.kind==='text').map(node=>node.text).join(' ');
+  assert.ok(labels.includes(document.events[0].title));assert.ok(labels.includes(document.events[0].siteName));
+  assert.ok(after.input.parts.filter(part=>target.partIds.includes(part.id)).every(part=>part.bounds.y+part.bounds.height<=125.04));
+  const reopened=await projectLayoutCritic(JSON.parse(JSON.stringify(accepted.document)),options);
+  assert.deepEqual(reopened.input,after.input);
+});
+
+test('full painted wrapped labels crossing the band reject even when the pennant itself stays above it',async()=>{
+  const document=await generalFlagFixture({obstacle:false}),p=await projectLayoutCritic(document,options);
+  // A measured label may be taller than the pennant. The geometry-only gate
+  // consumes every material part, never a guessed flag rectangle or pole height.
+  const input=structuredClone(p.input),target=input.targets[0];
+  const text=input.parts.find(part=>target.partIds.includes(part.id)&&part.kind==='TEXT'&&part.characterCount>10);
+  text.bounds.height=70;input.safety=measureLayoutCriticSafety(input.parts,input.targets);
+  const digest=await layoutCriticDigest(input);
+  assert.throws(()=>validateLayoutRecommendations(input,{sceneDigest:digest,recommendations:[{...move(p,75)}]},digest),{code:'LAYOUT_CRITIC_TEMPLATE_FIDELITY_HOLD'});
+  assert.equal(input.safety.templateViolationCount,1);
+  const falsified=structuredClone(input);falsified.safety.templateViolationCount=0;
+  assert.throws(()=>validateLayoutCriticInput(falsified),{code:'LAYOUT_CRITIC_INPUT_INVALID'});
+});
+
+test('program-facing export blocks below-band authored and automatic general flags even with zero collisions',async()=>{
+  for(const automatic of [true,false]){
+    const document=await generalFlagFixture({y:180,obstacle:false});document.advanced.scene.objects[0].presentation.localLayoutCriticAuto=automatic;
+    const original=JSON.stringify(document),rendered=serializeFounderPresentation(document,{...options,scope:'INTERVIEWER_SAFE'});
+    const p=await projectLayoutCritic(document,options);assert.equal(p.input.safety.collisionCount,0);assert.equal(p.input.safety.templateViolationCount,1);
+    assert.throws(()=>assertCompleteFounderPresentation(rendered),error=>error.code==='TIMELINE_EXPORT_TEMPLATE_FIDELITY_HOLD'&&error.eventIds.includes('general-flag'));
+    assert.equal(JSON.stringify(document),original);
+  }
+  const misanchored=await generalFlagFixture({y:25,obstacle:false,anchor:false}),rendered=serializeFounderPresentation(misanchored,options);
+  const target=founderMilestoneTemplateGeometry(rendered.scene,resolveFounderPresentationSvg(rendered.svg))[0];
+  assert.ok(target.bodyBottom<125);assert.equal(target.poleFootY,89);
+  assert.throws(()=>assertCompleteFounderPresentation(rendered),{code:'TIMELINE_EXPORT_TEMPLATE_FIDELITY_HOLD'});
+});
+
+test('duration/study arrows and native attached results retain their grammar; general exam dates get no exception',async()=>{
+  const duration=await projectLayoutCritic(minimal(),options);
+  assert.equal(duration.input.targets[0].kind,'DURATION');assert.equal(duration.input.targets[0].poleFootY,null);assert.equal(duration.input.safety.templateViolationCount,0);
+  const document=minimal();document.events=[];document.exams=[];setBuilderExamSystem(document,'USMLE',true);addBuilderExam(document,'USMLE','step-1');
+  updateBuilderExamAttempt(document,document.exams[0].id,{result:'Passed',examDate:'2023-04',studyStartDate:'2022-07'});
+  const projected=await projectLayoutCritic(document,options),attached=projected.input.targets.find(target=>target.kind==='EXAM_RESULT');
+  assert.ok(attached);assert.equal(attached.editable,false);assert.ok(attached.geometry.y>125);assert.equal(projected.input.safety.templateViolationCount,0);
+  const study=projected.input.targets.find(target=>target.kind==='DURATION');assert.ok(study);assert.equal(study.editable,false);assert.ok(study.geometry.y>125);
+  assert.throws(()=>validateLayoutRecommendations(projected.input,result(projected,[{...move(projected,180),targetId:attached.id}]),projected.sceneDigest),{code:'LAYOUT_CRITIC_OPERATION_REJECTED'});
+  assert.equal(attached.poleFootY,attached.attachmentY);
+  assert.doesNotThrow(()=>assertCompleteFounderPresentation(serializeFounderPresentation(document,options)));
+  const detached=structuredClone(document),raw=projected.localContext.targetMap.get(attached.id);
+  const displaced=applySceneCommandToDocument(detached,{kind:'geometry',target:{type:'event',id:raw.objectId},geometry:{...raw.geometry,y:raw.geometry.y+20},create:{type:'event',semanticRef:raw.eventId,aspectLocked:false,presentation:{eventType:'milestone'}}},options).document;
+  assert.throws(()=>assertCompleteFounderPresentation(serializeFounderPresentation(displaced,options)),{code:'TIMELINE_EXPORT_TEMPLATE_FIDELITY_HOLD'});
+  const general=await generalFlagFixture({obstacle:false,examCategory:true}),p=await projectLayoutCritic(general,options);
+  assert.equal(p.input.targets[0].kind,'MILESTONE');
+  assert.throws(()=>validateLayoutRecommendations(p.input,result(p,[move(p,180)]),p.sceneDigest),{code:'LAYOUT_CRITIC_TEMPLATE_FIDELITY_HOLD'});
+  // The separate authored interview marker is furniture, never a general flag.
+  general.events=structuredClone(document.events);general.exams=document.exams;general.advanced=structuredClone(document.advanced);general.metadata.interview={programName:'Synthetic program',date:'2026-10-15'};
+  const interview=serializeFounderPresentation(general,options);
+  assert.equal(founderMilestoneTemplateGeometry(interview.scene,resolveFounderPresentationSvg(interview.svg)).filter(target=>target.kind==='MILESTONE').length,0);
+});
+
+
+test('duration bodies and full nearby captions stay below the ribbon even when an above-band move has no collisions',async()=>{
+  const document=await generatedCollision(false,{startDate:'2024-01',endDate:'2024-02'});document.advanced.textBlocks[0].x=1600;
+  const p=await projectLayoutCritic(document,options),original=JSON.stringify(document);
+  const proposal=move(p,25);
+  assert.throws(()=>validateLayoutRecommendations(p.input,result(p,[proposal]),p.sceneDigest),{code:'LAYOUT_CRITIC_TEMPLATE_FIDELITY_HOLD'});
+  const held=await applyLayoutRecommendations(document,result(p,[proposal]),p.sceneDigest,options);
+  assert.equal(held.applied,0);assert.equal(held.rejected[0].code,'LAYOUT_CRITIC_TEMPLATE_FIDELITY_HOLD');assert.equal(JSON.stringify(document),original);
+  const invalid=structuredClone(document);invalid.advanced.scene.objects[0].geometry.y=25;
+  const below=await projectLayoutCritic(invalid,options);
+  assert.equal(below.input.safety.collisionCount,0);assert.equal(below.input.safety.templateViolationCount,1);
+  assert.throws(()=>assertCompleteFounderPresentation(serializeFounderPresentation(invalid,options)),{code:'TIMELINE_EXPORT_TEMPLATE_FIDELITY_HOLD'});
+  // Arrow y=170 clears the body but puts its unabridged date caption on the ribbon.
+  assert.throws(()=>validateLayoutRecommendations(p.input,result(p,[move(p,170)]),p.sceneDigest),{code:'LAYOUT_CRITIC_TEMPLATE_FIDELITY_HOLD'});
+  const legal=await applyLayoutRecommendations(document,result(p,[move(p,200)]),p.sceneDigest,options);
+  assert.equal(legal.applied,1,JSON.stringify(legal.rejected));assert.equal(legal.after.templateViolationCount,0);
+  assert.deepEqual(legal.document.events,document.events);
+  const after=await projectLayoutCritic(legal.document,options),target=after.input.targets[0];
+  assert.ok(after.input.parts.filter(part=>target.partIds.includes(part.id)).every(part=>part.bounds.y>=160.96));
 });

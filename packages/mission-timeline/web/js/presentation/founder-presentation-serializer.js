@@ -17,6 +17,53 @@ import {
 export const FOUNDER_PRESENTATION_SERIALIZER=
   "d1-founder-keynote-portable-svg/1";
 
+// Locked 2025 grammar, measured from the audience-projected native paint.
+// A connector may touch the ribbon; pennants, dates and adjacent labels must
+// remain above it. Only a real attempt flag attached to its study arrow is
+// exempt. Exam category/wording alone never grants that exception.
+export const FOUNDER_MILESTONE_RIBBON_TOP=125;
+export const FOUNDER_RIBBON_BOTTOM=FOUNDER_MILESTONE_RIBBON_TOP+36;
+export function founderMilestoneTemplateGeometry(scene,paint){
+  return (scene.flags||[]).map(flag=>{
+    const eventId=String(flag.id),nodes=paint.nodes.filter(node=>node.groupId==='event:'+eventId);
+    const study=flag.categoryId==='exams'&&flag.examAttemptId&&
+      (scene.arrows||[]).find(arrow=>arrow.study&&arrow.examAttemptId===flag.examAttemptId);
+    const attachment=study&&paint.nodes.find(node=>node.semanticRef===String(study.id)&&node.sourceAttributes['data-continuous-duration-arrow']);
+    const studyObject=study&&(scene.founderPresentation?.advancedScene?.objects||[]).find(object=>object.type==='event'&&String(object.semanticRef||object.id)===String(study.id));
+    // Automatic study geometry is its shaft box; authored geometry is the full
+    // native paint box. Match the existing renderer's attachment convention.
+    const attachmentY=studyObject?.geometry?Math.floor(Number(studyObject.geometry.y)*64)/64:attachment?.commands?.[0]?.y??null;
+    const pole=nodes.find(node=>node.kind==='path'&&node.lineOnly);
+    const body=nodes.filter(node=>node.bounds&&Number(node.style.opacity??1)>0&&Number(node.style['fill-opacity']??1)>0&&
+      node.sourceAttributes.visibility!=='hidden'&&node.sourceAttributes.display!=='none'&&
+      !(node.kind==='path'&&(node.lineOnly||node.style.fill==='none'||node.bounds.width<1||node.bounds.height<1)));
+    const bottom=node=>{
+      const b=node.occlusionBounds||node.bounds,angle=(b.rotation||0)*Math.PI/180;
+      return b.y+b.height/2+Math.abs(b.width/2*Math.sin(angle))+Math.abs(b.height/2*Math.cos(angle));
+    };
+    const top=node=>{const b=node.occlusionBounds||node.bounds;return 2*(b.y+b.height/2)-bottom(node);};
+    return {eventId,kind:study?'EXAM_RESULT':'MILESTONE',poleFootY:pole?.commands?.at(-1)?.y??null,attachmentY,
+      bodyTop:body.length?Math.min(...body.map(top)):-Infinity,bodyBottom:body.length?Math.max(...body.map(bottom)):Infinity};
+  });
+}
+
+// Duration captions, full labels and institutions share their native arrow's
+// below-ribbon grammar. Connector strokes are excluded from the body envelope.
+export function founderDurationTemplateGeometry(scene,paint){
+  return (scene.arrows||[]).map(arrow=>{
+    const eventId=String(arrow.id),nodes=paint.nodes.filter(node=>node.groupId==='event:'+eventId&&node.bounds&&
+      Number(node.style.opacity??1)>0&&Number(node.style['fill-opacity']??1)>0&&node.sourceAttributes.visibility!=='hidden'&&node.sourceAttributes.display!=='none'&&
+      !(node.kind==='path'&&(node.lineOnly||node.style.fill==='none'||node.bounds.width<1||node.bounds.height<1)));
+    const top=node=>{const b=node.occlusionBounds||node.bounds,angle=(b.rotation||0)*Math.PI/180;return b.y+b.height/2-Math.abs(b.width/2*Math.sin(angle))-Math.abs(b.height/2*Math.cos(angle));};
+    return {eventId,kind:'DURATION',bodyTop:nodes.length?Math.min(...nodes.map(top)):-Infinity};
+  });
+}
+export function violatesFounderTemplateBand(target){
+  if(target.kind==='MILESTONE')return target.bodyBottom>FOUNDER_MILESTONE_RIBBON_TOP+.04||target.poleFootY===null||Math.abs(target.poleFootY-FOUNDER_MILESTONE_RIBBON_TOP)>.04;
+  if(target.kind==='EXAM_RESULT')return target.bodyTop<FOUNDER_RIBBON_BOTTOM-.04||target.attachmentY===null||target.poleFootY===null||Math.abs(target.poleFootY-target.attachmentY)>.04;
+  return target.kind==='DURATION'&&target.bodyTop<FOUNDER_RIBBON_BOTTOM-.04;
+}
+
 const VISIBLE_BY_SCOPE=Object.freeze({
   INTERVIEWER_SAFE:new Set(["INTERVIEWER_SAFE"]),
   PRINT:new Set(["INTERVIEWER_SAFE"]),
@@ -454,6 +501,11 @@ export function assertCompleteFounderPresentation(rendered,{allowPendingMedia=fa
     }
   }
   if(missingFields.length){const error=new TypeError('Some material event details are missing from the visible timeline. Review the layout before exporting.');error.code='TIMELINE_EXPORT_MISSING_FIELDS';error.fields=missingFields;throw error;}
+  const templateViolations=[...founderMilestoneTemplateGeometry(rendered.scene,paint),...founderDurationTemplateGeometry(rendered.scene,paint)].filter(violatesFounderTemplateBand);
+  if(templateViolations.length){
+    const error=new TypeError('Keep general milestones and full adjacent labels above the ribbon with pole feet on its top edge; keep experience arrows and labels below it, and exam-result flags attached to their study arrows. Adjust the saved layout before exporting.');
+    error.code='TIMELINE_EXPORT_TEMPLATE_FIDELITY_HOLD';error.eventIds=templateViolations.map(target=>target.eventId);throw error;
+  }
   const collisions=materialPresentationCollisions(paint);
   if(collisions.length){
     const error=new TypeError('Some visible text is overlapped or hidden by another object. Adjust the layout and review the preview before exporting.');

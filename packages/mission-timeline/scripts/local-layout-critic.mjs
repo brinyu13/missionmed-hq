@@ -58,6 +58,10 @@ export function createLocalLayoutCritic({
         'Vertical changes preserve x, width, height and rotation. Weights preserve ordered segment IDs and factual chronological mapping, with every weight between 0.25 and 8.',
         'Include all current axis segments in order for weights. Never address a noneditable target. Never create facts, labels, objects or categories.',
         'Use measured painted body, label and date bounds. Only actual connector strokes may meet the ribbon; flag bodies and text must clear it.',
+        'LOCKED 2025: every general MILESTONE pennant, date and complete title/institution label must stay ABOVE ribbon top y=125, with its native pole foot exactly on y=125. Never move a general milestone below the axis to reduce collisions.',
+        'For SET_EVENT_Y translate every listed painted part by y minus target.geometry.y and ensure its bottom remains at or above y=125. geometry.height includes the pole and is not the pennant/label height.',
+        'EXAM_RESULT is a separately represented, noneditable native result flag genuinely attached to a blue study arrow below the ribbon; its poleFootY must equal attachmentY. An exam category alone is not an exception.',
+        'DURATION experience/study arrows and every nearby date, complete title and institution label must stay BELOW ribbon bottom y=161. Translate all painted parts, not only the arrow body; never move a duration above the ribbon to reduce collisions.',
         'Recommend changes only when they can reduce measured collisions, ribbon overlaps, clipping or overflow. The browser independently re-renders and rejects unsafe or stale proposals.',
         'Return no prose. Use only the allowed reason codes, confidence numbers, sceneDigest and strict recommendations schema.',
         'Return an empty recommendations array when no safe improvement is supported.'
