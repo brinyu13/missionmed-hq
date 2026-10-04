@@ -549,6 +549,29 @@ the actual production route and deployment.
   Q2/Q3 reorder, CORE01 preview, remove/re-add originalfive and empty-pool disabled
   launch PASS; no provider question-order compliance inferred. Current0cd artifact
   is safe runtime baseline; previousc8 artifact is retained rollback.
+  Viewport fix0a442cc8fbf8704fc33f4ac74b5baf900cbf4f4a is LIVE SUCCESS
+  39cc25ae-f543-4dd7-ae40-3d1839ef931c, image
+  sha256:ba4c76b4f6eaee3734ac083559dab33dbb941f8dffa2d15c7d6c6a816b4dd723.
+  Exact1265-file tracked artifact ivoc-release-artifact-abhnOp/source.tar, SHA256
+  68a338a252e9ac2d2a2216328ce824440fecbec3723e9fc84971111fb34eb6d9;
+  health200 and anonymous root/candidate/bootstrap401. Normal production Room
+  and Calibration both show280px readiness stage, enabled Camera selector and
+  visible truthful black-frame error; Start/Next remain disabled. Actual FaceTime
+  reselection drains and re-enables recovery controls without enabling Start.
+  Recovery UI is LIVE VERIFIED; physical visible-video success is NOT accepted.
+  Current FaceTime live1280x720/readyState4 remains black; covered/dark/device cause
+  undetermined. One non-blocking physical-condition question sent; next recheck
+  requires changed physical evidence, not another unchanged capture loop. No
+  provider/recording started; test capture closed, current Founder tab refreshed.
+  PRODUCT4491/deployment4492 normally released/read back. Retain exact0cd andc8
+  source/images/artifacts as infrastructure rollback, not full-product acceptance.
+  Independent R073/R126 own saved c7fe Film UI check PASS: all24 lanes/controls
+  present; Volume hide/show, Pitch solo/off and Hands/Body expansion preserve all
+  saved readouts and paused0:00 video. Representative controls, not every lane or
+  audible playback. No account/provider/media write. Next executable check is
+  R104 genuine same-account second-browser availability/readback; full spoken
+  Mock -> grounded follow-up/barge-in/move-on/closing -> heard saved cold replay,
+  genuine calibration, Student/second-Admin/negative-role gates still unverified.
 
 - **Founder live-POV override, 2026-10-02: recovery LIVE; candidate-question stall reopened fix-forward.**
   Founder confirms physical camera/mic and native multi-turn AI entry work;
