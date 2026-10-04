@@ -16,6 +16,28 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- Band-continuity source5cafa1f5b93df77a261c1fcc6fcfd8cdc5a95a6b LIVE
+  SUCCESS9ea2a5e2-c7f4-4eff-9e6b-41fac42399c2, image
+  sha256:ed1eaf010f502449303ac926eea069fdc5bfced79fa46938654830b27005d46e.
+  Exact1268-file filtered tracked artifacteJX5Fu/source.tar,
+  SHAba3bc1fa8480e936712e3e5de6f791524153dd923639408336f11f16c289c940.
+  Health200/anonymous root,candidate,bootstrap401. Authenticated cold1ca Film
+  renders coherent bands/positive smile; pace seek4.278s remains paused1280x720,
+  clock00:04. Fresh non-builder normalHome -> Review24/24 -> latestResults ->
+  FullAnalytics -> Film -> smile seek2.7695s -> coldreload -> Home PASS/noP0/P1;
+  same attempt/positive smile retained, ownQA tab closed, viewport unchanged.
+  Genuine gap-specific saved replay and audible two-sided playback are UNVERIFIED,
+  not inferred from deterministic regressions, source deployment or this short rep.
+  No capture/provider/account/preferences/data changes or synthetic applicant.
+  PRODUCT4511/deployment4512 normally released and remotely read back. Exact prior
+  4bd600a/cc372122/image63e8bc/artifactcagO7L preserved rollback; root unpromoted.
+  PRODUCT4513 files only this receipt then releases/readback. Goal remains active;
+  stale30% withdrawn, no substitute unsupported percentage or full142 parity claim.
+  Next executable surface: current Founder/Admin selected-student review through
+  visible Advanced controls, bounded by genuine authorized subject/owner data.
+  Main critical proof remains current-candidate genuine spoken Mock/follow-up/
+  barge-in/pool move-on/closing/save/both voices HEARD after cold replay; changed
+  physical camera/calibration, genuine role logins and owner data not fabricated.
 - Smile-coverage source4bd600ab62171995fb0dae7431b4e208866d5419 LIVE
   SUCCESScc372122-0dff-4c53-8c44-ebbc5b6ff6f5, image
   sha256:63e8bc4a87cf03f8f84a66ea939e78de50791ab08c67d5288007dc9b5bf5c453.
