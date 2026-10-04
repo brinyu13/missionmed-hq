@@ -2,6 +2,7 @@ import {createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import {isIP} from 'node:net';
 import {DEEP_RESEARCH_DOSSIER_V2} from '../src/research-router.mjs';
+import {readInterviewiqProgramIdentity} from './interviewiq-program-identity.mjs';
 
 const sha=x=>createHash('sha256').update(x).digest('hex');
 const fail=()=>new Error('interviewiq_coverage_unavailable');
@@ -40,9 +41,8 @@ export function projectInterviewiqCoverage(value,{programId,registryReleaseId,no
 // Coverage never selects values. The separately enabled factual reader shares
 // this exact selection snapshot and receives only bounded canonical fields.
 // Current review is read directly with the same ordering as the owner view.
-const evidenceSql=(withValues=false)=>`WITH subjects AS (
-  SELECT $1::text AS id UNION SELECT program_identity_id FROM rise_runtime.canonical_program_identities
-  WHERE program_specialty_id=$1 AND reconciliation_status='EXACT_ACGME_MATCH' AND exposure_state='PRIVATE_BETA'
+const evidenceSql=(withValues=false,verified=false)=>`WITH subjects AS (
+  ${verified?'SELECT unnest($3::text[]) AS id WHERE $1::text IS NOT NULL':"SELECT $1::text AS id UNION SELECT program_identity_id FROM rise_runtime.canonical_program_identities WHERE program_specialty_id=$1 AND reconciliation_status='EXACT_ACGME_MATCH' AND exposure_state='PRIVATE_BETA'"}
 ), visible AS (
   SELECT c.claim_id,c.subject_id,c.field,c.knowledge->>'state' AS knowledge_state,c.retrieved_at,c.created_at,c.conflict_state,
     s.source_url,s.retrieved_at AS source_retrieved_at,s.provider,s.source_type,current_review.disposition AS review_disposition${withValues?`,CASE WHEN octet_length(c.canonical_value::text)<=16384 THEN c.canonical_value END AS canonical_value,c.observed_period,current_review.review_id,current_review.created_at AS reviewed_at`:''}
@@ -107,7 +107,8 @@ export function createInterviewiqCoverageReader(config={}){return evidenceReader
 // Internal capability for the governed result projector. No remote caller can
 // select this mode or supply the projection callback.
 export function createInterviewiqEvidenceReader(config,projectRows){need(typeof projectRows==='function');return evidenceReader(config,true,projectRows);}
-function evidenceReader({enabled=false,pool}={},withValues,projectRows){
+function evidenceReader({enabled=false,pool,registryIndex,registrySha256}={},withValues,projectRows){
+  const registry=registryIndex===undefined?undefined:structuredClone(registryIndex);
   return async({programId,registryReleaseId}={})=>{
     need(enabled===true&&pool&&typeof pool.connect==='function'&&Number.isInteger(pool.options?.connectionTimeoutMillis)&&
       pool.options.connectionTimeoutMillis>0&&pool.options.connectionTimeoutMillis<=5000&&id(programId)&&id(registryReleaseId));
@@ -129,7 +130,8 @@ function evidenceReader({enabled=false,pool}={},withValues,projectRows){
         const {rows:tables}=await query(`SELECT c.relname AS name,c.relkind AS kind,c.relowner::regrole::text AS owner,c.relrowsecurity AS rls,c.relforcerowsecurity AS forced
           FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='rise_runtime' AND c.relname=ANY($1::text[])`,[catalog]);
         need(tables.length===catalog.length&&tables.every(t=>catalog.includes(t.name)&&t.kind==='r'&&t.owner==='postgres'&&t.rls&&t.forced));
-        const {rows}=await query(evidenceSql(withValues),[programId,fields.map(f=>f.field)]);
+        const identity=registry===undefined?undefined:await readInterviewiqProgramIdentity({query},{registryIndex:registry,registrySha256,programId,registryReleaseId},{required:false});
+        const {rows}=await query(evidenceSql(withValues,identity!==undefined),[programId,fields.map(f=>f.field),...(identity?[identity.subjects]:[])]);
         need(rows.length===fields.length&&new Set(rows.map(r=>r.field)).size===fields.length);
         const observedAt=new Date(rows[0].observed_at).toISOString(),observed=timestamp(observedAt);
         const body={programId,registryReleaseId,observedAt,fields:fields.map(f=>{

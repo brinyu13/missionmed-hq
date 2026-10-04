@@ -183,8 +183,8 @@ export async function createInterviewiqRuntime({registryIndex,env=process.env,wo
     };
     await assertSourceRights();
     const store=createInterviewiqStore({enabled:true,pool});
-    const readCoverage=config.coverageEnabled?createInterviewiqCoverageReader({enabled:true,pool}):undefined;
-    const readResults=config.resultsEnabled?createInterviewiqResearchResultsReader({enabled:true,pool}):undefined;
+    const readCoverage=config.coverageEnabled?createInterviewiqCoverageReader({enabled:true,pool,registryIndex:frozenRegistry,registrySha256}):undefined;
+    const readResults=config.resultsEnabled?createInterviewiqResearchResultsReader({enabled:true,pool,registryIndex:frozenRegistry,registrySha256}):undefined;
     const owner=createInterviewiqOwner(config,{consumeNonce:store.consumeNonce,fetchImpl,getRegistry:async()=>ownerIndex,assertSourceRights,readCoverage,readResults});
     let jobs,runJob;
     if(config.jobs){
