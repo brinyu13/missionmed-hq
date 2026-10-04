@@ -27,35 +27,35 @@ function mm_mr_course_onboarding_content( $course_id ) {
 	return $programs[ $course_id ]['content'] . '<nav class="mm-mr-course-links" aria-label="Program next steps"><a href="' . esc_url( home_url( '/member-dashboard/' ) ) . '">Open Matrix dashboard</a><a href="' . esc_url( home_url( '/my-account/' ) ) . '">My account</a><a href="' . esc_url( home_url( '/contact/' ) ) . '">Contact MissionMed</a></nav>';
 }
 
-function mm_mr_course_onboarding_adapt_elements( $elements, $course_id ) {
-	foreach ( $elements as $index => &$element ) {
-		// Replace only the identified stale welcome container in template3306.
-		if ( '4064e67' === ( $element['id'] ?? '' ) ) {
-			$element['settings']['css_classes'] = trim( ( $element['settings']['css_classes'] ?? '' ) . ' mm-mr-course-onboarding' );
-			$element['elements'] = array( array(
-				'id' => 'mmmrwelcome', 'elType' => 'widget', 'widgetType' => 'html',
-				'settings' => array( 'html' => mm_mr_course_onboarding_content( $course_id ) ),
-				'elements' => array(),
-			) );
-		} elseif ( '627ee59' === ( $element['id'] ?? '' ) ) {
-			// Dead Phase0 CTA and duplicate infobar: next steps now use real routes.
-			unset( $elements[ $index ] );
-		} elseif ( ! empty( $element['elements'] ) && is_array( $element['elements'] ) ) {
-			$element['elements'] = mm_mr_course_onboarding_adapt_elements( $element['elements'], $course_id );
-		}
-	}
-	unset( $element );
-	return array_values( $elements );
-}
-
-function mm_mr_course_onboarding_template( $data, $template_id ) {
+function mm_mr_course_onboarding_template( $content ) {
 	$course_id = (int) get_queried_object_id();
-	if ( 3306 !== (int) $template_id || ! is_singular( 'sfwd-courses' ) || ! isset( mm_mr_course_onboarding_programs()[ $course_id ] ) || ! is_array( $data ) ) {
-		return $data;
+	if ( ! is_singular( 'sfwd-courses' ) || ! isset( mm_mr_course_onboarding_programs()[ $course_id ] ) || ! is_string( $content ) || ! str_contains( $content, 'data-elementor-id="3306"' ) ) {
+		return $content;
 	}
-	return mm_mr_course_onboarding_adapt_elements( $data, $course_id );
+	// Adapt AFTER Elementor's shared document cache. Never write program-specific
+	// data into that cache, which is also used by unrelated courses.
+	$previous = libxml_use_internal_errors( true );
+	$dom = new DOMDocument();
+	$loaded = $dom->loadHTML( '<?xml encoding="utf-8"?><div id="mm-mr-render-root">' . $content . '</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD );
+	$xpath = new DOMXPath( $dom );
+	$welcome = $xpath->query( '//*[@data-elementor-id="3306"]//*[@data-id="4064e67"]' );
+	$phase = $xpath->query( '//*[@data-elementor-id="3306"]//*[@data-id="627ee59"]' );
+	if ( ! $loaded || 1 !== $welcome->length || 1 !== $phase->length ) {
+		libxml_clear_errors(); libxml_use_internal_errors( $previous );
+		return $content;
+	}
+	$node = $welcome->item( 0 );
+	$node->setAttribute( 'class', trim( $node->getAttribute( 'class' ) . ' mm-mr-course-onboarding' ) );
+	while ( $node->firstChild ) { $node->removeChild( $node->firstChild ); }
+	$fragment = new DOMDocument();
+	$fragment->loadHTML( '<?xml encoding="utf-8"?><div id="mm-mr-fragment">' . mm_mr_course_onboarding_content( $course_id ) . '</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD );
+	foreach ( $fragment->getElementById( 'mm-mr-fragment' )->childNodes as $child ) { $node->appendChild( $dom->importNode( $child, true ) ); }
+	$dead = $phase->item( 0 ); $dead->parentNode->removeChild( $dead );
+	$result = ''; foreach ( $dom->getElementById( 'mm-mr-render-root' )->childNodes as $child ) { $result .= $dom->saveHTML( $child ); }
+	libxml_clear_errors(); libxml_use_internal_errors( $previous );
+	return $result;
 }
-add_filter( 'elementor/frontend/builder_content_data', 'mm_mr_course_onboarding_template', 20, 2 );
+add_filter( 'elementor/frontend/the_content', 'mm_mr_course_onboarding_template', 30 );
 
 function mm_mr_course_onboarding_styles() {
 	if ( ! is_singular( 'sfwd-courses' ) || ! isset( mm_mr_course_onboarding_programs()[ (int) get_queried_object_id() ] ) ) {
