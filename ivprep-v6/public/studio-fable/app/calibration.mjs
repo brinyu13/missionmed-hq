@@ -23,7 +23,7 @@ const STEPS = [
   { id: 'hands', title: 'Hands and gesture', do: 'Raise both hands into view, then explain something with your hands for a few seconds.', resolves: ['hands', 'gesture'], check: (f, ctx) => f?.bodyHands?.bothHandsVisible && (f?.bodyHands?.gestures ?? 0) - ctx.gestureBase >= 1 },
   { id: 'passage', title: 'Read the passage', do: 'Read the passage below at your normal interview voice. Pace, Volume and Pitch should come alive in that order.', resolves: ['volume', 'pitch', 'pace'], check: (f) => f?.volume?.coachingAvailable && f?.pitch?.available && f?.speedWpm?.available, passage: true },
   { id: 'vary', title: 'Vary your volume', do: 'Say one line quietly, one normally, one loud. The Volume pill should move Quiet → Hold → Loud.', resolves: ['volumeRange'], check: (f, ctx) => ctx.volSeen.size >= 2 },
-  { id: 'pause', title: 'Pause 3 s', do: 'Stop talking for three seconds, then resume. Pace should hold its last value, not go blank.', resolves: ['pauseHold'], check: (f, ctx) => ctx.pauseMs >= 3000 && ctx.paceHeld },
+  { id: 'pause', title: 'Pause 3 s', do: 'Stop talking for three seconds. While Pace holds its last value, choose Next step.', resolves: ['pauseHold'], check: (f, ctx) => ctx.pauseMs >= 3000 && ctx.paceHeld },
   { id: 'speed', title: 'Speed up, slow down', do: 'Read the line fast, then slowly. The needle should sweep right then left.', resolves: ['paceRange'], check: (f, ctx) => ctx.wpmMax - ctx.wpmMin >= 40 },
   { id: 'seal', title: 'Seal calibration', do: 'Review which instruments resolved. Unresolved instruments stay dark in the room; nothing is invented.', resolves: [], check: () => true },
 ];
@@ -33,7 +33,7 @@ export async function mountCalibration(main, { isCurrent = () => true } = {}) {
   const steps = STEPS.map(step => ({...step}));
   let disposed = false, connecting = false, deviceSwitching=false;
   const current = () => !disposed && isCurrent();
-  const ctx = { started: false, neutralMs: 0, smileBase: 0, nodBase: 0, gestureBase: 0, volSeen: new Set(), pauseMs: 0, paceHeld: false, wpmMax: -Infinity, wpmMin: Infinity };
+  const ctx = { started: false, neutralMs: 0, smileBase: 0, nodBase: 0, gestureBase: 0, volSeen: new Set(), pauseMs: 0, pauseStartedAt: null, pauseLastAt: null, paceHeld: false, wpmMax: -Infinity, wpmMin: Infinity };
   let stepIndex = 0; const resolved = {}; let engine = null; let timer = null; let latest = null; let lastT = 0;let disposeDevices=null,disposePrimary=null;
   main.innerHTML = `
     <div class="cal-screen">
@@ -107,7 +107,7 @@ export async function mountCalibration(main, { isCurrent = () => true } = {}) {
       disposeDevices=await mountDeviceControls(main.querySelector('[data-device-controls]'),{engine,video,getStream:()=>controller.stream,isCurrent:current,canSwitch:()=>controller.phase==='READY',switchDevice:(kind,id)=>controller.switchDevice(kind,id),onSwitching:(value,ready)=>{deviceSwitching=value;if(!value)ctx.started=ready;$('skip-step').disabled=value;evaluate();},onChanged:()=>{
         renderCalibrationRecord();engine.beginAnswer();history.samples=[];history.lastT=-Infinity;latest=null;lastT=0;
         for(const key of Object.keys(resolved))delete resolved[key];resolved.readiness='resolved';
-        steps.forEach(step=>{delete step.skipped;});Object.assign(ctx,{neutralMs:0,smileBase:0,nodBase:0,gestureBase:0,pauseMs:0,paceHeld:false,wpmMax:-Infinity,wpmMin:Infinity});ctx.volSeen.clear();
+        steps.forEach(step=>{delete step.skipped;});Object.assign(ctx,{neutralMs:0,smileBase:0,nodBase:0,gestureBase:0,pauseMs:0,pauseStartedAt:null,pauseLastAt:null,paceHeld:false,wpmMax:-Infinity,wpmMin:Infinity});ctx.volSeen.clear();
         stepIndex=1;renderSteps();evaluate();
       }});
       if(!current()){disposeDevices?.();return;}
@@ -123,13 +123,25 @@ export async function mountCalibration(main, { isCurrent = () => true } = {}) {
     const s = steps[stepIndex]; const dt = Math.max(0, f.t - lastT); lastT = f.t;
     if (s.id === 'neutral' && f.headFace?.presence === 'TRACKED') ctx.neutralMs += dt * 1000;
     if (s.id === 'vary' && f.volume?.cue != null) ctx.volSeen.add(f.volume.cue);
-    if (s.id === 'pause') { if (!f.speaking) ctx.pauseMs += dt * 1000; if (!f.speaking && (main.querySelector('#speedo')?.dataset.held === 'true')) ctx.paceHeld = true; }
+    if (s.id === 'pause') {
+      const at = Number.isFinite(f.t) && f.t >= 0 ? f.t : null;
+      const quietHeld = f.speaking === false && main.querySelector('#speedo')?.dataset.held === 'true' && at !== null;
+      if (!quietHeld) {
+        ctx.pauseStartedAt = null; ctx.pauseLastAt = null; ctx.pauseMs = 0; ctx.paceHeld = false;
+      } else {
+        // One observed continuous interval, not several short pauses added together.
+        // A missing/backwards clock or a >1 s producer gap cannot prove quiet continuity.
+        if (ctx.pauseStartedAt === null || ctx.pauseLastAt === null || at < ctx.pauseLastAt || at - ctx.pauseLastAt > 1) ctx.pauseStartedAt = at;
+        ctx.pauseLastAt = at; ctx.pauseMs = Math.max(0, (at - ctx.pauseStartedAt) * 1000); ctx.paceHeld = true;
+      }
+    }
     if (f.speedWpm?.available && Number.isFinite(f.speedWpm.wordsPerMinute) && s.id === 'speed') { ctx.wpmMax = Math.max(ctx.wpmMax, f.speedWpm.wordsPerMinute); ctx.wpmMin = Math.min(ctx.wpmMin, f.speedWpm.wordsPerMinute); }
     if (s.id === 'passage' && f.speedWpm?.available === false && f.speaking && /unavailable|unreachable|same_origin|csrf/i.test(String(f.speedWpm.holdReason || ''))) resolved.pace = 'not';
   }
   $('connect-real').addEventListener('click',()=>void begin());
   function enterStep() {
     ctx.smileBase=latest?.headFace?.smileEvents??0;ctx.nodBase=latest?.headFace?.nods??0;ctx.gestureBase=latest?.bodyHands?.gestures??0;
+    ctx.pauseStartedAt=null;ctx.pauseLastAt=null;ctx.pauseMs=0;ctx.paceHeld=false;
     if(steps[stepIndex].id==='neutral'){ctx.neutralMs=0;engine?.beginFaceBaseline();}
     renderSteps();evaluate();
   }

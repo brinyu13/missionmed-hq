@@ -1,7 +1,10 @@
 import { assertProjectionEnvelope } from '../../ivoc/contracts/projection-envelope.mjs';
 
 const MAX_RESPONSE_BYTES = 64 * 1024;
-const DEFAULT_TIMEOUT_MS = 4_000;
+// Current owner admission includes fresh WordPress eligibility before the RISE
+// response. Production reads reached 3.5 s; the old 4 s deadline canceled valid
+// searches. Keep the existing hard 10 s ceiling, without retrying or caching grants.
+const DEFAULT_TIMEOUT_MS = 10_000;
 const SUBJECT = /^wp:([1-9][0-9]{0,19})$/u;
 const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const OPAQUE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/u;

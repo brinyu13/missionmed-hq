@@ -263,8 +263,32 @@ the actual production route and deployment.
   Calendar/Home regression and all11 targeted tests PASS; live acceptance pending.
   Non-MissionMed skins and richer readiness remain in their protected Advanced
   homes, not claimed as newly accepted candidate composition.
-- Next executable action: deploy and independently accept Calendar/status correction,
-  resolve replay hand-alignment evidence, then continue real conversation,
+- Calendar/status source `b30678c1d11ea3bb54326c7712458d85d1569688` deployed
+  SUCCESS `c3b51f7f-da56-4242-8328-d048089123fb`, image
+  `sha256:354aa67b15dfc20a2535f000be51d8239234c4c12045715aeb4a3683b986bb77`.
+  Health200, anonymous candidate/current bootstrap401; filtered tracked rollback
+  artifact `ivoc-release-artifact-hEXi5b/source.tar`, SHA256
+  `19d43eab21bce46b65ff3ba7e8c25f2ca14f2c2d67c127a28514e55e66cdffa5`.
+  Deployment4460 normally released and remotely read back. Fresh independent
+  actual Home four-goal/default Mock and Prepare Calendar connected7/none upcoming
+  PASS. Program search REOPENED: initial browse and filtered Abington failed500;
+  query-only recovered4. Actual owner HTTP receipts prove aborted499 at3969–3993ms
+  and successful200 at3510ms. Current clean RISE source4df1eba matches live
+  deployment1ad90e27; no owner/filter/auth failure is inferred. Current IVOC-only
+  correction extends its read deadline4s to the existing bounded10s ceiling;
+  no caching grants, retry, owner/config/auth change or alternate data source.
+  All55 affected RISE/IVOC route tests PASS, including a4.1s valid read and
+  explicit250ms fail-closed abort; independent bounded source review found noP0/P1.
+- Independent actual-function reproduction found calibration falsely accepted
+  four0.8s pauses separated by speech as 'Pause3s'. Current consumer-only correction
+  requires one continuous quiet/current-pace-hold interval, reset on speech,
+  unknown/lost hold, step/device change and producer clock gaps. All30 focused
+  calibration/preservation tests PASS. Independent source review PASS; guidance
+  now directs Next while paused, not after speech resets the observed interval.
+  Physical full rehearsal remains UNVERIFIED.
+- Next executable action: independently review/deploy the calibration and bounded
+  RISE-read correction, rerun real program selection, resolve replay hand-alignment
+  evidence, then continue real conversation,
   closing, real-role and 142-row live parity acceptance. No final root promotion or
   two-sided audible acceptance claimed. Genuine speech/hearing remains a precise
   physical-evidence gate under the current Fable integration directive, not a global

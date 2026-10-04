@@ -126,3 +126,36 @@ test('rejects missing authorization, wrong subjects, named people fields, and ov
   });
   await assert.rejects(() => oversized.read({ ...common, sessionCookie: `mmhq_session=${'s'.repeat(32)}` }), /too_large/u);
 });
+
+test('a valid fresh-owner search can finish after the former four-second cutoff', async () => {
+  let calls = 0;
+  const source = createRiseProgramProjectionSource({
+    riseBase: 'https://rise.test',
+    fetchImpl: (url, init) => new Promise((resolve, reject) => {
+      calls++;
+      assert.equal(url.searchParams.get('specialty'), 'Internal Medicine');
+      assert.equal(init.headers['X-MMED-Consumer'], 'ivoc');
+      assert.equal(init.headers.Authorization, undefined);
+      const timer = setTimeout(() => {
+        init.signal.removeEventListener('abort', abort);
+        resolve(new Response(JSON.stringify({registryReleaseId: RELEASE_ID, page: 1, pageSize: 12, total: 1,
+          records: [{programSpecialtyId: PROGRAM_ID, display: {programName: 'Bounded owner result'}}]})));
+      }, 4_100);
+      const abort = () => {clearTimeout(timer); reject(new Error('test_owner_read_aborted'));};
+      init.signal.addEventListener('abort', abort, {once: true});
+    }),
+  });
+  const result = await source.search({sessionCookie: `mmhq_session=${'s'.repeat(32)}`, specialty: 'Internal Medicine'});
+  assert.equal(result.records[0].id, PROGRAM_ID);
+  assert.equal(result.pageSize, 12); assert.equal(calls, 1, 'no hidden retry or alternate authority');
+});
+
+test('an explicitly bounded owner read still aborts once and never retries', async () => {
+  let calls = 0;
+  const source = createRiseProgramProjectionSource({riseBase: 'https://rise.test', timeoutMs: 250,
+    fetchImpl: (_url, {signal}) => new Promise((_resolve, reject) => {
+      calls++; signal.addEventListener('abort', () => reject(new Error('bounded_owner_timeout')), {once: true});
+    })});
+  await assert.rejects(() => source.search({sessionCookie: `mmhq_session=${'s'.repeat(32)}`}), /bounded_owner_timeout/u);
+  assert.equal(calls, 1);
+});
