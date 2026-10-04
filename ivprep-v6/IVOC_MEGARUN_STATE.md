@@ -16,6 +16,27 @@ the actual production route and deployment.
 
 ### Current Fable-to-production convergence — 2026-10-03
 
+- 2026-10-04 CORRECTED ROOT LIVE POV (SHARED4638):
+  Current deployed source fda8fab6eacc84ae7c10b32f622af65a6b4b7b48,
+  SUCCESS c915d394-daf6-4a66-9b1e-7008a5196509, image
+  sha256:c6ee5795ebfbba96384ca47405ea459e5cf2f97e7e00528691b5c409d9da4420.
+  Exact1295-file58tKpv artifact/tar
+  0f25e548340c64dfc0ef6f2bbac3b239edc507c103957903e02496d86dde76db.
+  Health200; anonymous root/candidate/advanced/bootstrap401. Normal authenticated
+  root cold reload opens Fable Home. Actual old own #postanswer?session=1ca228aa
+  hands off to exact Advanced Results, not Home. Root Advanced ->Admin ->genuine
+  wp:142 saved Results preserves wp:1 actor/student owner. Returning to root and
+  opening that exact old Admin fragment restores the same student Results;
+  cold reload restores explicit BRINYU/Admin/Ismat Huq/wp:142, not own fallback.
+  60 affected checks and independent source review PASS. No new recording,
+  provider, schema, credits, notes or permissions mutation. Current healthy
+  fda/c915/58tKpv is infrastructure rollback; df6/bb875/4riHfW and49a/fc897/eqxdMQ
+  exact artifacts remain recoverable without source rollback. Exact six MR owner
+  paths remain byte-identical to f7c8163. Founder authorized inter-chat handoff;
+  owner chat received current combined deployment/source/lease truth. Independent
+  read-only normal-root navigation sweep in progress, exclusive browser time;
+  physical/spoken/HEAR BOTH/alternate-login/positive-owner-data remain UNVERIFIED.
+
 - 2026-10-04 MOUNTED LEGACY ROUTE FIX-FORWARD (PRODUCT4636):
   Fable product root is live at clean pushed df6afb98088bdf3c6de5cf3e7cb5c12a129dd521,
   SUCCESS bb875db1-e282-43cd-903f-acf95e873438, image
