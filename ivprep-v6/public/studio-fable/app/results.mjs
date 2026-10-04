@@ -3,7 +3,7 @@
 import { deriveDebrief } from './model/teaching.mjs';
 import { renderFilmLanes } from './instruments/flight-recorder.mjs';
 import { projectSavedAttempt, nearestComparable, validReplaySeek, privatePlaybackUrl } from './adapters/saved-review.mjs';
-import { buildRetryIntent } from '../../studio/presentation-view-model.mjs';
+import { buildRetryIntent,debriefConfidenceCopy } from '../../studio/presentation-view-model.mjs';
 import { compareAttempts } from '../../studio/longitudinal-model.mjs';
 import { DI_GROUPS, resultLaneReadouts } from '../../analytics/di-groups-ui.mjs';
 import { buildLiveTranscriptReview, renderLiveTranscriptReview } from '../../studio/live-transcript-review.mjs';
@@ -11,6 +11,7 @@ import { renderMeasurementTimeline } from '../../studio/flight-recorder-view.mjs
 import { loadQuestions } from './questions.mjs';
 import { controller } from './controller/session-controller.mjs';
 import { replayOverlays } from './adapters/replay-overlays.mjs';
+import {readOwnComparison,freshTeachingReplay} from './adapters/comparison-view-model.mjs';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmt = (s) => Number.isFinite(s)?`${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`:'Unavailable';
@@ -160,9 +161,52 @@ export async function mountFilm(main,id,params=new URLSearchParams(),{isCurrent=
 }
 
 export async function mountCompare(main,idA,idB,{isCurrent=()=>true}={}) {
-  const [a,b]=await Promise.all([resolveAttempt(idA,isCurrent),resolveAttempt(idB,isCurrent)]);if(!isCurrent())return noop;
+  const account=controller.account,durable=controller.durable,subject=account?.subject;
+  let disposed=false;
+  const current=()=>!disposed&&isCurrent()&&controller.account===account&&controller.durable===durable&&account?.subject===subject;
+  const pair=await readOwnComparison(controller,{baselineId:idA,currentId:idB,isCurrent:current});if(!current())return noop;
+  const {a,b,selection,teaching}=pair||{};
+  if(!selection?.current){unavailable(main);return noop;}
+  const selector=document.createElement('section');selector.className='housing panel review-filters';
+  const selectMarkup=(values,id,label)=>'<label>'+label+'<select aria-label="'+label+'">'+(values.length?(!id?'<option value="" selected>Choose an earlier attempt</option>':'')+values.map(value=>'<option value="'+esc(value.id)+'" '+(value.id===id?'selected':'')+'>'+esc(value.title)+' · '+fmtDate(value.at)+'</option>').join(''):'<option value="">No earlier comparable attempt</option>')+'</select></label>';
+  selector.innerHTML=selectMarkup(selection.eligible,selection.baseline?.id,'Earlier attempt')+selectMarkup(selection.attempts,selection.current.id,'Selected attempt');
+  const [earlierSelect,selectedSelect]=selector.querySelectorAll('select');earlierSelect.disabled=!selection.eligible.length;
+  const chooseEarlier=()=>{if(current()&&earlierSelect.value)location.hash='#/compare/'+encodeURIComponent(earlierSelect.value)+'/'+encodeURIComponent(selection.current.id);};
+  const chooseSelected=()=>{if(!current())return;
+    // Eligibility comes from the already fresh protected snapshots, not reconstructed evidence.
+    const chosen=selection.attempts.find(value=>value.id===selectedSelect.value);
+    const eligible=selection.attempts.filter(value=>chosen&&compareAttempts(value,chosen)&&value.at!==null&&chosen.at!==null&&value.at<=chosen.at);
+    location.hash='#/compare/'+encodeURIComponent(eligible[0]?.id||'none')+'/'+encodeURIComponent(chosen?.id||selection.current.id);};
+  earlierSelect.addEventListener('change',chooseEarlier);selectedSelect.addEventListener('change',chooseSelected);
+  const disposeSelectors=()=>{disposed=true;earlierSelect.removeEventListener('change',chooseEarlier);selectedSelect.removeEventListener('change',chooseSelected);};
   const c=a&&b?compareAttempts(a.comparison,b.comparison):null;
-  if(!c){main.innerHTML='<section class="housing panel"><h1 class="t-h2">Choose comparable answers</h1><p class="t-edit">Compare your own saved attempts with the same canonical question, wording, mode, interviewer provider and evidence version.</p><a class="btn btn-secondary" href="#/review">Back to Review</a></section>';return noop;}
+  if(!c){main.innerHTML='<section class="housing panel"><h1 class="t-h2">Choose comparable answers</h1><p class="t-edit">Compare your own saved attempts with the same canonical question, wording, mode, interviewer provider and evidence version.</p><a class="btn btn-secondary" href="#/review">Back to Review</a></section>';main.prepend(selector);return disposeSelectors;}
   main.innerHTML='<div class="screen-head"><div><div class="t-kick gold">Compare · '+esc(a.questionText)+'</div><h1 class="t-hero">Your own <em>measured change.</em></h1><p class="t-edit">'+fmtDate(a.at)+' → '+fmtDate(b.at)+'</p></div><a class="btn btn-secondary" href="#/results/'+b.id+'">Latest debrief</a></div><div class="compare-grid">'+[[a,'Earlier'],[b,'Latest']].map(([attempt,label])=>{const d=deriveDebrief(attempt);return '<section class="housing verdict"><div class="t-kick"><span>'+label+'</span><span>'+fmtDate(attempt.at)+'</span></div><h3>'+esc(d.change[0]?.text||'No measured correction identified')+'</h3>'+d.worked.map(w=>evidenceButton(w,attempt.id)).join('')+'<a class="btn btn-secondary" href="#/film/'+attempt.id+'">Replay answer</a></section>';}).join('')+'</div><section class="housing panel" style="margin-top:16px"><div class="t-label">Measured change</div>'+c.metrics.map(r=>'<div class="attempt-row"><span class="t-tech">'+esc(r.label)+'</span><div>'+esc(r.left===null?'Unavailable':r.left.toFixed(2)+' '+r.unit)+' → '+esc(r.right===null?'Unavailable':r.right.toFixed(2)+' '+r.unit)+'</div><span class="t-tech">'+esc(r.delta===null?'Not comparable':(r.delta>=0?'+':'')+r.delta.toFixed(2))+'</span></div>').join('')+'<p class="note">Changes are observations, not improvement grades or readiness scores. Captured mic level depends on your device and distance.</p></section>';
-  return noop;
+  main.querySelector('.screen-head').after(selector);
+  const coaching=document.createElement('section');coaching.className='housing panel';coaching.style.marginTop='16px';
+  coaching.innerHTML='<h2 class="t-h3">What changed in your answer?</h2>';
+  main.append(coaching);
+  if(!teaching.available){const note=document.createElement('p');note.className='note';note.textContent=teaching.reason==='SELF_PRACTICE_MODE_MISMATCH'?'Saved coaching comparison is available for Self Practice answers. These interview recordings still have the measured comparison above.':teaching.reason==='PROMPT_MISMATCH'?'These answers use different saved question versions. Review their coaching individually in Results.':'Both answers need supported transcript-based coaching for the same Self Practice question. Review each answer in Results; measured comparison remains available.';coaching.append(note);return disposeSelectors;}
+  coaching.insertAdjacentHTML('beforeend','<p class="note">Compare saved, cited coaching—not a grade or proof of improvement. Each cited replay opens paused.</p><div class="compare-grid"></div><p class="note">'+esc(teaching.limitation)+'</p><p class="note" role="status"></p>');
+  const grid=coaching.querySelector('.compare-grid'),status=coaching.querySelector('[role="status"]');let replay=null,opening=false,replayGeneration=0,seekLoaded=null;
+  const clearReplay=()=>{if(replay){if(seekLoaded)replay.removeEventListener('loadedmetadata',seekLoaded);replay.pause();replay.removeAttribute('src');replay.load();replay.remove();replay=null;}seekLoaded=null;};
+  for(const [sideKey,label]of [['baseline','Earlier answer'],['current','Selected answer']]){
+    const side=teaching[sideKey],card=document.createElement('article');card.className='housing panel';card.innerHTML='<h3>'+label+'</h3>';
+    for(const [key,title]of [['strongest','Strongest supported moment'],['improvement','Practice priority'],['drill','Next drill']]){
+      const claim=side.coaching[key];card.insertAdjacentHTML('beforeend','<strong>'+title+'</strong><p>'+esc(claim?.text||'No supported coaching saved for this part.')+'</p>');
+      if(!claim)continue;
+      for(const moment of side.moments.filter(value=>claim.refs.includes(value.ref))){
+        const button=document.createElement('button');button.type='button';button.className='btn btn-quiet';button.textContent=moment.label;button.disabled=!moment.available;
+        button.onclick=async()=>{if(!current()||opening)return;opening=true;button.disabled=true;const request=++replayGeneration;status.textContent='Checking this saved citation…';
+          try{const result=await freshTeachingReplay(controller,{baselineId:a.id,currentId:b.id,sideKey,side,moment,pageUrl:main.ownerDocument.location.href,isCurrent:()=>current()&&request===replayGeneration});if(!current()||request!==replayGeneration)return;if(!result)throw new Error('citation_changed');
+            clearReplay();replay=document.createElement('video');replay.controls=true;replay.playsInline=true;replay.preload='metadata';replay.setAttribute('aria-label',label+' cited recording');replay.style.width='100%';
+            const exactVideo=replay;seekLoaded=()=>{if(current()&&request===replayGeneration&&replay===exactVideo){exactVideo.pause();exactVideo.currentTime=result.at;}};
+            replay.addEventListener('loadedmetadata',seekLoaded,{once:true});replay.src=result.url;coaching.append(replay);status.textContent=label+' · private replay paused at the cited moment.';
+          }catch{if(current())status.textContent='This saved citation is unavailable or changed. Reopen the comparison before replaying it.';}finally{opening=false;if(current())button.disabled=!moment.available;}
+        };card.append(button);
+      }
+    }
+    card.insertAdjacentHTML('beforeend','<p class="note">'+esc(debriefConfidenceCopy(side.coaching.confidence))+'</p>');grid.append(card);
+  }
+  return()=>{disposeSelectors();replayGeneration++;clearReplay();};
 }

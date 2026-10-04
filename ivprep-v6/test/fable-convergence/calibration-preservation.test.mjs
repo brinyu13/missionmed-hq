@@ -143,7 +143,7 @@ test('Room/Calibration consumers bind contextual recovery, device-verified saved
   assert.match(calibration,/labels belong to your saved account\/device baseline, not this new rehearsal/);
   assert.match(adapter,/baselines\.invalidateForDeviceChange\(subject\);resolutions\.clear\(subject\)/);
   assert.match(room,/saveOwnVisibility\(controller,patch,\{isCurrent:current\}\)/);
-  assert.match(room,/saveVisibility\(\{density\}\)/);assert.match(room,/saveVisibility\(\{overlaysVisible:on\}\)/);
+  assert.match(room,/saveVisibility\(\{density\}\)/);assert.match(room,/saveVisibility\(\{overlaysVisible\}\)/);
   assert.match(room,/mode==='mock'&&!state\.preferences\?\.densityPersisted\?'interview'/);
   assert.match(room,/state\.preferences\.densityPersisted=saved\.densityPersisted===true/);
   assert.match(room,/state\.preferences\?\.overlaysVisible===true/);assert.match(room,/account preference could not be saved/);

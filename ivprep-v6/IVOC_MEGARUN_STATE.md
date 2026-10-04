@@ -219,9 +219,32 @@ the actual production route and deployment.
   Room now pins mount account/Durable/subject before question loading and guards
   deferred writes/handlers. Five actual-function race cases and all65 affected
   media/review/preferences/overlay-owner tests PASS; independent correction15 PASS.
-- Next executable action: independently review overlay patch, focused tests,
-  safely deploy and verify visible replay layers/cleanup. Then continue comparison
-  selector/teaching preservation, real conversation,
+- Overlay source `2cc755b4f0df5d48189dc893f9c4fcd0e9b8b8ac` deployed SUCCESS
+  `6722321e-151b-49d7-81ba-c6421257d6a8`, image
+  `sha256:1b0428704d6e13142e5f3c096a10efa93513d659383681a83d2ea79776fd938b`.
+  Health200, anonymous candidate/bootstrap401; exact filtered tracked artifact
+  `ivoc-release-artifact-hh0xT9/source.tar`, SHA256
+  `783e3bdfb5e5fdef029b7c071eba51982d63a1413426f2b9066662cc07b6bf2f`.
+  PRODUCT4455/deployment4456 normally released/remotely read back. Fresh independent
+  replay QA: real landmarks and canvas/video alignment, default-off, pause/seek,
+  hide-without-pausing, route cleanup/cold reload PASS; all24 saved Analytics
+  readouts unchanged. Layer switching FAIL: prior body bitmap lingered11s after
+  Face-only selection. Current adapter-only fix clears/renews the ephemeral replay
+  epoch on layer changes and expires unmatched geometry after1.5s. Video/audio,
+  capture, persistence and saved Analytics are unchanged; live correction pending.
+  Foreman normal Mock readiness again visibly rendered physical FaceTime preview;
+  no provider/recording started and Leave released the unstarted surface normally.
+- R053/054 bounded comparison patch adds fresh own-library stable selectors and
+  existing source-bound teaching comparison: exact question version, two exact
+  source/replay identities, unique cited ranges, fresh private signing, paused
+  inline replay and teardown. No measured-improvement claim or fabricated coaching.
+  Account/Durable/subject/route cancellation and changed citation/source/range
+  tests PASS; independent source review found no P0/P1. All affected convergence
+  plus owner comparison/presentation/longitudinal suites PASS after updating one
+  obsolete source-string assertion. Positive live coaching needs genuine qualifying
+  saved evidence; current own library reports none, not synthetic acceptance.
+- Next executable action: deploy and independently accept the replay correction
+  and comparison selectors/truthful coaching fallback, then continue real conversation,
   closing, real-role and 142-row live parity acceptance. No final root promotion or
   two-sided audible acceptance claimed. Genuine speech/hearing remains a precise
   physical-evidence gate under the current Fable integration directive, not a global

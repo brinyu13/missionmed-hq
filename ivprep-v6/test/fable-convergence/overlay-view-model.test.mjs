@@ -37,11 +37,14 @@ function fixture(){
     destroy(){this.destroyed=true;}
   }
   class Owner {
-    constructor(options){this.options=options;this.policies=[];this.destroyed=false;records.owners.push(this);}
+    constructor(options){this.options=options;this.policies=[];this.destroyed=false;this.playbackEvents=[];records.owners.push(this);}
     configure(value){this.policies.push(value);this.policy=value;}
     onViewChange(view,role){this.view=view;this.role=role;}
     consumeOverlay(){return true;}
     clearOverlay(){this.cleared=true;}
+    stopPlayback(reason){this.playbackEvents.push(['stop',reason]);this.clearOverlay();}
+    toggleOverlayPart(key){this.playbackEvents.push(['toggle',key]);return true;}
+    startPlayback(){this.playbackEvents.push(['start']);}
     destroy(){assert.equal(this.policy.authorized,false);this.destroyed=true;}
   }
   const loaded=[{BrowserAnalyticsPipeline:Pipeline},{StudentSurfaceOverlayController:Owner}];
@@ -82,4 +85,34 @@ test('owner initialization failure is truthful and releases its ephemeral pipeli
   const overlay=replayOverlays({...f.options,load:async()=>[f.loaded[0],{StudentSurfaceOverlayController:BrokenOwner}]});
   assert.equal(await overlay.setEnabled(true),false);assert.equal(f.records.status.at(-1),'unavailable');
   assert.equal(f.records.pipelines[0].destroyed,true);overlay.destroy();
+});
+test('layer switch clears old policy and invalidates only ephemeral replay before new frames',async()=>{
+  const f=fixture(),overlay=replayOverlays(f.options);await overlay.setEnabled(true);
+  const owner=f.records.owners[0];
+  assert.equal(owner.toggleOverlayPart('face'),true);
+  assert.deepEqual(owner.playbackEvents,[['stop','overlay_layers_changed'],['toggle','face'],['start']]);
+  assert.equal(owner.cleared,true);assert.equal(f.records.pipelines[0].destroyed,false);
+  assert.equal(owner.toggleOverlayPart('invalid'),false);
+  f.invalidate();assert.equal(owner.toggleOverlayPart('bodyHands'),false);
+  assert.equal(owner.playbackEvents.length,3);overlay.destroy();
+});
+test('unmatched replay frames expire and teardown cancels the exact freshness timer',async()=>{
+  const f=fixture(),timers=new Map(),cancelled=[];let next=0;
+  const overlay=replayOverlays({...f.options,schedule:(callback,ms)=>{assert.equal(ms,1500);timers.set(++next,callback);return next;},cancel:id=>{cancelled.push(id);timers.delete(id);}});
+  await overlay.setEnabled(true);const owner=f.records.owners[0];
+  owner.consumeOverlay({},'playback');owner.consumeOverlay({},'playback');
+  assert.deepEqual(cancelled,[1]);assert.equal(timers.size,1);
+  timers.get(2)();assert.equal(owner.cleared,true);assert.equal(f.records.status.at(-1),'waiting');
+  owner.consumeOverlay({},'playback');await overlay.setEnabled(false);assert.deepEqual(cancelled,[1,3]);
+  assert.equal(owner.destroyed,true);overlay.destroy();
+});
+test('old replay owner cannot cancel the replacement owner freshness expiry',async()=>{
+  const f=fixture(),timers=new Map();let next=0;
+  const overlay=replayOverlays({...f.options,schedule:callback=>{timers.set(++next,callback);return next;},cancel:id=>timers.delete(id)});
+  await overlay.setEnabled(true);const old=f.records.owners[0];
+  await overlay.setEnabled(false);await overlay.setEnabled(true);const fresh=f.records.owners[1];
+  fresh.consumeOverlay({},'playback');assert.equal(timers.size,1);
+  old.clearOverlay();assert.equal(old.consumeOverlay({},'playback'),false);assert.equal(old.toggleOverlayPart('face'),false);
+  assert.equal(timers.size,1);timers.get(1)();assert.equal(fresh.cleared,true);assert.equal(f.records.status.at(-1),'waiting');
+  overlay.destroy();
 });
