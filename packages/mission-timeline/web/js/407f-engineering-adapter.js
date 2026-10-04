@@ -38,8 +38,10 @@ import {
   deterministicFindingsForAi,
   mergeAiQualityAnalysis,
   qualityGuardianViewer,
-  renderQualityGuardian
+  renderQualityGuardian,
+  renderLocalLayoutReview
 } from "./uxr-002/quality-guardian.js";
+import {createLocalLayoutReview,isLocalLayoutReviewLocation} from './uxr-002/local-layout-review.js';
 import {
   appendTimelineAiFeedback,
   classifyTimelineAiCandidateOutcome
@@ -403,6 +405,29 @@ function rotationLorStateFromDocument(document){
 
 // Axis weights describe the dated inner span; the first/last ribbon cells also
 // contain decorative bleed. Convert pointer travel using dated geometry only.
+export function mountLocalLayoutReview407F(dialog,{store,location=globalThis.location,onApplied=()=>{},controllerOptions={}}={}){
+  if(!isLocalLayoutReviewLocation(location))return null;
+  let closed=false;
+  const mounted=()=>!closed&&dialog.isConnected;
+  const reviewStore={get document(){return store.document;},get entitlement(){return mounted()?store.entitlement:{...store.entitlement,canMutate:false};},
+    replace(...args){return mounted()?store.replace(...args):false;}};
+  const fetchReview=controllerOptions.fetchImpl||globalThis.fetch;
+  const controller=createLocalLayoutReview(reviewStore,{...controllerOptions,location,
+    fetchImpl:(...args)=>{if(!mounted())throw new Error('Local layout review closed');return fetchReview(...args);},onState:state=>{
+    if(!mounted())return;
+    if(state.status==='APPLIED'){onApplied(state);return;}
+    const section=dialog.querySelector('[data-local-layout-review]');
+    if(!section)return;
+    const visible={...state,receipt:Object.hasOwn(state,'receipt')?state.receipt:store.document?.metadata?.qualityGuardian?.localLayoutReview};
+    section.innerHTML=renderLocalLayoutReview(visible,store.entitlement?.canMutate===true).replace(/^<section[^>]*>|<\/section>$/g,'');
+    section.querySelector('[data-local-layout-review-start]')?.addEventListener('click',()=>{if(mounted())void controller.review();});
+  }});
+  // Capabilities alone are checked on open. The explicit button grants consent
+  // for a real geometry review; synthetic Guardian results never run this path.
+  void controller.capabilities();
+  return {destroy(){closed=true;},controller};
+}
+
 export function calculateAxisBoundaryDrag({leftWeight,rightWeight,pairDateWidth,screenScale=1,boundaryX,dx}){
   const pairWeight=leftWeight+rightWeight;
   const nextLeft=Math.max(Math.max(.25,pairWeight-8),Math.min(Math.min(8,pairWeight-.25),
@@ -3518,7 +3543,10 @@ export async function boot407FEngineeringAdapter({
       element.toggleAttribute("inert",active);
     }
   };
+  let standardLocalLayoutReview=null;
   const closeStandardModal=({restoreFocus=true}={})=>{
+    standardLocalLayoutReview?.destroy();
+    standardLocalLayoutReview=null;
     const trap=standardModalTrap;
     standardModalTrap=null;
     trap?.destroy();
@@ -3533,6 +3561,8 @@ export async function boot407FEngineeringAdapter({
     standardModalOpener=null;
   };
   const openStandardModal=(markup,selector)=>{
+    standardLocalLayoutReview?.destroy();
+    standardLocalLayoutReview=null;
     standardModalOpener=document.activeElement;
     bridge.openModal?.(markup);
     const dialog=document.querySelector(selector);
@@ -3630,14 +3660,25 @@ export async function boot407FEngineeringAdapter({
     if(store.entitlement.canMutate===true){
       try{await persistQualityReport022(store,report);}catch(error){bridge.toast('Guardian review completed. Its saved record needs attention.',{tone:'warning'});}
     }
+    const showGuardian=()=>{
     const dialog=openStandardModal(`<section class="export407FSuggestionDialog" role="dialog" aria-modal="true" aria-labelledby="quality-guardian-title" data-quality-guardian-dialog style="width:min(860px,calc(100vw - 40px));max-height:min(820px,calc(100vh - 40px));overflow:auto">
       ${renderQualityGuardian(report,{
         viewer:qualityGuardianViewer(store.entitlement,bridge.state.view),
         canFix:store.entitlement.canMutate===true,
-        controlClasses:qualityGuardianControls
+        controlClasses:qualityGuardianControls,
+        localLayoutReview:isLocalLayoutReviewLocation()?{available:false,status:'UNAVAILABLE',receipt:store.document?.metadata?.qualityGuardian?.localLayoutReview}:null
       })}
     </section>`,"[data-quality-guardian-dialog]");
     if(!dialog)return report;
+    standardLocalLayoutReview=mountLocalLayoutReview407F(dialog,{store,
+      controllerOptions:{renderOptions:{scope:'EVERYTHING',currentMonth:currentMonth(),mediaById:liveMediaById(store.document)}},
+      onApplied:()=>{
+        syncBridgeFromStore();
+        report=analyzeTimelineQuality(store.document,{stage});
+        lastGuardianReport022=report;
+        lastGuardianSource022=qualitySourceText022(store.document);
+        showGuardian();
+      }});
     dialog.querySelector("[data-quality-close]")?.addEventListener(
       "click",
       ()=>closeStandardModal(),
@@ -3759,6 +3800,8 @@ export async function boot407FEngineeringAdapter({
       {once:true}
     );
     return report;
+    };
+    return showGuardian();
   };
   const qualityGuardianButton=document.createElement("button");
   qualityGuardianButton.type="button";
