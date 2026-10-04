@@ -173,6 +173,7 @@ export async function findExactZelleMatch({ input, credentials, scopes, gmailGet
   }
 
   const matches = [];
+  const seenTransactions = new Map();
   for (const message of Array.isArray(listed.data?.messages) ? listed.data.messages.slice(0, MAX_RESULTS) : []) {
     const id = sanitizeId(message?.id);
     if (!id) continue;
@@ -184,11 +185,12 @@ export async function findExactZelleMatch({ input, credentials, scopes, gmailGet
     if (!candidate) continue;
     if (candidate.internalEpoch < afterEpoch || candidate.internalEpoch > nowEpoch + 300) continue;
     if (candidate.sentDay < easternDay(input.orderCreatedEpoch) || candidate.sentDay > easternDay(nowEpoch)) continue;
-    if (candidate.amount !== input.expectedAmount || candidate.payerName !== input.payerName) continue;
-    const existing = matches.find(value => value.fingerprint === candidate.fingerprint);
+    const existing = seenTransactions.get(candidate.fingerprint);
     if (existing && (existing.amount !== candidate.amount || existing.payerName !== candidate.payerName || existing.sentDay !== candidate.sentDay)) {
       return { ok: true, state: 'needs_review', error: 'conflicting_transaction_evidence' };
     }
+    seenTransactions.set(candidate.fingerprint, candidate);
+    if (candidate.amount !== input.expectedAmount || candidate.payerName !== input.payerName) continue;
     if (!existing) matches.push(candidate);
   }
 

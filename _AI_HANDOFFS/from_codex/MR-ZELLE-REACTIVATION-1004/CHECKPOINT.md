@@ -14,7 +14,7 @@ The current Founder resumption restores the email-destination authority and rene
 - Original worktree: `/Users/brianb/MissionMed_worktrees/mr-web-0912-interview-week`, branch `codex/mr-web-0912-interview-week`, HEAD `88f03e5f21c0c5f3601f4128ef6ae3db6669452d`. Its three dirty B handoff files and unrelated untracked artifacts were not edited, staged or committed.
 - Preserved old matcher worktree: `/Users/brianb/.codex/worktrees/mr-zelle-verifier/mr-web-0912-interview-week`, clean at `ab78c6e571b192cb33f394db3910f92b81c465c6`. This is NOT a safe whole-service deployment base.
 - New isolated worktree: `/Users/brianb/.codex/worktrees/mr-zelle-reactivation/mr-web-0912-interview-week`, branch `codex/mr-zelle-reactivation-1004`, based on currently observed HQ source `b745a31bc156158c8cc5c0de4d6bfc2a4811d98a`.
-- Local edit scope: `missionmed-hq/routes/gmail-zelle-match.mjs`, its exact existing test, and this checkpoint only. No WordPress source edited yet.
+- Local edit scope now also includes `wp-content/mu-plugins/missionmed-mr-zelle-verifier.php`, exact new QR `wp-content/mu-plugins/missionmed-mr-0912-assets/media/missionmed-zelle-email-qr.gif`, and `missionmed-hq/tests/mr-zelle-verifier.test.php`. The WordPress file started as a hash-verified exact copy of the current live baseline below, then was modified locally; it is not deployed.
 - Narrow provider PATH lease epoch 4589 held during this edit/test tranche; no GLOBAL or application database writes.
 
 ## Verified current production (read-only)
@@ -39,7 +39,7 @@ Exact inline GIF bytes were captured from the EMAIL QR in the bank's QR dialog, 
 - Native Vision decoder confirms Zelle's official enroll QR URL with payload name `Mission Global Group LLC`, token `info@missionmedinstitute.com`, action `payment`.
 - Native toolchain default SDK was incompatible; Objective-C Vision decode succeeded using installed MacOSX15.4.sdk. No QR artwork altered.
 - Browser download of a data-URL image timed out. A local receiver captured the exact bytes; Chrome blocked its response page but filesystem hash/decoder prove successful capture. Do not repeat the download or bypass the browser warning.
-- Move the exact original GIF to durable scoped asset custody under a fresh asset lease before deployment. Do not use the old QR.
+- Exact GIF copied into the scoped asset path above, byte-identical SHA256 verified. Do not use the old QR.
 
 ## Minimum payment evidence
 
@@ -53,7 +53,7 @@ The first Gmail receiver `Authentication-Results` identifies `mx.google.com` and
 
 ## Local matcher hardening completed
 
-47 synthetic tests PASS, plus Node syntax and git diff whitespace checks. NOT live financial acceptance.
+49 Node synthetic tests PASS, plus 26 PHP state-machine cases / 142 assertions and PHP syntax. NOT live financial acceptance. PHP test doubles model payment/entitlement events only; they do not establish the installed Woo/LearnDash/Matrix cascade.
 
 - Require exact Chase sender/subject, first receiver-added Gmail authentication, Chase DKIM and DMARC passes, exact current To and Delivered-To mailbox.
 - Require exact labeled amount, real transaction-number field, valid sent date, and bounded current-order timing. Support legitimate comma and no-comma dollar formats; reject rounding/overprecision.
@@ -61,11 +61,32 @@ The first Gmail receiver `Authentication-Results` identifies `mx.google.com` and
 - Require protocol v2, USD, and a single exact eligible order supplied by canonical Woo; sign all matching dimensions including consumed fingerprints. WordPress still needs to compute/recheck the complete candidate set under locking.
 - Incomplete/paginated Gmail search, stale/future orders, provider failure and ambiguous payments fail closed to review/waiting.
 - Case/whitespace normalization only; no fuzzy names or deleting accents/punctuation to collapse identities.
+- Additional route tests prove method/body/HMAC timestamp/tamper/nonce-replay rejection before Gmail access. Conflicting genuine-looking receipts sharing one bank reference are held even if the conflicting amount would otherwise be filtered out.
+
+## WordPress candidate / continuation 2026-10-04
+
+Scoped source custody: epoch 4593 expired after interrupted keeper; handle was confirmed missing before reacquisition. New exact six-path lease epoch 4596 owns only verifier, QR, PHP test, matcher, Node test and this checkpoint. REGISTRY has no active writer. Active IVOC source work remains separate. Two read-only custody mistakes were diagnosed without mutation: the lease table lives in `missionmed_ops.engineering_resource_leases`, not `public.mmos_leases`; acquire scope requires `PATH:<digest>`, not bare `PATH`. Correct calls then succeeded; no validator weakened.
+
+- BOOT revalidated PASS at the same canonical HQ tip. Live WP SHA remains `b4813d439bcf78f61ca362d77db61211abb6f90dce8931353f4999fe93d02e1d`, global mode still `admin_confirmation`. Runtime has both intl and mbstring for cross-language normalized names. Unrelated existing WP translation-load warnings observed, not modified.
+- Candidate strictly validates current USD/customer/one-item/quantity/product+variation identity, canonical amount and pending state.
+- Connection-owned MySQL advisory lock serializes claim/verification/approval. Permanent atomic transaction-fingerprint option is shared by both providers; no invented transaction ID is passed to Woo.
+- Complete eligible-order scan includes matching unclaimed billing identities; incomplete scans and ambiguity fail closed. Protocol-v2 request signs all matching fields, validates trusted response, and rechecks pending/amount/uniqueness before canonical `payment_complete()`.
+- Genuine verification metadata is recorded before completion, but `verified` is set only after canonical paid-state readback. Course result is observed, not directly granted.
+- Secure admin fallback remains available without a Gmail candidate, requiring existing capability/nonce plus actual bank reference and bank-receipt attestation. Same receipt cannot be reused across providers/orders or after refund.
+- Changed payer, ambiguity and administrator decisions hold automatic processing durably; duplicate requests or scheduled retries cannot clear that hold. Only authenticated bank-evidence fallback may complete the held order.
+- Bounded retries, global admin default and exact admin-option-only canary preserve gradual deployment. Customer QR/email UI changes remain local; no prices, checkout architecture or public access changed.
+- PHP cases cover both identities, claim-only containment, duplicates, automatic canonical-call/replay, fallback permissions/attestation/reference, cross-provider replay, pending/terminal states, cancellation during provider read, amount drift, outage/retry cap, lock loss, malformed proof, completion failure, order-key/owner access, and isolated canary. These are synthetic-only gates.
+
+HTTP-handler negative tests now pass for customer wrong method/nonce/ownership and admin non-admin/GET/nonce/missing bank attestation. Actual installed LearnDash source confirms status-driven grant hooks, `_related_course` variation mapping, and `auto_complete_transaction` rejects unpaid orders and does not independently complete bacs orders. Current access-grant/deny settings, full Matrix cascade and actual customer proof still require runtime checks.
+
+New verified HQ deployment during this tranche: `7c7ed32e-3725-43b5-9236-4b9c378e8ce0`, SUCCESS, 2026-10-04T14:41:42.839Z, description `IVOC mobile Room 4c732a3; retained rollback 686dd8a / 42225458; candidate-only`, image `sha256:aff633855fcdaa1a01e4a9483917367d4be41ae105bfb2ca1d0380d0709fc1f5`. Exact Git `4c732a3` differs from old base only in nine IVOC source/test/state files; matcher and Gmail integration/server seams remain old baseline. Preserve those IVOC changes when composing deployment. The 13:44 deployment above is now historical, NOT the current deploy target.
+
+Next: finish real-hook compatibility/settings checks; integrate only scoped matcher delta onto the current HQ deployment lineage; obtain fresh native recovery and exact runtime/config preimages, then guarded deployment with public automation dormant and exact controlled canary. Do not request payment yet.
 
 ## Critical remaining implementation (do not skip)
 
-1. WordPress verifier integration and tests: exact parent/variation/quantity/currency/customer eligibility; complete eligible-order discovery including ambiguous claims; global transaction claim across admin+automated providers; fresh pending recheck and per-order activation lock; cancelled/refunded/paid rejection; protocol v2 request/response validation; matching normalization; durable minimal audit; retries/idempotency; retained functional authenticated admin fallback even when Gmail has no candidate.
-2. Current admin fallback uses a per-request token instead of shared bank-transaction fingerprint and automation-mode fallback may be disabled without a candidate. These must be addressed without fabricating a payment or removing administrator review.
+1. WordPress integration and HTTP-handler security are locally synthetic-tested as above, but actual installed Woo hook/settings compatibility, source review and production acceptance remain mandatory.
+2. Live admin fallback still uses a per-request token; the candidate replaces it with a shared bank-reference fingerprint and removes the Gmail-candidate dependency. Deploy and verify that change without fabricating a payment or removing administrator review.
 3. Preserve one canonical Woo payment_complete() cascade; do not directly grant LearnDash/Matrix. Verify actual integration and customer notifications. Do not label verified before canonical completion succeeds, and do not invent a transaction ID from a hash.
 4. Capture fresh Kinsta native recovery and exact runtime/object/config preimages before production changes. Record canonical authority continuation/readback and fresh leases for the expanded exact paths.
 5. Integrate current email/secondary tag/current QR and accessible responsive instructions; scan current active destination references without rewriting history.
@@ -74,4 +95,4 @@ The first Gmail receiver `Authentication-Results` identifies `mx.google.com` and
 
 ## State delta
 
-Only isolated local matcher/test/checkpoint work and temporary QR evidence/decoder files. Production code, config, orders, prices, payment state, entitlements, bank settings and customer communications unchanged by this tranche. Automation remains dormant behind live admin_confirmation. Goal remains active.
+Isolated matcher/WordPress candidate/tests/checkpoint and exact QR asset only, plus preserved temporary evidence/decoder files. Production code, config, orders, prices, payment state, entitlements, bank settings and customer communications unchanged by this tranche. Automation remains dormant behind live admin_confirmation. Goal remains active.
