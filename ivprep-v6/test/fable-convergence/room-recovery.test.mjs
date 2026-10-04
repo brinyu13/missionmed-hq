@@ -58,4 +58,5 @@ test('room retains capture owner and moves setup into one settings popover',()=>
   assert.match(css,/\.room-settings-panel[^}]*position: absolute/);
   assert.match(css,/\.room\[data-cockpit="true"\]\[data-density="interview"\] \.rail \{ display: none; \}/);
   assert.match(css,/\.room\[data-cockpit="true"\]\[data-density="interview"\] \.recorder-body[^}]*display: none/);
+  assert.match(css,/@media \(min-width: 1101px\) and \(max-height: 759px\)[\s\S]*?body\[data-mode="room"\] \{ height: auto; overflow: auto; \}/);
 });
