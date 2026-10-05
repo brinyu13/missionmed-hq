@@ -1,7 +1,7 @@
 const denied = () => Object.assign(new Error('Explicit Founder financial authorization required'), { status: 403 });
 export function financialReadIdentity(identity) {
   if (!identity?.roles?.some(role => ['founder', 'missionaccounts_admin'].includes(role)) ||
-      !Number.isSafeInteger(identity.wpUserId) || identity.wpUserId <= 0 ||
+      identity.wpUserId !== 1 ||
       !/^[a-f0-9-]{36}$/i.test(String(identity.userId || ''))) throw denied();
   return { p_principal: identity.userId, p_wp_user_id: identity.wpUserId };
 }

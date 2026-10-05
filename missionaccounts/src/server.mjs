@@ -16,6 +16,9 @@ import { PreviewStore, SupabaseRestStore } from './storage/supabase-rest.mjs';
 import { createPartnerCostRouter } from './partner-cost-sharing/router.mjs';
 import { createFinancialReadRouter } from './mission-residency-finance/router.mjs';
 import { financialReadAccess } from './mission-residency-finance/read-model.mjs';
+import { createFinancialOperationsRouter } from './mission-residency-finance/operations-router.mjs';
+import { financialStudentAccess } from './mission-residency-finance/operations-service.mjs';
+import { MissionResidencyStripe } from './mission-residency-finance/stripe-provider.mjs';
 import { environmentPartnerConfig, environmentPartnerStore } from './partner-cost-sharing/store.mjs';
 
 const modulePath = fileURLToPath(import.meta.url);
@@ -27,6 +30,18 @@ function environmentConfig() {
   return {
     production,
     partnerCostSharing: environmentPartnerConfig(),
+    missionResidencyFinance: {
+      providerEvents: process.env.MISSION_RESIDENCY_PROVIDER_EVENTS === '1',
+      operations: process.env.MISSION_RESIDENCY_FINANCE_OPERATIONS === '1',
+      onboarding: process.env.MISSION_RESIDENCY_PAYMENT_ONBOARDING === '1',
+      publication: process.env.MISSION_RESIDENCY_FINANCE_PUBLICATION === '1',
+      cardDispatch: process.env.MISSION_RESIDENCY_CARD_DISPATCH === '1',
+      zelleMatcher: process.env.MISSION_RESIDENCY_ZELLE_MATCHER === '1',
+      stripeAccount: process.env.MISSION_RESIDENCY_STRIPE_ACCOUNT_ID || '',
+      publishableKey: process.env.MISSION_RESIDENCY_STRIPE_PUBLISHABLE_KEY || '',
+      chargeTermsVersion: process.env.MISSION_RESIDENCY_CHARGE_TERMS_VERSION || '',
+      settlementActor: 'mr-finance-provider-phase3',
+    },
     localAuth: process.env.MISSIONACCOUNTS_AUTH_MODE === 'local',
     issuer: process.env.MISSIONACCOUNTS_JWT_ISSUER || 'https://missionmedinstitute.com/wp-json/missionmed/v1/missionaccounts',
     audience: process.env.MISSIONACCOUNTS_JWT_AUDIENCE || 'missionaccounts',
@@ -93,6 +108,13 @@ function environmentNotificationGateway() {
     token: process.env.MISSIONACCOUNTS_NOTIFICATION_TOKEN || '',
     mode: process.env.MISSIONACCOUNTS_NOTIFICATION_MODE || 'disabled',
   });
+}
+
+function environmentResidencyStripe() {
+  return new MissionResidencyStripe({ accountId: process.env.MISSION_RESIDENCY_STRIPE_ACCOUNT_ID || '',
+    secretKey: process.env.MISSION_RESIDENCY_STRIPE_SECRET_KEY, webhookSecret: process.env.MISSION_RESIDENCY_STRIPE_WEBHOOK_SECRET,
+    mode: process.env.MISSION_RESIDENCY_STRIPE_MODE || 'disabled',
+    liveMutationsEnabled: process.env.MISSION_RESIDENCY_STRIPE_LIVE_MUTATIONS === '1' });
 }
 
 function environmentZoomProvider({ cycleProvider } = {}) {
@@ -259,6 +281,7 @@ export function createMissionAccountsServer({
   config = environmentConfig(),
   store = environmentStore(),
   stripeGateway = environmentStripeGateway(),
+  residencyStripe = environmentResidencyStripe(),
   notificationGateway = environmentNotificationGateway(),
   zoomProvider = null,
   partnerStore = undefined,
@@ -267,6 +290,7 @@ export function createMissionAccountsServer({
 } = {}) {
   const partnerCostRoute = createPartnerCostRouter({ config, authenticate, memberStore: partnerStore === undefined ? (config.partnerCostSharing?.prototype ? null : environmentPartnerStore()) : partnerStore });
   const financialReadRoute = createFinancialReadRouter({ config, authenticate, store });
+  const financialOperationsRoute = createFinancialOperationsRouter({ config, authenticate, store, stripe: residencyStripe });
   zoomProvider ||= environmentZoomProvider({ cycleProvider: () => store.billingCycles() });
   const zoomConfiguredAtStartup = typeof zoomProvider?.isConfigured === 'function'
     ? zoomProvider.isConfigured() === true
@@ -482,6 +506,7 @@ export function createMissionAccountsServer({
   }
 
   async function handleApi(request, response, url) {
+    if (await financialOperationsRoute(request, response, url)) return;
     if (await financialReadRoute(request, response, url)) return;
     if (await partnerCostRoute(request, response, url)) return;
     if (request.method === 'GET' && url.pathname === '/api/config') {
@@ -752,6 +777,8 @@ export function createMissionAccountsServer({
         program_access: identity.programAccess,
         capabilities: {
           finance_read: await financialReadAccess(store, identity),
+          finance_operate: config.missionResidencyFinance?.operations === true && await financialReadAccess(store, identity),
+          residency_payment_onboarding: await financialStudentAccess(store, identity, config.missionResidencyFinance),
           student_contacts: !registeredOnly && Boolean(config.features?.studentContacts),
           billing_decisions: !registeredOnly && Boolean(config.features?.billingDecisions),
           attendance_corrections: !registeredOnly && Boolean(config.features?.attendanceCorrections),
@@ -1840,6 +1867,8 @@ export function createMissionAccountsServer({
       'assets/partner-cost-sharing': 'partner-cost-sharing/ui.js',
       'assets/partner-cost-sharing-style': 'partner-cost-sharing/ui.css',
       'assets/mission-residency-finance': 'mission-residency-finance/ui.js',
+      'assets/mission-residency-operations-view': 'mission-residency-finance/operations-view.js',
+      'assets/mission-residency-student': 'mission-residency-finance/student.js',
       'assets/mission-residency-finance-view': 'mission-residency-finance/view.js',
       'assets/mission-residency-finance-style': 'mission-residency-finance/ui.css',
     };
