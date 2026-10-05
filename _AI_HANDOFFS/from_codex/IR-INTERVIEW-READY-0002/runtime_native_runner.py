@@ -30,8 +30,8 @@ ORIGIN = 'https://github.com/brinyu13/missionmed-hq.git'
 REF = 'refs/heads/codex/ir-interview-ready-0002-storyforge'
 TRANSPORT_SHA = '6bab4c948b28202b7a803228f2123d5c95137030f16eb129c427b4ddcc487cad'
 CLIENT_SHA = '36e37a487de0ec99191492c3ef286695bc4d8721cdac70f5c62863576e5c1431'
-NATIVE_SHA = 'f2954456fce5f51ac50827fdb7840311621d452d41cd523def9f55d1ffdbc3cb'
-NATIVE_TESTS_SHA = '9ae4cd2b92e31fc0b65b1b74c96d70ad4d4695c63ae669c6be2178ceb66facbd'
+NATIVE_SHA = '4bd7e26c4ff34456c1dab2ced66b3cab2a41388b4fb4475cbf3d40e38250d4c0'
+NATIVE_TESTS_SHA = '1d19826f53349d7bf95de0a78259d862ed367127db55561ee0f985b2970c236a'
 AUTHORITY = {'DR-375_ir_phase1_production_authority.md': '05803e16c985437a6400aa261e55bdb57f50ed2a0c7200f904fcffc49155a508',
              'DR-376_ir_phase1_bounded_execution_annex.md': '452a9e6259f6ae2f9e1441c725f79156b2d099d88a38af694b248e345b7dbe0e'}
 RUNTIME = 'wp-content/mu-plugins/missionmed-interview-ready-runtime'
@@ -600,7 +600,7 @@ def safe_native_report(value):
 def run_session(session, *, qa=None, native_review_digest=None):
     thread=None; result=None; released=False;deferred=False
     inventory_stage=None
-    def inventory_progress(stage, category=None, hookScope=None, childExit=None):
+    def inventory_progress(stage, category=None, hookScope=None, childExit=None, stderrMarkers=None):
         nonlocal inventory_stage
         check(type(stage) is str and stage in qa.INVENTORY_STAGES)
         check(category is None or (type(category) is str and category in qa.STOP_CATEGORIES))
@@ -613,6 +613,13 @@ def run_session(session, *, qa=None, native_review_digest=None):
             type(childExit['exitCode']) is int and -255<=childExit['exitCode']<=255 and childExit['exitCode']!=0 and
             type(childExit['stdoutPresent']) is bool and type(childExit['stderrPresent']) is bool):
             receipt['childExit']=dict(childExit)
+        markers={'PHP_WARNING','PHP_FATAL','PHP_PARSE','WPCLI_ERROR','UNCAUGHT_ERROR',
+            'PERMISSION_DENIED','CONNECTION_CLOSED','STDIN','UNDEFINED_FUNCTION','CLASS_NOT_FOUND',
+            'REDECLARE','UNDEFINED_CONSTANT','TYPE_ERROR','ARGUMENT_COUNT_ERROR',
+            'MYSQL_EXTENSION_MISSING','PHP_VERSION_REQUIREMENT'}
+        if (category is not None and type(stderrMarkers) is list and len(stderrMarkers)<=len(markers) and
+            all(type(m) is str and m in markers for m in stderrMarkers) and stderrMarkers==sorted(set(stderrMarkers))):
+            receipt['stderrMarkers']=list(stderrMarkers)
         atomic(session.directory,'NATIVE_PHASE.json',receipt)
     try:
         check(session.contract['phase'] in PHASE_PATHS and (session.contract['phase']=='install' or qa is not None))
@@ -655,9 +662,10 @@ def run_session(session, *, qa=None, native_review_digest=None):
             category=error.category if type(error) is qa.Stop else 'private_operation_failed'
             hookScope=getattr(error,'hookScope',None) if type(error) is qa.Stop else None
             childExit=getattr(error,'childExit',None) if type(error) is qa.Stop else None
+            stderrMarkers=getattr(error,'stderrMarkers',None) if type(error) is qa.Stop else None
             if type(category) is not str or category not in qa.STOP_CATEGORIES:
-                category='private_operation_failed';hookScope=None;childExit=None
-            try:inventory_progress(inventory_stage,category,hookScope,childExit)
+                category='private_operation_failed';hookScope=None;childExit=None;stderrMarkers=None
+            try:inventory_progress(inventory_stage,category,hookScope,childExit,stderrMarkers)
             except BaseException:session.stop()
         if session.native_gate is None:session.stop()
         else:

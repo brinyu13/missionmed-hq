@@ -1,0 +1,1 @@
+{"bindingSha256":"6b26186d21fbd813feeacb21524032e6e120c03a25f7310b26c0d4f6c19c44c7","category":"child_exit","childExit":{"exitCode":255,"stderrPresent":true,"stdoutPresent":false},"schema":"ir.native.phase.v1","stage":"INVENTORY_CAPTURE"}

@@ -323,8 +323,8 @@ class Fixtures(unittest.TestCase):
         self.assertEqual(error.category,'php_fatal_error')
         self.assertNotIn('PRIVATE_SENTINEL',repr(error))
         self.assertEqual(qa.inventory_child_failure(b'PRIVATE_SENTINEL',trace,255).category,'child_exit')
-        self.assertEqual(qa.inventory_child_failure(b'',b'PRIVATE_SENTINEL\n'+trace,255).category,'child_exit')
-        self.assertEqual(qa.inventory_child_failure(b'',trace+b'\n'*4096,255).category,'child_exit')
+        self.assertEqual(qa.inventory_child_failure(b'',b'PRIVATE_SENTINEL\n'+trace,255).category,'php_fatal_error')
+        self.assertEqual(qa.inventory_child_failure(b'',trace+b'\n'*4096,255).category,'php_fatal_error')
         for action,code,category in (('creation_inventory_read',0,'stderr_present'),('state_post',7,'native_assertion')):
             child=PipeChild([trace],code=code,stderr=True)
             with mock.patch.object(qa.subprocess,'Popen',return_value=child),self.assertRaises(qa.Stop) as caught:
@@ -334,8 +334,7 @@ class Fixtures(unittest.TestCase):
         invalid=[(message+b'\nPRIVATE_SENTINEL',b''),(b'PRIVATE_SENTINEL\n'+message,b''),
             (message,b'PRIVATE_SENTINEL'),(message+b'\x00PRIVATE_SENTINEL',b''),
             (b'Error: PRIVATE_SENTINEL',b''),(b'',b''),(b'',b'PRIVATE_SENTINEL'),
-            (b'PHP Fatal error: '+b'PRIVATE_SENTINEL'*400,b''),
-            (b'',b'PHP Fatal error: '+b'PRIVATE_SENTINEL'*400)]
+            (b'PHP Fatal error: '+b'PRIVATE_SENTINEL'*400,b'')]
         for stdout,stderr in invalid:
             error=qa.inventory_child_failure(stdout,stderr,255)
             self.assertEqual(error.category,'child_exit')
@@ -347,6 +346,71 @@ class Fixtures(unittest.TestCase):
             dict(closed,stdoutPresent=1),[],None):
             self.assertIsNone(qa.Stop('child_exit',childExit=invalid).childExit)
         self.assertIsNone(qa.Stop('PRIVATE_SENTINEL',childExit=closed).childExit)
+
+    def test_inventory_stderr_marker_scan_complete_stream_privacy_and_ambiguity(self):
+        warning=b'PHP Warning: PHP Startup: PRIVATE_SENTINEL\n'
+        cases=[(warning+b'PHP Fatal error: Uncaught Error: PRIVATE_SENTINEL\nStack trace:\n#0 PRIVATE_SENTINEL',
+            'php_fatal_error',['PHP_FATAL','PHP_WARNING','UNCAUGHT_ERROR']),
+            (warning+b'[05-Oct-2026 08:00:00 UTC] PHP Parse error: PRIVATE_SENTINEL',
+            'php_parse_error',['PHP_PARSE','PHP_WARNING']),
+            (warning+b'Error: There has been a critical error on this website.',
+            'wp_cli_bootstrap_error',['PHP_WARNING','WPCLI_ERROR']),
+            (warning+b'Error: Cannot read input file /dev/stdin PRIVATE_SENTINEL',
+            'wp_cli_command_error',['PHP_WARNING','STDIN','WPCLI_ERROR']),
+            (warning+b'Error: PRIVATE_SENTINEL stdin handling failed',
+            'child_exit',['PHP_WARNING','STDIN','WPCLI_ERROR']),
+            (b'PRIVATE_SENTINEL: Permission denied (publickey).\nConnection closed by PRIVATE_SENTINEL',
+            'child_exit',['CONNECTION_CLOSED','PERMISSION_DENIED']),
+            (warning+b'PHP Fatal error: PRIVATE_SENTINEL\nPHP Parse error: PRIVATE_SENTINEL',
+            'child_exit',['PHP_FATAL','PHP_PARSE','PHP_WARNING']),
+            (warning+b'PRIVATE_SENTINEL','child_exit',['PHP_WARNING'])]
+        for stderr,category,markers in cases:
+            child=PipeChild([stderr],code=255,stderr=True);public=io.StringIO()
+            with mock.patch.object(qa.subprocess,'Popen',return_value=child), \
+                 contextlib.redirect_stdout(public),contextlib.redirect_stderr(public),self.assertRaises(qa.Stop) as caught:
+                qa.private_capture(qa.SSH_ARGV,b'private',qa.Dispatch(time.monotonic()+qa.IO_SECONDS,action='creation_inventory_read'))
+            self.assertEqual(caught.exception.category,category)
+            self.assertEqual(caught.exception.stderrMarkers,markers)
+            self.assertEqual(caught.exception.childExit,{'exitCode':255,'stdoutPresent':False,'stderrPresent':True})
+            self.assertNotIn('PRIVATE_SENTINEL',repr(caught.exception));self.assertEqual(public.getvalue(),'')
+            self.assertTrue(child.done.is_set())
+        # A marker beyond the old 4096-byte threshold is scanned, never truncation-admitted.
+        stderr=warning+b'PRIVATE_SENTINEL'*400+b'\nError: Cannot read input file /dev/stdin'
+        self.assertEqual(qa.inventory_child_failure(b'',stderr,255).stderrMarkers,['PHP_WARNING','STDIN','WPCLI_ERROR'])
+        oversized=b'PHP Fatal error: PRIVATE_SENTINEL\n'+b'X'*65536
+        error=qa.inventory_child_failure(b'',oversized,255)
+        self.assertEqual(error.category,'child_exit');self.assertIsNone(error.stderrMarkers)
+        mixed=qa.inventory_child_failure(b'PRIVATE_SENTINEL',warning+b'PHP Fatal error: PRIVATE_SENTINEL',255)
+        self.assertEqual(mixed.category,'child_exit');self.assertEqual(mixed.stderrMarkers,['PHP_FATAL','PHP_WARNING'])
+        for malformed in (['PRIVATE_SENTINEL'],['PHP_FATAL','PHP_FATAL'],['STDIN','PHP_FATAL'],[1],{},None):
+            self.assertIsNone(qa.Stop('child_exit',stderrMarkers=malformed).stderrMarkers)
+        self.assertIsNone(qa.Stop('PRIVATE_SENTINEL',stderrMarkers=['PHP_FATAL']).stderrMarkers)
+
+    def test_inventory_stderr_ansi_fatal_kinds_and_closed_marker_schema(self):
+        kinds=[(b'Call to undefined function PRIVATE_SENTINEL()', 'UNDEFINED_FUNCTION'),
+            (b'Class "PRIVATE_SENTINEL" not found', 'CLASS_NOT_FOUND'),
+            (b'Cannot redeclare PRIVATE_SENTINEL()', 'REDECLARE'),
+            (b'Undefined constant "PRIVATE_SENTINEL"', 'UNDEFINED_CONSTANT'),
+            (b'Uncaught TypeError: PRIVATE_SENTINEL', 'TYPE_ERROR'),
+            (b'Uncaught ArgumentCountError: PRIVATE_SENTINEL', 'ARGUMENT_COUNT_ERROR')]
+        for message,kind in kinds:
+            stderr=b'\x1b[33mPHP Warning: PRIVATE_SENTINEL\x1b[0m\n'+b'\x1b[31m[05-Oct-2026 08:00:00 UTC] PHP Fatal error: '+message+b'\x1b[0m\nStack trace:\n#0 PRIVATE_SENTINEL'
+            error=qa.inventory_child_failure(b'',stderr,255)
+            expected=sorted(['PHP_FATAL','PHP_WARNING',kind]+(['UNCAUGHT_ERROR'] if message.startswith(b'Uncaught ') else []))
+            self.assertEqual(error.category,'php_fatal_error');self.assertEqual(error.stderrMarkers,expected)
+            self.assertNotIn('PRIVATE_SENTINEL',str(error)+repr(error)+repr(vars(error)))
+        for message,kind in [(b'Error: Your PHP installation appears to be missing the MySQL extension PRIVATE_SENTINEL','MYSQL_EXTENSION_MISSING'),
+                (b'Error: WP-CLI requires PHP version 5.6 or newer. PRIVATE_SENTINEL','PHP_VERSION_REQUIREMENT')]:
+            error=qa.inventory_child_failure(b'',message,255)
+            self.assertEqual(error.category,'child_exit');self.assertEqual(error.stderrMarkers,sorted([kind,'WPCLI_ERROR']))
+        all_markers=sorted(qa.STDERR_MARKERS)
+        self.assertEqual(len(all_markers),16)
+        self.assertEqual(qa.Stop('child_exit',stderrMarkers=all_markers).stderrMarkers,all_markers)
+        for malformed in (all_markers+['STDIN'],tuple(all_markers),['PHP_FATAL',{}],['PHP_FATAL',False]):
+            self.assertIsNone(qa.Stop('child_exit',stderrMarkers=malformed).stderrMarkers)
+        sentinel=json.dumps({'schema':qa.PHP_FAILURE_SCHEMA,'step':'FILE_DIGEST','hookScope':'OTHER'}).encode()
+        error=qa.inventory_child_failure(sentinel,b'PHP Fatal error: PRIVATE_SENTINEL',255)
+        self.assertEqual(error.category,'php_file_digest');self.assertEqual(error.stderrMarkers,['PHP_FATAL'])
 
     def test_inventory_diagnostic_public_hook_ceiling_and_exact_program_syntax(self):
         owner=ast.parse(Path(qa.__file__).with_name('native_inventory_owner.py').read_text())

@@ -86,7 +86,13 @@ CHILD_ERROR_PATTERNS = (
     (rb'ssh: (?:Could not resolve hostname [ -~]+: (?:Name or service not known|Temporary failure in name resolution|nodename nor servname provided, or not known)|connect to host [ -~]+ port [0-9]+: (?:Connection refused|Connection timed out|No route to host))', 'ssh_transport_error'),
     (rb'Host key verification failed\.', 'ssh_transport_error'),
     (rb'(?:bash: line [0-9]+: |sh: [0-9]+: )?(?:wp|php): (?:command not found|not found)', 'shell_command_error'),
+    (rb'Error: There has been a critical error on this website\.[ -~]*', 'wp_cli_bootstrap_error'),
+    (rb'Error: (?:(?:Could not|Cannot|Unable to) (?:open|read|evaluate|eval) (?:the )?(?:input )?file|syntax error|Error reading (?:file|stdin))[ -~]*', 'wp_cli_command_error'),
 )
+STDERR_MARKERS = frozenset({'PHP_WARNING','PHP_FATAL','PHP_PARSE','WPCLI_ERROR',
+    'UNCAUGHT_ERROR','PERMISSION_DENIED','CONNECTION_CLOSED','STDIN',
+    'UNDEFINED_FUNCTION','CLASS_NOT_FOUND','REDECLARE','UNDEFINED_CONSTANT',
+    'TYPE_ERROR','ARGUMENT_COUNT_ERROR','MYSQL_EXTENSION_MISSING','PHP_VERSION_REQUIREMENT'})
 PHP_FAILURE_SCHEMA = 'ir.native.hook_inventory.failure.v1'
 PHP_FAILURE_CATEGORIES = {'HOOK_SHAPE':'php_hook_shape', 'CALLBACK_SHAPE':'php_callback_shape',
     'REFLECTION_FUNCTION':'php_reflection_function', 'REFLECTION_METHOD':'php_reflection_method',
@@ -136,11 +142,12 @@ def inventory_progress(gate, stage):
 
 class Stop(Exception):
     """Only fixed, non-sensitive failure categories can escape private transports."""
-    def __init__(self, category='private_operation_failed', *, hookScope=None, childExit=None):
+    def __init__(self, category='private_operation_failed', *, hookScope=None, childExit=None, stderrMarkers=None):
         if type(category) is not str or category not in STOP_CATEGORIES:
             category = 'private_operation_failed'
             hookScope = None
             childExit = None
+            stderrMarkers = None
         self.category = category
         self.hookScope = hookScope if type(hookScope) is str and hookScope in HOOK_SCOPES else None
         self.childExit = None
@@ -148,6 +155,11 @@ class Stop(Exception):
             type(childExit['exitCode']) is int and -255<=childExit['exitCode']<=255 and childExit['exitCode']!=0 and
             type(childExit['stdoutPresent']) is bool and type(childExit['stderrPresent']) is bool):
             self.childExit = dict(childExit)
+        self.stderrMarkers = None
+        if (type(stderrMarkers) is list and len(stderrMarkers)<=len(STDERR_MARKERS) and
+            all(type(m) is str and m in STDERR_MARKERS for m in stderrMarkers) and
+            stderrMarkers==sorted(set(stderrMarkers))):
+            self.stderrMarkers = list(stderrMarkers)
         super().__init__(category)
 
 
@@ -349,28 +361,63 @@ def inventory_failure(output):
         return None
 
 
+def inventory_stderr_markers(stderr):
+    """Scan complete bounded stderr for public fixed markers; retain no lines."""
+    if len(stderr)>65536:
+        return None, set()
+    markers=set();categories=set()
+    for raw_line in stderr.split(b'\n'):
+        line=re.sub(rb'\x1b\[[0-9;]*m',b'',raw_line.rstrip(b'\r'))
+        # PHP logging can prepend a timestamp; the prefix is discarded privately.
+        line=re.sub(rb'^\[[0-9]{2}-[A-Za-z]{3}-[0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2}(?: [A-Za-z0-9_+:/-]{1,32})?\] ',b'',line)
+        if re.match(rb'(?:PHP )?(?:Warning|Startup):',line):markers.add('PHP_WARNING')
+        if re.match(rb'(?:PHP )?Fatal error:',line):
+            markers.add('PHP_FATAL')
+        if re.match(rb'(?:PHP )?Parse error:',line):
+            markers.add('PHP_PARSE')
+        if line.startswith(b'Error:'):markers.add('WPCLI_ERROR')
+        # Finite kinds only: no captured function/class names or other text escapes.
+        if re.match(rb'(?:PHP )?Fatal error:',line):
+            for pattern,marker in (
+                (rb'\bCall to undefined function ', 'UNDEFINED_FUNCTION'),
+                (rb'\bClass [ -~]+ not found\b', 'CLASS_NOT_FOUND'),
+                (rb'\bCannot (?:redeclare|declare class) ', 'REDECLARE'),
+                (rb'\bUndefined constant ', 'UNDEFINED_CONSTANT'),
+                (rb'\bUncaught TypeError:', 'TYPE_ERROR'),
+                (rb'\bUncaught ArgumentCountError:', 'ARGUMENT_COUNT_ERROR')):
+                if re.search(pattern,line):markers.add(marker)
+        if re.match(rb'(?:Error: )?Your PHP installation appears to be missing the MySQL extension',line):
+            markers.add('MYSQL_EXTENSION_MISSING')
+        if re.match(rb'(?:Error: )?(?:WP-CLI requires PHP (?:version )?|Your server is running PHP version [0-9.]+ but WordPress [0-9.]+ requires at least )',line):
+            markers.add('PHP_VERSION_REQUIREMENT')
+        if re.search(rb'\bUncaught ',line):markers.add('UNCAUGHT_ERROR')
+        if re.search(rb'\bPermission denied\b',line,re.I):markers.add('PERMISSION_DENIED')
+        if re.search(rb'\bConnection (?:closed|reset)\b|\bBroken pipe\b',line,re.I):markers.add('CONNECTION_CLOSED')
+        if re.search(rb'/dev/stdin|\bstdin\b|\bstandard input\b',line,re.I):markers.add('STDIN')
+        for pattern,category in CHILD_ERROR_PATTERNS:
+            if re.fullmatch(pattern,line):categories.add(category)
+    return sorted(markers), categories
+
+
 def inventory_child_failure(stdout, stderr, returncode):
     """Closed message-shape categories, with private buffers discarded on exit."""
     diagnostic = inventory_failure(stdout)
+    markers,stderr_categories=inventory_stderr_markers(stderr)
     if diagnostic is None:
         category = 'child_exit'
-        # PHP stderr may contain a trace after its fixed leading error marker.
-        # Ambiguous two-stream output never gains a message category.
-        if bool(stdout) != bool(stderr):
-            raw = stdout or stderr
+        # Complete stderr lines tolerate preceding warnings/trace; ambiguity stays closed.
+        if not stdout and len(stderr_categories)==1:
+            category=next(iter(stderr_categories))
+        elif stdout and not stderr:
+            raw = stdout
             message = raw.rstrip(b'\r\n')
             if len(raw)<=4096:
-                if stderr and message.startswith((b'PHP Fatal error: ',b'Fatal error: ')):
-                    category='php_fatal_error'
-                elif stderr and message.startswith((b'PHP Parse error: ',b'Parse error: ')):
-                    category='php_parse_error'
-                else:
-                    for pattern, fixed_category in CHILD_ERROR_PATTERNS:
-                        if re.fullmatch(pattern,message):
-                            category=fixed_category;break
+                for pattern, fixed_category in CHILD_ERROR_PATTERNS:
+                    if re.fullmatch(pattern,message):
+                        category=fixed_category;break
         diagnostic = Stop(category)
     return Stop(diagnostic.category,hookScope=diagnostic.hookScope,childExit={
-        'exitCode':returncode,'stdoutPresent':bool(stdout),'stderrPresent':bool(stderr)})
+        'exitCode':returncode,'stdoutPresent':bool(stdout),'stderrPresent':bool(stderr)},stderrMarkers=markers)
 
 
 def private_capture(argv, data, budget, *, cap=65536, on_line=None, header_cap=None):

@@ -1,0 +1,1 @@
+echo json_encode(['schema'=>'ir.php.cli_metadata.v1','php82'=>(PHP_VERSION_ID>=80200&&PHP_VERSION_ID<80300),'mysqli'=>extension_loaded('mysqli'),'curl'=>extension_loaded('curl'),'openssl'=>extension_loaded('openssl'),'mbstring'=>extension_loaded('mbstring')]);

@@ -1,0 +1,1 @@
+{"aggregate":{"active_auth":1,"active_auth_latest_expires_at":"2026-10-05 07:15:47.901498+00","observed_at":"2026-10-05 07:15:20.122887+00"},"expiryIsNotRelease":true,"noControlsIssued":true,"project":"brxqytrfdisrgakrxkhd","reviewer":"/root/inventory_exact_admission_reviewer","schema":"ir.independent.auth_expiry.aggregate.v1"}
