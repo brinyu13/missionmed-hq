@@ -928,6 +928,10 @@ class Fixtures(unittest.TestCase):
         cases.append(('warning_stdin','INVENTORY_CAPTURE','wp_cli_command_error'))
         child_messages['unknown_stdin']=b'PHP Warning: PRIVATE_SENTINEL\nError: PRIVATE_SENTINEL stdin'
         cases.append(('unknown_stdin','INVENTORY_CAPTURE','child_exit'))
+        child_messages['unknown_stderr']=b'\xffPRIVATE_SENTINEL\x00'
+        cases.append(('unknown_stderr','INVENTORY_CAPTURE','child_exit'))
+        child_messages['formatted_ssh']=b' \t\x1b[31mssh: connect to host PRIVATE_SENTINEL port 22: Connection refused\x1b[0m\r'
+        cases.append(('formatted_ssh','INVENTORY_CAPTURE','ssh_transport_error'))
         for mode,stage,category in cases:
             with self.subTest(mode=mode),tempfile.TemporaryDirectory(prefix='ir-stage-fixture-') as tmp:
                 session=self.session('auth_inventory');session.directory=Path(tmp).resolve();trace=[];children=[]
@@ -982,6 +986,8 @@ class Fixtures(unittest.TestCase):
                 if nonzero:
                     expected['stderrMarkers']={'php_fatal_error':['PHP_FATAL'],'php_parse_error':['PHP_PARSE'],
                         'wp_cli_bootstrap_error':['WPCLI_ERROR'],'wp_cli_command_error':['STDIN','WPCLI_ERROR'],
+                        'ssh_transport_error':['SSH_MESSAGE'],'shell_command_error':['SHELL_MESSAGE'],
+                        'formatted_ssh':['SSH_MESSAGE'],'unknown_stderr':['STDERR_UNCLASSIFIED'],
                         'warning_stdin':['PHP_WARNING','STDIN','WPCLI_ERROR'],
                         'unknown_stdin':['PHP_WARNING','STDIN','WPCLI_ERROR']}.get(mode,[])
                 self.assertEqual(receipt,expected)

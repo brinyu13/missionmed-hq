@@ -404,13 +404,36 @@ class Fixtures(unittest.TestCase):
             error=qa.inventory_child_failure(b'',message,255)
             self.assertEqual(error.category,'child_exit');self.assertEqual(error.stderrMarkers,sorted([kind,'WPCLI_ERROR']))
         all_markers=sorted(qa.STDERR_MARKERS)
-        self.assertEqual(len(all_markers),16)
+        self.assertEqual(len(all_markers),21)
         self.assertEqual(qa.Stop('child_exit',stderrMarkers=all_markers).stderrMarkers,all_markers)
         for malformed in (all_markers+['STDIN'],tuple(all_markers),['PHP_FATAL',{}],['PHP_FATAL',False]):
             self.assertIsNone(qa.Stop('child_exit',stderrMarkers=malformed).stderrMarkers)
         sentinel=json.dumps({'schema':qa.PHP_FAILURE_SCHEMA,'step':'FILE_DIGEST','hookScope':'OTHER'}).encode()
         error=qa.inventory_child_failure(sentinel,b'PHP Fatal error: PRIVATE_SENTINEL',255)
         self.assertEqual(error.category,'php_file_digest');self.assertEqual(error.stderrMarkers,['PHP_FATAL'])
+
+    def test_inventory_stderr_fixed_families_normalization_and_unknown(self):
+        cases=[(b' \t\x1b[31mssh: connect to host PRIVATE_SENTINEL port 22: Connection refused\x1b[0m\r', 'ssh_transport_error',['SSH_MESSAGE']),
+            (b'\rkex_exchange_identification: Connection closed by remote host','ssh_transport_error',['CONNECTION_CLOSED','SSH_MESSAGE']),
+            (b'  sh: 1: wp: not found','shell_command_error',['SHELL_MESSAGE']),
+            (b'\tWarning: PRIVATE_SENTINEL','child_exit',['PHP_WARNING','WPCLI_WARNING']),
+            (b'  PHP Notice: PRIVATE_SENTINEL','child_exit',['PHP_NOTICE']),
+            (b' \t[05-Oct-2026 08:00:00 UTC] PHP Fatal error: PRIVATE_SENTINEL','php_fatal_error',['PHP_FATAL'])]
+        cases.extend([(b'Host key verification failed.','ssh_transport_error',['SSH_MESSAGE']),
+            (b'client_loop: send disconnect: Broken pipe','ssh_transport_error',['CONNECTION_CLOSED','SSH_MESSAGE'])])
+        for raw in (b'PRIVATE_SENTINEL',b'\xffPRIVATE_SENTINEL',
+                b'\x1b[2JPHP Fatal error: PRIVATE_SENTINEL',b'\x01Error: PRIVATE_SENTINEL',b' '*65536):
+            cases.append((raw,'child_exit',['STDERR_UNCLASSIFIED']))
+        cases.extend((raw,'child_exit',['PHP_FATAL']) for raw in (b'PHP Fatal error: PRIVATE_SENTINEL\x00',b'PHP Fatal error: PRIVATE_SENTINEL\xff',b'PHP Fatal error: PRIVATE_SENTINEL\xe2\x98\x83'))
+        for raw,category,markers in cases:
+            error=qa.inventory_child_failure(b'',raw,255)
+            self.assertEqual(error.category,category);self.assertEqual(error.stderrMarkers,markers)
+            self.assertNotIn('PRIVATE_SENTINEL',json.dumps(vars(error))+str(error)+repr(error))
+        error=qa.inventory_child_failure(b'',b'X'*65537,255)
+        self.assertEqual(error.category,'child_exit');self.assertIsNone(error.stderrMarkers)
+        # Mixed stdout cannot promote a stderr family into a causal category.
+        error=qa.inventory_child_failure(b'PRIVATE_SENTINEL',cases[0][0],255)
+        self.assertEqual(error.category,'child_exit');self.assertEqual(error.stderrMarkers,['SSH_MESSAGE'])
 
     def test_inventory_diagnostic_public_hook_ceiling_and_exact_program_syntax(self):
         owner=ast.parse(Path(qa.__file__).with_name('native_inventory_owner.py').read_text())

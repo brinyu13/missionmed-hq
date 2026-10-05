@@ -85,6 +85,7 @@ CHILD_ERROR_PATTERNS = (
     (rb"Error: (?:The file '/dev/stdin' doesn't exist\.|'eval-file' is not a registered wp command\.[ -~]*)", 'wp_cli_command_error'),
     (rb'ssh: (?:Could not resolve hostname [ -~]+: (?:Name or service not known|Temporary failure in name resolution|nodename nor servname provided, or not known)|connect to host [ -~]+ port [0-9]+: (?:Connection refused|Connection timed out|No route to host))', 'ssh_transport_error'),
     (rb'Host key verification failed\.', 'ssh_transport_error'),
+    (rb'(?:kex_exchange_identification: (?:Connection closed by remote host|read: Connection reset by peer)|client_loop: send disconnect: Broken pipe)', 'ssh_transport_error'),
     (rb'(?:bash: line [0-9]+: |sh: [0-9]+: )?(?:wp|php): (?:command not found|not found)', 'shell_command_error'),
     (rb'Error: There has been a critical error on this website\.[ -~]*', 'wp_cli_bootstrap_error'),
     (rb'Error: (?:(?:Could not|Cannot|Unable to) (?:open|read|evaluate|eval) (?:the )?(?:input )?file|syntax error|Error reading (?:file|stdin))[ -~]*', 'wp_cli_command_error'),
@@ -92,7 +93,8 @@ CHILD_ERROR_PATTERNS = (
 STDERR_MARKERS = frozenset({'PHP_WARNING','PHP_FATAL','PHP_PARSE','WPCLI_ERROR',
     'UNCAUGHT_ERROR','PERMISSION_DENIED','CONNECTION_CLOSED','STDIN',
     'UNDEFINED_FUNCTION','CLASS_NOT_FOUND','REDECLARE','UNDEFINED_CONSTANT',
-    'TYPE_ERROR','ARGUMENT_COUNT_ERROR','MYSQL_EXTENSION_MISSING','PHP_VERSION_REQUIREMENT'})
+    'TYPE_ERROR','ARGUMENT_COUNT_ERROR','MYSQL_EXTENSION_MISSING','PHP_VERSION_REQUIREMENT',
+    'SSH_MESSAGE','SHELL_MESSAGE','WPCLI_WARNING','PHP_NOTICE','STDERR_UNCLASSIFIED'})
 PHP_FAILURE_SCHEMA = 'ir.native.hook_inventory.failure.v1'
 PHP_FAILURE_CATEGORIES = {'HOOK_SHAPE':'php_hook_shape', 'CALLBACK_SHAPE':'php_callback_shape',
     'REFLECTION_FUNCTION':'php_reflection_function', 'REFLECTION_METHOD':'php_reflection_method',
@@ -367,15 +369,23 @@ def inventory_stderr_markers(stderr):
         return None, set()
     markers=set();categories=set()
     for raw_line in stderr.split(b'\n'):
-        line=re.sub(rb'\x1b\[[0-9;]*m',b'',raw_line.rstrip(b'\r'))
+        line=re.sub(rb'\x1b\[[0-9;]*m',b'',raw_line.rstrip(b'\r')).lstrip(b' \t\r')
         # PHP logging can prepend a timestamp; the prefix is discarded privately.
         line=re.sub(rb'^\[[0-9]{2}-[A-Za-z]{3}-[0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2}(?: [A-Za-z0-9_+:/-]{1,32})?\] ',b'',line)
+        line=line.lstrip(b' \t\r')
+        if re.match(rb'(?:ssh: |kex_exchange_identification: |client_loop: )',line) or line==b'Host key verification failed.':markers.add('SSH_MESSAGE')
+        if re.match(rb'(?:bash: (?:line [0-9]+: )?|sh: [0-9]+: |zsh: )',line) or re.fullmatch(rb'(?:wp|php): (?:command not found|not found)',line):markers.add('SHELL_MESSAGE')
+        if line.startswith(b'Warning:'):markers.add('WPCLI_WARNING')
+        if re.match(rb'(?:PHP )?(?:Notice|Deprecated):',line):markers.add('PHP_NOTICE')
         if re.match(rb'(?:PHP )?(?:Warning|Startup):',line):markers.add('PHP_WARNING')
         if re.match(rb'(?:PHP )?Fatal error:',line):
             markers.add('PHP_FATAL')
         if re.match(rb'(?:PHP )?Parse error:',line):
             markers.add('PHP_PARSE')
         if line.startswith(b'Error:'):markers.add('WPCLI_ERROR')
+        # Fixed ASCII prefixes can identify a family despite an opaque tail;
+        # unsupported controls/encoding never promote that tail to a category/kind.
+        if any(byte<32 or byte>126 for byte in line):continue
         # Finite kinds only: no captured function/class names or other text escapes.
         if re.match(rb'(?:PHP )?Fatal error:',line):
             for pattern,marker in (
@@ -396,6 +406,7 @@ def inventory_stderr_markers(stderr):
         if re.search(rb'/dev/stdin|\bstdin\b|\bstandard input\b',line,re.I):markers.add('STDIN')
         for pattern,category in CHILD_ERROR_PATTERNS:
             if re.fullmatch(pattern,line):categories.add(category)
+    if stderr and not markers:markers.add('STDERR_UNCLASSIFIED')
     return sorted(markers), categories
 
 
