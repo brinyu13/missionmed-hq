@@ -5,7 +5,7 @@ Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`, `DR-350` (narrow packaging), `DR-361` (current RISE eligibility successor); `DR-340` QA grant revoked
 Branch: `codex/ivoc-foreman-9200`
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
-Current continuation boundary: `ONE FOUNDER LEMONSLICE CANARY AUTHORIZED — USD1 / 45s / NO RETRY; NO FOUNDER RETEST`
+Current continuation boundary: `SINGLE CANARY FAILED BEFORE LEMONSLICE CREATE — NO PAID RETRY; NO-SPEND RECEIVER FIX / FAIL-SAFE VERIFY`
 
 This is the one living requirement ledger required by the final Founder
 completion directive. A status of `LIVE UNVERIFIED` means the capability is
@@ -15,6 +15,30 @@ the actual production route and deployment.
 ## Foreman 9300 overnight reactivation — current dated evidence
 
 ### Current Fable-to-production convergence — 2026-10-03
+
+- 2026-10-04 SINGLE LEMONSLICE CANARY / FAIL — NO PAID RETRY:
+  Founder brinyu wp:1/Admin normal Home ->Mock5 ->Ready, checkbox opt-in,
+  real visible1280x720 FaceTime camera and connected built-in microphone. One
+  Start only on canary-enabled881bb92a / source9594dcb / image
+  sha256:f99a07087acae1204fcdaf6c310051840818976c8545a8154d8da1b10c1e69a1.
+  Failed before the avatar start request: Window.fetch Illegal invocation.
+  Root cause: renderer stored native fetch then called it as an instance method,
+  passing the wrong receiver. Canonical93d2ed24 is abandoned; provider reservation
+  NULL. Actual network has ZERO embodiment start requests. Founder manager status
+  404; provider GET200 pagination.total1 unchanged, only historical5546fbb6 COMPLETED.
+  No new LemonSlice session/room, no active orphan, LemonSlice incremental spendUSD0.
+  GPT-Live native create201 ->end200 within0.548s of response timestamps;
+  native usage is bounded belowUSD0.01, not an invoice-derived exact cost. No
+  speech/visible avatar/lip-sync/barge-in/resume/two-sided replay accepted.
+  Failed setup abandons its unsaved recording; Leave releases capture. Screenshot
+  /tmp/ivoc-embodiment.OEIqG8/canary-failed.jpg. Paid flag set OFF immediately;
+  no second attempt, UUID rotation, account upgrade or student expansion.
+  No-spend correction: bind fetch to its Window/global receiver; regression
+  checks GET/POST credentials and CSRF preservation.15 focused checks PASS.
+  Fresh exact renderer/test PATH4858/4859 heartbeat readback before source repair;
+  PRODUCT4855 / SHARED4856 remain maintained. Deploy corrected source provider-OFF,
+  verify the real Chrome receiver using config GET only, file remote readback and
+  release normally. Independent reviewer assigned. No paid retry during this run.
 
 - 2026-10-04 DIRECT FOUNDER NUMERIC CANARY AUTHORIZATION:
   Supersedes only the prior LemonSlice spend pause for ONE Founder wp:1 session,

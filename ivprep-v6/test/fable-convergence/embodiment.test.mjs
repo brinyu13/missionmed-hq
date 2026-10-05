@@ -1,9 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {readFile} from 'node:fs/promises';
-import {EmbodimentCommandQueue,PcmBatcher} from '../../public/capabilities/embodiment-renderer.mjs';
+import {EmbodimentCommandQueue,PcmBatcher,EmbodimentRenderer} from '../../public/capabilities/embodiment-renderer.mjs';
 import {LiveInterviewSession} from '../../public/capabilities/live-interview.mjs';
 const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};};
+test('browser fetch keeps its Window/global receiver, not the renderer instance',async()=>{
+  const requests=[];
+  const renderer=new EmbodimentRenderer({csrfToken:'test-csrf',sessionId:'canonical',AudioContextCtor:class {},
+    fetchImpl:async function(url,options){assert.equal(this,globalThis,'Window.fetch rejects an EmbodimentRenderer receiver');requests.push({url,options});return {ok:true,json:async()=>({available:false})};}});
+  assert.deepEqual(await renderer.api(''),{available:false});
+  await renderer.api('/command',{sessionId:'canonical',command:'terminate'});
+  assert.equal(requests[0].options.method,'GET');assert.equal(requests[0].options.credentials,'same-origin');
+  assert.equal(requests[1].options.method,'POST');assert.equal(requests[1].options.headers['X-MMHQ-CSRF'],'test-csrf');
+});
 test('bounded PCM batches preserve quiet speech and all 480ms of a pause, clearing only explicit interruption',()=>{
   const emitted=[];const batcher=new PcmBatcher(bytes=>emitted.push(new Int16Array(bytes)));
   const frames=Array.from({length:6},(_,i)=>new Int16Array(1280).fill(i===0?1:0));

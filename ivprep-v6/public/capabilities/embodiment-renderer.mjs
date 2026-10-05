@@ -37,7 +37,7 @@ async function loadLiveKit(){
 const encode=buffer=>{const bytes=new Uint8Array(buffer);let text='';for(const byte of bytes)text+=String.fromCharCode(byte);return btoa(text);};
 export class EmbodimentRenderer {
   constructor({host,csrfToken,sessionId,AudioContextCtor=window.AudioContext,loadSdk=loadLiveKit,fetchImpl=fetch,onFailure=()=>{}}={}){
-    this.host=host;this.csrfToken=csrfToken;this.sessionId=sessionId;this.AC=AudioContextCtor;this.loadSdk=loadSdk;this.fetch=fetchImpl;this.onFailure=onFailure;
+    this.host=host;this.csrfToken=csrfToken;this.sessionId=sessionId;this.AC=AudioContextCtor;this.loadSdk=loadSdk;this.fetch=fetchImpl.bind(globalThis);this.onFailure=onFailure;
     this.closed=false;this.generation=0;this.sequence=0;this.ticket=null;this.cleanup=null;this.sources=[];this.holds=false;this.speaking=false;this.silentMs=0;
   }
   async api(command,body=null,{keepalive=false}={}){
