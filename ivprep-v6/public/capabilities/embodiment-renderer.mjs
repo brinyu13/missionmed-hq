@@ -81,7 +81,12 @@ export class EmbodimentRenderer {
       headers:{Accept:'application/json',...(body?{'Content-Type':'application/json','X-MMHQ-CSRF':this.csrfToken}:{})},
       body:body?JSON.stringify(body):undefined,signal:keepalive?undefined:this.timeoutSignal(command==='/start'?EMBODIMENT_START_TIMEOUT_MS:5000)});}
     catch(error){const category=error?.name==='TimeoutError'?'CLIENT_TIMEOUT':error?.name==='AbortError'?'CLIENT_ABORT':'CLIENT_NETWORK';throw Object.assign(stageError(category,'IVOC_CLIENT'),{diagnostics:{category,boundary:'IVOC_CLIENT',startedAtMs,elapsedMs:Date.now()-startedAtMs}});}
-    const result=await response.json().catch(()=>({}));
+    let result;
+    try{result=await response.json();}
+    catch(error){
+      const category=error?.name==='TimeoutError'?'CLIENT_TIMEOUT':error?.name==='AbortError'?'CLIENT_ABORT':'HQ_RESPONSE_INVALID';
+      throw Object.assign(stageError(category,'IVOC_CLIENT'),{diagnostics:{category,boundary:'IVOC_CLIENT',httpStatus:response.status,startedAtMs,elapsedMs:Date.now()-startedAtMs}});
+    }
     if(!response.ok){const category=[401,403].includes(response.status)?'HQ_AUTH_FAILURE':response.status<500?'HQ_VALIDATION_FAILURE':'HQ_FAILURE';
       throw Object.assign(stageError(category,'IVOC_SERVER'),{diagnostics:result.diagnostics||{category,boundary:'IVOC_SERVER',httpStatus:response.status,startedAtMs,elapsedMs:Date.now()-startedAtMs}});}
     return result;

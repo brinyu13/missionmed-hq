@@ -41,6 +41,12 @@ test('browser fetch keeps its Window/global receiver, not the renderer instance'
   assert.equal(requests[0].options.method,'GET');assert.equal(requests[0].options.credentials,'same-origin');
   assert.equal(requests[1].options.method,'POST');assert.equal(requests[1].options.headers['X-MMHQ-CSRF'],'test-csrf');
 });
+test('client response-body timeout/cancel is not swallowed as a successful empty ticket',async()=>{
+  for(const [name,category] of [['TimeoutError','CLIENT_TIMEOUT'],['AbortError','CLIENT_ABORT'],['SyntaxError','HQ_RESPONSE_INVALID']]){
+    const renderer=new EmbodimentRenderer({AudioContextCtor:class {},fetchImpl:async()=>({ok:true,status:200,json:async()=>{throw Object.assign(new Error('PRIVATE_BODY'),{name});}})});
+    await assert.rejects(renderer.api('/start',{}),e=>e.diagnostics.category===category&&!e.message.includes('PRIVATE_BODY'));
+  }
+});
 test('start has a bounded orchestration timeout; commands remain short and no retry is issued',async()=>{
   const timeouts=[],calls=[];
   const renderer=new EmbodimentRenderer({AudioContextCtor:class {},sessionId:'canonical',

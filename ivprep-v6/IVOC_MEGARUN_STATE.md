@@ -5,7 +5,7 @@ Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`, `DR-350` (narrow packaging), `DR-361` (current RISE eligibility successor); `DR-340` QA grant revoked
 Branch: `codex/ivoc-foreman-9200`
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
-Current continuation boundary: `FORENSIC LIFECYCLE RECOVERY; 33 FOCUSED CHECKS PASS; INDEPENDENT REVIEW/PROVIDER-OFF RELEASE PENDING; CANARY #3 NOT AUTHORIZED`
+Current continuation boundary: `FORENSIC LIFECYCLE RECOVERY; 34 FOCUSED CHECKS PASS; PROVIDER-OFF RELEASE/INDEPENDENT GET PENDING; CANARY #3 NOT AUTHORIZED`
 
 This is the one living requirement ledger required by the final Founder
 completion directive. A status of `LIVE UNVERIFIED` means the capability is
@@ -43,15 +43,19 @@ the actual production route and deployment.
   Client/server transitions expose owner/start/completion/evidence/cleanup.
   Safe upstream HTTP status/category/timing/response class survives HQ502;
   JSON timeout vs cancel and socket-cleanup failure retain original diagnostics.
-  Pending GPT-start cancellation now settles its ontrack wait.33 focused tests
+  Client response-body timeout/cancel is not swallowed as an empty ticket.
+  Pending GPT-start cancellation now settles its ontrack wait.34 focused tests
   PASS, including integrated decoded-frame/single tap and fail-closed flush.
   Canary2: NO PROVIDER SESSION CREATED; whether an HTTP request crossed the
   provider network boundary remains UNKNOWN. No paid request this recovery.
-  Keeper claims5016–5019 and5026–5029 lost renewal; mutation paused, release
+  Keeper claims5016–5019,5026–5029 and5035–5038 lost renewal; mutation paused, release
   attempted but denied, expiry verified (NOT normal-release proof). Safe HTTP/
   denial instrumentation added to temporary keeper; no OS tooling/TTL/fencing
-  bypass. Fresh5035–5038 heartbeat advances remotely; deployment remains
-  provider-OFF7855a10b/4822250 until independently reviewed candidate passes.
+  bypass.5035–5038 captured DNS gaierror, not fencing denial. Temporary keeper
+  now caches only approved DNS answers <=300s with hostname/SNI/certificate
+  verification intact; expired cache fails closed. Fresh5041–5044 heartbeat
+  advances remotely.853eff9 independently reviewed33/33; final client-body
+  correction/release follows. No provider flag, consumed UUID or key changed.
   CANARY3 NOT AUTHORIZED; actual avatar/sync/audio/flush/replay remain UNVERIFIED.
 
 - 2026-10-04 CANARY #2 REPAIR LIVE / NO PAID RETRY:
