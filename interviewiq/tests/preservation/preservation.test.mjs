@@ -116,10 +116,11 @@ try {
  await check('LOI-compatibility','Preparation saves retain unknown and approved LOI anchors without Calendar changes',async()=>{
   const anchors=[null,'legacy',{type:'iiq.loi.revision',schemaVersion:1,state:'approved',text:'Synthetic exact approved letter',revisionId:randomUUID()},{type:'iiq.loi.revision',schemaVersion:99,unknown:'retain'}];
   await database.withActor(A,c=>c.query('INSERT INTO iiq.preparation(owner_id,interview_id,anchors) VALUES($1,$2,$3::jsonb) ON CONFLICT(interview_id) DO UPDATE SET anchors=EXCLUDED.anchors',[A.id,primary,JSON.stringify(anchors)]),{write:true});
+  const calendarBefore={interviews:await rows('iiq.interviews'),events:await rows('iiq.related_events'),history:await rows('iiq.interview_history')};
   const full=createCommands({database,owners:{context:async()=>({})},config:{...config,coreOnly:false}}),v=(await full.bootstrap(A)).version;
   await full.execute(A,{command:'prep.save',interviewId:primary,data:{why:{text:'Synthetic subsequent Why Program',edited:true},questions:'Synthetic retained question'},expectedVersion:v,requestId:randomUUID()});
   assert.deepEqual((await database.withActor(A,c=>c.query('SELECT anchors FROM iiq.preparation WHERE owner_id=$1 AND interview_id=$2',[A.id,primary]))).rows[0].anchors,anchors);
-  assert.deepEqual(await rows('iiq.related_events'),before.events);assert.deepEqual(await rows('iiq.interview_history'),before.history);
+  assert.deepEqual(await rows('iiq.interviews'),calendarBefore.interviews);assert.deepEqual(await rows('iiq.related_events'),calendarBefore.events);assert.deepEqual(await rows('iiq.interview_history'),calendarBefore.history);
  });
  await check('runtime-guard','DELETE privilege drift is refused and restored',async()=>{try{await db.query('GRANT DELETE ON iiq.interviews TO iiq_authenticated');await assert.rejects(database.verifyRuntimeRole(),e=>e.code==='unsafe_database_custody');}finally{await db.query('REVOKE DELETE ON iiq.interviews FROM iiq_authenticated');}assert.equal(await database.verifyRuntimeRole(),true);});
 }catch(error){failed=error;console.error(error.stack||error.message);}
