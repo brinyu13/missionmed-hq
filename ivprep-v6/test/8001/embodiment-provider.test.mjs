@@ -96,19 +96,75 @@ test('reservation delay cannot move the 45-second deadline or reach paid creatio
 test('startup receipts distinguish pre-provider LiveKit failure from an unknown provider-create outcome',async()=>{
   const failure=()=>Object.assign(new Error('private-provider-detail'),{name:'TimeoutError'});
   const room=harness({livekitFactory:async()=>({roomService:{createRoom:async()=>{throw failure();},deleteRoom:async()=>{}}})});
-  await assert.rejects(room.manager.start({actor:'wp:1',sessionId:ID}),/private-provider-detail/);
+  await assert.rejects(room.manager.start({actor:'wp:1',sessionId:ID}),/ivoc_embodiment_start_failed/);
   const before=room.manager.status({actor:'wp:1',sessionId:ID});
-  assert.deepEqual(before.failure,{boundary:'LIVEKIT',code:'TIMEOUT',httpStatus:null});
+  assert.equal(before.failure.boundary,'LIVEKIT');assert.equal(before.failure.category,'LIVEKIT_TIMEOUT');assert.equal(before.failure.httpStatus,null);
   assert.equal(before.providerCreateAttempted,false);assert.equal(room.calls.some(c=>c.body?.transport_type),false);
   const timeouts=[];
   const provider=harness({timeoutSignal:ms=>{timeouts.push(ms);return new AbortController().signal;},fetchImpl:async()=>{throw failure();}});
-  await assert.rejects(provider.manager.start({actor:'wp:1',sessionId:ID}),/private-provider-detail/);
+  await assert.rejects(provider.manager.start({actor:'wp:1',sessionId:ID}),/ivoc_embodiment_provider_unavailable/);
   const after=provider.manager.status({actor:'wp:1',sessionId:ID});
-  assert.deepEqual(after.failure,{boundary:'LEMONSLICE_API',code:'TIMEOUT',httpStatus:null});
+  assert.equal(after.failure.boundary,'LEMONSLICE_API');assert.equal(after.failure.category,'PROVIDER_TIMEOUT');assert.equal(after.failure.httpStatus,null);
   assert.equal(after.providerCreateAttempted,true);assert.equal(after.providerSessionId,null);
   assert.equal(EMBODIMENT_CREATE_TIMEOUT_MS,15000);assert.deepEqual(timeouts,[15000]);
   assert.equal(JSON.stringify(after).includes('private-provider-detail'),false);
   await assert.rejects(provider.manager.start({actor:'wp:1',sessionId:ID}),/consumed/);
+});
+test('provider HTTP category/status and timing survive without reading a private response body',async()=>{
+  for(const status of [400,401,402,403,429,500,503]){
+    let h,bodyRead=false;
+    h=harness({fetchImpl:async()=>{h.advance(321);return {ok:false,status,headers:{get:()=> 'application/json'},json:async()=>{bodyRead=true;return {secret:'MUST_NOT_ESCAPE'};}};}});
+    await assert.rejects(h.manager.start({actor:'wp:1',sessionId:ID}),error=>{
+      assert.equal(error.status,502);assert.equal(error.diagnostics.httpStatus,status);assert.equal(error.diagnostics.category,status>=500?'PROVIDER_HTTP_5XX':'PROVIDER_HTTP_4XX');return true;
+    });
+    const failure=h.manager.status({actor:'wp:1',sessionId:ID}).failure;
+    assert.equal(failure.elapsedMs,321);assert.equal(failure.responseClass,'JSON');assert.equal(bodyRead,false);
+    assert.equal(JSON.stringify(h.receipts).includes('MUST_NOT_ESCAPE'),false);
+    await assert.rejects(h.manager.start({actor:'wp:1',sessionId:ID}),/consumed/);
+  }
+});
+test('provider timeout, explicit cancellation, DNS and network faults remain distinct and secret-free',async()=>{
+  for(const [name,code,category] of [['TimeoutError',null,'PROVIDER_TIMEOUT'],['AbortError',null,'PROVIDER_CANCELLED'],['TypeError','ENOTFOUND','PROVIDER_DNS'],['TypeError','ECONNRESET','PROVIDER_NETWORK']]){
+    const h=harness({fetchImpl:async()=>{throw Object.assign(new Error('PRIVATE_TOKEN_AND_URL'),{name,cause:{code}});}});
+    await assert.rejects(h.manager.start({actor:'wp:1',sessionId:ID}),e=>e.diagnostics.category===category);
+    const evidence=h.manager.status({actor:'wp:1',sessionId:ID});assert.equal(evidence.providerCreateAttempted,true);assert.equal(evidence.providerSessionId,null);
+    assert.equal(JSON.stringify(evidence).includes('PRIVATE_TOKEN_AND_URL'),false);
+  }
+});
+test('server transport readiness never claims decoded avatar readiness, and teardown retains stage evidence',async()=>{
+  const h=harness(),ticket=await h.manager.start({actor:'wp:1',sessionId:ID});
+  const status=h.manager.status({actor:'wp:1',sessionId:ID});assert.equal(status.boundary,'TRANSPORT_READY');
+  assert.ok(status.transitions.some(r=>r.state==='EMBODIMENT_SESSION_CREATED'));
+  assert.ok(status.transitions.every(r=>r.owner&&Number.isFinite(r.startedAtMs)&&r.cleanup==='EXACT_SESSION_AND_ROOM'));
+  assert.equal(status.transitions.some(r=>r.state==='EMBODIMENT_READY'),false);
+  await h.manager.command({actor:'wp:1',sessionId:ID,id:ticket.id,command:'terminate'});
+  assert.deepEqual(h.receipts[0].transitions,status.transitions);
+});
+test('timeouts and cancellation while consuming provider JSON retain the original boundary',async()=>{
+  for(const [name,category] of [['TimeoutError','PROVIDER_TIMEOUT'],['AbortError','PROVIDER_CANCELLED']]){
+    const h=harness({fetchImpl:async()=>({ok:true,status:200,headers:{get:()=> 'application/json'},json:async()=>{throw Object.assign(new Error('PRIVATE_BODY'),{name});}})});
+    await assert.rejects(h.manager.start({actor:'wp:1',sessionId:ID}),e=>e.diagnostics.category===category&&e.diagnostics.httpStatus===200);
+    assert.equal(h.receipts.at(-1).failure.category,category);assert.equal(JSON.stringify(h.receipts).includes('PRIVATE_BODY'),false);
+  }
+});
+test('socket failure retains transport diagnostics in durable cleanup rather than becoming cancellation',async()=>{
+  const receipts=[];
+  class Broken extends EventEmitter{readyState=0;constructor(){super();queueMicrotask(()=>this.emit('error',new Error('PRIVATE_SOCKET')));}close(){this.readyState=3;}}
+  const h=harness({socketFactory:()=>new Broken(),recordReceipt:async(_,receipt)=>receipts.push(JSON.parse(JSON.stringify(receipt)))});
+  await assert.rejects(h.manager.start({actor:'wp:1',sessionId:ID}),e=>e.diagnostics.category==='AUDIO_TRANSPORT_FAILURE');
+  assert.equal(receipts.at(-1).failure.category,'AUDIO_TRANSPORT_FAILURE');assert.equal(receipts.at(-1).failure.boundary,'AUDIO_TRANSPORT');
+  assert.equal(JSON.stringify(receipts).includes('PRIVATE_SOCKET'),false);assert.equal(h.calls.filter(c=>c.body?.transport_type).length,1);
+  await assert.rejects(h.manager.start({actor:'wp:1',sessionId:ID}),/consumed/);
+});
+test('unconfirmed interrupt fails closed; no new generation resumes and no second provider create occurs',async()=>{
+  class NoAck extends EventEmitter{readyState=1;bufferedAmount=0;constructor(){super();queueMicrotask(()=>this.emit('open'));}send(){}close(){this.readyState=3;}}
+  const h=harness({socketFactory:()=>new NoAck()}),ticket=await h.manager.start({actor:'wp:1',sessionId:ID});
+  const command=body=>h.manager.command({actor:'wp:1',sessionId:ID,id:ticket.id,...body});
+  await command({command:'audio',generation:1,sequence:1,audio:'AAA='});
+  const interrupt=command({command:'interrupt',generation:2,sequence:2});
+  h.timers.find(t=>t.ms===1500).callback();await assert.rejects(interrupt,/flush_unconfirmed/);
+  await assert.rejects(command({command:'audio',generation:2,sequence:3,audio:'AAA='}),/stopped/);
+  assert.equal(h.calls.filter(c=>c.body?.transport_type).length,1);
 });
 test('late LiveKit room creation after cancellation is deleted without reaching paid creation',async()=>{
   let resolveRoom,exists=false;const deletions=[];

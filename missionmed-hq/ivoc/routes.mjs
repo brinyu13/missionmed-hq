@@ -15,7 +15,7 @@ import { createRiseProgramProjectionSource } from './rise-projection.mjs';
 import { createIvocRepository } from './repository.mjs';
 import { readLiveTranscriptReview } from './live-transcript-review.mjs';
 import { createIvocStorage } from './storage.mjs';
-import {createEmbodimentCanary} from '../../ivprep-v6/server/providers/lemonslice-embodiment.mjs';
+import {createEmbodimentCanary,publicEmbodimentFailure} from '../../ivprep-v6/server/providers/lemonslice-embodiment.mjs';
 import { allocateCandidateCapture, isCandidateAudio, isConversationRecording, publicCaptureReceipt, recordingSealTimebase, sealCandidateCapture } from './candidate-audio.mjs';
 import { rebuildSelfPracticeAnswerSource, packageSelfPracticeAnalysis, projectSelfPracticeAnalysis } from './self-practice-analysis.mjs';
 import {
@@ -973,8 +973,11 @@ export function createIvocHandler({
       if(claimed?.context?.embodimentReservation?.attemptId!==attemptId)
         throw Object.assign(new Error('ivoc_embodiment_canary_consumed'),{status:409});
     },
-    recordReceipt:async (sessionId,receipt)=>audit({actor:'wp:1',owner:'wp:1',sessionId,
-      action:'embodiment_canary_stop',decision:receipt.providerConfirmed?'allow':'deny',reason:receipt.providerConfirmed?'provider_terminal':'termination_unconfirmed'}),
+    recordReceipt:async (sessionId,receipt)=>{
+      console.info(JSON.stringify({event:'ivoc_embodiment_stop',sessionId,...receipt})); // controller's closed, non-secret receipt schema
+      return audit({actor:'wp:1',owner:'wp:1',sessionId,
+        action:'embodiment_canary_stop',decision:receipt.providerConfirmed?'allow':'deny',reason:receipt.providerConfirmed?'provider_terminal':'termination_unconfirmed'});
+    },
   });
   const enabled = bool(env.IVPREP_ENABLED) && bool(env.IVPREP_ADMIN_CANARY_ENABLED);
   const contextEnabled = bool(env.IVOC_CONTEXT_CANDIDATE_ENABLED);
@@ -2047,10 +2050,11 @@ export function createIvocHandler({
       sendError(response, 404, 'not_found', mediaBase); return true;
     } catch (error) {
       const status = Number(error?.status) || (error instanceof SyntaxError ? 400 : 500);
+      const diagnostics=pathname.startsWith(`${API_PREFIX}/admin/embodiment-canary`)?publicEmbodimentFailure(error?.diagnostics):null;
       const code = status >= 500 ? 'ivoc_internal_error' : safeText(error?.message, 100) || 'ivoc_request_failed';
       const requestId = randomUUID();
       console.error(JSON.stringify({ event: 'ivoc_request_error', requestId, path: pathname, code, detailHash: createHash('sha256').update(String(error?.detail || '')).digest('hex').slice(0, 16) }));
-      sendJson(response, status, { error: code, requestId }, mediaBase); return true;
+      sendJson(response, status, { error: diagnostics?'ivoc_embodiment_start_failed':code, requestId,...(diagnostics?{diagnostics}:{}) }, mediaBase); return true;
     }
   };
 }

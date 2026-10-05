@@ -1,11 +1,11 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-10-04 America/New_York
+Updated: 2026-10-05 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`, `DR-350` (narrow packaging), `DR-361` (current RISE eligibility successor); `DR-340` QA grant revoked
 Branch: `codex/ivoc-foreman-9200`
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
-Current continuation boundary: `CANARY #2 FAILED; NO-SPEND REPAIR LIVE / INDEPENDENT GET PROOF / PROVIDER OFF; EMBODIMENT AND GENUINE EVIDENCE GATES OPEN`
+Current continuation boundary: `FORENSIC LIFECYCLE RECOVERY; 33 FOCUSED CHECKS PASS; INDEPENDENT REVIEW/PROVIDER-OFF RELEASE PENDING; CANARY #3 NOT AUTHORIZED`
 
 This is the one living requirement ledger required by the final Founder
 completion directive. A status of `LIVE UNVERIFIED` means the capability is
@@ -15,6 +15,44 @@ the actual production route and deployment.
 ## Foreman 9300 overnight reactivation — current dated evidence
 
 ### Current Fable-to-production convergence — 2026-10-03
+
+- 2026-10-05 FORENSIC RECOVERY ADOPTION / NO SPEND:
+  Historical Test1 on348daba records Dr Kelly visible/audible and LiveKit
+  2026-08-16T14:43:33.520Z–14:44:20.793Z. Exact tracked evidence:
+  `ivprep-v6/handoffs/Y1_Y2_CAM_V6_3472C_T1/TEST_1_FINDINGS_AND_TEST_2_PREP.md`.
+  ae17956 implemented the decoded-frame/worker-ACTIVE Test2 correction; Test2,
+  lip sync and interruption were NOT historically accepted. No legacy worker,
+  second brain, historical DB, token grants or extended idle/deadline restored.
+  Current-vs-proven sequencing (historical source, not screenshots):
+
+  | Boundary | Proven/associated historical source | Current recovered contract |
+  |---|---|---|
+  | Creation trigger | claimed worker job → room → authorized participant | explicit Founder Start → canonical GPT session.started/remote track → one reserved Actor create |
+  | Browser precondition | existing LiveKit viewer/authorized participant | stable output graph/SDK; exact canonical IVOC identity |
+  | GPT audio prerequisite | creation preceded AgentSession.start; no generated-audio wait | no generated audio required before create |
+  | LiveKit | exact Dr Kelly publisher join, 10s bound | scoped subscribe-only viewer; exact publisher tracks, bounded by original deadline |
+  | Avatar readiness | Test1 track flags; ae17956 added decoded-video + ACTIVE + audio | requestVideoFrameCallback/compositor evidence, current data/nonzero dimensions; no DOM/track-only READY |
+  | First speech | legacy AgentSession; Test2 proposed opening after media-ready | current GPT opening only after session.started + stable tap + decoded frame |
+  | First frame | ae17956 decodedVideoProof (not paid Test2 proof) | cancellable decoded-frame gate; typed decode failure |
+  | Audio input | legacy AvatarSession / worker audio | GPT remote track → PCM16/16k websocket Actor input |
+  | Playback | one legacy room track | one gated returned stream → existing audible element AND recording tap |
+  | Interruption | not proven by historical Test1 | unchanged strict provider flush acknowledgment; failure stops, no stale resume |
+  | Teardown | exact worker/avatar/room cleanup | exact reserved/provider identity and room; late-result cleanup, no second create |
+  | Timeout ownership | worker10s/idle45/room60 historical | ORIGINAL45s reservation clock, idle15; client30s/create15s inside remaining deadline |
+
+  Client/server transitions expose owner/start/completion/evidence/cleanup.
+  Safe upstream HTTP status/category/timing/response class survives HQ502;
+  JSON timeout vs cancel and socket-cleanup failure retain original diagnostics.
+  Pending GPT-start cancellation now settles its ontrack wait.33 focused tests
+  PASS, including integrated decoded-frame/single tap and fail-closed flush.
+  Canary2: NO PROVIDER SESSION CREATED; whether an HTTP request crossed the
+  provider network boundary remains UNKNOWN. No paid request this recovery.
+  Keeper claims5016–5019 and5026–5029 lost renewal; mutation paused, release
+  attempted but denied, expiry verified (NOT normal-release proof). Safe HTTP/
+  denial instrumentation added to temporary keeper; no OS tooling/TTL/fencing
+  bypass. Fresh5035–5038 heartbeat advances remotely; deployment remains
+  provider-OFF7855a10b/4822250 until independently reviewed candidate passes.
+  CANARY3 NOT AUTHORIZED; actual avatar/sync/audio/flush/replay remain UNVERIFIED.
 
 - 2026-10-04 CANARY #2 REPAIR LIVE / NO PAID RETRY:
   Clean pushed runtime source4822250c5a2b3b8cb2092d5fe16a4411ce10c145,

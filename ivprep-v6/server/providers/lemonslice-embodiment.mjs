@@ -21,6 +21,17 @@ export function embodimentCanaryConfig(env = {}) {
     transport:'websocket-livekit', sessionId:configured ? env.IVOC_LEMONSLICE_CANARY_SESSION_ID : null });
 }
 const fail = (code, status = 409) => Object.assign(new Error(code), {status});
+const BOUNDARIES = new Set(['RESERVATION','LIVEKIT','LEMONSLICE_API','AUDIO_TRANSPORT','TRANSPORT_READY']);
+const CATEGORIES = new Set(['HQ_AUTH_FAILURE','HQ_VALIDATION_FAILURE','PROVIDER_NETWORK','PROVIDER_DNS','PROVIDER_HTTP_4XX','PROVIDER_HTTP_5XX','PROVIDER_TIMEOUT','PROVIDER_CANCELLED','PROVIDER_RESPONSE_INVALID','LIVEKIT_FAILURE','LIVEKIT_TIMEOUT','AUDIO_TRANSPORT_FAILURE','STARTUP_CANCELLED','STARTUP_FAILED']);
+// A public diagnostic is a closed schema, never a raw upstream error/body/URL.
+export function publicEmbodimentFailure(value) {
+  if(!value || !BOUNDARIES.has(value.boundary) || !CATEGORIES.has(value.category))return null;
+  const time=n=>Number.isFinite(n)&&n>=0?Math.round(n):null;
+  return {boundary:value.boundary,category:value.category,
+    httpStatus:Number.isInteger(value.httpStatus)&&value.httpStatus>=100&&value.httpStatus<=599?value.httpStatus:null,
+    startedAtMs:time(value.startedAtMs),finishedAtMs:time(value.finishedAtMs),
+    elapsedMs:time(value.elapsedMs),responseClass:['JSON','HTML','TEXT','OTHER','UNKNOWN'].includes(value.responseClass)?value.responseClass:'UNKNOWN'};
+}
 
 export function createEmbodimentCanary({env = process.env, fetchImpl = fetch, now = Date.now,
   socketFactory = null, livekitFactory = null, claim, recordReceipt = async () => {},
@@ -28,12 +39,36 @@ export function createEmbodimentCanary({env = process.env, fetchImpl = fetch, no
   const config = embodimentCanaryConfig(env);
   let attempt = null;
   const headers = () => ({'X-API-Key':env.LEMONSLICE_API_KEY, 'Content-Type':'application/json'});
+  function stage(a,state,owner,evidence=null) {
+    const at=now(),previous=a.transitions.at(-1);
+    if(previous&&!previous.completedAtMs){previous.completedAtMs=at;previous.successEvidence=evidence;}
+    a.transitions.push({state,owner,startedAtMs:at,completedAtMs:null,entryEvidence:evidence,successEvidence:null,failureEvidence:null,cleanup:'EXACT_SESSION_AND_ROOM'});
+  }
   async function api(path, body, timeoutMs = 5000) {
-    const response = await fetchImpl(`${LEMONSLICE_API_URL}${path}`, {
-      method:body === undefined ? 'GET' : 'POST', redirect:'error', headers:headers(),
-      body:body === undefined ? undefined : JSON.stringify(body), signal:timeoutSignal(timeoutMs)});
-    if (!response.ok) throw fail('ivoc_embodiment_provider_unavailable',502);
-    return response.json();
+    const startedAtMs=now();let responseClass='UNKNOWN',httpStatus=null;
+    const diagnostic=category=>publicEmbodimentFailure({boundary:'LEMONSLICE_API',category,httpStatus,responseClass,startedAtMs,finishedAtMs:now(),elapsedMs:Math.max(0,now()-startedAtMs)});
+    try {
+      const response = await fetchImpl(`${LEMONSLICE_API_URL}${path}`, {
+        method:body === undefined ? 'GET' : 'POST', redirect:'error', headers:headers(),
+        body:body === undefined ? undefined : JSON.stringify(body), signal:timeoutSignal(timeoutMs)});
+      httpStatus=response.status;
+      const type=response.headers?.get('content-type')||'';
+      responseClass=/json/i.test(type)?'JSON':/html/i.test(type)?'HTML':/^text\//i.test(type)?'TEXT':type?'OTHER':'UNKNOWN';
+      if (!response.ok) {
+        const category=httpStatus>=500?'PROVIDER_HTTP_5XX':'PROVIDER_HTTP_4XX';
+        throw Object.assign(fail('ivoc_embodiment_provider_unavailable',502),{diagnostics:diagnostic(category)});
+      }
+      try{return await response.json();}
+      catch(error){
+        if(error?.name==='TimeoutError'||error?.name==='AbortError')throw error;
+        throw Object.assign(fail('ivoc_embodiment_provider_response_invalid',502),{diagnostics:diagnostic('PROVIDER_RESPONSE_INVALID')});
+      }
+    }catch(error){
+      if(publicEmbodimentFailure(error?.diagnostics))throw error;
+      const cause=error?.cause?.code||error?.code;
+      const category=error?.name==='TimeoutError'?'PROVIDER_TIMEOUT':error?.name==='AbortError'?'PROVIDER_CANCELLED':['ENOTFOUND','EAI_AGAIN'].includes(cause)?'PROVIDER_DNS':'PROVIDER_NETWORK';
+      throw Object.assign(fail('ivoc_embodiment_provider_unavailable',502),{diagnostics:diagnostic(category)});
+    }
   }
   function owned(actor, sessionId, id) {
     if (!attempt || actor !== 'wp:1' || attempt.actor !== actor || attempt.sessionId !== sessionId
@@ -68,7 +103,7 @@ export function createEmbodimentCanary({env = process.env, fetchImpl = fetch, no
       try { await a.livekit?.deleteRoom(a.room); } catch {}
       const receipt = {stopped:true, providerConfirmed, reason, providerSessionId:a.providerId || null,
         requestedAtMs:a.startedAt, stoppedAtMs:now(), inputSeconds:a.samples / 16000,
-        providerCreateAttempted:a.providerCreateAttempted===true,failure:a.failure||null};
+        providerCreateAttempted:a.providerCreateAttempted===true,failure:a.failure||null,transitions:a.transitions};
       await recordReceipt(a.sessionId, receipt).catch(() => {});
       a.stopReceipt=receipt;
       return receipt;
@@ -80,14 +115,16 @@ export function createEmbodimentCanary({env = process.env, fetchImpl = fetch, no
       if (!config.available || actor !== 'wp:1' || sessionId !== config.sessionId) throw fail('ivoc_embodiment_canary_not_authorized',403);
       if (attempt) throw fail('ivoc_embodiment_canary_consumed');
       const a = {actor,sessionId,id:randomUUID(),room:`ivoc-embodiment-${sessionId}`,startedAt:now(),
-        samples:0,generation:0,sequence:0,closed:false,playing:false,playback:null,boundary:'RESERVATION',providerCreateAttempted:false};
+        samples:0,generation:0,sequence:0,closed:false,playing:false,playback:null,boundary:'RESERVATION',providerCreateAttempted:false,transitions:[]};
       attempt=a; // Never retry, including failed claims or unknown create outcomes.
       a.timer=setTimer(()=>void stop(a,'hard_deadline'),45000);
+      stage(a,'EMBODIMENT_CREATE_REQUEST','IVOC_SERVER');
       try {
         if (typeof claim !== 'function') throw fail('ivoc_embodiment_reservation_unavailable');
         await claim({actor,sessionId,attemptId:a.id,deadlineMs:a.startedAt+45000});
         if (a.closed || now()>=a.startedAt+45000) throw fail('ivoc_embodiment_stopped');
         a.boundary='LIVEKIT';
+        stage(a,'LIVEKIT_ROOM_CREATE','IVOC_SERVER','CANONICAL_RESERVATION');
         const sdk=livekitFactory ? await livekitFactory() : require('livekit-server-sdk');
         a.livekit = sdk.roomService || new sdk.RoomServiceClient(env.LIVEKIT_URL.replace(/^wss:/,'https:'),env.LIVEKIT_API_KEY,env.LIVEKIT_API_SECRET);
         await a.livekit.createRoom({name:a.room,emptyTimeout:15,maxParticipants:2});
@@ -105,19 +142,22 @@ export function createEmbodimentCanary({env = process.env, fetchImpl = fetch, no
         const publisherToken=await token('ivoc-embodiment',true), viewerToken=await token('ivoc-founder-viewer',false);
         if (a.closed || now()>=a.startedAt+45000) throw fail('ivoc_embodiment_stopped');
         a.boundary='LEMONSLICE_API';a.providerCreateAttempted=true;
+        stage(a,'PROVIDER_CREATE_REQUEST','IVOC_SERVER','SCOPED_ROOM_AND_TOKENS');
         const created=await api('',{transport_type:'websocket-livekit',agent_id:LEMONSLICE_AGENT_ID,
           edit_image:false,idle_timeout:15,response_done_timeout:0.4,
           livekit_properties:{livekit_url:env.LIVEKIT_URL,livekit_token:publisherToken,video_codec:'vp8',simulcast:false}},Math.min(EMBODIMENT_CREATE_TIMEOUT_MS,a.startedAt+45000-now()));
-        if (!/^[A-Za-z0-9._:-]{1,160}$/.test(created.session_id || '')) throw fail('ivoc_embodiment_identity_invalid',502);
+        if (!/^[A-Za-z0-9._:-]{1,160}$/.test(created.session_id || '')) throw Object.assign(fail('ivoc_embodiment_identity_invalid',502),{responseInvalid:true});
         a.providerId=created.session_id;
+        stage(a,'EMBODIMENT_SESSION_CREATED','LEMONSLICE','PROVIDER_ID_RETURNED');
         if (a.closed) {
           // Capture and terminate a late exact ID before inspecting its URL.
           await stop(a,'late_create'); throw fail('ivoc_embodiment_stopped');
         }
         // Do not trust arbitrary provider-returned egress URLs (SSRF/credentials).
-        const wsUrl=new URL(created.websocket_address);
-        if (wsUrl.protocol!=='wss:' || wsUrl.username || wsUrl.password || !(wsUrl.hostname==='lemonslice.com'||wsUrl.hostname.endsWith('.lemonslice.com'))) throw fail('ivoc_embodiment_transport_invalid',502);
+        let wsUrl;try{wsUrl=new URL(created.websocket_address);}catch{throw Object.assign(fail('ivoc_embodiment_transport_invalid',502),{responseInvalid:true});}
+        if (wsUrl.protocol!=='wss:' || wsUrl.username || wsUrl.password || !(wsUrl.hostname==='lemonslice.com'||wsUrl.hostname.endsWith('.lemonslice.com'))) throw Object.assign(fail('ivoc_embodiment_transport_invalid',502),{responseInvalid:true});
         a.boundary='AUDIO_TRANSPORT';
+        stage(a,'AUDIO_TRANSPORT_CONNECTING','IVOC_SERVER','VALIDATED_PROVIDER_SOCKET');
         const WebSocket=socketFactory ? null : require('ws');
         a.socket=socketFactory ? socketFactory(wsUrl.href) : new WebSocket(wsUrl.href,{handshakeTimeout:5000,maxPayload:16384});
         a.socket.on('message',data=>{
@@ -127,19 +167,35 @@ export function createEmbodimentCanary({env = process.env, fetchImpl = fetch, no
             if(event.interrupted===true && a.interruptResolve){a.interruptResolve();a.interruptResolve=null;a.interruptReject=null;}
           }
         });
-        a.socket.on('close',()=>{if(!a.closed)void stop(a,'transport_closed');});
-        a.socket.on('error',()=>{if(!a.closed)void stop(a,'transport_error');});
+        const transportFailed=reason=>{
+          if(a.closed)return;
+          const row=a.transitions.at(-1),startedAtMs=row?.startedAtMs??a.startedAt;
+          a.failure=publicEmbodimentFailure({boundary:'AUDIO_TRANSPORT',category:'AUDIO_TRANSPORT_FAILURE',startedAtMs,finishedAtMs:now(),elapsedMs:Math.max(0,now()-startedAtMs)});
+          if(row){row.completedAtMs=now();row.failureEvidence=a.failure;}
+          void stop(a,reason);
+        };
+        a.socket.on('close',()=>transportFailed('transport_closed'));
+        a.socket.on('error',()=>transportFailed('transport_error'));
         await new Promise((resolve,reject)=>{const timer=setTimer(()=>reject(fail('ivoc_embodiment_connect_timeout',502)),5000);a.socket.once('open',()=>{clearTimer(timer);resolve();});a.socket.once('error',()=>{clearTimer(timer);reject(fail('ivoc_embodiment_transport_unavailable',502));});});
         if(a.closed || now()>=a.startedAt+45000)throw fail('ivoc_embodiment_stopped');
-        a.boundary='READY';
+        a.boundary='TRANSPORT_READY';
+        stage(a,'TRANSPORT_READY','IVOC_SERVER','PROVIDER_SOCKET_OPEN'); // NOT avatar readiness
         return {id:a.id,sessionId,livekitUrl:env.LIVEKIT_URL,viewerToken,room:a.room,
           publisherIdentity:'ivoc-embodiment',deadlineMs:a.startedAt+45000,maxSeconds:45};
       } catch(error) {
         // Stable bounded diagnostics only: no provider URLs, response bodies,
         // tokens or raw exception messages enter status/audit evidence.
-        const code=['TimeoutError','AbortError'].includes(error?.name)?'TIMEOUT':/^ivoc_embodiment_[a-z_]+$/.test(error?.message||'')?error.message:'STARTUP_FAILED';
-        a.failure={boundary:a.boundary,code,httpStatus:Number(error?.status)||null};
-        await stop(a,'startup_failed');throw error;
+        const row=a.transitions.at(-1),startedAtMs=row?.startedAtMs??a.startedAt;
+        const category=error?.responseInvalid?'PROVIDER_RESPONSE_INVALID':a.closed?'STARTUP_CANCELLED':a.boundary==='RESERVATION'?(error?.status===403?'HQ_AUTH_FAILURE':'HQ_VALIDATION_FAILURE'):a.boundary==='LIVEKIT'?(error?.name==='TimeoutError'?'LIVEKIT_TIMEOUT':'LIVEKIT_FAILURE'):a.boundary==='AUDIO_TRANSPORT'?'AUDIO_TRANSPORT_FAILURE':'STARTUP_FAILED';
+        a.failure=a.failure||publicEmbodimentFailure(error?.diagnostics)||publicEmbodimentFailure({boundary:a.boundary,category,httpStatus:Number(error?.status)||null,startedAtMs,finishedAtMs:now(),elapsedMs:Math.max(0,now()-startedAtMs)});
+        if(row){row.completedAtMs=now();row.failureEvidence=a.failure;}
+        const safeError=Object.assign(fail(/^ivoc_embodiment_[a-z_]+$/.test(error?.message||'')?error.message:'ivoc_embodiment_start_failed',Number(error?.status)||502),{diagnostics:a.failure});
+        const receipt=await stop(a,'startup_failed');
+        if(!receipt.failure){
+          receipt.failure=a.failure;receipt.diagnosticUpdate=true;
+          await recordReceipt(a.sessionId,receipt).catch(()=>{});
+        }
+        throw safeError;
       }
     },
     async command({actor,sessionId,id,generation,sequence,command,audio}) {
@@ -176,6 +232,6 @@ export function createEmbodimentCanary({env = process.env, fetchImpl = fetch, no
       a.sequence=sequence;a.generation=generation;
       return {accepted:true,generation,sequence};
     },
-    status({actor,sessionId,id}){const a=owned(actor,sessionId,id);return {closed:a.closed,boundary:a.boundary,providerCreateAttempted:a.providerCreateAttempted,providerSessionId:a.providerId||null,failure:a.failure||null,playback:a.playback,stopReceipt:a.stopReceipt||null};},
+    status({actor,sessionId,id}){const a=owned(actor,sessionId,id);return {closed:a.closed,boundary:a.boundary,providerCreateAttempted:a.providerCreateAttempted,providerSessionId:a.providerId||null,failure:a.failure||null,transitions:a.transitions,playback:a.playback,stopReceipt:a.stopReceipt||null};},
   });
 }

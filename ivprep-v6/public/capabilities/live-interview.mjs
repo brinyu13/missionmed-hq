@@ -140,6 +140,7 @@ export class LiveInterviewSession {
       return;
     }
     if (event.type === 'session.started') {
+      this.audioRenderer?.transition?.('GPT_READY','GPT_LIVE','SESSION_STARTED');
       clearTimeout(this.startTimer);
       this.startedResolve?.(event);
       this.startedResolve = null;
@@ -252,6 +253,7 @@ export class LiveInterviewSession {
       throw new TypeError('A live microphone track is required.');
     }
     this.emitStatus('connecting', 'Creating a secure WebRTC session');
+    this.audioRenderer?.transition?.('GPT_CONNECTING','IVOC_CLIENT','ADMITTED_MICROPHONE');
     this.startedAtMs = this.now();
     this.transcriptSequence = 0;
     this.activeTranscriptIds = { applicant: null, interviewer: null };
@@ -294,6 +296,10 @@ export class LiveInterviewSession {
       const stream = event.streams?.[0] || new MediaStream([track]);
       try {
         if (!this.audioElement) throw new Error('Interviewer playback surface is unavailable.');
+        // Provision the visual Actor only after GPT's actual session.started,
+        // never after generated speech or a transport-only readiness flag.
+        if(this.audioRenderer)await started;
+        if(!current())return;
         const heardStream=this.audioRenderer?await this.audioRenderer.render(stream,{microphoneTrack:audioTrack,ivocSessionId}):stream;
         if(!current()){await this.audioRenderer?.stop?.();return;}
         this.audioElement.srcObject = heardStream;
@@ -386,6 +392,9 @@ export class LiveInterviewSession {
       if (this.audioBoundReject) this.audioBoundTimer = setTimeout(() => this.audioBoundReject?.(new Error('InterviewBrain audio did not bind in time.')), this.audioRenderer?40_000:START_TIMEOUT_MS);
       await step(peer.setRemoteDescription({ type: 'answer', sdp: created.transport.sdp }));
       await step(Promise.all([started, audioBound]));
+      // Output tap already exists; only decoded visual readiness gates the
+      // opening. Requiring generated avatar audio here would create a cycle.
+      if(this.audioRenderer?.waitForVisualReady)await step(this.audioRenderer.waitForVisualReady());
       if (!current()) throw new Error('InterviewBrain startup was stopped.');
       clearTimeout(this.overallStartTimer);
       this.requestOpening(this.openingQuestion);
@@ -407,6 +416,9 @@ export class LiveInterviewSession {
     const rendererCleanup=this.audioRenderer?.stop?.({keepalive}); // synchronous mute/flush first
     this.cancelStart?.(new Error('InterviewBrain startup was stopped.'));
     this.cancelStart = null;
+    this.startedReject?.(new Error('InterviewBrain startup was stopped.'));
+    this.startedResolve = null;
+    this.startedReject = null;
     clearTimeout(this.overallStartTimer);
     const id = this.sessionId;
     this.sessionId = null;
