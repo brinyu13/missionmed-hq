@@ -65,7 +65,23 @@ the actual production route and deployment.
   scoped room regressions PASS (two new executable failed-state tests); these
   are NOT a second live canary or provider acceptance. Fresh PRODUCT5061/7e97b575
   covers exact room/test/ledger, SHARED5062/3baaa6b4 deployment; keeper maintains
-  canonical heartbeat. Preimage375e0bcc/image74b9 remains rollback. Release pending.
+  canonical heartbeat. Independent pre-release review6/6 PASS. DR350 clean clone
+  builds1303 filtered tracked files/archiveSHA
+  d5c984e9ca02ae87d7621de3ff6afd3b8e13ebe5b0e22e97a32a6b0e6d80869e.
+  Source50729429c302cf7a03131452af9ec6cba16123d4 → SUCCESS
+  93b59b4c-b2f4-4a74-bb13-79b9cec89795; actual image
+  sha256:514589d02bf86f8f319d3706f4eafebcc658428dc75243e046f676d8b5297629.
+  Independent final guardian PASS: exact roommodule hash
+  626d883091d944115cc12f5de5d45947ee7dd44e873a36aef4c26064d6b5d82d
+  equals5072942; health200/ok, anonymous product/bootstrap401, canaryOFF.
+  Prior375e0bcc/image74b9 remains explicit rollback; no byte-identical-image claim.
+  Existing five npm high-severity warnings exactly match preimagebuild; no new
+  dependencies/lockfile change or broad audit-fix. Real paid retry was NOT used
+  to prove the failed-start UI branch; deployed+deterministic proof only.
+  Fresh authenticated Chrome reload → Mock → Enter Room returns normal READY /
+  waiting; Start disabled until devices, no avatar canary checkbox. No provider
+  Start, GPT session, camera/mic acquisition or paid action in this verification.
+  Failed-state live re-execution/speech/sync remains UNVERIFIED, not inferred.
 
 - 2026-10-05 CANARY3 DIRECT FOUNDER AUTHORIZATION:
   Direct active-goal request SHA256
