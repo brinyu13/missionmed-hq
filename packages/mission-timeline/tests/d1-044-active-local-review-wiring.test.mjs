@@ -608,7 +608,7 @@ test('044 ordinary 22-event label-aware adaptive composition has a bounded local
   const again=serializeFounderPresentation(document,options);assert.equal(first.svg,again.svg);assert.equal(JSON.stringify(document),source);
   assert.ok(first.scene.autoMilestonePacking.expansions<=first.scene.autoMilestonePacking.limit);
   const paint=resolveFounderPresentationSvg(first.svg);assert.equal(new Set(paint.nodes.filter(node=>node.groupId?.startsWith('event:')&&node.semanticRef).map(node=>node.semanticRef)).size,22);
-  for(const event of document.events)assert.ok(paint.nodes.some(node=>node.semanticRef===event.id&&String(node.text||'').includes(event.title)));
+  for(const event of document.events)assert.ok(paint.nodes.some(node=>node.semanticRef===event.id&&String(node.text||'').replace(/\s+/g,' ').includes(event.title)));
 });
 
 test('044 actual Fix-for-me handler checks hydrated rendered improvement before offering an unchanged or still-bad proposal',async()=>{

@@ -2,7 +2,7 @@ import {resolveFounderPresentationSvg,materialPresentationCollisions} from './re
 import {presentationDateWording} from './source-date-wording.js';
 import {buildKeynoteClassicScene} from "../uxr-002/board-renderer.js";
 import {CATEGORY_DEFINITIONS,restoreFounderYearAllocation} from "../uxr-002/adaptive-layout.js";
-import {serializeLocked407FPortableSvg,composeLocked407FPortableSvg} from "../uxr-002/locked-407f-export.js";
+import {serializeLocked407FPortableSvg,composeLocked407FPortableSvg,validateLocked407FChronology} from "../uxr-002/locked-407f-export.js";
 import {DEFAULT_THEME_ID,applyThemeToScene} from "../uxr-002/themes.js";
 import {reconcileAdvancedScene,validateSceneGraph} from "../editor/scene-graph.js";
 import {projectPresentationFields,projectPresentationEventFields} from './presentation-field-privacy.js';
@@ -367,6 +367,32 @@ function selectConciseProfileEducation(scene,document){
   scene.profileDisplay.includedFields=[...scene.profileDisplay.includedFields,...noLongerCovered.map(item=>item.field)];
 }
 
+const SCHOLARLY_MILESTONE_CAPTIONS=Object.freeze({
+  PUBLICATION:'Research publication',
+  ABSTRACT_POSTER_PRESENTATION:'Research presentation'
+});
+
+// The visual caption follows the existing concise research-milestone grammar.
+// Complete supplied titles and provenance stay in the normalized input and in
+// this explicit presentation accounting; institutions are never abbreviated.
+function selectConciseScholarlyMilestones(scene,projected){
+  const sources=new Map(projected.events.map(event=>[String(event.id),event]));
+  const selections=new Map();
+  for(const flag of scene.flags||[]){
+    const source=sources.get(String(flag.id)),canonicalType=source?.fields?.canonicalType;
+    const displayTitle=SCHOLARLY_MILESTONE_CAPTIONS[canonicalType];
+    if(!displayTitle||source.categoryId!=='research'||source.eventType!=='milestone')continue;
+    selections.set(String(flag.id),{eventId:String(flag.id),policy:'canonical-scholarly-caption',canonicalType,
+      sourceTitle:String(source.title||''),sourceSiteName:String(flag.siteName||''),displayTitle,
+      provenance:structuredClone(source.provenance||[])});
+  }
+  scene.milestoneDisplay=[...selections.values()];
+  for(const key of ['events','flags'])scene[key]=(scene[key]||[]).map(event=>{
+    const display=selections.get(String(event.id));
+    return display?{...event,title:display.displayTitle,sourceTitle:display.sourceTitle}:event;
+  });
+}
+
 export function buildFounderPresentationScene(document,{
   scope="INTERVIEWER_SAFE",
   audience=null,
@@ -387,6 +413,7 @@ export function buildFounderPresentationScene(document,{
   }
   const sources=new Map(projected.events.map(event=>[String(event.id),event]));
   for(const key of ['events','arrows','flags'])scene[key]=(scene[key]||[]).map(item=>({...item,sourceDateWording:item.sourceDateWording||sources.get(String(item.id))?.fields?.sourceDateWording||null}));
+  selectConciseScholarlyMilestones(scene,projected);
   selectConciseProfileEducation(scene,projected);
   if(measureText)scene.measureText=measureText;
   scene.showEmptySlots=showEmptySlots===true;
@@ -484,12 +511,29 @@ export function assertCompleteFounderPresentation(rendered,{allowPendingMedia=fa
   }
   const uncertain=[...(rendered.scene.arrows||[]),...(rendered.scene.flags||[])].filter(event=>Object.values(event.datePrecision||{}).includes('UNKNOWN'));
   if(uncertain.length){const error=new TypeError('Confirm unknown dates before exporting; normalized coordinates do not establish a source date.');error.code='TIMELINE_EXPORT_INCOMPLETE';error.eventIds=uncertain.map(event=>String(event.id));throw error;}
+  const chronology=validateLocked407FChronology(rendered.scene);
+  if(chronology.violations.length){
+    const error=new TypeError('Later experience events must continue down and right in start-date order. Review the chronological layout before exporting.');
+    error.code='CHRONOLOGY_ORDER_VIOLATION';error.eventIds=[...new Set(chronology.violations.flatMap(item=>[item.previousId,item.eventId]))];error.violations=chronology.violations;throw error;
+  }
   const paint=resolveFounderPresentationSvg(rendered.svg,{measureText:rendered.scene.measureText});
   const educationRecords=rendered.scene.profile?.educationRecords||[];
   const expected=new Set([...rendered.scene.events.map(event=>String(event.id)),...educationRecords.map(record=>String(record.eventId))]);
   const represented=new Set(paint.nodes.map(node=>String(node.semanticRef||'')));
   const normalized=value=>String(value||'').replace(/\s+/g,' ').trim();
   const missingFields=[];
+  const milestoneDisplay=rendered.scene.milestoneDisplay||[];
+  for(const event of rendered.scene.flags||[]){
+    const records=milestoneDisplay.filter(record=>record.eventId===String(event.id));
+    if(!event.sourceTitle&&!records.length)continue;
+    const record=records[0];
+    if(records.length!==1||record.policy!=='canonical-scholarly-caption'||event.categoryId!=='research'||
+      SCHOLARLY_MILESTONE_CAPTIONS[record.canonicalType]!==record.displayTitle||event.title!==record.displayTitle||
+      event.sourceTitle!==record.sourceTitle||String(event.siteName||'')!==record.sourceSiteName){
+      missingFields.push({id:String(event.id),field:'milestone.presentation-accounting'});
+    }
+  }
+  for(const record of milestoneDisplay)if(!(rendered.scene.flags||[]).some(event=>String(event.id)===record.eventId))missingFields.push({id:record.eventId,field:'milestone.unsourced-selection'});
   const sourceEducation=rendered.scene.profile?.sourceEducationRecords;
   if(sourceEducation){
     const display=rendered.scene.profileDisplay||{},excluded=display.excludedEducationRecords||[];
