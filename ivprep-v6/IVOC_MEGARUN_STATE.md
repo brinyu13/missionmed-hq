@@ -27,6 +27,9 @@ the actual production route and deployment.
   config.availableFALSE. Deployed moduleSHA484c43c7ecacdba0433e74edecfe1f8ee69875b6ab62aa756ab116fef738446f
   equals Git bytes. ControllerIDLE/streamActiveFALSE; GPT provider end receipt
   explicitly state=ended. Independent source review PASS;15 focused checks PASS.
+  Fresh non-builder Chrome native renderer GET also PASS/availableFALSE; no
+  renderer context/ticket, session, media or provider action. PRODUCT4855 and
+  SHARED4856 release follows this final filing; provider readback governs release.
   PATH4858/4859 released normally and remote released_at confirmed. One failed
   pre-create canary is preserved, not re-armed: fixed abandoned UUID unchanged,
   no LemonSlice session or paid retry. Founder cb5ccd6b/acfd95b/ppcfoR and newer
