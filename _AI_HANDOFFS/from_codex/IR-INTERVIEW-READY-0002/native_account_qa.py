@@ -6,6 +6,7 @@ checks to execute_native(); this file never retrieves coordination credentials.
 """
 from __future__ import annotations
 
+import base64
 import concurrent.futures
 import contextlib
 import dataclasses
@@ -96,7 +97,8 @@ STDERR_MARKERS = frozenset({'PHP_WARNING','PHP_FATAL','PHP_PARSE','WPCLI_ERROR',
     'TYPE_ERROR','ARGUMENT_COUNT_ERROR','MYSQL_EXTENSION_MISSING','PHP_VERSION_REQUIREMENT',
     'SSH_MESSAGE','SHELL_MESSAGE','WPCLI_WARNING','PHP_NOTICE','STDERR_UNCLASSIFIED',
     'PAYLOAD_ENTERED','PAYLOAD_NOT_OBSERVED','PAYLOAD_SHUTDOWN_FATAL',
-    'PAYLOAD_SHUTDOWN_NONFATAL','PAYLOAD_SHUTDOWN_NOT_OBSERVED','BOUNDARY_INVALID','MEMORY','TIME'})
+    'PAYLOAD_SHUTDOWN_NONFATAL','PAYLOAD_SHUTDOWN_NOT_OBSERVED','BOUNDARY_INVALID','MEMORY','TIME',
+    'EVAL_WRAPPER_ENTERED','EVAL_PARSEERROR'})
 PHP_FAILURE_SCHEMA = 'ir.native.hook_inventory.failure.v1'
 PHP_FAILURE_CATEGORIES = {'HOOK_SHAPE':'php_hook_shape', 'CALLBACK_SHAPE':'php_callback_shape',
     'REFLECTION_FUNCTION':'php_reflection_function', 'REFLECTION_METHOD':'php_reflection_method',
@@ -413,12 +415,13 @@ def inventory_stderr_markers(stderr):
 
 
 def inventory_boundary(stderr):
-    """Exact two-frame private protocol; return all nonprotocol bytes unchanged."""
+    """Exact V2 wrapper/payload/shutdown frames; retain every other stderr byte."""
     if len(stderr)>65536:
         return stderr, set(), False
     prefix=b'IR_INVENTORY_BOUNDARY'
-    entry=b'IR_INVENTORY_BOUNDARY_V1 ENTERED\n'
-    shutdown=b'IR_INVENTORY_BOUNDARY_V1 SHUTDOWN '
+    wrapper=b'IR_INVENTORY_BOUNDARY_V2 WRAPPER_ENTERED\n'
+    payload=b'IR_INVENTORY_BOUNDARY_V2 PAYLOAD_ENTERED\n'
+    shutdown=b'IR_INVENTORY_BOUNDARY_V2 SHUTDOWN '
     kinds={'UNKNOWN','UNDEFINED_FUNCTION','CLASS_NOT_FOUND','REDECLARE',
         'UNDEFINED_CONSTANT','TYPE_ERROR','ARGUMENT_COUNT_ERROR','MEMORY','TIME'}
     frames=[];remaining=[];invalid=False
@@ -427,28 +430,31 @@ def inventory_boundary(stderr):
         raw=line+(b'\n' if index<len(lines)-1 else b'')
         if prefix not in raw:
             remaining.append(raw);continue
-        if raw==entry:
-            frames.append(('ENTERED','UNKNOWN'))
-        elif raw==shutdown+b'NONFATAL UNKNOWN\n':
-            frames.append(('NONFATAL','UNKNOWN'))
+        if raw==wrapper:frames.append(('WRAPPER','UNKNOWN'))
+        elif raw==payload:frames.append(('PAYLOAD','UNKNOWN'))
+        elif raw==shutdown+b'NONFATAL UNKNOWN\n':frames.append(('NONFATAL','UNKNOWN'))
+        elif raw==shutdown+b'PARSEERROR UNKNOWN\n':frames.append(('PARSEERROR','UNKNOWN'))
         elif raw.startswith(shutdown+b'FATAL ') and raw.endswith(b'\n'):
             value=raw[len(shutdown+b'FATAL '):-1]
-            # Compare exact encoded literals; never decode/capture arbitrary values.
             match=next((kind for kind in kinds if value==kind.encode('ascii')),None)
             if match is None:invalid=True
             else:frames.append(('FATAL',match))
         else:invalid=True
-    if (invalid or len(frames)>2 or (frames and frames[0][0]!='ENTERED')
-            or (len(frames)==2 and frames[1][0] not in {'FATAL','NONFATAL'})):
+    has_payload=len(frames)>1 and frames[1][0]=='PAYLOAD'
+    terminal=frames[2:] if has_payload else frames[1:]
+    if (invalid or len(frames)>3 or (frames and frames[0][0]!='WRAPPER')
+            or len(terminal)>1 or (terminal and terminal[0][0] not in {'FATAL','NONFATAL','PARSEERROR'})
+            or (has_payload and terminal and terminal[0][0]=='PARSEERROR')):
         return stderr, {'BOUNDARY_INVALID'}, False
-    observations={'PAYLOAD_ENTERED' if frames else 'PAYLOAD_NOT_OBSERVED'}
-    if len(frames)<2:
-        observations.add('PAYLOAD_SHUTDOWN_NOT_OBSERVED')
+    observations={'PAYLOAD_ENTERED' if has_payload else 'PAYLOAD_NOT_OBSERVED'}
+    if frames:observations.add('EVAL_WRAPPER_ENTERED')
+    if not terminal:observations.add('PAYLOAD_SHUTDOWN_NOT_OBSERVED')
     else:
-        family,kind=frames[1]
-        observations.add('PAYLOAD_SHUTDOWN_'+family)
+        family,kind=terminal[0]
+        if family=='PARSEERROR':observations.add('EVAL_PARSEERROR')
+        else:observations.add('PAYLOAD_SHUTDOWN_'+family)
         if kind!='UNKNOWN':observations.add(kind)
-    return b''.join(remaining), observations, len(frames)==2 and frames[1][0]=='NONFATAL'
+    return b''.join(remaining), observations, has_payload and bool(terminal) and terminal[0][0]=='NONFATAL'
 
 
 def inventory_child_failure(stdout, stderr, returncode):
@@ -632,8 +638,9 @@ function ir_owner($name,$uid){
 
 def inventory_boundary_preamble():
     """Inventory-only fixed entry/shutdown observations before suppression."""
-    boundary = r"""fwrite(STDERR,"IR_INVENTORY_BOUNDARY_V1 ENTERED\n");
-register_shutdown_function(function(){
+    boundary = r"""fwrite(STDERR,"IR_INVENTORY_BOUNDARY_V2 WRAPPER_ENTERED\n");
+$ir_eval_parseerror=false;
+register_shutdown_function(function() use (&$ir_eval_parseerror){
  $ir_last=error_get_last();$ir_type=is_array($ir_last)&&isset($ir_last['type'])?$ir_last['type']:0;
  $ir_fatal=in_array($ir_type,[E_ERROR,E_PARSE,E_CORE_ERROR,E_COMPILE_ERROR,E_USER_ERROR,E_RECOVERABLE_ERROR],true);
  $ir_kind='UNKNOWN';
@@ -657,10 +664,18 @@ register_shutdown_function(function(){
   unset($ir_line);
  }
  unset($ir_last,$ir_type);
- @fwrite(STDERR,"IR_INVENTORY_BOUNDARY_V1 SHUTDOWN ".($ir_fatal?'FATAL '.$ir_kind:'NONFATAL UNKNOWN')."\n");
+ @fwrite(STDERR,"IR_INVENTORY_BOUNDARY_V2 SHUTDOWN ".($ir_eval_parseerror?'PARSEERROR UNKNOWN':($ir_fatal?'FATAL '.$ir_kind:'NONFATAL UNKNOWN'))."\n");
 });
 """
-    return "<?php\n" + boundary + php_preamble().removeprefix("<?php\n")
+    return "<?php\n" + boundary
+
+
+def inventory_boundary_wrap(body):
+    """Only fixed locally chosen inventory source is encoded; no server input."""
+    require(body.startswith("<?php\n"))
+    inner="<?php\nfwrite(STDERR,\"IR_INVENTORY_BOUNDARY_V2 PAYLOAD_ENTERED\\n\");\n"+body.removeprefix("<?php\n")
+    literal=base64.b64encode(inner.encode()).decode('ascii')
+    return inventory_boundary_preamble()+"try{eval('?>'.base64_decode('"+literal+"'));}catch(ParseError $ir_eval_exception){$ir_eval_parseerror=true;throw $ir_eval_exception;}\n"
 
 
 def collision_read(gate, pipe=private_pipe):
@@ -684,7 +699,7 @@ def creation_inventory_read(gate, pipe=private_pipe):
     inventory_progress(gate,'INVENTORY_GATE_CHECK')
     gate.require('creation_inventory_read')
     require(gate.admission.mode=='inventory')
-    result = owner_pipe(gate,'creation_inventory_read',pipe,inventory_boundary_preamble() + """
+    result = owner_pipe(gate,'creation_inventory_read',pipe,inventory_boundary_wrap(php_preamble() + """
 global $ir_inventory_step,$ir_inventory_hook_scope;
 $ir_inventory_step='ENCODE';$ir_inventory_hook_scope='OTHER';
 try{echo wp_json_encode(ir_inventory());}
@@ -692,7 +707,7 @@ catch(Throwable $ir_inventory_error){
  echo '{"schema":"ir.native.hook_inventory.failure.v1","step":"'.$ir_inventory_step.'","hookScope":"'.$ir_inventory_hook_scope.'"}';
  exit(1);
 }
-""",max_bytes=INVENTORY_CAP)
+"""),max_bytes=INVENTORY_CAP)
     inventory_progress(gate,'INVENTORY_SCHEMA')
     require(type(result) is dict and set(result) == {'schema','sha256','count','callbacks'} and
             result['schema']=='ir.native.hook_inventory.v1' and

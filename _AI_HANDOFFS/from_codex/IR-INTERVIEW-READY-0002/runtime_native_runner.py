@@ -30,8 +30,8 @@ ORIGIN = 'https://github.com/brinyu13/missionmed-hq.git'
 REF = 'refs/heads/codex/ir-interview-ready-0002-storyforge'
 TRANSPORT_SHA = '6bab4c948b28202b7a803228f2123d5c95137030f16eb129c427b4ddcc487cad'
 CLIENT_SHA = '36e37a487de0ec99191492c3ef286695bc4d8721cdac70f5c62863576e5c1431'
-NATIVE_SHA = 'f64534309958e97aded039ca5e6fee65f49cf4140abafa13db4987c89222a8bb'
-NATIVE_TESTS_SHA = 'd51397dac0c9695d7e31da9ffd2bbc8b2aed7c09a5c60384aa5449ff052afd35'
+NATIVE_SHA = '913dd3cb0911fb78196120598f47b62f68954ef1c5032f388d78d1eff5295096'
+NATIVE_TESTS_SHA = '295f44e5d2add7aa2122c77535357651bef0f1ecf2cb947880052a91e9532f45'
 AUTHORITY = {'DR-375_ir_phase1_production_authority.md': '05803e16c985437a6400aa261e55bdb57f50ed2a0c7200f904fcffc49155a508',
              'DR-376_ir_phase1_bounded_execution_annex.md': '452a9e6259f6ae2f9e1441c725f79156b2d099d88a38af694b248e345b7dbe0e'}
 RUNTIME = 'wp-content/mu-plugins/missionmed-interview-ready-runtime'
@@ -619,7 +619,8 @@ def run_session(session, *, qa=None, native_review_digest=None):
             'MYSQL_EXTENSION_MISSING','PHP_VERSION_REQUIREMENT',
             'SSH_MESSAGE','SHELL_MESSAGE','WPCLI_WARNING','PHP_NOTICE','STDERR_UNCLASSIFIED',
             'PAYLOAD_ENTERED','PAYLOAD_NOT_OBSERVED','PAYLOAD_SHUTDOWN_FATAL',
-            'PAYLOAD_SHUTDOWN_NONFATAL','PAYLOAD_SHUTDOWN_NOT_OBSERVED','BOUNDARY_INVALID','MEMORY','TIME'}
+            'PAYLOAD_SHUTDOWN_NONFATAL','PAYLOAD_SHUTDOWN_NOT_OBSERVED','BOUNDARY_INVALID','MEMORY','TIME',
+            'EVAL_WRAPPER_ENTERED','EVAL_PARSEERROR'}
         if (category is not None and type(stderrMarkers) is list and len(stderrMarkers)<=len(markers) and
             all(type(m) is str and m in markers for m in stderrMarkers) and stderrMarkers==sorted(set(stderrMarkers))):
             receipt['stderrMarkers']=list(stderrMarkers)

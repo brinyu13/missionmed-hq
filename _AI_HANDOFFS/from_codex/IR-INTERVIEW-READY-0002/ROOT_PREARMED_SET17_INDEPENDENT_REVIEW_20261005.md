@@ -1,0 +1,11 @@
+# Independent SET17 prearmed entry review
+
+Verdict: APPROVE bounded scheduling preparation only; no actual admission.
+
+Reviewer: /root/inventory_exact_admission_reviewer. BASE cb5da5b464dd34d53494944c2d5163a489e30598.
+
+Exact launcher ea3e081648edf5508071ff9c0f26b71059ef0c8cc5f0326e0ade1678637c3f44 equals SET16 launcher4c9701da4d812ce2a8f23f5fdfac0f083774812b6661b7997bdc472699c9a25a after only20261005_16→20261005_17, SET16→SET17 and wrapper/owner pins changed to30aae2b2cdb2db45ed94019b818e40648a0bad9ce8674f0a4a6eb052aa5aeb81/a804b2415fe182d774f5239eabab51d924890815dcae038308fa9afc92ac90ad. Exact normalized text/AST and pure compile PASS. SET16 reviewe25289271ae347a8d7c98a1b2c93a958897c4605e272c9507ab1326fc7ddb53a and prior14 guard fixtures carry forward via unchanged guard bodies; no full rerun. New helper pins match the independently reviewed V2 candidate.
+
+All existing unoptimized-before-assertion, sourceHead, pins, event/hash/schema, absent initial directories,1200-second wait, mandatory six control names/all-listed-file hash checks, unpatched snapshot/contract/binding, dormant validation, exclusive actual-contract creation and single execv preserving PID/PTY stdin/basename arguments remain identical. No network call, control issuer, automatic retry/refresh or force-clear added. InitialREADY freshness300, inventory600 and owner1800 remain mandatory. The issuer must provide exactly16 immutable files excluding mutable PUBLIC_FACTS/HANDOFF/event/staging; launcher verifies mandatory coverage and listed hashes but does not itself enforce16 cardinality.
+
+Future nativeContainment uses root basename INVENTORY_PREPAYLOAD_IMPLEMENTATION_INDEPENDENT_REVIEW_20261005.md with its exact digest and new QA/tests; existing REPORT grammar stays unchanged. Exact finite curl qualification and semantic5 composition remain inventory-only as qualified by that report. Root must file/push this custody, prearm exact launcher against the new frozen HEAD and separately authorize fresh one-shot provider/runtime observation and manual seal/event last. No stale or consumed record reuse, foreign release inference, account acceptance or production authorization follows. No launcher execution/prearm, provider/runtime/SSH/RPC, controls/events, source/OS edits or commit. STOP.

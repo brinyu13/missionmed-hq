@@ -933,10 +933,12 @@ class Fixtures(unittest.TestCase):
         cases.append(('unknown_stderr','INVENTORY_CAPTURE','child_exit'))
         child_messages['formatted_ssh']=b' \t\x1b[31mssh: connect to host PRIVATE_SENTINEL port 22: Connection refused\x1b[0m\r'
         cases.append(('formatted_ssh','INVENTORY_CAPTURE','ssh_transport_error'))
-        child_messages['boundary_fatal']=b'IR_INVENTORY_BOUNDARY_V1 ENTERED\nIR_INVENTORY_BOUNDARY_V1 SHUTDOWN FATAL MEMORY\n'
+        child_messages['boundary_fatal']=b'IR_INVENTORY_BOUNDARY_V2 WRAPPER_ENTERED\nIR_INVENTORY_BOUNDARY_V2 PAYLOAD_ENTERED\nIR_INVENTORY_BOUNDARY_V2 SHUTDOWN FATAL MEMORY\n'
         cases.append(('boundary_fatal','INVENTORY_CAPTURE','child_exit'))
-        child_messages['boundary_invalid']=b'IR_INVENTORY_BOUNDARY_V1 SHUTDOWN FATAL PRIVATE_SENTINEL\n'
+        child_messages['boundary_invalid']=b'IR_INVENTORY_BOUNDARY_V2 SHUTDOWN FATAL PRIVATE_SENTINEL\n'
         cases.append(('boundary_invalid','INVENTORY_CAPTURE','child_exit'))
+        child_messages['boundary_parse']=b'IR_INVENTORY_BOUNDARY_V2 WRAPPER_ENTERED\nIR_INVENTORY_BOUNDARY_V2 SHUTDOWN PARSEERROR UNKNOWN\n'
+        cases.append(('boundary_parse','INVENTORY_CAPTURE','child_exit'))
         for mode,stage,category in cases:
             with self.subTest(mode=mode),tempfile.TemporaryDirectory(prefix='ir-stage-fixture-') as tmp:
                 session=self.session('auth_inventory');session.directory=Path(tmp).resolve();trace=[];children=[]
@@ -970,7 +972,7 @@ class Fixtures(unittest.TestCase):
                 code=255 if mode=='quiet255' else 7 if nonzero else 0
                 def popen(*args,**kwargs):
                     if mode=='unknown':raise RuntimeError('PRIVATE_SENTINEL')
-                    normal=b'IR_INVENTORY_BOUNDARY_V1 ENTERED\nIR_INVENTORY_BOUNDARY_V1 SHUTDOWN NONFATAL UNKNOWN\n'
+                    normal=b'IR_INVENTORY_BOUNDARY_V2 WRAPPER_ENTERED\nIR_INVENTORY_BOUNDARY_V2 PAYLOAD_ENTERED\nIR_INVENTORY_BOUNDARY_V2 SHUTDOWN NONFATAL UNKNOWN\n'
                     child=ReadbackPipeChild([data],code=code,stderr=mode=='stderr' or mode in child_messages,
                         error_chunks=[normal] if code==0 and mode!='stderr' else [])
                     children.append(child);return child
@@ -998,8 +1000,9 @@ class Fixtures(unittest.TestCase):
                         'warning_stdin':['PHP_WARNING','STDIN','WPCLI_ERROR'],
                         'unknown_stdin':['PHP_WARNING','STDIN','WPCLI_ERROR']}.get(mode,[])
                     expected['stderrMarkers']=sorted(expected['stderrMarkers']+['PAYLOAD_NOT_OBSERVED','PAYLOAD_SHUTDOWN_NOT_OBSERVED'])
-                    if mode=='boundary_fatal':expected['stderrMarkers']=['MEMORY','PAYLOAD_ENTERED','PAYLOAD_SHUTDOWN_FATAL']
+                    if mode=='boundary_fatal':expected['stderrMarkers']=['EVAL_WRAPPER_ENTERED','MEMORY','PAYLOAD_ENTERED','PAYLOAD_SHUTDOWN_FATAL']
                     if mode=='boundary_invalid':expected['stderrMarkers']=['BOUNDARY_INVALID','STDERR_UNCLASSIFIED']
+                    if mode=='boundary_parse':expected['stderrMarkers']=['EVAL_PARSEERROR','EVAL_WRAPPER_ENTERED','PAYLOAD_NOT_OBSERVED']
                 if mode=='stderr':expected['stderrMarkers']=['PAYLOAD_NOT_OBSERVED','PAYLOAD_SHUTDOWN_NOT_OBSERVED','STDERR_UNCLASSIFIED']
                 self.assertEqual(receipt,expected)
                 self.assertLess(trace.index('drain'),trace.index('release'))
