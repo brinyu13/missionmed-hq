@@ -15,10 +15,12 @@ const CORE_ACTIONS=new Set(['switch-view','nav','matrix','open-interview','open-
 const coreOnly=()=>capabilities.coreOnly===true;
 const coreRoute=route=>['home','calendar','interviews','settings'].includes(route);
 const deepResearch=()=>capabilities.deepResearch===true&&!studentPreview()&&actor?.role==='student';
+const loiCanonicalLookup=()=>capabilities.loiCanonicalLookup===true&&!studentPreview()&&actor?.role==='student';
+const programSearchAllowed=()=>!studentPreview()&&(!coreOnly()||deepResearch()||loiCanonicalLookup());
 const loiEnabled=()=>capabilities.loi===true&&!studentPreview()&&actor?.role==='student';
 const LOI_COMMANDS=new Set(['loi.save','loi.approve','loi.evidence','loi.export','loi.handoff','loi.mark_sent']);
 const coreCommand=name=>loiEnabled()&&LOI_COMMANDS.has(name)||CORE_COMMANDS.has(name)||deepResearch()&&name==='research.check';
-const coreAction=name=>loiEnabled()&&name.startsWith('loi-')||CORE_ACTIONS.has(name)||deepResearch()&&['resolve','research-refresh','research-advance'].includes(name);
+const coreAction=name=>loiEnabled()&&name.startsWith('loi-')||CORE_ACTIONS.has(name)||loiCanonicalLookup()&&name==='resolve'||deepResearch()&&['resolve','research-refresh','research-advance'].includes(name);
 const coreSection=section=>loiEnabled()&&section==='loi'||deepResearch()&&section==='brief'||['identify','schedule'].includes(section);
 function comingSoonBadge(){return '<span class="chip warn" style="font-size:9px;white-space:normal">COMING SOON</span>';}
 function comingSoonPanel(label){return `<div class="panel amber pad" role="status" style="margin-bottom:1rem">${comingSoonBadge()}<h3>${esc(label||'This capability')}</h3><p>This capability is a preview. Its live integration is not active in this release. No recording, research, sharing or remote action will run, and text entered here is not saved.</p><p class="tiny">Your saved interviews and Calendar remain available.</p><button class="btn ghost sm" data-act="nav" data-to="calendar">Open Calendar</button></div>`;}
@@ -40,7 +42,7 @@ async function refreshSession(){
 }
 async function apiFetch(path,options={},retried=false){
   if(studentPreview())throw previewError();
-  if(coreOnly()&&path!=='/bootstrap'&&!(deepResearch()&&path.startsWith('/programs?'))&&!(path==='/commands'&&coreCommand(JSON.parse(options.body||'{}').command))){openComingSoon('This integration');const error=Error('COMING SOON: this integration is not active.');error.code='coming_soon';throw error;}
+  if(coreOnly()&&path!=='/bootstrap'&&!((deepResearch()||loiCanonicalLookup())&&path.startsWith('/programs?'))&&!(path==='/commands'&&coreCommand(JSON.parse(options.body||'{}').command))){openComingSoon('This integration');const error=Error('COMING SOON: this integration is not active.');error.code='coming_soon';throw error;}
   if(!session||session.expiresAt<Date.now()+5000){try{await refreshSession();}catch(error){if(error.status===401||error.status===403)lockWorkspace('Your session ended. Sign in through MissionMed and reopen the workspace.');throw error;}}
   const headers=new Headers(options.headers||{});headers.set('Authorization','Bearer '+session.token);headers.set('Accept','application/json');
   if(options.method&&options.method!=='GET')headers.set('X-IIQ-Nonce',session.nonce);
@@ -59,10 +61,13 @@ function applyBootstrap(input){
   const b=input?.bootstrap||input;
   researchBriefs.clear();
   if(!b?.actor?.id||!normalizeRole(b.actor.role)||!b.state)throw Error('The service returned an incomplete signed workspace.');
+  const hadLookup=loiCanonicalLookup();
   const sameActor=actor?.id===b.actor.id&&normalizeRole(actor.role)===normalizeRole(b.actor.role);
   const ui=sameActor&&S?.ui?S.ui:defaultUI();
   if(!sameActor){clearPrivateMemory();}else if(loiEnabled()&&(b.capabilities?.loi!==true||normalizeRole(b.actor.role)!=='student'))clearLoiMemory();
-  actor={...b.actor,role:normalizeRole(b.actor.role)};capabilities=b.capabilities||{};integrations=b.integrations||{};version=b.version;
+  actor={...b.actor,role:normalizeRole(b.actor.role)};capabilities=b.capabilities||{};
+  if(!sameActor||hadLookup&&!loiCanonicalLookup()){searchSequence++;clearTimeout(searchTimer);}
+  integrations=b.integrations||{};version=b.version;
   const catalog=b.catalog||{};F={...catalog,programs:catalog.programs||[],facts:catalog.facts||[],sources:catalog.sources||[],personas:catalog.profiles||[actor],student_zone:actor.zone||catalog.student_zone||'UTC',registry_release:catalog.registry_release||'current registry',label:''};
   if(!F.personas.some(p=>p.id===actor.id))F.personas.push(actor);
   const serverNow=b.server_time||b.state.clock;if(serverNow&&Number.isFinite(Date.parse(serverNow)))serverClockOffset=Date.parse(serverNow)-Date.now();
