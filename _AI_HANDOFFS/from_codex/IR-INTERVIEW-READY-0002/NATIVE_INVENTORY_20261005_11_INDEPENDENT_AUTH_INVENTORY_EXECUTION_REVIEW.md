@@ -1,0 +1,9 @@
+# Independent manual set11
+
+Verdict: APPROVE
+
+Reviewer: /root/inventory_exact_admission_reviewer
+
+Frozen HEAD: 3d7ec2bddd2106fe228f9fe4d78b4bcabac9ca88
+
+Only this explicitly manually authorized creation_inventory_read is admitted. Product8717 lineage uses exact sourceCommit8717/packagea93 and35 unchanged product inputs; SOURCE shopping/admin application stays on HOLD. No account/auth A-B/login/logout/HTTP effects, source mutation, worker lease calls, replay, autoapproval or retry. All old controls/history remain preserved. Closed stderr diagnostic review889128823e7df3a5df09fed35f614d7e1a161fe6f4b4048c2146db4fa27c3d67 binds exact helper finite containment and unchanged reachable inventory effects; settled bootstrapsemantic5 remains exact and limited to ordinary CLI inventory. Actual child cause remains unknown; no new callback qualification. Exact local unpatched snapshot NATIVE_INVENTORY_20261005_11_INDEPENDENT_AUTH_INVENTORY_CONTRACT.json canonical binding a198e0d4bb828c70c1b4e3619053aab96988e629edbd51c1c2edae55fb3454a1 at HEAD 3d7ec2bddd2106fe228f9fe4d78b4bcabac9ca88. Actual coordination-only SQL 2026-10-05 16:05:53.325149+00 frozen in NATIVE_INVENTORY_20261005_11_INDEPENDENT_PROVIDER_PUBLIC_READBACK.json SHA c3aacf8487d261dc07a0e085b7a2151f6743690e0ea9bf53ac4c8f1543624467. INSTALL4851 explicitly released 2026-10-04 23:43:21.541475+00; inventory5007 explicitly released 2026-10-05 07:25:01.253208+00; inventory5001 explicitly released 2026-10-05 06:43:34.448594+00. IR0/pendingIR0/AUTH0/Matrix0; exact active/expired-unreleased0. Historical owner waiters total=2, granted=2, expired-ungranted0. Old4839 remains UNKNOWN. ObservedUnix 1791216353.325149 initial READY freshness ends 1791216653.325149, no renewal/retiming. No raw registry/nonce/token/user data retained. Inventory max600 within owner expiry; Root independently snapshot/hash matches before sole execution.
