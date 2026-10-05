@@ -1,3 +1,5 @@
+import {studyDateOrderError} from "./exam-workflow.js";
+import {setFounderEventDisplay} from "../presentation/founder-display-rules.js";
 import {BUILDER_STEPS,VISIBILITY} from "./constants.js";
 import {
   builderDomain022,builderEntryId022,isImportedBuilderEvent022,
@@ -6,6 +8,11 @@ import {
 } from "./imported-builder-entry-022.js";
 import {
   addBuilderExam,
+  sourceExamReviewCandidates,
+  reviewSourceExamDates,
+  builderExamForReview,
+  localTestStudyEnvironment,
+  proposeLocalTestStudyBounds,
   completedBuilderExamAttempts,
   deleteBuilderExamAttempt,
   finalizeBuilderExams,
@@ -52,9 +59,9 @@ export const PERSONAL_ICONS=Object.freeze([
 ]);
 
 export const PERSONAL_EVENT_PRESETS=Object.freeze([
-  "Medical school graduation","Other graduation","ECFMG certification",
+  "Medical school graduation","Advanced degree completion","Medical school start","Other graduation","ECFMG certification","Received a U.S. Employment Authorization Document (EAD)",
   "Moved to the United States","Moved to another country","Became a U.S. citizen",
-  "Received permanent residency / green card","Married","Engaged","Pregnancy",
+  "Received U.S. permanent residency / green card","Married","Engaged","Pregnancy",
   "Birth of first child","Birth of another child","Divorce or separation",
   "Serious illness","Hospitalization","Death of a loved one","Passed an exam",
   "Failed an exam","Major career transition","Started residency","Completed residency",
@@ -76,6 +83,27 @@ export function countryFlag(code=""){
   const value=String(code||"").trim().toUpperCase();
   if(!/^[A-Z]{2}$/.test(value))return"";
   return String.fromCodePoint(...[...value].map((character)=>127397+character.charCodeAt(0)));
+}
+
+export const FOUNDER_OPTIONAL_MILESTONES=Object.freeze([
+  "Moved to the United States","Moved to another country","Became a U.S. citizen",
+  "Received U.S. permanent residency / green card","Received a U.S. Employment Authorization Document (EAD)",
+  "Married","Birth of first child","Birth of another child","Medical school graduation",
+  "Advanced degree completion","Medical school start","ECFMG certification"
+]);
+export function chooseFounderOptionalMilestone(document,title){
+  if(!FOUNDER_OPTIONAL_MILESTONES.includes(title)&&title!=="Custom milestone")return false;
+  const builder=ensureBuilderState(document);builder.step=6;
+  builder.drafts.personal={...blankDraft("personal"),happened:title==="Custom milestone"?"":title,founderOptional:true};
+  delete builder.editing.personal;return true;
+}
+
+export function founderWizardMilestoneType(entry={}){
+  const direct={"Moved to the United States":"US_MOVE","Became a U.S. citizen":"US_CITIZENSHIP","Received U.S. permanent residency / green card":"US_GREEN_CARD","Received a U.S. Employment Authorization Document (EAD)":"US_EAD"};
+  if(direct[entry.happened])return direct[entry.happened];
+  const us=entry.toCountryCode==="US"||/^(United States(?: of America)?|USA|US)$/i.test(String(entry.toCountry||"").trim());
+  if(!us)return null;
+  return entry.happened==="Received permanent residency / green card"?"US_GREEN_CARD":entry.happened==="Received an Employment Authorization Document (EAD)"?"US_EAD":null;
 }
 
 export const WORK_AUTHORIZATION_OPTIONS=Object.freeze([
@@ -252,6 +280,7 @@ function blankDraft(domain){
   };
   return{
     happened:"",
+    displayLabel:"",
     whenKind:"One date",
     startDate:"",
     endDate:"",
@@ -319,14 +348,23 @@ export function validateCoreInfo(profile={}){
   return errors;
 }
 
+function examMonth(value){const exact=parseExactDate(value);return exact?exact.slice(0,7):parseMonth(value);}
+
 export function validateExam(exam={}){
   const errors={};
-  if(!["Passed","Failed","Awaiting result"].includes(exam.result))errors.result="Required.";
+  if(exam.result&&!["Passed","Failed","Awaiting result","Unknown"].includes(exam.result))errors.result="Choose the actual result or Unknown / needs review.";
   if(!String(exam.examDate||"").trim())errors.examDate="Required.";
-  else if(!parseMonth(exam.examDate))errors.examDate="Enter a month and year, like 'Jun 2023'.";
-  if(exam.studyStartDate&&!parseMonth(exam.studyStartDate))errors.studyStartDate="Enter a month and year, like 'Jun 2023'.";
-  else if(parseMonth(exam.studyStartDate)&&parseMonth(exam.examDate)&&
-    parseMonth(exam.studyStartDate)>parseMonth(exam.examDate))errors.studyStartDate='Study start must be on or before the exam date.';
+  else if(!examMonth(exam.examDate))errors.examDate="Enter a month and year, like 'Jun 2023'.";
+  if(!String(exam.studyStartDate||"").trim())errors.studyStartDate="Actual study start needs student review.";
+  if(!String(exam.studyEndDate||"").trim())errors.studyEndDate="Actual study end needs student review.";
+  else if(!examMonth(exam.studyEndDate))errors.studyEndDate="Enter a month and year.";
+  else if(examMonth(exam.studyStartDate)&&examMonth(exam.studyEndDate)<examMonth(exam.studyStartDate))errors.studyEndDate="Study end must be on or after study start.";
+  else if(examMonth(exam.examDate)&&examMonth(exam.studyEndDate)>examMonth(exam.examDate))errors.studyEndDate="Study end must be on or before the exam date.";
+  if(exam.studyStartDate&&!examMonth(exam.studyStartDate))errors.studyStartDate="Enter a month and year, like 'Jun 2023'.";
+  else if(examMonth(exam.studyStartDate)&&examMonth(exam.examDate)&&
+    examMonth(exam.studyStartDate)>examMonth(exam.examDate))errors.studyStartDate='Study start must be on or before the exam date.';
+  const exactOrderError=studyDateOrderError(exam.studyStartDate,exam.studyEndDate,exam.examDate);
+  if(exactOrderError)errors.studyEndDate=exactOrderError;
   const passFailOnly=!!EXAM_SYSTEMS[exam.system]?.exams
     .find((item)=>item.id===exam.examId)?.passFailOnly;
   const scoredResult=["Passed","Failed"].includes(exam.result);
@@ -371,7 +409,7 @@ export function validateBuilderEntry(domain,entry={}){
     if(!String(entry.role||"").trim())errors.role="Required.";
     if(!String(entry.organization||"").trim())errors.organization="Required.";
     if(!String(entry.country||"").trim())errors.country="Required.";
-    if(!["Clinical","Non-clinical"].includes(entry.kind))errors.kind="Required.";
+    if(!["Clinical","Non-clinical","Volunteer"].includes(entry.kind))errors.kind="Required.";
   }else if(domain==="research"){
     if(!String(entry.projectTitle||"").trim())errors.projectTitle="Required.";
     if(entry.publicationStatus==="Published"){
@@ -381,6 +419,7 @@ export function validateBuilderEntry(domain,entry={}){
     }
   }else if(domain==="personal"){
     if(!String(entry.happened||"").trim())errors.happened="Required.";
+    if(!parseMonth(entry.startDate))errors.startDate="Enter the actual month and year before adding this optional milestone.";
     if(personalCountryMode(entry.happened)!=="none"&&!String(entry.toCountry||"").trim())errors.toCountry="Required.";
   }
   if(orderError)errors.endDate=orderError;
@@ -589,6 +628,7 @@ export function eventFromBuilderEntry(domain,entry,{entryId=null,eventId=null,id
     visibilityState:entry.visibilityState||VISIBILITY.INTERVIEWER_SAFE,
     fields:{
       happened:entry.happened||"",
+      founderMilestoneType:founderWizardMilestoneType(entry),
       whenKind:personalDateRange(entry)?"Date range":"One date",
       fromCountry:entry.fromCountry||"",
       fromCountryCode:entry.fromCountryCode||"",
@@ -665,6 +705,8 @@ export function commitBuilderEntry(document,domain,entry,{entryId=null,idFactory
       else document.events.push(milestone);
     }else if(publicationIndex>=0)document.events.splice(publicationIndex,1);
   }
+  if(domain==="personal"&&entry.displayLabel)document.presentationOverrides=setFounderEventDisplay(document,event.id,{label:entry.displayLabel}).presentationOverrides;
+  if(domain==="work"&&entry.kind==="Volunteer")document.presentationOverrides=setFounderEventDisplay(document,event.id,{categoryId:"volunteer"}).presentationOverrides;
   builder.drafts[domain]=blankDraft(domain);
   delete builder.editing[domain];
   markStepTouched(document,{clinical:3,work:4,research:5,personal:6}[domain]);
@@ -759,6 +801,7 @@ export function beginBuilderEntryEdit(document,eventId){
   builder.step=step;
   if(domain==="core"||domain==="exams")return true;
   builder.drafts[domain]=entryFromBuilderEvent(event);
+  if(domain==="personal")builder.drafts[domain].displayLabel=document.presentationOverrides?.events?.[event.id]?.label||"";
   builder.editing[domain]=builderEntryId022(event);
   return true;
 }
@@ -1013,20 +1056,26 @@ function ordinal(value){
   return`${number}${number%10===1?"st":number%10===2?"nd":number%10===3?"rd":"th"}`;
 }
 
-function renderExamCard(exam){
+function renderExamCard(exam,document){
   const definition=examDefinition(exam);
   const attempt=Number(exam.attempt)||1;
   const title=attempt>1?`${definition.name} — ${ordinal(attempt)} attempt`:definition.name;
   const scoreError=validateExam(exam).score||"";
   const scoreRequired=!definition.passFailOnly&&["Passed","Failed"].includes(exam.result);
   return`<article class="exam-card" data-exam-card data-exam-id="${escapeHtml(exam.id)}">
-    <header><h3>${escapeHtml(title)}</h3><button type="button" class="button tertiary" data-delete-exam="${escapeHtml(exam.id)}">Delete</button></header>
+    <header><h3>${escapeHtml(title)}</h3><button type="button" class="button tertiary" data-delete-exam="${escapeHtml(exam.id)}" ${exam.sourceType==="document-intake"?'disabled title="Accepted source exam retained"':""}>Delete</button></header>
     <div class="exam-primary-row">
-      ${monthFieldMarkup({id:`exam-study-${exam.id}`,label:"Started studying (optional)",value:exam.studyStartDate,error:validateExam(exam).studyStartDate||''})}
-      ${monthFieldMarkup({id:`exam-date-${exam.id}`,label:exam.result==="Awaiting result"?"Exam date (taken)":"Exam date",value:exam.examDate,required:true})}
+      ${monthFieldMarkup({id:`exam-study-${exam.id}`,label:"Actual study start",value:exam.studyStartDate,required:true,error:validateExam(exam).studyStartDate||''})}
+      ${monthFieldMarkup({id:`exam-study-end-${exam.id}`,label:"Actual study end",value:examMonth(exam.studyEndDate)||exam.studyEndDate,required:true,error:validateExam(exam).studyEndDate||""})}
+      ${monthFieldMarkup({id:`exam-date-${exam.id}`,label:exam.result==="Awaiting result"?"Exam date (taken)":"Exam date",value:examMonth(exam.examDate)||exam.examDate,required:true})}
     </div>
+    <p class="field-help">Source exam date: ${escapeHtml(exam.examDate||"Unknown")}. Result: ${escapeHtml(exam.result||"Unknown / needs review")}.</p>
+    <p class="field-help" data-study-review-status>${!examMonth(exam.studyStartDate)||!examMonth(exam.studyEndDate)?"Student review required: enter actual study dates. No study period is inferred from an exam or failure date.":"Study dates entered — confirm they reflect your actual preparation."}</p>
+    ${localTestStudyEnvironment(document)&&(!examMonth(exam.studyStartDate)||!examMonth(exam.studyEndDate))?`<button type="button" class="button secondary" data-local-test-study-proposal="${escapeHtml(exam.id)}" ${examMonth(exam.examDate)?"":"disabled"}>Use neutral local TEST study proposal</button>`:""}
+    ${Object.values(exam.studyReviewProvenance||{}).some(item=>item.placeholder)?'<p class="field-help">LOCAL TEST placeholder study start. Source remains unknown; this proposal is not applicant history.</p>':""}
     <div class="exam-secondary-row">
       ${segmented({legend:"Result",name:`result-${exam.id}`,values:[
+        {label:"Unknown / needs review",value:"Unknown"},
         "Passed",
         "Failed",
         {label:"Awaiting results",value:"Awaiting result"}
@@ -1046,7 +1095,7 @@ function renderExams(document){
   const aiQueue=(builder.aiExamReviewQueue||[]).filter((item)=>item?.status!=="applied");
   const selected=new Set(builder.examSystems);
   const exams=Array.isArray(document.exams)?document.exams:[];
-  const visibleExams=exams.filter((exam)=>selected.has(exam.system));
+  const visibleExams=exams.filter((exam)=>selected.has(exam.system)).map(exam=>builderExamForReview(document,exam));
   const chips=[];
   for(const systemId of builder.examSystems){
     const system=EXAM_SYSTEMS[systemId];
@@ -1058,6 +1107,8 @@ function renderExams(document){
     }
   }
   return`<section class="exam-step">
+    ${sourceExamReviewCandidates(document).length?'<p class="field-help">Known exam dates are already in your reviewed source. Their results and study dates can remain unknown.</p><button type="button" class="button secondary" data-review-source-exams>Review known source exam dates</button>':""}
+    ${globalThis.location?.protocol==="http:"&&["localhost","127.0.0.1"].includes(globalThis.location.hostname)?`<aside class="field-help" data-local-test-controls>${localTestStudyEnvironment(document)?`<strong>Confirmed local TEST prototype — placeholder values are not applicant history</strong><div>${(document.mediaItems||[]).filter(item=>["photo1","photo2","photo3"].includes(item.placement)&&item.type!=="profilePhoto").map(item=>`<label><input type="checkbox" data-local-test-media-id="${escapeHtml(item.id)}" ${item.metadata?.prototypeTest?"checked":""}> ${escapeHtml(item.placement)} is a neutral local TEST photo</label>`).join("")}<button type="button" class="button secondary" data-mark-local-test-media>Mark selected extra cards as local TEST media</button></div><label><input type="checkbox" data-local-test-hide-media ${document.presentationOverrides?.hidePrototypePhotoCards?"checked":""}> Hide marked extra TEST photo cards (preserve portrait and assets)</label>`:'<button type="button" class="button secondary" data-confirm-local-test>Confirm local TEST prototype</button>'}</aside>`:""}
     ${aiQueue.length?`<section class="ai-exam-review" aria-labelledby="ai-exam-review-title"><h2 id="ai-exam-review-title">From your CV — confirm, don't retype</h2><p class="field-help">These dates are already on the Timeline. Confirm the result and score only when needed.</p><ul>${aiQueue.map((item)=>`<li><strong>${escapeHtml(item.examName||"Exam")}</strong><span>${escapeHtml(formatMonth(item.examDate)||item.examDate||"Date needs review")}</span><span class="school-verification unverified">Source-backed · confirmation needed</span></li>`).join("")}</ul></section>`:""}
     <fieldset class="exam-system-selection">
       <legend>Exam systems</legend>
@@ -1066,7 +1117,7 @@ function renderExams(document){
     ${selected.size===0?'<p class="step-helper">Choose USMLE, COMLEX, or both.</p>':`<div class="exam-add-chips" aria-label="Add exams">${chips.join("")}</div>`}
     <section class="added-exams" aria-labelledby="added-exams-title">
       <h2 id="added-exams-title">Added exams</h2>
-      ${visibleExams.length?visibleExams.map(renderExamCard).join(""):'<p class="step-helper">No exams added yet.</p>'}
+      ${visibleExams.length?visibleExams.map(exam=>renderExamCard(exam,document)).join(""):'<p class="step-helper">No exams added yet.</p>'}
     </section>
     ${skipLink()}
   </section>`;
@@ -1104,7 +1155,7 @@ function workForm(draft,editing,schoolCountry){
     ${textField({id:"workOrganization",label:"Organization",value:draft.organization,required:true,attributes:entryInputAttributes("work","organization")})}
     ${typeaheadField({id:"workCountry",label:"Country",value:draft.country,provider:"countries",context:"work-country",required:true,allowFreeText:false})}
     ${textField({id:"workCity",label:"City (optional)",value:draft.city,attributes:entryInputAttributes("work","city")})}
-    ${segmented({legend:"Kind",name:"kind",values:["Clinical","Non-clinical"],selected:draft.kind,required:true,attributes:'data-draft-group="work"'})}
+    ${segmented({legend:"Kind",name:"kind",values:["Clinical","Non-clinical","Volunteer"],selected:draft.kind,required:true,attributes:'data-draft-group="work"'})}
     <div class="field-row">
       ${monthFieldMarkup({id:"work-start",label:"Start",value:draft.startDate})}
       ${draft.current?"":monthFieldMarkup({id:"work-end",label:"End",value:draft.endDate})}
@@ -1154,9 +1205,11 @@ function personalForm(draft,editing){
   const countryMode=personalCountryMode(draft.happened);
   return`<form class="entry-card" data-entry-form="personal" novalidate>
     <h2>${editing?"Edit personal event":"Add personal event"}</h2>
+    ${!editing?`<details data-founder-optional-milestones><summary>Optional milestones — add only what you want to show</summary><p>Have any of these happened? Choose one to enter its actual date, or skip this section. Medical school start is optional.</p><div class="entry-actions">${FOUNDER_OPTIONAL_MILESTONES.map(title=>`<button type="button" class="button tertiary" data-founder-milestone="${escapeHtml(title)}">${escapeHtml(title)}</button>`).join("")}<button type="button" class="button tertiary" data-founder-milestone="Custom milestone">Custom milestone</button></div></details>`:""}
     ${textField({id:"personalHappened",label:"What happened",value:draft.happened,required:true,placeholder:"Search common events or enter your own",attributes:`list="personal-event-presets" ${entryInputAttributes("personal","happened")}`})}
     <datalist id="personal-event-presets">${PERSONAL_EVENT_PRESETS.map((event)=>`<option value="${escapeHtml(event)}"></option>`).join("")}</datalist>
     <p class="field-help">Choose a common event or enter your own.</p>
+    ${textField({id:"personalDisplayLabel",label:"Display label (optional)",value:draft.displayLabel,attributes:entryInputAttributes("personal","displayLabel")})}
     ${countryMode==="from-to"?typeaheadField({id:"personalFromCountry",label:"From country",value:draft.fromCountry,provider:"countries",context:"personal-from-country",allowFreeText:false,placeholder:"Search all countries"}):""}
     ${countryMode!=="none"?typeaheadField({id:"personalToCountry",label:countryMode==="from-to"?"To country":"Country",value:draft.toCountry,provider:"countries",context:"personal-to-country",required:true,allowFreeText:false,placeholder:"Search all countries"}):""}
     ${countryMode!=="none"&&(draft.fromCountryCode||draft.toCountryCode)?`<p class="field-help" aria-label="Selected countries">${draft.fromCountryCode?`${countryFlag(draft.fromCountryCode)} ${escapeHtml(draft.fromCountry)}`:""}${draft.fromCountryCode&&draft.toCountryCode?" → ":""}${draft.toCountryCode?`${countryFlag(draft.toCountryCode)} ${escapeHtml(draft.toCountry)}`:""}</p>`:""}
@@ -1223,7 +1276,7 @@ export function renderBuilderEntryDetails(document,event){
     const entryId=String(event?.fields?.builderEntryId||"");
     const exam=(document?.exams||[]).find((item)=>String(item.id)===entryId);
     return exam
-      ?renderExamCard(exam)
+      ?renderExamCard(builderExamForReview(document,exam),document)
       :'<p class="field-help">This exam detail is managed from the Exams step.</p>';
   }
   const entry=entryFromBuilderEvent(event);
@@ -1232,6 +1285,13 @@ export function renderBuilderEntryDetails(document,event){
   if(domain==="research")return researchForm(entry,true);
   if(domain==="personal")return personalForm(entry,true);
   return'<p class="field-help">This event has no Builder-owned details.</p>';
+}
+
+export function renderFounderBuilderStep(document,step=Number(document.builder?.step)||1){
+  if(step===2)return renderExams(document);
+  if(step===4)return renderEntryStep(document,"work");
+  if(step===6)return renderEntryStep(document,"personal");
+  return null;
 }
 
 function renderStepBody(document,step){
@@ -1305,6 +1365,7 @@ function setInlineErrors(form,errors){
     const key=aliases[field]||field;
     const examNode=field==="result"?form?.querySelector?.("[data-exam-result-group] .field-error"):
       field==="examDate"?form?.querySelector?.('[data-month-field^="exam-date-"] .field-error'):
+      field==="studyEndDate"?form?.querySelector?.('[data-month-field^="exam-study-end-"] .field-error'):
       field==="studyStartDate"?form?.querySelector?.('[data-month-field^="exam-study-"] .field-error'):
       null;
     const node=examNode||
@@ -1399,13 +1460,13 @@ function draftFromForm(form,domain,current={}){
     clinical:["clinicalInstitution","clinicalSpecialty","clinicalRotationType","clinicalCity","clinicalState","clinicalNotes"],
     work:["workRole","workOrganization","workCountry","workCity","kind","workDescription"],
     research:["researchProjectTitle","researchInstitution","researchRole","researchRoleOther","publicationStatus","researchJournal","researchPublicationYear","researchAuthorPosition","researchDoiOrPmid"],
-    personal:["personalHappened","personalFromCountry","personalToCountry","whenKind","iconStyle","icon","visibilityState"]
+    personal:["personalHappened","personalDisplayLabel","personalFromCountry","personalToCountry","whenKind","iconStyle","icon","visibilityState"]
   }[domain]||[];
   const maps={
     clinical:{clinicalInstitution:"institution",clinicalSpecialty:"specialty",clinicalRotationType:"rotationType",clinicalCity:"city",clinicalState:"state",clinicalNotes:"notes"},
     work:{workRole:"role",workOrganization:"organization",workCountry:"country",workCity:"city",workDescription:"description"},
     research:{researchProjectTitle:"projectTitle",researchInstitution:"institution",researchRole:"role",researchRoleOther:"roleOther",researchJournal:"journal",researchPublicationYear:"publicationYear",researchAuthorPosition:"authorPosition",researchDoiOrPmid:"doiOrPmid"},
-    personal:{personalHappened:"happened",personalFromCountry:"fromCountry",personalToCountry:"toCountry"}
+    personal:{personalHappened:"happened",personalDisplayLabel:"displayLabel",personalFromCountry:"fromCountry",personalToCountry:"toCountry"}
   }[domain]||{};
   for(const field of fields){
     const key=maps[field]||field,value=formValue(form,field);
@@ -1646,6 +1707,25 @@ export function installBuilder(root,store,{
   idFactory=uid
 }={}){
   const providers=typeaheadProviders(providerInput);
+  root.querySelector("[data-review-source-exams]")?.addEventListener("click",()=>store.mutate("Review source exam dates",document=>reviewSourceExamDates(document)));
+  root.querySelectorAll("[data-founder-milestone]").forEach(button=>button.addEventListener("click",()=>store.mutate("Choose optional milestone",document=>chooseFounderOptionalMilestone(document,button.dataset.founderMilestone),{history:false,material:false})));
+  root.querySelector("[data-confirm-local-test]")?.addEventListener("click",()=>{
+    if(globalThis.location?.protocol!=="http:"||!["localhost","127.0.0.1"].includes(globalThis.location.hostname))return;
+    store.mutate("Confirm local TEST prototype",document=>{document.metadata||={};document.metadata.localTestPrototype=true;});
+  });
+  root.querySelectorAll("[data-local-test-study-proposal]").forEach(button=>button.addEventListener("click",()=>{
+    if(!localTestStudyEnvironment(store.document))return;
+    store.mutate("Propose local TEST study dates",document=>proposeLocalTestStudyBounds(document,button.dataset.localTestStudyProposal));
+  }));
+  root.querySelector("[data-mark-local-test-media]")?.addEventListener("click",()=>{
+    if(!localTestStudyEnvironment(store.document))return;
+    const selected=new Set([...root.querySelectorAll("[data-local-test-media-id]:checked")].map(input=>input.dataset.localTestMediaId));
+    store.mutate("Mark selected local TEST photos",document=>{for(const item of document.mediaItems||[])if(selected.has(String(item.id))&&["photo1","photo2","photo3"].includes(item.placement)&&item.type!=="profilePhoto"){item.metadata||={};item.metadata.prototypeTest=true;}});
+  });
+  root.querySelector("[data-local-test-hide-media]")?.addEventListener("change",event=>{
+    if(!localTestStudyEnvironment(store.document))return;
+    store.mutate("Toggle extra TEST photo cards",document=>{document.presentationOverrides||={};document.presentationOverrides.hidePrototypePhotoCards=event.currentTarget.checked;});
+  });
   root.querySelector("[data-show-builder-preview]")?.addEventListener("click",(event)=>{
     const screen=root.querySelector(".builder-screen");
     const open=!screen?.classList.contains("preview-overlay-open");
@@ -1872,7 +1952,7 @@ export function installBuilder(root,store,{
     if(examCard){
       store.mutate("Update exam date",(document)=>{
         updateBuilderExamAttempt(document,examCard.dataset.examId,{
-          [id.startsWith("exam-study-")?"studyStartDate":"examDate"]:value
+          [id.startsWith("exam-study-end-")?"studyEndDate":id.startsWith("exam-study-")?"studyStartDate":"examDate"]:value
         });
         markStepTouched(document,2);
       });

@@ -1,3 +1,7 @@
+import {studyDateOrderError} from "./exam-workflow.js";
+import {parseExactDate} from "./exact-date-field.js";
+function parseMonth(value){const exact=parseExactDate(value);return exact?exact.slice(0,7):parseMonthValue(value);}
+import {addMonths,parseMonth as parseMonthValue} from "./utils.js";
 import {
   EXAM_SYSTEM_IDS,
   EXAM_TYPES,
@@ -49,6 +53,69 @@ function builderRecordType(record){
   return BUILDER_TO_WORKFLOW_TYPE[`${record?.system}:${record?.examId}`]||null;
 }
 
+export function localTestStudyEnvironment(document={},location=globalThis.location){
+  return location?.protocol==="http:"&&["localhost","127.0.0.1"].includes(location.hostname)&&document.metadata?.localTestPrototype===true;
+}
+export function builderExamForReview(document,record,{location=globalThis.location}={}){
+  const override=document.builder?.examStudyReviewOverrides?.[record.id];
+  if(!override)return record;
+  if(override.localTestOnly&&!localTestStudyEnvironment(document,location))return record;
+  return {...record,studyStartDate:override.studyStartDate??record.studyStartDate,studyEndDate:override.studyEndDate??record.studyEndDate,studyReviewProvenance:override.fieldProvenance};
+}
+export function proposeLocalTestStudyBounds(document,recordId,{location=globalThis.location}={}){
+  if(!localTestStudyEnvironment(document,location))throw new Error("Local TEST prototype confirmation required.");
+  const record=(document.exams||[]).find(item=>item.id===recordId),examDate=parseMonth(record?.examDate);
+  if(!examDate)throw new Error("Known exam date required for a local TEST proposal.");
+  const reviewed=builderExamForReview(document,record,{location}),changes={},fieldProvenance={};
+  for(const [key,value] of [["studyStartDate",addMonths(examDate,-3)],["studyEndDate",record.examDate]]){
+    if(parseMonth(reviewed[key]))continue;changes[key]=value;
+    fieldProvenance[key]={placeholder:key==="studyStartDate",reason:"LOCAL_TEST_STUDY_PROPOSAL",sourcePrecision:key==="studyStartDate"?"UNKNOWN":(record.examDatePrecision||"MONTH"),originalKnownValue:key==="studyStartDate"?null:record.examDate,sourceStudyValue:record[key]||null};
+  }
+  document.builder||={};document.builder.examStudyReviewOverrides||={};
+  const prior=document.builder.examStudyReviewOverrides[recordId]||{};
+  document.builder.examStudyReviewOverrides[recordId]={...prior,...changes,localTestOnly:true,fieldProvenance:{...(prior.fieldProvenance||{}),...fieldProvenance}};
+  return applyExamWorkflow(document,examWorkflowFromDocument(document));
+}
+
+const SOURCE_EXAM_TYPES={STEP_1:{system:"USMLE",examId:"step-1",name:"Step 1"},STEP_2_CK:{system:"USMLE",examId:"step-2-ck",name:"Step 2 CK"},STEP_3:{system:"USMLE",examId:"step-3",name:"Step 3"}};
+export function sourceExamDefinition(event){
+  if(event?.sourceType!=="document-intake"||event.categoryId!=="exams"||event.eventType!=="milestone"||!parseMonth(event.startDate))return null;
+  const canonical=SOURCE_EXAM_TYPES[event.fields?.canonicalType];if(canonical)return canonical;
+  let name=String(event.fields?.examName||event.title||"").trim();
+  const comlex=/^COMLEX(?:-USA)?\b/i.test(name)||/^COMLEX(?:-USA)?$/i.test(event.fields?.examSystem||"");
+  name=name.replace(/^(?:USMLE|COMLEX(?:-USA)?)\s*[:·—-]?\s*/i,"").replace(/\s*[-—·:]?\s*\(?\s*(?:[1-9][0-9]*(?:st|nd|rd|th)?\s+attempt|attempt(?:\s+[1-9][0-9]*)?)\s*\)?$/i,"").trim();
+  if(!comlex){
+    if(/^Step\s*1$/i.test(name))return SOURCE_EXAM_TYPES.STEP_1;
+    if(/^Step\s*2\s*[- ]?\s*CK$/i.test(name))return SOURCE_EXAM_TYPES.STEP_2_CK;
+    if(/^Step\s*3$/i.test(name))return SOURCE_EXAM_TYPES.STEP_3;
+  }else{
+    if(/^Level\s*1$/i.test(name))return{system:"COMLEX-USA",examId:"level-1",name:"Level 1"};
+    if(/^Level\s*2\s*[- ]?\s*CE$/i.test(name))return{system:"COMLEX-USA",examId:"level-2-ce",name:"Level 2-CE"};
+    if(/^Level\s*3$/i.test(name))return{system:"COMLEX-USA",examId:"level-3",name:"Level 3"};
+  }
+  return null;
+}
+export function sourceExamReviewCandidates(document){
+  return(document.events||[]).filter(event=>sourceExamDefinition(event)&&!(document.exams||[]).some(record=>record.sourceEventId===event.id||record.fieldProvenance?.examDate?.sourceEventId===event.id));
+}
+export function reviewSourceExamDates(document){
+  document.exams||=[];document.builder||={};
+  for(const event of sourceExamReviewCandidates(document)){
+    const definition=sourceExamDefinition(event);
+    document.exams.push({id:"source-exam-review-"+event.id,system:"USMLE",...definition,examDate:event.startDate,examDatePrecision:event.fields?.datePrecision?.start||(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(event.startDate)?"DAY":"MONTH"),result:event.fields?.result||"Unknown",score:event.fields?.score||"",studyStartDate:"",studyEndDate:"",attemptNumberUnconfirmed:true,sourceType:"document-intake",sourceEventId:event.id,visibilityState:event.visibilityState||"ADVISOR_ONLY",provenance:clone(event.provenance||[]),fieldProvenance:clone(event.fields?.fieldProvenance||{})});
+  }
+  document.builder.examSystems=[...new Set([...(document.builder.examSystems||[]),...document.exams.map(record=>record.system)])];
+  return applyExamWorkflow(document,examWorkflowFromDocument(document));
+}
+function unconfirmedSourceStudy(document,record){
+  const reviewed=builderExamForReview(document,record),start=parseMonth(reviewed.studyStartDate),end=parseMonth(reviewed.studyEndDate),exam=parseMonth(record.examDate);
+  if(!start||!end||!exam||studyDateOrderError(reviewed.studyStartDate,reviewed.studyEndDate,record.examDate))return[];
+  const override=document.builder?.examStudyReviewOverrides?.[record.id]||{},sourceEvent=(document.events||[]).find(event=>event.id===record.sourceEventId);
+  const local=override.localTestOnly===true;
+  if(local&&!localTestStudyEnvironment(document))return[];
+  return[{id:"source-study-"+record.id,attemptId:"source-exam:"+record.id,categoryId:"exams",eventType:"duration",title:(record.name||"Exam")+" — study period",startDate:reviewed.studyStartDate,endDate:reviewed.studyEndDate,openEnded:false,sourceType:local?"local-test-study":"exam-workflow",visibilityState:sourceEvent?.visibilityState||record.visibilityState||"ADVISOR_ONLY",fields:{builderDomain:"exams",builderEntryId:record.id,attemptId:"source-exam:"+record.id,isStudyPeriod:true,datePrecision:{start:parseExactDate(reviewed.studyStartDate)?"DAY":"MONTH",end:parseExactDate(reviewed.studyEndDate)?"DAY":"MONTH"},sourceDateWording:{start:reviewed.studyStartDate,end:reviewed.studyEndDate},sourceExamRecordId:record.id,sourceEventId:record.sourceEventId,localTestOnly:local,placeholder:override.fieldProvenance?.studyStartDate?.placeholder===true,reason:override.fieldProvenance?.studyStartDate?.reason,sourcePrecision:override.fieldProvenance?.studyStartDate?.sourcePrecision,originalKnownValue:override.fieldProvenance?.studyStartDate?.originalKnownValue,studyReviewProvenance:clone(override.fieldProvenance||{}),fieldProvenance:clone(record.fieldProvenance||{})}}];
+}
+
 function hasIntakeAuthority(record){
   return record?.sourceType==='document-intake'||Object.values(record?.fieldProvenance||{}).some(authority=>authority?.sourceType==='document-intake');
 }
@@ -85,6 +152,7 @@ export function examWorkflowFromDocument(document={}){
   }
   const groups=new Map();
   for(const record of records){
+    if(record.attemptNumberUnconfirmed)continue;
     const typeId=builderRecordType(record);
     if(!typeId)continue;
     if(!groups.has(typeId))groups.set(typeId,[]);
@@ -108,11 +176,13 @@ export function examWorkflowFromDocument(document={}){
         error.attemptNumber=number;
         throw error;
       }
+      const reviewed=builderExamForReview(document,record);
       const changes={
         result:record.result||"",
         score:record.score||"",
         examDate:record.examDate||"",
-        studyPeriodStart:record.studyStartDate||record.studyPeriodStart||""
+        studyPeriodStart:reviewed.studyStartDate||record.studyPeriodStart||"",
+        studyPeriodEnd:reviewed.studyEndDate||record.studyPeriodEnd||""
       };
       if(record.showScoreTouched||record.showScoreWasSet||hasIntakeAuthority(record)){
         changes.showScoreOnTimeline=!!record.showScoreOnTimeline;
@@ -151,6 +221,7 @@ export function builderRecordsFromExamWorkflow(state){
         score:attempt.score,
         examDate:attempt.examDate,
         studyStartDate:attempt.studyPeriodStart,
+        studyEndDate:attempt.studyPeriodEnd,
         showScoreOnTimeline:attempt.showScoreOnTimeline,
         showScoreTouched:attempt.showScoreWasSet,
         showScoreLocked:attempt.showScoreLocked,
@@ -194,14 +265,30 @@ export function applyExamWorkflow(document,state){
       importedWorkflowIds.add(record.id);
       // Normalizing/editing an accepted source record must not erase its
       // privacy authority, or claim an inferred attempt number as source fact.
-      return {...clone(prior),...record,id:prior.id,sourceType:prior.sourceType,
-        ...(prior.attemptNumberUnconfirmed?{attempt:prior.attempt,attemptNumberUnconfirmed:true}:{})};
+      const corrections=document.builder?.examReviewCorrections?.[prior.id];
+      return corrections?{...clone(prior),...clone(corrections),sourceOriginal:clone(prior.sourceOriginal||prior)}:clone(prior);
     });
+  for(const prior of priorRecords.filter(record=>record.attemptNumberUnconfirmed)){
+    const corrections=document.builder?.examReviewCorrections?.[prior.id];
+    document.exams.push(corrections?{...clone(prior),...clone(corrections),sourceOriginal:clone(prior.sourceOriginal||prior)}:clone(prior));
+  }
   document.events=[
-    ...(document.events||[]).filter((event)=>event?.sourceType!=="exam-workflow"),
+    ...(document.events||[]).filter((event)=>event?.sourceType!=="exam-workflow"&&event?.sourceType!=="local-test-study"),
     // The accepted source event already represents this fact. Creating another
     // workflow event would duplicate it with the workflow's default public scope.
-    ...projectedExamEvents(state).filter(event=>!importedWorkflowIds.has(event.attemptId||event.fields?.attemptId||event.fields?.builderEntryId))
+    ...projectedExamEvents(state).flatMap(event=>{
+      const attemptId=event.attemptId||event.fields?.attemptId||event.fields?.builderEntryId;
+      const prior=priorRecords.find(record=>!record.attemptNumberUnconfirmed&&builderRecordType(record)&&examAttemptId(builderRecordType(record),Number(record.attempt)||1)===attemptId);
+      if(importedWorkflowIds.has(attemptId)&&event.eventType!=="duration")return[];
+      if(event.eventType!=="duration"||!prior)return[event];
+      const override=document.builder?.examStudyReviewOverrides?.[prior.id]||{};
+      if(override.localTestOnly&&!localTestStudyEnvironment(document))return[];
+      const sourceEvent=(document.events||[]).find(item=>item.id===(prior.sourceEventId||prior.fieldProvenance?.examDate?.sourceEventId));
+      return[{...event,sourceType:override.localTestOnly?"local-test-study":"exam-workflow",visibilityState:sourceEvent?.visibilityState||prior.visibilityState||event.visibilityState,
+        endDate:override.studyEndDate||prior.studyEndDate||event.endDate,fields:{...event.fields,sourceExamRecordId:prior.id,sourceEventId:prior.sourceEventId||prior.fieldProvenance?.examDate?.sourceEventId||null,
+          localTestOnly:override.localTestOnly===true,placeholder:override.fieldProvenance?.studyStartDate?.placeholder===true,reason:override.fieldProvenance?.studyStartDate?.reason,sourcePrecision:override.fieldProvenance?.studyStartDate?.sourcePrecision,originalKnownValue:override.fieldProvenance?.studyStartDate?.originalKnownValue,studyReviewProvenance:clone(override.fieldProvenance||{}),fieldProvenance:clone(prior.fieldProvenance||{})}}];
+    }),
+    ...document.exams.filter(record=>record.attemptNumberUnconfirmed).flatMap(record=>unconfirmedSourceStudy(document,record))
   ];
   return document;
 }
@@ -234,12 +321,27 @@ function locateDocumentAttempt(document,recordId){
 }
 
 export function updateBuilderExamAttempt(document,recordId,changes){
-  const {targetId}=locateDocumentAttempt(document,recordId);
+  const {targetId,record}=locateDocumentAttempt(document,recordId);
+  if(hasIntakeAuthority(record)){
+    const corrections=Object.fromEntries(Object.entries(changes||{}).filter(([key])=>!["studyStartDate","studyEndDate"].includes(key)));
+    if(Object.keys(corrections).length){document.builder||={};document.builder.examReviewCorrections||={};document.builder.examReviewCorrections[recordId]={...(document.builder.examReviewCorrections[recordId]||{}),...clone(corrections)};}
+  }
+  const studyChanges=Object.fromEntries(Object.entries(changes||{}).filter(([key])=>["studyStartDate","studyEndDate"].includes(key)));
+  if(Object.keys(studyChanges).length){
+    document.builder||={};document.builder.examStudyReviewOverrides||={};
+    const prior=document.builder.examStudyReviewOverrides[recordId]||{},provenance={...(prior.fieldProvenance||{})};
+    for(const [key,value] of Object.entries(studyChanges))provenance[key]={placeholder:false,reason:"STUDENT_ENTERED_ACTUAL_STUDY_DATE",sourcePrecision:parseMonth(value)?"MONTH":"UNKNOWN",originalKnownValue:value||null};
+    const localTestOnly=Object.values(provenance).some(item=>item.placeholder);
+    document.builder.examStudyReviewOverrides[recordId]={...prior,...studyChanges,localTestOnly,fieldProvenance:provenance};
+  }
   const mapped={
     ...clone(changes),
-    ...("studyStartDate" in (changes||{})?{studyPeriodStart:changes.studyStartDate}:null)
+    ...("studyStartDate" in (changes||{})?{studyPeriodStart:changes.studyStartDate}:null),
+    ...("studyEndDate" in (changes||{})?{studyPeriodEnd:changes.studyEndDate}:null)
   };
   delete mapped.studyStartDate;
+  delete mapped.studyEndDate;
+  if(record.attemptNumberUnconfirmed)return applyExamWorkflow(document,examWorkflowFromDocument(document));
   const state=updateExamAttempt(examWorkflowFromDocument(document),targetId,mapped);
   return applyExamWorkflow(document,state);
 }

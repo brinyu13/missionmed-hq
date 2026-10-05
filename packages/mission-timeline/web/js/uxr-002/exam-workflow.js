@@ -1,4 +1,6 @@
-import {addMonths,parseMonth} from "./utils.js";
+import {parseExactDate} from "./exact-date-field.js";
+function parseMonth(value){const exact=parseExactDate(value);return exact?exact.slice(0,7):parseMonthValue(value);}
+import {parseMonth as parseMonthValue} from "./utils.js";
 
 export const EXAM_WORKFLOW_SCHEMA="d1-uxr-002.exams.1";
 
@@ -19,12 +21,14 @@ export const EXAM_WORKFLOW_COPY=Object.freeze({
   score:"Score",
   examDate:"Exam date",
   awaitingExamDate:"Exam date (taken)",
-  studyStart:"Started studying (optional)",
+  studyStart:"Actual study start",
+  studyEnd:"Actual study end",
   retakeAction:"Set retake date"
 });
 
 export const EXAM_CARD_FIELD_ORDER=Object.freeze([
-  Object.freeze({id:"studyPeriodStart",row:1,order:1,priority:"secondary",required:false}),
+  Object.freeze({id:"studyPeriodStart",row:1,order:1,priority:"secondary",required:true}),
+  Object.freeze({id:"studyPeriodEnd",row:1,order:2,priority:"secondary",required:true}),
   Object.freeze({id:"examDate",row:1,order:2,priority:"secondary",required:true}),
   Object.freeze({id:"result",row:2,order:3,priority:"primary",required:true}),
   Object.freeze({id:"score",row:2,order:4,priority:"primary",required:false,typography:"18px/650"})
@@ -103,6 +107,7 @@ const EDITABLE_ATTEMPT_FIELDS=new Set([
   "score",
   "examDate",
   "studyPeriodStart",
+  "studyPeriodEnd",
   "showScoreOnTimeline"
 ]);
 
@@ -124,7 +129,7 @@ function requireExamType(examTypeId){
 
 function canonicalMonthOrRaw(value){
   const raw=String(value??"").trim();
-  return parseMonth(raw)||raw;
+  return parseExactDate(raw)||parseMonth(raw)||raw;
 }
 
 function scoreText(value){
@@ -184,6 +189,7 @@ function createAttempt(examType,attemptNumber,{automatic=false,linkedFailureAtte
     score:"",
     examDate:"",
     studyPeriodStart:"",
+    studyPeriodEnd:"",
     showScoreOnTimeline:false,
     showScoreWasSet:false,
     showScoreLocked:examType.passFailOnly,
@@ -293,7 +299,8 @@ function isAttemptEmpty(attempt){
   return !String(attempt.result||"").trim()
     &&!scoreText(attempt.score)
     &&!String(attempt.examDate||"").trim()
-    &&!String(attempt.studyPeriodStart||"").trim();
+    &&!String(attempt.studyPeriodStart||"").trim()
+    &&!String(attempt.studyPeriodEnd||"").trim();
 }
 
 function normalizeAttempt(attempt,examType,attemptNumber){
@@ -312,6 +319,7 @@ function normalizeAttempt(attempt,examType,attemptNumber){
   normalized.score=scoreText(normalized.score);
   normalized.examDate=canonicalMonthOrRaw(normalized.examDate);
   normalized.studyPeriodStart=canonicalMonthOrRaw(normalized.studyPeriodStart);
+  normalized.studyPeriodEnd=canonicalMonthOrRaw(normalized.studyPeriodEnd);
   normalized.showScoreOnTimeline=!!normalized.showScoreOnTimeline;
   normalized.showScoreWasSet=!!normalized.showScoreWasSet;
   normalized.automatic=!!normalized.automatic;
@@ -340,11 +348,10 @@ function renumberExamGroup(group,examType){
 }
 
 function createRetakeStudyPeriod(examType,failedAttempt,retakeAttempt){
-  const failedDate=parseMonth(failedAttempt.examDate);
-  const retakeDate=parseMonth(retakeAttempt?.examDate);
-  const startDate=failedDate?addMonths(failedDate,1):"";
-  const provisional=!retakeDate;
-  const endDate=retakeDate||(startDate?addMonths(startDate,3):"");
+  // Exam dates do not establish actual study dates.
+  const startDate=parseExactDate(retakeAttempt?.studyPeriodStart)||parseMonth(retakeAttempt?.studyPeriodStart)||"";
+  const endDate=parseExactDate(retakeAttempt?.studyPeriodEnd)||parseMonth(retakeAttempt?.studyPeriodEnd)||"";
+  const provisional=!startDate||!endDate;
   const id=retakeStudyPeriodEventId(examType.id,failedAttempt.attemptNumber);
   const retakeAttemptId=retakeAttempt?.id||
     examAttemptId(examType.id,failedAttempt.attemptNumber+1);
@@ -360,6 +367,7 @@ function createRetakeStudyPeriod(examType,failedAttempt,retakeAttempt){
     endDate,
     openEnded:false,
     provisional,
+    needsStudentReview:provisional,
     linkedFailureAttemptId:failedAttempt.id,
     linkedRetakeAttemptId:retakeAttemptId,
     automatic:true,
@@ -452,7 +460,7 @@ export function updateExamAttempt(state,attemptId,changes){
     if(!EDITABLE_ATTEMPT_FIELDS.has(field))continue;
     if(field==="result")attempt.result=normalizeExamResult(value);
     else if(field==="score")attempt.score=scoreText(value);
-    else if(field==="examDate"||field==="studyPeriodStart")attempt[field]=canonicalMonthOrRaw(value);
+    else if(field==="examDate"||field==="studyPeriodStart"||field==="studyPeriodEnd")attempt[field]=canonicalMonthOrRaw(value);
     else if(field==="showScoreOnTimeline"){
       attempt.showScoreOnTimeline=!!value;
       attempt.showScoreWasSet=true;
@@ -598,7 +606,7 @@ export function examCardMetadata(examTypeId,result=""){
             :EXAM_WORKFLOW_COPY.examDate)
           :field.id==="studyPeriodStart"
             ?EXAM_WORKFLOW_COPY.studyStart
-            :field.id
+            :field.id==="studyPeriodEnd"?EXAM_WORKFLOW_COPY.studyEnd:field.id
     })),
     score:{
       visible:!examType.passFailOnly,
@@ -613,22 +621,35 @@ export function examCardMetadata(examTypeId,result=""){
   };
 }
 
+export function studyDateOrderError(start,end,exam){
+  const startMonth=parseMonth(start),endMonth=parseMonth(end),examMonth=parseMonth(exam);
+  if(startMonth&&endMonth&&(endMonth<startMonth||(parseExactDate(start)&&parseExactDate(end)&&parseExactDate(end)<parseExactDate(start))))return "Study end must be on or after study start.";
+  if(endMonth&&examMonth&&(endMonth>examMonth||(parseExactDate(end)&&parseExactDate(exam)&&parseExactDate(end)>parseExactDate(exam))))return "Study end must be on or before the exam date.";
+  return null;
+}
+
 export function validateExamAttempt(attempt){
   if(!attempt||typeof attempt!=="object")throw new TypeError("Exam attempt must be an object.");
   const examType=requireExamType(attempt.examTypeId);
-  const result=validateExamResult(attempt.result);
+  const result=["","Unknown"].includes(attempt.result)?{valid:true,value:"Unknown",error:null,needsStudentReview:true}:validateExamResult(attempt.result);
   const score=validateExamScore(examType.id,attempt.score,{
     result:attempt.result
   });
   const examDate=validateMonthField(attempt.examDate,{required:true});
-  const studyPeriodStart=validateMonthField(attempt.studyPeriodStart);
+  const studyPeriodStart=validateMonthField(attempt.studyPeriodStart,{required:true});
+  const studyPeriodEnd=validateMonthField(attempt.studyPeriodEnd,{required:true});
+  if(studyPeriodEnd.valid&&studyPeriodStart.valid&&studyPeriodEnd.value<studyPeriodStart.value){studyPeriodEnd.valid=false;studyPeriodEnd.error="Study end must be on or after study start.";}
+  if(studyPeriodEnd.valid&&examDate.valid&&studyPeriodEnd.value>examDate.value){studyPeriodEnd.valid=false;studyPeriodEnd.error="Study end must be on or before the exam date.";}
   if(studyPeriodStart.valid&&examDate.valid&&studyPeriodStart.value&&
     studyPeriodStart.value>examDate.value){
     studyPeriodStart.valid=false;
     studyPeriodStart.error='Study start must be on or before the exam date.';
   }
+  const exactOrderError=studyDateOrderError(attempt.studyPeriodStart,attempt.studyPeriodEnd,attempt.examDate);
+  if(exactOrderError){studyPeriodEnd.valid=false;studyPeriodEnd.error=exactOrderError;}
   return{
-    valid:result.valid&&score.valid&&examDate.valid&&studyPeriodStart.valid,
+    valid:result.valid&&score.valid&&examDate.valid,
+    studyReviewRequired:!studyPeriodStart.valid||!studyPeriodEnd.valid,
     result,
     score,
     examDate:{
@@ -638,6 +659,7 @@ export function validateExamAttempt(attempt){
         :EXAM_WORKFLOW_COPY.examDate
     },
     studyPeriodStart:{...studyPeriodStart,label:EXAM_WORKFLOW_COPY.studyStart},
+    studyPeriodEnd:{...studyPeriodEnd,label:EXAM_WORKFLOW_COPY.studyEnd},
     awaitingResult:result.value===EXAM_RESULTS.AWAITING
   };
 }
@@ -669,7 +691,7 @@ function milestoneEvent(examType,attempt){
     categoryId:"exams",
     eventType:"milestone",
     title:labelParts.join(" · "),
-    startDate:parseMonth(attempt.examDate),
+    startDate:parseExactDate(attempt.examDate)||parseMonth(attempt.examDate),
     endDate:null,
     openEnded:false,
     result:attempt.result,
@@ -700,13 +722,13 @@ function studyWindowEvent(examType,attempt){
     eventType:"duration",
     studyPeriodKind:"entered",
     title:`${examType.label} — study period`,
-    startDate:parseMonth(attempt.studyPeriodStart),
-    endDate:parseMonth(attempt.examDate),
+    startDate:parseExactDate(attempt.studyPeriodStart)||parseMonth(attempt.studyPeriodStart),
+    endDate:parseExactDate(attempt.studyPeriodEnd)||parseMonth(attempt.studyPeriodEnd),
     openEnded:false,
     automatic:false,
     sourceType:"exam-workflow",
     visibilityState:"INTERVIEWER_SAFE",
-    fields:{attemptId:attempt.id,automatic:false}
+    fields:{attemptId:attempt.id,automatic:false,datePrecision:{start:parseExactDate(attempt.studyPeriodStart)?"DAY":"MONTH",end:parseExactDate(attempt.studyPeriodEnd)?"DAY":"MONTH"},sourceDateWording:{start:attempt.studyPeriodStart,end:attempt.studyPeriodEnd}}
   };
 }
 
@@ -721,15 +743,15 @@ export function examTimelineEvents(state){
       const studyStart=parseMonth(attempt.studyPeriodStart);
       if(!validation.valid)continue;
       validAttemptIds.add(attempt.id);
-      if(studyStart&&examDate)events.push(studyWindowEvent(examType,attempt));
-      if(examDate)events.push(milestoneEvent(examType,attempt));
+      if(!validation.studyReviewRequired&&studyStart&&examDate)events.push(studyWindowEvent(examType,attempt));
+      if(examDate&&["Passed","Failed","Awaiting result"].includes(attempt.result))events.push(milestoneEvent(examType,attempt));
     }
   }
   const enteredStudyAttemptIds=new Set(events
     .filter(event=>event.studyPeriodKind==='entered')
     .map(event=>event.attemptId));
   events.push(...(state?.studyPeriods||[])
-    .filter((event)=>validAttemptIds.has(event.linkedFailureAttemptId)&&
+    .filter((event)=>!event.needsStudentReview&&validAttemptIds.has(event.linkedFailureAttemptId)&&
       !enteredStudyAttemptIds.has(event.linkedRetakeAttemptId))
     .map((event)=>clone(event)));
   return events;

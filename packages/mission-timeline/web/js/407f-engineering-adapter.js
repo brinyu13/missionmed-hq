@@ -1,3 +1,4 @@
+import {deriveFounderEventDisplay,setFounderEventDisplay,FOUNDER_DISPLAY_CATEGORY_ROWS} from "./presentation/founder-display-rules.js";
 import {resolveFounderPresentationSvg} from './presentation/resolved-founder-presentation.js';
 import {createMyerasIntakeAdapter} from './uxr-002/myeras-intake-adapter.js';
 import {installMyerasIntakeUi,myerasEntryMarkup,myerasUploadMarkup,myerasReviewMarkup} from './uxr-002/myeras-intake-ui.js';
@@ -19,6 +20,8 @@ import {
 } from "./uxr-002/exam-integration.js";
 import {
   beginBuilderEntryEdit,
+  renderFounderBuilderStep,
+  installBuilder,
   commitBuilderEntry,
   deleteBuilderEntry,
   ensureBuilderState,
@@ -96,6 +99,9 @@ import {assignStableLanes} from "./uxr-002/adaptive-layout.js";
 import {createAdvancedBoardRenderer} from "./uxr-002/advanced-board.js";
 import {
   applyAdvancedObjectAction,
+  effectiveCategoryKey,
+  addCategoryKeyPresentationOverride,
+  removeCategoryKeyPresentationOverride,
   applyAdvancedTypography,
   applyModeSwitch,
   constrainAdvancedObjectToBoard,
@@ -1197,6 +1203,29 @@ export function advancedFrameScreenBounds022(node){
   }catch{return null;}
 }
 
+export function currentFounderBuilderStep407F(bridgeState,document){
+  const active=Number(bridgeState?.builder?.step);
+  const saved=Number(document?.builder?.step);
+  return Math.max(1,Math.min(7,Number.isInteger(active)&&active>0?active:Number.isInteger(saved)&&saved>0?saved:1));
+}
+
+export function mountFounderBuilderStep407F(host,{store,step=Number(store.document.builder?.step)||1,providers={},mergeBridgeState=()=>{},onCommitted=()=>{},onNavigate=()=>{},toast=()=>{}}={}){
+  if(!host||!store)return false;
+  const markup=renderFounderBuilderStep(store.document,step);
+  if(markup===null)return false;
+  host.innerHTML=markup;host.dataset.founderBuilderStep=String(step);
+  // Reuse the existing step panel; its original seven-step navigation stays owned by 407F.
+  // Prevent the legacy document delegates from also processing canonical step controls.
+  if(!host.dataset.founderBuilderBoundary){
+    for(const name of ["click","input","change","keydown"])host.addEventListener(name,event=>{if(event.target.closest?.("[data-founder-builder-step]")||host.dataset.founderBuilderStep)event.stopPropagation();});
+    host.dataset.founderBuilderBoundary="true";
+  }
+  const editorStore={get document(){return store.document;},
+    mutate(label,mutate,options){const result=store.mutate(label,document=>{mergeBridgeState(document);mutate(document);},options);queueMicrotask(onCommitted);return result;},
+    undo(){const result=store.undo();queueMicrotask(onCommitted);return result;},navigate:view=>onNavigate(view)};
+  installBuilder(host,editorStore,{providers,toast});return true;
+}
+
 export function examMutationNeedsImmediateRender(changes={}){
   return Object.prototype.hasOwnProperty.call(changes||{},"result");
 }
@@ -1332,6 +1361,9 @@ export function renderCanvasDetails(route,event,document){
       </div>
     </div>`;
   }
+  const display=deriveFounderEventDisplay(document,event);
+  const categoryChoices=effectiveCategoryKey(document);
+  const displayControls=`<fieldset class="canvas407FDetailWide" data-founder-display-controls><legend>Timeline labels — display only</legend><p>Full source label: <strong>${escapeMarkup(event.title||"")}</strong></p><p>Source institution / role / location: ${escapeMarkup([event.fields?.institution||event.fields?.organization||event.siteName,event.fields?.role,event.fields?.city||event.fields?.location||event.location].filter(Boolean).join(" · "))}</p><div class="canvas407FDetailGrid">${[["role","Display role"],["institution","Display institution"],["location","Display location"],["label","Milestone display label"]].map(([key,label])=>`<label class="canvas407FDetailField"><span>${label}</span><input type="text" maxlength="200" data-canvas-display-field="${key}" value="${escapeMarkup(display[key]||"")}"></label>`).join("")}<label class="canvas407FDetailField"><span>Display category</span><select data-canvas-display-field="categoryId"><option value="">Automatic source category</option>${categoryChoices.map(row=>`<option value="${escapeMarkup(row.id)}" ${display.categoryId===row.id?"selected":""}>${escapeMarkup(row.label)}</option>`).join("")}</select></label><label class="canvas407FDetailCheck"><input type="checkbox" data-canvas-display-field="showAsMilestone" ${display.showAsMilestone?"checked":""}> Show this single-date item as a milestone</label></div><button type="button" class="btnD go" data-canvas-display-save>Save display labels</button><button type="button" class="btnD alt" data-canvas-display-reset>Reset display labels</button><p class="field-help" data-canvas-display-status role="status"></p></fieldset>`;
   const detailFields=CANVAS_DETAIL_FIELDS[domain]||[];
   const isMilestone=event.eventType==="milestone";
   const clinical=domain==="clinical";
@@ -1387,6 +1419,7 @@ export function renderCanvasDetails(route,event,document){
       });
   return `<div class="canvas407FDetails" data-canvas-details-form data-event-id="${escapeMarkup(event.id)}">
     <div class="canvas407FDetailGrid">
+      ${displayControls}
       <label class="canvas407FDetailField canvas407FDetailWide"><span>Title</span><input type="text" data-canvas-detail-key="title" value="${escapeMarkup(event.title)}"></label>
       <label class="canvas407FDetailField"><span>Category</span><select data-canvas-detail-key="categoryId">${Object.keys(CATEGORY_TO_407F).map((category)=>`<option value="${category}" ${event.categoryId===category?"selected":""}>${escapeMarkup(category[0].toUpperCase()+category.slice(1))}</option>`).join("")}</select></label>
       ${startDateControl}
@@ -3222,6 +3255,14 @@ export async function boot407FEngineeringAdapter({
   };
   renderM9BuilderSurfaces=()=>{
     renderBuilderPersistenceActions();
+    const founderStep=currentFounderBuilderStep407F(bridge.state,store.document);
+    const stepHost=document.getElementById("builderStepBody");
+    if([2,4,6].includes(founderStep))mountFounderBuilderStep407F(stepHost,{
+      store,step:founderStep,providers:runtimeDatasets,
+      mergeBridgeState:document=>apply407FStateToDocument(bridge.state,document),
+      onCommitted:()=>syncBridgeFromStore(),onNavigate:view=>bridge.go(view),toast:message=>bridge.toast(message)
+    });
+    else if(stepHost)delete stepHost.dataset.founderBuilderStep;
     const explanationHost=document.getElementById("explanationBuilder407F");
     const interviewHost=document.getElementById("interviewConfig407F");
     if(!explanationHost||!interviewHost)return;
@@ -5029,6 +5070,8 @@ export async function boot407FEngineeringAdapter({
         ()=>setCategoryKeyPresentationOverride(store.document,id,changes)
       );
     },
+    onCategoryKeyAdd:(label,color)=>applyPresentationControlResult(()=>addCategoryKeyPresentationOverride(store.document,label,color)),
+    onCategoryKeyRemove:(id,reassignTo)=>applyPresentationControlResult(()=>removeCategoryKeyPresentationOverride(store.document,id,reassignTo)),
     onCategoryKeyReset:()=>{
       applyPresentationControlResult(resetCategoryKeyPresentationOverride(store.document));
     },
@@ -5089,10 +5132,10 @@ export async function boot407FEngineeringAdapter({
       };
       const colors=palettes[paletteId];
       if(!colors)return;
-      const ids=["education","exams","clinical","work","research","personal"];
+      const ids=effectiveCategoryKey(store.document).map(row=>row.id);
       let next=store.document;
       ids.forEach((id,index)=>{
-        const result=setCategoryKeyPresentationOverride(next,id,{color:colors[index]});
+        const result=setCategoryKeyPresentationOverride(next,id,{color:colors[index%colors.length]});
         if(result.changed)next=result.document;
       });
       store.replace(next,{label:"Apply color key palette"});
@@ -6441,6 +6484,15 @@ export async function boot407FEngineeringAdapter({
     removeAdvanced=installAdvancedStudio(canvasHost,advancedHooks());
 
     onCanvasDetailsClick=(event)=>{
+      const displayButton=event.target.closest?.("[data-canvas-display-save],[data-canvas-display-reset]");
+      if(displayButton){
+        event.preventDefault();event.stopPropagation();
+        const form=displayButton.closest("[data-canvas-details-form]"),id=form?.dataset.eventId,changes={};
+        for(const input of form.querySelectorAll("[data-canvas-display-field]"))changes[input.dataset.canvasDisplayField]=displayButton.hasAttribute("data-canvas-display-reset")?null:input.type==="checkbox"?input.checked:(input.value||null);
+        try{store.replace(setFounderEventDisplay(store.document,id,changes),{label:"Edit Timeline display labels"});syncBridgeStateFromStore();canvasController.render();bridge.toast("Display labels saved; source facts preserved");}
+        catch(error){const status=form.querySelector("[data-canvas-display-status]");if(status)status.textContent=error.message;}
+        return;
+      }
       const saveButton=event.target.closest?.("[data-canvas-details-save]");
       const builderButton=event.target.closest?.("[data-canvas-builder-step]");
       if(saveButton){
@@ -6853,7 +6905,7 @@ export async function boot407FEngineeringAdapter({
       if(target.type==="media")return[{action:"crop",label:"Crop",icon:"⌗"},...common];
       if(target.type==="text")return[{action:"edit-text",label:"Edit text",icon:"✎",keys:"Enter"},...common];
       if(target.type==="group")return[{action:"ungroup",label:"Ungroup",icon:"⧈",keys:"⇧⌘G"},...common];
-      if(target.type==="event")return[{action:"reset-event-layout",label:"Reset event layout",icon:"↺"}];
+      if(target.type==="event")return[{action:"edit-display-labels",label:"Edit display labels",icon:"✎"},{action:"reset-event-layout",label:"Reset event layout",icon:"↺"}];
       if(["element"].includes(target.type))return common;
       return[];
     };
@@ -6891,6 +6943,14 @@ export async function boot407FEngineeringAdapter({
     const runAdvancedQuickAction=(action,target,anchor=null)=>{
       const selection=canvasController?.state?.advancedSelection||target;
       switch(action){
+        case"edit-display-labels":{
+          const eventTarget=target?.type==="event"?target:selection;
+          const selected=(store.document.events||[]).find(event=>String(event.id)===String(eventTarget?.id));
+          if(!selected||store.entitlement.canMutate!==true)return false;
+          canvasController.setUiState({detailsEventId:selected.id,selectedEventId:selected.id});
+          queueMicrotask(()=>canvasHost.querySelector("[data-canvas-display-field]")?.focus());
+          return true;
+        }
         case"reset-event-layout":{
           const eventTarget=target?.type==="event"?target:selection;
           if(eventTarget?.type!=="event"||store.entitlement.canMutate!==true)return false;
@@ -6944,7 +7004,7 @@ export async function boot407FEngineeringAdapter({
         {action:"layers",label:"Layers…"}
       ];
       const lockedNow=selectionIsLocked(selection);
-      if(selection.type==="event")return[{action:"reset-event-layout",label:"Reset event layout",disabled:lockedNow},{action:"layers",label:"Layers…"}];
+      if(selection.type==="event")return[{action:"edit-display-labels",label:"Edit display labels"},{action:"reset-event-layout",label:"Reset event layout",disabled:lockedNow},{action:"layers",label:"Layers…"}];
       if(selection.type==="frame"){
         const filled=advancedFrameItem(store.document,selection.id);
         return filled

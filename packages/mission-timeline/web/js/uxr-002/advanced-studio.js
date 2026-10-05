@@ -1,3 +1,4 @@
+import {computeFounderCategoryKey,deriveFounderEventDisplay,FOUNDER_DISPLAY_CATEGORY_ROWS,setFounderCategoryKey,setFounderEventDisplay,resetFounderCategoryKey} from "../presentation/founder-display-rules.js";
 import {dateLabel,escapeHtml} from "./utils.js";
 import {browserCountryRows} from "./datasets.js";
 import {
@@ -535,47 +536,36 @@ export function resetAxisPresentationOverride(document={}){
 }
 
 export function effectiveCategoryKey(document={}){
-  const stored=new Map((document.categories||[]).map((item)=>[item?.id,item]));
-  const explicit=Array.isArray(document.presentationOverrides?.categoryKey)
-    ?new Map(document.presentationOverrides.categoryKey.map((item)=>[item?.id,item]))
-    :new Map();
-  return PRESENTATION_CATEGORY_DEFAULTS.map((fallback,index)=>{
-    const value=explicit.get(fallback.id)||stored.get(fallback.id)||fallback;
-    return{
-      id:fallback.id,
-      order:index,
-      label:String(value.label||fallback.label).trim().slice(0,32)||fallback.label,
-      color:normalizeHex(value.color)||fallback.color
-    };
-  });
+  const used=computeFounderCategoryKey(document),saved=document.presentationOverrides?.categoryKey;
+  const rows=Array.isArray(saved)?saved:FOUNDER_DISPLAY_CATEGORY_ROWS;
+  return [...new Map([...rows,...used].map(row=>[row.id,row])).values()].map((row,order)=>({...row,order}));
 }
-
 export function setCategoryKeyPresentationOverride(document={},id,changes={}){
   const next=normalizeAdvancedStudioDocument(document);
   if(next.mode!==ADVANCED_MODE)return{document:next,changed:false,error:"Color-key editing is available in Advanced Studio."};
-  if(!PRESENTATION_CATEGORY_IDS.includes(id))return{document:next,changed:false,error:"Unknown category."};
-  const key=effectiveCategoryKey(next);
-  const entry=key.find((item)=>item.id===id);
-  if(Object.hasOwn(changes,"label")){
-    const label=String(changes.label||"").trim();
-    if(!label||label.length>32)return{document:next,changed:false,error:"Category labels must be 1–32 characters."};
-    entry.label=label;
-  }
-  if(Object.hasOwn(changes,"color")){
-    const color=normalizeHex(changes.color);
-    if(!color)return{document:next,changed:false,error:"Enter a six-digit hex color."};
-    entry.color=color;
-  }
-  next.presentationOverrides={...(next.presentationOverrides||{}),categoryKey:key};
-  return{document:next,changed:true,mutation:{label:"Change color key",history:true,undoSteps:1}};
+  const rows=effectiveCategoryKey(next),entry=rows.find(row=>row.id===id);
+  if(!entry)return{document:next,changed:false,error:"Unknown category."};
+  try{return{document:setFounderCategoryKey(next,rows.map(row=>row.id===id?{...row,...changes}:row)),changed:true,mutation:{label:"Change color key",history:true,undoSteps:1}};}
+  catch(error){return{document:next,changed:false,error:error.message};}
 }
-
+export function addCategoryKeyPresentationOverride(document={},label,color="#5B6168"){
+  const rows=effectiveCategoryKey(document),id=`custom-${Date.now().toString(36)}-${rows.length}`;
+  try{return{document:setFounderCategoryKey(document,[...rows,{id,label,color}]),changed:true,mutation:{label:"Add display category",history:true,undoSteps:1}};}
+  catch(error){return{document,changed:false,error:error.message};}
+}
+export function removeCategoryKeyPresentationOverride(document={},id,reassignTo=""){
+  try{
+    let next=structuredClone(document);
+    if(reassignTo){
+      if(reassignTo===id||!effectiveCategoryKey(next).some(row=>row.id===reassignTo))throw new Error("Choose another existing display category.");
+      for(const event of next.events||[])if(deriveFounderEventDisplay(next,event).categoryId===id)next=setFounderEventDisplay(next,event.id,{categoryId:reassignTo});
+    }
+    next=setFounderCategoryKey(next,effectiveCategoryKey(next).filter(row=>row.id!==id));
+    return{document:next,changed:true,mutation:{label:reassignTo?"Reassign and remove display category":"Remove unused display category",history:true,undoSteps:1}};
+  }catch(error){return{document,changed:false,error:error.code==="FOUNDER_DISPLAY_CATEGORY_IN_USE"?"This category is used. Choose a destination, then reassign and remove it.":error.message};}
+}
 export function resetCategoryKeyPresentationOverride(document={}){
-  const next=normalizeAdvancedStudioDocument(document);
-  if(!next.presentationOverrides?.categoryKey)return{document:next,changed:false};
-  next.presentationOverrides={...(next.presentationOverrides||{})};
-  delete next.presentationOverrides.categoryKey;
-  return{document:next,changed:true,mutation:{label:"Reset color key",history:true,undoSteps:1}};
+  return{document:resetFounderCategoryKey(document),changed:true,mutation:{label:"Reset color key",history:true,undoSteps:1}};
 }
 
 function clampColorKeyGeometry(value={}){
@@ -2192,8 +2182,9 @@ export function renderAdvancedPresentationControls(document={}){
       ${axis?`<div class="advanced-axis-weight-grid" aria-label="Relative year widths">${segmentWeights.map((item)=>`<label><span>${escapeHtml(item.id)}</span><input type="number" min="0.25" max="8" step="0.05" value="${Number(item.weight).toFixed(2)}" data-axis-segment-weight="${escapeHtml(item.id)}"></label>`).join("")}</div><button type="button" class="button secondary compact" data-axis-weight-reset ${axis.segmentWeights?"":"disabled"}>Equalize year widths</button>`:""}
     </fieldset>
     <fieldset class="advanced-category-key-controls">
-      <legend>Color key — fixed six-category order</legend>
-      <div class="advanced-category-key-grid">${key.map((item)=>`<div class="advanced-category-key-row" data-category-key-id="${item.id}"><span class="advanced-category-key-id">${escapeHtml(item.id)}</span><label><span class="sr-only">${escapeHtml(item.id)} label</span><input type="text" maxlength="32" value="${escapeHtml(item.label)}" data-category-key-field="label"></label><label class="advanced-category-key-color"><span class="sr-only">${escapeHtml(item.id)} color</span><input type="color" value="${item.color}" data-category-key-field="color"><code>${item.color}</code></label></div>`).join("")}</div>
+      <legend>Color key — categories used on your timeline</legend>
+      <div class="advanced-category-key-grid">${key.map((item)=>`<div class="advanced-category-key-row" data-category-key-id="${item.id}"><span class="advanced-category-key-id">${escapeHtml(item.id)}</span><label><span class="sr-only">${escapeHtml(item.id)} label</span><input type="text" maxlength="32" value="${escapeHtml(item.label)}" data-category-key-field="label"></label><label class="advanced-category-key-color"><span class="sr-only">${escapeHtml(item.id)} color</span><input type="color" value="${item.color}" data-category-key-field="color"><code>${item.color}</code></label><select aria-label="Reassign ${escapeHtml(item.label)} before removing" data-category-key-reassign><option value="">Remove if unused</option>${key.filter(row=>row.id!==item.id).map(row=>`<option value="${escapeHtml(row.id)}">Reassign to ${escapeHtml(row.label)}</option>`).join("")}</select><button type="button" class="button tertiary compact" data-category-key-remove="${escapeHtml(item.id)}">Remove / reassign</button></div>`).join("")}</div>
+      <label>New category name <input type="text" maxlength="32" data-category-key-new-label></label><label>New color <input type="color" value="#5B6168" data-category-key-new-color></label><button type="button" class="button secondary compact" data-category-key-add>Add category</button>
       <button type="button" class="button secondary compact" data-category-key-reset ${customKey?"":"disabled"}>Reset color key</button>
       <div class="advanced-color-key-geometry" aria-label="Color key position and size">${["x","y","width","height"].map((field)=>`<label><span>${field[0].toUpperCase()+field.slice(1)}</span><input type="number" min="0" max="${field==="x"?1620:field==="y"?840:field==="width"?760:720}" step="1" value="${keyGeometry[field]}" data-color-key-geometry-field="${field}"></label>`).join("")}</div>
       <button type="button" class="button secondary compact" data-color-key-geometry-reset ${customKeyGeometry?"":"disabled"}>Reset position &amp; size</button>
@@ -2409,6 +2400,12 @@ export function installAdvancedStudio(root,hooks={}){
       hooks.onPanel?.(String(panel.dataset.advancedPanel||"elements"),event);
       return;
     }
+    if(closest(event.target,"[data-category-key-add]")){
+      const panel=closest(event.target,"[data-advanced-presentation-controls]");
+      hooks.onCategoryKeyAdd?.(panel?.querySelector("[data-category-key-new-label]")?.value||"",panel?.querySelector("[data-category-key-new-color]")?.value||"#5B6168",event);return;
+    }
+    const remove=closest(event.target,"[data-category-key-remove]");
+    if(remove){hooks.onCategoryKeyRemove?.(remove.dataset.categoryKeyRemove,remove.closest("[data-category-key-id]")?.querySelector("[data-category-key-reassign]")?.value||"",event);return;}
     const palette=closest(event.target,"[data-category-key-palette]");
     if(palette){
       hooks.onCategoryKeyPalette?.(String(palette.dataset.categoryKeyPalette||""),event);
