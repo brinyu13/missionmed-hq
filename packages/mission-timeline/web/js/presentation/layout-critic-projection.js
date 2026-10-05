@@ -358,7 +358,16 @@ export async function applyLayoutRecommendations(document,output,expected,{sourc
         if(!resized.changed||resized.error){reject(index,'LAYOUT_CRITIC_AXIS_REJECTED');continue;}
         candidate=resized.document;
         candidate.presentationOverrides.axis.localLayoutCriticAuto=true;
-        candidate=reflowLocalLayoutCriticDateAnchors(candidate,current.localContext.options,[...current.localContext.targetMap.values()].filter(target=>target.editable));
+        const reflowTargets=[...current.localContext.targetMap.values()].filter(target=>target.editable);
+        candidate=reflowLocalLayoutCriticDateAnchors(candidate,current.localContext.options,reflowTargets);
+        // A typed date-axis edit retains the exact measured Y only for anchors
+        // it actually reflowed. Untouched automatic pins remain solver-owned.
+        for(const target of reflowTargets){
+          const object=candidate.advanced?.scene?.objects?.find(item=>item.type==='event'&&String(item.semanticRef)===target.eventId);
+          if(object?.presentation?.localLayoutCriticAuto!==true)continue;
+          if(Math.abs(object.geometry.x-target.geometry.x)>.04||Math.abs(object.geometry.width-target.geometry.width)>.04)
+            object.presentation={...object.presentation,localLayoutCriticYRetained:true};
+        }
       }else{
         const target=current.localContext.targetMap.get(op.targetId),initialTarget=projection.localContext.targetMap.get(op.targetId);
         if(!target||target.eventId!==initialTarget.eventId||!initialTarget.editable){reject(index,'LAYOUT_CRITIC_TARGET_REJECTED');continue;}
@@ -369,6 +378,10 @@ export async function applyLayoutRecommendations(document,output,expected,{sourc
           create:{type:'event',semanticRef:target.eventId,aspectLocked:false,presentation:{eventType:target.kind==='MILESTONE'?'milestone':'duration',localLayoutCriticAuto:true,...(target.kind==='MILESTONE'?{guardianAnchor:'axis'}:{})}},label:'Local geometry review: move event vertically'},current.localContext.options);
         if(!placed.changed){reject(index,'LAYOUT_CRITIC_NO_CHANGE');continue;}
         candidate=placed.document;movedId=target.eventId;
+        // A typed vertical recommendation owns only this explicit Y. Retained
+        // automatic date ownership still reflows X; untouched pins stay automatic.
+        const object=candidate.advanced?.scene?.objects?.find(item=>item.type==='event'&&String(item.semanticRef)===target.eventId);
+        if(object)object.presentation={...object.presentation,localLayoutCriticYExplicit:true};
       }
       // Retain exact unrelated legacy arrays rather than helper-added defaults.
       for(const collection of ['media','textBlocks','elements','groups']){

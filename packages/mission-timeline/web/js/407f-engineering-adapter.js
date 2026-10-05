@@ -474,6 +474,17 @@ export function advancedEventCreation407F(document,id,renderOptions={}){
   const presentation={eventType:event?.eventType||'duration'};
   const existing=(document.advanced?.scene?.objects||[]).find(object=>object.type==='event'&&
     (String(object.semanticRef||'')===String(id)||String(object.id)===String(id)));
+  const automatic=!existing||existing.presentation?.localLayoutCriticAuto===true&&!existing.locked&&!existing.groupId&&!document.layoutLock&&
+    !event?.manualOffset?.laneLocked&&!Number(event?.manualOffset?.x)&&!Number(event?.manualOffset?.y)&&Math.abs(Number(existing.geometry?.rotation)||0)<1e-6&&
+    !(document.advanced?.scene?.groups||[]).some(group=>group.locked&&group.childIds?.includes(existing.id));
+  if(event?.eventType==='duration'&&automatic){
+    const rendered=serializeFounderPresentation(document,{scope:'EVERYTHING',...renderOptions}),scene=rendered.scene;
+    const alignment=existing?.presentation?.locationLabelLayout?.alignment||scene.autoLocationAlignments?.get(String(id));
+    if(['start','center','end','tip'].includes(alignment))presentation.locationLabelLayout={alignment};
+    const parts=resolveFounderPresentationSvg(rendered.svg,{measureText:renderOptions.measureText}).nodes.filter(node=>node.semanticRef===String(id));
+    const date=parts.find(node=>node.sourceAttributes['data-automatic-caption-clamp']==='true'||node.sourceAttributes['data-automatic-date-alignment']),body=parts.find(node=>node.sourceAttributes['data-continuous-duration-arrow']);
+    if(date&&body)presentation.dateLabelLayout={xOffset:Number(date.sourceAttributes.x)-body.bounds.x};
+  }
   if(!existing&&event?.eventType==='milestone'){
     const native=locked407FNativeMilestonePresentation(serializeFounderPresentation(document,{scope:'EVERYTHING',...renderOptions}).scene,id);
     if(native)Object.assign(presentation,native);
@@ -490,14 +501,17 @@ export function advancedEventCreation407F(document,id,renderOptions={}){
 
 export function applySceneCommandToDocument(document,command,options={}){
   let source=document;
-  if(command?.kind==='geometry'&&command.target?.type==='event'&&command.create?.presentation?.flagLabelLayout){
+  if(command?.kind==='geometry'&&command.target?.type==='event'&&(command.create?.presentation?.flagLabelLayout||command.create?.presentation?.locationLabelLayout||command.create?.presentation?.dateLabelLayout)){
     const object=(document.advanced?.scene?.objects||[]).find(item=>item.type==='event'&&(String(item.id)===String(command.target.id)||String(item.semanticRef)===String(command.target.id)));
     const event=(document.events||[]).find(item=>String(item.id)===String(object?.semanticRef||command.target.id));
     if(object?.presentation?.localLayoutCriticAuto===true&&!object.locked&&!object.groupId&&!document.layoutLock&&
       !event?.manualOffset?.laneLocked&&!Number(event?.manualOffset?.x)&&!Number(event?.manualOffset?.y)&&Math.abs(Number(object.geometry.rotation)||0)<1e-6&&
       !(document.advanced?.scene?.groups||[]).some(group=>group.locked&&group.childIds?.includes(object.id))){
       source=clone(document);const target=source.advanced.scene.objects.find(item=>item.id===object.id);
-      target.presentation={...target.presentation,flagLabelLayout:clone(command.create.presentation.flagLabelLayout),nativeFlagPole:{anchor:'native'}};
+      target.presentation={...target.presentation,
+        ...(command.create.presentation.flagLabelLayout?{flagLabelLayout:clone(command.create.presentation.flagLabelLayout),nativeFlagPole:{anchor:'native'}}:{}),
+        ...(command.create.presentation.locationLabelLayout?{locationLabelLayout:clone(command.create.presentation.locationLabelLayout)}:{}),
+        ...(command.create.presentation.dateLabelLayout?{dateLabelLayout:clone(command.create.presentation.dateLabelLayout)}:{})};
     }
   }
   return applySceneCommandBase407F(source,command,options);
@@ -1078,6 +1092,85 @@ function autoArrange(document){
   return document;
 }
 
+// Export resolves only media currently referenced by this document. Re-encode
+// its persisted Blob so an expired preview object URL cannot break raster/PPTX.
+export function createPersistedExportMediaResolver407F(store,objectUrls){
+  return async(id,item)=>{
+    const timeline=store.document,key=String(id||""),itemId=String(item?.id||item?.mediaId||key);
+    const records=[...(timeline?.mediaItems||[]),...(timeline?.advanced?.media||[]),
+      ...(timeline?.advanced?.background?.kind==='upload'?[timeline.advanced.background]:[])];
+    const current=records.find(record=>String(record.id||record.mediaId||'')===itemId);
+    if(!current||String(current.mediaId||current.id)!==key)return null;
+    // Caller snapshots may be audience-projected copies, but must bind to the
+    // same current asset, not another document's coincidentally equal frame ID.
+    if(item?.documentId&&String(item.documentId)!==String(timeline.id))return null;
+    for(const field of ['blobKey','objectId']){
+      if(String(item?.source?.[field]||'')!==String(current.source?.[field]||''))return null;
+    }
+    const asset=records.find(record=>String(record.id||'')===String(current.mediaId||current.id))||current;
+    const blobKey=String(asset.source?.blobKey||current.source?.blobKey||asset.id||key);
+    const blob=await store.adapter.getBlob(blobKey);
+    if(store.document!==timeline)return null;
+    if(!blob)return asset.source?.blobKey||current.source?.blobKey?null:objectUrls.get(key);
+    const type={'image/png':'png','image/jpeg':'jpg','image/gif':'gif','image/webp':'webp'}[blob.type];
+    if(!type||!(await hasExpectedImageSignature(blob,type)))throw new TypeError('The saved Timeline image is not a valid supported image.');
+    if(typeof createImageBitmap!=='function')throw new Error('This browser cannot securely decode local images.');
+    const bitmap=await createImageBitmap(blob);
+    try{
+      if(!bitmap.width||!bitmap.height||bitmap.width>MAX_IMAGE_DIMENSION||bitmap.height>MAX_IMAGE_DIMENSION||bitmap.width*bitmap.height>MAX_IMAGE_PIXELS)
+        throw new TypeError('The saved Timeline image exceeds supported dimensions.');
+    }finally{bitmap.close();}
+    if(store.document!==timeline)return null;
+    return await new Promise((resolve,reject)=>{
+      const reader=new FileReader();
+      reader.onload=()=>resolve(store.document===timeline?String(reader.result||''):null);
+      reader.onerror=()=>reject(new Error('A saved Timeline image could not be encoded for export.'));
+      reader.readAsDataURL(blob);
+    });
+  };
+}
+
+// A generated file remains available in its student's Export workspace when
+// the browser's automatic download handoff does not produce a saved file.
+export function createExportDownloadLink407F({getDocument,getHost,getEntitlement=()=>null,getPrincipal=()=>null,documentNode=globalThis.document,urlApi=URL}){
+  const owners=new WeakMap();let current=null,section=null,closed=false;
+  const binding=()=>{
+    const document=getDocument()||{}, {revision,updatedAt,exportState,...source}=document;
+    const {lastExport022,exportHistory022,...metadata}=source.metadata||{};
+    return{revision:Number(revision||0),signature:JSON.stringify({...source,metadata,
+      exportAudience:{mode:exportState?.audience||null,details:exportState?.audienceDetails||null},
+      principal:getPrincipal(),entitledPrincipalId:getEntitlement()?.principalId||null})};
+  };
+  const matches=owner=>getEntitlement()?.canExport===true&&owner?.signature===binding().signature;
+  const clear=()=>{section?.remove();section=null;if(current)urlApi.revokeObjectURL(current.url);current=null;};
+  const mount=()=>{
+    const host=getHost();if(closed||!host?.isConnected||!current||!matches(current.owner)){clear();return false;}
+    section?.remove();section=documentNode.createElement('section');section.setAttribute('data-export-generated-file','');section.setAttribute('aria-label','Generated Timeline file');
+    const file=current,status=documentNode.createElement('p');status.textContent=`Download ready · ${current.filename} · revision ${current.owner.revision}`;
+    const link=documentNode.createElement('a');link.href=current.url;link.download=current.filename;link.textContent='Download file';link.className='button secondary';
+    link.addEventListener('click',event=>{if(current!==file){event.preventDefault();return;}if(closed||!current||!matches(current.owner)||!getHost()?.isConnected){event.preventDefault();clear();return;}status.textContent=`Download requested · ${current.filename}. You can download this file again.`;});
+    section.append(status,link);host.append(section);return link;
+  };
+  return{
+    async generate(generate,request){
+      const requested=request?.renderInput?.timeline;if(requested&&(String(requested.id)!==String(getDocument()?.id)||String(requested.studentProfile?.fullName||'')!==String(getDocument()?.studentProfile?.fullName||'')))throw new Error('Generate a file for the current student Timeline.');
+      const owner=binding();if(closed||!matches(owner))throw new Error('Export access is required to generate this Timeline file.');const artifact=await generate(request);
+      if(closed||!matches(owner))throw new Error('Your Timeline changed while the file was being generated. Export the current version again.');
+      if(!(artifact?.blob instanceof Blob))throw new TypeError('A generated local Blob is required.');
+      owners.set(artifact.blob,owner);return artifact;
+    },
+    download(blob,filename){
+      const owner=owners.get(blob);if(closed||!owner||!matches(owner)||!getHost()?.isConnected)throw new Error('Open Export and generate the current Timeline file again.');
+      clear();current={owner,url:urlApi.createObjectURL(blob),filename:String(filename||'Timeline export')};
+      const link=mount();if(!link)throw new Error('The Export workspace is no longer available.');
+      link.click();return{downloaded:true,verification:'browser-download-dispatched'};
+    },
+    mount,
+    sync(){if(current&&(!matches(current.owner)||!getHost()?.isConnected))clear();},
+    destroy(){closed=true;clear();}
+  };
+}
+
 export function createObjectUrlRegistry(){
   const urls=new Map();
   return{
@@ -1337,6 +1430,19 @@ const CANVAS_EXPORT_AUDIENCE_OPTIONS=Object.freeze([
   Object.freeze({id:"MISSION_RESIDENCY_ALUMNI",label:"Mission Residency alumni connections"})
 ]);
 
+export function applyCanvasDisplayEdit407F(document,eventId,changes,binding,{visible=null}={}){
+  if(String(binding?.documentId)!==String(document.id)||String(binding?.ownerId||'')!==String(document.studentOwnerId||'')||Number(binding?.revision)!==Number(document.revision||0)||String(binding?.variantId)!==String(activeSpecialtyVariant(document).id)){
+    const error=new Error('This display editor is out of date. Reopen the event before saving.');error.code='TIMELINE_DISPLAY_EDITOR_STALE';throw error;
+  }
+  const result=setFounderEventDisplay(document,eventId,changes);
+  if(typeof visible==='boolean')setVariantEventHidden(result,activeSpecialtyVariant(result).id,eventId,!visible);
+  return result;
+}
+
+export function suppressAdvancedSelectionChrome407F(state,{modalOpen=false,detailsMounted=false}={}){
+  return !!state?.detailsEventId||modalOpen||detailsMounted;
+}
+
 export function renderCanvasDetails(route,event,document){
   const imported=isImportedBuilderEvent022(event);
   if(imported){
@@ -1363,7 +1469,7 @@ export function renderCanvasDetails(route,event,document){
   }
   const display=deriveFounderEventDisplay(document,event);
   const categoryChoices=effectiveCategoryKey(document);
-  const displayControls=`<fieldset class="canvas407FDetailWide" data-founder-display-controls><legend>Timeline labels — display only</legend><p>Full source label: <strong>${escapeMarkup(event.title||"")}</strong></p><p>Source institution / role / location: ${escapeMarkup([event.fields?.institution||event.fields?.organization||event.siteName,event.fields?.role,event.fields?.city||event.fields?.location||event.location].filter(Boolean).join(" · "))}</p><div class="canvas407FDetailGrid">${[["role","Display role"],["institution","Display institution"],["location","Display location"],["label","Milestone display label"]].map(([key,label])=>`<label class="canvas407FDetailField"><span>${label}</span><input type="text" maxlength="200" data-canvas-display-field="${key}" value="${escapeMarkup(display[key]||"")}"></label>`).join("")}<label class="canvas407FDetailField"><span>Display category</span><select data-canvas-display-field="categoryId"><option value="">Automatic source category</option>${categoryChoices.map(row=>`<option value="${escapeMarkup(row.id)}" ${display.categoryId===row.id?"selected":""}>${escapeMarkup(row.label)}</option>`).join("")}</select></label><label class="canvas407FDetailCheck"><input type="checkbox" data-canvas-display-field="showAsMilestone" ${display.showAsMilestone?"checked":""}> Show this single-date item as a milestone</label></div><button type="button" class="btnD go" data-canvas-display-save>Save display labels</button><button type="button" class="btnD alt" data-canvas-display-reset>Reset display labels</button><p class="field-help" data-canvas-display-status role="status"></p></fieldset>`;
+  const displayControls=`<fieldset class="canvas407FDetailWide" data-founder-display-controls data-display-document-id="${escapeMarkup(document.id||'')}" data-display-owner-id="${escapeMarkup(document.studentOwnerId||'')}" data-display-revision="${Number(document.revision||0)}" data-display-variant-id="${escapeMarkup(activeSpecialtyVariant(document).id)}"><legend>Timeline labels — display only</legend><p>Full source label: <strong>${escapeMarkup(event.title||"")}</strong></p><p>Source institution / role / location: ${escapeMarkup([event.fields?.institution||event.fields?.organization||event.siteName,event.fields?.role,event.fields?.city||event.fields?.location||event.location].filter(Boolean).join(" · "))}</p><div class="canvas407FDetailGrid">${[["role","Display role"],["institution","Display institution"],["location","Display location"],["label","Milestone display label"]].map(([key,label])=>`<label class="canvas407FDetailField"><span>${label}</span><input type="text" maxlength="200" data-canvas-display-field="${key}" value="${escapeMarkup(display[key]||"")}"></label>`).join("")}<label class="canvas407FDetailField"><span>Display category</span><select data-canvas-display-field="categoryId"><option value="">Automatic source category</option>${categoryChoices.map(row=>`<option value="${escapeMarkup(row.id)}" ${display.categoryId===row.id?"selected":""}>${escapeMarkup(row.label)}</option>`).join("")}</select></label><label class="canvas407FDetailCheck"><input type="checkbox" data-canvas-display-field="showAsMilestone" ${display.showAsMilestone?"checked":""}> Show this single-date item as a milestone</label><label class="canvas407FDetailField"><span>Role / milestone text size (18–24 px)</span><input type="number" min="18" max="24" step="1" data-canvas-display-field="labelSize" value="${display.labelSize}"></label><label class="canvas407FDetailField"><span>Text fitting</span><select data-canvas-display-field="labelFit"><option value="fit" ${display.labelFit==='fit'?'selected':''}>Fit, minimum 18 px</option><option value="fixed" ${display.labelFit==='fixed'?'selected':''}>Keep selected size</option></select></label><label class="canvas407FDetailCheck"><input type="checkbox" data-canvas-display-visible ${!activeSpecialtyVariant(document).hiddenEventIds.includes(String(event.id))?'checked':''}> Show in ${escapeMarkup(activeSpecialtyVariant(document).name)}</label></div><button type="button" class="btnD go" data-canvas-display-save>Save display labels</button><button type="button" class="btnD alt" data-canvas-display-reset>Reset display labels</button><p class="field-help" data-canvas-display-status role="status"></p></fieldset>`;
   const detailFields=CANVAS_DETAIL_FIELDS[domain]||[];
   const isMilestone=event.eventType==="milestone";
   const clinical=domain==="clinical";
@@ -1864,9 +1970,14 @@ export async function boot407FEngineeringAdapter({
       presentationAuthority:"D1-TIMELINE-FOUNDER-REANCHOR-015+DR-127"
     };
   };
+  const exportDelivery=createExportDownloadLink407F({getDocument:()=>store.document,
+    getHost:()=>bridge.state.view==='export'?document.getElementById('export407F'):null,getEntitlement:()=>store.entitlement,getPrincipal:()=>({principalId:productionRuntime?.identity?.principalId||store.entitlement.principalId||null,subjectPrincipalId:productionRuntime?.subject?.principalId||null})});
   const exportAdapter=createLocalExportAdapter({
-    resolveObjectUrl:(id)=>mediaUrls.get(id)
+    resolveObjectUrl:createPersistedExportMediaResolver407F(store,mediaUrls),
+    triggerDownload:(blob,filename)=>exportDelivery.download(blob,filename)
   });
+  const generateLocalExport=exportAdapter.generate.bind(exportAdapter);
+  exportAdapter.generate=request=>exportDelivery.generate(generateLocalExport,request);
   let exportState=normalizeExportState(store.document.exportState||{
     suggestionState:{
       advisorPaperPdfSuggestionShown:
@@ -2151,6 +2262,7 @@ export async function boot407FEngineeringAdapter({
   applyEntitlementSurface();
 
   const reconcile=(event)=>{
+    exportDelivery.sync();
     if(event?.target?.closest?.("#canvas407F"))return;
     if(booting||applying||pending)return;
     pending=true;
@@ -2206,6 +2318,7 @@ export async function boot407FEngineeringAdapter({
     canvasController?.destroy();
     removeAdvanced();
     exportController?.destroy();
+    exportDelivery.destroy();
     advisorCleanup();
     clearTimeout(advisorHighlightTimer);
     intakeCleanup();
@@ -5790,6 +5903,7 @@ export async function boot407FEngineeringAdapter({
         });
       }
     });
+    exportDelivery.mount();
     api.export=exportController;
     exportController.refreshPreview();
   }
@@ -6370,6 +6484,7 @@ export async function boot407FEngineeringAdapter({
   };
   let lastStoreRenderSignature=timelineRenderSignature(store.document);
   unsubscribeStore=store.subscribe(()=>{
+    exportDelivery.sync();
     reflectStoreStatus();
     applyEntitlementSurface();
     const entitlementEditable=store.entitlement.canMutate===true;
@@ -6488,8 +6603,8 @@ export async function boot407FEngineeringAdapter({
       if(displayButton){
         event.preventDefault();event.stopPropagation();
         const form=displayButton.closest("[data-canvas-details-form]"),id=form?.dataset.eventId,changes={};
-        for(const input of form.querySelectorAll("[data-canvas-display-field]"))changes[input.dataset.canvasDisplayField]=displayButton.hasAttribute("data-canvas-display-reset")?null:input.type==="checkbox"?input.checked:(input.value||null);
-        try{store.replace(setFounderEventDisplay(store.document,id,changes),{label:"Edit Timeline display labels"});syncBridgeStateFromStore();canvasController.render();bridge.toast("Display labels saved; source facts preserved");}
+        for(const input of form.querySelectorAll("[data-canvas-display-field]"))changes[input.dataset.canvasDisplayField]=displayButton.hasAttribute("data-canvas-display-reset")?null:input.type==="checkbox"?input.checked:input.dataset.canvasDisplayField==="labelSize"?Number(input.value):(input.value||null);
+        try{if(store.entitlement.canMutate!==true)throw new Error('Editing access is required.');const controls=form.querySelector('[data-founder-display-controls]'),binding={documentId:controls?.dataset.displayDocumentId,ownerId:controls?.dataset.displayOwnerId,revision:controls?.dataset.displayRevision,variantId:controls?.dataset.displayVariantId};store.replace(applyCanvasDisplayEdit407F(store.document,id,changes,binding,{visible:form.querySelector('[data-canvas-display-visible]')?.checked}),{label:"Edit Timeline display labels"});syncBridgeStateFromStore();canvasController.render();bridge.toast("Display labels saved; source facts preserved");}
         catch(error){const status=form.querySelector("[data-canvas-display-status]");if(status)status.textContent=error.message;}
         return;
       }
@@ -7133,6 +7248,9 @@ export async function boot407FEngineeringAdapter({
       }
       openAdvancedContextMenu({x:event.clientX,y:event.clientY,selection});
     };
+    const advancedDialogOpen=()=>suppressAdvancedSelectionChrome407F(canvasController?.state,{
+      modalOpen:document.getElementById('modalBk')?.classList.contains('on')===true,
+      detailsMounted:!!canvasHost?.querySelector('[data-details-sheet]')});
     const clearAdvancedDirectSelection=()=>{
       document.querySelectorAll?.("[data-advanced-direct-selection]").forEach((node)=>node.remove());
       clearAdvancedAxisBoundaryHandles();
@@ -7141,6 +7259,7 @@ export async function boot407FEngineeringAdapter({
     const showAdvancedDirectSelection=(target)=>queueMicrotask(()=>{
       const retainedRotationFocus=document.activeElement?.matches?.('[data-advanced-direct-handle="rotate"]');
       clearAdvancedDirectSelection();
+      if(advancedDialogOpen())return;
       if(!target||target.type==="headline")return;
       if(advancedCrop)return;
       if(target.type==="axis"){
@@ -7939,6 +8058,7 @@ export async function boot407FEngineeringAdapter({
     /* Redraw the chrome from state after every board render. Skipped while a gesture is
        live, because the gesture owns the board until it commits. */
     const syncAdvancedSelectionChrome=()=>{
+      if(advancedDialogOpen()){clearAdvancedDirectSelection();clearAdvancedHoverChrome();closeAdvancedContextMenu();return;}
       if(advancedPointer||marqueePointer||railPointer||axisPointer)return;
       if(advancedCrop){clearAdvancedDirectSelection();renderAdvancedCropChrome();return;}
       const selection=canvasController?.state?.advancedSelection||null;

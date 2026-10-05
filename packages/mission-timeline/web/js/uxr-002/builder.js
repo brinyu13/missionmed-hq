@@ -1072,6 +1072,7 @@ function renderExamCard(exam,document){
     <p class="field-help">Source exam date: ${escapeHtml(exam.examDate||"Unknown")}. Result: ${escapeHtml(exam.result||"Unknown / needs review")}.</p>
     <p class="field-help" data-study-review-status>${!examMonth(exam.studyStartDate)||!examMonth(exam.studyEndDate)?"Student review required: enter actual study dates. No study period is inferred from an exam or failure date.":"Study dates entered — confirm they reflect your actual preparation."}</p>
     ${localTestStudyEnvironment(document)&&(!examMonth(exam.studyStartDate)||!examMonth(exam.studyEndDate))?`<button type="button" class="button secondary" data-local-test-study-proposal="${escapeHtml(exam.id)}" ${examMonth(exam.examDate)?"":"disabled"}>Use neutral local TEST study proposal</button>`:""}
+    ${localTestStudyEnvironment(document)&&exam.studyReviewProvenance?.studyStartDate?.placeholder===true&&exam.studyReviewProvenance?.studyStartDate?.reason==="LOCAL_TEST_STUDY_PROPOSAL"?`<button type="button" class="button secondary" data-local-test-study-proposal="${escapeHtml(exam.id)}" data-local-test-study-months-before="6">Use 6-month LOCAL TEST study proposal</button><button type="button" class="button secondary" data-local-test-study-proposal="${escapeHtml(exam.id)}" data-local-test-study-months-before="9">Use 9-month LOCAL TEST study proposal</button>`:""}
     ${Object.values(exam.studyReviewProvenance||{}).some(item=>item.placeholder)?'<p class="field-help">LOCAL TEST placeholder study start. Source remains unknown; this proposal is not applicant history.</p>':""}
     <div class="exam-secondary-row">
       ${segmented({legend:"Result",name:`result-${exam.id}`,values:[
@@ -1715,7 +1716,7 @@ export function installBuilder(root,store,{
   });
   root.querySelectorAll("[data-local-test-study-proposal]").forEach(button=>button.addEventListener("click",()=>{
     if(!localTestStudyEnvironment(store.document))return;
-    store.mutate("Propose local TEST study dates",document=>proposeLocalTestStudyBounds(document,button.dataset.localTestStudyProposal));
+    store.mutate("Propose local TEST study dates",document=>proposeLocalTestStudyBounds(document,button.dataset.localTestStudyProposal,{monthsBefore:Number(button.dataset.localTestStudyMonthsBefore)||3}));
   }));
   root.querySelector("[data-mark-local-test-media]")?.addEventListener("click",()=>{
     if(!localTestStudyEnvironment(store.document))return;

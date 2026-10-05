@@ -170,17 +170,34 @@ export function visibleFounderPresentationTitle(svgOrResolved){
   return(resolved?.nodes||[]).filter(paint=>paint.kind==='text'&&paint.groupId==='furniture:title').map(paint=>paint.text).join(' ')||'MissionMed Timeline';
 }
 
+// Automatic native arrows have a narrow shaft and one triangular head. Their
+// full bounding rectangle includes unpainted shoulder corners; retain exact
+// convex filled parts only for this recognized, unrotated seven-point grammar.
+// Authored, rotated and unfamiliar paths keep their conservative envelope.
+export function founderPaintCollisionParts(node){
+  const rect=b=>{
+    const angle=(b.rotation||0)*Math.PI/180,c=Math.cos(angle),s=Math.sin(angle),cx=b.x+b.width/2,cy=b.y+b.height/2;
+    return {bounds:b,polygon:[[-1,-1],[1,-1],[1,1],[-1,1]].map(([sx,sy])=>({x:cx+sx*b.width/2*c-sy*b.height/2*s,y:cy+sx*b.width/2*s+sy*b.height/2*c}))};
+  };
+  const fallback=()=>[rect(node.occlusionBounds||node.bounds)];
+  if(node.kind!=='path'||node.sourceAttributes['data-native-arrow-paint']!=='automatic'||!node.sourceAttributes['data-continuous-duration-arrow'])return fallback();
+  const points=(node.commands||[]).filter(point=>!point.close),same=(a,b)=>Math.abs(a-b)<1e-5;
+  if(points.length!==7||points.some(point=>point.curve))return fallback();
+  const [a,b,c,d,e,f,g]=points;
+  if(!same(a.x,g.x)||![c,e,f].every(point=>same(point.x,b.x))||!same(a.y,b.y)||!same(f.y,g.y)||
+    !(a.x<b.x&&b.x<d.x&&c.y<a.y&&a.y<f.y&&f.y<e.y)||!same(d.y,(c.y+e.y)/2))return fallback();
+  return [rect({x:a.x,y:a.y,width:b.x-a.x,height:f.y-a.y,rotation:0}),
+    {bounds:{x:c.x,y:c.y,width:d.x-c.x,height:e.y-c.y,rotation:0},polygon:[c,d,e].map(({x,y})=>({x,y}))}];
+}
+
 // Final-artifact gate: intentional layering inside one event or furniture group
 // is allowed. Material text and event shapes cannot be hidden by another group.
-// Uses oriented bounds, matching the existing collision engine's SAT test.
+// Uses oriented conservative bounds, with exact filled parts for recognized
+// automatic native arrows; the same SAT gate checks every convex part.
 export function materialPresentationCollisions(resolved){
-  const polygon=({x,y,width,height,rotation=0})=>{
-    const angle=rotation*Math.PI/180,c=Math.cos(angle),s=Math.sin(angle),cx=x+width/2,cy=y+height/2;
-    return[[-1,-1],[1,-1],[1,1],[-1,1]].map(([sx,sy])=>({x:cx+sx*width/2*c-sy*height/2*s,y:cy+sx*width/2*s+sy*height/2*c}));
-  };
   const overlap=(a,b)=>{
-    for(const p of [a,b])for(let i=0;i<4;i++){
-      const next=p[(i+1)%4],point=p[i],axis={x:next.y-point.y,y:point.x-next.x};
+    for(const p of [a,b])for(let i=0;i<p.length;i++){
+      const next=p[(i+1)%p.length],point=p[i],axis={x:next.y-point.y,y:point.x-next.x};
       const project=shape=>shape.map(v=>v.x*axis.x+v.y*axis.y),pa=project(a),pb=project(b);
       if(Math.max(...pa)<=Math.min(...pb)+.5||Math.max(...pb)<=Math.min(...pa)+.5)return false;
     }
@@ -190,7 +207,7 @@ export function materialPresentationCollisions(resolved){
     !n.sourceAttributes['data-advanced-background']&&Number(n.style.opacity??1)!==0&&
     n.sourceAttributes.visibility!=='hidden'&&n.sourceAttributes.display!=='none'&&
     !(n.kind==='path'&&(n.lineOnly||n.style.fill==='none'||n.bounds.width<1||n.bounds.height<1)))
-    .map(n=>({...n,paintOrder:resolved.nodes.indexOf(n),polygon:polygon(n.occlusionBounds||n.bounds)}));
+    .flatMap(n=>founderPaintCollisionParts(n).map(part=>({...n,paintOrder:resolved.nodes.indexOf(n),polygon:part.polygon})));
   const found=new Map();
   for(const text of parts.filter(n=>n.kind==='text'||(n.role==='event'&&n.kind==='path'&&!n.lineOnly&&n.style.fill!=='none')))for(const other of parts){
     if(text.role!=='event'&&(other.paintOrder<=text.paintOrder||other.groupId===text.groupId))continue;

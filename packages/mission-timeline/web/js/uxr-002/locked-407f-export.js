@@ -1,5 +1,6 @@
+import {allocateFounderRoleYearWidths} from './adaptive-layout.js';
 import {founderInstitutionLabel,founderUsesUsFlag} from '../presentation/founder-display-rules.js';
-import {resolveFounderPresentationSvg,materialPresentationCollisions} from '../presentation/resolved-founder-presentation.js';
+import {resolveFounderPresentationSvg,materialPresentationCollisions,founderPaintCollisionParts} from '../presentation/resolved-founder-presentation.js';
 import {presentationDateWording} from '../presentation/source-date-wording.js';
 /*
  * Raster-safe export projection for the protected 407F renderer.
@@ -131,7 +132,8 @@ function metrics(scene){
   const lastYear=Math.max(firstYear,lastCandidate)+(scene.autoAxisPadding?.after||0);
   if(scene.autoYearWeights){
     const segments=[];let total=0;
-    for(let year=firstYear;year<=lastYear;year++){const weight=scene.autoYearWeights.get(year)||1;segments.push({id:String(year),label:String(year),weight});total+=weight;}
+    const maximum=Math.max(...Array.from({length:lastYear-firstYear+1},(_,index)=>scene.autoYearWeights.get(firstYear+index)||1)),factor=Math.min(1,8/maximum);
+    for(let year=firstYear;year<=lastYear;year++){const weight=(scene.autoYearWeights.get(year)||1)*factor;segments.push({id:String(year),label:String(year),weight});total+=weight;}
     // Preserve enough cell width for the unchanged 23px year typography and notch.
     const readableWidth=Math.max(...segments.map(segment=>(scene.measureText||measurePresentationText)(segment.label,23,TYPE.axis,700)))+20; // native 11px notch, 4px text offset and painted clearance
     const minPercent=Math.min(96/segments.length,readableWidth/CONTENT_WIDTH*100);
@@ -261,22 +263,41 @@ function personalBandSegments(scene){
 
 // Only retained critic ownership grants date reflow. Human, grouped, locked
 // and unmarked legacy geometry remains an exact authored placement.
+function criticFixedY(scene,event){
+  const owned=presentationEventObject(scene,event.id)?.presentation;
+  return owned?.localLayoutCriticAuto===true&&(owned.localLayoutCriticYExplicit===true||owned.localLayoutCriticYRetained===true);
+}
+
 function automaticDateAnchor(scene,event){
   const object=presentationEventObject(scene,event.id),source=(scene.events||[]).find(item=>String(item.id)===String(event.id))||event;
-  const nativeBand=(scene.flags||[]).some(flag=>String(flag.id)===String(event.id))
-    ?Number(object?.geometry?.y)>=2.5&&Number(object?.geometry?.y)<=87.75
+  const isFlag=(scene.flags||[]).some(flag=>String(flag.id)===String(event.id));
+  const attachedStudy=isFlag&&event.categoryId==='exams'&&event.examAttemptId&&
+    (scene.arrows||[]).some(arrow=>arrow.study&&arrow.examAttemptId===event.examAttemptId);
+  const nativeBand=isFlag
+    ?Number(object?.geometry?.y)>=2.5&&Number(object?.geometry?.y)<=(attachedStudy?1072:87.75)
     :Number(object?.geometry?.y)>=181;
-  return !!(nativeBand&&object?.geometry&&object.presentation?.localLayoutCriticAuto===true&&
+  return !!((nativeBand||!isFlag&&criticFixedY(scene,event))&&object?.geometry&&object.presentation?.localLayoutCriticAuto===true&&
     !scene.automaticDateAnchorsLocked&&!object.locked&&!object.groupId&&Math.abs(Number(object.geometry.rotation)||0)<1e-6&&
     !(scene.founderPresentation?.advancedScene?.groups||[]).some(group=>group.locked&&group.childIds?.includes(object.id))&&
     !source.manualOffset?.laneLocked&&!Number(source.manualOffset?.x)&&!Number(source.manualOffset?.y));
+}
+
+function eventLayoutOwnership(scene,event){
+  if((scene.arrows||[]).some(arrow=>String(arrow.id)===String(event.id))&&(event.manualOffset?.laneLocked||Number(event.manualOffset?.x)||Number(event.manualOffset?.y)))return 'authored';
+  return presentationEventObject(scene,event.id)?.geometry
+    ?automaticDateAnchor(scene,event)?'retained-automatic':'authored':'automatic';
+}
+function axisRefinementDecision(scene){
+  if(scene.founderPresentation?.axis?.mode==='manual')return 'preserved-axis';
+  if([...(scene.arrows||[]),...(scene.flags||[])].some(event=>eventLayoutOwnership(scene,event)==='authored'))return 'preserved-authored';
+  return 'automatic';
 }
 
 function geometry(arrow,layout,scale,scene){
   const overridden=presentationEventObject(scene,arrow.id)?.geometry||scene.autoArrowGeometry?.get(String(arrow.id));
   if(overridden){
     const dated=scene.founderPresentation?.axis?.mode!=='manual'&&automaticDateAnchor(scene,arrow);
-    const resolved=automaticDateAnchor(scene,arrow)?scene.autoArrowGeometry?.get(String(arrow.id)):null;
+    const resolved=automaticDateAnchor(scene,arrow)&&!criticFixedY(scene,arrow)?scene.autoArrowGeometry?.get(String(arrow.id)):null;
     const x=pixel(dated?boardX(scale.xPercent(arrow.startMonth)):overridden.x),y=pixel(resolved?.y??overridden.y);
     const width=pixel(dated?Math.max(LOCKED_407F_GEOMETRY.minimumArrowWidth,CONTENT_WIDTH*scale.widthPercent(arrow.startMonth,arrow.endMonth)/100):Math.max(1,overridden.width));
     return{x,y,width,x2:x+width,height:presentationEventObject(scene,arrow.id)?.geometry?pixel(Math.max(1,overridden.height)):Math.max(1,overridden.height),...(overridden.personalSegment?{personalSegment:overridden.personalSegment}:{})};
@@ -338,9 +359,17 @@ function arrowMarkup(arrow,index,layout,scale,scene){
   const compactStart=presentationDateWording(arrow.startMonth,arrow.datePrecision?.start,arrow.sourceDateWording?.start);
   const compactEnd=arrow.openEnded?"Present":presentationDateWording(arrow.endMonth,arrow.datePrecision?.end,arrow.sourceDateWording?.end);
   const caption=`${compactStart} - ${compactEnd}`;
-  const captionX=Math.max(box.x+40,Math.min(WIDTH-40,box.x+box.width/2));
+  const rawCaptionX=Math.max(box.x+40,Math.min(WIDTH-40,box.x+box.width/2));
+  const ownedDateOffset=presentationEventObject(scene,arrow.id)?.presentation?.dateLabelLayout?.xOffset;
+  const captionWidth=(scene.measureText||measurePresentationText)(caption,dateSize,TYPE.event)+dateSize*.12;
+  const automaticCaption=!!arrow.display&&eventLayoutOwnership(scene,arrow)!=='authored';
+  const dateAlignment=automaticCaption&&!Number.isFinite(ownedDateOffset)?scene.autoDateAlignments?.get(String(arrow.id)):null;
+  const alignedCaptionX=dateAlignment==='start'?box.x:dateAlignment==='end'?box.x2:rawCaptionX;
+  const captionX=Number.isFinite(ownedDateOffset)?box.x+ownedDateOffset:automaticCaption?
+    Math.max(24+captionWidth/2,Math.min(WIDTH-24-captionWidth/2,alignedCaptionX)):rawCaptionX;
+  const captionClamped=automaticCaption&&!Number.isFinite(ownedDateOffset)&&Math.abs(captionX-alignedCaptionX)>.01;
   const outsideInk=boardInk(scene);
-  const dates=`<text data-arrow-caption="true" data-board-ink-role="caption" x="${captionX}" y="${dateY}" text-anchor="middle" fill="${outsideInk}" font-family="${TYPE.event}" font-size="${dateSize}">${xml(caption)}</text>`;
+  const dates=`<text${dateAlignment?` data-automatic-date-alignment="${dateAlignment}"`:''}${captionClamped?' data-automatic-caption-clamp="true"':''} data-arrow-caption="true" data-board-ink-role="caption" x="${captionX}" y="${dateY}" text-anchor="middle" fill="${outsideInk}" font-family="${TYPE.event}" font-size="${dateSize}">${xml(caption)}</text>`;
   void start;void end;void duration;
   const institution=arrow.display?.institution??arrow.siteName;
   const leftInstitution=!!arrow.display;
@@ -350,42 +379,51 @@ function arrowMarkup(arrow,index,layout,scale,scene){
   const siteWidth=Math.min(availableInstitution,Math.max(1,measure(String(institutionText||''),19,TYPE.event)+4));
   const siteCenter=Math.max(24+siteWidth/2,Math.min(WIDTH-24-siteWidth/2,box.x+box.width/2));
   const siteLines=institutionText?wrapPresentationText(institutionText,{width:siteWidth,size:19,family:TYPE.event,measureText:measure}):[];
+  const siteWordOverflow=leftInstitution&&String(institutionText||'').split(/\s+/).some(word=>measure(word,19,TYPE.event)>siteWidth+.5);
   const siteX=leftInstitution?box.x-12:(siteLines.length>1?Math.min(WIDTH-24-siteWidth,Math.max(24,box.x)):siteCenter)+(scene.autoSiteOffsets?.get(String(arrow.id))||0);
   const siteAnchor=leftInstitution?'end':siteLines.length>1?'start':'middle';
   const siteY=leftInstitution?shaftY+shaftHeight/2+5-(siteLines.length-1)*10.5:box.y+box.height+headInset+21;
   const site=siteLines.length
-    ?`<text data-board-ink-role="site" data-material-field="siteName" data-display-institution="${xml(institution||'')}" x="${siteX}" y="${siteY}" text-anchor="${siteAnchor}" fill="${outsideInk}" font-family="${TYPE.event}" font-size="19">${siteLines.map((line,i)=>`<tspan x="${siteX}" dy="${i?21:0}">${xml(line)}</tspan>`).join('')}</text>`
+    ?`<text${siteWordOverflow?' data-text-overflow="true"':''} data-board-ink-role="site" data-material-field="siteName" data-display-institution="${xml(institution||'')}" x="${siteX}" y="${siteY}" text-anchor="${siteAnchor}" fill="${outsideInk}" font-family="${TYPE.event}" font-size="19">${siteLines.map((line,i)=>`<tspan x="${siteX}" dy="${i?21:0}">${xml(line)}</tspan>`).join('')}</text>`
     :"";
-  const locationLines=arrow.display?.location?wrapPresentationText(arrow.display.location,{width:Math.max(100,Math.min(500,WIDTH-box.x-24)),size:18,family:TYPE.event,measureText:measure}):[];
-  const location=locationLines.length?`<text data-board-ink-role="location" data-material-field="location" x="${box.x}" y="${box.y+box.height+headInset+21}" fill="${outsideInk}" font-family="${TYPE.event}" font-size="18">${locationLines.map((line,i)=>`<tspan x="${box.x}" dy="${i?21:0}">${xml(line)}</tspan>`).join('')}</text>`:'';
+  const locationLines=arrow.display?.location?wrapPresentationText(arrow.display.location,{width:500,size:18,family:TYPE.event,measureText:measure}):[];
+  const locationWidth=Math.max(0,...locationLines.map(line=>measure(line,18,TYPE.event)))+18*.12;
+  const ownedLocationAlignment=presentationEventObject(scene,arrow.id)?.presentation?.locationLabelLayout?.alignment;
+  const locationAlignment=['start','center','end','tip'].includes(ownedLocationAlignment)?ownedLocationAlignment:
+    (!presentationEventObject(scene,arrow.id)?.geometry||automaticDateAnchor(scene,arrow))?scene.autoLocationAlignments?.get(String(arrow.id)):null;
+  const alignedLocationX=locationAlignment==='end'?box.x2-locationWidth:locationAlignment==='center'?box.x+(box.width-locationWidth)/2:locationAlignment==='tip'?box.x2-locationWidth/2:box.x;
+  const locationX=Math.max(24,Math.min(alignedLocationX,WIDTH-24-locationWidth));
+  const location=locationLines.length?`<text data-board-ink-role="location" data-material-field="location" x="${locationX}" y="${box.y+box.height+headInset+21}" fill="${outsideInk}" font-family="${TYPE.event}" font-size="18">${locationLines.map((line,i)=>`<tspan x="${locationX}" dy="${i?21:0}">${xml(line)}</tspan>`).join('')}</text>`:'';
   const arrowHead=Math.min(24,Math.max(14,box.width*.14));
   const arrowPath=joined
     ?`M${box.x} ${box.y}H${box.x2}V${box.y+box.height}H${box.x}Z`
     :`M${box.x} ${shaftY}H${box.x2-recoveredHead}V${shaftY-shoulder}L${box.x2} ${shaftY+shaftHeight/2}L${box.x2-recoveredHead} ${shaftY+shaftHeight+shoulder}V${shaftY+shaftHeight}H${box.x}Z`;
   const separator=joined?`<path data-personal-band-separator="true" d="M${box.x2-9} ${box.y+1}L${box.x2} ${box.y+box.height/2}L${box.x2-9} ${box.y+box.height-1}" fill="none" stroke="#D9C8EA" stroke-width="1.5"/>`:"";
-  const labelX=box.x+10+(box.width-28)/2;
+  const labelX=arrow.display?(joined?box.x+box.width/2:box.x+(box.width-recoveredHead)/2):box.x+10+(box.width-28)/2;
   const title=String(arrow.display?.role??arrow.title??'');
-  const titleWidth=(scene.measureText||measurePresentationText)(title,18,TYPE.arrowLabel,400);
-  const nativeTitleFits=titleWidth<=box.width-arrowHead-16&&shaftHeight>=18*1.2;
+  const titleSize=editableFounderLabelSize(arrow.display,title,box.width-(arrow.display?(joined?0:recoveredHead)+4:arrowHead+16),shaftHeight,TYPE.arrowLabel,scene.measureText||measurePresentationText);
+  const titleWidth=(scene.measureText||measurePresentationText)(title,titleSize,TYPE.arrowLabel,400);
+  const nativeTitleFits=titleWidth<=box.width-(arrow.display?(joined?0:recoveredHead)+4:arrowHead+16)&&shaftHeight>=titleSize*1.2;
   const titleFits=!!arrow.display||nativeTitleFits;
   const leftRoom=Math.max(1,box.x-44),rightRoom=Math.max(1,WIDTH-box.x2-44);
   const preferredOutsideLeft=leftRoom>=titleWidth&&(rightRoom<titleWidth||box.x+box.width/2>WIDTH/2)||leftRoom>rightRoom&&rightRoom<titleWidth;
   const outsideLeft=scene.autoArrowLabelSides?.get(String(arrow.id))??preferredOutsideLeft;
-  const titleLines=titleFits?[title]:wrapPresentationText(title,{width:outsideLeft?leftRoom:rightRoom,size:18,family:TYPE.arrowLabel,measureText:scene.measureText||measurePresentationText});
+  const titleLines=titleFits?[title]:wrapPresentationText(title,{width:outsideLeft?leftRoom:rightRoom,size:titleSize,family:TYPE.arrowLabel,measureText:scene.measureText||measurePresentationText});
   const titleAnchor=titleFits?'middle':outsideLeft?'end':'start';
   const titleX=titleFits?labelX:outsideLeft?box.x-12:box.x2+12;
-  const titleY=shaftY+shaftHeight/2+18*.26-(titleLines.length-1)*11;
+  const titleY=shaftY+shaftHeight/2+titleSize*.26-(titleLines.length-1)*11;
   // Short chronology bars retain their exact dates/width. Their full readable
   // label sits beside the bar instead of crushing glyphs into a few pixels.
   const titleColor=titleFits?"#FFFFFF":outsideInk;
-  const titleMarkup=`<text${arrow.display&&!nativeTitleFits?' data-text-overflow="true"':''} data-arrow-label-placement="${titleFits?'inside':outsideLeft?'outside-left':'outside-right'}" data-board-ink-role="${titleFits?'inside-arrow':'outside-arrow'}" x="${titleX}" y="${titleY}" text-anchor="${titleAnchor}" fill="${xml(titleColor)}" font-family="${TYPE.arrowLabel}" font-size="18" font-weight="400">${titleLines.length===1?xml(title):titleLines.map((line,i)=>`<tspan x="${titleX}" dy="${i?22:0}">${xml(line)}</tspan>`).join('')}</text>`;
+  const titleMarkup=`<text${arrow.display&&!nativeTitleFits?' data-text-overflow="true"':''} data-arrow-label-placement="${titleFits?'inside':outsideLeft?'outside-left':'outside-right'}" data-board-ink-role="${titleFits?'inside-arrow':'outside-arrow'}" x="${titleX}" y="${titleY}" text-anchor="${titleAnchor}" fill="${xml(titleColor)}" font-family="${TYPE.arrowLabel}" font-size="${titleSize}" font-weight="400">${titleLines.length===1?xml(title):titleLines.map((line,i)=>`<tspan x="${titleX}" dy="${i?22:0}">${xml(line)}</tspan>`).join('')}</text>`;
   const lor=arrow.lorSubmitted
     ?`<g data-lor-submitted="true" transform="translate(${box.x2-38} ${box.y-10})"><path d="M0 0H20V22L10 16L0 22Z" fill="#F3E7B3" stroke="#8C6B20"/><text x="10" y="14" text-anchor="middle" fill="#6C5018" font-family="Arial" font-size="11" font-weight="800">★</text></g>`
     :"";
   const chip=arrow.actionChip
     ?`<g data-study-action-chip="${xml(arrow.actionChip.targetAttemptId||"")}" transform="translate(${box.x2-141} ${box.y+36})"><rect width="126" height="24" rx="12" fill="#B98A2E" stroke="#A67A26"/><text x="63" y="16" text-anchor="middle" fill="#191C21" font-family="Rajdhani,Arial,sans-serif" font-size="10" font-weight="700">${xml(arrow.actionChip.label||"Set retake date")}</text></g>`
     :"";
-  return`<g data-event-kind="arrow" data-event-id="${xml(arrow.id)}" data-category="${xml(arrow.categoryId)}"${box.personalSegment?` data-personal-band="${xml(box.personalSegment.first.id)}" data-personal-band-segment="${box.personalSegment.index}"`:""} aria-label="${xml(arrow.ariaLabel)}"${rotationAttribute} filter="url(#d1406-arrow-shadow)"><path data-continuous-duration-arrow="true" d="${arrowPath}" fill="url(#d1406-arrow-${index})" stroke="#17212B" stroke-width="1.5"/><path d="M${box.x+2} ${shaftY+2}H${Math.max(box.x+2,box.x2-recoveredHead-2)}" stroke="#FFFFFF" stroke-opacity=".46" stroke-width="1"/>${separator}${dates}${site}${titleMarkup}${location}${lor}${chip}</g>`;
+  const roleConstraint=scene.autoRoleBudget?.find(constraint=>constraint.eventId===String(arrow.id)&&!constraint.field);
+  return`<g data-event-kind="arrow" data-event-id="${xml(arrow.id)}"${roleConstraint?` data-role-budget-required="${roleConstraint.required}" data-role-budget-deficit="${roleConstraint.deficit}"`:''} data-layout-ownership="${eventLayoutOwnership(scene,arrow)}" data-category="${xml(arrow.categoryId)}"${box.personalSegment?` data-personal-band="${xml(box.personalSegment.first.id)}" data-personal-band-segment="${box.personalSegment.index}"`:""} aria-label="${xml(arrow.ariaLabel)}"${rotationAttribute} filter="url(#d1406-arrow-shadow)"><path data-continuous-duration-arrow="true"${arrow.display&&eventLayoutOwnership(scene,arrow)!=='authored'?' data-native-arrow-paint="automatic"':''} d="${arrowPath}" fill="url(#d1406-arrow-${index})" stroke="#17212B" stroke-width="1.5"/><path d="M${box.x+2} ${shaftY+2}H${Math.max(box.x+2,box.x2-recoveredHead-2)}" stroke="#FFFFFF" stroke-opacity=".46" stroke-width="1"/>${separator}${dates}${site}${titleMarkup}${location}${lor}${chip}</g>`;
 }
 
 function axisMarkup(scale){
@@ -433,9 +471,9 @@ function milestoneGeometry(flag,index,scale,scene,{interview=false}={}){
   // attach to their study arrow, as the Founder exemplar shows. The gap
   // under the plaque can hold a pennant and a single-line label; unresolved
   // long/simultaneous labels are quality findings, never moved below the axis.
-  const automaticY=scene.autoFlagGeometry?.get(String(flag.id))?.y??(studyBox?studyBox.y-58:crossesTitle?87:(index%2===0?58:65));
+  const automaticY=studyBox?studyBox.y-(scene.autoStudyFlagGaps?.get(String(flag.id))??58):scene.autoFlagGeometry?.get(String(flag.id))?.y??(crossesTitle?87:(index%2===0?58:65));
   const defaultPoleBottom=studyBox?.y??FOUNDER_PORTABLE_GEOMETRY.axisTop;
-  return {object,overridden,x,y:overridden?pixel(automaticDateAnchor(scene,flag)?scene.autoFlagGeometry?.get(String(flag.id))?.y??overridden.y:overridden.y):automaticY,width:overridden?Math.max(.25,Number(overridden.width)||50):50,height:overridden?Math.max(.25,Number(overridden.height)||64):64,rotation:overridden?Number(overridden.rotation)||0:0,defaultPoleBottom};
+  return {object,overridden,x,y:overridden?pixel(automaticDateAnchor(scene,flag)&&!criticFixedY(scene,flag)?automaticY:overridden.y):automaticY,width:overridden?Math.max(.25,Number(overridden.width)||50):50,height:overridden?Math.max(.25,Number(overridden.height)||64):64,rotation:overridden?Number(overridden.rotation)||0:0,defaultPoleBottom};
 }
 
 export function locked407FMilestoneGeometry(scene,id){
@@ -455,7 +493,7 @@ export function locked407FNativeMilestonePresentation(scene,id){
   const layout=scene.autoFlagLabels?.get(String(flag.id));
   const labelWidth=String(flag.title||'').length*9.5+8;
   const flip=layout?.flip??(placed.x+56+Math.max(labelWidth,Math.min(420,String(flag.siteName||'').length*10))>WIDTH-8);
-  return {flagLabelLayout:{width:layout?.width||420,flip,...(Number.isFinite(layout?.yOffset)?{yOffset:layout.yOffset}:{}),...(Number.isFinite(layout?.linePitch)?{linePitch:layout.linePitch}:{})},nativeFlagPole:{anchor:'native'}};
+  return {flagLabelLayout:{width:layout?.width||420,flip,...(Number.isFinite(layout?.yOffset)?{yOffset:layout.yOffset}:{}),...(Number.isFinite(layout?.xOffset)?{xOffset:layout.xOffset}:{}),...(Number.isFinite(layout?.linePitch)?{linePitch:layout.linePitch}:{})},nativeFlagPole:{anchor:'native'}};
 }
 
 function flagMarkup(flag,index,scale,scene,{interview=false}={}){
@@ -471,7 +509,7 @@ function flagMarkup(flag,index,scale,scene,{interview=false}={}){
   const axisAnchored=!!overridden&&placed.object?.presentation?.guardianAnchor==='axis'&&rotation===0;
   // Native first edits retain the original axis/study attachment, including
   // rotation. This opt-in marker never reinterprets older authored overrides.
-  const nativeAnchored=!!overridden&&placed.object?.presentation?.nativeFlagPole?.anchor==='native';
+  const nativeAnchored=!!overridden&&(automaticDateAnchor(scene,flag)||placed.object?.presentation?.nativeFlagPole?.anchor==='native');
   const nativeBottom=founderUsesUsFlag(flag)
     ?FOUNDER_PORTABLE_GEOMETRY.axisTop:placed.defaultPoleBottom;
   const anchoredPoleBottom=nativeAnchored?(nativeBottom-y)/sy:axisAnchored?(FOUNDER_PORTABLE_GEOMETRY.axisTop-y)/sy:64;
@@ -484,12 +522,13 @@ function flagMarkup(flag,index,scale,scene,{interview=false}={}){
   const useUsFlag=!interview&&founderUsesUsFlag(flag);
   if(useUsFlag){
     const poleX=bx+4,usaFlag=FOUNDER_KEYNOTE_CONTRACT.assets.usaFlag,ink=boardInk(scene);
-    const labelX=flipLabel?bx-8:bx+54;
+    const labelX=(flipLabel?bx-8:bx+54)+(labelLayout?.xOffset||0),labelY=by+(labelLayout?.yOffset||0);
     const available=Math.max(1,flipLabel?placed.x-24:WIDTH-placed.x-70);
-    const lines=wrapPresentationText(String(title||'')+(flagInstitution?' — '+String(flagInstitution):''),{width:Math.min(labelLayout?.width||420,available),size:18,family:TYPE.event,measureText:scene.measureText||measurePresentationText});
-    const anchor=flipLabel?' text-anchor="end"':'';
-    const label=lines.map((line,i)=>`<text data-board-ink-role="flag-label" data-material-field="title" x="${labelX}" y="${by+19+i*21}"${anchor} fill="${ink}" font-family="${TYPE.event}" font-size="18">${xml(line)}</text>`).join('');
-    return`<g data-event-kind="flag" data-event-id="${xml(flag.id)}" data-founder-milestone-style="usa" aria-label="${xml(flag.ariaLabel)}"${transform}><line x1="${poleX}" y1="${by+2}" x2="${poleX}" y2="${overridden?anchoredPoleBottom:FOUNDER_PORTABLE_GEOMETRY.axisTop}" stroke="#A9AFB2" stroke-width="4"/><image data-founder-usa-flag-asset-sha256="${usaFlag.sha256}" href="${xml(founderKeynoteAssetUrl(usaFlag))}" x="${bx}" y="${by}" width="50" height="41" preserveAspectRatio="xMinYMin meet"/>${label}<text data-board-ink-role="flag-date" x="${labelX}" y="${by+19+lines.length*21}"${anchor} fill="${ink}" font-family="${TYPE.event}" font-size="18">${xml(presentationDateWording(flag.month,flag.datePrecision?.start,flag.sourceDateWording?.start))}</text></g>`;
+    const labelText=String(title||'')+(flagInstitution?' — '+String(flagInstitution):''),labelSize=editableFounderLabelSize(flag.display,labelText,Math.min(labelLayout?.width||420,available),125-y,TYPE.event,scene.measureText||measurePresentationText);
+    const lines=wrapPresentationText(labelText,{width:Math.min(labelLayout?.width||420,available),size:labelSize,family:TYPE.event,measureText:scene.measureText||measurePresentationText});
+    const anchor=flipLabel?' text-anchor="end"':'',labelPitch=labelSize>18?Math.max(21,labelSize*1.2):21;
+    const label=lines.map((line,i)=>`<text data-board-ink-role="flag-label" data-material-field="title" x="${labelX}" y="${labelY+19+i*labelPitch}"${anchor} fill="${ink}" font-family="${TYPE.event}" font-size="${labelSize}">${xml(line)}</text>`).join('');
+    return`<g data-event-kind="flag" data-event-id="${xml(flag.id)}" data-layout-ownership="${eventLayoutOwnership(scene,flag)}" data-founder-milestone-style="usa" aria-label="${xml(flag.ariaLabel)}"${transform}><line x1="${poleX}" y1="${by+2}" x2="${poleX}" y2="${overridden?anchoredPoleBottom:FOUNDER_PORTABLE_GEOMETRY.axisTop}" stroke="#A9AFB2" stroke-width="4"/><image data-founder-usa-flag-asset-sha256="${usaFlag.sha256}" href="${xml(founderKeynoteAssetUrl(usaFlag))}" x="${bx}" y="${by}" width="50" height="41" preserveAspectRatio="xMinYMin meet"/>${label}<text data-board-ink-role="flag-date" x="${labelX}" y="${labelY+19+lines.length*labelPitch}"${anchor} fill="${ink}" font-family="${TYPE.event}" font-size="18">${xml(presentationDateWording(flag.month,flag.datePrecision?.start,flag.sourceDateWording?.start))}</text></g>`;
   }
   /* AAA-019 Keynote fidelity (016 §3 "Milestone flags"): the golden milestone is a waving
      grey pennant planted on the ribbon with a white date chip inside and the label beside it —
@@ -513,12 +552,14 @@ function flagMarkup(flag,index,scale,scene,{interview=false}={}){
   const available=Math.max(1,flipLabel?placed.x-8-16:WIDTH-placed.x-64-16);
   const wrapWidth=Math.min(labelLayout?.width||420,Math.max(1,available-Math.abs(labelX-nativeLabelX)));
   const adjacentLabel=String(title||'')+(!interview&&flagInstitution?' — '+String(flagInstitution):'');
-  const lines=wrapPresentationText(adjacentLabel,{width:wrapWidth,size:18,family:TYPE.arrowLabel,measureText});
+  const labelSize=editableFounderLabelSize(flag.display,adjacentLabel,wrapWidth,Math.max(18,placed.defaultPoleBottom-y),TYPE.arrowLabel,measureText);
+  const lines=wrapPresentationText(adjacentLabel,{width:wrapWidth,size:labelSize,family:TYPE.arrowLabel,measureText});
   const resultPrivacy=flag.presentationRedactions?.includes('EXAM_RESULT_PRIVATE')?' data-exam-result-private="true"':'';
   const labelYOffset=!interview&&!examResult&&Number.isFinite(labelLayout?.yOffset)?labelLayout.yOffset:0;
-  const linePitch=Number.isFinite(labelLayout?.linePitch)&&labelLayout.linePitch>=18&&labelLayout.linePitch<=36?labelLayout.linePitch:21;
-  const label=lines.map((line,lineIndex)=>`<text${resultPrivacy} data-board-ink-role="flag-label" data-material-field="title" x="${labelX}" y="${by+22+labelYOffset+lineIndex*linePitch}"${flipLabel?' text-anchor="end"':""} fill="${boardInk(scene)}" font-family="${TYPE.arrowLabel}" font-size="18">${xml(line)}</text>`).join("");
-  return`<g data-event-kind="${interview?"interview-marker":"flag"}"${interview?"":` data-event-id="${xml(flag.id)}"`} data-founder-milestone-style="pennant"${examResult?` data-exam-result="${examResult}"`:""} aria-label="${xml(flag.ariaLabel)}"${transform}><line x1="${poleX}" y1="${by}" x2="${poleX}" y2="${poleBottom}" stroke="#8E9398" stroke-width="3"/><circle cx="${poleX}" cy="${by}" r="2.5" fill="#B9BDC1"/>${pennant}${chip}${label}</g>`;
+  const nativeLinePitch=Number.isFinite(labelLayout?.linePitch)&&labelLayout.linePitch>=18&&labelLayout.linePitch<=36?labelLayout.linePitch:21;
+  const linePitch=labelSize>18?Math.max(nativeLinePitch,labelSize*1.2):nativeLinePitch;
+  const label=lines.map((line,lineIndex)=>`<text${resultPrivacy} data-board-ink-role="flag-label" data-material-field="title" x="${labelX}" y="${by+22+labelYOffset+lineIndex*linePitch}"${flipLabel?' text-anchor="end"':""} fill="${boardInk(scene)}" font-family="${TYPE.arrowLabel}" font-size="${labelSize}">${xml(line)}</text>`).join("");
+  return`<g data-event-kind="${interview?"interview-marker":"flag"}"${interview?"":` data-event-id="${xml(flag.id)}" data-layout-ownership="${eventLayoutOwnership(scene,flag)}"`} data-founder-milestone-style="pennant"${examResult?` data-exam-result="${examResult}"`:""} aria-label="${xml(flag.ariaLabel)}"${transform}><line x1="${poleX}" y1="${by}" x2="${poleX}" y2="${poleBottom}" stroke="#8E9398" stroke-width="3"/><circle cx="${poleX}" cy="${by}" r="2.5" fill="#B9BDC1"/>${pennant}${chip}${label}</g>`;
 }
 
 function colorKey(scene){
@@ -827,6 +868,22 @@ export function advancedElementPreviewMarkup(kind,{width=120,height=80,fill="#2C
   return`<svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" aria-hidden="true" focusable="false" preserveAspectRatio="xMidYMid meet">${body}</svg>`;
 }
 
+function founderRoleBudgetSize(display){
+  const requested=Math.max(18,Math.min(24,Number(display?.labelSize)||18));
+  const nativeHeight=FOUNDER_ARROW_PROFILE.fullHeight*(1-2*FOUNDER_ARROW_PROFILE.shoulderRatio);
+  return display?.labelFit==='fixed'?requested:Math.min(requested,Math.floor(nativeHeight/1.2));
+}
+
+function editableFounderLabelSize(display,text,width,height,family,measureText){
+  const requested=Math.max(18,Math.min(24,Number(display?.labelSize)||18));
+  if(display?.labelFit==='fixed')return requested;
+  for(let size=requested;size>=18;size--){
+    const lines=wrapPresentationText(text,{width:Math.max(1,width),size,family,measureText});
+    if(lines.every(line=>measureText(line,size,family)<=width)&&lines.length*size*1.2<=height)return size;
+  }
+  return 18;
+}
+
 function wrappedTextLines(text,width,size,wrap,family=TYPE.event){
   return wrapPresentationText(text,{width,size,wrap,family});
 }
@@ -897,11 +954,34 @@ function serializePlacedPortableSvg(scene,{layers="",resourceNamespace=""}={}){
   const titleId="d1406-portable-title";
   const descriptionId="d1406-portable-description";
   const board=FOUNDER_KEYNOTE_CONTRACT.assets.board;
-  const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${WIDTH} ${HEIGHT}" width="${WIDTH}" height="${HEIGHT}" role="img" aria-labelledby="${titleId} ${descriptionId}" data-renderer="${xml(scene?.renderer)}" data-artifact-language="407f-powerpoint-keynote" data-export-projection="native-svg" data-locked-407f-source-sha256="${LOCKED_407F_SOURCE_SHA256}"><title id="${titleId}">${xml(scene?.accessibility?.ariaLabel)}</title><desc id="${descriptionId}">${xml(scene?.accessibility?.description)}</desc><defs>${background(scene)}<linearGradient id="d1406-axis" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2F4A78"/><stop offset=".16" stop-color="#22395F"/><stop offset=".7" stop-color="#182B4C"/><stop offset="1" stop-color="#101F3A"/></linearGradient><filter id="d1406-arrow-shadow" x="-20%" y="-40%" width="140%" height="180%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#141E32" flood-opacity=".48"/></filter><filter id="d1406-photo-shadow" x="-25%" y="-25%" width="150%" height="150%"><feDropShadow dx="-6.603568780525887" dy="6.114971738353651" stdDeviation="5" flood-color="#000000" flood-opacity=".5"/></filter><marker id="d1406-red-arrowhead" markerWidth="10" markerHeight="14" refX="10" refY="7" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L10 7L0 14Z" fill="#C73A25"/></marker>${arrowDefinitions(arrows,layout,scale,scene)}</defs><rect data-board-background="true" data-founder-board-source="${xml(board.sourcePath)}" data-founder-board-asset-sha256="${board.sha256}" x="0" y="0" width="1920" height="1080" fill="url(#d1406-board)"/>${advancedBackgroundLayer(scene)}${axisMarkup(scale)}<g data-layer="events">${flags.map((flag,index)=>flagMarkup(flag,index,scale,scene)).join("")}${arrows.map((arrow,index)=>arrowMarkup(arrow,index,layout,scale,scene)).join("")}</g>${chrome(scene,scale)}</svg>`;
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${WIDTH} ${HEIGHT}" width="${WIDTH}" height="${HEIGHT}" role="img" aria-labelledby="${titleId} ${descriptionId}" data-axis-refinement="${axisRefinementDecision(scene)}" data-role-budget-unmet="${scene.autoRoleBudget?scene.autoRoleBudget.filter(constraint=>constraint.deficit>.1).length:'unassessed'}" data-renderer="${xml(scene?.renderer)}" data-artifact-language="407f-powerpoint-keynote" data-export-projection="native-svg" data-locked-407f-source-sha256="${LOCKED_407F_SOURCE_SHA256}"><title id="${titleId}">${xml(scene?.accessibility?.ariaLabel)}</title><desc id="${descriptionId}">${xml(scene?.accessibility?.description)}</desc><defs>${background(scene)}<linearGradient id="d1406-axis" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2F4A78"/><stop offset=".16" stop-color="#22395F"/><stop offset=".7" stop-color="#182B4C"/><stop offset="1" stop-color="#101F3A"/></linearGradient><filter id="d1406-arrow-shadow" x="-20%" y="-40%" width="140%" height="180%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#141E32" flood-opacity=".48"/></filter><filter id="d1406-photo-shadow" x="-25%" y="-25%" width="150%" height="150%"><feDropShadow dx="-6.603568780525887" dy="6.114971738353651" stdDeviation="5" flood-color="#000000" flood-opacity=".5"/></filter><marker id="d1406-red-arrowhead" markerWidth="10" markerHeight="14" refX="10" refY="7" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L10 7L0 14Z" fill="#C73A25"/></marker>${arrowDefinitions(arrows,layout,scale,scene)}</defs><rect data-board-background="true" data-founder-board-source="${xml(board.sourcePath)}" data-founder-board-asset-sha256="${board.sha256}" x="0" y="0" width="1920" height="1080" fill="url(#d1406-board)"/>${advancedBackgroundLayer(scene)}${axisMarkup(scale)}<g data-layer="events">${flags.map((flag,index)=>flagMarkup(flag,index,scale,scene)).join("")}${arrows.map((arrow,index)=>arrowMarkup(arrow,index,layout,scale,scene)).join("")}</g>${chrome(scene,scale)}</svg>`;
   return namespacePortableSvgResources(
     appendLayers(svg,`${advancedSceneMarkup(scene)}${layers}`),
     resourceNamespace
   );
+}
+
+// Clear each automatic study caption from its attached native pennant before
+// measuring the whole group. The relative gap travels with the study; a human
+// flag placement remains unchanged and any unresolved conflict stays visible.
+function clearAutomaticStudyFlagCaptions(scene,svg){
+  const nodes=resolveFounderPresentationSvg(svg,{measureText:scene.measureText}).nodes.filter(node=>node.bounds&&
+    Number(node.style.opacity??1)>0&&Number(node.style['fill-opacity']??1)>0&&
+    !(node.kind==='path'&&(node.lineOnly||node.style.fill==='none'||node.bounds.width<1||node.bounds.height<1)));
+  const gaps=new Map(scene.autoStudyFlagGaps||[]);let changed=false;
+  for(const flag of scene.flags||[]){
+    if(criticFixedY(scene,flag)||presentationEventObject(scene,flag.id)?.geometry&&!automaticDateAnchor(scene,flag))continue;
+    const study=flag.categoryId==='exams'&&flag.examAttemptId&&(scene.arrows||[]).find(arrow=>arrow.study&&arrow.examAttemptId===flag.examAttemptId);
+    if(!study)continue;
+    const flagParts=nodes.filter(node=>node.groupId==='event:'+flag.id),studyParts=nodes.filter(node=>node.groupId==='event:'+study.id);
+    let lift=0;
+    for(const pennant of flagParts)for(const caption of studyParts){
+      const a=pennant.occlusionBounds||pennant.bounds,b=caption.occlusionBounds||caption.bounds;
+      if(a.x<b.x+b.width+24&&a.x+a.width+24>b.x)lift=Math.max(lift,a.y+a.height+8-b.y);
+    }
+    if(lift>.5){gaps.set(String(flag.id),(gaps.get(String(flag.id))??58)+lift);changed=true;}
+  }
+  return changed?{...scene,autoStudyFlagGaps:gaps}:null;
 }
 
 // Ordinary durations enter the spine by start, then the established end/source
@@ -928,36 +1008,86 @@ export function validateLocked407FChronology(scene,{tolerance=.5}={}){
 // Establish the complete descending spine before refining painted collisions.
 // Each state reserves the remaining anchors. Collision pressure can refine the
 // spine, but a safe inverse arrangement is never a candidate or a fallback.
-function avoidAutomaticArrowCollisions(scene,svg){
+function avoidAutomaticArrowCollisions(scene,svg,{nativeEarliest=false}={}){
   const auto=chronologicalExperienceArrows(scene);if(!auto.length)return null;
-  const attached=arrow=>arrow.study?(scene.flags||[]).filter(flag=>flag.examAttemptId&&flag.examAttemptId===arrow.examAttemptId):[];
+  const attached=arrow=>arrow.study?(scene.flags||[]).filter(flag=>flag.examAttemptId&&flag.examAttemptId===arrow.examAttemptId&&
+    (!presentationEventObject(scene,flag.id)?.geometry||automaticDateAnchor(scene,flag))&&!criticFixedY(scene,flag)):[];
   const ids=new Set(auto.flatMap(arrow=>[arrow,...attached(arrow)].map(event=>'event:'+event.id)));
   const physical=resolveFounderPresentationSvg(svg,{measureText:scene.measureText}).nodes.filter(n=>n.groupId&&n.bounds&&n.groupId!=='furniture:axis'&&
     !n.sourceAttributes['data-board-background']&&!n.sourceAttributes['data-advanced-background']&&
     Number(n.style.opacity??1)>0&&Number(n.style['fill-opacity']??1)>0&&
     !(n.kind==='path'&&(n.lineOnly||n.style.fill==='none'||n.bounds.width<1||n.bounds.height<1)));
   const envelope=b=>{const a=(b.rotation||0)*Math.PI/180,w=Math.abs(b.width*Math.cos(a))+Math.abs(b.height*Math.sin(a)),h=Math.abs(b.width*Math.sin(a))+Math.abs(b.height*Math.cos(a));return{x:b.x+(b.width-w)/2,y:b.y+(b.height-h)/2,width:w,height:h};};
-  const fixed=physical.filter(n=>!ids.has(n.groupId)).map(n=>envelope(n.occlusionBounds||n.bounds));
-  const scale=metrics(scene),layout=founderPortableLayout(scene),labelSides=new Map(scene.autoArrowLabelSides||[]);
+  const fixed=physical.filter(n=>!ids.has(n.groupId)).flatMap(n=>founderPaintCollisionParts(n).map(part=>({...envelope(part.bounds),groupId:n.groupId})));
+  const scale=metrics(scene),layout=founderPortableLayout(scene),labelSides=new Map(scene.autoArrowLabelSides||[]),locationAlignments=new Map(scene.autoLocationAlignments||[]),dateAlignments=new Map(scene.autoDateAlignments||[]);
   const entries=auto.map(arrow=>{
     const original=geometry(arrow,layout,scale,scene),parts=physical.filter(n=>[arrow,...attached(arrow)].some(event=>n.groupId==='event:'+event.id));
-    const boxes=nodes=>nodes.map(n=>({...envelope(n.occlusionBounds||n.bounds),site:!auto.some(arrow=>arrow.display)&&n.sourceAttributes['data-material-field']==='siteName',ink:n.kind==='text',title:['inside-arrow','outside-arrow'].includes(n.sourceAttributes['data-board-ink-role'])}));
+    const boxes=nodes=>nodes.flatMap(n=>founderPaintCollisionParts(n).map(part=>({...envelope(part.bounds),groupId:n.groupId,paintRole:n.kind==='path'?(part.polygon.length===3?'head':'shaft'):(n.sourceAttributes['data-board-ink-role']||n.kind),institution:n.sourceAttributes['data-board-ink-role']==='site',site:!auto.some(arrow=>arrow.display)&&n.sourceAttributes['data-material-field']==='siteName',ink:n.kind==='text',location:n.sourceAttributes['data-board-ink-role']==='location',title:['inside-arrow','outside-arrow'].includes(n.sourceAttributes['data-board-ink-role'])})));
     const variants=[{parts:boxes(parts),side:labelSides.get(String(arrow.id))}];
     const outside=parts.find(n=>n.sourceAttributes['data-arrow-label-placement']?.startsWith('outside-'));
     if(outside){
       const side=outside.sourceAttributes['data-arrow-label-placement']!=='outside-left';
       const variant={...scene,autoArrowLabelSides:new Map(labelSides).set(String(arrow.id),side)};
-      const nodes=resolveFounderPresentationSvg('<svg viewBox="0 0 1920 1080">'+arrowMarkup(arrow,scene.arrows.indexOf(arrow),layout,scale,variant)+'</svg>',{measureText:scene.measureText}).nodes.filter(n=>n.groupId&&n.bounds&&Number(n.style.opacity??1)>0&&Number(n.style['fill-opacity']??1)>0&&!(n.kind==='path'&&(n.lineOnly||n.style.fill==='none'||n.bounds.width<1||n.bounds.height<1)));
+      const nodes=resolveFounderPresentationSvg('<svg viewBox="0 0 1920 1080">'+arrowMarkup(arrow,scene.arrows.indexOf(arrow),layout,scale,variant)+attached(arrow).map(flag=>flagMarkup(flag,scene.flags.indexOf(flag),scale,variant)).join('')+'</svg>',{measureText:scene.measureText}).nodes.filter(n=>n.groupId&&n.bounds&&Number(n.style.opacity??1)>0&&Number(n.style['fill-opacity']??1)>0&&!(n.kind==='path'&&(n.lineOnly||n.style.fill==='none'||n.bounds.width<1||n.bounds.height<1)));
       variants.push({parts:boxes(nodes),side});
     }
-    const options=variants.flatMap(variant=>[...new Set([0,Math.min(250,original.width),-Math.min(250,original.width),250,-250])].map(dx=>{
-      const parts=variant.parts.map(b=>({...b,x:b.x+(b.site?dx:0),y:b.y-original.y}));
-      const top=Math.min(...parts.map(b=>b.y)),bottom=Math.max(...parts.map(b=>b.y+b.height));
-      return {parts,side:variant.side,dx,lower:171-top,upper:HEIGHT-8-bottom};
-    }));
+    const options=variants.flatMap(variant=>{
+      const location=variant.parts.find(part=>part.location),ownedAlignment=presentationEventObject(scene,arrow.id)?.presentation?.locationLabelLayout?.alignment;
+      const alignments=arrow.display&&location?(['start','center','end','tip'].includes(ownedAlignment)?[ownedAlignment]:['start','center','end','tip']):[null];
+      const caption=variant.parts.find(part=>part.paintRole==='caption'),ownedDateOffset=presentationEventObject(scene,arrow.id)?.presentation?.dateLabelLayout?.xOffset;
+      const dates=nativeEarliest&&arrow.display&&caption&&!Number.isFinite(ownedDateOffset)?['start','center','end']:[null];
+      return alignments.flatMap(locationAlignment=>dates.flatMap(dateAlignment=>(arrow.display?[0]:[...new Set([0,Math.min(250,original.width),-Math.min(250,original.width),250,-250])]).map(dx=>{
+        const alignedX=locationAlignment==='end'?original.x2-location.width:locationAlignment==='center'?original.x+(original.width-location.width)/2:locationAlignment==='tip'?original.x2-location.width/2:original.x;
+        const locationX=location?Math.max(24,Math.min(alignedX,WIDTH-24-location.width)):0;
+        const rawDateX=dateAlignment==='start'?original.x:dateAlignment==='end'?original.x2:Math.max(original.x+40,Math.min(WIDTH-40,original.x+original.width/2));
+        const dateX=caption?Math.max(24+caption.width/2,Math.min(rawDateX,WIDTH-24-caption.width/2)):0;
+        const parts=variant.parts.map(b=>({...b,x:b.paintRole==='caption'&&dateAlignment?dateX-b.width/2:b.location&&locationAlignment?b.x+locationX-location.x:b.x+(b.site?dx:0),y:b.y-original.y}));
+        const top=Math.min(...parts.map(b=>b.y)),bottom=Math.max(...parts.map(b=>b.y+b.height));
+        const fixedY=criticFixedY(scene,arrow)?original.y:null;
+        return {parts,side:variant.side,dx,locationAlignment,dateAlignment,fixedY,lower:fixedY??171-top,upper:fixedY??HEIGHT-8-bottom};
+      })));
+    });
     return{arrow,original,variants,options};
   });
+  const applyChoices=choices=>{
+    const placements=new Map(scene.autoArrowGeometry||[]),siteOffsets=new Map(scene.autoSiteOffsets||[]);
+    for(const {entry,y,dx,side,locationAlignment,dateAlignment} of choices){const id=String(entry.arrow.id);placements.set(id,{...entry.original,y});siteOffsets.set(id,dx);if(side!==undefined)labelSides.set(id,side);if(locationAlignment)locationAlignments.set(id,locationAlignment);if(dateAlignment)dateAlignments.set(id,dateAlignment);}
+    return {...scene,autoArrowGeometry:placements,autoSiteOffsets:siteOffsets,autoArrowLabelSides:labelSides,autoLocationAlignments:locationAlignments,autoDateAlignments:dateAlignments};
+  };
   const separation=30;
+  if(nativeEarliest){
+    // One macro alternative uses the already measured native paint parts and
+    // three pixels of clearance. Reserve every preceding X corridor before
+    // choosing Y, rather than drifting toward uniformly spaced anchors.
+    const sharesX=(a,b)=>a.x<b.x+b.width+3&&a.x+a.width+3>b.x;
+    let frontier=[{choices:[],parts:[],y:-Infinity}];
+    for(const [ordinal,entry] of entries.entries()){
+      const next=[];let requiredY=Infinity,availableY=-Infinity,beforeFurniture=Infinity,failureTrace=[];
+      for(const state of frontier)for(const option of entry.options){
+        let y=Math.max(option.lower,state.y+separation),binding=null;
+        for(const part of option.parts)for(const obstacle of state.parts)if(sharesX(part,obstacle)){
+          const required=obstacle.y+obstacle.height+3-part.y;
+          if(required>y){y=required;binding={previousOrdinal:obstacle.ordinal,previousRole:obstacle.paintRole,role:part.paintRole};}
+        }
+        const beforeFixed=y;beforeFurniture=Math.min(beforeFurniture,y);availableY=Math.max(availableY,option.upper);
+        if(option.fixedY!==null){if(y>option.fixedY+.001){requiredY=Math.min(requiredY,y);continue;}y=option.fixedY;}
+        let blocked=false;const forbidden=[],blockers=[];
+        for(const part of option.parts)for(const obstacle of fixed)if(sharesX(part,obstacle))forbidden.push([obstacle.y-3-part.y-part.height,obstacle.y+obstacle.height+3-part.y,obstacle.groupId]);
+        forbidden.sort((a,b)=>a[0]-b[0]);
+        for(const [lower,upper,group] of forbidden)if(y>lower-.001&&y<upper+.001){blockers.push(group?.startsWith('furniture:')?group.slice(10):'fixed-object');if(option.fixedY!==null){blocked=true;break;}y=upper+.002;}
+        const site=option.parts.filter(part=>part.institution),siteBox=site.length?{x:Math.min(...site.map(part=>part.x)),top:Math.min(...site.map(part=>part.y)),right:Math.max(...site.map(part=>part.x+part.width)),bottom:Math.max(...site.map(part=>part.y+part.height))}:null;
+        const trace={ordinal:ordinal+1,startX:entry.original.x,width:entry.original.width,site:siteBox,priorY:state.y===-Infinity?null:state.y,minY:beforeFixed,y,locationAlignment:option.locationAlignment,dateAlignment:option.dateAlignment,binding,paint:option.parts.map(part=>({role:part.paintRole,x:part.x,top:part.y,right:part.x+part.width,bottom:part.y+part.height})),blockers:[...new Set(blockers)]};
+        if(y<requiredY)failureTrace=[...new Map(state.choices.map(choice=>choice.nativeTrace).filter(Boolean).concat(trace).map(row=>[row.ordinal,row])).values()];
+        requiredY=Math.min(requiredY,y);
+        if(blocked||!Number.isFinite(y)||y>option.upper+.001)continue;
+        next.push({choices:[...state.choices,{entry,y,dx:option.dx,side:option.side,locationAlignment:option.locationAlignment,dateAlignment:option.dateAlignment,nativeTrace:trace}],parts:[...state.parts,...option.parts.map(part=>({...part,y:part.y+y,ordinal:ordinal+1}))],y});
+      }
+      next.sort((a,b)=>a.y-b.y);const keys=new Set();frontier=[];
+      for(const state of next){const last=state.choices.at(-1),key=[Math.round(state.y/3),last.locationAlignment||'',last.dateAlignment||'',last.side??''].join(':');if(keys.has(key))continue;keys.add(key);frontier.push(state);if(frontier.length>=8)break;}
+      if(!frontier.length)return {...scene,autoNativeEarliestFailure:{ordinal:ordinal+1,requiredY,availableY,beforeFurniture,trace:{axisMode:scene.founderPresentation?.axis?.mode||'auto',widths:scale.segments.map(segment=>CONTENT_WIDTH*(segment.endPercent-segment.startPercent)/100),entries:failureTrace}}};
+    }
+    return {...applyChoices(frontier[0].choices),autoNativeEarliestFailure:null};
+  }
   // Native browser glyphs can extend beyond the estimated text envelope. One
   // generous glyph of horizontal slack and a small baseline slack keep nearby
   // captions/institutions readable without changing fonts or date anchors.
@@ -980,6 +1110,11 @@ function avoidAutomaticArrowCollisions(scene,svg){
     const available=i+1<entries.length?Math.max(...entries[i+1].options.map(next=>latest[i+1].get(next)-gap(option,next))):Infinity;
     latest[i].set(option,Math.min(option.upper,available));
   }
+  const structuralLatest=entries.map(entry=>new Map());
+  for(let i=entries.length-1;i>=0;i--)for(const option of entries[i].options){
+    const available=i+1<entries.length?Math.max(...structuralLatest[i+1].values())-separation:Infinity;
+    structuralLatest[i].set(option,Math.min(option.upper,available));
+  }
   const first=Math.min(...entries[0].options.map(option=>option.lower)),last=Math.max(...latest.at(-1).values());
   const pitch=Math.max(separation,Math.min(96,(last-first)/Math.max(1,entries.length-1)));
   const baseline=entries.map((entry,index)=>entries.length===1?entry.original.y:first+pitch*index);
@@ -998,31 +1133,57 @@ function avoidAutomaticArrowCollisions(scene,svg){
       }
       // If complete measured clearance cannot fit, keep positive chronology and
       // report painted conflicts. Never return to an earlier empty inverse slot.
-      let candidates=[...ys].filter(y=>Number.isFinite(y)&&y>=lower-.001&&y<=upper+.001);
+      let candidates=option.fixedY!==null?[option.fixedY]:[...ys].filter(y=>Number.isFinite(y)&&y>=lower-.001&&y<=upper+.001);
       if(!candidates.length){
-        const structuralLower=Math.max(option.lower,state.y+separation);
-        candidates=[Math.max(structuralLower,Math.min(option.upper,baseline[index]))];
+        const structuralLower=Math.max(option.lower,state.y+separation),structuralUpper=structuralLatest[index].get(option);
+        // A globally infeasible full-clearance chain must still be able to
+        // compress earlier clear corridors and reserve measured label room.
+        // Retain four macro candidates, each inside the remaining ribbon.
+        candidates=[...new Set([structuralLower,baseline[index],lower,structuralUpper])]
+          .filter(y=>Number.isFinite(y)&&y>=structuralLower-.001&&y<=structuralUpper+.001);
+        if(!candidates.length)candidates=[Math.max(structuralLower,Math.min(option.upper,baseline[index]))];
       }
       const nearby=option.parts.map(part=>state.occupied.filter(obstacle=>horizontalOverlap(part,obstacle)));
       for(const y of candidates){
         const parts=option.parts.map(b=>({...b,y:b.y+y}));
         const outside=parts.reduce((sum,b)=>sum+Math.max(0,-b.x)+Math.max(0,b.x+b.width-WIDTH)+Math.max(0,171-b.y)+Math.max(0,b.y+b.height-(HEIGHT-8)),0);
-        let collisions=0;for(let i=0;i<parts.length;i++)for(const obstacle of nearby[i])collisions+=overlap(parts[i],obstacle);
-        const cost=state.cost+outside*1e6+collisions;
-        next.push({choices:[...state.choices,{entry,y,dx:option.dx,side:option.side}],occupied:[...state.occupied,...parts],cost,
-          drift:state.drift+Math.abs(y-baseline[index])+Math.abs(option.dx)*.04+(option.side!==labelSides.get(String(entry.arrow.id))?4:0)+Math.max(0,Math.max(...option.parts.filter(part=>part.title).map(part=>part.height))-22)*.5,y,option});
+        let collisions=0;const collidedGroups=new Set();
+        for(let i=0;i<parts.length;i++)for(const obstacle of nearby[i]){
+          const area=overlap(parts[i],obstacle);collisions+=area;
+          if(area>.5)collidedGroups.add([parts[i].groupId,obstacle.groupId].sort().join('|'));
+        }
+        // Compare complete event/furniture conflicts before overlap area. A
+        // broad single clash cannot justify hiding several later captions.
+        const cost=state.cost+outside*1e9+collidedGroups.size*1e6+collisions;
+        next.push({choices:[...state.choices,{entry,y,dx:option.dx,side:option.side,locationAlignment:option.locationAlignment}],occupied:[...state.occupied,...parts],cost,
+          drift:state.drift+Math.abs(y-baseline[index])+Math.abs(option.dx)*.04+(option.locationAlignment&&(locationAlignments.get(String(entry.arrow.id))||'start')!==option.locationAlignment?4:0)+(option.side!==labelSides.get(String(entry.arrow.id))?4:0)+Math.max(0,Math.max(...option.parts.filter(part=>part.title).map(part=>part.height))-22)*.5,y,option});
       }
     }
     // Keep different last-anchor positions so an early locally safe row cannot
     // consume the only corridor needed by a later event.
     next.sort((a,b)=>a.cost-b.cost||a.drift-b.drift||a.y-b.y);
     const buckets=new Set();states=[];
-    for(const state of next){const key=Math.round(state.y/8);if(buckets.has(key))continue;buckets.add(key);states.push(state);if(states.length>=4)break;}
+    const retain=state=>{
+      const key=[Math.round(state.y/8),state.option.locationAlignment||'',state.option.side??''].join(':');
+      if(buckets.has(key)||states.length>=8)return;
+      buckets.add(key);states.push(state);
+    };
+    // Equal-Y captions can occupy different future X corridors. Keep the best
+    // painted state and the most compact state for each native alignment;
+    // drift toward a uniform staircase must not consume the remaining ribbon.
+    const alignments=[...new Set(next.map(state=>state.option.locationAlignment||''))];
+    for(const alignment of alignments){const state=next.find(state=>(state.option.locationAlignment||'')===alignment);if(state)retain(state);}
+    for(const alignment of alignments){
+      const aligned=next.filter(state=>(state.option.locationAlignment||'')===alignment);
+      const minimumCost=aligned[0]?.cost;
+      const compact=aligned.filter(state=>state.cost<=minimumCost+.001)
+        .sort((a,b)=>a.y-b.y||a.drift-b.drift)[0];
+      if(compact)retain(compact);
+    }
+    for(const state of next){retain(state);if(states.length>=8)break;}
   }
   const best=states.sort((a,b)=>a.cost-b.cost||a.drift-b.drift)[0];if(!best)return null;
-  const placements=new Map(scene.autoArrowGeometry||[]),siteOffsets=new Map(scene.autoSiteOffsets||[]);
-  for(const {entry,y,dx,side} of best.choices){const id=String(entry.arrow.id);placements.set(id,{...entry.original,y});siteOffsets.set(id,dx);if(side!==undefined)labelSides.set(id,side);}
-  return {...scene,autoArrowGeometry:placements,autoSiteOffsets:siteOffsets,autoArrowLabelSides:labelSides};
+  return applyChoices(best.choices);
 }
 
 // Reuse safe existing vertical slots in chronological order when exchanging
@@ -1114,7 +1275,7 @@ function macroMilestoneCorridors(scene,entries,occupied){
 // Place native pennants and their adjacent labels in the existing upper band.
 // Same-date poles remain on the same date. No title/site abbreviation or merging.
 function avoidAutomaticMilestoneCollisions(scene,svg){
-  const eligible=(scene.flags||[]).filter(flag=>(!presentationEventObject(scene,flag.id)?.geometry||automaticDateAnchor(scene,flag))&&
+  const eligible=(scene.flags||[]).filter(flag=>(!presentationEventObject(scene,flag.id)?.geometry||automaticDateAnchor(scene,flag)&&!criticFixedY(scene,flag))&&
     !(flag.examAttemptId&&(scene.arrows||[]).some(a=>a.study&&a.examAttemptId===flag.examAttemptId)));
   if(!eligible.length)return null;
   const ids=new Set(eligible.map(f=>'event:'+f.id));
@@ -1287,9 +1448,7 @@ function avoidAutomaticMilestoneCollisions(scene,svg){
     }
   }
   let macroOptions=0;
-  if(entries.length>4&&selected.size<entries.length){
-    const macro=macroMilestoneCorridors(scene,entries,occupied);
-    if(macro){
+  {
       const apply=choices=>{
         const next={...scene,autoFlagGeometry:new Map(scene.autoFlagGeometry||[]),autoFlagLabels:new Map(scene.autoFlagLabels||[])};
         for(const [id,choice] of choices){next.autoFlagGeometry.set(id,{y:choice.y});next.autoFlagLabels.set(id,{width:choice.width,flip:choice.flip,linePitch:choice.linePitch,...(Number.isFinite(choice.yOffset)?{yOffset:choice.yOffset}:{})});}
@@ -1298,11 +1457,13 @@ function avoidAutomaticMilestoneCollisions(scene,svg){
       const risk=choices=>{
         const painted=resolveFounderPresentationSvg(serializePlacedPortableSvg(apply(choices)),{measureText:scene.measureText});
         const invalid=painted.nodes.filter(node=>node.kind==='text'&&ids.has(node.groupId)&&(node.bounds.x<8||node.bounds.x+node.bounds.width>1912||node.bounds.y<2||node.bounds.y+node.bounds.height>125.04));
-        return invalid.length*1000+materialPresentationCollisions(painted).length;
+        return invalid.length*1000+materialPresentationCollisions(painted).filter(collision=>collision.elementIds.some(id=>eligible.some(flag=>String(flag.id)===String(id)))).length;
       };
-      macroOptions=macro.optionCount;
-      if(risk(macro.placed)<risk(selected)){selected=macro.placed;strategy='macro-corridors';}
-    }
+      const selectedRisk=entries.length===2?risk(selected):null;
+      if(entries.length>1&&(selected.size<entries.length||selectedRisk>0)){
+        const macro=macroMilestoneCorridors(scene,entries,occupied);
+        if(macro){macroOptions=macro.optionCount;if(risk(macro.placed)<(selectedRisk??risk(selected))){selected=macro.placed;strategy='macro-corridors';}}
+      }
   }
   if(!selected.size)return null;
   const next={...scene,autoFlagGeometry:new Map(scene.autoFlagGeometry||[]),autoFlagLabels:new Map(scene.autoFlagLabels||[]),autoMilestonePacking:{strategy,expansions,limit,greedyPlaced:greedy.size,total:entries.length,labelExpansions,labelLimit,macroOptions}};
@@ -1312,10 +1473,100 @@ function avoidAutomaticMilestoneCollisions(scene,svg){
   return next;
 }
 
+// A pair of native milestones can have a safe adjacent-label side even when
+// no complete rigid pennant packing clears every part of the upper band.
+// Keep the date/body fixed and assess at most one opposite side per gray flag.
+function clearAutomaticMilestoneLabelSides(scene,svg,options){
+  if((scene.flags||[]).length!==2)return null;
+  const eligible=scene.flags.filter(flag=>!founderUsesUsFlag(flag)&&!flag.examResult&&
+    (!presentationEventObject(scene,flag.id)?.geometry||automaticDateAnchor(scene,flag)));
+  if(!eligible.length)return null;
+  const ids=new Set(eligible.map(flag=>String(flag.id)));
+  const risk=painted=>{
+    const resolved=resolveFounderPresentationSvg(painted,{measureText:scene.measureText});
+    const outside=resolved.nodes.filter(node=>node.kind==='text'&&ids.has(String(node.semanticRef))&&node.sourceAttributes['data-board-ink-role']==='flag-label'&&
+      (node.bounds.x<8||node.bounds.x+node.bounds.width>1912||node.bounds.y<2||node.bounds.y+node.bounds.height>125.04)).length;
+    return outside*1000+materialPresentationCollisions(resolved).filter(collision=>collision.elementIds.some(id=>ids.has(String(id)))).length;
+  };
+  let placed=scene,painted=svg,currentRisk=risk(svg),changed=false;
+  for(const flag of eligible){
+    if(!currentRisk)break;
+    const resolved=resolveFounderPresentationSvg(painted,{measureText:scene.measureText});
+    const label=resolved.nodes.find(node=>node.semanticRef===String(flag.id)&&node.sourceAttributes['data-board-ink-role']==='flag-label');
+    if(!label)continue;
+    const current=placed.autoFlagLabels?.get(String(flag.id))||presentationEventObject(placed,flag.id)?.presentation?.flagLabelLayout||{};
+    const candidate={...placed,autoFlagLabels:new Map(placed.autoFlagLabels||[]).set(String(flag.id),{...current,width:current.width||420,flip:label.alignment!=='right'})};
+    const candidateSvg=serializePlacedPortableSvg(candidate,options),candidateRisk=risk(candidateSvg);
+    if(candidateRisk<currentRisk){placed=candidate;painted=candidateSvg;currentRisk=candidateRisk;changed=true;}
+  }
+  return changed?{scene:placed,svg:painted}:null;
+}
+
+// One finite adjacent-caption alternative clears the plaque without moving a
+// source date anchor. Only automatic USA milestones can use this bounded gap;
+// captured human label offsets and explicit critic Y remain authoritative.
+function clearAutomaticUsCaptionCorridor(scene,svg,options){
+  const eligible=(scene.flags||[]).filter(flag=>founderUsesUsFlag(flag)&&
+    (!presentationEventObject(scene,flag.id)?.geometry||automaticDateAnchor(scene,flag))&&!criticFixedY(scene,flag));
+  if(!eligible.length)return null;
+  const risk=painted=>{const resolved=resolveFounderPresentationSvg(painted,{measureText:scene.measureText});return resolved.nodes.filter(node=>node.kind==='text'&&eligible.some(flag=>String(flag.id)===node.semanticRef)&&(node.bounds.x<8||node.bounds.x+node.bounds.width>1912||node.bounds.y<2||node.bounds.y+node.bounds.height>125.04)).length*1000+materialPresentationCollisions(resolved).length;};
+  let placed=scene,painted=svg,currentRisk=risk(svg),changed=false;
+  for(const flag of eligible){
+    if(!currentRisk)break;
+    const box=milestoneGeometry(flag,scene.flags.indexOf(flag),metrics(placed),placed),plaque=titlePlaqueLayout(placed).plaque;
+    const labelX=plaque.x+plaque.width+6,xOffset=labelX-(box.x+54);
+    if(xOffset<0||xOffset>96||box.x+50<plaque.x||box.x>plaque.x+plaque.width)continue;
+    const layout=placed.autoFlagLabels?.get(String(flag.id))||{};
+    const candidate={...placed,autoFlagGeometry:new Map(placed.autoFlagGeometry||[]).set(String(flag.id),{y:84}),autoFlagLabels:new Map(placed.autoFlagLabels||[]).set(String(flag.id),{...layout,width:420,flip:false,xOffset,yOffset:-21})};
+    const candidateSvg=serializePlacedPortableSvg(candidate,options),candidateRisk=risk(candidateSvg);
+    if(candidateRisk<currentRisk){placed=candidate;painted=candidateSvg;currentRisk=candidateRisk;changed=true;}
+  }
+  return changed?{scene:placed,svg:painted}:null;
+}
+
+// Preserve body clearance at equal native readability. A candidate that
+// removes clipped roles can use the existing whole-spine pass to reconsider
+// its spacing; every final export collision/readability gate still applies.
+// A pin, paper and its text form one fixed furniture obstacle. Clearing a
+// pin must also reserve the paper corridor entered by the next chronological Y.
+export function locked407FInstitutionFurnitureMinimumX(bounds,datedX,furniture){
+  const rightEdges=new Map();
+  for(const node of furniture){const b=node.occlusionBounds||node.bounds;rightEdges.set(node.groupId,Math.max(rightEdges.get(node.groupId)||-Infinity,b.x+b.width));}
+  let minimum=null;
+  for(const node of furniture){
+    const b=node.occlusionBounds||node.bounds;
+    if(bounds.x<b.x+b.width+3&&bounds.x+bounds.width+3>b.x&&bounds.y<b.y+b.height+3&&bounds.y+bounds.height+3>b.y)
+      minimum=Math.max(minimum??-Infinity,rightEdges.get(node.groupId)+3+datedX-bounds.x);
+  }
+  return minimum;
+}
+
+export function locked407FReadabilityRiskScore({overflow,bodyRisk,collisions},incumbent=null){
+  if(incumbent&&overflow>=incumbent.overflow&&bodyRisk>incumbent.bodyRisk)return Infinity;
+  return overflow*1e9+bodyRisk*1000+collisions;
+}
+
 export function composeLocked407FPortableSvg(scene,options={}){
   if(scene.presentationAccounting&&scene.arrows?.some(arrow=>arrow.display?.institution)&&scene.founderPresentation?.axis?.mode!=='manual'&&!scene.autoAxisPadding)scene={...scene,autoAxisPadding:{before:1,after:0}};
   const finish=result=>{
     result={...result,scene:{...result.scene,chronologyOrder:validateLocked407FChronology(result.scene)}};
+    const earliest=result.scene.autoNativeEarliestAssessment;
+    if(earliest){
+      const attribute=` data-native-earliest-decision="${earliest.accepted?'accepted':earliest.fit?'rejected':'infeasible'}"`;
+      result={...result,svg:result.svg.includes('data-native-earliest-decision=')?result.svg.replace(/ data-native-earliest-decision="[^"]*"/,attribute):result.svg.replace(' data-axis-refinement=',attribute+' data-axis-refinement=')};
+    }
+    const failure=earliest?.failure;
+    if(failure&&!result.svg.includes('data-native-earliest-failed-ordinal='))result={...result,svg:result.svg.replace(' data-axis-refinement=',` data-native-earliest-failed-ordinal="${failure.ordinal}" data-native-earliest-required-y="${failure.requiredY}" data-native-earliest-available-y="${failure.availableY}" data-native-earliest-before-furniture-y="${failure.beforeFurniture}" data-axis-refinement=`)};
+    if(failure?.trace&&!result.svg.includes('data-native-earliest-trace='))result={...result,svg:result.svg.replace(' data-axis-refinement=',` data-native-earliest-trace="${xml(JSON.stringify(failure.trace))}" data-axis-refinement=`)};
+    const furniture=result.scene.autoFurnitureBudgetAssessment;
+    if(furniture){
+      const attribute=` data-furniture-axis-decision="${furniture.accepted?'accepted':'rejected'}" data-furniture-axis-constraints="${furniture.constraints}"`;
+      result={...result,svg:result.svg.includes('data-furniture-axis-decision=')?result.svg.replace(/ data-furniture-axis-decision="[^"]*" data-furniture-axis-constraints="[^"]*"/,attribute):result.svg.replace(' data-axis-refinement=',attribute+' data-axis-refinement=')};
+    }
+    if(furniture&&!result.svg.includes('data-furniture-axis-required='))result={...result,svg:result.svg.replace(' data-axis-refinement=',` data-furniture-axis-required="${(furniture.budgets||[]).map(item=>item.required).join(',')}" data-furniture-axis-deficits="${(furniture.budgets||[]).map(item=>item.deficit).join(',')}" data-furniture-axis-widths="${(furniture.widths||[]).join(',')}" data-axis-refinement=`)};
+    if(furniture?.readability&&!result.svg.includes('data-furniture-axis-risks='))result={...result,svg:result.svg.replace(' data-axis-refinement=',` data-furniture-axis-risks="${xml(JSON.stringify(furniture.readability))}" data-axis-refinement=`)};
+    const assessment=result.scene.autoRoleBudgetAssessment;
+    if(assessment&&!result.svg.includes('data-role-budget-decision='))result={...result,svg:result.svg.replace(' data-axis-refinement=',` data-role-budget-decision="${assessment.accepted?'accepted':'rejected'}" data-role-budget-candidate-unmet="${assessment.unmet}" data-role-budget-candidate-overflow="${assessment.candidateOverflow??'unassessed'}" data-axis-refinement=`)};
     if(!result.scene.autoYearWeights&&!result.scene.autoAxisPadding)return result;
     const axis=metrics(result.scene),factor=Math.min(1,8/Math.max(...axis.segments.map(segment=>segment.weight)));
     return {...result,scene:{...result.scene,composedAxis:{mode:'manual',startYear:axis.firstYear,endYear:axis.lastYear,includeFuture:false,
@@ -1327,33 +1578,103 @@ export function composeLocked407FPortableSvg(scene,options={}){
   };
   const reversals=result=>validateLocked407FChronology(result.scene).violations.length;
   const preservesOrder=(_before,after)=>!reversals(after);
-  const compose=input=>{
+  const compose=(input,{nativeEarliest=false}={})=>{
     let placed=input,svg=serializePlacedPortableSvg(placed,options);
-    const arrows=avoidAutomaticArrowCollisions(placed,svg);
+    const studyFlags=clearAutomaticStudyFlagCaptions(placed,svg);
+    if(studyFlags){placed=studyFlags;svg=serializePlacedPortableSvg(placed,options);}
+    const arrows=avoidAutomaticArrowCollisions(placed,svg,{nativeEarliest});
     if(arrows){placed=arrows;svg=serializePlacedPortableSvg(placed,options);}
+    if(nativeEarliest)placed={...placed,autoNativeEarliestAssessment:{fit:!!arrows&&!arrows.autoNativeEarliestFailure,...(arrows?.autoNativeEarliestFailure?{failure:arrows.autoNativeEarliestFailure}:{})}};
     const flags=avoidAutomaticMilestoneCollisions(placed,svg);
     if(flags){placed=flags;svg=serializePlacedPortableSvg(placed,options);}
+    const usCaption=clearAutomaticUsCaptionCorridor(placed,svg,options);
+    if(usCaption){placed=usCaption.scene;svg=usCaption.svg;}
+    const captionSides=clearAutomaticMilestoneLabelSides(placed,svg,options);
+    if(captionSides){placed=captionSides.scene;svg=captionSides.svg;}
     return finish({scene:placed,svg});
   };
   let best=compose(scene);
   // Nonuniform year widths are present in the Founder exemplar. Existing
   // authored axes, lanes and event geometry are preserved.
-  if(scene.founderPresentation?.axis?.mode==='manual'||(scene.arrows||[]).some(a=>a.manualOffset?.laneLocked||Number(a.manualOffset?.x)||Number(a.manualOffset?.y)||(presentationEventObject(scene,a.id)?.geometry&&!automaticDateAnchor(scene,a)))||(scene.flags||[]).some(f=>presentationEventObject(scene,f.id)?.geometry&&!automaticDateAnchor(scene,f)))return finish(best);
+  if(axisRefinementDecision(scene)!=='automatic')return finish(best);
   const bodyIds=new Set((scene.arrows||[]).map(arrow=>String(arrow.id))),bodyRisks=new Map();
   const score=svg=>{
     const r=resolveFounderPresentationSvg(svg,{measureText:scene.measureText}),collisions=materialPresentationCollisions(r);
-    const overflow=r.nodes.filter(n=>n.kind==='text'&&(n.bounds.x<-.5||n.bounds.y<-.5||n.bounds.x+n.bounds.width>WIDTH+.5||n.bounds.y+n.bounds.height>HEIGHT+.5)).length;
+    const overflow=r.nodes.filter(n=>n.kind==='text'&&(n.sourceAttributes['data-text-overflow']==='true'||n.bounds.x<-.5||n.bounds.y<-.5||n.bounds.x+n.bounds.width>WIDTH+.5||n.bounds.y+n.bounds.height>HEIGHT+.5)).length;
     // Preserve the corrected body when comparing temporal allocations for the
     // upper band. A few fewer pennant clashes cannot buy a new body collision.
     const bodyRisk=collisions.filter(collision=>collision.elementIds.some(id=>bodyIds.has(String(id)))).length;
-    const incumbent=bodyRisks.get(best.svg);bodyRisks.set(svg,bodyRisk);
-    if(svg!==best.svg&&incumbent!==undefined&&bodyRisk>incumbent)return Infinity;
-    return overflow*1e6+collisions.length+bodyRisk*1000;
+    const incumbent=bodyRisks.get(best.svg);bodyRisks.set(svg,{overflow,bodyRisk,collisions:collisions.length});
+    return locked407FReadabilityRiskScore({overflow,bodyRisk,collisions:collisions.length},svg===best.svg?null:incumbent);
   };
   let bestScore=score(best.svg);if(!bestScore)return best;
   if(!scene.showEmptySlots&&!scene.founderPresentation?.profileGeometryExplicit){
     const compact=compose({...scene,autoCompactProfile:true}),compactScore=score(compact.svg);
     if(compactScore<bestScore){best=compact;bestScore=compactScore;if(!bestScore)return best;}
+  }
+  const roleAxis=metrics(scene),nativeRoleMeasure=scene.measureText||measurePresentationText;
+  const roleFloor=Math.min(CONTENT_WIDTH*.96/roleAxis.segments.length,Math.max(...roleAxis.segments.map(segment=>nativeRoleMeasure(segment.label,23,TYPE.axis,700)))+20);
+  const roleFontByText=new Map();for(const arrow of scene.arrows||[]){const text=String(arrow.display?.role??arrow.title??'');roleFontByText.set(text,Math.max(roleFontByText.get(text)||18,founderRoleBudgetSize(arrow.display)));}
+  const roleAllocation=allocateFounderRoleYearWidths([
+    ...(scene.arrows||[]).map(arrow=>({...arrow,eventType:'duration',startDate:arrow.startMonth,endDate:arrow.endMonth})),
+    ...(scene.flags||[]).map(flag=>({...flag,eventType:'milestone',startDate:flag.month,endDate:null}))],{
+    firstYear:roleAxis.firstYear,lastYear:roleAxis.lastYear,contentWidth:CONTENT_WIDTH,minYearWidth:roleFloor,minArrowWidth:LOCKED_407F_GEOMETRY.minimumArrowWidth,
+    measureInstitutionText:text=>nativeRoleMeasure(text,19,TYPE.event,400),
+    measureText:(text,size,weight)=>nativeRoleMeasure(text,size===18?roleFontByText.get(String(text))||size:size,TYPE.arrowLabel,weight)});
+  const roleWeights=new Map([...roleAllocation.widths].map(([year,width])=>[year,Math.max(.001,width-roleFloor)]));
+  const roleCandidate=compose({...scene,autoYearWeights:roleWeights,autoRoleBudget:roleAllocation.constraints}),roleScore=score(roleCandidate.svg);
+  const roleBudgetAccepted=!reversals(roleCandidate)&&roleScore<bestScore;
+  if(roleBudgetAccepted){best=roleCandidate;bestScore=roleScore;}
+  best={...best,scene:{...best.scene,autoRoleBudgetAssessment:{accepted:roleBudgetAccepted,unmet:roleAllocation.constraints.filter(constraint=>constraint.deficit>.1).length,candidateOverflow:bodyRisks.get(roleCandidate.svg)?.overflow??null}}};
+  if(!bestScore)return finish(best);
+  if(scene.presentationAccounting&&(scene.flags||[]).length<=2){
+    // With only two life flags, continue one bounded body allocation instead
+    // of running the pennant-density search or abandoning crowded groups.
+    const balancedAllocation=allocateFounderRoleYearWidths([
+      ...(scene.arrows||[]).map(arrow=>({...arrow,eventType:'duration',startDate:arrow.startMonth,endDate:arrow.endMonth})),
+      ...(scene.flags||[]).map(flag=>({...flag,eventType:'milestone',startDate:flag.month,endDate:null}))],{
+      firstYear:roleAxis.firstYear,lastYear:roleAxis.lastYear,contentWidth:CONTENT_WIDTH,minYearWidth:roleFloor,minArrowWidth:LOCKED_407F_GEOMETRY.minimumArrowWidth,balanceYears:true,
+      measureInstitutionText:text=>nativeRoleMeasure(text,19,TYPE.event,400),
+      measureText:(text,size,weight)=>nativeRoleMeasure(text,size===18?roleFontByText.get(String(text))||size:size,TYPE.arrowLabel,weight)});
+    const weights=new Map([...balancedAllocation.widths].map(([year,width])=>[year,Math.max(.001,width-roleFloor)]));
+    const candidate=compose({...scene,autoYearWeights:weights,autoRoleBudget:balancedAllocation.constraints}),candidateScore=score(candidate.svg);
+    if(!reversals(candidate)&&candidateScore<bestScore){best=candidate;bestScore=candidateScore;}
+    if(bestScore){
+      const earliest=compose(best.scene,{nativeEarliest:true}),earliestScore=score(earliest.svg);
+      const accepted=!reversals(earliest)&&earliestScore<bestScore;
+      if(accepted){best=earliest;bestScore=earliestScore;}
+      best={...best,scene:{...best.scene,autoNativeEarliestAssessment:{...earliest.scene.autoNativeEarliestAssessment,accepted}}};
+    }
+    if(bestScore){
+      const paint=resolveFounderPresentationSvg(best.svg,{measureText:scene.measureText});
+      const furniture=paint.nodes.filter(node=>['furniture:color-key','furniture:profile'].includes(node.groupId)&&node.bounds&&Number(node.style.opacity??1)>0&&Number(node.style['fill-opacity']??1)>0);
+      const minimumStartX=new Map();
+      for(const arrow of scene.arrows||[]){
+        if(!arrow.display||eventLayoutOwnership(scene,arrow)==='authored')continue;
+        const site=paint.nodes.find(node=>node.semanticRef===String(arrow.id)&&node.sourceAttributes['data-board-ink-role']==='site');if(!site)continue;
+        const b=site.bounds,dated=geometry(arrow,founderPortableLayout(best.scene),metrics(best.scene),best.scene);
+        const requiredX=locked407FInstitutionFurnitureMinimumX(b,dated.x,furniture);
+        if(requiredX!==null)minimumStartX.set(String(arrow.id),requiredX);
+      }
+      if(minimumStartX.size){
+        // Reserve measured institution room beside fixed furniture by widening
+        // preceding calendar cells. All inside-role constraints remain binding.
+        const allocation=allocateFounderRoleYearWidths((scene.arrows||[]).map(arrow=>({...arrow,eventType:'duration',startDate:arrow.startMonth,endDate:arrow.endMonth})),{
+          firstYear:roleAxis.firstYear,lastYear:roleAxis.lastYear,contentWidth:CONTENT_WIDTH,minYearWidth:roleFloor,minArrowWidth:LOCKED_407F_GEOMETRY.minimumArrowWidth,minimumStartX,balanceYears:true,
+          measureInstitutionText:text=>nativeRoleMeasure(text,19,TYPE.event,400),measureText:(text,size,weight)=>nativeRoleMeasure(text,size===18?roleFontByText.get(String(text))||size:size,TYPE.arrowLabel,weight)});
+        const weights=new Map([...allocation.widths].map(([year,width])=>[year,Math.max(.001,width-roleFloor)]));
+        // Calendar changes invalidate solver-owned positions, never source geometry.
+        const candidate=compose({...best.scene,autoArrowGeometry:new Map(),autoYearWeights:weights,autoRoleBudget:allocation.constraints},{nativeEarliest:true}),candidateScore=score(candidate.svg);
+        const accepted=!reversals(candidate)&&candidateScore<bestScore;
+        const candidatePaint=resolveFounderPresentationSvg(candidate.svg,{measureText:scene.measureText});
+        const ordinals=new Map(chronologicalExperienceArrows(candidate.scene).map((arrow,index)=>[String(arrow.id),index+1]));
+        const pairs=materialPresentationCollisions(candidatePaint).slice(0,24).map(collision=>collision.elementIds.map(id=>({ordinal:ordinals.get(String(id))||null,kind:ordinals.has(String(id))?'duration':String(id).startsWith('furniture:')?String(id).slice(10):'fixed-object',paint:candidatePaint.nodes.filter(node=>node.semanticRef===String(id)||node.groupId===String(id)).flatMap(node=>founderPaintCollisionParts(node).map(part=>({role:node.kind==='path'?(part.polygon.length===3?'head':'shaft'):node.sourceAttributes['data-board-ink-role']||node.kind,bounds:part.bounds,polygon:part.polygon})))})));
+        const readability={pairs,candidate:{...bodyRisks.get(candidate.svg),score:Number.isFinite(candidateScore)?candidateScore:'blocked',chronology:reversals(candidate)},incumbent:{...bodyRisks.get(best.svg),score:Number.isFinite(bestScore)?bestScore:'blocked'},roles:allocation.constraints.filter(item=>!item.field).map(({required,available,deficit})=>({required,available,deficit}))};
+        if(accepted){best=candidate;bestScore=candidateScore;}
+        best={...best,scene:{...best.scene,autoFurnitureBudgetAssessment:{accepted,readability,constraints:minimumStartX.size,budgets:allocation.constraints.filter(item=>item.field==='institution-furniture').map(({required,available,deficit})=>({required,available,deficit})),widths:[...allocation.widths.values()]},autoNativeEarliestAssessment:{...candidate.scene.autoNativeEarliestAssessment,accepted}}};
+      }
+    }
+    return finish(best);
   }
   const counts=new Map();
   const count=month=>{const year=Math.floor(monthIndex(month)/12);counts.set(year,(counts.get(year)||0)+1);};
@@ -1361,10 +1682,28 @@ export function composeLocked407FPortableSvg(scene,options={}){
     count(arrow.startMonth);count(arrow.endMonth);
     const first=Math.floor(monthIndex(arrow.startMonth)/12),last=Math.floor(monthIndex(arrow.endMonth)/12);
     const nativeMeasure=scene.measureText||measurePresentationText;
-    const pressure=(nativeMeasure(String(arrow.display?.role??arrow.title??''),18,TYPE.arrowLabel)+nativeMeasure(String(arrow.display?.institution??arrow.siteName??''),19,TYPE.event))/160;
+    const pressure=(nativeMeasure(String(arrow.display?.role??arrow.title??''),founderRoleBudgetSize(arrow.display),TYPE.arrowLabel)+nativeMeasure(String(arrow.display?.institution??arrow.siteName??''),19,TYPE.event))/160;
     for(let year=first;year<=last;year++)counts.set(year,(counts.get(year)||0)+pressure/Math.max(1,last-first+1)+.5);
   }
-  for(const flag of scene.flags||[]){count(flag.month);const year=Math.floor(monthIndex(flag.month)/12);counts.set(year,(counts.get(year)||0)+(scene.measureText||measurePresentationText)([flag.title,flag.siteName].filter(Boolean).join(' '),18,TYPE.arrowLabel)/160);}
+  for(const flag of scene.flags||[]){count(flag.month);const year=Math.floor(monthIndex(flag.month)/12);counts.set(year,(counts.get(year)||0)+(scene.measureText||measurePresentationText)([flag.display?.label??flag.title,flag.display?.institution??flag.siteName].filter(Boolean).join(' '),Math.max(18,Math.min(24,Number(flag.display?.labelSize)||18)),TYPE.arrowLabel)/160);}
+  // One bounded allocation tests the actual native inside-role width against
+  // its calendar fraction. Quiet years retain metrics' readable year floor;
+  // this never lengthens an event or moves its start off the date anchor.
+  const insideDemand=new Map(),nativeMeasure=scene.measureText||measurePresentationText;
+  for(const arrow of scene.arrows||[]){
+    if(!arrow.display)continue;
+    const start=monthIndex(arrow.startMonth),end=monthIndex(arrow.endMonth),year=Math.floor(start/12);
+    if(Math.floor(end/12)!==year)continue;
+    const required=nativeMeasure(String(arrow.display.role||''),founderRoleBudgetSize(arrow.display),TYPE.arrowLabel,400)+FOUNDER_ARROW_PROFILE.headWidth+4;
+    insideDemand.set(year,Math.max(insideDemand.get(year)||0,required*12/Math.max(1,end-start+1)));
+  }
+  if(insideDemand.size){
+    const axis=metrics(scene),floor=Math.max(...axis.segments.map(segment=>nativeMeasure(segment.label,23,TYPE.axis,700)))+20;
+    const weights=new Map(axis.segments.map(segment=>[Number(segment.id),Math.max(.25,(insideDemand.get(Number(segment.id))||floor)-floor)]));
+    const candidate=compose({...scene,autoYearWeights:weights}),candidateScore=score(candidate.svg);
+    if(!reversals(candidate)&&candidateScore<bestScore){best=candidate;bestScore=candidateScore;}
+    if(!bestScore)return finish(best);
+  }
   // Close, distinct native pennant dates create stronger boundary pressure
   // than a count of endpoints. Keep quiet years readable through metrics' 80px
   // floor, and try only two bounded emphasis levels before the label refinements.

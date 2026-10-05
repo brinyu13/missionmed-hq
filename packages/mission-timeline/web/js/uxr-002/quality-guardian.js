@@ -175,7 +175,7 @@ function inspectContent(document,findings){
       :/(?:research|publication|poster|abstract)/.test(title)
         ?"research"
         :null;
-    if(likelyCategory&&category&&category!==likelyCategory){
+    if(event.fields?.categoryConfirmed!==true&&likelyCategory&&category&&category!==likelyCategory){
       add(findings,{
         section:"CONTENT",code:"CATEGORY_REVIEW",severity:"REVIEW",
         basis:QUALITY_GUARDIAN_BASES.RULE,elementIds:[event.id],
@@ -236,10 +236,26 @@ function inspectChronology(document,findings){
   }
 }
 
+// Use the same final painted collision gate as export. Its recognized automatic
+// native arrows use filled shaft/head polygons; authored and unknown paths keep
+// conservative envelopes rather than borrowing automatic ownership.
+export function qualityGuardianRenderedCollisionWarnings(rendered,{advancedGroups=[]}={}){
+  const paint=resolveFounderPresentationSvg(rendered.svg,{advancedGroups});
+  return materialPresentationCollisions(paint).map(({elementIds})=>({
+    code:"MATERIAL_PAINT_COLLISION",severity:"REVIEW",elementIds
+  }));
+}
+
 function inspectLayout(document,findings){
-  let collisionReview=null;
-  try{collisionReview=analyzeCollisionLayout(document,{scope:"FULL_STORY"});}catch{}
-  const collisionWarnings=safeArray(collisionReview?.warnings).filter(({severity})=>severity!=="INFO");
+  let collisionWarnings=[];
+  try{
+    collisionWarnings=qualityGuardianRenderedCollisionWarnings(
+      serializeFounderPresentation(document,{scope:"FULL_STORY"}),
+      {advancedGroups:document.advanced?.groups||[]});
+  }catch{
+    // Resolution failures retain the existing conservative review fallback.
+    try{collisionWarnings=safeArray(analyzeCollisionLayout(document,{scope:"FULL_STORY"})?.warnings).filter(({severity})=>severity!=="INFO");}catch{}
+  }
   if(collisionWarnings.length){
     const ids=[...new Set(collisionWarnings.flatMap(({elementIds})=>safeArray(elementIds)))];
     add(findings,{
@@ -267,9 +283,15 @@ function inspectLayout(document,findings){
 function inspectReadability(document,findings){
   // Check the final painted text. Character count alone missed two-month
   // duration labels squeezed by SVG textLength into unreadable glyphs.
-  let compressed=[];
+  let compressed=[],longLabels=[];
   try{
     const rendered=serializeFounderPresentation(document,{scope:"FULL_STORY"});
+    // Presentation warnings describe only labels on the included Founder board.
+    // Source confidence, provenance and category review remain separate content checks.
+    longLabels=[...(rendered.scene.arrows||[]),...(rendered.scene.flags||[])].map(event=>{
+      const display=event.display||{},fields=event.kind==='arrow'?[display.role,display.institution,display.location]:[display.label,display.institution];
+      const labels=fields.map(clean).filter(Boolean);return{id:event.id,title:labels.join(' · '),long:labels.some(label=>label.length>58)};
+    }).filter(event=>event.long);
     const omitted=rendered.scene.omissions||[];
     if(omitted.length)add(findings,{section:"CHRONOLOGY",code:"EVENTS_NOT_RENDERABLE",severity:"BLOCK_EXPORT",
       basis:QUALITY_GUARDIAN_BASES.SOURCE_FACT,elementIds:omitted.map(item=>item.id),
@@ -319,7 +341,6 @@ function inspectReadability(document,findings){
     recommendation:"Wrap the visible label or give it more room, then inspect the exported page at normal viewing size. Keep the source facts unchanged.",
     evidence:{count:compressed.length,minimumWidthRatio:Math.min(...compressed.map(node=>node.bounds.width/(node.bounds.width-node.characterSpacing*(node.text.length-1))))}
   });
-  const longLabels=safeArray(document?.events).filter(({title})=>clean(title).length>58);
   if(longLabels.length){
     add(findings,{
       section:"READABILITY",code:"LONG_EVENT_LABELS",severity:"REVIEW",

@@ -77,10 +77,11 @@ test('critic origin cannot bypass locked targets, target type or source identity
 test('first approved critic movement creates automatic geometry without a UI ownership flag',async()=>{
  const d=fresh(),initial=await projectLayoutCritic(d,options),t=initial.localContext.targetMap.get('e0001');
  d.advanced.textBlocks=[{id:'unit-first-obstacle',text:'Synthetic obstacle',x:t.geometry.x+40,y:t.geometry.y,width:180,height:30,size:18,font:'Arial'}];
- const p=await projectLayoutCritic(d,options);assert.ok(p.input.safety.crowdingCount>0);
+ const p=await projectLayoutCritic(d,options);const initialTotal=p.input.safety.collisionCount+p.input.safety.crowdingCount;assert.ok(initialTotal>0);
  const applied=await applyLayoutRecommendations(d,output(p,[move(p,400)]),p.sceneDigest,options);
  assert.equal(applied.applied,1,JSON.stringify(applied.rejected));assert.equal(object(applied.document).presentation.localLayoutCriticAuto,true);
- assert.equal((await projectLayoutCritic(applied.document,options)).input.targets[0].editable,true);assert.deepEqual(applied.document.events,d.events);
+ const after=await projectLayoutCritic(applied.document,options);assert.ok(after.input.safety.collisionCount+after.input.safety.crowdingCount<initialTotal);
+ assert.equal(after.input.targets[0].editable,true);assert.deepEqual(applied.document.events,d.events);
  const locked=structuredClone(applied.document);locked.layoutLock=true;const a=object(locked);
  assert.throws(()=>applyLocalLayoutCriticSceneCommand(locked,{kind:'geometry',target:{type:'event',id:a.id},geometry:{...a.geometry,y:300}},options),/globally locked/);
 });

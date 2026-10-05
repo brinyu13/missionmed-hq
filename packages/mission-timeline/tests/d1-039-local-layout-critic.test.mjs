@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {projectLayoutCritic,applyLayoutRecommendations,layoutCriticDigest,measureLayoutCriticSafety,validateLayoutCriticInput,validateLayoutRecommendations,LAYOUT_CRITIC_CONSENT_VERSION,LAYOUT_CRITIC_VERSION,measureLayoutCriticDurationInversions} from '../web/js/presentation/layout-critic-projection.js';
+import {projectLayoutCritic,applyLayoutRecommendations,layoutCriticDigest,measureLayoutCriticSafety,validateLayoutCriticInput,validateLayoutRecommendations,LAYOUT_CRITIC_CONSENT_VERSION,LAYOUT_CRITIC_VERSION,measureLayoutCriticDurationInversions,reflowLocalLayoutCriticDateAnchors} from '../web/js/presentation/layout-critic-projection.js';
 import {createLocalLayoutCritic,LOCAL_LAYOUT_CRITIC_PATH,LOCAL_LAYOUT_CRITIC_OUTPUT_SCHEMA} from '../scripts/local-layout-critic.mjs';
 import {serializeFounderPresentation,assertCompleteFounderPresentation,founderMilestoneTemplateGeometry} from '../web/js/presentation/founder-presentation-serializer.js';
 import {resolveFounderPresentationSvg} from '../web/js/presentation/resolved-founder-presentation.js';
 import {applySceneCommandToDocument,applyLocalLayoutCriticSceneCommand} from '../web/js/editor/scene-commands.js';
 import {setBuilderExamSystem,addBuilderExam,updateBuilderExamAttempt} from '../web/js/uxr-002/exam-integration.js';
 import {locked407FMilestoneGeometry,locked407FNativeMilestonePresentation} from '../web/js/uxr-002/locked-407f-export.js';
-import {setAxisPresentationOverride} from '../web/js/uxr-002/advanced-studio.js';
+import {setAxisPresentationOverride,resetAdvancedEventLayout} from '../web/js/uxr-002/advanced-studio.js';
 import {FOUNDER_2025_MATRIX} from './fixtures/founder-2025-matrix.mjs';
 
 // All inputs here are explicit synthetic unit fixtures. Network is injected;
@@ -154,29 +154,39 @@ async function generatedCollision(two=false,dates=null){
   return document;
 }
 test('safe proposal survives an unsafe independent candidate; native shape, semantics and unrelated text remain exact',async()=>{
-  const document=await generatedCollision(true),before=JSON.stringify(document),p=await projectLayoutCritic(document,options);
+  const document=await generatedCollision(),before=JSON.stringify(document),p=await projectLayoutCritic(document,options);
   assert.ok(p.input.safety.collisionCount+p.input.safety.crowdingCount>0);
-  // Leave enough room for the unchanged second arrow and its full captions.
-  const proposals=[{...move(p,1050),targetId:'e0002'},move(p,500)];
-  assert.doesNotThrow(()=>validateLayoutRecommendations(p.input,result(p,proposals),p.sceneDigest));
+  // The first valid candidate retains measured crowding; the second clears it.
+  const proposals=[move(p,274),move(p,400)];
+  for(const proposal of proposals)assert.doesNotThrow(()=>validateLayoutRecommendations(p.input,result(p,[proposal]),p.sceneDigest));
+  assert.throws(()=>validateLayoutRecommendations(p.input,result(p,proposals),p.sceneDigest),{code:'LAYOUT_CRITIC_OPERATION_REJECTED'},'provider output still rejects duplicate targets as one envelope');
   const accepted=await applyLayoutRecommendations(document,result(p,proposals),p.sceneDigest,{...options,sourceDigest:p.localContext.sourceDigest});
   assert.equal(accepted.applied,1);assert.equal(accepted.rejected.length,1);assert.equal(accepted.rejected[0].index,0);assert.equal(accepted.candidatesEvaluated,2);
   assert.equal(accepted.sourceUnchanged,true);assert.equal(JSON.stringify(document),before);
+  const moved=accepted.document.advanced.scene.objects.find(object=>object.semanticRef==='work');assert.equal(moved.presentation.localLayoutCriticYExplicit,true);assert.equal((await projectLayoutCritic(accepted.document,options)).input.targets[0].geometry.y,400);
   assert.deepEqual(accepted.document.events,document.events);assert.deepEqual(accepted.document.studentProfile,document.studentProfile);assert.deepEqual(accepted.document.advanced.textBlocks,document.advanced.textBlocks);
   const beforePaint=paint(document),afterPaint=paint(accepted.document),arrow=nodes=>nodes.nodes.find(node=>node.sourceAttributes['data-continuous-duration-arrow']);
   const a=arrow(beforePaint),b=arrow(afterPaint);assert.ok(Math.abs(a.bounds.x-b.bounds.x)<.04);assert.ok(Math.abs(a.bounds.width-b.bounds.width)<.04);assert.ok(Math.abs(a.bounds.height-b.bounds.height)<.04);assert.equal(a.commands.length,b.commands.length);
-  assert.ok(accepted.after.collisionCount<=accepted.before.collisionCount);assert.ok(accepted.after.crowdingCount<accepted.before.crowdingCount);
+  assert.ok(accepted.after.collisionCount<=accepted.before.collisionCount);assert.ok(accepted.after.crowdingCount<=accepted.before.crowdingCount);
+  assert.ok(accepted.after.collisionCount+accepted.after.crowdingCount<accepted.before.collisionCount+accepted.before.crowdingCount,'the measured hard collision or near-crowding must strictly improve');
 });
 
 test('candidate composition budget is eight, with truthful per-proposal rejection counts',async()=>{
-  const document=await generatedCollision(),p=await projectLayoutCritic(document,options),operations=Array.from({length:30},()=>move(p,1050));
+  const document=await generatedCollision(),p=await projectLayoutCritic(document,options),operations=Array.from({length:30},()=>move(p,274));
   const checked=await applyLayoutRecommendations(document,result(p,operations),p.sceneDigest,options);
   assert.equal(checked.applied,0);assert.equal(checked.candidatesEvaluated,8);assert.equal(checked.rejected.length,30);
   assert.equal(checked.rejected.filter(item=>item.code==='LAYOUT_CRITIC_CANDIDATE_BUDGET').length,22);assert.equal(checked.sourceUnchanged,true);
 });
 
 test('year weights reflow true fractional-month x positions and width while preserving y, source dates and unrelated manual text',async()=>{
-  const document=await generatedCollision(),before=JSON.stringify(document),p=await projectLayoutCritic(document,options);
+  let document=minimal();document.mode='advanced';Object.assign(document.events[0],{startDate:'2020-07',endDate:'2021-03'});
+  const ranged=setAxisPresentationOverride(document,{startYear:2020,endYear:2021,includeFuture:false});assert.equal(ranged.changed,true);document=ranged.document;
+  document.presentationOverrides.axis.segmentWeights=[{id:'2020',weight:1},{id:'2021',weight:1}];document.presentationOverrides.axis.localLayoutCriticAuto=true;
+  const initial=await projectLayoutCritic(document,options),target=initial.localContext.targetMap.get('e0001');
+  document=applyLocalLayoutCriticSceneCommand(document,{kind:'geometry',target:{type:'event',id:target.objectId},geometry:{...target.geometry,y:300},create:{type:'event',semanticRef:target.eventId,aspectLocked:false,presentation:{eventType:'duration',localLayoutCriticAuto:true}}},options).document;
+  const measured=(await projectLayoutCritic(document,options)).input.targets[0].geometry;
+  document.advanced.textBlocks=[{id:'synthetic-obstacle',text:'Synthetic obstacle',x:measured.x-20,y:measured.y+measured.height/2,width:180,height:30,size:18,font:'Arial'}];
+  const before=JSON.stringify(document),p=await projectLayoutCritic(document,options);
   assert.equal(p.input.axis.editable,true);
   const weights={kind:'SET_YEAR_WEIGHTS',weights:p.input.axis.segments.map((segment,index)=>({segmentId:segment.id,weight:index?1:8})),reasonCode:'REDUCE_COLLISION',confidence:.8};
   const accepted=await applyLayoutRecommendations(document,result(p,[weights]),p.sceneDigest,options);
@@ -188,6 +198,12 @@ test('year weights reflow true fractional-month x positions and width while pres
   assert.ok(Math.abs(b.x-expectedX)<.04,`${b.x} vs ${expectedX}`);
   assert.deepEqual(accepted.document.events,document.events);assert.deepEqual(accepted.document.advanced.textBlocks,document.advanced.textBlocks);assert.equal(JSON.stringify(document),before);
   assert.equal(next.input.targets[0].editable,true,'automatic anchor is never relabeled as a user lock');
+  const object=accepted.document.advanced.scene.objects.find(object=>object.semanticRef==='work');assert.equal(object.presentation.localLayoutCriticYRetained,true);assert.equal(object.presentation.localLayoutCriticAuto,true);
+  const reopened=JSON.parse(JSON.stringify(accepted.document)),reopenedProjection=await projectLayoutCritic(reopened,options);assert.deepEqual(reopenedProjection.input,next.input);
+  const human=applySceneCommandToDocument(reopened,{kind:'geometry',target:{type:'event',id:object.id},geometry:{...object.geometry,y:object.geometry.y+5}},options).document;
+  assert.notEqual(human.advanced.scene.objects.find(item=>item.semanticRef==='work').presentation.localLayoutCriticAuto,true);assert.equal((await projectLayoutCritic(human,options)).input.targets[0].editable,false);assert.deepEqual(human.events,document.events);
+  const reset=resetAdvancedEventLayout(accepted.document,'work');assert.equal(reset.changed,true);assert.ok(!reset.document.advanced.scene.objects.some(item=>item.semanticRef==='work'));assert.deepEqual(reset.document.events,document.events);assert.deepEqual(reset.document.advanced.textBlocks,document.advanced.textBlocks);assert.deepEqual(reset.document.presentationOverrides.axis,accepted.document.presentationOverrides.axis);
+
 });
 
 test('global Guided layout lock permits truthful read-only review and rejects every applying operation',async()=>{
@@ -286,14 +302,20 @@ test('media map changes during an asynchronous apply cannot silently complete ag
 
 test('pinning a resolved long flag preserves its wrap and side through a safe unrelated duration move and JSON reopen',async()=>{
   const document=await generatedCollision();
-  document.events.push({id:'degree',title:'Synthetic complete medical degree',siteName:'Synthetic International Academic Medical School and Training Institution',categoryId:'education',eventType:'milestone',startDate:'2025-05',visibilityState:'INTERVIEWER_SAFE'});
+  document.events.push({id:'degree',title:'Synthetic medical degree with complete longitudinal professional education source wording',siteName:'Synthetic International Medical University',categoryId:'education',eventType:'milestone',fields:{canonicalType:'MEDICAL_DEGREE'},startDate:'2025-06',visibilityState:'INTERVIEWER_SAFE'});
+  document.presentationOverrides={...(document.presentationOverrides||{}),events:{degree:{institution:document.events[1].siteName}},axis:{mode:'manual',startYear:2020,endYear:2026,includeFuture:false}};
+  const fullLabel=document.events[1].title+' — '+document.events[1].siteName;
+  // Existing 044 native fixture: full supplied words require a 957px line.
+  const options={scope:'EVERYTHING',currentMonth:'2026-10',measureText:(text,size=18)=>String(text).length*(956.5/fullLabel.length)*(size/18)};
+  const measured=(await projectLayoutCritic(document,options)).input.targets[0].geometry;
+  document.advanced.textBlocks=[{id:'synthetic-obstacle',text:'Synthetic obstacle',x:measured.x+40,y:measured.y+measured.height/2,width:180,height:30,size:18,font:'Arial'}];
   const before=JSON.stringify(document),p=await projectLayoutCritic(document,options),layout=p.localContext.scene.autoFlagLabels.get('degree');
   assert.ok(layout.width>420);assert.equal(layout.flip,true);
   const accepted=await applyLayoutRecommendations(document,result(p,[move(p,400)]),p.sceneDigest,options);
   assert.equal(accepted.applied,1,JSON.stringify(accepted.rejected));assert.ok(accepted.after.collisionCount+accepted.after.crowdingCount<accepted.before.collisionCount+accepted.before.crowdingCount);
   const object=accepted.document.advanced.scene.objects.find(item=>item.semanticRef==='degree');
   assert.deepEqual(object.presentation.flagLabelLayout,layout);assert.deepEqual(accepted.document.events,document.events);assert.equal(JSON.stringify(document),before);
-  const flagPaint=doc=>paint(doc).nodes.filter(node=>node.groupId==='event:degree').map(node=>({kind:node.kind,text:node.text,bounds:node.bounds,style:node.style,commands:node.commands}));
+  const flagPaint=doc=>resolveFounderPresentationSvg(serializeFounderPresentation(doc,options).svg,{measureText:options.measureText}).nodes.filter(node=>node.groupId==='event:degree').map(node=>({kind:node.kind,text:node.text,bounds:node.bounds,style:node.style,commands:node.commands}));
   const beforePaint=flagPaint(document),afterPaint=flagPaint(accepted.document);
   // Canonical scene geometry quantizes to 1/64 px; the saved shape and
   // all material text, style and wrap decisions remain unchanged.
@@ -311,7 +333,7 @@ test('pinning a resolved long flag preserves its wrap and side through a safe un
 });
 
 async function generalFlagFixture({y=60,obstacle=true,anchor=true,examCategory=false,startDate='2024-01'}={}){
-  let document=minimal();document.events=[{id:'general-flag',title:'Synthetic full milestone',siteName:'Synthetic Institute',categoryId:examCategory?'exams':'personal',eventType:'milestone',startDate,visibilityState:'INTERVIEWER_SAFE'}];
+  let document=minimal();document.events=[{id:'general-flag',title:'Synthetic full milestone',siteName:'Synthetic Institute',categoryId:examCategory?'exams':'personal',eventType:'milestone',fields:{canonicalType:'CUSTOM_MILESTONE'},startDate,visibilityState:'INTERVIEWER_SAFE'}];
   const initial=await projectLayoutCritic(document,options),target=initial.localContext.targetMap.get('e0001');
   document=applyLocalLayoutCriticSceneCommand(document,{kind:'geometry',target:{type:'event',id:target.objectId},geometry:{...target.geometry,y},
     create:{type:'event',semanticRef:target.eventId,aspectLocked:false,presentation:{eventType:'milestone',localLayoutCriticAuto:true,...(anchor?{guardianAnchor:'axis'}:{})}}},options).document;
@@ -344,7 +366,8 @@ test('bounded above-band move preserves full labels and the exact native pole fo
   assert.equal(accepted.applied,1,JSON.stringify(accepted.rejected));assert.ok(accepted.after.crowdingCount<accepted.before.crowdingCount);assert.ok(accepted.after.collisionCount<=accepted.before.collisionCount);
   assert.equal(accepted.after.templateViolationCount,0);assert.deepEqual(accepted.document.events,document.events);
   const after=await projectLayoutCritic(accepted.document,options),target=after.input.targets[0];
-  assert.equal(target.poleFootY,125);
+  assert.equal(target.poleFootY,125);assert.equal(target.geometry.y,25);
+  assert.equal(accepted.document.advanced.scene.objects.find(object=>object.semanticRef==='general-flag').presentation.localLayoutCriticYExplicit,true);
   const pole=after.localContext.paint.nodes.find(node=>node.semanticRef==='general-flag'&&node.lineOnly);
   assert.equal(pole.commands.at(-1).y,125);assert.equal(pole.bounds.y,25);
   assert.ok(!after.input.parts.some(part=>part.groupId===target.groupId&&part.bounds.width===.01),'native connector line is not a painted body');
@@ -355,14 +378,16 @@ test('bounded above-band move preserves full labels and the exact native pole fo
   assert.deepEqual(reopened.input,after.input);
 });
 
-test('above-band movement that needs a new label wrap is truthfully held; native safety is never bypassed',async()=>{
+test('above-band movement newly intersecting the plaque is held without changing full native words',async()=>{
   const document=await generalFlagFixture({startDate:'2024-02'}),original=JSON.stringify(document),p=await projectLayoutCritic(document,options),target=p.localContext.targetMap.get('e0001');
   const edited=applyLocalLayoutCriticSceneCommand(document,{kind:'geometry',target:{type:'event',id:target.objectId},geometry:{...target.geometry,y:25},create:{type:'event',semanticRef:target.eventId,aspectLocked:false,presentation:{eventType:'milestone',localLayoutCriticAuto:true,guardianAnchor:'axis'}}},options).document;
+  edited.advanced.scene.objects.find(object=>object.semanticRef==='general-flag').presentation.localLayoutCriticYExplicit=true;
   const candidate=await projectLayoutCritic(edited,options),labels=projection=>projection.localContext.paint.nodes.filter(node=>node.semanticRef==='general-flag'&&node.sourceAttributes['data-board-ink-role']==='flag-label').map(node=>node.text);
-  assert.notDeepEqual(labels(candidate),labels(p),'the plaque forces a different wrap in this explicit February fixture');
+  assert.deepEqual(labels(candidate),labels(p),'the typed move keeps exact native words and wrapping');
+  assert.equal(candidate.input.targets[0].geometry.y,25);assert.ok(candidate.input.safety.collisionCount>p.input.safety.collisionCount,'the moved full label genuinely intersects the title plaque');
   assert.equal(labels(candidate).join(' '),document.events[0].title+' — '+document.events[0].siteName);assert.equal(candidate.input.targets[0].poleFootY,125);
   const held=await applyLayoutRecommendations(document,result(p,[move(p,25)]),p.sceneDigest,options);
-  assert.equal(held.applied,0);assert.deepEqual(held.rejected,[{index:0,code:'LAYOUT_CRITIC_NATIVE_GEOMETRY_CHANGE'}]);assert.equal(held.document,document);assert.equal(held.sourceUnchanged,true);assert.equal(JSON.stringify(document),original);
+  assert.equal(held.applied,0);assert.deepEqual(held.rejected,[{index:0,code:'LAYOUT_CRITIC_NO_SAFE_IMPROVEMENT'}]);assert.equal(held.document,document);assert.equal(held.sourceUnchanged,true);assert.equal(JSON.stringify(document),original);
 });
 
 test('full painted wrapped labels crossing the band reject even when the pennant itself stays above it',async()=>{
@@ -387,7 +412,8 @@ test('program-facing export blocks below-band authored and automatic general fla
     assert.throws(()=>assertCompleteFounderPresentation(rendered),error=>error.code==='TIMELINE_EXPORT_TEMPLATE_FIDELITY_HOLD'&&error.eventIds.includes('general-flag'));
     assert.equal(JSON.stringify(document),original);
   }
-  const misanchored=await generalFlagFixture({y:25,obstacle:false,anchor:false}),rendered=serializeFounderPresentation(misanchored,options);
+  const misanchored=await generalFlagFixture({y:25,obstacle:false,anchor:false});misanchored.advanced.scene.objects[0].presentation.localLayoutCriticAuto=false;
+  const rendered=serializeFounderPresentation(misanchored,options);
   const target=founderMilestoneTemplateGeometry(rendered.scene,resolveFounderPresentationSvg(rendered.svg))[0];
   assert.ok(target.bodyBottom<125);assert.equal(target.poleFootY,89);
   assert.throws(()=>assertCompleteFounderPresentation(rendered),{code:'TIMELINE_EXPORT_TEMPLATE_FIDELITY_HOLD'});
@@ -397,7 +423,9 @@ test('duration/study arrows and native attached results retain their grammar; ge
   const duration=await projectLayoutCritic(minimal(),options);
   assert.equal(duration.input.targets[0].kind,'DURATION');assert.equal(duration.input.targets[0].poleFootY,null);assert.equal(duration.input.safety.templateViolationCount,0);
   const document=minimal();document.events=[];document.exams=[];setBuilderExamSystem(document,'USMLE',true);addBuilderExam(document,'USMLE','step-1');
-  updateBuilderExamAttempt(document,document.exams[0].id,{result:'Passed',examDate:'2023-04',studyStartDate:'2022-07'});
+  updateBuilderExamAttempt(document,document.exams[0].id,{result:'Passed',examDate:'2023-04',studyStartDate:'2022-07',studyEndDate:'2023-04'});
+  const examEndpoint=document.events.find(event=>event.eventType==='milestone');
+  document.presentationOverrides={...(document.presentationOverrides||{}),events:{[examEndpoint.id]:{showAsMilestone:true}}};
   const projected=await projectLayoutCritic(document,options),attached=projected.input.targets.find(target=>target.kind==='EXAM_RESULT');
   assert.ok(attached);assert.equal(attached.editable,false);assert.ok(attached.geometry.y>125);assert.equal(projected.input.safety.templateViolationCount,0);
   const study=projected.input.targets.find(target=>target.kind==='DURATION');assert.ok(study);assert.equal(study.editable,false);assert.ok(study.geometry.y>125);
@@ -440,7 +468,7 @@ test('duration bodies and full nearby captions stay below the ribbon even when a
 
 test('bounded adjacent-label fallback preserves a full institution beside the plaque, native anchors and reopened pin metadata',async()=>{
   let document=await generatedCollision();
-  document.events.push({id:'adjacent-degree',title:'Synthetic complete medical degree',siteName:'Synthetic International Academic Medical School and Training Institution with Clinical Research Education and Community Medicine Programs for Graduate Medical Sciences',categoryId:'education',eventType:'milestone',startDate:'2021-11',visibilityState:'INTERVIEWER_SAFE'});
+  document.events.push({id:'adjacent-degree',title:'Synthetic complete medical degree',siteName:'Synthetic International Academic Medical School and Training Institution with Clinical Research Education and Community Medicine Programs for Graduate Medical Sciences',categoryId:'education',eventType:'milestone',fields:{canonicalType:'MEDICAL_DEGREE'},startDate:'2021-11',visibilityState:'INTERVIEWER_SAFE'});
   const ranged=setAxisPresentationOverride(document,{startYear:2020,endYear:2025,includeFuture:false});assert.equal(ranged.changed,true);document=ranged.document;
   const before=JSON.stringify(document),shown=serializeFounderPresentation(document,options),resolved=resolveFounderPresentationSvg(shown.svg),layout=shown.scene.autoFlagLabels.get('adjacent-degree');
   assert.equal(shown.scene.autoMilestonePacking.strategy,'adjacent-label');assert.ok(shown.scene.autoMilestonePacking.labelExpansions<=8192);
@@ -454,7 +482,7 @@ test('bounded adjacent-label fallback preserves a full institution beside the pl
   assert.deepEqual(native.flagLabelLayout,layout);assert.equal(founderMilestoneTemplateGeometry(shown.scene,resolved).find(target=>target.eventId==='adjacent-degree').poleFootY,125);
   assert.deepEqual(flagNodes.filter(node=>node.kind==='path'&&node.lineOnly).map(node=>node.commands),[[{x:geometry.x+4,y:87,moveTo:true},{x:geometry.x+4,y:125}]]);
   const date=flagNodes.find(node=>node.sourceAttributes['data-founder-pennant-date']);assert.equal(date.text,'11/21');assert.equal(date.fontSize,18);assert.ok(date.fontFamily.includes('Baskerville'));
-  assert.ok(flagNodes.some(node=>node.kind==='path'&&node.style.fill==='#A6AAAE'));
+  assert.ok(flagNodes.some(node=>node.kind==='path'&&node.style.fill==='#5B6168'));
   assert.equal(flagNodes.filter(node=>node.kind==='shape').length,1);assert.equal(flagNodes.filter(node=>node.kind==='path').length,3,'no extra leader or label box is introduced');
   assert.equal(shown.svg,serializeFounderPresentation(document,options).svg);assert.equal(JSON.stringify(document),before);
   const created=applySceneCommandToDocument(document,{kind:'geometry',target:{type:'event',id:'adjacent-degree'},geometry:{x:geometry.x,y:geometry.y,width:geometry.width,height:geometry.height,rotation:0},create:{type:'event',semanticRef:'adjacent-degree',aspectLocked:false,presentation:{eventType:'milestone',...native}}});
@@ -537,7 +565,7 @@ test('new sequential duration inversions reject typed proposals and actual appli
 });
 
 test('start-order gate permits same-start rows, native upper milestones and valid manual/group/locked exceptions',async()=>{
-  const document=chronologyDocument([chronologyEvent('early','2021-01','2025-12'),chronologyEvent('later','2023-01','2023-02'),chronologyEvent('same','2023-01','2024-12'),chronologyEvent('flag','2024-01',null,{eventType:'milestone',categoryId:'research'})]);
+  const document=chronologyDocument([chronologyEvent('early','2021-01','2025-12'),chronologyEvent('later','2023-01','2023-02'),chronologyEvent('same','2023-01','2024-12'),chronologyEvent('flag','2024-01',null,{eventType:'milestone',categoryId:'personal',fields:{canonicalType:'CUSTOM_MILESTONE'}})]);
   document.events[0].manualOffset={y:300};const p=await projectLayoutCritic(document,options),targets=chronologyBySource(p);
   assert.equal(targets.get('early').editable,false);assert.equal(targets.get('flag').kind,'MILESTONE');assert.ok(targets.get('flag').geometry.y<125);assert.deepEqual(measureLayoutCriticDurationInversions(p.input.targets),[]);
   const same=setRow(targets.get('same'),targets.get('later').geometry.y-20);assert.doesNotThrow(()=>validateLayoutRecommendations(p.input,result(p,[same]),p.sceneDigest));
@@ -571,4 +599,23 @@ test('post-reflow start-order comparison catches new pairs while preserving exis
   const afterFirst=withDurationRows(p,{first:300,second:550,third:600});
   assert.throws(()=>validateLayoutRecommendations(afterFirst,{sceneDigest:p.sceneDigest,recommendations:[setRow(t.get('third'),500)]},p.sceneDigest),{code:'LAYOUT_CRITIC_CHRONOLOGY_HOLD'});
   assert.deepEqual(measureLayoutCriticDurationInversions(withDurationRows(p,{first:300,second:450,third:400}).targets),[t.get('second').id+'|'+t.get('third').id]);
+});
+
+
+test('explicit critic flag Y survives JSON and native date-X reflow while human ownership remains protected',async()=>{
+  const document=await generalFlagFixture();document.mode='advanced';document.layoutLock=false;const original=JSON.stringify(document),p=await projectLayoutCritic(document,options);
+  const accepted=await applyLayoutRecommendations(document,result(p,[move(p,25)]),p.sceneDigest,options);assert.equal(accepted.applied,1,JSON.stringify(accepted.rejected));
+  const reopened=JSON.parse(JSON.stringify(accepted.document)),before=await projectLayoutCritic(reopened,options);
+  const ranged=setAxisPresentationOverride(reopened,{startYear:2023,endYear:2025,includeFuture:false});assert.equal(ranged.changed,true);ranged.document.presentationOverrides.axis.localLayoutCriticAuto=true;
+  const reflowed=reflowLocalLayoutCriticDateAnchors(ranged.document,options),after=await projectLayoutCritic(reflowed,options),a=before.input.targets[0],b=after.input.targets[0];
+  assert.equal(a.geometry.y,25);assert.equal(b.geometry.y,25);assert.notEqual(a.geometry.x,b.geometry.x);assert.ok(Math.abs(b.geometry.x-(39.36+1841.28/3))<.04);
+  assert.equal(b.geometry.width,a.geometry.width);assert.equal(b.geometry.height,a.geometry.height);assert.equal(b.poleFootY,125);
+  const words=projection=>projection.localContext.paint.nodes.filter(node=>node.semanticRef==='general-flag'&&node.kind==='text').map(node=>({text:node.text,size:node.fontSize,family:node.fontFamily}));
+  assert.deepEqual(words(after),words(before));assert.deepEqual(reflowed.events,document.events);assert.equal(JSON.stringify(document),original);
+  const object=reflowed.advanced.scene.objects.find(object=>object.semanticRef==='general-flag');assert.equal(object.presentation.localLayoutCriticYExplicit,true);assert.equal(object.presentation.localLayoutCriticAuto,true);
+  // Changed X can introduce a genuine plaque collision; reflow is not a waiver.
+  assert.throws(()=>assertCompleteFounderPresentation(serializeFounderPresentation(reflowed,options)),{code:'TIMELINE_EXPORT_TEXT_COLLISION'});
+  const human=applySceneCommandToDocument(reflowed,{kind:'geometry',target:{type:'event',id:object.id},geometry:{...object.geometry,y:30}},options).document;
+  assert.notEqual(human.advanced.scene.objects.find(item=>item.semanticRef==='general-flag').presentation.localLayoutCriticAuto,true);
+  assert.equal((await projectLayoutCritic(human,options)).input.targets[0].editable,false);assert.deepEqual(human.events,document.events);
 });

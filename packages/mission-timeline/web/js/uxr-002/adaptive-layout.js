@@ -1,3 +1,4 @@
+import {measurePresentationText} from '../presentation/text-layout.js';
 import{monthIndex,parseMonth}from"./utils.js";
 
 export const CATEGORY_DEFINITIONS=Object.freeze([
@@ -166,6 +167,70 @@ export function eventDensityForYear(events,year,{spanEndMonth}={}){
 // before distributing the remaining width. Its legacy integer allocator uses
 // a different span/condensation contract; feed demand into the portable scale
 // rather than copying those allocated widths and applying the floor twice.
+// Fixed-budget native role constraints over the existing linear year cells.
+// Every source month keeps its true fraction; this allocates space, never dates.
+export function allocateFounderRoleYearWidths(events,{firstYear,lastYear,measureText,contentWidth=1918,spanEndMonth,minYearWidth=80,minArrowWidth=52,measureInstitutionText,balanceYears=false,minimumStartX=null}={}){
+  const years=Array.from({length:lastYear-firstYear+1},(_,index)=>firstYear+index),budget=contentWidth*.96;
+  const floor=Math.min(minYearWidth,budget/years.length),widths=new Map(years.map(year=>[year,floor]));
+  const constraints=[],pressure=new Map(years.map(year=>[year,0]));
+  for(const event of events||[]){
+    const startValue=eventStartMonth(event);if(!startValue)continue;
+    const start=monthIndex(startValue),end=isMilestone(event)?start:monthIndex(event.openEnded?normalizedMonth(spanEndMonth)||eventEndMonth(event)||monthForYear(lastYear,12):eventEndMonth(event)||startValue);
+    if(end<start)continue;
+    const startYear=Math.floor(start/12),role=isMilestone(event)?[event.display?.label??event.title,event.display?.institution??event.siteName].filter(Boolean).join(' — '):String(event.display?.role??event.title??'');
+    if(pressure.has(startYear))pressure.set(startYear,pressure.get(startYear)+1+Number(measureText(role,18,400))/160);
+    if(isMilestone(event))continue;
+    const coefficients=new Map(years.map(year=>[year,Math.max(0,Math.min(end,year*12+11)-Math.max(start,year*12)+1)/12]).filter(([,fraction])=>fraction));
+    for(const [year,fraction] of coefficients)pressure.set(year,pressure.get(year)+fraction*.05);
+    const required=Number(measureText(role,18,400))+19.454+4;
+    if(coefficients.size&&Number.isFinite(required)&&required>minArrowWidth+.01)constraints.push({eventId:String(event.id),coefficients,required:required+1}); // native pixel rounding reserve
+    if(typeof measureInstitutionText==='function'){
+      const institution=String(event.display?.institution??event.siteName??'');
+      const wordWidth=Math.max(0,...institution.split(/\s+/).map(word=>Number(measureInstitutionText(word))||0));
+      // The institution ends twelve pixels before the dated arrow; preserve
+      // the existing twenty-four-pixel left board margin plus painted room.
+      const required=wordWidth+38-contentWidth*.02;
+      const preceding=new Map(years.map(year=>[year,Math.max(0,Math.min(start-1,year*12+11)-year*12+1)/12]).filter(([,fraction])=>fraction));
+      if(preceding.size&&required>0)constraints.push({eventId:String(event.id),field:'institution',coefficients:preceding,required});
+    }
+    const minimumX=Number(minimumStartX?.get(String(event.id)));
+    if(Number.isFinite(minimumX)&&minimumX>contentWidth*.02+1){
+      const preceding=new Map(years.map(year=>[year,Math.max(0,Math.min(start-1,year*12+11)-year*12+1)/12]).filter(([,fraction])=>fraction));
+      if(preceding.size)constraints.push({eventId:String(event.id),field:'institution-furniture',coefficients:preceding,required:minimumX-contentWidth*.02-1});
+    }
+  }
+  const available=constraint=>[...constraint.coefficients].reduce((sum,[year,fraction])=>sum+fraction*widths.get(year),0);
+  let remaining=Math.max(0,budget-floor*years.length);
+  constraints.sort((a,b)=>b.required/Math.max(...b.coefficients.values())-a.required/Math.max(...a.coefficients.values()));
+  for(let pass=0;pass<8;pass++){
+    let moved=false;
+    for(const constraint of constraints){
+      let deficit=constraint.required-available(constraint);if(deficit<=.1)continue;
+      const coefficients=[...constraint.coefficients],maximum=Math.max(...coefficients.map(([,fraction])=>fraction));
+      const targets=balanceYears?coefficients.filter(([,fraction])=>fraction>=maximum*.8):coefficients;
+      const [target,coefficient]=targets.sort((a,b)=>balanceYears
+        ?widths.get(a[0])/a[1]-widths.get(b[0])/b[1]||b[1]-a[1]||a[0]-b[0]
+        :b[1]-a[1]||(pressure.get(b[0])||0)-(pressure.get(a[0])||0)||a[0]-b[0])[0];
+      const addition=Math.min(remaining,deficit/coefficient);
+      if(addition>.001){widths.set(target,widths.get(target)+addition);remaining-=addition;deficit-=addition*coefficient;moved=true;}
+      if(deficit<=.1)continue;
+      // Transfer only spare width that keeps every other constraint satisfied.
+      for(const donor of years.slice().sort((a,b)=>widths.get(b)-widths.get(a))){
+        const gain=coefficient-(constraint.coefficients.get(donor)||0);if(donor===target||gain<=0)continue;
+        let spare=widths.get(donor)-floor;
+        for(const other of constraints){if(other===constraint)continue;const loss=(other.coefficients.get(donor)||0)-(other.coefficients.get(target)||0);if(loss>0)spare=Math.min(spare,Math.max(0,available(other)-other.required)/loss);}
+        const transfer=Math.min(spare,deficit/gain);if(transfer<=.001)continue;
+        widths.set(donor,widths.get(donor)-transfer);widths.set(target,widths.get(target)+transfer);deficit-=transfer*gain;moved=true;
+        if(deficit<=.1)break;
+      }
+    }
+    if(!moved)break;
+  }
+  const totalPressure=[...pressure.values()].reduce((sum,value)=>sum+value,0);
+  for(const year of years)widths.set(year,widths.get(year)+remaining*(totalPressure?pressure.get(year)/totalPressure:1/years.length));
+  return {widths,constraints:constraints.map(constraint=>({eventId:constraint.eventId,...(constraint.field?{field:constraint.field}:{}),required:constraint.required,available:available(constraint),deficit:Math.max(0,constraint.required-available(constraint))}))};
+}
+
 export function deriveFounderYearAllocation(events,{
   firstYear,lastYear,measureText,contentWidth=1918,spanEndMonth
 }={}){
@@ -180,7 +245,7 @@ export function deriveFounderYearAllocation(events,{
   const openEnd=normalizedMonth(spanEndMonth)||monthForYear(lastYear,12);
   for(let year=firstYear;year<=lastYear;year++){
     const density=eventDensityForYear(source,year,{spanEndMonth:openEnd});
-    let labelPressure=0,milestonePressure=0;
+    let labelPressure=0,milestonePressure=0,insideRoleWidth=0;
     for(const event of source){
       const startMonth=eventStartMonth(event);
       if(!startMonth)continue;
@@ -189,29 +254,49 @@ export function deriveFounderYearAllocation(events,{
       if(end<start)continue;
       const overlap=Math.max(0,Math.min(end,year*12+11)-Math.max(start,year*12)+1);
       if(!overlap)continue;
-      const label=[event.title,event.siteName].filter(Boolean).join(" — ");
-      const measured=Number(measureText(label,18,600));
+      const label=[event.display?.role??event.title,event.display?.institution??event.siteName].filter(Boolean).join(" — ");
+      const measured=Number(measureText(label,18,400));
+      if(event.display&&!isMilestone(event)&&Math.floor(start/12)===year&&Math.floor(end/12)===year){
+        // Existing native arrow head (19.454px) and inside padding (4px)
+        // join the measured role; its dates still occupy their true fraction.
+        const role=Number(measureText(event.display.role||'',18,400));
+        if(Number.isFinite(role))insideRoleWidth=Math.max(insideRoleWidth,(role+19.454+4)*12/(end-start+1));
+      }
       const pressure=Number.isFinite(measured)?Math.max(0,measured)/160:0;
       // A multi-year label shares its pressure across its actual span; a short
       // label or milestone competes for space within its own year.
       labelPressure+=pressure*overlap/(end-start+1);
       if(isMilestone(event))milestonePressure+=1;
     }
-    demands.set(year,Math.min(8,1+density+labelPressure+milestonePressure));
+    const displayed=source.some(event=>event.display);
+    demands.set(year,displayed
+      ?Math.max(1+Math.min(1,density)*.25+labelPressure+milestonePressure,insideRoleWidth-80)
+      :Math.min(8,1+density+labelPressure+milestonePressure));
+  }
+  let roleWidths=null,autoYearFloor=null;
+  if(source.some(event=>event.display)){
+    const allocated=allocateFounderRoleYearWidths(source,{firstYear,lastYear,measureText,contentWidth,spanEndMonth:openEnd});
+    roleWidths=allocated.widths;
+    autoYearFloor=Math.min(contentWidth*.96/(lastYear-firstYear+1),Math.max(...[...roleWidths.keys()].map(year=>measurePresentationText(String(year),23,"Futura,'Trebuchet MS',Arial,sans-serif",700)))+20);
+    for(const [year,width] of roleWidths)demands.set(year,Math.max(.001,width-autoYearFloor));
   }
   const total=[...demands.values()].reduce((sum,weight)=>sum+weight,0);
   const count=demands.size,minPercent=Math.min(96/count,80/contentWidth*100);
   const flexible=96-minPercent*count;
   let cursor=2;
-  const segmentWeights=[...demands].map(([year,weight])=>{
+  const effective=[...demands].map(([year,weight])=>{
     const start=cursor;cursor+=minPercent+flexible*weight/total;
-    return{id:String(year),weight:Math.min(8,Math.max(.25,(cursor-start)*total/96))};
+    return{id:String(year),weight:roleWidths?roleWidths.get(year)*total/(contentWidth*.96):(cursor-start)*total/96};
   });
+  // Normalize the whole snapshot together; clipping each large busy weight
+  // would flatten its painted proportions when the user freezes the axis.
+  const factor=Math.min(1,8/Math.max(...effective.map(segment=>segment.weight)));
+  const segmentWeights=effective.map(segment=>({...segment,weight:Math.max(.25,segment.weight*factor)}));
   // The effective weights include the portable floor. Freeze these exact
   // proportions when the first authored geometry command commits, including
   // when the compositor returns early without a placement refinement.
   return{
-    autoYearWeights:demands,
+    autoYearWeights:demands,...(autoYearFloor!==null?{autoYearFloor}:{}),
     composedAxis:{mode:"manual",startYear:firstYear,endYear:lastYear,
       includeFuture:false,segmentWeights}
   };
@@ -224,7 +309,7 @@ export function restoreFounderYearAllocation(scene,{contentWidth=1918}={}){
     throw new TypeError("Automatic year weights need their saved composed axis for recovery.");
   }
   const total=weights.reduce((sum,item)=>sum+Number(item.weight),0);
-  const minPercent=Math.min(96/weights.length,80/contentWidth*100);
+  const minPercent=Math.min(96/weights.length,(scene.autoYearFloor??80)/contentWidth*100);
   const flexible=96-minPercent*weights.length;
   // Theme projection and JSON transport can strip Map methods. Recover the
   // latest effective proportions, including a compositor-refined axis, by

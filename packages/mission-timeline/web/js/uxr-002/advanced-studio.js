@@ -403,8 +403,9 @@ export function normalizeAdvancedStudioDocument(document={}){
    * its legacy contract, leaving every direct-manipulation gesture inert. A
    * one-time preference migrates those documents to free placement without
    * overriding a lock the student deliberately enables afterward. */
-  if(next.mode===ADVANCED_MODE&&!next.preferences.advancedFreePlacementInitialized){
-    next.layoutLock=false;
+  if(next.mode===ADVANCED_MODE){
+    // Missing legacy state defaults to free placement; an explicit student lock survives normalization.
+    next.layoutLock=next.layoutLock===true;
     next.preferences.advancedFreePlacementInitialized=true;
   }else{
     next.layoutLock=next.layoutLock!==false;

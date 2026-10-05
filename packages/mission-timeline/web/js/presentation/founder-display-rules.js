@@ -51,19 +51,59 @@ export function founderExamStudyLink(document,event,events=document?.events||[])
  String(study.fields?.sourceEventId||'')===String(event.id)||records.some(record=>String(record.id)===String(study.fields?.sourceExamRecordId||''))));
  return matches.length===1?matches[0]:null;
 }
+function founderStudyExamLabel(document,study){
+ const comlexTypes={'comlex-level-1':'Level 1','comlex-level-2-ce':'Level 2-CE','comlex-level-3':'Level 3'};
+ const comlexRecords={'level-1':'Level 1','level-2-ce':'Level 2-CE','level-3':'Level 3'};
+ const direct=comlexTypes[text(study.examTypeId)];
+ const recordId=text(study.fields?.sourceExamRecordId);
+ const records=recordId?(document.exams||[]).filter(record=>text(record.id)===recordId):[];
+ if(records.length>1)return 'Study';
+ const record=records[0],recordLabel=record?.system==='COMLEX-USA'?comlexRecords[text(record.examId)]:null;
+ if(direct&&(study.systemId&&study.systemId!=='comlex'||record&&recordLabel!==direct))return 'Study';
+ if(direct||recordLabel)return direct||recordLabel;
+ const linked=(document.events||[]).filter(event=>examEndpoint(event)&&founderExamStudyLink(document,event)?.id===study.id);
+ if(linked.length!==1)return 'Study';
+ const endpoint=linked[0],canonical=text(endpoint.fields?.canonicalType);
+ const labels={STEP_1:'Step 1',STEP_2_CK:'Step 2 CK',STEP_2_CS:'Step 2 CS',STEP_3:'Step 3'};
+ if(labels[canonical])return labels[canonical];
+ const match=/^(?:USMLE\s+)?Step\s*(1|2\s*CK|2\s*CS|3)(?=\s|$)/i.exec(text(endpoint.fields?.examName||endpoint.title));
+ return match?'Step '+match[1].toUpperCase().replace(/\s*/g,'').replace(/^2(CK|CS)$/,'2 $1'):'Study';
+}
+function coveredFounderExamEndpoint(document,event,study){
+ if(!study||document.presentationOverrides?.events?.[String(event.id)]?.showAsMilestone===true||text(document.presentationOverrides?.events?.[String(event.id)]?.label))return false;
+ const object=(document.advanced?.scene?.objects||[]).find(object=>object.type==='event'&&String(object.semanticRef||object.id)===String(event.id));
+ if(object?.geometry&&(object.presentation?.localLayoutCriticAuto!==true||object.locked||object.groupId||Number(object.geometry.rotation)||(document.advanced?.scene?.groups||[]).some(group=>group.locked&&group.childIds?.includes(object.id))))return false;
+ if(document.layoutLock===true||event.manualOffset?.laneLocked||Number(event.manualOffset?.x)||Number(event.manualOffset?.y))return false;
+ const date=text(event.startDate),end=text(study.endDate);
+ if(date!==end||!/^\d{4}-\d{2}(?:-\d{2})?$/.test(date))return false;
+ const expected=date.length===10?'DAY':'MONTH',precision=(value,field)=>text(value.datePrecision?.[field]||value.fields?.datePrecision?.[field]||expected);
+ if(precision(event,'start')!==expected||precision(study,'end')!==expected)return false;
+ const wording=study.fields?.sourceDateWording?.end;
+ if(typeof wording==='string'&&wording!==date||wording?.normalizedMonth&&wording.normalizedMonth!==date)return false;
+ if(founderStudyExamLabel(document,study)==='Study')return false;
+ if(text(event.siteName)&&text(event.siteName)!==text(study.siteName))return false;
+ const records=founderExamRecords(document,event),known=value=>text(value)&&!/^(unknown|unprovided|not provided)$/i.test(text(value));
+ for(const field of ['result','score'])if(known(event.fields?.[field])){
+  const record=records.length===1?records[0]:null;
+  if(!record||text(record.system).toUpperCase()!=='USMLE'||text(record[field])!==text(event.fields[field])||
+    (document.exams||[]).filter(other=>other.system===record.system&&other.examId===record.examId).length!==1)return false;
+ }
+ return true;
+}
+
 export function deriveFounderEventDisplay(document,event){
  const override=document?.presentationOverrides?.events?.[String(event.id)]||{};
  const institution=text(event.siteName||event.organization||event.fields?.organization);
  const country=text(event.country||event.fields?.country||event.fields?.sourceCountry);
  const location=country&&!/^(US|USA|United States(?: of America)?)$/i.test(country)?country:text(event.fields?.cityState)||[text(event.fields?.city),text(event.fields?.state)].filter(Boolean).join(', ')||text(event.location||event.fields?.location||event.fields?.sourceLocation);
  const suppliedAlias=text(event.fields?.displayInstitution||event.fields?.shortName||event.fields?.acronym);
- const concise=new Map([['Internal Medicine Extern','IM'],['Family Medicine Extern','FM'],['Primary Clinical Preceptee','Preceptee']]);
+ const concise=new Map([['Research Associate','Research Assoc.'],['Internal Medicine Extern','IM'],['Family Medicine Extern','FM'],['Primary Clinical Preceptee','Preceptee']]);
  const study=event.isStudyPeriod||event.fields?.isStudyPeriod||event.fields?.studyPeriod;
- return {role:text(override.role)||(study?'Study':explicitVolunteer(event)?text(event.fields?.programName)||'Volunteer':concise.get(text(event.title))||text(event.title)),
+ return {role:text(override.role)||(study?founderStudyExamLabel(document,event):explicitVolunteer(event)?text(event.fields?.programName)||'Volunteer':concise.get(text(event.title))||text(event.title)),
   institution:override.institution!==undefined?text(override.institution):suppliedAlias||founderInstitutionLabel(institution),
   location:override.location!==undefined?text(override.location):location,
   categoryId:categoryId(text(override.categoryId)||(explicitVolunteer(event)?'volunteer':text(event.categoryId))),
-  label:text(override.label)||text(event.title),showAsMilestone:override.showAsMilestone===true,usStatus:founderUsesUsFlag(event),requiresStudy:examEndpoint(event)&&!founderExamStudyLink(document,event)};
+  label:text(override.label)||text(event.title),showAsMilestone:override.showAsMilestone===true,labelSize:Number(override.labelSize)||18,labelFit:override.labelFit||'fit',usStatus:founderUsesUsFlag(event),requiresStudy:examEndpoint(event)&&!founderExamStudyLink(document,event)};
 }
 function trueSingleDate(event){return !!text(event.startDate||event.date||event.startMonth)&&!event.openEnded&&(!text(event.endDate)||text(event.endDate)===text(event.startDate));}
 export function founderMilestoneEligible(document,event){
@@ -115,7 +155,15 @@ export function projectFounderDisplayEvents(document,events=document?.events||[]
   }
   event.display=display;included.push(event);
  }
- return {events:included,excluded};
+ const visible=included.filter(event=>{
+  if(!examEndpoint(event))return true;
+  const study=founderExamStudyLink(document,event,included);
+  if(!coveredFounderExamEndpoint(document,event,study))return true;
+  excluded.push({eventId:String(event.id),reason:'covered-by-study-endpoint',coveredByEventId:String(study.id),endpointDate:event.startDate,
+   endpointPrecision:String(event.startDate).length===10?'DAY':'MONTH',examLabel:founderStudyExamLabel(document,study),source:structuredClone(events.find(source=>String(source.id)===String(event.id)))});
+  return false;
+ });
+ return {events:visible,excluded};
 }
 export function computeFounderCategoryKey(document,events=document?.events||[]){
  const visible=projectFounderDisplayEvents(document,events).events.filter(event=>String(event.eventType||event.kind||event.type).toLowerCase()!=='milestone'&&event.categoryId!=='education');
@@ -126,7 +174,23 @@ export function computeFounderCategoryKey(document,events=document?.events||[]){
   const migrated=legacy?{...row,id,label:'USCE',color:'#DF6A0F'}:row;
   if(!explicit.has(id)||!legacy)explicit.set(id,migrated);
  }
- const defaults=new Map(FOUNDER_DISPLAY_CATEGORY_ROWS.map(row=>[row.id,row]));
+ const examFamilies=new Set();let uncertainExamFamily=false;
+ const supportedTypes=new Map([['usmle-step-1','USMLE'],['usmle-step-2-ck','USMLE'],['usmle-step-2-cs','USMLE'],['usmle-step-3','USMLE'],['comlex-level-1','COMLEX'],['comlex-level-2-ce','COMLEX'],['comlex-level-3','COMLEX']]);
+ for(const study of visible.filter(event=>deriveFounderEventDisplay(document,event).categoryId==='exams')){
+  const families=new Set(),type=supportedTypes.get(text(study.examTypeId));if(type)families.add(type);
+  if(study.systemId==='usmle')families.add('USMLE');if(study.systemId==='comlex')families.add('COMLEX');
+  const recordId=text(study.fields?.sourceExamRecordId),records=recordId?(document.exams||[]).filter(record=>text(record.id)===recordId):[];
+  if(records.length>1){uncertainExamFamily=true;continue;}
+  const record=records[0];
+  if(record?.system==='USMLE'&&['step-1','step-2-ck','step-2-cs','step-3'].includes(record.examId))families.add('USMLE');
+  else if(record?.system==='COMLEX-USA'&&['level-1','level-2-ce','level-3'].includes(record.examId))families.add('COMLEX');
+  else if(record){uncertainExamFamily=true;continue;}
+  const endpoints=(document.events||[]).filter(event=>examEndpoint(event)&&founderExamStudyLink(document,event)?.id===study.id);
+  for(const endpoint of endpoints)if(/^STEP_(?:1|2_CK|2_CS|3)$/.test(text(endpoint.fields?.canonicalType)))families.add('USMLE');
+  if(families.size===1)examFamilies.add([...families][0]);else uncertainExamFamily=true;
+ }
+ const examLabel=uncertainExamFamily||!examFamilies.size?'Exam Studies':examFamilies.size>1?'USMLE/COMLEX':examFamilies.has('COMLEX')?'COMLEX Studies':'USMLE Studies';
+ const defaults=new Map(FOUNDER_DISPLAY_CATEGORY_ROWS.map(row=>[row.id,row.id==='exams'?{...row,label:examLabel}:row]));
  return [...new Set([...defaults.keys(),...explicit.keys()])].filter(id=>used.has(id)).map((id,order)=>{
   const row=explicit.get(id)||defaults.get(id);return{id,order,label:text(row?.label)||id,color:/^#[0-9a-f]{6}$/i.test(text(row?.color))?text(row.color).toUpperCase():'#5B6168'};
  });
@@ -137,9 +201,11 @@ export function setFounderEventDisplay(document,eventId,changes){
  const result=structuredClone(document);result.presentationOverrides||={};result.presentationOverrides.events||={};
  const next={...(result.presentationOverrides.events[String(eventId)]||{})};
  for(const [field,value] of Object.entries(changes||{})){
-  if(!['role','institution','location','categoryId','showAsMilestone','label'].includes(field))error('FOUNDER_DISPLAY_INVALID_FIELD','Unsupported display field.');
+  if(!['role','institution','location','categoryId','showAsMilestone','label','labelSize','labelFit'].includes(field))error('FOUNDER_DISPLAY_INVALID_FIELD','Unsupported display field.');
   if(value===null){delete next[field];continue;}
-  if(field==='showAsMilestone'){if(typeof value!=='boolean')error('FOUNDER_DISPLAY_INVALID_FIELD','Milestone preference must be a boolean.');next[field]=value;}
+  if(field==='labelSize'){if(typeof value!=='number'||!Number.isFinite(value))error('FOUNDER_DISPLAY_INVALID_FIELD','Display text size must be numeric.');next[field]=Math.max(18,Math.min(24,Math.round(value)));}
+  else if(field==='labelFit'){if(!['fit','fixed'].includes(value))error('FOUNDER_DISPLAY_INVALID_FIELD','Choose readable fit or fixed text size.');next[field]=value;}
+  else if(field==='showAsMilestone'){if(typeof value!=='boolean')error('FOUNDER_DISPLAY_INVALID_FIELD','Milestone preference must be a boolean.');next[field]=value;}
   else{if(typeof value!=='string')error('FOUNDER_DISPLAY_INVALID_FIELD','Display labels must be text.');next[field]=field==='categoryId'?categoryId(text(value)):text(value);}
  }
  const id=next.categoryId;

@@ -62,17 +62,20 @@ export function builderExamForReview(document,record,{location=globalThis.locati
   if(override.localTestOnly&&!localTestStudyEnvironment(document,location))return record;
   return {...record,studyStartDate:override.studyStartDate??record.studyStartDate,studyEndDate:override.studyEndDate??record.studyEndDate,studyReviewProvenance:override.fieldProvenance};
 }
-export function proposeLocalTestStudyBounds(document,recordId,{location=globalThis.location}={}){
+export function proposeLocalTestStudyBounds(document,recordId,{location=globalThis.location,monthsBefore=3}={}){
   if(!localTestStudyEnvironment(document,location))throw new Error("Local TEST prototype confirmation required.");
+  if(![3,6,9].includes(monthsBefore))throw new Error("Choose an explicit 3, 6, or 9-month local TEST proposal.");
   const record=(document.exams||[]).find(item=>item.id===recordId),examDate=parseMonth(record?.examDate);
   if(!examDate)throw new Error("Known exam date required for a local TEST proposal.");
   const reviewed=builderExamForReview(document,record,{location}),changes={},fieldProvenance={};
-  for(const [key,value] of [["studyStartDate",addMonths(examDate,-3)],["studyEndDate",record.examDate]]){
-    if(parseMonth(reviewed[key]))continue;changes[key]=value;
+  const prior=document.builder?.examStudyReviewOverrides?.[recordId]||{};
+  for(const [key,value] of [["studyStartDate",addMonths(examDate,-monthsBefore)],["studyEndDate",record.examDate]]){
+    const refreshTestStart=key==="studyStartDate"&&!parseMonth(record[key])&&prior.localTestOnly===true&&prior.fieldProvenance?.[key]?.placeholder===true&&prior.fieldProvenance?.[key]?.reason==="LOCAL_TEST_STUDY_PROPOSAL";
+    if(parseMonth(reviewed[key])&&!refreshTestStart)continue;changes[key]=value;
     fieldProvenance[key]={placeholder:key==="studyStartDate",reason:"LOCAL_TEST_STUDY_PROPOSAL",sourcePrecision:key==="studyStartDate"?"UNKNOWN":(record.examDatePrecision||"MONTH"),originalKnownValue:key==="studyStartDate"?null:record.examDate,sourceStudyValue:record[key]||null};
   }
+  if(!Object.keys(changes).length)return document;
   document.builder||={};document.builder.examStudyReviewOverrides||={};
-  const prior=document.builder.examStudyReviewOverrides[recordId]||{};
   document.builder.examStudyReviewOverrides[recordId]={...prior,...changes,localTestOnly:true,fieldProvenance:{...(prior.fieldProvenance||{}),...fieldProvenance}};
   return applyExamWorkflow(document,examWorkflowFromDocument(document));
 }

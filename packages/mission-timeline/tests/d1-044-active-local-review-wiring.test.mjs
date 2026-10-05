@@ -1,11 +1,11 @@
-import {qualifyRenderedLayoutImprovement} from '../web/js/uxr-002/quality-guardian.js';
+import {qualifyRenderedLayoutImprovement,qualityGuardianRenderedCollisionWarnings,analyzeTimelineQuality} from '../web/js/uxr-002/quality-guardian.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {mountLocalLayoutReview407F,applyHumanAxisPresentation407F,advancedEventGeometry407F,advancedEventCreation407F,timelineRenderSignature,applySceneCommandToDocument as applyHumanEventCommand407F} from '../web/js/407f-engineering-adapter.js';
+import {mountLocalLayoutReview407F,applyHumanAxisPresentation407F,advancedEventGeometry407F,advancedEventCreation407F,timelineRenderSignature,suppressAdvancedSelectionChrome407F,applySceneCommandToDocument as applyHumanEventCommand407F} from '../web/js/407f-engineering-adapter.js';
 import {LAYOUT_CRITIC_CONSENT_VERSION,projectLayoutCritic,applyLayoutRecommendations} from '../web/js/presentation/layout-critic-projection.js';
-import {setAxisPresentationOverride,setAxisSegmentWeights,resetAxisPresentationOverride,renderAdvancedPresentationControls,resetAdvancedEventLayout,constrainAdvancedObjectToBoard} from '../web/js/uxr-002/advanced-studio.js';
-import {resolveFounderPresentationSvg} from '../web/js/presentation/resolved-founder-presentation.js';
+import {normalizeAdvancedStudioDocument,setAxisPresentationOverride,setAxisSegmentWeights,resetAxisPresentationOverride,renderAdvancedPresentationControls,resetAdvancedEventLayout,constrainAdvancedObjectToBoard} from '../web/js/uxr-002/advanced-studio.js';
+import {resolveFounderPresentationSvg,materialPresentationCollisions} from '../web/js/presentation/resolved-founder-presentation.js';
 import {buildFounderPresentationScene,serializeFounderPresentation,founderMilestoneTemplateGeometry,violatesFounderTemplateBand} from '../web/js/presentation/founder-presentation-serializer.js';
 import {applyLocalLayoutCriticSceneCommand,applySceneCommandToDocument} from '../web/js/editor/scene-commands.js';
 import {TimelineStore,migrateDocument} from '../web/js/uxr-002/store.js';
@@ -76,7 +76,7 @@ test('044 persisted receipt remains visible after capability refresh and synthet
 const renderOptions={scope:'EVERYTHING',currentMonth:'2026-10'};
 async function automaticAnchorFixture(){
   let document=structuredClone(FOUNDER_2025_MATRIX.find(item=>item.id==='M02').document);
-  document.mode='advanced';document.events=document.events.filter(event=>event.id==='work');
+  document.mode='advanced';document.layoutLock=false;document.events=document.events.filter(event=>event.id==='work');
   document.events[0].startDate='2020-07';document.events[0].endDate='2021-03';
   const projection=await projectLayoutCritic(document,renderOptions),target=projection.localContext.targetMap.get('e0001');
   document=applyLocalLayoutCriticSceneCommand(document,{kind:'geometry',target:{type:'event',id:target.objectId},geometry:{...target.geometry,y:450},
@@ -168,7 +168,7 @@ function profileOnlyEducationFixture(){
   const document=structuredClone(FOUNDER_2025_MATRIX.find(item=>item.id==='M02').document);
   document.mode='advanced';document.events=[
     {...structuredClone(document.events[1]),id:'profile-education',categoryId:'education',title:'Synthetic education span',startDate:'2008-09',endDate:'2012-06',eventType:'duration'},
-    {...structuredClone(document.events[1]),id:'displayed-work',title:'Synthetic displayed experience',startDate:'2012-07',endDate:'2026-03'},
+    {...structuredClone(document.events[1]),id:'displayed-work',title:'Synthetic displayed experience',siteName:'',startDate:'2012-07',endDate:'2026-03'},
     {...structuredClone(document.events[1]),id:'excluded-work',title:'Excluded synthetic work',startDate:'1990-01',endDate:'1991-01',visibilityState:'HIDDEN'}
   ];
   return document;
@@ -180,7 +180,7 @@ test('044 axis controls and range validation reuse displayed G4/visibility proje
   const controls=renderAdvancedPresentationControls(document);
   assert.match(controls,/value="2012" data-axis-override-field="startYear"/);assert.match(controls,/value="2026" data-axis-override-field="endYear"/);
   const range=setAxisPresentationOverride(document,{startYear:2012,endYear:2026,includeFuture:false});assert.equal(range.changed,true,range.error);assert.deepEqual(range.document.events,document.events);
-  const degree={...structuredClone(document.events[0]),id:'actual-degree',eventType:'milestone',title:'Synthetic degree completion',startDate:'2010-06',endDate:null};
+  const degree={...structuredClone(document.events[0]),id:'actual-degree',eventType:'milestone',title:'Synthetic medical degree completion',fields:{canonicalType:'MEDICAL_DEGREE'},startDate:'2010-06',endDate:null};
   const withDegree={...structuredClone(document),events:[...structuredClone(document.events),degree]};
   const invalid=setAxisPresentationOverride(withDegree,{startYear:2012,endYear:2026,includeFuture:false});assert.equal(invalid.changed,false);assert.match(invalid.error,/2010/);
   assert.equal(JSON.stringify(document),before);
@@ -231,7 +231,7 @@ test('044 single-year actual SVG/control defaults and required-date validation d
   const authoredControls=renderAdvancedPresentationControls(authored);
   assert.match(authoredControls,/value="2024" data-axis-override-field="endYear"/,'authored geometry without a composed snapshot still uses painted year labels');
   assert.equal(JSON.stringify(document),before);
-  const withFutureDegree=structuredClone(document);withFutureDegree.events.push({...structuredClone(document.events[0]),id:'actual-degree',categoryId:'education',eventType:'milestone',startDate:'2025-06',endDate:null});
+  const withFutureDegree=structuredClone(document);withFutureDegree.events.push({...structuredClone(document.events[0]),id:'actual-degree',categoryId:'education',eventType:'milestone',title:'Synthetic medical degree completion',fields:{canonicalType:'MEDICAL_DEGREE'},startDate:'2025-06',endDate:null});
   const rejected=setAxisPresentationOverride(withFutureDegree,{startYear:2024,endYear:2024,includeFuture:false});assert.equal(rejected.changed,false);assert.match(rejected.error,/2025/);
 });
 test('044 automatic control defaults follow canonical contextual year allocation without making it a required fact',()=>{
@@ -242,7 +242,7 @@ test('044 automatic control defaults follow canonical contextual year allocation
 });
 function longMilestoneFixture(){
   const document=profileOnlyEducationFixture();document.events=document.events.filter(event=>event.id==='displayed-work');
-  document.events.push({...structuredClone(document.events[0]),id:'long-publication',categoryId:'research',eventType:'milestone',startDate:'2018-06',endDate:null,title:'Synthetic publication with a long descriptive title about longitudinal clinical outcomes and complete source wording',siteName:'Synthetic Journal of Clinical Outcomes and Longitudinal Research'});
+  document.events.push({...structuredClone(document.events[0]),id:'long-publication',categoryId:'personal',eventType:'milestone',fields:{canonicalType:'CUSTOM_MILESTONE'},startDate:'2018-06',endDate:null,title:'Synthetic custom milestone with a long descriptive title about longitudinal clinical outcomes and complete source wording',siteName:'Synthetic Journal of Clinical Outcomes and Longitudinal Research'});
   return document;
 }
 test('044 native long-label milestone acquisition never uses painted group bounds as scalable 50 by 64 flag geometry',()=>{
@@ -285,8 +285,8 @@ test('044 active native acquisition and reset event action are wired through act
   const source=await readFile(new URL('../web/js/407f-engineering-adapter.js',import.meta.url),'utf8');
   assert.match(source,/const eventPresentationItem=\(id\)=>\{[\s\S]*?advancedEventGeometry407F/);
   assert.match(source,/!\["group","event"\]\.includes\(object.type\)/,'pointer start cannot replace event geometry with a painted label group bbox');
-  assert.match(source,/if\(target.type==="event"\)return\[\{action:"reset-event-layout",label:"Reset event layout"/);
-  assert.match(source,/if\(selection.type==="event"\)return\[\{action:"reset-event-layout"/);
+  assert.match(source,/if\(target.type==="event"\)return\[[^\]]*\{action:"reset-event-layout",label:"Reset event layout"/);
+  assert.match(source,/if\(selection.type==="event"\)return\[[^\]]*\{action:"reset-event-layout"/);
   const begin=source.indexOf('case"reset-event-layout":{')+'case"reset-event-layout":'.length,end=source.indexOf('case"duplicate":',begin),action=source.slice(begin,end).trim();
   let document=longMilestoneFixture();document.events.find(event=>event.id==='long-publication').manualOffset={x:100};
   const store={document,entitlement:{canMutate:true},replace(next){this.document=next;}},target={type:'event',id:'long-publication'};let sync=0,selected=0;
@@ -317,6 +317,8 @@ function resolvedLongDegreeFixture(){
   document.events[0].startDate='2025-06';
   document.events[0].title='Synthetic medical degree with complete longitudinal professional education source wording';
   document.events[0].siteName='Synthetic International Medical University';
+  document.events[0].fields={...(document.events[0].fields||{}),canonicalType:'MEDICAL_DEGREE'};
+  document.presentationOverrides={...(document.presentationOverrides||{}),events:{degree:{institution:document.events[0].siteName}},axis:{mode:'manual',startYear:2020,endYear:2026,includeFuture:false}};
   document.events[1].startDate='2020-01';document.events[1].endDate='2026-03';
   const label=document.events[0].title+' — '+document.events[0].siteName;
   // Deterministic synthetic font metrics reproduce the independent 957px case.
@@ -392,14 +394,18 @@ test('044 all four actual first-edit creation paths retain resolved 957px flippe
 test('044 native first resize retains packing and actual study attachment; old authored geometry is not reinterpreted',()=>{
   const {document,options}=resolvedLongDegreeFixture(),geometry=advancedEventGeometry407F(document,'degree',{dataset:{eventKind:'flag'}},options);
   const resized=applySceneCommandToDocument(document,{kind:'geometry',target:{type:'event',id:'degree'},geometry:{...geometry,width:60,height:80},create:advancedEventCreation407F(document,'degree',options)},options).document;
-  const paint=flagPaint(resized,'degree',options);assert.equal(paint.labels.length,1);assert.equal(paint.template.poleFootY,125);
+  const paint=flagPaint(resized,'degree',options),beforeResize=flagPaint(document,'degree',options);
+  assert.equal(paint.labels.map(node=>node.text).join(' '),beforeResize.labels.map(node=>node.text).join(' '),'resize preserves the full native label even when it rewraps');
+  const nativeLabelFont=beforeResize.labels[0],requestedHeightScale=80/geometry.height;
+  assert.ok(paint.labels.every(node=>Math.abs(node.fontSize-nativeLabelFont.fontSize*requestedHeightScale)<1e-9&&node.fontFamily===nativeLabelFont.fontFamily),'first resize scales native typography with the requested body height');assert.equal(paint.template.poleFootY,125);
+  const resizedGeometry=resized.advanced.scene.objects.find(object=>object.semanticRef==='degree').geometry;assert.equal(resizedGeometry.width,60);assert.equal(resizedGeometry.height,80);
   const attached=structuredClone(FOUNDER_2025_MATRIX.find(item=>item.id==='M01').document);attached.mode='advanced';attached.layoutLock=false;
   attached.events.find(event=>event.id==='study').fields={attemptId:'synthetic-attempt',isStudyPeriod:true};
   attached.events.find(event=>event.id==='exam').fields={attemptId:'synthetic-attempt',result:'Passed'};
   const native=flagPaint(attached,'exam',renderOptions);assert.equal(native.template.kind,'EXAM_RESULT');assert.notEqual(native.template.attachmentY,125);
   const examGeometry=advancedEventGeometry407F(attached,'exam',{dataset:{eventKind:'flag'}},renderOptions);
   const moved=applySceneCommandToDocument(attached,{kind:'geometry',target:{type:'event',id:'exam'},geometry:{...examGeometry,y:examGeometry.y+5},create:advancedEventCreation407F(attached,'exam',renderOptions)},renderOptions).document;
-  const result=flagPaint(moved,'exam',renderOptions);assert.equal(result.template.poleFootY,native.template.poleFootY);assert.equal(result.template.poleFootY,result.template.attachmentY);assert.deepEqual(moved.events,attached.events);
+  const result=flagPaint(moved,'exam',renderOptions);assert.equal(result.template.poleFootY,result.paint.nodes.find(node=>node.semanticRef==='study'&&node.sourceAttributes['data-continuous-duration-arrow']).commands[0].y,'manual exam pole remains attached to the currently painted automatic study arrow');assert.equal(result.template.poleFootY,result.template.attachmentY);assert.deepEqual(moved.events,attached.events);
   const studyMoved=applySceneCommandToDocument(moved,{kind:'geometry',target:{type:'event',id:'study'},geometry:{x:800,y:480,width:250,height:43.567795,rotation:0},create:advancedEventCreation407F(moved,'study',renderOptions)},renderOptions).document;
   const updatedStudy=flagPaint(studyMoved,'exam',renderOptions);assert.equal(updatedStudy.template.poleFootY,480);assert.equal(updatedStudy.template.poleFootY,updatedStudy.template.attachmentY,'native attachment follows its actual study geometry');
   const authored=applySceneCommandToDocument(document,{kind:'geometry',target:{type:'event',id:'degree'},geometry:{x:1100,y:65,width:85,height:78,rotation:8},create:{type:'event',semanticRef:'degree',aspectLocked:false,presentation:{eventType:'milestone',flagLabelLayout:{width:320,flip:false}}}},options).document;
@@ -439,7 +445,7 @@ test('044 native metadata does not alter unrelated manual geometry, photos, axis
 test('044 hydrated synthetic photo affects visible packing and all four actual creation handlers retain those media options',async()=>{
   const source=await readFile(new URL('../web/js/407f-engineering-adapter.js',import.meta.url),'utf8'),{document,options}=resolvedLongDegreeFixture();
   document.mediaItems=[{id:'synthetic-photo',placement:'photo1',visibilityState:'INTERVIEWER_SAFE'}];
-  document.presentationOverrides={photoFrames:{1:{x:400,y:30,width:300,height:90,rotation:0}}};
+  document.presentationOverrides={...document.presentationOverrides,photoFrames:{1:{x:400,y:30,width:300,height:90,rotation:0}}};
   options.mediaUrls=new Map([['synthetic-photo','blob:synthetic-local-only']]);
   const begin=source.indexOf('const liveMediaById=')+'const liveMediaById='.length;
   const hydrate=new Function('mediaUrls','return '+source.slice(begin,source.indexOf('const hydrateMissingAdvancedMedia=',begin)).trim())(options.mediaUrls);
@@ -469,8 +475,11 @@ test('044 hydrated synthetic photo affects visible packing and all four actual c
 async function retainedCriticAxisFixture(){
   const {document,options}=resolvedLongDegreeFixture();
   document.mediaItems=[{id:'density-photo',placement:'photo1',visibilityState:'INTERVIEWER_SAFE',crop:{x:.1,y:.2,width:.7,height:.6}}];
-  document.presentationOverrides={photoFrames:{1:{x:400,y:30,width:300,height:90,rotation:0}}};
-  options.mediaById=new Map([['density-photo','blob:synthetic-density-only']]);
+  document.presentationOverrides={...document.presentationOverrides,photoFrames:{1:{x:400,y:30,width:300,height:90,rotation:0}}};
+  options.mediaUrls=new Map([['density-photo','blob:synthetic-density-only']]);
+  const adapterSource=await readFile(new URL('../web/js/407f-engineering-adapter.js',import.meta.url),'utf8'),beginMedia=adapterSource.indexOf('const liveMediaById=')+'const liveMediaById='.length;
+  const hydrate=new Function('mediaUrls','return '+adapterSource.slice(beginMedia,adapterSource.indexOf('const hydrateMissingAdvancedMedia=',beginMedia)).trim())(options.mediaUrls);
+  options.mediaById=hydrate(document);
   const projection=await projectLayoutCritic(document,options);let adopted=structuredClone(document);
   for(const target of projection.localContext.targetMap.values()){
     if(!target.editable)continue;
@@ -527,7 +536,9 @@ test('044 actual human boundary and Reset automatic restore density for retained
     assert.equal(object.presentation.localLayoutCriticAuto,true);
   }
   const afterPaint=flagPaint(store.document,'degree',options);assert.equal(afterPaint.template.poleFootY,125);
-  assert.deepEqual(afterPaint.texts.map(node=>[node.text,node.fontSize,node.fontFamily]),beforePaint.texts.map(node=>[node.text,node.fontSize,node.fontFamily]));
+  assert.equal(afterPaint.labels.map(node=>node.text).join(' '),beforePaint.labels.map(node=>node.text).join(' '),'automatic axis reset may rewrap but retains every label word');
+  const otherText=paint=>paint.texts.filter(node=>node.sourceAttributes['data-board-ink-role']!=='flag-label').map(node=>[node.text,node.fontSize,node.fontFamily]);
+  assert.deepEqual(otherText(afterPaint),otherText(beforePaint));assert.ok(afterPaint.labels.every(node=>node.fontSize===18&&node.fontFamily==='American Typewriter'));
   assert.deepEqual(store.document.events,original.events);assert.deepEqual(store.document.mediaItems,original.mediaItems);assert.deepEqual(store.document.presentationOverrides.photoFrames,original.presentationOverrides.photoFrames);
   await store.saveNow('SYNTHETIC_AI_AXIS_RESET');const saved=JSON.parse(JSON.stringify(records.find(entry=>entry.store==='documents').value.document));
   assert.equal(saved.presentationOverrides.axis,undefined);assert.deepEqual(saved.events,store.document.events);assert.deepEqual(saved.mediaItems,store.document.mediaItems);
@@ -602,7 +613,7 @@ test('044 automatic ordering leaves authored raw placements and same-start excep
 test('044 ordinary 22-event label-aware adaptive composition has a bounded local runtime and deterministic source-preserving output',()=>{
   const document={id:'synthetic-normal-density',theme:'keynote-classic',studentProfile:{fullName:'Synthetic'},
     events:[...Array.from({length:10},(_,index)=>({id:'d'+index,title:'Synthetic documented role '+index,siteName:'Synthetic Academic Institution',categoryId:'work',eventType:'duration',startDate:`${2014+index}-03`,endDate:`${2015+index}-10`,visibilityState:'INTERVIEWER_SAFE'})),
-    ...Array.from({length:12},(_,index)=>({id:'f'+index,title:'Synthetic documented milestone '+index,siteName:'Synthetic Academic Institution',categoryId:'personal',eventType:'milestone',startDate:`${2012+index}-06`,visibilityState:'INTERVIEWER_SAFE'}))],advanced:{media:[],textBlocks:[],elements:[],groups:[]}};
+    ...Array.from({length:12},(_,index)=>({id:'f'+index,title:'Synthetic documented milestone '+index,siteName:'Synthetic Academic Institution',categoryId:'personal',eventType:'milestone',fields:{canonicalType:'CUSTOM_MILESTONE'},startDate:`${2012+index}-06`,visibilityState:'INTERVIEWER_SAFE'}))],advanced:{media:[],textBlocks:[],elements:[],groups:[]}};
   const source=JSON.stringify(document),options={scope:'EVERYTHING',currentMonth:'2026-10'},start=performance.now(),first=serializeFounderPresentation(document,options);
   assert.ok(performance.now()-start<5000,'ordinary composition must finish within the bounded local render budget');
   const again=serializeFounderPresentation(document,options);assert.equal(first.svg,again.svg);assert.equal(JSON.stringify(document),source);
@@ -643,8 +654,8 @@ test('044 trusted automatic flag first human takeover captures current packed me
 
 test('044 all actual first-human creation paths retain selected native19 label spacing across persistence',async()=>{
   const source=await readFile(new URL('../web/js/407f-engineering-adapter.js',import.meta.url),'utf8');
-  const title='Synthetic publication documenting completed academic research with complete source wording '.repeat(3).trim();
-  const document={id:'synthetic-native-pitch-handover',mode:'advanced',layoutLock:false,theme:'keynote-classic',studentProfile:{fullName:'Synthetic'},events:[{id:'f',title,categoryId:'personal',eventType:'milestone',startDate:'2020-06',visibilityState:'INTERVIEWER_SAFE'}],presentationOverrides:{axis:{mode:'manual',startYear:2020,endYear:2026,includeFuture:false,segmentWeights:Array.from({length:7},(_,index)=>({id:String(2020+index),weight:1}))}},advanced:{media:[],textBlocks:[],elements:[],groups:[]}};
+  const title='Synthetic custom milestone documenting completed academic research with complete source wording '.repeat(3).trim();
+  const document={id:'synthetic-native-pitch-handover',mode:'advanced',layoutLock:false,theme:'keynote-classic',studentProfile:{fullName:'Synthetic'},events:[{id:'f',title,categoryId:'personal',eventType:'milestone',fields:{canonicalType:'CUSTOM_MILESTONE'},startDate:'2020-06',visibilityState:'INTERVIEWER_SAFE'}],presentationOverrides:{axis:{mode:'manual',startYear:2020,endYear:2026,includeFuture:false,segmentWeights:Array.from({length:7},(_,index)=>({id:String(2020+index),weight:1}))}},advanced:{media:[],textBlocks:[],elements:[],groups:[]}};
   const options={scope:'EVERYTHING',currentMonth:'2026-10'},snapshot=JSON.stringify(document),native=flagPaint(document,'f',options),geometry=advancedEventGeometry407F(document,'f',{dataset:{eventKind:'flag'}},options);
   assert.equal(native.rendered.scene.autoFlagLabels.get('f').linePitch,19);assert.equal(native.template.poleFootY,125);
   for(const path of ['kernel','keyboard','pointer','rotate']){
@@ -655,4 +666,60 @@ test('044 all actual first-human creation paths retain selected native19 label s
     if(path!=='rotate'){assert.equal(paint.template.poleFootY,125,path);assert.ok(paint.labels.every(node=>node.fontSize===18),path);for(let index=1;index<paint.labels.length;index++)assert.ok(Math.abs(paint.labels[index].bounds.y-paint.labels[index-1].bounds.y-19)<.001,path);}
   }
   assert.equal(JSON.stringify(document),snapshot);
+});
+
+
+test('044 automatic institution-label clearance adds contextual prior year while explicit source range remains valid',()=>{
+  const document=profileOnlyEducationFixture();document.events.find(event=>event.id==='displayed-work').siteName='Synthetic Academic Institution';
+  const before=JSON.stringify(document),rendered=serializeFounderPresentation(document,renderOptions),controls=renderAdvancedPresentationControls(document);
+  assert.equal(rendered.scene.span.firstYear,2012);assert.equal(rendered.scene.composedAxis.startYear,2011);
+  assert.match(controls,/value="2011" data-axis-override-field="startYear"/);
+  const manual=setAxisPresentationOverride(document,{startYear:2012,endYear:2026,includeFuture:false});assert.equal(manual.changed,true,manual.error);
+  assert.deepEqual(manual.document.events,document.events);assert.equal(JSON.stringify(document),before);
+});
+
+
+test('044 Advanced normalization preserves explicit global lock and only defaults absent lock to free placement',()=>{
+  for(const initialized of [false,true])for(const lock of [true,false,undefined]){
+    const document={mode:'advanced',preferences:{advancedFreePlacementInitialized:initialized},advanced:{},...(lock===undefined?{}:{layoutLock:lock})},before=JSON.stringify(document);
+    const normalized=normalizeAdvancedStudioDocument(document);assert.equal(normalized.layoutLock,lock===true);assert.equal(normalized.preferences.advancedFreePlacementInitialized,true);assert.equal(JSON.stringify(document),before);
+    assert.deepEqual(normalizeAdvancedStudioDocument(normalized),normalized);
+  }
+  assert.equal(normalizeAdvancedStudioDocument({mode:'guided'}).layoutLock,true);
+});
+
+
+const guardianNativePaintSvg=(captionY=202,marker='automatic',path='M100 210H480V200L500 222L480 244V234H100Z')=>`<svg viewBox="0 0 1920 1080"><g data-event-id="native-arrow" data-event-kind="arrow"><path data-continuous-duration-arrow="true" data-native-arrow-paint="${marker}" d="${path}" fill="#DF6A0F"/></g><g data-event-id="caption" data-event-kind="arrow"><text x="110" y="${captionY}" font-size="18" font-family="Arial">Synthetic caption</text></g></svg>`;
+test('044 Guardian uses filled automatic native paint for empty shoulder corners and still reports genuine shaft overlap',()=>{
+  const clear={svg:guardianNativePaintSvg()},paint=resolveFounderPresentationSvg(clear.svg),arrow=paint.nodes.find(node=>node.kind==='path'),caption=paint.nodes.find(node=>node.kind==='text');
+  assert.ok(caption.bounds.y+caption.bounds.height>arrow.bounds.y,'the old whole-arrow rectangle intersects');
+  assert.ok(caption.bounds.y+caption.bounds.height<210,'the caption is above actual filled shaft');
+  assert.ok(caption.bounds.x+caption.bounds.width<480,'the caption is outside the filled triangle');
+  assert.deepEqual(qualityGuardianRenderedCollisionWarnings(clear),[]);
+  const overlap={svg:guardianNativePaintSvg(220)},before=JSON.stringify(overlap),warnings=qualityGuardianRenderedCollisionWarnings(overlap);
+  assert.equal(warnings.length,1);assert.deepEqual(warnings[0].elementIds,['caption','native-arrow']);assert.equal(warnings[0].code,'MATERIAL_PAINT_COLLISION');assert.equal(JSON.stringify(overlap),before);
+  assert.equal(warnings.length,materialPresentationCollisions(resolveFounderPresentationSvg(overlap.svg)).length);
+});
+test('044 Guardian keeps unknown and authored arrow envelopes conservative without trusting a malformed native marker',()=>{
+  for(const [marker,path] of [['authored',undefined],['',undefined],['automatic','M100 200H500V244H100Z']]){
+    const rendered={svg:guardianNativePaintSvg(202,marker,path)},snapshot=JSON.stringify(rendered);
+    assert.equal(qualityGuardianRenderedCollisionWarnings(rendered).length,1);assert.equal(JSON.stringify(rendered),snapshot);
+  }
+});
+test('044 actual Guardian collision count equals canonical full-scope painted collisions without exposing hidden source labels',()=>{
+  const document=structuredClone(FOUNDER_2025_MATRIX.find(item=>item.id==='M02').document);
+  document.events.push({...structuredClone(document.events[0]),id:'hidden-private-source',title:'PRIVATE_SYNTHETIC_LABEL',visibilityState:'HIDDEN'});
+  const snapshot=JSON.stringify(document),rendered=serializeFounderPresentation(document,{scope:'FULL_STORY'}),expected=materialPresentationCollisions(resolveFounderPresentationSvg(rendered.svg)),report=analyzeTimelineQuality(document),finding=report.findings.find(item=>item.code==='COLLISION_RISK');
+  assert.equal(finding?.evidence.collisionCount||0,expected.length);assert.equal(qualityGuardianRenderedCollisionWarnings(rendered).length,expected.length);
+  assert.doesNotMatch(JSON.stringify(finding||{}),/PRIVATE_SYNTHETIC_LABEL|hidden-private-source/);assert.equal(JSON.stringify(document),snapshot);
+});
+
+test('B1 Details suppresses retained selection handles/quickbar, queued stale creation and context chrome without losing selected event',async()=>{
+ const state={advancedSelection:{type:'event',id:'synthetic-event'},detailsEventId:'synthetic-event'},before=JSON.stringify(state);
+ assert.equal(suppressAdvancedSelectionChrome407F(state),true);assert.equal(suppressAdvancedSelectionChrome407F({...state,detailsEventId:null},{detailsMounted:true}),true);assert.equal(suppressAdvancedSelectionChrome407F({...state,detailsEventId:null},{modalOpen:true}),true);assert.equal(suppressAdvancedSelectionChrome407F({...state,detailsEventId:null}),false);assert.equal(JSON.stringify(state),before);
+ const source=await readFile(new URL('../web/js/407f-engineering-adapter.js',import.meta.url),'utf8'),start=source.indexOf('const syncAdvancedSelectionChrome=()=>{'),end=source.indexOf('    /* Hover outline',start),body=source.slice(start,end).replace('const syncAdvancedSelectionChrome=()=>{','').replace(/\};\s*$/,'');
+ let direct=0,hover=0,menus=0,restored=0,open=true;const execute=new Function('advancedDialogOpen','clearAdvancedDirectSelection','clearAdvancedHoverChrome','closeAdvancedContextMenu','advancedPointer','marqueePointer','railPointer','axisPointer','advancedCrop','renderAdvancedCropChrome','canvasController','store','requestAdvancedDirectSelection',body),controller={state};
+ const run=()=>execute(()=>open,()=>direct++,()=>hover++,()=>menus++,null,null,null,null,null,()=>{},controller,{document:{mode:'advanced'}},selection=>{assert.deepEqual(selection,state.advancedSelection);restored++;});
+ run();assert.deepEqual([direct,hover,menus,restored],[1,1,1,0]);open=false;controller.state={...state,detailsEventId:null};run();assert.equal(restored,1,'existing render synchronization restores retained selection after close');assert.equal(JSON.stringify(state),before);
+ const queued=source.slice(source.indexOf('const showAdvancedDirectSelection='),source.indexOf('const showAdvancedDirectSelection=')+650);assert.match(queued,/clearAdvancedDirectSelection\(\);\s*if\(advancedDialogOpen\(\)\)return;/);
 });

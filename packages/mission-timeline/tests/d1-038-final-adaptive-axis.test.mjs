@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {deriveFounderYearAllocation,restoreFounderYearAllocation} from '../web/js/uxr-002/adaptive-layout.js';
+import {deriveFounderYearAllocation,restoreFounderYearAllocation,allocateFounderRoleYearWidths} from '../web/js/uxr-002/adaptive-layout.js';
 import {serializeFounderPresentation,serializeFounderScene,buildFounderPresentationScene,assertCompleteFounderPresentation,founderMilestoneTemplateGeometry} from '../web/js/presentation/founder-presentation-serializer.js';
-import {composeLocked407FPortableSvg,validateLocked407FChronology,locked407FMilestoneGeometry} from '../web/js/uxr-002/locked-407f-export.js';
+import {composeLocked407FPortableSvg,locked407FReadabilityRiskScore,validateLocked407FChronology,locked407FMilestoneGeometry} from '../web/js/uxr-002/locked-407f-export.js';
 import {resolveFounderPresentationSvg,materialPresentationCollisions} from '../web/js/presentation/resolved-founder-presentation.js';
 import {applySceneCommandToDocument} from '../web/js/editor/scene-commands.js';
 import {setAxisSegmentWeights} from '../web/js/uxr-002/advanced-studio.js';
@@ -375,4 +375,66 @@ test('macro milestone packing preserves a manual axis and authored native flag g
   const result=render(owned);assert.deepEqual(result.scene.founderPresentation.axis,axis);
   const actual=locked407FMilestoneGeometry(result.scene,'macro-flag-0');for(const key of ['x','y','width','height','rotation'])close(actual[key],geometry[key],.04);
   assert.deepEqual(owned.events,input.events);assert.deepEqual(result.scene.chronologyOrder.violations,[]);
+});
+
+
+test('concise native roles reserve calendar-fraction demand without spreading full source labels through quiet years',()=>{
+ const span=duration('ongoing','2013-01','2026-12',{title:'Accepted source role '.repeat(30),siteName:'Accepted source organization '.repeat(30),display:{role:'Work',institution:'Supplied organization'}});
+ const study=duration('short-study','2024-06','2024-09',{title:'Accepted full exam study title '.repeat(20),categoryId:'exams',fields:{isStudyPeriod:true},display:{role:'Step 2 CK',institution:''}});
+ const source=[span,study],before=JSON.stringify(source),allocation=deriveFounderYearAllocation(source,{firstYear:2013,lastYear:2026,measureText:measure});
+ assert.ok(allocation.autoYearWeights.get(2024)>8,'uncapped native role/calendar pressure distinguishes this short busy period');
+ const weights=allocation.composedAxis.segmentWeights,total=weights.reduce((sum,segment)=>sum+segment.weight,0),width=year=>1918*.96*weights.find(segment=>segment.id===String(year)).weight/total;
+ assert.ok(width(2024)>250);assert.ok(width(2024)>width(2018)*2);assert.ok(width(2018)>=80-1e-8);
+ assert.ok(weights.every(segment=>segment.weight>=.25&&segment.weight<=8));assert.equal(JSON.stringify(source),before);
+ const sameDisplay=[span,{...study,title:'Different retained source title',siteName:'Different retained source institution'}];
+ assert.deepEqual(deriveFounderYearAllocation(sameDisplay,{firstYear:2013,lastYear:2026,measureText:measure}).composedAxis,allocation.composedAxis);
+});
+
+
+test('native role readability takes priority over body count while equal readability preserves clearance',()=>{
+ const clipped={overflow:9,bodyRisk:1,collisions:1},readable={overflow:0,bodyRisk:2,collisions:2};
+ assert.ok(Number.isFinite(locked407FReadabilityRiskScore(readable,clipped)));assert.ok(locked407FReadabilityRiskScore(readable,clipped)<locked407FReadabilityRiskScore(clipped));
+ assert.equal(locked407FReadabilityRiskScore({overflow:1,bodyRisk:3,collisions:3},readable),Infinity);
+ assert.equal(locked407FReadabilityRiskScore({overflow:0,bodyRisk:3,collisions:3},readable),Infinity);
+ assert.ok(locked407FReadabilityRiskScore({overflow:0,bodyRisk:1,collisions:1},readable)<locked407FReadabilityRiskScore(readable));
+});
+
+
+test('bounded year widths satisfy full-span native roles within a fixed budget and retain quiet floors',()=>{
+ const events=[duration('cross-year','2021-10','2022-04',{display:{role:'Medical Intern',institution:''}}),duration('study','2024-06','2024-09',{display:{role:'Step 2 CK',institution:''}}),duration('short-clinical','2026-05','2026-06',{display:{role:'FM',institution:''}})],before=JSON.stringify(events);
+ const result=allocateFounderRoleYearWidths(events,{firstYear:2013,lastYear:2026,measureText:measure}),widths=[...result.widths.values()];
+ close(widths.reduce((sum,width)=>sum+width,0),1918*.96);assert.ok(widths.every(width=>width>=80));assert.ok(result.constraints.every(constraint=>constraint.deficit<.1));assert.ok(result.widths.get(2024)>250);assert.ok(result.widths.get(2018)<result.widths.get(2024)/2);assert.equal(JSON.stringify(events),before);
+ const impossible=allocateFounderRoleYearWidths([duration('too-wide','2025-01','2025-01',{display:{role:'Native role '.repeat(100),institution:''}})],{firstYear:2013,lastYear:2026,measureText:measure});
+ assert.ok(impossible.constraints[0].deficit>0);close([...impossible.widths.values()].reduce((sum,width)=>sum+width,0),1918*.96);
+});
+
+
+test('native minimum arrows already satisfy short roles and native year floors leave budget for longer roles',()=>{
+ const events=[duration('short-fm','2026-05','2026-05',{display:{role:'FM',institution:''}}),duration('real-study','2024-06','2024-09',{display:{role:'Step 2 CK',institution:''}})];
+ const allocation=allocateFounderRoleYearWidths(events,{firstYear:2013,lastYear:2026,minYearWidth:68,minArrowWidth:52,measureText:measure});
+ assert.ok(!allocation.constraints.some(constraint=>constraint.eventId==='short-fm'));assert.ok(allocation.constraints.some(constraint=>constraint.eventId==='real-study'));assert.ok(allocation.constraints.every(constraint=>constraint.deficit<.1));
+ assert.ok([...allocation.widths.values()].every(width=>width>=68));close([...allocation.widths.values()].reduce((sum,width)=>sum+width,0),1918*.96);
+});
+
+
+test('the context year reserves a measured leading institution word without losing role budget or chronology',()=>{
+ const allocation=allocateFounderRoleYearWidths([duration('left-label','2020-01','2026-03',{display:{role:'Role',institution:'Synthetic Hospital'}})],{firstYear:2019,lastYear:2026,minYearWidth:68,measureText:measure,measureInstitutionText:text=>text.length*10});
+ const institution=allocation.constraints.find(constraint=>constraint.field==='institution');assert.ok(institution);assert.ok(institution.deficit<.1);assert.ok(allocation.widths.get(2019)>=90+38-1918*.02-.1);
+ assert.ok(allocation.constraints.every(constraint=>constraint.deficit<.1));close([...allocation.widths.values()].reduce((sum,width)=>sum+width,0),1918*.96);
+});
+
+
+test('an open-ended arrow budget uses its resolved end month and reserves native pixel rounding',()=>{
+ const allocation=allocateFounderRoleYearWidths([duration('resolved-open','2024-05','2024-06',{openEnded:true,display:{role:'Step 2 CK',institution:''}})],{firstYear:2024,lastYear:2024,measureText:measure});
+ const constraint=allocation.constraints[0];close(constraint.available,allocation.widths.get(2024)*2/12);close(constraint.required,measure('Step 2 CK',18)+19.454+4+1);
+ assert.equal(constraint.deficit,0);
+});
+
+
+test('measured fixed-furniture institution clearance uses preceding calendar widths while preserving native role constraints',()=>{
+ const events=[duration('beside-key','2020-01','2023-12',{display:{role:'Work',institution:'Supplied Institution'}}),duration('study-clearance','2025-06','2025-09',{display:{role:'Step 2 CK',institution:''}})],before=JSON.stringify(events);
+ const allocation=allocateFounderRoleYearWidths(events,{firstYear:2019,lastYear:2026,minimumStartX:new Map([['beside-key',450]]),measureText:measure,balanceYears:true});
+ const constraint=allocation.constraints.find(item=>item.field==='institution-furniture');assert.ok(constraint);assert.ok(constraint.deficit<.1);
+ assert.ok(1+1918*.02+allocation.widths.get(2019)>=449.9);assert.ok(allocation.constraints.every(item=>item.deficit<.1));
+ close([...allocation.widths.values()].reduce((sum,width)=>sum+width,0),1918*.96);assert.ok([...allocation.widths.values()].every(width=>width>=80));assert.equal(JSON.stringify(events),before);
 });
