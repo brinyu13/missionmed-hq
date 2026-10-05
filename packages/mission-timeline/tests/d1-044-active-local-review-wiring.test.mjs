@@ -250,7 +250,9 @@ test('044 native long-label milestone acquisition never uses painted group bound
   const geometry=advancedEventGeometry407F(document,'long-publication',source,renderOptions);
   assert.equal(geometry.width,50);assert.equal(geometry.height,64);assert.equal(JSON.stringify(document),before,'selection does not materialize a scene override');
   const native=serializeFounderPresentation(document,renderOptions),paint=svg=>resolveFounderPresentationSvg(svg).nodes.filter(node=>node.semanticRef==='long-publication'&&node.kind==='text');
-  const moved=applySceneCommandToDocument(document,{kind:'geometry',target:{type:'event',id:'long-publication'},geometry:{...geometry,y:geometry.y+5},create:{type:'event',semanticRef:'long-publication',aspectLocked:false,presentation:{eventType:'milestone'}}},renderOptions);
+  // Match the production first-edit handlers: acquire native body geometry
+  // and capture its separate label packing before applying the scene command.
+  const moved=applySceneCommandToDocument(document,{kind:'geometry',target:{type:'event',id:'long-publication'},geometry:{...geometry,y:geometry.y+5},create:advancedEventCreation407F(document,'long-publication',renderOptions)},renderOptions);
   assert.equal(moved.changed,true);const resetAxis=resetAxisPresentationOverride(moved.document).document,after=serializeFounderPresentation(resetAxis,renderOptions);
   const text=node=>({text:node.text,fontSize:node.fontSize,fontFamily:node.fontFamily,width:node.bounds.width});
   assert.deepEqual(paint(after.svg).map(text),paint(native.svg).map(text),'title, institution and date typography never stretch after first move or axis reset');
