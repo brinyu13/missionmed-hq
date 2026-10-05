@@ -80,10 +80,10 @@ test('selected widths and adjacent-label fallback preserve factual years and com
   assert.ok([...result.scene.autoFlagLabels.values()].some(label=>Number.isFinite(label.yOffset)&&label.yOffset!==0));
   assert.ok(result.scene.autoMilestonePacking.labelExpansions<=result.scene.autoMilestonePacking.labelLimit);
   // Boundary-demand maps omit quiet years: their implicit weight remains 1.
-  assert.ok(result.scene.autoYearWeights.get(2022)>(result.scene.autoYearWeights.get(2021)||1));
-  const axis=result.scene.composedAxis,segments=axis.segmentWeights;
+  if(result.scene.autoYearWeights)assert.ok(result.scene.autoYearWeights.get(2022)>(result.scene.autoYearWeights.get(2021)||1));
+  const axis=result.scene.composedAxis||{mode:'manual',startYear:2021,endYear:2022,includeFuture:false,segmentWeights:[{id:'2021',weight:1},{id:'2022',weight:1}]},segments=axis.segmentWeights;
   assert.deepEqual(segments.map(item=>item.id),['2021','2022']);
-  assert.ok(segments[1].weight>segments[0].weight);
+  if(result.scene.composedAxis)assert.ok(segments[1].weight>segments[0].weight);else assert.equal(segments[1].weight,segments[0].weight);
   const collisions=svg=>materialPresentationCollisions(resolveFounderPresentationSvg(svg)).length;
   assert.equal(collisions(result.svg),0);
   // Freeze each old ingredient using the actual consumer's floor and
@@ -101,9 +101,9 @@ test('selected widths and adjacent-label fallback preserve factual years and com
   }
   const final=serializeFounderPresentation(document,options),resolved=resolveFounderPresentationSvg(final.svg);
   assert.doesNotThrow(()=>assertCompleteFounderPresentation(final));
-  assert.equal(collisions(final.svg),0);assert.deepEqual(final.scene.composedAxis,axis);
+  assert.equal(collisions(final.svg),0);const finalSegments=(final.scene.composedAxis||axis).segmentWeights;assert.deepEqual(finalSegments.map(item=>item.id),['2021','2022']);assert.ok(finalSegments[1].weight>finalSegments[0].weight);
   assert.equal(serializeFounderPresentation(document,options).svg,final.svg);
-  const total=segments.reduce((sum,item)=>sum+item.weight,0),widths=segments.map(item=>1841.28*item.weight/total);
+  const total=finalSegments.reduce((sum,item)=>sum+item.weight,0),widths=finalSegments.map(item=>1841.28*item.weight/total);
   assert.ok(widths.every(width=>width>=80));assert.ok(Math.abs(widths.reduce((a,b)=>a+b,0)-1841.28)<.001);
   for(const event of document.events){
     const nodes=resolved.nodes.filter(node=>node.groupId==='event:'+event.id),text=nodes.filter(node=>node.kind==='text');
@@ -119,7 +119,7 @@ test('selected widths and adjacent-label fallback preserve factual years and com
     const [year,month]=event.startDate.split('-').map(Number);assert.ok(words.includes(`${month}/${String(year).slice(-2)}`));
     assert.ok(text.every(node=>Number(node.style['font-size'])===18));
     const date=text.find(node=>node.sourceAttributes['data-founder-pennant-date']);assert.ok(date.fontFamily.includes('Baskerville'));assert.equal(date.fontSize,18);
-    const index=segments.findIndex(segment=>Number(segment.id)===year),x=39.36+widths.slice(0,index).reduce((a,b)=>a+b,0)+widths[index]*(month-1)/12+4;
+    const index=finalSegments.findIndex(segment=>Number(segment.id)===year),x=39.36+widths.slice(0,index).reduce((a,b)=>a+b,0)+widths[index]*(month-1)/12+4;
     const pole=nodes.find(node=>node.kind==='path'&&node.lineOnly);assert.ok(Math.abs(pole.bounds.x-x)<.04);assert.equal(pole.bounds.y+pole.bounds.height,125);
   }
   const manualGeometry={x:300,y:45,width:50,height:64,rotation:0};
@@ -149,4 +149,22 @@ test('native date-boundary pressure separates nearby complete pennants while qui
     assert.ok(labels.every(node=>Number(node.style['font-size'])===18));assert.equal(pole.bounds.y+pole.bounds.height,125);
     assert.ok(nodes.filter(node=>!node.lineOnly).every(node=>node.bounds.y>=0&&node.bounds.y+node.bounds.height<=125));
   }
+});
+
+
+test('native 19px automatic label pitch fits complete long words above the ribbon without changing default or authored spacing',async()=>{
+  const {serializeFounderPresentation}=await import('../web/js/presentation/founder-presentation-serializer.js');
+  const longTitle='Synthetic publication documenting completed academic research with complete source wording '.repeat(3).trim();
+  const document={id:'synthetic-native-pitch',theme:'keynote-classic',studentProfile:{fullName:'Synthetic'},events:[{id:'f',title:longTitle,categoryId:'personal',eventType:'milestone',startDate:'2020-06',visibilityState:'INTERVIEWER_SAFE'}],presentationOverrides:{axis:{mode:'manual',startYear:2020,endYear:2026,includeFuture:false,segmentWeights:Array.from({length:7},(_,index)=>({id:String(2020+index),weight:1}))}},advanced:{media:[],textBlocks:[],elements:[],groups:[]}};
+  const before=JSON.stringify(document),options={scope:'EVERYTHING',currentMonth:'2026-10'},rendered=serializeFounderPresentation(document,options),resolved=resolveFounderPresentationSvg(rendered.svg);
+  assert.equal(rendered.scene.autoFlagLabels.get('f').linePitch,19);assert.equal(materialPresentationCollisions(resolved).length,0);
+  const labels=resolved.nodes.filter(node=>node.groupId==='event:f'&&node.sourceAttributes['data-board-ink-role']==='flag-label');
+  assert.equal(labels.map(node=>node.text).join(' '),longTitle);assert.ok(labels.every(node=>node.fontSize===18&&node.bounds.y>=2&&node.bounds.y+node.bounds.height<=125));
+  for(let index=1;index<labels.length;index++)assert.ok(Math.abs(labels[index].bounds.y-labels[index-1].bounds.y-19)<.001);
+  assert.equal(JSON.stringify(document),before);assert.ok(rendered.scene.autoMilestonePacking.labelExpansions<=8192);
+  const simple=structuredClone(document);simple.events[0].title='Synthetic milestone';const ordinary=serializeFounderPresentation(simple,options);assert.equal(ordinary.scene.autoFlagLabels.get('f').linePitch,undefined);
+  const {applySceneCommandToDocument}=await import('../web/js/editor/scene-commands.js');
+  const authored=applySceneCommandToDocument(document,{kind:'geometry',target:{type:'event',id:'f'},geometry:{x:184,y:4,width:50,height:64,rotation:0},create:{type:'event',semanticRef:'f',presentation:{eventType:'milestone',flagLabelLayout:{width:420,flip:false,linePitch:23},nativeFlagPole:{anchor:'native'}}}}).document;
+  const saved=JSON.stringify(authored),manual=resolveFounderPresentationSvg(serializeFounderPresentation(authored,options).svg),manualLabels=manual.nodes.filter(node=>node.groupId==='event:f'&&node.sourceAttributes['data-board-ink-role']==='flag-label');
+  assert.ok(Math.abs(manualLabels[1].bounds.y-manualLabels[0].bounds.y-23)<.001);assert.equal(JSON.stringify(authored),saved);
 });

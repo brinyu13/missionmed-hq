@@ -226,7 +226,7 @@ function pinMeasuredAutomaticEvents(document,projection){
     const label=projection.localContext.scene.autoFlagLabels?.get(target.eventId);
     if(target.kind==='MILESTONE'&&label){
       const object=next.advanced?.scene?.objects?.find(item=>item.type==='event'&&String(item.semanticRef)===target.eventId);
-      if(object)object.presentation={...object.presentation,flagLabelLayout:{width:label.width,flip:label.flip,...(Number.isFinite(label.yOffset)?{yOffset:label.yOffset}:{})}};
+      if(object)object.presentation={...object.presentation,flagLabelLayout:{width:label.width,flip:label.flip,...(Number.isFinite(label.yOffset)?{yOffset:label.yOffset}:{}),...(Number.isFinite(label.linePitch)?{linePitch:label.linePitch}:{})}};
     }
   }
   if(automaticAxis&&next.presentationOverrides?.axis?.mode==='manual')next.presentationOverrides.axis.localLayoutCriticAuto=true;

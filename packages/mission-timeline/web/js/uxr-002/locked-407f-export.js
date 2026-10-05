@@ -430,7 +430,7 @@ export function locked407FNativeMilestonePresentation(scene,id){
   const layout=scene.autoFlagLabels?.get(String(flag.id));
   const labelWidth=String(flag.title||'').length*9.5+8;
   const flip=layout?.flip??(placed.x+56+Math.max(labelWidth,Math.min(420,String(flag.siteName||'').length*10))>WIDTH-8);
-  return {flagLabelLayout:{width:layout?.width||420,flip,...(Number.isFinite(layout?.yOffset)?{yOffset:layout.yOffset}:{})},nativeFlagPole:{anchor:'native'}};
+  return {flagLabelLayout:{width:layout?.width||420,flip,...(Number.isFinite(layout?.yOffset)?{yOffset:layout.yOffset}:{}),...(Number.isFinite(layout?.linePitch)?{linePitch:layout.linePitch}:{})},nativeFlagPole:{anchor:'native'}};
 }
 
 function flagMarkup(flag,index,scale,scene,{interview=false}={}){
@@ -485,7 +485,8 @@ function flagMarkup(flag,index,scale,scene,{interview=false}={}){
   const lines=wrapPresentationText(adjacentLabel,{width:wrapWidth,size:18,family:TYPE.arrowLabel,measureText});
   const resultPrivacy=flag.presentationRedactions?.includes('EXAM_RESULT_PRIVATE')?' data-exam-result-private="true"':'';
   const labelYOffset=!interview&&!examResult&&Number.isFinite(labelLayout?.yOffset)?labelLayout.yOffset:0;
-  const label=lines.map((line,lineIndex)=>`<text${resultPrivacy} data-board-ink-role="flag-label" data-material-field="title" x="${labelX}" y="${by+22+labelYOffset+lineIndex*21}"${flipLabel?' text-anchor="end"':""} fill="${boardInk(scene)}" font-family="${TYPE.arrowLabel}" font-size="18">${xml(line)}</text>`).join("");
+  const linePitch=Number.isFinite(labelLayout?.linePitch)&&labelLayout.linePitch>=18&&labelLayout.linePitch<=36?labelLayout.linePitch:21;
+  const label=lines.map((line,lineIndex)=>`<text${resultPrivacy} data-board-ink-role="flag-label" data-material-field="title" x="${labelX}" y="${by+22+labelYOffset+lineIndex*linePitch}"${flipLabel?' text-anchor="end"':""} fill="${boardInk(scene)}" font-family="${TYPE.arrowLabel}" font-size="18">${xml(line)}</text>`).join("");
   return`<g data-event-kind="${interview?"interview-marker":"flag"}"${interview?"":` data-event-id="${xml(flag.id)}"`} data-founder-milestone-style="pennant"${examResult?` data-exam-result="${examResult}"`:""} aria-label="${xml(flag.ariaLabel)}"${transform}><line x1="${poleX}" y1="${by}" x2="${poleX}" y2="${poleBottom}" stroke="#8E9398" stroke-width="3"/><circle cx="${poleX}" cy="${by}" r="2.5" fill="#B9BDC1"/>${pennant}${chip}${label}</g>`;
 }
 
@@ -980,13 +981,13 @@ function avoidAutomaticMilestoneCollisions(scene,svg){
       .map(width=>width-18*.12).filter(width=>width>=64&&width<=1912);
     const widths=[...new Set([...ordinaryWidths,...clearanceWidths])];
     const variants=[],seen=new Set();
-    for(const width of widths)for(const flip of [false,true]){
-      const variant={...scene,autoFlagLabels:new Map(scene.autoFlagLabels||[]).set(String(flag.id),{width,flip})};
+    for(const width of widths)for(const flip of [false,true])for(const linePitch of [21,...(!flag.examResult&&!/\b(?:united states(?: of america)?|u\.s\.(?:a\.)?|usa)\b/i.test(flag.title)?[19]:[])]){
+      const variant={...scene,autoFlagLabels:new Map(scene.autoFlagLabels||[]).set(String(flag.id),{width,flip,linePitch})};
       const parts=resolveFounderPresentationSvg(`<svg viewBox="0 0 1920 1080">${flagMarkup(flag,index,scale,variant)}</svg>`,{measureText:scene.measureText}).nodes.filter(visible).map(n=>({...n.occlusionBounds||n.bounds,y:(n.occlusionBounds||n.bounds).y-original.y,label:n.sourceAttributes['data-board-ink-role']==='flag-label'}));
       if(!parts.length||parts.some(b=>b.x<8||b.x+b.width>1912))continue;
       const signature=JSON.stringify(parts);
       if(seen.has(signature))continue;seen.add(signature);
-      variants.push({width,flip,parts,legacy:legacyWidths.includes(width),fallbackOnly:!ordinaryWidths.includes(width)});
+      variants.push({width,flip,linePitch,parts,legacy:legacyWidths.includes(width),fallbackOnly:!ordinaryWidths.includes(width)});
     }
     return{flag,original,variants,originalParts:resolved.nodes.filter(n=>visible(n)&&n.groupId==='event:'+flag.id).map(n=>n.occlusionBounds||n.bounds)};
   });
@@ -994,7 +995,7 @@ function avoidAutomaticMilestoneCollisions(scene,svg){
   const choices=(entry,blocked,{joint=false}={})=>{
     const found=[];
     for(const variant of entry.variants){
-      if(variant.fallbackOnly||(!joint&&!variant.legacy))continue;
+      if(variant.fallbackOnly||(!joint&&(!variant.legacy||variant.linePitch!==21)))continue;
       const lower=Math.max(joint?-Infinity:4.5,2-Math.min(...variant.parts.map(b=>b.y)));
       const upper=Math.min(joint?Infinity:87.75,125-Math.max(...variant.parts.map(b=>b.y+b.height)));
       const ys=new Set([entry.original.y,lower,upper]);
@@ -1011,7 +1012,7 @@ function avoidAutomaticMilestoneCollisions(scene,svg){
         if(joint){if(expansions>=limit)return found;expansions++;}
         const shifted=variant.parts.map(b=>({...b,y:b.y+y}));
         if(shifted.every(b=>b.y>=2&&b.y+b.height<=125&&!blocked.some(other=>intersects(b,other)))){
-          const cost=(scene.autoMilestoneTopDown?y:Math.abs(y-entry.original.y))+(variant.flip?8:0)+Math.abs(variant.width-420)/40;
+          const cost=(scene.autoMilestoneTopDown?y:Math.abs(y-entry.original.y))+(variant.flip?8:0)+Math.abs(variant.width-420)/40+(21-variant.linePitch)*4;
           found.push({...variant,y,parts:shifted,cost});
         }
       }
@@ -1101,12 +1102,20 @@ function avoidAutomaticMilestoneCollisions(scene,svg){
         }
         return found.sort((a,b)=>a.cost-b.cost||Math.abs(a.yOffset)-Math.abs(b.yOffset)||a.yOffset-b.yOffset||Number(a.flip)-Number(b.flip)||a.width-b.width);
       };
-      const ordered=general.slice().sort((a,b)=>b.variants[0].parts.filter(part=>part.label).length-a.variants[0].parts.filter(part=>part.label).length||monthIndex(a.flag.month)-monthIndex(b.flag.month)||String(a.flag.id).localeCompare(String(b.flag.id)));
+      const corridorKey=option=>{
+        const left=Math.min(...option.labelParts.map(part=>part.x)),right=Math.max(...option.labelParts.map(part=>part.x+part.width));
+        const top=Math.min(...option.labelParts.map(part=>part.y)),bottom=Math.max(...option.labelParts.map(part=>part.y+part.height)),plaque=titlePlaqueLayout(scene).plaque;
+        return [option.flip,option.linePitch,option.labelParts.length,right<=plaque.x?'left':left>=plaque.x+plaque.width?'right':'across',top>=83?'below':bottom<=83?'above':'full'].join(':');
+      };
+      const diverseChoices=options=>{const seen=new Set(),result=[];for(const option of options){const key=corridorKey(option);if(!seen.has(key)){seen.add(key);result.push(option);if(result.length===12)break;}}for(const option of options){if(result.length===12)break;if(!result.includes(option))result.push(option);}return result;};
+      const initialChoices=new Map(general.map(entry=>[entry,labelChoices(entry,fixed)]));
+      const ordered=general.slice().sort((a,b)=>initialChoices.get(a).length-initialChoices.get(b).length||monthIndex(a.flag.month)-monthIndex(b.flag.month)||String(a.flag.id).localeCompare(String(b.flag.id)));
       let states=[{placed:new Map(),blocked:fixed,cost:0}];
       for(const entry of ordered){
         const next=[];
         for(const state of states){
-          for(const option of labelChoices(entry,state.blocked).slice(0,12))next.push({placed:new Map(state.placed).set(String(entry.flag.id),option),blocked:[...state.blocked,...option.labelParts],cost:state.cost+option.cost});
+          const cached=initialChoices.get(entry).filter(option=>option.labelParts.every(part=>!state.blocked.some(other=>intersects(part,other))));
+          for(const option of diverseChoices(cached.length?cached:labelChoices(entry,state.blocked)))next.push({placed:new Map(state.placed).set(String(entry.flag.id),option),blocked:[...state.blocked,...option.labelParts],cost:state.cost+option.cost});
           if(labelExpansions>=labelLimit)break;
         }
         states=next.sort((a,b)=>a.cost-b.cost).slice(0,16);
@@ -1119,7 +1128,7 @@ function avoidAutomaticMilestoneCollisions(scene,svg){
   if(!selected.size)return null;
   const next={...scene,autoFlagGeometry:new Map(scene.autoFlagGeometry||[]),autoFlagLabels:new Map(scene.autoFlagLabels||[]),autoMilestonePacking:{strategy,expansions,limit,greedyPlaced:greedy.size,total:entries.length,labelExpansions,labelLimit}};
   for(const [id,choice] of selected){
-    next.autoFlagGeometry.set(id,{y:choice.y});next.autoFlagLabels.set(id,{width:choice.width,flip:choice.flip,...(Number.isFinite(choice.yOffset)?{yOffset:choice.yOffset}:{})});
+    next.autoFlagGeometry.set(id,{y:choice.y});next.autoFlagLabels.set(id,{width:choice.width,flip:choice.flip,...(choice.linePitch!==21?{linePitch:choice.linePitch}:{}),...(Number.isFinite(choice.yOffset)?{yOffset:choice.yOffset}:{})});
   }
   return next;
 }
@@ -1228,7 +1237,8 @@ export function composeLocked407FPortableSvg(scene,options={}){
   for(const arrow of scene.arrows||[]){
     count(arrow.startMonth);count(arrow.endMonth);
     const first=Math.floor(monthIndex(arrow.startMonth)/12),last=Math.floor(monthIndex(arrow.endMonth)/12);
-    const pressure=(scene.measureText||measurePresentationText)([arrow.title,arrow.siteName].filter(Boolean).join(' '),18,TYPE.arrowLabel)/160;
+    const nativeMeasure=scene.measureText||measurePresentationText;
+    const pressure=(nativeMeasure(String(arrow.title||''),18,TYPE.arrowLabel)+nativeMeasure(String(arrow.siteName||''),19,TYPE.event))/160;
     for(let year=first;year<=last;year++)counts.set(year,(counts.get(year)||0)+pressure/Math.max(1,last-first+1)+.5);
   }
   for(const flag of scene.flags||[]){count(flag.month);const year=Math.floor(monthIndex(flag.month)/12);counts.set(year,(counts.get(year)||0)+(scene.measureText||measurePresentationText)([flag.title,flag.siteName].filter(Boolean).join(' '),18,TYPE.arrowLabel)/160);}

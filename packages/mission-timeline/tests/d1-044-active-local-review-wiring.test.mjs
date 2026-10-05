@@ -633,3 +633,20 @@ test('044 trusted automatic flag first human takeover captures current packed me
   const paint=flagPaint(edited,'degree',options);assert.equal(paint.template.poleFootY,125);assert.ok(paint.labels.map(item=>item.text).join(' ').includes(document.events.find(item=>item.id==='degree').title));
   assert.deepEqual(edited.events,document.events);assert.deepEqual(edited.mediaItems,document.mediaItems);assert.deepEqual(edited.presentationOverrides.photoFrames,document.presentationOverrides.photoFrames);assert.equal(JSON.stringify(document),snapshot);
 });
+
+
+test('044 all actual first-human creation paths retain selected native19 label spacing across persistence',async()=>{
+  const source=await readFile(new URL('../web/js/407f-engineering-adapter.js',import.meta.url),'utf8');
+  const title='Synthetic publication documenting completed academic research with complete source wording '.repeat(3).trim();
+  const document={id:'synthetic-native-pitch-handover',mode:'advanced',layoutLock:false,theme:'keynote-classic',studentProfile:{fullName:'Synthetic'},events:[{id:'f',title,categoryId:'personal',eventType:'milestone',startDate:'2020-06',visibilityState:'INTERVIEWER_SAFE'}],presentationOverrides:{axis:{mode:'manual',startYear:2020,endYear:2026,includeFuture:false,segmentWeights:Array.from({length:7},(_,index)=>({id:String(2020+index),weight:1}))}},advanced:{media:[],textBlocks:[],elements:[],groups:[]}};
+  const options={scope:'EVERYTHING',currentMonth:'2026-10'},snapshot=JSON.stringify(document),native=flagPaint(document,'f',options),geometry=advancedEventGeometry407F(document,'f',{dataset:{eventKind:'flag'}},options);
+  assert.equal(native.rendered.scene.autoFlagLabels.get('f').linePitch,19);assert.equal(native.template.poleFootY,125);
+  for(const path of ['kernel','keyboard','pointer','rotate']){
+    const edited=executeFirstEventEdit(source,path,document,'f',geometry,options),saved=JSON.parse(JSON.stringify(edited)),object=saved.advanced.scene.objects.find(item=>item.semanticRef==='f');
+    assert.equal(object.presentation.flagLabelLayout.linePitch,19,path);assert.equal(object.presentation.localLayoutCriticAuto,undefined,path);
+    assert.deepEqual(saved.events,document.events);assert.deepEqual(saved.presentationOverrides.axis,document.presentationOverrides.axis);
+    const paint=flagPaint(saved,'f',options);assert.equal(paint.labels.map(node=>node.text).join(' '),title,path);
+    if(path!=='rotate'){assert.equal(paint.template.poleFootY,125,path);assert.ok(paint.labels.every(node=>node.fontSize===18),path);for(let index=1;index<paint.labels.length;index++)assert.ok(Math.abs(paint.labels[index].bounds.y-paint.labels[index-1].bounds.y-19)<.001,path);}
+  }
+  assert.equal(JSON.stringify(document),snapshot);
+});
