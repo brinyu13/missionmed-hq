@@ -1,8 +1,8 @@
 {
   "schema": "missionmed.interview-ready.phase1.v1",
-  "releaseState": "founder-preview",
+  "releaseState": "public-commerce",
   "publicGuide": true,
-  "personalToolsRequireAccount": true,
+  "personalToolsRequireAccount": false,
   "accountPersistenceReady": false,
   "enabledRoutes": [
     "home",
@@ -45,10 +45,12 @@
     "approvalEvidence": null
   },
   "builderImplementation": {
-    "accountSource": "independently-reviewed; native acceptance pending",
+    "accountSource": "device-only fallback; account acceptance deferred",
     "matrixDiscovery": "dedicated addon candidate; shared selection unchanged",
     "mediaTreatment": "approved allowlist plus information-only products",
     "releasePackaging": "local immutable candidate only",
     "productionAcceptance": "blocked pending independent release and native/live gates"
-  }
+  },
+  "persistenceMode": "device-only",
+  "accountReady": false
 }

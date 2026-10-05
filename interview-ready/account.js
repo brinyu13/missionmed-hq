@@ -1,5 +1,70 @@
 /* Canonical WP account adapter. Never migrate anonymous progress or persist media. */
 const IRAccount = (() => {
+  // Explicit fallback; no account context, legacy storage or network is consumed.
+  if (typeof IRDeviceOnly !== 'undefined' && IRDeviceOnly === true && location.pathname === '/interview-ready/') {
+    const namespace='mmed-ir-device-v1:', keys=new Set(['done','auto','kit','mode']);
+    const clone=value=>JSON.parse(JSON.stringify(value));
+    let state={done:{},auto:{cam:false,mic:false,env:false},kit:[],mode:'online'}, setup=false;
+    let bindings=null, items=new Map(), ids=new Set(), attached=false, saved=false, banner=null;
+    const notice=()=>saved?'Saved on this device. Not saved to an account or synced across devices.':'Unsaved on this device. Not saved to an account or synced across devices.';
+    function show() {
+      if (banner) banner.textContent=notice();
+      document.body.dataset.irAccountState=saved?'device-saved':'device-unsaved';
+      const live=document.getElementById('saveStatus'); if(live) live.textContent=notice();
+      document.querySelectorAll('[data-kit]').forEach(button=>{
+        if(state.kit.includes(button.dataset.kit)) button.textContent=saved?'Saved on this device':'In kit · unsaved';
+      });
+    }
+    function clean(key,value) {
+      if(key==='done') return Object.fromEntries(Object.entries(value && typeof value==='object' && !Array.isArray(value)?value:{}).filter(([id,v])=>ids.has(id)&&typeof v==='boolean'));
+      if(key==='auto') return Object.fromEntries(['cam','mic','env'].map(k=>[k,value?.[k]===true]));
+      if(key==='kit') return Array.isArray(value)?[...new Set(value.filter(k=>typeof k==='string'&&items.has(k)))]:[];
+      return ['online','in-person'].includes(value)?value:'online';
+    }
+    function load() {
+      saved=true;
+      for(const key of keys) {
+        try { const raw=localStorage.getItem(namespace+key); if(raw===null) { saved=false; } else {
+          if(raw.length>65536) throw new Error('size');
+          const value=JSON.parse(raw); state[key]=clean(key,value);
+          if(JSON.stringify(state[key])!==JSON.stringify(value)) saved=false;
+        }} catch(_) { saved=false; }
+      }
+    }
+    function persist() {
+      saved=true;
+      for(const key of keys) { try { localStorage.setItem(namespace+key,JSON.stringify(state[key])); } catch(_) { saved=false; } }
+      show(); queueMicrotask(show);
+    }
+    const store={
+      get(key,fallback) {
+        if(!keys.has(key)) return fallback;
+        if(key==='kit') return state.kit.map(k=>items.get(k)).filter(Boolean).map(i=>({key:i.key,name:i.name,tier:i.t,cat:i.category,group:i.group}));
+        if(key==='auto') return {...state.auto,setup};
+        return clone(state[key]);
+      },
+      set(key,value) {
+        if(!attached||!keys.has(key)) return;
+        if(key==='kit') state.kit=clean(key,Array.isArray(value)?value.map(i=>i?.key):[]);
+        else if(key==='auto') { setup=value?.setup===true; state.auto=clean(key,value); }
+        else { state[key]=clean(key,value); if(key==='done'&&!Object.keys(state.done).length) { state.auto={cam:false,mic:false,env:false};setup=false; } }
+        persist();
+      }
+    };
+    function attach(hooks) {
+      bindings=hooks;
+      for(const [group,categories] of Object.entries(hooks.catalog)) for(const c of categories) for(const i of c.items) items.set(i.key,{...i,group,category:c.name});
+      for(const [mode,phases] of Object.entries(hooks.checklist)) phases.forEach(([,rows],p)=>rows.forEach((_,i)=>ids.add(`${mode}:${p}:${i}`)));
+      attached=true;load();hooks.mode(state.mode);
+      banner=document.createElement('div');banner.className='editorial-note';banner.setAttribute('role','status');
+      document.querySelector('.topbar').insertAdjacentElement('afterend',banner);
+      document.querySelectorAll('#page-checklist > .lede,#page-kit > .lede').forEach(p=>p.textContent='Your checklist and kit stay on this device. No account or cross-device sync.');
+      document.getElementById('clReset').onclick=()=>{if(confirm('Clear checklist progress on this device?')) {store.set('done',{});hooks.render();}};
+      document.documentElement.dataset.irPersonal='ready';hooks.render();show();hooks.runRoute();
+      document.addEventListener('click',e=>{if(e.target.closest('[data-kit],[data-remove-kit]')) queueMicrotask(show);});
+    }
+    return {store,attach,kitLabel:()=>saved?'Saved on this device':'In kit · unsaved'};
+  }
   const context = /* MMED_IR_ACCOUNT_CONTEXT */ null;
   const acceptedKeys = new Set(/* MMED_IR_KIT_KEYS */ []);
   const personal = new Set(['done','auto','kit','mode']);

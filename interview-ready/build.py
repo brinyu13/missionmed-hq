@@ -15,6 +15,9 @@ def build(asset_profile='preview', output_dir=None, production=False):
     input_data = {name:fixed_bytes(name) for name in inputs}
     before = {name:hashlib.sha256(value).hexdigest() for name,value in input_data.items()}
     phase1 = json.loads(input_data['phase1.json'])
+    device_only = phase1.get('persistenceMode') == 'device-only'
+    if device_only and (phase1.get('accountPersistenceReady') is not False or phase1.get('accountReady') is not False):
+        raise ValueError('Device-only fallback cannot claim account readiness')
     if production:
         blockers = []
         if phase1['releaseState'] != 'production-approved': blockers.append('protected release acceptance has not been recorded')
@@ -103,7 +106,7 @@ def build(asset_profile='preview', output_dir=None, production=False):
     assert account.count('/* MMED_IR_ACCOUNT_CONTEXT */ null') == 1
     account = account.replace('/* MMED_IR_KIT_KEYS */ []', js(account_keys))
     privacy_css = "html[data-ir-personal='blocked'] #page-checklist,html[data-ir-personal='blocked'] #page-kit,html[data-ir-personal='blocked'] #kitCountRail {visibility:hidden} html[data-ir-personal='blocked'] [data-kit],html[data-ir-personal='blocked'] [data-remove-kit] {visibility:hidden}"
-    source = source.replace('</head>', '<style>'+privacy_css+'</style><script>document.documentElement.dataset.irPersonal=\"blocked\";\n'+account+'</script></head>')
+    source = source.replace('</head>', '<style>'+privacy_css+'</style><script>document.documentElement.dataset.irPersonal=\"blocked\";\n'+'const IRDeviceOnly = '+js(device_only)+';\n'+account+'</script></head>')
     source = source.replace("connect-src 'none'", "connect-src 'self'")
     attach = "\nIRAccount.attach({catalog:CATALOG,checklist:CHECKLIST,mode:value=>{mode=value;},reset:()=>{mode='online';},render:()=>{renderChecklist();renderKitCount();renderKit();document.querySelectorAll('[data-kit]').forEach(b=>{const saved=kit.has(b.dataset.kit);b.textContent=saved?IRAccount.kitLabel():'Save to kit';b.setAttribute('aria-pressed',saved);});},route,wrapRoute:fn=>{route=fn;},runRoute:()=>route()});"
     scripts = '<script>const ASSET = '+js(assets)+'; const RESEARCH = '+js(research)+'; const FASHION = '+js(fashion)+'; const PHASE1 = '+js(phase1)+';\n'+editorial+'\n'+completion+'\n'+input_data['phase1.js'].decode()+attach+'</script>'
@@ -133,7 +136,9 @@ def build(asset_profile='preview', output_dir=None, production=False):
     manifest = {'sha256':hashlib.sha256(out.read_bytes()).hexdigest(),'bytes':out.stat().st_size,
                 'assetProfile':asset_profile, 'releaseApproved':production,
                 'accountContextMarker':'/* MMED_IR_ACCOUNT_CONTEXT */ null',
-                'gatewayStorageOwner':'WP self-only _mmed_ir_state_v1',
+                'gatewayStorageOwner':'device-only mmed-ir-device-v1' if device_only else 'WP self-only _mmed_ir_state_v1',
+                'persistenceMode':'device-only' if device_only else 'account',
+                'accountReady':False if device_only else phase1.get('accountPersistenceReady', False),
                 'fixedArtifacts':{name:{'sha256':hashlib.sha256(value.encode()).hexdigest(),'bytes':len(value.encode())} for name,value in fixed.items()},
                 'embeddedAssets':{path:hashlib.sha256((ROOT/path).read_bytes()).hexdigest() for path in paths},
                 'inputs':before}

@@ -75,8 +75,8 @@ applyPhaseOneNavigation();
 const licensedPhotos = allItems().filter(i=>i.imageCredit);
 main.insertAdjacentHTML('beforeend',`<details class="photo-credits"><summary>Product photography credits</summary>${licensedPhotos.map(i=>`<p><b>${esc(i.name)}</b> — ${external(i.imageCredit.source,esc(i.imageCredit.author))} · ${external(i.imageCredit.licenseUrl,esc(i.imageCredit.license))}. ${esc(i.imageCredit.changes)}. No endorsement implied.</p>`).join('')}</details>`);
 CHECKLIST.online[0][1][5][1]='Rehearse your complete outfit while seated. Check camera contrast and comfort; hang it ready for the morning.';
-if (!PHASE1.accountPersistenceReady) {
-  document.querySelectorAll('#page-checklist > .lede,#page-kit > .lede').forEach(p=>p.textContent='Founder preview: progress is saved only on this device. MissionMed account sync is not connected yet.');
+if (PHASE1.persistenceMode === 'device-only' && location.pathname === '/interview-ready/') {
+  document.querySelectorAll('#page-checklist > .lede,#page-kit > .lede').forEach(p=>p.textContent='Your checklist and kit stay on this device. No account or cross-device sync.');
 }
 document.body.dataset.releaseState = PHASE1.releaseState;
 route();
