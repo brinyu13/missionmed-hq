@@ -1,0 +1,6 @@
+select md5(coalesce(string_agg(v,E'\n' order by v),'')) as hash from (
+select 'rel:'||n.nspname||'.'||c.relname||':'||c.relkind::text||':'||c.relrowsecurity||':'||c.relforcerowsecurity||':'||coalesce(c.relacl::text,'') as v from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname in ('public','missionaccounts') union all
+select 'col:'||n.nspname||'.'||c.relname||':'||a.attnum||':'||a.attname||':'||format_type(a.atttypid,a.atttypmod)||':'||a.attnotnull||':'||coalesce(pg_get_expr(d.adbin,d.adrelid),'') from pg_class c join pg_namespace n on n.oid=c.relnamespace join pg_attribute a on a.attrelid=c.oid left join pg_attrdef d on d.adrelid=c.oid and d.adnum=a.attnum where n.nspname in ('public','missionaccounts') and a.attnum>0 and not a.attisdropped union all
+select 'fn:'||n.nspname||'.'||p.proname||':'||pg_get_functiondef(p.oid)||':'||coalesce(p.proacl::text,'') from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname in ('public','missionaccounts') and p.prokind='f' union all
+select 'policy:'||schemaname||'.'||tablename||':'||policyname||':'||roles::text||':'||cmd||':'||coalesce(qual,'')||':'||coalesce(with_check,'') from pg_policies where schemaname in ('public','missionaccounts')
+) x;
