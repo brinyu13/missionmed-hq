@@ -6,6 +6,7 @@ import { allocateExpenses, LABELS, PARTNERS, statementCsv } from './domain.mjs';
 import { RECOVERED_EXPENSES, EXCLUDED_CLAIMS } from './recovered-data.mjs';
 import { partnerStatement, statementToCsv, annualSummary } from './statements.mjs';
 import { invoicePackage } from './archive.mjs';
+import { projectAccountingReview, accountingReviewCsv } from './accounting-review.mjs';
 
 const prefix = '/api/partner-cost-sharing';
 const allocation = allocateExpenses(RECOVERED_EXPENSES);
@@ -16,6 +17,7 @@ function json(response, status, body) {
 }
 export function createPartnerCostRouter({ config, authenticate, memberStore = null }) {
   const settings = config.partnerCostSharing || {};
+  if(settings.accountingReview&&!settings.prototype)throw new Error('Private accounting workpapers require the isolated local prototype');
   if (settings.prototype && (config.production || !config.localAuth)) throw new Error('Partner prototype requires isolated nonproduction local authentication');
   const claims = new Map();
   const keys = new Map();
@@ -62,6 +64,11 @@ export function createPartnerCostRouter({ config, authenticate, memberStore = nu
   }
   async function bootstrap(actor) {
     const result=projection(actor);
+    if(settings.accountingReview){
+      result.accountingReview=projectAccountingReview(settings.accountingReview,actor);
+      result.ownPayments=result.accountingReview.contributions.filter(r=>r.partner===actor.key).map(r=>({date:r.receivedAt,amountCents:r.amountCents,state:r.state}));
+      if(actor.admin)result.admin.payments=result.accountingReview.contributions.map(r=>({partner:LABELS[r.partner],date:r.receivedAt,amountCents:r.amountCents,state:r.state}));
+    }
     if(memberStore?.view){
       const ledger=await memberStore.view(actor);
       result.ledger=ledger;result.certified=ledger.certified;result.currentBalanceCents=ledger.currentBalanceCents;
@@ -84,6 +91,17 @@ export function createPartnerCostRouter({ config, authenticate, memberStore = nu
     const actor = await member(request);
     const routePath = url.pathname.slice(prefix.length) || '/';
     if (request.method === 'GET' && routePath === '/bootstrap') { json(response, 200, await bootstrap(actor)); return true; }
+    if(request.method==='GET'&&routePath==='/accounting-review-export'){
+      if(!settings.accountingReview)deny('Private accounting review unavailable',404);
+      const view=projectAccountingReview(settings.accountingReview,actor);
+      json(response,200,{csv:accountingReviewCsv(view,actor.key),filename:'partner-'+actor.key+'-accounting-review-DRAFT.csv'});return true;
+    }
+    if(request.method==='GET'&&routePath==='/accounting-review.csv'){
+      if(!settings.accountingReview)deny('Private accounting review unavailable',404);
+      const view=projectAccountingReview(settings.accountingReview,actor);
+      response.writeHead(200,{'content-type':'text/csv; charset=utf-8','content-disposition':'attachment; filename="partner-'+actor.key+'-accounting-review-DRAFT.csv"','cache-control':'no-store, private',vary:'Authorization, Cookie','x-content-type-options':'nosniff'});
+      response.end(accountingReviewCsv(view,actor.key));return true;
+    }
     if (request.method === 'GET' && routePath === '/admin') {
       if (!actor.admin) deny('Brian accounting administrator access required');
       json(response, 200, (await bootstrap(actor)).ledger?.admin||projection(actor).admin); return true;
@@ -113,6 +131,7 @@ export function createPartnerCostRouter({ config, authenticate, memberStore = nu
       json(response,200,packageRecord);return true;
     }
     if(request.method==='POST'&&command){
+      if(settings.accountingReview)deny('Real accounting workpapers are read-only; review does not certify or settle the journal',409);
       if(!memberStore?.execute)deny('Partner journal is unavailable',503);
       const requestId=mutationGuard(request),payload=await readJsonBody(request,{limitBytes:32768});
       if(!payload||typeof payload!=='object'||Array.isArray(payload))deny('Partner command requires an object',400);
@@ -132,6 +151,21 @@ export function createPartnerCostRouter({ config, authenticate, memberStore = nu
     }
     const invoice = routePath.match(/^\/invoices\/([a-z0-9-]+)(\/(?:preview|document))?$/);
     if (request.method === 'GET' && invoice) {
+      if(settings.accountingReview?.rows.some(r=>r.id===invoice[1])&&!projectAccountingReview(settings.accountingReview,actor).rows.some(r=>r.id===invoice[1]))deny('Private review original unavailable',404);
+      const reviewAsset=settings.prototype&&settings.accountingReview?.rows.some(r=>r.id===invoice[1])?settings.accountingAssets?.[invoice[1]]:null;
+      if(reviewAsset){
+        const bytes=await readFile(reviewAsset.file);
+        if(createHash('sha256').update(bytes).digest('hex')!==reviewAsset.sha256)deny('Private review original custody mismatch',409);
+        const filename='invoice-'+invoice[1]+'.pdf';
+        if(invoice[2]==='/document'){
+          const preview=await readFile(reviewAsset.previewFile);
+          if(createHash('sha256').update(preview).digest('hex')!==reviewAsset.previewSha256)deny('Private review preview custody mismatch',409);
+          json(response,200,{originalBase64:bytes.toString('base64'),previewBase64:preview.toString('base64'),originalType:'application/pdf',previewType:'image/png',sha256:reviewAsset.sha256,filename});
+        }else{
+          response.writeHead(200,{'content-type':'application/pdf','content-disposition':`attachment; filename="${filename}"`,'cache-control':'no-store, private',vary:'Authorization, Cookie','x-content-type-options':'nosniff','content-security-policy':"default-src 'none'; sandbox"});response.end(bytes);
+        }
+        return true;
+      }
       const row = RECOVERED_EXPENSES.find(row => row.id === invoice[1]);
       if(!row&&memberStore?.readOriginal){
         const asset=await memberStore.readOriginal(actor,invoice[1]);
