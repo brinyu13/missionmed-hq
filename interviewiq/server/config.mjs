@@ -20,6 +20,7 @@ export function readConfig(env = process.env) {
     coreOnly: text('INTERVIEWIQ_LAUNCH_MODE','core') !== 'full',
     deepResearch:{enabled:bool('INTERVIEWIQ_DEEP_RESEARCH_ENABLED'),ownerId:text('INTERVIEWIQ_DEEP_RESEARCH_OWNER_ID'),programId:text('INTERVIEWIQ_DEEP_RESEARCH_PROGRAM_ID'),requestSecret:text('INTERVIEWIQ_RESEARCH_JOB_REQUEST_SECRET')},
     researchProof:readResearchProofConfig(env),
+    loi:{enabled:bool('INTERVIEWIQ_LOI_ENABLED'),ownerId:text('INTERVIEWIQ_LOI_OWNER_ID'),programId:text('INTERVIEWIQ_LOI_PROGRAM_ID')},
     researchMissionsEnabled: bool('INTERVIEWIQ_RESEARCH_MISSIONS_ENABLED'),
     rise: {enabled:bool('INTERVIEWIQ_RISE_ENABLED'),requestSecret:text('INTERVIEWIQ_RISE_REQUEST_SECRET'),researchCoverageEnabled:bool('INTERVIEWIQ_RESEARCH_MISSIONS_ENABLED')},
     databaseUrl: text('INTERVIEWIQ_DATABASE_URL'),
@@ -61,6 +62,9 @@ export function readConfig(env = process.env) {
     for(const address of [config.databaseUrl,env.INTERVIEWIQ_RESEARCH_PROOF_DATABASE_URL]){let u;try{u=new URL(address);}catch{throw new AppError(503,'invalid_configuration','Research database configuration is invalid.');}if(decodeURIComponent(u.password)===d.requestSecret)throw new AppError(503,'invalid_configuration','Research credentials must be separated.');}
     config.rise.researchResultsEnabled=true;
   }
+  if(config.loi.enabled&&(!config.enabled||!config.rise.enabled||Buffer.byteLength(config.rise.requestSecret)<32||!/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(config.loi.ownerId)||!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,179}$/.test(config.loi.programId)))throw new AppError(503,'invalid_configuration','LOI requires a bounded owner/program and authenticated RISE connection.');
+  if(config.loi.enabled)config.rise.researchResultsEnabled=true;
+  Object.freeze(config.loi);
   Object.freeze(config.deepResearch);
   if (config.speech.enabled && !config.speech.apiKey)
     throw new AppError(503, 'invalid_configuration', 'Speech is enabled without provider configuration.');

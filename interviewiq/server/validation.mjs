@@ -40,7 +40,7 @@ export function digest(value) {return createHash('sha256').update(JSON.stringify
 export function commandEnvelope(body) {
   onlyKeys(body,['command','interviewId','data','requestId','expectedVersion']);
   text(body.command,'Command',80,{empty:false});
-  requireValue(/^[a-z]+\.[a-z]+$/.test(body.command),'invalid_command','The command is invalid.');
+  requireValue(/^[a-z]+\.[a-z_]+$/.test(body.command),'invalid_command','The command is invalid.');
   uuid(body.requestId,'Request');integer(body.expectedVersion,'Version',0,Number.MAX_SAFE_INTEGER);
   if(body.interviewId!==undefined && body.interviewId!==null) uuid(body.interviewId,'Interview');
   object(body.data ?? {},'Command data');

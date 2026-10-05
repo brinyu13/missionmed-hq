@@ -1,4 +1,5 @@
 import {deepResearchEnabled} from './research-dispatch.mjs';
+import {loiEnabled,loiHistory} from './private-commands.mjs';
 import {revision} from './records.mjs';
 import {readResearchSummary,researchEnabled} from './research-workspace.mjs';
 const iso=x=>x instanceof Date?x.toISOString():x||null;
@@ -24,9 +25,10 @@ export async function readCoreModel(db,actor,{config,clock=()=>new Date()}) {
     related:events.filter(e=>e.interview_id===row.id).map(e=>({id:e.id,kind:e.title||e.kind,date:date(e.local_date),wall:e.local_date&&e.local_time?`${date(e.local_date)}T${e.local_time}`:null,zone:e.timezone,instant:iso(e.start_at),fold:e.fold,duration_minutes:e.duration_minutes,note:e.note||'',status:e.status})),
     history:history.filter(e=>e.interview_id===row.id).map(e=>({at:iso(e.created_at),what:e.event_type,detail:JSON.stringify(e.details)}))}));
   const programs=records.filter(r=>r.program_id).map(r=>({id:r.program_id,name:r.program_name,track:r.program_track,specialty:'',zone:r.timezone||actor.zone,fact_ids:[],identity_snapshot:true}));
-  const state={clock:current,interviews,demands:empty(),results:empty(),why:empty(),questions:empty(),practice:empty(),learning:empty(),debriefs:empty(),reviewQueue:[],shared:empty(),
+  const state={clock:current,interviews,demands:empty(),results:empty(),loi:empty(),why:empty(),questions:empty(),practice:empty(),learning:empty(),debriefs:empty(),reviewQueue:[],shared:empty(),
     contrib:{missions:empty(),submissions:[],ledger:[],grants:empty()},policy:{contributions:false,standalone:false,mrxCentral:null,audit:[],suspended:empty()},
     mentorAssigned:[],mentorPriority:empty(),mentorNudges:[],rank:empty(),consents:empty(),changes:[],ivoc:empty()};
+  if(loiEnabled(config,actor)){const {rows:consents}=await db.query("SELECT subject_ref,status FROM iiq.consents WHERE owner_id=$1 AND scope='storyforge'",[actor.id]);const {rows:prep}=await db.query('SELECT interview_id,anchors FROM iiq.preparation WHERE owner_id=$1',[actor.id]);for(const row of prep){const own=records.find(x=>x.id===row.interview_id);if(own)state.loi[row.interview_id]=loiHistory(row.anchors,own,consents);}}
   if(deepResearchEnabled(config,actor)){
     const {rows:demands}=await db.query(`SELECT d.*,g.registry_release_id FROM iiq.research_demands d LEFT JOIN iiq.research_job_grants g ON g.request_id::text=d.external_request_id AND g.owner_id=d.owner_id AND g.demand_id=d.id WHERE d.owner_id=$1`,[actor.id]);
     for(const d of demands)state.demands[d.interview_id]={id:d.id,requestId:d.external_request_id,programId:d.program_id,registryReleaseId:d.registry_release_id,status:d.status,version:Number(d.version),requestedAt:iso(d.requested_at),refreshedAt:iso(d.refreshed_at)};
@@ -35,7 +37,7 @@ export async function readCoreModel(db,actor,{config,clock=()=>new Date()}) {
   if(researchEnabled(config,actor))state.research=await readResearchSummary(db,actor,config);
   const integrations={matrix:{available:true,status:'available',url:`${config.publicOrigin}/member-dashboard/`}};
   for(const name of comingSoon)integrations[name]={available:false,status:'coming_soon'};
-  return {actor:actorView,capabilities:{coreOnly:true,comingSoon:[...comingSoon],research:false,deepResearch:deepResearchEnabled(config,actor),researchMissions:researchEnabled(config,actor),researchByProgram:empty(),contributions:false},
+  return {actor:actorView,capabilities:{loi:loiEnabled(config,actor),coreOnly:true,comingSoon:[...comingSoon],research:false,deepResearch:deepResearchEnabled(config,actor),researchMissions:researchEnabled(config,actor),researchByProgram:empty(),contributions:false},
     catalog:{programs,facts:[],sources:[],profiles:[{id:actor.id,displayName:actor.displayName,tier:actor.tier,approved_stories:[]}],student_zone:actor.zone,registry_release:null,storyforgeProjection:null,riseProjections:empty()},
     state,version,server_time:current,integrations};
 }

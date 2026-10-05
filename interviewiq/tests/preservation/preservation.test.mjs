@@ -113,6 +113,14 @@ try {
   const restoreURL=connection.adminDatabaseUrl.replace('/iiq_test?','/iiq_test_restore?');assertDisposableTarget(restoreURL,{role:'iiq_test_admin',database:'iiq_test_restore'});const restored=new pg.Client({connectionString:restoreURL});await restored.connect();
   try{await qualifyDisposableConnection(restored,restoreURL,{role:'iiq_test_admin',database:'iiq_test_restore'});const after=await fingerprint(restored);assert.deepEqual(after,beforeBackup);backupReceipt={sha256:sha(await fs.readFile(backup)),sourceFingerprint:beforeBackup.sha256,restoredFingerprint:after.sha256,tables:after.tables,disposableOnly:true};}finally{await restored.end();}
  });
+ await check('LOI-compatibility','Preparation saves retain unknown and approved LOI anchors without Calendar changes',async()=>{
+  const anchors=[null,'legacy',{type:'iiq.loi.revision',schemaVersion:1,state:'approved',text:'Synthetic exact approved letter',revisionId:randomUUID()},{type:'iiq.loi.revision',schemaVersion:99,unknown:'retain'}];
+  await database.withActor(A,c=>c.query('INSERT INTO iiq.preparation(owner_id,interview_id,anchors) VALUES($1,$2,$3::jsonb) ON CONFLICT(interview_id) DO UPDATE SET anchors=EXCLUDED.anchors',[A.id,primary,JSON.stringify(anchors)]),{write:true});
+  const full=createCommands({database,owners:{context:async()=>({})},config:{...config,coreOnly:false}}),v=(await full.bootstrap(A)).version;
+  await full.execute(A,{command:'prep.save',interviewId:primary,data:{why:{text:'Synthetic subsequent Why Program',edited:true},questions:'Synthetic retained question'},expectedVersion:v,requestId:randomUUID()});
+  assert.deepEqual((await database.withActor(A,c=>c.query('SELECT anchors FROM iiq.preparation WHERE owner_id=$1 AND interview_id=$2',[A.id,primary]))).rows[0].anchors,anchors);
+  assert.deepEqual(await rows('iiq.related_events'),before.events);assert.deepEqual(await rows('iiq.interview_history'),before.history);
+ });
  await check('runtime-guard','DELETE privilege drift is refused and restored',async()=>{try{await db.query('GRANT DELETE ON iiq.interviews TO iiq_authenticated');await assert.rejects(database.verifyRuntimeRole(),e=>e.code==='unsafe_database_custody');}finally{await db.query('REVOKE DELETE ON iiq.interviews FROM iiq_authenticated');}assert.equal(await database.verifyRuntimeRole(),true);});
 }catch(error){failed=error;console.error(error.stack||error.message);}
 finally {

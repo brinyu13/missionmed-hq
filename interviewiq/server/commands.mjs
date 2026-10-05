@@ -3,7 +3,7 @@ import {AppError,requireValue} from './errors.mjs';
 import {commandEnvelope} from './validation.mjs';
 import {syncActor,revision,writeInterview} from './records.mjs';
 import {writeDebrief,writePreparation} from './debrief.mjs';
-import {writeLearning,writeConsent,writeShare} from './private-commands.mjs';
+import {writeLearning,writeConsent,writeShare,loiEnabled,requireLoi,readLoi,loiEvidence,writeLoi,replayLoiHandoff} from './private-commands.mjs';
 import {readModel} from './read-model.mjs';
 import {writeRehearsal} from './rehearsal.mjs';
 import {writeAdmin} from './admin-commands.mjs';
@@ -14,6 +14,7 @@ const coreCommands=new Set(['interview.create','interview.identity','interview.s
 function coreActor(actor,config) { if(config.coreOnly) requireValue(actor.role==='admin' || (actor.role==='student' && ['360','ivprep_complete'].includes(actor.tier)),'core_access_required','InterviewIQ is not available for your current access.',403); }
 const interviewCommands=new Set(['interview.create','interview.identity','interview.schedule','interview.lifecycle','event.create','event.update','research.refresh']);
 const debriefCommands=new Set(['debrief.occurrence','debrief.save','debrief.propose','debrief.accept','debrief.reject']);
+const loiCommands=new Set(['loi.save','loi.approve','loi.evidence','loi.export','loi.handoff','loi.mark_sent']);
 const learningCommands=new Set(['learning.propose','learning.confirm','learning.correct','learning.revoke','learning.mentor']);
 export function createCommands({database,owners,config,clock,speechAvailable=false,additionalCommands={},researchTransport=createRiseResearchJobTransport(config.deepResearch)}) {
   const settings={owners,config,clock,speechAvailable};
@@ -21,9 +22,16 @@ export function createCommands({database,owners,config,clock,speechAvailable=fal
   async function execute(actor,body,{revalidateActor}={}) {
     coreActor(actor,config);
     const envelope=commandEnvelope(body);
+    if(loiCommands.has(envelope.command))requireLoi(config,actor);
     if(config.coreOnly) {
-      requireValue(coreCommands.has(envelope.command)||envelope.command==='research.check'&&deepResearchEnabled(config,actor)||researchEnabled(config,actor)&&researchCommands.has(envelope.command),'coming_soon','COMING SOON — this integration is not active. Your saved calendar is unchanged.',503);
+      requireValue(coreCommands.has(envelope.command)||loiEnabled(config,actor)&&loiCommands.has(envelope.command)||envelope.command==='research.check'&&deepResearchEnabled(config,actor)||researchEnabled(config,actor)&&researchCommands.has(envelope.command),'coming_soon','COMING SOON — this integration is not active. Your saved calendar is unchanged.',503);
       requireValue(!envelope.data.program||envelope.command==='mission.create'||deepResearchEnabled(config,actor),'coming_soon','Canonical program lookup is coming soon. Enter the program name from your invitation.',503);
+    }
+    if(['loi.evidence','loi.export'].includes(envelope.command)){
+      requireValue(Object.keys(envelope.data).length===0,'unexpected_fields','This read accepts no additional fields.');
+      return database.withActor(actor,async db=>{await db.query('SET TRANSACTION READ ONLY');
+        if(envelope.command==='loi.evidence')return loiEvidence({db,actor,interviewId:envelope.interviewId,config,owners,clock});
+        const own=await readLoi({db,actor,interviewId:envelope.interviewId,config});return {type:'loi_export',export:{interviewId:own.interviewId,history:own.history}};});
     }
     if(envelope.command==='research.check')requireValue(envelope.interviewId&&Object.keys(envelope.data).length===0,'invalid_research_check','Choose an existing interview without changing its request.');
     if(envelope.command==='research.read'){
@@ -42,7 +50,8 @@ export function createCommands({database,owners,config,clock,speechAvailable=fal
         // cached body that could contain revoked story or shared context.
         const currentRead=await readModel(db,actor,settings);
         const {rows:[audit]}=deepResearchEnabled(config,actor)?await db.query("SELECT metadata FROM iiq.audit_events WHERE owner_id=$1 AND event_type=$2 AND metadata->>'requestId'=$3",[actor.id,envelope.command,envelope.requestId]):{rows:[]};
-        return {bootstrap:currentRead,...(audit?.metadata?.researchBinding?{researchBinding:audit.metadata.researchBinding}:{}),replayed:true,resultId:prior.result_id,...(prior.result_type==='interview'?{interviewId:prior.result_id}:{}),
+        const loiReplay=prior.result_type==='loi'&&envelope.command==='loi.handoff'?await replayLoiHandoff({db,actor,interviewId:envelope.interviewId,config,owners,clock},prior.result_id):{};
+        return {...loiReplay,bootstrap:currentRead,...(audit?.metadata?.researchBinding?{researchBinding:audit.metadata.researchBinding}:{}),replayed:true,resultId:prior.result_id,...(prior.result_type==='interview'?{interviewId:prior.result_id}:{}),
           ...(prior.result_type==='export'?{export:privateExport(currentRead,actor)}:{})};
       }
       const current=await revision(db,actor);
@@ -51,6 +60,7 @@ export function createCommands({database,owners,config,clock,speechAvailable=fal
       if(envelope.command==='research.check')result={type:'research',id:envelope.interviewId,interviewId:envelope.interviewId,researchBinding:await captureResearchBinding({...context,interviewId:envelope.interviewId})};
       else if(interviewCommands.has(envelope.command)) result=await writeInterview(context);
       else if(debriefCommands.has(envelope.command))result=await writeDebrief(context);
+      else if(loiCommands.has(envelope.command))result=await writeLoi(context);
       else if(envelope.command==='prep.save')result=await writePreparation(context);
       else if(learningCommands.has(envelope.command))result=await writeLearning(context);
       else if(['story.consent','rank.consent'].includes(envelope.command))result=await writeConsent(context);

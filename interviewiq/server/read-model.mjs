@@ -1,3 +1,4 @@
+import {loiEnabled,loiHistory} from './private-commands.mjs';
 import {revision} from './records.mjs';
 import {readCoreModel} from './core-read-model.mjs';
 import {readResearchSummary,researchEnabled,provisionalSQL,provisionalValues} from './research-workspace.mjs';
@@ -49,7 +50,7 @@ export async function readModel(db,actor,{owners,config,clock=()=>new Date(),spe
   // program evidence. Empty fact arrays prevent stale snapshots claiming facts.
   for(const row of interviews)if(row.program_id && !programs.some(p=>p.id===row.program_id))programs.push({id:row.program_id,name:row.program_name,track:row.program_track,specialty:'',zone:row.timezone||actor.zone,fact_ids:[],identity_snapshot:true});
   const gapMap=byInterview(gaps);
-  const state={clock:current,interviews:[],demands:object(),results:context.results||{},why:object(),questions:object(),practice:object(),learning:object(),debriefs:object(),reviewQueue:[],shared:context.sharedReports||{},
+  const state={clock:current,interviews:[],loi:object(),demands:object(),results:context.results||{},why:object(),questions:object(),practice:object(),learning:object(),debriefs:object(),reviewQueue:[],shared:context.sharedReports||{},
     contrib:{missions:object(),submissions:[],ledger:[],grants:object()},policy:{contributions:false,standalone:false,mrxCentral:null,audit:[],suspended:{}},
     mentorAssigned:actor.role==='mentor'?[...actor.assignments]:[],mentorPriority:object(),rank:object(),consents:object(),changes:[],ivoc:object()};
   state.policy.contributions=effectivePolicy?.contributions===true;
@@ -68,6 +69,7 @@ export async function readModel(db,actor,{owners,config,clock=()=>new Date(),spe
     preparationStatus:gapMap[row.id]||null,
   }));
   for(const row of demands)state.demands[row.interview_id]={id:row.id,status:status(row.status),program:row.program_id,history:[{at:iso(row.updated_at),state:status(row.status),reason:row.last_error_code?'The research service is unavailable.':''}]};
+  if(loiEnabled(config,actor))for(const row of prep){const own=interviews.find(x=>x.id===row.interview_id&&x.owner_id===actor.id);if(own)state.loi[row.interview_id]=loiHistory(row.anchors,own,consents.filter(c=>c.scope==='storyforge'));}
   for(const row of prep){const basis={fact:row.basis?.fact||null,story:row.basis?.story||null};if(basis.story && !stories.some(x=>x.id===basis.story))basis.story=null;state.why[row.interview_id]={text:row.why_program,basis:basis.fact||basis.story?basis:null,edited:row.basis?.edited!==false};state.questions[row.interview_id]=row.questions.map(q=>typeof q==='string'?q:q.text||'').join('\n');}
   for(const row of practice){const basis={...row.context_basis};if(basis.story && !stories.some(x=>x.id===basis.story))delete basis.story;(state.practice[row.interview_id] ||= []).push({id:row.id,at:iso(row.created_at),program:row.program_id,question:row.question,draft:row.answer,diagnosis:row.summary?.diagnosis||[],change:row.specific_change,retry:row.retry_answer,retryDiagnosis:row.summary?.retryDiagnosis||[],reflection:row.reflection,nextChange:row.summary?.nextChange||'',feedback:row.summary?.feedback===true,discarded:row.status==='revoked',basis,status:row.status,generic:row.summary?.generic===true,adapted:row.summary?.adapted===true});}
   for(const row of learning)if(!state.learning[row.owner_id])state.learning[row.owner_id]={id:row.id,goal:row.statement,status:row.status,source:row.source_kind,at:iso(row.updated_at),mentorVisible:row.mentor_visible};
@@ -103,7 +105,7 @@ export async function readModel(db,actor,{owners,config,clock=()=>new Date(),spe
   const profiles=[{id:actor.id,displayName:actor.displayName,tier:actor.tier,approved_stories:stories,...(stories[0]?{approved_story:stories[0]}:{})},
     ...profileRows.filter(x=>x.id!==actor.id).map(x=>({id:x.id,name:x.display_name,displayName:x.display_name}))];
   return {actor:{id:actor.id,role:actor.role,displayName:actor.displayName,firstName:actor.firstName,tier:actor.tier,zone:actor.zone},
-    capabilities:{research,researchMissions:researchEnabled(config,actor),researchByProgram,contributions:state.policy.contributions===true},catalog:{programs,facts:context.facts||[],sources:context.sources||[],profiles,student_zone:actor.zone,registry_release:context.registryRelease||null,storyforgeProjection:context.storyforgeProjection||null,riseProjections:context.riseProjections||{}},
+    capabilities:{loi:loiEnabled(config,actor),research,researchMissions:researchEnabled(config,actor),researchByProgram,contributions:state.policy.contributions===true},catalog:{programs,facts:context.facts||[],sources:context.sources||[],profiles,student_zone:actor.zone,registry_release:context.registryRelease||null,storyforgeProjection:context.storyforgeProjection||null,riseProjections:context.riseProjections||{}},
     state,version,server_time:current,integrations:{matrix:{available:true,status:'available',url:`${config.publicOrigin}/member-dashboard/`},
       rise:{available:context.status?.rise==='available',status:context.status?.rise||'unavailable',url:`${config.publicOrigin}/rise/`},
       storyforge:{available:context.status?.storyforge==='available',status:context.status?.storyforge||'unavailable',url:`${config.publicOrigin}/storyforge/`},
