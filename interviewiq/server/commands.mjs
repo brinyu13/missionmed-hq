@@ -1,9 +1,10 @@
+import {targetEnvelope,targetCommands,requireTargets,writeTarget,ownedTarget,targetView,readTargets,savedPrograms} from './loi-targets.mjs';
 import {deepResearchEnabled,captureResearchBinding,checkCommittedResearch,createRiseResearchJobTransport} from './research-dispatch.mjs';
 import {AppError,requireValue} from './errors.mjs';
 import {commandEnvelope} from './validation.mjs';
 import {syncActor,revision,writeInterview} from './records.mjs';
 import {writeDebrief,writePreparation} from './debrief.mjs';
-import {writeLearning,writeConsent,writeShare,loiEnabled,loiCanonicalLookup,loiProgramAllowed,requireLoi,readLoi,loiEvidence,writeLoi,replayLoiHandoff} from './private-commands.mjs';
+import {writeLearning,writeConsent,writeShare,loiEnabled,loiCanonicalLookup,loiProgramAllowed,requireLoi,readLoi,loiEvidence,loiHistory,writeLoi,replayLoiHandoff} from './private-commands.mjs';
 import {readModel} from './read-model.mjs';
 import {writeRehearsal} from './rehearsal.mjs';
 import {writeAdmin} from './admin-commands.mjs';
@@ -21,17 +22,20 @@ export function createCommands({database,owners,config,clock,speechAvailable=fal
   async function bootstrap(actor) {coreActor(actor,config);return database.withActor(actor,async db=>{await syncActor(db,actor);return readModel(db,actor,settings);});}
   async function execute(actor,body,{revalidateActor}={}) {
     coreActor(actor,config);
-    const envelope=commandEnvelope(body);
+    const envelope=targetEnvelope(body);
+    if(targetCommands.has(envelope.command))requireValue(envelope.targetKind==='program','invalid_loi_target','Use an explicit program letter target.');
+    if(envelope.targetKind==='program')requireTargets(config,actor);
     if(loiCommands.has(envelope.command))requireLoi(config,actor);
     if(config.coreOnly) {
-      requireValue(coreCommands.has(envelope.command)||loiEnabled(config,actor)&&loiCommands.has(envelope.command)||envelope.command==='research.check'&&deepResearchEnabled(config,actor)||researchEnabled(config,actor)&&researchCommands.has(envelope.command),'coming_soon','COMING SOON — this integration is not active. Your saved calendar is unchanged.',503);
-      requireValue(!envelope.data.program||envelope.command==='mission.create'||deepResearchEnabled(config,actor)||loiCanonicalLookup(config,actor)&&['interview.create','interview.identity'].includes(envelope.command)&&loiProgramAllowed(config,actor,envelope.data.program),'coming_soon','Canonical program lookup is not available for this selection. Enter the program name from your invitation.',503);
+      requireValue(coreCommands.has(envelope.command)||envelope.targetKind==='program'&&targetCommands.has(envelope.command)||loiEnabled(config,actor)&&loiCommands.has(envelope.command)||envelope.command==='research.check'&&deepResearchEnabled(config,actor)||researchEnabled(config,actor)&&researchCommands.has(envelope.command),'coming_soon','COMING SOON — this integration is not active. Your saved calendar is unchanged.',503);
+      requireValue(!envelope.data.program||envelope.command==='mission.create'||envelope.targetKind==='program'&&targetCommands.has(envelope.command)||deepResearchEnabled(config,actor)||loiCanonicalLookup(config,actor)&&['interview.create','interview.identity'].includes(envelope.command)&&loiProgramAllowed(config,actor,envelope.data.program),'coming_soon','Canonical program lookup is not available for this selection. Enter the program name from your invitation.',503);
     }
+    if(['loitarget.read','loitarget.list','loitarget.saved'].includes(envelope.command)){return database.withActor(actor,async db=>{await db.query('SET TRANSACTION READ ONLY');const ctx={db,actor,...envelope,config,owners,clock};if(envelope.command==='loitarget.saved')return {type:'loi_saved',savedPrograms:await savedPrograms(ctx)};requireValue(Object.keys(envelope.data).length===0,'unexpected_fields','This read accepts no additional fields.');if(envelope.command==='loitarget.list')return {type:'loi_targets',...(await readTargets(ctx,loiHistory))};const row=await ownedTarget(ctx);const {rows:consents}=await db.query("SELECT subject_ref,status FROM iiq.consents WHERE owner_id=$1 AND scope='storyforge'",[actor.id]);return {type:'loi_target',target:targetView(row,loiHistory(row.anchors,{...row,targetKind:'program'},consents))};});}
     if(['loi.evidence','loi.export'].includes(envelope.command)){
       requireValue(Object.keys(envelope.data).length===0,'unexpected_fields','This read accepts no additional fields.');
       return database.withActor(actor,async db=>{await db.query('SET TRANSACTION READ ONLY');
-        if(envelope.command==='loi.evidence')return loiEvidence({db,actor,interviewId:envelope.interviewId,config,owners,clock});
-        const own=await readLoi({db,actor,interviewId:envelope.interviewId,config});return {type:'loi_export',export:{interviewId:own.interviewId,history:own.history}};});
+        if(envelope.command==='loi.evidence')return loiEvidence({db,actor,...envelope,config,owners,clock});
+        const own=await readLoi({db,actor,...envelope,config});return {type:'loi_export',export:{...(own.targetKind==='program'?{targetKind:own.targetKind,targetId:own.targetId}:{interviewId:own.interviewId}),history:own.history}};});
     }
     if(envelope.command==='research.check')requireValue(envelope.interviewId&&Object.keys(envelope.data).length===0,'invalid_research_check','Choose an existing interview without changing its request.');
     if(envelope.command==='research.read'){
@@ -50,8 +54,8 @@ export function createCommands({database,owners,config,clock,speechAvailable=fal
         // cached body that could contain revoked story or shared context.
         const currentRead=await readModel(db,actor,settings);
         const {rows:[audit]}=deepResearchEnabled(config,actor)?await db.query("SELECT metadata FROM iiq.audit_events WHERE owner_id=$1 AND event_type=$2 AND metadata->>'requestId'=$3",[actor.id,envelope.command,envelope.requestId]):{rows:[]};
-        const loiReplay=prior.result_type==='loi'&&envelope.command==='loi.handoff'?await replayLoiHandoff({db,actor,interviewId:envelope.interviewId,config,owners,clock},prior.result_id):{};
-        return {...loiReplay,bootstrap:currentRead,...(audit?.metadata?.researchBinding?{researchBinding:audit.metadata.researchBinding}:{}),replayed:true,resultId:prior.result_id,...(prior.result_type==='interview'?{interviewId:prior.result_id}:{}),
+        const loiReplay=prior.result_type==='loi'&&envelope.command==='loi.handoff'?await replayLoiHandoff({db,actor,...envelope,config,owners,clock},prior.result_id):{};
+        return {...loiReplay,bootstrap:currentRead,...(audit?.metadata?.researchBinding?{researchBinding:audit.metadata.researchBinding}:{}),replayed:true,resultId:prior.result_id,...(prior.result_type==='interview'?{interviewId:prior.result_id}:{}),...(envelope.targetKind==='program'?{targetKind:'program',targetId:envelope.targetId??prior.result_id}:{}),
           ...(prior.result_type==='export'?{export:privateExport(currentRead,actor)}:{})};
       }
       const current=await revision(db,actor);
@@ -60,6 +64,7 @@ export function createCommands({database,owners,config,clock,speechAvailable=fal
       if(envelope.command==='research.check')result={type:'research',id:envelope.interviewId,interviewId:envelope.interviewId,researchBinding:await captureResearchBinding({...context,interviewId:envelope.interviewId})};
       else if(interviewCommands.has(envelope.command)) result=await writeInterview(context);
       else if(debriefCommands.has(envelope.command))result=await writeDebrief(context);
+      else if(targetCommands.has(envelope.command))result=await writeTarget(context);
       else if(loiCommands.has(envelope.command))result=await writeLoi(context);
       else if(envelope.command==='prep.save')result=await writePreparation(context);
       else if(learningCommands.has(envelope.command))result=await writeLearning(context);

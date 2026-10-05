@@ -2,7 +2,8 @@ import {AppError} from './errors.mjs';
 import {createRiseOwner} from './rise-owner.mjs';
 
 export function createOwnerServices(config={},dependencies={}){
-  return {...unavailableOwners(),...createRiseOwner(config.rise,dependencies)};
+  const rise=createRiseOwner(config.rise,dependencies);
+  return {...unavailableOwners(),...rise,rise:Object.freeze({savedPrograms:async(actor,query)=>{if(typeof rise.listSavedPrograms!=='function')throw new AppError(503,'owner_service_unavailable','Saved Programs is temporarily unavailable.');return rise.listSavedPrograms(actor,query);}})};
 }
 
 // Production composition replaces each unavailable seam only with its registered

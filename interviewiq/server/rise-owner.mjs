@@ -24,6 +24,9 @@ export function createRiseOwner(config={},dependencies={}) {
   const request=createRiseReadTransport(config,dependencies);
   const now=dependencies.now??Date.now;
   return Object.freeze({
+    async listSavedPrograms(actor,query={}) {
+      return projectSavedPrograms(await request(actor,{kind:'saved',query}),query,now());
+    },
     async getProgram(actor,id) {
       const result=identity(await request(actor,{kind:'detail',id}));
       if(result.id!==id)throw invalid();return result;
@@ -75,4 +78,17 @@ export function projectProgramResearch(input,program,now=Date.now()){
   const sources=f.sources.map(s=>{need(plain(s)&&ref(s.claimRef)&&(s.reviewRef===null||ref(s.reviewRef))&&Array.isArray(s.urls)&&s.urls.length>0&&s.urls.length<=8);const urls=[...new Set(s.urls.map(url))],retrievedAt=instant(s.retrievedAt),reviewedAt=s.reviewedAt===null?null:instant(s.reviewedAt);need(Date.parse(retrievedAt)<=observed&&(reviewedAt===null||Date.parse(reviewedAt)<=observed));return {claimRef:s.claimRef,reviewRef:s.reviewRef,urls,retrievedAt,reviewedAt};});
   return {area:field.area,field:field.field,state:'SUPPORTED',claimRef:f.claimRef,value:v,retrievedAt,asOf,sources};});
  const body={schema:input.schema,coverage,facts};need(Buffer.byteLength(JSON.stringify(body))<=196608&&input.receipt?.publicRef==='rise-results-v1'&&input.receipt.sha256===sha(JSON.stringify(body)));return {...body,receipt:{publicRef:'rise-results-v1',sha256:input.receipt.sha256}};
+}
+
+// Strict minimized private-own-state consumer; no evidence readiness inferred.
+export function projectSavedPrograms(input,query={},now=Date.now()){
+ const exact=(x,keys)=>x&&Object.getPrototypeOf(x)===Object.prototype&&Object.keys(x).length===keys.length&&Object.keys(x).every(k=>keys.includes(k));
+ const need=x=>{if(!x)throw invalid();};const page=query.page??1,pageSize=query.pageSize??100;
+ need(exact(input,['schema','source','registryReleaseId','page','pageSize','total','accessibleTotal','truncated','hasMore','records'])&&input.schema==='rise-interviewiq-saved-programs-v1'&&input.source==='RISE_SAVED'&&text(input.registryReleaseId,180)&&input.page===page&&input.pageSize===pageSize&&Number.isSafeInteger(input.total)&&input.total>=0&&input.total<=10000000&&input.accessibleTotal===Math.min(input.total,2000)&&input.truncated===(input.total>2000)&&Array.isArray(input.records)&&input.records.length<=Math.min(pageSize,2000-(page-1)*pageSize));
+ const expected=Math.max(0,Math.min(pageSize,input.accessibleTotal-(page-1)*pageSize));need(input.records.length===expected&&input.hasMore===((page-1)*pageSize+expected<input.accessibleTotal));
+ const seen=new Set();const records=input.records.map(row=>{
+  need(exact(row,['source','programRef','identityState','program','state','priority','updatedAt','evidenceState'])&&row.source==='RISE_SAVED'&&validProgramId(row.programRef)&&!seen.has(row.programRef)&&['SAVED','APPLIED','INTERVIEWING','RANKED'].includes(row.state)&&(row.priority===null||Number.isSafeInteger(row.priority)&&row.priority>0)&&text(row.updatedAt,30)&&Number.isFinite(Date.parse(row.updatedAt))&&new Date(row.updatedAt).toISOString()===row.updatedAt&&Date.parse(row.updatedAt)<=now&&row.evidenceState==='UNKNOWN');seen.add(row.programRef);
+  let program=null;if(row.identityState==='CANONICAL'){need(exact(row.program,['id','name','track','registryReleaseId','specialty','acgmeId']));program=identity(row.program,input.registryReleaseId,true);need(program.id===row.programRef);}else need(row.identityState==='UNRESOLVED'&&row.program===null);
+  return {source:'RISE_SAVED',programRef:row.programRef,identityState:row.identityState,program,state:row.state,priority:row.priority,updatedAt:row.updatedAt,evidenceState:'UNKNOWN'};
+ });return {schema:input.schema,source:'RISE_SAVED',registryReleaseId:input.registryReleaseId,page,pageSize,total:input.total,accessibleTotal:input.accessibleTotal,truncated:input.truncated,hasMore:input.hasMore,records};
 }

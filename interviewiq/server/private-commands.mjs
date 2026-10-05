@@ -1,3 +1,4 @@
+import {ownedTarget,targetLetterAllowed} from './loi-targets.mjs';
 import {randomUUID} from 'node:crypto';
 import {projectProgramResearch} from './rise-owner.mjs';
 import { AppError,notFound,requireValue } from './errors.mjs';
@@ -94,20 +95,22 @@ export function loiProgramAllowed(config,actor,programId){return loiEnabled(conf
 export function loiInterviewAllowed(config,actor,row){return row?.owner_id===actor.id&&loiProgramAllowed(config,actor,row.program_id);}
 export function requireLoi(config,actor){requireValue(loiEnabled(config,actor),'loi_unavailable','Letters of Interest are not available for this workspace.',403);}
 const revisionType='iiq.loi.revision',outreachType='iiq.loi.outreach';
-const known=x=>x&&[revisionType,outreachType].includes(x.type)&&x.schemaVersion===1;
+const known=(x,row)=>x&&[revisionType,outreachType].includes(x.type)&&(row?.targetKind==='program'?x.schemaVersion===2&&x.targetKind==='program'&&x.targetId===row.id:x.schemaVersion===1);
+async function loiSubject(ctx,lock=false){if(ctx.targetKind==='program'){const row=await ownedTarget(ctx,lock);requireValue(targetLetterAllowed(ctx.config,ctx.actor,row),'loi_program_unavailable','Resolve a current enabled canonical program first.',403);return {...row,targetKind:'program'};}return interview(ctx.db,ctx.actor,ctx.interviewId,{lock});}
+
 export function loiHistory(anchors,row,consents=null){
-  const history=(anchors||[]).filter(x=>x&&[revisionType,outreachType].includes(x.type)).map(x=>known(x)?x:{type:x.type,schemaVersion:x.schemaVersion,unavailable:true});
+  const history=(anchors||[]).filter(x=>x&&[revisionType,outreachType].includes(x.type)).map(x=>known(x,row)?x:{type:x.type,schemaVersion:x.schemaVersion,unavailable:true});
   const revisions=history.filter(x=>x.type===revisionType&&!x.unavailable),current=revisions.at(-1)||null;
   const consentValid=e=>consents===null?null:(e.storyRefs||[]).every(r=>consents.some(c=>c.subject_ref===r.id&&c.status==='active'));
-  return {history,current,currentConsentValid:current?consentValid(current):null,consentInvalidRevisionIds:consents===null?[]:revisions.filter(e=>!consentValid(e)).map(e=>e.revisionId),outreach:history.filter(x=>x.type===outreachType&&!x.unavailable),currentBindingValid:Boolean(current&&current.interviewId===row.id&&current.program.id===row.program_id&&current.program.name===row.program_name&&current.program.track===(row.program_track||''))};
+  return {history,current,currentConsentValid:current?consentValid(current):null,consentInvalidRevisionIds:consents===null?[]:revisions.filter(e=>!consentValid(e)).map(e=>e.revisionId),outreach:history.filter(x=>x.type===outreachType&&!x.unavailable),currentBindingValid:Boolean(current&&(row.targetKind==='program'?current.targetKind==='program'&&current.targetId===row.id&&current.program.registryReleaseId===row.registry_release_id:current.interviewId===row.id)&&current.program.id===row.program_id&&current.program.name===row.program_name&&current.program.track===(row.program_track||''))};
 }
-export async function readLoi({db,actor,interviewId,config}){
-  requireLoi(config,actor);const row=await interview(db,actor,interviewId);requireValue(loiInterviewAllowed(config,actor,row),'loi_program_unavailable','Use an enabled attached canonical program.',403);
-  const {rows:[prep]}=await db.query('SELECT anchors FROM iiq.preparation WHERE owner_id=$1 AND interview_id=$2',[actor.id,row.id]);const {rows:consents}=await db.query("SELECT subject_ref,status FROM iiq.consents WHERE owner_id=$1 AND scope='storyforge'",[actor.id]);return {interviewId:row.id,...loiHistory(prep?.anchors,row,consents)};
+export async function readLoi(ctx){
+  const {db,actor,config}=ctx;requireLoi(config,actor);const row=await loiSubject(ctx);requireValue(loiInterviewAllowed(config,actor,row),'loi_program_unavailable','Use an enabled attached canonical program.',403);
+  const prep=row.targetKind==='program'?row:(await db.query('SELECT anchors FROM iiq.preparation WHERE owner_id=$1 AND interview_id=$2',[actor.id,row.id])).rows[0];const {rows:consents}=await db.query("SELECT subject_ref,status FROM iiq.consents WHERE owner_id=$1 AND scope='storyforge'",[actor.id]);return {...(row.targetKind==='program'?{targetKind:'program',targetId:row.id}:{interviewId:row.id}),...loiHistory(prep?.anchors,row,consents)};
 }
-async function loiProgram(owners,actor,row){const p=await owners.getProgram(actor,row.program_id);requireValue(p.id===row.program_id&&p.name===row.program_name&&p.track===(row.program_track||'')&&typeof p.registryReleaseId==='string','loi_binding_changed','The current program identity changed. Reconfirm a new draft.',409);return p;}
-export async function loiEvidence({db,actor,interviewId,config,owners,clock=()=>new Date()}){
-  requireLoi(config,actor);const row=await interview(db,actor,interviewId);requireValue(loiInterviewAllowed(config,actor,row),'loi_program_unavailable','Use an enabled attached canonical program.',403);
+async function loiProgram(owners,actor,row){const p=await owners.getProgram(actor,row.program_id);requireValue(p.id===row.program_id&&p.name===row.program_name&&p.track===(row.program_track||'')&&typeof p.registryReleaseId==='string'&&(!row.targetKind||p.registryReleaseId===row.registry_release_id),'loi_binding_changed','The current program identity changed. Reconfirm a new draft.',409);return p;}
+export async function loiEvidence(ctx){
+  const {db,actor,config,owners,clock=()=>new Date()}=ctx;requireLoi(config,actor);const row=await loiSubject(ctx);requireValue(loiInterviewAllowed(config,actor,row),'loi_program_unavailable','Use an enabled attached canonical program.',403);
   const program=await loiProgram(owners,actor,row),research=projectProgramResearch(await owners.getProgramResearch(actor,row.program_id),program,clock().getTime());return {type:'loi_evidence',program,research};
 }
 function confirmations(data){return {studentFactualConfirmation:v.boolean(data.studentFactualConfirmation,'Factual review'),studentSpecificityConfirmation:v.boolean(data.studentSpecificityConfirmation,'Program specificity review')};}
@@ -138,17 +141,18 @@ export function loiHandoff({recipient,subject,text}){
 }
 export async function writeLoi(ctx){
   const {db,actor,interviewId,config,data,command,owners,clock=()=>new Date()}=ctx;requireLoi(config,actor);
-  const row=await interview(db,actor,interviewId,{lock:true});requireValue(loiInterviewAllowed(config,actor,row),'loi_program_unavailable','Use an enabled attached canonical program.',403);
-  const {rows:[prep]}=await db.query('SELECT * FROM iiq.preparation WHERE owner_id=$1 AND interview_id=$2 FOR UPDATE',[actor.id,row.id]);const anchors=prep?.anchors||[],current=loiHistory(anchors,row).current;
-  requireValue(!anchors.some(x=>x?.type===revisionType&&x.schemaVersion!==1),'loi_future_schema','A newer letter history needs a compatible application before editing.',409);
+  const row=await loiSubject(ctx,true);requireValue(loiInterviewAllowed(config,actor,row),'loi_program_unavailable','Use an enabled attached canonical program.',403);
+  const prep=row.targetKind==='program'?row:(await db.query('SELECT * FROM iiq.preparation WHERE owner_id=$1 AND interview_id=$2 FOR UPDATE',[actor.id,row.id])).rows[0];
+  if(row.targetKind==='program')requireValue(row.target_choice==='CREATE_LETTER','loi_target_choice','Choose Create Letter explicitly before changing or using a letter.',409);const anchors=prep?.anchors||[],current=loiHistory(anchors,row).current;
+  requireValue(!anchors.some(x=>x&&[revisionType,outreachType].includes(x.type)&&!known(x,row)),'loi_future_schema','A newer letter history needs a compatible application before editing.',409);
   const base=['letterId','expectedHead','expectedLetterVersion'];let entry,handoff;
   if(command==='loi.save'){
     v.onlyKeys(data,[...base,'text','context','motivations','facts','storyRefs','selectedEvidence','studentFactualConfirmation','studentSpecificityConfirmation']);headCheck(data,current);v.onlyKeys(data.context,['whyNow','applicationState','interviewState']);
     const context=Object.fromEntries(['whyNow','applicationState','interviewState'].map(k=>[k,v.text(data.context[k],k,2000)])),selectedEvidence=selections(data.selectedEvidence),storyRefs=v.array(data.storyRefs||[],'Story references',20).map(x=>{v.onlyKeys(x,['id']);return {id:v.text(x.id,'Story reference',180,{empty:false})};});
-    let e={program:{id:row.program_id,name:row.program_name,track:row.program_track||'',registryReleaseId:null},evidence:[],evidenceDigest:null,resultDigest:null,coverageDigest:null,observedAt:null};
+    let e={program:{id:row.program_id,name:row.program_name,track:row.program_track||'',registryReleaseId:row.targetKind==='program'?row.registry_release_id:null},evidence:[],evidenceDigest:null,resultDigest:null,coverageDigest:null,observedAt:null};
     try{e=await evidenceFor(ctx,selectedEvidence);}catch(error){if(selectedEvidence.length)throw error;}
-    entry={type:revisionType,schemaVersion:1,revisionId:randomUUID(),letterId:current?.letterId||randomUUID(),parentRevisionId:current?.revisionId||null,letterVersion:(current?.letterVersion||0)+1,createdAt:clock().toISOString(),interviewId:row.id,state:'draft',text:v.text(data.text,'Letter',20000,{empty:false}),context,motivations:inputs(data.motivations,'Motivation'),facts:inputs(data.facts,'Student fact'),storyRefs,selectedEvidence,...e,...confirmations(data),approval:null};
-    entry.contentHash=v.digest({text:entry.text,context,motivations:entry.motivations,facts:entry.facts,storyRefs,program:entry.program,evidence:entry.evidence});entry.checks=loiChecks(entry);
+    entry={type:revisionType,schemaVersion:row.targetKind==='program'?2:1,revisionId:randomUUID(),letterId:current?.letterId||randomUUID(),parentRevisionId:current?.revisionId||null,letterVersion:(current?.letterVersion||0)+1,createdAt:clock().toISOString(),...(row.targetKind==='program'?{targetKind:'program',targetId:row.id}:{interviewId:row.id}),state:'draft',text:v.text(data.text,'Letter',20000,{empty:false}),context,motivations:inputs(data.motivations,'Motivation'),facts:inputs(data.facts,'Student fact'),storyRefs,selectedEvidence,...e,...confirmations(data),approval:null};
+    entry.contentHash=v.digest({... (row.targetKind==='program'?{targetKind:'program',targetId:row.id}:{}),text:entry.text,context,motivations:entry.motivations,facts:entry.facts,storyRefs,program:entry.program,evidence:entry.evidence});entry.checks=loiChecks(entry);
   }else{
     v.onlyKeys(data,[...base,'contentHash',...(command==='loi.approve'?['studentFactualConfirmation','studentSpecificityConfirmation']:command==='loi.handoff'?['recipient','subject','channel','recipientConfirmed']:['handoffId','confirmed'])]);headCheck(data,current);requireValue(current&&current.contentHash===data.contentHash,'loi_content_conflict','Review the exact saved content.',409);
     if(command==='loi.approve'){
@@ -158,7 +162,7 @@ export async function writeLoi(ctx){
       await currentApproval(ctx,current,data);const history=loiHistory(anchors,row).outreach;
       if(command==='loi.handoff'){
         requireValue(v.boolean(data.recipientConfirmed,'Recipient review'),'loi_recipient_review','Confirm this destination.');v.choice(data.channel,['gmail','mailto','copy'],'handoff channel');handoff=loiHandoff({recipient:data.recipient,subject:data.subject,text:current.text});
-        entry={type:outreachType,schemaVersion:1,handoffId:randomUUID(),eventId:randomUUID(),recordedAt:clock().toISOString(),letterId:current.letterId,revisionId:current.revisionId,contentHash:current.contentHash,evidenceDigest:current.evidenceDigest,recipient:data.recipient,subject:data.subject,channel:data.channel,state:'prepared'};handoff.handoffId=entry.handoffId;
+        entry={type:outreachType,schemaVersion:row.targetKind==='program'?2:1,...(row.targetKind==='program'?{targetKind:'program',targetId:row.id}:{}),handoffId:randomUUID(),eventId:randomUUID(),recordedAt:clock().toISOString(),letterId:current.letterId,revisionId:current.revisionId,contentHash:current.contentHash,evidenceDigest:current.evidenceDigest,recipient:data.recipient,subject:data.subject,channel:data.channel,state:'prepared'};handoff.handoffId=entry.handoffId;
       }else{
         requireValue(command==='loi.mark_sent'&&v.boolean(data.confirmed,'Self-reported sending'),'loi_sent_confirmation','Confirm that you sent the letter yourself.');v.uuid(data.handoffId,'Handoff');const h=history.find(x=>x.handoffId===data.handoffId&&x.state==='prepared');requireValue(h&&h.revisionId===current.revisionId&&h.contentHash===current.contentHash&&h.evidenceDigest===current.evidenceDigest,'loi_handoff_changed','Review a current handoff first.',409);requireValue(!history.some(x=>x.handoffId===h.handoffId&&x.state==='self_reported_sent'),'loi_already_marked','This handoff was already marked as sent.',409);entry={...h,eventId:randomUUID(),recordedAt:clock().toISOString(),state:'self_reported_sent'};
       }
@@ -166,8 +170,8 @@ export async function writeLoi(ctx){
   }
   requireValue(Buffer.byteLength(JSON.stringify(entry))<=131072,'loi_entry_too_large','This letter entry is too large. Nothing was truncated.',413);
   // UPDATE only anchors; all legacy preparation values and the full array prefix survive.
-  const {rows:[saved]}=await db.query(`INSERT INTO iiq.preparation(owner_id,interview_id,anchors) VALUES($1,$2,$3::jsonb) ON CONFLICT(interview_id) DO UPDATE SET anchors=iiq.preparation.anchors||$4::jsonb WHERE preparation.owner_id=$1 RETURNING id`,[actor.id,row.id,JSON.stringify([entry]),JSON.stringify([entry])]);requireValue(saved,'loi_save_failed','The letter could not be saved.');
-  return {type:'loi',id:entry.type===outreachType?entry.eventId:entry.revisionId,interviewId:row.id,...(handoff?{handoff}:{})};
+  const {rows:[saved]}=row.targetKind==='program'?await db.query('UPDATE iiq.loi_targets SET anchors=anchors||$3::jsonb,version=version+1,updated_at=$4 WHERE owner_id=$1 AND id=$2 RETURNING id',[actor.id,row.id,JSON.stringify([entry]),clock()]):await db.query(`INSERT INTO iiq.preparation(owner_id,interview_id,anchors) VALUES($1,$2,$3::jsonb) ON CONFLICT(interview_id) DO UPDATE SET anchors=iiq.preparation.anchors||$4::jsonb WHERE preparation.owner_id=$1 RETURNING id`,[actor.id,row.id,JSON.stringify([entry]),JSON.stringify([entry])]);requireValue(saved,'loi_save_failed','The letter could not be saved.');
+  return {type:'loi',id:entry.type===outreachType?entry.eventId:entry.revisionId,...(row.targetKind==='program'?{targetKind:'program',targetId:row.id}:{interviewId:row.id}),...(handoff?{handoff}:{})};
 }
 
-export async function replayLoiHandoff(ctx,id){const own=await readLoi(ctx),h=own.outreach.find(x=>x.eventId===id&&x.state==='prepared');if(!h)return {};await currentApproval(ctx,own.current,{contentHash:h.contentHash});requireValue(h.revisionId===own.current.revisionId,'loi_handoff_changed','This handoff is historical.',409);return {handoff:{...loiHandoff({recipient:h.recipient,subject:h.subject,text:own.current.text}),handoffId:h.handoffId}};}
+export async function replayLoiHandoff(ctx,id){if(ctx.targetKind==='program'){const row=await loiSubject(ctx);requireValue(row.target_choice==='CREATE_LETTER','loi_target_choice','Choose Create Letter explicitly before changing or using a letter.',409);}const own=await readLoi(ctx),h=own.outreach.find(x=>x.eventId===id&&x.state==='prepared');if(!h)return {};await currentApproval(ctx,own.current,{contentHash:h.contentHash});requireValue(h.revisionId===own.current.revisionId,'loi_handoff_changed','This handoff is historical.',409);return {handoff:{...loiHandoff({recipient:h.recipient,subject:h.subject,text:own.current.text}),handoffId:h.handoffId}};}

@@ -93,7 +93,11 @@ export async function verifyMigrationPolicy(approval,pending,{bodyOf,now=Date.no
   // reviewed bytes; this does not generalize the conservative SQL classifier.
   const reviewedExpansion=migration.name==='20261004073823_iiq_1204_committed_research_grants.sql'&&
    migration.sha256==='ac686850e55656ed7204ee56d3101db94ca932495153f0b1ca7e293f46fa35e0'&&
-   sha(migration.sql)===migration.sha256&&sha(body)==='685a8bf65982e77fb86b2a27a7862992d938ab5c2007fb37af5fd1fadbdc5789';
+   sha(migration.sql)===migration.sha256&&sha(body)==='685a8bf65982e77fb86b2a27a7862992d938ab5c2007fb37af5fd1fadbdc5789' ||
+   // DR-383 reviewed expansion: exact new owned LOI tables only, never a generic DDL allowance.
+   migration.name==='20261005130100_iiq_1204_loi_targets.sql'&&
+   migration.sha256==='2dcd407d4f4a73b5d2b4e119c1165321336617f93da58f8f0388777517963915'&&
+   sha(migration.sql)===migration.sha256&&sha(body)==='dc1348b85456a5d5218aa1f192dec4e4544a14f1607533fa634d573d95233c89';
   if(!classified.additiveOnly&&!reviewedExpansion)requiring.push({name:migration.name,sha256:migration.sha256});
  }
  if(!requiring.length)return {additiveOnly:true,requiresFounder:[]};

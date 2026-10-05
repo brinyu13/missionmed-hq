@@ -4,6 +4,7 @@ import {readOwnerSession} from './owner-session.mjs';
 
 const ORIGIN='https://missionmed-rise-production.up.railway.app';
 const PROGRAMS='/api/rise/v1/interviewiq/programs';
+const SAVED='/api/rise/v1/interviewiq/saved-programs';
 const MAX_BYTES=1048576;
 const sha=value=>createHash('sha256').update(value).digest('hex');
 const unavailable=()=>new AppError(503,'owner_service_unavailable','Program intelligence is temporarily unavailable. Your saved interview remains safe.');
@@ -14,6 +15,12 @@ function plain(value,keys) {
 }
 function route(operation) {
   if(!plain(operation,['kind','id','query']))throw invalid();
+  if(operation.kind==='saved') {
+    if(Object.keys(operation).length!==2||!plain(operation.query,['page','pageSize']))throw invalid();
+    const {page=1,pageSize=100}=operation.query;
+    if(!Number.isSafeInteger(page)||page<1||!Number.isSafeInteger(pageSize)||pageSize<1||pageSize>100||(page-1)*pageSize>=2000)throw invalid();
+    return `${SAVED}?${new URLSearchParams({page:String(page),pageSize:String(pageSize)})}`;
+  }
   if(operation.kind==='detail' && Object.keys(operation).length===2 && validProgramId(operation.id))
     return `${PROGRAMS}/${encodeURIComponent(operation.id)}`;
   if(operation.kind!=='search' || operation.id!==undefined || !plain(operation.query,['q','page','pageSize']))throw invalid();
@@ -49,7 +56,7 @@ export function createRiseReadTransport({enabled=false,requestSecret}={}, {fetch
     const seconds=Math.floor(now()/1000),context=readOwnerSession(actor,now());
     if(!context)throw new AppError(401,'owner_session_required','Refresh your current MissionMed session.');
     const path=route(operation),url=new URL(path,ORIGIN);
-    if(url.origin!==ORIGIN || !(url.pathname===PROGRAMS || url.pathname.startsWith(`${PROGRAMS}/`)))throw invalid();
+    if(url.origin!==ORIGIN || !(url.pathname===SAVED || url.pathname===PROGRAMS || url.pathname.startsWith(`${PROGRAMS}/`)))throw invalid();
     const nonce=randomUUID();
     const actorJson=JSON.stringify({subject:actor.id,wp_user_id:actor.wpUserId,session_verifier:context.verifier,auth_role:actor.role,auth_tier:actor.tier});
     const canonical=`iiq-owner-v1\nrise\n${seconds}\n${nonce}\nGET\n${path}\n${sha('')}\n${sha(actorJson)}`;

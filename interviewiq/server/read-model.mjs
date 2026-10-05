@@ -1,3 +1,4 @@
+import {readTargets,targetsEnabled} from './loi-targets.mjs';
 import {loiEnabled,loiCanonicalLookup,loiInterviewAllowed,loiHistory} from './private-commands.mjs';
 import {revision} from './records.mjs';
 import {readCoreModel} from './core-read-model.mjs';
@@ -10,7 +11,7 @@ const byInterview=rows=>Object.fromEntries(rows.map(x=>[x.interview_id,x]));
 const status=value=>({'awaiting_confirmation':'awaiting occurrence confirmation','waiting_identity':'waiting for identity',outage:'provider outage'}[value]||value);
 
 export async function readModel(db,actor,{owners,config,clock=()=>new Date(),speechAvailable=false}) {
-  if(config.coreOnly)return readCoreModel(db,actor,{config,clock});
+  if(config.coreOnly)return readCoreModel(db,actor,{config,owners,clock});
   // RLS applies even to these explicit owner predicates. Never ship one shared
   // browser state containing private records and filter it in the UI.
   const {rows:interviews}=await db.query('SELECT * FROM iiq.interviews ORDER BY start_at NULLS LAST,created_at DESC');
@@ -98,6 +99,7 @@ export async function readModel(db,actor,{owners,config,clock=()=>new Date(),spe
   state.changes=audit.filter(x=>x.owner_id===actor.id).map((x,index)=>({who:actor.id,actor:'you',seq:version-index,at:iso(x.created_at),kind:x.object_type,text:x.event_type.replaceAll('.',' '),to:x.object_id}));
   for(const note of mentorNotes){if(note.kind==='priority' && !state.mentorPriority[note.target_student_id])state.mentorPriority[note.target_student_id]={text:note.text,at:iso(note.created_at)};}
   state.mentorNudges=mentorNotes.filter(x=>x.kind==='nudge').map(x=>({id:x.id,student:x.target_student_id,text:x.text,at:iso(x.created_at)}));
+  if(targetsEnabled(config,actor))state.loiTargets=await readTargets({db,actor,config,owners},loiHistory);
   if(researchEnabled(config,actor))state.research=await readResearchSummary(db,actor,config);
   const research=['360','ivprep_complete'].includes(actor.tier)||actor.role==='admin';
   const {rows:accessRows}=await db.query('SELECT p AS program,iiq.deep_research_allowed(p) AS allow FROM unnest($1::text[]) p',[programs.map(x=>x.id)]);
@@ -105,7 +107,7 @@ export async function readModel(db,actor,{owners,config,clock=()=>new Date(),spe
   const profiles=[{id:actor.id,displayName:actor.displayName,tier:actor.tier,approved_stories:stories,...(stories[0]?{approved_story:stories[0]}:{})},
     ...profileRows.filter(x=>x.id!==actor.id).map(x=>({id:x.id,name:x.display_name,displayName:x.display_name}))];
   return {actor:{id:actor.id,role:actor.role,displayName:actor.displayName,firstName:actor.firstName,tier:actor.tier,zone:actor.zone},
-    capabilities:{loi:loiEnabled(config,actor),loiCanonicalLookup:loiCanonicalLookup(config,actor),research,researchMissions:researchEnabled(config,actor),researchByProgram,contributions:state.policy.contributions===true},catalog:{programs,facts:context.facts||[],sources:context.sources||[],profiles,student_zone:actor.zone,registry_release:context.registryRelease||null,storyforgeProjection:context.storyforgeProjection||null,riseProjections:context.riseProjections||{}},
+    capabilities:{...(targetsEnabled(config,actor)?{loiTargets:true}:{}),loi:loiEnabled(config,actor),loiCanonicalLookup:loiCanonicalLookup(config,actor),research,researchMissions:researchEnabled(config,actor),researchByProgram,contributions:state.policy.contributions===true},catalog:{programs,facts:context.facts||[],sources:context.sources||[],profiles,student_zone:actor.zone,registry_release:context.registryRelease||null,storyforgeProjection:context.storyforgeProjection||null,riseProjections:context.riseProjections||{}},
     state,version,server_time:current,integrations:{matrix:{available:true,status:'available',url:`${config.publicOrigin}/member-dashboard/`},
       rise:{available:context.status?.rise==='available',status:context.status?.rise||'unavailable',url:`${config.publicOrigin}/rise/`},
       storyforge:{available:context.status?.storyforge==='available',status:context.status?.storyforge||'unavailable',url:`${config.publicOrigin}/storyforge/`},

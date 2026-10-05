@@ -1,3 +1,4 @@
+import {readTargets,targetsEnabled} from './loi-targets.mjs';
 import {deepResearchEnabled} from './research-dispatch.mjs';
 import {loiEnabled,loiCanonicalLookup,loiInterviewAllowed,loiHistory} from './private-commands.mjs';
 import {revision} from './records.mjs';
@@ -8,7 +9,7 @@ const empty=()=>Object.create(null);
 export const comingSoon=['rise','storyforge','ivoc','speech','publication','research','contributions','growth','mentor','admin','notifications','ranklist','debrief','prepare','export'];
 // CORE deliberately never reads advanced/private-owner projections or invokes
 // an integration. Explicit own-record predicates supplement forced database RLS.
-export async function readCoreModel(db,actor,{config,clock=()=>new Date()}) {
+export async function readCoreModel(db,actor,{config,owners,clock=()=>new Date()}) {
   const {rows:records}=await db.query('SELECT * FROM iiq.interviews WHERE owner_id=$1 ORDER BY start_at NULLS LAST,created_at DESC',[actor.id]);
   const {rows:events}=await db.query('SELECT * FROM iiq.related_events WHERE owner_id=$1 ORDER BY start_at NULLS LAST,created_at',[actor.id]);
   const {rows:history}=await db.query('SELECT * FROM iiq.interview_history WHERE owner_id=$1 ORDER BY created_at',[actor.id]);
@@ -34,10 +35,11 @@ export async function readCoreModel(db,actor,{config,clock=()=>new Date()}) {
     for(const d of demands)state.demands[d.interview_id]={id:d.id,requestId:d.external_request_id,programId:d.program_id,registryReleaseId:d.registry_release_id,status:d.status,version:Number(d.version),requestedAt:iso(d.requested_at),refreshedAt:iso(d.refreshed_at)};
   }
   const actorView={id:actor.id,role:actor.role,displayName:actor.displayName,firstName:actor.firstName,tier:actor.tier,zone:actor.zone};
+  if(targetsEnabled(config,actor))state.loiTargets=await readTargets({db,actor,config,owners},loiHistory);
   if(researchEnabled(config,actor))state.research=await readResearchSummary(db,actor,config);
   const integrations={matrix:{available:true,status:'available',url:`${config.publicOrigin}/member-dashboard/`}};
   for(const name of comingSoon)integrations[name]={available:false,status:'coming_soon'};
-  return {actor:actorView,capabilities:{loi:loiEnabled(config,actor),loiCanonicalLookup:loiCanonicalLookup(config,actor),coreOnly:true,comingSoon:[...comingSoon],research:false,deepResearch:deepResearchEnabled(config,actor),researchMissions:researchEnabled(config,actor),researchByProgram:empty(),contributions:false},
+  return {actor:actorView,capabilities:{...(targetsEnabled(config,actor)?{loiTargets:true}:{}),loi:loiEnabled(config,actor),loiCanonicalLookup:loiCanonicalLookup(config,actor),coreOnly:true,comingSoon:[...comingSoon],research:false,deepResearch:deepResearchEnabled(config,actor),researchMissions:researchEnabled(config,actor),researchByProgram:empty(),contributions:false},
     catalog:{programs,facts:[],sources:[],profiles:[{id:actor.id,displayName:actor.displayName,tier:actor.tier,approved_stories:[]}],student_zone:actor.zone,registry_release:null,storyforgeProjection:null,riseProjections:empty()},
     state,version,server_time:current,integrations};
 }
