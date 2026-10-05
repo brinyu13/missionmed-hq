@@ -62,7 +62,11 @@ const A={
     requireStudent();const d=S.ui.drawer;if(d?.kind!=='add')return;
     const form=el.dataset.fold!=null?d.form:{unresolved_input:val('ad-name').trim(),program:val('ad-program')||null,...(coreOnly()||!F.programs.length?{programName:val('ad-name').trim(),track:val('ad-track').trim()}:{}),deadline:val('ad-deadline')||null,schedule:scheduleInput('ad-')};
     if(!form.unresolved_input&&!form.program)throw Error('Write the program name as it appears on the invitation. A date is not needed.');
-    if(!form.unresolved_input)form.unresolved_input=P(form.program).name;
+    if(!form.unresolved_input){
+      const selected=F.programs.find(p=>p.id===form.program),name=typeof selected?.name==='string'?selected.name.trim():'';
+      if(!name||name.length>500||name.includes('\u0000'))throw Error('The selected program name is unavailable. Select the registry program again or enter the name from your invitation.');
+      form.unresolved_input=name;form.programName=name;
+    }
     if(el.dataset.fold!=null)form.schedule.fold=+el.dataset.fold;
     const candidates=validateSchedule(form.schedule);d.form=form;
     if(candidates.length){d.overlap=foldMessage(candidates);renderDrawer();return;}
