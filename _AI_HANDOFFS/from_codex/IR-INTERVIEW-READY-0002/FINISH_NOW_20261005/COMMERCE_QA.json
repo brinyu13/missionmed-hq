@@ -1,0 +1,37 @@
+{
+  "scope": "Root local release candidate QA; not live/account acceptance",
+  "sourceCommit": "b2460b1bd20b7746b2c8a3513186c0e9002f313e",
+  "htmlSha256": "bbd57f4e6fc4c399a04512b977a6d23241f0289dfb2a25ca4b2d9ce66e5d50db",
+  "focusedPrivacy": "PASS immutable341 baseline",
+  "shoppingFixture": "PASS",
+  "productionAssets": {
+    "result": "PASS",
+    "allowed": 19,
+    "denied": 35,
+    "fullAccountGuard": "BLOCKED as required"
+  },
+  "releaseSuite": {
+    "gatewayAssertions": 64,
+    "matrixScenarios": 11,
+    "packagingTests": 6,
+    "result": "PASS"
+  },
+  "chromePublicPath": {
+    "threeTiersLeftToRight": true,
+    "compareTwo": true,
+    "checklistSavedReload": true,
+    "kitSavedReload": true,
+    "truthfulDeviceLabel": true,
+    "documentOverflow": false,
+    "renderedOnlineUniqueAmazonDestinations": 16,
+    "allTag": "missionmatch-20",
+    "catalogAllUniqueDestinations": 19,
+    "normalParallaxVariablesChanged": true,
+    "reducedMotionLabelAndCSSAlternative": true
+  },
+  "event": {
+    "dates": "October 6\u20137, 2026",
+    "authoritativeSource": "https://www.aboutamazon.com/news/retail/amazon-prime-big-deals-day-2026-when-october-6-7"
+  },
+  "accountVerification": "DEFERRED_PHASE_1_1"
+}
