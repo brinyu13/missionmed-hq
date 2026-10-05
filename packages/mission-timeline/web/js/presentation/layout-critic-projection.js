@@ -4,8 +4,10 @@ import {parsePresentationXml,xmlNodes} from './presentation-xml.js';
 import {applyLocalLayoutCriticSceneCommand} from '../editor/scene-commands.js';
 import {setAxisPresentationOverride,setAxisSegmentWeights} from '../uxr-002/advanced-studio.js';
 import {locked407FMilestoneGeometry} from '../uxr-002/locked-407f-export.js';
+import {parseMonth} from '../uxr-002/utils.js';
+import {presentationDayDate} from './source-date-wording.js';
 
-export const LAYOUT_CRITIC_VERSION='d1-local-layout-critic.1';
+export const LAYOUT_CRITIC_VERSION='d1-local-layout-critic.2';
 export const LAYOUT_CRITIC_CONSENT_VERSION='d1-local-layout-geometry-consent.1';
 export const LAYOUT_CRITIC_REASON_CODES=Object.freeze(['REDUCE_COLLISION','CLEAR_RIBBON','BALANCE_SPACING','REDUCE_CLIPPING']);
 const clone=value=>structuredClone(value);
@@ -67,13 +69,51 @@ export function measureLayoutCriticSafety(parts,targets=[]){
     const points=parts.filter(part=>target.partIds.includes(part.id)).flatMap(part=>corners(part.bounds));
     return violatesFounderTemplateBand({...target,bodyTop:points.length?Math.min(...points.map(point=>point.y)):-Infinity,bodyBottom:points.length?Math.max(...points.map(point=>point.y)):Infinity});
   }).map(target=>target.id).sort();
-  return {collisionCount:collisions.size,axisOverlapCount:axisOverlaps.size,crowdingCount:crowding.size,offCanvasCount:outside.size,overflowCount:overflow.size,
+  const durationInversionPairs=measureLayoutCriticDurationInversions(targets);
+  return {durationInversionCount:durationInversionPairs.length,durationInversionPairs,collisionCount:collisions.size,axisOverlapCount:axisOverlaps.size,crowdingCount:crowding.size,offCanvasCount:outside.size,overflowCount:overflow.size,
     templateViolationCount:templateViolationTargets.length,templateViolationTargets,
     collisionPairs:[...collisions].sort(),axisOverlapPairs:[...axisOverlaps].sort(),crowdingPairs:[...crowding].sort(),offCanvasParts:[...outside].sort(),overflowParts:[...overflow].sort()};
 }
 function hasManualPlacement(event,object,document){
   const groups=document.advanced?.scene?.groups||document.advanced?.groups||[];
   return !!(event?.manualOffset?.laneLocked||Number(event?.manualOffset?.x)||Number(event?.manualOffset?.y)||(object?.geometry&&object.presentation?.localLayoutCriticAuto!==true)||object?.locked||object?.groupId||groups.some(group=>group.locked&&group.childIds?.includes(object?.id)));
+}
+// Source dates stay local. Overlapping precision intervals share a start group:
+// month-only facts cannot invent an order against exact days in that month.
+function factualStartInterval(source){
+  const precision=source?.datePrecision?.start;
+  if(precision&&!['YEAR','MONTH','DAY'].includes(precision))return null;
+  const raw=source?.startDate??source?.startMonth??source?.month;
+  const exact=presentationDayDate(raw)||presentationDayDate(source?.sourceDateWording?.start?.normalizedMonth);
+  const month=parseMonth(raw)||exact?.slice(0,7)||parseMonth(source?.startMonth??source?.month);
+  if(!month||!/^\d{4}-\d{2}$/.test(month))return null;
+  if(exact&&exact.slice(0,7)!==month)return null;
+  if(precision==='DAY'&&!exact)return null;
+  if(precision==='YEAR')return [month.slice(0,4)+'-01-01',month.slice(0,4)+'-12-31'];
+  if(exact&&precision!=='MONTH')return [exact,exact];
+  return [month+'-01',month+'-31'];
+}
+function rankFactualStarts(targets,intervals){
+  const known=targets.map((target,index)=>({target,interval:intervals[index]})).filter(item=>item.interval)
+    .sort((a,b)=>a.interval[0].localeCompare(b.interval[0])||a.interval[1].localeCompare(b.interval[1]));
+  let rank=0,end=null;
+  for(const {target,interval} of known){
+    if(end===null||interval[0]>end){rank++;end=interval[1];}else if(interval[1]>end)end=interval[1];
+    target.startRank=rank;target.sameStartGroup=rank;
+  }
+}
+// Only automatic independent durations participate. Human/group/locked/study
+// placements and native above-axis milestones are deliberate exceptions.
+export function measureLayoutCriticDurationInversions(targets){
+  const durations=targets.filter(target=>target.kind==='DURATION'&&target.editable&&target.startRank!==null),pairs=[];
+  for(const earlier of durations)for(const later of durations){
+    if(earlier.startRank<later.startRank&&earlier.sameStartGroup!==later.sameStartGroup&&earlier.geometry.y>=later.geometry.y-.04)pairs.push(earlier.id+'|'+later.id);
+  }
+  return pairs.sort();
+}
+function createsDurationInversion(before,after){
+  const existing=new Set(measureLayoutCriticDurationInversions(before));
+  return measureLayoutCriticDurationInversions(after).some(pair=>!existing.has(pair));
 }
 function localRenderBinding(options){
   // URL strings remain in browser custody. Only the private source digest binds
@@ -112,7 +152,7 @@ export async function projectLayoutCritic(document,renderOptions={}){
   }));
   const eventObjects=rendered.scene.founderPresentation?.advancedScene?.objects||[];
   const templateTargets=new Map(founderMilestoneTemplateGeometry(rendered.scene,paint).map(target=>[target.eventId,target]));
-  const targetMap=new Map(),targets=[];
+  const targetMap=new Map(),targets=[],startIntervals=[];
   for(const event of document.events||[]){
     const eventNodes=paint.nodes.filter(node=>node.semanticRef===String(event.id));
     const body=eventNodes.find(node=>node.sourceAttributes['data-continuous-duration-arrow']);
@@ -129,9 +169,11 @@ export async function projectLayoutCritic(document,renderOptions={}){
     // Full painted arrow bounds, not its shaft or combined text envelope.
     const editable=!hasManualPlacement(event,object,document)&&!attached&&!joined&&Math.abs(geometry.rotation||0)<1e-6&&document.layoutLock!==true;
     targets.push({id,groupId:eventParts[0]?.groupId||groupIds.get('event:'+event.id),kind:flag?templateTarget.kind:'DURATION',editable,
-      geometry:bounds(geometry),poleFootY:flag?templateTarget.poleFootY:null,attachmentY:flag?templateTarget.attachmentY:null,partIds:eventParts.map(part=>part.id)});
+      geometry:bounds(geometry),startRank:null,sameStartGroup:null,poleFootY:flag?templateTarget.poleFootY:null,attachmentY:flag?templateTarget.attachmentY:null,partIds:eventParts.map(part=>part.id)});
+    startIntervals.push(factualStartInterval(arrow||rendered.scene.flags?.find(flag=>String(flag.id)===String(event.id))));
     targetMap.set(id,{eventId:String(event.id),objectId:object?.id||String(event.id),kind:flag?'MILESTONE':'DURATION',geometry,editable});
   }
+  rankFactualStarts(targets,startIntervals);
   if(targets.length>200)throw error('LAYOUT_CRITIC_LIMIT');
   const axisNodes=xmlNodes(parsePresentationXml(rendered.svg),node=>Object.hasOwn(node.attrs||{},'data-axis-segment-id'));
   const segmentMap=new Map();
@@ -160,9 +202,12 @@ export function validateLayoutCriticInput(input){
   }
   const ids=new Set();
   for(const target of input.targets){
-    if(!keys(target,['id','groupId','kind','editable','geometry','poleFootY','attachmentY','partIds'])||!alias(target.id)||ids.has(target.id)||!groups.has(target.groupId)||!['DURATION','MILESTONE','EXAM_RESULT'].includes(target.kind)||typeof target.editable!=='boolean'||(target.kind==='EXAM_RESULT'&&target.editable)||!validBox(target.geometry)||(target.poleFootY!==null&&!number(target.poleFootY))||(target.kind==='DURATION'&&target.poleFootY!==null)||(target.attachmentY!==null&&!number(target.attachmentY))||(target.kind!=='EXAM_RESULT'&&target.attachmentY!==null)||!Array.isArray(target.partIds)||!target.partIds.length||!target.partIds.every(id=>partIds.has(id)&&input.parts.find(part=>part.id===id).groupId===target.groupId))throw error('LAYOUT_CRITIC_INPUT_INVALID');
+    if(!keys(target,['id','groupId','kind','editable','geometry','startRank','sameStartGroup','poleFootY','attachmentY','partIds'])||!alias(target.id)||ids.has(target.id)||!groups.has(target.groupId)||!['DURATION','MILESTONE','EXAM_RESULT'].includes(target.kind)||typeof target.editable!=='boolean'||(target.kind==='EXAM_RESULT'&&target.editable)||!validBox(target.geometry)||(target.poleFootY!==null&&!number(target.poleFootY))||(target.kind==='DURATION'&&target.poleFootY!==null)||(target.attachmentY!==null&&!number(target.attachmentY))||(target.kind!=='EXAM_RESULT'&&target.attachmentY!==null)||!Array.isArray(target.partIds)||!target.partIds.length||!target.partIds.every(id=>partIds.has(id)&&input.parts.find(part=>part.id===id).groupId===target.groupId))throw error('LAYOUT_CRITIC_INPUT_INVALID');
+    if(!((target.startRank===null&&target.sameStartGroup===null)||(Number.isInteger(target.startRank)&&target.startRank>=1&&target.startRank<=input.targets.length&&target.sameStartGroup===target.startRank)))throw error('LAYOUT_CRITIC_INPUT_INVALID');
     ids.add(target.id);
   }
+  const ranks=[...new Set(input.targets.map(target=>target.startRank).filter(rank=>rank!==null))].sort((a,b)=>a-b);
+  if(ranks.some((rank,index)=>rank!==index+1))throw error('LAYOUT_CRITIC_INPUT_INVALID');
   const segments=new Set();
   for(const segment of input.axis.segments){
     if(!keys(segment,['id','x','width','weight'])||!alias(segment.id)||segments.has(segment.id)||!number(segment.x)||!number(segment.width,.001,1920)||!number(segment.weight,.001,1000))throw error('LAYOUT_CRITIC_INPUT_INVALID');
@@ -189,6 +234,9 @@ export function validateLayoutRecommendations(input,output,sceneDigest){
       seen.add('axis');
     }else throw error('LAYOUT_CRITIC_OPERATION_REJECTED');
   }
+  const proposed=clone(input.targets);
+  for(const op of output.recommendations)if(op.kind==='SET_EVENT_Y')proposed.find(target=>target.id===op.targetId).geometry.y=op.y;
+  if(createsDurationInversion(input.targets,proposed))throw error('LAYOUT_CRITIC_CHRONOLOGY_HOLD');
   return clone(output);
 }
 function protectedSnapshot(document){
@@ -211,9 +259,9 @@ function unchangedNativeArrows(before,after,{allowAxisChange=false,movedIds=new 
   });
 }
 function safelyImproves(before,after){
-  for(const field of ['collisionCount','axisOverlapCount','crowdingCount','offCanvasCount','overflowCount','templateViolationCount'])if(after[field]>before[field])return false;
-  for(const field of ['collisionPairs','axisOverlapPairs','crowdingPairs','offCanvasParts','overflowParts','templateViolationTargets'])if(after[field].some(item=>!before[field].includes(item)))return false;
-  return ['collisionCount','axisOverlapCount','crowdingCount','offCanvasCount','overflowCount','templateViolationCount'].some(field=>after[field]<before[field]);
+  for(const field of ['collisionCount','axisOverlapCount','crowdingCount','offCanvasCount','overflowCount','templateViolationCount','durationInversionCount'])if(after[field]>before[field])return false;
+  for(const field of ['collisionPairs','axisOverlapPairs','crowdingPairs','offCanvasParts','overflowParts','templateViolationTargets','durationInversionPairs'])if(after[field].some(item=>!before[field].includes(item)))return false;
+  return ['collisionCount','axisOverlapCount','crowdingCount','offCanvasCount','overflowCount','templateViolationCount','durationInversionCount'].some(field=>after[field]<before[field]);
 }
 function pinMeasuredAutomaticEvents(document,projection){
   const automaticAxis=document.presentationOverrides?.axis?.mode!=='manual'||document.presentationOverrides.axis.localLayoutCriticAuto===true;
@@ -295,7 +343,7 @@ export async function applyLayoutRecommendations(document,output,expected,{sourc
   for(let index=0;index<output.recommendations.length;index++){
     const op=output.recommendations[index];
     if(attempts>=LAYOUT_CRITIC_CANDIDATE_BUDGET){reject(index,'LAYOUT_CRITIC_CANDIDATE_BUDGET');continue;}
-    try{validateLayoutRecommendations(projection.input,{sceneDigest:expected,recommendations:[op]},expected);}catch(e){reject(index,e.code||'LAYOUT_CRITIC_OPERATION_REJECTED');continue;}
+    try{validateLayoutRecommendations(current.input,{sceneDigest:expected,recommendations:[op]},expected);}catch(e){reject(index,e.code||'LAYOUT_CRITIC_OPERATION_REJECTED');continue;}
     const key=op.kind==='SET_EVENT_Y'?op.targetId:'axis';
     if(acceptedTargets.has(key)){reject(index,'LAYOUT_CRITIC_DUPLICATE_OPERATION');continue;}
     attempts++;
@@ -332,6 +380,9 @@ export async function applyLayoutRecommendations(document,output,expected,{sourc
       }
       if(protectedSnapshot(next)!==protectedSnapshot(candidate)){reject(index,'LAYOUT_CRITIC_SEMANTIC_CHANGE');continue;}
       const proposed=await projectLayoutCritic(candidate,projection.localContext.options);
+      // This common post-render gate also covers axis weights and sequential
+      // proposals: factual start order must survive actual date-anchor reflow.
+      if(createsDurationInversion(current.input.targets,proposed.input.targets)){reject(index,'LAYOUT_CRITIC_CHRONOLOGY_HOLD');continue;}
       const violations=proposed.input.safety.templateViolationTargets;
       if(violations.some(id=>!current.input.safety.templateViolationTargets.includes(id))||
         (!axisChange&&violations.includes(op.targetId))){reject(index,'LAYOUT_CRITIC_TEMPLATE_FIDELITY_HOLD');continue;}

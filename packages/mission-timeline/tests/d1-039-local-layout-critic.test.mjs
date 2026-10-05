@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {projectLayoutCritic,applyLayoutRecommendations,layoutCriticDigest,measureLayoutCriticSafety,validateLayoutCriticInput,validateLayoutRecommendations,LAYOUT_CRITIC_CONSENT_VERSION} from '../web/js/presentation/layout-critic-projection.js';
+import {projectLayoutCritic,applyLayoutRecommendations,layoutCriticDigest,measureLayoutCriticSafety,validateLayoutCriticInput,validateLayoutRecommendations,LAYOUT_CRITIC_CONSENT_VERSION,LAYOUT_CRITIC_VERSION,measureLayoutCriticDurationInversions} from '../web/js/presentation/layout-critic-projection.js';
 import {createLocalLayoutCritic,LOCAL_LAYOUT_CRITIC_PATH,LOCAL_LAYOUT_CRITIC_OUTPUT_SCHEMA} from '../scripts/local-layout-critic.mjs';
 import {serializeFounderPresentation,assertCompleteFounderPresentation,founderMilestoneTemplateGeometry} from '../web/js/presentation/founder-presentation-serializer.js';
 import {resolveFounderPresentationSvg} from '../web/js/presentation/resolved-founder-presentation.js';
@@ -35,7 +35,7 @@ test('geometry projection omits biography, raw identifiers, media sources and la
   document.events[0].provenance=[{sourceExcerpt:sentinel,sourceUrl:'https://unit-private.invalid/'+sentinel}];
   document.advanced.textBlocks=[{id:sentinel,text:sentinel,x:1200,y:500,width:350,height:30,size:18,font:'Arial'}];
   const before=JSON.stringify(document),p=await projectLayoutCritic(document,options),json=JSON.stringify(consent(p));
-  assert.ok(!json.includes(sentinel));assert.ok(!json.includes('https://'));assert.ok(!json.includes('Medical Officer'));
+  assert.ok(!json.includes(sentinel));assert.ok(!json.includes('https://'));assert.ok(!json.includes('Medical Officer'));assert.ok(!json.includes(document.events[0].startDate));assert.ok(!json.includes(document.events[0].endDate));
   assert.equal(p.sceneDigest,await layoutCriticDigest(p.input));assert.equal(JSON.stringify(document),before);
   assert.ok(p.localContext.targetMap.get('e0001').eventId===sentinel);
   assert.ok(p.input.parts.some(part=>part.kind==='TEXT'&&part.characterCount===sentinel.length));
@@ -65,7 +65,7 @@ test('real transport uses documented Sol6.1 high, strict structured outputs, sto
   const request=JSON.parse(calls[0].init.body);assert.equal(calls[0].url,'https://api.openai.com/v1/responses');assert.equal(request.model,'gpt-6.1-sol');assert.equal(request.reasoning.effort,'high');assert.equal(request.store,false);assert.equal(request.text.format.strict,true);
   assert.deepEqual(request.text.format.schema,LOCAL_LAYOUT_CRITIC_OUTPUT_SCHEMA);
   const instructions=request.input[0].content[0].text;
-  assert.match(instructions,/ABOVE ribbon top y=125/);assert.match(instructions,/pole foot exactly on y=125/);assert.match(instructions,/EXAM_RESULT.*genuinely attached/);assert.match(instructions,/BELOW ribbon bottom y=161/);
+  assert.match(instructions,/ABOVE ribbon top y=125/);assert.match(instructions,/pole foot exactly on y=125/);assert.match(instructions,/EXAM_RESULT.*genuinely attached/);assert.match(instructions,/BELOW ribbon bottom y=161/);assert.match(instructions,/factual START-anchor ordering/);assert.match(instructions,/later END does not justify/);assert.match(instructions,/Null means unknown/);assert.match(instructions,/year-weight reflow/);
   assert.ok(!calls[0].init.body.includes('Medical Officer'));assert.ok(!calls[0].init.body.includes('Morgan Lake'));
   assert.equal(response.providerReceipt.responseId,'resp_local_unit');assert.equal(response.providerReceipt.store,false);
   assert.match(response.providerReceipt.inputSha256,/^[a-f0-9]{64}$/);assert.match(response.providerReceipt.outputSha256,/^[a-f0-9]{64}$/);
@@ -455,4 +455,103 @@ test('bounded adjacent-label fallback preserves a full institution beside the pl
   assert.deepEqual(accepted.document.events,document.events);assert.equal(JSON.stringify(document),before);
   const final=serializeFounderPresentation(JSON.parse(JSON.stringify(accepted.document)),options);assert.doesNotThrow(()=>assertCompleteFounderPresentation(final));
   assert.equal(founderMilestoneTemplateGeometry(final.scene,resolveFounderPresentationSvg(final.svg)).find(target=>target.eventId==='adjacent-degree').poleFootY,125);
+});
+
+// Anonymous chronology tests use only normalized public synthetic source facts.
+const chronologyEvent=(id,startDate,endDate,extra={})=>({...minimal().events[0],id,title:'Synthetic '+id,startDate,endDate,...extra});
+const chronologyDocument=events=>({...minimal(),events});
+const chronologyBySource=p=>new Map(p.input.targets.map(target=>[p.localContext.targetMap.get(target.id).eventId,target]));
+function withDurationRows(p,rows){
+  const input=structuredClone(p.input),sources=chronologyBySource(p);
+  for(const [sourceId,y] of Object.entries(rows)){
+    const target=input.targets.find(target=>target.id===sources.get(sourceId).id),dy=y-target.geometry.y;target.geometry.y=y;
+    for(const part of input.parts)if(target.partIds.includes(part.id))part.bounds.y+=dy;
+  }
+  input.safety=measureLayoutCriticSafety(input.parts,input.targets);return input;
+}
+const setRow=(target,y)=>({kind:'SET_EVENT_Y',targetId:target.id,y,reasonCode:'BALANCE_SPACING',confidence:.8});
+
+test('anonymous start ranks survive document shuffle and ignore long duration endpoints',async()=>{
+  const document=chronologyDocument([
+    chronologyEvent('late','2023-03','2023-04'),chronologyEvent('early-long','2021-01','2025-12'),
+    chronologyEvent('middle','2022-05','2024-02'),chronologyEvent('same-middle','2022-05','2022-06')
+  ]),before=JSON.stringify(document),a=await projectLayoutCritic(document,options),shuffled=structuredClone(document);
+  shuffled.events.reverse();const b=await projectLayoutCritic(shuffled,options),left=chronologyBySource(a),right=chronologyBySource(b);
+  for(const [id,target] of left){assert.equal(target.startRank,right.get(id).startRank);assert.equal(target.sameStartGroup,right.get(id).sameStartGroup);}
+  assert.equal(left.get('early-long').startRank,1);assert.equal(left.get('middle').startRank,2);assert.equal(left.get('same-middle').sameStartGroup,2);assert.equal(left.get('late').startRank,3);
+  const json=JSON.stringify(a.input);for(const event of document.events){assert.ok(!json.includes(JSON.stringify(event.id)));assert.ok(!json.includes(event.startDate));assert.ok(!json.includes(event.endDate));}
+  assert.equal(JSON.stringify(document),before);
+});
+
+test('anonymous start groups respect exact days and conservative month/year source precision; unknown remains null',async()=>{
+  const document=chronologyDocument([
+    chronologyEvent('day-early','2022-05-02','2022-08-02'),chronologyEvent('day-late','2022-05-29','2022-09-29'),
+    chronologyEvent('unknown','2024-01','2025-01',{fields:{datePrecision:{start:'UNKNOWN'}}}),
+    chronologyEvent('vague','2024-02','2025-02',{fields:{datePrecision:{start:'VAGUE_RANGE'}}})
+  ]);
+  const exact=chronologyBySource(await projectLayoutCritic(document,options));assert.ok(exact.get('day-early').startRank<exact.get('day-late').startRank);
+  for(const id of ['unknown','vague']){assert.equal(exact.get(id).startRank,null);assert.equal(exact.get(id).sameStartGroup,null);}
+  document.events.push(chronologyEvent('month','2022-05','2022-06'));
+  const coarse=chronologyBySource(await projectLayoutCritic(document,options));assert.equal(coarse.get('day-early').sameStartGroup,coarse.get('day-late').sameStartGroup);assert.equal(coarse.get('month').sameStartGroup,coarse.get('day-early').sameStartGroup);
+  document.events.push(chronologyEvent('year','2022-01','2023-01',{fields:{datePrecision:{start:'YEAR'}}}));
+  const year=chronologyBySource(await projectLayoutCritic(document,options));assert.equal(year.get('year').sameStartGroup,year.get('day-late').sameStartGroup);
+});
+
+test('chronology projection v2 rejects old/missing/malformed rank metadata before any provider call',async()=>{
+  const p=await projectLayoutCritic(minimal(),options);assert.equal(p.input.version,LAYOUT_CRITIC_VERSION);assert.equal(LAYOUT_CRITIC_VERSION,'d1-local-layout-critic.2');
+  const {service,calls}=provider(p);
+  for(const mutate of [x=>x.version='d1-local-layout-critic.1',x=>delete x.targets[0].startRank,x=>x.targets[0].startRank=NaN,x=>x.targets[0].startRank=-1,x=>x.targets[0].sameStartGroup=null,x=>x.targets[0].sameStartGroup='private-date',x=>{x.targets[0].startRank=2;x.targets[0].sameStartGroup=2;}]){
+    const input=structuredClone(p.input);mutate(input);assert.throws(()=>validateLayoutCriticInput(input),{code:'LAYOUT_CRITIC_INPUT_INVALID'});
+    const body=consent(p);body.projection=input;await assert.rejects(()=>service.analyze(body),{code:'LAYOUT_CRITIC_INPUT_INVALID'});
+  }
+  assert.equal(calls.length,0);
+});
+
+test('new sequential duration inversions reject typed proposals and actual application without mutating source',async()=>{
+  const document=chronologyDocument([chronologyEvent('early-long','2021-01','2025-12'),chronologyEvent('later-short','2023-01','2023-02')]),original=JSON.stringify(document),p=await projectLayoutCritic(document,options),targets=chronologyBySource(p);
+  assert.deepEqual(measureLayoutCriticDurationInversions(p.input.targets),[]);
+  const equal=setRow(targets.get('early-long'),targets.get('later-short').geometry.y);
+  assert.throws(()=>validateLayoutRecommendations(p.input,result(p,[equal]),p.sceneDigest),{code:'LAYOUT_CRITIC_CHRONOLOGY_HOLD'});
+  const op=setRow(targets.get('early-long'),targets.get('later-short').geometry.y+100);
+  assert.throws(()=>validateLayoutRecommendations(p.input,result(p,[op]),p.sceneDigest),{code:'LAYOUT_CRITIC_CHRONOLOGY_HOLD'});
+  const applied=await applyLayoutRecommendations(document,result(p,[op]),p.sceneDigest,options);
+  assert.equal(applied.applied,0);assert.equal(applied.candidatesEvaluated,0);assert.deepEqual(applied.rejected,[{index:0,code:'LAYOUT_CRITIC_CHRONOLOGY_HOLD'}]);assert.equal(applied.document,document);assert.equal(applied.sourceUnchanged,true);assert.equal(JSON.stringify(document),original);
+  const {service,calls,receipts}=provider(p,{recommendations:[op]});await assert.rejects(()=>service.analyze(consent(p)),{code:'LAYOUT_CRITIC_CHRONOLOGY_HOLD'});assert.equal(calls.length,1);assert.equal(receipts.length,0);
+});
+
+test('start-order gate permits same-start rows, native upper milestones and valid manual/group/locked exceptions',async()=>{
+  const document=chronologyDocument([chronologyEvent('early','2021-01','2025-12'),chronologyEvent('later','2023-01','2023-02'),chronologyEvent('same','2023-01','2024-12'),chronologyEvent('flag','2024-01',null,{eventType:'milestone',categoryId:'research'})]);
+  document.events[0].manualOffset={y:300};const p=await projectLayoutCritic(document,options),targets=chronologyBySource(p);
+  assert.equal(targets.get('early').editable,false);assert.equal(targets.get('flag').kind,'MILESTONE');assert.ok(targets.get('flag').geometry.y<125);assert.deepEqual(measureLayoutCriticDurationInversions(p.input.targets),[]);
+  const same=setRow(targets.get('same'),targets.get('later').geometry.y-20);assert.doesNotThrow(()=>validateLayoutRecommendations(p.input,result(p,[same]),p.sceneDigest));
+  const rows=withDurationRows(p,{early:650,later:300,same:350});assert.deepEqual(measureLayoutCriticDurationInversions(rows.targets),[]);
+  for(const protectedKind of ['locked','group']){
+    const source=chronologyDocument(document.events.map(event=>({...event,manualOffset:undefined}))),base=await projectLayoutCritic(source,options),early=base.localContext.targetMap.get(chronologyBySource(base).get('early').id);
+    const placed=applyLocalLayoutCriticSceneCommand(source,{kind:'geometry',target:{type:'event',id:early.objectId},geometry:{...early.geometry,y:650},create:{type:'event',semanticRef:early.eventId,aspectLocked:false,presentation:{eventType:'duration',localLayoutCriticAuto:true}}},options).document;
+    let protectedDocument=placed;
+    if(protectedKind==='locked')placed.advanced.scene.objects.find(object=>String(object.semanticRef)==='early').locked=true;
+    else{
+      const later=base.localContext.targetMap.get(chronologyBySource(base).get('later').id);
+      protectedDocument=applyLocalLayoutCriticSceneCommand(placed,{kind:'geometry',target:{type:'event',id:later.objectId},geometry:later.geometry,create:{type:'event',semanticRef:later.eventId,aspectLocked:false,presentation:{eventType:'duration',localLayoutCriticAuto:true}}},options).document;
+      protectedDocument=applySceneCommandToDocument(protectedDocument,{kind:'group',id:'authored-group',members:[{type:'event',id:early.objectId},{type:'event',id:later.objectId}]},options).document;
+    }
+    const protectedProjection=await projectLayoutCritic(protectedDocument,options),protectedEarly=chronologyBySource(protectedProjection).get('early');
+    assert.equal(protectedEarly.editable,false);assert.ok(!measureLayoutCriticDurationInversions(protectedProjection.input.targets).some(pair=>pair.split('|').includes(protectedEarly.id)));
+  }
+});
+
+test('post-reflow start-order comparison catches new pairs while preserving existing inversions and measuring sequential state',async()=>{
+  const p=await projectLayoutCritic(chronologyDocument([chronologyEvent('first','2021-01','2025-12'),chronologyEvent('second','2022-01','2022-02'),chronologyEvent('third','2023-01','2023-02')]),options),t=chronologyBySource(p);
+  const ordered=withDurationRows(p,{first:300,second:450,third:600});
+  const weights={kind:'SET_YEAR_WEIGHTS',weights:ordered.axis.segments.map(segment=>({segmentId:segment.id,weight:1})),reasonCode:'BALANCE_SPACING',confidence:.8};
+  assert.doesNotThrow(()=>validateLayoutRecommendations(ordered,{sceneDigest:p.sceneDigest,recommendations:[weights]},p.sceneDigest));
+  const existing=withDurationRows(p,{first:500,second:450,third:600});
+  assert.deepEqual(measureLayoutCriticDurationInversions(existing.targets),[t.get('first').id+'|'+t.get('second').id]);
+  assert.equal(existing.safety.durationInversionCount,1);assert.deepEqual(existing.safety.durationInversionPairs,measureLayoutCriticDurationInversions(existing.targets));
+  const falseSafety=structuredClone(existing);falseSafety.safety.durationInversionCount=0;assert.throws(()=>validateLayoutCriticInput(falseSafety),{code:'LAYOUT_CRITIC_INPUT_INVALID'});
+  assert.doesNotThrow(()=>validateLayoutRecommendations(existing,{sceneDigest:p.sceneDigest,recommendations:[setRow(t.get('first'),490)]},p.sceneDigest));
+  assert.throws(()=>validateLayoutRecommendations(existing,{sceneDigest:p.sceneDigest,recommendations:[setRow(t.get('third'),400)]},p.sceneDigest),{code:'LAYOUT_CRITIC_CHRONOLOGY_HOLD'});
+  const afterFirst=withDurationRows(p,{first:300,second:550,third:600});
+  assert.throws(()=>validateLayoutRecommendations(afterFirst,{sceneDigest:p.sceneDigest,recommendations:[setRow(t.get('third'),500)]},p.sceneDigest),{code:'LAYOUT_CRITIC_CHRONOLOGY_HOLD'});
+  assert.deepEqual(measureLayoutCriticDurationInversions(withDurationRows(p,{first:300,second:450,third:400}).targets),[t.get('second').id+'|'+t.get('third').id]);
 });
