@@ -765,11 +765,11 @@ class Fixtures(unittest.TestCase):
         # Actual immutable product archive/source/authority, not a patched
         # snapshot or miniature synthetic package. Reports are local fixture
         # attestations only; no approval/read controls or capability invocation.
-        package=Path('/private/tmp/ir-phase1-qualified-fullref-20261004')
+        package=Path('/private/tmp/ir-phase1-renderfix-20261004')
         manifest=runner.read_json(package/'release-manifest.json')
         self.assertEqual(len(manifest['buildInputs']),35)
         self.assertIn('integration/release.py',manifest['buildInputs'])
-        self.assertEqual(runner.digest(package/runner.PACKAGE_FILES[0]),'16f8f5795b1f54ebfce342eb36a5ca31c9717eda48755f0300c1c498c88f83fa')
+        self.assertEqual(runner.digest(package/runner.PACKAGE_FILES[0]),'a93cb2e0be061ca1a1558640f0db3030a6aab8e26c4bcb71f52504b7caf413c3')
         fixture=self.directory/'snapshot-reports';fixture.mkdir()
         for name in ('lease_transport.py','native_account_qa.py','native_account_qa_tests.py',
                      'NATIVE_QA_INDEPENDENT_REVIEW.md','runtime_native_runner_tests.py'):
@@ -813,6 +813,9 @@ class Fixtures(unittest.TestCase):
                 auth['nativeActions']=['creation_inventory_read']
                 q['bootstrapSafety'].update(bootstrapEffectsQualified=True,reachableInventoryEffectsQualified=True)
             else:
+                q['browserBridge']=self.bridge_record()
+                report=q['browserBridge']['reportFile']
+                (fixture/report).write_bytes(runner.safe_file(runner.HERE/report))
                 auth.update(hookInventorySha256='c'*64,nativeActions=['collision_read','create_a','create_b','login','logout',
                     'app_get','state_get','state_post','rejection_post','metadata_read','lock_lifecycle'])
                 q['reachableHooks'].update(hookInventorySha256='c'*64,reachableEffectsQualified=True,
@@ -899,6 +902,82 @@ class Fixtures(unittest.TestCase):
                 self.assertIn('end',trace);self.assertFalse(any(t.is_alive() for t in session.native_gate.threads))
                 if 'release' in trace:self.assertLess(trace.index('end'),trace.index('release'))
                 if mode=='fence':self.assertNotIn('release',trace)
+
+    def test_inventory_failure_receipts_fixed_stage_category_and_drain_before_release(self):
+        qa=runner.load_module('native_stage_fixture',runner.HERE/'native_account_qa.py',runner.NATIVE_SHA)
+        cases=[('gate','INVENTORY_GATE_CHECK','guard'),('dispatch','INVENTORY_DISPATCH_CHECK','guard'),
+            ('child','INVENTORY_CAPTURE','child_exit'),('stderr','INVENTORY_CAPTURE','stderr_present'),
+            ('json','INVENTORY_JSON','json_decode'),('schema','INVENTORY_SCHEMA','native_assertion'),
+            ('rows','INVENTORY_ROWS','native_assertion'),('digest','INVENTORY_DIGEST','native_assertion'),
+            ('unknown','INVENTORY_CAPTURE','private_operation_failed'),('success','INVENTORY_COMPLETE',None)]
+        for mode,stage,category in cases:
+            with self.subTest(mode=mode),tempfile.TemporaryDirectory(prefix='ir-stage-fixture-') as tmp:
+                session=self.session('auth_inventory');session.directory=Path(tmp).resolve();trace=[];children=[]
+                contract=session.contract;contract['sourcePreimages']={p:runner.digest(runner.ROOT/p) for p in qa.EXPECTED_SOURCE}
+                contract['runnerSha256']=runner.digest(Path(runner.__file__));contract['testsSha256']=runner.digest(runner.HERE/'runtime_native_runner_tests.py')
+                contract['spec']['nativeActions']=['creation_inventory_read']
+                admitted=runner.native_admission(qa,contract,'d'*64);count=[0]
+                def checked(gate,action):
+                    count[0]+=1
+                    if count[0]==(2 if mode=='dispatch' else 1) and mode in {'gate','dispatch'}:
+                        raise qa.Stop('guard')
+                rows=[['PRIVATE_SENTINEL',1,'PRIVATE_SENTINEL',0,'internal_or_eval']]
+                encoded=json.dumps(rows,separators=(',',':')).encode()
+                payload={'schema':'ir.native.hook_inventory.v1','sha256':hashlib.sha256(encoded).hexdigest(),'count':1,'callbacks':rows}
+                if mode=='schema':payload['PRIVATE_SENTINEL']=True
+                if mode=='rows':rows[0][3]=-1
+                if mode=='digest':payload['sha256']='0'*64
+                data=b'PRIVATE_SENTINEL invalid json' if mode=='json' else json.dumps(payload).encode()
+                def popen(*args,**kwargs):
+                    if mode=='unknown':raise RuntimeError('PRIVATE_SENTINEL')
+                    child=ReadbackPipeChild([data],code=7 if mode=='child' else 0,stderr=mode=='stderr')
+                    children.append(child);return child
+                original_drain=qa.Gate.drain;original_release=session.client.release
+                def drain(gate):
+                    outcome=original_drain(gate);trace.append('drain');return outcome
+                def release(handle):
+                    self.assertTrue(all(c.done.is_set() for c in children));trace.append('release');original_release(handle)
+                session.client.release=release
+                with patch.object(runner,'native_admission',return_value=admitted),patch.object(qa.Gate,'require',checked), \
+                     patch.object(qa.Gate,'drain',drain),patch.object(qa.subprocess,'Popen',side_effect=popen):
+                    result=runner.run_session(session,qa=qa,native_review_digest='d'*64)
+                    if mode=='success':self.assertEqual(result,payload)
+                    else:self.assertIsNone(result)
+                receipt=runner.read_json(session.directory/'NATIVE_PHASE.json')
+                expected={'schema':'ir.native.phase.v1','bindingSha256':session.binding,'stage':stage}
+                if category is not None:expected['category']=category
+                self.assertEqual(receipt,expected)
+                self.assertLess(trace.index('drain'),trace.index('release'))
+                report=runner.read_json(session.directory/'RESULT.json')['nativeReport']
+                if mode=='success':self.assertEqual(report['result'],'PASS_PRIVATE_INVENTORY_READ')
+                else:self.assertIsNone(report)
+                for path in session.directory.iterdir():
+                    if path.is_file():self.assertNotIn('PRIVATE_SENTINEL',path.read_text())
+
+    def test_inventory_phase_receipt_write_failure_and_unknown_category_fail_closed(self):
+        qa=runner.load_module('native_phase_write_fixture',runner.HERE/'native_account_qa.py',runner.NATIVE_SHA)
+        for mode in ('write','category'):
+            with self.subTest(mode=mode),tempfile.TemporaryDirectory(prefix='ir-phase-write-fixture-') as tmp:
+                session=self.session('auth_inventory');session.directory=Path(tmp).resolve();trace=[]
+                writer=runner.atomic;original_drain=qa.Gate.drain;release=session.client.release
+                def write(directory,name,value):
+                    if mode=='write' and name=='NATIVE_PHASE.json':raise OSError('PRIVATE_SENTINEL')
+                    return writer(directory,name,value)
+                def inventory(gate):
+                    gate.inventory_progress('INVENTORY_CAPTURE')
+                    error=qa.Stop();error.category='PRIVATE_SENTINEL';raise error
+                def drain(gate):outcome=original_drain(gate);trace.append('drain');return outcome
+                def released(handle):trace.append('release');release(handle)
+                session.client.release=released
+                admitted=SimpleNamespace(mode='inventory')
+                with patch.object(runner,'native_admission',return_value=admitted),patch.object(qa,'creation_inventory_read',side_effect=inventory), \
+                     patch.object(qa.Gate,'drain',drain),patch.object(runner,'atomic',side_effect=write):
+                    self.assertIsNone(runner.run_session(session,qa=qa,native_review_digest='d'*64))
+                self.assertLess(trace.index('drain'),trace.index('release'))
+                self.assertIsNone(runner.read_json(session.directory/'RESULT.json')['nativeReport'])
+                if mode=='category':self.assertEqual(runner.read_json(session.directory/'NATIVE_PHASE.json')['category'],'private_operation_failed')
+                for path in session.directory.iterdir():
+                    if path.is_file():self.assertNotIn('PRIVATE_SENTINEL',path.read_text())
 
     def test_inventory_mode_has_only_read_action_and_cli_omits_private_registry(self):
         qa=runner.load_module('native_inventory_fixture',runner.HERE/'native_account_qa.py',runner.NATIVE_SHA)

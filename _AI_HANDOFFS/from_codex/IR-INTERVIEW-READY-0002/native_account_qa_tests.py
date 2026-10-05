@@ -91,6 +91,51 @@ class Fixtures(unittest.TestCase):
             return qa.SafeStatus(binding, runtime, time.monotonic(), True, True, True, True)
         return a, files, expected, calls, control
 
+    def test_inventory_optional_progress_has_exact_order_and_two_controls(self):
+        a, files, _, calls, control = self.gate_fixture()
+        a=dataclasses.replace(a,mode='inventory',actions=frozenset({'creation_inventory_read'}),creation_hook_inventory_sha256=None)
+        stages=[];gate=qa.Gate(a,control,a.control_contract_sha256,deadline=time.monotonic()+60,progress=stages.append)
+        payload={'schema':'ir.native.hook_inventory.v1','sha256':hashlib.sha256(b'[]').hexdigest(),'count':0,'callbacks':[]}
+        with mock.patch.object(Path,'read_bytes',lambda path: files[str(path)]), \
+             mock.patch.object(qa,'private_capture',return_value=json.dumps(payload).encode()):
+            result=qa.creation_inventory_read(gate)
+        self.assertEqual(result,payload)
+        self.assertEqual(calls,['creation_inventory_read']*2)
+        self.assertEqual(stages,['INVENTORY_GATE_CHECK','INVENTORY_DISPATCH_CHECK','INVENTORY_CAPTURE',
+            'INVENTORY_JSON','INVENTORY_SCHEMA','INVENTORY_ROWS','INVENTORY_DIGEST','INVENTORY_COMPLETE'])
+        with self.assertRaises(qa.Stop):gate.inventory_progress('PRIVATE_SENTINEL')
+        native=qa.Gate(dataclasses.replace(a,mode='native'),None,progress=stages.append)
+        native.inventory_progress('INVENTORY_JSON');self.assertEqual(len(stages),8)
+
+    def test_inventory_control_failure_marks_actual_first_or_second_check(self):
+        for failure_at in (1,2):
+            with self.subTest(failure_at=failure_at):
+                a, files, _, calls, control=self.gate_fixture()
+                a=dataclasses.replace(a,mode='inventory',actions=frozenset({'creation_inventory_read'}),creation_hook_inventory_sha256=None)
+                stages=[];count=[0]
+                def failing_control(action,binding):
+                    count[0]+=1
+                    if count[0]==failure_at:raise RuntimeError('PRIVATE_SENTINEL')
+                    return control(action,binding)
+                gate=qa.Gate(a,failing_control,a.control_contract_sha256,deadline=time.monotonic()+60,progress=stages.append)
+                with mock.patch.object(Path,'read_bytes',lambda path: files[str(path)]), \
+                     mock.patch.object(qa.subprocess,'Popen',side_effect=AssertionError('no capture')) as transport:
+                    with self.assertRaises(qa.Stop) as caught:qa.creation_inventory_read(gate)
+                self.assertEqual(caught.exception.category,'guard');self.assertTrue(gate.closed)
+                self.assertEqual(stages[-1],'INVENTORY_GATE_CHECK' if failure_at==1 else 'INVENTORY_DISPATCH_CHECK')
+                self.assertNotIn('PRIVATE_SENTINEL',str(caught.exception));transport.assert_not_called()
+
+    def test_inventory_deadline_and_json_categories_never_include_private_data(self):
+        budget=qa.Dispatch(time.monotonic()-1,action='creation_inventory_read')
+        with self.assertRaises(qa.Stop) as caught:budget.remaining()
+        self.assertEqual(caught.exception.category,'io_deadline')
+        budget=qa.Dispatch(time.monotonic()+1,action='creation_inventory_read')
+        with mock.patch.object(qa,'private_capture',return_value=b'PRIVATE_SENTINEL invalid json'):
+            with self.assertRaises(qa.Stop) as caught:qa.private_pipe('private',budget=budget)
+        self.assertEqual(caught.exception.category,'json_decode')
+        self.assertNotIn('PRIVATE_SENTINEL',str(caught.exception))
+        self.assertEqual(qa.Stop('PRIVATE_SENTINEL').category,'private_operation_failed')
+
     def test_dormant_and_execute_have_zero_transport_calls(self):
         with mock.patch.object(qa.subprocess, 'Popen', side_effect=AssertionError('no transport')), \
              mock.patch.object(qa.urllib.request.OpenerDirector, 'open', side_effect=AssertionError('no transport')):

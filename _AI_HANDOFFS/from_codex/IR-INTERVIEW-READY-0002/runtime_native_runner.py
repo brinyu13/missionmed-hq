@@ -30,8 +30,8 @@ ORIGIN = 'https://github.com/brinyu13/missionmed-hq.git'
 REF = 'refs/heads/codex/ir-interview-ready-0002-storyforge'
 TRANSPORT_SHA = '6bab4c948b28202b7a803228f2123d5c95137030f16eb129c427b4ddcc487cad'
 CLIENT_SHA = '36e37a487de0ec99191492c3ef286695bc4d8721cdac70f5c62863576e5c1431'
-NATIVE_SHA = 'c84bc76264749e732e0e2555d942d64086a18cf625dd8f5006c529d32977e8f1'
-NATIVE_TESTS_SHA = '20f3510bd448acb876195eaba9592ca8d6845a1233f880b1deb8d872445e5015'
+NATIVE_SHA = 'b245a5adc18bfa93044cfdef2125831fa09e931d4da8fa1f8e872c1c1944b9af'
+NATIVE_TESTS_SHA = 'c746600b3e5c013779b7b6b1fd6847a48259cd29be69454ebdf20a1eee246a65'
 AUTHORITY = {'DR-375_ir_phase1_production_authority.md': '05803e16c985437a6400aa261e55bdb57f50ed2a0c7200f904fcffc49155a508',
              'DR-376_ir_phase1_bounded_execution_annex.md': '452a9e6259f6ae2f9e1441c725f79156b2d099d88a38af694b248e345b7dbe0e'}
 RUNTIME = 'wp-content/mu-plugins/missionmed-interview-ready-runtime'
@@ -599,6 +599,15 @@ def safe_native_report(value):
 
 def run_session(session, *, qa=None, native_review_digest=None):
     thread=None; result=None; released=False;deferred=False
+    inventory_stage=None
+    def inventory_progress(stage, category=None):
+        nonlocal inventory_stage
+        check(type(stage) is str and stage in qa.INVENTORY_STAGES)
+        check(category is None or (type(category) is str and category in qa.STOP_CATEGORIES))
+        inventory_stage=stage
+        receipt={'schema':'ir.native.phase.v1','bindingSha256':session.binding,'stage':stage}
+        if category is not None:receipt['category']=category
+        atomic(session.directory,'NATIVE_PHASE.json',receipt)
     try:
         check(session.contract['phase'] in PHASE_PATHS and (session.contract['phase']=='install' or qa is not None))
         session.qa=qa  # Available for private initial readback before NativeGate.
@@ -621,8 +630,9 @@ def run_session(session, *, qa=None, native_review_digest=None):
             check(result is not None and not session.failed)
         else:
             admitted=native_admission(qa,session.contract,native_review_digest)
+            progress={'progress':inventory_progress} if session.contract['phase']=='auth_inventory' else {}
             gate=qa.Gate(admitted,lambda action,binding:session.native_control(qa,admitted,action,binding),
-                         session.contract['runnerSha256'],deadline=session.deadline)
+                         session.contract['runnerSha256'],deadline=session.deadline,**progress)
             session.native_gate=gate
             # Fixed read-only entry precedes a separately admitted create run.
             if session.contract['phase']=='auth_inventory':result=qa.creation_inventory_read(gate)
@@ -634,7 +644,12 @@ def run_session(session, *, qa=None, native_review_digest=None):
                     fence=session.initial_fence,owner=OWNER,deadline_unix=session.deadline_unix,publish=atomic))
             if session.contract['phase']=='auth_inventory':safe_inventory_report(result)
             check(not session.failed and time.monotonic()<session.deadline)
-    except BaseException:
+    except BaseException as error:
+        if session.contract['phase']=='auth_inventory' and inventory_stage is not None:
+            category=error.category if type(error) is qa.Stop else 'private_operation_failed'
+            if type(category) is not str or category not in qa.STOP_CATEGORIES:category='private_operation_failed'
+            try:inventory_progress(inventory_stage,category)
+            except BaseException:session.stop()
         if session.native_gate is None:session.stop()
         else:
             session.failed=True;session.native_gate.close()

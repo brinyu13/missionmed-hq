@@ -68,11 +68,24 @@ CURL_ARGV = ('/usr/bin/curl', '-q', '--config', '-')
 PRIVATE_ENV = {'PATH': '/usr/bin:/bin', 'LANG': 'C', 'LC_ALL': 'C'}
 
 
+INVENTORY_STAGES = frozenset({'INVENTORY_GATE_CHECK', 'INVENTORY_DISPATCH_CHECK',
+    'INVENTORY_CAPTURE', 'INVENTORY_JSON', 'INVENTORY_SCHEMA', 'INVENTORY_ROWS',
+    'INVENTORY_DIGEST', 'INVENTORY_COMPLETE'})
+STOP_CATEGORIES = frozenset({'dormant', 'admission', 'guard', 'drift', 'collision',
+    'private_operation_failed', 'native_assertion', 'not_admitted', 'containment',
+    'io_deadline', 'child_exit', 'stderr_present', 'json_decode'})
+
+
+def inventory_progress(gate, stage):
+    callback = getattr(gate, 'inventory_progress', None)
+    if callback is not None:
+        callback(stage)
+
+
 class Stop(Exception):
     """Only fixed, non-sensitive failure categories can escape private transports."""
     def __init__(self, category='private_operation_failed'):
-        if category not in {'dormant', 'admission', 'guard', 'drift', 'collision',
-                            'private_operation_failed', 'native_assertion', 'not_admitted', 'containment'}:
+        if type(category) is not str or category not in STOP_CATEGORIES:
             category = 'private_operation_failed'
         self.category = category
         super().__init__(category)
@@ -145,14 +158,21 @@ class SafeStatus:
 
 class Gate:
     def __init__(self, admission: Admission | None, control: Callable | None,
-                 control_contract_sha256: str | None = None, *, deadline=None):
+                 control_contract_sha256: str | None = None, *, deadline=None, progress=None):
         self.admission = admission
         self.control = control
         self.control_contract_sha256 = control_contract_sha256
         self.deadline = deadline
+        self.progress = progress
         self.lock = threading.RLock(); self.local = threading.local()
         self.closed = False; self.active = {}; self.futures = []; self.threads = []
         self.drain_deadline = None
+
+    def inventory_progress(self, stage):
+        if type(stage) is not str or stage not in INVENTORY_STAGES:
+            raise Stop('not_admitted')
+        if self.admission is not None and self.admission.mode == 'inventory' and self.progress is not None:
+            self.progress(stage)
 
     def close(self):
         with self.lock:
@@ -235,7 +255,9 @@ class Dispatch:
     started: bool = False
 
     def remaining(self):
-        left=self.deadline-time.monotonic();require(left>0);return left
+        left=self.deadline-time.monotonic()
+        if left<=0 and self.action=='creation_inventory_read':raise Stop('io_deadline')
+        require(left>0);return left
 
     def begin(self):
         if self.gate is not None:
@@ -279,9 +301,14 @@ def private_capture(argv, data, budget, *, cap=65536, on_line=None, header_cap=N
                     require(bytes(streams[stream]).split(b'\n',1)[0]==b'{"held":true}')
                     notified=True;on_line()
         child.wait(timeout=budget.remaining())
+        if budget.action=='creation_inventory_read':
+            if child.returncode!=0:raise Stop('child_exit')
+            if streams[child.stderr]:raise Stop('stderr_present')
         require(child.returncode==0 and not streams[child.stderr] and (not on_line or notified))
         return bytes(streams[child.stdout])
     except Stop:raise
+    except subprocess.TimeoutExpired:
+        raise Stop('io_deadline' if budget.action=='creation_inventory_read' else 'private_operation_failed') from None
     except Exception:raise Stop() from None
     finally:
         if child:
@@ -319,10 +346,14 @@ def private_pipe(code: str, *, on_line=None, timeout=12, max_bytes=65536, budget
         require(0<timeout<=IO_SECONDS and max_bytes in {65536,INVENTORY_CAP})
         budget=budget or Dispatch(time.monotonic()+timeout)
         require(max_bytes==65536 or budget.action=='creation_inventory_read')
-        result=private_capture(SSH_ARGV,code.encode(),budget,cap=max_bytes,on_line=on_line).decode()
+        captured=private_capture(SSH_ARGV,code.encode(),budget,cap=max_bytes,on_line=on_line)
+        if budget.action=='creation_inventory_read':inventory_progress(budget.gate,'INVENTORY_JSON')
+        result=captured.decode()
         if on_line:
             result = result.split('\n', 1)[1]
-        return json.loads(result)
+        try:return json.loads(result)
+        except json.JSONDecodeError:
+            raise Stop('json_decode' if budget.action=='creation_inventory_read' else 'private_operation_failed') from None
     except Stop:
         raise
     except Exception:
@@ -330,7 +361,9 @@ def private_pipe(code: str, *, on_line=None, timeout=12, max_bytes=65536, budget
 
 
 def owner_pipe(gate, action, pipe, code, **kwargs):
+    if action=='creation_inventory_read':inventory_progress(gate,'INVENTORY_DISPATCH_CHECK')
     with gate.dispatch(action) as budget:
+        if action=='creation_inventory_read':inventory_progress(gate,'INVENTORY_CAPTURE')
         return pipe(code,timeout=budget.remaining(),budget=budget,**kwargs)
 
 
@@ -390,22 +423,27 @@ def creation_inventory_read(gate, pipe=private_pipe):
     callback effects including direct transports, provisioning and enrollment;
     unknown callbacks are never admitted by this fixture or by a digest alone.
     """
+    inventory_progress(gate,'INVENTORY_GATE_CHECK')
     gate.require('creation_inventory_read')
     require(gate.admission.mode=='inventory')
     result = owner_pipe(gate,'creation_inventory_read',pipe,php_preamble() + "echo wp_json_encode(ir_inventory());\n",max_bytes=INVENTORY_CAP)
+    inventory_progress(gate,'INVENTORY_SCHEMA')
     require(type(result) is dict and set(result) == {'schema','sha256','count','callbacks'} and
             result['schema']=='ir.native.hook_inventory.v1' and
             type(result['sha256']) is str and SHA.fullmatch(result['sha256']) and
             type(result['callbacks']) is list and type(result['count']) is int and
             0<=result['count']<=10000 and result['count']==len(result['callbacks']))
+    inventory_progress(gate,'INVENTORY_ROWS')
     for row in result['callbacks']:
         require(type(row) is list and len(row)==5 and type(row[0]) is str and 0<len(row[0])<=256 and
                 type(row[1]) is int and -(2**31)<=row[1]<2**31 and
                 type(row[2]) is str and 0<len(row[2])<=2048 and type(row[3]) is int and 0<=row[3]<=1000 and
                 type(row[4]) is str and (SHA.fullmatch(row[4]) or row[4]=='internal_or_eval') and
                 not any(ord(c)<32 for c in row[0]+row[2]))
+    inventory_progress(gate,'INVENTORY_DIGEST')
     encoded=json.dumps(result['callbacks'],ensure_ascii=True,separators=(',',':')).replace('/','\\/').encode()
     require(hashlib.sha256(encoded).hexdigest()==result['sha256'])
+    inventory_progress(gate,'INVENTORY_COMPLETE')
     return result
 
 
