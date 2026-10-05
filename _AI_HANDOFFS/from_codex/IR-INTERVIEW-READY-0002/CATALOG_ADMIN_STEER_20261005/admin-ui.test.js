@@ -27,5 +27,48 @@ const flush=async()=>{for(let i=0;i<8;i++)await new Promise(r=>setTimeout(r,0));
   env.confirm=()=>false;const reqCount=requests.length;b('Publish').onclick();await flush();check(requests.length===reqCount,'declined publish confirmation makes zero writes');env.confirm=()=>true;b('Publish').onclick();await flush();const sent=requests.find(r=>r.options.method==='POST');check(sent.options.headers['X-WP-Nonce']==='fixture'&&sent.options.headers['X-IR-Subject']==='subject','admin POST carries nonce and server subject');check(JSON.parse(sent.options.body).previewDigest==='a'.repeat(64),'publish binds server-owned saved draft digest');check(server.revision===2&&server.publishedVersion===2,'explicit publish completes against current expected revision');
   toggle.onclick();check(panel.hidden&&applied.length===3,'student switch restores published projection');
   denied=true;b('Reload server draft').onclick();await flush();check(panel.hidden&&toggle.hidden,'revoked canonical capability conceals admin view on server rejection');
+  await adversarialFixtures();
   process.stdout.write(`PASS admin UI ${n} assertions; fake DOM only, not browser/live acceptance\n`);
 })().catch(e=>{console.error(e);process.exit(1);});
+
+// Focused independent-repro regressions run real candidate functions, not cloned implementations.
+const BASE='f64dbc6f6cc57fb4d89bf518ed626a9d42f34c9b';
+const path=require('path'),cp=require('child_process'),repo=path.resolve(__dirname,'../../../..');
+const source=f=>cp.execFileSync('git',['show',`${BASE}:interview-ready/${f}`],{cwd:repo,encoding:'utf8'});
+const deferred=()=>{let resolve;return {promise:new Promise(r=>resolve=r),resolve};};
+function raceEnvironment(){const root=new Element('header'),handlers={},applied=[],calls=[];
+ const document={body:{},visibilityState:'visible',createElement:t=>new Element(t),querySelector:s=>s==='.topbar'?root:null,querySelectorAll:()=>[],addEventListener:(k,f)=>handlers[k]=f,dispatchEvent:()=>{}};
+ const e={window:null,document,location:{origin:'https://missionmedinstitute.com',pathname:'/interview-ready/app/'},URL,JSON,crypto:require('crypto').webcrypto,TextEncoder,AbortController,setTimeout,clearTimeout,queueMicrotask,CustomEvent:class{},confirm:()=>true,addEventListener:(k,f)=>handlers[k]=f};e.window=e;
+ const auth={endpoint:e.location.origin+'/wp-json/missionmed-ir/v1/catalog',admin:{endpoint:e.location.origin+'/wp-json/missionmed-ir/v1/catalog/admin',nonce:'fixture',subject:'subject'}};
+ const publicJson=deferred();let adminFetch=async()=>({status:200,ok:true,json:async()=>data(1)});
+ const data=revision=>({subject:'subject',state:{revision,publishedVersion:revision,draft:copy(catalog),published:copy(catalog)},draftDigest:'a'.repeat(64)});
+ e.fetch=async(u,o)=>{calls.push(o);return u.endsWith('/admin')?adminFetch(o):{ok:true,json:()=>publicJson.promise};};e.IRApplyPublishedCatalog=c=>applied.push(copy(c));e.IRCatalogLegacy=[];
+ vm.createContext(e);vm.runInContext(candidate('catalog-runtime.js').replace('/* MMED_IR_CATALOG_CONTEXT */ null',JSON.stringify(auth)),e);vm.runInContext(candidate('catalog-admin.js'),e);
+ const panel=root.children.find(x=>x.tag==='section'),toggle=root.children.find(x=>x.tag==='button'),actions=panel.children.find(x=>x.tag==='div'),b=label=>actions.children.find(x=>x.textContent===label);
+ return {e,document,handlers,publicJson,data,applied,calls,panel,toggle,b,setFetch:fn=>adminFetch=fn};
+}
+async function adversarialFixtures(){
+ // Actual production productVisual wrapper expects complete preserved credit and sealed ASSET URLs.
+ const raw=JSON.parse(source('catalog.json')),allowed=new Set(JSON.parse(source('production-assets.json')).assets.map(x=>x.path));
+ const canonical=raw.online.flatMap(c=>c.items).find(i=>i.imageCredit&&allowed.has(i.image));assert(canonical);
+ const legacyItem={...canonical,key:`online:webcam:${canonical.t}:${canonical.asin}`},imgCatalog=copy(catalog);
+ imgCatalog.products[0].legacyKey=legacyItem.key;imgCatalog.products[0].image={url:'https://example.org/unadmitted.webp',sourceUrl:'https://example.org/source',licenseEvidence:'https://example.org/rights',alt:'Claimed rights'};
+ const sealed=env.IRCatalog.adapt(imgCatalog,[{items:[legacyItem]}])[0].items.find(i=>i.t===canonical.t);
+ check(sealed.image===canonical.image&&sealed.imageCredit.changes===canonical.imageCredit.changes,'sealed legacy photo and full existing credit survive remote image claim');
+ const deniedCatalog=copy(catalog);deniedCatalog.products[1].image=copy(imgCatalog.products[0].image);const denied=env.IRCatalog.adapt(deniedCatalog)[0].items[0];check(!denied.image&&!denied.imageCredit,'new remote image rejected closed despite admin rights claim');
+ const esc=v=>String(v??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
+ const renderer=vm.createContext({PHASE1:{assetProfile:'production'},ASSET:{[canonical.image.split('/').pop()]:'data:image/webp;base64,sealed'},esc,external:(u,l)=>`<a href="${esc(u)}">${l}</a>`,amazonUrl:()=>'',sceneFor:()=>'',productVisual:null});
+ vm.runInContext("const assetFor=p=>ASSET[(p||'').split('/').pop()]||(Object.values(ASSET).includes(p)?p:'');",renderer);
+ const completion=source('completion.js'),phase=source('phase1.js');vm.runInContext(completion.slice(completion.indexOf('productVisual=function'),completion.indexOf('\ntierCard=function')),renderer);vm.runInContext(phase.slice(phase.indexOf('const productVisualBeforePhaseOne'),phase.indexOf('const renderExpertsBeforePhaseOne')),renderer);
+ renderer.item=sealed;let html=vm.runInContext('productVisual(item,{id:"webcam"})',renderer);check(html.includes('data:image/webp;base64,sealed')&&html.includes('image-credit'),'adapted licensed item renders through actual sealed production dependency without credit crash');
+ renderer.item=denied;html=vm.runInContext('productVisual(item,{id:"webcam"})',renderer);check(html.includes('Original product photos')&&!html.includes('src=""')&&!html.includes('unadmitted.webp'),'unsupported remote media uses actual production source-link fallback');
+ // Public decode resolving after saved-draft Preview must not steal projection ownership.
+ let r=raceEnvironment();await flush();r.toggle.onclick();r.b('Preview saved draft').onclick();await flush();check(!r.b('Publish').disabled,'saved draft preview enables Publish');r.publicJson.resolve({catalog:{marker:'late-public'}});await flush();check(r.applied.length===1&&!r.applied.some(x=>x.marker),'late public JSON does not replace visible preview');
+ r.toggle.onclick();check(r.b('Publish').disabled&&r.applied.length===2,'Student switch clears preview authorization and restores owned published projection');
+ // Hide/pagehide while admin JSON is awaiting; old response cannot reveal controls.
+ for(const kind of ['visibility','pagehide']){r=raceEnvironment();await flush();const json=deferred();r.setFetch(async()=>({status:200,ok:true,json:()=>json.promise}));r.b('Reload server draft').onclick();await flush();if(kind==='visibility'){r.document.visibilityState='hidden';r.handlers.visibilitychange();}else r.handlers.pagehide();json.resolve(r.data(2));await flush();check(r.toggle.hidden&&r.panel.hidden&&r.b('Publish').disabled,kind+' during decode keeps obsolete admin response concealed');}
+ // Old GET completes after newer visible revalidation starts: old finally cannot unlock newer operation.
+ r=raceEnvironment();await flush();const oldJson=deferred(),newJson=deferred();let fetchCount=0;r.setFetch(async()=>({status:200,ok:true,json:()=>++fetchCount===1?oldJson.promise:newJson.promise}));r.b('Reload server draft').onclick();await flush();r.document.visibilityState='hidden';r.handlers.visibilitychange();r.document.visibilityState='visible';r.handlers.visibilitychange();await flush();const before=r.calls.length;oldJson.resolve(r.data(2));await flush();check(r.toggle.hidden,'old GET cannot reveal controls during newer revalidation');r.b('Reload server draft').onclick();await flush();check(r.calls.length===before,'old completion does not reset newer inFlight ownership');newJson.resolve(r.data(3));await flush();check(!r.toggle.hidden&&r.b('Publish').disabled,'only newest revalidation publishes current admin controls');
+ // Revocation and stale write decode share the same lifecycle fence.
+ r=raceEnvironment();await flush();const oldPost=deferred();r.setFetch(async o=>o.method==='POST'?{status:200,ok:true,json:()=>oldPost.promise}:{status:403,ok:false});r.toggle.onclick();r.b('Preview saved draft').onclick();r.b('Publish').onclick();await flush();r.handlers.pagehide();r.handlers.pageshow({persisted:true});await flush();check(r.toggle.hidden,'revoked revalidation hides controls');oldPost.resolve(r.data(2));await flush();check(r.toggle.hidden&&r.panel.hidden&&r.b('Publish').disabled,'obsolete POST JSON after revocation cannot restore admin controls or Publish');
+}

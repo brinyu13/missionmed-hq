@@ -1,6 +1,6 @@
 # Catalog Admin steer handoff — preparation only
 
-Base: `e82c03ec4d487ce5d6031189f68a9913a52ddcd7` in existing assigned worktree. Source is unchanged by this worker. No product/provider/WordPress/database/deployment operation, no commit or self-merge. Existing unrelated dirty `supabase/.temp/cli-latest` and `_AI_INPUTS/` preserved. Root is the integration owner.
+Base: `f64dbc6f6cc57fb4d89bf518ed626a9d42f34c9b` in existing assigned worktree. Source is unchanged by this worker. No product/provider/WordPress/database/deployment operation, no commit or self-merge. Existing unrelated dirty `supabase/.temp/cli-latest` and `_AI_INPUTS/` preserved. Root is the integration owner.
 
 ## Prepared files and SHA256
 
@@ -12,7 +12,7 @@ Base: `e82c03ec4d487ce5d6031189f68a9913a52ddcd7` in existing assigned worktree. 
 ## Validation performed
 
 - `php catalog-admin.test.php`: PASS 60 assertions. Canonical admin/student/anonymous boundary, nonce/origin/subject/owner spoof negatives, legacy ASIN binding, exact image approval, schema and volatile-data rejection, draft/published separation, preview/CAS/idempotency, archive preservation, WP write failure/lock failure/no reconnect/corrupt-record behavior. Native DB and WP functions are fixtures.
-- `node admin-ui.test.js`: PASS 28 assertions. Default-off context, no ordinary-user controls, canonical tier ordering, alternatives/badges/legacy identity, primary/archive/move helpers, Student/Admin toggle, local preview, declined publish, nonce/subject/server digest publish and revoked-capability concealment. DOM and HTTP are fixtures.
+- `node admin-ui.test.js`: PASS 42 assertions. Default-off context, no ordinary-user controls, canonical tier ordering, alternatives/badges/legacy identity, primary/archive/move helpers, Student/Admin toggle, local preview, declined publish, nonce/subject/server digest publish and revoked-capability concealment. DOM and HTTP are fixtures.
 - `git apply --check catalog-admin.patch`: PASS against the assigned existing base. No patch was applied.
 - Proposed build.py and integration/release.py reconstructed in memory and Python syntax compiled: PASS. No full build, package generation, real browser, native MySQL or live verification performed.
 
@@ -42,3 +42,20 @@ Real WP/browser acceptance still required: authorized admin and ordinary registe
 Memory quick pass: MEMORY.md lines 185–206 informed preservation of existing engine, supplied asset rights and no-fabricated commerce facts; these were rechecked against current Founder/DR375/376 inputs. Parent should cite if it uses those memory-derived guidance notes.
 
 STOP: artifact preparation complete; Root owns subsequent admission/review/integration.
+
+## Bounded frontend corrections following independent review
+
+Fresh preparation base: `f64dbc6f6cc57fb4d89bf518ed626a9d42f34c9b`. Reviewed INDEPENDENT_REVIEW.md and CONTRACT.md read only. Only this preparation patch, frontend fixture and handoff were edited. Existing accepted product bytes remain untouched.
+
+- Image adaptation now reuses only a matching sealed legacy product photo and its existing full renderer-compatible credit (source, licenseUrl, caption, author, license and changes). New remote image metadata, even if server approved or admin asserted, does not become an image URL: production assetFor has no separately admitted remote path. Missing images use the unchanged truthful original-photo-link fallback. No image policy or rights admission is broadened.
+- Public hydration captures projection generation and rechecks after fetch and JSON decode. Admin saved-draft Preview, Student switch, publication and lifecycle concealment claim projection ownership; older public requests cannot overwrite the preview. Student switch also clears preview authorization and disables Publish.
+- Admin requests recheck generation, abort and visibility after response decode. GET/POST completions recheck immediately before state/DOM publication. Each operation owns its generation, catch and finally cleanup: obsolete reads/writes cannot reveal controls, change newer request state or restore Publish after hide/revoke/pagehide. Revalidation alone restores usable controls. Preview requires no active request and a visible current lifecycle.
+
+Updated exact SHA-256:
+
+- catalog-admin.patch: `464a3d772f13c914dd190a4360c29738db59a373511cf74368c3ff36cfbba8f7`
+- admin-ui.test.js: `5c9f0416fc7c7ff9a781bc481b1c4e27486dc89e8b49d0850f007c3c9dd99e3c`
+
+PASS: focused Node VM fixtures, 42 assertions including real candidate scripts, actual unchanged production productVisual/phase1 wrapper with sealed media and full credit, unsupported remote-image fallback, deferred public JSON after preview, visibility/pagehide during admin JSON, stale older GET after newer revalidation, and obsolete POST JSON after revocation. PASS: git apply --check. Nonfrontend patch sections (PHP/server capability/nonce/CAS/schema, gateway, build/release, default-OFF gate) were checked byte-identical to the accepted preparation artifact. No server/runtime/DB/provider/Git/product mutation, commit, or broad suite.
+
+**Blocked image gap:** a server-owned approval record alone still does not admit a new remote image to the existing sealed production ASSET/rights pipeline. New remote photos require separately routed source hooks, explicit rights qualification and independently reviewed renderer/build admission. This patch deliberately preserves fallback rather than claiming those missing approvals. Browser, real roles, native storage, provider hydration and release acceptance remain unverified. Existing independent review block requires fresh exact-byte review; builder tests do not lift it. Root owns annex admission, commit and subsequent SOURCE integration. STOP after this bounded handoff.

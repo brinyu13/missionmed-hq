@@ -1,23 +1,28 @@
 --- /dev/null
 +++ b/interview-ready/catalog-runtime.js
-@@ -0,0 +1,38 @@
+@@ -0,0 +1,45 @@
 +/* Public catalog projection. No personal persistence or administrator authority. */
 +window.IRCatalog = (() => {
 +  const context=/* MMED_IR_CATALOG_CONTEXT */ null;
 +  const badgeLabels={'brian-favorite':"Dr. Brian’s Favorite",'what-we-use':'This Is What We Use','best-value':'Best Value','best-for-most':'Best for Most Students','private-jet-pick':'Private Jet Pick'};
 +  const copy=v=>JSON.parse(JSON.stringify(v));
++  let projectionGeneration=0,projectionOwner='public';
++  const claimProjection=owner=>{projectionOwner=owner;projectionGeneration++;};
++  const applyProjection=(catalog,owner)=>{claimProjection(owner);if(typeof window.IRApplyPublishedCatalog==='function')window.IRApplyPublishedCatalog(catalog);};
 +  const amazon=asin=>asin?`https://www.amazon.com/dp/${asin}?tag=missionmatch-20`:'';
 +  function adapt(c,legacy=[]) {
 +    if (!c || c.schema!=='missionmed.interview-ready.catalog.v1') throw Error('catalog schema');
 +    const old=new Map(legacy.flatMap(x=>x.items||[]).map(i=>[i.key,i]));
 +    return c.categories.filter(x=>x.enabled).sort((a,b)=>a.order-b.order).map(cat=>{
-+      const map=p=>{const e=p.editorial,prior=old.get(p.legacyKey),approved=p.image;
++      const map=p=>{const e=p.editorial,prior=old.get(p.legacyKey);
++        // Remote catalog media has no admitted production ASSET path; reuse only the sealed legacy photo.
++        const credit=prior?.imageCredit,compatibleCredit=credit&&['source','licenseUrl','caption','author','license','changes'].every(k=>typeof credit[k]==='string');
 +        return {key:p.legacyKey||`catalog:${p.id}`,catalogId:p.id,t:p.tier,asin:p.amazon.asin,name:e.title,
 +          why:e.verdict,brianTake:e.brianTake,best:e.bestFor,notNeeded:e.notNeeded,notable:e.features,pros:e.pros,cons:e.cons,
 +          setup:e.setup,ecosystem:e.ecosystem,complexity:e.complexity,box:e.requiredExtras,up:e.gainOverFirst||e.gainOverBusiness,down:e.notNeeded,
 +          specs:e.specs,review:p.expert,source:p.manufacturerUrl,exception:false,offerState:'check-on-amazon',
 +          badges:p.badges.map(key=>({key,label:badgeLabels[key]})),amazonUrl:amazon(p.amazon.asin),
-+          image:approved?.url||prior?.image,imageCredit:approved?{source:approved.sourceUrl,licenseUrl:approved.licenseEvidence,caption:approved.alt}:prior?.imageCredit,
++          image:prior?.image,imageCredit:compatibleCredit?copy(credit):undefined,
 +          saveToKitAllowed:!!p.legacyKey,primary:p.primary};};
 +      const active=c.products.filter(p=>p.category===cat.id&&p.enabled&&!p.archived).sort((a,b)=>a.order-b.order);
 +      return {id:cat.id,name:cat.name,intro:cat.intro,pick:'bc',items:active.filter(p=>p.primary).sort((a,b)=>['bc','fc','pj'].indexOf(a.tier)-['bc','fc','pj'].indexOf(b.tier)).map(map),alternatives:active.filter(p=>!p.primary).map(map)};
@@ -25,18 +30,20 @@
 +  }
 +  function guardKit() { document.querySelectorAll('[data-kit^="catalog:"]').forEach(b=>{b.disabled=true;b.textContent='Catalog option · compare or shop';b.title='This new catalog option cannot yet be saved to your personal kit.';}); }
 +  async function load() {
-+    if (!context) return;
++    if (!context) return; const token=projectionGeneration;
 +    try {
 +      const u=new URL(context.endpoint,location.origin);
 +      if (u.origin!==location.origin||u.pathname!=='/wp-json/missionmed-ir/v1/catalog'||u.search||u.hash) throw Error('endpoint');
 +      const r=await fetch(u.href,{credentials:'same-origin',cache:'no-store',redirect:'error'});
++      if(token!==projectionGeneration||projectionOwner!=='public')return;
 +      if (!r.ok) throw Error('catalog'); const data=await r.json();
++      if(token!==projectionGeneration||projectionOwner!=='public')return;
 +      if (data.catalog && typeof window.IRApplyPublishedCatalog==='function') window.IRApplyPublishedCatalog(data.catalog);
 +      guardKit();
-+    } catch (_) { document.dispatchEvent(new CustomEvent('ir-catalog-unavailable')); }
++    } catch (_) { if(token===projectionGeneration&&projectionOwner==='public')document.dispatchEvent(new CustomEvent('ir-catalog-unavailable')); }
 +  }
 +  window.addEventListener('hashchange',()=>queueMicrotask(guardKit));
-+  return {context,adapt,amazon,copy,load,guardKit,badgeLabels};
++  return {context,adapt,amazon,copy,load,guardKit,badgeLabels,claimProjection,applyProjection};
 +})();
 +IRCatalog.load();
 --- /dev/null
@@ -68,10 +75,10 @@
 +  function changed(){dirty=true;previewed=false;command=null;publish.disabled=true;message('Unsaved draft. Save, then preview before publishing.');}
 +  const add=button('Add product',()=>{if(!draft)return;const p=blank();p.category=draft.categories[0].id;p.order=Math.max(0,...draft.products.filter(q=>q.category===p.category&&q.tier===p.tier).map(q=>q.order))+1;draft.products.push(p);selected=p.id;changed();render();});
 +  const save=button('Save draft',()=>write('draft'));
-+  const preview=button('Preview saved draft',()=>{if(dirty||!state?.draft){message('Save the draft before preview.');return;}window.IRApplyPublishedCatalog(state.draft);api.guardKit();previewed=true;publish.disabled=false;message('Previewing saved draft. The live catalog is unchanged.');});
++  const preview=button('Preview saved draft',()=>{if(inFlight||obscured||document.visibilityState==='hidden'||dirty||!state?.draft){message('Save the draft before preview.');return;}api.applyProjection(state.draft,'preview');api.guardKit();previewed=true;publish.disabled=false;message('Previewing saved draft. The live catalog is unchanged.');});
 +  const publish=button('Publish',()=>{if(dirty||!previewed){message('Save and preview the draft before publishing.');return;}if(confirm('Publish this preview to Interview Ready?'))return write('publish');});publish.disabled=true;
 +  const reload=button('Reload server draft',()=>{if(dirty&&!confirm('Discard local unsaved edits and reload the server draft?'))return;return load();});
-+  toggle.onclick=()=>{panel.hidden=!panel.hidden;toggle.textContent=panel.hidden?'Admin view':'Student view';toggle.setAttribute('aria-expanded',String(!panel.hidden));if(panel.hidden&&published)window.IRApplyPublishedCatalog(published);};
++  toggle.onclick=()=>{panel.hidden=!panel.hidden;toggle.textContent=panel.hidden?'Admin view':'Student view';toggle.setAttribute('aria-expanded',String(!panel.hidden));if(panel.hidden){previewed=false;publish.disabled=true;if(published)api.applyProjection(published,'student');else api.claimProjection('student');}};
 +  function input(label,value,change,type='text') {const wrap=node('label',label,form),n=node(type==='textarea'?'textarea':'input',undefined,wrap);if(type!=='textarea')n.type=type;n.value=value??'';n.maxLength=type==='textarea'?1600:2048;n.onchange=()=>{change(n.value);changed();};return n;}
 +  function select(label,value,choices,change){const w=node('label',label,form),s=node('select',undefined,w);choices.forEach(([v,t])=>{const o=node('option',t,s);o.value=v;});s.value=value;s.onchange=()=>{change(s.value);changed();render();};return s;}
 +  function check(label,value,change){const w=node('label','',form),i=node('input',undefined,w);i.type='checkbox';i.checked=value;node('span',label,w);i.onchange=()=>{change(i.checked);changed();render();};}
@@ -103,20 +110,20 @@
 +  }
 +  async function request(method,body){const u=new URL(auth.endpoint,location.origin);if(u.origin!==location.origin||u.pathname!=='/wp-json/missionmed-ir/v1/catalog/admin'||u.search||u.hash)throw Error('endpoint');
 +    const token=generation;controller=new AbortController();const current=controller;const timer=setTimeout(()=>current.abort(),12000);
-+    try{const r=await fetch(u.href,{method,credentials:'same-origin',cache:'no-store',redirect:'error',referrerPolicy:'same-origin',signal:current.signal,headers:{'X-WP-Nonce':auth.nonce,'X-IR-Subject':auth.subject,...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});if(token!==generation)throw Error('obsolete');
-+      if(r.status===401||r.status===403){panel.hidden=true;toggle.hidden=true;state=draft=null;throw Error('session');}if(r.status===409)throw Error('conflict');if(!r.ok)throw Error('request');const data=await r.json();if(data.subject!==auth.subject||!data.state||!Number.isSafeInteger(data.state.revision))throw Error('identity');return data;
++    try{const r=await fetch(u.href,{method,credentials:'same-origin',cache:'no-store',redirect:'error',referrerPolicy:'same-origin',signal:current.signal,headers:{'X-WP-Nonce':auth.nonce,'X-IR-Subject':auth.subject,...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});if(token!==generation||current.signal.aborted)throw Error('obsolete');
++      if(r.status===401||r.status===403){panel.hidden=true;toggle.hidden=true;state=draft=null;previewed=false;publish.disabled=true;api.claimProjection('concealed');throw Error('session');}if(r.status===409)throw Error('conflict');if(!r.ok)throw Error('request');const data=await r.json();if(token!==generation||current.signal.aborted||document.visibilityState==='hidden')throw Error('obsolete');if(data.subject!==auth.subject||!data.state||!Number.isSafeInteger(data.state.revision))throw Error('identity');return data;
 +    }finally{clearTimeout(timer);if(controller===current)controller=null;}
 +  }
-+  async function load(){if(inFlight)return;inFlight=true;try{const data=await request('GET');state=data.state;draft=api.copy(state.draft||state.published||seedFromEmbedded());published=state.published;dirty=!state.draft;selected=draft.products[0]?.id;previewed=false;command=null;obscured=false;toggle.hidden=false;publish.disabled=true;message(dirty?'Start with the current guide. Save draft to begin curation.':'Loaded saved draft. Preview before publishing.');render();}catch(e){message(e.message==='session'?'Admin session expired. Reload after signing in.':'Catalog unavailable. Retry using Reload server draft.');}finally{inFlight=false;}}
-+  async function write(action){if(inFlight||!state)return;if(command&&command.action!==action){message('Retry the previous action or reload before switching actions.');return;}inFlight=true;form.inert=true;add.disabled=preview.disabled=reload.disabled=true;save.disabled=true;publish.disabled=true;
++  async function load(){if(inFlight||document.visibilityState==='hidden')return;const token=++generation;inFlight=true;try{const data=await request('GET');if(token!==generation||document.visibilityState==='hidden')return;state=data.state;draft=api.copy(state.draft||state.published||seedFromEmbedded());published=state.published;dirty=!state.draft;selected=draft.products[0]?.id;previewed=false;command=null;obscured=false;toggle.hidden=false;form.inert=false;add.disabled=preview.disabled=reload.disabled=save.disabled=false;publish.disabled=true;message(dirty?'Start with the current guide. Save draft to begin curation.':'Loaded saved draft. Preview before publishing.');render();}catch(e){if(token!==generation)return;message(e.message==='session'?'Admin session expired. Reload after signing in.':'Catalog unavailable. Retry using Reload server draft.');}finally{if(token===generation)inFlight=false;}}
++  async function write(action){if(inFlight||!state||obscured||document.visibilityState==='hidden')return;if(command&&command.action!==action){message('Retry the previous action or reload before switching actions.');return;}const token=++generation;inFlight=true;form.inert=true;add.disabled=preview.disabled=reload.disabled=true;save.disabled=true;publish.disabled=true;
 +    if(!command)command={action,expectedRevision:state.revision,commandId:crypto.randomUUID(),catalog:action==='draft'?api.copy(draft):null,previewDigest:action==='publish'?state.serverDraftDigest:''};
-+    try{const data=await request('POST',command);state=data.state;state.serverDraftDigest=data.draftDigest;draft=api.copy(state.draft);published=state.published;dirty=false;previewed=false;command=null;message(action==='publish'?'Published. Students now receive the new catalog.':'Draft saved. Preview before publishing.');if(action==='publish')window.IRApplyPublishedCatalog(published);render();}
-+    catch(e){if(e.message==='conflict'){command=null;message('Another admin changed this catalog. Local edits remain here. Reload server draft before saving again.');}else message('Save not confirmed. Retry the same action or reload to reconcile; the published catalog is preserved.');}
-+    finally{inFlight=false;form.inert=false;add.disabled=preview.disabled=reload.disabled=false;save.disabled=false;publish.disabled=dirty||!previewed;}
++    try{const data=await request('POST',command);if(token!==generation||document.visibilityState==='hidden')return;state=data.state;state.serverDraftDigest=data.draftDigest;draft=api.copy(state.draft);published=state.published;dirty=false;previewed=false;command=null;message(action==='publish'?'Published. Students now receive the new catalog.':'Draft saved. Preview before publishing.');if(action==='publish')api.applyProjection(published,'student');render();}
++    catch(e){if(token!==generation)return;if(e.message==='conflict'){command=null;message('Another admin changed this catalog. Local edits remain here. Reload server draft before saving again.');}else message('Save not confirmed. Retry the same action or reload to reconcile; the published catalog is preserved.');}
++    finally{if(token!==generation)return;inFlight=false;form.inert=false;add.disabled=preview.disabled=reload.disabled=false;save.disabled=false;publish.disabled=dirty||!previewed;}
 +  }
 +  // Preserve server digest on GET without putting audit helpers into the catalog payload.
-+  const originalRequest=request;request=async function(method,body){const d=await originalRequest(method,body);d.state.serverDraftDigest=d.draftDigest;return d;};
-+  const hide=()=>{generation++;controller?.abort();controller=null;inFlight=false;panel.hidden=true;toggle.hidden=true;obscured=true;};
++  const originalRequest=request;request=async function(method,body){const token=generation,d=await originalRequest(method,body);if(token!==generation||document.visibilityState==='hidden')throw Error('obsolete');d.state.serverDraftDigest=d.draftDigest;return d;};
++  const hide=()=>{generation++;controller?.abort();controller=null;inFlight=false;panel.hidden=true;toggle.hidden=true;obscured=true;previewed=false;publish.disabled=true;api.claimProjection('concealed');};
 +  window.addEventListener('pagehide',hide);window.addEventListener('pageshow',e=>{if(e.persisted)load();});
 +  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')hide();else if(obscured){message('Revalidate admin session before continuing. Unsaved edits were discarded.');dirty=false;load();}});
 +  load();
