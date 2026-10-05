@@ -1,10 +1,11 @@
 import {analyzeCollisionLayout} from "../editor/collision-engine-410.js";
 import {escapeHtml} from "./utils.js";
 import {applySceneCommandToDocument} from '../editor/scene-commands.js';
-import {serializeFounderPresentation,assertCompleteFounderPresentation} from '../presentation/founder-presentation-serializer.js';
+import {serializeFounderPresentation,assertCompleteFounderPresentation,founderMilestoneTemplateGeometry,founderDurationTemplateGeometry,violatesFounderTemplateBand} from '../presentation/founder-presentation-serializer.js';
 import {resolveFounderPresentationSvg,materialPresentationCollisions} from '../presentation/resolved-founder-presentation.js';
 import {locked407FMilestoneGeometry} from './locked-407f-export.js';
 import {createLocalLayoutReview,isLocalLayoutReviewLocation} from './local-layout-review.js';
+import {measureLayoutCriticSafety,stableLayoutJson} from '../presentation/layout-critic-projection.js';
 
 export const QUALITY_GUARDIAN_SCHEMA="d1-timeline-quality-guardian.1";
 export const QUALITY_GUARDIAN_SECTIONS=Object.freeze([
@@ -716,6 +717,83 @@ export function applySafeQualityFixes(document,report=analyzeTimelineQuality(doc
     biographyFieldsChanged:false,
     review:analyzeTimelineQuality(next,{stage:"AFTER_SAFE_FIX"})
   });
+}
+
+// A proposal must improve the actual paint, not just mutate layout metadata.
+// This is mechanical qualification only; it does not grant visual acceptance.
+function layoutProposalSourceSnapshot(document,legacyIds){
+  const value=clone(document);
+  delete value.revision;delete value.presentationOverrides;
+  if(value.metadata)delete value.metadata.qualityGuardian;
+  for(const event of safeArray(value.events)){delete event.manualOffset;delete event.lane;}
+  const stripGeometry=item=>{
+    const copy={...item};
+    for(const field of ['geometry','x','y','width','height','rotation','locked','aspectLocked','zIndex','layerIndex'])delete copy[field];
+    return copy;
+  };
+  if(value.advanced){
+    for(const collection of ['media','textBlocks','elements'])if(Array.isArray(value.advanced[collection]))value.advanced[collection]=value.advanced[collection].map(item=>stripGeometry(collection==='textBlocks'?{...item,type:item.type||'text'}:item));
+    if(value.advanced.scene){
+      value.advanced.scene.objects=safeArray(value.advanced.scene.objects).filter(item=>item.type!=='event'&&!legacyIds.has(String(item.id))).map(stripGeometry);
+      delete value.advanced.scene.revision;delete value.advanced.scene.legacyDigest;
+      if(!value.advanced.scene.objects.length&&!safeArray(value.advanced.scene.groups).length)delete value.advanced.scene;
+    }
+  }
+  return stableLayoutJson(value);
+}
+function measuredProposalPaint(rendered){
+  const paint=resolveFounderPresentationSvg(rendered.svg,{measureText:rendered.scene.measureText});
+  const visible=paint.nodes.filter(node=>node.bounds&&node.groupId&&
+    !node.sourceAttributes['data-board-background']&&!node.sourceAttributes['data-advanced-background']&&
+    Number(node.style.opacity??1)>0&&Number(node.style['fill-opacity']??1)>0&&
+    node.sourceAttributes.visibility!=='hidden'&&node.sourceAttributes.display!=='none'&&
+    !(node.kind==='path'&&(node.lineOnly||node.style.fill==='none'||node.bounds.width<1||node.bounds.height<1)));
+  const parts=visible.map(node=>({id:node.id,groupId:node.groupId,
+    role:node.groupId==='furniture:axis'?'AXIS':node.role==='event'?'EVENT':['media','annotation'].includes(node.role)?'OBJECT':'FURNITURE',
+    bounds:node.occlusionBounds||node.bounds,overflow:node.sourceAttributes['data-text-overflow']==='true'}));
+  const safety=measureLayoutCriticSafety(parts);
+  const templateViolationCount=[...founderMilestoneTemplateGeometry(rendered.scene,paint),...founderDurationTemplateGeometry(rendered.scene,paint)].filter(violatesFounderTemplateBand).length;
+  const unreadableCount=visible.filter(node=>node.kind==='text'&&(node.fontSize<12||
+    node.characterSpacing<0&&node.bounds.width/(node.bounds.width-node.characterSpacing*(node.text.length-1))<.72)).length;
+  return {paint,visible,metrics:{...safety,materialCollisionCount:materialPresentationCollisions(paint).length,templateViolationCount,unreadableCount}};
+}
+function visibleProposalContent(nodes){
+  const text=new Map(),images=[];
+  for(const node of nodes){
+    if(node.kind==='text'){
+      const key=[node.groupId,node.semanticRef||'',node.sourceAttributes['data-material-field']||''].join('|');
+      text.set(key,[...(text.get(key)||[]),node.text]);
+    }
+    if(node.kind==='image')images.push({groupId:node.groupId,source:node.source,crop:node.crop||null});
+  }
+  return stableLayoutJson({text:[...text].map(([key,lines])=>[key,lines.join(' ').replace(/\s+/g,' ').trim()]).sort(),images});
+}
+export function qualifyRenderedLayoutImprovement(beforeRendered,afterRendered,{beforeDocument,afterDocument}={}){
+  const result={qualified:false,mechanicalOnly:true,reasonCode:'LAYOUT_PROPOSAL_RENDER_UNAVAILABLE',sourceUnchanged:false,geometryChanged:false,before:null,after:null};
+  if(!beforeDocument||!afterDocument)return Object.freeze({...result,reasonCode:'LAYOUT_PROPOSAL_SOURCE_UNVERIFIED'});
+  try{
+    // Scene reconciliation may materialize existing legacy notes/media. Their
+    // source collections and the visible text/image checks below remain bound.
+    const legacyIds=new Set(advancedObjects(beforeDocument).map(item=>String(item.id)));
+    result.sourceUnchanged=layoutProposalSourceSnapshot(beforeDocument,legacyIds)===layoutProposalSourceSnapshot(afterDocument,legacyIds);
+    if(!result.sourceUnchanged)return Object.freeze({...result,reasonCode:'LAYOUT_PROPOSAL_SOURCE_CHANGED'});
+    const before=measuredProposalPaint(beforeRendered),after=measuredProposalPaint(afterRendered);
+    result.before=before.metrics;result.after=after.metrics;
+    if(visibleProposalContent(before.visible)!==visibleProposalContent(after.visible))return Object.freeze({...result,reasonCode:'LAYOUT_PROPOSAL_VISIBLE_CONTENT_CHANGED'});
+    const positions=nodes=>stableLayoutJson(nodes.map(node=>({groupId:node.groupId,semanticRef:node.semanticRef,kind:node.kind,bounds:node.bounds})));
+    result.geometryChanged=positions(before.visible)!==positions(after.visible);
+    const hard=['collisionCount','axisOverlapCount','materialCollisionCount','offCanvasCount','overflowCount','templateViolationCount','unreadableCount'];
+    if(hard.some(field=>after.metrics[field]>0))return Object.freeze({...result,reasonCode:'LAYOUT_PROPOSAL_HARD_ERRORS_REMAIN'});
+    // Completeness/source/media gates are additional to geometry safety. Never
+    // permit an unresolved image to disappear as a supposed improvement.
+    try{assertCompleteFounderPresentation(afterRendered);}catch(error){return Object.freeze({...result,reasonCode:error.code||'LAYOUT_PROPOSAL_INCOMPLETE'});}
+    if(!result.geometryChanged)return Object.freeze({...result,reasonCode:'LAYOUT_PROPOSAL_UNCHANGED'});
+    if(after.metrics.crowdingCount>before.metrics.crowdingCount||after.metrics.crowdingPairs.some(pair=>!before.metrics.crowdingPairs.includes(pair)))return Object.freeze({...result,reasonCode:'LAYOUT_PROPOSAL_CROWDING_WORSENED'});
+    const clearedHardErrors=hard.some(field=>before.metrics[field]>after.metrics[field]);
+    const reducedCrowding=before.metrics.crowdingCount-after.metrics.crowdingCount>=Math.max(1,Math.ceil(before.metrics.crowdingCount*.2));
+    if(!clearedHardErrors&&!reducedCrowding)return Object.freeze({...result,reasonCode:'LAYOUT_PROPOSAL_NO_MATERIAL_IMPROVEMENT'});
+    return Object.freeze({...result,qualified:true,reasonCode:'LAYOUT_PROPOSAL_MECHANICALLY_QUALIFIED'});
+  }catch{return Object.freeze(result);}
 }
 
 function stateSymbol(state){return state==="READY"?"✓":state==="BLOCKED"?"✕":"⚠";}

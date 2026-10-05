@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createLocalLayoutReview,isLocalLayoutReviewLocation} from '../web/js/uxr-002/local-layout-review.js';
-import {renderQualityGuardian,renderLocalLayoutReview,analyzeTimelineQuality} from '../web/js/uxr-002/quality-guardian.js';
+import {renderQualityGuardian,renderLocalLayoutReview,analyzeTimelineQuality,qualifyRenderedLayoutImprovement} from '../web/js/uxr-002/quality-guardian.js';
+import {serializeFounderPresentation} from '../web/js/presentation/founder-presentation-serializer.js';
+import {applySceneCommandToDocument} from '../web/js/editor/scene-commands.js';
 import {projectLayoutCritic,LAYOUT_CRITIC_CONSENT_VERSION} from '../web/js/presentation/layout-critic-projection.js';
 
 const digest='a'.repeat(64),location={protocol:'http:',hostname:'127.0.0.1'};
@@ -77,4 +79,51 @@ test('041 actual geometry validator and safe apply reject invalid output and lat
     await h.controller.capabilities();await h.controller.review();
     assert.equal(h.calls.length,0);assert.equal(h.controller.state.status,mode==='stale'?'STALE':mode==='empty'?'REVIEWED':'FAILED');
   }
+});
+
+
+// Actual synthetic renders, with no provider or applicant material.
+const proposalDocument=()=>({id:'synthetic-proposal',studentProfile:{fullName:'Synthetic Example'},events:[{id:'synthetic-work',title:'Work',siteName:'Synthetic Site',categoryId:'work',eventType:'duration',startDate:'2020-01',endDate:'2021-01',visibilityState:'INTERVIEWER_SAFE'}],exams:[],theme:'keynote-classic',advanced:{media:[],elements:[],groups:[],textBlocks:[{id:'synthetic-note-a',text:'Synthetic note A',x:1100,y:850,width:300,height:40,size:18,font:'Arial'},{id:'synthetic-note-b',text:'Synthetic note B',x:1100,y:850,width:300,height:40,size:18,font:'Arial'}]}});
+const proposalRender=d=>serializeFounderPresentation(d,{scope:'INTERVIEWER_SAFE',currentMonth:'2026-10'});
+const qualify=(before,after)=>qualifyRenderedLayoutImprovement(proposalRender(before),proposalRender(after),{beforeDocument:before,afterDocument:after});
+const clearProposal=before=>{const after=structuredClone(before);after.advanced.textBlocks[1].y=920;return after;};
+
+test('041 rendered proposal rejects bad-to-bad tiny change and qualifies collision-to-clear without source mutation',()=>{
+ const before=proposalDocument(),snapshot=JSON.stringify(before),minor=structuredClone(before);minor.advanced.textBlocks[1].y+=1;
+ const bad=qualify(before,minor);
+ assert.equal(bad.qualified,false);assert.equal(bad.reasonCode,'LAYOUT_PROPOSAL_HARD_ERRORS_REMAIN');assert.ok(bad.after.materialCollisionCount>0);
+ const after=clearProposal(before),good=qualify(before,after);
+ assert.equal(good.qualified,true);assert.equal(good.mechanicalOnly,true);assert.equal(good.sourceUnchanged,true);assert.equal(good.geometryChanged,true);
+ assert.ok(good.before.collisionCount>good.after.collisionCount);assert.equal(good.after.collisionCount,0);assert.equal(JSON.stringify(before),snapshot);
+});
+
+test('041 rendered proposal rejects identical and mechanically equal minor moves',()=>{
+ const clear=clearProposal(proposalDocument()),same=qualify(clear,structuredClone(clear));
+ assert.equal(same.qualified,false);assert.equal(same.reasonCode,'LAYOUT_PROPOSAL_UNCHANGED');
+ const minor=structuredClone(clear);minor.advanced.textBlocks[1].y+=1;
+ const equal=qualify(clear,minor);assert.equal(equal.geometryChanged,true);assert.equal(equal.qualified,false);assert.equal(equal.reasonCode,'LAYOUT_PROPOSAL_NO_MATERIAL_IMPROVEMENT');
+});
+
+test('041 source edits and unverified source never qualify as presentation improvements',()=>{
+ for(const alter of [d=>d.events[0].title='Rewritten source',d=>d.events[0].startDate='2019-01',d=>d.studentProfile.fullName='Changed identity',d=>d.advanced.textBlocks[0].text='Changed authored note']){
+  const before=proposalDocument(),after=clearProposal(before);alter(after);
+  const result=qualify(before,after);assert.equal(result.qualified,false);assert.equal(result.reasonCode,'LAYOUT_PROPOSAL_SOURCE_CHANGED');
+ }
+ const d=proposalDocument();assert.equal(qualifyRenderedLayoutImprovement(proposalRender(d),proposalRender(clearProposal(d))).reasonCode,'LAYOUT_PROPOSAL_SOURCE_UNVERIFIED');
+});
+
+test('041 clipping, native-band failure and unreadable painted text reject cleared collisions',()=>{
+ const before=proposalDocument(),clipped=clearProposal(before);clipped.advanced.textBlocks[1].x=1900;
+ const clip=qualify(before,clipped);assert.equal(clip.qualified,false);assert.ok(clip.after.offCanvasCount>0);
+ const small=proposalDocument();small.advanced.textBlocks.forEach(note=>note.size=8);
+ const unreadable=qualify(small,clearProposal(small));assert.equal(unreadable.qualified,false);assert.ok(unreadable.after.unreadableCount>0);
+ const band=applySceneCommandToDocument(clearProposal(before),{kind:'geometry',target:{type:'event',id:'synthetic-work'},geometry:{x:700,y:100,width:400,height:44},create:{type:'event',semanticRef:'synthetic-work',aspectLocked:false,presentation:{eventType:'duration'}}});
+ assert.equal(band.changed,true);
+ const native=qualify(before,band.document);assert.equal(native.qualified,false);assert.ok(native.after.templateViolationCount>0);
+});
+
+test('041 unresolved or vanished media cannot qualify as a safe improvement',()=>{
+ const before=proposalDocument();before.mediaItems=[{id:'synthetic-image',type:'profilePhoto',placement:'profile',visibilityState:'INTERVIEWER_SAFE'}];
+ const after=clearProposal(before),result=qualify(before,after);
+ assert.equal(result.qualified,false);assert.equal(result.reasonCode,'TIMELINE_EXPORT_MISSING_FIELDS');
 });
