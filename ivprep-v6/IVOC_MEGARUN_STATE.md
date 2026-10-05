@@ -5,7 +5,7 @@ Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`, `DR-350` (narrow packaging), `DR-361` (current RISE eligibility successor); `DR-340` QA grant revoked
 Branch: `codex/ivoc-foreman-9200`
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
-Current continuation boundary: `FORENSIC LIFECYCLE RECOVERY; 34 FOCUSED CHECKS PASS; PROVIDER-OFF RELEASE/INDEPENDENT GET PENDING; CANARY #3 NOT AUTHORIZED`
+Current continuation boundary: `LEMONSLICE CANARY #3 READY; NO-SPEND RECOVERY LIVE / INDEPENDENT PREFLIGHT PASS; PROVIDER OFF; STOP AT NEW NUMERIC SPEND AUTHORIZATION`
 
 This is the one living requirement ledger required by the final Founder
 completion directive. A status of `LIVE UNVERIFIED` means the capability is
@@ -15,6 +15,43 @@ the actual production route and deployment.
 ## Foreman 9300 overnight reactivation — current dated evidence
 
 ### Current Fable-to-production convergence — 2026-10-03
+
+- 2026-10-05 NO-SPEND RECOVERY LIVE / CANARY3 SPEND GATE:
+  Runtime7f6d693cad3c990f2f1438876682a9b86586cd06;
+  SUCCESS0a4b8b6e-a17d-4574-bdf8-c6b6d44cb8b5;
+  image sha256:2e083f1faafcbadd83b49e18c5e0b2d6af063f9d100a40fa895ad8dac6701e22.
+  DR350 clean clone/filtered tracked stage:1303 files, archiveSHA
+  e08a0f9c3da474f969c47b16a9daf0ad54d1a60ba709ce781fc68a5d21ec7b6e.
+  Original untracked Fable forensic packet preserved, not release input.
+  Runtime SSH confirms exact deployment and four changed runtime module hashes
+  equal Git bytes; feature OFF and consumed642eb55f UUID unchanged. Health200;
+  anonymous product/bootstrap/Admin-canary401. Independent non-builder34/34
+  focused checks PASS, including safe provider/HQ/client diagnostics, cancellation,
+  decoded-frame opening gate and unconfirmed-flush refusal.
+  Fresh Chrome normal Matrix /member-dashboard → IV Prep On-Call → Home shows
+  brinyu ADMIN·ACCOUNT; bootstrap200/wp:1, canaryconfig200/availableFALSE,
+  imported native renderer.api('') GET200, deployed module hashes match.
+  Direct HQ browser entry initially blocked by client; normal visible Matrix
+  launch resolved it WITHOUT security bypass. Actual deployed decoded-frame
+  helper passed Chrome requestVideoFrameCallback using synthetic64×64 video.
+  This is browser decoder proof, NOT real camera/avatar/provider/sync acceptance.
+  Synthetic tracks/video/timers and owned tab cleaned; Founder tabs untouched.
+  Production readonly LemonSlice GET200: total1, historical5546fbb6 COMPLETED;
+  exact consumed canary LiveKit room count0. No CREATE, GPT, camera/mic, session,
+  provider activation or new spend. Prior rollback retained:7855a10b/4822250,
+  image ae7062a1c32d58930c1428603ac4bcb89f5d55e50f4ae880e57944e4d5733c5f.
+  PRODUCT5041/4539664e, PATH5042/0b855385, PATH5043/32cef54f and SHARED5044/09fe9df9
+  heartbeat advanced remotely through deployment/readback/filing, past former
+  DNS-failure point. Normal release follows this pushed filing; canonical lease
+  rows (not an inferred local flag) are final release authority.
+  Next action ONLY after fresh explicit numeric authorization: one Founder
+  session <=45s FROM ORIGINAL RESERVATION, idle15, <=USD1, existing agent only,
+  no create retries/rearming of consumed sessions. Test provider CREATE → LiveKit
+  → decoded visible avatar → GPT PCM/single returned audio+recording → sync
+  → acknowledged interrupt/resume → exact terminal cleanup/spend receipt.
+  Actual provider/avatar/sync/audible singularity/flush/resume/two-sided replay
+  remain UNVERIFIED. No Astra, legacy worker, independent Director or UI redesign.
+  Overall IVOC completion NOT claimed. STOP AT CANARY3 SPEND GATE.
 
 - 2026-10-05 FORENSIC RECOVERY ADOPTION / NO SPEND:
   Historical Test1 on348daba records Dr Kelly visible/audible and LiveKit
