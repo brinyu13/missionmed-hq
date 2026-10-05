@@ -1,5 +1,6 @@
 """Small in-memory fixtures. Never create a native identity or call a provider."""
 import ast
+import base64
 import contextlib
 import dataclasses
 import concurrent.futures
@@ -16,6 +17,10 @@ import time
 import unittest
 from pathlib import Path
 from unittest import mock
+
+ABSENT=['PAYLOAD_NOT_OBSERVED','PAYLOAD_SHUTDOWN_NOT_OBSERVED']
+ENTRY=b'IR_INVENTORY_BOUNDARY_V1 ENTERED\n'
+NORMAL=ENTRY+b'IR_INVENTORY_BOUNDARY_V1 SHUTDOWN NONFATAL UNKNOWN\n'
 
 sys.dont_write_bytecode = True
 spec = importlib.util.spec_from_file_location('native_account_qa', Path(__file__).with_name('native_account_qa.py'))
@@ -39,7 +44,7 @@ class SpyGate:
 
 class PipeChild:
     """Injected local pipes only; never starts a process or network request."""
-    def __init__(self,chunks=(),delay=0,code=0,*,stderr=False):
+    def __init__(self,chunks=(),delay=0,code=0,*,stderr=False,error_chunks=()):
         r,w=os.pipe();self.stdin=os.fdopen(w,'wb',buffering=0);self.input_fd=r
         r,w=os.pipe();self.stdout=os.fdopen(r,'rb',buffering=0);self.output_fd=w
         r,w=os.pipe();self.stderr=os.fdopen(r,'rb',buffering=0);self.error_fd=w
@@ -53,6 +58,7 @@ class PipeChild:
                 for chunk in chunks:
                     if self.stopped.wait(delay):break
                     os.write(self.error_fd if stderr else self.output_fd,chunk)
+                for chunk in error_chunks:os.write(self.error_fd,chunk)
                 self.returncode=code if not self.stopped.is_set() else -9
             finally:
                 for fd in (self.input_fd,self.output_fd,self.error_fd):os.close(fd)
@@ -285,7 +291,7 @@ class Fixtures(unittest.TestCase):
             self.assertIsNone(caught.exception.hookScope)
             self.assertNotIn('PRIVATE_SENTINEL',repr(caught.exception))
             self.assertEqual(captured.getvalue(),'');self.assertTrue(child.done.is_set())
-        child=PipeChild([sentinel],code=0)
+        child=PipeChild([sentinel],code=0,error_chunks=[NORMAL])
         with mock.patch.object(qa.subprocess,'Popen',return_value=child):
             gate=SpyGate();gate.admission.mode='inventory'
             with self.assertRaisesRegex(qa.Stop,'^native_assertion$'):
@@ -370,18 +376,18 @@ class Fixtures(unittest.TestCase):
                  contextlib.redirect_stdout(public),contextlib.redirect_stderr(public),self.assertRaises(qa.Stop) as caught:
                 qa.private_capture(qa.SSH_ARGV,b'private',qa.Dispatch(time.monotonic()+qa.IO_SECONDS,action='creation_inventory_read'))
             self.assertEqual(caught.exception.category,category)
-            self.assertEqual(caught.exception.stderrMarkers,markers)
+            self.assertEqual(caught.exception.stderrMarkers,sorted(markers+ABSENT))
             self.assertEqual(caught.exception.childExit,{'exitCode':255,'stdoutPresent':False,'stderrPresent':True})
             self.assertNotIn('PRIVATE_SENTINEL',repr(caught.exception));self.assertEqual(public.getvalue(),'')
             self.assertTrue(child.done.is_set())
         # A marker beyond the old 4096-byte threshold is scanned, never truncation-admitted.
         stderr=warning+b'PRIVATE_SENTINEL'*400+b'\nError: Cannot read input file /dev/stdin'
-        self.assertEqual(qa.inventory_child_failure(b'',stderr,255).stderrMarkers,['PHP_WARNING','STDIN','WPCLI_ERROR'])
+        self.assertEqual(qa.inventory_child_failure(b'',stderr,255).stderrMarkers,sorted(['PHP_WARNING','STDIN','WPCLI_ERROR']+ABSENT))
         oversized=b'PHP Fatal error: PRIVATE_SENTINEL\n'+b'X'*65536
         error=qa.inventory_child_failure(b'',oversized,255)
         self.assertEqual(error.category,'child_exit');self.assertIsNone(error.stderrMarkers)
         mixed=qa.inventory_child_failure(b'PRIVATE_SENTINEL',warning+b'PHP Fatal error: PRIVATE_SENTINEL',255)
-        self.assertEqual(mixed.category,'child_exit');self.assertEqual(mixed.stderrMarkers,['PHP_FATAL','PHP_WARNING'])
+        self.assertEqual(mixed.category,'child_exit');self.assertEqual(mixed.stderrMarkers,sorted(['PHP_FATAL','PHP_WARNING']+ABSENT))
         for malformed in (['PRIVATE_SENTINEL'],['PHP_FATAL','PHP_FATAL'],['STDIN','PHP_FATAL'],[1],{},None):
             self.assertIsNone(qa.Stop('child_exit',stderrMarkers=malformed).stderrMarkers)
         self.assertIsNone(qa.Stop('PRIVATE_SENTINEL',stderrMarkers=['PHP_FATAL']).stderrMarkers)
@@ -397,20 +403,20 @@ class Fixtures(unittest.TestCase):
             stderr=b'\x1b[33mPHP Warning: PRIVATE_SENTINEL\x1b[0m\n'+b'\x1b[31m[05-Oct-2026 08:00:00 UTC] PHP Fatal error: '+message+b'\x1b[0m\nStack trace:\n#0 PRIVATE_SENTINEL'
             error=qa.inventory_child_failure(b'',stderr,255)
             expected=sorted(['PHP_FATAL','PHP_WARNING',kind]+(['UNCAUGHT_ERROR'] if message.startswith(b'Uncaught ') else []))
-            self.assertEqual(error.category,'php_fatal_error');self.assertEqual(error.stderrMarkers,expected)
+            self.assertEqual(error.category,'php_fatal_error');self.assertEqual(error.stderrMarkers,sorted(expected+ABSENT))
             self.assertNotIn('PRIVATE_SENTINEL',str(error)+repr(error)+repr(vars(error)))
         for message,kind in [(b'Error: Your PHP installation appears to be missing the MySQL extension PRIVATE_SENTINEL','MYSQL_EXTENSION_MISSING'),
                 (b'Error: WP-CLI requires PHP version 5.6 or newer. PRIVATE_SENTINEL','PHP_VERSION_REQUIREMENT')]:
             error=qa.inventory_child_failure(b'',message,255)
-            self.assertEqual(error.category,'child_exit');self.assertEqual(error.stderrMarkers,sorted([kind,'WPCLI_ERROR']))
+            self.assertEqual(error.category,'child_exit');self.assertEqual(error.stderrMarkers,sorted([kind,'WPCLI_ERROR']+ABSENT))
         all_markers=sorted(qa.STDERR_MARKERS)
-        self.assertEqual(len(all_markers),21)
+        self.assertEqual(len(all_markers),29)
         self.assertEqual(qa.Stop('child_exit',stderrMarkers=all_markers).stderrMarkers,all_markers)
         for malformed in (all_markers+['STDIN'],tuple(all_markers),['PHP_FATAL',{}],['PHP_FATAL',False]):
             self.assertIsNone(qa.Stop('child_exit',stderrMarkers=malformed).stderrMarkers)
         sentinel=json.dumps({'schema':qa.PHP_FAILURE_SCHEMA,'step':'FILE_DIGEST','hookScope':'OTHER'}).encode()
         error=qa.inventory_child_failure(sentinel,b'PHP Fatal error: PRIVATE_SENTINEL',255)
-        self.assertEqual(error.category,'php_file_digest');self.assertEqual(error.stderrMarkers,['PHP_FATAL'])
+        self.assertEqual(error.category,'php_file_digest');self.assertEqual(error.stderrMarkers,sorted(['PHP_FATAL']+ABSENT))
 
     def test_inventory_stderr_fixed_families_normalization_and_unknown(self):
         cases=[(b' \t\x1b[31mssh: connect to host PRIVATE_SENTINEL port 22: Connection refused\x1b[0m\r', 'ssh_transport_error',['SSH_MESSAGE']),
@@ -427,13 +433,108 @@ class Fixtures(unittest.TestCase):
         cases.extend((raw,'child_exit',['PHP_FATAL']) for raw in (b'PHP Fatal error: PRIVATE_SENTINEL\x00',b'PHP Fatal error: PRIVATE_SENTINEL\xff',b'PHP Fatal error: PRIVATE_SENTINEL\xe2\x98\x83'))
         for raw,category,markers in cases:
             error=qa.inventory_child_failure(b'',raw,255)
-            self.assertEqual(error.category,category);self.assertEqual(error.stderrMarkers,markers)
+            self.assertEqual(error.category,category);self.assertEqual(error.stderrMarkers,sorted(markers+ABSENT))
             self.assertNotIn('PRIVATE_SENTINEL',json.dumps(vars(error))+str(error)+repr(error))
         error=qa.inventory_child_failure(b'',b'X'*65537,255)
         self.assertEqual(error.category,'child_exit');self.assertIsNone(error.stderrMarkers)
         # Mixed stdout cannot promote a stderr family into a causal category.
         error=qa.inventory_child_failure(b'PRIVATE_SENTINEL',cases[0][0],255)
-        self.assertEqual(error.category,'child_exit');self.assertEqual(error.stderrMarkers,['SSH_MESSAGE'])
+        self.assertEqual(error.category,'child_exit');self.assertEqual(error.stderrMarkers,sorted(['SSH_MESSAGE']+ABSENT))
+
+    def test_inventory_boundary_exact_grammar_absence_caps_and_privacy(self):
+        cases=[(b'',ABSENT,False),
+            (b'PRIVATE_SENTINEL\n',ABSENT,False),
+            (ENTRY,['PAYLOAD_ENTERED','PAYLOAD_SHUTDOWN_NOT_OBSERVED'],False),
+            (NORMAL,['PAYLOAD_ENTERED','PAYLOAD_SHUTDOWN_NONFATAL'],True)]
+        for kind in ('UNKNOWN','UNDEFINED_FUNCTION','CLASS_NOT_FOUND','REDECLARE',
+                'UNDEFINED_CONSTANT','TYPE_ERROR','ARGUMENT_COUNT_ERROR','MEMORY','TIME'):
+            raw=ENTRY+b'IR_INVENTORY_BOUNDARY_V1 SHUTDOWN FATAL '+kind.encode()+b'\n'
+            cases.append((raw,sorted(['PAYLOAD_ENTERED','PAYLOAD_SHUTDOWN_FATAL']+([] if kind=='UNKNOWN' else [kind])),False))
+        for raw,markers,normal in cases:
+            residual,observations,complete=qa.inventory_boundary(raw)
+            self.assertEqual(sorted(observations),markers);self.assertEqual(complete,normal)
+            self.assertEqual(residual,b'PRIVATE_SENTINEL\n' if raw==b'PRIVATE_SENTINEL\n' else b'')
+            self.assertNotIn('PRIVATE_SENTINEL',json.dumps(sorted(observations)))
+        invalid=[NORMAL+ENTRY,ENTRY+ENTRY,NORMAL+NORMAL,NORMAL[len(ENTRY):],
+            ENTRY+b'IR_INVENTORY_BOUNDARY_V1 SHUTDOWN FATAL PRIVATE_SENTINEL\n',
+            ENTRY+b'IR_INVENTORY_BOUNDARY_V1 SHUTDOWN NONFATAL TYPE_ERROR\n',
+            NORMAL.replace(b'V1',b'V2'),NORMAL[:-1],NORMAL.replace(b'ENTERED\n',b'ENTERED\r\n'),
+            b'\x00'+NORMAL,b' '+NORMAL,NORMAL.replace(b'ENTERED',b'ENTERED\x1b[0m')]
+        for raw in invalid:
+            residual,observations,normal=qa.inventory_boundary(raw)
+            self.assertEqual(residual,raw);self.assertEqual(observations,{'BOUNDARY_INVALID'});self.assertFalse(normal)
+        # Exact frames are the only bytes removed; unsupported/ordinary bytes survive.
+        raw=ENTRY+b'\xffPHP Notice: PRIVATE_SENTINEL\x00\r\n'+NORMAL[len(ENTRY):]
+        residual,observations,normal=qa.inventory_boundary(raw)
+        self.assertEqual(residual,b'\xffPHP Notice: PRIVATE_SENTINEL\x00\r\n');self.assertTrue(normal)
+        at_cap=NORMAL+b'X'*(65536-len(NORMAL))
+        self.assertTrue(qa.inventory_boundary(at_cap)[2])
+        over=at_cap+b'X';self.assertEqual(qa.inventory_boundary(over),(over,set(),False))
+
+    def test_inventory_boundary_capture_success_warning_invalid_and_nonzero(self):
+        for raw,category in ((NORMAL,None),(NORMAL+b'PHP Notice: PRIVATE_SENTINEL\n','stderr_present'),
+                (NORMAL+b'Warning: PRIVATE_SENTINEL\n','stderr_present'),
+                (NORMAL+b'\x00PRIVATE_SENTINEL','stderr_present'),(ENTRY,'native_assertion'),
+                (b'','native_assertion'),(NORMAL+ENTRY,'native_assertion'),
+                (ENTRY+b'IR_INVENTORY_BOUNDARY_V1 SHUTDOWN FATAL UNKNOWN\n','native_assertion')):
+            child=PipeChild([b'{}'],error_chunks=[raw]);public=io.StringIO()
+            with mock.patch.object(qa.subprocess,'Popen',return_value=child),contextlib.redirect_stdout(public),contextlib.redirect_stderr(public):
+                budget=qa.Dispatch(time.monotonic()+qa.IO_SECONDS,action='creation_inventory_read')
+                if category is None:self.assertEqual(qa.private_capture(qa.SSH_ARGV,b'private',budget),b'{}')
+                else:
+                    with self.assertRaises(qa.Stop) as caught:qa.private_capture(qa.SSH_ARGV,b'private',budget)
+                    self.assertEqual(caught.exception.category,category)
+                    self.assertNotIn('PRIVATE_SENTINEL',json.dumps(vars(caught.exception)))
+            self.assertEqual(public.getvalue(),'');self.assertTrue(child.done.is_set())
+        sentinel=json.dumps({'schema':qa.PHP_FAILURE_SCHEMA,'step':'FILE_DIGEST','hookScope':'OTHER'}).encode()
+        fatal=ENTRY+b'IR_INVENTORY_BOUNDARY_V1 SHUTDOWN FATAL TYPE_ERROR\n'
+        error=qa.inventory_child_failure(sentinel,fatal,255)
+        self.assertEqual(error.category,'php_file_digest');self.assertEqual(error.hookScope,'OTHER')
+        self.assertEqual(error.stderrMarkers,['PAYLOAD_ENTERED','PAYLOAD_SHUTDOWN_FATAL','TYPE_ERROR'])
+        self.assertEqual(error.childExit,{'exitCode':255,'stdoutPresent':True,'stderrPresent':True})
+        self.assertEqual(qa.inventory_child_failure(sentinel+b'PRIVATE_SENTINEL',fatal,255).category,'child_exit')
+        self.assertEqual(qa.inventory_child_failure(b'PHP Fatal error: PRIVATE_SENTINEL',NORMAL,255).category,'php_fatal_error')
+        child=PipeChild([b'{}'],error_chunks=[b'X'*65537])
+        with mock.patch.object(qa.subprocess,'Popen',return_value=child),self.assertRaises(qa.Stop) as caught:
+            qa.private_capture(qa.SSH_ARGV,b'private',qa.Dispatch(time.monotonic()+qa.IO_SECONDS,action='creation_inventory_read'))
+        self.assertEqual(caught.exception.category,'native_assertion');self.assertTrue(child.done.is_set())
+
+    def test_inventory_boundary_actual_php_method_scope_normal_and_suppressed_fatal(self):
+        php=shutil.which('php') or '/opt/homebrew/bin/php'
+        if not Path(php).exists():self.skipTest('local PHP unavailable')
+        gate=SpyGate();gate.admission.mode='inventory';program=[]
+        def pipe(code,**kwargs):program.append(code);raise qa.Stop('child_exit')
+        with self.assertRaises(qa.Stop):qa.creation_inventory_read(gate,pipe)
+        code=program[0]
+        self.assertTrue(code.startswith('<?php\nfwrite(STDERR,"IR_INVENTORY_BOUNDARY_V1 ENTERED'))
+        self.assertNotIn('IR_INVENTORY_BOUNDARY',qa.php_preamble())
+        self.assertIn('global $ir_inventory_step,$ir_inventory_hook_scope;\n$ir_inventory_step=',code)
+        lint=subprocess.run([php,'-n','-l'],input=code.encode(),capture_output=True,timeout=2)
+        self.assertEqual(lint.returncode,0,'fixed inventory PHP syntax failure')
+        stubs="<?php function add_filter(...$args){} function wp_json_encode($v){return json_encode($v);} "
+        # Method eval executes actual inventory payload with isolated synthetic hooks.
+        for malformed,expected_step,rc in ((False,None,0),(True,'HOOK_SHAPE',1)):
+            hooks="$wp_filter=['fixture'=>new stdClass];" if malformed else '$wp_filter=[];'
+            fixture=stubs+hooks+"class FixtureEval{static function run($code){eval('?>'.$code);}} FixtureEval::run("+"base64_decode('"+base64.b64encode(code.encode()).decode()+"')"+");"
+            result=subprocess.run([php,'-n'],input=fixture.encode(),capture_output=True,timeout=2)
+            self.assertEqual(result.returncode,rc,'isolated method eval failure')
+            self.assertEqual(result.stderr,NORMAL)
+            if expected_step:self.assertEqual(json.loads(result.stdout)['step'],expected_step)
+            else:self.assertEqual(json.loads(result.stdout)['count'],0)
+        shapes=[('Call to undefined function PRIVATE_SENTINEL()','UNDEFINED_FUNCTION'),
+            ('Class "PRIVATE_SENTINEL" not found','CLASS_NOT_FOUND'),('Cannot redeclare PRIVATE_SENTINEL()','REDECLARE'),
+            ('Undefined constant "PRIVATE_SENTINEL"','UNDEFINED_CONSTANT'),('Uncaught TypeError: PRIVATE_SENTINEL','TYPE_ERROR'),
+            ('Uncaught ArgumentCountError: PRIVATE_SENTINEL','ARGUMENT_COUNT_ERROR'),
+            ('Allowed memory size of 123 bytes exhausted (tried to allocate 4 bytes)','MEMORY'),
+            ('Maximum execution time of 1 seconds exceeded','TIME'),('PRIVATE_SENTINEL','UNKNOWN'),
+            ('Uncaught TypeError: Call to undefined function PRIVATE_SENTINEL()','UNKNOWN'),
+            ('Uncaught TypeError: PRIVATE_SENTINEL\x00','UNKNOWN'),('Uncaught TypeError: PRIVATE_SENTINEL☃','UNKNOWN'),('Uncaught TypeError: '+'X'*65537,'UNKNOWN')]
+        for message,kind in shapes:
+            fixture=stubs+"?>"+qa.inventory_boundary_preamble()+"trigger_error("+"base64_decode('"+base64.b64encode(message.encode()).decode()+"')"+",E_USER_ERROR);"
+            result=subprocess.run([php,'-n'],input=fixture.encode(),capture_output=True,timeout=2)
+            self.assertEqual(result.returncode,255,'isolated suppressed fatal fixture failure');self.assertEqual(result.stdout,b'')
+            self.assertEqual(result.stderr,ENTRY+b'IR_INVENTORY_BOUNDARY_V1 SHUTDOWN FATAL '+kind.encode()+b'\n')
+            self.assertNotIn(b'PRIVATE_SENTINEL',result.stderr)
 
     def test_inventory_diagnostic_public_hook_ceiling_and_exact_program_syntax(self):
         owner=ast.parse(Path(qa.__file__).with_name('native_inventory_owner.py').read_text())

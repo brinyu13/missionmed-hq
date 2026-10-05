@@ -17,8 +17,8 @@ BUILDER = '/root/native_bridge_review'
 DELTA_BUILDER = '/root/owner_classification_fix'
 OWNER = 'codex-ir-phase1-foreman'
 PINS = {
-    'runtime_native_runner.py': '2416e49a62676b79093ba983806bf88ce5bae217bb1d6ffc81cf935e42495fe7',
-    'native_account_qa.py': 'dfe79f51fc62f964e68d310999a9f563ecb6e95d91035106643ffccbb24cc12d',
+    'runtime_native_runner.py': '6a28f83a11e3b9c769b8473691ffcac10c1c4e5c8bd5a844b2585442280cc757',
+    'native_account_qa.py': 'f64534309958e97aded039ca5e6fee65f49cf4140abafa13db4987c89222a8bb',
     'native_browser_bridge.py': '70db84535b5c0172fa162fe553de021e25c7e3363714a807ac0f676c7191658c',
     'NATIVE_BROWSER_BRIDGE_WATCHDOG_DELTA_REVIEW.md': '39b9050fef08035a5bbbcf8d6c9b377e1e59fa168d9079ee085a9ff1f870dbb3',
 }

@@ -42,7 +42,7 @@ class Client:
 
 class ReadbackPipeChild:
     """Injected pipe/thread fixture only; never creates a subprocess or SSH."""
-    def __init__(self, chunks=(), delay=0, code=0, *, stderr=False):
+    def __init__(self, chunks=(), delay=0, code=0, *, stderr=False, error_chunks=()):
         r,w=os.pipe();self.stdin=os.fdopen(w,'wb',buffering=0);self.input_fd=r
         r,w=os.pipe();self.stdout=os.fdopen(r,'rb',buffering=0);self.output_fd=w
         r,w=os.pipe();self.stderr=os.fdopen(r,'rb',buffering=0);self.error_fd=w
@@ -61,6 +61,7 @@ class ReadbackPipeChild:
                     while pending and not self.stopped.is_set():
                         try:pending=pending[os.write(destination,pending[:8192]):]
                         except BlockingIOError:self.stopped.wait(.001)
+                for chunk in error_chunks:os.write(self.error_fd,chunk)
                 self.returncode=code if not self.stopped.is_set() else -9
             except (OSError,ValueError):self.returncode=-9
             finally:
@@ -932,6 +933,10 @@ class Fixtures(unittest.TestCase):
         cases.append(('unknown_stderr','INVENTORY_CAPTURE','child_exit'))
         child_messages['formatted_ssh']=b' \t\x1b[31mssh: connect to host PRIVATE_SENTINEL port 22: Connection refused\x1b[0m\r'
         cases.append(('formatted_ssh','INVENTORY_CAPTURE','ssh_transport_error'))
+        child_messages['boundary_fatal']=b'IR_INVENTORY_BOUNDARY_V1 ENTERED\nIR_INVENTORY_BOUNDARY_V1 SHUTDOWN FATAL MEMORY\n'
+        cases.append(('boundary_fatal','INVENTORY_CAPTURE','child_exit'))
+        child_messages['boundary_invalid']=b'IR_INVENTORY_BOUNDARY_V1 SHUTDOWN FATAL PRIVATE_SENTINEL\n'
+        cases.append(('boundary_invalid','INVENTORY_CAPTURE','child_exit'))
         for mode,stage,category in cases:
             with self.subTest(mode=mode),tempfile.TemporaryDirectory(prefix='ir-stage-fixture-') as tmp:
                 session=self.session('auth_inventory');session.directory=Path(tmp).resolve();trace=[];children=[]
@@ -965,7 +970,9 @@ class Fixtures(unittest.TestCase):
                 code=255 if mode=='quiet255' else 7 if nonzero else 0
                 def popen(*args,**kwargs):
                     if mode=='unknown':raise RuntimeError('PRIVATE_SENTINEL')
-                    child=ReadbackPipeChild([data],code=code,stderr=mode=='stderr' or mode in child_messages)
+                    normal=b'IR_INVENTORY_BOUNDARY_V1 ENTERED\nIR_INVENTORY_BOUNDARY_V1 SHUTDOWN NONFATAL UNKNOWN\n'
+                    child=ReadbackPipeChild([data],code=code,stderr=mode=='stderr' or mode in child_messages,
+                        error_chunks=[normal] if code==0 and mode!='stderr' else [])
                     children.append(child);return child
                 original_drain=qa.Gate.drain;original_release=session.client.release
                 def drain(gate):
@@ -990,6 +997,10 @@ class Fixtures(unittest.TestCase):
                         'formatted_ssh':['SSH_MESSAGE'],'unknown_stderr':['STDERR_UNCLASSIFIED'],
                         'warning_stdin':['PHP_WARNING','STDIN','WPCLI_ERROR'],
                         'unknown_stdin':['PHP_WARNING','STDIN','WPCLI_ERROR']}.get(mode,[])
+                    expected['stderrMarkers']=sorted(expected['stderrMarkers']+['PAYLOAD_NOT_OBSERVED','PAYLOAD_SHUTDOWN_NOT_OBSERVED'])
+                    if mode=='boundary_fatal':expected['stderrMarkers']=['MEMORY','PAYLOAD_ENTERED','PAYLOAD_SHUTDOWN_FATAL']
+                    if mode=='boundary_invalid':expected['stderrMarkers']=['BOUNDARY_INVALID','STDERR_UNCLASSIFIED']
+                if mode=='stderr':expected['stderrMarkers']=['PAYLOAD_NOT_OBSERVED','PAYLOAD_SHUTDOWN_NOT_OBSERVED','STDERR_UNCLASSIFIED']
                 self.assertEqual(receipt,expected)
                 self.assertLess(trace.index('drain'),trace.index('release'))
                 report=runner.read_json(session.directory/'RESULT.json')['nativeReport']

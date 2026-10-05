@@ -94,7 +94,9 @@ STDERR_MARKERS = frozenset({'PHP_WARNING','PHP_FATAL','PHP_PARSE','WPCLI_ERROR',
     'UNCAUGHT_ERROR','PERMISSION_DENIED','CONNECTION_CLOSED','STDIN',
     'UNDEFINED_FUNCTION','CLASS_NOT_FOUND','REDECLARE','UNDEFINED_CONSTANT',
     'TYPE_ERROR','ARGUMENT_COUNT_ERROR','MYSQL_EXTENSION_MISSING','PHP_VERSION_REQUIREMENT',
-    'SSH_MESSAGE','SHELL_MESSAGE','WPCLI_WARNING','PHP_NOTICE','STDERR_UNCLASSIFIED'})
+    'SSH_MESSAGE','SHELL_MESSAGE','WPCLI_WARNING','PHP_NOTICE','STDERR_UNCLASSIFIED',
+    'PAYLOAD_ENTERED','PAYLOAD_NOT_OBSERVED','PAYLOAD_SHUTDOWN_FATAL',
+    'PAYLOAD_SHUTDOWN_NONFATAL','PAYLOAD_SHUTDOWN_NOT_OBSERVED','BOUNDARY_INVALID','MEMORY','TIME'})
 PHP_FAILURE_SCHEMA = 'ir.native.hook_inventory.failure.v1'
 PHP_FAILURE_CATEGORIES = {'HOOK_SHAPE':'php_hook_shape', 'CALLBACK_SHAPE':'php_callback_shape',
     'REFLECTION_FUNCTION':'php_reflection_function', 'REFLECTION_METHOD':'php_reflection_method',
@@ -410,16 +412,57 @@ def inventory_stderr_markers(stderr):
     return sorted(markers), categories
 
 
+def inventory_boundary(stderr):
+    """Exact two-frame private protocol; return all nonprotocol bytes unchanged."""
+    if len(stderr)>65536:
+        return stderr, set(), False
+    prefix=b'IR_INVENTORY_BOUNDARY'
+    entry=b'IR_INVENTORY_BOUNDARY_V1 ENTERED\n'
+    shutdown=b'IR_INVENTORY_BOUNDARY_V1 SHUTDOWN '
+    kinds={'UNKNOWN','UNDEFINED_FUNCTION','CLASS_NOT_FOUND','REDECLARE',
+        'UNDEFINED_CONSTANT','TYPE_ERROR','ARGUMENT_COUNT_ERROR','MEMORY','TIME'}
+    frames=[];remaining=[];invalid=False
+    lines=stderr.split(b'\n')
+    for index,line in enumerate(lines):
+        raw=line+(b'\n' if index<len(lines)-1 else b'')
+        if prefix not in raw:
+            remaining.append(raw);continue
+        if raw==entry:
+            frames.append(('ENTERED','UNKNOWN'))
+        elif raw==shutdown+b'NONFATAL UNKNOWN\n':
+            frames.append(('NONFATAL','UNKNOWN'))
+        elif raw.startswith(shutdown+b'FATAL ') and raw.endswith(b'\n'):
+            value=raw[len(shutdown+b'FATAL '):-1]
+            # Compare exact encoded literals; never decode/capture arbitrary values.
+            match=next((kind for kind in kinds if value==kind.encode('ascii')),None)
+            if match is None:invalid=True
+            else:frames.append(('FATAL',match))
+        else:invalid=True
+    if (invalid or len(frames)>2 or (frames and frames[0][0]!='ENTERED')
+            or (len(frames)==2 and frames[1][0] not in {'FATAL','NONFATAL'})):
+        return stderr, {'BOUNDARY_INVALID'}, False
+    observations={'PAYLOAD_ENTERED' if frames else 'PAYLOAD_NOT_OBSERVED'}
+    if len(frames)<2:
+        observations.add('PAYLOAD_SHUTDOWN_NOT_OBSERVED')
+    else:
+        family,kind=frames[1]
+        observations.add('PAYLOAD_SHUTDOWN_'+family)
+        if kind!='UNKNOWN':observations.add(kind)
+    return b''.join(remaining), observations, len(frames)==2 and frames[1][0]=='NONFATAL'
+
+
 def inventory_child_failure(stdout, stderr, returncode):
     """Closed message-shape categories, with private buffers discarded on exit."""
     diagnostic = inventory_failure(stdout)
-    markers,stderr_categories=inventory_stderr_markers(stderr)
+    residual,boundary,_=inventory_boundary(stderr)
+    markers,stderr_categories=inventory_stderr_markers(residual)
+    if markers is not None:markers=sorted(set(markers)|boundary)
     if diagnostic is None:
         category = 'child_exit'
         # Complete stderr lines tolerate preceding warnings/trace; ambiguity stays closed.
         if not stdout and len(stderr_categories)==1:
             category=next(iter(stderr_categories))
-        elif stdout and not stderr:
+        elif stdout and not residual:
             raw = stdout
             message = raw.rstrip(b'\r\n')
             if len(raw)<=4096:
@@ -469,7 +512,13 @@ def private_capture(argv, data, budget, *, cap=65536, on_line=None, header_cap=N
         if budget.action=='creation_inventory_read':
             if child.returncode!=0:
                 raise inventory_child_failure(bytes(streams[child.stdout]),bytes(streams[child.stderr]),child.returncode)
-            if streams[child.stderr]:raise Stop('stderr_present')
+            residual,boundary,normal=inventory_boundary(bytes(streams[child.stderr]))
+            markers,_=inventory_stderr_markers(residual)
+            observations=sorted(set(markers or [])|boundary)
+            if 'BOUNDARY_INVALID' in boundary:raise Stop('native_assertion',stderrMarkers=observations)
+            if residual:raise Stop('stderr_present',stderrMarkers=observations)
+            if not normal:raise Stop('native_assertion',stderrMarkers=observations)
+            streams[child.stderr]=bytearray(residual)
         require(child.returncode==0 and not streams[child.stderr] and (not on_line or notified))
         return bytes(streams[child.stdout])
     except Stop:raise
@@ -581,6 +630,39 @@ function ir_owner($name,$uid){
     '__IR_ACCOUNT_META_PREFIX__', json.dumps(ACCOUNT_META_PREFIX))
 
 
+def inventory_boundary_preamble():
+    """Inventory-only fixed entry/shutdown observations before suppression."""
+    boundary = r"""fwrite(STDERR,"IR_INVENTORY_BOUNDARY_V1 ENTERED\n");
+register_shutdown_function(function(){
+ $ir_last=error_get_last();$ir_type=is_array($ir_last)&&isset($ir_last['type'])?$ir_last['type']:0;
+ $ir_fatal=in_array($ir_type,[E_ERROR,E_PARSE,E_CORE_ERROR,E_COMPILE_ERROR,E_USER_ERROR,E_RECOVERABLE_ERROR],true);
+ $ir_kind='UNKNOWN';
+ if($ir_fatal&&isset($ir_last['message'])&&is_string($ir_last['message'])&&strlen($ir_last['message'])<=65536){
+  $ir_line=explode("\n",$ir_last['message'],2)[0];
+  if(preg_match('/^[\x20-\x7e]*$/D',$ir_line)){
+   $ir_kinds=[];
+   foreach([
+    'UNDEFINED_FUNCTION'=>'/\bCall to undefined function /',
+    'CLASS_NOT_FOUND'=>'/\bClass [ -~]+ not found\b/',
+    'REDECLARE'=>'/\bCannot (?:redeclare|declare class) /',
+    'UNDEFINED_CONSTANT'=>'/\bUndefined constant /',
+    'TYPE_ERROR'=>'/\bUncaught TypeError:/',
+    'ARGUMENT_COUNT_ERROR'=>'/\bUncaught ArgumentCountError:/',
+    'MEMORY'=>'/^Allowed memory size of [0-9]+ bytes exhausted \(tried to allocate [0-9]+ bytes\)$/D',
+    'TIME'=>'/^Maximum execution time of [0-9]+ seconds exceeded$/D'
+   ] as $ir_name=>$ir_pattern){if(preg_match($ir_pattern,$ir_line)){$ir_kinds[]=$ir_name;}}
+   if(count($ir_kinds)===1){$ir_kind=$ir_kinds[0];}
+   unset($ir_kinds,$ir_name,$ir_pattern);
+  }
+  unset($ir_line);
+ }
+ unset($ir_last,$ir_type);
+ @fwrite(STDERR,"IR_INVENTORY_BOUNDARY_V1 SHUTDOWN ".($ir_fatal?'FATAL '.$ir_kind:'NONFATAL UNKNOWN')."\n");
+});
+"""
+    return "<?php\n" + boundary + php_preamble().removeprefix("<?php\n")
+
+
 def collision_read(gate, pipe=private_pipe):
     gate.require('collision_read')
     code = php_preamble() + '$names=' + json.dumps(list(NAMES)) + ';\n' + """
@@ -602,7 +684,8 @@ def creation_inventory_read(gate, pipe=private_pipe):
     inventory_progress(gate,'INVENTORY_GATE_CHECK')
     gate.require('creation_inventory_read')
     require(gate.admission.mode=='inventory')
-    result = owner_pipe(gate,'creation_inventory_read',pipe,php_preamble() + """
+    result = owner_pipe(gate,'creation_inventory_read',pipe,inventory_boundary_preamble() + """
+global $ir_inventory_step,$ir_inventory_hook_scope;
 $ir_inventory_step='ENCODE';$ir_inventory_hook_scope='OTHER';
 try{echo wp_json_encode(ir_inventory());}
 catch(Throwable $ir_inventory_error){
