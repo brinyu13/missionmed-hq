@@ -15,6 +15,7 @@ COPY --chown=node:node public/missionaccounts-countries.js ./public/missionaccou
 COPY --chown=node:node public/missionaccounts-runtime.js ./public/missionaccounts-runtime.js
 COPY --chown=node:node public/missionaccounts-stripe.js ./public/missionaccounts-stripe.js
 COPY --chown=node:node public/partner-cost-sharing ./public/partner-cost-sharing
+COPY --chown=node:node public/mission-residency-finance ./public/mission-residency-finance
 
 USER node
 EXPOSE 4179

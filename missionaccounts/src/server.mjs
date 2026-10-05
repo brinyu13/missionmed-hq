@@ -14,6 +14,8 @@ import { ZoomS2SClient, parseZoomMeetingRules } from './providers/zoom-s2s-clien
 import { authenticate, requireRole } from './security/auth.mjs';
 import { PreviewStore, SupabaseRestStore } from './storage/supabase-rest.mjs';
 import { createPartnerCostRouter } from './partner-cost-sharing/router.mjs';
+import { createFinancialReadRouter } from './mission-residency-finance/router.mjs';
+import { financialReadAccess } from './mission-residency-finance/read-model.mjs';
 import { environmentPartnerConfig, environmentPartnerStore } from './partner-cost-sharing/store.mjs';
 
 const modulePath = fileURLToPath(import.meta.url);
@@ -264,6 +266,7 @@ export function createMissionAccountsServer({
   now = () => new Date(),
 } = {}) {
   const partnerCostRoute = createPartnerCostRouter({ config, authenticate, memberStore: partnerStore === undefined ? (config.partnerCostSharing?.prototype ? null : environmentPartnerStore()) : partnerStore });
+  const financialReadRoute = createFinancialReadRouter({ config, authenticate, store });
   zoomProvider ||= environmentZoomProvider({ cycleProvider: () => store.billingCycles() });
   const zoomConfiguredAtStartup = typeof zoomProvider?.isConfigured === 'function'
     ? zoomProvider.isConfigured() === true
@@ -479,6 +482,7 @@ export function createMissionAccountsServer({
   }
 
   async function handleApi(request, response, url) {
+    if (await financialReadRoute(request, response, url)) return;
     if (await partnerCostRoute(request, response, url)) return;
     if (request.method === 'GET' && url.pathname === '/api/config') {
       const stripePublishableKey = String(config.stripePublishableKey || '');
@@ -747,6 +751,7 @@ export function createMissionAccountsServer({
         },
         program_access: identity.programAccess,
         capabilities: {
+          finance_read: await financialReadAccess(store, identity),
           student_contacts: !registeredOnly && Boolean(config.features?.studentContacts),
           billing_decisions: !registeredOnly && Boolean(config.features?.billingDecisions),
           attendance_corrections: !registeredOnly && Boolean(config.features?.attendanceCorrections),
@@ -1834,6 +1839,9 @@ export function createMissionAccountsServer({
       'assets/stripe': 'missionaccounts-stripe.js',
       'assets/partner-cost-sharing': 'partner-cost-sharing/ui.js',
       'assets/partner-cost-sharing-style': 'partner-cost-sharing/ui.css',
+      'assets/mission-residency-finance': 'mission-residency-finance/ui.js',
+      'assets/mission-residency-finance-view': 'mission-residency-finance/view.js',
+      'assets/mission-residency-finance-style': 'mission-residency-finance/ui.css',
     };
     const requestedPath = pathname === '/' || pathname === normalizedBase.slice(0, -1) || pathname === normalizedBase || mountedPath === '' ? requestedIndex : mountedPath;
     const requested = assetAliases[requestedPath] || requestedPath;
