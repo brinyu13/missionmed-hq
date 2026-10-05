@@ -1,0 +1,9 @@
+# Independent manual set16
+
+Verdict: APPROVE
+
+Reviewer: /root/inventory_exact_admission_reviewer
+
+Frozen HEAD: 1834e2d580a7d20cdf36c30c377045b9e22fdf31
+
+Only this explicitly manually authorized creation_inventory_read is admitted. Product8717 lineage uses exact sourceCommit8717/packagea93 and35 unchanged product inputs; SOURCE shopping/admin application stays on HOLD. No account/auth A-B/login/logout/HTTP effects, source mutation, worker lease calls, replay, autoapproval or retry. All old controls/history remain preserved. Inventory-only entry/shutdown boundary diagnostic review4d5395e426e8a538e4c14bc67bd2c140228ed300529d232a39003f996c52fbe5 binds exact helper finite containment and unchanged reachable inventory effects; settled bootstrapsemantic5 remains exact and limited to ordinary CLI inventory. Request-local entry/shutdown fixed stderr frames and closed fatal kinds are the only diagnostic delta; no outbound effects/account policy change. Exact curl-stdin-v1 /usr/bin/curl8.7.1 AsynchDNS finite transport qualification carries through unchanged capture/drain/argv/environment AST. Actual child cause remains unknown; no new callback qualification. Foreign release/drain remains UNKNOWN, never inferred from expiry. Routed LeaseV2 normal release OR expiry determines canonical conflict evaluation; only a fresh clear aggregate candidate plus Root unchanged canonical acquire/READY/readback/fence guards admits execution. No foreign claim is adopted, retired, force-cleared or relabeled. Distinct read admission binds NATIVE_INVENTORY_20261005_16_INDEPENDENT_OWNER_APPROVAL.json SHA 78c779af00ee7e03d9920a7c5ad9b421f26b4e2b0a2094560a4758d2dd09749f. Max1800 and matching finite expiry; only exact qualified public source identifiers/fixed metadata for private creation inventory. Root alone consumes after independent snapshot match.

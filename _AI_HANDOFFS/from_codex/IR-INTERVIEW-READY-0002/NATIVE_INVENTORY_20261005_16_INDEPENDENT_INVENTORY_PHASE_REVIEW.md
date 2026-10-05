@@ -1,0 +1,9 @@
+# Independent manual set16
+
+Verdict: APPROVE
+
+Reviewer: /root/inventory_exact_admission_reviewer
+
+Frozen HEAD: 1834e2d580a7d20cdf36c30c377045b9e22fdf31
+
+Only this explicitly manually authorized creation_inventory_read is admitted. Product8717 lineage uses exact sourceCommit8717/packagea93 and35 unchanged product inputs; SOURCE shopping/admin application stays on HOLD. No account/auth A-B/login/logout/HTTP effects, source mutation, worker lease calls, replay, autoapproval or retry. All old controls/history remain preserved. Inventory-only entry/shutdown boundary diagnostic review4d5395e426e8a538e4c14bc67bd2c140228ed300529d232a39003f996c52fbe5 binds exact helper finite containment and unchanged reachable inventory effects; settled bootstrapsemantic5 remains exact and limited to ordinary CLI inventory. Request-local entry/shutdown fixed stderr frames and closed fatal kinds are the only diagnostic delta; no outbound effects/account policy change. Exact curl-stdin-v1 /usr/bin/curl8.7.1 AsynchDNS finite transport qualification carries through unchanged capture/drain/argv/environment AST. Actual child cause remains unknown; no new callback qualification. Foreign release/drain remains UNKNOWN, never inferred from expiry. Routed LeaseV2 normal release OR expiry determines canonical conflict evaluation; only a fresh clear aggregate candidate plus Root unchanged canonical acquire/READY/readback/fence guards admits execution. No foreign claim is adopted, retired, force-cleared or relabeled. Root explicitly prearmed exact SET16 launcher4c9701da4d812ce2a8f23f5fdfac0f083774812b6661b7997bdc472699c9a25a, reviewe25289271ae347a8d7c98a1b2c93a958897c4605e272c9507ab1326fc7ddb53a. New absent/disjoint one-use directories and independent pairs only; event references manually frozen HANDOFF and creates no approval.
