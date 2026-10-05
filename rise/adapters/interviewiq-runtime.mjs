@@ -1,6 +1,7 @@
 import {createHash} from 'node:crypto';
 import tls from 'node:tls';
 import pg from 'pg';
+import {createInterviewiqSavedProgramsReader} from './interviewiq-saved-programs.mjs';
 import {createInterviewiqOwner} from '../src/interviewiq-owner.mjs';
 import {createInterviewiqStore} from './interviewiq-store.mjs';
 import {createRiseSourceRightsController} from './postgres-runtime.mjs';
@@ -187,7 +188,8 @@ export async function createInterviewiqRuntime({registryIndex,env=process.env,wo
     const store=createInterviewiqStore({enabled:true,pool});
     const readCoverage=config.coverageEnabled?createInterviewiqCoverageReader({enabled:true,pool,registryIndex:frozenRegistry,registrySha256}):undefined;
     const readResults=config.resultsEnabled?createInterviewiqResearchResultsReader({enabled:true,pool,registryIndex:frozenRegistry,registrySha256}):undefined;
-    const owner=createInterviewiqOwner(config,{consumeNonce:store.consumeNonce,fetchImpl,getRegistry:async()=>ownerIndex,assertSourceRights,readCoverage,readResults});
+    const readSavedPrograms=createInterviewiqSavedProgramsReader({pool,subjectHmacKey:env.RISE_STUDENT_STATE_SUBJECT_HMAC_KEY});
+    const owner=createInterviewiqOwner(config,{readSavedPrograms,consumeNonce:store.consumeNonce,fetchImpl,getRegistry:async()=>ownerIndex,assertSourceRights,readCoverage,readResults});
     let jobs,runJob;
     if(config.jobs){
       const researchConfig={...config.jobs,registryIndex:frozenRegistry,registrySha256,authorizationSha256s:rights};

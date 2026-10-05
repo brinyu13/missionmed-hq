@@ -22,7 +22,7 @@ function identity(record,release) {
 // strict current source-rights and a durable nonce store before enabling it.
 export function createInterviewiqOwner(config={},dependencies={}) {
   const authenticate=createInterviewiqAuthenticator(config,dependencies);
-  const {getRegistry,assertSourceRights,readCoverage,readResults,now=Date.now}=dependencies;
+  const {getRegistry,assertSourceRights,readCoverage,readResults,readSavedPrograms,now=Date.now}=dependencies;
   return async request=>{
     try {
       if(typeof getRegistry!=='function'||typeof assertSourceRights!=='function')throw new Error('unavailable');
@@ -34,7 +34,23 @@ export function createInterviewiqOwner(config={},dependencies={}) {
       const programs=index.programs.map(p=>identity(p,index.registryReleaseId));
       if(new Set(programs.map(p=>p.id)).size!==programs.length)throw new Error('duplicate_registry_identity');
       let body,status=200;
-      if(auth.route.kind==='detail') {
+      if(auth.route.kind==='saved') {
+        if(typeof readSavedPrograms!=='function')throw new Error('unavailable');
+        const saved=await auth.readSavedPrograms(readSavedPrograms),{page,pageSize}=auth.route;
+        if(!saved||!Number.isSafeInteger(saved.total)||saved.total<0||saved.total>10000000||!Array.isArray(saved.rows)||
+          saved.rows.length>Math.min(pageSize,2000-(page-1)*pageSize)||saved.total<(page-1)*pageSize+saved.rows.length&&saved.rows.length)throw new Error('invalid_saved');
+        if(saved.rows.length!==Math.max(0,Math.min(pageSize,Math.min(saved.total,2000)-(page-1)*pageSize)))throw new Error('invalid_saved');
+        const seen=new Set();
+        const records=saved.rows.map(row=>{
+          if(!validProgramId(row?.programRef)||seen.has(row.programRef)||!['SAVED','APPLIED','INTERVIEWING','RANKED'].includes(row.state)||
+            row.priority!==null&&(!Number.isSafeInteger(row.priority)||row.priority<1)||typeof row.updatedAt!=='string'||
+            !Number.isFinite(Date.parse(row.updatedAt))||new Date(row.updatedAt).toISOString()!==row.updatedAt||Date.parse(row.updatedAt)>now())throw new Error('invalid_saved');
+          seen.add(row.programRef);const program=programs.find(p=>p.id===row.programRef)??null;
+          return {source:'RISE_SAVED',programRef:row.programRef,identityState:program?'CANONICAL':'UNRESOLVED',program,state:row.state,priority:row.priority,updatedAt:row.updatedAt,evidenceState:'UNKNOWN'};
+        });
+        const accessibleTotal=Math.min(saved.total,2000);
+        body={schema:'rise-interviewiq-saved-programs-v1',source:'RISE_SAVED',registryReleaseId:index.registryReleaseId,page,pageSize,total:saved.total,accessibleTotal,truncated:saved.total>2000,hasMore:(page-1)*pageSize+records.length<accessibleTotal,records};
+      } else if(auth.route.kind==='detail') {
         body=programs.find(p=>p.id===auth.route.id);
         if(!body){status=404;body={error:'program_not_found'};}
         else if(config.coverageEnabled===true){

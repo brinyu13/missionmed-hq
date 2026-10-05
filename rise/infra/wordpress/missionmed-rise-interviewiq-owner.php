@@ -37,6 +37,9 @@ function mmiiq_rise_flat_json($raw, $keys) {
 }
 
 function mmiiq_rise_action($action) {
+    if (is_string($action) && preg_match('/^GET \/api\/rise\/v1\/interviewiq\/saved-programs\?page=([1-9][0-9]{0,3})&pageSize=([1-9][0-9]{0,2})$/D', $action, $saved)) {
+        return (int) $saved[2] <= 100 && ((int) $saved[1] - 1) * (int) $saved[2] < 2000;
+    }
     $prefix = 'GET /api/rise/v1/interviewiq/programs';
     if (!is_string($action) || strlen($action) > 4100 || strpos($action, $prefix) !== 0) { return false; }
     $suffix = substr($action, strlen($prefix));

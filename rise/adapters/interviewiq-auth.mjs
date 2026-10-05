@@ -1,6 +1,7 @@
 import {createHash,createHmac,randomUUID,timingSafeEqual} from 'node:crypto';
 
 const PREFIX='/api/rise/v1/interviewiq/programs';
+const SAVED='/api/rise/v1/interviewiq/saved-programs';
 const PROOF_URL='https://missionmedinstitute.com/wp-json/missionmed/v1/interviewiq-owner/rise/introspect';
 const AUDIENCE='interviewiq-rise-owner-proof';
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
@@ -31,6 +32,14 @@ export function strictFlatJson(raw,keys,maxBytes=16384) {
 
 export function parseInterviewiqRoute(method,path) {
   if(method!=='GET'||typeof path!=='string'||path.length>4096)throw deny();
+  if(path.startsWith(`${SAVED}?`)) {
+    const query=new URLSearchParams(path.slice(SAVED.length+1));
+    if([...query.keys()].join(',')!=='page,pageSize')throw deny();
+    const page=query.get('page'),pageSize=query.get('pageSize');
+    if(!/^[1-9][0-9]*$/.test(page)||!/^[1-9][0-9]*$/.test(pageSize)||Number(pageSize)>100||
+      (Number(page)-1)*Number(pageSize)>=2000||`${SAVED}?${new URLSearchParams({page:String(Number(page)),pageSize:String(Number(pageSize))})}`!==path)throw deny();
+    return Object.freeze({kind:'saved',page:Number(page),pageSize:Number(pageSize)});
+  }
   if(path.startsWith(`${PREFIX}/`)) {
     const encoded=path.slice(PREFIX.length+1),id=decodeURIComponent(encoded);
     if(!validProgramId(id)||encodeURIComponent(id)!==encoded)throw deny();
@@ -119,7 +128,10 @@ export function createInterviewiqAuthenticator({enabled=false,requestSecret,proo
       const context={actor:Object.freeze(actor),requestHash,action:`GET ${request.url}`,startedAt};
       await proof(context);
       // A closure retains private authority without returning actor/session bytes.
-      return Object.freeze({route,recheck:()=>proof(context),assertFresh:()=>{
+      return Object.freeze({route,readSavedPrograms:reader=>{
+        if(route.kind!=='saved'||typeof reader!=='function'||now()<context.startedAt||now()-context.startedAt>30000||now()>=context.proofExpiresAt)throw deny();
+        return reader({verifiedWpUserId:actor.wp_user_id,page:route.page,pageSize:route.pageSize});
+      },recheck:()=>proof(context),assertFresh:()=>{
         const time=now();
         if(time<context.startedAt||time-context.startedAt>30000||time>=context.proofExpiresAt)throw deny();
       }});
