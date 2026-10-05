@@ -6,13 +6,19 @@ import {projectResearchCoverage} from './research-standard.mjs';
 
 const invalid=()=>new AppError(503,'invalid_owner_response','Current program identity could not be verified.');
 const text=(x,max,empty=false)=>typeof x==='string' && x.length<=max && (empty||x.trim().length>0) && !/[\u0000-\u001f\u007f]/.test(x);
-function identity(value,release) {
+function identity(value,release,labels=false) {
   if(!value || Object.getPrototypeOf(value)!==Object.prototype || !validProgramId(value.id) ||
     !text(value.name,500) || !text(value.track,300,true) || !text(value.registryReleaseId,180) ||
     release && value.registryReleaseId!==release)throw invalid();
-  // Evidence and arbitrary owner metadata are intentionally excluded until the
-  // separately reviewed provenance/publication projection is wired.
-  return {id:value.id,name:value.name,track:value.track,registryReleaseId:value.registryReleaseId};
+  // Only the reviewed optional public registry labels cross search results.
+  // Detail stays four fields: retained LOI program snapshots/digests are unchanged.
+  const publicLabels={specialty:null,acgmeId:null};
+  for(const key of ['specialty','acgmeId'])if(Object.hasOwn(value,key)){
+    const item=value[key];
+    if(item!==null&&(key==='specialty'?!text(item,180):typeof item!=='string'||!/^\d{10}$(?![\s\S])/.test(item)))throw invalid();
+    publicLabels[key]=item;
+  }
+  return {id:value.id,name:value.name,track:value.track,registryReleaseId:value.registryReleaseId,...(labels?publicLabels:{})};
 }
 export function createRiseOwner(config={},dependencies={}) {
   const request=createRiseReadTransport(config,dependencies);
@@ -45,7 +51,7 @@ export function createRiseOwner(config={},dependencies={}) {
       if(!result || !text(result.registryReleaseId,180) || !Array.isArray(result.programs) ||
         result.programs.length>(query.pageSize??20) || result.page!==(query.page??1) ||
         !Number.isSafeInteger(result.total) || result.total<result.programs.length || result.total>10000000)throw invalid();
-      const programs=result.programs.map(p=>identity(p,result.registryReleaseId));
+      const programs=result.programs.map(p=>identity(p,result.registryReleaseId,true));
       if(new Set(programs.map(p=>p.id)).size!==programs.length)throw invalid();
       return {registryReleaseId:result.registryReleaseId,programs,page:result.page,total:result.total};
     },

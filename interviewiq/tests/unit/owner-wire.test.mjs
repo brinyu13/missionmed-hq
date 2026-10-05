@@ -79,7 +79,7 @@ test('program namespace cannot be escaped with URL, separator, encoding or dot i
 test('search encodes scalar query safely and projects only canonical identities',async()=>{
   const h=await fixture(),query={q:'New York & medicine?',page:2,pageSize:1};
   const result=await h.client(()=>json({registryReleaseId:program.registryReleaseId,page:2,total:4,programs:[{...program,privateNotes:'SECRET'}],privateMetadata:'SECRET'})).searchPrograms(h.actor,query);
-  assert.deepEqual(result,{registryReleaseId:program.registryReleaseId,page:2,total:4,programs:[program]});
+  assert.deepEqual(result,{registryReleaseId:program.registryReleaseId,page:2,total:4,programs:[{...program,specialty:null,acgmeId:null}]});
   const u=new URL(h.calls[0].url);assert.equal(u.origin,origin);assert.equal(u.pathname,'/api/rise/v1/interviewiq/programs');
   assert.equal(u.searchParams.get('q'),query.q);assert.equal(u.searchParams.get('page'),'2');
 });
@@ -185,5 +185,31 @@ for(const [label,mutate] of [
 test('coverage metadata stays excluded from ordinary identity detail and search',async()=>{
   const h=await fixture(),body={...program,researchCoverage:coverage(h)};
   assert.deepEqual(await h.client(()=>json(body),{researchCoverageEnabled:true}).getProgram(h.actor,program.id),program);
-  assert.deepEqual((await h.client(()=>json({registryReleaseId:program.registryReleaseId,programs:[body],page:1,total:1}),{researchCoverageEnabled:true}).searchPrograms(h.actor)).programs,[program]);
+  assert.deepEqual((await h.client(()=>json({registryReleaseId:program.registryReleaseId,programs:[body],page:1,total:1}),{researchCoverageEnabled:true}).searchPrograms(h.actor)).programs,[{...program,specialty:null,acgmeId:null}]);
+});
+
+
+test('public registry labels are allowlisted for search while detail binding stays unchanged',async()=>{
+ const h=await fixture(),wire={...program,track:'',specialty:'Internal Medicine',acgmeId:'1401611122',hidden:{student:'never output'}};
+ const detail=await h.client(()=>json(wire)).getProgram(h.actor,program.id);
+ assert.deepEqual(detail,{...program,track:''});
+ const result=await h.client(()=>json({registryReleaseId:program.registryReleaseId,programs:[wire],page:1,total:1})).searchPrograms(h.actor);
+ assert.deepEqual(result.programs,[{...program,track:'',specialty:'Internal Medicine',acgmeId:'1401611122'}]);
+ assert.doesNotMatch(JSON.stringify(result),/hidden|student|never output/);
+});
+test('old identities and nullable public labels remain compatible',async()=>{
+ const h=await fixture();
+ for(const wire of [program,{...program,specialty:null,acgmeId:null}]){
+  assert.deepEqual(await h.client(()=>json(wire)).getProgram(h.actor,program.id),program);
+  const result=await h.client(()=>json({registryReleaseId:program.registryReleaseId,programs:[wire],page:1,total:1})).searchPrograms(h.actor);
+  assert.deepEqual(result.programs,[{...wire,specialty:wire.specialty??null,acgmeId:wire.acgmeId??null}]);
+ }
+});
+test('malformed public labels cannot cross a signed canonical identity',async()=>{
+ const h=await fixture();
+ for(const patch of [{specialty:''},{specialty:' '},{specialty:'x'.repeat(181)},{specialty:[]},{specialty:'IM\nsecret'},{acgmeId:''},{acgmeId:1401611122},{acgmeId:'140161112'},{acgmeId:'1401611122\n'},{acgmeId:'１４０１６１１１２２'}]){
+  const wire={...program,...patch};
+  await assert.rejects(h.client(()=>json(wire)).getProgram(h.actor,program.id),{code:'invalid_owner_response'});
+  await assert.rejects(h.client(()=>json({registryReleaseId:program.registryReleaseId,programs:[wire],page:1,total:1})).searchPrograms(h.actor),{code:'invalid_owner_response'});
+ }
 });

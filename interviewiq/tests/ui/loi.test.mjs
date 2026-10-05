@@ -63,3 +63,33 @@ test('lookup drops late revoked-account and superseded-query results',async()=>{
 test('add-offer copy distinguishes eligible lookup from disabled registry and research',()=>{
  for(const enabled of [true,false]){const b=workspace();b.capabilities.loiCanonicalLookup=enabled;const x=setup(b);try{x.h.A['add-interview']({dataset:{}});const label=x.w.document.querySelector('label[for="ad-program"]').textContent;assert.equal(label.includes('COMING SOON'),!enabled);if(enabled){assert.match(x.w.document.body.textContent,/This does not start research; your schedule saves now/);assert.equal(x.w.document.body.textContent.includes('Research starts only'),false);}else assert.match(x.w.document.body.textContent,/Registry verification and research are coming soon/);assert.ok(x.w.document.getElementById('ad-name'));assert.ok(x.w.document.getElementById('ad-date'));}finally{x.close();}}
 });
+
+
+test('registry specialty and ACGME distinguish same-name empty-track choices without guessing',async()=>{
+ const name='Ascension Illinois/Saint Joseph (Chicago) Program',programs=[
+  {id:'canonical-im',name,track:'',specialty:'Internal Medicine',acgmeId:'1401611122'},
+  {id:'canonical-surgery',name,track:'',specialty:'Surgery',acgmeId:'4401611122'},
+  {id:'canonical-fm',name,track:'',specialty:'Family Medicine',acgmeId:'1201611122'},
+  {id:'canonical-ob',name,track:'',specialty:'Obstetrics and Gynecology',acgmeId:'2201611122'}];
+ const b=lookupWorkspace();b.catalog.programs=programs;const x=setup(b,(_body,path)=>path?{programs}:{bootstrap:b});
+ try{
+  x.h.A['add-interview']({dataset:{}});const select=x.w.document.getElementById('ad-program');
+  assert.equal(select.value,'');assert.equal(new Set([...select.options].slice(1).map(o=>o.textContent)).size,4);
+  x.h.scheduleProgramSearch('Ascension','ad-name');await waitSearch();assert.equal(select.value,'');
+  assert.match(select.options[1].textContent,/Internal Medicine · ACGME 1401611122/);assert.doesNotMatch(select.textContent,/undefined|Categorical|Preliminary/);
+  x.h.getS().ui.drawer=null;x.h.getS().ui.section='identify';x.h.render();x.h.scheduleProgramSearch('Ascension','program-search');await waitSearch();
+  const choices=[...x.w.document.querySelectorAll('[data-act="resolve"]')];assert.equal(choices.length,4);assert.equal(new Set(choices.map(o=>o.textContent)).size,4);
+  assert.equal(x.calls.filter(c=>c.body?.command).length,0);await x.h.A.resolve(choices[0]);
+  const sent=x.calls.filter(c=>c.body?.command);assert.equal(sent.length,1);assert.equal(sent[0].body.command,'interview.identity');assert.deepEqual(sent[0].body.data,{program:'canonical-im'});
+  assert.equal(x.calls.some(c=>c.body?.command==='research.check'),false);
+ }finally{x.close();}
+});
+test('registry labels escape metadata and omit absent labels in selected and edit context',async()=>{
+ const b=lookupWorkspace();b.catalog.programs=[{id:program,name:'Registry & Program',track:'',specialty:'Internal <Medicine>',acgmeId:'1401611122',fact_ids:[]}];const x=setup(b);
+ try{
+  const i=x.h.getS().interviews[0];assert.match(x.h.renderIdentify(i),/Internal &lt;Medicine&gt; · ACGME 1401611122/);
+  await x.h.A['open-section']({dataset:{id,section:'schedule'}});assert.match(x.w.document.getElementById('of-program').textContent,/Internal <Medicine> · ACGME 1401611122/);assert.equal(x.w.document.querySelector('Medicine'),null);
+  x.h.getF().programs=[{id:program,name:'Old four-field program',track:'',registryReleaseId:'old-release'}];
+  assert.match(x.h.renderIdentify(i),/Old four-field program/);assert.doesNotMatch(x.h.renderIdentify(i),/undefined|null|ACGME|Categorical/);
+ }finally{x.close();}
+});
