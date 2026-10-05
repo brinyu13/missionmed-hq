@@ -5,7 +5,7 @@ Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`, `DR-350` (narrow packaging), `DR-361` (current RISE eligibility successor); `DR-340` QA grant revoked
 Branch: `codex/ivoc-foreman-9200`
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
-Current continuation boundary: `CANARY #2 FAILED — CLIENT START TIMEOUT / NO NEW LEMONSLICE SESSION; NO-SPEND STARTUP REPAIR / PROVIDER OFF; REMAINING GENUINE EVIDENCE GATES OPEN`
+Current continuation boundary: `CANARY #2 FAILED; NO-SPEND REPAIR LIVE / INDEPENDENT GET PROOF / PROVIDER OFF; EMBODIMENT AND GENUINE EVIDENCE GATES OPEN`
 
 This is the one living requirement ledger required by the final Founder
 completion directive. A status of `LIVE UNVERIFIED` means the capability is
@@ -15,6 +15,33 @@ the actual production route and deployment.
 ## Foreman 9300 overnight reactivation — current dated evidence
 
 ### Current Fable-to-production convergence — 2026-10-03
+
+- 2026-10-04 CANARY #2 REPAIR LIVE / NO PAID RETRY:
+  Clean pushed runtime source4822250c5a2b3b8cb2092d5fe16a4411ce10c145,
+  SUCCESS7855a10b-e75d-4547-bd9d-6052b4461299, image
+  sha256:ae7062a1c32d58930c1428603ac4bcb89f5d55e50f4ae880e57944e4d5733c5f.
+  DR350 CIFnPP/stage:1303 tracked files, archiveSHA
+  0c4eaa1c40df0c6a0e3e6958f0629907dca503daea380c889e707107be33de05.
+  Runtime SSH confirms this exact deployment, feature OFF, consumed fixed UUID
+  unchanged, and renderer/live-interview/server-provider hashes equal Git bytes.
+  Health200/ok; anonymous product/bootstrap/Admin-canary401. Fresh independent
+  Chrome Home visibly BRINYU; bootstrap200/wp:1/Admin; config200/availableFALSE;
+  actual native EmbodimentRenderer.api('') GET succeeds.30s start/5s commands,
+  first-PCM extraction and exact pending cancellation verified read-only.
+  No media/context/provider/session started in verification. Screenshot delivered:
+  /tmp/ivoc-independent-proof-1t4Klm/provider-off-repair.jpg (temporary).
+  Prior temporary staging/screenshots expired; do not treat their old paths as
+  current artifacts. Final production-container GET: only historical5546fbb6
+  COMPLETED, pagination.total1; exact canary LiveKit room count0. LS spendUSD0.
+  Fresh PRODUCT4939/bacdad2a and SHARED4940/168f8715 heartbeats remotely advanced
+  through release and filing; both release normally after canonical readback.
+  Prior expired4921/4922 are not revived.21 focused tests and independent review
+  PASS. Avatar/sync/actual heard single output/flush/resume/two-sided replay remain
+  UNVERIFIED. Next provider-dependent proof requires new explicit authorization;
+  neither consumed canary may be retried or re-armed. Remaining ledger lanes below
+  need genuine speech/roles/authorized CV-story data, owner recording completion
+  or real recurrence; no new executable defect found in this changed boundary.
+  No Founder retest requested and no product completion claimed.
 
 - 2026-10-04 CANARY #2 RESULT / NO SECOND CREATE:
   One normal authenticated brinyu wp:1/Admin Home ->Mock5 ->Ready opt-in ->Start.
@@ -3783,7 +3810,7 @@ must name numeric cap, duration, session count, kill/rollback and proof sought.
 | 17 | Provider-neutral embodiment adapter and Brain/session separation | LIVE VERIFIED | Production Admin readback returns `missionmed.ivoc.embodiment.v1`: MissionMed InterviewBrain is the Director, providers are Actor-only, students select profiles rather than engines, and the adapter contract requires one audio authority plus generation/response identities. |
 | 17 | Flush/interruption/motion contract, Admin preview and cost controls | NO-SPEND IMPLEMENTED / PROVIDER OFF / LIVE UNVERIFIED | Official audio-driven Actor implements gain mute, queue/generation fence and actual playback acknowledgement;45s/15s/no-retry/canonical reservation remain enforced. The single Founder canary failed before provider creation; browser receiver repaired and live GET verified. Actual avatar flush/interruption/resume acceptance remains UNVERIFIED, not accepted from tests. |
 | 17 | Fictional 10–15 avatar configuration model | LIVE VERIFIED | Authenticated `brinyu` Admin readback returned 12 fictional profiles spanning Program Director, Faculty and Chief Resident with Dove/Peacock/Owl/Eagle styles; every entry explicitly forbids person cloning and carries no provider voice or avatar asset identity. |
-| 17 | Active LemonSlice provider integration | CORE REQUIRED / CANARY #2 FAILED / PROVIDER OFF | Two separately authorized single attempts are preserved. #1 receiver failure repaired; #2 client start self-aborted at5003ms. Provider list unchanged/no new session/spendUSD0/no orphan; exact server substage was unavailable, not inferred. Startup/cancellation/deadline/no-A/V-opening-block repair passes21 focused tests. Visible avatar/sync/audio/flush/resume/two-sided replay remain UNVERIFIED. No paid retry; further provider proof needs new explicit authorization after no-spend repair acceptance. |
+| 17 | Active LemonSlice provider integration | CORE REQUIRED / CANARY #2 FAILED / REPAIR LIVE / PROVIDER OFF | Two separately authorized single attempts are preserved. #1 receiver failure repaired; #2 client start self-aborted at5003ms. No new session/spendUSD0/no orphan; old server substage unavailable, not inferred. Startup/cancellation/deadline/first-PCM repair passes21 checks and is live on7855a10b/source4822250; independent authenticated native GET/configOFF and exact runtime hashes PASS. Visible avatar/sync/audio/flush/resume/two-sided replay remain UNVERIFIED. No paid retry; next provider-dependent proof requires new explicit authorization. |
 | 18 | Dr Brian/brinyu Admin and second authorized Admin | LIVE UNVERIFIED | `wp:1` Founder/Admin is live accepted. Current WordPress authority verifies `wp:107` (`brian_test`) as an administrator; the production IVOC allowlist and dedicated entitlement now include `wp:107`. Final acceptance still requires a genuine authenticated `wp:107` browser session; no session was forged. |
 | 18 | Entitled 360 student and non-entitled/revoked/expired denials | LIVE VERIFIED ENTRY / FULL ACCEPTANCE WAITING | Ordinary course-entitled `wp:142` authenticated as `subscriber`, loaded production Home and 193 questions after the static-module fix, and navigated AI Mock to Device Calibration with Founder/Admin controls absent. Negative-role/revoked/expired production identities and the full student media journey remain unverified. |
 | 18 | Wrong-role/wrong-mentor denial and actor/subject separation | LIVE UNVERIFIED | Requires authenticated production negative-path acceptance. |
@@ -3857,8 +3884,8 @@ must name numeric cap, duration, session count, kill/rollback and proof sought.
 6. Accept longitudinal recurrence only after enough genuine saved sessions
    exist. Do not manufacture recurrence.
 7. Canary #2 used its one normal UI Start and failed without a new provider
-   session. Complete repair release/independent no-spend proof, keep provider OFF
-   and preserve both abandoned canonical IDs. Next provider-dependent proof is
+   session. Repair release/independent no-spend proof completed on7855a10b;
+   keep provider OFF and preserve both abandoned canonical IDs. Next proof is
    one explicitly newly authorized canary of repaired startup ->real A/V ->
    sole audio/flush ->exact teardown; never retry/re-arm the consumed attempts.
    No Founder retest requested. Full product completion is unclaimed.
