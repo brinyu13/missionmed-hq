@@ -8,6 +8,8 @@ import {resolveFounderPresentationSvg} from '../web/js/presentation/resolved-fou
 import {buildFounderPresentationScene,serializeFounderPresentation,founderMilestoneTemplateGeometry,violatesFounderTemplateBand} from '../web/js/presentation/founder-presentation-serializer.js';
 import {applyLocalLayoutCriticSceneCommand,applySceneCommandToDocument} from '../web/js/editor/scene-commands.js';
 import {TimelineStore,migrateDocument} from '../web/js/uxr-002/store.js';
+import {projectSceneGraphToLegacy} from '../web/js/editor/scene-graph.js';
+import {locked407FMilestoneGeometry} from '../web/js/uxr-002/locked-407f-export.js';
 import {FOUNDER_2025_MATRIX} from './fixtures/founder-2025-matrix.mjs';
 
 const location={protocol:'http:',hostname:'127.0.0.1'},digest='a'.repeat(64);
@@ -459,4 +461,90 @@ test('044 hydrated synthetic photo affects visible packing and all four actual c
     assert.deepEqual(edited.events,document.events);assert.deepEqual(edited.mediaItems,document.mediaItems);assert.deepEqual(edited.presentationOverrides.photoFrames,document.presentationOverrides.photoFrames);
   }
   assert.equal(JSON.stringify(document),before);
+});
+
+async function retainedCriticAxisFixture(){
+  const {document,options}=resolvedLongDegreeFixture();
+  document.mediaItems=[{id:'density-photo',placement:'photo1',visibilityState:'INTERVIEWER_SAFE',crop:{x:.1,y:.2,width:.7,height:.6}}];
+  document.presentationOverrides={photoFrames:{1:{x:400,y:30,width:300,height:90,rotation:0}}};
+  options.mediaById=new Map([['density-photo','blob:synthetic-density-only']]);
+  const projection=await projectLayoutCritic(document,options);let adopted=structuredClone(document);
+  for(const target of projection.localContext.targetMap.values()){
+    if(!target.editable)continue;
+    const label=projection.localContext.scene.autoFlagLabels?.get(target.eventId);
+    adopted=applyLocalLayoutCriticSceneCommand(adopted,{kind:'geometry',target:{type:'event',id:target.objectId},geometry:target.geometry,
+      create:{type:'event',semanticRef:target.eventId,aspectLocked:false,presentation:{eventType:target.kind==='MILESTONE'?'milestone':'duration',localLayoutCriticAuto:true,...(target.kind==='MILESTONE'?{guardianAnchor:'axis',flagLabelLayout:structuredClone(label)}:{})}}},options).document;
+  }
+  adopted.presentationOverrides.axis.localLayoutCriticAuto=true;
+  return {document:adopted,options};
+}
+function assertCriticDateMapping(document,options){
+  const rendered=serializeFounderPresentation(document,options),axis=rendered.scene.composedAxis||rendered.scene.founderPresentation.axis;
+  const total=axis.segmentWeights.reduce((sum,item)=>sum+item.weight,0),at=month=>{
+    const [year,number]=month.split('-').map(Number),index=axis.segmentWeights.findIndex(item=>Number(item.id)===year);
+    return 39.36+1841.28*(axis.segmentWeights.slice(0,index).reduce((sum,item)=>sum+item.weight,0)+axis.segmentWeights[index].weight*(number-1)/12)/total;
+  };
+  const paint=resolveFounderPresentationSvg(rendered.svg,{measureText:options.measureText});
+  for(const object of document.advanced.scene.objects.filter(item=>item.type==='event'&&item.presentation.localLayoutCriticAuto===true&&!item.locked)){
+    const event=document.events.find(event=>event.id===object.semanticRef),flag=rendered.scene.flags.find(flag=>flag.id===event.id);
+    const geometry=flag?locked407FMilestoneGeometry(rendered.scene,event.id):paint.nodes.find(node=>node.semanticRef===event.id&&node.sourceAttributes['data-continuous-duration-arrow']).bounds;
+    assert.ok(Math.abs(geometry.x-at(event.startDate))<.04,event.id+' starts at its fractional date');
+    assert.ok(Math.abs(object.geometry.x-geometry.x)<.04,event.id+' stored and painted x agree');
+    if(!flag){
+      const end=rendered.scene.arrows.find(arrow=>arrow.id===event.id).endMonth,[year,month]=end.split('-').map(Number);
+      const after=month===12?`${year+1}-01`:`${year}-${String(month+1).padStart(2,'0')}`;
+      const endpoint=month===12&&Number(axis.segmentWeights.at(-1).id)===year?1880.64:at(after);
+      assert.ok(Math.abs(geometry.width-(endpoint-at(event.startDate)))<.04);assert.ok(Math.abs(object.geometry.width-geometry.width)<.04);
+    }
+  }
+  return {rendered,paint,axis};
+}
+test('044 actual human boundary and Reset automatic restore density for retained critic anchors and survive save/reopen',async()=>{
+  const source=await readFile(new URL('../web/js/407f-engineering-adapter.js',import.meta.url),'utf8'),fixture=await retainedCriticAxisFixture();
+  const records=[],store=new TimelineStore({adapter:{atomicPut:async entries=>records.push(...structuredClone(entries))},entitlement:{schemaVersion:'d1-405.timeline-entitlement.1',access:'FULL',verified:true,canRead:true,canMutate:true}});
+  store.document=migrateDocument(fixture.document);const original=structuredClone(store.document),options=fixture.options;
+  const poses=new Map(original.advanced.scene.objects.map(object=>[object.semanticRef,structuredClone(object.geometry)]));
+  const beforePaint=flagPaint(store.document,'degree',options);
+  const finish=result=>applyHumanAxisPresentation407F(store.document,result,options);
+  const beginKernel=source.indexOf('const onKernelPresentationGesture=(event)=>')+'const onKernelPresentationGesture='.length;
+  const kernel=source.slice(beginKernel,source.indexOf('onKernelPresentationEventGesture=',beginKernel)).trim();
+  const weights=Array.from({length:7},(_,index)=>({id:String(2020+index),weight:index===5?8:1}));
+  new Function('store','finishHumanAxisEdit','setAxisPresentationOverride','setAxisSegmentWeights','syncBridgeStateFromStore','canvasController','bridge','return '+kernel)(store,finish,setAxisPresentationOverride,setAxisSegmentWeights,()=>{},{setUiState(){}},{toast(){}})({detail:{surface:'edit',kind:'axis-boundary',startYear:2020,endYear:2026,includeFuture:false,segmentWeights:weights}});
+  assert.deepEqual(store.document.presentationOverrides.axis.segmentWeights,weights);assertCriticDateMapping(store.document,options);
+  const beginHooks=source.indexOf('const advancedHooks=()=>({')+'const advancedHooks=()=>({'.length;
+  const hooks=source.slice(beginHooks,source.indexOf('onCategoryKeyChange:',beginHooks));
+  const apply=result=>{const next=typeof result==='function'?result():result;if(next.changed)store.replace(next.document,{label:next.mutation?.label||'Synthetic axis test'});};
+  const controls=new Function('store','finishHumanAxisEdit','setAxisPresentationOverride','setAxisSegmentWeights','resetAxisPresentationOverride','applyPresentationControlResult','return ({'+hooks+'});')(store,finish,setAxisPresentationOverride,setAxisSegmentWeights,resetAxisPresentationOverride,apply);
+  controls.onAxisReset();assert.equal(store.document.presentationOverrides.axis,undefined,'Reset remains automatic after date reflow');
+  const restored=assertCriticDateMapping(store.document,options),effective=restored.axis.segmentWeights.map(item=>item.weight);
+  assert.ok(Math.max(...effective)-Math.min(...effective)>.1,'AI-owned geometry does not turn the automatic year ribbon uniform');
+  assert.match(renderAdvancedPresentationControls(store.document),/data-axis-override-mode><option value="automatic" selected>/);
+  for(const object of store.document.advanced.scene.objects){
+    const pose=poses.get(object.semanticRef);for(const key of ['y','height','rotation'])assert.equal(object.geometry[key],pose[key]);
+    assert.equal(object.presentation.localLayoutCriticAuto,true);
+  }
+  const afterPaint=flagPaint(store.document,'degree',options);assert.equal(afterPaint.template.poleFootY,125);
+  assert.deepEqual(afterPaint.texts.map(node=>[node.text,node.fontSize,node.fontFamily]),beforePaint.texts.map(node=>[node.text,node.fontSize,node.fontFamily]));
+  assert.deepEqual(store.document.events,original.events);assert.deepEqual(store.document.mediaItems,original.mediaItems);assert.deepEqual(store.document.presentationOverrides.photoFrames,original.presentationOverrides.photoFrames);
+  await store.saveNow('SYNTHETIC_AI_AXIS_RESET');const saved=JSON.parse(JSON.stringify(records.find(entry=>entry.store==='documents').value.document));
+  assert.equal(saved.presentationOverrides.axis,undefined);assert.deepEqual(saved.events,store.document.events);assert.deepEqual(saved.mediaItems,store.document.mediaItems);
+  const reopened=assertCriticDateMapping(saved,options);assert.deepEqual(reopened.axis,restored.axis);assert.equal(reopened.rendered.svg,restored.rendered.svg);
+});
+test('044 axis reset never reinterprets human, unmarked, object-locked or globally locked event geometry',async()=>{
+  const {document,options}=await retainedCriticAxisFixture();
+  for(const protection of ['human','unmarked','object-lock','global-lock','manual-offset','group-lock']){
+    const input=structuredClone(document),object=input.advanced.scene.objects.find(item=>item.semanticRef==='work');
+    if(protection==='human'||protection==='unmarked')delete object.presentation.localLayoutCriticAuto;
+    if(protection==='human')object.geometry={x:900,y:650,width:350,height:40,rotation:7};
+    if(protection==='object-lock')object.locked=true;
+    if(protection==='global-lock')input.layoutLock=true;
+    if(protection==='manual-offset')input.events.find(event=>event.id==='work').manualOffset={x:10,y:5,laneLocked:true};
+    if(protection==='group-lock'){input.advanced.scene.groups=[{id:'synthetic-locked-group',childIds:input.advanced.scene.objects.map(item=>item.id),locked:true,aspectLocked:true}];for(const item of input.advanced.scene.objects)item.groupId='synthetic-locked-group';input.advanced=projectSceneGraphToLegacy(input.advanced,input.advanced.scene);}
+    const before=structuredClone(object),events=structuredClone(input.events),previous=resolveFounderPresentationSvg(serializeFounderPresentation(input,options).svg,{measureText:options.measureText}).nodes.find(node=>node.semanticRef==='work'&&node.sourceAttributes['data-continuous-duration-arrow']),reset=applyHumanAxisPresentation407F(input,resetAxisPresentationOverride(input),options);
+    assert.equal(reset.changed,true,reset.error);assert.deepEqual(reset.document.advanced.scene.objects.find(item=>item.id===before.id),before,protection);
+    const rendered=serializeFounderPresentation(reset.document,options),paint=resolveFounderPresentationSvg(rendered.svg,{measureText:options.measureText});
+    const body=paint.nodes.find(node=>node.semanticRef==='work'&&node.sourceAttributes['data-continuous-duration-arrow']);
+    assert.deepEqual(body.bounds,previous.bounds,protection+' keeps actual authored paint geometry');assert.deepEqual(body.commands,previous.commands);
+    assert.deepEqual(reset.document.events,events);assert.deepEqual(reset.document.mediaItems,input.mediaItems);assert.deepEqual(reset.document.presentationOverrides.photoFrames,input.presentationOverrides.photoFrames);
+  }
 });

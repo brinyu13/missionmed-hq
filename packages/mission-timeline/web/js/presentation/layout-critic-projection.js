@@ -241,9 +241,18 @@ export function reflowLocalLayoutCriticDateAnchors(document,renderOptions={},mea
     return object.type==='event'&&object.presentation?.localLayoutCriticAuto===true&&event&&!hasManualPlacement(event,object,document)&&document.layoutLock!==true;
   }).map(object=>({eventId:String(object.semanticRef||object.id),objectId:object.id,geometry:object.geometry}));
   if(!anchors.length)return clone(document);
-  const unpinned=clone(document),ids=new Set(anchors.map(target=>String(target.objectId)));
-  if(unpinned.advanced?.scene)unpinned.advanced.scene.objects=(unpinned.advanced.scene.objects||[]).filter(object=>!ids.has(String(object.id)));
-  const dated=render(unpinned,options);let next=clone(document);
+  // Render retained critic placements through the canonical date scale. Their
+  // y/shape participates in safety refinement; unpinning would choose another
+  // automatic composition and could disagree with the final painted axis.
+  const originalAxis=document.presentationOverrides?.axis;
+  let dateSource=document;
+  if(originalAxis?.mode==='manual'){
+    // Explicit manual snapshots retain their existing fixed-geometry contract;
+    // an actual axis edit resolves dates with the original unpin/reflow donor.
+    dateSource=clone(document);const ids=new Set(anchors.map(target=>String(target.objectId)));
+    if(dateSource.advanced?.scene)dateSource.advanced.scene.objects=dateSource.advanced.scene.objects.filter(object=>!ids.has(String(object.id)));
+  }
+  const dated=render(dateSource,options);let next=clone(document);
   for(const target of anchors){
     const body=dated.paint.nodes.find(node=>node.semanticRef===target.eventId&&node.sourceAttributes['data-continuous-duration-arrow']);
     const flag=locked407FMilestoneGeometry(dated.rendered.scene,target.eventId),geometry=flag||body?.bounds;
@@ -252,6 +261,10 @@ export function reflowLocalLayoutCriticDateAnchors(document,renderOptions={},mea
       create:{type:'event',semanticRef:target.eventId,aspectLocked:false,presentation:{eventType:flag?'milestone':'duration',localLayoutCriticAuto:true,...(flag?{guardianAnchor:'axis'}:{})}},label:'Reflow native date anchors'},options);
     if(placed.changed)next=placed.document;
   }
+  // Scene commands freeze first authored placements. Date reflow is not a
+  // human placement and must preserve Reset automatic's absent axis override.
+  if(originalAxis===undefined){if(next.presentationOverrides)delete next.presentationOverrides.axis;}
+  else next.presentationOverrides={...(next.presentationOverrides||{}),axis:clone(originalAxis)};
   return next;
 }
 function unrelatedPaintPreserved(before,after,{movedId=null,axisChange=false}={}){

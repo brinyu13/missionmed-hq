@@ -254,11 +254,22 @@ function personalBandSegments(scene){
   finish();return result;
 }
 
+// Only retained critic ownership grants date reflow. Human, grouped, locked
+// and unmarked legacy geometry remains an exact authored placement.
+function automaticDateAnchor(scene,event){
+  const object=presentationEventObject(scene,event.id),source=(scene.events||[]).find(item=>String(item.id)===String(event.id))||event;
+  return !!(object?.geometry&&object.presentation?.localLayoutCriticAuto===true&&
+    !scene.automaticDateAnchorsLocked&&!object.locked&&!object.groupId&&Math.abs(Number(object.geometry.rotation)||0)<1e-6&&
+    !(scene.founderPresentation?.advancedScene?.groups||[]).some(group=>group.locked&&group.childIds?.includes(object.id))&&
+    !source.manualOffset?.laneLocked&&!Number(source.manualOffset?.x)&&!Number(source.manualOffset?.y));
+}
+
 function geometry(arrow,layout,scale,scene){
   const overridden=presentationEventObject(scene,arrow.id)?.geometry||scene.autoArrowGeometry?.get(String(arrow.id));
   if(overridden){
-    const x=pixel(overridden.x),y=pixel(overridden.y);
-    const width=pixel(Math.max(1,overridden.width));
+    const dated=scene.founderPresentation?.axis?.mode!=='manual'&&automaticDateAnchor(scene,arrow);
+    const x=pixel(dated?boardX(scale.xPercent(arrow.startMonth)):overridden.x),y=pixel(overridden.y);
+    const width=pixel(dated?Math.max(LOCKED_407F_GEOMETRY.minimumArrowWidth,CONTENT_WIDTH*scale.widthPercent(arrow.startMonth,arrow.endMonth)/100):Math.max(1,overridden.width));
     return{x,y,width,x2:x+width,height:pixel(Math.max(1,overridden.height)),...(overridden.personalSegment?{personalSegment:overridden.personalSegment}:{})};
   }
   const segment=personalBandSegments(scene).get(arrow.id);
@@ -375,8 +386,9 @@ function axisMarkup(scale){
 function milestoneGeometry(flag,index,scale,scene,{interview=false}={}){
   const object=interview?null:presentationEventObject(scene,flag.id);
   const overridden=object?.geometry;
-  const rawX=overridden?pixel(overridden.x):boardX(scale.xPercent(flag.month));
-  const x=overridden?rawX:Math.max(6,Math.min(WIDTH-60,rawX));
+  const dated=!interview&&scene.founderPresentation?.axis?.mode!=='manual'&&automaticDateAnchor(scene,flag);
+  const rawX=overridden&&!dated?pixel(overridden.x):boardX(scale.xPercent(flag.month));
+  const x=overridden&&!dated?rawX:Math.max(6,Math.min(WIDTH-60,rawX));
   const study=!interview&&flag.categoryId==="exams"&&flag.examAttemptId
     ?(scene.arrows||[]).find(arrow=>arrow.study&&arrow.examAttemptId===flag.examAttemptId):null;
   const studyBox=study?geometry(study,founderPortableLayout(scene),scale,scene):null;
@@ -1128,7 +1140,7 @@ export function composeLocked407FPortableSvg(scene,options={}){
   let best=compose(scene);
   // Nonuniform year widths are present in the Founder exemplar. Existing
   // authored axes, lanes and event geometry are preserved.
-  if(scene.founderPresentation?.axis?.mode==='manual'||(scene.arrows||[]).some(a=>a.manualOffset?.laneLocked||Number(a.manualOffset?.x)||Number(a.manualOffset?.y)||presentationEventObject(scene,a.id)?.geometry)||(scene.flags||[]).some(f=>presentationEventObject(scene,f.id)?.geometry))return best;
+  if(scene.founderPresentation?.axis?.mode==='manual'||(scene.arrows||[]).some(a=>a.manualOffset?.laneLocked||Number(a.manualOffset?.x)||Number(a.manualOffset?.y)||(presentationEventObject(scene,a.id)?.geometry&&!automaticDateAnchor(scene,a)))||(scene.flags||[]).some(f=>presentationEventObject(scene,f.id)?.geometry&&!automaticDateAnchor(scene,f)))return best;
   const score=svg=>{const r=resolveFounderPresentationSvg(svg,{measureText:scene.measureText});return 1000*r.nodes.filter(n=>n.kind==='text'&&(n.bounds.x<-.5||n.bounds.y<-.5||n.bounds.x+n.bounds.width>WIDTH+.5||n.bounds.y+n.bounds.height>HEIGHT+.5)).length+materialPresentationCollisions(r).length;};
   let bestScore=score(best.svg);if(!bestScore)return best;
   if(!scene.showEmptySlots&&!scene.founderPresentation?.profileGeometryExplicit){

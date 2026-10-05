@@ -1176,7 +1176,9 @@ export function buildKeynoteClassicScene(
   const authoredAxis=timeline?.presentationOverrides?.axis?.mode==="manual";
   const authoredObjects=Array.isArray(timeline?.advanced?.scene?.objects)?timeline.advanced.scene.objects:[];
   const authoredEvents=authoredObjects.some(object=>
-    object?.type==="event"&&object.geometry&&visibleIds.has(String(object.semanticRef))
+    object?.type==="event"&&object.geometry&&visibleIds.has(String(object.semanticRef))&&
+    (object.presentation?.localLayoutCriticAuto!==true||object.locked||object.groupId||timeline.layoutLock===true||
+      (timeline.advanced?.scene?.groups||[]).some(group=>group.locked&&group.childIds?.includes(object.id)))
   )||timelineEvents.some(event=>event.manualOffset?.laneLocked||
     Number(event.manualOffset?.x)||Number(event.manualOffset?.y));
   const finalMonths=[...arrowResult.arrows.flatMap(arrow=>[arrow.startMonth,arrow.endMonth]),
@@ -1271,6 +1273,7 @@ export function buildKeynoteClassicScene(
     },
     axis,
     ...automaticAxis,
+    ...(timeline.layoutLock===true?{automaticDateAnchorsLocked:true}:{}),
     laneLayout: {
       laneCount: arrowResult.laneCount,
       condensed: arrowResult.condensed,
