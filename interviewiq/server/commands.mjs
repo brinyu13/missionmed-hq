@@ -3,7 +3,7 @@ import {AppError,requireValue} from './errors.mjs';
 import {commandEnvelope} from './validation.mjs';
 import {syncActor,revision,writeInterview} from './records.mjs';
 import {writeDebrief,writePreparation} from './debrief.mjs';
-import {writeLearning,writeConsent,writeShare,loiEnabled,requireLoi,readLoi,loiEvidence,writeLoi,replayLoiHandoff} from './private-commands.mjs';
+import {writeLearning,writeConsent,writeShare,loiEnabled,loiCanonicalLookup,loiProgramAllowed,requireLoi,readLoi,loiEvidence,writeLoi,replayLoiHandoff} from './private-commands.mjs';
 import {readModel} from './read-model.mjs';
 import {writeRehearsal} from './rehearsal.mjs';
 import {writeAdmin} from './admin-commands.mjs';
@@ -25,7 +25,7 @@ export function createCommands({database,owners,config,clock,speechAvailable=fal
     if(loiCommands.has(envelope.command))requireLoi(config,actor);
     if(config.coreOnly) {
       requireValue(coreCommands.has(envelope.command)||loiEnabled(config,actor)&&loiCommands.has(envelope.command)||envelope.command==='research.check'&&deepResearchEnabled(config,actor)||researchEnabled(config,actor)&&researchCommands.has(envelope.command),'coming_soon','COMING SOON — this integration is not active. Your saved calendar is unchanged.',503);
-      requireValue(!envelope.data.program||envelope.command==='mission.create'||deepResearchEnabled(config,actor),'coming_soon','Canonical program lookup is coming soon. Enter the program name from your invitation.',503);
+      requireValue(!envelope.data.program||envelope.command==='mission.create'||deepResearchEnabled(config,actor)||loiCanonicalLookup(config,actor)&&['interview.create','interview.identity'].includes(envelope.command)&&loiProgramAllowed(config,actor,envelope.data.program),'coming_soon','Canonical program lookup is not available for this selection. Enter the program name from your invitation.',503);
     }
     if(['loi.evidence','loi.export'].includes(envelope.command)){
       requireValue(Object.keys(envelope.data).length===0,'unexpected_fields','This read accepts no additional fields.');

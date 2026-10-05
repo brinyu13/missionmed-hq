@@ -88,7 +88,10 @@ export async function writeShare({db,actor,interviewId,command,data,requestId}) 
 }
 
 // LOI entries are append-only private preparation anchors; legacy entries remain intact.
-export function loiEnabled(config,actor){return config.loi?.enabled===true&&actor.role==='student'&&actor.eligible===true&&['360','ivprep_complete'].includes(actor.tier)&&actor.id===config.loi.ownerId;}
+export function loiEnabled(config,actor){const l=config.loi,mode=l?.mode??'CANARY';return l?.enabled===true&&['CANARY','ELIGIBLE'].includes(mode)&&actor.role==='student'&&actor.eligible===true&&['360','ivprep_complete'].includes(actor.tier)&&(mode!=='CANARY'||Boolean(l.ownerId&&l.programId))&&(!l.ownerId||actor.id===l.ownerId);}
+export function loiCanonicalLookup(config,actor){return config.loi?.mode==='ELIGIBLE'&&loiEnabled(config,actor);}
+export function loiProgramAllowed(config,actor,programId){return loiEnabled(config,actor)&&typeof programId==='string'&&/^[A-Za-z0-9][A-Za-z0-9._:-]{0,179}$(?![\s\S])/.test(programId)&&(!config.loi.programId||programId===config.loi.programId);}
+export function loiInterviewAllowed(config,actor,row){return row?.owner_id===actor.id&&loiProgramAllowed(config,actor,row.program_id);}
 export function requireLoi(config,actor){requireValue(loiEnabled(config,actor),'loi_unavailable','Letters of Interest are not available for this workspace.',403);}
 const revisionType='iiq.loi.revision',outreachType='iiq.loi.outreach';
 const known=x=>x&&[revisionType,outreachType].includes(x.type)&&x.schemaVersion===1;
@@ -99,12 +102,12 @@ export function loiHistory(anchors,row,consents=null){
   return {history,current,currentConsentValid:current?consentValid(current):null,consentInvalidRevisionIds:consents===null?[]:revisions.filter(e=>!consentValid(e)).map(e=>e.revisionId),outreach:history.filter(x=>x.type===outreachType&&!x.unavailable),currentBindingValid:Boolean(current&&current.interviewId===row.id&&current.program.id===row.program_id&&current.program.name===row.program_name&&current.program.track===(row.program_track||''))};
 }
 export async function readLoi({db,actor,interviewId,config}){
-  requireLoi(config,actor);const row=await interview(db,actor,interviewId);requireValue(row.program_id===config.loi.programId,'loi_program_unavailable','Use the enabled attached program.',403);
+  requireLoi(config,actor);const row=await interview(db,actor,interviewId);requireValue(loiInterviewAllowed(config,actor,row),'loi_program_unavailable','Use an enabled attached canonical program.',403);
   const {rows:[prep]}=await db.query('SELECT anchors FROM iiq.preparation WHERE owner_id=$1 AND interview_id=$2',[actor.id,row.id]);const {rows:consents}=await db.query("SELECT subject_ref,status FROM iiq.consents WHERE owner_id=$1 AND scope='storyforge'",[actor.id]);return {interviewId:row.id,...loiHistory(prep?.anchors,row,consents)};
 }
 async function loiProgram(owners,actor,row){const p=await owners.getProgram(actor,row.program_id);requireValue(p.id===row.program_id&&p.name===row.program_name&&p.track===(row.program_track||'')&&typeof p.registryReleaseId==='string','loi_binding_changed','The current program identity changed. Reconfirm a new draft.',409);return p;}
 export async function loiEvidence({db,actor,interviewId,config,owners,clock=()=>new Date()}){
-  requireLoi(config,actor);const row=await interview(db,actor,interviewId);requireValue(row.program_id===config.loi.programId,'loi_program_unavailable','Use the enabled attached program.',403);
+  requireLoi(config,actor);const row=await interview(db,actor,interviewId);requireValue(loiInterviewAllowed(config,actor,row),'loi_program_unavailable','Use an enabled attached canonical program.',403);
   const program=await loiProgram(owners,actor,row),research=projectProgramResearch(await owners.getProgramResearch(actor,row.program_id),program,clock().getTime());return {type:'loi_evidence',program,research};
 }
 function confirmations(data){return {studentFactualConfirmation:v.boolean(data.studentFactualConfirmation,'Factual review'),studentSpecificityConfirmation:v.boolean(data.studentSpecificityConfirmation,'Program specificity review')};}
@@ -135,7 +138,7 @@ export function loiHandoff({recipient,subject,text}){
 }
 export async function writeLoi(ctx){
   const {db,actor,interviewId,config,data,command,owners,clock=()=>new Date()}=ctx;requireLoi(config,actor);
-  const row=await interview(db,actor,interviewId,{lock:true});requireValue(row.program_id===config.loi.programId,'loi_program_unavailable','Use the enabled attached program.',403);
+  const row=await interview(db,actor,interviewId,{lock:true});requireValue(loiInterviewAllowed(config,actor,row),'loi_program_unavailable','Use an enabled attached canonical program.',403);
   const {rows:[prep]}=await db.query('SELECT * FROM iiq.preparation WHERE owner_id=$1 AND interview_id=$2 FOR UPDATE',[actor.id,row.id]);const anchors=prep?.anchors||[],current=loiHistory(anchors,row).current;
   requireValue(!anchors.some(x=>x?.type===revisionType&&x.schemaVersion!==1),'loi_future_schema','A newer letter history needs a compatible application before editing.',409);
   const base=['letterId','expectedHead','expectedLetterVersion'];let entry,handoff;
