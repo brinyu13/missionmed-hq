@@ -5,7 +5,7 @@ Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`, `DR-350` (narrow packaging), `DR-361` (current RISE eligibility successor); `DR-340` QA grant revoked
 Branch: `codex/ivoc-foreman-9200`
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
-Current continuation boundary: `CANARY #2 AUTHORIZED — ONE NEW FOUNDER SESSION / USD1 / 45S / NO CREATE RETRY; REMAINING GENUINE EVIDENCE GATES OPEN`
+Current continuation boundary: `CANARY #2 FAILED — CLIENT START TIMEOUT / NO NEW LEMONSLICE SESSION; NO-SPEND STARTUP REPAIR / PROVIDER OFF; REMAINING GENUINE EVIDENCE GATES OPEN`
 
 This is the one living requirement ledger required by the final Founder
 completion directive. A status of `LIVE UNVERIFIED` means the capability is
@@ -15,6 +15,39 @@ the actual production route and deployment.
 ## Foreman 9300 overnight reactivation — current dated evidence
 
 ### Current Fable-to-production convergence — 2026-10-03
+
+- 2026-10-04 CANARY #2 RESULT / NO SECOND CREATE:
+  One normal authenticated brinyu wp:1/Admin Home ->Mock5 ->Ready opt-in ->Start.
+  Real visible FaceTime1280x720 and live built-in mic; bootstrap200 and native
+  GPT-Live create201. Canary release36de164e-50ac-4677-bacc-7f54aeb66d31 SUCCESS,
+  source dc7f719e0115b161e3bda586a65399780646d289, tracked artifactjal6p9/stage
+  (1303 files; archive0f81458cf32955143f00a24fba54710766d607ecc462b5ebc7e2a979662dc139).
+  The browser /embodiment-canary/start self-aborted: Railway499 at5003ms,
+  visible `signal timed out`. Server attempt01:28:22.410Z ->01:28:29.131Z
+  (6.721s), startup_failed, providerSessionIdNULL, inputSeconds0. The prior
+  server lacked phase diagnostics: its separate failure must NOT be attributed
+  to LemonSlice/LiveKit from that receipt alone. Native end200; canonical
+  642eb55f-1eff-4a3f-9bec-9fdbe6f34bb9 is abandoned, not re-armed. Provider GET200
+  pagination.total1 unchanged: only historical5546fbb6 COMPLETED; no new paid
+  session or orphan. Production-container LiveKit listRooms returned zero rooms;
+  read-only LemonSlice GET200 in537ms and LiveKit GET157ms. LemonSlice spendUSD0;
+  native GPT usage estimated belowUSD0.01, not an invoice-derived exact value.
+  Avatar/sync/single audible output/flush/resume/conversation/replay NOT VERIFIED.
+  Screenshot /tmp/ivoc-embodiment.OEIqG8/canary-two-failed.jpg. Leave released
+  local capture. No paid retry; production flag set OFF before repair release.
+  No-spend repair: bounded30s start vs5s commands, cancel pending start by exact
+  canonical identity,15s single provider-create timeout inside absolute45s,
+  timer before reservation, expiry/cancellation guard before paid create,
+  late LiveKit room deletion, sanitized boundary/code/create-attempted receipts,
+  stable silent output/PCM extraction without waiting on generated A/V, and
+  canary-only40s native audio-bind timeout (ordinary GPT path unchanged).
+  One output/gain still owns audible playback and recording; no independent
+  voice/Director or duplicate audio.21 focused tests PASS; independent reviewer
+  found the late-room race and its deterministic regression now passes.
+  Local stall caused PRODUCT4897/SHARED4898 keeper to fail closed; protected
+  mutation paused until fresh PRODUCT4921/SHARED4922 plus PATH4907-4910/4917
+  remote heartbeat/valid-now proof. No force unlock or expired-lease mutation.
+  Repair deploy and independent provider-OFF browser proof follow this filing.
 
 - 2026-10-04 DIRECT FOUNDER CANARY #2 AUTHORIZATION:
   New explicit authorization, not an automatic retry of the first attempt:
@@ -3750,7 +3783,7 @@ must name numeric cap, duration, session count, kill/rollback and proof sought.
 | 17 | Provider-neutral embodiment adapter and Brain/session separation | LIVE VERIFIED | Production Admin readback returns `missionmed.ivoc.embodiment.v1`: MissionMed InterviewBrain is the Director, providers are Actor-only, students select profiles rather than engines, and the adapter contract requires one audio authority plus generation/response identities. |
 | 17 | Flush/interruption/motion contract, Admin preview and cost controls | NO-SPEND IMPLEMENTED / PROVIDER OFF / LIVE UNVERIFIED | Official audio-driven Actor implements gain mute, queue/generation fence and actual playback acknowledgement;45s/15s/no-retry/canonical reservation remain enforced. The single Founder canary failed before provider creation; browser receiver repaired and live GET verified. Actual avatar flush/interruption/resume acceptance remains UNVERIFIED, not accepted from tests. |
 | 17 | Fictional 10–15 avatar configuration model | LIVE VERIFIED | Authenticated `brinyu` Admin readback returned 12 fictional profiles spanning Program Director, Faculty and Chief Resident with Dove/Peacock/Owl/Eagle styles; every entry explicitly forbids person cloning and carries no provider voice or avatar asset identity. |
-| 17 | Active LemonSlice provider integration | CORE REQUIRED / SINGLE CANARY FAILED / PROVIDER OFF | One authorized Founder Start failed at Window.fetch before any embodiment start/provider creation. No new LemonSlice session, spendUSD0 and provider list unchanged/no orphan. Receiver correction is live on edf82df5/source2d6d2cf; no retry or UUID rotation. Visible avatar/sync/audio/flush/resume/two-sided replay remain UNVERIFIED. Further paid canary requires new explicit authorization. |
+| 17 | Active LemonSlice provider integration | CORE REQUIRED / CANARY #2 FAILED / PROVIDER OFF | Two separately authorized single attempts are preserved. #1 receiver failure repaired; #2 client start self-aborted at5003ms. Provider list unchanged/no new session/spendUSD0/no orphan; exact server substage was unavailable, not inferred. Startup/cancellation/deadline/no-A/V-opening-block repair passes21 focused tests. Visible avatar/sync/audio/flush/resume/two-sided replay remain UNVERIFIED. No paid retry; further provider proof needs new explicit authorization after no-spend repair acceptance. |
 | 18 | Dr Brian/brinyu Admin and second authorized Admin | LIVE UNVERIFIED | `wp:1` Founder/Admin is live accepted. Current WordPress authority verifies `wp:107` (`brian_test`) as an administrator; the production IVOC allowlist and dedicated entitlement now include `wp:107`. Final acceptance still requires a genuine authenticated `wp:107` browser session; no session was forged. |
 | 18 | Entitled 360 student and non-entitled/revoked/expired denials | LIVE VERIFIED ENTRY / FULL ACCEPTANCE WAITING | Ordinary course-entitled `wp:142` authenticated as `subscriber`, loaded production Home and 193 questions after the static-module fix, and navigated AI Mock to Device Calibration with Founder/Admin controls absent. Negative-role/revoked/expired production identities and the full student media journey remain unverified. |
 | 18 | Wrong-role/wrong-mentor denial and actor/subject separation | LIVE UNVERIFIED | Requires authenticated production negative-path acceptance. |
@@ -3823,6 +3856,9 @@ must name numeric cap, duration, session count, kill/rollback and proof sought.
    completed private recording.
 6. Accept longitudinal recurrence only after enough genuine saved sessions
    exist. Do not manufacture recurrence.
-7. Complete every no-spend CORE LemonSlice integration/deployment step, then
-   present LEMONSLICE CANARY READY for numeric USD1 authorization only. No Founder
-   retest or paid session before that gate. Full product completion is unclaimed.
+7. Canary #2 used its one normal UI Start and failed without a new provider
+   session. Complete repair release/independent no-spend proof, keep provider OFF
+   and preserve both abandoned canonical IDs. Next provider-dependent proof is
+   one explicitly newly authorized canary of repaired startup ->real A/V ->
+   sole audio/flush ->exact teardown; never retry/re-arm the consumed attempts.
+   No Founder retest requested. Full product completion is unclaimed.

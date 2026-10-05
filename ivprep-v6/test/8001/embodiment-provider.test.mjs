@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {EventEmitter} from 'node:events';
-import {createEmbodimentCanary,embodimentCanaryConfig} from '../../server/providers/lemonslice-embodiment.mjs';
+import {createEmbodimentCanary,embodimentCanaryConfig,EMBODIMENT_CREATE_TIMEOUT_MS} from '../../server/providers/lemonslice-embodiment.mjs';
 const ID='00000000-0000-4000-8000-000000000001';
 const env={IVOC_LEMONSLICE_CANARY_ENABLED:'true',IVOC_LEMONSLICE_CANARY_SESSION_ID:ID,IVOC_LEMONSLICE_CANARY_BUDGET_USD:'1',
   LEMONSLICE_API_KEY:'test-only',LIVEKIT_API_KEY:'test-only',LIVEKIT_API_SECRET:'test-only',LIVEKIT_URL:'wss://test.livekit.cloud'};
@@ -81,5 +81,46 @@ test('untrusted websocket address fails closed and terminates the exact known pr
   const calls=[];const h=harness({fetchImpl:async(url,options)=>{calls.push(url);return {ok:true,json:async()=>url.endsWith('/control')?{success:true}:options.method==='GET'?{session_status:'COMPLETED'}:{session_id:'provider-known',websocket_address:'wss://attacker.test/steal'}};}});
   await assert.rejects(h.manager.start({actor:'wp:1',sessionId:ID}),/transport_invalid/);
   assert.equal(calls.some(url=>url.endsWith('/provider-known/control')),true);
+  await assert.rejects(h.manager.start({actor:'wp:1',sessionId:ID}),/consumed/);
+});
+test('reservation delay cannot move the 45-second deadline or reach paid creation',async()=>{
+  let h;
+  h=harness({claim:async()=>h.advance(45000)});
+  await assert.rejects(h.manager.start({actor:'wp:1',sessionId:ID}),/stopped/);
+  assert.equal(h.calls.some(c=>c.body?.transport_type),false);assert.equal(h.calls.some(c=>c.room),false);
+  const status=h.manager.status({actor:'wp:1',sessionId:ID});
+  assert.equal(status.closed,true);assert.equal(status.providerCreateAttempted,false);
+  assert.equal(status.failure.boundary,'RESERVATION');
+  await assert.rejects(h.manager.start({actor:'wp:1',sessionId:ID}),/consumed/);
+});
+test('startup receipts distinguish pre-provider LiveKit failure from an unknown provider-create outcome',async()=>{
+  const failure=()=>Object.assign(new Error('private-provider-detail'),{name:'TimeoutError'});
+  const room=harness({livekitFactory:async()=>({roomService:{createRoom:async()=>{throw failure();},deleteRoom:async()=>{}}})});
+  await assert.rejects(room.manager.start({actor:'wp:1',sessionId:ID}),/private-provider-detail/);
+  const before=room.manager.status({actor:'wp:1',sessionId:ID});
+  assert.deepEqual(before.failure,{boundary:'LIVEKIT',code:'TIMEOUT',httpStatus:null});
+  assert.equal(before.providerCreateAttempted,false);assert.equal(room.calls.some(c=>c.body?.transport_type),false);
+  const timeouts=[];
+  const provider=harness({timeoutSignal:ms=>{timeouts.push(ms);return new AbortController().signal;},fetchImpl:async()=>{throw failure();}});
+  await assert.rejects(provider.manager.start({actor:'wp:1',sessionId:ID}),/private-provider-detail/);
+  const after=provider.manager.status({actor:'wp:1',sessionId:ID});
+  assert.deepEqual(after.failure,{boundary:'LEMONSLICE_API',code:'TIMEOUT',httpStatus:null});
+  assert.equal(after.providerCreateAttempted,true);assert.equal(after.providerSessionId,null);
+  assert.equal(EMBODIMENT_CREATE_TIMEOUT_MS,15000);assert.deepEqual(timeouts,[15000]);
+  assert.equal(JSON.stringify(after).includes('private-provider-detail'),false);
+  await assert.rejects(provider.manager.start({actor:'wp:1',sessionId:ID}),/consumed/);
+});
+test('late LiveKit room creation after cancellation is deleted without reaching paid creation',async()=>{
+  let resolveRoom,exists=false;const deletions=[];
+  const h=harness({livekitFactory:async()=>({roomService:{
+    createRoom:async()=>{await new Promise(resolve=>{resolveRoom=resolve;});exists=true;},
+    deleteRoom:async room=>{deletions.push(room);exists=false;},
+  }})});
+  const starting=h.manager.start({actor:'wp:1',sessionId:ID});
+  while(!resolveRoom)await new Promise(resolve=>setImmediate(resolve));
+  await h.manager.command({actor:'wp:1',sessionId:ID,command:'terminate'});
+  resolveRoom();await assert.rejects(starting,/stopped/);
+  assert.equal(exists,false);assert.equal(deletions.length,2);
+  assert.equal(h.calls.some(c=>c.body?.transport_type),false);
   await assert.rejects(h.manager.start({actor:'wp:1',sessionId:ID}),/consumed/);
 });

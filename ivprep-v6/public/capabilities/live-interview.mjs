@@ -380,7 +380,10 @@ export class LiveInterviewSession {
       }
       // These are negotiation/media deadlines, not server-create deadlines.
       if (this.startedReject) this.startTimer = setTimeout(() => this.startedReject?.(new Error('InterviewBrain did not start in time.')), START_TIMEOUT_MS);
-      if (this.audioBoundReject) this.audioBoundTimer = setTimeout(() => this.audioBoundReject?.(new Error('InterviewBrain audio did not bind in time.')), this.audioRenderer?25_000:START_TIMEOUT_MS);
+      // Visual Actor provisioning has a separate bounded orchestration path;
+      // do not cancel its 30s start request at the former 25s audio deadline.
+      // The Actor's absolute 45s provider kill guard remains authoritative.
+      if (this.audioBoundReject) this.audioBoundTimer = setTimeout(() => this.audioBoundReject?.(new Error('InterviewBrain audio did not bind in time.')), this.audioRenderer?40_000:START_TIMEOUT_MS);
       await step(peer.setRemoteDescription({ type: 'answer', sdp: created.transport.sdp }));
       await step(Promise.all([started, audioBound]));
       if (!current()) throw new Error('InterviewBrain startup was stopped.');

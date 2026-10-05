@@ -1,6 +1,7 @@
 // EmbodimentRenderer: visual Actor + synchronized transport of GPT-Live audio.
 // Never a Director. Exactly one stable, gated stream feeds playback AND recording.
 const API='/api/ivoc/v1/admin/embodiment-canary';
+export const EMBODIMENT_START_TIMEOUT_MS=30000;
 export class PcmBatcher {
   constructor(emit){this.emit=emit;this.parts=[];}
   push(bytes){this.parts.push(new Uint8Array(bytes));if(this.parts.length===3)this.flush();}
@@ -36,14 +37,15 @@ async function loadLiveKit(){
 }
 const encode=buffer=>{const bytes=new Uint8Array(buffer);let text='';for(const byte of bytes)text+=String.fromCharCode(byte);return btoa(text);};
 export class EmbodimentRenderer {
-  constructor({host,csrfToken,sessionId,AudioContextCtor=window.AudioContext,loadSdk=loadLiveKit,fetchImpl=fetch,onFailure=()=>{}}={}){
+  constructor({host,csrfToken,sessionId,AudioContextCtor=window.AudioContext,AudioWorkletNodeCtor=globalThis.AudioWorkletNode,loadSdk=loadLiveKit,fetchImpl=fetch,timeoutSignal=ms=>AbortSignal.timeout(ms),onFailure=()=>{}}={}){
     this.host=host;this.csrfToken=csrfToken;this.sessionId=sessionId;this.AC=AudioContextCtor;this.loadSdk=loadSdk;this.fetch=fetchImpl.bind(globalThis);this.onFailure=onFailure;
     this.closed=false;this.generation=0;this.sequence=0;this.ticket=null;this.cleanup=null;this.sources=[];this.holds=false;this.speaking=false;this.silentMs=0;
+    this.timeoutSignal=timeoutSignal;this.Worklet=AudioWorkletNodeCtor;this.startRequested=false;
   }
   async api(command,body=null,{keepalive=false}={}){
     const response=await this.fetch(API+command,{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',redirect:'error',keepalive,
       headers:{Accept:'application/json',...(body?{'Content-Type':'application/json','X-MMHQ-CSRF':this.csrfToken}:{})},
-      body:body?JSON.stringify(body):undefined,signal:keepalive?undefined:AbortSignal.timeout(5000)});
+      body:body?JSON.stringify(body):undefined,signal:keepalive?undefined:this.timeoutSignal(command==='/start'?EMBODIMENT_START_TIMEOUT_MS:5000)});
     const result=await response.json().catch(()=>({}));if(!response.ok)throw new Error(result.error||'Avatar transport unavailable.');return result;
   }
   fail(error){if(this.closed)return;this.onFailure(error);void this.stop();}
@@ -58,6 +60,7 @@ export class EmbodimentRenderer {
     // Stable silent output exists before opening: avoids a speech/startup deadlock.
     const output=this.destination.stream;
     const sdk=await this.loadSdk();if(!current())throw new Error('Avatar startup cancelled.');
+    this.startRequested=true;
     this.ticket=await this.api('/start',{sessionId:this.sessionId});
     if(!current()){await this.stop({late:true});throw new Error('Avatar startup cancelled.');}
     this.deadline=setTimeout(()=>this.fail(new Error('Avatar canary reached its 45-second limit. Finish and save.')),Math.max(0,this.ticket.deadlineMs-Date.now()));
@@ -82,16 +85,20 @@ export class EmbodimentRenderer {
           this.video.setAttribute('aria-label','AI interviewer avatar');this.video.srcObject=new MediaStream([raw]);
           this.host.replaceChildren(this.video);this.host.dataset.avatarState='connected';void this.video.play().catch(error=>this.fail(error));
         }
-        if(audio&&video){clearTimeout(this.joinTimer);resolve();}
+        if(audio&&video){clearTimeout(this.joinTimer);this.host.dataset.avatarState='live';resolve();}
       });
       this.room.on(sdk.RoomEvent.Disconnected,()=>{if(current())this.fail(new Error('Avatar disconnected. Finish and save this attempt.'));});
-    });joined.catch(()=>{});
+    });
+    // Generated A/V may require the first PCM turn. Do not make GPT's sole
+    // opening directive wait for that A/V: return the stable silent output
+    // after transport/extraction is ready; asynchronously require real tracks.
+    joined.catch(error=>{if(current())this.fail(error);});
     await this.room.connect(this.ticket.livekitUrl,this.ticket.viewerToken,{autoSubscribe:true});
-    await joined;if(!current())throw new Error('Avatar startup cancelled.');
+    if(!current())throw new Error('Avatar startup cancelled.');
     await this.context.audioWorklet.addModule('/iv-prep-on-call/assets/capabilities/embodiment-pcm-worklet.mjs');
     if(!current())throw new Error('Avatar startup cancelled.');
     const native=this.context.createMediaStreamSource(stream);this.sources.push(native);
-    this.extractor=new AudioWorkletNode(this.context,'ivoc-interviewer-pcm');native.connect(this.extractor);
+    this.extractor=new this.Worklet(this.context,'ivoc-interviewer-pcm');native.connect(this.extractor);
     this.batcher=new PcmBatcher(pcm=>void this.queue.push('audio',{audio:encode(pcm)}).catch(()=>{}));
     this.silentSink=this.context.createGain();this.silentSink.gain.value=0;this.extractor.connect(this.silentSink);this.silentSink.connect(this.context.destination); // processor always emits zero
     this.extractor.port.onmessage=({data})=>{
@@ -117,7 +124,7 @@ export class EmbodimentRenderer {
     const returned=new Float32Array(512);
     this.poll=setInterval(()=>{if(!current())return;this.returnAnalyser.getFloatTimeDomainData(returned);this.returnedSpeaking=Math.sqrt(returned.reduce((n,s)=>n+s*s,0)/returned.length)>0.008;
       if(!this.polling){this.polling=true;void this.api(`/status?sessionId=${this.sessionId}&id=${this.ticket.id}`).then(status=>{if(status.closed&&current())this.fail(new Error('Avatar canary stopped. Finish and save.'));}).catch(error=>this.fail(error)).finally(()=>{this.polling=false;});}},250);
-    this.host.dataset.avatarState='live';return output;
+    if(this.host.dataset.avatarState!=='live')this.host.dataset.avatarState='connecting';return output;
   }
   async interrupt(){
     if(this.closed||this.holds||!this.queue||!(this.speaking||this.returnedSpeaking))return;
@@ -136,7 +143,14 @@ export class EmbodimentRenderer {
     if(this.host){this.host.dataset.avatarState='stopped';this.host.replaceChildren();}
     // A stop during provider creation has no ticket yet. render's late receipt
     // calls stop again after the exact ID arrives, without recreating anything.
-    if(!this.ticket){try{await this.context?.close();}catch{}return;}
+    if(!this.ticket){
+      try{await this.context?.close();}catch{}
+      // Cancellation can precede the ticket while the exact reserved server
+      // attempt is already creating. Terminate by canonical identity; never
+      // retry creation. A late ticket still gets its own exact cleanup below.
+      if(this.startRequested)return this.api('/command',{sessionId:this.sessionId,command:'terminate'},{keepalive}).catch(()=>({stopped:true,providerConfirmed:false}));
+      return;
+    }
     if(this.cleanup)return this.cleanup;
     this.cleanup=(async()=>{
       try{await this.room?.disconnect();}catch{}
