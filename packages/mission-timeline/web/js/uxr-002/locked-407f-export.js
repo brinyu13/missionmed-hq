@@ -476,11 +476,16 @@ function flagMarkup(flag,index,scale,scene,{interview=false}={}){
   const poleX=bx+4;
   const poleBottom=overridden?anchoredPoleBottom:placed.defaultPoleBottom;
   const pennant=`<path d="M${poleX} ${by+2}C${poleX+16} ${by-4},${poleX+34} ${by+8},${poleX+52} ${by+2}L${poleX+52} ${by+36}C${poleX+36} ${by+42},${poleX+18} ${by+30},${poleX} ${by+36}Z" fill="${fill}" stroke="${edge}" stroke-width="1.2"/><path d="M${poleX+2} ${by+4}C${poleX+16} ${by-1},${poleX+34} ${by+10},${poleX+50} ${by+5}" stroke="${light}" stroke-opacity=".8" stroke-width="1"/>`;
-  const chip=`<text data-founder-pennant-date="true" x="${poleX+26}" y="${by+24}" text-anchor="middle" fill="#FFFFFF" font-family="${TYPE.event}" font-size="18">${xml(presentationDateWording(flag.month,flag.datePrecision?.start,flag.sourceDateWording?.start))}</text>`;
-  const labelX=flipLabel?poleX-8:poleX+60;
-  const available=Math.max(1,flipLabel?placed.x-8-16:WIDTH-placed.x-64-16);
-  const wrapWidth=Math.min(labelLayout?.width||420,available);
   const measureText=scene.measureText||measurePresentationText;
+  const dateWording=presentationDateWording(flag.month,flag.datePrecision?.start,flag.sourceDateWording?.start);
+  const chipWidth=measureText(dateWording,18,TYPE.event);
+  const chip=`<text data-founder-pennant-date="true" x="${poleX+26}" y="${by+24}" text-anchor="middle" fill="#FFFFFF" font-family="${TYPE.event}" font-size="18">${xml(dateWording)}</text>`;
+  // The native date chip keeps its exact wording/font/center. Only the
+  // adjacent caption clears wider day-precision date ink on either side.
+  const nativeLabelX=flipLabel?poleX-8:poleX+60;
+  const labelX=flipLabel?Math.min(nativeLabelX,poleX+26-chipWidth/2-5-18*.12):Math.max(nativeLabelX,poleX+26+chipWidth/2+5+18*.12);
+  const available=Math.max(1,flipLabel?placed.x-8-16:WIDTH-placed.x-64-16);
+  const wrapWidth=Math.min(labelLayout?.width||420,Math.max(1,available-Math.abs(labelX-nativeLabelX)));
   const adjacentLabel=String(title||'')+(!interview&&flag.siteName?' — '+String(flag.siteName):'');
   const lines=wrapPresentationText(adjacentLabel,{width:wrapWidth,size:18,family:TYPE.arrowLabel,measureText});
   const resultPrivacy=flag.presentationRedactions?.includes('EXAM_RESULT_PRIVATE')?' data-exam-result-private="true"':'';
@@ -895,7 +900,7 @@ function avoidAutomaticArrowCollisions(scene,svg,{chronological=false}={}){
     const original=geometry(arrow,layout,scale,scene);
     const parts=physical.filter(n=>n.groupId==='event:'+arrow.id).map(n=>({...envelope(n.occlusionBounds||n.bounds),site:n.sourceAttributes['data-material-field']==='siteName'}));
     const shifted=(b,dy,dx)=>({...b,x:b.x+(b.site?dx:0),y:b.y+dy});
-    const fits=(dy,dx)=>parts.map(b=>shifted(b,dy,dx)).every(b=>b.x>=0&&b.x+b.width<=WIDTH&&b.y>=171&&b.y+b.height<=HEIGHT-8&&
+    const fits=(dy,dx)=>(chronological!==true||inOrder(original.y+dy))&&parts.map(b=>shifted(b,dy,dx)).every(b=>b.x>=0&&b.x+b.width<=WIDTH&&b.y>=171&&b.y+b.height<=HEIGHT-8&&
       !occupied.some(other=>intersects(b,other)));
     const start=monthIndex(arrow.startMonth);
     const inOrder=y=>previousY===null||start===previousStart||y>=previousY+(chronological===true?18:0);

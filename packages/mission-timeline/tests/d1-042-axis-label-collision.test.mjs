@@ -168,3 +168,66 @@ test('native 19px automatic label pitch fits complete long words above the ribbo
   const saved=JSON.stringify(authored),manual=resolveFounderPresentationSvg(serializeFounderPresentation(authored,options).svg),manualLabels=manual.nodes.filter(node=>node.groupId==='event:f'&&node.sourceAttributes['data-board-ink-role']==='flag-label');
   assert.ok(Math.abs(manualLabels[1].bounds.y-manualLabels[0].bounds.y-23)<.001);assert.equal(JSON.stringify(authored),saved);
 });
+
+
+test('shared native duration placement rejects chronological fallback floaters but permits same-start and nearest-slot exceptions',async()=>{
+  const {readFile}=await import('node:fs/promises');
+  const source=await readFile(new URL('../web/js/uxr-002/locked-407f-export.js',import.meta.url),'utf8');
+  const begin=source.indexOf('const fits=(dy,dx)',source.indexOf('function avoidAutomaticArrowCollisions'));
+  const expression=source.slice(begin,source.indexOf('    const start=monthIndex',begin))+'return fits;';
+  const original={y:300},parts=[{x:500,y:300,width:60,height:44}],shifted=(part,dy,dx)=>({...part,x:part.x+dx,y:part.y+dy});
+  const intersects=(a,b)=>a.x<b.x+b.width&&a.x+a.width>b.x&&a.y<b.y+b.height&&a.y+a.height>b.y;
+  const make=(chronological,inOrder,occupied=[])=>new Function('parts','shifted','WIDTH','HEIGHT','occupied','intersects','chronological','inOrder','original',expression)(parts,shifted,1920,1080,occupied,intersects,chronological,inOrder,original);
+  const ordered=make(true,y=>y>=418);
+  assert.equal(ordered(0,0),false,'ordinary original position cannot float above a preceding later row');
+  assert.equal(ordered(-100,250),false,'alternate label-side/offset callers share the exact same order guard');
+  assert.equal(ordered(118,-250),true,'a collision-free later row remains eligible');
+  assert.equal(make(true,()=>true)(-50,0),true,'equal start anchors retain their native overlap exception');
+  assert.equal(make('nearest',()=>false)(0,0),true,'nearest-slot incumbent behavior is unchanged');
+  assert.equal(ordered(800,0),false,'no chronological repair pushes material off canvas');
+  assert.equal(make(true,y=>y>=418,[{x:500,y:418,width:100,height:60}])(118,0),false,'order never bypasses real occupied paint');
+  assert.deepEqual(original,{y:300});assert.deepEqual(parts,[{x:500,y:300,width:60,height:44}]);
+});
+
+test('native exact-day date ink clears its own complete title on both sides without changing authored geometry, wording, font or pennant',async()=>{
+  const {serializeFounderPresentation}=await import('../web/js/presentation/founder-presentation-serializer.js');
+  const {measurePresentationText}=await import('../web/js/presentation/text-layout.js');
+  const {applySceneCommandToDocument}=await import('../web/js/editor/scene-commands.js');
+  const date='2023-10-21',wording='10/21/23';
+  // Independent actual native Baskerville18 width for this exact8-character date.
+  const measureText=(text,size,family,weight)=>String(text)===wording&&size===18&&String(family).includes('Baskerville')?72.59:measurePresentationText(text,size,family,weight);
+  const document={id:'synthetic-own-date',theme:'keynote-classic',studentProfile:{fullName:'Synthetic'},events:[{id:'f',title:'Synthetic complete exam title',categoryId:'personal',eventType:'milestone',startDate:date,datePrecision:{start:'DAY'},visibilityState:'INTERVIEWER_SAFE'}],advanced:{media:[],textBlocks:[],elements:[],groups:[]}};
+  const options={scope:'EVERYTHING',currentMonth:'2026-10',measureText},snapshot=JSON.stringify(document);
+  for(const flip of [false,true]){
+    const geometry={x:1000,y:83,width:50,height:64,rotation:0};
+    const authored=applySceneCommandToDocument(document,{kind:'geometry',target:{type:'event',id:'f'},geometry,create:{type:'event',semanticRef:'f',presentation:{eventType:'milestone',flagLabelLayout:{width:420,flip},nativeFlagPole:{anchor:'native'}}}},options).document;
+    const before=JSON.stringify(authored),rendered=serializeFounderPresentation(authored,options),resolved=resolveFounderPresentationSvg(rendered.svg,{measureText});
+    const nodes=resolved.nodes.filter(node=>node.semanticRef==='f'),chip=nodes.find(node=>node.sourceAttributes['data-founder-pennant-date']),labels=nodes.filter(node=>node.sourceAttributes['data-board-ink-role']==='flag-label');
+    assert.equal(chip.text,wording);assert.equal(chip.fontSize,18);assert.ok(chip.fontFamily.includes('Baskerville'));assert.ok(chip.bounds.width>=72.59);
+    assert.equal(labels.map(node=>node.text).join(' '),document.events[0].title);assert.ok(labels.every(node=>node.fontSize===18));
+    for(const label of labels){const gap=flip?chip.bounds.x-label.bounds.x-label.bounds.width:label.bounds.x-chip.bounds.x-chip.bounds.width;assert.ok(gap>=4.99,'own-date/title clearance is measured directly; group collision exemptions cannot mask it');}
+    const pennant=nodes.find(node=>node.kind==='path'&&!node.lineOnly&&node.bounds.height>30),pole=nodes.find(node=>node.lineOnly);
+    assert.equal(pennant.bounds.width,52);assert.equal(pole.bounds.y+pole.bounds.height,125);
+    assert.deepEqual(authored.advanced.scene.objects.find(object=>object.semanticRef==='f').geometry,geometry);assert.deepEqual(authored.events,document.events);assert.equal(JSON.stringify(authored),before);
+    assert.equal(materialPresentationCollisions(resolved).length,0);
+  }
+  assert.equal(JSON.stringify(document),snapshot);
+  const ordinary=structuredClone(document);ordinary.events[0].startDate='2023-10';ordinary.events[0].datePrecision={start:'MONTH'};
+  const fixed=applySceneCommandToDocument(ordinary,{kind:'geometry',target:{type:'event',id:'f'},geometry:{x:1000,y:83,width:50,height:64,rotation:0},create:{type:'event',semanticRef:'f',presentation:{eventType:'milestone',flagLabelLayout:{width:420,flip:false},nativeFlagPole:{anchor:'native'}}}},options).document;
+  const rendered=serializeFounderPresentation(fixed,options),resolved=resolveFounderPresentationSvg(rendered.svg,{measureText}),nodes=resolved.nodes.filter(node=>node.semanticRef==='f'),chip=nodes.find(node=>node.sourceAttributes['data-founder-pennant-date']),label=nodes.find(node=>node.sourceAttributes['data-board-ink-role']==='flag-label'),pole=nodes.find(node=>node.lineOnly);
+  assert.equal(chip.text,'10/23');assert.ok(Math.abs(label.bounds.x-pole.bounds.x-60)<.001,'ordinary native short-date adjacent geometry remains exact');
+});
+
+
+test('ordinary native duration staircase preserves full words, date extents and authored manual locks',async()=>{
+  const {serializeFounderPresentation}=await import('../web/js/presentation/founder-presentation-serializer.js');
+  const {applySceneCommandToDocument}=await import('../web/js/editor/scene-commands.js');
+  const document={id:'synthetic-stair-order',theme:'keynote-classic',studentProfile:{fullName:'Synthetic'},events:Array.from({length:4},(_,index)=>({id:'d'+index,title:'Synthetic documented clinical role '+index,siteName:'Synthetic Academic Medical Institution',categoryId:'work',eventType:'duration',startDate:`${2020+index}-03`,endDate:`${2021+index}-05`,visibilityState:'INTERVIEWER_SAFE'})),advanced:{media:[],textBlocks:[],elements:[],groups:[]}};
+  const snapshot=JSON.stringify(document),options={scope:'EVERYTHING',currentMonth:'2026-10'},rendered=serializeFounderPresentation(document,options),resolved=resolveFounderPresentationSvg(rendered.svg);
+  const bodies=document.events.map(event=>resolved.nodes.find(node=>node.semanticRef===event.id&&node.sourceAttributes['data-continuous-duration-arrow']));
+  assert.ok(bodies.every(Boolean));for(let index=1;index<bodies.length;index++)assert.ok(bodies[index].bounds.y>bodies[index-1].bounds.y,'ordinary later start descends instead of becoming a floater');
+  for(const event of document.events){const text=resolved.nodes.filter(node=>node.semanticRef===event.id&&node.kind==='text').map(node=>node.text).join(' ');assert.ok(text.includes(event.title));assert.ok(text.includes(event.siteName));}
+  assert.equal(materialPresentationCollisions(resolved).length,0);assert.equal(JSON.stringify(document),snapshot);
+  const geometry={x:600,y:730,width:400,height:44,rotation:0},authored=applySceneCommandToDocument(document,{kind:'geometry',target:{type:'event',id:'d2'},geometry,create:{type:'event',semanticRef:'d2',locked:true,presentation:{eventType:'duration'}}},options).document;
+  const before=JSON.stringify(authored);serializeFounderPresentation(authored,options);assert.deepEqual(authored.advanced.scene.objects.find(object=>object.semanticRef==='d2').geometry,geometry);assert.equal(JSON.stringify(authored),before);assert.deepEqual(authored.events,document.events);
+});
