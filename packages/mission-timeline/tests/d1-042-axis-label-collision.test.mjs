@@ -170,23 +170,27 @@ test('native 19px automatic label pitch fits complete long words above the ribbo
 });
 
 
-test('shared native duration placement rejects chronological fallback floaters but permits same-start and nearest-slot exceptions',async()=>{
-  const {readFile}=await import('node:fs/promises');
-  const source=await readFile(new URL('../web/js/uxr-002/locked-407f-export.js',import.meta.url),'utf8');
-  const begin=source.indexOf('const fits=(dy,dx)',source.indexOf('function avoidAutomaticArrowCollisions'));
-  const expression=source.slice(begin,source.indexOf('    const start=monthIndex',begin))+'return fits;';
-  const original={y:300},parts=[{x:500,y:300,width:60,height:44}],shifted=(part,dy,dx)=>({...part,x:part.x+dx,y:part.y+dy});
-  const intersects=(a,b)=>a.x<b.x+b.width&&a.x+a.width>b.x&&a.y<b.y+b.height&&a.y+a.height>b.y;
-  const make=(chronological,inOrder,occupied=[])=>new Function('parts','shifted','WIDTH','HEIGHT','occupied','intersects','chronological','inOrder','original',expression)(parts,shifted,1920,1080,occupied,intersects,chronological,inOrder,original);
-  const ordered=make(true,y=>y>=418);
-  assert.equal(ordered(0,0),false,'ordinary original position cannot float above a preceding later row');
-  assert.equal(ordered(-100,250),false,'alternate label-side/offset callers share the exact same order guard');
-  assert.equal(ordered(118,-250),true,'a collision-free later row remains eligible');
-  assert.equal(make(true,()=>true)(-50,0),true,'equal start anchors retain their native overlap exception');
-  assert.equal(make('nearest',()=>false)(0,0),true,'nearest-slot incumbent behavior is unchanged');
-  assert.equal(ordered(800,0),false,'no chronological repair pushes material off canvas');
-  assert.equal(make(true,y=>y>=418,[{x:500,y:418,width:100,height:60}])(118,0),false,'order never bypasses real occupied paint');
-  assert.deepEqual(original,{y:300});assert.deepEqual(parts,[{x:500,y:300,width:60,height:44}]);
+test('rendered duration chronology rejects upward floaters while preserving simultaneous starts and manual ownership',async()=>{
+  const {serializeFounderPresentation,assertCompleteFounderPresentation}=await import('../web/js/presentation/founder-presentation-serializer.js');
+  const {validateLocked407FChronology}=await import('../web/js/uxr-002/locked-407f-export.js');
+  const document={id:'synthetic-chronology-gate',theme:'keynote-classic',studentProfile:{fullName:'Synthetic'},
+    events:[['earlier','2020-01','2022-12'],['simultaneous','2020-01','2023-12'],['later','2023-06','2024-12']]
+      .map(([id,startDate,endDate])=>({id,title:'Synthetic '+id,categoryId:'work',eventType:'duration',startDate,endDate,visibilityState:'INTERVIEWER_SAFE'})),
+    advanced:{media:[],textBlocks:[],elements:[],groups:[]}};
+  const before=JSON.stringify(document),render=serializeFounderPresentation(document,{scope:'EVERYTHING',currentMonth:'2026-10'});
+  assert.equal(validateLocked407FChronology(render.scene).violations.length,0);
+  const original=render.scene.autoArrowGeometry;
+  const tied={...render.scene,autoArrowGeometry:new Map(original)};
+  tied.autoArrowGeometry.set('simultaneous',{...original.get('simultaneous'),y:original.get('earlier').y-30});
+  assert.equal(validateLocked407FChronology(tied).violations.length,0,'identical starts are not assigned a fictitious temporal order');
+  const floated={...render.scene,autoArrowGeometry:new Map(original)};
+  floated.autoArrowGeometry.set('later',{...original.get('later'),y:original.get('earlier').y-30});
+  assert.ok(validateLocked407FChronology(floated).violations.some(item=>item.eventId==='later'));
+  assert.throws(()=>assertCompleteFounderPresentation({...render,scene:floated}),error=>error.code==='CHRONOLOGY_ORDER_VIOLATION');
+  const manual={...floated,arrows:floated.arrows.map(arrow=>arrow.id==='later'?{...arrow,manualOffset:{...arrow.manualOffset,laneLocked:true}}:arrow)};
+  assert.ok(!validateLocked407FChronology(manual).ordinaryIds.includes('later'),'manual ownership remains an explicit exception');
+  assert.equal(validateLocked407FChronology(manual).violations.length,0);
+  assert.equal(JSON.stringify(document),before);
 });
 
 test('native exact-day date ink clears its own complete title on both sides without changing authored geometry, wording, font or pennant',async()=>{
