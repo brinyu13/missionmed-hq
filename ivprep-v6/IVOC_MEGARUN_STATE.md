@@ -5,7 +5,7 @@ Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`, `DR-350` (narrow packaging), `DR-361` (current RISE eligibility successor); `DR-340` QA grant revoked
 Branch: `codex/ivoc-foreman-9200`
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
-Current continuation boundary: `LEMONSLICE CANARY #3 READY; NO-SPEND RECOVERY LIVE / INDEPENDENT PREFLIGHT PASS; PROVIDER OFF; STOP AT NEW NUMERIC SPEND AUTHORIZATION`
+Current continuation boundary: `LEMONSLICE CANARY #3 AUTHORIZED; ONE FOUNDER SESSION / USD1 / ORIGINAL45s / IDLE15 / ZERO CREATE RETRIES; EXECUTION IN PROGRESS`
 
 This is the one living requirement ledger required by the final Founder
 completion directive. A status of `LIVE UNVERIFIED` means the capability is
@@ -15,6 +15,24 @@ the actual production route and deployment.
 ## Foreman 9300 overnight reactivation — current dated evidence
 
 ### Current Fable-to-production convergence — 2026-10-03
+
+- 2026-10-05 CANARY3 DIRECT FOUNDER AUTHORIZATION:
+  Direct active-goal request SHA256
+  4457955d380406bde1cfbd47d1e87a1da27416c4a3608bf90010c54e51ae8f78
+  supersedes the prior numeric spend gate for ONE new Founder-only canary.
+  Fresh reservation ID ac026e97-104a-4bd0-b0aa-426808ecee33; consumed Canary2
+  642eb55f-1eff-4a3f-9bec-9fdbe6f34bb9 is not rearmed. USD1 maximum;
+  ORIGINAL45s clock, idle15, zero paid retries, existing agent only. No student
+  activation, new dialogue engine, UI redesign or unrelated provider change.
+  Fresh BOOT PASS; source b34ef1a; healthy preimage0a4b8b6e/engine7f6d693,
+  image2e083f1faafcbadd83b49e18c5e0b2d6af063f9d100a40fa895ad8dac6701e22.
+  Exact PRODUCT5058/82d43952 and SHARED5059/fafe0f68 heartbeat remotely advances.
+  Only sole-ledger source edit and three scoped canary configuration names are
+  planned. Original Fable untracked packet preserved/non-overlapping. macOS
+  Bash3.2 scoped-preflight empty-array error is tooling-only; read-only preflight
+  PASS and direct Git scope inspection confirms no tracked dirty overlap.
+  Normal visible Matrix entry shows brinyu Administrator; IVOC launch succeeds.
+  Canary runtime/provider/visual/audio acceptance remains pending, not inferred.
 
 - 2026-10-05 NO-SPEND RECOVERY LIVE / CANARY3 SPEND GATE:
   Runtime7f6d693cad3c990f2f1438876682a9b86586cd06;
