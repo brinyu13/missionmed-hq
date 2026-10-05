@@ -1,0 +1,22 @@
+{
+  "admittedUnix": 1791176100.64709,
+  "expiresUnix": 1791176700.64709,
+  "moduleBytes": 35080,
+  "moduleSha256": "088267fb4965e634f43151d2981b8ff60e258376684990eb0791b75b6f34878c",
+  "noBootstrap": true,
+  "noRetry": true,
+  "noSemanticApproval": true,
+  "pins": {
+    "RESKIN_HOOK_FACTS_READER_HANDOFF.md": "bec57cedf79f78e9589f7be5d43425e28067b8ce516073bc0a27e08c656dcdff",
+    "RESKIN_HOOK_FACTS_READER_INDEPENDENT_REVIEW.md": "62fad83b43f39b27631f9424341bb7a69e4440543d86d55c878396494c6cf416",
+    "reskin_hook_facts_reader.py": "11d8b123f5da2d002013bb00efe268ac0a3b5afd1ccca1a004bd234fbd329214",
+    "reskin_hook_facts_reader_tests.py": "f8ef18c5a9fdc8e66e77a9070c4484e22df61cef5a2b177b1ee124dec1e8eb7a"
+  },
+  "programBytes": 9583,
+  "programSha256": "9ad0d2fb962118fef25ff508ce8328df38a9d17aad8a58981913f4dfac0d390a",
+  "readOnly": true,
+  "schema": "ir.reskin.hook_facts.read_packet.v1",
+  "sourceBytes": 22883,
+  "sourceHead": "6b8ccd22b3617433b28d50a330071be415acdc11",
+  "sourceSha256": "727b8d94518e05a63f798cf69608f7b0a3fa07f0880f084b4453e88b6a8fb54e"
+}

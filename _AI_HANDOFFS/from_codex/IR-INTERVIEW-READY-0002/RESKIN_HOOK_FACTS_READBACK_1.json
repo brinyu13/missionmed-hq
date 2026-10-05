@@ -1,0 +1,77 @@
+{
+  "capture": {
+    "class": "MMED_LearnDash_Reskin",
+    "publicStaticMethod": "init",
+    "registrations": [
+      {
+        "callbackClass": "MMED_LearnDash_Reskin",
+        "callbackMethod": "enqueue_assets",
+        "callbackResolved": true,
+        "hook": "wp_enqueue_scripts",
+        "hookLiteralSha256": null,
+        "kind": "add_action",
+        "priority": 999,
+        "priorityDefault": false
+      },
+      {
+        "callbackClass": "MMED_LearnDash_Reskin",
+        "callbackMethod": "add_phase0_body_class",
+        "callbackResolved": true,
+        "hook": "body_class",
+        "hookLiteralSha256": null,
+        "kind": "add_filter",
+        "priority": 10,
+        "priorityDefault": true
+      },
+      {
+        "callbackClass": "MMED_LearnDash_Reskin",
+        "callbackMethod": "inject_phase0_course_entry",
+        "callbackResolved": true,
+        "hook": "the_content",
+        "hookLiteralSha256": null,
+        "kind": "add_filter",
+        "priority": 12,
+        "priorityDefault": false
+      },
+      {
+        "callbackClass": "MMED_LearnDash_Reskin",
+        "callbackMethod": "render_phase0_entry_mount",
+        "callbackResolved": true,
+        "hook": "wp_footer",
+        "hookLiteralSha256": null,
+        "kind": "add_action",
+        "priority": 18,
+        "priorityDefault": false
+      },
+      {
+        "callbackClass": "MMED_LearnDash_Reskin",
+        "callbackMethod": "render_back_to_matrix_button",
+        "callbackResolved": true,
+        "hook": "wp_footer",
+        "hookLiteralSha256": null,
+        "kind": "add_action",
+        "priority": 20,
+        "priorityDefault": false
+      },
+      {
+        "callbackClass": "MMED_LearnDash_Reskin",
+        "callbackMethod": "render_match_training_label_normalizer",
+        "callbackResolved": true,
+        "hook": "wp_footer",
+        "hookLiteralSha256": null,
+        "kind": "add_action",
+        "priority": 40,
+        "priorityDefault": false
+      }
+    ],
+    "schema": "ir.reskin_hook_facts.v1",
+    "sourceBytes": 22883,
+    "sourceSha256": "727b8d94518e05a63f798cf69608f7b0a3fa07f0880f084b4453e88b6a8fb54e"
+  },
+  "localTransportEnded": true,
+  "noSemanticApproval": true,
+  "observedUnix": 1791176101.6635368,
+  "packetSha256": "e02e6dbd8ff4c73cb21c55b8ba211e832b11ed5e76cb07206b2510d0076c608d",
+  "schema": "ir.reskin.hook_facts.readback.v1",
+  "sourceHead": "6b8ccd22b3617433b28d50a330071be415acdc11"
+}
