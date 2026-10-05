@@ -1,0 +1,125 @@
+{
+  "schema": "ir.commerce.install_preparation.v1",
+  "executable": false,
+  "sourceCommit": "b2460b1bd20b7746b2c8a3513186c0e9002f313e",
+  "futureSourceHeadRequired": true,
+  "packageDirectory": "/private/tmp/ir-prime-commerce-final-20261005",
+  "packageFiles": {
+    "interview-ready-candidate.tar.gz": "f49c31b00623f6e3ad0c6ccb5e1bbb558b62289d5c661ae22804ae641843db4b",
+    "release-manifest.json": "59682bbf97e6e5bd7b122dea0097e4bef5a2d3743506e6765e92c9209b7c67ab",
+    "release-plan.json": "6b3a794aabdd22fc4b23e9438bbf5033a4fe02e951e4171b9dd6a14bc20019de",
+    "package-receipt.json": "6adde306df1e28f569f28c8ef4735b502ac0e6e1978719db6ae29e8a7de51200"
+  },
+  "runtimeBindings": {
+    "package": "f49c31b00623f6e3ad0c6ccb5e1bbb558b62289d5c661ae22804ae641843db4b",
+    "gateway": "819dd734ae7bf61ded755dd3bdda5e64e4945bac05d28bd4aee5cd68f7a9d7f5",
+    "html": "bbd57f4e6fc4c399a04512b977a6d23241f0289dfb2a25ca4b2d9ce66e5d50db",
+    "matrix": "238d936904fce777174f22fb352e99fce118192ca9a469be392246c6a65366ad",
+    "gate": "da79845723120e8e451b96121c5fe5d9ccd5c2a3ece6c20b5279e252fa6319ff",
+    "buildManifest": "cb63e19462edd6fc292b7cc3fb7695bae489d4b059e968c14b642b04f007f93d",
+    "pointer": "8db0196c5728f8094f970e02f6643cd697139fa18686545b56b48ab8d09b32e8"
+  },
+  "oldRuntimeBindings": {
+    "buildManifest": "f142c8255a9cd93fbb8567cba3b323327fe3e8cd20491ece6565b7b2750c4ffe",
+    "gate": "da79845723120e8e451b96121c5fe5d9ccd5c2a3ece6c20b5279e252fa6319ff",
+    "gateway": "819dd734ae7bf61ded755dd3bdda5e64e4945bac05d28bd4aee5cd68f7a9d7f5",
+    "html": "456269800610e4370ab2930bc7ee7007eadc3f36c3ba2116136ef611c15e354c",
+    "matrix": "238d936904fce777174f22fb352e99fce118192ca9a469be392246c6a65366ad",
+    "package": "a93cb2e0be061ca1a1558640f0db3030a6aab8e26c4bcb71f52504b7caf413c3",
+    "pointer": "4e055c987d9d65cd866a41bff5ac3dff8e3b2b0bcf1b3c193c475917020f9c46"
+  },
+  "qualifiedPreimages": {
+    "wp-content/mu-plugins/missionmed-interview-ready.php": "819dd734ae7bf61ded755dd3bdda5e64e4945bac05d28bd4aee5cd68f7a9d7f5",
+    "wp-content/mu-plugins/missionmed-interview-ready-runtime": {
+      "schema": "ir.runtime_native.layout_preimage.v1",
+      "sha256": "1d3d599cad977e5489932f2c3866abd721c7bb2a76959d6d066486415c7ac9e4"
+    },
+    "wp-content/mu-plugins/missionmed-interview-ready-runtime/current": "4e055c987d9d65cd866a41bff5ac3dff8e3b2b0bcf1b3c193c475917020f9c46"
+  },
+  "resumePreimages": {
+    "wp-content/mu-plugins/missionmed-interview-ready.php": "819dd734ae7bf61ded755dd3bdda5e64e4945bac05d28bd4aee5cd68f7a9d7f5",
+    "wp-content/mu-plugins/missionmed-interview-ready-runtime": {
+      "schema": "ir.runtime_native.layout_preimage.v1",
+      "sha256": "bd139fbb60d7a366ebc6726cb20fcfb11c0cb249c32185eb0f06798c25a59c71"
+    },
+    "wp-content/mu-plugins/missionmed-interview-ready-runtime/current": "4e055c987d9d65cd866a41bff5ac3dff8e3b2b0bcf1b3c193c475917020f9c46"
+  },
+  "recoveryPreimages": {
+    "wp-content/mu-plugins/missionmed-interview-ready.php": "819dd734ae7bf61ded755dd3bdda5e64e4945bac05d28bd4aee5cd68f7a9d7f5",
+    "wp-content/mu-plugins/missionmed-interview-ready-runtime": {
+      "schema": "ir.runtime_native.layout_preimage.v1",
+      "sha256": "c801fff2e8671348e321c5089f2b03e8b8798f7b8728cd666321b5009bbcab0a"
+    },
+    "wp-content/mu-plugins/missionmed-interview-ready-runtime/current": "8db0196c5728f8094f970e02f6643cd697139fa18686545b56b48ab8d09b32e8"
+  },
+  "interruptedPreimages": {
+    "wp-content/mu-plugins/missionmed-interview-ready.php": "819dd734ae7bf61ded755dd3bdda5e64e4945bac05d28bd4aee5cd68f7a9d7f5",
+    "wp-content/mu-plugins/missionmed-interview-ready-runtime": {
+      "schema": "ir.runtime_native.layout_preimage.v1",
+      "sha256": "3214745251c79eb20a1ac9b85e8ea1bfcd075d14efd45588de9662607d4e89c5"
+    },
+    "wp-content/mu-plugins/missionmed-interview-ready-runtime/current": "8db0196c5728f8094f970e02f6643cd697139fa18686545b56b48ab8d09b32e8"
+  },
+  "layoutDigests": {
+    "OLD": "1d3d599cad977e5489932f2c3866abd721c7bb2a76959d6d066486415c7ac9e4",
+    "STAGE": "55b322a968bf74353708ca62270a6868d6a3b8967392422b1d6bdfd407162a42",
+    "ARCHIVE": "bb98f36886fe81d10c215c3d5911923740e03980f5de8c7b748d47d901df863b",
+    "PAYLOAD": "ae4b72e5c124e1c6554df4018c117e26b4b7ee000fa8c69bdfe5f8d3bf3b6d4a",
+    "PUBLISHED": "bd139fbb60d7a366ebc6726cb20fcfb11c0cb249c32185eb0f06798c25a59c71",
+    "PREPARED": "e0fa0203945eae35ec329282474c82c300979ef41c85a9a574522906cdd0aa02",
+    "EXCHANGED": "3214745251c79eb20a1ac9b85e8ea1bfcd075d14efd45588de9662607d4e89c5",
+    "UPGRADED": "c801fff2e8671348e321c5089f2b03e8b8798f7b8728cd666321b5009bbcab0a",
+    "RESTORED": "3e672d776238c8c4be3920d5abd9ffb0dff0b6a9e1db3815b9a9019bb287a8cf",
+    "RESTORE_TEMP": "e0fa0203945eae35ec329282474c82c300979ef41c85a9a574522906cdd0aa02"
+  },
+  "baselineSha256": "c0b4a51ed4e57dad211a7753398524ffd60047d436beb74b65129bc969613920",
+  "osHead": "fe17a4ca5572aecdc2d2761e8c2d993f7aebb8bf",
+  "phase": "install",
+  "nativeAccountAcceptance": false,
+  "builderProductionApproved": false,
+  "manualOperationsSha256": "bcba0ff687954c35b99bd7a4981133b88c7aabf816ecc5d426f87135325322a7",
+  "runnerSha256": "05cc0a34e9e7ad980eb8d6db37b6f05351b8f95de71dc2f8640d60e48b2d1f36",
+  "planSha256": "3c70d4c16e616570d15b11bf4f87b8bdf2408acfd4d341447e586ed457807d28",
+  "requiredIndependentReports": [
+    "phaseDecision",
+    "recovery",
+    "runtimeReadback",
+    "wrapperApproval",
+    "readAdmission"
+  ],
+  "specTemplate": {
+    "sourceHead": null,
+    "sourceCommit": "b2460b1bd20b7746b2c8a3513186c0e9002f313e",
+    "packageDirectory": "/private/tmp/ir-prime-commerce-final-20261005",
+    "packageFiles": {
+      "interview-ready-candidate.tar.gz": "f49c31b00623f6e3ad0c6ccb5e1bbb558b62289d5c661ae22804ae641843db4b",
+      "release-manifest.json": "59682bbf97e6e5bd7b122dea0097e4bef5a2d3743506e6765e92c9209b7c67ab",
+      "release-plan.json": "6b3a794aabdd22fc4b23e9438bbf5033a4fe02e951e4171b9dd6a14bc20019de",
+      "package-receipt.json": "6adde306df1e28f569f28c8ef4735b502ac0e6e1978719db6ae29e8a7de51200"
+    },
+    "runtimeBindings": {
+      "package": "f49c31b00623f6e3ad0c6ccb5e1bbb558b62289d5c661ae22804ae641843db4b",
+      "gateway": "819dd734ae7bf61ded755dd3bdda5e64e4945bac05d28bd4aee5cd68f7a9d7f5",
+      "html": "bbd57f4e6fc4c399a04512b977a6d23241f0289dfb2a25ca4b2d9ce66e5d50db",
+      "matrix": "238d936904fce777174f22fb352e99fce118192ca9a469be392246c6a65366ad",
+      "gate": "da79845723120e8e451b96121c5fe5d9ccd5c2a3ece6c20b5279e252fa6319ff",
+      "buildManifest": "cb63e19462edd6fc292b7cc3fb7695bae489d4b059e968c14b642b04f007f93d",
+      "pointer": "8db0196c5728f8094f970e02f6643cd697139fa18686545b56b48ab8d09b32e8"
+    },
+    "qualifiedPreimages": {
+      "wp-content/mu-plugins/missionmed-interview-ready.php": "819dd734ae7bf61ded755dd3bdda5e64e4945bac05d28bd4aee5cd68f7a9d7f5",
+      "wp-content/mu-plugins/missionmed-interview-ready-runtime": {
+        "schema": "ir.runtime_native.layout_preimage.v1",
+        "sha256": "1d3d599cad977e5489932f2c3866abd721c7bb2a76959d6d066486415c7ac9e4"
+      },
+      "wp-content/mu-plugins/missionmed-interview-ready-runtime/current": "4e055c987d9d65cd866a41bff5ac3dff8e3b2b0bcf1b3c193c475917020f9c46"
+    },
+    "qualifications": {
+      "phaseDecision": null,
+      "recovery": null,
+      "runtimeReadback": null
+    },
+    "controlDirectory": null
+  },
+  "instruction": "Separate reviewer replaces all pending fields against newly filed custody and fresh INSTALL/runtime/provider-clear evidence; Root alone executes. No controls issued by builder."
+}
