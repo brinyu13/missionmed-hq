@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {deriveFounderYearAllocation,restoreFounderYearAllocation} from '../web/js/uxr-002/adaptive-layout.js';
-import {serializeFounderPresentation,serializeFounderScene,buildFounderPresentationScene,assertCompleteFounderPresentation} from '../web/js/presentation/founder-presentation-serializer.js';
-import {composeLocked407FPortableSvg} from '../web/js/uxr-002/locked-407f-export.js';
+import {serializeFounderPresentation,serializeFounderScene,buildFounderPresentationScene,assertCompleteFounderPresentation,founderMilestoneTemplateGeometry} from '../web/js/presentation/founder-presentation-serializer.js';
+import {composeLocked407FPortableSvg,validateLocked407FChronology} from '../web/js/uxr-002/locked-407f-export.js';
 import {resolveFounderPresentationSvg,materialPresentationCollisions} from '../web/js/presentation/resolved-founder-presentation.js';
 import {applySceneCommandToDocument} from '../web/js/editor/scene-commands.js';
 import {setAxisSegmentWeights} from '../web/js/uxr-002/advanced-studio.js';
@@ -194,8 +194,9 @@ test('milestone composition retains adaptive demand when weighted paint is alrea
     'zero weighted paint risk retains demand-based year allocation');
 });
 
-test('equal paint risk retains demand and existing extreme offboard text continues to block export',()=>{
-  const input=FOUNDER_2025_MATRIX.find(f=>f.id==='M20').document;
+test('equal paint risk retains demand and extreme authored offboard text continues to block export',()=>{
+  const input=structuredClone(FOUNDER_2025_MATRIX.find(f=>f.id==='M20').document);
+  input.advanced.textBlocks.push({id:'extreme-authored',text:'Unfittable authored text',x:1910,y:1100,width:200,height:30,size:18,font:'Arial'});
   const result=render(input),initial=buildFounderPresentationScene(input,{currentMonth:'2026-10'});
   const baseline=composeLocked407FPortableSvg({...initial,autoYearWeights:undefined,composedAxis:undefined});
   const overflow=svg=>resolveFounderPresentationSvg(svg).nodes.filter(node=>node.kind==='text'&&(
@@ -207,4 +208,86 @@ test('equal paint risk retains demand and existing extreme offboard text continu
   assert.equal(result.scene.autoYearAllocation.fallback,false);
   assert.equal(result.scene.autoYearAllocation.selectedRisk,result.scene.autoYearAllocation.weightedRisk);
   assert.throws(()=>assertCompleteFounderPresentation(result),{code:'TIMELINE_EXPORT_TEXT_OVERFLOW'});
+});
+
+const spineEvents=()=>[
+  duration('early-long','2012-01','2020-12',{siteName:'Synthetic institution'}),
+  duration('role-2','2013-06','2014-05'),duration('role-3','2015-01','2015-12'),
+  duration('role-4','2016-03','2017-02'),duration('role-5','2018-01','2018-12'),
+  duration('role-6','2019-04','2020-03'),duration('role-7','2021-01','2021-12'),
+  duration('preceptee','2022-01','2023-08',{title:'Synthetic clinical preceptee',siteName:'Synthetic teaching hospital'}),
+  duration('extern-1','2023-09','2024-02',{title:'Synthetic medicine extern',siteName:'Synthetic hospital'}),
+  duration('extern-2','2024-03','2025-12',{title:'Synthetic family extern',siteName:'Synthetic clinic'})
+];
+
+test('ten ordinary durations form a complete positive chronological spine before collision refinement',()=>{
+  const input=document(spineEvents()),before=JSON.stringify(input),result=render(input);
+  const order=result.scene.chronologyOrder;
+  assert.deepEqual(order.ordinaryIds,input.events.map(event=>event.id));
+  assert.deepEqual(order.violations,[]);
+  const arrows=order.ordinaryIds.map(id=>paintedArrow(result,id));
+  for(let index=1;index<arrows.length;index++){
+    assert.ok(arrows[index].bounds.x>=arrows[index-1].bounds.x-.5);
+    assert.ok(arrows[index].bounds.y>=arrows[index-1].bounds.y+17.5,
+      `ordinary duration ${index} must descend instead of using an open earlier slot`);
+  }
+  const nodes=resolveFounderPresentationSvg(result.svg).nodes.filter(n=>order.ordinaryIds.includes(n.semanticRef)&&n.bounds);
+  assert.ok(nodes.some(n=>n.kind==='text'&&n.sourceAttributes['data-material-field']==='siteName'));
+  assert.ok(nodes.every(n=>n.bounds.y>=170.5&&n.bounds.y+n.bounds.height<=1072.5),'complete measured native arrow/date/label/site extents fit the body');
+  assert.ok(arrows.every(a=>a.commands.filter(c=>!c.close).length===7),'native seven-point arrows survive');
+  assert.equal(JSON.stringify(input),before);
+  assert.deepEqual(render(JSON.parse(before)).scene.chronologyOrder,order);
+});
+
+test('start chronology precedes overlapping end dates and established simultaneous ties retain end/source order',()=>{
+  const input=document([
+    duration('tie-long','2021-01','2022-12'),duration('tie-first','2021-01','2021-06'),
+    duration('tie-second','2021-01','2021-06'),duration('earlier-long','2020-01','2025-12'),
+    duration('later-short','2022-01','2022-02')
+  ]),result=render(input);
+  assert.deepEqual(result.scene.chronologyOrder.ordinaryIds,['earlier-long','tie-first','tie-second','tie-long','later-short']);
+  assert.deepEqual(result.scene.chronologyOrder.violations,[]);
+  assert.ok(paintedArrow(result,'earlier-long').bounds.y<paintedArrow(result,'later-short').bounds.y);
+});
+
+test('explicit template composites, milestones and human geometry stay outside the automatic spine',()=>{
+  const input=document([
+    duration('body-a','2020-01','2020-12'),duration('body-b','2024-01','2024-12'),
+    duration('personal-a','2021-01','2021-06',{categoryId:'personal'}),duration('personal-b','2021-07','2021-12',{categoryId:'personal'}),
+    duration('human','2023-01','2023-12'),
+    {id:'pennant',title:'Synthetic milestone',eventType:'milestone',categoryId:'work',startDate:'2022-01',visibilityState:'INTERVIEWER_SAFE'}
+  ]);
+  const geometry={x:1000,y:250,width:180,height:30,rotation:0};
+  const owned=applySceneCommandToDocument(input,{kind:'geometry',target:{type:'event',id:'human'},geometry,
+    create:{type:'event',semanticRef:'human',presentation:{eventType:'duration'}}}).document;
+  const result=render(owned);
+  assert.deepEqual(result.scene.chronologyOrder.ordinaryIds,['body-a','body-b']);
+  assert.deepEqual(result.scene.chronologyOrder.violations,[]);
+  for(const key of ['x','y','width','height'])close(paintedArrow(result,'human').bounds[key],geometry[key],1/64);
+  const scene=buildFounderPresentationScene(document([duration('a','2020-01','2020-12'),duration('b','2021-01','2021-12')]));
+  scene.autoArrowGeometry=new Map([['a',{x:100,y:500,width:100,height:24}],['b',{x:200,y:200,width:100,height:24}]]);
+  assert.equal(validateLocked407FChronology(scene).violations[0].code,'CHRONOLOGY_ORDER_VIOLATION');
+});
+
+test('an obstructed full body retains structural chronology and honest collisions through adaptive allocation',()=>{
+  const input=document(spineEvents());
+  input.advanced.elements=[{id:'fixed-obstacle',kind:'rectangle',x:600,y:171,width:1280,height:901,fill:'#ffffff'}];
+  const result=render(input),uniform=composeLocked407FPortableSvg({...buildFounderPresentationScene(input),autoYearWeights:undefined});
+  assert.deepEqual(result.scene.chronologyOrder.violations,[]);
+  assert.deepEqual(uniform.scene.chronologyOrder.violations,[]);
+  assert.ok(materialPresentationCollisions(resolveFounderPresentationSvg(result.svg)).length>0);
+  assert.throws(()=>assertCompleteFounderPresentation(result));
+});
+
+
+test('study-attached exam composites retain their native attachment outside the experience spine',()=>{
+  const input=structuredClone(FOUNDER_2025_MATRIX.find(item=>item.id==='M01').document);
+  input.events.find(event=>event.id==='study').fields={attemptId:'synthetic-attempt',isStudyPeriod:true};
+  input.events.find(event=>event.id==='exam').fields={attemptId:'synthetic-attempt',result:'Passed'};
+  const result=render(input),paint=resolveFounderPresentationSvg(result.svg);
+  assert.ok(!result.scene.chronologyOrder.ordinaryIds.includes('study'));
+  assert.ok(!result.scene.chronologyOrder.ordinaryIds.includes('exam'));
+  const exam=founderMilestoneTemplateGeometry(result.scene,paint).find(item=>item.eventId==='exam');
+  assert.equal(exam.kind,'EXAM_RESULT');
+  assert.equal(exam.poleFootY,exam.attachmentY);
 });

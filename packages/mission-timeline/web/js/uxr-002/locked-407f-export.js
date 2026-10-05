@@ -357,7 +357,8 @@ function arrowMarkup(arrow,index,layout,scale,scene){
   const titleWidth=(scene.measureText||measurePresentationText)(title,18,TYPE.arrowLabel,400);
   const titleFits=titleWidth<=box.width-arrowHead-16&&shaftHeight>=18*1.2;
   const leftRoom=Math.max(1,box.x-44),rightRoom=Math.max(1,WIDTH-box.x2-44);
-  const outsideLeft=leftRoom>=titleWidth&&(rightRoom<titleWidth||box.x+box.width/2>WIDTH/2)||leftRoom>rightRoom&&rightRoom<titleWidth;
+  const preferredOutsideLeft=leftRoom>=titleWidth&&(rightRoom<titleWidth||box.x+box.width/2>WIDTH/2)||leftRoom>rightRoom&&rightRoom<titleWidth;
+  const outsideLeft=scene.autoArrowLabelSides?.get(String(arrow.id))??preferredOutsideLeft;
   const titleLines=titleFits?[title]:wrapPresentationText(title,{width:outsideLeft?leftRoom:rightRoom,size:18,family:TYPE.arrowLabel,measureText:scene.measureText||measurePresentationText});
   const titleAnchor=titleFits?'middle':outsideLeft?'end':'start';
   const titleX=titleFits?labelX:outsideLeft?box.x-12:box.x2+12;
@@ -888,52 +889,98 @@ function serializePlacedPortableSvg(scene,{layers="",resourceNamespace=""}={}){
   );
 }
 
-// Fit independent, directly labelled duration arrows inside the existing board.
-// Chronological x/width, native typography, content and manual geometry are
-// immutable here. No consolidation, abbreviation, new lanes/legend or pages.
-function avoidAutomaticArrowCollisions(scene,svg,{chronological=false}={}){
-  const joinedBands=personalBandSegments(scene);
-  const auto=(scene.arrows||[]).filter(arrow=>(!presentationEventObject(scene,arrow.id)?.geometry||automaticDateAnchor(scene,arrow))&&!arrow.manualOffset?.laneLocked&&!Number(arrow.manualOffset?.x)&&!Number(arrow.manualOffset?.y)&&!joinedBands.has(arrow.id)&&!(arrow.study&&(scene.flags||[]).some(flag=>flag.examAttemptId&&flag.examAttemptId===arrow.examAttemptId)))
-    .sort((a,b)=>monthIndex(a.startMonth)-monthIndex(b.startMonth));
-  if(!auto.length)return null;
+// Ordinary durations enter the spine by start, then the established end/source
+// tie order. Explicit composites and human-owned geometry remain exceptions.
+function chronologicalExperienceArrows(scene){
+  const joined=personalBandSegments(scene),sourceOrder=new Map((scene.events||[]).map((event,index)=>[String(event.id),index]));
+  return (scene.arrows||[]).filter(arrow=>(!presentationEventObject(scene,arrow.id)?.geometry||automaticDateAnchor(scene,arrow))&&
+    !arrow.manualOffset?.laneLocked&&!Number(arrow.manualOffset?.x)&&!Number(arrow.manualOffset?.y)&&!joined.has(arrow.id)&&
+    !(arrow.study&&(scene.flags||[]).some(flag=>flag.examAttemptId&&flag.examAttemptId===arrow.examAttemptId)))
+    .sort((a,b)=>monthIndex(a.startMonth)-monthIndex(b.startMonth)||monthIndex(a.endMonth)-monthIndex(b.endMonth)||
+      (sourceOrder.get(String(a.id))??scene.arrows.indexOf(a))-(sourceOrder.get(String(b.id))??scene.arrows.indexOf(b)));
+}
+
+export function validateLocked407FChronology(scene,{tolerance=.5}={}){
+  const scale=metrics(scene),layout=founderPortableLayout(scene);
+  const ordinary=chronologicalExperienceArrows(scene).map(arrow=>({id:String(arrow.id),start:monthIndex(arrow.startMonth),...geometry(arrow,layout,scale,scene)}));
+  const violations=[];
+  for(let index=1;index<ordinary.length;index++){
+    const a=ordinary[index-1],b=ordinary[index];
+    if(b.start>a.start&&(b.x<a.x-tolerance||b.y<a.y-tolerance))violations.push({code:'CHRONOLOGY_ORDER_VIOLATION',previousId:a.id,eventId:b.id,previousX:a.x,x:b.x,previousY:a.y,y:b.y});
+  }
+  return {ordinaryIds:ordinary.map(arrow=>arrow.id),violations};
+}
+
+// Establish the complete descending spine before refining painted collisions.
+// Each state reserves the remaining anchors. Collision pressure can refine the
+// spine, but a safe inverse arrangement is never a candidate or a fallback.
+function avoidAutomaticArrowCollisions(scene,svg){
+  const auto=chronologicalExperienceArrows(scene);if(!auto.length)return null;
   const ids=new Set(auto.map(arrow=>'event:'+arrow.id));
-  const resolved=resolveFounderPresentationSvg(svg,{measureText:scene.measureText});
-  const physical=resolved.nodes.filter(n=>n.groupId&&n.bounds&&n.groupId!=='furniture:axis'&&
+  const physical=resolveFounderPresentationSvg(svg,{measureText:scene.measureText}).nodes.filter(n=>n.groupId&&n.bounds&&n.groupId!=='furniture:axis'&&
     !n.sourceAttributes['data-board-background']&&!n.sourceAttributes['data-advanced-background']&&
     Number(n.style.opacity??1)>0&&Number(n.style['fill-opacity']??1)>0&&
     !(n.kind==='path'&&(n.lineOnly||n.style.fill==='none'||n.bounds.width<1||n.bounds.height<1)));
-  // Conservative axis-aligned envelope for rotated photos; never move a card.
   const envelope=b=>{const a=(b.rotation||0)*Math.PI/180,w=Math.abs(b.width*Math.cos(a))+Math.abs(b.height*Math.sin(a)),h=Math.abs(b.width*Math.sin(a))+Math.abs(b.height*Math.cos(a));return{x:b.x+(b.width-w)/2,y:b.y+(b.height-h)/2,width:w,height:h};};
-  const intersects=(a,b)=>a.x<b.x+b.width+6&&a.x+a.width+6>b.x&&a.y<b.y+b.height+6&&a.y+a.height+6>b.y;
-  const occupied=physical.filter(n=>!ids.has(n.groupId)).map(n=>envelope(n.occlusionBounds||n.bounds));
-  const scale=metrics(scene),layout=founderPortableLayout(scene),placements=new Map(),siteOffsets=new Map();
-  let changed=false,previousStart=null,previousY=null;
-  for(const arrow of auto){
-    const original=geometry(arrow,layout,scale,scene);
-    const parts=physical.filter(n=>n.groupId==='event:'+arrow.id).map(n=>({...envelope(n.occlusionBounds||n.bounds),site:n.sourceAttributes['data-material-field']==='siteName'}));
-    const shifted=(b,dy,dx)=>({...b,x:b.x+(b.site?dx:0),y:b.y+dy});
-    const fits=(dy,dx)=>(chronological!==true||inOrder(original.y+dy))&&parts.map(b=>shifted(b,dy,dx)).every(b=>b.x>=0&&b.x+b.width<=WIDTH&&b.y>=171&&b.y+b.height<=HEIGHT-8&&
-      !occupied.some(other=>intersects(b,other)));
-    const start=monthIndex(arrow.startMonth);
-    const inOrder=y=>previousY===null||start===previousStart||y>=previousY+(chronological===true?18:0);
-    let delta=0,siteOffset=0;
-    if(!fits(0,0)||chronological&&(chronological===true||!inOrder(original.y))){
-      const candidates=[0];
-      for(let y=188;y<=1000;y+=2)candidates.push(y-original.y);
-      // Preserve the recovered sorted-start stair whenever a safe placement
-      // exists below the preceding event. Dense boards may still need a reset.
-      candidates.sort((a,b)=>(chronological?Number(!inOrder(original.y+a))-Number(!inOrder(original.y+b)):0)||(chronological===true?a-b:Math.abs(a)-Math.abs(b))||a-b);
-      const offsets=[0,Math.min(250,original.width),-Math.min(250,original.width)];
-      let found=false;
-      for(const dx of offsets){const dy=candidates.find(y=>(chronological!==true||inOrder(original.y+y))&&fits(y,dx));if(dy!==undefined){delta=dy;siteOffset=dx;changed=true;found=true;break;}}
-      if(!found){delta=0;siteOffset=0;} // Preserve all material; the final gate reports the remaining conflict.
+  const fixed=physical.filter(n=>!ids.has(n.groupId)).map(n=>envelope(n.occlusionBounds||n.bounds));
+  const scale=metrics(scene),layout=founderPortableLayout(scene),labelSides=new Map(scene.autoArrowLabelSides||[]);
+  const entries=auto.map(arrow=>{
+    const original=geometry(arrow,layout,scale,scene),parts=physical.filter(n=>n.groupId==='event:'+arrow.id);
+    const boxes=nodes=>nodes.map(n=>({...envelope(n.occlusionBounds||n.bounds),site:n.sourceAttributes['data-material-field']==='siteName'}));
+    const variants=[{parts:boxes(parts),side:labelSides.get(String(arrow.id))}];
+    const outside=parts.find(n=>n.sourceAttributes['data-arrow-label-placement']?.startsWith('outside-'));
+    if(outside){
+      const side=outside.sourceAttributes['data-arrow-label-placement']!=='outside-left';
+      const variant={...scene,autoArrowLabelSides:new Map(labelSides).set(String(arrow.id),side)};
+      const nodes=resolveFounderPresentationSvg('<svg viewBox="0 0 1920 1080">'+arrowMarkup(arrow,scene.arrows.indexOf(arrow),layout,scale,variant)+'</svg>',{measureText:scene.measureText}).nodes.filter(n=>n.groupId&&n.bounds&&Number(n.style.opacity??1)>0&&Number(n.style['fill-opacity']??1)>0&&!(n.kind==='path'&&(n.lineOnly||n.style.fill==='none'||n.bounds.width<1||n.bounds.height<1)));
+      variants.push({parts:boxes(nodes),side});
     }
-    placements.set(String(arrow.id),{...original,y:original.y+delta});
-    siteOffsets.set(String(arrow.id),siteOffset);
-    occupied.push(...parts.map(b=>shifted(b,delta,siteOffset)));
-    previousStart=start;previousY=original.y+delta;
+    const top=Math.min(...variants[0].parts.map(b=>b.y))-original.y,bottom=Math.max(...variants[0].parts.map(b=>b.y+b.height))-original.y;
+    return{arrow,original,variants,lower:171-top,upper:HEIGHT-8-bottom};
+  });
+  const separation=18,latest=[];
+  for(let i=entries.length-1;i>=0;i--)latest[i]=Math.min(entries[i].upper,i+1<entries.length?latest[i+1]-separation:Infinity);
+  const first=entries[0].lower,last=latest.at(-1),pitch=Math.max(separation,Math.min(96,(last-first)/Math.max(1,entries.length-1)));
+  const baseline=entries.map((entry,index)=>Math.max(entry.lower,Math.min(latest[index],entries.length===1?entry.original.y:first+pitch*index)));
+  const overlap=(a,b)=>Math.max(0,Math.min(a.x+a.width+6,b.x+b.width+6)-Math.max(a.x,b.x))*Math.max(0,Math.min(a.y+a.height+6,b.y+b.height+6)-Math.max(a.y,b.y));
+  let states=[{choices:[],occupied:fixed,cost:0,drift:0,y:-Infinity}];
+  for(let index=0;index<entries.length;index++){
+    const entry=entries[index],next=[];
+    for(const state of states){
+      const lower=Math.max(entry.lower,state.y+separation),upper=latest[index];
+      const ys=new Set([baseline[index],lower,upper]);
+      for(let y=Math.ceil(lower/24)*24;y<=upper;y+=24)ys.add(y);
+      for(const obstacle of state.occupied)for(const part of entry.variants[0].parts){
+        if(part.x>=obstacle.x+obstacle.width+6||part.x+part.width+6<=obstacle.x)continue;
+        ys.add(obstacle.y+obstacle.height+6-(part.y-entry.original.y));
+        ys.add(obstacle.y-6-(part.y+part.height-entry.original.y));
+      }
+      // Even an overfull board keeps positive entry order; overflow is reported
+      // by the normal painted-text gate instead of restoring inverse geometry.
+      const candidates=[...ys].filter(y=>Number.isFinite(y)&&y>=lower-.001&&y<=upper+.001);
+      if(!candidates.length)candidates.push(lower);
+      for(const variant of entry.variants)for(const dx of [...new Set([0,Math.min(250,entry.original.width),-Math.min(250,entry.original.width),250,-250])]){
+        const shifted=variant.parts.map(b=>({...b,x:b.x+(b.site?dx:0)}));
+        const nearby=shifted.map(part=>state.occupied.filter(obstacle=>part.x<obstacle.x+obstacle.width+6&&part.x+part.width+6>obstacle.x));
+        for(const y of candidates){
+          const parts=shifted.map(b=>({...b,y:b.y+y-entry.original.y}));
+          const outside=parts.reduce((sum,b)=>sum+Math.max(0,-b.x)+Math.max(0,b.x+b.width-WIDTH)+Math.max(0,171-b.y)+Math.max(0,b.y+b.height-(HEIGHT-8)),0);
+          let collisions=0;for(let i=0;i<parts.length;i++)for(const obstacle of nearby[i])collisions+=overlap(parts[i],obstacle);
+          const cost=state.cost+outside*1e6+collisions;
+          next.push({choices:[...state.choices,{entry,y,dx,side:variant.side}],occupied:[...state.occupied,...parts],cost,drift:state.drift+Math.abs(y-baseline[index])+Math.abs(dx)*.04+(variant.side!==labelSides.get(String(entry.arrow.id))?4:0),y});
+        }
+      }
+    }
+    // Keep different last-anchor positions so an early locally safe row cannot
+    // consume the only corridor needed by a later event.
+    next.sort((a,b)=>a.cost-b.cost||a.drift-b.drift||a.y-b.y);
+    const buckets=new Set();states=[];
+    for(const state of next){const key=Math.round(state.y/8);if(buckets.has(key))continue;buckets.add(key);states.push(state);if(states.length>=4)break;}
   }
-  return changed?{...scene,autoArrowGeometry:placements,autoSiteOffsets:siteOffsets}:null;
+  const best=states.sort((a,b)=>a.cost-b.cost||a.drift-b.drift)[0];if(!best)return null;
+  const placements=new Map(scene.autoArrowGeometry||[]),siteOffsets=new Map(scene.autoSiteOffsets||[]);
+  for(const {entry,y,dx,side} of best.choices){const id=String(entry.arrow.id);placements.set(id,{...entry.original,y});siteOffsets.set(id,dx);if(side!==undefined)labelSides.set(id,side);}
+  return {...scene,autoArrowGeometry:placements,autoSiteOffsets:siteOffsets,autoArrowLabelSides:labelSides};
 }
 
 // Reuse safe existing vertical slots in chronological order when exchanging
@@ -1152,6 +1199,7 @@ function avoidAutomaticMilestoneCollisions(scene,svg){
 
 export function composeLocked407FPortableSvg(scene,options={}){
   const finish=result=>{
+    result={...result,scene:{...result.scene,chronologyOrder:validateLocked407FChronology(result.scene)}};
     if(!result.scene.autoYearWeights&&!result.scene.autoAxisPadding)return result;
     const axis=metrics(result.scene),factor=Math.min(1,8/Math.max(...axis.segments.map(segment=>segment.weight)));
     return {...result,scene:{...result.scene,composedAxis:{mode:'manual',startYear:axis.firstYear,endYear:axis.lastYear,includeFuture:false,
@@ -1161,83 +1209,15 @@ export function composeLocked407FPortableSvg(scene,options={}){
     const r=resolveFounderPresentationSvg(svg,{measureText:scene.measureText});
     return 1000*r.nodes.filter(n=>n.kind==='text'&&(n.sourceAttributes['data-text-overflow']==='true'||n.bounds.x<-.5||n.bounds.y<-.5||n.bounds.x+n.bounds.width>WIDTH+.5||n.bounds.y+n.bounds.height>HEIGHT+.5)).length+materialPresentationCollisions(r).length;
   };
-  const reversals=result=>{
-    const scale=metrics(result.scene),layout=founderPortableLayout(result.scene);
-    let count=0,previous=null;
-    for(const arrow of result.scene.arrows||[]){
-      const box=geometry(arrow,layout,scale,result.scene),start=monthIndex(arrow.startMonth);
-      if(previous&&start>previous.start&&box.y<previous.y)count++;
-      previous={start,y:box.y};
-    }
-    return count;
-  };
-  const chronologicalArrows=result=>{
-    const scale=metrics(result.scene),layout=founderPortableLayout(result.scene);
-    const joined=personalBandSegments(result.scene);
-    const ordered=[...(result.scene.arrows||[])].filter(arrow=>!joined.has(arrow.id)&&
-      (!presentationEventObject(result.scene,arrow.id)?.geometry||automaticDateAnchor(result.scene,arrow))&&
-      !arrow.manualOffset?.laneLocked&&!Number(arrow.manualOffset?.x)&&!Number(arrow.manualOffset?.y)&&
-      !(arrow.study&&(result.scene.flags||[]).some(flag=>flag.examAttemptId&&flag.examAttemptId===arrow.examAttemptId)))
-      .sort((a,b)=>monthIndex(a.startMonth)-monthIndex(b.startMonth)||String(a.id).localeCompare(String(b.id)));
-    return ordered.map(arrow=>({id:String(arrow.id),start:monthIndex(arrow.startMonth),y:geometry(arrow,layout,scale,result.scene).y}));
-  };
-  const stairPenalty=result=>{
-    // Larger legacy boards retain the recovered bounded neighboring-slot score.
-    // The stronger normal-case search is bounded to ten movable durations.
-    if((result.scene.arrows||[]).length>10){
-      const scale=metrics(result.scene),layout=founderPortableLayout(result.scene),sourceOrder=new Map((result.scene.events||[]).map((event,index)=>[String(event.id),index]));
-      const ordered=[...(result.scene.arrows||[])].sort((a,b)=>monthIndex(a.startMonth)-monthIndex(b.startMonth)||(sourceOrder.get(String(a.id))??0)-(sourceOrder.get(String(b.id))??0));
-      let count=0,previous=null;for(const arrow of ordered){const start=monthIndex(arrow.startMonth),y=geometry(arrow,layout,scale,result.scene).y;if(previous&&start>previous.start&&y<previous.y)count++;previous={start,y};}return count;
-    }
-    const ordered=chronologicalArrows(result);let count=0;
-    // Compare all distinct start pairs, not just neighboring events. The
-    // native 18px label size sets a minimum stair, with exact-start exceptions.
-    for(let i=0;i<ordered.length;i++)for(let j=i+1;j<ordered.length;j++){
-      const a=ordered[i],b=ordered[j];if(a.start===b.start)continue;
-      if(b.y<a.y+18)count+=1+(a.y+18-b.y)/HEIGHT;
-    }
-    return count;
-  };
-  const preservesOrder=(before,after)=>{
-    if((before.scene.arrows||[]).length>10)return true;
-    const original=chronologicalArrows(before),next=new Map(chronologicalArrows(after).map(item=>[item.id,item]));
-    for(let i=0;i<original.length;i++)for(let j=i+1;j<original.length;j++){
-      const a=original[i],b=original[j];if(a.start===b.start||a.y>b.y)continue;
-      if(next.get(a.id)?.y>next.get(b.id)?.y)return false;
-    }
-    return true;
-  };
-  const place=(input,chronological)=>{
+  const reversals=result=>validateLocked407FChronology(result.scene).violations.length;
+  const preservesOrder=(_before,after)=>!reversals(after);
+  const compose=input=>{
     let placed=input,svg=serializePlacedPortableSvg(placed,options);
+    const arrows=avoidAutomaticArrowCollisions(placed,svg);
+    if(arrows){placed=arrows;svg=serializePlacedPortableSvg(placed,options);}
     const flags=avoidAutomaticMilestoneCollisions(placed,svg);
     if(flags){placed=flags;svg=serializePlacedPortableSvg(placed,options);}
-    const arrows=avoidAutomaticArrowCollisions(placed,svg,{chronological});
-    if(arrows){placed=arrows;svg=serializePlacedPortableSvg(placed,options);}
-    return{scene:placed,svg};
-  };
-  const compose=input=>{
-    const original=place(input,false);
-    // Restore the earlier sorted-start stair only when equally safe. Keep the
-    // verified current placement if dense furniture leaves no legal stair.
-    if(!stairPenalty(original))return finish(original);
-    let best=original;
-    const exchanged=exchangeAutomaticArrowSlots(original.scene,original.svg);
-    const chronologicalTrial=chronological=>{
-      const arrows=avoidAutomaticArrowCollisions(original.scene,original.svg,{chronological});
-      return arrows?{scene:arrows,svg:serializePlacedPortableSvg(arrows,options)}:original;
-    };
-    const neighborReversals=result=>{
-      const scale=metrics(result.scene),layout=founderPortableLayout(result.scene),sourceOrder=new Map((result.scene.events||[]).map((event,index)=>[String(event.id),index]));
-      const ordered=[...(result.scene.arrows||[])].sort((a,b)=>monthIndex(a.startMonth)-monthIndex(b.startMonth)||(sourceOrder.get(String(a.id))??0)-(sourceOrder.get(String(b.id))??0));
-      let count=0,previous=null;for(const arrow of ordered){const start=monthIndex(arrow.startMonth),y=geometry(arrow,layout,scale,result.scene).y;if(previous&&start>previous.start&&y<previous.y)count++;previous={start,y};}return count;
-    };
-    // Keep the recovered safe nearest-slot repair as an incumbent. The stronger
-    // all-pairs staircase may improve it, but cannot undo an already ordered pair.
-    for(const candidate of [...(exchanged?[{scene:exchanged,svg:serializePlacedPortableSvg(exchanged,options)}]:[]),chronologicalTrial('nearest')])
-      if(safety(candidate.svg)<=safety(original.svg)&&neighborReversals(candidate)<neighborReversals(best))best=candidate;
-    const stair=(input.arrows||[]).length<=10?chronologicalTrial(true):best;
-    if(safety(stair.svg)<=safety(best.svg)&&preservesOrder(best,stair)&&stairPenalty(stair)<stairPenalty(best))best=stair;
-    return finish(best);
+    return finish({scene:placed,svg});
   };
   let best=compose(scene);
   // Nonuniform year widths are present in the Founder exemplar. Existing
