@@ -1,3 +1,7 @@
+import {syncCalendarProjection} from './calendar-cohort.mjs';
+import {intakeCommands,requireIntake,intakeEnabled,writeIntake,readIntake} from './interview-intake.mjs';
+import {myerasCommands,requireMyeras,previewImport,importPrograms} from './myeras-import.mjs';
+import {compositionCommands,executeComposition} from './loi-generation.mjs';
 import {targetEnvelope,targetCommands,requireTargets,writeTarget,ownedTarget,targetView,readTargets,savedPrograms} from './loi-targets.mjs';
 import {deepResearchEnabled,captureResearchBinding,checkCommittedResearch,createRiseResearchJobTransport} from './research-dispatch.mjs';
 import {AppError,requireValue} from './errors.mjs';
@@ -17,19 +21,24 @@ const interviewCommands=new Set(['interview.create','interview.identity','interv
 const debriefCommands=new Set(['debrief.occurrence','debrief.save','debrief.propose','debrief.accept','debrief.reject']);
 const loiCommands=new Set(['loi.save','loi.approve','loi.evidence','loi.export','loi.handoff','loi.mark_sent']);
 const learningCommands=new Set(['learning.propose','learning.confirm','learning.correct','learning.revoke','learning.mentor']);
-export function createCommands({database,owners,config,clock,speechAvailable=false,additionalCommands={},researchTransport=createRiseResearchJobTransport(config.deepResearch)}) {
+export function createCommands({database,owners,config,clock,speechAvailable=false,additionalCommands={},loiComposer=null,researchTransport=createRiseResearchJobTransport(config.deepResearch)}) {
   const settings={owners,config,clock,speechAvailable};
   async function bootstrap(actor) {coreActor(actor,config);return database.withActor(actor,async db=>{await syncActor(db,actor);return readModel(db,actor,settings);});}
   async function execute(actor,body,{revalidateActor}={}) {
     coreActor(actor,config);
     const envelope=targetEnvelope(body);
+    if(intakeCommands.has(envelope.command))requireIntake(config,actor);
     if(targetCommands.has(envelope.command))requireValue(envelope.targetKind==='program','invalid_loi_target','Use an explicit program letter target.');
     if(envelope.targetKind==='program')requireTargets(config,actor);
+    if(myerasCommands.has(envelope.command))requireMyeras(config,actor);
     if(loiCommands.has(envelope.command))requireLoi(config,actor);
+    if(compositionCommands.has(envelope.command))return executeComposition({database,actor,envelope,owners,config,clock,revalidateActor,composer:loiComposer,bootstrap});
     if(config.coreOnly) {
-      requireValue(coreCommands.has(envelope.command)||envelope.targetKind==='program'&&targetCommands.has(envelope.command)||loiEnabled(config,actor)&&loiCommands.has(envelope.command)||envelope.command==='research.check'&&deepResearchEnabled(config,actor)||researchEnabled(config,actor)&&researchCommands.has(envelope.command),'coming_soon','COMING SOON — this integration is not active. Your saved calendar is unchanged.',503);
+      requireValue(coreCommands.has(envelope.command)||intakeEnabled(config,actor)&&intakeCommands.has(envelope.command)||envelope.targetKind==='program'&&targetCommands.has(envelope.command)||loiEnabled(config,actor)&&loiCommands.has(envelope.command)||envelope.command==='research.check'&&deepResearchEnabled(config,actor)||researchEnabled(config,actor)&&researchCommands.has(envelope.command),'coming_soon','COMING SOON — this integration is not active. Your saved calendar is unchanged.',503);
       requireValue(!envelope.data.program||envelope.command==='mission.create'||envelope.targetKind==='program'&&targetCommands.has(envelope.command)||deepResearchEnabled(config,actor)||loiCanonicalLookup(config,actor)&&['interview.create','interview.identity'].includes(envelope.command)&&loiProgramAllowed(config,actor,envelope.data.program),'coming_soon','Canonical program lookup is not available for this selection. Enter the program name from your invitation.',503);
     }
+    if(envelope.command==='intake.read'){requireValue(Object.keys(envelope.data).length===0,'unexpected_fields','This read accepts no additional fields.');return database.withActor(actor,async db=>{await db.query('SET TRANSACTION READ ONLY');return {type:'intake',interviewId:envelope.interviewId,intake:await readIntake({db,actor,...envelope,owners,config})};});}
+    if(envelope.command==='myeras.preview')return database.withActor(actor,async db=>{await db.query('SET TRANSACTION READ ONLY');return previewImport({db,actor,...envelope,config,owners,clock});});
     if(['loitarget.read','loitarget.list','loitarget.saved'].includes(envelope.command)){return database.withActor(actor,async db=>{await db.query('SET TRANSACTION READ ONLY');const ctx={db,actor,...envelope,config,owners,clock};if(envelope.command==='loitarget.saved')return {type:'loi_saved',savedPrograms:await savedPrograms(ctx)};requireValue(Object.keys(envelope.data).length===0,'unexpected_fields','This read accepts no additional fields.');if(envelope.command==='loitarget.list')return {type:'loi_targets',...(await readTargets(ctx,loiHistory))};const row=await ownedTarget(ctx);const {rows:consents}=await db.query("SELECT subject_ref,status FROM iiq.consents WHERE owner_id=$1 AND scope='storyforge'",[actor.id]);return {type:'loi_target',target:targetView(row,loiHistory(row.anchors,{...row,targetKind:'program'},consents))};});}
     if(['loi.evidence','loi.export'].includes(envelope.command)){
       requireValue(Object.keys(envelope.data).length===0,'unexpected_fields','This read accepts no additional fields.');
@@ -62,8 +71,10 @@ export function createCommands({database,owners,config,clock,speechAvailable=fal
       requireValue(current===envelope.expectedVersion,'version_conflict','This workspace changed. Your unsaved text is kept; review the latest version and try again.',409,{version:current});
       const context={db,actor,...envelope,owners,config,clock};let result;
       if(envelope.command==='research.check')result={type:'research',id:envelope.interviewId,interviewId:envelope.interviewId,researchBinding:await captureResearchBinding({...context,interviewId:envelope.interviewId})};
+      else if(intakeCommands.has(envelope.command))result=await writeIntake(context);
       else if(interviewCommands.has(envelope.command)) result=await writeInterview(context);
       else if(debriefCommands.has(envelope.command))result=await writeDebrief(context);
+      else if(envelope.command==='myeras.import')result=await importPrograms(context);
       else if(targetCommands.has(envelope.command))result=await writeTarget(context);
       else if(loiCommands.has(envelope.command))result=await writeLoi(context);
       else if(envelope.command==='prep.save')result=await writePreparation(context);
@@ -77,6 +88,7 @@ export function createCommands({database,owners,config,clock,speechAvailable=fal
       else if(envelope.command==='privacy.export') {
         result={type:'export',id:null,export:privateExport(await readModel(db,actor,settings),actor)};
       } else throw new AppError(503,'operation_unavailable','This operation is not available yet. Your saved work is unchanged.');
+      if((interviewCommands.has(envelope.command)||intakeCommands.has(envelope.command))&&result.interviewId)await syncCalendarProjection({db,actor,config,owners,interviewId:result.interviewId});
       const next=current+1;
       await db.query('INSERT INTO iiq.revisions(owner_id,revision,reason,request_key) VALUES($1,$2,$3,$4)',[actor.id,next,envelope.command,envelope.requestId]);
       await db.query('INSERT INTO iiq.request_idempotency(owner_id,request_key,request_digest,result_type,result_id,result_revision) VALUES($1,$2,$3,$4,$5,$6)',[actor.id,envelope.requestId,envelope.bodyHash,result.type,result.id,next]);

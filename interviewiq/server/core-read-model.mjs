@@ -1,3 +1,7 @@
+import {calendarEnabled} from './calendar-admission.mjs';
+import {attachIntake,intakeEnabled} from './interview-intake.mjs';
+import {myerasEnabled} from './myeras-import.mjs';
+import {compositionEnabled,readPreferences} from './loi-generation.mjs';
 import {readTargets,targetsEnabled} from './loi-targets.mjs';
 import {deepResearchEnabled} from './research-dispatch.mjs';
 import {loiEnabled,loiCanonicalLookup,loiInterviewAllowed,loiHistory} from './private-commands.mjs';
@@ -34,12 +38,14 @@ export async function readCoreModel(db,actor,{config,owners,clock=()=>new Date()
     const {rows:demands}=await db.query(`SELECT d.*,g.registry_release_id FROM iiq.research_demands d LEFT JOIN iiq.research_job_grants g ON g.request_id::text=d.external_request_id AND g.owner_id=d.owner_id AND g.demand_id=d.id WHERE d.owner_id=$1`,[actor.id]);
     for(const d of demands)state.demands[d.interview_id]={id:d.id,requestId:d.external_request_id,programId:d.program_id,registryReleaseId:d.registry_release_id,status:d.status,version:Number(d.version),requestedAt:iso(d.requested_at),refreshedAt:iso(d.refreshed_at)};
   }
+  await attachIntake(db,actor,config,state);
   const actorView={id:actor.id,role:actor.role,displayName:actor.displayName,firstName:actor.firstName,tier:actor.tier,zone:actor.zone};
+  if(compositionEnabled(config,actor))state.loiPreferences=await readPreferences(db,actor,config);
   if(targetsEnabled(config,actor))state.loiTargets=await readTargets({db,actor,config,owners},loiHistory);
   if(researchEnabled(config,actor))state.research=await readResearchSummary(db,actor,config);
   const integrations={matrix:{available:true,status:'available',url:`${config.publicOrigin}/member-dashboard/`}};
   for(const name of comingSoon)integrations[name]={available:false,status:'coming_soon'};
-  return {actor:actorView,capabilities:{...(targetsEnabled(config,actor)?{loiTargets:true}:{}),loi:loiEnabled(config,actor),loiCanonicalLookup:loiCanonicalLookup(config,actor),coreOnly:true,comingSoon:[...comingSoon],research:false,deepResearch:deepResearchEnabled(config,actor),researchMissions:researchEnabled(config,actor),researchByProgram:empty(),contributions:false},
+  return {actor:actorView,capabilities:{...(calendarEnabled(config,actor)?{calendarV2:true,itinerary:true,adminLogistics:actor.role==='admin'}:{}),...(intakeEnabled(config,actor)?{intakeV2:true}:{}),...(myerasEnabled(config,actor)?{myerasImport:true}:{}),...(compositionEnabled(config,actor)?{loiComposition:true}:{}),...(targetsEnabled(config,actor)?{loiTargets:true}:{}),loi:loiEnabled(config,actor),loiCanonicalLookup:loiCanonicalLookup(config,actor),coreOnly:true,comingSoon:[...comingSoon],research:false,deepResearch:deepResearchEnabled(config,actor),researchMissions:researchEnabled(config,actor),researchByProgram:empty(),contributions:false},
     catalog:{programs,facts:[],sources:[],profiles:[{id:actor.id,displayName:actor.displayName,tier:actor.tier,approved_stories:[]}],student_zone:actor.zone,registry_release:null,storyforgeProjection:null,riseProjections:empty()},
     state,version,server_time:current,integrations};
 }

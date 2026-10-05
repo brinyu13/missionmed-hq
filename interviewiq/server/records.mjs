@@ -1,3 +1,4 @@
+import {isLogisticsTarget} from './calendar-admission.mjs';
 import {deepResearchEnabled,requireDeepResearch,demandBinding} from './research-dispatch.mjs';
 import { AppError,notFound,requireValue } from './errors.mjs';
 import * as v from './validation.mjs';
@@ -56,8 +57,9 @@ export async function updateGap(db,row) {
       question_count=EXCLUDED.question_count,practice_count=EXCLUDED.practice_count,debrief_state=EXCLUDED.debrief_state,followup_state=EXCLUDED.followup_state`,[row.owner_id,row.id]);
 }
 
-export async function writeInterview({db,actor,command,data,interviewId,owners,config={}}) {
-  requireValue(actor.role==='student','student_required','Use your student workspace for this action.',403);
+export async function writeInterview({db,actor,command,data,interviewId,owners,config={},target=null}) {
+  requireValue(actor.role==='student'&&!target||isLogisticsTarget(actor,target),'student_required','Use your student workspace for this action.',403);
+  const ownerId=target?.ownerId||actor.id;
   let researchBinding;
   if(data.program&&deepResearchEnabled(config,actor))requireDeepResearch(config,actor,data.program);
   if(command==='interview.create') {
@@ -71,12 +73,13 @@ export async function writeInterview({db,actor,command,data,interviewId,owners,c
     const {rows:[row]}=await db.query(`INSERT INTO iiq.interviews(owner_id,program_id,program_name,program_track,unresolved_input,deadline_date,
       local_date,local_time,timezone,start_at,fold,all_day,duration_minutes,travel_minutes,format,joining,status,duration_precision)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING *`,
-      [actor.id,program?.id||null,program?.name||manualName,program?.track||manualTrack,name,due,...scheduleValues(sched),sched.instant?'scheduled':'offered',sched.duration===null?'unknown':'estimated']);
+      [ownerId,program?.id||null,program?.name||manualName,program?.track||manualTrack,name,due,...scheduleValues(sched),sched.instant?'scheduled':'offered',sched.duration===null?'unknown':'estimated']);
     if(!config.coreOnly||deepResearchEnabled(config,actor)&&program){const d=await ensureDemand(db,row,{registryReleaseId:program?.registryReleaseId});if(program&&deepResearchEnabled(config,actor))researchBinding=demandBinding(d,program.registryReleaseId);}
     await history(db,row,'Offer saved',{date:sched.date,timezone:sched.zone});if(!config.coreOnly)await updateGap(db,row);
     return {type:'interview',id:row.id,interviewId:row.id,...(researchBinding?{researchBinding}:{})};
   }
-  const row=await interview(db,actor,interviewId,{lock:true});
+  const row=target?(await db.query('SELECT * FROM iiq.interviews WHERE id=$1 AND owner_id=$2 FOR UPDATE',[v.uuid(interviewId,'Interview'),ownerId])).rows[0]:await interview(db,actor,interviewId,{lock:true});
+  if(!row)throw notFound();
   if(command==='interview.identity') {
     v.onlyKeys(data,['program','programName','track','unresolved_input','deadline']);
     const program=data.program ? await owners.getProgram(actor,v.text(data.program,'Program ID',180,{empty:false})) : null;
@@ -85,7 +88,7 @@ export async function writeInterview({db,actor,command,data,interviewId,owners,c
     const manualName=v.text(data.programName===undefined?(row.program_name||name):data.programName,'Program name',500,{empty:false});
     const manualTrack=v.text(data.track===undefined?(row.program_track||''):data.track,'Track',200);
     const {rows:[updated]}=await db.query(`UPDATE iiq.interviews SET program_id=$3,program_name=$4,program_track=$5,unresolved_input=$6,deadline_date=$7
-      WHERE id=$1 AND owner_id=$2 RETURNING *`,[row.id,actor.id,program?.id||null,program?.name||manualName,program?.track||manualTrack,name,due]);
+      WHERE id=$1 AND owner_id=$2 RETURNING *`,[row.id,ownerId,program?.id||null,program?.name||manualName,program?.track||manualTrack,name,due]);
     if(!config.coreOnly||deepResearchEnabled(config,actor)){const d=await ensureDemand(db,updated,{registryReleaseId:program?.registryReleaseId});if(program&&deepResearchEnabled(config,actor))researchBinding=demandBinding(d,program.registryReleaseId);}
     await history(db,row,'Program identity updated',{from:row.program_id,to:program?.id||null});
   } else if(command==='interview.schedule') {
@@ -94,25 +97,25 @@ export async function writeInterview({db,actor,command,data,interviewId,owners,c
     requireValue(!['cancelled','declined','no_show'].includes(row.status),'inactive_interview','Restore this interview before changing its schedule.');
     await db.query(`UPDATE iiq.interviews SET local_date=$3,local_time=$4,timezone=$5,start_at=$6,fold=$7,all_day=$8,
       duration_minutes=$9,travel_minutes=$10,format=$11,joining=$12,joining_verified=false,
-      status=$13,duration_precision=$14,previous_schedule='{}'::jsonb WHERE id=$1 AND owner_id=$2`,[row.id,actor.id,...scheduleValues(s),s.instant?'scheduled':'offered',s.duration===null?'unknown':'estimated']);
+      status=$13,duration_precision=$14,previous_schedule='{}'::jsonb WHERE id=$1 AND owner_id=$2`,[row.id,ownerId,...scheduleValues(s),s.instant?'scheduled':'offered',s.duration===null?'unknown':'estimated']);
     await history(db,row,'Schedule updated',{previous:{date:row.local_date,instant:row.start_at,timezone:row.timezone},current:{date:s.date,instant:s.instant,timezone:s.zone}});
   } else if(command==='interview.lifecycle') {
     v.onlyKeys(data,['action']);v.choice(data.action,['cancel','restore','decline','postpone','waitlist','joining-verified'],'lifecycle action');
-    if(data.action==='joining-verified') await db.query('UPDATE iiq.interviews SET joining_verified=true WHERE id=$1 AND owner_id=$2',[row.id,actor.id]);
+    if(data.action==='joining-verified') await db.query('UPDATE iiq.interviews SET joining_verified=true WHERE id=$1 AND owner_id=$2',[row.id,ownerId]);
     else if(data.action==='restore') {
       requireValue(['cancelled','declined','postponed','waitlisted','no_show'].includes(row.status),'not_inactive','This interview does not need restoration.');
       const restored=row.previous_schedule?.status || (row.start_at?'scheduled':'offered');
-      await db.query(`UPDATE iiq.interviews SET status=$3,previous_schedule='{}'::jsonb WHERE id=$1 AND owner_id=$2`,[row.id,actor.id,restored]);
+      await db.query(`UPDATE iiq.interviews SET status=$3,previous_schedule='{}'::jsonb WHERE id=$1 AND owner_id=$2`,[row.id,ownerId,restored]);
     } else {
       const status={cancel:'cancelled',decline:'declined',postpone:'postponed',waitlist:'waitlisted'}[data.action];
       requireValue(row.status!=='completed' || ['cancel','decline'].includes(data.action),'completed_interview','Correct whether the interview happened before postponing or waitlisting it.');
-      if(row.status!==status)await db.query('UPDATE iiq.interviews SET status=$3,previous_schedule=$4::jsonb WHERE id=$1 AND owner_id=$2',[row.id,actor.id,status,JSON.stringify({status:row.status})]);
+      if(row.status!==status)await db.query('UPDATE iiq.interviews SET status=$3,previous_schedule=$4::jsonb WHERE id=$1 AND owner_id=$2',[row.id,ownerId,status,JSON.stringify({status:row.status})]);
     }
     await history(db,row,`Lifecycle: ${data.action}`,{});
   } else if(command==='event.create' || command==='event.update') {
     if(command==='event.update' && data.action!==undefined) {
       v.onlyKeys(data,['eventId','action']);v.choice(data.action,['cancel','restore'],'event action');
-      const result=await db.query('UPDATE iiq.related_events SET status=$4 WHERE owner_id=$1 AND interview_id=$2 AND id=$3 RETURNING id',[actor.id,row.id,v.uuid(data.eventId,'Event'),data.action==='cancel'?'cancelled':'scheduled']);
+      const result=await db.query('UPDATE iiq.related_events SET status=$4 WHERE owner_id=$1 AND interview_id=$2 AND id=$3 RETURNING id',[ownerId,row.id,v.uuid(data.eventId,'Event'),data.action==='cancel'?'cancelled':'scheduled']);
       if(result.rowCount!==1)throw notFound();
       await history(db,row,`Related event ${data.action==='cancel'?'cancelled':'restored'}`,{eventId:result.rows[0].id});
       return {type:'event',id:result.rows[0].id,interviewId:row.id};
@@ -122,7 +125,7 @@ export async function writeInterview({db,actor,command,data,interviewId,owners,c
     requireValue(Boolean(s.date),'date_required','Choose a date for the related event.');
     const label=v.text(data.kind,'Event type',80,{empty:false}),note=v.text(data.note??'','Event note',2000);
     const kind=/social/i.test(label)?'social':/deadline/i.test(label)?'deadline':'other';
-    const values=[actor.id,row.id,kind,label,s.date,s.wall?.slice(11,19)||null,s.zone,s.instant,s.fold,s.all_day,s.duration];
+    const values=[ownerId,row.id,kind,label,s.date,s.wall?.slice(11,19)||null,s.zone,s.instant,s.fold,s.all_day,s.duration];
     let result;
     if(command==='event.create') result=await db.query(`INSERT INTO iiq.related_events(owner_id,interview_id,kind,title,local_date,local_time,timezone,start_at,fold,all_day,duration_minutes,note)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,[...values,note]);

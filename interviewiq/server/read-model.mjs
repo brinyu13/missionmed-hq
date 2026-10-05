@@ -1,3 +1,7 @@
+import {calendarEnabled} from './calendar-admission.mjs';
+import {attachIntake,intakeEnabled} from './interview-intake.mjs';
+import {myerasEnabled} from './myeras-import.mjs';
+import {compositionEnabled,readPreferences} from './loi-generation.mjs';
 import {readTargets,targetsEnabled} from './loi-targets.mjs';
 import {loiEnabled,loiCanonicalLookup,loiInterviewAllowed,loiHistory} from './private-commands.mjs';
 import {revision} from './records.mjs';
@@ -99,6 +103,7 @@ export async function readModel(db,actor,{owners,config,clock=()=>new Date(),spe
   state.changes=audit.filter(x=>x.owner_id===actor.id).map((x,index)=>({who:actor.id,actor:'you',seq:version-index,at:iso(x.created_at),kind:x.object_type,text:x.event_type.replaceAll('.',' '),to:x.object_id}));
   for(const note of mentorNotes){if(note.kind==='priority' && !state.mentorPriority[note.target_student_id])state.mentorPriority[note.target_student_id]={text:note.text,at:iso(note.created_at)};}
   state.mentorNudges=mentorNotes.filter(x=>x.kind==='nudge').map(x=>({id:x.id,student:x.target_student_id,text:x.text,at:iso(x.created_at)}));
+  if(compositionEnabled(config,actor))state.loiPreferences=await readPreferences(db,actor,config);
   if(targetsEnabled(config,actor))state.loiTargets=await readTargets({db,actor,config,owners},loiHistory);
   if(researchEnabled(config,actor))state.research=await readResearchSummary(db,actor,config);
   const research=['360','ivprep_complete'].includes(actor.tier)||actor.role==='admin';
@@ -106,8 +111,9 @@ export async function readModel(db,actor,{owners,config,clock=()=>new Date(),spe
   const researchByProgram=Object.fromEntries(accessRows.map(x=>[x.program,{allow:x.allow,reason:x.allow?'Current protected access or approved contribution grant.':'Current research access is required.'}]));
   const profiles=[{id:actor.id,displayName:actor.displayName,tier:actor.tier,approved_stories:stories,...(stories[0]?{approved_story:stories[0]}:{})},
     ...profileRows.filter(x=>x.id!==actor.id).map(x=>({id:x.id,name:x.display_name,displayName:x.display_name}))];
+  await attachIntake(db,actor,config,state);
   return {actor:{id:actor.id,role:actor.role,displayName:actor.displayName,firstName:actor.firstName,tier:actor.tier,zone:actor.zone},
-    capabilities:{...(targetsEnabled(config,actor)?{loiTargets:true}:{}),loi:loiEnabled(config,actor),loiCanonicalLookup:loiCanonicalLookup(config,actor),research,researchMissions:researchEnabled(config,actor),researchByProgram,contributions:state.policy.contributions===true},catalog:{programs,facts:context.facts||[],sources:context.sources||[],profiles,student_zone:actor.zone,registry_release:context.registryRelease||null,storyforgeProjection:context.storyforgeProjection||null,riseProjections:context.riseProjections||{}},
+    capabilities:{...(calendarEnabled(config,actor)?{calendarV2:true,itinerary:true,adminLogistics:actor.role==='admin'}:{}),...(intakeEnabled(config,actor)?{intakeV2:true}:{}),...(myerasEnabled(config,actor)?{myerasImport:true}:{}),...(compositionEnabled(config,actor)?{loiComposition:true}:{}),...(targetsEnabled(config,actor)?{loiTargets:true}:{}),loi:loiEnabled(config,actor),loiCanonicalLookup:loiCanonicalLookup(config,actor),research,researchMissions:researchEnabled(config,actor),researchByProgram,contributions:state.policy.contributions===true},catalog:{programs,facts:context.facts||[],sources:context.sources||[],profiles,student_zone:actor.zone,registry_release:context.registryRelease||null,storyforgeProjection:context.storyforgeProjection||null,riseProjections:context.riseProjections||{}},
     state,version,server_time:current,integrations:{matrix:{available:true,status:'available',url:`${config.publicOrigin}/member-dashboard/`},
       rise:{available:context.status?.rise==='available',status:context.status?.rise||'unavailable',url:`${config.publicOrigin}/rise/`},
       storyforge:{available:context.status?.storyforge==='available',status:context.status?.storyforge||'unavailable',url:`${config.publicOrigin}/storyforge/`},

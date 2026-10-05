@@ -1,3 +1,6 @@
+let calendarEpoch=0,cohortPage=null,itineraryPage=null,itineraryPending=null,adminCalendarTarget=null,calendarMutationPending=null,calendarMutationBusy=false,calendarTargetReadSequence=0,itineraryReadSequence=0;
+const calendarV2=()=>capabilities.calendarV2===true&&!studentPreview()&&['student','admin'].includes(actor?.role);
+function clearCalendarMemory(){calendarEpoch++;cohortPage=null;itineraryPage=null;itineraryPending=null;adminCalendarTarget=null;calendarMutationPending=null;calendarMutationBusy=false;calendarTargetReadSequence++;itineraryReadSequence++;}
 'use strict';
 // Signed bootstrap is the only source of identity. Tokens and private drafts stay in memory.
 let S=null, F={}, actor=null, capabilities={}, integrations={}, version=null;
@@ -16,14 +19,21 @@ const coreOnly=()=>capabilities.coreOnly===true;
 const coreRoute=route=>['home','calendar','interviews','letters','settings'].includes(route);
 const deepResearch=()=>capabilities.deepResearch===true&&!studentPreview()&&actor?.role==='student';
 const loiCanonicalLookup=()=>capabilities.loiCanonicalLookup===true&&!studentPreview()&&actor?.role==='student';
-const programSearchAllowed=()=>!studentPreview()&&(!coreOnly()||deepResearch()||loiCanonicalLookup());
+const intakeEnabled=()=>capabilities.intakeV2===true&&!studentPreview()&&actor?.role==='student'&&['360','ivprep_complete'].includes(actor.tier);
+const INTAKE_COMMANDS=new Set(['intake.create','intake.update','intake.read']);
+let intakeFlow=null,intakeEpoch=0,intakeSearchSequence=0;
+function clearIntakeMemory(){intakeEpoch++;intakeSearchSequence++;intakeFlow=null;if(S?.ui?.drawer?.kind==='intake')S.ui.drawer=null;for(const key of draftValues.keys())if(key.split('::').pop().startsWith('in-'))draftValues.delete(key);for(const key of pendingCommands.keys())if(INTAKE_COMMANDS.has(JSON.parse(key)[1]))pendingCommands.delete(key);}
+const programSearchAllowed=()=>!studentPreview()&&(!coreOnly()||deepResearch()||loiCanonicalLookup()||intakeEnabled());
 const loiEnabled=()=>capabilities.loi===true&&!studentPreview()&&actor?.role==='student';
+const loiCompositionEnabled=()=>loiEnabled()&&capabilities.loiComposition===true;
+const LOI_COMPOSITION_COMMANDS=new Set(['loi.preference_read','loi.preference_save','loi.generate','loi.generation_read','loi.generation_select']);
+const loiProposals=new Map(),loiCompositionBusy=new Set(),loiCompositionUncertain=new Set();let loiCompositionEpoch=0,loiCompositionView=null;
 const loiTargetsEnabled=()=>loiEnabled()&&capabilities.loiTargets===true;
 const LOI_TARGET_COMMANDS=new Set(['loitarget.create','loitarget.update','loitarget.read','loitarget.list','loitarget.saved']);
 let loiSavedPage=null,loiTargetSearch=[];
 const LOI_COMMANDS=new Set(['loi.save','loi.approve','loi.evidence','loi.export','loi.handoff','loi.mark_sent']);
-const coreCommand=name=>loiTargetsEnabled()&&LOI_TARGET_COMMANDS.has(name)||loiEnabled()&&LOI_COMMANDS.has(name)||CORE_COMMANDS.has(name)||deepResearch()&&name==='research.check';
-const coreAction=name=>loiTargetsEnabled()&&name.startsWith('loitarget-')||loiEnabled()&&name.startsWith('loi-')||CORE_ACTIONS.has(name)||loiCanonicalLookup()&&name==='resolve'||deepResearch()&&['resolve','research-refresh','research-advance'].includes(name);
+const coreCommand=name=>intakeEnabled()&&INTAKE_COMMANDS.has(name)||myerasEnabled()&&MYERAS_COMMANDS.has(name)||loiCompositionEnabled()&&LOI_COMPOSITION_COMMANDS.has(name)||loiTargetsEnabled()&&LOI_TARGET_COMMANDS.has(name)||loiEnabled()&&LOI_COMMANDS.has(name)||CORE_COMMANDS.has(name)||deepResearch()&&name==='research.check';
+const coreAction=name=>calendarV2()&&(name.startsWith('calendar-')||name.startsWith('itinerary-')||name.startsWith('admin-calendar-'))||intakeEnabled()&&name.startsWith('intake-')||myerasEnabled()&&name.startsWith('myeras-')||loiTargetsEnabled()&&name.startsWith('loitarget-')||loiEnabled()&&name.startsWith('loi-')||CORE_ACTIONS.has(name)||loiCanonicalLookup()&&name==='resolve'||deepResearch()&&['resolve','research-refresh','research-advance'].includes(name);
 const coreSection=section=>loiEnabled()&&section==='loi'||deepResearch()&&section==='brief'||['identify','schedule'].includes(section);
 function comingSoonBadge(){return '<span class="chip warn" style="font-size:9px;white-space:normal">COMING SOON</span>';}
 function comingSoonPanel(label){return `<div class="panel amber pad" role="status" style="margin-bottom:1rem">${comingSoonBadge()}<h3>${esc(label||'This capability')}</h3><p>This capability is a preview. Its live integration is not active in this release. No recording, research, sharing or remote action will run, and text entered here is not saved.</p><p class="tiny">Your saved interviews and Calendar remain available.</p><button class="btn ghost sm" data-act="nav" data-to="calendar">Open Calendar</button></div>`;}
@@ -45,18 +55,19 @@ async function refreshSession(){
 }
 async function apiFetch(path,options={},retried=false){
   if(studentPreview())throw previewError();
-  if(coreOnly()&&path!=='/bootstrap'&&!((deepResearch()||loiCanonicalLookup())&&path.startsWith('/programs?'))&&!(path==='/commands'&&coreCommand(JSON.parse(options.body||'{}').command))){openComingSoon('This integration');const error=Error('COMING SOON: this integration is not active.');error.code='coming_soon';throw error;}
+  if(coreOnly()&&!(calendarV2()&&(path.startsWith('/calendar/')||/^\/interviews\/[a-f0-9-]{36}\/itinerary/.test(path)))&&path!=='/bootstrap'&&!((deepResearch()||loiCanonicalLookup()||intakeEnabled())&&path.startsWith('/programs?'))&&!(path==='/commands'&&coreCommand(JSON.parse(options.body||'{}').command))){openComingSoon('This integration');const error=Error('COMING SOON: this integration is not active.');error.code='coming_soon';throw error;}
   if(!session||session.expiresAt<Date.now()+5000){try{await refreshSession();}catch(error){if(error.status===401||error.status===403)lockWorkspace('Your session ended. Sign in through MissionMed and reopen the workspace.');throw error;}}
   const headers=new Headers(options.headers||{});headers.set('Authorization','Bearer '+session.token);headers.set('Accept','application/json');
   if(options.method&&options.method!=='GET')headers.set('X-IIQ-Nonce',session.nonce);
   const response=await fetch(session.apiBase+path,{...options,headers,credentials:'same-origin',cache:'no-store'});
   if(response.status===401&&!retried){session=null;try{await refreshSession();}catch(error){if(error.status===401||error.status===403)lockWorkspace('Your session ended. Sign in through MissionMed and reopen the workspace.');throw error;}return apiFetch(path,options,true);}
   if(response.status===401){lockWorkspace('Your session ended. Sign in through MissionMed and reopen your workspace.');}
+  if(options.binaryDownload===true){if(!response.ok)return readJSON(response);if(response.headers.get('content-type')!=='application/octet-stream'||!/^attachment; filename="itinerary-(?:[1-9]|10)\.(?:pdf|png|jpg)"$/.test(response.headers.get('content-disposition')||''))throw Error('The private attachment response was invalid.');const blob=await response.blob();if(blob.size<1||blob.size>5242880)throw Error('The attachment exceeded its allowed size.');return {blob,fileName:response.headers.get('content-disposition').split('"')[1]};}
   return readJSON(response);
 }
 let loiAuthorityEpoch=0;
 function clearLoiMemory(){
-  loiAuthorityEpoch++;loiSavedPage=null;loiTargetSearch=[];if(S?.ui){delete S.ui.loiTargetOpen;delete S.ui.loiTargetManualProgram;}loiEvidence.clear();loiHandoffs.clear();loiInputIds.clear();
+  clearMyerasMemory();clearLoiCompositionMemory();loiAuthorityEpoch++;loiSavedPage=null;loiTargetSearch=[];if(S?.ui){delete S.ui.loiTargetOpen;delete S.ui.loiTargetManualProgram;}loiEvidence.clear();loiHandoffs.clear();loiInputIds.clear();
   for(const key of draftValues.keys())if(key.split("::").pop().startsWith("loi-"))draftValues.delete(key);
   for(const key of pendingCommands.keys())if(LOI_COMMANDS.has(JSON.parse(key)[1])||LOI_TARGET_COMMANDS.has(JSON.parse(key)[1]))pendingCommands.delete(key);
 }
@@ -64,10 +75,15 @@ function applyBootstrap(input){
   const b=input?.bootstrap||input;
   researchBriefs.clear();
   if(!b?.actor?.id||!normalizeRole(b.actor.role)||!b.state)throw Error('The service returned an incomplete signed workspace.');
-  const hadLookup=loiCanonicalLookup(),hadTargets=loiTargetsEnabled();
+  const hadCalendar=calendarV2();
+  const hadLookup=loiCanonicalLookup(),hadTargets=loiTargetsEnabled(),hadComposition=loiCompositionEnabled(),hadMyeras=myerasEnabled(),hadIntake=intakeEnabled();
   const sameActor=actor?.id===b.actor.id&&normalizeRole(actor.role)===normalizeRole(b.actor.role);
   const ui=sameActor&&S?.ui?S.ui:defaultUI();
-  if(!sameActor){clearPrivateMemory();}else if(loiEnabled()&&(b.capabilities?.loi!==true||normalizeRole(b.actor.role)!=='student'||hadTargets&&b.capabilities?.loiTargets!==true))clearLoiMemory();
+  if(!sameActor){clearPrivateMemory();clearCalendarMemory();}else if(loiEnabled()&&(b.capabilities?.loi!==true||normalizeRole(b.actor.role)!=='student'||hadTargets&&b.capabilities?.loiTargets!==true))clearLoiMemory();
+  if(sameActor&&hadMyeras&&b.capabilities?.myerasImport!==true)clearMyerasMemory();
+  if(sameActor&&hadComposition&&b.capabilities?.loiComposition!==true)clearLoiCompositionMemory();
+  if(sameActor&&hadIntake&&(b.capabilities?.intakeV2!==true||!['360','ivprep_complete'].includes(b.actor.tier)))clearIntakeMemory();
+  if(sameActor&&hadCalendar&&(b.capabilities?.calendarV2!==true||capabilities.adminLogistics===true&&b.capabilities?.adminLogistics!==true))clearCalendarMemory();
   actor={...b.actor,role:normalizeRole(b.actor.role)};capabilities=b.capabilities||{};
   if(!sameActor||hadLookup&&!loiCanonicalLookup()){searchSequence++;clearTimeout(searchTimer);}
   integrations=b.integrations||{};version=b.version;
@@ -78,11 +94,13 @@ function applyBootstrap(input){
   for(const key of ownKeys)S[key]=b.state[key]||{};
   if(!loiTargetsEnabled())delete S.loiTargets;else{S.loiTargets=b.state.loiTargets||{targets:[],savedPrograms:null,savedStatus:'unavailable'};loiSavedPage=null;}
 
+  if(!loiCompositionEnabled())delete S.loiPreferences;
   S.reviewQueue=b.state.reviewQueue||[];S.mentorAssigned=b.state.mentorAssigned||[];S.changes=b.state.changes||[];
   S.contrib={missions:{},submissions:[],ledger:[],grants:{},...(b.state.contrib||{})};
   S.policy={audit:[],suspended:{},...(b.state.policy||{})};S.lastVisit=b.state.lastVisit||now();
   if(!sameActor)S.ui.cal.ym=ymOf(todayKey());
   for(const [id,handoff] of loiHandoffs){const i=id.startsWith('program:')?loiTargetSubject(id.slice(8)):S.interviews.find(i=>i.id===id);if(!i||!loiEnabled()||handoff.binding!==loiHandoffBinding(i))loiHandoffs.delete(id);}
+  for(const [key,p] of loiProposals){const i=key.startsWith('program:')?loiTargetSubject(key.slice(8)):S.interviews.find(i=>i.id===key);if(!i||!loiCompositionEnabled()||!ownsLoiSubject(i)||i.targetKind==='program'&&i.choice!=='CREATE_LETTER'||p.subjectBinding!==loiSubjectBinding(i))loiProposals.delete(key);}
   for(const [key,e] of loiEvidence)if(key.startsWith('program:')){const i=loiTargetSubject(key.slice(8));if(!i||e.subjectBinding!==loiSubjectBinding(i))loiEvidence.delete(key);}
 }
 async function refreshWorkspace(){const identity=actor?.id,b=await apiFetch('/bootstrap');if(identity&&identity!==actor?.id)throw Error('The account changed while the workspace was loading. Reopen the intended workspace.');applyBootstrap(b);return b;}
@@ -90,10 +108,15 @@ async function command(name,interviewId=null,data={},options={}){
   if(studentPreview())throw previewError();
   if(coreOnly()&&!coreCommand(name)){openComingSoon(name.split('.')[0]);return {comingSoon:true};}
   const targetCommand=options.targetKind==='program';if(targetCommand&&!loiTargetsEnabled())throw Error('Program letter access is unavailable.');
-  const loiEpoch=loiAuthorityEpoch,loiCommand=LOI_COMMANDS.has(name)||LOI_TARGET_COMMANDS.has(name);
+  const intakeCommand=INTAKE_COMMANDS.has(name),capturedIntakeEpoch=intakeEpoch;
+  const importCommand=MYERAS_COMMANDS.has(name),importEpoch=myerasEpoch;
+  const loiEpoch=loiAuthorityEpoch,compositionCommand=LOI_COMPOSITION_COMMANDS.has(name),compositionEpoch=loiCompositionEpoch,loiCommand=LOI_COMMANDS.has(name)||LOI_TARGET_COMMANDS.has(name)||compositionCommand;
   const identity=actor?.id,requestKey=JSON.stringify([identity,name,targetCommand?{targetKind:'program',targetId:options.targetId}:interviewId,data]);
   const draftSnapshot=savedDraftIds(name,targetCommand?options.targetId:interviewId,data).map(id=>[draftKey(id),pendingDraft(id,undefined)]);
   const work=async()=>{
+    if(intakeCommand&&(!intakeEnabled()||capturedIntakeEpoch!==intakeEpoch))throw Error('Interview intake access changed. Your private save cannot continue.');
+    if(importCommand&&(!myerasEnabled()||importEpoch!==myerasEpoch))throw Error('Import access changed. Reopen the intended workspace.');
+    if(compositionCommand&&(!loiCompositionEnabled()||compositionEpoch!==loiCompositionEpoch))throw Error('Composition access changed. Reopen the intended letter.');
     if(loiCommand&&(!loiEnabled()||targetCommand&&!loiTargetsEnabled()||loiEpoch!==loiAuthorityEpoch))throw Error('Letter access changed. Reopen the intended workspace.');
     if(!identity||identity!==actor?.id)throw Error('The account changed before this save. Reopen the intended workspace.');
     const prior=pendingCommands.get(requestKey),payload=prior||(targetCommand?{command:name,targetKind:'program',targetId:options.targetId,data,requestId:crypto.randomUUID(),expectedVersion:version}:{command:name,interviewId,data,requestId:crypto.randomUUID(),expectedVersion:version});
@@ -101,10 +124,13 @@ async function command(name,interviewId=null,data={},options={}){
     try{
       const result=await apiFetch('/commands',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       if(identity!==actor?.id)throw Error('The account changed while this save was in flight. Reopen the intended workspace.');
+      if(intakeCommand&&(!intakeEnabled()||capturedIntakeEpoch!==intakeEpoch))throw Error('Interview intake access changed while the save was in flight.');
+      if(importCommand&&(!myerasEnabled()||importEpoch!==myerasEpoch))throw Error('Import access changed while this request was in flight.');
+      if(compositionCommand&&(!loiCompositionEnabled()||compositionEpoch!==loiCompositionEpoch))throw Error('Composition access changed while the request was in flight.');
       if(loiCommand&&(!loiEnabled()||targetCommand&&!loiTargetsEnabled()||loiEpoch!==loiAuthorityEpoch))throw Error('Letter access changed while the request was in flight.');
       pendingCommands.delete(requestKey);
       for(const [key,value] of draftSnapshot)if(draftValues.get(key)===value)draftValues.delete(key);
-      if(result?.bootstrap||result?.actor)applyBootstrap(result);else if(!['loi.evidence','loi.export','loitarget.read','loitarget.list','loitarget.saved'].includes(name))await refreshWorkspace();
+      if(result?.bootstrap||result?.actor)applyBootstrap(result);else if(!['loi.evidence','loi.export','loitarget.read','loitarget.list','loitarget.saved','loi.preference_read','loi.generation_read','myeras.preview','intake.read'].includes(name))await refreshWorkspace();
       const checked=result?.researchCheck,d=checked&&S.demands[checked.interviewId];
       if(deepResearch()&&d&&checked.research&&d.requestId===checked.requestId&&d.programId===checked.programId&&d.registryReleaseId===checked.registryReleaseId&&d.version===checked.version)researchBriefs.set(checked.interviewId,checked);
       if(options.render!==false)render();
@@ -124,6 +150,7 @@ function savedDraftIds(name,id,data){
   if(name==='interview.identity')return [...form('of-'),'identity-name','identity-track'];
   if(name==='event.create')return ['ar-iv','ar-kind','ar-date','ar-time','ar-zone','ar-dur','ar-fold'];
   if(name==='event.update'&&!data.action){const k=S.interviews.find(i=>i.id===id)?.related.findIndex(e=>e.id===data.eventId);return ['date','time','zone','dur','fold'].map(f=>'rel-'+f+'-'+k);}
+  if(name==='loi.generation_select')return [...loiFormIds(id),'loi-composition-approach-'+id];
   if(name==='loi.save')return loiFormIds(id);
   if(name==='prep.save')return [...(data.why?['why-'+id]:[]),...('questions'in data?['q-'+id]:[])];
   if(name==='debrief.save')return [...('edited'in data?['edited-'+id]:[]),...('narrative'in data?['narr-'+id]:[]),...('questions'in data?['qsel-'+id]:[]),...('fields'in data?['enc-count-'+id,'enc-count-precision-'+id,...['emphasized_topics','program_information'].flatMap(k=>['db-'+k+'-'+id,'db-'+k+'-certainty-'+id]),...(data.fields.encounters||[]).flatMap(e=>['format','roles','duration','precision'].map(k=>'enc-'+k+'-'+e.id))]:[])];
@@ -137,8 +164,8 @@ function savedDraftIds(name,id,data){
   if(name==='mentor.nudge')return ['nudge-'+data.studentId];
   return [];
 }
-function clearPrivateMemory(){
-  researchBriefs.clear();clearLoiMemory();draftValues.clear();pendingCommands.clear();void stopSpeech();
+function clearPrivateMemory(){clearCalendarMemory();
+  clearIntakeMemory();researchBriefs.clear();clearLoiMemory();draftValues.clear();pendingCommands.clear();void stopSpeech();
   if(typeof pendingAudio!=='undefined')pendingAudio.clear();
   if(typeof speechSessions!=='undefined')speechSessions.clear();
   if(typeof autosaveTimers!=='undefined'){for(const timer of autosaveTimers.values())clearTimeout(timer);autosaveTimers.clear();}

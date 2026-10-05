@@ -1,8 +1,8 @@
 import {randomUUID} from 'node:crypto';
 import {requireValue,notFound} from './errors.mjs';
 import * as v from './validation.mjs';
-export const targetCommands=new Set(['loitarget.create','loitarget.update','loitarget.read','loitarget.list','loitarget.saved']);
-const letters=new Set(['loi.save','loi.approve','loi.evidence','loi.export','loi.handoff','loi.mark_sent']);
+export const targetCommands=new Set(['loitarget.create','loitarget.update','loitarget.read','loitarget.list','loitarget.saved','myeras.preview','myeras.import']);
+const letters=new Set(['loi.save','loi.approve','loi.evidence','loi.export','loi.handoff','loi.mark_sent','loi.generate','loi.generation_read','loi.generation_select']);
 export function targetsEnabled(config,actor){const l=config.loi;return l?.targetsEnabled===true&&l.enabled===true&&['CANARY','ELIGIBLE'].includes(l.mode??'CANARY')&&actor.role==='student'&&actor.eligible===true&&['360','ivprep_complete'].includes(actor.tier)&&(!l.ownerId||l.ownerId===actor.id)&&(!l.targetsOwnerId||l.targetsOwnerId===actor.id)&&((l.mode??'CANARY')!=='CANARY'||Boolean(l.ownerId&&l.programId));}
 export function requireTargets(config,actor){requireValue(targetsEnabled(config,actor),'loi_targets_unavailable','Program letters are unavailable for this workspace.',403);}
 export function targetEnvelope(body){
@@ -10,7 +10,7 @@ export function targetEnvelope(body){
  v.onlyKeys(body,['command','targetKind','targetId','data','requestId','expectedVersion']);
  requireValue(body.targetKind==='program'&&(letters.has(body.command)||targetCommands.has(body.command)),'invalid_loi_target','Use an explicit program letter target.');
  v.uuid(body.requestId,'Request');v.integer(body.expectedVersion,'Version',0,Number.MAX_SAFE_INTEGER);v.object(body.data??{},'Command data');
- const noId=['loitarget.create','loitarget.list','loitarget.saved'].includes(body.command);
+ const noId=['loitarget.create','loitarget.list','loitarget.saved','myeras.preview','myeras.import'].includes(body.command);
  if(noId)requireValue(body.targetId===null,'invalid_loi_target','This action has no existing target.');else v.uuid(body.targetId,'Program letter target');
  const canonicalBody={command:body.command,targetKind:'program',targetId:body.targetId,data:body.data??{}};
  return {...canonicalBody,requestId:body.requestId,expectedVersion:body.expectedVersion,bodyHash:v.digest(canonicalBody)};

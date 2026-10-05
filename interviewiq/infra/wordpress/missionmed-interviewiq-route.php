@@ -41,6 +41,14 @@ function mmiiqg_path($request_uri) {
 
 /** Explicit API contract, independent of whichever routes a sibling implements. */
 function mmiiqg_api_route($method, $path) {
+    if (mmiiq_setting('INTERVIEWIQ_CALENDAR_V2_ENABLED') === 'true') {
+        if ($method==='GET'&&$path==='/interviewiq/api/calendar/student-preview') { return array('target'=>'/api/calendar/student-preview','max_bytes'=>0); }
+        if ($method==='GET'&&$path==='/interviewiq/api/calendar/cohort') { return array('target'=>'/api/calendar/cohort','max_bytes'=>0,'query'=>'calendar'); }
+        if (preg_match('#^/interviewiq/api/calendar/admin/([a-f0-9-]{36})$#D',$path,$m)&&mmiiq_uuid($m[1])&&in_array($method,array('GET','POST'),true)) { return array('target'=>substr($path,12),'max_bytes'=>262144); }
+        if (preg_match('#^/interviewiq/api/interviews/([a-f0-9-]{36})/itinerary(?:/([a-f0-9-]{36}|withdraw))?$#D',$path,$m)&&mmiiq_uuid($m[1])) {
+            $tail=$m[2]??'';if(($method==='POST'&&$tail==='')||($method==='GET'&&($tail===''||mmiiq_uuid($tail)))||($method==='POST'&&$tail==='withdraw')) { return array('target'=>substr($path,12),'max_bytes'=>$tail==='withdraw'?16384:5242880,'itinerary'=>true,'binary_upload'=>$method==='POST'&&$tail==='','binary_download'=>$method==='GET'&&$tail!==''); }
+        }
+    }
     if ($method === 'GET' && $path === '/interviewiq/api/bootstrap') { return array('target' => '/api/bootstrap', 'max_bytes' => 0); }
     if ($method === 'GET' && $path === '/interviewiq/api/programs') { return array('target' => '/api/programs', 'max_bytes' => 0, 'query' => 'q'); }
     if ($method === 'POST' && $path === '/interviewiq/api/commands') { return array('target' => '/api/commands', 'max_bytes' => 1048576); }
@@ -56,6 +64,10 @@ function mmiiqg_api_route($method, $path) {
 }
 
 function mmiiqg_query($route, $raw) {
+    if (($route['query']??'')==='calendar') {
+        if(!is_string($raw)||strlen($raw)>2048||preg_match('/%(?![a-fA-F0-9]{2})/',$raw)){return false;}$input=array();parse_str($raw,$input);$keys=array_keys($input);sort($keys);if($keys!==array('end','start')&&$keys!==array('cursor','end','start')){return false;}if(count(explode('&',$raw))!==count($keys)){return false;}
+        foreach(array('start','end') as $k){if(!is_string($input[$k])||!preg_match('/^\d{4}-\d{2}-\d{2}$/D',$input[$k])){return false;}}if(isset($input['cursor'])&&(!is_string($input['cursor'])||strlen($input['cursor'])>1024||!preg_match('/^[A-Za-z0-9_.-]+$/D',$input['cursor']))){return false;}return '?'.http_build_query($input,'','&',PHP_QUERY_RFC3986);
+    }
     if ($raw === '') { return ''; }
     if (($route['query'] ?? '') !== 'q' || !is_string($raw) || strlen($raw) > 3074
         || !preg_match('/^q=([^&]*)$/D', $raw, $match) || preg_match('/%(?![a-fA-F0-9]{2})/', $raw)) { return false; }
@@ -147,7 +159,7 @@ function mmiiqg_proxy($route, $method) {
     $body = '';
     $content_type = strtolower(trim(explode(';', $_SERVER['CONTENT_TYPE'] ?? '')[0]));
     if ($method !== 'GET') {
-        if ($content_type !== 'application/json') { mmiiqg_error(415, 'content_type_not_supported'); }
+        if (($route['binary_upload']??false) ? !in_array($content_type,array('application/pdf','image/png','image/jpeg'),true) : $content_type !== 'application/json') { mmiiqg_error(415, 'content_type_not_supported'); }
         if (isset($_SERVER['CONTENT_LENGTH']) && (!ctype_digit((string) $_SERVER['CONTENT_LENGTH'])
             || (int) $_SERVER['CONTENT_LENGTH'] > $route['max_bytes'])) { mmiiqg_error(413, 'request_too_large'); }
         $input = fopen('php://input', 'rb');
@@ -162,13 +174,20 @@ function mmiiqg_proxy($route, $method) {
         $value = $_SERVER[$server_key] ?? '';
         if ($value !== '' && is_string($value) && preg_match('/^[A-Za-z0-9_.:-]{1,120}$/D', $value)) { $headers[$name] = $value; }
     }
+    foreach(array('X-IIQ-Request-ID'=>'HTTP_X_IIQ_REQUEST_ID','X-IIQ-Expected-Version'=>'HTTP_X_IIQ_EXPECTED_VERSION','X-IIQ-SHA256'=>'HTTP_X_IIQ_SHA256','X-IIQ-Extension'=>'HTTP_X_IIQ_EXTENSION','X-IIQ-Calendar-Target'=>'HTTP_X_IIQ_CALENDAR_TARGET','X-IIQ-Student-Preview'=>'HTTP_X_IIQ_STUDENT_PREVIEW') as $name=>$key){$v=$_SERVER[$key]??'';if($v!==''&&is_string($v)&&strlen($v)<=80&&preg_match('/^[A-Za-z0-9_-]+$/D',$v)){$headers[$name]=$v;}}
+    $maximum_response=($route['binary_download']??false)?5242880:4194304;
     $result = wp_remote_request($origin . $route['target'] . $query, array('method' => $method, 'headers' => $headers,
         'body' => $body, 'timeout' => 45, 'redirection' => 0, 'sslverify' => true,
-        'reject_unsafe_urls' => true, 'limit_response_size' => 4194305, 'cookies' => array()));
+        'reject_unsafe_urls' => true, 'limit_response_size' => $maximum_response+1, 'cookies' => array()));
     if (is_wp_error($result)) { mmiiqg_error(502, 'api_unavailable'); }
     $status = (int) wp_remote_retrieve_response_code($result);
     $response_body = wp_remote_retrieve_body($result);
     $type = (string) wp_remote_retrieve_header($result, 'content-type');
+    if (($route['binary_download']??false)&&$status===200) {
+        $disposition=(string)wp_remote_retrieve_header($result,'content-disposition');
+        if(!is_string($response_body)||strlen($response_body)<1||strlen($response_body)>5242880||$type!=='application/octet-stream'||!preg_match('/^attachment; filename="itinerary-([1-9]|10)\.(pdf|png|jpg)"$/D',$disposition)){mmiiqg_error(502,'api_response_invalid');}
+        mmiiq_private_headers();status_header(200);header('Content-Type: application/octet-stream');header('Content-Disposition: '.$disposition);header('Content-Length: '.strlen($response_body));header("Content-Security-Policy: default-src 'none'; sandbox");echo $response_body;exit;
+    }
     if ($status < 200 || $status >= 600 || ($status >= 300 && $status < 400)
         || !is_string($response_body) || strlen($response_body) > 4194304
         || strtolower(trim(explode(';', $type)[0])) !== 'application/json') { mmiiqg_error(502, 'api_response_invalid'); }

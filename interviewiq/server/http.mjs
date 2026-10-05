@@ -1,3 +1,9 @@
+import {calendarEnabled,requireCalendar,createCalendarAdmission} from './calendar-admission.mjs';
+import {readCohort} from './calendar-cohort.mjs';
+import {readAdminLogistics,writeAdminLogistics} from './calendar-admin.mjs';
+import {uploadItinerary,listItineraries,downloadItinerary,withdrawItinerary} from './calendar-itinerary.mjs';
+import {emptyStudentPreview} from './calendar-preview.mjs';
+import {intakeEnabled} from './interview-intake.mjs';
 import {RESEARCH_PROOF_PATH} from './research-job-runtime.mjs';
 import {deepResearchEnabled} from './research-dispatch.mjs';
 import {createHash,randomUUID,timingSafeEqual} from 'node:crypto';
@@ -18,7 +24,8 @@ export function publicError(error) {
   if(error?.code==='42501')return new AppError(403,'access_denied','This action is not available for your current access.');
   return new AppError(503,'service_unavailable','This operation could not be completed. Your unsaved text is kept. Please retry.');
 }
-export function createHandler({config,database,authorize,commands,owners,recordings=null,researchProof=null,logger=()=>{}}) {
+export function createHandler({config,database,authorize,commands,owners,recordings=null,researchProof=null,logger=()=>{},calendarAdmission=null}) {
+  const admit=calendarAdmission||createCalendarAdmission(config);
   return async function handle(req,res) {
     const requestId=randomUUID();
     const send=(status,value)=>{
@@ -47,18 +54,35 @@ export function createHandler({config,database,authorize,commands,owners,recordi
       const actor=await authorize(req,`${req.method} ${path}`);
       if(config.coreOnly) {
         requireValue(actor.role==='admin' || (actor.role==='student' && ['360','ivprep_complete'].includes(actor.tier)), 'core_access_required','InterviewIQ is not available for your current access.',403);
-        requireValue(route==='bootstrap' || route==='commands'||route==='programs'&&(researchEnabled(config,actor)||deepResearchEnabled(config,actor)||loiCanonicalLookup(config,actor)),'coming_soon','COMING SOON — this integration is not active. Your saved calendar is unchanged.',503);
+        requireValue(route==='bootstrap' || route==='commands'||route==='student-preview'||route.startsWith('calendar-')&&calendarEnabled(config,actor)||route.startsWith('itinerary-')&&calendarEnabled(config,actor)||route==='programs'&&(researchEnabled(config,actor)||deepResearchEnabled(config,actor)||loiCanonicalLookup(config,actor)||intakeEnabled(config,actor)),'coming_soon','COMING SOON — this integration is not active. Your saved calendar is unchanged.',503);
       }
+      requireValue(!req.headers['x-iiq-student-preview']||route==='student-preview','student_preview_restricted','Student Preview cannot read or save private work.',403);
+      if(route==='student-preview'){requireCalendar(config,actor);return send(200,emptyStudentPreview(actor));}
+      const calendarContext={database,actor,config,owners,admit,eventRef:path.split('/')[4],interviewId:path.split('/')[3],attachmentId:path.split('/')[5],targetRef:req.headers['x-iiq-calendar-target']};
+      if(route==='calendar-cohort')return send(200,await readCohort({...calendarContext,input:Object.fromEntries(url.searchParams)}));
+      if(route==='calendar-admin-read')return send(200,await readAdminLogistics(calendarContext));
+      if(route==='calendar-admin-write')return send(200,await writeAdminLogistics(calendarContext,await jsonBody(req,config.maxBodyBytes)));
+      if(route==='itinerary-upload')return send(200,await uploadItinerary(calendarContext,req));
+      if(route==='itinerary-list')return send(200,await listItineraries(calendarContext));
+      if(route==='itinerary-withdraw')return send(200,await withdrawItinerary(calendarContext,await jsonBody(req,16384)));
+      if(route==='itinerary-download'){const f=await downloadItinerary(calendarContext);res.writeHead(200,f.headers);return res.end(f.bytes);}
       if(route==='bootstrap')return send(200,await commands.bootstrap(actor));
       if(route==='programs'){
         const loiLookup=loiCanonicalLookup(config,actor);
-        if(config.researchMissionsEnabled===true&&!loiLookup)requireResearch(config,actor);
+        if(config.researchMissionsEnabled===true&&!loiLookup&&!intakeEnabled(config,actor))requireResearch(config,actor);
         const result=await owners.searchPrograms(actor,{q:url.searchParams.get('q')||''});
         // LOI-only registry access cannot expose a configured-out program.
-        if(loiLookup&&!researchEnabled(config,actor)&&!deepResearchEnabled(config,actor)&&config.loi.programId){const programs=result.programs.filter(p=>loiProgramAllowed(config,actor,p.id));return send(200,{...result,programs,total:programs.length});}
+        if(!intakeEnabled(config,actor)&&loiLookup&&!researchEnabled(config,actor)&&!deepResearchEnabled(config,actor)&&config.loi.programId){const programs=result.programs.filter(p=>loiProgramAllowed(config,actor,p.id));return send(200,{...result,programs,total:programs.length});}
         return send(200,result);
       }
-      if(route==='commands')return send(200,await commands.execute(actor,await jsonBody(req,config.maxBodyBytes),{revalidateActor:()=>authorize(req,`${req.method} ${path}`)}));
+      if(route==='commands'){
+        const maximum=config.maxBodyBytes,large=['myeras.preview','myeras.import'];
+        // Count the actual raw bytes even after JSON decoding; non-import ceilings stay exact.
+        let rawBytes=0;const counted={headers:req.headers,async *[Symbol.asyncIterator](){for await(const chunk of req){rawBytes+=chunk.length;yield chunk;}}};
+        let body;try{body=await jsonBody(counted,1600000);}catch(error){if(error?.code==='invalid_json'&&(rawBytes>maximum||Number(req.headers['content-length'])>maximum))throw new AppError(413,'payload_too_large','This request is too large.');throw error;}
+        requireValue(large.includes(body.command)||rawBytes<=maximum,'payload_too_large','This request is too large.',413);
+        return send(200,await commands.execute(actor,body,{revalidateActor:()=>authorize(req,`${req.method} ${path}`)}));
+      }
       if(!recordings)throw new AppError(503,'speech_unavailable','Speech capture is unavailable. You can keep typing your private debrief.');
       const id=path.split('/')[3];
       if(route==='recording-status')return send(200,await recordings.status(actor,id));
@@ -81,7 +105,11 @@ function resolveRoute(method,path,url) {
     requireValue(keys.length<=1 && keys.every(k=>k==='q') && (url.searchParams.get('q')||'').length<=256,'invalid_query','Enter a program search of up to 256 characters.',400);
     return 'programs';
   }
+  if(method==='GET'&&path==='/api/calendar/cohort'){const keys=[...url.searchParams.keys()];requireValue(keys.length>=2&&keys.length<=3&&new Set(keys).size===keys.length&&keys.every(k=>['start','end','cursor'].includes(k)),'invalid_query','Choose a bounded Calendar range.',400);return 'calendar-cohort';}
   requireValue(!url.search,'invalid_query','This endpoint does not accept a query.',400);
+  if(method==='GET'&&path==='/api/calendar/student-preview')return 'student-preview';
+  const calendarAdmin=/^\/api\/calendar\/admin\/([a-f0-9-]{36})$/.exec(path);if(calendarAdmin&&UUID.test(calendarAdmin[1])&&['GET','POST'].includes(method))return method==='GET'?'calendar-admin-read':'calendar-admin-write';
+  const itinerary=/^\/api\/interviews\/([a-f0-9-]{36})\/itinerary(?:\/([a-f0-9-]{36}|withdraw))?$/.exec(path);if(itinerary&&UUID.test(itinerary[1])){if(method==='GET'&&!itinerary[2])return 'itinerary-list';if(method==='POST'&&!itinerary[2])return 'itinerary-upload';if(method==='POST'&&itinerary[2]==='withdraw')return 'itinerary-withdraw';if(method==='GET'&&UUID.test(itinerary[2]||''))return 'itinerary-download';}
   if(method==='GET' && path==='/api/bootstrap')return 'bootstrap';
   if(method==='POST' && path==='/api/commands')return 'commands';
   if(method==='POST' && path==='/api/recordings')return 'recording-start';

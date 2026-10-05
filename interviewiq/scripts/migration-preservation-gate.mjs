@@ -97,7 +97,15 @@ export async function verifyMigrationPolicy(approval,pending,{bodyOf,now=Date.no
    // DR-383 reviewed expansion: exact new owned LOI tables only, never a generic DDL allowance.
    migration.name==='20261005130100_iiq_1204_loi_targets.sql'&&
    migration.sha256==='2dcd407d4f4a73b5d2b4e119c1165321336617f93da58f8f0388777517963915'&&
-   sha(migration.sql)===migration.sha256&&sha(body)==='dc1348b85456a5d5218aa1f192dec4e4544a14f1607533fa634d573d95233c89';
+   sha(migration.sql)===migration.sha256&&sha(body)==='dc1348b85456a5d5218aa1f192dec4e4544a14f1607533fa634d573d95233c89' ||
+   // DR-390 independently reviewed exact additive intake/Calendar bytes; no generic DDL allowance.
+   migration.name==="20261005221500_iiq_1204_interview_intake_v2.sql"&&
+   migration.sha256==="d58ad6e51bf618b536ae5818ec9ea797965e9c94813216fff56246626922fd2e"&&
+   sha(migration.sql)===migration.sha256&&sha(body)==="8b3c6b14410505339d21d96f0d3f2bdaab32e131c9aced38b2761ef7a4921c58" ||
+   // DR-390 independently reviewed exact additive intake/Calendar bytes; no generic DDL allowance.
+   migration.name==="20261005221501_iiq_1204_calendar_projection_itinerary.sql"&&
+   migration.sha256==="3af3b280f00c652572aba98ec631656389a40b96b5f948b12b372d4f242a43ca"&&
+   sha(migration.sql)===migration.sha256&&sha(body)==="0aa5048dba10676bdf64e17903670e2e487b8af14ef019570c3009329d981bb3";
   if(!classified.additiveOnly&&!reviewedExpansion)requiring.push({name:migration.name,sha256:migration.sha256});
  }
  if(!requiring.length)return {additiveOnly:true,requiresFounder:[]};

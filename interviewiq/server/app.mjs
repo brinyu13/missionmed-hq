@@ -1,3 +1,4 @@
+import {createNativeLoiComposer} from './loi-openai.mjs';
 import {createResearchJobRuntime} from './research-job-runtime.mjs';
 import {createServer} from 'node:http';
 import {pathToFileURL} from 'node:url';
@@ -10,7 +11,7 @@ import {createHandler} from './http.mjs';
 import {createPrivateAudioStorage} from './storage.mjs';
 import {createPostgresRecordingStore,createRecordingTranscription,createRecordingsService} from './recordings.mjs';
 
-export async function startApp({config=readConfig(),database,owners,authorize,recordings=null,logger=entry=>process.stderr.write(JSON.stringify(entry)+'\n')}={}) {
+export async function startApp({config=readConfig(),database,owners,authorize,recordings=null,loiComposer=null,logger=entry=>process.stderr.write(JSON.stringify(entry)+'\n')}={}) {
   owners ||= createOwnerServices(config);
   if(config.enabled) {
     database ||= createDatabase(config);
@@ -24,7 +25,8 @@ export async function startApp({config=readConfig(),database,owners,authorize,re
     recordings=createRecordingsService({store:createPostgresRecordingStore({database}),storage,
       transcription:createRecordingTranscription({apiKey:config.speech.apiKey}),bootstrap:actor=>commands.bootstrap(actor)});
   }
-  commands=config.enabled?createCommands({database,owners,config,speechAvailable:recordings?.available===true}):null;
+  loiComposer ??= createNativeLoiComposer(config);
+  commands=config.enabled?createCommands({database,owners,config,loiComposer,speechAvailable:recordings?.available===true}):null;
   authorize ||= createAuthorizer(config);
   server=createServer(createHandler({config,database,authorize,commands,owners,recordings,researchProof,logger}));
   server.requestTimeout=50000;server.headersTimeout=10000;server.keepAliveTimeout=5000;server.maxHeadersCount=40;

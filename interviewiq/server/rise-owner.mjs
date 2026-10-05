@@ -27,6 +27,10 @@ export function createRiseOwner(config={},dependencies={}) {
     async listSavedPrograms(actor,query={}) {
       return projectSavedPrograms(await request(actor,{kind:'saved',query}),query,now());
     },
+    async getIntakeProgram(actor,id) {
+      const result=identity(await request(actor,{kind:'detail',id}),undefined,true);
+      if(result.id!==id)throw invalid();return result;
+    },
     async getProgram(actor,id) {
       const result=identity(await request(actor,{kind:'detail',id}));
       if(result.id!==id)throw invalid();return result;

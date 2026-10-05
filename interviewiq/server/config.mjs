@@ -1,3 +1,4 @@
+import {MODEL_CONTEXT_TOKENS} from './loi-openai.mjs';
 import {readResearchProofConfig} from './research-job-runtime.mjs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -20,7 +21,11 @@ export function readConfig(env = process.env) {
     coreOnly: text('INTERVIEWIQ_LAUNCH_MODE','core') !== 'full',
     deepResearch:{enabled:bool('INTERVIEWIQ_DEEP_RESEARCH_ENABLED'),ownerId:text('INTERVIEWIQ_DEEP_RESEARCH_OWNER_ID'),programId:text('INTERVIEWIQ_DEEP_RESEARCH_PROGRAM_ID'),requestSecret:text('INTERVIEWIQ_RESEARCH_JOB_REQUEST_SECRET')},
     researchProof:readResearchProofConfig(env),
-    loi:{targetsEnabled:bool('INTERVIEWIQ_LOI_TARGETS_ENABLED'),targetsOwnerId:text('INTERVIEWIQ_LOI_TARGETS_OWNER_ID'),enabled:bool('INTERVIEWIQ_LOI_ENABLED'),mode:text('INTERVIEWIQ_LOI_MODE','CANARY'),ownerId:text('INTERVIEWIQ_LOI_OWNER_ID'),programId:text('INTERVIEWIQ_LOI_PROGRAM_ID')},
+    loi:{myerasEnabled:bool('INTERVIEWIQ_MYERAS_IMPORT_ENABLED'),targetsEnabled:bool('INTERVIEWIQ_LOI_TARGETS_ENABLED'),targetsOwnerId:text('INTERVIEWIQ_LOI_TARGETS_OWNER_ID'),enabled:bool('INTERVIEWIQ_LOI_ENABLED'),mode:text('INTERVIEWIQ_LOI_MODE','CANARY'),ownerId:text('INTERVIEWIQ_LOI_OWNER_ID'),programId:text('INTERVIEWIQ_LOI_PROGRAM_ID')},
+    calendar:{enabled:bool('INTERVIEWIQ_CALENDAR_V2_ENABLED')},
+    intake:{enabled:bool('INTERVIEWIQ_INTAKE_V2_ENABLED')},
+    loiOpenai:{apiKey:text('INTERVIEWIQ_OPENAI_API_KEY')},
+    loiComposition:{canaryOwnerId:text('INTERVIEWIQ_LOI_AI_CANARY_OWNER_ID'),lifetimeBudgetMicros:integer('INTERVIEWIQ_LOI_AI_LIFETIME_BUDGET_MICROS',0,0,25000000),enabled:bool('INTERVIEWIQ_LOI_COMPOSITION_ENABLED'),aiEnabled:bool('INTERVIEWIQ_LOI_AI_ENABLED'),authorizationId:text('INTERVIEWIQ_LOI_AI_AUTHORIZATION_ID'),model:text('INTERVIEWIQ_LOI_AI_MODEL'),maxInputTokens:integer('INTERVIEWIQ_LOI_AI_MAX_INPUT_TOKENS',MODEL_CONTEXT_TOKENS,256,MODEL_CONTEXT_TOKENS),maxOutputTokens:integer('INTERVIEWIQ_LOI_AI_MAX_OUTPUT_TOKENS',2048,128,8192),timeoutMs:integer('INTERVIEWIQ_LOI_AI_TIMEOUT_MS',20000,100,30000),maxCostMicros:integer('INTERVIEWIQ_LOI_AI_MAX_COST_MICROS',0,0,1000000),dailyBudgetMicros:integer('INTERVIEWIQ_LOI_AI_DAILY_BUDGET_MICROS',0,0,10000000),dailyRequests:integer('INTERVIEWIQ_LOI_AI_DAILY_REQUESTS',0,0,100)},
     researchMissionsEnabled: bool('INTERVIEWIQ_RESEARCH_MISSIONS_ENABLED'),
     rise: {enabled:bool('INTERVIEWIQ_RISE_ENABLED'),requestSecret:text('INTERVIEWIQ_RISE_REQUEST_SECRET'),researchCoverageEnabled:bool('INTERVIEWIQ_RESEARCH_MISSIONS_ENABLED')},
     databaseUrl: text('INTERVIEWIQ_DATABASE_URL'),
@@ -66,6 +71,10 @@ export function readConfig(env = process.env) {
   if(!['CANARY','ELIGIBLE'].includes(loi.mode)||(loi.ownerId&&!ownerValid)||(loi.programId&&!programValid)||loi.enabled&&(!config.enabled||!config.rise.enabled||Buffer.byteLength(config.rise.requestSecret)<32||loi.mode==='CANARY'&&(!ownerValid||!programValid)))throw new AppError(503,'invalid_configuration','LOI requires an explicit valid scope and authenticated RISE connection.');
   if(loi.targetsOwnerId&&!/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$(?![\s\S])/.test(loi.targetsOwnerId))throw new AppError(503,'invalid_configuration','Program letter rollout requires a valid owner scope.');
   if(config.loi.enabled)config.rise.researchResultsEnabled=true;
+  Object.freeze(config.calendar);
+  Object.freeze(config.intake);
+  Object.freeze(config.loiOpenai);
+  Object.freeze(config.loiComposition);
   Object.freeze(config.loi);
   Object.freeze(config.deepResearch);
   if (config.speech.enabled && !config.speech.apiKey)

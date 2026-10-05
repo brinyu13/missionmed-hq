@@ -669,3 +669,25 @@ body[data-role="admin"] .founderChip,body[data-role="admin"] .roleReadOnly,body[
 @media(max-width:520px){.introLockup{min-width:0;max-width:100%}.introProduct{font-size:clamp(38px,15vw,68px)}}
 @media(max-width:640px){body[data-role="admin"] .storyforgeHeaderActions .hSearch,body[data-admin-preview="true"] .storyforgeHeaderActions .hSearch{min-width:0}}
 @media(max-width:860px){body[data-admin-preview="true"] #rail .rtab{width:auto}}
+
+/* Scoped composition controls preserve the existing drawer/panel family. */
+.loiComposition{min-width:0;max-width:100%;overflow-wrap:anywhere}
+.loiComposition .btn{max-width:100%;white-space:normal;text-align:left}
+.loiComposition textarea,.loiComposition select{min-width:0;max-width:100%;box-sizing:border-box}
+.loiComposition .drawerChoice{min-width:0}
+
+/* MyERAS uses the existing guided drawer family; scope stays within this wizard. */
+.mcv2-drawer.myerasModal{width:min(900px,94vw);max-width:94vw;box-sizing:border-box}
+.myerasWizard{min-width:0;max-width:100%;overflow-wrap:anywhere}
+.myerasWizard .btn{max-width:100%;white-space:normal;text-align:left}
+.myerasWizard pre{white-space:pre-wrap;overflow-wrap:anywhere}
+.myerasWizard textarea,.myerasWizard select,.myerasWizard input{max-width:100%;box-sizing:border-box;min-width:0}
+.myerasProgress{display:flex;flex-wrap:wrap;gap:8px;padding:0;list-style:none;font-size:11px}
+.myerasProgress [aria-current=step]{font-weight:700;color:var(--teal)}
+.myerasDrop{display:block;border:2px dashed currentColor;padding:24px;overflow-wrap:anywhere;cursor:pointer}
+@media(max-width:600px){.mcv2-drawer.myerasModal{width:100vw;max-width:100vw}.myerasWizard .mcv2-drawer-actions{flex-wrap:wrap}.myerasProgress{font-size:10px}}
+
+/* C202 centered own-private intake; existing Calendar and drawers retain their grammar. */
+.mcv2-drawer.intakeModal{inset:50% auto auto 50%;transform:translate(-50%,-50%);width:min(920px,calc(100vw - 40px));height:auto;max-height:calc(100dvh - 40px);border-radius:20px;overflow-y:auto;overflow-x:hidden;box-sizing:border-box;}
+.intakeWizard{min-width:0;overflow-wrap:anywhere;}.intakeWizard fieldset{border:0;padding:0;margin:0;min-width:0;}.intakeProgress{display:flex;flex-wrap:wrap;gap:8px 16px;padding:0;list-style:none;font-size:11px;letter-spacing:.06em;}.intakeProgress [aria-current]{font-weight:700;color:var(--ink);}.intakeGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px;}.intakeWizard input,.intakeWizard select,.intakeWizard textarea{max-width:100%;box-sizing:border-box;}.intakeCheck{display:block;margin:16px 0;}.intakeCheck input{width:auto;}.intakeWizard .drawerChoice{max-width:100%;}.intakeWizard .btn{white-space:normal;max-width:100%;}.intakeWizard .mcv2-drawer-actions{flex-wrap:wrap;}
+@media(max-width:600px){.mcv2-drawer.intakeModal{inset:0;transform:none;width:100%;height:100dvh;max-height:100dvh;border-radius:0;padding:24px 16px;}.intakeGrid{grid-template-columns:minmax(0,1fr);}.intakeWizard .mcv2-drawer-actions .btn{min-height:44px;}.intakeWizard .drawerChoice{grid-template-columns:minmax(0,1fr);}}
