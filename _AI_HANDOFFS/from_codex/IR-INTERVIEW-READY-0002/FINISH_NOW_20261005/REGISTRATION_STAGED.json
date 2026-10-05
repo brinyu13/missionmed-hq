@@ -1,0 +1,15 @@
+{
+  "schema": "ir.commerce.registry.staged.v1",
+  "paths": {
+    "CURRENT.md": "cb75d577162b42beb5909bbd9cc741a31060b0f5ed3bc5ee98f87a0db038c20d",
+    "PRODUCT_PASSPORTS/interview-ready.md": "d59938fd77b1929561ded8e5ea52f45ddc6513fa172656fb693e015608383661",
+    "authority_index.json": "aa7f04ca53a526539a81bdd9741e847c9a06d2b613589378bd4c585c95fa3a2f",
+    "decisions/DR-391_ir_phase1_public_commerce_fallback.md": "0ac4eace2f96ccfbc10864d7a022cba1eb0c6f9c4eeb0bb668dd342e3c532982",
+    "handoffs/from_codex/IR_INTERVIEW_READY_0002/REGISTRATION_TO_CODEX.md": "2251e6798c0d117d56276f1bae637f9c6864209ce2f0e1f31a8a71af9b25e00a",
+    "missions.json": "d955e571af5fe3f376233da33cdee9d877a1217f3e28152700cb2c3195fc7312",
+    "products_index.json": "86652ff09648ca9a05403de5a7246f294dc93502eeb31fef8592f37ee0fd4a02",
+    "registry/boot_dependency_manifest.json": "a577e0119acfeba96e3705d7b1ca61db8b8eaeb83751eb28e43a15631f5a3b6c"
+  },
+  "canonicalBase": "b9f249cb04a5ddc095831c44be278ecc89f2b88c",
+  "decision": "DR-391"
+}

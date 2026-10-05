@@ -1,0 +1,58 @@
+{
+  "sha256": "58a2a52f450252bfe52fedb3a060e0c020a4c03b0a1f09a1d8563effddfce35b",
+  "bytes": 1482210,
+  "assetProfile": "production",
+  "releaseApproved": false,
+  "accountContextMarker": "/* MMED_IR_ACCOUNT_CONTEXT */ null",
+  "gatewayStorageOwner": "device-only mmed-ir-device-v1",
+  "persistenceMode": "device-only",
+  "accountReady": false,
+  "fixedArtifacts": {
+    "matrix-entry.js": {
+      "sha256": "238d936904fce777174f22fb352e99fce118192ca9a469be392246c6a65366ad",
+      "bytes": 2839
+    },
+    "account-gate.html": {
+      "sha256": "da79845723120e8e451b96121c5fe5d9ccd5c2a3ece6c20b5279e252fa6319ff",
+      "bytes": 36683
+    }
+  },
+  "embeddedAssets": {
+    "img/category-accessories.webp": "45c69c17cb5322233bd23b4deb7c8098d9cb62a9980e469f438ffc73a07d45ba",
+    "img/category-camera.webp": "fda43ef688f4359a379e197321b6ef647eb97000dbdef21bc6338cce38532063",
+    "img/category-emergency.webp": "82c9a5320eb485defbfc4aafc99e7eb0142ac608822d0d615ca5c835aa9b8b48",
+    "img/category-lighting.webp": "cc2f27e7e4ea289803e9587369db3f1dc08b83a45af9fad082f5cc6ac977998a",
+    "img/category-microphone.webp": "b5ac55caa6cff13ecfc18fe23a979396395e4e534c87a5706b532ea9c2e06fa6",
+    "img/category-travel.webp": "f63381f605bc377c62026f8efae30cb0614d6ed6e7e69afef1534d481856833f",
+    "img/hero-inperson-board.webp": "2575b8cfd561797c4b0a68205bfd23ea27654f9a7dadd23335ccd8b6fdb7dd77",
+    "img/hero-online-board.webp": "69188a11fd2a412fbb9f86046aa05d2ec16a5b87409d60af8aa166d1834dd293",
+    "img/hero-online-photo.webp": "77dd4dda3c9f996867416305f53ea414a535661b970a0c0b249a5528e8eb0f5d",
+    "img/interview-portrait.webp": "1e89933a936a499782180f1910ad85d7f0e3f9dc5934547d38de04afba73d31e",
+    "img/mountain-landscape-masked.webp": "a026f43e620fe770d53b9ca8ac128fc992b6a66319ab9b07b8c9c92e72b6e9a6",
+    "img/mountain-mark.webp": "a36afeb672fd37ef4e0aaf3c735f816c193ea8084cd05c12d68e64a30d2fedfe",
+    "img/mountain-panorama.webp": "2bcb4f8b1bd354b0f9e0cb1223ed5266641b0950d5c9ec3f4a1034c524828aba",
+    "img/product-canon-r50-cc.webp": "ebc2a5cde4a0a453f872a6e9c25dbc3c39e9396d063a259f8e4bc93a04a674f3",
+    "img/product-shure-sm7b-cc.webp": "b50d9776b8954e9f0f805194d98846cefbd05f2bc97e122ba4eeb8a261965c1a",
+    "img/product-stream-plus-cc.webp": "884908e73319988243097fd50c37bf6d2b47eb35f26a1d921db74dfd96047591",
+    "img/purpose-landscape.webp": "eac2f8891be3a43e6ca05ec83a09e813ac3df5caea1ecffc6f0a2474ff49b95d",
+    "img/style-portrait.webp": "04e5b43f0174093a5954a104ba59d933cc127cc4996d9a9644b0f09d91efa56a",
+    "img/travel-detail.webp": "e1bc7ed021ef601ce62fc300476734333e206e3acc389995505696b798c01dd0"
+  },
+  "inputs": {
+    "src.html": "46f336c26a90915dcb007e4e89a41b22dc31879e4f154906e2cef285ab55d42c",
+    "editorial.css": "d22e49621f9e5e73b6945499a32e04af051141f534b97b3cdef7f4551587e7ae",
+    "editorial.js": "70e2b23af4a06fc1cccf6aba77089df6054d9ed01b34696b61e7e58c2f31bc42",
+    "catalog.json": "b642b081e5ae17e93108675aa29085591bc8f89f8d10c3906937e398def2223c",
+    "completion.css": "a67582781c735c56769092149a4de47394402fac7e306d87f682623f24197fd4",
+    "completion.js": "4e1c8edc975c3f907c65b2db30a110f0137e3953d8a692f6d54f192bb3eb921b",
+    "fashion.json": "5d4023d61b3c22bd30a9ff4a0ce68f1c62b159e6279f66943ea191ef4253123e",
+    "phase1.json": "84bf2ad8c3055bd8c3ab36b87377ba356b6c89e05ee707399a56e124b83bb732",
+    "phase1.css": "caf5458bd9b994b0a2a293bca03b32bfb09346d630624d82d746c75a03c1bc43",
+    "phase1.js": "3c2113b145e095d41c5078aacb50cc51cc64c72f29a1326d6f55662ca1bc8418",
+    "production-assets.json": "112157eb213d0059c6a11a1d976a2edd9a3df31ea639047a6812ce6d41dcb72f",
+    "account.js": "dd4f4b31ccb954add64ce30ac34ab2c98eb26de400051b99f8171c828e0c8ce7",
+    "integration/missionmed-interview-ready.php": "819dd734ae7bf61ded755dd3bdda5e64e4945bac05d28bd4aee5cd68f7a9d7f5",
+    "integration/matrix-entry.js": "238d936904fce777174f22fb352e99fce118192ca9a469be392246c6a65366ad",
+    "build.py": "286a289655ab8b2754eaf0cb8d265f2cc13eeb8a5d41609f7deec6dfcb91413b"
+  }
+}
