@@ -5,7 +5,7 @@ Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`, `DR-350` (narrow packaging), `DR-361` (current RISE eligibility successor); `DR-340` QA grant revoked
 Branch: `codex/ivoc-foreman-9200`
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
-Current continuation boundary: `CANARY4 CONSUMED: PROVIDER CREATED / RETURNED SOCKET REJECTED / EXACT TERMINAL + ROOM0 / PROVIDER OFF; NO-SPEND DIAGNOSTIC REPAIR; NO PAID RETRY`
+Current continuation boundary: `CANARY4 CONSUMED / EXACT TERMINAL + ROOM0; NO-SPEND DIAGNOSTIC REPAIR LIVE / PROVIDER OFF; RETURNED SOCKET CONTRACT UNRESOLVED / NO PAID RETRY`
 
 This is the one living requirement ledger required by the final Founder
 completion directive. A status of `LIVE UNVERIFIED` means the capability is
@@ -15,6 +15,36 @@ the actual production route and deployment.
 ## Foreman 9300 overnight reactivation — current dated evidence
 
 ### Current Fable-to-production convergence — 2026-10-03
+
+- 2026-10-05 CANARY4 NO-SPEND DIAGNOSTIC FIX LIVE:
+  Reviewed/pushed/read-back sourcee0bb0df52780bce2cfda4a28d1f73fd7c1f9fd1c;
+  SUCCESS6ddb5eb6-84a3-48d2-8671-ce68fa1143ed; actual image
+  sha256:417dfc7731c8e0d1ca6b1bd54196740bb954c80b6a67bc2b3264e780b1d4b341.
+  DR350 clean remote clone/filtered1303files/archive
+  c773858361af915cf600137d802e54a0734b82399d3c5c0665b6544ff24cf62c.
+  Independently19/19 scoped server checks PASS; build's mandatory69checksPASS.
+  RuntimeSSH exact deployment, OFF/consumedb0544e71/budget1; provider module
+  f84d200664c15a070eb75f5eaad3a80362267ac84e5d41eeb49f887ebace9b92.
+  Room626d8830 and rendererfc0ef0d0 remain unchanged. Public closed-vocabulary
+  diagnostic helper works in deployed bytes; final independent guardian PASS
+  exact deployment/OFF/hash identities/health401/private provider terminal/room0.
+  The synthetic reason is NOT actual
+  Canary4 root-cause evidence. Health200/ok; anonymous product/bootstrap401.
+  Chrome cold reload retained genuine brinyuADMIN; room refresh safely returned
+  configuration/recover state with no restarted interview and no media elements.
+  Normal Enter Room again renders READY/no avatar checkbox. Capture not reopened;
+  no provider/GPT session created for this no-spend verification. Live tab stays
+  visible in Chrome for Founder observation; no screenshot gallery or UI change.
+  Current official WebSocket API/reference consumes the returned socket address
+  but supplies no guaranteed hostname. Signed-in provider history/GET retain
+  terminal cost/duration, NOT discarded socket address. Do not fabricate a host
+  mismatch or blindly remove the security gate. Precise remaining task: resolve
+  the sanctioned returned-socket contract, then independently prove viewer/frame/
+  authoritative audio/flush/replay under a separately authorized new canary.
+  Healthy current OFF deployment above is rollback; previous43c0a1ee/imagea110
+  retained. No history reset, owner/DB/auth/engine or provider-spend expansion.
+  PRODUCT5072 and SHARED5073 keeper maintained through filing; normal release
+  and canonical release readback are required after this final ledger commit.
 
 - 2026-10-05 CANARY4 SINGLE ATTEMPT / PROVIDER CREATION PROVED:
   Authorization source3836f261; engine5072942; activation SUCCESS
@@ -4035,7 +4065,7 @@ must name numeric cap, duration, session count, kill/rollback and proof sought.
 | 17 | Provider-neutral embodiment adapter and Brain/session separation | LIVE VERIFIED | Production Admin readback returns `missionmed.ivoc.embodiment.v1`: MissionMed InterviewBrain is the Director, providers are Actor-only, students select profiles rather than engines, and the adapter contract requires one audio authority plus generation/response identities. |
 | 17 | Flush/interruption/motion contract, Admin preview and cost controls | NO-SPEND IMPLEMENTED / PROVIDER OFF / LIVE UNVERIFIED | Official audio-driven Actor implements gain mute, queue/generation fence and actual playback acknowledgement;45s/15s/no-retry/canonical reservation remain enforced. The single Founder canary failed before provider creation; browser receiver repaired and live GET verified. Actual avatar flush/interruption/resume acceptance remains UNVERIFIED, not accepted from tests. |
 | 17 | Fictional 10–15 avatar configuration model | LIVE VERIFIED | Authenticated `brinyu` Admin readback returned 12 fictional profiles spanning Program Director, Faculty and Chief Resident with Dove/Peacock/Owl/Eagle styles; every entry explicitly forbids person cloning and carries no provider voice or avatar asset identity. |
-| 17 | Active LemonSlice provider integration | CORE REQUIRED / CANARY #2 FAILED / REPAIR LIVE / PROVIDER OFF | Two separately authorized single attempts are preserved. #1 receiver failure repaired; #2 client start self-aborted at5003ms. No new session/spendUSD0/no orphan; old server substage unavailable, not inferred. Startup/cancellation/deadline/first-PCM repair passes21 checks and is live on7855a10b/source4822250; independent authenticated native GET/configOFF and exact runtime hashes PASS. Visible avatar/sync/audio/flush/resume/two-sided replay remain UNVERIFIED. No paid retry; next provider-dependent proof requires new explicit authorization. |
+| 17 | Active LemonSlice provider integration | CORE REQUIRED / CANARY4 FAIL / DIAGNOSTIC REPAIR LIVE / PROVIDER OFF | Exact provider788f7f64 created, then local returned-socket validation failed before viewer/frame/audio. TerminalCOMPLETED/room0; billable5.838s/2.394CREDITS; overageOFF/0. Exact rejection subreason lost, NOT a proven hostname mismatch or provider HTTP refusal. Sourcee0bb0df/deployment6ddb5eb6 preserves socket policy and actual HTTP/timing/rejection reasons, independently19/19PASS. Visible avatar/sync/singular audible output/flush/resume/two-sided replay UNVERIFIED. All consumed reservations remain fenced. Resolve provider-returned socket contract; no second paid CREATE or new canary without separate explicit authorization. |
 | 18 | Dr Brian/brinyu Admin and second authorized Admin | LIVE UNVERIFIED | `wp:1` Founder/Admin is live accepted. Current WordPress authority verifies `wp:107` (`brian_test`) as an administrator; the production IVOC allowlist and dedicated entitlement now include `wp:107`. Final acceptance still requires a genuine authenticated `wp:107` browser session; no session was forged. |
 | 18 | Entitled 360 student and non-entitled/revoked/expired denials | LIVE VERIFIED ENTRY / FULL ACCEPTANCE WAITING | Ordinary course-entitled `wp:142` authenticated as `subscriber`, loaded production Home and 193 questions after the static-module fix, and navigated AI Mock to Device Calibration with Founder/Admin controls absent. Negative-role/revoked/expired production identities and the full student media journey remain unverified. |
 | 18 | Wrong-role/wrong-mentor denial and actor/subject separation | LIVE UNVERIFIED | Requires authenticated production negative-path acceptance. |
@@ -4108,9 +4138,10 @@ must name numeric cap, duration, session count, kill/rollback and proof sought.
    completed private recording.
 6. Accept longitudinal recurrence only after enough genuine saved sessions
    exist. Do not manufacture recurrence.
-7. Canary #2 used its one normal UI Start and failed without a new provider
-   session. Repair release/independent no-spend proof completed on7855a10b;
-   keep provider OFF and preserve both abandoned canonical IDs. Next proof is
-   one explicitly newly authorized canary of repaired startup ->real A/V ->
-   sole audio/flush ->exact teardown; never retry/re-arm the consumed attempts.
-   No Founder retest requested. Full product completion is unclaimed.
+7. Canary4 consumed one normal UI Start: provider CREATED, returned socket
+   locally REJECTED before connect, exact terminal/room0 confirmed. No-spend
+   diagnostic repair is live on6ddb5eb6; provider remains OFF. Resolve sanctioned
+   socket contract without guessing/weakening security; existing history/GET
+   cannot recover its address. Any further provider-dependent execution requires
+   separate new explicit authorization. Never rearm consumed IDs. No Founder
+   retest requested. Full product completion is unclaimed.
