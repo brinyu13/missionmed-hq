@@ -51,7 +51,7 @@ test('span interiors, complete label widths and milestones each contribute autom
   const long={...short,title:'Complete synthetic role title with a supplied long institution',siteName:'Synthetic institution'};
   assert.ok(deriveFounderYearAllocation([long],options).autoYearWeights.get(2022)>
     deriveFounderYearAllocation([short],options).autoYearWeights.get(2022));
-  const milestone={...short,eventType:'milestone',endDate:null};
+  const milestone={...short,eventType:'milestone',endDate:null,fields:{canonicalType:'CUSTOM_MILESTONE'}};
   assert.ok(deriveFounderYearAllocation([milestone],options).autoYearWeights.get(2022)>
     deriveFounderYearAllocation([short],options).autoYearWeights.get(2022));
   const base=document([duration('first','2020-01','2020-12'),duration('last','2027-01','2027-12')]);
@@ -177,9 +177,11 @@ test('allocation recovery retains a refined snapshot and saturated weights remai
   }
 });
 
-test('milestone composition retains adaptive demand when weighted paint is already safe',()=>{
+test('milestone composition retains safe adaptive demand while an unreviewed study endpoint gates export',()=>{
   const fixture=JSON.parse(readFileSync(new URL('fixtures/d1-timeline-astra-021/golden2-guardian-milestones.json',import.meta.url),'utf8'));
-  const input=fixture.document,before=JSON.stringify(input);
+  const input=structuredClone(fixture.document);
+  input.presentationOverrides={events:Object.fromEntries(input.events.filter(event=>event.eventType==='duration').map(event=>[event.id,{role:event.categoryId==='exams'?'Study':'Role'}]))};
+  const before=JSON.stringify(input);
   const result=serializeFounderPresentation(input,{scope:'FULL_STORY',currentMonth:'2026-10'});
   const diagnostic=result.scene.autoYearAllocation;
   assert.equal(diagnostic.fallback,false);
@@ -188,7 +190,8 @@ test('milestone composition retains adaptive demand when weighted paint is alrea
   assert.equal(diagnostic.selectedRisk,0);
   assert.equal(materialPresentationCollisions(resolveFounderPresentationSvg(result.svg)).length,0);
   assert.ok(result.scene.composedAxis,'safe adaptive composition preserves the displayed axis on first edit');
-  assert.doesNotThrow(()=>assertCompleteFounderPresentation(result));
+  assert.throws(()=>assertCompleteFounderPresentation(result),error=>error.code==='TIMELINE_EXPORT_STUDY_REQUIRED');
+  assert.ok(result.scene.flags.some(flag=>flag.display?.requiresStudy),'real unresolved source exam endpoints remain represented');
   assert.equal(JSON.stringify(input),before);
   assert.equal(diagnostic.adaptive,true,
     'zero weighted paint risk retains demand-based year allocation');
@@ -280,12 +283,13 @@ test('an obstructed full body retains structural chronology and honest collision
 });
 
 
-test('study-attached exam composites retain their native attachment outside the experience spine',()=>{
+test('study durations enter the chronological spine while attempt flags retain their native attachment',()=>{
   const input=structuredClone(FOUNDER_2025_MATRIX.find(item=>item.id==='M01').document);
   input.events.find(event=>event.id==='study').fields={attemptId:'synthetic-attempt',isStudyPeriod:true};
   input.events.find(event=>event.id==='exam').fields={attemptId:'synthetic-attempt',result:'Passed'};
   const result=render(input),paint=resolveFounderPresentationSvg(result.svg);
-  assert.ok(!result.scene.chronologyOrder.ordinaryIds.includes('study'));
+  assert.ok(result.scene.chronologyOrder.ordinaryIds.includes('study'));
+  assert.equal(result.scene.chronologyOrder.violations.length,0);
   assert.ok(!result.scene.chronologyOrder.ordinaryIds.includes('exam'));
   const exam=founderMilestoneTemplateGeometry(result.scene,paint).find(item=>item.eventId==='exam');
   assert.equal(exam.kind,'EXAM_RESULT');
@@ -332,7 +336,7 @@ const clusteredMilestones=()=>document([
       'Synthetic Department of Clinical Research at the Academic Medical Institution',
       'Synthetic Medical Education Conference of the Regional Research Society',
       'Synthetic University Medical Department'
-    ][index],eventType:'milestone',categoryId:'personal',startDate,visibilityState:'INTERVIEWER_SAFE'
+    ][index],eventType:'milestone',categoryId:'personal',startDate,fields:{canonicalType:'CUSTOM_MILESTONE'},visibilityState:'INTERVIEWER_SAFE'
   })),duration('macro-body','2014-01','2025-12')
 ]);
 

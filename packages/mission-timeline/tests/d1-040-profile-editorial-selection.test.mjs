@@ -144,23 +144,22 @@ test('unique exact school selects its supplied education title without inferring
  assert.deepEqual(ambiguous.scene.profileDisplay.excludedEducationRecords,[]);
 });
 
-test('explicit scholarly milestones use concise canonical captions without changing source titles or institutions',()=>{
- for(const [canonicalType,caption] of [['PUBLICATION','Research publication'],['ABSTRACT_POSTER_PRESENTATION','Research presentation']]){
+test('scholarly CV milestones are excluded with exact source retention and tamper-evident accounting',()=>{
+ for(const canonicalType of ['PUBLICATION','ABSTRACT_POSTER_PRESENTATION']){
   const d=source(),title=Array.from({length:45},(_,i)=>`supplied scholarly term ${i}`).join(' ');
   const event={id:'scholarly',title,siteName:'Synthetic Journal of Clinical Research',categoryId:'research',eventType:'milestone',startDate:'2023-05',visibilityState:'INTERVIEWER_SAFE',fields:{canonicalType},provenance:[{sourceDocumentId:'synthetic-source',sourceExcerpt:title}]};
-  d.events.push(event);const before=JSON.stringify(d),r=render(d),flag=r.scene.flags.find(x=>x.id===event.id);
-  assert.equal(flag.title,caption);assert.equal(flag.sourceTitle,title);assert.equal(flag.siteName,event.siteName);
-  assert.deepEqual(r.scene.milestoneDisplay,[{eventId:event.id,policy:'canonical-scholarly-caption',canonicalType,sourceTitle:title,sourceSiteName:event.siteName,displayTitle:caption,provenance:event.provenance}]);
-  const text=flatten(paint(r).filter(node=>node.semanticRef===event.id));assert.ok(text.includes(caption));assert.ok(text.includes(event.siteName));assert.ok(!text.includes(title));
-  assert.equal(JSON.stringify(d),before);assert.doesNotThrow(()=>assertCompleteFounderPresentation(r));
-  r.scene.milestoneDisplay=[];assert.throws(()=>assertCompleteFounderPresentation(r),e=>e.code==='TIMELINE_EXPORT_MISSING_FIELDS');
+  d.events.push(event);const before=JSON.stringify(d),r=render(d);
+  assert.ok(!r.scene.flags.some(flag=>flag.id===event.id));
+  assert.deepEqual(r.scene.presentationAccounting.excludedEvents,[{eventId:event.id,reason:'cv-record-retained-for-review',source:event}]);
+  assert.ok(!r.svg.includes(title));assert.equal(JSON.stringify(d),before);assert.doesNotThrow(()=>assertCompleteFounderPresentation(r));
+  r.scene.presentationAccounting.excludedEvents=[];assert.throws(()=>assertCompleteFounderPresentation(r),e=>e.code==='TIMELINE_EXPORT_MISSING_FIELDS');
  }
 });
 
-test('concise scholarly presentation never guesses an unknown type or replaces an experience role',()=>{
+test('unknown CV flags remain retained for review and experience source titles remain complete',()=>{
  const d=source();d.events.push({id:'unknown-research',title:'Supplied unclassified research milestone',siteName:'Synthetic Institution',categoryId:'research',eventType:'milestone',startDate:'2023-05',visibilityState:'INTERVIEWER_SAFE',fields:{canonicalType:'UNKNOWN'}});
  d.events.push({id:'research-role',title:'Supplied Research Fellow',siteName:'Synthetic Institution',categoryId:'research',eventType:'duration',startDate:'2024-01',endDate:'2024-12',visibilityState:'INTERVIEWER_SAFE',fields:{canonicalType:'PUBLICATION'}});
- const before=JSON.stringify(d),r=render(d);assert.equal(r.scene.flags.find(x=>x.id==='unknown-research').title,d.events.at(-2).title);assert.equal(r.scene.arrows.find(x=>x.id==='research-role').title,d.events.at(-1).title);assert.deepEqual(r.scene.milestoneDisplay,[]);assert.equal(JSON.stringify(d),before);
+ const before=JSON.stringify(d),r=render(d);assert.ok(!r.scene.flags.some(x=>x.id==='unknown-research'));assert.deepEqual(r.scene.presentationAccounting.excludedEvents[0].source,d.events.at(-2));assert.equal(r.scene.arrows.find(x=>x.id==='research-role').title,d.events.at(-1).title);assert.equal(JSON.stringify(d),before);
 });
 
 test('export validation holds a later ordinary experience floating above its predecessor',()=>{

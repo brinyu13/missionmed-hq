@@ -1,3 +1,4 @@
+import {computeFounderCategoryKey,projectFounderDisplayEvents,deriveFounderEventDisplay,founderInstitutionLabel} from './founder-display-rules.js';
 import {resolveFounderPresentationSvg,materialPresentationCollisions} from './resolved-founder-presentation.js';
 import {presentationDateWording} from './source-date-wording.js';
 import {buildKeynoteClassicScene} from "../uxr-002/board-renderer.js";
@@ -125,6 +126,7 @@ export function projectFounderPresentationDocument(document,{scope="INTERVIEWER_
     studentProfile:fields.studentProfile,
     events:projectPresentationEventFields(events,fields),
     exams:fields.exams,
+    presentationExamLinks:(document.exams||[]).map(record=>({id:String(record.id||''),sourceEventId:String(record.sourceEventId||record.fieldProvenance?.examDate?.sourceEventId||'')})).filter(link=>link.id&&visibleEventIds.has(link.sourceEventId)),
     mediaItems:(document.mediaItems||[]).filter((item)=>allowed.has(
       normalizePresentationVisibility(item?.visibilityState||item?.visibility)
     )),
@@ -254,21 +256,7 @@ function founderAxisProjection(document){
 }
 
 function founderCategoryKeyProjection(document,scene){
-  const explicit=new Map((Array.isArray(document?.presentationOverrides?.categoryKey)
-    ?document.presentationOverrides.categoryKey:[]).map((item)=>[String(item?.id||""),item]));
-  // Approved G4: education is a degree milestone/profile span, never a seventh key row.
-  const defaults=[...FOUNDER_COLOR_KEY_ROWS];
-  return defaults.map((fallback,index)=>{
-    const value=explicit.get(fallback.id)||fallback;
-    const color=/^#[0-9a-f]{6}$/i.test(String(value.color||""))
-      ?String(value.color).toUpperCase():fallback.color;
-    return{
-      id:fallback.id,
-      order:index,
-      label:String(value.label||fallback.label).trim().slice(0,32)||fallback.label,
-      color
-    };
-  });
+  return computeFounderCategoryKey(document,scene?.presentationSourceEvents||document.events);
 }
 
 function advancedSceneProjection(document,resolvedById=new Map()){
@@ -300,6 +288,7 @@ function founderPresentationProjection(document,resolvedById,scene){
   return Object.freeze({
     axis:founderAxisProjection(document),
     categoryKey:Object.freeze(founderCategoryKeyProjection(document,scene).map(Object.freeze)),
+    colorKeyGeometryExplicit:!!document?.presentationOverrides?.colorKeyGeometry,
     colorKeyGeometry:Object.freeze(boundedGeometry(
       document?.presentationOverrides?.colorKeyGeometry,
       {x:20,y:300,width:284,height:346}
@@ -367,32 +356,6 @@ function selectConciseProfileEducation(scene,document){
   scene.profileDisplay.includedFields=[...scene.profileDisplay.includedFields,...noLongerCovered.map(item=>item.field)];
 }
 
-const SCHOLARLY_MILESTONE_CAPTIONS=Object.freeze({
-  PUBLICATION:'Research publication',
-  ABSTRACT_POSTER_PRESENTATION:'Research presentation'
-});
-
-// The visual caption follows the existing concise research-milestone grammar.
-// Complete supplied titles and provenance stay in the normalized input and in
-// this explicit presentation accounting; institutions are never abbreviated.
-function selectConciseScholarlyMilestones(scene,projected){
-  const sources=new Map(projected.events.map(event=>[String(event.id),event]));
-  const selections=new Map();
-  for(const flag of scene.flags||[]){
-    const source=sources.get(String(flag.id)),canonicalType=source?.fields?.canonicalType;
-    const displayTitle=SCHOLARLY_MILESTONE_CAPTIONS[canonicalType];
-    if(!displayTitle||source.categoryId!=='research'||source.eventType!=='milestone')continue;
-    selections.set(String(flag.id),{eventId:String(flag.id),policy:'canonical-scholarly-caption',canonicalType,
-      sourceTitle:String(source.title||''),sourceSiteName:String(flag.siteName||''),displayTitle,
-      provenance:structuredClone(source.provenance||[])});
-  }
-  scene.milestoneDisplay=[...selections.values()];
-  for(const key of ['events','flags'])scene[key]=(scene[key]||[]).map(event=>{
-    const display=selections.get(String(event.id));
-    return display?{...event,title:display.displayTitle,sourceTitle:display.sourceTitle}:event;
-  });
-}
-
 export function buildFounderPresentationScene(document,{
   scope="INTERVIEWER_SAFE",
   audience=null,
@@ -402,6 +365,9 @@ export function buildFounderPresentationScene(document,{
   showEmptySlots=false
 }={}){
   const projected=projectFounderPresentationDocument(document,{scope:audience||scope});
+  const sourceEvents=structuredClone(projected.events);
+  const selection=projectFounderDisplayEvents(projected);
+  projected.events=selection.events;
   let scene=buildKeynoteClassicScene(projected,{
     currentMonth:presentationCurrentMonth(projected,currentMonth),
     audience:"EVERYTHING",
@@ -413,11 +379,18 @@ export function buildFounderPresentationScene(document,{
   }
   const sources=new Map(projected.events.map(event=>[String(event.id),event]));
   for(const key of ['events','arrows','flags'])scene[key]=(scene[key]||[]).map(item=>({...item,sourceDateWording:item.sourceDateWording||sources.get(String(item.id))?.fields?.sourceDateWording||null}));
-  selectConciseScholarlyMilestones(scene,projected);
+  scene.presentationSourceEvents=sourceEvents;
+  scene.presentationDisplayOverrides=structuredClone(projected.presentationOverrides||{});
+  scene.presentationLocalTestMetadata={localTestPrototype:projected.metadata?.localTestPrototype===true};
+  scene.presentationExamContext={exams:structuredClone(projected.exams||[]),presentationExamLinks:structuredClone(projected.presentationExamLinks||[]),builder:{examReviewCorrections:structuredClone(projected.builder?.examReviewCorrections||{})}};
+  scene.presentationAccounting={policy:'founder-display-rules/1',excludedEvents:selection.excluded,localTest:selection.events.some(event=>event.fields?.localTestOnly===true)};
   selectConciseProfileEducation(scene,projected);
   if(measureText)scene.measureText=measureText;
   scene.showEmptySlots=showEmptySlots===true;
-  scene.mediaProjection=mediaProjection(projected,mediaById);
+  const hidden=projected.presentationOverrides?.hidePrototypePhotoCards===true
+    ?projected.mediaItems.filter(item=>mediaRole(item)==='photo'&&(item.prototypeTest===true||item.metadata?.prototypeTest===true)):[];
+  scene.presentationAccounting.hiddenPrototypePhotos=structuredClone(hidden);
+  scene.mediaProjection=mediaProjection({...projected,mediaItems:projected.mediaItems.filter(item=>!hidden.includes(item))},mediaById);
   const advanced=advancedProjection(projected,mediaById);
   if(advanced)scene.advancedProjection={...(scene.advancedProjection||{}),...advanced};
   scene.founderPresentation=founderPresentationProjection(projected,mediaById,scene);
@@ -511,6 +484,8 @@ export function assertCompleteFounderPresentation(rendered,{allowPendingMedia=fa
   }
   const uncertain=[...(rendered.scene.arrows||[]),...(rendered.scene.flags||[])].filter(event=>Object.values(event.datePrecision||{}).includes('UNKNOWN'));
   if(uncertain.length){const error=new TypeError('Confirm unknown dates before exporting; normalized coordinates do not establish a source date.');error.code='TIMELINE_EXPORT_INCOMPLETE';error.eventIds=uncertain.map(event=>String(event.id));throw error;}
+  const missingStudies=(rendered.scene.flags||[]).filter(event=>event.display?.requiresStudy);
+  if(missingStudies.length){const error=new TypeError('Review and confirm the study period for each exam endpoint before exporting.');error.code='TIMELINE_EXPORT_STUDY_REQUIRED';error.eventIds=missingStudies.map(event=>String(event.id));throw error;}
   const chronology=validateLocked407FChronology(rendered.scene);
   if(chronology.violations.length){
     const error=new TypeError('Later experience events must continue down and right in start-date order. Review the chronological layout before exporting.');
@@ -522,18 +497,17 @@ export function assertCompleteFounderPresentation(rendered,{allowPendingMedia=fa
   const represented=new Set(paint.nodes.map(node=>String(node.semanticRef||'')));
   const normalized=value=>String(value||'').replace(/\s+/g,' ').trim();
   const missingFields=[];
-  const milestoneDisplay=rendered.scene.milestoneDisplay||[];
-  for(const event of rendered.scene.flags||[]){
-    const records=milestoneDisplay.filter(record=>record.eventId===String(event.id));
-    if(!event.sourceTitle&&!records.length)continue;
-    const record=records[0];
-    if(records.length!==1||record.policy!=='canonical-scholarly-caption'||event.categoryId!=='research'||
-      SCHOLARLY_MILESTONE_CAPTIONS[record.canonicalType]!==record.displayTitle||event.title!==record.displayTitle||
-      event.sourceTitle!==record.sourceTitle||String(event.siteName||'')!==record.sourceSiteName){
-      missingFields.push({id:String(event.id),field:'milestone.presentation-accounting'});
+  const sourceEvents=rendered.scene.presentationSourceEvents;
+  if(sourceEvents){
+    const document={...rendered.scene.presentationExamContext,events:sourceEvents,metadata:rendered.scene.presentationLocalTestMetadata,presentationOverrides:rendered.scene.presentationDisplayOverrides||{}};
+    const selection=projectFounderDisplayEvents(document),accounted=rendered.scene.presentationAccounting?.excludedEvents||[];
+    if(JSON.stringify(selection.excluded)!==JSON.stringify(accounted))missingFields.push({id:'presentation',field:'excluded-source-accounting'});
+    for(const source of selection.events){
+      const event=[...(rendered.scene.arrows||[]),...(rendered.scene.flags||[])].find(item=>String(item.id)===String(source.id));
+      if(!event&&source.categoryId!=='education'&&source.fields?.builderDomain!=='explanation')missingFields.push({id:String(source.id),field:'display.missing-event'});
+      if(event&&JSON.stringify(event.display)!==JSON.stringify(deriveFounderEventDisplay(document,source)))missingFields.push({id:String(source.id),field:'display.source-accounting'});
     }
   }
-  for(const record of milestoneDisplay)if(!(rendered.scene.flags||[]).some(event=>String(event.id)===record.eventId))missingFields.push({id:record.eventId,field:'milestone.unsourced-selection'});
   const sourceEducation=rendered.scene.profile?.sourceEducationRecords;
   if(sourceEducation){
     const display=rendered.scene.profileDisplay||{},excluded=display.excludedEducationRecords||[];
@@ -582,7 +556,10 @@ export function assertCompleteFounderPresentation(rendered,{allowPendingMedia=fa
   }
   for(const event of [...(rendered.scene.arrows||[]),...(rendered.scene.flags||[])]){
     const text=normalized(paint.nodes.filter(node=>node.kind==='text'&&node.semanticRef===String(event.id)).map(node=>node.text).join(' '));
-    for(const field of ['title','siteName'])if(event[field]&&!text.includes(normalized(event[field])))missingFields.push({id:String(event.id),field});
+    const fields=event.display
+      ?(event.kind==='arrow'?[['role',event.display.role],['institution',event.display.institution],['location',event.display.location]]:[['label',event.display.label],['institution',event.display.institution]])
+      :[['title',event.title],['siteName',event.siteName]];
+    for(const [field,value] of fields)if(value&&!text.includes(normalized(value))&&!(field==='institution'&&text.includes(normalized(founderInstitutionLabel(value,{compact:true})))))missingFields.push({id:String(event.id),field});
   }
 
   const missing=[...expected].filter(id=>!represented.has(id));

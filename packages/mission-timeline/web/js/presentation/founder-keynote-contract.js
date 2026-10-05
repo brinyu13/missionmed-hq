@@ -64,20 +64,14 @@ export const FOUNDER_KEYNOTE_CONTRACT=Object.freeze({
  */
 // sRGB projection of flat legend swatches in the hash-pinned Display P3 golden.
 // Values are color-managed raster evidence, not an invented palette or native-fill claim.
-export const FOUNDER_COLOR_KEY_ROWS=Object.freeze([
-  Object.freeze({id:"work",label:"Work Experience",color:"#00882B"}),
-  Object.freeze({id:"personal",label:"Personal (Not on CV)",color:"#763F9B"}),
-  Object.freeze({id:"exams",label:"USMLE Studies",color:"#0565C0"}),
-  Object.freeze({id:"clinical-hospital",label:"USCE: Teaching Hosp",color:"#DF6A0F"}),
-  Object.freeze({id:"clinical-clinic",label:"USCE: Clinics",color:"#F49018"}),
-  Object.freeze({id:"research",label:"Research Experience",color:"#DCBE23"})
-]);
+export {FOUNDER_DISPLAY_CATEGORY_ROWS as FOUNDER_COLOR_KEY_ROWS} from './founder-display-rules.js';
+import {FOUNDER_DISPLAY_CATEGORY_ROWS as FOUNDER_COLOR_KEY_ROWS} from './founder-display-rules.js';
 
 export const FOUNDER_PRESENTATION_DEFAULTS=Object.freeze({
   theme:"keynote-classic",
   background:"canonical-keynote-board",
   axis:"year-ribbon",
-  colorKeyRows:FOUNDER_COLOR_KEY_ROWS.length,
+  colorKeyRows:"used-categories",
   profileCard:true,
   photoFrames:3
 });
@@ -117,6 +111,6 @@ export const FOUNDER_TEMPLATE_GRAMMAR=Object.freeze({
     }),
     nativeFontNames:Object.freeze(["AmericanTypewriter","AmericanTypewriter-Bold","Baskerville","Futura-Bold","Futura-Medium"])}),
   parametric:Object.freeze(["confirmed-facts","source-date-precision","placement","spacing","nonuniform-year-widths","wrapping","authored-geometry","authored-media-crops","audience-projection"]),
-  prohibited:Object.freeze(["numbered-experience-directory","gantt-replacement","automatic-continuation","automatic-fact-abbreviation","silent-material-omission"]),
+  prohibited:Object.freeze(["numbered-experience-directory","gantt-replacement","automatic-continuation","silent-material-omission"]),
   undefined:Object.freeze(["extreme-density-consolidation","education-seventh-key-row","automatic-year-compression","absent-furniture-policy","minimum-print-font-size"])
 });

@@ -1,3 +1,4 @@
+import {founderInstitutionLabel,founderUsesUsFlag} from '../presentation/founder-display-rules.js';
 import {resolveFounderPresentationSvg,materialPresentationCollisions} from '../presentation/resolved-founder-presentation.js';
 import {presentationDateWording} from '../presentation/source-date-wording.js';
 /*
@@ -168,6 +169,8 @@ function pixel(value){
 function presentation(arrow,scene){
   const rows=new Map((scene?.founderPresentation?.categoryKey||FOUNDER_COLOR_KEY_ROWS)
     .map((item)=>[item.id,item]));
+  const displayId=arrow.display?.categoryId;
+  if(displayId)return{slug:displayId==='clinical'?'th':displayId==='volunteer'?'work':displayId,color:rows.get(displayId)?.color||'#5B6168'};
   if(arrow.categoryId==="exams")return{slug:"usmle",color:rows.get("exams")?.color||"#0565C0"};
   if(arrow.categoryId==="clinical"){
     return /clinic|ambulatory|outpatient/i.test(arrow.siteName)
@@ -339,23 +342,32 @@ function arrowMarkup(arrow,index,layout,scale,scene){
   const outsideInk=boardInk(scene);
   const dates=`<text data-arrow-caption="true" data-board-ink-role="caption" x="${captionX}" y="${dateY}" text-anchor="middle" fill="${outsideInk}" font-family="${TYPE.event}" font-size="${dateSize}">${xml(caption)}</text>`;
   void start;void end;void duration;
-  const siteWidth=Math.min(500,Math.max(1,(scene.measureText||measurePresentationText)(String(arrow.siteName||""),19,TYPE.event)+4));
+  const institution=arrow.display?.institution??arrow.siteName;
+  const leftInstitution=!!arrow.display;
+  const measure=scene.measureText||measurePresentationText;
+  const availableInstitution=leftInstitution?Math.max(24,Math.min(450,box.x-38)):500;
+  const institutionText=measure(String(institution||''),19,TYPE.event)>availableInstitution?founderInstitutionLabel(institution,{compact:true}):institution;
+  const siteWidth=Math.min(availableInstitution,Math.max(1,measure(String(institutionText||''),19,TYPE.event)+4));
   const siteCenter=Math.max(24+siteWidth/2,Math.min(WIDTH-24-siteWidth/2,box.x+box.width/2));
-  const siteLines=arrow.siteName?wrapPresentationText(arrow.siteName,{width:Math.max(1,siteWidth),size:19,family:TYPE.event,measureText:scene.measureText||measurePresentationText}):[];
-  const siteX=(siteLines.length>1?Math.min(WIDTH-24-siteWidth,Math.max(24,box.x)):siteCenter)+(scene.autoSiteOffsets?.get(String(arrow.id))||0);
-  const siteAnchor=siteLines.length>1?"start":"middle";
+  const siteLines=institutionText?wrapPresentationText(institutionText,{width:siteWidth,size:19,family:TYPE.event,measureText:measure}):[];
+  const siteX=leftInstitution?box.x-12:(siteLines.length>1?Math.min(WIDTH-24-siteWidth,Math.max(24,box.x)):siteCenter)+(scene.autoSiteOffsets?.get(String(arrow.id))||0);
+  const siteAnchor=leftInstitution?'end':siteLines.length>1?'start':'middle';
+  const siteY=leftInstitution?shaftY+shaftHeight/2+5-(siteLines.length-1)*10.5:box.y+box.height+headInset+21;
   const site=siteLines.length
-    ?`<text data-board-ink-role="site" data-material-field="siteName" x="${siteX}" y="${box.y+box.height+headInset+21}" text-anchor="${siteAnchor}" fill="${outsideInk}" font-family="${TYPE.event}" font-size="19">${siteLines.map((line,i)=>`<tspan x="${siteX}" dy="${i?21:0}">${xml(line)}</tspan>`).join('')}</text>`
+    ?`<text data-board-ink-role="site" data-material-field="siteName" data-display-institution="${xml(institution||'')}" x="${siteX}" y="${siteY}" text-anchor="${siteAnchor}" fill="${outsideInk}" font-family="${TYPE.event}" font-size="19">${siteLines.map((line,i)=>`<tspan x="${siteX}" dy="${i?21:0}">${xml(line)}</tspan>`).join('')}</text>`
     :"";
+  const locationLines=arrow.display?.location?wrapPresentationText(arrow.display.location,{width:Math.max(100,Math.min(500,WIDTH-box.x-24)),size:18,family:TYPE.event,measureText:measure}):[];
+  const location=locationLines.length?`<text data-board-ink-role="location" data-material-field="location" x="${box.x}" y="${box.y+box.height+headInset+21}" fill="${outsideInk}" font-family="${TYPE.event}" font-size="18">${locationLines.map((line,i)=>`<tspan x="${box.x}" dy="${i?21:0}">${xml(line)}</tspan>`).join('')}</text>`:'';
   const arrowHead=Math.min(24,Math.max(14,box.width*.14));
   const arrowPath=joined
     ?`M${box.x} ${box.y}H${box.x2}V${box.y+box.height}H${box.x}Z`
     :`M${box.x} ${shaftY}H${box.x2-recoveredHead}V${shaftY-shoulder}L${box.x2} ${shaftY+shaftHeight/2}L${box.x2-recoveredHead} ${shaftY+shaftHeight+shoulder}V${shaftY+shaftHeight}H${box.x}Z`;
   const separator=joined?`<path data-personal-band-separator="true" d="M${box.x2-9} ${box.y+1}L${box.x2} ${box.y+box.height/2}L${box.x2-9} ${box.y+box.height-1}" fill="none" stroke="#D9C8EA" stroke-width="1.5"/>`:"";
   const labelX=box.x+10+(box.width-28)/2;
-  const title=String(arrow.title||'');
+  const title=String(arrow.display?.role??arrow.title??'');
   const titleWidth=(scene.measureText||measurePresentationText)(title,18,TYPE.arrowLabel,400);
-  const titleFits=titleWidth<=box.width-arrowHead-16&&shaftHeight>=18*1.2;
+  const nativeTitleFits=titleWidth<=box.width-arrowHead-16&&shaftHeight>=18*1.2;
+  const titleFits=!!arrow.display||nativeTitleFits;
   const leftRoom=Math.max(1,box.x-44),rightRoom=Math.max(1,WIDTH-box.x2-44);
   const preferredOutsideLeft=leftRoom>=titleWidth&&(rightRoom<titleWidth||box.x+box.width/2>WIDTH/2)||leftRoom>rightRoom&&rightRoom<titleWidth;
   const outsideLeft=scene.autoArrowLabelSides?.get(String(arrow.id))??preferredOutsideLeft;
@@ -366,14 +378,14 @@ function arrowMarkup(arrow,index,layout,scale,scene){
   // Short chronology bars retain their exact dates/width. Their full readable
   // label sits beside the bar instead of crushing glyphs into a few pixels.
   const titleColor=titleFits?"#FFFFFF":outsideInk;
-  const titleMarkup=`<text data-arrow-label-placement="${titleFits?'inside':outsideLeft?'outside-left':'outside-right'}" data-board-ink-role="${titleFits?'inside-arrow':'outside-arrow'}" x="${titleX}" y="${titleY}" text-anchor="${titleAnchor}" fill="${xml(titleColor)}" font-family="${TYPE.arrowLabel}" font-size="18" font-weight="400">${titleLines.length===1?xml(title):titleLines.map((line,i)=>`<tspan x="${titleX}" dy="${i?22:0}">${xml(line)}</tspan>`).join('')}</text>`;
+  const titleMarkup=`<text${arrow.display&&!nativeTitleFits?' data-text-overflow="true"':''} data-arrow-label-placement="${titleFits?'inside':outsideLeft?'outside-left':'outside-right'}" data-board-ink-role="${titleFits?'inside-arrow':'outside-arrow'}" x="${titleX}" y="${titleY}" text-anchor="${titleAnchor}" fill="${xml(titleColor)}" font-family="${TYPE.arrowLabel}" font-size="18" font-weight="400">${titleLines.length===1?xml(title):titleLines.map((line,i)=>`<tspan x="${titleX}" dy="${i?22:0}">${xml(line)}</tspan>`).join('')}</text>`;
   const lor=arrow.lorSubmitted
     ?`<g data-lor-submitted="true" transform="translate(${box.x2-38} ${box.y-10})"><path d="M0 0H20V22L10 16L0 22Z" fill="#F3E7B3" stroke="#8C6B20"/><text x="10" y="14" text-anchor="middle" fill="#6C5018" font-family="Arial" font-size="11" font-weight="800">★</text></g>`
     :"";
   const chip=arrow.actionChip
     ?`<g data-study-action-chip="${xml(arrow.actionChip.targetAttemptId||"")}" transform="translate(${box.x2-141} ${box.y+36})"><rect width="126" height="24" rx="12" fill="#B98A2E" stroke="#A67A26"/><text x="63" y="16" text-anchor="middle" fill="#191C21" font-family="Rajdhani,Arial,sans-serif" font-size="10" font-weight="700">${xml(arrow.actionChip.label||"Set retake date")}</text></g>`
     :"";
-  return`<g data-event-kind="arrow" data-event-id="${xml(arrow.id)}" data-category="${xml(arrow.categoryId)}"${box.personalSegment?` data-personal-band="${xml(box.personalSegment.first.id)}" data-personal-band-segment="${box.personalSegment.index}"`:""} aria-label="${xml(arrow.ariaLabel)}"${rotationAttribute} filter="url(#d1406-arrow-shadow)"><path data-continuous-duration-arrow="true" d="${arrowPath}" fill="url(#d1406-arrow-${index})" stroke="#17212B" stroke-width="1.5"/><path d="M${box.x+2} ${shaftY+2}H${Math.max(box.x+2,box.x2-recoveredHead-2)}" stroke="#FFFFFF" stroke-opacity=".46" stroke-width="1"/>${separator}${dates}${site}${titleMarkup}${lor}${chip}</g>`;
+  return`<g data-event-kind="arrow" data-event-id="${xml(arrow.id)}" data-category="${xml(arrow.categoryId)}"${box.personalSegment?` data-personal-band="${xml(box.personalSegment.first.id)}" data-personal-band-segment="${box.personalSegment.index}"`:""} aria-label="${xml(arrow.ariaLabel)}"${rotationAttribute} filter="url(#d1406-arrow-shadow)"><path data-continuous-duration-arrow="true" d="${arrowPath}" fill="url(#d1406-arrow-${index})" stroke="#17212B" stroke-width="1.5"/><path d="M${box.x+2} ${shaftY+2}H${Math.max(box.x+2,box.x2-recoveredHead-2)}" stroke="#FFFFFF" stroke-opacity=".46" stroke-width="1"/>${separator}${dates}${site}${titleMarkup}${location}${lor}${chip}</g>`;
 }
 
 function axisMarkup(scale){
@@ -460,20 +472,21 @@ function flagMarkup(flag,index,scale,scene,{interview=false}={}){
   // Native first edits retain the original axis/study attachment, including
   // rotation. This opt-in marker never reinterprets older authored overrides.
   const nativeAnchored=!!overridden&&placed.object?.presentation?.nativeFlagPole?.anchor==='native';
-  const nativeBottom=/\b(?:united states(?: of america)?|u\.s\.(?:a\.)?|usa)\b/i.test(String(flag.title||''))
+  const nativeBottom=founderUsesUsFlag(flag)
     ?FOUNDER_PORTABLE_GEOMETRY.axisTop:placed.defaultPoleBottom;
   const anchoredPoleBottom=nativeAnchored?(nativeBottom-y)/sy:axisAnchored?(FOUNDER_PORTABLE_GEOMETRY.axisTop-y)/sy:64;
   const transform=overridden
     ?` transform="translate(${x} ${y}) rotate(${rotation} 25 32) scale(${sx} ${sy})"`
     :"";
   const bx=overridden?0:x,by=overridden?0:y;
-  const title=interview?"Interview":flag.title;
-  const useUsFlag=!interview&&/\b(?:united states(?: of america)?|u\.s\.(?:a\.?)?|usa)\b/i.test(title);
+  const title=interview?"Interview":flag.display?.label??flag.title;
+  const flagInstitution=flag.display?.institution??flag.siteName;
+  const useUsFlag=!interview&&founderUsesUsFlag(flag);
   if(useUsFlag){
     const poleX=bx+4,usaFlag=FOUNDER_KEYNOTE_CONTRACT.assets.usaFlag,ink=boardInk(scene);
     const labelX=flipLabel?bx-8:bx+54;
     const available=Math.max(1,flipLabel?placed.x-24:WIDTH-placed.x-70);
-    const lines=wrapPresentationText(String(title||'')+(flag.siteName?' — '+String(flag.siteName):''),{width:Math.min(labelLayout?.width||420,available),size:18,family:TYPE.event,measureText:scene.measureText||measurePresentationText});
+    const lines=wrapPresentationText(String(title||'')+(flagInstitution?' — '+String(flagInstitution):''),{width:Math.min(labelLayout?.width||420,available),size:18,family:TYPE.event,measureText:scene.measureText||measurePresentationText});
     const anchor=flipLabel?' text-anchor="end"':'';
     const label=lines.map((line,i)=>`<text data-board-ink-role="flag-label" data-material-field="title" x="${labelX}" y="${by+19+i*21}"${anchor} fill="${ink}" font-family="${TYPE.event}" font-size="18">${xml(line)}</text>`).join('');
     return`<g data-event-kind="flag" data-event-id="${xml(flag.id)}" data-founder-milestone-style="usa" aria-label="${xml(flag.ariaLabel)}"${transform}><line x1="${poleX}" y1="${by+2}" x2="${poleX}" y2="${overridden?anchoredPoleBottom:FOUNDER_PORTABLE_GEOMETRY.axisTop}" stroke="#A9AFB2" stroke-width="4"/><image data-founder-usa-flag-asset-sha256="${usaFlag.sha256}" href="${xml(founderKeynoteAssetUrl(usaFlag))}" x="${bx}" y="${by}" width="50" height="41" preserveAspectRatio="xMinYMin meet"/>${label}<text data-board-ink-role="flag-date" x="${labelX}" y="${by+19+lines.length*21}"${anchor} fill="${ink}" font-family="${TYPE.event}" font-size="18">${xml(presentationDateWording(flag.month,flag.datePrecision?.start,flag.sourceDateWording?.start))}</text></g>`;
@@ -483,7 +496,7 @@ function flagMarkup(flag,index,scale,scene,{interview=false}={}){
      not the old 72×92 signpost sprite. Drawn as vector so it scales with export DPI. General
      milestones remain gray; only explicit exam results change their flag color. The pole foot lands exactly on the ribbon's top edge. */
   const examResult=!interview&&flag.categoryId==="exams"?flag.examResult:null;
-  const fill=examResult==="Failed"?"#C92113":examResult==="Passed"?"#379B43":"#A6AAAE";
+  const fill=examResult==="Failed"?"#C92113":examResult==="Passed"?"#379B43":"#5B6168";
   const edge=examResult==="Failed"?"#982018":examResult==="Passed"?"#267333":"#6E7378";
   const light=examResult==="Failed"?"#F07A66":examResult==="Passed"?"#75C877":"#C9CDD1";
   const poleX=bx+4;
@@ -499,7 +512,7 @@ function flagMarkup(flag,index,scale,scene,{interview=false}={}){
   const labelX=flipLabel?Math.min(nativeLabelX,poleX+26-chipWidth/2-5-18*.12):Math.max(nativeLabelX,poleX+26+chipWidth/2+5+18*.12);
   const available=Math.max(1,flipLabel?placed.x-8-16:WIDTH-placed.x-64-16);
   const wrapWidth=Math.min(labelLayout?.width||420,Math.max(1,available-Math.abs(labelX-nativeLabelX)));
-  const adjacentLabel=String(title||'')+(!interview&&flag.siteName?' — '+String(flag.siteName):'');
+  const adjacentLabel=String(title||'')+(!interview&&flagInstitution?' — '+String(flagInstitution):'');
   const lines=wrapPresentationText(adjacentLabel,{width:wrapWidth,size:18,family:TYPE.arrowLabel,measureText});
   const resultPrivacy=flag.presentationRedactions?.includes('EXAM_RESULT_PRIVATE')?' data-exam-result-private="true"':'';
   const labelYOffset=!interview&&!examResult&&Number.isFinite(labelLayout?.yOffset)?labelLayout.yOffset:0;
@@ -509,7 +522,9 @@ function flagMarkup(flag,index,scale,scene,{interview=false}={}){
 }
 
 function colorKey(scene){
-  const geometry=scene?.founderPresentation?.colorKeyGeometry||FOUNDER_PORTABLE_GEOMETRY.colorKey;
+  const baseGeometry=scene?.founderPresentation?.colorKeyGeometry||FOUNDER_PORTABLE_GEOMETRY.colorKey;
+  const automaticKey=scene?.presentationAccounting&&!scene?.founderPresentation?.colorKeyGeometryExplicit;
+  const geometry=automaticKey?{...baseGeometry,height:96+(scene.founderPresentation.categoryKey.length+(scene?.lorLegend?.visible?1:0))*40}:baseGeometry;
   const {x,y,width,height}=geometry;
   const rows=[...(scene?.founderPresentation?.categoryKey||FOUNDER_COLOR_KEY_ROWS)];
   if(scene?.lorLegend?.visible)rows.push({id:"lor-submitted",label:scene.lorLegend.label||"LOR submitted",color:"#F3E7B3"});
@@ -519,9 +534,9 @@ function colorKey(scene){
      the same paper bounds; the six-row default keeps its original metrics. */
   const rowPitch=rows.length>7?32:rows.length>6?36:40;
   const base=FOUNDER_PORTABLE_GEOMETRY.colorKey;
-  const sx=width/base.width,sy=height/base.height;
+  const sx=width/base.width,sy=automaticKey?1:height/base.height;
   const cardTop=35,left=20,swatchWidth=36,swatchHeight=rows.length>7?26:30,firstRow=cardTop+41;
-  return`<g data-artifact-chrome="color-key" data-canonical-row-count="6" data-founder-geometry="${x},${y},${width},${height}" transform="translate(${x} ${y}) scale(${sx} ${sy})"><image data-paint-inset-top="35" href="${xml(LOCKED_407F_ASSETS.key)}" x="0" y="0" width="${base.width}" height="${base.height}" preserveAspectRatio="none"/><image href="${xml(LOCKED_407F_ASSETS.pin)}" x="${base.width/2-14}" y="-12" width="28" height="28"/><text x="${left}" y="${cardTop+26}" fill="#A8402F" font-family="${TYPE.key}" font-size="18" font-weight="700">COLOR KEY</text><path d="M${left} ${cardTop+31}H${left+100}" stroke="#A8402F" stroke-width="1.2"/>${rows.map(({id,label,color},index)=>{const top=firstRow+index*rowPitch;const labelWidth=(scene.measureText||measurePresentationText)(label,18,TYPE.key,500)+18*.12;const overflow=labelWidth>base.width-left-(left+swatchWidth+12)+.01;return`<g data-color-key-row="${index}" data-category-id="${xml(id)}"><rect x="${left}" y="${top}" width="${swatchWidth}" height="${swatchHeight}" rx="2" fill="${color}" stroke="#2B2B2B" stroke-width="1"/><text${overflow?' data-text-overflow="true"':""} x="${left+swatchWidth+12}" y="${top+21}" fill="#171D26" font-family="${TYPE.key}" font-size="18" font-weight="500">${xml(label)}</text></g>`;}).join("")}</g>`;
+  return`<g data-artifact-chrome="color-key" data-canonical-row-count="${rows.length}" data-founder-geometry="${x},${y},${width},${height}" transform="translate(${x} ${y}) scale(${sx} ${sy})"><image data-paint-inset-top="35" href="${xml(LOCKED_407F_ASSETS.key)}" x="0" y="0" width="${base.width}" height="${automaticKey?height:base.height}" preserveAspectRatio="none"/><image href="${xml(LOCKED_407F_ASSETS.pin)}" x="${base.width/2-14}" y="-12" width="28" height="28"/><text x="${left}" y="${cardTop+26}" fill="#A8402F" font-family="${TYPE.key}" font-size="18" font-weight="700">COLOR KEY</text><path d="M${left} ${cardTop+31}H${left+100}" stroke="#A8402F" stroke-width="1.2"/>${rows.map(({id,label,color},index)=>{const top=firstRow+index*rowPitch;const labelWidth=(scene.measureText||measurePresentationText)(label,18,TYPE.key,500)+18*.12;const overflow=labelWidth>base.width-left-(left+swatchWidth+12)+.01;return`<g data-color-key-row="${index}" data-category-id="${xml(id)}"><rect x="${left}" y="${top}" width="${swatchWidth}" height="${swatchHeight}" rx="2" fill="${color}" stroke="#2B2B2B" stroke-width="1"/><text${overflow?' data-text-overflow="true"':""} x="${left+swatchWidth+12}" y="${top+21}" fill="#171D26" font-family="${TYPE.key}" font-size="18" font-weight="500">${xml(label)}</text></g>`;}).join("")}</g>`;
 }
 
 /* AAA-019 — crop rendered in SVG. The stored crop model ({x,y} pan 0–100, zoom 1–4) used
@@ -763,7 +778,7 @@ function chrome(scene,scale){
   const alignment=typography.alignment==="left"?"start":typography.alignment==="right"?"end":"middle";
   const headlineX=alignment==="start"?plaque.x+48:alignment==="end"?plaque.x+plaque.width-48:plaque.x+plaque.width/2;
   const overflow=textWidth>plaque.width-96+.01||56-fontSize*.86<plaque.y||56+fontSize*.34>plaque.y+plaque.height;
-  return`<g data-artifact-chrome="title" data-founder-geometry="${plaque.x},${plaque.y},${plaque.width},${plaque.height}">${titlePlaqueMarkup(plaque)}<text data-board-headline="true"${overflow?' data-text-overflow="true"':""} x="${headlineX}" y="56" text-anchor="${alignment}" fill="${xml(typography.color||"#111827")}" font-family="${fontFamily}" font-size="${fontSize}" font-weight="${fontWeight}">${xml(label)}</text></g>${colorKey(scene)}${profileMarkup(scene)}${photoFrames(scene)}${interviewMarkup(scene,scale)}${(scene?.explanations||[]).map((explanation,index)=>explanationMarkup(scene,explanation,index,scale)).join("")}`;
+  return`<g data-artifact-chrome="title" data-founder-geometry="${plaque.x},${plaque.y},${plaque.width},${plaque.height}">${titlePlaqueMarkup(plaque)}<text data-board-headline="true"${overflow?' data-text-overflow="true"':""} x="${headlineX}" y="56" text-anchor="${alignment}" fill="${xml(typography.color||"#111827")}" font-family="${fontFamily}" font-size="${fontSize}" font-weight="${fontWeight}">${xml(label)}</text></g>${colorKey(scene)}${profileMarkup(scene)}${scene.presentationAccounting?.localTest?'<text data-local-test-prototype="true" x="20" y="22" fill="#FFFFFF" font-family="Arial,sans-serif" font-size="18">LOCAL TEST</text>':''}${photoFrames(scene)}${interviewMarkup(scene,scale)}${(scene?.explanations||[]).map((explanation,index)=>explanationMarkup(scene,explanation,index,scale)).join("")}`;
 }
 
 function advancedFlagEmoji(code="US"){
@@ -894,8 +909,7 @@ function serializePlacedPortableSvg(scene,{layers="",resourceNamespace=""}={}){
 function chronologicalExperienceArrows(scene){
   const joined=personalBandSegments(scene),sourceOrder=new Map((scene.events||[]).map((event,index)=>[String(event.id),index]));
   return (scene.arrows||[]).filter(arrow=>(!presentationEventObject(scene,arrow.id)?.geometry||automaticDateAnchor(scene,arrow))&&
-    !arrow.manualOffset?.laneLocked&&!Number(arrow.manualOffset?.x)&&!Number(arrow.manualOffset?.y)&&!joined.has(arrow.id)&&
-    !(arrow.study&&(scene.flags||[]).some(flag=>flag.examAttemptId&&flag.examAttemptId===arrow.examAttemptId)))
+    !arrow.manualOffset?.laneLocked&&!Number(arrow.manualOffset?.x)&&!Number(arrow.manualOffset?.y)&&!joined.has(arrow.id))
     .sort((a,b)=>monthIndex(a.startMonth)-monthIndex(b.startMonth)||monthIndex(a.endMonth)-monthIndex(b.endMonth)||
       (sourceOrder.get(String(a.id))??scene.arrows.indexOf(a))-(sourceOrder.get(String(b.id))??scene.arrows.indexOf(b)));
 }
@@ -916,7 +930,8 @@ export function validateLocked407FChronology(scene,{tolerance=.5}={}){
 // spine, but a safe inverse arrangement is never a candidate or a fallback.
 function avoidAutomaticArrowCollisions(scene,svg){
   const auto=chronologicalExperienceArrows(scene);if(!auto.length)return null;
-  const ids=new Set(auto.map(arrow=>'event:'+arrow.id));
+  const attached=arrow=>arrow.study?(scene.flags||[]).filter(flag=>flag.examAttemptId&&flag.examAttemptId===arrow.examAttemptId):[];
+  const ids=new Set(auto.flatMap(arrow=>[arrow,...attached(arrow)].map(event=>'event:'+event.id)));
   const physical=resolveFounderPresentationSvg(svg,{measureText:scene.measureText}).nodes.filter(n=>n.groupId&&n.bounds&&n.groupId!=='furniture:axis'&&
     !n.sourceAttributes['data-board-background']&&!n.sourceAttributes['data-advanced-background']&&
     Number(n.style.opacity??1)>0&&Number(n.style['fill-opacity']??1)>0&&
@@ -925,8 +940,8 @@ function avoidAutomaticArrowCollisions(scene,svg){
   const fixed=physical.filter(n=>!ids.has(n.groupId)).map(n=>envelope(n.occlusionBounds||n.bounds));
   const scale=metrics(scene),layout=founderPortableLayout(scene),labelSides=new Map(scene.autoArrowLabelSides||[]);
   const entries=auto.map(arrow=>{
-    const original=geometry(arrow,layout,scale,scene),parts=physical.filter(n=>n.groupId==='event:'+arrow.id);
-    const boxes=nodes=>nodes.map(n=>({...envelope(n.occlusionBounds||n.bounds),site:n.sourceAttributes['data-material-field']==='siteName',ink:n.kind==='text',title:['inside-arrow','outside-arrow'].includes(n.sourceAttributes['data-board-ink-role'])}));
+    const original=geometry(arrow,layout,scale,scene),parts=physical.filter(n=>[arrow,...attached(arrow)].some(event=>n.groupId==='event:'+event.id));
+    const boxes=nodes=>nodes.map(n=>({...envelope(n.occlusionBounds||n.bounds),site:!auto.some(arrow=>arrow.display)&&n.sourceAttributes['data-material-field']==='siteName',ink:n.kind==='text',title:['inside-arrow','outside-arrow'].includes(n.sourceAttributes['data-board-ink-role'])}));
     const variants=[{parts:boxes(parts),side:labelSides.get(String(arrow.id))}];
     const outside=parts.find(n=>n.sourceAttributes['data-arrow-label-placement']?.startsWith('outside-'));
     if(outside){
@@ -1015,7 +1030,7 @@ function avoidAutomaticArrowCollisions(scene,svg){
 // typography and authored positions do not participate in this repair.
 function exchangeAutomaticArrowSlots(scene,svg){
   const joined=personalBandSegments(scene);
-  const eligible=new Set((scene.arrows||[]).filter(arrow=>(!presentationEventObject(scene,arrow.id)?.geometry||automaticDateAnchor(scene,arrow))&&!arrow.manualOffset?.laneLocked&&!Number(arrow.manualOffset?.x)&&!Number(arrow.manualOffset?.y)&&!joined.has(arrow.id)&&!(arrow.study&&(scene.flags||[]).some(flag=>flag.examAttemptId&&flag.examAttemptId===arrow.examAttemptId))).map(arrow=>String(arrow.id)));
+  const eligible=new Set((scene.arrows||[]).filter(arrow=>(!presentationEventObject(scene,arrow.id)?.geometry||automaticDateAnchor(scene,arrow))&&!arrow.manualOffset?.laneLocked&&!Number(arrow.manualOffset?.x)&&!Number(arrow.manualOffset?.y)&&!joined.has(arrow.id)).map(arrow=>String(arrow.id)));
   const physical=resolveFounderPresentationSvg(svg,{measureText:scene.measureText}).nodes.filter(n=>n.groupId&&n.bounds&&n.groupId!=='furniture:axis'&&!n.sourceAttributes['data-board-background']&&!n.sourceAttributes['data-advanced-background']&&Number(n.style.opacity??1)>0&&Number(n.style['fill-opacity']??1)>0&&!(n.kind==='path'&&(n.lineOnly||n.style.fill==='none'||n.bounds.width<1||n.bounds.height<1)));
   const envelope=b=>{const a=(b.rotation||0)*Math.PI/180,w=Math.abs(b.width*Math.cos(a))+Math.abs(b.height*Math.sin(a)),h=Math.abs(b.width*Math.sin(a))+Math.abs(b.height*Math.cos(a));return{x:b.x+(b.width-w)/2,y:b.y+(b.height-h)/2,width:w,height:h};};
   const parts=physical.map(n=>({group:n.groupId,...envelope(n.occlusionBounds||n.bounds)}));
@@ -1063,7 +1078,7 @@ function macroMilestoneCorridors(scene,entries,occupied){
   const bodies=bodyStates[0];if(!bodies)return null;
   let optionCount=0;
   const options=new Map(entries.map(entry=>{
-    const id=String(entry.flag.id),body=bodies.placed.get(id),movable=!entry.flag.examResult&&!/\b(?:united states(?: of america)?|u\.s\.(?:a\.)?|usa)\b/i.test(entry.flag.title);
+    const id=String(entry.flag.id),body=bodies.placed.get(id),movable=!entry.flag.examResult&&!founderUsesUsFlag(entry.flag);
     const blocked=bodies.parts.filter(part=>part.eventId!==id),found=[];
     for(const variant of entry.variants){
       const labels=variant.parts.filter(part=>part.label);if(!labels.length)continue;
@@ -1112,8 +1127,8 @@ function avoidAutomaticMilestoneCollisions(scene,svg){
   const scale=metrics(scene),measure=scene.measureText||measurePresentationText;
   const entries=eligible.map(flag=>{
     const index=scene.flags.indexOf(flag),original=milestoneGeometry(flag,index,scale,scene);
-    const adjacentLabel=String(flag.title||'')+(flag.siteName?' — '+String(flag.siteName):'');
-    const family=/\b(?:united states(?: of america)?|u\.s\.(?:a\.?)?|usa)\b/i.test(flag.title)?TYPE.event:TYPE.arrowLabel;
+    const adjacentLabel=String(flag.display?.label??flag.title??'')+((flag.display?.institution??flag.siteName)?' — '+String(flag.display?.institution??flag.siteName):'');
+    const family=founderUsesUsFlag(flag)?TYPE.event:TYPE.arrowLabel;
     const legacyWidths=[...new Set([420,320,240,560,Math.ceil(measure(adjacentLabel,18,family))])];
     const words=adjacentLabel.split(/\s+/).filter(Boolean),breakpoints=[];
     // A prefix ending at a source word is a real wrapping breakpoint. Cap
@@ -1127,7 +1142,7 @@ function avoidAutomaticMilestoneCollisions(scene,svg){
       .map(width=>width-18*.12).filter(width=>width>=64&&width<=1912);
     const widths=[...new Set([...ordinaryWidths,...clearanceWidths])];
     const variants=[],seen=new Set();
-    for(const width of widths)for(const flip of [false,true])for(const linePitch of [21,...(!flag.examResult&&!/\b(?:united states(?: of america)?|u\.s\.(?:a\.)?|usa)\b/i.test(flag.title)?[19]:[])]){
+    for(const width of widths)for(const flip of [false,true])for(const linePitch of [21,...(!flag.examResult&&!founderUsesUsFlag(flag)?[19]:[])]){
       const variant={...scene,autoFlagLabels:new Map(scene.autoFlagLabels||[]).set(String(flag.id),{width,flip,linePitch})};
       const parts=resolveFounderPresentationSvg(`<svg viewBox="0 0 1920 1080">${flagMarkup(flag,index,scale,variant)}</svg>`,{measureText:scene.measureText}).nodes.filter(visible).map(n=>({...n.occlusionBounds||n.bounds,y:(n.occlusionBounds||n.bounds).y-original.y,label:n.sourceAttributes['data-board-ink-role']==='flag-label'}));
       if(!parts.length||parts.some(b=>b.x<8||b.x+b.width>1912))continue;
@@ -1198,7 +1213,7 @@ function avoidAutomaticMilestoneCollisions(scene,svg){
   // labels from their fixed incumbent pennants. Exam/USA paint is untouched.
   const labelLimit=8192;let labelExpansions=0;
   if(selected.size<entries.length&&entries.length<=4){
-    const general=entries.filter(entry=>!entry.flag.examResult&&!/\b(?:united states(?: of america)?|u\.s\.(?:a\.)?|usa)\b/i.test(entry.flag.title));
+    const general=entries.filter(entry=>!entry.flag.examResult&&!founderUsesUsFlag(entry.flag));
     const generalIds=new Set(general.map(entry=>String(entry.flag.id))),fixed=occupied.slice();
     let bodiesFit=true;const bodyPlacements=new Map(selected);
     // The adjacent-label grammar can rescue labels only after the native
@@ -1298,6 +1313,7 @@ function avoidAutomaticMilestoneCollisions(scene,svg){
 }
 
 export function composeLocked407FPortableSvg(scene,options={}){
+  if(scene.presentationAccounting&&scene.arrows?.some(arrow=>arrow.display?.institution)&&scene.founderPresentation?.axis?.mode!=='manual'&&!scene.autoAxisPadding)scene={...scene,autoAxisPadding:{before:1,after:0}};
   const finish=result=>{
     result={...result,scene:{...result.scene,chronologyOrder:validateLocked407FChronology(result.scene)}};
     if(!result.scene.autoYearWeights&&!result.scene.autoAxisPadding)return result;
@@ -1345,7 +1361,7 @@ export function composeLocked407FPortableSvg(scene,options={}){
     count(arrow.startMonth);count(arrow.endMonth);
     const first=Math.floor(monthIndex(arrow.startMonth)/12),last=Math.floor(monthIndex(arrow.endMonth)/12);
     const nativeMeasure=scene.measureText||measurePresentationText;
-    const pressure=(nativeMeasure(String(arrow.title||''),18,TYPE.arrowLabel)+nativeMeasure(String(arrow.siteName||''),19,TYPE.event))/160;
+    const pressure=(nativeMeasure(String(arrow.display?.role??arrow.title??''),18,TYPE.arrowLabel)+nativeMeasure(String(arrow.display?.institution??arrow.siteName??''),19,TYPE.event))/160;
     for(let year=first;year<=last;year++)counts.set(year,(counts.get(year)||0)+pressure/Math.max(1,last-first+1)+.5);
   }
   for(const flag of scene.flags||[]){count(flag.month);const year=Math.floor(monthIndex(flag.month)/12);counts.set(year,(counts.get(year)||0)+(scene.measureText||measurePresentationText)([flag.title,flag.siteName].filter(Boolean).join(' '),18,TYPE.arrowLabel)/160);}
