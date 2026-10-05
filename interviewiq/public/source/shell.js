@@ -249,12 +249,13 @@ function renderDrawer(){
 /* ---------------- INTERVIEWS (list + room) ---------------- */
 function sectionsFor(i){
   const out=[];
-  if(coreOnly())return [['identify','Program details'],['schedule','Schedule & details'],['brief','Brief'],['why','Why this program'],['rehearse','Rehearse'],['day','Interview day'],['debrief','Debrief'],['learned','Learned']];
+  if(coreOnly())return [...(loiEnabled()?[['loi','Letter of Interest']]:[]),['identify','Program details'],['schedule','Schedule & details'],['brief','Brief'],['why','Why this program'],['rehearse','Rehearse'],['day','Interview day'],['debrief','Debrief'],['learned','Learned']];
   if(!i.program) out.push(['identify','Confirm program']);
   else out.push(['brief','Brief'],['why','Why this program'],['rehearse','Rehearse'],['day','Interview day']);
   const passed=i.instant && i.instant<=now();
   if(passed || isInactive(i)) out.push(['debrief','Debrief']);
   const db=S.debriefs[i.id]; if(db?.saved || S.learning[i.owner]) out.push(['learned','Learned']);
+  if(loiEnabled())out.push(['loi','Letter of Interest']);
   out.push(['schedule','Schedule & details']);
   return out;
 }
@@ -286,7 +287,7 @@ function renderRoom(i){
   const nm=nextMove(i); const secs=sectionsFor(i);
   if(!S.ui.section || !secs.find(s=>s[0]===S.ui.section)) S.ui.section=nm.section && secs.find(s=>s[0]===nm.section)? nm.section : secs[0][0];
   const sec=S.ui.section;
-  const body=coreOnly()&&!coreSection(sec)?comingSoonPanel(secs.find(x=>x[0]===sec)?.[1]||sec):{identify:renderIdentify, brief:renderBrief, why:renderWhy, rehearse:renderRehearse, day:renderDay, debrief:renderDebrief, learned:renderLearned, schedule:renderSchedule}[sec](i);
+  const body=coreOnly()&&!coreSection(sec)?comingSoonPanel(secs.find(x=>x[0]===sec)?.[1]||sec):{loi:renderLoi, identify:renderIdentify, brief:renderBrief, why:renderWhy, rehearse:renderRehearse, day:renderDay, debrief:renderDebrief, learned:renderLearned, schedule:renderSchedule}[sec](i);
   return `<section data-view="interview" class="live">
     <div class="roomHead"><div><button class="back" type="button" data-act="close-interview">← All interviews</button><div class="h1" style="margin-top:6px">${esc(title(i))}</div><div class="tiny" style="margin-top:4px">${metaLine(i)} · ${esc(i.id)}</div>${pulseSVG(i)}</div><div class="row">${stateChip(i)}<button class="rowBtn" type="button" data-act="cal-item" data-item="iv-${i.id}">Calendar</button></div></div>
     <div class="nextMove"><div><span class="lbl">Next move</span><b>${esc(nm.label)}</b><p>${esc(nm.why)}</p></div><button class="rowBtn pri" type="button" data-act="${nm.act}" data-id="${i.id}" data-section="${nm.section}">Go</button></div>

@@ -5,19 +5,21 @@ let session=null, commandQueue=Promise.resolve(), serverClockOffset=0;
 let administratorPreview=false, administratorWorkspace=null;
 const studentPreview=()=>administratorPreview===true&&actor?.role==='admin';
 function previewError(){return Error('Administrator Student Preview does not save changes or run integrations. Return to Admin View for your administrator tools.');}
-const draftValues=new Map(),pendingCommands=new Map(),researchBriefs=new Map();
+const draftValues=new Map(),pendingCommands=new Map(),researchBriefs=new Map(),loiEvidence=new Map(),loiHandoffs=new Map(),loiInputIds=new Map();
 const clone=o=>JSON.parse(JSON.stringify(o));
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const ownKeys=['why','questions','practice','debriefs','learning','rank','demands','results','shared','consents','mentorPriority'];
+const ownKeys=['why','questions','practice','debriefs','learning','rank','demands','results','shared','consents','mentorPriority','loi'];
 const defaultUI=()=>({route:'home',open:null,section:null,essentials:false,printSel:{story:false,note:false,points:false,support:false},sub:{},cal:{ym:new Date().toISOString().slice(0,7),view:'month',sel:null},drawer:null});
 const CORE_COMMANDS=new Set(['interview.create','interview.identity','interview.schedule','interview.lifecycle','event.create','event.update']);
 const CORE_ACTIONS=new Set(['switch-view','nav','matrix','open-interview','open-card','close-interview','close-card','open-section','section','cal-nav','cal-today','cal-view','cal-day','cal-item','drawer-close','add-interview','new-offer','add-interview-save','date-undated','add-related-pick','add-related-save','offer-save','manual-identity-save','disposition','schedule-save','cancel','restore','postpone','waitlist','related-save','related-lifecycle','join-verify']);
 const coreOnly=()=>capabilities.coreOnly===true;
 const coreRoute=route=>['home','calendar','interviews','settings'].includes(route);
 const deepResearch=()=>capabilities.deepResearch===true&&!studentPreview()&&actor?.role==='student';
-const coreCommand=name=>CORE_COMMANDS.has(name)||deepResearch()&&name==='research.check';
-const coreAction=name=>CORE_ACTIONS.has(name)||deepResearch()&&['resolve','research-refresh','research-advance'].includes(name);
-const coreSection=section=>deepResearch()&&section==='brief'||['identify','schedule'].includes(section);
+const loiEnabled=()=>capabilities.loi===true&&!studentPreview()&&actor?.role==='student';
+const LOI_COMMANDS=new Set(['loi.save','loi.approve','loi.evidence','loi.export','loi.handoff','loi.mark_sent']);
+const coreCommand=name=>loiEnabled()&&LOI_COMMANDS.has(name)||CORE_COMMANDS.has(name)||deepResearch()&&name==='research.check';
+const coreAction=name=>loiEnabled()&&name.startsWith('loi-')||CORE_ACTIONS.has(name)||deepResearch()&&['resolve','research-refresh','research-advance'].includes(name);
+const coreSection=section=>loiEnabled()&&section==='loi'||deepResearch()&&section==='brief'||['identify','schedule'].includes(section);
 function comingSoonBadge(){return '<span class="chip warn" style="font-size:9px;white-space:normal">COMING SOON</span>';}
 function comingSoonPanel(label){return `<div class="panel amber pad" role="status" style="margin-bottom:1rem">${comingSoonBadge()}<h3>${esc(label||'This capability')}</h3><p>This capability is a preview. Its live integration is not active in this release. No recording, research, sharing or remote action will run, and text entered here is not saved.</p><p class="tiny">Your saved interviews and Calendar remain available.</p><button class="btn ghost sm" data-act="nav" data-to="calendar">Open Calendar</button></div>`;}
 function openComingSoon(label){if(!S)return;openDrawer({kind:'coming-soon',label:label||'This capability'});}
@@ -80,7 +82,7 @@ async function command(name,interviewId=null,data={},options={}){
       if(identity!==actor?.id)throw Error('The account changed while this save was in flight. Reopen the intended workspace.');
       pendingCommands.delete(requestKey);
       for(const [key,value] of draftSnapshot)if(draftValues.get(key)===value)draftValues.delete(key);
-      if(result?.bootstrap||result?.actor)applyBootstrap(result);else await refreshWorkspace();
+      if(result?.bootstrap||result?.actor)applyBootstrap(result);else if(!['loi.evidence','loi.export'].includes(name))await refreshWorkspace();
       const checked=result?.researchCheck,d=checked&&S.demands[checked.interviewId];
       if(deepResearch()&&d&&checked.research&&d.requestId===checked.requestId&&d.programId===checked.programId&&d.registryReleaseId===checked.registryReleaseId&&d.version===checked.version)researchBriefs.set(checked.interviewId,checked);
       if(options.render!==false)render();
@@ -100,6 +102,7 @@ function savedDraftIds(name,id,data){
   if(name==='interview.identity')return [...form('of-'),'identity-name','identity-track'];
   if(name==='event.create')return ['ar-iv','ar-kind','ar-date','ar-time','ar-zone','ar-dur','ar-fold'];
   if(name==='event.update'&&!data.action){const k=S.interviews.find(i=>i.id===id)?.related.findIndex(e=>e.id===data.eventId);return ['date','time','zone','dur','fold'].map(f=>'rel-'+f+'-'+k);}
+  if(name==='loi.save')return loiFormIds(id);
   if(name==='prep.save')return [...(data.why?['why-'+id]:[]),...('questions'in data?['q-'+id]:[])];
   if(name==='debrief.save')return [...('edited'in data?['edited-'+id]:[]),...('narrative'in data?['narr-'+id]:[]),...('questions'in data?['qsel-'+id]:[]),...('fields'in data?['enc-count-'+id,'enc-count-precision-'+id,...['emphasized_topics','program_information'].flatMap(k=>['db-'+k+'-'+id,'db-'+k+'-certainty-'+id]),...(data.fields.encounters||[]).flatMap(e=>['format','roles','duration','precision'].map(k=>'enc-'+k+'-'+e.id))]:[])];
   if(name==='practice.feedback')return ['draft-'+id];
@@ -113,7 +116,7 @@ function savedDraftIds(name,id,data){
   return [];
 }
 function clearPrivateMemory(){
-  researchBriefs.clear();draftValues.clear();pendingCommands.clear();void stopSpeech();
+  researchBriefs.clear();loiEvidence.clear();loiHandoffs.clear();loiInputIds.clear();draftValues.clear();pendingCommands.clear();void stopSpeech();
   if(typeof pendingAudio!=='undefined')pendingAudio.clear();
   if(typeof speechSessions!=='undefined')speechSessions.clear();
   if(typeof autosaveTimers!=='undefined'){for(const timer of autosaveTimers.values())clearTimeout(timer);autosaveTimers.clear();}
@@ -158,7 +161,7 @@ function storyforgeProjection(sid){return sid===actor.id&&F.storyforgeProjection
 function draftScope(){return S?.ui?.drawer?['drawer',S.ui.drawer.kind,S.ui.drawer.day||'',S.ui.drawer.item||''].join('|'):['page',S?.ui?.route,S?.ui?.open||'',S?.ui?.section||''].join('|');}
 function draftKey(id){return draftScope()+'::'+id;}
 function pendingDraft(id,fallback=''){const key=draftKey(id);return draftValues.has(key)?draftValues.get(key):fallback;}
-function applyDrafts(){for(const field of document.querySelectorAll('input[id],textarea[id],select[id]')){const key=draftKey(field.id);if(draftValues.has(key)){const value=draftValues.get(key);if(field.multiple&&Array.isArray(value)){for(const option of field.options)option.selected=value.includes(option.value);}else field.value=value;}}}
+function applyDrafts(){for(const field of document.querySelectorAll('input[id],textarea[id],select[id]')){const key=draftKey(field.id);if(draftValues.has(key)){const value=draftValues.get(key);if(field.multiple&&Array.isArray(value)){for(const option of field.options)option.selected=value.includes(option.value);}else if(field.type==='checkbox')field.checked=value===true;else field.value=value;}}}
 function forgetDrafts(ids){for(const id of ids)draftValues.delete(draftKey(id));}
 function setSaved(message='Saved'){const e=document.getElementById('connection-status');if(e)e.textContent=message;}
 async function boot(){

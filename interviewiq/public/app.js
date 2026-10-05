@@ -5,19 +5,21 @@ let session=null, commandQueue=Promise.resolve(), serverClockOffset=0;
 let administratorPreview=false, administratorWorkspace=null;
 const studentPreview=()=>administratorPreview===true&&actor?.role==='admin';
 function previewError(){return Error('Administrator Student Preview does not save changes or run integrations. Return to Admin View for your administrator tools.');}
-const draftValues=new Map(),pendingCommands=new Map(),researchBriefs=new Map();
+const draftValues=new Map(),pendingCommands=new Map(),researchBriefs=new Map(),loiEvidence=new Map(),loiHandoffs=new Map(),loiInputIds=new Map();
 const clone=o=>JSON.parse(JSON.stringify(o));
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const ownKeys=['why','questions','practice','debriefs','learning','rank','demands','results','shared','consents','mentorPriority'];
+const ownKeys=['why','questions','practice','debriefs','learning','rank','demands','results','shared','consents','mentorPriority','loi'];
 const defaultUI=()=>({route:'home',open:null,section:null,essentials:false,printSel:{story:false,note:false,points:false,support:false},sub:{},cal:{ym:new Date().toISOString().slice(0,7),view:'month',sel:null},drawer:null});
 const CORE_COMMANDS=new Set(['interview.create','interview.identity','interview.schedule','interview.lifecycle','event.create','event.update']);
 const CORE_ACTIONS=new Set(['switch-view','nav','matrix','open-interview','open-card','close-interview','close-card','open-section','section','cal-nav','cal-today','cal-view','cal-day','cal-item','drawer-close','add-interview','new-offer','add-interview-save','date-undated','add-related-pick','add-related-save','offer-save','manual-identity-save','disposition','schedule-save','cancel','restore','postpone','waitlist','related-save','related-lifecycle','join-verify']);
 const coreOnly=()=>capabilities.coreOnly===true;
 const coreRoute=route=>['home','calendar','interviews','settings'].includes(route);
 const deepResearch=()=>capabilities.deepResearch===true&&!studentPreview()&&actor?.role==='student';
-const coreCommand=name=>CORE_COMMANDS.has(name)||deepResearch()&&name==='research.check';
-const coreAction=name=>CORE_ACTIONS.has(name)||deepResearch()&&['resolve','research-refresh','research-advance'].includes(name);
-const coreSection=section=>deepResearch()&&section==='brief'||['identify','schedule'].includes(section);
+const loiEnabled=()=>capabilities.loi===true&&!studentPreview()&&actor?.role==='student';
+const LOI_COMMANDS=new Set(['loi.save','loi.approve','loi.evidence','loi.export','loi.handoff','loi.mark_sent']);
+const coreCommand=name=>loiEnabled()&&LOI_COMMANDS.has(name)||CORE_COMMANDS.has(name)||deepResearch()&&name==='research.check';
+const coreAction=name=>loiEnabled()&&name.startsWith('loi-')||CORE_ACTIONS.has(name)||deepResearch()&&['resolve','research-refresh','research-advance'].includes(name);
+const coreSection=section=>loiEnabled()&&section==='loi'||deepResearch()&&section==='brief'||['identify','schedule'].includes(section);
 function comingSoonBadge(){return '<span class="chip warn" style="font-size:9px;white-space:normal">COMING SOON</span>';}
 function comingSoonPanel(label){return `<div class="panel amber pad" role="status" style="margin-bottom:1rem">${comingSoonBadge()}<h3>${esc(label||'This capability')}</h3><p>This capability is a preview. Its live integration is not active in this release. No recording, research, sharing or remote action will run, and text entered here is not saved.</p><p class="tiny">Your saved interviews and Calendar remain available.</p><button class="btn ghost sm" data-act="nav" data-to="calendar">Open Calendar</button></div>`;}
 function openComingSoon(label){if(!S)return;openDrawer({kind:'coming-soon',label:label||'This capability'});}
@@ -80,7 +82,7 @@ async function command(name,interviewId=null,data={},options={}){
       if(identity!==actor?.id)throw Error('The account changed while this save was in flight. Reopen the intended workspace.');
       pendingCommands.delete(requestKey);
       for(const [key,value] of draftSnapshot)if(draftValues.get(key)===value)draftValues.delete(key);
-      if(result?.bootstrap||result?.actor)applyBootstrap(result);else await refreshWorkspace();
+      if(result?.bootstrap||result?.actor)applyBootstrap(result);else if(!['loi.evidence','loi.export'].includes(name))await refreshWorkspace();
       const checked=result?.researchCheck,d=checked&&S.demands[checked.interviewId];
       if(deepResearch()&&d&&checked.research&&d.requestId===checked.requestId&&d.programId===checked.programId&&d.registryReleaseId===checked.registryReleaseId&&d.version===checked.version)researchBriefs.set(checked.interviewId,checked);
       if(options.render!==false)render();
@@ -100,6 +102,7 @@ function savedDraftIds(name,id,data){
   if(name==='interview.identity')return [...form('of-'),'identity-name','identity-track'];
   if(name==='event.create')return ['ar-iv','ar-kind','ar-date','ar-time','ar-zone','ar-dur','ar-fold'];
   if(name==='event.update'&&!data.action){const k=S.interviews.find(i=>i.id===id)?.related.findIndex(e=>e.id===data.eventId);return ['date','time','zone','dur','fold'].map(f=>'rel-'+f+'-'+k);}
+  if(name==='loi.save')return loiFormIds(id);
   if(name==='prep.save')return [...(data.why?['why-'+id]:[]),...('questions'in data?['q-'+id]:[])];
   if(name==='debrief.save')return [...('edited'in data?['edited-'+id]:[]),...('narrative'in data?['narr-'+id]:[]),...('questions'in data?['qsel-'+id]:[]),...('fields'in data?['enc-count-'+id,'enc-count-precision-'+id,...['emphasized_topics','program_information'].flatMap(k=>['db-'+k+'-'+id,'db-'+k+'-certainty-'+id]),...(data.fields.encounters||[]).flatMap(e=>['format','roles','duration','precision'].map(k=>'enc-'+k+'-'+e.id))]:[])];
   if(name==='practice.feedback')return ['draft-'+id];
@@ -113,7 +116,7 @@ function savedDraftIds(name,id,data){
   return [];
 }
 function clearPrivateMemory(){
-  researchBriefs.clear();draftValues.clear();pendingCommands.clear();void stopSpeech();
+  researchBriefs.clear();loiEvidence.clear();loiHandoffs.clear();loiInputIds.clear();draftValues.clear();pendingCommands.clear();void stopSpeech();
   if(typeof pendingAudio!=='undefined')pendingAudio.clear();
   if(typeof speechSessions!=='undefined')speechSessions.clear();
   if(typeof autosaveTimers!=='undefined'){for(const timer of autosaveTimers.values())clearTimeout(timer);autosaveTimers.clear();}
@@ -158,7 +161,7 @@ function storyforgeProjection(sid){return sid===actor.id&&F.storyforgeProjection
 function draftScope(){return S?.ui?.drawer?['drawer',S.ui.drawer.kind,S.ui.drawer.day||'',S.ui.drawer.item||''].join('|'):['page',S?.ui?.route,S?.ui?.open||'',S?.ui?.section||''].join('|');}
 function draftKey(id){return draftScope()+'::'+id;}
 function pendingDraft(id,fallback=''){const key=draftKey(id);return draftValues.has(key)?draftValues.get(key):fallback;}
-function applyDrafts(){for(const field of document.querySelectorAll('input[id],textarea[id],select[id]')){const key=draftKey(field.id);if(draftValues.has(key)){const value=draftValues.get(key);if(field.multiple&&Array.isArray(value)){for(const option of field.options)option.selected=value.includes(option.value);}else field.value=value;}}}
+function applyDrafts(){for(const field of document.querySelectorAll('input[id],textarea[id],select[id]')){const key=draftKey(field.id);if(draftValues.has(key)){const value=draftValues.get(key);if(field.multiple&&Array.isArray(value)){for(const option of field.options)option.selected=value.includes(option.value);}else if(field.type==='checkbox')field.checked=value===true;else field.value=value;}}}
 function forgetDrafts(ids){for(const id of ids)draftValues.delete(draftKey(id));}
 function setSaved(message='Saved'){const e=document.getElementById('connection-status');if(e)e.textContent=message;}
 async function boot(){
@@ -400,6 +403,18 @@ function weekRange(){ const t=new Date(now()); const a=t.getTime(), b=a+7*864000
 function interviewsThisWeek(list){ const [a,b]=weekRange(); return list.filter(i=>i.instant && i.instant>=a && i.instant<b && !isInactive(i)); }
 
 function awaitingCapture(list){ return list.filter(i=>i.instant && i.instant<=now() && !isInactive(i) && !(S.debriefs[i.id]?.saved) && S.debriefs[i.id]?.occurrence!=='no'); }
+
+// LOI revisions remain server-owned; these helpers only hold the student's current tab draft.
+const loiFormNames=['text','whyNow','applicationState','interviewState','motivations','facts','factual','specific'];
+function loiFormIds(id){return loiFormNames.map(k=>'loi-'+k+'-'+id);}
+function loiState(i){return loiEnabled()&&owns(i)?S.loi?.[i.id]||{history:[],outreach:[],current:null,currentBindingValid:false}:{history:[],outreach:[],current:null,currentBindingValid:false};}
+function loiHeadData(i){const h=loiState(i).current;return{letterId:h?.letterId||null,expectedHead:h?.revisionId||null,expectedLetterVersion:h?.letterVersion||0};}
+function loiConfirmed(id){return document.getElementById(id)?.checked??pendingDraft(id,false)===true;}
+function loiList(i,kind,text,confirmed){return text.split('\n').map(x=>x.trim()).filter(Boolean).map(text=>{const key=i.id+':'+kind+':'+text;let id=loiState(i).current?.[kind]?.find(x=>x.text===text)?.id||loiInputIds.get(key);if(!id){id=crypto.randomUUID();loiInputIds.set(key,id);}return{id,text,confirmed};});}
+function loiSelections(i){const e=loiEvidence.get(i.id)?.research;return(e?.facts||[]).filter((f,k)=>loiConfirmed('loi-evidence-'+k+'-'+i.id)).map(f=>({field:f.field,claimRef:f.claimRef}));}
+function loiDraftData(i){const factual=loiConfirmed('loi-factual-'+i.id),specific=loiConfirmed('loi-specific-'+i.id);return{...loiHeadData(i),text:val('loi-text-'+i.id),context:Object.fromEntries(['whyNow','applicationState','interviewState'].map(k=>[k,val('loi-'+k+'-'+i.id)])),motivations:loiList(i,'motivations',val('loi-motivations-'+i.id),factual),facts:loiList(i,'facts',val('loi-facts-'+i.id),factual),selectedEvidence:loiSelections(i),studentFactualConfirmation:factual,studentSpecificityConfirmation:specific};}
+function loiEdited(i){const h=loiState(i).current;if(!h)return true;return['text','whyNow','applicationState','interviewState','motivations','facts'].some(k=>{const expected=k==='text'?h.text||'':['motivations','facts'].includes(k)?(h[k]||[]).map(x=>x.text).join('\n'):h.context?.[k]||'';return val('loi-'+k+'-'+i.id)!==expected;});}
+function loiExternalURL(value,kind,handoff){if(typeof value!=='string'||/[\u0000-\u0020\u007f]/.test(value))throw Error('The compose address is unavailable. Copy the letter instead.');const u=new URL(value);if(kind==='gmail'){if(u.origin!=='https://mail.google.com'||u.pathname!=='/mail/'||u.username||u.password||u.hash||u.searchParams.get('view')!=='cm'||u.searchParams.get('fs')!=='1'||[...u.searchParams.keys()].some(k=>!['view','fs','to','su','body'].includes(k)))throw Error('The Gmail compose address is unavailable. Copy the letter instead.');}else if(u.protocol!=='mailto:'||[...u.searchParams.keys()].some(k=>!['subject','body'].includes(k)))throw Error('The mail compose address is unavailable. Copy the letter instead.');if(handoff){if(kind==='gmail'){if(u.searchParams.get('to')!==handoff.recipient||u.searchParams.get('su')!==handoff.subject||(!handoff.copyOnly&&u.searchParams.get('body')!==handoff.text))throw Error('Compose content changed. Prepare the reviewed handoff again.');}else if(decodeURIComponent(u.pathname)!==handoff.recipient||u.searchParams.get('subject')!==handoff.subject||u.searchParams.get('body')!==handoff.text||u.hash)throw Error('Compose content changed. Prepare the reviewed handoff again.');}return value;}
 
 
 'use strict';
@@ -699,6 +714,21 @@ function renderResearchBrief(i){
  return header+`<div class="brief">${facts||'<p>No current supported facts are available.</p>'}<div class="ans warn"><h4>What remains uncertain</h4><ul>${missing.map(f=>`<li>${esc(f.field.replace(/^research\./,'').replaceAll('_',' '))}: ${esc(f.state==='SUPPORTED'?'Evidence exists; no public factual value available':f.state.toLowerCase())}</li>`).join('')||'<li>All fields have current findings. Verify important details with the program.</li>'}</ul><p>${r.facts.length} of ${r.coverage.fields.length} fields have displayed findings. Observed ${esc(r.coverage.observedAt)}.</p></div></div>`;
 }
 
+function renderLoi(i){
+ if(!loiEnabled()||!owns(i))return '<p>Letter of Interest is unavailable for this workspace.</p>';
+ const state=loiState(i),h=state.current,e=loiEvidence.get(i.id),prepared=loiHandoffs.get(i.id),id=esc(i.id);
+ const field=(k,label,value,area=false)=>`<label class="f" for="loi-${k}-${id}">${label}</label>${area?`<textarea id="loi-${k}-${id}" maxlength="20000" rows="${k==='text'?12:3}">${esc(value||'')}</textarea>`:`<input id="loi-${k}-${id}" maxlength="1000" value="${esc(value||'')}">`}`;
+ const confirm=(k,label)=>`<label><input type="checkbox" id="loi-${k}-${id}" ${h?.[k==='factual'?'studentFactualConfirmation':'studentSpecificityConfirmation']===true?'checked':''}> ${label}</label>`;
+ return `<h2>Letter of Interest</h2><p class="lead">Use supported program details and your confirmed words. Your letters and outreach history stay private.</p><p class="tiny">Draft assembly uses your wording. AI drafting and mentor review are unavailable. Gmail opens a draft; you review it and press Send.</p>${!i.program?'<p role="status">Confirm the exact program before selecting evidence or approving a letter.</p>':''}${state.currentConsentValid===false?'<p role="alert">Referenced StoryForge permission is no longer active. Historical letters are retained; approval and outreach require a fresh permitted draft.</p>':''}${h&&!state.currentBindingValid?'<p role="alert">This retained letter belongs to an earlier program, track or release. Confirm the new context and save a fresh draft; its previous approval is historical.</p>':''}
+ ${field('whyNow','Why now?',h?.context?.whyNow)}${field('applicationState','Your application status (confirmed by you)',h?.context?.applicationState)}${field('interviewState','Your interview status (confirmed by you)',h?.context?.interviewState)}${field('motivations','Your genuine reasons — one per line',(h?.motivations||[]).map(x=>x.text).join('\n'),true)}${field('facts','Your student facts — one per line',(h?.facts||[]).map(x=>x.text).join('\n'),true)}
+ <div class="panel pad"><h3>Supported program evidence</h3>${btn('loi-evidence','Read current evidence',`data-id="${id}"`,'btn ghost')}<p class="tiny">Evidence reads do not start research. Unknown or unavailable details cannot be approved as verified.</p>${e?.error?`<p role="status">${esc(e.error)}</p>`:''}${(e?.research?.facts||[]).map((f,k)=>`<label class="panel pad" style="display:block"><input type="checkbox" id="loi-evidence-${k}-${id}" ${(h?.selectedEvidence||[]).some(x=>x.field===f.field&&x.claimRef===f.claimRef)?'checked':''}> <b>${esc(f.field)}</b><p>${esc(typeof f.value==='string'?f.value:JSON.stringify(f.value))}</p><small>${esc(f.asOf?.label||'Period not specified')} · retrieved ${esc(f.retrievedAt)}</small>${(f.sources||[]).map(s=>`<p class="tiny">${(s.urls||[]).map(u=>esc(u)).join(' · ')} · ${esc(s.retrievedAt)}</p>`).join('')}</label>`).join('')||'<p>No supported evidence loaded. You may save a pending draft.</p>'}</div>
+ <div class="row">${confirm('factual','I reviewed all entered facts and statuses; they are true.')}${confirm('specific','This letter would not work unchanged for another program.')}</div>${btn('loi-build','Build draft from confirmed words',`data-id="${id}"`,'btn ghost')}${field('text','Your letter — edit before approval',h?.text,true)}<div class="row">${btn('loi-save','Check & save draft',`data-id="${id}"`)}${btn('loi-approve','Approve saved revision',`data-id="${id}" ${!h||h.state!=='draft'||state.currentConsentValid===false?'disabled':''}`,'btn ghost')}${btn('loi-export','Download private history',`data-id="${id}"`,'btn ghost')}</div>
+ ${h?`<p role="status">Saved revision ${esc(h.letterVersion)} · ${esc(h.state)}. ${esc((h.checks?.reasons||[]).join(' '))}</p>`:''}
+ <h3>Send from your account</h3>${field('recipient','Recipient — confirm the exact address','')}${field('subject','Subject — review before opening','')}<label><input id="loi-recipientConfirmed-${id}" type="checkbox"> I reviewed this recipient and subject.</label><div class="row">${btn('loi-handoff','Prepare Gmail / mailto / copy',`data-id="${id}" ${!h||h.state!=='approved'||!state.currentBindingValid||state.currentConsentValid===false?'disabled':''}`)}</div>
+ ${prepared?`<div class="panel pad"><p>${esc(prepared.reason||'Review the complete letter in your email app before sending.')}</p><div class="row">${prepared.gmailUrl?btn('loi-gmail','Open in Gmail',`data-id="${id}"`):''}${prepared.mailtoUrl?btn('loi-mailto','Open email app',`data-id="${id}"`,'btn ghost'):''}${btn('loi-copy','Copy approved letter',`data-id="${id}"`,'btn ghost')}${btn('loi-mark-sent','Mark as sent (self-reported)',`data-id="${id}"`,'btn ghost')}</div><label><input id="loi-sentConfirmed-${id}" type="checkbox"> I pressed Send in my email app. This is my report, not verified delivery.</label><label class="f" for="loi-copyText-${id}">Approved letter — manual copy fallback</label><textarea id="loi-copyText-${id}" readonly rows="8">${esc(prepared.text)}</textarea></div>`:''}
+ <details><summary>Private letter and outreach history</summary><ul class="hist">${(state.history||[]).map(r=>`<li>${esc(r.createdAt||r.recordedAt||'')} · ${esc(r.state||'unavailable history')} ${(state.consentInvalidRevisionIds||[]).includes(r.revisionId)?' · historical permission unavailable':''} ${r.text?`<pre style="white-space:pre-wrap">${esc(r.text)}</pre>`:''}</li>`).join('')||'<li>No saved history yet.</li>'}</ul></details>`;
+}
+
 
 'use strict';
 /* ============================================================
@@ -951,12 +981,13 @@ function renderDrawer(){
 /* ---------------- INTERVIEWS (list + room) ---------------- */
 function sectionsFor(i){
   const out=[];
-  if(coreOnly())return [['identify','Program details'],['schedule','Schedule & details'],['brief','Brief'],['why','Why this program'],['rehearse','Rehearse'],['day','Interview day'],['debrief','Debrief'],['learned','Learned']];
+  if(coreOnly())return [...(loiEnabled()?[['loi','Letter of Interest']]:[]),['identify','Program details'],['schedule','Schedule & details'],['brief','Brief'],['why','Why this program'],['rehearse','Rehearse'],['day','Interview day'],['debrief','Debrief'],['learned','Learned']];
   if(!i.program) out.push(['identify','Confirm program']);
   else out.push(['brief','Brief'],['why','Why this program'],['rehearse','Rehearse'],['day','Interview day']);
   const passed=i.instant && i.instant<=now();
   if(passed || isInactive(i)) out.push(['debrief','Debrief']);
   const db=S.debriefs[i.id]; if(db?.saved || S.learning[i.owner]) out.push(['learned','Learned']);
+  if(loiEnabled())out.push(['loi','Letter of Interest']);
   out.push(['schedule','Schedule & details']);
   return out;
 }
@@ -988,7 +1019,7 @@ function renderRoom(i){
   const nm=nextMove(i); const secs=sectionsFor(i);
   if(!S.ui.section || !secs.find(s=>s[0]===S.ui.section)) S.ui.section=nm.section && secs.find(s=>s[0]===nm.section)? nm.section : secs[0][0];
   const sec=S.ui.section;
-  const body=coreOnly()&&!coreSection(sec)?comingSoonPanel(secs.find(x=>x[0]===sec)?.[1]||sec):{identify:renderIdentify, brief:renderBrief, why:renderWhy, rehearse:renderRehearse, day:renderDay, debrief:renderDebrief, learned:renderLearned, schedule:renderSchedule}[sec](i);
+  const body=coreOnly()&&!coreSection(sec)?comingSoonPanel(secs.find(x=>x[0]===sec)?.[1]||sec):{loi:renderLoi, identify:renderIdentify, brief:renderBrief, why:renderWhy, rehearse:renderRehearse, day:renderDay, debrief:renderDebrief, learned:renderLearned, schedule:renderSchedule}[sec](i);
   return `<section data-view="interview" class="live">
     <div class="roomHead"><div><button class="back" type="button" data-act="close-interview">← All interviews</button><div class="h1" style="margin-top:6px">${esc(title(i))}</div><div class="tiny" style="margin-top:4px">${metaLine(i)} · ${esc(i.id)}</div>${pulseSVG(i)}</div><div class="row">${stateChip(i)}<button class="rowBtn" type="button" data-act="cal-item" data-item="iv-${i.id}">Calendar</button></div></div>
     <div class="nextMove"><div><span class="lbl">Next move</span><b>${esc(nm.label)}</b><p>${esc(nm.why)}</p></div><button class="rowBtn pri" type="button" data-act="${nm.act}" data-id="${i.id}" data-section="${nm.section}">Go</button></div>
@@ -1352,7 +1383,8 @@ document.addEventListener('keydown',ev=>{
   if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();A['cal-day']({dataset:{day:cell.dataset.calDay}});}
 });
 document.addEventListener('input',ev=>{
-  const t=ev.target;if(!S||!t.id||!('value'in t)||t.type==='password')return;draftValues.set(draftKey(t.id),t.multiple?[...t.selectedOptions].map(x=>x.value):t.value);
+  const t=ev.target;if(!S||!t.id||!('value'in t)||t.type==='password')return;draftValues.set(draftKey(t.id),t.type==='checkbox'?t.checked:t.multiple?[...t.selectedOptions].map(x=>x.value):t.value);
+  if(t.id.startsWith('loi-')&&!t.id.startsWith('loi-sentConfirmed-')&&!t.id.startsWith('loi-copyText-')){loiHandoffs.delete(S.ui.open);const prepared=document.querySelector('[data-act="loi-gmail"]')?.closest('.panel');if(prepared)prepared.remove();}
   if(t.id==='ad-name'||t.id==='program-search')scheduleProgramSearch(t.value,t.id);
   if(coreOnly()&&t.dataset.autosave){setSaved('Preview · not saved');return;}
   if(!t.dataset.autosave)return;const i=S.interviews.find(x=>x.id===t.dataset.id);if(!owns(i))return;
@@ -1430,6 +1462,22 @@ async function speechPause(){const capture=speechCapture;if(!capture)return;awai
 async function speechFinish(){const capture=speechCapture||speechSessions.get(S.ui.open);if(!capture)return;await stopSpeech();await flushAudio();if([...pendingAudio.values()].some(x=>x.recordingId===capture.id))throw Error('Audio is waiting to upload. Keep this tab open and retry when connected.');await recordingCommand(capture.id,'finish');speechSessions.delete(capture.interviewId);recordingState(capture.interviewId,'done');}
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&speechCapture)void speechPause().catch(error=>notice(error.message));});
 window.addEventListener('online',()=>void flushAudio());
+
+function ownLoi(el){const i=iv(el);requireOwn(i);if(!loiEnabled())throw Error('Letter of Interest is unavailable for this workspace.');return i;}
+function currentLoiApproval(i){const h=loiState(i).current;if(!h||h.state!=='approved'||!loiState(i).currentBindingValid||loiState(i).currentConsentValid===false||loiEdited(i))throw Error('Save and approve this exact letter before preparing or recording outreach.');return{...loiHeadData(i),contentHash:h.contentHash};}
+function currentLoiHandoff(i){currentLoiApproval(i);const h=loiHandoffs.get(i.id);if(!h)throw Error('Prepare and review this approved letter first.');return h;}
+Object.assign(A,{
+ async 'loi-evidence'(el){const i=ownLoi(el),identity=actor.id;try{const r=await command('loi.evidence',i.id,{}, {render:false});if(actor?.id!==identity||!loiEnabled())throw Error('Your account changed.');loiEvidence.set(i.id,r);}catch(e){if(actor?.id===identity&&loiEnabled())loiEvidence.set(i.id,{error:e.message});throw e;}finally{if(actor?.id===identity)render();}},
+ 'loi-build'(el){const i=ownLoi(el),d=loiDraftData(i);if(!d.studentFactualConfirmation)throw Error('Confirm your actual facts and statuses before building.');const evidence=loiEvidence.get(i.id)?.research?.facts||[],selected=evidence.filter(f=>d.selectedEvidence.some(x=>x.field===f.field&&x.claimRef===f.claimRef));const text=[loiEvidence.get(i.id)?.program?.name||'',d.context.whyNow,...d.motivations.filter(x=>x.confirmed).map(x=>x.text),...d.facts.filter(x=>x.confirmed).map(x=>x.text),...selected.map(f=>typeof f.value==='string'?f.value:JSON.stringify(f.value))].filter(Boolean).join('\n\n');if(!text)throw Error('Enter your confirmed words first.');draftValues.set(draftKey('loi-text-'+i.id),text);loiHandoffs.delete(i.id);render();notice('Draft assembled from your confirmed words and selected evidence. Edit and review it before approval.');},
+ async 'loi-save'(el){const i=ownLoi(el);loiHandoffs.delete(i.id);return command('loi.save',i.id,loiDraftData(i));},
+ 'loi-approve'(el){const i=ownLoi(el),h=loiState(i).current;if(!h||loiState(i).currentConsentValid===false||loiEdited(i))throw Error('Save your latest edits before approval.');if(!loiConfirmed('loi-factual-'+i.id)||!loiConfirmed('loi-specific-'+i.id))throw Error('Review factual accuracy and program specificity before approval.');return command('loi.approve',i.id,{...loiHeadData(i),contentHash:h.contentHash,studentFactualConfirmation:true,studentSpecificityConfirmation:true});},
+ async 'loi-handoff'(el){const i=ownLoi(el),identity=actor.id,data=currentLoiApproval(i);if(!loiConfirmed('loi-recipientConfirmed-'+i.id))throw Error('Review the exact recipient and subject first.');const recipient=val('loi-recipient-'+i.id),subject=val('loi-subject-'+i.id),text=loiState(i).current.text;const r=await command('loi.handoff',i.id,{...data,recipient,subject,channel:'gmail',recipientConfirmed:true},{render:false});if(actor?.id!==identity||!loiEnabled()||!r.handoff){if(actor?.id===identity)render();throw Error('The reviewed handoff is unavailable.');}if(r.handoff.recipient!==recipient||r.handoff.subject!==subject||r.handoff.text!==text)throw Error('The reviewed letter or destination changed. Prepare it again.');if(r.handoff.gmailUrl)loiExternalURL(r.handoff.gmailUrl,'gmail',r.handoff);if(r.handoff.mailtoUrl)loiExternalURL(r.handoff.mailtoUrl,'mailto',r.handoff);loiHandoffs.set(i.id,r.handoff);render();},
+ 'loi-gmail'(el){const i=ownLoi(el),h=currentLoiHandoff(i);const opened=window.open(loiExternalURL(h.gmailUrl,'gmail',h),'_blank','noopener,noreferrer');if(opened)opened.opener=null;notice('Review the draft in Gmail and press Send yourself. If no tab opens, use the copy fallback.');},
+ 'loi-mailto'(el){const i=ownLoi(el),h=currentLoiHandoff(i);const opened=window.open(loiExternalURL(h.mailtoUrl,'mailto',h),'_blank','noopener,noreferrer');if(opened)opened.opener=null;},
+ async 'loi-copy'(el){const i=ownLoi(el),h=currentLoiHandoff(i);try{if(!navigator.clipboard?.writeText)throw Error();await navigator.clipboard.writeText(h.text);notice('Approved letter copied. Review it in your email app.');}catch{const field=document.getElementById('loi-copyText-'+i.id);field?.focus();field?.select();notice('Clipboard unavailable. Select and copy the complete letter shown here.');}},
+ 'loi-mark-sent'(el){const i=ownLoi(el),h=currentLoiHandoff(i);if(!loiConfirmed('loi-sentConfirmed-'+i.id))throw Error('Confirm that you pressed Send in your email app.');return command('loi.mark_sent',i.id,{...currentLoiApproval(i),handoffId:h.handoffId,confirmed:true});},
+ async 'loi-export'(el){const i=ownLoi(el),r=await command('loi.export',i.id,{}, {render:false});if(!r.export)throw Error('Private history is unavailable.');const blob=new Blob([JSON.stringify(r.export,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='InterviewIQ-my-letter-history.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+});
 
 
 'use strict';
