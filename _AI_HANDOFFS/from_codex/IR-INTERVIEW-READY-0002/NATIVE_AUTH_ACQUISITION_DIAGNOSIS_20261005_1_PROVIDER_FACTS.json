@@ -1,0 +1,71 @@
+{
+  "schema": "ir.native_auth_acquisition_diagnosis.public_facts.v1",
+  "sourceHead": "a701f860283819427fb70b6ca9a4117efda01145",
+  "bindingSha256": "e54fc1df42e144cd6433cdd3c0f708782133423f28b57589f5f33228c8af2dd2",
+  "project": "brxqytrfdisrgakrxkhd",
+  "writeOperations": 0,
+  "actualAcquireOperations": 0,
+  "credentialRetrievalOperations": 0,
+  "acquireMarkerUnix": 1791176509.5215437,
+  "priorClearObservedUnix": 1791176291.641417,
+  "priorClearExpiresExclusiveUnix": 1791176591.641417,
+  "registeredPolicy": {
+    "rpc": "mmos_acquire_scoped_lease_v2",
+    "signature": "p_scope text, p_write_paths text[], p_shared_domains text[], p_global_reason text, p_lease_id uuid, p_owner_id text, p_session_id text, p_binding_sha256 text",
+    "definitionMd5": "22ba311307a922ec09cb08c7b003b0cc",
+    "serviceRoleExecute": true,
+    "scopeSupported": true,
+    "domainSupported": true,
+    "candidatePathsCanonical": true,
+    "candidateMetadataAccepted": true,
+    "overlappingSharedDomainDenies": true,
+    "heartbeatRequiresUnexpiredUnreleasedClaim": true,
+    "reacquisitionResetsAcquiredAt": true,
+    "releaseSetsExpiryToReleaseTime": true
+  },
+  "historicalAggregate": {
+    "storedWindowsCoveringAcquireMarker": 1,
+    "legacyOrIncompleteBlockers": 0,
+    "globalBlockers": 0,
+    "pathBlockers": 0,
+    "domainBlockers": 1,
+    "acquiredAtMin": "2026-10-05 04:58:51.429087+00",
+    "acquiredAtMax": "2026-10-05 04:58:51.429087+00",
+    "lastHeartbeatMin": "2026-10-05 05:01:57.08918+00",
+    "lastHeartbeatMax": "2026-10-05 05:01:57.08918+00",
+    "storedExpiryMin": "2026-10-05 05:02:00.695973+00",
+    "storedExpiryMax": "2026-10-05 05:02:00.695973+00",
+    "releaseMin": "2026-10-05 05:02:00.695973+00",
+    "releaseMax": "2026-10-05 05:02:00.695973+00",
+    "coversEntireFourSecondCallWindow": 1,
+    "lastHeartbeatPrecedesCallWindow": 0,
+    "qualification": "Stored historical windows, supported by current canonical heartbeat no-revival and reacquisition reset semantics; exact response body and prior expiry versions were not retained."
+  },
+  "boundedProviderHttpAggregate": {
+    "start": "2026-10-05T05:01:49Z",
+    "end": "2026-10-05T05:01:54Z",
+    "exactScopedAcquirePosts": 1,
+    "http200": 1,
+    "http400": 0,
+    "http401": 0,
+    "http403": 0,
+    "otherStatuses": 0,
+    "qualification": "Fixed route/method/status counts only; no request identifiers, headers, key hashes, bodies, user data or raw log records."
+  },
+  "currentAggregate": {
+    "observedAt": "2026-10-05 05:10:46.614674+00",
+    "observedUnix": 1791177046.614674,
+    "candidateConflicts": 0,
+    "exactClaims": 0
+  },
+  "inMemoryExactInputMock": {
+    "localScope": "PASS",
+    "freshnessAtAcquireMarker": "PASS",
+    "underscoreSession": "PASS",
+    "exactCanonicalPayload": "PASS",
+    "transportAdapter": "PASS",
+    "mockProviderDenial": "lease_backend_denied_coordination",
+    "networkCalls": 0,
+    "providerMutations": 0
+  }
+}

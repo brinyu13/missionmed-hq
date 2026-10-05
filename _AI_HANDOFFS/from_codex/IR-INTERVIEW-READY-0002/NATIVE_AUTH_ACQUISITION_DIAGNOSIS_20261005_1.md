@@ -1,0 +1,29 @@
+# Native AUTH acquisition diagnosis
+
+**Bounded cause: canonical AUTH contention denial. No code fix is proposed. The competing claim is now released, but this failed inventory attempt remains STOP with zero claims, not RELEASED. All consumed controls remain consumed.**
+
+Diagnoser `/root/auth_acquisition_diagnosis`, 2026-10-05. Frozen source HEAD `a701f860283819427fb70b6ca9a4117efda01145`; read-only diagnosis only. Root supplied fresh R2 BOOT/profile PASS at HQ `0feee579b0a9f2c90529220899f6cf6d21b8cd05`; independently routed authority report `3a0e77ad713d6c7b0d760fb97dafdd1f4ec85041218bde7ea2a3e262222b04d9` agrees. Existing dirty state was preserved. New writes are this report and its single public-facts JSON only.
+
+## Concrete evidence
+
+The exact runner `0a816e26fcea00422451fe6dc96971a894c5c3ef193d271eb3cb1698da1775f0`, transport `6bab4c948b28202b7a803228f2123d5c95137030f16eb129c427b4ddcc487cad`, R2 canonical client `36e37a487de0ec99191492c3ef286695bc4d8721cdac70f5c62863576e5c1431`, owner `d48bae19d3ca7b31d0fa1ebb5b419ff381638d0c5ccbdb74d2008725eba2109d`, and actual contract `e54fc1df42e144cd6433cdd3c0f708782133423f28b57589f5f33228c8af2dd2` were rehashed unchanged.
+
+`runtime_native_runner.py:717-720` writes ACQUIRE, checks prior-clear freshness, then calls the canonical writer API. The retained PHASE marker mtime is `1791176509.5215437` / `2026-10-05T05:01:49.521544Z`. The earlier clear observed `1791176291.641417` and expired exclusively at `1791176591.641417`, so the marker was inside its 300-second window by 82.120 seconds. A purely in-memory mock with that clock and the exact contract passed the freshness gate, local scope validation, underscore session identity, path sorting, canonical payload and transport adapter. It invoked no network or credential lookup. A mocked `granted:false` response reproduces canonical `lease backend denied coordination`.
+
+The real provider logs contain exactly one POST to `/rest/v1/rpc/mmos_acquire_scoped_lease_v2` in `05:01:49–05:01:54Z`, HTTP 200, with zero 400/401/403/other statuses. This supports a reached, authenticated canonical RPC rather than a local transport boundary rejection. Only fixed route/method/status counts were read; no raw log, body, key, request identifier or user record was emitted.
+
+Current registered function metadata and privacy-qualified function definitions on coordination project `brxqytrfdisrgakrxkhd` match the canonical V2 policy: `SHARED:AUTH` is supported; AUTH is an allowed domain; all three exact candidate paths are canonical; the candidate passes the immutable metadata validator. The internal acquire policy returns `granted:false` whenever another unexpired, unreleased claim has an intersecting shared domain, regardless of path disjointness.
+
+A closed aggregate over stored lease time windows covering the ACQUIRE marker found **one AUTH domain blocker**, zero overlapping path blockers, zero GLOBAL blockers and zero legacy/incomplete blockers. Its aggregated acquisition time is `04:58:51.429087Z`, 39.788 seconds after the earlier clear. Latest heartbeat is `05:01:57.08918Z`; release and stored expiry are `05:02:00.695973Z`. Its stored window covers the full four-second canonical call window following the marker. No competing owner identity or raw lease record was needed.
+
+The current registered heartbeat requires an already unexpired, unreleased matching claim. It cannot revive an expired claim; canonical reacquisition resets `acquired_at`. Thus the retained original acquisition plus later successful heartbeat supports uninterrupted canonical claim validity across the failed request. Release sets expiry to its release time, explaining why stored expiry equals release. This is an inference from registered lifecycle semantics and aggregate timestamps; the failed response body and earlier expiry versions were not retained. The exact `granted:false` branch was not separately logged. The combined policy, valid input, HTTP 200, overlap and zero exact claims nevertheless substantiate the bounded contention diagnosis.
+
+Fresh read-only aggregate at `05:10:46.614674Z` / `1791177046.614674` shows **candidate conflicts 0, exact attempted claims 0**. This agrees with the independent STOP observation at `1791176624.738865`: exact claims/released/active/expired-unreleased all 0; active IR/AUTH/Matrix and pending IR all 0; no queued owner waiter. Clearing the competing claim does not release an inventory claim that was never created and does not renew old admission freshness.
+
+## Smallest next step
+
+Preserve this STOP and the consumed owner/wrapper pairs. Root may prepare a **distinct, manually initiated inventory admission** after a new independent fresh provider-clear and exact-byte review, using new one-use control directories and controls. The existing canonical fail-closed denial policy should remain unchanged. No automatic retry, release, lease widening, secret retrieval diagnostic, account phase, bootstrap or production acceptance follows from this report.
+
+No additional diagnostic code is required to explain this occurrence. If a future failure has no corroborating provider evidence, the smallest optional observability change would expose only a closed constant category for `prior_clear_expired`, `coordination_denied`, `transport_failed_closed` or `response_invalid`, at the existing acquisition seam, with tests proving no raw exception/body/identity is serialized. That is a separate proposal, not a prerequisite or an authorized edit here.
+
+Public capture: `NATIVE_AUTH_ACQUISITION_DIAGNOSIS_20261005_1_PROVIDER_FACTS.json`. Its facts derive from fixed metadata/aggregate SELECTs and one bounded log aggregate; no actual acquire/heartbeat/release/retry, credential retrieval, protected record dump, source/OS mutation, account action or cleanup occurred. STOP here; Root owns filing, independent review and any new controls.
