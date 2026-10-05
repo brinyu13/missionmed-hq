@@ -13,7 +13,7 @@ const defaultUI=()=>({route:'home',open:null,section:null,essentials:false,print
 const CORE_COMMANDS=new Set(['interview.create','interview.identity','interview.schedule','interview.lifecycle','event.create','event.update']);
 const CORE_ACTIONS=new Set(['switch-view','nav','matrix','open-interview','open-card','close-interview','close-card','open-section','section','cal-nav','cal-today','cal-view','cal-day','cal-item','drawer-close','add-interview','new-offer','add-interview-save','date-undated','add-related-pick','add-related-save','offer-save','manual-identity-save','disposition','schedule-save','cancel','restore','postpone','waitlist','related-save','related-lifecycle','join-verify']);
 const coreOnly=()=>capabilities.coreOnly===true;
-const coreRoute=route=>['home','calendar','interviews','settings'].includes(route);
+const coreRoute=route=>['home','calendar','interviews','letters','settings'].includes(route);
 const deepResearch=()=>capabilities.deepResearch===true&&!studentPreview()&&actor?.role==='student';
 const loiCanonicalLookup=()=>capabilities.loiCanonicalLookup===true&&!studentPreview()&&actor?.role==='student';
 const programSearchAllowed=()=>!studentPreview()&&(!coreOnly()||deepResearch()||loiCanonicalLookup());
@@ -783,6 +783,7 @@ const NAV={
 };
 function navItems(){
   const r=roleName(); let items=NAV[r].slice();
+  if(r==='student'&&(loiEnabled()||studentPreview()))items.splice(3,0,['letters','Letters of Interest','My Letters']);
   if(r==='student' && (capabilities.contributions===true||coreOnly())) items.splice(5,0,['contribute','Research access','Access']);
   return items;
 }
@@ -893,6 +894,7 @@ function renderHome(){
       <form class="heroCapture" id="cmdform" role="search"><span class="pfx">Take me to</span><label class="sr" for="cmd">Take me to</label><input id="cmd" placeholder="…an interview, a day sheet, the calendar" autocomplete="off"><button class="heroGo" type="submit">Go</button></form>
       <div class="tryRow" aria-label="Suggested next actions"><span class="tryLbl">Suggested</span>${suggestions(list).map(sg=>`<button type="button" class="cChip" data-act="${sg.act}" ${sg.id?`data-id="${sg.id}" data-section="${sg.section}"`:''} ${sg.to?`data-to="${sg.to}"`:''}>${sg.label}</button>`).join('')}</div>
     </div>
+    ${(loiEnabled()||studentPreview())?`<div class="panel panel-gap"><div class="pHead"><div class="h2">Letter of <em>Interest</em></div></div><div class="pBody"><p>Turn verified program intelligence into a letter that sounds like you.</p>${btn('nav','BUILD MY LETTERS →','data-to="letters"')}</div></div>`:''}
     <div class="homeGrid">
       <div class="panel">
         <div class="pHead"><div class="h2">Next <em>moves</em></div><button class="pMore" type="button" data-act="nav" data-to="interviews">All interviews ▸</button></div>
@@ -912,6 +914,15 @@ function renderHome(){
       </div>
     </div>
     <div class="panel" style="margin-top:20px"><div class="pHead"><div class="h2">Your MissionMed <em>ecosystem</em></div></div><div class="pBody">${ecosystemRow()}</div></div>${coreOnly()?`<div class="panel pad" style="margin-top:1rem"><h3>More capabilities ${comingSoonBadge()}</h3><p class="tiny">Calendar and interview details are available now. These integrations are not active in this release.</p><div class="row">${(Array.isArray(capabilities.comingSoon)?capabilities.comingSoon:['Program research','StoryForge context','IV Prep On-Call','Voice debrief','Growth','Mentor','Research contributions','Notifications','External calendar','Privacy export']).map(label=>btn('coming-soon',esc(label),`data-label="${esc(label)}"`,'btn ghost sm')).join('')}</div></div>`:''}
+  </section>`;
+}
+
+/* ---------------- LETTERS OF INTEREST ---------------- */
+function renderMyLetters(){
+  const preview=studentPreview();
+  const list=preview?[]:myInterviews();
+  return `<section data-view="letters" class="live">${pageIntro({eyebrow:'LETTER OF INTEREST',title:'My <em>Letters</em>',value:'Choose a program, build a private letter and manage your outreach.',how:'Use supported RISE evidence and your genuine reasons. Review and approve your words before opening your own email account.'})}
+    ${preview?'<div class="panel pad" role="status"><h2>Student View · Preview</h2><p>No private student letters or programs are loaded. Changes are not saved.</p></div>':`<div class="panel pad"><h2>Your programs and letters</h2><p class="tiny">Letters for your saved interviews are available now. RISE Saved Programs, MyERAS import and program-first letters are being connected here. AI personalization and writing approaches are not active yet; the standard letter builder is available.</p>${list.length?list.map(i=>{const h=loiState(i),head=h.current,sent=head&&h.outreach?.some(x=>x.revisionId===head.revisionId&&x.state==='self_reported_sent'),state=sent?'Sent (self-reported)':head?.state==='approved'?'Approved':head?'Draft':'Not started',action=sent?'VIEW STATUS':head?'CONTINUE':'CREATE LETTER';return `<div class="panel pad" style="margin-top:12px"><h3>${esc(i.programName||title(i))}</h3><p>${esc(i.track||'Track not specified')} · ${esc(state)}</p><p class="tiny">${i.program?'Canonical program attached; read current evidence before approval.':'Program confirmation needed before verified evidence can be used.'} Interview: ${esc(i.state)}.</p>${btn('open-section',action,`data-id="${esc(i.id)}" data-section="loi"`)}</div>`;}).join(''):'<div class="storyEmpty">No interviews or letters yet. Add an interview to use the live letter builder; program imports will appear here when connected.</div>'}${btn('add-interview','Add interview','', 'btn ghost')}</div>`}
   </section>`;
 }
 
@@ -1168,7 +1179,7 @@ function render(){
   const r=S.ui.route; const role=roleName(); let html='';
   if(role==='mentor'){ html = r==='mentor'? `<section data-view="mentor" class="live">${renderMentor()}</section>` : r==='mentorcal'? renderCalendar() : r==='settings'? renderSettings() : renderHome(); }
   else if(role==='admin'){ html = r==='review'? renderReviewPage() : r==='policy'? renderPolicyPage() : r==='settings'? renderSettings() : renderHome(); }
-  else { html = {home:renderHome, calendar:renderCalendar, interviews:renderInterviews, prepare:renderPrepare, intel:renderIntel, debriefs:renderDebriefs, growth:renderGrowth, settings:renderSettings, contribute:()=>`<section data-view="contribute" class="live">${renderContribute()}</section>`}[r]?.() || renderHome(); }
+  else { html = {home:renderHome, calendar:renderCalendar, interviews:renderInterviews, letters:renderMyLetters, prepare:renderPrepare, intel:renderIntel, debriefs:renderDebriefs, growth:renderGrowth, settings:renderSettings, contribute:()=>`<section data-view="contribute" class="live">${renderContribute()}</section>`}[r]?.() || renderHome(); }
   const openSet=new Set([...document.querySelectorAll('main details[open] > summary')].map(s=>s.textContent.trim()));
   if(!(r==='interviews' && S.ui.open)) html='<p class="print-hint route-hint">This page is not designed for paper. To print a day sheet, open an interview’s Interview day section.</p>'+html;
   if(coreOnly()&&!coreRoute(r))html=comingSoonPanel(navItems().find(x=>x[0]===r)?.[1]||r)+html;

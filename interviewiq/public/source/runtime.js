@@ -13,7 +13,7 @@ const defaultUI=()=>({route:'home',open:null,section:null,essentials:false,print
 const CORE_COMMANDS=new Set(['interview.create','interview.identity','interview.schedule','interview.lifecycle','event.create','event.update']);
 const CORE_ACTIONS=new Set(['switch-view','nav','matrix','open-interview','open-card','close-interview','close-card','open-section','section','cal-nav','cal-today','cal-view','cal-day','cal-item','drawer-close','add-interview','new-offer','add-interview-save','date-undated','add-related-pick','add-related-save','offer-save','manual-identity-save','disposition','schedule-save','cancel','restore','postpone','waitlist','related-save','related-lifecycle','join-verify']);
 const coreOnly=()=>capabilities.coreOnly===true;
-const coreRoute=route=>['home','calendar','interviews','settings'].includes(route);
+const coreRoute=route=>['home','calendar','interviews','letters','settings'].includes(route);
 const deepResearch=()=>capabilities.deepResearch===true&&!studentPreview()&&actor?.role==='student';
 const loiCanonicalLookup=()=>capabilities.loiCanonicalLookup===true&&!studentPreview()&&actor?.role==='student';
 const programSearchAllowed=()=>!studentPreview()&&(!coreOnly()||deepResearch()||loiCanonicalLookup());
