@@ -1,0 +1,22 @@
+{
+  "adapterSha256": "bfcb43990abf48402325120503cd9f16b38816bd851b4bff0ac2efb045944cdf",
+  "argv": [
+    "python3",
+    "-B",
+    "read_commerce_runtime.py",
+    "--execute"
+  ],
+  "executionOperator": "codex-ir-phase1-foreman",
+  "expiresUnix": 1791243158.926626,
+  "issuedUnix": 1791241358.926626,
+  "oneUseMarker": "RUNTIME_READ_CONSUMED.json",
+  "outputFile": "COMMERCE_RUNTIME_BASELINE.json",
+  "qualification": "Root authored this new adapter. Reviewer authored historical base reader, so its code qualification is carried solely from separate Root independent review d330; no new selfqualification of base reader. Exact pinned driver and fixed remote program/SSH argv, 10s IO/8s remote alarm/128KiB+4096 caps/2s reap, strict current+retained7/15shared/layout bindings and nonzero/stderr STOP preserved. Adapter adds only exclusive new public destination, oneuse approval-hash marker and fixed closed-facts publication. Underlying PASS is necessary; publication/reap failure remains STOP. No WP, credentials, provider/lease/account/Source mutation or drift acceptance. No retry/retarget; use unoptimized python3-B and preserve evidence on failure. Independent pure compile/source-order/pins/initialabsences verified; no actual reader/import/run executed by reviewer. This grants read only, not production activation.",
+  "readerSha256": "b901a65089fb54cd865d6b50eb7330a202bb8ecb940e0eb8053174cd243c0374",
+  "remoteProgramSha256": "d3ae38047f07c00e1e879549e66ef57339122a616c01dedcbde148c5ceb8d0b0",
+  "reviewer": "/root/inventory_exact_admission_reviewer",
+  "schema": "ir.commerce.runtime.read_approval.v1",
+  "scope": "ONE_FIXED_METADATA_ONLY_DEPLOYMENT_PREFLIGHT",
+  "underlyingIndependentReviewSha256": "d33023fddcdcae8fc904667ae64615d0318298114ffa82f4054c5e3387ce0af9",
+  "verdict": "APPROVE"
+}
