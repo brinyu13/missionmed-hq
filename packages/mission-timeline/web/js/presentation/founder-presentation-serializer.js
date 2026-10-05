@@ -385,6 +385,9 @@ export function buildFounderPresentationScene(document,{
   scene.presentationExamContext={exams:structuredClone(projected.exams||[]),presentationExamLinks:structuredClone(projected.presentationExamLinks||[]),builder:{examReviewCorrections:structuredClone(projected.builder?.examReviewCorrections||{})}};
   scene.presentationAccounting={policy:'founder-display-rules/1',excludedEvents:selection.excluded,localTest:selection.events.some(event=>event.fields?.localTestOnly===true)};
   selectConciseProfileEducation(scene,projected);
+  const unprovidedExamFields=['step1','step2','step2Cs','step3'].filter(field=>/^(unknown|unprovided|not provided)$/i.test(String(scene.profile?.[field]||'').trim()));
+  scene.profileDisplay.includedFields=scene.profileDisplay.includedFields.filter(field=>!unprovidedExamFields.includes(field));
+  scene.profileDisplay.excludedFields.push(...unprovidedExamFields.map(field=>({field,reason:'unprovided-exam-result',sourceValue:scene.profile[field]})));
   if(measureText)scene.measureText=measureText;
   scene.showEmptySlots=showEmptySlots===true;
   const hidden=projected.presentationOverrides?.hidePrototypePhotoCards===true
@@ -537,7 +540,9 @@ export function assertCompleteFounderPresentation(rendered,{allowPendingMedia=fa
       const record=(rendered.scene.profile?.educationRecords||[]).find(item=>String(item.eventId)===String(exclusion?.eventId));
       const duplicate=['medicalSchool','degree'].includes(field)&&exclusion?.reason==='covered-by-education-span'&&record&&
         normalized(record[field==='medicalSchool'?'school':'title'])===value;
-      if(value&&!narrative&&!duplicate)missingFields.push({id:'profile',field});
+      const unprovided=['step1','step2','step2Cs','step3'].includes(field)&&exclusion?.reason==='unprovided-exam-result'&&
+        /^(unknown|unprovided|not provided)$/i.test(value)&&normalized(exclusion.sourceValue)===value;
+      if(value&&!narrative&&!duplicate&&!unprovided)missingFields.push({id:'profile',field});
       continue;
     }
     if(!value)continue;

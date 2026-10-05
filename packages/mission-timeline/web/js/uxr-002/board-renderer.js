@@ -636,7 +636,7 @@ function eventSourceDateWording(event){
   let projected=wording;
   for(const field of ['start','end']){
     const exact=presentationDayDate(eventSourceDate(event,field));
-    if(exact&&!projected?.[field]){
+    if(exact&&(!projected?.[field]||typeof projected[field]==='string'&&presentationDayDate(projected[field])===exact)){
       projected={...projected,[field]:{raw:exact,normalizedMonth:exact,precision:'DAY'}};
     }
   }

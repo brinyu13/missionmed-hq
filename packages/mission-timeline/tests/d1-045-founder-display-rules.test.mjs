@@ -191,3 +191,25 @@ test('source-authored Moved to the US uses the US asset without a canonical-type
  assert.equal(r.scene.flags.length,1);assert.ok(paint(r).nodes.some(node=>node.kind==='image'&&node.sourceAttributes['data-founder-usa-flag-asset-sha256']));assert.equal(JSON.stringify(d),before);
  assert.equal(founderMilestoneTemplateGeometry(r.scene,paint(r))[0].poleFootY,125);
 });
+
+test('entered study exact end dates with source wording strings paint the known date without mutating source',()=>{
+ const d=doc([event('study-day',{title:'Step 1 study period',categoryId:'exams',startDate:'2022-09',endDate:'2023-01-15',fields:{isStudyPeriod:true,datePrecision:{start:'MONTH',end:'DAY'},sourceDateWording:{start:'2022-09',end:'2023-01-15'}}})]),before=JSON.stringify(d),r=render(d);
+ const arrow=r.scene.arrows.find(arrow=>arrow.id==='study-day'),caption=paint(r).nodes.filter(node=>node.semanticRef==='study-day'&&node.sourceAttributes['data-board-ink-role']==='caption').map(node=>node.text).join(' ');
+ assert.equal(caption,'9/22 - 1/15/23');assert.ok(!caption.includes('Date needed'));
+ assert.deepEqual(arrow.sourceDateWording.end,{raw:'2023-01-15',normalizedMonth:'2023-01-15',precision:'DAY'});assert.equal(JSON.stringify(d),before);assert.doesNotThrow(()=>assertCompleteFounderPresentation(r));
+ const conflict=doc([event('conflict',{categoryId:'exams',startDate:'2022-09',endDate:'2023-01-15',fields:{isStudyPeriod:true,datePrecision:{start:'MONTH',end:'DAY'},sourceDateWording:{end:'2023-02-15'}}})]);
+ assert.equal(render(conflict).scene.arrows[0].sourceDateWording.end,'2023-02-15','conflicting supplied wording is not silently rewritten');
+});
+
+test('exact unprovided exam profile values are concise exclusions with accounting; known results remain visible',()=>{
+ const d=doc([event('experience')]),sourceValues={step1:'Unknown',step2:'Unprovided',step2Cs:'Not provided',step3:'Passed'};
+ d.exams=[['step-1','Unknown'],['step-2-ck','Unprovided'],['step-2-cs','Not provided'],['step-3','Passed']].map(([examId,result])=>({id:examId,system:'USMLE',examId,result,visibilityState:'INTERVIEWER_SAFE'}));
+ const before=JSON.stringify(d),r=render(d),nodes=paint(r).nodes.filter(node=>node.sourceAttributes['data-profile-field']);
+ for(const field of ['step1','step2','step2Cs']){
+  assert.equal(r.scene.profile[field],sourceValues[field]);assert.ok(!r.scene.profileDisplay.includedFields.includes(field));
+  assert.deepEqual(r.scene.profileDisplay.excludedFields.find(record=>record.field===field),{field,reason:'unprovided-exam-result',sourceValue:sourceValues[field]});
+ }
+ assert.ok(nodes.some(node=>node.sourceAttributes['data-profile-field']==='Step 3'&&node.text.includes('Passed')));assert.doesNotThrow(()=>assertCompleteFounderPresentation(r));assert.equal(JSON.stringify(d),before);
+ r.scene.profileDisplay.excludedFields=r.scene.profileDisplay.excludedFields.filter(record=>record.field!=='step1');assert.throws(()=>assertCompleteFounderPresentation(r),error=>error.code==='TIMELINE_EXPORT_MISSING_FIELDS');
+ const known=render({...d,exams:d.exams.map(exam=>exam.examId==='step-1'?{...exam,score:'215'}:exam)});assert.ok(known.scene.profileDisplay.includedFields.includes('step1'));assert.ok(paint(known).nodes.some(node=>node.sourceAttributes['data-profile-field']==='Step 1'&&node.text.includes('215')));
+});
