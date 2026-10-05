@@ -1,11 +1,11 @@
 # Bounded Founder shopping steer — applicable patch
 
-Prepared against accepted Git object `e82c03ec4d487ce5d6031189f68a9913a52ddcd7`. Root reported fresh routed R2 BOOT validator PASS and current DR375/DR376 authority unchanged. Product source was not edited; no AUTH, provider, deployment, flags, credentials, account schema, API or persistent account state was touched. Root owns admission under SOURCE lease and integration; this worker did not commit.
+Prepared against accepted Git object `3c72c5b8399d2bc8ab7e849052230cbf80d33da8`. Root reported fresh routed R2 BOOT validator PASS and current DR375/DR376 authority unchanged. Product source was not edited; no AUTH, provider, deployment, flags, credentials, account schema, API or persistent account state was touched. Root owns admission under SOURCE lease and integration; this worker did not commit.
 
 Artifacts:
 
-- `shopping.patch` SHA-256 `f0f24d7bc6f5e326e810cd26a2ee8166fc07f4cce1e6b5a3e42f95250f7edd38`
-- `shopping-ui.test.js` SHA-256 `7aa31d549dff86f9e4d99251c2ca49b2156b5d0ee112dba66db8d3bdf91cf33c`
+- `shopping.patch` SHA-256 `04d6169e7debb4a082ea617f53dd84056c589b0e75c5f462a4b05c63a2de3bae`
+- `shopping-ui.test.js` SHA-256 `ca75f65d3ff29a46b664cdcf836d41e7735bf606226e13e1eab225c78ff3839d`
 
 Patch changes only `interview-ready/completion.js`, `completion.css`, `phase1.js`, `phase1.css`. It retains script order, route/home/motion engines, source-photo custody, canonical tier ordering and saved-kit keys/bindings. Research input is the existing `interview-ready/catalog.json` serialized as `RESEARCH` by the existing build; no research data was changed.
 
@@ -24,3 +24,9 @@ PASS (2026-10-05): `git apply --check` against current accepted source; no patch
 Browser rendering, keyboard/screen-reader acceptance, exact equal collapsed heights and full responsive layout need integrator/fresh-verifier confirmation after admitted source integration. Node VM and static CSS checks are not browser proof. The existing production default-deny asset policy remains authoritative. Only previously permitted images may render; live Amazon image/title/price/rating/review/Prime/stock hydration and newly qualified product image rights are not implemented or established here. Their absence is shown truthfully with original-source and tagged Amazon links. Provider contract integration and Admin curation belong to Root's other bounded workstreams; this patch does not establish those acceptance criteria or live/verified release completion.
 
 Do not apply before Root's SOURCE lease admission. Recheck preimages if any overlapping product source changes land first. Stop after this handoff; no self-merge, commit or production mutation is authorized for this worker.
+
+## Bounded P2 correction after independent review
+
+The independent review reproduced choosing Product 2 first moving the selection into Product 1. Corrected the preparation patch only: comparison memory now holds two stable nullable slots. Selecting/replacing a labeled slot changes only that slot; removing/clearing either selection preserves the other slot; card selection fills the first empty slot. Status, reset and table rendering count only populated slots. Stale ID normalization also preserves slot positions. No new feature, product source change or engine boundary change was introduced.
+
+Added focused actual binding-callback regressions for Product-2-first then Product-1, selected option persistence, second-slot replacement, clearing either selector, removal from either slot with the opposite selection retained, and reset. Full focused Node VM test PASS and git apply --check PASS against accepted base 3c72c5b8399d2bc8ab7e849052230cbf80d33da8. Fresh independent exact-byte re-review remains Root's gate; this builder result does not lift the independent review block. The existing report was read only and retains the old artifact hashes as historical evidence. Product source remains untouched; Root owns commit and SOURCE admission.

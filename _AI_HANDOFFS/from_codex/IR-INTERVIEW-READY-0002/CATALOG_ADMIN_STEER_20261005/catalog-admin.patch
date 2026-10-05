@@ -1,0 +1,386 @@
+--- /dev/null
++++ b/interview-ready/catalog-runtime.js
+@@ -0,0 +1,38 @@
++/* Public catalog projection. No personal persistence or administrator authority. */
++window.IRCatalog = (() => {
++  const context=/* MMED_IR_CATALOG_CONTEXT */ null;
++  const badgeLabels={'brian-favorite':"Dr. Brian’s Favorite",'what-we-use':'This Is What We Use','best-value':'Best Value','best-for-most':'Best for Most Students','private-jet-pick':'Private Jet Pick'};
++  const copy=v=>JSON.parse(JSON.stringify(v));
++  const amazon=asin=>asin?`https://www.amazon.com/dp/${asin}?tag=missionmatch-20`:'';
++  function adapt(c,legacy=[]) {
++    if (!c || c.schema!=='missionmed.interview-ready.catalog.v1') throw Error('catalog schema');
++    const old=new Map(legacy.flatMap(x=>x.items||[]).map(i=>[i.key,i]));
++    return c.categories.filter(x=>x.enabled).sort((a,b)=>a.order-b.order).map(cat=>{
++      const map=p=>{const e=p.editorial,prior=old.get(p.legacyKey),approved=p.image;
++        return {key:p.legacyKey||`catalog:${p.id}`,catalogId:p.id,t:p.tier,asin:p.amazon.asin,name:e.title,
++          why:e.verdict,brianTake:e.brianTake,best:e.bestFor,notNeeded:e.notNeeded,notable:e.features,pros:e.pros,cons:e.cons,
++          setup:e.setup,ecosystem:e.ecosystem,complexity:e.complexity,box:e.requiredExtras,up:e.gainOverFirst||e.gainOverBusiness,down:e.notNeeded,
++          specs:e.specs,review:p.expert,source:p.manufacturerUrl,exception:false,offerState:'check-on-amazon',
++          badges:p.badges.map(key=>({key,label:badgeLabels[key]})),amazonUrl:amazon(p.amazon.asin),
++          image:approved?.url||prior?.image,imageCredit:approved?{source:approved.sourceUrl,licenseUrl:approved.licenseEvidence,caption:approved.alt}:prior?.imageCredit,
++          saveToKitAllowed:!!p.legacyKey,primary:p.primary};};
++      const active=c.products.filter(p=>p.category===cat.id&&p.enabled&&!p.archived).sort((a,b)=>a.order-b.order);
++      return {id:cat.id,name:cat.name,intro:cat.intro,pick:'bc',items:active.filter(p=>p.primary).sort((a,b)=>['bc','fc','pj'].indexOf(a.tier)-['bc','fc','pj'].indexOf(b.tier)).map(map),alternatives:active.filter(p=>!p.primary).map(map)};
++    });
++  }
++  function guardKit() { document.querySelectorAll('[data-kit^="catalog:"]').forEach(b=>{b.disabled=true;b.textContent='Catalog option · compare or shop';b.title='This new catalog option cannot yet be saved to your personal kit.';}); }
++  async function load() {
++    if (!context) return;
++    try {
++      const u=new URL(context.endpoint,location.origin);
++      if (u.origin!==location.origin||u.pathname!=='/wp-json/missionmed-ir/v1/catalog'||u.search||u.hash) throw Error('endpoint');
++      const r=await fetch(u.href,{credentials:'same-origin',cache:'no-store',redirect:'error'});
++      if (!r.ok) throw Error('catalog'); const data=await r.json();
++      if (data.catalog && typeof window.IRApplyPublishedCatalog==='function') window.IRApplyPublishedCatalog(data.catalog);
++      guardKit();
++    } catch (_) { document.dispatchEvent(new CustomEvent('ir-catalog-unavailable')); }
++  }
++  window.addEventListener('hashchange',()=>queueMicrotask(guardKit));
++  return {context,adapt,amazon,copy,load,guardKit,badgeLabels};
++})();
++IRCatalog.load();
+--- /dev/null
++++ b/interview-ready/catalog-admin.js
+@@ -0,0 +1,79 @@
++/* Executed only after private server capability injection. REST remains the authority. */
++(() => {
++  'use strict';
++  const api=window.IRCatalog,auth=api?.context?.admin;
++  if (!auth || !location.pathname.endsWith('/interview-ready/app/')) return;
++  const E=['title','verdict','brianTake','bestFor','notNeeded','features','pros','cons','setup','ecosystem','requiredExtras','gainOverBusiness','gainOverFirst'];
++  const labels={title:'MissionMed product title',verdict:'Brief verdict',brianTake:'Dr. Brian’s take',bestFor:'Best for',notNeeded:'Who does not need it',features:'Notable features · one per line',pros:'Pros · one per line',cons:'Cons · one per line',setup:'Setup notes',ecosystem:'Ecosystem notes',requiredExtras:'Required extras',gainOverBusiness:'Gain over Business Class',gainOverFirst:'Gain over First Class'};
++  const blank=()=>({id:crypto.randomUUID().replaceAll('-',''),category:'webcam',tier:'bc',primary:false,order:999,enabled:true,archived:false,badges:[],editorial:{title:'',verdict:'',brianTake:'',bestFor:'',notNeeded:'',features:[],pros:[],cons:[],setup:'',ecosystem:'',complexity:'Simple',requiredExtras:'',gainOverBusiness:'',gainOverFirst:'',specs:[]},amazon:{asin:'',destination:''},image:null,manufacturerUrl:'',expert:null,legacyKey:''});
++  const setPrimary=(catalog,id)=>{const p=catalog.products.find(p=>p.id===id);if(!p)throw Error('missing product');catalog.products.forEach(q=>{if(q.category===p.category&&q.tier===p.tier&&q.id!==id)q.primary=false;});p.primary=true;p.enabled=true;p.archived=false;};
++  const archive=(catalog,id)=>{const p=catalog.products.find(p=>p.id===id);if(!p)throw Error('missing product');p.archived=true;p.enabled=false;p.primary=false;};
++  const move=(catalog,id,direction)=>{const p=catalog.products.find(p=>p.id===id);const rows=catalog.products.filter(q=>q.category===p.category&&q.tier===p.tier).sort((a,b)=>a.order-b.order);const index=rows.indexOf(p),next=index+direction;if(next<0||next>=rows.length)return;[rows[index],rows[next]]=[rows[next],rows[index]];rows.forEach((q,n)=>q.order=n);};
++  const relocate=(catalog,id,category,tier)=>{const p=catalog.products.find(q=>q.id===id);p.category=category;p.tier=tier;p.primary=false;p.legacyKey='';p.order=Math.max(-1,...catalog.products.filter(q=>q!==p&&q.category===category&&q.tier===tier).map(q=>q.order))+1;};
++  // Pure helpers are available only inside an admin-injected script, for focused local tests.
++  window.IRCatalogAdminHelpers={blank,setPrimary,archive,move,relocate};
++  let state=null,draft=null,published=null,selected=null,dirty=false,previewed=false,inFlight=false,command=null,generation=0,controller=null,obscured=false;
++  const panel=document.createElement('section');panel.className='ir-admin';panel.hidden=true;
++  const toggle=document.createElement('button');toggle.type='button';toggle.className='btn plain sm';toggle.textContent='Admin view';toggle.setAttribute('aria-expanded','false');
++  const root=document.querySelector('.topbar');root.insertAdjacentElement('afterend',panel);root.append(toggle);
++  const node=(tag,text,parent)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(parent)parent.append(n);return n;};
++  const status=node('p','Loading catalog…',panel);status.setAttribute('role','status');const actions=node('div','',panel);actions.className='actions';
++  const button=(label,fn)=>{const b=node('button',label,actions);b.type='button';b.className='btn plain sm';b.onclick=()=>{Promise.resolve(fn()).catch(()=>message('Action failed. Published catalog remains available.'));};return b;};
++  const content=node('div','',panel);const list=node('div','',content);const form=node('form','',content);form.onsubmit=e=>e.preventDefault();
++  function message(t){status.textContent=t;}
++  function changed(){dirty=true;previewed=false;command=null;publish.disabled=true;message('Unsaved draft. Save, then preview before publishing.');}
++  const add=button('Add product',()=>{if(!draft)return;const p=blank();p.category=draft.categories[0].id;p.order=Math.max(0,...draft.products.filter(q=>q.category===p.category&&q.tier===p.tier).map(q=>q.order))+1;draft.products.push(p);selected=p.id;changed();render();});
++  const save=button('Save draft',()=>write('draft'));
++  const preview=button('Preview saved draft',()=>{if(dirty||!state?.draft){message('Save the draft before preview.');return;}window.IRApplyPublishedCatalog(state.draft);api.guardKit();previewed=true;publish.disabled=false;message('Previewing saved draft. The live catalog is unchanged.');});
++  const publish=button('Publish',()=>{if(dirty||!previewed){message('Save and preview the draft before publishing.');return;}if(confirm('Publish this preview to Interview Ready?'))return write('publish');});publish.disabled=true;
++  const reload=button('Reload server draft',()=>{if(dirty&&!confirm('Discard local unsaved edits and reload the server draft?'))return;return load();});
++  toggle.onclick=()=>{panel.hidden=!panel.hidden;toggle.textContent=panel.hidden?'Admin view':'Student view';toggle.setAttribute('aria-expanded',String(!panel.hidden));if(panel.hidden&&published)window.IRApplyPublishedCatalog(published);};
++  function input(label,value,change,type='text') {const wrap=node('label',label,form),n=node(type==='textarea'?'textarea':'input',undefined,wrap);if(type!=='textarea')n.type=type;n.value=value??'';n.maxLength=type==='textarea'?1600:2048;n.onchange=()=>{change(n.value);changed();};return n;}
++  function select(label,value,choices,change){const w=node('label',label,form),s=node('select',undefined,w);choices.forEach(([v,t])=>{const o=node('option',t,s);o.value=v;});s.value=value;s.onchange=()=>{change(s.value);changed();render();};return s;}
++  function check(label,value,change){const w=node('label','',form),i=node('input',undefined,w);i.type='checkbox';i.checked=value;node('span',label,w);i.onchange=()=>{change(i.checked);changed();render();};}
++  function editUrls(p){
++    input('ASIN · exact 10-character identifier',p.amazon.asin,v=>{p.amazon.asin=v.trim().toUpperCase();p.amazon.destination=api.amazon(p.amazon.asin);p.legacyKey='';});
++    input('Amazon destination · generated from ASIN',p.amazon.destination,()=>{}).readOnly=true;
++    input('Manufacturer URL',p.manufacturerUrl,v=>p.manufacturerUrl=v);
++    const fields={url:'Authorized image URL',sourceUrl:'Image source URL',licenseEvidence:'Approved image rights evidence URL',alt:'Image alternative text'};
++    Object.entries(fields).forEach(([k,label])=>input(label,p.image?.[k]||'',v=>{p.image=p.image||{url:'',sourceUrl:'',licenseEvidence:'',alt:''};p.image[k]=v;if(!Object.values(p.image).some(Boolean))p.image=null;}));
++    ['by','title','url'].forEach(k=>input('Expert review '+k,p.expert?.[k]||'',v=>{p.expert=p.expert||{by:'',title:'',url:''};p.expert[k]=v;if(!Object.values(p.expert).some(Boolean))p.expert=null;}));
++  }
++  function render(){list.replaceChildren();form.replaceChildren();if(!draft)return;
++    for(const p of [...draft.products].sort((a,b)=>a.category.localeCompare(b.category)||a.tier.localeCompare(b.tier)||a.order-b.order)){const b=node('button',`${p.editorial.title||'New product'} · ${p.category} / ${p.tier}${p.archived?' · archived':''}`,list);b.type='button';b.onclick=()=>{selected=p.id;render();};b.setAttribute('aria-pressed',String(selected===p.id));}
++    const p=draft.products.find(p=>p.id===selected);if(!p)return;
++    node('h3',p.editorial.title||'New product',form);
++    select('Category',p.category,draft.categories.map(c=>[c.id,c.name]),v=>relocate(draft,p.id,v,p.tier));
++    select('Tier',p.tier,[['bc','Business Class'],['fc','First Class'],['pj','Private Jet']],v=>relocate(draft,p.id,p.category,v));
++    check('Primary recommendation',p.primary,v=>{if(v)setPrimary(draft,p.id);else p.primary=false;});
++    check('Enabled',p.enabled,v=>{p.enabled=v;if(v)p.archived=false;});
++    for(const [key,label] of Object.entries(api.badgeLabels))check(label,p.badges.includes(key),v=>{p.badges=p.badges.filter(x=>x!==key);if(v)p.badges.push(key);});
++    E.forEach(k=>input(labels[k],Array.isArray(p.editorial[k])?p.editorial[k].join('\n'):p.editorial[k],v=>{p.editorial[k]=['features','pros','cons'].includes(k)?v.split('\n').map(s=>s.trim()).filter(Boolean):v;},'textarea'));
++    select('Setup complexity',p.editorial.complexity,[['Simple','Simple'],['Moderate','Moderate'],['Advanced','Advanced']],v=>p.editorial.complexity=v);
++    input('Technical specs · name | value | HTTPS evidence URL, one per line',p.editorial.specs.map(s=>`${s.name} | ${s.value} | ${s.evidenceUrl}`).join('\n'),v=>{p.editorial.specs=v.split('\n').filter(Boolean).map(row=>{const [name='',value='',evidenceUrl='']=row.split('|').map(s=>s.trim());return {name,value,evidenceUrl};});},'textarea');
++    editUrls(p);
++    for(const [label,fn] of [['Move earlier',()=>move(draft,p.id,-1)],['Move later',()=>move(draft,p.id,1)],['Archive',()=>{if(!confirm('Archive this product? Published visibility changes only after publish.'))return;archive(draft,p.id);} ]]){const b=node('button',label,form);b.type='button';b.onclick=()=>{fn();changed();render();};}
++  }
++  function seedFromEmbedded(){const legacy=window.IRCatalogLegacy||[],c={schema:'missionmed.interview-ready.catalog.v1',categories:[],products:[]};
++    legacy.forEach((cat,order)=>{c.categories.push({id:cat.id,name:cat.name,intro:cat.intro||'',order,enabled:true});cat.items.forEach((i,n)=>{const p=blank();Object.assign(p,{id:`seed-${cat.id}-${i.t}`,category:cat.id,tier:i.t,primary:true,order:n,legacyKey:i.key});p.amazon={asin:i.asin||'',destination:api.amazon(i.asin)};Object.assign(p.editorial,{title:i.name,verdict:i.why,bestFor:i.best||'',pros:i.pros||[],cons:i.cons||[],setup:i.setup||'',ecosystem:i.ecosystem||'',complexity:i.complexity||'Simple',requiredExtras:i.box||'',gainOverFirst:i.up||'',notNeeded:i.down||''});p.manufacturerUrl=i.source||'';p.expert=i.review?{by:i.review.by,title:i.review.title,url:i.review.url}:null;c.products.push(p);});});return c;
++  }
++  async function request(method,body){const u=new URL(auth.endpoint,location.origin);if(u.origin!==location.origin||u.pathname!=='/wp-json/missionmed-ir/v1/catalog/admin'||u.search||u.hash)throw Error('endpoint');
++    const token=generation;controller=new AbortController();const current=controller;const timer=setTimeout(()=>current.abort(),12000);
++    try{const r=await fetch(u.href,{method,credentials:'same-origin',cache:'no-store',redirect:'error',referrerPolicy:'same-origin',signal:current.signal,headers:{'X-WP-Nonce':auth.nonce,'X-IR-Subject':auth.subject,...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});if(token!==generation)throw Error('obsolete');
++      if(r.status===401||r.status===403){panel.hidden=true;toggle.hidden=true;state=draft=null;throw Error('session');}if(r.status===409)throw Error('conflict');if(!r.ok)throw Error('request');const data=await r.json();if(data.subject!==auth.subject||!data.state||!Number.isSafeInteger(data.state.revision))throw Error('identity');return data;
++    }finally{clearTimeout(timer);if(controller===current)controller=null;}
++  }
++  async function load(){if(inFlight)return;inFlight=true;try{const data=await request('GET');state=data.state;draft=api.copy(state.draft||state.published||seedFromEmbedded());published=state.published;dirty=!state.draft;selected=draft.products[0]?.id;previewed=false;command=null;obscured=false;toggle.hidden=false;publish.disabled=true;message(dirty?'Start with the current guide. Save draft to begin curation.':'Loaded saved draft. Preview before publishing.');render();}catch(e){message(e.message==='session'?'Admin session expired. Reload after signing in.':'Catalog unavailable. Retry using Reload server draft.');}finally{inFlight=false;}}
++  async function write(action){if(inFlight||!state)return;if(command&&command.action!==action){message('Retry the previous action or reload before switching actions.');return;}inFlight=true;form.inert=true;add.disabled=preview.disabled=reload.disabled=true;save.disabled=true;publish.disabled=true;
++    if(!command)command={action,expectedRevision:state.revision,commandId:crypto.randomUUID(),catalog:action==='draft'?api.copy(draft):null,previewDigest:action==='publish'?state.serverDraftDigest:''};
++    try{const data=await request('POST',command);state=data.state;state.serverDraftDigest=data.draftDigest;draft=api.copy(state.draft);published=state.published;dirty=false;previewed=false;command=null;message(action==='publish'?'Published. Students now receive the new catalog.':'Draft saved. Preview before publishing.');if(action==='publish')window.IRApplyPublishedCatalog(published);render();}
++    catch(e){if(e.message==='conflict'){command=null;message('Another admin changed this catalog. Local edits remain here. Reload server draft before saving again.');}else message('Save not confirmed. Retry the same action or reload to reconcile; the published catalog is preserved.');}
++    finally{inFlight=false;form.inert=false;add.disabled=preview.disabled=reload.disabled=false;save.disabled=false;publish.disabled=dirty||!previewed;}
++  }
++  // Preserve server digest on GET without putting audit helpers into the catalog payload.
++  const originalRequest=request;request=async function(method,body){const d=await originalRequest(method,body);d.state.serverDraftDigest=d.draftDigest;return d;};
++  const hide=()=>{generation++;controller?.abort();controller=null;inFlight=false;panel.hidden=true;toggle.hidden=true;obscured=true;};
++  window.addEventListener('pagehide',hide);window.addEventListener('pageshow',e=>{if(e.persisted)load();});
++  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')hide();else if(obscured){message('Revalidate admin session before continuing. Unsaved edits were discarded.');dirty=false;load();}});
++  load();
++})();
+--- /dev/null
++++ b/interview-ready/catalog-admin.css
+@@ -0,0 +1 @@
++.ir-admin{margin:16px clamp(18px,4vw,52px);padding:24px;background:#fffaf0;border:1px solid #b99a58;color:#17283c;font:14px/1.5 system-ui}.ir-admin[hidden]{display:none}.ir-admin>div:last-child{display:grid;grid-template-columns:minmax(180px,1fr) minmax(300px,3fr);gap:20px}.ir-admin form{display:grid;grid-template-columns:1fr 1fr;gap:12px}.ir-admin h3{grid-column:1/-1}.ir-admin label{display:flex;flex-direction:column;gap:4px}.ir-admin textarea,.ir-admin input:not([type=checkbox]),.ir-admin select{width:100%;padding:8px;color:inherit;background:white;border:1px solid #b99a58;font:inherit}.ir-admin textarea{min-height:65px;resize:vertical}.ir-admin button{padding:8px;cursor:pointer}.ir-admin button[aria-pressed=true]{font-weight:bold;border-color:#17283c}.ir-admin button:disabled{opacity:.55;cursor:default}.ir-admin>div:last-child>div{display:flex;flex-direction:column;gap:6px}.ir-admin .actions{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}.ir-admin :focus-visible{outline:3px solid #b99a58;outline-offset:3px}@media(max-width:720px){.ir-admin>div:last-child,.ir-admin form{grid-template-columns:1fr}}
+--- a/interview-ready/integration/missionmed-interview-ready.php
++++ b/interview-ready/integration/missionmed-interview-ready.php
+@@ -7,6 +7,7 @@
+ use \wpdb; use \mysqli; use \WP_Error; use \WP_REST_Response; use \RuntimeException; use \Throwable;
+ 
+ if (!defined('ABSPATH')) { exit; }
++require_once __DIR__.'/missionmed-interview-ready-catalog.php';
+ 
+ // WP retries a failed query on a new connection. That must never bypass our lock.
+ class MMed_IR_Locked_DB extends wpdb {
+@@ -222,7 +223,8 @@
+             'endpoint'=>home_url('/wp-json/missionmed-ir/v1/state')] : null;
+     }
+     public static function inject($html,$uid) {
+-        return str_replace(self::MARKER,wp_json_encode(self::context($uid),JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT),$html);
++        $html=str_replace(self::MARKER,wp_json_encode(self::context($uid),JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT),$html);
++        return MMed_IR_Catalog::inject($html,$uid);
+     }
+     public static function return_target($value) {
+         return is_string($value) && ($value===home_url('/interview-ready/app/') || $value==='/interview-ready/app/');
+--- a/interview-ready/build.py
++++ b/interview-ready/build.py
+@@ -6,7 +6,7 @@
+ 
+ 
+ def build(asset_profile='preview', output_dir=None, production=False):
+-    inputs = ['src.html','editorial.css','editorial.js','catalog.json','completion.css','completion.js','fashion.json','phase1.json','phase1.css','phase1.js','production-assets.json','account.js','integration/missionmed-interview-ready.php','integration/matrix-entry.js','build.py']
++    inputs = ['src.html','editorial.css','editorial.js','catalog.json','completion.css','completion.js','fashion.json','phase1.json','phase1.css','phase1.js','production-assets.json','account.js','catalog-runtime.js','catalog-admin.js','catalog-admin.css','integration/missionmed-interview-ready.php','integration/missionmed-interview-ready-catalog.php','integration/matrix-entry.js','build.py']
+     def fixed_bytes(name):
+         path = ROOT/name
+         if any(part.is_symlink() for part in [path, *path.parents]) or not path.is_file():
+@@ -92,7 +92,7 @@
+         early_route = "if (!PHASE1.deferredRoutes.includes((location.hash||'#home').slice(1).split('/')[0])) route();"
+         editorial = editorial.replace('renderChecklist();renderKitCount();route();', 'renderChecklist();renderKitCount();'+early_route)
+         completion = completion.replace('syncMotion();route();', 'syncMotion();'+early_route)
+-    source = source.replace('<!-- EDITORIAL_CSS -->', '<style>'+input_data['editorial.css'].decode()+'\n'+input_data['completion.css'].decode()+'\n'+input_data['phase1.css'].decode()+'</style>')
++    source = source.replace('<!-- EDITORIAL_CSS -->', '<style>'+input_data['editorial.css'].decode()+'\n'+input_data['completion.css'].decode()+'\n'+input_data['phase1.css'].decode()+'\n'+input_data['catalog-admin.css'].decode()+'</style>')
+     paths = sorted(allowed) if permitted else [str(p.relative_to(ROOT)) for p in sorted((ROOT/'img').glob('*.webp'))]
+     assets = {Path(path).name:uri(path) for path in paths}
+     def js(value): return json.dumps(value, ensure_ascii=False).replace('</','<\\/')
+@@ -106,7 +106,11 @@
+     source = source.replace('</head>', '<style>'+privacy_css+'</style><script>document.documentElement.dataset.irPersonal=\"blocked\";\n'+account+'</script></head>')
+     source = source.replace("connect-src 'none'", "connect-src 'self'")
+     attach = "\nIRAccount.attach({catalog:CATALOG,checklist:CHECKLIST,mode:value=>{mode=value;},reset:()=>{mode='online';},render:()=>{renderChecklist();renderKitCount();renderKit();document.querySelectorAll('[data-kit]').forEach(b=>{const saved=kit.has(b.dataset.kit);b.textContent=saved?IRAccount.kitLabel():'Save to kit';b.setAttribute('aria-pressed',saved);});},route,wrapRoute:fn=>{route=fn;},runRoute:()=>route()});"
+-    scripts = '<script>const ASSET = '+js(assets)+'; const RESEARCH = '+js(research)+'; const FASHION = '+js(fashion)+'; const PHASE1 = '+js(phase1)+';\n'+editorial+'\n'+completion+'\n'+input_data['phase1.js'].decode()+attach+'</script>'
++    catalog_runtime = input_data['catalog-runtime.js'].decode()
++    catalog_admin = input_data['catalog-admin.js'].decode()
++    if '</script' in (catalog_runtime+catalog_admin).lower(): raise ValueError('Catalog inline script boundary')
++    catalog_hook = "\nwindow.IRCatalogLegacy=JSON.parse(JSON.stringify(CATALOG.online));window.IRApplyPublishedCatalog=window.IRApplyPublishedCatalog||function(value){CATALOG.online=IRCatalog.adapt(value,window.IRCatalogLegacy);RESEARCH.online=CATALOG.online;route();IRCatalog.guardKit();};\n"
++    scripts = '<script>const ASSET = '+js(assets)+'; const RESEARCH = '+js(research)+'; const FASHION = '+js(fashion)+'; const PHASE1 = '+js(phase1)+';\n'+editorial+'\n'+completion+'\n'+input_data['phase1.js'].decode()+attach+catalog_hook+catalog_runtime+'</script><!-- MMED_IR_CATALOG_ADMIN_B64:'+base64.b64encode(catalog_admin.encode()).decode()+' -->'
+     source = source.replace('<!-- EDITORIAL_SCRIPTS -->', scripts)
+     for key, value in old.items():
+         if '{{'+key+'}}' in source:
+--- /dev/null
++++ b/interview-ready/integration/missionmed-interview-ready-catalog.php
+@@ -0,0 +1,174 @@
++<?php
++/** Prospective catalog option contract. Feature disabled until fresh annex/release gates. */
++namespace MissionMed\InterviewReady;
++use \WP_REST_Response; use \mysqli; use \Throwable;
++if (!defined('ABSPATH')) { exit; }
++final class MMed_IR_Catalog {
++    const OPTION='_mmed_ir_catalog_v1'; const LOCK='mmed_ir_catalog_v1';
++    const SCHEMA='missionmed.interview-ready.catalog.v1';
++    const TIERS=['bc','fc','pj'];
++    const CATEGORIES=['webcam','mic','light','mount','background','power','accessories'];
++    const BADGES=['brian-favorite','what-we-use','best-value','best-for-most','private-jet-pick'];
++    public static function enabled() { return defined('MMED_IR_CATALOG_ENABLED') && MMED_IR_CATALOG_ENABLED===true; }
++    public static function fail($code,$status=400) { return MMed_IR_Gateway::error('ir_catalog_'.$code,$status); }
++    public static function exact($v,$keys) {
++        if (!is_object($v) || get_class($v)!=='stdClass') return false;
++        $a=array_keys(get_object_vars($v)); sort($a); sort($keys); return $a===$keys;
++    }
++    public static function text($s,$max=800,$required=false) {
++        return is_string($s) && strlen($s)<=$max && (!$required || trim($s)!=='') && !preg_match('/[\x00-\x08\x0b\x0c\x0e-\x1f<>]/',$s);
++    }
++    public static function strings($v,$n=12,$max=240) {
++        if (!is_array($v) || !array_is_list($v) || count($v)>$n) return false;
++        foreach ($v as $s) if (!self::text($s,$max,true)) return false;
++        return true;
++    }
++    public static function url($url,$empty=true) {
++        if ($url==='' && $empty) return true;
++        if (!is_string($url) || strlen($url)>2048 || preg_match('/[\x00-\x20<>\\\\]/',$url)) return false;
++        $p=wp_parse_url($url); if (!$p || ($p['scheme'] ?? '')!=='https' || !isset($p['host']) || isset($p['user'],$p['pass']) || isset($p['user']) || isset($p['pass']) || isset($p['fragment']) || (isset($p['port']) && $p['port']!==443)) return false;
++        $h=strtolower($p['host']);
++        return !filter_var($h,FILTER_VALIDATE_IP) && str_contains($h,'.') && !preg_match('/(^|\.)(localhost|local|internal|test|invalid)$/',$h) && preg_match('/^[a-z0-9.-]+$/D',$h);
++    }
++    public static function amazon($asin) { return $asin ? 'https://www.amazon.com/dp/'.$asin.'?tag=missionmatch-20' : ''; }
++    public static function hash($v) { return hash('sha256',wp_json_encode($v)); }
++    public static function valid($c,$publish=false) {
++        if (!self::exact($c,['schema','categories','products']) || $c->schema!==self::SCHEMA || !is_array($c->categories) || !array_is_list($c->categories) || count($c->categories)<1 || count($c->categories)>7 || !is_array($c->products) || !array_is_list($c->products) || count($c->products)>150 || strlen(wp_json_encode($c))>245760) return false;
++        $categories=[]; $orders=[]; $primary=[]; $ids=[]; $productOrders=[]; $legacyKeys=[];
++        foreach ($c->categories as $cat) {
++            if (!self::exact($cat,['id','name','intro','order','enabled']) || !in_array($cat->id,self::CATEGORIES,true) || isset($categories[$cat->id]) || !self::text($cat->name,100,true) || !self::text($cat->intro,800) || !is_bool($cat->enabled) || !is_int($cat->order) || $cat->order<0 || $cat->order>9999 || isset($orders[$cat->order])) return false;
++            $categories[$cat->id]=$cat; $orders[$cat->order]=true;
++        }
++        foreach ($c->products as $p) {
++            if (!self::exact($p,['id','category','tier','primary','order','enabled','archived','badges','editorial','amazon','image','manufacturerUrl','expert','legacyKey']) || !is_string($p->id) || !preg_match('/^[a-z0-9][a-z0-9-]{0,63}$/D',$p->id) || isset($ids[$p->id]) || !is_string($p->category) || !isset($categories[$p->category]) || !in_array($p->tier,self::TIERS,true) || !is_bool($p->primary) || !is_bool($p->enabled) || !is_bool($p->archived) || ($p->archived && ($p->enabled || $p->primary)) || !is_int($p->order) || $p->order<0 || $p->order>9999 || !self::strings($p->badges,5,40) || count(array_unique($p->badges))!==count($p->badges) || array_diff($p->badges,self::BADGES)) return false;
++            $ids[$p->id]=true; $slot=$p->category.':'.$p->tier.':'.$p->order;
++            if (isset($productOrders[$slot])) return false; $productOrders[$slot]=true;
++            if (!self::exact($p->editorial,['title','verdict','brianTake','bestFor','notNeeded','features','pros','cons','setup','ecosystem','complexity','requiredExtras','gainOverBusiness','gainOverFirst','specs'])) return false;
++            foreach (['title','verdict','brianTake','bestFor','notNeeded','setup','ecosystem','requiredExtras','gainOverBusiness','gainOverFirst'] as $k) if (!self::text($p->editorial->$k,$k==='title'?180:1600,in_array($k,['title','verdict'],true))) return false;
++            foreach (['features','pros','cons'] as $k) if (!self::strings($p->editorial->$k)) return false;
++            if (!in_array($p->editorial->complexity,['Simple','Moderate','Advanced'],true) || !is_array($p->editorial->specs) || !array_is_list($p->editorial->specs) || count($p->editorial->specs)>20) return false;
++            $names=[]; foreach ($p->editorial->specs as $s) {
++                if (!self::exact($s,['name','value','evidenceUrl']) || !self::text($s->name,80,true) || !self::text($s->value,240,true) || !self::url($s->evidenceUrl,false) || isset($names[$s->name])) return false;
++                $names[$s->name]=true;
++            }
++            if (!self::exact($p->amazon,['asin','destination']) || !is_string($p->amazon->asin) || ($p->amazon->asin!=='' && !preg_match('/^[A-Z0-9]{10}$/D',$p->amazon->asin)) || $p->amazon->destination!==self::amazon($p->amazon->asin) || !self::url($p->manufacturerUrl)) return false;
++            if ($p->image!==null && (!self::exact($p->image,['url','sourceUrl','licenseEvidence','alt']) || !self::url($p->image->url,false) || !self::url($p->image->sourceUrl,false) || !self::url($p->image->licenseEvidence,false) || !self::text($p->image->alt,180,true) || apply_filters('mmed_ir_catalog_approved_image',false,$p->image)!==true)) return false;
++            if ($p->expert!==null && (!self::exact($p->expert,['by','title','url']) || !self::text($p->expert->by,100,true) || !self::text($p->expert->title,180,true) || !self::url($p->expert->url,false))) return false;
++            if (!is_string($p->legacyKey) || ($p->legacyKey!=='' && (!in_array($p->legacyKey,MMed_IR_Gateway::KIT_KEYS,true) || $p->legacyKey!=='online:'.$p->category.':'.$p->tier.':'.($p->amazon->asin ?: 'plan')))) return false;
++            if ($p->legacyKey!=='') { if (isset($legacyKeys[$p->legacyKey])) return false; $legacyKeys[$p->legacyKey]=true; }
++            if ($p->enabled && !$p->archived && $p->primary && $categories[$p->category]->enabled) { $key=$p->category.':'.$p->tier; $primary[$key]=($primary[$key] ?? 0)+1; }
++        }
++        if ($publish && !array_filter($categories,fn($cat)=>$cat->enabled)) return false;
++        if ($publish) foreach ($categories as $cat) if ($cat->enabled) foreach (self::TIERS as $t) if (($primary[$cat->id.':'.$t] ?? 0)!==1) return false;
++        return true;
++    }
++    public static function empty() { return ['schema'=>'missionmed.interview-ready.catalog-envelope.v1','revision'=>0,'publishedVersion'=>0,'published'=>null,'draft'=>null,'updatedAt'=>'','actorUid'=>0,'lastCommandId'=>'','lastCommandDigest'=>'','audit'=>[]]; }
++    public static function record_valid($v) {
++        if (!is_array($v) || strlen(wp_json_encode($v))>524288) return false; $s=json_decode(wp_json_encode($v));
++        if (!self::exact($s,array_keys(self::empty())) || $s->schema!==self::empty()['schema'] || !is_int($s->revision) || $s->revision<1 || $s->revision>=PHP_INT_MAX-1 || !is_int($s->publishedVersion) || $s->publishedVersion<0 || $s->publishedVersion>$s->revision || ($s->published===null)!==($s->publishedVersion===0) || ($s->published!==null && !self::valid($s->published,true)) || ($s->draft!==null && !self::valid($s->draft)) || !is_int($s->actorUid) || $s->actorUid<1 || !is_string($s->updatedAt) || !preg_match('/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/D',$s->updatedAt) || !is_string($s->lastCommandId) || !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/D',$s->lastCommandId) || !is_string($s->lastCommandDigest) || !preg_match('/^[0-9a-f]{64}$/D',$s->lastCommandDigest) || !is_array($s->audit) || !array_is_list($s->audit) || count($s->audit)>40) return false;
++        foreach ($s->audit as $a) if (!self::exact($a,['revision','action','actorUid','at','catalogDigest']) || !is_int($a->revision) || $a->revision<1 || $a->revision>$s->revision || !in_array($a->action,['draft','publish'],true) || !is_int($a->actorUid) || $a->actorUid<1 || !is_string($a->at) || !preg_match('/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/D',$a->at) || !is_string($a->catalogDigest) || !preg_match('/^[0-9a-f]{64}$/D',$a->catalogDigest)) return false;
++        return true;
++    }
++    public static function read() {
++        global $wpdb; wp_cache_delete(self::OPTION,'options'); wp_cache_delete('notoptions','options');
++        $v=get_option(self::OPTION,null);
++        if (!empty($wpdb->last_error)) return self::fail('read',503);
++        if ($v===null) return self::empty();
++        return self::record_valid($v) ? $v : self::fail('recovery_required',503);
++    }
++    public static function response($s,$admin=false) {
++        $r=new WP_REST_Response($admin ? ['subject'=>MMed_IR_Gateway::subject(get_current_user_id()),'state'=>$s,'draftDigest'=>self::hash($s['draft'])] : ['schema'=>self::SCHEMA,'publishedVersion'=>$s['publishedVersion'],'catalog'=>self::projection($s['published'])],200);
++        $r->header('Cache-Control','private, no-store, max-age=0'); $r->header('Vary','Cookie'); return $r;
++    }
++    public static function projection($c) {
++        if ($c===null) return null;
++        $c=json_decode(wp_json_encode($c)); $c->categories=array_values(array_filter($c->categories,fn($v)=>$v->enabled));
++        $ids=array_column($c->categories,'id'); $c->products=array_values(array_filter($c->products,fn($v)=>$v->enabled && !$v->archived && in_array($v->category,$ids,true)));
++        return $c;
++    }
++    public static function public_permission($r) {
++        if (!self::enabled()) return self::fail('disabled',404);
++        return $r->get_method()==='GET' && !$r->get_query_params() && !$r->get_url_params() && $r->get_body()==='' ? true : self::fail('parameters');
++    }
++    public static function admin_permission($r) {
++        if (!self::enabled()) return self::fail('disabled',404);
++        $p=MMed_IR_Gateway::permission($r); if ($p!==true) return $p;
++        return current_user_can('manage_options') ? true : self::fail('forbidden',403);
++    }
++    public static function public_get($r) { $p=self::public_permission($r); if ($p!==true) return $p; $s=self::read(); return is_wp_error($s)?$s:self::response($s); }
++    public static function preserves($next,$old) {
++        if ($old===null) return true;
++        $ids=array_column($next->products,'id'); foreach ($old->products as $p) if (!in_array($p->id,$ids,true)) return false; return true;
++    }
++    public static function command($r) {
++        if ($r->get_header('content-type')!=='application/json' || strlen($r->get_body())>262144) return self::fail('body',413);
++        $c=json_decode($r->get_body());
++        if (json_last_error()!==JSON_ERROR_NONE || !self::exact($c,['action','expectedRevision','commandId','catalog','previewDigest']) || !in_array($c->action,['draft','publish'],true) || !is_int($c->expectedRevision) || $c->expectedRevision<0 || $c->expectedRevision>=PHP_INT_MAX-2 || !is_string($c->commandId) || !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/D',$c->commandId) || ($c->action==='draft' ? !self::valid($c->catalog) || $c->previewDigest!=='' : $c->catalog!==null || !is_string($c->previewDigest) || !preg_match('/^[0-9a-f]{64}$/D',$c->previewDigest))) return self::fail('schema');
++        return $c;
++    }
++    public static function admin($r) {
++        $p=self::admin_permission($r); if ($p!==true) return $p;
++        if ($r->get_method()==='GET') { if ($r->get_body()!=='') return self::fail('body'); $s=self::read(); return is_wp_error($s)?$s:self::response($s,true); }
++        if ($r->get_method()!=='POST') return self::fail('method',405);
++        $c=self::command($r); if (is_wp_error($c)) return $c;
++        global $wpdb; $uid=get_current_user_id(); $owner=$wpdb; $handle=$owner->dbh; $locked=false;
++        try {
++            if (!($handle instanceof mysqli)) return self::fail('connection',503);
++            $result=mysqli_query($handle,"SELECT CONNECTION_ID(), GET_LOCK('".self::LOCK."', 2)");
++            $v=$result?mysqli_fetch_row($result):null; if ($result) mysqli_free_result($result);
++            if (!$v || (string)$v[1]!=='1') return self::fail('lock',503); $locked=true;
++            $db=new MMed_IR_Locked_DB($owner,$handle,$v[0],self::LOCK); $wpdb=$db;
++            if (!$db->intact()) return self::fail('connection',503);
++            $s=self::read(); if (is_wp_error($s)) return $s; $digest=self::hash($c);
++            if ($s['lastCommandId']===$c->commandId) return hash_equals($s['lastCommandDigest'],$digest)?self::response($s,true):self::fail('command_reused',409);
++            if ($s['revision']!==$c->expectedRevision) return self::fail('conflict',409);
++            if ($c->action==='draft') {
++                if (!self::preserves($c->catalog,$s['published'])) return self::fail('archive_required');
++                $s['draft']=$c->catalog;
++            } else {
++                if ($s['draft']===null || !self::valid($s['draft'],true) || !hash_equals(self::hash($s['draft']),$c->previewDigest)) return self::fail('preview_required',409);
++                $s['published']=$s['draft']; $s['publishedVersion']++;
++            }
++            $s['revision']++; $s['updatedAt']=gmdate('Y-m-d\TH:i:s\Z'); $s['actorUid']=$uid;
++            $s['lastCommandId']=$c->commandId; $s['lastCommandDigest']=$digest;
++            $s['audit'][]=['revision'=>$s['revision'],'action'=>$c->action,'actorUid'=>$uid,'at'=>$s['updatedAt'],'catalogDigest'=>self::hash($s['draft'])]; $s['audit']=array_slice($s['audit'],-40);
++            if (!$db->intact() || get_current_user_id()!==$uid || !current_user_can('manage_options')) return self::fail('connection',503);
++            $ok=$c->expectedRevision===0 ? add_option(self::OPTION,$s,'',false) : update_option(self::OPTION,$s,false);
++            if (!$ok || !$db->intact()) return self::fail('write',503);
++            $saved=self::read(); if (is_wp_error($saved) || wp_json_encode($saved)!==wp_json_encode($s)) return self::fail('write',503);
++            return self::response($saved,true);
++        } catch (Throwable $e) { return self::fail('connection',503); }
++        finally { $wpdb=$owner; if ($locked) try { $r=mysqli_query($handle,"SELECT RELEASE_LOCK('".self::LOCK."')"); if ($r) mysqli_free_result($r); } catch (Throwable $e) {} }
++    }
++    public static function context($uid) {
++        if (!self::enabled()) return null;
++        $c=['endpoint'=>home_url('/wp-json/missionmed-ir/v1/catalog')];
++        if ($uid && current_user_can('manage_options')) $c['admin']=['endpoint'=>home_url('/wp-json/missionmed-ir/v1/catalog/admin'),'nonce'=>wp_create_nonce('wp_rest'),'subject'=>MMed_IR_Gateway::subject($uid)];
++        return $c;
++    }
++    public static function inject($html,$uid) {
++        $c=self::context($uid);
++        $html=str_replace('/* MMED_IR_CATALOG_CONTEXT */ null',wp_json_encode($c,JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT),$html);
++        // Code is sealed inside immutable HTML, removed for EVERY response, then executed only for real server admin.
++        $pattern='~<!-- MMED_IR_CATALOG_ADMIN_B64:([A-Za-z0-9+/=]+) -->~';
++        if (preg_match_all($pattern,$html,$m)!==1) return $html;
++        $code=base64_decode($m[1][0],true); $html=preg_replace($pattern,'',$html);
++        if (isset($c['admin']) && is_string($code) && stripos($code,'</script')===false) $html=str_replace('</body>','<script>'.$code.'</script></body>',$html);
++        return $html;
++    }
++}
++add_action('rest_api_init',function(){
++    if (!MMed_IR_Catalog::enabled()) return;
++    register_rest_route('missionmed-ir/v1','/catalog',['methods'=>'GET','callback'=>[MMed_IR_Catalog::class,'public_get'],'permission_callback'=>[MMed_IR_Catalog::class,'public_permission']]);
++    register_rest_route('missionmed-ir/v1','/catalog/admin',['methods'=>['GET','POST'],'callback'=>[MMed_IR_Catalog::class,'admin'],'permission_callback'=>[MMed_IR_Catalog::class,'admin_permission']]);
++});
++add_filter('rest_post_dispatch',function($response,$server,$request){
++    if (in_array($request->get_route(),['/missionmed-ir/v1/catalog','/missionmed-ir/v1/catalog/admin'],true) && is_object($response) && method_exists($response,'header')) {
++        $response->header('Cache-Control','private, no-store, max-age=0'); $response->header('Vary','Cookie');
++        $response->header('Access-Control-Allow-Origin',''); $response->header('Access-Control-Allow-Credentials','false');
++    } return $response;
++},20,3);
++add_filter('rest_pre_serve_request',function($served,$result,$request,$server){
++    if (in_array($request->get_route(),['/missionmed-ir/v1/catalog','/missionmed-ir/v1/catalog/admin'],true)) { header_remove('Access-Control-Allow-Origin'); header_remove('Access-Control-Allow-Credentials'); MMed_IR_Gateway::private_headers(); }
++    return $served;
++},100,4);
+--- a/interview-ready/integration/release.py
++++ b/interview-ready/integration/release.py
+@@ -67,7 +67,8 @@
+         if b"const store = IRAccount.store;" not in html or b"connect-src 'self'" not in html: raise ValueError('Account/privacy seams missing')
+         if b'data:image' not in html: raise ValueError('Bundled approved media missing')
+         release = 'wp-content/mu-plugins/missionmed-interview-ready-runtime/releases/'+manifest['sha256']+'/'
+-        files = {'wp-content/mu-plugins/missionmed-interview-ready.php':safe_file(ROOT/'integration/missionmed-interview-ready.php')}
++        files = {'wp-content/mu-plugins/missionmed-interview-ready.php':safe_file(ROOT/'integration/missionmed-interview-ready.php'),
++                 'wp-content/mu-plugins/missionmed-interview-ready-catalog.php':safe_file(ROOT/'integration/missionmed-interview-ready-catalog.php')}
+         for name in ['interview-ready.html','matrix-entry.js','account-gate.html','build-manifest.json']:
+             files[release+name] = safe_file(built/name)
+         for name, marker in [('matrix-entry.js','MATRIX'),('account-gate.html','GATE')]:
+@@ -83,14 +84,14 @@
+         package_manifest = {'schema':'missionmed.interview-ready.local-package.v1','candidate':True,'productionApproved':False,
+             'htmlSha256':manifest['sha256'],'sourceRef':source_ref,'sourceCommit':source_commit,'sourceState':source_state,
+             'uncommittedInputs':changed,'buildInputs':names,'artifacts':{name:{'sha256':digest(value),'bytes':len(value)} for name,value in sorted(files.items())},
+-            'sourceMappings':{'gateway':'interview-ready/integration/missionmed-interview-ready.php','html':'build.py + buildInputs; production allowlist only',
++            'sourceMappings':{'catalog':'interview-ready/integration/missionmed-interview-ready-catalog.php','gateway':'interview-ready/integration/missionmed-interview-ready.php','html':'build.py + buildInputs; production allowlist only',
+                 'matrix-entry.js':'interview-ready/integration/matrix-entry.js','account-gate.html':'interview-ready/build.py + approved img/hero-online-photo.webp','build-manifest.json':'interview-ready/build.py'},
+             'limitations':['builder candidate only','independent exact-byte/recovery acceptance required','healthy runtime lease and native WP/MySQL/cache/live browser gates outstanding','all 15 shared Matrix bytes and selections must be preserved']}
+         plan = {'schema':'missionmed.interview-ready.local-plan.v1','executable':False,'state':'CANDIDATE_HOLD',
+             'host':'missionmed-kinsta','webroot':'/www/theresidencyacademy_209/public','releaseDirectory':release.rstrip('/'),
+             'currentPointer':'wp-content/mu-plugins/missionmed-interview-ready-runtime/current','pointerStrategy':'qualified atomic current symlink replacement by Foreman only',
+             'activation':'independently accept exact committed package and qualified absent/preimage recovery, then acquire narrow healthy runtime lease; Foreman installs dedicated gateway and pointer only',
+-            'rollback':'restore exact qualified IR gateway and current pointer preimages only; retain _mmed_ir_state_v1, identities, history, enrollment and siblings',
++            'rollback':'restore exact qualified IR gateway and current pointer preimages only; retain _mmed_ir_state_v1 and _mmed_ir_catalog_v1, identities, history, enrollment and siblings',
+             'matrixScope':'dedicated footer artifact; no shared script selection, cache, lock or renderer changes','productionApproval':False}
+         files['release-manifest.json'] = encoded(package_manifest)
+         files['release-plan.json'] = encoded(plan)

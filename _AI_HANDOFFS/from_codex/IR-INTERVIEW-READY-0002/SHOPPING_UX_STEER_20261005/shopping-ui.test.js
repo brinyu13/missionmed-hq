@@ -3,7 +3,7 @@
 // Reads the accepted Git object and applies the sibling patch in memory only.
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),cp=require('node:child_process');
 const repo=path.resolve(__dirname,'../../../..');
-const BASE='e82c03ec4d487ce5d6031189f68a9913a52ddcd7';
+const BASE='3c72c5b8399d2bc8ab7e849052230cbf80d33da8';
 const read=f=>cp.execFileSync('git',['show',`${BASE}:interview-ready/${f}`],{cwd:repo,encoding:'utf8'});
 const patch=fs.readFileSync(path.join(__dirname,'shopping.patch'),'utf8');
 function apply(f){const src=read(f).split('\n');const chunk=patch.split('--- a/').find(x=>x.startsWith('interview-ready/'+f+'\n'));assert(chunk,'Patch file present: '+f);let cursor=0,out=[];const lines=chunk.split('\n');for(let n=2;n<lines.length;n++){const match=lines[n].match(/^@@ -(\d+)(?:,\d+)? \+\d+(?:,\d+)? @@/);if(match){const start=+match[1]-1;out.push(...src.slice(cursor,start));cursor=start;continue;}const line=lines[n];if(line[0]===' '||line[0]==='-'){assert.equal(src[cursor],line.slice(1),'Patch preimage '+f+':'+(cursor+1));if(line[0]===' ')out.push(src[cursor]);cursor++;}else if(line[0]==='+')out.push(line.slice(1));}out.push(...src.slice(cursor));return out.join('\n');}
@@ -43,16 +43,28 @@ for(const field of ['Resolution / FPS','Product image','Current price','Amazon r
 assert.match(comparison,/TRADEOFF/);assert.match(comparison,/N\/A/);assert.match(comparison,/MissionMed assessment/);
 assert.equal(evalIn('shoppingDifference("Simple","Simple",true)'),'SAME');
 assert.equal(evalIn('shoppingDifference(null,null)'),'N/A · not fully recorded');
-assert.equal(evalIn('shoppingToggle("alternative:0")'),true);assert.equal(evalIn('shoppingCompareIds.length'),1);
-evalIn('shoppingCompareIds=[]');assert.equal(evalIn('shoppingCompareIds.length'),0);
+assert.equal(evalIn('shoppingToggle("alternative:0")'),true);assert.equal(evalIn('shoppingCompareIds.filter(Boolean).length'),1);
+evalIn('shoppingCompareIds=[null,null]');assert.equal(evalIn('shoppingCompareIds.filter(Boolean).length'),0);
 // Exercise the actual DOM binding callbacks using a bounded host double.
 const buttons=['online:webcam:0','online:mic:0','online:light:0'].map(id=>({dataset:{shoppingCompare:id},setAttribute(k,v){this[k]=v},focus(){}}));
 const slots=[0,1].map(n=>({dataset:{shoppingSlot:String(n)},value:'',focus(){}}));
 const reset={focus(){}},remove={dataset:{shoppingRemove:'online:webcam:0'},focus(){}},panel={innerHTML:''};
 context.shoppingHost={querySelectorAll(selector){return selector==='[data-shopping-compare]'?buttons:selector==='[data-shopping-slot]'?slots:selector==='[data-shopping-remove]'?[remove]:[];},querySelector(selector){return selector==='[data-shopping-panel]'?panel:selector==='[data-shopping-reset]'?reset:selector.includes('data-shopping-slot')?slots[selector.includes('"1"')?1:0]:null;}};
-evalIn('bindShopping(shoppingHost)');buttons[0].onclick();buttons[1].onclick();buttons[2].onclick();assert.equal(evalIn('shoppingCompareIds.length'),2);
+evalIn('bindShopping(shoppingHost)');buttons[0].onclick();buttons[1].onclick();buttons[2].onclick();assert.equal(evalIn('shoppingCompareIds.filter(Boolean).length'),2);
 slots[1].value='alternative:1';slots[1].onchange();assert.equal(evalIn('shoppingCompareIds[1]'),'alternative:1');assert.match(panel.innerHTML,/Blue Yeti USB/);
-remove.onclick();assert.equal(evalIn('shoppingCompareIds.length'),1);reset.onclick();assert.equal(evalIn('shoppingCompareIds.length'),0);assert.match(panel.innerHTML,/0 \/ 2 selected/);
+remove.onclick();assert.equal(evalIn('shoppingCompareIds.filter(Boolean).length'),1);reset.onclick();assert.equal(evalIn('shoppingCompareIds.filter(Boolean).length'),0);assert.match(panel.innerHTML,/0 \/ 2 selected/);
+// Regression: labeled selectors remain stable when Product 2 is chosen first.
+reset.onclick();slots[1].value='online:webcam:0';slots[1].onchange();
+assert.equal(evalIn('shoppingCompareIds[0]'),null);assert.equal(evalIn('shoppingCompareIds[1]'),'online:webcam:0');
+assert.match(panel.innerHTML,/1 \/ 2 selected/);
+const secondControl=panel.innerHTML.split('data-shopping-slot="1"')[1].split('</select>')[0];assert.match(secondControl,/value="online:webcam:0" selected/);
+slots[0].value='online:mic:0';slots[0].onchange();assert.equal(evalIn('shoppingCompareIds[0]'),'online:mic:0');assert.equal(evalIn('shoppingCompareIds[1]'),'online:webcam:0');assert.match(panel.innerHTML,/<table class="shopping-matrix"/);
+slots[1].value='alternative:0';slots[1].onchange();assert.equal(evalIn('shoppingCompareIds[0]'),'online:mic:0');assert.equal(evalIn('shoppingCompareIds[1]'),'alternative:0');
+slots[0].value='';slots[0].onchange();assert.equal(evalIn('shoppingCompareIds[0]'),null);assert.equal(evalIn('shoppingCompareIds[1]'),'alternative:0');assert.doesNotMatch(panel.innerHTML,/<table class="shopping-matrix"/);
+slots[0].value='online:mic:0';slots[0].onchange();remove.dataset.shoppingRemove='alternative:0';remove.onclick();assert.equal(evalIn('shoppingCompareIds[0]'),'online:mic:0');assert.equal(evalIn('shoppingCompareIds[1]'),null);
+slots[1].value='alternative:1';slots[1].onchange();remove.dataset.shoppingRemove='online:mic:0';remove.onclick();assert.equal(evalIn('shoppingCompareIds[0]'),null);assert.equal(evalIn('shoppingCompareIds[1]'),'alternative:1');
+slots[1].value='';slots[1].onchange();assert.equal(evalIn('shoppingCompareIds.filter(Boolean).length'),0);assert.equal(evalIn('shoppingCompareIds[0]'),null);assert.equal(evalIn('shoppingCompareIds[1]'),null);
+reset.onclick();
 // Full category render maintains three canonical ordered tiers, has alternatives and comparison panel.
 const nodes={};function host(){return{innerHTML:'',setAttribute(){},querySelector(){return null},querySelectorAll(){return[]},insertAdjacentHTML(where,html){this.innerHTML+=html}};}
 nodes['catnav-online']=host();nodes['catalog-online']=host();context.document.getElementById=id=>nodes[id];
@@ -61,7 +73,7 @@ assert.equal((html.match(/class="tier shopping-tier"/g)||[]).length,3);
 assert(html.indexOf('data-tier="bc"')<html.indexOf('data-tier="fc"'));assert(html.indexOf('data-tier="fc"')<html.indexOf('data-tier="pj"'));
 assert.match(html,/Other options to consider/);assert.match(html,/Blue Yeti USB/);assert.match(html,/data-shopping-panel/);
 // All accepted products and both research alternatives can join a comparison without catalog/kit writes.
-for(const id of evalIn('shoppingEntries().map(x=>x.id)')){evalIn('shoppingCompareIds=[]');assert.equal(evalIn(`shoppingToggle(${JSON.stringify(id)})`),true);}
+for(const id of evalIn('shoppingEntries().map(x=>x.id)')){evalIn('shoppingCompareIds=[null,null]');assert.equal(evalIn(`shoppingToggle(${JSON.stringify(id)})`),true);}
 assert.deepEqual(Object.values(catalogs).flatMap(cs=>cs.flatMap(c=>c.items.map(i=>i.key))),originalKeys);
 // Untrusted names and executable/source URLs remain escaped or fail closed.
 context.malicious={...catalogs.online[0].items[0],name:'<img src=x onerror="alert(1)">',source:'javascript:alert(1)',review:{by:'<svg onload=alert(1)>',title:'"><script>alert(1)</script>',url:'data:text/html,evil'}};
