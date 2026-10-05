@@ -1,0 +1,26 @@
+{
+  "cards": [
+    {
+      "label": "Business Class: Logitech Brio Ultra 4K",
+      "overlap": false,
+      "titleTop": 701.708984375
+    },
+    {
+      "label": "First Class: Elgato Facecam MK.2",
+      "overlap": false,
+      "titleTop": 701.708984375
+    },
+    {
+      "creditBottom": 748.662109375,
+      "label": "Private Jet: Canon EOS R50 + RF-S 18–45mm kit",
+      "overlap": false,
+      "titleTop": 757.28515625
+    }
+  ],
+  "deckScroll": 590.625,
+  "overflow": false,
+  "viewport": {
+    "h": 844,
+    "w": 390
+  }
+}

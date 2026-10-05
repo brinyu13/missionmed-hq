@@ -1,0 +1,212 @@
+[
+  {
+    "bounds": [
+      {
+        "h": 721,
+        "w": 387,
+        "x": 232,
+        "y": 788
+      },
+      {
+        "h": 721,
+        "w": 387,
+        "x": 636,
+        "y": 788
+      },
+      {
+        "h": 721,
+        "w": 387,
+        "x": 1040,
+        "y": 788
+      }
+    ],
+    "heading": "Build on what you own.",
+    "labels": [
+      "Business Class: Logitech Brio Ultra 4K",
+      "First Class: Elgato Facecam MK.2",
+      "Private Jet: Canon EOS R50 + RF-S 18–45mm kit"
+    ],
+    "open": 0,
+    "overflow": false
+  },
+  {
+    "bounds": [
+      {
+        "h": 721,
+        "w": 387,
+        "x": 232,
+        "y": 788
+      },
+      {
+        "h": 721,
+        "w": 387,
+        "x": 636,
+        "y": 788
+      },
+      {
+        "h": 721,
+        "w": 387,
+        "x": 1040,
+        "y": 788
+      }
+    ],
+    "heading": "Build on what you own.",
+    "labels": [
+      "Business Class: Samson Q2U recording pack (black)",
+      "First Class: Shure MV7+",
+      "Private Jet: Shure SM7B"
+    ],
+    "open": 0,
+    "overflow": false
+  },
+  {
+    "bounds": [
+      {
+        "h": 702,
+        "w": 387,
+        "x": 232,
+        "y": 788
+      },
+      {
+        "h": 702,
+        "w": 387,
+        "x": 636,
+        "y": 788
+      },
+      {
+        "h": 702,
+        "w": 387,
+        "x": 1040,
+        "y": 788
+      }
+    ],
+    "heading": "Build on what you own.",
+    "labels": [
+      "Business Class: Logitech Litra Glow",
+      "First Class: Elgato Key Light",
+      "Private Jet: Elgato Key Light · two-light plan"
+    ],
+    "open": 0,
+    "overflow": false
+  },
+  {
+    "bounds": [
+      {
+        "h": 726,
+        "w": 387,
+        "x": 232,
+        "y": 788
+      },
+      {
+        "h": 726,
+        "w": 387,
+        "x": 636,
+        "y": 788
+      },
+      {
+        "h": 726,
+        "w": 387,
+        "x": 1040,
+        "y": 788
+      }
+    ],
+    "heading": "Build on what you own.",
+    "labels": [
+      "Business Class: Reuse the camera’s own mount",
+      "First Class: Elgato Wave Mic Arm LP",
+      "Private Jet: Elgato Cam Link 4K"
+    ],
+    "open": 0,
+    "overflow": false
+  },
+  {
+    "bounds": [
+      {
+        "h": 753,
+        "w": 387,
+        "x": 232,
+        "y": 788
+      },
+      {
+        "h": 753,
+        "w": 387,
+        "x": 636,
+        "y": 788
+      },
+      {
+        "h": 753,
+        "w": 387,
+        "x": 1040,
+        "y": 788
+      }
+    ],
+    "heading": "Build on what you own.",
+    "labels": [
+      "Business Class: Use the soft furnishings you own",
+      "First Class: Rehearse the interview platform background",
+      "Private Jet: A repeatable interview room"
+    ],
+    "open": 0,
+    "overflow": false
+  },
+  {
+    "bounds": [
+      {
+        "h": 753,
+        "w": 387,
+        "x": 232,
+        "y": 788
+      },
+      {
+        "h": 753,
+        "w": 387,
+        "x": 636,
+        "y": 788
+      },
+      {
+        "h": 753,
+        "w": 387,
+        "x": 1040,
+        "y": 788
+      }
+    ],
+    "heading": "Build on what you own.",
+    "labels": [
+      "Business Class: Anker PowerExpand A8313 USB-C to Gigabit Ethernet",
+      "First Class: Rehearsed hotspot fallback",
+      "Private Jet: A second ready-to-join device"
+    ],
+    "open": 0,
+    "overflow": false
+  },
+  {
+    "bounds": [
+      {
+        "h": 702,
+        "w": 387,
+        "x": 232,
+        "y": 788
+      },
+      {
+        "h": 702,
+        "w": 387,
+        "x": 636,
+        "y": 788
+      },
+      {
+        "h": 702,
+        "w": 387,
+        "x": 1040,
+        "y": 788
+      }
+    ],
+    "heading": "Build on what you own.",
+    "labels": [
+      "Business Class: Elgato Stream Deck Neo",
+      "First Class: Elgato Stream Deck MK.2",
+      "Private Jet: Elgato Stream Deck +"
+    ],
+    "open": 0,
+    "overflow": false
+  }
+]
