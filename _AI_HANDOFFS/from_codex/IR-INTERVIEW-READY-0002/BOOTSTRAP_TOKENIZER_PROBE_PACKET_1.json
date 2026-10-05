@@ -1,0 +1,29 @@
+{
+  "argv": [
+    "ssh",
+    "-T",
+    "-o",
+    "BatchMode=yes",
+    "-o",
+    "StrictHostKeyChecking=yes",
+    "-o",
+    "ConnectTimeout=8",
+    "missionmed-kinsta",
+    "python3",
+    "-"
+  ],
+  "captureModuleSha256": "c84bc76264749e732e0e2555d942d64086a18cf625dd8f5006c529d32977e8f1",
+  "ioSeconds": 10,
+  "noConfigRead": true,
+  "noCredentials": true,
+  "noSourceRead": true,
+  "noWpBootstrap": true,
+  "osHead": "bc1d36fcb9f7bdda4bcd4ba507078b7787d802a2",
+  "outputCap": 4096,
+  "program": "import subprocess,json,signal,sys\nchild=None\ndef stop(*args):raise RuntimeError('STOP')\nsignal.signal(signal.SIGALRM,stop);signal.alarm(8)\ntry:\n child=subprocess.Popen(['/usr/bin/php8.2','-n','-r','echo json_encode([\"tokenizer\"=>function_exists(\"token_get_all\"),\"phpVersion\"=>PHP_VERSION,\"phpSapi\"=>PHP_SAPI]);'],stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE)\n out,err=child.communicate(timeout=6)\n if child.returncode!=0 or err or len(out)>4096:raise RuntimeError('STOP')\n value=json.loads(out)\n import re\n if set(value)!={'tokenizer','phpVersion','phpSapi'} or type(value['tokenizer']) is not bool or not re.fullmatch(r'[0-9]+\\.[0-9]+\\.[0-9]+',value['phpVersion']) or value['phpSapi']!='cli':raise RuntimeError('STOP')\n print(json.dumps(value,sort_keys=True))\nexcept BaseException:\n print('{\"result\":\"TOKENIZER_PROBE_STOP\"}');sys.exit(1)\nfinally:\n if child is not None and child.poll() is None:\n  try:child.kill();child.wait(timeout=1)\n  except BaseException:pass\n",
+  "programSha256": "4af84cd347e8cfbb540500749dcd6d07972ed6d22970f198f563123c671c446c",
+  "readOnly": true,
+  "reapSeconds": 2,
+  "schema": "ir.foreman.tokenizer_probe_packet.v1",
+  "sourceHead": "3da89f3d6a40b620cc89aba1a79d3d55a273a3f8"
+}

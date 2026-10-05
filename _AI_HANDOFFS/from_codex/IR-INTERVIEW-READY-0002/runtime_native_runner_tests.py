@@ -83,6 +83,15 @@ class Fixtures(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory(prefix='ir-runtime-native-fixture-')
         self.directory=Path(self.tmp.name).resolve()
+        # Existing AUTH protocol fixtures inject the newly mandatory bridge;
+        # never start a real localhost listener during local regression.
+        original_load=runner.load_module
+        def local_load(name,path,expected):
+            if name=='ir_reviewed_browser_bridge':
+                return SimpleNamespace(run=lambda qa,gate,**kwargs:qa.execute_native(gate))
+            return original_load(name,path,expected)
+        self.bridge_load_patch=patch.object(runner,'load_module',side_effect=local_load)
+        self.bridge_load_patch.start()
         self.handle=SimpleNamespace(lease_id='fixture-private-id',fencing_epoch=1,nonce='fixture-private-nonce',
             expires_at=(datetime.now(timezone.utc)+timedelta(seconds=30)).isoformat())
         self.contract={'phase':'install','sourceHead':'1'*40,'runnerSha256':'2'*64,'testsSha256':'3'*64,
@@ -90,15 +99,67 @@ class Fixtures(unittest.TestCase):
             'spec':{'controlDirectory':str(self.directory/'control'),
                     'runtimeBindings':{k:'4'*64 for k in runner.RUNTIME_KEYS}}}
 
-    def tearDown(self):self.tmp.cleanup()
+    def tearDown(self):self.bridge_load_patch.stop();self.tmp.cleanup()
 
     def session(self, phase='install', client=None, readback=None, seconds=5):
         contract=copy.deepcopy(self.contract);contract['phase']=phase
         if phase!='install':
             contract['spec']['qualifications']={'installProviderClear':{'phase':'install','released':True,
                 'activeIR':0,'pendingIR':0,'observedUnix':time.time()}}
+            if phase=='auth':contract['spec']['qualifications']['browserBridge']=self.bridge_record()
         return runner.Session(client or Client(),self.handle,contract,'5'*64,self.directory,seconds,
             actual_snapshot=lambda *args:contract,readback=readback or Mock(return_value=contract['spec']['runtimeBindings']))
+
+    def bridge_record(self):
+        # Synthetic injected contract only, not actual report semantics/controls.
+        name='NATIVE_READBACK_FINITE_INDEPENDENT_REVIEW.md'
+        return {'verdict':'APPROVE','independentReviewer':'fixture-independent','reportFile':name,
+            'reportSha256':runner.digest(runner.HERE/name),'schema':'ir.native.browser_bridge.qualification.v1',
+            'bridgeSha256':runner.digest(runner.HERE/'native_browser_bridge.py'),
+            'bridgeTestsSha256':runner.digest(runner.HERE/'native_browser_bridge_tests.py'),
+            'privateMemoryQualified':True,'normalFrontendLoginQualified':True,
+            'finiteLifetimeQualified':True,'custodyAndDrainQualified':True}
+
+    def test_browser_qualification_closed_typed_and_independent_before_create(self):
+        record=self.bridge_record();runner.validate_browser_bridge(record)
+        for delta in [{'extra':True},{'bridgeSha256':'BAD'},{'privateMemoryQualified':1},
+                      {'normalFrontendLoginQualified':False},{'schema':'other'},
+                      {'independentReviewer':runner.BUILDER}]:
+            with self.assertRaises(runner.Stop):runner.validate_browser_bridge(dict(record,**delta))
+        qa=runner.load_module('browser_missing_qual_fixture',runner.HERE/'native_account_qa.py',runner.NATIVE_SHA)
+        session=self.session('auth');session.contract['spec']['qualifications'].pop('browserBridge')
+        session.contract['sourcePreimages']={p:runner.digest(runner.ROOT/p) for p in qa.EXPECTED_SOURCE}
+        session.contract['runnerSha256']=runner.digest(Path(runner.__file__))
+        session.contract['testsSha256']=runner.digest(runner.HERE/'runtime_native_runner_tests.py')
+        session.contract['spec'].update(nativeActions=sorted(qa.ALLOWED_ACTIONS-{'creation_inventory_read'}),hookInventorySha256='c'*64)
+        with patch.object(qa,'execute_native',side_effect=AssertionError('create must not precede reviewed bridge')) as native:
+            self.assertIsNone(runner.run_session(session,qa=qa,native_review_digest='d'*64));native.assert_not_called()
+        self.assertEqual(session.client.calls[-1],'release')
+
+    def test_auth_fixed_bridge_called_and_private_bridge_threads_end_before_release(self):
+        qa=runner.load_module('browser_pair_fixture',runner.HERE/'native_account_qa.py',runner.NATIVE_SHA)
+        session=self.session('auth');session.contract['sourcePreimages']={p:runner.digest(runner.ROOT/p) for p in qa.EXPECTED_SOURCE}
+        for name in ('native_browser_bridge.py','native_browser_bridge_tests.py'):
+            path=str((runner.HERE/name).relative_to(runner.ROOT));session.contract['sourcePreimages'][path]=runner.digest(runner.HERE/name)
+        session.contract['runnerSha256']=runner.digest(Path(runner.__file__));session.contract['testsSha256']=runner.digest(runner.HERE/'runtime_native_runner_tests.py')
+        session.contract['spec'].update(nativeActions=sorted(qa.ALLOWED_ACTIONS-{'creation_inventory_read'}),hookInventorySha256='c'*64)
+        admitted=runner.native_admission(qa,session.contract,'d'*64)
+        for name in ('native_browser_bridge.py','native_browser_bridge_tests.py'):
+            self.assertIn((str((runner.HERE/name).relative_to(runner.ROOT)),runner.digest(runner.HERE/name)),admitted.local_preimages)
+        ended=threading.Event();trace=[]
+        def bridge_run(module,gate,**kwargs):
+            self.assertEqual(module,qa);self.assertEqual(kwargs['binding'],session.binding)
+            def worker():time.sleep(.05);trace.append('bridge-end');ended.set()
+            t=threading.Thread(target=worker);gate.threads.append(t);t.start()
+            return {'mode':'native','result':'PASS_BOUNDED_PROTOCOL_CHECKS','checks':8,'identities_retained':2,
+                    'connection_loss':'NOT_ADMITTED','limits':['VISIBLE_BROWSER_JOURNEY_PENDING','FULL_HTTP_DISCONNECT_PENDING','CORRUPT_DUPLICATE_HISTORY_FIXTURE_ONLY','PROVIDER_CACHE_ACCEPTANCE_PENDING','ADMIN_MR_REGRESSION_PENDING']}
+        original_release=session.client.release
+        def release(handle):self.assertTrue(ended.is_set());trace.append('release');original_release(handle)
+        session.client.release=release
+        original_load=runner.load_module
+        with patch.object(runner,'load_module',side_effect=lambda name,path,sha:SimpleNamespace(run=bridge_run) if name=='ir_reviewed_browser_bridge' else original_load(name,path,sha)):
+            self.assertIsNotNone(runner.run_session(session,qa=qa,native_review_digest='d'*64))
+        self.assertEqual(trace,['bridge-end','release'])
 
     def stop_file(self, session):
         runner.atomic(self.directory,'STOP.json',{'action':'DONE','owner':runner.OWNER,'phase':'install',

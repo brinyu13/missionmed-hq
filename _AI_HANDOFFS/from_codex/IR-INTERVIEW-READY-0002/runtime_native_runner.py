@@ -131,6 +131,15 @@ def valid_preimage(path, value):
             type(value['sha256']) is str and SHA.fullmatch(value['sha256']) is not None)
 
 
+def validate_browser_bridge(record):
+    required={'verdict','independentReviewer','reportFile','reportSha256','schema','bridgeSha256','bridgeTestsSha256',
+              'privateMemoryQualified','normalFrontendLoginQualified','finiteLifetimeQualified','custodyAndDrainQualified'}
+    check(type(record) is dict and set(record)==required and record['schema']=='ir.native.browser_bridge.qualification.v1' and
+          all(type(record[k]) is str and SHA.fullmatch(record[k]) for k in ('bridgeSha256','bridgeTestsSha256')) and
+          all(record[k] is True for k in ('privateMemoryQualified','normalFrontendLoginQualified','finiteLifetimeQualified','custodyAndDrainQualified')))
+    report_record(record)
+
+
 def snapshot(phase, spec):
     """Local sealed artifacts only; absent final qualification fails closed."""
     check(phase in PHASE_PATHS and type(spec) is dict)
@@ -208,6 +217,7 @@ def snapshot(phase, spec):
     if phase != 'install':
         expected_qualifications |= {'installProviderClear','nativeContainment'}
         expected_qualifications.add('reachableHooks' if phase=='auth' else 'bootstrapSafety')
+        if phase=='auth':expected_qualifications.add('browserBridge')
         check(type(spec['nativeActions']) is list and spec['nativeActions'] and
               len(spec['nativeActions'])==len(set(spec['nativeActions'])))
     if phase == 'auth':
@@ -228,6 +238,11 @@ def snapshot(phase, spec):
               containment.get('curlAsynchDNS') is True and
               qualifications['runtimeReadback'].get('runtimeBindings')==spec['runtimeBindings'])
         if phase=='auth':
+            bridge=qualifications['browserBridge']
+            validate_browser_bridge(bridge)
+            for name,field in (('native_browser_bridge.py','bridgeSha256'),('native_browser_bridge_tests.py','bridgeTestsSha256')):
+                path='_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/'+name
+                check(digest(ROOT/path)==bridge[field]);local[path]=bridge[field]
             hooks=qualifications['reachableHooks']
             check(hooks.get('hookInventorySha256')==spec['hookInventorySha256'] and
                   hooks.get('reachableEffectsQualified') is True and hooks.get('bootstrapEffectsQualified') is True and
@@ -610,7 +625,13 @@ def run_session(session, *, qa=None, native_review_digest=None):
                          session.contract['runnerSha256'],deadline=session.deadline)
             session.native_gate=gate
             # Fixed read-only entry precedes a separately admitted create run.
-            result=qa.creation_inventory_read(gate) if session.contract['phase']=='auth_inventory' else safe_native_report(qa.execute_native(gate))
+            if session.contract['phase']=='auth_inventory':result=qa.creation_inventory_read(gate)
+            else:
+                record=session.contract['spec']['qualifications']['browserBridge']
+                validate_browser_bridge(record)
+                bridge=load_module('ir_reviewed_browser_bridge',HERE/'native_browser_bridge.py',record['bridgeSha256'])
+                result=safe_native_report(bridge.run(qa,gate,directory=session.directory,binding=session.binding,
+                    fence=session.initial_fence,owner=OWNER,deadline_unix=session.deadline_unix,publish=atomic))
             if session.contract['phase']=='auth_inventory':safe_inventory_report(result)
             check(not session.failed and time.monotonic()<session.deadline)
     except BaseException:

@@ -1,0 +1,15 @@
+{
+  "independentReviewSha256": "479d824e80160e0a7746bced400e125e0d640ebdee6dceaaf94ae048f06c4c73",
+  "localTransportReaped": true,
+  "observedUnix": 1791161937.48354,
+  "packetSha256": "9cc30f6aa242760fcaee2f4fb5fddd5182c2642f5ebd3361af79b320ccabe8f4",
+  "result": {
+    "iniSha256": "5915e8a8256d4ba7b8b021ce1bcb9456ae86cd98e1100b6b57e098ccf169e6a9",
+    "moduleBytes": 35080,
+    "modulePath": "/usr/lib/php/20220829/tokenizer.so",
+    "moduleSha256": "088267fb4965e634f43151d2981b8ff60e258376684990eb0791b75b6f34878c",
+    "singleTokenizerDirective": true,
+    "standardCliReference": true
+  },
+  "schema": "ir.foreman.installed_tokenizer_metadata_readback.v1"
+}

@@ -1,0 +1,12 @@
+{
+  "independentReviewSha256": "efc06c303eb2ecb005cb82c838b5e008b24a631a3a1e5ca54c62b4cb7c489eaa",
+  "localTransportReaped": true,
+  "observedUnix": 1791161701.841522,
+  "packetSha256": "50664be3240bcc48c2132dc7a564ad1533e7f0c07a8c963401a5642cff156d5a",
+  "result": {
+    "phpSapi": "cli",
+    "phpVersion": "8.2.29",
+    "tokenizer": false
+  },
+  "schema": "ir.foreman.tokenizer_probe_readback.v1"
+}

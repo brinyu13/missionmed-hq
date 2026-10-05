@@ -1,0 +1,19 @@
+{
+  "accountGateHeading": "Your preparation.Your own space.",
+  "appPath": "/interview-ready/app/",
+  "browser": "separate IAB profile; actual intentional anonymous app gate observed before navigation",
+  "classification": "actual anonymous entry/return UI only; account persistence remains pending",
+  "existingChromeAdminSessionPreserved": true,
+  "loginInputs": 1,
+  "noAccountCreated": true,
+  "normalLinkClicked": true,
+  "observedUnix": 1791162196.254265,
+  "observer": "/root",
+  "passwordInputs": 2,
+  "registrationEmailInputs": 1,
+  "resultPath": "/my-account/",
+  "returnToInterviewReady": true,
+  "rootEnteredCredentials": false,
+  "schema": "ir.foreman.anonymous_browser_return.v1",
+  "signInCreateLink": "/my-account/"
+}

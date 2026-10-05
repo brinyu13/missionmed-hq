@@ -1,0 +1,30 @@
+{
+  "actualTokenizerUnavailableReadbackSha256": "3288799d193fec7aa3d874a43bda8c086852b229cb3e127923febcdf8e0573cb",
+  "argv": [
+    "ssh",
+    "-T",
+    "-o",
+    "BatchMode=yes",
+    "-o",
+    "StrictHostKeyChecking=yes",
+    "-o",
+    "ConnectTimeout=8",
+    "missionmed-kinsta",
+    "python3",
+    "-"
+  ],
+  "captureModuleSha256": "c84bc76264749e732e0e2555d942d64086a18cf625dd8f5006c529d32977e8f1",
+  "ioSeconds": 10,
+  "noCredentials": true,
+  "noModuleExecution": true,
+  "noWpBootstrap": true,
+  "noWpSourceConfigRead": true,
+  "osHead": "bc1d36fcb9f7bdda4bcd4ba507078b7787d802a2",
+  "outputCap": 4096,
+  "program": "import subprocess,json,signal,sys,re,os,stat,hashlib\nfrom pathlib import Path\nchild=None\ndef stop(*args):raise RuntimeError('STOP')\nsignal.signal(signal.SIGALRM,stop);signal.alarm(8)\ntry:\n child=subprocess.Popen(['/usr/bin/php8.2','-n','-r','echo json_encode([\"extensionDir\"=>PHP_EXTENSION_DIR]);'],stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE)\n out,err=child.communicate(timeout=6)\n if child.returncode!=0 or err or len(out)>4096:raise RuntimeError('STOP')\n v=json.loads(out)\n if set(v)!={'extensionDir'} or not re.fullmatch(r'/usr/lib/php/[0-9]+',v['extensionDir']):raise RuntimeError('STOP')\n module=Path(v['extensionDir'])/'tokenizer.so';ini=Path('/etc/php/8.2/mods-available/tokenizer.ini');reference=Path('/etc/php/8.2/cli/conf.d/20-tokenizer.ini')\n def read(path,cap):\n  if any(x.is_symlink() for x in (path,*path.parents)):raise RuntimeError('STOP')\n  fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW)\n  try:\n   s=os.fstat(fd)\n   if not stat.S_ISREG(s.st_mode) or s.st_size>cap:raise RuntimeError('STOP')\n   b=os.read(fd,cap+1);e=os.fstat(fd)\n   if len(b)!=s.st_size or (s.st_ino,s.st_size,s.st_mtime_ns)!=(e.st_ino,e.st_size,e.st_mtime_ns):raise RuntimeError('STOP')\n   return b\n  finally:os.close(fd)\n m=read(module,1048576);i=read(ini,4096)\n lines=[x.strip() for x in i.decode('ascii').splitlines() if x.strip() and not x.lstrip().startswith(';')]\n exact=lines==['extension=tokenizer.so']\n ref=reference.is_symlink() and os.path.realpath(reference)==str(ini)\n if not exact or not ref:raise RuntimeError('STOP')\n print(json.dumps({'modulePath':str(module),'moduleBytes':len(m),'moduleSha256':hashlib.sha256(m).hexdigest(),'iniSha256':hashlib.sha256(i).hexdigest(),'standardCliReference':True,'singleTokenizerDirective':True},sort_keys=True))\nexcept BaseException:\n print('{\"result\":\"INSTALLED_TOKENIZER_METADATA_STOP\"}');sys.exit(1)\nfinally:\n if child is not None and child.poll() is None:\n  try:child.kill();child.wait(timeout=1)\n  except BaseException:pass\n",
+  "programSha256": "640cdd20f14d380d3bb05d3f74191c27bc0763e147ea00b8648031ef13322094",
+  "readOnly": true,
+  "reapSeconds": 2,
+  "schema": "ir.foreman.installed_tokenizer_metadata_packet.v1",
+  "sourceHead": "3da89f3d6a40b620cc89aba1a79d3d55a273a3f8"
+}

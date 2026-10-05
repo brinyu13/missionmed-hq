@@ -1,0 +1,11 @@
+{
+  "localTransportEnded": true,
+  "next": "separately qualified isolated tokenizer-only availability probe; no automatic source retry",
+  "noSemanticApproval": true,
+  "observedUnix": 1791161557.345919,
+  "readPacketSha256": "5f3dcda6bac37628eb9d2c5403970572c8ecaa72b179bdf4b9810691066d8334",
+  "result": "STATIC_READ_STOP",
+  "rootSession": 73106,
+  "schema": "ir.foreman.static_read_stop.v1",
+  "sourceArtifactCreated": false
+}

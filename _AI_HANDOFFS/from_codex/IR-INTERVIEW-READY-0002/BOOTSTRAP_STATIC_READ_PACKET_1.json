@@ -1,0 +1,24 @@
+{
+  "actor": "/root",
+  "admittedUnix": 1791161429.3369238,
+  "independentReviewer": "/root/phase1_release_verifier",
+  "ioSeconds": 10,
+  "noBootstrap": true,
+  "noSemanticApproval": true,
+  "osHead": "bc1d36fcb9f7bdda4bcd4ba507078b7787d802a2",
+  "outputCap": 8388608,
+  "pins": {
+    "BOOTSTRAP_STATIC_READER_HANDOFF.md": "f065220879b3b8f712675e19e979f1cea1ee74eac92ed8986429462ef9c9361d",
+    "BOOTSTRAP_STATIC_READER_PRIVACY_DELTA_REVIEW.md": "c4dd1f5f792a7bb1cd01151d9ebdc1d8554a5e89366203a5fa27e2f2eb38fb23",
+    "BOOTSTRAP_STATIC_SEED_METADATA_20261004.json": "91f8956cb0d43fe7b6e82fb55bb12f92fcfcf12879a11d64b30e92f6c604f5ef",
+    "bootstrap_static_reader.py": "c9d8c5d279a4bf00a88b8e0280941eb7f88eadb549ecb7801630e56683b1bfde",
+    "bootstrap_static_reader_tests.py": "449fe62d421f7a915d83920a28a01308f071d90b3ca37c4d34b669164beeeaff",
+    "native_account_qa.py": "c84bc76264749e732e0e2555d942d64086a18cf625dd8f5006c529d32977e8f1"
+  },
+  "programSha256": "cd00bd2f6f9430f31ffd1cc2991c6406630c6fb5bfae13ae68b8d0693874e7c0",
+  "readOnly": true,
+  "reapSeconds": 2,
+  "schema": "ir.foreman.static_read_packet.v1",
+  "scope": "exact declared76 source roles; six ABSENT; no include adoption",
+  "sourceHead": "3da89f3d6a40b620cc89aba1a79d3d55a273a3f8"
+}
