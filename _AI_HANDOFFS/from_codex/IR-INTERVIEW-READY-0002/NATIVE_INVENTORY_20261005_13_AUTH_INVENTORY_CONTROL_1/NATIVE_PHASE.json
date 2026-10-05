@@ -1,0 +1,1 @@
+{"bindingSha256":"c287f9335c2a847db369d5aee80a391f242609521fc9905eb68d4a61e4149531","category":"child_exit","childExit":{"exitCode":255,"stderrPresent":true,"stdoutPresent":false},"schema":"ir.native.phase.v1","stage":"INVENTORY_CAPTURE","stderrMarkers":["PHP_NOTICE"]}
