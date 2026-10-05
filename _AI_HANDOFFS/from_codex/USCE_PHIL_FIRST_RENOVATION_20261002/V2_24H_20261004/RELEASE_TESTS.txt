@@ -1,0 +1,272 @@
+Qualified frontend SHA256: f673584d90414f1577eee3ec8c031c0c79dc7d78fd67bbccb8b7fe26abee2c97
+✔ unique moved controls; open/progress/back/save-close never sends (245.351166ms)
+✔ responded offer locks terms and blocks save/open/send (114.479292ms)
+✔ editable email, blank and template invalidate approval and require new preview (184.346791ms)
+✔ changed content/proof/sender/case cannot send; exact approved version sends once (152.9135ms)
+✔ saved custom composer reopens when backend returns stored subject/body (149.277042ms)
+✔ deferred save rejects case race; deferred preview rejects message race (129.769333ms)
+✔ untouched template follows current terms without duplicated stale terms (125.606417ms)
+✔ responded offer retains coordinator records; case actions close native details before prompt (102.749625ms)
+✔ default email uses newly edited student-facing instructions (112.901041ms)
+✔ inline replacement preserves edits until confirmed and rejects stale case/message (124.700834ms)
+✔ approved labeled recipient reaches one durable claim and provider call (27.952917ms)
+✔ approved case and whitespace normalization preserves the exact controlled inbox (2.996084ms)
+✔ blocked applicant recipient fails before any RPC, claim or provider (1.224791ms)
+✔ recipient comma list is blocked before claim/provider (0.36175ms)
+✔ recipient semicolon list is blocked before claim/provider (0.283042ms)
+✔ recipient display-name address is blocked before claim/provider (0.686541ms)
+✔ recipient CRLF header content is blocked before claim/provider (0.239958ms)
+✔ recipient lookalike domain is blocked before claim/provider (0.569083ms)
+[USCE_PUBLIC_INTAKE] accepted_supabase {"requestId":"4cca28f3-5946-481a-96b3-cfc8495d4302","emailHash":"8fb66fa358b7","notificationStatus":"partial_or_failed","notificationDryRun":false,"adminRecipientCount":3}
+[USCE_PUBLIC_INTAKE] accepted_supabase {"requestId":"b2c27323-81c1-45f2-9361-96c4978d6a7f","emailHash":"6a4d51b02df9","notificationStatus":"partial_or_failed","notificationDryRun":false,"adminRecipientCount":3}
+✔ recipient Unicode lookalike local part is blocked before claim/provider (0.469ms)
+[USCE_PUBLIC_INTAKE] accepted_supabase {"requestId":"24e3e26e-4606-41d7-b7a8-82c35100c8d4","emailHash":"1ba68e3173cc","notificationStatus":"dry_run","notificationDryRun":true,"adminRecipientCount":3}
+[USCE_PUBLIC_INTAKE] accepted_supabase {"requestId":"f5ea2d0d-ff57-400d-ae7b-120d58072b56","emailHash":"5f56c69f5c74","notificationStatus":"sent","notificationDryRun":false,"adminRecipientCount":3}
+✔ configured empty allowlist fails closed before claim/provider (0.383708ms)
+✔ configured whitespace allowlist fails closed before claim/provider (0.966958ms)
+✔ configured wildcard allowlist fails closed before claim/provider (0.244792ms)
+✔ configured other address allowlist fails closed before claim/provider (0.28125ms)
+✔ configured CSV list allowlist fails closed before claim/provider (0.20175ms)
+✔ configured duplicate CSV allowlist fails closed before claim/provider (0.183666ms)
+✔ configured JSON list allowlist fails closed before claim/provider (0.17375ms)
+✔ configured CRLF allowlist fails closed before claim/provider (0.19175ms)
+✔ configured malformed allowlist fails closed before claim/provider (0.143875ms)
+✔ configured lookalike domain allowlist fails closed before claim/provider (0.143958ms)
+✔ spoofed approved recipient cannot send an offer belonging to another email (0.333959ms)
+✔ QA subject requires the explicit label before claim/provider (0.16575ms)
+✔ QA body requires the explicit label before claim/provider (0.166375ms)
+✔ request-provided allowlist cannot bypass configured recipient restriction (0.188083ms)
+✔ policy is rechecked at provider boundary after a durable claim (2.176084ms)
+✔ dry run remains provider-free for an unapproved synthetic recipient (1.875208ms)
+✔ intentional variable deletion restores unchanged ordinary live-send behavior (2.599084ms)
+✔ absent policy does not alter legacy recipient or label validation contract (0.087334ms)
+✔ public intake cannot send admin or unlabeled acknowledgement emails during QA (20.157333ms)
+✔ invalid QA configuration blocks every intake provider attempt (0.861625ms)
+✔ public intake force-dry-run remains an independent outbound fence (0.347708ms)
+✔ intentional variable deletion preserves ordinary public-intake notification behavior (0.905167ms)
+{
+  "mode": "integrated-runtime",
+  "passed": 50,
+  "total": 50,
+  "results": [
+    {
+      "name": "gateway health",
+      "pass": true
+    },
+    {
+      "name": "authorized administrator queue GET",
+      "pass": true
+    },
+    {
+      "name": "anonymous queue denied",
+      "pass": true
+    },
+    {
+      "name": "malformed bearer denied",
+      "pass": true
+    },
+    {
+      "name": "expired bearer denied",
+      "pass": true
+    },
+    {
+      "name": "missing expiry denied",
+      "pass": true
+    },
+    {
+      "name": "future issue time denied",
+      "pass": true
+    },
+    {
+      "name": "explicit sibling session audience denied",
+      "pass": true
+    },
+    {
+      "name": "invalid payload version denied",
+      "pass": true
+    },
+    {
+      "name": "whitespace authAudience cannot hide sibling audience",
+      "pass": true
+    },
+    {
+      "name": "USCE authAudience cannot hide sibling audience",
+      "pass": true
+    },
+    {
+      "name": "sibling authAudience cannot hide USCE audience",
+      "pass": true
+    },
+    {
+      "name": "boolean user ID denied",
+      "pass": true
+    },
+    {
+      "name": "array user ID denied",
+      "pass": true
+    },
+    {
+      "name": "object user ID denied",
+      "pass": true
+    },
+    {
+      "name": "decimal-point string user ID denied",
+      "pass": true
+    },
+    {
+      "name": "positive decimal-digit string user ID accepted",
+      "pass": true
+    },
+    {
+      "name": "nonadministrator queue denied",
+      "pass": true
+    },
+    {
+      "name": "missing CSRF mutation denied before RPC",
+      "pass": true
+    },
+    {
+      "name": "invalid CSRF mutation denied before RPC",
+      "pass": true
+    },
+    {
+      "name": "invalid bearer does not fall back to valid cookie",
+      "pass": true
+    },
+    {
+      "name": "valid legacy administrator cookie works",
+      "pass": true
+    },
+    {
+      "name": "anonymous session readback",
+      "pass": true
+    },
+    {
+      "name": "expired session readback unauthenticated",
+      "pass": true
+    },
+    {
+      "name": "valid legacy signed administrator handoff exchange",
+      "pass": true
+    },
+    {
+      "name": "accepted WordPress USCE relay legacy aud hq handoff exchange",
+      "pass": true
+    },
+    {
+      "name": "valid explicit USCE signed administrator handoff exchange",
+      "pass": true
+    },
+    {
+      "name": "explicit sibling signed handoff rejected",
+      "pass": true
+    },
+    {
+      "name": "subscriber signed handoff rejected",
+      "pass": true
+    },
+    {
+      "name": "expired signed handoff rejected",
+      "pass": true
+    },
+    {
+      "name": "nonUSCE login audience rejected",
+      "pass": true
+    },
+    {
+      "name": "frontend legacy hq audience rejected without weakening USCE gate",
+      "pass": true
+    },
+    {
+      "name": "invalid CSRF logout denied",
+      "pass": true
+    },
+    {
+      "name": "valid CSRF logout clears cookie",
+      "pass": true
+    },
+    {
+      "name": "relay exact CDN target and fragment-only",
+      "pass": true
+    },
+    {
+      "name": "outer gateway blocks /",
+      "pass": true
+    },
+    {
+      "name": "outer gateway blocks /hq",
+      "pass": true
+    },
+    {
+      "name": "outer gateway blocks /api/hq/summary",
+      "pass": true
+    },
+    {
+      "name": "outer gateway blocks /api/auth/bootstrap",
+      "pass": true
+    },
+    {
+      "name": "outer gateway blocks /api/usce/admin/../analytics/summary",
+      "pass": true
+    },
+    {
+      "name": "outer gateway blocks /api/usce/admin/%2e%2e/analytics/summary",
+      "pass": true
+    },
+    {
+      "name": "outer gateway blocks /api/usce",
+      "pass": true
+    },
+    {
+      "name": "outer gateway blocks /api/usce/adminx/public-intake-requests",
+      "pass": true
+    },
+    {
+      "name": "outer gateway blocks /api/integrations/gmail/comms-review-write",
+      "pass": true
+    },
+    {
+      "name": "shared generic sibling handoff/body USCE hint baseline preserved",
+      "pass": true
+    },
+    {
+      "name": "shared generic expired session behavior baseline preserved",
+      "pass": true
+    },
+    {
+      "name": "direct shared USCE expired session denied",
+      "pass": true
+    },
+    {
+      "name": "isolated inner exchange sibling handoff/body USCE hint rejected",
+      "pass": true
+    },
+    {
+      "name": "no external request escaped interception",
+      "pass": true
+    },
+    {
+      "name": "no raw session, handoff or generated key in logs",
+      "pass": true
+    }
+  ]
+}
+✔ missionmed-hq/tests/usce-runtime.test.mjs (348.518167ms)
+✔ review binds full rendering and redacts durable bearer tokens (26.927125ms)
+✔ bearer token in subject is rejected before storage (2.075125ms)
+✔ percent-encoded bearer prefix is redacted from every stored rendering (2.216542ms)
+✔ ordinary percent prose cannot bypass percent-encoded bearer redaction (2.684417ms)
+✔ changed subject or recipient cannot reuse approval (3.764583ms)
+✔ concurrent duplicate send contacts provider exactly once (25.80975ms)
+✔ ambiguous provider outcome never retries blindly (25.067416ms)
+✔ provider acceptance followed by failed readback remains durably held (24.908125ms)
+✔ dry run uses no provider and returns ready business stage (2.184333ms)
+✔ revision changed after preview requires renewed review (1.753834ms)
+ℹ tests 52
+ℹ suites 0
+ℹ pass 52
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1797.356583

@@ -1,3 +1,7 @@
+## 2026-10-04 Clinicals HQ V2 ACTIVE — prior UX Gate A failed
+
+Founder 24-hour steer supersedes the prototype approval stop. Continue approved Version1 / StoryForge A Action Command direction through required Journey, AAA reconciliation, tests, sanctioned deployment, live verification, fix-forward and fresh independent F/U/O. Prior base acceptance below is historical technical evidence; it does not accept the rejected scrolling UX. Journey is REQUIRED. No Astra; IVOC excluded. Current custody: V2_24H_20261004/STATE.md. Canonical OS3f9ab86 / DR359/360.
+
 ## 2026-10-04 Version1 base release ACCEPTED
 
 Fresh independent F/U/O accepted deployed Action Command base. Current source7e3ee3a/admin67d762; normal Chrome brinyu entry, queue/detail/Offer/review/send/status/communications, desktop/mobile/keyboard and actual rollback/reapply verified. Seven synthetic fixtures/testlinks and four mail messages cleaned up recoverably; nonQA88 unchanged. Journey=NEXT. No Astra or IVOC. Current definitive custody: BASE_FIRST_20261004/STATE.md and INDEPENDENT_FUO.md.
