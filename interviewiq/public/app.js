@@ -49,13 +49,19 @@ async function apiFetch(path,options={},retried=false){
   if(response.status===401){lockWorkspace('Your session ended. Sign in through MissionMed and reopen your workspace.');}
   return readJSON(response);
 }
+let loiAuthorityEpoch=0;
+function clearLoiMemory(){
+  loiAuthorityEpoch++;loiEvidence.clear();loiHandoffs.clear();loiInputIds.clear();
+  for(const key of draftValues.keys())if(key.split("::").pop().startsWith("loi-"))draftValues.delete(key);
+  for(const key of pendingCommands.keys())if(LOI_COMMANDS.has(JSON.parse(key)[1]))pendingCommands.delete(key);
+}
 function applyBootstrap(input){
   const b=input?.bootstrap||input;
   researchBriefs.clear();
   if(!b?.actor?.id||!normalizeRole(b.actor.role)||!b.state)throw Error('The service returned an incomplete signed workspace.');
   const sameActor=actor?.id===b.actor.id&&normalizeRole(actor.role)===normalizeRole(b.actor.role);
   const ui=sameActor&&S?.ui?S.ui:defaultUI();
-  if(!sameActor){clearPrivateMemory();}
+  if(!sameActor){clearPrivateMemory();}else if(loiEnabled()&&(b.capabilities?.loi!==true||normalizeRole(b.actor.role)!=='student'))clearLoiMemory();
   actor={...b.actor,role:normalizeRole(b.actor.role)};capabilities=b.capabilities||{};integrations=b.integrations||{};version=b.version;
   const catalog=b.catalog||{};F={...catalog,programs:catalog.programs||[],facts:catalog.facts||[],sources:catalog.sources||[],personas:catalog.profiles||[actor],student_zone:actor.zone||catalog.student_zone||'UTC',registry_release:catalog.registry_release||'current registry',label:''};
   if(!F.personas.some(p=>p.id===actor.id))F.personas.push(actor);
@@ -66,20 +72,24 @@ function applyBootstrap(input){
   S.contrib={missions:{},submissions:[],ledger:[],grants:{},...(b.state.contrib||{})};
   S.policy={audit:[],suspended:{},...(b.state.policy||{})};S.lastVisit=b.state.lastVisit||now();
   if(!sameActor)S.ui.cal.ym=ymOf(todayKey());
+  for(const [id,handoff] of loiHandoffs){const i=S.interviews.find(i=>i.id===id);if(!i||!loiEnabled()||handoff.binding!==loiHandoffBinding(i))loiHandoffs.delete(id);}
 }
 async function refreshWorkspace(){const identity=actor?.id,b=await apiFetch('/bootstrap');if(identity&&identity!==actor?.id)throw Error('The account changed while the workspace was loading. Reopen the intended workspace.');applyBootstrap(b);return b;}
 async function command(name,interviewId=null,data={},options={}){
   if(studentPreview())throw previewError();
   if(coreOnly()&&!coreCommand(name)){openComingSoon(name.split('.')[0]);return {comingSoon:true};}
+  const loiEpoch=loiAuthorityEpoch,loiCommand=LOI_COMMANDS.has(name);
   const identity=actor?.id,requestKey=JSON.stringify([identity,name,interviewId,data]);
   const draftSnapshot=savedDraftIds(name,interviewId,data).map(id=>[draftKey(id),pendingDraft(id,undefined)]);
   const work=async()=>{
+    if(loiCommand&&(!loiEnabled()||loiEpoch!==loiAuthorityEpoch))throw Error('Letter access changed. Reopen the intended workspace.');
     if(!identity||identity!==actor?.id)throw Error('The account changed before this save. Reopen the intended workspace.');
     const prior=pendingCommands.get(requestKey),payload=prior||{command:name,interviewId,data,requestId:crypto.randomUUID(),expectedVersion:version};
     pendingCommands.set(requestKey,payload);
     try{
       const result=await apiFetch('/commands',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       if(identity!==actor?.id)throw Error('The account changed while this save was in flight. Reopen the intended workspace.');
+      if(loiCommand&&(!loiEnabled()||loiEpoch!==loiAuthorityEpoch))throw Error('Letter access changed while the request was in flight.');
       pendingCommands.delete(requestKey);
       for(const [key,value] of draftSnapshot)if(draftValues.get(key)===value)draftValues.delete(key);
       if(result?.bootstrap||result?.actor)applyBootstrap(result);else if(!['loi.evidence','loi.export'].includes(name))await refreshWorkspace();
@@ -116,7 +126,7 @@ function savedDraftIds(name,id,data){
   return [];
 }
 function clearPrivateMemory(){
-  researchBriefs.clear();loiEvidence.clear();loiHandoffs.clear();loiInputIds.clear();draftValues.clear();pendingCommands.clear();void stopSpeech();
+  researchBriefs.clear();clearLoiMemory();draftValues.clear();pendingCommands.clear();void stopSpeech();
   if(typeof pendingAudio!=='undefined')pendingAudio.clear();
   if(typeof speechSessions!=='undefined')speechSessions.clear();
   if(typeof autosaveTimers!=='undefined'){for(const timer of autosaveTimers.values())clearTimeout(timer);autosaveTimers.clear();}
@@ -415,6 +425,8 @@ function loiSelections(i){const e=loiEvidence.get(i.id)?.research;return(e?.fact
 function loiDraftData(i){const factual=loiConfirmed('loi-factual-'+i.id),specific=loiConfirmed('loi-specific-'+i.id);return{...loiHeadData(i),text:val('loi-text-'+i.id),context:Object.fromEntries(['whyNow','applicationState','interviewState'].map(k=>[k,val('loi-'+k+'-'+i.id)])),motivations:loiList(i,'motivations',val('loi-motivations-'+i.id),factual),facts:loiList(i,'facts',val('loi-facts-'+i.id),factual),selectedEvidence:loiSelections(i),studentFactualConfirmation:factual,studentSpecificityConfirmation:specific};}
 function loiEdited(i){const h=loiState(i).current;if(!h)return true;return['text','whyNow','applicationState','interviewState','motivations','facts'].some(k=>{const expected=k==='text'?h.text||'':['motivations','facts'].includes(k)?(h[k]||[]).map(x=>x.text).join('\n'):h.context?.[k]||'';return val('loi-'+k+'-'+i.id)!==expected;});}
 function loiExternalURL(value,kind,handoff){if(typeof value!=='string'||/[\u0000-\u0020\u007f]/.test(value))throw Error('The compose address is unavailable. Copy the letter instead.');const u=new URL(value);if(kind==='gmail'){if(u.origin!=='https://mail.google.com'||u.pathname!=='/mail/'||u.username||u.password||u.hash||u.searchParams.get('view')!=='cm'||u.searchParams.get('fs')!=='1'||[...u.searchParams.keys()].some(k=>!['view','fs','to','su','body'].includes(k)))throw Error('The Gmail compose address is unavailable. Copy the letter instead.');}else if(u.protocol!=='mailto:'||[...u.searchParams.keys()].some(k=>!['subject','body'].includes(k)))throw Error('The mail compose address is unavailable. Copy the letter instead.');if(handoff){if(kind==='gmail'){if(u.searchParams.get('to')!==handoff.recipient||u.searchParams.get('su')!==handoff.subject||(!handoff.copyOnly&&u.searchParams.get('body')!==handoff.text))throw Error('Compose content changed. Prepare the reviewed handoff again.');}else if(decodeURIComponent(u.pathname)!==handoff.recipient||u.searchParams.get('subject')!==handoff.subject||u.searchParams.get('body')!==handoff.text||u.hash)throw Error('Compose content changed. Prepare the reviewed handoff again.');}return value;}
+
+function loiHandoffBinding(i){const state=loiState(i);return JSON.stringify([actor?.id,actor?.role,i.id,i.owner,i.program,state.current,state.currentBindingValid,state.currentConsentValid??null]);}
 
 
 'use strict';
@@ -1465,18 +1477,18 @@ window.addEventListener('online',()=>void flushAudio());
 
 function ownLoi(el){const i=iv(el);requireOwn(i);if(!loiEnabled())throw Error('Letter of Interest is unavailable for this workspace.');return i;}
 function currentLoiApproval(i){const h=loiState(i).current;if(!h||h.state!=='approved'||!loiState(i).currentBindingValid||loiState(i).currentConsentValid===false||loiEdited(i))throw Error('Save and approve this exact letter before preparing or recording outreach.');return{...loiHeadData(i),contentHash:h.contentHash};}
-function currentLoiHandoff(i){currentLoiApproval(i);const h=loiHandoffs.get(i.id);if(!h)throw Error('Prepare and review this approved letter first.');return h;}
+function currentLoiHandoff(i){currentLoiApproval(i);const h=loiHandoffs.get(i.id);if(!h||h.binding!==loiHandoffBinding(i)||h.recipient!==val('loi-recipient-'+i.id)||h.subject!==val('loi-subject-'+i.id)||!loiConfirmed('loi-recipientConfirmed-'+i.id)){loiHandoffs.delete(i.id);throw Error('Prepare and review this approved letter and destination first.');}return h;}
 Object.assign(A,{
  async 'loi-evidence'(el){const i=ownLoi(el),identity=actor.id;try{const r=await command('loi.evidence',i.id,{}, {render:false});if(actor?.id!==identity||!loiEnabled())throw Error('Your account changed.');loiEvidence.set(i.id,r);}catch(e){if(actor?.id===identity&&loiEnabled())loiEvidence.set(i.id,{error:e.message});throw e;}finally{if(actor?.id===identity)render();}},
  'loi-build'(el){const i=ownLoi(el),d=loiDraftData(i);if(!d.studentFactualConfirmation)throw Error('Confirm your actual facts and statuses before building.');const evidence=loiEvidence.get(i.id)?.research?.facts||[],selected=evidence.filter(f=>d.selectedEvidence.some(x=>x.field===f.field&&x.claimRef===f.claimRef));const text=[loiEvidence.get(i.id)?.program?.name||'',d.context.whyNow,...d.motivations.filter(x=>x.confirmed).map(x=>x.text),...d.facts.filter(x=>x.confirmed).map(x=>x.text),...selected.map(f=>typeof f.value==='string'?f.value:JSON.stringify(f.value))].filter(Boolean).join('\n\n');if(!text)throw Error('Enter your confirmed words first.');draftValues.set(draftKey('loi-text-'+i.id),text);loiHandoffs.delete(i.id);render();notice('Draft assembled from your confirmed words and selected evidence. Edit and review it before approval.');},
  async 'loi-save'(el){const i=ownLoi(el);loiHandoffs.delete(i.id);return command('loi.save',i.id,loiDraftData(i));},
  'loi-approve'(el){const i=ownLoi(el),h=loiState(i).current;if(!h||loiState(i).currentConsentValid===false||loiEdited(i))throw Error('Save your latest edits before approval.');if(!loiConfirmed('loi-factual-'+i.id)||!loiConfirmed('loi-specific-'+i.id))throw Error('Review factual accuracy and program specificity before approval.');return command('loi.approve',i.id,{...loiHeadData(i),contentHash:h.contentHash,studentFactualConfirmation:true,studentSpecificityConfirmation:true});},
- async 'loi-handoff'(el){const i=ownLoi(el),identity=actor.id,data=currentLoiApproval(i);if(!loiConfirmed('loi-recipientConfirmed-'+i.id))throw Error('Review the exact recipient and subject first.');const recipient=val('loi-recipient-'+i.id),subject=val('loi-subject-'+i.id),text=loiState(i).current.text;const r=await command('loi.handoff',i.id,{...data,recipient,subject,channel:'gmail',recipientConfirmed:true},{render:false});if(actor?.id!==identity||!loiEnabled()||!r.handoff){if(actor?.id===identity)render();throw Error('The reviewed handoff is unavailable.');}if(r.handoff.recipient!==recipient||r.handoff.subject!==subject||r.handoff.text!==text)throw Error('The reviewed letter or destination changed. Prepare it again.');if(r.handoff.gmailUrl)loiExternalURL(r.handoff.gmailUrl,'gmail',r.handoff);if(r.handoff.mailtoUrl)loiExternalURL(r.handoff.mailtoUrl,'mailto',r.handoff);loiHandoffs.set(i.id,r.handoff);render();},
+ async 'loi-handoff'(el){const i=ownLoi(el),identity=actor.id,epoch=loiAuthorityEpoch,data=currentLoiApproval(i),binding=loiHandoffBinding(i);if(!loiConfirmed('loi-recipientConfirmed-'+i.id))throw Error('Review the exact recipient and subject first.');const recipient=val('loi-recipient-'+i.id),subject=val('loi-subject-'+i.id),text=loiState(i).current.text;const r=await command('loi.handoff',i.id,{...data,recipient,subject,channel:'gmail',recipientConfirmed:true},{render:false});if(actor?.id!==identity||epoch!==loiAuthorityEpoch||!loiEnabled()||!r.handoff){if(actor?.id===identity)render();throw Error('The reviewed handoff is unavailable.');}currentLoiApproval(i);if(binding!==loiHandoffBinding(i)||val('loi-recipient-'+i.id)!==recipient||val('loi-subject-'+i.id)!==subject||!loiConfirmed('loi-recipientConfirmed-'+i.id))throw Error('The reviewed letter or destination changed. Prepare it again.');if(r.handoff.recipient!==recipient||r.handoff.subject!==subject||r.handoff.text!==text)throw Error('The reviewed letter or destination changed. Prepare it again.');if(r.handoff.gmailUrl)loiExternalURL(r.handoff.gmailUrl,'gmail',r.handoff);if(r.handoff.mailtoUrl)loiExternalURL(r.handoff.mailtoUrl,'mailto',r.handoff);loiHandoffs.set(i.id,{...r.handoff,binding});render();},
  'loi-gmail'(el){const i=ownLoi(el),h=currentLoiHandoff(i);const opened=window.open(loiExternalURL(h.gmailUrl,'gmail',h),'_blank','noopener,noreferrer');if(opened)opened.opener=null;notice('Review the draft in Gmail and press Send yourself. If no tab opens, use the copy fallback.');},
  'loi-mailto'(el){const i=ownLoi(el),h=currentLoiHandoff(i);const opened=window.open(loiExternalURL(h.mailtoUrl,'mailto',h),'_blank','noopener,noreferrer');if(opened)opened.opener=null;},
  async 'loi-copy'(el){const i=ownLoi(el),h=currentLoiHandoff(i);try{if(!navigator.clipboard?.writeText)throw Error();await navigator.clipboard.writeText(h.text);notice('Approved letter copied. Review it in your email app.');}catch{const field=document.getElementById('loi-copyText-'+i.id);field?.focus();field?.select();notice('Clipboard unavailable. Select and copy the complete letter shown here.');}},
  'loi-mark-sent'(el){const i=ownLoi(el),h=currentLoiHandoff(i);if(!loiConfirmed('loi-sentConfirmed-'+i.id))throw Error('Confirm that you pressed Send in your email app.');return command('loi.mark_sent',i.id,{...currentLoiApproval(i),handoffId:h.handoffId,confirmed:true});},
- async 'loi-export'(el){const i=ownLoi(el),r=await command('loi.export',i.id,{}, {render:false});if(!r.export)throw Error('Private history is unavailable.');const blob=new Blob([JSON.stringify(r.export,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='InterviewIQ-my-letter-history.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+ async 'loi-export'(el){const i=ownLoi(el),identity=actor.id,epoch=loiAuthorityEpoch,binding=loiHandoffBinding(i),r=await command('loi.export',i.id,{}, {render:false});if(actor?.id!==identity||epoch!==loiAuthorityEpoch||!loiEnabled()||!owns(i)||binding!==loiHandoffBinding(i))throw Error('Letter access changed. Private history is unavailable.');if(!r.export)throw Error('Private history is unavailable.');const blob=new Blob([JSON.stringify(r.export,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='InterviewIQ-my-letter-history.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 });
 
 

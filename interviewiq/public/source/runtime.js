@@ -49,13 +49,19 @@ async function apiFetch(path,options={},retried=false){
   if(response.status===401){lockWorkspace('Your session ended. Sign in through MissionMed and reopen your workspace.');}
   return readJSON(response);
 }
+let loiAuthorityEpoch=0;
+function clearLoiMemory(){
+  loiAuthorityEpoch++;loiEvidence.clear();loiHandoffs.clear();loiInputIds.clear();
+  for(const key of draftValues.keys())if(key.split("::").pop().startsWith("loi-"))draftValues.delete(key);
+  for(const key of pendingCommands.keys())if(LOI_COMMANDS.has(JSON.parse(key)[1]))pendingCommands.delete(key);
+}
 function applyBootstrap(input){
   const b=input?.bootstrap||input;
   researchBriefs.clear();
   if(!b?.actor?.id||!normalizeRole(b.actor.role)||!b.state)throw Error('The service returned an incomplete signed workspace.');
   const sameActor=actor?.id===b.actor.id&&normalizeRole(actor.role)===normalizeRole(b.actor.role);
   const ui=sameActor&&S?.ui?S.ui:defaultUI();
-  if(!sameActor){clearPrivateMemory();}
+  if(!sameActor){clearPrivateMemory();}else if(loiEnabled()&&(b.capabilities?.loi!==true||normalizeRole(b.actor.role)!=='student'))clearLoiMemory();
   actor={...b.actor,role:normalizeRole(b.actor.role)};capabilities=b.capabilities||{};integrations=b.integrations||{};version=b.version;
   const catalog=b.catalog||{};F={...catalog,programs:catalog.programs||[],facts:catalog.facts||[],sources:catalog.sources||[],personas:catalog.profiles||[actor],student_zone:actor.zone||catalog.student_zone||'UTC',registry_release:catalog.registry_release||'current registry',label:''};
   if(!F.personas.some(p=>p.id===actor.id))F.personas.push(actor);
@@ -66,20 +72,24 @@ function applyBootstrap(input){
   S.contrib={missions:{},submissions:[],ledger:[],grants:{},...(b.state.contrib||{})};
   S.policy={audit:[],suspended:{},...(b.state.policy||{})};S.lastVisit=b.state.lastVisit||now();
   if(!sameActor)S.ui.cal.ym=ymOf(todayKey());
+  for(const [id,handoff] of loiHandoffs){const i=S.interviews.find(i=>i.id===id);if(!i||!loiEnabled()||handoff.binding!==loiHandoffBinding(i))loiHandoffs.delete(id);}
 }
 async function refreshWorkspace(){const identity=actor?.id,b=await apiFetch('/bootstrap');if(identity&&identity!==actor?.id)throw Error('The account changed while the workspace was loading. Reopen the intended workspace.');applyBootstrap(b);return b;}
 async function command(name,interviewId=null,data={},options={}){
   if(studentPreview())throw previewError();
   if(coreOnly()&&!coreCommand(name)){openComingSoon(name.split('.')[0]);return {comingSoon:true};}
+  const loiEpoch=loiAuthorityEpoch,loiCommand=LOI_COMMANDS.has(name);
   const identity=actor?.id,requestKey=JSON.stringify([identity,name,interviewId,data]);
   const draftSnapshot=savedDraftIds(name,interviewId,data).map(id=>[draftKey(id),pendingDraft(id,undefined)]);
   const work=async()=>{
+    if(loiCommand&&(!loiEnabled()||loiEpoch!==loiAuthorityEpoch))throw Error('Letter access changed. Reopen the intended workspace.');
     if(!identity||identity!==actor?.id)throw Error('The account changed before this save. Reopen the intended workspace.');
     const prior=pendingCommands.get(requestKey),payload=prior||{command:name,interviewId,data,requestId:crypto.randomUUID(),expectedVersion:version};
     pendingCommands.set(requestKey,payload);
     try{
       const result=await apiFetch('/commands',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       if(identity!==actor?.id)throw Error('The account changed while this save was in flight. Reopen the intended workspace.');
+      if(loiCommand&&(!loiEnabled()||loiEpoch!==loiAuthorityEpoch))throw Error('Letter access changed while the request was in flight.');
       pendingCommands.delete(requestKey);
       for(const [key,value] of draftSnapshot)if(draftValues.get(key)===value)draftValues.delete(key);
       if(result?.bootstrap||result?.actor)applyBootstrap(result);else if(!['loi.evidence','loi.export'].includes(name))await refreshWorkspace();
@@ -116,7 +126,7 @@ function savedDraftIds(name,id,data){
   return [];
 }
 function clearPrivateMemory(){
-  researchBriefs.clear();loiEvidence.clear();loiHandoffs.clear();loiInputIds.clear();draftValues.clear();pendingCommands.clear();void stopSpeech();
+  researchBriefs.clear();clearLoiMemory();draftValues.clear();pendingCommands.clear();void stopSpeech();
   if(typeof pendingAudio!=='undefined')pendingAudio.clear();
   if(typeof speechSessions!=='undefined')speechSessions.clear();
   if(typeof autosaveTimers!=='undefined'){for(const timer of autosaveTimers.values())clearTimeout(timer);autosaveTimers.clear();}

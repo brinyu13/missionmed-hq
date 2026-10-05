@@ -14,3 +14,34 @@ test('server compose handoff opens only explicit click; manual copy and self rep
 test('same-owner capability revocation drops late evidence and clears old LOI DOM',async()=>{const b=workspace(),revoked=workspace('draft','admin');revoked.state.interviews=[];revoked.state.loi={};const x=setup(b,()=>({bootstrap:revoked,type:'loi_evidence',program:{name:'Example Program'},research:{facts:[{value:'PRIVATE_LATE'}]}}));try{await assert.rejects(x.h.A['loi-evidence'](el),/account changed/);assert.ok(x.h.maps().every(m=>m.size===0));assert.equal(x.w.document.getElementById('loi-text-'+id),null);assert.equal(x.w.document.body.textContent.includes('PRIVATE_LATE'),false);}finally{x.close();}});
 
 test('derived revoked consent warning preserves history and disables current outreach',()=>{const b=workspace('approved');b.state.loi[id].currentConsentValid=false;b.state.loi[id].consentInvalidRevisionIds=[head().revisionId];const x=setup(b);try{assert.match(x.w.document.body.textContent,/Historical letters are retained/);assert.equal(x.w.document.querySelector('[data-act="loi-handoff"]').disabled,true);assert.throws(()=>x.h.A['loi-gmail'](el),/Save and approve/);assert.match(x.w.document.body.textContent,/historical permission unavailable/);}finally{x.close();}});
+
+const compose=b=>{const recipient='program@example.org',subject='Student letter',text=b.state.loi[id].current.text;return{handoffId:'66666666-6666-4666-8666-666666666666',recipient,subject,text,gmailUrl:'https://mail.google.com/mail/?'+new URLSearchParams({view:'cm',fs:'1',to:recipient,su:subject,body:text}),mailtoUrl:'mailto:'+recipient+'?'+new URLSearchParams({subject,body:text})};};
+async function prepare(x){input(x,'recipient','program@example.org');input(x,'subject','Student letter');input(x,'recipientConfirmed',true);await x.h.A['loi-handoff'](el);}
+test('cached outreach rejects newer approval, changed evidence, consent, recipient and subject',async()=>{
+ for(const change of ['head','evidence','consent','recipient','subject']){
+  const b=workspace('approved'),x=setup(b,()=>({bootstrap:b,handoff:compose(b)}));
+  try{await prepare(x);if(change==='recipient'||change==='subject')x.w.document.getElementById('loi-'+change+'-'+id).value='changed';
+   else{const next=workspace('approved');if(change==='head'){next.state.loi[id].current.revisionId='77777777-7777-4777-8777-777777777777';next.state.loi[id].current.contentHash='b'.repeat(64);next.state.loi[id].current.text='New approved words';}if(change==='evidence')next.state.loi[id].current.evidenceDigest='changed';if(change==='consent')next.state.loi[id].currentConsentValid=false;x.h.applyBootstrap(next);x.h.render();}
+   assert.throws(()=>x.h.A['loi-gmail'](el),/Save and approve|Prepare and review/);
+   assert.throws(()=>x.h.A['loi-mailto'](el),/Save and approve|Prepare and review/);
+   await assert.rejects(x.h.A['loi-copy'](el),/Save and approve|Prepare and review/);
+   assert.throws(()=>x.h.A['loi-mark-sent'](el),/Save and approve|Prepare and review/);assert.equal(x.opened.length,0);assert.equal(x.calls.filter(c=>c.body?.command==='loi.mark_sent').length,0);
+  }finally{x.close();}
+ }
+});
+test('same student capability loss clears only LOI caches, input and drafts',()=>{
+ const b=workspace('approved'),x=setup(b);try{for(const m of x.h.maps().slice(0,3))m.set(id,'private');const drafts=x.h.maps()[3];drafts.set(x.h.draftKey('loi-text-'+id),'private letter');drafts.set(x.h.draftKey('loi-recipient-'+id),'private recipient');const otherKey=x.h.draftKey('why-'+id);drafts.set(otherKey,'legitimate other draft');const next=workspace('approved');next.capabilities.loi=false;x.h.applyBootstrap(next);x.h.render();assert.ok(x.h.maps().slice(0,3).every(m=>m.size===0));assert.equal(drafts.size,1);assert.equal(drafts.get(otherKey),'legitimate other draft');assert.equal(x.w.document.getElementById('loi-text-'+id),null);}finally{x.close();}
+});
+test('late export after same-student revocation cannot download or restore access',async()=>{
+ let release,started;const began=new Promise(r=>started=r),b=workspace('approved'),x=setup(b,()=>{started();return new Promise(r=>release=r);});let downloads=0;x.w.URL.createObjectURL=()=>{downloads++;return'blob:test';};
+ try{const pending=x.h.A['loi-export'](el);await began;const revoked=workspace('approved');revoked.capabilities.loi=false;x.h.applyBootstrap(revoked);x.h.render();release({bootstrap:b,export:{history:[{text:'PRIVATE_LATE'}]}});await assert.rejects(pending,/Letter access changed/);assert.equal(downloads,0);assert.equal(x.h.coreSection('loi'),false);assert.equal(x.w.document.body.textContent.includes('PRIVATE_LATE'),false);}finally{x.close();}
+});
+test('late handoff rejects changed approval or destination before caching',async()=>{
+ for(const change of ['head','subject']){
+  let release,started;const began=new Promise(r=>started=r),b=workspace('approved'),x=setup(b,()=>{started();return new Promise(r=>release=r);});
+  try{input(x,'recipient','program@example.org');input(x,'subject','Student letter');input(x,'recipientConfirmed',true);const pending=x.h.A['loi-handoff'](el);await began;
+   const next=workspace('approved');if(change==='head')next.state.loi[id].current.evidenceDigest='new evidence';else x.w.document.getElementById('loi-subject-'+id).value='new subject';
+   release({bootstrap:next,handoff:compose(b)});await assert.rejects(pending,/changed/);assert.equal(x.h.maps()[1].size,0);assert.equal(x.opened.length,0);
+  }finally{x.close();}
+ }
+});
