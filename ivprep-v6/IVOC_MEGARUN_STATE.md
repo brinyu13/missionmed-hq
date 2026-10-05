@@ -5,7 +5,7 @@ Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`, `DR-350` (narrow packaging), `DR-361` (current RISE eligibility successor); `DR-340` QA grant revoked
 Branch: `codex/ivoc-foreman-9200`
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
-Current continuation boundary: `SINGLE CANARY FAILED — RECEIVER FIX LIVE / PROVIDER OFF / NO PAID RETRY; REMAINING GENUINE EVIDENCE GATES OPEN`
+Current continuation boundary: `CANARY #2 AUTHORIZED — ONE NEW FOUNDER SESSION / USD1 / 45S / NO CREATE RETRY; REMAINING GENUINE EVIDENCE GATES OPEN`
 
 This is the one living requirement ledger required by the final Founder
 completion directive. A status of `LIVE UNVERIFIED` means the capability is
@@ -15,6 +15,27 @@ the actual production route and deployment.
 ## Foreman 9300 overnight reactivation — current dated evidence
 
 ### Current Fable-to-production convergence — 2026-10-03
+
+- 2026-10-04 DIRECT FOUNDER CANARY #2 AUTHORIZATION:
+  New explicit authorization, not an automatic retry of the first attempt:
+  ONE Founder wp:1 session, <=45s, 15s idle cleanup, incremental operational
+  spend <=USD1, existing agent_9bdfc50ec0086043 only. No paid-create retry,
+  subscription, upgrade, student availability or independent LemonSlice dialogue.
+  GPT-Live/InterviewBrain remains sole conversation/audio origin; the synchronized
+  returned A/V supplies one audible/recordable interviewer path. Fresh canonical
+  canary UUID642eb55f-1eff-4a3f-9bec-9fdbe6f34bb9; the abandoned93d2ed24 first
+  attempt is preserved unchanged. Current provider-OFF rollback remains
+  edf82df5/source2d6d2cf/image2772718b/MLSb42, plus Founder cb5ccd6b/acfd95b.
+  Fresh PRODUCT4897 / SHARED4898 heartbeat remotely verified before mutation.
+  Coordinator legacy keys are now disabled; use the existing named runtime-v5
+  secret through reveal=true into private memory with apikey-only transport.
+  No key creation/rotation, authority/schema change, secret output or fencing
+  bypass. Normal authenticated Home/Mock/Ready path; one Start; capture actual
+  provider identity, visible A/V and exact teardown/status/orphan evidence.
+  After any failure: no second create, flag OFF, every no-spend repair, focused
+  checks and independent verification. Unobserved audible/sync/flush/recording
+  gates remain UNVERIFIED. Prior PRODUCT4855/SHARED4856 and PATH4858/4859 releases
+  are confirmed remotely, with zero remaining IVOC claims from the first attempt.
 
 - 2026-10-04 NO-SPEND CORRECTION LIVE / FAIL-SAFE READBACK:
   Clean pushed source2d6d2cfb83c8e79edce414ecfcb0dddc82aa655f, SUCCESS
