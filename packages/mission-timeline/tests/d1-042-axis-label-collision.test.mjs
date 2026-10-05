@@ -79,7 +79,8 @@ test('selected widths and adjacent-label fallback preserve factual years and com
   assert.equal(result.scene.autoAxisPadding,undefined);
   assert.ok([...result.scene.autoFlagLabels.values()].some(label=>Number.isFinite(label.yOffset)&&label.yOffset!==0));
   assert.ok(result.scene.autoMilestonePacking.labelExpansions<=result.scene.autoMilestonePacking.labelLimit);
-  assert.ok(result.scene.autoYearWeights.get(2022)>result.scene.autoYearWeights.get(2021));
+  // Boundary-demand maps omit quiet years: their implicit weight remains 1.
+  assert.ok(result.scene.autoYearWeights.get(2022)>(result.scene.autoYearWeights.get(2021)||1));
   const axis=result.scene.composedAxis,segments=axis.segmentWeights;
   assert.deepEqual(segments.map(item=>item.id),['2021','2022']);
   assert.ok(segments[1].weight>segments[0].weight);
@@ -90,9 +91,8 @@ test('selected widths and adjacent-label fallback preserve factual years and com
   // still cannot fit the complete source. Manual axes remain exact.
   for(const kind of ['widths-only','padding-only']){
     const first=kind==='widths-only'?2021:2020,last=kind==='widths-only'?2022:2023;
-    const raw=Array.from({length:last-first+1},(_,index)=>({id:String(first+index),weight:kind==='widths-only'?(result.scene.autoYearWeights.get(first+index)||1):1}));
-    const total=raw.reduce((sum,item)=>sum+item.weight,0),minimum=Math.min(96/raw.length,80/1918*100),flexible=96-minimum*raw.length;
-    const manual={mode:'manual',startYear:first,endYear:last,includeFuture:false,segmentWeights:raw.map(item=>({...item,weight:(minimum+flexible*item.weight/total)*total/96}))};
+    const manual={mode:'manual',startYear:first,endYear:last,includeFuture:false,
+      segmentWeights:kind==='widths-only'?structuredClone(segments):Array.from({length:4},(_,index)=>({id:String(2020+index),weight:1}))};
     const isolated=composeLocked407FPortableSvg({...baseline,autoMilestoneTopDown:true,founderPresentation:{...initial.founderPresentation,axis:manual}});
     if(kind==='widths-only'){
       assert.equal(collisions(isolated.svg),0,kind);assert.doesNotThrow(()=>assertCompleteFounderPresentation(isolated));
@@ -127,4 +127,26 @@ test('selected widths and adjacent-label fallback preserve factual years and com
   const preserved=serializeFounderPresentation(authored,options);
   for(const [key,value] of Object.entries(manualGeometry))assert.equal(locked407FMilestoneGeometry(preserved.scene,'f0')[key],value);
   assert.equal(preserved.scene.autoAxisPadding,undefined);assert.deepEqual(authored.events,document.events);assert.equal(JSON.stringify(document),before);
+});
+
+test('native date-boundary pressure separates nearby complete pennants while quiet cells retain measured year typography',async()=>{
+  const {serializeFounderPresentation,assertCompleteFounderPresentation}=await import('../web/js/presentation/founder-presentation-serializer.js');
+  const {measurePresentationText}=await import('../web/js/presentation/text-layout.js');
+  const document={id:'synthetic-boundary-pressure',theme:'keynote-classic',studentProfile:{fullName:'Synthetic'},
+    events:[{id:'duration',categoryId:'work',eventType:'duration',title:'Synthetic work',startDate:'2012-01',endDate:'2026-01',visibilityState:'INTERVIEWER_SAFE'},
+      ...['2020-06','2020-08'].map((date,index)=>({id:'publication'+index,categoryId:'research',eventType:'milestone',title:'Complete synthetic research title '+index,siteName:'Synthetic institution',startDate:date,visibilityState:'INTERVIEWER_SAFE'}))],
+    advanced:{media:[],textBlocks:[],elements:[],groups:[]}};
+  const snapshot=JSON.stringify(document),result=serializeFounderPresentation(document,{scope:'EVERYTHING',currentMonth:'2026-10'}),paint=resolveFounderPresentationSvg(result.svg);
+  assert.equal(materialPresentationCollisions(paint).length,0);assert.doesNotThrow(()=>assertCompleteFounderPresentation(result));assert.equal(JSON.stringify(document),snapshot);
+  const {parsePresentationXml,xmlNodes}=await import('../web/js/presentation/presentation-xml.js');
+  const cells=xmlNodes(parsePresentationXml(result.svg),node=>Object.hasOwn(node.attrs||{},'data-axis-cell'));assert.equal(cells.length,15);
+  const floor=Math.max(...result.scene.composedAxis.segmentWeights.map(item=>measurePresentationText(item.id,23,"Futura,'Trebuchet MS',Arial,sans-serif",700)))+20;
+  for(const cell of cells)assert.ok(Number(cell.attrs.width)>=floor-.04);
+  const weights=result.scene.composedAxis.segmentWeights;assert.ok(weights.find(item=>item.id==='2020').weight>weights.find(item=>item.id==='2019').weight);
+  for(const event of document.events.filter(item=>item.eventType==='milestone')){
+    const nodes=paint.nodes.filter(node=>node.semanticRef===event.id),labels=nodes.filter(node=>node.sourceAttributes['data-board-ink-role']==='flag-label'),pole=nodes.find(node=>node.lineOnly);
+    assert.ok(labels.map(node=>node.text).join(' ').includes(event.title));assert.ok(labels.map(node=>node.text).join(' ').includes(event.siteName));
+    assert.ok(labels.every(node=>Number(node.style['font-size'])===18));assert.equal(pole.bounds.y+pole.bounds.height,125);
+    assert.ok(nodes.filter(node=>!node.lineOnly).every(node=>node.bounds.y>=0&&node.bounds.y+node.bounds.height<=125));
+  }
 });

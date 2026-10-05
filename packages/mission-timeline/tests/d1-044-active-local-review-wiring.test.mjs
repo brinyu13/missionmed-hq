@@ -1,7 +1,8 @@
+import {qualifyRenderedLayoutImprovement} from '../web/js/uxr-002/quality-guardian.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {mountLocalLayoutReview407F,applyHumanAxisPresentation407F,advancedEventGeometry407F,advancedEventCreation407F,timelineRenderSignature} from '../web/js/407f-engineering-adapter.js';
+import {mountLocalLayoutReview407F,applyHumanAxisPresentation407F,advancedEventGeometry407F,advancedEventCreation407F,timelineRenderSignature,applySceneCommandToDocument as applyHumanEventCommand407F} from '../web/js/407f-engineering-adapter.js';
 import {LAYOUT_CRITIC_CONSENT_VERSION,projectLayoutCritic,applyLayoutRecommendations} from '../web/js/presentation/layout-critic-projection.js';
 import {setAxisPresentationOverride,setAxisSegmentWeights,resetAxisPresentationOverride,renderAdvancedPresentationControls,resetAdvancedEventLayout,constrainAdvancedObjectToBoard} from '../web/js/uxr-002/advanced-studio.js';
 import {resolveFounderPresentationSvg} from '../web/js/presentation/resolved-founder-presentation.js';
@@ -342,7 +343,7 @@ function executeFirstEventEdit(source,path,document,id,geometry,options,kind='mo
     // current-month options must come from the actual handler, without fallback.
     return advancedEventCreation407F(doc,eventId,{measureText:options.measureText,...actualOptions});
   };
-  const apply=(doc,command)=>applySceneCommandToDocument(doc,command,options);
+  const apply=(doc,command)=>applyHumanEventCommand407F(doc,command,options);
   if(path==='kernel'){
     const begin=source.indexOf('onKernelPresentationEventGesture=(event)=>')+'onKernelPresentationEventGesture='.length;
     const expression=source.slice(begin,source.indexOf('const reselectAdvancedKernel=',begin)).trim();
@@ -547,4 +548,88 @@ test('044 axis reset never reinterprets human, unmarked, object-locked or global
     assert.deepEqual(body.bounds,previous.bounds,protection+' keeps actual authored paint geometry');assert.deepEqual(body.commands,previous.commands);
     assert.deepEqual(reset.document.events,events);assert.deepEqual(reset.document.mediaItems,input.mediaItems);assert.deepEqual(reset.document.presentationOverrides.photoFrames,input.presentationOverrides.photoFrames);
   }
+});
+
+async function adoptedChronologyFixture(){
+  const options={scope:'EVERYTHING',currentMonth:'2026-10'};
+  let document={id:'synthetic-adopted-stair',theme:'keynote-classic',mode:'advanced',studentProfile:{fullName:'Synthetic'},
+    events:['2020-01','2022-01','2023-01','2024-01'].map((date,index)=>({id:'stair-'+index,title:'Synthetic role '+index,siteName:'Synthetic institution',categoryId:'work',eventType:'duration',startDate:date,endDate:['2025-01','2023-01','2024-01','2025-01'][index],visibilityState:'INTERVIEWER_SAFE'})),
+    advanced:{media:[],textBlocks:[],elements:[],groups:[]}};
+  const rendered=serializeFounderPresentation(document,options),paint=resolveFounderPresentationSvg(rendered.svg);
+  for(let index=0;index<4;index++){
+    const id='stair-'+index,body=paint.nodes.find(node=>node.semanticRef===id&&node.sourceAttributes['data-continuous-duration-arrow']);
+    document=applyLocalLayoutCriticSceneCommand(document,{kind:'geometry',target:{type:'event',id},geometry:{...body.bounds,y:[800,200,500,350][index],rotation:0},
+      create:{type:'event',semanticRef:id,aspectLocked:false,presentation:{eventType:'duration',localLayoutCriticAuto:true}}},options).document;
+  }
+  delete document.presentationOverrides?.axis;
+  return {document,options};
+}
+test('044 trusted automatic duration packing restores START-date staircase with full native paint and human first edit uses resolved Y',async()=>{
+  const {document,options}=await adoptedChronologyFixture(),snapshot=JSON.stringify(document),rendered=serializeFounderPresentation(document,options),paint=resolveFounderPresentationSvg(rendered.svg);
+  const bodies=document.events.map(event=>paint.nodes.find(node=>node.semanticRef===event.id&&node.sourceAttributes['data-continuous-duration-arrow']));
+  for(let index=1;index<bodies.length;index++)assert.ok(bodies[index].bounds.y>=bodies[index-1].bounds.y+18);
+  // The earliest start also has the latest end: endpoint order must not reorder Y.
+  assert.ok(bodies[0].bounds.width>bodies[1].bounds.width);
+  for(const event of document.events){
+    const object=document.advanced.scene.objects.find(item=>item.semanticRef===event.id),body=bodies.find(item=>item.semanticRef===event.id);
+    assert.ok(Math.abs(body.bounds.height-object.geometry.height)<.02);assert.ok(paint.nodes.some(node=>node.semanticRef===event.id&&node.text===event.title));
+  }
+  assert.equal(JSON.stringify(document),snapshot);
+  const id=document.events[0].id,current=advancedEventGeometry407F(document,id,null,options);assert.equal(current.y,bodies[0].bounds.y);assert.notEqual(current.y,800);
+  const source=await readFile(new URL('../web/js/407f-engineering-adapter.js',import.meta.url),'utf8');
+  const store={document:executeFirstEventEdit(source,'kernel',document,id,current,options)};
+  const moved=store.document.advanced.scene.objects.find(item=>item.semanticRef===id);assert.equal(moved.geometry.y,current.y+5);assert.notEqual(moved.presentation.localLayoutCriticAuto,true);
+  assert.deepEqual(store.document.events,document.events);
+  const reopened=JSON.parse(JSON.stringify(store.document)),again=resolveFounderPresentationSvg(serializeFounderPresentation(reopened,options).svg);
+  assert.equal(again.nodes.find(node=>node.semanticRef===id&&node.sourceAttributes['data-continuous-duration-arrow']).bounds.y,current.y+5);
+});
+test('044 automatic ordering leaves authored raw placements and same-start exceptions intact',async()=>{
+  const {document,options}=await adoptedChronologyFixture();
+  for(const protection of ['human','unmarked','locked','offset','global']){
+    const input=structuredClone(document),object=input.advanced.scene.objects[0];
+    if(protection==='human'||protection==='unmarked')delete object.presentation.localLayoutCriticAuto;
+    if(protection==='locked')object.locked=true;
+    if(protection==='offset')input.events[0].manualOffset={x:5,y:2};
+    if(protection==='global')input.layoutLock=true;
+    const actual=advancedEventGeometry407F(input,input.events[0].id,null,options);assert.equal(actual.y,800,protection);
+  }
+  const same=structuredClone(document);for(const event of same.events)event.startDate='2020-01';
+  const result=serializeFounderPresentation(same,options);assert.ok(result.svg.includes('Synthetic role 0'));assert.deepEqual(same.events,document.events.map(event=>({...event,startDate:'2020-01'})));
+});
+
+test('044 ordinary 22-event label-aware adaptive composition has a bounded local runtime and deterministic source-preserving output',()=>{
+  const document={id:'synthetic-normal-density',theme:'keynote-classic',studentProfile:{fullName:'Synthetic'},
+    events:[...Array.from({length:10},(_,index)=>({id:'d'+index,title:'Synthetic documented role '+index,siteName:'Synthetic Academic Institution',categoryId:'work',eventType:'duration',startDate:`${2014+index}-03`,endDate:`${2015+index}-10`,visibilityState:'INTERVIEWER_SAFE'})),
+    ...Array.from({length:12},(_,index)=>({id:'f'+index,title:'Synthetic documented milestone '+index,siteName:'Synthetic Academic Institution',categoryId:'personal',eventType:'milestone',startDate:`${2012+index}-06`,visibilityState:'INTERVIEWER_SAFE'}))],advanced:{media:[],textBlocks:[],elements:[],groups:[]}};
+  const source=JSON.stringify(document),options={scope:'EVERYTHING',currentMonth:'2026-10'},start=performance.now(),first=serializeFounderPresentation(document,options);
+  assert.ok(performance.now()-start<5000,'ordinary composition must finish within the bounded local render budget');
+  const again=serializeFounderPresentation(document,options);assert.equal(first.svg,again.svg);assert.equal(JSON.stringify(document),source);
+  assert.ok(first.scene.autoMilestonePacking.expansions<=first.scene.autoMilestonePacking.limit);
+  const paint=resolveFounderPresentationSvg(first.svg);assert.equal(new Set(paint.nodes.filter(node=>node.groupId?.startsWith('event:')&&node.semanticRef).map(node=>node.semanticRef)).size,22);
+  for(const event of document.events)assert.ok(paint.nodes.some(node=>node.semanticRef===event.id&&String(node.text||'').includes(event.title)));
+});
+
+test('044 actual Fix-for-me handler checks hydrated rendered improvement before offering an unchanged or still-bad proposal',async()=>{
+  const source=await readFile(new URL('../web/js/407f-engineering-adapter.js',import.meta.url),'utf8'),start=source.indexOf('const result=applySafeQualityFixes',source.indexOf('dialog.querySelectorAll("[data-quality-fix]")')),
+    end=source.indexOf('        const beforeSvg=beforeRendered.svg,afterSvg=afterRendered.svg;',start);
+  assert.ok(start>0&&end>start);const branch=source.slice(start,end)+'return "PREVIEW_ALLOWED";';
+  const {document,options}=await adoptedChronologyFixture(),after=structuredClone(document),media=new Map();let renders=0,qualificationCalls=0,feedback='';
+  const button={textContent:'Fix for me',insertAdjacentHTML(where,value){feedback=value;},addEventListener(){}};
+  const run=new Function('store','report','selected','applySafeQualityFixes','serializeFounderPresentation','currentMonth','liveMediaById','qualifyRenderedLayoutImprovement','button','closeStandardModal','api',branch);
+  const result=run({document},{findings:[{id:'synthetic'}]},{id:'synthetic'},()=>({changed:true,document:after}),
+    (timeline,actualOptions)=>{renders++;assert.equal(actualOptions.scope,'EVERYTHING');assert.equal(actualOptions.mediaById,media);return serializeFounderPresentation(timeline,actualOptions);},
+    ()=>options.currentMonth,timeline=>{assert.ok(timeline===document||timeline===after);return media;},
+    (before,proposed,docs)=>{qualificationCalls++;assert.equal(docs.beforeDocument,document);assert.equal(docs.afterDocument,after);return qualifyRenderedLayoutImprovement(before,proposed,docs);},button,()=>{},{openAdvancedStudio(){}});
+  assert.equal(result,undefined);assert.equal(renders,2);assert.equal(qualificationCalls,1);assert.equal(button.textContent,'Open Advanced Studio');assert.match(feedback,/No safe improvement found/);assert.deepEqual(after,document);
+});
+
+test('044 trusted automatic flag first human takeover captures current packed metadata without altering facts or unrelated authored geometry',async()=>{
+  const {document,options}=await retainedCriticAxisFixture(),object=document.advanced.scene.objects.find(item=>item.semanticRef==='degree');
+  object.presentation.flagLabelLayout={width:64,flip:true};
+  const snapshot=JSON.stringify(document),rendered=serializeFounderPresentation(document,options),actual=rendered.scene.autoFlagLabels.get('degree'),geometry=advancedEventGeometry407F(document,'degree',null,options);
+  assert.ok(actual);assert.notDeepEqual(actual,object.presentation.flagLabelLayout);
+  const source=await readFile(new URL('../web/js/407f-engineering-adapter.js',import.meta.url),'utf8'),edited=executeFirstEventEdit(source,'kernel',document,'degree',geometry,options),moved=edited.advanced.scene.objects.find(item=>item.semanticRef==='degree');
+  assert.deepEqual(moved.presentation.flagLabelLayout,actual);assert.notEqual(moved.presentation.localLayoutCriticAuto,true);assert.equal(moved.geometry.y,geometry.y+5);
+  const paint=flagPaint(edited,'degree',options);assert.equal(paint.template.poleFootY,125);assert.ok(paint.labels.map(item=>item.text).join(' ').includes(document.events.find(item=>item.id==='degree').title));
+  assert.deepEqual(edited.events,document.events);assert.deepEqual(edited.mediaItems,document.mediaItems);assert.deepEqual(edited.presentationOverrides.photoFrames,document.presentationOverrides.photoFrames);assert.equal(JSON.stringify(document),snapshot);
 });

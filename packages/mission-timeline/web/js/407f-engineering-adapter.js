@@ -1,3 +1,4 @@
+import {resolveFounderPresentationSvg} from './presentation/resolved-founder-presentation.js';
 import {createMyerasIntakeAdapter} from './uxr-002/myeras-intake-adapter.js';
 import {installMyerasIntakeUi,myerasEntryMarkup,myerasUploadMarkup,myerasReviewMarkup} from './uxr-002/myeras-intake-ui.js';
 import {TimelineStore} from "./uxr-002/store.js";
@@ -35,6 +36,7 @@ import {
 import {
   analyzeTimelineQuality,
   applySafeQualityFixes,
+  qualifyRenderedLayoutImprovement,
   deterministicFindingsForAi,
   mergeAiQualityAnalysis,
   qualityGuardianViewer,
@@ -144,7 +146,7 @@ import {
   validateBackgroundUpload,
   validateMediaUpload
 } from "./uxr-002/advanced-studio.js";
-import {applySceneCommandToDocument} from "./editor/scene-commands.js";
+import {applySceneCommandToDocument as applySceneCommandBase407F} from "./editor/scene-commands.js";
 import {reconcileAdvancedScene} from "./editor/scene-graph.js";
 import {resizeSceneGeometry,rotateSceneGeometry} from "./editor/scene-interaction.js";
 import {
@@ -434,9 +436,18 @@ export function mountLocalLayoutReview407F(dialog,{store,location=globalThis.loc
 export function advancedEventGeometry407F(document,id,source,renderOptions={}){
   const object=(document.advanced?.scene?.objects||[]).find(object=>object.type==='event'&&
     (String(object.semanticRef||'')===String(id)||String(object.id)===String(id)));
-  if(object)return {...clone(object.geometry),rotation:Number(object.geometry?.rotation)||0,locked:object.locked===true,aspectLocked:object.aspectLocked!==false};
-  if(!source)return null;
   const event=(document.events||[]).find(event=>String(event.id)===String(id));
+  const automatic=object?.presentation?.localLayoutCriticAuto===true&&!object.locked&&!object.groupId&&!document.layoutLock&&
+    Math.abs(Number(object.geometry?.rotation)||0)<1e-6&&!event?.manualOffset?.laneLocked&&!Number(event?.manualOffset?.x)&&!Number(event?.manualOffset?.y)&&
+    !(document.advanced?.scene?.groups||[]).some(group=>group.locked&&group.childIds?.includes(object.id));
+  if(object&&!automatic)return {...clone(object.geometry),rotation:Number(object.geometry?.rotation)||0,locked:object.locked===true,aspectLocked:object.aspectLocked!==false};
+  if(automatic){
+    const rendered=serializeFounderPresentation(document,{scope:'EVERYTHING',...renderOptions});
+    const flag=locked407FMilestoneGeometry(rendered.scene,id);
+    const body=flag||resolveFounderPresentationSvg(rendered.svg,{measureText:renderOptions.measureText}).nodes.find(node=>node.semanticRef===String(id)&&node.sourceAttributes['data-continuous-duration-arrow'])?.bounds;
+    if(body)return {...clone(object.geometry),x:body.x,y:body.y,width:body.width,height:object.geometry.height,rotation:0,locked:false,aspectLocked:object.aspectLocked!==false};
+  }
+  if(!source)return null;
   if(source.dataset?.eventKind==='flag'||event?.eventType==='milestone'){
     try{
       const geometry=locked407FMilestoneGeometry(serializeFounderPresentation(document,{scope:'EVERYTHING',...renderOptions}).scene,id);
@@ -455,13 +466,35 @@ export function advancedEventGeometry407F(document,id,source,renderOptions={}){
 export function advancedEventCreation407F(document,id,renderOptions={}){
   const event=(document.events||[]).find(event=>String(event.id)===String(id));
   const presentation={eventType:event?.eventType||'duration'};
-  const existing=(document.advanced?.scene?.objects||[]).some(object=>object.type==='event'&&
+  const existing=(document.advanced?.scene?.objects||[]).find(object=>object.type==='event'&&
     (String(object.semanticRef||'')===String(id)||String(object.id)===String(id)));
   if(!existing&&event?.eventType==='milestone'){
     const native=locked407FNativeMilestonePresentation(serializeFounderPresentation(document,{scope:'EVERYTHING',...renderOptions}).scene,id);
     if(native)Object.assign(presentation,native);
   }
+  if(existing?.presentation?.localLayoutCriticAuto===true&&event?.eventType==='milestone'&&!existing.locked&&!existing.groupId&&!document.layoutLock&&
+    !event.manualOffset?.laneLocked&&!Number(event.manualOffset?.x)&&!Number(event.manualOffset?.y)&&Math.abs(Number(existing.geometry.rotation)||0)<1e-6&&
+    !(document.advanced?.scene?.groups||[]).some(group=>group.locked&&group.childIds?.includes(existing.id))){
+    const scene=serializeFounderPresentation(document,{scope:'EVERYTHING',...renderOptions}).scene;
+    const label=scene.autoFlagLabels?.get(String(id))||existing.presentation.flagLabelLayout;
+    if(label)Object.assign(presentation,{flagLabelLayout:clone(label),nativeFlagPole:{anchor:'native'}});
+  }
   return {type:'event',semanticRef:String(id),aspectLocked:false,presentation};
+}
+
+export function applySceneCommandToDocument(document,command,options={}){
+  let source=document;
+  if(command?.kind==='geometry'&&command.target?.type==='event'&&command.create?.presentation?.flagLabelLayout){
+    const object=(document.advanced?.scene?.objects||[]).find(item=>item.type==='event'&&(String(item.id)===String(command.target.id)||String(item.semanticRef)===String(command.target.id)));
+    const event=(document.events||[]).find(item=>String(item.id)===String(object?.semanticRef||command.target.id));
+    if(object?.presentation?.localLayoutCriticAuto===true&&!object.locked&&!object.groupId&&!document.layoutLock&&
+      !event?.manualOffset?.laneLocked&&!Number(event?.manualOffset?.x)&&!Number(event?.manualOffset?.y)&&Math.abs(Number(object.geometry.rotation)||0)<1e-6&&
+      !(document.advanced?.scene?.groups||[]).some(group=>group.locked&&group.childIds?.includes(object.id))){
+      source=clone(document);const target=source.advanced.scene.objects.find(item=>item.id===object.id);
+      target.presentation={...target.presentation,flagLabelLayout:clone(command.create.presentation.flagLabelLayout),nativeFlagPole:{anchor:'native'}};
+    }
+  }
+  return applySceneCommandBase407F(source,command,options);
 }
 
 export function applyHumanAxisPresentation407F(document,result,renderOptions={}){
@@ -3761,7 +3794,19 @@ export async function boot407FEngineeringAdapter({
           ...report,
           findings:report.findings.filter(({id})=>id===selected.id)
         });
-        if(!result.changed){
+        const beforeDocument=JSON.stringify(store.document);
+        const renderPreview=(timeline,side)=>serializeFounderPresentation(timeline,{
+          scope:"EVERYTHING",currentMonth:currentMonth(),
+          resourceNamespace:`guardian-fix-${side}`,mediaById:liveMediaById(timeline)
+        });
+        let beforeRendered,afterRendered,qualification;
+        if(result.changed){
+          try{
+            beforeRendered=renderPreview(store.document,"before");afterRendered=renderPreview(result.document,"after");
+            qualification=qualifyRenderedLayoutImprovement(beforeRendered,afterRendered,{beforeDocument:store.document,afterDocument:result.document});
+          }catch{qualification={qualified:false,reasonCode:'RENDER_VALIDATION_FAILED'};}
+        }
+        if(!result.changed||qualification?.qualified!==true){
           button.textContent="Open Advanced Studio";
           button.insertAdjacentHTML("afterend",'<p class="field-help" role="status">No safe improvement found. Use Advanced Studio to adjust the spacing or size of these elements.</p>');
           button.addEventListener("click",()=>{
@@ -3770,13 +3815,7 @@ export async function boot407FEngineeringAdapter({
           },{once:true});
           return;
         }
-        const beforeDocument=JSON.stringify(store.document);
-        const previewSvg=(timeline,side)=>serializeFounderPresentation(timeline,{
-          audience:"EVERYTHING",currentMonth:currentMonth(),
-          resourceNamespace:`guardian-fix-${side}`,mediaById:liveMediaById(timeline)
-        }).svg;
-        const beforeSvg=previewSvg(store.document,"before");
-        const afterSvg=previewSvg(result.document,"after");
+        const beforeSvg=beforeRendered.svg,afterSvg=afterRendered.svg;
         closeStandardModal({restoreFocus:false});
         const preview=openStandardModal(`<section class="export407FSuggestionDialog qualityFixPreview" role="dialog" aria-modal="true" aria-labelledby="quality-fix-title" data-quality-fix-preview>
           <h2 id="quality-fix-title">Review the layout change</h2>
