@@ -1,0 +1,27 @@
+{
+  "before": [
+    {
+      "intake_hash": "7a86d82c5fbd01fa77fb21fca082cca8",
+      "terms_hash": "9e2a804a26762ad85a90f4e0462e8558",
+      "metadata_hash": "640b3f8deca41200438646e8d96a09ad",
+      "claims_hash": "6db32b3b3acab2bf8a6aa9ea579e41d7",
+      "intake_status": "new",
+      "offer_status": "sent",
+      "revision": 6
+    }
+  ],
+  "after": [
+    {
+      "intake_hash": "7a86d82c5fbd01fa77fb21fca082cca8",
+      "terms_hash": "9e2a804a26762ad85a90f4e0462e8558",
+      "metadata_hash": "640b3f8deca41200438646e8d96a09ad",
+      "claims_hash": "6db32b3b3acab2bf8a6aa9ea579e41d7",
+      "intake_status": "archived",
+      "offer_status": "archived",
+      "revision": 7
+    }
+  ],
+  "preserved": true,
+  "email_message": "1a10a086088967d8",
+  "email_archive": "Label_11; INBOX removed; recoverable"
+}

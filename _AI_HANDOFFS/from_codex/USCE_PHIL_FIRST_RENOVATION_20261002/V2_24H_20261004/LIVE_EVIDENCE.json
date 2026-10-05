@@ -1,0 +1,77 @@
+{
+  "source_commit": "4ddb39d9ec1f58639dae4040f2b1b9009565a947",
+  "admin_sha256": "f673584d90414f1577eee3ec8c031c0c79dc7d78fd67bbccb8b7fe26abee2c97",
+  "wordpress_wrapper_sha256": "e92b89d97a2297c43d1ee4c0cc08ec48343019195849f1b5b15bda628044e63a",
+  "entry": "https://missionmedinstitute.com/usce-admin/",
+  "deployment": "dd1ee4ed-b06b-4049-afb8-92bdaaadf5f0 unchanged",
+  "desktop": {
+    "outer": [
+      1329,
+      610
+    ],
+    "outer_scroll": 0,
+    "iframe_height": 483.45,
+    "rail": "full-height",
+    "candidate_heights": [
+      552,
+      425
+    ]
+  },
+  "guided_journey": "All six steps actual live Chrome; template/blank/cancel/edit and exact save/reload persistence PASS; approval required and exact revision6 sanctioned send",
+  "send": {
+    "clicks": 1,
+    "retries": 0,
+    "claim_id": "8bdcd5dd-926e-4b46-aac6-11a2d0dae0b8",
+    "state": "provider_accepted",
+    "mode": "live",
+    "revision": 6,
+    "postmark_message_id": "a20bf43a-1480-47eb-aa93-46c08e29e8d0",
+    "gmail_message_id": "1a10a086088967d8",
+    "gmail_provider_id_matches": true,
+    "recipient": "info+usce-qa-20261002@missionmedinstitute.com",
+    "from": "MMI Clinical Rotations <info@missionmedinstitute.com>",
+    "reply_to": "clinicals@missionmedinstitute.com",
+    "subject": "USCE QA TEST 20261005 V2 independent acceptance",
+    "inbox_receipt": true,
+    "read_confirmation": false,
+    "authentication": "SPF/DKIM/DMARC pass"
+  },
+  "cleanup": {
+    "intake": "archived",
+    "offer": "archived",
+    "revision": 7,
+    "preserved_hashes": {
+      "intake_hash": "7a86d82c5fbd01fa77fb21fca082cca8",
+      "terms_hash": "9e2a804a26762ad85a90f4e0462e8558",
+      "metadata_hash": "640b3f8deca41200438646e8d96a09ad",
+      "claims_hash": "6db32b3b3acab2bf8a6aa9ea579e41d7",
+      "intake_status": "archived",
+      "offer_status": "archived",
+      "revision": 7
+    },
+    "email": "Label_11/no INBOX/no TRASH recoverable",
+    "test_link_resolution": "invalid_token",
+    "non_qa_count": 88,
+    "non_qa_md5": "66bbcc60fa8e7e4059de5f67f77c61c8"
+  },
+  "recovery": "Actual exact CDN rollback/reapply and WordPress restore/reapply PASS; all exact scoped leases positively released",
+  "limits": [
+    "Fresh student/incognito window unavailable; historical student denial preserved, fresh HTTP401/sessionfalse and independent nonadmin/audience/CSRF security tests passed",
+    "No Phil personal login claim; actual Brian brinyu tested",
+    "No fresh applicant response/payment/reservation/enrollment; unchanged applicant/runtime historical response proof retained",
+    "History shows no status changes yet; durable Communications provider_accepted evidence verified",
+    "Review screenshot at body bottom shows terms/approval; independently inspected full pre-send AX verifies all facts/routing/subject/full message; no post-send revision mutation for screenshots"
+  ],
+  "independent_final": "FINAL focused F/U/O ACCEPTED; /root/v2_release_review Sol6.1 HIGH non-builder",
+  "mobile": {
+    "viewport": [
+      433,
+      938
+    ],
+    "offer_and_readonly_coordinator": "PASS",
+    "restored_desktop": [
+      1329,
+      610
+    ]
+  }
+}

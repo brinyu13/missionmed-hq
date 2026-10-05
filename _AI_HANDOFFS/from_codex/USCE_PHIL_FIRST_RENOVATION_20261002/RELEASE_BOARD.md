@@ -1,3 +1,9 @@
+## 2026-10-05 Clinicals HQ V2 production ACCEPTED
+
+Fresh independent focused F/U/O accepted deployed full-height Action Command workspace and required six-step Offer Journey. Source4ddb39d/adminf673584d/WPwrappere92b89, existing C18/auth/applicant preserved. Brian/brinyu actual Chrome, editable email, version-bound single controlled send and inbox receipt, desktop/mobile/keyboard, actual recovery, immutable data preservation and recoverable synthetic cleanup verified. No critical FAIL; fresh student browser unavailable is recorded. No Astra/IVOC. Definitive evidence V2_24H_20261004/INDEPENDENT_FUO.md and LIVE_EVIDENCE.json.
+
+## Superseded historical records
+
 ## 2026-10-04 Clinicals HQ V2 ACTIVE — prior UX Gate A failed
 
 Founder 24-hour steer supersedes the prototype approval stop. Continue approved Version1 / StoryForge A Action Command direction through required Journey, AAA reconciliation, tests, sanctioned deployment, live verification, fix-forward and fresh independent F/U/O. Prior base acceptance below is historical technical evidence; it does not accept the rejected scrolling UX. Journey is REQUIRED. No Astra; IVOC excluded. Current custody: V2_24H_20261004/STATE.md. Canonical OS3f9ab86 / DR359/360.

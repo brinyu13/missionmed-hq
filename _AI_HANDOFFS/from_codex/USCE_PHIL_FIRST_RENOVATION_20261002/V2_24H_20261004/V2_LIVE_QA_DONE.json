@@ -1,0 +1,40 @@
+{
+  "phase": "owned_synthetic_live_qa_complete",
+  "source_commit": "4ddb39d9ec1f58639dae4040f2b1b9009565a947",
+  "admin_sha256": "f673584d90414f1577eee3ec8c031c0c79dc7d78fd67bbccb8b7fe26abee2c97",
+  "case_id": "d7451937-8665-4716-bf9a-fcb7838807bd",
+  "offer_id": "01912feb-10f5-45ed-93ec-58a59f37b3f6",
+  "reviewed_revision": 6,
+  "send_click_count": 1,
+  "send_ui_outcome": "Send request recorded. Refresh Activity to verify the outcome.",
+  "reloaded_comms_event": "offer_email_provider_accepted",
+  "postmark_ui_recorded": true,
+  "custom_composer_reload_exact": true,
+  "unapproved_send_progress_blocked": true,
+  "template_and_blank_cancel_preservation_pass": true,
+  "private_link_redacted": true,
+  "normal_wp_brinyu_admin_pass": true,
+  "live_http_anonymous_queue": 401,
+  "live_http_malformed_queue": 401,
+  "live_http_sibling_route": 404,
+  "live_anonymous_session_authenticated": false,
+  "outer_geometry": {
+    "width": 1329,
+    "height": 610,
+    "document_height": 610,
+    "scroll_y": 0,
+    "iframe_height": 483.45
+  },
+  "incognito_tab_binding": "unavailable; not claimed independently",
+  "history_ui_after_reload": "no status changes yet; Comms event durable",
+  "critical_failures": [],
+  "provider_actions_finished": true,
+  "retry_count": 0,
+  "screenshots": [
+    "/tmp/usce-v2-independent-main-20261005.jpg",
+    "/tmp/usce-v2-independent-journey-20261005.jpg",
+    "/tmp/usce-v2-independent-email-20261005.jpg",
+    "/tmp/usce-v2-independent-review-20261005.jpg"
+  ],
+  "final_acceptance": "pending controlled cleanup and remaining provider/role readback"
+}
