@@ -1,0 +1,36 @@
+{
+  "capture": {
+    "classification": "FIXED_SYNTAX_STATUS_NOT_APPROVAL",
+    "entries": [
+      {
+        "entryIndex": 0,
+        "syntaxPass": true
+      },
+      {
+        "entryIndex": 1,
+        "syntaxPass": false
+      },
+      {
+        "entryIndex": 2,
+        "syntaxPass": true
+      },
+      {
+        "entryIndex": 3,
+        "syntaxPass": true
+      },
+      {
+        "entryIndex": 4,
+        "syntaxPass": true
+      }
+    ],
+    "kinstaBindingKind": "CONST_DIR",
+    "noSemanticApproval": true,
+    "schema": "ir.bootstrap.fixed_loader_syntax_status.v1"
+  },
+  "localTransportEnded": true,
+  "noSemanticApproval": true,
+  "observedUnix": 1791171332.956974,
+  "packetSha256": "3f29ff500fb850589affc662409e9eee5773dcd11d1b01da0cf9abbdf5c69271",
+  "schema": "ir.foreman.fixed_loader_syntax_readback.v1",
+  "sourceHead": "09afb707913393174cf8c929a7e4d68beb01b3df"
+}

@@ -1,0 +1,15 @@
+{
+  "capture": {
+    "classification": "FIXED_DIAGNOSTIC_STOP",
+    "noSemanticApproval": true,
+    "reason": "FIXED_SYNTAX_STOP",
+    "schema": "ir.bootstrap.fixed_loader_diagnostic.v1",
+    "stage": "FACT_TOKENIZATION"
+  },
+  "localTransportEnded": true,
+  "noSemanticApproval": true,
+  "observedUnix": 1791169459.497611,
+  "packetSha256": "2b62153b6e3de2fbeec5e1c4138206828acb3e3cfffb475f0be205d85d40308d",
+  "schema": "ir.foreman.fixed_loader_diagnostic_readback.v1",
+  "sourceHead": "09afb707913393174cf8c929a7e4d68beb01b3df"
+}

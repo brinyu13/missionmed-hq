@@ -1,0 +1,106 @@
+{
+  "capture": {
+    "classification": "FIXED_RECORD_TOKENIZER_STATUS_NOT_APPROVAL",
+    "noSemanticApproval": true,
+    "records": [
+      {
+        "entryIndex": 0,
+        "guardCode": 0,
+        "phaseCode": 0,
+        "tokenKind": 0,
+        "tokenizerPass": true
+      },
+      {
+        "entryIndex": 1,
+        "guardCode": 0,
+        "phaseCode": 0,
+        "tokenKind": 0,
+        "tokenizerPass": true
+      },
+      {
+        "entryIndex": 2,
+        "guardCode": 0,
+        "phaseCode": 0,
+        "tokenKind": 0,
+        "tokenizerPass": true
+      },
+      {
+        "entryIndex": 3,
+        "guardCode": 0,
+        "phaseCode": 0,
+        "tokenKind": 0,
+        "tokenizerPass": true
+      },
+      {
+        "entryIndex": 4,
+        "guardCode": 0,
+        "phaseCode": 0,
+        "tokenKind": 0,
+        "tokenizerPass": true
+      },
+      {
+        "entryIndex": 5,
+        "guardCode": 0,
+        "phaseCode": 0,
+        "tokenKind": 0,
+        "tokenizerPass": true
+      },
+      {
+        "entryIndex": 6,
+        "guardCode": 0,
+        "phaseCode": 0,
+        "tokenKind": 0,
+        "tokenizerPass": true
+      },
+      {
+        "entryIndex": 7,
+        "guardCode": 0,
+        "phaseCode": 0,
+        "tokenKind": 0,
+        "tokenizerPass": true
+      },
+      {
+        "entryIndex": 8,
+        "guardCode": 0,
+        "phaseCode": 0,
+        "tokenKind": 0,
+        "tokenizerPass": true
+      },
+      {
+        "entryIndex": 9,
+        "guardCode": 0,
+        "phaseCode": 0,
+        "tokenKind": 0,
+        "tokenizerPass": true
+      },
+      {
+        "entryIndex": 10,
+        "guardCode": 0,
+        "phaseCode": 0,
+        "tokenKind": 0,
+        "tokenizerPass": true
+      },
+      {
+        "entryIndex": 11,
+        "guardCode": 4,
+        "phaseCode": 3,
+        "tokenKind": 0,
+        "tokenizerPass": false
+      },
+      {
+        "entryIndex": 12,
+        "guardCode": 0,
+        "phaseCode": 0,
+        "tokenKind": 0,
+        "tokenizerPass": true
+      }
+    ],
+    "schema": "ir.bootstrap.fixed_loader_record_tokenizer_status.v1"
+  },
+  "localTransportEnded": true,
+  "noSemanticApproval": true,
+  "observedUnix": 1791173975.46144,
+  "packetSha256": "b25e5f7bd44565c2ac15c63880e5726eabfb7045e46bc4a5e7d9c400398978ae",
+  "schema": "ir.foreman.fixed_loader_record_tokenizer_readback.v1",
+  "sourceHead": "09afb707913393174cf8c929a7e4d68beb01b3df"
+}

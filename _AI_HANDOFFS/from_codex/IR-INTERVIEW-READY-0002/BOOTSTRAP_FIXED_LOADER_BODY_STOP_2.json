@@ -1,0 +1,7 @@
+{
+  "classification": "UNQUALIFIED_STOP",
+  "noRetry": true,
+  "observedUnix": 1791172123.2590132,
+  "packetSha256": "7de74f336f146160379605dfbc6ec5e9fcbd10c618f8c4b6de4dacdea63df06b",
+  "schema": "ir.foreman.fixed_loader_body_stop.v1"
+}

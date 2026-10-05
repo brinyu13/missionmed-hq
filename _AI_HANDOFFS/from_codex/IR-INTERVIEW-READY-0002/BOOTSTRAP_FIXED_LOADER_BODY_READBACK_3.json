@@ -1,0 +1,513 @@
+{
+  "capture": {
+    "classification": "STATIC_REDACTED_CLOSURE_NOT_APPROVAL",
+    "files": [
+      {
+        "bytes": 388,
+        "closedPublicRegistrations": [],
+        "configCallFacts": [
+          {
+            "callType": "configuration_guard_syntax",
+            "tokenOffset": 1
+          },
+          {
+            "callType": "configuration_definition_syntax",
+            "tokenOffset": 6
+          },
+          {
+            "callType": "configuration_guard_syntax",
+            "tokenOffset": 13
+          },
+          {
+            "callType": "configuration_definition_syntax",
+            "tokenOffset": 18
+          }
+        ],
+        "dynamicIncludes": 0,
+        "guardFacts": [],
+        "includeCandidates": [],
+        "includeSiteFacts": [],
+        "redactedSource": "<?php REDACTED_I1('REDACTED_L1') || REDACTED_I2('REDACTED_L2', 'REDACTED_L3'); REDACTED_I1('REDACTED_L4') || REDACTED_I2('REDACTED_L5', 'REDACTED_L6'); ",
+        "role": "/www/theresidencyacademy_209/deployment/d1-500-runtime/timeline-secrets.php",
+        "sourceSha256": "b4355d1f45136e276c848bb37d864071bf95bc2ceb811429c0a600598ed08abe",
+        "suppressedBodies": 0
+      },
+      {
+        "bytes": 436,
+        "closedPublicRegistrations": [],
+        "configCallFacts": [
+          {
+            "callType": "configuration_guard_syntax",
+            "tokenOffset": 4
+          },
+          {
+            "callType": "configuration_definition_syntax",
+            "tokenOffset": 9
+          },
+          {
+            "callType": "configuration_guard_syntax",
+            "tokenOffset": 19
+          },
+          {
+            "callType": "configuration_definition_syntax",
+            "tokenOffset": 24
+          },
+          {
+            "callType": "configuration_guard_syntax",
+            "tokenOffset": 34
+          },
+          {
+            "callType": "configuration_definition_syntax",
+            "tokenOffset": 39
+          }
+        ],
+        "dynamicIncludes": 0,
+        "guardFacts": [],
+        "includeCandidates": [],
+        "includeSiteFacts": [],
+        "redactedSource": "<?php if (!REDACTED_I1('REDACTED_L1')) REDACTED_I2('REDACTED_L2', 'REDACTED_L3'); if (!REDACTED_I1('REDACTED_L4')) REDACTED_I2('REDACTED_L5', 'REDACTED_L6'); if (!REDACTED_I1('REDACTED_L7')) REDACTED_I2('REDACTED_L8', REDACTED_I3); ",
+        "role": "/www/theresidencyacademy_209/deployment/missionaccounts-runtime/missionaccounts-secrets.php",
+        "sourceSha256": "3abdf74f16eca12cec469e6dcd9018a9aa36158b8080373209bd9f646b8f5ce4",
+        "suppressedBodies": 0
+      },
+      {
+        "bytes": 684,
+        "closedPublicRegistrations": [],
+        "configCallFacts": [],
+        "dynamicIncludes": 0,
+        "guardFacts": [
+          {
+            "guard": "defined",
+            "publicValue": "ABSPATH",
+            "tokenOffset": 7
+          }
+        ],
+        "includeCandidates": [],
+        "includeSiteFacts": [],
+        "redactedSource": "<?php /* REDACTED_L1 */ use REDACTED_I1; if (! defined('REDACTED_L2')) { /* REDACTED_L3 */ exit('REDACTED_L4'); } global $REDACTED_I2; global $REDACTED_I3; global $REDACTED_I4; /* REDACTED_L5 */ try { $REDACTED_I2 = new KMP(); $REDACTED_I3 = $REDACTED_I2; $REDACTED_I4 = $REDACTED_I2; /* REDACTED_L6 */ } catch ( REDACTED_I5 $REDACTED_I6 ) { error_log( sprintf( 'REDACTED_L7', $REDACTED_I6->getMessage(), $REDACTED_I6->getFile(), $REDACTED_I6->getLine() ) ); $REDACTED_I2 = null; $REDACTED_I3 = null; $REDACTED_I4 = null; /* REDACTED_L8 */ } ",
+        "role": "/www/theresidencyacademy_209/public/wp-content/mu-plugins/kinsta-mu-plugins/bootstrap.php",
+        "sourceSha256": "a53b418915f970aa07b34d4cc18f1b2f4bb8b1b692ff8af15dddd184f82b4b07",
+        "suppressedBodies": 0
+      },
+      {
+        "bytes": 748,
+        "closedPublicRegistrations": [],
+        "configCallFacts": [],
+        "dynamicIncludes": 1,
+        "guardFacts": [
+          {
+            "guard": "PHP_SAPI_COMPARE",
+            "publicValue": "cli",
+            "tokenOffset": 43
+          }
+        ],
+        "includeCandidates": [],
+        "includeSiteFacts": [
+          {
+            "baseSyntax": [
+              "__DIR__"
+            ],
+            "operation": "require_once",
+            "pathFragments": [
+              "/composer/autoload_real.php"
+            ],
+            "tokenOffset": 81,
+            "unresolved": false
+          }
+        ],
+        "redactedSource": "<?php  /* REDACTED_L1 */ if (PHP_VERSION_ID < 'REDACTED_L2') { if (!headers_sent()) { header('REDACTED_L3'); } $REDACTED_I1 = 'REDACTED_L4'.PHP_VERSION.'REDACTED_L5'.PHP_EOL; if (!ini_get('REDACTED_L6')) { if (PHP_SAPI === 'REDACTED_L7' || PHP_SAPI === 'REDACTED_L8') { fwrite(STDERR, $REDACTED_I1); } elseif (!headers_sent()) { echo $REDACTED_I1; } } throw new RuntimeException($REDACTED_I1); } require_once 'REDACTED_L9' . 'REDACTED_L10'; return ComposerAutoloaderInit160d03279b19443a3a37c02319c7a86d::getLoader(); ",
+        "role": "/www/theresidencyacademy_209/public/wp-content/mu-plugins/kinsta-mu-plugins/vendor/autoload.php",
+        "sourceSha256": "abdc7a7a2b0b758ecd9b452ef54284a18b8749729afeb6d9e14c4e29cbc9dc52",
+        "suppressedBodies": 0
+      },
+      {
+        "bytes": 22883,
+        "closedPublicRegistrations": [],
+        "configCallFacts": [],
+        "dynamicIncludes": 0,
+        "guardFacts": [
+          {
+            "guard": "defined",
+            "publicValue": "ABSPATH",
+            "tokenOffset": 4
+          }
+        ],
+        "includeCandidates": [],
+        "includeSiteFacts": [],
+        "redactedSource": "<?php /* REDACTED_L1 */ if ( ! defined( 'REDACTED_L2' ) ) { exit; } /* REDACTED_L3 */ class MMED_LearnDash_Reskin { /* REDACTED_L4 */ private static $REDACTED_I1 = null; /* REDACTED_L5 */ private static $REDACTED_I2 = 'REDACTED_L6'; /* REDACTED_L7 */ private static $REDACTED_I3 = array( 'REDACTED_L8', 'REDACTED_L9', 'REDACTED_L10', 'REDACTED_L11' ); /* REDACTED_L12 */ public static function init() { add_action( 'REDACTED_L13', array( 'REDACTED_L14', 'REDACTED_L15' ), 'REDACTED_L16' ); add_filter( 'REDACTED_L17', array( 'REDACTED_L18', 'REDACTED_L19' ) ); add_filter( 'REDACTED_L20', array( 'REDACTED_L21', 'REDACTED_L22' ), 'REDACTED_L23' ); add_action( 'REDACTED_L24', array( 'REDACTED_L25', 'REDACTED_L26' ), 'REDACTED_L27' ); add_action( 'REDACTED_L28', array( 'REDACTED_L29', 'REDACTED_L30' ), 'REDACTED_L31' ); add_action( 'REDACTED_L32', array( 'REDACTED_L33', 'REDACTED_L34' ), 'REDACTED_L35' ); } /* REDACTED_L36 */ public static function enqueue_assets() {/* REDACTED_L37 */} /* REDACTED_L38 */ public static function render_back_to_matrix_button() {/* REDACTED_L39 */} /* REDACTED_L40 */ public static function add_phase0_body_class( $REDACTED_I4 ) {/* REDACTED_L41 */} /* REDACTED_L42 */ public static function maybe_redirect_locked_phase0_step() {/* REDACTED_L43 */} /* REDACTED_L44 */ public static function inject_phase0_course_entry( $REDACTED_I5 ) {/* REDACTED_L45 */} /* REDACTED_L46 */ public static function render_phase0_entry_mount() {/* REDACTED_L47 */} /* REDACTED_L48 */ public static function render_phase0_lock_script() {/* REDACTED_L49 */} /* REDACTED_L50 */ public static function render_match_training_label_normalizer() {/* REDACTED_L51 */} /* REDACTED_L52 */ private static function phase0_entry_markup() {/* REDACTED_L53 */} /* REDACTED_L54 */ private static function is_360_course_page() {/* REDACTED_L55 */} /* REDACTED_L56 */ private static function is_360_context() {/* REDACTED_L57 */} /* REDACTED_L58 */ private static function get_current_course_id() {/* REDACTED_L59 */} /* REDACTED_L60 */ private static function is_phase0_available_step( $REDACTED_I6 ) {/* REDACTED_L61 */} /* REDACTED_L62 */ private static function current_user_can_view_phase0_entry() {/* REDACTED_L63 */} /* REDACTED_L64 */ private static function current_user_is_enrolled_in_phase0_course() {/* REDACTED_L65 */} /* REDACTED_L66 */ private static function is_learndash_page() {/* REDACTED_L67 */} /* REDACTED_L68 */ private static function get_learndash_style_dependencies() {/* REDACTED_L69 */} } ",
+        "role": "/www/theresidencyacademy_209/public/wp-content/plugins/missionmed-hub/includes/class-mmed-learndash-reskin.php",
+        "sourceSha256": "727b8d94518e05a63f798cf69608f7b0a3fa07f0880f084b4453e88b6a8fb54e",
+        "suppressedBodies": 17
+      },
+      {
+        "bytes": 748,
+        "closedPublicRegistrations": [],
+        "configCallFacts": [],
+        "dynamicIncludes": 1,
+        "guardFacts": [
+          {
+            "guard": "PHP_SAPI_COMPARE",
+            "publicValue": "cli",
+            "tokenOffset": 43
+          }
+        ],
+        "includeCandidates": [],
+        "includeSiteFacts": [
+          {
+            "baseSyntax": [
+              "__DIR__"
+            ],
+            "operation": "require_once",
+            "pathFragments": [
+              "/composer/autoload_real.php"
+            ],
+            "tokenOffset": 81,
+            "unresolved": false
+          }
+        ],
+        "redactedSource": "<?php  /* REDACTED_L1 */ if (PHP_VERSION_ID < 'REDACTED_L2') { if (!headers_sent()) { header('REDACTED_L3'); } $REDACTED_I1 = 'REDACTED_L4'.PHP_VERSION.'REDACTED_L5'.PHP_EOL; if (!ini_get('REDACTED_L6')) { if (PHP_SAPI === 'REDACTED_L7' || PHP_SAPI === 'REDACTED_L8') { fwrite(STDERR, $REDACTED_I1); } elseif (!headers_sent()) { echo $REDACTED_I1; } } throw new RuntimeException($REDACTED_I1); } require_once 'REDACTED_L9' . 'REDACTED_L10'; return ComposerAutoloaderInit25f8cc872f901bf06549c1967806ea26::getLoader(); ",
+        "role": "/www/theresidencyacademy_209/public/wp-content/plugins/missionmed-hub/vendor/autoload.php",
+        "sourceSha256": "c217d23338a9d2537ce212b9cf1c5abbaeb9351b1a2f38cc5bd7695f80ad6964",
+        "suppressedBodies": 0
+      },
+      {
+        "bytes": 1095,
+        "closedPublicRegistrations": [],
+        "configCallFacts": [],
+        "dynamicIncludes": 2,
+        "guardFacts": [],
+        "includeCandidates": [],
+        "includeSiteFacts": [
+          {
+            "baseSyntax": [],
+            "operation": "include",
+            "pathFragments": [],
+            "tokenOffset": 57,
+            "unresolved": true
+          },
+          {
+            "baseSyntax": [],
+            "operation": "include",
+            "pathFragments": [],
+            "tokenOffset": 78,
+            "unresolved": true
+          }
+        ],
+        "redactedSource": "<?php  if ( 'REDACTED_L1' !== PHP_SAPI ) { echo 'REDACTED_L2', 'REDACTED_L3' . PHP_SAPI . 'REDACTED_L4', 'REDACTED_L5', 'REDACTED_L6', 'REDACTED_L7'; exit( -'REDACTED_L8' ); } /* REDACTED_L9 */ define( 'REDACTED_L10', Phar::running( true ) ); if ( file_exists( 'REDACTED_L11' ) ) { define( 'REDACTED_L12', 'REDACTED_L13' ); include WP_CLI_ROOT . 'REDACTED_L14'; } elseif ( file_exists( 'REDACTED_L15' ) ) { define( 'REDACTED_L16', 'REDACTED_L17' ); include WP_CLI_ROOT . 'REDACTED_L18'; } else { echo 'REDACTED_L19'; exit( 'REDACTED_L20' ); } ",
+        "role": "phar://wp-cli.phar/php/boot-phar.php",
+        "sourceSha256": "91d3e1dfcea0c9abbe66032faea76d231e74c247fad44eb1d066008ab4693dcc",
+        "suppressedBodies": 0
+      },
+      {
+        "bytes": 178,
+        "closedPublicRegistrations": [],
+        "configCallFacts": [],
+        "dynamicIncludes": 1,
+        "guardFacts": [],
+        "includeCandidates": [],
+        "includeSiteFacts": [
+          {
+            "baseSyntax": [
+              "__DIR__"
+            ],
+            "operation": "require_once",
+            "pathFragments": [
+              "/composer/autoload_real.php"
+            ],
+            "tokenOffset": 1,
+            "unresolved": false
+          }
+        ],
+        "redactedSource": "<?php  /* REDACTED_L1 */ require_once 'REDACTED_L2' . 'REDACTED_L3'; return ComposerAutoloaderInit9dd0c065773dc69783f4ccefde7239ca::getLoader(); ",
+        "role": "phar://wp-cli.phar/vendor/autoload.php",
+        "sourceSha256": "446489d22c3934ac8570f9458c909c1e5d855db66cd25a84a857f0e46b78d3f9",
+        "suppressedBodies": 0
+      },
+      {
+        "bytes": 2629,
+        "closedPublicRegistrations": [],
+        "configCallFacts": [],
+        "dynamicIncludes": 0,
+        "guardFacts": [],
+        "includeCandidates": [],
+        "includeSiteFacts": [],
+        "redactedSource": "<?php  /* REDACTED_L1 */ class ComposerAutoloaderInit9dd0c065773dc69783f4ccefde7239ca { private static $REDACTED_I1; public static function loadClassLoader($REDACTED_I2) {/* REDACTED_L2 */} /* REDACTED_L3 */ public static function getLoader() {/* REDACTED_L4 */} } /* REDACTED_L5 */ function composerRequire9dd0c065773dc69783f4ccefde7239ca($REDACTED_I3, $REDACTED_I4) {/* REDACTED_L6 */} ",
+        "role": "phar://wp-cli.phar/vendor/composer/autoload_real.php",
+        "sourceSha256": "4af4fd07565c4d2a6d15acc844172ce0a511552bda04cc7e19fae73e73b19c83",
+        "suppressedBodies": 3
+      },
+      {
+        "bytes": 28625,
+        "closedPublicRegistrations": [],
+        "configCallFacts": [],
+        "dynamicIncludes": 0,
+        "guardFacts": [],
+        "includeCandidates": [],
+        "includeSiteFacts": [],
+        "redactedSource": "<?php  /* REDACTED_L1 */ namespace REDACTED_I1; class ComposerStaticInit9dd0c065773dc69783f4ccefde7239ca { public static $REDACTED_I2 = array ( 'REDACTED_L2' => 'REDACTED_L3' . 'REDACTED_L4' . 'REDACTED_L5', 'REDACTED_L6' => 'REDACTED_L7' . 'REDACTED_L8' . 'REDACTED_L9', 'REDACTED_L10' => 'REDACTED_L11' . 'REDACTED_L12' . 'REDACTED_L13', 'REDACTED_L14' => 'REDACTED_L15' . 'REDACTED_L16' . 'REDACTED_L17', 'REDACTED_L18' => 'REDACTED_L19' . 'REDACTED_L20' . 'REDACTED_L21', 'REDACTED_L22' => 'REDACTED_L23' . 'REDACTED_L24' . 'REDACTED_L25', 'REDACTED_L26' => 'REDACTED_L27' . 'REDACTED_L28' . 'REDACTED_L29', 'REDACTED_L30' => 'REDACTED_L31' . 'REDACTED_L32' . 'REDACTED_L33', 'REDACTED_L34' => 'REDACTED_L35' . 'REDACTED_L36' . 'REDACTED_L37', 'REDACTED_L38' => 'REDACTED_L39' . 'REDACTED_L40' . 'REDACTED_L41', 'REDACTED_L42' => 'REDACTED_L43' . 'REDACTED_L44' . 'REDACTED_L45', 'REDACTED_L46' => 'REDACTED_L47' . 'REDACTED_L48' . 'REDACTED_L49', 'REDACTED_L50' => 'REDACTED_L51' . 'REDACTED_L52' . 'REDACTED_L53', 'REDACTED_L54' => 'REDACTED_L55' . 'REDACTED_L56' . 'REDACTED_L57', 'REDACTED_L58' => 'REDACTED_L59' . 'REDACTED_L60' . 'REDACTED_L61', 'REDACTED_L62' => 'REDACTED_L63' . 'REDACTED_L64' . 'REDACTED_L65', 'REDACTED_L66' => 'REDACTED_L67' . 'REDACTED_L68' . 'REDACTED_L69', 'REDACTED_L70' => 'REDACTED_L71' . 'REDACTED_L72' . 'REDACTED_L73', 'REDACTED_L74' => 'REDACTED_L75' . 'REDACTED_L76' . 'REDACTED_L77', 'REDACTED_L78' => 'REDACTED_L79' . 'REDACTED_L80' . 'REDACTED_L81', 'REDACTED_L82' => 'REDACTED_L83' . 'REDACTED_L84' . 'REDACTED_L85', 'REDACTED_L86' => 'REDACTED_L87' . 'REDACTED_L88' . 'REDACTED_L89', 'REDACTED_L90' => 'REDACTED_L91' . 'REDACTED_L92' . 'REDACTED_L93', 'REDACTED_L94' => 'REDACTED_L95' . 'REDACTED_L96' . 'REDACTED_L97', 'REDACTED_L98' => 'REDACTED_L99' . 'REDACTED_L100' . 'REDACTED_L101', 'REDACTED_L102' => 'REDACTED_L103' . 'REDACTED_L104' . 'REDACTED_L105', 'REDACTED_L106' => 'REDACTED_L107' . 'REDACTED_L108' . 'REDACTED_L109', 'REDACTED_L110' => 'REDACTED_L111' . 'REDACTED_L112' . 'REDACTED_L113', 'REDACTED_L114' => 'REDACTED_L115' . 'REDACTED_L116' . 'REDACTED_L117', 'REDACTED_L118' => 'REDACTED_L119' . 'REDACTED_L120' . 'REDACTED_L121', 'REDACTED_L122' => 'REDACTED_L123' . 'REDACTED_L124' . 'REDACTED_L125', ); public static $REDACTED_I3 = array ( 'REDACTED_L126' => array ( 'REDACTED_L127' => 'REDACTED_L128', ), 'REDACTED_L129' => array ( 'REDACTED_L130' => 'REDACTED_L131', ), 'REDACTED_L132' => array ( 'REDACTED_L133' => 'REDACTED_L134', 'REDACTED_L135' => 'REDACTED_L136', 'REDACTED_L137' => 'REDACTED_L138', 'REDACTED_L139' => 'REDACTED_L140', 'REDACTED_L141' => 'REDACTED_L142', 'REDACTED_L143' => 'REDACTED_L144', ), 'REDACTED_L145' => array ( 'REDACTED_L146' => 'REDACTED_L147', 'REDACTED_L148' => 'REDACTED_L149', 'REDACTED_L150' => 'REDACTED_L151', 'REDACTED_L152' => 'REDACTED_L153', 'REDACTED_L154' => 'REDACTED_L155', 'REDACTED_L156' => 'REDACTED_L157', 'REDACTED_L158' => 'REDACTED_L159', 'REDACTED_L160' => 'REDACTED_L161', 'REDACTED_L162' => 'REDACTED_L163', 'REDACTED_L164' => 'REDACTED_L165', 'REDACTED_L166' => 'REDACTED_L167', 'REDACTED_L168' => 'REDACTED_L169', 'REDACTED_L170' => 'REDACTED_L171', 'REDACTED_L172' => 'REDACTED_L173', ), 'REDACTED_L174' => array ( 'REDACTED_L175' => 'REDACTED_L176', ), 'REDACTED_L177' => array ( 'REDACTED_L178' => 'REDACTED_L179', 'REDACTED_L180' => 'REDACTED_L181', 'REDACTED_L182' => 'REDACTED_L183', 'REDACTED_L184' => 'REDACTED_L185', 'REDACTED_L186' => 'REDACTED_L187', 'REDACTED_L188' => 'REDACTED_L189', 'REDACTED_L190' => 'REDACTED_L191', ), 'REDACTED_L192' => array ( 'REDACTED_L193' => 'REDACTED_L194', ), 'REDACTED_L195' => array ( 'REDACTED_L196' => 'REDACTED_L197', ), 'REDACTED_L198' => array ( 'REDACTED_L199' => 'REDACTED_L200', 'REDACTED_L201' => 'REDACTED_L202', ), 'REDACTED_L203' => array ( 'REDACTED_L204' => 'REDACTED_L205', 'REDACTED_L206' => 'REDACTED_L207', ), 'REDACTED_L208' => array ( 'REDACTED_L209' => 'REDACTED_L210', 'REDACTED_L211' => 'REDACTED_L212', 'REDACTED_L213' => 'REDACTED_L214', 'REDACTED_L215' => 'REDACTED_L216', 'REDACTED_L217' => 'REDACTED_L218', 'REDACTED_L219' => 'REDACTED_L220', 'REDACTED_L221' => 'REDACTED_L222', ), 'REDACTED_L223' => array ( 'REDACTED_L224' => 'REDACTED_L225', 'REDACTED_L226' => 'REDACTED_L227', 'REDACTED_L228' => 'REDACTED_L229', ), ); public static $REDACTED_I4 = array ( 'REDACTED_L230' => array ( 'REDACTED_L231' => 'REDACTED_L232' . 'REDACTED_L233' . 'REDACTED_L234', 'REDACTED_L235' => 'REDACTED_L236' . 'REDACTED_L237' . 'REDACTED_L238', 'REDACTED_L239' => 'REDACTED_L240' . 'REDACTED_L241' . 'REDACTED_L242', ), 'REDACTED_L243' => array ( 'REDACTED_L244' => 'REDACTED_L245' . 'REDACTED_L246' . 'REDACTED_L247', ), 'REDACTED_L248' => array ( 'REDACTED_L249' => 'REDACTED_L250' . 'REDACTED_L251' . 'REDACTED_L252', ), 'REDACTED_L253' => array ( 'REDACTED_L254' => 'REDACTED_L255' . 'REDACTED_L256' . 'REDACTED_L257', ), 'REDACTED_L258' => array ( 'REDACTED_L259' => 'REDACTED_L260' . 'REDACTED_L261' . 'REDACTED_L262', ), 'REDACTED_L263' => array ( 'REDACTED_L264' => 'REDACTED_L265' . 'REDACTED_L266' . 'REDACTED_L267', ), 'REDACTED_L268' => array ( 'REDACTED_L269' => 'REDACTED_L270' . 'REDACTED_L271' . 'REDACTED_L272', ), 'REDACTED_L273' => array ( 'REDACTED_L274' => 'REDACTED_L275' . 'REDACTED_L276' . 'REDACTED_L277', ), 'REDACTED_L278' => array ( 'REDACTED_L279' => 'REDACTED_L280' . 'REDACTED_L281' . 'REDACTED_L282', ), 'REDACTED_L283' => array ( 'REDACTED_L284' => 'REDACTED_L285' . 'REDACTED_L286' . 'REDACTED_L287', ), 'REDACTED_L288' => array ( ), 'REDACTED_L289' => array ( ), 'REDACTED_L290' => array ( 'REDACTED_L291' => 'REDACTED_L292' . 'REDACTED_L293' . 'REDACTED_L294', ), 'REDACTED_L295' => array ( 'REDACTED_L296' => 'REDACTED_L297' . 'REDACTED_L298' . 'REDACTED_L299', ), 'REDACTED_L300' => array ( 'REDACTED_L301' => 'REDACTED_L302' . 'REDACTED_L303' . 'REDACTED_L304', ), 'REDACTED_L305' => array ( ), 'REDACTED_L306' => array ( ), 'REDACTED_L307' => array ( ), 'REDACTED_L308' => array ( 'REDACTED_L309' => 'REDACTED_L310' . 'REDACTED_L311' . 'REDACTED_L312', ), 'REDACTED_L313' => array ( ), 'REDACTED_L314' => array ( 'REDACTED_L315' => 'REDACTED_L316' . 'REDACTED_L317' . 'REDACTED_L318', ), 'REDACTED_L319' => array ( 'REDACTED_L320' => 'REDACTED_L321' . 'REDACTED_L322' . 'REDACTED_L323', ), 'REDACTED_L324' => array ( 'REDACTED_L325' => 'REDACTED_L326' . 'REDACTED_L327' . 'REDACTED_L328', ), 'REDACTED_L329' => array ( 'REDACTED_L330' => 'REDACTED_L331' . 'REDACTED_L332' . 'REDACTED_L333', ), 'REDACTED_L334' => array ( 'REDACTED_L335' => 'REDACTED_L336' . 'REDACTED_L337' . 'REDACTED_L338', ), 'REDACTED_L339' => array ( ), 'REDACTED_L340' => array ( 'REDACTED_L341' => 'REDACTED_L342' . 'REDACTED_L343' . 'REDACTED_L344', ), 'REDACTED_L345' => array ( ), 'REDACTED_L346' => array ( ), 'REDACTED_L347' => array ( ), 'REDACTED_L348' => array ( 'REDACTED_L349' => 'REDACTED_L350' . 'REDACTED_L351' . 'REDACTED_L352', ), 'REDACTED_L353' => array ( 'REDACTED_L354' => 'REDACTED_L355' . 'REDACTED_L356' . 'REDACTED_L357', ), 'REDACTED_L358' => array ( 'REDACTED_L359' => 'REDACTED_L360' . 'REDACTED_L361' . 'REDACTED_L362', ), 'REDACTED_L363' => array ( 'REDACTED_L364' => 'REDACTED_L365' . 'REDACTED_L366' . 'REDACTED_L367', ), 'REDACTED_L368' => array ( 'REDACTED_L369' => 'REDACTED_L370' . 'REDACTED_L371' . 'REDACTED_L372', ), 'REDACTED_L373' => array ( ), 'REDACTED_L374' => array ( 'REDACTED_L375' => 'REDACTED_L376' . 'REDACTED_L377' . 'REDACTED_L378', ), 'REDACTED_L379' => array ( ), 'REDACTED_L380' => array ( 'REDACTED_L381' => 'REDACTED_L382' . 'REDACTED_L383' . 'REDACTED_L384', ), 'REDACTED_L385' => array ( 'REDACTED_L386' => 'REDACTED_L387' . 'REDACTED_L388' . 'REDACTED_L389', ), 'REDACTED_L390' => array ( 'REDACTED_L391' => 'REDACTED_L392' . 'REDACTED_L393' . 'REDACTED_L394', ), 'REDACTED_L395' => array ( 'REDACTED_L396' => 'REDACTED_L397' . 'REDACTED_L398' . 'REDACTED_L399', ), 'REDACTED_L400' => array ( 'REDACTED_L401' => 'REDACTED_L402' . 'REDACTED_L403' . 'REDACTED_L404', ), 'REDACTED_L405' => array ( ), 'REDACTED_L406' => array ( ), 'REDACTED_L407' => array ( ), ); public static $REDACTED_I5 = array ( 'REDACTED_L408' => array ( 'REDACTED_L409' => array ( 'REDACTED_L410' => 'REDACTED_L411' . 'REDACTED_L412' . 'REDACTED_L413', ), ), 'REDACTED_L414' => array ( 'REDACTED_L415' => array ( 'REDACTED_L416' => 'REDACTED_L417' . 'REDACTED_L418' . 'REDACTED_L419', ), ), 'REDACTED_L420' => array ( 'REDACTED_L421' => array ( 'REDACTED_L422' => 'REDACTED_L423' . 'REDACTED_L424' . 'REDACTED_L425', ), ), 'REDACTED_L426' => array ( 'REDACTED_L427' => array ( 'REDACTED_L428' => 'REDACTED_L429' . 'REDACTED_L430' . 'REDACTED_L431', ), ), 'REDACTED_L432' => array ( 'REDACTED_L433' => array ( ), ), ); public static $REDACTED_I6 = array ( 'REDACTED_L434' => 'REDACTED_L435' . 'REDACTED_L436' . 'REDACTED_L437', 'REDACTED_L438' => 'REDACTED_L439' . 'REDACTED_L440' . 'REDACTED_L441', 'REDACTED_L442' => 'REDACTED_L443' . 'REDACTED_L444' . 'REDACTED_L445', 'REDACTED_L446' => 'REDACTED_L447' . 'REDACTED_L448' . 'REDACTED_L449', 'REDACTED_L450' => 'REDACTED_L451' . 'REDACTED_L452' . 'REDACTED_L453', 'REDACTED_L454' => 'REDACTED_L455' . 'REDACTED_L456' . 'REDACTED_L457', 'REDACTED_L458' => 'REDACTED_L459' . 'REDACTED_L460' . 'REDACTED_L461', 'REDACTED_L462' => 'REDACTED_L463' . 'REDACTED_L464' . 'REDACTED_L465', 'REDACTED_L466' => 'REDACTED_L467' . 'REDACTED_L468' . 'REDACTED_L469', 'REDACTED_L470' => 'REDACTED_L471' . 'REDACTED_L472' . 'REDACTED_L473', 'REDACTED_L474' => 'REDACTED_L475' . 'REDACTED_L476' . 'REDACTED_L477', 'REDACTED_L478' => 'REDACTED_L479' . 'REDACTED_L480' . 'REDACTED_L481', 'REDACTED_L482' => 'REDACTED_L483' . 'REDACTED_L484' . 'REDACTED_L485', 'REDACTED_L486' => 'REDACTED_L487' . 'REDACTED_L488' . 'REDACTED_L489', 'REDACTED_L490' => 'REDACTED_L491' . 'REDACTED_L492' . 'REDACTED_L493', 'REDACTED_L494' => 'REDACTED_L495' . 'REDACTED_L496' . 'REDACTED_L497', 'REDACTED_L498' => 'REDACTED_L499' . 'REDACTED_L500' . 'REDACTED_L501', 'REDACTED_L502' => 'REDACTED_L503' . 'REDACTED_L504' . 'REDACTED_L505', 'REDACTED_L506' => 'REDACTED_L507' . 'REDACTED_L508' . 'REDACTED_L509', 'REDACTED_L510' => 'REDACTED_L511' . 'REDACTED_L512' . 'REDACTED_L513', 'REDACTED_L514' => 'REDACTED_L515' . 'REDACTED_L516' . 'REDACTED_L517', 'REDACTED_L518' => 'REDACTED_L519' . 'REDACTED_L520' . 'REDACTED_L521', 'REDACTED_L522' => 'REDACTED_L523' . 'REDACTED_L524' . 'REDACTED_L525', 'REDACTED_L526' => 'REDACTED_L527' . 'REDACTED_L528' . 'REDACTED_L529', 'REDACTED_L530' => 'REDACTED_L531' . 'REDACTED_L532' . 'REDACTED_L533', 'REDACTED_L534' => 'REDACTED_L535' . 'REDACTED_L536' . 'REDACTED_L537', 'REDACTED_L538' => 'REDACTED_L539' . 'REDACTED_L540' . 'REDACTED_L541', 'REDACTED_L542' => 'REDACTED_L543' . 'REDACTED_L544' . 'REDACTED_L545', 'REDACTED_L546' => 'REDACTED_L547' . 'REDACTED_L548' . 'REDACTED_L549', 'REDACTED_L550' => 'REDACTED_L551' . 'REDACTED_L552' . 'REDACTED_L553', 'REDACTED_L554' => 'REDACTED_L555' . 'REDACTED_L556' . 'REDACTED_L557', 'REDACTED_L558' => 'REDACTED_L559' . 'REDACTED_L560' . 'REDACTED_L561', 'REDACTED_L562' => 'REDACTED_L563' . 'REDACTED_L564' . 'REDACTED_L565', 'REDACTED_L566' => 'REDACTED_L567' . 'REDACTED_L568' . 'REDACTED_L569', 'REDACTED_L570' => 'REDACTED_L571' . 'REDACTED_L572' . 'REDACTED_L573', 'REDACTED_L574' => 'REDACTED_L575' . 'REDACTED_L576' . 'REDACTED_L577', 'REDACTED_L578' => 'REDACTED_L579' . 'REDACTED_L580' . 'REDACTED_L581', 'REDACTED_L582' => 'REDACTED_L583' . 'REDACTED_L584' . 'REDACTED_L585', 'REDACTED_L586' => 'REDACTED_L587' . 'REDACTED_L588' . 'REDACTED_L589', 'REDACTED_L590' => 'REDACTED_L591' . 'REDACTED_L592' . 'REDACTED_L593', 'REDACTED_L594' => 'REDACTED_L595' . 'REDACTED_L596' . 'REDACTED_L597', 'REDACTED_L598' => 'REDACTED_L599' . 'REDACTED_L600' . 'REDACTED_L601', 'REDACTED_L602' => 'REDACTED_L603' . 'REDACTED_L604' . 'REDACTED_L605', 'REDACTED_L606' => 'REDACTED_L607' . 'REDACTED_L608' . 'REDACTED_L609', 'REDACTED_L610' => 'REDACTED_L611' . 'REDACTED_L612' . 'REDACTED_L613', 'REDACTED_L614' => 'REDACTED_L615' . 'REDACTED_L616' . 'REDACTED_L617', 'REDACTED_L618' => 'REDACTED_L619' . 'REDACTED_L620' . 'REDACTED_L621', 'REDACTED_L622' => 'REDACTED_L623' . 'REDACTED_L624' . 'REDACTED_L625', 'REDACTED_L626' => 'REDACTED_L627' . 'REDACTED_L628' . 'REDACTED_L629', 'REDACTED_L630' => 'REDACTED_L631' . 'REDACTED_L632' . 'REDACTED_L633', 'REDACTED_L634' => 'REDACTED_L635' . 'REDACTED_L636' . 'REDACTED_L637', 'REDACTED_L638' => 'REDACTED_L639' . 'REDACTED_L640' . 'REDACTED_L641', 'REDACTED_L642' => 'REDACTED_L643' . 'REDACTED_L644' . 'REDACTED_L645', 'REDACTED_L646' => 'REDACTED_L647' . 'REDACTED_L648' . 'REDACTED_L649', 'REDACTED_L650' => 'REDACTED_L651' . 'REDACTED_L652' . 'REDACTED_L653', 'REDACTED_L654' => 'REDACTED_L655' . 'REDACTED_L656' . 'REDACTED_L657', 'REDACTED_L658' => 'REDACTED_L659' . 'REDACTED_L660' . 'REDACTED_L661', 'REDACTED_L662' => 'REDACTED_L663' . 'REDACTED_L664' . 'REDACTED_L665', 'REDACTED_L666' => 'REDACTED_L667' . 'REDACTED_L668' . 'REDACTED_L669', 'REDACTED_L670' => 'REDACTED_L671' . 'REDACTED_L672' . 'REDACTED_L673', 'REDACTED_L674' => 'REDACTED_L675' . 'REDACTED_L676' . 'REDACTED_L677', 'REDACTED_L678' => 'REDACTED_L679' . 'REDACTED_L680' . 'REDACTED_L681', 'REDACTED_L682' => 'REDACTED_L683' . 'REDACTED_L684' . 'REDACTED_L685', 'REDACTED_L686' => 'REDACTED_L687' . 'REDACTED_L688' . 'REDACTED_L689', 'REDACTED_L690' => 'REDACTED_L691' . 'REDACTED_L692' . 'REDACTED_L693', 'REDACTED_L694' => 'REDACTED_L695' . 'REDACTED_L696' . 'REDACTED_L697', 'REDACTED_L698' => 'REDACTED_L699' . 'REDACTED_L700' . 'REDACTED_L701', 'REDACTED_L702' => 'REDACTED_L703' . 'REDACTED_L704' . 'REDACTED_L705', 'REDACTED_L706' => 'REDACTED_L707' . 'REDACTED_L708' . 'REDACTED_L709', 'REDACTED_L710' => 'REDACTED_L711' . 'REDACTED_L712' . 'REDACTED_L713', 'REDACTED_L714' => 'REDACTED_L715' . 'REDACTED_L716' . 'REDACTED_L717', 'REDACTED_L718' => 'REDACTED_L719' . 'REDACTED_L720' . 'REDACTED_L721', 'REDACTED_L722' => 'REDACTED_L723' . 'REDACTED_L724' . 'REDACTED_L725', 'REDACTED_L726' => 'REDACTED_L727' . 'REDACTED_L728' . 'REDACTED_L729', 'REDACTED_L730' => 'REDACTED_L731' . 'REDACTED_L732' . 'REDACTED_L733', 'REDACTED_L734' => 'REDACTED_L735' . 'REDACTED_L736' . 'REDACTED_L737', 'REDACTED_L738' => 'REDACTED_L739' . 'REDACTED_L740' . 'REDACTED_L741', 'REDACTED_L742' => 'REDACTED_L743' . 'REDACTED_L744' . 'REDACTED_L745', 'REDACTED_L746' => 'REDACTED_L747' . 'REDACTED_L748' . 'REDACTED_L749', 'REDACTED_L750' => 'REDACTED_L751' . 'REDACTED_L752' . 'REDACTED_L753', 'REDACTED_L754' => 'REDACTED_L755' . 'REDACTED_L756' . 'REDACTED_L757', 'REDACTED_L758' => 'REDACTED_L759' . 'REDACTED_L760' . 'REDACTED_L761', 'REDACTED_L762' => 'REDACTED_L763' . 'REDACTED_L764' . 'REDACTED_L765', 'REDACTED_L766' => 'REDACTED_L767' . 'REDACTED_L768' . 'REDACTED_L769', 'REDACTED_L770' => 'REDACTED_L771' . 'REDACTED_L772' . 'REDACTED_L773', 'REDACTED_L774' => 'REDACTED_L775' . 'REDACTED_L776' . 'REDACTED_L777', 'REDACTED_L778' => 'REDACTED_L779' . 'REDACTED_L780' . 'REDACTED_L781', 'REDACTED_L782' => 'REDACTED_L783' . 'REDACTED_L784' . 'REDACTED_L785', 'REDACTED_L786' => 'REDACTED_L787' . 'REDACTED_L788' . 'REDACTED_L789', 'REDACTED_L790' => 'REDACTED_L791' . 'REDACTED_L792' . 'REDACTED_L793', 'REDACTED_L794' => 'REDACTED_L795' . 'REDACTED_L796' . 'REDACTED_L797', 'REDACTED_L798' => 'REDACTED_L799' . 'REDACTED_L800' . 'REDACTED_L801', 'REDACTED_L802' => 'REDACTED_L803' . 'REDACTED_L804' . 'REDACTED_L805', 'REDACTED_L806' => 'REDACTED_L807' . 'REDACTED_L808' . 'REDACTED_L809', 'REDACTED_L810' => 'REDACTED_L811' . 'REDACTED_L812' . 'REDACTED_L813', 'REDACTED_L814' => 'REDACTED_L815' . 'REDACTED_L816' . 'REDACTED_L817', 'REDACTED_L818' => 'REDACTED_L819' . 'REDACTED_L820' . 'REDACTED_L821', 'REDACTED_L822' => 'REDACTED_L823' . 'REDACTED_L824' . 'REDACTED_L825', 'REDACTED_L826' => 'REDACTED_L827' . 'REDACTED_L828' . 'REDACTED_L829', 'REDACTED_L830' => 'REDACTED_L831' . 'REDACTED_L832' . 'REDACTED_L833', 'REDACTED_L834' => 'REDACTED_L835' . 'REDACTED_L836' . 'REDACTED_L837', 'REDACTED_L838' => 'REDACTED_L839' . 'REDACTED_L840' . 'REDACTED_L841', 'REDACTED_L842' => 'REDACTED_L843' . 'REDACTED_L844' . 'REDACTED_L845', 'REDACTED_L846' => 'REDACTED_L847' . 'REDACTED_L848' . 'REDACTED_L849', 'REDACTED_L850' => 'REDACTED_L851' . 'REDACTED_L852' . 'REDACTED_L853', 'REDACTED_L854' => 'REDACTED_L855' . 'REDACTED_L856' . 'REDACTED_L857', 'REDACTED_L858' => 'REDACTED_L859' . 'REDACTED_L860' . 'REDACTED_L861', 'REDACTED_L862' => 'REDACTED_L863' . 'REDACTED_L864' . 'REDACTED_L865', 'REDACTED_L866' => 'REDACTED_L867' . 'REDACTED_L868' . 'REDACTED_L869', 'REDACTED_L870' => 'REDACTED_L871' . 'REDACTED_L872' . 'REDACTED_L873', 'REDACTED_L874' => 'REDACTED_L875' . 'REDACTED_L876' . 'REDACTED_L877', 'REDACTED_L878' => 'REDACTED_L879' . 'REDACTED_L880' . 'REDACTED_L881', 'REDACTED_L882' => 'REDACTED_L883' . 'REDACTED_L884' . 'REDACTED_L885', 'REDACTED_L886' => 'REDACTED_L887' . 'REDACTED_L888' . 'REDACTED_L889', 'REDACTED_L890' => 'REDACTED_L891' . 'REDACTED_L892' . 'REDACTED_L893', 'REDACTED_L894' => 'REDACTED_L895' . 'REDACTED_L896' . 'REDACTED_L897', 'REDACTED_L898' => 'REDACTED_L899' . 'REDACTED_L900' . 'REDACTED_L901', 'REDACTED_L902' => 'REDACTED_L903' . 'REDACTED_L904' . 'REDACTED_L905', 'REDACTED_L906' => 'REDACTED_L907' . 'REDACTED_L908' . 'REDACTED_L909', 'REDACTED_L910' => 'REDACTED_L911' . 'REDACTED_L912' . 'REDACTED_L913', 'REDACTED_L914' => 'REDACTED_L915' . 'REDACTED_L916' . 'REDACTED_L917', 'REDACTED_L918' => 'REDACTED_L919' . 'REDACTED_L920' . 'REDACTED_L921', 'REDACTED_L922' => 'REDACTED_L923' . 'REDACTED_L924' . 'REDACTED_L925', 'REDACTED_L926' => 'REDACTED_L927' . 'REDACTED_L928' . 'REDACTED_L929', 'REDACTED_L930' => 'REDACTED_L931' . 'REDACTED_L932' . 'REDACTED_L933', 'REDACTED_L934' => 'REDACTED_L935' . 'REDACTED_L936' . 'REDACTED_L937', 'REDACTED_L938' => 'REDACTED_L939' . 'REDACTED_L940' . 'REDACTED_L941', 'REDACTED_L942' => 'REDACTED_L943' . 'REDACTED_L944' . 'REDACTED_L945', 'REDACTED_L946' => 'REDACTED_L947' . 'REDACTED_L948' . 'REDACTED_L949', 'REDACTED_L950' => 'REDACTED_L951' . 'REDACTED_L952' . 'REDACTED_L953', 'REDACTED_L954' => 'REDACTED_L955' . 'REDACTED_L956' . 'REDACTED_L957', 'REDACTED_L958' => 'REDACTED_L959' . 'REDACTED_L960' . 'REDACTED_L961', 'REDACTED_L962' => 'REDACTED_L963' . 'REDACTED_L964' . 'REDACTED_L965', 'REDACTED_L966' => 'REDACTED_L967' . 'REDACTED_L968' . 'REDACTED_L969', 'REDACTED_L970' => 'REDACTED_L971' . 'REDACTED_L972' . 'REDACTED_L973', 'REDACTED_L974' => 'REDACTED_L975' . 'REDACTED_L976' . 'REDACTED_L977', 'REDACTED_L978' => 'REDACTED_L979' . 'REDACTED_L980' . 'REDACTED_L981', 'REDACTED_L982' => 'REDACTED_L983' . 'REDACTED_L984' . 'REDACTED_L985', ); public static function getInitializer(REDACTED_I7 $REDACTED_I8) {/* REDACTED_L986 */} } ",
+        "role": "phar://wp-cli.phar/vendor/composer/autoload_static.php",
+        "sourceSha256": "8d77d2e28888b05669822b757bcbbe2b77d42483c96dc5553f685843266438e0",
+        "suppressedBodies": 1
+      },
+      {
+        "bytes": 2499,
+        "closedPublicRegistrations": [],
+        "configCallFacts": [],
+        "dynamicIncludes": 0,
+        "guardFacts": [],
+        "includeCandidates": [],
+        "includeSiteFacts": [],
+        "redactedSource": "<?php  use REDACTED_I1; class EvalFile_Command extends REDACTED_I2 { /* REDACTED_L1 */ const SHEBANG_PATTERN = 'REDACTED_L2'; /* REDACTED_L3 */ public function __invoke( $REDACTED_I3, $REDACTED_I4 ) { $REDACTED_I5 = array_shift( $REDACTED_I3 ); if ( 'REDACTED_L4' !== $REDACTED_I5 && ! file_exists( $REDACTED_I5 ) ) { WP_CLI::error( 'REDACTED_L5' ); } $REDACTED_I6 = Utils\\get_flag_value( $REDACTED_I4, 'REDACTED_L6', false ); if ( 'REDACTED_L7' === $REDACTED_I5 && $REDACTED_I6 ) { WP_CLI::error( 'REDACTED_L8' ); } if ( null === Utils\\get_flag_value( $REDACTED_I4, 'REDACTED_L9' ) ) { WP_CLI::get_runner()->load_wordpress(); } self::execute_eval( $REDACTED_I5, $REDACTED_I3, $REDACTED_I6 ); } /* REDACTED_L10 */ private static function execute_eval( $REDACTED_I5, $REDACTED_I3, $REDACTED_I6 ) {/* REDACTED_L11 */} } ",
+        "role": "phar://wp-cli.phar/vendor/wp-cli/eval-command/src/EvalFile_Command.php",
+        "sourceSha256": "70b47a0af2055ec7936bbc9f24f5c4cc75cdbd191c70f3fbcb83d9d09e5ce49a",
+        "suppressedBodies": 1
+      },
+      {
+        "bytes": 61373,
+        "closedPublicRegistrations": [],
+        "configCallFacts": [],
+        "dynamicIncludes": 4,
+        "guardFacts": [],
+        "includeCandidates": [],
+        "includeSiteFacts": [
+          {
+            "baseSyntax": [],
+            "operation": "require",
+            "pathFragments": [],
+            "tokenOffset": 1641,
+            "unresolved": true
+          },
+          {
+            "baseSyntax": [
+              "ABSPATH"
+            ],
+            "operation": "require",
+            "pathFragments": [
+              "wp-settings.php"
+            ],
+            "tokenOffset": 1709,
+            "unresolved": false
+          },
+          {
+            "baseSyntax": [],
+            "operation": "require",
+            "pathFragments": [],
+            "tokenOffset": 1717,
+            "unresolved": true
+          },
+          {
+            "baseSyntax": [
+              "ABSPATH"
+            ],
+            "operation": "require",
+            "pathFragments": [
+              "wp-admin/includes/admin.php"
+            ],
+            "tokenOffset": 1731,
+            "unresolved": false
+          }
+        ],
+        "redactedSource": "<?php  namespace WP_CLI; use WP_CLI; use REDACTED_I1; use REDACTED_I2; use REDACTED_I3; use REDACTED_I4; use REDACTED_I5; use REDACTED_I6; use REDACTED_I7; use REDACTED_I8; /* REDACTED_L1 */ class Runner { /* REDACTED_L2 */ const BYTE_ORDER_MARKS = [ 'REDACTED_L3' => 'REDACTED_L4', 'REDACTED_L5' => 'REDACTED_L6', 'REDACTED_L7' => 'REDACTED_L8', ]; private $REDACTED_I9; private $REDACTED_I10; private $REDACTED_I11; private $REDACTED_I12; private $REDACTED_I13; private $REDACTED_I14; private $REDACTED_I15; private $REDACTED_I16; private $REDACTED_I17; private $REDACTED_I18; private $REDACTED_I19 = false; private $REDACTED_I20 = []; private $REDACTED_I21; private $REDACTED_I22; private $REDACTED_I23; public function __get( $REDACTED_I24 ) {/* REDACTED_L9 */} public function register_context_manager( REDACTED_I25 $REDACTED_I13 ) {/* REDACTED_L10 */} /* REDACTED_L11 */ public function register_early_invoke( $REDACTED_I26, $REDACTED_I27 ) {/* REDACTED_L12 */} /* REDACTED_L13 */ private function do_early_invoke( $REDACTED_I26 ) {/* REDACTED_L14 */} /* REDACTED_L15 */ public function get_global_config_path( $REDACTED_I28 = false ) {/* REDACTED_L16 */} /* REDACTED_L17 */ public function get_project_config_path() {/* REDACTED_L18 */} /* REDACTED_L19 */ public function get_packages_dir_path() {/* REDACTED_L20 */} /* REDACTED_L21 */ private static function extract_subdir_path( $REDACTED_I29 ) {/* REDACTED_L22 */} /* REDACTED_L23 */ public function find_wp_root() {/* REDACTED_L24 */} /* REDACTED_L25 */ private static function set_wp_root( $REDACTED_I30 ) {/* REDACTED_L26 */} /* REDACTED_L27 */ private static function guess_url( $REDACTED_I17 ) {/* REDACTED_L28 */} /* REDACTED_L29 */ private function cmd_starts_with( $REDACTED_I31 ) {/* REDACTED_L30 */} /* REDACTED_L31 */ public function find_command_to_run( $REDACTED_I32 ) {/* REDACTED_L32 */} /* REDACTED_L33 */ public function run_command( $REDACTED_I32, $REDACTED_I17 = [], $REDACTED_I33 = [] ) { WP_CLI::do_hook( 'REDACTED_L34', $REDACTED_I32, $REDACTED_I17, $REDACTED_I33 ); if ( ! empty( $REDACTED_I33['REDACTED_L35'] ) ) { list( $REDACTED_I32, $REDACTED_I17 ) = self::back_compat_conversions( $REDACTED_I32, $REDACTED_I17 ); } $REDACTED_I34 = $REDACTED_I35->find_command_to_run( $REDACTED_I32 ); if ( is_string( $REDACTED_I34 ) ) { WP_CLI::error( $REDACTED_I34 ); } list( $REDACTED_I27, $REDACTED_I36, $REDACTED_I37 ) = $REDACTED_I34; $REDACTED_I38 = implode( 'REDACTED_L36', $REDACTED_I37 ); $REDACTED_I39 = []; if ( isset( $REDACTED_I35->REDACTED_I40[ $REDACTED_I38 ] ) ) { $REDACTED_I39 = $REDACTED_I35->REDACTED_I40[ $REDACTED_I38 ]; } WP_CLI::debug( 'REDACTED_L37' . $REDACTED_I38, 'REDACTED_L38' ); try { $REDACTED_I27->invoke( $REDACTED_I36, $REDACTED_I17, $REDACTED_I39 ); } catch ( REDACTED_I41 $REDACTED_I42 ) { WP_CLI::error( $REDACTED_I42->getMessage() ); } } /* REDACTED_L39 */ public function show_synopsis_if_composite_command() {/* REDACTED_L40 */} private function run_command_and_exit( $REDACTED_I43 = 'REDACTED_L41' ) { $REDACTED_I35->show_synopsis_if_composite_command(); $REDACTED_I35->run_command( $REDACTED_I35->REDACTED_I44, $REDACTED_I35->REDACTED_I45 ); if ( $REDACTED_I35->cmd_starts_with( [ 'REDACTED_L42' ] ) ) { /* REDACTED_L43 */ $REDACTED_I46 = $REDACTED_I35->find_command_to_run( array_slice( $REDACTED_I35->REDACTED_I44, 'REDACTED_L44' ) ); if ( is_string( $REDACTED_I46 ) ) { if ( $REDACTED_I43 ) { WP_CLI::warning( $REDACTED_I43 ); } WP_CLI::error( $REDACTED_I46 ); } /* REDACTED_L45 */ } exit; } /* REDACTED_L46 */ private function run_ssh_command( $REDACTED_I47 ) {/* REDACTED_L47 */} /* REDACTED_L48 */ private function generate_ssh_command( $REDACTED_I48, $REDACTED_I49 ) {/* REDACTED_L49 */} /* REDACTED_L50 */ public function is_command_disabled( $REDACTED_I27 ) {/* REDACTED_L51 */} /* REDACTED_L52 */ public function get_wp_config_code( $REDACTED_I50 = 'REDACTED_L53' ) {/* REDACTED_L54 */} /* REDACTED_L55 */ private static function back_compat_conversions( $REDACTED_I32, $REDACTED_I17 ) {/* REDACTED_L56 */} /* REDACTED_L57 */ public function in_color() {/* REDACTED_L58 */} public function init_colorization() {/* REDACTED_L59 */} public function init_logger() {/* REDACTED_L60 */} public function get_required_files() {/* REDACTED_L61 */} /* REDACTED_L62 */ private function wp_exists() {/* REDACTED_L63 */} /* REDACTED_L64 */ private function wp_is_readable() {/* REDACTED_L65 */} private function check_wp_version() {/* REDACTED_L66 */} public function init_config() {/* REDACTED_L67 */} private function run_alias_group( $REDACTED_I15 ) {/* REDACTED_L68 */} private function set_alias( $REDACTED_I14 ) {/* REDACTED_L69 */} public function start() { /* REDACTED_L70 */ if ( getenv( 'REDACTED_L71' ) ) { $REDACTED_I35->enable_error_reporting(); } WP_CLI::debug( $REDACTED_I35->REDACTED_I51, 'REDACTED_L72' ); WP_CLI::debug( $REDACTED_I35->REDACTED_I52, 'REDACTED_L73' ); WP_CLI::debug( 'REDACTED_L74' . implode( 'REDACTED_L75', $REDACTED_I53['REDACTED_L76'] ), 'REDACTED_L77' ); if ( $REDACTED_I35->REDACTED_I54 ) { if ( 'REDACTED_L78' === $REDACTED_I35->REDACTED_I54 && ! isset( $REDACTED_I35->REDACTED_I55['REDACTED_L79'] ) ) { WP_CLI::error( 'REDACTED_L80' ); } if ( 'REDACTED_L81' === $REDACTED_I35->REDACTED_I54 && is_string( $REDACTED_I35->REDACTED_I55['REDACTED_L82'] ) ) { $REDACTED_I15 = array_keys( $REDACTED_I35->REDACTED_I55 ); $REDACTED_I56 = array_search( 'REDACTED_L83', $REDACTED_I15, true ); unset( $REDACTED_I15[ $REDACTED_I56 ] ); $REDACTED_I35->run_alias_group( $REDACTED_I15 ); exit; } if ( ! array_key_exists( $REDACTED_I35->REDACTED_I54, $REDACTED_I35->REDACTED_I55 ) ) { $REDACTED_I57 = 'REDACTED_L84'; $REDACTED_I58 = Utils\\get_suggestion( $REDACTED_I35->REDACTED_I54, array_keys( $REDACTED_I35->REDACTED_I55 ), $REDACTED_I59 = 'REDACTED_L85' ); if ( $REDACTED_I58 ) { $REDACTED_I57 .= PHP_EOL . 'REDACTED_L86'; } WP_CLI::error( $REDACTED_I57 ); } /* REDACTED_L87 */ if ( isset( $REDACTED_I35->REDACTED_I55[ $REDACTED_I35->REDACTED_I54 ]['REDACTED_L88'] ) ) { $REDACTED_I60 = $REDACTED_I35->REDACTED_I55[ $REDACTED_I35->REDACTED_I54 ]; $REDACTED_I61 = array_keys( $REDACTED_I35->REDACTED_I55 ); $REDACTED_I62 = array_diff( $REDACTED_I60, $REDACTED_I61 ); if ( ! empty( $REDACTED_I62 ) ) { WP_CLI::error( 'REDACTED_L89' . implode( 'REDACTED_L90', $REDACTED_I62 ) ); } $REDACTED_I35->run_alias_group( $REDACTED_I60 ); exit; } $REDACTED_I35->set_alias( $REDACTED_I35->REDACTED_I54 ); } if ( empty( $REDACTED_I35->REDACTED_I44 ) ) { $REDACTED_I35->REDACTED_I44[] = 'REDACTED_L91'; } /* REDACTED_L92 */ /* REDACTED_L93 */ if ( 'REDACTED_L94' === $REDACTED_I35->REDACTED_I44['REDACTED_L95'] && ! empty( $REDACTED_I35->REDACTED_I44['REDACTED_L96'] ) && 'REDACTED_L97' === $REDACTED_I35->REDACTED_I44['REDACTED_L98'] && ! $REDACTED_I35->REDACTED_I63['REDACTED_L99'] ) { $REDACTED_I35->run_command_and_exit(); } if ( isset( $REDACTED_I35->REDACTED_I63['REDACTED_L100'] ) && ! class_exists( 'REDACTED_L101' ) ) { WP_CLI::error( 'REDACTED_L102' ); } if ( $REDACTED_I35->REDACTED_I63['REDACTED_L103'] ) { $REDACTED_I35->run_ssh_command( $REDACTED_I35->REDACTED_I63['REDACTED_L104'] ); return; } /* REDACTED_L105 */ self::set_wp_root( $REDACTED_I35->find_wp_root() ); /* REDACTED_L106 */ if ( $REDACTED_I35->cmd_starts_with( [ 'REDACTED_L107' ] ) && ( ! $REDACTED_I35->wp_exists() || ! Utils\\locate_wp_config() || count( $REDACTED_I35->REDACTED_I44 ) > 'REDACTED_L108' ) ) { $REDACTED_I35->auto_check_update(); $REDACTED_I35->run_command( $REDACTED_I35->REDACTED_I44, $REDACTED_I35->REDACTED_I45 ); /* REDACTED_L109 */ } /* REDACTED_L110 */ $REDACTED_I64 = self::guess_url( $REDACTED_I35->REDACTED_I63 ); if ( $REDACTED_I64 ) { WP_CLI::set_url( $REDACTED_I64 ); } $REDACTED_I35->do_early_invoke( 'REDACTED_L111' ); $REDACTED_I35->check_wp_version(); if ( $REDACTED_I35->cmd_starts_with( [ 'REDACTED_L112', 'REDACTED_L113' ] ) ) { $REDACTED_I35->run_command_and_exit(); } if ( ! Utils\\locate_wp_config() ) { WP_CLI::error( 'REDACTED_L114' . 'REDACTED_L115' ); } /* REDACTED_L116 */ if ( function_exists( 'REDACTED_L117' ) ) { mysqli_report( 'REDACTED_L118' ); /* REDACTED_L119 */ } /* REDACTED_L120 */ if ( $REDACTED_I35->cmd_starts_with( [ 'REDACTED_L121', 'REDACTED_L122' ] ) || $REDACTED_I35->cmd_starts_with( [ 'REDACTED_L123', 'REDACTED_L124' ] ) ) { define( 'REDACTED_L125', true ); } if ( count( $REDACTED_I35->REDACTED_I44 ) >= 'REDACTED_L126' && 'REDACTED_L127' === $REDACTED_I35->REDACTED_I44['REDACTED_L128'] && in_array( $REDACTED_I35->REDACTED_I44['REDACTED_L129'], [ 'REDACTED_L130', 'REDACTED_L131' ], true ) ) { define( 'REDACTED_L132', true ); /* REDACTED_L133 */ if ( ! isset( $REDACTED_I65['REDACTED_L134'] ) ) { $REDACTED_I64 = 'REDACTED_L135'; WP_CLI::set_url( $REDACTED_I64 ); } if ( 'REDACTED_L136' === $REDACTED_I35->REDACTED_I44['REDACTED_L137'] ) { /* REDACTED_L138 */ $REDACTED_I66 = Utils\\parse_url( $REDACTED_I64 ); self::fake_current_site_blog( $REDACTED_I66 ); if ( ! defined( 'REDACTED_L139' ) ) { define( 'REDACTED_L140', md5( $REDACTED_I66['REDACTED_L141'] ) ); } } } if ( $REDACTED_I35->cmd_starts_with( [ 'REDACTED_L142' ] ) ) { define( 'REDACTED_L143', true ); define( 'REDACTED_L144', true ); } if ( $REDACTED_I35->cmd_starts_with( [ 'REDACTED_L145', 'REDACTED_L146', 'REDACTED_L147' ] ) ) { define( 'REDACTED_L148', true ); } /* REDACTED_L149 */ $REDACTED_I35->load_wordpress(); $REDACTED_I35->run_command_and_exit(); } /* REDACTED_L150 */ public function load_wordpress() { static $REDACTED_I67; /* REDACTED_L151 */ global $REDACTED_I68, $REDACTED_I69, $REDACTED_I70, $REDACTED_I71, $REDACTED_I72, $REDACTED_I30, $REDACTED_I73; if ( ! empty( $REDACTED_I67 ) ) { return; } $REDACTED_I67 = true; /* REDACTED_L152 */ $REDACTED_I35->REDACTED_I74->switch_context( $REDACTED_I35->REDACTED_I63 ); WP_CLI::debug( 'REDACTED_L153', 'REDACTED_L154' ); WP_CLI::do_hook( 'REDACTED_L155' ); $REDACTED_I35->check_wp_version(); $REDACTED_I50 = Utils\\locate_wp_config(); if ( ! $REDACTED_I50 ) { WP_CLI::error( 'REDACTED_L156' . 'REDACTED_L157' ); } WP_CLI::debug( 'REDACTED_L158' . $REDACTED_I50, 'REDACTED_L159' ); WP_CLI::do_hook( 'REDACTED_L160' ); /* REDACTED_L161 */ $REDACTED_I75 = get_defined_vars(); eval( $REDACTED_I35->get_wp_config_code() ); /* REDACTED_L162 */ foreach ( get_defined_vars() as $REDACTED_I24 => $REDACTED_I76 ) { if ( array_key_exists( $REDACTED_I24, $REDACTED_I75 ) || 'REDACTED_L163' === $REDACTED_I24 ) { continue; } /* REDACTED_L164 */ global ${$REDACTED_I24}; /* REDACTED_L165 */ ${$REDACTED_I24} = $REDACTED_I76; } $REDACTED_I35->maybe_update_url_from_domain_constant(); WP_CLI::do_hook( 'REDACTED_L166' ); $REDACTED_I35->do_early_invoke( 'REDACTED_L167' ); /* REDACTED_L168 */ if ( $REDACTED_I35->cmd_starts_with( [ 'REDACTED_L169', 'REDACTED_L170' ] ) && ! defined( 'REDACTED_L171' ) ) { define( 'REDACTED_L172', md5( 'REDACTED_L173' ) ); } /* REDACTED_L174 */ require WP_CLI_ROOT . 'REDACTED_L175'; /* REDACTED_L176 */ $REDACTED_I35->setup_bootstrap_hooks(); /* REDACTED_L177 */ if ( Utils\\wp_version_compare( 'REDACTED_L178', 'REDACTED_L179' ) ) { if ( $REDACTED_I35->cmd_starts_with( [ 'REDACTED_L180' ] ) ) { /* REDACTED_L181 */ if ( ! defined( 'REDACTED_L182' ) ) { define( 'REDACTED_L183', true ); } if ( ! defined( 'REDACTED_L184' ) ) { define( 'REDACTED_L185', true ); } } require ABSPATH . 'REDACTED_L186'; } else { require WP_CLI_ROOT . 'REDACTED_L187'; } /* REDACTED_L188 */ /* REDACTED_L189 */ ini_set( 'REDACTED_L190', -'REDACTED_L191' ); /* REDACTED_L192 */ require ABSPATH . 'REDACTED_L193'; add_filter( 'REDACTED_L194', static function () { return 'REDACTED_L195'; }, 'REDACTED_L196' ); /* REDACTED_L197 */ if ( getenv( 'REDACTED_L198' ) ) { $REDACTED_I35->enable_error_reporting(); } WP_CLI::debug( 'REDACTED_L199', 'REDACTED_L200' ); WP_CLI::do_hook( 'REDACTED_L201' ); } private static function fake_current_site_blog( $REDACTED_I66 ) {/* REDACTED_L202 */} /* REDACTED_L203 */ private function maybe_update_url_from_domain_constant() {/* REDACTED_L204 */} /* REDACTED_L205 */ private function setup_bootstrap_hooks() {/* REDACTED_L206 */} /* REDACTED_L207 */ private function setup_skip_plugins_filters() {/* REDACTED_L208 */} /* REDACTED_L209 */ public function action_setup_theme_wp_cli_skip_themes() {/* REDACTED_L210 */} /* REDACTED_L211 */ private function is_multisite() {/* REDACTED_L212 */} /* REDACTED_L213 */ public function help_wp_die_handler( $REDACTED_I77 ) {/* REDACTED_L214 */} /* REDACTED_L215 */ private function auto_check_update() {/* REDACTED_L216 */} /* REDACTED_L217 */ private function get_subcommand_suggestion( $REDACTED_I78, $REDACTED_I79 = null ) {/* REDACTED_L218 */} /* REDACTED_L219 */ private function enumerate_commands( REDACTED_I80 $REDACTED_I27, array &$REDACTED_I81, $REDACTED_I82 = 'REDACTED_L220' ) {/* REDACTED_L221 */} /* REDACTED_L222 */ private function enable_error_reporting() {/* REDACTED_L223 */} } ",
+        "role": "phar://wp-cli.phar/vendor/wp-cli/wp-cli/php/WP_CLI/Runner.php",
+        "sourceSha256": "1be98e13f066277f86376a7203038fe169f5e50dd84c72c5646df438df2c65d1",
+        "suppressedBodies": 40
+      },
+      {
+        "bytes": 2366,
+        "closedPublicRegistrations": [],
+        "configCallFacts": [],
+        "dynamicIncludes": 0,
+        "guardFacts": [],
+        "includeCandidates": [],
+        "includeSiteFacts": [],
+        "redactedSource": "<?php  namespace WP_CLI; use REDACTED_I1; use REDACTED_I2; /* REDACTED_L1 */ function get_bootstrap_steps() {/* REDACTED_L2 */} /* REDACTED_L3 */ function prepare_bootstrap() {/* REDACTED_L4 */} /* REDACTED_L5 */ function initialize_bootstrap_state() {/* REDACTED_L6 */} /* REDACTED_L7 */ function bootstrap() { prepare_bootstrap(); $REDACTED_I3 = initialize_bootstrap_state(); foreach ( get_bootstrap_steps() as $REDACTED_I4 ) { /* REDACTED_L8 */ if ( class_exists( 'REDACTED_L9' ) ) { \\WP_CLI::debug( 'REDACTED_L10', 'REDACTED_L11' ); } $REDACTED_I5 = new $REDACTED_I4(); $REDACTED_I3 = $REDACTED_I5->process( $REDACTED_I3 ); } } ",
+        "role": "phar://wp-cli.phar/vendor/wp-cli/wp-cli/php/bootstrap.php",
+        "sourceSha256": "332b5e6f5783c9b0e420a1cd7f97d89a2a4642863a1311b33b6e7532e1c71863",
+        "suppressedBodies": 3
+      }
+    ],
+    "metadata": {
+      "classification": "FIXED_TARGET_FACTS_NOT_APPROVAL",
+      "entryBindings": {
+        "launcher:/usr/local/bin/wp": [
+          7142777,
+          "ce34ddd838f7351d6759068d09793f26755463b4a4610a5a5c0a97b68220d85c"
+        ],
+        "wp-config.php": [
+          10233,
+          "a131ee7751a7779991f82a9df724efbd19dcbe58840baff913ec20af7701537f"
+        ],
+        "wp-content/mu-plugins/kinsta-mu-plugins.php": [
+          2394,
+          "fac0c7361bdc6c02e150b60aaf02c82044141ef1276afbfd73684d37f8491e13"
+        ],
+        "wp-content/mu-plugins/missionmed-file-vault-v2-scanner.php": [
+          23426,
+          "6b5cf0ebc99227e14f63a2d034c03f5beac591451314b8d55d15c57428f78a5a"
+        ],
+        "wp-content/mu-plugins/missionmed-matrix-account-entry.php": [
+          33099,
+          "9bf94300ce6a42325cfa65317a44da15c0018ad25ad295016b630e428578626a"
+        ]
+      },
+      "facts": [
+        {
+          "base": "absolute",
+          "entryRole": "wp-config.php",
+          "guard": "unconditional",
+          "mode": "config",
+          "site": 110,
+          "target": "/www/theresidencyacademy_209/deployment/d1-500-runtime/timeline-secrets.php"
+        },
+        {
+          "base": "absolute",
+          "entryRole": "wp-config.php",
+          "guard": "unconditional",
+          "mode": "config",
+          "site": 113,
+          "target": "/www/theresidencyacademy_209/deployment/missionaccounts-runtime/missionaccounts-secrets.php"
+        },
+        {
+          "base": "PLUGIN_DIR_literal",
+          "entryRole": "wp-content/mu-plugins/kinsta-mu-plugins.php",
+          "guard": "unconditional",
+          "mode": "loader_init",
+          "site": 36,
+          "target": "/www/theresidencyacademy_209/public/wp-content/mu-plugins/kinsta-mu-plugins/vendor/autoload.php"
+        },
+        {
+          "base": "WP_PLUGIN_DIR_default_candidate",
+          "entryRole": "wp-content/mu-plugins/missionmed-matrix-account-entry.php",
+          "guard": "file_exists",
+          "mode": "loader_init",
+          "site": 282,
+          "target": "/www/theresidencyacademy_209/public/wp-content/plugins/missionmed-hub/includes/class-mmed-learndash-reskin.php"
+        },
+        {
+          "base": "WP_PLUGIN_DIR_default_candidate",
+          "entryRole": "wp-content/mu-plugins/missionmed-file-vault-v2-scanner.php",
+          "guard": "file_exists",
+          "mode": "loader_init",
+          "site": 27,
+          "target": "/www/theresidencyacademy_209/public/wp-content/plugins/missionmed-hub/vendor/autoload.php"
+        },
+        {
+          "base": "fixed_phar_prefix",
+          "entryRole": "launcher:/usr/local/bin/wp",
+          "guard": "unconditional",
+          "mode": "loader_init",
+          "site": 8,
+          "target": "phar://wp-cli.phar/php/boot-phar.php"
+        }
+      ],
+      "noAutomaticAdoption": true,
+      "rootBindingFacts": {
+        "dynamicDefinitionUnresolved": false,
+        "standardContentRootOverridden": false,
+        "standardPluginRootOverridden": false
+      },
+      "schema": "ir.bootstrap.fixed_loader_metadata.v1",
+      "targets": [
+        {
+          "bytes": 388,
+          "mode": "config",
+          "path": "/www/theresidencyacademy_209/deployment/d1-500-runtime/timeline-secrets.php",
+          "present": true,
+          "sha256": "b4355d1f45136e276c848bb37d864071bf95bc2ceb811429c0a600598ed08abe"
+        },
+        {
+          "bytes": 436,
+          "mode": "config",
+          "path": "/www/theresidencyacademy_209/deployment/missionaccounts-runtime/missionaccounts-secrets.php",
+          "present": true,
+          "sha256": "3abdf74f16eca12cec469e6dcd9018a9aa36158b8080373209bd9f646b8f5ce4"
+        },
+        {
+          "bytes": 684,
+          "mode": "loader_init",
+          "path": "/www/theresidencyacademy_209/public/wp-content/mu-plugins/kinsta-mu-plugins/bootstrap.php",
+          "present": true,
+          "sha256": "a53b418915f970aa07b34d4cc18f1b2f4bb8b1b692ff8af15dddd184f82b4b07"
+        },
+        {
+          "bytes": 748,
+          "mode": "loader_init",
+          "path": "/www/theresidencyacademy_209/public/wp-content/mu-plugins/kinsta-mu-plugins/vendor/autoload.php",
+          "present": true,
+          "sha256": "abdc7a7a2b0b758ecd9b452ef54284a18b8749729afeb6d9e14c4e29cbc9dc52"
+        },
+        {
+          "bytes": 22883,
+          "mode": "loader_init",
+          "path": "/www/theresidencyacademy_209/public/wp-content/plugins/missionmed-hub/includes/class-mmed-learndash-reskin.php",
+          "present": true,
+          "sha256": "727b8d94518e05a63f798cf69608f7b0a3fa07f0880f084b4453e88b6a8fb54e"
+        },
+        {
+          "bytes": 748,
+          "mode": "loader_init",
+          "path": "/www/theresidencyacademy_209/public/wp-content/plugins/missionmed-hub/vendor/autoload.php",
+          "present": true,
+          "sha256": "c217d23338a9d2537ce212b9cf1c5abbaeb9351b1a2f38cc5bd7695f80ad6964"
+        },
+        {
+          "bytes": 1095,
+          "mode": "loader_init",
+          "path": "phar://wp-cli.phar/php/boot-phar.php",
+          "present": true,
+          "sha256": "91d3e1dfcea0c9abbe66032faea76d231e74c247fad44eb1d066008ab4693dcc"
+        },
+        {
+          "bytes": 178,
+          "mode": "loader_init",
+          "path": "phar://wp-cli.phar/vendor/autoload.php",
+          "present": true,
+          "sha256": "446489d22c3934ac8570f9458c909c1e5d855db66cd25a84a857f0e46b78d3f9"
+        },
+        {
+          "bytes": 2629,
+          "mode": "loader_init",
+          "path": "phar://wp-cli.phar/vendor/composer/autoload_real.php",
+          "present": true,
+          "sha256": "4af4fd07565c4d2a6d15acc844172ce0a511552bda04cc7e19fae73e73b19c83"
+        },
+        {
+          "bytes": 28625,
+          "mode": "loader_init",
+          "path": "phar://wp-cli.phar/vendor/composer/autoload_static.php",
+          "present": true,
+          "sha256": "8d77d2e28888b05669822b757bcbbe2b77d42483c96dc5553f685843266438e0"
+        },
+        {
+          "bytes": 2499,
+          "mode": "loader_init",
+          "path": "phar://wp-cli.phar/vendor/wp-cli/eval-command/src/EvalFile_Command.php",
+          "present": true,
+          "sha256": "70b47a0af2055ec7936bbc9f24f5c4cc75cdbd191c70f3fbcb83d9d09e5ce49a"
+        },
+        {
+          "bytes": 61373,
+          "mode": "loader_init",
+          "path": "phar://wp-cli.phar/vendor/wp-cli/wp-cli/php/WP_CLI/Runner.php",
+          "present": true,
+          "sha256": "1be98e13f066277f86376a7203038fe169f5e50dd84c72c5646df438df2c65d1"
+        },
+        {
+          "bytes": 2366,
+          "mode": "loader_init",
+          "path": "phar://wp-cli.phar/vendor/wp-cli/wp-cli/php/bootstrap.php",
+          "present": true,
+          "sha256": "332b5e6f5783c9b0e420a1cd7f97d89a2a4642863a1311b33b6e7532e1c71863"
+        }
+      ]
+    },
+    "noSemanticApproval": true,
+    "schema": "ir.bootstrap.fixed_loader_closure.v1"
+  },
+  "localTransportEnded": true,
+  "noSemanticApproval": true,
+  "observedUnix": 1791174604.217856,
+  "packetSha256": "2c119c7a77e59f8ba3d4b497d8858bb0d57df3077aef51430f2933709fa231a2",
+  "schema": "ir.foreman.fixed_loader_body_readback.v1",
+  "sourceHead": "09afb707913393174cf8c929a7e4d68beb01b3df"
+}

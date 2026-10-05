@@ -560,6 +560,36 @@ class Fixtures(unittest.TestCase):
             'woocommerce_login_redirect', 'login_errors', 'woocommerce_login_failed', 'wp_hash_password_algorithm',
             'wp_hash_password_options'} <= owner.STANDARD_HOOKS)
 
+    def test_actual_core_report_23_additions_select_exactly_and_unknown_callbacks_remain_unresolved(self):
+        additions = '''allowed_redirect_hosts logout_url password_needs_rehash rest_allowed_cors_headers
+rest_dispatch_request rest_enabled rest_endpoints rest_exposed_cors_headers rest_json_encode_options
+rest_jsonp_enabled rest_pre_echo_response rest_request_parameter_order rest_send_nocache_headers
+rest_url rest_url_prefix sanitize_key secure_signon_cookie set_current_user
+woocommerce_logout_default_redirect_url wp_redirect wp_redirect_status wp_safe_redirect_fallback x_redirect_by'''.split()
+        self.assertEqual(len(additions), 23)
+        self.assertEqual(len(owner.STANDARD_HOOKS), 139)
+        self.assertEqual(hashlib.sha256(owner.canonical(sorted(owner.STANDARD_HOOKS))).hexdigest(),
+                         '005887497738cd12c6c07c9f3ae33f9bf0574cd3dc4b00c9fc106aa5e125518d')
+        approved = dict(self.approval, hookSelection=dict(self.approval['hookSelection'], hooks=additions))
+        rows = [[tag, 1, 'safe_func', 1, self.source_sha] for tag in additions]
+        rows += [[tag, 1, CANARY, 1, self.source_sha] for tag in additions]
+        rows += [['rest_endpoints', 1, CANARY, 1, '4' * 64], [CANARY, 1, CANARY, 1, '4' * 64]]
+        private = self.inventory(rows)
+        store = owner.PrivateInventory(time.monotonic() + 3)
+        store.retain(private)
+        deadline = store.deadline
+        facts = owner.selected_facts(store, approved)
+        self.assertEqual({f['hook'] for f in facts['facts']}, set(additions))
+        self.assertEqual(len(facts['facts']), 23)
+        self.assertEqual({f['hook'] for f in facts['unresolved']}, set(additions))
+        self.assertEqual({f['reason'] for f in facts['unresolved']}, {'unmapped_callable', 'unmapped_source'})
+        self.assertEqual(store.deadline, deadline)
+        self.assertTrue(private)
+        self.assertNotIn(CANARY, owner.canonical(facts).decode())
+        self.assertEqual(facts['result'], 'FACTS_ONLY')
+        store.close()
+        self.assertFalse(private)
+
     def test_closed_dynamic_family_variants_private_tags_and_callbacks_never_publish(self):
         rows = [[tag, 1, 'safe_func' if i < 2 else CANARY, 1, self.source_sha] for i, tag in enumerate([
             'sanitize_user_meta_' + CANARY, 'sanitize_user_meta_' + CANARY + '_for_user',

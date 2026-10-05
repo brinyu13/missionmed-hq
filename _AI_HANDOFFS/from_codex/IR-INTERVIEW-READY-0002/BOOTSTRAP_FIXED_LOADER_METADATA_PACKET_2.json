@@ -1,0 +1,24 @@
+{
+  "actor": "/root",
+  "admittedUnix": 1791171898.8310668,
+  "independentReviewer": "/root/bounded_delta_verifier",
+  "ioSeconds": 10,
+  "noBootstrap": true,
+  "noRetry": true,
+  "noSemanticApproval": true,
+  "osHead": "bc1d36fcb9f7bdda4bcd4ba507078b7787d802a2",
+  "outputCap": 8388608,
+  "phase": "metadata",
+  "pins": {
+    "BOOTSTRAP_FIXED_LOADER_CONST_DIR_REVIEW.md": "d6108bcf009db38e70e476699e576627ed0f0a343ecc60aa5511341d22463d79",
+    "BOOTSTRAP_FIXED_LOADER_READER_HANDOFF.md": "0b69cd81900d8938aa5de49317396f302736df157b8a7ae06c45447788b86583",
+    "bootstrap_fixed_loader_reader.py": "ab56ad0b0cfac6ecfcf3205412173442ca50db6c8536b21009be8703dc723d04",
+    "bootstrap_fixed_loader_reader_tests.py": "5162221f85a16912d534ae412878228f941a3af0982185bec7526e12988f5278",
+    "native_account_qa.py": "c84bc76264749e732e0e2555d942d64086a18cf625dd8f5006c529d32977e8f1"
+  },
+  "programSha256": "646094ff628eed7de3c5011e1afcbe6a9d67f93ebe81c615e6f7dccd8b3dd20e",
+  "readOnly": true,
+  "reapSeconds": 2,
+  "schema": "ir.foreman.fixed_loader_metadata_packet.v1",
+  "sourceHead": "09afb707913393174cf8c929a7e4d68beb01b3df"
+}

@@ -1,4 +1,31 @@
-# Dormant retained private inventory owner — bounded classification correction
+# Dormant retained private inventory owner — actual-selector correction
+
+**LOCAL BUILDER ALLOWLIST DELTA; independent exact-byte review pending.** Builder `/root/owner_classification_fix`; requested Sol6.1 Medium for this known-list correction (runtime model/effort metadata not exposed). BASE/observed HEAD `09afb707913393174cf8c929a7e4d68beb01b3df`. Read and verified actual core report `CORE_ACCOUNT_ACTUAL_SELECTOR_REVIEW_1.md` SHA `d69f55cf256718e7b87555bb371eef4b6d8bae4889ad08f3270a1d5f2b9a0f0d` and previous delta review SHA `983a43429adf56421dd318b2fb0ff74c6558efc476abd2dc296bccb4a8f12ef9`. Existing reviewed owner/tests were exactly `1ff170...` / `4879f9...` before editing. This correction changes only the literal ceiling, adds one focused fixture and prepends this handoff; the prior classification/custody implementation and history below remain preserved.
+
+| Frozen corrected file | SHA256 |
+| --- | --- |
+| native_inventory_owner.py | `d48bae19d3ca7b31d0fa1ebb5b419ff381638d0c5ccbdb74d2008725eba2109d` |
+| native_inventory_owner_tests.py | `21ff6697f23c29593b5257364a1561e0b569bd82b59b8c8d3560e6242a420698` |
+
+Added exactly23 standard names from the independent actual-core report:
+
+```text
+allowed_redirect_hosts logout_url password_needs_rehash rest_allowed_cors_headers
+rest_dispatch_request rest_enabled rest_endpoints rest_exposed_cors_headers rest_json_encode_options
+rest_jsonp_enabled rest_pre_echo_response rest_request_parameter_order rest_send_nocache_headers
+rest_url rest_url_prefix sanitize_key secure_signon_cookie set_current_user
+woocommerce_logout_default_redirect_url wp_redirect wp_redirect_status wp_safe_redirect_fallback x_redirect_by
+```
+
+The ceiling is exactly139 unique names (prior116 plus23); canonical sorted-list SHA256 `005887497738cd12c6c07c9f3ae33f9bf0574cd3dc4b00c9fc106aa5e125518d`, equal to the prospective report seal. Initial independent hook selection must include these concretely selected tags before retained inventory; the later update still cannot widen selector/family coverage. The fixed `sanitize_user_meta` family and private-tag normalization, unresolved-symbol/closure rules, absolute private deadline, one update, one-use admission, source/facts chain and final AUTH gate are unchanged. The new ceiling remains a finite selection capability, not callback-effect or complete-control approval.
+
+Independently parsed the exact prior60-map JSON and additional11-map JSON from their existing review reports, concatenated only in memory and verified union SHA `c032e8198eb51c1c235a9b69f0663dffee3054db91a9db59ce472cdaac02f862`. **71 maps/1581 names, maximum162 per source**, unique71 source hashes: fits existing128-map/256-name-per-source limits. No limit or grammar was widened and no union file/control was written. Root must preserve both actual source evidence seals via the existing additional-evidence classification route or an independently sealed combined envelope; source3 alone does not bind all71 maps. The report qualifies public declarations, not actual registered callback effects; unknown selected callbacks remain unresolved.
+
+`python3 -B .../native_inventory_owner_tests.py`: **23 PASS,0.408s**. The new fixture selects all23 exact tags, checks the139-name seal, keeps private nonpublic/unmapped-source callbacks unresolved, preserves the original deadline/retained object and wipes it on close. All22 existing custody/update/family/privacy/refusal fixtures also pass. In-memory compile and default DORMANT PASS; unchanged wrapper/native/browser/review pins rehashed. Scoped diff/whitespace PASS. Existing test filename is `native_inventory_owner_tests.py`; no `native_inventory_owner.test.py` exists and no fourth path was created.
+
+Scoped preflight showed no dirty-file overlap. Existing checkpoint/CLI temp and concurrent untracked reports/inputs were preserved. Reused the current routed R2 authority and supplied fresh BOOT evidence recorded by the independent actual report; no remote, provider, browser, SSH, bootstrap, account, credential, control, reinventory, source acquisition, repository-state or runtime operation was performed. Only the assigned three files were written. No commit/stage/push/self-approval/deploy. **STOP frozen: Root owns fresh independent exact-byte correction review and any later controls/execution.**
+
+## Prior bounded classification correction (preserved history)
 
 **LOCAL BUILDER DELTA; independent exact-byte review pending.** Builder `/root/owner_classification_fix`, assigned Sol6.1 High. BASE/observed HEAD `8cf5f9f4284d23d0a1204fdfa86833341bf35bad`. Risk HIGH (existing custody code); default remains dormant. This section supersedes the archived two-pair/always-unresolved-closure behavior below. Existing facts, receipts, authority, lifetime, wrapper/native/browser code and old review are preserved as historical evidence. The old owner byte approval cannot authorize these new bytes.
 

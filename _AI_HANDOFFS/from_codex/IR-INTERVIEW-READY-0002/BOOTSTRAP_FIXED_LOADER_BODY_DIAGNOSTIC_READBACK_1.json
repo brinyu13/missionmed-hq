@@ -1,0 +1,16 @@
+{
+  "capture": {
+    "bodyCount": 0,
+    "classification": "FIXED_BODY_DIAGNOSTIC_STOP",
+    "noSemanticApproval": true,
+    "reason": "TOKENIZER_STOP",
+    "schema": "ir.bootstrap.fixed_loader_body_diagnostic.v1",
+    "stage": "BODY_TOKENIZATION"
+  },
+  "localTransportEnded": true,
+  "noSemanticApproval": true,
+  "observedUnix": 1791172954.816216,
+  "packetSha256": "54d96308ce9f3c4d2229a7916153e14def7e55b09194b5ccf6904500f0b48b65",
+  "schema": "ir.foreman.fixed_loader_body_diagnostic_readback.v1",
+  "sourceHead": "09afb707913393174cf8c929a7e4d68beb01b3df"
+}

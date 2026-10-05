@@ -1,0 +1,23 @@
+{
+  "actor": "/root",
+  "admittedUnix": 1791169996.796215,
+  "independentReviewer": "/root/bounded_delta_verifier",
+  "ioSeconds": 10,
+  "noBootstrap": true,
+  "noSemanticApproval": true,
+  "osHead": "bc1d36fcb9f7bdda4bcd4ba507078b7787d802a2",
+  "outputCap": 8388608,
+  "phase": "metadata",
+  "pins": {
+    "CORE_ACCOUNT_SOURCE_READER_HANDOFF.md": "72d88db942e2430ba5f5f48bdd310d7a74cface71d569ea085ee30c689d2d322",
+    "CORE_ACCOUNT_SOURCE_READER_INDEPENDENT_REVIEW.md": "7a4b535269048b8846721b4d3ece37c4dd62eeaaba385e1fd60b51548d6c8e64",
+    "core_account_source_reader.py": "5083df2ab0b783009b51750477528b9366b10020f7c3723d2362137c3ee68530",
+    "core_account_source_reader_tests.py": "0111c73eef60ad25313d5f5c17ad72199af00f794292a75419eff5b38a19c238",
+    "native_account_qa.py": "c84bc76264749e732e0e2555d942d64086a18cf625dd8f5006c529d32977e8f1"
+  },
+  "programSha256": "fb0b5a7418cc58afa746dd495f0a4165be9cf70c702822bf85883247946fd620",
+  "readOnly": true,
+  "reapSeconds": 2,
+  "schema": "ir.foreman.core_account_read_packet.v1",
+  "sourceHead": "09afb707913393174cf8c929a7e4d68beb01b3df"
+}
