@@ -1,0 +1,17 @@
+{
+  "schema_version": "missionaccounts-onboarding-email-template-v4",
+  "template_version": "examprep-onboarding-email-2026-09-17-v4",
+  "subject": "Your new Dr J ExamPrep home is ready",
+  "subject_candidates": [
+    "Your new Dr J ExamPrep home is ready",
+    "Dr J ExamPrep just got an upgrade",
+    "Your MyMissionMed Account is ready — complete setup within 48 hours"
+  ],
+  "preheader": "Your new ExamPrep home is live. Sign in and complete your setup in the next 48 hours.",
+  "cta_url": "https://missionmedinstitute.com/my-account/?missionmed_intent=missionaccounts_onboarding",
+  "html_sha256": "6c83ea25327a916b1729525858398fb09247215332c2ee079e5e9cda77b2056c",
+  "text_sha256": "6c95d7a3e24f38d28a0c2d3e5fc4a07da6e88626f6e40bf6cf4781177e53ba28",
+  "full_logo_url": "https://missionmedinstitute.com/wp-content/uploads/2026/02/608a69b125647f6e63b56f87b823b1e60dbdaebf4916b1d5d5edcc408b8ab3fe.png",
+  "qa_recipient_only": true,
+  "pilot_send_authorized": false
+}

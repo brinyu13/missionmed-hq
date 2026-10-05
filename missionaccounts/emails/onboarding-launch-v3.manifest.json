@@ -1,0 +1,56 @@
+{
+  "access_enforcement_enabled": false,
+  "automatic_billing_dispatch": false,
+  "credential_method": "existing-account-or-secure-password-recovery",
+  "cta_url": "https://missionmedinstitute.com/missionaccounts/#/me/onboarding",
+  "exact_recipient_bindings": {
+    "Raghav Gupta": {
+      "email_sha256": "3fde4e6db365154701acb64909a87d2ab647315acc1788360d175be1406b45fc",
+      "eligibility_basis": "learndash_course_6357",
+      "student_id": "5171c2ec-5046-59e0-a22a-7362404bf9ec",
+      "username_sha256": "3ac36dd52c15a334e3d36de5351e74e9eb685c73b32e756e053efabf1b19b77f",
+      "wp_user_id": 114
+    },
+    "Subani Dias": {
+      "email_sha256": "37eec1c8bccd263894ff9d8949dda63e4067d25261048ba76280a905fdbf3184",
+      "eligibility_basis": "learndash_course_6357",
+      "student_id": "142b08bb-9643-550c-acac-29a8030c7e02",
+      "username_sha256": "54400a46e12480f7c33d1c1d1216438406b273e846a9474efdae88bc7ed7e55d",
+      "wp_user_id": 9
+    },
+    "Neshmaidy Negr\u00f3n Zeda": {
+      "email_sha256": "8d8c2bd0285d8465f05bd1cd59c866462577b6c2fe668334803ea258a7dbaf53",
+      "eligibility_basis": "drj_drills_student_role",
+      "student_id": "c6843e4d-f163-5f57-b1bd-61d566700444",
+      "username_sha256": "8d8c2bd0285d8465f05bd1cd59c866462577b6c2fe668334803ea258a7dbaf53",
+      "wp_user_id": 89
+    }
+  },
+  "external_send_authorized": false,
+  "hosted_invoice_sending": false,
+  "html_sha256": "40caf8c4b4a8f70fbe16e347b1357098d397dc50ce313d24ee6a4608d83d4844",
+  "idempotency_claim": "atomic unique WordPress option plus exact compare-and-swap transitions",
+  "money_moved_cents": 0,
+  "notifications_outside_exact_pilot": false,
+  "provider": "wordpress_wp_mail",
+  "provider_controller": "scripts/onboarding-launch/wp_onboarding_pilot.php",
+  "recipient_addresses_stored_in_source": false,
+  "recipient_manifest_builder": "scripts/onboarding-launch/build_pilot_manifest.py",
+  "requested_completion_window_hours": 48,
+  "runtime_preflight": [
+    "exact_named_binding",
+    "canonical_student_id",
+    "wp_user_id",
+    "username_sha256",
+    "email_sha256",
+    "WordPress_non_admin",
+    "recipient_specific_course_or_role_eligibility",
+    "final_Supabase_DIRECT_verification",
+    "not_previously_sent"
+  ],
+  "schema_version": "missionaccounts-onboarding-pilot-manifest-v3r1",
+  "send_ledger": "atomic wp_options claim mirrored to WordPress user meta _missionmed_onboarding_launch_v1",
+  "subject": "Your MyMissionMed Account is ready",
+  "template_version": "examprep-onboarding-email-2026-09-17-v3r1",
+  "text_sha256": "22668fae65ad33bcde060a86547a05d400152f0506f376870eb4d6f0193e7282"
+}

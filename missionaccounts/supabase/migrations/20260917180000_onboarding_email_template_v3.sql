@@ -1,0 +1,7 @@
+begin;
+insert into missionaccounts.onboarding_email_template_registry(version,subject,html_sha256,text_sha256,manifest_sha256,credential_method,external_send_authorized) values(
+ 'examprep-onboarding-email-2026-09-17-v3','Your MyMissionMed Account is ready',
+ '40caf8c4b4a8f70fbe16e347b1357098d397dc50ce313d24ee6a4608d83d4844','22668fae65ad33bcde060a86547a05d400152f0506f376870eb4d6f0193e7282','e172b65b9008887671a757e49c12f96d202b2697b997ddc1ff367770004d2ce2',
+ 'existing-account-or-secure-password-recovery',false
+);
+commit;

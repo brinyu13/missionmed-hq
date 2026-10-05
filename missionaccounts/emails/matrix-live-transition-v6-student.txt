@@ -1,0 +1,39 @@
+Dr J ExamPrep: Complete onboarding to continue Live Drills
+
+DR J EXAMPREP · IMPORTANT ACCOUNT UPDATE
+
+Your Live Drill Sessions are moving to Matrix.
+
+Right now, Dr J emails you the Zoom link for each Live Drill Session. That process is changing. MissionMed Matrix will soon become the way you access your upcoming Live Drill Sessions.
+
+ACTION REQUIRED
+Complete your MyMissionMed onboarding now so your account is ready.
+
+Hi {{first_name}},
+
+The manual email process is being retired. Once the transition is complete, you'll sign into MissionMed Matrix and use JOIN LIVE SESSION to enter your upcoming drills.
+
+To continue accessing Live Drill Sessions through Matrix, your required MyMissionMed onboarding must be complete.
+
+If your onboarding is incomplete, JOIN LIVE SESSION will remain unavailable until you finish your required setup. Individual Zoom links will not be emailed separately as an alternative.
+
+Please complete your onboarding now, before you need to join your next Live Drill Session. Your current ExamPrep enrollment still controls access.
+
+YOUR MYMISSIONMED SETUP
+USERNAME: {{username}}
+STATUS: Onboarding incomplete — action required
+WHAT TO DO: Complete every required onboarding item until your account shows ✓ Complete.
+
+COMPLETE MY SETUP: {{onboarding_url}}
+
+{{credential_block}}
+
+Please complete your setup now so you're ready for your next Live Drill Session.
+
+Warm Wishes,
+Dr J
+Dr J ExamPrep
+MissionMed Institute
+
+Need help? Reply to this email or contact info@missionmedinstitute.com.
+This account update is for Dr J ExamPrep students.

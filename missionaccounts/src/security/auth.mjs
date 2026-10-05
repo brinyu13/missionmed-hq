@@ -121,10 +121,18 @@ export async function authenticate(request, config) {
     if (config.production) deny('Local authentication is disabled in production', 500);
     const role = request.headers['x-missionaccounts-local-role'] || 'student';
     const programs = new Set(String(request.headers['x-missionaccounts-local-programs'] || (role === 'registered' ? '' : 'examprep')).split(',').map(value => value.trim()).filter(Boolean));
+    const localPlan = String(request.headers['x-missionaccounts-local-commerce-plan'] || '').trim();
     return {
       userId: request.headers['x-missionaccounts-local-user'] || '00000000-0000-4000-8000-000000000001',
       email: role === 'student' ? 'student.preview@invalid.local' : 'admin.preview@invalid.local',
       roles: [role],
+      claims: {
+        missionaccounts_commerce: {
+          live_group_eligible: role === 'student',
+          existing_plan: ['monthly', 'pay_go'].includes(localPlan) ? localPlan : null,
+          monthly_checkout_url: 'https://missionmedinstitute.com/checkout/?add-to-cart=3651',
+        },
+      },
       programAccess: {
         registered: true,
         programs: {

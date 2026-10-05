@@ -12,6 +12,58 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+
+/* MissionAccounts onboarding invitation: one allowlisted server-controlled intent. */
+if ( ! function_exists( 'mma_onboarding_invitation_requested' ) ) {
+    function mma_onboarding_invitation_requested() {
+        if ( ! isset( $_REQUEST['missionmed_intent'] ) || ! is_string( $_REQUEST['missionmed_intent'] ) ) return false;
+        return hash_equals( 'missionaccounts_onboarding', sanitize_key( wp_unslash( $_REQUEST['missionmed_intent'] ) ) );
+    }
+    function mma_onboarding_invitation_target() { return home_url( '/missionaccounts/#/' ); }
+    function mma_matrix_login_target() { return home_url( '/member-dashboard/' ); }
+    function mma_onboarding_invitation_login_url() { return add_query_arg( 'missionmed_intent', 'missionaccounts_onboarding', home_url( '/my-account/' ) ); }
+    function mma_onboarding_invitation_hidden_field() {
+        if ( mma_onboarding_invitation_requested() ) echo '<input type="hidden" name="missionmed_intent" value="missionaccounts_onboarding">';
+    }
+    function mma_onboarding_invitation_login_redirect( $redirect, $user = null ) {
+        if ( mma_onboarding_invitation_requested() ) return mma_onboarding_invitation_target();
+        if ( $user instanceof WP_User && ! user_can( $user, 'manage_options' ) && isset( $_REQUEST['woocommerce-login-nonce'] ) ) return mma_matrix_login_target();
+        return $redirect;
+    }
+    function mma_onboarding_invitation_return_key( $user_id ) {
+        return 'mma_onboarding_return_' . absint( $user_id );
+    }
+    function mma_matrix_login_return_key( $user_id ) {
+        return 'mma_matrix_return_' . absint( $user_id );
+    }
+    function mma_onboarding_invitation_mark_login( $user_login, $user ) {
+        if ( mma_onboarding_invitation_requested() && $user instanceof WP_User ) {
+            set_transient( mma_onboarding_invitation_return_key( $user->ID ), 1, 5 * MINUTE_IN_SECONDS );
+        } elseif ( $user instanceof WP_User && ! user_can( $user, 'manage_options' ) && isset( $_REQUEST['woocommerce-login-nonce'] ) ) {
+            set_transient( mma_matrix_login_return_key( $user->ID ), 1, 5 * MINUTE_IN_SECONDS );
+        }
+    }
+    add_action( 'woocommerce_login_form_start', 'mma_onboarding_invitation_hidden_field' );
+    add_filter( 'login_redirect', 'mma_onboarding_invitation_login_redirect', PHP_INT_MAX - 1, 2 );
+    add_filter( 'woocommerce_login_redirect', 'mma_onboarding_invitation_login_redirect', PHP_INT_MAX - 1, 2 );
+    add_action( 'wp_login', 'mma_onboarding_invitation_mark_login', 10, 2 );
+    add_action( 'template_redirect', static function () {
+        if ( ! is_user_logged_in() ) return;
+        $return_key = mma_onboarding_invitation_return_key( get_current_user_id() );
+        if ( mma_onboarding_invitation_requested() || get_transient( $return_key ) ) {
+            delete_transient( $return_key );
+            wp_safe_redirect( mma_onboarding_invitation_target() );
+            exit;
+        }
+        $matrix_key = mma_matrix_login_return_key( get_current_user_id() );
+        if ( get_transient( $matrix_key ) ) {
+            delete_transient( $matrix_key );
+            wp_safe_redirect( mma_matrix_login_target() );
+            exit;
+        }
+    }, 1 );
+}
+
 const MMA_OPTION = 'missionmed_missionaccounts_settings';
 const MMA_RATE_KEYS_OPTION = 'missionmed_missionaccounts_rate_keys';
 const MMA_REST_NAMESPACE = 'missionmed/v1';

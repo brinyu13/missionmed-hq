@@ -1,0 +1,204 @@
+{
+  "mission": "PARTNER-COST-SHARING-20261004",
+  "source": "52c34005ad5fa8d88615cfe9a5a0c4a44253d169",
+  "manifestHash": "f43f3aba4efca941b9d5c3a0374846a8dd9d74d063282bf3e1bde5e3b1afedac",
+  "project": "dwwsahpzblgrgducxtzw",
+  "priorMigrationHistoryUnchanged": true,
+  "prior32": [
+    {
+      "name": "missionaccounts_initial_schema",
+      "version": "20260906174204"
+    },
+    {
+      "name": "automatic_charge_dispatch",
+      "version": "20260906174214"
+    },
+    {
+      "name": "zoom_ingestion_port",
+      "version": "20260906174224"
+    },
+    {
+      "name": "student_attendance_issue_report_20260906105212",
+      "version": "20260906174233"
+    },
+    {
+      "name": "20260906110611_attendance_issue_review_resolution",
+      "version": "20260906174244"
+    },
+    {
+      "name": "20260906112331_require_receipt_email_for_day_charges",
+      "version": "20260906174246"
+    },
+    {
+      "name": "20260906113240_record_unhandled_provider_events",
+      "version": "20260906174249"
+    },
+    {
+      "name": "20260906114450_identity_cluster_adjudication",
+      "version": "20260906174251"
+    },
+    {
+      "name": "20260906122416_device_identity_adjudication",
+      "version": "20260906174253"
+    },
+    {
+      "name": "20260906134000_zoom_attendance_reconciliation",
+      "version": "20260906174255"
+    },
+    {
+      "name": "20260906135000_stripe_hosted_invoice_workflow",
+      "version": "20260906174257"
+    },
+    {
+      "name": "20260906173000_record_missionaccounts_release",
+      "version": "20260906174314"
+    },
+    {
+      "name": "20260907025337_workflow_request_integrity_5401",
+      "version": "20260907041036"
+    },
+    {
+      "name": "20260907025905_bounded_billing_reversal_batch_5401",
+      "version": "20260907041038"
+    },
+    {
+      "name": "20260907025943_zoom_canonical_occurrence_5401",
+      "version": "20260907041042"
+    },
+    {
+      "name": "20260907034102_bounded_zoom_repair_5401",
+      "version": "20260907041045"
+    },
+    {
+      "name": "harden_service_table_rls_5401",
+      "version": "20260908165136"
+    },
+    {
+      "name": "align_student_write_identity_guards",
+      "version": "20260909100451"
+    },
+    {
+      "name": "promote_antonio_real_student",
+      "version": "20260909110946"
+    },
+    {
+      "name": "manual_cycle_charge",
+      "version": "20260909142217"
+    },
+    {
+      "name": "sponsor_control_5401r",
+      "version": "20260911132835"
+    },
+    {
+      "name": "20260911224524_autobilling_contract_closeout_5403b",
+      "version": "20260913133139"
+    },
+    {
+      "name": "20260914111824_dedicated_examprep_onboarding_5404a",
+      "version": "20260914202225"
+    },
+    {
+      "name": "20260914114700_onboarding_queue_visibility_5404a",
+      "version": "20260914202304"
+    },
+    {
+      "name": "legacy_invoice_5404c",
+      "version": "20260916100200"
+    },
+    {
+      "name": "commerce_onboarding_launch_5404e",
+      "version": "20260917145447"
+    },
+    {
+      "name": "onboarding_email_template_v2",
+      "version": "20260917163040"
+    },
+    {
+      "name": "onboarding_email_template_v3",
+      "version": "20260917163041"
+    },
+    {
+      "name": "onboarding_email_pilot_recipient_correction",
+      "version": "20260917165742"
+    },
+    {
+      "name": "onboarding_self_phone_completion_p0",
+      "version": "20261002205356"
+    },
+    {
+      "name": "onboarding_account_email_projection_p0",
+      "version": "20261002213214"
+    },
+    {
+      "name": "onboarding_payment_readiness_policy_p0",
+      "version": "20261002213216"
+    }
+  ],
+  "applied": [
+    {
+      "version": "20261005013804",
+      "name": "20261005012837_partner_cost_sharing_production_foundation"
+    },
+    {
+      "version": "20261005013806",
+      "name": "20261005013002_partner_cost_sharing_production_review"
+    }
+  ],
+  "neighborFingerprint": "003a7f3711ee95f878b20d43461dd676",
+  "forcedRlsTables": 21,
+  "reviewRows": 63,
+  "reviewSourceSha256": "9c88e0a3fba2505ef2e7e9f858c471e2ea3f1b8a3ac95a9f4308eb980a95b308",
+  "privateOriginalHashes": [
+    {
+      "id": "woo",
+      "sha256": "063a4e80a7c0ac3b543e60d68adb216cf84bc17933872d51bc5c7aaef55894aa",
+      "previewSha256": "747ddd31bd8669cc5c8486bef2703ef35cb22f5e3d57ba2a1c851da918650ba1"
+    },
+    {
+      "id": "elementor",
+      "sha256": "9f6ce2d6bf8e0e103f9c52dbb231ba36460e7b23e07fd8d168898a3386c05bf6",
+      "previewSha256": "06365d03f297dd010f180ac58a21a4ff6c5b50efbd4c20b42a4cef55f81146f5"
+    },
+    {
+      "id": "learndash",
+      "sha256": "6ec90acbe33960ea74ba8669e60c7371a48c685abc7cee38c9660a821c1ebc58",
+      "previewSha256": "a364cad58fa9d4eed2a84849fcecab5c05389a31529ae6b3b07a27d86d5f98f8"
+    },
+    {
+      "id": "formidable",
+      "sha256": "b7e6c10d6d2b94e400a5febd369aa713445b4de68aa631ca5e364e2393bbcc57",
+      "previewSha256": "b7e6c10d6d2b94e400a5febd369aa713445b4de68aa631ca5e364e2393bbcc57"
+    },
+    {
+      "id": "kinsta-dec",
+      "sha256": "b8160c09089e043babc491a82edd38c98051802ca4e3c9aa087af26b8d294f82",
+      "previewSha256": "5fa3cf15be3f0085f22280644501417dd8020c98749d261b59d22bec9c468a09"
+    },
+    {
+      "id": "kinsta-jan",
+      "sha256": "581e9fc8e9c10dbc31036b5b049a0d3622dcea4253816f55f36bee35112869be",
+      "previewSha256": "a694a90f6c25109004fcb743feaafbe251b33bddbd626ad081ed5d51e9859cac"
+    },
+    {
+      "id": "kinsta-feb",
+      "sha256": "a0807b014e923e069be985d04d6abcd1cbdd1c2f794b6c656669aa461b12bd50",
+      "previewSha256": "80cb6a9e3bc586497d1b627f42ba5d54fcdfdbf0d3f69293ff8f2e5bc810e226"
+    },
+    {
+      "id": "kinsta-20260824329557",
+      "sha256": "25842fec7a320d4ff35d46e41285aaa5b8d53cc6202c8cf700467c1c22d85709",
+      "previewSha256": "f1d9916e5cbe9b6a927960030981fe49341d91c33f387eecf2860123afd54d24"
+    },
+    {
+      "id": "kinsta-20260924730895",
+      "sha256": "0706447326b9ee098fbdbb26a3e02cf144507785265f1ff8036ad4c688e7661f",
+      "previewSha256": "4024dabfbd445f136ab3fbe66982bd85aec619982d636d11737d1dd353f77923"
+    }
+  ],
+  "physicalBackupUtc": "2026-10-04T07:19:31Z",
+  "rollbackDeployment": "9f310883-1cd8-4634-b4d7-3426ec7f6638",
+  "rollbackImage": "sha256:5fe2de302475169dad68526cd046a12cd7f6b81bd40828eef82f94eb32d28a5d",
+  "moneyMoved": false,
+  "certified": false,
+  "observedAt": "2026-10-05T01:54:46.925Z"
+}

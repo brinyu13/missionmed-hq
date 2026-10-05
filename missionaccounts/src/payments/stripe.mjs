@@ -23,12 +23,13 @@ export function verifyStripeSignature(rawBody, signatureHeader, secret, toleranc
 }
 
 export class StripeGateway {
-  constructor({ secretKey, webhookSecret, apiVersion = '', mode = 'disabled', liveMutationsEnabled = false } = {}) {
+  constructor({ secretKey, webhookSecret, apiVersion = '', mode = 'disabled', liveMutationsEnabled = false, requestTimeoutMs = 0 } = {}) {
     this.secretKey = secretKey;
     this.webhookSecret = webhookSecret;
     this.apiVersion = apiVersion;
     this.mode = mode;
     this.liveMutationsEnabled = liveMutationsEnabled === true;
+    this.requestTimeoutMs = requestTimeoutMs;
   }
 
   verifyWebhook(rawBody, signatureHeader) {
@@ -81,6 +82,7 @@ export class StripeGateway {
     this.assertMutationAllowed();
     const response = await fetch(`https://api.stripe.com/v1/${path}`, {
       method: 'POST',
+      ...(this.requestTimeoutMs > 0 ? { signal: AbortSignal.timeout(this.requestTimeoutMs) } : {}),
       headers: {
         authorization: `Bearer ${this.secretKey}`,
         'content-type': 'application/x-www-form-urlencoded',
@@ -98,6 +100,7 @@ export class StripeGateway {
     this.assertConfigured();
     const response = await fetch(`https://api.stripe.com/v1/${path}`, {
       method: 'GET',
+      ...(this.requestTimeoutMs > 0 ? { signal: AbortSignal.timeout(this.requestTimeoutMs) } : {}),
       headers: {
         authorization: `Bearer ${this.secretKey}`,
         ...(this.apiVersion ? { 'stripe-version': this.apiVersion } : {}),

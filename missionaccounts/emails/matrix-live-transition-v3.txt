@@ -1,0 +1,39 @@
+Dr J ExamPrep: Complete your Matrix setup
+
+DR J EXAMPREP · IMPORTANT ACCOUNT UPDATE
+
+Your live-session access is moving to Matrix.
+
+Today, Dr J sends your Zoom link by email. That process is changing. MissionMed Matrix will soon be the access point for upcoming Dr J ExamPrep live sessions.
+
+ACTION REQUIRED
+Complete your MyMissionMed onboarding now so your account is ready.
+Complete my setup: {{onboarding_url}}
+
+Once access moves into Matrix, JOIN LIVE SESSION will require completed onboarding. Do not wait until class time.
+
+Hi {{first_name}},
+
+We're completing the move of Dr J ExamPrep live-session access into MissionMed Matrix. Instead of searching your inbox for the current Zoom link, you'll access upcoming Dr J sessions from Matrix. Before that transition reaches your account, finish the required MyMissionMed onboarding.
+
+YOUR ACCOUNT SETUP
+Username: {{username}}
+Status: Onboarding must be completed
+What to do: Sign in and complete every required item until your account shows Complete.
+{{credential_block}}
+
+LIVE-SESSION ACCESS
+After Dr J's live-session access moves into Matrix, students with incomplete onboarding will not see or access JOIN LIVE SESSION until their required setup is complete. Completing onboarding enables that access; it does not affect your other MissionMed programs.
+
+WHY THE CHANGE?
+One login and one place for your ExamPrep account, attendance, and live-session access. It also reduces manual class administration so Dr J can spend more time teaching.
+
+Don't wait until it's time for class. Complete your setup now so your Matrix live-session access is ready.
+Complete my setup: {{onboarding_url}}
+
+Warm wishes,
+Dr J
+Dr J ExamPrep · MissionMed Institute
+
+Need help? Reply to this email or contact info@missionmedinstitute.com.
+This account update is for Dr J ExamPrep students.

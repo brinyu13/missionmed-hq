@@ -1,0 +1,55 @@
+{
+  "mission": "PARTNER-COST-SHARING-20261004",
+  "observedAt": "2026-10-05T03:05:41.632Z",
+  "deploymentSource": "f91b17c0621072b49c60c53e7b80ba25fcee91c9",
+  "manifestSha256": "c83af417be117c7c1cefcc6fda138ff8620e1d4ca1aca02c638c1fde76c7d33d",
+  "runtimeFiles": 41,
+  "railway": {
+    "project": "244bf2d1-1eca-4b97-95ab-95a565a8b4d0",
+    "environment": "db6dae0e-cc37-4eff-9bed-3d5fe7cc8f9f",
+    "service": "857cdc07-2482-4cc0-a2a1-70b38f65542b",
+    "deployment": "7a50fd4b-577c-4b0a-97ff-acbf917cd2e9",
+    "status": "SUCCESS",
+    "image": "sha256:0f37f2e2e9194340034cac5fbc7ec80d3d7935ec75effd89061def63912fd188",
+    "rollbackDeployment": "9f310883-1cd8-4634-b4d7-3426ec7f6638"
+  },
+  "database": {
+    "project": "dwwsahpzblgrgducxtzw",
+    "draftRows": 63,
+    "privateOriginals": 9,
+    "forcedRlsTables": 21,
+    "clientGrants": 0,
+    "neighborFingerprint": "003a7f3711ee95f878b20d43461dd676",
+    "collectionEnabled": false,
+    "certifiedPeriods": 0,
+    "payments": 0,
+    "dispatches": 0
+  },
+  "acceptance": {
+    "genuineBrianDeepLink": "PASS",
+    "genuineBrianWooPrivateOriginal": "PASS_SERVER_SHA_VERIFIED",
+    "genuineBrianKinstaSeptemberPrivateOriginal": "PASS_SERVER_SHA_VERIFIED",
+    "productionReload": "PASS",
+    "csvGeneration": "PASS_HTTP_200_75_LINES_63_COST_ROWS",
+    "csvFileDownload": "HOLD_NO_COMPLETED_FILE_OBSERVED",
+    "responsive": "OBSERVED_REQUESTED_390_PROVIDER_REPORTED_433_NO_HORIZONTAL_OVERFLOW",
+    "drJ": "PENDING_GENUINE_JOURNEY_CONTROLLED_ACTIVATION",
+    "phil": "INACTIVE_PENDING_EXISTING_ACCOUNT_SELECTION",
+    "lemonSlice": "SIGN_IN_REQUIRED"
+  },
+  "verification": {
+    "builderTests": 314,
+    "independentFocusedTests": 12,
+    "independentVerdict": "APPROVE_WITH_CONDITIONS_BRIAN_PRIVATE_READ_ONLY_MILESTONE",
+    "verifier": "/root/partner_live_verifier",
+    "anonymousPrivateRoutes": "401_PRIVATE_NO_STORE"
+  },
+  "constraints": {
+    "balances": "UNKNOWN",
+    "financialCertification": false,
+    "collection": false,
+    "prototypeProduction": false,
+    "neighborChanges": false,
+    "preExistingDirtyCliSha256": "008368133cc42a3c2209c6e9dbf2612e56f28a1534b4c60383ec6403ea4d556f"
+  }
+}

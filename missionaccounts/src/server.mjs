@@ -8,10 +8,21 @@ import { readRawBody, readJsonBody, parseJsonBody } from './http/body.mjs';
 import { StripeGateway } from './payments/stripe.mjs';
 import { NotificationGateway } from './notifications/notification-gateway.mjs';
 import { localDayFromIso } from './domain/billing-engine.mjs';
+import { normalizeCommercePlan } from './domain/business-contract.mjs';
 import { ZoomAttendanceProvider, createCycleBoundZoomClassifier } from './domain/zoom-provider.mjs';
 import { ZoomS2SClient, parseZoomMeetingRules } from './providers/zoom-s2s-client.mjs';
 import { authenticate, requireRole } from './security/auth.mjs';
 import { PreviewStore, SupabaseRestStore } from './storage/supabase-rest.mjs';
+import { createPartnerCostRouter } from './partner-cost-sharing/router.mjs';
+import { createFinancialReadRouter } from './mission-residency-finance/router.mjs';
+import { financialReadAccess } from './mission-residency-finance/read-model.mjs';
+import { createFinancialOperationsRouter } from './mission-residency-finance/operations-router.mjs';
+import { financialStudentAccess } from './mission-residency-finance/operations-service.mjs';
+import { createChaseReceiptProvider } from './mission-residency-finance/chase-provider.mjs';
+import { createFinancialQaRuntime } from './mission-residency-finance/qa-runtime.mjs';
+import { createFinancialQaRouter } from './mission-residency-finance/qa-router.mjs';
+import { MissionResidencyStripe } from './mission-residency-finance/stripe-provider.mjs';
+import { environmentPartnerConfig, environmentPartnerStore } from './partner-cost-sharing/store.mjs';
 
 const modulePath = fileURLToPath(import.meta.url);
 const here = path.dirname(modulePath);
@@ -21,6 +32,19 @@ function environmentConfig() {
   const production = process.env.NODE_ENV === 'production';
   return {
     production,
+    partnerCostSharing: environmentPartnerConfig(),
+    missionResidencyFinance: {
+      providerEvents: process.env.MISSION_RESIDENCY_PROVIDER_EVENTS === '1',
+      operations: process.env.MISSION_RESIDENCY_FINANCE_OPERATIONS === '1',
+      onboarding: process.env.MISSION_RESIDENCY_PAYMENT_ONBOARDING === '1',
+      publication: process.env.MISSION_RESIDENCY_FINANCE_PUBLICATION === '1',
+      cardDispatch: process.env.MISSION_RESIDENCY_CARD_DISPATCH === '1',
+      zelleMatcher: process.env.MISSION_RESIDENCY_ZELLE_MATCHER === '1',
+      stripeAccount: process.env.MISSION_RESIDENCY_STRIPE_ACCOUNT_ID || '',
+      publishableKey: process.env.MISSION_RESIDENCY_STRIPE_PUBLISHABLE_KEY || '',
+      chargeTermsVersion: process.env.MISSION_RESIDENCY_CHARGE_TERMS_VERSION || '',
+      settlementActor: 'mr-finance-provider-phase3',
+    },
     localAuth: process.env.MISSIONACCOUNTS_AUTH_MODE === 'local',
     issuer: process.env.MISSIONACCOUNTS_JWT_ISSUER || 'https://missionmedinstitute.com/wp-json/missionmed/v1/missionaccounts',
     audience: process.env.MISSIONACCOUNTS_JWT_AUDIENCE || 'missionaccounts',
@@ -51,6 +75,8 @@ function environmentConfig() {
       autoBillingShadow: process.env.MISSIONACCOUNTS_AUTO_BILLING_SHADOW === '1',
       onboarding: process.env.MISSIONACCOUNTS_ONBOARDING === '1',
       legacyInvoices: process.env.MISSIONACCOUNTS_LEGACY_INVOICES === '1',
+      commerce: process.env.MISSIONACCOUNTS_COMMERCE === '1',
+      onboardingLaunch: process.env.MISSIONACCOUNTS_ONBOARDING_LAUNCH === '1',
     },
     stripeMode: process.env.MISSIONACCOUNTS_STRIPE_MODE || 'disabled',
     stripeAccountId: process.env.MISSIONACCOUNTS_STRIPE_ACCOUNT_ID || '',
@@ -85,6 +111,23 @@ function environmentNotificationGateway() {
     token: process.env.MISSIONACCOUNTS_NOTIFICATION_TOKEN || '',
     mode: process.env.MISSIONACCOUNTS_NOTIFICATION_MODE || 'disabled',
   });
+}
+
+function environmentResidencyStripe() {
+  return new MissionResidencyStripe({ accountId: process.env.MISSION_RESIDENCY_STRIPE_ACCOUNT_ID || '',
+    secretKey: process.env.MISSION_RESIDENCY_STRIPE_SECRET_KEY, webhookSecret: process.env.MISSION_RESIDENCY_STRIPE_WEBHOOK_SECRET,
+    mode: process.env.MISSION_RESIDENCY_STRIPE_MODE || 'disabled',
+    liveMutationsEnabled: process.env.MISSION_RESIDENCY_STRIPE_LIVE_MUTATIONS === '1' });
+}
+
+function environmentFinancialQa() {
+  if(process.env.MISSION_RESIDENCY_QA_ENABLED!=='1') return null;
+  return createFinancialQaRuntime({enabled:true,
+    database:{url:process.env.MISSIONACCOUNTS_SUPABASE_URL,serviceKey:process.env.MISSIONACCOUNTS_SUPABASE_SERVICE_KEY},
+    provider:{accountId:process.env.MISSION_RESIDENCY_STRIPE_ACCOUNT_ID,mode:'test',liveMutationsEnabled:false,
+      secretKey:process.env.MISSION_RESIDENCY_QA_STRIPE_SECRET_KEY,publishableKey:process.env.MISSION_RESIDENCY_QA_STRIPE_PUBLISHABLE_KEY},
+    founder:{wpUserId:1,username:'brinyu',userId:process.env.MISSION_RESIDENCY_QA_FOUNDER_PRINCIPAL},
+    qaSubject:{wpUserId:1368,username:'brinyu2',userId:process.env.MISSION_RESIDENCY_QA_STUDENT_PRINCIPAL}});
 }
 
 function environmentZoomProvider({ cycleProvider } = {}) {
@@ -132,13 +175,13 @@ function onboardingProfileFromBody(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) throw requestError('Onboarding profile is invalid');
   const allowed = new Set([
     'preferred_name', 'school_name', 'best_contact_method', 'mailing_line1', 'mailing_line2',
-    'mailing_city', 'mailing_region', 'mailing_postal_code', 'mailing_country_code', 'expected_revision',
+    'mailing_city', 'mailing_region', 'mailing_postal_code', 'mailing_country_code', 'phone', 'expected_revision',
   ]);
   if (Object.keys(body).some(key => !allowed.has(key))) throw requestError('Onboarding profile contains an unsupported field');
   const changedFields = Object.keys(body).filter(key => key !== 'expected_revision');
   if (changedFields.length === 0) throw requestError('Onboarding profile contains no changes');
   const labels = {
-    preferred_name: 'Preferred name', school_name: 'School', best_contact_method: 'Best way to contact you',
+    phone: 'Phone number', preferred_name: 'Preferred name', school_name: 'School', best_contact_method: 'Best way to contact you',
     mailing_line1: 'Mailing address', mailing_line2: 'Address line 2', mailing_city: 'City',
     mailing_region: 'State or region', mailing_postal_code: 'Postal code', mailing_country_code: 'Country',
   };
@@ -160,6 +203,7 @@ function onboardingProfileFromBody(body) {
     mailing_postal_code: [24, false],
     mailing_country_code: [2, false],
   };
+  rules.phone = [100, false];
   const profile = Object.fromEntries(changedFields.map(key => {
     const [max, allowEmpty] = rules[key];
     const clean = value(key, max, allowEmpty);
@@ -171,9 +215,73 @@ function onboardingProfileFromBody(body) {
   if (Object.hasOwn(profile, 'mailing_country_code') && !isIsoCountryCode(profile.mailing_country_code)) {
     throw requestError('Choose a country from the list.', 400, { field: 'mailing_country_code' });
   }
+  const minimums = { school_name: 2, mailing_line1: 3, mailing_city: 2, mailing_region: 2, mailing_postal_code: 2 };
+  for (const [field, minimum] of Object.entries(minimums)) {
+    if (Object.hasOwn(profile, field) && profile[field].length < minimum) throw requestError(`${labels[field]} must contain at least ${minimum} characters.`, 400, { field });
+  }
+  if (Object.hasOwn(profile, 'phone') && (!/^[+0-9(). -]+$/.test(profile.phone) || !/^[0-9]{7,15}$/.test(profile.phone.replace(/\D/g, '')))) {
+    throw requestError('Enter a valid phone number with country code and 7–15 digits.', 400, { field: 'phone' });
+  }
   const expectedRevision = Number(body.expected_revision);
   if (!Number.isInteger(expectedRevision) || expectedRevision < 0) throw requestError('Onboarding revision is invalid');
   return { profile, changedFields, expectedRevision };
+}
+
+function commercePlanFromBody(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some(key => !['plan'].includes(key))) {
+    throw requestError('Commerce plan selection is invalid');
+  }
+  return normalizeCommercePlan(body.plan);
+}
+
+function onboardingIntroFromBody(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body) || body.acknowledged !== true
+      || Object.keys(body).some(key => key !== 'acknowledged')) {
+    throw requestError('Onboarding introduction acknowledgement is invalid');
+  }
+  return true;
+}
+
+function commerceAuthority(identity) {
+  const claim = identity?.claims?.missionaccounts_commerce;
+  const existingPlan = ['monthly', 'pay_go'].includes(claim?.existing_plan) ? claim.existing_plan : null;
+  let monthlyCheckoutUrl = null;
+  try {
+    const checkout = new URL(String(claim?.monthly_checkout_url || ''));
+    if (checkout.protocol === 'https:' && checkout.hostname === 'missionmedinstitute.com'
+        && checkout.pathname.startsWith('/checkout/')) monthlyCheckoutUrl = checkout.toString();
+  } catch { /* an absent or invalid signed URL stays unavailable */ }
+  return {
+    existingPlan,
+    liveGroupEligible: claim?.live_group_eligible === true || existingPlan !== null,
+    monthlyCheckoutUrl,
+  };
+}
+
+function commerceWithNextAction(commerce, authority) {
+  if (!commerce) return commerce;
+  const plan = commerce.selected_plan || commerce.selection?.plan || null;
+  let nextAction = null;
+  if (plan === 'monthly') {
+    nextAction = authority.monthlyCheckoutUrl
+      ? { type: 'woocommerce_checkout', url: authority.monthlyCheckoutUrl, label: 'Continue to secure checkout' }
+      : { type: 'checkout_unavailable', label: 'Contact MissionMed support' };
+  } else if (plan === 'pay_go') {
+    nextAction = { type: 'review_billing_authorization', route: '#/me/billing', label: 'Review billing authorization' };
+  }
+  return { ...commerce, next_action: nextAction };
+}
+
+function trialOverrideFromBody(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)
+      || Object.keys(body).some(key => !['starts_on', 'reason'].includes(key))) {
+    throw requestError('Trial override is invalid');
+  }
+  const startsOn = String(body.starts_on || '');
+  const reason = String(body.reason || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startsOn)) throw requestError('Trial override requires starts_on as YYYY-MM-DD');
+  if (reason.length < 3 || reason.length > 2_000) throw requestError('Trial override requires a 3 to 2000 character reason');
+  return { startsOn, reason };
 }
 
 function secureTokenEqual(actual, expected) {
@@ -186,11 +294,19 @@ export function createMissionAccountsServer({
   config = environmentConfig(),
   store = environmentStore(),
   stripeGateway = environmentStripeGateway(),
+  residencyStripe = environmentResidencyStripe(),
+  financialQa = environmentFinancialQa(),
   notificationGateway = environmentNotificationGateway(),
   zoomProvider = null,
+  partnerStore = undefined,
   publicDir = defaultPublicDir,
   now = () => new Date(),
 } = {}) {
+  const partnerCostRoute = createPartnerCostRouter({ config, authenticate, memberStore: partnerStore === undefined ? (config.partnerCostSharing?.prototype ? null : environmentPartnerStore()) : partnerStore });
+  async function financialQaAccess(identity){try{return financialQa ? Boolean(await financialQa.resolve(identity)):false;}catch{return false;}}
+  const financialQaRoute=createFinancialQaRouter({runtime:financialQa,authenticate,config});
+  const financialReadRoute = createFinancialReadRouter({ config, authenticate, store });
+  const financialOperationsRoute = createFinancialOperationsRouter({ config, authenticate, store, stripe: residencyStripe, chaseEvidence:createChaseReceiptProvider() });
   zoomProvider ||= environmentZoomProvider({ cycleProvider: () => store.billingCycles() });
   const zoomConfiguredAtStartup = typeof zoomProvider?.isConfigured === 'function'
     ? zoomProvider.isConfigured() === true
@@ -225,13 +341,24 @@ export function createMissionAccountsServer({
       auto_billing_consent_enabled: Boolean(config.features?.autoBillingConsent),
       auto_billing_shadow_enabled: Boolean(config.features?.autoBillingShadow),
       onboarding_enabled: Boolean(config.features?.onboarding),
+      commerce_enabled: Boolean(config.features?.commerce),
+      onboarding_launch_enabled: Boolean(config.features?.onboardingLaunch),
       stripe: stripeState,
     };
   }
 
   async function studentContext(identity) {
-    const student = await store.studentByMatrixUser(identity.userId);
+    let student = await store.studentByMatrixUser(identity.userId);
     if (!student) throw requestError('MissionAccounts record not found', 404);
+    // Only verified WordPress identity supplies this email; never a form value.
+    const accountEmail = String(identity.email || '').trim().toLowerCase();
+    if (!String(student.email || '').trim() && accountEmail.length <= 320
+        && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(accountEmail)) {
+      const synced = await store.syncStudentAccountEmail({
+        studentId: student.id, accountEmail, actorId: identity.userId, actorRole: 'student',
+      });
+      student = { ...student, email: synced.email };
+    }
     const issuedAtSeconds = Number(identity.claims?.iat);
     const sourceObservedAt = Number.isFinite(issuedAtSeconds)
       ? new Date(issuedAtSeconds * 1_000).toISOString()
@@ -395,6 +522,10 @@ export function createMissionAccountsServer({
   }
 
   async function handleApi(request, response, url) {
+    if (await financialQaRoute(request,response,url)) return;
+    if (await financialOperationsRoute(request, response, url)) return;
+    if (await financialReadRoute(request, response, url)) return;
+    if (await partnerCostRoute(request, response, url)) return;
     if (request.method === 'GET' && url.pathname === '/api/config') {
       const stripePublishableKey = String(config.stripePublishableKey || '');
       const stripeState = typeof stripeGateway?.configurationState === 'function'
@@ -662,6 +793,10 @@ export function createMissionAccountsServer({
         },
         program_access: identity.programAccess,
         capabilities: {
+          finance_qa: await financialQaAccess(identity),
+          finance_read: await financialReadAccess(store, identity),
+          finance_operate: config.missionResidencyFinance?.operations === true && await financialReadAccess(store, identity),
+          residency_payment_onboarding: await financialStudentAccess(store, identity, config.missionResidencyFinance),
           student_contacts: !registeredOnly && Boolean(config.features?.studentContacts),
           billing_decisions: !registeredOnly && Boolean(config.features?.billingDecisions),
           attendance_corrections: !registeredOnly && Boolean(config.features?.attendanceCorrections),
@@ -679,6 +814,8 @@ export function createMissionAccountsServer({
           auto_billing_shadow: !registeredOnly && Boolean(config.features?.autoBillingShadow),
           onboarding: !registeredOnly && Boolean(config.features?.onboarding),
           legacy_invoices: !registeredOnly && Boolean(config.features?.legacyInvoices),
+          commerce: !registeredOnly && Boolean(config.features?.commerce),
+          onboarding_launch: !registeredOnly && Boolean(config.features?.onboardingLaunch),
         },
       });
     }
@@ -705,7 +842,8 @@ export function createMissionAccountsServer({
       }
       if (role === 'student') {
         const student = await studentContext(identity);
-        const [attendance, billing, payment_method, billing_consent, billing_terms, exam_plan, canon, onboarding] = await Promise.all([
+        const commerceAuthorityState = commerceAuthority(identity);
+        const [attendance, billing, payment_method, billing_consent, billing_terms, exam_plan, canon, onboarding, commerce, onboardingLaunch] = await Promise.all([
           store.attendanceForStudent(student.id),
           store.billingForStudent(student.id),
           store.paymentMethodForStudent(student.id),
@@ -716,6 +854,12 @@ export function createMissionAccountsServer({
           config.features?.onboarding
             ? store.onboardingForStudent({ studentId: student.id, actorId: identity.userId, actorRole: 'student' })
             : Promise.resolve(null),
+          config.features?.commerce
+            ? store.commerceForStudent({ studentId: student.id, actorId: identity.userId, actorRole: 'student', ...commerceAuthorityState })
+            : Promise.resolve(null),
+          config.features?.onboardingLaunch
+            ? store.onboardingLaunchForStudent({ studentId: student.id, actorId: identity.userId, actorRole: 'student' })
+            : Promise.resolve(null),
         ]);
         return json(response, 200, {
           schema_version: 'missionaccounts-ui-bootstrap-v1',
@@ -724,11 +868,13 @@ export function createMissionAccountsServer({
           program_access: identity.programAccess,
           account: { student, attendance, billing, payment_method, billing_consent, billing_terms, exam_plan },
           onboarding,
+          commerce: commerceWithNextAction(commerce, commerceAuthorityState),
+          onboarding_launch: onboardingLaunch,
           canon,
         });
       }
       const cycles = await store.billingCycles();
-      const [home, students, cycleProjections, identityClusters, attendanceIssues, health, canon, onboardingQueue] = await Promise.all([
+      const [home, students, cycleProjections, identityClusters, attendanceIssues, health, canon, onboardingQueue, chargeReadiness] = await Promise.all([
         store.adminHome({ today: localDayFromIso(now().toISOString()) }),
         store.adminStudents(),
         Promise.all(cycles.map(cycle => store.adminCycle(cycle.key))),
@@ -742,6 +888,7 @@ export function createMissionAccountsServer({
             actorRole: identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin',
           })
           : Promise.resolve([]),
+        config.features?.manualCharges ? store.adminChargeReadiness() : Promise.resolve(null),
       ]);
       return json(response, 200, {
         schema_version: 'missionaccounts-ui-bootstrap-v1',
@@ -756,6 +903,7 @@ export function createMissionAccountsServer({
         health,
         canon,
         onboarding_queue: onboardingQueue,
+        charge_readiness: chargeReadiness,
       });
     }
     if (request.method === 'GET' && url.pathname === '/api/me') {
@@ -770,6 +918,48 @@ export function createMissionAccountsServer({
         store.currentExamPlanForStudent(student.id),
       ]);
       return json(response, 200, { student, attendance, billing, payment_method, billing_consent, billing_terms, exam_plan });
+    }
+    if (request.method === 'GET' && url.pathname === '/api/me/commerce') {
+      requireRole(identity, ['student']);
+      requireFeature(config, 'commerce');
+      const student = await studentContext(identity);
+      const authority = commerceAuthority(identity);
+      return json(response, 200, {
+        commerce: commerceWithNextAction(await store.commerceForStudent({ studentId: student.id, actorId: identity.userId, actorRole: 'student', ...authority }), authority),
+      });
+    }
+    if (request.method === 'POST' && url.pathname === '/api/me/commerce/plan') {
+      requireRole(identity, ['student']);
+      requireFeature(config, 'commerce');
+      const student = await studentContext(identity);
+      const plan = commercePlanFromBody(await readJsonBody(request, { limitBytes: 2_048 }));
+      const authority = commerceAuthority(identity);
+      const result = await store.selectCommercePlan({
+        studentId: student.id,
+        plan,
+        actorId: identity.userId,
+        actorRole: 'student',
+        requestId: requestIdFor(request),
+        ...authority,
+      });
+      return json(response, result.duplicate ? 200 : 201, {
+        ...result,
+        commerce: commerceWithNextAction(result.commerce, authority),
+        next_action: commerceWithNextAction(result.commerce, authority)?.next_action || null,
+      });
+    }
+    if (request.method === 'POST' && url.pathname === '/api/me/onboarding/intro') {
+      requireRole(identity, ['student']);
+      requireFeature(config, 'onboardingLaunch');
+      const student = await studentContext(identity);
+      onboardingIntroFromBody(await readJsonBody(request, { limitBytes: 2_048 }));
+      const result = await store.acknowledgeOnboardingIntro({
+        studentId: student.id,
+        actorId: identity.userId,
+        actorRole: 'student',
+        requestId: requestIdFor(request),
+      });
+      return json(response, result.duplicate ? 200 : 201, result);
     }
     if (request.method === 'GET' && url.pathname === '/api/me/onboarding') {
       requireRole(identity, ['student']);
@@ -1559,6 +1749,21 @@ export function createMissionAccountsServer({
       if (missing && !['email', 'setup'].includes(missing)) throw requestError('Student missing filter is invalid');
       return json(response, 200, { students: await store.adminStudents({ q, missing }) });
     }
+    const trialOverrideRoute = request.method === 'POST'
+      ? url.pathname.match(/^\/api\/admin\/students\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/commerce\/trial-override$/i)
+      : null;
+    if (trialOverrideRoute) {
+      requireRole(identity, ['missionaccounts_admin', 'founder']);
+      requireFeature(config, 'commerce');
+      const { startsOn, reason } = trialOverrideFromBody(await readJsonBody(request, { limitBytes: 8_192 }));
+      const result = await store.grantTrialOverride({
+        studentId: trialOverrideRoute[1], startsOn, reason,
+        actorId: identity.userId,
+        actorRole: identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin',
+        requestId: requestIdFor(request),
+      });
+      return json(response, result.duplicate ? 200 : 201, result);
+    }
     if (request.method === 'GET' && url.pathname === '/api/admin/identity') {
       requireRole(identity, ['missionaccounts_admin', 'founder']);
       const requestedState = url.searchParams.get('state') || 'open';
@@ -1677,6 +1882,14 @@ export function createMissionAccountsServer({
       'assets/auth': 'missionaccounts-auth.js',
       'assets/canonical-adapter': 'missionaccounts-canonical-adapter.js',
       'assets/stripe': 'missionaccounts-stripe.js',
+      'assets/partner-cost-sharing': 'partner-cost-sharing/ui.js',
+      'assets/partner-cost-sharing-style': 'partner-cost-sharing/ui.css',
+      'assets/mission-residency-finance-qa': 'mission-residency-finance/qa-ui.js',
+      'assets/mission-residency-finance': 'mission-residency-finance/ui.js',
+      'assets/mission-residency-operations-view': 'mission-residency-finance/operations-view.js',
+      'assets/mission-residency-student': 'mission-residency-finance/student.js',
+      'assets/mission-residency-finance-view': 'mission-residency-finance/view.js',
+      'assets/mission-residency-finance-style': 'mission-residency-finance/ui.css',
     };
     const requestedPath = pathname === '/' || pathname === normalizedBase.slice(0, -1) || pathname === normalizedBase || mountedPath === '' ? requestedIndex : mountedPath;
     const requested = assetAliases[requestedPath] || requestedPath;

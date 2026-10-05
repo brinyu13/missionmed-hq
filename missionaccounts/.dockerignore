@@ -10,3 +10,5 @@
 !public/missionaccounts-runtime.js
 !public/missionaccounts-stripe.js
 !Dockerfile
+!public/partner-cost-sharing/
+!public/partner-cost-sharing/**

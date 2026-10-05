@@ -1,0 +1,70 @@
+{
+  "access_enforcement_enabled": false,
+  "automatic_billing_dispatch": false,
+  "credential_method": "existing-account-or-secure-password-recovery",
+  "cta_url": "https://missionmedinstitute.com/missionaccounts/#/me/onboarding",
+  "exclusions": [
+    "UCC",
+    "MUL",
+    "duplicate_recipient",
+    "missing_canonical_account",
+    "missing_verified_email"
+  ],
+  "external_send_authorized": false,
+  "held_recipient_behavior": "retained_in_exact_manifest_never_sent",
+  "hosted_invoice_sending": false,
+  "html_sha256": "40caf8c4b4a8f70fbe16e347b1357098d397dc50ce313d24ee6a4608d83d4844",
+  "idempotency_key": "sha256(template_version|wp_user_id|email_sha256)",
+  "money_moved_cents": 0,
+  "notifications_outside_exact_pilot": false,
+  "pilot_display_names": [
+    "Neidy",
+    "Ana Torres",
+    "Raghav Gupta",
+    "Subani Dias"
+  ],
+  "pilot_statuses": [
+    "READY",
+    "HELD"
+  ],
+  "primary_donor": {
+    "git_blob_oid": "714cd55bfa5add694b71ec6aa7abb61f91cc9f07",
+    "path": "wp-content/plugins/missionmed-hub/templates/emails/welcome-360.html",
+    "sha256": "340dbeb88c9260632c5d471592dab50ee78f7450500c3f818d1dae9bbcf6d3ff"
+  },
+  "provider": "wordpress_wp_mail",
+  "provider_controller": "scripts/onboarding-launch/wp_onboarding_pilot.php",
+  "recipient_addresses_stored_in_source": false,
+  "recipient_manifest_builder": "scripts/onboarding-launch/build_pilot_manifest.py",
+  "reply_to": "Dr J via MissionMed <current verified WordPress admin address>",
+  "requested_completion_window_hours": 48,
+  "required_merge_fields": [
+    "first_name",
+    "username",
+    "account_url",
+    "password_setup_url",
+    "support_email"
+  ],
+  "runtime_manifest_required": true,
+  "runtime_preflight": [
+    "canonical_student_id",
+    "wp_user_id",
+    "username",
+    "email_sha256",
+    "DIRECT",
+    "ExamPrep_enrolled",
+    "onboarding_eligible",
+    "not_previously_sent"
+  ],
+  "schema_version": "missionaccounts-onboarding-pilot-manifest-v2",
+  "send_ledger": "WordPress user meta _missionmed_onboarding_launch_v1",
+  "send_workflow_donor": {
+    "git_blob_oid": "5a4b59d50f15a2f198227fe06eaab211d37b8de0",
+    "path": "wp-content/plugins/missionmed-hub/includes/class-mmed-welcome-email-admin.php",
+    "sha256": "7270f420ac8b4176d4ba1acf2f0e9ad455d3e43fd946ec73e28dd99e9ef087e1"
+  },
+  "sender": "Dr J via MissionMed <current verified WordPress admin address>",
+  "subject": "Your MyMissionMed Account is ready",
+  "template_version": "examprep-onboarding-email-2026-09-17-v2",
+  "text_sha256": "22668fae65ad33bcde060a86547a05d400152f0506f376870eb4d6f0193e7282"
+}

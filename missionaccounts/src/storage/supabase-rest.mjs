@@ -1,7 +1,9 @@
 import { transitionExamPlan as applyExamTransition } from '../domain/exam-engine.mjs';
 import { buildDecisionBasis, calculateCycleAmount } from '../domain/billing-engine.mjs';
 import { buildAutomaticBillingShadow } from '../domain/auto-billing-shadow.mjs';
+import { commercePlanState, contractPublicSummary } from '../domain/business-contract.mjs';
 import { isIsoCountryCode } from '../../public/missionaccounts-countries.js';
+import { buildManualChargeReadiness } from '../domain/manual-charge-readiness.mjs';
 
 function sanitizedPaymentMethod(row) {
   if (!row) return null;
@@ -57,6 +59,13 @@ export class SupabaseRestStore {
     return rows[0] || null;
   }
 
+  async syncStudentAccountEmail({ studentId, accountEmail, actorId, actorRole }) {
+    return this.rpc('api_sync_student_account_email', {
+      p_student_id: studentId, p_account_email: accountEmail,
+      p_actor_id: actorId, p_actor_role: actorRole,
+    });
+  }
+
   async syncProgramEnrollment({ studentId, enrolled, sourceSubject, sourceObservedAt, actorId, requestId }) {
     return this.rpc('api_sync_program_enrollment', {
       p_student_id: studentId,
@@ -85,8 +94,9 @@ export class SupabaseRestStore {
   }
 
   async saveStudentOnboarding({ studentId, profile, changedFields = Object.keys(profile).filter(field => field !== 'expected_revision'), expectedRevision, actorId, actorRole, requestId }) {
-    return this.rpc('api_save_student_onboarding', {
+    return this.rpc('api_save_student_onboarding_v2', {
       p_student_id: studentId,
+      p_phone: profile.phone ?? null,
       p_preferred_name: profile.preferred_name ?? null,
       p_school_name: profile.school_name ?? null,
       p_best_contact_method: profile.best_contact_method ?? null,
@@ -108,6 +118,52 @@ export class SupabaseRestStore {
     return this.rpc('api_admin_onboarding_queue', {
       p_actor_id: actorId,
       p_actor_role: actorRole,
+    });
+  }
+
+  async commerceForStudent({ studentId, actorId, actorRole, existingPlan = null, liveGroupEligible = false }) {
+    return this.rpc('api_get_student_commerce', {
+      p_student_id: studentId,
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+      p_existing_plan: existingPlan,
+      p_live_group_eligible: liveGroupEligible === true,
+    });
+  }
+
+  async selectCommercePlan({ studentId, plan, actorId, actorRole, requestId, existingPlan = null, liveGroupEligible = false }) {
+    return this.rpc('api_select_student_commerce_plan', {
+      p_student_id: studentId,
+      p_plan: plan,
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+      p_request_id: requestId,
+      p_existing_plan: existingPlan,
+      p_live_group_eligible: liveGroupEligible === true,
+    });
+  }
+
+  async grantTrialOverride({ studentId, startsOn, reason, actorId, actorRole, requestId }) {
+    return this.rpc('api_grant_student_trial_override', {
+      p_student_id: studentId, p_starts_on: startsOn, p_reason: reason,
+      p_actor_id: actorId, p_actor_role: actorRole, p_request_id: requestId,
+    });
+  }
+
+  async onboardingLaunchForStudent({ studentId, actorId, actorRole }) {
+    return this.rpc('api_get_student_onboarding_launch', {
+      p_student_id: studentId,
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+    });
+  }
+
+  async acknowledgeOnboardingIntro({ studentId, actorId, actorRole, requestId }) {
+    return this.rpc('api_acknowledge_student_onboarding_intro', {
+      p_student_id: studentId,
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+      p_request_id: requestId,
     });
   }
 
@@ -820,6 +876,20 @@ export class SupabaseRestStore {
     });
   }
 
+  async adminChargeReadiness() {
+    const [decisions, students, identities, profiles, invoices, customers, methods, charges] = await Promise.all([
+      this.requestAll('billing_decision?state=eq.approved&superseded_by_id=is.null&amount_cents=gt.0&select=id,student_id,cycle_key,treatment,amount_cents,state,superseded_by_id'),
+      this.requestAll('student?select=id,display_name,email,identity_state,matrix_user_ref,sponsor_type'),
+      this.requestAll('student_identity_projection?select=id,canonical_student_id,absorbed,excluded'),
+      this.requestAll('student_onboarding_profile?select=student_id,school_name,best_contact_method,mailing_line1,mailing_city,mailing_region,mailing_postal_code,mailing_country_code'),
+      this.requestAll('invoice?select=id,student_id,cycle_key,decision_id,state,amount_cents,provider_ref,created_at'),
+      this.requestAll('stripe_customer_private?select=student_id,provider_customer_ref'),
+      this.requestAll('payment_method_private?select=student_id,status,provider_customer_ref,brand,last4'),
+      this.requestAll('manual_cycle_charge?select=student_id,cycle_key,decision_id,state,created_at'),
+    ]);
+    return buildManualChargeReadiness({ decisions, students, identities, profiles, invoices, customers, methods, charges });
+  }
+
   async adminHome({ today }) {
     const [students, attendanceDays, decisions, examPlans, reminders, invoices, identityClusters, attendanceIssues] = await Promise.all([
       this.adminStudents(),
@@ -943,6 +1013,12 @@ export class PreviewStore {
     this.enrollmentMutations = new Map();
     this.onboardingProfiles = new Map();
     this.onboardingMutations = new Map();
+    this.commercePlanSelections = new Map();
+    this.commercePlanMutations = new Map();
+    this.trialOverrides = new Map();
+    this.trialOverrideMutations = new Map();
+    this.onboardingLaunchStates = new Map();
+    this.onboardingIntroMutations = new Map();
     this.automaticBillingContract = {
       rollout_cutoff: new Date(0).toISOString(),
       ordinary_dispatch_delay_hours: 24,
@@ -991,6 +1067,19 @@ export class PreviewStore {
 
   async studentByMatrixUser(userId) {
     return this.previewStudentRecord.id === userId ? { ...this.previewStudentRecord } : null;
+  }
+  async syncStudentAccountEmail({ studentId, accountEmail, actorId, actorRole }) {
+    if (actorRole !== 'student' || actorId !== studentId || studentId !== this.previewStudentRecord.id
+        || this.previewStudentRecord.identity_state !== 'verified') {
+      throw Object.assign(new Error('Account email requires the canonical student'), { status: 403 });
+    }
+    const cleanEmail = String(accountEmail || '').trim().toLowerCase();
+    if (cleanEmail.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      throw Object.assign(new Error('Invalid account email'), { status: 400 });
+    }
+    const updated = !String(this.previewStudentRecord.email || '').trim();
+    if (updated) this.previewStudentRecord.email = cleanEmail;
+    return { email: this.previewStudentRecord.email, updated };
   }
   async syncProgramEnrollment({ studentId, enrolled, sourceSubject, sourceObservedAt, actorId, requestId }) {
     const fingerprint = JSON.stringify({ studentId, enrolled: enrolled === true, sourceSubject, sourceObservedAt, actorId });
@@ -1046,16 +1135,17 @@ export class PreviewStore {
     };
     const missing = [];
     if (!progress.account) missing.push('ACCOUNT');
-    if (!progress.profile) missing.push('PROFILE');
-    if (!progress.contact) missing.push('CONTACT');
-    if (!progress.exam_plan) missing.push('EXAM_PLAN');
+    const optionalMissing = ['profile','contact','exam_plan'].filter(key => !progress[key]).map(key => key.toUpperCase());
     if (direct && !progress.payment_method) missing.push('PAYMENT_METHOD');
     if (direct && !progress.billing_consent) missing.push('BILLING_CONSENT');
     return {
       student: { display_name: student.display_name, email: student.email, phone: student.phone, sponsor_type: student.sponsor_type },
       profile: profile ? { ...profile } : null,
-      status: missing.length === 0 ? 'COMPLETE' : profile ? 'IN_PROGRESS' : 'NOT_STARTED',
+      status: missing.length === 0 ? 'COMPLETE' : (profile || progress.payment_method || progress.billing_consent) ? 'IN_PROGRESS' : 'NOT_STARTED',
       missing_steps: missing,
+      optional_missing_steps: optionalMissing,
+      required_steps: direct ? ['PAYMENT_METHOD','BILLING_CONSENT'] : [],
+      completion_contract_version: 'examprep-onboarding-payment-readiness-2026-10-02-v1',
       progress,
       payment_requirement: direct ? 'REQUIRED' : 'NOT_APPLICABLE',
       revision: profile?.revision || 0,
@@ -1069,7 +1159,7 @@ export class PreviewStore {
   }
   async saveStudentOnboarding({ studentId, profile, changedFields = Object.keys(profile).filter(field => field !== 'expected_revision'), expectedRevision, actorId, actorRole, requestId }) {
     if (actorRole !== 'student' || actorId !== studentId) throw Object.assign(new Error('Onboarding student subject mismatch'), { status: 403 });
-    const allowed = new Set(['preferred_name','school_name','best_contact_method','mailing_line1','mailing_line2','mailing_city','mailing_region','mailing_postal_code','mailing_country_code']);
+    const allowed = new Set(['phone','preferred_name','school_name','best_contact_method','mailing_line1','mailing_line2','mailing_city','mailing_region','mailing_postal_code','mailing_country_code']);
     if (!changedFields.length || changedFields.some(field => !allowed.has(field)) || new Set(changedFields).size !== changedFields.length) {
       throw Object.assign(new Error('Onboarding profile contains invalid changes'), { status: 400 });
     }
@@ -1095,7 +1185,12 @@ export class PreviewStore {
     }
     const current = this.onboardingProfiles.get(studentId) || null;
     if ((current?.revision || 0) !== expectedRevision) throw Object.assign(new Error('Onboarding was updated in another session. Reload before saving.'), { status: 409 });
-    const saved = { ...(current || {}), ...normalized, revision: expectedRevision + 1, updated_at: new Date().toISOString() };
+    const { phone, ...profileFields } = normalized;
+    if (Object.hasOwn(normalized, 'phone')) {
+      if (!/^[+0-9(). -]+$/.test(phone || '') || !/^[0-9]{7,15}$/.test(String(phone).replace(/\D/g, ''))) throw Object.assign(new Error('Enter a valid phone number.'), { status: 400 });
+      this.previewStudentRecord.phone = phone;
+    }
+    const saved = { ...(current || {}), ...profileFields, revision: expectedRevision + 1, updated_at: new Date().toISOString() };
     this.onboardingProfiles.set(studentId, saved);
     const result = { accepted: true, duplicate: false, onboarding: this.onboardingState(studentId) };
     this.onboardingMutations.set(requestId, { fingerprint, result: structuredClone(result) });
@@ -1121,6 +1216,96 @@ export class PreviewStore {
       last_updated_at: state.last_updated_at,
     }];
   }
+  commerceState(studentId, { existingPlan = null, liveGroupEligible = true } = {}) {
+    if (studentId !== this.previewStudentRecord.id) throw Object.assign(new Error('Student record not found'), { status: 404 });
+    const attendedDays = [...this.attendanceDays.entries()]
+      .filter(([key]) => key.startsWith(`${studentId}:`))
+      .flatMap(([, days]) => days)
+      .filter(day => day && day.kind !== 'needs_review')
+      .map(day => day.day);
+    const current = this.commercePlanSelections.get(studentId) || null;
+    const override = this.trialOverrides.get(studentId) || null;
+    const qualifyingDays = override
+      ? attendedDays.filter(day => day >= override.starts_on)
+      : attendedDays;
+    return {
+      contract: contractPublicSummary(),
+      ...commercePlanState({ attendedDays: qualifyingDays, selection: current?.plan || null, existingPlan, liveGroupEligible }),
+      selection: current ? { plan: current.plan, selected_at: current.selected_at } : null,
+      trial_override: override ? { starts_on: override.starts_on, granted_at: override.granted_at } : null,
+      private_offer: null,
+      dispatch_enabled: false,
+      charge_authorized: false,
+    };
+  }
+  async commerceForStudent({ studentId, actorId, actorRole, existingPlan = null, liveGroupEligible = true }) {
+    if (actorRole !== 'student' || actorId !== studentId) throw Object.assign(new Error('Commerce student subject mismatch'), { status: 403 });
+    return this.commerceState(studentId, { existingPlan, liveGroupEligible });
+  }
+  async selectCommercePlan({ studentId, plan, actorId, actorRole, requestId, existingPlan = null, liveGroupEligible = true }) {
+    if (actorRole !== 'student' || actorId !== studentId) throw Object.assign(new Error('Commerce student subject mismatch'), { status: 403 });
+    const fingerprint = JSON.stringify({ studentId, plan, actorId, actorRole });
+    const prior = this.commercePlanMutations.get(requestId);
+    if (prior) {
+      if (prior.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
+      return { ...structuredClone(prior.result), duplicate: true };
+    }
+    const state = this.commerceState(studentId, { existingPlan, liveGroupEligible });
+    if (!state.eligible) throw Object.assign(new Error('Live Group enrollment is required.'), { status: 403 });
+    if (state.selection_source === 'existing_active_arrangement') throw Object.assign(new Error('An active Live Group arrangement already exists.'), { status: 409 });
+    if (!state.trial_complete) throw Object.assign(new Error('Plan selection opens after five attended trial days.'), { status: 409 });
+    this.commercePlanSelections.set(studentId, { plan, selected_at: new Date().toISOString() });
+    const result = { accepted: true, duplicate: false, commerce: this.commerceState(studentId, { existingPlan, liveGroupEligible }), provider_action: null, money_moved_cents: 0 };
+    this.commercePlanMutations.set(requestId, { fingerprint, result: structuredClone(result) });
+    return result;
+  }
+  async grantTrialOverride({ studentId, startsOn, reason, actorId, actorRole, requestId }) {
+    if (!['missionaccounts_admin', 'founder'].includes(actorRole) || !actorId) throw Object.assign(new Error('Trial override administrator authority required'), { status: 403 });
+    if (studentId !== this.previewStudentRecord.id) throw Object.assign(new Error('Student record not found'), { status: 404 });
+    const fingerprint = JSON.stringify({ studentId, startsOn, reason, actorId, actorRole });
+    const prior = this.trialOverrideMutations.get(requestId);
+    if (prior) {
+      if (prior.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
+      return { ...structuredClone(prior.result), duplicate: true };
+    }
+    const override = { starts_on: startsOn, reason, granted_at: new Date().toISOString() };
+    this.trialOverrides.set(studentId, override);
+    const result = { accepted: true, duplicate: false, trial_override: { ...override }, commerce: this.commerceState(studentId), provider_action: null, money_moved_cents: 0 };
+    this.trialOverrideMutations.set(requestId, { fingerprint, result: structuredClone(result) });
+    return result;
+  }
+  onboardingLaunchState(studentId) {
+    if (studentId !== this.previewStudentRecord.id) throw Object.assign(new Error('Student record not found'), { status: 404 });
+    const saved = this.onboardingLaunchStates.get(studentId) || null;
+    const onboarding = this.onboardingState(studentId);
+    return {
+      version: 'examprep-onboarding-intro-2026-09-17-v1',
+      intro_required: onboarding.status !== 'COMPLETE' && !saved?.acknowledged_at,
+      acknowledged_at: saved?.acknowledged_at || null,
+      onboarding_complete: onboarding.status === 'COMPLETE',
+      enforcement_enabled: false,
+      deadline_at: null,
+      notification_sent: false,
+    };
+  }
+  async onboardingLaunchForStudent({ studentId, actorId, actorRole }) {
+    if (actorRole !== 'student' || actorId !== studentId) throw Object.assign(new Error('Onboarding student subject mismatch'), { status: 403 });
+    return this.onboardingLaunchState(studentId);
+  }
+  async acknowledgeOnboardingIntro({ studentId, actorId, actorRole, requestId }) {
+    if (actorRole !== 'student' || actorId !== studentId) throw Object.assign(new Error('Onboarding student subject mismatch'), { status: 403 });
+    const fingerprint = JSON.stringify({ studentId, actorId, actorRole });
+    const prior = this.onboardingIntroMutations.get(requestId);
+    if (prior) {
+      if (prior.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
+      return { ...structuredClone(prior.result), duplicate: true };
+    }
+    this.onboardingLaunchStates.set(studentId, { acknowledged_at: new Date().toISOString() });
+    const result = { accepted: true, duplicate: false, onboarding_launch: this.onboardingLaunchState(studentId), notification_sent: false, money_moved_cents: 0 };
+    this.onboardingIntroMutations.set(requestId, { fingerprint, result: structuredClone(result) });
+    return result;
+  }
+
   legacyInvoiceKey(studentId, cycleKey) { return `${studentId}:${cycleKey}`; }
   async legacyInvoicePreview({ studentId, cycleKey }) {
     if (studentId !== this.previewStudentRecord.id) throw Object.assign(new Error('Student record not found'), { status: 404 });
@@ -2848,6 +3033,20 @@ export class PreviewStore {
         : true;
     return matches && missingMatch ? [student] : [];
   }
+  async adminChargeReadiness() {
+    return buildManualChargeReadiness({
+      decisions: [...this.billingDecisions.values()],
+      students: [this.previewStudentRecord],
+      identities: [{ id: this.previewStudentRecord.id, canonical_student_id: this.previewStudentRecord.id,
+        absorbed: false, excluded: false }],
+      profiles: [...this.onboardingProfiles.entries()].map(([student_id, profile]) => ({ student_id, ...profile })),
+      invoices: [...this.invoices.values()],
+      customers: [...this.stripeCustomers.entries()].map(([student_id, customer]) => ({ student_id, ...customer })),
+      methods: [...this.paymentMethods.entries()].map(([student_id, method]) => ({ student_id, ...method })),
+      charges: [...this.manualCycleCharges.values()],
+    });
+  }
+
   async adminHome({ today }) {
     const students = await this.adminStudents();
     const examPlans = [...this.examPlans.values()].filter(plan => !plan.withdrawn_at);
