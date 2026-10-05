@@ -66,6 +66,10 @@ test('real transport uses documented Sol6.1 high, strict structured outputs, sto
   assert.deepEqual(request.text.format.schema,LOCAL_LAYOUT_CRITIC_OUTPUT_SCHEMA);
   const instructions=request.input[0].content[0].text;
   assert.match(instructions,/ABOVE ribbon top y=125/);assert.match(instructions,/pole foot exactly on y=125/);assert.match(instructions,/EXAM_RESULT.*genuinely attached/);assert.match(instructions,/BELOW ribbon bottom y=161/);assert.match(instructions,/factual START-anchor ordering/);assert.match(instructions,/later END does not justify/);assert.match(instructions,/Null means unknown/);assert.match(instructions,/year-weight reflow/);
+  assert.match(instructions,/institution LEFT.*date close ABOVE.*role INSIDE.*location immediately BELOW/);
+  assert.match(instructions,/Only true single-date/);assert.match(instructions,/never.*move excluded information back into the band/);
+  assert.match(instructions,/one USCE color.*distinct Volunteer color/);
+  assert.match(instructions,/factual START anchors in order and duration endpoints intact/);
   assert.ok(!calls[0].init.body.includes('Medical Officer'));assert.ok(!calls[0].init.body.includes('Morgan Lake'));
   assert.equal(response.providerReceipt.responseId,'resp_local_unit');assert.equal(response.providerReceipt.store,false);
   assert.match(response.providerReceipt.inputSha256,/^[a-f0-9]{64}$/);assert.match(response.providerReceipt.outputSha256,/^[a-f0-9]{64}$/);
