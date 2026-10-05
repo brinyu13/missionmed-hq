@@ -43,7 +43,7 @@ import {
 } from "./uxr-002/quality-guardian.js";
 import {createLocalLayoutReview,isLocalLayoutReviewLocation} from './uxr-002/local-layout-review.js';
 import {reflowLocalLayoutCriticDateAnchors} from './presentation/layout-critic-projection.js';
-import {locked407FMilestoneGeometry} from './uxr-002/locked-407f-export.js';
+import {locked407FMilestoneGeometry,locked407FNativeMilestonePresentation} from './uxr-002/locked-407f-export.js';
 import {
   appendTimelineAiFeedback,
   classifyTimelineAiCandidateOutcome
@@ -450,6 +450,18 @@ export function advancedEventGeometry407F(document,id,source,renderOptions={}){
     return box&&[box.x,box.y,box.width,box.height].every(Number.isFinite)&&box.width>0&&box.height>0
       ?{x:box.x,y:box.y,width:box.width,height:box.height,rotation:0,locked:false,aspectLocked:false}:null;
   }catch{return null;}
+}
+
+export function advancedEventCreation407F(document,id,renderOptions={}){
+  const event=(document.events||[]).find(event=>String(event.id)===String(id));
+  const presentation={eventType:event?.eventType||'duration'};
+  const existing=(document.advanced?.scene?.objects||[]).some(object=>object.type==='event'&&
+    (String(object.semanticRef||'')===String(id)||String(object.id)===String(id)));
+  if(!existing&&event?.eventType==='milestone'){
+    const native=locked407FNativeMilestonePresentation(serializeFounderPresentation(document,{scope:'EVERYTHING',...renderOptions}).scene,id);
+    if(native)Object.assign(presentation,native);
+  }
+  return {type:'event',semanticRef:String(id),aspectLocked:false,presentation};
 }
 
 export function applyHumanAxisPresentation407F(document,result,renderOptions={}){
@@ -4443,12 +4455,7 @@ export async function boot407FEngineeringAdapter({
       kind:"geometry",
       target:{type:"event",id:domainId},
       geometry:detail.geometry,
-      create:{
-        type:"event",
-        semanticRef:domainId,
-        aspectLocked:false,
-        presentation:{eventType:semanticEvent.eventType||"duration"}
-      },
+      create:advancedEventCreation407F(store.document,domainId,{currentMonth:currentMonth(),mediaById:liveMediaById()}),
       label
     });
     if(!result.changed)return;
@@ -7673,7 +7680,7 @@ export async function boot407FEngineeringAdapter({
           next=constrainAdvancedObjectToBoard(member.type==="media"?moveMediaElement(original,{x,y}):{...original,x,y},{minimumSize:member.type==="event"?1:48});
         }
         const result=applySceneCommandToDocument(working,{kind:"geometry",target:member,geometry:next,label,
-          ...(member.type==="event"?{create:{type:"event",semanticRef:member.id,aspectLocked:false,presentation:{eventType:store.document.events.find(item=>String(item.id)===member.id)?.eventType||"duration"}}}:{})});
+          ...(member.type==="event"?{create:advancedEventCreation407F(working,member.id,{currentMonth:currentMonth(),mediaById:liveMediaById()})}:{})});
         if(result.changed){working=result.document;changed=true;}
       }
       if(!changed)return false;
@@ -7933,7 +7940,7 @@ export async function boot407FEngineeringAdapter({
         }else{
           const result=applySceneCommandToDocument(store.document,{
             kind:"geometry",target:{type:object.type,id:object.id},geometry:{...object.item,rotation},
-            ...(object.type==="event"?{create:{type:"event",semanticRef:object.id,aspectLocked:false,presentation:{eventType:store.document.events.find((item)=>String(item.id)===String(object.id))?.eventType||"duration"}}}:{}),
+            ...(object.type==="event"?{create:advancedEventCreation407F(store.document,object.id,{currentMonth:currentMonth(),mediaById:liveMediaById()})}:{}),
             label:"Rotate Timeline object"
           });
           if(!result.changed)return;
@@ -9102,12 +9109,7 @@ export async function boot407FEngineeringAdapter({
           target:{type:pointer.type,id:pointer.id},
           geometry:pointer.preview,
           ...(pointer.type==="event"?{
-            create:{
-              type:"event",semanticRef:pointer.id,aspectLocked:false,
-              presentation:{eventType:store.document.events.find(
-                (item)=>String(item.id)===String(pointer.id)
-              )?.eventType||"duration"}
-            }
+            create:advancedEventCreation407F(base,pointer.id,{currentMonth:currentMonth(),mediaById:liveMediaById()})
           }:{}),
           label
         });

@@ -403,6 +403,19 @@ export function locked407FMilestoneGeometry(scene,id){
   return {x,y,width,height,rotation,axisY:FOUNDER_PORTABLE_GEOMETRY.axisTop,axisBottom:FOUNDER_PORTABLE_GEOMETRY.axisTop+FOUNDER_PORTABLE_GEOMETRY.axisHeight,object};
 }
 
+// Capture the resolved native grammar when a human first materializes an
+// event object. Existing authored geometry keeps its original presentation.
+export function locked407FNativeMilestonePresentation(scene,id){
+  const index=(scene?.flags||[]).findIndex(flag=>String(flag.id)===String(id));
+  if(index<0)return null;
+  const flag=scene.flags[index],placed=milestoneGeometry(flag,index,metrics(scene),scene);
+  if(placed.object)return null;
+  const layout=scene.autoFlagLabels?.get(String(flag.id));
+  const labelWidth=String(flag.title||'').length*9.5+8;
+  const flip=layout?.flip??(placed.x+56+Math.max(labelWidth,Math.min(420,String(flag.siteName||'').length*10))>WIDTH-8);
+  return {flagLabelLayout:{width:layout?.width||420,flip},nativeFlagPole:{anchor:'native'}};
+}
+
 function flagMarkup(flag,index,scale,scene,{interview=false}={}){
   const placed=milestoneGeometry(flag,index,scale,scene,{interview});
   const {overridden,x,y}=placed;
@@ -414,7 +427,12 @@ function flagMarkup(flag,index,scale,scene,{interview=false}={}){
   const flipLabel=labelLayout?.flip??(x+56+Math.max(labelWidth,Math.min(420,String(flag.siteName||"").length*10))>WIDTH-8);
   const sx=placed.width/50,sy=placed.height/64,rotation=placed.rotation;
   const axisAnchored=!!overridden&&placed.object?.presentation?.guardianAnchor==='axis'&&rotation===0;
-  const anchoredPoleBottom=axisAnchored?(FOUNDER_PORTABLE_GEOMETRY.axisTop-y)/sy:64;
+  // Native first edits retain the original axis/study attachment, including
+  // rotation. This opt-in marker never reinterprets older authored overrides.
+  const nativeAnchored=!!overridden&&placed.object?.presentation?.nativeFlagPole?.anchor==='native';
+  const nativeBottom=/\b(?:united states(?: of america)?|u\.s\.(?:a\.)?|usa)\b/i.test(String(flag.title||''))
+    ?FOUNDER_PORTABLE_GEOMETRY.axisTop:placed.defaultPoleBottom;
+  const anchoredPoleBottom=nativeAnchored?(nativeBottom-y)/sy:axisAnchored?(FOUNDER_PORTABLE_GEOMETRY.axisTop-y)/sy:64;
   const transform=overridden
     ?` transform="translate(${x} ${y}) rotate(${rotation} 25 32) scale(${sx} ${sy})"`
     :"";

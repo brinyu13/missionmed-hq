@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {mountLocalLayoutReview407F,applyHumanAxisPresentation407F,advancedEventGeometry407F,timelineRenderSignature} from '../web/js/407f-engineering-adapter.js';
+import {mountLocalLayoutReview407F,applyHumanAxisPresentation407F,advancedEventGeometry407F,advancedEventCreation407F,timelineRenderSignature} from '../web/js/407f-engineering-adapter.js';
 import {LAYOUT_CRITIC_CONSENT_VERSION,projectLayoutCritic,applyLayoutRecommendations} from '../web/js/presentation/layout-critic-projection.js';
-import {setAxisPresentationOverride,setAxisSegmentWeights,resetAxisPresentationOverride,renderAdvancedPresentationControls,resetAdvancedEventLayout} from '../web/js/uxr-002/advanced-studio.js';
+import {setAxisPresentationOverride,setAxisSegmentWeights,resetAxisPresentationOverride,renderAdvancedPresentationControls,resetAdvancedEventLayout,constrainAdvancedObjectToBoard} from '../web/js/uxr-002/advanced-studio.js';
 import {resolveFounderPresentationSvg} from '../web/js/presentation/resolved-founder-presentation.js';
-import {buildFounderPresentationScene,serializeFounderPresentation} from '../web/js/presentation/founder-presentation-serializer.js';
+import {buildFounderPresentationScene,serializeFounderPresentation,founderMilestoneTemplateGeometry,violatesFounderTemplateBand} from '../web/js/presentation/founder-presentation-serializer.js';
 import {applyLocalLayoutCriticSceneCommand,applySceneCommandToDocument} from '../web/js/editor/scene-commands.js';
 import {TimelineStore,migrateDocument} from '../web/js/uxr-002/store.js';
 import {FOUNDER_2025_MATRIX} from './fixtures/founder-2025-matrix.mjs';
@@ -304,4 +304,117 @@ test('044 native geometry cache reuses the same painted source and invalidates f
   item('long-publication');item('long-publication');assert.equal(calls,1);
   store.document.events[1].title+=' Revised';item('long-publication');assert.equal(calls,2);
   store.document.studentOwnerId='other-synthetic-owner';item('long-publication');assert.equal(calls,3);
+});
+
+function resolvedLongDegreeFixture(){
+  const document=structuredClone(FOUNDER_2025_MATRIX.find(item=>item.id==='M02').document);
+  document.mode='advanced';document.layoutLock=false;
+  document.events[0].startDate='2025-06';
+  document.events[0].title='Synthetic medical degree with complete longitudinal professional education source wording';
+  document.events[0].siteName='Synthetic International Medical University';
+  document.events[1].startDate='2020-01';document.events[1].endDate='2026-03';
+  const label=document.events[0].title+' — '+document.events[0].siteName;
+  // Deterministic synthetic font metrics reproduce the independent 957px case.
+  const options={...renderOptions,measureText:(text,size=18)=>String(text).length*(956.5/label.length)*(size/18)};
+  return {document,options};
+}
+function flagPaint(document,id,options){
+  const rendered=serializeFounderPresentation(document,options),paint=resolveFounderPresentationSvg(rendered.svg,{measureText:options.measureText});
+  const texts=paint.nodes.filter(node=>node.semanticRef===id&&node.kind==='text');
+  const labels=texts.filter(node=>node.sourceAttributes['data-board-ink-role']==='flag-label');
+  return {rendered,paint,texts,labels,template:founderMilestoneTemplateGeometry(rendered.scene,paint).find(item=>item.eventId===id)};
+}
+function executeFirstEventEdit(source,path,document,id,geometry,options,kind='move'){
+  const preview=kind==='resize'?{...geometry,width:geometry.width+5,height:geometry.height+5}:{...geometry,y:geometry.y+5};
+  const store={document:structuredClone(document),entitlement:{canMutate:true},replace(next){this.document=next;}};
+  const create=(doc,eventId)=>advancedEventCreation407F(doc,eventId,options);
+  const apply=(doc,command)=>applySceneCommandToDocument(doc,command,options);
+  if(path==='kernel'){
+    const begin=source.indexOf('onKernelPresentationEventGesture=(event)=>')+'onKernelPresentationEventGesture='.length;
+    const expression=source.slice(begin,source.indexOf('const reselectAdvancedKernel=',begin)).trim();
+    new Function('store','applySceneCommandToDocument','advancedEventCreation407F','currentMonth','liveMediaById','syncBridgeStateFromStore','bridge','return '+expression)(store,apply,create,()=>options.currentMonth,()=>new Map(),()=>{},{toast(){}})({detail:{surface:'edit',domainId:id,kind,geometry:preview}});
+  }else if(path==='keyboard'){
+    const begin=source.indexOf('const nudgeAdvancedSelection=')+'const nudgeAdvancedSelection='.length;
+    const expression=source.slice(begin,source.indexOf('const layerAdvancedSelection=',begin)).trim();
+    new Function('store','advancedItemFor','selectionIsLocked','constrainAdvancedObjectToBoard','applySceneCommandToDocument','advancedEventCreation407F','currentMonth','liveMediaById','commitAdvancedSelection','return '+expression)(store,()=>geometry,()=>false,constrainAdvancedObjectToBoard,apply,create,()=>options.currentMonth,()=>new Map(),()=>{})({type:'event',id},{x:kind==='resize'?5:0,y:5},{resize:kind==='resize'});
+  }else if(path==='rotate'){
+    const start=source.indexOf('const rotateHandle=event.target'),begin=source.indexOf('const result=applySceneCommandToDocument',start);
+    const branch=source.slice(begin,source.indexOf('\n        }\n        syncBridgeStateFromStore()',begin));
+    new Function('store','object','rotation','applySceneCommandToDocument','advancedEventCreation407F','currentMonth','liveMediaById',branch)(store,{type:'event',id,item:geometry},15,apply,create,()=>options.currentMonth,()=>new Map());
+  }else{
+    const begin=source.indexOf('const label=pointer.kind===',source.indexOf('const pointer=advancedPointer;',source.indexOf('const years=pending.preview')));
+    const end=source.indexOf('const railPayload=',begin),branch=source.slice(begin,end).trim().replace(/};$/,'');
+    new Function('store','pointer','applySceneCommandToDocument','advancedEventCreation407F','currentMonth','liveMediaById','syncBridgeStateFromStore','canvasController','showAdvancedDirectSelection','bridge','announceGlobal',branch)(store,{type:'event',id,kind,preview,original:geometry},apply,create,()=>options.currentMonth,()=>new Map(),()=>{},{setUiState(){}},()=>{},{toast(){}},()=>{});
+  }
+  return store.document;
+}
+test('044 all four actual first-edit creation paths retain resolved 957px flipped native packing and pole mapping',async()=>{
+  const source=await readFile(new URL('../web/js/407f-engineering-adapter.js',import.meta.url),'utf8');
+  const {document,options}=resolvedLongDegreeFixture(),before=JSON.stringify(document),native=flagPaint(document,'degree',options);
+  assert.deepEqual(native.rendered.scene.autoFlagLabels.get('degree'),{width:957,flip:true});assert.equal(native.labels.length,1);assert.equal(native.template.poleFootY,125);
+  const geometry=advancedEventGeometry407F(document,'degree',{dataset:{eventKind:'flag'}},options);
+  for(const path of ['kernel','keyboard','rotate','pointer']){
+    const edited=executeFirstEventEdit(source,path,document,'degree',geometry,options),paint=flagPaint(edited,'degree',options);
+    const object=edited.advanced.scene.objects.find(item=>item.semanticRef==='degree');
+    assert.deepEqual(object.presentation.flagLabelLayout,{width:957,flip:true},path);assert.deepEqual(object.presentation.nativeFlagPole,{anchor:'native'});
+    assert.ok(!object.presentation.localLayoutCriticAuto);assert.equal(object.geometry.width,50);assert.equal(object.geometry.height,64);
+    assert.equal(paint.labels.length,1,path+' does not rewrap a source label');
+    assert.deepEqual(paint.texts.map(node=>[node.text,Math.round(node.fontSize*1e9)/1e9,node.fontFamily]),native.texts.map(node=>[node.text,Math.round(node.fontSize*1e9)/1e9,node.fontFamily]));
+    if(path!=='rotate'){
+      assert.equal(paint.labels[0].bounds.width,native.labels[0].bounds.width,path+' preserves exact painted label width');
+      assert.equal(paint.template.poleFootY,125,path+' remains axis anchored');
+      assert.ok(Math.abs(paint.template.bodyBottom-native.template.bodyBottom-5)<.01,path+' moves the body by only the requested delta');
+    }else{
+      assert.notEqual(paint.template.poleFootY,125,'rotation really transforms the endpoint');
+      assert.equal(violatesFounderTemplateBand(paint.template),true,'preserved pole shape cannot bypass the native template guard');
+    }
+    assert.deepEqual(edited.events,document.events);assert.deepEqual(edited.studentProfile,document.studentProfile);
+  }
+  assert.equal(JSON.stringify(document),before);
+});
+test('044 native first resize retains packing and actual study attachment; old authored geometry is not reinterpreted',()=>{
+  const {document,options}=resolvedLongDegreeFixture(),geometry=advancedEventGeometry407F(document,'degree',{dataset:{eventKind:'flag'}},options);
+  const resized=applySceneCommandToDocument(document,{kind:'geometry',target:{type:'event',id:'degree'},geometry:{...geometry,width:60,height:80},create:advancedEventCreation407F(document,'degree',options)},options).document;
+  const paint=flagPaint(resized,'degree',options);assert.equal(paint.labels.length,1);assert.equal(paint.template.poleFootY,125);
+  const attached=structuredClone(FOUNDER_2025_MATRIX.find(item=>item.id==='M01').document);attached.mode='advanced';attached.layoutLock=false;
+  attached.events.find(event=>event.id==='study').fields={attemptId:'synthetic-attempt',isStudyPeriod:true};
+  attached.events.find(event=>event.id==='exam').fields={attemptId:'synthetic-attempt',result:'Passed'};
+  const native=flagPaint(attached,'exam',renderOptions);assert.equal(native.template.kind,'EXAM_RESULT');assert.notEqual(native.template.attachmentY,125);
+  const examGeometry=advancedEventGeometry407F(attached,'exam',{dataset:{eventKind:'flag'}},renderOptions);
+  const moved=applySceneCommandToDocument(attached,{kind:'geometry',target:{type:'event',id:'exam'},geometry:{...examGeometry,y:examGeometry.y+5},create:advancedEventCreation407F(attached,'exam',renderOptions)},renderOptions).document;
+  const result=flagPaint(moved,'exam',renderOptions);assert.equal(result.template.poleFootY,native.template.poleFootY);assert.equal(result.template.poleFootY,result.template.attachmentY);assert.deepEqual(moved.events,attached.events);
+  const studyMoved=applySceneCommandToDocument(moved,{kind:'geometry',target:{type:'event',id:'study'},geometry:{x:800,y:480,width:250,height:43.567795,rotation:0},create:advancedEventCreation407F(moved,'study',renderOptions)},renderOptions).document;
+  const updatedStudy=flagPaint(studyMoved,'exam',renderOptions);assert.equal(updatedStudy.template.poleFootY,480);assert.equal(updatedStudy.template.poleFootY,updatedStudy.template.attachmentY,'native attachment follows its actual study geometry');
+  const authored=applySceneCommandToDocument(document,{kind:'geometry',target:{type:'event',id:'degree'},geometry:{x:1100,y:65,width:85,height:78,rotation:8},create:{type:'event',semanticRef:'degree',aspectLocked:false,presentation:{eventType:'milestone',flagLabelLayout:{width:320,flip:false}}}},options).document;
+  const original=structuredClone(authored.advanced.scene.objects.find(item=>item.semanticRef==='degree'));
+  const second=applySceneCommandToDocument(authored,{kind:'geometry',target:{type:'event',id:'degree'},geometry:{...original.geometry,y:70},create:advancedEventCreation407F(authored,'degree',options)},options).document;
+  const updated=second.advanced.scene.objects.find(item=>item.semanticRef==='degree');assert.deepEqual(updated.presentation,original.presentation);assert.ok(!updated.presentation.nativeFlagPole);
+});
+
+test('044 actual kernel, keyboard and pointer first resizes preserve native packing and axis endpoint',async()=>{
+  const source=await readFile(new URL('../web/js/407f-engineering-adapter.js',import.meta.url),'utf8'),{document,options}=resolvedLongDegreeFixture();
+  const geometry=advancedEventGeometry407F(document,'degree',{dataset:{eventKind:'flag'}},options);
+  for(const path of ['kernel','keyboard','pointer']){
+    const edited=executeFirstEventEdit(source,path,document,'degree',geometry,options,'resize'),paint=flagPaint(edited,'degree',options);
+    const object=edited.advanced.scene.objects.find(item=>item.semanticRef==='degree');
+    assert.deepEqual(object.presentation.flagLabelLayout,{width:957,flip:true});assert.equal(paint.labels.length,1,path);
+    assert.equal(object.geometry.width,55);assert.equal(object.geometry.height,69);assert.ok(Math.abs(paint.template.poleFootY-125)<1e-9);
+    assert.deepEqual(edited.events,document.events);assert.ok(!object.presentation.localLayoutCriticAuto);
+  }
+});
+test('044 native metadata does not alter unrelated manual geometry, photos, axis or source and survives serialization',async()=>{
+  const {document,options}=resolvedLongDegreeFixture();
+  let working=applySceneCommandToDocument(document,{kind:'geometry',target:{type:'event',id:'work'},geometry:{x:180,y:400,width:1200,height:43.567795,rotation:0},create:{type:'event',semanticRef:'work',aspectLocked:false,presentation:{eventType:'duration'}}},options).document;
+  working.presentationOverrides.photoFrames={1:{x:1200,y:600,width:240,height:180,rotation:8}};
+  working.mediaItems=[{id:'synthetic-local-photo',placement:'photo1',visibilityState:'INTERVIEWER_SAFE',source:{fixture:'local-only'}}];
+  const geometry=advancedEventGeometry407F(working,'degree',{dataset:{eventKind:'flag'}},options),before=JSON.stringify(working);
+  const edited=applySceneCommandToDocument(working,{kind:'geometry',target:{type:'event',id:'degree'},geometry:{...geometry,y:geometry.y+5},create:advancedEventCreation407F(working,'degree',options)},options).document;
+  assert.deepEqual(edited.presentationOverrides,working.presentationOverrides);assert.deepEqual(edited.mediaItems,working.mediaItems);
+  assert.deepEqual(edited.advanced.scene.objects.find(item=>item.semanticRef==='work'),working.advanced.scene.objects.find(item=>item.semanticRef==='work'));
+  assert.deepEqual(edited.events,working.events);assert.deepEqual(edited.studentProfile,working.studentProfile);assert.equal(JSON.stringify(working),before);
+  const records=[],store=new TimelineStore({adapter:{atomicPut:async entries=>records.push(...structuredClone(entries))},entitlement:{schemaVersion:'d1-405.timeline-entitlement.1',access:'FULL',verified:true,canRead:true,canMutate:true}});
+  store.document=migrateDocument(edited);await store.saveNow('SYNTHETIC_FIRST_FLAG_EDIT');
+  const saved=JSON.parse(JSON.stringify(records.find(entry=>entry.store==='documents').value.document));
+  assert.deepEqual(saved.advanced.scene.objects.find(item=>item.semanticRef==='degree').presentation,edited.advanced.scene.objects.find(item=>item.semanticRef==='degree').presentation);
+  assert.deepEqual(saved.events,store.document.events);assert.equal(flagPaint(saved,'degree',options).template.poleFootY,125);
 });

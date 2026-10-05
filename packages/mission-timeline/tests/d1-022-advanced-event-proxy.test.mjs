@@ -5,7 +5,7 @@ import {installCanvas,createCanvasState} from '../web/js/uxr-002/canvas.js';
 import {defaultDocument} from '../web/js/uxr-002/store.js';
 import {applySceneCommandToDocument} from '../web/js/editor/scene-commands.js';
 import {constrainAdvancedObjectToBoard,resizeMediaElement,moveMediaElement} from '../web/js/uxr-002/advanced-studio.js';
-import {advancedEventGeometry407F,timelineRenderSignature} from '../web/js/407f-engineering-adapter.js';
+import {advancedEventGeometry407F,advancedEventCreation407F,timelineRenderSignature} from '../web/js/407f-engineering-adapter.js';
 
 const currentMonth=()=> '2026-07',liveMediaById=()=>new Map();
 const adapter=await readFile(new URL('../web/js/407f-engineering-adapter.js',import.meta.url),'utf8');
@@ -84,7 +84,7 @@ test('a stale proxy without an SVG source fails closed instead of measuring its 
   assert.equal(advancedObjectForTarget(proxy),null);
 });
 
-const nudgeFactory=new Function('store','canvasHost','clone','applySceneCommandToDocument','constrainAdvancedObjectToBoard','resizeMediaElement','moveMediaElement','advancedGroupMembers','commitAdvancedSelection','explainLockedSelection','advancedEventGeometry407F','timelineRenderSignature','currentMonth','liveMediaById',
+const nudgeFactory=new Function('store','canvasHost','clone','applySceneCommandToDocument','constrainAdvancedObjectToBoard','resizeMediaElement','moveMediaElement','advancedGroupMembers','commitAdvancedSelection','explainLockedSelection','advancedEventGeometry407F','timelineRenderSignature','currentMonth','liveMediaById','advancedEventCreation407F',
   section('    const advancedEventSelector=','    const advancedSourceElement=')+
   section('    const nativeEventGeometryCache=','    const advancedObjectForTarget=')+
   section('    const advancedLeafMembers=','    const commitAdvancedSelection=')+
@@ -93,7 +93,7 @@ function nudgeHarness(){
   const store=new Store();let selections=0;
   const visual={getBBox:()=>({x:300,y:220,width:420,height:30})};
   const source={querySelector:()=>visual};
-  const nudge=nudgeFactory(store,{querySelector:()=>source},structuredClone,applySceneCommandToDocument,constrainAdvancedObjectToBoard,resizeMediaElement,moveMediaElement,()=>[],()=>selections++,()=>false,advancedEventGeometry407F,timelineRenderSignature,currentMonth,liveMediaById);
+  const nudge=nudgeFactory(store,{querySelector:()=>source},structuredClone,applySceneCommandToDocument,constrainAdvancedObjectToBoard,resizeMediaElement,moveMediaElement,()=>[],()=>selections++,()=>false,advancedEventGeometry407F,timelineRenderSignature,currentMonth,liveMediaById,advancedEventCreation407F);
   return{store,nudge,selections:()=>selections};
 }
 test('keyboard move materializes only event presentation, retains a thin arrow, and supports one-step Undo',()=>{
