@@ -195,7 +195,7 @@ test('milestone composition retains adaptive demand when weighted paint is alrea
 });
 
 test('equal paint risk retains demand and extreme authored offboard text continues to block export',()=>{
-  const input=structuredClone(FOUNDER_2025_MATRIX.find(f=>f.id==='M20').document);
+  const input=busy();
   input.advanced.textBlocks.push({id:'extreme-authored',text:'Unfittable authored text',x:1910,y:1100,width:200,height:30,size:18,font:'Arial'});
   const result=render(input),initial=buildFounderPresentationScene(input,{currentMonth:'2026-10'});
   const baseline=composeLocked407FPortableSvg({...initial,autoYearWeights:undefined,composedAxis:undefined});
@@ -290,4 +290,28 @@ test('study-attached exam composites retain their native attachment outside the 
   const exam=founderMilestoneTemplateGeometry(result.scene,paint).find(item=>item.eventId==='exam');
   assert.equal(exam.kind,'EXAM_RESULT');
   assert.equal(exam.poleFootY,exam.attachmentY);
+});
+
+
+test('three late short clinical arrows reserve complete native multiline label room before earlier rows consume it',()=>{
+  const events=Array.from({length:10},(_,index)=>duration('short-spine-'+index,
+    index<7?`${2012+index}-01`:index===7?'2024-05':index===8?'2024-07':'2025-05',
+    index<7?`${2012+index}-12`:index===7?'2024-06':index===8?'2024-08':'2025-06',{
+      title:index>=7?'Synthetic Clinical Extern '+index:'Synthetic role '+index,
+      siteName:index>=7?'Synthetic Teaching Hospital\nSynthetic city':'Synthetic institution'
+    }));
+  const input=document(events),before=JSON.stringify(input),result=render(input),paint=resolveFounderPresentationSvg(result.svg);
+  assert.deepEqual(result.scene.chronologyOrder.violations,[]);
+  const late=new Set(events.slice(-3).map(event=>event.id));
+  const text=paint.nodes.filter(node=>late.has(node.semanticRef)&&node.kind==='text');
+  assert.ok(text.some(node=>node.bounds.height>60),'alternate short-arrow labels exercise real multiline paint');
+  assert.ok(text.filter(node=>node.sourceAttributes['data-material-field']==='siteName').every(node=>node.bounds.height>40));
+  assert.ok(text.every(node=>node.bounds.y>=170.5&&node.bounds.y+node.bounds.height<=1072.5),'each selected variant fits including its own multiline bounds');
+  for(let i=0;i<text.length;i++)for(let j=i+1;j<text.length;j++){
+    const a=text[i],b=text[j];if(a.semanticRef===b.semanticRef)continue;
+    const x=Math.min(a.bounds.x+a.bounds.width,b.bounds.x+b.bounds.width)-Math.max(a.bounds.x,b.bounds.x);
+    const y=Math.min(a.bounds.y+a.bounds.height,b.bounds.y+b.bounds.height)-Math.max(a.bounds.y,b.bounds.y);
+    assert.ok(x<=0||y<=0,'later adjacent clinical titles, dates and institutions remain separately readable');
+  }
+  assert.equal(JSON.stringify(input),before);
 });

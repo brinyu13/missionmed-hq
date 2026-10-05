@@ -935,40 +935,59 @@ function avoidAutomaticArrowCollisions(scene,svg){
       const nodes=resolveFounderPresentationSvg('<svg viewBox="0 0 1920 1080">'+arrowMarkup(arrow,scene.arrows.indexOf(arrow),layout,scale,variant)+'</svg>',{measureText:scene.measureText}).nodes.filter(n=>n.groupId&&n.bounds&&Number(n.style.opacity??1)>0&&Number(n.style['fill-opacity']??1)>0&&!(n.kind==='path'&&(n.lineOnly||n.style.fill==='none'||n.bounds.width<1||n.bounds.height<1)));
       variants.push({parts:boxes(nodes),side});
     }
-    const top=Math.min(...variants[0].parts.map(b=>b.y))-original.y,bottom=Math.max(...variants[0].parts.map(b=>b.y+b.height))-original.y;
-    return{arrow,original,variants,lower:171-top,upper:HEIGHT-8-bottom};
+    const options=variants.flatMap(variant=>[...new Set([0,Math.min(250,original.width),-Math.min(250,original.width),250,-250])].map(dx=>{
+      const parts=variant.parts.map(b=>({...b,x:b.x+(b.site?dx:0),y:b.y-original.y}));
+      const top=Math.min(...parts.map(b=>b.y)),bottom=Math.max(...parts.map(b=>b.y+b.height));
+      return {parts,side:variant.side,dx,lower:171-top,upper:HEIGHT-8-bottom};
+    }));
+    return{arrow,original,variants,options};
   });
-  const separation=18,latest=[];
-  for(let i=entries.length-1;i>=0;i--)latest[i]=Math.min(entries[i].upper,i+1<entries.length?latest[i+1]-separation:Infinity);
-  const first=entries[0].lower,last=latest.at(-1),pitch=Math.max(separation,Math.min(96,(last-first)/Math.max(1,entries.length-1)));
-  const baseline=entries.map((entry,index)=>Math.max(entry.lower,Math.min(latest[index],entries.length===1?entry.original.y:first+pitch*index)));
+  const separation=18;
+  const horizontalOverlap=(a,b)=>a.x<b.x+b.width+6&&a.x+a.width+6>b.x;
+  // Only painted parts sharing an X corridor require full vertical clearance.
+  // Long spans may pass across shorter ones; dates and readable labels determine
+  // their actual clearance instead of assigning every event a fixed row height.
+  const gap=(a,b)=>{
+    let required=separation;
+    for(const left of a.parts)for(const right of b.parts)if(horizontalOverlap(left,right))required=Math.max(required,left.y+left.height+6-right.y);
+    return required;
+  };
+  const latest=entries.map(entry=>new Map());
+  for(let i=entries.length-1;i>=0;i--)for(const option of entries[i].options){
+    const available=i+1<entries.length?Math.max(...entries[i+1].options.map(next=>latest[i+1].get(next)-gap(option,next))):Infinity;
+    latest[i].set(option,Math.min(option.upper,available));
+  }
+  const first=Math.min(...entries[0].options.map(option=>option.lower)),last=Math.max(...latest.at(-1).values());
+  const pitch=Math.max(separation,Math.min(96,(last-first)/Math.max(1,entries.length-1)));
+  const baseline=entries.map((entry,index)=>entries.length===1?entry.original.y:first+pitch*index);
   const overlap=(a,b)=>Math.max(0,Math.min(a.x+a.width+6,b.x+b.width+6)-Math.max(a.x,b.x))*Math.max(0,Math.min(a.y+a.height+6,b.y+b.height+6)-Math.max(a.y,b.y));
-  let states=[{choices:[],occupied:fixed,cost:0,drift:0,y:-Infinity}];
+  let states=[{choices:[],occupied:fixed,cost:0,drift:0,y:-Infinity,option:null}];
   for(let index=0;index<entries.length;index++){
     const entry=entries[index],next=[];
-    for(const state of states){
-      const lower=Math.max(entry.lower,state.y+separation),upper=latest[index];
+    for(const state of states)for(const option of entry.options){
+      const lower=Math.max(option.lower,state.y+(state.option?gap(state.option,option):separation)),upper=latest[index].get(option);
       const ys=new Set([baseline[index],lower,upper]);
       for(let y=Math.ceil(lower/24)*24;y<=upper;y+=24)ys.add(y);
-      for(const obstacle of state.occupied)for(const part of entry.variants[0].parts){
-        if(part.x>=obstacle.x+obstacle.width+6||part.x+part.width+6<=obstacle.x)continue;
-        ys.add(obstacle.y+obstacle.height+6-(part.y-entry.original.y));
-        ys.add(obstacle.y-6-(part.y+part.height-entry.original.y));
+      for(const obstacle of state.occupied)for(const part of option.parts){
+        if(!horizontalOverlap(part,obstacle))continue;
+        ys.add(obstacle.y+obstacle.height+6-part.y);
+        ys.add(obstacle.y-6-(part.y+part.height));
       }
-      // Even an overfull board keeps positive entry order; overflow is reported
-      // by the normal painted-text gate instead of restoring inverse geometry.
-      const candidates=[...ys].filter(y=>Number.isFinite(y)&&y>=lower-.001&&y<=upper+.001);
-      if(!candidates.length)candidates.push(lower);
-      for(const variant of entry.variants)for(const dx of [...new Set([0,Math.min(250,entry.original.width),-Math.min(250,entry.original.width),250,-250])]){
-        const shifted=variant.parts.map(b=>({...b,x:b.x+(b.site?dx:0)}));
-        const nearby=shifted.map(part=>state.occupied.filter(obstacle=>part.x<obstacle.x+obstacle.width+6&&part.x+part.width+6>obstacle.x));
-        for(const y of candidates){
-          const parts=shifted.map(b=>({...b,y:b.y+y-entry.original.y}));
-          const outside=parts.reduce((sum,b)=>sum+Math.max(0,-b.x)+Math.max(0,b.x+b.width-WIDTH)+Math.max(0,171-b.y)+Math.max(0,b.y+b.height-(HEIGHT-8)),0);
-          let collisions=0;for(let i=0;i<parts.length;i++)for(const obstacle of nearby[i])collisions+=overlap(parts[i],obstacle);
-          const cost=state.cost+outside*1e6+collisions;
-          next.push({choices:[...state.choices,{entry,y,dx,side:variant.side}],occupied:[...state.occupied,...parts],cost,drift:state.drift+Math.abs(y-baseline[index])+Math.abs(dx)*.04+(variant.side!==labelSides.get(String(entry.arrow.id))?4:0),y});
-        }
+      // If complete measured clearance cannot fit, keep positive chronology and
+      // report painted conflicts. Never return to an earlier empty inverse slot.
+      let candidates=[...ys].filter(y=>Number.isFinite(y)&&y>=lower-.001&&y<=upper+.001);
+      if(!candidates.length){
+        const structuralLower=Math.max(option.lower,state.y+separation);
+        candidates=[Math.max(structuralLower,Math.min(option.upper,baseline[index]))];
+      }
+      const nearby=option.parts.map(part=>state.occupied.filter(obstacle=>horizontalOverlap(part,obstacle)));
+      for(const y of candidates){
+        const parts=option.parts.map(b=>({...b,y:b.y+y}));
+        const outside=parts.reduce((sum,b)=>sum+Math.max(0,-b.x)+Math.max(0,b.x+b.width-WIDTH)+Math.max(0,171-b.y)+Math.max(0,b.y+b.height-(HEIGHT-8)),0);
+        let collisions=0;for(let i=0;i<parts.length;i++)for(const obstacle of nearby[i])collisions+=overlap(parts[i],obstacle);
+        const cost=state.cost+outside*1e6+collisions;
+        next.push({choices:[...state.choices,{entry,y,dx:option.dx,side:option.side}],occupied:[...state.occupied,...parts],cost,
+          drift:state.drift+Math.abs(y-baseline[index])+Math.abs(option.dx)*.04+(option.side!==labelSides.get(String(entry.arrow.id))?4:0),y,option});
       }
     }
     // Keep different last-anchor positions so an early locally safe row cannot
