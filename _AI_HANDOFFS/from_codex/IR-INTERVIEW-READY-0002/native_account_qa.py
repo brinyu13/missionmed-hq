@@ -75,7 +75,18 @@ STOP_CATEGORIES = frozenset({'dormant', 'admission', 'guard', 'drift', 'collisio
     'private_operation_failed', 'native_assertion', 'not_admitted', 'containment',
     'io_deadline', 'child_exit', 'stderr_present', 'json_decode',
     'php_hook_shape', 'php_callback_shape', 'php_reflection_function',
-    'php_reflection_method', 'php_file_digest', 'php_encode'})
+    'php_reflection_method', 'php_file_digest', 'php_encode',
+    'php_fatal_error', 'php_parse_error', 'wp_cli_bootstrap_error',
+    'wp_cli_command_error', 'ssh_transport_error', 'shell_command_error'})
+CHILD_ERROR_PATTERNS = (
+    (rb'(?:PHP )?Fatal error: [ -~]+', 'php_fatal_error'),
+    (rb'(?:PHP )?Parse error: [ -~]+', 'php_parse_error'),
+    (rb'Error: (?:This does not seem to be a WordPress installation\.|Error establishing a database connection\.)[ -~]*', 'wp_cli_bootstrap_error'),
+    (rb"Error: (?:The file '/dev/stdin' doesn't exist\.|'eval-file' is not a registered wp command\.[ -~]*)", 'wp_cli_command_error'),
+    (rb'ssh: (?:Could not resolve hostname [ -~]+: (?:Name or service not known|Temporary failure in name resolution|nodename nor servname provided, or not known)|connect to host [ -~]+ port [0-9]+: (?:Connection refused|Connection timed out|No route to host))', 'ssh_transport_error'),
+    (rb'Host key verification failed\.', 'ssh_transport_error'),
+    (rb'(?:bash: line [0-9]+: |sh: [0-9]+: )?(?:wp|php): (?:command not found|not found)', 'shell_command_error'),
+)
 PHP_FAILURE_SCHEMA = 'ir.native.hook_inventory.failure.v1'
 PHP_FAILURE_CATEGORIES = {'HOOK_SHAPE':'php_hook_shape', 'CALLBACK_SHAPE':'php_callback_shape',
     'REFLECTION_FUNCTION':'php_reflection_function', 'REFLECTION_METHOD':'php_reflection_method',
@@ -125,12 +136,18 @@ def inventory_progress(gate, stage):
 
 class Stop(Exception):
     """Only fixed, non-sensitive failure categories can escape private transports."""
-    def __init__(self, category='private_operation_failed', *, hookScope=None):
+    def __init__(self, category='private_operation_failed', *, hookScope=None, childExit=None):
         if type(category) is not str or category not in STOP_CATEGORIES:
             category = 'private_operation_failed'
             hookScope = None
+            childExit = None
         self.category = category
         self.hookScope = hookScope if type(hookScope) is str and hookScope in HOOK_SCOPES else None
+        self.childExit = None
+        if (type(childExit) is dict and set(childExit)=={'exitCode','stdoutPresent','stderrPresent'} and
+            type(childExit['exitCode']) is int and -255<=childExit['exitCode']<=255 and childExit['exitCode']!=0 and
+            type(childExit['stdoutPresent']) is bool and type(childExit['stderrPresent']) is bool):
+            self.childExit = dict(childExit)
         super().__init__(category)
 
 
@@ -332,6 +349,30 @@ def inventory_failure(output):
         return None
 
 
+def inventory_child_failure(stdout, stderr, returncode):
+    """Closed message-shape categories, with private buffers discarded on exit."""
+    diagnostic = inventory_failure(stdout)
+    if diagnostic is None:
+        category = 'child_exit'
+        # PHP stderr may contain a trace after its fixed leading error marker.
+        # Ambiguous two-stream output never gains a message category.
+        if bool(stdout) != bool(stderr):
+            raw = stdout or stderr
+            message = raw.rstrip(b'\r\n')
+            if len(raw)<=4096:
+                if stderr and message.startswith((b'PHP Fatal error: ',b'Fatal error: ')):
+                    category='php_fatal_error'
+                elif stderr and message.startswith((b'PHP Parse error: ',b'Parse error: ')):
+                    category='php_parse_error'
+                else:
+                    for pattern, fixed_category in CHILD_ERROR_PATTERNS:
+                        if re.fullmatch(pattern,message):
+                            category=fixed_category;break
+        diagnostic = Stop(category)
+    return Stop(diagnostic.category,hookScope=diagnostic.hookScope,childExit={
+        'exitCode':returncode,'stdoutPresent':bool(stdout),'stderrPresent':bool(stderr)})
+
+
 def private_capture(argv, data, budget, *, cap=65536, on_line=None, header_cap=None):
     """Finite nonblocking stdin/capture/reap; unresolved child remains owned."""
     child=None
@@ -369,9 +410,7 @@ def private_capture(argv, data, budget, *, cap=65536, on_line=None, header_cap=N
         child.wait(timeout=budget.remaining())
         if budget.action=='creation_inventory_read':
             if child.returncode!=0:
-                diagnostic=inventory_failure(bytes(streams[child.stdout]))
-                if diagnostic is not None:raise diagnostic
-                raise Stop('child_exit')
+                raise inventory_child_failure(bytes(streams[child.stdout]),bytes(streams[child.stderr]),child.returncode)
             if streams[child.stderr]:raise Stop('stderr_present')
         require(child.returncode==0 and not streams[child.stderr] and (not on_line or notified))
         return bytes(streams[child.stdout])

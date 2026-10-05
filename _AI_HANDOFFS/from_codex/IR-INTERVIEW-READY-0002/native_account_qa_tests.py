@@ -39,7 +39,7 @@ class SpyGate:
 
 class PipeChild:
     """Injected local pipes only; never starts a process or network request."""
-    def __init__(self,chunks=(),delay=0,code=0):
+    def __init__(self,chunks=(),delay=0,code=0,*,stderr=False):
         r,w=os.pipe();self.stdin=os.fdopen(w,'wb',buffering=0);self.input_fd=r
         r,w=os.pipe();self.stdout=os.fdopen(r,'rb',buffering=0);self.output_fd=w
         r,w=os.pipe();self.stderr=os.fdopen(r,'rb',buffering=0);self.error_fd=w
@@ -52,7 +52,7 @@ class PipeChild:
                     self.private_input.extend(block)
                 for chunk in chunks:
                     if self.stopped.wait(delay):break
-                    os.write(self.output_fd,chunk)
+                    os.write(self.error_fd if stderr else self.output_fd,chunk)
                 self.returncode=code if not self.stopped.is_set() else -9
             finally:
                 for fd in (self.input_fd,self.output_fd,self.error_fd):os.close(fd)
@@ -297,6 +297,56 @@ class Fixtures(unittest.TestCase):
         for invalid_scope in (None,[],{},'PRIVATE_SENTINEL',3):
             self.assertIsNone(qa.Stop('php_hook_shape',hookScope=invalid_scope).hookScope)
         self.assertIsNone(qa.Stop('PRIVATE_SENTINEL',hookScope='ACCOUNT_META').hookScope)
+
+    def test_inventory_known_error_shapes_keep_only_closed_status_and_presence(self):
+        samples=[(b'PHP Fatal error: PRIVATE_SENTINEL in /fixture/private.php on line 7','php_fatal_error'),
+            (b'Parse error: PRIVATE_SENTINEL','php_parse_error'),
+            (b'Error: Error establishing a database connection.','wp_cli_bootstrap_error'),
+            (b"Error: The file '/dev/stdin' doesn't exist.",'wp_cli_command_error'),
+            (b'ssh: connect to host PRIVATE_SENTINEL port 22: Connection refused','ssh_transport_error'),
+            (b'bash: line 1: wp: command not found','shell_command_error')]
+        for message,category in samples:
+            for stderr in (False,True):
+                child=PipeChild([message+b'\n'],code=255,stderr=stderr)
+                budget=qa.Dispatch(time.monotonic()+qa.IO_SECONDS,action='creation_inventory_read')
+                public=io.StringIO()
+                with mock.patch.object(qa.subprocess,'Popen',return_value=child), \
+                     contextlib.redirect_stdout(public),contextlib.redirect_stderr(public),self.assertRaises(qa.Stop) as caught:
+                    qa.private_capture(qa.SSH_ARGV,b'private',budget)
+                self.assertEqual(caught.exception.category,category)
+                self.assertEqual(caught.exception.childExit,{'exitCode':255,'stdoutPresent':not stderr,'stderrPresent':stderr})
+                self.assertNotIn('PRIVATE_SENTINEL',repr(caught.exception));self.assertEqual(public.getvalue(),'')
+                self.assertTrue(child.done.is_set())
+        message=samples[0][0]
+        trace=message+b'\nStack trace:\n#0 /fixture/PRIVATE_SENTINEL.php(7): PRIVATE_SENTINEL()\n  thrown in PRIVATE_SENTINEL on line 7\n'
+        error=qa.inventory_child_failure(b'',trace,255)
+        self.assertEqual(error.category,'php_fatal_error')
+        self.assertNotIn('PRIVATE_SENTINEL',repr(error))
+        self.assertEqual(qa.inventory_child_failure(b'PRIVATE_SENTINEL',trace,255).category,'child_exit')
+        self.assertEqual(qa.inventory_child_failure(b'',b'PRIVATE_SENTINEL\n'+trace,255).category,'child_exit')
+        self.assertEqual(qa.inventory_child_failure(b'',trace+b'\n'*4096,255).category,'child_exit')
+        for action,code,category in (('creation_inventory_read',0,'stderr_present'),('state_post',7,'native_assertion')):
+            child=PipeChild([trace],code=code,stderr=True)
+            with mock.patch.object(qa.subprocess,'Popen',return_value=child),self.assertRaises(qa.Stop) as caught:
+                qa.private_capture(qa.SSH_ARGV,b'private',qa.Dispatch(time.monotonic()+qa.IO_SECONDS,action=action))
+            self.assertEqual(caught.exception.category,category)
+            self.assertIsNone(caught.exception.childExit)
+        invalid=[(message+b'\nPRIVATE_SENTINEL',b''),(b'PRIVATE_SENTINEL\n'+message,b''),
+            (message,b'PRIVATE_SENTINEL'),(message+b'\x00PRIVATE_SENTINEL',b''),
+            (b'Error: PRIVATE_SENTINEL',b''),(b'',b''),(b'',b'PRIVATE_SENTINEL'),
+            (b'PHP Fatal error: '+b'PRIVATE_SENTINEL'*400,b''),
+            (b'',b'PHP Fatal error: '+b'PRIVATE_SENTINEL'*400)]
+        for stdout,stderr in invalid:
+            error=qa.inventory_child_failure(stdout,stderr,255)
+            self.assertEqual(error.category,'child_exit')
+            self.assertEqual(error.childExit,{'exitCode':255,'stdoutPresent':bool(stdout),'stderrPresent':bool(stderr)})
+            self.assertNotIn('PRIVATE_SENTINEL',repr(error))
+        closed={'exitCode':1,'stdoutPresent':False,'stderrPresent':True}
+        for invalid in (dict(closed,private='PRIVATE_SENTINEL'),dict(closed,exitCode=True),
+            dict(closed,exitCode=0),dict(closed,exitCode=256),dict(closed,stderrPresent='PRIVATE_SENTINEL'),
+            dict(closed,stdoutPresent=1),[],None):
+            self.assertIsNone(qa.Stop('child_exit',childExit=invalid).childExit)
+        self.assertIsNone(qa.Stop('PRIVATE_SENTINEL',childExit=closed).childExit)
 
     def test_inventory_diagnostic_public_hook_ceiling_and_exact_program_syntax(self):
         owner=ast.parse(Path(qa.__file__).with_name('native_inventory_owner.py').read_text())

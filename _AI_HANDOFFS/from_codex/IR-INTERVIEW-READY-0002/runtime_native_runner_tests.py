@@ -916,6 +916,14 @@ class Fixtures(unittest.TestCase):
         for step,category in closed.items():
             cases.append((step,'INVENTORY_CAPTURE',category))
         cases.extend((mode,'INVENTORY_CAPTURE','child_exit') for mode in ('mixed_php','unknown_php','malformed_php'))
+        child_messages={'php_fatal_error':b'PHP Fatal error: PRIVATE_SENTINEL\nStack trace:\n#0 PRIVATE_SENTINEL\n  thrown in PRIVATE_SENTINEL on line 7',
+            'php_parse_error':b'PHP Parse error: PRIVATE_SENTINEL',
+            'wp_cli_bootstrap_error':b'Error: This does not seem to be a WordPress installation.',
+            'wp_cli_command_error':b"Error: The file '/dev/stdin' doesn't exist.",
+            'ssh_transport_error':b'ssh: connect to host PRIVATE_SENTINEL port 22: Connection refused',
+            'shell_command_error':b'sh: 1: wp: not found'}
+        cases.extend((category,'INVENTORY_CAPTURE',category) for category in child_messages)
+        cases.append(('quiet255','INVENTORY_CAPTURE','child_exit'))
         for mode,stage,category in cases:
             with self.subTest(mode=mode),tempfile.TemporaryDirectory(prefix='ir-stage-fixture-') as tmp:
                 session=self.session('auth_inventory');session.directory=Path(tmp).resolve();trace=[];children=[]
@@ -943,9 +951,13 @@ class Fixtures(unittest.TestCase):
                     if mode=='mixed_php':data+=b'PRIVATE_SENTINEL'
                     if mode=='unknown_php':data=data.replace(b'REFLECTION_METHOD',b'PRIVATE_SENTINEL')
                     if mode=='malformed_php':data=data[:-1]
+                if mode in child_messages:data=child_messages[mode]
+                if mode=='quiet255':data=b''
+                nonzero=mode=='child' or mode in closed or mode in {'mixed_php','unknown_php','malformed_php','quiet255'} or mode in child_messages
+                code=255 if mode=='quiet255' else 7 if nonzero else 0
                 def popen(*args,**kwargs):
                     if mode=='unknown':raise RuntimeError('PRIVATE_SENTINEL')
-                    child=ReadbackPipeChild([data],code=7 if mode=='child' or mode in closed or mode in {'mixed_php','unknown_php','malformed_php'} else 0,stderr=mode=='stderr')
+                    child=ReadbackPipeChild([data],code=code,stderr=mode=='stderr' or mode in child_messages)
                     children.append(child);return child
                 original_drain=qa.Gate.drain;original_release=session.client.release
                 def drain(gate):
@@ -962,6 +974,7 @@ class Fixtures(unittest.TestCase):
                 expected={'schema':'ir.native.phase.v1','bindingSha256':session.binding,'stage':stage}
                 if category is not None:expected['category']=category
                 if scope is not None:expected['hookScope']=scope
+                if nonzero:expected['childExit']={'exitCode':code,'stdoutPresent':bool(data) and mode not in child_messages,'stderrPresent':mode in child_messages}
                 self.assertEqual(receipt,expected)
                 self.assertLess(trace.index('drain'),trace.index('release'))
                 report=runner.read_json(session.directory/'RESULT.json')['nativeReport']
@@ -972,7 +985,7 @@ class Fixtures(unittest.TestCase):
 
     def test_inventory_phase_receipt_write_failure_and_unknown_category_fail_closed(self):
         qa=runner.load_module('native_phase_write_fixture',runner.HERE/'native_account_qa.py',runner.NATIVE_SHA)
-        for mode in ('write','category','scope','nonstring_scope','subclass'):
+        for mode in ('write','category','scope','nonstring_scope','subclass','child_extra','child_type','child_range'):
             with self.subTest(mode=mode),tempfile.TemporaryDirectory(prefix='ir-phase-write-fixture-') as tmp:
                 session=self.session('auth_inventory');session.directory=Path(tmp).resolve();trace=[]
                 writer=runner.atomic;original_drain=qa.Gate.drain;release=session.client.release
@@ -985,10 +998,15 @@ class Fixtures(unittest.TestCase):
                         class PrivateStop(qa.Stop):pass
                         error=PrivateStop('php_hook_shape',hookScope='ACCOUNT_META')
                     else:
-                        error=qa.Stop('php_hook_shape',hookScope='ACCOUNT_META')
+                        error=qa.Stop('php_hook_shape',hookScope='ACCOUNT_META',childExit={'exitCode':7,'stdoutPresent':True,'stderrPresent':False})
                         if mode in {'write','category'}:error.category='PRIVATE_SENTINEL'
                         if mode=='scope':error.hookScope='PRIVATE_SENTINEL'
                         if mode=='nonstring_scope':error.hookScope=['PRIVATE_SENTINEL']
+                        if mode.startswith('child_'):
+                            error.hookScope=None
+                            if mode=='child_extra':error.childExit['private']='PRIVATE_SENTINEL'
+                            if mode=='child_type':error.childExit['stderrPresent']='PRIVATE_SENTINEL'
+                            if mode=='child_range':error.childExit['exitCode']=256
                     raise error
                 def drain(gate):outcome=original_drain(gate);trace.append('drain');return outcome
                 def released(handle):trace.append('release');release(handle)
@@ -1001,8 +1019,9 @@ class Fixtures(unittest.TestCase):
                 self.assertIsNone(runner.read_json(session.directory/'RESULT.json')['nativeReport'])
                 if mode!='write':
                     receipt=runner.read_json(session.directory/'NATIVE_PHASE.json')
-                    self.assertEqual(receipt['category'],'php_hook_shape' if mode in {'scope','nonstring_scope'} else 'private_operation_failed')
+                    self.assertEqual(receipt['category'],'php_hook_shape' if mode in {'scope','nonstring_scope','child_extra','child_type','child_range'} else 'private_operation_failed')
                     self.assertNotIn('hookScope',receipt)
+                    if mode in {'category','subclass','child_extra','child_type','child_range'}:self.assertNotIn('childExit',receipt)
                 for path in session.directory.iterdir():
                     if path.is_file():self.assertNotIn('PRIVATE_SENTINEL',path.read_text())
 

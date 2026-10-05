@@ -30,8 +30,8 @@ ORIGIN = 'https://github.com/brinyu13/missionmed-hq.git'
 REF = 'refs/heads/codex/ir-interview-ready-0002-storyforge'
 TRANSPORT_SHA = '6bab4c948b28202b7a803228f2123d5c95137030f16eb129c427b4ddcc487cad'
 CLIENT_SHA = '36e37a487de0ec99191492c3ef286695bc4d8721cdac70f5c62863576e5c1431'
-NATIVE_SHA = '5f636e4493a2b653d27e3e5a9f4bfec293c3ccef7cf3a64541c4fc3677274b15'
-NATIVE_TESTS_SHA = '89cdf9c3fd7b5a9bd33f0281127f0fa9b50e064fb4f7a1866a74ed5fead3a390'
+NATIVE_SHA = 'f2954456fce5f51ac50827fdb7840311621d452d41cd523def9f55d1ffdbc3cb'
+NATIVE_TESTS_SHA = '9ae4cd2b92e31fc0b65b1b74c96d70ad4d4695c63ae669c6be2178ceb66facbd'
 AUTHORITY = {'DR-375_ir_phase1_production_authority.md': '05803e16c985437a6400aa261e55bdb57f50ed2a0c7200f904fcffc49155a508',
              'DR-376_ir_phase1_bounded_execution_annex.md': '452a9e6259f6ae2f9e1441c725f79156b2d099d88a38af694b248e345b7dbe0e'}
 RUNTIME = 'wp-content/mu-plugins/missionmed-interview-ready-runtime'
@@ -600,7 +600,7 @@ def safe_native_report(value):
 def run_session(session, *, qa=None, native_review_digest=None):
     thread=None; result=None; released=False;deferred=False
     inventory_stage=None
-    def inventory_progress(stage, category=None, hookScope=None):
+    def inventory_progress(stage, category=None, hookScope=None, childExit=None):
         nonlocal inventory_stage
         check(type(stage) is str and stage in qa.INVENTORY_STAGES)
         check(category is None or (type(category) is str and category in qa.STOP_CATEGORIES))
@@ -609,6 +609,10 @@ def run_session(session, *, qa=None, native_review_digest=None):
         if category is not None:receipt['category']=category
         if category is not None and type(hookScope) is str and hookScope in {'ACCOUNT_STANDARD','ACCOUNT_META','OTHER'}:
             receipt['hookScope']=hookScope
+        if (category is not None and type(childExit) is dict and set(childExit)=={'exitCode','stdoutPresent','stderrPresent'} and
+            type(childExit['exitCode']) is int and -255<=childExit['exitCode']<=255 and childExit['exitCode']!=0 and
+            type(childExit['stdoutPresent']) is bool and type(childExit['stderrPresent']) is bool):
+            receipt['childExit']=dict(childExit)
         atomic(session.directory,'NATIVE_PHASE.json',receipt)
     try:
         check(session.contract['phase'] in PHASE_PATHS and (session.contract['phase']=='install' or qa is not None))
@@ -650,9 +654,10 @@ def run_session(session, *, qa=None, native_review_digest=None):
         if session.contract['phase']=='auth_inventory' and inventory_stage is not None:
             category=error.category if type(error) is qa.Stop else 'private_operation_failed'
             hookScope=getattr(error,'hookScope',None) if type(error) is qa.Stop else None
+            childExit=getattr(error,'childExit',None) if type(error) is qa.Stop else None
             if type(category) is not str or category not in qa.STOP_CATEGORIES:
-                category='private_operation_failed';hookScope=None
-            try:inventory_progress(inventory_stage,category,hookScope)
+                category='private_operation_failed';hookScope=None;childExit=None
+            try:inventory_progress(inventory_stage,category,hookScope,childExit)
             except BaseException:session.stop()
         if session.native_gate is None:session.stop()
         else:
