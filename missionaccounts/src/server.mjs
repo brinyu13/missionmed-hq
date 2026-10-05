@@ -1832,6 +1832,8 @@ export function createMissionAccountsServer({
       'assets/auth': 'missionaccounts-auth.js',
       'assets/canonical-adapter': 'missionaccounts-canonical-adapter.js',
       'assets/stripe': 'missionaccounts-stripe.js',
+      'assets/partner-cost-sharing': 'partner-cost-sharing/ui.js',
+      'assets/partner-cost-sharing-style': 'partner-cost-sharing/ui.css',
     };
     const requestedPath = pathname === '/' || pathname === normalizedBase.slice(0, -1) || pathname === normalizedBase || mountedPath === '' ? requestedIndex : mountedPath;
     const requested = assetAliases[requestedPath] || requestedPath;

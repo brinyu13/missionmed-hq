@@ -7,6 +7,25 @@ import { LocalPartnerStore,environmentPartnerStore } from '../src/partner-cost-s
 import { PartnerAccountingWorker } from '../src/partner-cost-sharing/worker.mjs';
 import { PartnerVendorAdapter,PartnerGmailAdapter } from '../src/partner-cost-sharing/providers.mjs';
 const proof='a'.repeat(64);
+test('native partner assets traverse extensionless gateway paths with correct MIME and exact source bytes',async()=>{
+ const {createMissionAccountsServer}=await import('../src/server.mjs');
+ const {readFile}=await import('node:fs/promises');
+ const server=createMissionAccountsServer({config:{production:true,localAuth:false,features:{},partnerCostSharing:{enabled:false}},store:{}});
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ try{
+  const origin='http://127.0.0.1:'+server.address().port;
+  for(const [alias,file,type] of [['partner-cost-sharing','ui.js','application/javascript'],['partner-cost-sharing-style','ui.css','text/css']]){
+   const expected=await readFile(new URL('../public/partner-cost-sharing/'+file,import.meta.url));
+   for(const mount of ['/','/missionaccounts/']){
+    const response=await fetch(origin+mount+'assets/'+alias);
+    assert.equal(response.status,200);assert.ok(response.headers.get('content-type').startsWith(type));
+    assert.equal(response.headers.get('x-content-type-options'),'nosniff');
+    assert.deepEqual(Buffer.from(await response.arrayBuffer()),expected);
+   }
+  }
+  assert.equal((await fetch(origin+'/assets/partner-cost-sharing-unknown')).status,404);
+ }finally{await new Promise(resolve=>server.close(resolve));}
+});
 async function harness({enabled=true,brianOnly=false,prototype=false}={}){
  const ledger=new PartnerLedger(),local=new LocalPartnerStore(ledger);
  const store={memberForPrincipal:async id=>['brian','drj','phil'].includes(id)?{key:id,active:true}:null,view:actor=>ledger.view({...actor,active:true}),execute:(actor,...args)=>local.execute({...actor,prototype:true},...args)};

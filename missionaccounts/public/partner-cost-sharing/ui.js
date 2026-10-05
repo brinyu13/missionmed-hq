@@ -5,7 +5,8 @@ let busy = false;
 let lastFocus = null;
 let sampleKey = null;
 let selectedStatement = null;
-const requestedPartnerHash = /^#\/partner-costs(?:\/|$)/.test(location.hash) ? location.hash : '';
+const requestedPartnerRoute = window.__MISSIONACCOUNTS_REQUESTED_HASH || location.hash;
+const requestedPartnerHash = /^#\/partner-costs(?:\/|$)/.test(requestedPartnerRoute) ? requestedPartnerRoute : '';
 let restoreRequestedRoute = true;
 const labels = { brian: 'Brian', drj: 'Dr J', phil: 'Phil' };
 const pages = [['overview', 'Overview'], ['review', 'Review & Pay'], ['services', 'Services & Invoices'], ['statements', 'Statements & History'], ['payments', 'Payments']];
@@ -27,7 +28,7 @@ async function refresh() {
   window.__XP?.render?.(); enhanceHost();
 }
 function notice() {
-  if(data.accountingReview)return `<div class="pcs-notice" role="status"><strong>Real records loaded · private local accounting review.</strong> Access lenses are synthetic. The earlier package is settled by Founder attestation; its exact cutoff and invoice matching remain open. Current balances are unknown and collection is off.</div>`;
+  if(data.accountingReview)return `<div class="pcs-notice" role="status"><strong>Real records loaded · private ${data.prototype ? 'local accounting review' : 'production accounting review'}.</strong> ${data.prototype ? 'Access lenses are synthetic.' : 'Access uses your verified signed-in business partner account.'} The earlier package is settled by Founder attestation; its exact cutoff and invoice matching remain open. Current balances are unknown and collection is off.</div>`;
   return `<div class="pcs-notice" role="status"><strong>${data.prototype ? 'Working prototype · no money moves.' : 'Historical reconciliation pending.'}</strong> Recovered invoices are historical evidence. Actual historical balances remain unknown; ${data.certified&&data.prototype?'the separate certified journal shown here is synthetic.':'the historical sample allocation is not a payable balance.'}</div>`;
 }
 function lensControls() {
@@ -230,7 +231,7 @@ window.PartnerCostSharing = Object.freeze({
   },
   enhanceHost,
 });
-const stylesheet = document.createElement('link'); stylesheet.rel = 'stylesheet'; stylesheet.href = new URL('./ui.css', import.meta.url); document.head.append(stylesheet);
+const stylesheet = document.createElement('link'); stylesheet.rel = 'stylesheet'; stylesheet.href = new URL('../assets/partner-cost-sharing-style', import.meta.url); document.head.append(stylesheet);
 const observer = new MutationObserver(() => enhanceHost()); observer.observe(document.getElementById('main'), { childList: true });
 const credentialObserver=new MutationObserver(()=>{if(!window.MissionAccountsRuntime?.state?.authenticated&&data){data=null;selectedStatement=null;sampleKey=null;closeDialog();window.__XP?.render?.();}});
 credentialObserver.observe(document.documentElement,{attributes:true,attributeFilter:['data-missionaccounts-runtime']});

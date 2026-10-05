@@ -14,7 +14,7 @@ const files=[...moduleFiles,...adapters.map(x=>path.join(root,x)),...testFiles.m
 const entries=[];
 for(const f of files){const bytes=await readFile(f);if(/\.(pdf|zip|png|jpg|jpeg|env)$/i.test(f))throw Error('Private or binary source candidate prohibited');entries.push({path:path.relative(root,f),bytes:bytes.length,sha256:sha(bytes)});}
 const shell=await readFile(path.join(root,'public/index.production.html'),'utf8');
-if(!shell.includes('PartnerCostSharing?.handles')||!shell.includes('partner-cost-sharing/ui.js'))throw Error('Native module mount missing');
+if(!shell.includes('PartnerCostSharing?.handles')||!shell.includes('src="./assets/partner-cost-sharing"'))throw Error('Native module mount missing');
 const ignore=await readFile(path.join(root,'.dockerignore'),'utf8'),docker=await readFile(path.join(root,'Dockerfile'),'utf8');
 if(!ignore.includes('!public/partner-cost-sharing/**')||!docker.includes('public/partner-cost-sharing ./public/partner-cost-sharing'))throw Error('Isolated UI build context missing');
 const original=execFileSync('git',['show','1024e30d6bbbc435d70ea2710d1def7e1cbc0b61:missionaccounts/.dockerignore'],{cwd:root,encoding:'utf8'});
