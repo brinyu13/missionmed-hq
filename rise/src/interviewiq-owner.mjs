@@ -8,7 +8,14 @@ function identity(record,release) {
   // Track is unknown unless the canonical registry explicitly supplies it.
   const track=record.display.track??'';
   if(!clean(track,300,true))throw new Error('invalid_registry');
-  return {id:record.programSpecialtyId,name:record.display.programName,track,registryReleaseId:release};
+  const specialty=record.designation??null;
+  if(specialty!==null&&!clean(specialty,180))throw new Error('invalid_registry');
+  if(record.identifiers!=null&&!Array.isArray(record.identifiers))throw new Error('invalid_registry');
+  const codes=(record.identifiers??[]).filter(x=>x?.namespace==='ACGME_PROGRAM');
+  if(codes.length>1)throw new Error('invalid_registry');
+  const acgmeId=codes[0]?.value??null;
+  if(codes.length&&!(typeof acgmeId==='string'&&/^[0-9]{10}$/.test(acgmeId)))throw new Error('invalid_registry');
+  return {id:record.programSpecialtyId,name:record.display.programName,track,registryReleaseId:release,specialty,acgmeId};
 }
 
 // Intentionally unmounted. Composition must supply current canonical registry,
@@ -47,7 +54,7 @@ export function createInterviewiqOwner(config={},dependencies={}) {
         }
       } else {
         const {q,page,pageSize}=auth.route;
-        const matches=programs.filter(p=>`${p.id} ${p.name} ${p.track}`.toLowerCase().includes(q.toLowerCase()))
+        const matches=programs.filter(p=>`${p.id} ${p.name} ${p.track} ${p.specialty??''} ${p.acgmeId??''}`.toLowerCase().includes(q.toLowerCase()))
           .sort((a,b)=>a.name.localeCompare(b.name)||a.id.localeCompare(b.id));
         body={registryReleaseId:index.registryReleaseId,page,total:matches.length,programs:matches.slice((page-1)*pageSize,page*pageSize)};
       }

@@ -167,6 +167,8 @@ export async function createInterviewiqRuntime({registryIndex,env=process.env,wo
     Object.freeze(rights);
     const ownerIndex=Object.freeze({registryReleaseId,programs:Object.freeze(registryIndex.programs.map(p=>Object.freeze({
       programSpecialtyId:p.programSpecialtyId,display:Object.freeze({programName:p.display?.programName,track:p.display?.track??''}),
+      designation:p.designation,identifiers:Array.isArray(p.identifiers)?Object.freeze(p.identifiers.filter(x=>x?.namespace==='ACGME_PROGRAM')
+        .map(x=>Object.freeze({namespace:x.namespace,value:x.value}))):p.identifiers,
     })))});
     underlying=new Pool(config.pool);underlying.on('error',()=>{});
     const pool={options:{connectionTimeoutMillis:5000},async connect(){

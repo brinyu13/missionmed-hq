@@ -40,7 +40,7 @@ function setup({mutateProof=x=>x,fetchOverride,rights,registry,readCoverage,read
 
 test('search returns only canonical identities and checks fresh proof twice',async()=>{
   const s=setup(),r=request(),result=await s.handler(r);assert.equal(result.status,200);assert.equal(result.body.programs.length,2);
-  assert.deepEqual(Object.keys(result.body.programs[0]),['id','name','track','registryReleaseId']);
+  assert.deepEqual(Object.keys(result.body.programs[0]),['id','name','track','registryReleaseId','specialty','acgmeId']);
   assert.equal(result.headers['Cache-Control'],'no-store');assert.equal(s.proofs.length,2);
   assert.notEqual(s.proofs[0].nonce,s.proofs[1].nonce);assert.equal(s.proofs[0].request_sha256,s.proofs[1].request_sha256);
   const canonical=`iiq-owner-v1\nrise\n${r.rawHeaders[3]}\n${r.rawHeaders[5]}\nGET\n${r.url}\n${sha('')}\n${sha(JSON.stringify(ACTOR))}`;
@@ -191,3 +191,46 @@ test('auth result never serializes private actor or proof material',async()=>{
 function emptyResults(){const body={programId:'acgme:001.im',registryReleaseId:'registry-synthetic-v1',observedAt:new Date(NOW).toISOString(),fields:DEEP_RESEARCH_DOSSIER_V2.domains.flatMap(d=>d.fields.map(field=>({area:d.key,field,state:'UNKNOWN'}))).sort((a,b)=>a.field.localeCompare(b.field,'en'))};const c={...body,receipt:{sha256:sha(JSON.stringify(body)),publicRef:'rise-coverage-v1'}},v={schema:'rise-interviewiq-research-results-v1',coverage:c,facts:[]};return {...v,receipt:{publicRef:'rise-results-v1',sha256:sha(JSON.stringify(v))}};}
 test('results capability binds current program and preserves final owner proof checks',async()=>{const expected=emptyResults(),s=setup({config:{...CONFIG,resultsEnabled:true},readResults:async input=>{assert.equal(input.programId,'acgme:001.im');return {...expected,raw:'PRIVATE_SENTINEL'};}}),r=await s.handler(request({path:'/api/rise/v1/interviewiq/programs/acgme%3A001.im'}));assert.equal(r.status,200);assert.deepEqual(r.body.researchResults,expected);assert.equal(s.proofs.length,2);assert.doesNotMatch(JSON.stringify(r),/PRIVATE_SENTINEL/);});
 test('results off does not read values; missing or mismatched reader fails closed',async()=>{let reads=0;const s=setup({readResults:async()=>{reads++;return emptyResults();}});assert.equal((await s.handler(request({path:'/api/rise/v1/interviewiq/programs/acgme%3A001.im'}))).status,200);assert.equal(reads,0);for(const readResults of [undefined,async()=>({...emptyResults(),coverage:{...emptyResults().coverage,programId:'other'}})]){const x=setup({config:{...CONFIG,resultsEnabled:true},readResults});assert.equal((await x.handler(request({path:'/api/rise/v1/interviewiq/programs/acgme%3A001.im'}))).status,503);}});
+
+// Public labels describe the same canonical identity; they never choose a different ID.
+const LABEL_RECORDS=[
+  {programSpecialtyId:'acgme:001.im',display:{programName:'Same Public Program'},designation:'Internal Medicine',
+    identifiers:[{namespace:'ACGME_PROGRAM',value:'1401611122'},{namespace:'FREIDA_PROGRAM',value:'IGNORE'}],privateStudent:'NEVER RETURN'},
+  {programSpecialtyId:'acgme:002.fm',display:{programName:'Same Public Program'},designation:'Family Medicine',
+    identifiers:[{namespace:'ACGME_PROGRAM',value:'1201611103'}]},
+];
+const labelsRegistry=programs=>async()=>({registryReleaseId:'registry-synthetic-v1',programs});
+test('public labels distinguish same-name identities and support specialty/code search',async()=>{
+  const s=setup({registry:labelsRegistry(LABEL_RECORDS)}),all=await s.handler(request());
+  assert.equal(all.status,200);assert.equal(all.body.total,2);
+  assert.deepEqual(all.body.programs.map(p=>[p.id,p.specialty,p.acgmeId]),[
+    ['acgme:001.im','Internal Medicine','1401611122'],['acgme:002.fm','Family Medicine','1201611103']]);
+  for(const q of ['Internal Medicine','1401611122']) {
+    const path='/api/rise/v1/interviewiq/programs?'+new URLSearchParams({q,page:'1',pageSize:'20'});
+    const found=await s.handler(request({path}));assert.equal(found.status,200);assert.equal(found.body.total,1);
+    assert.equal(found.body.programs[0].id,'acgme:001.im');
+  }
+  const detail=await s.handler(request({path:'/api/rise/v1/interviewiq/programs/acgme%3A001.im'}));
+  assert.deepEqual(detail.body,all.body.programs[0]);assert.equal(s.proofs.length,8);
+  assert.doesNotMatch(JSON.stringify(all),/NEVER RETURN|IGNORE|identifiers|designation|privateStudent/);
+});
+test('public labels absent in legacy records are null without ACGME inference',async()=>{
+  const legacy={programSpecialtyId:'acgme:001.im',display:{programName:'Legacy Program'},
+    identifiers:[{namespace:'FREIDA_PROGRAM',value:'1401611122'}]};
+  const s=setup({registry:labelsRegistry([legacy])}),result=await s.handler(request());
+  assert.equal(result.status,200);assert.equal(result.body.programs[0].specialty,null);assert.equal(result.body.programs[0].acgmeId,null);
+  assert.equal(result.body.programs[0].track,'');assert.equal(result.body.programs[0].registryReleaseId,'registry-synthetic-v1');
+});
+test('public labels reject malformed canonical metadata without fallback',async()=>{
+  for(const edit of [
+    {designation:''},{designation:'  '},{designation:42},{designation:'x'.repeat(181)},{designation:'bad\nlabel'},
+    {identifiers:{}},{identifiers:[{namespace:'ACGME_PROGRAM',value:null}]},
+    {identifiers:[{namespace:'ACGME_PROGRAM',value:1401611122}]},
+    {identifiers:[{namespace:'ACGME_PROGRAM',value:'140161112'}]},
+    {identifiers:[{namespace:'ACGME_PROGRAM',value:'1401611122\n'}]},
+    {identifiers:[{namespace:'ACGME_PROGRAM',value:'1401611122'},{namespace:'ACGME_PROGRAM',value:'1401611122'}]},
+  ]) {
+    const s=setup({registry:labelsRegistry([{...LABEL_RECORDS[0],...edit}])});
+    assert.equal((await s.handler(request())).status,503);
+  }
+});
