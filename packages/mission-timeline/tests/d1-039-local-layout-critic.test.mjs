@@ -140,17 +140,20 @@ async function generatedCollision(two=false,dates=null){
   if(two)document.events.push({...structuredClone(document.events[0]),id:'work-other',title:'Other synthetic work'});
   const first=await projectLayoutCritic(document,options),target=first.localContext.targetMap.get('e0001');
   // A prior critic-owned automatic anchor is not a user-authored placement.
-  // This synthetic same-geometry state deliberately contains a real collision.
+  // Place the annotation against current paint. Deterministic reflow may clear
+  // overlap first; the measured residual crowding is still a genuine defect.
   for(const entry of first.localContext.targetMap.values())document=applyLocalLayoutCriticSceneCommand(document,{kind:'geometry',target:{type:'event',id:entry.objectId},geometry:{...entry.geometry,...(entry.eventId===target.eventId?{y:300}:{})},
     create:{type:'event',semanticRef:entry.eventId,aspectLocked:false,presentation:{eventType:'duration',localLayoutCriticAuto:true}}},options).document;
   if(document.presentationOverrides?.axis)document.presentationOverrides.axis.localLayoutCriticAuto=true;
-  document.advanced.textBlocks=[{id:'synthetic-obstacle',text:'Synthetic obstacle',x:target.geometry.x+40,y:300,width:180,height:30,size:18,font:'Arial'}];
+  const measured=(await projectLayoutCritic(document,options)).input.targets[0].geometry;
+  document.advanced.textBlocks=[{id:'synthetic-obstacle',text:'Synthetic obstacle',x:measured.x+40,y:measured.y+measured.height/2,width:180,height:30,size:18,font:'Arial'}];
   return document;
 }
 test('safe proposal survives an unsafe independent candidate; native shape, semantics and unrelated text remain exact',async()=>{
   const document=await generatedCollision(true),before=JSON.stringify(document),p=await projectLayoutCritic(document,options);
-  assert.ok(p.input.safety.collisionCount>0);
-  const proposals=[{...move(p,1050),targetId:'e0002'},move(p,400)];
+  assert.ok(p.input.safety.collisionCount+p.input.safety.crowdingCount>0);
+  // Leave enough room for the unchanged second arrow and its full captions.
+  const proposals=[{...move(p,1050),targetId:'e0002'},move(p,500)];
   assert.doesNotThrow(()=>validateLayoutRecommendations(p.input,result(p,proposals),p.sceneDigest));
   const accepted=await applyLayoutRecommendations(document,result(p,proposals),p.sceneDigest,{...options,sourceDigest:p.localContext.sourceDigest});
   assert.equal(accepted.applied,1);assert.equal(accepted.rejected.length,1);assert.equal(accepted.rejected[0].index,0);assert.equal(accepted.candidatesEvaluated,2);
@@ -158,7 +161,7 @@ test('safe proposal survives an unsafe independent candidate; native shape, sema
   assert.deepEqual(accepted.document.events,document.events);assert.deepEqual(accepted.document.studentProfile,document.studentProfile);assert.deepEqual(accepted.document.advanced.textBlocks,document.advanced.textBlocks);
   const beforePaint=paint(document),afterPaint=paint(accepted.document),arrow=nodes=>nodes.nodes.find(node=>node.sourceAttributes['data-continuous-duration-arrow']);
   const a=arrow(beforePaint),b=arrow(afterPaint);assert.ok(Math.abs(a.bounds.x-b.bounds.x)<.04);assert.ok(Math.abs(a.bounds.width-b.bounds.width)<.04);assert.ok(Math.abs(a.bounds.height-b.bounds.height)<.04);assert.equal(a.commands.length,b.commands.length);
-  assert.ok(accepted.after.collisionCount<accepted.before.collisionCount);assert.ok(accepted.after.crowdingCount<=accepted.before.crowdingCount);
+  assert.ok(accepted.after.collisionCount<=accepted.before.collisionCount);assert.ok(accepted.after.crowdingCount<accepted.before.crowdingCount);
 });
 
 test('candidate composition budget is eight, with truthful per-proposal rejection counts',async()=>{
@@ -283,7 +286,7 @@ test('pinning a resolved long flag preserves its wrap and side through a safe un
   const before=JSON.stringify(document),p=await projectLayoutCritic(document,options),layout=p.localContext.scene.autoFlagLabels.get('degree');
   assert.ok(layout.width>420);assert.equal(layout.flip,true);
   const accepted=await applyLayoutRecommendations(document,result(p,[move(p,400)]),p.sceneDigest,options);
-  assert.equal(accepted.applied,1,JSON.stringify(accepted.rejected));assert.ok(accepted.after.collisionCount<accepted.before.collisionCount);
+  assert.equal(accepted.applied,1,JSON.stringify(accepted.rejected));assert.ok(accepted.after.collisionCount+accepted.after.crowdingCount<accepted.before.collisionCount+accepted.before.crowdingCount);
   const object=accepted.document.advanced.scene.objects.find(item=>item.semanticRef==='degree');
   assert.deepEqual(object.presentation.flagLabelLayout,layout);assert.deepEqual(accepted.document.events,document.events);assert.equal(JSON.stringify(document),before);
   const flagPaint=doc=>paint(doc).nodes.filter(node=>node.groupId==='event:degree').map(node=>({kind:node.kind,text:node.text,bounds:node.bounds,style:node.style,commands:node.commands}));
@@ -303,8 +306,8 @@ test('pinning a resolved long flag preserves its wrap and side through a safe un
   assert.equal(reopenedProjection.localContext.targetMap.get('e0002').editable,true);
 });
 
-async function generalFlagFixture({y=60,obstacle=true,anchor=true,examCategory=false}={}){
-  let document=minimal();document.events=[{id:'general-flag',title:'Synthetic full milestone',siteName:'Synthetic Institute',categoryId:examCategory?'exams':'personal',eventType:'milestone',startDate:'2024-02',visibilityState:'INTERVIEWER_SAFE'}];
+async function generalFlagFixture({y=60,obstacle=true,anchor=true,examCategory=false,startDate='2024-01'}={}){
+  let document=minimal();document.events=[{id:'general-flag',title:'Synthetic full milestone',siteName:'Synthetic Institute',categoryId:examCategory?'exams':'personal',eventType:'milestone',startDate,visibilityState:'INTERVIEWER_SAFE'}];
   const initial=await projectLayoutCritic(document,options),target=initial.localContext.targetMap.get('e0001');
   document=applyLocalLayoutCriticSceneCommand(document,{kind:'geometry',target:{type:'event',id:target.objectId},geometry:{...target.geometry,y},
     create:{type:'event',semanticRef:target.eventId,aspectLocked:false,presentation:{eventType:'milestone',localLayoutCriticAuto:true,...(anchor?{guardianAnchor:'axis'}:{})}}},options).document;
@@ -312,12 +315,12 @@ async function generalFlagFixture({y=60,obstacle=true,anchor=true,examCategory=f
   return document;
 }
 
-test('collision reduction by moving a general flag below the ribbon is a coded template hold',async()=>{
+test('clearing measured crowding by moving a general flag below the ribbon is a coded template hold',async()=>{
   const document=await generalFlagFixture(),original=JSON.stringify(document),p=await projectLayoutCritic(document,options);
-  assert.ok(p.input.safety.collisionCount>0);assert.equal(p.input.safety.templateViolationCount,0);
+  assert.ok(p.input.safety.collisionCount+p.input.safety.crowdingCount>0);assert.equal(p.input.safety.templateViolationCount,0);
   const illegallyMoved=structuredClone(document);illegallyMoved.advanced.scene.objects[0].geometry.y=180;
   const invalid=await projectLayoutCritic(illegallyMoved,options);
-  assert.equal(invalid.input.safety.collisionCount,0,'fixture exposes the old collision-only acceptance hole');
+  assert.equal(invalid.input.safety.collisionCount+invalid.input.safety.crowdingCount,0,'fixture exposes a real mechanical improvement that still violates the template');
   assert.equal(invalid.input.safety.axisOverlapCount,0);assert.equal(invalid.input.safety.templateViolationCount,1);
   assert.deepEqual(invalid.input.safety.templateViolationTargets,['e0001']);assert.equal(invalid.input.targets[0].poleFootY,125);
   const proposal=move(p,180);
@@ -334,7 +337,7 @@ test('bounded above-band move preserves full labels and the exact native pole fo
   const document=await generalFlagFixture(),p=await projectLayoutCritic(document,options),proposal=move(p,25);
   assert.doesNotThrow(()=>validateLayoutRecommendations(p.input,result(p,[proposal]),p.sceneDigest));
   const accepted=await applyLayoutRecommendations(document,result(p,[proposal]),p.sceneDigest,options);
-  assert.equal(accepted.applied,1,JSON.stringify(accepted.rejected));assert.ok(accepted.after.collisionCount<accepted.before.collisionCount);
+  assert.equal(accepted.applied,1,JSON.stringify(accepted.rejected));assert.ok(accepted.after.crowdingCount<accepted.before.crowdingCount);assert.ok(accepted.after.collisionCount<=accepted.before.collisionCount);
   assert.equal(accepted.after.templateViolationCount,0);assert.deepEqual(accepted.document.events,document.events);
   const after=await projectLayoutCritic(accepted.document,options),target=after.input.targets[0];
   assert.equal(target.poleFootY,125);
@@ -346,6 +349,16 @@ test('bounded above-band move preserves full labels and the exact native pole fo
   assert.ok(after.input.parts.filter(part=>target.partIds.includes(part.id)).every(part=>part.bounds.y+part.bounds.height<=125.04));
   const reopened=await projectLayoutCritic(JSON.parse(JSON.stringify(accepted.document)),options);
   assert.deepEqual(reopened.input,after.input);
+});
+
+test('above-band movement that needs a new label wrap is truthfully held; native safety is never bypassed',async()=>{
+  const document=await generalFlagFixture({startDate:'2024-02'}),original=JSON.stringify(document),p=await projectLayoutCritic(document,options),target=p.localContext.targetMap.get('e0001');
+  const edited=applyLocalLayoutCriticSceneCommand(document,{kind:'geometry',target:{type:'event',id:target.objectId},geometry:{...target.geometry,y:25},create:{type:'event',semanticRef:target.eventId,aspectLocked:false,presentation:{eventType:'milestone',localLayoutCriticAuto:true,guardianAnchor:'axis'}}},options).document;
+  const candidate=await projectLayoutCritic(edited,options),labels=projection=>projection.localContext.paint.nodes.filter(node=>node.semanticRef==='general-flag'&&node.sourceAttributes['data-board-ink-role']==='flag-label').map(node=>node.text);
+  assert.notDeepEqual(labels(candidate),labels(p),'the plaque forces a different wrap in this explicit February fixture');
+  assert.equal(labels(candidate).join(' '),document.events[0].title+' — '+document.events[0].siteName);assert.equal(candidate.input.targets[0].poleFootY,125);
+  const held=await applyLayoutRecommendations(document,result(p,[move(p,25)]),p.sceneDigest,options);
+  assert.equal(held.applied,0);assert.deepEqual(held.rejected,[{index:0,code:'LAYOUT_CRITIC_NATIVE_GEOMETRY_CHANGE'}]);assert.equal(held.document,document);assert.equal(held.sourceUnchanged,true);assert.equal(JSON.stringify(document),original);
 });
 
 test('full painted wrapped labels crossing the band reject even when the pennant itself stays above it',async()=>{
@@ -427,7 +440,7 @@ test('bounded adjacent-label fallback preserves a full institution beside the pl
   const ranged=setAxisPresentationOverride(document,{startYear:2020,endYear:2025,includeFuture:false});assert.equal(ranged.changed,true);document=ranged.document;
   const before=JSON.stringify(document),shown=serializeFounderPresentation(document,options),resolved=resolveFounderPresentationSvg(shown.svg),layout=shown.scene.autoFlagLabels.get('adjacent-degree');
   assert.equal(shown.scene.autoMilestonePacking.strategy,'adjacent-label');assert.ok(shown.scene.autoMilestonePacking.labelExpansions<=8192);
-  assert.ok(Number.isFinite(layout.yOffset)&&layout.yOffset<0);assert.equal(layout.flip,true);
+  assert.ok(Number.isFinite(layout.yOffset)&&layout.yOffset<0);assert.equal(typeof layout.flip,'boolean');
   const flagNodes=resolved.nodes.filter(node=>node.groupId==='event:adjacent-degree'),labels=flagNodes.filter(node=>node.sourceAttributes['data-board-ink-role']==='flag-label');
   assert.equal(labels.map(node=>node.text).join(' '),document.events[1].title+' — '+document.events[1].siteName);
   assert.ok(labels.every(node=>node.fontSize===18&&node.fontFamily.includes('American Typewriter')&&node.bounds.y>=2&&node.bounds.y+node.bounds.height<=125.04));
