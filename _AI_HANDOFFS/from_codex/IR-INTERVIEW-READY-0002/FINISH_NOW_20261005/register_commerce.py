@@ -20,13 +20,15 @@ def main():
  sys.path.insert(0,str(ROOT/'tools'));sys.path.insert(0,str(HERE.parent))
  from mission_registry_registrar import MissionRegistryRegistrar,canonical_decision_numbers
  from engineering_os_lease import SupabaseLeaseClient
- from lease_transport import existing_lease_client
+ import lease_transport as transport
  number=max(canonical_decision_numbers(ROOT))+1;decision=f'DR-{number:03d}'
  dpath=f'decisions/{decision}_ir_phase1_public_commerce_fallback.md';hpath='handoffs/from_codex/IR_INTERVIEW_READY_0002/REGISTRATION_TO_CODEX.md'
  paths=sorted([dpath,hpath,'CURRENT.md','missions.json','products_index.json','authority_index.json','registry/boot_dependency_manifest.json','PRODUCT_PASSPORTS/interview-ready.md'])
  marker=HERE/'REGISTRATION_READ_CONSUMED.json'
  with marker.open('x') as f:json.dump({'approvalSha256':sha(HERE/'REGISTRATION_APPROVAL.json'),'state':'CONSUMED'},f)
- client=existing_lease_client(SupabaseLeaseClient);txn=None
+ assert all(not (HERE/n).exists() for n in ['REGISTRATION_STAGED.json','REGISTRATION_STAGED_APPROVAL.json','REGISTRATION_CUSTODY.json'])
+ key=transport.retrieve_existing_key();assert transport.authentication_probe(key)==200
+ client=SupabaseLeaseClient(base_url=transport.BASE_URL,project_ref=transport.PROJECT,api_key=key,opener=transport.ApikeyOnlyLeaseOpener(key,SupabaseLeaseClient._open_no_redirect));txn=None
  try:
   txn=MissionRegistryRegistrar(ROOT,client).begin(mission_id=MISSION,write_paths=paths,owner_id='codex-ir-phase1-foreman',session_id='ir-commerce-finish-20261005',decision_count=1,wait_timeout=60,heartbeat_interval=5)
   assert txn.allocation.remote_head==a['osHead'] and list(txn.allocation.decision_ids)==[decision]
@@ -44,7 +46,7 @@ def main():
    import mmos_status;mmos_status.ROOT=ROOT;(ROOT/'CURRENT.md').write_text('\n'.join(mmos_status.build_current())+'\n')
    subprocess.run(['python3',str(ROOT/'tools/validate_boot_dependencies.py'),'--hq-git-dir','/Users/brianb/MissionMed/.git','--os-root',str(ROOT),'--mission-profile',MISSION],check=True)
    subprocess.run(['git','add','--',*paths],cwd=ROOT,check=True)
-  txn.run_guarded(stage)
+  txn.revalidate();txn.run_guarded(stage)
   staged={p:sha(ROOT/p) for p in paths};receipt={'schema':'ir.commerce.registry.staged.v1','paths':staged,'canonicalBase':txn.allocation.remote_head,'decision':decision};write(HERE/'REGISTRATION_STAGED.json',receipt);print('REGISTRY_STAGED_REVIEW_READY',flush=True)
   deadline=time.monotonic()+600
   while time.monotonic()<deadline:
@@ -58,7 +60,7 @@ def main():
    run('git','commit','-m','Authorize Interview Ready public commerce fallback and defer accounts');run('git','push','origin','main');run('git','fetch','origin');head=run('git','rev-parse','HEAD');assert head==run('git','rev-parse','origin/main')
    for p,h in staged.items():assert hashlib.sha256(subprocess.check_output(['git','show','origin/main:'+p],cwd=ROOT)).hexdigest()==h
    return head
-  head=txn.run_guarded(custody);txn.release();txn=None;write(HERE/'REGISTRATION_CUSTODY.json',{'head':head,'decision':decision,'paths':staged,'registryReleased':True});print('REGISTRY_CUSTODY_VERIFIED_RELEASED '+head,flush=True)
+  txn.revalidate();head=txn.run_guarded(custody);txn.release();txn=None;write(HERE/'REGISTRATION_CUSTODY.json',{'head':head,'decision':decision,'paths':staged,'registryReleased':True});print('REGISTRY_CUSTODY_VERIFIED_RELEASED '+head,flush=True)
  finally:
   if txn is not None:txn.release();print('REGISTRY_RELEASED_AFTER_STOP',flush=True)
 if __name__=='__main__':
