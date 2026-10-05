@@ -5,7 +5,7 @@ Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`, `DR-350` (narrow packaging), `DR-361` (current RISE eligibility successor); `DR-340` QA grant revoked
 Branch: `codex/ivoc-foreman-9200`
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
-Current continuation boundary: `LEMONSLICE CANARY READY — WAIT ONLY FOR NUMERIC USD1 AUTHORIZATION; NO FOUNDER RETEST`
+Current continuation boundary: `ONE FOUNDER LEMONSLICE CANARY AUTHORIZED — USD1 / 45s / NO RETRY; NO FOUNDER RETEST`
 
 This is the one living requirement ledger required by the final Founder
 completion directive. A status of `LIVE UNVERIFIED` means the capability is
@@ -15,6 +15,22 @@ the actual production route and deployment.
 ## Foreman 9300 overnight reactivation — current dated evidence
 
 ### Current Fable-to-production convergence — 2026-10-03
+
+- 2026-10-04 DIRECT FOUNDER NUMERIC CANARY AUTHORIZATION:
+  Supersedes only the prior LemonSlice spend pause for ONE Founder wp:1 session,
+  <=45s plus15s idle-cleanup, incremental operational spend <=USD1. Existing
+  agent_9bdfc50ec0086043 only; no subscription, upgrade, second paid creation,
+  automatic paid retry or student availability. GPT-Live/InterviewBrain remains
+  sole conversation/audio origin; LemonSlice is synchronized visual embodiment.
+  Fixed canonical canary UUID93d2ed24-2694-4eb0-bd92-851c315cee96 is never rotated
+  for another paid attempt. Begin from healthy provider-OFF6467a165/source605cfdc;
+  preserve exact7Y0cU1 artifact and Founder cb5ccd6b/acfd95b/ppcfoR recovery.
+  Fresh PRODUCT4855 / SHARED4856 independent heartbeats verified remotely before
+  mutation; source60b5c92 clean/pushed, BOOT PASS, no competing shared owner.
+  After the single attempt: exact terminate/status/orphan/spend receipt, disable
+  paid activation, no-spend fix-forward, truthful ledger and normal lease release.
+  Visible sync, actual heard audio/replay, interruption and terminal provider
+  evidence remain UNVERIFIED until observed; no success inferred from tests.
 
 - 2026-10-04 LEMONSLICE PROVIDER-OFF RELEASE / SHARED4849:
   Source605cfdc2b1edcc8cb6a3202b423656119b2ea4e7, SUCCESS deployment
