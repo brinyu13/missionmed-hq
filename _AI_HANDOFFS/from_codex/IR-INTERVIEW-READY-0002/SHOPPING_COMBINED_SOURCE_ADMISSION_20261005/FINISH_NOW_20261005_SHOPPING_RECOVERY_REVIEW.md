@@ -1,0 +1,9 @@
+# Independent sequential shopping/recovery admission
+
+APPROVE within the exact source-only recovery contract.
+
+Reviewer /root/inventory_exact_admission_reviewer; actual HEAD 02643c15ecc0cf6fb97213fc9188e654996bc33c; canonical binding a1e750f1295da2635d65caf8a5666dbb1ea915e047e1e9e549153b395ddefdab. Observed local snapshot Unix 1791240221.577852; controls expire Unix 1791243721.577852; maxSeconds1800. Root is sole execution operator. This reviewer authored neither combined runner nor packet. No transport capability/provider/credential/source/runtime/control consumption was executed.
+
+Exact original patch04d6169/fixed review9594394 and credit patch1abbca9/independent review9ebf88d8 remain separate reviewed deltas; combined receipt4364b0bb and disposable-browser report3771d2d4 plus six public evidence digests are snapshot-bound. These support the recorded source/UI scope only, not live account acceptance or current provider facts. Photos, captions, accepted motion/engine and missionmatch-20 destinations remain preserved; fabricated commerce fields and new media rights are excluded.
+
+Precommit failure recovery may restore only the exact four admitted source preimage bytes under a healthy immediate guard and after cooperative worker STOP/drain. Preserve all other tracked/untracked/dirty source, identities, state and runtime. No reset/clean/general checkout, source-head rollback or database rollback. After the scoped commit, STOP and obtain a separate reviewed recovery packet; this admission does not authorize a revert. Root must independently observe worker stopped/drained before DONE and canonical release, which the unchanged precedent cannot automatically attest. Missing drain or a failing guard means STOP, not a release override. Control directory is absent and unique now. Existing controls cannot replay this changed contract.
