@@ -231,3 +231,26 @@ test('ordinary native duration staircase preserves full words, date extents and 
   const geometry={x:600,y:730,width:400,height:44,rotation:0},authored=applySceneCommandToDocument(document,{kind:'geometry',target:{type:'event',id:'d2'},geometry,create:{type:'event',semanticRef:'d2',locked:true,presentation:{eventType:'duration'}}},options).document;
   const before=JSON.stringify(authored);serializeFounderPresentation(authored,options);assert.deepEqual(authored.advanced.scene.objects.find(object=>object.semanticRef==='d2').geometry,geometry);assert.equal(JSON.stringify(authored),before);assert.deepEqual(authored.events,document.events);
 });
+
+
+test('recovered native duration profile retains seven vertices and readable source labels',async()=>{
+  const {serializeFounderPresentation}=await import('../web/js/presentation/founder-presentation-serializer.js');
+  const document={id:'synthetic-native-arrow',theme:'keynote-classic',studentProfile:{fullName:'Synthetic Native'},events:[{id:'native-work',title:'Clinical Research Assistant',siteName:'Synthetic University Hospital',categoryId:'work',eventType:'duration',startDate:'2020-01',endDate:'2022-12',visibilityState:'INTERVIEWER_SAFE'}],advanced:{media:[],textBlocks:[],elements:[],groups:[]}};
+  const original=JSON.stringify(document),render=serializeFounderPresentation(document,{scope:'EVERYTHING',currentMonth:'2026-10'});
+  const nodes=resolveFounderPresentationSvg(render.svg).nodes.filter(node=>node.semanticRef==='native-work');
+  const arrow=nodes.find(node=>node.sourceAttributes['data-continuous-duration-arrow']),vertices=arrow.commands.filter(command=>!command.close);
+  assert.equal(vertices.length,7);assert.ok(arrow.commands.at(-1).close);
+  assert.ok(Math.abs(arrow.bounds.height-43.56779479980469)<.001);
+  const shoulder=(vertices[1].y-vertices[2].y)/arrow.bounds.height;
+  assert.ok(Math.abs(shoulder-.2256850004196167)<.00001);
+  const head=(vertices[3].x-vertices[2].x)/arrow.bounds.height;
+  assert.ok(Math.abs(head-19.45389175415039/43.56779479980469)<.00001);
+  const caption=nodes.find(node=>node.sourceAttributes['data-arrow-caption']);
+  const site=nodes.find(node=>node.sourceAttributes['data-material-field']==='siteName');
+  const label=nodes.find(node=>node.sourceAttributes['data-arrow-label-placement']);
+  assert.equal(label.fontSize,18);assert.equal(site.fontSize,19);assert.equal(caption.fontSize,18);
+  assert.equal(label.text,document.events[0].title);assert.equal(site.text,document.events[0].siteName);
+  assert.ok(caption.bounds.y+caption.bounds.height<arrow.bounds.y);
+  assert.ok(site.bounds.y>arrow.bounds.y+arrow.bounds.height);
+  assert.equal(JSON.stringify(document),original);
+});

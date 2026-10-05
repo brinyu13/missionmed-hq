@@ -26,6 +26,7 @@ import {fitPresentationText,wrapPresentationText,measurePresentationText} from '
 const WIDTH=LOCKED_407F_GEOMETRY.width;
 const HEIGHT=LOCKED_407F_GEOMETRY.height;
 const CONTENT_WIDTH=WIDTH-2;
+const FOUNDER_ARROW_PROFILE=Object.freeze({fullHeight:43.56779479980469,headWidth:19.45389175415039,shoulderRatio:.2256850004196167});
 const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const TYPE=Object.freeze({
   title:"'American Typewriter',Rockwell,'Courier New',serif",
@@ -275,13 +276,13 @@ function geometry(arrow,layout,scale,scene){
     const resolved=automaticDateAnchor(scene,arrow)?scene.autoArrowGeometry?.get(String(arrow.id)):null;
     const x=pixel(dated?boardX(scale.xPercent(arrow.startMonth)):overridden.x),y=pixel(resolved?.y??overridden.y);
     const width=pixel(dated?Math.max(LOCKED_407F_GEOMETRY.minimumArrowWidth,CONTENT_WIDTH*scale.widthPercent(arrow.startMonth,arrow.endMonth)/100):Math.max(1,overridden.width));
-    return{x,y,width,x2:x+width,height:pixel(Math.max(1,overridden.height)),...(overridden.personalSegment?{personalSegment:overridden.personalSegment}:{})};
+    return{x,y,width,x2:x+width,height:presentationEventObject(scene,arrow.id)?.geometry?pixel(Math.max(1,overridden.height)):Math.max(1,overridden.height),...(overridden.personalSegment?{personalSegment:overridden.personalSegment}:{})};
   }
   const segment=personalBandSegments(scene).get(arrow.id);
   const x=pixel(boardX(scale.xPercent(arrow.startMonth)));
   const width=pixel(Math.max(LOCKED_407F_GEOMETRY.minimumArrowWidth,CONTENT_WIDTH*scale.widthPercent(arrow.startMonth,arrow.endMonth)/100));
   const y=pixel(1+layout.laneTop+Number(segment?.first.lane??arrow.lane??0)*layout.lanePitch);
-  return{x,y,width,x2:x+width,height:LOCKED_407F_GEOMETRY.arrowHeight,personalSegment:segment};
+  return{x,y,width,x2:x+width,height:FOUNDER_ARROW_PROFILE.fullHeight*(1-2*FOUNDER_ARROW_PROFILE.shoulderRatio),personalSegment:segment};
 }
 
 function founderPortableLayout(scene){
@@ -308,15 +309,27 @@ function arrowDefinitions(arrows,layout,scale,scene){
 
 function arrowMarkup(arrow,index,layout,scale,scene){
   const box=geometry(arrow,layout,scale,scene);
+  const joined=box.personalSegment&&!box.personalSegment.terminal;
+  // Original 2025 Keynote (113d22ef…): regular full height 43.56779479980469,
+  // head width 19.45389175415039, shoulder inset/full height .2256850004196167.
+  // Authored geometry is the full paint box; automatic geometry is a shaft box.
+  // Preserve both contracts and their original rotation center/date endpoints.
+  const shoulderRatio=FOUNDER_ARROW_PROFILE.shoulderRatio;
+  const authored=!!presentationEventObject(scene,arrow.id)?.geometry;
+  const fullHeight=authored?box.height:box.height/(1-2*shoulderRatio);
+  const shoulder=fullHeight*shoulderRatio;
+  const shaftY=box.y+(authored&&!joined?shoulder:0);
+  const shaftHeight=authored&&!joined?box.height-2*shoulder:box.height;
+  const recoveredHead=Math.min(box.width,fullHeight*FOUNDER_ARROW_PROFILE.headWidth/FOUNDER_ARROW_PROFILE.fullHeight);
   const rotation=Number(presentationEventObject(scene,arrow.id)?.geometry?.rotation)||0;
   const rotationAttribute=rotation?` transform="rotate(${rotation} ${box.x+box.width/2} ${box.y+box.height/2})"`:"";
   const style=presentation(arrow,scene);
   const start=formatMonth(arrow.startMonth);
   const end=arrow.openEnded?"Present":formatMonth(arrow.endMonth);
   const duration=monthIndex(arrow.endMonth)-monthIndex(arrow.startMonth)+1;
-  const tight=layout.tight;
   const dateSize=18;
-  const dateY=box.y-(tight?4:7);
+  const headInset=joined||authored?0:shoulder;
+  const dateY=box.y-headInset-7;
   /* AAA-019 Keynote fidelity (016 §3 "Duration arrows"): the golden writes one compact
      caption — "8/11 - 1/17" — centred immediately above the banner, never one date per end. */
   const compactStart=presentationDateWording(arrow.startMonth,arrow.datePrecision?.start,arrow.sourceDateWording?.start);
@@ -332,24 +345,23 @@ function arrowMarkup(arrow,index,layout,scale,scene){
   const siteX=(siteLines.length>1?Math.min(WIDTH-24-siteWidth,Math.max(24,box.x)):siteCenter)+(scene.autoSiteOffsets?.get(String(arrow.id))||0);
   const siteAnchor=siteLines.length>1?"start":"middle";
   const site=siteLines.length
-    ?`<text data-board-ink-role="site" data-material-field="siteName" x="${siteX}" y="${box.y+51}" text-anchor="${siteAnchor}" fill="${outsideInk}" font-family="${TYPE.event}" font-size="19">${siteLines.map((line,i)=>`<tspan x="${siteX}" dy="${i?21:0}">${xml(line)}</tspan>`).join('')}</text>`
+    ?`<text data-board-ink-role="site" data-material-field="siteName" x="${siteX}" y="${box.y+box.height+headInset+21}" text-anchor="${siteAnchor}" fill="${outsideInk}" font-family="${TYPE.event}" font-size="19">${siteLines.map((line,i)=>`<tspan x="${siteX}" dy="${i?21:0}">${xml(line)}</tspan>`).join('')}</text>`
     :"";
   const arrowHead=Math.min(24,Math.max(14,box.width*.14));
-  const joined=box.personalSegment&&!box.personalSegment.terminal;
   const arrowPath=joined
     ?`M${box.x} ${box.y}H${box.x2}V${box.y+box.height}H${box.x}Z`
-    :`M${box.x} ${box.y}H${box.x2-arrowHead}L${box.x2} ${box.y+box.height/2}L${box.x2-arrowHead} ${box.y+box.height}H${box.x}Z`;
+    :`M${box.x} ${shaftY}H${box.x2-recoveredHead}V${shaftY-shoulder}L${box.x2} ${shaftY+shaftHeight/2}L${box.x2-recoveredHead} ${shaftY+shaftHeight+shoulder}V${shaftY+shaftHeight}H${box.x}Z`;
   const separator=joined?`<path data-personal-band-separator="true" d="M${box.x2-9} ${box.y+1}L${box.x2} ${box.y+box.height/2}L${box.x2-9} ${box.y+box.height-1}" fill="none" stroke="#D9C8EA" stroke-width="1.5"/>`:"";
   const labelX=box.x+10+(box.width-28)/2;
   const title=String(arrow.title||'');
   const titleWidth=(scene.measureText||measurePresentationText)(title,18,TYPE.arrowLabel,400);
-  const titleFits=titleWidth<=box.width-arrowHead-16;
+  const titleFits=titleWidth<=box.width-arrowHead-16&&shaftHeight>=18*1.2;
   const leftRoom=Math.max(1,box.x-44),rightRoom=Math.max(1,WIDTH-box.x2-44);
   const outsideLeft=leftRoom>=titleWidth&&(rightRoom<titleWidth||box.x+box.width/2>WIDTH/2)||leftRoom>rightRoom&&rightRoom<titleWidth;
   const titleLines=titleFits?[title]:wrapPresentationText(title,{width:outsideLeft?leftRoom:rightRoom,size:18,family:TYPE.arrowLabel,measureText:scene.measureText||measurePresentationText});
   const titleAnchor=titleFits?'middle':outsideLeft?'end':'start';
   const titleX=titleFits?labelX:outsideLeft?box.x-12:box.x2+12;
-  const titleY=box.y+22-(titleLines.length-1)*11;
+  const titleY=shaftY+shaftHeight/2+18*.26-(titleLines.length-1)*11;
   // Short chronology bars retain their exact dates/width. Their full readable
   // label sits beside the bar instead of crushing glyphs into a few pixels.
   const titleColor=titleFits?"#FFFFFF":outsideInk;
@@ -360,7 +372,7 @@ function arrowMarkup(arrow,index,layout,scale,scene){
   const chip=arrow.actionChip
     ?`<g data-study-action-chip="${xml(arrow.actionChip.targetAttemptId||"")}" transform="translate(${box.x2-141} ${box.y+36})"><rect width="126" height="24" rx="12" fill="#B98A2E" stroke="#A67A26"/><text x="63" y="16" text-anchor="middle" fill="#191C21" font-family="Rajdhani,Arial,sans-serif" font-size="10" font-weight="700">${xml(arrow.actionChip.label||"Set retake date")}</text></g>`
     :"";
-  return`<g data-event-kind="arrow" data-event-id="${xml(arrow.id)}" data-category="${xml(arrow.categoryId)}"${box.personalSegment?` data-personal-band="${xml(box.personalSegment.first.id)}" data-personal-band-segment="${box.personalSegment.index}"`:""} aria-label="${xml(arrow.ariaLabel)}"${rotationAttribute} filter="url(#d1406-arrow-shadow)"><path data-continuous-duration-arrow="true" d="${arrowPath}" fill="url(#d1406-arrow-${index})" stroke="#17212B" stroke-width="1.5"/><path d="M${box.x+2} ${box.y+2}H${box.x2-arrowHead-2}" stroke="#FFFFFF" stroke-opacity=".46" stroke-width="1"/>${separator}${dates}${site}${titleMarkup}${lor}${chip}</g>`;
+  return`<g data-event-kind="arrow" data-event-id="${xml(arrow.id)}" data-category="${xml(arrow.categoryId)}"${box.personalSegment?` data-personal-band="${xml(box.personalSegment.first.id)}" data-personal-band-segment="${box.personalSegment.index}"`:""} aria-label="${xml(arrow.ariaLabel)}"${rotationAttribute} filter="url(#d1406-arrow-shadow)"><path data-continuous-duration-arrow="true" d="${arrowPath}" fill="url(#d1406-arrow-${index})" stroke="#17212B" stroke-width="1.5"/><path d="M${box.x+2} ${shaftY+2}H${Math.max(box.x+2,box.x2-recoveredHead-2)}" stroke="#FFFFFF" stroke-opacity=".46" stroke-width="1"/>${separator}${dates}${site}${titleMarkup}${lor}${chip}</g>`;
 }
 
 function axisMarkup(scale){
