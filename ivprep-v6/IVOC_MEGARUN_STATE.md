@@ -5,7 +5,7 @@ Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`, `DR-350` (narrow packaging), `DR-361` (current RISE eligibility successor); `DR-340` QA grant revoked
 Branch: `codex/ivoc-foreman-9200`
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
-Current continuation boundary: `LEMONSLICE CANARY #3 AUTHORIZED; ONE FOUNDER SESSION / USD1 / ORIGINAL45s / IDLE15 / ZERO CREATE RETRIES; EXECUTION IN PROGRESS`
+Current continuation boundary: `CANARY3 FAIL: BROWSER NETWORK CHANGED; EXACT PROVIDER COMPLETED / ROOM0; FEATURE OFF / HEALTHY; NO PAID RETRY; GENUINE EMBODIMENT PROOF WAITING`
 
 This is the one living requirement ledger required by the final Founder
 completion directive. A status of `LIVE UNVERIFIED` means the capability is
@@ -15,6 +15,53 @@ the actual production route and deployment.
 ## Foreman 9300 overnight reactivation — current dated evidence
 
 ### Current Fable-to-production convergence — 2026-10-03
+
+- 2026-10-05 CANARY3 SINGLE ATTEMPT / EXACT TERMINAL RECEIPT:
+  Source e6b8bdd; engine7f6d693; activated deployment8915d21c. Independent
+  activation guard PASS: exact reservation/agent/45s/idle15/USD1, health200,
+  anonymous product/bootstrap401. Normal Matrix brinyu Admin → Mock → Room;
+  physical FaceTime preview decoded1280×720/readyState4. ONE Start click.
+  Bootstrap200, canonical session/recording/candidate-audio201, GPT live201;
+  browser request85798.288 failed net::ERR_NETWORK_CHANGED (not timeout/HTTP502).
+  No second Start or paid CREATE. Server request did cross the provider boundary:
+  exact provider24d7d397-2ae9-49de-899c-bec089b91a51 returned after client cleanup.
+  Reservation1791215845780; provider-create1791215846848; identity-return
+  1791215853342; exact late-create termination1791215854874:9.094s from original
+  reservation. ProviderConfirmed TRUE; subsequent provider GET200 COMPLETED;
+  exact LiveKit room count0. InputSeconds0. GPT end200 and canonical abandon200.
+  Server safe category STARTUP_CANCELLED records the already-closed reservation;
+  initiating failure is CLIENT_NETWORK, not a LemonSlice HTTP refusal.
+  Provider cost3.0044693919944763 CREDITS, NOT dollars: current official
+  https://lemonslice.com/docs/api-reference/get-session.md defines this unit.
+  Exact dollar conversion/account billing and aggregate GPT charge unavailable;
+  do not call this USD3 or claim an exact total. Published45s self-managed upper
+  estimateUSD0.165 (USD0.33 with2×burst), not actual invoice proof.
+  FAIL: no viewer LiveKit join, avatar frame, audio bind, speech/sync or usable
+  interview. Singular audible output, barge-in/flush/resume and two-sided replay
+  UNVERIFIED. Real camera capture proved; candidate speech evidence absent.
+  Paid execution closed. No deterministic engine defect demonstrated by network
+  transition; no retry/reconnection/security weakening or speculative rewrite.
+  Existing late-ID cleanup recovered exact provider and room safely. Three
+  terminate requests returned no-attempt receipts before provider response;
+  these alone were NOT accepted as no-provider proof. Authoritative final status
+  and independent provider readback above supersede those early empty receipts.
+  Feature OFF restored via normal redeploy SUCCESS375e0bcc-f9a9-4a1f-95cf-0237624cb614;
+  actual image sha256:74b9b91cfaebf5f892830141e195c289022f0927d27c86a4fddd74f4e57c1acb.
+  Railway rebuilt the artifact: this is NOT byte-identical image reuse. Independent
+  guardian verifies three capability module hashes equal7f6d693, runtimeOFF,
+  provider COMPLETED/credits and room0; health200/ok, product/bootstrap401.
+  Current known-good rollback is this OFF deployment/current image, not the
+  older activated canary. Owned browser left Room via
+  normal Leave control; camera/mic capture released. No engine source mutation.
+  Other MUST-FINISH engineering/external-evidence classification remains as in
+  the current lane ledger: genuine speech/replay, other identities, consented
+  owner data and recurrence are WAITING; do not fabricate or repeatedly audit.
+  Bounded no-spend review finds no new deterministic startup blocker to repair
+  from this network-change evidence. Minor presentation gap recorded, not silently
+  accepted: GPT active callback leaves "Your interviewer is listening" after
+  Actor startup fails; future touched-room correction must restore pre-start
+  presence on failure without rebuilding the live engine. No presentation mutation
+  or retest request in this canary. Ledger filing only; focused diff check PASS.
 
 - 2026-10-05 CANARY3 DIRECT FOUNDER AUTHORIZATION:
   Direct active-goal request SHA256
