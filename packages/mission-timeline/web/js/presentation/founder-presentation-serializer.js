@@ -336,6 +336,37 @@ export function serializeFounderScene(scene,{layers="",resourceNamespace=""}={})
   });
 }
 
+// The profile paper summarizes qualifications; education stays in the model
+// and review even when a uniquely source-matched primary span is selected.
+const normalizedProfileEducation=value=>String(value||'').replace(/\s+/g,' ').trim();
+function primaryProfileEducation(profile,records){
+  const school=normalizedProfileEducation(profile.medicalSchool);
+  if(!school)return null;
+  const matches=records.filter(record=>normalizedProfileEducation(record.school)===school);
+  if(matches.length!==1)return null;
+  const primary=matches[0];
+  return primary.startDate&&primary.endDate&&!primary.openEnded&&
+    !Object.values(primary.datePrecision||{}).includes('UNKNOWN')&&
+    ![primary.sourceDateWording?.start?.precision,primary.sourceDateWording?.end?.precision].includes('UNKNOWN')?primary:null;
+}
+function selectConciseProfileEducation(scene,document){
+  const records=scene.profile?.educationRecords||[];
+  const primary=document?.presentationOverrides?.profileGeometry?null:primaryProfileEducation(scene.profile,records);
+  const selected=primary?[primary]:records;
+  const excluded=primary?records.filter(record=>record!==primary).map(record=>({
+    eventId:record.eventId,reason:'additional-education-retained-for-review',
+    primaryEventId:primary.eventId,record:structuredClone(record)
+  })):[];
+  scene.profile={...scene.profile,sourceEducationRecords:structuredClone(records),educationRecords:selected};
+  scene.profileDisplay={...scene.profileDisplay,educationPolicy:'concise-source-matched-primary',
+    primaryEducationEventId:primary?.eventId||null,educationEventIds:selected.map(record=>record.eventId),excludedEducationRecords:excluded};
+  // A duplicate profile field can only be covered by a span still painted.
+  const exclusions=scene.profileDisplay.excludedFields||[];
+  const noLongerCovered=exclusions.filter(item=>item.reason==='covered-by-education-span'&&!selected.some(record=>record.eventId===item.eventId));
+  scene.profileDisplay.excludedFields=exclusions.filter(item=>!noLongerCovered.includes(item));
+  scene.profileDisplay.includedFields=[...scene.profileDisplay.includedFields,...noLongerCovered.map(item=>item.field)];
+}
+
 export function buildFounderPresentationScene(document,{
   scope="INTERVIEWER_SAFE",
   audience=null,
@@ -356,6 +387,7 @@ export function buildFounderPresentationScene(document,{
   }
   const sources=new Map(projected.events.map(event=>[String(event.id),event]));
   for(const key of ['events','arrows','flags'])scene[key]=(scene[key]||[]).map(item=>({...item,sourceDateWording:item.sourceDateWording||sources.get(String(item.id))?.fields?.sourceDateWording||null}));
+  selectConciseProfileEducation(scene,projected);
   if(measureText)scene.measureText=measureText;
   scene.showEmptySlots=showEmptySlots===true;
   scene.mediaProjection=mediaProjection(projected,mediaById);
@@ -453,10 +485,30 @@ export function assertCompleteFounderPresentation(rendered,{allowPendingMedia=fa
   const uncertain=[...(rendered.scene.arrows||[]),...(rendered.scene.flags||[])].filter(event=>Object.values(event.datePrecision||{}).includes('UNKNOWN'));
   if(uncertain.length){const error=new TypeError('Confirm unknown dates before exporting; normalized coordinates do not establish a source date.');error.code='TIMELINE_EXPORT_INCOMPLETE';error.eventIds=uncertain.map(event=>String(event.id));throw error;}
   const paint=resolveFounderPresentationSvg(rendered.svg,{measureText:rendered.scene.measureText});
-  const expected=new Set([...rendered.scene.events.map(event=>String(event.id)),...(rendered.scene.profile?.educationRecords||[]).map(record=>String(record.eventId))]);
+  const educationRecords=rendered.scene.profile?.educationRecords||[];
+  const expected=new Set([...rendered.scene.events.map(event=>String(event.id)),...educationRecords.map(record=>String(record.eventId))]);
   const represented=new Set(paint.nodes.map(node=>String(node.semanticRef||'')));
   const normalized=value=>String(value||'').replace(/\s+/g,' ').trim();
   const missingFields=[];
+  const sourceEducation=rendered.scene.profile?.sourceEducationRecords;
+  if(sourceEducation){
+    const display=rendered.scene.profileDisplay||{},excluded=display.excludedEducationRecords||[];
+    const primary=primaryProfileEducation(rendered.scene.profile,sourceEducation);
+    const same=(left,right)=>JSON.stringify(left)===JSON.stringify(right);
+    for(const record of sourceEducation){
+      const included=educationRecords.filter(item=>item.eventId===record.eventId);
+      const omitted=excluded.filter(item=>item.eventId===record.eventId);
+      const validIncluded=included.length===1&&same(included[0],record)&&omitted.length===0;
+      const validOmission=included.length===0&&omitted.length===1&&primary&&
+        display.educationPolicy==='concise-source-matched-primary'&&display.primaryEducationEventId===primary.eventId&&
+        educationRecords.length===1&&same(educationRecords[0],primary)&&record.eventId!==primary.eventId&&
+        omitted[0].reason==='additional-education-retained-for-review'&&omitted[0].primaryEventId===primary.eventId&&same(omitted[0].record,record);
+      if(!validIncluded&&!validOmission)missingFields.push({id:record.eventId,field:'education.presentation-accounting'});
+    }
+    for(const record of [...educationRecords,...excluded])if(!sourceEducation.some(item=>item.eventId===record.eventId))missingFields.push({id:record.eventId,field:'education.unsourced-selection'});
+    if(JSON.stringify(display.educationEventIds)!==JSON.stringify(educationRecords.map(record=>record.eventId)))missingFields.push({id:'profile',field:'education.selection'});
+  }
+
   const profileFields={fullName:'Name',status:'Visa Status',aamcDisplay:'AAMC',medicalSchool:'Medical school',degree:'Degree',specialty:'Specialty',step1:'Step 1',step2:'Step 2 CK',step2Cs:'Step 2 CS',step3:'Step 3',usceSummary:'USCE',researchSummary:'Research',emrExperience:'EMR Experience',languages:'Languages fluent in',hobbies:'Hobbies'};
   const displayFields=rendered.scene.profileDisplay?.includedFields;
   for(const [field,label] of Object.entries(profileFields)){
