@@ -39,7 +39,7 @@ export function financialCommandProjection(snapshot) {
     for (const a of row.adjustments) timeline.push({ at: a.created_at, event: `${a.kind.toLowerCase()} recorded`, detail: a.authority_ref, amount_cents: Number(a.amount_cents) });
     const credit = held ? 0 : sum(row.payments, 'unapplied_cents');
     const review = held ? reconciliation[row.subject_key.split(':').at(-1)] : null;
-    return { ...row, balance, status, review_summary: review?.[0] || row.cases.map(c=>c.reason).join(' '), next_human_action: review?.[1] || 'Provide the evidence identified in the reconciliation case.', next_due_date: nextDue, applied_cents: sum(row.applications, 'amount_cents'), verified_cents: sum(row.payments, 'amount_cents'), credit_cents: credit,
+    return { ...row, balance, status, review_summary: review?.[0] || row.cases.map(c=>c.reason).join(' '), next_human_action: review?.[1] || 'Provide the evidence identified in the reconciliation case.', next_due_date: nextDue, applied_cents: row.applications.reduce((n,a)=>n+Number(a.net_cents??a.amount_cents),0), verified_cents: sum(row.payments, 'amount_cents'), credit_cents: credit,
       principal_remaining_cents: sum(outstanding.filter(o => ['DEPOSIT', 'TUITION_PRINCIPAL', 'INSTALLMENT'].includes(o.component)), 'remaining_cents'),
       fees_remaining_cents: sum(outstanding.filter(o => ['ADMIN_PROCESSING_FEE', 'OTHER_AUTHORIZED_FEE'].includes(o.component)), 'remaining_cents'),
       timeline: timeline.sort((a, b) => a.at.localeCompare(b.at)), methods: [...new Set(row.payments.map(p => p.method))] };

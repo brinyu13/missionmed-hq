@@ -2488,7 +2488,7 @@ function privateOfferSheet(studentId,revoke=false){
 }
 
 /* ---------------- render ---------------- */
-function render(){ if(document.documentElement.dataset.missionaccountsRuntime==='unavailable') return; if(window.MissionResidencyStudent?.handles(location.hash)){window.MissionResidencyStudent.renderHost({root:$('#main'),applyTheme});return;} if(window.MissionResidencyFinance?.handles(location.hash)){window.MissionResidencyFinance.renderHost({root:$('#main'),shell,applyTheme});return;} if(window.PartnerCostSharing?.handles(location.hash)){window.PartnerCostSharing.renderHost({root:$('#main'),shell,applyTheme});return;} if(typeof ACCOUNT_ACCESS_MODE!=='undefined'&&ACCOUNT_ACCESS_MODE){renderAccountAccess();return;} let r=route(); if(window.MissionAccountsRuntime?.state?.user?.role==='student'){ WS.lens='student'; if(r.parts[0]==='mr'){WS.ctx='mr';}else{WS.ctx='xp';if(r.parts[0]!=='me'){ history.replaceState(null,'',location.pathname+location.search+'#/me'); r=route(); }} } let top=r.parts[0]||''; if(!top){ top = WS.ctx==='mr'?'mr':(WS.lens==='student'?'me':'home'); }
+function render(){ if(document.documentElement.dataset.missionaccountsRuntime==='unavailable') return; if(window.MissionResidencyQa?.handles(location.hash)){window.MissionResidencyQa.renderHost({root:$('#main'),applyTheme});return;} if(window.MissionResidencyStudent?.handles(location.hash)){window.MissionResidencyStudent.renderHost({root:$('#main'),applyTheme});return;} if(window.MissionResidencyFinance?.handles(location.hash)){window.MissionResidencyFinance.renderHost({root:$('#main'),shell,applyTheme});return;} if(window.PartnerCostSharing?.handles(location.hash)){window.PartnerCostSharing.renderHost({root:$('#main'),shell,applyTheme});return;} if(typeof ACCOUNT_ACCESS_MODE!=='undefined'&&ACCOUNT_ACCESS_MODE){renderAccountAccess();return;} let r=route(); if(window.MissionAccountsRuntime?.state?.user?.role==='student'){ WS.lens='student'; if(r.parts[0]==='mr'){WS.ctx='mr';}else{WS.ctx='xp';if(r.parts[0]!=='me'){ history.replaceState(null,'',location.pathname+location.search+'#/me'); r=route(); }} } let top=r.parts[0]||''; if(!top){ top = WS.ctx==='mr'?'mr':(WS.lens==='student'?'me':'home'); }
   if(top==='mr') WS.ctx='mr'; else if(top!=='') WS.ctx='xp';
   if(top==='me' && WS.lens!=='student'){ WS.lens='student'; } if(['home','cycle','students','student','review','invoice','billing','advanced','exams','attendance-issues','onboarding','legacy-invoices'].includes(top) && WS.lens!=='admin'){ WS.lens='admin'; }
   save(); applyTheme(); shell(); const main=$('#main'); let html=''; try {
@@ -2677,6 +2677,7 @@ window.__XP = {D, WS:()=>WS, model, cycleStats, render, decide, addCorr, undoCor
 </script>
 
 <script type="module" src="./assets/mission-residency-finance"></script>
+<script type="module" src="./assets/mission-residency-finance-qa"></script>
 <script type="module" src="./assets/mission-residency-student"></script>
 <script type="module" src="./assets/partner-cost-sharing"></script>
 <script type="module" src="./assets/countries"></script>

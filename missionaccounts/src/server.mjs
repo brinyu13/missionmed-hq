@@ -18,6 +18,9 @@ import { createFinancialReadRouter } from './mission-residency-finance/router.mj
 import { financialReadAccess } from './mission-residency-finance/read-model.mjs';
 import { createFinancialOperationsRouter } from './mission-residency-finance/operations-router.mjs';
 import { financialStudentAccess } from './mission-residency-finance/operations-service.mjs';
+import { createChaseReceiptProvider } from './mission-residency-finance/chase-provider.mjs';
+import { createFinancialQaRuntime } from './mission-residency-finance/qa-runtime.mjs';
+import { createFinancialQaRouter } from './mission-residency-finance/qa-router.mjs';
 import { MissionResidencyStripe } from './mission-residency-finance/stripe-provider.mjs';
 import { environmentPartnerConfig, environmentPartnerStore } from './partner-cost-sharing/store.mjs';
 
@@ -115,6 +118,16 @@ function environmentResidencyStripe() {
     secretKey: process.env.MISSION_RESIDENCY_STRIPE_SECRET_KEY, webhookSecret: process.env.MISSION_RESIDENCY_STRIPE_WEBHOOK_SECRET,
     mode: process.env.MISSION_RESIDENCY_STRIPE_MODE || 'disabled',
     liveMutationsEnabled: process.env.MISSION_RESIDENCY_STRIPE_LIVE_MUTATIONS === '1' });
+}
+
+function environmentFinancialQa() {
+  if(process.env.MISSION_RESIDENCY_QA_ENABLED!=='1') return null;
+  return createFinancialQaRuntime({enabled:true,
+    database:{url:process.env.MISSIONACCOUNTS_SUPABASE_URL,serviceKey:process.env.MISSIONACCOUNTS_SUPABASE_SERVICE_KEY},
+    provider:{accountId:process.env.MISSION_RESIDENCY_STRIPE_ACCOUNT_ID,mode:'test',liveMutationsEnabled:false,
+      secretKey:process.env.MISSION_RESIDENCY_QA_STRIPE_SECRET_KEY,publishableKey:process.env.MISSION_RESIDENCY_QA_STRIPE_PUBLISHABLE_KEY},
+    founder:{wpUserId:1,username:'brinyu',userId:process.env.MISSION_RESIDENCY_QA_FOUNDER_PRINCIPAL},
+    qaSubject:{wpUserId:1368,username:'brinyu2',userId:process.env.MISSION_RESIDENCY_QA_STUDENT_PRINCIPAL}});
 }
 
 function environmentZoomProvider({ cycleProvider } = {}) {
@@ -282,6 +295,7 @@ export function createMissionAccountsServer({
   store = environmentStore(),
   stripeGateway = environmentStripeGateway(),
   residencyStripe = environmentResidencyStripe(),
+  financialQa = environmentFinancialQa(),
   notificationGateway = environmentNotificationGateway(),
   zoomProvider = null,
   partnerStore = undefined,
@@ -289,8 +303,10 @@ export function createMissionAccountsServer({
   now = () => new Date(),
 } = {}) {
   const partnerCostRoute = createPartnerCostRouter({ config, authenticate, memberStore: partnerStore === undefined ? (config.partnerCostSharing?.prototype ? null : environmentPartnerStore()) : partnerStore });
+  async function financialQaAccess(identity){try{return financialQa ? Boolean(await financialQa.resolve(identity)):false;}catch{return false;}}
+  const financialQaRoute=createFinancialQaRouter({runtime:financialQa,authenticate,config});
   const financialReadRoute = createFinancialReadRouter({ config, authenticate, store });
-  const financialOperationsRoute = createFinancialOperationsRouter({ config, authenticate, store, stripe: residencyStripe });
+  const financialOperationsRoute = createFinancialOperationsRouter({ config, authenticate, store, stripe: residencyStripe, chaseEvidence:createChaseReceiptProvider() });
   zoomProvider ||= environmentZoomProvider({ cycleProvider: () => store.billingCycles() });
   const zoomConfiguredAtStartup = typeof zoomProvider?.isConfigured === 'function'
     ? zoomProvider.isConfigured() === true
@@ -506,6 +522,7 @@ export function createMissionAccountsServer({
   }
 
   async function handleApi(request, response, url) {
+    if (await financialQaRoute(request,response,url)) return;
     if (await financialOperationsRoute(request, response, url)) return;
     if (await financialReadRoute(request, response, url)) return;
     if (await partnerCostRoute(request, response, url)) return;
@@ -776,6 +793,7 @@ export function createMissionAccountsServer({
         },
         program_access: identity.programAccess,
         capabilities: {
+          finance_qa: await financialQaAccess(identity),
           finance_read: await financialReadAccess(store, identity),
           finance_operate: config.missionResidencyFinance?.operations === true && await financialReadAccess(store, identity),
           residency_payment_onboarding: await financialStudentAccess(store, identity, config.missionResidencyFinance),
@@ -1866,6 +1884,7 @@ export function createMissionAccountsServer({
       'assets/stripe': 'missionaccounts-stripe.js',
       'assets/partner-cost-sharing': 'partner-cost-sharing/ui.js',
       'assets/partner-cost-sharing-style': 'partner-cost-sharing/ui.css',
+      'assets/mission-residency-finance-qa': 'mission-residency-finance/qa-ui.js',
       'assets/mission-residency-finance': 'mission-residency-finance/ui.js',
       'assets/mission-residency-operations-view': 'mission-residency-finance/operations-view.js',
       'assets/mission-residency-student': 'mission-residency-finance/student.js',

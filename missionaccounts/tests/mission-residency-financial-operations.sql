@@ -148,3 +148,68 @@ begin
  if r->>'state'<>'REVIEW_REQUIRED' or (r->>'candidate_count')::integer<>2 then raise exception 'Multiple matches guessed';end if;
 end $$;
 rollback;
+
+-- DR-389 refund/receipt invariant regression; fully rolled back.
+begin;
+update missionaccounts.financial_operating_gate set founder_operations=true,student_onboarding=true,student_publication=true;
+do $$declare founder uuid:='00000000-0000-4000-8000-000000000001'; own uuid:='00000000-0000-4000-8000-000000000077'; wp bigint;
+ o uuid; installment uuid; payment uuid; application uuid; r jsonb; payload jsonb; prior bigint; schedule jsonb; hist jsonb;
+begin
+ select id,remaining_cents into strict o,prior from missionaccounts.financial_obligation_state where agreement_id=(select id from missionaccounts.financial_agreement where subject_key='match360:ruqayyah') and remaining_cents>0;
+ select substring(wp_subject from 4)::bigint into strict wp from missionaccounts.financial_subject where subject_key='match360:ruqayyah';
+ insert into missionaccounts.financial_runtime_binding(subject_key,principal_id,wp_user_id,authority_ref,evidence_sha256) values('match360:ruqayyah',own,wp,'DR-refund-fixture',repeat('a',64));
+ schedule:=missionaccounts.api_financial_operate(founder,1,'match360:ruqayyah','SAVE_SCHEDULE',jsonb_build_object('confirmed',true,'authority_ref','DR-refund-fixture','evidence_sha256',repeat('e',64),'installments',jsonb_build_array(jsonb_build_object('key','refund-fixture','obligation_id',o,'amount_cents',prior,'due_on',null))),'refund-fixture-schedule');
+ select id into strict installment from missionaccounts.financial_schedule_installment where revision_id=(schedule->'result'->>'revision_id')::uuid;
+ r:=missionaccounts.api_record_verified_financial_payment('phase1-local-rehearsal',jsonb_build_object('subject_key','match360:ruqayyah','provider','Stripe','provider_account','acct_RefundFixture','provider_identity','pi_RefundFixture','method','CARD','gross_cents',1200,'payer','Private fixture','received_at','2026-10-05T00:00:00Z','received_precision','EXACT','verification_state','VERIFIED','request_id','refund-fixture-settle','artifact_id',(select artifact_id from missionaccounts.financial_subject where subject_key='match360:ruqayyah'),'evidence',jsonb_build_array(jsonb_build_object('type','STRIPE_PAYMENT_INTENT','reference','pi_RefundFixture','fingerprint',repeat('b',64),'metadata','{}'::jsonb),jsonb_build_object('type','STRIPE_CHARGE','reference','ch_RefundFixture','fingerprint',repeat('d',64),'metadata','{}'::jsonb)),'agreement_version',(select g.version from missionaccounts.financial_agreement g join missionaccounts.financial_obligation ob on ob.agreement_id=g.id where ob.id=o),'applications',jsonb_build_array(jsonb_build_object('obligation_key',(select obligation_key from missionaccounts.financial_obligation where id=o),'component',(select component from missionaccounts.financial_obligation where id=o),'amount_cents',1000))));
+ payment:=(r->>'payment_id')::uuid;
+ select id into strict application from missionaccounts.financial_payment_application where payment_id=payment;
+ insert into missionaccounts.financial_schedule_application values(installment,application,1000);
+ payload:=jsonb_build_object('confirmed',true,'authority_ref','DR-refund-fixture','evidence_sha256',repeat('c',64),'amount_cents',700,'proof',jsonb_build_object('provider','Stripe','provider_account','acct_RefundFixture','provider_identity','pi_RefundFixture','refund_reference','re_RefundFixture','amount_cents',700,'confirmed_at','2026-10-05T01:00:00Z','confirmed',true),'reversals',jsonb_build_array(jsonb_build_object('application_id',application,'amount_cents',500)));
+ begin perform missionaccounts.api_financial_record_refund(founder,2,payment,payload,'refund-fixture-denied');raise exception 'Generic admin refund allowed';exception when insufficient_privilege then null;end;
+ begin perform missionaccounts.api_financial_record_refund(founder,1,payment,jsonb_set(payload,'{proof,confirmed}','false'),'refund-fixture-unconfirmed');raise exception 'Unconfirmed refund allowed';exception when raise_exception then if SQLERRM='Unconfirmed refund allowed' then raise;end if;end;
+ begin perform missionaccounts.api_financial_record_refund(founder,1,payment,jsonb_set(payload,'{proof,provider_account}','"acct_Other"'),'refund-fixture-account');raise exception 'Cross-account refund allowed';exception when raise_exception then if SQLERRM='Cross-account refund allowed' then raise;end if;end;
+ r:=missionaccounts.api_financial_record_refund(founder,1,payment,payload,'refund-fixture-one');
+ if r->>'duplicate'<>'false' or (r->>'reversed_application_cents')::bigint<>500 then raise exception 'Canonical refund failed';end if;
+ if (select remaining_cents from missionaccounts.financial_obligation_state where id=o)<>prior-500 then raise exception 'Refund did not restore obligation from net applications';end if;
+ if (select amount_cents from missionaccounts.financial_payment_application where id=application)<>1000 or (select gross_cents from missionaccounts.financial_payment where id=payment)<>1200 then raise exception 'Original history rewritten';end if;
+ if (select net_cents from missionaccounts.financial_net_application where id=application)<>500 or (select applied_cents from missionaccounts.financial_active_schedule where id=installment)<>500 then raise exception 'Schedule reversal not derived';end if;
+ if (select credit_cents from missionaccounts.financial_unapplied_credit where payment_id=payment)<>0 then raise exception 'Refund credit mismatch';end if;
+ if missionaccounts.financial_operational_due('match360:ruqayyah')->>'currently_due_cents' is not null then raise exception 'Refund converted unknown date to due';end if;
+ if missionaccounts.api_financial_record_refund(founder,1,payment,payload,'refund-fixture-one')->>'duplicate'<>'true' then raise exception 'Refund retry duplicated';end if;
+ begin perform missionaccounts.api_financial_record_refund(founder,1,payment,payload||jsonb_build_object('authority_ref','changed'),'refund-fixture-one');raise exception 'Conflicting retry allowed';exception when raise_exception then if SQLERRM='Conflicting retry allowed' then raise;end if;end;
+ begin perform missionaccounts.api_financial_record_refund(founder,1,payment,payload,'refund-fixture-replay');raise exception 'Provider refund replay allowed';exception when unique_violation then null;when raise_exception then if SQLERRM='Provider refund replay allowed' then raise;end if;end;
+ begin perform missionaccounts.api_financial_record_refund(founder,1,payment,jsonb_set(payload,'{proof,refund_reference}','"re_AnotherFixture"'),'refund-fixture-overrefund');raise exception 'Overrefund allowed';exception when raise_exception then if SQLERRM='Overrefund allowed' then raise;end if;end;
+ hist:=missionaccounts.api_financial_own_history(own,wp);
+ if not exists(select 1 from jsonb_array_elements(hist->'payments') x where (x->>'id')::uuid=payment and (x->>'refunded_cents')::bigint=700 and (x->>'net_applied_cents')::bigint=500 and jsonb_array_length(x->'refunds')=1) then raise exception 'Durable receipt history missing';end if;
+ if hist::text~'payer|provider_identity|refund_reference|authority_ref|evidence_sha256|fingerprint|raw|client_secret|provider_account' then raise exception 'Sensitive receipt projection';end if;
+ begin perform missionaccounts.api_financial_own_history(own,wp+1);raise exception 'Cross-student history allowed';exception when insufficient_privilege then null;end;
+ if missionaccounts.api_financial_founder_history(founder,1,'match360:dhwani')->>'state'<>'ACCOUNT_REVIEW' then raise exception 'Held historical refund resolved implicitly';end if;
+ update missionaccounts.financial_operating_gate set student_publication=false;
+ begin perform missionaccounts.api_financial_own_history(own,wp);raise exception 'Unreleased history allowed';exception when insufficient_privilege then null;end;
+ begin delete from missionaccounts.financial_payment where id=payment;raise exception 'Payment deleted';exception when raise_exception then if SQLERRM='Payment deleted' then raise;end if;end;
+ begin delete from missionaccounts.financial_refund where id=(r->>'refund_id')::uuid;raise exception 'Refund deleted';exception when raise_exception then if SQLERRM='Refund deleted' then raise;end if;end;
+end $$;
+set local role authenticated;
+do $$begin
+ begin perform 1 from missionaccounts.financial_refund;raise exception 'Browser private refund access';exception when insufficient_privilege then null;end;
+ begin perform missionaccounts.api_financial_own_history('00000000-0000-4000-8000-000000000077',2);raise exception 'Browser service RPC access';exception when insufficient_privilege then null;end;
+end $$;
+reset role;
+rollback;
+
+-- Bank/Zelle refunds require executed receiving-bank evidence, never a claim.
+begin;
+update missionaccounts.financial_operating_gate set founder_operations=true;
+do $$declare p missionaccounts.financial_payment; a missionaccounts.financial_payment_application; payload jsonb; founder uuid:='00000000-0000-4000-8000-000000000001'; r jsonb;
+begin
+ select * into strict p from missionaccounts.financial_payment where provider='Chase' order by id limit 1;
+ select * into strict a from missionaccounts.financial_payment_application where payment_id=p.id order by id limit 1;
+ payload:=jsonb_build_object('confirmed',true,'authority_ref','DR-bank-refund-fixture','evidence_sha256',repeat('f',64),'amount_cents',1,'reversals',jsonb_build_array(jsonb_build_object('application_id',a.id,'amount_cents',1)),
+ 'proof',jsonb_build_object('provider',p.provider,'provider_account',p.provider_account,'provider_identity',p.provider_identity,'refund_reference','bank-fixture-confirmed','amount_cents',1,'confirmed_at','2026-10-05T01:00:00Z','confirmed',true,'authenticity_verified',false));
+ begin perform missionaccounts.api_financial_record_refund(founder,1,p.id,payload,'bank-refund-unverified');raise exception 'Bank claim accepted as refund proof';exception when raise_exception then if SQLERRM='Bank claim accepted as refund proof' then raise;end if;end;
+ payload:=jsonb_set(payload,'{proof,authenticity_verified}','true');
+ r:=missionaccounts.api_financial_record_refund(founder,1,p.id,payload,'bank-refund-verified');
+ if (r->>'amount_cents')::bigint<>1 or (select amount_cents from missionaccounts.financial_payment_application where id=a.id)<>a.amount_cents then raise exception 'Bank refund lost immutable history';end if;
+ begin perform missionaccounts.api_financial_record_refund(founder,1,p.id,payload,'bank-refund-replay');raise exception 'Bank refund evidence replay allowed';exception when unique_violation then null;when raise_exception then if SQLERRM='Bank refund evidence replay allowed' then raise;end if;end;
+end $$;
+rollback;

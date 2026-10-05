@@ -191,13 +191,28 @@ export class FinancialOperationsService {
     const result=await this.store.rpc('api_financial_confirm_setup',{...pair,p_request_id:context.request_id,p_proof:proof});
     return {received:true,duplicate:result.duplicate};
   }
-  async reconcileZelle(identity, reference) {
+  async reconcileZelle(identity, requestId) {
     const pair = await this.founder(identity);
-    if (!this.config.zelleMatcher || !this.chaseEvidence?.verifiedReceipt || !/^\d+$/.test(reference || '')) throw fail('Verified Chase reconciliation is not released', 503);
-    // Browser supplies an identifier only. Authenticity/global replay proof comes from the current bank adapter.
-    const proof = await this.chaseEvidence.verifiedReceipt(reference);
-    if (proof?.reference !== reference || proof.authenticity_verified !== true || proof.global_claim_verified !== true || proof.commerce_consumed !== false) throw fail('Authenticated unconsumed Chase receipt is required');
-    return this.store.rpc('api_financial_reconcile_chase', { ...pair, p_settlement_actor: this.config.settlementActor, p_receipt: proof });
+    if (!this.config.zelleMatcher || !this.chaseEvidence?.reserve || !this.config.settlementActor ||
+        !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(requestId || '')) {
+      throw fail('Verified Chase request reconciliation is not released', 503);
+    }
+    // Browser supplies only a canonical request UUID. All match fields come from the private ledger.
+    const context = await this.store.rpc('api_financial_chase_context', {
+      ...pair, p_request: requestId, p_settlement_actor: this.config.settlementActor,
+    });
+    if (context.state === 'SETTLED') return { state: 'SETTLED', payment_id: context.payment_id, duplicate: true };
+    const proof = await this.chaseEvidence.reserve(context);
+    if (proof?.authenticity_verified !== true || proof.global_claim_verified !== true ||
+        proof.reservation_verified !== true || proof.match_binding !== context.match_binding ||
+        proof.amount_cents !== context.amount_cents || proof.provider_account !== 'info@missionmedinstitute.com' ||
+        proof.provider !== 'Chase' || !/^[a-f0-9]{64}$/.test(proof.provider_identity || '')) {
+      throw fail('Authenticated globally reserved Chase receipt is required');
+    }
+    // Final RPC revalidates current eligibility and binding. A failed settlement never releases the bank claim.
+    return this.store.rpc('api_financial_settle_chase_request', {
+      ...pair, p_request: requestId, p_settlement_actor: this.config.settlementActor, p_receipt: proof,
+    });
   }
   async reportZelle(identity, body, requestId) {
     if (!this.config.publication) throw fail('Zelle requests are not released', 403);
