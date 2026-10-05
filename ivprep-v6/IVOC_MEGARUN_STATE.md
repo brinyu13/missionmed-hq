@@ -5,7 +5,7 @@ Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`, `DR-350` (narrow packaging), `DR-361` (current RISE eligibility successor); `DR-340` QA grant revoked
 Branch: `codex/ivoc-foreman-9200`
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
-Current continuation boundary: `CANARY4 FRESH FOUNDER AUTHORIZATION: ONE USD1 / 45s / IDLE15 ATTEMPT; CURRENT GUARD / LEASE / ACTIVATION IN PROGRESS; NO PAID RETRY`
+Current continuation boundary: `CANARY4 CONSUMED: PROVIDER CREATED / RETURNED SOCKET REJECTED / EXACT TERMINAL + ROOM0 / PROVIDER OFF; NO-SPEND DIAGNOSTIC REPAIR; NO PAID RETRY`
 
 This is the one living requirement ledger required by the final Founder
 completion directive. A status of `LIVE UNVERIFIED` means the capability is
@@ -15,6 +15,46 @@ the actual production route and deployment.
 ## Foreman 9300 overnight reactivation — current dated evidence
 
 ### Current Fable-to-production convergence — 2026-10-03
+
+- 2026-10-05 CANARY4 SINGLE ATTEMPT / PROVIDER CREATION PROVED:
+  Authorization source3836f261; engine5072942; activation SUCCESS
+  8d4f27e0-2fc3-4ed6-8532-32998bca10cc/image
+  sha256:bb602c3461cabc9bd27626a8637231b285e22c732bf5209c21e852a64b9ef1db.
+  Independent activation guard PASS. Normal authenticated Chrome Matrix →
+  Mock → Room; physical camera visibly rendered1280×720/readyState4.
+  ONE Start; canonical session/recording/candidate-audio created. Provider
+  788f7f64-6c33-4aef-8444-c41c966b8150 DID return successfully, then local
+  returned-WebSocket validation rejected it BEFORE socket/viewer connection.
+  Original receipt cannot distinguish missing/malformed/protocol/credentials/
+  hostname rejection; do not assert a particular hostname or provider HTTP502.
+  Reservation1791220594903; CREATE request1791220595976; provider ID1791220600938;
+  exact termination1791220602559:7.656s from original reservation. InputSeconds0;
+  providerConfirmedTRUE; independent GET200COMPLETED; exact LiveKit room0.
+  Provider billable5.838047311782837s/cost2.3935993978309633CREDITS, NOT USD.
+  Signed-in provider history independently shows exact ID,6s,Websocket,
+  Completed/Terminated,2.394credits. Billing:1630 subscription credits remain,
+  overageOFF/usage0; no extra LemonSlice dollar charge shown. Aggregate GPT
+  invoice dollars not available; published bounded rates remain below USD1,
+  not an exact invoice proof. FAIL: avatar/sync/singular audible interviewer/
+  interruption/resume/two-sided replay UNVERIFIED. No second CREATE or Start.
+  Canonical abandon200 and normal Leave released capture. Current OFF rollback
+  SUCCESS43c0a1ee-1d22-4ea5-8e4a-903f7b55d037/image
+  sha256:a110723c9bdec5546138a1204c2e9dd2708a107eea3aa0b624193a078c0cedcb;
+  runtimeOFF, consumed UUID unchanged, health200/ok, anonymous product/bootstrap401.
+  PRODUCT5069/576ffd3c and SHARED5070/d98bb4a5 released with canonical readback.
+  No-spend correction preserves socket security policy, adds closed rejection
+  reasons, and retains original provider status/content class/timing instead of
+  manufacturing HTTP502/UNKNOWN/zero elapsed after a successful CREATE.
+  Scoped19/19 server regressions PASS including all five socket rejection classes,
+  null JSON, exact termination/no retry/secret exclusion. Independent reviewer
+  found the null-JSON edge; corrected and independently19/19PASS. Mock proof
+  is NOT avatar acceptance and does not resolve the discarded address itself.
+  Fresh PRODUCT5072/69977320 exact provider/test/ledger and SHARED5073/4bdeb6ac
+  deployment keeper claims cover the no-spend repair. Current provider/SDK docs
+  do not identify the discarded returned address; no speculative host expansion.
+  Next provider-dependent gate requires a NEW explicit authorization, never
+  rearming b0544e71. Actual provider creation is now proved; viewer/frame/audio
+  binding remain separate requirements. Overall completion remains unclaimed.
 
 - 2026-10-05 CANARY4 DIRECT FOUNDER AUTHORIZATION / NEW RESERVATION:
   Founder replied "authorized" directly to the explicit new-paid-canary gate.

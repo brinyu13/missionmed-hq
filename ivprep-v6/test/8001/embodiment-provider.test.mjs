@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {EventEmitter} from 'node:events';
-import {createEmbodimentCanary,embodimentCanaryConfig,EMBODIMENT_CREATE_TIMEOUT_MS} from '../../server/providers/lemonslice-embodiment.mjs';
+import {createEmbodimentCanary,embodimentCanaryConfig,EMBODIMENT_CREATE_TIMEOUT_MS,publicEmbodimentFailure} from '../../server/providers/lemonslice-embodiment.mjs';
 const ID='00000000-0000-4000-8000-000000000001';
 const env={IVOC_LEMONSLICE_CANARY_ENABLED:'true',IVOC_LEMONSLICE_CANARY_SESSION_ID:ID,IVOC_LEMONSLICE_CANARY_BUDGET_USD:'1',
   LEMONSLICE_API_KEY:'test-only',LIVEKIT_API_KEY:'test-only',LIVEKIT_API_SECRET:'test-only',LIVEKIT_URL:'wss://test.livekit.cloud'};
@@ -81,6 +81,52 @@ test('untrusted websocket address fails closed and terminates the exact known pr
   const calls=[];const h=harness({fetchImpl:async(url,options)=>{calls.push(url);return {ok:true,json:async()=>url.endsWith('/control')?{success:true}:options.method==='GET'?{session_status:'COMPLETED'}:{session_id:'provider-known',websocket_address:'wss://attacker.test/steal'}};}});
   await assert.rejects(h.manager.start({actor:'wp:1',sessionId:ID}),/transport_invalid/);
   assert.equal(calls.some(url=>url.endsWith('/provider-known/control')),true);
+  await assert.rejects(h.manager.start({actor:'wp:1',sessionId:ID}),/consumed/);
+});
+test('post-create rejection preserves real HTTP/timing and a secret-free validation reason without relaxing socket policy',async()=>{
+  for(const [address,reason] of [[undefined,'SOCKET_ADDRESS_MISSING'],['PRIVATE_SOCKET','SOCKET_ADDRESS_MALFORMED'],
+    ['https://live.lemonslice.com/PRIVATE_SOCKET','SOCKET_PROTOCOL_REJECTED'],
+    ['wss://PRIVATE_USER:PRIVATE_SECRET@live.lemonslice.com/tunnel','SOCKET_CREDENTIALS_REJECTED'],
+    ['wss://unverified-vendor.test/tunnel?PRIVATE_SOCKET','SOCKET_HOST_REJECTED']]){
+    const calls=[];let h,socketCreated=false;
+    h=harness({socketFactory:()=>{socketCreated=true;throw new Error('must not connect');},fetchImpl:async(url,options)=>{
+      calls.push(url);
+      if(url.endsWith('/control'))return {ok:true,json:async()=>({success:true})};
+      if(options.method==='GET')return {ok:true,json:async()=>({session_status:'COMPLETED'})};
+      h.advance(4962);
+      return {ok:true,status:201,headers:{get:()=> 'application/json'},json:async()=>({session_id:'provider-known',websocket_address:address,privateField:'PRIVATE_BODY'})};
+    }});
+    await assert.rejects(h.manager.start({actor:'wp:1',sessionId:ID}),error=>{
+      assert.equal(error.status,502);assert.equal(error.diagnostics.httpStatus,201);
+      assert.equal(error.diagnostics.category,'PROVIDER_RESPONSE_INVALID');assert.equal(error.diagnostics.reason,reason);
+      assert.equal(error.diagnostics.elapsedMs,4962);assert.equal(error.diagnostics.responseClass,'JSON');return true;
+    });
+    const status=h.manager.status({actor:'wp:1',sessionId:ID});
+    assert.equal(status.providerSessionId,'provider-known');assert.equal(status.stopReceipt.providerConfirmed,true);
+    assert.equal(status.failure.reason,reason);assert.equal(socketCreated,false);
+    assert.equal(calls.filter(url=>url.endsWith('/sessions')).length,1);
+    assert.equal(calls.filter(url=>url.endsWith('/provider-known/control')).length,1);
+    assert.equal(JSON.stringify(status).includes('PRIVATE_'),false);
+    await assert.rejects(h.manager.start({actor:'wp:1',sessionId:ID}),/consumed/);
+  }
+});
+test('public response reasons are a closed vocabulary, never raw returned addresses',()=>{
+  const safe=publicEmbodimentFailure({boundary:'LEMONSLICE_API',category:'PROVIDER_RESPONSE_INVALID',reason:'wss://PRIVATE_TOKEN@host/tunnel',url:'PRIVATE_URL'});
+  assert.equal(safe.reason,undefined);assert.equal(JSON.stringify(safe).includes('PRIVATE_'),false);
+});
+test('successful null JSON retains actual provider response metadata and fails closed without a socket or retry',async()=>{
+  let h,socketCreated=false,creates=0;
+  h=harness({socketFactory:()=>{socketCreated=true;throw new Error('must not connect');},fetchImpl:async()=>{
+    creates++;h.advance(123);
+    return {ok:true,status:201,headers:{get:()=> 'application/json'},json:async()=>null};
+  }});
+  await assert.rejects(h.manager.start({actor:'wp:1',sessionId:ID}),error=>{
+    assert.equal(error.diagnostics.reason,'SESSION_ID_INVALID');assert.equal(error.diagnostics.httpStatus,201);
+    assert.equal(error.diagnostics.responseClass,'JSON');assert.equal(error.diagnostics.elapsedMs,123);return true;
+  });
+  assert.equal(socketCreated,false);assert.equal(creates,1);
+  const status=h.manager.status({actor:'wp:1',sessionId:ID});assert.equal(status.closed,true);
+  assert.equal(status.providerSessionId,null);assert.equal(status.stopReceipt.providerConfirmed,false);
   await assert.rejects(h.manager.start({actor:'wp:1',sessionId:ID}),/consumed/);
 });
 test('reservation delay cannot move the 45-second deadline or reach paid creation',async()=>{
