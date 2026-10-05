@@ -155,7 +155,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       for(let i=0;i<observation.count;i++)events.push({t,kind:'overlap',label:'Transcript overlap observed — interruption unverified.',state:'MESSAGE_RECEIPT'});
     },
     onCaptions(groups){if(!current()||saving)return;captions=groups;renderTranscript();},
-    onStatus(status){if(!current()||saving)return;if(status.state==='active')$('presence-sub').textContent='Your interviewer is listening';if(status.state==='closed'&&started)providerFailed();},
+    onStatus(status){if(!current()||saving)return;if(status.state==='active'&&started)$('presence-sub').textContent='Your interviewer is listening';if(status.state==='closed'&&started)providerFailed();},
     onProviderFailed:providerFailed,
     onDeviceFailure(message){if(!current()||saving||finished)return;roomFault={message:'Device change interrupted',detail:message};$('room-preference-note').hidden=false;$('room-preference-note').textContent=message;mark('gap',message);}
   };
@@ -215,6 +215,11 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   };
   const onState=e=>{if(!started||saving||disposed)return;const d=e.detail||{};if(['partial','recovering','unavailable'].includes(d.state)){roomFault={message:d.subsystem==='audio'?'Check microphone':'Check camera',detail:d.message||''};mark('gap',d.subsystem||'Signal unavailable');}else if(['recovered','running'].includes(d.state))roomFault=null;};
   const onWord=e=>{if(current()&&e.detail?.state==='unavailable')$('pace-basis').textContent='Timed-word pace unavailable';};
+  function restoreReadinessPresence(){
+    room.dataset.phase='readiness';$('presence').dataset.speaking='false';$('presence-state').textContent='waiting';
+    $('presence-sub').textContent=mode==='mock'?'Your interview has not started.':'Your answer recording has not started.';
+    $('presence-line').textContent=mode==='mock'?'The interviewer will begin only after startup succeeds.':practiceQ.canonical_text;
+  }
   async function start(){
     if(!current()||starting||started||deviceSwitching)return;starting=true;$('start-session').disabled=true;$('connect-real').disabled=true;
     initialPresentationMode=density==='interview'?'interview':'coached';setDensityControls(true);
@@ -239,7 +244,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       $('presence-sub').textContent=mode==='mock'?'Speak naturally. Your interviewer can hear you.':'Answer the question. Finish & save when you are done.';
       mark('recording','Recording started');mark('question','Q1 planned');recordDensity();renderPlan();
       timer=setInterval(()=>{if(!current())return;$('clock').textContent=fmt(at());recorder.setData(history.samples,events);recorder.tick(at());},500);resetIdle();
-    }catch(error){if(current()){$('stage').dataset.previewReady='false';$('enter-note').textContent=error.message;
+    }catch(error){if(current()){restoreReadinessPresence();$('stage').dataset.previewReady='false';$('enter-note').textContent=error?.diagnostics?.category==='CLIENT_NETWORK'?'Your connection changed before the interviewer was ready. The interview did not start.':error.message;
       if(error.code==='ivoc_interview_policy_changed'){const back=document.createElement('a');back.href='#/mock';back.textContent=' Return to interview setup';$('enter-note').append(back);}
       $('start-session').disabled=true;$('connect-real').disabled=false;}engine?.events.removeEventListener('frame',onFrame);engine?.events.removeEventListener('state',onState);engine?.events.removeEventListener('word-timing',onWord);}
     finally{starting=false;if(current()){setDensityControls(false);disposeEnvironment.refresh();await disposeDevices?.refresh?.().catch(()=>{});}}

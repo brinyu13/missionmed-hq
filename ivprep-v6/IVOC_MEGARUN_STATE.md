@@ -56,12 +56,16 @@ the actual production route and deployment.
   Other MUST-FINISH engineering/external-evidence classification remains as in
   the current lane ledger: genuine speech/replay, other identities, consented
   owner data and recurrence are WAITING; do not fabricate or repeatedly audit.
-  Bounded no-spend review finds no new deterministic startup blocker to repair
-  from this network-change evidence. Minor presentation gap recorded, not silently
-  accepted: GPT active callback leaves "Your interviewer is listening" after
-  Actor startup fails; future touched-room correction must restore pre-start
-  presence on failure without rebuilding the live engine. No presentation mutation
-  or retest request in this canary. Ledger filing only; focused diff check PASS.
+  No new deterministic provider-startup blocker established by network change.
+  No-spend continuation repairs the observed presentation STATE gap only: GPT
+  active callback no longer claims listening before complete startup; failed start
+  restores readiness/waiting/no-speaking, and explains CLIENT_NETWORK plainly.
+  Self Practice retains its exact question. No layout, camera, audio authority,
+  recording graph, provider timing, retry or engine change. Syntaxcheck and6/6
+  scoped room regressions PASS (two new executable failed-state tests); these
+  are NOT a second live canary or provider acceptance. Fresh PRODUCT5061/7e97b575
+  covers exact room/test/ledger, SHARED5062/3baaa6b4 deployment; keeper maintains
+  canonical heartbeat. Preimage375e0bcc/image74b9 remains rollback. Release pending.
 
 - 2026-10-05 CANARY3 DIRECT FOUNDER AUTHORIZATION:
   Direct active-goal request SHA256

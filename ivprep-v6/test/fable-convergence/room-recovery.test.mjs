@@ -5,6 +5,30 @@ import {compactRecorderLanes,LiveRecorder} from '../../public/studio-fable/app/i
 import {COACHING_CONFIG,mapToLiveScale} from '../../public/analytics/coaching-config.mjs';
 import {CALIBRATION} from '../../public/ivoc-standalone/app/data.mjs';
 
+test('failed startup restores readiness rather than claiming an interviewer is listening',()=>{
+  const source=readFileSync(new URL('../../public/studio-fable/app/room.mjs',import.meta.url),'utf8');
+  const start=source.indexOf('  function restoreReadinessPresence(){');
+  const helper=source.slice(start,source.indexOf('  async function start(){',start));
+  const nodes=new Map();const $=id=>{if(!nodes.has(id))nodes.set(id,{dataset:{},textContent:''});return nodes.get(id);};
+  const room={dataset:{phase:'live'}};$('presence').dataset.speaking='true';$('presence-state').textContent='listening';
+  Function('room','$','mode','practiceQ',helper+'restoreReadinessPresence();')(room,$,'mock',{});
+  assert.equal(room.dataset.phase,'readiness');assert.equal($('presence').dataset.speaking,'false');
+  assert.equal($('presence-state').textContent,'waiting');assert.equal($('presence-sub').textContent,'Your interview has not started.');
+  assert.match(source,/catch\(error\)\{if\(current\(\)\)\{restoreReadinessPresence\(\)/);
+  assert.ok(source.includes("status.state==='active'&&started"),'GPT readiness alone must not imply the complete room is live');
+  assert.ok(source.includes('Your connection changed before the interviewer was ready. The interview did not start.'));
+});
+
+test('failed self practice retains question identity without pretending a recording began',()=>{
+  const source=readFileSync(new URL('../../public/studio-fable/app/room.mjs',import.meta.url),'utf8');
+  const start=source.indexOf('  function restoreReadinessPresence(){');
+  const helper=source.slice(start,source.indexOf('  async function start(){',start));
+  const nodes=new Map();const $=id=>{if(!nodes.has(id))nodes.set(id,{dataset:{},textContent:''});return nodes.get(id);};
+  Function('room','$','mode','practiceQ',helper+'restoreReadinessPresence();')({dataset:{}},$,'practice',{canonical_text:'Tell me about yourself.'});
+  assert.equal($('presence-sub').textContent,'Your answer recording has not started.');
+  assert.equal($('presence-line').textContent,'Tell me about yourself.');
+});
+
 test('compact recovered deck exposes all non-voice lanes without inventing observations',()=>{
   const empty=compactRecorderLanes([],[]);
   assert.equal(empty.length,11);assert.ok(empty.every(l=>!l.bands?.length&&!l.marks?.length));
