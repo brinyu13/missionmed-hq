@@ -5,7 +5,7 @@ Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`, `DR-350` (narrow packaging), `DR-361` (current RISE eligibility successor); `DR-340` QA grant revoked
 Branch: `codex/ivoc-foreman-9200`
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
-Current continuation boundary: `CANARY3 FAIL: BROWSER NETWORK CHANGED; EXACT PROVIDER COMPLETED / ROOM0; FEATURE OFF / HEALTHY; NO PAID RETRY; GENUINE EMBODIMENT PROOF WAITING`
+Current continuation boundary: `CANARY4 FRESH FOUNDER AUTHORIZATION: ONE USD1 / 45s / IDLE15 ATTEMPT; CURRENT GUARD / LEASE / ACTIVATION IN PROGRESS; NO PAID RETRY`
 
 This is the one living requirement ledger required by the final Founder
 completion directive. A status of `LIVE UNVERIFIED` means the capability is
@@ -15,6 +15,27 @@ the actual production route and deployment.
 ## Foreman 9300 overnight reactivation — current dated evidence
 
 ### Current Fable-to-production convergence — 2026-10-03
+
+- 2026-10-05 CANARY4 DIRECT FOUNDER AUTHORIZATION / NEW RESERVATION:
+  Founder replied "authorized" directly to the explicit new-paid-canary gate.
+  This opens ONE new Founder-only session under the unchanged USD1/45s from
+  original reservation/idle15/no paid retry/existing agent bounds. New UUID
+  b0544e71-63c4-4c5a-87a4-065babaa89d4; no consumed reservation is rearmed.
+  Exact current source8541a25478f22137e45d0d44c9ac728ef3849ff1; healthy OFF
+  deployment93b59b4c-b2f4-4a74-bb13-79b9cec89795, engine5072942, image
+  sha256:514589d02bf86f8f319d3706f4eafebcc658428dc75243e046f676d8b5297629
+  remains rollback. BOOT PASS; remote branch equals source; only unrelated
+  Fable forensic packet untracked/preserved. Required PRODUCT5069/576ffd3c
+  and SHARED5070/d98bb4a5 acquired with the corrected durable keeper.
+  Current provider config OFF; consumed Canary3 UUID remains unchanged before
+  activation. Normal Chrome Matrix launch visibly authenticates brinyu ADMIN.
+  Founder may watch the same owned Chrome production tab. No source/UX/engine
+  change, student activation, new dialogue or alternate audio authority.
+  Signed-in LemonSlice usage independently identifies Canary3 exact
+  24d7d397-2ae9-49de-899c-bec089b91a51: Completed/Terminated,7s,3.004 credits.
+  Billing displays zero overage with subscription credits remaining and overage
+  disabled; no extra dollar charge shown. Do not equate credits with USD or
+  claim exact aggregate GPT dollars. Canary4 actual provider proof is pending.
 
 - 2026-10-05 CANARY3 SINGLE ATTEMPT / EXACT TERMINAL RECEIPT:
   Source e6b8bdd; engine7f6d693; activated deployment8915d21c. Independent
