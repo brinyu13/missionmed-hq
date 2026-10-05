@@ -240,7 +240,7 @@ def snapshot(phase, spec):
         check(clear.get('phase')=='install' and clear.get('released') is True and
               type(clear.get('activeIR')) is int and clear['activeIR']==0 and
               type(clear.get('pendingIR')) is int and clear['pendingIR']==0 and
-              type(observed) in (int,float) and math.isfinite(observed) and 0<=time.time()-observed<300)
+              type(observed) in (int,float) and math.isfinite(observed) and observed>0)
     check(digest(HERE/'lease_transport.py') == TRANSPORT_SHA and
           digest(OS_ROOT/'tools/engineering_os_lease.py') == CLIENT_SHA and
           digest(HERE/'native_account_qa.py') == NATIVE_SHA and
@@ -260,6 +260,20 @@ def fresh(document):
     return type(expiry) in (int,float) and math.isfinite(expiry) and time.time() < expiry <= time.time()+3600
 
 
+def install_clear_fresh(contract, *, admitted_unix=None):
+    """Prior clear is fresh at admission/acquisition/initial READY, not renewed."""
+    if contract['phase']=='install':return
+    clear=contract['spec']['qualifications']['installProviderClear']
+    observed=clear.get('observedUnix')
+    now=time.time();admitted=now if admitted_unix is None else admitted_unix
+    check(clear.get('phase')=='install' and clear.get('released') is True and
+          type(clear.get('activeIR')) is int and clear['activeIR']==0 and
+          type(clear.get('pendingIR')) is int and clear['pendingIR']==0 and
+          type(observed) in (int,float) and math.isfinite(observed) and observed>0 and
+          type(admitted) in (int,float) and math.isfinite(admitted) and
+          observed<=admitted<=now and admitted<observed+300)
+
+
 def validate_controls(phase, approval, admission, actual, approval_digest, seconds):
     check(type(seconds) is int and 0 < seconds <= 3600)
     report_record(approval); report_record(admission)
@@ -270,6 +284,7 @@ def validate_controls(phase, approval, admission, actual, approval_digest, secon
     check(admission.get('schema') == 'ir.runtime_native.read_admission.v1' and
           admission.get('phase') == phase and admission.get('bindingSha256') == binding and
           admission.get('approvalSha256') == approval_digest and admission.get('maxSeconds') == seconds and fresh(admission))
+    install_clear_fresh(actual)
     return binding
 
 
@@ -288,7 +303,7 @@ def scope_for(module, phase):
     return scope
 
 
-def runtime_readback(expected):
+def runtime_readback(expected, *, budget, capture):
     """Fixed private read-only SSH; hashes dedicated public code/artifacts only."""
     check(set(expected) == RUNTIME_KEYS and all(SHA.fullmatch(v) for v in expected.values()))
     code = "import hashlib,json,pathlib,os\nr=pathlib.Path('/www/theresidencyacademy_209/public')\n" + \
@@ -298,19 +313,17 @@ def runtime_readback(expected):
         "files={'gateway':r/'"+GATEWAY+"','html':target/'interview-ready.html','matrix':target/'matrix-entry.js','gate':target/'account-gate.html','buildManifest':target/'build-manifest.json'}\n" + \
         "assert all(p.is_file() and not p.is_symlink() for p in files.values())\n" + \
         "v={k:hashlib.sha256(p.read_bytes()).hexdigest() for k,p in files.items()}\nv['pointer']=hashlib.sha256(os.readlink(current).encode()).hexdigest()\nprint(json.dumps(v))\n"
-    child = None
     try:
-        child = subprocess.Popen(['ssh','-T','-o','BatchMode=yes','-o','ConnectTimeout=8',
-            'missionmed-kinsta','python3','-'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-        out, err = child.communicate(code.encode(), timeout=10)
-        check(child.returncode == 0 and not err and len(out) <= 4096)
-        value = json.loads(out); value['package'] = expected['package']
+        out = capture(['ssh','-T','-o','BatchMode=yes','-o','ConnectTimeout=8',
+            'missionmed-kinsta','python3','-'],code.encode(),budget,cap=4096)
+        check(type(out) is bytes and len(out)<=4096)
+        value = json.loads(out)
+        check(type(value) is dict and set(value)==RUNTIME_KEYS-{'package'})
+        value['package'] = expected['package']
         check(value == expected)
         return value
     except BaseException:
-        if child and child.poll() is None:
-            child.kill(); child.wait()
-        raise
+        raise Stop() from None
 
 
 def expiry(handle):
@@ -321,13 +334,39 @@ def fence(handle):
     return hashlib.sha256(canonical([handle.lease_id,handle.fencing_epoch,handle.nonce])).hexdigest()
 
 
+class ReadbackGuard:
+    """Session-owned begin guard; no recursive native Gate/control call."""
+    def __init__(self, session, drain):
+        self.session=session; self.lock=session.lock; self.drain=drain
+
+    def __repr__(self):
+        return '<ReadbackGuard private>'
+
+    def open_check(self):
+        s=self.session
+        check(s.contract['phase'] in {'auth','auth_inventory'} and not s.closing and
+              fence(s.handle)==s.initial_fence and expiry(s.handle)>time.time())
+        with s.readback_lock:check(not s.readback_unresolved)
+        if self.drain:
+            check(s.native_gate is not None and s.native_gate.closed and
+                  type(s.native_gate.drain_deadline) in (int,float) and
+                  math.isfinite(s.native_gate.drain_deadline) and
+                  time.monotonic()<s.native_gate.drain_deadline)
+        else:
+            check(not s.failed and time.monotonic()<s.deadline and
+                  (s.native_gate is None or not s.native_gate.closed))
+
+
 class Session:
-    def __init__(self, client, handle, contract, binding, directory, seconds, actual_snapshot=snapshot, readback=runtime_readback):
+    def __init__(self, client, handle, contract, binding, directory, seconds, actual_snapshot=snapshot, readback=None):
         self.client=client; self.handle=handle; self.contract=contract; self.binding=binding; self.directory=directory
         self.deadline=time.monotonic()+seconds; self.lock=threading.RLock(); self.event=threading.Event()
         self.deadline_unix=time.time()+seconds; self.closing=False
         self.initial_fence=fence(handle); self.failed=False; self.actual_snapshot=actual_snapshot; self.readback=readback
-        self.native_gate=None
+        self.native_gate=None; self.qa=None
+        # Initial verification precedes NativeGate creation. Keep its process
+        # custody separately, including when an unresolved keeper holds lock.
+        self.readback_lock=threading.Lock(); self.readback_active={}; self.readback_unresolved=False
 
     def __repr__(self):
         return '<Session private>'
@@ -336,6 +375,36 @@ class Session:
         return {'state':state,'phase':self.contract['phase'],'bindingSha256':self.binding,
                 'sourceHead':self.contract['sourceHead'],'fenceSha256':self.initial_fence,
                 'updatedUnix':time.time(),'expiresAt':self.handle.expires_at,'deadlineUnix':self.deadline_unix}
+
+    def checked_readback(self, *, drain=False):
+        expected=self.contract['spec']['runtimeBindings']
+        guard=ReadbackGuard(self,drain)
+        with self.lock:
+            guard.open_check()
+            if self.readback is not None:
+                # Explicit local test adapter; fixed execute uses the private
+                # capture path below and cannot select this callback in controls.
+                check(self.readback(expected)==expected);return
+            check(self.qa is not None and self.qa.REAP_SECONDS==2)
+            limit=self.native_gate.drain_deadline if drain else self.deadline
+            budget=self.qa.Dispatch(min(time.monotonic()+10,limit),gate=guard)
+            token=uuid.uuid4().hex
+            with self.readback_lock:self.readback_active[token]=budget
+            try:
+                check(runtime_readback(expected,budget=budget,capture=self.qa.private_capture)==expected)
+            finally:
+                # A failed reap is sticky custody: even a later exit cannot
+                # erase the unresolved phase or authorize canonical release.
+                try:
+                    ended=(not budget.started) if budget.child is None else budget.child.poll() is not None
+                except BaseException:ended=False
+                with self.readback_lock:
+                    if ended:self.readback_active.pop(token,None)
+                    else:self.readback_unresolved=True
+
+    def readbacks_drained(self):
+        # Never wait for Session.lock while an in-flight keeper is being joined.
+        with self.readback_lock:return not self.readback_active and not self.readback_unresolved
 
     def stop(self):
         self.failed=True; self.closing=True; self.event.set()
@@ -356,7 +425,7 @@ class Session:
             self.handle=self.client.heartbeat(self.handle)
             check(not self.closing and fence(self.handle)==self.initial_fence and expiry(self.handle)>time.time())
             if verify_runtime:
-                check(self.readback(self.contract['spec']['runtimeBindings'])==self.contract['spec']['runtimeBindings'])
+                self.checked_readback()
                 check(expiry(self.handle)>time.time() and time.monotonic()<self.deadline)
             atomic(self.directory,'STATUS.json',self.status('STOP' if self.native_gate is not None and self.native_gate.closed else 'HEALTHY'))
 
@@ -375,7 +444,7 @@ class Session:
                   fence(self.handle)==self.initial_fence and expiry(self.handle)>time.time())
             atomic(self.directory,'STATUS.json',self.status('STOP'))
             check(self.actual_snapshot(self.contract['phase'],self.contract['spec'])==self.contract)
-            check(self.readback(self.contract['spec']['runtimeBindings'])==self.contract['spec']['runtimeBindings'])
+            self.checked_readback(drain=True)
             check(expiry(self.handle)>time.time())
             self.handle=self.client.heartbeat(self.handle)
             check(fence(self.handle)==self.initial_fence and expiry(self.handle)>time.time())
@@ -517,8 +586,12 @@ def run_session(session, *, qa=None, native_review_digest=None):
     thread=None; result=None; released=False;deferred=False
     try:
         check(session.contract['phase'] in PHASE_PATHS and (session.contract['phase']=='install' or qa is not None))
+        session.qa=qa  # Available for private initial readback before NativeGate.
+        install_clear_fresh(session.contract)
         session.renew(verify_runtime=session.contract['phase']!='install')
-        atomic(session.directory,'READY.json',session.status('READY'))
+        ready=session.status('READY')
+        install_clear_fresh(session.contract,admitted_unix=ready['updatedUnix'])
+        atomic(session.directory,'READY.json',ready)
         thread=threading.Thread(target=session.keeper,daemon=True,name='ir-runtime-native-keeper');thread.start()
         if session.contract['phase']=='install':
             while not session.event.wait(.25):
@@ -577,7 +650,7 @@ def run_session(session, *, qa=None, native_review_digest=None):
             except BaseException:
                 session.stop();result=None
                 dispatch_closed=not (session.directory/'STATUS.json').exists() and not (session.directory/'STATUS.json').is_symlink()
-        drained=native_drained and dispatch_closed and (thread is None or not thread.is_alive()) and drain_manual_operation(session)
+        drained=native_drained and session.readbacks_drained() and dispatch_closed and (thread is None or not thread.is_alive()) and drain_manual_operation(session)
         if not drained:
             deferred=True;session.stop();result=None
         else:
@@ -621,6 +694,7 @@ def execute(phase, approval_path, read_path, seconds=3600):
     client=kind(base_url=transport.BASE_URL,project_ref=transport.PROJECT,api_key=key,
         opener=transport.ApikeyOnlyLeaseOpener(key,kind._open_no_redirect))
     atomic(directory,'PHASE.json',{'phase':'ACQUIRE','bindingSha256':binding})
+    install_clear_fresh(actual)
     handle=client.acquire_writer(scope=scope,write_paths=PHASE_PATHS[phase],shared_domains=DOMAINS[phase],
         owner_id=OWNER,session_id='ir-phase1-'+phase+'-20261004-'+uuid.uuid4().hex,binding=binding)
     session=Session(client,handle,actual,binding,directory,seconds)

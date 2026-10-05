@@ -52,3 +52,59 @@ Actual old16f8 all35-input snapshot previously passed three entry schemas before
 INSTALL attempt2 historical RELEASED/BOUNDED_PHASE_COMPLETE/local COMPLETE and independent clear/readback dbd041578def0ffdd97474fba530f7e95df5cee8b3a6f3e22b06a52d2bb4893d were read/hash matched. This builder did not make a provider/SSH/browser observation; stale report age cannot authorize later native admission. Independent current clear/runtime/semantic/containment reports, reviewed six bytes, final frozen sourceHead/package, new direct-child controlDirectory, separate approval/read files and healthy normal admission remain required BEFORE any actual call.
 
 Prospective command schema only: python3 -B runtime_native_runner.py --execute --phase <install|auth_inventory|auth> --approval <exact independent file> --read-admission <distinct exact independent file> --max-seconds <1..3600>. Commands were NOT executed and no new controls/claims were created. Current original manual helper pin/old INSTALL controls cannot authorize changed wrapper/schema; new helper/plan require their own independent review/fresh controls. ROOT owns custody/source/production flags/deployment. **STOP UNCOMMITTED for independent six-byte review and subsequent exact new package/source task.**
+
+
+## Finite runtime readback and initial clear anchoring — 2026-10-04
+
+This appendix supersedes the inherited unbounded runtime readback and repeated clear-age statements above. Builder preparation only at actual frozen HEAD `956d99717a9fe46968dccf4b3d94cfa17d0955a4`; exactly runtime_native_runner.py, runtime_native_runner_tests.py and this handoff changed. Native three files, Matrix manual helper four files and lease_transport.py remain byte-identical to that HEAD. No staging, commit, source/package, controls, canonical client, runtime, provider, SSH, bootstrap, accounts or cache action occurred here.
+
+| Current file | SHA256 | Bytes |
+| --- | --- | ---: |
+| runtime_native_runner.py | `42fec695a6161da453881d40c75ea940de1c55055a8e3641f3c60a72400a7302` | 43024 |
+| runtime_native_runner_tests.py | `0f44c89d2064e0942e55aec570332a1598fdc450fbbb6a97b3e7309e9faa933e` | 66505 |
+
+This handoff's final digest is delivered separately to avoid a self-hash. Earlier reports/pins remain historical evidence, not approval of these bytes. Parent reports the resumed INSTALL canonical RELEASED with independent clear `RENDER_FIX_RESUME_INSTALL_CLEAR_REVIEW.md` SHA `b83817ee3962b291029942839fc8b488b620c5ce1e402cd27a02d71d46e24210`, exact claim101bfb37-aca0-438c-95f6-a0379e269107/epoch4851 and updated retained layout. That report was read locally; this builder made no independent provider/runtime observation and supplies no new live/native qualification.
+
+The exact fixed SSH argv and remote public-code hashing program remain unchanged. Runtime readback now calls the hash-pinned native private_capture through a Session-owned Dispatch registered before any process, including initial verification before NativeGate exists. Nonblocking capture rejects stdout over4096 bytes, bounds stderr at the existing64KiB cap and rejects any stderr/nonzero/invalid/extra-key/hash-drift result. I/O deadline is the lesser of10s and the unchanged admission deadline, or the already established closed NativeGate drain deadline during drain. Existing local reap grace is2s; there is no unbounded wait. Session-lock begin checks current exact fence, unexpired canonical handle, admission/closed-drain deadline, closing/failed state and unresolved custody immediately before dispatch. The private registry uses a separate lock so a stuck keeper cannot prevent the release decision from detecting unresolved work. Failed reap or attempted launch with unknown outcome is sticky; initial pre-Gate, worker and keeper processes all prevent canonical release while active/unresolved. No private output/error is serialized.
+
+The clear qualification remains structurally/report/source pinned in each static snapshot: released=true, integer activeIR0/pendingIR0, finite positive observedUnix and unchanged report/binding checks. Its strict freshness interval `observedUnix <= admittedUnix < observedUnix+300` is checked before controls are consumed or private modules loaded, immediately before canonical acquisition, before initial verification and against the actual initial READY timestamp. Future observations and stale/boundary300s fail. Time spent retrieving/probing cannot silently admit a stale acquisition. Later owned sessions retain this exact historical record without reevaluating its age; each action/heartbeat/drain still checks the current source/contract, same healthy fence, actual expiry, STOP state and existing admission/drain deadline. No expiry extension, new read, reacquisition, future timestamp or expired-unreleased claim is admitted. A reaped initial failure can release its current owned handle without aging history being treated as unresolved work.
+
+Focused local result: **33 fixtures PASS2.997s** (nine actual private pipe readback tests, six initial-clear tests, eighteen related canonical/guard/drain/privacy regressions). Two Python compile checks, default DORMANT exit0 and scoped diff check PASS. Local fixture child is an injected thread/OS-pipe process analogue; no actual SSH/subprocess/provider call occurs. Cases cover slow drip/delayed output, streaming caps, bounded reap/unreaped/attempted-launch ambiguity, STOP/fence/expiry/begin race, existing closed drain, worker and keeper end before release, actual50ms/311ms native race, stale/future/300s admission, expiry during probe/initial READY, and later healthy>300s readback/drain. The old-package35-input fixture was intentionally not replayed or adopted; a new exact snapshot under final custody and independent current reports remains required.
+
+Focused replay (run from the worktree root; all injected/local only):
+
+```sh
+python3 -B - <<'PY_REPLAY'
+import importlib.util, pathlib, unittest
+p=pathlib.Path('_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/runtime_native_runner_tests.py')
+s=importlib.util.spec_from_file_location('focused_runtime_tests',p)
+m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+related=[
+'auth_real_race50ms311ms_workers_end_before_release_with_stop_drain_keeper',
+'native_receipt_or_drain_fence_failure_never_releases_before_worker_end',
+'native_unresolved_dispatch_defers_release_and_inventory_receipt_is_aggregate_only',
+'inventory_mode_has_only_read_action_and_cli_omits_private_registry',
+'real_native_admission_types_and_auth_failure_drains_before_release',
+'missing_auth_or_inventory_qualification_precedes_consumption_and_capabilities',
+'exact_canonical_phase_scopes_and_no_other_domain',
+'one_use_consumption_before_private_transport_and_no_retry',
+'actual_active_marker_disappearance_defers_release',
+'closing_prevents_inflight_keeper_healthy_republication',
+'canonical_ttl30_accepts25_server_remaining_but_requires30_session',
+'owned_active_drain_renews_same_ttl30_fence_with_stop_only',
+'default_missing_final_artifacts_and_bad_phase_have_no_capability',
+'only_admitted_route_refresh_and_pointer_restore_markers_use_install_guard_and_drain',
+'typed_layout_preimage_is_runtime_only_closed_and_lowerhex64',
+'per_artifact_review_roles_preserve_wrapper_independence',
+'native_adapter_serializes_guard_only_and_stamps_actual_readback',
+'install_stop_and_receipt_failure_still_release']
+names=[n for n in dir(m.Fixtures) if n.startswith('test_runtime_readback_') or '_clear' in n]
+names += ['test_'+n for n in related]
+assert len(names)==33
+r=unittest.TextTestRunner().run(unittest.TestSuite(m.Fixtures(n) for n in names))
+raise SystemExit(not r.wasSuccessful())
+PY_REPLAY
+python3 -B _AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/runtime_native_runner.py
+```
+
+Limits: cap enforcement may read one bounded8192-byte chunk before rejection; this is not a4096-byte total-memory assertion. The10s I/O bound plus2s local reap grace bounds this capture seam, not all source/client computation or remote PHP/HTTP completion. Closing/killing a local transport never proves remote rollback. Unknown custody remains sticky and RELEASE_DEFERRED; no automatic retry, cleanup or marker removal follows a failure. INSTALL does not dispatch runtime readback. Control/schema/phase scopes and all native harness bytes are unchanged. AUTH/auth_inventory still require a fresh independent review of this delta, exact current snapshot/reports, separately repinned helper, one-use controls, admitted bootstrap/hooks and healthy canonical AUTH lease. This builder does not approve its own wrapper or enable actual native work. **Frozen three-file handoff; STOP UNCOMMITTED for independent review.**

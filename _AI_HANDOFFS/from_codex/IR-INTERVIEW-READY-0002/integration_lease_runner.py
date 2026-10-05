@@ -32,19 +32,19 @@ AUTHORITY_ADOPTION = {
     'currentAuthorityHandoffSha256': AUTHORITY_HANDOFF_SHA,
     'basis': 'FOREMAN_VERIFIED_ROUTED_IR_UNCHANGED_OS_ADDITIONS',
 }
-SOURCE_BASE = '2db1f985e4678f8429af7b45969cde5729bd26d8'
+SOURCE_BASE = '956d99717a9fe46968dccf4b3d94cfa17d0955a4'
 TRANSPORT_SHA = '6bab4c948b28202b7a803228f2123d5c95137030f16eb129c427b4ddcc487cad'
 ORIGIN = 'https://github.com/brinyu13/missionmed-hq.git'
 REF = 'refs/heads/codex/ir-interview-ready-0002-storyforge'
 OWNER = 'codex-ir-phase1-foreman'
-PATHS = ['interview-ready/build.py', 'interview-ready/integration/release.test.py', 'interview-ready/evidence/integration-worker-handoff.md']
-BASE_PREIMAGES = {'interview-ready/build.py': '252faef3ee21ed66d7d0eb331c113c533eb28a0de2e5e0cfcf4c4d7f686ac1e1', 'interview-ready/integration/release.test.py': '98401d50a70d9a037602775e92273e81d9aab3a1c2ce4201fbf2f3762282e592', 'interview-ready/evidence/integration-worker-handoff.md': 'fce9c8c8597b721892a63b4705203eb1b1c672dc070819c8f99088f1970d1e0f'}
+PATHS = ['interview-ready/phase1.json', 'interview-ready/integration/release.py', 'interview-ready/integration/release.test.py', 'interview-ready/evidence/integration-worker-handoff.md']
+BASE_PREIMAGES = {'interview-ready/phase1.json': 'c552cc20f09a7dce76c91a22bfd507e91c6d33b78b043df9f420fdf57d1351c0', 'interview-ready/integration/release.py': '90d67d6afd96adf6a1dc0a33d350d65cc02089e42d2462b34e54bb4ec6f0ac17', 'interview-ready/integration/release.test.py': 'cdb53f1a3d747c377d72d9d43953bad31823e439604000704306c471063dccd0', 'interview-ready/evidence/integration-worker-handoff.md': 'd2630716df99b74235e1b919d6be2c5b337161b13ad4f8964b6efc4d62e4a118'}
 INTERVAL = 5.0
-BUILDER = 'codex-ir-live-render-source-runner-builder'
-PACKET_SHA = 'a59585b87eb4119bdf848de69080c6c949d0449e4be1c3f0d323e80e2760a79f'
+BUILDER = 'codex-ir-final-production-source-runner-builder'
+PACKET_SHA = 'dee788a5ab65417e3620856257fad3c25448d2d69bc77ee82913cc2ef9e3febb'
 PACKET_FILE = 'INTEGRATION_LEASE_RUNNER_HANDOFF.md'
-DIAGNOSIS_FILE = 'LIVE_RENDER_COMPATIBILITY_DIAGNOSIS.md'
-DIAGNOSIS_SHA = '5f31e00f4704532bea3cd6e8985242e83f8df1459ccad3b6bcdcb6b1c145230f'
+INSTALL_CLEAR_FILE = 'RENDER_FIX_RESUME_INSTALL_CLEAR_REVIEW.md'
+INSTALL_CLEAR_SHA = 'b83817ee3962b291029942839fc8b488b620c5ce1e402cd27a02d71d46e24210'
 
 
 class Stop(RuntimeError):
@@ -116,14 +116,14 @@ def original_preimages(root):
     return images
 
 
-def repair_packet():
+def production_packet():
     text = (HERE / PACKET_FILE).read_text()
-    begin = '<!-- LIVE_RENDER_REPAIR_PACKET_BEGIN -->'
-    end = '<!-- LIVE_RENDER_REPAIR_PACKET_END -->'
+    begin = '<!-- FINAL_PRODUCTION_SOURCE_PACKET_BEGIN -->'
+    end = '<!-- FINAL_PRODUCTION_SOURCE_PACKET_END -->'
     if text.count(begin) != 1 or text.count(end) != 1:
         raise Stop('PACKET_DENIED')
     packet = json.loads(text.split(begin, 1)[1].split(end, 1)[0])
-    if (packet.get('schema') != 'ir.live_render_source_repair.packet.v1'
+    if (packet.get('schema') != 'ir.final_production_source.packet.v1'
             or hashlib.sha256(canonical(packet)).hexdigest() != PACKET_SHA):
         raise Stop('PACKET_DENIED')
     return packet
@@ -133,12 +133,12 @@ def snapshot(root=ROOT, os_root=OS_ROOT):
     return {'sourceBASE': SOURCE_BASE, 'sourceHead': head(root), 'osHead': head(os_root),
             'writePaths': PATHS, 'sourcePreimages': preimages(root),
             'originalSourcePreimages': original_preimages(root),
-            'repairPacket': repair_packet(),
-            'diagnosisSha256': digest(HERE / DIAGNOSIS_FILE),
+            'productionPacket': production_packet(),
+            'installClearSha256': digest(HERE / INSTALL_CLEAR_FILE),
             'runnerSha256': digest(Path(__file__)),
             'testsSha256': digest(HERE / 'integration_lease_runner_tests.py'),
             'transportSha256': digest(HERE / 'lease_transport.py'),
-            'workerPacketSha256': hashlib.sha256(canonical(repair_packet())).hexdigest(),
+            'workerPacketSha256': hashlib.sha256(canonical(production_packet())).hexdigest(),
             'canonicalClientSha256': digest(os_root / 'tools/engineering_os_lease.py'),
             'decisionSha256': digest(os_root / 'decisions/DR-376_ir_phase1_bounded_execution_annex.md'),
             'authorityHandoffSha256': digest(os_root / AUTHORITY_HANDOFF),
@@ -170,28 +170,35 @@ def validate_approval(approval, actual, now=None):
             or actual['authorityAdoption'] != AUTHORITY_ADOPTION
             or actual['writePaths'] != PATHS
             or actual['sourcePreimages'] != BASE_PREIMAGES
-            or hashlib.sha256(canonical(actual['repairPacket'])).hexdigest() != PACKET_SHA
-            or actual['diagnosisSha256'] != DIAGNOSIS_SHA
-            or actual['repairPacket']['sourceBASE'] != SOURCE_BASE
-            or actual['repairPacket']['writePaths'] != PATHS
-            or actual['repairPacket']['sourcePreimages'] != BASE_PREIMAGES
+            or hashlib.sha256(canonical(actual['productionPacket'])).hexdigest() != PACKET_SHA
+            or actual['installClearSha256'] != INSTALL_CLEAR_SHA
+            or actual['productionPacket']['sourceBASE'] != SOURCE_BASE
+            or actual['productionPacket']['writePaths'] != PATHS
+            or actual['productionPacket']['sourcePreimages'] != BASE_PREIMAGES
             or not isinstance(actual['sourceHead'], str)
             or len(actual['sourceHead']) != 40
             or any(c not in '0123456789abcdef' for c in actual['sourceHead'])):
         raise Stop('PIN_MISMATCH')
-    if (approval.get('schema') != 'ir.live_render_source_lease.approval.v1'
+    if (approval.get('schema') != 'ir.final_production_source_lease.approval.v1'
             or approval.get('verdict') != 'APPROVE'
             or approval.get('independentReviewer') in (None, '', OWNER, BUILDER)
             or approval.get('contract') != actual or not fresh(approval, now)):
         raise Stop('APPROVAL_DENIED')
     binding = hashlib.sha256(canonical(actual)).hexdigest()
-    repair = approval.get('repairReview', {})
-    if (repair.get('schema') != 'ir.live_render_source_lease.repair_review.v1'
+    repair = approval.get('productionReview', {})
+    if (repair.get('schema') != 'ir.final_production_source_lease.production_review.v1'
             or repair.get('verdict') != 'APPROVE'
             or repair.get('independentReviewer') in (None, '', OWNER, BUILDER)
             or repair.get('bindingSha256') != binding or not fresh(repair, now)
-            or not repair.get('reportFile') or not repair.get('reportSha256')):
-        raise Stop('REPAIR_REVIEW_DENIED')
+            or not repair.get('reportFile') or not repair.get('reportSha256')
+            or repair.get('taskPacketSha256') != PACKET_SHA
+            or repair.get('actualAcceptanceSatisfied') is not True
+            or repair.get('conditionalFourPathTask') is not True
+            or not isinstance(repair.get('sourceBuilder'), str)
+            or repair.get('sourceBuilder') in (None, '', OWNER, BUILDER)
+            or repair.get('sourceBuilder') == repair.get('independentReviewer')
+            or repair.get('sourceBuilder') == approval.get('independentReviewer')):
+        raise Stop('PRODUCTION_REVIEW_DENIED')
     return binding
 
 
@@ -393,9 +400,10 @@ def execute(approval_path, admission_path, directory, max_seconds=3600):
     approval = read_json(approval_path)
     binding = validate_approval(approval, actual)
     admission = read_json(admission_path)
-    if (admission.get('schema') != 'ir.live_render_source_lease.read_admission.v1'
+    if (admission.get('schema') != 'ir.final_production_source_lease.read_admission.v1'
             or admission.get('verdict') != 'APPROVE'
             or admission.get('independentReviewer') in (None, '', OWNER, BUILDER)
+            or admission.get('independentReviewer') == approval['productionReview']['sourceBuilder']
             or admission.get('bindingSha256') != binding
             or admission.get('approvalSha256') != digest(approval_path)
             or not fresh(admission, time.time())
@@ -403,7 +411,7 @@ def execute(approval_path, admission_path, directory, max_seconds=3600):
             or not 0 < max_seconds <= 3600):
         raise Stop('READ_ADMISSION_DENIED')
     # Reports are separate reviewer artifacts; their exact bytes must exist locally.
-    reports = (approval, admission, approval['repairReview'])
+    reports = (approval, admission, approval['productionReview'])
     if len({document['reportFile'] for document in reports}) != 3:
         raise Stop('SEPARATE_REVIEW_REPORT_DENIED')
     for document in reports:
@@ -415,7 +423,7 @@ def execute(approval_path, admission_path, directory, max_seconds=3600):
     scope = canonical_client.path_scope(ORIGIN, REF, 'interview-ready')
     directory.mkdir(mode=0o700)  # unique, nonexisting control directory only
     # Mark the approval consumed BEFORE any retrieval. Failed reads cannot retry.
-    marker = HERE / ('SOURCE_LIVE_RENDER_REPAIR_LEASE_READ_CONSUMED_' + digest(admission_path) + '.json')
+    marker = HERE / ('SOURCE_FINAL_PRODUCTION_LEASE_READ_CONSUMED_' + digest(admission_path) + '.json')
     with marker.open('xb') as stream:
         marker.chmod(0o600)
         stream.write(canonical({'bindingSha256': binding, 'state': 'CONSUMED'}))
@@ -436,7 +444,7 @@ def execute(approval_path, admission_path, directory, max_seconds=3600):
         phase = 'ACQUIRE'
         breadcrumb(directory, phase, binding)
         lease = client.acquire_writer(scope=scope, write_paths=PATHS, owner_id=OWNER,
-            session_id='ir-phase1-live-render-source-20261004-' + uuid.uuid4().hex, binding=binding)
+            session_id='ir-phase1-final-production-source-20261004-' + uuid.uuid4().hex, binding=binding)
     except BaseException as error:
         safe_diagnostic(phase, error)
         raise Stop('EXECUTION_STOP') from None

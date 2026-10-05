@@ -1,0 +1,402 @@
+{
+  "cliResolution": [
+    {
+      "path": "/usr/local/bin/wp",
+      "present": true,
+      "resolved": "/usr/local/bin/wp",
+      "role": "wp",
+      "sourceRead": false
+    },
+    {
+      "path": "/usr/bin/php",
+      "present": true,
+      "resolved": "/usr/bin/php8.2",
+      "role": "php",
+      "sourceRead": false
+    }
+  ],
+  "homeWpCliConfig": {
+    "present": false,
+    "role": "~/.wp-cli/config.yml",
+    "sourceRead": false,
+    "symlink": false
+  },
+  "muEntrypoints": [
+    {
+      "name": "00-arena-anonymous-shell.php",
+      "type": "FILE"
+    },
+    {
+      "name": "00-arena-cache-bypass.php",
+      "type": "FILE"
+    },
+    {
+      "name": "arena-route-proxy.php",
+      "type": "FILE"
+    },
+    {
+      "name": "drills-route-proxy.php",
+      "type": "FILE"
+    },
+    {
+      "name": "elementor-safe-mode.php",
+      "type": "FILE"
+    },
+    {
+      "name": "health-check-troubleshooting-mode.php",
+      "type": "FILE"
+    },
+    {
+      "name": "ivoncall-route-proxy.php",
+      "type": "FILE"
+    },
+    {
+      "name": "kinsta-mu-plugins.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-arena-identity-guard.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-auth-cookie-scope.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-drills-oncall-enrollment.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-drj-drills-access.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-drj-examprep-commerce.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-examprep-enrollment.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-file-vault-v2-scanner.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-homebase-route.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-homepage-asset-cleaner.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-homepage-ld-unload.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-hq-auth-handoff.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-hq-proxy.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-hq-route-proxy.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-interview-ready.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-interviewiq-route.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-interviewiq-sso.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-launch-sev1-fixes.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-legacy-residency-transition.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-login-flow-restore.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-lor-studio-contract.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-mail-failclosed.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-matrix-account-entry.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-matrix-entitlement-guard.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-matrix-footer-cleanup.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-matrix-interviewiq-entry.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-matrix-lor-studio-entry.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-matrix-rise-entry.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-matrix-runtime-pin.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-missionaccounts-route-open.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-missionaccounts-route.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-mr-alternate.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-mr-course-onboarding.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-mr-legacy-popup.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-mr-p0.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-mr-primary-routing.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-mr-zelle-verifier.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-performance-boost.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-purchase-success.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-rise-interviewiq-owner.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-rise-route.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-rise-sso.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-rlq-bff.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-site-icon.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-storyforge-route.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-stripe-webhook-router.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-supabase-session-cookie-auth.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-timeline-route.php",
+      "type": "FILE"
+    },
+    {
+      "name": "missionmed-wc-stripe-division-router.php",
+      "type": "FILE"
+    },
+    {
+      "name": "mm-scheduler-webex-broker.php",
+      "type": "FILE"
+    },
+    {
+      "name": "mmi-instructor-panel-loader.php",
+      "type": "FILE"
+    },
+    {
+      "name": "mmi-mixed-cart-guard.php",
+      "type": "FILE"
+    },
+    {
+      "name": "stat-route-proxy.php",
+      "type": "FILE"
+    },
+    {
+      "name": "zoom-drill-notes-preview-route.php",
+      "type": "FILE"
+    }
+  ],
+  "observedUnix": 1791159149.8261304,
+  "schema": "ir.bootstrap.static_seed_metadata.v1",
+  "seedFiles": [
+    {
+      "bytes": 3937,
+      "role": "wp-load.php",
+      "sha256": "bfdc84087782be7aa13f64deb6fe6762f4c80058d9fa3d27705859716dc5dd11",
+      "sourceRead": true,
+      "type": "FILE"
+    },
+    {
+      "bytes": 10233,
+      "role": "wp-config.php",
+      "sha256": "a131ee7751a7779991f82a9df724efbd19dcbe58840baff913ec20af7701537f",
+      "sourceRead": true,
+      "type": "FILE"
+    },
+    {
+      "bytes": 33152,
+      "role": "wp-settings.php",
+      "sha256": "2e3185ee44bcdd9d9c4bef8ce4891827711dec2b5d5d4c08c951738ccef51f8d",
+      "sourceRead": true,
+      "type": "FILE"
+    },
+    {
+      "bytes": 56475,
+      "role": "wp-includes/load.php",
+      "sha256": "3efd0934bd8a454a8d7076fbbd21504ea097a753125a48e64b8a1dad380d357a",
+      "sourceRead": true,
+      "type": "FILE"
+    },
+    {
+      "bytes": 37123,
+      "role": "wp-includes/plugin.php",
+      "sha256": "d70b9e18d34ab3fe46e15548a5e8e089ea5920832f06a4d89a9d64b2f7938b0d",
+      "sourceRead": true,
+      "type": "FILE"
+    },
+    {
+      "bytes": 17584,
+      "role": "wp-includes/class-wp-hook.php",
+      "sha256": "b839c0e5672246bca8db1ab781ec8835f7732f253c375a237cbf6ec536e8d12e",
+      "sourceRead": true,
+      "type": "FILE"
+    },
+    {
+      "bytes": 1103,
+      "role": "wp-includes/version.php",
+      "sha256": "c822935799e6f3b83129882554ccff48596cf98b4a5eb82b83d82fe15455894e",
+      "sourceRead": true,
+      "type": "FILE"
+    },
+    {
+      "bytes": 180301,
+      "role": "wp-includes/user.php",
+      "sha256": "c837321fbf722f89a080324f3c742b0c44e5853c9bd6d305cb894b5f664fc6cc",
+      "sourceRead": true,
+      "type": "FILE"
+    },
+    {
+      "bytes": 43584,
+      "role": "wp-includes/capabilities.php",
+      "sha256": "f5aaf3dd6a3c669f244fd6f01ad3a906556afd55941b443f1e9b34f65bb08573",
+      "sourceRead": true,
+      "type": "FILE"
+    },
+    {
+      "bytes": 105246,
+      "role": "wp-includes/option.php",
+      "sha256": "fe3f0b7e115b2a50c31162ed6428abe4088c080b0f71b9678d84806168fe90d0",
+      "sourceRead": true,
+      "type": "FILE"
+    },
+    {
+      "bytes": 66739,
+      "role": "wp-includes/meta.php",
+      "sha256": "b1b49d1d3ddbf10d0f17286f53c30ce9582c636a4679f9a0ef92ee5ebb020a3e",
+      "sourceRead": true,
+      "type": "FILE"
+    },
+    {
+      "bytes": 46266,
+      "role": "wp-includes/cron.php",
+      "sha256": "dc27910a1ad004eb2aaabc19352246cc0b9e601bf2da870e141646fd9dd95591",
+      "sourceRead": true,
+      "type": "FILE"
+    },
+    {
+      "bytes": 28961,
+      "role": "wp-includes/http.php",
+      "sha256": "ba3a08b53e117fd53eeccc8b972744ee3e87eae9d8d8125ff62939f28cd3e773",
+      "sourceRead": true,
+      "type": "FILE"
+    },
+    {
+      "bytes": 121437,
+      "role": "wp-includes/class-wpdb.php",
+      "sha256": "e15403e90032dd0508811301505e491d4212de5152581a98f51b744a1a3903bd",
+      "sourceRead": true,
+      "type": "FILE"
+    },
+    {
+      "role": "wp-cli.yml",
+      "sourceRead": false,
+      "type": "ABSENT"
+    },
+    {
+      "role": "wp-cli.local.yml",
+      "sourceRead": false,
+      "type": "ABSENT"
+    },
+    {
+      "role": "wp-content/advanced-cache.php",
+      "sourceRead": false,
+      "type": "ABSENT"
+    },
+    {
+      "role": "wp-content/db.php",
+      "sourceRead": false,
+      "type": "ABSENT"
+    },
+    {
+      "role": "wp-content/object-cache.php",
+      "sourceRead": false,
+      "type": "ABSENT"
+    },
+    {
+      "role": "wp-content/sunrise.php",
+      "sourceRead": false,
+      "type": "ABSENT"
+    }
+  ]
+}

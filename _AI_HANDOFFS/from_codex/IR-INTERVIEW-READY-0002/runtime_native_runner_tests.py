@@ -7,6 +7,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 from types import SimpleNamespace
 import sys
@@ -39,6 +40,45 @@ class Client:
     def release(self, handle):self.calls.append('release')
 
 
+class ReadbackPipeChild:
+    """Injected pipe/thread fixture only; never creates a subprocess or SSH."""
+    def __init__(self, chunks=(), delay=0, code=0, *, stderr=False):
+        r,w=os.pipe();self.stdin=os.fdopen(w,'wb',buffering=0);self.input_fd=r
+        r,w=os.pipe();self.stdout=os.fdopen(r,'rb',buffering=0);self.output_fd=w
+        r,w=os.pipe();self.stderr=os.fdopen(r,'rb',buffering=0);self.error_fd=w
+        self.returncode=None;self.stopped=threading.Event();self.done=threading.Event();self.private_input=bytearray()
+        def work():
+            try:
+                while True:
+                    value=os.read(self.input_fd,8192)
+                    if not value:break
+                    self.private_input.extend(value)
+                destination=self.error_fd if stderr else self.output_fd
+                os.set_blocking(destination,False)
+                for chunk in chunks:
+                    if self.stopped.wait(delay):break
+                    pending=memoryview(chunk)
+                    while pending and not self.stopped.is_set():
+                        try:pending=pending[os.write(destination,pending[:8192]):]
+                        except BlockingIOError:self.stopped.wait(.001)
+                self.returncode=code if not self.stopped.is_set() else -9
+            except (OSError,ValueError):self.returncode=-9
+            finally:
+                for fd in (self.input_fd,self.output_fd,self.error_fd):
+                    try:os.close(fd)
+                    except OSError:pass
+                self.done.set()
+        self.worker=threading.Thread(target=work,daemon=True);self.worker.start()
+
+    def poll(self):
+        if not self.done.is_set():return None
+        self.worker.join();return self.returncode
+    def kill(self):self.stopped.set()
+    def wait(self,timeout=None):
+        if not self.done.wait(timeout):raise runner.subprocess.TimeoutExpired('local-fixture',timeout)
+        self.worker.join();return self.returncode
+
+
 class Fixtures(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory(prefix='ir-runtime-native-fixture-')
@@ -54,12 +94,292 @@ class Fixtures(unittest.TestCase):
 
     def session(self, phase='install', client=None, readback=None, seconds=5):
         contract=copy.deepcopy(self.contract);contract['phase']=phase
+        if phase!='install':
+            contract['spec']['qualifications']={'installProviderClear':{'phase':'install','released':True,
+                'activeIR':0,'pendingIR':0,'observedUnix':time.time()}}
         return runner.Session(client or Client(),self.handle,contract,'5'*64,self.directory,seconds,
             actual_snapshot=lambda *args:contract,readback=readback or Mock(return_value=contract['spec']['runtimeBindings']))
 
     def stop_file(self, session):
         runner.atomic(self.directory,'STOP.json',{'action':'DONE','owner':runner.OWNER,'phase':'install',
             'bindingSha256':session.binding,'fenceSha256':session.initial_fence})
+
+    def private_readback_session(self, seconds=2):
+        qa=runner.load_module('readback_native_fixture',runner.HERE/'native_account_qa.py',runner.NATIVE_SHA)
+        session=self.session('auth',seconds=seconds);session.readback=None;session.qa=qa
+        output=json.dumps({k:v for k,v in session.contract['spec']['runtimeBindings'].items() if k!='package'}).encode()
+        return session,qa,output
+
+    def test_runtime_readback_actual_stream_capture_registers_before_gate_and_releases_after_reap(self):
+        session,qa,output=self.private_readback_session();children=[];trace=[]
+        def popen(argv,**kwargs):
+            self.assertIsNone(session.native_gate);self.assertEqual(len(session.readback_active),1)
+            budget=next(iter(session.readback_active.values()))
+            self.assertTrue(budget.started);self.assertLessEqual(budget.deadline,session.deadline)
+            self.assertLessEqual(budget.deadline-time.monotonic(),10)
+            self.assertEqual(argv,['ssh','-T','-o','BatchMode=yes','-o','ConnectTimeout=8','missionmed-kinsta','python3','-'])
+            self.assertEqual(kwargs['env'],qa.PRIVATE_ENV)
+            child=ReadbackPipeChild([output]);children.append(child);return child
+        original=session.client.release
+        def release(handle):
+            self.assertTrue(children[0].done.is_set());self.assertFalse(children[0].worker.is_alive())
+            trace.append('release');original(handle)
+        session.client.release=release
+        # Synthetic contract stops at admission after successful initial read;
+        # this exercises the real before-Gate release path, not native work.
+        with patch.object(qa.subprocess,'Popen',side_effect=popen):
+            self.assertIsNone(runner.run_session(session,qa=qa,native_review_digest='d'*64))
+        self.assertTrue(session.readbacks_drained());self.assertEqual(trace,['release'])
+        self.assertEqual(len(children),1);self.assertIn(b"files={'gateway'",children[0].private_input)
+
+    def test_runtime_readback_stream_deadline_caps_and_errors_stop_private_without_retry(self):
+        for mode in ('slow-drip','dns','stdout-cap','stderr-cap','nonzero','malformed','extra-key','hash-drift'):
+            with self.subTest(mode=mode):
+                session,qa,output=self.private_readback_session(seconds=.04);children=[]
+                chunks=[output];delay=0;code=0;stderr=False
+                if mode=='slow-drip':chunks=[b'x']*100;delay=.01
+                elif mode=='dns':delay=.2
+                elif mode=='stdout-cap':chunks=[b'x'*4097]
+                elif mode=='stderr-cap':chunks=[b'fixture-private-error'*4000];stderr=True
+                elif mode=='nonzero':code=7
+                elif mode=='malformed':chunks=[b'fixture-private-secret']
+                elif mode=='extra-key':chunks=[output[:-1]+b',"private":"fixture-private-secret"}']
+                elif mode=='hash-drift':chunks=[output.replace(b'4'*64,b'6'*64)]
+                def popen(*args,**kwargs):
+                    child=ReadbackPipeChild(chunks,delay,code,stderr=stderr);children.append(child);return child
+                started=time.monotonic();captured=io.StringIO()
+                with patch.object(qa.subprocess,'Popen',side_effect=popen) as launch,contextlib.redirect_stdout(captured),contextlib.redirect_stderr(captured):
+                    self.assertIsNone(runner.run_session(session,qa=qa,native_review_digest='d'*64))
+                self.assertEqual(launch.call_count,1);self.assertLess(time.monotonic()-started,.5)
+                self.assertTrue(session.readbacks_drained());self.assertFalse(children[0].worker.is_alive())
+                self.assertNotIn('fixture-private',captured.getvalue())
+                self.assertEqual(runner.read_json(session.directory/'RESULT.json')['release'],'RELEASED')
+
+    def test_runtime_readback_initial_unreaped_child_sticky_before_gate_defers_release(self):
+        session,qa,_=self.private_readback_session();child=Mock();child.poll.return_value=None
+        child.stdin=io.BytesIO();child.stdout=io.BytesIO();child.stderr=io.BytesIO()
+        child.wait.side_effect=runner.subprocess.TimeoutExpired('fixture-private',2)
+        with patch.object(qa.subprocess,'Popen',return_value=child),patch.object(qa.os,'set_blocking',side_effect=OSError('fixture-private')):
+            self.assertIsNone(runner.run_session(session,qa=qa,native_review_digest='d'*64))
+        self.assertIsNone(session.native_gate);child.kill.assert_called_once();child.wait.assert_called_once_with(timeout=2)
+        self.assertTrue(session.readback_unresolved);self.assertEqual(len(session.readback_active),1)
+        self.assertNotIn('release',session.client.calls)
+        self.assertEqual(runner.read_json(session.directory/'RESULT.json')['release'],'RELEASE_DEFERRED')
+        child.poll.return_value=0  # Later exit cannot silently clear sticky custody.
+        self.assertFalse(session.readbacks_drained())
+
+    def test_runtime_readback_attempted_launch_unknown_defers_without_gate_or_retry(self):
+        session,qa,_=self.private_readback_session()
+        with patch.object(qa.subprocess,'Popen',side_effect=OSError('fixture-private-launch')) as launch:
+            self.assertIsNone(runner.run_session(session,qa=qa,native_review_digest='d'*64))
+        self.assertEqual(launch.call_count,1);self.assertIsNone(session.native_gate)
+        self.assertTrue(session.readback_unresolved);self.assertFalse(session.readbacks_drained())
+        self.assertNotIn('release',session.client.calls)
+        self.assertEqual(runner.read_json(session.directory/'RESULT.json')['release'],'RELEASE_DEFERRED')
+
+    def test_runtime_readback_unreaped_control_after_gate_cannot_release(self):
+        session,qa,output=self.private_readback_session();children=[]
+        contract=session.contract;contract['sourcePreimages']={p:runner.digest(runner.ROOT/p) for p in qa.EXPECTED_SOURCE}
+        contract['runnerSha256']=runner.digest(Path(runner.__file__));contract['testsSha256']=runner.digest(runner.HERE/'runtime_native_runner_tests.py')
+        contract['spec'].update(nativeActions=sorted(qa.ALLOWED_ACTIONS-{'creation_inventory_read'}),hookInventorySha256='c'*64)
+        unresolved=Mock();unresolved.poll.return_value=None
+        unresolved.stdin=io.BytesIO();unresolved.stdout=io.BytesIO();unresolved.stderr=io.BytesIO()
+        unresolved.wait.side_effect=runner.subprocess.TimeoutExpired('fixture-private',2)
+        def popen(*args,**kwargs):
+            child=ReadbackPipeChild([output]) if not children else unresolved
+            children.append(child);return child
+        with patch.object(qa.subprocess,'Popen',side_effect=popen),patch.object(qa,'execute_native',side_effect=lambda gate:gate.require('state_post')):
+            self.assertIsNone(runner.run_session(session,qa=qa,native_review_digest='d'*64))
+        self.assertEqual(len(children),2);self.assertTrue(session.native_gate.closed)
+        unresolved.wait.assert_called_once_with(timeout=2)
+        self.assertFalse(session.readbacks_drained());self.assertNotIn('release',session.client.calls)
+        self.assertEqual(runner.read_json(session.directory/'RESULT.json')['release'],'RELEASE_DEFERRED')
+
+    def test_runtime_readback_begin_rejects_stop_expired_fence_and_expired_budget_without_popen(self):
+        for mode in ('closing','failed','fence','expiry','deadline','stop-between-registration-and-begin'):
+            with self.subTest(mode=mode):
+                session,qa,_=self.private_readback_session()
+                if mode=='closing':session.closing=True
+                elif mode=='failed':session.failed=True
+                elif mode=='fence':session.handle=copy.copy(session.handle);session.handle.fencing_epoch+=1
+                elif mode=='expiry':session.handle=copy.copy(session.handle);session.handle.expires_at='2000-01-01T00:00:00Z'
+                elif mode=='deadline':session.deadline=time.monotonic()-1
+                capture=qa.private_capture
+                def closing_capture(*args,**kwargs):
+                    self.assertEqual(len(session.readback_active),1);session.stop();return capture(*args,**kwargs)
+                with patch.object(qa.subprocess,'Popen') as launch,patch.object(qa,'private_capture',side_effect=closing_capture if mode=='stop-between-registration-and-begin' else capture):
+                    with self.assertRaises(runner.Stop):session.checked_readback()
+                launch.assert_not_called();self.assertTrue(session.readbacks_drained())
+
+    def test_runtime_readback_closed_drain_uses_only_existing_deadline_and_stop(self):
+        session,qa,output=self.private_readback_session();children=[]
+        session.native_gate=qa.Gate(None,None,deadline=session.deadline);session.native_gate.close()
+        session.native_gate.drain_deadline=time.monotonic()+.08;session.deadline=time.monotonic()-1
+        original_deadline=session.deadline;original_drain=session.native_gate.drain_deadline
+        def popen(*args,**kwargs):
+            budget=next(iter(session.readback_active.values()))
+            self.assertLessEqual(budget.deadline,original_drain)
+            self.assertEqual(runner.read_json(session.directory/'STATUS.json')['state'],'STOP')
+            child=ReadbackPipeChild([output]);children.append(child);return child
+        with patch.object(qa.subprocess,'Popen',side_effect=popen):session.renew_native_drain()
+        self.assertTrue(session.native_gate.closed);self.assertEqual(session.deadline,original_deadline)
+        self.assertEqual(session.native_gate.drain_deadline,original_drain);self.assertTrue(session.readbacks_drained())
+        self.assertEqual(runner.read_json(session.directory/'STATUS.json')['state'],'STOP')
+        session.native_gate.drain_deadline=time.monotonic()-1
+        with patch.object(qa.subprocess,'Popen') as launch:
+            with self.assertRaises(runner.Stop):session.checked_readback(drain=True)
+        launch.assert_not_called()
+
+    def test_runtime_readback_private_control_worker_ends_before_canonical_release(self):
+        session,qa,output=self.private_readback_session();trace=[];entered=threading.Event();children=[]
+        contract=session.contract;contract['sourcePreimages']={p:runner.digest(runner.ROOT/p) for p in qa.EXPECTED_SOURCE}
+        contract['runnerSha256']=runner.digest(Path(runner.__file__));contract['testsSha256']=runner.digest(runner.HERE/'runtime_native_runner_tests.py')
+        contract['spec'].update(nativeActions=sorted(qa.ALLOWED_ACTIONS-{'creation_inventory_read'}),hookInventorySha256='c'*64)
+        def popen(*args,**kwargs):
+            child=ReadbackPipeChild([output],.08 if len(children)==1 else 0);children.append(child)
+            if len(children)==2:entered.set()
+            return child
+        def native(gate):
+            def worker():
+                try:session.renew(verify_runtime=True)
+                finally:trace.append('worker-end')
+            thread=threading.Thread(target=worker);gate.threads.append(thread);thread.start()
+            self.assertTrue(entered.wait(1));raise qa.Stop('native_assertion')
+        release=session.client.release
+        def finish(handle):
+            self.assertIn('worker-end',trace);self.assertTrue(session.readbacks_drained())
+            self.assertTrue(all(c.done.is_set() for c in children));trace.append('release');release(handle)
+        session.client.release=finish
+        with patch.object(qa.subprocess,'Popen',side_effect=popen),patch.object(qa,'execute_native',side_effect=native):
+            self.assertIsNone(runner.run_session(session,qa=qa,native_review_digest='d'*64))
+        self.assertEqual(trace,['worker-end','release']);self.assertNotIn('release',trace[:-1])
+        self.assertFalse(any(t.is_alive() for t in session.native_gate.threads))
+
+    def test_runtime_readback_inflight_keeper_finishes_before_release(self):
+        session,qa,output=self.private_readback_session();children=[];entered=threading.Event();trace=[]
+        contract=session.contract;contract['sourcePreimages']={p:runner.digest(runner.ROOT/p) for p in qa.EXPECTED_SOURCE}
+        contract['runnerSha256']=runner.digest(Path(runner.__file__));contract['testsSha256']=runner.digest(runner.HERE/'runtime_native_runner_tests.py')
+        contract['spec'].update(nativeActions=sorted(qa.ALLOWED_ACTIONS-{'creation_inventory_read'}),hookInventorySha256='c'*64)
+        def popen(*args,**kwargs):
+            child=ReadbackPipeChild([output],.08 if children else 0);children.append(child)
+            if len(children)==2:entered.set()
+            return child
+        def keeper():
+            try:session.checked_readback()
+            except runner.Stop:session.stop()
+            finally:trace.append('keeper-end')
+        session.keeper=keeper
+        def native(gate):self.assertTrue(entered.wait(1));raise qa.Stop('native_assertion')
+        release=session.client.release
+        def finish(handle):
+            self.assertTrue(all(c.done.is_set() for c in children));self.assertTrue(session.readbacks_drained())
+            self.assertEqual(trace,['keeper-end']);trace.append('release');release(handle)
+        session.client.release=finish
+        with patch.object(qa.subprocess,'Popen',side_effect=popen),patch.object(qa,'execute_native',side_effect=native):
+            self.assertIsNone(runner.run_session(session,qa=qa,native_review_digest='d'*64))
+        self.assertEqual(trace,['keeper-end','release']);self.assertEqual(len(children),2)
+
+    def test_prior_install_clear_initial_freshness_boundaries_and_expiry_not_release(self):
+        session=self.session('auth');clear=session.contract['spec']['qualifications']['installProviderClear']
+        now=1791158000.0
+        with patch.object(runner.time,'time',return_value=now):
+            for age,accepted in ((0,True),(299.999,True),(300,False),(-.001,False)):
+                clear['observedUnix']=now-age
+                if accepted:runner.install_clear_fresh(session.contract)
+                else:
+                    with self.assertRaises(runner.Stop):runner.install_clear_fresh(session.contract)
+            clear.update(observedUnix=now,released=False,expired=True)
+            with self.assertRaises(runner.Stop):runner.install_clear_fresh(session.contract)
+            clear.update(released=True,observedUnix=float('inf'))
+            with self.assertRaises(runner.Stop):runner.install_clear_fresh(session.contract)
+            clear['observedUnix']=now-300
+            runner.install_clear_fresh(session.contract,admitted_unix=now-.001)
+            with self.assertRaises(runner.Stop):runner.install_clear_fresh(session.contract,admitted_unix=now)
+            clear['observedUnix']=now
+            with self.assertRaises(runner.Stop):runner.install_clear_fresh(session.contract,admitted_unix=now+.001)
+
+    def test_stale_auth_clear_precedes_control_consumption_and_private_module_load(self):
+        contract=self.session('auth').contract;contract['spec']['qualifications']['installProviderClear']['observedUnix']=time.time()-301
+        approval={'schema':'ir.runtime_native.approval.v1','phase':'auth','spec':contract['spec'],'contract':contract,
+            'reportFile':'IMPLEMENTATION.md','reportSha256':'6'*64,'verdict':'APPROVE','independentReviewer':'fixture-independent','expiresUnix':time.time()+60}
+        binding=hashlib.sha256(runner.canonical(contract)).hexdigest()
+        runner.atomic(self.directory,'approval.json',approval);approval_path=self.directory/'approval.json'
+        admission={'schema':'ir.runtime_native.read_admission.v1','phase':'auth','bindingSha256':binding,
+            'approvalSha256':runner.digest(approval_path),'maxSeconds':1,'reportFile':'READ.md',
+            'reportSha256':'7'*64,'verdict':'APPROVE','independentReviewer':'fixture-independent','expiresUnix':time.time()+60}
+        runner.atomic(self.directory,'read.json',admission)
+        with patch.object(runner,'HERE',self.directory),patch.object(runner,'snapshot',return_value=contract),patch.object(runner,'report_record'),patch.object(runner,'load_module') as load:
+            with self.assertRaises(runner.Stop):runner.execute('auth',approval_path,self.directory/'read.json',1)
+        load.assert_not_called();self.assertFalse((self.directory/'control').exists())
+        self.assertEqual(list(self.directory.glob('RUNTIME_NATIVE_READ_CONSUMED_*')),[])
+
+    def test_clear_expiring_during_private_probe_prevents_canonical_acquire(self):
+        contract=self.session('auth_inventory').contract;start=time.time();clock=[start]
+        contract['spec']['qualifications']['installProviderClear']['observedUnix']=start
+        approval={'schema':'ir.runtime_native.approval.v1','phase':'auth_inventory','spec':contract['spec'],'contract':contract,
+            'reportFile':'IMPLEMENTATION.md','reportSha256':'6'*64,'verdict':'APPROVE','independentReviewer':'fixture-independent','expiresUnix':start+1000}
+        binding=hashlib.sha256(runner.canonical(contract)).hexdigest()
+        runner.atomic(self.directory,'approval.json',approval);approval_path=self.directory/'approval.json'
+        admission={'schema':'ir.runtime_native.read_admission.v1','phase':'auth_inventory','bindingSha256':binding,
+            'approvalSha256':runner.digest(approval_path),'maxSeconds':1,'reportFile':'READ.md',
+            'reportSha256':'7'*64,'verdict':'APPROVE','independentReviewer':'fixture-independent','expiresUnix':start+1000}
+        runner.atomic(self.directory,'read.json',admission)
+        client=SimpleNamespace(acquire_writer=Mock())
+        canonical_client=SimpleNamespace(validate_writer_scope=Mock(),SupabaseLeaseClient=Mock(return_value=client))
+        def probe(value):clock[0]=start+300;return 200
+        private=SimpleNamespace(retrieve_existing_key=Mock(return_value='public-local-fixture'),authentication_probe=Mock(side_effect=probe),
+            BASE_URL='https://fixture.invalid',PROJECT='fixture',ApikeyOnlyLeaseOpener=Mock())
+        canonical_client.SupabaseLeaseClient._open_no_redirect=Mock()
+        with patch.object(runner,'HERE',self.directory),patch.object(runner,'snapshot',return_value=contract),patch.object(runner,'report_record'), \
+             patch.object(runner,'load_module',side_effect=[canonical_client,private]) as load,patch.object(runner.time,'time',side_effect=lambda:clock[0]):
+            with self.assertRaises(runner.Stop):runner.execute('auth_inventory',approval_path,self.directory/'read.json',1)
+        self.assertEqual(load.call_count,2);private.authentication_probe.assert_called_once();client.acquire_writer.assert_not_called()
+        self.assertEqual(len(list(self.directory.glob('RUNTIME_NATIVE_READ_CONSUMED_*'))),1)
+
+    def test_initial_stale_clear_stops_before_readback_and_preserves_drained_release(self):
+        for age in (300,-1):
+            with self.subTest(age=age),tempfile.TemporaryDirectory(prefix='ir-clear-initial-') as tmp:
+                session,qa,_=self.private_readback_session();session.directory=Path(tmp).resolve()
+                session.contract['spec']['qualifications']['installProviderClear']['observedUnix']=time.time()-age
+                with patch.object(qa.subprocess,'Popen') as launch:
+                    self.assertIsNone(runner.run_session(session,qa=qa,native_review_digest='d'*64))
+                launch.assert_not_called();self.assertEqual(session.client.calls,['release'])
+                self.assertEqual(runner.read_json(session.directory/'RESULT.json')['release'],'RELEASED')
+
+    def test_initial_clear_crossing_ready_boundary_stops_after_reap_without_age_deferred_release(self):
+        session,qa,output=self.private_readback_session();start=time.time();clock=[start];children=[]
+        session.handle.expires_at=datetime.fromtimestamp(start+1000,timezone.utc).isoformat()
+        def heartbeat(handle):session.client.calls.append('heartbeat');return handle
+        session.client.heartbeat=heartbeat
+        session.contract['spec']['qualifications']['installProviderClear']['observedUnix']=start
+        def popen(*args,**kwargs):
+            child=ReadbackPipeChild([output]);children.append(child);clock[0]=start+301;return child
+        with patch.object(qa.subprocess,'Popen',side_effect=popen),patch.object(runner.time,'time',side_effect=lambda:clock[0]):
+            self.assertIsNone(runner.run_session(session,qa=qa,native_review_digest='d'*64))
+        self.assertEqual(len(children),1);self.assertTrue(children[0].done.is_set());self.assertTrue(session.readbacks_drained())
+        self.assertFalse((session.directory/'READY.json').exists())
+        self.assertEqual(runner.read_json(session.directory/'RESULT.json')['release'],'RELEASED')
+
+    def test_later_owned_healthy_readback_and_drain_do_not_age_historical_install_clear(self):
+        session,qa,output=self.private_readback_session();children=[]
+        clear=session.contract['spec']['qualifications']['installProviderClear'];clear['observedUnix']=time.time()-400
+        admitted=time.time()-399
+        runner.atomic(session.directory,'READY.json',dict(session.status('READY'),updatedUnix=admitted))
+        ready=(session.directory/'READY.json').read_bytes();deadline=session.deadline;deadline_unix=session.deadline_unix
+        def popen(*args,**kwargs):
+            child=ReadbackPipeChild([output]);children.append(child);return child
+        with patch.object(qa.subprocess,'Popen',side_effect=popen):
+            session.renew(verify_runtime=True)
+            session.native_gate=qa.Gate(None,None,deadline=session.deadline);session.native_gate.close()
+            session.renew_native_drain()
+        self.assertEqual(len(children),2);self.assertTrue(session.readbacks_drained())
+        self.assertEqual((session.directory/'READY.json').read_bytes(),ready)
+        self.assertEqual(session.deadline,deadline);self.assertEqual(session.deadline_unix,deadline_unix)
+        self.assertEqual(runner.read_json(session.directory/'STATUS.json')['state'],'STOP')
+        session.closing=True
+        with patch.object(qa.subprocess,'Popen') as launch:
+            with self.assertRaises(runner.Stop):session.renew(verify_runtime=True)
+        launch.assert_not_called()
 
     def test_default_missing_final_artifacts_and_bad_phase_have_no_capability(self):
         with patch.object(runner,'load_module',side_effect=AssertionError('no provider')), \

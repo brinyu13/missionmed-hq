@@ -149,3 +149,75 @@ Executed locally only:
 18 focused fixtures PASS; default DORMANT exit0; runner/tests compile PASS. Existing five-second keeper, immediate canonical renewal, ten-second worker freshness, finally release/cancellation/receipt failures/redaction and maximum3600 remain tested. New fixtures cover exact fresh base/three paths/current+Git preimage drift, independent repair review, old approval/read schema and packet expansion rejection, distinct newly bound custody HEAD, and KeyboardInterrupt release without false READY. Existing actual canonical-ref fixture is pure local; fake client/transport adapters perform no provider/credential/network operations. Byte comparison proves check_worker_guard and orchestrate are unchanged from BASE2db1f98. No transport/canonical RPC or source protocol rewrite occurred.
 
 STOP UNCOMMITTED for Matrix independent exact helper/packet review. Only runner, its existing tests and this handoff were written; no actual credentials/retrieval/probe/provider/native/runtime/source-product/OS write, HEAD change, stage or commit occurred. Historical preceding recovery prose and receipts remain historical, not current admission.
+
+## Conditional final-production source packet (2026-10-04)
+
+This prospective typed packet supersedes the render-repair gate for this runner. Actual native acceptance and existing live role/browser/mobile/sibling evidence must precede independent approval and read controls; no PASS or approval is authored here.
+
+<!-- FINAL_PRODUCTION_SOURCE_PACKET_BEGIN -->
+{
+  "admissionCondition": "ACTUAL_NATIVE_ACCOUNT_ACCEPTANCE_AND_EXISTING_LIVE_ROLE_BROWSER_MOBILE_SIBLING_EVIDENCE_REQUIRED_BEFORE_FRESH_REVIEW_CONTROLS",
+  "installClearReportFile": "RENDER_FIX_RESUME_INSTALL_CLEAR_REVIEW.md",
+  "installClearReportSha256": "b83817ee3962b291029942839fc8b488b620c5ce1e402cd27a02d71d46e24210",
+  "mediaCompletionBasis": "EMITTED_APPROVED_ALLOWLIST_AND_INFORMATION_ONLY_FALLBACK; NO_NEW_MEDIA_RIGHTS_OR_AMAZON_NUMERIC_CONTENT",
+  "phase1Outcome": {
+    "accountPersistenceReady": true,
+    "commercialMediaComplete": true,
+    "releaseState": "production-approved"
+  },
+  "preserve": "NO_BUILD_ACCOUNT_GATEWAY_MATRIX_SHARED_ASSET_MEDIA_RIGHTS_OR_NATIVE_WRAPPER_WRITES",
+  "releaseOutcome": "EXPLICIT_PRODUCTION_MODE_candidate_FALSE_productionApproved_TRUE_build_production_TRUE_WITH_CONSISTENT_MANIFEST_PLAN_RECEIPT; DEFAULT_CANDIDATE_BEHAVIOR_UNCHANGED",
+  "runtimeAdmission": "NO_DEPLOYMENT_BY_SOURCE_WORKER; NEW_COMMITTED_PRODUCTION_PACKAGE_AND_SEPARATE_CURRENT_OWNER_RUNTIME_ADMISSION_REQUIRED",
+  "schema": "ir.final_production_source.packet.v1",
+  "sourceBASE": "956d99717a9fe46968dccf4b3d94cfa17d0955a4",
+  "sourcePreimages": {
+    "interview-ready/evidence/integration-worker-handoff.md": "d2630716df99b74235e1b919d6be2c5b337161b13ad4f8964b6efc4d62e4a118",
+    "interview-ready/integration/release.py": "90d67d6afd96adf6a1dc0a33d350d65cc02089e42d2462b34e54bb4ec6f0ac17",
+    "interview-ready/integration/release.test.py": "cdb53f1a3d747c377d72d9d43953bad31823e439604000704306c471063dccd0",
+    "interview-ready/phase1.json": "c552cc20f09a7dce76c91a22bfd507e91c6d33b78b043df9f420fdf57d1351c0"
+  },
+  "verification": "35_DENIED_MEDIA_EXCLUDED_EXACT_SEVEN_ARCHIVE_ENTRIES_COMMITTED_INPUTS_DETERMINISTIC_REPACK_PRODUCTION_GUARDS_AND_HANDOFF",
+  "writePaths": [
+    "interview-ready/phase1.json",
+    "interview-ready/integration/release.py",
+    "interview-ready/integration/release.test.py",
+    "interview-ready/evidence/integration-worker-handoff.md"
+  ]
+}
+<!-- FINAL_PRODUCTION_SOURCE_PACKET_END -->
+
+## Conditional final-production gate preparation and custody
+
+Current runner SHA256 24329d99bd80410d795ff8ed47cef56ffaa3ad3659ea471be04b525dd318c08e; tests SHA256 067f622036f5c595fdb310a3902c9f1d0b95f0f60aa43004ad1edb439ee7e2ef. Current typed packet canonical SHA256 dee788a5ab65417e3620856257fad3c25448d2d69bc77ee82913cc2ef9e3febb, from the unique FINAL_PRODUCTION_SOURCE_PACKET begin/end block above; earlier LIVE_RENDER_REPAIR_PACKET body is historical and not parsed by this gate. No whole-handoff self-hash enters the packet or code. Foreman separately hashes/reviews these actual final files after preparation.
+
+SOURCE_BASE now956d99717a9fe46968dccf4b3d94cfa17d0955a4. Exactly phase1.json, integration/release.py, integration/release.test.py and evidence/integration-worker-handoff.md are eligible. Working bytes and immutable Git-object hashes must both equal the four packet preimages. Snapshot binds actual later custody HEAD independently, not a guessed future helper commit. OS bc1d36fcb9f7bdda4bcd4ba507078b7787d802a2, canonical origin/ref/relativePath interview-ready, DR376/registration/client/transport pins remain unchanged. Independent prior source review c47c80e8c1d98b9313a5e01b26aa0718e2f1687f8264acdc359cd0be53763aad and current INSTALL-clear b83817ee3962b291029942839fc8b488b620c5ce1e402cd27a02d71d46e24210 were read; the latter exact report bytes are pinned in snapshot. INSTALL custody does not establish native or final acceptance.
+
+New controls must use ir.final_production_source_lease.approval.v1, ir.final_production_source_lease.production_review.v1 and ir.final_production_source_lease.read_admission.v1. Fresh independently authored approval.contract equals the complete actual snapshot including current HEAD/runner/tests/packet/preimages/authority. Embedded productionReview retains the separate fresh exact binding/report fields and additionally requires taskPacketSha256 equal the fixed packet, actualAcceptanceSatisfied exactly true, conditionalFourPathTask exactly true, and a nonempty sourceBuilder different from owner/helper builder and both production-review/approval reviewer. Builder declaration is codex-ir-final-production-source-runner-builder; reviewer identity custody remains independently assigned by Foreman, not validated through aliases by this helper.
+
+actualAcceptanceSatisfied is a reviewer affirmation backed by the required exact independent report, not a computed test result or self-approval. The independent report must affirm actual native account acceptance AND existing live role, browser, mobile and sibling evidence before these controls are authored. It must affirm the conditional bounded four-path task and a different product builder/reviewer. This preparation contains NO actual acceptance report, APPROVE JSON or true acceptance claim. The true booleans in phase1Outcome above are prospective requested source outcomes only. Foreman must withhold approval/read controls until actual acceptance; a missing/false/string affirmation is rejected before credential-capable import.
+
+Task outcome after those gates: record production-approved/accountPersistenceReady/commercialMediaComplete using accepted emitted allowlist plus information-only fallback, with no new media-rights or numeric-Amazon claims. Add explicit release.py production mode with candidate false, productionApproved true, builder.build production true and consistent manifest/plan/receipt. Preserve default candidate behavior and committed-input/source rights/privacy guards. Focused product tests must prove all35 denied media remain excluded, exact seven safe package members, deterministic committed repack, consistent production metadata and retained candidate/production guards; update only existing product handoff truthfully. No build.py/account/gateway/Matrix/media/native-wrapper/shared-source changes or actual deployment are admitted by this source gate.
+
+New distinct prospective control names FINAL_PRODUCTION_SOURCE_APPROVAL.json and FINAL_PRODUCTION_SOURCE_READ_ADMISSION.json; unique nonexisting SOURCE_FINAL_PRODUCTION_LEASE_20261004_1. New session ir-phase1-final-production-source-20261004-uuidhex. Exclusive one-use marker SOURCE_FINAL_PRODUCTION_LEASE_READ_CONSUMED_<read-admission-byte-SHA256>.json. Old recovery/render controls and consumed markers remain unchanged; their schemas cannot authorize this task. All approval/read/production-review report files must be three distinct actual local artifacts with exact hashes and fresh bounds <=3600 seconds. Existing pure local canonical path_scope precedes credential-capable imports; no lease/provider operation occurred here.
+
+Prospective invocation ONLY after separate independent exact-byte review and actual acceptance/fresh controls:
+
+    python3 -B /Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002/_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/integration_lease_runner.py --execute --approval /Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002/_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/FINAL_PRODUCTION_SOURCE_APPROVAL.json --read-admission /Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002/_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/FINAL_PRODUCTION_SOURCE_READ_ADMISSION.json --control-directory /Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002/_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/SOURCE_FINAL_PRODUCTION_LEASE_20261004_1 --max-seconds 3600
+
+The source worker must call check_worker_guard immediately before EACH authorized product write and immediately before its exact four-path commit; after commit it stops and Foreman owns DONE/release/provider-clear. Current snapshot HEAD is the admitted precommit fence, never permission to keep writing after changed HEAD. Canonical keeper5s, worker freshness10s, max3600, cancellation/finally release and safe receipt/error behavior are unchanged. Independent byte comparison against BASE956d proves check_worker_guard and entire orchestrate including finally are identical. No canonical client/transport/protocol/RPC changes.
+
+Executed local fixture command:
+
+    python3 -B _AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/integration_lease_runner_tests.py
+
+19 focused fixtures PASS (existing18 adjusted, plus actual-acceptance/different-builder rejection). Exact four paths/base/current+Git preimages, old controls/packet expansion, independently bound later HEAD, one-use read admission, canonical ref before capabilities, receipt failure/cancellation/finally release remain covered. Runner/tests compile PASS; default invocation prints DORMANT and exits0. Synthetic fixtures perform no provider/credential/network operation; their true acceptance fields are synthetic test inputs only. No product/package tests or native/runtime operation were executed.
+
+STOP UNCOMMITTED for Matrix independent gate review. Only runner, its existing tests and this handoff were written. No product/native wrapper/other helper/report/provider/SSH/credential/OS/HEAD/index/commit/deploy/cache/auth changes. Foreman owns later custody/admission; preceding historical repair/recovery prose is retained as history.
+
+## Independent read-role correction before freeze
+
+Matrix's independent 19-fixture review identified a missing sourceBuilder exclusion in the separate read-admission gate. The previous runner could admit the declared product builder as read reviewer despite distinct approval/production reviewers. Corrected execute now rejects admission.independentReviewer equal to approval.productionReview.sourceBuilder inside READ_ADMISSION_DENIED, before report processing, module import, control creation, consumption or retrieval. No reviewer alias expansion or protocol change was introduced.
+
+Current corrected runner SHA256 86baa366e6843452b38e3534b37da89696d73631c5cc6b5728ab12691247ecc3; corrected tests SHA256 58d30e845e9390f5c3f7d408746b0d992d420128328ac9c9f72657bc1ea04a7d. The prior hashes above remain historical; typed production packet and all source/authority pins are unchanged. New targeted negative fixture uses otherwise valid synthetic final-production approval/read fields with read reviewer equal to sourceBuilder, asserts READ_ADMISSION_DENIED, no load_module call and no new control directory. It invokes no real capability/provider/credential.
+
+20 focused local fixtures PASS (existing19 retained plus this negative case), command python3 -B _AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/integration_lease_runner_tests.py. Compile/default DORMANT exit0 PASS. Exact comparison again proves check_worker_guard/orchestrate including finally unchanged against BASE956d. Only this single execute predicate, one fixture and appended handoff provenance changed in this correction. STOP UNCOMMITTED for Matrix delta rereview; no source/product/protocol/other-file/credential/provider/runtime/HEAD/index/commit operation occurred.
