@@ -6,6 +6,8 @@ import {serializeFounderPresentation,assertCompleteFounderPresentation,founderMi
 import {resolveFounderPresentationSvg} from '../web/js/presentation/resolved-founder-presentation.js';
 import {applySceneCommandToDocument,applyLocalLayoutCriticSceneCommand} from '../web/js/editor/scene-commands.js';
 import {setBuilderExamSystem,addBuilderExam,updateBuilderExamAttempt} from '../web/js/uxr-002/exam-integration.js';
+import {locked407FMilestoneGeometry,locked407FNativeMilestonePresentation} from '../web/js/uxr-002/locked-407f-export.js';
+import {setAxisPresentationOverride} from '../web/js/uxr-002/advanced-studio.js';
 import {FOUNDER_2025_MATRIX} from './fixtures/founder-2025-matrix.mjs';
 
 // All inputs here are explicit synthetic unit fixtures. Network is injected;
@@ -416,4 +418,41 @@ test('duration bodies and full nearby captions stay below the ribbon even when a
   assert.deepEqual(legal.document.events,document.events);
   const after=await projectLayoutCritic(legal.document,options),target=after.input.targets[0];
   assert.ok(after.input.parts.filter(part=>target.partIds.includes(part.id)).every(part=>part.bounds.y>=160.96));
+});
+
+
+test('bounded adjacent-label fallback preserves a full institution beside the plaque, native anchors and reopened pin metadata',async()=>{
+  let document=await generatedCollision();
+  document.events.push({id:'adjacent-degree',title:'Synthetic complete medical degree',siteName:'Synthetic International Academic Medical School and Training Institution with Clinical Research Education and Community Medicine Programs for Graduate Medical Sciences',categoryId:'education',eventType:'milestone',startDate:'2021-11',visibilityState:'INTERVIEWER_SAFE'});
+  const ranged=setAxisPresentationOverride(document,{startYear:2020,endYear:2025,includeFuture:false});assert.equal(ranged.changed,true);document=ranged.document;
+  const before=JSON.stringify(document),shown=serializeFounderPresentation(document,options),resolved=resolveFounderPresentationSvg(shown.svg),layout=shown.scene.autoFlagLabels.get('adjacent-degree');
+  assert.equal(shown.scene.autoMilestonePacking.strategy,'adjacent-label');assert.ok(shown.scene.autoMilestonePacking.labelExpansions<=8192);
+  assert.ok(Number.isFinite(layout.yOffset)&&layout.yOffset<0);assert.equal(layout.flip,true);
+  const flagNodes=resolved.nodes.filter(node=>node.groupId==='event:adjacent-degree'),labels=flagNodes.filter(node=>node.sourceAttributes['data-board-ink-role']==='flag-label');
+  assert.equal(labels.map(node=>node.text).join(' '),document.events[1].title+' — '+document.events[1].siteName);
+  assert.ok(labels.every(node=>node.fontSize===18&&node.fontFamily.includes('American Typewriter')&&node.bounds.y>=2&&node.bounds.y+node.bounds.height<=125.04));
+  const geometry=locked407FMilestoneGeometry(shown.scene,'adjacent-degree'),native=locked407FNativeMilestonePresentation(shown.scene,'adjacent-degree');
+  assert.equal(geometry.y,87,'the native pennant stays beneath the plaque while only its label rises');
+  assert.ok(Math.abs(geometry.x-(39.36+1841.28*(1+10/12)/6))<.04,'November stays ten twelfths through the separately labeled second year');
+  assert.deepEqual(native.flagLabelLayout,layout);assert.equal(founderMilestoneTemplateGeometry(shown.scene,resolved).find(target=>target.eventId==='adjacent-degree').poleFootY,125);
+  assert.deepEqual(flagNodes.filter(node=>node.kind==='path'&&node.lineOnly).map(node=>node.commands),[[{x:geometry.x+4,y:87,moveTo:true},{x:geometry.x+4,y:125}]]);
+  const date=flagNodes.find(node=>node.sourceAttributes['data-founder-pennant-date']);assert.equal(date.text,'11/21');assert.equal(date.fontSize,18);assert.ok(date.fontFamily.includes('Baskerville'));
+  assert.ok(flagNodes.some(node=>node.kind==='path'&&node.style.fill==='#A6AAAE'));
+  assert.equal(flagNodes.filter(node=>node.kind==='shape').length,1);assert.equal(flagNodes.filter(node=>node.kind==='path').length,3,'no extra leader or label box is introduced');
+  assert.equal(shown.svg,serializeFounderPresentation(document,options).svg);assert.equal(JSON.stringify(document),before);
+  const created=applySceneCommandToDocument(document,{kind:'geometry',target:{type:'event',id:'adjacent-degree'},geometry:{x:geometry.x,y:geometry.y,width:geometry.width,height:geometry.height,rotation:0},create:{type:'event',semanticRef:'adjacent-degree',aspectLocked:false,presentation:{eventType:'milestone',...native}}});
+  assert.equal(created.changed,true);
+  const reopened=JSON.parse(JSON.stringify(created.document)),saved=reopened.advanced.scene.objects.find(object=>object.semanticRef==='adjacent-degree');assert.deepEqual(saved.presentation.flagLabelLayout,layout);
+  const reopenedPaint=paint(reopened).nodes.filter(node=>node.groupId==='event:adjacent-degree'),reopenedLabels=reopenedPaint.filter(node=>node.sourceAttributes['data-board-ink-role']==='flag-label');
+  assert.deepEqual(reopenedLabels.map(node=>node.text),labels.map(node=>node.text));
+  assert.deepEqual(reopenedLabels.map(node=>node.style),labels.map(node=>node.style));
+  assert.ok(reopenedLabels.every((node,index)=>Math.abs(node.bounds.y-labels[index].bounds.y)<.04));
+  const broken=structuredClone(reopened);broken.advanced.scene.objects.find(object=>object.semanticRef==='adjacent-degree').presentation.flagLabelLayout.yOffset=0;
+  assert.ok(founderMilestoneTemplateGeometry(serializeFounderPresentation(broken,options).scene,paint(broken)).find(target=>target.eventId==='adjacent-degree').bodyBottom>125);
+  const p=await projectLayoutCritic(document,options),accepted=await applyLayoutRecommendations(document,result(p,[move(p,400)]),p.sceneDigest,options);
+  assert.equal(accepted.applied,1,JSON.stringify(accepted.rejected));assert.equal(accepted.after.collisionCount,0);
+  const pinned=accepted.document.advanced.scene.objects.find(object=>object.semanticRef==='adjacent-degree');assert.deepEqual(pinned.presentation.flagLabelLayout,layout);
+  assert.deepEqual(accepted.document.events,document.events);assert.equal(JSON.stringify(document),before);
+  const final=serializeFounderPresentation(JSON.parse(JSON.stringify(accepted.document)),options);assert.doesNotThrow(()=>assertCompleteFounderPresentation(final));
+  assert.equal(founderMilestoneTemplateGeometry(final.scene,resolveFounderPresentationSvg(final.svg)).find(target=>target.eventId==='adjacent-degree').poleFootY,125);
 });
