@@ -177,20 +177,21 @@ test('allocation recovery retains a refined snapshot and saturated weights remai
   }
 });
 
-test('bounded recovery diagnoses genuine paint risk and retains the existing safe composer result',()=>{
+test('milestone composition retains adaptive demand when weighted paint is already safe',()=>{
   const fixture=JSON.parse(readFileSync(new URL('fixtures/d1-timeline-astra-021/golden2-guardian-milestones.json',import.meta.url),'utf8'));
   const input=fixture.document,before=JSON.stringify(input);
   const result=serializeFounderPresentation(input,{scope:'FULL_STORY',currentMonth:'2026-10'});
   const diagnostic=result.scene.autoYearAllocation;
-  assert.equal(diagnostic.fallback,true);
-  assert.equal(diagnostic.reason,'weighted-paint-risk');
-  assert.ok(diagnostic.weightedRisk>diagnostic.selectedRisk);
+  assert.equal(diagnostic.fallback,false);
+  assert.equal(diagnostic.reason,null);
+  assert.equal(diagnostic.weightedRisk,0);
   assert.equal(diagnostic.selectedRisk,0);
   assert.equal(materialPresentationCollisions(resolveFounderPresentationSvg(result.svg)).length,0);
-  assert.ok(result.scene.composedAxis,'safe recovery still preserves the displayed axis on first edit');
+  assert.ok(result.scene.composedAxis,'safe adaptive composition preserves the displayed axis on first edit');
+  assert.doesNotThrow(()=>assertCompleteFounderPresentation(result));
   assert.equal(JSON.stringify(input),before);
-  assert.equal(diagnostic.adaptive,false,
-    'constrained milestone recovery honestly records its equal-year fallback');
+  assert.equal(diagnostic.adaptive,true,
+    'zero weighted paint risk retains demand-based year allocation');
 });
 
 test('equal paint risk retains demand and existing extreme offboard text continues to block export',()=>{

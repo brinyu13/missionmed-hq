@@ -5,7 +5,9 @@ import {installCanvas,createCanvasState} from '../web/js/uxr-002/canvas.js';
 import {defaultDocument} from '../web/js/uxr-002/store.js';
 import {applySceneCommandToDocument} from '../web/js/editor/scene-commands.js';
 import {constrainAdvancedObjectToBoard,resizeMediaElement,moveMediaElement} from '../web/js/uxr-002/advanced-studio.js';
+import {advancedEventGeometry407F,timelineRenderSignature} from '../web/js/407f-engineering-adapter.js';
 
+const currentMonth=()=> '2026-07',liveMediaById=()=>new Map();
 const adapter=await readFile(new URL('../web/js/407f-engineering-adapter.js',import.meta.url),'utf8');
 function section(start,end){const a=adapter.indexOf(start),b=adapter.indexOf(end,a);assert.ok(a>=0&&b>a);return adapter.slice(a,b);}
 function fixture(mode='advanced'){
@@ -61,33 +63,37 @@ for(const scenario of ['guided','advanced','read-only','mode-change-before-move'
   }finally{controller.destroy();globalThis.document=originalGlobal;}
 });
 
-const resolveFactory=new Function('store','canvasHost','sceneVisualNode','clone','advancedGroupObject','advancedFrameNode',
+const resolveFactory=new Function('store','canvasHost','sceneVisualNode','clone','advancedGroupObject','advancedFrameNode','advancedEventGeometry407F','timelineRenderSignature','currentMonth','liveMediaById',
   section('    const advancedEventSelector=','    const restoreAdvancedObjectFocus=')+'return {advancedObjectForTarget,advancedEventSelector};');
 for(const kind of ['arrow','flag'])test(`actual ${kind} paint proxy resolves the token-paired SVG geometry, excluding other hit proxies`,()=>{
   const store=new Store(),queries=[];
-  const source={identity:'SVG source',closest:()=>null};
+  const source={identity:'SVG source',dataset:{eventKind:kind},closest:()=>null,getBBox:()=>({x:300,y:220,width:420,height:30})};
+  if(kind==='flag'){store.document.events[0].eventType='milestone';store.document.events[0].endDate=null;}
   const proxy={dataset:{eventId:'synthetic-arrow',eventKind:kind,canvasEffectiveHitToken:'pair-17'},hasAttribute:k=>k==='data-canvas-effective-hit-proxy',closest(selector){return selector.startsWith('[data-event-kind="arrow"]')?this:null;}};
-  const host={querySelector(selector){queries.push(selector);return selector.includes('data-canvas-effective-hit-token="pair-17"')?source:null;}};
-  const {advancedObjectForTarget,advancedEventSelector}=resolveFactory(store,host,n=>n,structuredClone,()=>null,()=>null);
-  const result=advancedObjectForTarget(proxy);assert.equal(result.element,source);assert.equal(result.id,'synthetic-arrow');assert.equal(result.type,'event');assert.equal(queries.length,1);
+  const host={querySelector(selector){queries.push(selector);return selector.includes('data-canvas-effective-hit-token="pair-17"')||selector.includes(':not([data-canvas-effective-hit-proxy])')?source:null;}};
+  const {advancedObjectForTarget,advancedEventSelector}=resolveFactory(store,host,n=>n,structuredClone,()=>null,()=>null,advancedEventGeometry407F,timelineRenderSignature,currentMonth,liveMediaById);
+  const result=advancedObjectForTarget(proxy);assert.equal(result.element,source);assert.equal(result.id,'synthetic-arrow');assert.equal(result.type,'event');assert.equal(queries.length,2);
+  assert.match(queries[0],/data-canvas-effective-hit-token="pair-17"/);assert.match(queries[1],/:not\(\[data-canvas-effective-hit-proxy\]\)/);
+  assert.equal(result.item.width,kind==='flag'?50:420);assert.equal(result.item.height,kind==='flag'?64:30);assert.equal(result.item.locked,false);
   assert.match(advancedEventSelector('synthetic-arrow'),/:not\(\[data-canvas-effective-hit-proxy\]\)/);
   store.document.events=[];assert.equal(advancedObjectForTarget(proxy),null);
 });
 test('a stale proxy without an SVG source fails closed instead of measuring its expanded rectangle',()=>{
   const proxy={dataset:{eventId:'synthetic-arrow',eventKind:'arrow',canvasEffectiveHitToken:'removed'},hasAttribute:()=>true,closest(selector){return selector.startsWith('[data-event-kind="arrow"]')?this:null;}};
-  const {advancedObjectForTarget}=resolveFactory(new Store(),{querySelector:()=>null},n=>n,structuredClone,()=>null,()=>null);
+  const {advancedObjectForTarget}=resolveFactory(new Store(),{querySelector:()=>null},n=>n,structuredClone,()=>null,()=>null,advancedEventGeometry407F,timelineRenderSignature,currentMonth,liveMediaById);
   assert.equal(advancedObjectForTarget(proxy),null);
 });
 
-const nudgeFactory=new Function('store','canvasHost','clone','applySceneCommandToDocument','constrainAdvancedObjectToBoard','resizeMediaElement','moveMediaElement','advancedGroupMembers','commitAdvancedSelection','explainLockedSelection',
+const nudgeFactory=new Function('store','canvasHost','clone','applySceneCommandToDocument','constrainAdvancedObjectToBoard','resizeMediaElement','moveMediaElement','advancedGroupMembers','commitAdvancedSelection','explainLockedSelection','advancedEventGeometry407F','timelineRenderSignature','currentMonth','liveMediaById',
   section('    const advancedEventSelector=','    const advancedSourceElement=')+
-  section('    const eventPresentationItem=','    const advancedObjectForTarget=')+
+  section('    const nativeEventGeometryCache=','    const advancedObjectForTarget=')+
   section('    const advancedLeafMembers=','    const commitAdvancedSelection=')+
   section('    const nudgeAdvancedSelection=','    const layerAdvancedSelection=')+'return nudgeAdvancedSelection;');
 function nudgeHarness(){
   const store=new Store();let selections=0;
   const visual={getBBox:()=>({x:300,y:220,width:420,height:30})};
-  const nudge=nudgeFactory(store,{querySelector:()=>({querySelector:()=>visual})},structuredClone,applySceneCommandToDocument,constrainAdvancedObjectToBoard,resizeMediaElement,moveMediaElement,()=>[],()=>selections++,()=>false);
+  const source={querySelector:()=>visual};
+  const nudge=nudgeFactory(store,{querySelector:()=>source},structuredClone,applySceneCommandToDocument,constrainAdvancedObjectToBoard,resizeMediaElement,moveMediaElement,()=>[],()=>selections++,()=>false,advancedEventGeometry407F,timelineRenderSignature,currentMonth,liveMediaById);
   return{store,nudge,selections:()=>selections};
 }
 test('keyboard move materializes only event presentation, retains a thin arrow, and supports one-step Undo',()=>{
