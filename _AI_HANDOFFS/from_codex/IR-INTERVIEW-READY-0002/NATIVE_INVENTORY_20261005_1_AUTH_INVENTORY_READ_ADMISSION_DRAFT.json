@@ -1,0 +1,12 @@
+{
+  "verdict": "PENDING",
+  "independentReviewer": null,
+  "reportFile": "NATIVE_INVENTORY_20261005_1_INVENTORY_READ_REVIEW.md",
+  "reportSha256": null,
+  "schema": "ir.runtime_native.read_admission.v1",
+  "phase": "auth_inventory",
+  "bindingSha256": null,
+  "approvalSha256": null,
+  "maxSeconds": 600,
+  "expiresUnix": null
+}

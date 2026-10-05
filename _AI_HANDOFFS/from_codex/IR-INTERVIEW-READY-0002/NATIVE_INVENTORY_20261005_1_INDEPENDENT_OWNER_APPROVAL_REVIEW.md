@@ -1,0 +1,9 @@
+# Independent exact retained inventory owner approval
+
+APPROVE exact current owner custody/selection contract for externally issued bounded initial owner controls after final dependency/expiry/absent-directory recheck.
+
+Reviewer: independent nonbuilder `/root/inventory_exact_admission_reviewer`, requested Sol6.1 High auth/release integration; 2026-10-05. No code/helper/product/OS write, stage/commit, controls consumption, lease, credentials, account, provider mutation or bootstrap occurred. New reports only, under the assigned INDEPENDENT prefix. Draft source HEAD3bf8b34 remains pending final Root freeze.
+
+Owner d48ba/tests21ff and four dependency pins match current frozen bytes. Reuse independently rehashed initial custody f5ecdc0f73212967c4a152f40ef23ed7068fc16632a205f12e84771e08c342d6; actual bounded classification correction983a43429adf56421dd318b2fb0ff74c6558efc476abd2dc296bccb4a8f12ef9; corrected selector a85e. Both earlier BLOCKs remain historical and resolved only in their named exact deltas. Current full source reviewed for closed owner/read schemas, independent builder exclusion, private expiry/clearing, source/map/selections and bounded classification/AUTH transition.
+
+Initial source union87 and exact71 maps/139 selector/family are qualified by separate INDEPENDENT source and hook reports. Private registry remains in process memory, aggregate/fixed selected public facts only; closures/unmapped callbacks are unresolved. Original absolute min1800/expiry deadline persists; update is one optional sealed round and cannot renew/widen selection. Actual matching inventory release is required before later effects/AUTH, with separate fresh provider-clear and exact chain. Owner approval and distinct read report/admission bind exact final approval bytes; absent owner directory and distinct inventory wrapper directory must be rechecked. No final control exists yet.

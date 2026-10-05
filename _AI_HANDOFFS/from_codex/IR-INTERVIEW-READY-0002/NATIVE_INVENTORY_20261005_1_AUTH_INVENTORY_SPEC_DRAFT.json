@@ -1,0 +1,101 @@
+{
+  "sourceHead": "3bf8b34c5ba8e007b62876152059225e96ff2bd8",
+  "sourceCommit": "8717ebd04ad1cd60e66ef197b55080d58492e2be",
+  "packageDirectory": "/private/tmp/ir-phase1-renderfix-20261004",
+  "packageFiles": {
+    "interview-ready-candidate.tar.gz": "a93cb2e0be061ca1a1558640f0db3030a6aab8e26c4bcb71f52504b7caf413c3",
+    "release-manifest.json": "4d4d9977163180c748282f94446fe900f75b0d5df2fff7d247f99f24c5367f33",
+    "release-plan.json": "44ab7337ba0b82e350658bd14c07ae550985197b5fbdafcf4c7b18f179d4e037",
+    "package-receipt.json": "9ecd3caf9519ef2337e8902176cddd3145f8b09464153afd3b417b1e136585fa"
+  },
+  "runtimeBindings": {
+    "gateway": "819dd734ae7bf61ded755dd3bdda5e64e4945bac05d28bd4aee5cd68f7a9d7f5",
+    "html": "456269800610e4370ab2930bc7ee7007eadc3f36c3ba2116136ef611c15e354c",
+    "matrix": "238d936904fce777174f22fb352e99fce118192ca9a469be392246c6a65366ad",
+    "gate": "da79845723120e8e451b96121c5fe5d9ccd5c2a3ece6c20b5279e252fa6319ff",
+    "buildManifest": "f142c8255a9cd93fbb8567cba3b323327fe3e8cd20491ece6565b7b2750c4ffe",
+    "package": "a93cb2e0be061ca1a1558640f0db3030a6aab8e26c4bcb71f52504b7caf413c3",
+    "pointer": "4e055c987d9d65cd866a41bff5ac3dff8e3b2b0bcf1b3c193c475917020f9c46"
+  },
+  "qualifiedPreimages": {
+    "wp-content/mu-plugins/missionmed-interview-ready.php": "819dd734ae7bf61ded755dd3bdda5e64e4945bac05d28bd4aee5cd68f7a9d7f5",
+    "wp-content/mu-plugins/missionmed-interview-ready-runtime": {
+      "schema": "ir.runtime_native.layout_preimage.v1",
+      "sha256": "1d3d599cad977e5489932f2c3866abd721c7bb2a76959d6d066486415c7ac9e4"
+    },
+    "wp-content/mu-plugins/missionmed-interview-ready-runtime/current": "4e055c987d9d65cd866a41bff5ac3dff8e3b2b0bcf1b3c193c475917020f9c46"
+  },
+  "qualifications": {
+    "phaseDecision": {
+      "verdict": "PENDING",
+      "independentReviewer": null,
+      "reportFile": "NATIVE_INVENTORY_20261005_1_INVENTORY_PHASE_REVIEW.md",
+      "reportSha256": null
+    },
+    "recovery": {
+      "verdict": "PENDING",
+      "independentReviewer": null,
+      "reportFile": "NATIVE_INVENTORY_20261005_1_RECOVERY_REVIEW.md",
+      "reportSha256": null,
+      "qualifiedPreimages": {
+        "wp-content/mu-plugins/missionmed-interview-ready.php": "819dd734ae7bf61ded755dd3bdda5e64e4945bac05d28bd4aee5cd68f7a9d7f5",
+        "wp-content/mu-plugins/missionmed-interview-ready-runtime": {
+          "schema": "ir.runtime_native.layout_preimage.v1",
+          "sha256": "1d3d599cad977e5489932f2c3866abd721c7bb2a76959d6d066486415c7ac9e4"
+        },
+        "wp-content/mu-plugins/missionmed-interview-ready-runtime/current": "4e055c987d9d65cd866a41bff5ac3dff8e3b2b0bcf1b3c193c475917020f9c46"
+      }
+    },
+    "runtimeReadback": {
+      "verdict": "PENDING",
+      "independentReviewer": null,
+      "reportFile": "NATIVE_INVENTORY_20261005_1_RUNTIME_READBACK_REVIEW.md",
+      "reportSha256": null,
+      "runtimeBindings": {
+        "gateway": "819dd734ae7bf61ded755dd3bdda5e64e4945bac05d28bd4aee5cd68f7a9d7f5",
+        "html": "456269800610e4370ab2930bc7ee7007eadc3f36c3ba2116136ef611c15e354c",
+        "matrix": "238d936904fce777174f22fb352e99fce118192ca9a469be392246c6a65366ad",
+        "gate": "da79845723120e8e451b96121c5fe5d9ccd5c2a3ece6c20b5279e252fa6319ff",
+        "buildManifest": "f142c8255a9cd93fbb8567cba3b323327fe3e8cd20491ece6565b7b2750c4ffe",
+        "package": "a93cb2e0be061ca1a1558640f0db3030a6aab8e26c4bcb71f52504b7caf413c3",
+        "pointer": "4e055c987d9d65cd866a41bff5ac3dff8e3b2b0bcf1b3c193c475917020f9c46"
+      }
+    },
+    "installProviderClear": {
+      "verdict": "PENDING",
+      "independentReviewer": null,
+      "reportFile": "NATIVE_INVENTORY_20261005_1_INSTALL_PROVIDER_CLEAR_REVIEW.md",
+      "reportSha256": null,
+      "phase": "install",
+      "released": null,
+      "activeIR": null,
+      "pendingIR": null,
+      "observedUnix": null
+    },
+    "nativeContainment": {
+      "verdict": "PENDING",
+      "independentReviewer": null,
+      "reportFile": "NATIVE_INVENTORY_20261005_1_NATIVE_CONTAINMENT_REVIEW.md",
+      "reportSha256": null,
+      "nativeSha256": "c84bc76264749e732e0e2555d942d64086a18cf625dd8f5006c529d32977e8f1",
+      "nativeTestsSha256": "20f3510bd448acb876195eaba9592ca8d6845a1233f880b1deb8d872445e5015",
+      "transport": "curl-stdin-v1",
+      "finiteContainmentQualified": null,
+      "curlExecutable": "/usr/bin/curl",
+      "curlVersion": "8.7.1",
+      "curlAsynchDNS": null
+    },
+    "bootstrapSafety": {
+      "verdict": "PENDING",
+      "independentReviewer": null,
+      "reportFile": "BOOTSTRAP_ACTUAL_SOURCE_SEMANTIC_REVIEW_4.md",
+      "reportSha256": null,
+      "bootstrapEffectsQualified": null,
+      "reachableInventoryEffectsQualified": null
+    }
+  },
+  "controlDirectory": "/Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002/_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/NATIVE_INVENTORY_20261005_1_AUTH_INVENTORY_CONTROL_1",
+  "nativeActions": [
+    "creation_inventory_read"
+  ]
+}

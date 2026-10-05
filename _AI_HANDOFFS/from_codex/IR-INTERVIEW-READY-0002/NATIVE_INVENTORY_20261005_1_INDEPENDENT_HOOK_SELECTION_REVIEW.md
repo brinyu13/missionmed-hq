@@ -1,0 +1,9 @@
+# Independent consolidated initial inventory hook selection
+
+APPROVE corrected initial139-name standard account/security/REST selector and exactly closed sanitize_user_meta family for bounded private selection. closedReachableHookNamesQualified=true and closedDynamicHookFamiliesQualified=true have this stated selected-standard-graph scope.
+
+Reviewer: independent nonbuilder `/root/inventory_exact_admission_reviewer`, requested Sol6.1 High auth/release integration; 2026-10-05. No code/helper/product/OS write, stage/commit, controls consumption, lease, credentials, account, provider mutation or bootstrap occurred. New reports only, under the assigned INDEPENDENT prefix. Draft source HEAD3bf8b34 remains pending final Root freeze.
+
+Actual frozen owner d48bae19d3ca7b31d0fa1ebb5b419ff381638d0c5ccbdb74d2008725eba2109d and tests21ff6697f23c29593b5257364a1561e0b569bd82b59b8c8d3560e6242a420698 rehashed. Dormant import supplied only STANDARD_HOOKS; draft list equals exact139 unique sorted owner set, canonical seal005887497738cd12c6c07c9f3ae33f9bf0574cd3dc4b00c9fc106aa5e125518d. Union e1cb/source maps c032 associate original+actual core evidence. Unchanged independent core selector d69f and corrected owner delta a85e8adc5e4909864207039e5ed4e0b58a0317a4ba1b238d64ff686c367547b5 reconcile the historical116-name BLOCK with exact23-name correction. No prior BLOCK was relabeled.
+
+Existing family only sanitize_user_meta: raw matched tags/keys remain private and normalize to fixed sanitize_user_meta_*. Later classification cannot widen initial selector/family or renew custody. This qualifies conservative selected account callgraph coverage, not all estate/incidental maintenance hooks, actual registrations/callback effects, custom manager/route replacement, bootstrap or execution. Actual selected inventory effects remain separately required before account AUTH.

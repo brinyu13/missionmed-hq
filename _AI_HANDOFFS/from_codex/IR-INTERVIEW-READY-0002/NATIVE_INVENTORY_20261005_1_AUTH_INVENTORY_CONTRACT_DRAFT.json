@@ -1,0 +1,171 @@
+{
+  "schema": "ir.runtime_native.contract.v1",
+  "phase": "auth_inventory",
+  "spec": {
+    "sourceHead": "3bf8b34c5ba8e007b62876152059225e96ff2bd8",
+    "sourceCommit": "8717ebd04ad1cd60e66ef197b55080d58492e2be",
+    "packageDirectory": "/private/tmp/ir-phase1-renderfix-20261004",
+    "packageFiles": {
+      "interview-ready-candidate.tar.gz": "a93cb2e0be061ca1a1558640f0db3030a6aab8e26c4bcb71f52504b7caf413c3",
+      "release-manifest.json": "4d4d9977163180c748282f94446fe900f75b0d5df2fff7d247f99f24c5367f33",
+      "release-plan.json": "44ab7337ba0b82e350658bd14c07ae550985197b5fbdafcf4c7b18f179d4e037",
+      "package-receipt.json": "9ecd3caf9519ef2337e8902176cddd3145f8b09464153afd3b417b1e136585fa"
+    },
+    "runtimeBindings": {
+      "gateway": "819dd734ae7bf61ded755dd3bdda5e64e4945bac05d28bd4aee5cd68f7a9d7f5",
+      "html": "456269800610e4370ab2930bc7ee7007eadc3f36c3ba2116136ef611c15e354c",
+      "matrix": "238d936904fce777174f22fb352e99fce118192ca9a469be392246c6a65366ad",
+      "gate": "da79845723120e8e451b96121c5fe5d9ccd5c2a3ece6c20b5279e252fa6319ff",
+      "buildManifest": "f142c8255a9cd93fbb8567cba3b323327fe3e8cd20491ece6565b7b2750c4ffe",
+      "package": "a93cb2e0be061ca1a1558640f0db3030a6aab8e26c4bcb71f52504b7caf413c3",
+      "pointer": "4e055c987d9d65cd866a41bff5ac3dff8e3b2b0bcf1b3c193c475917020f9c46"
+    },
+    "qualifiedPreimages": {
+      "wp-content/mu-plugins/missionmed-interview-ready.php": "819dd734ae7bf61ded755dd3bdda5e64e4945bac05d28bd4aee5cd68f7a9d7f5",
+      "wp-content/mu-plugins/missionmed-interview-ready-runtime": {
+        "schema": "ir.runtime_native.layout_preimage.v1",
+        "sha256": "1d3d599cad977e5489932f2c3866abd721c7bb2a76959d6d066486415c7ac9e4"
+      },
+      "wp-content/mu-plugins/missionmed-interview-ready-runtime/current": "4e055c987d9d65cd866a41bff5ac3dff8e3b2b0bcf1b3c193c475917020f9c46"
+    },
+    "qualifications": {
+      "phaseDecision": {
+        "verdict": "PENDING",
+        "independentReviewer": null,
+        "reportFile": "NATIVE_INVENTORY_20261005_1_INVENTORY_PHASE_REVIEW.md",
+        "reportSha256": null
+      },
+      "recovery": {
+        "verdict": "PENDING",
+        "independentReviewer": null,
+        "reportFile": "NATIVE_INVENTORY_20261005_1_RECOVERY_REVIEW.md",
+        "reportSha256": null,
+        "qualifiedPreimages": {
+          "wp-content/mu-plugins/missionmed-interview-ready.php": "819dd734ae7bf61ded755dd3bdda5e64e4945bac05d28bd4aee5cd68f7a9d7f5",
+          "wp-content/mu-plugins/missionmed-interview-ready-runtime": {
+            "schema": "ir.runtime_native.layout_preimage.v1",
+            "sha256": "1d3d599cad977e5489932f2c3866abd721c7bb2a76959d6d066486415c7ac9e4"
+          },
+          "wp-content/mu-plugins/missionmed-interview-ready-runtime/current": "4e055c987d9d65cd866a41bff5ac3dff8e3b2b0bcf1b3c193c475917020f9c46"
+        }
+      },
+      "runtimeReadback": {
+        "verdict": "PENDING",
+        "independentReviewer": null,
+        "reportFile": "NATIVE_INVENTORY_20261005_1_RUNTIME_READBACK_REVIEW.md",
+        "reportSha256": null,
+        "runtimeBindings": {
+          "gateway": "819dd734ae7bf61ded755dd3bdda5e64e4945bac05d28bd4aee5cd68f7a9d7f5",
+          "html": "456269800610e4370ab2930bc7ee7007eadc3f36c3ba2116136ef611c15e354c",
+          "matrix": "238d936904fce777174f22fb352e99fce118192ca9a469be392246c6a65366ad",
+          "gate": "da79845723120e8e451b96121c5fe5d9ccd5c2a3ece6c20b5279e252fa6319ff",
+          "buildManifest": "f142c8255a9cd93fbb8567cba3b323327fe3e8cd20491ece6565b7b2750c4ffe",
+          "package": "a93cb2e0be061ca1a1558640f0db3030a6aab8e26c4bcb71f52504b7caf413c3",
+          "pointer": "4e055c987d9d65cd866a41bff5ac3dff8e3b2b0bcf1b3c193c475917020f9c46"
+        }
+      },
+      "installProviderClear": {
+        "verdict": "PENDING",
+        "independentReviewer": null,
+        "reportFile": "NATIVE_INVENTORY_20261005_1_INSTALL_PROVIDER_CLEAR_REVIEW.md",
+        "reportSha256": null,
+        "phase": "install",
+        "released": null,
+        "activeIR": null,
+        "pendingIR": null,
+        "observedUnix": null
+      },
+      "nativeContainment": {
+        "verdict": "PENDING",
+        "independentReviewer": null,
+        "reportFile": "NATIVE_INVENTORY_20261005_1_NATIVE_CONTAINMENT_REVIEW.md",
+        "reportSha256": null,
+        "nativeSha256": "c84bc76264749e732e0e2555d942d64086a18cf625dd8f5006c529d32977e8f1",
+        "nativeTestsSha256": "20f3510bd448acb876195eaba9592ca8d6845a1233f880b1deb8d872445e5015",
+        "transport": "curl-stdin-v1",
+        "finiteContainmentQualified": null,
+        "curlExecutable": "/usr/bin/curl",
+        "curlVersion": "8.7.1",
+        "curlAsynchDNS": null
+      },
+      "bootstrapSafety": {
+        "verdict": "PENDING",
+        "independentReviewer": null,
+        "reportFile": "BOOTSTRAP_ACTUAL_SOURCE_SEMANTIC_REVIEW_4.md",
+        "reportSha256": null,
+        "bootstrapEffectsQualified": null,
+        "reachableInventoryEffectsQualified": null
+      }
+    },
+    "controlDirectory": "/Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002/_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/NATIVE_INVENTORY_20261005_1_AUTH_INVENTORY_CONTROL_1",
+    "nativeActions": [
+      "creation_inventory_read"
+    ]
+  },
+  "sourceHead": "3bf8b34c5ba8e007b62876152059225e96ff2bd8",
+  "osHead": "bc1d36fcb9f7bdda4bcd4ba507078b7787d802a2",
+  "origin": "https://github.com/brinyu13/missionmed-hq.git",
+  "ref": "refs/heads/codex/ir-interview-ready-0002-storyforge",
+  "writePaths": [
+    "wp-includes/user.php",
+    "wp-includes/meta.php",
+    "wp-content/mu-plugins/missionmed-interview-ready.php"
+  ],
+  "sharedDomains": [
+    "AUTH"
+  ],
+  "sourcePreimages": {
+    "interview-ready/account.js": "018a0e2f3706f2f5cbe64ddb8b8fb2cf2b07b640730c7b3211cbc4397b17518a",
+    "interview-ready/build.py": "fa3e73e912d9c0f8c114d04f64043ab33bc6d6e21ba8d07c7e8e5e3ca13a050c",
+    "interview-ready/catalog.json": "b642b081e5ae17e93108675aa29085591bc8f89f8d10c3906937e398def2223c",
+    "interview-ready/completion.css": "9a1fed84dd0cd81f2e1ea86c766841a3d44d01add151a18338e6092e54d42781",
+    "interview-ready/completion.js": "b05f8a70857b4994dd4503e9ccb93d27d0d9c12eb6719250e9c5175d29523810",
+    "interview-ready/editorial.css": "d22e49621f9e5e73b6945499a32e04af051141f534b97b3cdef7f4551587e7ae",
+    "interview-ready/editorial.js": "70e2b23af4a06fc1cccf6aba77089df6054d9ed01b34696b61e7e58c2f31bc42",
+    "interview-ready/fashion.json": "5d4023d61b3c22bd30a9ff4a0ce68f1c62b159e6279f66943ea191ef4253123e",
+    "interview-ready/img/category-accessories.webp": "45c69c17cb5322233bd23b4deb7c8098d9cb62a9980e469f438ffc73a07d45ba",
+    "interview-ready/img/category-camera.webp": "fda43ef688f4359a379e197321b6ef647eb97000dbdef21bc6338cce38532063",
+    "interview-ready/img/category-emergency.webp": "82c9a5320eb485defbfc4aafc99e7eb0142ac608822d0d615ca5c835aa9b8b48",
+    "interview-ready/img/category-lighting.webp": "cc2f27e7e4ea289803e9587369db3f1dc08b83a45af9fad082f5cc6ac977998a",
+    "interview-ready/img/category-microphone.webp": "b5ac55caa6cff13ecfc18fe23a979396395e4e534c87a5706b532ea9c2e06fa6",
+    "interview-ready/img/category-travel.webp": "f63381f605bc377c62026f8efae30cb0614d6ed6e7e69afef1534d481856833f",
+    "interview-ready/img/hero-inperson-board.webp": "2575b8cfd561797c4b0a68205bfd23ea27654f9a7dadd23335ccd8b6fdb7dd77",
+    "interview-ready/img/hero-online-board.webp": "69188a11fd2a412fbb9f86046aa05d2ec16a5b87409d60af8aa166d1834dd293",
+    "interview-ready/img/hero-online-photo.webp": "77dd4dda3c9f996867416305f53ea414a535661b970a0c0b249a5528e8eb0f5d",
+    "interview-ready/img/interview-portrait.webp": "1e89933a936a499782180f1910ad85d7f0e3f9dc5934547d38de04afba73d31e",
+    "interview-ready/img/mountain-landscape-masked.webp": "a026f43e620fe770d53b9ca8ac128fc992b6a66319ab9b07b8c9c92e72b6e9a6",
+    "interview-ready/img/mountain-mark.webp": "a36afeb672fd37ef4e0aaf3c735f816c193ea8084cd05c12d68e64a30d2fedfe",
+    "interview-ready/img/mountain-panorama.webp": "2bcb4f8b1bd354b0f9e0cb1223ed5266641b0950d5c9ec3f4a1034c524828aba",
+    "interview-ready/img/product-canon-r50-cc.webp": "ebc2a5cde4a0a453f872a6e9c25dbc3c39e9396d063a259f8e4bc93a04a674f3",
+    "interview-ready/img/product-shure-sm7b-cc.webp": "b50d9776b8954e9f0f805194d98846cefbd05f2bc97e122ba4eeb8a261965c1a",
+    "interview-ready/img/product-stream-plus-cc.webp": "884908e73319988243097fd50c37bf6d2b47eb35f26a1d921db74dfd96047591",
+    "interview-ready/img/purpose-landscape.webp": "eac2f8891be3a43e6ca05ec83a09e813ac3df5caea1ecffc6f0a2474ff49b95d",
+    "interview-ready/img/style-portrait.webp": "04e5b43f0174093a5954a104ba59d933cc127cc4996d9a9644b0f09d91efa56a",
+    "interview-ready/img/travel-detail.webp": "e1bc7ed021ef601ce62fc300476734333e206e3acc389995505696b798c01dd0",
+    "interview-ready/integration/matrix-entry.js": "238d936904fce777174f22fb352e99fce118192ca9a469be392246c6a65366ad",
+    "interview-ready/integration/missionmed-interview-ready.php": "819dd734ae7bf61ded755dd3bdda5e64e4945bac05d28bd4aee5cd68f7a9d7f5",
+    "interview-ready/integration/release.py": "90d67d6afd96adf6a1dc0a33d350d65cc02089e42d2462b34e54bb4ec6f0ac17",
+    "interview-ready/phase1.css": "3539f0da6933b5c38fad65df4e705319f4fc404f3cd56cb24d81fb4859d7e95f",
+    "interview-ready/phase1.js": "fc7a46267bcb98354008d77451f7e2db03336ec26e064404efdd0ba91f73fcb0",
+    "interview-ready/phase1.json": "c552cc20f09a7dce76c91a22bfd507e91c6d33b78b043df9f420fdf57d1351c0",
+    "interview-ready/production-assets.json": "112157eb213d0059c6a11a1d976a2edd9a3df31ea639047a6812ce6d41dcb72f",
+    "interview-ready/src.html": "46f336c26a90915dcb007e4e89a41b22dc31879e4f154906e2cef285ab55d42c",
+    "interview-ready/integration/matrix-entry.test.js": "a91188aa892e3068eb930f8627736b9ad79cc17bff5ee0221596a16be6dd4b59",
+    "interview-ready/integration/gateway.test.php": "55d391bc4aa7821ae35d2ae7e1dfd43bacb547abf8a220f75328833428544285",
+    "interview-ready/integration/release.test.py": "cdb53f1a3d747c377d72d9d43953bad31823e439604000704306c471063dccd0",
+    "interview-ready/evidence/integration-worker-handoff.md": "d2630716df99b74235e1b919d6be2c5b337161b13ad4f8964b6efc4d62e4a118",
+    "interview-ready/qa-account.py": "393fdd686a8670ce81373aca5d086f22886d0e1cfd010cde7e7a60ce6eeeaff6",
+    "_SYSTEM/CRITICAL_SYSTEMS_MANIFEST.json": "5bd21265a8d8c48986ada406e7cf2802a6cb755200892448adbd58474b8eb150"
+  },
+  "authority": {
+    "DR-375_ir_phase1_production_authority.md": "05803e16c985437a6400aa261e55bdb57f50ed2a0c7200f904fcffc49155a508",
+    "DR-376_ir_phase1_bounded_execution_annex.md": "452a9e6259f6ae2f9e1441c725f79156b2d099d88a38af694b248e345b7dbe0e"
+  },
+  "runnerSha256": "0a816e26fcea00422451fe6dc96971a894c5c3ef193d271eb3cb1698da1775f0",
+  "testsSha256": "4055ed2ffaa7fe29214359f501b5e0803ed75d651f71c771fdd7bbe8e381aa26",
+  "transportSha256": "6bab4c948b28202b7a803228f2123d5c95137030f16eb129c427b4ddcc487cad",
+  "clientSha256": "36e37a487de0ec99191492c3ef286695bc4d8721cdac70f5c62863576e5c1431",
+  "nativeSha256": "c84bc76264749e732e0e2555d942d64086a18cf625dd8f5006c529d32977e8f1",
+  "nativeTestsSha256": "20f3510bd448acb876195eaba9592ca8d6845a1233f880b1deb8d872445e5015",
+  "nativeReviewSha256": "fb5bb3e71c67eeadd9a6d3c1d3897f0fb3f2ccc0dc673ae026ce0b4a70bb2696"
+}

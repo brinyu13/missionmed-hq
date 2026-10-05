@@ -1,0 +1,10 @@
+{
+  "verdict": "PENDING",
+  "independentReviewer": null,
+  "reportFile": "NATIVE_INVENTORY_20261005_1_OWNER_READ_REVIEW.md",
+  "reportSha256": null,
+  "schema": "ir.native.inventory_owner.read_admission.v1",
+  "approvalSha256": null,
+  "maxSeconds": 1800,
+  "expiresUnix": null
+}
