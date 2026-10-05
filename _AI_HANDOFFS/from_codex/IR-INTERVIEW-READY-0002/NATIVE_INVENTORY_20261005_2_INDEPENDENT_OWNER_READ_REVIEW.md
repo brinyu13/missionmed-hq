@@ -1,0 +1,3 @@
+# Independent distinct attempt2 owner read
+
+APPROVE one new owner read of NATIVE_INVENTORY_20261005_2_INDEPENDENT_OWNER_APPROVAL.json SHAdd970e956c1f16c5c342ba78329968c2a1d7dfe0db8fe57017db2c0c38114f72. Reviewer /root/inventory_exact_admission_reviewer nonbuilder. New absent ownerdir2/disjoint inventorydir2/new expiry1791178898.082623/max1800 and new control bytes distinguish attempt2 from preserved consumed attempt1. Exact unchanged owner/dependency/source71maps139hooksfamily/report seals rechecked; no repeatedaudit or codechange. KnownCLI public-only stdout/stdin boundary and absolute private clearing/deadline retained. Separate new wrapper controls/snapshot/provider freshness required. No owner qualify/consume/execute or lease action by reviewer.

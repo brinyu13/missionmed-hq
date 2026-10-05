@@ -1,0 +1,3 @@
+# Independent distinct attempt2 inventory read
+
+APPROVE one new auth_inventory read NATIVE_INVENTORY_20261005_2_INDEPENDENT_AUTH_INVENTORY_APPROVAL.json SHAe0ea4e9345cf97b9d559b358c97daac5a220cd64c3c95667be74b83ac6744184 /bindingddcdd56d9db4e5d6d9785b01028ba8552929f456d22a7546c4e577a49b6a7423. Independent nonbuilder /root/inventory_exact_admission_reviewer. ExactRootsnapshot/newHEAD/spec/qualification/pins matched. Separate newreport/control/directory; max600/expiry1791178868.082623 fits ownerpair2 absolutedeadline. Actualproviderobserved1791177305.017079 must stayfresh through initialREADY before1791177605.017079. No replay/renewal/oldpairreuse/accountAUTH; no reviewerconsumption or acquisition.

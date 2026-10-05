@@ -1,0 +1,7 @@
+# Independent manually initiated attempt2 inventory phase
+
+APPROVE new auth_inventory only, nativeActions exactly creation_inventory_read, with new directories/pairs/sourceHEAD and fresh qualifications.
+
+Independent nonbuilder /root/inventory_exact_admission_reviewer. Frozen sourceHEAD32fb3320096c1c243ef30bea5fcfd73fda2acd0a. New attempt2 only; no code change, lease/client acquisition, consumption, provider mutation or bootstrap. Prior consumed attempt1 pairs/dirs/STOP429f preserved.
+Read committed bounded diagnosis SHAa31e8add173d22c33f68d30eb6258c57aaf9412c36a9e3a840b32ba174194af2: canonical AUTH contention overlap covered actual previousRPC HTTP200 window; registered lifecycle/aggregate evidence supports cause while failed response body was not retained. Policy remains fail-closed unchanged; no bug/key-custody issue is invented. Priorzero-claim STOP and consumed pairs remain preserved. This explicitly new manually initiated admission follows resolved contention and current independent activeAUTH0, not automatic reuse.
+Reused source/owner71maps139hooksclosedfamily/union87/containment/semantic5 exact settled evidence unchanged. Semantic5 flags only normal CLI wp eval-file /dev/stdin creation_inventory_read, not account/login/logout/HTTP effects. Scope SHARED:AUTH exact API anchors only; no source/runtime write. Root obtains actual unpatched snapshot before final wrapper control. After actual inventory RELEASED, accountAUTH still requires separate selected-effect/provider/new controls.
