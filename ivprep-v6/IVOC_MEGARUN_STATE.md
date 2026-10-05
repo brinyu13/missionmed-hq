@@ -27,7 +27,7 @@ the actual production route and deployment.
   f84d200664c15a070eb75f5eaad3a80362267ac84e5d41eeb49f887ebace9b92.
   Room626d8830 and rendererfc0ef0d0 remain unchanged. Public closed-vocabulary
   diagnostic helper works in deployed bytes; final independent guardian PASS
-  exact deployment/OFF/hash identities/health401/private provider terminal/room0.
+  exact deployment/OFF/hash identities/health200/anonymous401/provider terminal/room0.
   The synthetic reason is NOT actual
   Canary4 root-cause evidence. Health200/ok; anonymous product/bootstrap401.
   Chrome cold reload retained genuine brinyuADMIN; room refresh safely returned
