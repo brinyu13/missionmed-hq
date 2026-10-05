@@ -1,0 +1,5 @@
+# Approved AUTH scheduling follow-up
+
+Sent to Execute IIQ-1100 Foreman directive, thread01a0fe87-ed79-7ba2-9e4a-a1966bd3c0b6, after SET15 provider AUTH contention at18:09:20Z. Same Founder-approved safe handoff purpose/recipient; no new authorization scope. Current other-chat compact checkpoint reports a healthy normal canary lease and two flags/same-image API redeploy only. Request is finish/drain/explicit-release at safe boundary, short IR verification window and independent IR read/admission; no interruption/force-clear/bypass/adoption/shared mutation. No new secrets or raw provider response in this record. SET15 did not dispatch; Root71384 closedCtrlCexit1.
+
+Same approved scheduling scope follow-up after otherForeman revision15 reports canary lease heartbeat failure/expiry before any flag change/redeploy: requested normal owner release if protocol permits and stopped/drained checkpoint; explicitly no force-clear/bypass/adoption and no expiry-as-release inference. External claim release status remains UNKNOWN pending authoritative evidence.
