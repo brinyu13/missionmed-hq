@@ -293,7 +293,7 @@ test('study-attached exam composites retain their native attachment outside the 
 });
 
 
-test('three late short clinical arrows reserve complete native multiline label room before earlier rows consume it',()=>{
+test('three late short clinical arrows reserve native multiline label room with conservative glyph clearance',()=>{
   const events=Array.from({length:10},(_,index)=>duration('short-spine-'+index,
     index<7?`${2012+index}-01`:index===7?'2024-05':index===8?'2024-07':'2025-05',
     index<7?`${2012+index}-12`:index===7?'2024-06':index===8?'2024-08':'2025-06',{
@@ -304,7 +304,9 @@ test('three late short clinical arrows reserve complete native multiline label r
   assert.deepEqual(result.scene.chronologyOrder.violations,[]);
   const late=new Set(events.slice(-3).map(event=>event.id));
   const text=paint.nodes.filter(node=>late.has(node.semanticRef)&&node.kind==='text');
-  assert.ok(text.some(node=>node.bounds.height>60),'alternate short-arrow labels exercise real multiline paint');
+  const titles=text.filter(node=>['inside-arrow','outside-arrow'].includes(node.sourceAttributes['data-board-ink-role']));
+  assert.ok(titles.every(node=>node.bounds.height<=22&&Number(node.style['font-size'])===18),'short-arrow titles prefer their available native one-line side');
+  for(let index=1;index<titles.length;index++)assert.ok(titles[index].bounds.y>=titles[index-1].bounds.y+29.5,'visible titles follow the descending anchors');
   assert.ok(text.filter(node=>node.sourceAttributes['data-material-field']==='siteName').every(node=>node.bounds.height>40));
   assert.ok(text.every(node=>node.bounds.y>=170.5&&node.bounds.y+node.bounds.height<=1072.5),'each selected variant fits including its own multiline bounds');
   for(let i=0;i<text.length;i++)for(let j=i+1;j<text.length;j++){
@@ -312,6 +314,9 @@ test('three late short clinical arrows reserve complete native multiline label r
     const x=Math.min(a.bounds.x+a.bounds.width,b.bounds.x+b.bounds.width)-Math.max(a.bounds.x,b.bounds.x);
     const y=Math.min(a.bounds.y+a.bounds.height,b.bounds.y+b.bounds.height)-Math.max(a.bounds.y,b.bounds.y);
     assert.ok(x<=0||y<=0,'later adjacent clinical titles, dates and institutions remain separately readable');
+    const glyphX=Math.min(a.bounds.x+a.bounds.width+12,b.bounds.x+b.bounds.width+12)-Math.max(a.bounds.x-12,b.bounds.x-12);
+    const nativeY=Math.min(a.bounds.y+a.bounds.height+2,b.bounds.y+b.bounds.height+2)-Math.max(a.bounds.y-2,b.bounds.y-2);
+    assert.ok(glyphX<=0||nativeY<=0,'nearby institution/date pairs retain room for native glyph and baseline uncertainty');
   }
   assert.equal(JSON.stringify(input),before);
 });

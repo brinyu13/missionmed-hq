@@ -926,7 +926,7 @@ function avoidAutomaticArrowCollisions(scene,svg){
   const scale=metrics(scene),layout=founderPortableLayout(scene),labelSides=new Map(scene.autoArrowLabelSides||[]);
   const entries=auto.map(arrow=>{
     const original=geometry(arrow,layout,scale,scene),parts=physical.filter(n=>n.groupId==='event:'+arrow.id);
-    const boxes=nodes=>nodes.map(n=>({...envelope(n.occlusionBounds||n.bounds),site:n.sourceAttributes['data-material-field']==='siteName'}));
+    const boxes=nodes=>nodes.map(n=>({...envelope(n.occlusionBounds||n.bounds),site:n.sourceAttributes['data-material-field']==='siteName',ink:n.kind==='text',title:['inside-arrow','outside-arrow'].includes(n.sourceAttributes['data-board-ink-role'])}));
     const variants=[{parts:boxes(parts),side:labelSides.get(String(arrow.id))}];
     const outside=parts.find(n=>n.sourceAttributes['data-arrow-label-placement']?.startsWith('outside-'));
     if(outside){
@@ -942,14 +942,22 @@ function avoidAutomaticArrowCollisions(scene,svg){
     }));
     return{arrow,original,variants,options};
   });
-  const separation=18;
-  const horizontalOverlap=(a,b)=>a.x<b.x+b.width+6&&a.x+a.width+6>b.x;
+  const separation=30;
+  // Native browser glyphs can extend beyond the estimated text envelope. One
+  // generous glyph of horizontal slack and a small baseline slack keep nearby
+  // captions/institutions readable without changing fonts or date anchors.
+  const inkSlack=(a,b)=>a.ink||b.ink?24:0;
+  const baselineSlack=(a,b)=>a.ink||b.ink?4:0;
+  const horizontalOverlap=(a,b)=>a.x<b.x+b.width+6+inkSlack(a,b)&&a.x+a.width+6+inkSlack(a,b)>b.x;
   // Only painted parts sharing an X corridor require full vertical clearance.
   // Long spans may pass across shorter ones; dates and readable labels determine
   // their actual clearance instead of assigning every event a fixed row height.
   const gap=(a,b)=>{
     let required=separation;
-    for(const left of a.parts)for(const right of b.parts)if(horizontalOverlap(left,right))required=Math.max(required,left.y+left.height+6-right.y);
+    for(const left of a.parts)for(const right of b.parts){
+      if(horizontalOverlap(left,right))required=Math.max(required,left.y+left.height+6+baselineSlack(left,right)-right.y);
+      if(left.title&&right.title)required=Math.max(required,left.y+separation-right.y);
+    }
     return required;
   };
   const latest=entries.map(entry=>new Map());
@@ -960,7 +968,7 @@ function avoidAutomaticArrowCollisions(scene,svg){
   const first=Math.min(...entries[0].options.map(option=>option.lower)),last=Math.max(...latest.at(-1).values());
   const pitch=Math.max(separation,Math.min(96,(last-first)/Math.max(1,entries.length-1)));
   const baseline=entries.map((entry,index)=>entries.length===1?entry.original.y:first+pitch*index);
-  const overlap=(a,b)=>Math.max(0,Math.min(a.x+a.width+6,b.x+b.width+6)-Math.max(a.x,b.x))*Math.max(0,Math.min(a.y+a.height+6,b.y+b.height+6)-Math.max(a.y,b.y));
+  const overlap=(a,b)=>Math.max(0,Math.min(a.x+a.width+6+inkSlack(a,b),b.x+b.width+6+inkSlack(a,b))-Math.max(a.x,b.x))*Math.max(0,Math.min(a.y+a.height+6+baselineSlack(a,b),b.y+b.height+6+baselineSlack(a,b))-Math.max(a.y,b.y));
   let states=[{choices:[],occupied:fixed,cost:0,drift:0,y:-Infinity,option:null}];
   for(let index=0;index<entries.length;index++){
     const entry=entries[index],next=[];
@@ -987,7 +995,7 @@ function avoidAutomaticArrowCollisions(scene,svg){
         let collisions=0;for(let i=0;i<parts.length;i++)for(const obstacle of nearby[i])collisions+=overlap(parts[i],obstacle);
         const cost=state.cost+outside*1e6+collisions;
         next.push({choices:[...state.choices,{entry,y,dx:option.dx,side:option.side}],occupied:[...state.occupied,...parts],cost,
-          drift:state.drift+Math.abs(y-baseline[index])+Math.abs(option.dx)*.04+(option.side!==labelSides.get(String(entry.arrow.id))?4:0),y,option});
+          drift:state.drift+Math.abs(y-baseline[index])+Math.abs(option.dx)*.04+(option.side!==labelSides.get(String(entry.arrow.id))?4:0)+Math.max(0,Math.max(...option.parts.filter(part=>part.title).map(part=>part.height))-22)*.5,y,option});
       }
     }
     // Keep different last-anchor positions so an early locally safe row cannot
