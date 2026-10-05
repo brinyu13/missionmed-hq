@@ -1,0 +1,13 @@
+{
+  "schema": "ir.inventory.prepayload.local-proof.v1",
+  "result": "PASS",
+  "methodScopeNormalAndHookAttributionEquivalent": true,
+  "unwrappedRedeclarationHasNoEntry": true,
+  "wrappedRedeclarationHasOuterAndFixedFatal": true,
+  "typedParseErrorRethrownAndFixedObserved": true,
+  "prewrapperAbsenceRemainsUnresolved": true,
+  "fixtureProcesses": 8,
+  "actualBootstrap": false,
+  "actualTransport": false,
+  "referenceQASha256": "f64534309958e97aded039ca5e6fee65f49cf4140abafa13db4987c89222a8bb"
+}
