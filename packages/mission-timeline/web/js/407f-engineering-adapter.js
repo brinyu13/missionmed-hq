@@ -4455,7 +4455,7 @@ export async function boot407FEngineeringAdapter({
       kind:"geometry",
       target:{type:"event",id:domainId},
       geometry:detail.geometry,
-      create:advancedEventCreation407F(store.document,domainId,{currentMonth:currentMonth(),mediaById:liveMediaById()}),
+      create:advancedEventCreation407F(store.document,domainId,{currentMonth:currentMonth(),mediaById:liveMediaById(store.document)}),
       label
     });
     if(!result.changed)return;
@@ -7680,7 +7680,7 @@ export async function boot407FEngineeringAdapter({
           next=constrainAdvancedObjectToBoard(member.type==="media"?moveMediaElement(original,{x,y}):{...original,x,y},{minimumSize:member.type==="event"?1:48});
         }
         const result=applySceneCommandToDocument(working,{kind:"geometry",target:member,geometry:next,label,
-          ...(member.type==="event"?{create:advancedEventCreation407F(working,member.id,{currentMonth:currentMonth(),mediaById:liveMediaById()})}:{})});
+          ...(member.type==="event"?{create:advancedEventCreation407F(working,member.id,{currentMonth:currentMonth(),mediaById:liveMediaById(working)})}:{})});
         if(result.changed){working=result.document;changed=true;}
       }
       if(!changed)return false;
@@ -7940,7 +7940,7 @@ export async function boot407FEngineeringAdapter({
         }else{
           const result=applySceneCommandToDocument(store.document,{
             kind:"geometry",target:{type:object.type,id:object.id},geometry:{...object.item,rotation},
-            ...(object.type==="event"?{create:advancedEventCreation407F(store.document,object.id,{currentMonth:currentMonth(),mediaById:liveMediaById()})}:{}),
+            ...(object.type==="event"?{create:advancedEventCreation407F(store.document,object.id,{currentMonth:currentMonth(),mediaById:liveMediaById(store.document)})}:{}),
             label:"Rotate Timeline object"
           });
           if(!result.changed)return;
@@ -9109,7 +9109,7 @@ export async function boot407FEngineeringAdapter({
           target:{type:pointer.type,id:pointer.id},
           geometry:pointer.preview,
           ...(pointer.type==="event"?{
-            create:advancedEventCreation407F(base,pointer.id,{currentMonth:currentMonth(),mediaById:liveMediaById()})
+            create:advancedEventCreation407F(base,pointer.id,{currentMonth:currentMonth(),mediaById:liveMediaById(base)})
           }:{}),
           label
         });

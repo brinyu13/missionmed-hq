@@ -327,24 +327,36 @@ function flagPaint(document,id,options){
 function executeFirstEventEdit(source,path,document,id,geometry,options,kind='move'){
   const preview=kind==='resize'?{...geometry,width:geometry.width+5,height:geometry.height+5}:{...geometry,y:geometry.y+5};
   const store={document:structuredClone(document),entitlement:{canMutate:true},replace(next){this.document=next;}};
-  const create=(doc,eventId)=>advancedEventCreation407F(doc,eventId,options);
+  const beginMedia=source.indexOf('const liveMediaById=')+'const liveMediaById='.length;
+  const mediaExpression=source.slice(beginMedia,source.indexOf('const hydrateMissingAdvancedMedia=',beginMedia)).trim();
+  const resolveMedia=new Function('mediaUrls','return '+mediaExpression)(options.mediaUrls||new Map());
+  const mediaCalls=[];
+  const liveMediaById=timeline=>{assert.ok(timeline?.events,'actual handler must supply its timeline to hydration');mediaCalls.push(timeline);return resolveMedia(timeline);};
+  const create=(doc,eventId,actualOptions)=>{
+    assert.equal(actualOptions.currentMonth,options.currentMonth);
+    assert.deepEqual(actualOptions.mediaById,resolveMedia(doc),'actual handler options match live media for the same timeline');
+    assert.equal(mediaCalls.at(-1),doc,'hydration uses the exact document passed to creation');
+    // Only deterministic font metrics are supplied by the fixture. Media and
+    // current-month options must come from the actual handler, without fallback.
+    return advancedEventCreation407F(doc,eventId,{measureText:options.measureText,...actualOptions});
+  };
   const apply=(doc,command)=>applySceneCommandToDocument(doc,command,options);
   if(path==='kernel'){
     const begin=source.indexOf('onKernelPresentationEventGesture=(event)=>')+'onKernelPresentationEventGesture='.length;
     const expression=source.slice(begin,source.indexOf('const reselectAdvancedKernel=',begin)).trim();
-    new Function('store','applySceneCommandToDocument','advancedEventCreation407F','currentMonth','liveMediaById','syncBridgeStateFromStore','bridge','return '+expression)(store,apply,create,()=>options.currentMonth,()=>new Map(),()=>{},{toast(){}})({detail:{surface:'edit',domainId:id,kind,geometry:preview}});
+    new Function('store','applySceneCommandToDocument','advancedEventCreation407F','currentMonth','liveMediaById','syncBridgeStateFromStore','bridge','return '+expression)(store,apply,create,()=>options.currentMonth,liveMediaById,()=>{},{toast(){}})({detail:{surface:'edit',domainId:id,kind,geometry:preview}});
   }else if(path==='keyboard'){
     const begin=source.indexOf('const nudgeAdvancedSelection=')+'const nudgeAdvancedSelection='.length;
     const expression=source.slice(begin,source.indexOf('const layerAdvancedSelection=',begin)).trim();
-    new Function('store','advancedItemFor','selectionIsLocked','constrainAdvancedObjectToBoard','applySceneCommandToDocument','advancedEventCreation407F','currentMonth','liveMediaById','commitAdvancedSelection','return '+expression)(store,()=>geometry,()=>false,constrainAdvancedObjectToBoard,apply,create,()=>options.currentMonth,()=>new Map(),()=>{})({type:'event',id},{x:kind==='resize'?5:0,y:5},{resize:kind==='resize'});
+    new Function('store','advancedItemFor','selectionIsLocked','constrainAdvancedObjectToBoard','applySceneCommandToDocument','advancedEventCreation407F','currentMonth','liveMediaById','commitAdvancedSelection','return '+expression)(store,()=>geometry,()=>false,constrainAdvancedObjectToBoard,apply,create,()=>options.currentMonth,liveMediaById,()=>{})({type:'event',id},{x:kind==='resize'?5:0,y:5},{resize:kind==='resize'});
   }else if(path==='rotate'){
     const start=source.indexOf('const rotateHandle=event.target'),begin=source.indexOf('const result=applySceneCommandToDocument',start);
     const branch=source.slice(begin,source.indexOf('\n        }\n        syncBridgeStateFromStore()',begin));
-    new Function('store','object','rotation','applySceneCommandToDocument','advancedEventCreation407F','currentMonth','liveMediaById',branch)(store,{type:'event',id,item:geometry},15,apply,create,()=>options.currentMonth,()=>new Map());
+    new Function('store','object','rotation','applySceneCommandToDocument','advancedEventCreation407F','currentMonth','liveMediaById',branch)(store,{type:'event',id,item:geometry},15,apply,create,()=>options.currentMonth,liveMediaById);
   }else{
     const begin=source.indexOf('const label=pointer.kind===',source.indexOf('const pointer=advancedPointer;',source.indexOf('const years=pending.preview')));
     const end=source.indexOf('const railPayload=',begin),branch=source.slice(begin,end).trim().replace(/};$/,'');
-    new Function('store','pointer','applySceneCommandToDocument','advancedEventCreation407F','currentMonth','liveMediaById','syncBridgeStateFromStore','canvasController','showAdvancedDirectSelection','bridge','announceGlobal',branch)(store,{type:'event',id,kind,preview,original:geometry},apply,create,()=>options.currentMonth,()=>new Map(),()=>{},{setUiState(){}},()=>{},{toast(){}},()=>{});
+    new Function('store','pointer','applySceneCommandToDocument','advancedEventCreation407F','currentMonth','liveMediaById','syncBridgeStateFromStore','canvasController','showAdvancedDirectSelection','bridge','announceGlobal',branch)(store,{type:'event',id,kind,preview,original:geometry},apply,create,()=>options.currentMonth,liveMediaById,()=>{},{setUiState(){}},()=>{},{toast(){}},()=>{});
   }
   return store.document;
 }
@@ -417,4 +429,34 @@ test('044 native metadata does not alter unrelated manual geometry, photos, axis
   const saved=JSON.parse(JSON.stringify(records.find(entry=>entry.store==='documents').value.document));
   assert.deepEqual(saved.advanced.scene.objects.find(item=>item.semanticRef==='degree').presentation,edited.advanced.scene.objects.find(item=>item.semanticRef==='degree').presentation);
   assert.deepEqual(saved.events,store.document.events);assert.equal(flagPaint(saved,'degree',options).template.poleFootY,125);
+});
+
+test('044 hydrated synthetic photo affects visible packing and all four actual creation handlers retain those media options',async()=>{
+  const source=await readFile(new URL('../web/js/407f-engineering-adapter.js',import.meta.url),'utf8'),{document,options}=resolvedLongDegreeFixture();
+  document.mediaItems=[{id:'synthetic-photo',placement:'photo1',visibilityState:'INTERVIEWER_SAFE'}];
+  document.presentationOverrides={photoFrames:{1:{x:400,y:30,width:300,height:90,rotation:0}}};
+  options.mediaUrls=new Map([['synthetic-photo','blob:synthetic-local-only']]);
+  const begin=source.indexOf('const liveMediaById=')+'const liveMediaById='.length;
+  const hydrate=new Function('mediaUrls','return '+source.slice(begin,source.indexOf('const hydrateMissingAdvancedMedia=',begin)).trim())(options.mediaUrls);
+  options.mediaById=hydrate(document);assert.equal(options.mediaById.size,1);assert.equal(hydrate().size,0,'missing timeline reproduces the reviewed defect');
+  const before=JSON.stringify(document),visible=flagPaint(document,'degree',options),empty=flagPaint(document,'degree',{...options,mediaById:hydrate()});
+  assert.deepEqual(visible.rendered.scene.autoFlagLabels.get('degree'),{width:420,flip:false});
+  assert.deepEqual(empty.rendered.scene.autoFlagLabels.get('degree'),{width:957,flip:true});
+  const geometry=advancedEventGeometry407F(document,'degree',{dataset:{eventKind:'flag'}},options);
+  assert.ok(Math.abs(geometry.y-54.88)<.02,'native acquisition matches hydrated visible packing');
+  assert.equal(JSON.stringify(document),before,'selection remains a read without scene creation');
+  for(const path of ['kernel','keyboard','rotate','pointer']){
+    const edited=executeFirstEventEdit(source,path,document,'degree',geometry,options),paint=flagPaint(edited,'degree',options);
+    const object=edited.advanced.scene.objects.find(item=>item.semanticRef==='degree');
+    assert.deepEqual(object.presentation.flagLabelLayout,{width:420,flip:false},path+' captures the hydrated donor scene');
+    assert.deepEqual(object.presentation.nativeFlagPole,{anchor:'native'});assert.ok(!object.presentation.localLayoutCriticAuto);
+    assert.equal(object.geometry.width,50);assert.equal(object.geometry.height,64);assert.equal(paint.labels.length,visible.labels.length);
+    assert.deepEqual(paint.texts.map(node=>[node.text,Math.round(node.fontSize*1e9)/1e9,node.fontFamily]),visible.texts.map(node=>[node.text,Math.round(node.fontSize*1e9)/1e9,node.fontFamily]));
+    if(path!=='rotate'){
+      assert.equal(paint.template.poleFootY,125);assert.ok(Math.abs(paint.template.bodyBottom-visible.template.bodyBottom-5)<.01);
+      assert.deepEqual(paint.labels.map(node=>node.bounds.width),visible.labels.map(node=>node.bounds.width));
+    }else assert.equal(violatesFounderTemplateBand(paint.template),true);
+    assert.deepEqual(edited.events,document.events);assert.deepEqual(edited.mediaItems,document.mediaItems);assert.deepEqual(edited.presentationOverrides.photoFrames,document.presentationOverrides.photoFrames);
+  }
+  assert.equal(JSON.stringify(document),before);
 });
