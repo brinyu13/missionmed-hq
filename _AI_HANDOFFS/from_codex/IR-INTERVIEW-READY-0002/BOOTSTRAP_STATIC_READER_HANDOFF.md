@@ -151,3 +151,27 @@ Prepared program SHA-256: `779fd7a3ed6d5fadf3d19da88c19249e1123504ef5088747fef30
 PHP template remains unchanged: `876e4442386b3c17201ea424dafa3b325c7f1972625c15ed5382887b39aaf11f`.
 
 The existing seven focused fixtures PASS (0.139s), including injected exact module gate/hash drift and metadata/path/size/hash/argv/no-INI checks. Config privacy canaries reuse the unchanged local synthetic PHP template. Compile, embedded Python AST and default DORMANT checks PASS. Source 76-role scope, six absences, opaque config strings and CLI execution block remain unchanged. No remote operation or actual installed remote module load was performed; no WordPress/bootstrap/provider/credential operation or Git mutation occurred. Frozen uncommitted for independent minor-delta review; Root must separately admit this new loader before any source capture.
+
+
+## Semantic usability correction — supersedes prior reader/program pins
+
+Bounded donor: independent `BOOTSTRAP_ACTUAL_SOURCE_SEMANTIC_REVIEW_2.md` SHA-256 `1babb513c180b0c469c349813a3c6f5995d8d3605a1ebe80cdef9224fde5121b`. Earlier readback835b had opaque public callees/guards/includes, so its successful capture did not qualify bootstrap effects. This revision prepares a fresh separately admitted capture of the SAME source bytes: all76 source roles' size/hash preimages are bound from exact `BOOTSTRAP_STATIC_SOURCE_READBACK_2.json` SHA-256 `835b9ea5ec7b7a95e8c71588df75f451ce25f8e0a2bdf6e6256141fcf0379ce8` and checked before tokenization and through existing post-capture rereads. No source expansion occurs.
+
+Every literal string remains opaque in rendered syntax across ALL roles. No global safe-string exemption remains. Config values, comments, numeric values, interpolated strings, inline HTML and variables remain opaque. Lexically callable/constructor/static-type code names (including qualified names), source-declared symbols, and uppercase code constants are visible. This preserves code identifiers, not arbitrary literal values.
+
+New bounded structured facts use `tokenOffset`, the zero-based ordinal in the significant-token stream (comments/whitespace excluded), for association with code sites:
+
+- `guardFacts`: exact bare defined(WP_CLI/ABSPATH), PHP_SAPI comparison with cli, and class/function/interface/trait existence references matching source-declared identifiers. No define/config assignment value is classified.
+- `includeSiteFacts`: syntactic include/require operation, plain PHP path fragments, symbolic ABSPATH/WPINC/__DIR__/__FILE__/dirname/plugin_dir_path bases, and explicit unresolved status. Only plain slash-separated PHP paths without traversal/double-slash/escapes/URLs are exposed. Assignments or unknown calls within an operand suppress path fragments. These are lexical facts, not evaluated or resolved paths. Relative direct-literal regular-file facts retain the existing metadata-only check; no included body is read, adopted, executed or recursively inspected.
+- `closedPublicRegistrations`: only the existing closed public hook names at bare add_action/add_filter/do_action/apply_filters sites; source-defined callback identifier, closure or unresolved callback classification. All config roles still omit these facts. Callback facts are source-declaration associations, not runtime resolution or execution proof.
+
+Current reader SHA-256: `fa2e47448d759407380ba2a4b15371624e4f7d0d61510d42cd295f2ede23c916`.
+Tests SHA-256: `11179d73368e532ce7cb00d4a90fa3c9f2aca4df8a52d0e9b1b024d4cefd2bd0`.
+Prepared program SHA-256: `8d564dca867d27bf1c6570f869d9fdf0314ed696e4803519a213125d02a5303f`.
+PHP template SHA-256: `fd7fbb295020a1c8fa6885f75c58fc6009c0c1be3191d3642ede7be7df9318ce`.
+
+Focused seven-fixture command remains `python3 -B _AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/bootstrap_static_reader_tests.py`, PASS0.310s. Actual isolated local synthetic PHP canaries test secrets equal public guards/hooks/include-shaped strings versus legitimate call/guard/loader/registration syntax, config omission, callback link, positioned facts, dynamic includes, and nested secret assignment within an include operand. Existing module/capture/scope/cancellation/cap/privacy checks remain; compile and prepared Python AST PASS. CLI default/execution-block fixture PASS. Local synthetic PHP does not load inspected WordPress source.
+
+Seed20/61MU/76readable roles/six absences, tokenizer module pin81972, capturec84, SSH argv, source/output caps and10+2/remote8/child6 deadlines remain. No normal php.ini, fallback, remote/source/bootstrap/provider/credential/control/Git operations occurred. Reader is frozen uncommitted for independent delta review and Root's separate prospective read admission.
+
+Concrete remaining uncertainty: dynamic operands, conditional path selection and include bases are unevaluated; paths outside the plain PHP grammar are unresolved. Unknown callback strings/arrays and external class/autoloader relationships remain unresolved. PHAR inline bytes remain opaque. Registration reachability, active plugin/theme selection and actual bootstrap effects still require independent semantic review of the new actual readback; no future PASS or semantic approval is asserted.

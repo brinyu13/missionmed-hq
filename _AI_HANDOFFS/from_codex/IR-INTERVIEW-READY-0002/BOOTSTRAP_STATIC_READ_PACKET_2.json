@@ -1,0 +1,25 @@
+{
+  "actor": "/root",
+  "admittedUnix": 1791162658.4044878,
+  "independentReviewer": "/root/phase1_release_verifier",
+  "ioSeconds": 10,
+  "noBootstrap": true,
+  "noSemanticApproval": true,
+  "osHead": "bc1d36fcb9f7bdda4bcd4ba507078b7787d802a2",
+  "outputCap": 8388608,
+  "pins": {
+    "BOOTSTRAP_INSTALLED_TOKENIZER_METADATA_READBACK_1.json": "81972c8b4fb99550f4f4ac6dde528c21a4f7f2df0bb548b56d0edc8e6e96590f",
+    "BOOTSTRAP_INSTALLED_TOKENIZER_READER_DELTA_REVIEW.md": "07a4c0e135df40b14ff77e83df07239019ff0f442dd717892bac7596973f692e",
+    "BOOTSTRAP_STATIC_READER_HANDOFF.md": "cd481426fdb5403383e34dad4d798a5f3a8f2ff49448ee948f49454805a761db",
+    "BOOTSTRAP_STATIC_SEED_METADATA_20261004.json": "91f8956cb0d43fe7b6e82fb55bb12f92fcfcf12879a11d64b30e92f6c604f5ef",
+    "bootstrap_static_reader.py": "757102c449a2467190535a219ae3e5e1e5be939e3b068a2ff754383190cd2994",
+    "bootstrap_static_reader_tests.py": "53e1e7338bb49b1e47205d7b99a88b76ae1071309bef20505994ca93276683b1",
+    "native_account_qa.py": "c84bc76264749e732e0e2555d942d64086a18cf625dd8f5006c529d32977e8f1"
+  },
+  "programSha256": "779fd7a3ed6d5fadf3d19da88c19249e1123504ef5088747fef300cd85e8919b",
+  "readOnly": true,
+  "reapSeconds": 2,
+  "schema": "ir.foreman.static_read_packet.v1",
+  "scope": "exact declared76 source roles; six ABSENT; fixed qualified installed tokenizer only; no include adoption",
+  "sourceHead": "ce30114fa7a31167399923eadeaf884e6be65f1f"
+}

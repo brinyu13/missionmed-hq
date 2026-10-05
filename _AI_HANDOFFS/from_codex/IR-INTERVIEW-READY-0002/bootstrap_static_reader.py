@@ -23,7 +23,7 @@ SOURCE_CAP = 512 * 1024
 LAUNCHER_CAP = 12 * 1024 * 1024
 TOTAL_SOURCE_CAP = 24 * 1024 * 1024
 REDACTED_CAP = 1024 * 1024
-SAFE_CONSTANTS = ('WP_CLI', 'ABSPATH', 'PHP_SAPI', 'cli', 'true', 'false', 'null')
+SAFE_CONSTANTS = ('WP_CLI', 'ABSPATH', 'WPINC', 'SHORTINIT', 'PHP_SAPI', 'cli', 'true', 'false', 'null')
 IDENTIFIER = re.compile(r'[A-Za-z_][A-Za-z0-9_]*\Z')
 PUNCTUATION = frozenset('()[]{};:,.?+-*/%&|^!~=@<>\\')
 KEYWORDS = {
@@ -141,6 +141,13 @@ def classify_hook_fixture(tokens, role):
 def redact_fixture_tokens(tokens, role='mu.php'):
     """Injected lexical-policy reference; no source lexer/runtime is executed."""
     names = declared_names(tokens)
+    sig = [(k,t) for k,t in tokens if k not in ('T_WHITESPACE','T_COMMENT','T_DOC_COMMENT')]
+    for i,(kind,text) in enumerate(sig):
+        if kind in ('T_STRING','T_NAME_QUALIFIED','T_NAME_FULLY_QUALIFIED','T_NAME_RELATIVE') and re.fullmatch(r'\\?[A-Za-z_][A-Za-z0-9_]*(?:\\[A-Za-z_][A-Za-z0-9_]*)*',text) and (
+                (i+1 < len(sig) and sig[i+1] == ('CHAR','(')) or
+                (i and sig[i-1][0] == 'T_NEW') or
+                (i+1 < len(sig) and sig[i+1][0] == 'T_DOUBLE_COLON')):
+            names.add(text)
     ids = {}
     result = []
     counter = 0
@@ -155,13 +162,9 @@ def redact_fixture_tokens(tokens, role='mu.php'):
             result.append("'REDACTED_L" + str(counter) + "'")
             quoted = 'heredoc' if kind == 'T_START_HEREDOC' else text
         elif kind in OPAQUE:
-            # Exceptions are ONLY the literal fixed safe constants, never config values.
-            if role not in CONFIG_ROLES and kind == 'T_CONSTANT_ENCAPSED_STRING' and text in tuple(repr(x) for x in SAFE_CONSTANTS) + tuple('"'+x+'"' for x in SAFE_CONSTANTS):
-                result.append(text)
-            else:
-                counter += 1
-                label = 'REDACTED_L' + str(counter)
-                result.append('/* '+label+' */' if kind in ('T_COMMENT', 'T_DOC_COMMENT') else "'"+label+"'" if kind != 'T_INLINE_HTML' else '<?php /* '+label+' */ ?>')
+            counter += 1
+            label = 'REDACTED_L' + str(counter)
+            result.append('/* '+label+' */' if kind in ('T_COMMENT', 'T_DOC_COMMENT') else "'"+label+"'" if kind != 'T_INLINE_HTML' else '<?php /* '+label+' */ ?>')
         elif kind == 'T_WHITESPACE':
             result.append(' ')
         elif kind == 'T_OPEN_TAG':
@@ -170,7 +173,9 @@ def redact_fixture_tokens(tokens, role='mu.php'):
             result.append('<?php echo ')
         elif kind == 'T_CLOSE_TAG':
             result.append('?>')
-        elif kind == 'T_STRING' and (text in names or text in SAFE_CONSTANTS):
+        elif kind == 'T_STRING' and (text in names or text in SAFE_CONSTANTS or re.fullmatch(r'[A-Z_][A-Z0-9_]*', text)):
+            result.append(text)
+        elif kind in ('T_NAME_QUALIFIED','T_NAME_FULLY_QUALIFIED','T_NAME_RELATIVE') and text in names:
             result.append(text)
         elif kind in ('T_STRING', 'T_VARIABLE', 'T_NAME_QUALIFIED', 'T_NAME_FULLY_QUALIFIED', 'T_NAME_RELATIVE'):
             key = (kind, text)
@@ -211,6 +216,11 @@ try {
  }
  foreach($sources as $entry) {
   $raw=base64_decode($entry['source'],true);$tokens=token_get_all($raw);$names=$globalNames;
+  $sig=[];foreach($tokens as $t){if(is_array($t)&&in_array(token_name($t[0]),['T_WHITESPACE','T_COMMENT','T_DOC_COMMENT'],true)){continue;}$sig[]=$t;}
+  for($i=0;$i<count($sig);$i++){
+   $t=$sig[$i];$prev=$sig[$i-1]??null;$next=$sig[$i+1]??null;
+   if(is_array($t)&&in_array(token_name($t[0]),['T_STRING','T_NAME_QUALIFIED','T_NAME_FULLY_QUALIFIED','T_NAME_RELATIVE'],true)&&($next==='('||(is_array($prev)&&token_name($prev[0])==='T_NEW')||(is_array($next)&&token_name($next[0])==='T_DOUBLE_COLON'))){$names[$t[1]]=true;}
+  }
   $ids=[];$render='';$counter=0;$quoted=null;
   foreach($tokens as $t){
    $kind=is_array($t)?token_name($t[0]):'CHAR';$text=is_array($t)?$t[1]:$t;
@@ -221,13 +231,13 @@ try {
    if($kind==='T_START_HEREDOC'||($kind==='CHAR'&&in_array($text,['"','`'],true))){
     $render.="'REDACTED_L".(++$counter)."'";$quoted=$kind==='T_START_HEREDOC'?'heredoc':$text;
    } elseif(in_array($kind,$policy['opaque'],true)){
-    if(!in_array($entry['role'],$policy['configRoles'],true)&&$kind==='T_CONSTANT_ENCAPSED_STRING'&&in_array($text,$policy['safeLiterals'],true)){$render.=$text;}
-    else{$label='REDACTED_L'.(++$counter);$render.=in_array($kind,['T_COMMENT','T_DOC_COMMENT'],true)?'/* '.$label.' */':($kind==='T_INLINE_HTML'?'<?php /* '.$label.' */ ?>':"'".$label."'");}
+    $label='REDACTED_L'.(++$counter);$render.=in_array($kind,['T_COMMENT','T_DOC_COMMENT'],true)?'/* '.$label.' */':($kind==='T_INLINE_HTML'?'<?php /* '.$label.' */ ?>':"'".$label."'");
    } elseif($kind==='T_WHITESPACE'){$render.=' ';}
    elseif($kind==='T_OPEN_TAG'){$render.='<?php ';}
    elseif($kind==='T_OPEN_TAG_WITH_ECHO'){$render.='<?php echo ';}
    elseif($kind==='T_CLOSE_TAG'){$render.='?>';}
-   elseif($kind==='T_STRING'&&(isset($names[$text])||in_array($text,$policy['safeConstants'],true))){$render.=$text;}
+   elseif($kind==='T_STRING'&&(isset($names[$text])||in_array($text,$policy['safeConstants'],true)||preg_match('/^[A-Z_][A-Z0-9_]*$/D',$text))){$render.=$text;}
+   elseif(in_array($kind,['T_NAME_QUALIFIED','T_NAME_FULLY_QUALIFIED','T_NAME_RELATIVE'],true)&&isset($names[$text])){$render.=$text;}
    elseif(in_array($kind,['T_STRING','T_VARIABLE','T_NAME_QUALIFIED','T_NAME_FULLY_QUALIFIED','T_NAME_RELATIVE'],true)){
     $key=$kind.'|'.$text;if(!isset($ids[$key])){$ids[$key]='REDACTED_I'.(count($ids)+1);}
     $render.=($kind==='T_VARIABLE'?'$':'').$ids[$key];
@@ -237,33 +247,61 @@ try {
    if(strlen($render)>$policy['redactedCap']){throw new RuntimeException('STOP');}
   }
   if($quoted!==null){throw new RuntimeException('STOP');}
-  // Discover only direct literal relative PHP includes. No expression resolution/adoption.
-  $paths=[];$dynamic=0;
-  for($i=0;$i<count($tokens);$i++){
-   $t=$tokens[$i];if(!is_array($t)||!in_array(token_name($t[0]),['T_INCLUDE','T_INCLUDE_ONCE','T_REQUIRE','T_REQUIRE_ONCE'],true)){continue;}
-   $parts=[];
-   for($j=$i+1;$j<count($tokens);$j++){
-    $u=$tokens[$j];if($u===';'){break;}
-    if(is_array($u)&&in_array(token_name($u[0]),['T_WHITESPACE','T_COMMENT','T_DOC_COMMENT'],true)){continue;}
-    $parts[]=$u;
+  // Context-only loader facts; no operand evaluation or target adoption.
+  $paths=[];$dynamic=0;$includeFacts=[];$guardFacts=[];
+  $safePath=function($path){return preg_match('~^/?(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_-]+\.php$~D',$path)&&strpos($path,'..')===false&&strpos($path,'//')===false;};
+  for($i=0;$i<count($sig);$i++){
+   $t=$sig[$i];if(!is_array($t)){continue;}$kind=token_name($t[0]);
+   if(in_array($kind,['T_INCLUDE','T_INCLUDE_ONCE','T_REQUIRE','T_REQUIRE_ONCE'],true)){
+    $fragments=[];$bases=[];$unresolved=false;$unsafeLiteralContext=false;$parts=[];
+    for($j=$i+1;$j<count($sig)&&$sig[$j]!==';';$j++){
+     $u=$sig[$j];$parts[]=$u;
+     if(is_array($u)){
+      $k=token_name($u[0]);
+      if($k==='T_CONSTANT_ENCAPSED_STRING'){$path=substr($u[1],1,-1);if($safePath($path)){$fragments[]=$path;}else{$unresolved=true;}}
+      elseif($k==='T_STRING'&&in_array($u[1],['ABSPATH','WPINC','dirname','plugin_dir_path'],true)){$bases[]=$u[1];}
+      elseif(in_array($k,['T_DIR','T_FILE'],true)){$bases[]=$k==='T_DIR'?'__DIR__':'__FILE__';}
+      elseif($k==='T_VARIABLE'){$unresolved=true;}
+      else{$unresolved=true;$unsafeLiteralContext=true;}
+     }elseif(!in_array($u,['(',')','.'],true)){$unresolved=true;$unsafeLiteralContext=true;}
+    }
+    if($unsafeLiteralContext){$fragments=[];}
+    if(!$fragments){$unresolved=true;}
+    $includeFacts[]=['tokenOffset'=>$i,'operation'=>$policy['keywords'][$kind],'pathFragments'=>array_values(array_unique($fragments)),'baseSyntax'=>array_values(array_unique($bases)),'unresolved'=>$unresolved];
+    if(count($parts)===1&&is_array($parts[0])&&token_name($parts[0][0])==='T_CONSTANT_ENCAPSED_STRING'){
+     $path=substr($parts[0][1],1,-1);if($safePath($path)&&$path[0]!=='/'){$paths[]=$path;continue;}
+    }
+    $dynamic++;
    }
-   if(count($parts)===1&&is_array($parts[0])&&token_name($parts[0][0])==='T_CONSTANT_ENCAPSED_STRING'){
-    $lit=$parts[0][1];$path=substr($lit,1,-1);
-    if(preg_match('~^(?:wp-includes/|wp-content/mu-plugins/)[A-Za-z0-9_./-]+\.php$~D',$path)&&strpos($path,'..')===false&&strpos($path,'//')===false){$paths[]=$path;continue;}
+   // Exact public guard contexts only; assignments/define values never classified.
+   $prev=$sig[$i-1]??null;$next=$sig[$i+1]??null;$arg=$sig[$i+2]??null;
+   $bare=$i===0||!is_array($prev)||!in_array(token_name($prev[0]),['T_OBJECT_OPERATOR','T_NULLSAFE_OBJECT_OPERATOR','T_DOUBLE_COLON'],true);
+   if($bare&&$kind==='T_STRING'&&$t[1]==='defined'&&$next==='('&&is_array($arg)&&token_name($arg[0])==='T_CONSTANT_ENCAPSED_STRING'&&($sig[$i+3]??null)===')'){
+    foreach(['WP_CLI','ABSPATH'] as $name){if(in_array($arg[1],["'".$name."'",'"'.$name.'"'],true)){$guardFacts[]=['tokenOffset'=>$i,'guard'=>'defined','publicValue'=>$name];}}
    }
-   $dynamic++;
+   if($bare&&$kind==='T_STRING'&&in_array($t[1],['class_exists','function_exists','interface_exists','trait_exists'],true)&&$next==='('&&is_array($arg)&&token_name($arg[0])==='T_CONSTANT_ENCAPSED_STRING'&&in_array($sig[$i+3]??null,[')',','],true)){
+    $candidate=substr($arg[1],1,-1);if(isset($globalNames[$candidate])){$guardFacts[]=['tokenOffset'=>$i,'guard'=>'source_symbol_exists','publicValue'=>$candidate];}
+   }
+   if($kind==='T_STRING'&&$t[1]==='PHP_SAPI'&&is_array($next)&&in_array(token_name($next[0]),['T_IS_IDENTICAL','T_IS_EQUAL','T_IS_NOT_IDENTICAL','T_IS_NOT_EQUAL'],true)&&is_array($arg)&&token_name($arg[0])==='T_CONSTANT_ENCAPSED_STRING'&&in_array($arg[1],["'cli'",'"cli"'],true)){$guardFacts[]=['tokenOffset'=>$i,'guard'=>'PHP_SAPI_COMPARE','publicValue'=>'cli'];}
   }
   $hooks=[];
   if(!in_array($entry['role'],$policy['configRoles'],true)){
    $sig=[];foreach($tokens as $t){if(is_array($t)&&in_array(token_name($t[0]),['T_WHITESPACE','T_COMMENT','T_DOC_COMMENT'],true)){continue;}$sig[]=$t;}
    for($i=0;$i<count($sig)-2;$i++){
     $t=$sig[$i];$a=$sig[$i+2];
-    if(($i===0||!is_array($sig[$i-1])||!in_array(token_name($sig[$i-1][0]),['T_OBJECT_OPERATOR','T_NULLSAFE_OBJECT_OPERATOR','T_DOUBLE_COLON'],true))&&is_array($t)&&token_name($t[0])==='T_STRING'&&in_array($t[1],['add_action','add_filter'],true)&&$sig[$i+1]==='('&&is_array($a)&&token_name($a[0])==='T_CONSTANT_ENCAPSED_STRING'){
-     foreach($policy['publicHooks'] as $hook){if(in_array($a[1],["'".$hook."'",'"'.$hook.'"'],true)){$hooks[]=['registration'=>$t[1],'publicHook'=>$hook];}}
+    if(($i===0||!is_array($sig[$i-1])||!in_array(token_name($sig[$i-1][0]),['T_OBJECT_OPERATOR','T_NULLSAFE_OBJECT_OPERATOR','T_DOUBLE_COLON'],true))&&is_array($t)&&token_name($t[0])==='T_STRING'&&in_array($t[1],['add_action','add_filter','do_action','apply_filters'],true)&&$sig[$i+1]==='('&&is_array($a)&&token_name($a[0])==='T_CONSTANT_ENCAPSED_STRING'){
+     foreach($policy['publicHooks'] as $hook){if(in_array($a[1],["'".$hook."'",'"'.$hook.'"'],true)){
+      $callbackKind='unresolved';$callbackIdentifier=null;$cb=$sig[$i+4]??null;
+      if(in_array($t[1],['add_action','add_filter'],true)&&($sig[$i+3]??null)===','&&is_array($cb)){
+       if(token_name($cb[0])==='T_FUNCTION'||token_name($cb[0])==='T_FN'){$callbackKind='closure';}
+       elseif(token_name($cb[0])==='T_CONSTANT_ENCAPSED_STRING'){$candidate=substr($cb[1],1,-1);if(isset($globalNames[$candidate])){$callbackKind='source_defined';$callbackIdentifier=$candidate;}}
+      }
+      $hooks[]=['tokenOffset'=>$i,'registration'=>$t[1],'publicHook'=>$hook,'callbackKind'=>$callbackKind,'callbackIdentifier'=>$callbackIdentifier];
+     }}
     }
    }
   }
-  $out[]=['closedPublicRegistrations'=>$hooks,'role'=>$entry['role'],'sourceSha256'=>hash('sha256',$raw),'bytes'=>strlen($raw),'redactedSource'=>$render,'includeCandidates'=>array_values(array_unique($paths)),'dynamicIncludes'=>$dynamic];
+  $out[]=['guardFacts'=>$guardFacts,'includeSiteFacts'=>$includeFacts,'closedPublicRegistrations'=>$hooks,'role'=>$entry['role'],'sourceSha256'=>hash('sha256',$raw),'bytes'=>strlen($raw),'redactedSource'=>$render,'includeCandidates'=>array_values(array_unique($paths)),'dynamicIncludes'=>$dynamic];
  }
  $encoded=json_encode(['schema'=>'ir.bootstrap.redacted_syntax.v1','classification'=>'STATIC_REDACTED_SYNTAX_NOT_SEMANTIC_APPROVAL','files'=>$out],JSON_THROW_ON_ERROR);if(strlen($encoded)>$policy['outputCap']){throw new RuntimeException('STOP');}echo $encoded;
 } catch(Throwable $e) { echo '{"classification":"TOKENIZER_STOP"}'; exit(1); }
@@ -274,6 +312,7 @@ TOKENIZER_PATH = '/usr/lib/php/20220829/tokenizer.so'
 TOKENIZER_BYTES = 35080
 TOKENIZER_SHA = '088267fb4965e634f43151d2981b8ff60e258376684990eb0791b75b6f34878c'
 TOKENIZER_METADATA_SHA = '81972c8b4fb99550f4f4ac6dde528c21a4f7f2df0bb548b56d0edc8e6e96590f'
+PRIOR_SOURCE_SHA = '835b9ea5ec7b7a95e8c71588df75f451ce25f8e0a2bdf6e6256141fcf0379ce8'
 TOKENIZER_ARGV = ['/usr/bin/php8.2', '-n', '-d', 'extension='+TOKENIZER_PATH]
 
 
@@ -336,6 +375,9 @@ try:
   records.append({'role':'wp-content/mu-plugins/'+name,'source':base64.b64encode(raw).decode()});owned.append((path,SOURCE_LIMIT,hashlib.sha256(raw).hexdigest()))
  path=Path('/usr/local/bin/wp');raw=regular(path,LAUNCHER_LIMIT);total+=len(raw);check(total<=TOTAL_LIMIT)
  records.append({'role':'launcher:/usr/local/bin/wp','source':base64.b64encode(raw).decode()});owned.append((path,LAUNCHER_LIMIT,hashlib.sha256(raw).hexdigest()))
+ check(len(records)==len(SOURCE_PREIMAGES))
+ for record in records:
+  raw=base64.b64decode(record['source']);check(SOURCE_PREIMAGES[record['role']]==[len(raw),hashlib.sha256(raw).hexdigest()])
  def tokenizer_check():
   raw=regular(Path(TOKENIZER_MODULE_PATH),TOKENIZER_MODULE_BYTES)
   check(len(raw)==TOKENIZER_MODULE_BYTES and hashlib.sha256(raw).hexdigest()==TOKENIZER_MODULE_SHA)
@@ -370,11 +412,15 @@ except BaseException:
 def prepare_program():
     seed = metadata()
     tokenizer_metadata()
+    prior = local_bytes(HERE/'BOOTSTRAP_STATIC_SOURCE_READBACK_2.json', OUTPUT_CAP+65536)
+    require(hashlib.sha256(prior).hexdigest() == PRIOR_SOURCE_SHA, 'PRIOR_SOURCE_DRIFT')
+    prior_files = json.loads(prior)['capture']['files']
+    require([x['role'] for x in prior_files] == expected_roles(), 'PRIOR_SOURCE_DRIFT')
+    preimages = {x['role']: [x['bytes'], x['sourceSha256']] for x in prior_files}
     require(hashlib.sha256(local_bytes(HERE/'native_account_qa.py', 131072)).hexdigest() == CAPTURE_SHA, 'CAPTURE_DRIFT')
     policy = {'keywords': KEYWORDS, 'declarations': DECLARATIONS, 'opaque': OPAQUE,
               'punctuation': sorted(PUNCTUATION), 'safeConstants': SAFE_CONSTANTS,
-              'safeLiterals': [repr(x) for x in SAFE_CONSTANTS] + ['"'+x+'"' for x in SAFE_CONSTANTS],
-              'redactedCap': REDACTED_CAP, 'outputCap': OUTPUT_CAP,
+                            'redactedCap': REDACTED_CAP, 'outputCap': OUTPUT_CAP,
               'publicHooks': PUBLIC_HOOKS, 'configRoles': CONFIG_ROLES}
     php = PHP_READER.replace('POLICY_B64', base64.b64encode(json.dumps(policy).encode()).decode())
     constants = {'SOURCE_LIMIT': SOURCE_CAP, 'LAUNCHER_LIMIT': LAUNCHER_CAP,
@@ -382,7 +428,8 @@ def prepare_program():
                  'PHP_LITERAL': php, 'SEED_LITERAL': seed,
                  'TOKENIZER_MODULE_PATH': TOKENIZER_PATH, 'TOKENIZER_MODULE_BYTES': TOKENIZER_BYTES,
                  'TOKENIZER_MODULE_SHA': TOKENIZER_SHA, 'TOKENIZER_FIXED_ARGV': TOKENIZER_ARGV,
-                 'TOKENIZER_METADATA_BINDING': TOKENIZER_METADATA_SHA}
+                 'TOKENIZER_METADATA_BINDING': TOKENIZER_METADATA_SHA,
+                 'SOURCE_PREIMAGES': preimages, 'PRIOR_SOURCE_BINDING': PRIOR_SOURCE_SHA}
     return '\n'.join(k+' = '+repr(v) for k,v in constants.items())+'\n'+REMOTE_READER
 
 
@@ -391,6 +438,11 @@ def expected_roles():
     return ([entry['role'] for entry in seed['seedFiles'] if entry['type'] == 'FILE']
             + ['wp-content/mu-plugins/'+entry['name'] for entry in seed['muEntrypoints']]
             + ['launcher:/usr/local/bin/wp'])
+
+
+def safe_include_fragment(value):
+    return (type(value) is str and re.fullmatch(r'/?(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_-]+\.php', value)
+            and '..' not in value and '//' not in value)
 
 
 def validate_safe_result(value):
@@ -404,19 +456,32 @@ def validate_safe_result(value):
     require(type(value['files']) is list and [e.get('role') for e in value['files']] == expected_roles())
     for item in value['files']:
         require(type(item) is dict and set(item) == {'role','sourceSha256','bytes','redactedSource',
-            'regularRelativePhpIncludes','dynamicIncludes','closedPublicRegistrations'})
+            'regularRelativePhpIncludes','dynamicIncludes','closedPublicRegistrations','guardFacts','includeSiteFacts'})
         require(type(item['sourceSha256']) is str and re.fullmatch(r'[0-9a-f]{64}',item['sourceSha256']))
         require(type(item['bytes']) is int and 0 <= item['bytes'] <= (LAUNCHER_CAP if item['role'].startswith('launcher:') else SOURCE_CAP))
         require(type(item['redactedSource']) is str and len(item['redactedSource'].encode()) <= REDACTED_CAP)
         require(type(item['dynamicIncludes']) is int and 0 <= item['dynamicIncludes'] <= SOURCE_CAP)
         require(type(item['regularRelativePhpIncludes']) is list and len(item['regularRelativePhpIncludes']) <= 512)
         for path in item['regularRelativePhpIncludes']:
-            require(type(path) is str and re.fullmatch(r'(?:wp-includes/|wp-content/mu-plugins/)[A-Za-z0-9_./-]+\.php',path) and '..' not in path and '//' not in path)
+            require(safe_include_fragment(path) and not path.startswith('/'))
+        require(type(item['guardFacts']) is list and len(item['guardFacts']) <= 4096)
+        for fact in item['guardFacts']:
+            require(type(fact) is dict and set(fact)=={'tokenOffset','guard','publicValue'} and type(fact['tokenOffset']) is int and 0 <= fact['tokenOffset'] <= SOURCE_CAP and
+                ((fact['guard'],fact['publicValue']) in (('defined','WP_CLI'),('defined','ABSPATH'),('PHP_SAPI_COMPARE','cli')) or
+                 (fact['guard']=='source_symbol_exists' and type(fact['publicValue']) is str and IDENTIFIER.fullmatch(fact['publicValue']))))
+        require(type(item['includeSiteFacts']) is list and len(item['includeSiteFacts']) <= 4096)
+        for fact in item['includeSiteFacts']:
+            require(type(fact) is dict and set(fact)=={'tokenOffset','operation','pathFragments','baseSyntax','unresolved'} and type(fact['tokenOffset']) is int and 0 <= fact['tokenOffset'] <= SOURCE_CAP)
+            require(fact['operation'] in ('include','include_once','require','require_once') and type(fact['unresolved']) is bool)
+            require(type(fact['pathFragments']) is list and len(fact['pathFragments']) <= 512 and all(safe_include_fragment(x) for x in fact['pathFragments']))
+            require(type(fact['baseSyntax']) is list and len(fact['baseSyntax']) <= 6 and all(x in ('ABSPATH','WPINC','dirname','plugin_dir_path','__DIR__','__FILE__') for x in fact['baseSyntax']))
         require(type(item['closedPublicRegistrations']) is list and len(item['closedPublicRegistrations']) <= 4096)
         if item['role'] in CONFIG_ROLES:
             require(not item['closedPublicRegistrations'])
         for fact in item['closedPublicRegistrations']:
-            require(type(fact) is dict and set(fact) == {'registration','publicHook'} and fact['registration'] in ('add_action','add_filter') and fact['publicHook'] in PUBLIC_HOOKS)
+            require(type(fact) is dict and set(fact) == {'tokenOffset','registration','publicHook','callbackKind','callbackIdentifier'} and type(fact['tokenOffset']) is int and 0 <= fact['tokenOffset'] <= SOURCE_CAP and fact['registration'] in ('add_action','add_filter','do_action','apply_filters') and fact['publicHook'] in PUBLIC_HOOKS)
+            require(fact['callbackKind'] in ('source_defined','closure','unresolved'))
+            require((fact['callbackKind']=='source_defined' and type(fact['callbackIdentifier']) is str and IDENTIFIER.fullmatch(fact['callbackIdentifier'])) or (fact['callbackKind']!='source_defined' and fact['callbackIdentifier'] is None))
     return value
 
 

@@ -53,8 +53,8 @@ class ReaderTests(unittest.TestCase):
     def test_constant_exceptions_closed_and_hook_classification_config_omitted(self):
         text = reader.redact_fixture_tokens([('T_STRING','WP_CLI'),('T_STRING','DB_PASSWORD'),
             ('T_CONSTANT_ENCAPSED_STRING',"'cli'"),('T_CONSTANT_ENCAPSED_STRING',"'"+CANARY+"'")])
-        self.assertIn('WP_CLI',text);self.assertIn("'cli'",text)
-        self.assertNotIn('DB_PASSWORD',text);self.assertNotIn(CANARY,text)
+        self.assertIn('WP_CLI',text);self.assertNotIn("'cli'",text)
+        self.assertIn('DB_PASSWORD',text);self.assertNotIn(CANARY,text)
         tokens=[('T_STRING','add_action'),('CHAR','('),('T_CONSTANT_ENCAPSED_STRING',"'user_register'"),
                 ('CHAR',','),('T_CONSTANT_ENCAPSED_STRING',"'"+CANARY+"'"),('CHAR',')')]
         self.assertEqual(reader.classify_hook_fixture(tokens,'mu.php'),[{'registration':'add_action','publicHook':'user_register'}])
@@ -92,6 +92,39 @@ class ReaderTests(unittest.TestCase):
                 for quote in ("'", '"'):
                     self.assertNotIn(quote+literal+quote,rendered)
 
+        # Same tokenizer: public grammar facts versus identically shaped secret data.
+        code="""<?php
+function public_callback() { public_call(); }
+$password='cli'; $hook='user_register'; $target='wp-load.php';
+define('DB_PASSWORD','WP_CLI'); define('SECRET','wp-includes/load.php');
+if (defined('WP_CLI') && PHP_SAPI === 'cli') { public_callback(); }
+require_once ABSPATH . 'wp-settings.php';
+require __DIR__ . '/wp-load.php'; require $unknown; require ($secret='secret.php');
+add_action('user_register','public_callback');
+do_action('plugins_loaded'); PublicLoader::bootstrap();
+"""
+        src=[{'role':role,'source':base64.b64encode(code.encode()).decode()} for role in ('wp-config.php','mu.php')]
+        completed=subprocess.run(['/opt/homebrew/bin/php','-n'],
+            input=php.replace('SOURCES_B64',base64.b64encode(json.dumps(src).encode()).decode()).encode(),
+            stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=6)
+        self.assertEqual(completed.returncode,0,'LOCAL_CONTEXT_TOKENIZER_STOP');self.assertFalse(completed.stderr)
+        files=json.loads(completed.stdout)['files']
+        for entry in files:
+            rendered=entry['redactedSource']
+            for literal in ('cli','user_register','wp-load.php','WP_CLI','wp-includes/load.php','wp-settings.php','/wp-load.php'):
+                self.assertNotIn("'"+literal+"'",rendered)
+            for name in ('defined','public_call','public_callback','PublicLoader','bootstrap'):
+                self.assertIn(name,rendered)
+            self.assertEqual([(f['guard'],f['publicValue']) for f in entry['guardFacts']],
+                             [('defined','WP_CLI'),('PHP_SAPI_COMPARE','cli')])
+            self.assertEqual([f['pathFragments'] for f in entry['includeSiteFacts']],
+                             [['wp-settings.php'],['/wp-load.php'],[],[]])
+            self.assertTrue(entry['includeSiteFacts'][-1]['unresolved'])
+            self.assertTrue(all(type(f['tokenOffset']) is int for f in entry['includeSiteFacts']))
+        self.assertEqual(files[0]['closedPublicRegistrations'],[])
+        self.assertEqual(files[1]['closedPublicRegistrations'][0]['callbackIdentifier'],'public_callback')
+        self.assertEqual(files[1]['closedPublicRegistrations'][1]['registration'],'do_action')
+
     def test_caps_symlinks_and_metadata_drift_stop(self):
         with tempfile.TemporaryDirectory() as directory:
             directory=str(Path(directory).resolve())
@@ -117,7 +150,7 @@ class ReaderTests(unittest.TestCase):
         self.assertIn('regular(Path(TOKENIZER_MODULE_PATH),TOKENIZER_MODULE_BYTES)',program)
         self.assertIn('len(raw)==TOKENIZER_MODULE_BYTES and hashlib.sha256(raw).hexdigest()==TOKENIZER_MODULE_SHA',program)
         self.assertNotIn('php.ini',program)
-        for field in ('TOKENIZER_PATH','TOKENIZER_SHA','TOKENIZER_BYTES','TOKENIZER_METADATA_SHA'):
+        for field in ('TOKENIZER_PATH','TOKENIZER_SHA','TOKENIZER_BYTES','TOKENIZER_METADATA_SHA','PRIOR_SOURCE_SHA'):
             with patch.object(reader,field,'DRIFT'):
                 with self.assertRaises(reader.Stop):reader.prepare_program()
         # Exercise the exact embedded module gate with injected bytes, no module loading.
@@ -159,7 +192,8 @@ class ReaderTests(unittest.TestCase):
         value={'schema':'ir.bootstrap.redacted_syntax.v1','classification':'STATIC_REDACTED_SYNTAX_NOT_SEMANTIC_APPROVAL',
             'homeWpCliConfigAbsent':True,'absentSeedRoles':[e['role'] for e in reader.metadata()['seedFiles'] if e['type']=='ABSENT'],
             'files':[{'role':role,'sourceSha256':'a'*64,'bytes':1,'redactedSource':'<?php ;',
-                'regularRelativePhpIncludes':[],'dynamicIncludes':0,'closedPublicRegistrations':[]} for role in reader.expected_roles()]}
+                'regularRelativePhpIncludes':[],'dynamicIncludes':0,'closedPublicRegistrations':[],
+                'guardFacts':[],'includeSiteFacts':[]} for role in reader.expected_roles()]}
         capture=Mock(return_value=json.dumps(value).encode())
         self.assertEqual(reader.classify_fixture_capture(capture,program,SimpleNamespace(deadline=time.monotonic()+1))['schema'],'ir.bootstrap.redacted_syntax.v1')
         self.assertEqual(capture.call_args.kwargs['cap'],reader.OUTPUT_CAP)
