@@ -5,10 +5,10 @@ old=(A/'SHOPPING_COMBINED_SOURCE_ADMISSION_20261005/integration_shopping_source_
 def func(name):
  n=next(n for n in tree.body if isinstance(n,(ast.FunctionDef,ast.ClassDef)) and n.name==name)
  return ''.join(old.splitlines(True)[n.lineno-1:n.end_lineno])+'\n\n'
-F=A/'FINISH_NOW_DEVICE_FALLBACK_20261005/AFTER_SHOPPING'
+F=A/'FINISH_NOW_DEVICE_FALLBACK_20261005/PUBLIC_ONLY'
 paths=['interview-ready/account.js','interview-ready/build.py','interview-ready/phase1.json','interview-ready/phase1.js']
 pre={k:hashlib.sha256((R/k).read_bytes()).hexdigest() for k in paths};post={k:hashlib.sha256((F/Path(k).name).read_bytes()).hexdigest() for k in paths}
-packet={'schema':'ir.device_fallback_source.packet.v1','sourceBASE':'341c9ad88b0c00ea0b09a0e3bbf04eeb770b89e5','writePaths':paths,'sourcePreimages':pre,'plannedSourcePostimages':post,'sharedDomains':[],'scope':'PATH:93cc7bada097a03b5163b83ecfc0d5f8fb2357c6f517b6c6f4a456acc7c155c6','objective':'Apply explicit device-only fallback on integrated shopping; no account readiness or server authorization change.','patchSequence':[{'patch':'FINISH_NOW_DEVICE_FALLBACK_20261005/AFTER_SHOPPING/device-fallback.patch','sha256':'01230fa4d8351373135a0c494329b4325fbcf11d97a26bce366aecb1861190be','preimages':pre,'postimages':post}],'persistenceMode':'device-only','accountReady':False,'accountPersistenceReady':False,'releaseApproved':False,'releaseState':'public-commerce','namespace':'mmed-ir-device-v1','preserve':['default account branch','normal build production blockers','server /app gate and API authorization','engine/photo/credit/shopping custody'],'excluded':['provider/runtime/DB/OS mutations','account/nonce/subject/network persistence','media/names/free text/legacy keys','generated dist/release promotion','any other product paths'],'workerProtocol':'Immediate unchanged healthy guard before every write/commit; exact pre/postimages and patch check; one four-path scoped commit; worker stop/drain observed before Root DONE/release.','rollback':'Precommit only exact admitted four preimages under healthy guard after worker drain; postcommit separate reviewed recovery packet. No reset/clean/general checkout.','authoritySupplement':{'osHead':'fe17a4ca5572aecdc2d2761e8c2d993f7aebb8bf','decisionFile':'decisions/DR-391_ir_phase1_public_commerce_fallback.md','decisionSha256':'0ac4eace2f96ccfbc10864d7a022cba1eb0c6f9c4eeb0bb668dd342e3c532982','handoffFile':'handoffs/from_codex/IR_INTERVIEW_READY_0002/REGISTRATION_TO_CODEX.md','handoffSha256':'2251e6798c0d117d56276f1bae637f9c6864209ce2f0e1f31a8a71af9b25e00a'}}
+packet={'schema':'ir.device_fallback_source.packet.v1','sourceBASE':'341c9ad88b0c00ea0b09a0e3bbf04eeb770b89e5','writePaths':paths,'sourcePreimages':pre,'plannedSourcePostimages':post,'sharedDomains':[],'scope':'PATH:93cc7bada097a03b5163b83ecfc0d5f8fb2357c6f517b6c6f4a456acc7c155c6','objective':'Apply explicit device-only fallback on integrated shopping; no account readiness or server authorization change.','patchSequence':[{'patch':'FINISH_NOW_DEVICE_FALLBACK_20261005/PUBLIC_ONLY/device-fallback.patch','sha256':'68b3a96527019d08ee5d95326025954de2160f7c4568a07dbf47a04ad6849374','preimages':pre,'postimages':post}],'persistenceMode':'device-only','publicPath':'/interview-ready/','accountReady':False,'accountPersistenceReady':False,'releaseApproved':False,'releaseState':'public-commerce','namespace':'mmed-ir-device-v1','preserve':['default account branch','normal build production blockers','server /app gate and API authorization','engine/photo/credit/shopping custody'],'excluded':['provider/runtime/DB/OS mutations','account/nonce/subject/network persistence','media/names/free text/legacy keys','generated dist/release promotion','any other product paths'],'workerProtocol':'Immediate unchanged healthy guard before every write/commit; exact pre/postimages and patch check; one four-path scoped commit; worker stop/drain observed before Root DONE/release.','rollback':'Precommit only exact admitted four preimages under healthy guard after worker drain; postcommit separate reviewed recovery packet. No reset/clean/general checkout.','authoritySupplement':{'osHead':'fe17a4ca5572aecdc2d2761e8c2d993f7aebb8bf','decisionFile':'decisions/DR-391_ir_phase1_public_commerce_fallback.md','decisionSha256':'0ac4eace2f96ccfbc10864d7a022cba1eb0c6f9c4eeb0bb668dd342e3c532982','handoffFile':'handoffs/from_codex/IR_INTERVIEW_READY_0002/REGISTRATION_TO_CODEX.md','handoffSha256':'2251e6798c0d117d56276f1bae637f9c6864209ce2f0e1f31a8a71af9b25e00a'}}
 canonical=lambda x:json.dumps(x,sort_keys=True,separators=(',',':'),allow_nan=False).encode()
 (H/'PACKET.md').write_text('# Device fallback SOURCE typed packet\n\nDormant with exact DR391 supplemental custody; independent controls required. No account/native/production acceptance.\n\n<!-- DEVICE_SOURCE_PACKET_BEGIN -->\n'+json.dumps(packet,indent=2)+'\n<!-- DEVICE_SOURCE_PACKET_END -->\n')
 imports=old[:old.index('ROOT = ')]
@@ -32,12 +32,12 @@ SOURCE_BASE = {packet['sourceBASE']!r}
 ACCEPTED_PRODUCT = '8717ebd04ad1cd60e66ef197b55080d58492e2be'
 PATTERN_SHA = '12d4c346a879867d68965621dc90c2789899375fb010cfd8066850d4a7318953'
 SCOPE = {packet['scope']!r}
-FALLBACK_DIR = ARTIFACT_ROOT / 'FINISH_NOW_DEVICE_FALLBACK_20261005/AFTER_SHOPPING'
-FALLBACK_PATCH_SHA = '01230fa4d8351373135a0c494329b4325fbcf11d97a26bce366aecb1861190be'
-FALLBACK_TESTS_SHA = '1bed34f841c41d35a4a211e56a8d1f11b1e75cb5642820fc58c22dacfd4850df'
-FALLBACK_MANIFEST_SHA = '265d6a72bbf246ea675585eb47f26e58b4d32d01283fb25d505715e406d6e399'
-FALLBACK_RECEIPT_SHA = '1d42d6d033a9bebad0ecae28347b7414b2f6466eaa7d68c8efd9ef2d207bb785'
-FALLBACK_HANDOFF_SHA = 'fc7eb3a5f44a83c1243107589abd4f136941924e7d130952ccb0332b7ad3c50f'
+FALLBACK_DIR = ARTIFACT_ROOT / 'FINISH_NOW_DEVICE_FALLBACK_20261005/PUBLIC_ONLY'
+FALLBACK_PATCH_SHA = '68b3a96527019d08ee5d95326025954de2160f7c4568a07dbf47a04ad6849374'
+FALLBACK_TESTS_SHA = 'b058d1e02272cc3e7775a03c9b1cbef86d1c6ca6e9e9ae7ffbbe317b9c47975b'
+FALLBACK_MANIFEST_SHA = 'cb63e19462edd6fc292b7cc3fb7695bae489d4b059e968c14b642b04f007f93d'
+FALLBACK_RECEIPT_SHA = '5b9d0352c5945ebc987df60cc96fb479eb1bd7ef52d3ed43ed3f0c954a1826d6'
+FALLBACK_HANDOFF_SHA = '466cfa21cfb9f802d9b1bd28125605ccb82f1e30b4667a091d594e749f5c304f'
 PLANNED_POSTIMAGES = {post!r}
 TRANSPORT_SHA = '6bab4c948b28202b7a803228f2123d5c95137030f16eb129c427b4ddcc487cad'
 ORIGIN = 'https://github.com/brinyu13/missionmed-hq.git'
@@ -71,7 +71,7 @@ def fallback_source_evidence():
             or manifest.get('persistenceMode') != 'device-only'
             or manifest.get('gatewayStorageOwner') != 'device-only mmed-ir-device-v1'
             or receipt.get('sourceHead') != SOURCE_BASE or receipt.get('canonicalInputsBeforeAfter') != 'PASS'
-            or receipt.get('productionBuildBlocked') is not True
+            or receipt.get('productionBuildBlocked') is not True or receipt.get('publicPath') != '/interview-ready/'
             or receipt.get('renderSha256') != manifest.get('sha256')
             or phase.get('persistenceMode') != 'device-only' or phase.get('accountReady') is not False
             or phase.get('accountPersistenceReady') is not False or phase.get('releaseState') != 'public-commerce'):
@@ -122,9 +122,10 @@ def validate_approval(approval, actual, now=None):
     packet = actual.get('devicePacket', {})
     if (any(actual.get(k) != v for k,v in expected.items())
             or hashlib.sha256(canonical(packet)).hexdigest() != PACKET_SHA
+            or packet.get('publicPath') != '/interview-ready/'
             or packet.get('sourceBASE') != SOURCE_BASE or packet.get('writePaths') != PATHS
             or packet.get('sourcePreimages') != BASE_PREIMAGES or packet.get('plannedSourcePostimages') != PLANNED_POSTIMAGES
-            or packet.get('patchSequence') != [{'patch':'FINISH_NOW_DEVICE_FALLBACK_20261005/AFTER_SHOPPING/device-fallback.patch',
+            or packet.get('patchSequence') != [{'patch':'FINISH_NOW_DEVICE_FALLBACK_20261005/PUBLIC_ONLY/device-fallback.patch',
                 'sha256':FALLBACK_PATCH_SHA,'preimages':BASE_PREIMAGES,'postimages':PLANNED_POSTIMAGES}]
             or packet.get('authoritySupplement') != {'osHead':OS_HEAD,'decisionFile':SUPPLEMENT_FILE,
                 'decisionSha256':SUPPLEMENT_SHA,'handoffFile':SUPPLEMENT_HANDOFF,'handoffSha256':SUPPLEMENT_HANDOFF_SHA}

@@ -37,13 +37,13 @@ SOURCE_BASE = '341c9ad88b0c00ea0b09a0e3bbf04eeb770b89e5'
 ACCEPTED_PRODUCT = '8717ebd04ad1cd60e66ef197b55080d58492e2be'
 PATTERN_SHA = '12d4c346a879867d68965621dc90c2789899375fb010cfd8066850d4a7318953'
 SCOPE = 'PATH:93cc7bada097a03b5163b83ecfc0d5f8fb2357c6f517b6c6f4a456acc7c155c6'
-FALLBACK_DIR = ARTIFACT_ROOT / 'FINISH_NOW_DEVICE_FALLBACK_20261005/AFTER_SHOPPING'
-FALLBACK_PATCH_SHA = '01230fa4d8351373135a0c494329b4325fbcf11d97a26bce366aecb1861190be'
-FALLBACK_TESTS_SHA = '1bed34f841c41d35a4a211e56a8d1f11b1e75cb5642820fc58c22dacfd4850df'
-FALLBACK_MANIFEST_SHA = '265d6a72bbf246ea675585eb47f26e58b4d32d01283fb25d505715e406d6e399'
-FALLBACK_RECEIPT_SHA = '1d42d6d033a9bebad0ecae28347b7414b2f6466eaa7d68c8efd9ef2d207bb785'
-FALLBACK_HANDOFF_SHA = 'fc7eb3a5f44a83c1243107589abd4f136941924e7d130952ccb0332b7ad3c50f'
-PLANNED_POSTIMAGES = {'interview-ready/account.js': 'dd4f4b31ccb954add64ce30ac34ab2c98eb26de400051b99f8171c828e0c8ce7', 'interview-ready/build.py': '286a289655ab8b2754eaf0cb8d265f2cc13eeb8a5d41609f7deec6dfcb91413b', 'interview-ready/phase1.json': '84bf2ad8c3055bd8c3ab36b87377ba356b6c89e05ee707399a56e124b83bb732', 'interview-ready/phase1.js': '3c2113b145e095d41c5078aacb50cc51cc64c72f29a1326d6f55662ca1bc8418'}
+FALLBACK_DIR = ARTIFACT_ROOT / 'FINISH_NOW_DEVICE_FALLBACK_20261005/PUBLIC_ONLY'
+FALLBACK_PATCH_SHA = '68b3a96527019d08ee5d95326025954de2160f7c4568a07dbf47a04ad6849374'
+FALLBACK_TESTS_SHA = 'b058d1e02272cc3e7775a03c9b1cbef86d1c6ca6e9e9ae7ffbbe317b9c47975b'
+FALLBACK_MANIFEST_SHA = 'cb63e19462edd6fc292b7cc3fb7695bae489d4b059e968c14b642b04f007f93d'
+FALLBACK_RECEIPT_SHA = '5b9d0352c5945ebc987df60cc96fb479eb1bd7ef52d3ed43ed3f0c954a1826d6'
+FALLBACK_HANDOFF_SHA = '466cfa21cfb9f802d9b1bd28125605ccb82f1e30b4667a091d594e749f5c304f'
+PLANNED_POSTIMAGES = {'interview-ready/account.js': 'cb7462428e0334b66cc789a668a03bfb5214497bfebd9d7cef459aef132a3651', 'interview-ready/build.py': '286a289655ab8b2754eaf0cb8d265f2cc13eeb8a5d41609f7deec6dfcb91413b', 'interview-ready/phase1.json': '84bf2ad8c3055bd8c3ab36b87377ba356b6c89e05ee707399a56e124b83bb732', 'interview-ready/phase1.js': 'efca9bcf2dc3aa48ccf01aed1033567056cc8cb2156f3f93fcf33662e39a5141'}
 TRANSPORT_SHA = '6bab4c948b28202b7a803228f2123d5c95137030f16eb129c427b4ddcc487cad'
 ORIGIN = 'https://github.com/brinyu13/missionmed-hq.git'
 REF = 'refs/heads/codex/ir-interview-ready-0002-storyforge'
@@ -52,7 +52,7 @@ PATHS = ['interview-ready/account.js', 'interview-ready/build.py', 'interview-re
 BASE_PREIMAGES = {'interview-ready/account.js': '018a0e2f3706f2f5cbe64ddb8b8fb2cf2b07b640730c7b3211cbc4397b17518a', 'interview-ready/build.py': 'fa3e73e912d9c0f8c114d04f64043ab33bc6d6e21ba8d07c7e8e5e3ca13a050c', 'interview-ready/phase1.json': 'c552cc20f09a7dce76c91a22bfd507e91c6d33b78b043df9f420fdf57d1351c0', 'interview-ready/phase1.js': 'bd575317e9eba2409ebb91a59034c0ecb4274eb2510b24cdef82a753c7690a47'}
 INTERVAL = 5.0
 BUILDER = 'codex-ir-device-fallback-source-runner-builder'
-PACKET_SHA = '0198f086744d49577ad95883d1c60825c8768c0fa4307458fa1872aa467d75e1'
+PACKET_SHA = '8f6f5b2e58d49c09b7d2415f2d84b1fdd4c08b9fb98d6e8d82678b30869bb566'
 PACKET_FILE = 'PACKET.md'
 
 class Stop(RuntimeError):
@@ -154,7 +154,7 @@ def fallback_source_evidence():
             or manifest.get('persistenceMode') != 'device-only'
             or manifest.get('gatewayStorageOwner') != 'device-only mmed-ir-device-v1'
             or receipt.get('sourceHead') != SOURCE_BASE or receipt.get('canonicalInputsBeforeAfter') != 'PASS'
-            or receipt.get('productionBuildBlocked') is not True
+            or receipt.get('productionBuildBlocked') is not True or receipt.get('publicPath') != '/interview-ready/'
             or receipt.get('renderSha256') != manifest.get('sha256')
             or phase.get('persistenceMode') != 'device-only' or phase.get('accountReady') is not False
             or phase.get('accountPersistenceReady') is not False or phase.get('releaseState') != 'public-commerce'):
@@ -205,9 +205,10 @@ def validate_approval(approval, actual, now=None):
     packet = actual.get('devicePacket', {})
     if (any(actual.get(k) != v for k,v in expected.items())
             or hashlib.sha256(canonical(packet)).hexdigest() != PACKET_SHA
+            or packet.get('publicPath') != '/interview-ready/'
             or packet.get('sourceBASE') != SOURCE_BASE or packet.get('writePaths') != PATHS
             or packet.get('sourcePreimages') != BASE_PREIMAGES or packet.get('plannedSourcePostimages') != PLANNED_POSTIMAGES
-            or packet.get('patchSequence') != [{'patch':'FINISH_NOW_DEVICE_FALLBACK_20261005/AFTER_SHOPPING/device-fallback.patch',
+            or packet.get('patchSequence') != [{'patch':'FINISH_NOW_DEVICE_FALLBACK_20261005/PUBLIC_ONLY/device-fallback.patch',
                 'sha256':FALLBACK_PATCH_SHA,'preimages':BASE_PREIMAGES,'postimages':PLANNED_POSTIMAGES}]
             or packet.get('authoritySupplement') != {'osHead':OS_HEAD,'decisionFile':SUPPLEMENT_FILE,
                 'decisionSha256':SUPPLEMENT_SHA,'handoffFile':SUPPLEMENT_HANDOFF,'handoffSha256':SUPPLEMENT_HANDOFF_SHA}

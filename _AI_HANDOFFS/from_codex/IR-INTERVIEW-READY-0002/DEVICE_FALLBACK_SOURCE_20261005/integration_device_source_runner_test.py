@@ -49,7 +49,7 @@ class Focused(unittest.TestCase):
             elif mutation=='schema':a['deviceReview']['schema']='ir.shopping_source_lease.shopping_review.v1'
             else:a['deviceReview']['independentReviewer']=runner.BUILDER
             with self.assertRaises(runner.Stop):runner.validate_approval(a,self.actual,now=1000)
-        for key,val in [('patchSequence',[]),('accountReady',True),('releaseApproved',True),('namespace','ir:')]:
+        for key,val in [('patchSequence',[]),('accountReady',True),('releaseApproved',True),('namespace','ir:'),('publicPath','/interview-ready/app/')]:
             x=copy.deepcopy(self.actual);x['devicePacket'][key]=val;a=self.approval();a['contract']=x
             with self.assertRaises(runner.Stop):runner.validate_approval(a,x,now=1000)
     def test_missing_authority_is_closed_before_snapshot_or_controls(self):

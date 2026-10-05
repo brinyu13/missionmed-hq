@@ -1,0 +1,146 @@
+--- a/interview-ready/account.js
++++ b/interview-ready/account.js
+@@ -1,5 +1,70 @@
+ /* Canonical WP account adapter. Never migrate anonymous progress or persist media. */
+ const IRAccount = (() => {
++  // Explicit fallback; no account context, legacy storage or network is consumed.
++  if (typeof IRDeviceOnly !== 'undefined' && IRDeviceOnly === true && location.pathname === '/interview-ready/') {
++    const namespace='mmed-ir-device-v1:', keys=new Set(['done','auto','kit','mode']);
++    const clone=value=>JSON.parse(JSON.stringify(value));
++    let state={done:{},auto:{cam:false,mic:false,env:false},kit:[],mode:'online'}, setup=false;
++    let bindings=null, items=new Map(), ids=new Set(), attached=false, saved=false, banner=null;
++    const notice=()=>saved?'Saved on this device. Not saved to an account or synced across devices.':'Unsaved on this device. Not saved to an account or synced across devices.';
++    function show() {
++      if (banner) banner.textContent=notice();
++      document.body.dataset.irAccountState=saved?'device-saved':'device-unsaved';
++      const live=document.getElementById('saveStatus'); if(live) live.textContent=notice();
++      document.querySelectorAll('[data-kit]').forEach(button=>{
++        if(state.kit.includes(button.dataset.kit)) button.textContent=saved?'Saved on this device':'In kit · unsaved';
++      });
++    }
++    function clean(key,value) {
++      if(key==='done') return Object.fromEntries(Object.entries(value && typeof value==='object' && !Array.isArray(value)?value:{}).filter(([id,v])=>ids.has(id)&&typeof v==='boolean'));
++      if(key==='auto') return Object.fromEntries(['cam','mic','env'].map(k=>[k,value?.[k]===true]));
++      if(key==='kit') return Array.isArray(value)?[...new Set(value.filter(k=>typeof k==='string'&&items.has(k)))]:[];
++      return ['online','in-person'].includes(value)?value:'online';
++    }
++    function load() {
++      saved=true;
++      for(const key of keys) {
++        try { const raw=localStorage.getItem(namespace+key); if(raw===null) { saved=false; } else {
++          if(raw.length>65536) throw new Error('size');
++          const value=JSON.parse(raw); state[key]=clean(key,value);
++          if(JSON.stringify(state[key])!==JSON.stringify(value)) saved=false;
++        }} catch(_) { saved=false; }
++      }
++    }
++    function persist() {
++      saved=true;
++      for(const key of keys) { try { localStorage.setItem(namespace+key,JSON.stringify(state[key])); } catch(_) { saved=false; } }
++      show(); queueMicrotask(show);
++    }
++    const store={
++      get(key,fallback) {
++        if(!keys.has(key)) return fallback;
++        if(key==='kit') return state.kit.map(k=>items.get(k)).filter(Boolean).map(i=>({key:i.key,name:i.name,tier:i.t,cat:i.category,group:i.group}));
++        if(key==='auto') return {...state.auto,setup};
++        return clone(state[key]);
++      },
++      set(key,value) {
++        if(!attached||!keys.has(key)) return;
++        if(key==='kit') state.kit=clean(key,Array.isArray(value)?value.map(i=>i?.key):[]);
++        else if(key==='auto') { setup=value?.setup===true; state.auto=clean(key,value); }
++        else { state[key]=clean(key,value); if(key==='done'&&!Object.keys(state.done).length) { state.auto={cam:false,mic:false,env:false};setup=false; } }
++        persist();
++      }
++    };
++    function attach(hooks) {
++      bindings=hooks;
++      for(const [group,categories] of Object.entries(hooks.catalog)) for(const c of categories) for(const i of c.items) items.set(i.key,{...i,group,category:c.name});
++      for(const [mode,phases] of Object.entries(hooks.checklist)) phases.forEach(([,rows],p)=>rows.forEach((_,i)=>ids.add(`${mode}:${p}:${i}`)));
++      attached=true;load();hooks.mode(state.mode);
++      banner=document.createElement('div');banner.className='editorial-note';banner.setAttribute('role','status');
++      document.querySelector('.topbar').insertAdjacentElement('afterend',banner);
++      document.querySelectorAll('#page-checklist > .lede,#page-kit > .lede').forEach(p=>p.textContent='Your checklist and kit stay on this device. No account or cross-device sync.');
++      document.getElementById('clReset').onclick=()=>{if(confirm('Clear checklist progress on this device?')) {store.set('done',{});hooks.render();}};
++      document.documentElement.dataset.irPersonal='ready';hooks.render();show();hooks.runRoute();
++      document.addEventListener('click',e=>{if(e.target.closest('[data-kit],[data-remove-kit]')) queueMicrotask(show);});
++    }
++    return {store,attach,kitLabel:()=>saved?'Saved on this device':'In kit · unsaved'};
++  }
+   const context = /* MMED_IR_ACCOUNT_CONTEXT */ null;
+   const acceptedKeys = new Set(/* MMED_IR_KIT_KEYS */ []);
+   const personal = new Set(['done','auto','kit','mode']);
+--- a/interview-ready/build.py
++++ b/interview-ready/build.py
+@@ -15,6 +15,9 @@
+     input_data = {name:fixed_bytes(name) for name in inputs}
+     before = {name:hashlib.sha256(value).hexdigest() for name,value in input_data.items()}
+     phase1 = json.loads(input_data['phase1.json'])
++    device_only = phase1.get('persistenceMode') == 'device-only'
++    if device_only and (phase1.get('accountPersistenceReady') is not False or phase1.get('accountReady') is not False):
++        raise ValueError('Device-only fallback cannot claim account readiness')
+     if production:
+         blockers = []
+         if phase1['releaseState'] != 'production-approved': blockers.append('protected release acceptance has not been recorded')
+@@ -103,7 +106,7 @@
+     assert account.count('/* MMED_IR_ACCOUNT_CONTEXT */ null') == 1
+     account = account.replace('/* MMED_IR_KIT_KEYS */ []', js(account_keys))
+     privacy_css = "html[data-ir-personal='blocked'] #page-checklist,html[data-ir-personal='blocked'] #page-kit,html[data-ir-personal='blocked'] #kitCountRail {visibility:hidden} html[data-ir-personal='blocked'] [data-kit],html[data-ir-personal='blocked'] [data-remove-kit] {visibility:hidden}"
+-    source = source.replace('</head>', '<style>'+privacy_css+'</style><script>document.documentElement.dataset.irPersonal=\"blocked\";\n'+account+'</script></head>')
++    source = source.replace('</head>', '<style>'+privacy_css+'</style><script>document.documentElement.dataset.irPersonal=\"blocked\";\n'+'const IRDeviceOnly = '+js(device_only)+';\n'+account+'</script></head>')
+     source = source.replace("connect-src 'none'", "connect-src 'self'")
+     attach = "\nIRAccount.attach({catalog:CATALOG,checklist:CHECKLIST,mode:value=>{mode=value;},reset:()=>{mode='online';},render:()=>{renderChecklist();renderKitCount();renderKit();document.querySelectorAll('[data-kit]').forEach(b=>{const saved=kit.has(b.dataset.kit);b.textContent=saved?IRAccount.kitLabel():'Save to kit';b.setAttribute('aria-pressed',saved);});},route,wrapRoute:fn=>{route=fn;},runRoute:()=>route()});"
+     scripts = '<script>const ASSET = '+js(assets)+'; const RESEARCH = '+js(research)+'; const FASHION = '+js(fashion)+'; const PHASE1 = '+js(phase1)+';\n'+editorial+'\n'+completion+'\n'+input_data['phase1.js'].decode()+attach+'</script>'
+@@ -133,7 +136,9 @@
+     manifest = {'sha256':hashlib.sha256(out.read_bytes()).hexdigest(),'bytes':out.stat().st_size,
+                 'assetProfile':asset_profile, 'releaseApproved':production,
+                 'accountContextMarker':'/* MMED_IR_ACCOUNT_CONTEXT */ null',
+-                'gatewayStorageOwner':'WP self-only _mmed_ir_state_v1',
++                'gatewayStorageOwner':'device-only mmed-ir-device-v1' if device_only else 'WP self-only _mmed_ir_state_v1',
++                'persistenceMode':'device-only' if device_only else 'account',
++                'accountReady':False if device_only else phase1.get('accountPersistenceReady', False),
+                 'fixedArtifacts':{name:{'sha256':hashlib.sha256(value.encode()).hexdigest(),'bytes':len(value.encode())} for name,value in fixed.items()},
+                 'embeddedAssets':{path:hashlib.sha256((ROOT/path).read_bytes()).hexdigest() for path in paths},
+                 'inputs':before}
+--- a/interview-ready/phase1.json
++++ b/interview-ready/phase1.json
+@@ -1,8 +1,8 @@
+ {
+   "schema": "missionmed.interview-ready.phase1.v1",
+-  "releaseState": "founder-preview",
++  "releaseState": "public-commerce",
+   "publicGuide": true,
+-  "personalToolsRequireAccount": true,
++  "personalToolsRequireAccount": false,
+   "accountPersistenceReady": false,
+   "enabledRoutes": [
+     "home",
+@@ -45,10 +45,12 @@
+     "approvalEvidence": null
+   },
+   "builderImplementation": {
+-    "accountSource": "independently-reviewed; native acceptance pending",
++    "accountSource": "device-only fallback; account acceptance deferred",
+     "matrixDiscovery": "dedicated addon candidate; shared selection unchanged",
+     "mediaTreatment": "approved allowlist plus information-only products",
+     "releasePackaging": "local immutable candidate only",
+     "productionAcceptance": "blocked pending independent release and native/live gates"
+-  }
++  },
++  "persistenceMode": "device-only",
++  "accountReady": false
+ }
+--- a/interview-ready/phase1.js
++++ b/interview-ready/phase1.js
+@@ -75,8 +75,8 @@
+ const licensedPhotos = allItems().filter(i=>i.imageCredit);
+ main.insertAdjacentHTML('beforeend',`<details class="photo-credits"><summary>Product photography credits</summary>${licensedPhotos.map(i=>`<p><b>${esc(i.name)}</b> — ${external(i.imageCredit.source,esc(i.imageCredit.author))} · ${external(i.imageCredit.licenseUrl,esc(i.imageCredit.license))}. ${esc(i.imageCredit.changes)}. No endorsement implied.</p>`).join('')}</details>`);
+ CHECKLIST.online[0][1][5][1]='Rehearse your complete outfit while seated. Check camera contrast and comfort; hang it ready for the morning.';
+-if (!PHASE1.accountPersistenceReady) {
+-  document.querySelectorAll('#page-checklist > .lede,#page-kit > .lede').forEach(p=>p.textContent='Founder preview: progress is saved only on this device. MissionMed account sync is not connected yet.');
++if (PHASE1.persistenceMode === 'device-only' && location.pathname === '/interview-ready/') {
++  document.querySelectorAll('#page-checklist > .lede,#page-kit > .lede').forEach(p=>p.textContent='Your checklist and kit stay on this device. No account or cross-device sync.');
+ }
+ document.body.dataset.releaseState = PHASE1.releaseState;
+ route();
