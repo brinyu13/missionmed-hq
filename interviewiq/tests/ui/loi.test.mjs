@@ -7,7 +7,7 @@ function setup(initial=workspace(),reply){const dom=new JSDOM(html,{url:'https:/
 const el={dataset:{id}};
 function input(x,k,value){const field=x.w.document.getElementById('loi-'+k+'-'+id);assert.ok(field,k);if(field.type==='checkbox')field.checked=value;else field.value=value;field.dispatchEvent(new x.w.Event('input',{bubbles:true}));return field;}
 test('owned attached section, escaped private history and signed capability gates',()=>{const b=workspace();b.state.loi[id].current.text='<img src=x onerror=alert(1)>';b.state.loi[id].history=[b.state.loi[id].current];const x=setup(b);try{assert.equal(x.h.coreSection('loi'),true);assert.equal(x.h.coreCommand('loi.mark_sent'),true);assert.equal(x.w.document.querySelector('img[src=x]'),null);assert.match(x.w.document.getElementById('loi-text-'+id).value,/<img/);x.h.applyBootstrap(workspace('draft','admin'));assert.equal(x.h.coreSection('loi'),false);assert.match(x.h.renderLoi(x.h.getS().interviews[0]),/unavailable/);assert.equal(x.w.localStorage.length,0);}finally{x.close();}});
-test('supported evidence/build/save/approve follow server contract, no invented actor or send',async()=>{const x=setup(workspace(),body=>body.command==='loi.evidence'?{type:'loi_evidence',program:{name:'Example Program'},research:{facts:[{field:'curriculum',claimRef:'rise-claim:'+'a'.repeat(64),value:'Supported detail',retrievedAt:'2026-10-04T00:00:00Z',sources:[]}]}}:{bootstrap:workspace()});try{await x.h.A['loi-evidence'](el);input(x,'factual',true);input(x,'specific',true);input(x,'evidence-0',true);x.h.A['loi-build'](el);assert.match(x.w.document.getElementById('loi-text-'+id).value,/Example Program/);await x.h.A['loi-save'](el);const data=x.calls.find(c=>c.body?.command==='loi.save').body.data;assert.equal(data.facts.length,0);assert.equal(data.motivations[0].confirmed,true);assert.equal(data.selectedEvidence[0].field,'curriculum');assert.equal('actor'in data,false);await x.h.A['loi-approve'](el);assert.equal(x.calls.filter(c=>c.body?.command==='loi.approve').length,1);assert.equal(x.opened.length,0);}finally{x.close();}});
+test('supported evidence/build/save/approve follow server contract, no invented actor or send',async()=>{const x=setup(workspace(),body=>body.command==='loi.evidence'?{type:'loi_evidence',program:{name:'Example Program'},research:{facts:[{field:'curriculum',state:'SUPPORTED',claimRef:'rise-claim:'+'a'.repeat(64),value:'Supported detail',retrievedAt:'2026-10-04T00:00:00Z',sources:[]}]}}:{bootstrap:workspace()});try{await x.h.A['loi-evidence'](el);input(x,'factual',true);input(x,'specific',true);input(x,'evidence-0',true);x.h.A['loi-build'](el);assert.match(x.w.document.getElementById('loi-text-'+id).value,/Example Program/);await x.h.A['loi-save'](el);const data=x.calls.find(c=>c.body?.command==='loi.save').body.data;assert.equal(data.facts.length,0);assert.equal(data.motivations[0].confirmed,true);assert.equal(data.selectedEvidence[0].field,'curriculum');assert.equal('actor'in data,false);await x.h.A['loi-approve'](el);assert.equal(x.calls.filter(c=>c.body?.command==='loi.approve').length,1);assert.equal(x.opened.length,0);}finally{x.close();}});
 test('conflict retains unsaved text and actor switch clears evidence/draft/outreach memory',async()=>{const x=setup(workspace(),body=>body.command==='loi.save'?{error:{message:'Conflict'}}:null);try{input(x,'text','Unsaved student words');await assert.rejects(x.h.A['loi-save'](el),/typed draft is kept/);assert.equal(x.w.document.getElementById('loi-text-'+id).value,'Unsaved student words');await assert.rejects(Promise.resolve().then(()=>x.h.A['loi-approve'](el)),/Save your latest/);for(const m of x.h.maps())m.set('private','words');const b=workspace();b.actor.id='another-owner';b.state.interviews=[];b.state.loi={};x.h.applyBootstrap(b);assert.ok(x.h.maps().every(m=>m.size===0));}finally{x.close();}});
 test('server compose handoff opens only explicit click; manual copy and self report persist honestly',async()=>{const recipient='program@example.org',subject='Student letter',text=head().text,gmailUrl='https://mail.google.com/mail/?'+new URLSearchParams({view:'cm',fs:'1',to:recipient,su:subject,body:text}),handoff={handoffId:'66666666-6666-4666-8666-666666666666',recipient,subject,text,gmailUrl,mailtoUrl:'mailto:'+recipient+'?subject=Student%20letter&body='+encodeURIComponent(text)};const b=workspace('approved'),x=setup(b,body=>{if(body.command==='loi.handoff')return{bootstrap:b,handoff};if(body.command==='loi.mark_sent'){const after=workspace('approved');after.state.loi[id].history.push({state:'self_reported_sent',recordedAt:'2026-10-04T00:00:00Z'});return{bootstrap:after};}return{bootstrap:b};});try{input(x,'recipient',recipient);input(x,'subject',subject);input(x,'recipientConfirmed',true);await x.h.A['loi-handoff'](el);assert.equal(x.opened.length,0);x.h.A['loi-gmail'](el);assert.equal(x.opened[0][2],'noopener,noreferrer');assert.equal(new URL(x.opened[0][0]).searchParams.get('body'),text);await x.h.A['loi-copy'](el);assert.equal(x.w.document.activeElement.id,'loi-copyText-'+id);input(x,'sentConfirmed',true);await x.h.A['loi-mark-sent'](el);assert.match(x.w.document.body.textContent,/self_reported_sent/);assert.equal(x.calls.filter(c=>c.body?.command==='loi.mark_sent').length,1);assert.throws(()=>x.h.loiExternalURL('javascript:alert(1)','gmail'));input(x,'text','Edited after approval');assert.throws(()=>x.h.A['loi-gmail'](el),/Save and approve/);}finally{x.close();}});
 
@@ -91,5 +91,40 @@ test('registry labels escape metadata and omit absent labels in selected and edi
   await x.h.A['open-section']({dataset:{id,section:'schedule'}});assert.match(x.w.document.getElementById('of-program').textContent,/Internal <Medicine> · ACGME 1401611122/);assert.equal(x.w.document.querySelector('Medicine'),null);
   x.h.getF().programs=[{id:program,name:'Old four-field program',track:'',registryReleaseId:'old-release'}];
   assert.match(x.h.renderIdentify(i),/Old four-field program/);assert.doesNotMatch(x.h.renderIdentify(i),/undefined|null|ACGME|Categorical/);
+ }finally{x.close();}
+});
+
+
+test('LOI Build refuses absent and unsupported canonical evidence without replacing manual draft',async()=>{
+ for(const state of [null,'UNKNOWN','STALE','CONFLICTED']){
+  const b=workspace(),facts=state?[{field:'curriculum',state,claimRef:'rise-claim:'+'a'.repeat(64),value:'UNSUPPORTED_MUST_NOT_ASSEMBLE',sources:[]}]:[];
+  const x=setup(b,body=>body.command==='loi.evidence'?{type:'loi_evidence',program:{name:'Example Program'},research:{facts,coverage:{fields:[{field:'curriculum',state:state||'UNKNOWN',reason:'No current permitted source'}]}}}:{bootstrap:b});
+  try{
+   await x.h.A['loi-evidence'](el);input(x,'text','My manually written pending draft');input(x,'factual',true);
+   assert.match(x.w.document.body.textContent,/RESEARCH NEEDED/);assert.match(x.w.document.body.textContent,/curriculum.*No current permitted source/);
+   assert.equal(x.w.document.getElementById('loi-evidence-0-'+id),null);
+   // Even a stale checked control cannot turn an unsupported canonical fact into build evidence.
+   if(state){const fake=x.w.document.createElement('input');fake.type='checkbox';fake.id='loi-evidence-0-'+id;fake.checked=true;x.w.document.body.append(fake);}
+   assert.throws(()=>x.h.A['loi-build'](el),/RESEARCH NEEDED/);
+   assert.equal(x.w.document.getElementById('loi-text-'+id).value,'My manually written pending draft');
+   assert.equal(x.calls.filter(c=>c.body?.command==='loi.save').length,0);
+   x.w.document.getElementById('loi-evidence-0-'+id)?.remove();
+   await x.h.A['loi-save'](el);const saved=x.calls.find(c=>c.body?.command==='loi.save').body.data;
+   assert.equal(saved.text,'My manually written pending draft');assert.equal(saved.selectedEvidence.length,0);
+  }finally{x.close();}
+ }
+});
+test('LOI Build requires a selected supported claim and preserves approved history',async()=>{
+ const b=workspace('approved'),before=JSON.stringify(b.state.loi[id].history),x=setup(b,()=>({type:'loi_evidence',program:{name:'Example Program'},research:{facts:[{field:'curriculum',state:'SUPPORTED',claimRef:'rise-claim:'+'a'.repeat(64),value:'Current supported curriculum',sources:[]}]}}));
+ try{
+  assert.match(x.w.document.body.textContent,/RESEARCH NEEDED.*Read current evidence/);
+  await x.h.A['loi-evidence'](el);input(x,'factual',true);input(x,'evidence-0',false);
+  const text=x.w.document.getElementById('loi-text-'+id).value;
+  assert.throws(()=>x.h.A['loi-build'](el),/Select at least one current supported canonical/);
+  assert.equal(x.w.document.getElementById('loi-text-'+id).value,text);
+  input(x,'evidence-0',true);x.h.A['loi-build'](el);
+  assert.match(x.w.document.getElementById('loi-text-'+id).value,/Current supported curriculum/);
+  assert.equal(JSON.stringify(x.h.getS().loi[id].history),before);
+  assert.equal(x.calls.filter(c=>c.body?.command&&c.body.command!=='loi.evidence').length,0);
  }finally{x.close();}
 });
