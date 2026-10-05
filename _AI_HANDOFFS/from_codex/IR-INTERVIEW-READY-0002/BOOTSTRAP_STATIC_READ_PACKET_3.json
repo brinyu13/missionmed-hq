@@ -1,0 +1,26 @@
+{
+  "actor": "/root",
+  "admittedUnix": 1791163811.278495,
+  "independentReviewer": "/root/phase1_release_verifier",
+  "ioSeconds": 10,
+  "noBootstrap": true,
+  "noSemanticApproval": true,
+  "osHead": "bc1d36fcb9f7bdda4bcd4ba507078b7787d802a2",
+  "outputCap": 8388608,
+  "pins": {
+    "BOOTSTRAP_INSTALLED_TOKENIZER_METADATA_READBACK_1.json": "81972c8b4fb99550f4f4ac6dde528c21a4f7f2df0bb548b56d0edc8e6e96590f",
+    "BOOTSTRAP_SEMANTIC_READER_DELTA_REVIEW.md": "130b61b2ca3b446e1f864fd57c30505aac68e7848fe794b2aa5550f59d14175d",
+    "BOOTSTRAP_STATIC_READER_HANDOFF.md": "a583ee1c51f34c251fab612fecae91eaa690e9dede7bc3c1bb30045b0ca731c5",
+    "BOOTSTRAP_STATIC_SEED_METADATA_20261004.json": "91f8956cb0d43fe7b6e82fb55bb12f92fcfcf12879a11d64b30e92f6c604f5ef",
+    "BOOTSTRAP_STATIC_SOURCE_READBACK_2.json": "835b9ea5ec7b7a95e8c71588df75f451ce25f8e0a2bdf6e6256141fcf0379ce8",
+    "bootstrap_static_reader.py": "fa2e47448d759407380ba2a4b15371624e4f7d0d61510d42cd295f2ede23c916",
+    "bootstrap_static_reader_tests.py": "11179d73368e532ce7cb00d4a90fa3c9f2aca4df8a52d0e9b1b024d4cefd2bd0",
+    "native_account_qa.py": "c84bc76264749e732e0e2555d942d64086a18cf625dd8f5006c529d32977e8f1"
+  },
+  "programSha256": "8d564dca867d27bf1c6570f869d9fdf0314ed696e4803519a213125d02a5303f",
+  "readOnly": true,
+  "reapSeconds": 2,
+  "schema": "ir.foreman.static_read_packet.v1",
+  "scope": "same actual pinned76 source roles/bytes/SHA; contextual public code only; six ABSENT; qualified installed tokenizer only; no include adoption",
+  "sourceHead": "8cf5f9f4284d23d0a1204fdfa86833341bf35bad"
+}
