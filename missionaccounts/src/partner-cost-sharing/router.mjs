@@ -6,9 +6,10 @@ import { allocateExpenses, LABELS, PARTNERS, statementCsv } from './domain.mjs';
 import { RECOVERED_EXPENSES, EXCLUDED_CLAIMS } from './recovered-data.mjs';
 import { partnerStatement, statementToCsv, annualSummary } from './statements.mjs';
 import { invoicePackage } from './archive.mjs';
-import { projectAccountingReview, accountingReviewCsv } from './accounting-review.mjs';
+import { buildAccountingReview, projectAccountingReview, accountingReviewCsv } from './accounting-review.mjs';
 
 const prefix = '/api/partner-cost-sharing';
+function bytesForOriginal(asset,suffix){if(suffix==='/preview'){if(!asset.previewBytes)deny('Private preview unavailable',404);return asset.previewBytes;}return asset.bytes;}
 const allocation = allocateExpenses(RECOVERED_EXPENSES);
 function deny(message, status = 403) { throw Object.assign(new Error(message), { status }); }
 function json(response, status, body) {
@@ -19,6 +20,14 @@ export function createPartnerCostRouter({ config, authenticate, memberStore = nu
   const settings = config.partnerCostSharing || {};
   if(settings.accountingReview&&!settings.prototype)throw new Error('Private accounting workpapers require the isolated local prototype');
   if (settings.prototype && (config.production || !config.localAuth)) throw new Error('Partner prototype requires isolated nonproduction local authentication');
+  const draftReadOnly=settings.readOnly===true;
+  async function reviewFor(actor){
+    if(settings.prototype)return settings.accountingReview||null;
+    if(!draftReadOnly)return null;
+    if(!memberStore?.accountingReview)deny('Private accounting review unavailable',503);
+    const input=await memberStore.accountingReview(actor);if(!input)deny('Private accounting review unavailable',503);
+    try{return buildAccountingReview(input);}catch{deny('Private accounting review custody invalid',503);}
+  }
   const claims = new Map();
   const keys = new Map();
   async function member(request) {
@@ -34,7 +43,7 @@ export function createPartnerCostRouter({ config, authenticate, memberStore = nu
     const binding = await memberStore?.memberForPrincipal(identity.userId, identity.wpUserId);
     if (!binding || binding.active !== true || !PARTNERS.includes(binding.key)) deny('Partner membership is not active',404);
     if (settings.brianOnly === true && binding.key !== 'brian') deny('Partner acceptance is not enabled',404);
-    return { key: binding.key, name: LABELS[binding.key], admin: binding.key === 'brian', prototype: false, principalId:identity.userId,wpUserId:identity.wpUserId };
+    return { key: binding.key, name: LABELS[binding.key], admin: binding.key === 'brian', prototype: false, bound:true, principalId:identity.userId,wpUserId:identity.wpUserId };
   }
   function projection(actor) {
     const ownPayments = actor.key === 'drj' ? [{ date: '2026-05-09', amountCents: 89300, state: 'FOUNDER_ATTESTED_UNMATCHED', evidence: 'Original Chase evidence and obligation matching pending' }]
@@ -64,12 +73,13 @@ export function createPartnerCostRouter({ config, authenticate, memberStore = nu
   }
   async function bootstrap(actor) {
     const result=projection(actor);
-    if(settings.accountingReview){
-      result.accountingReview=projectAccountingReview(settings.accountingReview,actor);
+    const review=await reviewFor(actor);
+    if(review){
+      result.accountingReview=projectAccountingReview(review,actor);
       result.ownPayments=result.accountingReview.contributions.filter(r=>r.partner===actor.key).map(r=>({date:r.receivedAt,amountCents:r.amountCents,state:r.state}));
       if(actor.admin)result.admin.payments=result.accountingReview.contributions.map(r=>({partner:LABELS[r.partner],date:r.receivedAt,amountCents:r.amountCents,state:r.state}));
     }
-    if(memberStore?.view){
+    if(memberStore?.view&&!draftReadOnly){
       const ledger=await memberStore.view(actor);
       result.ledger=ledger;result.certified=ledger.certified;result.currentBalanceCents=ledger.currentBalanceCents;
       result.balanceStatus=ledger.certified?'Certified ledger':'Historical reconciliation pending';
@@ -92,13 +102,13 @@ export function createPartnerCostRouter({ config, authenticate, memberStore = nu
     const routePath = url.pathname.slice(prefix.length) || '/';
     if (request.method === 'GET' && routePath === '/bootstrap') { json(response, 200, await bootstrap(actor)); return true; }
     if(request.method==='GET'&&routePath==='/accounting-review-export'){
-      if(!settings.accountingReview)deny('Private accounting review unavailable',404);
-      const view=projectAccountingReview(settings.accountingReview,actor);
+      const review=await reviewFor(actor);if(!review)deny('Private accounting review unavailable',404);
+      const view=projectAccountingReview(review,actor);
       json(response,200,{csv:accountingReviewCsv(view,actor.key),filename:'partner-'+actor.key+'-accounting-review-DRAFT.csv'});return true;
     }
     if(request.method==='GET'&&routePath==='/accounting-review.csv'){
-      if(!settings.accountingReview)deny('Private accounting review unavailable',404);
-      const view=projectAccountingReview(settings.accountingReview,actor);
+      const review=await reviewFor(actor);if(!review)deny('Private accounting review unavailable',404);
+      const view=projectAccountingReview(review,actor);
       response.writeHead(200,{'content-type':'text/csv; charset=utf-8','content-disposition':'attachment; filename="partner-'+actor.key+'-accounting-review-DRAFT.csv"','cache-control':'no-store, private',vary:'Authorization, Cookie','x-content-type-options':'nosniff'});
       response.end(accountingReviewCsv(view,actor.key));return true;
     }
@@ -111,6 +121,7 @@ export function createPartnerCostRouter({ config, authenticate, memberStore = nu
       response.writeHead(200, { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="partner-historical-evidence-DRAFT.csv"', 'cache-control': 'no-store, private', vary: 'Authorization, Cookie', 'x-content-type-options': 'nosniff' }); response.end(csv); return true;
     }
     if (request.method === 'GET' && routePath === '/statement-export') {
+      if(draftReadOnly&&(url.searchParams.has('start')||url.searchParams.has('year')))deny('Dated certified statements are unavailable during draft review',409);
       if(url.searchParams.has('start')||url.searchParams.has('year')){
         if(!memberStore?.view)deny('Certified journal is unavailable',503);
         const view=await memberStore.view(actor),record=url.searchParams.has('year')?annualSummary(view,Number(url.searchParams.get('year'))):partnerStatement(view,{start:url.searchParams.get('start'),end:url.searchParams.get('end')});
@@ -120,6 +131,7 @@ export function createPartnerCostRouter({ config, authenticate, memberStore = nu
     }
     const command=routePath.match(/^\/commands\/(ingest|reviewExpense|certifyPeriod|reportSent|verifyPayment|adjustment|applySettlement|consent|method)$/);
     if(request.method==='GET'&&routePath==='/invoice-package'){
+      if(draftReadOnly)deny('Certified invoice packages are unavailable during draft review',409);
       if(!memberStore?.view)deny('Partner journal is unavailable',503);
       const record=partnerStatement(await memberStore.view(actor),{start:url.searchParams.get('start'),end:url.searchParams.get('end')});
       const packageRecord=await invoicePackage(record,async id=>{
@@ -131,7 +143,7 @@ export function createPartnerCostRouter({ config, authenticate, memberStore = nu
       json(response,200,packageRecord);return true;
     }
     if(request.method==='POST'&&command){
-      if(settings.accountingReview)deny('Real accounting workpapers are read-only; review does not certify or settle the journal',409);
+      if(draftReadOnly||settings.accountingReview)deny('Real accounting workpapers are read-only; review does not certify or settle the journal',409);
       if(!memberStore?.execute)deny('Partner journal is unavailable',503);
       const requestId=mutationGuard(request),payload=await readJsonBody(request,{limitBytes:32768});
       if(!payload||typeof payload!=='object'||Array.isArray(payload))deny('Partner command requires an object',400);
@@ -151,6 +163,17 @@ export function createPartnerCostRouter({ config, authenticate, memberStore = nu
     }
     const invoice = routePath.match(/^\/invoices\/([a-z0-9-]+)(\/(?:preview|document))?$/);
     if (request.method === 'GET' && invoice) {
+      if(!settings.prototype&&draftReadOnly){
+        if(!memberStore?.readReviewOriginal)deny('Private original unavailable',404);
+        const review=await reviewFor(actor),row=review.rows.find(r=>r.id===invoice[1]),historical=RECOVERED_EXPENSES.find(r=>r.id===invoice[1]);
+        if(row&&!projectAccountingReview(review,actor).rows.some(r=>r.id===invoice[1]))deny('Private original unavailable',404);
+        const expectedHash=row?.originalSha256||(!row?historical?.sha256:null);if(!expectedHash)deny('Private original unavailable',404);
+        const asset=await memberStore.readReviewOriginal(actor,invoice[1]);
+        if(asset.sha256!==expectedHash)deny('Private original differs from current review custody',409);
+        if(invoice[2]==='/document')json(response,200,{originalBase64:asset.bytes.toString('base64'),previewBase64:asset.previewBytes?.toString('base64')||(['image/png','image/jpeg'].includes(asset.type)?asset.bytes.toString('base64'):null),previewType:asset.previewBytes?'image/png':asset.type,originalType:asset.type,sha256:asset.sha256,filename:asset.filename});
+        else{const bytes=bytesForOriginal(asset,invoice[2]);response.writeHead(200,{'content-type':invoice[2]==='/preview'?'image/png':asset.type,'content-disposition':`attachment; filename="${asset.filename}"`,'cache-control':'no-store, private',vary:'Authorization, Cookie','x-content-type-options':'nosniff','content-security-policy':"default-src 'none'; sandbox"});response.end(bytes);}
+        return true;
+      }
       if(settings.accountingReview?.rows.some(r=>r.id===invoice[1])&&!projectAccountingReview(settings.accountingReview,actor).rows.some(r=>r.id===invoice[1]))deny('Private review original unavailable',404);
       const reviewAsset=settings.prototype&&settings.accountingReview?.rows.some(r=>r.id===invoice[1])?settings.accountingAssets?.[invoice[1]]:null;
       if(reviewAsset){

@@ -15,6 +15,7 @@ test('cutoff alternatives share one census, flag boundary uncertainty and alloca
 });
 test('review rejects duplicate invoices, fractional/future paid amounts, private fields and unreconciled vendor payments',()=>{
  let f=fixture();f.rows=[row('duplicate'),row('duplicate')];assert.throws(()=>buildAccountingReview(f),/Duplicate/);
+ f=fixture();f.rows=[row('same-id'),row('same-id',{vendor:'Other vendor',invoiceNumber:'other-invoice'})];assert.throws(()=>buildAccountingReview(f),/Duplicate review row identity/);
  for(const changes of [{amountCents:1.5},{recordedAt:'2026-10-23'},{sourceUrl:'https://private.invalid'},{invoiceNumber:'../../private'},{evidenceKind:'ORIGINAL_HASHED'},{periodStart:'2026-08-25',periodEnd:'2026-08-24'}]){f=fixture();f.rows=[row('bad',changes)];assert.throws(()=>buildAccountingReview(f));}
  f=fixture();f.workspace.totalPaymentsCents=0;assert.throws(()=>buildAccountingReview(f),/do not reconcile/);
 });
@@ -26,4 +27,28 @@ test('HTTP review bootstrap and CSV are own-only, private, read-only and disable
  const route=createPartnerCostRouter({config:{localAuth:true,production:false,partnerCostSharing:{enabled:true,prototype:true,accountingReview:r}},authenticate:()=>null});
  const server=createServer(async(req,res)=>{try{if(!await route(req,res,new URL(req.url,'http://fixture'))){res.writeHead(404);res.end();}}catch(e){res.writeHead(e.status||500);res.end();}});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const url='http://127.0.0.1:'+server.address().port+'/api/partner-cost-sharing/';
  try{for(const key of ['drj','phil']){const headers={cookie:'pcs_prototype_lens='+key};const response=await fetch(url+'bootstrap',{headers});const v=await response.json();assert.equal(response.headers.get('cache-control'),'no-store, private');assert.equal(v.currentBalanceCents,null);assert.deepEqual(v.accountingReview.contributions.map(x=>x.partner),[key]);const exported=await fetch(url+'accounting-review-export',{headers});const csv=(await exported.json()).csv;assert.ok(!csv.includes(key==='drj'?'Phil':'Dr J'));assert.match(csv,/UNKNOWN/);}const posted=await fetch(url+'accounting-review-export',{method:'POST'});assert.equal(posted.status,404);assert.equal(r.certified,false);}finally{await new Promise(resolve=>server.close(resolve));}
+});
+
+test('production private draft uses signed exact membership, ignores prototype cookies, redacts own exports and holds every command',async()=>{
+ const f=fixture();f.rows=[row('shared'),row('pending',{purpose:'PENDING'})];
+ const identities={brian:{userId:'10000000-0000-4000-8000-000000000001',wpUserId:101},drj:{userId:'10000000-0000-4000-8000-000000000002',wpUserId:102},phil:{userId:'10000000-0000-4000-8000-000000000003',wpUserId:103},other:{userId:'10000000-0000-4000-8000-000000000004',wpUserId:104}};
+ let executeCount=0,missing=false,originalReads=0;
+ const memberStore={memberForPrincipal:async(p,w)=>{const key=Object.keys(identities).find(k=>k!=='other'&&identities[k].userId===p&&identities[k].wpUserId===w);return key?{key,active:true}:null;},accountingReview:async()=>missing?null:f,readReviewOriginal:async()=>{originalReads++;return {bytes:Buffer.from('fixture'),sha256:'b'.repeat(64),type:'application/pdf',filename:'fixture.pdf'};},view:()=>{throw Error('Draft must not consult certified journal');},execute:()=>{executeCount++;}};
+ const settings={enabled:true,prototype:false,readOnly:true,brianOnly:false};
+ const route=createPartnerCostRouter({config:{production:true,partnerCostSharing:settings},authenticate:async req=>{const key=String(req.headers.authorization||'').replace('Bearer ','');if(!identities[key])throw Object.assign(Error('Authentication required'),{status:401});return identities[key];},memberStore});
+ const server=createServer(async(req,res)=>{try{if(!await route(req,res,new URL(req.url,'http://fixture'))){res.writeHead(404);res.end();}}catch(e){res.writeHead(e.status||500);res.end();}});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const url='http://127.0.0.1:'+server.address().port+'/api/partner-cost-sharing/';
+ try{
+  assert.equal((await fetch(url+'bootstrap',{headers:{cookie:'pcs_prototype_lens=brian'}})).status,401);
+  assert.equal((await fetch(url+'bootstrap',{headers:{authorization:'Bearer other',cookie:'pcs_prototype_lens=brian'}})).status,404);
+  for(const key of ['brian','drj','phil']){const headers={authorization:'Bearer '+key,cookie:'pcs_prototype_lens=brian'};const response=await fetch(url+'bootstrap',{headers});assert.equal(response.status,200);assert.equal(response.headers.get('cache-control'),'no-store, private');const v=await response.json();assert.equal(v.partner.key,key);assert.equal(v.prototype,false);assert.equal(v.certified,false);assert.equal(v.currentBalanceCents,null);assert.equal(v.accountingReview.collectionEnabled,false);assert.equal(v.accountingReview.rows.length,key==='brian'?2:1);assert.equal(v.ledger,undefined);if(key!=='brian'){assert.deepEqual(v.accountingReview.contributions.map(p=>p.partner),[key]);assert.equal(v.accountingReview.rows[0].evidenceSha256,undefined);assert.equal((await fetch(url+'admin',{headers})).status,403);}const csv=(await (await fetch(url+'accounting-review-export',{headers})).json()).csv;assert.match(csv,/UNKNOWN/);if(key!=='brian')assert.ok(!csv.includes(key==='drj'?'Phil':'Dr J'));}
+  let headers={authorization:'Bearer drj'};
+  assert.equal((await fetch(url+'invoices/pending/document',{headers})).status,404);assert.equal((await fetch(url+'invoices/unknown/document',{headers})).status,404);assert.equal(originalReads,0);
+  f.rows[0].originalSha256='a'.repeat(64);assert.equal((await fetch(url+'invoices/shared/document',{headers})).status,409);assert.equal(originalReads,1);
+  f.rows[0].status='QUARANTINED';assert.equal((await fetch(url+'invoices/shared/document',{headers})).status,404);assert.equal(originalReads,1);
+  assert.equal((await fetch(url+'statement-export',{headers})).status,200);assert.equal((await fetch(url+'statement-export?year=2026',{headers})).status,409);
+  settings.brianOnly=true;assert.equal((await fetch(url+'bootstrap',{headers:{authorization:'Bearer drj'}})).status,404);settings.brianOnly=false;
+  for(const command of ['ingest','reviewExpense','certifyPeriod','reportSent','verifyPayment','adjustment','applySettlement','consent','method'])assert.equal((await fetch(url+'commands/'+command,{method:'POST',headers:{authorization:'Bearer brian'},body:'{}'})).status,409);
+  missing=true;assert.equal((await fetch(url+'bootstrap',{headers:{authorization:'Bearer brian'}})).status,503);assert.equal((await fetch(url+'commands/certifyPeriod',{method:'POST',headers:{authorization:'Bearer brian'},body:'{}'})).status,409);assert.equal(executeCount,0);
+  settings.enabled=false;assert.equal((await fetch(url+'bootstrap',{headers:{authorization:'Bearer brian'}})).status,404);
+ }finally{await new Promise(resolve=>server.close(resolve));}
 });

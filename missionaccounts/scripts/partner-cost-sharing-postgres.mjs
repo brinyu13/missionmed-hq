@@ -5,7 +5,7 @@ import { execFileSync, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import assert from 'node:assert/strict';
 const runAsync=promisify(execFile), root=await mkdtemp(path.join(tmpdir(),'partner-cost-pg-'));
-const pg='/opt/homebrew/bin/', port=55485, migration=new URL('../supabase/migrations/20261004213308_partner_cost_sharing_private_ledger.sql',import.meta.url);
+const pg='/opt/homebrew/bin/', port=55485, migration=new URL('../supabase/migrations/20261005012837_partner_cost_sharing_production_foundation.sql',import.meta.url);
 const args=['-X','-q','-A','-t','-h',root,'-p',String(port),'-U','pcs_fixture','-d','postgres','-v','ON_ERROR_STOP=1'];
 const q=sql=>execFileSync(pg+'psql',[...args,'-c',sql],{encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
 const literal=v=>"'"+String(v).replaceAll("'","''")+"'";
@@ -110,6 +110,29 @@ try{
  rpc('brian','stage_proposal','ai-queue',{kind:'anomaly',sourceSha256:proof,sourceId:'fixture-anomaly',summary:'Source-grounded fixture proposal only',fields:{reason:'Fixture-only'},insights:[]});
  assert.equal(view('drj').admin,undefined);assert.equal(view('brian').admin.proposals.length,1);assert.equal(view('drj').currentBalanceCents,-25);ok();
 
+ q('CREATE SCHEMA storage;CREATE TABLE storage.buckets(id text PRIMARY KEY,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);');
+ execFileSync(pg+'psql',[...args,'-f',new URL('../supabase/migrations/20261005013002_partner_cost_sharing_production_review.sql',import.meta.url).pathname],{stdio:'pipe'});
+ assert.equal(q("SELECT public FROM storage.buckets WHERE id='partner-cost-sharing-private'"),'f');ok();
+ const reviewFixture={schema:'pcs-private-accounting-review-v1',asOf:'2026-10-04',rows:[{id:'fixture-admin-only',originalSha256:'4'.repeat(64),purpose:'PENDING',status:'PAID'},{id:'fixture-shared',originalSha256:'5'.repeat(64),purpose:'SHARED',status:'PAID'}],contributions:[],workspace:{paymentTodayCents:0,totalNetChargesCents:0,totalPaymentsCents:0,vendorOutstandingCents:0}};
+ q(`INSERT INTO partner_cost_sharing.review_snapshots(source_sha256,input) VALUES ('${'3'.repeat(64)}',${literal(JSON.stringify(reviewFixture))}::jsonb)`);
+ for(const role of ['anon','authenticated','service_role']){assert.throws(()=>q(`SET ROLE ${role};SELECT * FROM partner_cost_sharing.review_snapshots`));ok();}
+ assert.throws(()=>q("SET ROLE authenticated;SELECT partner_cost_sharing.accounting_review('"+ids.drj+"',1002)"));ok();
+ assert.throws(()=>q("SET ROLE service_role;SELECT partner_cost_sharing.accounting_review('"+ids.drj+"',1003)"));ok();
+ const draft=JSON.parse(q(`BEGIN;SET LOCAL ROLE service_role;SELECT partner_cost_sharing.accounting_review('${ids.drj}',1002);COMMIT;`));assert.equal(draft.input.schema,reviewFixture.schema);ok();
+ assert.throws(()=>q('UPDATE partner_cost_sharing.review_snapshots SET input=input'));ok();
+ assert.throws(()=>q('DELETE FROM partner_cost_sharing.review_snapshots'));ok();
+ q(`INSERT INTO partner_cost_sharing.review_assets(row_id,shared,object_key,original_sha256,content_type,byte_length) VALUES ('fixture-admin-only',false,'fixture/admin.pdf','${'4'.repeat(64)}','application/pdf',100)`);
+ assert.throws(()=>q(`SET ROLE service_role;SELECT partner_cost_sharing.review_asset('${ids.drj}',1002,'fixture-admin-only')`));ok();
+ const asset=JSON.parse(q(`BEGIN;SET LOCAL ROLE service_role;SELECT partner_cost_sharing.review_asset('${ids.brian}',1001,'fixture-admin-only');COMMIT;`));assert.equal(asset.object_key,'fixture/admin.pdf');ok();
+ q(`INSERT INTO partner_cost_sharing.review_assets(row_id,shared,object_key,original_sha256,content_type,byte_length) VALUES ('fixture-shared',true,'fixture/shared.pdf','${'5'.repeat(64)}','application/pdf',100)`);
+ assert.equal(JSON.parse(q(`BEGIN;SET LOCAL ROLE service_role;SELECT partner_cost_sharing.review_asset('${ids.drj}',1002,'fixture-shared');COMMIT;`)).original_sha256,'5'.repeat(64));ok();
+ reviewFixture.rows[1].status='QUARANTINED';q(`INSERT INTO partner_cost_sharing.review_snapshots(source_sha256,input) VALUES ('${'6'.repeat(64)}',${literal(JSON.stringify(reviewFixture))}::jsonb)`);
+ assert.throws(()=>q(`SET ROLE service_role;SELECT partner_cost_sharing.review_asset('${ids.drj}',1002,'fixture-shared')`));ok();
+ reviewFixture.rows[1].originalSha256='7'.repeat(64);q(`INSERT INTO partner_cost_sharing.review_snapshots(source_sha256,input) VALUES ('${'8'.repeat(64)}',${literal(JSON.stringify(reviewFixture))}::jsonb)`);
+ assert.throws(()=>q(`SET ROLE service_role;SELECT partner_cost_sharing.review_asset('${ids.brian}',1001,'fixture-shared')`));ok();
+ assert.throws(()=>q('UPDATE partner_cost_sharing.review_assets SET shared=true'));ok();
+ assert.throws(()=>q('DELETE FROM partner_cost_sharing.review_assets'));ok();
+ assert.equal(q("SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='partner_cost_sharing' AND c.relname IN ('review_snapshots','review_assets') AND c.relrowsecurity AND c.relforcerowsecurity"),'2');ok();
  console.log(JSON.stringify({state:'PASS',checks,postgres:q('SHOW server_version'),productionApplied:false,networkListener:false,fixtureOnly:true,paymentRows:Number(q('SELECT count(*) FROM partner_cost_sharing.payments')),privacy:'own projections and denied table ACLs',sourceMigration:path.basename(migration.pathname)}));
 }catch(error){console.error(error.message);process.exitCode=1;}
 finally{if(started)execFileSync(pg+'pg_ctl',['-D',path.join(root,'data'),'-m','fast','-w','stop'],{stdio:'pipe'});await rm(root,{recursive:true,force:true});}

@@ -9,11 +9,12 @@ const sum = rows => rows.reduce((n,r)=>{const next=n+r.amountCents;if(!Number.is
 export function buildAccountingReview(input) {
  if(input?.schema!=='pcs-private-accounting-review-v1'||!Array.isArray(input.rows)||input.rows.length>2000)fail('Invalid private accounting review',400);
  date(input.asOf);
- const seen=new Set();
+ const seen=new Set(),ids=new Set();
  const rows=input.rows.map(raw=>{
   if(Object.keys(raw).some(k=>!rowFields.includes(k)))fail('Unexpected private review field',400);
   const r=Object.fromEntries(rowFields.map(k=>[k,raw[k]??null]));
   if(!/^[a-z0-9-]{1,100}$/.test(r.id||''))fail('Invalid review row identity',400);
+  if(ids.has(r.id))fail('Duplicate review row identity',409);ids.add(r.id);
   for(const k of ['vendor','invoiceNumber','description'])cleanText(r[k],k);
   if(!/^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$/.test(r.invoiceNumber)||r.invoiceNumber.includes('..'))fail('Invalid sanitized invoice identity',400);
   const key=r.vendor.toLowerCase()+':'+r.invoiceNumber;if(seen.has(key))fail('Duplicate review invoice',409);seen.add(key);
@@ -40,7 +41,7 @@ export function buildAccountingReview(input) {
 }
 
 export function projectAccountingReview(review,actor) {
- if(!actor?.prototype||!PARTNERS.includes(actor.key))fail('Private local accounting review unavailable',404);
+ if(!PARTNERS.includes(actor?.key)||!(actor.prototype===true||actor.bound===true&&/^[0-9a-f-]{36}$/i.test(actor.principalId||'')&&Number.isSafeInteger(actor.wpUserId)&&actor.wpUserId>0))fail('Private accounting review unavailable',404);
  const scenarios=['2026-05-31','2026-06-30'].map(cutoff=>{
   const candidates=review.rows.filter(r=>r.status==='PAID'&&r.purpose==='SHARED'&&r.legacy!=='INCLUDED'&&r.recordedAt>cutoff&&!(r.periodEnd&&r.periodEnd<=cutoff));
   const totalCents=sum(candidates),shares=splitTotal(totalCents);

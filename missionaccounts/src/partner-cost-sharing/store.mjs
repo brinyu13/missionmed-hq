@@ -13,7 +13,7 @@ export class PartnerRestStore {
   this.url=parsed.origin;this.serviceKey=serviceKey;this.fetch=fetchImpl;
  }
  async rpc(name,parameters) {
-  if(!Object.values(rpcNames).includes(name)&&!['member_for_principal','partner_view','asset_metadata','register_asset','collection_proposal','reserve_dispatch','record_dispatch','resolve_dispatch','dispatch_for_provider'].includes(name))fail('Unknown private partner operation',400);
+  if(!Object.values(rpcNames).includes(name)&&!['member_for_principal','partner_view','asset_metadata','register_asset','collection_proposal','reserve_dispatch','record_dispatch','resolve_dispatch','dispatch_for_provider','accounting_review','review_asset'].includes(name))fail('Unknown private partner operation',400);
   let response;try{response=await this.fetch(this.url+'/rest/v1/rpc/'+name,{method:'POST',headers:{apikey:this.serviceKey,Authorization:'Bearer '+this.serviceKey,'content-type':'application/json','Content-Profile':'partner_cost_sharing','Accept-Profile':'partner_cost_sharing'},body:JSON.stringify(parameters),signal:AbortSignal.timeout(15000),redirect:'error'});}catch{fail('Private partner database is unavailable',503);}
   let body;try{body=await response.json();}catch{fail('Private partner database response invalid',503);}
   if(!response.ok)fail(body.code==='42501'?'Explicit partner authority denied':body.code==='23505'?'Duplicate evidence or conflicting invoice':'Partner ledger operation was held for review',body.code==='42501'?403:response.status===404?503:409);
@@ -22,6 +22,23 @@ export class PartnerRestStore {
  async memberForPrincipal(principal,wpUserId) {
   if(!/^[0-9a-f-]{36}$/i.test(String(principal))||!Number.isSafeInteger(wpUserId)||wpUserId<=0)return null;
   return this.rpc('member_for_principal',{p_actor:principal,p_wp_user_id:wpUserId});
+ }
+ async accountingReview(actor){const snapshot=await this.rpc('accounting_review',{p_actor:actor.principalId,p_wp_user_id:actor.wpUserId});if(!snapshot?.input)fail('Private accounting review unavailable',503);return snapshot.input;}
+ async readReviewOriginal(actor,id){
+  if(!/^[a-z0-9-]{1,100}$/.test(id))fail('Private original reference invalid',404);
+  const asset=await this.rpc('review_asset',{p_actor:actor.principalId,p_wp_user_id:actor.wpUserId,p_row_id:id});
+  const read=async(key,size,hash)=>{
+   if(!/^[a-z0-9-]{1,80}\/[a-z0-9._-]{1,160}$/.test(key||'')||!Number.isSafeInteger(size)||size<1||size>10485760||!/^[a-f0-9]{64}$/.test(hash||''))fail('Private review asset metadata invalid',409);
+   let response;try{response=await this.fetch(this.url+'/storage/v1/object/partner-cost-sharing-private/'+key,{headers:{apikey:this.serviceKey,Authorization:'Bearer '+this.serviceKey},redirect:'error',signal:AbortSignal.timeout(15000)});}catch{fail('Private original store unavailable',503);}
+   if(!response.ok||Number(response.headers.get('content-length'))>10485760)fail('Private original unavailable',409);
+   const reader=response.body.getReader(),chunks=[];let count=0;try{while(true){const {done,value}=await reader.read();if(done)break;count+=value.length;if(count>10485760){await reader.cancel();fail('Private original exceeds secure document limit',413);}chunks.push(Buffer.from(value));}}finally{reader.releaseLock();}
+   const bytes=Buffer.concat(chunks);if(bytes.length!==size||createHash('sha256').update(bytes).digest('hex')!==hash)fail('Private original custody mismatch',409);return bytes;
+  };
+  if(!['application/pdf','image/png','image/jpeg'].includes(asset.contentType))fail('Private original type invalid',409);
+  const bytes=await read(asset.objectKey,asset.byteLength,asset.originalSha256);
+  const previewBytes=asset.previewObjectKey?await read(asset.previewObjectKey,asset.previewByteLength,asset.previewSha256):null;
+  if(previewBytes&&!previewBytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])))fail('Private preview format invalid',409);
+  return {bytes,previewBytes,type:asset.contentType,sha256:asset.originalSha256,filename:'invoice-'+id+(asset.contentType==='application/pdf'?'.pdf':asset.contentType==='image/jpeg'?'.jpg':'.png')};
  }
  view(actor){return this.rpc('partner_view',{p_actor:actor.principalId,p_wp_user_id:actor.wpUserId});}
  execute(actor,command,requestId,payload) {
@@ -49,7 +66,7 @@ export class PartnerRestStore {
 }
 export function environmentPartnerConfig(env=process.env) {
  return {enabled:env.MISSIONACCOUNTS_PARTNER_COST_SHARING==='1',brianOnly:env.MISSIONACCOUNTS_PARTNER_ACCEPTANCE!=='partners',
-  prototype:false,cardMode:'disabled',gmailMode:'disabled',collectionEnabled:false};
+  prototype:false,readOnly:true,cardMode:'disabled',gmailMode:'disabled',collectionEnabled:false};
 }
 export function environmentPartnerStore(env=process.env) {
  if(env.MISSIONACCOUNTS_PARTNER_COST_SHARING!=='1')return null;
