@@ -1041,6 +1041,61 @@ function exchangeAutomaticArrowSlots(scene,svg){
   return changed?{...scene,autoArrowGeometry:positions}:null;
 }
 
+// Recompose the crowded upper band using a few native rows and whole adjacent
+// caption blocks. Every event receives a placement; unresolved material stays
+// visible and gated instead of discarding an incomplete search wholesale.
+function macroMilestoneCorridors(scene,entries,occupied){
+  const margin=6,vertical=3;
+  const overlap=(a,b)=>Math.max(0,Math.min(a.x+a.width+margin,b.x+b.width+margin)-Math.max(a.x,b.x))*Math.max(0,Math.min(a.y+a.height+vertical,b.y+b.height+vertical)-Math.max(a.y,b.y));
+  const cost=(parts,blocked)=>parts.reduce((sum,part)=>sum+blocked.reduce((subtotal,other)=>subtotal+overlap(part,other),0),0);
+  const dateOrder=entries.slice().sort((a,b)=>monthIndex(a.flag.month)-monthIndex(b.flag.month)||String(a.flag.id).localeCompare(String(b.flag.id)));
+  let bodyStates=[{placed:new Map(),parts:occupied,cost:0,drift:0}];
+  for(const entry of dateOrder){
+    const variant=entry.variants[0];if(!variant)return null;
+    const relative=variant.parts.filter(part=>!part.label),lower=2-Math.min(...relative.map(part=>part.y)),upper=125-Math.max(...relative.map(part=>part.y+part.height));
+    const ys=[...new Set([entry.original.y,lower,upper,48])].filter(y=>y>=lower&&y<=upper),next=[];
+    for(const state of bodyStates)for(const y of ys){
+      const parts=relative.map(part=>({...part,y:part.y+y,eventId:String(entry.flag.id)}));
+      next.push({placed:new Map(state.placed).set(String(entry.flag.id),{y,variant}),parts:[...state.parts,...parts],cost:state.cost+cost(parts,state.parts),drift:state.drift+Math.abs(y-entry.original.y)});
+    }
+    bodyStates=next.sort((a,b)=>a.cost-b.cost||a.drift-b.drift).slice(0,4);
+  }
+  const bodies=bodyStates[0];if(!bodies)return null;
+  let optionCount=0;
+  const options=new Map(entries.map(entry=>{
+    const id=String(entry.flag.id),body=bodies.placed.get(id),movable=!entry.flag.examResult&&!/\b(?:united states(?: of america)?|u\.s\.(?:a\.)?|usa)\b/i.test(entry.flag.title);
+    const blocked=bodies.parts.filter(part=>part.eventId!==id),found=[];
+    for(const variant of entry.variants){
+      const labels=variant.parts.filter(part=>part.label);if(!labels.length)continue;
+      const top=Math.min(...labels.map(part=>part.y)),height=Math.max(...labels.map(part=>part.y+part.height))-top;
+      const lower=2-top,upper=125-(top+height);
+      const rows=movable?[2,24,46,68,90,84,125-height]:[top+body.y];
+      for(const labelTop of [...new Set(rows)]){
+        const labelY=labelTop-top;if(labelY<lower||labelY>upper)continue;
+        const labelParts=labels.map(part=>({...part,y:part.y+labelY,eventId:id}));
+        const baseCost=cost(labelParts,blocked),drift=Math.abs(labelY-body.y)*.15+(variant.flip?4:0)+labels.length*2;
+        found.push({...variant,y:body.y,yOffset:labelY-body.y,labelParts,baseCost,drift,
+          parts:variant.parts.map(part=>({...part,y:part.y+(part.label?labelY:body.y)}))});optionCount++;
+      }
+    }
+    found.sort((a,b)=>a.baseCost-b.baseCost||a.drift-b.drift);
+    // Retain distinct left/right wrapping and row choices before cheaper clones.
+    const selected=[],keys=new Set();
+    for(const option of found){const key=[option.flip,option.labelParts.length,Math.floor(Math.min(...option.labelParts.map(part=>part.y))/22)].join(':');if(keys.has(key))continue;keys.add(key);selected.push(option);if(selected.length===24)break;}
+    if(!selected.length)return [entry,[{...body.variant,y:body.y,yOffset:0,labelParts:body.variant.parts.filter(part=>part.label).map(part=>({...part,y:part.y+body.y})),parts:body.variant.parts.map(part=>({...part,y:part.y+body.y})),baseCost:1e9,drift:0}]];
+    return [entry,selected];
+  }));
+  const ordered=entries.slice().sort((a,b)=>options.get(a).filter(o=>!o.baseCost).length-options.get(b).filter(o=>!o.baseCost).length||monthIndex(a.flag.month)-monthIndex(b.flag.month));
+  let states=[{placed:new Map(),labels:[],cost:bodies.cost,drift:0}];
+  for(const entry of ordered){
+    const next=[];
+    for(const state of states)for(const option of options.get(entry))next.push({placed:new Map(state.placed).set(String(entry.flag.id),option),labels:[...state.labels,...option.labelParts],
+      cost:state.cost+option.baseCost+cost(option.labelParts,state.labels),drift:state.drift+option.drift});
+    states=next.sort((a,b)=>a.cost-b.cost||a.drift-b.drift).slice(0,4);
+  }
+  return states.length?{placed:states[0].placed,optionCount}:null;
+}
+
 // Place native pennants and their adjacent labels in the existing upper band.
 // Same-date poles remain on the same date. No title/site abbreviation or merging.
 function avoidAutomaticMilestoneCollisions(scene,svg){
@@ -1119,7 +1174,7 @@ function avoidAutomaticMilestoneCollisions(scene,svg){
     else blocked.push(...entry.originalParts);
   }
   let selected=greedy,strategy='greedy';
-  if(greedy.size<entries.length){
+  if(greedy.size<entries.length&&entries.length<=4){
     // Constrained labels first; date/id tie breaks remain deterministic. A
     // finite beam retains alternative early choices instead of committing
     // the first pennant and calling later conflicts globally impossible.
@@ -1142,7 +1197,7 @@ function avoidAutomaticMilestoneCollisions(scene,svg){
   // Only after the recovered rigid packing fails, decouple general adjacent
   // labels from their fixed incumbent pennants. Exam/USA paint is untouched.
   const labelLimit=8192;let labelExpansions=0;
-  if(selected.size<entries.length){
+  if(selected.size<entries.length&&entries.length<=4){
     const general=entries.filter(entry=>!entry.flag.examResult&&!/\b(?:united states(?: of america)?|u\.s\.(?:a\.)?|usa)\b/i.test(entry.flag.title));
     const generalIds=new Set(general.map(entry=>String(entry.flag.id))),fixed=occupied.slice();
     let bodiesFit=true;const bodyPlacements=new Map(selected);
@@ -1216,8 +1271,26 @@ function avoidAutomaticMilestoneCollisions(scene,svg){
       if(complete){selected=new Map([...selected,...complete.placed]);strategy='adjacent-label';}
     }
   }
+  let macroOptions=0;
+  if(entries.length>4&&selected.size<entries.length){
+    const macro=macroMilestoneCorridors(scene,entries,occupied);
+    if(macro){
+      const apply=choices=>{
+        const next={...scene,autoFlagGeometry:new Map(scene.autoFlagGeometry||[]),autoFlagLabels:new Map(scene.autoFlagLabels||[])};
+        for(const [id,choice] of choices){next.autoFlagGeometry.set(id,{y:choice.y});next.autoFlagLabels.set(id,{width:choice.width,flip:choice.flip,linePitch:choice.linePitch,...(Number.isFinite(choice.yOffset)?{yOffset:choice.yOffset}:{})});}
+        return next;
+      };
+      const risk=choices=>{
+        const painted=resolveFounderPresentationSvg(serializePlacedPortableSvg(apply(choices)),{measureText:scene.measureText});
+        const invalid=painted.nodes.filter(node=>node.kind==='text'&&ids.has(node.groupId)&&(node.bounds.x<8||node.bounds.x+node.bounds.width>1912||node.bounds.y<2||node.bounds.y+node.bounds.height>125.04));
+        return invalid.length*1000+materialPresentationCollisions(painted).length;
+      };
+      macroOptions=macro.optionCount;
+      if(risk(macro.placed)<risk(selected)){selected=macro.placed;strategy='macro-corridors';}
+    }
+  }
   if(!selected.size)return null;
-  const next={...scene,autoFlagGeometry:new Map(scene.autoFlagGeometry||[]),autoFlagLabels:new Map(scene.autoFlagLabels||[]),autoMilestonePacking:{strategy,expansions,limit,greedyPlaced:greedy.size,total:entries.length,labelExpansions,labelLimit}};
+  const next={...scene,autoFlagGeometry:new Map(scene.autoFlagGeometry||[]),autoFlagLabels:new Map(scene.autoFlagLabels||[]),autoMilestonePacking:{strategy,expansions,limit,greedyPlaced:greedy.size,total:entries.length,labelExpansions,labelLimit,macroOptions}};
   for(const [id,choice] of selected){
     next.autoFlagGeometry.set(id,{y:choice.y});next.autoFlagLabels.set(id,{width:choice.width,flip:choice.flip,...(choice.linePitch!==21?{linePitch:choice.linePitch}:{}),...(Number.isFinite(choice.yOffset)?{yOffset:choice.yOffset}:{})});
   }
@@ -1250,7 +1323,17 @@ export function composeLocked407FPortableSvg(scene,options={}){
   // Nonuniform year widths are present in the Founder exemplar. Existing
   // authored axes, lanes and event geometry are preserved.
   if(scene.founderPresentation?.axis?.mode==='manual'||(scene.arrows||[]).some(a=>a.manualOffset?.laneLocked||Number(a.manualOffset?.x)||Number(a.manualOffset?.y)||(presentationEventObject(scene,a.id)?.geometry&&!automaticDateAnchor(scene,a)))||(scene.flags||[]).some(f=>presentationEventObject(scene,f.id)?.geometry&&!automaticDateAnchor(scene,f)))return finish(best);
-  const score=svg=>{const r=resolveFounderPresentationSvg(svg,{measureText:scene.measureText});return 1000*r.nodes.filter(n=>n.kind==='text'&&(n.bounds.x<-.5||n.bounds.y<-.5||n.bounds.x+n.bounds.width>WIDTH+.5||n.bounds.y+n.bounds.height>HEIGHT+.5)).length+materialPresentationCollisions(r).length;};
+  const bodyIds=new Set((scene.arrows||[]).map(arrow=>String(arrow.id))),bodyRisks=new Map();
+  const score=svg=>{
+    const r=resolveFounderPresentationSvg(svg,{measureText:scene.measureText}),collisions=materialPresentationCollisions(r);
+    const overflow=r.nodes.filter(n=>n.kind==='text'&&(n.bounds.x<-.5||n.bounds.y<-.5||n.bounds.x+n.bounds.width>WIDTH+.5||n.bounds.y+n.bounds.height>HEIGHT+.5)).length;
+    // Preserve the corrected body when comparing temporal allocations for the
+    // upper band. A few fewer pennant clashes cannot buy a new body collision.
+    const bodyRisk=collisions.filter(collision=>collision.elementIds.some(id=>bodyIds.has(String(id)))).length;
+    const incumbent=bodyRisks.get(best.svg);bodyRisks.set(svg,bodyRisk);
+    if(svg!==best.svg&&incumbent!==undefined&&bodyRisk>incumbent)return Infinity;
+    return overflow*1e6+collisions.length+bodyRisk*1000;
+  };
   let bestScore=score(best.svg);if(!bestScore)return best;
   if(!scene.showEmptySlots&&!scene.founderPresentation?.profileGeometryExplicit){
     const compact=compose({...scene,autoCompactProfile:true}),compactScore=score(compact.svg);
@@ -1272,6 +1355,31 @@ export function composeLocked407FPortableSvg(scene,options={}){
   const flagMonths=new Map();for(const flag of scene.flags||[]){const month=monthIndex(flag.month),year=Math.floor(month/12);flagMonths.set(year,[...(flagMonths.get(year)||[]),month]);}
   const boundaryDemand=new Map();
   for(const [year,months] of flagMonths){const sorted=[...new Set(months)].sort((a,b)=>a-b);for(let index=1;index<sorted.length;index++)boundaryDemand.set(year,Math.max(boundaryDemand.get(year)||0,57*12/(sorted[index]-sorted[index-1])));}
+  if((scene.flags||[]).length>4){
+    const painted=resolveFounderPresentationSvg(best.svg,{measureText:scene.measureText}),pressure=new Map();
+    for(const flag of scene.flags||[]){
+      const year=Math.floor(monthIndex(flag.month)/12),labels=painted.nodes.filter(node=>node.semanticRef===String(flag.id)&&node.sourceAttributes['data-board-ink-role']==='flag-label');
+      const width=labels.reduce((sum,node)=>sum+node.bounds.width,0);
+      pressure.set(year,(pressure.get(year)||0)+1+width/240);
+    }
+    for(const [year,width] of boundaryDemand)pressure.set(year,(pressure.get(year)||0)+width/120);
+    const pressureFit=result=>{
+      const axis=metrics(result.scene);
+      return axis.segments.reduce((sum,segment)=>{
+        const target=80+(pressure.get(Number(segment.id))||0)*60,width=CONTENT_WIDTH*(segment.endPercent-segment.startPercent)/100;
+        return sum+Math.max(0,target-width)**2;
+      },0);
+    };
+    // Two macro alternatives expand concentrated painted-label/date pressure
+    // without the old raw-demand cap flattening every busy year to weight 8.
+    // metrics retains native year-label room and linear months inside each cell.
+    for(const power of [1,2]){
+      const weights=new Map([...counts].map(([year,count])=>[year,1+Math.sqrt(count)*.35+(pressure.get(year)||0)**power]));
+      const candidate=compose({...scene,autoYearWeights:weights}),candidateScore=score(candidate.svg);
+      if(!reversals(candidate)&&(candidateScore<bestScore||candidateScore===bestScore&&pressureFit(candidate)<pressureFit(best))){best=candidate;bestScore=candidateScore;}
+    }
+    if(!bestScore)return finish(best);
+  }
   for(const emphasis of [8,16]){
     if(!boundaryDemand.size)break;
     const weights=new Map([...boundaryDemand].map(([year,width])=>[year,Math.max(1,Math.min(emphasis,width/80*emphasis/4))]));

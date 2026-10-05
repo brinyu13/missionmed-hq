@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {deriveFounderYearAllocation,restoreFounderYearAllocation} from '../web/js/uxr-002/adaptive-layout.js';
 import {serializeFounderPresentation,serializeFounderScene,buildFounderPresentationScene,assertCompleteFounderPresentation,founderMilestoneTemplateGeometry} from '../web/js/presentation/founder-presentation-serializer.js';
-import {composeLocked407FPortableSvg,validateLocked407FChronology} from '../web/js/uxr-002/locked-407f-export.js';
+import {composeLocked407FPortableSvg,validateLocked407FChronology,locked407FMilestoneGeometry} from '../web/js/uxr-002/locked-407f-export.js';
 import {resolveFounderPresentationSvg,materialPresentationCollisions} from '../web/js/presentation/resolved-founder-presentation.js';
 import {applySceneCommandToDocument} from '../web/js/editor/scene-commands.js';
 import {setAxisSegmentWeights} from '../web/js/uxr-002/advanced-studio.js';
@@ -319,4 +319,56 @@ test('three late short clinical arrows reserve native multiline label room with 
     assert.ok(glyphX<=0||nativeY<=0,'nearby institution/date pairs retain room for native glyph and baseline uncertainty');
   }
   assert.equal(JSON.stringify(input),before);
+});
+
+
+const clusteredMilestones=()=>document([
+  ...['2012-03','2012-03','2012-06','2018-02','2018-06','2023-02'].map((startDate,index)=>({
+    id:'macro-flag-'+index,title:index===0?'Synthetic Recognition Award':index===5?'Synthetic Degree Completion':'Synthetic Research Presentation',
+    siteName:[
+      'Synthetic Academic Department at the Metropolitan Medical University',
+      'Synthetic College of Medicine',
+      'Synthetic International Medical Conference for Clinical Studies and Public Health Research',
+      'Synthetic Department of Clinical Research at the Academic Medical Institution',
+      'Synthetic Medical Education Conference of the Regional Research Society',
+      'Synthetic University Medical Department'
+    ][index],eventType:'milestone',categoryId:'personal',startDate,visibilityState:'INTERVIEWER_SAFE'
+  })),duration('macro-body','2014-01','2025-12')
+]);
+
+test('macro milestone corridors improve complete crowded captions without crossing the ribbon or changing institutions',()=>{
+  const input=clusteredMilestones(),before=JSON.stringify(input),result=render(input),paint=resolveFounderPresentationSvg(result.svg);
+  const initial=buildFounderPresentationScene(input,{currentMonth:'2026-10'});
+  const frozen={...initial,founderPresentation:{...initial.founderPresentation,advancedScene:{...initial.founderPresentation.advancedScene,
+    objects:input.events.filter(event=>event.eventType==='milestone').map(event=>({id:'frozen-'+event.id,type:'event',semanticRef:event.id,
+      geometry:locked407FMilestoneGeometry(initial,event.id),presentation:{eventType:'milestone'}}))}}};
+  const original=composeLocked407FPortableSvg(frozen),collisions=svg=>materialPresentationCollisions(resolveFounderPresentationSvg(svg)).length;
+  assert.ok(collisions(result.svg)<collisions(original.svg),'complete macro placement improves the rigid crowded original');
+  assert.equal(result.scene.autoMilestonePacking.strategy,'macro-corridors');
+  assert.equal(result.scene.autoMilestonePacking.expansions,0);assert.equal(result.scene.autoMilestonePacking.labelExpansions,0);
+  assert.ok(result.scene.autoMilestonePacking.macroOptions<2000,'a small upper-band row/corridor palette replaces the micro-search');
+  const segments=cells(result),busy=segments.find(segment=>segment.id==='2012').width,quiet=segments.find(segment=>segment.id==='2013').width;
+  assert.ok(busy>quiet*2,'busy caption/date regions receive meaningful temporal space');
+  assert.ok(segments.every(segment=>segment.width>=80-.01));
+  for(const event of input.events.filter(event=>event.eventType==='milestone')){
+    const nodes=paint.nodes.filter(node=>node.semanticRef===event.id),labels=nodes.filter(node=>node.sourceAttributes['data-board-ink-role']==='flag-label');
+    assert.equal(labels.map(node=>node.text).join(' '),event.title+' — '+event.siteName);
+    assert.ok(labels.every(node=>Number(node.style['font-size'])===18&&node.bounds.y>=2-.01&&node.bounds.y+node.bounds.height<=125.04));
+    const date=nodes.find(node=>node.sourceAttributes['data-founder-pennant-date']);assert.equal(date.fontSize,18);
+    const [year,month]=event.startDate.split('-').map(Number),width=segments.find(segment=>+segment.id===year).width;
+    const x=39.36+segments.filter(segment=>+segment.id<year).reduce((sum,segment)=>sum+segment.width,0)+width*(month-1)/12+4;
+    const pole=nodes.find(node=>node.kind==='path'&&node.lineOnly);close(pole.bounds.x,x,.04);close(pole.bounds.y+pole.bounds.height,125,.04);
+    const geometry=locked407FMilestoneGeometry(result.scene,event.id);assert.equal(geometry.width,50);assert.equal(geometry.height,64);
+  }
+  assert.deepEqual(result.scene.chronologyOrder.violations,[]);assert.equal(JSON.stringify(input),before);
+});
+
+test('macro milestone packing preserves a manual axis and authored native flag geometry',()=>{
+  const input=clusteredMilestones(),shown=render(input),axis=structuredClone(shown.scene.composedAxis);
+  const manual={...input,presentationOverrides:{axis}},geometry={x:350,y:45,width:50,height:64,rotation:0};
+  const owned=applySceneCommandToDocument(manual,{kind:'geometry',target:{type:'event',id:'macro-flag-0'},geometry,
+    create:{type:'event',semanticRef:'macro-flag-0',presentation:{eventType:'milestone'}}}).document;
+  const result=render(owned);assert.deepEqual(result.scene.founderPresentation.axis,axis);
+  const actual=locked407FMilestoneGeometry(result.scene,'macro-flag-0');for(const key of ['x','y','width','height','rotation'])close(actual[key],geometry[key],.04);
+  assert.deepEqual(owned.events,input.events);assert.deepEqual(result.scene.chronologyOrder.violations,[]);
 });
