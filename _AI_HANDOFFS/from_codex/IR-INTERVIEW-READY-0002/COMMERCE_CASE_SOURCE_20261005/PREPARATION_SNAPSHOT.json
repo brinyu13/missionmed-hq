@@ -1,0 +1,94 @@
+{
+  "acceptedProductCommit": "8717ebd04ad1cd60e66ef197b55080d58492e2be",
+  "authorityHandoffSha256": "2251e6798c0d117d56276f1bae637f9c6864209ce2f0e1f31a8a71af9b25e00a",
+  "canonicalClientSha256": "36e37a487de0ec99191492c3ef286695bc4d8721cdac70f5c62863576e5c1431",
+  "casePacket": {
+    "accountPersistenceReady": false,
+    "accountReady": false,
+    "authoritySupplement": {
+      "decisionFile": "decisions/DR-391_ir_phase1_public_commerce_fallback.md",
+      "decisionSha256": "0ac4eace2f96ccfbc10864d7a022cba1eb0c6f9c4eeb0bb668dd342e3c532982",
+      "handoffFile": "handoffs/from_codex/IR_INTERVIEW_READY_0002/REGISTRATION_TO_CODEX.md",
+      "handoffSha256": "2251e6798c0d117d56276f1bae637f9c6864209ce2f0e1f31a8a71af9b25e00a",
+      "osHead": "fe17a4ca5572aecdc2d2761e8c2d993f7aebb8bf"
+    },
+    "excluded": [
+      "provider/runtime/DB/OS mutations",
+      "all other product paths",
+      "release promotion"
+    ],
+    "objective": "Make shopping comparison identifier invariant under HTML attribute-template lowercasing; one completion.js identifier only.",
+    "patchSequence": [
+      {
+        "patch": "COMMERCE_CASE_FIX_20261005/case-fix.patch",
+        "postimages": {
+          "interview-ready/completion.js": "d8d805b3a54fa8f2631059598b195f56f39cf6a28a53244709f0d268b968dfb5"
+        },
+        "preimages": {
+          "interview-ready/completion.js": "4e1c8edc975c3f907c65b2db30a110f0137e3953d8a692f6d54f192bb3eb921b"
+        },
+        "sha256": "b361a671c156a0d56290a618c7e66fd5c95be4027210b33e638953747473be5b"
+      }
+    ],
+    "plannedSourcePostimages": {
+      "interview-ready/completion.js": "d8d805b3a54fa8f2631059598b195f56f39cf6a28a53244709f0d268b968dfb5"
+    },
+    "preserve": [
+      "all engine/photo/credit facts",
+      "device-only/public account boundaries",
+      "all other source bytes"
+    ],
+    "publicPath": "/interview-ready/",
+    "releaseApproved": false,
+    "releaseState": "public-commerce",
+    "rollback": "Precommit only exact admitted one-file preimage under healthy guard after worker drain; postcommit separate reviewed recovery packet. No reset/clean/general checkout.",
+    "schema": "ir.commerce_case_source.packet.v1",
+    "scope": "PATH:93cc7bada097a03b5163b83ecfc0d5f8fb2357c6f517b6c6f4a456acc7c155c6",
+    "sharedDomains": [],
+    "sourceBASE": "b2460b1bd20b7746b2c8a3513186c0e9002f313e",
+    "sourcePreimages": {
+      "interview-ready/completion.js": "4e1c8edc975c3f907c65b2db30a110f0137e3953d8a692f6d54f192bb3eb921b"
+    },
+    "workerProtocol": "Unchanged healthy guard immediately before every write/commit; exact one-file pre/postimages; worker stop/drain before Root DONE/release.",
+    "writePaths": [
+      "interview-ready/completion.js"
+    ]
+  },
+  "decisionSha256": "452a9e6259f6ae2f9e1441c725f79156b2d099d88a38af694b248e345b7dbe0e",
+  "dr375Sha256": "05803e16c985437a6400aa261e55bdb57f50ed2a0c7200f904fcffc49155a508",
+  "fallbackHandoffSha256": "17eac255efe1ef9fc69d93c994b2dcb9d3e0faefabd4290f976036891c698737",
+  "fallbackPatchSha256": "b361a671c156a0d56290a618c7e66fd5c95be4027210b33e638953747473be5b",
+  "fallbackTestsSha256": "f812e561637e431bfa758ccf92b8366606f027316c7c3892a23945c90eccc4be",
+  "historicalAuthorityHandoffSha256": "ed3a5cb6c439147471860a78654aeecbaca367d6ed2f7cd92c4159d331f6556d",
+  "historicalOSHead": "bc1d36fcb9f7bdda4bcd4ba507078b7787d802a2",
+  "origin": "https://github.com/brinyu13/missionmed-hq.git",
+  "originalSourcePreimages": {
+    "interview-ready/completion.js": "4e1c8edc975c3f907c65b2db30a110f0137e3953d8a692f6d54f192bb3eb921b"
+  },
+  "osHead": "fe17a4ca5572aecdc2d2761e8c2d993f7aebb8bf",
+  "owner": "codex-ir-phase1-foreman",
+  "patternRunnerSha256": "12d4c346a879867d68965621dc90c2789899375fb010cfd8066850d4a7318953",
+  "plannedSourcePostimages": {
+    "interview-ready/completion.js": "d8d805b3a54fa8f2631059598b195f56f39cf6a28a53244709f0d268b968dfb5"
+  },
+  "ref": "refs/heads/codex/ir-interview-ready-0002-storyforge",
+  "relativePath": "interview-ready",
+  "runnerSha256": "b5833bccf2ff3e0286a43692c3e61ec96a2b83cd1acb4b5e18e57af5a0b4019a",
+  "scope": "PATH:93cc7bada097a03b5163b83ecfc0d5f8fb2357c6f517b6c6f4a456acc7c155c6",
+  "sharedDomains": [],
+  "sourceBASE": "b2460b1bd20b7746b2c8a3513186c0e9002f313e",
+  "sourceHead": "fa4b5e99f96a2237526140b18f7f3962e7e48263",
+  "sourcePreimages": {
+    "interview-ready/completion.js": "4e1c8edc975c3f907c65b2db30a110f0137e3953d8a692f6d54f192bb3eb921b"
+  },
+  "supplementFile": "decisions/DR-391_ir_phase1_public_commerce_fallback.md",
+  "supplementHandoffFile": "handoffs/from_codex/IR_INTERVIEW_READY_0002/REGISTRATION_TO_CODEX.md",
+  "supplementHandoffSha256": "2251e6798c0d117d56276f1bae637f9c6864209ce2f0e1f31a8a71af9b25e00a",
+  "supplementSha256": "0ac4eace2f96ccfbc10864d7a022cba1eb0c6f9c4eeb0bb668dd342e3c532982",
+  "testsSha256": "a6679048408c33713888a2c2a61350eecd437217ebd52e547e80f134a606d4d5",
+  "transportSha256": "6bab4c948b28202b7a803228f2123d5c95137030f16eb129c427b4ddcc487cad",
+  "workerPacketSha256": "b15ce7841a3e13fb99f4f87ee233204b3956cb3920a9294ce1b48ad05892021c",
+  "writePaths": [
+    "interview-ready/completion.js"
+  ]
+}
