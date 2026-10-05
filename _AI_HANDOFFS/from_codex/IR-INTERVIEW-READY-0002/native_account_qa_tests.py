@@ -1,4 +1,5 @@
 """Small in-memory fixtures. Never create a native identity or call a provider."""
+import ast
 import contextlib
 import dataclasses
 import concurrent.futures
@@ -241,6 +242,80 @@ class Fixtures(unittest.TestCase):
         self.assertIn('ReflectionFunction', codes[0])
         self.assertIn("hash_file('sha256'", codes[0])
 
+    def test_inventory_closed_php_failures_never_publish_private_child_output(self):
+        expected={'HOOK_SHAPE':'php_hook_shape','CALLBACK_SHAPE':'php_callback_shape',
+            'REFLECTION_FUNCTION':'php_reflection_function','REFLECTION_METHOD':'php_reflection_method',
+            'FILE_DIGEST':'php_file_digest','ENCODE':'php_encode'}
+        for step,category in expected.items():
+            for scope in (None,'ACCOUNT_STANDARD','ACCOUNT_META','OTHER'):
+                with self.subTest(step=step,scope=scope):
+                    payload={'schema':'ir.native.hook_inventory.failure.v1','step':step}
+                    if scope is not None:payload['hookScope']=scope
+                    child=PipeChild([json.dumps(payload).encode()],code=7)
+                    budget=qa.Dispatch(time.monotonic()+qa.IO_SECONDS,action='creation_inventory_read')
+                    captured=io.StringIO()
+                    with mock.patch.object(qa.subprocess,'Popen',return_value=child), \
+                         contextlib.redirect_stdout(captured),contextlib.redirect_stderr(captured),self.assertRaises(qa.Stop) as caught:
+                        qa.private_capture(qa.SSH_ARGV,b'fixture-private-input',budget)
+                    self.assertEqual(caught.exception.category,category)
+                    self.assertEqual(caught.exception.hookScope,scope)
+                    self.assertEqual(str(caught.exception),category)
+                    self.assertNotIn('schema',repr(caught.exception))
+                    self.assertEqual(captured.getvalue(),'')
+                    self.assertTrue(child.done.is_set())
+                    self.assertTrue(all(s.closed for s in (child.stdin,child.stdout,child.stderr)))
+
+    def test_inventory_failure_marker_rejects_mixed_unknown_malformed_and_success_children(self):
+        sentinel=b'{"schema":"ir.native.hook_inventory.failure.v1","step":"REFLECTION_METHOD"}'
+        invalid=[b'',b'PRIVATE_SENTINEL',sentinel+b'PRIVATE_SENTINEL',b'PRIVATE_SENTINEL'+sentinel,
+            sentinel+b'{}',sentinel[:-1],sentinel.replace(b'REFLECTION_METHOD',b'PRIVATE_SENTINEL'),
+            sentinel.replace(b'failure.v1',b'failure.v2'),sentinel[:-1]+b',"private":"PRIVATE_SENTINEL"}',
+            sentinel[:-1]+b',"hookScope":"PRIVATE_SENTINEL"}',sentinel[:-1]+b',"hookScope":null}',
+            sentinel[:-1]+b',"hookScope":[]}',sentinel[:-1]+b',"step":"REFLECTION_METHOD"}',
+            b'['+sentinel+b']',sentinel.replace(b'"REFLECTION_METHOD"',b'[]'),sentinel+b' '*257,
+            b'\xff'+sentinel]
+        for data in invalid:
+            child=PipeChild([data],code=7)
+            budget=qa.Dispatch(time.monotonic()+qa.IO_SECONDS,action='creation_inventory_read')
+            captured=io.StringIO()
+            with mock.patch.object(qa.subprocess,'Popen',return_value=child), \
+                 contextlib.redirect_stdout(captured),contextlib.redirect_stderr(captured),self.assertRaises(qa.Stop) as caught:
+                qa.private_capture(qa.SSH_ARGV,b'private',budget)
+            self.assertEqual(caught.exception.category,'child_exit')
+            self.assertIsNone(caught.exception.hookScope)
+            self.assertNotIn('PRIVATE_SENTINEL',repr(caught.exception))
+            self.assertEqual(captured.getvalue(),'');self.assertTrue(child.done.is_set())
+        child=PipeChild([sentinel],code=0)
+        with mock.patch.object(qa.subprocess,'Popen',return_value=child):
+            gate=SpyGate();gate.admission.mode='inventory'
+            with self.assertRaisesRegex(qa.Stop,'^native_assertion$'):
+                qa.creation_inventory_read(gate)
+        child=PipeChild([sentinel],code=7)
+        with mock.patch.object(qa.subprocess,'Popen',return_value=child):
+            with self.assertRaisesRegex(qa.Stop,'^native_assertion$'):
+                qa.private_capture(qa.SSH_ARGV,b'private',qa.Dispatch(time.monotonic()+qa.IO_SECONDS))
+        for invalid_scope in (None,[],{},'PRIVATE_SENTINEL',3):
+            self.assertIsNone(qa.Stop('php_hook_shape',hookScope=invalid_scope).hookScope)
+        self.assertIsNone(qa.Stop('PRIVATE_SENTINEL',hookScope='ACCOUNT_META').hookScope)
+
+    def test_inventory_diagnostic_public_hook_ceiling_and_exact_program_syntax(self):
+        owner=ast.parse(Path(qa.__file__).with_name('native_inventory_owner.py').read_text())
+        node=next(n for n in owner.body if isinstance(n,ast.Assign) and
+            any(isinstance(t,ast.Name) and t.id=='STANDARD_HOOKS' for t in n.targets))
+        public=frozenset(node.value.args[0].func.value.value.split())
+        self.assertEqual(qa.STANDARD_HOOKS,public)
+        canonical=json.dumps(sorted(public),sort_keys=True,separators=(',',':')).encode()
+        self.assertEqual(hashlib.sha256(canonical).hexdigest(),'005887497738cd12c6c07c9f3ae33f9bf0574cd3dc4b00c9fc106aa5e125518d')
+        self.assertEqual(qa.ACCOUNT_META_PREFIX,'sanitize_user_meta_')
+        gate=SpyGate();gate.admission.mode='inventory';program=[]
+        def pipe(code,**kwargs):program.append(code);raise qa.Stop('child_exit')
+        with self.assertRaises(qa.Stop):qa.creation_inventory_read(gate,pipe)
+        php=shutil.which('php') or '/opt/homebrew/bin/php'
+        if Path(php).exists():
+            result=subprocess.run([php,'-n','-l'],input=program[0].encode(),capture_output=True)
+            self.assertEqual(result.returncode,0,'fixed inventory PHP syntax failure')
+        else:self.skipTest('local PHP parser unavailable')
+
     def test_transport_errors_and_repr_never_echo_private_values(self):
         secret = 'fixture-private-value'
         with mock.patch.object(qa.subprocess, 'Popen', side_effect=RuntimeError(secret)):
@@ -298,8 +373,8 @@ class Fixtures(unittest.TestCase):
         for code in codes:
             self.assertIn('ir_owner($name,$uid)', code)
             self.assertIn('finally', code)
-            self.assertNotIn('add_user_meta', code)
-            self.assertNotIn('update_user_meta', code)
+            self.assertNotRegex(code, r'\badd_user_meta\s*\(')
+            self.assertNotRegex(code, r'\bupdate_user_meta\s*\(')
             self.assertNotIn('DELETE ', code)
         self.assertIn('mysqli_close($h)', codes[1])
         self.assertIn('MMed_IR_Locked_DB', codes[1])

@@ -30,8 +30,8 @@ ORIGIN = 'https://github.com/brinyu13/missionmed-hq.git'
 REF = 'refs/heads/codex/ir-interview-ready-0002-storyforge'
 TRANSPORT_SHA = '6bab4c948b28202b7a803228f2123d5c95137030f16eb129c427b4ddcc487cad'
 CLIENT_SHA = '36e37a487de0ec99191492c3ef286695bc4d8721cdac70f5c62863576e5c1431'
-NATIVE_SHA = 'b245a5adc18bfa93044cfdef2125831fa09e931d4da8fa1f8e872c1c1944b9af'
-NATIVE_TESTS_SHA = 'c746600b3e5c013779b7b6b1fd6847a48259cd29be69454ebdf20a1eee246a65'
+NATIVE_SHA = '5f636e4493a2b653d27e3e5a9f4bfec293c3ccef7cf3a64541c4fc3677274b15'
+NATIVE_TESTS_SHA = '89cdf9c3fd7b5a9bd33f0281127f0fa9b50e064fb4f7a1866a74ed5fead3a390'
 AUTHORITY = {'DR-375_ir_phase1_production_authority.md': '05803e16c985437a6400aa261e55bdb57f50ed2a0c7200f904fcffc49155a508',
              'DR-376_ir_phase1_bounded_execution_annex.md': '452a9e6259f6ae2f9e1441c725f79156b2d099d88a38af694b248e345b7dbe0e'}
 RUNTIME = 'wp-content/mu-plugins/missionmed-interview-ready-runtime'
@@ -600,13 +600,15 @@ def safe_native_report(value):
 def run_session(session, *, qa=None, native_review_digest=None):
     thread=None; result=None; released=False;deferred=False
     inventory_stage=None
-    def inventory_progress(stage, category=None):
+    def inventory_progress(stage, category=None, hookScope=None):
         nonlocal inventory_stage
         check(type(stage) is str and stage in qa.INVENTORY_STAGES)
         check(category is None or (type(category) is str and category in qa.STOP_CATEGORIES))
         inventory_stage=stage
         receipt={'schema':'ir.native.phase.v1','bindingSha256':session.binding,'stage':stage}
         if category is not None:receipt['category']=category
+        if category is not None and type(hookScope) is str and hookScope in {'ACCOUNT_STANDARD','ACCOUNT_META','OTHER'}:
+            receipt['hookScope']=hookScope
         atomic(session.directory,'NATIVE_PHASE.json',receipt)
     try:
         check(session.contract['phase'] in PHASE_PATHS and (session.contract['phase']=='install' or qa is not None))
@@ -647,8 +649,10 @@ def run_session(session, *, qa=None, native_review_digest=None):
     except BaseException as error:
         if session.contract['phase']=='auth_inventory' and inventory_stage is not None:
             category=error.category if type(error) is qa.Stop else 'private_operation_failed'
-            if type(category) is not str or category not in qa.STOP_CATEGORIES:category='private_operation_failed'
-            try:inventory_progress(inventory_stage,category)
+            hookScope=getattr(error,'hookScope',None) if type(error) is qa.Stop else None
+            if type(category) is not str or category not in qa.STOP_CATEGORIES:
+                category='private_operation_failed';hookScope=None
+            try:inventory_progress(inventory_stage,category,hookScope)
             except BaseException:session.stop()
         if session.native_gate is None:session.stop()
         else:

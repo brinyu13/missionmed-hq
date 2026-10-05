@@ -910,6 +910,12 @@ class Fixtures(unittest.TestCase):
             ('json','INVENTORY_JSON','json_decode'),('schema','INVENTORY_SCHEMA','native_assertion'),
             ('rows','INVENTORY_ROWS','native_assertion'),('digest','INVENTORY_DIGEST','native_assertion'),
             ('unknown','INVENTORY_CAPTURE','private_operation_failed'),('success','INVENTORY_COMPLETE',None)]
+        closed={'HOOK_SHAPE':'php_hook_shape','CALLBACK_SHAPE':'php_callback_shape',
+            'REFLECTION_FUNCTION':'php_reflection_function','REFLECTION_METHOD':'php_reflection_method',
+            'FILE_DIGEST':'php_file_digest','ENCODE':'php_encode'}
+        for step,category in closed.items():
+            cases.append((step,'INVENTORY_CAPTURE',category))
+        cases.extend((mode,'INVENTORY_CAPTURE','child_exit') for mode in ('mixed_php','unknown_php','malformed_php'))
         for mode,stage,category in cases:
             with self.subTest(mode=mode),tempfile.TemporaryDirectory(prefix='ir-stage-fixture-') as tmp:
                 session=self.session('auth_inventory');session.directory=Path(tmp).resolve();trace=[];children=[]
@@ -928,9 +934,18 @@ class Fixtures(unittest.TestCase):
                 if mode=='rows':rows[0][3]=-1
                 if mode=='digest':payload['sha256']='0'*64
                 data=b'PRIVATE_SENTINEL invalid json' if mode=='json' else json.dumps(payload).encode()
+                scope={'HOOK_SHAPE':'ACCOUNT_STANDARD','CALLBACK_SHAPE':'ACCOUNT_META',
+                    'REFLECTION_FUNCTION':'OTHER','REFLECTION_METHOD':'ACCOUNT_STANDARD','FILE_DIGEST':'ACCOUNT_META','ENCODE':'OTHER'}.get(mode)
+                if mode in closed:
+                    data=json.dumps({'schema':'ir.native.hook_inventory.failure.v1','step':mode,'hookScope':scope}).encode()
+                if mode in {'mixed_php','unknown_php','malformed_php'}:
+                    data=b'{"schema":"ir.native.hook_inventory.failure.v1","step":"REFLECTION_METHOD"}'
+                    if mode=='mixed_php':data+=b'PRIVATE_SENTINEL'
+                    if mode=='unknown_php':data=data.replace(b'REFLECTION_METHOD',b'PRIVATE_SENTINEL')
+                    if mode=='malformed_php':data=data[:-1]
                 def popen(*args,**kwargs):
                     if mode=='unknown':raise RuntimeError('PRIVATE_SENTINEL')
-                    child=ReadbackPipeChild([data],code=7 if mode=='child' else 0,stderr=mode=='stderr')
+                    child=ReadbackPipeChild([data],code=7 if mode=='child' or mode in closed or mode in {'mixed_php','unknown_php','malformed_php'} else 0,stderr=mode=='stderr')
                     children.append(child);return child
                 original_drain=qa.Gate.drain;original_release=session.client.release
                 def drain(gate):
@@ -946,6 +961,7 @@ class Fixtures(unittest.TestCase):
                 receipt=runner.read_json(session.directory/'NATIVE_PHASE.json')
                 expected={'schema':'ir.native.phase.v1','bindingSha256':session.binding,'stage':stage}
                 if category is not None:expected['category']=category
+                if scope is not None:expected['hookScope']=scope
                 self.assertEqual(receipt,expected)
                 self.assertLess(trace.index('drain'),trace.index('release'))
                 report=runner.read_json(session.directory/'RESULT.json')['nativeReport']
@@ -956,7 +972,7 @@ class Fixtures(unittest.TestCase):
 
     def test_inventory_phase_receipt_write_failure_and_unknown_category_fail_closed(self):
         qa=runner.load_module('native_phase_write_fixture',runner.HERE/'native_account_qa.py',runner.NATIVE_SHA)
-        for mode in ('write','category'):
+        for mode in ('write','category','scope','nonstring_scope','subclass'):
             with self.subTest(mode=mode),tempfile.TemporaryDirectory(prefix='ir-phase-write-fixture-') as tmp:
                 session=self.session('auth_inventory');session.directory=Path(tmp).resolve();trace=[]
                 writer=runner.atomic;original_drain=qa.Gate.drain;release=session.client.release
@@ -965,7 +981,15 @@ class Fixtures(unittest.TestCase):
                     return writer(directory,name,value)
                 def inventory(gate):
                     gate.inventory_progress('INVENTORY_CAPTURE')
-                    error=qa.Stop();error.category='PRIVATE_SENTINEL';raise error
+                    if mode=='subclass':
+                        class PrivateStop(qa.Stop):pass
+                        error=PrivateStop('php_hook_shape',hookScope='ACCOUNT_META')
+                    else:
+                        error=qa.Stop('php_hook_shape',hookScope='ACCOUNT_META')
+                        if mode in {'write','category'}:error.category='PRIVATE_SENTINEL'
+                        if mode=='scope':error.hookScope='PRIVATE_SENTINEL'
+                        if mode=='nonstring_scope':error.hookScope=['PRIVATE_SENTINEL']
+                    raise error
                 def drain(gate):outcome=original_drain(gate);trace.append('drain');return outcome
                 def released(handle):trace.append('release');release(handle)
                 session.client.release=released
@@ -975,7 +999,10 @@ class Fixtures(unittest.TestCase):
                     self.assertIsNone(runner.run_session(session,qa=qa,native_review_digest='d'*64))
                 self.assertLess(trace.index('drain'),trace.index('release'))
                 self.assertIsNone(runner.read_json(session.directory/'RESULT.json')['nativeReport'])
-                if mode=='category':self.assertEqual(runner.read_json(session.directory/'NATIVE_PHASE.json')['category'],'private_operation_failed')
+                if mode!='write':
+                    receipt=runner.read_json(session.directory/'NATIVE_PHASE.json')
+                    self.assertEqual(receipt['category'],'php_hook_shape' if mode in {'scope','nonstring_scope'} else 'private_operation_failed')
+                    self.assertNotIn('hookScope',receipt)
                 for path in session.directory.iterdir():
                     if path.is_file():self.assertNotIn('PRIVATE_SENTINEL',path.read_text())
 

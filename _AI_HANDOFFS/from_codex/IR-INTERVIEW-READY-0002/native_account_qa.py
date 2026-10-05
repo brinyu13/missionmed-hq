@@ -73,7 +73,48 @@ INVENTORY_STAGES = frozenset({'INVENTORY_GATE_CHECK', 'INVENTORY_DISPATCH_CHECK'
     'INVENTORY_DIGEST', 'INVENTORY_COMPLETE'})
 STOP_CATEGORIES = frozenset({'dormant', 'admission', 'guard', 'drift', 'collision',
     'private_operation_failed', 'native_assertion', 'not_admitted', 'containment',
-    'io_deadline', 'child_exit', 'stderr_present', 'json_decode'})
+    'io_deadline', 'child_exit', 'stderr_present', 'json_decode',
+    'php_hook_shape', 'php_callback_shape', 'php_reflection_function',
+    'php_reflection_method', 'php_file_digest', 'php_encode'})
+PHP_FAILURE_SCHEMA = 'ir.native.hook_inventory.failure.v1'
+PHP_FAILURE_CATEGORIES = {'HOOK_SHAPE':'php_hook_shape', 'CALLBACK_SHAPE':'php_callback_shape',
+    'REFLECTION_FUNCTION':'php_reflection_function', 'REFLECTION_METHOD':'php_reflection_method',
+    'FILE_DIGEST':'php_file_digest', 'ENCODE':'php_encode'}
+HOOK_SCOPES = frozenset({'ACCOUNT_STANDARD', 'ACCOUNT_META', 'OTHER'})
+# Public owner selector ceiling only; never used to prune the full inventory.
+STANDARD_HOOKS = frozenset('''sanitize_user validate_username username_exists email_exists illegal_user_logins
+pre_user_login pre_user_nicename pre_user_email pre_user_url pre_user_display_name
+pre_user_nickname pre_user_first_name pre_user_last_name pre_user_description pre_user_pass
+pre_user_registered wp_pre_insert_user_data insert_user_meta insert_custom_user_meta
+user_register profile_update clean_user_cache set_user_role add_user_role remove_user_role user_contactmethods
+get_user_metadata get_user_metadata_by_mid add_user_metadata add_user_meta added_user_meta
+update_user_metadata update_user_metadata_by_mid update_user_meta updated_user_meta
+delete_user_metadata delete_user_metadata_by_mid delete_user_meta deleted_user_meta
+default_option_default_role option_default_role default_option_users_can_register option_users_can_register
+authenticate wp_authenticate wp_authenticate_user wp_login wp_login_failed wp_logout
+login_redirect logout_redirect clear_auth_cookie set_auth_cookie set_logged_in_cookie
+send_auth_cookies secure_auth_cookie secure_logged_in_cookie auth_cookie auth_cookie_valid
+auth_cookie_bad_username auth_cookie_bad_hash auth_cookie_bad_session_token auth_cookie_malformed
+auth_cookie_expired check_password password_hash wp_set_password determine_current_user
+user_has_cap map_meta_cap rest_authentication_errors rest_pre_dispatch rest_post_dispatch
+rest_request_before_callbacks rest_request_after_callbacks rest_pre_serve_request
+pre_wp_mail wp_mail wp_mail_from wp_mail_from_name wp_mail_content_type wp_mail_charset
+phpmailer_init wp_mail_failed wp_mail_succeeded pre_http_request http_request_args
+http_api_debug http_response http_request_host_is_external pre_http_send_through_proxy
+http_api_curl http_api_transports pre_user_query pre_get_users users_pre_query
+sanitize_title auth_cookie_expiration session_token_manager attach_session_information random_password
+nonce_life nonce_user_logged_out wp_verify_nonce_failed salt woocommerce_process_login_errors
+woocommerce_login_credentials woocommerce_login_redirect login_errors woocommerce_login_failed
+wp_hash_password_algorithm wp_hash_password_options
+allowed_redirect_hosts logout_url password_needs_rehash rest_allowed_cors_headers
+rest_dispatch_request rest_enabled rest_endpoints rest_exposed_cors_headers rest_json_encode_options
+rest_jsonp_enabled rest_pre_echo_response rest_request_parameter_order rest_send_nocache_headers
+rest_url rest_url_prefix sanitize_key secure_signon_cookie set_current_user
+woocommerce_logout_default_redirect_url wp_redirect wp_redirect_status wp_safe_redirect_fallback x_redirect_by
+sanitize_user_meta__mmed_ir_state_v1 auth_user_meta__mmed_ir_state_v1
+sanitize_user_meta__mmed_ir_state_v1_for_user auth_user_meta__mmed_ir_state_v1_for_user
+'''.split())
+ACCOUNT_META_PREFIX = 'sanitize_user_meta_'
 
 
 def inventory_progress(gate, stage):
@@ -84,10 +125,12 @@ def inventory_progress(gate, stage):
 
 class Stop(Exception):
     """Only fixed, non-sensitive failure categories can escape private transports."""
-    def __init__(self, category='private_operation_failed'):
+    def __init__(self, category='private_operation_failed', *, hookScope=None):
         if type(category) is not str or category not in STOP_CATEGORIES:
             category = 'private_operation_failed'
+            hookScope = None
         self.category = category
+        self.hookScope = hookScope if type(hookScope) is str and hookScope in HOOK_SCOPES else None
         super().__init__(category)
 
 
@@ -266,6 +309,29 @@ class Dispatch:
         else:self.remaining();self.started=True
 
 
+def inventory_failure(output):
+    """Interpret only a closed, small private sentinel; never retain raw output."""
+    def unique_object(pairs):
+        value = dict(pairs)
+        if len(value) != len(pairs):
+            raise ValueError()
+        return value
+    try:
+        if len(output) > 256:
+            return None
+        value = json.loads(output.decode('ascii'), object_pairs_hook=unique_object)
+        if type(value) is not dict or set(value) not in ({'schema','step'}, {'schema','step','hookScope'}):
+            return None
+        if value['schema'] != PHP_FAILURE_SCHEMA or type(value['step']) is not str or value['step'] not in PHP_FAILURE_CATEGORIES:
+            return None
+        scope = value.get('hookScope')
+        if 'hookScope' in value and (type(scope) is not str or scope not in HOOK_SCOPES):
+            return None
+        return Stop(PHP_FAILURE_CATEGORIES[value['step']], hookScope=scope)
+    except (ValueError, UnicodeError, TypeError):
+        return None
+
+
 def private_capture(argv, data, budget, *, cap=65536, on_line=None, header_cap=None):
     """Finite nonblocking stdin/capture/reap; unresolved child remains owned."""
     child=None
@@ -302,7 +368,10 @@ def private_capture(argv, data, budget, *, cap=65536, on_line=None, header_cap=N
                     notified=True;on_line()
         child.wait(timeout=budget.remaining())
         if budget.action=='creation_inventory_read':
-            if child.returncode!=0:raise Stop('child_exit')
+            if child.returncode!=0:
+                diagnostic=inventory_failure(bytes(streams[child.stdout]))
+                if diagnostic is not None:raise diagnostic
+                raise Stop('child_exit')
             if streams[child.stderr]:raise Stop('stderr_present')
         require(child.returncode==0 and not streams[child.stderr] and (not on_line or notified))
         return bytes(streams[child.stdout])
@@ -376,22 +445,31 @@ add_filter('pre_wp_mail','mmed_ir_qa_no_mail',PHP_INT_MAX);
 add_filter('pre_http_request','mmed_ir_qa_no_http',PHP_INT_MAX);
 function ir_fail(){throw new RuntimeException('ir_private_failure');}
 function ir_inventory(){
- global $wp_filter;$rows=[];
+ global $wp_filter,$ir_inventory_step,$ir_inventory_hook_scope;$rows=[];
+ $ir_inventory_step='HOOK_SHAPE';$ir_inventory_hook_scope='OTHER';
+ $ir_standard_hooks=__IR_STANDARD_HOOKS__;
  foreach($wp_filter as $tag=>$hook){
+  $ir_inventory_step='HOOK_SHAPE';
+  $ir_inventory_hook_scope=is_string($tag)?(in_array($tag,$ir_standard_hooks,true)?'ACCOUNT_STANDARD':
+   (strpos($tag,__IR_ACCOUNT_META_PREFIX__)===0?'ACCOUNT_META':'OTHER')):'OTHER';
   if(!is_object($hook)||!isset($hook->callbacks)){ir_fail();}
+  $ir_inventory_step='CALLBACK_SHAPE';
   foreach($hook->callbacks as $priority=>$callbacks){foreach($callbacks as $entry){
+   $ir_inventory_step='CALLBACK_SHAPE';
    $f=$entry['function'];
    if(is_string($f)&&in_array($f,['mmed_ir_qa_no_mail','mmed_ir_qa_no_http'],true)){continue;}
-   if(is_array($f)&&count($f)===2){$class=is_object($f[0])?get_class($f[0]):$f[0];$id=$class.'::'.$f[1];$r=new ReflectionMethod($f[0],$f[1]);}
-   elseif($f instanceof Closure){$r=new ReflectionFunction($f);$id='closure:'.$r->getFileName().':'.$r->getStartLine();}
-   elseif(is_string($f)&&strpos($f,'::')!==false){$r=new ReflectionMethod($f);$id=$f;}
-   elseif(is_string($f)){$id=$f;$r=new ReflectionFunction($f);}
-   elseif(is_object($f)&&is_callable($f)){$id=get_class($f).'::__invoke';$r=new ReflectionMethod($f,'__invoke');}
+   if(is_array($f)&&count($f)===2){$ir_inventory_step='REFLECTION_METHOD';$class=is_object($f[0])?get_class($f[0]):$f[0];$id=$class.'::'.$f[1];$r=new ReflectionMethod($f[0],$f[1]);}
+   elseif($f instanceof Closure){$ir_inventory_step='REFLECTION_FUNCTION';$r=new ReflectionFunction($f);$id='closure:'.$r->getFileName().':'.$r->getStartLine();}
+   elseif(is_string($f)&&strpos($f,'::')!==false){$ir_inventory_step='REFLECTION_METHOD';$r=new ReflectionMethod($f);$id=$f;}
+   elseif(is_string($f)){$ir_inventory_step='REFLECTION_FUNCTION';$id=$f;$r=new ReflectionFunction($f);}
+   elseif(is_object($f)&&is_callable($f)){$ir_inventory_step='REFLECTION_METHOD';$id=get_class($f).'::__invoke';$r=new ReflectionMethod($f,'__invoke');}
    else{ir_fail();}
+   $ir_inventory_step='FILE_DIGEST';
    $file=$r->getFileName();$digest=$file&&is_file($file)?hash_file('sha256',$file):'internal_or_eval';
    $rows[]=[$tag,(int)$priority,$id,(int)$entry['accepted_args'],$digest];
   }}
  }
+ $ir_inventory_step='ENCODE';$ir_inventory_hook_scope='OTHER';
  usort($rows,function($a,$b){return strcmp(wp_json_encode($a),wp_json_encode($b));});
  return ['schema'=>'ir.native.hook_inventory.v1','sha256'=>hash('sha256',wp_json_encode($rows)),
          'count'=>count($rows),'callbacks'=>$rows];
@@ -402,7 +480,8 @@ function ir_owner($name,$uid){
     $u->roles!==['subscriber']){ir_fail();}
  return $u;
 }
-"""
+""".replace('__IR_STANDARD_HOOKS__', json.dumps(sorted(STANDARD_HOOKS),separators=(',',':'))).replace(
+    '__IR_ACCOUNT_META_PREFIX__', json.dumps(ACCOUNT_META_PREFIX))
 
 
 def collision_read(gate, pipe=private_pipe):
@@ -426,7 +505,14 @@ def creation_inventory_read(gate, pipe=private_pipe):
     inventory_progress(gate,'INVENTORY_GATE_CHECK')
     gate.require('creation_inventory_read')
     require(gate.admission.mode=='inventory')
-    result = owner_pipe(gate,'creation_inventory_read',pipe,php_preamble() + "echo wp_json_encode(ir_inventory());\n",max_bytes=INVENTORY_CAP)
+    result = owner_pipe(gate,'creation_inventory_read',pipe,php_preamble() + """
+$ir_inventory_step='ENCODE';$ir_inventory_hook_scope='OTHER';
+try{echo wp_json_encode(ir_inventory());}
+catch(Throwable $ir_inventory_error){
+ echo '{"schema":"ir.native.hook_inventory.failure.v1","step":"'.$ir_inventory_step.'","hookScope":"'.$ir_inventory_hook_scope.'"}';
+ exit(1);
+}
+""",max_bytes=INVENTORY_CAP)
     inventory_progress(gate,'INVENTORY_SCHEMA')
     require(type(result) is dict and set(result) == {'schema','sha256','count','callbacks'} and
             result['schema']=='ir.native.hook_inventory.v1' and
