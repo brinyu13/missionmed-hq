@@ -1,11 +1,13 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-10-05 America/New_York
+Updated: 2026-10-06 America/New_York
 Mission: `IVOC-CONVERGE-8001`
-Authority: `DR-290`, `DR-350` (narrow packaging), `DR-361` (current RISE eligibility successor); `DR-340` QA grant revoked
+Authority: `DR-290`, `DR-350` (narrow packaging), `DR-361` (current RISE eligibility successor), `DR-392` (bounded preflight/closing repair); `DR-340` QA grant revoked
 Branch: `codex/ivoc-foreman-9200`
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
-Current continuation boundary: `CANARY4 CONSUMED / EXACT TERMINAL + ROOM0; NO-SPEND DIAGNOSTIC REPAIR LIVE / PROVIDER OFF; RETURNED SOCKET CONTRACT UNRESOLVED / NO PAID RETRY`
+Current continuation boundary: `CLOSING POLICY + REQUIRED EMBODIMENT STATUS LIVE; CANARY4 CONSUMED / EXACT TERMINAL + ROOM0 / PROVIDER OFF; RETURNED SOCKET CONTRACT UNRESOLVED / NO PAID RETRY; GENUINE POV ACCEPTANCE STILL OPEN`
+
+Current runtime: source `1c3c28ff82f57f908d81700d071eb12648a324cf`, deployment `252bc791-3b6c-442d-9487-51e19e71ae79` SUCCESS; image `sha256:81bf746c1426c25a25413621c9e119a8be09545332659aa62214b9f93705a106`. Known-good rollback: source `1bc9d1b2f2e1b07046f97dac94247fcc9161067f`, deployment `88ce9f10-eafd-4d7c-b049-b3a1a0a886a9`.
 
 This is the one living requirement ledger required by the final Founder
 completion directive. A status of `LIVE UNVERIFIED` means the capability is
@@ -4160,3 +4162,6 @@ must name numeric cap, duration, session count, kill/rollback and proof sought.
 - Genuine Founder/Admin UI: RISE SUNY search44 readable results; selected Internal Medicine program identity retained. This is search/selection proof, not proof of program-grounded spoken questioning.
 - Genuine Admin actor `wp:1` selected authorized student `wp:142`, opened that student's Results/full supported Analytics/private Film Room, then cold reloaded. Actor/subject stayed distinct; exact attempt `827b34e6-0fb1-425b-8c42-7ec63b6736f7` reopened with decoded640x480 video, no media error. Actual audible playback and negative-owner isolation are not inferred from decoding. Existing insufficient candidate-audio attribution correctly withholds semantic coaching.
 - Correct misleading legacy Admin LemonSlice “DEFERRED” status to “REQUIRED · ACCEPTANCE PENDING”, preserving its limited/unaccepted state. This changes no capability, provider flag, UI composition or media path. No provider call/spend. Final status-label release/readback follows below.
+- Status-label source `1c3c28ff82f57f908d81700d071eb12648a324cf` is live on `252bc791-3b6c-442d-9487-51e19e71ae79` SUCCESS, image `sha256:81bf746c1426c25a25413621c9e119a8be09545332659aa62214b9f93705a106`. DR-350 artifact 1306 files / SHA256 `2d85169bf09410c649b8e5c082efd23918693c6b149480b00d039220dec1b7d9`; 46 focused checks PASS, mandatory build69 PASS. Fresh non-builder approved exact patch and final runtime hashes, unchanged policy/broker/session controller, health200, anonymous product/bootstrap401, provider OFF. Authenticated Chrome cold reload then explicit Admin view visibly shows REQUIRED · ACCEPTANCE PENDING. Rollback88ce9f10/source1bc9d1b preserved.
+- PRODUCT5131 and SHARED5132 remain valid under the durable keeper through this canonical receipt; normal release and remote release readback follow filing. User's existing Room tab was not started, navigated or reloaded. Selected-student review was cleared and no review mark, student data, credit or policy mutation occurred.
+- Next executable boundary is provider-confirmed returned-WebSocket hostname/port/ownership (or original sanitized CREATE receipt); existing GET/history cannot recover the discarded address. No speculative allowlist/TLS/SSRF weakening or consumed-canary reuse. A new provider CREATE still requires separate explicit bounded spend authorization. Genuine spoken closing, deliberate barge-in/next-question, audible two-sided replay after cold reload, second-Admin/entitled-360/negative-owner identities, positive CV/consented-story data, supervised Live Mock and real recurrence remain separate acceptance gates. Full completion and a recalculated percentage are not claimed.
