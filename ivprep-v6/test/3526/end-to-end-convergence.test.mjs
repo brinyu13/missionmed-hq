@@ -98,7 +98,32 @@ test('person lock gives a true no-face occlusion five seconds without extending 
   absent.update({ atMs: 325, candidates: [face(.505)] });
   absent.update({ atMs: 650, candidates: [face(.51)] });
   assert.equal(absent.update({ atMs: 5_400, candidates: [] }).state, PRIMARY_LOCK_STATE.PRIMARY_TEMPORARILY_OCCLUDED);
-  assert.equal(absent.update({ atMs: 5_650, candidates: [] }).state, PRIMARY_LOCK_STATE.PRIMARY_SELECTION_REQUIRED);
+  // A lone subject absent past the five-second grace with nobody else ever seen
+  // releases the identity (no manual selection) rather than extending it.
+  const released = absent.update({ atMs: 5_650, candidates: [] });
+  assert.equal(released.state, PRIMARY_LOCK_STATE.SEARCHING);
+  assert.equal(released.continuity, 'lone_subject_absent');
+  assert.equal(released.primaryTrackId, null);
+  assert.equal(released.primaryUsable, false);
+  assert.equal(released.selectionRequired, false);
+  // A face appearing afterwards is never silently bound as the old identity:
+  // it is withheld through the full acquisition hold and then gets a fresh track.
+  const arrival = absent.update({ atMs: 6_000, candidates: [face(.82)] });
+  assert.equal(arrival.primaryUsable, false);
+  assert.equal(arrival.primaryTrackId, null);
+  assert.equal(absent.update({ atMs: 6_600, candidates: [face(.82)] }).primaryUsable, false);
+  const rebound = absent.update({ atMs: 6_650, candidates: [face(.82)] });
+  assert.equal(rebound.state, PRIMARY_LOCK_STATE.PRIMARY_LOCKED);
+  assert.equal(rebound.primaryTrackId, 'primary-2');
+  assert.notEqual(rebound.primaryTrackId, 'primary-1');
+  assert.equal(rebound.reacquisitionCount, 0, 'a fresh binding is not a reacquisition of the lost identity');
+  // Two faces after the release are initial ambiguity, still requiring explicit selection.
+  const ambiguous = new PrimaryIntervieweeLock();
+  ambiguous.update({ atMs: 0, candidates: [face()] });
+  ambiguous.update({ atMs: 650, candidates: [face(.51)] });
+  ambiguous.update({ atMs: 5_650, candidates: [] });
+  ambiguous.update({ atMs: 6_000, candidates: [face(.43), face(.57)] });
+  assert.equal(ambiguous.update({ atMs: 6_500, candidates: [face(.44), face(.56)] }).state, PRIMARY_LOCK_STATE.PRIMARY_SELECTION_REQUIRED);
 
   const replacement = new PrimaryIntervieweeLock();
   replacement.update({ atMs: 0, candidates: [face()] });

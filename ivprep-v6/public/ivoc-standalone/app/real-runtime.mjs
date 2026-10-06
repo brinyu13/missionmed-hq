@@ -328,6 +328,10 @@ export class RealAnalyticsEngine extends EventTarget {
     const snapshot = this.projector.ingest(tagged);
     this.t = finite(detail.atMs, this.t);
     this.latest = this.mapFrame(snapshot, behavior, detail);
+    // A mesh may never outlive the frame that withheld the person. The overlay
+    // freshness timer only covers a producer that stops drawing; a frame that
+    // arrives and withholds face/body metrics clears the canvas immediately.
+    if (enriched.modality === 'vision' && this.latest.headFace.presence !== 'TRACKED') this.clearOverlay();
     this.recordHistory(this.latest);
     this.recordStateEvent(this.latest);
     this.recordCountEvents(this.latest);
