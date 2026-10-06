@@ -24,8 +24,8 @@ export function filterOwnAttempts(library,subject,{query='',evidence='all',mode=
 export function ownHistoryProgress(library,subject) {
   const rows=ownRows(library,subject),model=buildLongitudinalModel(rows);
   const mocks=filterOwnAttempts(library,subject).filter(a=>a.mode==='mock');
-  const observed=mocks.filter(a=>['delivered','skipped','local','none'].includes(a.closing?.status));
-  return {model,durationAvailable:model.attempts.some(a=>a.recordedMs!==null),closing:{reached:observed.filter(a=>['delivered','local'].includes(a.closing.status)).length,
+  const observed=mocks.filter(a=>['observed','delivered','skipped','local','none'].includes(a.closing?.status));
+  return {model,durationAvailable:model.attempts.some(a=>a.recordedMs!==null),closing:{reached:observed.filter(a=>['observed','delivered','local'].includes(a.closing.status)).length,
     observed:observed.length,unverified:mocks.length-observed.length},
     unfinished:rows.filter(row=>row.state!=='saved'&&!['abandoned','ended'].includes(row.state))};
 }

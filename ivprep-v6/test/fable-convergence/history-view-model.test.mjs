@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {filterOwnAttempts,ownHistoryProgress,formatHistoryEvidence} from '../../public/studio-fable/app/adapters/history-view-model.mjs';
+import {closingLedger} from '../../public/studio-fable/app/model/teaching.mjs';
+import {sealDerivedEvidence} from '../../public/studio-fable/app/adapters/derived-evidence.mjs';
+import {projectSavedAttempt} from '../../public/studio-fable/app/adapters/saved-review.mjs';
 const make=(id,subject='wp:1',extra={})=>({id,ownerSubject:subject,state:'saved',questionId:'CORE-01',questionText:'Tell me about yourself.',recording:{durationMs:20000},...extra});
 const library=(rows)=>({source:'account',sessions:rows,attempts:rows.filter(r=>r.state==='saved').map(r=>({id:r.id,ownerSubject:r.ownerSubject,at:1,mode:'mock',...r.fable}))});
 test('own history keeps exact fresh membership and never substitutes another owner',()=>{
@@ -31,6 +34,22 @@ test('progress reuses student-safe longitudinal observations and separates missi
   assert.deepEqual(progress.unfinished.map(r=>r.id),['d']);
   assert.equal(formatHistoryEvidence(null,'ms'),'Unavailable');assert.equal(formatHistoryEvidence(0,'fraction'),'0.0%');
   assert.equal(ownHistoryProgress(library([make('a','wp:1',{recording:{durationMs:null}})]),'wp:1').durationAvailable,false);
+});
+test('native observed closing survives sealing and owned cold review into Progress without claiming audibility',()=>{
+  for(const closeSent of [0,1]){
+    const closing=closingLedger({closing:{reached:true,delivery:'observed_fragment',candidateQuestions:[]},closeSent});
+    const evidence=JSON.parse(JSON.stringify(sealDerivedEvidence({closing})));
+    const row=make('native-observed');
+    const detail={...row,interviewerProvider:'openai-gpt-live',results:{payload:{analytics:{fable:evidence}}}};
+    const attempt=projectSavedAttempt({persisted:true,session:row,sessionDetail:detail},'wp:1');
+    assert.equal(attempt.closing.status,'observed');
+    assert.match(attempt.closing.label,/confirm in replay/);
+    assert.equal(attempt.closing.closeDelivered,closeSent>0);
+    const unknown=make('unknown','wp:1',{fable:{closing:{status:'future-status'}}});
+    const foreign=make('foreign','wp:2',{fable:{closing}});
+    const lib=library([row,unknown,foreign]);lib.attempts[0]=attempt;
+    assert.deepEqual(ownHistoryProgress(lib,'wp:1').closing,{reached:1,observed:1,unverified:1});
+  }
 });
 const source=readFileSync(new URL('../../public/studio-fable/app/main.mjs',import.meta.url),'utf8');
 const begin=source.indexOf('async function renderProgress('),end=source.indexOf('// ---------- Router',begin);
