@@ -33,7 +33,7 @@ export const MAX_DOCUMENT_BYTES=MAX_DIRECT_SOURCE_BYTES;
 export const INTAKE_COPY=Object.freeze({
   uploadTitle:"Add your document",
   privacy:"Your document is stored privately and, when secure AI review is available, its extracted text is sent to MissionMed's approved AI processor to suggest events. You can delete the source afterward. Nothing appears on your timeline until you approve it.",
-  consent:"I consent to secure AI-assisted extraction and understand I'll review every suggestion before it lands on my timeline.",
+  consent:"I consent to secure AI-assisted extraction for my MissionMed Timeline account. This permission stays on for future documents until I withdraw it under AI settings, and I'll review every suggestion before it lands on my timeline.",
   read:"Read my document →",
   reviewSubline:"Accept what's right, fix what's close, reject what's wrong. Nothing lands until you decide.",
   emptyAccepted:"Nothing accepted yet",

@@ -131,6 +131,9 @@ test("the pure upload state gates extraction on both file and consent without mu
   assert.match(uploadHtml,/>Add your document<\/h1>/);
   assert.match(uploadHtml,/stored privately.*approved AI processor.*Nothing appears on your timeline until you approve it\./);
   assert.match(uploadHtml,/I consent to secure AI-assisted extraction/);
+  // The per-upload consent records a standing account-level AI permission (ensureStudentAiConsent);
+  // the label must say so and point to where it can be withdrawn.
+  assert.match(uploadHtml,/stays on for future documents until I withdraw it under AI settings/);
   assert.match(uploadHtml,/data-intake-action="read" disabled aria-disabled="true" title="Check the consent box first">Read my document →<\/button>/);
   assert.match(uploadHtml,/Looks like: CV/);
 
