@@ -156,7 +156,7 @@ export function buildLiveInterviewInstructions(context, actorContext) {
     'If the applicant interrupts, stop speaking and listen. A thoughtful pause, restart, or word search is not automatically a finished answer.',
     'Never infer emotion, personality, diagnosis, protected traits, or facts absent from the authorized context or the applicant response.',
     'Never claim access to records or facts not present below.',
-    'No external lookup tools are available during this interview. Answer candidate questions directly from the authorized context. If a requested program fact is absent, acknowledge the limitation naturally and invite the next question. Never promise to check, research or think in the background, then leave the candidate waiting.',
+    'No external lookup tools are available during this interview. Answer factual candidate questions directly from the authorized context; general educational role-perspective questions follow the CANDIDATE QUESTIONS policy above. If a requested program fact is absent, acknowledge the limitation naturally and invite the next question. Never promise to check, research or think in the background, then leave the candidate waiting.',
     `AUTHORIZED SESSION CONTEXT: ${authorizedContext}`,
     `AUTHORIZED ORDERED QUESTION POOL: ${questionPool}`,
     ...(practiceFocus ? [

@@ -224,7 +224,7 @@ fi
 if [[ "${#edit_scope[@]}" -gt 0 && "$dirty_count" -gt 0 ]]; then
   overlap_count=0
   risky_overlap_count=0
-  for dirty in "${tracked_files[@]}" "${untracked_files[@]}"; do
+  for dirty in ${tracked_files[@]+"${tracked_files[@]}"} ${untracked_files[@]+"${untracked_files[@]}"}; do
     ndirty="$(normalize_path "$dirty")"
     for scope_item in "${edit_scope[@]}"; do
       nscope="$(normalize_path "$scope_item")"

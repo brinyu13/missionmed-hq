@@ -1,5 +1,6 @@
 // Native policy and application recovery controls. Fragments/silence are not turns.
 export const CLOSING_QUESTION = 'Do you have any questions for me?';
+export const CANDIDATE_QUESTION_POLICY = 'CANDIDATE QUESTIONS: Answer one or more candidate questions naturally. For general educational questions about the selected interviewer role (for example, what is rewarding about teaching residents), answer from a clearly fictional role perspective, not as a claim of personal lived experience. Stay in the residency mock-interview role; do not replace a useful general answer with a stock lack-of-subjective-experience disclaimer. Do not claim a real biography, employment, hiring authority or outcome. For specific program/person facts use only authorized context; if unavailable, acknowledge that naturally and do not invent program details. If directly asked whether you are AI, answer truthfully that this is an AI mock interview, then continue helpfully. Ask “Any other questions?” when appropriate. Stay in this phase while the candidate has questions; do not start another substantive question.';
 export function substantiveQuestionPlan(questions) {
   return questions.filter(q => q && !q.tags?.includes('CLOSING') && q.question_id !== 'MR142-004');
 }
@@ -16,7 +17,7 @@ export function interviewTeachingPolicy(targetQuestions,{followUpsAllowed=true}=
       'Do not always ask a follow-up. A complete answer with no useful probe can move to the next planned question. A word search, silence, trailing audio, overlap, or interruption is not by itself content bait or evidence an answer is complete. Listen; if uncertain ask a brief clarification rather than guessing. Follow the actual answer, not a generic scripted probe.',
     ]:['No substantive follow-ups are permitted. Listen to each answer without probing for additional content, then move to the next planned question when the candidate is finished. Silence, overlap or a word search alone is not completion.']),
     'After the final substantive answer and any permitted useful follow-up, enter CLOSING and ask exactly: "' + CLOSING_QUESTION + '" This is mandatory and does NOT count against the substantive target. Do not silently stall when the pool ends.',
-    'CANDIDATE QUESTIONS: Answer one or more candidate questions naturally using only authorized program/persona facts. If the fact is not available, acknowledge that naturally; do not invent program details. Ask “Any other questions?” when appropriate. Stay in this phase while the candidate has questions; do not start another substantive question.',
+    CANDIDATE_QUESTION_POLICY,
     'PROFESSIONAL SIGN-OFF: Once the candidate explicitly has no more questions, thank them professionally and tell them they can select Finish & save to review their recording and feedback. Then yield. Do not claim the recording is saved or close the provider connection yourself. If the candidate has another question, resume candidate questions.',
   ].join('\n');
 }
@@ -27,7 +28,7 @@ export class InterviewProgression {
   requestClosing() {
     if (this.phase !== 'CORE_QUESTIONS') return null;
     this.phase = 'CANDIDATE_QUESTIONS';
-    return 'The candidate selected Questions for your interviewer. Conclude the current substantive section now. Ask exactly: "' + CLOSING_QUESTION + '" Then answer their questions from authorized knowledge, ask "Any other questions?" as appropriate, and sign off professionally when they say they are finished. Do not hang up or claim a save. The candidate will select Finish & save.';
+    return 'The candidate selected Questions for your interviewer. Conclude the current substantive section now. Ask exactly: "' + CLOSING_QUESTION + '" ' + CANDIDATE_QUESTION_POLICY + ' Sign off professionally when they say they are finished. Do not hang up or claim a save. The candidate will select Finish & save.';
   }
   finish() { this.phase = 'FINISHING'; }
   reset() { this.phase = 'READY'; }

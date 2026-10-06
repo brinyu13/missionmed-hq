@@ -4145,3 +4145,11 @@ must name numeric cap, duration, session count, kill/rollback and proof sought.
    cannot recover its address. Any further provider-dependent execution requires
    separate new explicit authorization. Never rearm consumed IDs. No Founder
    retest requested. Full product completion is unclaimed.
+
+## 2026-10-06 — executable closing-role recovery (DR-392)
+
+- Genuine saved Founder mock exposed a closing-role regression: a general role-perspective question received a stock lack-of-subjective-experience response instead of useful residency-simulation guidance. Automatic and requested closing now share one bounded fictional-role policy; real biography/program facts, hiring outcomes and concealed AI identity remain prohibited. Native server instructions distinguish this from authorized factual answers.
+- Exact preflight failure reproduced under `/bin/bash`: only unrelated untracked files plus an edit scope triggered `tracked_files[@]: unbound variable`. One-line empty-array expansion repair preserves nounset and all safety decisions. Actual-script fixtures cover clean, tracked-only, untracked-only, mixed, ordinary warning and tracked/untracked sensitive rejection.
+- Builder focused 47 PASS; fresh non-builder independently ran 31 PASS and APPROVED exact patch for guarded release. Prompt contracts are implemented, not spoken POV acceptance. No UI, media/session, auth, data, provider configuration or sibling changes.
+- DR-392 authority canonical OS `4eb9492d4c33a00fc84f9739cfdc5ffd91e2b56e`; REGISTRY5124 released with remote readback; fresh mission BOOT PASS. Exact PATH5125 and PRODUCT5126 maintained through implementation. Unrelated untracked forensic handoff preserved.
+- Runtime baseline immediately refreshed: `6ddb5eb6-84a3-48d2-8671-ce68fa1143ed` SUCCESS. Release/readback pending below; LemonSlice remains OFF, consumed canary IDs cannot be reused. Existing external role, physical conversation/two-sided replay, positive owner-data and supervised Live Mock gates remain unchanged.
