@@ -125,6 +125,186 @@
       "author": "TaurusEmerald",
       "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
       "source": "https://commons.wikimedia.org/wiki/File:Elgato_Stream_Deck_%2B.jpg"
+    },
+    {
+      "path": "img/product-facecam-mk2-mfg.webp",
+      "sha256": "5f62f357e4ee8ded09c49fb80b39838d1f0926cfaac768a95fec07ff434a8f2a",
+      "basis": "Manufacturer public press-kit media",
+      "evidence": "evidence/manufacturer-images-2026-10-06.json",
+      "author": "Elgato (Corsair Keystone public press kit)",
+      "licenseUrl": "https://keystone.corsair.com/en/Facecam_MK_2/press-kit/",
+      "source": "https://res.cloudinary.com/corsairdam/image/upload/v1774862954/B0CW1S7XP5.Main_mcmfpy.jpg"
+    },
+    {
+      "path": "img/product-facecam-4k-mfg.webp",
+      "sha256": "fa0b9abc86b78a79f8533b021529cd1630bbdbbdaec60f9f0035f77883396571",
+      "basis": "Manufacturer public press-kit media",
+      "evidence": "evidence/manufacturer-images-2026-10-06.json",
+      "author": "Elgato (Corsair Keystone public press kit)",
+      "licenseUrl": "https://keystone.corsair.com/en/Facecam_4K/press-kit/",
+      "source": "https://res.cloudinary.com/corsairdam/image/upload/v1774861015/B0DVZG36J8.MAIN_zi1zqb.jpg"
+    },
+    {
+      "path": "img/product-wave3-mk2-mfg.webp",
+      "sha256": "7cbb5a7be6f29f5e1581e846c32d501e9e6c7f33b85e4d8a98bba9ca6b66ca4d",
+      "basis": "Manufacturer public press-kit media",
+      "evidence": "evidence/manufacturer-images-2026-10-06.json",
+      "author": "Elgato (Corsair Keystone public press kit)",
+      "licenseUrl": "https://keystone.corsair.com/en/Wave_3_MK_2/press-kit/",
+      "source": "https://res.cloudinary.com/corsairdam/image/upload/v1781603801/B0GGYLFHPS.Main_evwyki.jpg"
+    },
+    {
+      "path": "img/product-key-light-mfg.webp",
+      "sha256": "31000692ad7ecd6b7ca76467eace3dbce0387b1d4dab1c999941006cbc97f92a",
+      "basis": "Manufacturer public press-kit media",
+      "evidence": "evidence/manufacturer-images-2026-10-06.json",
+      "author": "Elgato (Corsair Keystone public press kit)",
+      "licenseUrl": "https://keystone.corsair.com/en/Key_Light_MK_2/press-kit/",
+      "source": "https://res.cloudinary.com/corsairdam/image/upload/v1786031685/B07L755X9G.main_tppegp.jpg"
+    },
+    {
+      "path": "img/product-key-light-neo-mfg.webp",
+      "sha256": "f1dcc8e2886edebf705ffdcd8b458bacacccb4a9b3b39bb073e67b446deaf138",
+      "basis": "Manufacturer public press-kit media",
+      "evidence": "evidence/manufacturer-images-2026-10-06.json",
+      "author": "Elgato (Corsair Keystone public press kit)",
+      "licenseUrl": "https://keystone.corsair.com/en/Key_Light_Neo/press-kit/",
+      "source": "https://res.cloudinary.com/corsairdam/image/upload/v1773400459/elgato/Neo/Key%20Light%20Neo/Imagery/Renders/Key_Light_Neo_Front.jpg"
+    },
+    {
+      "path": "img/product-key-light-air-mk2-mfg.webp",
+      "sha256": "82a2229983fac60df5fd0a6f5861f88c289df70ce3c754e037d524e8e1e4edcf",
+      "basis": "Manufacturer public press-kit media",
+      "evidence": "evidence/manufacturer-images-2026-10-06.json",
+      "author": "Elgato (Corsair Keystone public press kit)",
+      "licenseUrl": "https://keystone.corsair.com/en/Key_Light_Air_MK_2/press-kit/",
+      "source": "https://res.cloudinary.com/corsairdam/image/upload/v1781691225/Key_Light__Air_MK2_Device_Shot_00_gudxqv.png"
+    },
+    {
+      "path": "img/product-arm-lp-mfg.webp",
+      "sha256": "d5cd5af10067cedd98b7ccd4971b09a143a66e4e110be36b3698f3558eddfdb2",
+      "basis": "Manufacturer public press-kit media",
+      "evidence": "evidence/manufacturer-images-2026-10-06.json",
+      "author": "Elgato (Corsair Keystone public press kit)",
+      "licenseUrl": "https://keystone.corsair.com/en/Wave_Mic_Arm_LP/press-kit/",
+      "source": "https://res.cloudinary.com/corsairdam/image/upload/v1775577612/B097376LKF.Main_hw3b4m.jpg"
+    },
+    {
+      "path": "img/product-camlink-mfg.webp",
+      "sha256": "d0126205cc33dc650ecb41fe924ec68f59bc4d9de38170ce9676482ed002eb83",
+      "basis": "Manufacturer public press-kit media",
+      "evidence": "evidence/manufacturer-images-2026-10-06.json",
+      "author": "Elgato (Corsair Keystone public press kit)",
+      "licenseUrl": "https://keystone.corsair.com/en/Cam_Link_4K/press-kit/",
+      "source": "https://res.cloudinary.com/corsairdam/image/upload/v1782983359/B07K3FN5MR.MAIN_cangrl.jpg"
+    },
+    {
+      "path": "img/product-stream-deck-neo-mfg.webp",
+      "sha256": "d14134f32f28ba91d1b81565b12da28f735b0520a85b594cc5a1a2c120e17b20",
+      "basis": "Manufacturer public press-kit media",
+      "evidence": "evidence/manufacturer-images-2026-10-06.json",
+      "author": "Elgato (Corsair Keystone public press kit)",
+      "licenseUrl": "https://keystone.corsair.com/en/Stream_Deck_Neo/press-kit/",
+      "source": "https://res.cloudinary.com/corsairdam/image/upload/v1781634276/B0CVY4566H.Main_llyl3o.jpg"
+    },
+    {
+      "path": "img/product-stream-deck-mk2-mfg.webp",
+      "sha256": "9ed1748628c6988942ca63a307b9dd9d3ff707d98e46b3a2ae56e6b627bbf194",
+      "basis": "Manufacturer public press-kit media",
+      "evidence": "evidence/manufacturer-images-2026-10-06.json",
+      "author": "Elgato (Corsair Keystone public press kit)",
+      "licenseUrl": "https://keystone.corsair.com/en/Stream_Deck_MK_2/press-kit/",
+      "source": "https://res.cloudinary.com/corsairdam/image/upload/v1774607545/B09738CV2G.Main_plpbev.jpg"
+    },
+    {
+      "path": "img/product-stream-deck-plus-mfg.webp",
+      "sha256": "d0d856a60dc070536fef040aad5f95458e6c45433db7252bdd254e9b281a8d3f",
+      "basis": "Manufacturer public press-kit media",
+      "evidence": "evidence/manufacturer-images-2026-10-06.json",
+      "author": "Elgato (Corsair Keystone public press kit)",
+      "licenseUrl": "https://keystone.corsair.com/en/Stream_Deck_Plus/press-kit/",
+      "source": "https://res.cloudinary.com/corsairdam/image/upload/v1774532784/Gaming_B0BJL8SJ59.Main_le1ghg.jpg"
+    },
+    {
+      "path": "img/product-brio-mfg.webp",
+      "sha256": "e03fafe3cd82b0bb70c6ffa0a3f70c2278f0ae94d41da4b9cbf24ed0c3396369",
+      "basis": "Manufacturer product-page media",
+      "evidence": "evidence/manufacturer-images-2026-10-06.json",
+      "author": "Logitech",
+      "licenseUrl": "https://www.logitech.com/en-us/products/webcams/brio-4k-hdr-webcam.html",
+      "source": "https://resource.logitech.com/w_1800,h_1800,c_limit,q_auto,f_auto,dpr_1.0/d_transparent.gif/content/dam/logitech/en/products/webcams/brio/gallery/brio-gallery-1.png"
+    },
+    {
+      "path": "img/product-litra-mfg.webp",
+      "sha256": "4a122eaca056977553d3fd6f7c13390e80ad753512c3fcbbe3a0b728b88f1470",
+      "basis": "Manufacturer product-page media",
+      "evidence": "evidence/manufacturer-images-2026-10-06.json",
+      "author": "Logitech",
+      "licenseUrl": "https://www.logitech.com/en-us/products/lighting/litra-glow.html",
+      "source": "https://resource.logitech.com/c_fill,q_auto,f_auto,dpr_1.0/d_transparent.gif/content/dam/logitech/en/products/lighting/litra-glow/gallery/litra-glow-streaming-light-gallery-1.png"
+    },
+    {
+      "path": "img/product-mx-brio-mfg.webp",
+      "sha256": "0f3dd883202fde5d5a4cbc8d24a629b786ca81773ee3779d78bf541a929a79b0",
+      "basis": "Manufacturer product-page media",
+      "evidence": "evidence/manufacturer-images-2026-10-06.json",
+      "author": "Logitech",
+      "licenseUrl": "https://www.logitech.com/en-us/products/webcams/mx-brio-4k-webcam.html",
+      "source": "https://resource.logitech.com/c_fill,q_auto,f_auto,dpr_1.0/d_transparent.gif/content/dam/logitech/en/products/webcams/mx-brio/buy/migration-assets-for-delorean-2025/gallery/mx-brio-3qtr-front-left-close-graphite.png"
+    },
+    {
+      "path": "img/product-yeti-mfg.webp",
+      "sha256": "46c343b0fd4e8e10b32f938b3209e23c511ce148d91a8b28cac8669742c40ba2",
+      "basis": "Manufacturer product-page media",
+      "evidence": "evidence/manufacturer-images-2026-10-06.json",
+      "author": "Logitech G",
+      "licenseUrl": "https://www.logitechg.com/en-us/products/streaming-gear/yeti-premium-usb-microphone.html",
+      "source": "https://resource.logitechg.com/c_fill,q_auto,f_auto,dpr_1.0/d_transparent.gif/content/dam/gaming/en/products/streaming-gear/yeti-premium-usb-microphone/2025/gallery/yeti-3qtr-left-angle-blackout-gallery-4.png"
+    },
+    {
+      "path": "img/product-mv7plus-mfg.webp",
+      "sha256": "65361e7fdf2e4e2acff8155cdd2bbbfbb20b2260f949b8d783c4a35f3ccac90b",
+      "basis": "Manufacturer product-page media",
+      "evidence": "evidence/manufacturer-images-2026-10-06.json",
+      "author": "Shure",
+      "licenseUrl": "https://www.shure.com/en-US/products/microphones/mv7?variant=MV7PLUS-K",
+      "source": "https://products.shureweb.eu/shure_product_db/product_main_images/files/700/ead/89-/large_transparent/fe71d068e73acc951e1c9a0458a7093c.png"
+    },
+    {
+      "path": "img/product-q2u-mfg.webp",
+      "sha256": "a74e3694410f2f1e6548db4da76ca194af9cc7f7f1270500f90e40c03003b469",
+      "basis": "Manufacturer product-page media",
+      "evidence": "evidence/manufacturer-images-2026-10-06.json",
+      "author": "Samson",
+      "licenseUrl": "https://samsontech.com/products/microphones/usb-microphones/q2u/",
+      "source": "https://storage.googleapis.com/samson-production/uploads/original_images/Q2U-on-Stand-1.jpg"
+    },
+    {
+      "path": "img/product-a7s3-mfg.webp",
+      "sha256": "02fe1e566bdca5bf8c89ccffe68164fbc510d881b42015713dc3532b13bf79ea",
+      "basis": "Manufacturer product image (Sony global image server)",
+      "evidence": "evidence/manufacturer-images-2026-10-06.json",
+      "author": "Sony",
+      "licenseUrl": "https://electronics.sony.com/imaging/interchangeable-lens-cameras/full-frame/p/ilce7sm3-b",
+      "source": "https://sony.scene7.com/is/image/sonyglobalsolutions/ILCE-7SM3?fmt=png-alpha&wid=1200"
+    },
+    {
+      "path": "img/product-anker-a8313-mfg.webp",
+      "sha256": "3f1dd836cc72b2332e3e192d5c7cff419415d969d782279bdcdbc846084b64bd",
+      "basis": "Manufacturer product-page media",
+      "evidence": "evidence/manufacturer-images-2026-10-06.json",
+      "author": "Anker",
+      "licenseUrl": "https://www.anker.com/products/a8313",
+      "source": "https://cdn.shopify.com/s/files/1/0493/9834/9974/files/A83130A2_TD01_V1_d4d9a09b-8ea1-4229-81ec-2f167b4e9a4f.png?v=1730775320"
+    },
+    {
+      "path": "img/product-osmo-pocket-3-mfg.webp",
+      "sha256": "633c66d60da50624f9320f328110ce9994c4983d7ac1ed8fac6cdae6b436e408",
+      "basis": "Manufacturer product-page media",
+      "evidence": "evidence/manufacturer-images-2026-10-06.json",
+      "author": "DJI",
+      "licenseUrl": "https://www.dji.com/osmo-pocket-3",
+      "source": "https://www-cdn.djiits.com/cms/uploads/8c6ec9b0dc4e170120dfd4ebf9f0ffd6.png"
     }
   ]
 }

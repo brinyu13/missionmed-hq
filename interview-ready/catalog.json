@@ -33,8 +33,17 @@
           "up": "The Brio adds field-of-view choices to a typical built-in camera. Lighting and a stable 1080p call remain the first priorities.",
           "down": "Keep your existing webcam if framing, exposure and reliability already pass the rehearsal.",
           "exception": false,
-          "image": "img/product-brio.webp",
-          "offerState": "check-on-amazon"
+          "image": "img/product-brio-mfg.webp",
+          "offerState": "check-on-amazon",
+          "imageCredit": {
+            "author": "Logitech",
+            "license": "Manufacturer product-page media",
+            "licenseUrl": "https://www.logitech.com/en-us/products/webcams/brio-4k-hdr-webcam.html",
+            "source": "https://resource.logitech.com/w_1800,h_1800,c_limit,q_auto,f_auto,dpr_1.0/d_transparent.gif/content/dam/logitech/en/products/webcams/brio/gallery/brio-gallery-1.png",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching."
+          },
+          "imageSource": "manufacturer"
         },
         {
           "t": "fc",
@@ -64,8 +73,17 @@
           "up": "Camera Hub gives repeatable manual image control. It trades the Brio’s autofocus and 4K sensor for a fixed-focus Elgato workflow.",
           "down": "The Brio is the simpler choice if you want adjustable framing without managing exposure presets.",
           "exception": true,
-          "image": "img/product-facecam-mk2.webp",
-          "offerState": "check-on-amazon"
+          "image": "img/product-facecam-mk2-mfg.webp",
+          "offerState": "check-on-amazon",
+          "imageCredit": {
+            "author": "Elgato (Corsair Keystone public press kit)",
+            "license": "Manufacturer public press-kit media",
+            "licenseUrl": "https://keystone.corsair.com/en/Facecam_MK_2/press-kit/",
+            "source": "https://res.cloudinary.com/corsairdam/image/upload/v1774862954/B0CW1S7XP5.Main_mcmfpy.jpg",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, metadata removed and WebP encoded; no retouching."
+          },
+          "imageSource": "manufacturer"
         },
         {
           "t": "pj",
@@ -129,7 +147,9 @@
           "source": "https://support.logi.com/hc/en-us/articles/360023307294-C920-Technical-Specifications",
           "ecosystem": "Logitech",
           "complexity": "Simple",
-          "box": "Webcam with attached USB-A cable and monitor clip; tripod thread in the clip base."
+          "box": "Webcam with attached USB-A cable and monitor clip; tripod thread in the clip base.",
+          "status": "image-hold",
+          "holdReason": "IMAGE_NOT_PRODUCTION_READY: Logitech publishes no C920x (no-shutter, Amazon-exclusive) product image; only C920s media exists. Held until an Amazon Creators API image is authorized."
         },
         {
           "exception": false,
@@ -155,7 +175,9 @@
           "source": null,
           "ecosystem": "EMEET",
           "complexity": "Simple",
-          "box": "Webcam, USB cable and privacy cover; sold by EMEET OFFICIAL on Amazon at check. No manufacturer page for this exact model was located, so the Amazon listing is the product source."
+          "box": "Webcam, USB cable and privacy cover; sold by EMEET OFFICIAL on Amazon at check. No manufacturer page for this exact model was located, so the Amazon listing is the product source.",
+          "status": "image-hold",
+          "holdReason": "IMAGE_NOT_PRODUCTION_READY: no EMEET manufacturer page or image for the S600 was located. Held until an Amazon Creators API image is authorized."
         },
         {
           "exception": false,
@@ -182,7 +204,17 @@
           "source": "https://www.logitech.com/en-us/products/webcams/mx-brio-4k-webcam.html",
           "ecosystem": "Logitech",
           "complexity": "Simple",
-          "box": "Webcam, detachable USB-C cable and monitor mount; tripod thread in the mount."
+          "box": "Webcam, detachable USB-C cable and monitor mount; tripod thread in the mount.",
+          "image": "img/product-mx-brio-mfg.webp",
+          "imageCredit": {
+            "author": "Logitech",
+            "license": "Manufacturer product-page media",
+            "licenseUrl": "https://www.logitech.com/en-us/products/webcams/mx-brio-4k-webcam.html",
+            "source": "https://resource.logitech.com/c_fill,q_auto,f_auto,dpr_1.0/d_transparent.gif/content/dam/logitech/en/products/webcams/mx-brio/buy/migration-assets-for-delorean-2025/gallery/mx-brio-3qtr-front-left-close-graphite.png",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching."
+          },
+          "imageSource": "manufacturer"
         },
         {
           "exception": false,
@@ -208,7 +240,17 @@
           "source": "https://www.elgato.com/us/en/p/facecam-4k",
           "ecosystem": "Elgato",
           "complexity": "Moderate",
-          "box": "Webcam, USB-C cable, monitor mount and privacy cap."
+          "box": "Webcam, USB-C cable, monitor mount and privacy cap.",
+          "image": "img/product-facecam-4k-mfg.webp",
+          "imageCredit": {
+            "author": "Elgato (Corsair Keystone public press kit)",
+            "license": "Manufacturer public press-kit media",
+            "licenseUrl": "https://keystone.corsair.com/en/Facecam_4K/press-kit/",
+            "source": "https://res.cloudinary.com/corsairdam/image/upload/v1774861015/B0DVZG36J8.MAIN_zi1zqb.jpg",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, metadata removed and WebP encoded; no retouching."
+          },
+          "imageSource": "manufacturer"
         },
         {
           "exception": false,
@@ -252,7 +294,17 @@
               "name": "Full-size HDMI (Type A) to HDMI cable and a desk mount or tripod",
               "note": "Choose for your desk; no specific listing recommended."
             }
-          ]
+          ],
+          "image": "img/product-a7s3-mfg.webp",
+          "imageCredit": {
+            "author": "Sony",
+            "license": "Manufacturer product image (Sony global image server)",
+            "licenseUrl": "https://electronics.sony.com/imaging/interchangeable-lens-cameras/full-frame/p/ilce7sm3-b",
+            "source": "https://sony.scene7.com/is/image/sonyglobalsolutions/ILCE-7SM3?fmt=png-alpha&wid=1200",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching."
+          },
+          "imageSource": "manufacturer"
         }
       ],
       "pick": "bc"
@@ -290,7 +342,17 @@
           "up": "Direct USB keeps the first setup short; XLR leaves room for a later interface. Close speaking technique matters more than the next tier.",
           "down": "Use a good headset or built-in mic if playback is clear and background noise is controlled.",
           "exception": false,
-          "offerState": "check-on-amazon"
+          "offerState": "check-on-amazon",
+          "image": "img/product-q2u-mfg.webp",
+          "imageCredit": {
+            "author": "Samson",
+            "license": "Manufacturer product-page media",
+            "licenseUrl": "https://samsontech.com/products/microphones/usb-microphones/q2u/",
+            "source": "https://storage.googleapis.com/samson-production/uploads/original_images/Q2U-on-Stand-1.jpg",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, metadata removed and WebP encoded; no retouching."
+          },
+          "imageSource": "manufacturer"
         },
         {
           "t": "fc",
@@ -321,7 +383,17 @@
           "up": "MV7+ adds USB processing and touch control while keeping an XLR option. A stand or arm remains a separate need.",
           "down": "Q2U gives you the core USB/XLR paths with fewer processing choices to rehearse.",
           "exception": false,
-          "offerState": "check-on-amazon"
+          "offerState": "check-on-amazon",
+          "image": "img/product-mv7plus-mfg.webp",
+          "imageCredit": {
+            "author": "Shure",
+            "license": "Manufacturer product-page media",
+            "licenseUrl": "https://www.shure.com/en-US/products/microphones/mv7?variant=MV7PLUS-K",
+            "source": "https://products.shureweb.eu/shure_product_db/product_main_images/files/700/ead/89-/large_transparent/fe71d068e73acc951e1c9a0458a7093c.png",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching."
+          },
+          "imageSource": "manufacturer"
         },
         {
           "t": "pj",
@@ -391,7 +463,17 @@
           "up": "MV7+ or Wave:3 MK.2 add processing and a better stand path; a dynamic capsule rejects more room noise.",
           "down": "Q2U usually costs less and hears less of the room.",
           "exception": false,
-          "offerState": "check-on-amazon"
+          "offerState": "check-on-amazon",
+          "image": "img/product-yeti-mfg.webp",
+          "imageCredit": {
+            "author": "Logitech G",
+            "license": "Manufacturer product-page media",
+            "licenseUrl": "https://www.logitechg.com/en-us/products/streaming-gear/yeti-premium-usb-microphone.html",
+            "source": "https://resource.logitechg.com/c_fill,q_auto,f_auto,dpr_1.0/d_transparent.gif/content/dam/gaming/en/products/streaming-gear/yeti-premium-usb-microphone/2025/gallery/yeti-3qtr-left-angle-blackout-gallery-4.png",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching."
+          },
+          "imageSource": "manufacturer"
         },
         {
           "exception": false,
@@ -417,7 +499,17 @@
           "source": "https://www.elgato.com/us/en/p/wave-3",
           "ecosystem": "Elgato / USB",
           "complexity": "Moderate",
-          "box": "Microphone, desk stand and USB-C cable; a boom arm is separate."
+          "box": "Microphone, desk stand and USB-C cable; a boom arm is separate.",
+          "image": "img/product-wave3-mk2-mfg.webp",
+          "imageCredit": {
+            "author": "Elgato (Corsair Keystone public press kit)",
+            "license": "Manufacturer public press-kit media",
+            "licenseUrl": "https://keystone.corsair.com/en/Wave_3_MK_2/press-kit/",
+            "source": "https://res.cloudinary.com/corsairdam/image/upload/v1781603801/B0GGYLFHPS.Main_evwyki.jpg",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, metadata removed and WebP encoded; no retouching."
+          },
+          "imageSource": "manufacturer"
         },
         {
           "t": "pj",
@@ -455,7 +547,17 @@
           "up": "",
           "down": "MV7+ on its own desk stand (First Class) is the same sound with less desk commitment.",
           "exception": false,
-          "offerState": "check-on-amazon"
+          "offerState": "check-on-amazon",
+          "image": "img/product-mv7plus-mfg.webp",
+          "imageCredit": {
+            "author": "Shure",
+            "license": "Manufacturer product-page media",
+            "licenseUrl": "https://www.shure.com/en-US/products/microphones/mv7?variant=MV7PLUS-K",
+            "source": "https://products.shureweb.eu/shure_product_db/product_main_images/files/700/ead/89-/large_transparent/fe71d068e73acc951e1c9a0458a7093c.png",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching."
+          },
+          "imageSource": "manufacturer"
         }
       ],
       "pick": "bc"
@@ -492,8 +594,17 @@
           "up": "A compact USB light makes front lighting more repeatable than changing window light. Position it before buying a stronger panel.",
           "down": "A suitable window and existing lamp may give you the light you need without another device.",
           "exception": false,
-          "image": "img/product-litra.webp",
-          "offerState": "check-on-amazon"
+          "image": "img/product-litra-mfg.webp",
+          "offerState": "check-on-amazon",
+          "imageCredit": {
+            "author": "Logitech",
+            "license": "Manufacturer product-page media",
+            "licenseUrl": "https://www.logitech.com/en-us/products/lighting/litra-glow.html",
+            "source": "https://resource.logitech.com/c_fill,q_auto,f_auto,dpr_1.0/d_transparent.gif/content/dam/logitech/en/products/lighting/litra-glow/gallery/litra-glow-streaming-light-gallery-1.png",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching."
+          },
+          "imageSource": "manufacturer"
         },
         {
           "t": "fc",
@@ -523,7 +634,17 @@
           "up": "A larger desk-mounted Key Light adds soft output and Control Center/Stream Deck control. Pairing and a stable clamp are part of setup.",
           "down": "Litra Glow uses less desk space and fewer network-control steps. Start there when one small light solves the problem.",
           "exception": false,
-          "offerState": "check-on-amazon"
+          "offerState": "check-on-amazon",
+          "image": "img/product-key-light-mfg.webp",
+          "imageCredit": {
+            "author": "Elgato (Corsair Keystone public press kit)",
+            "license": "Manufacturer public press-kit media",
+            "licenseUrl": "https://keystone.corsair.com/en/Key_Light_MK_2/press-kit/",
+            "source": "https://res.cloudinary.com/corsairdam/image/upload/v1786031685/B07L755X9G.main_tppegp.jpg",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, metadata removed and WebP encoded; no retouching."
+          },
+          "imageSource": "manufacturer"
         },
         {
           "t": "pj",
@@ -553,7 +674,17 @@
           "up": "Two independently placed panels let you balance key and fill rather than pushing one light harder. This is a two-unit plan, not a bundle ASIN.",
           "down": "One well-placed panel may be sufficient. A second unit doubles the lights to power, mount, pair and rehearse.",
           "exception": false,
-          "offerState": "check-on-amazon"
+          "offerState": "check-on-amazon",
+          "image": "img/product-key-light-mfg.webp",
+          "imageCredit": {
+            "author": "Elgato (Corsair Keystone public press kit)",
+            "license": "Manufacturer public press-kit media",
+            "licenseUrl": "https://keystone.corsair.com/en/Key_Light_MK_2/press-kit/",
+            "source": "https://res.cloudinary.com/corsairdam/image/upload/v1786031685/B07L755X9G.main_tppegp.jpg",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, metadata removed and WebP encoded; no retouching."
+          },
+          "imageSource": "manufacturer"
         },
         {
           "exception": false,
@@ -579,7 +710,17 @@
           "source": "https://www.elgato.com/us/en/p/key-light-neo",
           "ecosystem": "Elgato",
           "complexity": "Simple",
-          "box": "Light and USB cable; no mount in the verified listing. The clamp variant had no buy box at check."
+          "box": "Light and USB cable; no mount in the verified listing. The clamp variant had no buy box at check.",
+          "image": "img/product-key-light-neo-mfg.webp",
+          "imageCredit": {
+            "author": "Elgato (Corsair Keystone public press kit)",
+            "license": "Manufacturer public press-kit media",
+            "licenseUrl": "https://keystone.corsair.com/en/Key_Light_Neo/press-kit/",
+            "source": "https://res.cloudinary.com/corsairdam/image/upload/v1773400459/elgato/Neo/Key%20Light%20Neo/Imagery/Renders/Key_Light_Neo_Front.jpg",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, metadata removed and WebP encoded; no retouching."
+          },
+          "imageSource": "manufacturer"
         },
         {
           "exception": false,
@@ -605,7 +746,9 @@
           "source": null,
           "ecosystem": "Neewer",
           "complexity": "Moderate",
-          "box": "Two stands, two softboxes, bulbs and a carrying bag; confirm the selected variant. Third-party seller on Amazon at check; no manufacturer page for this kit was located, so the Amazon listing is the product source."
+          "box": "Two stands, two softboxes, bulbs and a carrying bag; confirm the selected variant. Third-party seller on Amazon at check; no manufacturer page for this kit was located, so the Amazon listing is the product source.",
+          "status": "image-hold",
+          "holdReason": "IMAGE_NOT_PRODUCTION_READY: no NEEWER manufacturer page or image for this kit was located. Held until an Amazon Creators API image is authorized."
         },
         {
           "exception": false,
@@ -631,7 +774,17 @@
           "source": "https://www.elgato.com/us/en/p/key-light-air",
           "ecosystem": "Elgato",
           "complexity": "Simple",
-          "box": "Light and clamp-on desk mount; check the listing for the included power option."
+          "box": "Light and clamp-on desk mount; check the listing for the included power option.",
+          "image": "img/product-key-light-air-mk2-mfg.webp",
+          "imageCredit": {
+            "author": "Elgato (Corsair Keystone public press kit)",
+            "license": "Manufacturer public press-kit media",
+            "licenseUrl": "https://keystone.corsair.com/en/Key_Light_Air_MK_2/press-kit/",
+            "source": "https://res.cloudinary.com/corsairdam/image/upload/v1781691225/Key_Light__Air_MK2_Device_Shot_00_gudxqv.png",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching."
+          },
+          "imageSource": "manufacturer"
         }
       ],
       "pick": "bc"
@@ -688,8 +841,17 @@
           "up": "An adjustable low-profile arm brings a compatible microphone closer without filling the camera frame. It does not mount every camera.",
           "down": "Keep a stable desk stand if it gives comfortable speaking distance without transmitting knocks.",
           "exception": false,
-          "image": "img/product-arm-lp.webp",
-          "offerState": "check-on-amazon"
+          "image": "img/product-arm-lp-mfg.webp",
+          "offerState": "check-on-amazon",
+          "imageCredit": {
+            "author": "Elgato (Corsair Keystone public press kit)",
+            "license": "Manufacturer public press-kit media",
+            "licenseUrl": "https://keystone.corsair.com/en/Wave_Mic_Arm_LP/press-kit/",
+            "source": "https://res.cloudinary.com/corsairdam/image/upload/v1775577612/B097376LKF.Main_hw3b4m.jpg",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, metadata removed and WebP encoded; no retouching."
+          },
+          "imageSource": "manufacturer"
         },
         {
           "t": "pj",
@@ -714,8 +876,17 @@
           "up": "Cam Link converts a compatible camera’s clean HDMI output into a USB webcam feed. It serves a mirrorless capture need, not an arm upgrade.",
           "down": "A USB webcam needs no HDMI capture device. Keep a complete, tested USB path when it already looks good.",
           "exception": false,
-          "image": "img/product-camlink.webp",
-          "offerState": "check-on-amazon"
+          "image": "img/product-camlink-mfg.webp",
+          "offerState": "check-on-amazon",
+          "imageCredit": {
+            "author": "Elgato (Corsair Keystone public press kit)",
+            "license": "Manufacturer public press-kit media",
+            "licenseUrl": "https://keystone.corsair.com/en/Cam_Link_4K/press-kit/",
+            "source": "https://res.cloudinary.com/corsairdam/image/upload/v1782983359/B07K3FN5MR.MAIN_cangrl.jpg",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, metadata removed and WebP encoded; no retouching."
+          },
+          "imageSource": "manufacturer"
         }
       ],
       "pick": "bc"
@@ -828,7 +999,17 @@
           "up": "A compatible wired adapter removes Wi-Fi as the primary connection. Your router, ISP and computer still need reliable power.",
           "down": "Keep stable Wi-Fi if the actual platform rehearsal is reliable; an adapter cannot repair an ISP outage.",
           "exception": false,
-          "offerState": "check-on-amazon"
+          "offerState": "check-on-amazon",
+          "image": "img/product-anker-a8313-mfg.webp",
+          "imageCredit": {
+            "author": "Anker",
+            "license": "Manufacturer product-page media",
+            "licenseUrl": "https://www.anker.com/products/a8313",
+            "source": "https://cdn.shopify.com/s/files/1/0493/9834/9974/files/A83130A2_TD01_V1_d4d9a09b-8ea1-4229-81ec-2f167b4e9a4f.png?v=1730775320",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching."
+          },
+          "imageSource": "manufacturer"
         },
         {
           "t": "fc",
@@ -913,7 +1094,17 @@
           "up": "Eight visible keys cover a small set of tested actions. The USB-C connection and app compatibility must fit your computer.",
           "down": "Keyboard shortcuts cost nothing. Only add a control surface if it removes a problem you have rehearsed.",
           "exception": false,
-          "offerState": "check-on-amazon"
+          "offerState": "check-on-amazon",
+          "image": "img/product-stream-deck-neo-mfg.webp",
+          "imageCredit": {
+            "author": "Elgato (Corsair Keystone public press kit)",
+            "license": "Manufacturer public press-kit media",
+            "licenseUrl": "https://keystone.corsair.com/en/Stream_Deck_Neo/press-kit/",
+            "source": "https://res.cloudinary.com/corsairdam/image/upload/v1781634276/B0CVY4566H.Main_llyl3o.jpg",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, metadata removed and WebP encoded; no retouching."
+          },
+          "imageSource": "manufacturer"
         },
         {
           "t": "fc",
@@ -941,8 +1132,17 @@
           "up": "Fifteen visible keys give an ongoing teaching or recording workflow more dedicated actions than Neo. More keys do not improve interview answers.",
           "down": "Neo covers a small interview profile with less hardware. Keep a keyboard if it already works reliably.",
           "exception": false,
-          "image": "img/product-stream-deck-mk2.webp",
-          "offerState": "check-on-amazon"
+          "image": "img/product-stream-deck-mk2-mfg.webp",
+          "offerState": "check-on-amazon",
+          "imageCredit": {
+            "author": "Elgato (Corsair Keystone public press kit)",
+            "license": "Manufacturer public press-kit media",
+            "licenseUrl": "https://keystone.corsair.com/en/Stream_Deck_MK_2/press-kit/",
+            "source": "https://res.cloudinary.com/corsairdam/image/upload/v1774607545/B09738CV2G.Main_plpbev.jpg",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, metadata removed and WebP encoded; no retouching."
+          },
+          "imageSource": "manufacturer"
         },
         {
           "t": "pj",
@@ -972,16 +1172,17 @@
           "up": "Four dials and a touch strip add granular studio controls alongside eight keys. XLR Dock and USB Hub are optional separate accessories.",
           "down": "MK.2 gives more dedicated keys; Neo or keyboard shortcuts simplify a small interview workflow.",
           "exception": false,
-          "image": "img/product-stream-plus-cc.webp",
+          "image": "img/product-stream-deck-plus-mfg.webp",
           "offerState": "check-on-amazon",
           "imageCredit": {
-            "author": "TaurusEmerald",
-            "license": "CC BY-SA 4.0",
-            "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
-            "source": "https://commons.wikimedia.org/wiki/File:Elgato_Stream_Deck_%2B.jpg",
-            "caption": "Stream Deck + photographed in use; key layouts are customizable.",
-            "changes": "EXIF orientation normalized, resized, metadata removed and WebP encoded"
-          }
+            "author": "Elgato (Corsair Keystone public press kit)",
+            "license": "Manufacturer public press-kit media",
+            "licenseUrl": "https://keystone.corsair.com/en/Stream_Deck_Plus/press-kit/",
+            "source": "https://res.cloudinary.com/corsairdam/image/upload/v1774532784/Gaming_B0BJL8SJ59.Main_le1ghg.jpg",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, metadata removed and WebP encoded; no retouching."
+          },
+          "imageSource": "manufacturer"
         }
       ],
       "pick": "bc"
@@ -1640,7 +1841,17 @@
       "box": "Check the selected listing and package contents before ordering.",
       "up": "",
       "down": "",
-      "exception": false
+      "exception": false,
+      "image": "img/product-osmo-pocket-3-mfg.webp",
+      "imageCredit": {
+        "author": "DJI",
+        "license": "Manufacturer product-page media",
+        "licenseUrl": "https://www.dji.com/osmo-pocket-3",
+        "source": "https://www-cdn.djiits.com/cms/uploads/8c6ec9b0dc4e170120dfd4ebf9f0ffd6.png",
+        "caption": "Manufacturer product image of the exact model.",
+        "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching."
+      },
+      "imageSource": "manufacturer"
     }
   ],
   "reviews": {
