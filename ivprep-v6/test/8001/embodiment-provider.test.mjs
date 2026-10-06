@@ -66,6 +66,30 @@ test('a new generation is fenced until interrupted playback is actually acknowle
   assert.equal((await command({command:'audio',generation:2,sequence:3,audio:'AAA='})).accepted,true);
   await command({command:'terminate'});
 });
+test('malformed and non-object socket payloads cannot throw or acknowledge interrupted playback',async()=>{
+  let socket;
+  class ManualSocket extends EventEmitter{readyState=1;bufferedAmount=0;constructor(){super();queueMicrotask(()=>this.emit('open'));}send(){}close(){this.readyState=3;}}
+  const h=harness({socketFactory:()=>socket=new ManualSocket()});const ticket=await h.manager.start({actor:'wp:1',sessionId:ID});
+  const command=body=>h.manager.command({actor:'wp:1',sessionId:ID,id:ticket.id,...body});
+  await command({command:'audio',generation:1,sequence:1,audio:'AAA='});
+  let acknowledged=false;
+  const flushing=command({command:'interrupt',generation:2,sequence:2}).then(result=>{acknowledged=true;return result;});
+  for(const payload of ['PRIVATE_INVALID_JSON','null','true','42','"playback_finished"','[]','[{"command":"playback_finished","interrupted":true}]','{}','{"command":"unknown","interrupted":true}','{"command":"heartbeat_ack"}']){
+    assert.doesNotThrow(()=>socket.emit('message',Buffer.from(payload)));
+    assert.equal(h.manager.status({actor:'wp:1',sessionId:ID}).playback,null);
+  }
+  await new Promise(resolve=>setImmediate(resolve));assert.equal(acknowledged,false);
+  await assert.rejects(command({command:'audio',generation:2,sequence:3,audio:'AAA='}),/flush_pending/);
+  socket.emit('message',Buffer.from(JSON.stringify({command:'playback_finished',interrupted:true,playback_position:0.1})));
+  assert.equal((await flushing).flushed,true);
+  assert.deepEqual(h.manager.status({actor:'wp:1',sessionId:ID}).playback,{interrupted:true,positionSeconds:0.1,observedAtMs:1000});
+  await command({command:'audio',generation:2,sequence:3,audio:'AAA='});
+  socket.emit('message',JSON.stringify({command:'playback_finished',interrupted:false,playback_position:0.2}));
+  assert.deepEqual(h.manager.status({actor:'wp:1',sessionId:ID}).playback,{interrupted:false,positionSeconds:0.2,observedAtMs:1000});
+  assert.equal((await command({command:'terminate'})).providerConfirmed,true);
+  assert.equal(h.receipts.at(-1).failure,null);assert.equal(JSON.stringify(h.receipts).includes('PRIVATE_INVALID_JSON'),false);
+  assert.equal(h.calls.filter(c=>c.body?.transport_type).length,1);
+});
 test('late creation after stop terminates its exact ID even when its socket URL is invalid',async()=>{
   let resolveCreate;const calls=[];
   const h=harness({fetchImpl:async(url,options)=>{calls.push(url);return {ok:true,json:async()=>options.method==='POST'&&!url.endsWith('/control')?await new Promise(resolve=>{resolveCreate=resolve;}):url.endsWith('/control')?{success:true}:{session_status:'COMPLETED'}};}});

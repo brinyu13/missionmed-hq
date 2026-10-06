@@ -185,6 +185,10 @@ export class GptLiveInterviewer {
   }
 
   cancel() { this.resolvePending(null, { state: 'cancelled' }); }
+  appendHookContext(hint) {
+    if(this.stopping||this.failed)return false;
+    return this.live?.appendHookContext?.(hint)===true;
+  }
   async prepareMicrophoneReplacement(track,{isCurrent=()=>true}={}) {
     const live=this.live,ticket=this.generation,previous=live?.microphoneSender?.track;
     const current=()=>!this.stopping&&this.live===live&&ticket===this.generation&&isCurrent();

@@ -178,6 +178,7 @@ export function createEmbodimentCanary({env = process.env, fetchImpl = fetch, no
         a.socket=socketFactory ? socketFactory(wsUrl.href) : new WebSocket(wsUrl.href,{handshakeTimeout:5000,maxPayload:16384});
         a.socket.on('message',data=>{
           let event;try{event=JSON.parse(String(data));}catch{return;}
+          if(!event || typeof event!=='object' || Array.isArray(event))return;
           if(event.command==='playback_finished'){
             a.playing=false;a.playback={interrupted:event.interrupted===true,positionSeconds:Number(event.playback_position)||0,observedAtMs:now()};
             if(event.interrupted===true && a.interruptResolve){a.interruptResolve();a.interruptResolve=null;a.interruptReject=null;}

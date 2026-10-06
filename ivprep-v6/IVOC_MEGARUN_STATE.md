@@ -5,7 +5,7 @@ Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`, `DR-350` (narrow packaging), `DR-361` (current RISE eligibility successor), `DR-392` (bounded preflight/closing repair); `DR-340` QA grant revoked
 Branch: `codex/ivoc-foreman-9200`
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
-Current continuation boundary: `CLOSING POLICY + REQUIRED EMBODIMENT STATUS LIVE; CANARY4 CONSUMED / EXACT TERMINAL + ROOM0 / PROVIDER OFF; RETURNED SOCKET CONTRACT UNRESOLVED / NO PAID RETRY; GENUINE POV ACCEPTANCE STILL OPEN`
+Current continuation boundary: `FINAL PRODUCT CLOSURE: PITCH RETENTION + LEGACY FULL ANALYTICS + QUIET HOOK CONTEXT + WS PAYLOAD GUARD IMPLEMENTED; GUARDED DEPLOYMENT NEXT; REQUIRED EMBODIMENT CONTRACT / NEW PAID CANARY AUTHORIZATION STILL OPEN; GENUINE POV ACCEPTANCE STILL OPEN`
 
 Current runtime: source `1c3c28ff82f57f908d81700d071eb12648a324cf`, deployment `252bc791-3b6c-442d-9487-51e19e71ae79` SUCCESS; image `sha256:81bf746c1426c25a25413621c9e119a8be09545332659aa62214b9f93705a106`. Known-good rollback: source `1bc9d1b2f2e1b07046f97dac94247fcc9161067f`, deployment `88ce9f10-eafd-4d7c-b049-b3a1a0a886a9`.
 
@@ -15,6 +15,18 @@ present in the active source lineage but has not yet passed acceptance against
 the actual production route and deployment.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
+
+### Final product closure — 2026-10-06
+
+- One current-truth refresh: assigned Foreman branch/remote HEAD565d4a9, only the preserved untracked forensic handoff; OS4eb9492, BOOT dependencies PASS. Runtime252bc791/source1c3c28f/image81bf746c remains healthy200. It is the pre-candidate rollback target, not full product acceptance.
+- PRODUCT lease7e41dd96/epoch5136 held by durable keeper; isolated workers committed5eceffcc (WS null/primitive/array guard) and75b4148 (rolling pitch coverage + qualified older Full Analytics observations). Surgical per-file integration, no whole-branch merge; no provider calls or database/authority mutation.
+- Existing native InterviewBrain now receives bounded semantic hook context through official `session.thinking.append`, at most one attempted hint per planned question. This neither triggers speech nor invents completed turns. Closing, exhausted limits, stale/conflicting evidence, private/resolved hooks are withheld. Hook-followed marks still require observed provider output. Actual spoken follow-up remains UNVERIFIED.
+- Pitch statistics and coverage now use the same1800-frame window; continuous voiced speech no longer falls below coverage solely because retention fills. Silence/rejected frames reduce coverage truthfully. Current four right-rail designs unchanged. Physical calibrated coaching remains UNVERIFIED.
+- Full Analytics consumes qualified legacy recording-observed timelines when Fable samples are absent. Separate observation rows; no fabricated answering turns, emotion inference, percentages of time or event counts. Owned cold-reload rendering still needs live acceptance after deployment.
+- Integrated focused76/76 PASS. Fresh independent verifier20hook/native/preferences and21pitch/review checks PASS, engineering only. Required normal release checks will run in candidate build; no test substitutes for SEE/HEAR/RELOAD acceptance.
+- Authenticated brinyuAdmin normal Home→Mock→Room readiness walked without session creation. Desktop page bounds fit1440×900 and1728×1117; Chrome75% zoom made the middle check1512×983 (not exact1512×982). Mobile390×844 keeps core readiness/controls visible and secondary analytics below; no horizontal overflow. These are readiness composition observations, not LIVE avatar/interview acceptance. Temporary overrides cleared; user active Room untouched.
+- REQUIRED embodiment remains blocked on the provider-returned socket contract (sanctioned hostname/port/path/query constraints). Official contract documents an opaque returned address, not a guaranteed hostname; no speculative allowlist expansion or TLS/SSRF bypass. Current null-event guard is not Canary4 recovery. Initial avatar-frame-before-opening versus audio_end readiness remains a provider-dependent ambiguity; no speculative silence-prime or altered45s/15s limits. Canary4 proves no session survived; it does not prove no HTTP request crossed the network boundary. No new paid authorization consumed.
+- Continue no-spend closure and guarded deployment. Outstanding genuine gates remain visible/synchronized avatar with exact teardown, spoken contextual hook/progression/closing and audible two-sided cold replay, genuine role identities/private-media, positive authorized CV/StoryForge data, supervised Webex event and real recurrence. Terminal completion NOT declared.
 
 ### Current Fable-to-production convergence — 2026-10-03
 

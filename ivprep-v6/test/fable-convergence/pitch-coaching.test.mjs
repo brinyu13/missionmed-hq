@@ -6,10 +6,42 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {COACHING_CONFIG,mapToLiveScale} from '../../public/analytics/coaching-config.mjs';
 import {CALIBRATION} from '../../public/ivoc-standalone/app/data.mjs';
+import {PitchTrack} from '../../public/analytics/pitch-f0.mjs';
 
 const audio=(atMs,f0Hz=200,extra={})=>({modality:'audio',atMs,available:true,rms:.08,speaking:true,
   loudness:{available:true,speechLufsK:-24},pitch:{voiced:true,f0Hz,clarity:.9,summary:{available:true,medianHz:f0Hz,referenceHz:120,referenceBasis:'FIXED_PERSONAL_CALIBRATION_MEDIAN',voicedFrames:30,voicedRatio:.9}},...extra});
 function runtime(){const value=new BehaviorIntelligenceRuntime({now:()=>0});value.setBaseline({pitchMedianHz:120,speechLufsK:-24});value.beginInterview(0,{explicitMeasurementStart:true});return value;}
+test('actual retained pitch producer keeps continuous voiced coverage and reaches coaching after its buffer fills',()=>{
+  const track=new PitchTrack();track.freezeCalibrationBaseline(120);
+  for(let n=0;n<3000;n++)track.push({voiced:true,f0Hz:200,confidence:.9});
+  assert.equal(track.summary().voicedFrames,1800);assert.equal(track.summary().voicedRatio,1);
+  const value=runtime();
+  for(let at=100;at<=15000;at+=100){
+    track.push({voiced:true,f0Hz:200,confidence:.9});
+    value.ingestDiagnostic(audio(at,200,{pitch:{voiced:true,f0Hz:200,clarity:.9,summary:track.summary()}}));
+  }
+  assert.equal(value.latest.pitch.available,true);assert.equal(value.latest.cue?.id,'pitch-high');
+});
+test('rolling coverage counts silent, malformed and rejected frames and recovers only on new voiced evidence',()=>{
+  const track=new PitchTrack({maxHistory:20,minVoicedFrames:8});track.freezeCalibrationBaseline(120);
+  const voiced=()=>track.push({voiced:true,f0Hz:200,confidence:.9});
+  for(let n=0;n<40;n++)voiced();
+  for(const push of [()=>track.push({voiced:true,f0Hz:200},{speaking:false}),
+    ()=>track.push({voiced:false,f0Hz:null}),()=>track.push({voiced:true,f0Hz:NaN}),
+    ()=>track.push({voiced:true,f0Hz:10000})])push();
+  assert.equal(track.summary().voicedFrames,16);assert.equal(track.summary().voicedRatio,.8);
+  for(let n=0;n<3;n++)track.push({voiced:false,f0Hz:null});
+  assert.equal(track.summary().voicedRatio,.65);
+  const value=runtime();value.ingestDiagnostic(audio(100,200,{pitch:{voiced:true,f0Hz:200,clarity:.9,summary:track.summary()}}));
+  assert.equal(value.latest.pitch.available,false);
+  for(let n=0;n<20;n++)track.push({voiced:false,f0Hz:null});
+  assert.equal(track.summary().available,false);assert.equal(track.summary().voicedRatio,0);
+  for(let n=0;n<20;n++)voiced();
+  assert.equal(track.summary().voicedRatio,1);assert.equal(track.summary().referenceHz,120);
+  track.reset();assert.equal(track.summary().available,false);assert.equal(track.summary().voicedRatio,0);
+  assert.equal(track.calibrationMedianHz,120);
+  track.reset({preserveCalibration:false});assert.equal(track.calibrationMedianHz,null);
+});
 test('sustained validated calibrated pitch reaches the existing single correction arbiter',()=>{
   const value=runtime();for(let at=100;at<=15000;at+=100)value.ingestDiagnostic(audio(at));
   assert.equal(value.latest.cue?.id,'pitch-high');assert.match(value.latest.cue.message,/personal pitch range/i);

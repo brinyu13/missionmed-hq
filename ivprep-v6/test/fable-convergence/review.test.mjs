@@ -4,6 +4,7 @@ import {projectReplayTurns,projectSavedAttempt,validReplaySeek,privatePlaybackUr
 import {bindOwnLibrary,bindOwnRow} from '../../public/studio-fable/app/adapters/own-scope.mjs';
 import {sealDerivedEvidence} from '../../public/studio-fable/app/adapters/derived-evidence.mjs';
 import {traceSample} from '../../public/studio-fable/app/model/trace-reducer.mjs';
+import {MeasurementTimeline} from '../../public/studio/flight-recorder-view.mjs';
 const id='f13869aa-2b3e-4b65-9f66-1288fb459444';
 test('own library omitted owner display binds only to admitted scope; explicit mismatch fails',()=>{
   assert.equal(bindOwnRow({id},'wp:1').ownerSubject,'wp:1');assert.equal(bindOwnRow({id,ownerSubject:'wp:2'},'wp:1'),null);
@@ -15,6 +16,49 @@ test('older own saved attempt needs no Fable trace and rejects wrong private rec
   assert.equal(a.recordingId,'r1');assert.equal(a.traceUnavailable,true);assert.equal(a.durationS,9);
   assert.equal(projectSavedAttempt(saved,'wp:2'),null);
   assert.equal(projectSavedAttempt({...saved,sessionDetail:{...row,recording:{...row.recording,id:'r2'}}},'wp:1').recordingId,null);
+});
+test('actual legacy Flight Recorder survives owned cold review and supplies only its observed lanes',()=>{
+  const timeline=new MeasurementTimeline();
+  for(const [atMs,level,pitch,hands] of [[1000,-25,120,0],[2000,-22,140,2]]){
+    timeline.ingest({modality:'audio',available:true,speaking:true},{VOICE_LEVEL:{available:true,dbfs:level},PITCH:{available:true,voiced:true,f0Hz:pitch}},atMs);
+    timeline.ingest({modality:'vision'},{FRAMING:{available:true,cameraFacing:true},HANDS:{available:true,left:hands===2,right:hands===2,moving:hands===2},FACE:{available:true,smileActive:false,smilePatternActive:true}},atMs);
+  }
+  const row={id,ownerSubject:'wp:1',state:'saved',recording:{id:'r1',status:'saved',durationMs:5000},
+    results:{payload:{analytics:{flightRecorder:JSON.parse(JSON.stringify(timeline.snapshot()))}}}};
+  const saved={persisted:true,session:row,sessionDetail:row};
+  const a=projectSavedAttempt(saved,'wp:1');assert.equal(a.traceUnavailable,true);
+  const report=retainedEvidenceReport(a),group=report.groups.find(g=>g.label==='Earlier Flight Recorder observations');
+  assert.equal(report.available,true);
+  assert.equal(group.rows.find(r=>r.label==='Voice level (dBFS)').value,'-25.0–-22.0 dBFS · 2 retained samples');
+  assert.equal(group.rows.find(r=>r.label==='Voiced pitch').value,'120–140 Hz · 2 retained samples');
+  assert.equal(group.rows.find(r=>r.label==='Hands in view').value,'0–2 hands · 2 retained samples');
+  assert.equal(group.rows.find(r=>r.label==='Qualified smile pattern').value,'2 active / 2 retained observations');
+  assert.equal(group.rows[0].at,1);
+  assert.match(report.note,/does not identify answering turns or event counts/);
+  assert.doesNotMatch(JSON.stringify(group),/WPM|LUFS|smile events|readiness|emotion|personality/);
+  assert.equal(retainedEvidenceReport(projectSavedAttempt(saved,'wp:2')).available,false);
+});
+test('legacy report rejects unsupported clocks, fixtures, invalid times and unmeasured values without replacing a Fable trace',()=>{
+  const timeline={schema:'ivoc.measurement-timeline.v1',clock:'recording-observed',sampleIntervalMs:1000,
+    points:[{atMs:1000,lane:'voice',speaking:true,level:-25,pitch:120}]};
+  const a={persisted:true,fixture:false,traceUnavailable:true,durationS:5,samples:[],events:[],measurementTimeline:timeline};
+  for(const change of [{schema:'other'},{clock:'session'},{fixture:true},{points:[null,'bad',42]},
+    {points:[{atMs:6000,lane:'voice',level:-10,speaking:true}]},
+    {points:[{atMs:null,lane:'voice',level:-10,speaking:true}]},{points:[{atMs:'1000',lane:'voice',level:-10,speaking:true}]},
+    {points:[{atMs:1000,lane:'voice',fixture:true,level:-10,speaking:true}]},
+    {points:[{atMs:1000,lane:'unknown',level:-10,speaking:true}]},
+    {points:[{atMs:1000,lane:'voice',speaking:'true',level:-10,pitch:120}]},
+    {points:[{atMs:1000,lane:'delivery',facing:'true',hands:3,movement:null,mouth:null,smile:null}]}]){
+    assert.equal(retainedEvidenceReport({...a,measurementTimeline:{...timeline,...change}}).available,false);
+  }
+  for(const change of [{persisted:false},{fixture:true},{durationS:null}])assert.equal(retainedEvidenceReport({...a,...change}).available,false);
+  const silence=retainedEvidenceReport({...a,measurementTimeline:{...timeline,points:[{atMs:1000,lane:'voice',speaking:false,level:-10,pitch:120}]}});
+  const silenceRows=silence.groups.find(g=>g.label==='Earlier Flight Recorder observations').rows;
+  assert.equal(silenceRows.find(r=>r.label==='Speech / silence').value,'0 speech / 1 retained observations');
+  for(const label of ['Voice level (dBFS)','Voiced pitch'])assert.match(silenceRows.find(r=>r.label===label).value,/Unavailable/);
+  const fable=retainedEvidenceReport({...a,traceUnavailable:false,samples:[{t:1,speaking:true,state:'ANSWERING',f0Hz:180}]});
+  assert.equal(fable.groups.some(g=>g.label==='Earlier Flight Recorder observations'),false);
+  assert.equal(fable.groups.find(g=>g.label==='Captured candidate voice').rows.find(r=>r.label==='Voiced pitch').value,'180–180 Hz · 1 retained sample');
 });
 test('repeated canonical wording keeps unique turn identities and distinct seek ranges',()=>{
   const detail={id,spine:{candidateAttribution:{status:'VERIFIED'},turns:[1,7].map((n,i)=>({speaker:'student',startMs:n*1000,endMs:n*1000+500,

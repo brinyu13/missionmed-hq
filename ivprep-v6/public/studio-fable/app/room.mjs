@@ -134,6 +134,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     const before=observer?.snapshot();
     turns.push({speaker,text,t:at(),identity:event.identity||null,timingBasis:'MESSAGE_RECEIPT',state:before?.state||'PRACTICE',n:before?.n||1});
     observer?.ingestFinal({speaker,text,identity:event.identity||null,sessionId:controller.durable.accountSession?.id||null});
+    if(speaker==='applicant')guideHook();
     markObservations(before,speaker);
     renderTranscript();renderPlan();
   }
@@ -141,12 +142,24 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     const snap=observer?.snapshot();
     applyNativeObservationMarks(events,before,snap,speaker,at());
   }
+  function guideHook(){
+    if(!current()||!started||finished||saving||!observer)return;
+    const hint=observer.pendingHookContext();
+    if(hint&&interviewer?.appendHookContext(hint))observer.hookContextSent(hint);
+  }
   const callbacks={
     onLine(text){if(!current()||saving)return;$('presence-line').textContent=text;},
     onSpeaking(on){if(!current()||saving)return;$('presence').dataset.speaking=String(on);$('presence-state').textContent=on?'speaking':'listening';},
     onFinal(text,directive,event){addTurn('interviewer',text,event);},
     onApplicantFinal(text,event){addTurn('applicant',text,event);},
-    onTranscriptFragment(event){if(!current()||finished||saving||!observer)return;const before=observer.snapshot();if(observer.ingestFragment(event)){markObservations(before,event.type==='session.input_transcript.delta'?'applicant':'interviewer');renderPlan();}},
+    onTranscriptFragment(event){
+      if(!current()||finished||saving||!observer)return;
+      const before=observer.snapshot();
+      if(observer.ingestFragment(event)){
+        markObservations(before,event.type==='session.input_transcript.delta'?'applicant':'interviewer');renderPlan();
+        if(event.type==='session.input_transcript.delta')guideHook();
+      }
+    },
     onTranscriptOverlap(observation){
       if(!current()||!started||!controller.durableActive||controller.recordingOrigin==null||finished||saving)return;
       if(observation.invalidated){for(let i=events.length-1;i>=0;i--)if(events[i].kind==='overlap')events.splice(i,1);return;}

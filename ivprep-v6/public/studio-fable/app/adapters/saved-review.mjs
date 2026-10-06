@@ -114,9 +114,10 @@ export function retainedEvidenceReport(attempt) {
   const groups = [];
   const duration = attempt?.durationS;
   const admitted = attempt?.persisted === true && attempt.fixture === false
-    && attempt.traceUnavailable === false && typeof duration === 'number'
+    && typeof duration === 'number'
     && Number.isFinite(duration) && duration >= 0;
-  const eligible = item => admitted && item?.fixture !== true && typeof item?.t === 'number'
+  const eligible = item => admitted && attempt.traceUnavailable === false
+    && item?.fixture !== true && typeof item?.t === 'number'
     && Number.isFinite(item.t) && item.t >= 0 && item.t <= duration;
   const samples = (Array.isArray(attempt?.samples) ? attempt.samples : []).filter(eligible);
   const events = (Array.isArray(attempt?.events) ? attempt.events : []).filter(eligible);
@@ -148,8 +149,38 @@ export function retainedEvidenceReport(attempt) {
     row('Volume (dBFS)', measured(speech.filter(s => s.loudnessUnit === 'dBFS'),'loudness'), items => range(items,'loudness','dBFS',1)),
     row('Voiced pitch', measured(speech,'f0Hz',n => n > 0), items => range(items,'f0Hz','Hz')),
   ]});
-  return {groups, available:samples.length > 0 || events.length > 0,
-    note:'These are retained observations, not percentages of interview time or a readiness score. Missing intervals are not reconstructed. Open Film Room to inspect the synchronized evidence.'};
+  // Film Room uses the older measurement timeline when no Fable samples exist.
+  // Keep its lanes separate: it has neither answer-state nor event-count evidence.
+  const timeline=attempt?.measurementTimeline;
+  const points=admitted && !samples.length && timeline?.fixture!==true
+    && timeline?.schema==='ivoc.measurement-timeline.v1' && timeline.clock==='recording-observed'
+    && Array.isArray(timeline.points) ? timeline.points.filter(p=>p && typeof p==='object' && p.fixture!==true
+      && typeof p.atMs==='number' && Number.isFinite(p.atMs) && p.atMs>=0 && p.atMs<=duration*1000
+      && ['voice','delivery'].includes(p.lane)).map(p=>({...p,t:p.atMs/1000})) : [];
+  let legacyAvailable=false;
+  if(points.length){
+    const voice=points.filter(p=>p.lane==='voice'),delivery=points.filter(p=>p.lane==='delivery');
+    const voiceSpeech=voice.filter(p=>p.speaking===true);
+    const booleanRow=(label,items,key,active='active')=>{
+      const selected=items.filter(p=>typeof p[key]==='boolean');
+      return row(label,selected,values=>`${values.filter(p=>p[key]).length} ${active} / ${values.length} retained observations`);
+    };
+    const rows=[
+      row('Voice level (dBFS)',measured(voiceSpeech,'level'),items=>range(items,'level','dBFS',1)),
+      row('Voiced pitch',measured(voiceSpeech,'pitch',n=>n>0),items=>range(items,'pitch','Hz')),
+      booleanRow('Speech / silence',voice,'speaking','speech'),
+      booleanRow('Head facing camera',delivery,'facing'),
+      row('Hands in view',measured(delivery,'hands',n=>Number.isInteger(n)&&n>=0&&n<=2),items=>range(items,'hands','hands')),
+      booleanRow('Hand-region movement',delivery,'movement'),
+      booleanRow('Mouth-corner elevation',delivery,'mouth'),
+      booleanRow('Qualified smile pattern',delivery,'smile'),
+    ];
+    legacyAvailable=rows.some(r=>r.at!==null);
+    if(legacyAvailable)groups.push({label:'Earlier Flight Recorder observations',rows});
+  }
+  return {groups, available:samples.length > 0 || events.length > 0 || legacyAvailable,
+    note:'These are retained observations, not percentages of interview time or a readiness score. Missing intervals are not reconstructed. Open Film Room to inspect the synchronized evidence.'
+      +(legacyAvailable?' The earlier timeline does not identify answering turns or event counts.':'')};
 }
 export function validReplaySeek(value, durationS) {
   const time=finite(value), duration=finite(durationS);

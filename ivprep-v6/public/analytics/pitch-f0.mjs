@@ -166,7 +166,7 @@ function quantile(values, fraction) {
  */
 export class PitchTrack {
   #voiced = [];
-  #frames = 0;
+  #frames = [];
   #maxHistory;
   #minVoicedFrames;
   #octaveGuardSemitones;
@@ -182,7 +182,10 @@ export class PitchTrack {
 
   /** Feed one estimateF0() result. Unvoiced frames are counted but contribute no F0. */
   push(estimate, { speaking = true } = {}) {
-    this.#frames += 1;
+    // Coverage and F0 statistics must describe the same retained frame window.
+    // Silence and rejected estimates consume a slot without contributing pitch.
+    this.#frames.push(false);
+    if (this.#frames.length > this.#maxHistory && this.#frames.shift()) this.#voiced.shift();
     if (!speaking || estimate?.voiced !== true || !Number.isFinite(estimate.f0Hz)) return this;
     let acceptedHz = estimate.f0Hz;
     if (Number.isFinite(this.#lastAcceptedHz)) {
@@ -198,14 +201,14 @@ export class PitchTrack {
       }
     }
     this.#lastAcceptedHz = acceptedHz;
+    this.#frames[this.#frames.length - 1] = true;
     this.#voiced.push({ f0Hz: acceptedHz, confidence: estimate.confidence ?? 0 });
-    if (this.#voiced.length > this.#maxHistory) this.#voiced.shift();
     return this;
   }
 
   get voicedFrameCount() { return this.#voiced.length; }
 
-  get voicedRatio() { return this.#frames ? this.#voiced.length / this.#frames : 0; }
+  get voicedRatio() { return this.#frames.length ? this.#voiced.length / this.#frames.length : 0; }
 
   get calibrationMedianHz() { return this.#calibrationMedianHz; }
 
@@ -266,7 +269,7 @@ export class PitchTrack {
 
   reset({ preserveCalibration = true } = {}) {
     this.#voiced = [];
-    this.#frames = 0;
+    this.#frames = [];
     this.#lastAcceptedHz = null;
     this.#octaveCorrections = 0;
     if (!preserveCalibration) this.#calibrationMedianHz = null;

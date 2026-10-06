@@ -15,6 +15,7 @@ export class NativeInterviewObserver {
     this.fragmentIds=new Map();this.fragmentBuffers={input:'',output:''};this.fragmentEnds={input:-1,output:-1};
     this.fragmentObservationCount=0;this.fragmentTextObservationCount=0;this.fragmentEvidenceIncomplete=false;this.fragmentHalted=false;
     this.observedQuestions=new Set();this.fragmentWindow=0;this.inputQuestionCursor=0;
+    this.guidedQuestions=new Set();
   }
   start(){this.state='QUESTION';this.progression.start();return null;}
   current(){const q=this.questions[this.n-1]||this.questions[0];return {id:q?.question_id,text:q?.canonical_text,tags:q?.tags};}
@@ -123,6 +124,24 @@ export class NativeInterviewObserver {
     return {id:'d-'+(++this.sequence),kind:'CLOSING_INVITE',content};
   }
   tick(){return null;}
+  // Advisory context only: fragments are not turn boundaries. The native brain
+  // decides whether/when to follow; actual output alone can mark a hook taken.
+  pendingHookContext(){
+    if(this.fragmentHalted||this.fragmentEvidenceIncomplete||this.closing.reached
+      ||!['QUESTION','FOLLOWUP'].includes(this.state))return null;
+    const questionId=this.current().id;
+    if(this.guidedQuestions.has(questionId)||this.guidedQuestions.size>=Math.min(32,this.config.maxFollowUps??32)
+      ||this.config.maxDepth===0)return null;
+    const pending=[...this.hooks].reverse().find(h=>h.questionId===questionId&&h.bitTaken===null);
+    const report=pending?.report,hook=report?.primary;
+    if(!hook||report.blockedBy||!['FOLLOW_HOOK','PROBE_VAGUE'].includes(report.decision)
+      ||hook.guarded||hook.resolvedInAnswer)return null;
+    const span=String(hook.span?.text||'').trim();
+    if(!span||span.length>128||new TextEncoder().encode(span).length>128
+      ||/\b(?:private|confidential|off the record|prefer not|rather not|cannot discuss|can't discuss)\b/i.test(span))return null;
+    return {questionId,span,kind:report.decision};
+  }
+  hookContextSent(hint){if(hint?.questionId===this.current().id)this.guidedQuestions.add(hint.questionId);}
   snapshot(){return {state:this.state,n:this.n,N:this.questions.length,hooks:this.hooks.map(h=>({...h})),closing:{...this.closing,candidateQuestions:[...this.closing.candidateQuestions]},closeSent:this.closeSent,finalObservationCount:this.turns.length,
     fragmentObservationCount:this.fragmentObservationCount,fragmentTextObservationCount:this.fragmentTextObservationCount,fragmentEvidenceIncomplete:this.fragmentEvidenceIncomplete,fragmentHalted:this.fragmentHalted,
     plan:this.questions.map((q,i)=>({n:i+1,text:q.canonical_text,status:i===this.n-1?'CURRENT':this.observedQuestions.has(q.question_id)?'ASKED':'QUEUED'}))};}
