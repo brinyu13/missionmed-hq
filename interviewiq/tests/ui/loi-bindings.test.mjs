@@ -1,0 +1,16 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';
+const source=fs.readFileSync(process.env.IIQ_TEST_MODEL||new URL('../../public/source/model.js',import.meta.url),'utf8');
+// Bound extraction uses the next function; unrelated UI execution is unnecessary.
+const start=source.indexOf('function readCompositionGeneration('),tail=source.indexOf('\n}',start)+2;
+const headStart=source.indexOf('function compositionHeadMatches('),headEnd=source.indexOf('\n',headStart);
+const U='22222222-2222-4222-8222-222222222222',H='33333333-3333-4333-8333-333333333333',L='44444444-4444-4444-8444-444444444444';
+const h={letterId:L,expectedHead:H,expectedLetterVersion:3};
+const c=vm.createContext({clone:x=>JSON.parse(JSON.stringify(x)),LOI_APPROACHES:[['DIRECT_CONCISE']],loiHeadData:()=>h});vm.runInContext(source.slice(start,tail)+'\n'+source.slice(headStart,headEnd)+'\nthis.read=readCompositionGeneration;this.matches=compositionHeadMatches;',c);
+const i={targetKind:'program',id:U,program:'rise-test',programName:'Test Program',track:'',registryReleaseId:'registry-test'};
+function generation(){return {generationId:'55555555-5555-4555-8555-555555555555',status:'STANDARD_FALLBACK',reason:'AI_UNAVAILABLE',proposals:[{approach:'DIRECT_CONCISE',text:'Evidence-bound test.',studentReviewRequired:true,studentFactualConfirmation:false,studentSpecificityConfirmation:false,blocks:[]}],approaches:['DIRECT_CONCISE'],baseHead:{expectedLetterVersion:3,expectedHead:H,letterId:L},subject:{targetId:U,targetKind:'program'},provenance:{program:{id:'rise-test',name:'Test Program',track:'',registryReleaseId:'registry-test'},factualSpans:[]},factualGuard:'REFERENCE_ONLY',currentEvidenceState:'RECHECK_REQUIRED',usage:null,studentReviewRequired:true};}
+test('JSONB-reordered program subject reloads its exact saved proposals',()=>assert.equal(c.read(i,generation()).generationId,generation().generationId));
+test('wrong, missing and extra subject fields remain denied',()=>{for(const subject of [{targetKind:'program',targetId:H},{targetId:U},{targetKind:'program',targetId:U,interviewId:U},null]){const g=generation();g.subject=subject;assert.throws(()=>c.read(i,g),/another letter/);}});
+test('interview subject retains exact identity restriction',()=>{const g=generation();g.subject={interviewId:U};assert.ok(c.read({...i,targetKind:undefined},g));g.subject.targetKind='program';assert.throws(()=>c.read({...i,targetKind:undefined},g),/another letter/);});
+test('reordered forward head matches unchanged saved revision',()=>assert.equal(c.matches(i,generation()),true));
+test('changed revision, letter, version or malformed head cannot overwrite',()=>{for(const b of [{...h,expectedHead:U},{...h,letterId:U},{...h,expectedLetterVersion:4},{...h,extra:true},{letterId:L,expectedHead:H},null])assert.equal(c.matches(i,{baseHead:b}),false);});
+test('head and canonical provenance validation remain fail-closed',()=>{for(const mutate of [g=>g.baseHead.extra=true,g=>g.baseHead.expectedLetterVersion=-1,g=>g.provenance.program.id='another-program',g=>g.provenance.program.registryReleaseId='different-registry']){const g=generation();mutate(g);assert.throws(()=>c.read(i,g));}});
