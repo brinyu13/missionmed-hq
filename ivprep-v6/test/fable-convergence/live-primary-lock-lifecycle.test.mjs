@@ -187,6 +187,21 @@ test('a lone candidate who leans toward the camera is re-bound automatically; pl
   }finally{room.close();}
 });
 
+test('a same-centre face of a different size after a short zero-face gap is never re-bound as the same person',async()=>{
+  const room=await liveOnePerson();
+  try{
+    const track=room.lock.primaryTrackId;
+    room.scene.faces=[];await room.run(2000); // short absence inside the grace window
+    room.scene.faces=[face(.5,.42,.30,.40)]; // same seat, different face size
+    await room.run(4000);
+    assert.notEqual(room.lock.continuity,'lone_subject_rebound');
+    assert.notEqual(room.lock.primaryTrackId,track,'the lost identity is never handed to the newcomer');
+    assert.equal(room.lock.selectionRestartRequired,true,'baseline fail-closed path: explicit selection required');
+    assert.equal(room.pipeline.lastPrimaryLock.state,'PRIMARY_SELECTION_REQUIRED');
+    assertPaused(room,'person-specific measures stay withheld');
+  }finally{room.close();}
+});
+
 test('a lone candidate who looks away for six seconds is bound again when the only face returns',async()=>{
   const room=await liveOnePerson();
   try{

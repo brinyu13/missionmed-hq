@@ -204,7 +204,7 @@ export class PrimaryIntervieweeLock {
     this.selectionRestartRequired = false;
     this.loneCandidateBox = null;
     this.loneCandidateSinceMs = null;
-    this.otherFaceSinceLastSeen = false;
+    this.otherFaceSinceLastSeen = false; this.absentSinceLastSeen = false;
     return this.snapshot(0, []);
   }
 
@@ -289,7 +289,7 @@ export class PrimaryIntervieweeLock {
     this.primaryTrackId = null;
     this.loneCandidateBox = null;
     this.loneCandidateSinceMs = null;
-    this.otherFaceSinceLastSeen = false;
+    this.otherFaceSinceLastSeen = false; this.absentSinceLastSeen = false;
     this.continuity = 'selection_required';
     this.setWithheld(atMs, reason);
   }
@@ -310,7 +310,7 @@ export class PrimaryIntervieweeLock {
     this.knownBystanders = [];
     this.loneCandidateBox = null;
     this.loneCandidateSinceMs = null;
-    this.otherFaceSinceLastSeen = false;
+    this.otherFaceSinceLastSeen = false; this.absentSinceLastSeen = false;
     this.continuity = 'lone_subject_absent';
     this.setWithheld(atMs, 'lone_subject_absent');
   }
@@ -328,7 +328,7 @@ export class PrimaryIntervieweeLock {
     this.ambiguitySinceMs = null;
     this.loneCandidateBox = null;
     this.loneCandidateSinceMs = null;
-    this.otherFaceSinceLastSeen = false;
+    this.otherFaceSinceLastSeen = false; this.absentSinceLastSeen = false;
     this.continuity = 'locked';
     this.knownBystanders = [];
     this.closeWithheld(atMs);
@@ -431,7 +431,7 @@ export class PrimaryIntervieweeLock {
         && intersectionOverUnion(this.primaryBox, box) >= 0.3
         && areaRatio >= 0.38 && areaRatio <= 2.65;
       const loneSameSubject = boxes.length === 1 && classification.matches.length === 0
-        && !this.reacquisitionAmbiguous && !this.otherFaceSinceLastSeen
+        && !this.reacquisitionAmbiguous && !this.otherFaceSinceLastSeen && !this.absentSinceLastSeen
         && centerDistance(this.primaryBox, box) <= this.config.maximumCenterDistance;
       return !(areaJitter || loneSameSubject) || this.knownBystanderMatches(atMs, box);
     }));
@@ -444,14 +444,14 @@ export class PrimaryIntervieweeLock {
       this.continuity = boxes.length > 1 ? 'locked_bystander_excluded' : 'locked';
       this.loneCandidateBox = null;
       this.loneCandidateSinceMs = null;
-      this.otherFaceSinceLastSeen = false;
+      this.otherFaceSinceLastSeen = false; this.absentSinceLastSeen = false;
       this.closeWithheld(atMs);
       return;
     }
     if (matched) {
       this.loneCandidateBox = null;
       this.loneCandidateSinceMs = null;
-      this.otherFaceSinceLastSeen = false;
+      this.otherFaceSinceLastSeen = false; this.absentSinceLastSeen = false;
       if (this.reacquisitionAmbiguous) {
         this.state = PRIMARY_LOCK_STATE.PRIMARY_TEMPORARILY_OCCLUDED;
         this.reacquireBox = null;
@@ -497,12 +497,14 @@ export class PrimaryIntervieweeLock {
     this.state = PRIMARY_LOCK_STATE.PRIMARY_TEMPORARILY_OCCLUDED;
     this.reacquireBox = null;
     this.reacquireSinceMs = null;
-    // One face, centred where the primary was, with no other person seen or
-    // remembered: the same lone subject moved or re-posed (leaned in, box size
-    // jumped) rather than a replacement. Re-bind after the ordinary acquisition
-    // hold. Any second face, bystander memory or crossing ambiguity keeps the
-    // existing fail-closed path, so an identity can never transfer silently.
-    const lone = boxes.length === 1 && !this.reacquisitionAmbiguous && !this.otherFaceSinceLastSeen
+    // One face, centred where the primary was, continuously present since the
+    // primary was last matched (no zero-face frame), with no other person seen
+    // or remembered: the same lone subject re-posed (leaned in, box size jumped)
+    // rather than a replacement. Re-bind after the ordinary acquisition hold.
+    // Any zero-face gap, second face, bystander memory or crossing ambiguity
+    // keeps the existing fail-closed path, so an identity never transfers
+    // silently to someone who sat down in the same seat.
+    const lone = boxes.length === 1 && !this.reacquisitionAmbiguous && !this.otherFaceSinceLastSeen && !this.absentSinceLastSeen
       && centerDistance(this.primaryBox, boxes[0]) <= this.config.maximumCenterDistance
       && !this.knownBystanders.some((item) => atMs - item.atMs <= this.config.bystanderMemoryMs);
     if (lone) {
@@ -530,6 +532,7 @@ export class PrimaryIntervieweeLock {
     this.loneCandidateBox = null;
     this.loneCandidateSinceMs = null;
     if (boxes.length) this.otherFaceSinceLastSeen = true;
+    else this.absentSinceLastSeen = true;
     this.continuity = boxes.length ? 'ambiguous_or_discontinuous' : 'temporarily_occluded';
     this.setWithheld(atMs, this.continuity);
     const absenceLimitMs = boxes.length ? this.config.selectionRequiredMs : this.config.occlusionGraceMs;

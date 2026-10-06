@@ -117,6 +117,24 @@ test('person lock gives a true no-face occlusion five seconds without extending 
   assert.equal(rebound.primaryTrackId, 'primary-2');
   assert.notEqual(rebound.primaryTrackId, 'primary-1');
   assert.equal(rebound.reacquisitionCount, 0, 'a fresh binding is not a reacquisition of the lost identity');
+  // A short zero-face gap (inside the grace window) followed by a same-centre face of
+  // a different size is a possible seat swap: baseline fail-closed path, never a rebind.
+  const swap = new PrimaryIntervieweeLock();
+  swap.update({ atMs: 0, candidates: [face()] });
+  swap.update({ atMs: 325, candidates: [face(.505)] });
+  swap.update({ atMs: 650, candidates: [face(.51)] });
+  swap.update({ atMs: 900, candidates: [] });
+  swap.update({ atMs: 2_650, candidates: [] });
+  const big = { left: .5 - .15, top: .22, width: .30, height: .40 }; // same centre, ~2.8x area
+  const sat = swap.update({ atMs: 2_900, candidates: [big] });
+  assert.equal(sat.state, PRIMARY_LOCK_STATE.PRIMARY_TEMPORARILY_OCCLUDED);
+  assert.equal(sat.continuity, 'ambiguous_or_discontinuous');
+  assert.equal(sat.primaryUsable, false);
+  assert.equal(swap.update({ atMs: 3_100, candidates: [big] }).primaryUsable, false);
+  const required = swap.update({ atMs: 3_200, candidates: [big] });
+  assert.equal(required.state, PRIMARY_LOCK_STATE.PRIMARY_SELECTION_REQUIRED);
+  assert.equal(required.primaryTrackId, null);
+  assert.equal(required.reacquisitionCount, 0);
   // Two faces after the release are initial ambiguity, still requiring explicit selection.
   const ambiguous = new PrimaryIntervieweeLock();
   ambiguous.update({ atMs: 0, candidates: [face()] });
