@@ -6,16 +6,84 @@ const ID='00000000-0000-4000-8000-000000000001';
 const env={IVOC_LEMONSLICE_CANARY_ENABLED:'true',IVOC_LEMONSLICE_CANARY_SESSION_ID:ID,IVOC_LEMONSLICE_CANARY_BUDGET_USD:'1',
   LEMONSLICE_API_KEY:'test-only',LIVEKIT_API_KEY:'test-only',LIVEKIT_API_SECRET:'test-only',LIVEKIT_URL:'wss://test.livekit.cloud'};
 function harness(overrides={}){
-  const calls=[],commands=[],grants=[],timers=[],receipts=[];let time=1000;let claimed=false;
+  const calls=[],commands=[],grants=[],timers=[],receipts=[],sockets=[];let time=1000;let claimed=false;
   const roomService={createRoom:async options=>calls.push({room:options}),deleteRoom:async room=>calls.push({deleted:room})};
   class AccessToken{constructor(key,secret,options){this.options=options;}addGrant(grant){grants.push({options:this.options,grant});}async toJwt(){return 'scoped-test-token';}}
   class Socket extends EventEmitter{readyState=1;bufferedAmount=0;constructor(){super();queueMicrotask(()=>this.emit('open'));}send(data){const event=JSON.parse(data);commands.push(event);if(event.command==='interrupt')queueMicrotask(()=>this.emit('message',JSON.stringify({command:'playback_finished',interrupted:true,playback_position:0.8})));}close(){this.readyState=3;}}
   const manager=createEmbodimentCanary({env,now:()=>time,setTimer:(callback,ms)=>{const timer={callback,ms};timers.push(timer);return timer;},clearTimer:timer=>{if(timer)timer.cleared=true;},
     claim:async()=>{if(claimed)throw new Error('consumed');claimed=true;},recordReceipt:async(id,receipt)=>receipts.push(receipt),
-    socketFactory:()=>new Socket(),livekitFactory:async()=>({AccessToken,roomService}),
+    socketFactory:(url,options)=>{sockets.push({url,options});return new Socket();},lookupImpl:async()=>[{address:'8.8.8.8',family:4}],livekitFactory:async()=>({AccessToken,roomService}),
     fetchImpl:async(url,options)=>{calls.push({url,body:options.body?JSON.parse(options.body):null});return {ok:true,json:async()=>url.endsWith('/control')?{success:true}:options.method==='GET'?{session_status:'COMPLETED'}:{session_id:'provider-1',websocket_address:'wss://live.lemonslice.com/test'}};},...overrides});
-  return {manager,calls,commands,grants,timers,receipts,advance:ms=>time+=ms};
+  return {manager,calls,commands,grants,timers,receipts,sockets,advance:ms=>time+=ms};
 }
+const MODAL_HOST=`ta-${'a'.repeat(26)}-8888-${'b'.repeat(25)}.w.modal.host`;
+const providerResponse=(address,calls=[])=>async(url,options)=>{calls.push({url,method:options.method});return {ok:true,status:201,json:async()=>url.endsWith('/control')?{success:true}:options.method==='GET'?{session_status:'COMPLETED'}:{session_id:'provider-known',websocket_address:address}};};
+test('authenticated Modal worker contract reaches pinned TLS socket without DNS rebinding or redirects',async()=>{
+  let lookups=0;
+  const address=`wss://${MODAL_HOST}:443/opaque?token=PRIVATE_TOKEN`;
+  const h=harness({fetchImpl:providerResponse(address),lookupImpl:async(host,options)=>{
+    lookups++;assert.equal(host,MODAL_HOST);assert.deepEqual(options,{all:true,family:4,verbatim:true});
+    return lookups===1?[{address:'8.8.8.8',family:4},{address:'1.1.1.1',family:4}]:[{address:'127.0.0.1',family:4}];
+  }});
+  const ticket=await h.manager.start({actor:'wp:1',sessionId:ID});
+  assert.equal(h.sockets.length,1);
+  const {url,options}=h.sockets[0];assert.equal(url,`wss://${MODAL_HOST}/opaque?token=PRIVATE_TOKEN`);
+  assert.equal(options.followRedirects,false);assert.equal(options.rejectUnauthorized,true);assert.equal(options.servername,MODAL_HOST);
+  assert.equal(options.handshakeTimeout,5000);assert.equal(options.maxPayload,16384);
+  for(let i=0;i<2;i++)options.lookup(MODAL_HOST,{},(error,ip,family)=>{assert.equal(error,null);assert.equal(ip,'8.8.8.8');assert.equal(family,4);});
+  options.lookup(MODAL_HOST,{all:true},(error,rows)=>{assert.equal(error,null);assert.deepEqual(rows,[{address:'8.8.8.8',family:4},{address:'1.1.1.1',family:4}]);});
+  for(const [host,opts] of [['evil.test',{}],[MODAL_HOST,{family:6}]])options.lookup(host,opts,error=>assert.ok(error));
+  assert.equal(lookups,1);
+  await h.manager.command({actor:'wp:1',sessionId:ID,id:ticket.id,command:'terminate'});
+  assert.equal(h.receipts.at(-1).providerConfirmed,true);assert.equal(JSON.stringify(h.receipts).includes('PRIVATE_TOKEN'),false);
+  await assert.rejects(h.manager.start({actor:'wp:1',sessionId:ID}),/consumed/);
+});
+test('host grammar, TLS, port, credentials and fragment gates precede any DNS/connection',async()=>{
+  for(const address of [`ws://${MODAL_HOST}/x`,`wss://u:p@${MODAL_HOST}/x`,`wss://${MODAL_HOST}:8443/x`,`wss://${MODAL_HOST}/x#x`,
+    `wss://${MODAL_HOST}/x#`,`wss://${MODAL_HOST}.evil.test/x`,'wss://arbitrary.w.modal.host/x',
+    `wss://ta-${'a'.repeat(25)}-8888-${'b'.repeat(25)}.w.modal.host/x`,`wss://ta-${'a'.repeat(26)}-8889-${'b'.repeat(25)}.w.modal.host/x`,
+    'wss://evil-lemonslice.com/x','wss://live..lemonslice.com/x','wss://live.lemonslice.com/'+ 'a'.repeat(8192)]){
+    let lookups=0;const calls=[];const h=harness({fetchImpl:providerResponse(address,calls),lookupImpl:async()=>{lookups++;return[];}});
+    await assert.rejects(h.manager.start({actor:'wp:1',sessionId:ID}),/transport_invalid/);
+    assert.equal(lookups,0);assert.equal(h.sockets.length,0);assert.equal(h.receipts.at(-1).providerConfirmed,true);
+    await assert.rejects(h.manager.start({actor:'wp:1',sessionId:ID}),/consumed/);
+    assert.equal(calls.filter(c=>c.method==='POST'&&!c.url.endsWith('/control')).length,1);
+  }
+});
+test('every DNS result must be public IPv4; private, metadata, CGNAT, reserved, malformed and mixed sets fail closed',async()=>{
+  const blocked=['0.0.0.0','0.1.2.3','10.1.2.3','100.64.0.1','100.127.255.254','127.0.0.1','169.254.169.254','172.16.0.1','172.31.255.254',
+    '192.0.0.1','192.0.2.1','192.88.99.1','192.168.1.1','198.18.0.1','198.19.255.254','198.51.100.1','203.0.113.1','224.0.0.1','239.255.255.254','240.0.0.1','255.255.255.255','::1','::ffff:8.8.8.8','PRIVATE_BAD_IP'];
+  const sets=[[],null,new Array(1),[,{address:'8.8.8.8',family:4}],[null],[{family:4}],[{address:123,family:4}],[{address:'8.8.8.8',family:6}],...blocked.map(address=>[{address,family:4}]),[{address:'8.8.8.8',family:4},{address:'127.0.0.1',family:4}]];
+  for(const rows of sets){
+    const h=harness({lookupImpl:async()=>rows});
+    await assert.rejects(h.manager.start({actor:'wp:1',sessionId:ID}),e=>e.diagnostics.reason==='SOCKET_DNS_NONPUBLIC');
+    assert.equal(h.sockets.length,0);assert.equal(h.receipts.at(-1).providerConfirmed,true);
+    assert.equal(JSON.stringify(h.receipts).includes('PRIVATE_BAD_IP'),false);
+    await assert.rejects(h.manager.start({actor:'wp:1',sessionId:ID}),/consumed/);
+  }
+});
+test('DNS failure/timeout retain safe boundary and exact cleanup without delayed resurrection',async()=>{
+  const failed=harness({lookupImpl:async()=>{throw new Error('PRIVATE_DNS_ERROR');}});
+  await assert.rejects(failed.manager.start({actor:'wp:1',sessionId:ID}),e=>e.diagnostics.reason==='SOCKET_DNS_FAILURE');
+  assert.equal(JSON.stringify(failed.receipts).includes('PRIVATE_DNS_ERROR'),false);
+  let resolveDNS;const h=harness({lookupImpl:()=>new Promise(resolve=>{resolveDNS=resolve;})});
+  const starting=h.manager.start({actor:'wp:1',sessionId:ID});
+  while(!resolveDNS)await new Promise(resolve=>setImmediate(resolve));
+  h.timers.find(t=>t.ms===3000).callback();
+  await assert.rejects(starting,e=>e.diagnostics.reason==='SOCKET_DNS_TIMEOUT');
+  resolveDNS([{address:'8.8.8.8',family:4}]);await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(h.sockets.length,0);assert.equal(h.receipts.at(-1).providerConfirmed,true);
+});
+test('cancelled or expired original reservation cannot connect after late public DNS resolution',async()=>{
+  for(const mode of ['cancel','expire']){
+    let resolveDNS;const h=harness({lookupImpl:()=>new Promise(resolve=>{resolveDNS=resolve;})});
+    const starting=h.manager.start({actor:'wp:1',sessionId:ID});
+    while(!resolveDNS)await new Promise(resolve=>setImmediate(resolve));
+    if(mode==='cancel')await h.manager.command({actor:'wp:1',sessionId:ID,command:'terminate'});else h.advance(45000);
+    resolveDNS([{address:'8.8.8.8',family:4}]);await assert.rejects(starting,/stopped/);
+    assert.equal(h.sockets.length,0);assert.equal(h.receipts.at(-1).providerConfirmed,true);
+  }
+});
 test('canary is default-off, fixed-budget, fixed-session and contains no credentials',()=>{
   assert.equal(embodimentCanaryConfig().available,false);
   for(const patch of [{IVOC_LEMONSLICE_CANARY_BUDGET_USD:'0.1'},{IVOC_LEMONSLICE_CANARY_BUDGET_USD:'2'},{IVOC_LEMONSLICE_CANARY_SESSION_ID:'bad'},{LIVEKIT_URL:'wss://evil.test/path'},{LEMONSLICE_API_KEY:''}])assert.equal(embodimentCanaryConfig({...env,...patch}).available,false);

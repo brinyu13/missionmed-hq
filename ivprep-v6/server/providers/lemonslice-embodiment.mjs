@@ -2,6 +2,8 @@
 // Official protocol: https://lemonslice.com/docs/websocket (2026-10-04).
 import { createRequire } from 'node:module';
 import { randomUUID } from 'node:crypto';
+import { lookup as lookupIPv4 } from 'node:dns/promises';
+import { BlockList, isIP } from 'node:net';
 import { LEMONSLICE_API_URL, LEMONSLICE_AGENT_ID, LEMONSLICE_TERMINAL_STATUSES } from './lemonslice-avatar-adapter.mjs';
 const require = createRequire(new URL('../../package.json', import.meta.url));
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -23,7 +25,14 @@ export function embodimentCanaryConfig(env = {}) {
 const fail = (code, status = 409) => Object.assign(new Error(code), {status});
 const BOUNDARIES = new Set(['RESERVATION','LIVEKIT','LEMONSLICE_API','AUDIO_TRANSPORT','TRANSPORT_READY']);
 const CATEGORIES = new Set(['HQ_AUTH_FAILURE','HQ_VALIDATION_FAILURE','PROVIDER_NETWORK','PROVIDER_DNS','PROVIDER_HTTP_4XX','PROVIDER_HTTP_5XX','PROVIDER_TIMEOUT','PROVIDER_CANCELLED','PROVIDER_RESPONSE_INVALID','LIVEKIT_FAILURE','LIVEKIT_TIMEOUT','AUDIO_TRANSPORT_FAILURE','STARTUP_CANCELLED','STARTUP_FAILED']);
-const RESPONSE_REASONS = new Set(['SESSION_ID_INVALID','SOCKET_ADDRESS_MISSING','SOCKET_ADDRESS_MALFORMED','SOCKET_PROTOCOL_REJECTED','SOCKET_CREDENTIALS_REJECTED','SOCKET_HOST_REJECTED']);
+const RESPONSE_REASONS = new Set(['SESSION_ID_INVALID','SOCKET_ADDRESS_MISSING','SOCKET_ADDRESS_MALFORMED','SOCKET_PROTOCOL_REJECTED','SOCKET_CREDENTIALS_REJECTED','SOCKET_HOST_REJECTED','SOCKET_PORT_REJECTED','SOCKET_FRAGMENT_REJECTED','SOCKET_DNS_FAILURE','SOCKET_DNS_TIMEOUT','SOCKET_DNS_NONPUBLIC']);
+// DR-394: authenticated provider response observed this Modal sandbox grammar.
+// Not a wildcard for Modal hosting. Every connection additionally pins public
+// IPv4, retains original Host/SNI + standard TLS, and refuses redirects.
+const MODAL_WORKER = /^ta-[a-z0-9]{26}-8888-[a-z0-9]{25}\.w\.modal\.host$/;
+const LEMONSLICE_HOST = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*lemonslice\.com$/;
+const NONPUBLIC_IPV4 = new BlockList();
+for(const [base,prefix] of [['0.0.0.0',8],['10.0.0.0',8],['100.64.0.0',10],['127.0.0.0',8],['169.254.0.0',16],['172.16.0.0',12],['192.0.0.0',24],['192.0.2.0',24],['192.88.99.0',24],['192.168.0.0',16],['198.18.0.0',15],['198.51.100.0',24],['203.0.113.0',24],['224.0.0.0',4],['240.0.0.0',4]])NONPUBLIC_IPV4.addSubnet(base,prefix,'ipv4');
 // A public diagnostic is a closed schema, never a raw upstream error/body/URL.
 export function publicEmbodimentFailure(value) {
   if(!value || !BOUNDARIES.has(value.boundary) || !CATEGORIES.has(value.category))return null;
@@ -47,15 +56,18 @@ function privateTransportIdentity(value) {
 function providerSocketAddress(value) {
   const rejected=reason=>Object.assign(fail('ivoc_embodiment_transport_invalid',502),{responseInvalid:true,responseReason:reason});
   if(typeof value!=='string'||!value)throw rejected('SOCKET_ADDRESS_MISSING');
+  if(value.length>8192)throw rejected('SOCKET_ADDRESS_MALFORMED');
   let url;try{url=new URL(value);}catch{throw rejected('SOCKET_ADDRESS_MALFORMED');}
   if(url.protocol!=='wss:')throw rejected('SOCKET_PROTOCOL_REJECTED');
   if(url.username||url.password)throw rejected('SOCKET_CREDENTIALS_REJECTED');
-  if(!(url.hostname==='lemonslice.com'||url.hostname.endsWith('.lemonslice.com')))throw rejected('SOCKET_HOST_REJECTED');
+  if(url.port&&url.port!=='443')throw rejected('SOCKET_PORT_REJECTED');
+  if(value.includes('#'))throw rejected('SOCKET_FRAGMENT_REJECTED');
+  if(!LEMONSLICE_HOST.test(url.hostname)&&!MODAL_WORKER.test(url.hostname))throw rejected('SOCKET_HOST_REJECTED');
   return url;
 }
 
 export function createEmbodimentCanary({env = process.env, fetchImpl = fetch, now = Date.now,
-  socketFactory = null, livekitFactory = null, claim, recordReceipt = async () => {},
+  socketFactory = null, lookupImpl = lookupIPv4, livekitFactory = null, claim, recordReceipt = async () => {},
   setTimer = setTimeout, clearTimer = clearTimeout, timeoutSignal = ms => AbortSignal.timeout(ms)} = {}) {
   const config = embodimentCanaryConfig(env);
   let attempt = null;
@@ -64,6 +76,36 @@ export function createEmbodimentCanary({env = process.env, fetchImpl = fetch, no
     const at=now(),previous=a.transitions.at(-1);
     if(previous&&!previous.completedAtMs){previous.completedAtMs=at;previous.successEvidence=evidence;}
     a.transitions.push({state,owner,startedAtMs:at,completedAtMs:null,entryEvidence:evidence,successEvidence:null,failureEvidence:null,cleanup:'EXACT_SESSION_AND_ROOM'});
+  }
+  async function pinnedTransportOptions(a,url) {
+    const startedAtMs=now(),remaining=a.startedAt+45000-startedAtMs;
+    if(a.closed||remaining<=0)throw fail('ivoc_embodiment_stopped');
+    const rejected=reason=>Object.assign(fail('ivoc_embodiment_transport_invalid',502),{
+      diagnostics:publicEmbodimentFailure({boundary:'AUDIO_TRANSPORT',category:'AUDIO_TRANSPORT_FAILURE',reason,
+        startedAtMs,finishedAtMs:now(),elapsedMs:Math.max(0,now()-startedAtMs)})});
+    let timer,rows;
+    try {
+      rows=await Promise.race([
+        Promise.resolve().then(()=>lookupImpl(url.hostname,{all:true,family:4,verbatim:true})),
+        new Promise((_,reject)=>{timer=setTimer(()=>reject(rejected('SOCKET_DNS_TIMEOUT')),Math.min(3000,remaining));})]);
+    }catch(error){throw error?.diagnostics?error:rejected('SOCKET_DNS_FAILURE');}
+    finally{clearTimer(timer);}
+    // A late DNS result must never resurrect a cancelled/expired reservation.
+    if(a.closed||now()>=a.startedAt+45000)throw fail('ivoc_embodiment_stopped');
+    // Materialize holes as undefined: Array#some/map alone skip sparse rows.
+    const resolved=Array.isArray(rows)?Array.from(rows):[];
+    if(!resolved.length||resolved.some(row=>row?.family!==4||typeof row.address!=='string'||isIP(row.address)!==4||NONPUBLIC_IPV4.check(row.address,'ipv4')))
+      throw rejected('SOCKET_DNS_NONPUBLIC');
+    const addresses=[...new Set(resolved.map(row=>row.address))];
+    return {handshakeTimeout:Math.min(5000,a.startedAt+45000-now()),maxPayload:16384,
+      followRedirects:false,rejectUnauthorized:true,servername:url.hostname,
+      lookup:(hostname,options,callback)=>{
+        if(typeof options==='function'){callback=options;options={};}
+        if(hostname!==url.hostname||(options?.family!=null&&![0,4].includes(options.family)))return callback(fail('ivoc_embodiment_transport_invalid',502));
+        // No system-DNS or IPv6 fallback; opaque path/query stay with provider.
+        if(options?.all)return callback(null,addresses.map(address=>({address,family:4})));
+        callback(null,addresses[0],4);
+      }};
   }
   async function api(path, body, timeoutMs = 5000, responseMetadata = null) {
     const startedAtMs=now();let responseClass='UNKNOWN',httpStatus=null;
@@ -184,8 +226,10 @@ export function createEmbodimentCanary({env = process.env, fetchImpl = fetch, no
         const wsUrl=providerSocketAddress(created.websocket_address);
         a.boundary='AUDIO_TRANSPORT';
         stage(a,'AUDIO_TRANSPORT_CONNECTING','IVOC_SERVER','VALIDATED_PROVIDER_SOCKET');
+        const socketOptions=await pinnedTransportOptions(a,wsUrl);
+        if(a.closed||now()>=a.startedAt+45000)throw fail('ivoc_embodiment_stopped');
         const WebSocket=socketFactory ? null : require('ws');
-        a.socket=socketFactory ? socketFactory(wsUrl.href) : new WebSocket(wsUrl.href,{handshakeTimeout:5000,maxPayload:16384});
+        a.socket=socketFactory ? socketFactory(wsUrl.href,socketOptions) : new WebSocket(wsUrl.href,socketOptions);
         a.socket.on('message',data=>{
           let event;try{event=JSON.parse(String(data));}catch{return;}
           if(!event || typeof event!=='object' || Array.isArray(event))return;
@@ -203,7 +247,7 @@ export function createEmbodimentCanary({env = process.env, fetchImpl = fetch, no
         };
         a.socket.on('close',()=>transportFailed('transport_closed'));
         a.socket.on('error',()=>transportFailed('transport_error'));
-        await new Promise((resolve,reject)=>{const timer=setTimer(()=>reject(fail('ivoc_embodiment_connect_timeout',502)),5000);a.socket.once('open',()=>{clearTimer(timer);resolve();});a.socket.once('error',()=>{clearTimer(timer);reject(fail('ivoc_embodiment_transport_unavailable',502));});});
+        await new Promise((resolve,reject)=>{const timer=setTimer(()=>reject(fail('ivoc_embodiment_connect_timeout',502)),socketOptions.handshakeTimeout);a.socket.once('open',()=>{clearTimer(timer);resolve();});a.socket.once('error',()=>{clearTimer(timer);reject(fail('ivoc_embodiment_transport_unavailable',502));});});
         if(a.closed || now()>=a.startedAt+45000)throw fail('ivoc_embodiment_stopped');
         a.boundary='TRANSPORT_READY';
         stage(a,'TRANSPORT_READY','IVOC_SERVER','PROVIDER_SOCKET_OPEN'); // NOT avatar readiness
