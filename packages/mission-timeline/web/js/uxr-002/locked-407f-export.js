@@ -123,9 +123,12 @@ function metrics(scene){
     ...(scene?.flags||[]).map((flag)=>flag.month),
     scene?.interviewMarker?.month
   ].filter(Boolean).map(monthIndex);
-  const firstYear=(months.length
+  // The Founder year domain (graduation year, or school start minus one) is the floor:
+  // earlier source spans paint from the left edge rather than reopening old years.
+  const domainFirstYear=Number.isInteger(Number(scene?.yearDomain?.firstYear))&&scene?.yearDomain?.firstYear!==null?Number(scene.yearDomain.firstYear):-Infinity;
+  const firstYear=Math.max(domainFirstYear,(months.length
     ?Math.floor(Math.min(...months)/12)
-    :Number(scene?.span?.firstYear)||new Date().getUTCFullYear())-(scene.autoAxisPadding?.before||0);
+    :Number(scene?.span?.firstYear)||new Date().getUTCFullYear())-(scene.autoAxisPadding?.before||0));
   const lastCandidate=months.length
     ?Math.floor(Math.max(...months)/12)
     :Number(scene?.span?.lastYear)||firstYear+1;
@@ -372,7 +375,11 @@ function arrowMarkup(arrow,index,layout,scale,scene){
   const dates=`<text${dateAlignment?` data-automatic-date-alignment="${dateAlignment}"`:''}${captionClamped?' data-automatic-caption-clamp="true"':''} data-arrow-caption="true" data-board-ink-role="caption" x="${captionX}" y="${dateY}" text-anchor="middle" fill="${outsideInk}" font-family="${TYPE.event}" font-size="${dateSize}">${xml(caption)}</text>`;
   void start;void end;void duration;
   const institution=arrow.display?.institution??arrow.siteName;
-  const leftInstitution=!!arrow.display;
+  // A span that began before the displayed year domain paints from the left edge, so
+  // there is no room to its left: its institution moves under the arrow start, ahead
+  // of the location, instead of being crushed into the margin.
+  const clampedStart=arrow.clampedStart===true;
+  const leftInstitution=!!arrow.display&&!clampedStart;
   const measure=scene.measureText||measurePresentationText;
   const availableInstitution=leftInstitution?Math.max(24,Math.min(450,box.x-38)):500;
   const institutionText=measure(String(institution||''),19,TYPE.event)>availableInstitution?founderInstitutionLabel(institution,{compact:true}):institution;
@@ -383,17 +390,21 @@ function arrowMarkup(arrow,index,layout,scale,scene){
   const siteX=leftInstitution?box.x-12:(siteLines.length>1?Math.min(WIDTH-24-siteWidth,Math.max(24,box.x)):siteCenter)+(scene.autoSiteOffsets?.get(String(arrow.id))||0);
   const siteAnchor=leftInstitution?'end':siteLines.length>1?'start':'middle';
   const siteY=leftInstitution?shaftY+shaftHeight/2+5-(siteLines.length-1)*10.5:box.y+box.height+headInset+21;
-  const site=siteLines.length
+  const underArrowInstitution=!!arrow.display&&clampedStart&&String(institutionText||'').trim();
+  const site=siteLines.length&&!underArrowInstitution
     ?`<text${siteWordOverflow?' data-text-overflow="true"':''} data-board-ink-role="site" data-material-field="siteName" data-display-institution="${xml(institution||'')}" x="${siteX}" y="${siteY}" text-anchor="${siteAnchor}" fill="${outsideInk}" font-family="${TYPE.event}" font-size="19">${siteLines.map((line,i)=>`<tspan x="${siteX}" dy="${i?21:0}">${xml(line)}</tspan>`).join('')}</text>`
     :"";
-  const locationLines=arrow.display?.location?wrapPresentationText(arrow.display.location,{width:500,size:18,family:TYPE.event,measureText:measure}):[];
+  const locationText=underArrowInstitution
+    ?[String(institutionText),arrow.display?.location].map(value=>String(value||'').trim()).filter(Boolean).join(' · ')
+    :arrow.display?.location;
+  const locationLines=locationText?wrapPresentationText(locationText,{width:Math.max(220,Math.min(500,box.width+120)),size:18,family:TYPE.event,measureText:measure}):[];
   const locationWidth=Math.max(0,...locationLines.map(line=>measure(line,18,TYPE.event)))+18*.12;
   const ownedLocationAlignment=presentationEventObject(scene,arrow.id)?.presentation?.locationLabelLayout?.alignment;
   const locationAlignment=['start','center','end','tip'].includes(ownedLocationAlignment)?ownedLocationAlignment:
     (!presentationEventObject(scene,arrow.id)?.geometry||automaticDateAnchor(scene,arrow))?scene.autoLocationAlignments?.get(String(arrow.id)):null;
   const alignedLocationX=locationAlignment==='end'?box.x2-locationWidth:locationAlignment==='center'?box.x+(box.width-locationWidth)/2:locationAlignment==='tip'?box.x2-locationWidth/2:box.x;
   const locationX=Math.max(24,Math.min(alignedLocationX,WIDTH-24-locationWidth));
-  const location=locationLines.length?`<text data-board-ink-role="location" data-material-field="location" x="${locationX}" y="${box.y+box.height+headInset+21}" fill="${outsideInk}" font-family="${TYPE.event}" font-size="18">${locationLines.map((line,i)=>`<tspan x="${locationX}" dy="${i?21:0}">${xml(line)}</tspan>`).join('')}</text>`:'';
+  const location=locationLines.length?`<text data-board-ink-role="location" data-material-field="${underArrowInstitution?'siteName location':'location'}"${underArrowInstitution?` data-display-institution="${xml(institution||'')}" data-clamped-start="true"`:''} x="${locationX}" y="${box.y+box.height+headInset+21}" fill="${outsideInk}" font-family="${TYPE.event}" font-size="18">${locationLines.map((line,i)=>`<tspan x="${locationX}" dy="${i?21:0}">${xml(line)}</tspan>`).join('')}</text>`:'';
   const arrowHead=Math.min(24,Math.max(14,box.width*.14));
   const arrowPath=joined
     ?`M${box.x} ${box.y}H${box.x2}V${box.y+box.height}H${box.x}Z`

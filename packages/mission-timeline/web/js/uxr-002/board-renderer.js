@@ -4,6 +4,8 @@ import {
   assignStableLanes,
   condensedMetrics,
   deriveTimelineSpan,
+  deriveFounderYearDomain,
+  clampTimelineSpanToDomain,
   deriveFounderYearAllocation,
   eventDensityForYear,
   monthPositionInSegments,
@@ -1049,7 +1051,8 @@ function applyLocked407FGeometry({
       (monthIndex(month)-firstYear*12)/totalMonths
     )*KEYNOTE_BOARD_GEOMETRY.innerWidth;
   for(const arrow of arrows){
-    const x=monthX(arrow.startMonth);
+    // A span that began before the displayed domain is drawn from the left edge.
+    const x=Math.max(KEYNOTE_BOARD_GEOMETRY.margin,monthX(arrow.startMonth));
     const mappedX2=monthX(addMonths(arrow.endMonth,1));
     const x2=Math.min(
       KEYNOTE_BOARD_GEOMETRY.margin+KEYNOTE_BOARD_GEOMETRY.innerWidth,
@@ -1076,19 +1079,20 @@ function applyLocked407FGeometry({
   return composition;
 }
 
-function locked407FSpanYears({arrows,flags,interviewMarker,fallbackFirst,fallbackLast}){
+function locked407FSpanYears({arrows,flags,interviewMarker,fallbackFirst,fallbackLast,domainFirstYear=null}){
   const months=[
     ...arrows.flatMap((arrow)=>[arrow.startMonth,arrow.endMonth]),
     ...flags.map((flag)=>flag.month),
     interviewMarker?.month
   ].filter(Boolean).map(monthIndex);
+  const floor=Number.isInteger(domainFirstYear)?domainFirstYear:-Infinity;
   if(!months.length){
     return{
-      firstYear:Number(fallbackFirst),
-      lastYear:Number(fallbackLast)
+      firstYear:Math.max(floor,Number(fallbackFirst)),
+      lastYear:Math.max(Math.max(floor,Number(fallbackFirst)),Number(fallbackLast))
     };
   }
-  const firstYear=Math.floor(Math.min(...months)/12);
+  const firstYear=Math.max(floor,Math.floor(Math.min(...months)/12));
   return{
     firstYear,
     lastYear:Math.max(firstYear+1,Math.floor(Math.max(...months)/12))
@@ -1129,10 +1133,11 @@ export function buildKeynoteClassicScene(
   );
   const educationProjection=projectEducationDurations(sourceTimelineEvents);
   const timelineEvents=educationProjection.displayEvents;
-  const span = deriveTimelineSpan(validated.renderable, {
+  const yearDomain=deriveFounderYearDomain(timeline,timelineEvents,{currentMonth:normalizedCurrent});
+  const span = clampTimelineSpanToDomain(deriveTimelineSpan(validated.renderable, {
     currentMonth: normalizedCurrent,
     interviewMonth
-  });
+  }),yearDomain);
   const segments = allocateSegments(span, [...timelineEvents,...explanationEvents]);
   const axis = buildAxis(segments);
   const engineeringLaneResult=assignStableLanes(timelineEvents,{previousLaneById});
@@ -1144,6 +1149,9 @@ export function buildKeynoteClassicScene(
     normalizedCurrent,
     measureText
   );
+  if(yearDomain)for(const arrow of arrowResult.arrows){
+    if(monthIndex(arrow.startMonth)<yearDomain.firstYear*12)arrow.clampedStart=true;
+  }
   const flags = buildFlags(timelineEvents, segments, measureText);
   const explanations=buildExplanations(
     explanationEvents,
@@ -1165,7 +1173,8 @@ export function buildKeynoteClassicScene(
     flags,
     interviewMarker,
     fallbackFirst:segmentFirstYear,
-    fallbackLast:segmentLastYear
+    fallbackLast:segmentLastYear,
+    domainFirstYear:yearDomain?.firstYear
   });
   const composition=applyLocked407FGeometry({
     arrows:arrowResult.arrows,
@@ -1186,7 +1195,7 @@ export function buildKeynoteClassicScene(
   const finalMonths=[...arrowResult.arrows.flatMap(arrow=>[arrow.startMonth,arrow.endMonth]),
     ...flags.map(flag=>flag.month),interviewMarker?.month].filter(Boolean).map(monthIndex);
   const automaticAxis=authoredAxis||authoredEvents?{}:deriveFounderYearAllocation(timelineEvents,{
-    firstYear:finalMonths.length?Math.floor(Math.min(...finalMonths)/12):firstYear,
+    firstYear:Math.max(Number.isInteger(yearDomain?.firstYear)?yearDomain.firstYear:-Infinity,finalMonths.length?Math.floor(Math.min(...finalMonths)/12):firstYear),
     lastYear:finalMonths.length?Math.floor(Math.max(...finalMonths)/12):lastYear,
     measureText,spanEndMonth:normalizedCurrent
   });
@@ -1273,6 +1282,7 @@ export function buildKeynoteClassicScene(
       firstYear,
       lastYear
     },
+    ...(yearDomain?{yearDomain}:{}),
     axis,
     ...automaticAxis,
     ...(timeline.layoutLock===true?{automaticDateAnchorsLocked:true}:{}),

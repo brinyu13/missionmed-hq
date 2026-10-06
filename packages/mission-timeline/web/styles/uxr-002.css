@@ -620,3 +620,32 @@ fieldset.field{border:0;padding:0;margin:0}
   a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:not([tabindex="-1"]):focus-visible{outline:2px solid Highlight;outline-offset:2px}
   .category-dot,.review-state,.status-badge,.confidence-tag{forced-color-adjust:none}
 }
+
+/* Field repair 2026-10: ready/attention review, identity gate, duplicate groups */
+.intake-review-summary{margin:6px 0 2px;font-size:15px}
+.intake-review-summary strong{font-variant-numeric:tabular-nums}
+.intake-identity{margin:14px 0;padding:14px 16px;border:1px solid var(--shell-border);border-radius:10px;background:var(--shell-surface)}
+.intake-identity.conflict{border-color:#C5873A;background:#FBF3E4}
+.intake-identity.unresolved{border-color:#B8B2A6;background:#F3F1EC}
+.intake-identity p{margin:4px 0 8px}
+.intake-identity .candidate-actions{margin-top:4px}
+.candidate-lane-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:center}
+.candidate-lane-head h2{margin:0}
+.candidate-lane-head p{grid-column:1}
+.candidate-lane-head [data-accept-section]{grid-column:2;grid-row:1/span 2;justify-self:end}
+.candidate-row.ready{grid-template-columns:auto minmax(0,1fr) auto;padding:10px 14px;min-height:52px}
+.candidate-row.ready .candidate-summary{display:grid;gap:2px;min-width:0}
+.candidate-row.ready .candidate-summary strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.candidate-row.ready .candidate-summary .secondary-body{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.candidate-row.ready .candidate-basis{font-size:11px;color:var(--ink-secondary)}
+.candidate-row.ready .candidate-actions{flex-wrap:nowrap}
+.candidate-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:999px;font-size:11px;font-weight:650;background:color-mix(in srgb,var(--chip) 14%,white);color:#1C2430;white-space:nowrap}
+.candidate-chip:before{content:"";width:8px;height:8px;border-radius:999px;background:var(--chip)}
+.duplicate-group{border-color:#E3CDA0;background:#FFFBF2}
+.duplicate-option{display:flex;gap:8px;align-items:baseline;margin:6px 0}
+.duplicate-letter{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:999px;background:#59400F;color:#fff;font-size:12px;font-weight:700}
+[data-intake-identity-gate]{margin:0;color:#8A4B12;font-weight:600}
+@media (max-width:720px){
+  .candidate-row.ready{grid-template-columns:minmax(0,1fr);row-gap:6px}
+  .candidate-lane-head [data-accept-section]{grid-column:1;grid-row:auto;justify-self:start}
+}

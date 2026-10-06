@@ -8061,3 +8061,103 @@ main.isEntitlementReadOnly section[data-view] [draggable="true"]{
 .intake-gate-hint.is-nudged{animation:intakeGateNudge .5s ease}
 @keyframes intakeGateNudge{0%{transform:translateX(0)}25%{transform:translateX(-4px)}50%{transform:translateX(4px)}75%{transform:translateX(-2px)}100%{transform:translateX(0)}}
 .intake-done-secondary{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+
+/* Field repair 2026-10: ready/attention review summary, identity gate, compact ready rows,
+   section acceptance and duplicate groups inside the live shell. */
+.intake407FHost .intake-review-summary{
+  color:var(--ink);
+  font-size:15px;
+  line-height:1.5;
+  margin:4px 0 2px;
+}
+.intake407FHost .intake-review-summary strong{font-variant-numeric:tabular-nums}
+.intake407FHost .intake-identity{
+  background:#111a2a;
+  border:1px solid var(--edge);
+  border-radius:12px;
+  display:grid;
+  gap:8px;
+  margin:14px 0;
+  padding:14px 16px;
+}
+.intake407FHost .intake-identity.conflict{border-color:#D2882C;background:#2A1D0E}
+.intake407FHost .intake-identity.unresolved{border-color:#6B7280;background:#161c27}
+.intake407FHost .intake-identity p{margin:0}
+.intake407FHost .intake-identity s{opacity:.7}
+.intake407FHost .candidate-lane-head{
+  align-items:center;
+  display:grid;
+  gap:4px 12px;
+  grid-template-columns:minmax(0,1fr) auto;
+}
+.intake407FHost .candidate-lane-head h2{grid-column:1;margin:0}
+.intake407FHost .candidate-lane-head p{grid-column:1;margin:0;text-transform:none;letter-spacing:0}
+.intake407FHost .candidate-lane-head [data-accept-section]{grid-column:2;grid-row:1/span 2;justify-self:end}
+.intake407FHost .candidate-row.ready{
+  grid-template-columns:auto minmax(0,1fr) auto;
+  min-height:54px;
+  padding:10px 14px;
+}
+.intake407FHost .candidate-row.ready .candidate-summary{
+  display:grid;
+  gap:2px;
+  min-width:0;
+}
+.intake407FHost .candidate-row.ready .candidate-summary>strong{
+  color:var(--ink);
+  font-size:15px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.intake407FHost .candidate-row.ready .candidate-summary>.secondary-body{
+  color:var(--mid);
+  font-size:12px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.intake407FHost .candidate-row.ready .candidate-summary>[data-cv-profile-review]{
+  color:var(--mid);
+  font-size:12px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:4px 10px;
+  align-items:center;
+}
+.intake407FHost .candidate-row.ready .candidate-summary>[data-cv-profile-review] label{display:inline-flex;align-items:center;gap:5px}
+.intake407FHost .candidate-row.ready .candidate-basis{
+  color:var(--mid);
+  font-family:var(--num);
+  font-size:10px;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+}
+.intake407FHost .candidate-row.ready .candidate-actions{display:flex;flex-wrap:nowrap;gap:6px}
+.intake407FHost .candidate-chip{
+  --chip:#5B6168;
+  align-items:center;
+  background:color-mix(in srgb,var(--chip) 22%,#0f1522);
+  border:1px solid color-mix(in srgb,var(--chip) 55%,transparent);
+  border-radius:999px;
+  color:var(--ink);
+  display:inline-flex;
+  font-family:var(--num);
+  font-size:10px;
+  gap:6px;
+  letter-spacing:.06em;
+  padding:4px 9px;
+  text-transform:uppercase;
+  white-space:nowrap;
+}
+.intake407FHost .candidate-chip:before{content:"";width:8px;height:8px;border-radius:999px;background:var(--chip)}
+.intake407FHost .duplicate-group{border-color:#D2882C;background:#1d1911}
+.intake407FHost .duplicate-option{align-items:baseline;display:flex;gap:8px;margin:4px 0}
+.intake407FHost .duplicate-letter{
+  align-items:center;background:#D2882C;border-radius:999px;color:#1b1206;display:inline-grid;font-size:12px;font-weight:700;height:22px;place-items:center;width:22px;
+}
+.intake407FHost [data-intake-identity-gate]{color:#F0B35A;font-weight:600;margin:0}
+@media(max-width:750px){
+  .intake407FHost .candidate-row.ready{grid-template-columns:minmax(0,1fr);row-gap:6px}
+  .intake407FHost .candidate-lane-head [data-accept-section]{grid-column:1;grid-row:auto;justify-self:start}
+}

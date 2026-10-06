@@ -8,7 +8,11 @@ const PRIVACY_RULES=[
 ];
 
 export function detectPrivacy(record,{classification=null}={}){
-  const text=[record.title,record.description,record.rawText,record.section].filter(Boolean).join(" ");
+  // A structured source may say its narrative is duty text (patients, treatment,
+  // deliveries) rather than personal disclosure; screen only the entry identity then.
+  const text=(record.fields?.privacyScope==="TITLE_ONLY"
+    ?[record.title,record.organization,record.section]
+    :[record.title,record.description,record.rawText,record.section]).filter(Boolean).join(" ");
   const flags=PRIVACY_RULES.filter(([,pattern])=>pattern.test(text)).map(([type])=>type);
   const privateByTaxonomy=classification?.canonicalType==="PERSONAL_NOT_ON_CV"||classification?.categoryId==="personal";
   if(privateByTaxonomy&&!flags.includes("PERSONAL_CONTEXT"))flags.push("PERSONAL_CONTEXT");

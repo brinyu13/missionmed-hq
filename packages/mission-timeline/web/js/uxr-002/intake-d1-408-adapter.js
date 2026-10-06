@@ -15,6 +15,7 @@ import {
   parseUnknownBlocks
 } from "../ingestion/cv-parser.js";
 import {parseErasBlocks} from "../ingestion/eras-parser.js";
+import {isErasCvLayout,parseErasCvPages} from "../ingestion/eras-cv-parser.js";
 import {PARSER_VERSION} from "../ingestion/ingestion-state.js";
 import {detectSections} from "../ingestion/section-detector.js";
 import {buildQualitySuggestions} from "../ingestion/quality-review.js";
@@ -312,7 +313,7 @@ function exactDegree(candidate){
   ].map((value)=>String(value||"").trim().toUpperCase());
   for(const value of values){
     if(
-      /(?:^|[^A-Z])M\.?\s*B\.?\s*B\.?\s*S\.?(?:$|[^A-Z])/.test(value)||
+      /(?:^|[^A-Z])M\.?\s*B\.?\s*,?\s*B\.?\s*S\.?(?:$|[^A-Z])/.test(value)||
       /\bBACHELOR OF MEDICINE\s+(?:AND|&)\s+BACHELOR OF SURGERY\b/.test(value)
     )return"MBBS";
     if(
@@ -356,6 +357,12 @@ function categoryFields(candidate,categoryId,provenance){
     datePrecision:candidate?.datePrecision?structuredClone(candidate.datePrecision):null,
     sourceDateWording:Object.fromEntries(['start','end'].map(edge=>[edge,{raw:String(candidate.dateRange?.[edge]?.raw||''),normalizedMonth:candidate.dateRange?.[edge]?.timelineMonth||null,precision:candidate.dateRange?.[edge]?.precision||null}])),
     sourceCategoryToken:String(candidate.originalExtraction?.rawText||'').split('|').at(-1)?.trim()||'',
+    ...(candidate?.sourceFields&&typeof candidate.sourceFields==="object"&&Object.keys(candidate.sourceFields).length?{
+      structuredSource:structuredClone(candidate.sourceFields),
+      ...(candidate.sourceFields.sourceRecordOnly===true?{sourceRecordOnly:true}:{}),
+      ...(candidate.sourceFields.erasType?{erasType:String(candidate.sourceFields.erasType)}:{}),
+      ...(candidate.sourceFields.erasSection?{sourceSection:String(candidate.sourceFields.erasSection)}:{})
+    }:{}),
 
     inferredFields:[...(candidate?.inferredFields||[])].map((item)=>structuredClone(item)),
     mappingRationale:String(candidate?.mappingRationale||""),
@@ -376,7 +383,8 @@ function categoryFields(candidate,categoryId,provenance){
         profileNameProvenance:[structuredClone(candidate.profileNameClaim.provenance)]
       }:{}),
       ...(candidate.profileNameClaim||Object.keys(candidate.profileHeaderClaims||{}).length||candidate.profileHeaderConflicts?.length?{
-        profileHeaderReviewRequired:true,acceptProfileClaims:false,
+        profileHeaderReviewRequired:true,acceptProfileClaims:candidate.profileClaimsPrefilled===true,
+        profileClaims:Object.fromEntries(Object.entries(candidate.profileHeaderClaims||{}).map(([field,claim])=>[field,{value:String(claim.value),...(claim.raw?{raw:String(claim.raw)}:{}),provenance:[structuredClone(claim.provenance)]}])),
         profileHeaderConflicts:[...(candidate.profileHeaderConflicts||[])],
         profileHeaderConflictProvenance:[...(candidate.profileHeaderConflictProvenance||[])].map(item=>structuredClone(item)),
         profileMedicalSchool:candidate.profileHeaderClaims?.medicalSchool?.value||'',
@@ -750,18 +758,33 @@ export function createD1408PdfIntakeAdapter({
         ]
       };
       const sectionResult=detectSections(extraction.pages||[]);
-      const records=parseRecords(effectiveType,sectionResult.blocks);
+      /* The CV that MyERAS generates is a fixed layout. Read it structurally whatever
+         the filename-based type label says; the generic free-text parser loses its
+         locations, types, degree and the applicant's own name. */
+      const erasCv=isErasCvLayout(extraction.pages||[])?parseErasCvPages(extraction.pages||[]):null;
+      const records=erasCv?erasCv.records:parseRecords(effectiveType,sectionResult.blocks);
       const legacyCandidates=buildCandidates(records,sourceDocument);
-      const profileNameClaim=sourceProfileNameClaim(sectionResult.blocks,sourceDocument);
-      const profileHeaders=sourceProfileHeaderClaims(sectionResult.blocks,sourceDocument);
-      const headerConflicts=conflictingProfileHeaders(sectionResult.blocks,sourceDocument);
-      const medicalEntries=legacyCandidates.filter(candidate=>categoryIdFor(candidate)==='education'&&(exactDegree(candidate)||/\bmedical education\b/i.test(candidate.title)));
+      const sourceIdentity=erasCv?erasSourceIdentity(erasCv.identity,sourceDocument):null;
+      const erasProfileClaims=erasCv?erasProfileHeaderClaims(erasCv.profile,sourceDocument):{};
+      const profileNameClaim=sourceIdentity&&!sourceIdentity.conflict
+        ?{value:sourceIdentity.fullName,provenance:sourceIdentity.provenance[0]}
+        :sourceProfileNameClaim(sectionResult.blocks,sourceDocument);
+      const profileHeaders=erasCv?erasProfileClaims:sourceProfileHeaderClaims(sectionResult.blocks,sourceDocument);
+      const headerConflicts=erasCv?{conflicts:sourceIdentity?.conflict?["fullName"]:[],provenance:sourceIdentity?.conflict?sourceIdentity.provenance:[]}:conflictingProfileHeaders(sectionResult.blocks,sourceDocument);
+      const medicalEntries=legacyCandidates.filter(candidate=>categoryIdFor(candidate)==='education'&&(exactDegree(candidate)||candidate.sourceFields?.degreeMilestone===true||/\bmedical education\b/i.test(candidate.title)));
+      /* A MyERAS CV states one medical school as a span plus the degree as a dated
+         milestone. Both describe the same school; the span owns the profile claims. */
+      const degreeMilestone=erasCv?medicalEntries.find(candidate=>candidate.sourceFields?.degreeMilestone===true):null;
+      const profileOwners=erasCv?[degreeMilestone||medicalEntries[0]].filter(Boolean):medicalEntries;
       for(const candidate of medicalEntries){
-        if(medicalEntries.length===1){
+        if(erasCv&&!profileOwners.includes(candidate))continue;
+        if(profileOwners.length===1){
           if(profileNameClaim)candidate.profileNameClaim=profileNameClaim;
           candidate.profileHeaderClaims=profileHeaders;
           candidate.profileHeaderConflicts=headerConflicts.conflicts;
           candidate.profileHeaderConflictProvenance=headerConflicts.provenance;
+          // Explicit MyERAS profile facts are prefilled; the student can still untick them.
+          if(erasCv)candidate.profileClaimsPrefilled=!headerConflicts.conflicts.length;
         }else{
           // No one education entry owns a shared profile header or graduation claim.
           candidate.profileHeaderConflicts=['medicalEducationSource'];
@@ -769,6 +792,7 @@ export function createD1408PdfIntakeAdapter({
         }
       }
       const candidates=legacyCandidates.map(mapD1408CandidateToUxr);
+      if(erasCv)for(const candidate of candidates)candidate.fields.extractionBasis="SOURCE_CHECK";
       const sourceBlocks=sectionResult.blocks.map((block)=>({
         id:String(block.id),
         pageId:String(block.pageId||""),
@@ -786,16 +810,56 @@ export function createD1408PdfIntakeAdapter({
           version:PARSER_VERSION,
           detectedType:detection.detectedType,
           effectiveType,
-          sections:[...sectionResult.sections],
+          sections:[...(erasCv?erasCv.sections:sectionResult.sections)],
           recordCount:records.length,
           candidateCount:candidates.length,
           networkCalls:false,
+          ...(erasCv?{layout:erasCv.layout,structuredSource:true}:{}),
+          ...(sourceIdentity?{sourceIdentity}:{}),
+          ...(erasCv?{sourceProfileClaims:erasProfileClaims}:{}),
           qualitySuggestions:buildQualitySuggestions(candidates,{sourceBlocks}),
           unresolvedQuestions:[]
         }
       };
     }
   });
+}
+
+function erasProvenance(block,sourceDocument,extractionMethod,evidenceFields){
+  return{
+    sourceDocumentId:String(sourceDocument.id||sourceDocument.objectId||''),
+    sourceSha256:String(sourceDocument.sha256||''),fileName:String(sourceDocument.fileName||sourceDocument.name||''),
+    sourceBlockId:String(block?.id||''),pageNumber:Number(block?.pageNumber)||1,sourceExcerpt:String(block?.text||''),
+    extractionMethod,evidenceFields
+  };
+}
+
+/** The applicant identity printed by MyERAS on every CV page, with its page evidence. */
+export function erasSourceIdentity(identity,sourceDocument={}){
+  if(!identity)return null;
+  const provenance=(identity.provenance||[]).map((block)=>erasProvenance(block,sourceDocument,'MYERAS_CV_PAGE_HEADER',['fullName']));
+  if(identity.conflict)return{conflict:true,reason:String(identity.reason||'The CV names more than one applicant.'),provenance};
+  return{
+    conflict:false,
+    fullName:String(identity.fullName||''),
+    sourceForm:String(identity.sourceForm||''),
+    preferredName:String(identity.preferredName||''),
+    aamcId:String(identity.aamcId||''),
+    confidence:'high',
+    extractionMethod:'MYERAS_CV_PAGE_HEADER',
+    provenance
+  };
+}
+
+/** Explicit profile facts a MyERAS CV states outright (school, degree, degree date, languages). */
+export function erasProfileHeaderClaims(profile={},sourceDocument={}){
+  const claims={};
+  for(const [field,claim] of Object.entries(profile||{})){
+    if(!claim||!String(claim.value||'').trim())continue;
+    if(field==='medicalEducationSpan')continue;
+    claims[field]={value:String(claim.value),...(claim.raw?{raw:String(claim.raw)}:{}),provenance:erasProvenance(claim.block,sourceDocument,'EXPLICIT_MYERAS_CV_PROFILE',[field])};
+  }
+  return claims;
 }
 
 export function createProductionCvIntakeAdapter({

@@ -72,6 +72,9 @@ function duplicatePairs(candidates){
     const titleScore=similarity(a.title,b.title);
     const siteScore=similarity(institutionOf(a),institutionOf(b));
     if(titleScore<0.6&&!(titleScore>=0.4&&siteScore>=0.6))continue;
+    /* Two rotations both called "Clinical Observership" at different hospitals are two
+       experiences, not one read twice. A shared generic title needs a shared place. */
+    if(institutionOf(a)&&institutionOf(b)&&siteScore<0.3)continue;
     const startA=monthIndex(a.startDate),startB=monthIndex(b.startDate);
     const sameStart=startA!=null&&startB!=null&&Math.abs(startA-startB)<=1;
     const endA=monthIndex(a.endDate||a.startDate),endB=monthIndex(b.endDate||b.startDate);
@@ -153,7 +156,8 @@ export function buildQualitySuggestions(candidates,{sourceBlocks=[],sourceSha256
       }));
     }
     const title=String(candidate.title||"");
-    if(title.length>LONG_TITLE){
+    // Records kept off the Timeline (publications, honors) never become cards.
+    if(candidate.fields?.sourceRecordOnly!==true&&title.length>LONG_TITLE){
       const short=shortenTitle(title);
       output.push(suggestion("LABEL_READABILITY","INFO",{
         candidateIds:[candidate.id],

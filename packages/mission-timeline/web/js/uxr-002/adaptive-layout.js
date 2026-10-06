@@ -134,6 +134,71 @@ export function deriveTimelineSpan(events,{currentMonth,interviewMonth=null}={})
   };
 }
 
+/*
+ * Founder start-year rule. A graduate's Timeline opens at the graduation year; a
+ * current student's opens one calendar year before medical school began. Years before
+ * that appear only for an intentionally included earlier personal milestone, for a
+ * bounded experience that would otherwise vanish entirely (an elective the year before
+ * graduation), or through the student's own manual axis expansion. Long background
+ * spans (school, volunteering, clubs) that began earlier are drawn from the left edge
+ * with their true dates; the source facts are never changed.
+ */
+const BACKGROUND_CANONICAL_TYPES=new Set(["EDUCATION","MEDICAL_DEGREE","VOLUNTEER_EXPERIENCE","LEADERSHIP"]);
+const PERSONAL_MILESTONE_TYPES=new Set(["LIFE_EVENT","CUSTOM_MILESTONE","PERSONAL_NOT_ON_CV","VISA_IMMIGRATION_MILESTONE","MOVE_TO_USA"]);
+function domainYearOf(month){const index=monthIndex(normalizedMonth(month));return Number.isFinite(index)?Math.floor(index/12):null;}
+function graduationMonth(profile){
+  const raw=String(profile?.graduationDate||"").trim();
+  if(/^\d{4}$/.test(raw))return `${raw}-06`;
+  return normalizedMonth(raw.slice(0,7));
+}
+export function deriveFounderYearDomain(document,events,{currentMonth}={}){
+  const current=normalizedMonth(currentMonth);
+  if(!current)throw new TypeError("deriveFounderYearDomain requires currentMonth as YYYY-MM.");
+  const list=(Array.isArray(events)?events:[]).filter((event)=>eventStartMonth(event));
+  const profile=document?.studentProfile||{};
+  const grad=graduationMonth(profile);
+  const graduated=!!grad&&profile.expectedGraduation!==true&&monthIndex(grad)<=monthIndex(current);
+  const schoolStarts=list
+    .filter((event)=>event.categoryId==="education"&&!isMilestone(event))
+    .map((event)=>domainYearOf(eventStartMonth(event))).filter((year)=>year!==null);
+  let defaultFirstYear=null,basis=null;
+  if(graduated){defaultFirstYear=domainYearOf(grad);basis="graduation-year";}
+  else if(schoolStarts.length){defaultFirstYear=Math.min(...schoolStarts)-1;basis="school-start-minus-one";}
+  if(defaultFirstYear===null)return null;
+  const extensions=[];
+  for(const event of list){
+    const canonical=String(event.fields?.canonicalType||"").toUpperCase();
+    const startYear=domainYearOf(eventStartMonth(event));
+    if(startYear===null||startYear>=defaultFirstYear)continue;
+    const personal=event.categoryId==="personal"||PERSONAL_MILESTONE_TYPES.has(canonical);
+    if(personal){extensions.push({eventId:String(event.id),year:startYear,reason:"personal-milestone"});continue;}
+    const background=event.categoryId==="education"||BACKGROUND_CANONICAL_TYPES.has(canonical);
+    if(background)continue;
+    const endYear=isMilestone(event)?startYear:event.openEnded?domainYearOf(current):domainYearOf(eventEndMonth(event)||eventStartMonth(event));
+    // A bounded experience lying wholly before the default domain would disappear.
+    if(endYear!==null&&endYear<defaultFirstYear)extensions.push({eventId:String(event.id),year:startYear,reason:"bounded-experience-before-domain"});
+  }
+  const firstYear=Math.min(defaultFirstYear,...extensions.map((item)=>item.year));
+  return Object.freeze({
+    firstYear,defaultFirstYear,basis,graduated,graduationMonth:grad,
+    extensions:Object.freeze(extensions.map(Object.freeze)),
+    clampedEventIds:Object.freeze(list.filter((event)=>{const year=domainYearOf(eventStartMonth(event));return year!==null&&year<firstYear;}).map((event)=>String(event.id)))
+  });
+}
+
+/** Trim a derived span so it opens at the Founder domain year; later years are untouched. */
+export function clampTimelineSpanToDomain(span,domain){
+  const firstYear=Number(domain?.firstYear);
+  if(!span||!Number.isInteger(firstYear))return span;
+  const startYear=Math.floor(monthIndex(span.startMonth)/12);
+  if(firstYear<=startYear)return span;
+  const endYear=Math.floor(monthIndex(span.endMonth)/12);
+  const first=Math.min(firstYear,endYear);
+  const segments=(span.segments||[]).filter((segment)=>segment.kind==="year"&&segment.year>=first);
+  const years=segments.length?segments:[{kind:"year",year:first,startMonth:monthForYear(first,1),endMonth:monthForYear(first,12)}];
+  return{...span,startMonth:monthForYear(first,1),segments:years,yearDomain:domain};
+}
+
 export function eventDensityForYear(events,year,{spanEndMonth}={}){
   if(!Number.isInteger(year))return 0;
   const yearStart=year*12;
@@ -182,7 +247,12 @@ export function allocateFounderRoleYearWidths(events,{firstYear,lastYear,measure
     if(isMilestone(event))continue;
     const coefficients=new Map(years.map(year=>[year,Math.max(0,Math.min(end,year*12+11)-Math.max(start,year*12)+1)/12]).filter(([,fraction])=>fraction));
     for(const [year,fraction] of coefficients)pressure.set(year,pressure.get(year)+fraction*.05);
-    const required=Number(measureText(role,18,400))+19.454+4;
+    let required=Number(measureText(role,18,400))+19.454+4;
+    // A one-month arrow asking for a twelve-month-wide year would starve every other
+    // year; no single label may claim more than three fifths of the axis. Overflow that
+    // remains is a label problem (Guardian offers a concise form), not an axis problem.
+    const maxFraction=Math.max(...coefficients.values(),0);
+    if(coefficients.size&&Number.isFinite(required)&&maxFraction>0&&required/maxFraction>budget*.6)required=budget*.6*maxFraction;
     if(coefficients.size&&Number.isFinite(required)&&required>minArrowWidth+.01)constraints.push({eventId:String(event.id),coefficients,required:required+1}); // native pixel rounding reserve
     if(typeof measureInstitutionText==='function'){
       const institution=String(event.display?.institution??event.siteName??'');

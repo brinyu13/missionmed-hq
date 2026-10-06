@@ -31,7 +31,45 @@ function unverifiedClinical(common,reason="Clinical-experience wording was found
   return result("UNCLASSIFIED","work","duration",reason,{...common,warnings:["Clinical experience needs human review",warning]});
 }
 
+/*
+ * MyERAS CV entries carry an explicit experience type ("Education/training", "Work",
+ * "Research", "Volunteer/service/advocacy", ...) next to the title and a separate
+ * city/state line. Classify those from the title, the stated type and the stated
+ * location. The bullet narrative is clinical duty text, not evidence of a different
+ * category, so it is deliberately not consulted here. Anything this rule set cannot
+ * settle falls through to the generic classifier below.
+ */
+const US_ROTATION_WORDS=/\b(?:observership|externship|sub[- ]?internship|clerkship|clinical\s+(?:rotation|elective|experience)|elective|rotation|preceptorship|shadowing)\b/i;
+function classifyErasExperience(record,dateRange){
+  const erasType=String(record.fields?.erasType||"").toLowerCase();
+  if(!erasType)return null;
+  const title=String(record.title||"").toLowerCase();
+  const hasRange=!!dateRange?.end||dateRange?.openEnded;
+  const kind=hasRange?"duration":"milestone";
+  const common={siteName:record.organization||"",cityState:record.location||"",specialty:record.specialty||"",experienceType:record.experienceType||""};
+  const unitedStates=hasUnitedStatesContext({...record,description:""});
+  if(erasType.startsWith("volunteer"))return result("VOLUNTEER_EXPERIENCE","work",kind,"The source labels this entry Volunteer/service/advocacy.",common);
+  if(/\b(?:resident|residency|registrar|fellow(?:ship)?)\b/.test(title)&&!/\belective\b/.test(title))return result("RESIDENCY_FELLOWSHIP","work",kind,"Residency or fellowship wording in the entry title.",common);
+  if(/\b(?:intern(?:ship)?|house\s+officer|house\s+surgeon|rotatory internship)\b/.test(title)&&!/\bsub[- ]?internship\b/.test(title))return result("INTERNSHIP_HOUSE_OFFICER","work",kind,"Internship or house-officer wording in the entry title.",common);
+  if(erasType==="research"||/\bresearch\b/.test(title))return result("RESEARCH_EXPERIENCE","res",kind,erasType==="research"?"The source labels this entry Research.":"Research wording in the entry title.",common);
+  if(US_ROTATION_WORDS.test(title)){
+    if(!unitedStates)return unverifiedClinical(common,"Clinical rotation wording was found, but the stated location is not in the United States.","Confirm whether this is United States clinical experience");
+    const canonicalType=/\bobservership\b/.test(title)?"OBSERVERSHIP":/\bexternship\b/.test(title)?"EXTERNSHIP":/\bsub[- ]?internship\b/.test(title)?"SUB_INTERNSHIP":/\bclerkship\b/.test(title)?"CLERKSHIP":"USCE_TEACHING_HOSPITAL";
+    return result(canonicalType,"th",kind,"Clinical rotation wording in the title with a stated United States location.",{...common,experienceType:/\belective\b/.test(title)?"Elective":common.experienceType});
+  }
+  if(erasType==="work")return result("WORK_EXPERIENCE","work",kind,"The source labels this entry Work.",common);
+  if(erasType==="teaching/mentoring")return result("WORK_EXPERIENCE","work",kind,"The source labels this entry Teaching/mentoring.",common);
+  if(erasType.startsWith("other extracurricular")||erasType==="leadership"||erasType==="professional organization")return result("LEADERSHIP","work",kind,`The source labels this entry ${record.experienceType}.`,common);
+  if(erasType==="military service")return result("WORK_EXPERIENCE","work",kind,"The source labels this entry Military service.",common);
+  return null;
+}
+
 export function classifyEvent(record,dateRange){
+  const eras=classifyErasExperience(record,dateRange);
+  if(eras)return eras;
+  const structuredCommon={siteName:record.organization||"",cityState:record.location||"",specialty:record.specialty||"",experienceType:record.experienceType||""};
+  if(record.fields?.scholarlyKind)return result(record.fields.scholarlyKind,"res","milestone","Listed under the document's scholarly work section.",structuredCommon);
+  if(record.fields?.degreeMilestone)return result("MEDICAL_DEGREE","usmle","milestone","The medical education section states this degree with its completion date.",structuredCommon);
   const text=joined(record);
   const identityText=[record.title,record.experienceType].filter(Boolean).join(" ").toLowerCase();
   const hasRange=!!dateRange?.end||dateRange?.openEnded;
@@ -58,6 +96,9 @@ export function classifyEvent(record,dateRange){
       return result("ECFMG_CERTIFICATION","usmle","milestone","ECFMG certification was listed under the document's certifications section without any pending or negated wording.",common);
     return result("UNCLASSIFIED","usmle","milestone","ECFMG wording was detected, but it does not establish completed certification.",{...common,warnings:["ECFMG status needs human review","Application, eligibility, Pathway, and pending language must not be treated as certification"]});
   }
+  /* A dated entry listed under the document's own Certifications heading is a
+     certification record whatever its wording ("HIPAA", a course certificate). */
+  if(record.section==="certifications"||record.fields?.erasSection==="certifications")return result("CERTIFICATION","education","milestone","Listed under the document's certifications section.",common);
   if(/\b(application cycle|eras cycle)\b/.test(text))return result("APPLICATION_CYCLE","usmle",hasRange?"duration":"milestone","Application cycle wording detected.",common);
   if(/\binterview\b/.test(text))return result("INTERVIEW","usmle","milestone","Interview milestone wording detected.",common);
   if(/\b(move|moved|relocat).*(usa|united states)|\busa\b.*\bmove/.test(text))return result("MOVE_TO_USA","usmle","milestone","Move-to-USA wording detected.",common);

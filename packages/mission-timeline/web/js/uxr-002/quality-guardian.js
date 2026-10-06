@@ -5,6 +5,7 @@ import {serializeFounderPresentation,assertCompleteFounderPresentation,founderMi
 import {resolveFounderPresentationSvg,materialPresentationCollisions} from '../presentation/resolved-founder-presentation.js';
 import {locked407FMilestoneGeometry} from './locked-407f-export.js';
 import {createLocalLayoutReview,isLocalLayoutReviewLocation} from './local-layout-review.js';
+import {founderConciseRole,founderConciseInstitution,setFounderEventDisplay} from '../presentation/founder-display-rules.js';
 import {measureLayoutCriticSafety,stableLayoutJson} from '../presentation/layout-critic-projection.js';
 
 export const QUALITY_GUARDIAN_SCHEMA="d1-timeline-quality-guardian.1";
@@ -128,7 +129,24 @@ function add(findings,{
   }));
 }
 
+const personNameKey=(value)=>clean(value).normalize("NFKD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim().split(" ").filter(Boolean).sort().join(" ");
+/* The imported CV names its applicant; an adopted identity that no longer matches the
+   Timeline name means the Timeline is presenting someone else's history. */
+function inspectIdentity(document,findings){
+  const receipt=document?.intake?.lastImport?.identity||document?.intake?.sourceIdentity||null;
+  if(!receipt||receipt.decision!=="use-source"||!clean(receipt.fullName))return;
+  const current=clean(document?.studentProfile?.fullName);
+  if(!current||personNameKey(current)===personNameKey(receipt.fullName))return;
+  add(findings,{
+    section:"CONTENT",code:"IDENTITY_MISMATCH",severity:"BLOCK_EXPORT",basis:QUALITY_GUARDIAN_BASES.SOURCE_FACT,
+    message:`This Timeline is named “${current}”, but the imported CV belongs to ${clean(receipt.fullName)}${clean(receipt.aamcId)?` (AAMC ID ${clean(receipt.aamcId)})`:""}.`,
+    recommendation:"Correct the name in Core Info, or import your own CV. A Timeline never presents another applicant's history under a different name.",
+    evidence:{documentName:clean(receipt.fullName),timelineName:current,aamcId:clean(receipt.aamcId)}
+  });
+}
+
 function inspectContent(document,findings){
+  inspectIdentity(document,findings);
   if(!clean(document?.studentProfile?.fullName))add(findings,{
     section:"CONTENT",code:"STUDENT_NAME_MISSING",severity:"BLOCK_EXPORT",basis:QUALITY_GUARDIAN_BASES.SOURCE_FACT,
     message:"Add your name in Builder before exporting.",recommendation:"Enter your name in Core Info; confirm it against your source."});
@@ -280,6 +298,97 @@ function inspectLayout(document,findings){
   }
 }
 
+/* Safe presentation repair: shorter display forms for labels that do not fit. Source
+   titles and institutions are untouched; the proposal is a presentation override the
+   student can undo. It is offered only when a re-render shows fewer overflowing labels. */
+export function proposeConciseLabels(document,rendered=null,{maxLength=12}={}){
+  let scene,paint;
+  try{
+    const result=rendered||serializeFounderPresentation(document,{scope:"FULL_STORY"});
+    scene=result.scene;paint=resolveFounderPresentationSvg(result.svg);
+  }catch{return[];}
+  const overflowing=new Map();
+  for(const node of paint.nodes){
+    if(node.kind!=="text"||node.sourceAttributes['data-text-overflow']!=='true')continue;
+    const id=String(node.semanticRef||node.groupId||"");
+    if(!id)continue;
+    const role=node.sourceAttributes['data-board-ink-role']||"";
+    overflowing.set(id,[...(overflowing.get(id)||[]),role]);
+  }
+  const overrides=document?.presentationOverrides?.events||{};
+  const sourceEvents=new Map(safeArray(document?.events).map(event=>[String(event.id),event]));
+  const proposals=[];
+  for(const arrow of scene?.arrows||[]){
+    const id=String(arrow.id),roles=overflowing.get(id);
+    if(!roles)continue;
+    const current=overrides[id]||{};
+    const source=sourceEvents.get(id)||{};
+    const changes={};
+    if(roles.some(role=>role==="inside-arrow"||role==="outside-arrow")){
+      const role=clean(arrow.display?.role||arrow.title);
+      const concise=founderConciseRole(role,{maxLength,specialty:clean(source.fields?.specialty||source.specialty||arrow.specialty)});
+      if(concise&&concise!==role&&clean(current.role)!==concise)changes.role=concise;
+    }
+    if(roles.includes("site")){
+      const institution=clean(arrow.display?.institution||arrow.siteName);
+      const concise=founderConciseInstitution(institution);
+      if(concise&&concise!==institution&&clean(current.institution)!==concise)changes.institution=concise;
+    }
+    if(Object.keys(changes).length)proposals.push({eventId:id,changes,from:{role:clean(arrow.display?.role||arrow.title),institution:clean(arrow.display?.institution||arrow.siteName)}});
+  }
+  return proposals;
+}
+function overflowCount(document){
+  try{
+    const rendered=serializeFounderPresentation(document,{scope:"FULL_STORY"});
+    return resolveFounderPresentationSvg(rendered.svg).nodes.filter(node=>node.kind==="text"&&node.sourceAttributes['data-text-overflow']==='true').length;
+  }catch{return Number.POSITIVE_INFINITY;}
+}
+function applyConciseLabels(document,proposals){
+  let next=document;
+  for(const proposal of proposals)next=setFounderEventDisplay(next,proposal.eventId,proposal.changes);
+  return next;
+}
+/* Shortest safe form that actually paints: try progressively terser display forms and
+   keep each stage only when the re-rendered page has fewer overflowing labels. */
+export function proposeConciseInstitutions(document,{maxLength=58}={}){
+  let scene;
+  try{scene=serializeFounderPresentation(document,{scope:"FULL_STORY"}).scene;}catch{return[];}
+  const overrides=document?.presentationOverrides?.events||{};
+  const proposals=[];
+  for(const arrow of scene?.arrows||[]){
+    const institution=clean(arrow.display?.institution||arrow.siteName);
+    if(institution.length<=maxLength)continue;
+    const concise=founderConciseInstitution(institution);
+    if(concise&&concise!==institution&&clean(overrides[String(arrow.id)]?.institution)!==concise)proposals.push({eventId:String(arrow.id),changes:{institution:concise},from:{role:clean(arrow.display?.role||arrow.title),institution}});
+  }
+  return proposals;
+}
+export function resolveConciseLabels(document,{includeLongInstitutions=false}={}){
+  let current=document,best=overflowCount(document);
+  const applied=[];
+  if(!Number.isFinite(best))return{document,proposals:[],before:best,after:best};
+  const before=best;
+  if(best)for(const maxLength of [20,12,6]){
+    const proposals=proposeConciseLabels(current,null,{maxLength});
+    if(!proposals.length)continue;
+    const candidate=applyConciseLabels(current,proposals);
+    const count=overflowCount(candidate);
+    if(count<best){current=candidate;best=count;applied.push(...proposals);}
+    if(!best)break;
+  }
+  if(includeLongInstitutions){
+    const proposals=proposeConciseInstitutions(current);
+    if(proposals.length){
+      const candidate=applyConciseLabels(current,proposals);
+      const count=overflowCount(candidate);
+      // A shorter institution must never make the page worse.
+      if(count<=best){current=candidate;best=count;applied.push(...proposals);}
+    }
+  }
+  return{document:current,proposals:applied,before,after:best};
+}
+
 function inspectReadability(document,findings){
   // Check the final painted text. Character count alone missed two-month
   // duration labels squeezed by SVG textLength into unreadable glyphs.
@@ -318,8 +427,17 @@ function inspectReadability(document,findings){
       basis:QUALITY_GUARDIAN_BASES.PRESENTATION,elementIds:[...new Set(outside.map(node=>node.semanticRef||node.groupId||node.id))],
       message:`${outside.length} visible text block${outside.length===1?' extends':'s extend'} beyond the exported page.`,recommendation:"Adjust the layout and inspect the whole exported page before sharing.",evidence:{count:outside.length}});
     const overflow=paint.nodes.filter(node=>node.kind==='text'&&node.sourceAttributes['data-text-overflow']==='true');
-    if(overflow.length)add(findings,{section:"READABILITY",code:"TEXT_CONTAINER_OVERFLOW",severity:"BLOCK_EXPORT",basis:QUALITY_GUARDIAN_BASES.PRESENTATION,
-      elementIds:overflow.map(node=>node.groupId||node.id),message:"Some text does not fit its container at the selected minimum size.",recommendation:"Enlarge the text container or review the layout. Source text has been preserved.",evidence:{count:overflow.length}});
+    if(overflow.length){
+      const resolved=resolveConciseLabels(document);
+      const proposals=resolved.proposals;
+      const repairable=proposals.length>0&&resolved.after<overflow.length;
+      add(findings,{section:"READABILITY",code:"TEXT_CONTAINER_OVERFLOW",severity:"BLOCK_EXPORT",basis:QUALITY_GUARDIAN_BASES.PRESENTATION,
+        elementIds:overflow.map(node=>node.groupId||node.id),
+        message:repairable?`${overflow.length} label${overflow.length===1?" does":"s do"} not fit; a shorter display form is available.`:"Some text does not fit its container at the selected minimum size.",
+        recommendation:repairable?`Use the concise display label (for example “${proposals[0].from.role}” → “${proposals[0].changes.role||proposals[0].changes.institution}”). Your source wording stays unchanged and you can undo it.`:"Enlarge the text container or review the layout. Source text has been preserved.",
+        ...(repairable?{actionMode:"FIX_FOR_ME",fixKind:"CONCISE_LABELS"}:{}),
+        evidence:{count:overflow.length,...(repairable?{proposals:proposals.map(item=>`${item.eventId}:${Object.entries(item.changes).map(([field,value])=>`${field}=${value}`).join(";")}`).join("|")}:{})}});
+    }
     const placeholders=paint.nodes.filter(node=>node.kind==='text'&&/^(?:PROFILE PHOTO|DROP PHOTO\s*\d*|PROGRAM LOGO|Date pending)$/.test(node.text.trim()));
     if(placeholders.length)add(findings,{section:"MISSIONMED_FORMAT",code:"UNFINISHED_PRESENTATION_FURNITURE",severity:"REVIEW",basis:QUALITY_GUARDIAN_BASES.PRESENTATION,
       message:"The preview includes empty photo or interview placeholders.",recommendation:"Review the final page before sharing; empty editor placeholders are not finished content.",evidence:{count:placeholders.length}});
@@ -342,12 +460,16 @@ function inspectReadability(document,findings){
     evidence:{count:compressed.length,minimumWidthRatio:Math.min(...compressed.map(node=>node.bounds.width/(node.bounds.width-node.characterSpacing*(node.text.length-1))))}
   });
   if(longLabels.length){
+    const proposals=proposeConciseInstitutions(document);
     add(findings,{
       section:"READABILITY",code:"LONG_EVENT_LABELS",severity:"REVIEW",
       basis:QUALITY_GUARDIAN_BASES.PRESENTATION,
       elementIds:longLabels.map(({id})=>id),
       message:`${longLabels.length} event ${longLabels.length===1?"label is":"labels are"} likely to wrap or clip.`,
-      recommendation:"Shorten presentation labels without changing the underlying facts.",
+      recommendation:proposals.length
+        ?`Use the concise institution label (for example “${proposals[0].from.institution}” → “${proposals[0].changes.institution}”). The source institution stays unchanged and you can undo it.`
+        :"Shorten presentation labels without changing the underlying facts.",
+      ...(proposals.length?{actionMode:"FIX_FOR_ME",fixKind:"CONCISE_INSTITUTIONS"}:{}),
       evidence:{count:longLabels.length,maxLength:Math.max(...longLabels.map(({title})=>clean(title).length))}
     });
   }
@@ -513,7 +635,7 @@ export function mergeAiQualityAnalysis(localReport,analysis){
       if(!QUALITY_GUARDIAN_SECTIONS.some(({id})=>id===section)||existing.has(key))return[];
       const actionMode=finding?.actionMode==="FIX_FOR_ME"?"FIX_FOR_ME":"REVIEW";
       const providerClaimedBasis=clean(finding?.basis);
-      const safePresentationKinds=new Set(['AUTO_ARRANGE_EVENTS','CLAMP_OBJECTS','RESTORE_THEME_BACKGROUND','RESTORE_DEFAULT_THEME']);
+      const safePresentationKinds=new Set(['AUTO_ARRANGE_EVENTS','CLAMP_OBJECTS','RESTORE_THEME_BACKGROUND','RESTORE_DEFAULT_THEME','CONCISE_LABELS','CONCISE_INSTITUTIONS']);
       if(actionMode==="FIX_FOR_ME"&&(chipBasis(providerClaimedBasis)!==QUALITY_GUARDIAN_BASES.PRESENTATION||!safePresentationKinds.has(clean(finding?.fixKind))))return[];
       const basis=QUALITY_GUARDIAN_BASES.AI_INFERENCE;
       return[Object.freeze({
@@ -744,6 +866,13 @@ export function applySafeQualityFixes(document,report=analyzeTimelineQuality(doc
     const result=autoArrangeWithoutWorsening(next);
     if(result.changed){
       changes.push({kind:"AUTO_ARRANGE_EVENTS",scope:"PRESENTATION",message:`Adjusted event presentation and reduced collision warnings from ${result.before} to ${result.after}.`});
+    }
+  }
+  if(requested.has("CONCISE_LABELS")||requested.has("CONCISE_INSTITUTIONS")){
+    const resolved=resolveConciseLabels(next,{includeLongInstitutions:requested.has("CONCISE_INSTITUTIONS")});
+    if(resolved.proposals.length&&resolved.after<=resolved.before){
+      Object.assign(next,resolved.document);
+      changes.push({kind:"CONCISE_LABELS",scope:"PRESENTATION",message:`Shortened ${resolved.proposals.length} display label${resolved.proposals.length===1?"":"s"} (${resolved.proposals.map(item=>`${item.from.role}→${item.changes.role||item.changes.institution}`).join(", ")}); overflowing labels went from ${resolved.before} to ${resolved.after}. Source titles are unchanged.`,proposals:resolved.proposals});
     }
   }
   if(requested.has("CLAMP_OBJECTS")){

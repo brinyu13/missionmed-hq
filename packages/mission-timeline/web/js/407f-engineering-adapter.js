@@ -4083,7 +4083,22 @@ export async function boot407FEngineeringAdapter({
         if(result.changed){
           try{
             beforeRendered=renderPreview(store.document,"before");afterRendered=renderPreview(result.document,"after");
-            qualification=qualifyRenderedLayoutImprovement(beforeRendered,afterRendered,{beforeDocument:store.document,afterDocument:result.document});
+            /* A concise display label changes visible wording on purpose, so the
+               geometry-only qualifier cannot judge it. It qualifies when the source
+               facts are untouched (Guardian applied presentation overrides only) and
+               the repaired page has fewer unreadable or overflowing labels and no
+               new export blockers. */
+            const labelRepair=result.changes.length>0&&result.changes.every((change)=>["CONCISE_LABELS","CONCISE_INSTITUTIONS"].includes(change.kind));
+            if(labelRepair){
+              const overflowing=(rendered)=>resolveFounderPresentationSvg(rendered.svg).nodes.filter((node)=>node.kind==="text"&&node.sourceAttributes["data-text-overflow"]==="true").length;
+              const blockers=(review)=>new Set(review.findings.filter((finding)=>finding.severity==="BLOCK_EXPORT").map((finding)=>finding.code));
+              const beforeBlockers=blockers(report),afterBlockers=blockers(result.review);
+              const newBlocker=[...afterBlockers].some((code)=>!beforeBlockers.has(code));
+              const improved=overflowing(afterRendered)<overflowing(beforeRendered)||(overflowing(afterRendered)===overflowing(beforeRendered)&&afterBlockers.size<=beforeBlockers.size);
+              qualification={qualified:result.biographyFieldsChanged!==true&&result.semanticFieldsChanged!==true&&improved&&!newBlocker,reasonCode:"DISPLAY_LABEL_REPAIR"};
+            }else{
+              qualification=qualifyRenderedLayoutImprovement(beforeRendered,afterRendered,{beforeDocument:store.document,afterDocument:result.document});
+            }
           }catch{qualification={qualified:false,reasonCode:'RENDER_VALIDATION_FAILED'};}
         }
         if(!result.changed||qualification?.qualified!==true){
@@ -9647,10 +9662,26 @@ export async function boot407FEngineeringAdapter({
     /* intake.js copies a rejection message straight into state.fileError, which renders as
        the red field error under the CV dropzone. That message has to already be student
        language by the time it leaves this adapter, so translate it at the boundary. */
+    /* The intake consent box says "I consent to secure AI-assisted extraction". Before
+       this, that box only unlocked the local read: the server still required the
+       separate WordPress-recorded AI consent, which students never found, so every live
+       CV silently fell back to the limited local parser. Record the consent the student
+       just gave, then read. If recording fails the read still runs and the review screen
+       says honestly that no AI ran. */
+    const ensureStudentAiConsent=async(input)=>{
+      const runtime=productionRuntime;
+      const bootstrap=runtime?.authClient?.bootstrapState;
+      if(!runtime||!privateMediaStorageEnabled||runtime.identity?.role!=="STUDENT"||input?.file?.timelineRescue===true)return;
+      if(!bootstrap||bootstrap.aiConsent===true||bootstrap.aiProcessingAvailable!==true)return;
+      if(typeof runtime.authClient.setAiConsent!=="function")return;
+      try{await runtime.authClient.setAiConsent("grant");}
+      catch(error){console.warn("Timeline AI consent could not be recorded; using the local document check.",error?.code||error?.message||error);}
+    };
     const studentSafeIntakeAdapter=Object.freeze({
       ...intakeAdapter,
       async extract(input){
         try{
+          await ensureStudentAiConsent(input);
           const result=await intakeAdapter.extract(input);
           /* AAA-019 — no theater: a result that never went near the AI says so, with the
              reason, so the review screen can label it a local document check. */
@@ -9777,7 +9808,8 @@ export async function boot407FEngineeringAdapter({
     intakeMachine=new IntakeStateMachine({
       adapter:studentSafeIntakeAdapter,
       initialState:store.document.intake,
-      existingEvents:store.document.events
+      existingEvents:store.document.events,
+      existingProfile:store.document.studentProfile||{}
     });
     intakeHost.addEventListener("change",(event)=>{
       const input=event.target?.closest?.("[data-timeline-rescue-file]");
@@ -9824,7 +9856,10 @@ export async function boot407FEngineeringAdapter({
         const initial=initialIntakeNotification022;
         initialIntakeNotification022=false;
         renderIntakeHost(state);
-        if(state.stage==="upload")intakeMachine.existingEvents=clone(store.document.events||[]);
+        if(state.stage==="upload"){
+          intakeMachine.existingEvents=clone(store.document.events||[]);
+          intakeMachine.existingProfile=clone(store.document.studentProfile||{});
+        }
         if(!initial&&store.entitlement.canMutate===true){
           store.mutate("Update Intake flow",(document)=>{
             document.intake=persistedIntakeState(state,document.intake);

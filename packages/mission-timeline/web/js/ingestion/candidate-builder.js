@@ -32,6 +32,8 @@ export function buildCandidates(records,sourceDocument){
       organization:record.organization||"",
       siteName:classification.siteName||record.organization||"",
       location:record.location||"",
+      country:record.fields?.country||"",
+      sourceFields:record.fields&&typeof record.fields==="object"?structuredClone(record.fields):{},
       specialty:classification.specialty||"",
       experienceType:classification.experienceType||"",
       section:record.section||"unknown",

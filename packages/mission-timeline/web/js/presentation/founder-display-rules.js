@@ -16,6 +16,61 @@ const aliases=new Map([
  ['University of California Los Angeles','UCLA'],
  ['University of Southern California','USC']
 ]);
+/* Concise presentation forms. Display only: the accepted source title and institution
+   are never rewritten, and every proposal is an undoable presentation override. */
+const ROLE_ABBREVIATIONS=[
+ [/\bhematology\s*(?:and|&|\/)\s*oncology\b/i,'Heme/Onc'],[/\bhematology\b/i,'Heme'],[/\boncology\b/i,'Onc'],
+ [/\bobstetrics\s*(?:and|&|\/)\s*gynecology\b/i,'OB/GYN'],[/\binternal medicine\b/i,'IM'],[/\bfamily medicine\b/i,'FM'],
+ [/\bemergency medicine\b/i,'EM'],[/\bpediatrics\b/i,'Peds'],[/\bcardiology\b/i,'Cards'],[/\bneurology\b/i,'Neuro'],
+ [/\bpsychiatry\b/i,'Psych'],[/\bgastroenterology\b/i,'GI'],[/\bnephrology\b/i,'Nephro'],[/\bpulmonology\b/i,'Pulm'],
+ [/\binfectious diseases?\b/i,'ID'],[/\banesthesiology\b/i,'Anesthesia'],[/\bradiology\b/i,'Rads'],[/\bsurgery\b/i,'Surg'],
+ [/\bsub[- ]?internship\b/i,'Sub-I'],[/\bexternship\b/i,'Extern'],[/\bobservership\b/i,'Observership'],[/\bclerkship\b/i,'Clerkship'],
+ [/\bresearch (?:elective|assistant|associate|fellow)\b/i,'Research'],[/\bclinical\s+/i,''],[/\bhospital medicine\b/i,'Hospitalist']
+];
+const GENERIC_ROLE_TRIMS=[[/\bresearch (?:elective|assistant|associate|fellow)\b/i,'Research'],[/\bsub[- ]?internship\b/i,'Sub-I'],[/\bexternship\b/i,'Extern'],[/\bclinical\s+(?=\S)/i,''],[/\bhospital medicine\b/i,'Hospitalist']];
+/* The 2025 Keynote labels one-month rotations with the specialty code alone ("IM", "FM");
+   the USCE color and the institution carry the rest. */
+const SPECIALTY_CODES=new Map([
+ ['internal medicine','IM'],['family medicine','FM'],['emergency medicine','EM'],['hospital medicine','HM'],['hospitalist','HM'],
+ ['hematology/oncology','H/O'],['heme/onc','H/O'],['hematology and oncology','H/O'],['oncology','Onc'],['hematology','Heme'],
+ ['cardiology','Cards'],['infectious diseases','ID'],['infectious disease','ID'],['critical care','CC'],['general surgery','Surg'],['surgery','Surg'],
+ ['obstetrics and gynecology','OB'],['ob/gyn','OB'],['pediatrics','Peds'],['psychiatry','Psych'],['neurology','Neuro'],['nephrology','Nephro'],
+ ['gastroenterology','GI'],['pulmonology','Pulm'],['endocrinology','Endo'],['rheumatology','Rheum'],['dermatology','Derm'],['anesthesiology','Anes'],
+ ['radiology','Rads'],['urology','Uro'],['orthopedics','Ortho'],['ophthalmology','Ophtho'],['pathology','Path'],['geriatrics','Geri'],['palliative care','Pall']
+]);
+const ROTATION_CODES=[[/\bobservership\b/i,'Obs'],[/\belective\b/i,'Elec'],[/\bextern(?:ship)?\b/i,'Ext'],[/\bclerkship\b/i,'Clerk'],[/\bsub-i\b/i,'Sub-I'],[/\bresearch\b/i,'Res']];
+export function founderSpecialtyCode(value){
+ const key=text(value).toLowerCase().replace(/\s*\/\s*/g,'/');
+ return SPECIALTY_CODES.get(key)||'';
+}
+export function founderConciseRole(value,{maxLength=20,specialty=''}={}){
+ const tidy=role=>role.replace(/\s{2,}/g,' ').replace(/^[\s\-–—,]+|[\s\-–—,]+$/g,'').trim();
+ let role=text(value);
+ if(!role)return role;
+ // Generic wording first ("Clinical Elective" → "Elective"); specialty abbreviations only
+ // when the role is still too long to sit inside an arrow.
+ for(const [pattern,short] of GENERIC_ROLE_TRIMS)role=tidy(role.replace(pattern,short));
+ // "Cardiology Resident" → "Cardiology Res." before any specialty shorthand.
+ if(role.length>maxLength)role=tidy(role.replace(/\bResident\b/i,'Res.').replace(/\bFellow\b/i,'Fel.'));
+ if(role.length>maxLength)for(const [pattern,short] of ROLE_ABBREVIATIONS)role=tidy(role.replace(pattern,short));
+ if(role.length>maxLength){
+  // Narrow arrow: the Keynote form is the specialty code when the source states one.
+  const code=founderSpecialtyCode(specialty);
+  if(code&&/\b(?:obs(?:ervership)?|elec(?:tive)?|extern|clerkship|sub-i|rotation)\b/i.test(role))return code;
+  for(const [pattern,short] of ROTATION_CODES)role=tidy(role.replace(pattern,short));
+ }
+ return role||text(value);
+}
+const INSTITUTION_WORD=/\b(?:universit(?:y|ies)|college|school|institute|hospital|medical cent(?:er|re)|health system|health network|clinic|infirmary|academy)\b/i;
+export function founderConciseInstitution(value){
+ const full=text(value);
+ if(!full)return full;
+ if(aliases.has(full))return aliases.get(full);
+ const parts=full.split(/\s*,\s*/).filter(Boolean);
+ // "Department, Institution" keeps the institution; "Hospital, University" keeps the hospital.
+ const chosen=parts.length>1?(INSTITUTION_WORD.test(parts[0])?parts[0]:parts.find(part=>INSTITUTION_WORD.test(part))||parts.at(-1)):full;
+ return founderInstitutionLabel(chosen,{compact:chosen.length>44});
+}
 export function founderInstitutionLabel(value,{compact=false}={}){
  const full=text(value);if(aliases.has(full))return aliases.get(full);
  return compact?full.replace(/\bUniversity\b/g,'U').replace(/\bSaint\b/g,'St.').replace(/\bMedical Center\b/g,'Med Ctr'):full;
@@ -32,7 +87,9 @@ export function founderUsesUsFlag(event){
  if(event?.categoryId==='personal'&&/(?:\bUnited States(?: of America)?\b|\bUSA\b|\bUS\b|\bU\.S\.(?:A\.)?(?=\W|$))/i.test(title)&&/move|moved|arriv|entry|citizen|immigra|green card|EAD|employment authorization|permanent residen/i.test(title))return true;
  return event?.categoryId==='personal'&&/^(US|USA|United States(?: of America)?)$/i.test(text(event.country||event.fields?.country))&&/^(EAD|Employment Authorization Document|(?:Received )?(?:permanent residency \/ )?green card|US Citizenship)$/i.test(title);
 }
+// ECFMG certification is a credential date, not an exam attempt: it never needs a study arrow.
 const examEndpoint=event=>String(event?.eventType||event?.kind||event?.type).toLowerCase()==='milestone'&&
+ text(event.fields?.canonicalType)!=='ECFMG_CERTIFICATION'&&
  (event.categoryId==='exams'||/^STEP_(?:1|2_CK|2_CS|3)$/.test(text(event.fields?.canonicalType)));
 function founderExamRecords(document,event){
  const records=new Map();
@@ -99,7 +156,7 @@ export function deriveFounderEventDisplay(document,event){
  const suppliedAlias=text(event.fields?.displayInstitution||event.fields?.shortName||event.fields?.acronym);
  const concise=new Map([['Research Associate','Research Assoc.'],['Internal Medicine Extern','IM'],['Family Medicine Extern','FM'],['Primary Clinical Preceptee','Preceptee']]);
  const study=event.isStudyPeriod||event.fields?.isStudyPeriod||event.fields?.studyPeriod;
- return {role:text(override.role)||(study?founderStudyExamLabel(document,event):explicitVolunteer(event)?text(event.fields?.programName)||'Volunteer':concise.get(text(event.title))||text(event.title)),
+ return {role:text(override.role)||(study?founderStudyExamLabel(document,event):explicitVolunteer(event)?text(event.fields?.programName)||'Volunteer':concise.get(text(event.title))||text(event.title).replace(/^Clinical\s+(Observership|Elective|Rotation|Externship|Clerkship)$/i,'$1')),
   institution:override.institution!==undefined?text(override.institution):suppliedAlias||founderInstitutionLabel(institution),
   location:override.location!==undefined?text(override.location):location,
   categoryId:categoryId(text(override.categoryId)||(explicitVolunteer(event)?'volunteer':text(event.categoryId))),
@@ -112,6 +169,8 @@ export function founderMilestoneEligible(document,event){
  if(['PUBLICATION','ABSTRACT_POSTER_PRESENTATION','AWARD_HONOR','VOLUNTEER_EXPERIENCE'].includes(type))return false;
  if(display.showAsMilestone)return true;
  if(founderUsesUsFlag(event))return true;
+ // "M.B.,B.S." is the medical degree; its dotted "B.S." is not a bachelor's degree.
+ if(/(?:^|[^A-Z])M\.?\s*B\.?\s*,?\s*B\.?\s*S\.?(?:$|[^A-Z])/i.test(text(event.title)))return true;
  if(/\b(bachelor|baccalaureate|B\.?S\.?|B\.?A\.?)\b/i.test(text(event.title)))return false;
  if(['MEDICAL_DEGREE','ECFMG_CERTIFICATION','LIFE_EVENT','CUSTOM_MILESTONE'].includes(type))return true;
  const title=text(event.title);

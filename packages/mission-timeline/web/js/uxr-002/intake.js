@@ -553,7 +553,56 @@ export function createIntakeState({file=null,candidates=[],existingEvents=[],sug
     filter:"all",
     failure:null,
     approval:{inFlight:false,applied:false,versionSaved:false,versionName:null,fileName:null,errorCode:null,appliedCount:0},
-    sourceDeleted:false
+    sourceDeleted:false,
+    identity:null
+  };
+}
+
+/* Whose document is this? A structured source (the MyERAS CV) states the applicant on
+   every page. That claim is compared with the Timeline's current name here, once, and the
+   outcome is explicit state: an empty or matching name adopts the claim; a different
+   name blocks approval until the student chooses. A profile name is never replaced or
+   kept silently. */
+const normalizedPersonName=(value)=>String(value||"").normalize("NFKD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+function samePersonName(a,b){
+  const tokens=(value)=>normalizedPersonName(value).split(" ").filter(Boolean).sort().join(" ");
+  const left=tokens(a),right=tokens(b);
+  return !!left&&left===right;
+}
+export function identityReview(sourceIdentity,profile={}){
+  if(!sourceIdentity||typeof sourceIdentity!=="object")return null;
+  const current=String(profile?.fullName||"").trim();
+  if(sourceIdentity.conflict===true){
+    return{claim:null,conflict:true,reason:String(sourceIdentity.reason||"The document names more than one applicant."),provenance:clone(sourceIdentity.provenance||[]),current,status:"unresolved",decision:null};
+  }
+  const claim={
+    fullName:String(sourceIdentity.fullName||"").trim(),sourceForm:String(sourceIdentity.sourceForm||""),preferredName:String(sourceIdentity.preferredName||""),
+    aamcId:String(sourceIdentity.aamcId||""),confidence:String(sourceIdentity.confidence||"high"),extractionMethod:String(sourceIdentity.extractionMethod||""),
+    provenance:clone(sourceIdentity.provenance||[])
+  };
+  if(!claim.fullName)return null;
+  const status=!current?"empty":samePersonName(current,claim.fullName)?"match":"conflict";
+  return{claim,conflict:false,reason:"",provenance:clone(claim.provenance),current,status,decision:status==="conflict"?null:"use-source"};
+}
+export function identityDecisionRequired(state){
+  const identity=state?.identity;
+  return !!identity&&!identity.decision;
+}
+function candidateInstitution(candidate){
+  const fields=candidate?.fields||{};
+  return String(fields.institution||fields.medicalSchool||fields.organization||fields.employer||fields.siteName||"").trim();
+}
+export function reviewSummary(state){
+  const lanes=reviewLanes(state);
+  const records=lanes.high.filter((candidate)=>candidate.fields?.sourceRecordOnly===true).length;
+  const duplicates=openSuggestions(state).filter((suggestion)=>suggestion.type==="POSSIBLE_DUPLICATE"&&suggestion.candidateIds.length===2).length;
+  return{
+    total:(state?.candidates||[]).length,
+    ready:lanes.high.length-records,
+    records,
+    attention:lanes.medium.length+lanes.low.length,
+    duplicates,
+    decided:decidedCount(state)
   };
 }
 
@@ -620,7 +669,7 @@ export function filteredCandidates(state){
   return state.candidates.filter((candidate)=>candidate.decision===filter);
 }
 
-export function transitionIntake(current,action,{existingEvents=[]}={}){
+export function transitionIntake(current,action,{existingEvents=[],existingProfile={}}={}){
   const state=clone(current);
   switch(action?.type){
     case"RECEIVE_FILE":{
@@ -631,6 +680,7 @@ export function transitionIntake(current,action,{existingEvents=[]}={}){
       state.candidates=[];
       state.suggestions=[];
       state.consent=false;
+      state.identity=null;
       state.extraction={statusIndex:0,completed:false,errorCode:null,errorMessage:null,sourceDocument:null,parser:null};
       state.approval={inFlight:false,applied:false,versionSaved:false,versionName:null,fileName:null,errorCode:null,appliedCount:0};
       if(!validation.valid){
@@ -675,6 +725,7 @@ export function transitionIntake(current,action,{existingEvents=[]}={}){
       state.extraction.completed=true;
       state.extraction.sourceDocument=action.sourceDocument?clone(action.sourceDocument):null;
       state.extraction.parser=action.parser?clone(action.parser):null;
+      state.identity=identityReview(action.parser?.sourceIdentity||null,existingProfile);
       const sourceCustody=traceOnlySourceCustody(action.sourceDocument?.sourceCustody);
       if(state.file&&sourceCustody)state.file={...state.file,sourceCustody};
       /* C-06: the quality review the server already computed used to stop at the adapter. */
@@ -862,6 +913,55 @@ export function transitionIntake(current,action,{existingEvents=[]}={}){
       }
       return state;
     }
+    case"IDENTITY_DECISION":{
+      if(!state.identity)throw new Error("No document identity is under review.");
+      const decision=["use-source","keep-current"].includes(action.decision)?action.decision:null;
+      if(!decision)throw new Error("Choose whose document this is.");
+      if(decision==="use-source"&&!state.identity.claim)throw new Error("The document identity could not be confirmed.");
+      state.identity.decision=decision;
+      return state;
+    }
+    case"ACCEPT_SECTION":{
+      const ids=new Set((action.candidateIds||[]).map(String));
+      const flagged=flaggedCandidateIds(state);
+      for(const candidate of state.candidates){
+        if(!ids.has(String(candidate.id))||candidate.decision!=="undecided"||candidate.reviewLater)continue;
+        // Section acceptance never swallows a question, a duplicate, or an invalid entry.
+        if(reviewClassOf(candidate,flagged)==="low"||candidate.duplicate)continue;
+        if(Object.keys(validateCandidateForApproval(candidate)).length)continue;
+        candidate.decision="accepted";
+        candidate.expanded=false;
+      }
+      return state;
+    }
+    case"RESOLVE_DUPLICATE_GROUP":{
+      const suggestion=state.suggestions.find(({id})=>id===action.id);
+      if(!suggestion||suggestion.type!=="POSSIBLE_DUPLICATE"||suggestion.status!=="open")throw new Error("This duplicate group is unavailable.");
+      const [first,second]=suggestion.candidateIds.map((id)=>state.candidates.find((candidate)=>candidate.id===id));
+      if(!first||!second)throw new Error("Both duplicate entries must be available.");
+      const choice=String(action.choice||"");
+      const keep=(winner,loser,reason)=>{
+        winner.decision="accepted";winner.expanded=false;
+        loser.decision="rejected";loser.expanded=false;
+        loser.fields={...(loser.fields||{}),duplicateDecision:reason,duplicateOf:winner.id};
+      };
+      if(choice==="keep-a")keep(first,second,"rejected-as-duplicate");
+      else if(choice==="keep-b")keep(second,first,"rejected-as-duplicate");
+      else if(choice==="merge"){
+        const seen=new Set((first.provenance||[]).map((item)=>JSON.stringify(item)));
+        for(const item of second.provenance||[])if(!seen.has(JSON.stringify(item)))first.provenance.push(clone(item));
+        first.sourceSnippet=[first.sourceSnippet,second.sourceSnippet].filter(Boolean).join("\n");
+        if(!first.endDate&&second.endDate)first.endDate=second.endDate;
+        if(second.openEnded){first.openEnded=true;first.endDate=null;}
+        first.fields={...(first.fields||{}),mergedSourceCandidateIds:[...(first.fields?.mergedSourceCandidateIds||[]),second.id]};
+        keep(first,second,"merged");
+      }else if(choice==="keep-both"){
+        for(const candidate of [first,second]){candidate.decision="accepted";candidate.expanded=false;}
+      }else throw new Error("Choose Keep A, Keep B, Merge, or Keep both.");
+      suggestion.status="applied";
+      suggestion.previous={duplicateChoice:choice};
+      return state;
+    }
     case"APPLY_SUGGESTION":{
       const suggestion=state.suggestions.find(({id})=>id===action.id);
       if(!suggestion||suggestion.status!=="open"||!suggestion.proposal)return state;
@@ -886,6 +986,17 @@ export function transitionIntake(current,action,{existingEvents=[]}={}){
     case"UNDO_SUGGESTION":{
       const suggestion=state.suggestions.find(({id})=>id===action.id);
       if(!suggestion||suggestion.status==="open")return state;
+      if(suggestion.status==="applied"&&suggestion.previous?.duplicateChoice){
+        for(const id of suggestion.candidateIds){
+          const candidate=state.candidates.find((item)=>item.id===id);
+          if(!candidate)continue;
+          candidate.decision="undecided";
+          if(candidate.fields){delete candidate.fields.duplicateDecision;delete candidate.fields.duplicateOf;}
+        }
+        suggestion.previous=null;
+        suggestion.status="open";
+        return state;
+      }
       if(suggestion.status==="applied"&&suggestion.previous){
         const index=state.candidates.findIndex(({id})=>id===suggestion.proposal?.candidateId);
         if(index>=0)Object.assign(state.candidates[index],clone(suggestion.previous));
@@ -1062,7 +1173,13 @@ function cvProfilePrefill(candidates=[]){
   const graduationEdge=degree.endDate?"end":degree.eventType==="milestone"||String(degree.fields?.canonicalType||"").toUpperCase()==="GRADUATION"?"start":"end";
   const graduationDate=graduationEdge==="start"?degree.startDate:degree.endDate;
   const graduationDatePrecision=candidateDatePrecision(degree,graduationEdge+"Date");
+  const claims=degree.fields?.profileClaims&&typeof degree.fields.profileClaims==="object"?degree.fields.profileClaims:{};
+  const claimValue=(field)=>String(claims[field]?.value||"").trim();
+  const claimProvenance=Object.fromEntries(Object.entries(claims).filter(([,claim])=>Array.isArray(claim?.provenance)&&claim.provenance.length).map(([field,claim])=>[field,clone(claim.provenance)]));
   return{
+    claimProvenance,
+    languages:claimValue("languages"),
+    hobbies:claimValue("hobbies"),
     sourceCandidateId:String(degree.id),
     visibilityState:degree.visibilityState||VISIBILITY.ADVISOR_ONLY,
     fullName:Array.isArray(degree.fields?.profileNameProvenance)&&degree.fields.profileNameProvenance.length
@@ -1075,10 +1192,10 @@ function cvProfilePrefill(candidates=[]){
       explicitMedicalSchoolFromDegreeTitle(degree)||
       ""
     ).trim(),
-    medicalSchoolCountry:String(degree.fields?.medicalSchoolCountry||degree.fields?.sourceCountry||"").trim(),
-    graduationDate:graduationDate?String(graduationDate).slice(0,graduationDatePrecision==="YEAR"?4:7):"",
-    graduationDatePrecision,
-    degree:String(degree.fields?.profileDegree||degree.fields?.degree||"").trim(),
+    medicalSchoolCountry:String(degree.fields?.medicalSchoolCountry||degree.fields?.sourceCountry||claimValue("medicalSchoolCountry")||"").trim(),
+    graduationDate:claimValue("graduationDate")||(graduationDate?String(graduationDate).slice(0,graduationDatePrecision==="YEAR"?4:7):""),
+    graduationDatePrecision:claimValue("graduationDate")?(claimValue("graduationDate").length===4?"YEAR":"MONTH"):graduationDatePrecision,
+    degree:String(["MD","DO","MBBS"].includes(String(degree.fields?.degree||"").trim().toUpperCase())?degree.fields.degree:degree.fields?.profileDegree||degree.fields?.degree||"").trim(),
     medicalSchoolProvenance:clone(degree.fields?.profileMedicalSchoolProvenance||[]),
     degreeProvenance:clone(degree.fields?.profileDegreeProvenance||[]),
     verificationStatus:"unverified-source-claimed",
@@ -1179,6 +1296,11 @@ export function buildApprovalBatch(state,existingEvents,{idFactory=(prefix)=>`${
   const profileClaims=acceptedMyerasProfileClaims(state);
   if(!positive.length&&!profileClaims.length)throw new Error(INTAKE_COPY.emptyAccepted);
   if(pendingMyerasReviewCount(state))throw new Error(`Decide on all ${pendingMyerasReviewCount(state)} remaining MyERAS experience or profile facts before final approval. Accept or leave out each one; reviewing later keeps this import open.`);
+  if(identityDecisionRequired(state)){
+    const error=new Error("Confirm whose document this is before adding anything to this Timeline.");
+    error.code="INTAKE_IDENTITY_UNDECIDED";
+    throw error;
+  }
   const invalid=positive.map((candidate)=>({id:candidate.id,errors:validateCandidateForApproval(candidate)})).filter(({errors})=>Object.keys(errors).length);
   if(invalid.length){
     const error=new Error("Fix accepted suggestions before adding them.");
@@ -1227,6 +1349,7 @@ export function buildApprovalBatch(state,existingEvents,{idFactory=(prefix)=>`${
     additions,
     merges,
     myerasProfileClaims:clone(profileClaims),
+    identity:state.identity?clone(state.identity):null,
     profilePrefill:positive.some(candidate=>candidate.fields?.myerasReview)?null:cvProfilePrefill(positive),
     examReviewQueue:cvExamReviewQueue(positive),
     acceptedCandidateIds:positive.map(({id})=>id),
@@ -1299,12 +1422,23 @@ export function applyApprovalBatchToDocument(document,batch){
         }
       }
     }
-    for(const field of["fullName","medicalSchool","medicalSchoolCountry","graduationDate","degree"]){
+    /* When the student has just confirmed this document belongs to someone other than
+       the name the Timeline carried, the typed profile facts beside that name (school,
+       degree, graduation) belonged to that other identity too. Explicit document facts
+       replace typed values that have no source of their own; sourced values stay. */
+    const replacingIdentity=batch.identity?.decision==="use-source"&&batch.identity?.status==="conflict";
+    const replaceable=(field)=>replacingIdentity&&field!=="fullName"&&!fieldProvenance[field]?.provenance?.length&&fieldProvenance[field]?.sourceType!=="document-intake";
+    const replacedProfile={};
+    for(const field of["fullName","medicalSchool","medicalSchoolCountry","graduationDate","degree","languages","hobbies"]){
+      if(String(current[field]||"").trim()&&replaceable(field)&&String(prefill[field]||"").trim()&&String(prefill[field]).trim()!==String(current[field]).trim()){
+        replacedProfile[field]=String(current[field]);
+        current[field]="";
+      }
       if(!String(current[field]||"").trim()&&String(prefill[field]||"").trim()){
         patch[field]=prefill[field];
         fieldProvenance[field]={sourceType:'document-intake',sourceCandidateId:prefill.sourceCandidateId,
           sourceEventId:sourceEvent?.id||null,visibilityState:prefill.visibilityState,
-          provenance:clone(field==='fullName'?prefill.fullNameProvenance:field==='degree'&&prefill.degreeProvenance?.length?prefill.degreeProvenance:field==='medicalSchool'&&prefill.medicalSchoolProvenance?.length?prefill.medicalSchoolProvenance:prefill.provenance)};
+          provenance:clone(field==='fullName'?prefill.fullNameProvenance:field==='degree'&&prefill.degreeProvenance?.length?prefill.degreeProvenance:field==='medicalSchool'&&prefill.medicalSchoolProvenance?.length?prefill.medicalSchoolProvenance:prefill.claimProvenance?.[field]?.length?prefill.claimProvenance[field]:prefill.provenance)};
       }
     }
     if(Object.keys(patch).length)patch.fieldProvenance=fieldProvenance;
@@ -1320,7 +1454,35 @@ export function applyApprovalBatchToDocument(document,batch){
       patch.medicalSchoolAnalyticsEligible=false;
       for(const field of['medicalSchoolEntryMode','medicalSchoolVerificationStatus','medicalSchoolNormalizationStatus','medicalSchoolAnalyticsEligible'])fieldProvenance[field]=clone(fieldProvenance.medicalSchool);
     }
+    if(Object.keys(replacedProfile).length){
+      patch.identityReplacedProfile={...(current.identityReplacedProfile||{}),...replacedProfile};
+      if(replacedProfile.medicalSchool){
+        for(const field of["canonicalSchoolId","medicalSchoolRecord","medicalSchoolCity","medicalSchoolUnlistedSubmission"])current[field]=field==="medicalSchoolRecord"||field==="medicalSchoolUnlistedSubmission"?null:"";
+      }
+    }
     document.studentProfile={...current,...patch};
+  }
+  if(batch.identity&&batch.identity.decision){
+    const current=document.studentProfile&&typeof document.studentProfile==="object"?document.studentProfile:{};
+    const claim=batch.identity.claim||null;
+    const receipt={
+      decision:String(batch.identity.decision),fullName:String(claim?.fullName||""),sourceForm:String(claim?.sourceForm||""),
+      aamcId:String(claim?.aamcId||""),previousName:String(current.fullName||""),at:String(batch.createdAt||""),
+      fileName:String(batch.sourceDocument?.name||""),sourceSha256:String(claim?.provenance?.[0]?.sourceSha256||""),
+      provenance:clone(claim?.provenance||[])
+    };
+    if(batch.identity.decision==="use-source"&&claim?.fullName){
+      const fieldProvenance=clone(current.fieldProvenance||{});
+      fieldProvenance.fullName={sourceType:"document-identity",visibilityState:"INTERVIEWER_SAFE",provenance:clone(claim.provenance||[]),aamcId:String(claim.aamcId||""),sourceForm:String(claim.sourceForm||"")};
+      const patch={fullName:claim.fullName,fullNameProvenance:clone(claim.provenance||[]),fieldProvenance};
+      if(claim.aamcId&&!String(current.aamcDisplay||"").trim()){
+        patch.aamcDisplay=String(claim.aamcId);
+        fieldProvenance.aamcDisplay={sourceType:"document-identity",visibilityState:"INTERVIEWER_SAFE",provenance:clone(claim.provenance||[])};
+      }
+      document.studentProfile={...current,...patch};
+    }
+    document.intake=document.intake&&typeof document.intake==="object"?document.intake:{};
+    document.intake.sourceIdentity=receipt;
   }
   document.builder=document.builder&&typeof document.builder==="object"?document.builder:{};
   const priorExamQueue=Array.isArray(document.builder.aiExamReviewQueue)
@@ -1409,8 +1571,9 @@ export function acceptedPreviewEvents(state,existingEvents=[]){
 }
 
 export class IntakeStateMachine{
-  constructor({adapter=null,initialState=null,existingEvents=[],clock=()=>new Date(),idFactory=null,narrationDelay=undefined}={}){
+  constructor({adapter=null,initialState=null,existingEvents=[],existingProfile={},clock=()=>new Date(),idFactory=null,narrationDelay=undefined}={}){
     this.adapter=adapter;
+    this.existingProfile=clone(existingProfile||{});
     /* Tests pass narrationDelay:null to skip the read-aloud pacing; the product waits. */
     this.narrationDelay=narrationDelay===undefined
       ?(ms,signal)=>new Promise((resolve)=>{
@@ -1446,7 +1609,7 @@ export class IntakeStateMachine{
   }
 
   dispatch(action){
-    this.state=transitionIntake(this.state,action,{existingEvents:this.existingEvents});
+    this.state=transitionIntake(this.state,action,{existingEvents:this.existingEvents,existingProfile:this.existingProfile});
     this.emit();
     return this.snapshot();
   }
@@ -1465,6 +1628,9 @@ export class IntakeStateMachine{
   toggleEdit(id){return this.dispatch({type:"TOGGLE_EDIT",id});}
   decideCandidate(id,decision){return this.dispatch({type:"DECIDE_CANDIDATE",id,decision});}
   acceptAllHighConfidence(){return this.dispatch({type:"ACCEPT_HIGH_CONFIDENCE"});}
+  decideIdentity(decision){return this.dispatch({type:"IDENTITY_DECISION",decision});}
+  acceptSection(candidateIds){return this.dispatch({type:"ACCEPT_SECTION",candidateIds});}
+  resolveDuplicateGroup(id,choice){return this.dispatch({type:"RESOLVE_DUPLICATE_GROUP",id,choice});}
   applySuggestion(id){return this.dispatch({type:"APPLY_SUGGESTION",id});}
   dismissSuggestion(id){return this.dispatch({type:"DISMISS_SUGGESTION",id});}
   undoSuggestion(id){return this.dispatch({type:"UNDO_SUGGESTION",id});}
@@ -1574,7 +1740,8 @@ export class IntakeStateMachine{
       const priorCv=acceptedCvImportReceipt(this.state.lastImport)||acceptedCvImportReceipt(this.state.lastAcceptedCvImport);
       this.state.lastImport={documentType:String(batch.documentType||""),at:batch.createdAt,fileName:batch.sourceDocument?.name||"",
         acceptedCount:batch.acceptedCount,addedCount:batch.addedCount,mergedCount:batch.mergedCount,
-        acceptedCandidates:clone(batch.acceptedCandidates||[]),analysis:batch.analysis?clone(batch.analysis):null};
+        acceptedCandidates:clone(batch.acceptedCandidates||[]),analysis:batch.analysis?clone(batch.analysis):null,
+        identity:batch.identity?{decision:String(batch.identity.decision||""),fullName:String(batch.identity.claim?.fullName||""),aamcId:String(batch.identity.claim?.aamcId||""),sourceForm:String(batch.identity.claim?.sourceForm||""),previousName:String(batch.identity.current||"")}:null};
       this.state.lastAcceptedCvImport=acceptedCvImportReceipt(this.state.lastImport)||priorCv;
       this.dispatch({type:"APPROVAL_SUCCEEDED",appliedCount,addedCount:Number(result?.addedCount??batch.addedCount)||0,mergedCount:Number(result?.mergedCount??batch.mergedCount)||0,fileName:batch.sourceDocument?.name});
       return{batch,result:this.snapshot().approval};
@@ -1955,26 +2122,145 @@ function candidateMarkup(candidate,{lane="medium",suggestions=[],parser=null}={}
   </article>`;
 }
 
+function identityMarkup(state){
+  const identity=state?.identity;
+  if(!identity)return"";
+  const claim=identity.claim;
+  const evidence=(identity.provenance||[]).map((item)=>`Page ${item.pageNumber||1}: ${item.sourceExcerpt||""}`).filter(Boolean).join(" · ");
+  const name=claim?`<strong>${escapeHtml(claim.fullName)}</strong>${claim.aamcId?` <span class="secondary-body">(AAMC ID ${escapeHtml(claim.aamcId)})</span>`:""}`:"";
+  if(identity.status==="unresolved"){
+    return`<section class="card intake-identity unresolved" data-intake-identity="unresolved" aria-label="Document identity">
+      <strong>We could not confirm whose document this is.</strong>
+      <p>${escapeHtml(identity.reason)} Your Timeline name is not changed.</p>
+      ${evidence?`<p class="secondary-body">Source: ${escapeHtml(evidence)}</p>`:""}
+      ${identity.decision?"":`<div class="candidate-actions"><button type="button" class="button secondary small" data-identity-decision="keep-current">Continue without changing my name</button></div>`}
+    </section>`;
+  }
+  if(identity.status==="conflict"&&!identity.decision){
+    return`<section class="card intake-identity conflict" data-intake-identity="conflict" role="alert" aria-label="Whose Timeline is this?">
+      <strong>Whose Timeline is this?</strong>
+      <p>This document belongs to ${name}, but this Timeline is named <strong>${escapeHtml(identity.current)}</strong>. Nothing is added until you choose.</p>
+      <p class="secondary-body">Source: ${escapeHtml(evidence)}</p>
+      <div class="candidate-actions">
+        <button type="button" class="button primary small" data-identity-decision="use-source">Use ${escapeHtml(claim.fullName)}</button>
+        <button type="button" class="button secondary small" data-identity-decision="keep-current">Keep ${escapeHtml(identity.current)}</button>
+      </div>
+    </section>`;
+  }
+  const adopted=identity.decision==="use-source";
+  const outcome=adopted
+    ?`This document belongs to ${name}.${identity.status==="empty"?" It becomes your Timeline name when you add these entries.":identity.status==="conflict"?` It replaces <s>${escapeHtml(identity.current)}</s> when you add these entries.`:""}`
+    :`This document belongs to ${name}; your Timeline keeps the name <strong>${escapeHtml(identity.current||"(none yet)")}</strong>.`;
+  return`<section class="card intake-identity" data-intake-identity="${escapeHtml(identity.status)}" data-identity-decision-made="${escapeHtml(identity.decision||"")}" aria-label="Document identity">
+    <p>${outcome}</p>
+    <p class="secondary-body">Source: ${escapeHtml(evidence)}</p>
+    <div class="candidate-actions">${adopted
+      ?`<button type="button" class="button tertiary small" data-identity-decision="keep-current">${identity.current?`Keep ${escapeHtml(identity.current)} instead`:"Don't use this name"}</button>`
+      :`<button type="button" class="button tertiary small" data-identity-decision="use-source">Use ${escapeHtml(claim.fullName)}</button>`}</div>
+  </section>`;
+}
+
+function duplicateGroupMarkup(state,suggestion){
+  const [first,second]=suggestion.candidateIds.map((id)=>(state.candidates||[]).find((candidate)=>candidate.id===id));
+  if(!first||!second)return"";
+  const line=(candidate)=>{
+    const where=candidateInstitution(candidate);
+    const dates=`${candidateDateLabel(candidate,"startDate")||"?"}${candidate.openEnded?" – ongoing":candidate.endDate&&candidate.endDate!==candidate.startDate?` – ${candidateDateLabel(candidate,"endDate")}`:""}`;
+    return`<strong>${escapeHtml(candidate.title)}</strong>${where?` · ${escapeHtml(where)}`:""} · ${escapeHtml(dates)}`;
+  };
+  const button=(choice,label,tone="secondary")=>`<button type="button" class="button ${tone} small" data-suggestion-id="${escapeHtml(suggestion.id)}" data-duplicate-choice="${choice}">${label}</button>`;
+  return`<section class="candidate-card duplicate-group" data-duplicate-group="${escapeHtml(suggestion.id)}" aria-label="Possible duplicate">
+    <div class="candidate-review-meta"><span class="confidence-tag gold">Possible duplicate</span><span class="secondary-body">${escapeHtml(suggestion.reason)}</span></div>
+    <p class="duplicate-option"><span class="duplicate-letter">A</span> ${line(first)}</p>
+    <p class="duplicate-option"><span class="duplicate-letter">B</span> ${line(second)}</p>
+    <div class="candidate-actions">${button("keep-a","Keep A")}${button("keep-b","Keep B")}${button("merge","Merge into one")}${button("keep-both","Keep both","primary")}</div>
+    <p class="secondary-body">Nothing is deleted. A rejected entry stays below and can be restored.</p>
+  </section>`;
+}
+
+function compactCandidateMarkup(candidate,{parser=null}={}){
+  const basis=candidateReviewBasis(candidate,parser);
+  const category=CATEGORIES.find(({id})=>id===candidate.categoryId);
+  const dates=`${candidateDateLabel(candidate,"startDate")||"?"}${candidate.openEnded?" – ongoing":candidate.endDate&&candidate.endDate!==candidate.startDate?` – ${candidateDateLabel(candidate,"endDate")}`:""}`;
+  const place=candidate.fields?.sourceLocation||[candidate.fields?.city,candidate.fields?.state].filter(Boolean).join(", ")||candidate.fields?.country||"";
+  const source=candidateSource(candidate);
+  const detail=[candidateInstitution(candidate),place,dates].filter(Boolean).join(" · ");
+  const profileNote=candidate.fields?.profileHeaderReviewRequired&&candidate.fields?.acceptProfileClaims===true
+    ?`<span class="secondary-body" data-cv-profile-review>Also fills your profile: ${escapeHtml([candidate.fields.profileFullName,candidate.fields.profileMedicalSchool,candidate.fields.profileDegree].filter(Boolean).join(" · "))} <label><input type="checkbox" data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-extra="acceptProfileClaims" checked> Use in my profile</label></span>`
+    :"";
+  const id=escapeHtml(candidate.id);
+  return`<article class="candidate-row ready" data-candidate-card="${id}" data-review-lane="high" data-compact-candidate="true">
+    <span class="candidate-chip" style="--chip:${escapeHtml(category?.color||"#5B6168")}">${escapeHtml(category?.label||"Choose category")}</span>
+    <span class="candidate-summary"><strong>${escapeHtml(candidate.title)}</strong><span class="secondary-body">${escapeHtml(detail)}</span>${profileNote}<span class="candidate-basis" data-candidate-basis="${basis.mode}">${escapeHtml(basis.label)}${source?` · ${escapeHtml(source.fileName)} · ${escapeHtml(source.locator)}`:""}</span></span>
+    <span class="candidate-actions">
+      <button type="button" class="button primary small" data-candidate-id="${id}" data-candidate-action="accepted">Accept</button>
+      <button type="button" class="button secondary small" data-candidate-id="${id}" data-candidate-action="edit">Edit</button>
+      <button type="button" class="button tertiary small" data-candidate-id="${id}" data-candidate-action="rejected">Reject</button>
+    </span>
+  </article>`;
+}
+
+function compactReviewEligible(candidate){
+  if(!candidate||candidate.expanded||candidate.duplicate)return false;
+  const fields=candidate.fields||{};
+  // Inferred values deserve the full card with their evidence, not a one-line row.
+  if((candidate.inferredFields||[]).length||(fields.inferredFields||[]).length)return false;
+  if(fields.profileHeaderReviewRequired&&fields.acceptProfileClaims!==true)return false;
+  if(fields.profileHeaderConflicts?.length||fields.rescueProfileClaims||fields.myerasReview||fields.rescueReviewRequired)return false;
+  return candidateQuestions(candidate).length===0;
+}
+
+function sectionAcceptButton(members,label){
+  const ids=members.filter((candidate)=>candidate.decision==="undecided"&&!candidate.reviewLater&&!candidate.duplicate).map(({id})=>id);
+  if(!ids.length)return"";
+  return`<button type="button" class="button secondary small" data-accept-section="${escapeHtml(ids.join(","))}">${escapeHtml(label.replace("{n}",String(ids.length)))}</button>`;
+}
+
 function candidateListMarkup(state){
   const visible=new Set(filteredCandidates(state).map(({id})=>id));
   const lanes=reviewLanes(state);
-  const sections=REVIEW_LANES.map((lane)=>{
-    const members=lanes[lane.id].filter(({id})=>visible.has(id));
+  const parser=state.extraction?.parser;
+  const duplicateGroups=openSuggestions(state)
+    .filter((suggestion)=>suggestion.type==="POSSIBLE_DUPLICATE"&&suggestion.candidateIds.length===2&&
+      suggestion.candidateIds.every((id)=>{const candidate=(state.candidates||[]).find((item)=>item.id===id);return candidate&&candidate.decision==="undecided"&&visible.has(id);}))
+    .map((suggestion)=>duplicateGroupMarkup(state,suggestion)).join("");
+  const laneSection=(laneId,members,{title,hint,group,accept,compact=false})=>{
     if(!members.length)return"";
-    const rescueReview=lane.id==='low'&&members.every(candidate=>candidate.fields?.rescueReviewRequired);
-    return`<section class="candidate-lane" data-review-lane="${lane.id}">
+    return`<section class="candidate-lane" data-review-lane="${laneId}"${group?` data-review-group="${group}"`:""}>
       <div class="candidate-lane-head">
-        <h2>${escapeHtml(rescueReview?'Verify source details':lane.title)} (${members.length})</h2>
-        <p class="secondary-body">${escapeHtml(rescueReview?'Check each entry against your Timeline. Answer only the details the source could not establish.':lane.hint)}</p>
+        <h2>${escapeHtml(title)} (${members.length})</h2>
+        <p class="secondary-body">${escapeHtml(hint)}</p>
+        ${accept?sectionAcceptButton(members,accept):""}
       </div>
-      ${members.map((candidate)=>candidateMarkup(candidate,{lane:lane.id,suggestions:suggestionsForCandidate(state,candidate.id),parser:state.extraction?.parser})).join("")}
+      ${members.map((candidate)=>compact&&compactReviewEligible(candidate)
+        ?compactCandidateMarkup(candidate,{parser})
+        :candidateMarkup(candidate,{lane:laneId,suggestions:suggestionsForCandidate(state,candidate.id),parser})).join("")}
     </section>`;
-  }).join("");
+  };
+  const high=lanes.high.filter(({id})=>visible.has(id));
+  const ready=high.filter((candidate)=>candidate.fields?.sourceRecordOnly!==true);
+  const records=high.filter((candidate)=>candidate.fields?.sourceRecordOnly===true);
+  const sections=[
+    laneSection("high",ready,{title:REVIEW_LANES[0].title,hint:REVIEW_LANES[0].hint,group:"ready",accept:"Accept these {n}",compact:true}),
+    ...REVIEW_LANES.slice(1).map((lane)=>{
+      const members=lanes[lane.id].filter(({id})=>visible.has(id));
+      const rescueReview=lane.id==='low'&&members.length>0&&members.every(candidate=>candidate.fields?.rescueReviewRequired);
+      return laneSection(lane.id,members,{
+        title:rescueReview?'Verify source details':lane.title,
+        hint:rescueReview?'Check each entry against your Timeline. Answer only the details the source could not establish.':lane.hint,
+        group:lane.id==="medium"?"attention":"questions",
+        accept:lane.id==="medium"?"Accept the {n} that check out":null
+      });
+    }),
+    laneSection("high",records,{title:"Also in your document",hint:"Honors, certifications and scholarly work are kept as records with your Timeline. They are not drawn as events.",group:"records",accept:"Keep all {n} records",compact:true})
+  ].join("");
+  const sectionsWithGroups=duplicateGroups+sections;
+  void sectionsWithGroups;
   const decided=lanes.decided
     .filter(({id})=>visible.has(id))
     .map((candidate)=>candidateMarkup(candidate,{lane:"decided",suggestions:[],parser:state.extraction?.parser}))
     .join("");
-  return sections+decided||'<p class="secondary-body">No suggestions in this filter.</p>';
+  return duplicateGroups+sections+decided||'<p class="secondary-body">No suggestions in this filter.</p>';
 }
 
 /* AAA-019 — no theater. The review screen says what produced the suggestions. A live
@@ -2042,6 +2328,8 @@ function reviewMarkup(state,{renderPreview=null,existingEvents=[]}={}){
   const pendingMyeras=pendingMyerasReviewCount(state);
   const approveLabel=profileCount&&!added&&!merged?`Apply ${profileCount} reviewed profile facts →`:merged?added?`Add ${added} and update ${merged} events →`:`Update ${merged} existing events →`:`Add ${accepted} accepted events to my timeline →`;
   const high=highConfidenceCount(state);
+  const summary=reviewSummary(state);
+  const identityBlocked=identityDecisionRequired(state);
   const previewEvents=acceptedPreviewEvents(state,existingEvents);
   const preview=typeof renderPreview==="function"
     ?renderPreview(previewEvents,{label:"Accepted document suggestions preview",pending:true})
@@ -2049,16 +2337,19 @@ function reviewMarkup(state,{renderPreview=null,existingEvents=[]}={}){
   return`<section class="intake-stage intake-review" aria-labelledby="intake-title">
     <div class="intake-review-heading">
       <h1 id="intake-title">${!total&&myerasProfileClaims(state).length?`Review ${myerasProfileClaims(state).length} profile facts`:`Review ${total} suggestions`}</h1>
+      <p class="intake-review-summary" data-intake-review-summary data-ready="${summary.ready}" data-attention="${summary.attention}" data-records="${summary.records}">We found <strong>${summary.total}</strong> item${summary.total===1?"":"s"}. <strong>${summary.ready}</strong> look${summary.ready===1?"s":""} ready${summary.records?`, plus ${summary.records} record${summary.records===1?"":"s"} we keep but do not draw`:""}. <strong>${summary.attention}</strong> need${summary.attention===1?"s":""} your attention.${summary.duplicates?` ${summary.duplicates} possible duplicate${summary.duplicates===1?"":"s"} to settle.`:""}</p>
       <p>${INTAKE_COPY.reviewSubline}</p>
       <p class="intake-review-basis" data-intake-review-basis="${basis.mode}"><span class="status-chip">${escapeHtml(basis.label)}</span> ${escapeHtml(basis.body)}</p>
       ${providerReceiptMarkup(state.extraction?.parser)}
     </div>
+    ${identityMarkup(state)}
     ${rescueReconstructionMarkup(state)}
     ${rescueComparisonMarkup(state)}
     ${excludedCandidatesMarkup(state)}
     ${suggestionsMarkup(state)}
     <div class="intake-review-toolbar">
       <button type="button" class="button secondary" data-intake-action="accept-high"${high?"":" disabled"}>${high?`Accept all ${high} high-confidence entries`:"No high-confidence entries to accept"}</button>
+      ${summary.attention?`<button type="button" class="button tertiary" data-intake-jump="attention">Review the ${summary.attention} that need you</button>`:""}
       <div class="filter-chips" aria-label="Suggestion filters">${INTAKE_FILTERS.map((filter)=>`<button type="button" class="filter-chip${state.filter===filter?" selected":""}" data-intake-filter="${filter}"${state.filter===filter?' aria-pressed="true"':' aria-pressed="false"'}>${filter[0].toUpperCase()+filter.slice(1)}</button>`).join("")}</div>
       <span>${decidedCount(state)} of ${total} decided</span>
     </div>
@@ -2068,7 +2359,8 @@ function reviewMarkup(state,{renderPreview=null,existingEvents=[]}={}){
     </div>
     <footer class="intake-review-footer">
       ${pendingMyeras?`<p role="status">Decide on all ${pendingMyeras} remaining MyERAS experience or profile facts. Accept or leave out each one before final approval.</p>`:''}
-      <button type="button" class="button primary" data-intake-action="approve"${accepted&&!state.approval.inFlight&&!pendingMyeras?"":" disabled"}>${pendingMyeras?`Review ${pendingMyeras} remaining facts`:accepted?approveLabel:INTAKE_COPY.emptyAccepted}</button>
+      ${identityBlocked?`<p role="status" data-intake-identity-gate>Choose whose Timeline this is (above) before adding anything.</p>`:''}
+      <button type="button" class="button primary" data-intake-action="approve"${accepted&&!state.approval.inFlight&&!pendingMyeras&&!identityBlocked?"":" disabled"}>${identityBlocked?"Confirm whose document this is first":pendingMyeras?`Review ${pendingMyeras} remaining facts`:accepted?approveLabel:INTAKE_COPY.emptyAccepted}</button>
       <button type="button" class="button tertiary" data-intake-action="discard-all">Discard all</button>
     </footer>
   </section>`;
@@ -2202,6 +2494,27 @@ export function installIntake(root,machine,{
       if(action==="apply")machine.applySuggestion(suggestionId);
       else if(action==="dismiss")machine.dismissSuggestion(suggestionId);
       else if(action==="undo")machine.undoSuggestion(suggestionId);
+      return;
+    }
+    const identityDecision=closest(event.target,"[data-identity-decision]");
+    if(identityDecision){
+      try{machine.decideIdentity(identityDecision.dataset.identityDecision);}catch(error){onError(error);}
+      return;
+    }
+    const duplicateChoice=closest(event.target,"[data-duplicate-choice]");
+    if(duplicateChoice){
+      try{machine.resolveDuplicateGroup(duplicateChoice.dataset.suggestionId,duplicateChoice.dataset.duplicateChoice);}catch(error){onError(error);}
+      return;
+    }
+    const sectionAccept=closest(event.target,"[data-accept-section]");
+    if(sectionAccept){
+      try{machine.acceptSection(String(sectionAccept.dataset.acceptSection||"").split(",").filter(Boolean));}catch(error){onError(error);}
+      return;
+    }
+    const jump=closest(event.target,"[data-intake-jump]");
+    if(jump){
+      const target=root.querySelector?.('[data-review-group="attention"],[data-review-group="questions"]');
+      target?.scrollIntoView?.({behavior:"smooth",block:"start"});
       return;
     }
     const candidateAction=closest(event.target,"[data-candidate-action]");

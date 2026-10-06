@@ -96,7 +96,8 @@ function createIntakeMachine(store,{file=null,initialState=store.document.intake
   const machine=new IntakeStateMachine({
     adapter:window.D1_TIMELINE_INTAKE_ADAPTER||null,
     initialState,
-    existingEvents:store.document.events
+    existingEvents:store.document.events,
+    existingProfile:store.document.studentProfile||{}
   });
   if(file)machine.receiveFile(file);
   return machine;
