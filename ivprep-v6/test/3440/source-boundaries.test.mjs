@@ -30,7 +30,11 @@ test('product admission never projects shared access tokens or bearer auth', asy
   assert.equal(mount.includes('accessToken'), false);
   assert.equal(admission.includes('accessToken'), false);
   assert.match(mount, /request\.headers\.authorization/u);
-  assert.equal(mount.includes('console.'), false);
+  // The only console use is the injectable sanitized live-start diagnostic default
+  // (no private payloads); any other console projection remains forbidden.
+  const consoleUses = mount.match(/console\./gu) || [];
+  assert.equal(consoleUses.length, 1);
+  assert.match(mount, /reportLiveStartFailure = record => console\.error\(JSON\.stringify\(record\)\)/u);
 });
 
 test('browser vault is server-sourced and donor fixtures are not imported', async () => {

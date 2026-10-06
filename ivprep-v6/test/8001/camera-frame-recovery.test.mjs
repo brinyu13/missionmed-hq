@@ -58,7 +58,7 @@ test('same-stream black to lit restores actual readiness and clears only its cam
   const state = { deviceError: CAMERA_BLACK_MESSAGE.toUpperCase(), role: 'student', view: 'devicecheck',
     launchMode: 'ai', interviewSet: ['CORE-01'] };
   const host = { replaceChildren() {}, append() {} }; const proceed = {};
-  const context = { bridge: f.bridge, state, CAMERA_BLACK_MESSAGE, window: f.window, document: f.document,
+  const context = { bridge: f.bridge, state, CAMERA_BLACK_MESSAGE, window: f.window, document: f.document, signalPreview: null,
     $: selector => selector === '#device-checklist' ? host : selector === '#device-proceed' ? proceed : f.video };
   const trackStart = runtime.indexOf('function liveTrack(kind)');
   const trackEnd = runtime.indexOf('function requestVideoPlayback', trackStart);
