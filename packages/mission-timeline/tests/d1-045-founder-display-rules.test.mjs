@@ -265,6 +265,76 @@ test('exact linked exam endpoints are accounted on the study arrow while optiona
 });
 
 
+const linkedAccountingDocument=()=>doc([
+ event('accounting-study',{title:'Step 2 CK study period',siteName:'',categoryId:'exams',startDate:'2022-09',endDate:'2023-01-15',fields:{isStudyPeriod:true,attemptId:'accounting-attempt'}}),
+ event('accounting-endpoint',{title:'Step 2 CK',siteName:'',categoryId:'exams',eventType:'milestone',startDate:'2023-01-15',endDate:null,fields:{canonicalType:'STEP_2_CK',attemptId:'accounting-attempt'}})
+]);
+const authoredAccountingDocument=()=>{
+ let d=linkedAccountingDocument();
+ for(const [id,geometry] of [['accounting-study',{x:600,y:250,width:450,height:44,rotation:0}],['accounting-endpoint',{x:1030,y:186,width:50,height:64,rotation:0}]]){
+  d=applySceneCommandToDocument(d,{kind:'geometry',target:{type:'event',id},geometry,create:{type:'event',semanticRef:id,presentation:{eventType:id==='accounting-study'?'duration':'milestone'}}}).document;
+ }
+ return d;
+};
+const accountingFailure=error=>error.code==='TIMELINE_EXPORT_MISSING_FIELDS'&&error.fields.some(field=>field.id==='presentation'&&field.field==='excluded-source-accounting');
+
+test('export accounting replays saved manual, critic, object and group ownership without changing geometry',()=>{
+ for(const ownership of ['manual','critic','object-lock','group-membership','group-lock']){
+  const d=authoredAccountingDocument(),object=d.advanced.scene.objects.find(object=>object.semanticRef==='accounting-endpoint');
+  if(ownership!=='manual')object.presentation.localLayoutCriticAuto=true;
+  if(ownership==='object-lock')object.locked=true;
+  if(ownership==='group-membership'||ownership==='group-lock'){
+   const children=d.advanced.scene.objects.filter(object=>object.type==='event');
+   d.advanced.scene.groups=[{id:'accounting-group',childIds:children.map(object=>object.id),locked:ownership==='group-lock',aspectLocked:true}];
+   for(const child of children)child.groupId='accounting-group';
+  }
+  const before=JSON.stringify(d),r=render(d),covered=ownership==='critic';
+  assert.equal(r.scene.flags.length,covered?0:1,ownership);
+  assert.equal(r.scene.presentationAccounting.excludedEvents.length,covered?1:0,ownership);
+  assert.doesNotThrow(()=>assertCompleteFounderPresentation(r),ownership);
+  if(ownership==='manual'||ownership==='object-lock'){
+   const geometry=locked407FMilestoneGeometry(r.scene,'accounting-endpoint');
+   for(const field of ['x','y','width','height','rotation'])assert.equal(geometry[field],object.geometry[field],ownership+' '+field);
+  }
+  assert.equal(JSON.stringify(d),before,ownership);assert.equal(render(d).svg,r.svg,ownership);
+  if(covered)r.scene.presentationAccounting.excludedEvents[0].endpointDate='2023-02-15';
+  else r.scene.presentationAccounting.excludedEvents=render(linkedAccountingDocument()).scene.presentationAccounting.excludedEvents;
+  assert.throws(()=>assertCompleteFounderPresentation(r),accountingFailure,ownership);
+ }
+});
+
+test('document layoutLock retains linked flags and does not relax endpoint accounting or template gates',()=>{
+ const d=linkedAccountingDocument();d.layoutLock=true;
+ const before=JSON.stringify(d),r=render(d);
+ assert.equal(r.scene.flags.length,1);assert.deepEqual(r.scene.presentationAccounting.excludedEvents,[]);
+ assert.doesNotThrow(()=>assertCompleteFounderPresentation(r));assert.equal(JSON.stringify(d),before);
+ r.scene.presentationAccounting.excludedEvents=render(linkedAccountingDocument()).scene.presentationAccounting.excludedEvents;
+ assert.throws(()=>assertCompleteFounderPresentation(r),accountingFailure);
+ const moved=authoredAccountingDocument();moved.advanced.scene.objects.find(object=>object.semanticRef==='accounting-endpoint').geometry.y+=50;
+ assert.throws(()=>assertCompleteFounderPresentation(render(moved)),error=>error.code==='TIMELINE_EXPORT_TEMPLATE_FIDELITY_HOLD');
+});
+
+test('saved ownership accounting preserves audience exclusions and redacted exam review corrections',()=>{
+ const d=authoredAccountingDocument(),endpoint=d.events.find(event=>event.id==='accounting-endpoint');
+ endpoint.startDate='2023-01';endpoint.presentationRedactions=['EXAM_RESULT_PRIVATE','EXAM_SCORE_HIDDEN'];
+ d.exams=[{id:'accounting-record',sourceEventId:endpoint.id,system:'USMLE',examId:'step-2-ck',visibilityState:'INTERVIEWER_SAFE'}];
+ d.builder={examReviewCorrections:{'accounting-record':{examDate:'2023-01-15',result:'PRIVATE_RESULT_TOKEN',score:'PRIVATE_SCORE_TOKEN'}}};
+ d.events.push(event('private-source',{title:'PRIVATE_SOURCE_TOKEN',visibilityState:'ADVISOR_ONLY'}));
+ const before=JSON.stringify(d),r=render(d),flag=r.scene.flags.find(flag=>flag.id===endpoint.id);
+ assert.equal(flag.startDate,'2023-01-15');assert.equal(flag.examResult,null);
+ assert.equal(r.scene.presentationSourceEvents.some(event=>event.id==='private-source'),false);
+ for(const token of ['PRIVATE_RESULT_TOKEN','PRIVATE_SCORE_TOKEN','PRIVATE_SOURCE_TOKEN'])assert.ok(!r.svg.includes(token));
+ assert.doesNotThrow(()=>assertCompleteFounderPresentation(r));assert.equal(JSON.stringify(d),before);
+ const grouped=structuredClone(d),object=grouped.advanced.scene.objects.find(object=>object.semanticRef===endpoint.id);
+ object.groupId='privacy-group';
+ grouped.advanced.scene.objects.push({...structuredClone(object),id:'PRIVATE_OBJECT_TOKEN',semanticRef:'private-source'});
+ grouped.advanced.scene.groups=[{id:'privacy-group',childIds:[object.id,'PRIVATE_OBJECT_TOKEN'],locked:true,aspectLocked:true}];
+ const context=buildFounderPresentationScene(grouped).presentationLayoutContext;
+ assert.ok(!JSON.stringify(context).includes('PRIVATE_OBJECT_TOKEN'));
+ assert.deepEqual(context.advanced.scene.groups,[{locked:true,childIds:[object.id]}]);
+});
+
+
 test('alternate outside-title bounds retain attached pennants in the measured study group',()=>{
  const study=event('legacy-study',{title:'Supplied long study role with a readable full outside caption',siteName:'',categoryId:'exams',startDate:'2023-05',endDate:'2023-06',fields:{isStudyPeriod:true,attemptId:'legacy-attempt'}});
  const endpoint=event('legacy-endpoint',{title:'Step 1',siteName:'',categoryId:'exams',eventType:'milestone',startDate:'2023-07',endDate:null,fields:{canonicalType:'STEP_1',attemptId:'legacy-attempt'}});

@@ -306,6 +306,26 @@ function founderPresentationProjection(document,resolvedById,scene){
   });
 }
 
+// Endpoint accounting must replay the saved ownership used for selection,
+// before scene reconciliation or composition can normalize that ownership.
+function founderDisplayLayoutContext(document,events){
+  const visibleIds=new Set(events.map(event=>String(event.id)));
+  const objects=(document.advanced?.scene?.objects||[]).filter(object=>object.type==='event'&&visibleIds.has(String(object.semanticRef||object.id)));
+  const objectIds=new Set(objects.map(object=>object.id));
+  return{
+    layoutLock:document.layoutLock===true,
+    advanced:{scene:{
+      objects:objects.map(object=>({
+        type:object.type,id:object.id,semanticRef:object.semanticRef,
+        geometry:object.geometry?{rotation:object.geometry.rotation}:null,
+        locked:object.locked,groupId:object.groupId,
+        presentation:{localLayoutCriticAuto:object.presentation?.localLayoutCriticAuto===true}
+      })),
+      groups:(document.advanced?.scene?.groups||[]).filter(group=>group.locked&&(group.childIds||[]).some(id=>objectIds.has(id))).map(group=>({locked:group.locked,childIds:(group.childIds||[]).filter(id=>objectIds.has(id))}))
+    }}
+  };
+}
+
 function injectRootAttributes(svg,attributes){
   const serialized=Object.entries(attributes).map(([key,value])=>
     `${key}="${String(value).replace(/[&<>"]/g,(character)=>({
@@ -380,6 +400,7 @@ export function buildFounderPresentationScene(document,{
   const sources=new Map(projected.events.map(event=>[String(event.id),event]));
   for(const key of ['events','arrows','flags'])scene[key]=(scene[key]||[]).map(item=>({...item,sourceDateWording:item.sourceDateWording||sources.get(String(item.id))?.fields?.sourceDateWording||null}));
   scene.presentationSourceEvents=sourceEvents;
+  scene.presentationLayoutContext=founderDisplayLayoutContext(projected,sourceEvents);
   scene.presentationDisplayOverrides=structuredClone(projected.presentationOverrides||{});
   scene.presentationLocalTestMetadata={localTestPrototype:projected.metadata?.localTestPrototype===true};
   scene.presentationExamContext={exams:structuredClone(projected.exams||[]),presentationExamLinks:structuredClone(projected.presentationExamLinks||[]),builder:{examReviewCorrections:structuredClone(projected.builder?.examReviewCorrections||{})}};
@@ -502,7 +523,7 @@ export function assertCompleteFounderPresentation(rendered,{allowPendingMedia=fa
   const missingFields=[];
   const sourceEvents=rendered.scene.presentationSourceEvents;
   if(sourceEvents){
-    const document={...rendered.scene.presentationExamContext,events:sourceEvents,metadata:rendered.scene.presentationLocalTestMetadata,presentationOverrides:rendered.scene.presentationDisplayOverrides||{}};
+    const document={...rendered.scene.presentationExamContext,...rendered.scene.presentationLayoutContext,events:sourceEvents,metadata:rendered.scene.presentationLocalTestMetadata,presentationOverrides:rendered.scene.presentationDisplayOverrides||{}};
     const selection=projectFounderDisplayEvents(document),accounted=rendered.scene.presentationAccounting?.excludedEvents||[];
     if(JSON.stringify(selection.excluded)!==JSON.stringify(accounted))missingFields.push({id:'presentation',field:'excluded-source-accounting'});
     for(const source of selection.events){
