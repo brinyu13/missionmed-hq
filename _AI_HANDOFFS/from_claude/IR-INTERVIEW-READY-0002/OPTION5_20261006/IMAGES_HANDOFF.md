@@ -4,18 +4,20 @@ Branch `codex/ir-interview-ready-0002-storyforge`, worktree `/Users/brianb/Missi
 **Implementation SHA: `94454455b610515562ac8be1609830dff5f8c17c`** (chain: `062fe9d` hydration → `138bf3a` comparison caption → `9445445` review conditions). Local only: not pushed, not deployed, no lease, no OS change.
 Candidate build `candidate-build/interview-ready.html` SHA256 `c5604978213fab6313e88f1fc3ec7d135ffd7cc60fee9be792fd1f6b0f7d143f` (2.17 MB, production asset profile, local).
 
-## ACTION REQUIRED (Founder-only) — Amazon Creators API
+## Amazon Creators API — inspected in the signed-in account (2026-10-06 15:50 ET)
 
-**WHY:** Associates Central forces a fresh password sign-in (`openid.pape.max_auth_age=3600`) in both the built-in browser and your Chrome extension session. I do not enter passwords, so I could not open Tools → Creators API to answer A–F (account accepted / API available / application exists / credentials provisioned / can create / eligibility blocker).
+Founder signed in; read-only inspection of `affiliate-program.amazon.com/creatorsapi` and the dashboard (StoreID `missionmatch-20`).
 
-**EXACT STEPS (about two minutes):**
-1. In the Claude desktop app's browser pane (the tab I left open on the Amazon sign-in page) or in Chrome, sign in to `https://affiliate-program.amazon.com/home`.
-2. Open the menu (three lines) → **Tools → Creators API** (or `https://affiliate-program.amazon.com/creatorsapi`).
-3. Tell me what it shows — eligible / not eligible, an existing application, or a "create application" button. Do **not** paste any credential ID or secret into chat; if you create credentials, store them in the approved MissionMed secret path and tell me only the secret's name.
+| Question | Answer |
+| --- | --- |
+| A. Account accepted? | Active Associates account with a working dashboard; the home page flags that the **primary account holder still has to submit tax information** (a payment blocker, not an API blocker). |
+| B. Creators API available? | Yes, the Creators API console is open to the account ("Create App"). |
+| C. Application exists? | No — zero applications. |
+| D. Credentials provisioned? | No. |
+| E. Can the account create one? | Yes (up to two apps, two credential pairs each; needs Full-access login). |
+| F. Eligibility blocker? | **Yes, and it is decisive today:** product-data access (PA-API through Creators API) requires ≥10 qualifying sales in the past 30 days; the dashboard shows **0 clicks, 0 ordered items, 0 shipped** in the last 30 days. Credentials created now would return `AssociateNotEligible` (Amazon reviews eligibility for up to 48 h, then denies). |
 
-**Public eligibility facts I verified:** Creators API (the PA-API successor, PA-API retires 2026-05-15) requires ≥10 qualifying sales in the trailing 30 days on the marketplace (new accounts: 3 sales within the first 180 days for program review); applied for under Tools → Creators API; credentials are an OAuth client ID (`amzn1.application-oa2-client…`) and a one-time-shown secret. Whether `missionmatch-20` currently meets the sales threshold is only visible after sign-in.
-
-**WHAT I CONTINUED WHILE WAITING:** the §6 second-choice path (below), the Option 5 image treatment, the audit gate, and the screenshot set. When the API is available, the adapter in §3 of the directive is the next bounded ticket; the catalog already separates MissionMed curation fields from the image/provenance fields it would hydrate.
+Decision taken: **no application or credentials created** — nothing to gain until the sales threshold is met, and a one-time-shown secret would otherwise sit unused. The manufacturer-image path above is therefore the production authority for this release. The server-side Creators API adapter (§3) stays a bounded follow-up, to be built once the account records ≥10 qualifying sales in a trailing 30-day window (and the tax information is submitted so earnings can be paid).
 
 ## What was done — manufacturer imagery (§6), exact product only
 
