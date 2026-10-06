@@ -410,12 +410,15 @@ export class LiveInterviewSession {
       if (this.audioBoundReject) this.audioBoundTimer = setTimeout(() => this.audioBoundReject?.(new Error('InterviewBrain audio did not bind in time.')), this.audioRenderer?40_000:START_TIMEOUT_MS);
       await step(peer.setRemoteDescription({ type: 'answer', sdp: created.transport.sdp }));
       await step(Promise.all([started, audioBound]));
-      // Output tap already exists; only decoded visual readiness gates the
-      // opening. Requiring generated avatar audio here would create a cycle.
+      if (!current()) throw new Error('InterviewBrain startup was stopped.');
+      // Audio-driven LemonSlice renders only after audio -> audio_end. Request
+      // the sole real opening after its stable heard/recorded tap binds, before
+      // waiting for the frame it produces. Startup still cannot resolve without
+      // decoded visual readiness; no silent priming/fake utterance is inserted.
+      this.requestOpening(this.openingQuestion);
       if(this.audioRenderer?.waitForVisualReady)await step(this.audioRenderer.waitForVisualReady());
       if (!current()) throw new Error('InterviewBrain startup was stopped.');
       clearTimeout(this.overallStartTimer);
-      this.requestOpening(this.openingQuestion);
       return Object.freeze({ id: this.sessionId, model: created.session.model, audioAuthority: this.diagnostics() });
     } catch (error) {
       if (!current()) { await cleanupLate(); throw error; }

@@ -126,7 +126,7 @@ test('backpressure fails closed instead of retaining an unbounded delayed interv
   const first=deferred(),faults=[];const queue=new EmbodimentCommandQueue(()=>first.promise,{maxQueued:1,onFailure:e=>faults.push(e.message)});
   const inflight=queue.push('audio'),pending=queue.push('audio');await assert.rejects(queue.push('audio'),/queue limit/);assert.equal(queue.closed,true);assert.equal(faults.length,1);assert.equal((await pending).discarded,true);first.resolve();await inflight;
 });
-test('native input remains silent; decoded frame gates opening while the stable tap binds first',async()=>{
+test('sole opening drives audio-dependent avatar; decoded frame still gates startup after the stable recording tap',async()=>{
   const order=[],native={id:'native'},heard={id:'rendered'},microphone={kind:'audio',readyState:'live',enabled:true};let rendererStops=0;
   class Peer{constructor(){this.iceGatheringState='complete';}addTrack(){}createDataChannel(){return this.channel={readyState:'open',send:data=>order.push(JSON.parse(data).type),close(){}};}async createOffer(){return {sdp:'offer'};}async setLocalDescription(d){this.localDescription=d;}async setRemoteDescription(){queueMicrotask(()=>{this.channel.onmessage({data:JSON.stringify({type:'session.started'})});this.ontrack({track:{id:'one',kind:'audio'},streams:[native]});});}close(){}}
   const audio={srcObject:null,async play(){assert.equal(this.srcObject,heard);order.push('play');},pause(){order.push('pause');}};
@@ -136,11 +136,25 @@ test('native input remains silent; decoded frame gates opening while the stable 
     createSession:async()=>({session:{id:'provider',model:'gpt-live-1'},transport:{sdp:'answer'},audioAuthority:{mode:'single',authority:'openai-gpt-live-native'}}),endSession:async()=>order.push('end-provider'),
     onAuthoritativeAudioStream:stream=>{assert.equal(stream,heard);order.push('record-tap');}});
   const starting=session.start({audioTrack:microphone,ivocSessionId:'canonical',openingQuestion:'Question?'});
+  let ready=false;starting.then(()=>{ready=true;});
   while(!order.includes('play'))await new Promise(resolve=>setImmediate(resolve));
-  assert.equal(order.includes('session.instructions.append'),false);assert.ok(order.indexOf('GPT_READY')<order.indexOf('render'));
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(order.filter(v=>v==='session.instructions.append').length,1,'without the real opening the provider cannot generate its first frame');
+  assert.equal(ready,false,'track/transport/opening alone never claim visual readiness');
+  assert.ok(order.indexOf('GPT_READY')<order.indexOf('render'));
   visual.resolve();await starting;
   assert.deepEqual(order.filter(v=>['render','record-tap','play','session.instructions.append'].includes(v)),['render','record-tap','play','session.instructions.append']);
   await session.stop();assert.equal(rendererStops,1);assert.ok(order.indexOf('mute')<order.indexOf('end-provider'));assert.equal(audio.srcObject,null);
+});
+test('missing decoded avatar after the opening fails startup and tears down the single audio owner',async()=>{
+  const sent=[];let stopped=0,ended=0;
+  class Peer{constructor(){this.iceGatheringState='complete';}addTrack(){}createDataChannel(){return this.channel={readyState:'open',send:raw=>sent.push(JSON.parse(raw)),close(){}};}async createOffer(){return {sdp:'offer'};}async setLocalDescription(d){this.localDescription=d;}async setRemoteDescription(){queueMicrotask(()=>{this.channel.onmessage({data:JSON.stringify({type:'session.started'})});this.ontrack({track:{id:'one',kind:'audio'},streams:[{}]});});}close(){}}
+  const heard={},audio={srcObject:null,play:async()=>{},pause(){}},renderer={transition(){},render:async()=>heard,waitForVisualReady:async()=>{throw new Error('decoded frame unavailable');},stop:async()=>{stopped++;}};
+  const session=new LiveInterviewSession({PeerConnection:Peer,audioElement:audio,audioRenderer:renderer,
+    createSession:async()=>({session:{id:'provider',model:'gpt-live-1'},transport:{sdp:'answer'},audioAuthority:{mode:'single',authority:'openai-gpt-live-native'}}),endSession:async()=>{ended++;}});
+  await assert.rejects(session.start({audioTrack:{kind:'audio',readyState:'live'},ivocSessionId:'canonical',openingQuestion:'Question?'}),/decoded frame unavailable/);
+  assert.deepEqual(sent.map(e=>e.type),['session.instructions.append','session.close']);
+  assert.equal(stopped,1);assert.equal(ended,1);assert.equal(audio.srcObject,null);assert.equal(session.state,'error');
 });
 test('presentation consumes renderer, preserves dominant host/self-view and never adds another audible element',async()=>{
   const read=path=>readFile(new URL(path,import.meta.url),'utf8');
