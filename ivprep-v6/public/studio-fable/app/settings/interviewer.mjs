@@ -7,6 +7,7 @@
 // server independently resolves and enforces the current Admin ceiling.
 // No engineering/provider parameters are exposed (model, temperature, VAD, keys).
 import {normalizePracticeFocus} from '../../../studio/live-context-adapter.mjs';
+import { directorPolicy } from '../brain/interview-director.mjs';
 import {normalizeInterviewPolicy,resolveFollowUps} from '../../../capabilities/interview-policy.mjs';
 import {selectedEnvironment} from '../adapters/environment-profile.mjs';
 import {normalizeNameUseCoaching} from '../../../capabilities/context-results.mjs';
@@ -76,8 +77,10 @@ export function applyPreset(settings, presetId, {interviewPolicy} = {}) {
 
 // Conductor policy (client-side, deterministic). Closing invariant is not configurable.
 export function conductorConfig(settings, { durationMin,interviewPolicy } = {}) {
-  const curiosityThreshold = { Low: 0.72, Normal: 0.62, High: 0.55 }[settings.curiosity] ?? 0.62;
   const followUps=resolveFollowUps(settings,interviewPolicy);
+  // Persona-driven Director policy: Owl pursues meaningful hooks at a low threshold,
+  // Warm supports, Direct is selective, Pressure tests claims. Curiosity tunes further.
+  const curiosityThreshold = directorPolicy({style:settings.style,pressure:settings.pressure===true,curiosity:settings.curiosity,maxDepth:followUps.depth,maxFollowUps:followUps.maxFollowUps}).followThreshold;
   return {
     maxDepth: followUps.depth,
     maxFollowUps: followUps.maxFollowUps,
@@ -85,6 +88,7 @@ export function conductorConfig(settings, { durationMin,interviewPolicy } = {}) 
     pressure: settings.pressure === true,
     style: settings.style,
     followThreshold: curiosityThreshold,
+    curiosity: settings.curiosity,
     durationMs: (durationMin || settings.durationMin) ? (durationMin || settings.durationMin) * 60_000 : null,
     closingReserveMs: 90_000,
     pacing: settings.pacing,

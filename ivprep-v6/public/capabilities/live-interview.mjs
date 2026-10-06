@@ -1,4 +1,5 @@
 const START_TIMEOUT_MS = 15_000;
+const DIRECTOR_OBJECTIVE_KINDS = new Set(['FOLLOW_HOOK', 'CLARIFY', 'SEEK_EVIDENCE', 'DEEPEN', 'CHALLENGE_GENTLY', 'FOLLOW_PROGRAM_CONTEXT', 'MOVE_TO_NEXT_PLANNED_QUESTION', 'CLOSING_TRANSITION', 'ANSWER_CANDIDATE_QUESTION', 'PROFESSIONAL_SIGNOFF']);
 const OVERALL_START_TIMEOUT_MS = 90_000;
 
 function transcriptEvent(event) {
@@ -83,6 +84,7 @@ export class LiveInterviewSession {
     this.closingRequested = false;
     this.handledDelegations = new Set();
     this.hookContextQuestions = new Set();
+    this.directorObjectives = new Set();
     this.startGeneration = 0;
     this.cancelStart = null;
     this.overallStartTimer = null;
@@ -193,6 +195,25 @@ export class LiveInterviewSession {
     } catch { return false; } // optional curriculum context must not break media
   }
 
+  // Interview Director objective: the deterministic turn policy decides WHAT the next
+  // turn should accomplish; this appends it on the same strong instruction path the
+  // opening and closing already use. No speech is triggered and no second brain speaks.
+  appendDirectorObjective(objective) {
+    if (this.state !== 'active' || this.channel?.readyState !== 'open') return false;
+    if (!objective || typeof objective.id !== 'string' || !/^obj-\d{1,4}$/.test(objective.id)
+      || typeof objective.kind !== 'string' || !DIRECTOR_OBJECTIVE_KINDS.has(objective.kind)
+      || typeof objective.instruction !== 'string') return false;
+    const content = objective.instruction.trim();
+    if (!content.startsWith('NEXT TURN OBJECTIVE') || content.length > 1800 || new TextEncoder().encode(content).length > 4096) return false;
+    if (this.closingRequested && !['ANSWER_CANDIDATE_QUESTION', 'PROFESSIONAL_SIGNOFF'].includes(objective.kind)) return false;
+    if (this.directorObjectives.has(objective.id) || this.directorObjectives.size >= 96) return false;
+    this.directorObjectives.add(objective.id);
+    try {
+      this.channel.send(JSON.stringify({ type: 'session.instructions.append', event_id: 'ivoc-director-' + objective.id, delegation_id: null, content }));
+      return true; // wire receipt is not evidence of a spoken turn
+    } catch { return false; }
+  }
+
   requestOpening(question) {
     const text = String(question || '').trim();
     if (!text || text.length > 1_000) throw new TypeError('A bounded opening question is required.');
@@ -278,6 +299,7 @@ export class LiveInterviewSession {
     this.closingRequested = false;
     this.handledDelegations.clear();
     this.hookContextQuestions.clear();
+    this.directorObjectives.clear();
     if (!this.openingQuestion || this.openingQuestion.length > 1_000) {
       throw new TypeError('A bounded opening question is required.');
     }
