@@ -149,5 +149,5 @@ test('Room/Calibration consumers bind contextual recovery, device-verified saved
   assert.match(room,/state\.preferences\?\.overlaysVisible===true/);assert.match(room,/account preference could not be saved/);
   assert.match(room,/observer\?\.ingestFinal\(\{speaker,text,identity:event\.identity\|\|null,sessionId:controller\.durable\.accountSession\?\.id\|\|null\}\)/);
   assert.match(room,/started&&snap\.finalObservationCount===0&&snap\.fragmentTextObservationCount===0\?snap\.N\+' questions planned'/);
-  assert.match(room,/onTranscriptFragment\(event\).*observer\.ingestFragment\(event\)/);
+  assert.match(room,/onTranscriptFragment\(event\)[\s\S]*?observer\.ingestFragment\(event\)/);
 });

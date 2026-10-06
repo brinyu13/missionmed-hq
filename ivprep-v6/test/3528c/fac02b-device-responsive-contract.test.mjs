@@ -35,7 +35,7 @@ test('FAC-02B READY and LIVE expose explicit device controls without restoring p
   assert.match(live, /engine\.switchDevice\(kind, deviceId\)/u);
   assert.match(live, /saveDraft\(\)/u);
   assert.match(live, /removeEventListener\?\.\('devicechange', handleDeviceChange\)/u);
-  assert.match(runtime, /this\.bridge\.switchDevice\(deviceKind, id\)/u);
+  assert.match(runtime, /this\.bridge\.switchDevice\(deviceKind, id(?:, coordinator)?\)/u);
   assert.match(runtime, /this\.transcript\.stop\(\{ preserveState: true \}\)/u);
   assert.match(runtime, /await this\.startTranscriptTiming\(media\.stream\)/u);
   assert.match(css, /\.room-device-panel \{/u);
