@@ -104,6 +104,155 @@
             "changes": "EXIF orientation normalized, resized, metadata removed and WebP encoded"
           },
           "offerState": "check-on-amazon"
+        },
+        {
+          "exception": false,
+          "offerState": "check-on-amazon",
+          "up": "MX Brio or Brio Ultra add 4K sensors and better low-light handling.",
+          "down": "A recent laptop camera with good front light can pass the setup test.",
+          "t": "bc",
+          "asin": "B085TFF7M1",
+          "name": "Logitech C920x HD Pro (1080p/30)",
+          "why": "The long-serving 1080p standard. Interview platforms compress to 720p or 1080p anyway; a well-lit C920x looks composed.",
+          "best": "A first dedicated webcam on a tight budget",
+          "pros": [
+            "1080p/30 with autofocus",
+            "Works without software on Mac and Windows",
+            "Stereo microphones as a backup"
+          ],
+          "cons": [
+            "Fixed 78° field of view; frame carefully",
+            "No 4K and no HDR",
+            "USB-A plug; adapter on USB-C laptops"
+          ],
+          "setup": "Sit about an arm’s length away with light from the front. If the exposure pumps, lock it in the Logitech app.",
+          "source": "https://support.logi.com/hc/en-us/articles/360023307294-C920-Technical-Specifications",
+          "ecosystem": "Logitech",
+          "complexity": "Simple",
+          "box": "Webcam with attached USB-A cable and monitor clip; tripod thread in the clip base."
+        },
+        {
+          "exception": false,
+          "offerState": "check-on-amazon",
+          "up": "MX Brio adds Logitech’s software and a larger sensor.",
+          "down": "C920x at 1080p is enough for most interview platforms.",
+          "t": "bc",
+          "asin": "B0CYQ5P6T7",
+          "name": "EMEET S600 4K webcam",
+          "why": "A newer 4K webcam with phase-detect autofocus at a lower investment than the big-brand 4K cameras. Check the current listing and software before relying on it.",
+          "best": "Students who want 4K and quick autofocus without the Logitech or Elgato price",
+          "pros": [
+            "4K and 1080p60 capability",
+            "PDAF autofocus",
+            "Two noise-reduction microphones"
+          ],
+          "cons": [
+            "Less established support than Logitech or Elgato",
+            "Companion software is less mature",
+            "Confirm the exact variant; a tripod bundle is a separate listing"
+          ],
+          "setup": "Update firmware in the EMEET app first, then fix focus and exposure before the interview so autofocus does not hunt while you gesture.",
+          "source": "https://www.amazon.com/dp/B0CYQ5P6T7",
+          "ecosystem": "EMEET",
+          "complexity": "Simple",
+          "box": "Webcam, USB cable and privacy cover; sold by EMEET OFFICIAL on Amazon at check. A manufacturer page for this exact model was not located."
+        },
+        {
+          "exception": false,
+          "offerState": "check-on-amazon",
+          "up": "Facecam 4K adds DSLR-like manual control through Camera Hub.",
+          "down": "Brio Ultra covers the same resolution for less.",
+          "t": "fc",
+          "asin": "B0BFJ4CRKD",
+          "name": "Logitech MX Brio Ultra HD 4K",
+          "why": "Logitech’s current flagship webcam: a larger sensor than Brio Ultra, better low-light handling and Logi Options+ controls. A dependable step up when you interview often.",
+          "best": "Frequent interviews in a room with mixed light",
+          "pros": [
+            "4K30 / 1080p60",
+            "Larger sensor; improved low-light performance",
+            "Show Mode and framing controls in Logi Options+",
+            "USB-C"
+          ],
+          "cons": [
+            "Costs more than Brio Ultra",
+            "Software features need rehearsal",
+            "Fixed focal length"
+          ],
+          "setup": "Mount on the monitor edge at eye level, turn auto-framing off for the interview and lock exposure in Logi Options+.",
+          "source": "https://www.logitech.com/en-us/products/webcams/mx-brio-4k-webcam.html",
+          "ecosystem": "Logitech",
+          "complexity": "Simple",
+          "box": "Webcam, detachable USB-C cable and monitor mount; tripod thread in the mount."
+        },
+        {
+          "exception": false,
+          "offerState": "check-on-amazon",
+          "up": "A mirrorless creator chain adds lens choice and depth of field at several times the cost and complexity.",
+          "down": "Facecam MK.2 gives most of the control at 1080p60.",
+          "t": "fc",
+          "asin": "B0DVZG36J8",
+          "name": "Elgato Facecam 4K",
+          "why": "Elgato’s top webcam: 4K60 with manual, DSLR-like control through Camera Hub. For applicants who already run an Elgato desk and want the sharpest feed.",
+          "best": "An existing Elgato setup with Camera Hub and strong front light",
+          "pros": [
+            "4K60 capability",
+            "Manual exposure, white balance and focus in Camera Hub",
+            "USB-C"
+          ],
+          "cons": [
+            "Higher investment than Facecam MK.2",
+            "Manual settings must be rehearsed",
+            "Needs good light to show the difference"
+          ],
+          "setup": "Set white balance and exposure manually in Camera Hub once your key light is on, then lock them. Rehearse at the resolution the interview platform actually uses.",
+          "source": "https://www.elgato.com/us/en/p/facecam-4k",
+          "ecosystem": "Elgato",
+          "complexity": "Moderate",
+          "box": "Webcam, USB-C cable, monitor mount and privacy cap."
+        },
+        {
+          "exception": false,
+          "offerState": "check-on-amazon",
+          "up": "",
+          "down": "Canon EOS R50 kit gives an interchangeable-lens look at a fraction of the chain cost.",
+          "t": "pj",
+          "asin": "B08DP4NKGN",
+          "name": "Sony α7S III · complete creator chain",
+          "why": "A full-frame mirrorless creator camera for someone who will also teach, lecture or record after the Match. Buy it as a chain: body, lens, capture, continuous power and mounting are separate purchases.",
+          "best": "An established creator workflow, not a first interview camera",
+          "pros": [
+            "Full-frame low-light performance",
+            "Clean HDMI output for capture",
+            "Interchangeable lenses"
+          ],
+          "cons": [
+            "The investment is the whole chain, not the body",
+            "Needs a capture device, dummy battery and mount",
+            "Auto power-off and heat settings must be configured for long calls"
+          ],
+          "setup": "Body + FE 35mm F1.8 lens + Cam Link 4K + NP-FZ100 dummy-battery adapter + micro-HDMI cable + a desk mount or tripod. Disable auto power-off, enable clean HDMI output and rehearse a full-length call.",
+          "source": "https://helpguide.sony.net/ilc/2010/v1/en/index.html",
+          "ecosystem": "Sony E-mount / HDMI capture",
+          "complexity": "Advanced",
+          "box": "Body only. Lens, capture device, power adapter, cable and mount are separate. The Amazon body and lens listings were third-party sold at check.",
+          "chain": [
+            {
+              "name": "Sony FE 35mm F1.8 (SEL35F18F)",
+              "asin": "B07V5CR8S2"
+            },
+            {
+              "name": "Elgato Cam Link 4K",
+              "asin": "B07K3FN5MR"
+            },
+            {
+              "name": "SmallRig NP-FZ100 dummy battery AC adapter kit",
+              "asin": "B0C85QN1SD"
+            },
+            {
+              "name": "Micro-HDMI to HDMI cable and a desk mount or tripod",
+              "note": "Choose for your desk; no specific listing recommended."
+            }
+          ]
         }
       ],
       "pick": "bc"
@@ -212,6 +361,61 @@
             "changes": "EXIF orientation normalized, resized, metadata removed and WebP encoded; cropped to the microphone, excluding the person"
           },
           "offerState": "check-on-amazon"
+        },
+        {
+          "t": "bc",
+          "asin": "B00N1YPXW2",
+          "name": "Blue Yeti USB (Blackout)",
+          "why": "A practical choice if you already own one and have a quiet room. More expensive does not mean better noise isolation than a dynamic mic.",
+          "best": "Quiet rooms and existing Yeti owners",
+          "pros": [
+            "USB simplicity",
+            "Onboard gain and monitoring"
+          ],
+          "cons": [
+            "Condenser hears room noise",
+            "Bulky desktop footprint"
+          ],
+          "setup": "Select cardioid. Speak into the SIDE, not the top; keep gain low and the mic near you.",
+          "source": "https://www.logitechg.com/en-us/products/streaming-gear/yeti-premium-usb-microphone.html",
+          "review": {
+            "by": "The Podcast Host",
+            "title": "Blue Yeti · technique, value and limitations",
+            "url": "https://www.thepodcasthost.com/equipment/blue-yeti-podcasting-review/"
+          },
+          "ecosystem": "Logitech / Blue",
+          "complexity": "Simple",
+          "box": "Check the selected listing and package contents before ordering.",
+          "up": "MV7+ or Wave:3 MK.2 add processing and a better stand path; a dynamic capsule rejects more room noise.",
+          "down": "Q2U costs less and hears less of the room.",
+          "exception": false,
+          "offerState": "check-on-amazon"
+        },
+        {
+          "exception": false,
+          "offerState": "check-on-amazon",
+          "up": "MV7+ is a dynamic design that rejects more room noise and keeps an XLR path.",
+          "down": "Q2U handles a less quiet room for less.",
+          "t": "fc",
+          "asin": "B0GGYLFHPS",
+          "name": "Elgato Wave:3 MK.2",
+          "why": "Elgato’s current top USB condenser: Clipguard 2.0 anti-distortion, auto gain and onboard effects with Wave Link routing. A strong USB choice when your room is quiet.",
+          "best": "A quiet room and an Elgato or Stream Deck desk",
+          "pros": [
+            "USB-C, plug-and-play",
+            "Clipguard 2.0 and Auto Gain",
+            "Onboard DSP with the Wave Link app"
+          ],
+          "cons": [
+            "Condenser capsule picks up room noise",
+            "Onboard effects need a conservative setup",
+            "A boom arm improves placement"
+          ],
+          "setup": "Run Auto Gain once, keep effects light and place the capsule a hand’s width from your mouth. Test inside the interview app, not only in Wave Link.",
+          "source": "https://www.elgato.com/us/en/p/wave-3",
+          "ecosystem": "Elgato / USB",
+          "complexity": "Moderate",
+          "box": "Microphone, desk stand and USB-C cable; a boom arm is separate."
         }
       ],
       "pick": "bc"
@@ -310,6 +514,84 @@
           "down": "One well-placed panel may be sufficient. A second unit doubles the lights to power, mount, pair and rehearse.",
           "exception": false,
           "offerState": "check-on-amazon"
+        },
+        {
+          "exception": false,
+          "offerState": "check-on-amazon",
+          "up": "Key Light Air MK.2 adds output and a desk stand.",
+          "down": "A window plus the furnishings you own can pass the setup test.",
+          "t": "bc",
+          "asin": "B0FHQSVPVL",
+          "name": "Elgato Key Light Neo (no mount)",
+          "why": "Elgato’s entry key light: edge-lit, USB-powered, with onboard and Wi-Fi control. The listing we verified ships without a mount; plan the clamp or stand separately.",
+          "best": "A laptop desk that needs a soft, even light without a studio footprint",
+          "pros": [
+            "USB powered",
+            "Onboard and Wi-Fi app control",
+            "Compact edge-lit panel"
+          ],
+          "cons": [
+            "No mount in this listing",
+            "Less output than Key Light or Key Light Air MK.2",
+            "Needs a USB power source at the desk"
+          ],
+          "setup": "Place at eye level, slightly above and to one side of the camera, at arm’s length. Set the color temperature once and keep it for every rehearsal.",
+          "source": "https://www.elgato.com/us/en/p/key-light-neo",
+          "ecosystem": "Elgato",
+          "complexity": "Simple",
+          "box": "Light and USB cable; no mount in the verified listing. The clamp variant had no buy box at check."
+        },
+        {
+          "exception": false,
+          "offerState": "check-on-amazon",
+          "up": "An LED key light is faster to set up and dimmable.",
+          "down": "Litra Glow sits on the monitor and is enough for most desks.",
+          "t": "bc",
+          "asin": "B017D7W57S",
+          "name": "NEEWER 700W-equivalent softbox kit (2-pack)",
+          "why": "The classic low-cost soft light: two stands, two softboxes and bulbs. Bulky and slow to set up, but flattering for a seated interview if you have the floor space.",
+          "best": "A dedicated interview corner with floor space and a tight budget",
+          "pros": [
+            "Large soft sources",
+            "Two-light setup in one box",
+            "No app or USB power needed"
+          ],
+          "cons": [
+            "Floor space and assembly time",
+            "Bulbs and stands are less durable than LED panels",
+            "Not portable"
+          ],
+          "setup": "Key light at about 45° to one side; fill on the other side, dimmer or further away. Assemble the night before and mark the stand positions.",
+          "source": "https://www.amazon.com/dp/B017D7W57S",
+          "ecosystem": "Neewer",
+          "complexity": "Moderate",
+          "box": "Two stands, two softboxes, bulbs and a carrying bag; confirm the selected variant. Third-party seller on Amazon at check; a manufacturer page for this kit was not located."
+        },
+        {
+          "exception": false,
+          "offerState": "check-on-amazon",
+          "up": "Key Light gives more output and a clamp for a deeper desk.",
+          "down": "Key Light Neo covers a laptop desk.",
+          "t": "fc",
+          "asin": "B0GYDFGCCQ",
+          "name": "Elgato Key Light Air MK.2",
+          "why": "The compact Key Light with a desk stand: enough output for a desk at arm’s length, Wi-Fi control and a smaller footprint than the full Key Light.",
+          "best": "A permanent desk with a monitor-side stand",
+          "pros": [
+            "Desk stand included",
+            "Wi-Fi and app control",
+            "Adjustable color temperature"
+          ],
+          "cons": [
+            "Less output than the full Key Light",
+            "Wi-Fi setup must be rehearsed",
+            "The stand takes desk space"
+          ],
+          "setup": "Stand beside the monitor with the panel above eye line, angled down. Set brightness and temperature in Control Center, then keep them fixed.",
+          "source": "https://www.elgato.com/us/en/p/key-light-air",
+          "ecosystem": "Elgato",
+          "complexity": "Simple",
+          "box": "Light, desk stand and power adapter."
         }
       ],
       "pick": "bc"
@@ -1319,34 +1601,6 @@
       "up": "",
       "down": "",
       "exception": false
-    },
-    {
-      "t": "bc",
-      "asin": "B00N1YPXW2",
-      "name": "Blue Yeti USB (Blackout)",
-      "why": "A practical choice if you already own one and have a quiet room. More expensive does not mean better noise isolation than a dynamic mic.",
-      "best": "Quiet rooms and existing Yeti owners",
-      "pros": [
-        "USB simplicity",
-        "Onboard gain and monitoring"
-      ],
-      "cons": [
-        "Condenser hears room noise",
-        "Bulky desktop footprint"
-      ],
-      "setup": "Select cardioid. Speak into the SIDE, not the top; keep gain low and the mic near you.",
-      "source": "https://www.logitechg.com/en-us/products/streaming-gear/yeti-premium-usb-microphone.html",
-      "review": {
-        "by": "The Podcast Host",
-        "title": "Blue Yeti · technique, value and limitations",
-        "url": "https://www.thepodcasthost.com/equipment/blue-yeti-podcasting-review/"
-      },
-      "ecosystem": "Logitech / Blue",
-      "complexity": "Simple",
-      "box": "Check the selected listing and package contents before ordering.",
-      "up": "More control or convenience; more cost and rehearsal.",
-      "down": "Simpler equipment is sufficient when the setup test passes.",
-      "exception": false
     }
   ],
   "reviews": {
@@ -1435,16 +1689,6 @@
       "reason": "Did not meet the default Amazon rating threshold at this check."
     },
     {
-      "name": "Logitech MX Brio",
-      "asin": "B0BFJ4CRKD",
-      "reason": "Did not meet the default Amazon rating threshold at this check."
-    },
-    {
-      "name": "Elgato Key Light Air MK.2",
-      "asin": "B0GYDFGCCQ",
-      "reason": "Did not meet the default Amazon rating threshold at this check."
-    },
-    {
       "name": "Sony ZV-E10 II + 16–50mm kit",
       "asin": "B0D92VDW76",
       "reason": "Did not meet the default Amazon rating threshold at this check."
@@ -1479,5 +1723,28 @@
       "asin": "B0CVYHHPX6",
       "reason": "Did not meet the default Amazon rating threshold at this check."
     }
-  ]
+  ],
+  "curation": {
+    "model": "CATEGORY → INVESTMENT CLASS → MULTIPLE PRODUCTS",
+    "classes": {
+      "bc": "Business Class · lower investment band",
+      "fc": "First Class · mid investment band",
+      "pj": "Private Jet · highest investment band"
+    },
+    "classNote": "Classes are cost/investment bands, not quality scores. Independent badges express preference and value.",
+    "badges": [
+      "Dr. Brian’s Favorite",
+      "This Is What We Use",
+      "Best Value",
+      "Best for Most Students",
+      "Easiest Setup",
+      "Best Sound",
+      "Best Image",
+      "Best for Travel",
+      "Creator Pick"
+    ],
+    "badgeAssignment": "Founder-assigned only; unassigned until recorded.",
+    "updatedOn": "2026-10-06",
+    "evidence": "evidence/founder-curation-2026-10-06.json"
+  }
 }

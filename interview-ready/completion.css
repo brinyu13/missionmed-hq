@@ -93,3 +93,13 @@
 #page-online .tier-intro h2{font-size:30px;margin:8px 0}#page-online .tier-intro .lede{font-size:13px;line-height:1.5;margin:6px 0}#page-online .tier-legend{margin:10px 0;gap:17px}#page-online .tier-legend>div{padding:8px 0;font-size:11px}#page-online .tier-legend strong{font-size:19px;margin-bottom:3px}
 @supports(grid-template-rows:subgrid){@media(min-width:820px){.tier-deck{grid-template-rows:48px minmax(190px,auto) repeat(6,auto);row-gap:0;align-items:stretch}.tier-deck .tier.shopping-tier{grid-row:span 8;grid-template-rows:subgrid}}}
 @media(max-width:819px){.tier-deck .tier.shopping-tier{grid-template-rows:48px minmax(190px,auto) auto auto auto auto auto auto}.shopping-compare-heading{display:block}.shopping-compare-controls{gap:10px}.shopping-comparison{padding:14px}.shopping-matrix{min-width:560px}#page-online .route-intro{min-height:185px}#page-online .intro-copy{padding:25px 22px}.shopping-alternatives .actions{flex-wrap:wrap}}
+/* Founder curation: investment classes with multiple products; independent badges */
+.badge-row{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+.badge{font:600 9px var(--sans);letter-spacing:.14em;text-transform:uppercase;background:#dab567;color:#183043;padding:4px 8px;border-radius:999px}
+.class-rank{font:600 9px var(--sans);letter-spacing:.17em;color:var(--gold);text-transform:uppercase}
+.class-row-note{font:600 9px var(--sans);letter-spacing:.17em;text-transform:uppercase;color:#d9e1e8;margin:18px 0 0}
+.tier-deck .tier.tier-empty{display:block;background:transparent;border:1px dashed #c5b89666;box-shadow:none;grid-row:span 8}
+.tier-deck .tier.tier-empty .tier-heading{background:transparent;color:#d9e1e8;border-bottom:1px dashed #c5b89644}
+.tier-deck .tier.tier-empty p{padding:17px 20px;font-size:12px;color:#9fb0bf}
+.product-chain{padding-left:17px;margin:0 0 8px}
+@media (max-width:760px){.tier-deck .tier.tier-empty{display:none}}

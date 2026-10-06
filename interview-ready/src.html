@@ -521,7 +521,7 @@ function renderCatalog(group){
     <div class="tiers">${cat.items.map(i=>tierCard(i,cat,group)).join('')}</div>`;
   nav.querySelectorAll('button').forEach(b=>b.onclick=()=>{location.hash=`#${group}/${b.dataset.cat}`});
 }
-document.addEventListener('click',e=>{const b=e.target.closest('[data-kit]'); if(!b) return; const key=b.dataset.kit; const [group,catId,tier]=key.split(':'); const cat=CATALOG[group]?.find(c=>c.id===catId); const item=cat?.items.find(i=>i.t===tier); if(!item){store.set("kit",kit.list().filter(x=>x.key!==key));renderKitCount();renderKit();return} kit.toggle(item,cat.name,group); const s=kit.has(key); b.textContent=s?'Saved ✓':'Save to kit'; b.setAttribute('aria-pressed',s); if(document.getElementById('page-kit').classList.contains('active')) renderKit(); });
+document.addEventListener('click',e=>{const b=e.target.closest('[data-kit]'); if(!b) return; const key=b.dataset.kit; const [group,catId,tier]=key.split(':'); const cat=CATALOG[group]?.find(c=>c.id===catId); const item=cat?.items.find(i=>i.key===key)||cat?.items.find(i=>i.t===tier&&!i.key); if(!item){store.set("kit",kit.list().filter(x=>x.key!==key));renderKitCount();renderKit();return} kit.toggle(item,cat.name,group); const s=kit.has(key); b.textContent=s?'Saved ✓':'Save to kit'; b.setAttribute('aria-pressed',s); if(document.getElementById('page-kit').classList.contains('active')) renderKit(); });
 function renderKit(){
   const l=kit.list(); const host=document.getElementById('kit');
   if(!l.length){host.innerHTML=`<div class="card" style="padding:22px;margin-top:16px"><b>Your kit is empty.</b><p class="note">Save recommendations from any category. Run <a href="#test">Test My Setup</a> first so you only save what you need.</p></div>`;return}
