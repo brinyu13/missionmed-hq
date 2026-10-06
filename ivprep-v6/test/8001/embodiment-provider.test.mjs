@@ -46,6 +46,23 @@ test('hard deadline rejects further input without another session',async()=>{
   await h.manager.command({actor:'wp:1',sessionId:ID,id:ticket.id,command:'terminate'});
   assert.equal(h.receipts[0].reason,'hard_deadline');assert.equal(h.calls.filter(c=>c.body?.transport_type).length,1);
 });
+test('private transport receipt keeps bounded identity, never signed URL or public leakage',async()=>{
+  for(const address of ['wss://PRIVATE_USER:PRIVATE_PASS@rejected.example:8443/PRIVATE_PATH?token=PRIVATE_TOKEN#PRIVATE_HASH','wss://rejected.example/PRIVATE_PATH?token=PRIVATE_TOKEN','PRIVATE_MALFORMED']){
+    let sockets=0;
+    const h=harness({socketFactory:()=>{sockets++;throw new Error('must not connect');},
+      fetchImpl:async(url,options)=>({ok:true,json:async()=>url.endsWith('/control')?{success:true}:options.method==='GET'?{session_status:'COMPLETED'}:{session_id:'provider-known',websocket_address:address}})});
+    await assert.rejects(h.manager.start({actor:'wp:1',sessionId:ID}),/transport_invalid/);
+    assert.equal(sockets,0);
+    const status=h.manager.status({actor:'wp:1',sessionId:ID});
+    assert.equal(status.stopReceipt.providerConfirmed,true);
+    assert.equal(status.stopReceipt.transportIdentity,undefined);
+    assert.equal(JSON.stringify(status).includes('rejected.example'),false);
+    assert.equal(JSON.stringify(h.receipts).includes('PRIVATE_'),false);
+    assert.deepEqual(h.receipts.at(-1).transportIdentity,address==='PRIVATE_MALFORMED'?null:
+      {protocol:'wss:',hostname:'rejected.example',port:address.includes(':8443')?'8443':null});
+    await assert.rejects(h.manager.start({actor:'wp:1',sessionId:ID}),/consumed/);
+  }
+});
 test('aggregate PCM cannot exceed 45 seconds even if the clock has not advanced',async()=>{
   const h=harness();const ticket=await h.manager.start({actor:'wp:1',sessionId:ID});
   const audio=Buffer.alloc(9600).toString('base64');

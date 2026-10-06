@@ -35,6 +35,15 @@ export function publicEmbodimentFailure(value) {
     ...(RESPONSE_REASONS.has(value.reason)?{reason:value.reason}:{})};
 }
 
+// Private server audit identity only. Never retain a signed URL, credentials,
+// path/query/hash or raw response. This is evidence, NOT an egress allowlist.
+function privateTransportIdentity(value) {
+  if(typeof value!=='string'||value.length>8192)return null;
+  let url;try{url=new URL(value);}catch{return null;}
+  if(!['wss:','ws:','https:','http:'].includes(url.protocol)
+    ||url.hostname.length>253||! /^[a-z0-9.-]+$/i.test(url.hostname))return null;
+  return {protocol:url.protocol,hostname:url.hostname,port:url.port||null};
+}
 function providerSocketAddress(value) {
   const rejected=reason=>Object.assign(fail('ivoc_embodiment_transport_invalid',502),{responseInvalid:true,responseReason:reason});
   if(typeof value!=='string'||!value)throw rejected('SOCKET_ADDRESS_MISSING');
@@ -120,7 +129,7 @@ export function createEmbodimentCanary({env = process.env, fetchImpl = fetch, no
       const receipt = {stopped:true, providerConfirmed, reason, providerSessionId:a.providerId || null,
         requestedAtMs:a.startedAt, stoppedAtMs:now(), inputSeconds:a.samples / 16000,
         providerCreateAttempted:a.providerCreateAttempted===true,failure:a.failure||null,transitions:a.transitions};
-      await recordReceipt(a.sessionId, receipt).catch(() => {});
+      await recordReceipt(a.sessionId, {...receipt,transportIdentity:a.transportIdentity||null}).catch(() => {});
       a.stopReceipt=receipt;
       return receipt;
     })();
@@ -165,6 +174,7 @@ export function createEmbodimentCanary({env = process.env, fetchImpl = fetch, no
           livekit_properties:{livekit_url:env.LIVEKIT_URL,livekit_token:publisherToken,video_codec:'vp8',simulcast:false}},Math.min(EMBODIMENT_CREATE_TIMEOUT_MS,a.startedAt+45000-now()),createResponseMetadata);
         if (!/^[A-Za-z0-9._:-]{1,160}$/.test(created?.session_id || '')) throw Object.assign(fail('ivoc_embodiment_identity_invalid',502),{responseInvalid:true,responseReason:'SESSION_ID_INVALID'});
         a.providerId=created.session_id;
+        a.transportIdentity=privateTransportIdentity(created.websocket_address);
         stage(a,'EMBODIMENT_SESSION_CREATED','LEMONSLICE','PROVIDER_ID_RETURNED');
         if (a.closed) {
           // Capture and terminate a late exact ID before inspecting its URL.
@@ -212,7 +222,7 @@ export function createEmbodimentCanary({env = process.env, fetchImpl = fetch, no
         const receipt=await stop(a,'startup_failed');
         if(!receipt.failure){
           receipt.failure=a.failure;receipt.diagnosticUpdate=true;
-          await recordReceipt(a.sessionId,receipt).catch(()=>{});
+          await recordReceipt(a.sessionId,{...receipt,transportIdentity:a.transportIdentity||null}).catch(()=>{});
         }
         throw safeError;
       }
