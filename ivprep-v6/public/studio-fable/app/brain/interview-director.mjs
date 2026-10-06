@@ -94,6 +94,10 @@ export function chooseObjective(input = {}) {
   }
   const count = words(answer);
   if (count < 5) return null;
+  // Non-hook judgements (thin / complete / closing) wait until the answer has settled:
+  // a terminated sentence or enough words. Hook objectives come from terminated sentences anyway.
+  const settled = /[.!?]\s*$/.test(answer.trim()) || count >= 20;
+  const guarded = input.guardedAnswer === true;
   const budgetLeft = input.depthUsed < policy.maxDepth && input.totalFollowUps < policy.maxFollowUps;
   const timeLeft = !(Number.isFinite(input.remainingMs) && Number.isFinite(input.closingReserveMs) && input.remainingMs <= input.closingReserveMs);
   const report = input.report || null;
@@ -106,7 +110,7 @@ export function chooseObjective(input = {}) {
     if (vague && report.decision === 'PROBE_VAGUE') return objective('SEEK_EVIDENCE', bounded(vague.span?.text), 'claim without a concrete example');
     // Thin = genuinely short with no specific account; a resolved story is never "thin".
     const resolvedDetail = Array.isArray(report?.hooks) && report.hooks.some((h) => h.resolvedInAnswer);
-    if (policy.probeWeakAnswers && input.depthUsed === 0 && !resolvedDetail && (flags.shortAnswer || count < 20)) {
+    if (policy.probeWeakAnswers && input.depthUsed === 0 && !resolvedDetail && !guarded && settled && (flags.shortAnswer || count < 20)) {
       return objective(policy.persona === 'pressure' ? 'CHALLENGE_GENTLY' : 'DEEPEN', bounded(input.question?.text), 'thin answer with no unresolved thread');
     }
     const tags = Array.isArray(input.question?.tags) ? input.question.tags : [];
@@ -114,6 +118,7 @@ export function chooseObjective(input = {}) {
       return objective('FOLLOW_PROGRAM_CONTEXT', bounded(input.program.name), 'verified program context relevant to this question');
     }
   }
+  if (!settled) return null;
   if (next && timeLeft) return objective('MOVE_TO_NEXT_PLANNED_QUESTION', bounded(next.text, 400), budgetLeft ? 'answer complete, no useful unresolved thread' : 'follow-up budget for this question is used', { questionId: next.id });
   return objective('CLOSING_TRANSITION', null, next ? 'closing time reserve reached' : 'planned questions complete');
 }

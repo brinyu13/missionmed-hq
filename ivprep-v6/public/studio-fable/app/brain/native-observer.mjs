@@ -1,11 +1,12 @@
 // Observed teaching state only. Native InterviewBrain owns the conversation.
 // No scripted answer loop, timed silence termination, browser TTS or synthetic facts.
-import {detectHooks,evaluateBite} from './hook-detector.mjs';
+import {detectHooks,evaluateBite,isGuardedText} from './hook-detector.mjs';
 import {InterviewProgression} from '../../../capabilities/interview-progression.mjs';
 import {directorPolicy,chooseObjective,objectiveInstruction} from './interview-director.mjs';
 const normalized=s=>String(s||'').toLowerCase().replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();
 const metaSpeech=text=>/\b(?:do not|don't|not yet|do not say|quoted?|the phrase|the question|(?:i|you|we) (?:should|will|would|might) (?:say|ask))\b/i.test(text);
 const closingInvite=text=>!metaSpeech(text)&&/^(?:(?:before we (?:finish|wrap up)|finally|now|so)[,:]?\s*)?(?:do you have any questions for me|any questions (?:for me|you.d like)[^?]*)\?$/i.test(text);
+const IMPERATIVE_PROBE=/^(?:tell me|walk me|describe|give me|explain|say more|talk me|take me)\b/i;
 const NO_MORE_QUESTIONS=/\b(?:no|nope|no thank you|no thanks|that'?s (?:all|it|everything)|i'?m (?:good|all set|done)|nothing (?:else|more|further)|i (?:don'?t|do not) (?:have any|think so)|not (?:right now|at the moment)|that covers it|i have no (?:more |other |further )?questions)\b/i;
 const signOff=text=>!metaSpeech(text)&&!/[?]/.test(text)&&/^(?:thank you for (?:your time|the interview|this interview)\b|best of luck\b|(?:you can|please) (?:select|click|choose|press) [^.!?]{0,80}finish\s*(?:&|and)\s*save\b)/i.test(text);
 export class NativeInterviewObserver {
@@ -90,11 +91,12 @@ export class NativeInterviewObserver {
       // Observed interviewer follow-up: a question that is not a planned question or the
       // closing invitation, after the current planned question was asked. Budget truth
       // comes from actual provider output, never from the Director's own sends.
-      else if(!metaSpeech(text)&&/\?/.test(text)&&!closingInvite(text)&&this.observedQuestions.has(this.current().id)){
+      // An interviewer probe is a question OR an imperative request ("Tell me more…", "Walk me through…").
+      else if(!metaSpeech(text)&&(/\?/.test(text)||IMPERATIVE_PROBE.test(text))&&!closingInvite(text)&&this.observedQuestions.has(this.current().id)){
         this.followUpsByWindow.set(this.fragmentWindow,(this.followUpsByWindow.get(this.fragmentWindow)||0)+1);this.totalFollowUps++;
       }
       const pending=[...this.hooks].reverse().find(h=>h.bitTaken===null&&h.fragmentWindow===this.fragmentWindow);
-      if(pending&&!metaSpeech(text)&&event.end_ms>=pending.providerEndMs&&(/\?/.test(text)||/^(?:tell me|walk me|describe)\b/i.test(text))&&evaluateBite(pending.report.primary,text).taken){
+      if(pending&&!metaSpeech(text)&&event.end_ms>=pending.providerEndMs&&(/\?/.test(text)||IMPERATIVE_PROBE.test(text))&&evaluateBite(pending.report.primary,text).taken){
         pending.bitTaken=true;pending.followUp=text;this.state='FOLLOWUP';this.fragmentTextObservationCount++;
       }
       if(closingInvite(text)){
@@ -147,6 +149,7 @@ export class NativeInterviewObserver {
   pendingHookContext(){
     if(this.fragmentHalted||this.fragmentEvidenceIncomplete||this.closing.reached
       ||!['QUESTION','FOLLOWUP'].includes(this.state))return null;
+    if((this.director.windowSends.get(this.fragmentWindow)||0)>0)return null; // the Director already steers this answer; no second transport
     const questionId=this.current().id;
     if(this.guidedQuestions.has(questionId)||this.guidedQuestions.size>=Math.min(32,this.config.maxFollowUps??32)
       ||this.config.maxDepth===0)return null;
@@ -171,7 +174,7 @@ export class NativeInterviewObserver {
     const report=!this.closing.reached&&answerText.trim()?detectHooks({question,answer:{text:answerText},priorTurns:this.turns,context:this.context,policy:{...this.config,followThreshold:policy.followThreshold,depthUsedThisQuestion:this.followUpsByWindow.get(window)||0}}):null;
     const nextQ=this.questions[this.n]||null;
     const remainingMs=Number.isFinite(this.config.durationMs)?this.config.durationMs-this.now():null;
-    const chosen=chooseObjective({policy,phase:this.state,report,answerText,question,
+    const chosen=chooseObjective({policy,phase:this.state,report,answerText,question,guardedAnswer:isGuardedText(answerText),
       nextQuestion:nextQ?{id:nextQ.question_id,text:nextQ.canonical_text}:null,
       depthUsed:this.followUpsByWindow.get(window)||0,totalFollowUps:this.totalFollowUps,
       closingReached:this.closing.reached,candidateQuestion:d.candidateQuestion,noMoreQuestions:d.noMoreQuestions,

@@ -117,6 +117,29 @@ test('K · follow-up exhaustion: after the observed follow-up, the Director move
   assert.match(after.instruction, /planned question 2/);
 });
 
+test('K2 · an imperative probe without a question mark still consumes the follow-up ceiling', () => {
+  const L = lab('balanced'); // depth 1 per question
+  L.interviewerSays('Tell me about yourself.');
+  assert.equal(L.candidate('I went to Grenada for medical school and came back here. Then I started my own company called Northline Tutors.')?.kind, 'FOLLOW_HOOK');
+  L.interviewerSays('Tell me more about Northline Tutors.');
+  assert.equal(L.observer.snapshot().hooks.at(-1).bitTaken, true);
+  assert.equal(L.observer.snapshot().director.followUps, 1, 'imperative probes count against the ceiling');
+  const after = L.candidate('It matched medical students with tutors for two years. Then I started my own company called Second Venture Labs.');
+  assert.equal(after?.kind, 'MOVE_TO_NEXT_PLANNED_QUESTION'); assert.match(after.reason, /budget/);
+  assert.equal(L.wire.filter((e) => e.type === 'session.thinking.append').length, 0, 'no quiet hint once the Director has steered this answer');
+});
+
+test('early fragments never assert "complete" or "thin"; guarded answers are neither deepened nor challenged', () => {
+  const direct = lab('direct'); direct.interviewerSays('Tell me about yourself.');
+  assert.equal(direct.candidate('So the thing is that I'), null, 'no move-on after five unsettled words');
+  const owl = lab('balanced'); owl.interviewerSays('Tell me about yourself.');
+  assert.equal(owl.candidate('Well I guess the main thing is'), null);
+  assert.equal(owl.candidate(' I am from Ohio and I like medicine.')?.kind, 'DEEPEN', 'a settled short answer is deepened');
+  const guarded = lab('pressure'); guarded.interviewerSays('Tell me about yourself.');
+  const g = guarded.candidate('I took last year off for a medical situation and then applied.');
+  assert.ok(!g || !['DEEPEN', 'CHALLENGE_GENTLY', 'FOLLOW_HOOK'].includes(g.kind), `guarded answer must not be probed: ${g?.kind}`);
+});
+
 test('L · closing: last planned question transitions to the mandatory invitation, answers candidate questions, then signs off', () => {
   const L = lab('balanced', { questions: QUESTIONS.slice(0, 1) });
   L.interviewerSays('Tell me about yourself.');

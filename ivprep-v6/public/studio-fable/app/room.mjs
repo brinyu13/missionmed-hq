@@ -119,7 +119,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       if(!current())return;$('room-preference-note').hidden=false;$('room-preference-note').textContent='Your display changed, but the account preference could not be saved. Try the control again.';
     });
   }
-  const observer=mode==='mock'?new NativeInterviewObserver({questions:plan,config:conductorConfig(settings,{durationMin:cfg.durationMin,interviewPolicy:controller.interviewPolicy}),context:{specialty:session.program?.specialty||null},now:()=>controller.elapsed*1000}):null;
+  const observer=mode==='mock'?new NativeInterviewObserver({questions:plan,config:conductorConfig(settings,{durationMin:cfg.durationMin,interviewPolicy:controller.interviewPolicy}),context:{specialty:session.program?.specialty||null,program:session.program?.verified?{verified:true,name:String(session.program.name||'').slice(0,160)}:null},now:()=>controller.elapsed*1000}):null;
   const at=()=>controller.elapsed;
   const mark=(kind,label)=>events.push({t:at(),kind,label});
   function setDensityControls(disabled){room.querySelectorAll('.density [data-density]').forEach(button=>{button.disabled=disabled;});$('reset-density').disabled=disabled;const voice=$('admin-live-voice');if(voice)voice.disabled=disabled||started||finished;}

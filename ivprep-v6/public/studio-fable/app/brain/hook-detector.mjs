@@ -640,6 +640,9 @@ export function detectHooks({ question = {}, answer = {}, priorTurns = [], conte
 
 // Did the interviewer take the bait? Lexical overlap between the hook span and the
 // interviewer's next question (>= 1 content lemma, or the category's generic probe).
+// Protected-topic guard, exposed so the Director never deepens or challenges a guarded answer.
+export function isGuardedText(text) { return GUARDED.test(String(text || '')); }
+
 export function evaluateBite(hook, interviewerText) {
   if (!hook || !interviewerText) return { taken: false, overlap: [] };
   const keys = contentKeywords(hook.span.text);
