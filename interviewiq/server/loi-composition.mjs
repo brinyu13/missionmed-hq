@@ -5,7 +5,7 @@ export const APPROACH_LABELS=Object.freeze(['Warm + Personal','Direct + Concise'
 // AI may select source spans and these fixed connectives only, never author factual prose.
 export const CONNECTORS=Object.freeze({greeting:'Dear Program Leadership,',interest:'I am writing to express my interest.',fit:'These priorities shape my interest in your program.',reflect:'I would like to share my reflections.',update:'I would like to share this confirmed update.',close:'Thank you for considering my interest.'});
 const safeText=(s,label,max=4000)=>{v.text(s,label,max,{empty:false});requireValue(!/(?:ignore\s+(?:all\s+)?(?:previous|instructions)|system\s*prompt|<\/?(?:script|system)|\b(?:api[_ -]?key|jailbreak)\b)/i.test(s),'loi_composition_input','Remove instructions or sensitive credentials from factual inputs.');return s;};
-function leaves(x){if(typeof x==='string')return[x];if(Array.isArray(x))return x.flatMap(leaves);return [];}
+function leaves(x){if(typeof x==='string')return[x];if(Array.isArray(x))return x.flatMap(leaves);if(x!==null&&typeof x==='object')return Object.values(x).flatMap(leaves);return [];}
 export function compositionInput(data,fresh,current,defaultApproach){
  v.onlyKeys(data,['letterId','expectedHead','expectedLetterVersion','context','contextConfirmed','motivations','facts','selectedEvidence','approach','approaches','count','postInterviewConfirmed','updateConfirmed']);
  v.onlyKeys(data.context,['whyNow','applicationState','interviewState']);requireValue(data.contextConfirmed===true,'loi_context_confirmation','Confirm the current Why Now and application/interview context.');
