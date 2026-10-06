@@ -1,5 +1,8 @@
 [
   {
+    "_note": "Batch stamp: all 2026-10-06T15:40Z entries were read in one built-in-browser session on 2026-10-06 between 15:30 and 15:45 UTC."
+  },
+  {
     "asin": "B085TFF7M1",
     "model": "Logitech C920x HD Pro",
     "title": "Logitech C920x HD Pro PC Webcam Full 1080p/30fps Video - Black",
@@ -24,7 +27,8 @@
     "observedAt": "2026-10-06T15:40Z",
     "decision": "founder-curation",
     "method": "read-only Amazon listing read in the built-in browser; no rating/price/review counts recorded",
-    "url": "https://www.amazon.com/dp/B0CYQ5P6T7"
+    "url": "https://www.amazon.com/dp/B0CYQ5P6T7",
+    "sourcePolicy": "catalog source=null; Amazon listing is the only product source (tagged link via shoppingAmazon only)"
   },
   {
     "asin": "B0BFJ4CRKD",
@@ -105,20 +109,21 @@
     "observedAt": "2026-10-06T15:40Z",
     "decision": "founder-curation",
     "method": "read-only Amazon listing read in the built-in browser; no rating/price/review counts recorded",
-    "url": "https://www.amazon.com/dp/B0GGYLFHPS"
+    "url": "https://www.amazon.com/dp/B0GGYLFHPS",
+    "sku": "10MAO9901"
   },
   {
     "asin": "B00N1YPXW2",
     "model": "Blue Yeti USB (Blackout)",
     "title": "Logitech Creators Blue Yeti USB Microphone",
-    "availability": "listed in search",
-    "seller": "not re-read",
+    "availability": "In Stock (2026-10-04 observation)",
+    "seller": "not recorded",
     "category": "mic",
     "class": "bc",
     "note": "Existing included alternative moved into Microphones / Business Class; 2026-10-04 observation retained.",
-    "observedAt": "2026-10-06T15:40Z",
+    "observedAt": "2026-10-04T05:59Z",
     "decision": "founder-curation",
-    "method": "read-only Amazon listing read in the built-in browser; no rating/price/review counts recorded",
+    "method": "retained from evidence/amazon-refresh-2026-10-04.json; not re-read on 2026-10-06",
     "url": "https://www.amazon.com/dp/B00N1YPXW2"
   },
   {
@@ -147,7 +152,8 @@
     "observedAt": "2026-10-06T15:40Z",
     "decision": "founder-curation",
     "method": "read-only Amazon listing read in the built-in browser; no rating/price/review counts recorded",
-    "url": "https://www.amazon.com/dp/B017D7W57S"
+    "url": "https://www.amazon.com/dp/B017D7W57S",
+    "sourcePolicy": "catalog source=null; Amazon listing is the only product source (tagged link via shoppingAmazon only)"
   },
   {
     "asin": "B0GYDFGCCQ",

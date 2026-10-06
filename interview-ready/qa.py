@@ -11,7 +11,7 @@ current_by_asin={x['asin']:x for x in fresh}
 paths=[x for c in catalog['online']+catalog['inperson'] for x in c['items']]
 assert len(paths)==45+len([x for c in catalog['online'] for x in c['items'][3:]])
 assert all([x['t'] for x in c['items'][:3]]==['bc','fc','pj'] and all(x['t'] in ('bc','fc','pj') for x in c['items']) for c in catalog['online']+catalog['inperson'])
-curated={x['asin']:x for x in json.loads((ROOT/'evidence/founder-curation-2026-10-06.json').read_text())}
+curated={x['asin']:x for x in json.loads((ROOT/'evidence/founder-curation-2026-10-06.json').read_text()) if 'asin' in x}
 purchase=[x for x in paths+catalog['alternatives'] if x['asin']]
 for x in purchase:
     r=by_asin.get(x['asin'])
@@ -20,7 +20,8 @@ for x in purchase:
     else:
         assert r['decision'] in ('include','owner-exception')
         assert current_by_asin[x['asin']]['rating']>=4.5 or (r['decision']=='owner-exception' and (r['model'].startswith('Elgato') or r['model'].startswith('Blue')))
-    assert x['source'] and x['setup'] and x['pros'] and x['cons']
+    assert (x['source'] and 'amazon.com' not in x['source']) or (not x['source'] and x['asin'] in curated and curated[x['asin']].get('sourcePolicy'))
+    assert x['setup'] and x['pros'] and x['cons']
     assert 'rating' not in x and 'ratingCount' not in x and 'price' not in x
     if x.get('image'):assert (ROOT/x['image']).exists()
 assert 'ratingCount' not in html and '"rating":' not in html, 'Private observations must not enter runtime'

@@ -139,7 +139,7 @@
           "t": "bc",
           "asin": "B0CYQ5P6T7",
           "name": "EMEET S600 4K webcam",
-          "why": "A newer 4K webcam with phase-detect autofocus at a lower investment than the big-brand 4K cameras. Check the current listing and software before relying on it.",
+          "why": "A newer 4K webcam with phase-detect autofocus, usually listed below the big-brand 4K cameras. Check the current listing and software before relying on it.",
           "best": "Students who want 4K and quick autofocus without the Logitech or Elgato price",
           "pros": [
             "4K and 1080p60 capability",
@@ -152,16 +152,16 @@
             "Confirm the exact variant; a tripod bundle is a separate listing"
           ],
           "setup": "Update firmware in the EMEET app first, then fix focus and exposure before the interview so autofocus does not hunt while you gesture.",
-          "source": "https://www.amazon.com/dp/B0CYQ5P6T7",
+          "source": null,
           "ecosystem": "EMEET",
           "complexity": "Simple",
-          "box": "Webcam, USB cable and privacy cover; sold by EMEET OFFICIAL on Amazon at check. A manufacturer page for this exact model was not located."
+          "box": "Webcam, USB cable and privacy cover; sold by EMEET OFFICIAL on Amazon at check. No manufacturer page for this exact model was located, so the Amazon listing is the product source."
         },
         {
           "exception": false,
           "offerState": "check-on-amazon",
-          "up": "Facecam 4K adds DSLR-like manual control through Camera Hub.",
-          "down": "Brio Ultra covers the same resolution for less.",
+          "up": "Facecam 4K adds manual exposure and white balance control through Camera Hub.",
+          "down": "Brio Ultra covers the same resolution, usually for less.",
           "t": "fc",
           "asin": "B0BFJ4CRKD",
           "name": "Logitech MX Brio Ultra HD 4K",
@@ -174,7 +174,7 @@
             "USB-C"
           ],
           "cons": [
-            "Costs more than Brio Ultra",
+            "Usually priced above Brio Ultra",
             "Software features need rehearsal",
             "Fixed focal length"
           ],
@@ -192,19 +192,19 @@
           "t": "fc",
           "asin": "B0DVZG36J8",
           "name": "Elgato Facecam 4K",
-          "why": "Elgato’s top webcam: 4K60 with manual, DSLR-like control through Camera Hub. For applicants who already run an Elgato desk and want the sharpest feed.",
+          "why": "Elgato’s top webcam: 4K60 with manual exposure and white balance control through Camera Hub. For applicants who already run an Elgato desk and want the sharpest feed.",
           "best": "An existing Elgato setup with Camera Hub and strong front light",
           "pros": [
             "4K60 capability",
-            "Manual exposure, white balance and focus in Camera Hub",
+            "Manual exposure and white balance in Camera Hub",
             "USB-C"
           ],
           "cons": [
             "Higher investment than Facecam MK.2",
-            "Manual settings must be rehearsed",
+            "Fixed focus; rehearse the working distance",
             "Needs good light to show the difference"
           ],
-          "setup": "Set white balance and exposure manually in Camera Hub once your key light is on, then lock them. Rehearse at the resolution the interview platform actually uses.",
+          "setup": "Set white balance and exposure manually in Camera Hub once your key light is on, then lock them. Focus is fixed, so sit at the distance that is sharp. Rehearse at the resolution the interview platform actually uses.",
           "source": "https://www.elgato.com/us/en/p/facecam-4k",
           "ecosystem": "Elgato",
           "complexity": "Moderate",
@@ -230,7 +230,7 @@
             "Needs a capture device, dummy battery and mount",
             "Auto power-off and heat settings must be configured for long calls"
           ],
-          "setup": "Body + FE 35mm F1.8 lens + Cam Link 4K + NP-FZ100 dummy-battery adapter + micro-HDMI cable + a desk mount or tripod. Disable auto power-off, enable clean HDMI output and rehearse a full-length call.",
+          "setup": "Body + FE 35mm F1.8 lens + Cam Link 4K + NP-FZ100 dummy-battery adapter + full-size HDMI (Type A) cable + a desk mount or tripod. Disable auto power-off, enable clean HDMI output and rehearse a full-length call.",
           "source": "https://helpguide.sony.net/ilc/2010/v1/en/index.html",
           "ecosystem": "Sony E-mount / HDMI capture",
           "complexity": "Advanced",
@@ -249,7 +249,7 @@
               "asin": "B0C85QN1SD"
             },
             {
-              "name": "Micro-HDMI to HDMI cable and a desk mount or tripod",
+              "name": "Full-size HDMI (Type A) to HDMI cable and a desk mount or tripod",
               "note": "Choose for your desk; no specific listing recommended."
             }
           ]
@@ -387,7 +387,7 @@
           "complexity": "Simple",
           "box": "Check the selected listing and package contents before ordering.",
           "up": "MV7+ or Wave:3 MK.2 add processing and a better stand path; a dynamic capsule rejects more room noise.",
-          "down": "Q2U costs less and hears less of the room.",
+          "down": "Q2U usually costs less and hears less of the room.",
           "exception": false,
           "offerState": "check-on-amazon"
         },
@@ -395,7 +395,7 @@
           "exception": false,
           "offerState": "check-on-amazon",
           "up": "MV7+ is a dynamic design that rejects more room noise and keeps an XLR path.",
-          "down": "Q2U handles a less quiet room for less.",
+          "down": "Q2U handles a less quiet room, usually for less.",
           "t": "fc",
           "asin": "B0GGYLFHPS",
           "name": "Elgato Wave:3 MK.2",
@@ -562,36 +562,36 @@
             "Not portable"
           ],
           "setup": "Key light at about 45° to one side; fill on the other side, dimmer or further away. Assemble the night before and mark the stand positions.",
-          "source": "https://www.amazon.com/dp/B017D7W57S",
+          "source": null,
           "ecosystem": "Neewer",
           "complexity": "Moderate",
-          "box": "Two stands, two softboxes, bulbs and a carrying bag; confirm the selected variant. Third-party seller on Amazon at check; a manufacturer page for this kit was not located."
+          "box": "Two stands, two softboxes, bulbs and a carrying bag; confirm the selected variant. Third-party seller on Amazon at check; no manufacturer page for this kit was located, so the Amazon listing is the product source."
         },
         {
           "exception": false,
           "offerState": "check-on-amazon",
-          "up": "Key Light gives more output and a clamp for a deeper desk.",
+          "up": "Key Light gives more output for a deeper desk.",
           "down": "Key Light Neo covers a laptop desk.",
           "t": "fc",
           "asin": "B0GYDFGCCQ",
           "name": "Elgato Key Light Air MK.2",
-          "why": "The compact Key Light with a desk stand: enough output for a desk at arm’s length, Wi-Fi control and a smaller footprint than the full Key Light.",
-          "best": "A permanent desk with a monitor-side stand",
+          "why": "The compact Key Light with a clamp-on desk mount: enough output for a desk at arm’s length, Wi-Fi control and a smaller footprint than the full Key Light.",
+          "best": "A permanent desk with a monitor-side clamp",
           "pros": [
-            "Desk stand included",
+            "Adjustable desk mount that clamps to the desk edge",
             "Wi-Fi and app control",
             "Adjustable color temperature"
           ],
           "cons": [
             "Less output than the full Key Light",
             "Wi-Fi setup must be rehearsed",
-            "The stand takes desk space"
+            "Needs a desk edge for the clamp"
           ],
-          "setup": "Stand beside the monitor with the panel above eye line, angled down. Set brightness and temperature in Control Center, then keep them fixed.",
+          "setup": "Clamp beside the monitor with the panel above eye line, angled down. Set brightness and temperature in Control Center, then keep them fixed.",
           "source": "https://www.elgato.com/us/en/p/key-light-air",
           "ecosystem": "Elgato",
           "complexity": "Simple",
-          "box": "Light, desk stand and power adapter."
+          "box": "Light and clamp-on desk mount; check the listing for the included power option."
         }
       ],
       "pick": "bc"
