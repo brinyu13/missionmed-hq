@@ -187,6 +187,25 @@ Verified again on the real applicant document in the local build after these cha
 final PDF (Letter) and editable PPTX generated to "Download ready"; artifacts inspected (see
 private acceptance notes); Keynote open/save/reopen as recorded there.
 
+## Independent review of the candidate and its one correction
+
+A bounded independent review (read-only agent, candidate 64caa03..a14d38c) returned PASS on
+extraction, review UX, year domain, Guardian repair, entitlement (wp-content untouched), media
+ownership, destination switching, save/reopen, PDF/PPTX and dirty-work preservation, and one
+release-blocking defect on the identity invariant: when the Timeline name was empty and the
+student explicitly chose "Don't use this name", the legacy profile-prefill loop still wrote the
+document's name (and its school/degree/graduation/languages/hobbies into empty fields).
+Corrected in `intake.js` `applyApprovalBatchToDocument`: an explicit keep-current decision now
+suppresses every identity-bearing profile prefill from that document and records the declined
+fields in `document.intake.declinedProfilePrefill`; accepted events still land. Test added to
+`d1-050` for both the empty-name and different-name cases.
+
+Non-blocking review notes for the Founder: (1) `ensureStudentAiConsent` records a standing
+WordPress AI consent the first time a signed-in student ticks the per-upload intake consent box;
+the checkbox wording does not say the consent persists beyond that upload. (2) The TITLE_ONLY
+privacy scope leaves bullet narrative unscreened only inside the stored original extraction, not
+on any board or export.
+
 ## Release sequence (not executed)
 
 Candidate commit on this branch; `build:release` requires a clean checkout of that commit

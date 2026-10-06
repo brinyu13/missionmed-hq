@@ -217,6 +217,22 @@ test("identity: an empty Timeline adopts the document's applicant; a different n
   assert.equal(conflicted.intake.sourceIdentity.previousName,"Placeholder Person");
 });
 
+test("identity: an explicit refusal is never overridden by prefill — keep-current leaves name, AAMC and the document's profile facts out, whether the Timeline name is empty or different",async()=>{
+  for(const [label,profile] of [["empty name",{}],["different name",{fullName:"Placeholder Person"}]]){
+    const machine=await reviewMachine(profile);
+    machine.decideIdentity("keep-current");
+    machine.acceptAllHighConfidence();
+    const document={...defaultDocument({id:"doc-refuse"}),studentProfile:{...defaultDocument().studentProfile,...profile}};
+    await machine.approveAccepted({saveVersion:async()=>{},applyBatch:async(batch)=>applyApprovalBatchToDocument(document,batch)});
+    assert.equal(document.studentProfile.fullName,profile.fullName||"",`${label}: the document's name is not written`);
+    assert.ok(!document.studentProfile.aamcDisplay,`${label}: the document's AAMC ID is not written`);
+    for(const field of ["medicalSchool","degree","graduationDate","medicalSchoolCountry","languages","hobbies"])assert.ok(!document.studentProfile[field],`${label}: ${field} is not filled from the declined document`);
+    assert.equal(document.intake.sourceIdentity.decision,"keep-current");
+    assert.ok(document.intake.declinedProfilePrefill.fields.includes("medicalSchool"),`${label}: the declined prefill is recorded`);
+    assert.ok(document.events.length>0,`${label}: the accepted events themselves still land`);
+  }
+});
+
 test("identity: keeping the current name is explicit, and Guardian blocks a Timeline whose name no longer matches the adopted document",async()=>{
   const machine=await reviewMachine({fullName:"Placeholder Person"});
   machine.decideIdentity("keep-current");

@@ -1400,7 +1400,16 @@ export function applyApprovalBatchToDocument(document,batch){
     Object.assign(event,clone(merge.patch));
   }
   nextEvents.push(...batch.additions.map((event)=>clone(event)));
-  if(batch.profilePrefill){
+  /* Identity invariant: when the student explicitly keeps the Timeline's current name
+     (including an empty one) instead of the document's applicant, none of that document's
+     identity-bearing profile facts (name, AAMC ID, school, degree, graduation, country,
+     languages, hobbies) may fill the Timeline; a refusal is never overridden by prefill.
+     The declined prefill is recorded so the review receipt stays honest. */
+  const identityDeclined=batch.identity?.decision==="keep-current";
+  if(identityDeclined&&batch.profilePrefill){
+    document.intake={...(document.intake||{}),declinedProfilePrefill:{fields:Object.keys(batch.profilePrefill).filter((field)=>["fullName","aamcDisplay","medicalSchool","medicalSchoolCountry","graduationDate","degree","languages","hobbies"].includes(field)&&String(batch.profilePrefill[field]||"").trim()),sourceCandidateId:batch.profilePrefill.sourceCandidateId||null}};
+  }
+  if(batch.profilePrefill&&!identityDeclined){
     const current=document.studentProfile&&typeof document.studentProfile==="object"
       ?document.studentProfile:{};
     const prefill=batch.profilePrefill;
