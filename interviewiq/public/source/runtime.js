@@ -210,7 +210,7 @@ function storyforgeProjection(sid){return sid===actor.id&&F.storyforgeProjection
 function draftScope(){if(loiTargetsEnabled()&&S?.ui?.route==='letters'&&S.ui.loiTargetOpen)return ['page','letters','program',S.ui.loiTargetOpen].join('|');return S?.ui?.drawer?['drawer',S.ui.drawer.kind,S.ui.drawer.day||'',S.ui.drawer.item||''].join('|'):['page',S?.ui?.route,S?.ui?.open||'',S?.ui?.section||''].join('|');}
 function draftKey(id){return draftScope()+'::'+id;}
 function pendingDraft(id,fallback=''){const key=draftKey(id);return draftValues.has(key)?draftValues.get(key):fallback;}
-function applyDrafts(){for(const field of document.querySelectorAll('input[id],textarea[id],select[id]')){const key=draftKey(field.id);if(draftValues.has(key)){const value=draftValues.get(key);if(field.multiple&&Array.isArray(value)){for(const option of field.options)option.selected=value.includes(option.value);}else if(field.type==='checkbox')field.checked=value===true;else field.value=value;}}}
+function applyDrafts(){for(const field of document.querySelectorAll('input[id],textarea[id],select[id]')){if(field.type==='file')continue;const key=draftKey(field.id);if(draftValues.has(key)){const value=draftValues.get(key);if(field.multiple&&Array.isArray(value)){for(const option of field.options)option.selected=value.includes(option.value);}else if(field.type==='checkbox')field.checked=value===true;else field.value=value;}}}
 function forgetDrafts(ids){for(const id of ids)draftValues.delete(draftKey(id));}
 function setSaved(message='Saved'){const e=document.getElementById('connection-status');if(e)e.textContent=message;}
 async function boot(){

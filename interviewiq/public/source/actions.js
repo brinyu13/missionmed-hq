@@ -165,7 +165,7 @@ document.addEventListener('keydown',ev=>{
   if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();A['cal-day']({dataset:{day:cell.dataset.calDay}});}
 });
 document.addEventListener('input',ev=>{
-  const t=ev.target;if(!S||!t.id||!('value'in t)||t.type==='password')return;draftValues.set(draftKey(t.id),t.type==='checkbox'?t.checked:t.multiple?[...t.selectedOptions].map(x=>x.value):t.value);
+  const t=ev.target;if(!S||!t.id||!('value'in t)||['password','file'].includes(t.type))return;draftValues.set(draftKey(t.id),t.type==='checkbox'?t.checked:t.multiple?[...t.selectedOptions].map(x=>x.value):t.value);
   if(t.id.startsWith('loi-')&&!t.id.startsWith('loi-composition-')&&!t.id.startsWith('loi-sentConfirmed-')&&!t.id.startsWith('loi-copyText-')){loiHandoffs.delete(S.ui.loiTargetOpen?'program:'+S.ui.loiTargetOpen:S.ui.open);const prepared=document.querySelector('[data-act="loi-gmail"]')?.closest('.panel');if(prepared)prepared.remove();}
   if(t.name==='loi-composition-default'&&loiCompositionEnabled())S.ui.loiStyleChoice=t.value;
   if(t.id==='loi-target-name'){delete S.ui.loiTargetManualProgram;loiTargetSearch=[];searchSequence++;document.getElementById('loi-target-selected')?.remove();const results=document.getElementById('loi-target-search-results');if(results)results.innerHTML='';const add=document.querySelector('[data-act="loitarget-add"]');if(add)add.textContent='Save name unresolved';}

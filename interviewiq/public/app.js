@@ -210,7 +210,7 @@ function storyforgeProjection(sid){return sid===actor.id&&F.storyforgeProjection
 function draftScope(){if(loiTargetsEnabled()&&S?.ui?.route==='letters'&&S.ui.loiTargetOpen)return ['page','letters','program',S.ui.loiTargetOpen].join('|');return S?.ui?.drawer?['drawer',S.ui.drawer.kind,S.ui.drawer.day||'',S.ui.drawer.item||''].join('|'):['page',S?.ui?.route,S?.ui?.open||'',S?.ui?.section||''].join('|');}
 function draftKey(id){return draftScope()+'::'+id;}
 function pendingDraft(id,fallback=''){const key=draftKey(id);return draftValues.has(key)?draftValues.get(key):fallback;}
-function applyDrafts(){for(const field of document.querySelectorAll('input[id],textarea[id],select[id]')){const key=draftKey(field.id);if(draftValues.has(key)){const value=draftValues.get(key);if(field.multiple&&Array.isArray(value)){for(const option of field.options)option.selected=value.includes(option.value);}else if(field.type==='checkbox')field.checked=value===true;else field.value=value;}}}
+function applyDrafts(){for(const field of document.querySelectorAll('input[id],textarea[id],select[id]')){if(field.type==='file')continue;const key=draftKey(field.id);if(draftValues.has(key)){const value=draftValues.get(key);if(field.multiple&&Array.isArray(value)){for(const option of field.options)option.selected=value.includes(option.value);}else if(field.type==='checkbox')field.checked=value===true;else field.value=value;}}}
 function forgetDrafts(ids){for(const id of ids)draftValues.delete(draftKey(id));}
 function setSaved(message='Saved'){const e=document.getElementById('connection-status');if(e)e.textContent=message;}
 async function boot(){
@@ -1584,7 +1584,7 @@ document.addEventListener('keydown',ev=>{
   if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();A['cal-day']({dataset:{day:cell.dataset.calDay}});}
 });
 document.addEventListener('input',ev=>{
-  const t=ev.target;if(!S||!t.id||!('value'in t)||t.type==='password')return;draftValues.set(draftKey(t.id),t.type==='checkbox'?t.checked:t.multiple?[...t.selectedOptions].map(x=>x.value):t.value);
+  const t=ev.target;if(!S||!t.id||!('value'in t)||['password','file'].includes(t.type))return;draftValues.set(draftKey(t.id),t.type==='checkbox'?t.checked:t.multiple?[...t.selectedOptions].map(x=>x.value):t.value);
   if(t.id.startsWith('loi-')&&!t.id.startsWith('loi-composition-')&&!t.id.startsWith('loi-sentConfirmed-')&&!t.id.startsWith('loi-copyText-')){loiHandoffs.delete(S.ui.loiTargetOpen?'program:'+S.ui.loiTargetOpen:S.ui.open);const prepared=document.querySelector('[data-act="loi-gmail"]')?.closest('.panel');if(prepared)prepared.remove();}
   if(t.name==='loi-composition-default'&&loiCompositionEnabled())S.ui.loiStyleChoice=t.value;
   if(t.id==='loi-target-name'){delete S.ui.loiTargetManualProgram;loiTargetSearch=[];searchSequence++;document.getElementById('loi-target-selected')?.remove();const results=document.getElementById('loi-target-search-results');if(results)results.innerHTML='';const add=document.querySelector('[data-act="loitarget-add"]');if(add)add.textContent='Save name unresolved';}
