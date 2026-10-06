@@ -34,10 +34,10 @@ Final preserved-production hash readback: student-os.js `38507e1ac8a555baa4eca60
 - Kinsta `wp kinsta cache purge --site` reported `Success: Site Cache has been cleared.` CLI also emitted existing translation notices and ended 255; authenticated post-purge normal-URL reload visibly loaded this organizer. No CDN asset changed; no broad purge performed.
 - Broader paid/free persona security flows and app internals not re-audited; unchanged production bytes plus focused node/handler contract establish this navigation-only preservation boundary.
 
-Evidence: `/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/MX-DASH-6050A/live-desktop.jpg` and `live-mobile-390x844-match-tools.jpg`.
+Evidence: `/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/MX-DASH-6050A/live-desktop.jpg` and `live-mobile-390x844-match-tools.png` (full-resolution CDP capture; native extension JPEG capture scaled the emulated viewport).
 
 ## Rollback / closeout
 
 Private rollback directory `/www/theresidencyacademy_209/private/mx-dash-6050a-rollback-20261006T1749Z` holds absent-preimage receipt, preserved checksums and deployed candidate. Recovery: move only the new MU plugin into that private directory, then site-cache purge; no shared runtime replacement. Atomic install scratch file absent after deployment. No accounts/settings/data changed.
 
-Deployment and cache-purge leases released with provider-native true responses. Final task claims/waiters readback is recorded in the task closeout; no product authority may be reused after terminal verdict. QA artifacts intentionally retained; browser emulation reset and live Dashboard left open.
+Deployment and cache-purge leases released with provider-native true responses. Provider-native closeout readback confirmed 0 active task leases / 0 active task waiters before this evidence amendment; repeat closeout after its short documentation lease. No product authority may be reused after terminal verdict. QA artifacts intentionally retained; browser emulation reset and live Dashboard left open.
