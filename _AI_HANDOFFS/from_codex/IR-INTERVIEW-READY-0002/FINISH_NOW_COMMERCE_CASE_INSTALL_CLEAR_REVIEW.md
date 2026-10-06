@@ -1,0 +1,5 @@
+APPROVE — fresh independent coordination provider clear.
+
+Reviewer /root/commerce_finish_verifier, independent non-builder. Custody HEAD809b9911e75232588ce7ad44f00280b916c7e221, sourcec6ec008364ecd0ed23051703b96b6e8cf5fe49dd, OSfe17. DR-375/376/391 public-commerce profile only; account/admin acceptance deferred to Phase1.1. Root alone executes.
+
+Actual connector read-only aggregate SQL on brxqytrfdisrgakrxkhd at2026-10-06 04:24:35.814669+00, observedUnix1791260675.814669: activeIR0,pendingIR0,activeMatrixShell0,activeAUTH0. Prior INSTALL exact binding8f92a423f6d471dc9adfd883e5107e5c9290c37c53073ae698317a65a0f26d1b:1 claim,1 explicitly released at2026-10-05 23:23:48.642615+00. New SOURCE e8aed77c/95f9ad06:1 claim,1 explicitly released at2026-10-06 04:21:52.526668+00. Local previous INSTALL RESULT RELEASED and SOURCE DONE/RELEASED corroborate. Freshness ends1791260975.814669 for initial READY; no renewal/retiming. Only aggregate coordination statuses retained; no nonce/user/credential/identity data.

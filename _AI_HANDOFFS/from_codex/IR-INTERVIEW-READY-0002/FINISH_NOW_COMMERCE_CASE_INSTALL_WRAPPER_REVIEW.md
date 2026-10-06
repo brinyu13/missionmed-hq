@@ -1,0 +1,5 @@
+APPROVE — exact INSTALL-only wrapper and frozen contract admission.
+
+Reviewer /root/commerce_finish_verifier, independent non-builder. Custody HEAD809b9911e75232588ce7ad44f00280b916c7e221, sourcec6ec008364ecd0ed23051703b96b6e8cf5fe49dd, OSfe17. DR-375/376/391 public-commerce profile only; account/admin acceptance deferred to Phase1.1. Root alone executes.
+
+Exact f87864db wrapper AST unchanged from reviewed05cc donor; canonical client36e37a48, transport6bab4c94, guard/keeper/session/fence/READY/custody/control schemas/one-read consumed marker/drain/release retained. Auth/auth_inventory entry points deny before capability. Builder exclusions include /root/commerce_release_pin_worker. Spec pins exact committed package, finite OLD preimages and distinct independent phase/recovery/runtime reports plus fresh provider clear. Root may acquire only normal complete runtime PATH+MATRIX-SHELL claim and execute admitted manual upgrade sequence. MaxSeconds1800; new absent FINISH_NOW_COMMERCE_CASE_INSTALL_CONTROL_1. No admission to source/OS/DB/account/gateway/shared mutation. Initial READY must be within300s of actual clear. Release/live acceptance separate.

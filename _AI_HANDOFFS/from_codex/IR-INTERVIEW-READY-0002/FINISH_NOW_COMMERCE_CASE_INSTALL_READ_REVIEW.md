@@ -1,0 +1,5 @@
+APPROVE — one fresh normal INSTALL credential/read and exact scoped lease protocol.
+
+Reviewer /root/commerce_finish_verifier, independent non-builder. Custody HEAD809b9911e75232588ce7ad44f00280b916c7e221, sourcec6ec008364ecd0ed23051703b96b6e8cf5fe49dd, OSfe17. DR-375/376/391 public-commerce profile only; account/admin acceptance deferred to Phase1.1. Root alone executes.
+
+Exact f87864db wrapper admits capability only after independent exact snapshot/report/schema/expiry/binding gates and exclusive consumed marker. Permit unchanged existing transport6bab credential retrieval/authentication probe and canonical lease acquisition/heartbeat/readback/release RPCs solely for exact INSTALL1800s. Unique control directory FINISH_NOW_COMMERCE_CASE_INSTALL_CONTROL_1. No automatic retry, standalone auth diagnostic/bootstrap, identity/session/account operation, new credentials, SSH/deploy by reviewer, or protocol changes. Root executes only reviewed manual b2c5 helpers and waits actual child drain before DONE/release. This review does not itself retrieve credentials or establish runtime release/live acceptance.

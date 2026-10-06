@@ -1,0 +1,5 @@
+APPROVE — bounded runtime preimage qualification from retained actual guarded readback.
+
+Reviewer /root/commerce_finish_verifier, independent non-builder. Custody HEAD809b9911e75232588ce7ad44f00280b916c7e221, sourcec6ec008364ecd0ed23051703b96b6e8cf5fe49dd, OSfe17. DR-375/376/391 public-commerce profile only; account/admin acceptance deferred to Phase1.1. Root alone executes.
+
+Retained actual prior INSTALL ROOT_READBACK_RECEIPT SHA372343eb7fbc0e575096c8a838be37602885ee2d8a75ec6a5338688d011bb379 and full52 baseline SHA8773c374318318e1bf90faf4f8cf9a7d8784fd7acd62733adf61a24bc98d4067 match old runtime bindings f49/bbd, gateway819dd, Matrix238d, gate da798 and c801 full layout. Receipt checked shared15; source step changed no provider runtime. This admits OLD preimages only; every remote operation must immediately verify exact qualified actual current pre/postimage under normal guards. This report introduces no metadata reader and performs no SSH/runtime mutation. Retained baseline is not independent postdeployment/live acceptance.

@@ -1,0 +1,51 @@
+{
+  "schema": "ir.public_commerce.live_qa.v1",
+  "observedUTC": "2026-10-06T04:30:03.769520+00:00",
+  "url": "https://missionmedinstitute.com/interview-ready/",
+  "sourceCommit": "c6ec008364ecd0ed23051703b96b6e8cf5fe49dd",
+  "custodyHead": "809b9911e75232588ce7ad44f00280b916c7e221",
+  "archiveSha256": "3621ddb7cbb26de0815ded5bc202289ad8935e52db45252e4daf5ace0ab85c43",
+  "htmlSha256": "d4439bb8f40f32d0122817cc7f06756bf6d709d030e5e9206bdaab0ef8a0b253",
+  "checks": {
+    "startup": "PASS; actual Chrome route renders, no console error",
+    "desktop": "PASS; tier x232/732/1231; viewport1756/document1740",
+    "twoProductComparison": "PASS; two selections and full field table",
+    "affiliate": "PASS; all seven categories,16 unique online ASINs, missionmatch-20",
+    "kit": "PASS; BRIO save, reload retains1 item",
+    "checklist": "PASS; confirm platform checked,reload true/readiness5%",
+    "privacy": "PASS; no account-state resource requests observed; truthful device-only copy",
+    "motion": "PASS; normal scroll changes story-y; reduce computed transform none; override reset",
+    "media": "PASS; no broken product/editorial alt images; qualified fallbacks/source links",
+    "event": "PASS; October6-7 coming copy before event07:01UTC; no verified discount claims"
+  },
+  "runtimeReceipt": {
+    "bindingSha256": "eed094275e705f7e68269f24f8f33a6375472b9737835a9f1d1f8ca44e43cf37",
+    "layoutSha256": "489deab9160704da92378d541372bfccdf13917730b21977341fab043cab2405",
+    "operation": "readback",
+    "result": "PASS",
+    "runtimeBindings": {
+      "buildManifest": "ac9184458c713949ac2a675a672d18677657f93574046ff814d780a7a95a9d1c",
+      "gate": "da79845723120e8e451b96121c5fe5d9ccd5c2a3ece6c20b5279e252fa6319ff",
+      "gateway": "819dd734ae7bf61ded755dd3bdda5e64e4945bac05d28bd4aee5cd68f7a9d7f5",
+      "html": "d4439bb8f40f32d0122817cc7f06756bf6d709d030e5e9206bdaab0ef8a0b253",
+      "matrix": "238d936904fce777174f22fb352e99fce118192ca9a469be392246c6a65366ad",
+      "package": "3621ddb7cbb26de0815ded5bc202289ad8935e52db45252e4daf5ace0ab85c43",
+      "pointer": "8a9ebeeb9b208dd009369a5ca3aa86c06d7f2bebcd3b104b5ef421d0e107b8c6"
+    },
+    "sharedChecked": 15
+  },
+  "controllerTerminal": {
+    "bindingSha256": "eed094275e705f7e68269f24f8f33a6375472b9737835a9f1d1f8ca44e43cf37",
+    "nativeReport": null,
+    "phase": "install",
+    "release": "RELEASED",
+    "result": "STOP"
+  },
+  "limitations": [
+    "Controller terminal STOP with explicit RELEASED; independent audit required, no clean-controller-success claim",
+    "Account-backed persistence and fresh free-account/Matrix eligibility deferred Phase1.1",
+    "Dynamic Amazon prices/ratings/deals unavailable; current values at exact Amazon listings",
+    "Some product photos use safe source-link fallbacks"
+  ],
+  "screenshot": "FINISH_NOW_20261005/LIVE_COMMERCE_20261006.png"
+}
