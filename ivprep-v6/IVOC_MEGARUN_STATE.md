@@ -5,7 +5,7 @@ Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`, `DR-350` (narrow packaging), `DR-361` (current RISE eligibility successor), `DR-392` (bounded preflight/closing repair), `DR-394` (no-spend secure Modal transport recovery); `DR-393` single canary CONSUMED, `DR-340` QA grant revoked
 Branch: `codex/ivoc-foreman-9200`
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
-Current continuation boundary: `FINAL CLOSURE AND SECURE OBSERVED MODAL TRANSPORT REPAIR LIVE; SINGLE AUTHORIZED CANARY FAILED/CONSUMED/CLEANED; NEXT REAL AVATAR/SYNC PROOF NEEDS NEW PAID AUTHORIZATION; GENUINE ACOUSTIC, ROLE/PRIVACY, POSITIVE OWNER-DATA AND EVENT ACCEPTANCE STILL OPEN; NOT PRODUCT COMPLETE`
+Current continuation boundary: `CLAUDE 9da9f4b RELEASE ADMISSION PASSED; RAILWAY ARTIFACT UPLOAD BLOCKED BEFORE BUILD; PRODUCTION UNCHANGED AT 89a9235/85abc7a8 OFF; NO NEW SPOKEN ACCEPTANCE; NOT PRODUCT COMPLETE`
 
 Current runtime: source `89a9235e4150db66be82a1e8d80f668f5ac229c1`, deployment `85abc7a8-fae3-4cce-a490-ae6a5f39967b` SUCCESS; image `sha256:48cdd366f3447b4562fd31a4880db93ae9d17df0ec90e689afc073e5cf2dd472`. Independently verified exact runtime/module hash, OFF and unchanged consumed reservation; health200/ok and anonymous product/bootstrap401. This is the current healthy infrastructure rollback baseline, not full product acceptance. Previous healthy OFF source `ba1094842e7283632ba4e3e2851e555e09818c27` / deployment `f0e29ddc-af9c-4993-a8ad-249a6fd49ab7` / image `sha256:a8f88ab997e3525d02dadfdd4bd301f97d4d19e8025dec20d5dd02dbc26017df` retained as historical identity; provider now marks it REMOVED. Do NOT restore a spent canary's ON configuration. Use sanctioned exact OFF redeploy when terminal rather than assume ID rollback is available.
 
@@ -13,6 +13,16 @@ This is the one living requirement ledger required by the final Founder
 completion directive. A status of `LIVE UNVERIFIED` means the capability is
 present in the active source lineage but has not yet passed acceptance against
 the actual production route and deployment.
+
+## Claude candidate protected release — 2026-10-06 17:25 UTC
+
+- Exact reviewed candidate `9da9f4b7940c7685a0b6b7b5b7235d847c18034b`, remote branch `codex/ivoc-claude-takeover-20261006`, clean Claude worktree unchanged. No candidate code edits or unrelated default-branch merge. Foreman source branch remains the prior lineage plus this ledger-only receipt; do not confuse ledger HEAD with deployed source.
+- Independent admission supplied by Founder: PASS/no blocking fixes/no regressions. Fresh affected hook/library/source-boundary/camera/release-artifact tests 123/123 PASS; bounded diagnostic tests 3/3 PASS; root mandatory build 69/69 PASS. DR-350 clean remote clone package: 1345 tracked files, artifact SHA-256 `9e905c69a1fa748fd78a6deb454832efe2828dbbb9d0a44a5a5f2aa94734e322`. Required auth/runtime files included; private/untracked inputs excluded. Candidate NOT LIVE.
+- Four upload attempts failed before a build: `0d028ead-53fd-4dba-9ecf-423146230766`, `960db480-7adf-4744-a3cc-eab47ed1f863` (CLI request failure); `d0b3c270-6348-4bdb-9157-16f9f7620d68` (longer CLI timeout, upstream HTTP524); `5379295c-b42b-4128-b5c8-ccc159d54fe0` (same audited artifact, TLS HTTP/1 transport, broken pipe during upload). Current provider readback: all four FAILED, baseline SUCCESS. No build/code failure established. Next release action: resolve Railway upload transport/provider availability, then retry this exact candidate; do not broaden engineering or bypass packaging/privacy protections.
+- Runtime SSH readback still `85abc7a8-fae3-4cce-a490-ae6a5f39967b`, LemonSlice OFF; health200/ok, anonymous product/bootstrap401. Exact rollback remains source `89a9235e4150db66be82a1e8d80f668f5ac229c1`, deployment `85abc7a8-fae3-4cce-a490-ae6a5f39967b`, image `sha256:48cdd366f3447b4562fd31a4880db93ae9d17df0ec90e689afc073e5cf2dd472`. No restore required because baseline never stopped serving.
+- Authenticated Matrix visibly showed brinyu/Admin; candidate post-deploy Home/Practice/Mock/Prepare/Review/Film Room/Progress readback NOT RUN because candidate never deployed. No Start, provider session, paid create, junk attempt or recording. Bottom-Lining candidate: IMPLEMENTED, NOT LIVE; after successful release it must remain LIVE — NEEDS FOUNDER SPOKEN POV. Library projection: IMPLEMENTED, NOT LIVE. LemonSlice: OFF/incomplete.
+- Nonblocking follow-ups remain outside this release: existing WebM Duration/Cues deep seek P1; moment-mark pause/seek wording P2; additional hook refinement; Admin projection defense-in-depth; pre-existing FAC-02B regex/keeper single-runner issue. No fixes attempted.
+- Fresh durable keeper claims PRODUCT epoch5181 (`61c74499-0280-4986-aa5f-b2996974e64f`) and SHARED epoch5182 (`0c2f4f94-05a8-4175-a1ca-16e53db812b8`) continuously heartbeating through release/ledger work. Normal release and canonical readback required immediately after this ledger commit; do not infer release from this pending line.
 
 ## Foreman 9300 overnight reactivation — current dated evidence
 
