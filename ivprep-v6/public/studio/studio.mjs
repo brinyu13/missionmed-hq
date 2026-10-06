@@ -333,7 +333,7 @@ function renderIntegrationFacts(host, { liveMock = 'CHECKING OWNER', liveMockRea
     { label: 'Match Bridge', value: 'BOUNDED CLIPS READY', state: 'ready' },
     { label: 'Live Mock Studio', value: liveMock, state: liveMockReady ? 'ready' : 'limited' },
     ...buildOwnerIntegrationFacts(state.durable.bootstrapPayload?.capabilities?.contextSources),
-    { label: 'LemonSlice', value: 'DEFERRED', state: 'limited' },
+    { label: 'LemonSlice', value: 'REQUIRED · ACCEPTANCE PENDING', state: 'limited' },
   ]);
 }
 
