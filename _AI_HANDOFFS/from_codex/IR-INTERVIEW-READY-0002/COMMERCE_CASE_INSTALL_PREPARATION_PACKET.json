@@ -1,0 +1,153 @@
+{
+  "schema": "ir.commerce.case_install_preparation.v1",
+  "executable": false,
+  "sourceCommit": "c6ec008364ecd0ed23051703b96b6e8cf5fe49dd",
+  "futureSourceHeadRequired": true,
+  "packageDirectory": "/private/tmp/ir-prime-commerce-case-full-20261006",
+  "packageFiles": {
+    "interview-ready-candidate.tar.gz": "3621ddb7cbb26de0815ded5bc202289ad8935e52db45252e4daf5ace0ab85c43",
+    "release-manifest.json": "f9153849eeb068ddf04c341719d1e05cb4e9d9950b4caf269f897d284bce90fb",
+    "release-plan.json": "8d4c2271df5fe200c03d98f1b364597ea3b0f2fbf06e28066f588d1467fcc5de",
+    "package-receipt.json": "e83c48f7cc2162f567bbbe6a4340d1eef543fea6a033578f026038fe44ca6999"
+  },
+  "archiveBytes": 1034082,
+  "packageMetadataBytes": {
+    "release-manifest.json": 5752,
+    "release-plan.json": 1019
+  },
+  "runtimeBindings": {
+    "package": "3621ddb7cbb26de0815ded5bc202289ad8935e52db45252e4daf5ace0ab85c43",
+    "gateway": "819dd734ae7bf61ded755dd3bdda5e64e4945bac05d28bd4aee5cd68f7a9d7f5",
+    "html": "d4439bb8f40f32d0122817cc7f06756bf6d709d030e5e9206bdaab0ef8a0b253",
+    "matrix": "238d936904fce777174f22fb352e99fce118192ca9a469be392246c6a65366ad",
+    "gate": "da79845723120e8e451b96121c5fe5d9ccd5c2a3ece6c20b5279e252fa6319ff",
+    "buildManifest": "ac9184458c713949ac2a675a672d18677657f93574046ff814d780a7a95a9d1c",
+    "pointer": "8a9ebeeb9b208dd009369a5ca3aa86c06d7f2bebcd3b104b5ef421d0e107b8c6"
+  },
+  "oldRuntimeBindings": {
+    "package": "f49c31b00623f6e3ad0c6ccb5e1bbb558b62289d5c661ae22804ae641843db4b",
+    "gateway": "819dd734ae7bf61ded755dd3bdda5e64e4945bac05d28bd4aee5cd68f7a9d7f5",
+    "html": "bbd57f4e6fc4c399a04512b977a6d23241f0289dfb2a25ca4b2d9ce66e5d50db",
+    "matrix": "238d936904fce777174f22fb352e99fce118192ca9a469be392246c6a65366ad",
+    "gate": "da79845723120e8e451b96121c5fe5d9ccd5c2a3ece6c20b5279e252fa6319ff",
+    "buildManifest": "cb63e19462edd6fc292b7cc3fb7695bae489d4b059e968c14b642b04f007f93d",
+    "pointer": "8db0196c5728f8094f970e02f6643cd697139fa18686545b56b48ab8d09b32e8"
+  },
+  "qualifiedPreimages": {
+    "wp-content/mu-plugins/missionmed-interview-ready.php": "819dd734ae7bf61ded755dd3bdda5e64e4945bac05d28bd4aee5cd68f7a9d7f5",
+    "wp-content/mu-plugins/missionmed-interview-ready-runtime": {
+      "schema": "ir.runtime_native.layout_preimage.v1",
+      "sha256": "c801fff2e8671348e321c5089f2b03e8b8798f7b8728cd666321b5009bbcab0a"
+    },
+    "wp-content/mu-plugins/missionmed-interview-ready-runtime/current": "8db0196c5728f8094f970e02f6643cd697139fa18686545b56b48ab8d09b32e8"
+  },
+  "resumePreimages": {
+    "wp-content/mu-plugins/missionmed-interview-ready.php": "819dd734ae7bf61ded755dd3bdda5e64e4945bac05d28bd4aee5cd68f7a9d7f5",
+    "wp-content/mu-plugins/missionmed-interview-ready-runtime": {
+      "schema": "ir.runtime_native.layout_preimage.v1",
+      "sha256": "803e6fc9ee0183e897619b1958fb1dc95a343026a7db8319329d31313607b3f8"
+    },
+    "wp-content/mu-plugins/missionmed-interview-ready-runtime/current": "8db0196c5728f8094f970e02f6643cd697139fa18686545b56b48ab8d09b32e8"
+  },
+  "recoveryPreimages": {
+    "wp-content/mu-plugins/missionmed-interview-ready.php": "819dd734ae7bf61ded755dd3bdda5e64e4945bac05d28bd4aee5cd68f7a9d7f5",
+    "wp-content/mu-plugins/missionmed-interview-ready-runtime": {
+      "schema": "ir.runtime_native.layout_preimage.v1",
+      "sha256": "489deab9160704da92378d541372bfccdf13917730b21977341fab043cab2405"
+    },
+    "wp-content/mu-plugins/missionmed-interview-ready-runtime/current": "8a9ebeeb9b208dd009369a5ca3aa86c06d7f2bebcd3b104b5ef421d0e107b8c6"
+  },
+  "interruptedPreimages": {
+    "wp-content/mu-plugins/missionmed-interview-ready.php": "819dd734ae7bf61ded755dd3bdda5e64e4945bac05d28bd4aee5cd68f7a9d7f5",
+    "wp-content/mu-plugins/missionmed-interview-ready-runtime": {
+      "schema": "ir.runtime_native.layout_preimage.v1",
+      "sha256": "f17ff4e872984926f54a3f47723a41f15676900dc70bb98fa673279e4fdcc6ba"
+    },
+    "wp-content/mu-plugins/missionmed-interview-ready-runtime/current": "8a9ebeeb9b208dd009369a5ca3aa86c06d7f2bebcd3b104b5ef421d0e107b8c6"
+  },
+  "layoutDigests": {
+    "OLD": "c801fff2e8671348e321c5089f2b03e8b8798f7b8728cd666321b5009bbcab0a",
+    "STAGE": "c0665f4da45f6ca87a9692f4a934d23fc5cfeb9d4d9f795eba8be6a2e4dcfb31",
+    "ARCHIVE": "71afbfb7a29f546b301743fc6690b0b8f64a39fa500767a341e3db830913794e",
+    "PAYLOAD": "0320e40ed27a2924b279bc22cc4bb8bd6cc8a6a8d2efe00ce53b869391387d38",
+    "PUBLISHED": "803e6fc9ee0183e897619b1958fb1dc95a343026a7db8319329d31313607b3f8",
+    "PREPARED": "b794998362af94324f90879814e50d8e94e227a4ee3346f0eb6ac8e7a72bde97",
+    "EXCHANGED": "f17ff4e872984926f54a3f47723a41f15676900dc70bb98fa673279e4fdcc6ba",
+    "UPGRADED": "489deab9160704da92378d541372bfccdf13917730b21977341fab043cab2405",
+    "RESTORED": "c05e94d199b4751333693417dc3a2559eae9ac31dd85ae4af4a7a0dc8a704d51",
+    "RESTORE_TEMP": "b794998362af94324f90879814e50d8e94e227a4ee3346f0eb6ac8e7a72bde97"
+  },
+  "layoutRecordCounts": {
+    "OLD": 52,
+    "STAGE": 53,
+    "ARCHIVE": 54,
+    "PAYLOAD": 67,
+    "PUBLISHED": 67,
+    "PREPARED": 68,
+    "EXCHANGED": 68,
+    "UPGRADED": 68,
+    "RESTORED": 68,
+    "RESTORE_TEMP": 68
+  },
+  "fixedMaximumLayoutRecords": 68,
+  "fixedMaximumDirectoryChildren": 16,
+  "finiteReleaseNames": [
+    "158080e62a169bfb6c4b444bfcb47609bd49482ae7815e59ca13437314ba198e",
+    "456269800610e4370ab2930bc7ee7007eadc3f36c3ba2116136ef611c15e354c",
+    "bbd57f4e6fc4c399a04512b977a6d23241f0289dfb2a25ca4b2d9ce66e5d50db",
+    "d4439bb8f40f32d0122817cc7f06756bf6d709d030e5e9206bdaab0ef8a0b253"
+  ],
+  "baselineSha256": "8773c374318318e1bf90faf4f8cf9a7d8784fd7acd62733adf61a24bc98d4067",
+  "baselineReadbackReceiptSha256": "372343eb7fbc0e575096c8a838be37602885ee2d8a75ec6a5338688d011bb379",
+  "osHead": "fe17a4ca5572aecdc2d2761e8c2d993f7aebb8bf",
+  "phase": "install",
+  "nativeAccountAcceptance": false,
+  "builderProductionApproved": false,
+  "helperBuilder": "/root/commerce_release_pin_worker",
+  "manualOperationsSha256": "b2c5c4917e04c7992d221ef1bf99aa3b9dd7ccb46440a7153d6d3749b8f5fb2c",
+  "runnerSha256": "f87864dbabac985e4dcdd16751adf22f074f0648d68f1f162cf6e19cd9b4dd3f",
+  "planSha256": "f0c3fb6e65235b1efed10c739d5ba4fc22fc87f705eb248164d2bfc8b5fe4c15",
+  "testsSha256": "d8f8ab81b80569efc45ec6cd6dfd86a146ba07044f3f74740c9a87d167d6622e",
+  "requiredIndependentReports": [
+    "phaseDecision",
+    "recovery",
+    "runtimeReadback",
+    "wrapperApproval",
+    "readAdmission"
+  ],
+  "specTemplate": {
+    "sourceHead": null,
+    "sourceCommit": "c6ec008364ecd0ed23051703b96b6e8cf5fe49dd",
+    "packageDirectory": "/private/tmp/ir-prime-commerce-case-full-20261006",
+    "packageFiles": {
+      "interview-ready-candidate.tar.gz": "3621ddb7cbb26de0815ded5bc202289ad8935e52db45252e4daf5ace0ab85c43",
+      "release-manifest.json": "f9153849eeb068ddf04c341719d1e05cb4e9d9950b4caf269f897d284bce90fb",
+      "release-plan.json": "8d4c2271df5fe200c03d98f1b364597ea3b0f2fbf06e28066f588d1467fcc5de",
+      "package-receipt.json": "e83c48f7cc2162f567bbbe6a4340d1eef543fea6a033578f026038fe44ca6999"
+    },
+    "runtimeBindings": {
+      "package": "3621ddb7cbb26de0815ded5bc202289ad8935e52db45252e4daf5ace0ab85c43",
+      "gateway": "819dd734ae7bf61ded755dd3bdda5e64e4945bac05d28bd4aee5cd68f7a9d7f5",
+      "html": "d4439bb8f40f32d0122817cc7f06756bf6d709d030e5e9206bdaab0ef8a0b253",
+      "matrix": "238d936904fce777174f22fb352e99fce118192ca9a469be392246c6a65366ad",
+      "gate": "da79845723120e8e451b96121c5fe5d9ccd5c2a3ece6c20b5279e252fa6319ff",
+      "buildManifest": "ac9184458c713949ac2a675a672d18677657f93574046ff814d780a7a95a9d1c",
+      "pointer": "8a9ebeeb9b208dd009369a5ca3aa86c06d7f2bebcd3b104b5ef421d0e107b8c6"
+    },
+    "qualifiedPreimages": {
+      "wp-content/mu-plugins/missionmed-interview-ready.php": "819dd734ae7bf61ded755dd3bdda5e64e4945bac05d28bd4aee5cd68f7a9d7f5",
+      "wp-content/mu-plugins/missionmed-interview-ready-runtime": {
+        "schema": "ir.runtime_native.layout_preimage.v1",
+        "sha256": "c801fff2e8671348e321c5089f2b03e8b8798f7b8728cd666321b5009bbcab0a"
+      },
+      "wp-content/mu-plugins/missionmed-interview-ready-runtime/current": "8db0196c5728f8094f970e02f6643cd697139fa18686545b56b48ab8d09b32e8"
+    },
+    "qualifications": {
+      "phaseDecision": null,
+      "recovery": null,
+      "runtimeReadback": null
+    },
+    "controlDirectory": null
+  },
+  "instruction": "Separate reviewer resolves pending fields against newly filed custody, fresh INSTALL provider-clear and qualified runtime/recovery evidence; Root alone executes. Builder issues no controls."
+}
