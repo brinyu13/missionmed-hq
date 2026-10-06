@@ -71,6 +71,19 @@ export const HOOK_FIXTURES = Object.freeze([
     answer: "I'm calm under pressure and I'm a strong communicator. I'd say the clearest example was a code on my second week as a sub-intern.",
     expect: { decision: 'FOLLOW_HOOK', categoryIn: ['OL', 'NE'], spanIncludes: ['code'], followUpLemmas: ['code', 'happen', 'example'] } },
 
+  { id: 'HK-P16', label: 'Named venture and attained role left unexplained (natural speech)', question: Q['CORE-01'],
+    answer: "Uh, well, my name is Dana and I'm originally from Ohio, where I, uh, went to college. Then I went to Grenada for medical school and came back here. I went, became the captain, medical director of a private ambulance service in Albany. Then I started my own company called Northline Tutors, which is now called Northline Health.",
+    expect: { decision: 'FOLLOW_HOOK', categoryIn: ['NE'], spanIncludes: ['captain'], followUpLemmas: ['captain', 'involve'], deferredCount: 1 } },
+  { id: 'HK-P19', label: 'Attained role with apposition, never explained', question: Q['CORE-01'],
+    answer: 'I went, became the captain, medical director of a private ambulance service in Albany. After that I moved back to Ohio and applied.',
+    expect: { decision: 'FOLLOW_HOOK', categoryIn: ['NE'], spanIncludes: ['captain'], followUpLemmas: ['captain', 'involve'] } },
+  { id: 'HK-P17', label: 'Disfluent taught-me-a-lot with lessons unstated', question: Q['CORE-04'],
+    answer: "Well, since I graduated I've been doing a lot of things, um, both professionally and personally. Uh, you know, starting a new job, having kids, starting a company. Um, everything I've been doing. Um, has really taught me a lot, uh, every single experience. I- I learned different lessons.",
+    expect: { decision: 'FOLLOW_HOOK', categoryIn: ['LS'], spanIncludes: ['lesson'], followUpLemmas: ['learn'] } },
+  { id: 'HK-P18', label: 'Founded venture is the last sentence and the primary hook', question: Q['CORE-04'],
+    answer: 'Since graduating I did two observerships in Toledo and passed Step 2 in March. Then I started my own company called Northline Tutors.',
+    expect: { decision: 'FOLLOW_HOOK', categoryIn: ['NE'], spanIncludes: ['Northline'], followUpLemmas: ['northline'] } },
+
   // ---------- NEGATIVES ----------
   { id: 'HK-N01', label: 'Irrelevant tangent (soccer score)', question: Q['CORE-01'],
     answer: "I'm an IM applicant from Lagos, two years of research in Boston, father of two. Also, my son's soccer team won on Saturday, 3-1.",
@@ -105,6 +118,9 @@ export const HOOK_FIXTURES = Object.freeze([
   { id: 'HK-N11', label: 'Specific complete facts, nothing withheld', question: Q['CORE-04'],
     answer: 'Since graduating in 2023 I completed two observerships at Mount Hope, published one case report, and passed Step 2 in March.',
     expect: { decision: 'MOVE_ON', notFollow: true } },
+  { id: 'HK-N12', label: 'Founded venture fully explained in the same breath', question: Q['CORE-01'],
+    answer: 'I started my own company called Northline Tutors: we matched medical students with licensed tutors, grew to forty tutors in two years, and I sold it before I applied. That is the whole story.',
+    expect: { decision: 'MOVE_ON', notFollow: true, topResolved: true } },
 
   // ---------- EDGE CASES ----------
   { id: 'HK-E01', label: 'Same hook moved to the end scores higher', question: Q['CORE-09'],

@@ -100,10 +100,10 @@ function adminHarness({ bootstrap } = {}) {
   return { main, controller, calls, loadFixtures, options: { controller, loadFixtures } };
 }
 
-test('all 34 fictional donor fixtures and expectation fields remain in the QA pack', () => {
-  assert.equal(HOOK_FIXTURES.length, 34); assert.equal(new Set(HOOK_FIXTURES.map(f => f.id)).size, 34);
-  assert.equal(HOOK_FIXTURES.filter(f => f.id.startsWith('HK-P')).length, 15);
-  assert.equal(HOOK_FIXTURES.filter(f => f.id.startsWith('HK-N')).length, 11);
+test('all 39 fictional donor fixtures and expectation fields remain in the QA pack', () => {
+  assert.equal(HOOK_FIXTURES.length, 39); assert.equal(new Set(HOOK_FIXTURES.map(f => f.id)).size, 39);
+  assert.equal(HOOK_FIXTURES.filter(f => f.id.startsWith('HK-P')).length, 19);
+  assert.equal(HOOK_FIXTURES.filter(f => f.id.startsWith('HK-N')).length, 12);
   assert.equal(HOOK_FIXTURES.filter(f => f.id.startsWith('HK-E')).length, 8);
 });
 
@@ -171,7 +171,7 @@ test('stale actor or view while fictional module loads cannot render a late Admi
   }
 });
 
-test('actual lab composition selects all 34 fixtures and renders detector report/score factors', async () => {
+test('actual lab composition selects all 39 fixtures and renders detector report/score factors', async () => {
   const h = adminHarness(); const dispose = await mountBaitLab(h.main, h.options);
   for (const [n, fixture] of HOOK_FIXTURES.entries()) {
     h.main.list.listeners.get('click')({ target: h.main.buttons[n] });

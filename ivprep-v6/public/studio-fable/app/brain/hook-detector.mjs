@@ -47,7 +47,7 @@ const STOP = new Set(('a an the and or but so of to in on at for with by from as
 
 const NARRATIVE_IRREGULAR = new Set('went said told saw took gave made came got found caught brought began ran wrote spoke met left led became built taught thought felt knew kept lost won sat stood held heard read put set cut sent showed did ended'.split(' '));
 
-const COMPETENCY = ['teach', 'learn', 'patient', 'team', 'communicat', 'lead', 'mistake', 'error', 'feedback', 'safety', 'trust', 'priorit', 'conflict', 'decision', 'escalat', 'handoff', 'handover', 'discharge', 'diagnos', 'treat', 'care', 'research', 'result', 'triag', 'code', 'resident', 'attending', 'nurse', 'pressure', 'conversation', 'hardest', 'taught', 'reason', 'project', 'fellow', 'rotation', 'clinic', 'hospital', 'ward', 'icu', 'ed', 'floor', 'ventilator', 'textbook', 'tour', 'program', 'faculty', 'curriculum', 'delirium', 'case', 'qi', 'quality', 'protocol'];
+const COMPETENCY = ['company', 'business', 'startup', 'found', 'director', 'captain', 'organiz', 'nonprofit', 'venture', 'manag', 'teach', 'learn', 'patient', 'team', 'communicat', 'lead', 'mistake', 'error', 'feedback', 'safety', 'trust', 'priorit', 'conflict', 'decision', 'escalat', 'handoff', 'handover', 'discharge', 'diagnos', 'treat', 'care', 'research', 'result', 'triag', 'code', 'resident', 'attending', 'nurse', 'pressure', 'conversation', 'hardest', 'taught', 'reason', 'project', 'fellow', 'rotation', 'clinic', 'hospital', 'ward', 'icu', 'ed', 'floor', 'ventilator', 'textbook', 'tour', 'program', 'faculty', 'curriculum', 'delirium', 'case', 'qi', 'quality', 'protocol'];
 
 const TAG_LEXICON = Object.freeze({
   CORE: ['background', 'train', 'research', 'hospital', 'teach', 'learn', 'family', 'work', 'outside', 'year', 'father', 'mother'],
@@ -94,7 +94,7 @@ const PROPER_NOUN = /\b(?<![.!?]\s)(?<!^)[A-Z][a-z]{2,}\b/;
 
 const GENERIC_NOUNS = new Set(['things', 'thing', 'stuff', 'experiences', 'experience', 'lot', 'much', 'something', 'anything', 'everything', 'issues', 'issue']);
 
-const NARRATIVE_EXCLUDE = new Set(['surprised', 'stuck', 'stayed', 'changed', 'taught', 'learned', 'learnt', 'realized', 'realised', 'happened', 'mentioned', 'won', 'cut', 'reduced', 'improved', 'increased']);
+const NARRATIVE_EXCLUDE = new Set(['called', 'named', 'known', 'surprised', 'stuck', 'stayed', 'changed', 'taught', 'learned', 'learnt', 'realized', 'realised', 'happened', 'mentioned', 'won', 'cut', 'reduced', 'improved', 'increased']);
 
 const SPECIALTIES = ['internal medicine', 'family medicine', 'emergency medicine', 'psychiatry', 'surgery', 'general surgery', 'pediatrics', 'neurology', 'anesthesiology', 'radiology', 'pathology', 'obstetrics', 'ob/gyn', 'dermatology', 'orthopedics', 'ophthalmology', 'urology', 'cardiology', 'oncology', 'physical medicine', 'preventive medicine', 'neurosurgery'];
 
@@ -187,6 +187,9 @@ const NE_PATTERNS = [
   /\bmy time (at|in) [A-Z][\w-]+[^.!?]*/,
   /\bwhen i was (chief|lead|coordinator|president|captain|the only)\b[^.!?]*/i,
   /\b(something|what) (dr\.? [a-z]+|a resident|an attending|my attending|a nurse|a patient|someone|one of the residents|the program director|a faculty member) (said|told me|mentioned|asked)\b[^.!?]*/i,
+  // Structural narrative events: a venture the candidate created or a role they attained, named and then left unexplained.
+  /\bi (?:(?:also|then|eventually|later|recently|actually) )?(started|founded|co-founded|launched|built|created|opened|ran) (?:up )?(?:my own |our own |a |an |the )?(?:[\w-]+ ){0,2}?(company|business|startup|start-up|nonprofit|non-profit|clinic|practice|organization|organisation|foundation|charity|lab|podcast|app|platform|initiative|venture)\b(?:[^.!?,:;]|,(?!\s*(?:which|that|where|and|but|so)\b))*/i,
+  /\b(?:i )?(became|was promoted to|served as|was elected|was appointed|was named|got promoted to) (?:the |a |an )?(?:[\w-]+ )?(captain|chief|director|president|founder|co-founder|lead|leader|head|coordinator|manager|chair|chairperson|supervisor|officer|ceo|cto|coo|cmo|consultant|editor)\b(?:[^.!?,:;]|,(?!\s*(?:which|that|where|and|but|so)\b))*/i,
 ];
 
 const UC_PATTERNS = [
@@ -207,6 +210,9 @@ const LS_PATTERNS = [
   /\b(that|it|this|which|the (second attempt|experience|whole thing|process|case|year)) (taught|showed) me (something|a lot|so much|more than)\b[^.!?]*/i,
   /\blearned a lot about (myself|how i|what i)\b[^.!?]*/i,
   /\b[^.!?]*\b(changed|shaped) how i (think|practice|see|approach|work|lead)\b[^.!?]*/i,
+  // Natural speech: subject may be a filler-separated fragment ("Um, has really taught me a lot, uh, every single experience").
+  /\b(?:has|have|had|that|it|this|which)?,? ?(?:really |truly |honestly |definitely |just |genuinely )?(taught|showed) me (?:a lot|so much|something|many things|different things|more than)\b[^.!?]*/i,
+  /\bi (learned|learnt) (?:a lot of |so many |many |several |some |different |various |important |valuable )?(lessons|things)\b[^.!?]*/i,
 ];
 
 const QR_PATTERNS = [
@@ -302,6 +308,9 @@ function danglingScore(hookSentence, span, sentences) {
   const idx = hookSentence.text.indexOf(span);
   const after = idx >= 0 ? hookSentence.text.slice(idx + span.length) : '';
   if (/^[\s]*[:—–-]\s*/.test(after) && narrativeVerbs(after).length > 0) return 0.0;
+  // A trailing relative/explanatory clause that narrates or defines the span resolves it in the same breath.
+  const clause = after.match(/^\s*,?\s*(?:which|that|where|and (?:that|it|this|we|i))\b([\s\S]*)$/i);
+  if (clause && (narrativeVerbs(clause[1]).length > 0 || /\b(meant|means|involved|involves|consisted|included|includes|required|taught|is about|was about)\b/i.test(clause[1]))) return 0.0;
   const keys = contentKeywords(span);
   const later = sentences.filter((s) => s.index > hookSentence.index);
   let best = 1.0;
@@ -355,7 +364,23 @@ const SPECIFIC_PHRASINGS = [
   [/(clearest|best|biggest|strongest|most recent) example/i, { neutral: 'Walk me through that {noun}.', direct: 'Walk me through it.', conversational: 'Walk me through that {noun}.' }],
   [/(changed|shaped) how (i|you) (think|practice|see|approach|work|lead)/i, { neutral: 'What happened that night, and what changed?', direct: 'What happened?', conversational: 'What happened that changed it?' }],
   [/a situation (in|on|at|during)/i, { neutral: 'What happened {where}?', direct: 'What happened {where}?', conversational: 'What happened {where}?' }],
+  [/\b(started|founded|co-founded|launched|built|created|opened|ran) (?:up )?(my|your|our|a|an|the)\b/i, { neutral: 'Tell me about {venture}. What does it do, and what was your part in it?', direct: 'What is {venture}, exactly, and what did you do there?', conversational: '{venture}. Tell me more about that.' }],
+  [/\b(became|was promoted to|served as|was elected|was appointed|was named|got promoted to)\b/i, { neutral: 'You said you became {role}. What did that involve day to day?', direct: 'What did being {role} actually involve?', conversational: 'What was being {role} like?' }],
 ];
+const VENTURE_RE = /\b(company|business|startup|start-up|nonprofit|non-profit|clinic|practice|organization|organisation|foundation|charity|lab|podcast|app|platform|initiative|venture)\b(?: (?:called|named))? ((?:[A-Z][\w&'-]*)(?: (?:[A-Z][\w&'-]*|of|for|and|&))*)?/;
+const ROLE_RE = /\b(?:became|was promoted to|served as|was elected|was appointed|was named|got promoted to) ((?:the |a |an )?(?:[\w-]+ )?(?:captain|chief|director|president|founder|co-founder|lead|leader|head|coordinator|manager|chair|chairperson|supervisor|officer|ceo|cto|coo|cmo|consultant|editor)(?: (?:resident|director|officer))?)/i;
+function ventureName(span) {
+  const m = String(span).match(VENTURE_RE);
+  if (!m) return 'that';
+  if (m[2]) return m[2].trim();
+  return `the ${m[1].toLowerCase()}`;
+}
+function roleName(span) {
+  const m = String(span).match(ROLE_RE);
+  if (!m) return 'that';
+  const role = m[1].trim().replace(/^(the|a|an) /i, '');
+  return /^(chief|captain|director|president|founder|co-founder|lead|leader|head|coordinator|manager|chair|chairperson|supervisor|officer|consultant|editor)\b/i.test(role) ? `the ${role}` : role;
+}
 const NOUN_RE = /\b(case|patient|moment|night|conversation|experience|situation|incident|day|encounter|episode|story|shift|code|project|rotation|time)\b/i;
 
 export const FOLLOW_UP_TEMPLATES = Object.freeze({
@@ -388,7 +413,7 @@ export function phraseFollowUp(hook, { style = 'neutral', pressure = false } = {
   const noun = (spanText.match(NOUN_RE) || [])[1]?.toLowerCase() || 'moment';
   const person = secondPerson((spanText.match(/(dr\.? \w+|a resident|an attending|my attending|a nurse|a patient|someone)/i) || [])[1] || 'they').replace(/^a (resident|nurse|patient)$/i, 'the $1').replace(/^an attending$/i, 'the attending');
   const where = (spanText.match(/\b((in|on|at|during) (the )?[a-z]+)/i) || [])[1] || 'there';
-  const vars = { x, noun, person, where, superlative: hook.meta?.superlative || 'hardest', before: hook.meta?.before || 'there', after: hook.meta?.after || 'here', a: hook.meta?.a || '', b: hook.meta?.b || '' };
+  const vars = { x, noun, person, where, venture: ventureName(spanText), role: roleName(spanText), superlative: hook.meta?.superlative || 'hardest', before: hook.meta?.before || 'there', after: hook.meta?.after || 'here', a: hook.meta?.a || '', b: hook.meta?.b || '' };
   let out = fill(template, vars).replace(/\s+/g, ' ').trim();
   out = out.charAt(0).toUpperCase() + out.slice(1);
   return out;
@@ -476,6 +501,7 @@ export function detectHooks({ question = {}, answer = {}, priorTurns = [], conte
         if (code === 'NE' && sentence.text.toLowerCase().indexOf(span.toLowerCase()) !== sentence.text.toLowerCase().lastIndexOf(span.toLowerCase())) continue;
         const key = `${code}:${span.toLowerCase()}`;
         if (seenSpans.has(key)) continue;
+        if (hooks.some((h) => h.category === code && h.span.sentenceIndex === sentence.index && h.span.text.toLowerCase().includes(span.toLowerCase()))) continue;
         seenSpans.add(key);
         const spanEndsSentence = sentence.text.trim().replace(/[.!?]+$/, '').endsWith(span.replace(/[.!?]+$/, ''));
         const guarded = GUARDED.test(span) || GUARDED.test(sentence.text);
