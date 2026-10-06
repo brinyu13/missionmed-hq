@@ -121,6 +121,72 @@ logo as images, the DROP PHOTO prompts for the two empty frames and the ribbon t
 inspection errors. Guardian's readability note "Attached images must load before the final export
 can be verified" remains the existing pre-export behaviour: it is a review note, not a blocker.
 
+## Founder acceptance round (same day) — decisions applied and release-candidate checks
+
+Founder decisions received after the first two checkpoints:
+
+1. **Year domain — approved as implemented.** Graduate → graduation year; the domain extends
+   back only far enough to keep an included bounded experience that would otherwise vanish;
+   long background spans clamp at the left edge with true dates. Afthab: 2025–2026. Now the
+   Founder rule (`deriveFounderYearDomain`). No change needed.
+2. **Specialty abbreviations — approved in principle.** Guardian's concise labels (ID, H/O, HM,
+   Research, Cards Res.) stay presentation-only, applied on request, undoable; source titles
+   complete. No change needed.
+3. **Final PDF never looks unfinished.** `exportSlotOptions(kind)` in `export-adapter.js`: the
+   editable PPTX keeps DROP PHOTO / PROFILE PHOTO / PROGRAM LOGO as editable placeholders;
+   the final PDF and PNG omit every unfilled slot entirely (no prompt wording, no empty frame).
+   With no interview destination the final page carries no empty Interview Day block (live V1
+   behaviour); with a destination it prints the program, the date and the logo. The Export
+   screen's live preview mirrors the final page.
+4. **Interview Day block is destination-specific.** Each specialty variant owns its
+   `interviewTarget` (program, date, logo). `syncInterviewLogoWell` in
+   `specialty-variants.js` keeps the ribbon's logo well (the persisted ribbon-placed media
+   item) in step with the active destination whenever a variant is created, switched, removed
+   or its target saved; the projection additionally refuses to paint another destination's
+   logo. Program A → Program B leaves no stale program, date or logo on canvas, preview, deck
+   or PDF (test in `d1-051`). With a logo present the program name keeps a smaller line under
+   the mark so program, date and logo are all visible.
+5. **Profile photo ownership.** A frame can only be filled from the document's own media
+   library (`fillCanonicalMediaFrame` looks the asset up in `document.advanced.media`), the
+   frame binds the asset's blob key, and the export resolver re-verifies id, document and blob
+   key against the current document (`createPersistedExportMediaResolver407F`, existing
+   `d1-046` coverage plus a new `d1-051` test). Object URLs are keyed by per-document asset ids;
+   nothing resolves across documents.
+6. **Entitlement QA account — adjudicated, not guessed.** Production WordPress (read-only,
+   Founder admin session): `iiq1203_discovery_qa_20261003@example.invalid` ("InterviewIQ
+   Discovery QA") is one of seventeen `@example.invalid` synthetic accounts created by other
+   MissionMed product QA runs (InterviewIQ IIQ-1203/1204, MR-0904/0912, Timeline 022 canaries).
+   It is Timeline-authorized only because it is enrolled in the IV Prep Complete course, which
+   the entitlement predicate reads live. The Timeline roster is 20 = 18 Founder-authorized/360 +
+   2 IV Prep Complete enrolled (one real student, one QA account). No repo authority documents
+   this account as Timeline QA infrastructure, and un-enrolling it from a course used by another
+   product's QA is outside Timeline authority, so the entitlement predicate is untouched (no
+   broadening, no narrowing) and the admin roster now distinguishes it: rows with the reserved
+   `example.invalid` domain (RFC 2606, impossible for a real student) carry "Authorized QA
+   account · not a student", and the roster shows "19 real authorized students · 1 authorized
+   QA account" (`isTimelineQaAccount`, `timelineAdminRosterCounts` in
+   `admin-workspace-022.js`). Removing its Timeline access by course un-enrolment remains a
+   Founder/InterviewIQ decision.
+7. **Student B's contaminated document — needs a Founder decision.** Read-only facts
+   (production, Founder admin session): student B is a real, Founder-authorized 360 student
+   (WordPress user 141); the contaminated Timeline is their current document (Draft, 9 events,
+   CV "Imported", Guardian 3 issues, last active 2026-10-06 10:51); it opens for them normally;
+   the in-app History shows "No saved versions yet", so no uncontaminated named version exists
+   client-side (server-side revision/checkpoint history was not inspected — it needs API
+   custody tooling). Content: a typed placeholder profile ("Sarah Chen", Johns Hopkins, MD 2027,
+   OB/GYN at MGH, "Pregnant", Step scores) plus the applicant's imported CV entries. Nothing in
+   it carries student B's own name or facts, so it reads as a test artifact created through the
+   admin "Open Timeline" flow, not legitimate student work; but the student can see it. Nothing
+   was altered. Exact bounded cleanup for Founder approval: reset/archive document
+   `timeline_6490fc8e-…` for user 141 to an empty Timeline through the guarded admin path,
+   keeping the current record as audit evidence, after the Founder confirms student B has not
+   started real work (the admin view was opened once during inspection; its Advanced Studio tab
+   was shown, which may have recorded a view-mode flag — no content was edited).
+
+Verified again on the real applicant document in the local build after these changes:
+final PDF (Letter) and editable PPTX generated to "Download ready"; artifacts inspected (see
+private acceptance notes); Keynote open/save/reopen as recorded there.
+
 ## Release sequence (not executed)
 
 Candidate commit on this branch; `build:release` requires a clean checkout of that commit

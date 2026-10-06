@@ -171,7 +171,43 @@ export function createSpecialtyVariant(document,{
   },state.variants.length);
   state.variants.push(variant);
   state.activeVariantId=variant.id;
+  syncInterviewLogoWell(document);
   return{ok:true,variant:clone(variant),state:clone(state)};
+}
+
+/* The ribbon's logo well belongs to the active interview destination. Each specialty
+   variant carries its own interviewTarget.logoMediaId; the persisted well (a
+   "ribbon"-placed media item) is kept in step with it whenever the active variant
+   or its target changes, so switching Program A → Program B never leaves A's logo
+   on B's board, preview or export. `synthesize:false` only removes other
+   destinations' logos (used by the non-mutating projection). */
+export function syncInterviewLogoWell(document,{synthesize=true}={}){
+  if(!document||typeof document!=="object")return false;
+  const state=ensureSpecialtyVariants(document);
+  const active=state.variants.find(({id})=>id===state.activeVariantId)||state.variants[0];
+  const logoId=clean(active?.interviewTarget?.logoMediaId);
+  const variantLogos=new Set(state.variants.map((variant)=>clean(variant?.interviewTarget?.logoMediaId)).filter(Boolean));
+  const isWell=(item)=>clean(item?.placement).toLowerCase()==="ribbon";
+  const items=Array.isArray(document.mediaItems)?document.mediaItems:[];
+  const kept=items.filter((item)=>{
+    if(!isWell(item))return true;
+    const mediaId=clean(item?.mediaId);
+    // Another destination's logo never stays in the well. A well filled with an
+    // asset no destination claims is kept by the projection and replaced only by
+    // the persisted sync when this destination's own logo is saved.
+    if(variantLogos.has(mediaId)&&mediaId!==logoId)return false;
+    return synthesize&&logoId?mediaId===logoId:true;
+  });
+  let changed=kept.length!==items.length;
+  if(synthesize&&logoId&&!kept.some((item)=>isWell(item)&&clean(item?.mediaId)===logoId)){
+    const asset=(document.advanced?.media||[]).find((item)=>clean(item?.id)===logoId);
+    if(asset){
+      kept.push({id:`frame-logo-${active.id}-${logoId}`,type:"logo",placement:"ribbon",mediaId:logoId,source:clone(asset.source||{}),naturalAspect:Number(asset.naturalAspect)||null,altText:clean(asset.source?.name||asset.name||""),crop:{x:50,y:50,zoom:1},visibilityState:"INTERVIEWER_SAFE"});
+      changed=true;
+    }
+  }
+  if(changed)document.mediaItems=kept;
+  return changed;
 }
 
 export function switchSpecialtyVariant(document,variantId){
@@ -181,6 +217,7 @@ export function switchSpecialtyVariant(document,variantId){
     return{ok:false,code:"SPECIALTY_VARIANT_NOT_FOUND"};
   }
   state.activeVariantId=id;
+  syncInterviewLogoWell(document);
   return{ok:true,variant:clone(activeSpecialtyVariant(document))};
 }
 
@@ -210,6 +247,7 @@ export function removeSpecialtyVariant(document,variantId,{confirmed=false}={}){
   if(state.activeVariantId===removed.id){
     state.activeVariantId=state.variants[Math.min(index,state.variants.length-1)].id;
   }
+  syncInterviewLogoWell(document);
   return{ok:true,removed:clone(removed),active:clone(activeSpecialtyVariant(document))};
 }
 
@@ -252,6 +290,7 @@ export function setVariantInterviewTarget(document,variantId,target={}){
     logoWidth:Number(target.logoWidth)||180,
     logoHeight:Number(target.logoHeight)||96
   };
+  if(state.activeVariantId===variant.id)syncInterviewLogoWell(document);
   return{ok:true,interviewTarget:clone(variant.interviewTarget)};
 }
 
@@ -300,7 +339,16 @@ export function applyActiveSpecialtyVariant(document){
   // has filled that fixed frame (from the Timeline, the Builder preview or the
   // interview editor), the interview target's free placement would paint the same
   // logo a second time above the well, so it yields to the frame.
+  syncInterviewLogoWell(projected,{synthesize:false});
   const logoWellFilled=(projected.mediaItems||[]).some((item)=>String(item?.placement||"").toLowerCase()==="ribbon");
+  if(active.interviewTarget.logoMediaId&&logoWellFilled){
+    projected.advanced={
+      ...(projected.advanced||{}),
+      media:(projected.advanced?.media||[]).map((item)=>
+        item.id===active.interviewTarget.logoMediaId?{...item,role:"interview-program-logo"}:item
+      )
+    };
+  }
   if(active.interviewTarget.logoMediaId&&!logoWellFilled){
     projected.advanced={
       ...(projected.advanced||{}),

@@ -37,12 +37,25 @@ export function normalizeTimelineAdminRoster(payload){
       throw new Error('The current student roster could not be verified. Refresh to try again.');
     }
     ids.add(row.wpUserId);
-    return Object.freeze({...row,displayName:text(row.displayName)||`Student ${row.wpUserId}`,email:text(row.email),program:text(row.program),sessions:row.sessions.filter(value=>typeof value==='string').map(text).filter(Boolean)});
+    return Object.freeze({...row,displayName:text(row.displayName)||`Student ${row.wpUserId}`,email:text(row.email),program:text(row.program),sessions:row.sessions.filter(value=>typeof value==='string').map(text).filter(Boolean),qaAccount:isTimelineQaAccount(row.email)});
   });
   if(students.length!==Math.min(payload.pageSize,Math.max(0,payload.total-(payload.page-1)*payload.pageSize))||payload.total>metrics.eligible||payload.page>Math.max(1,Math.ceil(payload.total/payload.pageSize))){
     throw new Error('The current student roster page could not be verified. Refresh to try again.');
   }
   return Object.freeze({source:payload.source,verifiedAt:payload.verifiedAt,metrics:Object.freeze(metrics),students:Object.freeze(students),sessions:Object.freeze(payload.sessions.filter(value=>typeof value==='string').map(text).filter(Boolean)),total:payload.total,page:payload.page,pageSize:payload.pageSize});
+}
+
+/* Authorized QA accounts (InterviewIQ / Timeline synthetic canaries) hold the reserved
+   `example.invalid` domain (RFC 2606), which no real student can own. They keep their
+   current entitlement, but the roster names them so the Founder never reads them as
+   students. The server count stays the authoritative entitlement total. */
+export function isTimelineQaAccount(email){
+  return /@example\.invalid$/i.test(text(email));
+}
+export function timelineAdminRosterCounts(roster){
+  const students=roster?.students||[];
+  const qa=students.filter(row=>row.qaAccount===true).length;
+  return Object.freeze({qaAccounts:qa,realStudents:students.length-qa,pageOnly:Number(roster?.total)!==students.length});
 }
 
 export function timelineAdminStudentPresentation(row){
@@ -65,7 +78,7 @@ function metricGroup(title,ids,model){return `<section class="tl-admin022-action
 function studentMarkup(row,model){
   const item=timelineAdminStudentPresentation(row),opening=model.opening===row.wpUserId;
   return `<li><article class="tl-admin022-student" aria-labelledby="tl-admin022-student-${row.wpUserId}">
-    <div class="tl-admin022-person"><span class="tl-admin022-avatar" aria-hidden="true">${escapeHtml(item.initials)}</span><div><h3 id="tl-admin022-student-${row.wpUserId}">${escapeHtml(item.name)}</h3>${row.email?`<p class="tl-admin022-email">${escapeHtml(row.email)}</p>`:''}<p class="tl-admin022-program">${escapeHtml(row.program||'Program not listed')} · <span>Timeline-authorized</span></p><p class="tl-admin022-session">${escapeHtml(row.sessions.join(' · ')||'No session listed')}</p></div></div>
+    <div class="tl-admin022-person"><span class="tl-admin022-avatar" aria-hidden="true">${escapeHtml(item.initials)}</span><div><h3 id="tl-admin022-student-${row.wpUserId}">${escapeHtml(item.name)}</h3>${row.email?`<p class="tl-admin022-email">${escapeHtml(row.email)}</p>`:''}<p class="tl-admin022-program">${escapeHtml(row.program||'Program not listed')} · <span>Timeline-authorized</span>${row.qaAccount?' · <strong class="tl-admin022-qa">Authorized QA account · not a student</strong>':''}</p><p class="tl-admin022-session">${escapeHtml(row.sessions.join(' · ')||'No session listed')}</p></div></div>
     <dl class="tl-admin022-facts">
       <div><dt>Timeline</dt><dd><span class="tl-admin022-state" data-state="${escapeHtml(row.status)}">${escapeHtml(item.status)}</span></dd></div>
       <div><dt>CV / source</dt><dd>${escapeHtml(item.source)}</dd></div>
@@ -96,6 +109,7 @@ export function renderTimelineAdminWorkspace(model){
       </form>
       ${model.error?`<div class="tl-admin022-error" role="alert"><h3>The roster needs attention</h3><p>${escapeHtml(model.error)}</p><button class="tl-admin022-button" type="button" data-admin022-refresh>Try again</button></div>`:''}
       ${loading&&!roster?'<div class="tl-admin022-loading" role="status"><span aria-hidden="true"></span><strong>Checking Timeline-authorized students and Timeline progress…</strong><p>We will show the roster when its current status is confirmed.</p></div>':''}
+      ${roster&&roster.students.length&&timelineAdminRosterCounts(roster).qaAccounts?`<p class="tl-admin022-qaNote" role="note">${timelineAdminRosterCounts(roster).pageOnly?'On this page: ':''}${timelineAdminRosterCounts(roster).realStudents} real authorized student${timelineAdminRosterCounts(roster).realStudents===1?'':'s'} · ${timelineAdminRosterCounts(roster).qaAccounts} authorized QA account${timelineAdminRosterCounts(roster).qaAccounts===1?'':'s'} (reserved example.invalid domain, not a student)</p>`:''}
       ${roster&&roster.students.length?`<ol class="tl-admin022-students" aria-label="Timeline-authorized students">${roster.students.map(row=>studentMarkup(row,model)).join('')}</ol>`:roster&&!loading?`<div class="tl-admin022-empty"><h3>${hasFilter?'No students match this view':'No Timeline-authorized students are listed'}</h3><p>${hasFilter?'Try another name, status, or session.':'The current authorization source returned no Timeline-authorized students.'}</p>${hasFilter?'<button class="tl-admin022-button" type="button" data-admin022-clear>Show all Timeline-authorized students</button>':''}</div>`:''}
       ${roster&&roster.total>0?`<nav class="tl-admin022-pagination" aria-label="Student roster pages"><button class="tl-admin022-button" type="button" data-admin022-page="${page-1}" ${page<=1||loading?'disabled':''}>← Previous</button><span>Page ${page} of ${pages}</span><button class="tl-admin022-button" type="button" data-admin022-page="${page+1}" ${page>=pages||loading?'disabled':''}>Next →</button></nav>`:''}
     </section>

@@ -1,3 +1,4 @@
+import {serializeFounderPresentation} from "../web/js/presentation/founder-presentation-serializer.js";
 import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
 import test from "node:test";
@@ -159,19 +160,18 @@ test("M9 stores interview details and program-logo reference only on the active 
   assert.equal(projected.metadata.interview.prog,"Mission University Residency");
   assert.equal(projected.metadata.interview.date,"2026-10-14");
   assert.equal(projected.metadata.interview.logoMediaId,"logo-one");
-  assert.equal(projected.advanced.media[0].placed,true);
+  // Founder decision 2026-10-06: the destination's logo lives in the ribbon's logo
+  // well (a ribbon-placed media item) rather than as a free-placed element.
+  assert.deepEqual((document.mediaItems||[]).filter((item)=>item.placement==="ribbon").map((item)=>item.mediaId),["logo-one"]);
+  assert.equal(projected.advanced.media[0].placed,false);
   assert.equal(projected.advanced.media[0].role,"interview-program-logo");
-  assert.equal(projected.advanced.media[0].guidedVisible,true);
   assert.equal(document.advanced.media[0].placed,false);
-  const renderer=createAdvancedBoardRenderer({
-    resolveObjectUrl:(id)=>id==="logo-one"
-      ?"data:image/webp;base64,UklGRg=="
-      :""
-  });
-  const rendered=renderer(projected,{currentMonth:"2026-07"});
-  assert.match(rendered.svg,/data-guided-media-layer="true"/);
-  assert.match(rendered.svg,/data-advanced-media="logo-one"/);
-  assert.match(rendered.svg,/preserveAspectRatio="xMidYMid meet"/);
+  const well=projected.mediaItems.find((item)=>item.placement==="ribbon");
+  const rendered=serializeFounderPresentation(projected,{currentMonth:"2026-07",scope:"INTERVIEWER_SAFE",mediaById:new Map([[well.id,"data:image/webp;base64,UklGRg=="]])});
+  assert.match(rendered.svg,/data-frame-slot="logo" data-media-state="filled"/);
+  assert.match(rendered.svg,/data-program-logo="true"[^>]*preserveAspectRatio="xMidYMid meet"/);
+  assert.doesNotMatch(rendered.svg,/data-advanced-media="logo-one"/,"the logo is not painted a second time as a free element");
+  assert.match(rendered.svg,/MISSION UNIVERSITY RESIDENCY/,"the program name stays visible under the logo");
 });
 
 test("M12 interview edits preserve opaque forward-compatible target fields",()=>{

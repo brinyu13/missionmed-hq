@@ -571,10 +571,21 @@ function flagMarkup(flag,index,scale,scene,{interview=false}={}){
   const nativeLabelX=flipLabel?poleX-8:poleX+60;
   const labelX=flipLabel?Math.min(nativeLabelX,poleX+26-chipWidth/2-5-18*.12):Math.max(nativeLabelX,poleX+26+chipWidth/2+5+18*.12);
   const available=Math.max(1,flipLabel?placed.x-8-16:WIDTH-placed.x-64-16);
-  const wrapWidth=Math.min(labelLayout?.width||420,Math.max(1,available-Math.abs(labelX-nativeLabelX)));
+  let wrapWidth=Math.min(labelLayout?.width||420,Math.max(1,available-Math.abs(labelX-nativeLabelX)));
+  /* A scheduled interview plants its own pennant near the right edge. A milestone label
+     running toward it used to be painted underneath that pennant (clipped mid-word), so a
+     label that would reach the interview pole wraps before it instead. */
+  if(!interview&&!flipLabel&&scene.interviewMarker&&!placed.object?.presentation?.flagLabelLayout?.width){
+    const interviewX=milestoneGeometry(scene.interviewMarker,0,scale,scene,{interview:true}).x;
+    if(interviewX>labelX&&interviewX-labelX-16<wrapWidth)wrapWidth=Math.max(140,interviewX-labelX-16);
+  }
   const adjacentLabel=String(title||'')+(!interview&&flagInstitution?' — '+String(flagInstitution):'');
   const labelSize=editableFounderLabelSize(flag.display,adjacentLabel,wrapWidth,Math.max(18,placed.defaultPoleBottom-y),TYPE.arrowLabel,measureText);
-  const lines=wrapPresentationText(adjacentLabel,{width:wrapWidth,size:labelSize,family:TYPE.arrowLabel,measureText});
+  /* The interview pennant's caption is redundant with the ribbon block's
+     "Interview · <date>" directly beneath it; when the caption cannot fit beside the
+     pennant at the page edge it is omitted rather than broken mid-word. */
+  const omitCaption=interview&&measureText(adjacentLabel,labelSize,TYPE.arrowLabel)>wrapWidth;
+  const lines=omitCaption?[]:wrapPresentationText(adjacentLabel,{width:wrapWidth,size:labelSize,family:TYPE.arrowLabel,measureText});
   const resultPrivacy=flag.presentationRedactions?.includes('EXAM_RESULT_PRIVATE')?' data-exam-result-private="true"':'';
   const labelYOffset=!interview&&!examResult&&Number.isFinite(labelLayout?.yOffset)?labelLayout.yOffset:0;
   const nativeLinePitch=Number.isFinite(labelLayout?.linePitch)&&labelLayout.linePitch>=18&&labelLayout.linePitch<=36?labelLayout.linePitch:21;
@@ -777,17 +788,29 @@ function interviewMarkup(scene,scale){
   if(!marker&&!logo&&!program&&!scene.showEmptySlots)return "";
   const {x,y,width}=FOUNDER_PORTABLE_GEOMETRY.interview;
   const hasHeader=!!logo||!!program||scene.showEmptySlots;
+  // A long program name shrinks, then ellipsizes, to stay inside the logo well
+  // (presentation only; the full name stays on the ribbon's source record).
+  const measure=scene.measureText||measurePresentationText;
+  const fitLabel=(full,startSize,minSize)=>{
+    let size=startSize,label=full;
+    while(label&&size>minSize&&measure(label,size,TYPE.axis,700)>width-12)size-=1;
+    while(label.length>4&&measure(label,size,TYPE.axis,700)>width-12)label=`${label.slice(0,-2).trimEnd()}…`;
+    return{label,size};
+  };
+  const labelText=(full,label,size,baseline)=>`<text x="${x+width/2}" y="${baseline}" text-anchor="middle" fill="#4A5670" font-family="${TYPE.axis}" font-size="${size}" font-weight="700" pointer-events="none"${label!==full?` data-display-full="${xml(full)}"`:""}>${xml(label)}</text>`;
   const logoLayer=logo
-    ?`<g data-frame-slot="logo" data-media-state="filled" data-media-id="${xml(logo.id)}"><image data-program-logo="true" data-media-id="${xml(logo.id)}" href="${xml(logo.source)}" x="${x+8}" y="${y+5}" width="${width-16}" height="42" preserveAspectRatio="xMidYMid meet"/></g>`
+    ?(()=>{
+      // The Interview Day block shows the program, its date and its logo together:
+      // with a logo present the program name keeps a smaller line under the mark.
+      const full=program.toUpperCase();
+      const {label,size}=program?fitLabel(full,11,9):{label:"",size:0};
+      const imageHeight=program?30:42;
+      return`<g data-frame-slot="logo" data-media-state="filled" data-media-id="${xml(logo.id)}"><image data-program-logo="true" data-media-id="${xml(logo.id)}" href="${xml(logo.source)}" x="${x+8}" y="${y+4}" width="${width-16}" height="${imageHeight}" preserveAspectRatio="xMidYMid meet"/>${program?labelText(full,label,size,y+47):""}</g>`;
+    })()
     :hasHeader?(()=>{
-      // A long program name shrinks, then ellipsizes, to stay inside the logo well
-      // (presentation only; the full name stays on the ribbon's source record).
-      const measure=scene.measureText||measurePresentationText;
       const full=program?program.toUpperCase():scene.emptySlotStyle==="print"?"":"PROGRAM LOGO";
-      let size=16,label=full;
-      while(label&&size>11&&measure(label,size,TYPE.axis,700)>width-12)size-=1;
-      while(label.length>4&&measure(label,size,TYPE.axis,700)>width-12)label=`${label.slice(0,-2).trimEnd()}…`;
-      return`<g data-frame-slot="logo" data-media-state="${program?'text':'empty'}"><rect x="${x}" y="${y}" width="${width}" height="52" fill="transparent"/><text x="${x+width/2}" y="${y+31}" text-anchor="middle" fill="#4A5670" font-family="${TYPE.axis}" font-size="${size}" font-weight="700" pointer-events="none"${label!==full?` data-display-full="${xml(full)}"`:""}>${xml(label)}</text></g>`;
+      const {label,size}=fitLabel(full,16,11);
+      return`<g data-frame-slot="logo" data-media-state="${program?'text':'empty'}"><rect x="${x}" y="${y}" width="${width}" height="52" fill="transparent"/>${labelText(full,label,size,y+31)}</g>`;
     })():"";
   const ribbonY=y+62;
   const rawDate=String(target.date||'');

@@ -2115,7 +2115,10 @@ export async function boot407FEngineeringAdapter({
       audience:options.audience||"EVERYTHING",
       currentMonth:options.currentMonth||currentMonth(),
       resourceNamespace:`timeline-${surface}`,
-      showEmptySlots:true,
+      // Editing surfaces show the template slots with their prompts; the Export
+      // screen's live preview mirrors the final program-facing page, where an
+      // unfilled slot is omitted (see exportSlotOptions in export-adapter.js).
+      showEmptySlots:surface!=="export",
       emptySlotStyle:["edit","builder","home","full-preview"].includes(surface)?"labelled":"print",
       mediaById
     });}catch(error){
@@ -3773,13 +3776,12 @@ export async function boot407FEngineeringAdapter({
     }
     if(event.target.closest?.("[data-interview-logo-remove]")){
       const active=activeSpecialtyVariant(store.document);
-      const removedLogoId=String(active.interviewTarget?.logoMediaId||"");
       store.mutate("Remove interview logo",(document)=>{
+        // Clears this destination's logo and, through the target sync, the logo well.
         setVariantInterviewTarget(document,active.id,{
           ...active.interviewTarget,
           logoMediaId:""
         });
-        if(removedLogoId)document.mediaItems=(document.mediaItems||[]).filter((item)=>!(String(item?.placement||"").toLowerCase()==="ribbon"&&String(item?.mediaId||"")===removedLogoId));
       });
       refreshM9({focusSelector:"[data-interview-logo-upload]"});
       bridge.toast("Logo removed from this interview timeline");
@@ -3869,11 +3871,8 @@ export async function boot407FEngineeringAdapter({
             ...active.interviewTarget,
             logoMediaId:id
           });
-          // The logo's place on the board is the ribbon's logo well: fill that fixed
-          // frame directly so the deck and the PDF carry it (guided layouts stay locked;
-          // the Advanced canvas keeps its own lock rules).
-          const filled=fillCanonicalMediaFrame(document,"logo",id,{id:`frame-logo-${uid("media")}`,allowLocked:document.mode!=="advanced"});
-          if(filled.changed)Object.assign(document,filled.document);
+          // setVariantInterviewTarget keeps the ribbon's logo well (the logo's place
+          // on the board, deck and PDF) in step with this destination's logo.
         },
         {
           blobs:[persistence.blob],
@@ -8452,6 +8451,11 @@ export async function boot407FEngineeringAdapter({
       const prior=advancedFrameItem(store.document,slot);
       const result=fillCanonicalMediaFrame(store.document,slot,mediaId,{id:`frame-${slot}-${uid("media")}`,consumePlacement,allowLocked:store.document.mode!=="advanced"});
       if(!result.changed)return false;
+      if(slot==="logo"){
+        // The logo well is the active interview destination's logo.
+        const active=activeSpecialtyVariant(result.document);
+        setVariantInterviewTarget(result.document,active.id,{...active.interviewTarget,logoMediaId:String(mediaId)});
+      }
       store.replace(result.document,{label:label||(prior?`Replace ${spec.label.toLowerCase()}`:`Add ${spec.label.toLowerCase()}`)});
       syncBridgeStateFromStore();
       renderMediaLibrarySurfaces();
@@ -8473,6 +8477,10 @@ export async function boot407FEngineeringAdapter({
       if(!spec||!advancedFrameItem(store.document,slot)||store.entitlement.canMutate!==true)return false;
       store.mutate(`Remove ${spec.label.toLowerCase()}`,(document)=>{
         document.mediaItems=(document.mediaItems||[]).filter((item)=>String(item?.placement||"").toLowerCase()!==spec.placement);
+        if(slot==="logo"){
+          const active=activeSpecialtyVariant(document);
+          setVariantInterviewTarget(document,active.id,{...active.interviewTarget,logoMediaId:""});
+        }
       });
       syncBridgeStateFromStore();
       renderMediaLibrarySurfaces();

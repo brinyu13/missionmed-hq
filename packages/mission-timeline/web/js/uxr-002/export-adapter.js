@@ -31,6 +31,17 @@ export function printRasterSize(format){
   return{width,height:width/16*9,dpi};
 }
 
+/* Founder rule (2026-10-06): the editable deck is an editing artifact, so its unfilled
+   photo frames, profile portrait and logo well stay as editable DROP PHOTO / PROFILE
+   PHOTO / PROGRAM LOGO placeholders. The final PDF and PNG are program-facing, so an
+   unfilled slot is omitted entirely: no instructional wording and no empty frame can
+   make the final page look unfinished. Filled slots always export. */
+export function exportSlotOptions(kind){
+  return String(kind||"").toUpperCase()==="PPTX"
+    ?{showEmptySlots:true,emptySlotStyle:"labelled"}
+    :{showEmptySlots:false};
+}
+
 export function createLocalExportAdapter({
   resolveObjectUrl=()=>null,
   triggerDownload=null,
@@ -71,11 +82,7 @@ export function createLocalExportAdapter({
       const height=print?print.height:output.height;
       const rendered=await serializeFounderPresentationAsync(input.timeline,{
         ...input.rendererOptions,
-        // The template's photo frames, profile portrait and interview ribbon are part of
-        // the design: the editable deck keeps their prompts so the student can drop
-        // photos in Keynote; the print formats paint them as blank frames.
-        showEmptySlots:true,
-        emptySlotStyle:output.kind==="PPTX"?"labelled":"print",
+        ...exportSlotOptions(output.kind),
         currentMonth:new Date().toISOString().slice(0,7),
         mediaResolver:(item)=>resolveObjectUrl(item?.mediaId||item?.id,item)
       });
