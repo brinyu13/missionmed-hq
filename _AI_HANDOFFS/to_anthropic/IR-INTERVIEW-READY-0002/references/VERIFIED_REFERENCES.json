@@ -1,0 +1,82 @@
+[
+  {
+    "path": "/Users/brianb/MissionMed_worktrees/missionmed-brain/AGENTS.md",
+    "sha256": "2bf1939ebc3bb46f053908553c9558a21221649570658bb8ba7d45f015f3dda7",
+    "bytes": 1673
+  },
+  {
+    "path": "/Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002/interview-ready/sources/gear-guide-1.png",
+    "sha256": "462b8f126b6b7cb94ff3da81e9f9bce5cfd78a6c4c765bb775b70752417be22f",
+    "bytes": 2002415
+  },
+  {
+    "path": "/Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002/interview-ready/sources/gear-guide-2.png",
+    "sha256": "8e50a7a8df658543c551c3f6a78d1058437d62609371d2098d89c17866d71468",
+    "bytes": 2128950
+  },
+  {
+    "path": "/Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002/_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/FINISH_NOW_20261005/LIVE_HOME_20261006.png",
+    "sha256": "37b5c87a7ae57a01a82fcf79802e51ef45af86091856a11f3321d24491647aef",
+    "bytes": 204786
+  },
+  {
+    "path": "/Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002/_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/FINISH_NOW_20261005/LIVE_COMMERCE_20261006.png",
+    "sha256": "52a2820b2532e926faaa46d65c2cfc29bf671be845bfe6adeafe745466ccf5c3",
+    "bytes": 172201
+  },
+  {
+    "path": "/Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002/interview-ready/evidence/screenshots/associates-site-registered.png",
+    "sha256": "02cc0d36128f8c9a8996d0db64a9517fe16b9d1b821ec796b4c84f9c265ad6b2",
+    "bytes": 68317
+  },
+  {
+    "path": "/Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002/_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/CATALOG_ADMIN_STEER_20261005/catalog-admin.patch",
+    "sha256": "ad46b43f40022892198c57d97014984c72e6f07726ebb73d110379196d258be4",
+    "bytes": 46776
+  },
+  {
+    "path": "/Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002/_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/CATALOG_ADMIN_STEER_20261005/CONTRACT.md",
+    "sha256": "9b6f46eb760b2811ab16a0d23c82d1277690a30a1beb691d163d1d559a43d1af",
+    "bytes": 8761
+  },
+  {
+    "path": "/Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002/_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/CATALOG_ADMIN_STEER_20261005/INDEPENDENT_REVIEW_FINAL.md",
+    "sha256": "6781b7d4febca44a31a40d2d17f54a198f70ffd156c75a787e72a5d876a1a805",
+    "bytes": 4189
+  },
+  {
+    "path": "/Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002/_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/SHOPPING_VISUAL_QA_20261005/HANDOFF.md",
+    "sha256": "62fb328ba899c695839c76028960442c52e2a2762faf2e8af631d4553a6c121a",
+    "bytes": 3476
+  },
+  {
+    "path": "/Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002/_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/NATIVE_INVENTORY_20261005_18_INDEPENDENT_NATIVE_STOP_REVIEW.md",
+    "sha256": "95f5a6ef1c300dd4e9ffdfedac0651f97bf5d02354cf002758d4056f495ca481",
+    "bytes": 3660
+  },
+  {
+    "path": "/Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002/_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/FINISH_NOW_COMMERCE_CASE_INDEPENDENT_LIVE_ACCEPTANCE.md",
+    "sha256": "8a2d549cad111fdd924dad5b05239c391d1410bfdf09c74e030801e542e5531b",
+    "bytes": 3134
+  },
+  {
+    "path": "/Users/brianb/MissionMed_worktrees/IR-PHASE1-REGISTRY-20261004-R2/decisions/DR-375_ir_phase1_production_authority.md",
+    "sha256": "05803e16c985437a6400aa261e55bdb57f50ed2a0c7200f904fcffc49155a508",
+    "bytes": 2663
+  },
+  {
+    "path": "/Users/brianb/MissionMed_worktrees/IR-PHASE1-REGISTRY-20261004-R2/decisions/DR-376_ir_phase1_bounded_execution_annex.md",
+    "sha256": "452a9e6259f6ae2f9e1441c725f79156b2d099d88a38af694b248e345b7dbe0e",
+    "bytes": 90829
+  },
+  {
+    "path": "/Users/brianb/MissionMed_worktrees/IR-PHASE1-REGISTRY-20261004-R2/decisions/DR-391_ir_phase1_public_commerce_fallback.md",
+    "sha256": "0ac4eace2f96ccfbc10864d7a022cba1eb0c6f9c4eeb0bb668dd342e3c532982",
+    "bytes": 6335
+  },
+  {
+    "path": "/Users/brianb/MissionMed_worktrees/IR-PHASE1-REGISTRY-20261004-R2/PRODUCT_PASSPORTS/interview-ready.md",
+    "sha256": "d59938fd77b1929561ded8e5ea52f45ddc6513fa172656fb693e015608383661",
+    "bytes": 1987
+  }
+]

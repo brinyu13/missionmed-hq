@@ -1,0 +1,86 @@
+[
+  {
+    "status": "M ",
+    "path": "upabase/.temp/cli-latest",
+    "sha256": null,
+    "ownership": "original author/user; exact actor unknown; preserve",
+    "mayModify": false
+  },
+  {
+    "status": "??",
+    "path": "_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/CLI_EARLY_SOURCE_READER_20261005/HANDOFF.md",
+    "sha256": "70c5a8edf6362cfca96923425995222c8426ddaac030f3cd7dd3cb6b7c7c4850",
+    "ownership": "original author/user; exact actor unknown; preserve",
+    "mayModify": false
+  },
+  {
+    "status": "??",
+    "path": "_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/FINISH_NOW_COMMERCE_PHASE_REVIEW.md",
+    "sha256": "4013946b58f53642d28ece9d54177c97c93e363120e30cde1a559eda68dd6bec",
+    "ownership": "original author/user; exact actor unknown; preserve",
+    "mayModify": false
+  },
+  {
+    "status": "??",
+    "path": "_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/FINISH_NOW_COMMERCE_RECOVERY_REVIEW.md",
+    "sha256": "ee68271c473bef61dac1ce2109d66201d9a984168262c1d0aebeba4260f10951",
+    "ownership": "original author/user; exact actor unknown; preserve",
+    "mayModify": false
+  },
+  {
+    "status": "??",
+    "path": "_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/FINISH_NOW_COMMERCE_RUNTIME_READ_REVIEW.md",
+    "sha256": "40a4be838013de19fd8c788fd3dc427dc6424c5d71128c5535e0c79071f23f6b",
+    "ownership": "original author/user; exact actor unknown; preserve",
+    "mayModify": false
+  },
+  {
+    "status": "??",
+    "path": "_AI_INPUTS/prior-run/IR-INTERVIEW-READY-0001_RELEASE_REPORT_1.md",
+    "sha256": "58844fb1a46a2b7958bcca85174c9dc2dad77e445ae3ab706f3eedb9c1873d2f",
+    "ownership": "original author/user; exact actor unknown; preserve",
+    "mayModify": false
+  },
+  {
+    "status": "??",
+    "path": "_AI_INPUTS/prior-run/interview-ready-fable-0001/README.md",
+    "sha256": "7a7510a1903b181f0f34d9bf3bce1c1719301a7aed9cb618997a38ebd4c098d7",
+    "ownership": "original author/user; exact actor unknown; preserve",
+    "mayModify": false
+  },
+  {
+    "status": "??",
+    "path": "_AI_INPUTS/prior-run/interview-ready-fable-0001/RELEASE_REPORT.md",
+    "sha256": "58844fb1a46a2b7958bcca85174c9dc2dad77e445ae3ab706f3eedb9c1873d2f",
+    "ownership": "original author/user; exact actor unknown; preserve",
+    "mayModify": false
+  },
+  {
+    "status": "??",
+    "path": "_AI_INPUTS/prior-run/interview-ready-fable-0001/build.sh",
+    "sha256": "5d2e9b6dc295e2003ac7fec13f93fd175cf2bdf974c779dfcaa72d67f6e04e96",
+    "ownership": "original author/user; exact actor unknown; preserve",
+    "mayModify": false
+  },
+  {
+    "status": "??",
+    "path": "_AI_INPUTS/prior-run/interview-ready-fable-0001/dist/interview-ready.html",
+    "sha256": "d966b653f9fbca83387e131f1c67b2d38157b249a36cccc89e81d8d426f137c5",
+    "ownership": "original author/user; exact actor unknown; preserve",
+    "mayModify": false
+  },
+  {
+    "status": "??",
+    "path": "_AI_INPUTS/prior-run/interview-ready-fable-0001/qa.py",
+    "sha256": "768175cba8ba574f894adcc102166f9691adae1cb860997ea54d9734dc1dcc2f",
+    "ownership": "original author/user; exact actor unknown; preserve",
+    "mayModify": false
+  },
+  {
+    "status": "??",
+    "path": "_AI_INPUTS/prior-run/interview-ready-fable-0001/src.html",
+    "sha256": "d1ef700c5f9dc2779b7969aa92dddc93d62505e4f2e6eda280b6e1929cf9df4f",
+    "ownership": "original author/user; exact actor unknown; preserve",
+    "mayModify": false
+  }
+]

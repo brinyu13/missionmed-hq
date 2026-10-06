@@ -1,0 +1,105 @@
+{
+  "schema": "missionmed.ir.anthropic_takeover.v1",
+  "recordedUTC": "2026-10-06T14:28:24.633553+00:00",
+  "worktree": "/Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002",
+  "repository": "https://github.com/brinyu13/missionmed-hq.git",
+  "branch": "codex/ir-interview-ready-0002-storyforge",
+  "acceptedCurrentSHA": "c85795ad391236eff68db07a98f8d44b33da44aa",
+  "deployedSourceSHA": "c6ec008364ecd0ed23051703b96b6e8cf5fe49dd",
+  "acceptedChassisSHA": "8717ebd04ad1cd60e66ef197b55080d58492e2be",
+  "upstream": "origin/codex/ir-interview-ready-0002-storyforge",
+  "latestPushedSHA": "c85795ad391236eff68db07a98f8d44b33da44aa",
+  "dirtyBeforeHandoff": [
+    "M supabase/.temp/cli-latest",
+    "?? _AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/CLI_EARLY_SOURCE_READER_20261005/HANDOFF.md",
+    "?? _AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/FINISH_NOW_COMMERCE_PHASE_REVIEW.md",
+    "?? _AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/FINISH_NOW_COMMERCE_RECOVERY_REVIEW.md",
+    "?? _AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/FINISH_NOW_COMMERCE_RUNTIME_READ_REVIEW.md",
+    "?? _AI_INPUTS/prior-run/IR-INTERVIEW-READY-0001_RELEASE_REPORT_1.md",
+    "?? _AI_INPUTS/prior-run/interview-ready-fable-0001/README.md",
+    "?? _AI_INPUTS/prior-run/interview-ready-fable-0001/RELEASE_REPORT.md",
+    "?? _AI_INPUTS/prior-run/interview-ready-fable-0001/build.sh",
+    "?? _AI_INPUTS/prior-run/interview-ready-fable-0001/dist/interview-ready.html",
+    "?? _AI_INPUTS/prior-run/interview-ready-fable-0001/qa.py",
+    "?? _AI_INPUTS/prior-run/interview-ready-fable-0001/src.html"
+  ],
+  "handoffSHA": "Resolve git log -1 --format=%H -- _AI_HANDOFFS/to_anthropic/IR-INTERVIEW-READY-0002/ANTHROPIC_TAKEOVER_MASTER.md; cannot embed containing commit hash in itself",
+  "publicURL": "https://missionmedinstitute.com/interview-ready/",
+  "privateRoute": "https://missionmedinstitute.com/interview-ready/app/",
+  "matrixRoute": "https://missionmedinstitute.com/member-dashboard/",
+  "stagingURL": "https://cdn.missionmedinstitute.com/html-system/STAGING/interview-ready.html",
+  "stagingStatus": "historical staging; not refreshed in this handoff",
+  "cdnKey": "html-system/STAGING/interview-ready.html (historical; production is WordPress immutable runtime)",
+  "localPreviewURL": "http://127.0.0.1:8771/interview-ready/#home (process availability not reverified)",
+  "releaseState": "PUBLIC_COMMERCE_LIVE_VERIFIED; FULL_ACCOUNT_PHASE1_INCOMPLETE",
+  "authState": "private /app and self state endpoint implemented; real fresh-account lifecycle unverified",
+  "databaseTargets": {
+    "personalState": "production WordPress usermeta _mmed_ir_state_v1; no Supabase application persistence",
+    "coordination": "brxqytrfdisrgakrxkhd",
+    "doNotUse": "CLI-linked Growth Engine plgndqcplokwiuimwhzh is not IR target"
+  },
+  "leases": {
+    "observedUTC": "2026-10-06T14:22:46.140563Z",
+    "activeIR": 0,
+    "pendingIR": 0,
+    "activeAUTH": 0,
+    "activeIIQAUTH": 0,
+    "installClaims": 1,
+    "installReleased": 1,
+    "installReleasedAt": "2026-10-06T04:27:41.775811Z",
+    "method": "read-only aggregate coordination SQL; no nonce, credentials or identities"
+  },
+  "os": {
+    "resolvedDefaultRoot": "/Users/brianb/MissionMed_OS",
+    "lastReleaseAuthorityWorktree": "/Users/brianb/MissionMed_worktrees/IR-PHASE1-REGISTRY-20261004-R2",
+    "lastReleaseHEAD": "fe17a4ca5572aecdc2d2761e8c2d993f7aebb8bf",
+    "freshRemoteHEAD": "49873d8b187a75e9aa3da7b4d007c42f0044480b",
+    "missionRegistered": true,
+    "registryClosureUpdated": false,
+    "decisions": [
+      "DR-375",
+      "DR-376",
+      "DR-391"
+    ],
+    "supplementExpiry": "DR391 expired on commerce acceptance closure; obtain current authority before new protected execution"
+  },
+  "runtimeBindings": {
+    "buildManifest": "ac9184458c713949ac2a675a672d18677657f93574046ff814d780a7a95a9d1c",
+    "gate": "da79845723120e8e451b96121c5fe5d9ccd5c2a3ece6c20b5279e252fa6319ff",
+    "gateway": "819dd734ae7bf61ded755dd3bdda5e64e4945bac05d28bd4aee5cd68f7a9d7f5",
+    "html": "d4439bb8f40f32d0122817cc7f06756bf6d709d030e5e9206bdaab0ef8a0b253",
+    "matrix": "238d936904fce777174f22fb352e99fce118192ca9a469be392246c6a65366ad",
+    "package": "3621ddb7cbb26de0815ded5bc202289ad8935e52db45252e4daf5ace0ab85c43",
+    "pointer": "8a9ebeeb9b208dd009369a5ca3aa86c06d7f2bebcd3b104b5ef421d0e107b8c6"
+  },
+  "runtimeLayoutSHA": "489deab9160704da92378d541372bfccdf13917730b21977341fab043cab2405",
+  "independentReview": "APPROVE PUBLIC_COMMERCE LIVE+VERIFIED; see acceptance report",
+  "controllerTerminal": "STOP + explicitly RELEASED; cause unclassified",
+  "associates": {
+    "tag": "missionmatch-20",
+    "siteRegistrationComplete": true,
+    "apiAccessVerified": false,
+    "numericContentEnabled": false
+  },
+  "catalog": {
+    "categories": 7,
+    "onlineUniqueASINs": 16,
+    "allCatalogUniqueASINs": 19,
+    "latestFounderOverridesIntegrated": false
+  },
+  "checklist": "public device-only; save/reload passed; no account-sync claim",
+  "admin": "prepared default-off patch only; not integrated/live; new protected option authority required",
+  "durablePackage": "/Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002/_AI_HANDOFFS/to_anthropic/IR-INTERVIEW-READY-0002/references/release-package",
+  "packetOnly": true,
+  "implementationFrozen": true,
+  "snapshotScope": "Current product/live/authority baseline BEFORE this handoff commit; containing handoff SHA/latest push is resolved by command below and final delivery.",
+  "handoffCommitCommand": "git log -1 --format=%H -- _AI_HANDOFFS/to_anthropic/IR-INTERVIEW-READY-0002/ANTHROPIC_TAKEOVER_MASTER.md",
+  "freshLiveBrowser": {
+    "date": "2026-10-06",
+    "observedLocalApprox": "10:24 America/New_York",
+    "route": "#prime-day",
+    "event": "underway through October7; no product-specific discount verified",
+    "visibleProductLinksTagged": 4,
+    "screenshot": "references/current-event-20261006.png"
+  }
+}

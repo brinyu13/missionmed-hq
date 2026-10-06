@@ -1,0 +1,11 @@
+{
+  "observedUTC": "2026-10-06T14:22:46.140563Z",
+  "activeIR": 0,
+  "pendingIR": 0,
+  "activeAUTH": 0,
+  "activeIIQAUTH": 0,
+  "installClaims": 1,
+  "installReleased": 1,
+  "installReleasedAt": "2026-10-06T04:27:41.775811Z",
+  "method": "read-only aggregate coordination SQL; no nonce, credentials or identities"
+}
