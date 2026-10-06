@@ -247,6 +247,19 @@ function publicSession(row, recording = null, result = null, review = null, spin
   };
 }
 
+// List projection of a public session: identical except the measured per-rep
+// arrays (raw event log, its duplicated analytics copy and the flight recorder
+// deck) are omitted. Saved Fable evidence, student-safe events, recording,
+// review and Answer History stay intact so priorities/progress are unchanged.
+function librarySessionListProjection(session) {
+  const payload = session?.results?.payload;
+  if (!payload || typeof payload !== 'object') return session;
+  const { events: _events, ...rest } = payload;
+  const analytics = rest.analytics && typeof rest.analytics === 'object'
+    ? (({ events: _analyticsEvents, flightRecorder: _flightRecorder, ...keep }) => keep)(rest.analytics) : rest.analytics;
+  return { ...session, results: { ...session.results, payload: { ...rest, ...(rest.analytics ? { analytics } : {}) } } };
+}
+
 function practiceReadModel(session, parentRecording, sourceRecording, result, enabled = false) {
   const projection = projectSelfPracticeAnalysis({ session, parentRecording, sourceRecording, candidateAnalysis: result?.candidate_analysis });
   let ready = false;
@@ -1925,6 +1938,10 @@ export function createIvocHandler({
 
       if (request.method === 'GET' && pathname === `${API_PREFIX}/library`) {
         const scope = url.searchParams.get('scope') || 'own';
+        // Additive list projection: the student library/history screens never read
+        // per-rep measured timelines, so they may omit the heavy duplicated arrays.
+        // Default projection is unchanged; session detail remains the full record.
+        const listProjection = url.searchParams.get('projection') === 'list';
         const adminAll = scope === 'all' && isAdmin(hqSession, admission);
         const assignedScope = scope === 'assigned' && (isMentor(hqSession) || isAdmin(hqSession, admission));
         let rows;
@@ -1957,9 +1974,10 @@ export function createIvocHandler({
           { includeOwnerSubject: adminAll },
           );
           const result = results.find(item => item.session_id === row.id);
-          return result?.candidate_analysis ? withPracticeReadModel(detail, practiceReadModel(row,
+          const projected = result?.candidate_analysis ? withPracticeReadModel(detail, practiceReadModel(row,
             recordings.find(item => item.id === detail.recording?.id),
             sourceRecordings.find(item => item.parent_recording_id === detail.recording?.id), result)) : detail;
+          return listProjection ? librarySessionListProjection(projected) : projected;
         }) }, mediaBase); return true;
       }
 

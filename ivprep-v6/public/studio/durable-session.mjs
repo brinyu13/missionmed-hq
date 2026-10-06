@@ -417,7 +417,7 @@ export class DurableStudioSession {
     return { persisted: true, analytics, recording, result, envelope, session: accountSession };
   }
 
-  async library(scope = 'own') { return this.api.library(scope); }
+  async library(scope = 'own', projection = null) { return this.api.library(scope, projection); }
   async programs(input = {}) {
     if (!this.ready) throw new Error('durable_session_not_ready');
     return this.api.searchPrograms(input);

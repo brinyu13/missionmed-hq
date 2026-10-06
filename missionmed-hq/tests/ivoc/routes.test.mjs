@@ -1359,6 +1359,49 @@ test('Answer History library quarantines unverified batch transcript and candida
   });
 });
 
+test('own library list projection omits duplicated measured arrays and keeps saved evidence; default is unchanged', async () => {
+  const repo = repository();
+  const sessionId = '00000000-0000-4000-8000-000000000043';
+  const fable = { schema: 'ivoc.fable51.evidence.v1', fixture: false, clock: 'recording-observed', samples: [{ t: 1, pace: 150 }], events: [{ t: 2, lane: 'pace' }], debrief: { lane: 'pace', text: 'Pace left the displayed range.' } };
+  const payload = { schema: 'ivoc.results.v1', events: [{ t: 1, kind: 'raw' }], liveConversation: { turns: [] },
+    analytics: { schema: 'ivoc.analytics.v1', events: [{ t: 1, kind: 'raw' }], flightRecorder: { lanes: [[1, 2, 3]] }, studentEvents: [{ metric: 'answer_duration_ms', maturity: 'STUDENT_SAFE', observation: { value: 1000 } }], fable } };
+  repo.request = async (path) => {
+    if (path.startsWith('ivoc_sessions?owner_subject=eq.wp%3A42')) return [{
+      id: sessionId, owner_subject: 'wp:42', title: 'Opening answer', session_type: 'question',
+      question_id: 'CORE-01', question_text: 'Tell me about yourself.', state: 'saved',
+      started_at: '2026-09-20T12:00:00.000Z', ended_at: '2026-09-20T12:01:00.000Z',
+      duration_ms: 60_000, interviewer_provider: 'openai-gpt-live',
+    }];
+    if (path.startsWith('ivoc_results?')) return [{ session_id: sessionId, schema_name: 'ivoc.results.v1', schema_version: 1, payload, summary: {} }];
+    return [];
+  };
+  const { route } = handler(repo);
+  const full = new ResponseCapture();
+  await route({ ...base, request: request('GET'), response: full, url: new URL('https://hq.test/api/ivoc/v1/library?scope=own'), hqSession: session() });
+  assert.equal(full.status, 200);
+  const fullRow = full.json().sessions[0];
+  assert.deepEqual(fullRow.results.payload.events, payload.events);
+  assert.deepEqual(fullRow.results.payload.analytics.flightRecorder, payload.analytics.flightRecorder);
+  const list = new ResponseCapture();
+  await route({ ...base, request: request('GET'), response: list, url: new URL('https://hq.test/api/ivoc/v1/library?scope=own&projection=list'), hqSession: session() });
+  assert.equal(list.status, 200);
+  const body = list.json();
+  assert.equal(body.scopeSubject, 'wp:42');
+  const row = body.sessions[0];
+  assert.equal(row.id, sessionId);
+  assert.equal('events' in row.results.payload, false);
+  assert.equal('events' in row.results.payload.analytics, false);
+  assert.equal('flightRecorder' in row.results.payload.analytics, false);
+  assert.deepEqual(row.results.payload.analytics.fable, fable);
+  assert.deepEqual(row.results.payload.analytics.studentEvents, payload.analytics.studentEvents);
+  assert.equal(row.results.payload.analytics.schema, 'ivoc.analytics.v1');
+  assert.ok(row.results.payload.liveConversation);
+  assert.ok(row.results.payload.candidateAttribution);
+  assert.equal(row.state, 'saved');
+  assert.deepEqual(Object.keys(fullRow).sort(), Object.keys(row).sort());
+  assert.ok(list.body.length < full.body.length);
+});
+
 test('Admin all-student library exposes stable owner identity without leaking it to owner scope', async () => {
   const repo = repository();
   const sessionId = '00000000-0000-4000-8000-000000000042';

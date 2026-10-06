@@ -349,7 +349,9 @@ export class SessionController extends EventTarget {
     const current=()=>isCurrent()&&this.account===account&&this.durable===durable&&account.subject===subject
       &&account.role===role&&account.api===api&&durable.api===durableApi;
     if(!await revalidateOwnAdmission(account,current))return null;
-    const own=await durable.library('own');if(!current())return null;
+    // List projection: Fable list/history screens and row identity checks never read
+    // per-rep measured arrays; Results/Film Room load the full session detail separately.
+    const own=await durable.library('own','list');if(!current())return null;
     // The own projection omits per-row owners. Bind only its request-scoped
     // server receipt, never infer that an unchanged client label means an
     // unchanged cookie. The receipt also rejects an A -> B -> A login race.
