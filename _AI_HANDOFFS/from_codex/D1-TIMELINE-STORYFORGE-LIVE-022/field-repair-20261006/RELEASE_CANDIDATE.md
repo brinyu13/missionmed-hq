@@ -1,5 +1,7 @@
 # TIMELINE V1.1 RELEASE CANDIDATE — 2026-10-06
 
+**Superseded by deployment:** V1.1 went LIVE at 23:16 UTC from SHA 1848740 (acefa67 + consent-wording copy fix), WordPress release timeline-wp-b36e4ca6fa172be4. See `../v1-1-release-20261006/LIVE_RELEASE.md`.
+
 SOURCE SHA: acefa67b7c365f09d2fc5aa3f962cc6634824cbe (branch codex/timeline-astra6-recovery-20261002;
 commits 64caa03, dd6ced2, a14d38c, acefa67 on top of db5f2e7). This file is a docs-only commit
 after the sealed source; the release build was made from a fresh detached worktree at acefa67.
