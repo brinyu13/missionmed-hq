@@ -709,7 +709,7 @@ function profileMarkup(scene){
   }).join('');
   const photoLayer=!photo&&!scene.showEmptySlots?"":photo
     ?`<g data-frame-slot="profile" data-media-state="filled" data-media-id="${xml(photo.id)}"><rect x="${photoX}" y="${photoY}" width="${photoWidth}" height="${photoHeight}" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="7"/>${croppedImageMarkup({href:photo.source,x:photoX,y:photoY,width:photoWidth,height:photoHeight,crop:photo.crop,naturalAspect:photo.naturalAspect,attributes:`data-profile-photo-slot="true" data-media-id="${xml(photo.id)}"`})}</g>`
-    :`<g data-frame-slot="profile" data-media-state="empty"><rect data-profile-photo-slot="true" data-media-state="empty" x="${photoX}" y="${photoY}" width="${photoWidth}" height="${photoHeight}" fill="#C9C2AE" stroke="#FFFFFF" stroke-width="7"/><text x="${photoX+photoWidth/2}" y="${photoY+photoHeight/2+7}" text-anchor="middle" fill="#6D6753" font-family="${TYPE.profile}" font-size="17" font-weight="700" pointer-events="none">PROFILE PHOTO</text></g>`;
+    :`<g data-frame-slot="profile" data-media-state="empty"><rect data-profile-photo-slot="true" data-media-state="empty" x="${photoX}" y="${photoY}" width="${photoWidth}" height="${photoHeight}" fill="#C9C2AE" stroke="#FFFFFF" stroke-width="7"/>${scene.emptySlotStyle==="print"?"":`<text x="${photoX+photoWidth/2}" y="${photoY+photoHeight/2+7}" text-anchor="middle" fill="#6D6753" font-family="${TYPE.profile}" font-size="17" font-weight="700" pointer-events="none">PROFILE PHOTO</text>`}</g>`;
   let paper=`<image href="${xml(LOCKED_407F_ASSETS.paper)}" x="0" y="0" width="${base.width}" height="${base.height}" preserveAspectRatio="none"/>`;
   let renderScaleY=sy;
   if(scene.autoCompactProfile&&!scene.founderPresentation?.profileGeometryExplicit){
@@ -766,7 +766,7 @@ function photoFrames(scene){
     const paper=scaled(pixels.paper),aperture=scaled(pixels.aperture);
     const content=photo
       ?croppedImageMarkup({href:photo.source,x:aperture.x,y:aperture.y,width:aperture.width,height:aperture.height,crop:photo.crop,naturalAspect:photo.naturalAspect,attributes:`data-photo-aperture="true" data-media-id="${xml(photo.id)}"`})
-      :`<rect data-photo-aperture="true" data-media-state="empty" x="${aperture.x}" y="${aperture.y}" width="${aperture.width}" height="${aperture.height}" fill="#D6D8D5"/><text x="${aperture.x+aperture.width/2}" y="${aperture.y+aperture.height/2}" text-anchor="middle" fill="#515B62" font-family="${TYPE.event}" font-size="18" pointer-events="none">DROP PHOTO ${index+1}</text>`;
+      :`<rect data-photo-aperture="true" data-media-state="empty" x="${aperture.x}" y="${aperture.y}" width="${aperture.width}" height="${aperture.height}" fill="#D6D8D5"/>${scene.emptySlotStyle==="print"?"":`<text x="${aperture.x+aperture.width/2}" y="${aperture.y+aperture.height/2}" text-anchor="middle" fill="#515B62" font-family="${TYPE.event}" font-size="18" pointer-events="none">DROP PHOTO ${index+1}</text>`}`;
     return`<g data-artifact-photo-frame="${index+1}" data-frame-slot="${slot}" data-media-state="${photo?"filled":"empty"}"${photo?` data-media-id="${xml(photo.id)}"`:""} data-founder-geometry="${x},${y},${width},${height},${rotation}" transform="rotate(${rotation} ${x+width/2} ${y+height/2})"><rect data-photo-paper="true" x="${paper.x}" y="${paper.y}" width="${paper.width}" height="${paper.height}" fill="#FFFFFF" filter="url(#d1406-photo-shadow)"/>${content}</g>`;
   }).join("")}</g>`;
 }
@@ -779,12 +779,21 @@ function interviewMarkup(scene,scale){
   const hasHeader=!!logo||!!program||scene.showEmptySlots;
   const logoLayer=logo
     ?`<g data-frame-slot="logo" data-media-state="filled" data-media-id="${xml(logo.id)}"><image data-program-logo="true" data-media-id="${xml(logo.id)}" href="${xml(logo.source)}" x="${x+8}" y="${y+5}" width="${width-16}" height="42" preserveAspectRatio="xMidYMid meet"/></g>`
-    :hasHeader?`<g data-frame-slot="logo" data-media-state="${program?'text':'empty'}"><rect x="${x}" y="${y}" width="${width}" height="52" fill="transparent"/><text x="${x+width/2}" y="${y+31}" text-anchor="middle" fill="#4A5670" font-family="${TYPE.axis}" font-size="16" font-weight="700" pointer-events="none">${xml((program||"PROGRAM LOGO").toUpperCase())}</text></g>`:"";
+    :hasHeader?(()=>{
+      // A long program name shrinks, then ellipsizes, to stay inside the logo well
+      // (presentation only; the full name stays on the ribbon's source record).
+      const measure=scene.measureText||measurePresentationText;
+      const full=program?program.toUpperCase():scene.emptySlotStyle==="print"?"":"PROGRAM LOGO";
+      let size=16,label=full;
+      while(label&&size>11&&measure(label,size,TYPE.axis,700)>width-12)size-=1;
+      while(label.length>4&&measure(label,size,TYPE.axis,700)>width-12)label=`${label.slice(0,-2).trimEnd()}…`;
+      return`<g data-frame-slot="logo" data-media-state="${program?'text':'empty'}"><rect x="${x}" y="${y}" width="${width}" height="52" fill="transparent"/><text x="${x+width/2}" y="${y+31}" text-anchor="middle" fill="#4A5670" font-family="${TYPE.axis}" font-size="${size}" font-weight="700" pointer-events="none"${label!==full?` data-display-full="${xml(full)}"`:""}>${xml(label)}</text></g>`;
+    })():"";
   const ribbonY=y+62;
   const rawDate=String(target.date||'');
   const exactDay=/^(\d{4})-(\d{2})-(\d{2})$/.exec(rawDate);
   const dateLabel=exactDay?`${MONTHS[Number(exactDay[2])-1]} ${Number(exactDay[3])}, ${exactDay[1]}`:formatMonth(marker?.month);
-  const date=marker?`Interview · ${xml(dateLabel)}`:scene.showEmptySlots?"Date pending":"";
+  const date=marker?`Interview · ${xml(dateLabel)}`:scene.showEmptySlots&&scene.emptySlotStyle!=="print"?"Date pending":"";
   return`${marker?flagMarkup(marker,0,scale,scene,{interview:true}):""}<g data-interview-destination="407f-ribbon">${hasHeader?`<rect x="${x}" y="${y}" width="${width}" height="52" fill="#FFFFFF" fill-opacity=".4" stroke="#26314D" stroke-opacity=".45" stroke-dasharray="4 3"/>`:""}${logoLayer}<path d="M${x} ${ribbonY}H${x+width}L${x+width-10} ${ribbonY+18}L${x+width} ${ribbonY+36}H${x}L${x+10} ${ribbonY+18}Z" fill="#7E4BB6"/><text x="${x+width/2}" y="${ribbonY+25}" text-anchor="middle" fill="#FFFFFF" font-family="${TYPE.title}" font-size="18" font-weight="700">${xml(target.label||"YOUR BIG INTERVIEW")}</text>${date?`<text data-board-ink-role="interview-date" x="${x+width/2}" y="${ribbonY+58}" text-anchor="middle" fill="${boardInk(scene)}" font-family="${TYPE.event}" font-size="18">${date}</text>`:""}</g>`;
 }
 

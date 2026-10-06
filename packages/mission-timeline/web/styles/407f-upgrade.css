@@ -8161,3 +8161,20 @@ main.isEntitlementReadOnly section[data-view] [draggable="true"]{
   .intake407FHost .candidate-row.ready{grid-template-columns:minmax(0,1fr);row-gap:6px}
   .intake407FHost .candidate-lane-head [data-accept-section]{grid-column:1;grid-row:auto;justify-self:start}
 }
+
+/* Guided-Timeline frame chooser: fill the template photo frames without Advanced Studio. */
+#modal:has(.guidedFrameChooser) #modalIn{min-width:0}
+.guidedFrameChooser{display:grid;gap:12px;width:100%;min-width:0;max-width:560px;box-sizing:border-box;max-height:calc(100vh - 72px);overflow:auto}
+.guidedFrameChooser>div{margin-top:0;justify-content:flex-start}
+.guidedFrameChooser h3.guidedFrameLibraryTitle{margin:6px 0 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mid)}
+.guidedFrameCurrent{display:flex;align-items:center;gap:12px;color:var(--mid)}
+.guidedFrameCurrent img{width:96px;height:96px;object-fit:cover;border-radius:8px;border:1px solid var(--edge)}
+.guidedFrameActions{display:flex;flex-wrap:wrap;gap:8px}
+.guidedFrameUpload{cursor:pointer}
+.guidedFrameLibrary{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;max-height:300px;overflow:auto}
+.guidedFrameAsset{display:grid;gap:6px;width:100%;padding:6px;border:1px solid var(--edge);border-radius:8px;background:#0f1522;color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.guidedFrameAsset:hover,.guidedFrameAsset:focus-visible{border-color:var(--accent,#F0A33A)}
+.guidedFrameAsset img,.guidedFrameAssetBlank{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:6px;background:#1b2434}
+.guidedFrameAsset span{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.guidedFrameEmpty{color:var(--mid);margin:0}
+.canvas-application [data-frame-slot][data-media-state="empty"],.canvas-application [data-interview-destination]{cursor:pointer}

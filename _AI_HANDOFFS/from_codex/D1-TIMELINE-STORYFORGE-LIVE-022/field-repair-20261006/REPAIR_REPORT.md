@@ -89,6 +89,38 @@ repair).
    with the applicant's imported entries underneath. This repair prevents recurrence; it
    does not edit that document.
 
+## Follow-up (same day): template photo slots and the interview-day block
+
+Founder request after the first candidate: the three default photo slots, the profile photo
+in the summary box, and the top-right interview block (program, scheduled date, logo) must be
+present on the Timeline and carried into both the editable PowerPoint and the PDF, with
+photos coming from the media library or by click / drag-drop upload.
+
+What existed: all five canonical frames and the interview ribbon were already part of the
+2025 design and could be filled, but only on the unlocked Advanced canvas; the Builder
+preview and both exports omitted empty frames, so the slots looked absent.
+
+| Change | Where |
+|---|---|
+| Template slots are painted on every in-app surface (edit canvas, Builder/Home previews, full preview) | `407f-engineering-adapter.js` surface options |
+| Exports carry the frames: editable PPTX keeps the DROP PHOTO / PROFILE PHOTO / PROGRAM LOGO prompts so photos can be dropped in Keynote; PDF and PNG paint the same frames with blank apertures (new `emptySlotStyle:"print"`) | `export-adapter.js`, `founder-presentation-serializer.js`, `locked-407f-export.js` |
+| Guided-Timeline frame chooser: tapping a polaroid, the profile portrait or the logo well offers Upload a photo, a media-library pick, and (when filled) Replace / Remove; external image files can be dropped onto a frame; the Builder preview's frame taps open the same chooser | `407f-engineering-adapter.js` (`openGuidedFrameChooser`), `advanced-studio.js` (`fillCanonicalMediaFrame` `allowLocked`) |
+| Canonical frames fill without an Advanced unlock on the guided Timeline (fixed containers, no geometry change); free placement on the board still requires the unlock, and the Advanced canvas keeps its lock protection | `captureMediaUploadBinding407F` |
+| The interview ribbon (canvas and preview) and the logo well open the existing Review & Finish interview editor: program name, interview date, logo upload and position | `openInterviewDetails` |
+| The logo well is the logo's single home: a logo uploaded in the interview editor now fills the well, "Remove from this interview timeline" clears it, and the editor's older free placement (a loose image above the ribbon) only serves a Timeline whose well is still empty, so one logo is never painted twice | `specialty-variants.js` `applyActiveSpecialtyVariant`, interview logo handlers in `407f-engineering-adapter.js` |
+
+Tests: `tests/d1-051-template-slots.test.mjs` (frames on screen / editable / print, ribbon with
+program and date, guided fill contract, logo-well precedence). Verified in the local build on the
+real applicant document: photo 1 filled by upload, the profile portrait filled from the media
+library, the program logo filled by upload from the well's chooser, the ribbon carrying the program
+and "Interview · Nov 14, 2026"; the editable PowerPoint and the Letter PDF both generated to
+"Download ready" with every attached image resolved (the earlier "Export failed" in the Export
+screen came from running the export while the Guardian dialog still held the Home view, not from
+the frames). A synthetic deck built through the same composer carries the two filled frames and the
+logo as images, the DROP PHOTO prompts for the two empty frames and the ribbon text, with zero
+inspection errors. Guardian's readability note "Attached images must load before the final export
+can be verified" remains the existing pre-export behaviour: it is a review note, not a blocker.
+
 ## Release sequence (not executed)
 
 Candidate commit on this branch; `build:release` requires a clean checkout of that commit

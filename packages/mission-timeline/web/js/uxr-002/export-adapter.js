@@ -71,7 +71,11 @@ export function createLocalExportAdapter({
       const height=print?print.height:output.height;
       const rendered=await serializeFounderPresentationAsync(input.timeline,{
         ...input.rendererOptions,
-        showEmptySlots:false,
+        // The template's photo frames, profile portrait and interview ribbon are part of
+        // the design: the editable deck keeps their prompts so the student can drop
+        // photos in Keynote; the print formats paint them as blank frames.
+        showEmptySlots:true,
+        emptySlotStyle:output.kind==="PPTX"?"labelled":"print",
         currentMonth:new Date().toISOString().slice(0,7),
         mediaResolver:(item)=>resolveObjectUrl(item?.mediaId||item?.id,item)
       });

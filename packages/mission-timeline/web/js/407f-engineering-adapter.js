@@ -1715,9 +1715,13 @@ export function captureMediaUploadBinding407F(store,{getSelection=()=>null,frame
     if(JSON.stringify(store.document)!==signature||JSON.stringify(getSelection())!==selection){
       const error=new Error("Timeline changed while the image was being prepared. Choose the image again.");error.code="TIMELINE_MEDIA_UPLOAD_STALE";throw error;
     }
-    if((frameSlot||placement)&&(store.document.mode!=="advanced"||store.document.layoutLock!==false))throw new Error("Unlock the canvas before adding a photo.");
+    /* The five canonical frames (three polaroids, profile portrait, program logo) are fixed
+       template containers. Filling one on the guided Timeline changes no layout, so it needs
+       no Advanced unlock; free placement on the board still does. */
+    const guidedFrame=!!frameSlot&&!placement&&store.document.mode!=="advanced";
+    if((frameSlot||placement)&&!guidedFrame&&(store.document.mode!=="advanced"||store.document.layoutLock!==false))throw new Error("Unlock the canvas before adding a photo.");
     if(placement&&(!Number.isFinite(placement.x)||!Number.isFinite(placement.y)))throw new TypeError("Choose a location on the canvas.");
-    if(frameSlot&&(!CANONICAL_MEDIA_FRAME_SLOTS[frameSlot]||store.document.mode!=="advanced"||store.document.layoutLock!==false||!frameAvailable(frameSlot)))throw new Error("That photo frame is unavailable or locked.");
+    if(frameSlot&&(!CANONICAL_MEDIA_FRAME_SLOTS[frameSlot]||(!guidedFrame&&(store.document.mode!=="advanced"||store.document.layoutLock!==false))||!frameAvailable(frameSlot)))throw new Error("That photo frame is unavailable or locked.");
   };
   assertCurrent();return{documentId:store.document.id,ownerId:store.document.studentOwnerId||"",frameSlot,placement:placement?Object.freeze({...placement}):null,assertCurrent};
 }
@@ -1788,7 +1792,7 @@ export function createMediaUploadHandler407F({store,preparePersistence,getSelect
         await store.mutateWithBlobs(frameSlot?`Fill ${CANONICAL_MEDIA_FRAME_SLOTS[frameSlot].label.toLowerCase()}`:placement?"Add photo to canvas":"Add Media assets",document=>{
           assertCurrent();document.advanced.media.push(...additions);
           if(frameSlot){
-            const result=fillCanonicalMediaFrame(document,frameSlot,acceptedIds[0],{id:`frame-${frameSlot}-${uid("media")}`});
+            const result=fillCanonicalMediaFrame(document,frameSlot,acceptedIds[0],{id:`frame-${frameSlot}-${uid("media")}`,allowLocked:document.mode!=="advanced"});
             if(!result.changed)throw new Error("That photo frame or image is unavailable or locked.");
             document.mediaItems=result.document.mediaItems;
           }else if(placement&&!placeUploadedPhoto407F(document,acceptedIds[0],placement))throw new Error("That photo is unavailable or locked.");
@@ -2111,7 +2115,8 @@ export async function boot407FEngineeringAdapter({
       audience:options.audience||"EVERYTHING",
       currentMonth:options.currentMonth||currentMonth(),
       resourceNamespace:`timeline-${surface}`,
-      showEmptySlots:surface==="edit",
+      showEmptySlots:true,
+      emptySlotStyle:["edit","builder","home","full-preview"].includes(surface)?"labelled":"print",
       mediaById
     });}catch(error){
       if(surface!=="edit"||error?.code!=="TIMELINE_SCENE_RECOVERY_REQUIRED")throw error;
@@ -3285,6 +3290,7 @@ export async function boot407FEngineeringAdapter({
       return;
     }
   };
+  let guidedFrameChooserHook=null;
   let mediaUploadFrameAvailable=()=>true;
   const captureMediaUpload=(frameSlot,placement=null)=>captureMediaUploadBinding407F(store,{
     getSelection:()=>canvasController?.state?.advancedSelection||null,
@@ -3297,7 +3303,7 @@ export async function boot407FEngineeringAdapter({
     onAdded:(additions,blobs,frameSlot,placement,acceptedIds)=>{
       additions.forEach((asset,index)=>mediaUrls.set(asset.id,blobs[index].blob));
       syncBridgeFromStore();renderMediaLibrarySurfaces();
-      if(frameSlot)canvasController?.setUiState({selectedEventId:null,advancedSelection:{type:"frame",id:frameSlot},advancedTextEdit:null});
+      if(frameSlot&&store.document.mode==="advanced")canvasController?.setUiState({selectedEventId:null,advancedSelection:{type:"frame",id:frameSlot},advancedTextEdit:null});
       if(placement)canvasController?.setUiState({selectedEventId:null,advancedSelection:{type:"media",id:acceptedIds[0]},advancedTextEdit:null});
       const message=frameSlot?"Photo frame filled · Undo with ⌘Z":placement?"Photo added · Caption, move or resize it · Undo with ⌘Z":`${additions.length} image${additions.length===1?"":"s"} added`;
       bridge.toast(message);announceGlobal(message);
@@ -3767,11 +3773,13 @@ export async function boot407FEngineeringAdapter({
     }
     if(event.target.closest?.("[data-interview-logo-remove]")){
       const active=activeSpecialtyVariant(store.document);
+      const removedLogoId=String(active.interviewTarget?.logoMediaId||"");
       store.mutate("Remove interview logo",(document)=>{
         setVariantInterviewTarget(document,active.id,{
           ...active.interviewTarget,
           logoMediaId:""
         });
+        if(removedLogoId)document.mediaItems=(document.mediaItems||[]).filter((item)=>!(String(item?.placement||"").toLowerCase()==="ribbon"&&String(item?.mediaId||"")===removedLogoId));
       });
       refreshM9({focusSelector:"[data-interview-logo-upload]"});
       bridge.toast("Logo removed from this interview timeline");
@@ -3861,6 +3869,11 @@ export async function boot407FEngineeringAdapter({
             ...active.interviewTarget,
             logoMediaId:id
           });
+          // The logo's place on the board is the ribbon's logo well: fill that fixed
+          // frame directly so the deck and the PDF carry it (guided layouts stay locked;
+          // the Advanced canvas keeps its own lock rules).
+          const filled=fillCanonicalMediaFrame(document,"logo",id,{id:`frame-logo-${uid("media")}`,allowLocked:document.mode!=="advanced"});
+          if(filled.changed)Object.assign(document,filled.document);
         },
         {
           blobs:[persistence.blob],
@@ -8437,12 +8450,12 @@ export async function boot407FEngineeringAdapter({
       const spec=ADVANCED_FRAME_SLOTS[slot];
       if(!spec||store.entitlement.canMutate!==true)return false;
       const prior=advancedFrameItem(store.document,slot);
-      const result=fillCanonicalMediaFrame(store.document,slot,mediaId,{id:`frame-${slot}-${uid("media")}`,consumePlacement});
+      const result=fillCanonicalMediaFrame(store.document,slot,mediaId,{id:`frame-${slot}-${uid("media")}`,consumePlacement,allowLocked:store.document.mode!=="advanced"});
       if(!result.changed)return false;
       store.replace(result.document,{label:label||(prior?`Replace ${spec.label.toLowerCase()}`:`Add ${spec.label.toLowerCase()}`)});
       syncBridgeStateFromStore();
       renderMediaLibrarySurfaces();
-      selectAdvancedFrame(slot);
+      if(store.document.mode==="advanced")selectAdvancedFrame(slot);
       const message=prior?`${spec.label} replaced`:`Photo added to ${spec.label.toLowerCase()}`;
       bridge.toast(`${message} · Undo with ⌘Z`);
       announceGlobal(message);
@@ -8463,7 +8476,7 @@ export async function boot407FEngineeringAdapter({
       });
       syncBridgeStateFromStore();
       renderMediaLibrarySurfaces();
-      selectAdvancedFrame(slot);
+      if(store.document.mode==="advanced")selectAdvancedFrame(slot);
       bridge.toast(`${spec.label} removed · Undo with ⌘Z`);
       announceGlobal(`${spec.label} removed`);
       return true;
@@ -8496,6 +8509,80 @@ export async function boot407FEngineeringAdapter({
         return !!acceptedIds?.length;
       }catch(error){toastStudentError(error,"media");return false;}
     };
+
+    /* ---- guided Timeline: fill a template frame without entering Advanced Studio ----
+       The three polaroids, the profile portrait and the program-logo well are part of the
+       2025 design. A tap on any of them offers an upload, a media-library pick, or (when
+       filled) replace / remove; the logo well also opens the interview details. */
+    const openInterviewDetails=()=>{
+      if(store.entitlement.canMutate!==true)return;
+      if(document.querySelector("[data-guided-frame-chooser]"))closeStandardModal({restoreFocus:false});
+      // The interview target (program, date, logo) already has a Builder editor in
+      // Review & Finish; open that step and land on the program name.
+      store.mutate("Open interview configuration",(timeline)=>{
+        timeline.builder={...(timeline.builder||{}),step:7};
+      },{history:false,material:false});
+      syncBridgeFromStore();
+      bridge.state.builder.step=7;
+      bridge.go("builder");
+      // Review & Finish renders asynchronously; wait for the editor, then land on it.
+      let attempts=0;
+      const settle=()=>{
+        const host=document.querySelector("[data-interview-config]");
+        if(!host){if(attempts++<20)setTimeout(settle,100);return;}
+        const specific=host.querySelector('input[name="interview-mode"][value="specific"]');
+        if(specific&&!specific.checked){specific.checked=true;specific.dispatchEvent(new Event("change",{bubbles:true}));}
+        host.scrollIntoView?.({behavior:"smooth",block:"start"});
+        setTimeout(()=>host.querySelector("[data-interview-program]")?.focus?.({preventScroll:true}),350);
+        announceGlobal("Opened interview details: program, date and logo");
+      };
+      setTimeout(settle,120);
+    };
+    const openGuidedFrameChooser=(slot)=>{
+      const spec=ADVANCED_FRAME_SLOTS[slot];
+      if(!spec||store.entitlement.canMutate!==true||typeof bridge.openModal!=="function")return false;
+      const filled=advancedFrameItem(store.document,slot);
+      const library=(store.document.advanced?.media||[]).filter((item)=>item&&item.kind!=="gif"&&(item.libraryAsset===true||item.source));
+      const thumb=(item)=>mediaUrls.get(String(item.mediaId||item.id))||item.source?.url||"";
+      const currentUrl=filled?thumb(filled):"";
+      const title=spec.label;
+      const libraryMarkup=library.length
+        ?`<ul class="guidedFrameLibrary" data-guided-frame-library>${library.map((item)=>`<li><button type="button" class="guidedFrameAsset" data-guided-frame-pick="${escapeMarkup(item.id)}">${thumb(item)?`<img src="${escapeMarkup(thumb(item))}" alt="">`:'<span class="guidedFrameAssetBlank"></span>'}<span>${escapeMarkup(item.source?.name||item.caption||"Image")}</span></button></li>`).join("")}</ul>`
+        :'<p class="guidedFrameEmpty">No images in your media library yet. Upload one below.</p>';
+      openStandardModal(`<section class="intake407FDialog guidedFrameChooser" role="dialog" aria-modal="true" aria-labelledby="guidedFrameTitle" data-guided-frame-chooser="${escapeMarkup(slot)}">
+        <p class="micro-label">Timeline photo</p>
+        <h2 id="guidedFrameTitle">${escapeMarkup(title)}</h2>
+        ${filled?`<div class="guidedFrameCurrent">${currentUrl?`<img src="${escapeMarkup(currentUrl)}" alt="Current ${escapeMarkup(title.toLowerCase())}">`:""}<span>${escapeMarkup(filled.altText||filled.source?.name||"Current photo")}</span></div>`:`<p>Add a photo from your media library, or upload a new one. You can crop or replace it later.</p>`}
+        <div class="guidedFrameActions">
+          <label class="btnD go sm guidedFrameUpload">${filled?"REPLACE WITH A NEW UPLOAD":"UPLOAD A PHOTO"}<input type="file" accept="${escapeMarkup(MEDIA_LIBRARY_ACCEPT.join(","))}" data-guided-frame-upload hidden></label>
+          ${slot==="logo"?'<button type="button" class="btnD alt sm" data-guided-frame-interview>INTERVIEW DETAILS (PROGRAM, DATE)</button>':""}
+          ${filled?'<button type="button" class="btnD alt sm" data-guided-frame-remove>REMOVE PHOTO</button>':""}
+          <button type="button" class="btnD alt sm" data-guided-frame-close>CLOSE</button>
+        </div>
+        <h3 class="guidedFrameLibraryTitle">From your media library</h3>
+        ${libraryMarkup}
+      </section>`,"[data-guided-frame-chooser]");
+      const dialog=document.querySelector("[data-guided-frame-chooser]");
+      if(!dialog)return false;
+      dialog.querySelector("[data-guided-frame-close]")?.addEventListener("click",()=>closeStandardModal());
+      dialog.querySelector("[data-guided-frame-interview]")?.addEventListener("click",()=>openInterviewDetails());
+      dialog.querySelector("[data-guided-frame-remove]")?.addEventListener("click",()=>{closeStandardModal({restoreFocus:false});clearAdvancedFrame(slot);});
+      dialog.querySelectorAll("[data-guided-frame-pick]").forEach((button)=>button.addEventListener("click",()=>{
+        closeStandardModal({restoreFocus:false});
+        if(!fillAdvancedFrame(slot,String(button.dataset.guidedFramePick)))bridge.toast("That image could not be placed in the frame.");
+      }));
+      dialog.querySelector("[data-guided-frame-upload]")?.addEventListener("change",async(event)=>{
+        const input=event.target;
+        if(!input?.files?.length)return;
+        try{
+          const binding=captureMediaUpload(slot);
+          closeStandardModal({restoreFocus:false});
+          await onMediaLibraryChange({target:{closest:()=>input}},{binding});
+        }catch(error){toastStudentError(error,"media");}
+      });
+      return true;
+    };
+    guidedFrameChooserHook=openGuidedFrameChooser;
 
     /* ---- crop mode: fixed frame, the image moves inside it (Canva P6) ---- */
     const advancedCropTargetInfo=(target)=>{
@@ -8795,6 +8882,9 @@ export async function boot407FEngineeringAdapter({
         ?{type:deepObject.type,id:String(deepObject.id)}
         :null;
       const object=deferredGroupedDeep?shallowObject:deepObject;
+      if(store.document.mode!=="advanced"&&store.entitlement.canMutate===true&&(!object||object.type!=="frame")&&event.target.closest?.("[data-interview-destination]")){
+        event.preventDefault();event.stopPropagation();openInterviewDetails();return;
+      }
       if(!object){
         // The existing explanation owner handles its free geometry; never start a marquee over it.
         if(event.target.closest?.('[data-event-kind="explanation"][data-event-id]'))return;
@@ -8814,7 +8904,12 @@ export async function boot407FEngineeringAdapter({
       }
       if(store.document.mode!=="advanced"&&[
         "event","color-key","profile","frame"
-      ].includes(object.type))return;
+      ].includes(object.type)){
+        if(object.type==="frame"&&store.entitlement.canMutate===true){
+          event.preventDefault();event.stopPropagation();openGuidedFrameChooser(object.id);
+        }
+        return;
+      }
       if(object.type==="frame"){
         /* Double-press on a filled frame opens crop; a press on a fixed well (profile
            portrait, program logo) selects it and stops — those move with their card. */
@@ -9531,7 +9626,7 @@ export async function boot407FEngineeringAdapter({
       const payload=railPayload(event);
       if(payload?.kind!=="insert"){
         const location=externalPhotoDropLocation(event);
-        if(!location||store.entitlement.canMutate!==true||store.document.mode!=="advanced"||store.document.layoutLock!==false)return;
+        if(!location||store.entitlement.canMutate!==true||(!location.frameSlot&&(store.document.mode!=="advanced"||store.document.layoutLock!==false)))return;
         if([...(event.dataTransfer?.types||[])].some(type=>type.startsWith("application/x-missionmed")))return;
         if(![...(event.dataTransfer?.items||[])].some(item=>item.kind==="file"&&/^image\/(png|jpe?g|webp|gif)$/i.test(String(item.type||""))))return;
         event.preventDefault();event.dataTransfer.dropEffect="copy";if(location.frameSlot)highlightAdvancedFrameDropTarget(advancedFrameAtPoint(event.clientX,event.clientY));return;
@@ -9608,6 +9703,25 @@ export async function boot407FEngineeringAdapter({
     document.addEventListener("mousedown",onAdvancedPointerDown,true);
     canvasHost.addEventListener("dragover",onAdvancedRailDragOver);
     canvasHost.addEventListener("drop",onAdvancedRailDrop);
+    /* Capture phase: a tap on a template photo frame in the Builder/Home preview opens the
+       guided chooser on the Timeline instead of the preview's generic "open Media" route;
+       the preview ribbon keeps its own route to the interview editor. On the guided
+       canvas itself the ribbon opens the interview editor. */
+    document.addEventListener("click",(event)=>{
+      if(store.entitlement.canMutate!==true)return;
+      const ribbon=event.target.closest?.(".canvas-application [data-interview-destination], [data-builder-preview-surface] [data-interview-destination]");
+      if(ribbon&&!event.target.closest?.("[data-frame-slot]")&&(store.document.mode!=="advanced"||ribbon.closest("[data-builder-preview-surface]"))){
+        event.preventDefault();event.stopImmediatePropagation();
+        setTimeout(openInterviewDetails,0);
+        return;
+      }
+      const frame=event.target.closest?.("[data-builder-preview-surface] [data-frame-slot]");
+      if(!frame)return;
+      const slot=String(frame.dataset.frameSlot||"");
+      if(!ADVANCED_FRAME_SLOTS[slot])return;
+      event.preventDefault();event.stopImmediatePropagation();
+      setTimeout(()=>{bridge.go("canvas");setTimeout(()=>guidedFrameChooserHook?.(slot),220);},0);
+    },true);
     canvasHost.addEventListener("dragstart",onAdvancedRailNativeDragStart);
     document.addEventListener("dragend",onAdvancedRailNativeDragEnd);
     document.addEventListener("pointermove",onAdvancedPointerMove);

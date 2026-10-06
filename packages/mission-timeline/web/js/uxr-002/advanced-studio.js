@@ -2290,10 +2290,12 @@ export function hitTestMediaFrames(regions,point){
   return null;
 }
 
-export function fillCanonicalMediaFrame(document,slot,mediaId,{id,consumePlacement=false}={}){
+export function fillCanonicalMediaFrame(document,slot,mediaId,{id,consumePlacement=false,allowLocked=false}={}){
   const spec=CANONICAL_MEDIA_FRAME_SLOTS[slot];
   const asset=safeArray(document.advanced?.media).find((item)=>String(item.id)===String(mediaId));
-  if(!spec||!asset||asset.locked===true||document.layoutLock!==false||!id)return{document,changed:false};
+  // allowLocked: the guided Timeline's automatic layout lock is not a student protection;
+  // canonical frames are fixed containers, so filling one changes no geometry there.
+  if(!spec||!asset||asset.locked===true||(document.layoutLock!==false&&!allowLocked)||!id)return{document,changed:false};
   const next=clone(document);
   next.mediaItems=safeArray(next.mediaItems).filter((item)=>String(item.placement||"").toLowerCase()!==spec.placement);
   next.mediaItems.push({id:String(id),type:spec.type,placement:spec.placement,mediaId:String(asset.id),source:clone(asset.source||{}),naturalAspect:Number(asset.naturalAspect)||null,altText:String(asset.source?.name||asset.name||""),crop:{x:50,y:50,zoom:1},visibilityState:"INTERVIEWER_SAFE"});

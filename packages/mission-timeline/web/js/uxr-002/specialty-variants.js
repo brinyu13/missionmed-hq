@@ -296,7 +296,12 @@ export function applyActiveSpecialtyVariant(document){
       logoMediaId:active.interviewTarget.logoMediaId
     }
   };
-  if(active.interviewTarget.logoMediaId){
+  // The ribbon's logo well is the logo's home on the 2025 board. Once a student
+  // has filled that fixed frame (from the Timeline, the Builder preview or the
+  // interview editor), the interview target's free placement would paint the same
+  // logo a second time above the well, so it yields to the frame.
+  const logoWellFilled=(projected.mediaItems||[]).some((item)=>String(item?.placement||"").toLowerCase()==="ribbon");
+  if(active.interviewTarget.logoMediaId&&!logoWellFilled){
     projected.advanced={
       ...(projected.advanced||{}),
       media:(projected.advanced?.media||[]).map((item)=>

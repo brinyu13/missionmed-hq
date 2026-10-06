@@ -382,7 +382,8 @@ export function buildFounderPresentationScene(document,{
   currentMonth=null,
   mediaById=new Map(),
   measureText=null,
-  showEmptySlots=false
+  showEmptySlots=false,
+  emptySlotStyle="labelled"
 }={}){
   const projected=projectFounderPresentationDocument(document,{scope:audience||scope});
   const sourceEvents=structuredClone(projected.events);
@@ -411,6 +412,9 @@ export function buildFounderPresentationScene(document,{
   scene.profileDisplay.excludedFields.push(...unprovidedExamFields.map(field=>({field,reason:'unprovided-exam-result',sourceValue:scene.profile[field]})));
   if(measureText)scene.measureText=measureText;
   scene.showEmptySlots=showEmptySlots===true;
+  // "labelled" keeps the DROP PHOTO / PROFILE PHOTO / PROGRAM LOGO prompts (screen, editable
+  // deck); "print" paints the same frames with blank apertures for a finished handout.
+  scene.emptySlotStyle=emptySlotStyle==="print"?"print":"labelled";
   const hidden=projected.presentationOverrides?.hidePrototypePhotoCards===true
     ?projected.mediaItems.filter(item=>mediaRole(item)==='photo'&&(item.prototypeTest===true||item.metadata?.prototypeTest===true)):[];
   scene.presentationAccounting.hiddenPrototypePhotos=structuredClone(hidden);
