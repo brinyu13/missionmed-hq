@@ -70,4 +70,8 @@ export async function mountDeviceControls(host,{engine,video,getStream,isCurrent
   const dispose=()=>{disposed=true;unbindInput();selects.forEach(select=>select.removeEventListener('change',change));mediaDevices.removeEventListener?.('devicechange',deviceChange);window?.removeEventListener?.('focus',deviceChange);};
   dispose.refresh=refresh;return dispose;
 }
-export function deviceControlsMarkup(){return '<section class="housing panel" data-device-controls hidden><div class="two-col"><label class="field">Camera<select data-device-kind="camera" aria-label="Camera"></select></label><label class="field">Microphone<select data-device-kind="microphone" aria-label="Microphone"></select></label></div><p class="note" data-device-status>Choose your camera and microphone here.</p></section>';}
+// variant:'room' marks the single Room node that is inline during readiness and a one-click popover when live; the selects, owner and switching path are identical.
+export function deviceControlsMarkup({variant='panel'}={}){
+  const room=variant==='room';
+  return '<section class="housing panel'+(room?' device-controls-room':'')+'" data-device-controls'+(room?' data-device-variant="room"':'')+' hidden><div class="two-col"><label class="field">Camera<select data-device-kind="camera" aria-label="Camera"></select></label><label class="field">Microphone<select data-device-kind="microphone" aria-label="Microphone"></select></label></div><p class="note" data-device-status>'+(room?'Switching keeps the same preview, recording and interviewer connection.':'Choose your camera and microphone here.')+'</p></section>';
+}

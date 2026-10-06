@@ -6,6 +6,7 @@ import { conductorConfig, toWizard, defaultSettings, resolveMockQuestionTarget, 
 import { liveContext } from './adapters/context-adapter.mjs';
 import { awaitVisibleCamera,assertMicrophoneReady } from './adapters/media-readiness.mjs';
 import {mountDeviceControls,deviceControlsMarkup} from './adapters/device-controls.mjs';
+import {projectReadinessLines,readinessLinesMarkup,mountReadinessLines} from './adapters/readiness-status.mjs';
 import {selectedEnvironment,environmentProfile,environmentControlsMarkup,mountEnvironmentProfile} from './adapters/environment-profile.mjs';
 import {bindPrimaryRecovery} from './adapters/engine-adapter.mjs';
 import {saveOwnVisibility} from './adapters/own-presentation.mjs';
@@ -74,7 +75,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
           <div>
             <div class="t-kick gold">${mode === 'mock' ? 'Mock interview' : 'Practice rep'} · ${targetQuestions} question${targetQuestions > 1 ? 's' : ''}${mode === 'mock' && targetQuestions !== plan.length ? ` · ${plan.length} selected` : ''}</div>
             <h2 class="t-h2" style="margin:8px 0 6px">${mode === 'mock' ? 'Ready for your interview?' : 'Ready for your answer?'}</h2>
-            <p>${mode === 'mock' ? `Priority: ${esc(String(session.priority || 'leave one natural hook the interviewer can follow').replace(/[.\s]+$/, ''))}.` : `Priority: ${esc(String(session.priority || 'finish the answer in under 90 seconds').replace(/[.\s]+$/, ''))}.`} Connect your camera and microphone. Check your visible preview, then start when you are ready.</p>
+            <p>${mode === 'mock' ? `Priority: ${esc(String(session.priority || 'leave one natural hook the interviewer can follow').replace(/[.\s]+$/, ''))}.` : `Priority: ${esc(String(session.priority || 'finish the answer in under 90 seconds').replace(/[.\s]+$/, ''))}.`}</p>
             ${mode==='mock'&&account?.mode==='REAL'&&account.role==='admin'?`<details class="expert" style="margin-top:10px;text-align:left"><summary>Admin voice audition</summary><label class="field"><span class="t-label">Native interviewer voice</span><select id="admin-live-voice">${VOICES.map(voice=>`<option value="${voice}" ${selectedAdminVoice(settings,account,mode)===voice?'selected':''}>${voice}</option>`).join('')}</select></label><small class="note">The same real interview and recording path; only the voice changes. Select before Start. Student default remains marin. No external TTS.</small></details>`:''}
             ${avatarCanary?'<label class="field avatar-canary"><input type="checkbox" id="avatar-canary"> Authorized avatar canary · one 45-second session</label>':''}
             <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px"><button class="btn btn-primary btn-lg" type="button" id="connect-real">Connect camera + mic</button><button class="btn btn-primary btn-lg" type="button" id="start-session" disabled>${mode === 'mock' ? 'Start Interview' : 'Start recorded answer'} ▸</button></div>
@@ -83,13 +84,13 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       </div>
       </div>
       <p class="note readiness-status" id="enter-note" role="status" aria-live="polite"></p>
+      <div class="note" id="primary-recovery" role="status" aria-live="polite" hidden><span data-primary-status></span> <button class="btn btn-quiet" type="button" data-reselect-primary>Lock to me</button></div>
       ${profile.simulated?'<div class="environment-controls" data-environment-controls></div>':''}
       <div class="under-stage" id="under-stage"><span id="engine-label">Nothing is measured yet.</span><button class="transcript-toggle" type="button" id="transcript-toggle" aria-expanded="false">Transcript</button>${!profile.simulated?'<button type="button" class="btn btn-quiet" data-self-view aria-pressed="true" disabled>Hide self view</button>':''}</div>
+      <div class="readiness-dock" data-readiness-dock><details class="room-devices" id="room-devices" data-room-devices open><summary>Devices</summary>${deviceControlsMarkup({variant:'room'})}</details>${readinessLinesMarkup(projectReadinessLines({mode,liveInterviewAvailable:account?.liveInterviewAvailable===true}))}</div>
       <details class="room-settings" id="room-settings"><summary aria-label="Room settings">⚙ Settings</summary><div class="room-settings-panel">
-      <div class="note" id="primary-recovery" role="status" aria-live="polite" hidden><span data-primary-status></span> <button class="btn btn-quiet" type="button" data-reselect-primary>Lock to me</button></div>
       <p class="note" id="room-preference-note" role="status" hidden></p>
       <h3 class="t-label">Analytics display</h3><button class="btn btn-quiet" type="button" id="reset-density">Use default analytics view</button><button class="btn btn-quiet" type="button" id="guides" aria-pressed="${overlaysVisible}" aria-label="Show tracking overlays">Tracking overlays</button><p class="note">Measurements continue when overlays or self view are hidden.</p><div class="review-actions" id="overlay-layers" role="group" aria-label="Tracking overlay layers">${[['face','Face'],['bodyHands','Body / hands'],['position','Framing']].map(([key,label])=>'<button class="btn btn-quiet" type="button" data-overlay-layer="'+key+'" aria-pressed="'+layers[key]+'">'+label+'</button>').join('')}</div>
-      <details class="expert" data-room-devices open><summary>Devices</summary>${deviceControlsMarkup()}</details>
       </div></details>
     <div class="transcript" id="transcript" hidden></div>
 
@@ -144,6 +145,11 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   }
   function guideHook(){
     if(!current()||!started||finished||saving||!observer)return;
+    // Interview Director: the deterministic objective reaches GPT-Live on the strong
+    // steer path while the candidate is still speaking, before the next turn is
+    // committed. The quiet thinking hint remains only as a fallback transport.
+    const objective=observer.pendingObjective?.();
+    if(objective){if(interviewer?.steerObjective?.(objective))observer.objectiveSent(objective);return;}
     const hint=observer.pendingHookContext();
     if(hint&&interviewer?.appendHookContext(hint))observer.hookContextSent(hint);
   }
@@ -308,5 +314,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     try{const saved=await controller.finishSession({record:saveRecord});if(saved.saveError)showSaveFailure(saved.saveError);else showSaved(saved);}catch(error){showSaveFailure(error.message);}
   }
   applyOverlays();renderPlan();renderTranscript();
-  return ()=>{disposed=true;disposeEnvironment();disposeDevices?.();disposePrimary?.();detach();recorder.destroy();document.querySelector('.sheet-backdrop')?.remove();if(!finished&&!controller.navigationLocked)void controller.release('route_change');};
+  // Presentation only: the three readiness lines mirror the room's existing gating state (preview-ready attribute, Connect button, readiness note); Start gating is unchanged.
+  const disposeReadinessLines=mountReadinessLines($('readiness-lines'),{room,stage:$('stage'),note:$('enter-note'),connect:$('connect-real'),devices:$('room-devices'),mode,liveInterviewAvailable:account?.liveInterviewAvailable===true});
+  return ()=>{disposed=true;disposeReadinessLines();disposeEnvironment();disposeDevices?.();disposePrimary?.();detach();recorder.destroy();document.querySelector('.sheet-backdrop')?.remove();if(!finished&&!controller.navigationLocked)void controller.release('route_change');};
 }

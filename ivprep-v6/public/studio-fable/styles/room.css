@@ -480,3 +480,39 @@ body[data-mode="room"] main.view { max-width: none; padding: 0; animation: none;
   .room[data-environment="teams"] .environment-bar .controls { width: 100%; }
   .room[data-environment="teams"] .environment-bar .controls .btn { font-size: 13px; }
 }
+
+/* ---------- Readiness dock + one-owner device pickers (Founder takeover) ----------
+   One deviceControlsMarkup node, one mountDeviceControls owner, never cloned or remounted.
+   Readiness: an inline row directly under the preview (Camera/Microphone selects + the three
+   readiness lines). Live/saving: a "Devices" button beside Settings whose single click opens a
+   popover holding the same two selects. 1440×900 cockpit budget: stage-col 594 = meeting-stage
+   (1fr) + 8 + under-stage 40 + 8 + dock ≤84 (8px padding ×2 + 40px selects + 6 + ~22px status),
+   so the stage keeps ≈594−140−presence(≈113)−10 ≈ 331px ≥ its 280px readiness floor; the body
+   stays overflow hidden at 1440×900, 1512×982 and 1728×1117. */
+.readiness-dock { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(220px, .9fr); gap: 10px; align-items: stretch; min-width: 0; }
+.readiness-dock > * { min-width: 0; }
+.room[data-phase="readiness"] .readiness-dock:has(> .room-devices > [data-device-controls][hidden]) { grid-template-columns: minmax(0, 1fr); }
+.room[data-phase="readiness"] .readiness-dock:has(> .room-devices > [data-device-controls][hidden]) .readiness-lines { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.room:not([data-phase="readiness"]) .readiness-dock { display: contents; }
+.room:not([data-phase="readiness"]) .readiness-lines { display: none; }
+.readiness-lines { list-style: none; margin: 0; padding: 8px 12px; display: grid; gap: 4px; align-content: center; border: 1px solid var(--line); border-radius: 12px; background: #101829; }
+.readiness-lines li { display: flex; align-items: center; gap: 8px; font-size: 12.5px; line-height: 1.3; color: var(--ink2); min-width: 0; }
+.readiness-lines i { width: 16px; height: 16px; flex: none; border-radius: 50%; border: 1px solid var(--edge); display: grid; place-items: center; font-size: 10px; font-style: normal; color: var(--dim); }
+.readiness-lines li[data-state="ready"] i { background: var(--ok); border-color: var(--ok); color: #06240f; }
+.readiness-lines li[data-state="attention"] i { border-color: var(--warn); color: var(--warn); }
+.readiness-lines li[data-state="checking"] i { border-color: var(--cyan); color: var(--cyan); }
+.room-devices { position: absolute; right: 108px; bottom: 0; z-index: 8; }
+.room-devices > summary { cursor: pointer; list-style: none; color: var(--ink2); min-height: 40px; display: flex; align-items: center; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line); background: #101829; }
+.room-devices > summary::-webkit-details-marker { display: none; }
+.room-devices > [data-device-controls] { position: absolute; right: 0; bottom: 48px; width: min(440px, calc(100vw - 32px)); padding: 14px; background: #0b1223; border: 1px solid #ffb84d55; border-radius: 14px; box-shadow: 0 16px 60px #000b; }
+.room-devices [data-device-controls] .two-col { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.room-devices [data-device-controls] select { min-width: 0; width: 100%; }
+.room-devices [data-device-status] { margin: 8px 0 0; }
+.room[data-phase="readiness"] .room-devices { position: static; }
+.room[data-phase="readiness"] .room-devices > summary { display: none; }
+.room[data-phase="readiness"] .room-devices:has(> [data-device-controls][hidden]) { display: none; }
+.room[data-phase="readiness"] .room-devices > [data-device-controls] { position: static; width: auto; padding: 8px 12px; border-color: var(--line); box-shadow: none; }
+.room[data-phase="readiness"] .room-devices .field { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px; margin: 0; font-size: 12.5px; color: var(--dim); }
+.room[data-phase="readiness"] .room-devices [data-device-status] { margin: 6px 0 0; }
+.room:not([data-phase="readiness"]) .under-stage { padding-right: 214px; }
+@media (max-width: 760px) { .room-devices { right: 96px; } .room:not([data-phase="readiness"]) .under-stage { padding-right: 0; } .readiness-dock { grid-template-columns: minmax(0, 1fr); } }

@@ -55,7 +55,7 @@ test('actual Home guards the whole render across account/subject/Durable/route c
   const body=source.slice(source.indexOf('async function renderHome('),source.indexOf('// ---------- PRACTICE:'));
   for(const change of ['stable','account','subject','durable','route']){
     const account={subject:'wp:1',display:'Test'},durable={},controller={account,durable,library:async()=>({source:'account'})};let resolve,route=true,writes=0;
-    const main={set innerHTML(value){writes++;}},context={controller,main,guarded:()=>route,hydrateOwnPresentation:async()=>{},readOwnCalendar:async()=>({state:'unavailable'}),
+    const main={set innerHTML(value){writes++;},querySelector:()=>null},context={controller,main,guarded:()=>route,hydrateOwnPresentation:async()=>{},readOwnCalendar:async()=>({state:'unavailable'}),commandChips:()=>[],commandSurfaceMarkup:()=>'',mountCommandSurface(){},
       ownQuestions:()=>new Promise(r=>resolve=r),attemptsByRecency:()=>[],calendarHomeAction:()=>null,state:{program:null,mentorPriority:null},streak:()=>0,
       esc:value=>String(value),salutation:()=>'',fmtDate:()=>'',fmtDur:()=>'',masteryState:()=>({segments:0,state:'Unpracticed',reps:0})};
     const promise=vm.runInNewContext(body+';renderHome(guarded)',context);
@@ -72,7 +72,7 @@ test('an optional Calendar request that never settles cannot hold Home or questi
   const body=source.slice(source.indexOf('async function renderHome('),source.indexOf('// ---------- PRACTICE:'));
   let writes=0,questionReads=0;
   const context={controller:{account:{subject:'wp:1',display:'Test'},durable:{},library:async()=>({source:'account'})},
-    main:{set innerHTML(value){writes++;}},guarded:()=>true,hydrateOwnPresentation:async()=>{},readOwnCalendar:()=>new Promise(()=>{}),
+    main:{set innerHTML(value){writes++;},querySelector:()=>null},guarded:()=>true,hydrateOwnPresentation:async()=>{},readOwnCalendar:()=>new Promise(()=>{}),commandChips:()=>[],commandSurfaceMarkup:()=>'',mountCommandSurface(){},
     ownQuestions:async()=>{questionReads++;return {questions:[]};},attemptsByRecency:()=>[],state:{program:null,mentorPriority:null},streak:()=>0,
     esc:value=>String(value),salutation:()=>'',fmtDate:()=>'',fmtDur:()=>'',masteryState:()=>({segments:0,state:'Unpracticed',reps:0})};
   await vm.runInNewContext(body+';renderHome(guarded)',context);assert.equal(writes,1);assert.equal(questionReads,1);

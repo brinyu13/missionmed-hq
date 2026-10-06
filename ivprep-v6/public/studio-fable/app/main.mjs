@@ -18,6 +18,8 @@ import { filterOwnAttempts, ownHistoryProgress, formatHistoryEvidence } from './
 import {readOwnCalendar,calendarHomeAction} from './adapters/calendar-view-model.mjs';
 import {ENVIRONMENTS,normalizeEnvironment,selectedEnvironment,environmentChoicesMarkup} from './adapters/environment-profile.mjs';
 import {legacyPresentationEntry} from './adapters/product-entry.mjs';
+import {commandChips} from './adapters/command-router.mjs';
+import {commandSurfaceMarkup,mountCommandSurface} from './adapters/command-surface.mjs';
 
 const main = document.getElementById('main');
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -77,6 +79,7 @@ async function renderHome(isCurrent = guarded) {
   const core = questions.filter((q) => q.core_priority).slice(0, 10);
   const reps = attempts.length; const days = streak(attempts);
   const practiced = new Set(attempts.map((a) => a.questionId)).size;
+  const chips = commandChips({ latest: last });
   main.innerHTML = `
     <section class="home-hero">
       <div class="hero-copy">
@@ -95,6 +98,7 @@ async function renderHome(isCurrent = guarded) {
         <a class="btn btn-primary" href="${now.href}">${now.cta} ▸</a>
       </aside>
     </section>
+    ${commandSurfaceMarkup({ chips })}
     <section class="goal-grid" aria-label="Four goals">
       <a class="goal-tile" href="#/practice"><img src="/iv-prep-on-call/assets/studio/astra-assets/iv-prep-on-call.webp" alt=""><span><strong>Practice an answer</strong><small>One question, recorded privately, debriefed with evidence.</small><b>Pick a question →</b></span></a>
       <a class="goal-tile" href="#/mock"><img src="/iv-prep-on-call/assets/studio/astra-assets/synthetic-candidate.webp" alt=""><span><strong>Mock interview</strong><small>Contextual questions, follow-ups, and practice closing the interview.</small><b>Step into the room →</b></span></a>
@@ -109,6 +113,8 @@ async function renderHome(isCurrent = guarded) {
         <div class="table-list">${core.slice(0, 5).map((q) => { const m = masteryState(attempts, q.question_id); return `<div class="attempt-row" style="padding:7px 0"><span class="mastery-ring" aria-label="${m.state}">${[1, 2, 3, 4].map((i) => `<i class="${i <= m.segments ? 'on' : ''}"></i>`).join('')}</span><div><strong style="font-size:13px;font-weight:600">${esc(q.canonical_text)}</strong><small>${m.state}${m.reps ? ` · ${m.reps} rep${m.reps > 1 ? 's' : ''}` : ''}</small></div><a class="btn btn-quiet" style="min-height:32px;padding:0 10px;font-size:12.5px" href="#/practice?q=${q.question_id}">Rep</a></div>`; }).join('')}</div>
       </div>
     </section>`;
+  // Free text resolves only into existing workflows (pure router); Enter and chips both route.
+  mountCommandSurface(main.querySelector('[data-command-surface]'), { questions, latest: last, isCurrent: current });
   // Optional owner timing never holds Home or the core launch actions hostage.
   void calendarPending.then(calendar=>{
     if(!current())return;const next=calendarHomeAction(calendar);if(!next)return;
@@ -182,6 +188,10 @@ async function renderMock(params, isCurrent = guarded) {
   }else{session.retry=null;session.retryOf=null;}
   session.priority = session.retry?.priorityText || state.mentorPriority || null;
   const useProgram = params.get('program') === '1' && state.program;
+  // Home command hints (additive): a valid length lands before the first draw; a preset goes through the same applyPreset path after it.
+  const requestedMinutes=Number(params.get('min'));
+  if([5,10,15,25].includes(requestedMinutes)){session.config.durationMin=requestedMinutes;session.settings.durationMin=requestedMinutes;}
+  const presetHint=EASY_PRESETS.some(p=>p.id===params.get('preset'))?params.get('preset'):null;
   const {buildContextSources} = await import('/iv-prep-on-call/assets/studio/presentation-view-model.mjs');
   const mentor = await controller.durable.mentorPriorities().catch(() => null);
   if (!isCurrent()) return;
@@ -315,6 +325,7 @@ async function renderMock(params, isCurrent = guarded) {
     });
   };
   draw();
+  if(presetHint&&isCurrent()){Object.assign(st,applyPreset(st,presetHint,{interviewPolicy:controller.interviewPolicy}));st.advanced=false;draw();}
 }
 
 // ---------- PREPARE FOR A PROGRAM ----------
@@ -324,12 +335,12 @@ function calendarMarkup(value){
   const {projection}=value,next=projection.nextEvent;
   return '<h3 class="t-h3">'+esc(next?next.title:'Calendar connected')+'</h3><p class="note">'+esc(next?new Date(next.startsAt).toLocaleString()+' · '+next.provider.toUpperCase()+' · '+next.status.toUpperCase():projection.eventCount+' authorized appointments · none upcoming.')+'</p>'+(next?'<p class="note">Join details '+(next.joinAvailable?'are available in your connected calendar.':'are not available yet.')+' Select your verified program separately.</p>':'');
 }
-async function renderPrepare(isCurrent = guarded) {
+async function renderPrepare(isCurrent = guarded, { initialQuery = '' } = {}) {
   const account=controller.account,durable=controller.durable,subject=account?.subject;
   const current=()=>isCurrent()&&controller.account===account&&controller.durable===durable&&account?.subject===subject;
   const {questions}=await loadQuestions({account});if(!current())return;
   let calendar={state:'loading'};
-  let filters={q:'',specialty:'',jurisdiction:'',programType:'',page:1},result={rows:[],total:0,page:1,totalPages:0},querySequence=0,error=null,loading=false;
+  let filters={q:String(initialQuery||'').slice(0,120),specialty:'',jurisdiction:'',programType:'',page:1},result={rows:[],total:0,page:1,totalPages:0},querySequence=0,error=null,loading=false;
   const draw=()=>{
     if(!current())return;const p=state.program;
     const fit=questions.filter(q=>(q.tags||[]).some(t=>['PROGRAM_FIT','MOTIVATION','SPECIALTY'].includes(t))).slice(0,4);
@@ -425,7 +436,7 @@ async function route() {
       await (name==='mock'?renderMock(params,isCurrent):renderPractice(params,isCurrent));
       if(isCurrent()&&params.get('recover')==='room')main.insertAdjacentHTML('afterbegin','<p class="note" role="status">This page was refreshed. Review your setup before entering the room again. No interview has restarted.</p>');
     }
-    else if(name==='prepare')await renderPrepare(isCurrent);
+    else if(name==='prepare')await renderPrepare(isCurrent,{initialQuery:params.get('q')||''});
     else if(name==='review')await renderReview(isCurrent);
     else if(name==='progress')await renderProgress(isCurrent);
     else if(name==='bait-lab') {

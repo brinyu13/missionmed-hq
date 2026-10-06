@@ -32,7 +32,7 @@ main.view { flex: 1; width: 100%; max-width: 1360px; margin: 0 auto; padding: 28
 .fixture-banner { position: fixed; right: 14px; bottom: 14px; z-index: 40; display: flex; align-items: center; gap: 8px; background: #a696ff1a; border: 1px solid #a696ff66; color: #d9d2ff; padding: 7px 12px; border-radius: 999px; font: 700 11px/1 var(--font-display); letter-spacing: .12em; text-transform: uppercase; backdrop-filter: blur(8px); }
 
 /* ---------- Home ---------- */
-.home-hero { position: relative; border-radius: 20px; overflow: hidden; min-height: 390px; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(300px, .9fr); gap: 20px; padding: 40px 44px; background: #0b1222; border: 1px solid #ffffff10; box-shadow: 0 30px 80px #0009; }
+.home-hero { position: relative; border-radius: 20px; overflow: hidden; min-height: 360px; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(300px, .9fr); gap: 20px; padding: 34px 44px; background: #0b1222; border: 1px solid #ffffff10; box-shadow: 0 30px 80px #0009; }
 .home-hero::before { content: ''; position: absolute; inset: 0; background: url('/iv-prep-on-call/assets/ivoc-standalone/assets/arena-world-day.jpg') center/cover no-repeat; opacity: .32; filter: saturate(.85) contrast(1.05); }
 .home-hero::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, #070c17f0 0%, #070c17c0 48%, #070c1760 100%), linear-gradient(0deg, #060a12 0%, transparent 60%); }
 .home-hero > * { position: relative; z-index: 1; }
@@ -50,6 +50,26 @@ main.view { flex: 1; width: 100%; max-width: 1360px; margin: 0 auto; padding: 28
 .now-card .plan { display: grid; gap: 8px; margin: 0 0 16px; padding: 0; list-style: none; }
 .now-card .plan li { display: flex; gap: 10px; align-items: center; font-size: 13.5px; color: var(--ink2); }
 .now-card .plan i { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; background: #ffffff0d; font: 700 11px/1 var(--font-num); color: var(--gold-flat); font-style: normal; }
+
+/* ---------- Home command surface (Founder re-approved amendment) ----------
+   Free text → existing workflows only. Budget at 1440×900 (main top padding 28):
+   hero ≈462 + 16 margin + bar ≈120 (50px label/input row + 8 + 30px chips + 24 padding + 8;
+   the help line renders only when it has content) + 20 + four 240px goal tiles ≈ 886px,
+   so the four goals stay above the fold; more headroom at 1512×982 and 1728×1117. */
+.command-surface { margin-top: 16px; padding: 12px 16px; }
+.command-form { display: grid; gap: 8px; }
+.command-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; }
+.command-label { white-space: nowrap; margin: 0; }
+.command-input { width: 100%; min-height: 50px; padding: 0 18px 0 44px; border-radius: 999px; background: #080d19 url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%238e9bb3' stroke-width='2.2' stroke-linecap='round'><circle cx='11' cy='11' r='7'/><path d='m20 20-3.5-3.5'/></svg>") no-repeat 16px center; border: 1px solid var(--edge); color: var(--ink); font: 400 17px/1.2 var(--font-editorial); }
+.command-input::placeholder { color: var(--dim); }
+.command-input:focus-visible { border-color: var(--gold-flat); box-shadow: var(--focus-ring); border-radius: 999px; }
+.command-go { min-height: 44px; }
+.command-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip-cmd { min-height: 30px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: #ffffff06; color: var(--ink2); font-size: 12.5px; font-weight: 700; line-height: 1.2; }
+.chip-cmd:hover { border-color: var(--gold-flat); color: var(--ink); }
+.command-help { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.command-help:empty { display: none; }
+@media (max-width: 960px) { .command-row { grid-template-columns: minmax(0, 1fr) auto; } .command-label { grid-column: 1 / -1; } }
 
 .goal-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-top: 20px; }
 .goal-tile { position: relative; min-height: 240px; border-radius: 16px; overflow: hidden; text-align: left; background: var(--s1); border: 1px solid #ffffff10; display: flex; flex-direction: column; justify-content: flex-end; padding: 18px; transition: transform var(--e-fast), border-color var(--e-fast); }

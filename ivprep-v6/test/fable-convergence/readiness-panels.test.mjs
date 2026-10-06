@@ -96,6 +96,6 @@ test('four tabs default to Devices and support arrow wrap, Home/End, focus and s
 test('only calibration opts into full panels; Room keeps its original compact device disclosure',()=>{
   const read=name=>readFileSync(new URL('../../public/studio-fable/app/'+name,import.meta.url),'utf8');
   assert.match(read('calibration.mjs'),/deviceReadinessMarkup\(\{fullPanels:true\}\)/);assert.match(read('calibration.mjs'),/fullPanels:true,getCapabilities:/);
-  assert.match(read('room.mjs'),/data-room-devices open><summary>Devices<\/summary>\$\{deviceControlsMarkup\(\)\}/);assert.doesNotMatch(read('room.mjs'),/fullPanels:true/);
+  assert.match(read('room.mjs'),/data-room-devices open><summary>Devices<\/summary>\$\{deviceControlsMarkup\(\{variant:'room'\}\)\}/);assert.doesNotMatch(read('room.mjs'),/fullPanels:true/);
   assert.doesNotMatch(deviceReadinessMarkup(),/role="tablist"|data-readiness-count/);
 });

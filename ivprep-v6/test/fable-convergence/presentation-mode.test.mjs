@@ -22,7 +22,7 @@ function roomFixture(density,{mode='practice',target=null,goal='Guided Mock IV P
   const setup=vm.runInNewContext(section('  const cfg=session.config||{};',"  let density=" )+'\n({settings,targetQuestions})',{session:{config:{targetQuestions:target},settings:{...defaultSettings(),goal,practiceFocus:focus,pressure:true,voice}},mode,plan,defaultSettings,resolveMockQuestionTarget,environmentProfile,selectedEnvironment});
   const {settings,targetQuestions}=setup;
   const camera=new Promise(resolve=>{resolveCamera=resolve;});
-  const context={density,initialPresentationMode:null,starting:false,started:false,saving:false,finished:false,disposed:false,deviceSwitching:false,
+  const context={density,initialPresentationMode:null,avatarCanary:null,practiceQ:plan[0],starting:false,started:false,saving:false,finished:false,disposed:false,deviceSwitching:false,
     current:()=>true,account:{mode:'REAL',role},selectedAdminVoice,$:element,room,main:{querySelectorAll:()=>[],querySelector:()=>({remove(){}})},
     controller:{video:{},stream:{getAudioTracks:()=>[{readyState:'live',enabled:true,muted:false}]},elapsed:2,interviewPolicy,startSession:async input=>{launched=input;return{interviewer:{}};},finishSession:async({record})=>{filed=record;return{saveError:'retry retained'};}},
     engine:{audioContext:{state:'running'},events:{addEventListener(){},removeEventListener(){}},personalCalibration:null},settings,session:{priority},mode,targetQuestions,plan,
@@ -34,7 +34,7 @@ function roomFixture(density,{mode='practice',target=null,goal='Guided Mock IV P
   const helperStart=source.indexOf('  function setDensityControls(');
   const helpers=helperStart<0?'':source.slice(helperStart,source.indexOf('  function renderTranscript()',helperStart));
   vm.createContext(context);
-  vm.runInContext(helpers+section('  async function start(){',"  $('connect-real').addEventListener")+section("  room.querySelector('.density').addEventListener", "  $('guides').addEventListener")+section('  async function finishSession(reason){','  applyOverlays();renderPlan();renderTranscript();')+';this.start=start;this.finish=finishSession;',context);
+  vm.runInContext(helpers+section('  function restoreReadinessPresence(){','  async function start(){')+section('  async function start(){',"  $('connect-real').addEventListener")+section("  room.querySelector('.density').addEventListener", "  $('guides').addEventListener")+section('  async function finishSession(reason){','  applyOverlays();renderPlan();renderTranscript();')+';this.start=start;this.finish=finishSession;',context);
   return {context,buttons,events,samples,settings,releaseCamera:()=>resolveCamera(),start:()=>context.start(),finish:()=>context.finish('finished'),
     select:value=>handler.density({target:{closest:()=>buttons.find(b=>b.dataset.density===value)}}),reset:()=>handler.reset(),filed:()=>filed,launched:()=>launched,contextInput:()=>contextInput,
     chooseVoice(value){const select=element('admin-live-voice');select.value=value;handlers.get('admin-live-voice:change')({target:select});},voiceElement:()=>element('admin-live-voice')};
