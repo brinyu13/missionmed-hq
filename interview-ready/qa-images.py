@@ -7,9 +7,9 @@ ROOT = Path(__file__).resolve().parent
 cat = json.loads((ROOT/'catalog.json').read_text())
 policy = {e['path']: e for e in json.loads((ROOT/'production-assets.json').read_text())['assets']}
 ledgers = {}
-for f in ('evidence/manufacturer-images-2026-10-06.json','evidence/product-media.json'):
-    p = ROOT/f
+for p in sorted((ROOT/'evidence').glob('manufacturer-images-*.json')) + [ROOT/'evidence/product-media.json']:
     if p.exists():
+        f = str(p.relative_to(ROOT))
         for r in json.loads(p.read_text()):
             if r.get('derivative'): ledgers[r['derivative']] = (f, r)
 rows, failures = [], []
@@ -28,6 +28,9 @@ def audit(item, scope):
     led = ledgers.get(img)
     src = (item.get('imageSource') or ('manufacturer' if led and 'manufacturer' in led[0] else 'cc-licensed'))
     mapped = led and (led[1].get('asin') == asin)
+    # Keystone press kits that publish the listing's own main image must name this ASIN in the URL
+    u = (led[1].get('url') or '') if led else ''
+    if led and 'corsairdam' in u and '.main' in u.lower() and asin not in u: mapped = False
     row.update(imageSource=src, imageRef=(led[1].get('url') if led else img), derivative=img, allowlisted=bool(img in policy), hashOk=bool(ok), exactAsinMapping=bool(mapped),
                status='OK' if (ok and mapped and item.get('imageCredit')) else 'FAIL_' + ('BROKEN_IMAGE' if not ok else 'WRONG_MODEL' if not mapped else 'MISSING_CREDIT'))
     if row['status'] != 'OK': failures.append(row)

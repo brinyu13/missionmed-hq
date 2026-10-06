@@ -41,7 +41,7 @@
             "licenseUrl": "https://www.logitech.com/en-us/products/webcams/brio-4k-hdr-webcam.html",
             "source": "https://resource.logitech.com/w_1800,h_1800,c_limit,q_auto,f_auto,dpr_1.0/d_transparent.gif/content/dam/logitech/en/products/webcams/brio/gallery/brio-gallery-1.png",
             "caption": "Manufacturer product image of the exact model.",
-            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching."
+            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching"
           },
           "imageSource": "manufacturer"
         },
@@ -81,7 +81,7 @@
             "licenseUrl": "https://keystone.corsair.com/en/Facecam_MK_2/press-kit/",
             "source": "https://res.cloudinary.com/corsairdam/image/upload/v1774862954/B0CW1S7XP5.Main_mcmfpy.jpg",
             "caption": "Manufacturer product image of the exact model.",
-            "changes": "Resized, metadata removed and WebP encoded; no retouching."
+            "changes": "Resized, metadata removed and WebP encoded; no retouching"
           },
           "imageSource": "manufacturer"
         },
@@ -149,7 +149,7 @@
           "complexity": "Simple",
           "box": "Webcam with attached USB-A cable and monitor clip; tripod thread in the clip base.",
           "status": "image-hold",
-          "holdReason": "IMAGE_NOT_PRODUCTION_READY: Logitech publishes no C920x (no-shutter, Amazon-exclusive) product image; only C920s media exists. Held until an Amazon Creators API image is authorized."
+          "holdReason": "Temporarily held: we do not yet have an authorized photo of this exact listing (Logitech publishes images of the C920s, not the C920x). It returns as soon as one is available."
         },
         {
           "exception": false,
@@ -176,8 +176,16 @@
           "ecosystem": "EMEET",
           "complexity": "Simple",
           "box": "Webcam, USB cable and privacy cover; sold by EMEET OFFICIAL on Amazon at check. No manufacturer page for this exact model was located, so the Amazon listing is the product source.",
-          "status": "image-hold",
-          "holdReason": "IMAGE_NOT_PRODUCTION_READY: no EMEET manufacturer page or image for the S600 was located. Held until an Amazon Creators API image is authorized."
+          "image": "img/product-emeet-s600-mfg.webp",
+          "imageCredit": {
+            "author": "EMEET",
+            "license": "Manufacturer product-page media",
+            "licenseUrl": "https://emeet.com/products/webcam-s600",
+            "source": "https://emeet.com/cdn/shop/files/S600_34313aa9-4782-476c-8207-dc23668202dc.png?v=1688114349",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching"
+          },
+          "imageSource": "manufacturer"
         },
         {
           "exception": false,
@@ -212,7 +220,7 @@
             "licenseUrl": "https://www.logitech.com/en-us/products/webcams/mx-brio-4k-webcam.html",
             "source": "https://resource.logitech.com/c_fill,q_auto,f_auto,dpr_1.0/d_transparent.gif/content/dam/logitech/en/products/webcams/mx-brio/buy/migration-assets-for-delorean-2025/gallery/mx-brio-3qtr-front-left-close-graphite.png",
             "caption": "Manufacturer product image of the exact model.",
-            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching."
+            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching"
           },
           "imageSource": "manufacturer"
         },
@@ -248,7 +256,7 @@
             "licenseUrl": "https://keystone.corsair.com/en/Facecam_4K/press-kit/",
             "source": "https://res.cloudinary.com/corsairdam/image/upload/v1774861015/B0DVZG36J8.MAIN_zi1zqb.jpg",
             "caption": "Manufacturer product image of the exact model.",
-            "changes": "Resized, metadata removed and WebP encoded; no retouching."
+            "changes": "Resized, metadata removed and WebP encoded; no retouching"
           },
           "imageSource": "manufacturer"
         },
@@ -302,7 +310,7 @@
             "licenseUrl": "https://electronics.sony.com/imaging/interchangeable-lens-cameras/full-frame/p/ilce7sm3-b",
             "source": "https://sony.scene7.com/is/image/sonyglobalsolutions/ILCE-7SM3?fmt=png-alpha&wid=1200",
             "caption": "Manufacturer product image of the exact model.",
-            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching."
+            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching"
           },
           "imageSource": "manufacturer"
         }
@@ -350,7 +358,7 @@
             "licenseUrl": "https://samsontech.com/products/microphones/usb-microphones/q2u/",
             "source": "https://storage.googleapis.com/samson-production/uploads/original_images/Q2U-on-Stand-1.jpg",
             "caption": "Manufacturer product image of the exact model.",
-            "changes": "Resized, metadata removed and WebP encoded; no retouching."
+            "changes": "Resized, metadata removed and WebP encoded; no retouching"
           },
           "imageSource": "manufacturer"
         },
@@ -391,7 +399,7 @@
             "licenseUrl": "https://www.shure.com/en-US/products/microphones/mv7?variant=MV7PLUS-K",
             "source": "https://products.shureweb.eu/shure_product_db/product_main_images/files/700/ead/89-/large_transparent/fe71d068e73acc951e1c9a0458a7093c.png",
             "caption": "Manufacturer product image of the exact model.",
-            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching."
+            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching"
           },
           "imageSource": "manufacturer"
         },
@@ -471,7 +479,7 @@
             "licenseUrl": "https://www.logitechg.com/en-us/products/streaming-gear/yeti-premium-usb-microphone.html",
             "source": "https://resource.logitechg.com/c_fill,q_auto,f_auto,dpr_1.0/d_transparent.gif/content/dam/gaming/en/products/streaming-gear/yeti-premium-usb-microphone/2025/gallery/yeti-3qtr-left-angle-blackout-gallery-4.png",
             "caption": "Manufacturer product image of the exact model.",
-            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching."
+            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching"
           },
           "imageSource": "manufacturer"
         },
@@ -507,7 +515,7 @@
             "licenseUrl": "https://keystone.corsair.com/en/Wave_3_MK_2/press-kit/",
             "source": "https://res.cloudinary.com/corsairdam/image/upload/v1781603801/B0GGYLFHPS.Main_evwyki.jpg",
             "caption": "Manufacturer product image of the exact model.",
-            "changes": "Resized, metadata removed and WebP encoded; no retouching."
+            "changes": "Resized, metadata removed and WebP encoded; no retouching"
           },
           "imageSource": "manufacturer"
         },
@@ -555,7 +563,7 @@
             "licenseUrl": "https://www.shure.com/en-US/products/microphones/mv7?variant=MV7PLUS-K",
             "source": "https://products.shureweb.eu/shure_product_db/product_main_images/files/700/ead/89-/large_transparent/fe71d068e73acc951e1c9a0458a7093c.png",
             "caption": "Manufacturer product image of the exact model.",
-            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching."
+            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching"
           },
           "imageSource": "manufacturer"
         }
@@ -602,7 +610,7 @@
             "licenseUrl": "https://www.logitech.com/en-us/products/lighting/litra-glow.html",
             "source": "https://resource.logitech.com/c_fill,q_auto,f_auto,dpr_1.0/d_transparent.gif/content/dam/logitech/en/products/lighting/litra-glow/gallery/litra-glow-streaming-light-gallery-1.png",
             "caption": "Manufacturer product image of the exact model.",
-            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching."
+            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching"
           },
           "imageSource": "manufacturer"
         },
@@ -642,7 +650,7 @@
             "licenseUrl": "https://keystone.corsair.com/en/Key_Light_MK_2/press-kit/",
             "source": "https://res.cloudinary.com/corsairdam/image/upload/v1786031685/B07L755X9G.main_tppegp.jpg",
             "caption": "Manufacturer product image of the exact model.",
-            "changes": "Resized, metadata removed and WebP encoded; no retouching."
+            "changes": "Resized, metadata removed and WebP encoded; no retouching"
           },
           "imageSource": "manufacturer"
         },
@@ -682,7 +690,7 @@
             "licenseUrl": "https://keystone.corsair.com/en/Key_Light_MK_2/press-kit/",
             "source": "https://res.cloudinary.com/corsairdam/image/upload/v1786031685/B07L755X9G.main_tppegp.jpg",
             "caption": "Manufacturer product image of the exact model.",
-            "changes": "Resized, metadata removed and WebP encoded; no retouching."
+            "changes": "Resized, metadata removed and WebP encoded; no retouching"
           },
           "imageSource": "manufacturer"
         },
@@ -718,7 +726,7 @@
             "licenseUrl": "https://keystone.corsair.com/en/Key_Light_Neo/press-kit/",
             "source": "https://res.cloudinary.com/corsairdam/image/upload/v1773400459/elgato/Neo/Key%20Light%20Neo/Imagery/Renders/Key_Light_Neo_Front.jpg",
             "caption": "Manufacturer product image of the exact model.",
-            "changes": "Resized, metadata removed and WebP encoded; no retouching."
+            "changes": "Resized, metadata removed and WebP encoded; no retouching"
           },
           "imageSource": "manufacturer"
         },
@@ -748,7 +756,7 @@
           "complexity": "Moderate",
           "box": "Two stands, two softboxes, bulbs and a carrying bag; confirm the selected variant. Third-party seller on Amazon at check; no manufacturer page for this kit was located, so the Amazon listing is the product source.",
           "status": "image-hold",
-          "holdReason": "IMAGE_NOT_PRODUCTION_READY: no NEEWER manufacturer page or image for this kit was located. Held until an Amazon Creators API image is authorized."
+          "holdReason": "Temporarily held: we do not yet have an authorized photo of this exact kit. It returns as soon as one is available."
         },
         {
           "exception": false,
@@ -782,7 +790,7 @@
             "licenseUrl": "https://keystone.corsair.com/en/Key_Light_Air_MK_2/press-kit/",
             "source": "https://res.cloudinary.com/corsairdam/image/upload/v1781691225/Key_Light__Air_MK2_Device_Shot_00_gudxqv.png",
             "caption": "Manufacturer product image of the exact model.",
-            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching."
+            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching"
           },
           "imageSource": "manufacturer"
         }
@@ -849,7 +857,7 @@
             "licenseUrl": "https://keystone.corsair.com/en/Wave_Mic_Arm_LP/press-kit/",
             "source": "https://res.cloudinary.com/corsairdam/image/upload/v1775577612/B097376LKF.Main_hw3b4m.jpg",
             "caption": "Manufacturer product image of the exact model.",
-            "changes": "Resized, metadata removed and WebP encoded; no retouching."
+            "changes": "Resized, metadata removed and WebP encoded; no retouching"
           },
           "imageSource": "manufacturer"
         },
@@ -884,7 +892,7 @@
             "licenseUrl": "https://keystone.corsair.com/en/Cam_Link_4K/press-kit/",
             "source": "https://res.cloudinary.com/corsairdam/image/upload/v1782983359/B07K3FN5MR.MAIN_cangrl.jpg",
             "caption": "Manufacturer product image of the exact model.",
-            "changes": "Resized, metadata removed and WebP encoded; no retouching."
+            "changes": "Resized, metadata removed and WebP encoded; no retouching"
           },
           "imageSource": "manufacturer"
         }
@@ -1007,7 +1015,7 @@
             "licenseUrl": "https://www.anker.com/products/a8313",
             "source": "https://cdn.shopify.com/s/files/1/0493/9834/9974/files/A83130A2_TD01_V1_d4d9a09b-8ea1-4229-81ec-2f167b4e9a4f.png?v=1730775320",
             "caption": "Manufacturer product image of the exact model.",
-            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching."
+            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching"
           },
           "imageSource": "manufacturer"
         },
@@ -1102,7 +1110,7 @@
             "licenseUrl": "https://keystone.corsair.com/en/Stream_Deck_Neo/press-kit/",
             "source": "https://res.cloudinary.com/corsairdam/image/upload/v1781634276/B0CVY4566H.Main_llyl3o.jpg",
             "caption": "Manufacturer product image of the exact model.",
-            "changes": "Resized, metadata removed and WebP encoded; no retouching."
+            "changes": "Resized, metadata removed and WebP encoded; no retouching"
           },
           "imageSource": "manufacturer"
         },
@@ -1140,7 +1148,7 @@
             "licenseUrl": "https://keystone.corsair.com/en/Stream_Deck_MK_2/press-kit/",
             "source": "https://res.cloudinary.com/corsairdam/image/upload/v1774607545/B09738CV2G.Main_plpbev.jpg",
             "caption": "Manufacturer product image of the exact model.",
-            "changes": "Resized, metadata removed and WebP encoded; no retouching."
+            "changes": "Resized, metadata removed and WebP encoded; no retouching"
           },
           "imageSource": "manufacturer"
         },
@@ -1180,7 +1188,7 @@
             "licenseUrl": "https://keystone.corsair.com/en/Stream_Deck_Plus/press-kit/",
             "source": "https://res.cloudinary.com/corsairdam/image/upload/v1774532784/Gaming_B0BJL8SJ59.Main_le1ghg.jpg",
             "caption": "Manufacturer product image of the exact model.",
-            "changes": "Resized, metadata removed and WebP encoded; no retouching."
+            "changes": "Resized, metadata removed and WebP encoded; no retouching"
           },
           "imageSource": "manufacturer"
         }
@@ -1849,7 +1857,7 @@
         "licenseUrl": "https://www.dji.com/osmo-pocket-3",
         "source": "https://www-cdn.djiits.com/cms/uploads/8c6ec9b0dc4e170120dfd4ebf9f0ffd6.png",
         "caption": "Manufacturer product image of the exact model.",
-        "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching."
+        "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching"
       },
       "imageSource": "manufacturer"
     }

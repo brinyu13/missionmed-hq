@@ -118,15 +118,6 @@
       "source": "https://commons.wikimedia.org/wiki/File:Marius_Bear_SM7B.jpg"
     },
     {
-      "path": "img/product-stream-plus-cc.webp",
-      "sha256": "884908e73319988243097fd50c37bf6d2b47eb35f26a1d921db74dfd96047591",
-      "basis": "CC BY-SA 4.0",
-      "evidence": "evidence/product-media.json",
-      "author": "TaurusEmerald",
-      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
-      "source": "https://commons.wikimedia.org/wiki/File:Elgato_Stream_Deck_%2B.jpg"
-    },
-    {
       "path": "img/product-facecam-mk2-mfg.webp",
       "sha256": "5f62f357e4ee8ded09c49fb80b39838d1f0926cfaac768a95fec07ff434a8f2a",
       "basis": "Manufacturer public press-kit media",
@@ -305,6 +296,15 @@
       "author": "DJI",
       "licenseUrl": "https://www.dji.com/osmo-pocket-3",
       "source": "https://www-cdn.djiits.com/cms/uploads/8c6ec9b0dc4e170120dfd4ebf9f0ffd6.png"
+    },
+    {
+      "path": "img/product-emeet-s600-mfg.webp",
+      "sha256": "1042e0d3603fe80c20c26ee933558ac9e6591c1948e86df528f4218bf5d2b2a5",
+      "basis": "Manufacturer product-page media",
+      "evidence": "evidence/manufacturer-images-2026-10-06.json",
+      "author": "EMEET",
+      "licenseUrl": "https://emeet.com/products/webcam-s600",
+      "source": "https://emeet.com/cdn/shop/files/S600_34313aa9-4782-476c-8207-dc23668202dc.png?v=1688114349"
     }
   ]
 }

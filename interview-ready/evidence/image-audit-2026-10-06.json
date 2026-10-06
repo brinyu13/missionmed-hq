@@ -1,8 +1,8 @@
 {
   "auditedOn": "2026-10-06",
   "scope": "online catalog + alternatives (in-person deferred)",
-  "activeWithImage": 23,
-  "held": 3,
+  "activeWithImage": 24,
+  "held": 2,
   "archived": 1,
   "plans": 6,
   "failures": 0,
@@ -54,17 +54,20 @@
       "imageSource": "none",
       "imageRef": null,
       "status": "IMAGE_NOT_PRODUCTION_READY",
-      "reason": "IMAGE_NOT_PRODUCTION_READY: Logitech publishes no C920x (no-shutter, Amazon-exclusive) product image; only C920s media exists. Held until an Amazon Creators API image is authorized."
+      "reason": "Temporarily held: we do not yet have an authorized photo of this exact listing (Logitech publishes images of the C920s, not the C920x). It returns as soon as one is available."
     },
     {
       "product": "EMEET S600 4K webcam",
       "asin": "B0CYQ5P6T7",
       "scope": "online:webcam",
       "class": "bc",
-      "imageSource": "none",
-      "imageRef": null,
-      "status": "IMAGE_NOT_PRODUCTION_READY",
-      "reason": "IMAGE_NOT_PRODUCTION_READY: no EMEET manufacturer page or image for the S600 was located. Held until an Amazon Creators API image is authorized."
+      "imageSource": "manufacturer",
+      "imageRef": "https://emeet.com/cdn/shop/files/S600_34313aa9-4782-476c-8207-dc23668202dc.png?v=1688114349",
+      "derivative": "img/product-emeet-s600-mfg.webp",
+      "allowlisted": true,
+      "hashOk": true,
+      "exactAsinMapping": true,
+      "status": "OK"
     },
     {
       "product": "Logitech MX Brio Ultra HD 4K",
@@ -240,7 +243,7 @@
       "imageSource": "none",
       "imageRef": null,
       "status": "IMAGE_NOT_PRODUCTION_READY",
-      "reason": "IMAGE_NOT_PRODUCTION_READY: no NEEWER manufacturer page or image for this kit was located. Held until an Amazon Creators API image is authorized."
+      "reason": "Temporarily held: we do not yet have an authorized photo of this exact kit. It returns as soon as one is available."
     },
     {
       "product": "Elgato Key Light Air MK.2",

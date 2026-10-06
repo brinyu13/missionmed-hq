@@ -50,7 +50,7 @@ for asin, model, slug, pick in [
 
 # Logitech official product galleries (resource CDN) — Brio Ultra and Litra Glow reuse the already-captured originals
 rec('B09NBWWP79','Logitech Brio Ultra 4K','Logitech', 'https://resource.logitech.com/w_1800,h_1800,c_limit,q_auto,f_auto,dpr_1.0/d_transparent.gif/content/dam/logitech/en/products/webcams/brio/gallery/brio-gallery-1.png','https://www.logitech.com/en-us/products/webcams/brio-4k-hdr-webcam.html','Manufacturer product-page media', local='product-brio.png')
-rec('B097QZGRCQ','Logitech Litra Glow','Logitech','https://resource.logitech.com/c_fill,q_auto,f_auto,dpr_1.0/d_transparent.gif/content/dam/logitech/en/products/lighting/litra-glow/gallery/litra-glow-streaming-light-gallery-1.png','https://www.logitech.com/en-us/products/lighting/litra-glow.html','Manufacturer product-page media', local='product-litra.png')
+rec('B097QZGRCQ','Logitech Litra Glow','Logitech','https://resource.logitech.com/c_fill,q_auto,f_auto,dpr_1.0/d_transparent.gif/content/dam/logitech/en/products/lighting/litra-glow/gallery/litra-glow-streaming-light-gallery-1.png','https://www.logitech.com/en-us/products/lighting/litra-glow.html','Manufacturer product-page media','Captured 2026-10-04 from the Logitech gallery (record: evidence/product-media.json, sources/product-litra.png). The gallery URL has since started returning a transparent placeholder GIF, so the sha256 here is of the retained 2026-10-04 capture, not a fresh download.', local='product-litra.png')
 rec('B0BFJ4CRKD','Logitech MX Brio Ultra HD 4K (Graphite)','Logitech','https://resource.logitech.com/c_fill,q_auto,f_auto,dpr_1.0/d_transparent.gif/content/dam/logitech/en/products/webcams/mx-brio/buy/migration-assets-for-delorean-2025/gallery/mx-brio-3qtr-front-left-close-graphite.png','https://www.logitech.com/en-us/products/webcams/mx-brio-4k-webcam.html','Manufacturer product-page media','Graphite colourway matches the verified listing.')
 rec('B00N1YPXW2','Blue Yeti USB (Blackout)','Logitech G','https://resource.logitechg.com/c_fill,q_auto,f_auto,dpr_1.0/d_transparent.gif/content/dam/gaming/en/products/streaming-gear/yeti-premium-usb-microphone/2025/gallery/yeti-3qtr-left-angle-blackout-gallery-4.png','https://www.logitechg.com/en-us/products/streaming-gear/yeti-premium-usb-microphone.html','Manufacturer product-page media','Blackout colourway matches the verified listing.')
 # Shure, Samson, Sony, Anker, DJI
@@ -58,9 +58,10 @@ rec('B0CTJ7PVN1','Shure MV7+ (black)','Shure','https://products.shureweb.eu/shur
 rec('B07FKG8PGZ','Samson Q2U','Samson','https://storage.googleapis.com/samson-production/uploads/original_images/Q2U-on-Stand-1.jpg','https://samsontech.com/products/microphones/usb-microphones/q2u/','Manufacturer product-page media')
 rec('B08DP4NKGN','Sony α7S III body (ILCE-7SM3)','Sony','https://sony.scene7.com/is/image/sonyglobalsolutions/ILCE-7SM3?fmt=png-alpha&wid=1200','https://electronics.sony.com/imaging/interchangeable-lens-cameras/full-frame/p/ilce7sm3-b','Manufacturer product image (Sony global image server)')
 rec('B08CK9X9Z8','Anker PowerExpand A8313 USB-C to Gigabit Ethernet','Anker','https://cdn.shopify.com/s/files/1/0493/9834/9974/files/A83130A2_TD01_V1_d4d9a09b-8ea1-4229-81ec-2f167b4e9a4f.png?v=1730775320','https://www.anker.com/products/a8313','Manufacturer product-page media')
+rec('B0CYQ5P6T7','EMEET SmartCam S600','EMEET','https://emeet.com/cdn/shop/files/S600_34313aa9-4782-476c-8207-dc23668202dc.png?v=1688114349','https://emeet.com/products/webcam-s600','Manufacturer product-page media','Official EMEET SmartCam S600 product page (not the S600L variant).')
 rec('B0CG19QXWD','DJI Osmo Pocket 3','DJI','https://www-cdn.djiits.com/cms/uploads/8c6ec9b0dc4e170120dfd4ebf9f0ffd6.png','https://www.dji.com/osmo-pocket-3','Manufacturer product-page media')
 
-slug_by_asin = {'B0CW1S7XP5':'facecam-mk2','B0DVZG36J8':'facecam-4k','B0GGYLFHPS':'wave3-mk2','B07L755X9G':'key-light','B0FHQSVPVL':'key-light-neo','B0GYDFGCCQ':'key-light-air-mk2','B097376LKF':'arm-lp','B07K3FN5MR':'camlink','B0CVY4566H':'stream-deck-neo','B09738CV2G':'stream-deck-mk2','B0BJL8SJ59':'stream-deck-plus','B09NBWWP79':'brio','B097QZGRCQ':'litra','B0BFJ4CRKD':'mx-brio','B00N1YPXW2':'yeti','B0CTJ7PVN1':'mv7plus','B07FKG8PGZ':'q2u','B08DP4NKGN':'a7s3','B08CK9X9Z8':'anker-a8313','B0CG19QXWD':'osmo-pocket-3'}
+slug_by_asin = {'B0CW1S7XP5':'facecam-mk2','B0DVZG36J8':'facecam-4k','B0GGYLFHPS':'wave3-mk2','B07L755X9G':'key-light','B0FHQSVPVL':'key-light-neo','B0GYDFGCCQ':'key-light-air-mk2','B097376LKF':'arm-lp','B07K3FN5MR':'camlink','B0CVY4566H':'stream-deck-neo','B09738CV2G':'stream-deck-mk2','B0BJL8SJ59':'stream-deck-plus','B09NBWWP79':'brio','B097QZGRCQ':'litra','B0BFJ4CRKD':'mx-brio','B00N1YPXW2':'yeti','B0CTJ7PVN1':'mv7plus','B07FKG8PGZ':'q2u','B08DP4NKGN':'a7s3','B08CK9X9Z8':'anker-a8313','B0CG19QXWD':'osmo-pocket-3','B0CYQ5P6T7':'emeet-s600'}
 
 ledger=[]; assets=[]
 for r in R:
@@ -83,7 +84,7 @@ for r in R:
     im.save(deriv, 'WEBP', quality=84, method=6)
     sha = hashlib.sha256(deriv.read_bytes()).hexdigest()
     ledger.append({**{k:v for k,v in r.items() if k!='local'}, 'observedAt':NOW, 'localSource':f'sources/{original.name}', 'derivative':f'img/{deriv.name}', 'sha256':hashlib.sha256(raw).hexdigest(), 'derivativeSha256':sha, 'width':im.width, 'height':im.height,
-                   'changes':'Resized, '+('transparent margins trimmed, ' if im.mode=='RGBA' else '')+'metadata removed and WebP encoded; no retouching.',
+                   'changes':'Resized, '+('transparent margins trimmed, ' if im.mode=='RGBA' else '')+'metadata removed and WebP encoded; no retouching',
                    'rights':'Official manufacturer product/press media of the exact listed product, used to depict the product in an affiliate buying guide. Founder directive 2026-10-06 §6 names this as the second-choice image authority; provenance recorded. No endorsement implied. (Note: Corsair Keystone and the brand product pages publish no explicit licence text; see HANDOFF for the legal note.)'})
     assets.append({'path':f'img/{deriv.name}','sha256':sha,'basis':r['basis'],'evidence':'evidence/manufacturer-images-2026-10-06.json','author':r['brand'],'licenseUrl':r['source'],'source':r['url']})
     print('ok', r['asin'], deriv.name, im.size)
@@ -93,21 +94,21 @@ for r in R:
 # production-assets.json: admit derivatives (append; keep existing entries)
 policy = json.loads((IR/'production-assets.json').read_text())
 existing = {e['path'] for e in policy['assets']}
-policy['assets'] += [a for a in assets if a['path'] not in existing]
+policy['assets'] = [e for e in policy['assets'] if e['path'] != 'img/product-stream-plus-cc.webp'] + [a for a in assets if a['path'] not in existing]
 (OUT/'production-assets.json').write_text(json.dumps(policy, indent=2, ensure_ascii=False)+'\n')
 
 # catalog: bind images + credits; hold products with no authorized image
 cat = json.loads((IR/'catalog.json').read_text())
 by_asin = {l['asin']:l for l in ledger}
-HOLD = {'B085TFF7M1':'IMAGE_NOT_PRODUCTION_READY: Logitech publishes no C920x (no-shutter, Amazon-exclusive) product image; only C920s media exists. Held until an Amazon Creators API image is authorized.',
-        'B0CYQ5P6T7':'IMAGE_NOT_PRODUCTION_READY: no EMEET manufacturer page or image for the S600 was located. Held until an Amazon Creators API image is authorized.',
-        'B017D7W57S':'IMAGE_NOT_PRODUCTION_READY: no NEEWER manufacturer page or image for this kit was located. Held until an Amazon Creators API image is authorized.'}
+HOLD = {'B085TFF7M1':'Temporarily held: we do not yet have an authorized photo of this exact listing (Logitech publishes images of the C920s, not the C920x). It returns as soon as one is available.',
+        'B017D7W57S':'Temporarily held: we do not yet have an authorized photo of this exact kit. It returns as soon as one is available.'}
 for cat_group in ('online',):
     for c in cat[cat_group]:
         for i in c['items']:
             a = i.get('asin')
             if a in by_asin:
                 l = by_asin[a]
+                if i.get('status') == 'image-hold': i.pop('status'); i.pop('holdReason', None)
                 i['image'] = l['derivative']
                 i['imageCredit'] = {'author':l['brand'],'license':l['basis'],'licenseUrl':l['source'],'source':l['url'],'caption':'Manufacturer product image of the exact model.','changes':l['changes']}
                 i['imageSource'] = 'manufacturer'
