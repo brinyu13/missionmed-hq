@@ -16,7 +16,7 @@ productVisual = function(i,c) {
     return `<figure class="product-visual"><div class="shopping-photo-fallback"><span aria-hidden="true">↗</span><p>${i.asin?'Product photo at the original source':'Use what you already own'}</p><small>Authorized live imagery is not available for this selection.</small></div>${i.asin?shoppingLink(i.source||amazonUrl(i),'View original product photos','photo-link'):''}</figure>`;
   }
   const visual = productVisualBeforePhaseOne(i,c), credit = i.imageCredit;
-  if (!credit) return visual;
+  if (!credit || !/^CC\b/.test(credit.license||'')) return visual; // attribution caption only for Creative Commons photos; manufacturer media is credited in the photography credits list
   return visual.replace('</figure>',`<figcaption class="image-credit">${esc(credit.caption)}<br>${external(credit.source,esc(credit.author))} · ${external(credit.licenseUrl,esc(credit.license))}<br>Resized${credit.changes.includes('cropped')?', cropped':''} photograph.</figcaption></figure>`);
 };
 const renderExpertsBeforePhaseOne = renderExperts;
