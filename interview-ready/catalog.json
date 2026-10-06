@@ -360,7 +360,9 @@
             "caption": "SM7B in use; arm and accessories are separate.",
             "changes": "EXIF orientation normalized, resized, metadata removed and WebP encoded; cropped to the microphone, excluding the person"
           },
-          "offerState": "check-on-amazon"
+          "offerState": "check-on-amazon",
+          "status": "archived",
+          "archivedReason": "Archived from active recommendations on 2026-10-06 by Founder direction: an XLR-only studio chain, not a student interview microphone. Shure MV7+ is the active Shure recommendation. Kept for comparison and for kits that already saved it."
         },
         {
           "t": "bc",
@@ -416,6 +418,44 @@
           "ecosystem": "Elgato / USB",
           "complexity": "Moderate",
           "box": "Microphone, desk stand and USB-C cable; a boom arm is separate."
+        },
+        {
+          "t": "pj",
+          "asin": "B0CTJ7PVN1",
+          "name": "Shure MV7+ · complete desk chain",
+          "why": "The highest-investment microphone path we recommend for interviews: MV7+ on a proper boom arm, positioned once and left alone. Same microphone as First Class; the arm and placement are the upgrade.",
+          "best": "A permanent desk where the microphone stays mounted between interviews",
+          "pros": [
+            "USB-C or XLR",
+            "Boom arm keeps the capsule at mouth height off the desk",
+            "Onboard processing in USB mode"
+          ],
+          "cons": [
+            "Arm needs a desk edge to clamp",
+            "Two purchases",
+            "Processing must be rehearsed in the interview app"
+          ],
+          "setup": "Clamp the arm at the desk edge, bring the capsule to a hand’s width from your mouth, slightly off-axis. Set MOTIV processing once; disable heavy noise processing in the interview app.",
+          "source": "https://pubs.shure.com/view/guide/MV7plus/en-US.pdf",
+          "review": {
+            "by": "Podcastage",
+            "title": "MV7+ · sound tests and comparisons",
+            "url": "https://www.youtube.com/watch?v=jHd3kQNEWyQ",
+            "video": "jHd3kQNEWyQ"
+          },
+          "ecosystem": "Shure / Elgato arm",
+          "complexity": "Moderate",
+          "box": "MV7+ (microphone and USB-C cable) plus the Elgato Wave Mic Arm LP, sold separately.",
+          "chain": [
+            {
+              "name": "Elgato Wave Mic Arm LP",
+              "asin": "B097376LKF"
+            }
+          ],
+          "up": "",
+          "down": "MV7+ on its own desk stand (First Class) is the same sound with less desk commitment.",
+          "exception": false,
+          "offerState": "check-on-amazon"
         }
       ],
       "pick": "bc"
