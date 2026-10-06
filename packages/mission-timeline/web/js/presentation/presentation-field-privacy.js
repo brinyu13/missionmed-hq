@@ -78,6 +78,10 @@ export function projectPresentationFields(document,{allowed,visibleEventIds}){
       const binding=originalExam.fieldProvenance?.[field]||(['score','result'].includes(field)?legacyExamBinding(document,originalExam,field,originalExam[field]):null);
       if(visible(binding))exam[field]=originalExam[field];
     }
+    // Retain only permitted identity linkage so a second audience projection
+    // can match the same endpoint without carrying raw source provenance.
+    const sourceBinding=originalExam.sourceEventId?originalExam:originalExam.fieldProvenance?.examDate;
+    if(sourceBinding?.sourceEventId&&visible(sourceBinding))exam.sourceEventId=String(sourceBinding.sourceEventId);
     if(text(exam.score)||text(exam.result))exams.push(exam);
   }
   const privateExamResults=new Set();

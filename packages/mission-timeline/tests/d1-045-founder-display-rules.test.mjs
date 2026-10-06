@@ -5,6 +5,7 @@ import {buildFounderPresentationScene,serializeFounderPresentation,assertComplet
 import {resolveFounderPresentationSvg,materialPresentationCollisions,founderPaintCollisionParts} from '../web/js/presentation/resolved-founder-presentation.js';
 import {locked407FMilestoneGeometry,composeLocked407FPortableSvg,locked407FInstitutionFurnitureMinimumX} from '../web/js/uxr-002/locked-407f-export.js';
 import {applySceneCommandToDocument} from '../web/js/editor/scene-commands.js';
+import {buildExportPreviewInput} from '../web/js/uxr-002/export-screen.js';
 import {advancedEventCreation407F,applySceneCommandToDocument as applyHumanEventCommand407F} from '../web/js/407f-engineering-adapter.js';
 const event=(id,extra={})=>({id,title:'Role',siteName:'Synthetic Institution',categoryId:'work',eventType:'duration',startDate:'2020-01',endDate:'2020-12',visibilityState:'INTERVIEWER_SAFE',provenance:[{sourceExcerpt:'Synthetic accepted record'}],...extra});
 const doc=events=>({id:'synthetic-display-rules',revision:1,studentProfile:{fullName:'Synthetic Applicant'},events,mediaItems:[],exams:[],advanced:{media:[],textBlocks:[],elements:[],groups:[]}});
@@ -332,6 +333,40 @@ test('saved ownership accounting preserves audience exclusions and redacted exam
  const context=buildFounderPresentationScene(grouped).presentationLayoutContext;
  assert.ok(!JSON.stringify(context).includes('PRIVATE_OBJECT_TOKEN'));
  assert.deepEqual(context.advanced.scene.groups,[{locked:true,childIds:[object.id]}]);
+});
+
+
+test('export prefilter preserves permitted exam identity and matches direct covered-endpoint rendering',()=>{
+ for(const linkage of ['explicit','date-provenance']){
+  const d=linkedAccountingDocument(),endpoint=d.events.find(event=>event.id==='accounting-endpoint');
+  endpoint.fields={...endpoint.fields,result:'Passed',score:'251'};
+  const binding={sourceEventId:endpoint.id,visibilityState:'INTERVIEWER_SAFE',sourceExcerpt:'RAW_EXAM_PROVENANCE_TOKEN'};
+  d.exams=[{id:'export-linked-record',system:'USMLE',examId:'step-2-ck',examDate:endpoint.startDate,result:'Passed',score:'251',visibilityState:'INTERVIEWER_SAFE',...(linkage==='explicit'?{sourceEventId:endpoint.id}:{fieldProvenance:{examDate:binding}})}];
+  const before=JSON.stringify(d),direct=render(d),input=buildExportPreviewInput(d,{audience:'INTERVIEWER_SAFE'}),exported=serializeFounderPresentation(input.timeline,{...input.rendererOptions,currentMonth:'2026-10'});
+  assert.equal(input.timeline.exams[0].sourceEventId,endpoint.id,linkage);
+  assert.equal(input.timeline.exams[0].fieldProvenance,undefined);assert.ok(!JSON.stringify(input.timeline.exams).includes('RAW_EXAM_PROVENANCE_TOKEN'));
+  assert.equal(direct.scene.flags.length,0);assert.equal(exported.scene.flags.length,0);
+  assert.deepEqual(exported.scene.presentationAccounting,direct.scene.presentationAccounting);
+  assert.equal(exported.svg,direct.svg);assert.doesNotThrow(()=>assertCompleteFounderPresentation(exported));assert.equal(JSON.stringify(d),before);
+ }
+});
+
+test('export identity preservation cannot restore private, orphan or denied exam source links and values',()=>{
+ for(const denial of ['private-event','private-record','orphan','private-field']){
+  const d=linkedAccountingDocument(),endpoint=d.events.find(event=>event.id==='accounting-endpoint');
+  d.exams=[{id:'denied-record',system:'USMLE',examId:'step-2-ck',sourceEventId:endpoint.id,examDate:endpoint.startDate,result:'PRIVATE_EXAM_RESULT_TOKEN',score:'PRIVATE_EXAM_SCORE_TOKEN',visibilityState:'INTERVIEWER_SAFE'}];
+  if(denial==='private-event')endpoint.visibilityState='ADVISOR_ONLY';
+  if(denial==='private-record')d.exams[0].visibilityState='ADVISOR_ONLY';
+  if(denial==='orphan')d.exams[0].sourceEventId='MISSING_EXAM_SOURCE_TOKEN';
+  if(denial==='private-field')d.exams[0].fieldProvenance=Object.fromEntries(['result','score'].map(field=>[field,{sourceEventId:endpoint.id,visibilityState:'ADVISOR_ONLY'}]));
+  const before=JSON.stringify(d),input=buildExportPreviewInput(d,{audience:'INTERVIEWER_SAFE'}),exported=serializeFounderPresentation(input.timeline,{...input.rendererOptions,currentMonth:'2026-10'});
+  assert.deepEqual(input.timeline.exams,[],denial);
+  for(const token of ['PRIVATE_EXAM_RESULT_TOKEN','PRIVATE_EXAM_SCORE_TOKEN','MISSING_EXAM_SOURCE_TOKEN'])assert.ok(!exported.svg.includes(token),denial);
+  assert.equal(JSON.stringify(d),before,denial);
+ }
+ const d=linkedAccountingDocument();d.exams=[{id:'date-link-denied',system:'USMLE',examId:'step-2-ck',result:'Passed',fieldProvenance:{examDate:{sourceEventId:'PRIVATE_DATE_SOURCE_TOKEN',visibilityState:'ADVISOR_ONLY'}}}];
+ const input=buildExportPreviewInput(d,{audience:'INTERVIEWER_SAFE'});
+ assert.equal(input.timeline.exams[0].sourceEventId,undefined);assert.ok(!JSON.stringify(input.timeline.exams).includes('PRIVATE_DATE_SOURCE_TOKEN'));
 });
 
 
