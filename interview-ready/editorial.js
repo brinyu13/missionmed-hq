@@ -15,7 +15,7 @@ document.body.insertAdjacentHTML('beforeend','<button class="motion-toggle" id="
 const announce=t=>document.getElementById('saveStatus').textContent=t;
 document.getElementById('page-home').innerHTML=`
  <div class="guide-masthead">
-  <a class="guide-brand" href="#home"><img src="img/mountain-mark.webp" alt="">MissionMed<small>HIGHER PURPOSE IN MEDICINE</small></a>
+  <a class="guide-brand" href="#home"><img src="img/brand-missionmed-shield.webp" alt="">MissionMed<small>HIGHER PURPOSE IN MEDICINE</small></a>
   <div class="guide-title">INTERVIEW GEAR GUIDE<small>LOOK PREPARED. FEEL CONFIDENT. DO MORE GOOD.</small></div>
   <p>GEAR TODAY. A BRIGHTER<br>TOMORROW FOR PATIENTS.</p>
  </div>

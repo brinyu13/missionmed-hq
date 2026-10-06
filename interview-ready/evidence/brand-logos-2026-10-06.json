@@ -1,0 +1,50 @@
+{
+  "schema": "missionmed.interview-ready.brand-logos.v1",
+  "date": "2026-10-06",
+  "directive": "Founder: use the MissionMed Institute and Mission Residency logos instead of the mountain mark",
+  "sources": {
+    "sources/brand-missionmed-institute-src.png": {
+      "sha256": "9f960ed9c312f3671cb1720c30d96321bc3cebfe5547dc81ba215e7510864b37",
+      "bytes": 31611,
+      "origin": "Founder-supplied PNG (chat attachment 2026-10-06), transparent background"
+    },
+    "sources/brand-mission-residency-src.png": {
+      "sha256": "7134e0bf375a0917a064bca5382f8c44bc3d33c9e80441f8c1dd11b0d9147f21",
+      "bytes": 10659,
+      "origin": "Founder-supplied PNG (chat attachment 2026-10-06), transparent background"
+    }
+  },
+  "derivatives": {
+    "img/brand-missionmed-institute.webp": {
+      "source": "sources/brand-missionmed-institute-src.png",
+      "sha256": "e801dc1d2542e02b8ab9b86104df3cf3b1b9c49e4778aa11bdca1e7575f02015",
+      "bytes": 22796,
+      "processing": "alpha-bbox trim, lossless WebP",
+      "uses": [
+        "completion.js gear-band-mark"
+      ]
+    },
+    "img/brand-missionmed-shield.webp": {
+      "source": "sources/brand-missionmed-institute-src.png",
+      "sha256": "b843884668d10d262796c2e966a0cbcea91e612ac3d6ad0ae89c3ddccf3bb4b7",
+      "bytes": 14770,
+      "processing": "shield emblem crop (left of first fully transparent column), lossless WebP",
+      "uses": [
+        "src.html {{CREST}} header brand",
+        "editorial.js guide-brand"
+      ]
+    },
+    "img/brand-mission-residency.webp": {
+      "source": "sources/brand-mission-residency-src.png",
+      "sha256": "eeb75fb37be1d96a4c006621de76fcd2a25e1bcd6b3c6c846c3fb699b18b7eab",
+      "bytes": 6976,
+      "processing": "alpha-bbox trim, lossless WebP",
+      "uses": [
+        "completion.js gear-band-mark"
+      ]
+    }
+  },
+  "retired": {
+    "img/mountain-mark.webp": "removed from production allowlist; file and asset-provenance ledger retained"
+  }
+}

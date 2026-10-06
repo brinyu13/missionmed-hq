@@ -94,12 +94,6 @@
       "evidence": "evidence/asset-provenance.json"
     },
     {
-      "path": "img/mountain-mark.webp",
-      "sha256": "a36afeb672fd37ef4e0aaf3c735f816c193ea8084cd05c12d68e64a30d2fedfe",
-      "basis": "Founder-approved supplied board derivative",
-      "evidence": "evidence/asset-provenance.json"
-    },
-    {
       "path": "img/product-canon-r50-cc.webp",
       "sha256": "ebc2a5cde4a0a453f872a6e9c25dbc3c39e9396d063a259f8e4bc93a04a674f3",
       "basis": "CC BY-SA 4.0",
@@ -305,6 +299,24 @@
       "author": "EMEET",
       "licenseUrl": "https://emeet.com/products/webcam-s600",
       "source": "https://emeet.com/cdn/shop/files/S600_34313aa9-4782-476c-8207-dc23668202dc.png?v=1688114349"
+    },
+    {
+      "path": "img/brand-missionmed-institute.webp",
+      "sha256": "e801dc1d2542e02b8ab9b86104df3cf3b1b9c49e4778aa11bdca1e7575f02015",
+      "basis": "Founder-supplied brand logo (2026-10-06 directive: use the MissionMed Institute and Mission Residency logos)",
+      "evidence": "evidence/brand-logos-2026-10-06.json"
+    },
+    {
+      "path": "img/brand-missionmed-shield.webp",
+      "sha256": "b843884668d10d262796c2e966a0cbcea91e612ac3d6ad0ae89c3ddccf3bb4b7",
+      "basis": "Founder-supplied brand logo (2026-10-06 directive: use the MissionMed Institute and Mission Residency logos)",
+      "evidence": "evidence/brand-logos-2026-10-06.json"
+    },
+    {
+      "path": "img/brand-mission-residency.webp",
+      "sha256": "eeb75fb37be1d96a4c006621de76fcd2a25e1bcd6b3c6c846c3fb699b18b7eab",
+      "basis": "Founder-supplied brand logo (2026-10-06 directive: use the MissionMed Institute and Mission Residency logos)",
+      "evidence": "evidence/brand-logos-2026-10-06.json"
     }
   ]
 }

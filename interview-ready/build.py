@@ -84,7 +84,7 @@ def build(asset_profile='preview', output_dir=None, production=False):
                 for child in value: sanitize(child)
         sanitize(research)
         phase1['assetProfile'] = 'production'
-        old['CREST'] = 'mountain-mark.webp'
+        old['CREST'] = 'brand-missionmed-shield.webp'
         editorial = re.sub(r'<img src="img/product-facecam-mk2.webp"[^>]*>',
                           '<span class="product-wordmark">Elgato<small>Facecam MK.2 · researched selection</small></span>', editorial)
         editorial = re.sub(r'<img src="\{\{DRBRIAN\}\}"[^>]*>', '<span class="product-wordmark" aria-hidden="true">Dr. Brian</span>', editorial)
