@@ -1,7 +1,7 @@
 import {escapeHtml} from '../uxr-002/utils.js';
 
 export const TIMELINE_ADMIN_METRICS_022=Object.freeze([
-  {id:'eligible',label:'Eligible 360 students'},
+  {id:'eligible',label:'Timeline-authorized students'},
   {id:'never_started',label:'Never started'},
   {id:'cv_imported',label:'Imported a CV'},
   {id:'draft',label:'Have a draft'},
@@ -12,7 +12,7 @@ export const TIMELINE_ADMIN_METRICS_022=Object.freeze([
   {id:'recently_active',label:'Active this week'}
 ]);
 const metricIds=new Set(TIMELINE_ADMIN_METRICS_022.map(item=>item.id));
-const labelFor=id=>TIMELINE_ADMIN_METRICS_022.find(item=>item.id===id)?.label||'All eligible students';
+const labelFor=id=>TIMELINE_ADMIN_METRICS_022.find(item=>item.id===id)?.label||'All Timeline-authorized students';
 const text=value=>typeof value==='string'?value.trim():'';
 const integer=value=>Number.isSafeInteger(value)&&value>=0;
 const validDate=value=>typeof value==='string'&&Number.isFinite(Date.parse(value));
@@ -23,7 +23,7 @@ const statusLabels={NEVER_STARTED:'Never started',DRAFT:'Draft',IN_REVIEW:'Needs
 /** This is a read model for the server-verified enrollment population, not an
  * enrollment source, a local roster, or an authorization decision. */
 export function normalizeTimelineAdminRoster(payload){
-  if(payload?.source!=='learndash-course-3893'||!validDate(payload.verifiedAt)||!Array.isArray(payload.students)||!Array.isArray(payload.sessions)||!integer(payload.total)||!Number.isSafeInteger(payload.page)||payload.page<1||!Number.isSafeInteger(payload.pageSize)||payload.pageSize<1||payload.pageSize>250){
+  if(payload?.source!=='timeline-current-entitlement'||!validDate(payload.verifiedAt)||!Array.isArray(payload.students)||!Array.isArray(payload.sessions)||!integer(payload.total)||!Number.isSafeInteger(payload.page)||payload.page<1||!Number.isSafeInteger(payload.pageSize)||payload.pageSize<1||payload.pageSize>250){
     throw new Error('The current student roster could not be verified. Refresh to try again.');
   }
   const metrics={};
@@ -33,7 +33,7 @@ export function normalizeTimelineAdminRoster(payload){
   }
   const ids=new Set();
   const students=payload.students.map(row=>{
-    if(!Number.isSafeInteger(row?.wpUserId)||row.wpUserId<1||ids.has(row.wpUserId)||row.eligible!==true||typeof row.displayName!=='string'||!Array.isArray(row.sessions)){
+    if(!Number.isSafeInteger(row?.wpUserId)||row.wpUserId<1||ids.has(row.wpUserId)||row.eligible!==true||!['founder_authorized','iv_prep_enrolled','both'].includes(row.entitlementReason)||typeof row.displayName!=='string'||!Array.isArray(row.sessions)){
       throw new Error('The current student roster could not be verified. Refresh to try again.');
     }
     ids.add(row.wpUserId);
@@ -65,7 +65,7 @@ function metricGroup(title,ids,model){return `<section class="tl-admin022-action
 function studentMarkup(row,model){
   const item=timelineAdminStudentPresentation(row),opening=model.opening===row.wpUserId;
   return `<li><article class="tl-admin022-student" aria-labelledby="tl-admin022-student-${row.wpUserId}">
-    <div class="tl-admin022-person"><span class="tl-admin022-avatar" aria-hidden="true">${escapeHtml(item.initials)}</span><div><h3 id="tl-admin022-student-${row.wpUserId}">${escapeHtml(item.name)}</h3>${row.email?`<p class="tl-admin022-email">${escapeHtml(row.email)}</p>`:''}<p class="tl-admin022-program">${escapeHtml(row.program||'Program not listed')} · <span>360 eligible</span></p><p class="tl-admin022-session">${escapeHtml(row.sessions.join(' · ')||'No session listed')}</p></div></div>
+    <div class="tl-admin022-person"><span class="tl-admin022-avatar" aria-hidden="true">${escapeHtml(item.initials)}</span><div><h3 id="tl-admin022-student-${row.wpUserId}">${escapeHtml(item.name)}</h3>${row.email?`<p class="tl-admin022-email">${escapeHtml(row.email)}</p>`:''}<p class="tl-admin022-program">${escapeHtml(row.program||'Program not listed')} · <span>Timeline-authorized</span></p><p class="tl-admin022-session">${escapeHtml(row.sessions.join(' · ')||'No session listed')}</p></div></div>
     <dl class="tl-admin022-facts">
       <div><dt>Timeline</dt><dd><span class="tl-admin022-state" data-state="${escapeHtml(row.status)}">${escapeHtml(item.status)}</span></dd></div>
       <div><dt>CV / source</dt><dd>${escapeHtml(item.source)}</dd></div>
@@ -83,20 +83,20 @@ export function renderTimelineAdminWorkspace(model){
   const total=roster?.total,range=typeof total==='number'&&total>0?`${(page-1)*roster.pageSize+1}–${Math.min(page*roster.pageSize,total)} of ${total}`:typeof total==='number'?'0 students':'Checking the current population…';
   return `<div class="tl-admin022" aria-busy="${loading}">
     <div class="tl-admin022-intro"><div><p class="tl-admin022-eyebrow">TIMELINE ADMINISTRATOR</p><h1 tabindex="-1" data-admin022-title>Know who needs you.<br><em>Act next.</em></h1><p class="tl-admin022-purpose">Follow each student's progress from their first CV to a Timeline they can confidently share.</p></div><button type="button" class="tl-admin022-button primary" data-admin022-find>Find a student <span aria-hidden="true">↗</span></button></div>
-    <div class="tl-admin022-population">${metricButton('eligible',model)}<p>Eligibility reflects current MissionMed 360 enrollment.${roster?` <span>Checked ${dateMarkup(roster.verifiedAt,'just now')}</span>`:''}</p><button type="button" class="tl-admin022-button subtle" data-admin022-refresh ${loading?'disabled':''}>${loading?'Refreshing…':'Refresh'}</button></div>
+    <div class="tl-admin022-population">${metricButton('eligible',model)}<p>Authorization reflects Founder-authorized/current 360 students and current IV Prep Complete enrollment.${roster?` <span>Checked ${dateMarkup(roster.verifiedAt,'just now')}</span>`:''}</p><button type="button" class="tl-admin022-button subtle" data-admin022-refresh ${loading?'disabled':''}>${loading?'Refreshing…':'Refresh'}</button></div>
     <div class="tl-admin022-actionCenter" aria-label="Timeline administrator action center">${metricGroup('Who needs me',['needs_review','guardian_issues','never_started'],model)}${metricGroup('What comes next',['cv_imported','draft','ready'],model)}${metricGroup('What changed',['recently_exported','recently_active'],model)}</div>
     <details class="tl-admin022-how"><summary>How this works</summary><p>Choose a count to see those students, or search the full roster below. Open a student's Timeline to review their history, source documents, Guardian findings, and exports. Students who have not started remain on the roster. Their Timeline becomes available to open after they begin.</p><p>Activity and export counts cover the last seven days. Timeline and Guardian readiness remain separate until the current Timeline has been checked.</p></details>
     <section class="tl-admin022-roster" data-admin-roster aria-labelledby="tl-admin022-roster-title">
-      <div class="tl-admin022-sectionHead"><div><p class="tl-admin022-eyebrow">ELIGIBLE 360 POPULATION</p><h2 id="tl-admin022-roster-title" tabindex="-1">Find a student</h2></div><p class="tl-admin022-resultCount" role="status" aria-live="polite">${escapeHtml(range)}${loading&&roster?' · refreshing':''}</p></div>
+      <div class="tl-admin022-sectionHead"><div><p class="tl-admin022-eyebrow">TIMELINE-AUTHORIZED STUDENTS</p><h2 id="tl-admin022-roster-title" tabindex="-1">Find a student</h2></div><p class="tl-admin022-resultCount" role="status" aria-live="polite">${escapeHtml(range)}${loading&&roster?' · refreshing':''}</p></div>
       <form class="tl-admin022-filters" data-admin022-search-form>
         <label class="tl-admin022-search"><span>Search students</span><input type="search" name="query" data-admin022-query autocomplete="off" placeholder="Name or email" value="${escapeHtml(model.query||'')}"></label>
-        <label><span>Timeline status</span><select data-admin022-filter name="filter"><option value="all" ${model.filter==='all'?'selected':''}>All eligible students</option>${TIMELINE_ADMIN_METRICS_022.filter(item=>item.id!=='eligible').map(item=>`<option value="${item.id}" ${model.filter===item.id?'selected':''}>${escapeHtml(item.label)}</option>`).join('')}</select></label>
+        <label><span>Timeline status</span><select data-admin022-filter name="filter"><option value="all" ${model.filter==='all'?'selected':''}>All Timeline-authorized students</option>${TIMELINE_ADMIN_METRICS_022.filter(item=>item.id!=='eligible').map(item=>`<option value="${item.id}" ${model.filter===item.id?'selected':''}>${escapeHtml(item.label)}</option>`).join('')}</select></label>
         <label><span>Program session</span><select data-admin022-session name="session"><option value="">All sessions</option>${(roster?.sessions||[]).map(value=>`<option value="${escapeHtml(value)}" ${model.session===value?'selected':''}>${escapeHtml(value)}</option>`).join('')}</select></label>
         <button class="tl-admin022-button primary" type="submit">Search</button>${hasFilter?'<button class="tl-admin022-button subtle" type="button" data-admin022-clear>Clear filters</button>':''}
       </form>
       ${model.error?`<div class="tl-admin022-error" role="alert"><h3>The roster needs attention</h3><p>${escapeHtml(model.error)}</p><button class="tl-admin022-button" type="button" data-admin022-refresh>Try again</button></div>`:''}
-      ${loading&&!roster?'<div class="tl-admin022-loading" role="status"><span aria-hidden="true"></span><strong>Checking eligible students and Timeline progress…</strong><p>We will show the roster when its current status is confirmed.</p></div>':''}
-      ${roster&&roster.students.length?`<ol class="tl-admin022-students" aria-label="Eligible students">${roster.students.map(row=>studentMarkup(row,model)).join('')}</ol>`:roster&&!loading?`<div class="tl-admin022-empty"><h3>${hasFilter?'No students match this view':'No eligible students are listed'}</h3><p>${hasFilter?'Try another name, status, or session.':'The current enrollment source returned no eligible 360 students.'}</p>${hasFilter?'<button class="tl-admin022-button" type="button" data-admin022-clear>Show all eligible students</button>':''}</div>`:''}
+      ${loading&&!roster?'<div class="tl-admin022-loading" role="status"><span aria-hidden="true"></span><strong>Checking Timeline-authorized students and Timeline progress…</strong><p>We will show the roster when its current status is confirmed.</p></div>':''}
+      ${roster&&roster.students.length?`<ol class="tl-admin022-students" aria-label="Timeline-authorized students">${roster.students.map(row=>studentMarkup(row,model)).join('')}</ol>`:roster&&!loading?`<div class="tl-admin022-empty"><h3>${hasFilter?'No students match this view':'No Timeline-authorized students are listed'}</h3><p>${hasFilter?'Try another name, status, or session.':'The current authorization source returned no Timeline-authorized students.'}</p>${hasFilter?'<button class="tl-admin022-button" type="button" data-admin022-clear>Show all Timeline-authorized students</button>':''}</div>`:''}
       ${roster&&roster.total>0?`<nav class="tl-admin022-pagination" aria-label="Student roster pages"><button class="tl-admin022-button" type="button" data-admin022-page="${page-1}" ${page<=1||loading?'disabled':''}>← Previous</button><span>Page ${page} of ${pages}</span><button class="tl-admin022-button" type="button" data-admin022-page="${page+1}" ${page>=pages||loading?'disabled':''}>Next →</button></nav>`:''}
     </section>
   </div>`;

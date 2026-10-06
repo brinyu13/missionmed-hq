@@ -16,12 +16,12 @@ export function productionEntitlementAssertion(identity,currentUsage){
   return Object.freeze({
     schemaVersion:"d1-405.timeline-entitlement.1",verified:true,enabled:true,eligible:true,
     allowance:administrator?"unlimited":1,currentUsage,
-    source:administrator?"wordpress-administrator":"learndash-course-3893",
-    subjectKind:administrator?"administrator":"eligible-360",
-    reason:administrator?"WordPress administrator eligibility verified.":"LearnDash course 3893 eligibility verified.",
+    source:administrator?"wordpress-administrator":"timeline-current-entitlement",
+    subjectKind:administrator?"administrator":"timeline-authorized-student",
+    reason:administrator?"WordPress administrator eligibility verified.":({founder_authorized:"Founder-authorized/current 360 Timeline access verified.",iv_prep_enrolled:"Current IV Prep Complete enrollment verified.",both:"Founder-authorized/current 360 and IV Prep Complete enrollment verified."}[claims.timeline_entitlement_reason]||"Current Timeline authorization verified."),
     principalId:identity.principalId,wpUserId:identity.wpUserId,
     issuer:String(claims.iss||""),audience:String(claims.aud||""),
-    membershipVersion:"learndash-course-3893:v1",decisionId:String(claims.jti||""),
+    membershipVersion:"timeline-current-entitlement:v1",decisionId:String(claims.jti||""),
     verifiedAt:issuedAt,expiresAt
   });
 }

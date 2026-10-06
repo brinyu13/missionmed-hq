@@ -33,6 +33,8 @@ function mmtl_defaults() {
         'timeline_enabled' => false,
         'rollout_stage' => 'off',
         'canary_wp_user_ids' => array(),
+        'founder_authorized_wp_user_ids' => array(),
+        'iv_prep_complete_course_id' => 0,
         'eligibility_verified' => false,
         'entitlement_version' => '',
         'consent_version' => 'd1-500-v1',
@@ -63,6 +65,8 @@ function mmtl_settings() {
         'absint',
         (array) ($settings['canary_wp_user_ids'] ?? array())
     )))), 0, 10);
+    $settings['founder_authorized_wp_user_ids'] = array_values(array_unique(array_filter(array_map('absint', (array) ($settings['founder_authorized_wp_user_ids'] ?? array())))));
+    $settings['iv_prep_complete_course_id'] = absint($settings['iv_prep_complete_course_id'] ?? 0);
     $settings['eligibility_verified'] = mmtl_bool($settings['eligibility_verified'] ?? false);
     $settings['entitlement_version'] = sanitize_text_field((string) ($settings['entitlement_version'] ?? ''));
     $settings['consent_version'] = sanitize_key((string) ($settings['consent_version'] ?? 'd1-500-v1'));
@@ -119,11 +123,40 @@ function mmtl_is_administrator($user) {
     return $user instanceof WP_User && $user->exists() && user_can($user, 'manage_options');
 }
 
-function mmtl_has_course_access($user_id) {
-    if (!function_exists('sfwd_lms_has_access')) {
-        return false;
+function mmtl_current_iv_prep_user_ids($settings = null) {
+    $settings = $settings ?? mmtl_settings();
+    $course_id = (int) $settings['iv_prep_complete_course_id'];
+    if ($course_id < 1) return array();
+    if (!function_exists('learndash_get_users_for_course') || !function_exists('sfwd_lms_has_access')) {
+        return new WP_Error('enrollment_source_unavailable', 'The current enrollment source is unavailable.', array('status' => 503));
     }
-    return sfwd_lms_has_access(MMTL_COURSE_ID, absint($user_id)) === true;
+    $query = learndash_get_users_for_course($course_id, array('fields' => 'ID', 'number' => -1), true);
+    if (is_wp_error($query)) return new WP_Error('enrollment_source_unavailable', 'The current enrollment source is unavailable.', array('status' => 503));
+    $ids = is_object($query) && method_exists($query, 'get_results') ? $query->get_results() : $query;
+    if (!is_array($ids)) return new WP_Error('enrollment_source_unavailable', 'The current enrollment source is unavailable.', array('status' => 503));
+    return array_values(array_unique(array_filter(array_map('absint', $ids))));
+}
+
+function mmtl_current_timeline_entitlement($user_id, $settings = null) {
+    $user_id = absint($user_id);
+    $user = $user_id > 0 ? get_user_by('id', $user_id) : false;
+    $decision = array('eligible' => false, 'reason' => 'not_entitled', 'founder_authorized' => false, 'iv_prep_enrolled' => false);
+    if (!$user || !($user instanceof WP_User) || !$user->exists() || mmtl_is_administrator($user)) return $decision;
+    $settings = $settings ?? mmtl_settings();
+    $decision['founder_authorized'] = in_array($user_id, $settings['founder_authorized_wp_user_ids'], true);
+    $iv_ids = mmtl_current_iv_prep_user_ids($settings);
+    $decision['iv_prep_enrolled'] = !is_wp_error($iv_ids) && in_array($user_id, $iv_ids, true)
+        && sfwd_lms_has_access((int) $settings['iv_prep_complete_course_id'], $user_id) === true;
+    $decision['eligible'] = $decision['founder_authorized'] || $decision['iv_prep_enrolled'];
+    $decision['reason'] = $decision['founder_authorized']
+        ? ($decision['iv_prep_enrolled'] ? 'both' : 'founder_authorized')
+        : ($decision['iv_prep_enrolled'] ? 'iv_prep_enrolled' : 'not_entitled');
+    return $decision;
+}
+
+// Compatibility transport: this now means current Timeline student entitlement.
+function mmtl_has_course_access($user_id) {
+    return mmtl_current_timeline_entitlement($user_id)['eligible'];
 }
 
 function mmtl_remote_sync_consent($user_id, $settings) {
@@ -145,18 +178,19 @@ function mmtl_eligibility_state($user) {
         return new WP_Error('timeline_disabled', 'Timeline is not enabled for this beta.', array('status' => 403));
     }
     $administrator = mmtl_is_administrator($user);
-    $course_access = mmtl_has_course_access((int) $user->ID);
+    $entitlement = mmtl_current_timeline_entitlement((int) $user->ID, $settings);
+    $course_access = $entitlement['eligible'];
     $canary = in_array((int) $user->ID, $settings['canary_wp_user_ids'], true);
     if ($settings['rollout_stage'] === 'canary' && !$canary) {
         return new WP_Error('canary_access_required', 'Timeline canary access is required.', array('status' => 403));
     }
     if ($settings['rollout_stage'] === 'canary' && !$administrator && empty($settings['eligibility_verified'])) {
-        return new WP_Error('eligibility_unverified', 'Timeline 360 eligibility is not verified.', array('status' => 503));
+        return new WP_Error('eligibility_unverified', 'Current Timeline authorization is not verified.', array('status' => 503));
     }
     if ($settings['rollout_stage'] === 'canary' && !$administrator && !$course_access) {
         return new WP_Error(
             'eligibility_required',
-            'Active MissionMed 360 course access is required.',
+            'Current Timeline authorization is required.',
             array('status' => 403, 'course_id' => MMTL_COURSE_ID)
         );
     }
@@ -164,12 +198,12 @@ function mmtl_eligibility_state($user) {
         return new WP_Error('administrator_approval_required', 'Timeline administrator access is not approved.', array('status' => 403));
     }
     if ($settings['rollout_stage'] === 'eligible_360' && !$administrator && empty($settings['eligibility_verified'])) {
-        return new WP_Error('eligibility_unverified', 'Timeline 360 eligibility is not verified.', array('status' => 503));
+        return new WP_Error('eligibility_unverified', 'Current Timeline authorization is not verified.', array('status' => 503));
     }
     if ($settings['rollout_stage'] === 'eligible_360' && !$administrator && !$course_access) {
         return new WP_Error(
             'eligibility_required',
-            'Active MissionMed 360 course access is required.',
+            'Current Timeline authorization is required.',
             array('status' => 403, 'course_id' => MMTL_COURSE_ID)
         );
     }
@@ -179,6 +213,7 @@ function mmtl_eligibility_state($user) {
         'role' => $administrator ? 'PROGRAM_ADMIN' : 'STUDENT',
         'administrator' => $administrator,
         'course_access' => $course_access,
+        'entitlement_reason' => $entitlement['reason'],
         'course_id' => MMTL_COURSE_ID,
         'rollout_stage' => $settings['rollout_stage'],
         'entitlement_version' => $settings['entitlement_version'],
@@ -332,6 +367,8 @@ function mmtl_issue_jwt($user, $access) {
         'timeline_admin' => !empty($access['administrator']),
         'is_wordpress_administrator' => !empty($access['administrator']),
         'has_learndash_3893_access' => !empty($access['course_access']),
+        'timeline_entitlement_source' => 'timeline-current-entitlement',
+        'timeline_entitlement_reason' => (string) ($access['entitlement_reason'] ?? 'not_entitled'),
         'course_id' => MMTL_COURSE_ID,
         'timeline_rollout_stage' => (string) $access['rollout_stage'],
         'entitlement_version' => (string) $access['entitlement_version'],
@@ -361,6 +398,11 @@ function mmtl_issue_jwt($user, $access) {
 }
 
 function mmtl_verify_jwt($token, $expected_principal, $expected_wp_user_id, $access) {
+    // Recheck student authorization even if a caller retained an earlier access array.
+    $current = mmtl_current_timeline_entitlement($expected_wp_user_id);
+    if (empty($access['administrator']) && empty($current['eligible'])) {
+        return new WP_Error('timeline_token_invalid', 'Timeline token is invalid.', array('status' => 401));
+    }
     $segments = explode('.', trim((string) $token));
     if (count($segments) !== 3) {
         return new WP_Error('timeline_token_invalid', 'Timeline token is invalid.', array('status' => 401));
@@ -388,6 +430,8 @@ function mmtl_verify_jwt($token, $expected_principal, $expected_wp_user_id, $acc
         || !hash_equals((string) $expected_principal, (string) ($claims['sub'] ?? ''))
         || (int) ($claims['wp_user_id'] ?? 0) !== absint($expected_wp_user_id)
         || empty($claims['timeline_eligible'])
+        || ($claims['timeline_entitlement_source'] ?? '') !== 'timeline-current-entitlement'
+        || (!empty($current['eligible']) && ($claims['timeline_entitlement_reason'] ?? '') !== $current['reason'])
         || (bool) ($claims['is_wordpress_administrator'] ?? false) !== !empty($access['administrator'])
         || (bool) ($claims['has_learndash_3893_access'] ?? false) !== !empty($access['course_access'])
         || (int) ($claims['course_id'] ?? 0) !== MMTL_COURSE_ID

@@ -82,20 +82,25 @@ function mmtl_admin_directory_bridge($path, $input) {
 }
 
 function mmtl_admin_eligible_students() {
-    if (!function_exists('learndash_get_users_for_course') || !function_exists('sfwd_lms_has_access')) return new WP_Error('enrollment_source_unavailable', 'The current enrollment source is unavailable.', array('status' => 503));
-    // Installed LearnDash 5.0.4 merges direct and group enrollments and excludes expired access.
-    $query = learndash_get_users_for_course(MMTL_COURSE_ID, array('fields' => 'ID', 'number' => -1), true);
-    $ids = is_object($query) && method_exists($query, 'get_results') ? $query->get_results() : (array) $query;
-    $ids = array_values(array_unique(array_filter(array_map('absint', $ids))));
+    $settings = mmtl_settings();
+    $iv_ids = mmtl_current_iv_prep_user_ids($settings);
+    if (is_wp_error($iv_ids)) return $iv_ids;
+    $ids = array_values(array_unique(array_merge($settings['founder_authorized_wp_user_ids'], $iv_ids)));
+    sort($ids, SORT_NUMERIC);
     if (count($ids) > 20000) return new WP_Error('roster_capacity_exceeded', 'This roster needs a larger server page. No partial population was returned.', array('status' => 503));
     $students = array();
-    $course_groups = function_exists('learndash_get_course_groups') ? array_map('absint', (array) learndash_get_course_groups(MMTL_COURSE_ID, true)) : array();
+    $course_id = (int) $settings['iv_prep_complete_course_id'];
+    $course_groups = $course_id > 0 && function_exists('learndash_get_course_groups') ? array_map('absint', (array) learndash_get_course_groups($course_id, true)) : array();
     foreach ($ids as $id) {
         $user = get_user_by('id', $id);
-        if (!$user || mmtl_is_administrator($user) || !mmtl_has_course_access($id)) continue;
-        $groups = function_exists('learndash_get_users_group_ids') ? array_intersect($course_groups, array_map('absint', (array) learndash_get_users_group_ids($id, true))) : array();
+        $entitlement = mmtl_current_timeline_entitlement($id, $settings);
+        if (!$user || empty($entitlement['eligible'])) continue;
+        $groups = !empty($entitlement['iv_prep_enrolled']) && function_exists('learndash_get_users_group_ids') ? array_intersect($course_groups, array_map('absint', (array) learndash_get_users_group_ids($id, true))) : array();
+        $program = !empty($entitlement['founder_authorized']) ? 'Founder-authorized/current 360' : 'IV Prep Complete enrolled';
+        if ($entitlement['reason'] === 'both') $program .= ' · IV Prep Complete enrolled';
         $students[] = array('wpUserId' => $id, 'displayName' => (string) $user->display_name,
-            'email' => (string) $user->user_email, 'program' => 'MissionMed 360',
+            'email' => (string) $user->user_email, 'program' => $program,
+            'entitlementReason' => $entitlement['reason'],
             'sessions' => array_values(array_map('get_the_title', $groups)), 'eligible' => true);
     }
     return $students;
@@ -133,7 +138,7 @@ function mmtl_admin_roster_endpoint($request) {
     usort($rows, function($a, $b) { return strcasecmp($a['displayName'], $b['displayName']) ?: ($a['wpUserId'] <=> $b['wpUserId']); });
     $total = count($rows); $page_size = 25;
     $page = max(1, min(max(1, (int) ceil($total / $page_size)), absint($request->get_param('page') ?: 1)));
-    return mmtl_filevault_source_response(array('source' => 'learndash-course-3893', 'verifiedAt' => $checked_at,
+    return mmtl_filevault_source_response(array('source' => 'timeline-current-entitlement', 'verifiedAt' => $checked_at,
         'metrics' => $metrics, 'students' => array_slice($rows, ($page - 1) * $page_size, $page_size),
         'sessions' => $sessions, 'total' => $total, 'page' => $page, 'pageSize' => $page_size));
 }
