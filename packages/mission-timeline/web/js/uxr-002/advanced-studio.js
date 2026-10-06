@@ -6,7 +6,7 @@ import {
   reconcileAdvancedScene
 } from "../editor/scene-graph.js";
 import {applySceneCommandToDocument} from "../editor/scene-commands.js";
-import {advancedElementPreviewMarkup} from "./locked-407f-export.js";
+import {advancedElementPreviewMarkup,locked407FResetDateGeometry} from "./locked-407f-export.js";
 import {buildFounderPresentationScene,serializeFounderPresentation} from '../presentation/founder-presentation-serializer.js';
 import {parsePresentationXml,xmlNodes} from '../presentation/presentation-xml.js';
 
@@ -445,8 +445,19 @@ export function resetAdvancedEventLayout(document={},eventId){
   if(document.layoutLock===true||grouped||objects.some(object=>object.locked||object.groupId))return{document,changed:false,error:'Unlock and ungroup this event before resetting its layout.'};
   if(!objects.length&&!Object.hasOwn(event,'manualOffset'))return{document,changed:false};
   const next=clone(document),removedIds=objects.map(object=>String(object.id));
-  if(next.advanced?.scene)next.advanced.scene.objects=next.advanced.scene.objects.filter(object=>!removedIds.includes(String(object.id)));
+  const hasBaseline=objects.some(object=>object.presentation?.localLayoutCriticResetBaseline);
+  const dateScene=hasBaseline?buildFounderPresentationScene(document,{scope:'EVERYTHING'}):null;
+  if(next.advanced?.scene)next.advanced.scene.objects=next.advanced.scene.objects.flatMap(object=>{
+    if(!removedIds.includes(String(object.id)))return[object];
+    const baseline=object.presentation?.localLayoutCriticResetBaseline;
+    if(!baseline?.geometry||!baseline?.presentation)return[];
+    return[{...object,geometry:locked407FResetDateGeometry(dateScene,id,baseline.geometry),presentation:{
+      ...clone(baseline.presentation),localLayoutCriticAuto:true,localLayoutCriticYRetained:true,
+      localLayoutCriticResetBaseline:clone(baseline)
+    }}];
+  });
   delete next.events.find(event=>String(event.id)===id).manualOffset;
+  if(JSON.stringify(next)===JSON.stringify(document))return{document,changed:false};
   return{document:next,changed:true,
     mutation:{label:'Reset event layout',history:true,undoSteps:1}};
 }

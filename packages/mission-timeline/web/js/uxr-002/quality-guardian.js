@@ -680,12 +680,51 @@ function reflowMilestonePresentation(document,initial,budget){
   return{changed:moved>0,moved,before:initial.stats.collisionCount,after:bestScore};
 }
 
+// A year drag retains automatic Y to preserve a good composition. Later source
+// corrections may make that retained composition unsafe. An explicit Fix for me
+// can release critic-owned automatic Y, never student-owned geometry.
+export function reflowRetainedAutomaticRows(document){
+  if(document.layoutLock===true)return {changed:false};
+  const eligible=safeArray(document.advanced?.scene?.objects).filter(object=>{
+    const p=object.presentation||{},event=safeArray(document.events).find(e=>String(e.id)===String(object.semanticRef||object.id));
+    return object.type==='event'&&event&&p.localLayoutCriticAuto===true&&(p.localLayoutCriticYRetained===true||p.localLayoutCriticYExplicit===true)&&!object.locked&&!object.groupId&&Math.abs(Number(object.geometry?.rotation)||0)<1e-6&&
+      !event.manualOffset?.laneLocked&&!Number(event.manualOffset?.x)&&!Number(event.manualOffset?.y)&&
+      !safeArray(document.advanced?.groups).concat(safeArray(document.advanced?.scene?.groups)).some(group=>safeArray(group.childIds).includes(object.id));
+  });
+  if(!eligible.length)return {changed:false};
+  const measure=d=>{
+    const r=serializeFounderPresentation(d,{scope:'FULL_STORY'}),paint=resolveFounderPresentationSvg(r.svg);
+    return {collisions:materialPresentationCollisions(paint).length,
+      overflow:paint.nodes.filter(n=>n.kind==='text'&&(n.sourceAttributes['data-text-overflow']==='true'||n.bounds.x<-.5||n.bounds.y<-.5||n.bounds.x+n.bounds.width>BOARD.width+.5||n.bounds.y+n.bounds.height>BOARD.height+.5)).length,
+      chronology:r.scene.chronologyOrder?.violations?.length||0,
+      chronologicalPairs:paintedDurationInversions(r,paint),flagIds:(r.scene.flags||[]).map(flag=>String(flag.id))};
+  };
+  try{
+    const before=measure(document),milestones=eligible.filter(o=>before.flagIds.includes(String(o.semanticRef||o.id)));
+    // Prefer the smallest repair: freeing a top-band caption must not reflow a
+    // working chronological body. Try the whole automatic set only if needed.
+    for(const scope of [milestones,eligible]){
+      if(!scope.length)continue;
+      const candidate=clone(document),released=scope.map(o=>o.id);
+      for(const o of candidate.advanced.scene.objects)if(released.includes(o.id)){
+        delete o.presentation.localLayoutCriticYRetained;delete o.presentation.localLayoutCriticYExplicit;
+      }
+      const after=measure(candidate);
+      if(after.chronology||after.chronologicalPairs.some(pair=>!before.chronologicalPairs.includes(pair))||after.overflow>before.overflow||after.collisions>=before.collisions)continue;
+      document.advanced=candidate.advanced;return {changed:true,before,after,released};
+    }
+    return {changed:false,before};
+  }catch{return {changed:false};}
+}
+
 function autoArrangeWithoutWorsening(document){
+  const retained=reflowRetainedAutomaticRows(document);
+  if(retained.changed&&retained.after.collisions===0)return {changed:true,before:retained.before.collisions,after:0,milestonesMoved:retained.released.length};
   const initial=analyzeCollisionLayout(document,{scope:'FULL_STORY'});
   const budget={remaining:MAX_LAYOUT_SEARCH_CANDIDATES};
   const lanes=autoArrangeLanesWithoutWorsening(document,initial,budget);
   const milestones=reflowMilestonePresentation(document,lanes.review,budget);
-  return{changed:lanes.changed||milestones.changed,before:initial.stats.collisionCount,after:milestones.after,milestonesMoved:milestones.moved};
+  return{changed:retained.changed||lanes.changed||milestones.changed,before:retained.before?.collisions??initial.stats.collisionCount,after:milestones.after,milestonesMoved:milestones.moved};
 }
 
 export function applySafeQualityFixes(document,report=analyzeTimelineQuality(document)){
@@ -762,6 +801,19 @@ function layoutProposalSourceSnapshot(document,legacyIds){
   }
   return stableLayoutJson(value);
 }
+// Check actual painted start anchors, including fixed student-owned neighbors.
+// Existing human exceptions remain valid; an automatic proposal may not add one.
+export function paintedDurationInversions(rendered,paint=resolveFounderPresentationSvg(rendered.svg)){
+  const anchors=(rendered.scene.arrows||[]).flatMap(arrow=>{
+    if(arrow.compositeId)return [];
+    const node=paint.nodes.find(n=>n.semanticRef===String(arrow.id)&&n.sourceAttributes['data-continuous-duration-arrow']&&n.bounds);
+    const start=String(arrow.startDate||arrow.startMonth||'');
+    return node&&/^\d{4}-\d{2}/.test(start)?[{id:String(arrow.id),start,x:node.bounds.x,y:node.bounds.y}]:[];
+  });
+  const violations=[];
+  for(const a of anchors)for(const b of anchors)if(a.start<b.start&&(b.x<a.x-.5||b.y<a.y-.5))violations.push(a.id+'|'+b.id);
+  return violations.sort();
+}
 function measuredProposalPaint(rendered){
   const paint=resolveFounderPresentationSvg(rendered.svg,{measureText:rendered.scene.measureText});
   const visible=paint.nodes.filter(node=>node.bounds&&node.groupId&&
@@ -799,6 +851,8 @@ export function qualifyRenderedLayoutImprovement(beforeRendered,afterRendered,{b
     result.sourceUnchanged=layoutProposalSourceSnapshot(beforeDocument,legacyIds)===layoutProposalSourceSnapshot(afterDocument,legacyIds);
     if(!result.sourceUnchanged)return Object.freeze({...result,reasonCode:'LAYOUT_PROPOSAL_SOURCE_CHANGED'});
     const before=measuredProposalPaint(beforeRendered),after=measuredProposalPaint(afterRendered);
+    const beforeOrder=paintedDurationInversions(beforeRendered,before.paint),afterOrder=paintedDurationInversions(afterRendered,after.paint);
+    if(afterOrder.some(pair=>!beforeOrder.includes(pair)))return Object.freeze({...result,reasonCode:'LAYOUT_PROPOSAL_CHRONOLOGY_WORSENED'});
     result.before=before.metrics;result.after=after.metrics;
     if(visibleProposalContent(before.visible)!==visibleProposalContent(after.visible))return Object.freeze({...result,reasonCode:'LAYOUT_PROPOSAL_VISIBLE_CONTENT_CHANGED'});
     const positions=nodes=>stableLayoutJson(nodes.map(node=>({groupId:node.groupId,semanticRef:node.semanticRef,kind:node.kind,bounds:node.bounds})));

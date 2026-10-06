@@ -97,25 +97,99 @@ try{
 
  // Exercise the complete advertised administrator lifecycle through the actual HTTP
  // service, restricted login and transaction-bound RLS, not a mocked repository.
+ const noAssignment=await call('/v1/documents/document022a/reviews',{actor:actors.admin,claims:scoped(actors.student),body:{versionId:allowedWrite.data.id}});
+ check('V1 genuine missing advisor assignment fails closed without a review row',noAssignment.status===409&&noAssignment.data.error?.code==='ADVISOR_NOT_ASSIGNED'&&Number((await ownerPool.query("select count(*) from timeline.review_requests where document_id='document022a'")).rows[0].count)===0);
  await ownerPool.query("insert into timeline.advisor_assignments(document_id,advisor_principal_id,program_id,starts_at) values('document022a','advisor_assigned','missionmed-360:3893',clock_timestamp()-interval '1 minute')");
  const reviewResult=await call('/v1/documents/document022a/reviews',{actor:actors.admin,claims:scoped(actors.student),body:{versionId:allowedWrite.data.id}});
  assert.equal(reviewResult.status,201,JSON.stringify(reviewResult.data));check('Granted administrator requests review with exact assigned advisor and immutable version');
  const reviewId=reviewResult.data.id;
  const commentResult=await call(`/v1/reviews/${reviewId}/comments`,{actor:actors.admin,claims:scoped(actors.student),body:{body:'Synthetic admin review comment',visibility:'SHARED'}});
  assert.equal(commentResult.status,201,JSON.stringify(commentResult.data));check('Granted administrator comment and matching outbox commit together');
- const decisionResult=await call(`/v1/reviews/${reviewId}/decision`,{actor:actors.admin,claims:scoped(actors.student),body:{decision:'APPROVED',reason:'Synthetic exact-version review'}});
+ const decisionResult=await call(`/v1/reviews/${reviewId}/decision`,{actor:actors.admin,claims:scoped(actors.student),body:{decision:'APPROVED',reason:'',baseRevision:allowedWrite.data.revision}});
  assert.equal(decisionResult.status,200,JSON.stringify(decisionResult.data));check('Granted administrator approves the reviewed version and updates its review status');
+ const approvalRead=await call('/v1/documents/document022a/approval',{actor:actors.student});
+ assert.equal(approvalRead.status,200,JSON.stringify(approvalRead.data));
+ check('V1 student sees server exact-revision approval, real administrator, timestamp and optional empty note',approvalRead.data.status==='APPROVED'&&approvalRead.data.currentRevision===allowedWrite.data.revision&&approvalRead.data.decision.actorId===actors.admin.id&&approvalRead.data.decision.versionId===allowedWrite.data.id&&approvalRead.data.decision.contentSha256===allowedWrite.data.contentSha256&&approvalRead.data.decision.note===null&&Boolean(approvalRead.data.decision.timestamp)&&approvalRead.data.canDecide===false);
+ check('V1 cross-student approval read is inaccessible by direct ID',(await call('/v1/documents/document022a/approval',{actor:actors.other})).status===404);
+ check('V1 wrong selected-subject administrator approval read denied',(await call('/v1/documents/document022a/approval',{actor:actors.admin,claims:scoped(actors.other)})).status===404);
+ check('V1 student cannot forge a decision',(await call(`/v1/reviews/${reviewId}/decision`,{actor:actors.student,body:{decision:'APPROVED',baseRevision:allowedWrite.data.revision}})).status===403);
+ check('V1 incorrect expected revision decision rejected',(await call(`/v1/reviews/${reviewId}/decision`,{actor:actors.admin,claims:scoped(actors.student),body:{decision:'APPROVED',baseRevision:0}})).status===409);
+ // Freeze the server clock and reverse lexical event IDs to exercise the exact
+ // PostgreSQL ORDER BY created_at,id failure case through the restricted role.
+ const tiedClock=()=>new Date(decisionResult.data.createdAt);
+ const tiedRepository=new PostgresTimelineRepository(pool,{runtimeRole:'timeline_authenticated',expectedSchemaVersion:'d1-timeline-db-500.1',rlsClaims:postgresClaimsFromPrincipal(currentAdmin)});
+ await tiedRepository.withTransaction(async tx=>{
+   const add=tx.addApproval.bind(tx);let index=0;
+   tx.addApproval=event=>add({...event,id:index++===0?'approval_tie_z':'approval_tie_a'});
+   const service=new TimelineService(tx,tiedClock);
+   const first=await service.decideReview(currentAdmin,reviewId,'APPROVED','Fixed clock first',allowedWrite.data.revision);
+   const later=await service.decideReview(currentAdmin,reviewId,'CHANGES_REQUESTED','Fixed clock later',allowedWrite.data.revision);
+   const ordered=await tx.listApprovals('document022a');
+   check('V1 restricted PostgreSQL fixed-clock decisions have strictly increasing timestamps despite reversed IDs',Date.parse(later.createdAt)>Date.parse(first.createdAt)&&ordered.at(-1).id==='approval_tie_a');
+   const status=await service.getApprovalStatus(currentAdmin,'document022a');
+   check('V1 restricted PostgreSQL same-clock approval then changes reads latest decision and bound note',status.status==='CHANGES_REQUESTED'&&status.decision.note==='Fixed clock later'&&status.decision.actorId===actors.admin.id&&status.decision.revision===allowedWrite.data.revision);
+   check('V1 same-clock changes requested closes immutable-version approval',await service.isApproved('document022a',allowedWrite.data.id,allowedWrite.data.contentSha256)===false);
+ });
+ const afterTie=await call('/v1/documents/document022a/approval',{actor:actors.student});
+ check('V1 student HTTP readback preserves the fixed-clock latest decision',afterTie.data.status==='CHANGES_REQUESTED'&&afterTie.data.decision.note==='Fixed clock later');
+ await tiedRepository.withTransaction(async tx=>{
+   const review=await tx.getReview(reviewId);const latest=(await tx.listApprovals('document022a')).at(-1);
+   const timestamp=new Date(Date.parse(latest.createdAt)+1).toISOString();
+   for(const [id,decision,reason] of [['approval_legacy_z','APPROVED','Legacy earlier'],['approval_legacy_a','CHANGES_REQUESTED','Legacy later']]){
+     await tx.addApproval({id,reviewRequestId:reviewId,documentId:'document022a',versionId:allowedWrite.data.id,contentSha256:allowedWrite.data.contentSha256,decision,actorId:actors.admin.id,reason,createdAt:timestamp});
+   }
+   await tx.updateReview({...review,status:'CHANGES_REQUESTED',updatedAt:timestamp});
+   const status=await new TimelineService(tx,tiedClock).getApprovalStatus(currentAdmin,'document022a');
+   check('V1 restricted PostgreSQL preexisting tied timestamps select authoritative review state and exact event receipt',status.status==='CHANGES_REQUESTED'&&status.decision.note==='Legacy later'&&await new TimelineService(tx).isApproved('document022a',allowedWrite.data.id,allowedWrite.data.contentSha256)===false);
+ });
+ const restoreApproval=await call(`/v1/reviews/${reviewId}/decision`,{actor:actors.admin,claims:scoped(actors.student),body:{decision:'APPROVED',baseRevision:allowedWrite.data.revision,reason:'Current approval after tie proof'}});assert.equal(restoreApproval.status,200,JSON.stringify(restoreApproval.data));
  const exportResult=await call('/v1/exports',{actor:actors.admin,claims:scoped(actors.student),body:{documentId:'document022a',versionId:allowedWrite.data.id,artifactType:'TIMELINE_INTERVIEWER_SAFE_PNG',scope:'INTERVIEWER_SAFE',renderer:'WEB_CANDIDATE'}});
  assert.equal(exportResult.status,202,JSON.stringify(exportResult.data));check('Granted administrator queues exact-version export and matching outbox together');
  const beforeMaterial=(await call('/v1/documents/document022a',{actor:actors.student})).data.document;
  const materialResult=await call('/v1/documents/document022a/versions',{actor:actors.admin,claims:scoped(actors.student),body:{baseRevision:beforeMaterial.revision,snapshot:{...beforeMaterial,title:'Synthetic material administrator revision'},label:'Material admin revision'}});
  assert.equal(materialResult.status,201,JSON.stringify(materialResult.data));
  check('Material administrator save invalidates the former approval atomically',Number((await ownerPool.query("select count(*) from timeline.approval_events where document_id='document022a' and decision='INVALIDATED' and actor_id=$1",[actors.admin.id])).rows[0].count)===1);
+ check('V1 material edit makes old approval require review',(await call('/v1/documents/document022a/approval',{actor:actors.student})).data.status==='NEEDS_REVIEW');
+ check('V1 decision on historical reviewed revision cannot restore approval',(await call(`/v1/reviews/${reviewId}/decision`,{actor:actors.admin,claims:scoped(actors.student),body:{decision:'APPROVED',baseRevision:allowedWrite.data.revision}})).status===409);
  const eventTypes=(await ownerPool.query("select event_type from timeline.outbox_events where document_id='document022a' and actor_id=$1",[actors.admin.id])).rows.map(r=>r.event_type);
  check('Every successful administrator workflow emits its matching transaction-bound outbox', ['timeline.document.versioned','timeline.review.requested','timeline.comment.created','timeline.review.approved','timeline.export.requested','timeline.approval.invalidated'].every(event=>eventTypes.includes(event)));
  const newReview=await call('/v1/documents/document022a/reviews',{actor:actors.admin,claims:scoped(actors.student),body:{versionId:materialResult.data.id}});assert.equal(newReview.status,201,JSON.stringify(newReview.data));
  const changes=await call(`/v1/reviews/${newReview.data.id}/decision`,{actor:actors.admin,claims:scoped(actors.student),body:{decision:'CHANGES_REQUESTED',reason:'Synthetic wording revision requested'}});assert.equal(changes.status,200,JSON.stringify(changes.data));
  check('Granted administrator changes-requested decision emits exact reviewed-version outbox');
+ check('V1 changes-requested status is read back from server',(await call('/v1/documents/document022a/approval',{actor:actors.student})).data.status==='CHANGES_REQUESTED');
+ // Two real document-lock orderings, using only the disposable synthetic database.
+ const waitForDocumentLock=async()=>{for(let attempt=0;attempt<100;attempt++){
+   const waiting=await ownerPool.query("select count(*) from pg_stat_activity where usename='timeline_api_test_022' and wait_event_type='Lock'");
+   if(Number(waiting.rows[0].count)>0)return;
+   await new Promise(resolve=>setTimeout(resolve,10));
+ }throw new Error('Synthetic concurrent workflow did not wait on the document lock');};
+ const raceRepository=new PostgresTimelineRepository(pool,{runtimeRole:'timeline_authenticated',expectedSchemaVersion:'d1-timeline-db-500.1',rlsClaims:postgresClaimsFromPrincipal(currentAdmin)});
+ let firstEdit;
+ await raceRepository.withTransaction(async tx=>{
+   await new TimelineService(tx).decideReview(currentAdmin,newReview.data.id,'APPROVED','Lock-first approval',materialResult.data.revision);
+   const snapshot=(await tx.getDocument('document022a')).document;
+   firstEdit=call('/v1/documents/document022a/versions',{actor:actors.admin,claims:scoped(actors.student),body:{baseRevision:snapshot.revision,snapshot:{...snapshot,title:'Synthetic concurrent edit after approval'},label:'Approve then edit'}});
+   await waitForDocumentLock();
+ });
+ const firstEditResult=await firstEdit;assert.equal(firstEditResult.status,201,JSON.stringify(firstEditResult.data));
+ check('V1 approve-first race holds the document lock and subsequent edit invalidates approval',(await call('/v1/documents/document022a/approval',{actor:actors.student})).data.status==='NEEDS_REVIEW');
+ const nextRaceReview=await call('/v1/documents/document022a/reviews',{actor:actors.admin,claims:scoped(actors.student),body:{versionId:firstEditResult.data.id}});assert.equal(nextRaceReview.status,201);
+ let waitingDecision;
+ await raceRepository.withTransaction(async tx=>{
+   const snapshot=(await tx.getDocument('document022a')).document;
+   await new TimelineService(tx).createVersion(currentAdmin,'document022a',snapshot.revision,{...snapshot,title:'Synthetic concurrent edit before approval'},'Edit then approve');
+   waitingDecision=call(`/v1/reviews/${nextRaceReview.data.id}/decision`,{actor:actors.admin,claims:scoped(actors.student),body:{decision:'APPROVED',baseRevision:snapshot.revision}});
+   await waitForDocumentLock();
+ });
+ check('V1 edit-first race rejects the waiting historical decision',(await waitingDecision).status===409);
+ const approvalCount=Number((await ownerPool.query("select count(*) from timeline.approval_events where document_id='document022a'")).rows[0].count);
+ const atomicVersion=(await call('/v1/documents/document022a',{actor:actors.student})).data.currentVersionId;
+ const atomicReview=await call('/v1/documents/document022a/reviews',{actor:actors.admin,claims:scoped(actors.student),body:{versionId:atomicVersion}});assert.equal(atomicReview.status,201);
+ await assert.rejects(raceRepository.withTransaction(async tx=>{
+   await new TimelineService(tx).decideReview(currentAdmin,atomicReview.data.id,'APPROVED','Must roll back');
+   await tx.addOutbox({id:`outbox_bad_decision_${randomUUID()}`,aggregateId:'document022a',eventType:'timeline.document.deleted',payload:{documentId:'document022a'},attempts:0,availableAt:new Date().toISOString(),publishedAt:null});
+ }),{code:'PERSISTENCE_ACCESS_DENIED'});
+ check('V1 invalid outbox rolls back approval event and review status',Number((await ownerPool.query("select count(*) from timeline.approval_events where document_id='document022a'")).rows[0].count)===approvalCount&&(await ownerPool.query('select status from timeline.review_requests where id=$1',[atomicReview.data.id])).rows[0].status==='REQUESTED');
  const validOutbox=(await ownerPool.query("select * from timeline.outbox_events where event_type='timeline.document.versioned' and actor_id=$1 order by available_at desc limit 1",[actors.admin.id])).rows[0];
  const forge=async(overrides={})=>{
    const row={...validOutbox,...overrides};
@@ -152,11 +226,13 @@ try{
  await ownerPool.query("update timeline.principals set status='ACTIVE' where id=$1",[actors.student.id]);
  await ownerPool.query("update timeline.admin_resource_grants set revoked_at=clock_timestamp() where administrator_principal_id=$1 and document_id='document022a'",[actors.admin.id]);
  const revokedBefore=await countState();const revokedWrite=await call('/v1/documents/document022a/versions',{actor:actors.admin,claims:scoped(actors.student),body:{baseRevision:atomicDocument.revision,snapshot:atomicDocument,label:'Revoked'}});assert.equal(revokedWrite.status,404);assert.deepEqual(await countState(),revokedBefore);check('Revoked grant version write denied without partial writes');
+ check('V1 revoked-grant approval read denied',(await call('/v1/documents/document022a/approval',{actor:actors.admin,claims:scoped(actors.student)})).status===404);
  check('Revoked grant denied despite cached signed admin identity',(await asContext(currentAdmin,"select id from timeline.documents where id='document022a'")).rows.length===0);
  await ownerPool.query("update timeline.admin_resource_grants set revoked_at=clock_timestamp() where administrator_principal_id=$1 and document_id='document022b'",[actors.admin.id]);
  const oldClock=()=>new Date(Date.now()-20*60000);const expiredService=new PostgresTimelineAdminService(pool,oldClock);await expiredService.open(admin,{wpUserId:actors.other.wp,verifiedAt:oldClock().toISOString()});
  const expiredAdmin=await verifier.verify(await token(actors.admin,scoped(actors.other)),'expired-admin-test');check('Expired grant cannot be read by current admin',(await asContext(expiredAdmin,"select id from timeline.documents where id='document022b'")).rows.length===0);
  const expiredBefore=Number((await ownerPool.query("select current_revision from timeline.documents where id='document022b'")).rows[0].current_revision);const expiredWrite=await call('/v1/documents/document022b/versions',{actor:actors.admin,claims:scoped(actors.other),body:{baseRevision:otherBefore.revision,snapshot:otherBefore,label:'Expired'}});assert.equal(expiredWrite.status,404);assert.equal(Number((await ownerPool.query("select current_revision from timeline.documents where id='document022b'")).rows[0].current_revision),expiredBefore);check('Expired grant version write denied without partial writes');
+ check('V1 expired-grant approval read denied',(await call('/v1/documents/document022b/approval',{actor:actors.admin,claims:scoped(actors.other)})).status===404);
  check('Student cannot directly mint an admin grant',await asContext(student,"select has_table_privilege(current_user,'timeline.admin_resource_grants','INSERT') as allowed").then(r=>r.rows[0].allowed===false));
  await ownerPool.query("update timeline.principals set status='SUSPENDED' where id=$1",[actors.admin.id]);check('Suspended admin cannot use internal bridge',(await call('/v1/admin/roster',{actor:actors.admin,body:{wpUserIds:[actors.other.wp],verifiedAt:new Date().toISOString()},headers:bridgeHeaders})).status===403);
  await assert.rejects(adminService.open(admin,{wpUserId:actors.other.wp,verifiedAt:new Date().toISOString()}),{code:'ADMIN_WORKSPACE_REQUIRED'});check('Admin service rechecks active actor even with previously verified context');

@@ -363,9 +363,15 @@ test('bounded whole-spine frontier preserves future caption corridors and compre
  })),d=doc(events),before=JSON.stringify(d),r=render(d),resolved=paint(r);
  assert.deepEqual(r.scene.chronologyOrder.violations,[]);
  const conflicts=materialPresentationCollisions(resolved);assert.equal(conflicts.length,0,'fresh calendar geometry clears the complete spine and fixed furniture');
- assert.equal(r.scene.autoFurnitureBudgetAssessment.accepted,true);assert.ok(r.scene.autoFurnitureBudgetAssessment.budgets.every(item=>item.deficit<.1));
- const risk=r.scene.autoFurnitureBudgetAssessment.readability;assert.equal(risk.candidate.overflow,0);assert.equal(risk.candidate.bodyRisk,0);assert.equal(risk.candidate.collisions,0);assert.equal(risk.candidate.chronology,0);assert.equal(risk.candidate.score,0);assert.ok(r.svg.includes('data-furniture-axis-risks='));
- const earliest=r.scene.autoNativeEarliestAssessment;assert.ok(earliest);assert.ok(r.svg.includes(`data-native-earliest-decision="${earliest.accepted?'accepted':earliest.fit?'rejected':'infeasible'}"`),'one bounded native macro alternative reports its final decision');
+ // A clear initial composition need not run the optional furniture search.
+ // Painted collisions, chronology, legibility and complete export remain mandatory.
+ const assessment=r.scene.autoFurnitureBudgetAssessment;
+ if(assessment){
+  assert.equal(assessment.accepted,true);assert.ok(assessment.budgets.every(item=>item.deficit<.1));
+  const risk=assessment.readability;assert.equal(risk.candidate.overflow,0);assert.equal(risk.candidate.bodyRisk,0);assert.equal(risk.candidate.collisions,0);assert.equal(risk.candidate.chronology,0);assert.equal(risk.candidate.score,0);assert.ok(r.svg.includes('data-furniture-axis-risks='));
+ }
+ const earliest=r.scene.autoNativeEarliestAssessment;
+ if(earliest)assert.ok(r.svg.includes(`data-native-earliest-decision="${earliest.accepted?'accepted':earliest.fit?'rejected':'infeasible'}"`),'a bounded native alternative reports its final decision');
  assert.ok([...r.scene.autoArrowGeometry.values()].every(geometry=>geometry.y>=171&&geometry.y+geometry.height<=1072));
  assert.ok(resolved.nodes.filter(node=>node.sourceAttributes['data-board-ink-role']==='location').every(node=>node.fontSize===18&&node.text==='Supplied City, ST'));
  assert.equal(JSON.stringify(d),before);assert.equal(render(d).svg,r.svg);

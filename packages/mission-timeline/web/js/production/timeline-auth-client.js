@@ -352,6 +352,9 @@ export class TimelineProductionAuthClient{
     return result;
   }
   createDocument(document,programId){return this.request("/documents",{method:"POST",body:{id:document.id,programId,title:document.title,theme:document.theme,document}});}
+  getApproval(documentId){return this.request(`/documents/${encodeURIComponent(documentId)}/approval`);}
+  requestReview(documentId,versionId){return this.request(`/documents/${encodeURIComponent(documentId)}/reviews`,{method:"POST",body:{versionId}});}
+  decideReview(reviewId,decision,baseRevision,note=""){return this.request(`/reviews/${encodeURIComponent(reviewId)}/decision`,{method:"POST",body:{decision,baseRevision,reason:note}});}
   checkpoint(documentId,deviceId,baseRevision,snapshot){return this.request(`/documents/${encodeURIComponent(documentId)}/checkpoints/${encodeURIComponent(deviceId)}`,{method:"PUT",body:{baseRevision,snapshot}});}
   createVersion(documentId,baseRevision,snapshot,label){return this.request(`/documents/${encodeURIComponent(documentId)}/versions`,{method:"POST",body:{baseRevision,snapshot,label}});}
   recoverConflict(documentId,input){return this.request(`/documents/${encodeURIComponent(documentId)}/conflict-recoveries`,{method:"POST",body:input});}

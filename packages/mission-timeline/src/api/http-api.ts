@@ -166,6 +166,8 @@ export class TimelineHttpApi {
       });
       return json(result, 201, { etag: `"${result.document.revision}"` });
     }
+    const approvalMatch = url.pathname.match(/^\/v1\/documents\/([^/]+)\/approval$/);
+    if (approvalMatch && request.method === "GET") return json(await service.getApprovalStatus(context, approvalMatch[1]!));
     const documentMatch = url.pathname.match(/^\/v1\/documents\/([^/]+)$/);
     if (documentMatch && request.method === "GET") {
       const result = await service.getDocument(context, documentMatch[1]!);
@@ -401,7 +403,10 @@ export class TimelineHttpApi {
       if (input.decision !== "APPROVED" && input.decision !== "CHANGES_REQUESTED") {
         throw new TimelineError("REVIEW_DECISION_INVALID", "Review decision is invalid.", 400);
       }
-      return json(await service.decideReview(context, decisionMatch[1]!, input.decision, String(input.reason ?? "")));
+      if (input.baseRevision !== undefined && (!Number.isInteger(input.baseRevision) || Number(input.baseRevision) < 0)) {
+        throw new TimelineError("REVIEW_REVISION_INVALID", "Supply the current Timeline revision.", 400);
+      }
+      return json(await service.decideReview(context, decisionMatch[1]!, input.decision, String(input.reason ?? ""), input.baseRevision as number | undefined));
     }
     if (url.pathname === "/v1/exports" && request.method === "POST") {
       const input = await body(request);

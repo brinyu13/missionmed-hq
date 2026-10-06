@@ -3,6 +3,7 @@ import {resolveFounderPresentationSvg} from './presentation/resolved-founder-pre
 import {createMyerasIntakeAdapter} from './uxr-002/myeras-intake-adapter.js';
 import {installMyerasIntakeUi,myerasEntryMarkup,myerasUploadMarkup,myerasReviewMarkup} from './uxr-002/myeras-intake-ui.js';
 import {TimelineStore} from "./uxr-002/store.js";
+import {mountInterviewApprovalV1} from "./production/interview-approval-v1.js";
 import {prepareTimelineProductionRuntime} from "./production/timeline-production-runtime.js";
 import {installFamilyRuntime022} from "./production/family-runtime-022.js";
 import {attachSelectedSubjectDialog022} from "./production/selected-subject-context-022.js";
@@ -501,17 +502,24 @@ export function advancedEventCreation407F(document,id,renderOptions={}){
 
 export function applySceneCommandToDocument(document,command,options={}){
   let source=document;
-  if(command?.kind==='geometry'&&command.target?.type==='event'&&(command.create?.presentation?.flagLabelLayout||command.create?.presentation?.locationLabelLayout||command.create?.presentation?.dateLabelLayout)){
+  if(command?.kind==='geometry'&&command.target?.type==='event'){
     const object=(document.advanced?.scene?.objects||[]).find(item=>item.type==='event'&&(String(item.id)===String(command.target.id)||String(item.semanticRef)===String(command.target.id)));
     const event=(document.events||[]).find(item=>String(item.id)===String(object?.semanticRef||command.target.id));
     if(object?.presentation?.localLayoutCriticAuto===true&&!object.locked&&!object.groupId&&!document.layoutLock&&
       !event?.manualOffset?.laneLocked&&!Number(event?.manualOffset?.x)&&!Number(event?.manualOffset?.y)&&Math.abs(Number(object.geometry.rotation)||0)<1e-6&&
       !(document.advanced?.scene?.groups||[]).some(group=>group.locked&&group.childIds?.includes(object.id))){
+      const native=object.presentation.localLayoutCriticResetBaseline?null:advancedEventGeometry407F(document,event?.id||command.target.id,null,options);
       source=clone(document);const target=source.advanced.scene.objects.find(item=>item.id===object.id);
       target.presentation={...target.presentation,
-        ...(command.create.presentation.flagLabelLayout?{flagLabelLayout:clone(command.create.presentation.flagLabelLayout),nativeFlagPole:{anchor:'native'}}:{}),
-        ...(command.create.presentation.locationLabelLayout?{locationLabelLayout:clone(command.create.presentation.locationLabelLayout)}:{}),
-        ...(command.create.presentation.dateLabelLayout?{dateLabelLayout:clone(command.create.presentation.dateLabelLayout)}:{})};
+        ...(command.create?.presentation?.flagLabelLayout?{flagLabelLayout:clone(command.create.presentation.flagLabelLayout),nativeFlagPole:{anchor:'native'}}:{}),
+        ...(command.create?.presentation?.locationLabelLayout?{locationLabelLayout:clone(command.create.presentation.locationLabelLayout)}:{}),
+        ...(command.create?.presentation?.dateLabelLayout?{dateLabelLayout:clone(command.create.presentation.dateLabelLayout)}:{})};
+      if(native){
+        // Human gestures start at the painted native body, which may differ from
+        // the stored critic proposal. Reset must preserve that same accepted body.
+        const {x,y,width,height,rotation}=native;
+        target.presentation.localLayoutCriticResetBaseline={geometry:{x,y,width,height,rotation},presentation:clone(target.presentation)};
+      }
     }
   }
   return applySceneCommandBase407F(source,command,options);
@@ -520,7 +528,33 @@ export function applySceneCommandToDocument(document,command,options={}){
 export function applyHumanAxisPresentation407F(document,result,renderOptions={}){
   if(!result?.changed||result.error)return result;
   try{
-    const next=reflowLocalLayoutCriticDateAnchors(result.document,renderOptions);
+    // Preserve the painted chronological spine before changing its time scale.
+    // Unpinned automatic events need the same date-reflow custody as retained ones.
+    const rendered=serializeFounderPresentation(document,{scope:'EVERYTHING',...renderOptions});
+    const paint=resolveFounderPresentationSvg(rendered.svg,{measureText:renderOptions.measureText,advancedGroups:document.advanced?.groups||[]});
+    const objects=document.advanced?.scene?.objects||[],targets=[];
+    for(const event of document.events||[]){
+      const id=String(event.id),object=objects.find(item=>item.type==='event'&&(String(item.semanticRef||'')===id||String(item.id)===id));
+      if(document.layoutLock===true||event.manualOffset?.laneLocked||Number(event.manualOffset?.x)||Number(event.manualOffset?.y)||
+        object&&(object.presentation?.localLayoutCriticAuto!==true||object.locked||object.groupId||Math.abs(Number(object.geometry?.rotation)||0)>1e-6)||
+        object&&(document.advanced?.scene?.groups||[]).some(group=>(group.childIds||[]).includes(object.id)))continue;
+      const body=paint.nodes.find(node=>node.semanticRef===id&&node.sourceAttributes['data-continuous-duration-arrow']);
+      const flag=locked407FMilestoneGeometry(rendered.scene,id),geometry=flag||body?.bounds;
+      if(!geometry)continue;
+      targets.push({eventId:id,objectId:object?.id||id,geometry:{...geometry,rotation:Number(geometry.rotation)||0},flag:!!flag});
+    }
+    const next=reflowLocalLayoutCriticDateAnchors(result.document,renderOptions,targets);
+    for(const target of targets){
+      const object=next.advanced?.scene?.objects?.find(item=>item.type==='event'&&String(item.id)===String(target.objectId));
+      if(!object||object.presentation?.localLayoutCriticAuto!==true)continue;
+      Object.assign(object.geometry,{y:target.geometry.y,height:target.geometry.height,rotation:target.geometry.rotation});
+      object.presentation={...object.presentation,localLayoutCriticYRetained:true,
+        ...(target.flag?locked407FNativeMilestonePresentation(rendered.scene,target.eventId):{})};
+      if(target.flag){
+        const label=rendered.scene.autoFlagLabels?.get(target.eventId);
+        if(label)object.presentation.flagLabelLayout={width:label.width,flip:label.flip,...(Number.isFinite(label.yOffset)?{yOffset:label.yOffset}:{}),...(Number.isFinite(label.linePitch)?{linePitch:label.linePitch}:{})};
+      }
+    }
     if(next.presentationOverrides?.axis)delete next.presentationOverrides.axis.localLayoutCriticAuto;
     return {...result,document:next};
   }catch{return {document,changed:false,error:'Timeline date anchors could not be updated. Your layout is unchanged.'};}
@@ -1434,7 +1468,21 @@ export function applyCanvasDisplayEdit407F(document,eventId,changes,binding,{vis
   if(String(binding?.documentId)!==String(document.id)||String(binding?.ownerId||'')!==String(document.studentOwnerId||'')||Number(binding?.revision)!==Number(document.revision||0)||String(binding?.variantId)!==String(activeSpecialtyVariant(document).id)){
     const error=new Error('This display editor is out of date. Reopen the event before saving.');error.code='TIMELINE_DISPLAY_EDITOR_STALE';throw error;
   }
-  const result=setFounderEventDisplay(document,eventId,changes);
+  const displayChanges={...changes},captionChanges={};
+  for(const [field,key,limit] of [['captionX','xOffset',840],['captionY','yOffset',80]])if(Object.hasOwn(displayChanges,field)){
+    const value=displayChanges[field];delete displayChanges[field];
+    if(value!==null&&(typeof value!=='number'||!Number.isFinite(value)||Math.abs(value)>limit))throw new Error('Keep the milestone caption within the Timeline canvas.');
+    captionChanges[key]=value;
+  }
+  const result=setFounderEventDisplay(document,eventId,displayChanges);
+  if(Object.keys(captionChanges).length){
+    const object=result.advanced?.scene?.objects?.find(o=>o.type==='event'&&String(o.semanticRef||o.id)===String(eventId));
+    const milestone=result.events.find(e=>String(e.id)===String(eventId));
+    if(!object||milestone?.eventType!=='milestone'||object.presentation?.localLayoutCriticAuto===true||object.locked||object.groupId||result.layoutLock===true)throw new Error('Move this milestone in Advanced Studio before adjusting its caption.');
+    object.presentation||={};const layout={...(object.presentation.flagLabelLayout||{})};
+    for(const [key,value] of Object.entries(captionChanges))if(value===null)delete layout[key];else layout[key]=value;
+    object.presentation.flagLabelLayout=layout;
+  }
   if(typeof visible==='boolean')setVariantEventHidden(result,activeSpecialtyVariant(result).id,eventId,!visible);
   return result;
 }
@@ -1469,7 +1517,10 @@ export function renderCanvasDetails(route,event,document){
   }
   const display=deriveFounderEventDisplay(document,event);
   const categoryChoices=effectiveCategoryKey(document);
-  const displayControls=`<fieldset class="canvas407FDetailWide" data-founder-display-controls data-display-document-id="${escapeMarkup(document.id||'')}" data-display-owner-id="${escapeMarkup(document.studentOwnerId||'')}" data-display-revision="${Number(document.revision||0)}" data-display-variant-id="${escapeMarkup(activeSpecialtyVariant(document).id)}"><legend>Timeline labels — display only</legend><p>Full source label: <strong>${escapeMarkup(event.title||"")}</strong></p><p>Source institution / role / location: ${escapeMarkup([event.fields?.institution||event.fields?.organization||event.siteName,event.fields?.role,event.fields?.city||event.fields?.location||event.location].filter(Boolean).join(" · "))}</p><div class="canvas407FDetailGrid">${[["role","Display role"],["institution","Display institution"],["location","Display location"],["label","Milestone display label"]].map(([key,label])=>`<label class="canvas407FDetailField"><span>${label}</span><input type="text" maxlength="200" data-canvas-display-field="${key}" value="${escapeMarkup(display[key]||"")}"></label>`).join("")}<label class="canvas407FDetailField"><span>Display category</span><select data-canvas-display-field="categoryId"><option value="">Automatic source category</option>${categoryChoices.map(row=>`<option value="${escapeMarkup(row.id)}" ${display.categoryId===row.id?"selected":""}>${escapeMarkup(row.label)}</option>`).join("")}</select></label><label class="canvas407FDetailCheck"><input type="checkbox" data-canvas-display-field="showAsMilestone" ${display.showAsMilestone?"checked":""}> Show this single-date item as a milestone</label><label class="canvas407FDetailField"><span>Role / milestone text size (18–24 px)</span><input type="number" min="18" max="24" step="1" data-canvas-display-field="labelSize" value="${display.labelSize}"></label><label class="canvas407FDetailField"><span>Text fitting</span><select data-canvas-display-field="labelFit"><option value="fit" ${display.labelFit==='fit'?'selected':''}>Fit, minimum 18 px</option><option value="fixed" ${display.labelFit==='fixed'?'selected':''}>Keep selected size</option></select></label><label class="canvas407FDetailCheck"><input type="checkbox" data-canvas-display-visible ${!activeSpecialtyVariant(document).hiddenEventIds.includes(String(event.id))?'checked':''}> Show in ${escapeMarkup(activeSpecialtyVariant(document).name)}</label></div><button type="button" class="btnD go" data-canvas-display-save>Save display labels</button><button type="button" class="btnD alt" data-canvas-display-reset>Reset display labels</button><p class="field-help" data-canvas-display-status role="status"></p></fieldset>`;
+  const captionObject=document.advanced?.scene?.objects?.find(o=>o.type==='event'&&String(o.semanticRef||o.id)===String(event.id));
+  const captionEditable=event.eventType==='milestone'&&captionObject&&captionObject.presentation?.localLayoutCriticAuto!==true&&!captionObject.locked&&!captionObject.groupId&&document.layoutLock!==true;
+  const captionControls=captionEditable?`<label class="canvas407FDetailField"><span>Caption left / right</span><input type="number" min="-840" max="840" step="1" data-canvas-display-field="captionX" value="${Number(captionObject.presentation?.flagLabelLayout?.xOffset)||0}"></label><label class="canvas407FDetailField"><span>Caption up / down</span><input type="number" min="-80" max="80" step="1" data-canvas-display-field="captionY" value="${Number(captionObject.presentation?.flagLabelLayout?.yOffset)||0}"></label>`:'';
+  const displayControls=`<fieldset class="canvas407FDetailWide" data-founder-display-controls data-display-document-id="${escapeMarkup(document.id||'')}" data-display-owner-id="${escapeMarkup(document.studentOwnerId||'')}" data-display-revision="${Number(document.revision||0)}" data-display-variant-id="${escapeMarkup(activeSpecialtyVariant(document).id)}"><legend>Timeline labels — display only</legend><p>Full source label: <strong>${escapeMarkup(event.title||"")}</strong></p><p>Source institution / role / location: ${escapeMarkup([event.fields?.institution||event.fields?.organization||event.siteName,event.fields?.role,event.fields?.city||event.fields?.location||event.location].filter(Boolean).join(" · "))}</p><div class="canvas407FDetailGrid">${[["role","Display role"],["institution","Display institution"],["location","Display location"],["label","Milestone display label"]].map(([key,label])=>`<label class="canvas407FDetailField"><span>${label}</span><input type="text" maxlength="200" data-canvas-display-field="${key}" value="${escapeMarkup(display[key]||"")}"></label>`).join("")}<label class="canvas407FDetailField"><span>Display category</span><select data-canvas-display-field="categoryId"><option value="">Automatic source category</option>${categoryChoices.map(row=>`<option value="${escapeMarkup(row.id)}" ${display.categoryId===row.id?"selected":""}>${escapeMarkup(row.label)}</option>`).join("")}</select></label><label class="canvas407FDetailCheck"><input type="checkbox" data-canvas-display-field="showAsMilestone" ${display.showAsMilestone?"checked":""}> Show this single-date item as a milestone</label><label class="canvas407FDetailField"><span>Role / milestone text size (18–24 px)</span><input type="number" min="18" max="24" step="1" data-canvas-display-field="labelSize" value="${display.labelSize}"></label><label class="canvas407FDetailField"><span>Text fitting</span><select data-canvas-display-field="labelFit"><option value="fit" ${display.labelFit==='fit'?'selected':''}>Fit, minimum 18 px</option><option value="fixed" ${display.labelFit==='fixed'?'selected':''}>Keep selected size</option></select></label>${captionControls}<label class="canvas407FDetailCheck"><input type="checkbox" data-canvas-display-visible ${!activeSpecialtyVariant(document).hiddenEventIds.includes(String(event.id))?'checked':''}> Show in ${escapeMarkup(activeSpecialtyVariant(document).name)}</label></div><button type="button" class="btnD go" data-canvas-display-save>Save display labels</button><button type="button" class="btnD alt" data-canvas-display-reset>Reset display labels</button><p class="field-help" data-canvas-display-status role="status"></p></fieldset>`;
   const detailFields=CANVAS_DETAIL_FIELDS[domain]||[];
   const isMilestone=event.eventType==="milestone";
   const clinical=domain==="clinical";
@@ -1655,6 +1706,117 @@ export async function restoreAuthenticatedGuardianOnBoot022(document,serverDocum
   return restored;
 }
 
+// Upload custody covers the full captured document, active variant and selection.
+// Reusing the same document ID after a source/owner change does not revive a request.
+export function captureMediaUploadBinding407F(store,{getSelection=()=>null,frameSlot=null,placement=null,frameAvailable=()=>true}={}){
+  const signature=JSON.stringify(store.document),selection=JSON.stringify(getSelection());
+  const assertCurrent=()=>{
+    if(store.entitlement?.canMutate!==true)throw new Error("Editing access is required.");
+    if(JSON.stringify(store.document)!==signature||JSON.stringify(getSelection())!==selection){
+      const error=new Error("Timeline changed while the image was being prepared. Choose the image again.");error.code="TIMELINE_MEDIA_UPLOAD_STALE";throw error;
+    }
+    if((frameSlot||placement)&&(store.document.mode!=="advanced"||store.document.layoutLock!==false))throw new Error("Unlock the canvas before adding a photo.");
+    if(placement&&(!Number.isFinite(placement.x)||!Number.isFinite(placement.y)))throw new TypeError("Choose a location on the canvas.");
+    if(frameSlot&&(!CANONICAL_MEDIA_FRAME_SLOTS[frameSlot]||store.document.mode!=="advanced"||store.document.layoutLock!==false||!frameAvailable(frameSlot)))throw new Error("That photo frame is unavailable or locked.");
+  };
+  assertCurrent();return{documentId:store.document.id,ownerId:store.document.studentOwnerId||"",frameSlot,placement:placement?Object.freeze({...placement}):null,assertCurrent};
+}
+
+export function supportedExternalMediaFiles407F(transfer){
+  if(!transfer)return null;
+  const types=[...(transfer.types||[])];
+  if(types.includes("application/x-missionmed-timeline-asset")||types.includes("application/x-missionmed-media-id"))return null;
+  const items=[...(transfer.items||[])];
+  if(items.length&&items.some(item=>item.kind!=="file"))return null;
+  const files=[...(transfer.files||[])];
+  if(!files.length)return null;
+  if(files.length!==1)throw new TypeError("Drop one image onto a photo frame at a time.");
+  const file=files[0],validation=validateMediaUpload(file,{kind:mediaKindForFile(file)});
+  if(!/^image\/(png|jpe?g|webp|gif)$/i.test(String(file.type||""))||!validation.valid)throw new TypeError("Drop a PNG, JPG, WEBP, or GIF image onto a photo frame.");
+  return files;
+}
+
+export function placeUploadedPhoto407F(document,mediaId,point){
+  const asset=(document.advanced?.media||[]).find(item=>String(item.id)===String(mediaId));
+  if(!asset||asset.locked===true||document.mode!=="advanced"||document.layoutLock!==false)return false;
+  const width=320,imageHeight=Math.max(120,Math.min(360,width/(Number(asset.naturalAspect)||1))),height=imageHeight+80;
+  const placed=placeMediaLibraryAsset(document.advanced.media,mediaId,point);
+  document.advanced.media=placed.media.map(item=>String(item.id)!==String(mediaId)?item:{...item,
+    x:Math.max(0,Math.min(1920-width,point.x-width/2)),y:Math.max(0,Math.min(1080-height,point.y-height/2)),
+    width,height,rotation:0,placed:true,aspectLocked:true,fit:"contain",photoPresentation:"polaroid",
+    photoCaption:item.photoCaption||{text:"",font:"typewriter"}
+  });
+  document.advanced.scene=reconcileAdvancedScene(document.advanced,{revision:document.revision});return true;
+}
+
+export function createMediaUploadHandler407F({store,preparePersistence,getSelection=()=>null,frameAvailable=()=>true,nextLayer=()=>0,metrics=imageMetrics,hashFile=sha256File,onError=()=>{},onAdded=()=>{}}){
+  return async(event,{binding=null}={})=>{
+    const input=event.target.closest?.("[data-media-upload]");if(!input)return[];
+    const files=[...(input.files||[])];input.value="";if(!files.length)return[];
+    try{binding=binding||captureMediaUploadBinding407F(store,{getSelection,frameAvailable});}
+    catch(error){onError(error);throw error;}
+    const {assertCurrent,frameSlot,placement}=binding,additions=[],blobs=[],rollbacks=[],acceptedIds=[];
+    let persisted=false,uncertain=false,expectedDocument=null,expectedSource=null;
+    const selection=JSON.stringify(getSelection());
+    try{
+      for(const file of files){
+        assertCurrent();
+        if(!/^image\/(png|jpe?g|webp|gif)$/i.test(String(file.type||"")))throw new TypeError("Choose a PNG, JPG, WEBP, or GIF image.");
+        // Validate and hash even a same-name file. Names and sizes are not identity.
+        const dimensions=await metrics(file,{kind:mediaKindForFile(file)});assertCurrent();
+        const contentSha256=await hashFile(file);assertCurrent();
+        const duplicate=[...(store.document.advanced?.media||[]),...additions].find(item=>item.source?.contentSha256===contentSha256&&item.source?.type===file.type);
+        if(duplicate){
+          if(duplicate.locked===true)throw new Error("That image is locked.");
+          if(!additions.includes(duplicate)){
+            const key=duplicate.source?.blobKey||duplicate.id;
+            const blob=typeof store.adapter.getBlob==="function"?await store.adapter.getBlob(key):(await store.adapter.get("blobs",key))?.blob;
+            assertCurrent();
+            if(!blob)throw new Error("That saved image is unavailable. Upload it again from Media.");
+            const savedHash=await hashFile(blob);assertCurrent();
+            if(savedHash!==contentSha256)throw new Error("That saved image could not be verified. Upload it again from Media.");
+          }
+          acceptedIds.push(duplicate.id);continue;
+        }
+        const id=uid("media-library"),asset=createMediaLibraryAsset({id,file,naturalWidth:dimensions.width,naturalHeight:dimensions.height,layerIndex:nextLayer()+additions.length});
+        const persistence=await preparePersistence(file,{id,kind:"media-library",contentSha256,assertCurrent,documentId:binding.documentId});
+        rollbacks.push(persistence.rollback);assertCurrent();
+        asset.source=persistence.source;additions.push(asset);blobs.push(persistence.blob);acceptedIds.push(asset.id);
+      }
+      assertCurrent();
+      if(additions.length||frameSlot||placement){
+        await store.mutateWithBlobs(frameSlot?`Fill ${CANONICAL_MEDIA_FRAME_SLOTS[frameSlot].label.toLowerCase()}`:placement?"Add photo to canvas":"Add Media assets",document=>{
+          assertCurrent();document.advanced.media.push(...additions);
+          if(frameSlot){
+            const result=fillCanonicalMediaFrame(document,frameSlot,acceptedIds[0],{id:`frame-${frameSlot}-${uid("media")}`});
+            if(!result.changed)throw new Error("That photo frame or image is unavailable or locked.");
+            document.mediaItems=result.document.mediaItems;
+          }else if(placement&&!placeUploadedPhoto407F(document,acceptedIds[0],placement))throw new Error("That photo is unavailable or locked.");
+          expectedDocument=document;expectedSource=JSON.stringify({...document,updatedAt:null});
+        },{blobs,reason:"ADD_MEDIA_ASSETS",assertCurrent});
+        persisted=true;
+        if(store.entitlement?.canMutate!==true||store.document!==expectedDocument||JSON.stringify({...store.document,updatedAt:null})!==expectedSource||JSON.stringify(getSelection())!==selection){
+          const error=new Error("Timeline changed while the image was being saved. Choose the image again.");error.code="TIMELINE_MEDIA_UPLOAD_STALE";error.persisted=true;throw error;
+        }
+      }
+      // mutateWithBlobs validates the captured source before publishing its own draft.
+      onAdded(additions,blobs,frameSlot,placement,acceptedIds);return[...new Set(acceptedIds)];
+    }catch(error){
+      persisted=persisted||error.persisted===true;uncertain=error.persistenceOutcome==="unknown";
+      if(!persisted&&!uncertain)await Promise.allSettled(rollbacks.map(rollback=>rollback()));
+      onError(error);throw error;
+    }
+  };
+}
+
+export function reflectInterviewApprovalSync407F(approval,status,store){
+  if(!approval)return Promise.resolve(null);
+  approval.handleSyncStatus(status||{});
+  if((status?.syncState||status?.state)!=="SYNCED"||status.pending!==0||
+    store.saveStatus!=="saved"||store.saveError||approval.getState().busy)return Promise.resolve(null);
+  return approval.refresh().catch(()=>null);
+}
+
 export async function boot407FEngineeringAdapter({
   bridge=window.D1_407F_TEST,
   store=null
@@ -1730,10 +1892,13 @@ export async function boot407FEngineeringAdapter({
   let reflectStoreStatus=()=>{};
   let syncConflictDialog=null;
   let closeSyncConflictDialog=()=>{};
+  let interviewApprovalV1=null;
+  let interviewApprovalHostV1=null;
   let remoteSyncStatus=productionRuntime?.adapter?.getSyncStatus?.()||null;
   const onRemoteSyncStatus=(event)=>{
     remoteSyncStatus=event?.detail||productionRuntime?.adapter?.getSyncStatus?.()||null;
     reflectStoreStatus();
+    reflectInterviewApprovalSync407F(interviewApprovalV1,remoteSyncStatus,store);
   };
   if(productionRuntime){
     unsubscribeAuthClaims=productionRuntime.authClient.subscribeClaims((claims)=>{
@@ -1750,18 +1915,22 @@ export async function boot407FEngineeringAdapter({
   const runtimeDatasets=createRuntimeDatasets();
   const lorBuilderAdapter=createLocalQueuedLorBuilderAdapter();
   const mediaUrls=createObjectUrlRegistry();
-  const ensureRemoteDocumentForMedia=async()=>{
+  const ensureRemoteDocumentForMedia=async({assertCurrent=()=>{},documentId=store.document.id}={})=>{
+    assertCurrent();
     if(!privateMediaStorageEnabled)return;
-    const stateKey=`remote-revision:${store.document.id}`;
-    if(await store.adapter.get("settings",stateKey))return;
-    await store.saveNow("PREPARE_PRIVATE_MEDIA_UPLOAD");
-    const result=await store.adapter.flush();
-    if(Number(result?.pending||0)>0||!(await store.adapter.get("settings",stateKey))){
+    const stateKey=`remote-revision:${documentId}`;
+    const revision=await store.adapter.get("settings",stateKey);assertCurrent();
+    if(revision)return;
+    await store.saveNow("PREPARE_PRIVATE_MEDIA_UPLOAD");assertCurrent();
+    const result=await store.adapter.flush();assertCurrent();
+    const syncedRevision=await store.adapter.get("settings",stateKey);assertCurrent();
+    if(Number(result?.pending||0)>0||!syncedRevision){
       throw new Error("Timeline must finish syncing before media can be uploaded.");
     }
   };
   const MAX_PRODUCTION_MEDIA_BYTES=15*1024*1024;
-  const prepareMediaPersistence=async(file,{id,kind,contentSha256})=>{
+  const prepareMediaPersistence=async(file,{id,kind,contentSha256,assertCurrent=()=>{},documentId=store.document.id})=>{
+    assertCurrent();
     if(!privateMediaWriteEnabled)throw new Error('Private files are managed by the student. You can arrange and crop the images already in this Timeline.');
     const metadata={
       kind,
@@ -1788,31 +1957,31 @@ export async function boot407FEngineeringAdapter({
     if(file.size>MAX_PRODUCTION_MEDIA_BYTES){
       throw new TypeError("Timeline media must be 15 MB or smaller for secure syncing.");
     }
-    await ensureRemoteDocumentForMedia();
+    await ensureRemoteDocumentForMedia({assertCurrent,documentId});
     let objectId="";
     try{
       const grant=await productionRuntime.authClient.signObjectUpload(
-        store.document.id,
+        documentId,
         {mimeType:file.type,byteSize:file.size,sha256:contentSha256,objectClass:"MEDIA"}
       );
-      objectId=String(grant.objectId||"");
+      objectId=String(grant.objectId||"");assertCurrent();
       let confirmed;
       try{
-        await productionRuntime.authClient.uploadSignedObject(grant,file);
+        await productionRuntime.authClient.uploadSignedObject(grant,file);assertCurrent();
         confirmed=await productionRuntime.authClient.confirmObjectUpload(
           objectId,
           grant.uploadToken
-        );
+        );assertCurrent();
       }catch(error){
         if(String(error?.code||"")!=="OBJECT_UPLOAD_NETWORK_FAILED")throw error;
         await productionRuntime.authClient.deleteObject(objectId).catch(()=>{});
-        objectId="";
+        objectId="";assertCurrent();
         confirmed=await productionRuntime.authClient.uploadOwnedObject(
-          store.document.id,
+          documentId,
           file,
           {sha256:contentSha256,objectClass:"MEDIA"}
         );
-        objectId=String(confirmed?.id||"");
+        objectId=String(confirmed?.id||"");assertCurrent();
       }
       if(String(confirmed?.status||"")!=="CONFIRMED"){
         throw new Error("Timeline media upload could not be confirmed.");
@@ -2320,6 +2489,8 @@ export async function boot407FEngineeringAdapter({
     exportController?.destroy();
     exportDelivery.destroy();
     advisorCleanup();
+    interviewApprovalV1?.dispose();
+    interviewApprovalHostV1?.remove();
     clearTimeout(advisorHighlightTimer);
     intakeCleanup();
     closeSyncConflictDialog();
@@ -2377,7 +2548,7 @@ export async function boot407FEngineeringAdapter({
     document.getElementById("builderPreviewToggle")?.removeEventListener("click",onBuilderPreview);
     document.getElementById("homeFileVault")?.removeEventListener("click",onHomeFileVault);
     document.removeEventListener("click",onMediaLibraryClick);
-    document.removeEventListener("change",onMediaLibraryChange);
+    document.removeEventListener("change",onMediaLibraryInputChange);
     document.removeEventListener("dragstart",onMediaLibraryDragStart);
     document.removeEventListener("dragover",onMediaLibraryDragOver);
     document.removeEventListener("dragleave",onMediaLibraryDragLeave);
@@ -2854,7 +3025,9 @@ export async function boot407FEngineeringAdapter({
     if(x===null||y===null){const center=visibleBoardCenter();x=center.x;y=center.y;}
     let placed=false;
     store.mutate("Place Media asset",(document)=>{
-      const result=placeMediaLibraryAsset(document.advanced.media,id,{x,y});
+      const asset=document.advanced.media.find(item=>String(item.id)===String(id));
+      const photo=document.mode==="advanced"&&asset?.libraryAsset===true&&asset.placed===false&&["image","gif"].includes(asset.kind);
+      const result=photo?{changed:placeUploadedPhoto407F(document,id,{x,y}),media:document.advanced.media}:placeMediaLibraryAsset(document.advanced.media,id,{x,y});
       placed=result.changed;
       if(placed){
         /* A newly placed image lands on top and is selected, like every insert. */
@@ -2922,8 +3095,10 @@ export async function boot407FEngineeringAdapter({
         {blobs:[persistence.blob],reason:"REPLACE_MEDIA_ASSET"}
       );
     }catch(error){
-      if(priorObjectId)await cancelDurableMediaRetirement(priorObjectId);
-      await persistence.rollback();
+      if(!error.persisted&&error.persistenceOutcome!=="unknown"){
+        if(priorObjectId)await cancelDurableMediaRetirement(priorObjectId);
+        await persistence.rollback();
+      }
       throw error;
     }
     mediaUrls.set(current.id,file);
@@ -2968,7 +3143,7 @@ export async function boot407FEngineeringAdapter({
         {blobs:[],reason:"DELETE_MEDIA_ASSET"}
       );
     }catch(error){
-      if(priorObjectId)await cancelDurableMediaRetirement(priorObjectId);
+      if(!error.persisted&&error.persistenceOutcome!=="unknown"&&priorObjectId)await cancelDurableMediaRetirement(priorObjectId);
       throw error;
     }
     mediaUrls.revoke(current.id);
@@ -3110,75 +3285,26 @@ export async function boot407FEngineeringAdapter({
       return;
     }
   };
-  onMediaLibraryChange=async(event)=>{
-    const input=event.target.closest?.("[data-media-upload]");
-    if(!input)return;
-    const files=[...(input.files||[])];
-    input.value="";
-    if(!files.length)return;
-    const existing=mediaItems();
-    const additions=[];
-    const blobs=[];
-    const rollbacks=[];
-    const acceptedIds=[];
-    for(const file of files){
-      const duplicate=[...existing,...additions].find((item)=>
-        item.source?.name===file.name&&
-        Number(item.source?.size)===Number(file.size)&&
-        item.source?.type===file.type
-      );
-      if(duplicate){
-        acceptedIds.push(duplicate.id);
-        const message=`${file.name} is already in Media`;
-        bridge.toast(message);
-        announceGlobal(message);
-        continue;
-      }
-      try{
-        const id=uid("media-library");
-        const metrics=await imageMetrics(file,{kind:mediaKindForFile(file)});
-        const asset=createMediaLibraryAsset({
-          id,
-          file,
-          naturalWidth:metrics.width,
-          naturalHeight:metrics.height,
-          layerIndex:nextAdvancedLayerIndex()+additions.length
-        });
-        const contentSha256=await sha256File(file);
-        const persistence=await prepareMediaPersistence(file,{
-          id,kind:"media-library",contentSha256
-        });
-        asset.source=persistence.source;
-        additions.push(asset);
-        blobs.push(persistence.blob);
-        rollbacks.push(persistence.rollback);
-      }catch(error){
-        const message=toastStudentError(error,"media");
-        announceGlobal(`${file.name} could not be added. ${message}`);
-      }
+  let mediaUploadFrameAvailable=()=>true;
+  const captureMediaUpload=(frameSlot,placement=null)=>captureMediaUploadBinding407F(store,{
+    getSelection:()=>canvasController?.state?.advancedSelection||null,
+    frameSlot,placement,frameAvailable:slot=>mediaUploadFrameAvailable(slot)
+  });
+  const uploadMedia=createMediaUploadHandler407F({store,preparePersistence:prepareMediaPersistence,
+    getSelection:()=>canvasController?.state?.advancedSelection||null,
+    frameAvailable:slot=>mediaUploadFrameAvailable(slot),nextLayer:()=>nextAdvancedLayerIndex(),
+    onError:error=>{const message=toastStudentError(error,"media");announceGlobal(`Image could not be added. ${message}`);},
+    onAdded:(additions,blobs,frameSlot,placement,acceptedIds)=>{
+      additions.forEach((asset,index)=>mediaUrls.set(asset.id,blobs[index].blob));
+      syncBridgeFromStore();renderMediaLibrarySurfaces();
+      if(frameSlot)canvasController?.setUiState({selectedEventId:null,advancedSelection:{type:"frame",id:frameSlot},advancedTextEdit:null});
+      if(placement)canvasController?.setUiState({selectedEventId:null,advancedSelection:{type:"media",id:acceptedIds[0]},advancedTextEdit:null});
+      const message=frameSlot?"Photo frame filled · Undo with ⌘Z":placement?"Photo added · Caption, move or resize it · Undo with ⌘Z":`${additions.length} image${additions.length===1?"":"s"} added`;
+      bridge.toast(message);announceGlobal(message);
     }
-    if(!additions.length)return acceptedIds;
-    try{
-      await store.mutateWithBlobs(
-        "Add Media assets",
-        (document)=>document.advanced.media.push(...additions),
-        {blobs,reason:"ADD_MEDIA_ASSETS"}
-      );
-    }catch(error){
-      await Promise.allSettled(rollbacks.map((rollback)=>rollback()));
-      toastStudentError(error,"media");
-      announceGlobal("Those images could not be added.");
-      return [];
-    }
-    additions.forEach((asset,index)=>mediaUrls.set(asset.id,blobs[index].blob));
-    syncBridgeFromStore();
-    renderMediaLibrarySurfaces();
-    bridge.toast(`${additions.length} image${additions.length===1?"":"s"} added`);
-    announceGlobal(
-      `${additions.length} image${additions.length===1?"":"s"} added`
-    );
-    return [...new Set([...acceptedIds,...additions.map((asset)=>asset.id)])];
-  };
+  });
+  onMediaLibraryChange=(event,options)=>uploadMedia(event,options);
+  const onMediaLibraryInputChange=event=>onMediaLibraryChange(event).catch(()=>{});
   onMediaLibraryDragStart=(event)=>{
     const card=event.target.closest?.("[data-media-asset]");
     if(!card||!event.dataTransfer)return;
@@ -3218,7 +3344,7 @@ export async function boot407FEngineeringAdapter({
     commitMediaPlacement(id,boardPointFromDrop(target,event));
   };
   document.addEventListener("click",onMediaLibraryClick);
-  document.addEventListener("change",onMediaLibraryChange);
+  document.addEventListener("change",onMediaLibraryInputChange);
   document.addEventListener("dragstart",onMediaLibraryDragStart);
   document.addEventListener("dragover",onMediaLibraryDragOver);
   document.addEventListener("dragleave",onMediaLibraryDragLeave);
@@ -3513,7 +3639,7 @@ export async function boot407FEngineeringAdapter({
       return;
     }
     if(
-      event.target.closest?.('[data-builder-step="7"]')||
+      event.target.closest?.('[data-builder-step]')||
       event.target.closest?.("#builderContinue")
     ){
       queueMicrotask(renderM9BuilderSurfaces);
@@ -3747,7 +3873,7 @@ export async function boot407FEngineeringAdapter({
       bridge.toast("Program logo added locally");
       announceGlobal("Program logo added to the active interview timeline");
     }catch(error){
-      await rollbackUpload();
+      if(!error.persisted&&error.persistenceOutcome!=="unknown")await rollbackUpload();
       const message=toastStudentError(error,"media");
       setM9InlineError(input,logoError,message);
     }
@@ -4953,7 +5079,7 @@ export async function boot407FEngineeringAdapter({
         {blobs:[persistence.blob],reason:"ADD_ADVANCED_MEDIA"}
       );
     }catch(error){
-      await persistence.rollback();
+      if(!error.persisted&&error.persistenceOutcome!=="unknown")await persistence.rollback();
       throw error;
     }
     mediaUrls.set(id,file);
@@ -4981,7 +5107,7 @@ export async function boot407FEngineeringAdapter({
         {blobs:[persistence.blob],reason:"CHANGE_ADVANCED_BACKGROUND"}
       );
     }catch(error){
-      await persistence.rollback();
+      if(!error.persisted&&error.persistenceOutcome!=="unknown")await persistence.rollback();
       throw error;
     }
     mediaUrls.set(id,file);
@@ -5402,7 +5528,14 @@ export async function boot407FEngineeringAdapter({
       /* Dragging an object the student already owns is a move, not an insert. Without
          this branch the drop silently did nothing while the app announced success. */
       if(payload.action==="place"&&payload.target){
-        if(payload.target.type==="media"&&advancedFrameDropHook(String(payload.target.id),{x,y}))return true;
+        if(payload.target.type==="media"){
+          if(advancedFrameDropHook(String(payload.target.id),{x,y}))return true;
+          const asset=store.document.advanced?.media?.find(item=>String(item.id)===String(payload.target.id));
+          if(store.document.mode==="advanced"&&asset?.libraryAsset===true&&asset.placed===false&&["image","gif"].includes(asset.kind)){
+            if(store.entitlement.canMutate!==true)return false;
+            return commitMediaPlacement(String(asset.id),{x,y});
+          }
+        }
         const result=placeAdvancedObjectAt(store.document,payload.target,{x,y});
         if(!result.changed)return false;
         store.replace(result.document,{label:result.mutation?.label||"Place Timeline object"});
@@ -6603,7 +6736,7 @@ export async function boot407FEngineeringAdapter({
       if(displayButton){
         event.preventDefault();event.stopPropagation();
         const form=displayButton.closest("[data-canvas-details-form]"),id=form?.dataset.eventId,changes={};
-        for(const input of form.querySelectorAll("[data-canvas-display-field]"))changes[input.dataset.canvasDisplayField]=displayButton.hasAttribute("data-canvas-display-reset")?null:input.type==="checkbox"?input.checked:input.dataset.canvasDisplayField==="labelSize"?Number(input.value):(input.value||null);
+        for(const input of form.querySelectorAll("[data-canvas-display-field]"))changes[input.dataset.canvasDisplayField]=displayButton.hasAttribute("data-canvas-display-reset")?null:input.type==="checkbox"?input.checked:["labelSize","captionX","captionY"].includes(input.dataset.canvasDisplayField)?Number(input.value):(input.value||null);
         try{if(store.entitlement.canMutate!==true)throw new Error('Editing access is required.');const controls=form.querySelector('[data-founder-display-controls]'),binding={documentId:controls?.dataset.displayDocumentId,ownerId:controls?.dataset.displayOwnerId,revision:controls?.dataset.displayRevision,variantId:controls?.dataset.displayVariantId};store.replace(applyCanvasDisplayEdit407F(store.document,id,changes,binding,{visible:form.querySelector('[data-canvas-display-visible]')?.checked}),{label:"Edit Timeline display labels"});syncBridgeStateFromStore();canvasController.render();bridge.toast("Display labels saved; source facts preserved");}
         catch(error){const status=form.querySelector("[data-canvas-display-status]");if(status)status.textContent=error.message;}
         return;
@@ -7017,7 +7150,9 @@ export async function boot407FEngineeringAdapter({
       }
       if(target.type==="multi")return[{action:"group",label:"Group",icon:"⧉",keys:"⌘G"},{action:"duplicate",label:"Duplicate",icon:"⧉",keys:"⌘D"},{action:"delete",label:"Delete",icon:"🗑",keys:"⌫"}];
       const common=[{action:"duplicate",label:"Duplicate",icon:"⧉",keys:"⌘D"},{action:"delete",label:"Delete",icon:"🗑",keys:"⌫"},lock,{action:"more",label:"More",icon:"⋯"}];
-      if(target.type==="media")return[{action:"crop",label:"Crop",icon:"⌗"},...common];
+      if(target.type==="media")return advancedItemFor(target)?.photoPresentation==="polaroid"
+        ?[{action:"photo-caption",label:"Caption",icon:"✎"},{action:"hide-photo",label:"Hide photo",icon:"◌"},...common]
+        :[{action:"crop",label:"Crop",icon:"⌗"},...common];
       if(target.type==="text")return[{action:"edit-text",label:"Edit text",icon:"✎",keys:"Enter"},...common];
       if(target.type==="group")return[{action:"ungroup",label:"Ungroup",icon:"⧈",keys:"⇧⌘G"},...common];
       if(target.type==="event")return[{action:"edit-display-labels",label:"Edit display labels",icon:"✎"},{action:"reset-event-layout",label:"Reset event layout",icon:"↺"}];
@@ -7055,6 +7190,27 @@ export async function boot407FEngineeringAdapter({
       bar.style.top=`${top}px`;
       host.append(bar);
     };
+    const openPhotoCaption=(target)=>{
+      const photo=(store.document.advanced?.media||[]).find(item=>String(item.id)===String(target?.id));
+      if(target?.type!=="media"||photo?.photoPresentation!=="polaroid"||selectionIsLocked(target)||store.entitlement.canMutate!==true)return false;
+      const binding=captureMediaUpload(null),dialog=openStandardModal(`<section role="dialog" aria-modal="true" aria-labelledby="photoCaptionTitle" data-photo-caption-dialog><h2 id="photoCaptionTitle">Photo caption</h2><label>Caption (optional)<textarea maxlength="80" data-photo-caption-text>${escapeMarkup(photo.photoCaption?.text||"")}</textarea></label><label>Writing style<select data-photo-caption-font><option value="typewriter" ${photo.photoCaption?.font!=="handwritten"?"selected":""}>American Typewriter</option><option value="handwritten" ${photo.photoCaption?.font==="handwritten"?"selected":""}>Handwritten</option></select></label><p role="status" data-photo-caption-status></p><button type="button" class="btnD go" data-photo-caption-save>Save caption</button><button type="button" class="btnD alt" data-photo-caption-cancel>Cancel</button></section>`,"[data-photo-caption-dialog]");
+      dialog?.querySelector("[data-photo-caption-cancel]")?.addEventListener("click",()=>closeStandardModal());
+      dialog?.querySelector("[data-photo-caption-save]")?.addEventListener("click",()=>{
+        try{
+          binding.assertCurrent();
+          const result=applySceneCommandToDocument(store.document,{kind:"photo-caption",target,text:dialog.querySelector("[data-photo-caption-text]").value,font:dialog.querySelector("[data-photo-caption-font]").value});
+          if(result.changed){store.replace(result.document,{label:"Edit photo caption"});syncBridgeStateFromStore();}
+          closeStandardModal({restoreFocus:false});commitAdvancedSelection(target,{toast:"Photo caption saved · Undo with ⌘Z"});
+        }catch(error){dialog.querySelector("[data-photo-caption-status]").textContent=error.message;}
+      });return true;
+    };
+    const hideAdvancedPhoto=(target)=>{
+      if(target?.type!=="media"||store.entitlement.canMutate!==true||selectionIsLocked(target))return false;
+      const asset=(store.document.advanced?.media||[]).find(item=>String(item.id)===String(target.id));
+      if(asset?.photoPresentation!=="polaroid")return false;
+      store.mutate("Hide photo from canvas",document=>{document.advanced.media=unplaceMediaLibraryAsset(document.advanced.media,target.id).media;});
+      syncBridgeStateFromStore();renderMediaLibrarySurfaces();commitAdvancedSelection(null,{toast:"Photo hidden · Restore it from Uploads or Undo with ⌘Z"});return true;
+    };
     const runAdvancedQuickAction=(action,target,anchor=null)=>{
       const selection=canvasController?.state?.advancedSelection||target;
       switch(action){
@@ -7088,6 +7244,8 @@ export async function boot407FEngineeringAdapter({
         case"cut":return copyAdvancedSelection(selection)&&deleteAdvancedSelection(selection);
         case"paste":return pasteAdvancedClipboard();
         case"select-all":{const members=allAdvancedSelectableMembers();if(!members.length)return false;commitAdvancedSelection(members.length===1?members[0]:{type:"multi",members});return true;}
+        case"photo-caption":return openPhotoCaption(target);
+        case"hide-photo":return hideAdvancedPhoto(target);
         case"edit-text":return beginAdvancedTextEdit(target);
         case"crop":return beginAdvancedCrop(target);
         case"frame-choose":armAdvancedFrameFill(target.id);return true;
@@ -7143,7 +7301,7 @@ export async function boot407FEngineeringAdapter({
         {action:"layers",label:"Layers…"},
         {separator:true}
       ].filter(Boolean);
-      if(selection.type==="media")items.push({action:"crop",label:"Crop"});
+      if(selection.type==="media")items.push(...(advancedItemFor(selection)?.photoPresentation==="polaroid"?[{action:"photo-caption",label:"Caption"},{action:"hide-photo",label:"Hide photo"}]:[{action:"crop",label:"Crop"}]));
       if(selection.type==="text")items.push({action:"edit-text",label:"Edit text",keys:"Enter"});
       /* Canva's "Align to page" — one row of six, so the whole selection can be squared to
          the board without a nudge marathon. */
@@ -8310,18 +8468,18 @@ export async function boot407FEngineeringAdapter({
       return fillAdvancedFrame(slot,mediaId);
     };
     advancedFrameFillHook={armed:()=>!!advancedFrameFillTarget,consume:consumeAdvancedFrameFill};
+    mediaUploadFrameAvailable=slot=>!!advancedFrameNode(slot)&&
+      advancedFrameItem(store.document,slot)?.locked!==true&&
+      store.document.presentationOverrides?.photoFrames?.[String(slot).replace(/^photo/,"")]?.locked!==true;
     const uploadIntoAdvancedFrame=async(slot)=>{
       try{
-        const file=await chooseLocalFile(MEDIA_LIBRARY_ACCEPT.join(","));
+        const binding=captureMediaUpload(slot);
+        const file=await chooseLocalFile(MEDIA_LIBRARY_ACCEPT.join(","));binding.assertCurrent();
         if(!file)return false;
         const input={files:[file],value:""};
-        const acceptedIds=await onMediaLibraryChange({target:{closest:()=>input}});
-        if(!acceptedIds?.length)return false;
-        return fillAdvancedFrame(slot,acceptedIds[0]);
-      }catch(error){
-        toastStudentError(error,"media");
-        return false;
-      }
+        const acceptedIds=await onMediaLibraryChange({target:{closest:()=>input}},{binding});
+        return !!acceptedIds?.length;
+      }catch(error){toastStudentError(error,"media");return false;}
     };
 
     /* ---- crop mode: fixed frame, the image moves inside it (Canva P6) ---- */
@@ -9347,15 +9505,40 @@ export async function boot407FEngineeringAdapter({
         return JSON.parse(event.dataTransfer?.getData?.("application/x-missionmed-timeline-asset")||"");
       }catch{return null;}
     };
+    const externalPhotoDropLocation=(event)=>{
+      const frame=advancedFrameAtPoint(event.clientX,event.clientY);if(frame)return{frameSlot:frame.slot,placement:null};
+      if(event.target?.closest?.("[data-advanced-media],[data-advanced-text],[data-event-id],[data-advanced-element]"))return null;
+      const svg=canvasHost.querySelector('.canvas-application > svg[data-founder-serializer]'),bounds=svg?.getBoundingClientRect?.();
+      if(!bounds?.width||!bounds?.height||event.clientX<bounds.left||event.clientX>bounds.right||event.clientY<bounds.top||event.clientY>bounds.bottom)return null;
+      return{frameSlot:null,placement:{x:(event.clientX-bounds.left)*1920/bounds.width,y:(event.clientY-bounds.top)*1080/bounds.height}};
+    };
     onAdvancedRailDragOver=(event)=>{
       const payload=railPayload(event);
-      if(payload?.kind!=="insert"||store.entitlement.canMutate!==true)return;
+      if(payload?.kind!=="insert"){
+        const location=externalPhotoDropLocation(event);
+        if(!location||store.entitlement.canMutate!==true||store.document.mode!=="advanced"||store.document.layoutLock!==false)return;
+        if([...(event.dataTransfer?.types||[])].some(type=>type.startsWith("application/x-missionmed")))return;
+        if(![...(event.dataTransfer?.items||[])].some(item=>item.kind==="file"&&/^image\/(png|jpe?g|webp|gif)$/i.test(String(item.type||""))))return;
+        event.preventDefault();event.dataTransfer.dropEffect="copy";if(location.frameSlot)highlightAdvancedFrameDropTarget(advancedFrameAtPoint(event.clientX,event.clientY));return;
+      }
+      if(store.entitlement.canMutate!==true)return;
       event.preventDefault();
       if(event.dataTransfer)event.dataTransfer.dropEffect="copy";
     };
     onAdvancedRailDrop=(event)=>{
       const payload=railPayload(event);
-      if(payload?.kind!=="insert"||store.entitlement.canMutate!==true)return;
+      if(payload?.kind!=="insert"){
+        const location=externalPhotoDropLocation(event);clearAdvancedFrameDropTarget();
+        if(!location)return;
+        try{
+          const files=supportedExternalMediaFiles407F(event.dataTransfer);if(!files)return;
+          event.preventDefault();event.stopPropagation();
+          const binding=captureMediaUpload(location.frameSlot,location.placement),input={files,value:""};
+          onMediaLibraryChange({target:{closest:()=>input}},{binding}).catch(()=>{});
+        }catch(error){event.preventDefault();toastStudentError(error,"media");}
+        return;
+      }
+      if(store.entitlement.canMutate!==true)return;
       const mediaId=payload.action==="place"&&payload.target?.type==="media"?String(payload.target.id):"";
       const frame=mediaId?advancedFrameAtPoint(event.clientX,event.clientY):null;
       if(frame&&fillAdvancedFrame(frame.slot,mediaId)){event.preventDefault();return;}
@@ -10045,6 +10228,21 @@ export async function boot407FEngineeringAdapter({
       toastStudentError(error,"save");
     }
   }});
+  if(productionRuntime){
+    const header=document.querySelector(".d1404Header");
+    if(header){
+      interviewApprovalHostV1=document.createElement("details");
+      interviewApprovalHostV1.dataset.timelineInterviewReview="1";
+      interviewApprovalHostV1.style.cssText="position:relative;font-size:13px;flex-shrink:0";
+      const summary=document.createElement("summary");summary.textContent="Advisor review";
+      summary.style.cssText="cursor:pointer;padding:8px";
+      const host=document.createElement("div");
+      host.style.cssText="position:absolute;right:0;top:100%;z-index:150;width:340px;max-width:85vw;max-height:60vh;overflow:auto;padding:16px;background:#141b28;color:#fff;border:1px solid #596477;border-radius:8px;box-shadow:0 8px 24px #0008";
+      interviewApprovalHostV1.append(summary,host);header.append(interviewApprovalHostV1);
+      interviewApprovalV1=mountInterviewApprovalV1({host,runtime:productionRuntime,store,getDocument:()=>store.document});
+      reflectInterviewApprovalSync407F(interviewApprovalV1,remoteSyncStatus,store);
+    }
+  }
   bridge.renderAll();
   // Rehydration/render projections are the baseline, not a student edit.
   lastState=stableState(bridge.state);

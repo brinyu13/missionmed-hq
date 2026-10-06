@@ -126,6 +126,36 @@ export class TimelineService {
     return record;
   }
 
+  /** Approval custody is server-derived, separate from editable document JSON. */
+  async getApprovalStatus(context: PrincipalContext, documentId: string) {
+    const record = await this.requireDocument(documentId);
+    await this.require(context, "review:read", this.resource(record), "document", documentId);
+    const version = record.currentVersionId ? await this.repository.getVersion(record.currentVersionId) : null;
+    if (record.currentVersionId && (!version || version.documentId !== documentId || version.revision !== record.document.revision)) {
+      throw new TimelineError("REVIEW_VERSION_INVALID", "The current Timeline revision could not be verified.", 409);
+    }
+    const events = await this.repository.listApprovals(documentId);
+    const latest = events.at(-1) ?? null;
+    const current = version ? await this.latestApprovalEvent(events, version.id, version.contentSha256) : null;
+    const event = current ?? (latest && (latest.versionId !== version?.id || latest.contentSha256 !== version?.contentSha256) ? latest : null);
+    const reviewedVersion = event ? await this.repository.getVersion(event.versionId) : null;
+    const assignment = version ? await this.repository.findActiveAssignment(documentId, now(this.clock)) : null;
+    const pendingReviewId = version && assignment
+      ? `review_${sha256(stableStringify([documentId, version.id, assignment.advisorPrincipalId])).slice(0, 32)}` : null;
+    const pendingReview = pendingReviewId ? await this.repository.getReview(pendingReviewId) : null;
+    const reviewId = current?.reviewRequestId ?? (pendingReview?.versionId === version?.id ? pendingReview?.id : null) ?? null;
+    return {
+      documentId, currentRevision: record.document.revision, currentVersionId: version?.id ?? null,
+      currentContentSha256: version?.contentSha256 ?? null,
+      status: current && current.decision !== "INVALIDATED" ? current.decision : events.length ? "NEEDS_REVIEW" : "UNREVIEWED",
+      reviewId,
+      decision: event ? { decision: event.decision, versionId: event.versionId, revision: reviewedVersion?.revision ?? null,
+        contentSha256: event.contentSha256, actorId: event.actorId, timestamp: event.createdAt, note: event.reason || null } : null,
+      canDecide: context.role === "PROGRAM_ADMIN" && context.isWordpressAdministrator === true && context.adminWorkspace === true
+        && Boolean(version) && decide(context, "review:decide", this.resource(record), this.clock).allowed,
+    };
+  }
+
   async saveCheckpoint(
     context: PrincipalContext,
     documentId: string,
@@ -417,16 +447,35 @@ export class TimelineService {
     reviewId: string,
     decision: "APPROVED" | "CHANGES_REQUESTED",
     reason: string,
+    expectedRevision?: number,
   ): Promise<ApprovalEvent> {
-    const { review, record } = await this.reviewAndDocument(reviewId);
+    return this.repository.withTransaction(repository => this.withRepository(repository).decideCurrentReview(
+      context, reviewId, decision, reason, expectedRevision,
+    ));
+  }
+
+  private async decideCurrentReview(
+    context: PrincipalContext, reviewId: string, decision: "APPROVED" | "CHANGES_REQUESTED", reason: string, expectedRevision?: number,
+  ): Promise<ApprovalEvent> {
+    const review = await this.repository.getReview(reviewId);
+    if (!review) throw new TimelineError("REVIEW_NOT_FOUND", "Review request not found.", 404);
+    const locked = await this.repository.getDocument(review.documentId, { forUpdate: true });
+    if (!locked || locked.status === "DELETED") throw new TimelineError("DOCUMENT_NOT_FOUND", "Document not found.", 404);
+    const record = this.sanitizeRecord(locked);
     await this.require(context, "review:decide", { ...this.resource(record), versionId: review.versionId }, "review", reviewId);
     if (context.principalId !== review.assignedTo && context.role !== "PROGRAM_ADMIN") {
       throw new TimelineError("REVIEW_ASSIGNMENT_MISMATCH", "Reviewer is not assigned to this request.", 403);
     }
     const version = await this.repository.getVersion(review.versionId);
     if (!version || version.contentSha256 !== review.versionHash) throw new TimelineError("REVIEW_VERSION_INVALID", "Review version changed.", 409);
+    if (record.currentVersionId !== review.versionId || version.revision !== record.document.revision
+        || (expectedRevision !== undefined && (!Number.isInteger(expectedRevision) || expectedRevision !== record.document.revision))) {
+      throw new TimelineError("REVISION_CONFLICT", "The Timeline changed. Reload its current revision before deciding.", 409);
+    }
     assertContentSafe({ reason });
-    const createdAt = now(this.clock);
+    // The document lock serializes decisions. Millisecond clock ties must not let
+    // random event IDs reorder a later decision before an earlier approval.
+    const createdAt = this.nextApprovalTimestamp(await this.repository.listApprovals(review.documentId));
     const event: ApprovalEvent = {
       id: newId("approval"),
       reviewRequestId: reviewId,
@@ -513,9 +562,31 @@ export class TimelineService {
 
   async isApproved(documentId: string, versionId: string, contentSha256: string): Promise<boolean> {
     const events = await this.repository.listApprovals(documentId);
-    const relevant = events.filter((item) => item.versionId === versionId && item.contentSha256 === contentSha256);
+    return (await this.latestApprovalEvent(events, versionId, contentSha256))?.decision === "APPROVED";
+  }
+
+  /** Legacy timestamp ties must also fail closed rather than prefer a random ID. */
+  private async latestApprovalEvent(events: ApprovalEvent[], versionId: string, contentSha256: string): Promise<ApprovalEvent | null> {
+    const relevant = events.filter(event => event.versionId === versionId && event.contentSha256 === contentSha256);
     const latest = relevant.at(-1);
-    return latest?.decision === "APPROVED";
+    if (!latest) return null;
+    const tied = relevant.filter(event => event.createdAt === latest.createdAt);
+    if (tied.length === 1) return latest;
+    const invalidated = tied.find(event => event.decision === "INVALIDATED");
+    if (invalidated) return invalidated;
+    if (new Set(tied.map(event => event.reviewRequestId)).size !== 1) return null;
+    const review = await this.repository.getReview(latest.reviewRequestId);
+    if (!review || review.versionId !== versionId || review.versionHash !== contentSha256) return null;
+    const matching = tied.filter(event => event.decision === review.status);
+    // A single event bound to authoritative review state identifies its receipt.
+    // Ambiguous historical actor/note custody requires a fresh server decision.
+    return matching.length === 1 ? matching[0]! : null;
+  }
+
+  private nextApprovalTimestamp(events: ApprovalEvent[]): string {
+    let milliseconds = this.clock().getTime();
+    for (const event of events) milliseconds = Math.max(milliseconds, Date.parse(event.createdAt) + 1);
+    return new Date(milliseconds).toISOString();
   }
 
   private async invalidatePriorApproval(
@@ -526,7 +597,7 @@ export class TimelineService {
     const approvals = await this.repository.listApprovals(documentId);
     const currentApproval = [...approvals].reverse().find((item) => item.decision === "APPROVED");
     if (!currentApproval || currentApproval.contentSha256 === nextVersion.contentSha256) return;
-    const createdAt = now(this.clock);
+    const createdAt = this.nextApprovalTimestamp(approvals);
     await this.repository.addApproval({
       id: newId("approval"),
       reviewRequestId: currentApproval.reviewRequestId,

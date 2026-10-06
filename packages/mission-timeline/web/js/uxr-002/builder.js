@@ -1056,6 +1056,13 @@ function ordinal(value){
   return`${number}${number%10===1?"st":number%10===2?"nd":number%10===3?"rd":"th"}`;
 }
 
+function examDateFieldMarkup(options,precision){
+  const exact=parseExactDate(options.value);
+  return exact||precision==="DAY"
+    ?exactDateFieldMarkup({...options,value:exact||options.value})
+    :monthFieldMarkup(options);
+}
+
 function renderExamCard(exam,document){
   const definition=examDefinition(exam);
   const attempt=Number(exam.attempt)||1;
@@ -1065,13 +1072,13 @@ function renderExamCard(exam,document){
   return`<article class="exam-card" data-exam-card data-exam-id="${escapeHtml(exam.id)}">
     <header><h3>${escapeHtml(title)}</h3><button type="button" class="button tertiary" data-delete-exam="${escapeHtml(exam.id)}" ${exam.sourceType==="document-intake"?'disabled title="Accepted source exam retained"':""}>Delete</button></header>
     <div class="exam-primary-row">
-      ${monthFieldMarkup({id:`exam-study-${exam.id}`,label:"Actual study start",value:exam.studyStartDate,required:true,error:validateExam(exam).studyStartDate||''})}
-      ${monthFieldMarkup({id:`exam-study-end-${exam.id}`,label:"Actual study end",value:examMonth(exam.studyEndDate)||exam.studyEndDate,required:true,error:validateExam(exam).studyEndDate||""})}
-      ${monthFieldMarkup({id:`exam-date-${exam.id}`,label:exam.result==="Awaiting result"?"Exam date (taken)":"Exam date",value:examMonth(exam.examDate)||exam.examDate,required:true})}
+      ${examDateFieldMarkup({id:`exam-study-${exam.id}`,label:"Actual study start",value:exam.studyStartDate,required:true,error:validateExam(exam).studyStartDate||''})}
+      ${examDateFieldMarkup({id:`exam-study-end-${exam.id}`,label:"Actual study end",value:exam.studyEndDate,required:true,error:validateExam(exam).studyEndDate||""})}
+      ${examDateFieldMarkup({id:`exam-date-${exam.id}`,label:exam.result==="Awaiting result"?"Exam date (taken)":"Exam date",value:exam.examDate,required:true},exam.examDatePrecision)}
     </div>
     <p class="field-help">Source exam date: ${escapeHtml(exam.examDate||"Unknown")}. Result: ${escapeHtml(exam.result||"Unknown / needs review")}.</p>
     <p class="field-help" data-study-review-status>${!examMonth(exam.studyStartDate)||!examMonth(exam.studyEndDate)?"Student review required: enter actual study dates. No study period is inferred from an exam or failure date.":"Study dates entered — confirm they reflect your actual preparation."}</p>
-    ${localTestStudyEnvironment(document)&&(!examMonth(exam.studyStartDate)||!examMonth(exam.studyEndDate))?`<button type="button" class="button secondary" data-local-test-study-proposal="${escapeHtml(exam.id)}" ${examMonth(exam.examDate)?"":"disabled"}>Use neutral local TEST study proposal</button>`:""}
+    ${localTestStudyEnvironment(document)&&(!examMonth(exam.studyStartDate)||!examMonth(exam.studyEndDate)||studyDateOrderError(exam.studyStartDate,exam.studyEndDate,exam.examDate))?`<button type="button" class="button secondary" data-local-test-study-proposal="${escapeHtml(exam.id)}" ${examMonth(exam.examDate)?"":"disabled"}>Use neutral local TEST study proposal</button>`:""}
     ${localTestStudyEnvironment(document)&&exam.studyReviewProvenance?.studyStartDate?.placeholder===true&&exam.studyReviewProvenance?.studyStartDate?.reason==="LOCAL_TEST_STUDY_PROPOSAL"?`<button type="button" class="button secondary" data-local-test-study-proposal="${escapeHtml(exam.id)}" data-local-test-study-months-before="6">Use 6-month LOCAL TEST study proposal</button><button type="button" class="button secondary" data-local-test-study-proposal="${escapeHtml(exam.id)}" data-local-test-study-months-before="9">Use 9-month LOCAL TEST study proposal</button>`:""}
     ${Object.values(exam.studyReviewProvenance||{}).some(item=>item.placeholder)?'<p class="field-help">LOCAL TEST placeholder study start. Source remains unknown; this proposal is not applicant history.</p>':""}
     <div class="exam-secondary-row">
@@ -1976,6 +1983,16 @@ export function installBuilder(root,store,{
     });
   }});
   installExactDateFields(root,{onCommit:(id,value,input)=>{
+    const examCard=input.closest?.("[data-exam-card]");
+    if(examCard){
+      store.mutate("Update exact exam date",(document)=>{
+        updateBuilderExamAttempt(document,examCard.dataset.examId,{
+          [id.startsWith("exam-study-end-")?"studyEndDate":id.startsWith("exam-study-")?"studyStartDate":"examDate"]:value
+        });
+        markStepTouched(document,2);
+      });
+      return;
+    }
     const domain=input.closest?.("[data-entry-form]")?.dataset.entryForm;
     if(domain!=="clinical")return;
     const key=id.endsWith("-end")?"rotationEndDate":"rotationStartDate";

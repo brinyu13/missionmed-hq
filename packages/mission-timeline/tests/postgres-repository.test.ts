@@ -870,3 +870,26 @@ test("database failures rollback and expose only stable content-free errors", as
   assert.equal(pool.calls.some((call) => normalized(call.text) === "commit"), false);
   assert.equal(pool.releaseCount, 1);
 });
+
+test("V1 approval document lock requires and retains the explicit transaction", async () => {
+  const pool = new FakePool(sql => sql.startsWith("select") && sql.includes("from timeline.documents")
+    ? queryResult([documentRow(record())]) : queryResult());
+  const repo = repository(pool);
+  await assert.rejects(repo.getDocument("timeline_test", { forUpdate: true }), { code: "PERSISTENCE_TRANSACTION_REQUIRED" });
+  await repo.withTransaction(async tx => {
+    assert.equal((await tx.getDocument("timeline_test", { forUpdate: true }))?.document.id, "timeline_test");
+    assert.ok(pool.calls.some(call => normalized(call.text).endsWith("for update")));
+    assert.equal(pool.calls.some(call => normalized(call.text) === "commit"), false);
+  });
+  assert.equal(pool.calls.filter(call => normalized(call.text) === "commit").length, 1);
+});
+
+test("V1 approval event accepts an empty optional note from PostgreSQL", async () => {
+  const version = versionFixture();
+  const pool = new FakePool(sql => sql.includes("from timeline.approval_events") ? queryResult([{
+    id: "approval_empty_note", review_request_id: "review_test", document_id: version.documentId,
+    version_id: version.id, content_sha256: version.contentSha256, decision: "APPROVED",
+    actor_id: student.principalId, reason: "", created_at: NOW,
+  }]) : queryResult());
+  assert.equal((await repository(pool).listApprovals(version.documentId))[0]?.reason, "");
+});

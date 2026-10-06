@@ -284,3 +284,315 @@ test('B1 actual selected-event Save display handler parses font inputs, persists
  execute(event,store,applyCanvasDisplayEdit407F,()=>{}, {render(){renders++;}},{toast(){}});assert.equal(persisted,1);assert.equal(renders,1);assert.deepEqual(store.document.events,events);assert.equal(store.document.presentationOverrides.events['clinical-source'].labelSize,22);assert.equal(store.document.presentationOverrides.events['clinical-source'].role,'IM');assert.ok(activeSpecialtyVariant(store.document).hiddenEventIds.includes('clinical-source'));
  controls.dataset.displayDocumentId='stale-document';execute(event,store,applyCanvasDisplayEdit407F,()=>{},{render(){}},{toast(){}});assert.equal(persisted,1);assert.match(status.textContent,/out of date/);assert.deepEqual(store.document.events,events);
 });
+
+import {captureMediaUploadBinding407F,createMediaUploadHandler407F,supportedExternalMediaFiles407F} from '../web/js/407f-engineering-adapter.js';
+import {webcrypto} from 'node:crypto';
+const SYNTHETIC_MEDIA_PNG=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGNgYGAAAAAEAAH2FzhVAAAAAElFTkSuQmCC','base64');
+function syntheticImage(name='Synthetic.png'){const file=new Blob([SYNTHETIC_MEDIA_PNG],{type:'image/png'});Object.defineProperty(file,'name',{value:name});return file;}
+async function mediaUploadFixture(){
+ const adapter=new MemoryAdapter();adapter.getBlob=async key=>(await adapter.get("blobs",key))?.blob||null;const store=new TimelineStore({adapter,entitlement});await store.initialize();const document=sourceDocument();document.studentOwnerId='synthetic-owner';document.layoutLock=false;store.replace(document,{history:false});store.undoStack=[];
+ let selection={type:'frame',id:'photo1'},rollbacks=0,prepared=0,added=0,prepareHook=async()=>{},frameAvailable=true;
+ const fixture={store,adapter,get selection(){return selection;},set selection(value){selection=value;},get rollbacks(){return rollbacks;},get prepared(){return prepared;},get added(){return added;},set prepareHook(value){prepareHook=value;},set frameAvailable(value){frameAvailable=value;}};
+ fixture.capture=(slot,placement=null)=>captureMediaUploadBinding407F(store,{getSelection:()=>selection,frameSlot:slot,placement,frameAvailable:()=>frameAvailable});
+ fixture.handler=createMediaUploadHandler407F({store,getSelection:()=>selection,frameAvailable:()=>frameAvailable,preparePersistence:async(file,options)=>{
+  prepared++;await prepareHook(options);return{source:{name:file.name,type:file.type,size:file.size,blobKey:options.id,contentSha256:options.contentSha256,localOnly:true},blob:{key:options.id,blob:file},rollback:async()=>{rollbacks++;}};
+ },onAdded(){added++;}});
+ fixture.upload=(file=syntheticImage(),slot='photo1')=>fixture.handler({target:{closest:()=>({files:[file],value:''})}},{binding:fixture.capture(slot)});
+ fixture.cleanup=()=>{clearTimeout(store.timer);clearTimeout(store.entitlementTimer);};return fixture;
+}
+async function withSyntheticImageDecoder(run){
+ const priorBitmap=globalThis.createImageBitmap,priorCrypto=globalThis.crypto,priorReader=globalThis.FileReader;
+ Object.defineProperty(globalThis,'crypto',{value:webcrypto,configurable:true});globalThis.createImageBitmap=async()=>({width:1,height:1,close(){}});
+ globalThis.FileReader=class{async readAsDataURL(blob){this.result=`data:${blob.type};base64,${Buffer.from(await blob.arrayBuffer()).toString('base64')}`;this.onload();}};
+ try{return await run();}finally{globalThis.createImageBitmap=priorBitmap;globalThis.FileReader=priorReader;Object.defineProperty(globalThis,'crypto',{value:priorCrypto,configurable:true});}
+}
+function switchSyntheticDocument(f){const next=sourceDocument();next.id='synthetic-other-document';next.studentOwnerId='synthetic-other-owner';next.layoutLock=false;f.store.replace(next,{history:false});f.store.undoStack=[];f.store.redoStack=[];return JSON.stringify(f.store.document);}
+
+test('B3 real upload handler validates MIME, size, signature and decoder before persistence',()=>withSyntheticImageDecoder(async()=>{
+ const invalid=[Object.assign(new Blob(['x'],{type:'application/x-executable'}),{name:'Synthetic.png'}),Object.assign(new Blob(['not an image'],{type:'image/png'}),{name:'Synthetic.png'}),{name:'Synthetic.png',type:'image/png',size:21*1024*1024}];
+ for(const file of invalid){const f=await mediaUploadFixture();try{await assert.rejects(f.upload(file));assert.equal(f.prepared,0);assert.equal(f.store.document.advanced.media.length,0);assert.equal(f.store.undoStack.length,0);}finally{f.cleanup();}}
+ const f=await mediaUploadFixture();try{globalThis.createImageBitmap=async()=>{throw new Error('Synthetic decode failure');};await assert.rejects(f.upload(),/decode failure/);assert.equal(f.prepared,0);}finally{f.cleanup();}
+}));
+
+test('B3 document owner revision variant and selection switches during real decode cannot add bytes or fill',()=>withSyntheticImageDecoder(async()=>{
+ for(const change of ['document','owner','revision','variant','selection']){
+  const f=await mediaUploadFixture();try{
+   globalThis.createImageBitmap=async()=>{if(change==='document')switchSyntheticDocument(f);if(change==='owner')f.store.document.studentOwnerId='other-owner';if(change==='revision')f.store.document.revision=99;if(change==='variant')f.store.document.specialtyVariants.activeVariantId='different-active-variant';if(change==='selection')f.selection={type:'frame',id:'photo2'};return{width:1,height:1,close(){}};};
+   await assert.rejects(f.upload(),{code:'TIMELINE_MEDIA_UPLOAD_STALE'});assert.equal(f.prepared,0);assert.equal(f.store.document.advanced.media.length,0);assert.equal((f.store.document.mediaItems||[]).length,0);assert.equal(f.store.undoStack.length,0);
+  }finally{f.cleanup();}
+ }
+}));
+
+test('B3 capture precedes file picker and prepared upload is rolled back on a later switch or revoked editing',()=>withSyntheticImageDecoder(async()=>{
+ for(const change of ['document','entitlement','locked-frame']){
+  const f=await mediaUploadFixture();try{
+   f.prepareHook=async()=>{if(change==='document')switchSyntheticDocument(f);if(change==='entitlement')f.store.setEntitlement({...entitlement,canMutate:false});if(change==='locked-frame')f.frameAvailable=false;};
+   await assert.rejects(f.upload());assert.equal(f.rollbacks,1);assert.equal(f.added,0);assert.equal(f.store.document.advanced.media.length,0);assert.equal(f.store.undoStack.length,0);
+  }finally{f.cleanup();}
+ }
+ const f=await mediaUploadFixture();try{const binding=f.capture('photo1');switchSyntheticDocument(f);await assert.rejects(f.handler({target:{closest:()=>({files:[syntheticImage()]})}},{binding}),/Timeline changed/);assert.equal(f.prepared,0);}finally{f.cleanup();}
+}));
+
+test('B3 store pre-save switch and uncommitted atomic failure cannot publish metadata and retire prepared bytes',()=>withSyntheticImageDecoder(async()=>{
+ for(const phase of ['before-save','asset-failure']){
+  const f=await mediaUploadFixture();const original=f.adapter.atomicPut.bind(f.adapter);let next;
+  try{
+   f.adapter.atomicPut=async entries=>{if(phase==='before-save'&&entries.some(entry=>entry.value?.reason==='BEFORE_LOCAL_ASSET_MUTATION')){next=switchSyntheticDocument(f);return original(entries);}if(phase==='asset-failure'&&entries.some(entry=>entry.store==='blobs'))throw new Error('Synthetic atomic abort');return original(entries);};
+   await assert.rejects(f.upload());assert.equal(f.rollbacks,1);assert.equal(f.added,0);assert.equal(f.store.undoStack.length,0);assert.equal(f.adapter.bucket('blobs').size,0);if(next)assert.equal(JSON.stringify(f.store.document),next);
+  }finally{f.cleanup();}
+ }
+}));
+
+test('B3 captured old document may finish persistence after switch; current bytes history and source stay untouched',()=>withSyntheticImageDecoder(async()=>{
+ for(const outcome of ['success','abort','committed-then-error','unknown-readback']){
+  const f=await mediaUploadFixture(),oldId=f.store.document.id,original=f.adapter.atomicPut.bind(f.adapter);let next;
+  try{
+   f.adapter.atomicPut=async entries=>{if(!entries.some(entry=>entry.store==='blobs'))return original(entries);next=switchSyntheticDocument(f);if(outcome==='abort')throw new Error('Synthetic atomic abort');if(outcome==='unknown-readback'){f.adapter.get=async()=>{throw new Error('Synthetic unavailable readback');};throw new Error('Synthetic uncertain write');}await original(entries);if(outcome==='committed-then-error')throw new Error('Synthetic hybrid report failure');};
+   let error;try{await f.upload();assert.fail('stale upload must reject');}catch(e){error=e;}
+   assert.equal(JSON.stringify(f.store.document),next);assert.equal(f.store.undoStack.length,0);assert.equal(f.store.redoStack.length,0);assert.equal(f.added,0);assert.equal(f.store.undo(),null);
+   if(['success','committed-then-error'].includes(outcome)){assert.equal(error.persisted,true);assert.equal(f.rollbacks,0);const saved=f.adapter.bucket('documents').get(oldId);assert.equal(saved.document.advanced.media.length,1);assert.equal(saved.document.mediaItems[0].mediaId,saved.document.advanced.media[0].id);assert.equal(f.adapter.bucket('blobs').size,1);}
+   if(outcome==='abort'){assert.equal(f.rollbacks,1);assert.equal(f.adapter.bucket('blobs').size,0);}
+   if(outcome==='unknown-readback'){assert.equal(error.persistenceOutcome,'unknown');assert.equal(f.rollbacks,0,'uncertain custody cannot authorize deleting a potentially committed source');}
+  }finally{f.cleanup();}
+ }
+}));
+
+test('B3 real file input and frame drop share one owned asset Undo reopen and existing persisted export registry',()=>withSyntheticImageDecoder(async()=>{
+ const f=await mediaUploadFixture();try{
+  const source=structuredClone(f.store.document.events),file=syntheticImage();const ids=await f.upload(file);assert.equal(ids.length,1);assert.equal(f.store.undoStack.length,1);assert.deepEqual(f.store.document.events,source);assert.equal(f.store.document.mediaItems[0].mediaId,ids[0]);
+  f.selection={type:'frame',id:'photo2'};const reused=await f.upload(syntheticImage('Same bytes different name.png'),'photo2');assert.deepEqual(reused,ids);assert.equal(f.prepared,1);assert.equal(f.store.document.advanced.media.length,1);assert.equal(f.store.document.mediaItems.length,2);
+  const resolver=createPersistedExportMediaResolver407F(f.store,{get:()=>null});assert.match(await resolver(ids[0],f.store.document.mediaItems[0]),/^data:image\/png;base64,/);
+  f.store.undo();assert.equal(f.store.document.mediaItems.length,1);f.store.undo();assert.equal(f.store.document.advanced.media.length,0);assert.equal((f.store.document.mediaItems||[]).length,0);f.store.redo();f.store.redo();await f.store.saveNow('B3_SYNTHETIC_REOPEN');
+  const reopened=new TimelineStore({adapter:f.adapter,entitlement});await reopened.initialize();assert.equal(reopened.document.advanced.media.length,1);assert.equal(reopened.document.mediaItems.length,2);assert.deepEqual(reopened.document.events,source);clearTimeout(reopened.timer);clearTimeout(reopened.entitlementTimer);
+ }finally{f.cleanup();}
+}));
+
+test('B3 a missing revoked locked or mismatched saved asset cannot be reused just by hash metadata',()=>withSyntheticImageDecoder(async()=>{
+ for(const defect of ['missing','locked','hash-mismatch']){
+  const f=await mediaUploadFixture();try{const [id]=await f.upload();f.store.undoStack=[];if(defect==='missing')f.adapter.bucket('blobs').delete(id);if(defect==='locked')f.store.document.advanced.media[0].locked=true;if(defect==='hash-mismatch')f.adapter.bucket('blobs').get(id).blob=new Blob(['different bytes'],{type:'image/png'});await assert.rejects(f.upload(),/unavailable|locked|verified/);assert.equal(f.store.undoStack.length,0);assert.equal(f.prepared,1);assert.equal(f.store.document.advanced.media.length,1);}finally{f.cleanup();}
+ }
+}));
+
+test('B3 actual external-drop branch routes one supported file into captured canonical frame and leaves ordinary rail and text alone',()=>withSyntheticImageDecoder(async()=>{
+ const {readFile}=await import('node:fs/promises'),source=await readFile(new URL('../web/js/407f-engineering-adapter.js',import.meta.url),'utf8');
+ assert.match(source,/onMediaLibraryChange=\(event,options\)=>uploadMedia\(event,options\)/);assert.match(source,/addEventListener\("change",onMediaLibraryInputChange\)/);assert.match(source,/removeEventListener\("change",onMediaLibraryInputChange\)/);
+ const start=source.indexOf('    onAdvancedRailDrop=(event)=>{'),end=source.indexOf('    onAdvancedRailNativeDragStart=',start);assert.ok(start>0&&end>start);
+ const f=await mediaUploadFixture();try{
+  let handler,pending,prevented=0;const execute=new Function('advancedFrameAtPoint','clearAdvancedFrameDropTarget','supportedExternalMediaFiles407F','captureMediaUpload','onMediaLibraryChange','railPayload','toastStudentError','store','fillAdvancedFrame','canvasHost','advancedHooks','bridge','externalPhotoDropLocation',`let onAdvancedRailDrop;${source.slice(start,end)}return onAdvancedRailDrop;`);
+  handler=execute(()=>({slot:'photo1'}),()=>{},supportedExternalMediaFiles407F,f.capture,(event,options)=>{pending=f.handler(event,options);return pending;},()=>null,()=>{},f.store,()=>false,{},()=>({}),{toast(){}},()=>({frameSlot:'photo1',placement:null}));
+  handler({clientX:1,clientY:1,dataTransfer:{types:['Files'],items:[{kind:'file',type:'image/png'}],files:[syntheticImage()]},preventDefault(){prevented++;},stopPropagation(){}});await pending;assert.equal(prevented,1);assert.equal(f.store.document.mediaItems[0].placement,'photo1');
+  const prior=JSON.stringify(f.store.document);for(const transfer of [{types:['text/plain'],items:[{kind:'string'}],files:[]},{types:['application/x-missionmed-media-id','Files'],items:[{kind:'file'}],files:[syntheticImage()]},{types:['application/x-missionmed-timeline-asset'],files:[]}]){assert.equal(supportedExternalMediaFiles407F(transfer),null);handler({dataTransfer:transfer,preventDefault(){prevented++;}});}
+  assert.equal(JSON.stringify(f.store.document),prior);assert.equal(prevented,1);assert.throws(()=>supportedExternalMediaFiles407F({types:['Files'],files:[syntheticImage(),syntheticImage()]}),/one image/);assert.throws(()=>supportedExternalMediaFiles407F({types:['Files'],files:[Object.assign(new Blob(['x'],{type:'text/plain'}),{name:'bad.txt'})]}),/PNG/);
+ }finally{f.cleanup();}
+}));
+
+test('B3 generic existing mutateWithBlobs caller stages source without leaking Undo or rollback across documents',async()=>{
+ for(const fail of [false,true]){const f=await mediaUploadFixture(),original=f.adapter.atomicPut.bind(f.adapter);let next;try{
+  f.adapter.atomicPut=async entries=>{if(entries.some(entry=>entry.store==='blobs')){next=switchSyntheticDocument(f);if(fail)throw new Error('Synthetic old caller abort');}return original(entries);};
+  await assert.rejects(f.store.mutateWithBlobs('Existing caller',document=>document.advanced.media.push({id:'old-caller',source:{blobKey:'old-caller'}}),{blobs:[{key:'old-caller',blob:syntheticImage()}]}));assert.equal(JSON.stringify(f.store.document),next);assert.equal(f.store.undoStack.length,0);
+ }finally{f.cleanup();}}
+});
+
+test('B3 source-owner-revision-variant-selection and authorization changes during atomic persistence never publish stale draft',()=>withSyntheticImageDecoder(async()=>{
+ for(const change of ['owner','revision','variant','selection','entitlement']){
+  const f=await mediaUploadFixture(),original=f.adapter.atomicPut.bind(f.adapter);let current;
+  try{f.adapter.atomicPut=async entries=>{if(entries.some(entry=>entry.store==='blobs')){if(change==='owner')f.store.document.studentOwnerId='changed-owner';if(change==='revision')f.store.document.revision=99;if(change==='variant')f.store.document.specialtyVariants.activeVariantId='changed-variant';if(change==='selection')f.selection={type:'frame',id:'photo2'};if(change==='entitlement')f.store.setEntitlement({...entitlement,canMutate:false});current=JSON.stringify(f.store.document);}return original(entries);};
+   await assert.rejects(f.upload());assert.equal(JSON.stringify(f.store.document),current);assert.equal(f.store.document.advanced.media.length,0);assert.equal(f.store.undoStack.length,0);assert.equal(f.rollbacks,0,'captured committed document retains its durable source');assert.equal(f.added,0);
+  }finally{f.cleanup();}
+ }
+}));
+
+test('B3 staged asset write keeps later save ordering and active-document pointer for next document',()=>withSyntheticImageDecoder(async()=>{
+ const f=await mediaUploadFixture(),original=f.adapter.atomicPut.bind(f.adapter);let release,entered;const gate=new Promise(resolve=>{release=resolve;}),started=new Promise(resolve=>{entered=resolve;}),writes=[];
+ try{
+  f.adapter.atomicPut=async entries=>{if(entries.some(entry=>entry.store==='blobs')){entered();await gate;}await original(entries);writes.push(entries.find(entry=>entry.store==='documents')?.key);};
+  const oldId=f.store.document.id,upload=f.upload();await started;switchSyntheticDocument(f);const nextId=f.store.document.id,nextSave=f.store.saveNow('NEXT_DOCUMENT_SAVE');release();await assert.rejects(upload);await nextSave;
+  assert.deepEqual(writes.slice(-2),[oldId,nextId]);assert.equal((await f.adapter.get('settings','uxr-002-active-document')).documentId,nextId);assert.equal(f.store.document.id,nextId);assert.equal(f.store.undoStack.length,0);assert.equal(f.store.document.advanced.media.length,0);
+ }finally{f.cleanup();}
+}));
+
+test('B3 actual registered file-input wrapper uses captured upload flow without a frame or second store',()=>withSyntheticImageDecoder(async()=>{
+ const {readFile}=await import('node:fs/promises'),source=await readFile(new URL('../web/js/407f-engineering-adapter.js',import.meta.url),'utf8');const statement=source.match(/const onMediaLibraryInputChange=event=>[^\n]+/)[0];
+ const listener=new Function('onMediaLibraryChange',`${statement}return onMediaLibraryInputChange;`),f=await mediaUploadFixture();try{
+  await listener(f.handler)({target:{closest:()=>({files:[syntheticImage()],value:''})}});assert.equal(f.store.document.advanced.media.length,1);assert.equal(f.store.document.advanced.media[0].placed,false);assert.equal((f.store.document.mediaItems||[]).length,0);assert.equal(f.store.undoStack.length,1);assert.equal(f.added,1);
+ }finally{f.cleanup();}
+}));
+
+import {applySceneCommandToDocument} from '../web/js/editor/scene-commands.js';
+import {setAdvancedObjectGeometry,applyAdvancedObjectAction} from '../web/js/uxr-002/advanced-studio.js';
+const freeformUpload=(f,point={x:1150,y:850})=>f.handler({target:{closest:()=>({files:[syntheticImage()],value:''})}},{binding:f.capture(null,point)});
+async function syntheticPhotoSvg(f){const {serializeFounderPresentationAsync}=await import('../web/js/presentation/founder-presentation-serializer.js');const resolve=createPersistedExportMediaResolver407F(f.store,{get:()=>null});return serializeFounderPresentationAsync(f.store.document,{scope:'EVERYTHING',currentMonth:'2026-10',mediaResolver:item=>resolve(item.mediaId||item.id,item)});}
+
+test('V1 empty-canvas photo uses existing geometry and one caption-bearing media object through move resize hide delete Undo and reopen',()=>withSyntheticImageDecoder(async()=>{
+ const f=await mediaUploadFixture();try{
+  const source=structuredClone(f.store.document.events),[id]=await freeformUpload(f),target={type:'media',id};let photo=f.store.document.advanced.media[0];assert.equal(photo.placed,true);assert.equal(photo.photoPresentation,'polaroid');assert.equal(photo.fit,'contain');assert.equal(photo.rotation,0);assert.equal(f.store.document.advanced.media.length,1);assert.equal(f.store.undoStack.length,1);
+  f.store.replace(setAdvancedObjectGeometry(f.store.document,target,{x:1300,y:550,width:400}),{label:'Existing position and size controls'});photo=f.store.document.advanced.media[0];assert.equal(photo.x,1300);assert.equal(photo.width,400);
+  const caption=applySceneCommandToDocument(f.store.document,{kind:'photo-caption',target,text:'A synthetic photo caption',font:'handwritten'});assert.equal(caption.changed,true);f.store.replace(caption.document,{label:'Edit photo caption'});assert.deepEqual(f.store.document.events,source);assert.equal(f.store.document.advanced.media[0].photoCaption.text,'A synthetic photo caption');
+  const {readFile}=await import('node:fs/promises'),adapterSource=await readFile(new URL('../web/js/407f-engineering-adapter.js',import.meta.url),'utf8'),start=adapterSource.indexOf('    const hideAdvancedPhoto='),end=adapterSource.indexOf('    const runAdvancedQuickAction=',start),hide=new Function('store','selectionIsLocked','unplaceMediaLibraryAsset','syncBridgeStateFromStore','renderMediaLibrarySurfaces','commitAdvancedSelection',`${adapterSource.slice(start,end)}return hideAdvancedPhoto;`),{unplaceMediaLibraryAsset}=await import('../web/js/uxr-002/media-library.js');
+  assert.equal(hide(f.store,()=>false,unplaceMediaLibraryAsset,()=>{},()=>{},()=>{})(target),true);assert.equal(f.store.document.advanced.media[0].placed,false);assert.doesNotMatch((await syntheticPhotoSvg(f)).svg,/data-photo-presentation="polaroid"/);f.store.undo();assert.equal(f.store.document.advanced.media[0].placed,true);
+  const deleted=applyAdvancedObjectAction(f.store.document,target,'delete');f.store.replace(deleted.document,{label:'Existing Delete photo control'});assert.equal(f.store.document.advanced.media.length,0);f.store.undo();assert.equal(f.store.document.advanced.media[0].photoCaption.text,'A synthetic photo caption');assert.deepEqual(f.store.document.events,source);
+  await f.store.saveNow('V1_PHOTO_REOPEN');const reopened=new TimelineStore({adapter:f.adapter,entitlement});await reopened.initialize();assert.equal(reopened.document.advanced.media[0].photoCaption.font,'handwritten');assert.equal(reopened.document.advanced.media[0].width,400);assert.deepEqual(reopened.document.events,source);clearTimeout(reopened.timer);clearTimeout(reopened.entitlementTimer);
+ }finally{f.cleanup();}
+}));
+
+test('V1 actual empty-canvas external-drop routing maps existing SVG coordinates and preserves captured custody',()=>withSyntheticImageDecoder(async()=>{
+ const {readFile}=await import('node:fs/promises'),source=await readFile(new URL('../web/js/407f-engineering-adapter.js',import.meta.url),'utf8'),start=source.indexOf('    const externalPhotoDropLocation='),end=source.indexOf('    onAdvancedRailNativeDragStart=',start);assert.ok(start>0&&end>start);
+ const f=await mediaUploadFixture();let pending,prevented=0;try{
+  const bounds={left:100,top:200,right:1060,bottom:740,width:960,height:540},host={querySelector:()=>({getBoundingClientRect:()=>bounds})};
+  const execute=new Function('advancedFrameAtPoint','canvasHost','store','railPayload','supportedExternalMediaFiles407F','captureMediaUpload','onMediaLibraryChange','clearAdvancedFrameDropTarget','highlightAdvancedFrameDropTarget','toastStudentError','fillAdvancedFrame','advancedHooks','bridge',`let onAdvancedRailDragOver,onAdvancedRailDrop;${source.slice(start,end)}return{location:externalPhotoDropLocation,drop:onAdvancedRailDrop,over:onAdvancedRailDragOver};`);
+  const handlers=execute(()=>null,host,f.store,()=>null,supportedExternalMediaFiles407F,f.capture,(event,options)=>{pending=f.handler(event,options);return pending;},()=>{},()=>{},()=>{},()=>false,()=>({}),{toast(){}});
+  const event={clientX:800,clientY:620,target:{closest:()=>null},dataTransfer:{types:['Files'],items:[{kind:'file',type:'image/png'}],files:[syntheticImage()]},preventDefault(){prevented++;},stopPropagation(){}};assert.deepEqual(handlers.location(event),{frameSlot:null,placement:{x:1400,y:840}});handlers.over(event);handlers.drop(event);await pending;assert.equal(prevented,2);assert.equal(f.store.document.advanced.media[0].photoPresentation,'polaroid');assert.equal(f.store.document.advanced.media.length,1);assert.equal((f.store.document.mediaItems||[]).length,0);
+  assert.equal(handlers.location({...event,clientX:10}),null);assert.equal(handlers.location({...event,target:{closest:()=>({})}}),null,'drop onto an authored object does not masquerade as empty canvas');
+  f.adapter.getBlob=async()=>{switchSyntheticDocument(f);return syntheticImage();};await assert.rejects(freeformUpload(f),/Timeline changed/);assert.equal(f.store.document.advanced.media.length,0);
+ }finally{f.cleanup();}
+}));
+
+test('V1 actual caption dialog writes only explicit caption and refuses stale or locked media',()=>withSyntheticImageDecoder(async()=>{
+ const f=await mediaUploadFixture();try{
+  const [id]=await freeformUpload(f),target={type:'media',id},facts=structuredClone(f.store.document.events),{readFile}=await import('node:fs/promises'),source=await readFile(new URL('../web/js/407f-engineering-adapter.js',import.meta.url),'utf8'),start=source.indexOf('    const openPhotoCaption='),end=source.indexOf('    const hideAdvancedPhoto=',start);let save,closed=0;const status={textContent:''},text={value:'<Photo> & a user-authored caption'},font={value:'typewriter'},dialog={querySelector:selector=>selector==='[data-photo-caption-text]'?text:selector==='[data-photo-caption-font]'?font:selector==='[data-photo-caption-status]'?status:{addEventListener(type,fn){if(selector==='[data-photo-caption-save]')save=fn;}}};
+  const open=new Function('store','selectionIsLocked','captureMediaUpload','openStandardModal','escapeMarkup','applySceneCommandToDocument','syncBridgeStateFromStore','closeStandardModal','commitAdvancedSelection',`${source.slice(start,end)}return openPhotoCaption;`)(f.store,()=>f.store.document.advanced.media[0]?.locked===true,f.capture,()=>dialog,value=>String(value),applySceneCommandToDocument,()=>{},()=>{closed++;},()=>{});
+  assert.equal(open(target),true);save();assert.equal(closed,1);assert.equal(f.store.document.advanced.media[0].photoCaption.text,text.value);assert.deepEqual(f.store.document.events,facts);const captionSvg=(await syntheticPhotoSvg(f)).svg;assert.match(captionSvg,/&lt;Photo&gt;/);assert.match(captionSvg,/&amp;/);assert.match(captionSvg,/user-authored/);
+  open(target);f.store.document.studentOwnerId='changed-owner';save();assert.match(status.textContent,/Timeline changed/);assert.equal(closed,1);f.store.document.advanced.media[0].locked=true;assert.equal(open(target),false);
+  assert.equal(applySceneCommandToDocument(f.store.document,{kind:'photo-caption',target,text:'Denied',font:'typewriter'}).changed,false);
+ }finally{f.cleanup();}
+}));
+
+test('V1 shared preview SVG and editable PPTX include the same owned paper image caption and fonts',()=>withSyntheticImageDecoder(async()=>{
+ const f=await mediaUploadFixture();try{
+  const [id]=await freeformUpload(f),target={type:'media',id};f.store.replace(applySceneCommandToDocument(f.store.document,{kind:'photo-caption',target,text:'Synthetic caption',font:'handwritten'}).document,{label:'Caption'});const rendered=await syntheticPhotoSvg(f);assert.match(rendered.svg,/data-photo-paper="true"/);assert.match(rendered.svg,/data-photo-image=/);assert.match(rendered.svg,/data-photo-caption=/);assert.match(rendered.svg,/Bradley Hand/);assert.match(rendered.svg,/Synthetic caption/);
+  const {resolveFounderPresentationSvg}=await import('../web/js/presentation/resolved-founder-presentation.js'),resolved=resolveFounderPresentationSvg(rendered.svg);assert.ok(resolved.nodes.some(node=>node.kind==='image'&&node.source.startsWith('data:image/png;base64,')));assert.ok(resolved.nodes.some(node=>node.kind==='text'&&node.text==='Synthetic caption'));
+  const {createEditableFounderPptx,inspectEditablePptx}=await import('../web/js/presentation/editable-pptx.js'),artifact=await createEditableFounderPptx({svg:rendered.svg,document:f.store.document,resolveImage:()=>`data:image/png;base64,${SYNTHETIC_MEDIA_PNG.toString('base64')}`});const inspected=await inspectEditablePptx(await artifact.blob.arrayBuffer());assert.deepEqual(inspected.errors,[]);assert.ok(inspected.text.includes('Synthetic caption'));assert.ok(inspected.imageCount>=1);assert.ok(artifact.recovery.media.some(item=>item.sha256===f.store.document.advanced.media[0].source.contentSha256));
+  f.store.replace(applySceneCommandToDocument(f.store.document,{kind:'photo-caption',target,text:'Typewriter caption',font:'typewriter'}).document,{label:'Caption font'});assert.match((await syntheticPhotoSvg(f)).svg,/font-family="[^"]*American Typewriter/);
+ }finally{f.cleanup();}
+}));
+
+test('V1 automatic color key bottom follows actual profile paper top by 24px, with explicit key and profile geometry preserved',async()=>{
+ const {serializeFounderPresentation}=await import('../web/js/presentation/founder-presentation-serializer.js'),{serializeLocked407FPortableSvg}=await import('../web/js/uxr-002/locked-407f-export.js');
+ const document=sourceDocument(),facts=structuredClone(document.events);document.studentProfile.fullName='Synthetic Person';const scene=serializeFounderPresentation(document,{scope:'EVERYTHING',currentMonth:'2026-10'}).scene;
+ const geometry=(svg,name)=>svg.match(new RegExp(`data-artifact-chrome="${name}"[^>]*data-founder-geometry="([^"]+)"`))[1].split(',').map(Number);
+ for(const autoCompactProfile of [false,true]){const svg=serializeLocked407FPortableSvg({...scene,autoCompactProfile}),key=geometry(svg,'color-key'),profile=geometry(svg,'profile');assert.equal(profile[1]-(key[1]+key[3]),24);}
+ const explicitProfile={...scene,founderPresentation:{...scene.founderPresentation,profileGeometryExplicit:true,profileGeometry:{x:45,y:760,width:500,height:270}}},profileSvg=serializeLocked407FPortableSvg({...explicitProfile,autoCompactProfile:true});assert.deepEqual(geometry(profileSvg,'profile'),[45,760,500,270]);assert.equal(760-(geometry(profileSvg,'color-key')[1]+geometry(profileSvg,'color-key')[3]),24);
+ const explicitKey={...explicitProfile,founderPresentation:{...explicitProfile.founderPresentation,colorKeyGeometryExplicit:true,colorKeyGeometry:{x:32,y:320,width:270,height:300}}};assert.deepEqual(geometry(serializeLocked407FPortableSvg(explicitKey),'color-key'),[32,320,270,300]);assert.deepEqual(document.events,facts);
+});
+
+test('V1 explicit Save during pending media commit captures published assets and frame before later persistence/reopen',()=>withSyntheticImageDecoder(async()=>{
+ const f=await mediaUploadFixture(),original=f.adapter.atomicPut.bind(f.adapter);let release,entered;const gated=new Promise(resolve=>{release=resolve;}),started=new Promise(resolve=>{entered=resolve;});
+ try{f.adapter.atomicPut=async entries=>{if(entries.some(entry=>entry.store==='blobs')){entered();await gated;}return original(entries);};
+  const upload=f.upload();await started;const save=f.store.saveNow('EXPLICIT_DURING_MEDIA');release();const [id]=await upload;await save;
+  assert.equal(f.store.document.advanced.media.length,1);assert.equal(f.store.undoStack.length,1);const persisted=await f.adapter.get('documents',f.store.document.id);assert.equal(persisted.document.advanced.media.length,1);assert.equal(persisted.document.advanced.media[0].id,id);assert.equal(persisted.document.mediaItems[0].mediaId,id);assert.ok(await f.adapter.getBlob(id));assert.equal(f.store.saveStatus,'saved');
+  const reopened=new TimelineStore({adapter:f.adapter,entitlement});await reopened.initialize();assert.equal(reopened.document.advanced.media[0].id,id);assert.equal(reopened.document.mediaItems[0].mediaId,id);clearTimeout(reopened.timer);clearTimeout(reopened.entitlementTimer);
+ }finally{f.cleanup();}
+}));
+
+test('V1 human move then resize then Reset restores accepted automatic Y/presentation and current date X without changing facts other objects or years',async()=>{
+ const {applyLocalLayoutCriticSceneCommand}=await import('../web/js/editor/scene-commands.js'),{resetAdvancedEventLayout,setAxisSegmentWeights}=await import('../web/js/uxr-002/advanced-studio.js'),{buildFounderPresentationScene}=await import('../web/js/presentation/founder-presentation-serializer.js'),{locked407FResetDateGeometry}=await import('../web/js/uxr-002/locked-407f-export.js');
+ let document=sourceDocument();document.layoutLock=false;document.events.push({...structuredClone(document.events[0]),id:'synthetic-later-study',categoryId:'exams',title:'Synthetic later study',startDate:'2025-06',endDate:'2025-07'});document.presentationOverrides={axis:{mode:'manual',startYear:2025,endYear:2026,includeFuture:true,segmentWeights:[{id:'2025',weight:1},{id:'2026',weight:1},{id:'FUTURE',weight:1}]}};
+ const create=id=>({type:'event',semanticRef:id,aspectLocked:false,presentation:{eventType:'duration',localLayoutCriticYRetained:true,arrowLabelLayout:{linePitch:22}}});
+ const initial=locked407FResetDateGeometry(buildFounderPresentationScene(document,{scope:'EVERYTHING'}),'clinical-source',{x:0,y:350.38,width:1,height:43.567795,rotation:0});
+ document=applyLocalLayoutCriticSceneCommand(document,{kind:'geometry',target:{type:'event',id:'clinical-source'},geometry:initial,create:create('clinical-source')}).document;
+ const later=locked407FResetDateGeometry(buildFounderPresentationScene(document,{scope:'EVERYTHING'}),'synthetic-later-study',{x:0,y:363,width:1,height:43.567795,rotation:0});document=applyLocalLayoutCriticSceneCommand(document,{kind:'geometry',target:{type:'event',id:'synthetic-later-study'},geometry:later,create:create('synthetic-later-study')}).document;
+ const original=structuredClone(document.advanced.scene.objects.find(object=>object.id==='clinical-source')),other=structuredClone(document.advanced.scene.objects.find(object=>object.id==='synthetic-later-study')),facts=structuredClone(document.events),axis=structuredClone(document.presentationOverrides.axis),target={type:'event',id:'clinical-source'};
+ let moved=applySceneCommandToDocument(document,{kind:'geometry',target,geometry:{...original.geometry,y:356.38}}).document;const captured=moved.advanced.scene.objects.find(object=>object.id==='clinical-source').presentation.localLayoutCriticResetBaseline;assert.deepEqual(captured.geometry,original.geometry);assert.deepEqual(captured.presentation,original.presentation);
+ moved=applySceneCommandToDocument(moved,{kind:'geometry',target,geometry:{...moved.advanced.scene.objects.find(object=>object.id==='clinical-source').geometry,width:original.geometry.width+50,height:60}}).document;assert.deepEqual(moved.advanced.scene.objects.find(object=>object.id==='clinical-source').presentation.localLayoutCriticResetBaseline,captured);
+ const reset=resetAdvancedEventLayout(moved,'clinical-source');assert.equal(reset.changed,true);const restored=reset.document.advanced.scene.objects.find(object=>object.id==='clinical-source');assert.deepEqual(restored.geometry,original.geometry);assert.equal(restored.presentation.localLayoutCriticAuto,true);assert.equal(restored.geometry.y,350.38);assert.ok(restored.geometry.y<other.geometry.y);assert.deepEqual(restored.presentation.arrowLabelLayout,original.presentation.arrowLabelLayout);assert.deepEqual(reset.document.events,facts);assert.deepEqual(reset.document.advanced.scene.objects.find(object=>object.id==='synthetic-later-study'),other);assert.deepEqual(reset.document.presentationOverrides.axis,axis);assert.equal(resetAdvancedEventLayout(reset.document,'clinical-source').changed,false,'a second Reset cannot delete its known accepted automatic placement');
+ const changedAxis=setAxisSegmentWeights(moved,[{id:'2025',weight:2},{id:'2026',weight:1},{id:'FUTURE',weight:1}]).document,currentAxis=structuredClone(changedAxis.presentationOverrides.axis),reanchored=resetAdvancedEventLayout(changedAxis,'clinical-source').document,expected=locked407FResetDateGeometry(buildFounderPresentationScene(changedAxis,{scope:'EVERYTHING'}),'clinical-source',original.geometry),reanchoredObject=reanchored.advanced.scene.objects.find(object=>object.id==='clinical-source');assert.deepEqual(reanchoredObject.geometry,expected);assert.equal(reanchoredObject.geometry.y,350.38);assert.deepEqual(reanchored.presentationOverrides.axis,currentAxis);assert.deepEqual(reanchored.advanced.scene.objects.find(object=>object.id==='synthetic-later-study'),other);assert.deepEqual(reanchored.events,facts);
+ const legacy=applySceneCommandToDocument(sourceDocument(),{kind:'geometry',target,geometry:{x:700,y:450,width:300,height:50,rotation:0},create:{type:'event',semanticRef:'clinical-source',aspectLocked:false,presentation:{eventType:'duration'}}}).document;legacy.layoutLock=false;assert.ok(!resetAdvancedEventLayout(legacy,'clinical-source').document.advanced.scene.objects.some(object=>object.id==='clinical-source'));
+});
+
+
+test('V1 Reset restores actual native arrow paint after first human move/resize when stored critic Y differs from accepted packed Y',async()=>{
+ const {applyLocalLayoutCriticSceneCommand}=await import('../web/js/editor/scene-commands.js'),{advancedEventGeometry407F,advancedEventCreation407F,applySceneCommandToDocument:applyAdapterSceneCommand}=await import('../web/js/407f-engineering-adapter.js'),{resetAdvancedEventLayout}=await import('../web/js/uxr-002/advanced-studio.js'),{serializeFounderPresentation}=await import('../web/js/presentation/founder-presentation-serializer.js'),{resolveFounderPresentationSvg}=await import('../web/js/presentation/resolved-founder-presentation.js');
+ const options={scope:'EVERYTHING',currentMonth:'2026-10'};
+ let document={id:'synthetic-reset-packed-paint',theme:'keynote-classic',mode:'advanced',layoutLock:false,studentProfile:{fullName:'Synthetic'},events:['2020-01','2022-01','2023-01','2024-01'].map((date,index)=>({id:'stair-'+index,title:'Synthetic role '+index,siteName:'Synthetic institution',categoryId:'work',eventType:'duration',startDate:date,endDate:['2025-01','2023-01','2024-01','2025-01'][index],visibilityState:'INTERVIEWER_SAFE'})),advanced:{media:[],textBlocks:[],elements:[],groups:[]}};
+ const paint=timeline=>resolveFounderPresentationSvg(serializeFounderPresentation(timeline,options).svg).nodes.filter(node=>node.sourceAttributes['data-continuous-duration-arrow']);
+ const initial=paint(document);
+ for(let index=0;index<4;index++){
+  const id='stair-'+index,body=initial.find(node=>node.semanticRef===id);
+  document=applyLocalLayoutCriticSceneCommand(document,{kind:'geometry',target:{type:'event',id},geometry:{...body.bounds,y:[800,200,500,350][index],rotation:0},create:{type:'event',semanticRef:id,aspectLocked:false,presentation:{eventType:'duration'}}},options).document;
+ }
+ delete document.presentationOverrides?.axis;
+ const id='stair-0',target={type:'event',id},before=paint(document).find(node=>node.semanticRef===id).bounds,source=JSON.stringify(document),facts=structuredClone(document.events),others=structuredClone(document.advanced.scene.objects.slice(1)),geometry=advancedEventGeometry407F(document,id,null,options);
+ assert.equal(geometry.y,before.y);assert.notEqual(geometry.y,document.advanced.scene.objects[0].geometry.y,'fixture reproduces raw critic geometry versus accepted native paint');
+ for(const metadata of [true,false]){
+  const command={kind:'geometry',target,geometry:{...geometry,x:geometry.x+2,y:geometry.y+4},...(metadata?{create:advancedEventCreation407F(document,id,options)}:{})};
+  let moved=applyAdapterSceneCommand(document,command,options).document;
+  const baseline=structuredClone(moved.advanced.scene.objects[0].presentation.localLayoutCriticResetBaseline);
+  moved=applyAdapterSceneCommand(moved,{kind:'geometry',target,geometry:{...moved.advanced.scene.objects[0].geometry,width:geometry.width+4}},options).document;
+  assert.deepEqual(moved.advanced.scene.objects[0].presentation.localLayoutCriticResetBaseline,baseline,'resize keeps first accepted paint baseline');
+  const reset=resetAdvancedEventLayout(JSON.parse(JSON.stringify(moved)),id);assert.equal(reset.changed,true);
+  const after=paint(reset.document).find(node=>node.semanticRef===id).bounds;assert.deepEqual(after,before,'actual native arrow x/y/width/height paint restored exactly');assert.equal(baseline.geometry.y,before.y);assert.equal(baseline.geometry.height,geometry.height);
+  assert.deepEqual(reset.document.events,facts);assert.deepEqual(reset.document.advanced.scene.objects.slice(1),others);assert.equal(resetAdvancedEventLayout(reset.document,id).changed,false);
+ }
+ assert.equal(JSON.stringify(document),source);
+});
+
+
+test('V1 actual library rail drop onto empty canvas uses owned Polaroid placement caption selection one Undo and preserves slot-first routing and locks',()=>withSyntheticImageDecoder(async()=>{
+ const {readFile}=await import('node:fs/promises'),{placeUploadedPhoto407F}=await import('../web/js/407f-engineering-adapter.js'),{placeMediaLibraryAsset}=await import('../web/js/uxr-002/media-library.js'),{placeAdvancedObjectAt}=await import('../web/js/uxr-002/advanced-studio.js'),{reconcileAdvancedScene}=await import('../web/js/editor/scene-graph.js');
+ const source=await readFile(new URL('../web/js/407f-engineering-adapter.js',import.meta.url),'utf8'),f=await mediaUploadFixture();try{
+  const [id]=await f.upload(syntheticImage(),null),facts=structuredClone(f.store.document.events),priorUndo=f.store.undoStack.length;
+  let selection=null,frame=false,frameCalls=0,photoPlacements=0;
+  const start=source.indexOf('  const commitMediaPlacement='),end=source.indexOf('  const boardPointFromDrop=',start);assert.ok(start>0&&end>start);
+  const commit=new Function('store','visibleBoardCenter','placeMediaLibraryAsset','placeUploadedPhoto407F','nextAdvancedLayerIndex','reconcileAdvancedScene','syncBridgeStateFromStore','canvasController','requestAdvancedDirectSelection','renderMediaLibrarySurfaces','bridge','announceGlobal',source.slice(start,end)+'return commitMediaPlacement;')(f.store,()=>({x:960,y:540}),placeMediaLibraryAsset,(...args)=>{photoPlacements++;return placeUploadedPhoto407F(...args);},()=>7,reconcileAdvancedScene,()=>{},{setUiState(state){selection=state.advancedSelection;}},()=>{},()=>{},{toast(){}},()=>{});
+  const hookStart=source.indexOf('    onAssetDrop:(payload'),hookEnd=source.indexOf('    onObjectAction:',hookStart);assert.ok(hookStart>0&&hookEnd>hookStart);
+  const drop=new Function('store','advancedFrameDropHook','commitMediaPlacement','placeAdvancedObjectAt','syncBridgeStateFromStore','canvasController','return ({'+source.slice(hookStart,hookEnd)+'}).onAssetDrop;')(f.store,()=>{frameCalls++;return frame;},commit,placeAdvancedObjectAt,()=>{},{setUiState(state){selection=state.advancedSelection;}});
+  const payload={kind:'insert',action:'place',target:{type:'media',id}};
+  assert.equal(drop(payload,{x:800,y:500}),true);const placed=f.store.document.advanced.media[0];assert.equal(placed.photoPresentation,'polaroid');assert.deepEqual(placed.photoCaption,{text:'',font:'typewriter'});assert.equal(placed.placed,true);assert.equal(placed.zIndex,7);assert.deepEqual(selection,{type:'media',id});assert.equal(photoPlacements,1);assert.equal(f.store.undoStack.length,priorUndo+1);assert.deepEqual(f.store.document.events,facts);assert.match((await syntheticPhotoSvg(f)).svg,/data-photo-paper="true"/);
+  const caption=applySceneCommandToDocument(f.store.document,{kind:'photo-caption',target:payload.target,text:'Library photo caption',font:'typewriter'});assert.equal(caption.changed,true);f.store.replace(caption.document,{label:'Caption'});await f.store.saveNow();const reopened=new TimelineStore({adapter:f.adapter,entitlement});await reopened.initialize();assert.equal(reopened.document.advanced.media[0].photoCaption.text,'Library photo caption');clearTimeout(reopened.timer);clearTimeout(reopened.entitlementTimer);
+  f.store.mutate('Synthetic authored photo pose',document=>{Object.assign(document.advanced.media[0],{width:500,height:300,rotation:23});document.advanced.scene=reconcileAdvancedScene(document.advanced,{revision:document.revision});});
+  const authored=structuredClone(f.store.document.advanced.media[0]),moveUndos=f.store.undoStack.length;
+  assert.equal(drop(payload,{x:1000,y:600}),true);const redropped=f.store.document.advanced.media[0];
+  assert.equal(photoPlacements,1,'already placed image uses existing move path');assert.equal(redropped.width,500);assert.equal(redropped.height,300);assert.equal(redropped.rotation,23);assert.equal(redropped.x,750);assert.equal(redropped.y,450);assert.deepEqual(redropped.photoCaption,authored.photoCaption);assert.equal(redropped.photoPresentation,'polaroid');assert.equal(f.store.undoStack.length,moveUndos+1);assert.deepEqual(f.store.document.events,facts);
+  f.store.undo();assert.deepEqual(f.store.document.advanced.media[0],authored,'move Undo restores complete authored pose and caption');f.store.undo();
+  f.store.undo();f.store.undo();assert.equal(f.store.document.advanced.media[0].placed,false);assert.equal(f.store.document.advanced.media.length,1);
+  frame=true;assert.equal(drop(payload,{x:10,y:10}),true);assert.equal(photoPlacements,1,'slot branch has priority');frame=false;
+  for(const protection of ['locked','global','missing']){
+   const original=structuredClone(f.store.document);if(protection==='locked')f.store.document.advanced.media[0].locked=true;if(protection==='global')f.store.document.layoutLock=true;if(protection==='missing')f.store.document.advanced.media=[];
+   const before=JSON.stringify(f.store.document),undos=f.store.undoStack.length;assert.equal(drop(payload,{x:800,y:500}),false,protection);assert.equal(JSON.stringify(f.store.document),before,protection);assert.equal(f.store.undoStack.length,undos,protection);f.store.document=original;
+  }
+  const foreign={...payload,target:{type:'media',id:'other-document-asset'}};const before=JSON.stringify(f.store.document);assert.equal(drop(foreign,{x:100,y:100}),false);assert.equal(JSON.stringify(f.store.document),before);
+  f.store.entitlement={...f.store.entitlement,canMutate:false};assert.equal(drop(payload,{x:100,y:100}),false);assert.equal(JSON.stringify(f.store.document),before);assert.ok(frameCalls>=6);
+ }finally{f.cleanup();}
+}));
+
+
+test("source exact exam days remain visible and editable without reducing precision",()=>{
+ const document=defaultDocument();setBuilderExamSystem(document,"USMLE",true);addBuilderExam(document,"USMLE","step-2-ck");
+ const record=document.exams[0];updateBuilderExamAttempt(document,record.id,{result:"Unknown",examDate:"2025-07-26",studyStartDate:"2025-01",studyEndDate:"2025-07-26"});
+ document.builder.step=2;const before=JSON.stringify(document),html=renderBuilder(document);
+ assert.match(html,/data-exact-date-field="exam-date-/);assert.match(html,/Jul 26, 2025/);assert.match(html,/data-exact-date-field="exam-study-end-/);
+ assert.equal(JSON.stringify(document),before);assert.equal(document.exams[0].examDate,"2025-07-26");
+ updateBuilderExamAttempt(document,record.id,{examDate:"2025-07-27"});assert.equal(document.exams[0].examDate,"2025-07-27");
+ const study=document.events.find(event=>event.eventType==="duration");assert.equal(study.endDate,"2025-07-26");
+ assert.equal(document.builder.examStudyReviewOverrides[record.id].fieldProvenance.studyEndDate.sourcePrecision,"DAY");
+});
+
+test("explicit local TEST recovery replaces only an invalid review start whose source is unknown",()=>{
+ const document=defaultDocument();document.metadata.localTestPrototype=true;setBuilderExamSystem(document,"USMLE",true);addBuilderExam(document,"USMLE","step-1");
+ const record=document.exams[0];record.examDate="2025-10-21";record.studyStartDate="";record.studyEndDate="";
+ document.builder.examStudyReviewOverrides={[record.id]:{studyStartDate:"2026-03",studyEndDate:"2025-10-21",localTestOnly:false}};
+ const source=JSON.stringify(record);proposeLocalTestStudyBounds(document,record.id,{location:loopback,monthsBefore:9});
+ const review=builderExamForReview(document,record,{location:loopback});assert.equal(review.studyStartDate,"2025-01");assert.equal(review.studyEndDate,"2025-10-21");assert.equal(review.studyReviewProvenance.studyStartDate.placeholder,true);assert.equal(JSON.stringify(record),source);
+ const current=document.exams.find(item=>item.id===record.id);current.studyStartDate="2024-12";document.builder.examStudyReviewOverrides[record.id].studyStartDate="2026-03";
+ proposeLocalTestStudyBounds(document,record.id,{location:loopback,monthsBefore:6});assert.equal(document.builder.examStudyReviewOverrides[record.id].studyStartDate,"2026-03");assert.equal(current.studyStartDate,"2024-12");
+});
+
+
+test('milestone caption offsets preserve source, date anchor, ownership and reopen, with stale and lock guards',async()=>{
+ const {serializeFounderPresentation}=await import('../web/js/presentation/founder-presentation-serializer.js');
+ const {resolveFounderPresentationSvg}=await import('../web/js/presentation/resolved-founder-presentation.js');
+ let d=sourceDocument();d.layoutLock=false;d.events=[{id:'us-move',openEnded:false,siteName:'',notes:'',lane:null,sourceType:'legacy',provenance:[],eventType:'milestone',categoryId:'personal',title:'Moved to the United States',startDate:'2023-01',endDate:'2023-01',fields:{canonicalType:'RELOCATION'},visibilityState:'INTERVIEWER_SAFE'}];
+ d=applySceneCommandToDocument(d,{kind:'geometry',target:{type:'event',id:'us-move'},geometry:{x:990,y:84,width:50,height:64,rotation:0},create:{type:'event',semanticRef:'us-move',aspectLocked:false,presentation:{eventType:'milestone',nativeFlagPole:{anchor:'native'},flagLabelLayout:{width:420,flip:false}}}}).document;
+ const source=structuredClone(d.events),original=JSON.stringify(d),geometry=structuredClone(d.advanced.scene.objects[0].geometry);
+ const edited=applyCanvasDisplayEdit407F(d,'us-move',{captionX:210,captionY:-21},displayBinding(d));
+ assert.deepEqual(edited.events,source);assert.deepEqual(edited.advanced.scene.objects[0].geometry,geometry);assert.equal(JSON.stringify(d),original);
+ assert.match(renderCanvasDetails('canvas',edited.events[0],edited),/Caption left \/ right/);
+ const adapter=new MemoryAdapter(),store=new TimelineStore({adapter,entitlement});await store.initialize();store.replace(edited,{label:'Move milestone caption'});await store.saveNow('CAPTION_REOPEN');const reopen=new TimelineStore({adapter,entitlement});await reopen.initialize();
+ const pose=reopen.document.advanced.scene.objects.find(o=>o.semanticRef==='us-move');assert.equal(pose.presentation.flagLabelLayout.xOffset,210);assert.equal(pose.presentation.flagLabelLayout.yOffset,-21);assert.deepEqual(pose.geometry,geometry);assert.deepEqual(reopen.document.events,source);
+ const paint=resolveFounderPresentationSvg(serializeFounderPresentation(reopen.document,{scope:'EVERYTHING'}).svg);assert.ok(paint.nodes.some(n=>n.semanticRef==='us-move'&&n.kind==='text'&&n.bounds.x>1200));
+ assert.throws(()=>applyCanvasDisplayEdit407F(d,'us-move',{captionX:841},displayBinding(d)),/within/);
+ const locked=structuredClone(d);locked.advanced.scene.objects[0].locked=true;assert.throws(()=>applyCanvasDisplayEdit407F(locked,'us-move',{captionX:100},displayBinding(locked)),/before adjusting/);
+ const auto=structuredClone(d);auto.advanced.scene.objects[0].presentation.localLayoutCriticAuto=true;assert.throws(()=>applyCanvasDisplayEdit407F(auto,'us-move',{captionX:100},displayBinding(auto)),/before adjusting/);
+ assert.throws(()=>applyCanvasDisplayEdit407F(d,'us-move',{captionX:100},{...displayBinding(d),revision:999}),/out of date/);
+ clearTimeout(store.timer);clearTimeout(store.entitlementTimer);clearTimeout(reopen.timer);clearTimeout(reopen.entitlementTimer);
+});

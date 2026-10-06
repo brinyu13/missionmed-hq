@@ -364,7 +364,7 @@ function mapApproval(row: DatabaseRow): ApprovalEvent {
     contentSha256: inputStoredHash(row, "content_sha256", entity),
     decision: enumValue(row, "decision", APPROVAL_DECISIONS, entity),
     actorId: requiredText(row, "actor_id", entity),
-    reason: requiredText(row, "reason", entity),
+    reason: stringValue(row, "reason", entity),
     createdAt: timestampValue(row, "created_at", entity),
   };
 }
@@ -654,10 +654,11 @@ export class PostgresTimelineRepository implements TimelineRepository {
     });
   }
 
-  async getDocument(id: string): Promise<DocumentRecord | null> {
+  async getDocument(id: string, options?: { forUpdate?: boolean }): Promise<DocumentRecord | null> {
+    if (options?.forUpdate && !this.client) throw new TimelineError("PERSISTENCE_TRANSACTION_REQUIRED", "A document lock requires an active transaction.", 500);
     return this.run(async (database) => {
       const result = await database.query<DatabaseRow>(
-        `SELECT ${DOCUMENT_COLUMNS} FROM timeline.documents WHERE id = $1`,
+        `SELECT ${DOCUMENT_COLUMNS} FROM timeline.documents WHERE id = $1${options?.forUpdate ? " FOR UPDATE" : ""}`,
         [id],
       );
       return result.rows[0] ? mapDocument(result.rows[0]) : null;

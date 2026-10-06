@@ -473,91 +473,74 @@ export class TimelineStore{
     return true;
   }
 
-  async mutateWithBlobs(
-    label,
-    operation,
-    {blobs=[],history=true,material=true,reason="LOCAL_ASSET_MUTATION"}={}
-  ){
-    this.assertCapability("canMutate");
+  async mutateWithBlobs(label,operation,{blobs=[],history=true,material=true,reason="LOCAL_ASSET_MUTATION",assertCurrent=null}={}){
+    const signature=stable(this.document);
+    const capturedCurrent=()=>{
+      if(stable(this.document)!==signature){
+        const error=new Error("Timeline changed while the asset was being saved.");error.code="TIMELINE_ASSET_MUTATION_STALE";throw error;
+      }
+      assertCurrent?.();
+    };
+    return this.mutateGuardedWithBlobs(label,operation,{blobs,history,material,reason,assertCurrent:capturedCurrent});
+  }
+
+  // Guarded uploads stage their changes until persistence completes. An old-document
+  // commit may finish after navigation; it must never publish into the new document.
+  async mutateGuardedWithBlobs(label,operation,{blobs,history,material,reason,assertCurrent}){
+    this.assertCapability("canMutate");assertCurrent();
     await this.saveNow("BEFORE_LOCAL_ASSET_MUTATION");
-    const before=this.snapshot();
-    const advisorEventDataBefore=stable({events:before.events,exams:before.exams});
-    try{
-      operation(this.document);
-    }catch(error){
-      this.document=before;
-      throw error;
-    }
-    if(stable(before)===stable(this.document)&&!blobs.length)return false;
-    this.document.updatedAt=this.now();
-    if(
-      material&&
-      this.document.advisor?.approvedAt&&
-      advisorEventDataBefore!==stable({
-        events:this.document.events,
-        exams:this.document.exams
-      })
-    )this.document.advisor.editedSince=true;
-    const after=this.snapshot();
-    const savedAt=this.now();
-    const sequence=this.saveSequence+1;
-    const record={
-      id:after.id,
-      document:after,
-      schemaVersion:DOCUMENT_SCHEMA,
-      savedAt,
-      sequence,
-      reason
+    this.assertCapability("canMutate");assertCurrent();
+    const before=this.snapshot(),draft=clone(before);
+    operation(draft);
+    if(stable(before)===stable(draft)&&!blobs.length)return false;
+    draft.updatedAt=this.now();
+    if(material&&draft.advisor?.approvedAt&&stable({events:before.events,exams:before.exams})!==stable({events:draft.events,exams:draft.exams}))draft.advisor.editedSince=true;
+    const after=clone(draft),savedAt=this.now(),sequence=this.saveSequence+1;
+    const record={id:after.id,document:after,schemaVersion:DOCUMENT_SCHEMA,savedAt,sequence,reason};
+    const checkpoint={id:uid("checkpoint"),documentId:after.id,document:clone(after),createdAt:savedAt,sequence,reason};
+    const entries=[{store:"documents",key:record.id,value:record},{store:"checkpoints",key:checkpoint.id,value:checkpoint},...blobs.map(({key,blob,metadata={}})=>({store:"blobs",key,value:{id:key,blob,metadata:clone(metadata)}}))];
+    // BEFORE already established the active document. Do not repoint it with an
+    // old upload. Later saves queue behind this write through pendingSave.
+    let releasePublication;
+    const publication=new Promise(resolve=>{releasePublication=resolve;});
+    this.pendingAssetPublication=publication;
+    this.saveStatus="saving";this.saveError=null;this.emit();
+    let persisted=false;
+    const perform=async()=>{
+      this.assertCapability("canMutate");assertCurrent();
+      try{await this.adapter.atomicPut(entries);persisted=true;}
+      catch(error){
+        // Hybrid persistence can reject after its local transaction committed.
+        // Read the exact checkpoint before deciding whether prepared bytes are safe
+        // to retire. A failed readback leaves custody explicitly uncertain.
+        try{const saved=await this.adapter.get("checkpoints",checkpoint.id);persisted=saved?.documentId===after.id&&saved?.sequence===sequence;}
+        catch{error.persistenceOutcome="unknown";}
+        error.persisted=persisted;throw error;
+      }
     };
-    const checkpoint={
-      id:uid("checkpoint"),
-      documentId:after.id,
-      document:clone(after),
-      createdAt:savedAt,
-      sequence,
-      reason
-    };
-    const blobEntries=blobs.map(({key,blob,metadata={}})=>({
-      store:"blobs",
-      key,
-      value:{id:key,blob,metadata:clone(metadata)}
-    }));
-    this.saveStatus="saving";
-    this.saveError=null;
-    this.emit();
+    const prior=this.pendingSave;
+    const pending=prior?prior.catch(()=>{}).then(perform):perform();
+    this.pendingSave=pending;
     try{
-      this.assertCapability("canMutate");
-      await this.adapter.atomicPut([
-        {store:"documents",key:record.id,value:record},
-        {store:"checkpoints",key:checkpoint.id,value:checkpoint},
-        {
-          store:"settings",
-          key:"uxr-002-active-document",
-          value:{
-            id:"uxr-002-active-document",
-            documentId:after.id,
-            updatedAt:savedAt
-          }
-        },
-        ...blobEntries
-      ]);
+      await pending;
+      this.assertCapability("canMutate");assertCurrent();
     }catch(error){
-      this.document=before;
-      this.saveStatus="error";
-      this.saveError=String(error?.message||error);
-      this.emit();
+      if(persisted)error.persisted=true;
+      // The staged draft was never published: no restore can overwrite navigation,
+      // and no previous student's history can enter the current Undo stack.
+      let current=false;try{assertCurrent();current=true;}catch{}
+      if(current){this.saveStatus="error";this.saveError=String(error?.message||error);this.emit();}
       throw error;
+    }finally{
+      if(this.pendingSave===pending)this.pendingSave=null;
+      if(this.pendingAssetPublication===publication)this.pendingAssetPublication=null;
+      // Promise continuations run after the synchronous draft/history publication
+      // below (or after the failure exits). Explicit Save captures that final state.
+      releasePublication();
     }
-    this.saveSequence=sequence;
-    if(history){
-      this.undoStack.push({label,before,after,at:savedAt});
-      if(this.undoStack.length>HISTORY_LIMIT)this.undoStack.shift();
-      this.redoStack=[];
-    }
-    this.saveStatus="saved";
-    this.saveError=null;
-    this.emit();
-    return true;
+    this.document=draft;this.saveSequence=Math.max(this.saveSequence,sequence);
+    if(history){this.undoStack.push({label,before,after,at:savedAt});if(this.undoStack.length>HISTORY_LIMIT)this.undoStack.shift();this.redoStack=[];}
+    this.saveStatus="saved";this.saveError=null;this.emit();return true;
   }
 
   replace(document,{label="Replace timeline",history=true}={}){
@@ -607,6 +590,7 @@ export class TimelineStore{
   }
 
   async saveNow(reason="EXPLICIT_SAVE"){
+    if(this.pendingAssetPublication)await this.pendingAssetPublication;
     const authorization=this.capturePersistenceAuthorization();
     clearTimeout(this.timer);
     this.timer=null;

@@ -476,6 +476,16 @@ function milestoneGeometry(flag,index,scale,scene,{interview=false}={}){
   return {object,overridden,x,y:overridden?pixel(automaticDateAnchor(scene,flag)&&!criticFixedY(scene,flag)?automaticY:overridden.y):automaticY,width:overridden?Math.max(.25,Number(overridden.width)||50):50,height:overridden?Math.max(.25,Number(overridden.height)||64):64,rotation:overridden?Number(overridden.rotation)||0:0,defaultPoleBottom};
 }
 
+// Restore only a known automatic placement. Date-axis edits re-anchor X/width;
+// the accepted Y, height, rotation and presentation do not enter the optimizer.
+export function locked407FResetDateGeometry(scene,id,baseline={}){
+  const scale=metrics(scene),arrow=(scene.arrows||[]).find(event=>String(event.id)===String(id));
+  if(arrow)return{...baseline,x:pixel(boardX(scale.xPercent(arrow.startMonth))),width:pixel(Math.max(LOCKED_407F_GEOMETRY.minimumArrowWidth,CONTENT_WIDTH*scale.widthPercent(arrow.startMonth,arrow.endMonth)/100))};
+  const flag=(scene.flags||[]).find(event=>String(event.id)===String(id));
+  if(flag)return{...baseline,x:Math.max(6,Math.min(WIDTH-60,boardX(scale.xPercent(flag.month))))};
+  return{...baseline};
+}
+
 export function locked407FMilestoneGeometry(scene,id){
   const index=(scene?.flags||[]).findIndex(flag=>String(flag.id)===String(id));
   if(index<0)return null;
@@ -562,10 +572,11 @@ function flagMarkup(flag,index,scale,scene,{interview=false}={}){
   return`<g data-event-kind="${interview?"interview-marker":"flag"}"${interview?"":` data-event-id="${xml(flag.id)}" data-layout-ownership="${eventLayoutOwnership(scene,flag)}"`} data-founder-milestone-style="pennant"${examResult?` data-exam-result="${examResult}"`:""} aria-label="${xml(flag.ariaLabel)}"${transform}><line x1="${poleX}" y1="${by}" x2="${poleX}" y2="${poleBottom}" stroke="#8E9398" stroke-width="3"/><circle cx="${poleX}" cy="${by}" r="2.5" fill="#B9BDC1"/>${pennant}${chip}${label}</g>`;
 }
 
-function colorKey(scene){
+function colorKey(scene,profilePaperTop=null){
   const baseGeometry=scene?.founderPresentation?.colorKeyGeometry||FOUNDER_PORTABLE_GEOMETRY.colorKey;
   const automaticKey=scene?.presentationAccounting&&!scene?.founderPresentation?.colorKeyGeometryExplicit;
   const geometry=automaticKey?{...baseGeometry,height:96+(scene.founderPresentation.categoryKey.length+(scene?.lorLegend?.visible?1:0))*40}:baseGeometry;
+  if(automaticKey&&Number.isFinite(profilePaperTop))geometry.y=Math.max(0,profilePaperTop-24-geometry.height);
   const {x,y,width,height}=geometry;
   const rows=[...(scene?.founderPresentation?.categoryKey||FOUNDER_COLOR_KEY_ROWS)];
   if(scene?.lorLegend?.visible)rows.push({id:"lor-submitted",label:scene.lorLegend.label||"LOR submitted",color:"#F3E7B3"});
@@ -819,7 +830,11 @@ function chrome(scene,scale){
   const alignment=typography.alignment==="left"?"start":typography.alignment==="right"?"end":"middle";
   const headlineX=alignment==="start"?plaque.x+48:alignment==="end"?plaque.x+plaque.width-48:plaque.x+plaque.width/2;
   const overflow=textWidth>plaque.width-96+.01||56-fontSize*.86<plaque.y||56+fontSize*.34>plaque.y+plaque.height;
-  return`<g data-artifact-chrome="title" data-founder-geometry="${plaque.x},${plaque.y},${plaque.width},${plaque.height}">${titlePlaqueMarkup(plaque)}<text data-board-headline="true"${overflow?' data-text-overflow="true"':""} x="${headlineX}" y="56" text-anchor="${alignment}" fill="${xml(typography.color||"#111827")}" font-family="${fontFamily}" font-size="${fontSize}" font-weight="${fontWeight}">${xml(label)}</text></g>${colorKey(scene)}${profileMarkup(scene)}${scene.presentationAccounting?.localTest?'<text data-local-test-prototype="true" x="20" y="22" fill="#FFFFFF" font-family="Arial,sans-serif" font-size="18">LOCAL TEST</text>':''}${photoFrames(scene)}${interviewMarkup(scene,scale)}${(scene?.explanations||[]).map((explanation,index)=>explanationMarkup(scene,explanation,index,scale)).join("")}`;
+  // Use the paper that profileMarkup actually painted, including its compact
+  // bottom anchoring. Explicit key geometry always keeps the user's position.
+  const profile=profileMarkup(scene),profileGeometry=profile.match(/data-founder-geometry="([^"]+)"/)?.[1]?.split(",").map(Number);
+  const profilePaperTop=profileGeometry?.[1];
+  return`<g data-artifact-chrome="title" data-founder-geometry="${plaque.x},${plaque.y},${plaque.width},${plaque.height}">${titlePlaqueMarkup(plaque)}<text data-board-headline="true"${overflow?' data-text-overflow="true"':""} x="${headlineX}" y="56" text-anchor="${alignment}" fill="${xml(typography.color||"#111827")}" font-family="${fontFamily}" font-size="${fontSize}" font-weight="${fontWeight}">${xml(label)}</text></g>${colorKey(scene,profilePaperTop)}${profile}${scene.presentationAccounting?.localTest?'<text data-local-test-prototype="true" x="20" y="22" fill="#FFFFFF" font-family="Arial,sans-serif" font-size="18">LOCAL TEST</text>':''}${photoFrames(scene)}${interviewMarkup(scene,scale)}${(scene?.explanations||[]).map((explanation,index)=>explanationMarkup(scene,explanation,index,scale)).join("")}`;
 }
 
 function advancedFlagEmoji(code="US"){
@@ -907,6 +922,15 @@ function advancedTextMarkup(object){
   return`<text data-advanced-text="${xml(object.id)}" data-text-overflow="${!fitted.fits}" x="${x}" y="${startY}" fill="${xml(item.color||"#191C21")}" font-family="${xml(item.font||"Inter")}" font-size="${size}" font-weight="${Number(item.weight)||400}" text-anchor="${anchor}" data-text-fit="${item.fitMode==="fixed"?"fixed":"auto"}">${lines.map((line,index)=>`<tspan x="${x}" dy="${index?size*lineHeight:0}">${xml(line)}</tspan>`).join("")}</text>`;
 }
 
+function freeformPhotoMarkup(object){
+  const item=object.presentation||{},box=object.geometry||{},width=Math.max(1,Number(box.width)||1),height=Math.max(1,Number(box.height)||1);
+  const padding=Math.min(12,width*.04,height*.04),band=Math.min(80,Math.max(32,height*.24),height*.45),photoHeight=Math.max(1,height-padding*2-band);
+  const caption=String(item.photoCaption?.text||""),family=item.photoCaption?.font==="handwritten"?"'Bradley Hand','Comic Sans MS',cursive":TYPE.title;
+  const fit=fitPresentationText(caption,{width:Math.max(1,width-padding*2-8),height:Math.max(1,band-8),size:20,minSize:14,lineHeight:1.1,fit:"auto",wrap:"wrap",family});
+  const y=padding+photoHeight+8+fit.fontSize;
+  return`<rect data-photo-paper="true" x="0" y="0" width="${width}" height="${height}" fill="#fffdf7" stroke="#d7d0c4" stroke-width="1"/>${croppedImageMarkup({href:item.resolvedSource,x:padding,y:padding,width:Math.max(1,width-padding*2),height:photoHeight,fit:"contain",naturalAspect:item.naturalAspect,attributes:`data-photo-image="${xml(object.id)}"`})}${caption?`<text data-photo-caption="${xml(object.id)}" data-text-overflow="${!fit.fits}" x="${width/2}" y="${y}" text-anchor="middle" fill="#28251f" font-family="${xml(family)}" font-size="${fit.fontSize}">${fit.lines.map((line,index)=>`<tspan x="${width/2}" dy="${index?fit.fontSize*1.1:0}">${xml(line)}</tspan>`).join("")}</text>`:""}`;
+}
+
 function advancedSceneMarkup(scene){
   const projection=scene?.founderPresentation?.advancedScene;
   if(!projection?.objects?.length)return"";
@@ -920,6 +944,7 @@ function advancedSceneMarkup(scene){
     const shared=`data-scene-object="${xml(object.id)}" data-scene-object-type="${xml(object.type)}" data-scene-z="${Number(object.z)||0}"${object.groupId?` data-scene-group="${xml(object.groupId)}"`:""} transform="${transform}"`;
     if(object.type==="media"){
       if(!item.resolvedSource)return`<g ${shared} data-media-state="missing"/>`;
+      if(item.photoPresentation==="polaroid")return`<g ${shared} data-advanced-media="${xml(object.id)}" data-photo-presentation="polaroid">${freeformPhotoMarkup(object)}</g>`;
       return`<g ${shared}>${croppedImageMarkup({href:item.resolvedSource,x:0,y:0,width:Math.max(1,Number(box.width)||1),height:Math.max(1,Number(box.height)||1),crop:item.crop,fit:item.fit==="contain"?"contain":"cover",naturalAspect:item.naturalAspect,attributes:`data-advanced-media="${xml(object.id)}"`})}</g>`;
     }
     if(object.type==="text")return`<g ${shared}>${advancedTextMarkup(object)}</g>`;
@@ -1515,7 +1540,7 @@ function clearAutomaticUsCaptionCorridor(scene,svg,options){
     if(!currentRisk)break;
     const box=milestoneGeometry(flag,scene.flags.indexOf(flag),metrics(placed),placed),plaque=titlePlaqueLayout(placed).plaque;
     const labelX=plaque.x+plaque.width+6,xOffset=labelX-(box.x+54);
-    if(xOffset<0||xOffset>96||box.x+50<plaque.x||box.x>plaque.x+plaque.width)continue;
+    if(xOffset<0||xOffset>420||labelX+420>WIDTH-8||box.x+50<plaque.x||box.x>plaque.x+plaque.width)continue;
     const layout=placed.autoFlagLabels?.get(String(flag.id))||{};
     const candidate={...placed,autoFlagGeometry:new Map(placed.autoFlagGeometry||[]).set(String(flag.id),{y:84}),autoFlagLabels:new Map(placed.autoFlagLabels||[]).set(String(flag.id),{...layout,width:420,flip:false,xOffset,yOffset:-21})};
     const candidateSvg=serializePlacedPortableSvg(candidate,options),candidateRisk=risk(candidateSvg);

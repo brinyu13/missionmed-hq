@@ -19,7 +19,7 @@ import { TimelineError } from "../core/errors.js";
 export interface TimelineRepository {
   withTransaction<T>(work: (unitOfWork: TimelineRepository) => Promise<T>): Promise<T>;
   createDocument(record: DocumentRecord): Promise<DocumentRecord>;
-  getDocument(id: string): Promise<DocumentRecord | null>;
+  getDocument(id: string, options?: { forUpdate?: boolean }): Promise<DocumentRecord | null>;
   listDocumentsForOwner(ownerPrincipalId: string): Promise<DocumentRecord[]>;
   listAccessibleDocuments(principalId: string): Promise<DocumentRecord[]>;
   saveCheckpoint(checkpoint: CheckpointRecord): Promise<CheckpointRecord>;
@@ -118,7 +118,7 @@ export class InMemoryTimelineRepository implements TimelineRepository {
     return clone(record);
   }
 
-  async getDocument(id: string): Promise<DocumentRecord | null> {
+  async getDocument(id: string, options?: { forUpdate?: boolean }): Promise<DocumentRecord | null> {
     const value = this.documents.get(id);
     return value ? clone(value) : null;
   }

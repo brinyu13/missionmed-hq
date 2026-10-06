@@ -85,3 +85,41 @@ test('first approved critic movement creates automatic geometry without a UI own
  const locked=structuredClone(applied.document);locked.layoutLock=true;const a=object(locked);
  assert.throws(()=>applyLocalLayoutCriticSceneCommand(locked,{kind:'geometry',target:{type:'event',id:a.id},geometry:{...a.geometry,y:300}},options),/globally locked/);
 });
+
+
+test('Fix for me releases unsafe year-drag Y retention without changing manual ownership source or year geometry',async()=>{
+ const {reflowRetainedAutomaticRows}=await import('../web/js/uxr-002/quality-guardian.js');
+ let d=await automatic();const a=object(d);delete a.presentation.localLayoutCriticYExplicit;a.presentation.localLayoutCriticYRetained=true;
+ d=obstacle(d,a.geometry.y);const source=structuredClone(d.events),axis=structuredClone(d.presentationOverrides.axis),fixed=structuredClone(d.advanced.textBlocks);
+ const result=reflowRetainedAutomaticRows(d);assert.equal(result.changed,true);assert.ok(result.after.collisions<result.before.collisions);assert.equal(result.after.chronology,0);
+ assert.deepEqual(d.events,source);assert.deepEqual(d.presentationOverrides.axis,axis);assert.deepEqual(d.advanced.textBlocks,fixed);assert.equal(object(d).presentation.localLayoutCriticYRetained,undefined);
+ for(const setup of [x=>delete x.presentation.localLayoutCriticAuto,x=>x.locked=true]){
+  const blocked=await automatic(),owned=object(blocked);owned.presentation.localLayoutCriticYRetained=true;setup(owned);const original=JSON.stringify(blocked);assert.equal(reflowRetainedAutomaticRows(blocked).changed,false);assert.equal(JSON.stringify(blocked),original);
+ }
+});
+
+test('explicit Fix for me can release prior AI-owned Y but never a later human takeover',async()=>{
+ const {reflowRetainedAutomaticRows}=await import('../web/js/uxr-002/quality-guardian.js');
+ const d=await automatic();object(d).presentation.localLayoutCriticYExplicit=true;obstacle(d,object(d).geometry.y);
+ const source=structuredClone(d.events),geometry=structuredClone(object(d).geometry);assert.equal(reflowRetainedAutomaticRows(d).changed,true);assert.equal(object(d).presentation.localLayoutCriticYExplicit,undefined);assert.deepEqual(object(d).geometry,geometry);assert.deepEqual(d.events,source);
+ const human=await automatic();delete object(human).presentation.localLayoutCriticAuto;obstacle(human,object(human).geometry.y);const before=JSON.stringify(human);assert.equal(reflowRetainedAutomaticRows(human).changed,false);assert.equal(JSON.stringify(human),before);
+});
+
+
+test('painted proposal chronology includes fixed human neighbors and rejects a new automatic floater',async()=>{
+ const {paintedDurationInversions,qualifyRenderedLayoutImprovement}=await import('../web/js/uxr-002/quality-guardian.js');
+ const {serializeFounderPresentation}=await import('../web/js/presentation/founder-presentation-serializer.js');
+ let d=fresh();const early={...d.events[0],id:'early',startDate:'2024-01',endDate:'2024-03'},late={...d.events[0],id:'late',startDate:'2024-05',endDate:'2024-08'};d.events=[early,late];
+ for(const [id,x,y] of [['early',1000,400],['late',1300,550]])d=applySceneCommandToDocument(d,{kind:'geometry',target:{type:'event',id},geometry:{x,y,width:180,height:44,rotation:0},create:{type:'event',semanticRef:id,aspectLocked:false,presentation:{eventType:'duration'}}},options).document;
+ const a=d.advanced.scene.objects.find(o=>o.semanticRef==='early');a.presentation.localLayoutCriticAuto=true;a.presentation.localLayoutCriticYExplicit=true;
+ const before=serializeFounderPresentation(d,options),changed=structuredClone(d);changed.advanced.scene.objects.find(o=>o.semanticRef==='early').geometry.y=700;
+ const after=serializeFounderPresentation(changed,options);
+ assert.deepEqual(paintedDurationInversions(before),[]);assert.ok(paintedDurationInversions(after).includes('early|late'));
+ assert.equal(qualifyRenderedLayoutImprovement(before,after,{beforeDocument:d,afterDocument:changed}).reasonCode,'LAYOUT_PROPOSAL_CHRONOLOGY_WORSENED');
+ assert.deepEqual(changed.events,d.events);assert.equal(changed.advanced.scene.objects.find(o=>o.semanticRef==='late').geometry.y,550);
+ // Same-start events may separate vertically without an invented date order.
+ const same={...after,scene:{...after.scene,arrows:after.scene.arrows.map(o=>({...o,startDate:'2024-05',startMonth:'2024-05'}))}};assert.deepEqual(paintedDurationInversions(same),[]);
+ // The diagnostic preserves an existing human exception unchanged; acceptance
+ // compares pair identities instead of invalidating manual ownership globally.
+ assert.deepEqual(paintedDurationInversions(after),paintedDurationInversions(serializeFounderPresentation(changed,options)));
+});

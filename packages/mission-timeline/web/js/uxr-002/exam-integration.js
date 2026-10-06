@@ -70,7 +70,9 @@ export function proposeLocalTestStudyBounds(document,recordId,{location=globalTh
   const reviewed=builderExamForReview(document,record,{location}),changes={},fieldProvenance={};
   const prior=document.builder?.examStudyReviewOverrides?.[recordId]||{};
   for(const [key,value] of [["studyStartDate",addMonths(examDate,-monthsBefore)],["studyEndDate",record.examDate]]){
-    const refreshTestStart=key==="studyStartDate"&&!parseMonth(record[key])&&prior.localTestOnly===true&&prior.fieldProvenance?.[key]?.placeholder===true&&prior.fieldProvenance?.[key]?.reason==="LOCAL_TEST_STUDY_PROPOSAL";
+    const refreshTestStart=key==="studyStartDate"&&!parseMonth(record[key])&&(
+      (prior.localTestOnly===true&&prior.fieldProvenance?.[key]?.placeholder===true&&prior.fieldProvenance?.[key]?.reason==="LOCAL_TEST_STUDY_PROPOSAL")||
+      !!studyDateOrderError(reviewed.studyStartDate,reviewed.studyEndDate,record.examDate));
     if(parseMonth(reviewed[key])&&!refreshTestStart)continue;changes[key]=value;
     fieldProvenance[key]={placeholder:key==="studyStartDate",reason:"LOCAL_TEST_STUDY_PROPOSAL",sourcePrecision:key==="studyStartDate"?"UNKNOWN":(record.examDatePrecision||"MONTH"),originalKnownValue:key==="studyStartDate"?null:record.examDate,sourceStudyValue:record[key]||null};
   }
@@ -333,7 +335,7 @@ export function updateBuilderExamAttempt(document,recordId,changes){
   if(Object.keys(studyChanges).length){
     document.builder||={};document.builder.examStudyReviewOverrides||={};
     const prior=document.builder.examStudyReviewOverrides[recordId]||{},provenance={...(prior.fieldProvenance||{})};
-    for(const [key,value] of Object.entries(studyChanges))provenance[key]={placeholder:false,reason:"STUDENT_ENTERED_ACTUAL_STUDY_DATE",sourcePrecision:parseMonth(value)?"MONTH":"UNKNOWN",originalKnownValue:value||null};
+    for(const [key,value] of Object.entries(studyChanges))provenance[key]={placeholder:false,reason:"STUDENT_ENTERED_ACTUAL_STUDY_DATE",sourcePrecision:parseExactDate(value)?"DAY":parseMonth(value)?"MONTH":"UNKNOWN",originalKnownValue:value||null};
     const localTestOnly=Object.values(provenance).some(item=>item.placeholder);
     document.builder.examStudyReviewOverrides[recordId]={...prior,...studyChanges,localTestOnly,fieldProvenance:provenance};
   }

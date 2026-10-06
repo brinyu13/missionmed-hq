@@ -298,6 +298,14 @@ function executeSceneCommandInternal(inputScene={},command={},origin=null){
       ?reorderGroup(scene,group,String(command.direction||""))
       :reorder(scene,target,String(command.direction||""));
     label=label||"Change Timeline layer";
+  }else if(kind==="photo-caption"){
+    if(!object||object.type!=="media"||object.locked===true||object.presentation?.photoPresentation!=="polaroid")return{scene:inputScene,changed:false,selection,label:null};
+    const text=String(command.text??"");
+    if(text.length>80)throw new TypeError("Photo captions must be 80 characters or fewer.");
+    const font=String(command.font||"typewriter");
+    if(!["typewriter","handwritten"].includes(font))throw new TypeError("Choose a supported caption style.");
+    const caption={text,font};changed=JSON.stringify(object.presentation.photoCaption)!==JSON.stringify(caption);
+    object.presentation={...object.presentation,photoCaption:caption};label=label||"Edit photo caption";
   }else if(kind==="text"){
     if(!object||object.type!=="text")return{scene:inputScene,changed:false,selection,label:null};
     const text=String(command.text??"");
@@ -364,7 +372,13 @@ function executeSceneCommandInternal(inputScene={},command={},origin=null){
         :[];
     for(const id of affected){
       const item=sceneObjectById(scene,id);
-      if(item?.presentation)delete item.presentation.localLayoutCriticAuto;
+      if(item?.presentation){
+        const prior=sceneObjectById(inputScene,id);
+        if(item.type==="event"&&prior?.presentation?.localLayoutCriticAuto===true&&!prior.presentation.localLayoutCriticResetBaseline){
+          item.presentation.localLayoutCriticResetBaseline={geometry:clone(prior.geometry),presentation:clone(prior.presentation)};
+        }
+        delete item.presentation.localLayoutCriticAuto;
+      }
     }
   }
   bump(scene);

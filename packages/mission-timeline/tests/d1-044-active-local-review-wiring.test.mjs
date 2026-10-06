@@ -195,13 +195,16 @@ test('044 actual pointer boundary with profile-only 2008 education persists visi
   const human=structuredClone(document.advanced.scene.objects.find(object=>object.semanticRef==='human-event'));
   const records=[],store=new TimelineStore({adapter:{atomicPut:async entries=>records.push(...structuredClone(entries))},entitlement:{schemaVersion:'d1-405.timeline-entitlement.1',access:'FULL',verified:true,canRead:true,canMutate:true}});
   store.document=migrateDocument(document);const before=JSON.stringify(store.document.events),source=await readFile(new URL('../web/js/407f-engineering-adapter.js',import.meta.url),'utf8');
+  const paintedBefore=resolveFounderPresentationSvg(serializeFounderPresentation(store.document,renderOptions).svg).nodes.find(node=>node.semanticRef==='displayed-work'&&node.sourceAttributes['data-continuous-duration-arrow']);
   const begin=source.indexOf('if(axisPointer){',source.indexOf('const years=pending.preview')-1500),branch=source.slice(begin,source.indexOf('if(railPointer){',begin));
   const weights=Array.from({length:15},(_,index)=>({id:String(2012+index),weight:index===11?2.25:index===12?1.25:1}));
   const segment=()=>({dataset:{advancedAxisDragging:'1'},removeAttribute(){}}),messages=[];
   new Function('pending','event','store','finishHumanAxisEdit','setAxisPresentationOverride','setAxisSegmentWeights','syncBridgeStateFromStore','canvasController','bridge','showAdvancedAxisBoundaryHandles','announceGlobal','let axisPointer=pending;'+branch)({left:segment(),right:segment(),preview:weights,moved:true},{type:'pointerup'},store,result=>applyHumanAxisPresentation407F(store.document,result,renderOptions),setAxisPresentationOverride,setAxisSegmentWeights,()=>{},{setUiState(){}},{toast:message=>messages.push(message)},()=>{},()=>{});
   assert.deepEqual(store.document.presentationOverrides.axis.segmentWeights,weights);assert.ok(messages.includes('Year widths updated'));
   assert.equal(JSON.stringify(store.document.events),before);assert.deepEqual(store.document.advanced.scene.objects.find(object=>object.semanticRef==='human-event'),human);
-  const geometry=store.document.advanced.scene.objects.find(object=>object.semanticRef==='displayed-work').geometry;assert.equal(geometry.y,450);
+  const geometry=store.document.advanced.scene.objects.find(object=>object.semanticRef==='displayed-work').geometry;
+  const paintedAfter=resolveFounderPresentationSvg(serializeFounderPresentation(store.document,renderOptions).svg).nodes.find(node=>node.semanticRef==='displayed-work'&&node.sourceAttributes['data-continuous-duration-arrow']);
+  assert.ok(Math.abs(geometry.y-paintedBefore.bounds.y)<.04);assert.ok(Math.abs(paintedAfter.bounds.y-paintedBefore.bounds.y)<.04);
   await store.saveNow('SYNTHETIC_PROFILE_AXIS_TEST');const saved=JSON.parse(JSON.stringify(records.find(entry=>entry.store==='documents').value.document));
   assert.deepEqual(saved.presentationOverrides.axis.segmentWeights,weights);assert.deepEqual(saved.events,store.document.events);
   const savedProjection=await projectLayoutCritic(saved,renderOptions);assert.equal(savedProjection.input.axis.editable,false);assert.deepEqual(saved.advanced.scene.objects.find(object=>object.semanticRef==='human-event'),human);
@@ -532,7 +535,7 @@ test('044 actual human boundary and Reset automatic restore density for retained
   assert.ok(Math.max(...effective)-Math.min(...effective)>.1,'AI-owned geometry does not turn the automatic year ribbon uniform');
   assert.match(renderAdvancedPresentationControls(store.document),/data-axis-override-mode><option value="automatic" selected>/);
   for(const object of store.document.advanced.scene.objects){
-    const pose=poses.get(object.semanticRef);for(const key of ['y','height','rotation'])assert.equal(object.geometry[key],pose[key]);
+    const pose=poses.get(object.semanticRef);for(const key of ['y','height','rotation'])assert.ok(Math.abs(object.geometry[key]-pose[key])<.04,'native paint rounding preserves '+key);
     assert.equal(object.presentation.localLayoutCriticAuto,true);
   }
   const afterPaint=flagPaint(store.document,'degree',options);assert.equal(afterPaint.template.poleFootY,125);
@@ -722,4 +725,22 @@ test('B1 Details suppresses retained selection handles/quickbar, queued stale cr
  const run=()=>execute(()=>open,()=>direct++,()=>hover++,()=>menus++,null,null,null,null,null,()=>{},controller,{document:{mode:'advanced'}},selection=>{assert.deepEqual(selection,state.advancedSelection);restored++;});
  run();assert.deepEqual([direct,hover,menus,restored],[1,1,1,0]);open=false;controller.state={...state,detailsEventId:null};run();assert.equal(restored,1,'existing render synchronization restores retained selection after close');assert.equal(JSON.stringify(state),before);
  const queued=source.slice(source.indexOf('const showAdvancedDirectSelection='),source.indexOf('const showAdvancedDirectSelection=')+650);assert.match(queued,/clearAdvancedDirectSelection\(\);\s*if\(advancedDialogOpen\(\)\)return;/);
+});
+
+
+test('044 basic year drag retains an unpinned chronological spine while date X and durations reflow',()=>{
+  const document=migrateDocument({id:'synthetic-v1-reflow',mode:'advanced',layoutLock:false,studentProfile:{fullName:'Synthetic Applicant'},events:Array.from({length:9},(_,i)=>({id:'v1-'+i,title:'Experience '+i,categoryId:'work',eventType:'duration',startDate:(2018+i)+'-03',endDate:(2018+i)+'-09',visibilityState:'INTERVIEWER_SAFE',fields:{siteName:'Institution '+i,roleTitle:'Role '+i,country:'United States',city:'City'}}))});
+  const options={scope:'EVERYTHING',showEmptySlots:false};
+  const bodies=doc=>resolveFounderPresentationSvg(serializeFounderPresentation(doc,options).svg).nodes.filter(n=>n.sourceAttributes['data-continuous-duration-arrow']);
+  const before=bodies(document),source=structuredClone(document.events);
+  const current=serializeFounderPresentation(document,options).scene.composedAxis;
+  const range=setAxisPresentationOverride(document,{startYear:current.startYear,endYear:current.endYear,includeFuture:false});
+  const weights=current.segmentWeights.filter(item=>item.id!=='FUTURE').map(item=>({...item,weight:Math.min(8,Math.max(.25,item.weight*(item.id==='2025'?1.3:item.id==='2024'?.8:1)))}));
+  const change=applyHumanAxisPresentation407F(document,setAxisSegmentWeights(range.document,weights),options);
+  assert.equal(change.changed,true,change.error);const after=bodies(change.document);assert.equal(after.length,before.length);
+  for(const body of before){const next=after.find(n=>n.semanticRef===body.semanticRef);assert.ok(Math.abs(body.bounds.y-next.bounds.y)<.04,body.semanticRef+' preserves actual chronological Y');}
+  assert.ok(after.some(n=>Math.abs(n.bounds.x-before.find(b=>b.semanticRef===n.semanticRef).bounds.x)>.04),'date positions reflow');
+  assert.deepEqual(change.document.events,source);
+  const second=applyHumanAxisPresentation407F(change.document,setAxisSegmentWeights(change.document,weights.map(x=>({...x,weight:Math.min(8,x.weight*(x.id==='2025'?1.05:1))}))),options);
+  assert.equal(second.changed,true,second.error);for(const body of after)assert.ok(Math.abs(body.bounds.y-bodies(second.document).find(n=>n.semanticRef===body.semanticRef).bounds.y)<.04);
 });
