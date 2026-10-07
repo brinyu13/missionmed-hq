@@ -11,24 +11,52 @@ def git(*args): return subprocess.check_output(['git', *args], cwd=ROOT, stderr=
 def write(p, v): p.write_text(json.dumps(v, indent=2)+'\n')
 def main():
     if sys.argv[1:] != ['--execute']: print('DORMANT'); return
-    approval = json.loads((HERE/'ADMISSION.json').read_text())
-    sources = {n:sha(HERE/n) for n in ['register_closeout.py','RECONCILIATION.md','LIVE_READBACK.json']}
+    approval = json.loads((HERE/'ADMISSION_R3.json').read_text())
+    sources = {n:sha(HERE/n) for n in ['register_closeout.py','RECONCILIATION.md','LIVE_READBACK.json','FAILED_OWNED_PATHS_R2.json']}
     assert approval['verdict']=='APPROVE' and approval['reviewer']==REVIEWER
     assert approval['sources']==sources and time.time()<approval['expiresUnix']<=time.time()+3600
-    assert git('rev-parse','HEAD')==approval['osHead'] and git('status','--porcelain')==''
-    assert all(not (HERE/n).exists() for n in ['CONSUMED.json','STAGED.json','STAGED_APPROVAL.json','CUSTODY.json'])
+    assert git('rev-parse','HEAD')==approval['osHead']
+    assert all(not (HERE/n).exists() for n in ['CONSUMED_R3.json','STAGED.json','STAGED_APPROVAL.json','CUSTODY.json'])
     sys.path.insert(0,str(ROOT/'tools'));sys.path.insert(0,str(HERE.parent))
-    from mission_registry_registrar import MissionRegistryRegistrar,canonical_decision_numbers
-    from engineering_os_lease import SupabaseLeaseClient
+    from mission_registry_registrar import MissionRegistryRegistrar,canonical_decision_numbers,RegistryLeaseKeeper
+    from engineering_os_lease import SupabaseLeaseClient,binding_sha256
     import lease_transport as transport
     assert sha(HERE.parent/'lease_transport.py')=='6bab4c948b28202b7a803228f2123d5c95137030f16eb129c427b4ddcc487cad'
     decision=f'DR-{max(canonical_decision_numbers(ROOT))+1:03d}'
     dpath=f'decisions/{decision}_ir_postdeployment_reconciliation.md'
     hpath='handoffs/from_codex/IR_INTERVIEW_READY_0002/REGISTRATION_TO_CODEX.md'
     paths=sorted([dpath,hpath,'CURRENT.md','missions.json','products_index.json','authority_index.json','registry/boot_dependency_manifest.json','PRODUCT_PASSPORTS/interview-ready.md','decisions/DR-375_ir_phase1_production_authority.md','decisions/DR-376_ir_phase1_bounded_execution_annex.md'])
-    with (HERE/'CONSUMED.json').open('x') as f: json.dump({'approvalSha256':sha(HERE/'ADMISSION.json')},f)
+    with (HERE/'CONSUMED_R3.json').open('x') as f: json.dump({'approvalSha256':sha(HERE/'ADMISSION_R3.json')},f)
     key=transport.retrieve_existing_key();assert transport.authentication_probe(key)==200
     client=SupabaseLeaseClient(base_url=transport.BASE_URL,project_ref=transport.PROJECT,api_key=key,opener=transport.ApikeyOnlyLeaseOpener(key,SupabaseLeaseClient._open_no_redirect))
+    # Recover only this process's preserved failed candidate under a normal fence.
+    owned=json.loads((HERE/'FAILED_OWNED_PATHS_R2.json').read_text())
+    assert sorted(owned)==paths
+    assert sorted(git('diff','--name-only').splitlines())==sorted(p for p in paths if p!=dpath)
+    assert git('diff','--cached','--name-only')==''
+    assert git('status','--porcelain','--untracked-files=all').count('?? ')==1
+    assert all(sha(ROOT/p)==h and sha(HERE/'FAILED_OWNED_CANDIDATE_R2'/p)==h for p,h in owned.items())
+    binding=binding_sha256({'mission_id':MISSION,'owner_id':'codex-ir-phase1-foreman','session_id':'ir-closeout-owned-recovery-20261007','scope':'REGISTRY:MISSIONMED-OS','write_paths':paths})
+    handle=client.acquire_registry_waiting(write_paths=paths,owner_id='codex-ir-phase1-foreman',session_id='ir-closeout-owned-recovery-20261007',binding=binding,wait_timeout=60)
+    keeper=None
+    try:
+        keeper=RegistryLeaseKeeper(client,handle,interval_seconds=5).start()
+        keeper.heartbeat_now()
+        assert git('rev-parse','HEAD')==approval['osHead']
+        for p,h in owned.items():
+            assert sha(ROOT/p)==h and sha(HERE/'FAILED_OWNED_CANDIDATE_R2'/p)==h
+            if p==dpath:(ROOT/p).unlink()
+            else:(ROOT/p).write_bytes(subprocess.check_output(['git','show','HEAD:'+p],cwd=ROOT))
+        assert git('status','--porcelain')==''
+        baseline_lint=subprocess.run(['python3',str(ROOT/'tools/lint_os.py')],cwd=ROOT,capture_output=True,text=True)
+        assert baseline_lint.returncode==1 and not baseline_lint.stderr
+        baseline_files=['PRODUCT_PASSPORTS/iv-prep-on-call.md','decisions/DR-391_ir_phase1_public_commerce_fallback.md','decisions/DR-393_ivoc_single_founder_embodiment_canary.md','decisions/DR-394_ivoc_verified_modal_transport_recovery.md','decisions/DR-395_mx_dash_6050a_match_tools_rail.md']
+        assert baseline_lint.stdout.splitlines()==['FAIL']+['- em dash found in '+p for p in baseline_files]
+        baseline_hashes={p:sha(ROOT/p) for p in baseline_files+['tools/lint_os.py']}
+        keeper.heartbeat_now()
+    finally:
+        if keeper is not None:keeper.release()
+        else:client.release(handle)
     txn=None
     try:
         txn=MissionRegistryRegistrar(ROOT,client).begin(mission_id=MISSION,write_paths=paths,owner_id='codex-ir-phase1-foreman',session_id='ir-closeout-20261007',decision_count=1,wait_timeout=60,heartbeat_interval=5)
@@ -46,13 +74,18 @@ def main():
             found[0]['status']='public_commerce_live_verified_accounts_phase11_deferred';found[0]['active_mission']=None;found[0]['authority'].append(decision);found[0]['release_note']=f'{decision}: Option5, exact imagery and official branding live; source f23a60a; release9511a1d2; account/admin acceptance deferred.';write(p,v)
             p=ROOT/'authority_index.json';v=json.loads(p.read_text());v['entries'].insert(0,{'id':f'IR_CLOSEOUT_{decision.replace("-","_")}','title':'Interview Ready post-deployment reconciliation and public-commerce closure','path':dpath,'level':1,'scope_tags':['interview_ready','guarded_release','lease_v2'],'status':'POST_DEPLOYMENT_RECONCILIATION_CLOSED','filing_status':'CANONICAL_PUSH_AND_REMOTE_READBACK_REQUIRED','verification_status':'PUBLIC_COMMERCE_LIVE_VERIFIED_ACCOUNTS_DEFERRED','external_state_controls':False,'successor':None,'ratified_by':'Brian','mission_id':MISSION,'registration_paths':paths});write(p,v)
             p=ROOT/'registry/boot_dependency_manifest.json';v=json.loads(p.read_text());profile=v['mission_profiles'][MISSION];profile['required_state']='done';profile['authority_markers'].append(decision);profile['os_dependencies'].append(dpath);write(p,v)
-            annex=f'\n\n## Post-deployment reconciliation — 2026-10-07 ({decision})\n\nSee `{dpath}`. October6 actual pointer moves d4439bb8→c5604978→9511a1d2 recorded AFTER deployment. No new historical lease/DR existed for these promotions; none is fabricated here. Founder final takeover authorizes retaining verified live public commerce and closure. Historical pending paragraphs above are superseded only for this public-commerce closure. Account/Admin Phase1.1 and Phase2 deferred; gateway/auth/Matrix guards preserved; no new source or runtime operation. Evidence/custody in product `_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/CLOSEOUT_20261007/` and original Claude OPTION5_20261006 handoff/receipts.\n'
+            annex=f'\n\n## Post-deployment reconciliation - 2026-10-07 ({decision})\n\nSee `{dpath}`. October6 actual pointer moves d4439bb8→c5604978→9511a1d2 recorded AFTER deployment. No new historical lease/DR existed for these promotions; none is fabricated here. Founder final takeover authorizes retaining verified live public commerce and closure. Historical pending paragraphs above are superseded only for this public-commerce closure. Account/Admin Phase1.1 and Phase2 deferred; gateway/auth/Matrix guards preserved; no new source or runtime operation. Evidence/custody in product `_AI_HANDOFFS/from_codex/IR-INTERVIEW-READY-0002/CLOSEOUT_20261007/` and original Claude OPTION5_20261006 handoff/receipts.\n'
             for name in ['PRODUCT_PASSPORTS/interview-ready.md',hpath,'decisions/DR-375_ir_phase1_production_authority.md','decisions/DR-376_ir_phase1_bounded_execution_annex.md']:
                 p=ROOT/name;p.write_text(p.read_text()+annex)
             import mmos_status;mmos_status.ROOT=ROOT;(ROOT/'CURRENT.md').write_text('\n'.join(mmos_status.build_current())+'\n')
-            subprocess.run(['python3',str(ROOT/'tools/validate_boot_dependencies.py'),'--hq-git-dir','/Users/brianb/MissionMed/.git','--os-root',str(ROOT),'--mission-profile',MISSION],check=True)
-            subprocess.run(['python3',str(ROOT/'tools/lint_os.py')],cwd=ROOT,check=True)
+            subprocess.run(['python3',str(ROOT/'tools/validate_boot_dependencies.py'),'--hq-git-dir','/Users/brianb/MissionMed/.git','--os-root',str(ROOT)],check=True)
+            assert m['state']=='done' and profile['required_state']=='done'
             subprocess.run(['git','add','--',*paths],cwd=ROOT,check=True)
+            candidate_lint=subprocess.run(['python3',str(ROOT/'tools/lint_os.py')],cwd=ROOT,capture_output=True,text=True)
+            assert candidate_lint.returncode==baseline_lint.returncode and candidate_lint.stdout==baseline_lint.stdout and candidate_lint.stderr==baseline_lint.stderr
+            assert baseline_hashes=={p:sha(ROOT/p) for p in baseline_hashes}
+            write(HERE/'LINT_BASELINE.json',{'status':'GLOBAL FAIL; ZERO NEW FINDINGS','canonicalBase':approval['osHead'],'baseline':baseline_lint.stdout.splitlines(),'candidate':candidate_lint.stdout.splitlines(),'unchangedHashes':baseline_hashes})
+            print('GLOBAL_LINT_FAIL_ZERO_NEW_FINDINGS',flush=True)
         txn.revalidate();txn.run_guarded(stage)
         staged={p:sha(ROOT/p) for p in paths};receipt={'paths':staged,'canonicalBase':txn.allocation.remote_head,'decision':decision}
         write(HERE/'STAGED.json',receipt);print('REGISTRY_STAGED_REVIEW_READY',flush=True)

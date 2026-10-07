@@ -1,0 +1,28 @@
+{
+  "status": "GLOBAL FAIL; ZERO NEW FINDINGS",
+  "canonicalBase": "3a45264354084f64be712e92ab532a45e48fe0c7",
+  "baseline": [
+    "FAIL",
+    "- em dash found in PRODUCT_PASSPORTS/iv-prep-on-call.md",
+    "- em dash found in decisions/DR-391_ir_phase1_public_commerce_fallback.md",
+    "- em dash found in decisions/DR-393_ivoc_single_founder_embodiment_canary.md",
+    "- em dash found in decisions/DR-394_ivoc_verified_modal_transport_recovery.md",
+    "- em dash found in decisions/DR-395_mx_dash_6050a_match_tools_rail.md"
+  ],
+  "candidate": [
+    "FAIL",
+    "- em dash found in PRODUCT_PASSPORTS/iv-prep-on-call.md",
+    "- em dash found in decisions/DR-391_ir_phase1_public_commerce_fallback.md",
+    "- em dash found in decisions/DR-393_ivoc_single_founder_embodiment_canary.md",
+    "- em dash found in decisions/DR-394_ivoc_verified_modal_transport_recovery.md",
+    "- em dash found in decisions/DR-395_mx_dash_6050a_match_tools_rail.md"
+  ],
+  "unchangedHashes": {
+    "PRODUCT_PASSPORTS/iv-prep-on-call.md": "42343ee6c469a3f1e97f764efc3b96634806014daf2d6fbb89f376e74ea2466f",
+    "decisions/DR-391_ir_phase1_public_commerce_fallback.md": "0ac4eace2f96ccfbc10864d7a022cba1eb0c6f9c4eeb0bb668dd342e3c532982",
+    "decisions/DR-393_ivoc_single_founder_embodiment_canary.md": "1379d2ac682c31b5502a56c2c2c265b09b6bc9562ca8f81f953c53ed43239138",
+    "decisions/DR-394_ivoc_verified_modal_transport_recovery.md": "71b03141d71bf6aace632176a24f67c9c3202142e200e1d1b16081d79fd4b3cd",
+    "decisions/DR-395_mx_dash_6050a_match_tools_rail.md": "25ef8195ec8af52fa2de43f52c0e823c7b8c2a7ea5accf1d5c547f0bcc371da0",
+    "tools/lint_os.py": "ab341183ecf6286b65ec2ab0a9e147dbe1be8e388abb9ff6c4a38c7594c2d37c"
+  }
+}

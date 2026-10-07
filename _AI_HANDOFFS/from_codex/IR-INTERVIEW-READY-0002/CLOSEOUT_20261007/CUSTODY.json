@@ -1,0 +1,17 @@
+{
+  "head": "40c5bf4eca8ecf3e7eb2164cd22b9758494eda5c",
+  "decision": "DR-396",
+  "paths": {
+    "CURRENT.md": "d2141204b3c8fabafbd7f240dce14d5a5391cf72b8f21f9faf9f417511739615",
+    "PRODUCT_PASSPORTS/interview-ready.md": "94cf6e856ab0d71af06e76bc4004188d1769062f8e7990a09a25a6685e6f09b6",
+    "authority_index.json": "8055f1ceb8ab243ca3fad06e6d2e691faec7f2d9d5f31b3d5ba572683cd99b87",
+    "decisions/DR-375_ir_phase1_production_authority.md": "3db1d889bbf8adb842e173b18b9ae9b86f46e66a792f3bcc6ca3c906ef2f3bfd",
+    "decisions/DR-376_ir_phase1_bounded_execution_annex.md": "2009e2096b4f0414fd0f16c5cae13947e1078867d38a4b7d9edb981046d1924c",
+    "decisions/DR-396_ir_postdeployment_reconciliation.md": "b4dba2465cefd2e36c76361323c09ff8103cb6ab4218593c398f54d9750d441d",
+    "handoffs/from_codex/IR_INTERVIEW_READY_0002/REGISTRATION_TO_CODEX.md": "88ad8ce69796746114fc99ad389dfd2cf59d0f57ff02f30f38db6f072928c36e",
+    "missions.json": "5c6efb1958c84b10264ba426b478d42fbc5bc3e7826f642712ef6e57cfec3581",
+    "products_index.json": "5f45bf60e2fb834992d39be14713c9f5b78799a09229c5baddfd6376b67a621c",
+    "registry/boot_dependency_manifest.json": "c903cfe098fcab88737c9e308342a8e7cd8de467caa3bec75ae0634ee8ce3542"
+  },
+  "registryReleased": true
+}
