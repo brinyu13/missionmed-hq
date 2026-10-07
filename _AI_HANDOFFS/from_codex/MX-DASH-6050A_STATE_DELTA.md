@@ -72,3 +72,58 @@ Risk HIGH (bounded production presentation). Learning: explicit granted-true bra
 - Protective rollback restored exact preimage SHA `42fd275186137493869d88c1b9288ddda7ac246355e8dd32c22992d18e216b1e`, verified by origin readback. Private rollback: `/www/theresidencyacademy_209/private/mx-dash-6050a-timeline-rollback-20261007T1814Z/before.php`. Minimal site-cache purge reported success; existing CLI shutdown exit255 persisted. No live browser recovery proof yet.
 - All four preserved production runtime checksum checks PASS after rollback; runtime lock unchanged, atomic deployment scratch absent. Candidate remains on the task branch, NOT the current live file. Timeline rail request remains incomplete; existing live rail predates restoration.
 - New unexpected initialization behavior triggers AGENTS risk hard stop. No further product mutation until bounded investigation/resumption. Fresh provider lease5223 rollback released true. Final documentation lease/provider readback must also be clear. Do not consume authority as successful or mark mission done.
+
+## Timeline Builder restoration recovery — 2026-10-07 — LIVE VERIFIED
+
+Supersedes the rolled-back partial verdict above. Existing Timeline Builder now appears
+under INTERVIEW SEASON after RankList IQ and before IV Ready Gear, retaining the
+owner's /timeline/ route, original link node, aria label, handlers and access attributes.
+Implementation: c76a186c12ddce75f701b71ea53ebf1bcc7048e4.
+Live extension SHA256: 00f409af047c2989e427ac467043cb5dc102733f68300d86afbcb8b44b99fcf3.
+
+Root cause: the prior organizer renamed the Timeline owner's canonical text to
+Timeline Builder; matrix-launch.js normalized it back to Timeline. Their childList
+observers could ping-pong indefinitely. The extension now preserves owner text and
+adds the presentation-only Builder suffix via CSS, requiring no launcher/shared edit.
+
+Focused existing tests PASS, now also running the byte-verified production Timeline
+owner in both script orders with late mutations and a responsive timer. Locked/unlocked,
+omitted eligibility, original nodes/locks/handlers, maturity map, Classic, desktop and
+390x844 fixtures PASS. PHP lint and whitespace checks PASS. Independent Sol review
+of exact c76a186 and extension hash PASS; independently reran focused suite/lint.
+Original donor SHA81ba7606e006efcee9a3015098a7b49848225066d454a7eb546c99d696e9fb78.
+
+Deployment used granted SHARED:MATRIX-SHELL epoch5238, automatic heartbeat and
+explicit release true. Fresh readable private rollback:
+ /www/theresidencyacademy_209/private/mx-dash-6050a-timeline-repair-20261007T184456Z/before.php
+Rollback preimage SHA42fd275186137493869d88c1b9288ddda7ac246355e8dd32c22992d18e216b1e.
+Only the MU extension was atomically replaced; scratch absent. Four current origin
+preimages (Timeline launcher, student-os JS/CSS, class-mmed-student-os.php) matched
+before/after. The current class file is b3f797c7...4ac02d, separately pinned at this run;
+do not confuse it with the prior handoff's differently named shell PHP artifact.
+Runtime lock unchanged under the exact student_os_js override. No app, entitlement,
+student data, shared Matrix JS/CSS/PHP, USCE, Arena or other product changed.
+
+Site-cache purge printed success, retaining the known CLI shutdown exit255; actual
+post-purge authenticated normal-URL readback establishes the live result. Desktop
+menu click opened /timeline/ and fully loaded the administrator workspace, roster20.
+Return to Matrix worked. At390x844, the menu row was visibly present in the correct
+season/order, document scrollWidth390; clicking again reached /timeline/. Responsive
+Chrome verification is not physical-device touch or a fresh student-account login.
+Existing access/locks were preserved byte-for-byte and exercised in focused fixtures;
+no real student account or production applicant data was modified. Browser warnings
+and errors were empty on the dashboard. Emulation cleared; normal desktop restored.
+
+Actual browser evidence:
+ /Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/MX-DASH-6050A/timeline-restored-live-desktop-20261007.png
+ /Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/MX-DASH-6050A/timeline-restored-live-mobile-20261007.png
+
+Coordination disclosure: first resumption Registry epoch5228 expired before authority
+commit df2be28; no production/product mutation occurred then. Disclosure reconciliation
+commit80d693 was validly fenced but first push raced unrelated canonical filing; normal
+merge f276c15 and push under fresh epoch5235 preserved both histories, release true.
+DR-395 records the violation rather than retroactively legitimizing it. Subsequent
+product steps used fresh granted/heartbeat claims5236/5237/5238 and explicit release true.
+Current documentation claim is separately acquired/released; final native zero active
+task claims/waiters readback follows. This terminal live verdict consumes the bounded
+renewal. No further product mutation authorized by this handoff.
