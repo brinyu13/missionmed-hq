@@ -10,9 +10,9 @@ const room=readFileSync(new URL('../../public/studio-fable/app/room.mjs',import.
 test('semantic curiosity and prompt responses are startup policy, not dependent on a lexical Director hint',()=>{
   const instructions=buildLiveInterviewInstructions({goal:'Full interview simulation',questionIds:['CORE-01'],targetQuestions:1,interviewer:'Program Director · balanced',pressurePractice:false,program:'Internal Medicine · RISE seam',environment:'RISE + StoryForge seams'},
     {receipt:'ctxpack:bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb@'+'c'.repeat(64),actorBlock:'AUTHORIZED APPLICATION CONTEXT\nNo applicant facts provided.'});
-  assert.match(instructions,/Listen to the meaning of the whole answer, not keyword matches/);
+  assert.match(instructions,/silently compare the actual answer with what you asked/);
   assert.match(instructions,/do not wait for an application hint/);
-  assert.match(instructions,/Do not chase resolved stories, irrelevant tangents or withheld\/private details/);
+  assert.match(instructions,/Do not chase an irrelevant tangent or withheld\/private details/);
   assert.match(instructions,/Do you have any questions for me/);
 });
 test('production partial-answer path never forces move-on or interrupts native speech with strong objectives',()=>{
