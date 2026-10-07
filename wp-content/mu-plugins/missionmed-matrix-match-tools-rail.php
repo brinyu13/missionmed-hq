@@ -41,7 +41,7 @@ function mmed_match_tools_rail_6050a() {
         var groups = [
             ['FULL SEASON', ['HomeBase', 'RISE', 'StoryForge', 'File Vault']],
             ['APPLICATION PERIOD', ['PS Forge', 'LOR Studio']],
-            ['INTERVIEW SEASON', ['Interview IQ', 'IV Prep On-Call', 'RankList IQ', 'IV Ready Gear']]
+            ['INTERVIEW SEASON', ['Interview IQ', 'IV Prep On-Call', 'RankList IQ', 'Timeline Builder', 'IV Ready Gear']]
         ];
         // Founder-authoritative product maturity only; never used for access decisions.
         var maturity = {
@@ -76,6 +76,8 @@ function mmed_match_tools_rail_6050a() {
                     if (label) { entries[key(label.textContent)] = { item: link.parentElement, link: link, label: label }; }
                 });
                 var gear = entries.ivreadygear;
+                // The owning launcher labels its existing Timeline Builder node "Timeline".
+                if (!entries.timelinebuilder && entries.timeline) { entries.timelinebuilder = entries.timeline; }
                 if (!gear) {
                     var item = document.createElement('li');
                     var link = document.createElement('a');

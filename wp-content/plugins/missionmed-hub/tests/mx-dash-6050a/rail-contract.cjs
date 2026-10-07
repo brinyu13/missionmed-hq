@@ -6,7 +6,7 @@ const source = fs.readFileSync(path.resolve(__dirname, '../../../../mu-plugins/m
 const script = source.match(/<script id="mmed-match-tools-rail-6050a">([\s\S]*?)<\/script>/)[1];
 const style = source.match(/<style id="mmed-match-tools-rail-status-6050a">([\s\S]*?)<\/style>/)[1];
 const names = ['StoryForge', 'RISE', 'Timeline', 'HomeBase', 'Arena', 'File Vault', 'PSForge', 'RankList IQ', 'LOR Studio', 'IV Prep On-Call', 'InterviewIQ'];
-const wanted = ['HomeBase', 'RISE', 'StoryForge', 'File Vault', 'PS Forge', 'LOR Studio', 'Interview IQ', 'IV Prep On-Call', 'RankList IQ', 'IV Ready Gear'];
+const wanted = ['HomeBase', 'RISE', 'StoryForge', 'File Vault', 'PS Forge', 'LOR Studio', 'Interview IQ', 'IV Prep On-Call', 'RankList IQ', 'Timeline Builder', 'IV Ready Gear'];
 const statuses = ['🚧 In Development','✓ Ready','✓ Ready','✓ Ready','🚧 In Development','◇ Preview','◇ Preview','◇ Preview','◇ Preview','✓ Ready'];
 function fixture(experience, locked, omit = []) {
   const links = names.filter(n => !omit.includes(n)).map((name, i) => `<li><a class="sos-nav-link" data-original="${i}" href="${locked ? 'javascript:void(0)' : '#app-' + i}" ${locked ? 'data-locked="true" aria-disabled="true" data-route="app-' + i + '"' : ''}><span class="sos-nav-icon">XX</span><span>${name}</span>${locked ? '<svg class="sos-nav-lock-icon"></svg>' : ''}</a></li>`).join('');
@@ -36,16 +36,23 @@ function fixture(experience, locked, omit = []) {
       return a===document.querySelector('[data-original="'+i+'"]') && ['href','data-locked','aria-disabled','data-route','class'].every(k=>a.getAttribute(k)===b.getAttribute(k)) && a.querySelectorAll('svg').length===b.querySelectorAll('svg').length;
     }));
     assert.equal(preserved,true);
+    assert.equal(await page.locator('[data-original="2"]').isEnabled(),!locked);
+    assert.equal(await page.locator('[data-original="2"] .mmed-rail-status').count(),0);
+    await page.locator('[data-original="2"]').click({timeout:2000,force:true});
+    assert.equal(await page.evaluate(()=>clicks),1);
     assert.equal(await page.locator('[data-original="0"]').isEnabled(),!locked);
     await page.locator('[data-original="0"]').click({timeout:2000,force:true});
-    assert.equal(await page.evaluate(()=>clicks),1);
+    assert.equal(await page.evaluate(()=>clicks),2);
     assert.equal(await page.getByText('IV Ready Gear',{exact:true}).locator('..').getAttribute('href'),'https://missionmedinstitute.com/interview-ready/#home');
     // Owner rerenders and late eligibility-controlled injections remain safe.
     await page.evaluate(()=>{document.querySelector('.sos-nav-list').appendChild(document.createElement('li'));});
     await page.waitForTimeout(50);
     assert.deepEqual(await page.locator('li:not([hidden]) > a > span:nth-child(2)').allTextContents(),wanted);
   }
-  await page.setContent(fixture('matrix2',false,['InterviewIQ','LOR Studio']));
+  await page.setContent(fixture('matrix2',false).replace('>Timeline</span>','>Timeline Builder</span>'));
+  assert.equal(await page.getByText('Timeline Builder',{exact:true}).count(),1);
+  await page.setContent(fixture('matrix2',false,['InterviewIQ','LOR Studio','Timeline']));
+  assert.equal(await page.getByText('Timeline Builder',{exact:true}).count(),0);
   assert.equal(await page.getByText('Interview IQ',{exact:true}).count(),0);
   assert.equal(await page.getByText('LOR Studio',{exact:true}).count(),0);
   await page.evaluate(()=>{const li=document.createElement('li');li.innerHTML='<a class="sos-nav-link" href="/interviewiq/"><span class="sos-nav-icon">IQ</span><span>InterviewIQ</span></a>';document.querySelector('.sos-nav-list').appendChild(li);});
