@@ -1,3 +1,4 @@
+import {threeboxCommands,threeboxEnabled,requireThreebox,threeboxEvidence,readThreebox,writeThreebox} from './threebox.mjs';
 import {syncCalendarProjection} from './calendar-cohort.mjs';
 import {intakeCommands,requireIntake,intakeEnabled,writeIntake,readIntake} from './interview-intake.mjs';
 import {myerasCommands,requireMyeras,previewImport,importPrograms} from './myeras-import.mjs';
@@ -27,6 +28,7 @@ export function createCommands({database,owners,config,clock,speechAvailable=fal
   async function execute(actor,body,{revalidateActor}={}) {
     coreActor(actor,config);
     const envelope=targetEnvelope(body);
+    if(threeboxCommands.has(envelope.command)){requireThreebox(config,actor);requireValue(envelope.targetKind!=='program'&&envelope.interviewId,'threebox_interview_required','Choose your existing interview.');}
     if(intakeCommands.has(envelope.command))requireIntake(config,actor);
     if(targetCommands.has(envelope.command))requireValue(envelope.targetKind==='program','invalid_loi_target','Use an explicit program letter target.');
     if(envelope.targetKind==='program')requireTargets(config,actor);
@@ -34,9 +36,10 @@ export function createCommands({database,owners,config,clock,speechAvailable=fal
     if(loiCommands.has(envelope.command))requireLoi(config,actor);
     if(compositionCommands.has(envelope.command))return executeComposition({database,actor,envelope,owners,config,clock,revalidateActor,composer:loiComposer,proseComposer:loiProseComposer,bootstrap});
     if(config.coreOnly) {
-      requireValue(coreCommands.has(envelope.command)||intakeEnabled(config,actor)&&intakeCommands.has(envelope.command)||envelope.targetKind==='program'&&targetCommands.has(envelope.command)||loiEnabled(config,actor)&&loiCommands.has(envelope.command)||envelope.command==='research.check'&&deepResearchEnabled(config,actor)||researchEnabled(config,actor)&&researchCommands.has(envelope.command),'coming_soon','COMING SOON — this integration is not active. Your saved calendar is unchanged.',503);
+      requireValue(threeboxEnabled(config,actor)&&threeboxCommands.has(envelope.command)||coreCommands.has(envelope.command)||intakeEnabled(config,actor)&&intakeCommands.has(envelope.command)||envelope.targetKind==='program'&&targetCommands.has(envelope.command)||loiEnabled(config,actor)&&loiCommands.has(envelope.command)||envelope.command==='research.check'&&deepResearchEnabled(config,actor)||researchEnabled(config,actor)&&researchCommands.has(envelope.command),'coming_soon','COMING SOON — this integration is not active. Your saved calendar is unchanged.',503);
       requireValue(!envelope.data.program||envelope.command==='mission.create'||envelope.targetKind==='program'&&targetCommands.has(envelope.command)||deepResearchEnabled(config,actor)||loiCanonicalLookup(config,actor)&&['interview.create','interview.identity'].includes(envelope.command)&&loiProgramAllowed(config,actor,envelope.data.program),'coming_soon','Canonical program lookup is not available for this selection. Enter the program name from your invitation.',503);
     }
+    if(['threebox.read','threebox.evidence'].includes(envelope.command)){requireValue(Object.keys(envelope.data).length===0,'unexpected_fields','This read accepts no additional fields.');return database.withActor(actor,async db=>{await db.query('SET TRANSACTION READ ONLY');const ctx={db,actor,...envelope,owners,config,clock};return envelope.command==='threebox.evidence'?threeboxEvidence(ctx):readThreebox(ctx);});}
     if(envelope.command==='intake.read'){requireValue(Object.keys(envelope.data).length===0,'unexpected_fields','This read accepts no additional fields.');return database.withActor(actor,async db=>{await db.query('SET TRANSACTION READ ONLY');return {type:'intake',interviewId:envelope.interviewId,intake:await readIntake({db,actor,...envelope,owners,config})};});}
     if(envelope.command==='myeras.preview')return database.withActor(actor,async db=>{await db.query('SET TRANSACTION READ ONLY');return previewImport({db,actor,...envelope,config,owners,clock});});
     if(['loitarget.read','loitarget.list','loitarget.saved'].includes(envelope.command)){return database.withActor(actor,async db=>{await db.query('SET TRANSACTION READ ONLY');const ctx={db,actor,...envelope,config,owners,clock};if(envelope.command==='loitarget.saved')return {type:'loi_saved',savedPrograms:await savedPrograms(ctx)};requireValue(Object.keys(envelope.data).length===0,'unexpected_fields','This read accepts no additional fields.');if(envelope.command==='loitarget.list')return {type:'loi_targets',...(await readTargets(ctx,loiHistory))};const row=await ownedTarget(ctx);const {rows:consents}=await db.query("SELECT subject_ref,status FROM iiq.consents WHERE owner_id=$1 AND scope='storyforge'",[actor.id]);return {type:'loi_target',target:targetView(row,loiHistory(row.anchors,{...row,targetKind:'program'},consents))};});}
@@ -77,6 +80,7 @@ export function createCommands({database,owners,config,clock,speechAvailable=fal
       else if(envelope.command==='myeras.import')result=await importPrograms(context);
       else if(targetCommands.has(envelope.command))result=await writeTarget(context);
       else if(loiCommands.has(envelope.command))result=await writeLoi(context);
+      else if(threeboxCommands.has(envelope.command))result=await writeThreebox(context);
       else if(envelope.command==='prep.save')result=await writePreparation(context);
       else if(learningCommands.has(envelope.command))result=await writeLearning(context);
       else if(['story.consent','rank.consent'].includes(envelope.command))result=await writeConsent(context);

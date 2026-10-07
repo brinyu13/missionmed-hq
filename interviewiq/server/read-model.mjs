@@ -1,3 +1,4 @@
+import {threeboxEnabled,attachThreebox} from './threebox.mjs';
 import {calendarEnabled} from './calendar-admission.mjs';
 import {attachIntake,intakeEnabled} from './interview-intake.mjs';
 import {myerasEnabled} from './myeras-import.mjs';
@@ -112,8 +113,9 @@ export async function readModel(db,actor,{owners,config,clock=()=>new Date(),spe
   const profiles=[{id:actor.id,displayName:actor.displayName,tier:actor.tier,approved_stories:stories,...(stories[0]?{approved_story:stories[0]}:{})},
     ...profileRows.filter(x=>x.id!==actor.id).map(x=>({id:x.id,name:x.display_name,displayName:x.display_name}))];
   await attachIntake(db,actor,config,state);
+  await attachThreebox(db,actor,config,state);
   return {actor:{id:actor.id,role:actor.role,displayName:actor.displayName,firstName:actor.firstName,tier:actor.tier,zone:actor.zone},
-    capabilities:{...(calendarEnabled(config,actor)?{calendarV2:true,itinerary:true,adminLogistics:actor.role==='admin'}:{}),...(intakeEnabled(config,actor)?{intakeV2:true}:{}),...(myerasEnabled(config,actor)?{myerasImport:true}:{}),...(compositionEnabled(config,actor)?{loiComposition:true}:{}),...(targetsEnabled(config,actor)?{loiTargets:true}:{}),loi:loiEnabled(config,actor),loiCanonicalLookup:loiCanonicalLookup(config,actor),research,researchMissions:researchEnabled(config,actor),researchByProgram,contributions:state.policy.contributions===true},catalog:{programs,facts:context.facts||[],sources:context.sources||[],profiles,student_zone:actor.zone,registry_release:context.registryRelease||null,storyforgeProjection:context.storyforgeProjection||null,riseProjections:context.riseProjections||{}},
+    capabilities:{threebox:threeboxEnabled(config,actor),...(calendarEnabled(config,actor)?{calendarV2:true,itinerary:true,adminLogistics:actor.role==='admin'}:{}),...(intakeEnabled(config,actor)?{intakeV2:true}:{}),...(myerasEnabled(config,actor)?{myerasImport:true}:{}),...(compositionEnabled(config,actor)?{loiComposition:true}:{}),...(targetsEnabled(config,actor)?{loiTargets:true}:{}),loi:loiEnabled(config,actor),loiCanonicalLookup:loiCanonicalLookup(config,actor),research,researchMissions:researchEnabled(config,actor),researchByProgram,contributions:state.policy.contributions===true},catalog:{programs,facts:context.facts||[],sources:context.sources||[],profiles,student_zone:actor.zone,registry_release:context.registryRelease||null,storyforgeProjection:context.storyforgeProjection||null,riseProjections:context.riseProjections||{}},
     state,version,server_time:current,integrations:{matrix:{available:true,status:'available',url:`${config.publicOrigin}/member-dashboard/`},
       rise:{available:context.status?.rise==='available',status:context.status?.rise||'unavailable',url:`${config.publicOrigin}/rise/`},
       storyforge:{available:context.status?.storyforge==='available',status:context.status?.storyforge||'unavailable',url:`${config.publicOrigin}/storyforge/`},

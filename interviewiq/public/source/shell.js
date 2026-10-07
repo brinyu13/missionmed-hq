@@ -339,7 +339,7 @@ const STAGE_ICON={identify:'🏥',brief:'🔬',why:'💬',rehearse:'🎯',day:'�
 function stageDone(i,k){
   if(k==='identify')return !!i.program;
   if(k==='brief'){if(coreOnly())return false;if(deepResearch())return S.demands[i.id]?.status==='available';return researchState(i).state==='available';}
-  if(k==='why')return !!(S.why[i.id]?.text||'').trim();
+  if(k==='why')return threeboxEnabled()?S.why[i.id]?.threebox?.ready===true:!!(S.why[i.id]?.text||'').trim();
   if(k==='rehearse')return (S.practice?.[i.id]||[]).some(a=>a.feedback);
   if(k==='day')return !!(i.instant&&i.instant<=now());
   if(k==='debrief')return !!S.debriefs[i.id]?.saved;

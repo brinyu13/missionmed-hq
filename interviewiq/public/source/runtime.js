@@ -15,6 +15,10 @@ const ownKeys=['why','questions','practice','debriefs','learning','rank','demand
 const defaultUI=()=>({route:'home',open:null,section:null,essentials:false,printSel:{story:false,note:false,points:false,support:false},sub:{},cal:{ym:new Date().toISOString().slice(0,7),view:'month',sel:null},drawer:null});
 const CORE_COMMANDS=new Set(['interview.create','interview.identity','interview.schedule','interview.lifecycle','event.create','event.update']);
 const CORE_ACTIONS=new Set(['switch-view','nav','matrix','open-interview','open-card','close-interview','close-card','open-section','section','cal-nav','cal-today','cal-view','cal-day','cal-item','drawer-close','add-interview','new-offer','add-interview-save','date-undated','add-related-pick','add-related-save','offer-save','manual-identity-save','disposition','schedule-save','cancel','restore','postpone','waitlist','related-save','related-lifecycle','join-verify']);
+const threeboxEnabled=()=>capabilities.threebox===true&&!studentPreview()&&actor?.role==='student'&&['360','ivprep_complete'].includes(actor.tier);
+const THREEBOX_COMMANDS=new Set(['threebox.read','threebox.evidence','threebox.save','threebox.assemble']);
+const threeboxDrafts=new Map(),threeboxEvidenceCache=new Map();let threeboxEpoch=0;
+function clearThreeboxMemory(){threeboxEpoch++;threeboxDrafts.clear();threeboxEvidenceCache.clear();}
 const coreOnly=()=>capabilities.coreOnly===true;
 const coreRoute=route=>['home','calendar','interviews','letters','settings'].includes(route);
 const deepResearch=()=>capabilities.deepResearch===true&&!studentPreview()&&actor?.role==='student';
@@ -34,9 +38,9 @@ const loiTargetsEnabled=()=>loiEnabled()&&capabilities.loiTargets===true;
 const LOI_TARGET_COMMANDS=new Set(['loitarget.create','loitarget.update','loitarget.read','loitarget.list','loitarget.saved']);
 let loiSavedPage=null,loiTargetSearch=[];
 const LOI_COMMANDS=new Set(['loi.save','loi.approve','loi.evidence','loi.export','loi.handoff','loi.mark_sent']);
-const coreCommand=name=>intakeEnabled()&&INTAKE_COMMANDS.has(name)||myerasEnabled()&&MYERAS_COMMANDS.has(name)||loiCompositionEnabled()&&LOI_COMPOSITION_COMMANDS.has(name)||loiTargetsEnabled()&&LOI_TARGET_COMMANDS.has(name)||loiEnabled()&&LOI_COMMANDS.has(name)||CORE_COMMANDS.has(name)||deepResearch()&&name==='research.check';
-const coreAction=name=>calendarV2()&&(name.startsWith('calendar-')||name.startsWith('itinerary-')||name.startsWith('admin-calendar-'))||intakeVisible()&&name.startsWith('intake-')||myerasEnabled()&&name.startsWith('myeras-')||loiTargetsEnabled()&&name.startsWith('loitarget-')||loiEnabled()&&name.startsWith('loi-')||CORE_ACTIONS.has(name)||loiCanonicalLookup()&&name==='resolve'||deepResearch()&&['resolve','research-refresh','research-advance'].includes(name);
-const coreSection=section=>loiEnabled()&&section==='loi'||deepResearch()&&section==='brief'||['identify','schedule'].includes(section);
+const coreCommand=name=>threeboxEnabled()&&THREEBOX_COMMANDS.has(name)||intakeEnabled()&&INTAKE_COMMANDS.has(name)||myerasEnabled()&&MYERAS_COMMANDS.has(name)||loiCompositionEnabled()&&LOI_COMPOSITION_COMMANDS.has(name)||loiTargetsEnabled()&&LOI_TARGET_COMMANDS.has(name)||loiEnabled()&&LOI_COMMANDS.has(name)||CORE_COMMANDS.has(name)||deepResearch()&&name==='research.check';
+const coreAction=name=>threeboxEnabled()&&name.startsWith('threebox-')||calendarV2()&&(name.startsWith('calendar-')||name.startsWith('itinerary-')||name.startsWith('admin-calendar-'))||intakeVisible()&&name.startsWith('intake-')||myerasEnabled()&&name.startsWith('myeras-')||loiTargetsEnabled()&&name.startsWith('loitarget-')||loiEnabled()&&name.startsWith('loi-')||CORE_ACTIONS.has(name)||loiCanonicalLookup()&&name==='resolve'||deepResearch()&&['resolve','research-refresh','research-advance'].includes(name);
+const coreSection=section=>threeboxEnabled()&&section==='why'||loiEnabled()&&section==='loi'||deepResearch()&&section==='brief'||['identify','schedule'].includes(section);
 function comingSoonBadge(){return '<span class="chip warn" style="font-size:9px;white-space:normal">COMING SOON</span>';}
 function comingSoonPanel(label){return `<div class="panel amber pad" role="status" style="margin-bottom:1rem">${comingSoonBadge()}<h3>${esc(label||'This capability')}</h3><p>This capability is a preview. Its live integration is not active in this release. No recording, research, sharing or remote action will run, and text entered here is not saved.</p><p class="tiny">Your saved interviews and Calendar remain available.</p><button class="btn ghost sm" data-act="nav" data-to="calendar">Open Calendar</button></div>`;}
 function openComingSoon(label){if(!S)return;openDrawer({kind:'coming-soon',label:label||'This capability'});}
@@ -85,6 +89,7 @@ function applyBootstrap(input){
   if(sameActor&&hadMyeras&&b.capabilities?.myerasImport!==true)clearMyerasMemory();
   if(sameActor&&hadComposition&&b.capabilities?.loiComposition!==true)clearLoiCompositionMemory();
   if(sameActor&&hadIntake&&(b.capabilities?.intakeV2!==true||!['360','ivprep_complete'].includes(b.actor.tier)))clearIntakeMemory();
+  if(sameActor&&capabilities.threebox===true&&b.capabilities?.threebox!==true)clearThreeboxMemory();
   if(sameActor&&hadCalendar&&(b.capabilities?.calendarV2!==true||capabilities.adminLogistics===true&&b.capabilities?.adminLogistics!==true))clearCalendarMemory();
   actor={...b.actor,role:normalizeRole(b.actor.role)};capabilities=b.capabilities||{};
   if(!sameActor||hadLookup&&!loiCanonicalLookup()){searchSequence++;clearTimeout(searchTimer);}
@@ -101,6 +106,7 @@ function applyBootstrap(input){
   S.contrib={missions:{},submissions:[],ledger:[],grants:{},...(b.state.contrib||{})};
   S.policy={audit:[],suspended:{},...(b.state.policy||{})};S.lastVisit=b.state.lastVisit||now();
   if(!sameActor)S.ui.cal.ym=ymOf(todayKey());
+  for(const [id,d] of threeboxDrafts){const i=S.interviews.find(i=>i.id===id&&i.owner===actor.id);if(!threeboxEnabled()||!i||d.binding!==threeboxBinding(i)){threeboxDrafts.delete(id);threeboxEvidenceCache.delete(id);}}
   for(const [id,handoff] of loiHandoffs){const i=id.startsWith('program:')?loiTargetSubject(id.slice(8)):S.interviews.find(i=>i.id===id);if(!i||!loiEnabled()||handoff.binding!==loiHandoffBinding(i))loiHandoffs.delete(id);}
   for(const [key,p] of loiProposals){const i=key.startsWith('program:')?loiTargetSubject(key.slice(8)):S.interviews.find(i=>i.id===key);if(!i||!loiCompositionEnabled()||!ownsLoiSubject(i)||i.targetKind==='program'&&i.choice!=='CREATE_LETTER'||p.subjectBinding!==loiSubjectBinding(i))loiProposals.delete(key);}
   for(const [key,e] of loiEvidence)if(key.startsWith('program:')){const i=loiTargetSubject(key.slice(8));if(!i||e.subjectBinding!==loiSubjectBinding(i))loiEvidence.delete(key);}
@@ -110,12 +116,14 @@ async function command(name,interviewId=null,data={},options={}){
   if(studentPreview())throw previewError();
   if(coreOnly()&&!coreCommand(name)){openComingSoon(name.split('.')[0]);return {comingSoon:true};}
   const targetCommand=options.targetKind==='program';if(targetCommand&&!loiTargetsEnabled())throw Error('Program letter access is unavailable.');
+  const threeboxCommand=THREEBOX_COMMANDS.has(name),capturedThreeboxEpoch=threeboxEpoch;
   const intakeCommand=INTAKE_COMMANDS.has(name),capturedIntakeEpoch=intakeEpoch;
   const importCommand=MYERAS_COMMANDS.has(name),importEpoch=myerasEpoch;
   const loiEpoch=loiAuthorityEpoch,compositionCommand=LOI_COMPOSITION_COMMANDS.has(name),compositionEpoch=loiCompositionEpoch,loiCommand=LOI_COMMANDS.has(name)||LOI_TARGET_COMMANDS.has(name)||compositionCommand;
   const identity=actor?.id,requestKey=JSON.stringify([identity,name,targetCommand?{targetKind:'program',targetId:options.targetId}:interviewId,data]);
   const draftSnapshot=savedDraftIds(name,targetCommand?options.targetId:interviewId,data).map(id=>[draftKey(id),pendingDraft(id,undefined)]);
   const work=async()=>{
+    if(threeboxCommand&&(!threeboxEnabled()||capturedThreeboxEpoch!==threeboxEpoch))throw Error('Three-Box access changed. Reopen your interview.');
     if(intakeCommand&&(!intakeEnabled()||capturedIntakeEpoch!==intakeEpoch))throw Error('Interview intake access changed. Your private save cannot continue.');
     if(importCommand&&(!myerasEnabled()||importEpoch!==myerasEpoch))throw Error('Import access changed. Reopen the intended workspace.');
     if(compositionCommand&&(!loiCompositionEnabled()||compositionEpoch!==loiCompositionEpoch))throw Error('Composition access changed. Reopen the intended letter.');
@@ -126,13 +134,14 @@ async function command(name,interviewId=null,data={},options={}){
     try{
       const result=await apiFetch('/commands',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       if(identity!==actor?.id)throw Error('The account changed while this save was in flight. Reopen the intended workspace.');
+      if(threeboxCommand&&(!threeboxEnabled()||capturedThreeboxEpoch!==threeboxEpoch))throw Error('Three-Box access changed while this request was in flight.');
       if(intakeCommand&&(!intakeEnabled()||capturedIntakeEpoch!==intakeEpoch))throw Error('Interview intake access changed while the save was in flight.');
       if(importCommand&&(!myerasEnabled()||importEpoch!==myerasEpoch))throw Error('Import access changed while this request was in flight.');
       if(compositionCommand&&(!loiCompositionEnabled()||compositionEpoch!==loiCompositionEpoch))throw Error('Composition access changed while the request was in flight.');
       if(loiCommand&&(!loiEnabled()||targetCommand&&!loiTargetsEnabled()||loiEpoch!==loiAuthorityEpoch))throw Error('Letter access changed while the request was in flight.');
       pendingCommands.delete(requestKey);
       for(const [key,value] of draftSnapshot)if(draftValues.get(key)===value)draftValues.delete(key);
-      if(result?.bootstrap||result?.actor)applyBootstrap(result);else if(!['loi.evidence','loi.export','loitarget.read','loitarget.list','loitarget.saved','loi.preference_read','loi.generation_read','myeras.preview','intake.read'].includes(name))await refreshWorkspace();
+      if(result?.bootstrap||result?.actor)applyBootstrap(result);else if(!['threebox.read','threebox.evidence','loi.evidence','loi.export','loitarget.read','loitarget.list','loitarget.saved','loi.preference_read','loi.generation_read','myeras.preview','intake.read'].includes(name))await refreshWorkspace();
       const checked=result?.researchCheck,d=checked&&S.demands[checked.interviewId];
       if(deepResearch()&&d&&checked.research&&d.requestId===checked.requestId&&d.programId===checked.programId&&d.registryReleaseId===checked.registryReleaseId&&d.version===checked.version)researchBriefs.set(checked.interviewId,checked);
       if(options.render!==false)render();
@@ -166,7 +175,7 @@ function savedDraftIds(name,id,data){
   if(name==='mentor.nudge')return ['nudge-'+data.studentId];
   return [];
 }
-function clearPrivateMemory(){clearCalendarMemory();
+function clearPrivateMemory(){clearCalendarMemory();clearThreeboxMemory();
   clearIntakeMemory();researchBriefs.clear();clearLoiMemory();draftValues.clear();pendingCommands.clear();void stopSpeech();
   if(typeof pendingAudio!=='undefined')pendingAudio.clear();
   if(typeof speechSessions!=='undefined')speechSessions.clear();

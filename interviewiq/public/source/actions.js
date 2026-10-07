@@ -165,7 +165,7 @@ document.addEventListener('keydown',ev=>{
   if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();A['cal-day']({dataset:{day:cell.dataset.calDay}});}
 });
 document.addEventListener('input',ev=>{
-  const t=ev.target;if(!S||!t.id||!('value'in t)||['password','file'].includes(t.type))return;draftValues.set(draftKey(t.id),t.type==='checkbox'?t.checked:t.multiple?[...t.selectedOptions].map(x=>x.value):t.value);
+  const t=ev.target;if(!S||t.dataset?.tbField||!t.id||!('value'in t)||['password','file'].includes(t.type))return;draftValues.set(draftKey(t.id),t.type==='checkbox'?t.checked:t.multiple?[...t.selectedOptions].map(x=>x.value):t.value);
   if(t.id.startsWith('loi-')&&!t.id.startsWith('loi-composition-')&&!t.id.startsWith('loi-sentConfirmed-')&&!t.id.startsWith('loi-copyText-')){loiHandoffs.delete(S.ui.loiTargetOpen?'program:'+S.ui.loiTargetOpen:S.ui.open);const prepared=document.querySelector('[data-act="loi-gmail"]')?.closest('.panel');if(prepared)prepared.remove();}
   if(t.name==='loi-composition-default'&&loiCompositionEnabled())S.ui.loiStyleChoice=t.value;
   if(t.id==='loi-target-name'){delete S.ui.loiTargetManualProgram;loiTargetSearch=[];searchSequence++;document.getElementById('loi-target-selected')?.remove();const results=document.getElementById('loi-target-search-results');if(results)results.innerHTML='';const add=document.querySelector('[data-act="loitarget-add"]');if(add)add.textContent='Save name unresolved';}
@@ -390,3 +390,43 @@ Object.assign(A,{
  'admin-calendar-back'(){itineraryContext(adminCalendarTarget?.interview.id);openDrawer({kind:'admin-calendar'});}
 });
 async function saveAdminCalendar(command,data){if(!calendarV2()||actor.role!=='admin'||!capabilities.adminLogistics||!adminCalendarTarget)throw Error('Open a current administrator target.');const t=adminCalendarTarget;await calendarMutation('/calendar/admin/'+t.eventRef,{command,data},{command,data,expectedVersion:t.version,expectedInterviewVersion:t.interview.version});return A['admin-calendar-read']({dataset:{ref:t.eventRef}});}
+
+function threeboxInterview(el){const i=iv(el);requireOwn(i);if(!threeboxEnabled())throw previewError();return i;}
+async function saveThreebox(el,assemble=false){
+  const i=threeboxInterview(el),d=threeboxForm(i),serial=d.serial,epoch=threeboxEpoch;
+  const result=await command(assemble?'threebox.assemble':'threebox.save',i.id,threeboxPayload(i),{render:false});
+  if(epoch!==threeboxEpoch||!threeboxEnabled()||d!==threeboxDrafts.get(i.id))throw Error('The private builder changed while saving.');
+  const h=S.why[i.id]?.threebox?.current;d.expectedHead=h?.revisionId??null;d.expectedAnswerVersion=h?.answerVersion??0;
+  if(d.serial===serial){threeboxDrafts.delete(i.id);const next=threeboxForm(i);next.status=assemble?'Saved evidence-bound answer. Practice the facts and structure.':'Private worksheet saved.';}else d.status='Submitted version saved. Your newer typing is still unsaved.';
+  render();return result;
+}
+Object.assign(A,{
+ 'threebox-add'(el){const i=threeboxInterview(el);threeboxNewReason(threeboxForm(i));render();},
+ 'threebox-remove'(el){const i=threeboxInterview(el),d=threeboxForm(i);d.reasons=d.reasons.filter(r=>r.id!==el.dataset.reason);threeboxTouch(d);render();},
+ 'threebox-clear-details'(el){const i=threeboxInterview(el),d=threeboxForm(i),r=d.reasons.find(r=>r.id===el.dataset.reason);if(r)r.details=[];threeboxTouch(d);render();},
+ 'threebox-intel'(el){const i=threeboxInterview(el),d=threeboxForm(i),r=d.reasons.find(r=>r.id===el.dataset.reason);if(!r||r.intel.length>=8)throw Error('Keep at most eight observations per reason.');r.intel.push({id:crypto.randomUUID(),speaker:'',role:'',text:'',confirmed:false});threeboxTouch(d);render();},
+ 'threebox-replace'(el){const i=threeboxInterview(el),d=threeboxForm(i),r=d.reasons.find(r=>r.id===el.dataset.reason),facts=threeboxEvidenceCache.get(i.id)?.research.facts||[];const boxes=[...document.querySelectorAll('[data-tb-field="detail"][data-reason="'+el.dataset.reason+'"]')];const selected=boxes.filter(x=>x.checked).map(x=>facts[Number(x.dataset.evidence)]).filter(Boolean);if(!r||!selected.length)throw Error('Check a stronger current supported Detail first.');r.details=selected.map(x=>({...threeboxEvidenceCache.get(i.id).evidenceBindings.find(b=>b.field===x.field&&b.claimRef===x.claimRef)}));threeboxTouch(d);d.status='Weaker saved selections replaced. Save a new version to retain this change.';render();},
+ async 'threebox-evidence'(el){const i=threeboxInterview(el),binding=threeboxBinding(i),epoch=threeboxEpoch,r=await command('threebox.evidence',i.id,{}, {render:false});if(!threeboxEnabled()||epoch!==threeboxEpoch||binding!==threeboxBinding(S.interviews.find(x=>x.id===i.id)||{}))throw Error('The interview changed while evidence was loading.');threeboxEvidenceCache.set(i.id,r);threeboxForm(i).status='Current RISE evidence loaded. Review each selected Detail.';render();return r;},
+ async 'threebox-read'(el){const i=threeboxInterview(el),epoch=threeboxEpoch,r=await command('threebox.read',i.id,{}, {render:false});if(epoch!==threeboxEpoch)throw Error('Builder access changed.');await refreshWorkspace();if(epoch!==threeboxEpoch)throw Error('Builder access changed.');threeboxDrafts.delete(i.id);threeboxEvidenceCache.delete(i.id);threeboxForm(i).status='Saved worksheet reloaded. Review current evidence before assembling.';render();return r;},
+ 'threebox-save'(el){return saveThreebox(el);},
+ 'threebox-assemble'(el){return saveThreebox(el,true);}
+});
+function threeboxFieldEvent(ev){
+ const t=ev.target;if(!t.dataset?.tbField||!threeboxEnabled()||!S)return;const i=S.interviews.find(i=>i.id===t.dataset.id);if(!owns(i))return;
+ const d=threeboxForm(i),r=d.reasons.find(r=>r.id===t.dataset.reason),key=t.dataset.tbField,value=t.type==='checkbox'?t.checked:t.value;
+ if(['factualConfirmed','specificityConfirmed','locationException'].includes(key)){d[key]=value;d.serial++;return;}
+ if(key==='delivery')d.delivery=value;
+ else if(key==='editedAnswer'){d.editedAnswer=value;d.edited=true;}
+ else if(!r)return;
+ else if(key==='category')r.general.category=value;
+ else if(key==='rank')r.rank=Number(value);
+ else if(key==='selected')r.selected=value;
+ else if(key==='personalEnabled'){r.personal.enabled=value;r.personal.confirmed=false;}
+ else if(key==='personalText'){r.personal.text=value;r.personal.confirmed=false;const c=document.querySelector('[data-tb-field="personalConfirmed"][data-reason="'+r.id+'"]');if(c)c.checked=false;}
+ else if(key==='personalConfirmed')r.personal.confirmed=value;
+ else if(key==='followUpDefense')r.followUpDefense=value;
+ else if(key==='detail'){const fact=threeboxEvidenceCache.get(i.id)?.research.facts[Number(t.dataset.evidence)];if(!fact)return;r.details=r.details.filter(x=>x.field!==fact.field||x.claimRef!==fact.claimRef);if(value)r.details.push({...threeboxEvidenceCache.get(i.id).evidenceBindings.find(b=>b.field===fact.field&&b.claimRef===fact.claimRef)});}
+ else if(key.startsWith('intel')){const x=r.intel.find(x=>x.id===t.dataset.intel);if(!x)return;if(key==='intelConfirmed')x.confirmed=value;else{x[key==='intelSpeaker'?'speaker':key==='intelRole'?'role':'text']=value;x.confirmed=false;}}
+ threeboxTouch(d);
+}
+document.addEventListener('input',threeboxFieldEvent);document.addEventListener('change',ev=>{if(ev.target?.tagName==='SELECT')threeboxFieldEvent(ev);});
