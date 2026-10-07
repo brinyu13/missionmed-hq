@@ -227,9 +227,14 @@ function renderDrawer(){
     else {
       const prog=i.program?P(i.program):null; const mentor=roleName()==='mentor'; const own=owns(i);
       const rel = it.kind==='related'? i.related.find(e=>'rel-'+i.id+'-'+e.id===it.id) : null;
-      inner=`<h2>${esc(it.kind==='related'?rel.kind:it.kind==='deadline'?'Scheduling deadline':title(i))}${it.kind!=='interview'&&it.kind!=='cancelled'?` <em>· ${esc(title(i))}</em>`:''}</h2>
-        <dl>
-          <dt>Program</dt><dd>${prog? esc(prog.name.replace('Fictional ',''))+' · '+esc(prog.specialty)+' · '+esc(prog.track) : esc(i.programName||i.unresolved_input||'Program name not supplied')+(i.track?' · '+esc(i.track):'')+' · supplied by you; registry unresolved'}</dd>
+      const it2=i.intake,pos=it2?.positionType&&it2.positionType!=='UNKNOWN'?it2.positionType.replaceAll('_',' '):'',spec=prog?.specialty||it2?.specialty||'',invDate=it2?.details?.invitationReceivedDate?String(it2.details.invitationReceivedDate).slice(0,10):'';
+      inner=`${own&&i.program&&programHero(i.program)?heroMedia(i.program,title(i),{compact:true}):''}<h2>${esc(it.kind==='related'?rel.kind:it.kind==='deadline'?'Scheduling deadline':title(i))}${it.kind!=='interview'&&it.kind!=='cancelled'?` <em>· ${esc(title(i))}</em>`:''}</h2>
+        <div class="ivChips">${spec?chip(esc(spec),'spec'):''}${pos?chip(esc(pos),'pos'):''}${i.format&&i.format!=='unknown'?chip(esc(i.format),'fmt'):''}</div>
+        <dl class="calFacts">
+          ${(mentor||roleName()==='admin')&&!own?`<dt>Student</dt><dd>${esc(i.owner)}<br><span class="tiny">Assigned student · identity shown as authorized by the current assignment.</span></dd>`:''}
+          <dt>Program</dt><dd>${prog? esc(prog.name.replace('Fictional ',''))+' · '+esc(prog.specialty)+' · '+esc(prog.track)+(i.program?'<br><span class="tiny">Canonical RISE ID '+esc(i.program)+'</span>':'') : esc(i.programName||i.unresolved_input||'Program name not supplied')+(i.track?' · '+esc(i.track):'')+' · supplied by you; registry unresolved'}</dd>
+          ${pos||i.track?`<dt>Position / track</dt><dd>${esc([pos,i.track].filter(Boolean).join(' · '))}</dd>`:''}
+          ${own&&invDate?`<dt>Invite received</dt><dd>${esc(fmtDateOnly(invDate))} ${esc(invDate.slice(0,4))}</dd>`:''}
           ${it.kind==='related'? `<dt>When</dt><dd>${rel.instant?fmtInZone(rel.instant,rel.zone||i.zone):esc(rel.date)+' · time not set'} (event time) · ${fmtTime(rel.instant,F.student_zone)} your time · ${rel.duration_minutes==null?'duration unknown':rel.duration_minutes+' min'}<br><span class="tiny">${esc(relatedStatus(i,rel))}</span></dd>`
           : it.kind==='deadline'? `<dt>Deadline</dt><dd>${esc(i.deadline)} · reply to the program by this date</dd>`
           : `<dt>When</dt><dd>${i.instant? fmtInZone(i.instant,i.zone)+' (program time, '+esc(zoneShort(i.zone))+')<br>'+fmtTime(i.instant,F.student_zone)+' your time ('+esc(zoneShort(F.student_zone))+')' : i.date? esc(i.date)+' · time not set' : 'Date not yet known'}${i.duration?'<br>'+i.duration+' minutes':'<br><span class="tiny">Duration unknown</span>'}</dd>
@@ -259,7 +264,7 @@ function renderDrawer(){
       <div class="inline"><div><label class="f" for="ar-date">Date</label><input type="date" id="ar-date" value="${esc(st.date??d.day??'')}"></div><div><label class="f" for="ar-time">Start time</label><input type="time" id="ar-time" aria-label="Event start time (blank = unknown)" value="${esc(st.time||'')}"></div><div><label class="f" for="ar-dur">Duration (min)</label><input type="number" id="ar-dur" min="1" max="1440" value="${esc(st.dur||'')}"></div></div>
       <label class="f" for="ar-zone">Event timezone</label><select id="ar-zone">${ZONES.map(z=>`<option ${z===(st.zone||F.student_zone)?'selected':''}>${z}</option>`).join('')}</select>${foldSelect('ar-fold')}<div class="mcv2-drawer-actions"><button class="rowBtn solid" type="button" data-act="add-related-save">Save event</button><button class="rowBtn" type="button" data-act="drawer-close">Cancel</button></div>`;
   }
-  w.innerHTML=`<div class="scrim" data-act="drawer-close"></div><aside class="mcv2-drawer ${d.kind==='myeras'?'myerasModal':d.kind==='intake'?'intakeModal':''}" role="dialog" aria-modal="true" aria-label="${d.kind==='myeras'?'Import MyERAS programs':d.kind==='intake'?'Add interview':'Calendar detail'}"><button class="close" type="button" data-act="drawer-close" aria-label="Close">×</button>${inner}</aside>`;
+  w.innerHTML=`<div class="scrim" data-act="drawer-close"></div><aside class="mcv2-drawer ${d.kind==='myeras'?'myerasModal':d.kind==='intake'?'intakeModal':''}" role="dialog" aria-modal="true" aria-label="${d.kind==='myeras'?'Import MyERAS programs':d.kind==='intake'?'Add interview':'Calendar detail'}" aria-describedby="drawer-desc"><button class="close" type="button" data-act="drawer-close" aria-label="Close">×</button><div id="drawer-desc">${inner}</div></aside>`;
   applyDrafts();markComingSoonActions();w.classList.add('open'); for(const id of ['main','hdr','rail'])document.getElementById(id).inert=true;
   setTimeout(()=>{ const first=w.querySelector('input,select,button.rowBtn,button.mcv2-event,.close'); (first||w.querySelector('.close'))?.focus(); },0);
 }
@@ -283,9 +288,36 @@ function dateBlock(i){
   return `<div class="dateBlock unk"><b>TBD</b><small>no date</small></div>`;
 }
 function stateChip(i){ const l=stateLabel(i); const cls = l==='Cancelled'?'bad':l==='Captured'?'ok':/Awaiting|Capturing|Identity/.test(l)?'warn':l==='Offer saved'?'vi':''; return `<span class="stateChip ${cls}">${esc(l)}</span>`; }
-function interviewRow(i){
-  const nm=nextMove(i);
-  return `<div class="sRow" id="row-${i.id}">${dateBlock(i)}<div><div class="nm">${esc(title(i))}</div><div class="mt">${metaLine(i)}</div><div class="nx"><b>${esc(nm.label)}</b> · ${esc(nm.why)}</div>${pulseSVG(i)}</div><div class="rMeta">${stateChip(i)}<button class="rowBtn pri" type="button" data-act="open-section" data-id="${i.id}" data-section="${nm.section}">Go</button><button class="rowBtn" type="button" data-act="open-interview" data-id="${i.id}">Open</button></div></div>`;
+/* V2 research CTAs: state-aware, never start a paid run from the card. research-refresh maps to research.check (saved request only). */
+function researchCta(i,cls='rowBtn'){
+  if(!owns(i))return '';
+  if(!i.program)return `<button class="${cls} ctaResearch" type="button" data-act="open-section" data-id="${i.id}" data-section="identify"><span aria-hidden="true">🔬</span> Confirm program for research</button>`;
+  if(coreOnly())return `<button class="${cls} ctaResearch" type="button" data-act="coming-soon" data-label="Deep Research · BEING CONNECTED"><span aria-hidden="true">🔬</span> Deep research this program${comingSoonBadge()}</button>`;
+  if(deepResearch()){const d=S.demands[i.id],st=d?.status;
+    if(!d?.requestId)return `<button class="${cls} ctaResearch pri" type="button" data-act="open-section" data-id="${i.id}" data-section="brief"><span aria-hidden="true">🔬</span> Deep research this program</button>`;
+    if(['queued','researching'].includes(st))return `<button class="${cls} ctaResearch busy" type="button" data-act="open-section" data-id="${i.id}" data-section="brief"><span aria-hidden="true">⏳</span> Researching your program…</button>`;
+    if(st==='available')return `<button class="${cls} ctaResearch ready" type="button" data-act="open-section" data-id="${i.id}" data-section="brief"><span aria-hidden="true">✨</span> Program intelligence ready</button>`;
+    return `<button class="${cls} ctaResearch" type="button" data-act="research-refresh" data-id="${i.id}"><span aria-hidden="true">🔄</span> Refresh research</button>`;}
+  const rs=researchState(i);
+  if(rs.state==='available')return `<button class="${cls} ctaResearch ready" type="button" data-act="open-section" data-id="${i.id}" data-section="brief"><span aria-hidden="true">✨</span> Program intelligence ready</button>`;
+  if(['partial','failed','provider outage'].includes(rs.state))return `<button class="${cls} ctaResearch" type="button" data-act="research-refresh" data-id="${i.id}"><span aria-hidden="true">🔄</span> Refresh research</button>`;
+  return `<button class="${cls} ctaResearch pri" type="button" data-act="open-section" data-id="${i.id}" data-section="brief"><span aria-hidden="true">🔬</span> Deep research this program</button>`;
+}
+function helpResearchCta(i,cls='rowBtn'){
+  if(!owns(i)||roleName()!=='student')return '';
+  if(capabilities.contributions===true)return `<button class="${cls} ctaHelp" type="button" data-act="nav" data-to="contribute"><span aria-hidden="true">🤝</span> Help research this program</button>`;
+  return `<button class="${cls} ctaHelp" type="button" data-act="coming-soon" data-label="Crowdsourced research · BEING CONNECTED"><span aria-hidden="true">🤝</span> Help research this program${comingSoonBadge()}</button>`;
+}
+function ivChips(i){
+  const it=i.intake,prog=i.program?P(i.program):null,spec=prog?.specialty||it?.specialty||'',pos=it?.positionType&&it.positionType!=='UNKNOWN'?it.positionType.replaceAll('_',' '):'',fmt=i.format&&i.format!=='unknown'?i.format:'';
+  return [spec?chip(esc(spec),'spec'):'',pos?chip(esc(pos),'pos'):'',i.track?chip(esc(i.track)):'',fmt?chip(esc(fmt),'fmt'):''].filter(Boolean).join('');
+}
+function inviteReceived(i){const v=i.intake?.details?.invitationReceivedDate;if(!v)return '';const d=String(v).slice(0,10);return /^\d{4}-\d{2}-\d{2}$/.test(d)?`<span class="ivInvite"><span aria-hidden="true">📬</span> Invite received ${esc(fmtDateOnly(d))}</span>`:'';}
+function interviewRow(i){return interviewCard(i);}
+/* V2 interview card: hero (only approved canonical media), program, specialty, date/time, invite received, format, position/track, readiness and next action. */
+function interviewCard(i){
+  const nm=nextMove(i),hero=i.program?programHero(i.program):null;
+  return `<article class="sRow ivCard${hero?' hasHero':''}" id="row-${i.id}">${hero?`<div class="ivHero"><img src="${esc(hero.url)}" alt="${esc(hero.alt||'')}" loading="lazy" decoding="async" width="480" height="206"></div>`:''}<div class="ivMain">${dateBlock(i)}<div class="ivBody"><div class="nm">${esc(title(i))}</div><div class="ivChips">${ivChips(i)}</div><div class="mt">${metaLine(i)}${inviteReceived(i)}</div><div class="nx"><b>${esc(nm.label)}</b> · ${esc(nm.why)}</div>${pulseSVG(i)}</div><div class="rMeta">${stateChip(i)}<div class="ivActions">${researchCta(i)}<button class="rowBtn pri" type="button" data-act="open-section" data-id="${i.id}" data-section="${nm.section}">Go</button><button class="rowBtn" type="button" data-act="open-interview" data-id="${i.id}">Open</button></div></div></div></article>`;
 }
 function renderInterviews(){
   const list=rankedInterviews(myInterviews());
@@ -301,15 +333,46 @@ function renderInterviews(){
       ${cancelled.length?`<h3 style="margin:22px 0 10px" class="h2">Cancelled</h3><div class="ivList">${cancelled.map(interviewRow).join('')}</div>`:''}` : `<div class="empty">No interviews yet. Add an offer; a date is not needed.</div>`}
   </section>`;
 }
+/* V2 journey navigation: grouped stage cards with completion state; keeps the tablist contract. */
+const JOURNEY_GROUPS=[['Know the program',['identify','brief','why']],['Get ready',['rehearse','day']],['Afterwards',['debrief','learned']],['Logistics & outreach',['schedule','loi']]];
+const STAGE_ICON={identify:'🏥',brief:'🔬',why:'💬',rehearse:'🎯',day:'📋',debrief:'📝',learned:'🌱',schedule:'📅',loi:'✉️'};
+function stageDone(i,k){
+  if(k==='identify')return !!i.program;
+  if(k==='brief'){if(coreOnly())return false;if(deepResearch())return S.demands[i.id]?.status==='available';return researchState(i).state==='available';}
+  if(k==='why')return !!(S.why[i.id]?.text||'').trim();
+  if(k==='rehearse')return (S.practice?.[i.id]||[]).some(a=>a.feedback);
+  if(k==='day')return !!(i.instant&&i.instant<=now());
+  if(k==='debrief')return !!S.debriefs[i.id]?.saved;
+  if(k==='learned')return !!S.learning[i.owner];
+  if(k==='schedule')return !!(i.instant||i.date);
+  if(k==='loi')return !!loiState(i).current;
+  return false;
+}
+function journeyNav(i,secs,sec){
+  const secIdx=secs.findIndex(s=>s[0]===sec);
+  const card=([k,l])=>{const idx=secs.findIndex(s=>s[0]===k),done=stageDone(i,k),soon=coreOnly()&&!coreSection(k),state=sec===k?'current':done?'done':'upcoming';return `<button role="tab" type="button" data-act="section" data-id="${i.id}" data-section="${k}" aria-selected="${sec===k}" class="stage ${state}${idx<secIdx?' visited':''}"><span class="stageIcon" aria-hidden="true">${STAGE_ICON[k]||'•'}</span><span class="stageText"><b>${l}${soon?comingSoonBadge():''}${k==='why'&&whyMatches(i,S.why[i.id]?.text||'').length?'<span class="dot" aria-label="has an unresolved claim"></span>':''}</b><small>${sec===k?'You are here':done?'Done':soon?'Coming soon':'Open'}</small></span></button>`;};
+  const groups=JOURNEY_GROUPS.map(([g,keys])=>{const items=keys.map(k=>secs.find(s=>s[0]===k)).filter(Boolean);return items.length?`<div class="journeyGroup"><span class="journeyLabel">${g}</span>${items.map(card).join('')}</div>`:'';}).join('');
+  return `<div class="sections journey" role="tablist" aria-label="Sections of this interview">${groups}</div>`;
+}
+/* Permanent next actions: always reachable from the workspace, not only from the post-save screen. */
+function roomQuickActions(i,secs){
+  const has=k=>secs.some(s=>s[0]===k),own=owns(i);
+  const q=(label,icon,attrs,cls='')=>`<button class="quick ${cls}" type="button" ${attrs}><span class="quickIcon" aria-hidden="true">${icon}</span><span>${label}</span></button>`;
+  const soon=(label,icon)=>q(label+comingSoonBadge(),icon,`data-act="coming-soon" data-label="${esc(label)} · BEING CONNECTED"`,'soon');
+  const section=(k,label,icon,fallback)=>has(k)&&!(coreOnly()&&!coreSection(k))?q(label,icon,`data-act="open-section" data-id="${i.id}" data-section="${k}"`):fallback||soon(label,icon);
+  return `<div class="roomQuick" aria-label="Next actions"><span class="quickKicker">Next actions</span>${researchCta(i,'quick')}${helpResearchCta(i,'quick')}${section('loi','Letter of Interest','✉️')}${section('why','Why This Program','💬',!i.program?q('Why This Program','💬',`data-act="open-section" data-id="${i.id}" data-section="identify"`):null)}${soon('Timeline','📊')}${section('rehearse','Preparation','🎯',section('brief','Preparation','🎯'))}${calendarV2()&&own?q('Itinerary','📄',`data-act="itinerary-open" data-id="${i.id}"`):soon('Itinerary','📄')}${has('debrief')?section('debrief','Debrief','📝'):q('Debrief','📝','disabled title="Available after the interview"','later')}</div>`;
+}
 function renderRoom(i){
   const nm=nextMove(i); const secs=sectionsFor(i);
   if(!S.ui.section || !secs.find(s=>s[0]===S.ui.section)) S.ui.section=nm.section && secs.find(s=>s[0]===nm.section)? nm.section : secs[0][0];
   const sec=S.ui.section;
   const body=coreOnly()&&!coreSection(sec)?comingSoonPanel(secs.find(x=>x[0]===sec)?.[1]||sec):{loi:renderLoi, identify:renderIdentify, brief:renderBrief, why:renderWhy, rehearse:renderRehearse, day:renderDay, debrief:renderDebrief, learned:renderLearned, schedule:renderSchedule}[sec](i);
+  const hero=i.program?programHero(i.program):null;
   return `<section data-view="interview" class="live">
-    <div class="roomHead"><div><button class="back" type="button" data-act="close-interview">← All interviews</button><div class="h1" style="margin-top:6px">${esc(title(i))}</div><div class="tiny" style="margin-top:4px">${metaLine(i)} · ${esc(i.id)}</div>${pulseSVG(i)}</div><div class="row">${stateChip(i)}<button class="rowBtn" type="button" data-act="cal-item" data-item="iv-${i.id}">Calendar</button></div></div>
-    <div class="nextMove"><div><span class="lbl">Next move</span><b>${esc(nm.label)}</b><p>${esc(nm.why)}</p></div><button class="rowBtn pri" type="button" data-act="${nm.act}" data-id="${i.id}" data-section="${nm.section}">Go</button></div>
-    <div class="sections" role="tablist" aria-label="Sections of this interview">${secs.map(([k,l])=>`<button role="tab" type="button" data-act="section" data-id="${i.id}" data-section="${k}" aria-selected="${sec===k}">${l}${coreOnly()&&!coreSection(k)?comingSoonBadge():''}${k==='why'&&whyMatches(i,S.why[i.id]?.text||'').length?'<span class="dot" aria-label="has an unresolved claim"></span>':''}</button>`).join('')}</div>
+    <div class="roomHead${hero?' hasHero':''}">${hero?`<div class="roomHero"><img src="${esc(hero.url)}" alt="${esc(hero.alt||'')}" loading="lazy" decoding="async" width="1200" height="400"><span class="roomHeroCap">${esc(hero.caption||'')}${hero.publisher?' · '+esc(hero.publisher):''}</span></div>`:''}<div class="roomNav"><button class="back" type="button" data-act="close-interview"><span class="backIcon" aria-hidden="true">‹</span> Interviews</button><span class="breadSep" aria-hidden="true">/</span><span class="breadCurrent">${esc(title(i))}</span></div><div class="roomMeta"><div class="h1">${esc(title(i))}</div><div class="ivChips">${ivChips(i)}</div><div class="roomDetails"><span class="tiny">${metaLine(i)}${inviteReceived(i)}</span><span class="tiny roomId">${esc(i.id)}</span></div>${pulseSVG(i)}</div><div class="roomActions">${stateChip(i)}<button class="rowBtn" type="button" data-act="cal-item" data-item="iv-${i.id}">Calendar</button></div></div>
+    <div class="nextMove"><div class="nextMoveIcon" aria-hidden="true">→</div><div class="nextMoveBody"><span class="lbl">Next move</span><b>${esc(nm.label)}</b><p>${esc(nm.why)}</p></div><button class="rowBtn pri" type="button" data-act="${nm.act}" data-id="${i.id}" data-section="${nm.section}">Go</button></div>
+    ${roomQuickActions(i,secs)}
+    ${journeyNav(i,secs,sec)}
     <div class="section section-${sec}" id="section-${sec}" tabindex="-1">${sec!=='day'?'<p class="print-hint">To print, open the Interview day section of this interview. Other sections are not printed.</p>':''}${body}</div>
   </section>`;
 }

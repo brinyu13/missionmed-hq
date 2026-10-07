@@ -21,7 +21,7 @@ const interviewCommands=new Set(['interview.create','interview.identity','interv
 const debriefCommands=new Set(['debrief.occurrence','debrief.save','debrief.propose','debrief.accept','debrief.reject']);
 const loiCommands=new Set(['loi.save','loi.approve','loi.evidence','loi.export','loi.handoff','loi.mark_sent']);
 const learningCommands=new Set(['learning.propose','learning.confirm','learning.correct','learning.revoke','learning.mentor']);
-export function createCommands({database,owners,config,clock,speechAvailable=false,additionalCommands={},loiComposer=null,researchTransport=createRiseResearchJobTransport(config.deepResearch)}) {
+export function createCommands({database,owners,config,clock,speechAvailable=false,additionalCommands={},loiComposer=null,loiProseComposer=null,researchTransport=createRiseResearchJobTransport(config.deepResearch)}) {
   const settings={owners,config,clock,speechAvailable};
   async function bootstrap(actor) {coreActor(actor,config);return database.withActor(actor,async db=>{await syncActor(db,actor);return readModel(db,actor,settings);});}
   async function execute(actor,body,{revalidateActor}={}) {
@@ -32,7 +32,7 @@ export function createCommands({database,owners,config,clock,speechAvailable=fal
     if(envelope.targetKind==='program')requireTargets(config,actor);
     if(myerasCommands.has(envelope.command))requireMyeras(config,actor);
     if(loiCommands.has(envelope.command))requireLoi(config,actor);
-    if(compositionCommands.has(envelope.command))return executeComposition({database,actor,envelope,owners,config,clock,revalidateActor,composer:loiComposer,bootstrap});
+    if(compositionCommands.has(envelope.command))return executeComposition({database,actor,envelope,owners,config,clock,revalidateActor,composer:loiComposer,proseComposer:loiProseComposer,bootstrap});
     if(config.coreOnly) {
       requireValue(coreCommands.has(envelope.command)||intakeEnabled(config,actor)&&intakeCommands.has(envelope.command)||envelope.targetKind==='program'&&targetCommands.has(envelope.command)||loiEnabled(config,actor)&&loiCommands.has(envelope.command)||envelope.command==='research.check'&&deepResearchEnabled(config,actor)||researchEnabled(config,actor)&&researchCommands.has(envelope.command),'coming_soon','COMING SOON — this integration is not active. Your saved calendar is unchanged.',503);
       requireValue(!envelope.data.program||envelope.command==='mission.create'||envelope.targetKind==='program'&&targetCommands.has(envelope.command)||deepResearchEnabled(config,actor)||loiCanonicalLookup(config,actor)&&['interview.create','interview.identity'].includes(envelope.command)&&loiProgramAllowed(config,actor,envelope.data.program),'coming_soon','Canonical program lookup is not available for this selection. Enter the program name from your invitation.',503);

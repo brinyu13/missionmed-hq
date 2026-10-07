@@ -23,8 +23,8 @@ test('administrator preview retains signed identity, isolates every state collec
  for(const name of ['Home','Calendar','Interviews','Prepare','Program Intelligence','Debriefs','Growth','Settings'])assert.ok([...a.w.document.querySelectorAll('#rail button')].some(b=>b.getAttribute('aria-label')===name),name);
  assert.match(a.w.document.getElementById('advBanner').textContent,/No student data loaded/);
  a.w.eval("go('calendar')");assert.match(a.w.document.getElementById('main').textContent,/Interview Calendar/i);
- a.w.eval("A['add-interview']({dataset:{day:'2026-10-07'}})");assert.equal(a.w.document.getElementById('ad-date').value,'2026-10-07');
- await a.w.eval("dispatchAction(document.querySelector('[data-act=add-interview-save]'))");
+ a.w.eval("A['add-interview']({dataset:{day:'2026-10-07'}})");assert.ok(a.w.document.querySelector('.intakeModal'));assert.equal(a.w.eval('intakeFlow.schedule.date'),'2026-10-07');
+ await a.w.eval("dispatchAction(document.querySelector('[data-act=intake-save]'))");
  assert.match(a.w.document.getElementById('toast').textContent,/does not save/);assert.equal(a.requests(),0);
  await assert.rejects(a.w.eval("command('interview.create',null,{})"),/does not save/);
  await assert.rejects(a.w.eval("apiFetch('/bootstrap')"),/does not save/);
