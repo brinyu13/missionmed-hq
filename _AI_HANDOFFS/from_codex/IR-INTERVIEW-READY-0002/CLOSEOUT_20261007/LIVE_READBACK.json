@@ -1,0 +1,109 @@
+{
+  "observedAt": "2026-10-07T12:16:17.582699+00:00",
+  "source": "f23a60a28d17d3298cee998fb351eff6cc456f57",
+  "browser": {
+    "url": "https://missionmedinstitute.com/interview-ready/#online/webcam",
+    "httpStatus": 200,
+    "option5": true,
+    "desktop1440": "three simultaneous cards, visible real photography including alternatives, official shield/Institute/Residency logos",
+    "amazonLinksChecked": 7,
+    "allTagged": "missionmatch-20",
+    "materialErrors": 0,
+    "deviceOnlyLabel": true,
+    "generatedMountainMarkReferences": 0,
+    "scope": "one concise Chrome independent readback; detailed interaction/mobile QA reused from Claude handoff"
+  },
+  "production": {
+    "current": "releases/9511a1d281571c20d305cc20a312647459675fecd86c9c84c1554c5d87caf561",
+    "htmlSha256": "9511a1d281571c20d305cc20a312647459675fecd86c9c84c1554c5d87caf561",
+    "rollbackTargetsExist": true
+  },
+  "leaseReadback": {
+    "project": "brxqytrfdisrgakrxkhd",
+    "activeIRorRegistryRows": 0
+  },
+  "promotions": [
+    {
+      "source": "94454455b610515562ac8be1609830dff5f8c17c",
+      "startedAt": "2026-10-06T19:16:12-0400",
+      "finishedAt": "2026-10-06T19:16:17-0400",
+      "package": {
+        "archiveBytes": 1521596,
+        "archiveSha256": "635f64ba1cfb7c8418e57bbb1ccb72b31dc6a63b89a2164442a126c46ad458b4",
+        "htmlSha256": "c5604978213fab6313e88f1fc3ec7d135ffd7cc60fee9be792fd1f6b0f7d143f",
+        "productionApproved": false,
+        "sourceState": "EXACT_COMMITTED_INPUTS"
+      },
+      "runtime": {
+        "cache": {
+          "refresh-home-html": {
+            "bytes": 0,
+            "status": 200
+          },
+          "refresh-ir-html": {
+            "bytes": 0,
+            "status": 200
+          }
+        },
+        "pointerAfter": "releases/c5604978213fab6313e88f1fc3ec7d135ffd7cc60fee9be792fd1f6b0f7d143f",
+        "pointerBefore": "releases/d4439bb8f40f32d0122817cc7f06756bf6d709d030e5e9206bdaab0ef8a0b253",
+        "readbackHtmlSha256": "c5604978213fab6313e88f1fc3ec7d135ffd7cc60fee9be792fd1f6b0f7d143f",
+        "result": "PASS",
+        "rollbackPointer": ".previous-3621ddb7cbb26de0-to-635f64ba1cfb7c84 -> releases/d4439bb8f40f32d0122817cc7f06756bf6d709d030e5e9206bdaab0ef8a0b253",
+        "sharedChecked": 15,
+        "steps": [
+          "mkdir-stage",
+          "transfer",
+          "extract",
+          "lint",
+          "publish-release",
+          "prepare-pointer",
+          "publish-pointer",
+          "readback"
+        ]
+      },
+      "receiptSha256": "c57d1b89f80ae672fc38746941b96369bc536491afece318b0dce4edbcfa1301"
+    },
+    {
+      "source": "f23a60a28d17d3298cee998fb351eff6cc456f57",
+      "startedAt": "2026-10-06T20:43:54-0400",
+      "finishedAt": "2026-10-06T20:43:58-0400",
+      "package": {
+        "archiveBytes": 1591780,
+        "archiveSha256": "30fa9d48bcf6f98322e0a55a447524212eb9509080db2f3ec63f2f3bfa19bf29",
+        "htmlSha256": "9511a1d281571c20d305cc20a312647459675fecd86c9c84c1554c5d87caf561",
+        "productionApproved": false,
+        "sourceState": "EXACT_COMMITTED_INPUTS"
+      },
+      "runtime": {
+        "cache": {
+          "refresh-home-html": {
+            "bytes": 0,
+            "status": 200
+          },
+          "refresh-ir-html": {
+            "bytes": 0,
+            "status": 200
+          }
+        },
+        "pointerAfter": "releases/9511a1d281571c20d305cc20a312647459675fecd86c9c84c1554c5d87caf561",
+        "pointerBefore": "releases/c5604978213fab6313e88f1fc3ec7d135ffd7cc60fee9be792fd1f6b0f7d143f",
+        "readbackHtmlSha256": "9511a1d281571c20d305cc20a312647459675fecd86c9c84c1554c5d87caf561",
+        "result": "PASS",
+        "rollbackPointer": ".previous-635f64ba1cfb7c84-to-30fa9d48bcf6f983 -> releases/c5604978213fab6313e88f1fc3ec7d135ffd7cc60fee9be792fd1f6b0f7d143f",
+        "sharedChecked": 15,
+        "steps": [
+          "mkdir-stage",
+          "transfer",
+          "extract",
+          "lint",
+          "publish-release",
+          "prepare-pointer",
+          "publish-pointer",
+          "readback"
+        ]
+      },
+      "receiptSha256": "986af786532de3dfc68a6adfc8a9a48b411f5795dc6608799c38eba1e5cc4ea3"
+    }
+  ]
+}

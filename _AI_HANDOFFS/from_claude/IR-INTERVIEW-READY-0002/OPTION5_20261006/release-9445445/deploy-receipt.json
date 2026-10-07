@@ -1,0 +1,48 @@
+{
+ "finishedAt": "2026-10-06T19:16:17-0400",
+ "html": "c5604978213fab6313e88f1fc3ec7d135ffd7cc60fee9be792fd1f6b0f7d143f",
+ "live": {
+  "https://missionmedinstitute.com/interview-ready/": {
+   "error": "<urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>"
+  },
+  "https://missionmedinstitute.com/interview-ready/?nocache=1791328577": {
+   "error": "<urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>"
+  }
+ },
+ "localHead": "c2195498fc6d0eb6185c814a6953244ec2f50cec",
+ "push": {
+  "rc": 0,
+  "stderr": "remote: \nremote: GitHub found 4 vulnerabilities on brinyu13/missionmed-hq's default branch (2 high, 1 moderate, 1 low). To find out more, visit:        \nremote:      https://github.com/brinyu13/missionmed-hq/security/dependabot        \nremote: \nTo https://github.com/brinyu13/missionmed-hq.git\n   bdff125..c219549  codex/ir-interview-ready-0002-storyforge -> codex/ir-interview-ready-0002-storyforge"
+ },
+ "remote": {
+  "cache": {
+   "refresh-home-html": {
+    "bytes": 0,
+    "status": 200
+   },
+   "refresh-ir-html": {
+    "bytes": 0,
+    "status": 200
+   }
+  },
+  "pointerAfter": "releases/c5604978213fab6313e88f1fc3ec7d135ffd7cc60fee9be792fd1f6b0f7d143f",
+  "pointerBefore": "releases/d4439bb8f40f32d0122817cc7f06756bf6d709d030e5e9206bdaab0ef8a0b253",
+  "readbackHtmlSha256": "c5604978213fab6313e88f1fc3ec7d135ffd7cc60fee9be792fd1f6b0f7d143f",
+  "result": "PASS",
+  "rollbackPointer": ".previous-3621ddb7cbb26de0-to-635f64ba1cfb7c84 -> releases/d4439bb8f40f32d0122817cc7f06756bf6d709d030e5e9206bdaab0ef8a0b253",
+  "sharedChecked": 15,
+  "steps": [
+   "mkdir-stage",
+   "transfer",
+   "extract",
+   "lint",
+   "publish-release",
+   "prepare-pointer",
+   "publish-pointer",
+   "readback"
+  ]
+ },
+ "remoteRc": 0,
+ "source": "94454455b610515562ac8be1609830dff5f8c17c",
+ "startedAt": "2026-10-06T19:16:12-0400"
+}

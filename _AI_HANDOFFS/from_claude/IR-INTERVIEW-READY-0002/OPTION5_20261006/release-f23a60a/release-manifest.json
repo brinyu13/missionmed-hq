@@ -1,0 +1,104 @@
+{
+  "artifacts": {
+    "wp-content/mu-plugins/missionmed-interview-ready-runtime/releases/9511a1d281571c20d305cc20a312647459675fecd86c9c84c1554c5d87caf561/account-gate.html": {
+      "bytes": 36697,
+      "sha256": "64133b3fe8f74531d1d52ae709bcad73667bb6140c0b039c2992bef78b733835"
+    },
+    "wp-content/mu-plugins/missionmed-interview-ready-runtime/releases/9511a1d281571c20d305cc20a312647459675fecd86c9c84c1554c5d87caf561/build-manifest.json": {
+      "bytes": 6361,
+      "sha256": "b5088ebbe32d0dab43e535327c78662b729d69b2275a96bc320dbd8a987e5ac9"
+    },
+    "wp-content/mu-plugins/missionmed-interview-ready-runtime/releases/9511a1d281571c20d305cc20a312647459675fecd86c9c84c1554c5d87caf561/interview-ready.html": {
+      "bytes": 2259673,
+      "sha256": "9511a1d281571c20d305cc20a312647459675fecd86c9c84c1554c5d87caf561"
+    },
+    "wp-content/mu-plugins/missionmed-interview-ready-runtime/releases/9511a1d281571c20d305cc20a312647459675fecd86c9c84c1554c5d87caf561/matrix-entry.js": {
+      "bytes": 2839,
+      "sha256": "238d936904fce777174f22fb352e99fce118192ca9a469be392246c6a65366ad"
+    },
+    "wp-content/mu-plugins/missionmed-interview-ready.php": {
+      "bytes": 20727,
+      "sha256": "819dd734ae7bf61ded755dd3bdda5e64e4945bac05d28bd4aee5cd68f7a9d7f5"
+    }
+  },
+  "buildInputs": {
+    "account.js": "cb7462428e0334b66cc789a668a03bfb5214497bfebd9d7cef459aef132a3651",
+    "build.py": "1b5dca450f02cd0d9e01720f0520af7d1c3756822ad159c0530a6947fde002c4",
+    "catalog.json": "dfa340483a48c4b4a97d17104a87d5eab8c64f399ffbf9d92176302c58bcbb0d",
+    "completion.css": "a33b2d7ba02402f45f15052a72f23c0c66bd737b9e152535823f8471818ed576",
+    "completion.js": "41cd91815c7ac7f8a63ef75b507dc8bf28a5094a511a325646f29baffb80f868",
+    "editorial.css": "d22e49621f9e5e73b6945499a32e04af051141f534b97b3cdef7f4551587e7ae",
+    "editorial.js": "ca9fd9462e07e10ed6404b06d9d6195ce375be0482b4ed8af1ac81bdcbb57ebe",
+    "fashion.json": "5d4023d61b3c22bd30a9ff4a0ce68f1c62b159e6279f66943ea191ef4253123e",
+    "img/brand-mission-residency.webp": "eeb75fb37be1d96a4c006621de76fcd2a25e1bcd6b3c6c846c3fb699b18b7eab",
+    "img/brand-missionmed-institute.webp": "e801dc1d2542e02b8ab9b86104df3cf3b1b9c49e4778aa11bdca1e7575f02015",
+    "img/brand-missionmed-shield.webp": "b843884668d10d262796c2e966a0cbcea91e612ac3d6ad0ae89c3ddccf3bb4b7",
+    "img/category-accessories.webp": "45c69c17cb5322233bd23b4deb7c8098d9cb62a9980e469f438ffc73a07d45ba",
+    "img/category-camera.webp": "fda43ef688f4359a379e197321b6ef647eb97000dbdef21bc6338cce38532063",
+    "img/category-emergency.webp": "82c9a5320eb485defbfc4aafc99e7eb0142ac608822d0d615ca5c835aa9b8b48",
+    "img/category-lighting.webp": "cc2f27e7e4ea289803e9587369db3f1dc08b83a45af9fad082f5cc6ac977998a",
+    "img/category-microphone.webp": "b5ac55caa6cff13ecfc18fe23a979396395e4e534c87a5706b532ea9c2e06fa6",
+    "img/category-travel.webp": "f63381f605bc377c62026f8efae30cb0614d6ed6e7e69afef1534d481856833f",
+    "img/hero-inperson-board.webp": "2575b8cfd561797c4b0a68205bfd23ea27654f9a7dadd23335ccd8b6fdb7dd77",
+    "img/hero-online-board.webp": "69188a11fd2a412fbb9f86046aa05d2ec16a5b87409d60af8aa166d1834dd293",
+    "img/hero-online-photo.webp": "77dd4dda3c9f996867416305f53ea414a535661b970a0c0b249a5528e8eb0f5d",
+    "img/interview-portrait.webp": "1e89933a936a499782180f1910ad85d7f0e3f9dc5934547d38de04afba73d31e",
+    "img/mountain-landscape-masked.webp": "a026f43e620fe770d53b9ca8ac128fc992b6a66319ab9b07b8c9c92e72b6e9a6",
+    "img/mountain-panorama.webp": "2bcb4f8b1bd354b0f9e0cb1223ed5266641b0950d5c9ec3f4a1034c524828aba",
+    "img/product-a7s3-mfg.webp": "02fe1e566bdca5bf8c89ccffe68164fbc510d881b42015713dc3532b13bf79ea",
+    "img/product-anker-a8313-mfg.webp": "3f1dd836cc72b2332e3e192d5c7cff419415d969d782279bdcdbc846084b64bd",
+    "img/product-arm-lp-mfg.webp": "d5cd5af10067cedd98b7ccd4971b09a143a66e4e110be36b3698f3558eddfdb2",
+    "img/product-brio-mfg.webp": "e03fafe3cd82b0bb70c6ffa0a3f70c2278f0ae94d41da4b9cbf24ed0c3396369",
+    "img/product-camlink-mfg.webp": "d0126205cc33dc650ecb41fe924ec68f59bc4d9de38170ce9676482ed002eb83",
+    "img/product-canon-r50-cc.webp": "ebc2a5cde4a0a453f872a6e9c25dbc3c39e9396d063a259f8e4bc93a04a674f3",
+    "img/product-emeet-s600-mfg.webp": "1042e0d3603fe80c20c26ee933558ac9e6591c1948e86df528f4218bf5d2b2a5",
+    "img/product-facecam-4k-mfg.webp": "fa0b9abc86b78a79f8533b021529cd1630bbdbbdaec60f9f0035f77883396571",
+    "img/product-facecam-mk2-mfg.webp": "5f62f357e4ee8ded09c49fb80b39838d1f0926cfaac768a95fec07ff434a8f2a",
+    "img/product-key-light-air-mk2-mfg.webp": "82a2229983fac60df5fd0a6f5861f88c289df70ce3c754e037d524e8e1e4edcf",
+    "img/product-key-light-mfg.webp": "31000692ad7ecd6b7ca76467eace3dbce0387b1d4dab1c999941006cbc97f92a",
+    "img/product-key-light-neo-mfg.webp": "f1dcc8e2886edebf705ffdcd8b458bacacccb4a9b3b39bb073e67b446deaf138",
+    "img/product-litra-mfg.webp": "4a122eaca056977553d3fd6f7c13390e80ad753512c3fcbbe3a0b728b88f1470",
+    "img/product-mv7plus-mfg.webp": "65361e7fdf2e4e2acff8155cdd2bbbfbb20b2260f949b8d783c4a35f3ccac90b",
+    "img/product-mx-brio-mfg.webp": "0f3dd883202fde5d5a4cbc8d24a629b786ca81773ee3779d78bf541a929a79b0",
+    "img/product-osmo-pocket-3-mfg.webp": "633c66d60da50624f9320f328110ce9994c4983d7ac1ed8fac6cdae6b436e408",
+    "img/product-q2u-mfg.webp": "a74e3694410f2f1e6548db4da76ca194af9cc7f7f1270500f90e40c03003b469",
+    "img/product-shure-sm7b-cc.webp": "b50d9776b8954e9f0f805194d98846cefbd05f2bc97e122ba4eeb8a261965c1a",
+    "img/product-stream-deck-mk2-mfg.webp": "9ed1748628c6988942ca63a307b9dd9d3ff707d98e46b3a2ae56e6b627bbf194",
+    "img/product-stream-deck-neo-mfg.webp": "d14134f32f28ba91d1b81565b12da28f735b0520a85b594cc5a1a2c120e17b20",
+    "img/product-stream-deck-plus-mfg.webp": "d0d856a60dc070536fef040aad5f95458e6c45433db7252bdd254e9b281a8d3f",
+    "img/product-wave3-mk2-mfg.webp": "7cbb5a7be6f29f5e1581e846c32d501e9e6c7f33b85e4d8a98bba9ca6b66ca4d",
+    "img/product-yeti-mfg.webp": "46c343b0fd4e8e10b32f938b3209e23c511ce148d91a8b28cac8669742c40ba2",
+    "img/purpose-landscape.webp": "eac2f8891be3a43e6ca05ec83a09e813ac3df5caea1ecffc6f0a2474ff49b95d",
+    "img/style-portrait.webp": "04e5b43f0174093a5954a104ba59d933cc127cc4996d9a9644b0f09d91efa56a",
+    "img/travel-detail.webp": "e1bc7ed021ef601ce62fc300476734333e206e3acc389995505696b798c01dd0",
+    "integration/matrix-entry.js": "238d936904fce777174f22fb352e99fce118192ca9a469be392246c6a65366ad",
+    "integration/missionmed-interview-ready.php": "819dd734ae7bf61ded755dd3bdda5e64e4945bac05d28bd4aee5cd68f7a9d7f5",
+    "integration/release.py": "90d67d6afd96adf6a1dc0a33d350d65cc02089e42d2462b34e54bb4ec6f0ac17",
+    "phase1.css": "caf5458bd9b994b0a2a293bca03b32bfb09346d630624d82d746c75a03c1bc43",
+    "phase1.js": "cbfe2927b7ce903a22a7e3d219d51b267df9342ab8a0e19d77bd438548264e6a",
+    "phase1.json": "84bf2ad8c3055bd8c3ab36b87377ba356b6c89e05ee707399a56e124b83bb732",
+    "production-assets.json": "6e02240d27847d6e4182ecca0cbae252b00273207ea71055eaefc9c6dd293e63",
+    "src.html": "c2c37736e865660d1124182163148a77e7278bea720c185ec185907eb16e5d22"
+  },
+  "candidate": true,
+  "htmlSha256": "9511a1d281571c20d305cc20a312647459675fecd86c9c84c1554c5d87caf561",
+  "limitations": [
+    "builder candidate only",
+    "independent exact-byte/recovery acceptance required",
+    "healthy runtime lease and native WP/MySQL/cache/live browser gates outstanding",
+    "all 15 shared Matrix bytes and selections must be preserved"
+  ],
+  "productionApproved": false,
+  "schema": "missionmed.interview-ready.local-package.v1",
+  "sourceCommit": "f23a60a28d17d3298cee998fb351eff6cc456f57",
+  "sourceMappings": {
+    "account-gate.html": "interview-ready/build.py + approved img/hero-online-photo.webp",
+    "build-manifest.json": "interview-ready/build.py",
+    "gateway": "interview-ready/integration/missionmed-interview-ready.php",
+    "html": "build.py + buildInputs; production allowlist only",
+    "matrix-entry.js": "interview-ready/integration/matrix-entry.js"
+  },
+  "sourceRef": "f23a60a28d17d3298cee998fb351eff6cc456f57",
+  "sourceState": "EXACT_COMMITTED_INPUTS",
+  "uncommittedInputs": []
+}

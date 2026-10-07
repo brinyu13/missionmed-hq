@@ -1,0 +1,26 @@
+local package OK: 30fa9d48bcf6f98322e0a55a447524212eb9509080db2f3ec63f2f3bfa19bf29
+$ git -C /Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002 rev-parse HEAD
+$ git -C /Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002 merge-base --is-ancestor f23a60a28d17d3298cee998fb351eff6cc456f57 HEAD
+HEAD f23a60a28d17d3298cee998fb351eff6cc456f57 source-is-ancestor True
+$ git -C /Users/brianb/MissionMed_worktrees/IR-INTERVIEW-READY-0002 push origin codex/ir-interview-ready-0002-storyforge:codex/ir-interview-ready-0002-storyforge
+push rc 0 
+ remote: 
+remote: GitHub found 4 vulnerabilities on brinyu13/missionmed-hq's default branch (2 high, 1 moderate, 1 low). To find out more, visit:        
+remote:      https://github.com/brinyu13/missionmed-hq/security/dependabot        
+remote: 
+To https://github.com/brinyu13/missionmed-hq.git
+   c219549..f23a60a  codex/ir-interview-ready-0002-storyforge -> codex/ir-interview-ready-0002-storyforge
+ssh missionmed-kinsta (BatchMode) …
+
+remote rc 0
+{"cache": {"refresh-home-html": {"bytes": 0, "status": 200}, "refresh-ir-html": {"bytes": 0, "status": 200}}, "pointerAfter": "releases/9511a1d281571c20d305cc20a312647459675fecd86c9c84c1554c5d87caf561", "pointerBefore": "releases/c5604978213fab6313e88f1fc3ec7d135ffd7cc60fee9be792fd1f6b0f7d143f", "readbackHtmlSha256": "9511a1d281571c20d305cc20a312647459675fecd86c9c84c1554c5d87caf561", "result": "PASS", "rollbackPointer": ".previous-635f64ba1cfb7c84-to-30fa9d48bcf6f983 -> releases/c5604978213fab6313e88f1fc3ec7d135ffd7cc60fee9be792fd1f6b0f7d143f", "sharedChecked": 15, "steps": ["mkdir-stage", "transfer", "extract", "lint", "publish-release", "prepare-pointer", "publish-pointer", "readback"]}
+{
+ "https://missionmedinstitute.com/interview-ready/": {
+  "error": "<urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>"
+ },
+ "https://missionmedinstitute.com/interview-ready/?nocache=1791333838": {
+  "error": "<urlopen error [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1129)>"
+ }
+}
+
+DEPLOY LIVE — PASS
