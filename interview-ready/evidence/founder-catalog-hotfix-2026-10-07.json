@@ -1,0 +1,33 @@
+{
+  "observedOn": "2026-10-07",
+  "authority": "Direct Founder urgent catalog correction; IR-CATALOG-HOTFIX-20261007",
+  "primaryAsins": {
+    "webcam": [
+      "B085TFF7M1",
+      "B0BFJ4CRKD",
+      "B0BTTV6CT1"
+    ],
+    "mic": [
+      "B00N1YPXW2",
+      "B0CTJ7PVN1",
+      "B0CCSVYWMH"
+    ],
+    "light": [
+      "B0FHQSVPVL",
+      "B0GYDFGCCQ",
+      "B07L755X9G"
+    ]
+  },
+  "firstClassAlternatives": {
+    "webcam": [
+      "B0DVZG36J8"
+    ],
+    "mic": [
+      "B0GGYLFHPS"
+    ]
+  },
+  "historicalRecords": "Archived original tier keys retained for saved-kit lookup, excluded from current comparison selectors.",
+  "amazonEvidence": "Exact ASIN retail title snapshots rechecked October7; crawls1day–3weeks old; no price/rating/availability claimed.",
+  "imageEvidence": "manufacturer-images-2026-10-07.json and retained October6 ledger",
+  "sm7dbOverride": "Founder explicitly selects SM7dB, superseding earlier default-rating hold. No numeric Amazon facts displayed."
+}

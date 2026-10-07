@@ -317,6 +317,24 @@
       "sha256": "eeb75fb37be1d96a4c006621de76fcd2a25e1bcd6b3c6c846c3fb699b18b7eab",
       "basis": "Founder-supplied brand logo (2026-10-06 directive: use the MissionMed Institute and Mission Residency logos)",
       "evidence": "evidence/brand-logos-2026-10-06.json"
+    },
+    {
+      "path": "img/product-c920x-mfg.webp",
+      "sha256": "f52750721887f623e074453d8904a38eefb94417c94d0fb419ec39cddd235bcd",
+      "basis": "Manufacturer product-page media",
+      "evidence": "evidence/manufacturer-images-2026-10-07.json",
+      "author": "Logitech",
+      "licenseUrl": "https://support.logi.com/hc/en-001/articles/4404150575639-C920x-Pro-HD-Webcam",
+      "source": "https://www.logitech.com/assets/41864/8/hd-pro-webcam-c920-feature-image.png"
+    },
+    {
+      "path": "img/product-sm7db-mfg.webp",
+      "sha256": "bb6cea6fd121d1b7fcc067f48bba602fc5faea8cc03483f0b9d8cad0b6c1ae69",
+      "basis": "Manufacturer product-page media",
+      "evidence": "evidence/manufacturer-images-2026-10-07.json",
+      "author": "Shure",
+      "licenseUrl": "https://www.shure.com/en-US/products/microphones/sm7db?variant=SM7dB",
+      "source": "https://products.shureweb.eu/shure_product_db/product_main_images/files/770/d92/92-/large_transparent/7d2a7b7f3c9d4d3e3e6d556dfaacd968.png"
     }
   ]
 }

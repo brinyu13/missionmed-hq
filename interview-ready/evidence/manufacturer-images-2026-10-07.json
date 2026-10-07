@@ -1,0 +1,38 @@
+[
+  {
+    "asin": "B085TFF7M1",
+    "model": "Logitech C920x HD Pro",
+    "brand": "Logitech",
+    "url": "https://www.logitech.com/assets/41864/8/hd-pro-webcam-c920-feature-image.png",
+    "source": "https://support.logi.com/hc/en-001/articles/4404150575639-C920x-Pro-HD-Webcam",
+    "basis": "Manufacturer product-page media",
+    "observedAt": "2026-10-07",
+    "localSource": "sources/product-c920x-mfg.png",
+    "derivative": "img/product-c920x-mfg.webp",
+    "sha256": "c58a2e5ea4c99ff8691e266eb7bdd9ba49ed8d32c787e7a6c98a8e8f7d6b4ecb",
+    "derivativeSha256": "f52750721887f623e074453d8904a38eefb94417c94d0fb419ec39cddd235bcd",
+    "width": 137,
+    "height": 113,
+    "changes": "Transparent margins trimmed, resized without upscaling, metadata removed and WebP encoded; no retouching",
+    "rights": "Official manufacturer media under existing Founder-directed manufacturer-image pipeline; no express reuse licence or endorsement asserted.",
+    "note": "Logitech explicitly publishes this shared C920-family photograph on its exact C920x support page; 150px original."
+  },
+  {
+    "asin": "B0CCSVYWMH",
+    "model": "Shure SM7dB",
+    "brand": "Shure",
+    "url": "https://products.shureweb.eu/shure_product_db/product_main_images/files/770/d92/92-/large_transparent/7d2a7b7f3c9d4d3e3e6d556dfaacd968.png",
+    "source": "https://www.shure.com/en-US/products/microphones/sm7db?variant=SM7dB",
+    "basis": "Manufacturer product-page media",
+    "observedAt": "2026-10-07",
+    "localSource": "sources/product-sm7db-mfg.png",
+    "derivative": "img/product-sm7db-mfg.webp",
+    "sha256": "753d08f8ab099f0088a4a2fac35255dbaa12c1f934fbc7e69edaa9a219d8f578",
+    "derivativeSha256": "bb6cea6fd121d1b7fcc067f48bba602fc5faea8cc03483f0b9d8cad0b6c1ae69",
+    "width": 640,
+    "height": 550,
+    "changes": "Transparent margins trimmed, resized without upscaling, metadata removed and WebP encoded; no retouching",
+    "rights": "Official manufacturer media under existing Founder-directed manufacturer-image pipeline; no express reuse licence or endorsement asserted.",
+    "note": "Exact SM7dB product database image with model marking; microphone/yoke only, interface and arm separate."
+  }
+]

@@ -7,131 +7,14 @@
       "intro": "Light and eye-level framing come first. Interview platforms may compress video; a 4K sensor does not guarantee a 4K call.",
       "items": [
         {
-          "t": "bc",
-          "asin": "B09NBWWP79",
-          "name": "Logitech Brio Ultra 4K",
-          "why": "A 4K sensor with adjustable field of view, used at a reliable interview resolution.",
-          "best": "A permanent desk with straightforward USB setup",
-          "pros": [
-            "4K30 / 1080p60 capability",
-            "65°, 78° or 90° framing"
-          ],
-          "cons": [
-            "4K needs USB 3.0",
-            "Platform limits still apply"
-          ],
-          "setup": "Start at 1080p30. Match the field of view to your room; use a direct port.",
-          "source": "https://www.logitech.com/en-gb/products/webcams/brio-4k-hdr-webcam.html",
-          "review": {
-            "by": "Primal Video",
-            "title": "Brio 4K · hands-on review",
-            "url": "https://primalvideo.com/guides/logitech-brio-review-best-4k-webcam/"
-          },
-          "ecosystem": "Logitech",
-          "complexity": "Simple",
-          "box": "Check the selected listing and package contents before ordering.",
-          "up": "The Brio adds field-of-view choices to a typical built-in camera. Lighting and a stable 1080p call remain the first priorities.",
-          "down": "Keep your existing webcam if framing, exposure and reliability already pass the rehearsal.",
-          "exception": false,
-          "image": "img/product-brio-mfg.webp",
-          "offerState": "check-on-amazon",
-          "imageCredit": {
-            "author": "Logitech",
-            "license": "Manufacturer product-page media",
-            "licenseUrl": "https://www.logitech.com/en-us/products/webcams/brio-4k-hdr-webcam.html",
-            "source": "https://resource.logitech.com/w_1800,h_1800,c_limit,q_auto,f_auto,dpr_1.0/d_transparent.gif/content/dam/logitech/en/products/webcams/brio/gallery/brio-gallery-1.png",
-            "caption": "Manufacturer product image of the exact model.",
-            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching"
-          },
-          "imageSource": "manufacturer"
-        },
-        {
-          "t": "fc",
-          "asin": "B0CW1S7XP5",
-          "name": "Elgato Facecam MK.2",
-          "why": "Manual Camera Hub control is useful if you already run an Elgato studio. Rehearse the fixed-focus working distance before choosing it.",
-          "best": "Existing Elgato owners who value repeatable control",
-          "pros": [
-            "1080p60 capability",
-            "Fixed focus and manual image control"
-          ],
-          "cons": [
-            "Fixed-focus working distance",
-            "Below the usual rating threshold"
-          ],
-          "setup": "Check the documented focus range and USB port; save an exposure preset after lighting.",
-          "source": "https://www.elgato.com/us/en/p/facecam-mk2",
-          "review": {
-            "by": "EposVox",
-            "title": "Facecam MK.2 · control, HDR and focus tests",
-            "url": "https://www.youtube.com/watch?v=qn5Mmot8OQM",
-            "video": "qn5Mmot8OQM"
-          },
-          "ecosystem": "Elgato",
-          "complexity": "Moderate",
-          "box": "Check the selected listing and package contents before ordering.",
-          "up": "Camera Hub gives repeatable manual image control. It trades the Brio’s autofocus and 4K sensor for a fixed-focus Elgato workflow.",
-          "down": "The Brio is the simpler choice if you want adjustable framing without managing exposure presets.",
-          "exception": true,
-          "image": "img/product-facecam-mk2-mfg.webp",
-          "offerState": "check-on-amazon",
-          "imageCredit": {
-            "author": "Elgato (Corsair Keystone public press kit)",
-            "license": "Manufacturer public press-kit media",
-            "licenseUrl": "https://keystone.corsair.com/en/Facecam_MK_2/press-kit/",
-            "source": "https://res.cloudinary.com/corsairdam/image/upload/v1774862954/B0CW1S7XP5.Main_mcmfpy.jpg",
-            "caption": "Manufacturer product image of the exact model.",
-            "changes": "Resized, metadata removed and WebP encoded; no retouching"
-          },
-          "imageSource": "manufacturer"
-        },
-        {
-          "t": "pj",
-          "asin": "B0BTTV6CT1",
-          "name": "Canon EOS R50 + RF-S 18–45mm kit",
-          "why": "A real interchangeable-lens path for applicants who will also teach or create video. Buy the full chain, not only a camera body.",
-          "best": "A creator with time to rehearse",
-          "pros": [
-            "RF-S 18–45mm lens included",
-            "Clean HDMI output"
-          ],
-          "cons": [
-            "Capture, mount and sustained power add cost",
-            "Focus and heat need a long rehearsal"
-          ],
-          "setup": "RF-S 18–45mm at the wide end → stable mount → micro-HDMI cable → capture card → direct USB. Use Canon-approved continuous power. Rehearse for the full interview length; keep a webcam backup.",
-          "source": "https://cam.start.canon/en/C011/manual/html/UG-11_Reference_0090.html",
-          "review": {
-            "by": "DPReview",
-            "title": "EOS R50 · autofocus, video and lens limitations",
-            "url": "https://www.dpreview.com/reviews/6952765962/canon-eos-r50-review-compact-capable-but-lacking-for-lenses/"
-          },
-          "ecosystem": "Canon RF",
-          "complexity": "Advanced",
-          "box": "This ASIN is the camera + RF-S 18–45mm lens kit. Capture card, HDMI cable, stable mount and continuous power are separate.",
-          "up": "An interchangeable lens and larger camera sensor offer creative control beyond a webcam, with a complete capture and power chain.",
-          "down": "A webcam saves setup time, desk space and companion-hardware cost; interview platforms may erase much of the visible difference.",
-          "exception": false,
-          "image": "img/product-canon-r50-cc.webp",
-          "imageCredit": {
-            "author": "CNEcija12345",
-            "license": "CC BY-SA 4.0",
-            "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
-            "source": "https://commons.wikimedia.org/wiki/File:Canon_EOS_R50_Black.jpg",
-            "caption": "R50 with a lens; confirm the RF-S 18–45mm kit contents on Amazon.",
-            "changes": "EXIF orientation normalized, resized, metadata removed and WebP encoded"
-          },
-          "offerState": "check-on-amazon"
-        },
-        {
           "exception": false,
           "offerState": "check-on-amazon",
           "up": "MX Brio or Brio Ultra add 4K sensors and better low-light handling.",
           "down": "A recent laptop camera with good front light can pass the setup test.",
           "t": "bc",
           "asin": "B085TFF7M1",
-          "name": "Logitech C920x HD Pro (1080p/30)",
-          "why": "The long-serving 1080p standard. Interview platforms compress to 720p or 1080p anyway; a well-lit C920x looks composed.",
+          "name": "Logitech C920x HD Pro",
+          "why": "Our Business Class pick: sensible 1080p video, autofocus and a straightforward USB-A connection. Good lighting and eye-level framing matter more than paying for unused resolution.",
           "best": "A first dedicated webcam on a tight budget",
           "pros": [
             "1080p/30 with autofocus",
@@ -144,48 +27,20 @@
             "USB-A plug; adapter on USB-C laptops"
           ],
           "setup": "Sit about an arm’s length away with light from the front. If the exposure pumps, lock it in the Logitech app.",
-          "source": "https://support.logi.com/hc/en-us/articles/360023307294-C920-Technical-Specifications",
+          "source": "https://support.logi.com/hc/en-001/articles/4404150575639-C920x-Pro-HD-Webcam",
           "ecosystem": "Logitech",
           "complexity": "Simple",
           "box": "Webcam with attached USB-A cable and monitor clip; tripod thread in the clip base.",
-          "status": "image-hold",
-          "holdReason": "Temporarily held: we do not yet have an authorized photo of this exact listing (Logitech publishes images of the C920s, not the C920x). It returns as soon as one is available."
-        },
-        {
-          "exception": false,
-          "offerState": "check-on-amazon",
-          "up": "MX Brio adds Logitech’s software and a larger sensor.",
-          "down": "C920x at 1080p is enough for most interview platforms.",
-          "t": "bc",
-          "asin": "B0CYQ5P6T7",
-          "name": "EMEET S600 4K webcam",
-          "why": "A newer 4K webcam with phase-detect autofocus, usually listed below the big-brand 4K cameras. Check the current listing and software before relying on it.",
-          "best": "Students who want 4K and quick autofocus without the Logitech or Elgato price",
-          "pros": [
-            "4K and 1080p60 capability",
-            "PDAF autofocus",
-            "Two noise-reduction microphones"
-          ],
-          "cons": [
-            "Less established support than Logitech or Elgato",
-            "Companion software is less mature",
-            "Confirm the exact variant; a tripod bundle is a separate listing"
-          ],
-          "setup": "Update firmware in the EMEET app first, then fix focus and exposure before the interview so autofocus does not hunt while you gesture.",
-          "source": null,
-          "ecosystem": "EMEET",
-          "complexity": "Simple",
-          "box": "Webcam, USB cable and privacy cover; sold by EMEET OFFICIAL on Amazon at check. No manufacturer page for this exact model was located, so the Amazon listing is the product source.",
-          "image": "img/product-emeet-s600-mfg.webp",
+          "image": "img/product-c920x-mfg.webp",
+          "imageSource": "manufacturer",
           "imageCredit": {
-            "author": "EMEET",
+            "author": "Logitech",
             "license": "Manufacturer product-page media",
-            "licenseUrl": "https://emeet.com/products/webcam-s600",
-            "source": "https://emeet.com/cdn/shop/files/S600_34313aa9-4782-476c-8207-dc23668202dc.png?v=1688114349",
-            "caption": "Manufacturer product image of the exact model.",
-            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching"
-          },
-          "imageSource": "manufacturer"
+            "licenseUrl": "https://support.logi.com/hc/en-001/articles/4404150575639-C920x-Pro-HD-Webcam",
+            "source": "https://www.logitech.com/assets/41864/8/hd-pro-webcam-c920-feature-image.png",
+            "caption": "Logitech manufacturer photograph published for C920x.",
+            "changes": "Transparent margins trimmed, resized without upscaling, metadata removed and WebP encoded; no retouching"
+          }
         },
         {
           "exception": false,
@@ -228,7 +83,7 @@
           "exception": false,
           "offerState": "check-on-amazon",
           "up": "A mirrorless creator chain adds lens choice and depth of field at several times the cost and complexity.",
-          "down": "Facecam MK.2 gives most of the control at 1080p60.",
+          "down": "MX Brio provides an autofocus webcam path in the same investment class; C920x keeps the cost and resolution simpler.",
           "t": "fc",
           "asin": "B0DVZG36J8",
           "name": "Elgato Facecam 4K",
@@ -257,6 +112,163 @@
             "source": "https://res.cloudinary.com/corsairdam/image/upload/v1774861015/B0DVZG36J8.MAIN_zi1zqb.jpg",
             "caption": "Manufacturer product image of the exact model.",
             "changes": "Resized, metadata removed and WebP encoded; no retouching"
+          },
+          "imageSource": "manufacturer"
+        },
+        {
+          "t": "bc",
+          "asin": "B09NBWWP79",
+          "name": "Logitech Brio Ultra 4K",
+          "why": "A 4K sensor with adjustable field of view, used at a reliable interview resolution.",
+          "best": "A permanent desk with straightforward USB setup",
+          "pros": [
+            "4K30 / 1080p60 capability",
+            "65°, 78° or 90° framing"
+          ],
+          "cons": [
+            "4K needs USB 3.0",
+            "Platform limits still apply"
+          ],
+          "setup": "Start at 1080p30. Match the field of view to your room; use a direct port.",
+          "source": "https://www.logitech.com/en-gb/products/webcams/brio-4k-hdr-webcam.html",
+          "review": {
+            "by": "Primal Video",
+            "title": "Brio 4K · hands-on review",
+            "url": "https://primalvideo.com/guides/logitech-brio-review-best-4k-webcam/"
+          },
+          "ecosystem": "Logitech",
+          "complexity": "Simple",
+          "box": "Check the selected listing and package contents before ordering.",
+          "up": "The Brio adds field-of-view choices to a typical built-in camera. Lighting and a stable 1080p call remain the first priorities.",
+          "down": "Keep your existing webcam if framing, exposure and reliability already pass the rehearsal.",
+          "exception": false,
+          "image": "img/product-brio-mfg.webp",
+          "offerState": "check-on-amazon",
+          "imageCredit": {
+            "author": "Logitech",
+            "license": "Manufacturer product-page media",
+            "licenseUrl": "https://www.logitech.com/en-us/products/webcams/brio-4k-hdr-webcam.html",
+            "source": "https://resource.logitech.com/w_1800,h_1800,c_limit,q_auto,f_auto,dpr_1.0/d_transparent.gif/content/dam/logitech/en/products/webcams/brio/gallery/brio-gallery-1.png",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching"
+          },
+          "imageSource": "manufacturer",
+          "status": "archived",
+          "archivedReason": "Founder catalog correction 2026-10-07: Moved to First Class; the active Brio record is in that investment class. Historical saved-kit record retained."
+        },
+        {
+          "t": "fc",
+          "asin": "B0CW1S7XP5",
+          "name": "Elgato Facecam MK.2",
+          "why": "Manual Camera Hub control is useful if you already run an Elgato studio. Rehearse the fixed-focus working distance before choosing it.",
+          "best": "Existing Elgato owners who value repeatable control",
+          "pros": [
+            "1080p60 capability",
+            "Fixed focus and manual image control"
+          ],
+          "cons": [
+            "Fixed-focus working distance",
+            "Below the usual rating threshold"
+          ],
+          "setup": "Check the documented focus range and USB port; save an exposure preset after lighting.",
+          "source": "https://www.elgato.com/us/en/p/facecam-mk2",
+          "review": {
+            "by": "EposVox",
+            "title": "Facecam MK.2 · control, HDR and focus tests",
+            "url": "https://www.youtube.com/watch?v=qn5Mmot8OQM",
+            "video": "qn5Mmot8OQM"
+          },
+          "ecosystem": "Elgato",
+          "complexity": "Moderate",
+          "box": "Check the selected listing and package contents before ordering.",
+          "up": "Camera Hub gives repeatable manual image control. It trades the Brio’s autofocus and 4K sensor for a fixed-focus Elgato workflow.",
+          "down": "The Brio is the simpler choice if you want adjustable framing without managing exposure presets.",
+          "exception": true,
+          "image": "img/product-facecam-mk2-mfg.webp",
+          "offerState": "check-on-amazon",
+          "imageCredit": {
+            "author": "Elgato (Corsair Keystone public press kit)",
+            "license": "Manufacturer public press-kit media",
+            "licenseUrl": "https://keystone.corsair.com/en/Facecam_MK_2/press-kit/",
+            "source": "https://res.cloudinary.com/corsairdam/image/upload/v1774862954/B0CW1S7XP5.Main_mcmfpy.jpg",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, metadata removed and WebP encoded; no retouching"
+          },
+          "imageSource": "manufacturer",
+          "status": "archived",
+          "archivedReason": "Founder catalog correction 2026-10-07: Replaced in the current Elgato shortlist by Facecam 4K. Historical saved-kit record retained."
+        },
+        {
+          "t": "pj",
+          "asin": "B0BTTV6CT1",
+          "name": "Canon EOS R50 + RF-S 18–45mm kit",
+          "why": "A real interchangeable-lens path for applicants who will also teach or create video. Buy the full chain, not only a camera body.",
+          "best": "A creator with time to rehearse",
+          "pros": [
+            "RF-S 18–45mm lens included",
+            "Clean HDMI output"
+          ],
+          "cons": [
+            "Capture, mount and sustained power add cost",
+            "Focus and heat need a long rehearsal"
+          ],
+          "setup": "RF-S 18–45mm at the wide end → stable mount → micro-HDMI cable → capture card → direct USB. Use Canon-approved continuous power. Rehearse for the full interview length; keep a webcam backup.",
+          "source": "https://cam.start.canon/en/C011/manual/html/UG-11_Reference_0090.html",
+          "review": {
+            "by": "DPReview",
+            "title": "EOS R50 · autofocus, video and lens limitations",
+            "url": "https://www.dpreview.com/reviews/6952765962/canon-eos-r50-review-compact-capable-but-lacking-for-lenses/"
+          },
+          "ecosystem": "Canon RF",
+          "complexity": "Advanced",
+          "box": "This ASIN is the camera + RF-S 18–45mm lens kit. Capture card, HDMI cable, stable mount and continuous power are separate.",
+          "up": "An interchangeable lens and larger camera sensor offer creative control beyond a webcam, with a complete capture and power chain.",
+          "down": "A webcam saves setup time, desk space and companion-hardware cost; interview platforms may erase much of the visible difference.",
+          "exception": false,
+          "image": "img/product-canon-r50-cc.webp",
+          "imageCredit": {
+            "author": "CNEcija12345",
+            "license": "CC BY-SA 4.0",
+            "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+            "source": "https://commons.wikimedia.org/wiki/File:Canon_EOS_R50_Black.jpg",
+            "caption": "R50 with a lens; confirm the RF-S 18–45mm kit contents on Amazon.",
+            "changes": "EXIF orientation normalized, resized, metadata removed and WebP encoded"
+          },
+          "offerState": "check-on-amazon"
+        },
+        {
+          "exception": false,
+          "offerState": "check-on-amazon",
+          "up": "MX Brio adds Logitech’s software and a larger sensor.",
+          "down": "C920x at 1080p is enough for most interview platforms.",
+          "t": "bc",
+          "asin": "B0CYQ5P6T7",
+          "name": "EMEET S600 4K webcam",
+          "why": "A newer 4K webcam with phase-detect autofocus, usually listed below the big-brand 4K cameras. Check the current listing and software before relying on it.",
+          "best": "Students who want 4K and quick autofocus without the Logitech or Elgato price",
+          "pros": [
+            "4K and 1080p60 capability",
+            "PDAF autofocus",
+            "Two noise-reduction microphones"
+          ],
+          "cons": [
+            "Less established support than Logitech or Elgato",
+            "Companion software is less mature",
+            "Confirm the exact variant; a tripod bundle is a separate listing"
+          ],
+          "setup": "Update firmware in the EMEET app first, then fix focus and exposure before the interview so autofocus does not hunt while you gesture.",
+          "source": null,
+          "ecosystem": "EMEET",
+          "complexity": "Simple",
+          "box": "Webcam, USB cable and privacy cover; sold by EMEET OFFICIAL on Amazon at check. No manufacturer page for this exact model was located, so the Amazon listing is the product source.",
+          "image": "img/product-emeet-s600-mfg.webp",
+          "imageCredit": {
+            "author": "EMEET",
+            "license": "Manufacturer product-page media",
+            "licenseUrl": "https://emeet.com/products/webcam-s600",
+            "source": "https://emeet.com/cdn/shop/files/S600_34313aa9-4782-476c-8207-dc23668202dc.png?v=1688114349",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching"
           },
           "imageSource": "manufacturer"
         },
@@ -313,6 +325,45 @@
             "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching"
           },
           "imageSource": "manufacturer"
+        },
+        {
+          "t": "fc",
+          "asin": "B09NBWWP79",
+          "name": "Logitech Brio Ultra 4K",
+          "why": "A 4K sensor with adjustable field of view, used at a reliable interview resolution.",
+          "best": "A permanent desk with straightforward USB setup",
+          "pros": [
+            "4K30 / 1080p60 capability",
+            "65°, 78° or 90° framing"
+          ],
+          "cons": [
+            "4K needs USB 3.0",
+            "Platform limits still apply"
+          ],
+          "setup": "Start at 1080p30. Match the field of view to your room; use a direct port.",
+          "source": "https://www.logitech.com/en-gb/products/webcams/brio-4k-hdr-webcam.html",
+          "review": {
+            "by": "Primal Video",
+            "title": "Brio 4K · hands-on review",
+            "url": "https://primalvideo.com/guides/logitech-brio-review-best-4k-webcam/"
+          },
+          "ecosystem": "Logitech",
+          "complexity": "Simple",
+          "box": "Check the selected listing and package contents before ordering.",
+          "up": "The Brio adds field-of-view choices to a typical built-in camera. Lighting and a stable 1080p call remain the first priorities.",
+          "down": "Keep your existing webcam if framing, exposure and reliability already pass the rehearsal.",
+          "exception": false,
+          "image": "img/product-brio-mfg.webp",
+          "offerState": "check-on-amazon",
+          "imageCredit": {
+            "author": "Logitech",
+            "license": "Manufacturer product-page media",
+            "licenseUrl": "https://www.logitech.com/en-us/products/webcams/brio-4k-hdr-webcam.html",
+            "source": "https://resource.logitech.com/w_1800,h_1800,c_limit,q_auto,f_auto,dpr_1.0/d_transparent.gif/content/dam/logitech/en/products/webcams/brio/gallery/brio-gallery-1.png",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching"
+          },
+          "imageSource": "manufacturer"
         }
       ],
       "pick": "bc"
@@ -322,6 +373,180 @@
       "name": "Microphones & audio",
       "intro": "Choose USB for the shortest reliable path. XLR buys studio flexibility, and adds an interface, cables and gain decisions.",
       "items": [
+        {
+          "t": "bc",
+          "asin": "B00N1YPXW2",
+          "name": "Blue Yeti USB (Blackout)",
+          "why": "Our Business Class microphone pick: a familiar USB desktop microphone with gain control and headphone monitoring. Select cardioid and keep it close in a quiet room.",
+          "best": "Quiet rooms and existing Yeti owners",
+          "pros": [
+            "USB simplicity",
+            "Onboard gain and monitoring"
+          ],
+          "cons": [
+            "Condenser hears room noise",
+            "Bulky desktop footprint"
+          ],
+          "setup": "Select cardioid. Speak into the SIDE, not the top; keep gain low and the mic near you.",
+          "source": "https://www.logitechg.com/en-us/products/streaming-gear/yeti-premium-usb-microphone.html",
+          "review": {
+            "by": "The Podcast Host",
+            "title": "Blue Yeti · technique, value and limitations",
+            "url": "https://www.thepodcasthost.com/equipment/blue-yeti-podcasting-review/"
+          },
+          "ecosystem": "Logitech / Blue",
+          "complexity": "Simple",
+          "box": "Check the selected listing and package contents before ordering.",
+          "up": "MV7+ adds a dynamic capsule and USB processing; Wave:3 MK.2 adds an Elgato USB workflow. Choose according to your room and existing setup.",
+          "down": "Your existing microphone may already be sufficient after a local setup check.",
+          "exception": false,
+          "offerState": "check-on-amazon",
+          "image": "img/product-yeti-mfg.webp",
+          "imageCredit": {
+            "author": "Logitech G",
+            "license": "Manufacturer product-page media",
+            "licenseUrl": "https://www.logitechg.com/en-us/products/streaming-gear/yeti-premium-usb-microphone.html",
+            "source": "https://resource.logitechg.com/c_fill,q_auto,f_auto,dpr_1.0/d_transparent.gif/content/dam/gaming/en/products/streaming-gear/yeti-premium-usb-microphone/2025/gallery/yeti-3qtr-left-angle-blackout-gallery-4.png",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching"
+          },
+          "imageSource": "manufacturer"
+        },
+        {
+          "t": "fc",
+          "asin": "B0CTJ7PVN1",
+          "name": "Shure MV7+",
+          "why": "Premium Shure voice audio with a direct USB-C path. An interface is optional for its separate XLR output.",
+          "best": "Frequent interviews and later teaching",
+          "pros": [
+            "USB-C or XLR",
+            "Headphone monitoring",
+            "Onboard processing in USB mode"
+          ],
+          "cons": [
+            "Stand/arm needed",
+            "Extra processing should be rehearsed"
+          ],
+          "setup": "Use USB-C directly. Set MOTIV processing once, then test in your interview app. Avoid stacking heavy noise processing in both apps.",
+          "source": "https://pubs.shure.com/view/guide/MV7plus/en-US.pdf",
+          "review": {
+            "by": "Podcastage",
+            "title": "MV7+ · sound tests and comparisons",
+            "url": "https://www.youtube.com/watch?v=jHd3kQNEWyQ",
+            "video": "jHd3kQNEWyQ"
+          },
+          "ecosystem": "Shure / USB-XLR",
+          "complexity": "Moderate",
+          "box": "MV7+ microphone and USB-C cable. This microphone-only variant needs a stand or arm.",
+          "up": "SM7dB adds a dedicated broadcast microphone with active preamp gain, but requires the complete XLR interface and mounting chain.",
+          "down": "Blue Yeti reduces the investment, with greater sensitivity to room sound.",
+          "exception": false,
+          "offerState": "check-on-amazon",
+          "image": "img/product-mv7plus-mfg.webp",
+          "imageCredit": {
+            "author": "Shure",
+            "license": "Manufacturer product-page media",
+            "licenseUrl": "https://www.shure.com/en-US/products/microphones/mv7?variant=MV7PLUS-K",
+            "source": "https://products.shureweb.eu/shure_product_db/product_main_images/files/700/ead/89-/large_transparent/fe71d068e73acc951e1c9a0458a7093c.png",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching"
+          },
+          "imageSource": "manufacturer"
+        },
+        {
+          "exception": false,
+          "offerState": "check-on-amazon",
+          "up": "MV7+ is a dynamic design that rejects more room noise and keeps an XLR path.",
+          "down": "Blue Yeti offers a simpler desktop USB investment; use cardioid mode and control room noise.",
+          "t": "fc",
+          "asin": "B0GGYLFHPS",
+          "name": "Elgato Wave:3 MK.2",
+          "why": "Elgato’s current top USB condenser: Clipguard 2.0 anti-distortion, auto gain and onboard effects with Wave Link routing. A strong USB choice when your room is quiet.",
+          "best": "A quiet room and an Elgato or Stream Deck desk",
+          "pros": [
+            "USB-C, plug-and-play",
+            "Clipguard 2.0 and Auto Gain",
+            "Onboard DSP with the Wave Link app"
+          ],
+          "cons": [
+            "Condenser capsule picks up room noise",
+            "Onboard effects need a conservative setup",
+            "A boom arm improves placement"
+          ],
+          "setup": "Run Auto Gain once, keep effects light and place the capsule a hand’s width from your mouth. Test inside the interview app, not only in Wave Link.",
+          "source": "https://www.elgato.com/us/en/p/wave-3",
+          "ecosystem": "Elgato / USB",
+          "complexity": "Moderate",
+          "box": "Microphone, desk stand and USB-C cable; a boom arm is separate.",
+          "image": "img/product-wave3-mk2-mfg.webp",
+          "imageCredit": {
+            "author": "Elgato (Corsair Keystone public press kit)",
+            "license": "Manufacturer public press-kit media",
+            "licenseUrl": "https://keystone.corsair.com/en/Wave_3_MK_2/press-kit/",
+            "source": "https://res.cloudinary.com/corsairdam/image/upload/v1781603801/B0GGYLFHPS.Main_evwyki.jpg",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, metadata removed and WebP encoded; no retouching"
+          },
+          "imageSource": "manufacturer"
+        },
+        {
+          "t": "pj",
+          "asin": "B0CCSVYWMH",
+          "name": "Shure SM7dB · complete XLR desk chain",
+          "why": "Our premium broadcast/studio path: SM7dB with built-in active preamp, an XLR audio interface and a robust boom arm. This is a complete multi-part workflow, not a USB microphone.",
+          "best": "A permanent interview, teaching and recording desk",
+          "pros": [
+            "Broadcast dynamic microphone",
+            "Built-in +18 or +28 dB active preamp",
+            "Deliberate close-mic placement on a boom arm"
+          ],
+          "cons": [
+            "XLR interface and cable required",
+            "48V phantom power required for the active preamp",
+            "More cost and setup than USB"
+          ],
+          "setup": "Connect SM7dB by balanced XLR cable to an audio interface with 48V phantom power, then connect the interface to your computer by USB. Choose +18 or +28 dB built-in gain and set interface gain without clipping. Bypass works without phantom power, but removes the active gain. No external inline booster is needed for the active path. Mount securely 1–6 inches from your mouth; rehearse in the interview app.",
+          "source": "https://pubs.shure.com/view/guide/SM7dB/en-US.pdf",
+          "review": {
+            "by": "Shure",
+            "title": "SM7dB setup guide · built-in preamp, phantom power and XLR",
+            "url": "https://pubs.shure.com/view/guide/SM7dB/en-US.pdf"
+          },
+          "ecosystem": "Shure / XLR interface / Elgato arm",
+          "complexity": "Advanced",
+          "box": "SM7dB microphone, yoke, windscreens and thread adapter. Interface, balanced XLR cable and boom arm are separate purchases.",
+          "chain": [
+            {
+              "name": "XLR audio interface with +48V phantom power",
+              "note": "Required; Shure lists MVX2U as a compatible computer connection. Select the current interface and verify its system support separately."
+            },
+            {
+              "name": "Balanced XLR microphone cable",
+              "note": "Required; microphone to interface."
+            },
+            {
+              "name": "Elgato Wave Mic Arm LP",
+              "asin": "B097376LKF"
+            },
+            {
+              "name": "Interface-to-computer USB connection",
+              "note": "Use the interface’s supported cable; confirm your computer port."
+            }
+          ],
+          "up": "A complete studio workflow with controllable active preamp gain; count every component rather than the microphone price alone.",
+          "down": "MV7+ in First Class connects directly by USB-C; Wave:3 MK.2 offers an Elgato USB route. Neither requires this XLR interface chain.",
+          "offerState": "check-on-amazon",
+          "image": "img/product-sm7db-mfg.webp",
+          "imageSource": "manufacturer",
+          "imageCredit": {
+            "author": "Shure",
+            "license": "Manufacturer product-page media",
+            "licenseUrl": "https://www.shure.com/en-US/products/microphones/sm7db?variant=SM7dB",
+            "source": "https://products.shureweb.eu/shure_product_db/product_main_images/files/770/d92/92-/large_transparent/7d2a7b7f3c9d4d3e3e6d556dfaacd968.png",
+            "caption": "Exact SM7dB microphone and yoke; interface and arm sold separately.",
+            "changes": "Transparent margins trimmed, resized without upscaling, metadata removed and WebP encoded; no retouching"
+          }
+        },
         {
           "t": "bc",
           "asin": "B07FKG8PGZ",
@@ -360,48 +585,9 @@
             "caption": "Manufacturer product image of the exact model.",
             "changes": "Resized, metadata removed and WebP encoded; no retouching"
           },
-          "imageSource": "manufacturer"
-        },
-        {
-          "t": "fc",
-          "asin": "B0CTJ7PVN1",
-          "name": "Shure MV7+",
-          "why": "Premium Shure voice audio with a direct USB-C path. An interface is optional for its separate XLR output.",
-          "best": "Frequent interviews and later teaching",
-          "pros": [
-            "USB-C or XLR",
-            "Headphone monitoring",
-            "Onboard processing in USB mode"
-          ],
-          "cons": [
-            "Stand/arm needed",
-            "Extra processing should be rehearsed"
-          ],
-          "setup": "Use USB-C directly. Set MOTIV processing once, then test in your interview app. Avoid stacking heavy noise processing in both apps.",
-          "source": "https://pubs.shure.com/view/guide/MV7plus/en-US.pdf",
-          "review": {
-            "by": "Podcastage",
-            "title": "MV7+ · sound tests and comparisons",
-            "url": "https://www.youtube.com/watch?v=jHd3kQNEWyQ",
-            "video": "jHd3kQNEWyQ"
-          },
-          "ecosystem": "Shure / USB-XLR",
-          "complexity": "Moderate",
-          "box": "MV7+ microphone and USB-C cable. This microphone-only variant needs a stand or arm.",
-          "up": "MV7+ adds USB processing and touch control while keeping an XLR option. A stand or arm remains a separate need.",
-          "down": "Q2U gives you the core USB/XLR paths with fewer processing choices to rehearse.",
-          "exception": false,
-          "offerState": "check-on-amazon",
-          "image": "img/product-mv7plus-mfg.webp",
-          "imageCredit": {
-            "author": "Shure",
-            "license": "Manufacturer product-page media",
-            "licenseUrl": "https://www.shure.com/en-US/products/microphones/mv7?variant=MV7PLUS-K",
-            "source": "https://products.shureweb.eu/shure_product_db/product_main_images/files/700/ead/89-/large_transparent/fe71d068e73acc951e1c9a0458a7093c.png",
-            "caption": "Manufacturer product image of the exact model.",
-            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching"
-          },
-          "imageSource": "manufacturer"
+          "imageSource": "manufacturer",
+          "status": "archived",
+          "archivedReason": "Founder catalog correction 2026-10-07: Samson Q2U removed from active recommendations, alternatives and comparison selection. Historical saved-kit record retained."
         },
         {
           "t": "pj",
@@ -443,81 +629,6 @@
           "offerState": "check-on-amazon",
           "status": "archived",
           "archivedReason": "Archived from active recommendations on 2026-10-06 by Founder direction: an XLR-only studio chain, not a student interview microphone. Shure MV7+ is the active Shure recommendation. Kept for comparison and for kits that already saved it."
-        },
-        {
-          "t": "bc",
-          "asin": "B00N1YPXW2",
-          "name": "Blue Yeti USB (Blackout)",
-          "why": "A practical choice if you already own one and have a quiet room. More expensive does not mean better noise isolation than a dynamic mic.",
-          "best": "Quiet rooms and existing Yeti owners",
-          "pros": [
-            "USB simplicity",
-            "Onboard gain and monitoring"
-          ],
-          "cons": [
-            "Condenser hears room noise",
-            "Bulky desktop footprint"
-          ],
-          "setup": "Select cardioid. Speak into the SIDE, not the top; keep gain low and the mic near you.",
-          "source": "https://www.logitechg.com/en-us/products/streaming-gear/yeti-premium-usb-microphone.html",
-          "review": {
-            "by": "The Podcast Host",
-            "title": "Blue Yeti · technique, value and limitations",
-            "url": "https://www.thepodcasthost.com/equipment/blue-yeti-podcasting-review/"
-          },
-          "ecosystem": "Logitech / Blue",
-          "complexity": "Simple",
-          "box": "Check the selected listing and package contents before ordering.",
-          "up": "MV7+ or Wave:3 MK.2 add processing and a better stand path; a dynamic capsule rejects more room noise.",
-          "down": "Q2U usually costs less and hears less of the room.",
-          "exception": false,
-          "offerState": "check-on-amazon",
-          "image": "img/product-yeti-mfg.webp",
-          "imageCredit": {
-            "author": "Logitech G",
-            "license": "Manufacturer product-page media",
-            "licenseUrl": "https://www.logitechg.com/en-us/products/streaming-gear/yeti-premium-usb-microphone.html",
-            "source": "https://resource.logitechg.com/c_fill,q_auto,f_auto,dpr_1.0/d_transparent.gif/content/dam/gaming/en/products/streaming-gear/yeti-premium-usb-microphone/2025/gallery/yeti-3qtr-left-angle-blackout-gallery-4.png",
-            "caption": "Manufacturer product image of the exact model.",
-            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching"
-          },
-          "imageSource": "manufacturer"
-        },
-        {
-          "exception": false,
-          "offerState": "check-on-amazon",
-          "up": "MV7+ is a dynamic design that rejects more room noise and keeps an XLR path.",
-          "down": "Q2U handles a less quiet room, usually for less.",
-          "t": "fc",
-          "asin": "B0GGYLFHPS",
-          "name": "Elgato Wave:3 MK.2",
-          "why": "Elgato’s current top USB condenser: Clipguard 2.0 anti-distortion, auto gain and onboard effects with Wave Link routing. A strong USB choice when your room is quiet.",
-          "best": "A quiet room and an Elgato or Stream Deck desk",
-          "pros": [
-            "USB-C, plug-and-play",
-            "Clipguard 2.0 and Auto Gain",
-            "Onboard DSP with the Wave Link app"
-          ],
-          "cons": [
-            "Condenser capsule picks up room noise",
-            "Onboard effects need a conservative setup",
-            "A boom arm improves placement"
-          ],
-          "setup": "Run Auto Gain once, keep effects light and place the capsule a hand’s width from your mouth. Test inside the interview app, not only in Wave Link.",
-          "source": "https://www.elgato.com/us/en/p/wave-3",
-          "ecosystem": "Elgato / USB",
-          "complexity": "Moderate",
-          "box": "Microphone, desk stand and USB-C cable; a boom arm is separate.",
-          "image": "img/product-wave3-mk2-mfg.webp",
-          "imageCredit": {
-            "author": "Elgato (Corsair Keystone public press kit)",
-            "license": "Manufacturer public press-kit media",
-            "licenseUrl": "https://keystone.corsair.com/en/Wave_3_MK_2/press-kit/",
-            "source": "https://res.cloudinary.com/corsairdam/image/upload/v1781603801/B0GGYLFHPS.Main_evwyki.jpg",
-            "caption": "Manufacturer product image of the exact model.",
-            "changes": "Resized, metadata removed and WebP encoded; no retouching"
-          },
-          "imageSource": "manufacturer"
         },
         {
           "t": "pj",
@@ -565,7 +676,9 @@
             "caption": "Manufacturer product image of the exact model.",
             "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching"
           },
-          "imageSource": "manufacturer"
+          "imageSource": "manufacturer",
+          "status": "archived",
+          "archivedReason": "Founder catalog correction 2026-10-07: MV7+ belongs in First Class; SM7dB is now the Private Jet XLR studio chain. Historical saved-kit record retained."
         }
       ],
       "pick": "bc"
@@ -575,6 +688,133 @@
       "name": "Lighting",
       "intro": "Make your face easy to see. Window position, glare and backlight matter before brightness specifications.",
       "items": [
+        {
+          "exception": false,
+          "offerState": "check-on-amazon",
+          "up": "Key Light Air MK.2 adds output and a desk stand.",
+          "down": "A window plus the furnishings you own can pass the setup test.",
+          "t": "bc",
+          "asin": "B0FHQSVPVL",
+          "name": "Elgato Key Light Neo (no mount)",
+          "why": "Elgato’s entry key light: edge-lit, USB-powered, with onboard and Wi-Fi control. The listing we verified ships without a mount; plan the clamp or stand separately.",
+          "best": "A laptop desk that needs a soft, even light without a studio footprint",
+          "pros": [
+            "USB powered",
+            "Onboard and Wi-Fi app control",
+            "Compact edge-lit panel"
+          ],
+          "cons": [
+            "No mount in this listing",
+            "Less output than Key Light or Key Light Air MK.2",
+            "Needs a USB power source at the desk"
+          ],
+          "setup": "Place at eye level, slightly above and to one side of the camera, at arm’s length. Set the color temperature once and keep it for every rehearsal.",
+          "source": "https://www.elgato.com/us/en/p/key-light-neo",
+          "ecosystem": "Elgato",
+          "complexity": "Simple",
+          "box": "Light and USB cable; no mount in the verified listing. The clamp variant had no buy box at check.",
+          "image": "img/product-key-light-neo-mfg.webp",
+          "imageCredit": {
+            "author": "Elgato (Corsair Keystone public press kit)",
+            "license": "Manufacturer public press-kit media",
+            "licenseUrl": "https://keystone.corsair.com/en/Key_Light_Neo/press-kit/",
+            "source": "https://res.cloudinary.com/corsairdam/image/upload/v1773400459/elgato/Neo/Key%20Light%20Neo/Imagery/Renders/Key_Light_Neo_Front.jpg",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, metadata removed and WebP encoded; no retouching"
+          },
+          "imageSource": "manufacturer"
+        },
+        {
+          "exception": false,
+          "offerState": "check-on-amazon",
+          "up": "Key Light gives more output for a deeper desk.",
+          "down": "Key Light Neo covers a laptop desk.",
+          "t": "fc",
+          "asin": "B0GYDFGCCQ",
+          "name": "Elgato Key Light Air MK.2",
+          "why": "The compact Key Light with a clamp-on desk mount: enough output for a desk at arm’s length, Wi-Fi control and a smaller footprint than the full Key Light.",
+          "best": "A permanent desk with a monitor-side clamp",
+          "pros": [
+            "Adjustable desk mount that clamps to the desk edge",
+            "Wi-Fi and app control",
+            "Adjustable color temperature"
+          ],
+          "cons": [
+            "Less output than the full Key Light",
+            "Wi-Fi setup must be rehearsed",
+            "Needs a desk edge for the clamp"
+          ],
+          "setup": "Clamp beside the monitor with the panel above eye line, angled down. Set brightness and temperature in Control Center, then keep them fixed.",
+          "source": "https://www.elgato.com/us/en/p/key-light-air",
+          "ecosystem": "Elgato",
+          "complexity": "Simple",
+          "box": "Light and clamp-on desk mount; check the listing for the included power option.",
+          "image": "img/product-key-light-air-mk2-mfg.webp",
+          "imageCredit": {
+            "author": "Elgato (Corsair Keystone public press kit)",
+            "license": "Manufacturer public press-kit media",
+            "licenseUrl": "https://keystone.corsair.com/en/Key_Light_Air_MK_2/press-kit/",
+            "source": "https://res.cloudinary.com/corsairdam/image/upload/v1781691225/Key_Light__Air_MK2_Device_Shot_00_gudxqv.png",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching"
+          },
+          "imageSource": "manufacturer"
+        },
+        {
+          "t": "pj",
+          "asin": "B07L755X9G",
+          "name": "Elgato Key Light · two-light premium setup",
+          "why": "Two full-size Key Lights form one balanced premium key/fill system: position and adjust each panel independently rather than buying one brighter light.",
+          "best": "A larger room also used for teaching",
+          "pros": [
+            "TWO full-size Key Light panels",
+            "Independent key/fill positioning",
+            "Matched Control Center controls"
+          ],
+          "cons": [
+            "Two outlets and clamps",
+            "Diminishing interview benefit"
+          ],
+          "setup": "Purchase TWO units of the linked full-size Key Light listing; it is a single-unit listing, not a two-pack. Place the key about 45° to one side and slightly above eye level, with the fill opposite at lower brightness. Balance shadows, check glasses glare, and rehearse both mounts and power connections.",
+          "source": "https://help.elgato.com/hc/en-us/articles/360028244011-Key-Light-Quick-Start-Guide",
+          "review": {
+            "by": "EposVox",
+            "title": "Key Light · an original-generation review",
+            "url": "https://www.youtube.com/watch?v=PHWkRwnbmBI",
+            "video": "PHWkRwnbmBI"
+          },
+          "ecosystem": "Elgato",
+          "complexity": "Moderate",
+          "box": "Each listing supplies one Key Light and its listed mounting/power accessories. The premium plan requires a second separately purchased unit.",
+          "up": "Two independently placed panels let you balance key and fill rather than pushing one light harder. This is a two-unit plan, not a bundle ASIN.",
+          "down": "One well-placed panel may be sufficient. A second unit doubles the lights to power, mount, pair and rehearse.",
+          "exception": false,
+          "offerState": "check-on-amazon",
+          "image": "img/product-key-light-mfg.webp",
+          "imageCredit": {
+            "author": "Elgato (Corsair Keystone public press kit)",
+            "license": "Manufacturer public press-kit media",
+            "licenseUrl": "https://keystone.corsair.com/en/Key_Light_MK_2/press-kit/",
+            "source": "https://res.cloudinary.com/corsairdam/image/upload/v1786031685/B07L755X9G.main_tppegp.jpg",
+            "caption": "Manufacturer product image of the exact model.",
+            "changes": "Resized, metadata removed and WebP encoded; no retouching"
+          },
+          "imageSource": "manufacturer",
+          "chain": [
+            {
+              "name": "Full-size Elgato Key Light — key panel",
+              "asin": "B07L755X9G"
+            },
+            {
+              "name": "Second full-size Elgato Key Light — fill panel",
+              "asin": "B07L755X9G"
+            },
+            {
+              "name": "Two secure desk mounting positions and power connections",
+              "note": "Check desk clearance and the exact listing’s included mount/power accessories."
+            }
+          ]
+        },
         {
           "t": "bc",
           "asin": "B097QZGRCQ",
@@ -655,82 +895,6 @@
           "imageSource": "manufacturer"
         },
         {
-          "t": "pj",
-          "asin": "B07L755X9G",
-          "name": "Elgato Key Light · two-light plan",
-          "why": "Two of the same verified Key Light can form a key/fill studio. A second panel is optional, not an interview requirement.",
-          "best": "A larger room also used for teaching",
-          "pros": [
-            "Matched controls",
-            "Flexible key/fill balance"
-          ],
-          "cons": [
-            "Two outlets and clamps",
-            "Diminishing interview benefit"
-          ],
-          "setup": "Buy TWO units of this exact model if needed. Run the fill lower than the key and check glare. Do not use maximum brightness by default.",
-          "source": "https://help.elgato.com/hc/en-us/articles/360028244011-Key-Light-Quick-Start-Guide",
-          "review": {
-            "by": "EposVox",
-            "title": "Key Light · an original-generation review",
-            "url": "https://www.youtube.com/watch?v=PHWkRwnbmBI",
-            "video": "PHWkRwnbmBI"
-          },
-          "ecosystem": "Elgato",
-          "complexity": "Moderate",
-          "box": "Check the selected listing and package contents before ordering.",
-          "up": "Two independently placed panels let you balance key and fill rather than pushing one light harder. This is a two-unit plan, not a bundle ASIN.",
-          "down": "One well-placed panel may be sufficient. A second unit doubles the lights to power, mount, pair and rehearse.",
-          "exception": false,
-          "offerState": "check-on-amazon",
-          "image": "img/product-key-light-mfg.webp",
-          "imageCredit": {
-            "author": "Elgato (Corsair Keystone public press kit)",
-            "license": "Manufacturer public press-kit media",
-            "licenseUrl": "https://keystone.corsair.com/en/Key_Light_MK_2/press-kit/",
-            "source": "https://res.cloudinary.com/corsairdam/image/upload/v1786031685/B07L755X9G.main_tppegp.jpg",
-            "caption": "Manufacturer product image of the exact model.",
-            "changes": "Resized, metadata removed and WebP encoded; no retouching"
-          },
-          "imageSource": "manufacturer"
-        },
-        {
-          "exception": false,
-          "offerState": "check-on-amazon",
-          "up": "Key Light Air MK.2 adds output and a desk stand.",
-          "down": "A window plus the furnishings you own can pass the setup test.",
-          "t": "bc",
-          "asin": "B0FHQSVPVL",
-          "name": "Elgato Key Light Neo (no mount)",
-          "why": "Elgato’s entry key light: edge-lit, USB-powered, with onboard and Wi-Fi control. The listing we verified ships without a mount; plan the clamp or stand separately.",
-          "best": "A laptop desk that needs a soft, even light without a studio footprint",
-          "pros": [
-            "USB powered",
-            "Onboard and Wi-Fi app control",
-            "Compact edge-lit panel"
-          ],
-          "cons": [
-            "No mount in this listing",
-            "Less output than Key Light or Key Light Air MK.2",
-            "Needs a USB power source at the desk"
-          ],
-          "setup": "Place at eye level, slightly above and to one side of the camera, at arm’s length. Set the color temperature once and keep it for every rehearsal.",
-          "source": "https://www.elgato.com/us/en/p/key-light-neo",
-          "ecosystem": "Elgato",
-          "complexity": "Simple",
-          "box": "Light and USB cable; no mount in the verified listing. The clamp variant had no buy box at check.",
-          "image": "img/product-key-light-neo-mfg.webp",
-          "imageCredit": {
-            "author": "Elgato (Corsair Keystone public press kit)",
-            "license": "Manufacturer public press-kit media",
-            "licenseUrl": "https://keystone.corsair.com/en/Key_Light_Neo/press-kit/",
-            "source": "https://res.cloudinary.com/corsairdam/image/upload/v1773400459/elgato/Neo/Key%20Light%20Neo/Imagery/Renders/Key_Light_Neo_Front.jpg",
-            "caption": "Manufacturer product image of the exact model.",
-            "changes": "Resized, metadata removed and WebP encoded; no retouching"
-          },
-          "imageSource": "manufacturer"
-        },
-        {
           "exception": false,
           "offerState": "check-on-amazon",
           "up": "An LED key light is faster to set up and dimmable.",
@@ -757,42 +921,6 @@
           "box": "Two stands, two softboxes, bulbs and a carrying bag; confirm the selected variant. Third-party seller on Amazon at check; no manufacturer page for this kit was located, so the Amazon listing is the product source.",
           "status": "image-hold",
           "holdReason": "Temporarily held: we do not yet have an authorized photo of this exact kit. It returns as soon as one is available."
-        },
-        {
-          "exception": false,
-          "offerState": "check-on-amazon",
-          "up": "Key Light gives more output for a deeper desk.",
-          "down": "Key Light Neo covers a laptop desk.",
-          "t": "fc",
-          "asin": "B0GYDFGCCQ",
-          "name": "Elgato Key Light Air MK.2",
-          "why": "The compact Key Light with a clamp-on desk mount: enough output for a desk at arm’s length, Wi-Fi control and a smaller footprint than the full Key Light.",
-          "best": "A permanent desk with a monitor-side clamp",
-          "pros": [
-            "Adjustable desk mount that clamps to the desk edge",
-            "Wi-Fi and app control",
-            "Adjustable color temperature"
-          ],
-          "cons": [
-            "Less output than the full Key Light",
-            "Wi-Fi setup must be rehearsed",
-            "Needs a desk edge for the clamp"
-          ],
-          "setup": "Clamp beside the monitor with the panel above eye line, angled down. Set brightness and temperature in Control Center, then keep them fixed.",
-          "source": "https://www.elgato.com/us/en/p/key-light-air",
-          "ecosystem": "Elgato",
-          "complexity": "Simple",
-          "box": "Light and clamp-on desk mount; check the listing for the included power option.",
-          "image": "img/product-key-light-air-mk2-mfg.webp",
-          "imageCredit": {
-            "author": "Elgato (Corsair Keystone public press kit)",
-            "license": "Manufacturer public press-kit media",
-            "licenseUrl": "https://keystone.corsair.com/en/Key_Light_Air_MK_2/press-kit/",
-            "source": "https://res.cloudinary.com/corsairdam/image/upload/v1781691225/Key_Light__Air_MK2_Device_Shot_00_gudxqv.png",
-            "caption": "Manufacturer product image of the exact model.",
-            "changes": "Resized, transparent margins trimmed, metadata removed and WebP encoded; no retouching"
-          },
-          "imageSource": "manufacturer"
         }
       ],
       "pick": "bc"
@@ -1938,11 +2066,6 @@
   },
   "held": [
     {
-      "name": "Shure SM7dB",
-      "asin": "B0CCSVYWMH",
-      "reason": "Did not meet the default Amazon rating threshold at this check."
-    },
-    {
       "name": "RØDE PodMic USB",
       "asin": "B0BQM4TKF7",
       "reason": "Did not meet the default Amazon rating threshold at this check."
@@ -2003,7 +2126,7 @@
       "Creator Pick"
     ],
     "badgeAssignment": "Founder-assigned only; unassigned until recorded.",
-    "updatedOn": "2026-10-06",
-    "evidence": "evidence/founder-curation-2026-10-06.json"
+    "updatedOn": "2026-10-07",
+    "evidence": "evidence/founder-catalog-hotfix-2026-10-07.json"
   }
 }
