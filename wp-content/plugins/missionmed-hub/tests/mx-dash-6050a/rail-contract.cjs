@@ -6,7 +6,7 @@ const source = fs.readFileSync(path.resolve(__dirname, '../../../../mu-plugins/m
 const script = source.match(/<script id="mmed-match-tools-rail-6050a">([\s\S]*?)<\/script>/)[1];
 const style = source.match(/<style id="mmed-match-tools-rail-status-6050a">([\s\S]*?)<\/style>/)[1];
 const names = ['StoryForge', 'RISE', 'Timeline', 'HomeBase', 'Arena', 'File Vault', 'PSForge', 'RankList IQ', 'LOR Studio', 'IV Prep On-Call', 'InterviewIQ'];
-const wanted = ['HomeBase', 'RISE', 'StoryForge', 'File Vault', 'PS Forge', 'LOR Studio', 'Interview IQ', 'IV Prep On-Call', 'RankList IQ', 'Timeline Builder', 'IV Ready Gear'];
+const wanted = ['HomeBase', 'RISE', 'StoryForge', 'File Vault', 'PS Forge', 'LOR Studio', 'Interview IQ', 'IV Prep On-Call', 'RankList IQ', 'Timeline', 'IV Ready Gear'];
 const statuses = ['🚧 In Development','✓ Ready','✓ Ready','✓ Ready','🚧 In Development','◇ Preview','◇ Preview','◇ Preview','◇ Preview','✓ Ready'];
 function fixture(experience, locked, omit = []) {
   const links = names.filter(n => !omit.includes(n)).map((name, i) => `<li><a class="sos-nav-link" data-original="${i}" href="${locked ? 'javascript:void(0)' : '#app-' + i}" ${locked ? 'data-locked="true" aria-disabled="true" data-route="app-' + i + '"' : ''}><span class="sos-nav-icon">XX</span><span>${name}</span>${locked ? '<svg class="sos-nav-lock-icon"></svg>' : ''}</a></li>`).join('');
@@ -19,6 +19,8 @@ function fixture(experience, locked, omit = []) {
     console.log('fixture',locked ? 'locked' : 'unlocked');
     await page.setContent(fixture('matrix2',locked));
     assert.deepEqual(await page.locator('li:not([hidden]) > a > span:nth-child(2)').allTextContents(),wanted);
+    assert.equal(await page.locator('[data-mmed-timeline-label="short"]').count(),1);
+    assert.equal(await page.locator('[data-mmed-timeline-label="short"]').evaluate(el=>getComputedStyle(el,'::after').content), '" Builder"');
     assert.deepEqual(await page.locator('[data-mmed-rail-group]').allTextContents(),['FULL SEASON','APPLICATION PERIOD','INTERVIEW SEASON']);
     assert.deepEqual(await page.locator('.sos-nav-list .mmed-rail-status').allTextContents(),statuses);
     assert.equal(await page.locator('[data-original="11"] .mmed-rail-status').textContent(),'✓ Ready');
@@ -62,6 +64,31 @@ function fixture(experience, locked, omit = []) {
   assert.equal(await page.evaluate(()=>originals.every((a,i)=>a.outerHTML===before[i])),true);
   assert.equal(await page.locator('[data-mmed-rail-group]').count(),0);
   assert.equal(await page.locator('.mmed-rail-status').count(),0);
+  // Real production owner + rail, both execution orders. A competing text rewrite
+  // starves timers and hangs navigation; this page must settle and stay responsive.
+  const ownerScript=fs.readFileSync(path.join(__dirname,'timeline-launch-owner.fixture.js'),'utf8');
+  for (const ownerFirst of [true,false]) {
+    const ownerTag='<script>window.MissionMedTimelineLaunch={target:"https://missionmedinstitute.com/timeline/"};'+ownerScript+'</script>';
+    const railTag='<script>'+script+'</script>';
+    const html=fixture('matrix2',false)
+      .replace('data-original="2"', 'data-original="2" data-missionmed-product="timeline" data-app-id="timeline" aria-label="Timeline Builder"')
+      .replace(railTag,ownerFirst?ownerTag+railTag:railTag+ownerTag);
+    await page.setContent(html,{timeout:3000});
+    await page.waitForTimeout(100);
+    const timeline=page.locator('[data-missionmed-product="timeline"]');
+    assert.equal(await timeline.count(),1);
+    assert.equal(await timeline.isVisible(),true);
+    assert.equal(await timeline.getAttribute('href'),'https://missionmedinstitute.com/timeline/');
+    assert.equal(await timeline.getAttribute('aria-label'),'Timeline Builder');
+    assert.equal(await timeline.locator('span').last().textContent(),'Timeline');
+    assert.equal(await timeline.locator('[data-mmed-timeline-label="short"]').count(),1);
+    assert.deepEqual(await page.locator('li:not([hidden]) > a > span:nth-child(2)').allTextContents(),wanted);
+    await page.evaluate(()=>{const li=document.createElement('li');document.querySelector('.sos-nav-list').appendChild(li);});
+    await page.waitForTimeout(100);
+    assert.equal(await timeline.isVisible(),true);
+    assert.equal(await timeline.locator('span').last().textContent(),'Timeline');
+    assert.equal(await page.evaluate(()=>new Promise(resolve=>setTimeout(()=>resolve(true),20))),true);
+  }
   await browser.close();
   console.log('PASS: exact Founder maturity map/Calendar, no LOR Builder, desktop/390x844 badge and lock coexistence, exact groups/order, locked/unlocked node identity/attributes/icons/handlers, omitted eligibility, late owner injection, idempotence, exact Gear URL, Classic unchanged');
 })().catch(e=>{console.error(e);process.exit(1);});

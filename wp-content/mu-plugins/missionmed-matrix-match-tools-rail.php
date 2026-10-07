@@ -34,6 +34,10 @@ function mmed_match_tools_rail_6050a() {
     }
     #sos-sidebar .mmed-rail-status[data-status="ready"] { color: #b9dfcd; border-color: #466c61; }
     #sos-sidebar .mmed-rail-status[data-status="development"] { color: #e5d4ae; border-color: #72674e; }
+    /* Timeline's owner normalizes its text to "Timeline" from its own observer.
+       Keep that source text stable; add the rail-only display suffix without
+       childList mutations that would make the two owners trigger each other. */
+    #sos-sidebar [data-mmed-timeline-label="short"]::after { content: " Builder"; }
     </style>
     <script id="mmed-match-tools-rail-6050a">
     (function () {
@@ -104,7 +108,13 @@ function mmed_match_tools_rail_6050a() {
                         var entry = entries[key(name)];
                         // Never synthesize an existing app omitted by its eligibility owner.
                         if (!entry) { return; }
-                        if (entry.label.textContent !== name) { entry.label.textContent = name; }
+                        if (name === 'Timeline Builder') {
+                            if (entry.label.textContent === 'Timeline') {
+                                entry.label.setAttribute('data-mmed-timeline-label', 'short');
+                            } else {
+                                entry.label.removeAttribute('data-mmed-timeline-label');
+                            }
+                        } else if (entry.label.textContent !== name) { entry.label.textContent = name; }
                         if (entry.link.hasAttribute('aria-label') && /^(Open PSForge|InterviewIQ)$/.test(entry.link.getAttribute('aria-label'))) {
                             entry.link.setAttribute('aria-label', name);
                         }
