@@ -122,3 +122,12 @@ test('device preferences remain subject-scoped and a removed saved device is not
   c.engineFactory=async()=>({stream:new Stream([new Track('video','present-camera'),new Track('audio','present-mic')]),start:async input=>{selected=input;},destroy(){}});
   await c.acquire();assert.equal(selected.cameraDeviceId,'');assert.equal(selected.microphoneDeviceId,'present-mic');await c.release();
 });
+test('explicit preflight choices retarget reused calibration capture instead of being silently ignored',async()=>{
+  const c=new SessionController();const stream=new Stream([new Track('audio','old-mic')]);
+  c.phase='READY';c.engine={stream,resumeInputAudio(){},real:{currentDevices:()=>({cameraDeviceId:'old-cam',microphoneDeviceId:'old-mic'})}};
+  const calls=[];c.switchDevice=async(kind,id)=>calls.push([kind,id]);
+  const owner=c.engine;
+  assert.equal(await c.acquire({cameraDeviceId:'facetime',microphoneDeviceId:'builtin'}),owner);
+  assert.deepEqual(calls,[['camera','facetime'],['microphone','builtin']]);
+  assert.equal(c.engine,owner);assert.equal(c.stream,stream);
+});

@@ -26,7 +26,8 @@ function lab(preset = 'balanced', { questions = QUESTIONS, durationMin = 15 } = 
   live.state = 'active'; live.channel = { readyState: 'open', send: (raw) => wire.push({ ...JSON.parse(raw), order: wire.length, clock }) };
   const interviewer = new GptLiveInterviewer(); interviewer.live = live;
   let seq = 0;
-  // Mirrors room.mjs guideHook(): Director objective first, quiet hint only as fallback.
+  // Explicit strong-objective transport contract lab, NOT the Room fragment
+  // policy. Production partial ASR supplies bounded advisory context instead.
   const guide = () => { const objective = observer.pendingObjective(); if (objective && interviewer.steerObjective(objective)) { observer.objectiveSent(objective); return objective; } return null; };
   const candidate = (text, ms = 2_000) => { clock += ms; const e = { type: 'session.input_transcript.delta', delta: text, event_id: `in-${++seq}`, start_ms: clock - ms, end_ms: clock }; observer.ingestFragment(e); return guide(); };
   const interviewerSays = (text, ms = 2_000) => { clock += ms; const e = { type: 'session.output_transcript.delta', delta: text, event_id: `out-${++seq}`, start_ms: clock - ms, end_ms: clock }; wire.push({ type: 'observed.interviewer', text, order: wire.length, clock }); observer.ingestFragment(e); };

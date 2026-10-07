@@ -87,7 +87,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       <div class="note" id="primary-recovery" role="status" aria-live="polite" hidden><span data-primary-status></span> <button class="btn btn-quiet" type="button" data-reselect-primary>Lock to me</button></div>
       ${profile.simulated?'<div class="environment-controls" data-environment-controls></div>':''}
       <div class="under-stage" id="under-stage"><span id="engine-label">Nothing is measured yet.</span><button class="transcript-toggle" type="button" id="transcript-toggle" aria-expanded="false">Transcript</button>${!profile.simulated?'<button type="button" class="btn btn-quiet" data-self-view aria-pressed="true" disabled>Hide self view</button>':''}</div>
-      <div class="readiness-dock" data-readiness-dock><details class="room-devices" id="room-devices" data-room-devices open><summary>Devices</summary>${deviceControlsMarkup({variant:'room'})}</details>${readinessLinesMarkup(projectReadinessLines({mode,liveInterviewAvailable:account?.liveInterviewAvailable===true}))}</div>
+      <div class="readiness-dock" data-readiness-dock><details class="room-devices" id="room-devices" data-room-devices open><summary>Camera &amp; mic</summary>${deviceControlsMarkup({variant:'room'})}</details>${readinessLinesMarkup(projectReadinessLines({mode,liveInterviewAvailable:account?.liveInterviewAvailable===true}))}</div>
       <details class="room-settings" id="room-settings"><summary aria-label="Room settings">⚙ Settings</summary><div class="room-settings-panel">
       <p class="note" id="room-preference-note" role="status" hidden></p>
       <h3 class="t-label">Analytics display</h3><button class="btn btn-quiet" type="button" id="reset-density">Use default analytics view</button><button class="btn btn-quiet" type="button" id="guides" aria-pressed="${overlaysVisible}" aria-label="Show tracking overlays">Tracking overlays</button><p class="note">Measurements continue when overlays or self view are hidden.</p><div class="review-actions" id="overlay-layers" role="group" aria-label="Tracking overlay layers">${[['face','Face'],['bodyHands','Body / hands'],['position','Framing']].map(([key,label])=>'<button class="btn btn-quiet" type="button" data-overlay-layer="'+key+'" aria-pressed="'+layers[key]+'">'+label+'</button>').join('')}</div>
@@ -145,11 +145,10 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   }
   function guideHook(){
     if(!current()||!started||finished||saving||!observer)return;
-    // Interview Director: the deterministic objective reaches GPT-Live on the strong
-    // steer path while the candidate is still speaking, before the next turn is
-    // committed. The quiet thinking hint remains only as a fallback transport.
-    const objective=observer.pendingObjective?.();
-    if(objective){if(interviewer?.steerObjective?.(objective))observer.objectiveSent(objective);return;}
+    // Partial ASR is not an answer boundary. Repeated strong instructions can
+    // interrupt native speech and queue conflicting move-on objectives. Supply
+    // one bounded evidence hint; native InterviewBrain owns semantic curiosity,
+    // response timing and progression under the server-owned curriculum policy.
     const hint=observer.pendingHookContext();
     if(hint&&interviewer?.appendHookContext(hint))observer.hookContextSent(hint);
   }
@@ -184,20 +183,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     const snap=observer.snapshot(),phase=snap.state==='CLOSING_INVITE'?'Wrapping up':started&&snap.finalObservationCount===0&&snap.fragmentTextObservationCount===0?snap.N+' questions planned':snap.state==='FOLLOWUP'?'Follow-up · hook followed':snap.state==='CANDIDATE_QUESTIONS'?'Your questions':snap.state==='PROFESSIONAL_CLOSE'?'Sign-off · finish when ready':'Question '+snap.n+' of '+snap.N;
     $('plan').innerHTML='<span class="seg">'+snap.plan.map(q=>'<span class="pip '+(q.status==='ASKED'?'asked':q.status==='CURRENT'?'current':'')+'" title="Q'+q.n+' · '+esc(q.text)+'"></span>').join('')+'<span class="pip closing '+(snap.closing.reached?'asked':'')+'" title="Your questions"></span></span><span class="label"><b>'+phase+'</b></span>';
   }
-  async function connect(){
-    if(!current()||starting||started||deviceSwitching)return;starting=true;$('connect-real').disabled=true;
-    $('stage').dataset.previewReady='false';$('start-session').disabled=true;
-    setDensityControls(true);
-    $('enter-note').textContent='Connecting your camera and microphone…';
-    try{
-      controller.mountVideo($('stage'),$('overlay'));
-      engine=await controller.acquire({mode:'real',overlayCanvas:$('overlay')});
-      if(!current())return;
-      disposePrimary?.();disposePrimary=bindPrimaryRecovery($('primary-recovery'),{engine,isCurrent:current});
-      const video=controller.mountVideo($('stage'),$('overlay'));
-      // Selection must remain available when the acquired camera renders black.
-      // The same capture owner switches devices; no second stream or readiness bypass.
-      disposeDevices?.();disposeDevices=await mountDeviceControls(main.querySelector('[data-device-controls]'),{engine,video,getStream:()=>controller.stream,isCurrent:current,canSwitch:kind=>!starting&&!saving&&!finished&&(controller.phase==='READY'||(controller.phase==='LIVE'&&controller.canSwitchDevice(kind))),switchDevice:(kind,id)=>controller.switchDevice(kind,id),onSwitching:(value,ready)=>{
+  disposeDevices=await mountDeviceControls(main.querySelector('[data-device-controls]'),{getEngine:()=>engine,getVideo:()=>controller.video,getStream:()=>controller.stream,isCurrent:current,canSwitch:kind=>!starting&&!saving&&!finished&&(!engine||controller.phase==='READY'||(controller.phase==='LIVE'&&controller.canSwitchDevice(kind))),switchDevice:(kind,id)=>controller.switchDevice(kind,id),onSwitching:(value,ready)=>{
         if(!current())return;
         if(started){deviceSwitching=value;$('room-preference-note').hidden=false;$('room-preference-note').textContent=value?'Changing your device. Finish & save remains available.':ready?'Device changed. This recording continues; recalibrate before your next attempt.':'Device change was not confirmed. Check the message in Devices.';if(!value&&ready){mark('gap','Device changed; personal calibration reset');applyOverlays();}return;}
         deviceSwitching=value;$('start-session').disabled=value||!ready;$('connect-real').disabled=value;
@@ -210,6 +196,20 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
         $('start-session').disabled=true;$('stage').dataset.previewReady='false';
         $('enter-note').textContent=readiness.message;$('connect-real').disabled=false;
       },onChanged:()=>{state.calibration=null;commit();}});
+  async function connect(){
+    if(!current()||starting||started||deviceSwitching)return;starting=true;$('connect-real').disabled=true;
+    $('stage').dataset.previewReady='false';$('start-session').disabled=true;
+    setDensityControls(true);
+    $('enter-note').textContent='Connecting your camera and microphone…';
+    try{
+      controller.mountVideo($('stage'),$('overlay'));
+      engine=await controller.acquire({mode:'real',overlayCanvas:$('overlay'),...disposeDevices?.preferences?.()});
+      if(!current())return;
+      disposePrimary?.();disposePrimary=bindPrimaryRecovery($('primary-recovery'),{engine,isCurrent:current});
+      const video=controller.mountVideo($('stage'),$('overlay'));
+      // Selection must remain available when the acquired camera renders black.
+      // The same capture owner switches devices; no second stream or readiness bypass.
+      await disposeDevices?.refresh?.();
       if(!current()){disposeDevices?.();return;}
       await awaitVisibleCamera(video,controller.stream,{isCurrent:current});
       if(!current())return;
@@ -218,7 +218,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       $('start-session').disabled=false;$('enter-note').textContent='Preview visible · microphone connected. Nothing is recorded until you start.';
       $('connect-real').textContent='Check preview again';applyOverlays();
     }catch(error){if(current()){$('enter-note').textContent=error.message;$('start-session').disabled=true;}}
-    finally{starting=false;if(current()){setDensityControls(false);$('connect-real').disabled=false;main.querySelectorAll('[data-device-kind]').forEach(select=>{select.disabled=controller.phase!=='READY'||!select.options.length;});}}
+    finally{starting=false;if(current()){setDensityControls(false);$('connect-real').disabled=false;await disposeDevices?.refresh?.().catch(()=>{});}}
   }
   const onFrame=e=>{
     if(!started||saving||disposed)return;

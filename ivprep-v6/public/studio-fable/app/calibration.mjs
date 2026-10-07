@@ -119,16 +119,7 @@ export async function mountCalibration(main, { isCurrent = () => true } = {}) {
     }
     stepIndex=1;renderSteps();evaluate();
   }
-  async function begin() {
-    if(connecting || disposed)return;connecting=true;$('connect-real').disabled=true;$('enter-note').textContent='Connecting…';
-    try {
-      controller.mountVideo($('stage'),$('overlay'));
-      engine=await controller.acquire({mode:'real',overlayCanvas:$('overlay')});
-      if(!current())return;
-      deviceReadiness.refresh();
-      disposePrimary?.();disposePrimary=bindPrimaryRecovery($('primary-recovery'),{engine,isCurrent:current});
-      const video=controller.mountVideo($('stage'),$('overlay'));
-      disposeDevices?.();disposeDevices=await mountDeviceControls(main.querySelector('[data-device-controls]'),{engine,video,getStream:()=>controller.stream,isCurrent:current,canSwitch:()=>!connecting&&controller.phase==='READY',switchDevice:(kind,id)=>controller.switchDevice(kind,id),onSwitching:(value,ready)=>{
+  disposeDevices=await mountDeviceControls(main.querySelector('[data-device-controls]'),{getEngine:()=>engine,getVideo:()=>controller.video,getStream:()=>controller.stream,isCurrent:current,canSwitch:()=>!connecting&&(!engine||controller.phase==='READY'),switchDevice:(kind,id)=>controller.switchDevice(kind,id),onSwitching:(value,ready)=>{
         if(!current())return;
         deviceSwitching=value;
         if(value){ctx.started=false;delete resolved.readiness;deviceReadiness.reset();deviceReadiness.refresh();}
@@ -136,13 +127,23 @@ export async function mountCalibration(main, { isCurrent = () => true } = {}) {
         else{$('enter-note').hidden=false;$('enter-note').textContent='The selected devices are not ready. Check the message below and choose another device.';}
         $('skip-step').disabled=value;evaluate();
       },onChanged:resetRehearsal});
+  async function begin() {
+    if(connecting || disposed)return;connecting=true;$('connect-real').disabled=true;$('enter-note').textContent='Connecting…';
+    try {
+      controller.mountVideo($('stage'),$('overlay'));
+      engine=await controller.acquire({mode:'real',overlayCanvas:$('overlay'),...disposeDevices?.preferences?.()});
+      if(!current())return;
+      deviceReadiness.refresh();
+      disposePrimary?.();disposePrimary=bindPrimaryRecovery($('primary-recovery'),{engine,isCurrent:current});
+      const video=controller.mountVideo($('stage'),$('overlay'));
+      await disposeDevices?.refresh?.();
       if(!current()){disposeDevices?.();return;}
       await awaitVisibleCamera(video,controller.stream,{isCurrent:current});
       if(!current())return;
       if(!controller.stream.getAudioTracks().some(t=>t.readyState==='live'&&t.enabled&&!t.muted))throw new Error('Connect your microphone to begin rehearsal.');
       completeReadiness();
     } catch(error){if(current()){$('enter-note').textContent=error.message;$('connect-real').disabled=false;}}
-    finally{connecting=false;if(current())main.querySelectorAll('[data-device-kind]').forEach(select=>{select.disabled=controller.phase!=='READY'||!select.options.length;});}
+    finally{connecting=false;if(current())await disposeDevices?.refresh?.().catch(()=>{});}
   }
   const frameListener=e=>{if(current())onFrame(e.detail);};
   function onFrame(f) {

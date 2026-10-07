@@ -73,7 +73,12 @@ export class SessionController extends EventTarget {
     if (this.engine && this.phase === 'READY') {
       const engine=this.engine;
       engine.resumeInputAudio?.(); // reuse the capture owner's context in this user gesture
-      if(!hasUsableMicrophone(engine.stream))await this.switchDevice('microphone',microphoneDeviceId||engine.real?.currentDevices?.().microphoneDeviceId||'');
+      // Readiness may reuse calibration capture. Honor newly selected hardware
+      // through that same owner's transaction rather than silently keeping the
+      // previous device or opening another capture pipeline.
+      const selected=engine.real?.currentDevices?.()||{};
+      if(cameraDeviceId&&cameraDeviceId!==selected.cameraDeviceId)await this.switchDevice('camera',cameraDeviceId);
+      if(!hasUsableMicrophone(engine.stream)||(microphoneDeviceId&&microphoneDeviceId!==selected.microphoneDeviceId))await this.switchDevice('microphone',microphoneDeviceId||selected.microphoneDeviceId||'');
       if(this.engine!==engine||this.phase!=='READY')throw new Error('Device setup was cancelled.');
       return engine;
     }

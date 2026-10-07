@@ -11,7 +11,7 @@ const count=(source,needle)=>source.split(needle).length-1;
 test('the Room renders exactly one device-controls node, mounted by exactly one owner, outside the settings drawer and under the preview',()=>{
   assert.equal(count(markup,'deviceControlsMarkup('),1);
   assert.equal(count(room,'mountDeviceControls('),1);
-  assert.ok(markup.includes(`<div class="readiness-dock" data-readiness-dock><details class="room-devices" id="room-devices" data-room-devices open><summary>Devices</summary>\${deviceControlsMarkup({variant:'room'})}</details>`));
+  assert.ok(markup.includes(`<div class="readiness-dock" data-readiness-dock><details class="room-devices" id="room-devices" data-room-devices open><summary>Camera &amp; mic</summary>\${deviceControlsMarkup({variant:'room'})}</details>`));
   const stage=markup.indexOf('<div class="stage" id="stage"'),note=markup.indexOf('id="enter-note"'),under=markup.indexOf('<div class="under-stage" id="under-stage">'),dock=markup.indexOf('data-readiness-dock'),settings=markup.indexOf('<details class="room-settings" id="room-settings">'),panelEnd=markup.indexOf('</div></details>',settings);
   assert.ok(stage>0&&note>stage&&under>note&&dock>under&&settings>dock,'dock sits under the stage/under-stage row, before the settings drawer');
   assert.equal(markup.slice(settings,panelEnd).includes('deviceControlsMarkup('),false,'settings drawer no longer hosts a second device section');
@@ -20,9 +20,11 @@ test('the Room renders exactly one device-controls node, mounted by exactly one 
 
 test('switching still goes through the existing controller transaction with the same ownership guards',()=>{
   const connect=room.slice(room.indexOf('  async function connect(){'),room.indexOf('  const onFrame='));
-  assert.ok(connect.includes("disposeDevices?.();disposeDevices=await mountDeviceControls(main.querySelector('[data-device-controls]'),{engine,video,getStream:()=>controller.stream,isCurrent:current,"));
-  assert.ok(connect.includes("canSwitch:kind=>!starting&&!saving&&!finished&&(controller.phase==='READY'||(controller.phase==='LIVE'&&controller.canSwitchDevice(kind)))"));
-  assert.ok(connect.includes("switchDevice:(kind,id)=>controller.switchDevice(kind,id)"));
+  assert.ok(room.includes("disposeDevices=await mountDeviceControls(main.querySelector('[data-device-controls]'),{getEngine:()=>engine,getVideo:()=>controller.video,getStream:()=>controller.stream,isCurrent:current,"));
+  assert.ok(room.includes("canSwitch:kind=>!starting&&!saving&&!finished&&(!engine||controller.phase==='READY'||(controller.phase==='LIVE'&&controller.canSwitchDevice(kind)))"));
+  assert.ok(room.includes("switchDevice:(kind,id)=>controller.switchDevice(kind,id)"));
+  assert.ok(room.indexOf('disposeDevices=await mountDeviceControls')<room.indexOf('  async function connect(){'),'pickers exist before capture, even if acquisition fails');
+  assert.match(connect,/controller\.acquire\(\{mode:'real',overlayCanvas:\$\('overlay'\),\.\.\.disposeDevices\?\.preferences\?\.\(\)\}\)/);
   assert.ok(connect.includes('await awaitVisibleCamera(video,controller.stream,{isCurrent:current});'));
   assert.ok(connect.includes('assertMicrophoneReady(controller.stream,engine.audioContext);'));
   assert.ok(room.includes("main.querySelector('[data-room-devices]').open=false;"),'Start collapses the popover for the live cockpit');
@@ -34,7 +36,7 @@ test('room variant markup keeps both labelled selects and the status line; the d
   for(const source of [variant,plain]){
     assert.match(source,/<label class="field">Camera<select data-device-kind="camera" aria-label="Camera"><\/select><\/label>/);
     assert.match(source,/<label class="field">Microphone<select data-device-kind="microphone" aria-label="Microphone"><\/select><\/label>/);
-    assert.match(source,/data-device-controls[^>]*hidden/);assert.match(source,/data-device-status/);
+    assert.doesNotMatch(source,/data-device-controls[^>]*hidden/);assert.match(source,/data-device-status/);
     assert.equal((source.match(/data-device-kind=/g)||[]).length,2);
   }
   assert.ok(variant.includes('data-device-variant="room"'));assert.equal(plain.includes('data-device-variant'),false);
