@@ -145,7 +145,8 @@ export function createEmbodimentCanary({env = process.env, fetchImpl = fetch, no
   function send(a, value) {
     if (a.closed || !a.socket || a.socket.readyState !== 1 || a.socket.bufferedAmount > 65536)
       throw fail('ivoc_embodiment_transport_unavailable',502);
-    a.socket.send(JSON.stringify(value));
+    try { a.socket.send(JSON.stringify(value)); }
+    catch { throw fail('ivoc_embodiment_transport_unavailable',502); }
   }
   async function stop(a, reason) {
     if (!a) return {stopped:true, providerConfirmed:false};
@@ -167,8 +168,16 @@ export function createEmbodimentCanary({env = process.env, fetchImpl = fetch, no
           providerConfirmed = result.success === true && LEMONSLICE_TERMINAL_STATUSES.has(String(status.session_status || '').toUpperCase());
         } catch { /* Never retry paid creation; documented 15s idle timeout remains. */ }
       }
-      try { await a.livekit?.deleteRoom(a.room); } catch {}
+      let roomConfirmed=false,roomReadbackTimer;
+      try {
+        await a.livekit?.deleteRoom(a.room);
+        const rooms=await Promise.race([
+          a.livekit?.listRooms?.([a.room]),
+          new Promise((_,reject)=>{roomReadbackTimer=setTimer(()=>reject(fail('ivoc_embodiment_room_unconfirmed',502)),3000);})]);
+        roomConfirmed=Array.isArray(rooms)&&rooms.length===0;
+      } catch {} finally {clearTimer(roomReadbackTimer);}
       const receipt = {stopped:true, providerConfirmed, reason, providerSessionId:a.providerId || null,
+        roomConfirmed,cleanupConfirmed:providerConfirmed&&roomConfirmed,
         requestedAtMs:a.startedAt, stoppedAtMs:now(), inputSeconds:a.samples / 16000,
         providerCreateAttempted:a.providerCreateAttempted===true,failure:a.failure||null,transitions:a.transitions};
       await recordReceipt(a.sessionId, {...receipt,transportIdentity:a.transportIdentity||null}).catch(() => {});
@@ -281,10 +290,12 @@ export function createEmbodimentCanary({env = process.env, fetchImpl = fetch, no
         if(generation<=a.generation)throw fail('ivoc_embodiment_stale_generation');
         a.generation=generation;a.sequence=sequence;
         a.flushing=true;
-        const waiting=a.playing;
+        // Playback completion carries no generation identity. Once any PCM has
+        // been sent, a stale completion must not manufacture a flush receipt.
+        const waiting=a.samples>0;
         const receipt=waiting?new Promise((resolve,reject)=>{a.interruptResolve=resolve;a.interruptReject=reject;}):Promise.resolve();
-        send(a,{command:'interrupt'});
-        try{await Promise.race([receipt,new Promise((_,reject)=>{a.interruptTimer=setTimer(()=>reject(fail('ivoc_embodiment_flush_unconfirmed',502)),1500);})]);}
+        receipt.catch(()=>{}); // stop can reject it even if send fails synchronously
+        try{send(a,{command:'interrupt'});await Promise.race([receipt,new Promise((_,reject)=>{a.interruptTimer=setTimer(()=>reject(fail('ivoc_embodiment_flush_unconfirmed',502)),1500);})]);}
         catch(error){await stop(a,'flush_unconfirmed');throw error;}
         finally{clearTimer(a.interruptTimer);a.interruptResolve=null;a.interruptReject=null;a.flushing=false;}
         return {flushed:true,generation};
@@ -298,9 +309,12 @@ export function createEmbodimentCanary({env = process.env, fetchImpl = fetch, no
         if(a.samples>45*16000){await stop(a,'input_budget');throw fail('ivoc_embodiment_input_limit');}
         // HTTP batches contain up to 3 documented 80ms frames. Provider receives
         // small PCM chunks, never an unbounded buffered utterance.
-        for(let offset=0;offset<bytes.length;offset+=2560)send(a,{command:'audio',audio:bytes.subarray(offset,offset+2560).toString('base64'),sampleRate:16000,encoding:'PCM16'});
+        try{for(let offset=0;offset<bytes.length;offset+=2560)send(a,{command:'audio',audio:bytes.subarray(offset,offset+2560).toString('base64'),sampleRate:16000,encoding:'PCM16'});}
+        catch(error){await stop(a,'audio_send_failed');throw error;}
         a.playing=true;
-      }else if(command==='audio_end')send(a,{command:'audio_end'});
+      }else if(command==='audio_end'){
+        try{send(a,{command:'audio_end'});}catch(error){await stop(a,'audio_send_failed');throw error;}
+      }
       else throw fail('ivoc_embodiment_command_invalid',400);
       a.sequence=sequence;a.generation=generation;
       return {accepted:true,generation,sequence};

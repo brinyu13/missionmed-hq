@@ -7,7 +7,7 @@ const env={IVOC_LEMONSLICE_CANARY_ENABLED:'true',IVOC_LEMONSLICE_CANARY_SESSION_
   LEMONSLICE_API_KEY:'test-only',LIVEKIT_API_KEY:'test-only',LIVEKIT_API_SECRET:'test-only',LIVEKIT_URL:'wss://test.livekit.cloud'};
 function harness(overrides={}){
   const calls=[],commands=[],grants=[],timers=[],receipts=[],sockets=[];let time=1000;let claimed=false;
-  const roomService={createRoom:async options=>calls.push({room:options}),deleteRoom:async room=>calls.push({deleted:room})};
+  const roomService={createRoom:async options=>calls.push({room:options}),deleteRoom:async room=>calls.push({deleted:room}),listRooms:async rooms=>{calls.push({listed:rooms});return [];}};
   class AccessToken{constructor(key,secret,options){this.options=options;}addGrant(grant){grants.push({options:this.options,grant});}async toJwt(){return 'scoped-test-token';}}
   class Socket extends EventEmitter{readyState=1;bufferedAmount=0;constructor(){super();queueMicrotask(()=>this.emit('open'));}send(data){const event=JSON.parse(data);commands.push(event);if(event.command==='interrupt')queueMicrotask(()=>this.emit('message',JSON.stringify({command:'playback_finished',interrupted:true,playback_position:0.8})));}close(){this.readyState=3;}}
   const manager=createEmbodimentCanary({env,now:()=>time,setTimer:(callback,ms)=>{const timer={callback,ms};timers.push(timer);return timer;},clearTimer:timer=>{if(timer)timer.cleared=true;},
@@ -17,6 +17,7 @@ function harness(overrides={}){
   return {manager,calls,commands,grants,timers,receipts,sockets,advance:ms=>time+=ms};
 }
 const MODAL_HOST=`ta-${'a'.repeat(26)}-8888-${'b'.repeat(25)}.w.modal.host`;
+// Synthetic grammar fixture; no original signed CREATE response is retained.
 const providerResponse=(address,calls=[])=>async(url,options)=>{calls.push({url,method:options.method});return {ok:true,status:201,json:async()=>url.endsWith('/control')?{success:true}:options.method==='GET'?{session_status:'COMPLETED'}:{session_id:'provider-known',websocket_address:address}};};
 test('authenticated Modal worker contract reaches pinned TLS socket without DNS rebinding or redirects',async()=>{
   let lookups=0;
@@ -113,6 +114,62 @@ test('hard deadline rejects further input without another session',async()=>{
   await h.timers.find(t=>t.ms===45000).callback();
   await h.manager.command({actor:'wp:1',sessionId:ID,id:ticket.id,command:'terminate'});
   assert.equal(h.receipts[0].reason,'hard_deadline');assert.equal(h.calls.filter(c=>c.body?.transport_type).length,1);
+});
+
+test('partial PCM send, audio-end and interrupt send failures close the exact attempt without retry',async()=>{
+  for(const mode of ['partial-audio','audio_end','interrupt','backpressure']){
+    let socket,frames=0;
+    class Socket extends EventEmitter{
+      readyState=1;bufferedAmount=0;
+      constructor(){super();socket=this;queueMicrotask(()=>this.emit('open'));}
+      send(raw){const event=JSON.parse(raw);if(event.command==='audio')frames++;
+        if((mode==='partial-audio'&&frames===2)||(mode===event.command))throw new Error('PRIVATE_SOCKET_FAILURE');}
+      close(){this.readyState=3;}
+    }
+    const h=harness({socketFactory:()=>new Socket()}),ticket=await h.manager.start({actor:'wp:1',sessionId:ID});
+    const command=body=>h.manager.command({actor:'wp:1',sessionId:ID,id:ticket.id,...body});
+    if(mode!=='partial-audio')await command({command:'audio',generation:1,sequence:1,audio:'AAA='});
+    if(mode==='backpressure')socket.bufferedAmount=65537;
+    await assert.rejects(command({command:mode==='partial-audio'?'audio':mode==='audio_end'?'audio_end':'interrupt',generation:mode==='partial-audio'||mode==='audio_end'?1:2,sequence:2,audio:Buffer.alloc(7680).toString('base64')}),/ivoc_embodiment_transport_unavailable/);
+    const status=h.manager.status({actor:'wp:1',sessionId:ID});assert.equal(status.closed,true);
+    assert.equal(status.stopReceipt.providerConfirmed,true);assert.equal(status.stopReceipt.roomConfirmed,true);assert.equal(status.stopReceipt.cleanupConfirmed,true);
+    assert.equal(JSON.stringify(status).includes('PRIVATE_SOCKET_FAILURE'),false);
+    await assert.rejects(command({command:'audio',generation:2,sequence:3,audio:'AAA='}),/stopped/);
+    await assert.rejects(h.manager.start({actor:'wp:1',sessionId:ID}),/consumed/);
+    assert.equal(h.calls.filter(c=>c.body?.transport_type).length,1);
+  }
+});
+test('a prior completion event cannot falsely confirm a later interrupt after PCM was sent',async()=>{
+  let socket;class Socket extends EventEmitter{readyState=1;bufferedAmount=0;constructor(){super();socket=this;queueMicrotask(()=>this.emit('open'));}send(){}close(){this.readyState=3;}}
+  const h=harness({socketFactory:()=>new Socket()}),ticket=await h.manager.start({actor:'wp:1',sessionId:ID});
+  const command=body=>h.manager.command({actor:'wp:1',sessionId:ID,id:ticket.id,...body});
+  await command({command:'audio',generation:1,sequence:1,audio:'AAA='});
+  socket.emit('message',JSON.stringify({command:'playback_finished',interrupted:false,playback_position:0}));
+  let confirmed=false;const flushing=command({command:'interrupt',generation:2,sequence:2}).then(r=>{confirmed=true;return r;});
+  await new Promise(resolve=>setImmediate(resolve));assert.equal(confirmed,false);
+  await assert.rejects(command({command:'audio',generation:2,sequence:3,audio:'AAA='}),/flush_pending/);
+  socket.emit('message',JSON.stringify({command:'playback_finished',interrupted:true,playback_position:0}));
+  assert.equal((await flushing).flushed,true);await command({command:'terminate'});
+});
+test('successful provider termination does not assert room absence without a successful exact readback',async()=>{
+  for(const listRooms of [async()=>[{name:'remaining-room'}],async()=>{throw new Error('PRIVATE_LIST_FAILURE');}]){
+    class AccessToken{addGrant(){}async toJwt(){return 'test-only';}}
+    const h=harness({livekitFactory:async()=>({AccessToken,roomService:{createRoom:async()=>{},deleteRoom:async()=>{},listRooms}})});
+    const ticket=await h.manager.start({actor:'wp:1',sessionId:ID});
+    const receipt=await h.manager.command({actor:'wp:1',sessionId:ID,id:ticket.id,command:'terminate'});
+    assert.equal(receipt.providerConfirmed,true);assert.equal(receipt.roomConfirmed,false);assert.equal(receipt.cleanupConfirmed,false);
+    assert.equal(JSON.stringify(receipt).includes('PRIVATE_LIST_FAILURE'),false);
+  }
+});
+test('room absence readback is bounded and a late response cannot rewrite the cleanup verdict',async()=>{
+  let resolveRooms;class AccessToken{addGrant(){}async toJwt(){return 'test-only';}}
+  const h=harness({livekitFactory:async()=>({AccessToken,roomService:{createRoom:async()=>{},deleteRoom:async()=>{},listRooms:()=>new Promise(resolve=>{resolveRooms=resolve;})}})});
+  const ticket=await h.manager.start({actor:'wp:1',sessionId:ID});
+  const stopping=h.manager.command({actor:'wp:1',sessionId:ID,id:ticket.id,command:'terminate'});
+  while(!resolveRooms)await new Promise(resolve=>setImmediate(resolve));
+  h.timers.filter(t=>t.ms===3000&&!t.cleared).at(-1).callback();
+  const receipt=await stopping;assert.equal(receipt.providerConfirmed,true);assert.equal(receipt.roomConfirmed,false);assert.equal(receipt.cleanupConfirmed,false);
+  resolveRooms([]);await new Promise(resolve=>setImmediate(resolve));assert.equal(receipt.cleanupConfirmed,false);
 });
 test('private transport receipt keeps bounded identity, never signed URL or public leakage',async()=>{
   for(const address of ['wss://PRIVATE_USER:PRIVATE_PASS@rejected.example:8443/PRIVATE_PATH?token=PRIVATE_TOKEN#PRIVATE_HASH','wss://rejected.example/PRIVATE_PATH?token=PRIVATE_TOKEN','PRIVATE_MALFORMED']){
