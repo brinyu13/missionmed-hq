@@ -4,7 +4,7 @@ import { LiveInterviewSession, NATIVE_PLAYBACK_CONTRACT } from '../../public/cap
 import { IvocApi } from '../../public/ivoc-standalone/app/api.mjs';
 
 test('native speech boundary is unavailable; delegated response and append receipts never resume the Actor',()=>{
-  let hints=0;const session=new LiveInterviewSession({createSession:async()=>({}),endSession:async()=>{},PeerConnection:class {},audioRenderer:{interrupt(){hints++;},resume(){throw new Error('unsafe resume');}}});
+  let hints=0;const session=new LiveInterviewSession({createSession:async()=>({}),endSession:async()=>{},PeerConnection:class {},audioRenderer:{interrupt(trigger){assert.equal(trigger,'candidate-transcript');hints++;},resume(){throw new Error('unsafe resume');}}});
   assert.equal(Object.isFrozen(NATIVE_PLAYBACK_CONTRACT),true);
   assert.deepEqual(session.diagnostics().playbackBoundary,NATIVE_PLAYBACK_CONTRACT);
   assert.equal(NATIVE_PLAYBACK_CONTRACT.responseIdentity,false);

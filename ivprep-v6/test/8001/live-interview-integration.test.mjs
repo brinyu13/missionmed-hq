@@ -136,6 +136,25 @@ function harness({ createSession, PeerConnection = FakePeerConnection } = {}) {
   return { session, ended, statuses, streams, microphone, audio, start };
 }
 
+test('failure teardown then Finish/save emits exactly one monotonic release and joins pending cleanup', async () => {
+  const cleanup=deferred(),events=[],h=harness();let ended=0,rendererStops=0,clock=1000;
+  h.session.now=()=>clock;h.session.onTelemetry=e=>events.push(e);
+  h.session.endSession=async()=>{ended++;await cleanup.promise;};
+  await h.start();
+  h.session.audioRenderer={stop(){rendererStops++;return cleanup.promise;}};
+  clock=21850;
+  const failedStop=h.session.stop();let finishDone=false;
+  const finish=h.session.stop().then(()=>{finishDone=true;});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(finishDone,false,'Finish must await the original teardown');
+  assert.deepEqual(events.map(e=>e.state),['configured','bound','released']);
+  assert.equal(events.at(-1).observedAtMs,20850);
+  assert.equal(ended,1);assert.equal(rendererStops,1);
+  cleanup.resolve();await Promise.all([failedStop,finish]);await h.session.stop();
+  assert.equal(events.filter(e=>e.state==='released').length,1);
+  assert.equal(h.microphone.stopCalls,0);
+});
+
 test('slow server create beyond15s does not start media timers or reject before healthy SDP binding', async t => {
   t.mock.timers.enable({ apis: ['setTimeout'] }); const pending = deferred(); let requested = false;
   const h = harness({ createSession: () => { requested = true; return pending.promise; } });

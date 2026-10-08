@@ -3,6 +3,12 @@
 const API='/api/ivoc/v1/admin/embodiment-canary';
 export const EMBODIMENT_START_TIMEOUT_MS=30000;
 const stageError=(category,boundary)=>Object.assign(new Error(`ivoc_embodiment_${category.toLowerCase()}`),{diagnostics:{category,boundary}});
+const FAILURE_CATEGORIES=new Set(['CLIENT_TIMEOUT','CLIENT_ABORT','CLIENT_NETWORK','HQ_RESPONSE_INVALID','HQ_AUTH_FAILURE','HQ_VALIDATION_FAILURE','HQ_FAILURE','LIVEKIT_FAILURE','TRACK_SUBSCRIPTION_FAILURE','DECODED_FRAME_FAILURE','AUDIO_BIND_FAILURE','FLUSH_UNCONFIRMED','NATIVE_TURN_BOUNDARY_UNCONFIRMED','NATIVE_PLAYBACK_BOUNDARY_UNAVAILABLE','NATIVE_PLAYBACK_CONTRACT_INVALID','CANARY_DEADLINE','PROVIDER_CLOSED','QUEUE_OVERFLOW','SURPLUS_AUDIO','SURPLUS_VIDEO']);
+const FAILURE_BOUNDARIES=new Set(['IVOC_CLIENT','IVOC_SERVER','SDK_LOAD','LIVEKIT_CONNECTING','LIVEKIT_CONNECTED','AVATAR_DECODING','AUDIO_BINDING','AUDIO_TRANSPORT']);
+// Match the server's publicEmbodimentFailure contract, never its private URL receipt.
+for(const category of ['PROVIDER_NETWORK','PROVIDER_DNS','PROVIDER_HTTP_4XX','PROVIDER_HTTP_5XX','PROVIDER_TIMEOUT','PROVIDER_CANCELLED','PROVIDER_RESPONSE_INVALID','LIVEKIT_TIMEOUT','AUDIO_TRANSPORT_FAILURE','STARTUP_CANCELLED','STARTUP_FAILED'])FAILURE_CATEGORIES.add(category);
+for(const boundary of ['RESERVATION','LIVEKIT','LEMONSLICE_API','TRANSPORT_READY'])FAILURE_BOUNDARIES.add(boundary);
+const FAILURE_REASONS=new Set(['SESSION_ID_INVALID','SOCKET_ADDRESS_MISSING','SOCKET_ADDRESS_MALFORMED','SOCKET_PROTOCOL_REJECTED','SOCKET_CREDENTIALS_REJECTED','SOCKET_HOST_REJECTED','SOCKET_PORT_REJECTED','SOCKET_FRAGMENT_REJECTED','SOCKET_DNS_FAILURE','SOCKET_DNS_TIMEOUT','SOCKET_DNS_NONPUBLIC']);
 // Recover the historical decoded-frame gate, with explicit cancellation. Track
 // subscription/DOM/transport alone is never visual readiness. No provider call.
 export function decodedAvatarFrame(video,{timeoutMs=10000,signal}={}){
@@ -34,7 +40,7 @@ export class EmbodimentCommandQueue {
   constructor(send,{maxQueued=6,onFailure=()=>{}}={}){this.send=send;this.max=maxQueued;this.onFailure=onFailure;this.generation=1;this.sequence=0;this.pending=[];this.sending=false;this.closed=false;}
   push(command,payload={}){
     if(this.closed)return Promise.reject(new Error('Avatar transport stopped.'));
-    if(this.pending.length>=this.max){this.close();this.onFailure(new Error('Avatar transport fell behind. Finish and save this attempt.'));return Promise.reject(new Error('Avatar queue limit.'));}
+    if(this.pending.length>=this.max){this.close();this.onFailure(stageError('QUEUE_OVERFLOW','AUDIO_TRANSPORT'));return Promise.reject(new Error('Avatar queue limit.'));}
     return new Promise((resolve,reject)=>{this.pending.push({command,...payload,generation:this.generation,sequence:++this.sequence,resolve,reject});void this.drain();});
   }
   async drain(){
@@ -59,11 +65,12 @@ async function loadLiveKit(){
 }
 const encode=buffer=>{const bytes=new Uint8Array(buffer);let text='';for(const byte of bytes)text+=String.fromCharCode(byte);return btoa(text);};
 export class EmbodimentRenderer {
-  constructor({host,csrfToken,sessionId,AudioContextCtor=window.AudioContext,AudioWorkletNodeCtor=globalThis.AudioWorkletNode,loadSdk=loadLiveKit,fetchImpl=fetch,timeoutSignal=ms=>AbortSignal.timeout(ms),onFailure=()=>{}}={}){
+  constructor({host,csrfToken,sessionId,AudioContextCtor=window.AudioContext,AudioWorkletNodeCtor=globalThis.AudioWorkletNode,loadSdk=loadLiveKit,fetchImpl=fetch,timeoutSignal=ms=>AbortSignal.timeout(ms),onFailure=()=>{},onDiagnostic=receipt=>console.warn('ivoc_embodiment_failure',JSON.stringify(receipt))}={}){
     this.host=host;this.csrfToken=csrfToken;this.sessionId=sessionId;this.AC=AudioContextCtor;this.loadSdk=loadSdk;this.fetch=fetchImpl.bind(globalThis);this.onFailure=onFailure;
     this.closed=false;this.generation=0;this.sequence=0;this.ticket=null;this.cleanup=null;this.sources=[];this.holds=false;this.speaking=false;this.silentMs=0;
     this.timeoutSignal=timeoutSignal;this.Worklet=AudioWorkletNodeCtor;this.startRequested=false;this.pcmGeneration=1;
     this.transitions=[];this.failure=null;this.decodeAbort=new AbortController();
+    this.onDiagnostic=onDiagnostic;this.failureReceipt=null;this.interruptionTrigger=null;
     this.visualReady=new Promise((resolve,reject)=>{this.visualResolve=resolve;this.visualReject=reject;});this.visualReady.catch(()=>{});
     this.transition('IVOC_READY','IVOC_CLIENT','RENDERER_INITIALIZED');
   }
@@ -73,7 +80,22 @@ export class EmbodimentRenderer {
     if(previous&&previous.completedAtMs==null){previous.completedAtMs=at;previous.successEvidence=evidence;}
     this.transitions.push({state,owner,startedAtMs:at,completedAtMs:null,entryEvidence:evidence,successEvidence:null,failureEvidence:null,cleanup:'EXACT_SESSION_ROOM_AND_MEDIA'});
   }
-  diagnostics(){return {state:this.transitions.at(-1)?.state||null,visualReady:this.visible===true,audioBound:this.returnAudioBound===true,interruptionRecovery:'finish-and-save',nativePlaybackBoundary:'UNAVAILABLE',transitions:this.transitions,failure:this.failure};}
+  diagnostics(){return {state:this.transitions.at(-1)?.state||null,visualReady:this.visible===true,audioBound:this.returnAudioBound===true,interruptionRecovery:'finish-and-save',nativePlaybackBoundary:'UNAVAILABLE',transitions:this.transitions,failure:this.failure,failureReceipt:this.failureReceipt};}
+  captureFailure(error){
+    if(this.failureReceipt)return; // Preserve the originating failure, not teardown fallout.
+    const d=error?.diagnostics||{};
+    const time=n=>Number.isFinite(n)&&n>=0&&n<=Number.MAX_SAFE_INTEGER?Math.round(n):null;
+    this.failure=Object.freeze({category:FAILURE_CATEGORIES.has(d.category)?d.category:'UNCLASSIFIED_FAILURE',boundary:FAILURE_BOUNDARIES.has(d.boundary)?d.boundary:'IVOC_CLIENT',
+      httpStatus:Number.isInteger(d.httpStatus)&&d.httpStatus>=100&&d.httpStatus<=599?d.httpStatus:null,
+      startedAtMs:time(d.startedAtMs),finishedAtMs:time(d.finishedAtMs),elapsedMs:time(d.elapsedMs),
+      responseClass:['JSON','HTML','TEXT','OTHER','UNKNOWN'].includes(d.responseClass)?d.responseClass:'UNKNOWN',
+      ...(FAILURE_REASONS.has(d.reason)?{reason:d.reason}:{})});
+    const row=this.transitions.at(-1);if(row){row.completedAtMs=Date.now();row.failureEvidence=this.failure;}
+    // Closed, bounded fields only: never error.message/stack, URLs, tickets,
+    // transcripts, audio payloads or provider credentials. Survives host cleanup.
+    this.failureReceipt=Object.freeze({schema:'ivoc.embodiment-failure.v1',...this.failure,observedAtMs:Date.now(),visualReady:this.visible===true,audioBound:this.returnAudioBound===true,inputBound:this.inputBound===true,interruptionTrigger:this.interruptionTrigger,queueDepth:this.queue?.pending?.length||0});
+    try{this.onDiagnostic(this.failureReceipt);}catch{/* Diagnostics cannot prevent cleanup. */}
+  }
   waitForVisualReady(){return this.visualReady;}
   async api(command,body=null,{keepalive=false}={}){
     const startedAtMs=Date.now();let response;
@@ -91,7 +113,7 @@ export class EmbodimentRenderer {
       throw Object.assign(stageError(category,'IVOC_SERVER'),{diagnostics:result.diagnostics||{category,boundary:'IVOC_SERVER',httpStatus:response.status,startedAtMs,elapsedMs:Date.now()-startedAtMs}});}
     return result;
   }
-  fail(error){if(this.closed)return;this.failure=error?.diagnostics||{category:'STARTUP_FAILED',boundary:this.transitions.at(-1)?.state};const row=this.transitions.at(-1);if(row){row.completedAtMs=Date.now();row.failureEvidence=this.failure;}this.visualReject(error);this.onFailure(error);void this.stop();}
+  fail(error){if(this.closed)return;this.captureFailure(error);this.visualReject(error);try{this.onFailure(error);}finally{void this.stop();}}
   async render(stream,{microphoneTrack,ivocSessionId,nativePlaybackContract}={}){
     if(this.closed)throw stageError('CLIENT_ABORT','IVOC_CLIENT');
     // No permissive opt-in: a future native playback contract needs explicit
@@ -117,7 +139,7 @@ export class EmbodimentRenderer {
     this.ticket=await this.api('/start',{sessionId:this.sessionId});
     if(!current()){await this.stop({late:true});throw new Error('Avatar startup cancelled.');}
     this.transition('EMBODIMENT_SESSION_CREATED','IVOC_SERVER','EXACT_TICKET_RETURNED');
-    this.deadline=setTimeout(()=>this.fail(new Error('Avatar canary reached its 45-second limit. Finish and save.')),Math.max(0,this.ticket.deadlineMs-Date.now()));
+    this.deadline=setTimeout(()=>this.fail(Object.assign(stageError('CANARY_DEADLINE','IVOC_CLIENT'),{message:'Avatar canary reached its 45-second limit. Finish and save.'})),Math.max(0,this.ticket.deadlineMs-Date.now()));
     this.room=new sdk.Room({adaptiveStream:false,dynacast:false,reconnectPolicy:{nextRetryDelayInMs:()=>null}});
     this.queue=new EmbodimentCommandQueue(item=>{
       const {resolve,reject,...body}=item;return this.api('/command',{sessionId:this.sessionId,id:this.ticket.id,...body});
@@ -133,13 +155,13 @@ export class EmbodimentRenderer {
         if(this.transitions.at(-1)?.state==='LIVEKIT_CONNECTING')this.transition('LIVEKIT_CONNECTED','LIVEKIT_CLIENT','EXACT_PUBLISHER_TRACK_RECEIVED');
         const raw=track.mediaStreamTrack;if(!raw)return;
         if(track.kind==='audio'){
-          if(audio){this.fail(new Error('Surplus avatar audio rejected.'));return;}
+          if(audio){this.fail(stageError('SURPLUS_AUDIO','AUDIO_BINDING'));return;}
           audio=true;const source=this.context.createMediaStreamSource(new MediaStream([raw]));this.sources.push(source);source.connect(this.gain);
           this.returnAudioBound=true;maybeReady();
           // Do not call track.attach() or Room.startAudio(): our original single
           // interviewer audio element owns playback of this exact output stream.
         }else if(track.kind==='video'){
-          if(video){this.fail(new Error('Surplus avatar video rejected.'));return;}
+          if(video){this.fail(stageError('SURPLUS_VIDEO','LIVEKIT_CONNECTED'));return;}
           video=true;this.video=document.createElement('video');this.video.autoplay=true;this.video.playsInline=true;this.video.muted=true;
           this.video.setAttribute('aria-label','AI interviewer avatar');this.video.srcObject=new MediaStream([raw]);
           this.host.replaceChildren(this.video);this.host.dataset.avatarState='decoding';this.transition('AVATAR_DECODING','BROWSER_MEDIA','EXACT_VIDEO_TRACK_SUBSCRIBED');
@@ -192,22 +214,22 @@ export class EmbodimentRenderer {
     // candidate speech to LemonSlice or replaces GPT-Live's native barge-in.
     if(microphoneTrack){const mic=this.context.createMediaStreamSource(new MediaStream([microphoneTrack]));this.sources.push(mic);this.micAnalyser=this.context.createAnalyser();this.micAnalyser.fftSize=512;mic.connect(this.micAnalyser);
       const samples=new Float32Array(512);let above=0;
-      this.micTimer=setInterval(()=>{if(!current())return;this.micAnalyser.getFloatTimeDomainData(samples);const rms=Math.sqrt(samples.reduce((n,s)=>n+s*s,0)/samples.length);above=rms>0.03?above+1:0;if(above>=2&&!this.holds&&(this.speaking||this.returnedSpeaking))void this.interrupt();},50);
+      this.micTimer=setInterval(()=>{if(!current())return;this.micAnalyser.getFloatTimeDomainData(samples);const rms=Math.sqrt(samples.reduce((n,s)=>n+s*s,0)/samples.length);above=rms>0.03?above+1:0;if(above>=2&&!this.holds&&(this.speaking||this.returnedSpeaking))void this.interrupt('local-microphone-vad');},50);
     }
     // Observe returned audio, not GPT's earlier input. Metadata isn't acceptance.
     this.returnAnalyser=this.context.createAnalyser();this.returnAnalyser.fftSize=512;this.gain.connect(this.returnAnalyser);
     const returned=new Float32Array(512);
     this.poll=setInterval(()=>{if(!current())return;this.returnAnalyser.getFloatTimeDomainData(returned);this.returnedSpeaking=Math.sqrt(returned.reduce((n,s)=>n+s*s,0)/returned.length)>0.008;
-      if(!this.polling){this.polling=true;void this.api(`/status?sessionId=${this.sessionId}&id=${this.ticket.id}`).then(status=>{if(status.closed&&current())this.fail(new Error('Avatar canary stopped. Finish and save.'));}).catch(error=>this.fail(error)).finally(()=>{this.polling=false;});}},250);
+      if(!this.polling){this.polling=true;void this.api(`/status?sessionId=${this.sessionId}&id=${this.ticket.id}`).then(status=>{if(status.closed&&current())this.fail(stageError('PROVIDER_CLOSED','IVOC_SERVER'));}).catch(error=>this.fail(error)).finally(()=>{this.polling=false;});}},250);
     if(!this.visible&&this.host.dataset.avatarState!=='decoding')this.host.dataset.avatarState='connecting';return output;
     }catch(error){
-      this.failure=error?.diagnostics||{category:'AUDIO_BIND_FAILURE',boundary:this.transitions.at(-1)?.state||'IVOC_CLIENT'};
-      const row=this.transitions.at(-1);if(row){row.completedAtMs=Date.now();row.failureEvidence=this.failure;}
+      this.captureFailure(error);
       this.visualReject(error);await this.stop();throw error;
     }
   }
-  async interrupt(){
+  async interrupt(trigger='unspecified'){
     if(this.closed||this.holds||!this.queue||!(this.speaking||this.returnedSpeaking))return;
+    this.interruptionTrigger=['candidate-transcript','local-microphone-vad'].includes(trigger)?trigger:'unspecified';
     this.holds=true;this.flushConfirmed=false;this.pcmFlushConfirmed=false;this.silentMs=0;this.speaking=false;
     this.batcher?.clear();
     // This same gain gates both audible playback and the durable recording tap.

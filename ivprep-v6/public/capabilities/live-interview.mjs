@@ -98,6 +98,7 @@ export class LiveInterviewSession {
     this.startGeneration = 0;
     this.cancelStart = null;
     this.overallStartTimer = null;
+    this.stopPromise = null;
   }
 
   emitStatus(state, detail = null) {
@@ -134,7 +135,7 @@ export class LiveInterviewSession {
     catch { return; }
     this.onEvent(event);
     // Candidate speech is an interruption hint, NOT a native cancellation ack.
-    if(event.type==='session.input_transcript.delta'&&event.delta?.trim())void this.audioRenderer?.interrupt?.();
+    if(event.type==='session.input_transcript.delta'&&event.delta?.trim())void this.audioRenderer?.interrupt?.('candidate-transcript');
     if (event.type === 'session.delegation.created') {
       const delegation = event.delegation;
       if (this.state !== 'active' || this.channel?.readyState !== 'open'
@@ -302,6 +303,7 @@ export class LiveInterviewSession {
     if (!audioTrack || audioTrack.kind !== 'audio' || audioTrack.readyState === 'ended') {
       throw new TypeError('A live microphone track is required.');
     }
+    this.stopPromise = null;
     this.emitStatus('connecting', 'Creating a secure WebRTC session');
     this.audioRenderer?.transition?.('GPT_CONNECTING','IVOC_CLIENT','ADMITTED_MICROPHONE');
     this.startedAtMs = this.now();
@@ -466,7 +468,19 @@ export class LiveInterviewSession {
     }
   }
 
-  async stop({ notifyServer = true, keepalive = false } = {}) {
+  stop(options = {}) {
+    // Actor failure, user Finish and startup cancellation can converge here.
+    // Publish the shared promise BEFORE synchronous mute/telemetry callbacks:
+    // reentrant callers join cleanup instead of emitting another release at0.
+    if (this.stopPromise) return this.stopPromise;
+    let resolve, reject;
+    this.stopPromise = new Promise((yes, no) => { resolve = yes; reject = no; });
+    void this.finishStop(options).then(resolve, reject);
+    return this.stopPromise;
+  }
+
+  async finishStop({ notifyServer = true, keepalive = false } = {}) {
+    this.state = 'closing';
     const generation = ++this.startGeneration;
     const rendererCleanup=this.audioRenderer?.stop?.({keepalive}); // synchronous mute/flush first
     this.cancelStart?.(new Error('InterviewBrain startup was stopped.'));

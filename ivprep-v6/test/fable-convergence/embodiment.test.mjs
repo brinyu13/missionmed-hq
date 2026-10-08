@@ -4,6 +4,7 @@ import {readFile} from 'node:fs/promises';
 import {runInNewContext} from 'node:vm';
 import {EmbodimentCommandQueue,PcmBatcher,EmbodimentRenderer,EMBODIMENT_START_TIMEOUT_MS,decodedAvatarFrame} from '../../public/capabilities/embodiment-renderer.mjs';
 import {LiveInterviewSession} from '../../public/capabilities/live-interview.mjs';
+import {publicEmbodimentFailure} from '../../server/providers/lemonslice-embodiment.mjs';
 const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};};
 function videoFixture(){const video=new EventTarget();Object.assign(video,{paused:true,readyState:0,videoWidth:0,videoHeight:0,play:async()=>{video.paused=false;},pause:()=>{video.paused=true;},setAttribute(){},requestVideoFrameCallback:callback=>{video.frame=callback;return 7;},cancelVideoFrameCallback:()=>{video.cancelled=true;}});return video;}
 test('avatar gate needs a presented decoded frame, not DOM, play or track subscription',async()=>{
@@ -198,14 +199,56 @@ function lifecycleHarness({resume=async()=>{},connect=async()=>{},interrupt=asyn
   }
   class Worklet{port={onmessage:null,postMessage:data=>{workletMessages.push(data);if(ackWorklet)queueMicrotask(()=>this.port.onmessage?.({data:{command:'flushed',generation:data.generation}}));},close(){}};connect(){}disconnect(){}}
   class Room{on(){}connect=connect;async disconnect(){counts.disconnects++;}}
-  const failures=[],renderer=new EmbodimentRenderer({host:{dataset:{},replaceChildren(){}},sessionId:'canonical',AudioContextCtor:Context,AudioWorkletNodeCtor:Worklet,
+  const failures=[],receipts=[],renderer=new EmbodimentRenderer({host:{dataset:{},replaceChildren(){}},sessionId:'canonical',AudioContextCtor:Context,AudioWorkletNodeCtor:Worklet,onDiagnostic:r=>receipts.push(r),
     loadSdk:async()=>{counts.sdk++;return {Room,RoomEvent:{TrackSubscribed:'track',Disconnected:'closed',TrackUnsubscribed:'untrack'}};},onFailure:e=>failures.push(e),
     fetchImpl:async(url,options)=>{const body=options.body?JSON.parse(options.body):null;commands.push({url,body});
       const result=url.endsWith('/start')?{id:'attempt',publisherIdentity:'publisher',deadlineMs:Date.now()+45000}:body?.command==='interrupt'?await interrupt(body):url.includes('/status')?{closed:false}:{accepted:true};
       return {ok:true,json:async()=>result};}});
   const pcm=(rms=0,value=0,generation=renderer.pcmGeneration)=>renderer.extractor.port.onmessage?.({data:{rms,pcm:new Int16Array(1280).fill(value).buffer,generation}});
-  return {renderer,counts,commands,workletMessages,failures,pcm,start:()=>renderer.render({id:'native'},{ivocSessionId:'canonical'})};
+  return {renderer,counts,commands,workletMessages,failures,receipts,pcm,start:()=>renderer.render({id:'native'},{ivocSessionId:'canonical'})};
 }
+
+test('first failure receipt survives teardown, excludes secrets and labels the actual interruption input',async()=>{
+  for(const trigger of ['candidate-transcript','local-microphone-vad']){
+    const h=lifecycleHarness();await h.start();h.renderer.speaking=true;
+    await h.renderer.interrupt(trigger);await h.renderer.stop();
+    assert.equal(h.receipts.length,1);
+    assert.equal(h.receipts[0].category,'NATIVE_PLAYBACK_BOUNDARY_UNAVAILABLE');
+    assert.equal(h.receipts[0].interruptionTrigger,trigger);
+    assert.equal(h.receipts[0].inputBound,true);
+    const first=h.renderer.diagnostics().failureReceipt;
+    h.renderer.captureFailure(new Error('SECRET token and transcript'));
+    assert.equal(h.renderer.diagnostics().failureReceipt,first);
+    assert.equal(h.commands.filter(c=>c.url.endsWith('/start')).length,1);
+  }
+  const h=lifecycleHarness();
+  h.renderer.ticket={viewerToken:'SECRET',livekitUrl:'wss://private?token=SECRET'};
+  h.renderer.captureFailure(Object.assign(new Error('SECRET'),{diagnostics:{category:'SECRET',boundary:'https://secret/',rawBody:'SECRET'}}));
+  assert.equal(h.receipts[0].category,'UNCLASSIFIED_FAILURE');
+  assert.equal(h.receipts[0].boundary,'IVOC_CLIENT');
+  assert.doesNotMatch(JSON.stringify(h.receipts),/SECRET|wss:|https:|rawBody/);
+  assert.equal(Object.isFrozen(h.receipts[0]),true);
+});
+
+test('disconnect classes remain distinct without creating a provider session',async()=>{
+  for(const [category,boundary] of [['LIVEKIT_FAILURE','LIVEKIT_CONNECTED'],['DECODED_FRAME_FAILURE','AVATAR_DECODING'],['AUDIO_BIND_FAILURE','AUDIO_BINDING'],['QUEUE_OVERFLOW','AUDIO_TRANSPORT'],['PROVIDER_CLOSED','IVOC_SERVER'],['CANARY_DEADLINE','IVOC_CLIENT']]){
+    const h=lifecycleHarness();h.renderer.onDiagnostic=r=>{h.receipts.push(r);throw new Error('observer failed');};
+    h.renderer.fail(Object.assign(new Error('not logged'),{diagnostics:{category,boundary}}));
+    await h.renderer.stop();
+    assert.equal(h.renderer.closed,true);assert.equal(h.receipts.length,1);
+    assert.equal(h.receipts[0].category,category);assert.equal(h.receipts[0].boundary,boundary);
+    assert.equal(h.commands.length,0);
+  }
+});
+
+test('first failure receipt preserves server-safe provider diagnostics without private fields',()=>{
+  for(const category of ['PROVIDER_NETWORK','PROVIDER_DNS','PROVIDER_HTTP_4XX','PROVIDER_HTTP_5XX','PROVIDER_TIMEOUT','PROVIDER_CANCELLED','PROVIDER_RESPONSE_INVALID','LIVEKIT_FAILURE','LIVEKIT_TIMEOUT','AUDIO_TRANSPORT_FAILURE','STARTUP_CANCELLED','STARTUP_FAILED']){
+    const d=publicEmbodimentFailure({category,boundary:'LEMONSLICE_API',httpStatus:503,startedAtMs:1000,finishedAtMs:1250,elapsedMs:250,responseClass:'JSON',reason:'SOCKET_HOST_REJECTED',url:'SECRET'});
+    const h=lifecycleHarness();h.renderer.captureFailure({diagnostics:{...d,url:'SECRET',body:'SECRET'}});
+    for(const [key,value] of Object.entries(d))assert.equal(h.receipts[0][key],value,key);
+    assert.doesNotMatch(JSON.stringify(h.receipts),/SECRET|body|url/);
+  }
+});
 test('cancelled renderer never allocates or continues startup after delayed audio resume',async()=>{
   const stopped=lifecycleHarness();await stopped.renderer.stop();await assert.rejects(stopped.start(),/client_abort/);assert.equal(stopped.counts.contexts,0);
   const gate=deferred(),h=lifecycleHarness({resume:()=>gate.promise});const starting=h.start();
