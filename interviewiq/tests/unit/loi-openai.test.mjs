@@ -4,7 +4,7 @@ import {
   LOI_CANARY_OWNER, LOI_CANARY_WP_USER_ID, LOI_AUTHORIZATION, LOI_MODEL,
   MODEL_CONTEXT_TOKENS, MAX_LIFETIME_MICROS, MAX_WIRE_BYTES, MAX_RESPONSE_BYTES,
   paidCanaryActor, canaryPolicy, usageCost, maxCostBound,
-  buildLoiRequest, proseSchema, buildLoiProseRequest, PROSE_INSTRUCTIONS,
+  buildLoiRequest, proseSchema, buildLoiProseRequest, PROSE_INSTRUCTIONS, proseInstructions,
 } from '../../server/loi-openai.mjs';
 
 // ── Constants ────────────────────────────────────────────────────────────
@@ -308,7 +308,8 @@ test('buildLoiProseRequest returns valid JSON string', () => {
 
 test('buildLoiProseRequest uses PROSE_INSTRUCTIONS', () => {
   const parsed = JSON.parse(buildLoiProseRequest(validInput(), 4096));
-  assert.equal(parsed.instructions, PROSE_INSTRUCTIONS);
+  assert.equal(parsed.instructions, proseInstructions(validInput()));
+  assert.ok(parsed.instructions.startsWith(PROSE_INSTRUCTIONS));
 });
 
 test('buildLoiProseRequest rejects same invalid inputs as buildLoiRequest', () => {
@@ -324,18 +325,18 @@ test('buildLoiProseRequest includes prose schema', () => {
 
 // ── PROSE_INSTRUCTIONS content ───────────────────────────────────────────
 
-test('PROSE_INSTRUCTIONS mentions positionContext', () => {
-  assert.ok(PROSE_INSTRUCTIONS.includes('positionContext'));
+test('base prose instructions do not introduce an unconfirmed position context', () => {
+  assert.ok(!PROSE_INSTRUCTIONS.includes('positionContext'));
 });
 
-test('PROSE_INSTRUCTIONS mentions PGY-1', () => {
-  assert.ok(PROSE_INSTRUCTIONS.includes('PGY-1'));
+test('base prose instructions do not introduce a training year', () => {
+  assert.ok(!PROSE_INSTRUCTIONS.includes('PGY-1'));
 });
 
 test('PROSE_INSTRUCTIONS guards against inventing details', () => {
   assert.ok(PROSE_INSTRUCTIONS.includes('Do not invent additional program names'));
 });
 
-test('PROSE_INSTRUCTIONS mentions Advanced program pathway', () => {
-  assert.ok(PROSE_INSTRUCTIONS.includes('Advanced program pathway'));
+test('base prose instructions do not introduce an Advanced pathway', () => {
+  assert.ok(!PROSE_INSTRUCTIONS.includes('Advanced program pathway'));
 });
