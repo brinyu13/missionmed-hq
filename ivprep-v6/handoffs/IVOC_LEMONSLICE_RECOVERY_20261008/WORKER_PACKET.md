@@ -22,11 +22,26 @@ Read `/Users/brianb/MissionMed_worktrees/missionmed-brain/AGENTS.md` and only th
 
 DR-290/277 govern bounded IVOC work; DR-394 governs the existing narrow secure transport recovery. This packet does not expand authority or authorize a protected shared-path edit. Refresh and acquire exact sanctioned source claims before worker edits; no long-lived lease is transferred with the folder.
 
-**General Mode ownership verification is pending.** Setup found no distinct General Mode task/worktree, scope record or active IVOC writer lease in the accessible task list, registered Git worktrees, current ledger and lease readback. The Founder has been asked for its chat/worktree identity. Absence of a visible claim is not proof that another worker has no intended scope. Before the worker's first source edit, the main Foreman must reconcile the General Mode write set against the exact allowlist below and record the result here. Until then, this workspace is ready for read-only inspection only. Do not claim a completed cross-worker scope verification.
+**Ownership reconciled 2026-10-08: worker authorized within the five-file allowlist, subject to its own fresh source lease.** The earlier gate incorrectly treated General Mode as a separate unidentified Foreman. The orchestration chat `(A0) IV Prep OnCall`, ID `6aa55e8e-9b14-83e9-9d04-70759529db42`, Prompt 223 explicitly routes general IVOC completion to the existing main Foreman; the Founder message in that exchange asks for the main Codex thread and a new LemonSlice thread to run in parallel. Current task inventory identifies that existing Foreman as `IV Prep OnCall Final Sept 11 8000`, ID `01a0936d-7f64-7be1-a901-42be150616d5` (this task). This is identity clarification, not adoption of another assistant's text as execution authority; the Founder's current ownership directive authorizes this allocation.
+
+### Verified per-writer allocation
+
+- Main/General Foreman implementation workspace: `/Users/brianb/.codex/worktrees/ivoc-followup-device-recovery/ivoc-master-8000`, branch `codex/ivoc-followup-device-recovery-20261007`, HEAD `bef5eafd67a13b9df48de618ee7727f04cff30ca`, clean. The task's nominal cwd is the older `/Users/brianb/MissionMed_worktrees/ivoc-master-8000`; it is not the current implementation base and remains untouched.
+- Main Foreman task: general IVOC completion (General Mode, curriculum/InterviewBrain, analytics, navigation, shared composition and integration/release), not another LemonSlice implementation. Effective source scope is current authority-permitted IVOC paths under `ivprep-v6/**`, `missionmed-hq/ivoc/**`, and `missionmed-hq/tests/ivoc/**`, **minus all five files below**. Other protected/sibling paths still require their own authority; this allocation does not open them.
+- LemonSlice worker: this workspace and branch, exact five files below plus its named documentation only. Main Foreman explicitly reserves those five files to the worker and will not edit them in parallel. Shared Room/controller/HQ composition remains exclusively Foreman-owned.
+- Verification: both implementation worktrees clean before this packet update; the main Foreman's five-file diff against the implementation base is empty. Current agent inventory contains only this Foreman, with no delegated writer running. Scoped lease readback found no active IVOC claimant. These corroborate the explicit scope partition; absence of leases is not the basis of authorization.
+- Set intersection: NONE. General Mode consumes the embodiment adapter but does not modify its five worker-owned implementation/test files. Foreman integration into those files occurs only after worker commit/handoff, lease release, and explicit ownership return.
+- Current OS refresh: `a1ef873` (unrelated DR-399 addition); exact IVOC BOOT dependency validation PASS. No MissionMed OS authority was changed for this assignment.
+
+### Sanctioned source-claim arrangement
+
+Use Lease V2 `PRODUCT:IV-PREP-ON-CALL` with exact canonical repository-relative write paths, never a broad `ivprep-v6/**` or GLOBAL claim. The worker uses a unique session/binding under the existing `IVOC-CONVERGE-8001` mission and claims only the five assigned paths plus its exact documentation when needed. Foreman claims exact disjoint paths for each tranche and explicitly excludes the worker files. Claims are acquired through `mmos_acquire_product_lease`; heartbeat immediately, then continuously at at most 5-second intervals against the 30-second TTL, and validate fencing before every write. On Lease V2 heartbeat/release use the returned logical resource key, not the internal row resource key. Nonce resolution stays server-side; never persist credentials or nonce values.
+
+Setup validates acquisition/heartbeat/readback for this five-file source claim and a concurrent disjoint packet-only Foreman claim, then releases both normally. Those short-lived setup claims are NOT transferable to the future worker. Worker may begin no-spend implementation after its own fresh exact claim succeeds; acquisition denial/loss means stop writes and reconcile, not override another writer. Independent review and main-Foreman integration remain required. No deployment, provider activation or spend is granted.
 
 All General Mode and shared composition work is reserved to the main Foreman. Neither worker may silently expand into the other's files. If a needed integration touches a reserved file, describe the exact adapter/interface change in the handoff; the Foreman applies it after coordinating ownership.
 
-## WRITE PATHS — EXACT ALLOWLIST AFTER OWNERSHIP CHECK
+## WRITE PATHS — VERIFIED EXCLUSIVE WORKER ALLOWLIST
 
 Paths relative to this workspace:
 
