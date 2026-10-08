@@ -56,8 +56,15 @@ export function createInterviewiqResearchResultsReader(config={}){
     const promoted=row.provider==='MISSIONMED_REVIEW'||row.source_type==='canonical_review_promotion';
     const lineage=promoted?row.lineage:[{claimRef:row.claim_id,reviewRef:row.review_id??null,urls:[row.source_url],retrievedAt:row.retrieved_at,reviewedAt:row.reviewed_at??null}];
     if(lineage.length>16)continue;
-    const sources=lineage.map(l=>({claimRef:'rise-claim:'+sha(l.claimRef),reviewRef:l.reviewRef?'rise-review:'+sha(l.reviewRef):null,
-      urls:l.urls.filter(publicResearchUrl),retrievedAt:new Date(l.retrievedAt).toISOString(),reviewedAt:l.reviewedAt?new Date(l.reviewedAt).toISOString():null}));
+    // Segments retain the SAME original claim/review association, not new
+    // independently verified claims. Never select just a prefix of review URLs.
+    const sources=lineage.flatMap(l=>{
+      need(Array.isArray(l.urls)&&l.urls.length>0&&l.urls.length<=128&&l.urls.every(publicResearchUrl));
+      const common={claimRef:'rise-claim:'+sha(l.claimRef),reviewRef:l.reviewRef?'rise-review:'+sha(l.reviewRef):null,
+        retrievedAt:new Date(l.retrievedAt).toISOString(),reviewedAt:l.reviewedAt?new Date(l.reviewedAt).toISOString():null};
+      return Array.from({length:Math.ceil(l.urls.length/8)},(_,i)=>({claimRef:common.claimRef,reviewRef:common.reviewRef,urls:l.urls.slice(i*8,(i+1)*8),retrievedAt:common.retrievedAt,reviewedAt:common.reviewedAt}));
+    });
+    if(sources.length>16)continue;
     const period=row.observed_period,asOf=plain(period)&&text(period.kind,80)&&text(period.label,120)?{kind:period.kind,label:period.label}:null;
     facts.push({...field,claimRef:'rise-claim:'+sha(row.claim_id),value:v,retrievedAt:new Date(row.retrieved_at).toISOString(),asOf,sources});
    }catch{continue;}

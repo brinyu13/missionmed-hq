@@ -1,0 +1,287 @@
+{
+  "sourceArtifactSha256": "63bce272f60ace617551cb4be50deffb9a3bbd5b00d5d381db0eaccb66a610d2",
+  "checkedAt": "2026-10-08T00:44:23.111Z",
+  "notice": "Exact public claim text and known URLs. Two source URLs are collector-redacted; test replaces those only with explicitly synthetic placeholders, not recovered real URLs.",
+  "claims": [
+    {
+      "field": "research.abim",
+      "value": {
+        "pass_rate": "Official ABIM Residency Program Pass Rates 2023-2025: Ascension Illinois/Saint Joseph (Chicago), Chicago IL; 57 examinees; 95% passing. The ABIM report does not separately disclose first-time takers in the program row; do not interpret 57 as first-time takers. This is the exact named program row, not a sibling."
+      },
+      "originalValue": {
+        "pass_rate": "Official ABIM Residency Program Pass Rates 2023-2025: Ascension Illinois/Saint Joseph (Chicago), Chicago IL; 57 examinees; 95% passing. The ABIM report does not separately disclose first-time takers in the program row; do not interpret 57 as first-time takers. This is the exact named program row, not a sibling."
+      },
+      "reviewValue": {
+        "pass_rate": "Official ABIM Residency Program Pass Rates 2023-2025: Ascension Illinois/Saint Joseph (Chicago), Chicago IL; 57 examinees; 95% passing. The ABIM report does not separately disclose first-time takers in the program row; do not interpret 57 as first-time takers. This is the exact named program row, not a sibling."
+      },
+      "claimRef": "1e04840e60193958f554b58c9910d8c94c0eaf68ea38bf5a1552c077d4209e56",
+      "originalRef": "695d08b5f207397e30b55c8f2b524fbfb8b6b8364292512fbdc9e9df60be2349",
+      "reviewRef": "e9b4ddbc1bb855fe6327b7be2fd02c6e7a95dd701e8774e5989306b8560a108d",
+      "retrievedAt": "2026-09-10T23:13:30.000Z",
+      "sourceRetrievedAt": "2026-09-06T19:44:02.236Z",
+      "reviewedAt": "2026-09-10T23:13:30.000Z",
+      "urls": [
+        {
+          "ordinal": 1,
+          "urlSha256": "0aea6be3d196d0cb345a594523957a565680512c36f636a190f001e1289fcbcf",
+          "url": "https://dph.illinois.gov/topics-services/emergency-preparedness-response/ems/trauma-program/trauma-centers-by-region.html"
+        },
+        {
+          "ordinal": 2,
+          "urlSha256": "960f10b6e46b161a674b9f3e445255edef62a4f0aa236a8fa3a39390cd4f0131",
+          "url": "https://freida.ama-assn.org/program/1401611122"
+        },
+        {
+          "ordinal": 3,
+          "urlSha256": "f8b473b2debf03dff7222e13f0f10e7d9edecaa394c26539c9c0e0db6f2f58ef",
+          "url": "https://healthcare.ascension.org/-/media/healthcare/compliance-documents/illinois/2021-is-ascension-saint-joseph-chicago.pdf"
+        },
+        {
+          "ordinal": 4,
+          "urlSha256": "acde992c124006ca871494e66a483a117730fa0fa96ceb69166549fcce354eff",
+          "url": "https://healthcare.ascension.org/locations/illinois/ilchi/chicago-ascension-saint-joseph-chicago"
+        },
+        {
+          "ordinal": 5,
+          "urlSha256": "f1df2e096bd47d4825f156cb6b071f3afc0f6836d85b21b8b221481b1af3358a",
+          "url": "https://healthcarereportcard.illinois.gov/hospital/101266"
+        },
+        {
+          "ordinal": 6,
+          "urlSha256": "c82a38960b3aec3350624522c278e4d2281ab576b10428d49b6704889b41bb93",
+          "url": "https://linkedin.com/in/mohamed-ebrahim-b71655293"
+        },
+        {
+          "ordinal": 7,
+          "urlSha256": "c6c8b03fedb5d8776518b8f655d3eeb47ca2af996eb2a2e3440d37cdd8e6889a",
+          "url": "https://linkedin.com/in/sulav-khanal-590975145"
+        },
+        {
+          "ordinal": 8,
+          "urlSha256": "c790b224888bd853a7ada2c22c26a7a3194b8f51b3c7574a8ee60851376ffbdb",
+          "url": "https://linkedin.com/in/tatevik-aloyan-md-8b226819"
+        },
+        {
+          "ordinal": 9,
+          "urlSha256": "5e82abd4a306d8fd487ccd6910d2c0e18baad542a44c0d3e8045576b652d10db",
+          "url": "https://medicaleducation.ascension.org/illinois-internal-medicine-saint-joseph-chicago"
+        },
+        {
+          "ordinal": 10,
+          "urlSha256": "8b6f8b41dea418bc81d8c78ef5315b76125ff2d243375bce6a9715ace472733a",
+          "url": "https://medicaleducation.ascension.org/illinois-internal-medicine-saint-joseph-chicago/curriculum"
+        },
+        {
+          "ordinal": 11,
+          "urlSha256": "36c96b5d2b45c7d4448e659e4684159ae16f02559703e66154a6583f34d81228",
+          "url": "https://medicaleducation.ascension.org/illinois-internal-medicine-saint-joseph-chicago/faculty"
+        },
+        {
+          "ordinal": 12,
+          "urlSha256": "129f94a77af7fced09efef4abf9a22e6f4870b2865775a6fc5dfdbaa4744617a",
+          "url": "https://medicaleducation.ascension.org/illinois-internal-medicine-saint-joseph-chicago/how-to-apply"
+        },
+        {
+          "ordinal": 13,
+          "urlSha256": "223037ee0c0ea334045f1238fa6d9d0ddc5bda2fb405ab41f6741adc845639a9",
+          "url": "https://medicaleducation.ascension.org/illinois-internal-medicine-saint-joseph-chicago/salary-and-benefits"
+        },
+        {
+          "ordinal": 14,
+          "urlSha256": "729722c6176810c8726fef217f708144b358384bb573f6b0bb9d13b438e7958f",
+          "url": "https://oral_medicine.cureus.com/users/736180-shreyashi-khanal"
+        },
+        {
+          "ordinal": 15,
+          "urlSha256": "4c1aa5091e1c9f7f85fd8fab51e72d1624817451bc666e1fd3d0aac183b872ec",
+          "url": "https://programdirectory.nrmp.org/ascension-st-joseph-il-1405140c0/"
+        },
+        {
+          "ordinal": 16,
+          "urlSha256": "344615a42b11470438a5cec70d8a4463699037e484a251b2e9eb61c6becbdd34",
+          "url": "https://residencyadvisor.com/program/ascension-illinoissaint-joseph-chicago-program-internal-medicine-chicago-il-1401611122"
+        },
+        {
+          "ordinal": 17,
+          "urlSha256": "31c2b16974f6a09395ac7a581c70b76843b5563d37dff68f2daf6cfaf262c9a5",
+          "url": "https://www.abim.org/media/ep2awh1x/residency-program-pass-rates.pdf"
+        },
+        {
+          "ordinal": 18,
+          "urlSha256": "f73c3c8879ce9d76a44d80e36c00bb687bd3cd3ede24f5797ee8be0263405831",
+          "url": "https://www.cureus.com/users/699608-bekure-b-siraw"
+        },
+        {
+          "ordinal": 19,
+          "urlSha256": "fd45e1ff1616c0581b052bbd63706ca8cb395b8b32db8615a521eb9eba5d02e4",
+          "url": null
+        },
+        {
+          "ordinal": 20,
+          "urlSha256": "95ddc76ed02d4c0c523dc561f2f8f30e31f81f909bbf165bc721d488eb289a32",
+          "url": "https://www.linkedin.com/in/ajanta-kumari-804256290"
+        },
+        {
+          "ordinal": 21,
+          "urlSha256": "22365939715ec57ab41a40ff9f7587f9c0365c256787e2e9242982dff36c4d0f",
+          "url": "https://www.linkedin.com/in/betsy-medina-inojosa-9aa723114"
+        },
+        {
+          "ordinal": 22,
+          "urlSha256": "bd02a2af76c23436b84d17e30ac431238c646b6a4c2abd32a71bd0e4e866c1d2",
+          "url": "https://www.linkedin.com/in/gopika-chandra-220a32164"
+        },
+        {
+          "ordinal": 23,
+          "urlSha256": "8e60ba0acf236058ab9d58add8c42f7a20dd35b535cdc53ed1afb4d065d305a4",
+          "url": "https://www.residencymatch.ai/programs/internal-medicine/ascension-illinois-saint-joseph-chicago-program"
+        },
+        {
+          "ordinal": 24,
+          "urlSha256": "a3a062cf464f14e24b43e213c0ef7952bf9e8efabac56a96139dc00a9d02ef8b",
+          "url": null
+        }
+      ]
+    },
+    {
+      "field": "research.visa",
+      "value": {
+        "summary": "NEW: ResidencyMatch.ai explicitly states J-1 (ECFMG), H-1B, AND F-1 all supported -- first source confirming F-1/OPT (previously NOT_STATED), upgrading it to CONFIRMED. Aligns with official page's H-1B/J-1 claim and FREIDA's F-1 'yes'. But ResidencyAdvisor (separately queried) lists only J-1 and F-1, omitting H-1B -- continues the existing FREIDA-vs-official H-1B ambiguity. Net: F-1/OPT CONFIRMED; H-1B remains contested, leans LIKELY_YES."
+      },
+      "originalValue": {
+        "summary": "NEW: ResidencyMatch.ai explicitly states J-1 (ECFMG), H-1B, AND F-1 all supported -- first source confirming F-1/OPT (previously NOT_STATED), upgrading it to CONFIRMED. Aligns with official page's H-1B/J-1 claim and FREIDA's F-1 'yes'. But ResidencyAdvisor (separately queried) lists only J-1 and F-1, omitting H-1B -- continues the existing FREIDA-vs-official H-1B ambiguity. Net: F-1/OPT CONFIRMED; H-1B remains contested, leans LIKELY_YES."
+      },
+      "reviewValue": {
+        "summary": "NEW: ResidencyMatch.ai explicitly states J-1 (ECFMG), H-1B, AND F-1 all supported -- first source confirming F-1/OPT (previously NOT_STATED), upgrading it to CONFIRMED. Aligns with official page's H-1B/J-1 claim and FREIDA's F-1 'yes'. But ResidencyAdvisor (separately queried) lists only J-1 and F-1, omitting H-1B -- continues the existing FREIDA-vs-official H-1B ambiguity. Net: F-1/OPT CONFIRMED; H-1B remains contested, leans LIKELY_YES."
+      },
+      "claimRef": "abfdd64ea0e92f3fa5e049bb5420675b349ebca3d638ea394bf48f9f8c997d26",
+      "originalRef": "aefa982c4ee03ceaa3cc81ec3301f39a72944a5a8729bfa782b273028734231c",
+      "reviewRef": "36bcc270723f70e0fa260523766ce490a89a1c648379ff4796ab8fc3b947f4fc",
+      "retrievedAt": "2026-09-10T23:13:30.000Z",
+      "sourceRetrievedAt": "2026-09-06T19:44:02.236Z",
+      "reviewedAt": "2026-09-10T23:13:30.000Z",
+      "urls": [
+        {
+          "ordinal": 1,
+          "urlSha256": "0aea6be3d196d0cb345a594523957a565680512c36f636a190f001e1289fcbcf",
+          "url": "https://dph.illinois.gov/topics-services/emergency-preparedness-response/ems/trauma-program/trauma-centers-by-region.html"
+        },
+        {
+          "ordinal": 2,
+          "urlSha256": "960f10b6e46b161a674b9f3e445255edef62a4f0aa236a8fa3a39390cd4f0131",
+          "url": "https://freida.ama-assn.org/program/1401611122"
+        },
+        {
+          "ordinal": 3,
+          "urlSha256": "f8b473b2debf03dff7222e13f0f10e7d9edecaa394c26539c9c0e0db6f2f58ef",
+          "url": "https://healthcare.ascension.org/-/media/healthcare/compliance-documents/illinois/2021-is-ascension-saint-joseph-chicago.pdf"
+        },
+        {
+          "ordinal": 4,
+          "urlSha256": "acde992c124006ca871494e66a483a117730fa0fa96ceb69166549fcce354eff",
+          "url": "https://healthcare.ascension.org/locations/illinois/ilchi/chicago-ascension-saint-joseph-chicago"
+        },
+        {
+          "ordinal": 5,
+          "urlSha256": "f1df2e096bd47d4825f156cb6b071f3afc0f6836d85b21b8b221481b1af3358a",
+          "url": "https://healthcarereportcard.illinois.gov/hospital/101266"
+        },
+        {
+          "ordinal": 6,
+          "urlSha256": "c82a38960b3aec3350624522c278e4d2281ab576b10428d49b6704889b41bb93",
+          "url": "https://linkedin.com/in/mohamed-ebrahim-b71655293"
+        },
+        {
+          "ordinal": 7,
+          "urlSha256": "c6c8b03fedb5d8776518b8f655d3eeb47ca2af996eb2a2e3440d37cdd8e6889a",
+          "url": "https://linkedin.com/in/sulav-khanal-590975145"
+        },
+        {
+          "ordinal": 8,
+          "urlSha256": "c790b224888bd853a7ada2c22c26a7a3194b8f51b3c7574a8ee60851376ffbdb",
+          "url": "https://linkedin.com/in/tatevik-aloyan-md-8b226819"
+        },
+        {
+          "ordinal": 9,
+          "urlSha256": "5e82abd4a306d8fd487ccd6910d2c0e18baad542a44c0d3e8045576b652d10db",
+          "url": "https://medicaleducation.ascension.org/illinois-internal-medicine-saint-joseph-chicago"
+        },
+        {
+          "ordinal": 10,
+          "urlSha256": "8b6f8b41dea418bc81d8c78ef5315b76125ff2d243375bce6a9715ace472733a",
+          "url": "https://medicaleducation.ascension.org/illinois-internal-medicine-saint-joseph-chicago/curriculum"
+        },
+        {
+          "ordinal": 11,
+          "urlSha256": "36c96b5d2b45c7d4448e659e4684159ae16f02559703e66154a6583f34d81228",
+          "url": "https://medicaleducation.ascension.org/illinois-internal-medicine-saint-joseph-chicago/faculty"
+        },
+        {
+          "ordinal": 12,
+          "urlSha256": "129f94a77af7fced09efef4abf9a22e6f4870b2865775a6fc5dfdbaa4744617a",
+          "url": "https://medicaleducation.ascension.org/illinois-internal-medicine-saint-joseph-chicago/how-to-apply"
+        },
+        {
+          "ordinal": 13,
+          "urlSha256": "223037ee0c0ea334045f1238fa6d9d0ddc5bda2fb405ab41f6741adc845639a9",
+          "url": "https://medicaleducation.ascension.org/illinois-internal-medicine-saint-joseph-chicago/salary-and-benefits"
+        },
+        {
+          "ordinal": 14,
+          "urlSha256": "729722c6176810c8726fef217f708144b358384bb573f6b0bb9d13b438e7958f",
+          "url": "https://oral_medicine.cureus.com/users/736180-shreyashi-khanal"
+        },
+        {
+          "ordinal": 15,
+          "urlSha256": "4c1aa5091e1c9f7f85fd8fab51e72d1624817451bc666e1fd3d0aac183b872ec",
+          "url": "https://programdirectory.nrmp.org/ascension-st-joseph-il-1405140c0/"
+        },
+        {
+          "ordinal": 16,
+          "urlSha256": "344615a42b11470438a5cec70d8a4463699037e484a251b2e9eb61c6becbdd34",
+          "url": "https://residencyadvisor.com/program/ascension-illinoissaint-joseph-chicago-program-internal-medicine-chicago-il-1401611122"
+        },
+        {
+          "ordinal": 17,
+          "urlSha256": "31c2b16974f6a09395ac7a581c70b76843b5563d37dff68f2daf6cfaf262c9a5",
+          "url": "https://www.abim.org/media/ep2awh1x/residency-program-pass-rates.pdf"
+        },
+        {
+          "ordinal": 18,
+          "urlSha256": "f73c3c8879ce9d76a44d80e36c00bb687bd3cd3ede24f5797ee8be0263405831",
+          "url": "https://www.cureus.com/users/699608-bekure-b-siraw"
+        },
+        {
+          "ordinal": 19,
+          "urlSha256": "fd45e1ff1616c0581b052bbd63706ca8cb395b8b32db8615a521eb9eba5d02e4",
+          "url": null
+        },
+        {
+          "ordinal": 20,
+          "urlSha256": "95ddc76ed02d4c0c523dc561f2f8f30e31f81f909bbf165bc721d488eb289a32",
+          "url": "https://www.linkedin.com/in/ajanta-kumari-804256290"
+        },
+        {
+          "ordinal": 21,
+          "urlSha256": "22365939715ec57ab41a40ff9f7587f9c0365c256787e2e9242982dff36c4d0f",
+          "url": "https://www.linkedin.com/in/betsy-medina-inojosa-9aa723114"
+        },
+        {
+          "ordinal": 22,
+          "urlSha256": "bd02a2af76c23436b84d17e30ac431238c646b6a4c2abd32a71bd0e4e866c1d2",
+          "url": "https://www.linkedin.com/in/gopika-chandra-220a32164"
+        },
+        {
+          "ordinal": 23,
+          "urlSha256": "8e60ba0acf236058ab9d58add8c42f7a20dd35b535cdc53ed1afb4d065d305a4",
+          "url": "https://www.residencymatch.ai/programs/internal-medicine/ascension-illinois-saint-joseph-chicago-program"
+        },
+        {
+          "ordinal": 24,
+          "urlSha256": "a3a062cf464f14e24b43e213c0ef7952bf9e8efabac56a96139dc00a9d02ef8b",
+          "url": null
+        }
+      ]
+    }
+  ]
+}

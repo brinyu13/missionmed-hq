@@ -175,6 +175,41 @@ test('guarded PostgreSQL18 canonical coverage preserves rows and current review 
       }
       await review(original,{disposition:'SUPERSEDED'});assert.equal((await readResults({programId:'promotion-facts',registryReleaseId})).facts.length,0);
     });
+    await t.test('complete owner24URL association retains ABIM17; mixed visa staysCONFLICTED without writes',async()=>{
+      const fixture=JSON.parse(fs.readFileSync(new URL('./fixtures/interviewiq-owner-evidence.json',import.meta.url)));
+      const seeded=[];
+      async function promoted({field,value,originalValue=value,reviewValue=originalValue,urls,subject}){
+        const original='repair-original-'+(++serial),promotedId='repair-promoted-'+(++serial),rid='repair-review-'+(++serial);
+        const originalSource=await source({rights:'REVIEW_REQUIRED',exposure:'INTERNAL_ONLY'}),ps=await source({provider:'MISSIONMED_REVIEW',type:'canonical_review_promotion',url:null});
+        for(const [id,sid,v,rev,pub] of [[original,originalSource,originalValue,'PENDING','REVIEW_REQUIRED'],[promotedId,ps,value,'APPROVED','PRIVATE_BETA']])
+          await admin.query(`INSERT INTO rise_runtime.canonical_evidence_claims(claim_id,subject_id,field,knowledge,canonical_value,assertion_class,publication_state,review_state,conflict_state,source_id,retrieved_at,content_sha256)
+            VALUES($1,$2,$3,'{"state":"known"}',$4::jsonb,'source_attributed',$5,$6,$7,$8,$9,$10)`,[id,subject,field,JSON.stringify(v),pub,rev,id===promotedId?'RESOLVED':'NONE',sid,date(1),sha(id)]);
+        await admin.query(`INSERT INTO rise_runtime.evidence_claim_review_events(review_id,source_claim_id,disposition,reason_code,rule_version,normalized_value,source_urls,quality_score,actor_subject_key,decision_sha256,created_at)
+          VALUES($1,$2,'APPROVED_CURRENT','synthetic-owner-replay','5012d.1',$3::jsonb,$4::jsonb,10,$5,$6,$7)`,[rid,original,JSON.stringify(reviewValue),JSON.stringify(urls),'a'.repeat(64),sha(rid),date(0)]);
+        await admin.query('INSERT INTO rise_runtime.canonical_claim_promotion_lineage(promoted_claim_id,source_claim_id,review_id,contributor_order) VALUES($1,$2,$3,0)',[promotedId,original,rid]);
+        seeded.push({subject,field,original,promotedId,rid,urls,value});
+      }
+      for(const real of fixture.claims)await promoted({field:real.field,value:real.value,subject:'repair-'+real.field,urls:real.urls.map(u=>u.url??`https://synthetic.edu/collector-redacted-${u.ordinal}`)});
+      await promoted({field:'research.visa',value:{summary:'J1 sponsorship is published'},reviewValue:{summary:'H1B remains contested'},urls:['https://synthetic.edu/visa'],subject:'repair-reviewed-conflict'});
+      for(const n of [128,129])await promoted({field:'research.abim',value:{pass_rate:'95%'},urls:Array.from({length:n},(_,i)=>`https://synthetic.edu/evidence/${i}`),subject:'repair-url-bound-'+n});
+      await promoted({field:'research.abim',value:{pass_rate:'95%'},urls:[...Array.from({length:23},(_,i)=>`https://synthetic.edu/${i}`),'https://127.0.0.1/private'],subject:'repair-unsafe-tail'});
+      await promoted({field:'research.visa',value:{summary:'J1 sponsorship is published'},reviewValue:{summary:'x'.repeat(17000)+' H1B remains contested'},urls:['https://synthetic.edu/visa'],subject:'repair-oversized-review'});
+      const snapshot=async()=>{const out={};for(const table of ['canonical_evidence_claims','canonical_evidence_sources','canonical_program_identities','canonical_claim_promotion_lineage','evidence_claim_review_events'])out[table]=(await admin.query(`SELECT coalesce(jsonb_agg(x ORDER BY x::text),'[]'::jsonb) AS rows FROM (SELECT to_jsonb(t) AS x FROM rise_runtime.${table} t)q`)).rows[0].rows;return out;};
+      const before=await snapshot(),readResults=createInterviewiqResearchResultsReader({enabled:true,pool});
+      for(const row of seeded){
+        const out=await readResults({programId:row.subject,registryReleaseId}),coverage=(await get(row.subject)).fields.find(f=>f.field===row.field);
+        if(row.subject==='repair-research.abim'){
+          assert.equal(coverage.state,'SUPPORTED');assert.equal(out.facts.length,1);const f=out.facts[0];assert.deepEqual(f.value,row.value);
+          assert.equal(f.sources.length,3);assert.deepEqual(f.sources.flatMap(s=>s.urls),row.urls);assert.match(f.sources[2].urls[0],/abim\.org/);
+          assert.ok(f.sources.every(s=>s.claimRef==='rise-claim:'+sha(row.original)&&s.reviewRef==='rise-review:'+sha(row.rid)));
+        }else if(['repair-research.visa','repair-reviewed-conflict'].includes(row.subject)){
+          assert.equal(coverage.state,'CONFLICTED');assert.equal(out.facts.length,0);
+        }else if(row.subject==='repair-url-bound-128'){
+          assert.equal(coverage.state,'SUPPORTED');assert.equal(out.facts[0].sources.length,16);assert.deepEqual(out.facts[0].sources.flatMap(s=>s.urls),row.urls);
+        }else{assert.equal(coverage.state,'WEAK');assert.equal(out.facts.length,0);}
+      }
+      assert.deepEqual(await snapshot(),before);
+    });
     await t.test('read-only transaction rejects mutation and all protected rows remain identical',async()=>{
       const before=(await admin.query("SELECT md5(string_agg(row_to_json(c)::text,',' ORDER BY claim_id)) AS h FROM rise_runtime.canonical_evidence_claims c")).rows;
       let sawReadOnly=false;const wrapped={options:pool.options,async connect(){const c=await pool.connect();return {release:x=>c.release(x),async query(q){

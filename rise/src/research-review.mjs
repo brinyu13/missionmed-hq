@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-export const REVIEW_RULE_VERSION = "5012k.1";
+export const REVIEW_RULE_VERSION = "5012k.2";
 export const FINAL_DISPOSITIONS = Object.freeze([
   "APPROVED_CURRENT", "APPROVED_HISTORICAL", "RESEARCHED_NOT_FOUND", "SUPERSEDED",
   "CONFLICT_REQUIRES_REVIEW", "INSUFFICIENT_EVIDENCE", "STALE_NEEDS_REFRESH", "IDENTITY_AMBIGUITY",
@@ -12,7 +12,7 @@ const SECONDARY_HOSTS = /(^|\.)(doximity\.com|imgprep\.com|matcharesident\.com|r
 const REFERENCE_HOSTS = /(^|\.)(abim\.org|freida\.ama-assn\.org|programdirectory\.nrmp\.org)$/i;
 const NOT_RESEARCHED = /\b(?:not[_ ]re-?researched|not[_ ]researched|outside (?:the )?(?:specified )?scope|already.complete.not.researched|not a missing.field target)\b/i;
 const NOT_FOUND = /\b(?:researched[_ ]not[_ ]found|unavailable|not[_ ]applicable|unknown_after_recovery_search|not[_ ]found|not[_ ]available|not[_ ]reported|not[_ ]published|no published|unable to (?:locate|verify)|no exact program|verified absent)\b/i;
-const CONFLICT = /\b(?:conflicting|conflict_requires_review|unresolved conflict|conflict note|vs\.?\s+(?:official|freida|program))\b/i;
+const CONFLICT = /\b(?:conflicting|conflict_requires_review|unresolved conflict|conflict note|contested|ambiguity|ambiguous|vs\.?\s+(?:official|freida|program))\b/i;
 const HISTORICAL = /\b(?:former|previous|historical|class of 20(?:1\d|2[0-4])|20(?:1\d|2[0-4]) roster)\b/i;
 
 function canonicalJson(value) {
@@ -28,6 +28,9 @@ function digest(value) {
 function textOf(value) {
   return JSON.stringify(value ?? null).replaceAll("\\u", " ");
 }
+
+// A prior approval never turns an explicitly contested mixed claim into a fact.
+export function hasUnresolvedResearchConflict(value) { return CONFLICT.test(textOf(value)); }
 
 function hostOf(url) {
   try { return new URL(url).hostname.toLowerCase(); } catch { return ""; }
@@ -211,6 +214,7 @@ function preliminaryDecision({ claim, acgmeId, identityResolved = true, allowedC
     };
   }
   if (declaredState === "NORMALIZED_PACKAGE_PROJECTION") {
+    if (hasUnresolvedResearchConflict(claim.value)) return { ...base, disposition: "CONFLICT_REQUIRES_REVIEW", reason: "claim_contains_unresolved_conflict", qualityScore: 0 };
     if (!sourceCount || !isValid(claim.field, claim.value)) {
       return { ...base, disposition: "INSUFFICIENT_EVIDENCE", reason: "normalized_projection_missing_source_or_schema", qualityScore: 0 };
     }
@@ -229,7 +233,7 @@ function preliminaryDecision({ claim, acgmeId, identityResolved = true, allowedC
   if (declaredState === "STALE") return { ...base, disposition: "STALE_NEEDS_REFRESH", reason: "source_declares_stale_evidence", qualityScore: sourceCount };
   if (declaredState === "UNAVAILABLE") return { ...base, disposition: "INSUFFICIENT_EVIDENCE", reason: "source_unavailable_after_attempt", qualityScore: sourceCount };
   if (NOT_RESEARCHED.test(text)) return { ...base, disposition: "INSUFFICIENT_EVIDENCE", reason: "source_explicitly_says_not_researched", qualityScore: 0 };
-  if (CONFLICT.test(text)) return { ...base, disposition: "CONFLICT_REQUIRES_REVIEW", reason: "claim_contains_unresolved_conflict", qualityScore: 0 };
+  if (hasUnresolvedResearchConflict(claim.value)) return { ...base, disposition: "CONFLICT_REQUIRES_REVIEW", reason: "claim_contains_unresolved_conflict", qualityScore: 0 };
   if (NOT_FOUND.test(text)) return { ...base, disposition: "RESEARCHED_NOT_FOUND", reason: "completed_search_found_no_supportable_published_answer", qualityScore: sourceCount };
   if (!sourceCount) return { ...base, disposition: "INSUFFICIENT_EVIDENCE", reason: "no_credible_source_url", qualityScore: 0 };
   if (!isValid(claim.field, claim.value)) return { ...base, disposition: "INSUFFICIENT_EVIDENCE", reason: "field_schema_or_semantics_not_supportable", qualityScore: sourceCount };

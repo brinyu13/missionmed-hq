@@ -1,6 +1,7 @@
 import {createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import {isIP} from 'node:net';
+import {hasUnresolvedResearchConflict} from '../src/research-review.mjs';
 import {DEEP_RESEARCH_DOSSIER_V2} from '../src/research-router.mjs';
 import {readInterviewiqProgramIdentity} from './interviewiq-program-identity.mjs';
 
@@ -45,16 +46,19 @@ const evidenceSql=(withValues=false,verified=false)=>`WITH subjects AS (
   ${verified?'SELECT unnest($3::text[]) AS id WHERE $1::text IS NOT NULL':"SELECT $1::text AS id UNION SELECT program_identity_id FROM rise_runtime.canonical_program_identities WHERE program_specialty_id=$1 AND reconciliation_status='EXACT_ACGME_MATCH' AND exposure_state='PRIVATE_BETA'"}
 ), visible AS (
   SELECT c.claim_id,c.subject_id,c.field,c.knowledge->>'state' AS knowledge_state,c.retrieved_at,c.created_at,c.conflict_state,
-    s.source_url,s.retrieved_at AS source_retrieved_at,s.provider,s.source_type,current_review.disposition AS review_disposition${withValues?`,CASE WHEN octet_length(c.canonical_value::text)<=16384 THEN c.canonical_value END AS canonical_value,c.observed_period,current_review.review_id,current_review.created_at AS reviewed_at`:''}
+    s.source_url,s.retrieved_at AS source_retrieved_at,s.provider,s.source_type,current_review.disposition AS review_disposition,
+    octet_length(c.canonical_value::text)<=16384 AND (current_review.normalized_value IS NULL OR octet_length(current_review.normalized_value::text)<=16384) AS value_bounded,
+    CASE WHEN octet_length(c.canonical_value::text)<=16384 THEN c.canonical_value END AS canonical_value,
+    CASE WHEN octet_length(current_review.normalized_value::text)<=16384 THEN current_review.normalized_value END AS review_value${withValues?`,c.observed_period,current_review.review_id,current_review.created_at AS reviewed_at`:''}
   FROM rise_runtime.canonical_evidence_claims c JOIN rise_runtime.canonical_evidence_sources s USING(source_id)
-  LEFT JOIN LATERAL (SELECT disposition,review_id,created_at FROM rise_runtime.evidence_claim_review_events WHERE source_claim_id=c.claim_id
+  LEFT JOIN LATERAL (SELECT disposition,review_id,normalized_value,created_at FROM rise_runtime.evidence_claim_review_events WHERE source_claim_id=c.claim_id
     ORDER BY created_at DESC,review_id DESC LIMIT 1) current_review ON true
   WHERE c.subject_id IN(SELECT id FROM subjects) AND c.field=ANY($2::text[]) AND c.review_state='APPROVED'
     AND c.publication_state IN('STUDENT_VISIBLE','PRIVATE_BETA') AND s.rights_state='APPROVED'
     AND s.exposure_state IN('STUDENT_VISIBLE','PRIVATE_BETA') AND s.provider<>'STUDENT_INTEL'
 )
 SELECT wanted.field,transaction_timestamp() AS observed_at,f.knowledge_state,f.retrieved_at,f.source_retrieved_at,
-  f.source_url,f.provider,f.source_type,f.review_disposition${withValues?`,f.claim_id,f.canonical_value,f.observed_period,f.review_id,f.reviewed_at`:""},
+  f.source_url,f.provider,f.source_type,f.review_disposition,f.value_bounded,f.canonical_value,f.review_value${withValues?`,f.claim_id,f.observed_period,f.review_id,f.reviewed_at`:""},
   EXISTS(SELECT 1 FROM visible c WHERE c.field=wanted.field AND c.conflict_state='CONFLICTING'
     AND (c.review_disposition IS NULL OR c.review_disposition='CONFLICT_REQUIRES_REVIEW')
     AND c.retrieved_at>=coalesce(f.retrieved_at,'-infinity'::timestamptz)) AS public_conflict,
@@ -62,16 +66,18 @@ SELECT wanted.field,transaction_timestamp() AS observed_at,f.knowledge_state,f.r
     'identityValid',original.subject_id=f.subject_id AND original.field=f.field AND os.provider NOT IN('STUDENT_INTEL','MISSIONMED_REVIEW') AND os.source_type<>'canonical_review_promotion' AND os.rights_state<>'REJECTED' AND os.exposure_state<>'REJECTED',
     'approvalCurrent',review.review_id=l.review_id AND review.disposition='APPROVED_CURRENT',
     'disposition',CASE WHEN original.subject_id=f.subject_id AND original.field=f.field AND os.provider NOT IN('STUDENT_INTEL','MISSIONMED_REVIEW') AND os.source_type<>'canonical_review_promotion' AND os.rights_state<>'REJECTED' AND os.exposure_state<>'REJECTED' THEN review.disposition END,
-    'retrievedAt',original.retrieved_at,'sourceRetrievedAt',os.retrieved_at${withValues?`, 'claimRef',original.claim_id,'reviewRef',review.review_id,'reviewedAt',review.created_at`:''},
+    'retrievedAt',original.retrieved_at,'sourceRetrievedAt',os.retrieved_at,
+    'valueBounded',octet_length(original.canonical_value::text)<=16384 AND (review.normalized_value IS NULL OR octet_length(review.normalized_value::text)<=16384),
+    'value',CASE WHEN octet_length(original.canonical_value::text)<=16384 THEN original.canonical_value END,
+    'reviewValue',CASE WHEN octet_length(review.normalized_value::text)<=16384 THEN review.normalized_value END${withValues?`, 'claimRef',original.claim_id,'reviewRef',review.review_id,'reviewedAt',review.created_at`:''},
     'urls',CASE WHEN original.subject_id=f.subject_id AND original.field=f.field AND os.provider NOT IN('STUDENT_INTEL','MISSIONMED_REVIEW') AND os.source_type<>'canonical_review_promotion' AND os.rights_state<>'REJECTED' AND os.exposure_state<>'REJECTED'
       AND review.review_id=l.review_id AND review.disposition='APPROVED_CURRENT'
-      THEN (SELECT coalesce(jsonb_agg(u.value),'[]'::jsonb) FROM
-        (SELECT value FROM jsonb_array_elements_text(review.source_urls) WITH ORDINALITY x(value,n) WHERE length(value)<=2048 ORDER BY n LIMIT 8) u)
-      ELSE '[]'::jsonb END))
-    FROM (SELECT source_claim_id,review_id FROM rise_runtime.canonical_claim_promotion_lineage WHERE promoted_claim_id=f.claim_id ORDER BY contributor_order LIMIT 201) l
+      THEN CASE WHEN jsonb_array_length(review.source_urls) BETWEEN 1 AND 128 THEN review.source_urls ELSE '[]'::jsonb END
+      ELSE '[]'::jsonb END) ORDER BY l.contributor_order)
+    FROM (SELECT source_claim_id,review_id,contributor_order FROM rise_runtime.canonical_claim_promotion_lineage WHERE promoted_claim_id=f.claim_id ORDER BY contributor_order LIMIT 201) l
     LEFT JOIN rise_runtime.canonical_evidence_claims original ON original.claim_id=l.source_claim_id
     LEFT JOIN rise_runtime.canonical_evidence_sources os ON os.source_id=original.source_id
-    LEFT JOIN LATERAL (SELECT review_id,disposition,source_urls,created_at FROM rise_runtime.evidence_claim_review_events
+    LEFT JOIN LATERAL (SELECT review_id,disposition,source_urls,normalized_value,created_at FROM rise_runtime.evidence_claim_review_events
       WHERE source_claim_id=l.source_claim_id ORDER BY created_at DESC,review_id DESC LIMIT 1) review ON true),'[]'::jsonb) AS lineage
 FROM unnest($2::text[]) wanted(field)
 LEFT JOIN LATERAL (SELECT * FROM visible v WHERE v.field=wanted.field AND v.conflict_state<>'CONFLICTING'
@@ -79,8 +85,9 @@ LEFT JOIN LATERAL (SELECT * FROM visible v WHERE v.field=wanted.field AND v.conf
 ORDER BY wanted.field COLLATE "C"`;
 
 function state(row,observed){
-  if(row.public_conflict===true)return 'CONFLICTED';
+  if(row.public_conflict===true||hasUnresolvedResearchConflict(row.canonical_value)||hasUnresolvedResearchConflict(row.review_value))return 'CONFLICTED';
   if(row.knowledge_state!=='known')return 'UNKNOWN';
+  if(row.value_bounded===false)return 'WEAK';
   if(row.review_disposition==='CONFLICT_REQUIRES_REVIEW')return 'CONFLICTED';
   if(['STALE_NEEDS_REFRESH','APPROVED_HISTORICAL'].includes(row.review_disposition))return 'STALE';
   if(row.review_disposition&&row.review_disposition!=='APPROVED_CURRENT')return 'WEAK';
@@ -89,10 +96,14 @@ function state(row,observed){
   if(row.provider==='MISSIONMED_REVIEW'||row.source_type==='canonical_review_promotion'){
     need(Array.isArray(row.lineage)&&row.lineage.length<=200);
     if(!row.lineage.length||row.lineage.some(x=>x.identityValid!==true))return 'WEAK';
-    if(row.lineage.some(x=>x.disposition==='CONFLICT_REQUIRES_REVIEW'))return 'CONFLICTED';
+    if(row.lineage.some(x=>x.disposition==='CONFLICT_REQUIRES_REVIEW'||hasUnresolvedResearchConflict(x.value)||hasUnresolvedResearchConflict(x.reviewValue)))return 'CONFLICTED';
+    if(row.lineage.some(x=>x.valueBounded===false))return 'WEAK';
     if(row.lineage.some(x=>['STALE_NEEDS_REFRESH','APPROVED_HISTORICAL'].includes(x.disposition)))return 'STALE';
     if(row.lineage.some(x=>x.approvalCurrent!==true))return 'WEAK';
-    supportedUrl=row.lineage.every(x=>Array.isArray(x.urls)&&x.urls.length<=8&&x.urls.some(publicResearchUrl));
+    // Preserve the complete reviewed association or expose no factual support.
+    // Results segment each association into the existing eight-URL source shape.
+    supportedUrl=row.lineage.every(x=>Array.isArray(x.urls)&&x.urls.length>0&&x.urls.length<=128&&x.urls.every(publicResearchUrl))&&
+      row.lineage.reduce((n,x)=>n+Math.ceil(x.urls.length/8),0)<=16;
     for(const link of row.lineage)dates.push(Date.parse(link.retrievedAt),Date.parse(link.sourceRetrievedAt));
   }
   if(dates.some(t=>!Number.isFinite(t)||t>observed))return 'WEAK';
