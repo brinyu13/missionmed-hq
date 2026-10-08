@@ -240,6 +240,15 @@
 			'</dialog>';
 	}
 
+	function commandIcon(name) {
+		var paths = {
+			star: '<path d="M12 2.8l2.8 5.67 6.26.91-4.53 4.42 1.07 6.23L12 17.1l-5.6 2.94 1.07-6.23-4.53-4.42 6.26-.91L12 2.8z"/>',
+			replay: '<path d="M8.2 6.45v11.1L17 12 8.2 6.45z"/><path d="M5.1 5.65A9 9 0 1 1 3 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M2.8 6.1l2.55-.45-.42-2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
+			join: '<rect x="3" y="6" width="12" height="12" rx="2"/><path d="M15 10l5-3v10l-5-3z"/>'
+		};
+		return '<svg class="mcv2-command-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + paths[name] + '</svg>';
+	}
+
 	function renderDrawer(state) {
 		var event = state.events.filter(function (item) { return String(item.id) === String(selectedEventId); })[0];
 		if (!event) return '';
@@ -247,18 +256,18 @@
 		var normalized = view.selectedEvents.filter(function (item) { return String(item.id) === String(event.id); })[0] || event;
 		var provider = String(normalized.meetingPlatform || '').toLowerCase();
 		var providerLabel = provider === 'webex' ? 'Webex' : provider === 'zoom' ? 'Zoom' : normalized.joinUrl ? 'Manual meeting link' : '';
-		var starLabel = normalized.favorite ? 'Starred for you' : 'Star this event';
-		return '<div class="mcv2-backdrop" data-close-drawer></div><dialog class="mcv2-event-detail mcv2-modal" open aria-modal="true" aria-labelledby="mcv2-drawer-title"><div class="mcv2-modal-head"><div><span class="mcv2-chip mcv2-chip--' + esc(normalized.category) + '">' + esc(categoryLabel(normalized.category)) + '</span><h2 id="mcv2-drawer-title">' + esc(normalized.title) + '</h2></div><button type="button" class="mcv2-close" data-close-drawer aria-label="Close event details">&times;</button></div>' +
-			'<div class="mcv2-modal-body"><dl><dt>Date &amp; time</dt><dd>' + esc(normalized.fullDateLabel) + '<br>' + esc(normalized.timeLabel) + (normalized.endTimeLabel ? ' \u2013 ' + esc(normalized.endTimeLabel) : '') + '<br><small>' + esc(state.timezoneLabel) + '</small></dd>' +
-			(providerLabel ? '<dt>Meeting</dt><dd>' + esc(providerLabel) + '</dd>' : '') +
-			(normalized.description ? '<dt>Description</dt><dd>' + esc(normalized.description) + '</dd>' : '') +
-			(normalized.meta && normalized.meta.specialty ? '<dt>Specialty</dt><dd>' + esc(normalized.meta.specialty) + '</dd>' : '') +
-			(normalized.important ? '<dt>Importance</dt><dd><span class="mcv2-important-state">\u2605 Marked important</span></dd>' : '') + '</dl></div>' +
-			'<div class="mcv2-drawer-actions mcv2-modal-actions"><button type="button" class="mcv2-action is-favorite" data-favorite-event="' + esc(normalized.id) + '" aria-pressed="' + (!!normalized.favorite) + '">' + (normalized.favorite ? '\u2605 ' : '\u2606 ') + starLabel + '</button>' +
-			(normalized.replayUrl || normalized.recordingStatus ? '<button type="button" class="mcv2-action is-replay" data-replay-event="' + esc(normalized.id) + '">Watch replay</button>' : '') +
-			(normalized.joinUrl || normalized.source === 'scheduler' ? '<button type="button" class="mcv2-action" data-join-event="' + esc(normalized.id) + '">Join session</button>' : '') +
-			(normalized.writable && effectivePerspective(state) === 'administrator' ? '<button type="button" class="mcv2-action" data-edit-event="' + esc(normalized.id) + '">Edit</button><button type="button" class="mcv2-action is-danger" data-delete-event="' + esc(normalized.id) + '">Delete</button>' : '') +
-			'</div></dialog>';
+		var replayAvailable = !!(normalized.replayUrl || normalized.recordingStatus);
+		var joinAvailable = !!(normalized.joinUrl || normalized.source === 'scheduler');
+		var starTitle = normalized.favorite ? 'Starred' : 'Star event';
+		var starHint = normalized.favorite ? 'Saved to your favorites' : 'Add to your favorites';
+		var adminActions = normalized.writable && effectivePerspective(state) === 'administrator' ? '<div class="mcv2-command-admin"><button type="button" class="mcv2-action is-secondary" data-edit-event="' + esc(normalized.id) + '">Edit event</button><button type="button" class="mcv2-action is-danger" data-delete-event="' + esc(normalized.id) + '">Delete event</button></div>' : '';
+		return '<div class="mcv2-backdrop" data-close-drawer></div><dialog class="mcv2-event-detail mcv2-modal mcv2-command-card" open aria-modal="true" aria-labelledby="mcv2-drawer-title"><div class="mcv2-modal-head mcv2-command-head"><div class="mcv2-command-title"><span class="mcv2-command-kicker">Event command</span><div class="mcv2-command-badges"><span class="mcv2-chip mcv2-chip--' + esc(normalized.category) + '">' + esc(categoryLabel(normalized.category)) + '</span>' + (normalized.important ? '<span class="mcv2-importance-tag">\u2605 Important</span>' : '') + '</div><h2 id="mcv2-drawer-title">' + esc(normalized.title) + '</h2></div><button type="button" class="mcv2-close" data-close-drawer aria-label="Close event details"><span aria-hidden="true">&times;</span></button></div>' +
+			'<div class="mcv2-modal-body mcv2-command-body"><div class="mcv2-command-facts"><section class="mcv2-command-fact"><span>Date &amp; time</span><strong>' + esc(normalized.fullDateLabel) + '</strong><b>' + esc(normalized.timeLabel) + (normalized.endTimeLabel ? ' \u2013 ' + esc(normalized.endTimeLabel) : '') + '</b><small>' + esc(state.timezoneLabel) + '</small></section><section class="mcv2-command-fact is-meeting"><span>Meeting access</span><strong>' + esc(providerLabel || 'No meeting link') + '</strong><small>' + (joinAvailable ? 'Access is checked when you join.' : 'Unavailable for this event.') + '</small></section></div>' +
+			(normalized.description ? '<section class="mcv2-command-description"><span>Mission brief</span><p>' + esc(normalized.description) + '</p></section>' : '') +
+			(normalized.meta && normalized.meta.specialty ? '<section class="mcv2-command-description"><span>Specialty</span><p>' + esc(normalized.meta.specialty) + '</p></section>' : '') + '</div>' +
+			'<div class="mcv2-drawer-actions mcv2-modal-actions mcv2-command-footer"><div class="mcv2-command-actions" aria-label="Event actions"><button type="button" class="mcv2-action mcv2-command-action is-favorite' + (normalized.favorite ? ' is-active' : '') + '" data-favorite-event="' + esc(normalized.id) + '" aria-pressed="' + (!!normalized.favorite) + '" aria-label="' + (normalized.favorite ? 'Unstar event' : 'Star event') + '">' + commandIcon('star') + '<span><strong>' + starTitle + '</strong><small>' + starHint + '</small></span></button>' +
+			(replayAvailable ? '<button type="button" class="mcv2-action mcv2-command-action is-replay" data-replay-event="' + esc(normalized.id) + '" aria-label="Watch replay">' + commandIcon('replay') + '<span><strong>Watch replay</strong><small>Open available recording</small></span></button>' : '<button type="button" class="mcv2-action mcv2-command-action is-replay is-unavailable" disabled aria-disabled="true">' + commandIcon('replay') + '<span><strong>Replay unavailable</strong><small>No recording is ready</small></span></button>') +
+			(joinAvailable ? '<button type="button" class="mcv2-action mcv2-command-action is-join" data-join-event="' + esc(normalized.id) + '" aria-label="Join session">' + commandIcon('join') + '<span><strong>Join session</strong><small>' + esc(providerLabel || 'Secure meeting access') + '</small></span></button>' : '<button type="button" class="mcv2-action mcv2-command-action is-join is-unavailable" disabled aria-disabled="true">' + commandIcon('join') + '<span><strong>Join unavailable</strong><small>No meeting link provided</small></span></button>') + '</div>' + adminActions + '</div></dialog>';
 	}
 
 	function renderSettings(state) {

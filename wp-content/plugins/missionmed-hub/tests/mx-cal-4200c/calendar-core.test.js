@@ -28,12 +28,24 @@ test('StoryForge Month view exposes overflow instead of clipping live events', (
 });
 
 test('V2 restores centered, viewport-bounded event detail and Add/Edit modals', () => {
-	assert.match(v2Source, /class="mcv2-event-detail mcv2-modal" open aria-modal="true"/);
+	assert.match(v2Source, /class="mcv2-event-detail mcv2-modal mcv2-command-card" open aria-modal="true"/);
 	assert.match(v2Source, /class="mcv2-event-form mcv2-modal" open aria-modal="true"/);
 	assert.match(v2Styles, /\.mcv2-modal \{[^}]*top: 50%;[^}]*left: 50%;[^}]*transform: translate\(-50%,-50%\);[^}]*max-height: calc\(100dvh - 32px\);[^}]*overflow: hidden;/s);
 	assert.match(v2Styles, /\.mcv2-form-scroll \{[^}]*overflow-y: auto;/s);
 	assert.match(v2Source, /event\.key === 'Escape'.*close\(\)/s);
 	assert.match(v2Source, /trapModalFocus\(event, eventModal/);
+});
+
+test('event detail renders distinct truthful command actions without weakening behavior', () => {
+	assert.match(v2Source, /class="mcv2-event-detail mcv2-modal mcv2-command-card"/);
+	assert.match(v2Source, /class="mcv2-action mcv2-command-action is-favorite/);
+	assert.match(v2Source, /class="mcv2-action mcv2-command-action is-replay" data-replay-event/);
+	assert.match(v2Source, /Replay unavailable<\/strong><small>No recording is ready/);
+	assert.match(v2Source, /class="mcv2-action mcv2-command-action is-join" data-join-event/);
+	assert.match(v2Source, /Join unavailable<\/strong><small>No meeting link provided/);
+	assert.match(v2Source, /aria-label="' \+ \(normalized\.favorite \? 'Unstar event' : 'Star event'\)/);
+	assert.match(v2Styles, /\.mcv2-command-actions \{[^}]*grid-template-columns: repeat\(3,minmax\(0,1fr\)\);/s);
+	assert.match(v2Styles, /prefers-reduced-motion: reduce[\s\S]*\.mcv2-command-card::before,[\s\S]*animation: none !important;/);
 });
 
 test('event form exposes supported providers, manual links, replay, and importance without inventing a provider enum', () => {
@@ -44,7 +56,7 @@ test('event form exposes supported providers, manual links, replay, and importan
 	assert.match(v2Source, /name="ev-replay-url"/);
 	assert.match(v2Source, /meta\.replay_url = replayUrl/);
 	assert.match(v2Source, /name="ev-important"/);
-	assert.match(v2Source, /\\u2605 Marked important/);
+	assert.match(v2Source, /class="mcv2-importance-tag">\\u2605 Important/);
 });
 
 test('expandable category rows use the full labeled row with accessible state and a separate visibility action', () => {
