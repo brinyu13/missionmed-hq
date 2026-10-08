@@ -146,12 +146,16 @@ const sensitiveTopics=[[/\b(?:guarantee\w*|assur(?:e|ed|es)|promise\w*)\b/i,/\b(
 const programTopics=/\b(?:robotic\w*|surgery|cardiology|fellowship\w*|research|scholarship|elective\w*|mentorship|simulation|rural|international|visa|sponsor\w*)\b/ig;
 const pastActions=/\bI (?:have |had )?(won|led|founded|published|completed|worked|volunteered|trained|interviewed|visited|met|served|earned|received|rotated|conducted)\b/ig;
 const namedTokens=text=>{const tokens=[];const re=/\b[A-Z][A-Za-z'-]+(?:\s+[A-Z][A-Za-z'-]+)*\b/g;for(const m of text.matchAll(re)){const before=text.slice(0,m.index).trimEnd();if(m[0]==='I'||/^(?:Dear Program Leadership|Thank you|Program Leadership)$/.test(m[0]))continue;const sentenceInitial=!before||/[.!?;\n]$/.test(before)||/^Dear\s*$/.test(before);if(!sentenceInitial||m[0].includes(' '))tokens.push(m[0]);}return tokens;};
+const unsupportedRules=['UNSUPPORTED_GUARANTEE','UNSUPPORTED_VISA','UNSUPPORTED_RANK','UNSUPPORTED_ACHIEVEMENT','UNSUPPORTED_PERSONAL_TIE'];
+const programRuleCategories=[[/^robotic/i,'ROBOTICS'],[/^surgery$/i,'SURGERY'],[/^cardiology$/i,'CARDIOLOGY'],[/^fellowship/i,'FELLOWSHIP'],[/^research$/i,'RESEARCH'],[/^scholarship$/i,'SCHOLARSHIP'],[/^elective/i,'ELECTIVE'],[/^mentorship$/i,'MENTORSHIP'],[/^simulation$/i,'SIMULATION'],[/^rural$/i,'RURAL'],[/^international$/i,'INTERNATIONAL'],[/^visa$/i,'VISA'],[/^sponsor/i,'SPONSORSHIP']];
+const programRule=word=>{const category=programRuleCategories.find(([pattern])=>pattern.test(word))?.[1];return category?'UNSUPPORTED_PROGRAM_'+category:'UNSUPPORTED_PROGRAM_TOPIC';};
+function requireAuthoredSupport(ok,rule){if(!ok){const e=new Error('loi_composition_unsupported');e.code='loi_composition_unsupported';e.rule=rule;throw e;}}
 function checkAuthoredUnit(quote,allowed){
  const support=allowed.map(r=>r.text).join('\n'),supportedWords=new Set(normalizedWords(support));
  proseNeed(quantities(quote).every(q=>quantities(support).includes(q)),'loi_composition_invented_quantity');
  proseNeed(namedTokens(quote).every(n=>normalizedWords(n).every(w=>supportedWords.has(w))),'loi_composition_invented_identity');
- for(const [assertion,source] of sensitiveTopics)proseNeed(!assertion.test(quote)||source.test(support),'loi_composition_unsupported');
- if(/\b(?:your program|the program|residents|curriculum|faculty)\b/i.test(quote))for(const m of quote.matchAll(programTopics))proseNeed(new RegExp('\\b'+m[0]+'\\b','i').test(support),'loi_composition_unsupported');
+ for(const [index,[assertion,source]] of sensitiveTopics.entries())requireAuthoredSupport(!assertion.test(quote)||source.test(support),unsupportedRules[index]);
+ if(/\b(?:your program|the program|residents|curriculum|faculty)\b/i.test(quote))for(const m of quote.matchAll(programTopics))requireAuthoredSupport(new RegExp('\\b'+m[0]+'\\b','i').test(support),programRule(m[0]));
  for(const m of quote.matchAll(pastActions))proseNeed(new RegExp('\\b'+m[1]+'\\b','i').test(support),'loi_composition_invented_event');
  // Negating a positive source, or affirming an explicitly negative status, is
  // detectable without accepting the author's claimed meaning/trace as proof.
@@ -188,7 +192,7 @@ export function validateAuthoredTrace(row,refs,program){
  const units=proseUnits(row.text);proseNeed(Array.isArray(refs)&&refs.length>0&&refs.length<=90&&new Set(refs.map(r=>r.ref)).size===refs.length,'loi_composition_reference');
  proseNeed(refs.every(r=>typeof r.text==='string'&&r.text.trim()&&typeof r.ref==='string'),'loi_composition_reference');
  proseNeed(program&&refs.filter(r=>r.kind==='identity').length===1&&refs.find(r=>r.kind==='identity').text===program.name&&row.text.includes(program.name),'loi_composition_reference');
- for(const r of refs.filter(r=>r.kind==='evidence'))proseNeed(r.field&&(!r.state||r.state==='SUPPORTED')&&!/\b(?:unknown|conflicted|contested|disputed|uncertain|ambiguity|unverified)\b/i.test(r.text),'loi_composition_unsupported');
+ for(const r of refs.filter(r=>r.kind==='evidence'))requireAuthoredSupport(r.field&&(!r.state||r.state==='SUPPORTED')&&!/\b(?:unknown|conflicted|contested|disputed|uncertain|ambiguity|unverified)\b/i.test(r.text),'UNSUPPORTED_EVIDENCE_STATE');
  proseNeed(Array.isArray(row.claims)&&row.claims.length===units.length,'loi_composition_trace');const used=new Set(),claims=[];
  for(let i=0;i<units.length;i++){const u=units[i],c=row.claims[i];proseNeed(proseKeys(c,['start','end','refs'])&&c.start===u.start&&c.end===u.end&&Array.isArray(c.refs)&&new Set(c.refs).size===c.refs.length&&c.refs.every(id=>refs.some(r=>r.ref===id)),'loi_composition_trace');
   const greeting=/^\s*Dear[^.!?;\n]*[,\n]\s*$/.test(u.quote),closing=/^\s*(?:Thank you|Sincerely|Respectfully)\b/i.test(u.quote);
