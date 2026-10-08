@@ -1,7 +1,7 @@
 import * as v from './validation.mjs';
 // Empty by default. Adding a claim requires independent review of exact supporting
 // content and current canonical program/field/value/provenance; URL host is never authority.
-export const APPROVED_LOI_EVIDENCE_PINS=Object.freeze([]);
+export const APPROVED_LOI_EVIDENCE_PINS=Object.freeze(['eb1d9718ce6cf52cc9f4f6de452ab3aac35655470a18a3a6757b9508922ffcd0']);
 export const EVIDENCE_GUARD='SOURCE_PINNED_CLAIM_REVIEW_V1';
 const strings=x=>typeof x==='string'?[x]:Array.isArray(x)?x.flatMap(strings):x&&typeof x==='object'?Object.values(x).flatMap(strings):[];
 export const loiEvidencePin=(program,e)=>v.digest({contract:EVIDENCE_GUARD,program:Object.fromEntries(['id','name','track','registryReleaseId'].map(k=>[k,program[k]])),evidence:Object.fromEntries(['field','state','claimRef','value','retrievedAt','asOf','sources'].map(k=>[k,e[k]]))});
