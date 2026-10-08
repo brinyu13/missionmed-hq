@@ -65,10 +65,28 @@ export function checkThreebox(reasons,evidence,{specificityConfirmed=false,factu
   if(!specificityConfirmed)errors.push('Stress test: could this answer work unchanged at another program? Return to the boxes until you can confirm it would change.');
   return {errors,warnings,ready:errors.length===0};
 }
+function leadershipDetail(value){
+  const denied=()=>requireValue(false,'threebox_rendering_review_required','Review the program leadership names and roles before assembling this answer.');
+  if(!Array.isArray(value)||!value.length)return denied();
+  if(value.some(x=>!x||typeof x!=='object'||Array.isArray(x)||typeof x.name!=='string'||!x.name.trim()||typeof x.role!=='string'||!x.role.trim()))return denied();
+  const directors=value.filter(x=>/^Program Director(?:[,;]|$)/i.test(x.role.trim()));
+  const associates=value.filter(x=>/^Associate Program Director(?:[,;]|$)/i.test(x.role.trim()));
+  const selected=[...directors,...associates];
+  if(!selected.length||new Set(selected.map(x=>x.name.trim())).size!==selected.length)return denied();
+  const names=rows=>{const xs=rows.map(x=>x.name.trim());return xs.length===1?xs[0]:xs.length===2?xs.join(' and '):xs.slice(0,-1).join('; ')+'; and '+xs.at(-1);};
+  const parts=[];
+  if(directors.length)parts.push(`The program lists ${names(directors)} as Program Director${directors.length===1?'':'s'}`);
+  if(associates.length){
+    const role='Associate Program Director'+(associates.length===1?'':'s');
+    parts.push(parts.length?`the listed ${role} ${associates.length===1?'is':'are'} ${names(associates)}`:`The program lists ${names(associates)} as ${role}`);
+  }
+  return parts.join('; ');
+}
+export function spokenDetail(evidence){return evidence.field==='research.leadership'?leadershipDetail(evidence.value):detailText(evidence.value);}
 export function assembleThreebox(program,reasons,evidence,delivery='STANDARD'){
   const selected=reasons.filter(r=>r.selected).sort((a,b)=>a.rank-b.rank);
   const ordered=delivery==='RELATIONSHIP'?[...selected].sort((a,b)=>Number(b.personal.enabled)-Number(a.personal.enabled)):delivery==='RESEARCH'?[...selected].sort((a,b)=>Number(/Research|Faculty/.test(b.general.category))-Number(/Research|Faculty/.test(a.general.category))):selected;
-  const clauses=ordered.map(r=>{const details=r.details.map(d=>detailText(evidence.find(e=>e.field===d.field&&e.claimRef===d.claimRef).value));return {category:r.general.category,details,personal:r.personal.enabled?r.personal.text.trim():''};});
+  const clauses=ordered.map(r=>{const details=r.details.map(d=>spokenDetail(evidence.find(e=>e.field===d.field&&e.claimRef===d.claimRef)));return {category:r.general.category,details,personal:r.personal.enabled?r.personal.text.trim():''};});
   const sentence=(c,concise)=>`${c.category}: ${(concise?c.details.slice(0,1):c.details).join('; ')}.${c.personal?' This matters to me because '+c.personal.replace(/[.!?]+$/,'')+'.':''}`;
   return {standard:`I’m interested in ${program.name} for several reasons.\n\n${clauses.map(c=>sentence(c,delivery==='CONCISE')).join('\n\n')}\n\nI’m enthusiastic about the opportunity to learn and contribute in your program.`,concise:`What draws me to ${program.name} is:\n${clauses.map(c=>sentence(c,true)).join('\n')}`,bullets:clauses.map(c=>`${c.category} → ${c.details.join('; ')}${c.personal?' → '+c.personal:''}`).join('\n'),delivery};
 }
