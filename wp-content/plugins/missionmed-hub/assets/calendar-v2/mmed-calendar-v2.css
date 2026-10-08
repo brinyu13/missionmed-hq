@@ -1508,7 +1508,7 @@
 	background: linear-gradient(180deg,rgba(7,14,25,.92),rgba(4,10,19,.98));
 }
 .mmed-calendar-v2 .mcv2-command-actions { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
-.mmed-calendar-v2 .mcv2-command-action {
+.mmed-calendar-v2 .mcv2-modal-actions .mcv2-command-action {
 	position: relative;
 	display: grid;
 	grid-template-columns: 25px minmax(0,1fr);
@@ -1517,7 +1517,7 @@
 	gap: 10px;
 	min-width: 0;
 	min-height: 62px;
-	padding: 10px 12px;
+	padding: 10px 12px !important;
 	border-width: 1px;
 	border-radius: 11px;
 	text-align: left;
@@ -1587,7 +1587,7 @@
 	.mmed-calendar-v2 .mcv2-command-description { padding: 11px 12px; }
 	.mmed-calendar-v2 .mcv2-command-footer { padding: 12px 16px 14px; }
 	.mmed-calendar-v2 .mcv2-command-actions { grid-template-columns: 1fr; gap: 8px; }
-	.mmed-calendar-v2 .mcv2-command-action { min-height: 54px; }
+	.mmed-calendar-v2 .mcv2-modal-actions .mcv2-command-action { min-height: 54px; padding: 8px 11px !important; }
 	.mmed-calendar-v2 .mcv2-command-admin { justify-content: stretch; }
 	.mmed-calendar-v2 .mcv2-command-admin .mcv2-action { flex: 1 1 0; }
 }

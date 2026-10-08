@@ -45,6 +45,7 @@ test('event detail renders distinct truthful command actions without weakening b
 	assert.match(v2Source, /Join unavailable<\/strong><small>No meeting link provided/);
 	assert.match(v2Source, /aria-label="' \+ \(normalized\.favorite \? 'Unstar event' : 'Star event'\)/);
 	assert.match(v2Styles, /\.mcv2-command-actions \{[^}]*grid-template-columns: repeat\(3,minmax\(0,1fr\)\);/s);
+	assert.match(v2Styles, /\.mcv2-modal-actions \.mcv2-command-action \{[^}]*min-height: 62px;[^}]*padding: 10px 12px !important;/s);
 	assert.match(v2Styles, /prefers-reduced-motion: reduce[\s\S]*\.mcv2-command-card::before,[\s\S]*animation: none !important;/);
 });
 
