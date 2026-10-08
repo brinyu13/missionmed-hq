@@ -40,3 +40,12 @@ test('uncertain status cannot be strengthened into a denial of an event',()=>{
  assert.match(b.instructions,/Never turn absence of an assertion into a claim about what happened/);
  assert.notEqual(SYNTHETIC_LOI_DIAGNOSTIC_REQUEST,'06f1a7ff-e82b-45d7-bd55-a98387644076');
 });
+
+
+test('each program-name mention must carry its own canonical identity reference',()=>{
+ const b=body(input());assert.match(b.instructions,/complete canonical program name exactly as supplied ONCE/);
+ assert.match(b.instructions,/paragraph containing that name MUST include the program identity reference/);
+ assert.match(b.instructions,/Program identity cannot be supported by a motivation or leadership-evidence reference alone/);
+ assert.match(b.instructions,/never borrow a reference from another paragraph/);
+ assert.notEqual(SYNTHETIC_LOI_DIAGNOSTIC_REQUEST,'f92d9e83-ad06-43f8-bea6-98511cf14887');
+});
