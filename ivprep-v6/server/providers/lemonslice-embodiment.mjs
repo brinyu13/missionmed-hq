@@ -10,6 +10,32 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 export const EMBODIMENT_SECONDS = 45;
 export const EMBODIMENT_BUDGET_USD = 1;
 export const EMBODIMENT_CREATE_TIMEOUT_MS = 15000;
+// Restart/kill recovery consumes ONLY an already persisted exact identity. It
+// can never create a provider session or accept a caller-supplied endpoint.
+export async function recoverEmbodimentSession({env,sessionId,providerSessionId,fetchImpl=fetch,livekitFactory=null}={}){
+  if(!UUID.test(sessionId||''))return {providerConfirmed:false,roomConfirmed:false,cleanupConfirmed:false};
+  const knownProvider=/^[A-Za-z0-9._:-]{1,160}$/.test(providerSessionId||'');
+  let providerConfirmed=false,roomConfirmed=false;
+  try{
+    const api=async(path,body)=>{
+      const response=await fetchImpl(LEMONSLICE_API_URL+path,{method:body?'POST':'GET',redirect:'error',signal:AbortSignal.timeout(5000),headers:{'X-API-Key':env.LEMONSLICE_API_KEY,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
+      if(!response.ok)throw new Error('cleanup_unconfirmed');return response.json();
+    };
+    if(knownProvider){
+      await api(`/${encodeURIComponent(providerSessionId)}/control`,{event:'terminate'});
+      const status=await api(`/${encodeURIComponent(providerSessionId)}`);
+      providerConfirmed=LEMONSLICE_TERMINAL_STATUSES.has(String(status.session_status||'').toUpperCase());
+    }
+  }catch{}
+  let timer;
+  try{
+    const sdk=livekitFactory?await livekitFactory():require('livekit-server-sdk');
+    const client=sdk.roomService||new sdk.RoomServiceClient(env.LIVEKIT_URL.replace(/^wss:/,'https:'),env.LIVEKIT_API_KEY,env.LIVEKIT_API_SECRET);
+    const room=`ivoc-embodiment-${sessionId}`;
+    roomConfirmed=await Promise.race([(async()=>{await client.deleteRoom(room).catch(()=>{});const rooms=await client.listRooms([room]);return Array.isArray(rooms)&&rooms.length===0;})(),new Promise(resolve=>{timer=setTimeout(()=>resolve(false),5000);})]);
+  }catch{}finally{clearTimeout(timer);}
+  return {stopped:true,providerSessionId:knownProvider?providerSessionId:null,providerConfirmed,roomConfirmed,cleanupConfirmed:providerConfirmed&&roomConfirmed,reason:'restart_or_kill_recovery'};
+}
 export function embodimentCanaryConfig(env = {}) {
   const configured = env.IVOC_LEMONSLICE_CANARY_ENABLED === 'true'
     && UUID.test(env.IVOC_LEMONSLICE_CANARY_SESSION_ID || '')
@@ -68,8 +94,11 @@ function providerSocketAddress(value) {
 
 export function createEmbodimentCanary({env = process.env, fetchImpl = fetch, now = Date.now,
   socketFactory = null, lookupImpl = lookupIPv4, livekitFactory = null, claim, recordReceipt = async () => {},
-  setTimer = setTimeout, clearTimer = clearTimeout, timeoutSignal = ms => AbortSignal.timeout(ms)} = {}) {
-  const config = embodimentCanaryConfig(env);
+  setTimer = setTimeout, clearTimer = clearTimeout, timeoutSignal = ms => AbortSignal.timeout(ms),
+  configOverride=null,beforeProviderCreate=async()=>{},onProviderCreated=async()=>{}} = {}) {
+  const config = configOverride || embodimentCanaryConfig(env);
+  const durationSeconds=config.maxSeconds;
+  if(!Number.isSafeInteger(durationSeconds)||durationSeconds<1||durationSeconds>1800)throw fail('ivoc_embodiment_duration_invalid');
   let attempt = null;
   const headers = () => ({'X-API-Key':env.LEMONSLICE_API_KEY, 'Content-Type':'application/json'});
   function stage(a,state,owner,evidence=null) {
@@ -78,7 +107,7 @@ export function createEmbodimentCanary({env = process.env, fetchImpl = fetch, no
     a.transitions.push({state,owner,startedAtMs:at,completedAtMs:null,entryEvidence:evidence,successEvidence:null,failureEvidence:null,cleanup:'EXACT_SESSION_AND_ROOM'});
   }
   async function pinnedTransportOptions(a,url) {
-    const startedAtMs=now(),remaining=a.startedAt+45000-startedAtMs;
+    const startedAtMs=now(),remaining=a.startedAt+durationSeconds*1000-startedAtMs;
     if(a.closed||remaining<=0)throw fail('ivoc_embodiment_stopped');
     const rejected=reason=>Object.assign(fail('ivoc_embodiment_transport_invalid',502),{
       diagnostics:publicEmbodimentFailure({boundary:'AUDIO_TRANSPORT',category:'AUDIO_TRANSPORT_FAILURE',reason,
@@ -91,13 +120,13 @@ export function createEmbodimentCanary({env = process.env, fetchImpl = fetch, no
     }catch(error){throw error?.diagnostics?error:rejected('SOCKET_DNS_FAILURE');}
     finally{clearTimer(timer);}
     // A late DNS result must never resurrect a cancelled/expired reservation.
-    if(a.closed||now()>=a.startedAt+45000)throw fail('ivoc_embodiment_stopped');
+    if(a.closed||now()>=a.startedAt+durationSeconds*1000)throw fail('ivoc_embodiment_stopped');
     // Materialize holes as undefined: Array#some/map alone skip sparse rows.
     const resolved=Array.isArray(rows)?Array.from(rows):[];
     if(!resolved.length||resolved.some(row=>row?.family!==4||typeof row.address!=='string'||isIP(row.address)!==4||NONPUBLIC_IPV4.check(row.address,'ipv4')))
       throw rejected('SOCKET_DNS_NONPUBLIC');
     const addresses=[...new Set(resolved.map(row=>row.address))];
-    return {handshakeTimeout:Math.min(5000,a.startedAt+45000-now()),maxPayload:16384,
+    return {handshakeTimeout:Math.min(5000,a.startedAt+durationSeconds*1000-now()),maxPayload:16384,
       followRedirects:false,rejectUnauthorized:true,servername:url.hostname,
       lookup:(hostname,options,callback)=>{
         if(typeof options==='function'){callback=options;options={};}
@@ -193,38 +222,40 @@ export function createEmbodimentCanary({env = process.env, fetchImpl = fetch, no
       const a = {actor,sessionId,id:randomUUID(),room:`ivoc-embodiment-${sessionId}`,startedAt:now(),
         samples:0,generation:0,sequence:0,closed:false,playing:false,playback:null,boundary:'RESERVATION',providerCreateAttempted:false,transitions:[]};
       attempt=a; // Never retry, including failed claims or unknown create outcomes.
-      a.timer=setTimer(()=>void stop(a,'hard_deadline'),45000);
+      a.timer=setTimer(()=>void stop(a,'hard_deadline'),durationSeconds*1000);
       stage(a,'EMBODIMENT_CREATE_REQUEST','IVOC_SERVER');
       const createResponseMetadata={};
       try {
         if (typeof claim !== 'function') throw fail('ivoc_embodiment_reservation_unavailable');
-        await claim({actor,sessionId,attemptId:a.id,deadlineMs:a.startedAt+45000});
-        if (a.closed || now()>=a.startedAt+45000) throw fail('ivoc_embodiment_stopped');
+        await claim({actor,sessionId,attemptId:a.id,deadlineMs:a.startedAt+durationSeconds*1000});
+        if (a.closed || now()>=a.startedAt+durationSeconds*1000) throw fail('ivoc_embodiment_stopped');
         a.boundary='LIVEKIT';
         stage(a,'LIVEKIT_ROOM_CREATE','IVOC_SERVER','CANONICAL_RESERVATION');
         const sdk=livekitFactory ? await livekitFactory() : require('livekit-server-sdk');
         a.livekit = sdk.roomService || new sdk.RoomServiceClient(env.LIVEKIT_URL.replace(/^wss:/,'https:'),env.LIVEKIT_API_KEY,env.LIVEKIT_API_SECRET);
         await a.livekit.createRoom({name:a.room,emptyTimeout:15,maxParticipants:2});
-        if(a.closed || now()>=a.startedAt+45000){
+        if(a.closed || now()>=a.startedAt+durationSeconds*1000){
           // stop may have deleted before this in-flight create completed. Its
           // memoized provider cleanup cannot stand in for deleting a late room.
           await a.livekit.deleteRoom(a.room).catch(()=>{});
           throw fail('ivoc_embodiment_stopped');
         }
         const token = async (identity, publish) => {
-          const t=new sdk.AccessToken(env.LIVEKIT_API_KEY,env.LIVEKIT_API_SECRET,{identity,ttl:60});
+          const t=new sdk.AccessToken(env.LIVEKIT_API_KEY,env.LIVEKIT_API_SECRET,{identity,ttl:durationSeconds+15});
           t.addGrant({roomJoin:true,room:a.room,canPublish:publish,canSubscribe:!publish,canPublishData:false,canUpdateOwnMetadata:false});
           return t.toJwt();
         };
         const publisherToken=await token('ivoc-embodiment',true), viewerToken=await token('ivoc-founder-viewer',false);
-        if (a.closed || now()>=a.startedAt+45000) throw fail('ivoc_embodiment_stopped');
+        await beforeProviderCreate({sessionId,attemptId:a.id});
+        if (a.closed || now()>=a.startedAt+durationSeconds*1000) throw fail('ivoc_embodiment_stopped');
         a.boundary='LEMONSLICE_API';a.providerCreateAttempted=true;
         stage(a,'PROVIDER_CREATE_REQUEST','IVOC_SERVER','SCOPED_ROOM_AND_TOKENS');
         const created=await api('',{transport_type:'websocket-livekit',agent_id:LEMONSLICE_AGENT_ID,
           edit_image:false,idle_timeout:15,response_done_timeout:0.4,
-          livekit_properties:{livekit_url:env.LIVEKIT_URL,livekit_token:publisherToken,video_codec:'vp8',simulcast:false}},Math.min(EMBODIMENT_CREATE_TIMEOUT_MS,a.startedAt+45000-now()),createResponseMetadata);
+          livekit_properties:{livekit_url:env.LIVEKIT_URL,livekit_token:publisherToken,video_codec:'vp8',simulcast:false}},Math.min(EMBODIMENT_CREATE_TIMEOUT_MS,a.startedAt+durationSeconds*1000-now()),createResponseMetadata);
         if (!/^[A-Za-z0-9._:-]{1,160}$/.test(created?.session_id || '')) throw Object.assign(fail('ivoc_embodiment_identity_invalid',502),{responseInvalid:true,responseReason:'SESSION_ID_INVALID'});
         a.providerId=created.session_id;
+        await onProviderCreated({sessionId,providerSessionId:a.providerId,room:a.room});
         a.transportIdentity=privateTransportIdentity(created.websocket_address);
         stage(a,'EMBODIMENT_SESSION_CREATED','LEMONSLICE','PROVIDER_ID_RETURNED');
         if (a.closed) {
@@ -236,7 +267,7 @@ export function createEmbodimentCanary({env = process.env, fetchImpl = fetch, no
         a.boundary='AUDIO_TRANSPORT';
         stage(a,'AUDIO_TRANSPORT_CONNECTING','IVOC_SERVER','VALIDATED_PROVIDER_SOCKET');
         const socketOptions=await pinnedTransportOptions(a,wsUrl);
-        if(a.closed||now()>=a.startedAt+45000)throw fail('ivoc_embodiment_stopped');
+        if(a.closed||now()>=a.startedAt+durationSeconds*1000)throw fail('ivoc_embodiment_stopped');
         const WebSocket=socketFactory ? null : require('ws');
         a.socket=socketFactory ? socketFactory(wsUrl.href,socketOptions) : new WebSocket(wsUrl.href,socketOptions);
         a.socket.on('message',data=>{
@@ -257,11 +288,11 @@ export function createEmbodimentCanary({env = process.env, fetchImpl = fetch, no
         a.socket.on('close',()=>transportFailed('transport_closed'));
         a.socket.on('error',()=>transportFailed('transport_error'));
         await new Promise((resolve,reject)=>{const timer=setTimer(()=>reject(fail('ivoc_embodiment_connect_timeout',502)),socketOptions.handshakeTimeout);a.socket.once('open',()=>{clearTimer(timer);resolve();});a.socket.once('error',()=>{clearTimer(timer);reject(fail('ivoc_embodiment_transport_unavailable',502));});});
-        if(a.closed || now()>=a.startedAt+45000)throw fail('ivoc_embodiment_stopped');
+        if(a.closed || now()>=a.startedAt+durationSeconds*1000)throw fail('ivoc_embodiment_stopped');
         a.boundary='TRANSPORT_READY';
         stage(a,'TRANSPORT_READY','IVOC_SERVER','PROVIDER_SOCKET_OPEN'); // NOT avatar readiness
         return {id:a.id,sessionId,livekitUrl:env.LIVEKIT_URL,viewerToken,room:a.room,
-          publisherIdentity:'ivoc-embodiment',deadlineMs:a.startedAt+45000,maxSeconds:45};
+          publisherIdentity:'ivoc-embodiment',deadlineMs:a.startedAt+durationSeconds*1000,maxSeconds:durationSeconds};
       } catch(error) {
         // Stable bounded diagnostics only: no provider URLs, response bodies,
         // tokens or raw exception messages enter status/audit evidence.
@@ -283,7 +314,7 @@ export function createEmbodimentCanary({env = process.env, fetchImpl = fetch, no
     async command({actor,sessionId,id,generation,sequence,command,audio}) {
       const a=owned(actor,sessionId,id);
       if(command==='terminate')return stop(a,'user_finished');
-      if(a.closed || now()>=a.startedAt+45000)throw fail('ivoc_embodiment_stopped');
+      if(a.closed || now()>=a.startedAt+durationSeconds*1000)throw fail('ivoc_embodiment_stopped');
       if(a.flushing)throw fail('ivoc_embodiment_flush_pending');
       if(!Number.isSafeInteger(generation)||generation<1||!Number.isSafeInteger(sequence)||sequence<1)throw fail('ivoc_embodiment_frame_invalid',400);
       if(command==='interrupt'){
@@ -306,7 +337,7 @@ export function createEmbodimentCanary({env = process.env, fetchImpl = fetch, no
         const bytes=Buffer.from(audio,'base64');
         if(bytes.length===0||bytes.length%2||bytes.length>9600)throw fail('ivoc_embodiment_frame_invalid',400);
         a.samples+=bytes.length/2;
-        if(a.samples>45*16000){await stop(a,'input_budget');throw fail('ivoc_embodiment_input_limit');}
+        if(a.samples>durationSeconds*16000){await stop(a,'input_budget');throw fail('ivoc_embodiment_input_limit');}
         // HTTP batches contain up to 3 documented 80ms frames. Provider receives
         // small PCM chunks, never an unbounded buffered utterance.
         try{for(let offset=0;offset<bytes.length;offset+=2560)send(a,{command:'audio',audio:bytes.subarray(offset,offset+2560).toString('base64'),sampleRate:16000,encoding:'PCM16'});}

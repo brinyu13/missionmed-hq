@@ -79,7 +79,13 @@ export function prepareRelease(root) {
   for (const p of privateExamples) if (existsSync(join(stage, p))) throw new Error('RELEASE_PRIVATE_ARTIFACT_PRESENT');
   // Prove materialized files match the tracked inputs, not a stale/local artifact.
   for (const p of files) if (!readFileSync(join(stage, p)).equals(readFileSync(join(root, p)))) throw new Error('RELEASE_ARTIFACT_DRIFT');
-  return { source, stage, files: files.length, sha256: createHash('sha256').update(readFileSync(archive)).digest('hex') };
+  const identity=JSON.stringify({schema:'ivoc.release-identity.v1',source,
+    files:files.filter(p=>/\.(mjs|js|json|css|html)$/.test(p)&&!p.includes('/test/')&&!p.includes('/tests/'))
+      .map(path=>({path,sha256:createHash('sha256').update(readFileSync(join(stage,path))).digest('hex')}))});
+  writeFileSync(join(stage,'ivprep-v6/release-identity.json'),identity,{mode:0o600});
+  // The generated receipt is part of the actual upload, not an untracked input.
+  run('tar',['-cf',archive,'-C',stage,...files,'ivprep-v6/release-identity.json']);
+  return { source, stage, files: files.length+1,manifestSha256:createHash('sha256').update(identity).digest('hex'),sha256: createHash('sha256').update(readFileSync(archive)).digest('hex') };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

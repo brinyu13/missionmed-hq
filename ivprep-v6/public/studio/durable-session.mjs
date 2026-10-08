@@ -115,13 +115,13 @@ export class DurableStudioSession {
       && ['question', 'quick', 'mock'].includes(wizard.retrySessionType);
     return {
       title: title.split(/\s+/u).slice(0, 10).join(' '),
-      sessionType: exactRetry ? wizard.retrySessionType : targetQuestions > 1 ? 'mock' : 'question',
+      sessionType: wizard.embodimentCanary===true ? 'mock' : exactRetry ? wizard.retrySessionType : targetQuestions > 1 ? 'mock' : 'question',
       questionId: question?.question_id || null,
       questionText: question?.canonical_text || null,
       interviewerProvider,
       analyticsSchema: 'ivoc.analytics.v1',
       recordingEnabled: true,
-      ...(wizard.embodimentCanary===true?{embodimentCanary:true}:{}),
+      ...(wizard.embodimentCanary===true?{embodimentCanary:true,embodimentDurationSeconds:wizard.embodimentDurationSeconds}:{}),
       ...(exactRetry ? { retrySourceSessionId: wizard.retrySourceSessionId } : {}),
       context: {
         goal: wizard.goal || null,

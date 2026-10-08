@@ -172,7 +172,7 @@ test('presentation consumes renderer, preserves dominant host/self-view and neve
   const read=path=>readFile(new URL(path,import.meta.url),'utf8');
   const renderer=await read('../../public/capabilities/embodiment-renderer.mjs');
   assert.match(renderer,/video\.muted=true/);assert.doesNotMatch(renderer.replace(/\/\/[^\n]*/g,''),/track\.attach\(/);assert.match(renderer,/gain\.connect\(this\.destination\)/);
-  assert.match(renderer,/this\.gain\.gain\.value=0/);assert.match(renderer,/canary reached its 45-second limit/);
+  assert.match(renderer,/this\.gain\.gain\.value=0/);assert.match(renderer,/configured interview time has ended/);
   const room=await read('../../public/studio-fable/app/room.mjs');assert.match(room,/data-embodiment-host/);assert.match(room,/wizard\.embodimentCanary=true/);assert.match(room,/audioRenderer,\.\.\.callbacks/);
   const worklet=await read('../../public/capabilities/embodiment-pcm-worklet.mjs');assert.match(worklet,/channel\.fill\(0\)/);assert.match(worklet,/Int16Array\(1280\)/);
   const live=await read('../../public/capabilities/live-interview.mjs');assert.match(live,/this\.audioRenderer\?40_000:START_TIMEOUT_MS/);

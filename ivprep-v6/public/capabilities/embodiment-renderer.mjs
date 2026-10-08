@@ -122,6 +122,7 @@ export class EmbodimentRenderer {
       ||nativePlaybackContract.transport!=='webrtc'||nativePlaybackContract.responseIdentity!==false
       ||nativePlaybackContract.cancellationAcknowledgment!==false
       ||nativePlaybackContract.interruptionRecovery!=='finish-and-save'))throw stageError('NATIVE_PLAYBACK_CONTRACT_INVALID','AUDIO_BINDING');
+    if(this.sessionId==null&&/^[a-f0-9-]{36}$/.test(ivocSessionId||''))this.sessionId=ivocSessionId;
     if(ivocSessionId!==this.sessionId)throw new Error('Avatar canonical session identity changed.');
     const generation=++this.generation,current=()=>!this.closed&&this.generation===generation;
     if(this.context)throw new Error('Only one avatar playback authority is permitted.');
@@ -139,7 +140,11 @@ export class EmbodimentRenderer {
     this.ticket=await this.api('/start',{sessionId:this.sessionId});
     if(!current()){await this.stop({late:true});throw new Error('Avatar startup cancelled.');}
     this.transition('EMBODIMENT_SESSION_CREATED','IVOC_SERVER','EXACT_TICKET_RETURNED');
-    this.deadline=setTimeout(()=>this.fail(Object.assign(stageError('CANARY_DEADLINE','IVOC_CLIENT'),{message:'Avatar canary reached its 45-second limit. Finish and save.'})),Math.max(0,this.ticket.deadlineMs-Date.now()));
+    this.deadline=setTimeout(()=>this.fail(Object.assign(stageError('CANARY_DEADLINE','IVOC_CLIENT'),{message:'Your configured interview time has ended. Finish and save.'})),Math.max(0,this.ticket.deadlineMs-Date.now()));
+    if(this.ticket.founderQa){
+      this.heartbeat=setInterval(()=>{if(!current()||this.beating)return;this.beating=true;
+        void this.api('/heartbeat',{sessionId:this.sessionId,id:this.ticket.id}).catch(error=>this.fail(error)).finally(()=>{this.beating=false;});},3000);
+    }
     this.room=new sdk.Room({adaptiveStream:false,dynacast:false,reconnectPolicy:{nextRetryDelayInMs:()=>null}});
     this.queue=new EmbodimentCommandQueue(item=>{
       const {resolve,reject,...body}=item;return this.api('/command',{sessionId:this.sessionId,id:this.ticket.id,...body});
@@ -260,7 +265,7 @@ export class EmbodimentRenderer {
   async stop({keepalive=false,late=false}={}){
     this.closed=true;++this.generation;if(this.gain)this.gain.gain.value=0;
     this.decodeAbort.abort();this.visualReject(stageError('CLIENT_ABORT','IVOC_CLIENT'));
-    clearTimeout(this.deadline);clearTimeout(this.joinTimer);clearTimeout(this.holdTimer);clearInterval(this.poll);clearInterval(this.micTimer);
+    clearTimeout(this.deadline);clearTimeout(this.joinTimer);clearTimeout(this.holdTimer);clearInterval(this.poll);clearInterval(this.micTimer);clearInterval(this.heartbeat);
     this.batcher?.clear();this.queue?.close();this.extractor?.disconnect();if(this.extractor)this.extractor.port.onmessage=null;
     for(const source of this.sources)try{source.disconnect();}catch{}this.sources=[];
     this.silentSink?.disconnect();this.gain?.disconnect();this.extractor?.port.close?.();

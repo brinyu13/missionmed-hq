@@ -16,6 +16,7 @@ import { createIvocRepository } from './repository.mjs';
 import { readLiveTranscriptReview } from './live-transcript-review.mjs';
 import { createIvocStorage } from './storage.mjs';
 import {createEmbodimentCanary,publicEmbodimentFailure} from '../../ivprep-v6/server/providers/lemonslice-embodiment.mjs';
+import {createFounderQa} from '../../ivprep-v6/server/providers/founder-qa-policy.mjs';
 import { allocateCandidateCapture, isCandidateAudio, isConversationRecording, publicCaptureReceipt, recordingSealTimebase, sealCandidateCapture } from './candidate-audio.mjs';
 import { rebuildSelfPracticeAnswerSource, packageSelfPracticeAnalysis, projectSelfPracticeAnalysis } from './self-practice-analysis.mjs';
 import {
@@ -972,7 +973,7 @@ export function createIvocHandler({
   const appIntelligence = applicationIntelligence || createIvocApplicationIntelligence({
     repository: db, now, fileVaultSource, storyForgeSource, riseSource,
   });
-  const embodiment = embodimentFactory({env,fetchImpl,now,
+  const embodimentOptions = {env,fetchImpl,now,
     claim:async ({actor,sessionId,attemptId,deadlineMs})=>{
       const row=await db.single(`ivoc_sessions?id=eq.${sessionId}&owner_subject=eq.${encodeURIComponent(actor)}&select=*&limit=1`);
       if(!row || row.owner_subject!==actor || row.session_type!=='mock' || row.interviewer_provider!=='openai-gpt-live'
@@ -982,7 +983,8 @@ export function createIvocHandler({
       // Existing canonical UUID + conditional reservation, not a synthetic
       // audit row or a process-local budget. Survives restarts; no DB migration.
       const claimed=await db.update(`ivoc_sessions?id=eq.${sessionId}&owner_subject=eq.${encodeURIComponent(actor)}&context->embodimentReservation=is.null&updated_at=eq.${encodeURIComponent(row.updated_at)}&select=*`,
-        {context:{...row.context,embodimentReservation:{attemptId,deadlineMs,maxSessions:1,maxSpendUsd:1,claimedAt:new Date(now()).toISOString()}}});
+        {context:{...row.context,embodimentReservation:{attemptId,deadlineMs,maxSessions:1,
+          ...(env.IVOC_LEMONSLICE_FOUNDER_QA_ENABLED==='true'?{budgetAuthority:'durable-founder-qa'}:{maxSpendUsd:1}),claimedAt:new Date(now()).toISOString()}}});
       if(claimed?.context?.embodimentReservation?.attemptId!==attemptId)
         throw Object.assign(new Error('ivoc_embodiment_canary_consumed'),{status:409});
     },
@@ -991,7 +993,11 @@ export function createIvocHandler({
       return audit({actor:'wp:1',owner:'wp:1',sessionId,
         action:'embodiment_canary_stop',decision:receipt.cleanupConfirmed===true?'allow':'deny',reason:receipt.cleanupConfirmed===true?'provider_terminal_and_room_absent':receipt.providerConfirmed===true?'room_absence_unconfirmed':'termination_unconfirmed'});
     },
-  });
+  };
+  const embodiment = env.IVOC_LEMONSLICE_FOUNDER_QA_ENABLED==='true'
+    ?createFounderQa({...embodimentOptions,db,claimSession:embodimentOptions.claim,controllerFactory:embodimentFactory})
+    :embodimentFactory(embodimentOptions);
+  const embodimentConfig=()=>typeof embodiment.config==='function'?embodiment.config():embodiment.config;
   const enabled = bool(env.IVPREP_ENABLED) && bool(env.IVPREP_ADMIN_CANARY_ENABLED);
   const contextEnabled = bool(env.IVOC_CONTEXT_CANDIDATE_ENABLED);
   const contextTranscriptEnabled = bool(env.IVOC_CONTEXT_TRANSCRIPT_ENABLED);
@@ -1069,7 +1075,7 @@ export function createIvocHandler({
           entitlement: { admitted: true, founder: admission.entitlement?.founder === true, voice: true, video: admission.entitlement?.video === true },
           capabilities: {
             candidateAudioCapture: candidateAudioCaptureEnabled === true,
-            ...(actor==='wp:1'&&isAdmin(hqSession,admission)?{embodimentCanary:embodiment.config}:{}),
+            ...(actor==='wp:1'&&isAdmin(hqSession,admission)?{embodimentCanary:await embodimentConfig()}:{}),
             contextSources: {
               storyForge: { connected: Boolean(storyForgeSource), requiresAuthorizedData: true },
               rise: { connected: Boolean(riseSource), requiresProgramSelection: true },
@@ -1086,7 +1092,12 @@ export function createIvocHandler({
       if(pathname.startsWith(`${API_PREFIX}/admin/embodiment-canary`)){
         if(actor!=='wp:1'||!isAdmin(hqSession,admission)){sendError(response,403,'ivoc_founder_canary_required',mediaBase);return true;}
         const root=`${API_PREFIX}/admin/embodiment-canary`;
-        if(request.method==='GET'&&pathname===root){sendJson(response,200,embodiment.config,mediaBase);return true;}
+        if(request.method==='GET'&&pathname===root){sendJson(response,200,await embodimentConfig(),mediaBase);return true;}
+        if(request.method==='POST'&&pathname===`${root}/kill`&&embodiment.kill){sendJson(response,200,await embodiment.kill(),mediaBase);return true;}
+        if(request.method==='POST'&&pathname===`${root}/heartbeat`&&embodiment.heartbeat){
+          const input=await readJson(request,1024);
+          sendJson(response,200,await embodiment.heartbeat({...input,actor}),mediaBase);return true;
+        }
         if(request.method==='GET'&&pathname===`${root}/status`){
           sendJson(response,200,embodiment.status({actor,sessionId:url.searchParams.get('sessionId'),id:url.searchParams.get('id')}),mediaBase);return true;
         }
@@ -1472,14 +1483,20 @@ export function createIvocHandler({
       if (request.method === 'POST' && pathname === `${API_PREFIX}/sessions`) {
         const input = await readJson(request);
         const context = input.context && typeof input.context === 'object' && !Array.isArray(input.context) ? { ...input.context } : {};
-        delete context.embodimentCanary;delete context.embodimentReservation;
+        delete context.embodimentCanary;delete context.embodimentReservation;delete context.embodimentDurationSeconds;
         const avatarCanary=input.embodimentCanary===true;
+        const avatarConfig=avatarCanary?await embodimentConfig():null;
         if(avatarCanary){
-          if(actor!=='wp:1'||!isAdmin(hqSession,admission)||!embodiment.config.available
+          if(actor!=='wp:1'||!isAdmin(hqSession,admission)||!avatarConfig.available
             ||input.sessionType!=='mock'||input.interviewerProvider!=='openai-gpt-live'||input.recordingEnabled===false){
             sendError(response,403,'ivoc_embodiment_canary_not_authorized',mediaBase);return true;
           }
           context.embodimentCanary=true;
+          if(avatarConfig.schema==='ivoc.founder-qa.v1'){
+            const seconds=Number(input.embodimentDurationSeconds);
+            if(!Number.isSafeInteger(seconds)||seconds<60||seconds>1800){sendError(response,400,'ivoc_qa_duration_invalid',mediaBase);return true;}
+            context.embodimentDurationSeconds=seconds;
+          }
         }
         let practiceFocus;
         try { practiceFocus = normalizePracticeFocus(context.practiceFocus); }
@@ -1538,7 +1555,7 @@ export function createIvocHandler({
             sourceGoal: retry.goal, sourcePressurePractice: retry.pressurePractice };
         }
         const row = await db.insert('ivoc_sessions', {
-          ...(avatarCanary?{id:embodiment.config.sessionId}:{}),
+          ...(avatarCanary&&avatarConfig.sessionId?{id:avatarConfig.sessionId}:{}),
           owner_subject: actor, owner_display_name: displayName(hqSession),
           title: safeText(input.title, 200) || 'IV Prep practice session',
           session_type: ['question', 'quick', 'mock'].includes(input.sessionType) ? input.sessionType : 'question',

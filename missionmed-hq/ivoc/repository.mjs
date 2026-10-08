@@ -1,4 +1,5 @@
 const TABLES = Object.freeze([
+  'ivoc_founder_qa',
   'ivoc_sessions',
   'ivoc_recordings',
   'ivoc_results',
