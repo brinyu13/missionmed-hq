@@ -24,7 +24,7 @@ export function publicError(error) {
   if(error?.code==='42501')return new AppError(403,'access_denied','This action is not available for your current access.');
   return new AppError(503,'service_unavailable','This operation could not be completed. Your unsaved text is kept. Please retry.');
 }
-export function createHandler({config,database,authorize,commands,owners,recordings=null,researchProof=null,logger=()=>{},calendarAdmission=null}) {
+export function createHandler({config,database,authorize,commands,owners,recordings=null,researchProof=null,ownerReadReceipts=null,logger=()=>{},calendarAdmission=null}) {
   const admit=calendarAdmission||createCalendarAdmission(config);
   return async function handle(req,res) {
     const requestId=randomUUID();
@@ -66,11 +66,12 @@ export function createHandler({config,database,authorize,commands,owners,recordi
       if(route==='itinerary-list')return send(200,await listItineraries(calendarContext));
       if(route==='itinerary-withdraw')return send(200,await withdrawItinerary(calendarContext,await jsonBody(req,16384)));
       if(route==='itinerary-download'){const f=await downloadItinerary(calendarContext);res.writeHead(200,f.headers);return res.end(f.bytes);}
-      if(route==='bootstrap')return send(200,await commands.bootstrap(actor));
+      if(route==='bootstrap')return send(200,await (ownerReadReceipts?ownerReadReceipts.run(actor,req,()=>commands.bootstrap(actor)):commands.bootstrap(actor)));
       if(route==='programs'){
         const loiLookup=loiCanonicalLookup(config,actor);
         if(config.researchMissionsEnabled===true&&!loiLookup&&!intakeEnabled(config,actor))requireResearch(config,actor);
-        const result=await owners.searchPrograms(actor,{q:url.searchParams.get('q')||''});
+        const search=()=>owners.searchPrograms(actor,{q:url.searchParams.get('q')||''});
+        const result=await (ownerReadReceipts?ownerReadReceipts.run(actor,req,search):search());
         // LOI-only registry access cannot expose a configured-out program.
         if(!intakeEnabled(config,actor)&&loiLookup&&!researchEnabled(config,actor)&&!deepResearchEnabled(config,actor)&&config.loi.programId){const programs=result.programs.filter(p=>loiProgramAllowed(config,actor,p.id));return send(200,{...result,programs,total:programs.length});}
         return send(200,result);
@@ -81,7 +82,8 @@ export function createHandler({config,database,authorize,commands,owners,recordi
         let rawBytes=0;const counted={headers:req.headers,async *[Symbol.asyncIterator](){for await(const chunk of req){rawBytes+=chunk.length;yield chunk;}}};
         let body;try{body=await jsonBody(counted,1600000);}catch(error){if(error?.code==='invalid_json'&&(rawBytes>maximum||Number(req.headers['content-length'])>maximum))throw new AppError(413,'payload_too_large','This request is too large.');throw error;}
         requireValue(large.includes(body.command)||rawBytes<=maximum,'payload_too_large','This request is too large.',413);
-        return send(200,await commands.execute(actor,body,{revalidateActor:()=>authorize(req,`${req.method} ${path}`)}));
+        const execute=()=>commands.execute(actor,body,{ownerReadReceiptsActive:ownerReadReceipts?.activeFor(actor)===true,revalidateActor:()=>authorize(req,`${req.method} ${path}`)});
+        return send(200,await (ownerReadReceipts?ownerReadReceipts.run(actor,req,execute,body.command):execute()));
       }
       if(!recordings)throw new AppError(503,'speech_unavailable','Speech capture is unavailable. You can keep typing your private debrief.');
       const id=path.split('/')[3];

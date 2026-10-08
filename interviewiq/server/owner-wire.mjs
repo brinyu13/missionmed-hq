@@ -50,7 +50,7 @@ async function readJson(response) {
 
 // A2 is a client only. The owner must independently verify the signed request,
 // durable nonce and fresh current-session proof before serving any response.
-export function createRiseReadTransport({enabled=false,requestSecret}={}, {fetchImpl=fetch,now=Date.now}={}) {
+export function createRiseReadTransport({enabled=false,requestSecret}={}, {fetchImpl=fetch,now=Date.now,ownerReadReceipts}={}) {
   return async (actor,operation)=>{
     if(enabled!==true || typeof requestSecret!=='string' || Buffer.byteLength(requestSecret)<32)throw unavailable();
     const seconds=Math.floor(now()/1000),context=readOwnerSession(actor,now());
@@ -70,6 +70,7 @@ export function createRiseReadTransport({enabled=false,requestSecret}={}, {fetch
             'X-MMED-IIQ-Nonce':nonce,'X-MMED-IIQ-Actor':Buffer.from(actorJson).toString('base64url'),'X-MMED-IIQ-Signature':signature}});
         const value=await readJson(response);
         if(!readOwnerSession(actor,now()))throw unavailable();
+        ownerReadReceipts?.record(actor,{nonceSha256:sha(nonce),requestSha256:sha(canonical),method:'GET',path});
         return value;
       })()]);
     } catch {throw unavailable();}

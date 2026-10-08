@@ -25,7 +25,7 @@ const learningCommands=new Set(['learning.propose','learning.confirm','learning.
 export function createCommands({database,owners,config,clock,speechAvailable=false,additionalCommands={},loiComposer=null,loiProseComposer=null,researchTransport=createRiseResearchJobTransport(config.deepResearch)}) {
   const settings={owners,config,clock,speechAvailable};
   async function bootstrap(actor) {coreActor(actor,config);return database.withActor(actor,async db=>{await syncActor(db,actor);return readModel(db,actor,settings);});}
-  async function execute(actor,body,{revalidateActor}={}) {
+  async function execute(actor,body,{revalidateActor,ownerReadReceiptsActive=false}={}) {
     coreActor(actor,config);
     const envelope=targetEnvelope(body);
     if(threeboxCommands.has(envelope.command)){requireThreebox(config,actor);requireValue(envelope.targetKind!=='program'&&envelope.interviewId,'threebox_interview_required','Choose your existing interview.');}
@@ -109,6 +109,10 @@ export function createCommands({database,owners,config,clock,speechAvailable=fal
         result.bootstrap=await bootstrap(latest);
         const own=result.bootstrap.state.interviews.find(i=>i.id===binding.interviewId),demand=result.bootstrap.state.demands[binding.interviewId];
         if(!own||['cancelled','declined','no_show'].includes(own.state)||own.program!==binding.programId||demand?.requestId!==binding.requestId||demand?.version!==result.researchCheck?.version)result.researchCheck={status:'changed'};
+      }else if(ownerReadReceiptsActive===true&&config.ownerReadReceiptsEnabled===true&&actor.id==='c94abcfb-dfda-4c74-9a27-f58fcf56f9b2'&&actor.wpUserId===1397&&envelope.command==='interview.create'){
+        // The default-off synthetic receipt response must include this existing
+        // one-shot reconciliation's signed reads; never start replacement work.
+        await work().catch(()=>{});
       }else {void work().catch(()=>{});}
     }
     return result;

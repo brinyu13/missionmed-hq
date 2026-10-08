@@ -21,6 +21,7 @@ export function readConfig(env = process.env) {
     coreOnly: text('INTERVIEWIQ_LAUNCH_MODE','core') !== 'full',
     threebox:{enabled:bool('INTERVIEWIQ_THREEBOX_ENABLED'),ownerId:text('INTERVIEWIQ_THREEBOX_OWNER_ID'),programId:text('INTERVIEWIQ_THREEBOX_PROGRAM_ID')},
     deepResearch:{enabled:bool('INTERVIEWIQ_DEEP_RESEARCH_ENABLED'),ownerId:text('INTERVIEWIQ_DEEP_RESEARCH_OWNER_ID'),programId:text('INTERVIEWIQ_DEEP_RESEARCH_PROGRAM_ID'),requestSecret:text('INTERVIEWIQ_RESEARCH_JOB_REQUEST_SECRET')},
+    ownerReadReceiptsEnabled:bool('INTERVIEWIQ_OWNER_READ_RECEIPTS_ENABLED'),
     researchProof:readResearchProofConfig(env),
     loi:{myerasEnabled:bool('INTERVIEWIQ_MYERAS_IMPORT_ENABLED'),targetsEnabled:bool('INTERVIEWIQ_LOI_TARGETS_ENABLED'),targetsOwnerId:text('INTERVIEWIQ_LOI_TARGETS_OWNER_ID'),enabled:bool('INTERVIEWIQ_LOI_ENABLED'),mode:text('INTERVIEWIQ_LOI_MODE','CANARY'),ownerId:text('INTERVIEWIQ_LOI_OWNER_ID'),programId:text('INTERVIEWIQ_LOI_PROGRAM_ID')},
     calendar:{enabled:bool('INTERVIEWIQ_CALENDAR_V2_ENABLED')},
