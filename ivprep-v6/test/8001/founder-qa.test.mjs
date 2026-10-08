@@ -6,16 +6,16 @@ import {verifyQaRelease} from '../../server/providers/release-identity.mjs';
 import {recoverEmbodimentSession} from '../../server/providers/lemonslice-embodiment.mjs';
 const ID='00000000-0000-4000-8000-000000000001',ID2='00000000-0000-4000-8000-000000000002';
 const source='a'.repeat(40),manifestSha256='b'.repeat(64),actor='wp:1';
-function harness({policy={},beforeCreate=async()=>{},...options}={}){
+function harness({policy={},duration=60,beforeCreate=async()=>{},...options}={}){
   let time=1000,seq=0;
   let row={id:1,revision:0,state:{enabled:true,source,manifestSha256,overageOffVerified:true,expiresAt:10000000,
-    budgetSeconds:3000,maxSessions:3,reservedSeconds:0,sessionCount:0,attempts:[],active:null,...policy}};
+    creditLimit:100,creditsPerMinuteCeiling:30,rateBoundVerified:true,budgetSeconds:200,maxSessions:2,reservedSeconds:0,sessionCount:0,attempts:[],active:null,...policy}};
   const timers=[],creates=[],stops=[],recoveries=[];
-  const db={single:async path=>path.startsWith('ivoc_founder_qa')?structuredClone(row):{id:ID,owner_subject:actor,session_type:'mock',state:'active',recording_enabled:true,interviewer_provider:'openai-gpt-live',context:{embodimentCanary:true,embodimentDurationSeconds:900}},
+  const db={single:async path=>path.startsWith('ivoc_founder_qa')?structuredClone(row):{id:ID,owner_subject:actor,session_type:'mock',state:'active',recording_enabled:true,interviewer_provider:'openai-gpt-live',context:{embodimentCanary:true,embodimentDurationSeconds:duration}},
     update:async(path,value)=>{if(Number(/revision=eq\.(\d+)/.exec(path)[1])!==row.revision)return null;row={id:1,...structuredClone(value)};return structuredClone(row);}};
   const factory=o=>{
     let sid,id;
-    return {start:async input=>{sid=input.sessionId;id=`attempt-${++seq}`;await o.claim({actor,sessionId:sid,attemptId:id,deadlineMs:time+900000});await beforeCreate();await o.beforeProviderCreate();creates.push(sid);await o.onProviderCreated({providerSessionId:`provider-${seq}`});return {id,sessionId:sid,deadlineMs:time+900000,maxSeconds:o.configOverride.maxSeconds};},
+    return {start:async input=>{sid=input.sessionId;id=`attempt-${++seq}`;const deadlineMs=time+o.configOverride.maxSeconds*1000;await o.claim({actor,sessionId:sid,attemptId:id,deadlineMs});await beforeCreate();await o.beforeProviderCreate();creates.push(sid);await o.onProviderCreated({providerSessionId:`provider-${seq}`});return {id,sessionId:sid,deadlineMs,maxSeconds:o.configOverride.maxSeconds};},
       command:async()=>{stops.push(sid);await o.recordReceipt(sid,{cleanupConfirmed:true,providerConfirmed:true,roomConfirmed:true,providerCreateAttempted:true});return {stopped:true};},status:()=>({closed:false})};
   };
   const inputs={env:{IVOC_LEMONSLICE_FOUNDER_QA_ENABLED:'true',LEMONSLICE_API_KEY:'test',LIVEKIT_API_KEY:'test',LIVEKIT_API_SECRET:'test',LIVEKIT_URL:'wss://test.livekit.cloud'},db,now:()=>time,release:{ok:true,source,manifestSha256},
@@ -25,11 +25,11 @@ function harness({policy={},beforeCreate=async()=>{},...options}={}){
   return {qa:createFounderQa(inputs),restart:()=>createFounderQa(inputs),db,creates,stops,timers,recoveries,
     state:()=>row.state,advance:ms=>time+=ms,edit:f=>f(row.state)};
 }
-test('Founder-only admission and normal duration, no permission inferred from client flag',async()=>{
-  const h=harness();for(const who of ['wp:2','wp:142','student',null])await assert.rejects(h.qa.start({actor:who,sessionId:ID}),/founder/);
+test('Founder-only admission and 100-credit reservation, no permission inferred from client flag',async()=>{
+  const h=harness({duration:170});for(const who of ['wp:2','wp:142','student',null])await assert.rejects(h.qa.start({actor:who,sessionId:ID}),/founder/);
   assert.equal(h.creates.length,0);
-  const t=await h.qa.start({actor,sessionId:ID});assert.equal(t.maxSeconds,900);assert.equal(t.founderQa,true);
-  assert.equal(h.state().reservedSeconds,915);assert.equal(h.state().sessionCount,1);
+  const t=await h.qa.start({actor,sessionId:ID});assert.equal(t.maxSeconds,170);assert.equal(t.founderQa,true);
+  assert.equal(h.state().reservedSeconds,200);assert.equal(h.state().sessionCount,1);
 });
 test('cross-process CAS admits at most one active Mock; duplicate does not erase original claim',async()=>{
   const h=harness(),second=h.restart();
@@ -41,13 +41,29 @@ test('deliberate second Mock allowed only after terminal and room proof; same Mo
   await assert.rejects(h.qa.start({actor,sessionId:ID2}));assert.ok(h.state().active);
   await h.qa.command({actor,sessionId:ID,command:'terminate'});assert.equal(h.state().active,null);
   await assert.rejects(h.qa.start({actor,sessionId:ID}));
-  await h.qa.start({actor,sessionId:ID2});assert.equal(h.creates.length,2);assert.equal(h.state().reservedSeconds,1830);
+  await h.qa.start({actor,sessionId:ID2});assert.equal(h.creates.length,2);assert.equal(h.state().reservedSeconds,180);
 });
 test('disabled, expired, source mismatch, billing unverified and insufficient aggregate budget deny before create',async()=>{
-  for(const policy of [{enabled:false},{expiresAt:999},{source:'c'.repeat(40)},{manifestSha256:'c'.repeat(64)},{overageOffVerified:false},{budgetSeconds:914},{maxSessions:0}]){
+  for(const policy of [{enabled:false},{expiresAt:999},{source:'c'.repeat(40)},{manifestSha256:'c'.repeat(64)},{overageOffVerified:false},{budgetSeconds:89},{maxSessions:0},{creditLimit:101},{budgetSeconds:201},{rateBoundVerified:false},{creditsPerMinuteCeiling:24},{expiresAt:Date.parse('2026-10-11T00:00:00Z')},{reservedSeconds:-1}]){
     const h=harness({policy});await assert.rejects(h.qa.start({actor,sessionId:ID}));assert.equal(h.creates.length,0);
   }
   const h=harness({release:{ok:false}});assert.equal((await h.qa.config()).available,false);await assert.rejects(h.qa.start({actor,sessionId:ID}));
+});
+test('100 credits is aggregate, includes cleanup, and is never refunded after early stop',async()=>{
+  const h=harness({duration:170});assert.equal((await h.qa.config()).maxSeconds,170);
+  await h.qa.start({actor,sessionId:ID});await h.qa.command({actor,sessionId:ID,command:'terminate'});
+  assert.equal(h.state().reservedSeconds,200);assert.equal((await h.restart().config()).available,false);
+  await assert.rejects(h.restart().start({actor,sessionId:ID2}));assert.equal(h.creates.length,1);
+});
+test('configured normal Mock cannot exceed credit or expiry envelope',async()=>{
+  const h=harness({duration:300});await assert.rejects(h.qa.start({actor,sessionId:ID}));assert.equal(h.creates.length,0);
+  const exp=harness({policy:{expiresAt:90500}});assert.equal((await exp.qa.config()).available,false);
+  await assert.rejects(exp.qa.start({actor,sessionId:ID}));assert.equal(exp.creates.length,0);
+});
+test('startup consumes the original reservation clock; delayed create cannot reset it',async()=>{
+  let h;h=harness({beforeCreate:async()=>h.advance(60001)});
+  await assert.rejects(h.qa.start({actor,sessionId:ID}),/stopped/);assert.equal(h.creates.length,0);
+  assert.equal(h.state().reservedSeconds,90);
 });
 test('kill is durable, terminates local exact session, and cannot be cleared by restart',async()=>{
   const h=harness();await h.qa.start({actor,sessionId:ID});await h.qa.kill();assert.equal(h.stops.length,1);assert.equal(h.state().enabled,false);

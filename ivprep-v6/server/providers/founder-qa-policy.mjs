@@ -2,6 +2,8 @@ import {createEmbodimentCanary,embodimentCanaryConfig,recoverEmbodimentSession} 
 import {verifyQaRelease} from './release-identity.mjs';
 const fail=(code,status=409)=>Object.assign(new Error(code),{status});
 const UUID=/^[a-f0-9-]{36}$/;
+const CREDIT_LIMIT=100,RATE_CEILING=30,CLEANUP_SECONDS=30;
+const QA_EXPIRES_AT=Date.parse('2026-10-10T00:00:00Z');
 const founder=actor=>{if(actor!=='wp:1')throw fail('ivoc_founder_qa_required',403);};
 // Stored policy is operational authority, NOT browser preferences. No endpoint
 // may increase its budget, reset attempts, extend expiry or re-enable a kill.
@@ -20,22 +22,34 @@ export function createFounderQa({env,db,now=Date.now,claimSession,recordReceipt=
     }
     throw fail('ivoc_qa_policy_conflict');
   }
+  function budgetValid(s){
+    return s?.rateBoundVerified===true&&s.creditsPerMinuteCeiling===RATE_CEILING
+      &&Number.isSafeInteger(s.creditLimit)&&s.creditLimit>0&&s.creditLimit<=CREDIT_LIMIT
+      &&Number.isSafeInteger(s.budgetSeconds)&&s.budgetSeconds>0&&s.budgetSeconds<=Math.floor(s.creditLimit*60/RATE_CEILING)
+      &&Number.isSafeInteger(s.reservedSeconds)&&s.reservedSeconds>=0&&s.reservedSeconds<=s.budgetSeconds
+      &&Number.isSafeInteger(s.sessionCount)&&s.sessionCount>=0&&Array.isArray(s.attempts)
+      &&Number.isSafeInteger(s.maxSessions)&&s.maxSessions>0&&s.maxSessions<=Math.floor(s.budgetSeconds/(60+CLEANUP_SECONDS))
+      &&Number.isFinite(s.expiresAt)&&s.expiresAt<=QA_EXPIRES_AT;
+  }
+  function availableSeconds(s){
+    return budgetValid(s)?Math.max(0,Math.min(1800,s.budgetSeconds-s.reservedSeconds-CLEANUP_SECONDS,
+      Math.floor((s.expiresAt-now())/1000)-CLEANUP_SECONDS)):0;
+  }
   function admitted(s){
     return configured&&s?.enabled===true&&s.source===release.source&&s.manifestSha256===release.manifestSha256
       &&s.overageOffVerified===true&&Number.isFinite(s.expiresAt)&&s.expiresAt>now()
-      &&Number.isSafeInteger(s.budgetSeconds)&&s.budgetSeconds>0&&s.budgetSeconds<=86400
-      &&Number.isSafeInteger(s.maxSessions)&&s.maxSessions>0&&s.maxSessions<=100
-      &&s.sessionCount<s.maxSessions&&s.reservedSeconds<s.budgetSeconds;
+      &&budgetValid(s)&&s.sessionCount<s.maxSessions&&availableSeconds(s)>=60;
   }
   async function config(){
     await recover().catch(()=>{});
     let state;try{state=(await read())?.state;}catch{}
     return {schema:'ivoc.founder-qa.v1',available:admitted(state)&&!state.active,provider:'lemonslice',
-      founderOnly:true,sessionId:null,maxSeconds:1800,maxSessions:1,audioAuthority:'openai-gpt-live-native',
+      founderOnly:true,sessionId:null,maxSeconds:availableSeconds(state),maxSessions:1,audioAuthority:'openai-gpt-live-native',
       sourceIntegrity:release.ok,source:release.source||null,
       enabled:configured&&state?.enabled===true,reason:state?.reason||'unavailable',
       usage:{sessionCount:state?.sessionCount||0,maxSessions:state?.maxSessions||0,
         reservedSeconds:state?.reservedSeconds||0,budgetSeconds:state?.budgetSeconds||0,
+        creditLimit:state?.creditLimit||0,creditsPerMinuteCeiling:RATE_CEILING,cleanupReserveSeconds:CLEANUP_SECONDS,
         // This is a conservative reservation, NOT a fabricated provider invoice.
         unit:'reserved_wall_seconds',expiresAt:state?.expiresAt||null,
         prepaidCreditsVerified:state?.prepaidCreditsVerified??null,overageOffVerified:state?.overageOffVerified===true},
@@ -85,14 +99,14 @@ export function createFounderQa({env,db,now=Date.now,claimSession,recordReceipt=
   function activeAuthorized(s,sessionId,id){
     return configured&&s?.enabled===true&&s.source===release.source&&s.manifestSha256===release.manifestSha256
       &&s.overageOffVerified===true&&s.expiresAt>now()&&s.active?.sessionId===sessionId&&s.active?.id===id
-      &&s.active.deadlineMs>now()&&s.reservedSeconds<=s.budgetSeconds;
+      &&s.active.deadlineMs>now()&&s.active.deadlineMs+CLEANUP_SECONDS*1000<=s.expiresAt&&budgetValid(s);
   }
   async function watch(entry){
     if(local!==entry)return;
     try{
       const s=(await read())?.state;
       const row=await db.single(`ivoc_sessions?id=eq.${entry.sessionId}&owner_subject=eq.wp%3A1&select=state&limit=1`);
-      if(!s?.enabled||s.expiresAt<=now()||s.active?.id!==entry.id||now()-s.active.lastSeen>15000||row?.state!=='active'){
+      if(!activeAuthorized(s,entry.sessionId,entry.id)||now()-s.active.lastSeen>15000||row?.state!=='active'){
         await entry.manager.command({actor:'wp:1',sessionId:entry.sessionId,command:'terminate'});return;
       }
     }catch{await entry.manager.command({actor:'wp:1',sessionId:entry.sessionId,command:'terminate'}).catch(()=>{});return;}
@@ -111,10 +125,11 @@ export function createFounderQa({env,db,now=Date.now,claimSession,recordReceipt=
       claim:async({attemptId,deadlineMs})=>{
         entry.id=attemptId;
         await change(s=>{
-          if(!admitted(s)||s.active||s.attempts.some(a=>a.sessionId===sessionId)||s.reservedSeconds+seconds+15>s.budgetSeconds)throw fail('ivoc_qa_admission_closed',403);
-          s.reservedSeconds+=seconds+15;s.sessionCount++;
+          if(!admitted(s)||s.active||s.attempts.some(a=>a.sessionId===sessionId)||seconds>availableSeconds(s)
+            ||deadlineMs+CLEANUP_SECONDS*1000>s.expiresAt)throw fail('ivoc_qa_admission_closed',403);
+          s.reservedSeconds+=seconds+CLEANUP_SECONDS;s.sessionCount++;
           s.active={id:attemptId,sessionId,deadlineMs,lastSeen:now(),providerSessionId:null,room:`ivoc-embodiment-${sessionId}`};
-          s.attempts.push({...s.active,reservedSeconds:seconds+15});return s;
+          s.attempts.push({...s.active,reservedSeconds:seconds+CLEANUP_SECONDS});return s;
         });
         local=entry;
         await claimSession({actor,sessionId,attemptId,deadlineMs});

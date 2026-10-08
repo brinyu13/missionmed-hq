@@ -35,6 +35,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   const cfg=session.config||{};
   const targetQuestions=mode==='mock'?resolveMockQuestionTarget(cfg.targetQuestions,plan.length,{goal:session.retry?.wizard?.goal||session.settings?.goal}):1;
   const settings={...(session.settings||defaultSettings()),targetQuestions};
+  const avatarDurationSeconds=avatarCanary?Math.min(avatarCanary.maxSeconds,Math.round(Number(cfg.durationMin||settings.durationMin||15)*60)):0;
   const profile=environmentProfile(selectedEnvironment(settings,session.retry));
   let density=mode==='mock'&&!state.preferences?.densityPersisted?'interview':(state.preferences?.density||'coached');
   let initialPresentationMode=null,entryAbort=null;
@@ -80,6 +81,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
             <p>${mode === 'mock' ? `Priority: ${esc(String(session.priority || 'leave one natural hook the interviewer can follow').replace(/[.\s]+$/, ''))}.` : `Priority: ${esc(String(session.priority || 'finish the answer in under 90 seconds').replace(/[.\s]+$/, ''))}.`}</p>
             ${mode==='mock'&&account?.mode==='REAL'&&account.role==='admin'?`<details class="expert" style="margin-top:10px;text-align:left"><summary>Admin voice audition</summary><label class="field"><span class="t-label">Native interviewer voice</span><select id="admin-live-voice">${VOICES.map(voice=>`<option value="${voice}" ${selectedAdminVoice(settings,account,mode)===voice?'selected':''}>${voice}</option>`).join('')}</select></label><small class="note">The same real interview and recording path; only the voice changes. Select before Start. Student default remains marin. No external TTS.</small></details>`:''}
             ${avatarCanary&&!founderQa?'<label class="field avatar-canary"><input type="checkbox" id="avatar-canary"> Authorized avatar canary · one 45-second session</label>':''}
+            ${founderQa?`<p class="note" data-qa-limit>${avatarCanary?`Founder avatar QA: up to ${fmt(avatarDurationSeconds)} including connection time, then finish and save. ${esc(founderQa.usage?.creditLimit||0)} prepaid credits TOTAL; cleanup is reserved separately inside that allowance. No overage or automatic retry.`:'Avatar QA is OFF or its prepaid allowance is unavailable. This interview uses the voice interviewer.'}</p>`:''}
             <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px"><button class="btn btn-primary btn-lg" type="button" id="connect-real">Connect camera + mic</button><button class="btn btn-primary btn-lg" type="button" id="start-session" disabled>${mode === 'mock' ? 'Start Interview' : 'Start recorded answer'} ▸</button></div>
           </div>
         </div>
@@ -105,13 +107,14 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   const $=id=>main.querySelector('#'+id),room=$('room'),rails=new RailsController(main);
   if(founderQa){
     const usage=founderQa.usage||{};
-    main.querySelector('[data-qa-usage]').textContent=`${founderQa.enabled?'ON':'OFF'} · ${usage.sessionCount||0}/${usage.maxSessions||0} sessions · ${Math.ceil((usage.reservedSeconds||0)/60)}/${Math.floor((usage.budgetSeconds||0)/60)} minutes reserved · ${usage.overageOffVerified?'overage OFF verified':'billing not verified'}`;
+    main.querySelector('[data-qa-usage]').textContent=`${founderQa.enabled?'ON':'OFF'} · ${usage.sessionCount||0}/${usage.maxSessions||0} sessions · ${Math.ceil((usage.reservedSeconds||0)*(usage.creditsPerMinuteCeiling||30)/60)}/${usage.creditLimit||0} credits reserved (not invoiced usage) · ${usage.overageOffVerified?'overage OFF verified':'billing not verified'}`;
     main.querySelector('[data-qa-kill]').onclick=async event=>{
       event.currentTarget.disabled=true;
       try{
         const response=await fetch('/api/ivoc/v1/admin/embodiment-canary/kill',{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','X-MMHQ-CSRF':account.api.csrfToken},body:'{}'});
         if(!response.ok)throw new Error();
         founderQa.enabled=false;founderQa.available=false;
+        main.querySelector('[data-qa-limit]').textContent='Avatar QA disabled. This interview uses the voice interviewer.';
         main.querySelector('[data-qa-status]').textContent='Avatar QA disabled. Active avatar termination requested; no new avatar sessions can start.';
       }catch{main.querySelector('[data-qa-status]').textContent='Disable could not be confirmed. Finish and save, then contact the Foreman.';event.currentTarget.disabled=false;}
     };
@@ -281,7 +284,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       $('enter-note').textContent='Connecting your interviewer and preparing your private recording…';
       const wizard=toWizard(settings,{program:session.program,mode,contextSources:session.contextSources||[],retry:session.retry||null,priority:session.priority,interviewPolicy:controller.interviewPolicy});
       const useAvatar=avatarCanary&&(founderQa?founderQa.enabled:$('avatar-canary')?.checked===true);
-      if(useAvatar){wizard.embodimentCanary=true;wizard.embodimentDurationSeconds=Math.round(Number(cfg.durationMin||settings.durationMin||15)*60);}
+      if(useAvatar){wizard.embodimentCanary=true;wizard.embodimentDurationSeconds=avatarDurationSeconds;}
       const audioRenderer=useAvatar?new EmbodimentRenderer({host:main.querySelector('[data-embodiment-host]'),csrfToken:account.api.csrfToken,sessionId:avatarCanary.sessionId}):null;
       const context=mode==='mock'?await liveContext({wizard,interviewSet:plan,targetQuestions}):null;
       if(!current())return;
