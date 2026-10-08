@@ -1,0 +1,104 @@
+{
+  "assets": [
+    {
+      "name": "hero",
+      "source": "/Users/brianb/.codex/generated_images/01a0bed9-173e-7380-b8a5-9921c254ab8e/exec-1f74839d-816e-4339-b9ea-e79646fa9b74.png",
+      "source_sha256": "52e5037265fbd72a94c22de644d2eb4b3696467b7962d9824e0ad4f572c4519a",
+      "file": "hero.webp",
+      "bytes": 85204,
+      "sha256": "4e5c5419221d88f6900fcdad6391a6495fe77cb279b2f8ab1c20fb0683c5d672",
+      "provenance": "Original AI-generated photography via built-in image_gen on 2026-10-08, specifically commissioned by Founder directive. No third-party stock or private subject material.",
+      "prior_source": "/Users/brianb/.codex/generated_images/01a0bed9-173e-7380-b8a5-9921c254ab8e/exec-07b1bbc3-1914-4fbd-a649-acbafb8919d9.png"
+    },
+    {
+      "name": "statement",
+      "source": "/Users/brianb/.codex/generated_images/01a0bed9-173e-7380-b8a5-9921c254ab8e/exec-f0b8d20a-09fb-4107-a4fe-c36ec84d6f4c.png",
+      "source_sha256": "c04ec6038e0e86fb094d3dce81900504c9349f14ac2255b0c9feb44598241ad4",
+      "file": "statement.webp",
+      "bytes": 33842,
+      "sha256": "81920423978754c42104ff3fff726d97d420177faf3ec6c2d7687f2b0721d7ad",
+      "provenance": "Original AI-generated photography via built-in image_gen on 2026-10-08, specifically commissioned by Founder directive. No third-party stock or private subject material."
+    },
+    {
+      "name": "cv",
+      "source": "/Users/brianb/.codex/generated_images/01a0bed9-173e-7380-b8a5-9921c254ab8e/exec-6ea5056a-3313-4392-b263-266084528206.png",
+      "source_sha256": "212ddc53e4759a6507c6847d0b22bc0b5cc25c4245aead143fbee713eaa37801",
+      "file": "cv.webp",
+      "bytes": 33486,
+      "sha256": "3ef1c6b59b6268dc48335329eeb7ebc794c153cacc04e6ca3e760696de8a5aeb",
+      "provenance": "Original AI-generated photography via built-in image_gen on 2026-10-08, specifically commissioned by Founder directive. No third-party stock or private subject material."
+    },
+    {
+      "name": "letters",
+      "source": "/Users/brianb/.codex/generated_images/01a0bed9-173e-7380-b8a5-9921c254ab8e/exec-3d041f37-81c6-49c2-a55e-e68119baba00.png",
+      "source_sha256": "102b9dc6bd2ba1cd063ed54c5343e2f88bc66054742cc7413736b3a96a13ec51",
+      "file": "letters.webp",
+      "bytes": 29900,
+      "sha256": "3308b900cad0fbfcefd80a94a39d249094d74931a53d0fc8137651b1a6b316c7",
+      "provenance": "Original AI-generated photography via built-in image_gen on 2026-10-08, specifically commissioned by Founder directive. No third-party stock or private subject material."
+    },
+    {
+      "name": "records",
+      "source": "/Users/brianb/.codex/generated_images/01a0bed9-173e-7380-b8a5-9921c254ab8e/exec-151d97de-f42b-409e-b239-04097c214039.png",
+      "source_sha256": "58fb00226ae2deb15c48cd62d7fa0ec8ef491e3462ee8c66c8e6549fa062bce5",
+      "file": "records.webp",
+      "bytes": 31020,
+      "sha256": "05c9e6f3cd92c3ce5fec1eab9c0b991351aa80d6eab3fac9f4e991d6132eb2f8",
+      "provenance": "Original AI-generated photography via built-in image_gen on 2026-10-08, specifically commissioned by Founder directive. No third-party stock or private subject material."
+    },
+    {
+      "name": "interview",
+      "source": "/Users/brianb/.codex/generated_images/01a0bed9-173e-7380-b8a5-9921c254ab8e/exec-1fce98f7-19ea-4355-b00b-0b68c3b5ae74.png",
+      "source_sha256": "1728e2208575848388f9a63d3f5bfffda44135b81989cd3dfff1c65c89fb275a",
+      "file": "interview.webp",
+      "bytes": 44180,
+      "sha256": "2d3127d01cdbb22d0d35d0bb24570ff679e796e9bd45106343c6086250e80ecf",
+      "provenance": "Original AI-generated photography via built-in image_gen on 2026-10-08, specifically commissioned by Founder directive. No third-party stock or private subject material."
+    },
+    {
+      "name": "research",
+      "source": "/Users/brianb/.codex/generated_images/01a0bed9-173e-7380-b8a5-9921c254ab8e/exec-f9f964db-53aa-47d5-90a0-2c2cdea436bb.png",
+      "source_sha256": "fc17f5d484ecd17f98d39599c75cd857662c6bd412cdd8f4d08da26fbef1e25c",
+      "file": "research.webp",
+      "bytes": 36792,
+      "sha256": "e8568bf9095186492c1433f04e0d1bce5c95a403544218ce4c594fb4f362df2c",
+      "provenance": "Original AI-generated photography via built-in image_gen on 2026-10-08, specifically commissioned by Founder directive. No third-party stock or private subject material."
+    },
+    {
+      "name": "other",
+      "source": "/Users/brianb/.codex/generated_images/01a0bed9-173e-7380-b8a5-9921c254ab8e/exec-4b9d3e43-db58-4bbe-b36b-bf2b8867659b.png",
+      "source_sha256": "5dc21215ea02933bedd7e4c2c04b76f48017324f0dcde3cccdbae30208f6a64c",
+      "file": "other.webp",
+      "bytes": 40584,
+      "sha256": "95976005624f0c1f5ab38b543fde32914310cdc41e052a1be8659d83c475ecf8",
+      "provenance": "Original AI-generated photography via built-in image_gen on 2026-10-08, specifically commissioned by Founder directive. No third-party stock or private subject material."
+    },
+    {
+      "name": "shared",
+      "source": "/Users/brianb/.codex/generated_images/01a0bed9-173e-7380-b8a5-9921c254ab8e/exec-3ff1e2e8-eac9-4e8b-b458-2a3d38133f43.png",
+      "source_sha256": "d507463d6fb47d1947b50f9f7eb972abcff4327fcb8bc6edc980cbf2d9094819",
+      "file": "shared.webp",
+      "bytes": 36712,
+      "sha256": "bb91f730565a7277bbe3b06471928f6109bab1aa65dd7561b18b6a59750325e3",
+      "provenance": "Original AI-generated photography via built-in image_gen on 2026-10-08, specifically commissioned by Founder directive. No third-party stock or private subject material."
+    },
+    {
+      "name": "mountain",
+      "source": "/Users/brianb/.codex/generated_images/01a0bed9-173e-7380-b8a5-9921c254ab8e/exec-3cd5853a-47c2-4801-af93-8368abc4b940.png",
+      "source_sha256": "79d2cd3000fac3f178b8a4b4e4c7b3aade0f590104e9f130efe2d0fde29a45ec",
+      "file": "mountain.webp",
+      "bytes": 70548,
+      "sha256": "f2c42f7d0ee6dfac9d7e44042e09351b365092ff447a37b63564e16724e8c615",
+      "provenance": "Original AI-generated photography via built-in image_gen on 2026-10-08, specifically commissioned by Founder directive. No third-party stock or private subject material."
+    },
+    {
+      "name": "MissionMed Institute logo",
+      "source": "/Users/brianb/Downloads/missionmed-institute-logo-email-dark.png",
+      "file": "missionmed-logo.png",
+      "sha256": "9f960ed9c312f3671cb1720c30d96321bc3cebfe5547dc81ba215e7510864b37",
+      "bytes": 31611,
+      "provenance": "Founder-supplied authentic MissionMed logo, used under direct Founder branding authorization. Original pixels retained; filename lacks the attachment duplicate suffix (7)."
+    }
+  ],
+  "rights": "Generated assets subject to applicable OpenAI terms; no exclusive copyright claim. MissionMed branding remains Founder-owned. No external image hotlinks."
+}

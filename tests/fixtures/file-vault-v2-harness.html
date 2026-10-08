@@ -972,7 +972,20 @@
 			uploadTransport: window.__FV2_HARNESS__.uploadTransport,
 			config: window.mmedFileVaultV2Config
 		}).then(function (instance) {
-			window.__FV2_HARNESS__.instance = instance;
+			// Visual-only local preview adapter. Never included in production assets.
+            // Default contract fixtures still exercise the unchanged HTTPS-only URL guard.
+            if (new URLSearchParams(location.search).get("visual") === "1") {
+                var originalSafeDownload = instance.safeDownloadUrl.bind(instance);
+                instance.safeDownloadUrl = function (value) {
+                    if (/^https:\/\/secure-files[.]fixture[.]invalid\/preview\//.test(String(value))) return new URL("file-vault-preview.pdf", location.href).href;
+                    return originalSafeDownload(value);
+                };
+                var reviewBadge = document.createElement("div");
+                reviewBadge.textContent = "LOCAL REVIEW · SYNTHETIC QA DATA";
+                reviewBadge.style.cssText = "position:fixed;right:12px;bottom:3px;z-index:40;color:#c9d6df;background:#071420cc;padding:3px 6px;font:8px Arial;pointer-events:none;border-radius:3px";
+                document.body.appendChild(reviewBadge);
+            }
+            window.__FV2_HARNESS__.instance = instance;
 			window.__FV2_HARNESS__.ready = true;
 			document.documentElement.setAttribute("data-harness-ready", "true");
 		}).catch(function (error) {
