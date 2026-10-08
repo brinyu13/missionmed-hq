@@ -97,6 +97,8 @@ export function buildLoiProseRequest(input, maxOutputTokens) {
   };
   const body = {
     model: LOI_MODEL,
+    // Explicit latency bound for the approved GPT-5 nano text-only writer.
+    reasoning: { effort: 'minimal' },
     instructions: PROSE_INSTRUCTIONS,
     input: [{ role: 'user', content: [{ type: 'input_text', text: JSON.stringify(data) }] }],
     text: {
