@@ -88,6 +88,23 @@ const KIND_LABEL = Object.freeze({
   consistency_check: 'worth aligning gently',
 });
 
+// Read-side guard for immutable saved packs. Do not guess text removal or mint
+// a new unsaved receipt. A changed block requires normal context preparation.
+export function programActorBlockIsCurrent(saved,now=Date.now()) {
+  if(!Array.isArray(saved?.source_receipts))return false;
+  const expired=new Set(saved.source_receipts.filter(r=>r?.projection_type==='rise.program_cheat_sheet'&&
+    (r.degraded?.state==='stale'||r.degraded?.state==='unavailable'||
+      (r.fresh_until!=null&&(!Number.isFinite(Date.parse(r.fresh_until))||Date.parse(r.fresh_until)<=Number(now)))))
+    .map(r=>r.projection_id));
+  if(!expired.size)return true;
+  const pack=saved.pack;
+  if(!Array.isArray(pack?.facts)||!Array.isArray(pack?.signals))return false;
+  try{
+    const facts=pack.facts.map(f=>f.fact_type==='program_interest'&&expired.has(f.provenance?.projection_id)?{...f,stale:true}:f);
+    return serializeForActor({...pack,facts},{practice_goal:pack.practice_goal})===saved.actor_block;
+  }catch{return false;}
+}
+
 /**
  * Build the Actor block. Restricted facts, objective_concern signals, non-eligible
  * signals and signals not allowed for `role` are absent (not masked). Output is
@@ -98,14 +115,18 @@ export function serializeForActor(pack, { role = 'program_director', practice_go
   if (!INTERVIEWER_ROLES.includes(role)) throw new TypeError(`role must be one of ${INTERVIEWER_ROLES.join(', ')}`);
   const goal = practice_goal || pack.practice_goal;
   const factById = new Map(pack.facts.map((f) => [f.fact_id, f]));
-  const speakableFacts = pack.facts.filter((f) => f.sensitivity !== 'restricted' && f.student_visible !== false && f.fact_type !== 'mentor_priority' && f.fact_type !== 'prior_ivoc_pattern');
+  // Expired RISE receipts cannot support current program assertions or probes.
+  // Preserve selected identity, but do not present stale facts as current.
+  const currentProgramFact=f=>f?.fact_type!=='program_interest'||f.stale!==true;
+  const speakableFacts = pack.facts.filter((f) => f.sensitivity !== 'restricted' && f.student_visible !== false && f.fact_type !== 'mentor_priority' && f.fact_type !== 'prior_ivoc_pattern' && currentProgramFact(f));
   const eligible = pack.signals
     .filter((s) => s.proactive_eligible && isActorSpeakable(s) && s.allowed_roles.includes(role))
-    .filter((s) => s.fact_refs.every((id) => factById.get(id)?.sensitivity !== 'restricted'))
+    .filter((s) => s.fact_refs.every((id) => factById.has(id) && factById.get(id).sensitivity !== 'restricted' && currentProgramFact(factById.get(id))))
     .sort((a, b) => b.salience - a.salience || (a.signal_id < b.signal_id ? -1 : 1));
 
+  const programFacts=speakableFacts.filter(f=>f.fact_type==='program_interest'&&f.attributes.fact);
   const programLines = pack.program
-    ? [`${pack.program.name}${pack.program.specialty ? ` (${pack.program.specialty})` : ''}`, ...speakableFacts.filter((f) => f.fact_type === 'program_interest' && f.attributes.fact).map((f) => f.attributes.fact)]
+    ? [`${pack.program.name || 'Selected program'}${pack.program.specialty ? ` (${pack.program.specialty})` : ''}`, ...(programFacts.length?programFacts.map(f=>f.attributes.fact):['No current verified program details provided. Say you do not know rather than inventing program-specific answers.'])]
     : ['none'];
   let factLines = speakableFacts.filter((f) => f.fact_type !== 'program_interest')
     .sort((a, b) => ((b.time_range?.end || b.time_range?.start || '') > (a.time_range?.end || a.time_range?.start || '') ? 1 : -1))

@@ -4,6 +4,43 @@ import test from 'node:test';
 import { createIvocActorInstructionResolver, createIvocContextPackResolver, createStoredIvocActorInstructionResolver } from '../../server/providers/ivoc-context-pack-resolver.mjs';
 import { buildLiveInterviewInstructions } from '../../server/providers/openai-live-session.mjs';
 import { createLiveContext } from '../../public/studio/live-context-adapter.mjs';
+import {scenario,buildPack} from '../../../ivoc/intelligence/test-helpers.mjs';
+import {createIvocApplicationIntelligence} from '../../../missionmed-hq/ivoc/application-intelligence.mjs';
+
+test('native and HQ read-side gates reject expired saved RISE assertions without rewriting receipts',async()=>{
+  const s=await scenario('cross-source');
+  s.projections=s.projections.filter(p=>p.projection_type==='rise.program_cheat_sheet');
+  const projection=s.projections[0],fresh=buildPack(s);
+  let now=Date.parse(s.scen.now),pack=fresh;
+  const row=()=>({pack_id:pack.pack_id,pack_version:pack.pack_version,actor_block:pack.actor_block,source_receipts:pack.inputs,pack});
+  const resolve=createIvocContextPackResolver({now:()=>now,rest:{table:async name=>name==='ivoc_admin_config_versions'?[policyRow()]:[row()]}});
+  const hq=createIvocApplicationIntelligence({now:()=>now,repository:{single:async()=>row()},projectionProvider:async()=>[]});
+  const read=()=>Promise.all([resolve({subject:SUBJECT,sessionId:SESSION_ID}),hq.getActorContext({actor:SUBJECT,sessionId:SESSION_ID})]);
+  assert.ok((await read()).every(Boolean),'fresh facts remain usable');
+  now=Date.parse(projection.fresh_until);
+  assert.deepEqual(await read(),[null,null],'expiry after preparation quarantines the old block');
+  assert.equal(pack,fresh,'read gate never mutates canonical saved evidence');
+  projection.degraded={state:'partial',reason:'Synthetic missing fields'};
+  pack=buildPack(s,{now:new Date(now).toISOString()});
+  const current=await read();
+  assert.ok(current.every(Boolean),'normal preparation can resume with truthful unavailable details');
+  for(const actor of current){
+    assert.match(actor.actorBlock,/No current verified program details/);
+    for(const fact of projection.payload.high_yield_facts)assert.ok(!actor.actorBlock.includes(fact.fact));
+  }
+});
+
+test('RISE evidence that expires during policy lookup is rejected at consumption',async()=>{
+  const s=await scenario('cross-source');
+  s.projections=s.projections.filter(p=>p.projection_type==='rise.program_cheat_sheet');
+  const pack=buildPack(s);
+  let now=Date.parse(s.scen.now);
+  const resolve=createIvocContextPackResolver({now:()=>now,rest:{table:async name=>{
+    if(name==='ivoc_admin_config_versions'){now=Date.parse(s.projections[0].fresh_until);return[policyRow()];}
+    return[{pack_id:pack.pack_id,pack_version:pack.pack_version,actor_block:pack.actor_block,source_receipts:pack.inputs,pack}];
+  }}});
+  assert.equal(await resolve({subject:SUBJECT,sessionId:SESSION_ID}),null);
+});
 
 const SESSION_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const PACK_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';

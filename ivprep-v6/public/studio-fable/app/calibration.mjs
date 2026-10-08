@@ -30,7 +30,7 @@ const STEPS = [
 ];
 const INSTRUMENTS = { readiness: 'Camera + mic', framing: 'Framing', faceBaseline: 'Face baseline', smile: 'Smile pattern', nods: 'Head nods', hands: 'Hand visibility', gesture: 'Gesture units', volume: 'Volume (LUFS-K)', pitch: 'Pitch (F0)', pace: 'Pace (timed words)', volumeRange: 'Volume range', pauseHold: 'Pace hold law', paceRange: 'Pace range' };
 
-export async function mountCalibration(main, { isCurrent = () => true } = {}) {
+export async function mountCalibration(main, { isCurrent = () => true, returnToMock = false, returnHash = '#/mock' } = {}) {
   const steps = STEPS.map(step => ({...step}));
   let disposed = false, connecting = false, deviceSwitching=false;
   const current = () => !disposed && isCurrent();
@@ -38,6 +38,7 @@ export async function mountCalibration(main, { isCurrent = () => true } = {}) {
   let stepIndex = 0; const resolved = {}; let engine = null; let timer = null; let latest = null; let lastT = 0;let disposeDevices=null,disposePrimary=null,verifiedCapture=null;
   main.innerHTML = `
     <div class="cal-screen">
+    <a class="btn btn-quiet" href="#/mock" id="return-setup" hidden>Return to interview setup ▸</a>
     <div class="screen-head"><div><div class="t-kick gold">Devices &amp; calibration</div><h1 class="t-hero">Instrument <em>rehearsal.</em></h1><p class="t-edit">Not a tech check. You smile, nod, gesture, read, vary your volume and pace, and watch every instrument respond truthfully before any interview. Unresolved instruments stay dark; nothing is invented.</p></div><div style="display:flex;gap:8px;align-items:center"><span class="chip warn" id="calibration-record-state">Connect devices to verify saved calibration</span></div></div>
     <div class="cal">
       <aside class="housing panel"><div class="t-label" style="margin-bottom:10px">Rehearsal</div><div class="cal-steps" id="cal-steps"></div></aside>
@@ -61,6 +62,7 @@ export async function mountCalibration(main, { isCurrent = () => true } = {}) {
     </div></details>
     </div>`;
   const $ = (id) => main.querySelector(`#${id}`);
+  if(returnToMock){$('return-setup').hidden=false;$('return-setup').href=returnHash;}
   const rails = new RailsController(main);
   const recorder = new LiveRecorder($('recorder'), { window: '1M' });
   const history = new TraceHistory();
@@ -183,6 +185,7 @@ export async function mountCalibration(main, { isCurrent = () => true } = {}) {
         renderCalibrationRecord();
         $('step-state').textContent='Personal calibration saved for this account and device profile.';
         $('next-step').disabled=true;
+        if(returnToMock)$('return-setup').textContent='Calibration saved · return to interview setup ▸';
       }catch(error){$('step-state').textContent=error.message+' Continue reading or speaking naturally while these instruments respond, then try again.';}
       return;
     }

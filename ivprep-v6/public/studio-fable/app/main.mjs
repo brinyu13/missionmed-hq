@@ -6,7 +6,8 @@ import { trayMarkup, mountTray, openSelector } from './questions/selector.mjs';
 import { EASY_PRESETS, PRACTICE_GOALS, ROLES, STYLES, CURIOSITY, PACING, defaultSettings, applyPreset, normalizeMockPracticeFocus, normalizeManualInterviewerName, resolveMockQuestionTarget, resolveFollowUpPreferences, describe as describeSettings } from './settings/interviewer.mjs';
 import { controller } from './controller/session-controller.mjs';
 import { accountLabel } from './adapters/account-adapter.mjs';
-import { searchPrograms } from './adapters/context-adapter.mjs';
+import { searchPrograms, resolveGeneralProgram } from './adapters/context-adapter.mjs';
+import {mockSetupRoute,mockCalibrationRoute} from './adapters/interview-entry.mjs';
 import { mountRoom } from './room.mjs';
 import { mountResults, mountFilm, mountCompare } from './results.mjs';
 import { mountCalibration } from './calibration.mjs';
@@ -187,14 +188,20 @@ async function renderMock(params, isCurrent = guarded) {
       pressure:retry.intent.wizard.pressurePractice,environment:normalizeEnvironment(retry.intent.wizard.environment),advanced:true,targetQuestions:1});
   }else{session.retry=null;session.retryOf=null;}
   session.priority = session.retry?.priorityText || state.mentorPriority || null;
-  const useProgram = params.get('program') === '1' && state.program;
+  const account=controller.account,durable=controller.durable,subject=account?.subject;
+  const current=()=>isCurrent()&&controller.account===account&&controller.durable===durable&&controller.account?.subject===subject;
+  const programChoice=await resolveGeneralProgram(account,{selected:state.program,
+    disabled:params.get('program')==='none'||Boolean(session.retry),isCurrent:current})
+    .catch(()=>({program:null,state:'unavailable'}));
+  if(!current())return;
+  const useProgram=programChoice.program;
   // Home command hints (additive): a valid length lands before the first draw; a preset goes through the same applyPreset path after it.
   const requestedMinutes=Number(params.get('min'));
   if([5,10,15,25].includes(requestedMinutes)){session.config.durationMin=requestedMinutes;session.settings.durationMin=requestedMinutes;}
   const presetHint=EASY_PRESETS.some(p=>p.id===params.get('preset'))?params.get('preset'):null;
   const {buildContextSources} = await import('/iv-prep-on-call/assets/studio/presentation-view-model.mjs');
-  const mentor = await controller.durable.mentorPriorities().catch(() => null);
-  if (!isCurrent()) return;
+  const mentor = await durable.mentorPriorities().catch(() => null);
+  if (!current()) return;
   const sources = buildContextSources({mentorPriorities:mentor,durableAvailable:true,contextCapabilities:controller.account.capabilities.contextSources,programVerified:Boolean(useProgram?.verified)});
   session.contextSources = session.contextSources.filter(name => sources.some(s => s.name===name && s.available));
   let storyRevealed = false, contextOpen = false, environmentOpen = false;
@@ -204,6 +211,7 @@ async function renderMock(params, isCurrent = guarded) {
   const cfg = session.config;
   const draw = () => {
     if (!isCurrent()) return;
+    if (!current()) return;
     const policy=controller.interviewPolicy;
     if(policy&&st.policyVersion==null){st.depth=policy.defaultFollowUpDepth;st.pressure=st.goal!=='Individual Question'&&policy.defaultPressureEnabled;}
     if(policy)st.policyVersion=policy.version;
@@ -223,6 +231,7 @@ async function renderMock(params, isCurrent = guarded) {
           </section>
           <aside class="housing panel ready-card">
             <div class="t-kick gold">Interviewer</div>
+            <p class="note" id="program-choice"></p>
             <div class="preset-row" role="group" aria-label="Easy mode">${EASY_PRESETS.map((p) => `<button type="button" class="option" data-preset="${p.id}" aria-pressed="${st.preset === p.id && !st.advanced}">${p.label}<small>${policy?esc(describeSettings({...applyPreset(st,p.id,{interviewPolicy:policy}),advanced:false},{interviewPolicy:policy})):p.hint}</small></button>`).join('')}</div>
             <details class="advanced" id="advanced" ${st.advanced ? 'open' : ''}><summary><span>Advanced interviewer settings</span><span>${st.advanced ? 'on' : 'collapsed'}</span></summary>
               <div class="advanced-body">
@@ -246,16 +255,20 @@ async function renderMock(params, isCurrent = guarded) {
 <details class="advanced" id="interview-context" ${contextOpen?'open':''} style="margin-top:12px"><summary><span>Interview context</span><span>choose</span></summary><div class="advanced-body"><p class="note" style="grid-column:1/-1">Only the sources you choose are checked for this interview. Missing or unauthorized information stays unavailable.</p>${sources.filter(s=>s.name!=='RISE'&&s.name!=='StoryForge'&&s.name!=='File Vault').map(s=>`<label class="field"><span><input type="checkbox" data-context="${s.name}" ${session.contextSources.includes(s.name)?'checked':''} ${s.available?'':'disabled'}> ${esc(s.name)}</span><small class="note">${s.available?esc(s.detail):'Not connected'}</small></label>`).join('')}<div style="grid-column:1/-1"><button class="btn btn-secondary" type="button" id="story-reveal" ${sources.find(s=>s.name==='StoryForge')?.available?'':'disabled'}>Show StoryForge suggestions</button>${storyRevealed?`<p class="note">Only approved matching story summaries may be included. Showing this option does not include them.</p><label><input type="checkbox" data-context="StoryForge" ${session.contextSources.includes('StoryForge')?'checked':''}> Include authorized matching stories in this interview</label>`:''}<p class="note"><a href="/iv-prep-on-call/advanced/#newsession">Manage application facts / update CV</a></p></div></div></details>
             <details class="advanced" id="interview-environment" ${environmentOpen?'open':''} style="margin-top:12px"><summary><span>Interview environment</span><span>${selectedEnvironment(st,session.retry)}</span></summary><div class="advanced-body">${environmentChoicesMarkup(selectedEnvironment(st,session.retry))}<p class="note" style="grid-column:1/-1">Practice in a familiar meeting layout. These are MissionMed training simulations, not connections to Webex, Zoom, or Teams. Your interviewer and private recording stay the same.</p></div></details>
             <div class="t-label" style="margin:12px 0 6px">Length</div>
+            <div class="field"><label class="t-label" for="arrival-delay">Interviewer arrival</label><select id="arrival-delay"><option value="0">Immediately after countdown</option><option value="30">30-second wait, then countdown</option></select><small class="note">Your camera preview stays visible. Recording begins only when the interview starts.</small></div>
             <div class="option-row">${[5, 10, 15, 25].map((m) => `<button type="button" class="option" data-min="${m}" aria-pressed="${cfg.durationMin === m}">${m} min<small>approximate session length</small></button>`).join('')}</div>
-            <ul class="checks" style="margin-top:12px"><li class="${state.calibration ? 'on' : 'warn'}"><i>${state.calibration ? '✓' : '!'}</i>${state.calibration ? 'Calibrated' : 'Not calibrated · global ranges'}</li><li class="${useProgram ? 'on' : ''}"><i>${useProgram ? '✓' : '·'}</i>${useProgram ? `Program: ${esc(state.program.name)}` : 'No program context (general interview)'}</li><li class="${controller.account?.mode === 'REAL' ? 'on' : 'warn'}"><i>${controller.account?.mode === 'REAL' ? '✓' : '!'}</i>${controller.account?.mode === 'REAL' ? (controller.account.liveInterviewAvailable ? 'GPT-Live interviewer · saved to your account' : 'Live interviewer unavailable · choose Self Practice') : 'Sign in through Matrix'}</li></ul>
+            <ul class="checks" style="margin-top:12px"><li class="${state.calibration ? 'on' : 'warn'}"><i>${state.calibration ? '✓' : '!'}</i>${state.calibration ? 'Calibrated' : 'Not calibrated · global ranges'}</li><li class="${useProgram ? 'on' : ''}"><i>${useProgram ? '✓' : '·'}</i>${useProgram ? `Program: ${esc(useProgram.name)}` : 'No program context (general interview)'}</li><li class="${controller.account?.mode === 'REAL' ? 'on' : 'warn'}"><i>${controller.account?.mode === 'REAL' ? '✓' : '!'}</i>${controller.account?.mode === 'REAL' ? (controller.account.liveInterviewAvailable ? 'GPT-Live interviewer · saved to your account' : 'Live interviewer unavailable · choose Self Practice') : 'Sign in through Matrix'}</li></ul>
           </aside>
         </div>
-        <div class="dock" id="dock"><div class="dock-state"><strong>${targetQuestions === set.length ? `${targetQuestions} questions` : `Target ${targetQuestions} · ${set.length} selected`} · ${esc(describeSettings(st,{interviewPolicy:policy}))}</strong><small>${selectedEnvironment(st,session.retry)}${selectedEnvironment(st,session.retry)==='MissionMed'?'':' simulation'} · Camera and mic connect inside the room. "Wrap up" still asks the closing question.</small></div><div class="dock-actions"><a class="btn btn-quiet" href="#/home">Back</a><button class="btn btn-primary btn-lg" type="button" id="go-room" ${set.length && controller.account?.liveInterviewAvailable ? '' : 'disabled'}>Enter the Interview Room ▸</button></div></div>
+        <div class="dock" id="dock"><div class="dock-state"><strong>${targetQuestions === set.length ? `${targetQuestions} questions` : `Target ${targetQuestions} · ${set.length} selected`} · ${esc(describeSettings(st,{interviewPolicy:policy}))}</strong><small>${selectedEnvironment(st,session.retry)}${selectedEnvironment(st,session.retry)==='MissionMed'?'':' simulation'} · Camera and mic connect inside the room. "Wrap up" still asks the closing question.</small></div><div class="dock-actions"><a class="btn btn-quiet" href="${mockCalibrationRoute(params,session.retry?.id||null)}">Calibrate first</a><a class="btn btn-quiet" href="#/home">Back</a><button class="btn btn-primary btn-lg" type="button" id="go-room" ${set.length && controller.account?.liveInterviewAvailable ? '' : 'disabled'}>Check devices & get ready ▸</button></div></div>
       </div>`;
     const questionsChanged=()=>{if(session.retry&&(set.length!==1||set[0]?.question_id!==session.retry.questionId)){session.retry=null;session.retryOf=null;}draw();};
     mountTray(main.querySelector('#tray'), set, { onChange: questionsChanged });
     main.querySelector('#open-selector').addEventListener('click', () => openSelector({ questions, store, set, attempts, onDone: questionsChanged }));
-    main.querySelector('#go-room').addEventListener('click', () => { session.mode = 'mock'; session.program = useProgram ? state.program : null; location.hash = '#/room?mode=mock'; });
+    main.querySelector('#program-choice').innerHTML=(useProgram?esc(useProgram.name)+' · '+esc(useProgram.specialty):programChoice.state==='disabled'?'General interview · no program context':'SUNY Upstate Internal Medicine could not be uniquely verified. Choose a program or continue without program context.')+' <a href="#/prepare">Choose program</a>'+(useProgram?' · <a href="#/mock?program=none">Use no program context</a>':'');
+    main.querySelector('#go-room').addEventListener('click', () => { if(!current())return;session.mode = 'mock'; session.program = useProgram || null; session.setupReturnHash=mockSetupRoute(params,session.retry?.id||null); location.hash = '#/room?mode=mock'; });
+    main.querySelector('#arrival-delay').value=st.arrivalDelaySeconds===30?'30':'0';
+    main.querySelector('#arrival-delay').addEventListener('change', e=>{if(current())st.arrivalDelaySeconds=e.target.value==='30'?30:0;});
     main.querySelector('#story-reveal').addEventListener('click', () => { storyRevealed = true; draw(); });
     main.querySelectorAll('[data-context]').forEach(input=>input.addEventListener('change',()=>{session.contextSources=input.checked?[...new Set([...session.contextSources,input.dataset.context])]:session.contextSources.filter(name=>name!==input.dataset.context);}));
     main.querySelector('#advanced').addEventListener('toggle', (e) => { st.advanced = e.target.open; main.querySelector('#advanced summary span:last-child').textContent = st.advanced ? 'on' : 'collapsed'; });
@@ -349,7 +362,7 @@ async function renderPrepare(isCurrent = guarded, { initialQuery = '' } = {}) {
     <p class="note" role="status" id="search-state">${loading?'Searching RISE…':error?esc(error):result.total+' verified results'}</p><div class="q-list" style="margin-top:12px">${result.rows.map(pr=>`<button type="button" class="q-row" data-program="${esc(pr.id)}" aria-pressed="${p?.id===pr.id}"><div><strong>${esc(pr.name)}</strong><small>${esc(pr.city)} · ${esc(pr.specialty)}</small></div><span class="chip ok">Verified identity</span></button>`).join('')}</div>
     <div style="display:flex;gap:8px;margin-top:12px"><button type="button" class="btn btn-secondary" id="prev-page" ${!loading&&result.page>1?'':'disabled'}>Previous</button><span class="note">Page ${result.page} / ${Math.max(1,result.totalPages)}</span><button type="button" class="btn btn-secondary" id="next-page" ${!loading&&result.page<result.totalPages?'':'disabled'}>Next</button></div>
     ${p?`<div class="program-card"><div class="t-label">Selected program</div><h3>${esc(p.name)}</h3><p class="note">RISE identity and release retained. Available verified intelligence is checked when your interview starts. Missing leadership or program facts are not invented.</p><a class="btn btn-secondary" target="_blank" rel="noopener" href="https://missionmedinstitute.com/member-dashboard/">Open RISE from Matrix</a></div>`:''}
-    </section><aside class="housing panel ready-card"><div class="t-kick gold">Rehearse for your program</div><div class="q-list" style="margin:12px 0">${fit.map(q=>`<a class="q-row" href="#/practice?q=${q.question_id}"><strong>${esc(q.canonical_text)}</strong></a>`).join('')}</div><button class="btn btn-primary btn-lg" type="button" id="program-mock" ${!loading&&p?.verified&&account.liveInterviewAvailable?'':'disabled'}>Program mock ▸</button><p class="note">${p?.verified?'Your interview uses only authorized program intelligence.':'Choose a verified program first.'}</p><a class="btn btn-quiet" href="#/mock">General mock instead</a><section data-interview-calendar style="margin-top:20px">${calendarMarkup(calendar)}</section></aside></div>`;
+    </section><aside class="housing panel ready-card"><div class="t-kick gold">Rehearse for your program</div><div class="q-list" style="margin:12px 0">${fit.map(q=>`<a class="q-row" href="#/practice?q=${q.question_id}"><strong>${esc(q.canonical_text)}</strong></a>`).join('')}</div><button class="btn btn-primary btn-lg" type="button" id="program-mock" ${!loading&&p?.verified&&account.liveInterviewAvailable?'':'disabled'}>Program mock ▸</button><p class="note">${p?.verified?'Your interview uses only authorized program intelligence.':'Choose a verified program first.'}</p><a class="btn btn-quiet" href="#/mock?program=none">General mock instead</a><section data-interview-calendar style="margin-top:20px">${calendarMarkup(calendar)}</section></aside></div>`;
     main.querySelector('#program-form').onsubmit=e=>{e.preventDefault();if(!current())return;const form=e.currentTarget;filters={q:form.querySelector('#program-search').value,specialty:form.elements.specialty.value,jurisdiction:form.elements.jurisdiction.value,programType:form.elements.programType.value,page:1};state.program=null;commit();void search();};
     main.querySelectorAll('[data-program]').forEach(b=>b.onclick=()=>{if(!current()||loading)return;const pr=result.rows.find(x=>x.id===b.dataset.program);if(!pr?.verified)return;state.program={...pr,fixture:false};commit();draw();});
     main.querySelector('#program-mock').onclick=()=>{if(current()&&!loading&&state.program?.verified)location.hash='#/mock?program=1';};
@@ -449,7 +462,7 @@ async function route() {
     else if(['devices','room','results','film','compare'].includes(name)) {
       if(name==='devices'||name==='room')await hydrateOwnPresentation(isCurrent);
       if(!isCurrent())return;
-      const cleanup=await (name==='devices'?mountCalibration(main,{isCurrent}):name==='room'?mountRoom(main,{session,isCurrent}):name==='results'?mountResults(main,parts[1],{isCurrent}):name==='film'?mountFilm(main,parts[1],params,{isCurrent}):mountCompare(main,parts[1],parts[2],{isCurrent}));
+      const cleanup=await (name==='devices'?mountCalibration(main,{isCurrent,returnToMock:params.get('return')==='mock',returnHash:mockSetupRoute(params)}):name==='room'?mountRoom(main,{session,isCurrent}):name==='results'?mountResults(main,parts[1],{isCurrent}):name==='film'?mountFilm(main,parts[1],params,{isCurrent}):mountCompare(main,parts[1],parts[2],{isCurrent}));
       if(isCurrent())teardown=cleanup;else cleanup?.();
     }
     else location.hash='#/home';

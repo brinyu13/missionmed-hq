@@ -1,3 +1,4 @@
+import {programActorBlockIsCurrent} from '../../ivoc/intelligence/pack/serialize.mjs';
 import { canonicalJson, hashValue, sha256Hex, sourceReceiptFromProjection } from '../../ivoc/intelligence/index.mjs';
 import { assembleContextPack, contextReceiptRef } from '../../ivoc/intelligence/pack/assemble.mjs';
 import { projectSelfPracticeAnalysis } from './self-practice-analysis.mjs';
@@ -413,7 +414,7 @@ export function createIvocApplicationIntelligence({
     async getActorContext({ actor, sessionId }) {
       if (!actor || !sessionId) throw new TypeError('ivoc_application_intelligence_session_required');
       const row = await repository.single(
-        `ivoc_context_packs?session_id=eq.${encodeURIComponent(sessionId)}&owner_subject=eq.${encodeURIComponent(actor)}&invalidated_at=is.null&select=pack_id,pack_version,actor_block,source_receipts&limit=1`,
+        `ivoc_context_packs?session_id=eq.${encodeURIComponent(sessionId)}&owner_subject=eq.${encodeURIComponent(actor)}&invalidated_at=is.null&select=pack_id,pack_version,actor_block,source_receipts,pack&limit=1`,
       );
       if (!row) return null;
       // An already prepared pack can predate the read-side quarantine. Do not
@@ -421,9 +422,10 @@ export function createIvocApplicationIntelligence({
       const saved = snapshot(row);
       if (!await validateSourceBoundPriorIvocPack({ repository, actor, sessionId, sourceReceipts: saved.source_receipts })) return null;
       if (saved.source_receipts.some(receipt => receipt.projection_type === 'ivoc.longitudinal_summary')) {
-        const again = await repository.single(`ivoc_context_packs?session_id=eq.${encodeURIComponent(sessionId)}&owner_subject=eq.${encodeURIComponent(actor)}&invalidated_at=is.null&select=pack_id,pack_version,actor_block,source_receipts&limit=1`);
+        const again = await repository.single(`ivoc_context_packs?session_id=eq.${encodeURIComponent(sessionId)}&owner_subject=eq.${encodeURIComponent(actor)}&invalidated_at=is.null&select=pack_id,pack_version,actor_block,source_receipts,pack&limit=1`);
         if (hashValue(saved) !== hashValue(again)) return null;
       }
+      if(!programActorBlockIsCurrent(saved,now()))return null;
       return Object.freeze({
         receipt: contextReceiptRef({ pack_id: saved.pack_id, pack_version: saved.pack_version }),
         actorBlock: saved.actor_block,

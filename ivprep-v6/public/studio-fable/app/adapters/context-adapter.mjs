@@ -15,3 +15,20 @@ export async function liveContext(options) {
   const {createLiveContext}=await import(ENGINE+'/studio/live-context-adapter.mjs');
   return createLiveContext(options);
 }
+
+// Resolve the default from the authorized registry, never an invented identity.
+// Explicit selection/opt-out and retries always win.
+export async function resolveGeneralProgram(account,{selected=null,disabled=false,isCurrent=()=>true}={}) {
+  if(disabled)return {program:null,state:'disabled'};
+  if(selected?.verified&&selected.programId&&selected.programReleaseId)return {program:selected,state:'selected'};
+  const result=await searchPrograms(account,{q:'SUNY Upstate',specialty:'Internal Medicine',jurisdiction:'NY'});
+  if(!isCurrent())return {program:null,state:'cancelled'};
+  // Reject ambiguity/truncation. The server re-resolves identity at session start.
+  const matches=result.rows.filter(p=>p.verified&&/\bsuny\b/i.test(p.name)&&/\bupstate\b/i.test(p.name)&&
+    !/\bdownstate\b/i.test(p.name)&&/^internal medicine$/i.test(p.specialty.trim())&&
+    /^(NY|New York)$/i.test(String(p.raw?.state||'').trim()));
+  const unique=new Map(matches.map(p=>[p.programId,p]));
+  return unique.size===1&&result.totalPages===1
+    ?{program:[...unique.values()][0],state:'default'}
+    :{program:null,state:unique.size>1||result.totalPages>1?'ambiguous':'unavailable'};
+}

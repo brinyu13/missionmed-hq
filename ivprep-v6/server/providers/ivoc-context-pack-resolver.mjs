@@ -1,3 +1,4 @@
+import {programActorBlockIsCurrent} from '../../../ivoc/intelligence/pack/serialize.mjs';
 import { buildLiveInterviewInstructions, normalizeLiveInterviewContext } from './openai-live-session.mjs';
 import { validateSourceBoundPriorIvocPack } from '../../../missionmed-hq/ivoc/application-intelligence.mjs';
 import { hashValue } from '../../../ivoc/intelligence/index.mjs';
@@ -31,7 +32,7 @@ function boundedActorBlock(value) {
     : null;
 }
 
-export function createIvocContextPackResolver({ rest } = {}) {
+export function createIvocContextPackResolver({ rest, now=Date.now } = {}) {
   if (!rest || typeof rest.table !== 'function') {
     throw new TypeError('IVOC context-pack storage is required.');
   }
@@ -41,7 +42,7 @@ export function createIvocContextPackResolver({ rest } = {}) {
     if (!owner || !session) throw new TypeError('IVOC context-pack identity is invalid.');
     const rows = await rest.table(
       'ivoc_context_packs',
-      `?session_id=eq.${encodeURIComponent(session)}&owner_subject=eq.${encodeURIComponent(owner)}&invalidated_at=is.null&select=pack_id,pack_version,actor_block,source_receipts&limit=1`,
+      `?session_id=eq.${encodeURIComponent(session)}&owner_subject=eq.${encodeURIComponent(owner)}&invalidated_at=is.null&select=pack_id,pack_version,actor_block,source_receipts,pack&limit=1`,
     );
     const row = Array.isArray(rows) && rows.length === 1 ? structuredClone(rows[0]) : null;
     // Older longitudinal evidence can contain interviewer speech mislabeled as
@@ -55,7 +56,7 @@ export function createIvocContextPackResolver({ rest } = {}) {
     if (!await validateSourceBoundPriorIvocPack({ repository, actor: owner, sessionId: session, sourceReceipts: row?.source_receipts })) return null;
     if (row.source_receipts.some(receipt => receipt.projection_type === 'ivoc.longitudinal_summary')) {
       const again = await rest.table('ivoc_context_packs',
-        `?session_id=eq.${encodeURIComponent(session)}&owner_subject=eq.${encodeURIComponent(owner)}&invalidated_at=is.null&select=pack_id,pack_version,actor_block,source_receipts&limit=1`);
+        `?session_id=eq.${encodeURIComponent(session)}&owner_subject=eq.${encodeURIComponent(owner)}&invalidated_at=is.null&select=pack_id,pack_version,actor_block,source_receipts,pack&limit=1`);
       if (!Array.isArray(again) || again.length !== 1 || hashValue(row) !== hashValue(again[0])) return null;
     }
     const packId = exactUuid(row?.pack_id);
@@ -65,6 +66,7 @@ export function createIvocContextPackResolver({ rest } = {}) {
     const policyRows = await rest.table('ivoc_admin_config_versions','?select=version,schema_name,pressure_defaults&order=version.desc&limit=1');
     const interviewPolicy = Array.isArray(policyRows) && policyRows.length === 1 ? projectInterviewPolicy(policyRows[0]) : null;
     if (!interviewPolicy) return null;
+    if(!programActorBlockIsCurrent(row,now()))return null;
     return Object.freeze({
       receipt: `ctxpack:${packId}@${packVersion}`,
       actorBlock,

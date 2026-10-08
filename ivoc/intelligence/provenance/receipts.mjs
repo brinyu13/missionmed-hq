@@ -61,10 +61,13 @@ export function derivePackId({ subject_id, inputs, rules_version, practice_goal,
 
 /** Build a SourceReceipt from a validated `matrix.projection.v1` envelope. */
 export function sourceReceiptFromProjection(projection, { now } = {}) {
-  const stale = NON_EMPTY(projection.fresh_until) && NON_EMPTY(now) && projection.fresh_until < now;
-  const degraded = projection.degraded
+  const stale = NON_EMPTY(projection.fresh_until) && NON_EMPTY(now) && Date.parse(projection.fresh_until) <= Date.parse(now);
+  // Unavailable must still drop the source. Otherwise expiry outranks partial:
+  // partial owner data must not silently become fresh because fields are missing.
+  const degraded = projection.degraded?.state === 'unavailable'
     ? { state: projection.degraded.state, reason: projection.degraded.reason }
-    : (stale ? { state: 'stale', reason: `fresh_until ${projection.fresh_until} passed` } : null);
+    : stale ? { state: 'stale', reason: `fresh_until ${projection.fresh_until} passed` }
+    : projection.degraded ? { state: projection.degraded.state, reason: projection.degraded.reason } : null;
   return assertSourceReceipt(Object.freeze({
     owner_app: projection.owner_app,
     projection_type: projection.projection_type,

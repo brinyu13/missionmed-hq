@@ -12,6 +12,7 @@ import vm from 'node:vm';
 import * as settings from '../../public/studio-fable/app/settings/interviewer.mjs';
 import {resolveFollowUps} from '../../public/capabilities/interview-policy.mjs';
 import {ENVIRONMENTS,selectedEnvironment,environmentChoicesMarkup} from '../../public/studio-fable/app/adapters/environment-profile.mjs';
+import {mockSetupRoute,mockCalibrationRoute} from '../../public/studio-fable/app/adapters/interview-entry.mjs';
 if(!globalThis.CustomEvent)globalThis.CustomEvent=class extends Event{constructor(type,init={}){super(type);this.detail=init.detail;}};
 
 const policy={schema:'ivoc.interview-policy.v1',version:3,maxFollowUpsPerAnswer:1,defaultFollowUpDepth:1,defaultPressureEnabled:false};
@@ -105,6 +106,7 @@ test('actual Practice and Mock draw functions render with an admitted policy wit
       EASY_PRESETS:settings.EASY_PRESETS,PRACTICE_GOALS:settings.PRACTICE_GOALS,ROLES:settings.ROLES,STYLES:settings.STYLES,CURIOSITY:settings.CURIOSITY,PACING:settings.PACING,
       applyPreset:settings.applyPreset,describeSettings:settings.describe,resolveMockQuestionTarget:settings.resolveMockQuestionTarget,resolveFollowUps};
     context.resolveFollowUpPreferences=settings.resolveFollowUpPreferences;
+    Object.assign(context,{mockSetupRoute,mockCalibrationRoute,params:new URLSearchParams(),programChoice:{state:'disabled'},current:context.isCurrent});
     vm.runInNewContext(source.slice(from,to)+'\ndraw();',context);
     assert.match(main.innerHTML,new RegExp('data-screen="'+(name==='renderMock'?'mock':'practice')+'"'));
     if(name==='renderMock'){assert.match(main.innerHTML,/data-depth="2"[^>]*disabled/);assert.equal(st.depth,1);assert.equal(st.policyVersion,3);}
@@ -126,6 +128,7 @@ function mockDrawHarness(initial={}) {
     contextOpen:false,environmentOpen:false,ENVIRONMENTS,selectedEnvironment,environmentChoicesMarkup,storyRevealed:false,sources:[],useProgram:false,store:{},esc:String,trayMarkup:()=>'',mountTray(){},
     EASY_PRESETS:settings.EASY_PRESETS,PRACTICE_GOALS:settings.PRACTICE_GOALS,ROLES:settings.ROLES,STYLES:settings.STYLES,CURIOSITY:settings.CURIOSITY,PACING:settings.PACING,
     applyPreset:settings.applyPreset,describeSettings:settings.describe,resolveMockQuestionTarget:settings.resolveMockQuestionTarget,resolveFollowUps,resolveFollowUpPreferences:settings.resolveFollowUpPreferences};
+  Object.assign(context,{mockSetupRoute,mockCalibrationRoute,params:new URLSearchParams(),programChoice:{state:'disabled'},current:context.isCurrent});
   vm.runInNewContext(source.slice(from,to)+'\ndraw();\nglobalThis.redraw=draw;',context);
   return {st,controller,redraw:context.redraw,setCurrent:value=>{current=value;},
     click:dataset=>nodes.get('.ready-card').handlers.click({target:{closest:()=>({dataset})}}),
