@@ -1,0 +1,332 @@
+{
+  "scope": "Local synthetic role/visual regression; not production acceptance",
+  "results": [
+    {
+      "pass": true,
+      "message": "1440 eight photographic category destinations"
+    },
+    {
+      "pass": true,
+      "message": "1440 exact approved headline"
+    },
+    {
+      "pass": true,
+      "message": "home 1440 no horizontal overflow []"
+    },
+    {
+      "pass": true,
+      "message": "1440 illuminated rail"
+    },
+    {
+      "pass": true,
+      "message": "1440 OS reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "1440 statement category opens real type filter"
+    },
+    {
+      "pass": true,
+      "message": "files 1440 no horizontal overflow []"
+    },
+    {
+      "pass": true,
+      "message": "selected-file grid 1440 no horizontal overflow []"
+    },
+    {
+      "pass": true,
+      "message": "research category searches existing metadata"
+    },
+    {
+      "pass": true,
+      "message": "My Files defaults to photographic grid"
+    },
+    {
+      "pass": true,
+      "message": "list toggle works"
+    },
+    {
+      "pass": true,
+      "message": "visual fixture loads real local synthetic PDF"
+    },
+    {
+      "pass": true,
+      "message": "preview contains version history"
+    },
+    {
+      "pass": true,
+      "message": "Chrome native PDF viewer loads; visible document confirmed separately in screenshot"
+    },
+    {
+      "pass": true,
+      "message": "preview desktop no horizontal overflow []"
+    },
+    {
+      "pass": true,
+      "message": "Escape closes preview"
+    },
+    {
+      "pass": true,
+      "message": "preview returns focus to opener"
+    },
+    {
+      "pass": true,
+      "message": "upload exposes actual drop target"
+    },
+    {
+      "pass": true,
+      "message": "guided upload preserves editable visible filename"
+    },
+    {
+      "pass": true,
+      "message": "guided upload preserves visible version label"
+    },
+    {
+      "pass": true,
+      "message": "MissionMed sharing remains first-class separate page"
+    },
+    {
+      "pass": true,
+      "message": "peer sharing remains separate"
+    },
+    {
+      "pass": true,
+      "message": "activity uses only fixture server events"
+    },
+    {
+      "pass": true,
+      "message": "settings desktop no horizontal overflow []"
+    },
+    {
+      "pass": true,
+      "message": "OS reduced motion cannot be disabled by in-app preference"
+    },
+    {
+      "pass": true,
+      "message": "storage summary discloses limited scope"
+    },
+    {
+      "pass": true,
+      "message": "synthetic quota fields not mistaken for production API"
+    },
+    {
+      "pass": true,
+      "message": "1280 eight photographic category destinations"
+    },
+    {
+      "pass": true,
+      "message": "1280 exact approved headline"
+    },
+    {
+      "pass": true,
+      "message": "home 1280 no horizontal overflow []"
+    },
+    {
+      "pass": true,
+      "message": "1280 illuminated rail"
+    },
+    {
+      "pass": true,
+      "message": "1280 OS reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "1280 statement category opens real type filter"
+    },
+    {
+      "pass": true,
+      "message": "files 1280 no horizontal overflow []"
+    },
+    {
+      "pass": true,
+      "message": "selected-file grid 1280 no horizontal overflow []"
+    },
+    {
+      "pass": true,
+      "message": "1024 eight photographic category destinations"
+    },
+    {
+      "pass": true,
+      "message": "1024 exact approved headline"
+    },
+    {
+      "pass": true,
+      "message": "home 1024 no horizontal overflow []"
+    },
+    {
+      "pass": true,
+      "message": "1024 illuminated rail"
+    },
+    {
+      "pass": true,
+      "message": "1024 OS reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "1024 statement category opens real type filter"
+    },
+    {
+      "pass": true,
+      "message": "files 1024 no horizontal overflow []"
+    },
+    {
+      "pass": true,
+      "message": "selected-file grid 1024 no horizontal overflow []"
+    },
+    {
+      "pass": true,
+      "message": "768 eight photographic category destinations"
+    },
+    {
+      "pass": true,
+      "message": "768 exact approved headline"
+    },
+    {
+      "pass": true,
+      "message": "home 768 no horizontal overflow []"
+    },
+    {
+      "pass": true,
+      "message": "768 illuminated rail"
+    },
+    {
+      "pass": true,
+      "message": "768 OS reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "768 statement category opens real type filter"
+    },
+    {
+      "pass": true,
+      "message": "files 768 no horizontal overflow []"
+    },
+    {
+      "pass": true,
+      "message": "selected-file grid 768 no horizontal overflow []"
+    },
+    {
+      "pass": true,
+      "message": "390 eight photographic category destinations"
+    },
+    {
+      "pass": true,
+      "message": "390 exact approved headline"
+    },
+    {
+      "pass": true,
+      "message": "home 390 no horizontal overflow []"
+    },
+    {
+      "pass": true,
+      "message": "390 illuminated rail"
+    },
+    {
+      "pass": true,
+      "message": "390 OS reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "390 statement category opens real type filter"
+    },
+    {
+      "pass": true,
+      "message": "files 390 no horizontal overflow []"
+    },
+    {
+      "pass": true,
+      "message": "mobile preview no horizontal overflow []"
+    },
+    {
+      "pass": true,
+      "message": "mobile upload no horizontal overflow []"
+    },
+    {
+      "pass": true,
+      "message": "mobile library no horizontal overflow []"
+    },
+    {
+      "pass": true,
+      "message": "mobile shared no horizontal overflow []"
+    },
+    {
+      "pass": true,
+      "message": "mobile activity no horizontal overflow []"
+    },
+    {
+      "pass": true,
+      "message": "mobile settings no horizontal overflow []"
+    },
+    {
+      "pass": true,
+      "message": "1440 admin retains student directory search"
+    },
+    {
+      "pass": true,
+      "message": "staff 1440 no horizontal overflow []"
+    },
+    {
+      "pass": true,
+      "message": "1440 staff selected student has cinematic home with explicit subject banner"
+    },
+    {
+      "pass": true,
+      "message": "staff selected student 1440 no horizontal overflow []"
+    },
+    {
+      "pass": true,
+      "message": "390 admin retains student directory search"
+    },
+    {
+      "pass": true,
+      "message": "staff 390 no horizontal overflow []"
+    },
+    {
+      "pass": true,
+      "message": "390 staff selected student has cinematic home with explicit subject banner"
+    },
+    {
+      "pass": true,
+      "message": "staff selected student 390 no horizontal overflow []"
+    },
+    {
+      "pass": true,
+      "message": "initial home cumulative layout shift below0.1 (0)"
+    },
+    {
+      "pass": true,
+      "message": "subtle live background animation present"
+    },
+    {
+      "pass": true,
+      "message": "local reduced-motion preference stops background animation"
+    },
+    {
+      "pass": true,
+      "message": "reduced-motion preference persists on reload"
+    },
+    {
+      "pass": true,
+      "message": "compact preference visibly reduces file grid density"
+    },
+    {
+      "pass": true,
+      "message": "all cinematic assets optimized under700KB (473879 bytes)"
+    },
+    {
+      "pass": true,
+      "message": "home DOM bounded (283 nodes)"
+    },
+    {
+      "pass": true,
+      "message": "no JavaScript page errors "
+    }
+  ],
+  "errors": [],
+  "assetBytes": 473879,
+  "stats": {
+    "nodes": 283,
+    "shifts": 0
+  },
+  "initialLayoutShift": 0
+}

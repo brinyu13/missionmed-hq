@@ -1,0 +1,60 @@
+{
+  "source": "Exact image_gen prompts from current task tool inputs; hero-v1 superseded by hero. Original source images retained.",
+  "prompts": [
+    {
+      "asset": "hero-v1",
+      "timestamp": "2026-10-08T22:14:11.303Z",
+      "prompt": "Create one cinematic photorealistic background photograph for the actual MissionMed File Vault application, a wide landscape 1536x1024 image. No UI, no letters, no text, no logos, no watermark. Scene closely matches the founder approved design: sophisticated dark medical academic study, rich dark walnut desk in foreground with silver stethoscope, premium black pen and papers; open black laptop angled toward camera on center-right, black screen with subtle reflections, stack of five substantial dark navy hardcover medical books on far right with blank spines. Huge window behind desk, distant dramatic blue alpine mountain peaks and pink gold sunset, warmly glowing vertical lamp at right, blurred plants, subtle dust glints in the golden light, navy shadows. Real editorial architectural photography, tactile materials, luxurious but credible, shallow depth of field. Most objects in right 65 percent; left third has calm dark negative space where semantic HTML headline will be overlaid. Desk fills bottom half, horizon near upper quarter. No humans. Detailed realistic composition, warm amber highlights against deep blue black. This is a web hero background asset, not an image of a dashboard."
+    },
+    {
+      "asset": "statement",
+      "timestamp": "2026-10-08T22:14:57.637Z",
+      "prompt": "Cinematic editorial macro photo, close-up of an open handwritten notebook and neatly printed personal essay, black and gold fountain pen laid across cream paper on a dark walnut desk, black reading glasses, warm amber window light, shallow depth of field, navy black shadows, refined academic study. Paper words soft out of focus, no legible text. Landscape 3:2, full bleed, no border, no UI. Photorealistic premium photographic category card for private document application. No logos."
+    },
+    {
+      "asset": "cv",
+      "timestamp": "2026-10-08T22:14:57.637Z",
+      "prompt": "Cinematic editorial close-up photograph of substantial neat stacks of white curriculum vitae documents clipped together on dark walnut office desk, one elegant black pen, warm golden sunset streaming in through window, dark navy shadows, detailed crisp paper edges, premium academic atmosphere. Landscape 3:2, full bleed, no border, no UI, no readable text or logos, shallow depth of field."
+    },
+    {
+      "asset": "letters",
+      "timestamp": "2026-10-08T22:14:57.637Z",
+      "prompt": "Cinematic editorial close-up photograph of three ivory envelopes and a carefully folded recommendation letter on a dark walnut academic desk, a tasteful wax seal with no symbol on foremost envelope, warm amber light and soft green plant in background, deep navy black shadows, exquisite real paper texture. Landscape 3:2, full bleed, no border, no UI, no legible text or logos."
+    },
+    {
+      "asset": "records",
+      "timestamp": "2026-10-08T22:14:57.637Z",
+      "prompt": "Cinematic editorial close-up photograph of a row of thick cream and pale blue academic record folders with neatly staggered paper tabs in a dark wood desktop organizer, rich gold sunset sidelight, navy black shaded study, soft depth of field, highly realistic detailed paper. Landscape 3:2 full bleed photograph, no border, no UI, no readable text, no logo."
+    },
+    {
+      "asset": "interview",
+      "timestamp": "2026-10-08T22:15:39.611Z",
+      "prompt": "Cinematic photorealistic editorial photograph of a sophisticated quiet interview meeting room, two elegant dark upholstered chairs facing a walnut table with a closed laptop and notepad, enormous windows facing a city skyline at warm sunset, softly glowing amber lamps, navy black shadow palette. No people, no text, no logos. Landscape 3:2 full bleed, premium detailed realistic photo for an interview preparation category card. No UI, no borders."
+    },
+    {
+      "asset": "research",
+      "timestamp": "2026-10-08T22:15:39.611Z",
+      "prompt": "Cinematic photorealistic editorial close-up of a stack of dark navy academic books with blank gold-edged spines on a walnut desk, cream research papers with blurred illegible lines, small microscope softly blurred in rear, warm amber sidelight, realistic leather and paper texture, deep navy black background. Landscape 3:2 full bleed, no text, no logo, no border, no UI. Premium photography for research document category."
+    },
+    {
+      "asset": "other",
+      "timestamp": "2026-10-08T22:15:39.611Z",
+      "prompt": "Cinematic photorealistic editorial close-up of a carefully organized row of blue grey file folders and paper documents in a dark leather archive box on a walnut desk, delicate amber sunset highlights, blurred indoor plants and luxurious dark academic study background, tactile realistic materials, shallow depth of field, landscape 3:2 full bleed. No labels, text, logos, UI or border."
+    },
+    {
+      "asset": "shared",
+      "timestamp": "2026-10-08T22:15:39.611Z",
+      "prompt": "Cinematic photorealistic editorial photograph of two adult professionals in dark business suits seen from behind in silhouette, one passing a closed navy document folder to the other in a sophisticated high-rise office at sunset, tall windows with glowing amber city skyline, navy black shadows, tasteful premium atmosphere. Both entirely generic fictional adults, no identifiable real people, no logos, no text, no UI or border. Landscape 3:2 full bleed."
+    },
+    {
+      "asset": "mountain",
+      "timestamp": "2026-10-08T22:16:27.722Z",
+      "prompt": "Vertical cinematic photorealistic alpine landscape photograph for the narrow background of a luxury academic app navigation rail. A sharply detailed snowy mountain summit in lower third, dense dark pine forest along bottom, deep navy starry twilight sky fills upper two-thirds with sparse tiny warm amber atmospheric dust and a faint warm sunset glow behind peaks. Moody almost-black blues, a few gold rim lights, photo realism. No buildings, people, UI, text, logos, icons, frames or labels. Tall portrait 2:3 composition, mostly very dark clean sky at top for HTML navigation overlays."
+    },
+    {
+      "asset": "hero",
+      "timestamp": "2026-10-08T22:28:57.698Z",
+      "prompt": "Create a NEW full-bleed photographic hero background, landscape panorama 1536x640, with no text, no logo and no UI. Cinematic photorealistic medical academic walnut desk. Composition critical: camera at desk height, desktop starts at one-quarter image height, not bottom. Large open black laptop on center-right dominates from y=15% to y=70%, tilted black screen. Stack of blank dark navy books on far right, from y=25% to y=85%. Silver stethoscope and black gold fountain pen in foreground along bottom. Mountains at sunset seen through glass behind, confined to TOP ONE QUARTER, with amber vertical lamps. Left 35% of image dark blurred office / desktop negative space for overlaid headline. Deep blue-black shadow, orange amber rim lighting, warm polished wood reflections. Actual professional architectural/product photography style, realistic materials, not illustration. No people, no readable writing, no border. Wide low horizontal crop, focus on laptop and books, mountains secondary. Asset will fill top550px of web app, so main objects must be in upper half and center-right. No generated branding."
+    }
+  ]
+}
