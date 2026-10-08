@@ -154,12 +154,22 @@ const DIAGNOSTIC_CODES=new Set(['LOI_PROVIDER_TIMEOUT','LOI_PROVIDER_RESPONSE','
 const DIAGNOSTIC_RULES=new Set(['UNSUPPORTED_GUARANTEE','UNSUPPORTED_VISA','UNSUPPORTED_RANK','UNSUPPORTED_ACHIEVEMENT','UNSUPPORTED_PERSONAL_TIE','UNSUPPORTED_PROGRAM_TOPIC','UNSUPPORTED_PROGRAM_ROBOTICS','UNSUPPORTED_PROGRAM_SURGERY','UNSUPPORTED_PROGRAM_CARDIOLOGY','UNSUPPORTED_PROGRAM_FELLOWSHIP','UNSUPPORTED_PROGRAM_RESEARCH','UNSUPPORTED_PROGRAM_SCHOLARSHIP','UNSUPPORTED_PROGRAM_ELECTIVE','UNSUPPORTED_PROGRAM_MENTORSHIP','UNSUPPORTED_PROGRAM_SIMULATION','UNSUPPORTED_PROGRAM_RURAL','UNSUPPORTED_PROGRAM_INTERNATIONAL','UNSUPPORTED_PROGRAM_VISA','UNSUPPORTED_PROGRAM_SPONSORSHIP','UNSUPPORTED_EVIDENCE_STATE']);
 export function loiFailureDiagnostic(error,stage,outputSha256=null){return {stage:['AUTHOR_INTENT','PROVIDER_RESPONSE','PROSE_VALIDATION','DISPATCH'].includes(stage)?stage:'UNKNOWN',code:DIAGNOSTIC_CODES.has(error?.code)?error.code:'UNCLASSIFIED',outputSha256:typeof outputSha256==='string'&&/^[a-f0-9]{64}$/.test(outputSha256)?outputSha256:null,...(error?.code==='loi_composition_unsupported'&&DIAGNOSTIC_RULES.has(error?.rule)?{rule:error.rule}:{})};}
 // One synthetic-only diagnostic request. This is not a raw student-output log.
-export const SYNTHETIC_LOI_DIAGNOSTIC_REQUEST='dfcbda50-ddeb-4d0e-9cf4-74f3f05f2b20';
+export const SYNTHETIC_LOI_DIAGNOSTIC_REQUEST='8806fffb-6f9b-4768-8389-442d9798220f';
 const SYNTHETIC_LOI_INPUT_SHA='0725798083c9bac53b710aa6a1244bb552a376bb32bb6e81ca9c3ef8b84de8ef';
 const syntheticInputKeys=['program','refs','context','motivations','facts','selectedEvidence','approaches','contextConfirmations','positionType','advancedProgramName'];
 function syntheticInputMatches(input){try{return v.digest(Object.fromEntries(syntheticInputKeys.map(k=>[k,input[k]])))===SYNTHETIC_LOI_INPUT_SHA;}catch{return false;}}
 export function syntheticLoiCustodyAllowed(actor,subject,requestId,input){return paidCanaryActor(actor)&&actor.eligible===true&&actor.tier==='ivprep_complete'&&requestId===SYNTHETIC_LOI_DIAGNOSTIC_REQUEST&&v.digest(subject)===v.digest({interviewId:'1d50f55a-bbcf-4d77-a6aa-dfed1f00d9ae'})&&syntheticInputMatches(input);}
-export function syntheticRejectedWire(output,input,requestId){try{if(requestId!==SYNTHETIC_LOI_DIAGNOSTIC_REQUEST||!syntheticInputMatches(input)||Buffer.byteLength(JSON.stringify(output))>32768)return null;normalizeLoiParagraphs(output,input);return {schema:'iiq-synthetic-rejected-wire-v1',requestId,inputSha256:SYNTHETIC_LOI_INPUT_SHA,outputSha256:v.digest(output),wire:structuredClone(output)};}catch{return null;}}
+// Diagnostic shape validation deliberately precedes business/trace validation.
+// Malformed formatting or source associations must remain inspectable for this
+// one synthetic request. This helper NEVER makes a rejected draft acceptable.
+function syntheticWireShape(o,input){
+ const keys=(x,w)=>x&&typeof x==='object'&&!Array.isArray(x)&&Object.keys(x).length===w.length&&w.every(k=>Object.hasOwn(x,k));
+ const str=x=>typeof x==='string'&&x.length<=20000;
+ return keys(o,['schema','candidates'])&&o.schema===PARAGRAPH_SCHEMA&&Array.isArray(o.candidates)&&o.candidates.length===input.approaches.length&&o.candidates.every(c=>
+  keys(c,['approach','paragraphs','fitLinks'])&&str(c.approach)&&Array.isArray(c.paragraphs)&&c.paragraphs.length<=30&&c.paragraphs.every(p=>keys(p,['text','refs'])&&str(p.text)&&Array.isArray(p.refs)&&p.refs.length<=90&&p.refs.every(str))&&
+  Array.isArray(c.fitLinks)&&c.fitLinks.length<=20&&c.fitLinks.every(f=>keys(f,['evidenceRef','reasonRef'])&&str(f.evidenceRef)&&str(f.reasonRef)));
+}
+export function syntheticRejectedWire(output,input,requestId){try{if(requestId!==SYNTHETIC_LOI_DIAGNOSTIC_REQUEST||!syntheticInputMatches(input)||Buffer.byteLength(JSON.stringify(output))>32768)return null;if(!syntheticWireShape(output,input))return null;return {schema:'iiq-synthetic-rejected-wire-v1',requestId,inputSha256:SYNTHETIC_LOI_INPUT_SHA,outputSha256:v.digest(output),wire:structuredClone(output)};}catch{return null;}}
 export function createNativeLoiProseComposer(config,{fetchImpl=fetch}={}){
  const c=config?.loiComposition,key=config?.loiOpenai?.apiKey;if(c?.enabled!==true||c.aiEnabled!==true||!canaryPolicy(c)||typeof key!=='string'||key.length<20||key.length>4096||/[\s\u0000-\u001f\u007f]/.test(key))return null;
  const policy=Object.freeze({authorizationId:c.authorizationId,canaryOwnerId:LOI_CANARY_OWNER,model:LOI_MODEL,maxInputTokens:MODEL_CONTEXT_TOKENS,maxOutputTokens:c.maxOutputTokens,maxCostMicros:c.maxCostMicros,lifetimeBudgetMicros:c.lifetimeBudgetMicros,timeoutMs:c.timeoutMs,singleRequest:true,logicalOperation:true,providerPasses:1,noRetries:true,guaranteesMaxCost:true,serviceTier:'default',costBasis:'FULL_CONTEXT_UNCACHED_UPPER_BOUND',compositionMode:'prose',requiresPassLedger:true}),attempted=new Set();
