@@ -256,14 +256,19 @@
 		var viewportTop = viewport ? viewport.offsetTop : 0;
 		var viewportHeight = viewport ? viewport.height : global.innerHeight;
 		var viewportBottom = viewportTop + viewportHeight;
+		var adminBar = document.getElementById('wpadminbar');
+		var adminRect = adminBar && global.getComputedStyle(adminBar).display !== 'none' ? adminBar.getBoundingClientRect() : null;
+		var chromeTop = adminRect && adminRect.bottom > viewportTop && adminRect.top < viewportBottom
+			? Math.max(viewportTop, adminRect.bottom)
+			: viewportTop;
 		var main = root.querySelector('.mcv2-main');
 		var mainRect = main ? main.getBoundingClientRect() : null;
 		var desktopWorkspace = global.innerWidth > 900 && mainRect && mainRect.top < viewportBottom;
 		var padding = global.innerWidth <= 560 ? 8 : 12;
-		var usableTop = desktopWorkspace ? Math.max(viewportTop, mainRect.top) + padding : viewportTop + padding;
+		var usableTop = desktopWorkspace ? Math.max(chromeTop, mainRect.top) + padding : chromeTop + padding;
 		var usableBottom = mainRect && mainRect.bottom > usableTop ? Math.min(viewportBottom, mainRect.bottom) - padding : viewportBottom - padding;
 		if (usableBottom - usableTop < 280) {
-			usableTop = viewportTop + padding;
+			usableTop = chromeTop + padding;
 			usableBottom = viewportBottom - padding;
 		}
 		root.style.setProperty('--mcv2-modal-center-y', Math.round((usableTop + usableBottom) / 2) + 'px');
