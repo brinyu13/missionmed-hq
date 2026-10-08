@@ -1,6 +1,6 @@
 import {qualifyLoiEvidence} from './loi-evidence.mjs';
 import {PROSE_SCHEMA,PROSE_GUARD,AUTHORED_SCHEMA,AUTHORED_GUARD} from './loi-prose-contract.mjs';
-import {LOI_CANARY_OWNER,LOI_AUTHORIZATION,MAX_LIFETIME_MICROS,canaryPolicy,usageCost,paidCanaryActor,MODEL_CONTEXT_TOKENS,MAX_RESPONSE_BYTES,maxCostBound} from './loi-openai.mjs';
+import {LOI_CANARY_OWNER,LOI_AUTHORIZATION,MAX_LIFETIME_MICROS,canaryPolicy,usageCost,paidCanaryActor,MODEL_CONTEXT_TOKENS,MAX_RESPONSE_BYTES,maxCostBound,loiFailureDiagnostic} from './loi-openai.mjs';
 import {randomUUID} from 'node:crypto';
 import * as v from './validation.mjs';
 import {requireValue,notFound} from './errors.mjs';
@@ -111,6 +111,6 @@ async function dispatchGeneration({database,actor,ctx,generationId,config,compos
  };
 
  try{const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>{abort.abort();reject(new Error('TIMEOUT'));},config.loiComposition.timeoutMs);});const request={generationId,input:structuredClone(reservation.input),schema:activeSchema,connectors:CONNECTORS,maxInputTokens:config.loiComposition.maxInputTokens,maxOutputTokens:config.loiComposition.maxOutputTokens,maxCostMicros:config.loiComposition.maxCostMicros,model:config.loiComposition.model,signal:abort.signal,...(isProse?{recordPass}:{})};const response=await Promise.race([activeComposer.compose(request),timeout]);v.onlyKeys(response,['output','usage']);validUsage=checkedUsage(response.usage,config);if(isProse)requireValue(validUsage.passes?.length===1&&validUsage.passes.every(p=>p.status==='USAGE_RECORDED'),'loi_provider_usage','The single committed writer usage receipt is required.');result={status:'PROPOSED',reason:null,proposals:activeValidator(response.output,reservation.input,MAX_RESPONSE_BYTES),usage:validUsage};
- }catch(error){if(error?.validatedUsage)try{validUsage=checkedUsage(error.validatedUsage,config);}catch{}result={status:'STANDARD_FALLBACK',reason:abort.signal.aborted?'PROVIDER_OUTCOME_UNKNOWN':'PROVIDER_OR_VALIDATION_FAILED',proposals:validatePlans(standardPlans(reservation.input),reservation.input),usage:validUsage};}finally{clearTimeout(timer);}
+ }catch(error){if(error?.validatedUsage)try{validUsage=checkedUsage(error.validatedUsage,config);}catch{}result={status:'STANDARD_FALLBACK',reason:abort.signal.aborted?'PROVIDER_OUTCOME_UNKNOWN':'PROVIDER_OR_VALIDATION_FAILED',proposals:validatePlans(standardPlans(reservation.input),reservation.input),usage:validUsage,diagnostic:loiFailureDiagnostic(error?.loiDiagnostic??error,error?.loiDiagnostic?.stage??'DISPATCH',error?.loiDiagnostic?.outputSha256)};}finally{clearTimeout(timer);}
  try{await database.withActor(actor,async db=>{if(!await event(db,actor,RESULT,generationId))await append(db,actor,RESULT,generationId,result);},{write:true});}catch{/* A result-commit uncertainty leaves claim-only OUTCOME_UNKNOWN. Never dispatch again. */}
 }

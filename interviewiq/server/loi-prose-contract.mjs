@@ -157,16 +157,30 @@ function checkAuthoredUnit(quote,allowed){
  // detectable without accepting the author's claimed meaning/trace as proof.
  const relevant=allowed.filter(r=>r.kind!=='identity');
  if(/\bI (?:(?:have|had|already|recently) )?(?:(?:not|never) )?interviewed\b/i.test(quote)){const context=allowed.filter(r=>/\binterview\w*\b/i.test(r.text));proseNeed(context.length>0&&context.every(r=>negative(r.text)===negative(quote)),'loi_composition_contradiction');}
- if(/\b(?:residents|your program|the program|curriculum|faculty)\b/i.test(quote)){const evidence=allowed.filter(r=>r.kind==='evidence'&&topics(r.text).some(t=>topics(quote).includes(t)));if(evidence.length===1)proseNeed(negative(quote)===negative(evidence[0].text),'loi_composition_contradiction');}
+ if(/\b(?:residents|your program|the program|curriculum|faculty)\b/i.test(quote)){const evidence=allowed.filter(r=>r.kind==='evidence'&&authoredTopics(r.text).some(t=>authoredTopics(quote).includes(t)));if(evidence.length===1)proseNeed(negative(quote)===negative(evidence[0].text),'loi_composition_contradiction');}
  if(relevant.length===1&&(/\b(?:I|program|residents|clinic|curriculum|training|faculty|interview\w*|appli\w*)\b/i.test(quote)))proseNeed(negative(quote)===negative(relevant[0].text),'loi_composition_contradiction');
  return {code:'UNRESOLVED_SEMANTIC_SUPPORT',message:'Read this authored clause against every linked original source. Trace associations and local checks do not certify meaning.'};
 }
+// V5 only: named leadership is concrete evidence, without implying mentorship.
+const leadershipWords=/\b(?:leadership|(?:associate )?program director|section chief|chairman)\b/i;
+const authoredTopics=text=>[...topics(text),...(leadershipWords.test(text)?[10]:[])];
+const namedLeadership=r=>r.kind==='evidence'&&r.field==='research.leadership'&&
+ /(?:^|\n)[A-Z][a-zA-Z'’-]+(?:[ \t]+[A-Z][a-zA-Z.'’-]+)+,[ \t]*(?:MD|DO)\b[^\n]*\n[^\n]*(?:Program Director|Section Chief|Chairman)[^\n]*(?:\n|$)/.test(r.text);
+const leadershipPurpose=text=>leadershipWords.test(text)&&
+ /\b(?:identify|identifying|understand|understanding|learn|learning|know|knowing)\b/i.test(text)&&
+ /\b(?:interview|questions|prepare|preparing|preparation|decision)\b/i.test(text);
+const authoredFit=(e,r)=>topics(e.text).some(t=>topics(r.text).includes(t))||
+ (namedLeadership(e)&&leadershipPurpose(r.text));
+export function validateAuthoredInputSpecificity(refs){
+ const ev=refs.filter(r=>r.kind==='evidence'),reasons=refs.filter(r=>r.kind==='reason');
+ proseNeed(ev.some(r=>concreteDetail(r.text)||namedLeadership(r))&&reasons.some(r=>r.text.split(/\s+/).length>=5&&!genericReason(r.text)),'loi_composition_specificity');
+ proseNeed(ev.some(e=>reasons.some(r=>authoredFit(e,r))),'loi_composition_specificity');
+}
 function authoredSpecificity(text,refs,claims){
  const ev=refs.filter(r=>r.kind==='evidence'),reasons=refs.filter(r=>r.kind==='reason');
- proseNeed(ev.some(r=>concreteDetail(r.text))&&reasons.some(r=>r.text.split(/\s+/).length>=5&&!genericReason(r.text)),'loi_composition_specificity');
- proseNeed(ev.some(e=>reasons.some(r=>topics(e.text).some(t=>topics(r.text).includes(t)))),'loi_composition_specificity');
- const detailTopics=ev.flatMap(e=>topics(e.text)),reasonTopics=reasons.flatMap(e=>topics(e.text));
- proseNeed(detailTopics.some(t=>topics(text).includes(t))&&reasonTopics.some(t=>topics(text).includes(t)),'loi_composition_specificity');
+ validateAuthoredInputSpecificity(refs);
+ const detailTopics=ev.flatMap(e=>authoredTopics(e.text)),reasonTopics=reasons.flatMap(e=>authoredTopics(e.text));
+ proseNeed(detailTopics.some(t=>authoredTopics(text).includes(t))&&reasonTopics.some(t=>authoredTopics(text).includes(t)),'loi_composition_specificity');
  proseNeed(claims.some(c=>c.refs.some(x=>ev.some(e=>e.ref===x)))&&claims.some(c=>c.refs.some(x=>reasons.some(e=>e.ref===x))),'loi_composition_specificity');
 }
 export function validateAuthoredTrace(row,refs,program){
@@ -183,7 +197,7 @@ export function validateAuthoredTrace(row,refs,program){
  }
  proseNeed(refs.every(r=>used.has(r.ref)),'loi_composition_reference');
  proseNeed(Array.isArray(row.fitLinks)&&row.fitLinks.length>0&&row.fitLinks.length<=20,'loi_composition_specificity');
- for(const f of row.fitLinks){const e=refs.find(r=>r.ref===f.evidenceRef&&r.kind==='evidence'),r=refs.find(r=>r.ref===f.reasonRef&&r.kind==='reason');proseNeed(proseKeys(f,['evidenceRef','reasonRef'])&&e&&r&&topics(e.text).some(t=>topics(r.text).includes(t)),'loi_composition_specificity');}
+ for(const f of row.fitLinks){const e=refs.find(r=>r.ref===f.evidenceRef&&r.kind==='evidence'),r=refs.find(r=>r.ref===f.reasonRef&&r.kind==='reason');proseNeed(proseKeys(f,['evidenceRef','reasonRef'])&&e&&r&&authoredFit(e,r),'loi_composition_specificity');}
  authoredSpecificity(row.text,refs,claims);
  const first=claims.flatMap(c=>c.refs).map(id=>refs.find(r=>r.ref===id)).find(r=>r.kind!=='identity'),wanted={WARM_PERSONAL:'reason',DIRECT_CONCISE:'context',ACADEMIC_PROGRAM:'evidence',POST_INTERVIEW:'context',UPDATE_LED:'fact',STRONG_INTEREST:'reason'}[row.approach];proseNeed(first?.kind===wanted,'loi_composition_structure');
  const substantive=units.filter((u,i)=>claims[i].refs.length),opening=substantive[0]?.quote.trim(),cadence=row.text.split(/\n\s*\n/).map(p=>proseUnits(p).length).join('|');
