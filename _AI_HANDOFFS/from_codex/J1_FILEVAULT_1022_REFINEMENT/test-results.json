@@ -1,0 +1,7378 @@
+{
+  "scope": "Local synthetic screenshots; no production or provider behavior changes",
+  "accepted": "c230320f8a8329a2ebdbde0cbae802b2cbc918b4",
+  "cssSha256": "5009c86f47c85fa1a9d15b70c3fec17547bf00c7ced21f4ac58702b55f26d482",
+  "svgSha256": "f64258e413a3bbfe8ab08e10904b9840200fc655eb24ecc110dc71cdd0cc7969",
+  "checks": [
+    {
+      "pass": true,
+      "message": "1440 all eight category titles"
+    },
+    {
+      "pass": true,
+      "message": "1440 surrounding layout unchanged"
+    },
+    {
+      "pass": true,
+      "message": "1440 no horizontal stage overflow"
+    },
+    {
+      "pass": true,
+      "message": "1440 no split words or single-letter orphans []"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 0 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 0 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 0 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 0 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 0 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 1 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 1 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 1 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 1 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 1 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 2 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 2 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 2 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 2 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 2 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 3 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 3 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 3 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 3 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 3 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 4 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 4 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 4 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 4 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 4 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 5 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 5 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 5 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 5 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 5 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 6 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 6 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 6 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 6 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 6 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 7 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 7 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 7 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 7 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "1440 category 7 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "1440 two-area screenshot regression (one-level raster tolerance; <=0.01% isolated raster noise) {\"changedPixels\":133660,\"outsideAllowedRegions\":64139,\"outsideBounds\":[196,0,1210,536],\"outsideOverOneLevel\":0}"
+    },
+    {
+      "pass": true,
+      "message": "1440 visible refinement pixels"
+    },
+    {
+      "pass": true,
+      "message": "hover scales title 3% with amber illumination"
+    },
+    {
+      "pass": true,
+      "message": "category keyboard focus remains visible"
+    },
+    {
+      "pass": true,
+      "message": "keyboard Enter opens category destination"
+    },
+    {
+      "pass": true,
+      "message": "category 0 type/search destination retained"
+    },
+    {
+      "pass": true,
+      "message": "category 1 type/search destination retained"
+    },
+    {
+      "pass": true,
+      "message": "category 2 type/search destination retained"
+    },
+    {
+      "pass": true,
+      "message": "category 3 type/search destination retained"
+    },
+    {
+      "pass": true,
+      "message": "category 4 type/search destination retained"
+    },
+    {
+      "pass": true,
+      "message": "category 5 type/search destination retained"
+    },
+    {
+      "pass": true,
+      "message": "category 6 type/search destination retained"
+    },
+    {
+      "pass": true,
+      "message": "Shared with Me destination retained"
+    },
+    {
+      "pass": true,
+      "message": "My Files screenshot visually unchanged (<=0.01% raster noise) {\"changedPixels\":19,\"outsideAllowedRegions\":19,\"outsideBounds\":[15,214,1414,547],\"outsideOverOneLevel\":1}"
+    },
+    {
+      "pass": true,
+      "message": "1280 all eight category titles"
+    },
+    {
+      "pass": true,
+      "message": "1280 surrounding layout unchanged"
+    },
+    {
+      "pass": true,
+      "message": "1280 no horizontal stage overflow"
+    },
+    {
+      "pass": true,
+      "message": "1280 no split words or single-letter orphans []"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 0 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 0 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 0 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 0 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 0 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 1 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 1 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 1 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 1 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 1 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 2 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 2 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 2 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 2 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 2 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 3 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 3 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 3 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 3 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 3 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 4 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 4 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 4 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 4 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 4 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 5 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 5 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 5 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 5 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 5 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 6 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 6 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 6 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 6 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 6 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 7 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 7 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 7 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 7 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "1280 category 7 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "1280 two-area screenshot regression (one-level raster tolerance; <=0.01% isolated raster noise) {\"changedPixels\":51552,\"outsideAllowedRegions\":8,\"outsideBounds\":[586,528,587,536],\"outsideOverOneLevel\":0}"
+    },
+    {
+      "pass": true,
+      "message": "1280 visible refinement pixels"
+    },
+    {
+      "pass": true,
+      "message": "1024 all eight category titles"
+    },
+    {
+      "pass": true,
+      "message": "1024 surrounding layout unchanged"
+    },
+    {
+      "pass": true,
+      "message": "1024 no horizontal stage overflow"
+    },
+    {
+      "pass": true,
+      "message": "1024 no split words or single-letter orphans []"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 0 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 0 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 0 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 0 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 0 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 1 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 1 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 1 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 1 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 1 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 2 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 2 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 2 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 2 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 2 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 3 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 3 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 3 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 3 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 3 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 4 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 4 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 4 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 4 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 4 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 5 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 5 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 5 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 5 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 5 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 6 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 6 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 6 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 6 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 6 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 7 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 7 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 7 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 7 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "1024 category 7 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "1024 two-area screenshot regression (one-level raster tolerance; <=0.01% isolated raster noise) {\"changedPixels\":67658,\"outsideAllowedRegions\":16,\"outsideBounds\":[407,481,816,629],\"outsideOverOneLevel\":0}"
+    },
+    {
+      "pass": true,
+      "message": "1024 visible refinement pixels"
+    },
+    {
+      "pass": true,
+      "message": "768 all eight category titles"
+    },
+    {
+      "pass": true,
+      "message": "768 surrounding layout unchanged"
+    },
+    {
+      "pass": true,
+      "message": "768 no horizontal stage overflow"
+    },
+    {
+      "pass": true,
+      "message": "768 no split words or single-letter orphans []"
+    },
+    {
+      "pass": true,
+      "message": "768 category 0 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "768 category 0 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "768 category 0 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "768 category 0 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "768 category 0 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "768 category 1 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "768 category 1 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "768 category 1 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "768 category 1 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "768 category 1 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "768 category 2 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "768 category 2 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "768 category 2 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "768 category 2 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "768 category 2 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "768 category 3 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "768 category 3 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "768 category 3 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "768 category 3 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "768 category 3 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "768 category 4 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "768 category 4 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "768 category 4 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "768 category 4 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "768 category 4 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "768 category 5 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "768 category 5 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "768 category 5 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "768 category 5 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "768 category 5 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "768 category 6 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "768 category 6 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "768 category 6 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "768 category 6 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "768 category 6 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "768 category 7 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "768 category 7 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "768 category 7 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "768 category 7 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "768 category 7 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "768 two-area screenshot regression (one-level raster tolerance; <=0.01% isolated raster noise) {\"changedPixels\":51374,\"outsideAllowedRegions\":0,\"outsideBounds\":null,\"outsideOverOneLevel\":0}"
+    },
+    {
+      "pass": true,
+      "message": "768 visible refinement pixels"
+    },
+    {
+      "pass": true,
+      "message": "390 all eight category titles"
+    },
+    {
+      "pass": true,
+      "message": "390 surrounding layout unchanged"
+    },
+    {
+      "pass": true,
+      "message": "390 no horizontal stage overflow"
+    },
+    {
+      "pass": true,
+      "message": "390 no split words or single-letter orphans []"
+    },
+    {
+      "pass": true,
+      "message": "390 category 0 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "390 category 0 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "390 category 0 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "390 category 0 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "390 category 0 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "390 category 1 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "390 category 1 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "390 category 1 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "390 category 1 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "390 category 1 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "390 category 2 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "390 category 2 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "390 category 2 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "390 category 2 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "390 category 2 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "390 category 3 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "390 category 3 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "390 category 3 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "390 category 3 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "390 category 3 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "390 category 4 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "390 category 4 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "390 category 4 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "390 category 4 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "390 category 4 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "390 category 5 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "390 category 5 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "390 category 5 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "390 category 5 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "390 category 5 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "390 category 6 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "390 category 6 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "390 category 6 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "390 category 6 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "390 category 6 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "390 category 7 geometry, photograph, description and destination unchanged"
+    },
+    {
+      "pass": true,
+      "message": "390 category 7 title enlarged 40–50%"
+    },
+    {
+      "pass": true,
+      "message": "390 category 7 heavy condensed white title"
+    },
+    {
+      "pass": true,
+      "message": "390 category 7 title fits without clipping/overlap"
+    },
+    {
+      "pass": true,
+      "message": "390 category 7 reduced motion respected"
+    },
+    {
+      "pass": true,
+      "message": "390 two-area screenshot regression (one-level raster tolerance; <=0.01% isolated raster noise) {\"changedPixels\":44297,\"outsideAllowedRegions\":8,\"outsideBounds\":[201,494,202,625],\"outsideOverOneLevel\":0}"
+    },
+    {
+      "pass": true,
+      "message": "390 visible refinement pixels"
+    },
+    {
+      "pass": true,
+      "message": "320px narrow mobile title fit and card geometry"
+    },
+    {
+      "pass": true,
+      "message": "supplied Mission Residency logo is byte-identical"
+    },
+    {
+      "pass": true,
+      "message": "SVG embeds unchanged original logo pixels"
+    },
+    {
+      "pass": true,
+      "message": "original hero.webp retained byte-identically"
+    },
+    {
+      "pass": true,
+      "message": "original statement.webp retained byte-identically"
+    },
+    {
+      "pass": true,
+      "message": "original cv.webp retained byte-identically"
+    },
+    {
+      "pass": true,
+      "message": "original letters.webp retained byte-identically"
+    },
+    {
+      "pass": true,
+      "message": "original records.webp retained byte-identically"
+    },
+    {
+      "pass": true,
+      "message": "original interview.webp retained byte-identically"
+    },
+    {
+      "pass": true,
+      "message": "original research.webp retained byte-identically"
+    },
+    {
+      "pass": true,
+      "message": "original other.webp retained byte-identically"
+    },
+    {
+      "pass": true,
+      "message": "original shared.webp retained byte-identically"
+    },
+    {
+      "pass": true,
+      "message": "original mountain.webp retained byte-identically"
+    },
+    {
+      "pass": true,
+      "message": "original missionmed-logo.png retained byte-identically"
+    },
+    {
+      "pass": true,
+      "message": "functional V2 JavaScript unchanged"
+    },
+    {
+      "pass": true,
+      "message": "no browser JavaScript errors"
+    }
+  ],
+  "widths": [
+    {
+      "width": 1440,
+      "before": {
+        "cards": [
+          {
+            "card": {
+              "x": 222,
+              "y": 334.421875,
+              "width": 208.5,
+              "height": 112
+            },
+            "title": {
+              "x": 234,
+              "y": 403.125,
+              "width": 163.5,
+              "height": 13.796875
+            },
+            "ink": {
+              "x": 234,
+              "y": 402.125,
+              "width": 118.71875,
+              "height": 14
+            },
+            "description": {
+              "x": 234,
+              "y": 421.921875,
+              "width": 163.5,
+              "height": 12.5
+            },
+            "image": {
+              "x": 223,
+              "y": 335.421875,
+              "width": 206.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+            "crop": "cover",
+            "text": "Personal Statements",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "personal_statement"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 164,
+            "clientWidth": 164
+          },
+          {
+            "card": {
+              "x": 442.5,
+              "y": 334.421875,
+              "width": 208.5,
+              "height": 112
+            },
+            "title": {
+              "x": 454.5,
+              "y": 403.125,
+              "width": 163.5,
+              "height": 13.796875
+            },
+            "ink": {
+              "x": 454.5,
+              "y": 402.125,
+              "width": 103.578125,
+              "height": 14
+            },
+            "description": {
+              "x": 454.5,
+              "y": 421.921875,
+              "width": 163.5,
+              "height": 12.5
+            },
+            "image": {
+              "x": 443.5,
+              "y": 335.421875,
+              "width": 206.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+            "crop": "cover",
+            "text": "CV & Applications",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "curriculum_vitae"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 164,
+            "clientWidth": 164
+          },
+          {
+            "card": {
+              "x": 663,
+              "y": 334.421875,
+              "width": 208.5,
+              "height": 112
+            },
+            "title": {
+              "x": 675,
+              "y": 403.125,
+              "width": 163.5,
+              "height": 13.796875
+            },
+            "ink": {
+              "x": 675,
+              "y": 402.125,
+              "width": 158.703125,
+              "height": 14
+            },
+            "description": {
+              "x": 675,
+              "y": 421.921875,
+              "width": 163.5,
+              "height": 12.5
+            },
+            "image": {
+              "x": 664,
+              "y": 335.421875,
+              "width": 206.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+            "crop": "cover",
+            "text": "Letters of Recommendation",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "letters"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 164,
+            "clientWidth": 164
+          },
+          {
+            "card": {
+              "x": 883.5,
+              "y": 334.421875,
+              "width": 208.5,
+              "height": 112
+            },
+            "title": {
+              "x": 895.5,
+              "y": 403.125,
+              "width": 163.5,
+              "height": 13.796875
+            },
+            "ink": {
+              "x": 895.5,
+              "y": 402.125,
+              "width": 108.046875,
+              "height": 14
+            },
+            "description": {
+              "x": 895.5,
+              "y": 421.921875,
+              "width": 163.5,
+              "height": 12.5
+            },
+            "image": {
+              "x": 884.5,
+              "y": 335.421875,
+              "width": 206.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+            "crop": "cover",
+            "text": "Academic Records",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "academic"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 164,
+            "clientWidth": 164
+          },
+          {
+            "card": {
+              "x": 222,
+              "y": 458.421875,
+              "width": 208.5,
+              "height": 112
+            },
+            "title": {
+              "x": 234,
+              "y": 527.125,
+              "width": 163.5,
+              "height": 13.796875
+            },
+            "ink": {
+              "x": 234,
+              "y": 526.125,
+              "width": 122.046875,
+              "height": 14
+            },
+            "description": {
+              "x": 234,
+              "y": 545.921875,
+              "width": 163.5,
+              "height": 12.5
+            },
+            "image": {
+              "x": 223,
+              "y": 459.421875,
+              "width": 206.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+            "crop": "cover",
+            "text": "Interview Preparation",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                ""
+              ],
+              [
+                "data-fv2-category-search",
+                "interview"
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 164,
+            "clientWidth": 164
+          },
+          {
+            "card": {
+              "x": 442.5,
+              "y": 458.421875,
+              "width": 208.5,
+              "height": 112
+            },
+            "title": {
+              "x": 454.5,
+              "y": 527.125,
+              "width": 163.5,
+              "height": 13.796875
+            },
+            "ink": {
+              "x": 454.5,
+              "y": 526.125,
+              "width": 140.71875,
+              "height": 14
+            },
+            "description": {
+              "x": 454.5,
+              "y": 545.921875,
+              "width": 163.5,
+              "height": 12.5
+            },
+            "image": {
+              "x": 443.5,
+              "y": 459.421875,
+              "width": 206.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+            "crop": "cover",
+            "text": "Research & Publications",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                ""
+              ],
+              [
+                "data-fv2-category-search",
+                "research"
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 164,
+            "clientWidth": 164
+          },
+          {
+            "card": {
+              "x": 663,
+              "y": 458.421875,
+              "width": 208.5,
+              "height": 112
+            },
+            "title": {
+              "x": 675,
+              "y": 527.125,
+              "width": 163.5,
+              "height": 13.796875
+            },
+            "ink": {
+              "x": 675,
+              "y": 526.125,
+              "width": 100.6875,
+              "height": 14
+            },
+            "description": {
+              "x": 675,
+              "y": 545.921875,
+              "width": 163.5,
+              "height": 12.5
+            },
+            "image": {
+              "x": 664,
+              "y": 459.421875,
+              "width": 206.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+            "crop": "cover",
+            "text": "Other Documents",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "other"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 164,
+            "clientWidth": 164
+          },
+          {
+            "card": {
+              "x": 883.5,
+              "y": 458.421875,
+              "width": 208.5,
+              "height": 112
+            },
+            "title": {
+              "x": 895.5,
+              "y": 527.125,
+              "width": 163.5,
+              "height": 13.796875
+            },
+            "ink": {
+              "x": 895.5,
+              "y": 526.125,
+              "width": 88.015625,
+              "height": 14
+            },
+            "description": {
+              "x": 895.5,
+              "y": 545.921875,
+              "width": 163.5,
+              "height": 12.5
+            },
+            "image": {
+              "x": 884.5,
+              "y": 459.421875,
+              "width": 206.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+            "crop": "cover",
+            "text": "Shared with Me",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "navigate"
+              ],
+              [
+                "data-fv2-view",
+                "shared"
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 164,
+            "clientWidth": 164
+          }
+        ],
+        "layout": [
+          {
+            "x": 196,
+            "y": 0,
+            "width": 1244,
+            "height": 64
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "width": 196,
+            "height": 850
+          },
+          {
+            "x": 222,
+            "y": 72,
+            "width": 870,
+            "height": 226.234375
+          },
+          {
+            "x": 232,
+            "y": 97.9375,
+            "width": 315.34375,
+            "height": 97.5
+          },
+          {
+            "x": 232,
+            "y": 236.234375,
+            "width": 289.5,
+            "height": 44
+          },
+          {
+            "x": 222,
+            "y": 334.421875,
+            "width": 870,
+            "height": 236
+          },
+          {
+            "x": 1114,
+            "y": 72,
+            "width": 300,
+            "height": 546.8125
+          }
+        ],
+        "atmosphere": {
+          "x": 196,
+          "y": 0,
+          "width": 1244,
+          "height": 850
+        },
+        "pseudo": {
+          "width": 1014,
+          "height": 422.406
+        },
+        "overflow": false
+      },
+      "after": {
+        "cards": [
+          {
+            "card": {
+              "x": 222,
+              "y": 334.421875,
+              "width": 208.5,
+              "height": 112
+            },
+            "title": {
+              "x": 234,
+              "y": 379.140625,
+              "width": 163.5,
+              "height": 37.78125
+            },
+            "ink": {
+              "x": 234,
+              "y": 377.140625,
+              "width": 89.546875,
+              "height": 40.890625
+            },
+            "description": {
+              "x": 234,
+              "y": 421.921875,
+              "width": 163.5,
+              "height": 12.5
+            },
+            "image": {
+              "x": 223,
+              "y": 335.421875,
+              "width": 206.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+            "crop": "cover",
+            "text": "Personal Statements",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "personal_statement"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 18,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.9px",
+            "transition": "0s",
+            "scrollWidth": 164,
+            "clientWidth": 164
+          },
+          {
+            "card": {
+              "x": 442.5,
+              "y": 334.421875,
+              "width": 208.5,
+              "height": 112
+            },
+            "title": {
+              "x": 454.5,
+              "y": 398.03125,
+              "width": 163.5,
+              "height": 18.890625
+            },
+            "ink": {
+              "x": 454.5,
+              "y": 396.03125,
+              "width": 137.546875,
+              "height": 22
+            },
+            "description": {
+              "x": 454.5,
+              "y": 421.921875,
+              "width": 163.5,
+              "height": 12.5
+            },
+            "image": {
+              "x": 443.5,
+              "y": 335.421875,
+              "width": 206.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+            "crop": "cover",
+            "text": "CV & Applications",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "curriculum_vitae"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 18,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.9px",
+            "transition": "0s",
+            "scrollWidth": 164,
+            "clientWidth": 164
+          },
+          {
+            "card": {
+              "x": 663,
+              "y": 334.421875,
+              "width": 208.5,
+              "height": 112
+            },
+            "title": {
+              "x": 675,
+              "y": 379.140625,
+              "width": 163.5,
+              "height": 37.78125
+            },
+            "ink": {
+              "x": 675,
+              "y": 377.140625,
+              "width": 132.578125,
+              "height": 40.890625
+            },
+            "description": {
+              "x": 675,
+              "y": 421.921875,
+              "width": 163.5,
+              "height": 12.5
+            },
+            "image": {
+              "x": 664,
+              "y": 335.421875,
+              "width": 206.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+            "crop": "cover",
+            "text": "Letters of Recommendation",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "letters"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 18,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.9px",
+            "transition": "0s",
+            "scrollWidth": 164,
+            "clientWidth": 164
+          },
+          {
+            "card": {
+              "x": 883.5,
+              "y": 334.421875,
+              "width": 208.5,
+              "height": 112
+            },
+            "title": {
+              "x": 895.5,
+              "y": 398.03125,
+              "width": 163.5,
+              "height": 18.890625
+            },
+            "ink": {
+              "x": 895.5,
+              "y": 396.03125,
+              "width": 144.4375,
+              "height": 22
+            },
+            "description": {
+              "x": 895.5,
+              "y": 421.921875,
+              "width": 163.5,
+              "height": 12.5
+            },
+            "image": {
+              "x": 884.5,
+              "y": 335.421875,
+              "width": 206.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+            "crop": "cover",
+            "text": "Academic Records",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "academic"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 18,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.9px",
+            "transition": "0s",
+            "scrollWidth": 164,
+            "clientWidth": 164
+          },
+          {
+            "card": {
+              "x": 222,
+              "y": 458.421875,
+              "width": 208.5,
+              "height": 112
+            },
+            "title": {
+              "x": 234,
+              "y": 503.140625,
+              "width": 163.5,
+              "height": 37.78125
+            },
+            "ink": {
+              "x": 234,
+              "y": 501.140625,
+              "width": 95.953125,
+              "height": 40.890625
+            },
+            "description": {
+              "x": 234,
+              "y": 545.921875,
+              "width": 163.5,
+              "height": 12.5
+            },
+            "image": {
+              "x": 223,
+              "y": 459.421875,
+              "width": 206.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+            "crop": "cover",
+            "text": "Interview Preparation",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                ""
+              ],
+              [
+                "data-fv2-category-search",
+                "interview"
+              ]
+            ],
+            "size": 18,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.9px",
+            "transition": "0s",
+            "scrollWidth": 164,
+            "clientWidth": 164
+          },
+          {
+            "card": {
+              "x": 442.5,
+              "y": 458.421875,
+              "width": 208.5,
+              "height": 112
+            },
+            "title": {
+              "x": 454.5,
+              "y": 503.140625,
+              "width": 163.5,
+              "height": 37.78125
+            },
+            "ink": {
+              "x": 454.5,
+              "y": 501.140625,
+              "width": 102.546875,
+              "height": 40.890625
+            },
+            "description": {
+              "x": 454.5,
+              "y": 545.921875,
+              "width": 163.5,
+              "height": 12.5
+            },
+            "image": {
+              "x": 443.5,
+              "y": 459.421875,
+              "width": 206.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+            "crop": "cover",
+            "text": "Research & Publications",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                ""
+              ],
+              [
+                "data-fv2-category-search",
+                "research"
+              ]
+            ],
+            "size": 18,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.9px",
+            "transition": "0s",
+            "scrollWidth": 164,
+            "clientWidth": 164
+          },
+          {
+            "card": {
+              "x": 663,
+              "y": 458.421875,
+              "width": 208.5,
+              "height": 112
+            },
+            "title": {
+              "x": 675,
+              "y": 522.03125,
+              "width": 163.5,
+              "height": 18.890625
+            },
+            "ink": {
+              "x": 675,
+              "y": 520.03125,
+              "width": 137.3125,
+              "height": 22
+            },
+            "description": {
+              "x": 675,
+              "y": 545.921875,
+              "width": 163.5,
+              "height": 12.5
+            },
+            "image": {
+              "x": 664,
+              "y": 459.421875,
+              "width": 206.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+            "crop": "cover",
+            "text": "Other Documents",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "other"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 18,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.9px",
+            "transition": "0s",
+            "scrollWidth": 164,
+            "clientWidth": 164
+          },
+          {
+            "card": {
+              "x": 883.5,
+              "y": 458.421875,
+              "width": 208.5,
+              "height": 112
+            },
+            "title": {
+              "x": 895.5,
+              "y": 522.03125,
+              "width": 163.5,
+              "height": 18.890625
+            },
+            "ink": {
+              "x": 895.5,
+              "y": 520.03125,
+              "width": 121.828125,
+              "height": 22
+            },
+            "description": {
+              "x": 895.5,
+              "y": 545.921875,
+              "width": 163.5,
+              "height": 12.5
+            },
+            "image": {
+              "x": 884.5,
+              "y": 459.421875,
+              "width": 206.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+            "crop": "cover",
+            "text": "Shared with Me",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "navigate"
+              ],
+              [
+                "data-fv2-view",
+                "shared"
+              ]
+            ],
+            "size": 18,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.9px",
+            "transition": "0s",
+            "scrollWidth": 164,
+            "clientWidth": 164
+          }
+        ],
+        "layout": [
+          {
+            "x": 196,
+            "y": 0,
+            "width": 1244,
+            "height": 64
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "width": 196,
+            "height": 850
+          },
+          {
+            "x": 222,
+            "y": 72,
+            "width": 870,
+            "height": 226.234375
+          },
+          {
+            "x": 232,
+            "y": 97.9375,
+            "width": 315.34375,
+            "height": 97.5
+          },
+          {
+            "x": 232,
+            "y": 236.234375,
+            "width": 289.5,
+            "height": 44
+          },
+          {
+            "x": 222,
+            "y": 334.421875,
+            "width": 870,
+            "height": 236
+          },
+          {
+            "x": 1114,
+            "y": 72,
+            "width": 300,
+            "height": 546.8125
+          }
+        ],
+        "atmosphere": {
+          "x": 196,
+          "y": 0,
+          "width": 1244,
+          "height": 850
+        },
+        "pseudo": {
+          "width": 1014,
+          "height": 422.406
+        },
+        "overflow": false
+      },
+      "diff": {
+        "changedPixels": 133660,
+        "outsideAllowedRegions": 64139,
+        "outsideBounds": [
+          196,
+          0,
+          1210,
+          536
+        ],
+        "outsideOverOneLevel": 0
+      },
+      "allowedRegions": [
+        {
+          "x": 226,
+          "y": 394.125,
+          "width": 179.5,
+          "height": 30
+        },
+        {
+          "x": 446.5,
+          "y": 394.125,
+          "width": 179.5,
+          "height": 30
+        },
+        {
+          "x": 667,
+          "y": 394.125,
+          "width": 179.5,
+          "height": 30
+        },
+        {
+          "x": 887.5,
+          "y": 394.125,
+          "width": 179.5,
+          "height": 30
+        },
+        {
+          "x": 226,
+          "y": 518.125,
+          "width": 179.5,
+          "height": 30
+        },
+        {
+          "x": 446.5,
+          "y": 518.125,
+          "width": 179.5,
+          "height": 30
+        },
+        {
+          "x": 667,
+          "y": 518.125,
+          "width": 179.5,
+          "height": 30
+        },
+        {
+          "x": 887.5,
+          "y": 518.125,
+          "width": 179.5,
+          "height": 30
+        },
+        {
+          "x": 226,
+          "y": 369.140625,
+          "width": 179.5,
+          "height": 56.890625
+        },
+        {
+          "x": 446.5,
+          "y": 388.03125,
+          "width": 179.5,
+          "height": 38
+        },
+        {
+          "x": 667,
+          "y": 369.140625,
+          "width": 179.5,
+          "height": 56.890625
+        },
+        {
+          "x": 887.5,
+          "y": 388.03125,
+          "width": 179.5,
+          "height": 38
+        },
+        {
+          "x": 226,
+          "y": 493.140625,
+          "width": 179.5,
+          "height": 56.890625
+        },
+        {
+          "x": 446.5,
+          "y": 493.140625,
+          "width": 179.5,
+          "height": 56.890625
+        },
+        {
+          "x": 667,
+          "y": 512.03125,
+          "width": 179.5,
+          "height": 38
+        },
+        {
+          "x": 887.5,
+          "y": 512.03125,
+          "width": 179.5,
+          "height": 38
+        },
+        {
+          "x": 726.35,
+          "y": 63.757374999999996,
+          "width": 285.385,
+          "height": 185.88625000000002
+        }
+      ]
+    },
+    {
+      "width": 1280,
+      "before": {
+        "cards": [
+          {
+            "card": {
+              "x": 222,
+              "y": 333.1875,
+              "width": 168.5,
+              "height": 112
+            },
+            "title": {
+              "x": 234,
+              "y": 401.890625,
+              "width": 123.5,
+              "height": 13.796875
+            },
+            "ink": {
+              "x": 234,
+              "y": 400.890625,
+              "width": 118.71875,
+              "height": 14
+            },
+            "description": {
+              "x": 234,
+              "y": 420.6875,
+              "width": 123.5,
+              "height": 12.5
+            },
+            "image": {
+              "x": 223,
+              "y": 334.1875,
+              "width": 166.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+            "crop": "cover",
+            "text": "Personal Statements",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "personal_statement"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 124,
+            "clientWidth": 124
+          },
+          {
+            "card": {
+              "x": 402.5,
+              "y": 333.1875,
+              "width": 168.5,
+              "height": 112
+            },
+            "title": {
+              "x": 414.5,
+              "y": 401.890625,
+              "width": 123.5,
+              "height": 13.796875
+            },
+            "ink": {
+              "x": 414.5,
+              "y": 400.890625,
+              "width": 103.578125,
+              "height": 14
+            },
+            "description": {
+              "x": 414.5,
+              "y": 420.6875,
+              "width": 123.5,
+              "height": 12.5
+            },
+            "image": {
+              "x": 403.5,
+              "y": 334.1875,
+              "width": 166.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+            "crop": "cover",
+            "text": "CV & Applications",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "curriculum_vitae"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 124,
+            "clientWidth": 124
+          },
+          {
+            "card": {
+              "x": 583,
+              "y": 333.1875,
+              "width": 168.5,
+              "height": 112
+            },
+            "title": {
+              "x": 595,
+              "y": 388.09375,
+              "width": 123.5,
+              "height": 27.59375
+            },
+            "ink": {
+              "x": 595,
+              "y": 387.09375,
+              "width": 100.6875,
+              "height": 27.796875
+            },
+            "description": {
+              "x": 595,
+              "y": 420.6875,
+              "width": 123.5,
+              "height": 12.5
+            },
+            "image": {
+              "x": 584,
+              "y": 334.1875,
+              "width": 166.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+            "crop": "cover",
+            "text": "Letters of Recommendation",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "letters"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 124,
+            "clientWidth": 124
+          },
+          {
+            "card": {
+              "x": 763.5,
+              "y": 333.1875,
+              "width": 168.5,
+              "height": 112
+            },
+            "title": {
+              "x": 775.5,
+              "y": 389.390625,
+              "width": 123.5,
+              "height": 13.796875
+            },
+            "ink": {
+              "x": 775.5,
+              "y": 388.390625,
+              "width": 108.046875,
+              "height": 14
+            },
+            "description": {
+              "x": 775.5,
+              "y": 408.1875,
+              "width": 123.5,
+              "height": 25
+            },
+            "image": {
+              "x": 764.5,
+              "y": 334.1875,
+              "width": 166.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+            "crop": "cover",
+            "text": "Academic Records",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "academic"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 124,
+            "clientWidth": 124
+          },
+          {
+            "card": {
+              "x": 222,
+              "y": 457.1875,
+              "width": 168.5,
+              "height": 112
+            },
+            "title": {
+              "x": 234,
+              "y": 513.390625,
+              "width": 123.5,
+              "height": 13.796875
+            },
+            "ink": {
+              "x": 234,
+              "y": 512.390625,
+              "width": 122.046875,
+              "height": 14
+            },
+            "description": {
+              "x": 234,
+              "y": 532.1875,
+              "width": 123.5,
+              "height": 25
+            },
+            "image": {
+              "x": 223,
+              "y": 458.1875,
+              "width": 166.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+            "crop": "cover",
+            "text": "Interview Preparation",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                ""
+              ],
+              [
+                "data-fv2-category-search",
+                "interview"
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 124,
+            "clientWidth": 124
+          },
+          {
+            "card": {
+              "x": 402.5,
+              "y": 457.1875,
+              "width": 168.5,
+              "height": 112
+            },
+            "title": {
+              "x": 414.5,
+              "y": 499.59375,
+              "width": 123.5,
+              "height": 27.59375
+            },
+            "ink": {
+              "x": 414.5,
+              "y": 498.59375,
+              "width": 71.34375,
+              "height": 27.796875
+            },
+            "description": {
+              "x": 414.5,
+              "y": 532.1875,
+              "width": 123.5,
+              "height": 25
+            },
+            "image": {
+              "x": 403.5,
+              "y": 458.1875,
+              "width": 166.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+            "crop": "cover",
+            "text": "Research & Publications",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                ""
+              ],
+              [
+                "data-fv2-category-search",
+                "research"
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 124,
+            "clientWidth": 124
+          },
+          {
+            "card": {
+              "x": 583,
+              "y": 457.1875,
+              "width": 168.5,
+              "height": 112
+            },
+            "title": {
+              "x": 595,
+              "y": 525.890625,
+              "width": 123.5,
+              "height": 13.796875
+            },
+            "ink": {
+              "x": 595,
+              "y": 524.890625,
+              "width": 100.6875,
+              "height": 14
+            },
+            "description": {
+              "x": 595,
+              "y": 544.6875,
+              "width": 123.5,
+              "height": 12.5
+            },
+            "image": {
+              "x": 584,
+              "y": 458.1875,
+              "width": 166.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+            "crop": "cover",
+            "text": "Other Documents",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "other"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 124,
+            "clientWidth": 124
+          },
+          {
+            "card": {
+              "x": 763.5,
+              "y": 457.1875,
+              "width": 168.5,
+              "height": 112
+            },
+            "title": {
+              "x": 775.5,
+              "y": 525.890625,
+              "width": 123.5,
+              "height": 13.796875
+            },
+            "ink": {
+              "x": 775.5,
+              "y": 524.890625,
+              "width": 88.015625,
+              "height": 14
+            },
+            "description": {
+              "x": 775.5,
+              "y": 544.6875,
+              "width": 123.5,
+              "height": 12.5
+            },
+            "image": {
+              "x": 764.5,
+              "y": 458.1875,
+              "width": 166.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+            "crop": "cover",
+            "text": "Shared with Me",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "navigate"
+              ],
+              [
+                "data-fv2-view",
+                "shared"
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 124,
+            "clientWidth": 124
+          }
+        ],
+        "layout": [
+          {
+            "x": 196,
+            "y": 0,
+            "width": 1084,
+            "height": 64
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "width": 196,
+            "height": 850
+          },
+          {
+            "x": 222,
+            "y": 72,
+            "width": 710,
+            "height": 225
+          },
+          {
+            "x": 232,
+            "y": 97.9375,
+            "width": 285.1875,
+            "height": 88.171875
+          },
+          {
+            "x": 232,
+            "y": 226.90625,
+            "width": 289.5,
+            "height": 44
+          },
+          {
+            "x": 222,
+            "y": 333.1875,
+            "width": 710,
+            "height": 236
+          },
+          {
+            "x": 954,
+            "y": 72,
+            "width": 300,
+            "height": 546.8125
+          }
+        ],
+        "atmosphere": {
+          "x": 196,
+          "y": 0,
+          "width": 1084,
+          "height": 850
+        },
+        "pseudo": {
+          "width": 854,
+          "height": 355.75
+        },
+        "overflow": false
+      },
+      "after": {
+        "cards": [
+          {
+            "card": {
+              "x": 222,
+              "y": 333.1875,
+              "width": 168.5,
+              "height": 112
+            },
+            "title": {
+              "x": 234,
+              "y": 379.15625,
+              "width": 133.5,
+              "height": 36.53125
+            },
+            "ink": {
+              "x": 234,
+              "y": 377.15625,
+              "width": 86.59375,
+              "height": 40.265625
+            },
+            "description": {
+              "x": 234,
+              "y": 420.6875,
+              "width": 123.5,
+              "height": 12.5
+            },
+            "image": {
+              "x": 223,
+              "y": 334.1875,
+              "width": 166.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+            "crop": "cover",
+            "text": "Personal Statements",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "personal_statement"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 134,
+            "clientWidth": 134
+          },
+          {
+            "card": {
+              "x": 402.5,
+              "y": 333.1875,
+              "width": 168.5,
+              "height": 112
+            },
+            "title": {
+              "x": 414.5,
+              "y": 397.421875,
+              "width": 133.5,
+              "height": 18.265625
+            },
+            "ink": {
+              "x": 414.5,
+              "y": 395.421875,
+              "width": 133.015625,
+              "height": 22
+            },
+            "description": {
+              "x": 414.5,
+              "y": 420.6875,
+              "width": 123.5,
+              "height": 12.5
+            },
+            "image": {
+              "x": 403.5,
+              "y": 334.1875,
+              "width": 166.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+            "crop": "cover",
+            "text": "CV & Applications",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "curriculum_vitae"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 134,
+            "clientWidth": 134
+          },
+          {
+            "card": {
+              "x": 583,
+              "y": 333.1875,
+              "width": 168.5,
+              "height": 112
+            },
+            "title": {
+              "x": 595,
+              "y": 379.15625,
+              "width": 133.5,
+              "height": 36.53125
+            },
+            "ink": {
+              "x": 595,
+              "y": 377.15625,
+              "width": 128.203125,
+              "height": 40.265625
+            },
+            "description": {
+              "x": 595,
+              "y": 420.6875,
+              "width": 123.5,
+              "height": 12.5
+            },
+            "image": {
+              "x": 584,
+              "y": 334.1875,
+              "width": 166.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+            "crop": "cover",
+            "text": "Letters of Recommendation",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "letters"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 134,
+            "clientWidth": 134
+          },
+          {
+            "card": {
+              "x": 763.5,
+              "y": 333.1875,
+              "width": 168.5,
+              "height": 112
+            },
+            "title": {
+              "x": 775.5,
+              "y": 366.65625,
+              "width": 133.5,
+              "height": 36.53125
+            },
+            "ink": {
+              "x": 775.5,
+              "y": 364.65625,
+              "width": 72.078125,
+              "height": 40.265625
+            },
+            "description": {
+              "x": 775.5,
+              "y": 408.1875,
+              "width": 123.5,
+              "height": 25
+            },
+            "image": {
+              "x": 764.5,
+              "y": 334.1875,
+              "width": 166.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+            "crop": "cover",
+            "text": "Academic Records",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "academic"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 134,
+            "clientWidth": 134
+          },
+          {
+            "card": {
+              "x": 222,
+              "y": 457.1875,
+              "width": 168.5,
+              "height": 112
+            },
+            "title": {
+              "x": 234,
+              "y": 490.65625,
+              "width": 133.5,
+              "height": 36.53125
+            },
+            "ink": {
+              "x": 234,
+              "y": 488.65625,
+              "width": 92.78125,
+              "height": 40.265625
+            },
+            "description": {
+              "x": 234,
+              "y": 532.1875,
+              "width": 123.5,
+              "height": 25
+            },
+            "image": {
+              "x": 223,
+              "y": 458.1875,
+              "width": 166.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+            "crop": "cover",
+            "text": "Interview Preparation",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                ""
+              ],
+              [
+                "data-fv2-category-search",
+                "interview"
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 134,
+            "clientWidth": 134
+          },
+          {
+            "card": {
+              "x": 402.5,
+              "y": 457.1875,
+              "width": 168.5,
+              "height": 112
+            },
+            "title": {
+              "x": 414.5,
+              "y": 490.65625,
+              "width": 133.5,
+              "height": 36.53125
+            },
+            "ink": {
+              "x": 414.5,
+              "y": 488.65625,
+              "width": 99.171875,
+              "height": 40.265625
+            },
+            "description": {
+              "x": 414.5,
+              "y": 532.1875,
+              "width": 123.5,
+              "height": 25
+            },
+            "image": {
+              "x": 403.5,
+              "y": 458.1875,
+              "width": 166.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+            "crop": "cover",
+            "text": "Research & Publications",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                ""
+              ],
+              [
+                "data-fv2-category-search",
+                "research"
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 134,
+            "clientWidth": 134
+          },
+          {
+            "card": {
+              "x": 583,
+              "y": 457.1875,
+              "width": 168.5,
+              "height": 112
+            },
+            "title": {
+              "x": 595,
+              "y": 521.421875,
+              "width": 133.5,
+              "height": 18.265625
+            },
+            "ink": {
+              "x": 595,
+              "y": 519.421875,
+              "width": 132.78125,
+              "height": 22
+            },
+            "description": {
+              "x": 595,
+              "y": 544.6875,
+              "width": 123.5,
+              "height": 12.5
+            },
+            "image": {
+              "x": 584,
+              "y": 458.1875,
+              "width": 166.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+            "crop": "cover",
+            "text": "Other Documents",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "other"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 134,
+            "clientWidth": 134
+          },
+          {
+            "card": {
+              "x": 763.5,
+              "y": 457.1875,
+              "width": 168.5,
+              "height": 112
+            },
+            "title": {
+              "x": 775.5,
+              "y": 521.421875,
+              "width": 133.5,
+              "height": 18.265625
+            },
+            "ink": {
+              "x": 775.5,
+              "y": 519.421875,
+              "width": 117.828125,
+              "height": 22
+            },
+            "description": {
+              "x": 775.5,
+              "y": 544.6875,
+              "width": 123.5,
+              "height": 12.5
+            },
+            "image": {
+              "x": 764.5,
+              "y": 458.1875,
+              "width": 166.5,
+              "height": 110
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+            "crop": "cover",
+            "text": "Shared with Me",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "navigate"
+              ],
+              [
+                "data-fv2-view",
+                "shared"
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 134,
+            "clientWidth": 134
+          }
+        ],
+        "layout": [
+          {
+            "x": 196,
+            "y": 0,
+            "width": 1084,
+            "height": 64
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "width": 196,
+            "height": 850
+          },
+          {
+            "x": 222,
+            "y": 72,
+            "width": 710,
+            "height": 225
+          },
+          {
+            "x": 232,
+            "y": 97.9375,
+            "width": 285.1875,
+            "height": 88.171875
+          },
+          {
+            "x": 232,
+            "y": 226.90625,
+            "width": 289.5,
+            "height": 44
+          },
+          {
+            "x": 222,
+            "y": 333.1875,
+            "width": 710,
+            "height": 236
+          },
+          {
+            "x": 954,
+            "y": 72,
+            "width": 300,
+            "height": 546.8125
+          }
+        ],
+        "atmosphere": {
+          "x": 196,
+          "y": 0,
+          "width": 1084,
+          "height": 850
+        },
+        "pseudo": {
+          "width": 854,
+          "height": 355.75
+        },
+        "overflow": false
+      },
+      "diff": {
+        "changedPixels": 51552,
+        "outsideAllowedRegions": 8,
+        "outsideBounds": [
+          586,
+          528,
+          587,
+          536
+        ],
+        "outsideOverOneLevel": 0
+      },
+      "allowedRegions": [
+        {
+          "x": 226,
+          "y": 392.890625,
+          "width": 139.5,
+          "height": 30
+        },
+        {
+          "x": 406.5,
+          "y": 392.890625,
+          "width": 139.5,
+          "height": 30
+        },
+        {
+          "x": 587,
+          "y": 379.09375,
+          "width": 139.5,
+          "height": 43.796875
+        },
+        {
+          "x": 767.5,
+          "y": 380.390625,
+          "width": 139.5,
+          "height": 30
+        },
+        {
+          "x": 226,
+          "y": 504.390625,
+          "width": 139.5,
+          "height": 30
+        },
+        {
+          "x": 406.5,
+          "y": 490.59375,
+          "width": 139.5,
+          "height": 43.796875
+        },
+        {
+          "x": 587,
+          "y": 516.890625,
+          "width": 139.5,
+          "height": 30
+        },
+        {
+          "x": 767.5,
+          "y": 516.890625,
+          "width": 139.5,
+          "height": 30
+        },
+        {
+          "x": 226,
+          "y": 369.15625,
+          "width": 149.5,
+          "height": 56.265625
+        },
+        {
+          "x": 406.5,
+          "y": 387.421875,
+          "width": 149.5,
+          "height": 38
+        },
+        {
+          "x": 587,
+          "y": 369.15625,
+          "width": 149.5,
+          "height": 56.265625
+        },
+        {
+          "x": 767.5,
+          "y": 356.65625,
+          "width": 149.5,
+          "height": 56.265625
+        },
+        {
+          "x": 226,
+          "y": 480.65625,
+          "width": 149.5,
+          "height": 56.265625
+        },
+        {
+          "x": 406.5,
+          "y": 480.65625,
+          "width": 149.5,
+          "height": 56.265625
+        },
+        {
+          "x": 587,
+          "y": 511.421875,
+          "width": 149.5,
+          "height": 38
+        },
+        {
+          "x": 767.5,
+          "y": 511.421875,
+          "width": 149.5,
+          "height": 38
+        },
+        {
+          "x": 642.35,
+          "y": 53.37937500000001,
+          "width": 240.98499999999999,
+          "height": 157.18624999999997
+        }
+      ]
+    },
+    {
+      "width": 1024,
+      "before": {
+        "cards": [
+          {
+            "card": {
+              "x": 200,
+              "y": 389.3125,
+              "width": 192,
+              "height": 130
+            },
+            "title": {
+              "x": 212,
+              "y": 476.015625,
+              "width": 147,
+              "height": 13.796875
+            },
+            "ink": {
+              "x": 212,
+              "y": 475.015625,
+              "width": 118.71875,
+              "height": 14
+            },
+            "description": {
+              "x": 212,
+              "y": 494.8125,
+              "width": 147,
+              "height": 12.5
+            },
+            "image": {
+              "x": 201,
+              "y": 390.3125,
+              "width": 190,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+            "crop": "cover",
+            "text": "Personal Statements",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "personal_statement"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 147,
+            "clientWidth": 147
+          },
+          {
+            "card": {
+              "x": 404,
+              "y": 389.3125,
+              "width": 192,
+              "height": 130
+            },
+            "title": {
+              "x": 416,
+              "y": 476.015625,
+              "width": 147,
+              "height": 13.796875
+            },
+            "ink": {
+              "x": 416,
+              "y": 475.015625,
+              "width": 103.578125,
+              "height": 14
+            },
+            "description": {
+              "x": 416,
+              "y": 494.8125,
+              "width": 147,
+              "height": 12.5
+            },
+            "image": {
+              "x": 405,
+              "y": 390.3125,
+              "width": 190,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+            "crop": "cover",
+            "text": "CV & Applications",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "curriculum_vitae"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 147,
+            "clientWidth": 147
+          },
+          {
+            "card": {
+              "x": 608,
+              "y": 389.3125,
+              "width": 192,
+              "height": 130
+            },
+            "title": {
+              "x": 620,
+              "y": 462.21875,
+              "width": 147,
+              "height": 27.59375
+            },
+            "ink": {
+              "x": 620,
+              "y": 461.21875,
+              "width": 100.6875,
+              "height": 27.796875
+            },
+            "description": {
+              "x": 620,
+              "y": 494.8125,
+              "width": 147,
+              "height": 12.5
+            },
+            "image": {
+              "x": 609,
+              "y": 390.3125,
+              "width": 190,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+            "crop": "cover",
+            "text": "Letters of Recommendation",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "letters"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 147,
+            "clientWidth": 147
+          },
+          {
+            "card": {
+              "x": 812,
+              "y": 389.3125,
+              "width": 192,
+              "height": 130
+            },
+            "title": {
+              "x": 824,
+              "y": 476.015625,
+              "width": 147,
+              "height": 13.796875
+            },
+            "ink": {
+              "x": 824,
+              "y": 475.015625,
+              "width": 108.046875,
+              "height": 14
+            },
+            "description": {
+              "x": 824,
+              "y": 494.8125,
+              "width": 147,
+              "height": 12.5
+            },
+            "image": {
+              "x": 813,
+              "y": 390.3125,
+              "width": 190,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+            "crop": "cover",
+            "text": "Academic Records",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "academic"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 147,
+            "clientWidth": 147
+          },
+          {
+            "card": {
+              "x": 200,
+              "y": 531.3125,
+              "width": 192,
+              "height": 130
+            },
+            "title": {
+              "x": 212,
+              "y": 618.015625,
+              "width": 147,
+              "height": 13.796875
+            },
+            "ink": {
+              "x": 212,
+              "y": 617.015625,
+              "width": 122.046875,
+              "height": 14
+            },
+            "description": {
+              "x": 212,
+              "y": 636.8125,
+              "width": 147,
+              "height": 12.5
+            },
+            "image": {
+              "x": 201,
+              "y": 532.3125,
+              "width": 190,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+            "crop": "cover",
+            "text": "Interview Preparation",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                ""
+              ],
+              [
+                "data-fv2-category-search",
+                "interview"
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 147,
+            "clientWidth": 147
+          },
+          {
+            "card": {
+              "x": 404,
+              "y": 531.3125,
+              "width": 192,
+              "height": 130
+            },
+            "title": {
+              "x": 416,
+              "y": 618.015625,
+              "width": 147,
+              "height": 13.796875
+            },
+            "ink": {
+              "x": 416,
+              "y": 617.015625,
+              "width": 140.71875,
+              "height": 14
+            },
+            "description": {
+              "x": 416,
+              "y": 636.8125,
+              "width": 147,
+              "height": 12.5
+            },
+            "image": {
+              "x": 405,
+              "y": 532.3125,
+              "width": 190,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+            "crop": "cover",
+            "text": "Research & Publications",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                ""
+              ],
+              [
+                "data-fv2-category-search",
+                "research"
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 147,
+            "clientWidth": 147
+          },
+          {
+            "card": {
+              "x": 608,
+              "y": 531.3125,
+              "width": 192,
+              "height": 130
+            },
+            "title": {
+              "x": 620,
+              "y": 618.015625,
+              "width": 147,
+              "height": 13.796875
+            },
+            "ink": {
+              "x": 620,
+              "y": 617.015625,
+              "width": 100.6875,
+              "height": 14
+            },
+            "description": {
+              "x": 620,
+              "y": 636.8125,
+              "width": 147,
+              "height": 12.5
+            },
+            "image": {
+              "x": 609,
+              "y": 532.3125,
+              "width": 190,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+            "crop": "cover",
+            "text": "Other Documents",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "other"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 147,
+            "clientWidth": 147
+          },
+          {
+            "card": {
+              "x": 812,
+              "y": 531.3125,
+              "width": 192,
+              "height": 130
+            },
+            "title": {
+              "x": 824,
+              "y": 618.015625,
+              "width": 147,
+              "height": 13.796875
+            },
+            "ink": {
+              "x": 824,
+              "y": 617.015625,
+              "width": 88.015625,
+              "height": 14
+            },
+            "description": {
+              "x": 824,
+              "y": 636.8125,
+              "width": 147,
+              "height": 12.5
+            },
+            "image": {
+              "x": 813,
+              "y": 532.3125,
+              "width": 190,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+            "crop": "cover",
+            "text": "Shared with Me",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "navigate"
+              ],
+              [
+                "data-fv2-view",
+                "shared"
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 147,
+            "clientWidth": 147
+          }
+        ],
+        "layout": [
+          {
+            "x": 180,
+            "y": 0,
+            "width": 844,
+            "height": 64
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "width": 180,
+            "height": 850
+          },
+          {
+            "x": 200,
+            "y": 72,
+            "width": 804,
+            "height": 281.125
+          },
+          {
+            "x": 210,
+            "y": 123.9375,
+            "width": 366.671875,
+            "height": 113.390625
+          },
+          {
+            "x": 210,
+            "y": 284.125,
+            "width": 289.5,
+            "height": 44
+          },
+          {
+            "x": 200,
+            "y": 389.3125,
+            "width": 804,
+            "height": 272
+          },
+          {
+            "x": 200,
+            "y": 742.3125,
+            "width": 804,
+            "height": 321.125
+          }
+        ],
+        "atmosphere": {
+          "x": 180,
+          "y": 0,
+          "width": 844,
+          "height": 850
+        },
+        "pseudo": {
+          "width": null,
+          "height": null
+        },
+        "overflow": false
+      },
+      "after": {
+        "cards": [
+          {
+            "card": {
+              "x": 200,
+              "y": 389.3125,
+              "width": 192,
+              "height": 130
+            },
+            "title": {
+              "x": 212,
+              "y": 453.28125,
+              "width": 147,
+              "height": 36.53125
+            },
+            "ink": {
+              "x": 212,
+              "y": 451.28125,
+              "width": 86.59375,
+              "height": 40.265625
+            },
+            "description": {
+              "x": 212,
+              "y": 494.8125,
+              "width": 147,
+              "height": 12.5
+            },
+            "image": {
+              "x": 201,
+              "y": 390.3125,
+              "width": 190,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+            "crop": "cover",
+            "text": "Personal Statements",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "personal_statement"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 147,
+            "clientWidth": 147
+          },
+          {
+            "card": {
+              "x": 404,
+              "y": 389.3125,
+              "width": 192,
+              "height": 130
+            },
+            "title": {
+              "x": 416,
+              "y": 471.546875,
+              "width": 147,
+              "height": 18.265625
+            },
+            "ink": {
+              "x": 416,
+              "y": 469.546875,
+              "width": 133.015625,
+              "height": 22
+            },
+            "description": {
+              "x": 416,
+              "y": 494.8125,
+              "width": 147,
+              "height": 12.5
+            },
+            "image": {
+              "x": 405,
+              "y": 390.3125,
+              "width": 190,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+            "crop": "cover",
+            "text": "CV & Applications",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "curriculum_vitae"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 147,
+            "clientWidth": 147
+          },
+          {
+            "card": {
+              "x": 608,
+              "y": 389.3125,
+              "width": 192,
+              "height": 130
+            },
+            "title": {
+              "x": 620,
+              "y": 453.28125,
+              "width": 147,
+              "height": 36.53125
+            },
+            "ink": {
+              "x": 620,
+              "y": 451.28125,
+              "width": 128.203125,
+              "height": 40.265625
+            },
+            "description": {
+              "x": 620,
+              "y": 494.8125,
+              "width": 147,
+              "height": 12.5
+            },
+            "image": {
+              "x": 609,
+              "y": 390.3125,
+              "width": 190,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+            "crop": "cover",
+            "text": "Letters of Recommendation",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "letters"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 147,
+            "clientWidth": 147
+          },
+          {
+            "card": {
+              "x": 812,
+              "y": 389.3125,
+              "width": 192,
+              "height": 130
+            },
+            "title": {
+              "x": 824,
+              "y": 471.546875,
+              "width": 147,
+              "height": 18.265625
+            },
+            "ink": {
+              "x": 824,
+              "y": 469.546875,
+              "width": 139.671875,
+              "height": 22
+            },
+            "description": {
+              "x": 824,
+              "y": 494.8125,
+              "width": 147,
+              "height": 12.5
+            },
+            "image": {
+              "x": 813,
+              "y": 390.3125,
+              "width": 190,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+            "crop": "cover",
+            "text": "Academic Records",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "academic"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 147,
+            "clientWidth": 147
+          },
+          {
+            "card": {
+              "x": 200,
+              "y": 531.3125,
+              "width": 192,
+              "height": 130
+            },
+            "title": {
+              "x": 212,
+              "y": 595.28125,
+              "width": 147,
+              "height": 36.53125
+            },
+            "ink": {
+              "x": 212,
+              "y": 593.28125,
+              "width": 92.78125,
+              "height": 40.265625
+            },
+            "description": {
+              "x": 212,
+              "y": 636.8125,
+              "width": 147,
+              "height": 12.5
+            },
+            "image": {
+              "x": 201,
+              "y": 532.3125,
+              "width": 190,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+            "crop": "cover",
+            "text": "Interview Preparation",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                ""
+              ],
+              [
+                "data-fv2-category-search",
+                "interview"
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 147,
+            "clientWidth": 147
+          },
+          {
+            "card": {
+              "x": 404,
+              "y": 531.3125,
+              "width": 192,
+              "height": 130
+            },
+            "title": {
+              "x": 416,
+              "y": 595.28125,
+              "width": 147,
+              "height": 36.53125
+            },
+            "ink": {
+              "x": 416,
+              "y": 593.28125,
+              "width": 99.171875,
+              "height": 40.265625
+            },
+            "description": {
+              "x": 416,
+              "y": 636.8125,
+              "width": 147,
+              "height": 12.5
+            },
+            "image": {
+              "x": 405,
+              "y": 532.3125,
+              "width": 190,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+            "crop": "cover",
+            "text": "Research & Publications",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                ""
+              ],
+              [
+                "data-fv2-category-search",
+                "research"
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 147,
+            "clientWidth": 147
+          },
+          {
+            "card": {
+              "x": 608,
+              "y": 531.3125,
+              "width": 192,
+              "height": 130
+            },
+            "title": {
+              "x": 620,
+              "y": 613.546875,
+              "width": 147,
+              "height": 18.265625
+            },
+            "ink": {
+              "x": 620,
+              "y": 611.546875,
+              "width": 132.78125,
+              "height": 22
+            },
+            "description": {
+              "x": 620,
+              "y": 636.8125,
+              "width": 147,
+              "height": 12.5
+            },
+            "image": {
+              "x": 609,
+              "y": 532.3125,
+              "width": 190,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+            "crop": "cover",
+            "text": "Other Documents",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "other"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 147,
+            "clientWidth": 147
+          },
+          {
+            "card": {
+              "x": 812,
+              "y": 531.3125,
+              "width": 192,
+              "height": 130
+            },
+            "title": {
+              "x": 824,
+              "y": 613.546875,
+              "width": 147,
+              "height": 18.265625
+            },
+            "ink": {
+              "x": 824,
+              "y": 611.546875,
+              "width": 117.828125,
+              "height": 22
+            },
+            "description": {
+              "x": 824,
+              "y": 636.8125,
+              "width": 147,
+              "height": 12.5
+            },
+            "image": {
+              "x": 813,
+              "y": 532.3125,
+              "width": 190,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+            "crop": "cover",
+            "text": "Shared with Me",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "navigate"
+              ],
+              [
+                "data-fv2-view",
+                "shared"
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 147,
+            "clientWidth": 147
+          }
+        ],
+        "layout": [
+          {
+            "x": 180,
+            "y": 0,
+            "width": 844,
+            "height": 64
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "width": 180,
+            "height": 850
+          },
+          {
+            "x": 200,
+            "y": 72,
+            "width": 804,
+            "height": 281.125
+          },
+          {
+            "x": 210,
+            "y": 123.9375,
+            "width": 366.671875,
+            "height": 113.390625
+          },
+          {
+            "x": 210,
+            "y": 284.125,
+            "width": 289.5,
+            "height": 44
+          },
+          {
+            "x": 200,
+            "y": 389.3125,
+            "width": 804,
+            "height": 272
+          },
+          {
+            "x": 200,
+            "y": 742.3125,
+            "width": 804,
+            "height": 321.125
+          }
+        ],
+        "atmosphere": {
+          "x": 180,
+          "y": 0,
+          "width": 844,
+          "height": 850
+        },
+        "pseudo": {
+          "width": null,
+          "height": null
+        },
+        "overflow": false
+      },
+      "diff": {
+        "changedPixels": 67658,
+        "outsideAllowedRegions": 16,
+        "outsideBounds": [
+          407,
+          481,
+          816,
+          629
+        ],
+        "outsideOverOneLevel": 0
+      },
+      "allowedRegions": [
+        {
+          "x": 204,
+          "y": 467.015625,
+          "width": 163,
+          "height": 30
+        },
+        {
+          "x": 408,
+          "y": 467.015625,
+          "width": 163,
+          "height": 30
+        },
+        {
+          "x": 612,
+          "y": 453.21875,
+          "width": 163,
+          "height": 43.796875
+        },
+        {
+          "x": 816,
+          "y": 467.015625,
+          "width": 163,
+          "height": 30
+        },
+        {
+          "x": 204,
+          "y": 609.015625,
+          "width": 163,
+          "height": 30
+        },
+        {
+          "x": 408,
+          "y": 609.015625,
+          "width": 163,
+          "height": 30
+        },
+        {
+          "x": 612,
+          "y": 609.015625,
+          "width": 163,
+          "height": 30
+        },
+        {
+          "x": 816,
+          "y": 609.015625,
+          "width": 163,
+          "height": 30
+        },
+        {
+          "x": 204,
+          "y": 443.28125,
+          "width": 163,
+          "height": 56.265625
+        },
+        {
+          "x": 408,
+          "y": 461.546875,
+          "width": 163,
+          "height": 38
+        },
+        {
+          "x": 612,
+          "y": 443.28125,
+          "width": 163,
+          "height": 56.265625
+        },
+        {
+          "x": 816,
+          "y": 461.546875,
+          "width": 163,
+          "height": 38
+        },
+        {
+          "x": 204,
+          "y": 585.28125,
+          "width": 163,
+          "height": 56.265625
+        },
+        {
+          "x": 408,
+          "y": 585.28125,
+          "width": 163,
+          "height": 56.265625
+        },
+        {
+          "x": 612,
+          "y": 603.546875,
+          "width": 163,
+          "height": 38
+        },
+        {
+          "x": 816,
+          "y": 603.546875,
+          "width": 163,
+          "height": 38
+        },
+        {
+          "x": 631.1844077961019,
+          "y": 79.07946026986507,
+          "width": 350.1469265367316,
+          "height": 227.74812593703146
+        }
+      ]
+    },
+    {
+      "width": 768,
+      "before": {
+        "cards": [
+          {
+            "card": {
+              "x": 200,
+              "y": 389.3125,
+              "width": 128,
+              "height": 130
+            },
+            "title": {
+              "x": 212,
+              "y": 449.71875,
+              "width": 83,
+              "height": 27.59375
+            },
+            "ink": {
+              "x": 212,
+              "y": 448.71875,
+              "width": 64.6875,
+              "height": 27.796875
+            },
+            "description": {
+              "x": 212,
+              "y": 482.3125,
+              "width": 83,
+              "height": 25
+            },
+            "image": {
+              "x": 201,
+              "y": 390.3125,
+              "width": 126,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+            "crop": "cover",
+            "text": "Personal Statements",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "personal_statement"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 83,
+            "clientWidth": 83
+          },
+          {
+            "card": {
+              "x": 340,
+              "y": 389.3125,
+              "width": 128,
+              "height": 130
+            },
+            "title": {
+              "x": 352,
+              "y": 449.71875,
+              "width": 83,
+              "height": 27.59375
+            },
+            "ink": {
+              "x": 352,
+              "y": 448.71875,
+              "width": 72.015625,
+              "height": 27.796875
+            },
+            "description": {
+              "x": 352,
+              "y": 482.3125,
+              "width": 83,
+              "height": 25
+            },
+            "image": {
+              "x": 341,
+              "y": 390.3125,
+              "width": 126,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+            "crop": "cover",
+            "text": "CV & Applications",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "curriculum_vitae"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 83,
+            "clientWidth": 83
+          },
+          {
+            "card": {
+              "x": 480,
+              "y": 389.3125,
+              "width": 128,
+              "height": 130
+            },
+            "title": {
+              "x": 492,
+              "y": 449.71875,
+              "width": 83,
+              "height": 27.59375
+            },
+            "ink": {
+              "x": 492,
+              "y": 448.71875,
+              "width": 100.6875,
+              "height": 27.796875
+            },
+            "description": {
+              "x": 492,
+              "y": 482.3125,
+              "width": 83,
+              "height": 25
+            },
+            "image": {
+              "x": 481,
+              "y": 390.3125,
+              "width": 126,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+            "crop": "cover",
+            "text": "Letters of Recommendation",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "letters"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 101,
+            "clientWidth": 83
+          },
+          {
+            "card": {
+              "x": 620,
+              "y": 389.3125,
+              "width": 128,
+              "height": 130
+            },
+            "title": {
+              "x": 632,
+              "y": 437.21875,
+              "width": 83,
+              "height": 27.59375
+            },
+            "ink": {
+              "x": 632,
+              "y": 436.21875,
+              "width": 56.703125,
+              "height": 27.796875
+            },
+            "description": {
+              "x": 632,
+              "y": 469.8125,
+              "width": 83,
+              "height": 37.5
+            },
+            "image": {
+              "x": 621,
+              "y": 390.3125,
+              "width": 126,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+            "crop": "cover",
+            "text": "Academic Records",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "academic"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 83,
+            "clientWidth": 83
+          },
+          {
+            "card": {
+              "x": 200,
+              "y": 531.3125,
+              "width": 128,
+              "height": 130
+            },
+            "title": {
+              "x": 212,
+              "y": 579.21875,
+              "width": 83,
+              "height": 27.59375
+            },
+            "ink": {
+              "x": 212,
+              "y": 578.21875,
+              "width": 66.6875,
+              "height": 27.796875
+            },
+            "description": {
+              "x": 212,
+              "y": 611.8125,
+              "width": 83,
+              "height": 37.5
+            },
+            "image": {
+              "x": 201,
+              "y": 532.3125,
+              "width": 126,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+            "crop": "cover",
+            "text": "Interview Preparation",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                ""
+              ],
+              [
+                "data-fv2-category-search",
+                "interview"
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 83,
+            "clientWidth": 83
+          },
+          {
+            "card": {
+              "x": 340,
+              "y": 531.3125,
+              "width": 128,
+              "height": 130
+            },
+            "title": {
+              "x": 352,
+              "y": 579.21875,
+              "width": 83,
+              "height": 27.59375
+            },
+            "ink": {
+              "x": 352,
+              "y": 578.21875,
+              "width": 71.34375,
+              "height": 27.796875
+            },
+            "description": {
+              "x": 352,
+              "y": 611.8125,
+              "width": 83,
+              "height": 37.5
+            },
+            "image": {
+              "x": 341,
+              "y": 532.3125,
+              "width": 126,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+            "crop": "cover",
+            "text": "Research & Publications",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                ""
+              ],
+              [
+                "data-fv2-category-search",
+                "research"
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 83,
+            "clientWidth": 83
+          },
+          {
+            "card": {
+              "x": 480,
+              "y": 531.3125,
+              "width": 128,
+              "height": 130
+            },
+            "title": {
+              "x": 492,
+              "y": 591.71875,
+              "width": 83,
+              "height": 27.59375
+            },
+            "ink": {
+              "x": 492,
+              "y": 590.71875,
+              "width": 65.34375,
+              "height": 27.796875
+            },
+            "description": {
+              "x": 492,
+              "y": 624.3125,
+              "width": 83,
+              "height": 25
+            },
+            "image": {
+              "x": 481,
+              "y": 532.3125,
+              "width": 126,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+            "crop": "cover",
+            "text": "Other Documents",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "other"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 83,
+            "clientWidth": 83
+          },
+          {
+            "card": {
+              "x": 620,
+              "y": 531.3125,
+              "width": 128,
+              "height": 130
+            },
+            "title": {
+              "x": 632,
+              "y": 591.71875,
+              "width": 83,
+              "height": 27.59375
+            },
+            "ink": {
+              "x": 632,
+              "y": 590.71875,
+              "width": 68.015625,
+              "height": 27.796875
+            },
+            "description": {
+              "x": 632,
+              "y": 624.3125,
+              "width": 83,
+              "height": 25
+            },
+            "image": {
+              "x": 621,
+              "y": 532.3125,
+              "width": 126,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+            "crop": "cover",
+            "text": "Shared with Me",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "navigate"
+              ],
+              [
+                "data-fv2-view",
+                "shared"
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 83,
+            "clientWidth": 83
+          }
+        ],
+        "layout": [
+          {
+            "x": 180,
+            "y": 0,
+            "width": 588,
+            "height": 64
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "width": 180,
+            "height": 850
+          },
+          {
+            "x": 200,
+            "y": 72,
+            "width": 548,
+            "height": 281.125
+          },
+          {
+            "x": 210,
+            "y": 123.9375,
+            "width": 366.671875,
+            "height": 113.390625
+          },
+          {
+            "x": 210,
+            "y": 284.125,
+            "width": 289.5,
+            "height": 44
+          },
+          {
+            "x": 200,
+            "y": 389.3125,
+            "width": 548,
+            "height": 272
+          },
+          {
+            "x": 200,
+            "y": 742.3125,
+            "width": 548,
+            "height": 321.125
+          }
+        ],
+        "atmosphere": {
+          "x": 180,
+          "y": 0,
+          "width": 588,
+          "height": 850
+        },
+        "pseudo": {
+          "width": null,
+          "height": null
+        },
+        "overflow": false
+      },
+      "after": {
+        "cards": [
+          {
+            "card": {
+              "x": 200,
+              "y": 389.3125,
+              "width": 128,
+              "height": 130
+            },
+            "title": {
+              "x": 212,
+              "y": 440.78125,
+              "width": 92.99063110351562,
+              "height": 36.53125
+            },
+            "ink": {
+              "x": 212,
+              "y": 438.78125,
+              "width": 60.615631103515625,
+              "height": 40.265625
+            },
+            "description": {
+              "x": 212,
+              "y": 482.3125,
+              "width": 83,
+              "height": 25
+            },
+            "image": {
+              "x": 201,
+              "y": 390.3125,
+              "width": 126,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+            "crop": "cover",
+            "text": "Personal Statements",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "personal_statement"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 133,
+            "clientWidth": 133
+          },
+          {
+            "card": {
+              "x": 340,
+              "y": 389.3125,
+              "width": 128,
+              "height": 130
+            },
+            "title": {
+              "x": 352,
+              "y": 440.78125,
+              "width": 92.99063110351562,
+              "height": 36.53125
+            },
+            "ink": {
+              "x": 352,
+              "y": 438.78125,
+              "width": 68.32656860351562,
+              "height": 40.265625
+            },
+            "description": {
+              "x": 352,
+              "y": 482.3125,
+              "width": 83,
+              "height": 25
+            },
+            "image": {
+              "x": 341,
+              "y": 390.3125,
+              "width": 126,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+            "crop": "cover",
+            "text": "CV & Applications",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "curriculum_vitae"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 133,
+            "clientWidth": 133
+          },
+          {
+            "card": {
+              "x": 480,
+              "y": 389.3125,
+              "width": 128,
+              "height": 130
+            },
+            "title": {
+              "x": 492,
+              "y": 440.78125,
+              "width": 92.9906005859375,
+              "height": 36.53125
+            },
+            "ink": {
+              "x": 492,
+              "y": 438.78125,
+              "width": 89.7421875,
+              "height": 40.265625
+            },
+            "description": {
+              "x": 492,
+              "y": 482.3125,
+              "width": 83,
+              "height": 25
+            },
+            "image": {
+              "x": 481,
+              "y": 390.3125,
+              "width": 126,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+            "crop": "cover",
+            "text": "Letters of Recommendation",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "letters"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 133,
+            "clientWidth": 133
+          },
+          {
+            "card": {
+              "x": 620,
+              "y": 389.3125,
+              "width": 128,
+              "height": 130
+            },
+            "title": {
+              "x": 632,
+              "y": 428.28125,
+              "width": 92.9906005859375,
+              "height": 36.53125
+            },
+            "ink": {
+              "x": 632,
+              "y": 426.28125,
+              "width": 50.4547119140625,
+              "height": 40.265625
+            },
+            "description": {
+              "x": 632,
+              "y": 469.8125,
+              "width": 83,
+              "height": 37.5
+            },
+            "image": {
+              "x": 621,
+              "y": 390.3125,
+              "width": 126,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+            "crop": "cover",
+            "text": "Academic Records",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "academic"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 133,
+            "clientWidth": 133
+          },
+          {
+            "card": {
+              "x": 200,
+              "y": 531.3125,
+              "width": 128,
+              "height": 130
+            },
+            "title": {
+              "x": 212,
+              "y": 570.28125,
+              "width": 92.99063110351562,
+              "height": 36.53125
+            },
+            "ink": {
+              "x": 212,
+              "y": 568.28125,
+              "width": 64.94686889648438,
+              "height": 40.265625
+            },
+            "description": {
+              "x": 212,
+              "y": 611.8125,
+              "width": 83,
+              "height": 37.5
+            },
+            "image": {
+              "x": 201,
+              "y": 532.3125,
+              "width": 126,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+            "crop": "cover",
+            "text": "Interview Preparation",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                ""
+              ],
+              [
+                "data-fv2-category-search",
+                "interview"
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 133,
+            "clientWidth": 133
+          },
+          {
+            "card": {
+              "x": 340,
+              "y": 531.3125,
+              "width": 128,
+              "height": 130
+            },
+            "title": {
+              "x": 352,
+              "y": 570.28125,
+              "width": 92.99063110351562,
+              "height": 36.53125
+            },
+            "ink": {
+              "x": 352,
+              "y": 568.28125,
+              "width": 69.42031860351562,
+              "height": 40.265625
+            },
+            "description": {
+              "x": 352,
+              "y": 611.8125,
+              "width": 83,
+              "height": 37.5
+            },
+            "image": {
+              "x": 341,
+              "y": 532.3125,
+              "width": 126,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+            "crop": "cover",
+            "text": "Research & Publications",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                ""
+              ],
+              [
+                "data-fv2-category-search",
+                "research"
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 133,
+            "clientWidth": 133
+          },
+          {
+            "card": {
+              "x": 480,
+              "y": 531.3125,
+              "width": 128,
+              "height": 130
+            },
+            "title": {
+              "x": 492,
+              "y": 601.046875,
+              "width": 92.9906005859375,
+              "height": 18.265625
+            },
+            "ink": {
+              "x": 492,
+              "y": 599.046875,
+              "width": 92.9468994140625,
+              "height": 22
+            },
+            "description": {
+              "x": 492,
+              "y": 624.3125,
+              "width": 83,
+              "height": 25
+            },
+            "image": {
+              "x": 481,
+              "y": 532.3125,
+              "width": 126,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+            "crop": "cover",
+            "text": "Other Documents",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "other"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 133,
+            "clientWidth": 133
+          },
+          {
+            "card": {
+              "x": 620,
+              "y": 531.3125,
+              "width": 128,
+              "height": 130
+            },
+            "title": {
+              "x": 632,
+              "y": 601.046875,
+              "width": 92.9906005859375,
+              "height": 18.265625
+            },
+            "ink": {
+              "x": 632,
+              "y": 599.046875,
+              "width": 82.47967529296875,
+              "height": 22
+            },
+            "description": {
+              "x": 632,
+              "y": 624.3125,
+              "width": 83,
+              "height": 25
+            },
+            "image": {
+              "x": 621,
+              "y": 532.3125,
+              "width": 126,
+              "height": 128
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+            "crop": "cover",
+            "text": "Shared with Me",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "navigate"
+              ],
+              [
+                "data-fv2-view",
+                "shared"
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 133,
+            "clientWidth": 133
+          }
+        ],
+        "layout": [
+          {
+            "x": 180,
+            "y": 0,
+            "width": 588,
+            "height": 64
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "width": 180,
+            "height": 850
+          },
+          {
+            "x": 200,
+            "y": 72,
+            "width": 548,
+            "height": 281.125
+          },
+          {
+            "x": 210,
+            "y": 123.9375,
+            "width": 366.671875,
+            "height": 113.390625
+          },
+          {
+            "x": 210,
+            "y": 284.125,
+            "width": 289.5,
+            "height": 44
+          },
+          {
+            "x": 200,
+            "y": 389.3125,
+            "width": 548,
+            "height": 272
+          },
+          {
+            "x": 200,
+            "y": 742.3125,
+            "width": 548,
+            "height": 321.125
+          }
+        ],
+        "atmosphere": {
+          "x": 180,
+          "y": 0,
+          "width": 588,
+          "height": 850
+        },
+        "pseudo": {
+          "width": null,
+          "height": null
+        },
+        "overflow": false
+      },
+      "diff": {
+        "changedPixels": 51374,
+        "outsideAllowedRegions": 0,
+        "outsideBounds": null,
+        "outsideOverOneLevel": 0
+      },
+      "allowedRegions": [
+        {
+          "x": 204,
+          "y": 440.71875,
+          "width": 99,
+          "height": 43.796875
+        },
+        {
+          "x": 344,
+          "y": 440.71875,
+          "width": 99,
+          "height": 43.796875
+        },
+        {
+          "x": 484,
+          "y": 440.71875,
+          "width": 116.6875,
+          "height": 43.796875
+        },
+        {
+          "x": 624,
+          "y": 428.21875,
+          "width": 99,
+          "height": 43.796875
+        },
+        {
+          "x": 204,
+          "y": 570.21875,
+          "width": 99,
+          "height": 43.796875
+        },
+        {
+          "x": 344,
+          "y": 570.21875,
+          "width": 99,
+          "height": 43.796875
+        },
+        {
+          "x": 484,
+          "y": 582.71875,
+          "width": 99,
+          "height": 43.796875
+        },
+        {
+          "x": 624,
+          "y": 582.71875,
+          "width": 99,
+          "height": 43.796875
+        },
+        {
+          "x": 204,
+          "y": 430.78125,
+          "width": 108.99063110351562,
+          "height": 56.265625
+        },
+        {
+          "x": 344,
+          "y": 430.78125,
+          "width": 108.99063110351562,
+          "height": 56.265625
+        },
+        {
+          "x": 484,
+          "y": 430.78125,
+          "width": 108.9906005859375,
+          "height": 56.265625
+        },
+        {
+          "x": 624,
+          "y": 418.28125,
+          "width": 108.9906005859375,
+          "height": 56.265625
+        },
+        {
+          "x": 204,
+          "y": 560.28125,
+          "width": 108.99063110351562,
+          "height": 56.265625
+        },
+        {
+          "x": 344,
+          "y": 560.28125,
+          "width": 108.99063110351562,
+          "height": 56.265625
+        },
+        {
+          "x": 484,
+          "y": 591.046875,
+          "width": 108.9906005859375,
+          "height": 38
+        },
+        {
+          "x": 624,
+          "y": 591.046875,
+          "width": 108.9906005859375,
+          "height": 38
+        },
+        {
+          "x": 503.18440779610194,
+          "y": 79.07946026986507,
+          "width": 350.1469265367316,
+          "height": 227.74812593703146
+        }
+      ]
+    },
+    {
+      "width": 390,
+      "before": {
+        "cards": [
+          {
+            "card": {
+              "x": 16,
+              "y": 398.1875,
+              "width": 174,
+              "height": 132
+            },
+            "title": {
+              "x": 26,
+              "y": 489.140625,
+              "width": 137,
+              "height": 13.796875
+            },
+            "ink": {
+              "x": 26,
+              "y": 488.140625,
+              "width": 118.71875,
+              "height": 14
+            },
+            "description": {
+              "x": 26,
+              "y": 507.9375,
+              "width": 137,
+              "height": 11.25
+            },
+            "image": {
+              "x": 17,
+              "y": 399.1875,
+              "width": 172,
+              "height": 130
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+            "crop": "cover",
+            "text": "Personal Statements",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "personal_statement"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 137,
+            "clientWidth": 137
+          },
+          {
+            "card": {
+              "x": 200,
+              "y": 398.1875,
+              "width": 174,
+              "height": 132
+            },
+            "title": {
+              "x": 210,
+              "y": 489.140625,
+              "width": 137,
+              "height": 13.796875
+            },
+            "ink": {
+              "x": 210,
+              "y": 488.140625,
+              "width": 103.578125,
+              "height": 14
+            },
+            "description": {
+              "x": 210,
+              "y": 507.9375,
+              "width": 137,
+              "height": 11.25
+            },
+            "image": {
+              "x": 201,
+              "y": 399.1875,
+              "width": 172,
+              "height": 130
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+            "crop": "cover",
+            "text": "CV & Applications",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "curriculum_vitae"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 137,
+            "clientWidth": 137
+          },
+          {
+            "card": {
+              "x": 16,
+              "y": 540.1875,
+              "width": 174,
+              "height": 132
+            },
+            "title": {
+              "x": 26,
+              "y": 617.34375,
+              "width": 137,
+              "height": 27.59375
+            },
+            "ink": {
+              "x": 26,
+              "y": 616.34375,
+              "width": 100.6875,
+              "height": 27.796875
+            },
+            "description": {
+              "x": 26,
+              "y": 649.9375,
+              "width": 137,
+              "height": 11.25
+            },
+            "image": {
+              "x": 17,
+              "y": 541.1875,
+              "width": 172,
+              "height": 130
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+            "crop": "cover",
+            "text": "Letters of Recommendation",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "letters"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 137,
+            "clientWidth": 137
+          },
+          {
+            "card": {
+              "x": 200,
+              "y": 540.1875,
+              "width": 174,
+              "height": 132
+            },
+            "title": {
+              "x": 210,
+              "y": 631.140625,
+              "width": 137,
+              "height": 13.796875
+            },
+            "ink": {
+              "x": 210,
+              "y": 630.140625,
+              "width": 108.046875,
+              "height": 14
+            },
+            "description": {
+              "x": 210,
+              "y": 649.9375,
+              "width": 137,
+              "height": 11.25
+            },
+            "image": {
+              "x": 201,
+              "y": 541.1875,
+              "width": 172,
+              "height": 130
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+            "crop": "cover",
+            "text": "Academic Records",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "academic"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 137,
+            "clientWidth": 137
+          },
+          {
+            "card": {
+              "x": 16,
+              "y": 682.1875,
+              "width": 174,
+              "height": 132
+            },
+            "title": {
+              "x": 26,
+              "y": 773.140625,
+              "width": 137,
+              "height": 13.796875
+            },
+            "ink": {
+              "x": 26,
+              "y": 772.140625,
+              "width": 122.046875,
+              "height": 14
+            },
+            "description": {
+              "x": 26,
+              "y": 791.9375,
+              "width": 137,
+              "height": 11.25
+            },
+            "image": {
+              "x": 17,
+              "y": 683.1875,
+              "width": 172,
+              "height": 130
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+            "crop": "cover",
+            "text": "Interview Preparation",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                ""
+              ],
+              [
+                "data-fv2-category-search",
+                "interview"
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 137,
+            "clientWidth": 137
+          },
+          {
+            "card": {
+              "x": 200,
+              "y": 682.1875,
+              "width": 174,
+              "height": 132
+            },
+            "title": {
+              "x": 210,
+              "y": 759.34375,
+              "width": 137,
+              "height": 27.59375
+            },
+            "ink": {
+              "x": 210,
+              "y": 758.34375,
+              "width": 71.34375,
+              "height": 27.796875
+            },
+            "description": {
+              "x": 210,
+              "y": 791.9375,
+              "width": 137,
+              "height": 11.25
+            },
+            "image": {
+              "x": 201,
+              "y": 683.1875,
+              "width": 172,
+              "height": 130
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+            "crop": "cover",
+            "text": "Research & Publications",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                ""
+              ],
+              [
+                "data-fv2-category-search",
+                "research"
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 137,
+            "clientWidth": 137
+          },
+          {
+            "card": {
+              "x": 16,
+              "y": 824.1875,
+              "width": 174,
+              "height": 132
+            },
+            "title": {
+              "x": 26,
+              "y": 915.140625,
+              "width": 137,
+              "height": 13.796875
+            },
+            "ink": {
+              "x": 26,
+              "y": 914.140625,
+              "width": 100.6875,
+              "height": 14
+            },
+            "description": {
+              "x": 26,
+              "y": 933.9375,
+              "width": 137,
+              "height": 11.25
+            },
+            "image": {
+              "x": 17,
+              "y": 825.1875,
+              "width": 172,
+              "height": 130
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+            "crop": "cover",
+            "text": "Other Documents",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "other"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 137,
+            "clientWidth": 137
+          },
+          {
+            "card": {
+              "x": 200,
+              "y": 824.1875,
+              "width": 174,
+              "height": 132
+            },
+            "title": {
+              "x": 210,
+              "y": 915.140625,
+              "width": 137,
+              "height": 13.796875
+            },
+            "ink": {
+              "x": 210,
+              "y": 914.140625,
+              "width": 88.015625,
+              "height": 14
+            },
+            "description": {
+              "x": 210,
+              "y": 933.9375,
+              "width": 137,
+              "height": 11.25
+            },
+            "image": {
+              "x": 201,
+              "y": 825.1875,
+              "width": 172,
+              "height": 130
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+            "crop": "cover",
+            "text": "Shared with Me",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "navigate"
+              ],
+              [
+                "data-fv2-view",
+                "shared"
+              ]
+            ],
+            "size": 12,
+            "weight": "650",
+            "color": "rgb(255, 255, 255)",
+            "font": "Arial, Helvetica, sans-serif",
+            "lineHeight": "13.8px",
+            "transition": "0s",
+            "scrollWidth": 137,
+            "clientWidth": 137
+          }
+        ],
+        "layout": [
+          {
+            "x": 0,
+            "y": 0,
+            "width": 390,
+            "height": 64
+          },
+          {
+            "x": 0,
+            "y": 768.71875,
+            "width": 390,
+            "height": 75.28125
+          },
+          {
+            "x": 16,
+            "y": 72,
+            "width": 358,
+            "height": 290
+          },
+          {
+            "x": 16,
+            "y": 118.5,
+            "width": 325.921875,
+            "height": 105.5625
+          },
+          {
+            "x": 16,
+            "y": 288.4375,
+            "width": 252.796875,
+            "height": 44
+          },
+          {
+            "x": 16,
+            "y": 398.1875,
+            "width": 358,
+            "height": 558
+          },
+          {
+            "x": 16,
+            "y": 1035.1875,
+            "width": 358,
+            "height": 528.8125
+          }
+        ],
+        "atmosphere": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 844
+        },
+        "pseudo": {
+          "width": null,
+          "height": null
+        },
+        "overflow": false
+      },
+      "after": {
+        "cards": [
+          {
+            "card": {
+              "x": 16,
+              "y": 398.1875,
+              "width": 174,
+              "height": 132
+            },
+            "title": {
+              "x": 26,
+              "y": 466.40625,
+              "width": 137,
+              "height": 36.53125
+            },
+            "ink": {
+              "x": 26,
+              "y": 464.40625,
+              "width": 86.59375,
+              "height": 40.265625
+            },
+            "description": {
+              "x": 26,
+              "y": 507.9375,
+              "width": 137,
+              "height": 11.25
+            },
+            "image": {
+              "x": 17,
+              "y": 399.1875,
+              "width": 172,
+              "height": 130
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+            "crop": "cover",
+            "text": "Personal Statements",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "personal_statement"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 137,
+            "clientWidth": 137
+          },
+          {
+            "card": {
+              "x": 200,
+              "y": 398.1875,
+              "width": 174,
+              "height": 132
+            },
+            "title": {
+              "x": 210,
+              "y": 484.671875,
+              "width": 137,
+              "height": 18.265625
+            },
+            "ink": {
+              "x": 210,
+              "y": 482.671875,
+              "width": 133.015625,
+              "height": 22
+            },
+            "description": {
+              "x": 210,
+              "y": 507.9375,
+              "width": 137,
+              "height": 11.25
+            },
+            "image": {
+              "x": 201,
+              "y": 399.1875,
+              "width": 172,
+              "height": 130
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+            "crop": "cover",
+            "text": "CV & Applications",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "curriculum_vitae"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 137,
+            "clientWidth": 137
+          },
+          {
+            "card": {
+              "x": 16,
+              "y": 540.1875,
+              "width": 174,
+              "height": 132
+            },
+            "title": {
+              "x": 26,
+              "y": 608.40625,
+              "width": 137,
+              "height": 36.53125
+            },
+            "ink": {
+              "x": 26,
+              "y": 606.40625,
+              "width": 128.203125,
+              "height": 40.265625
+            },
+            "description": {
+              "x": 26,
+              "y": 649.9375,
+              "width": 137,
+              "height": 11.25
+            },
+            "image": {
+              "x": 17,
+              "y": 541.1875,
+              "width": 172,
+              "height": 130
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+            "crop": "cover",
+            "text": "Letters of Recommendation",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "letters"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 137,
+            "clientWidth": 137
+          },
+          {
+            "card": {
+              "x": 200,
+              "y": 540.1875,
+              "width": 174,
+              "height": 132
+            },
+            "title": {
+              "x": 210,
+              "y": 608.40625,
+              "width": 137,
+              "height": 36.53125
+            },
+            "ink": {
+              "x": 210,
+              "y": 606.40625,
+              "width": 72.078125,
+              "height": 40.265625
+            },
+            "description": {
+              "x": 210,
+              "y": 649.9375,
+              "width": 137,
+              "height": 11.25
+            },
+            "image": {
+              "x": 201,
+              "y": 541.1875,
+              "width": 172,
+              "height": 130
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+            "crop": "cover",
+            "text": "Academic Records",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "academic"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 137,
+            "clientWidth": 137
+          },
+          {
+            "card": {
+              "x": 16,
+              "y": 682.1875,
+              "width": 174,
+              "height": 132
+            },
+            "title": {
+              "x": 26,
+              "y": 750.40625,
+              "width": 137,
+              "height": 36.53125
+            },
+            "ink": {
+              "x": 26,
+              "y": 748.40625,
+              "width": 92.78125,
+              "height": 40.265625
+            },
+            "description": {
+              "x": 26,
+              "y": 791.9375,
+              "width": 137,
+              "height": 11.25
+            },
+            "image": {
+              "x": 17,
+              "y": 683.1875,
+              "width": 172,
+              "height": 130
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+            "crop": "cover",
+            "text": "Interview Preparation",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                ""
+              ],
+              [
+                "data-fv2-category-search",
+                "interview"
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 137,
+            "clientWidth": 137
+          },
+          {
+            "card": {
+              "x": 200,
+              "y": 682.1875,
+              "width": 174,
+              "height": 132
+            },
+            "title": {
+              "x": 210,
+              "y": 750.40625,
+              "width": 137,
+              "height": 36.53125
+            },
+            "ink": {
+              "x": 210,
+              "y": 748.40625,
+              "width": 99.171875,
+              "height": 40.265625
+            },
+            "description": {
+              "x": 210,
+              "y": 791.9375,
+              "width": 137,
+              "height": 11.25
+            },
+            "image": {
+              "x": 201,
+              "y": 683.1875,
+              "width": 172,
+              "height": 130
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+            "crop": "cover",
+            "text": "Research & Publications",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                ""
+              ],
+              [
+                "data-fv2-category-search",
+                "research"
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 137,
+            "clientWidth": 137
+          },
+          {
+            "card": {
+              "x": 16,
+              "y": 824.1875,
+              "width": 174,
+              "height": 132
+            },
+            "title": {
+              "x": 26,
+              "y": 910.671875,
+              "width": 137,
+              "height": 18.265625
+            },
+            "ink": {
+              "x": 26,
+              "y": 908.671875,
+              "width": 132.78125,
+              "height": 22
+            },
+            "description": {
+              "x": 26,
+              "y": 933.9375,
+              "width": 137,
+              "height": 11.25
+            },
+            "image": {
+              "x": 17,
+              "y": 825.1875,
+              "width": 172,
+              "height": 130
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+            "crop": "cover",
+            "text": "Other Documents",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "open-file-group"
+              ],
+              [
+                "data-fv2-file-group",
+                "other"
+              ],
+              [
+                "data-fv2-category-search",
+                ""
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 137,
+            "clientWidth": 137
+          },
+          {
+            "card": {
+              "x": 200,
+              "y": 824.1875,
+              "width": 174,
+              "height": 132
+            },
+            "title": {
+              "x": 210,
+              "y": 910.671875,
+              "width": 137,
+              "height": 18.265625
+            },
+            "ink": {
+              "x": 210,
+              "y": 908.671875,
+              "width": 117.828125,
+              "height": 22
+            },
+            "description": {
+              "x": 210,
+              "y": 933.9375,
+              "width": 137,
+              "height": 11.25
+            },
+            "image": {
+              "x": 201,
+              "y": 825.1875,
+              "width": 172,
+              "height": 130
+            },
+            "src": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+            "crop": "cover",
+            "text": "Shared with Me",
+            "attrs": [
+              [
+                "type",
+                "button"
+              ],
+              [
+                "class",
+                "fv2-category-card"
+              ],
+              [
+                "data-fv2-action",
+                "navigate"
+              ],
+              [
+                "data-fv2-view",
+                "shared"
+              ]
+            ],
+            "size": 17.4,
+            "weight": "900",
+            "color": "rgb(255, 255, 255)",
+            "font": "Impact, \"Arial Narrow\", \"Roboto Condensed\", sans-serif",
+            "lineHeight": "18.27px",
+            "transition": "0s",
+            "scrollWidth": 137,
+            "clientWidth": 137
+          }
+        ],
+        "layout": [
+          {
+            "x": 0,
+            "y": 0,
+            "width": 390,
+            "height": 64
+          },
+          {
+            "x": 0,
+            "y": 768.71875,
+            "width": 390,
+            "height": 75.28125
+          },
+          {
+            "x": 16,
+            "y": 72,
+            "width": 358,
+            "height": 290
+          },
+          {
+            "x": 16,
+            "y": 118.5,
+            "width": 325.921875,
+            "height": 105.5625
+          },
+          {
+            "x": 16,
+            "y": 288.4375,
+            "width": 252.796875,
+            "height": 44
+          },
+          {
+            "x": 16,
+            "y": 398.1875,
+            "width": 358,
+            "height": 558
+          },
+          {
+            "x": 16,
+            "y": 1035.1875,
+            "width": 358,
+            "height": 528.8125
+          }
+        ],
+        "atmosphere": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 844
+        },
+        "pseudo": {
+          "width": null,
+          "height": null
+        },
+        "overflow": false
+      },
+      "diff": {
+        "changedPixels": 44297,
+        "outsideAllowedRegions": 8,
+        "outsideBounds": [
+          201,
+          494,
+          202,
+          625
+        ],
+        "outsideOverOneLevel": 0
+      },
+      "allowedRegions": [
+        {
+          "x": 18,
+          "y": 480.140625,
+          "width": 153,
+          "height": 30
+        },
+        {
+          "x": 202,
+          "y": 480.140625,
+          "width": 153,
+          "height": 30
+        },
+        {
+          "x": 18,
+          "y": 608.34375,
+          "width": 153,
+          "height": 43.796875
+        },
+        {
+          "x": 202,
+          "y": 622.140625,
+          "width": 153,
+          "height": 30
+        },
+        {
+          "x": 18,
+          "y": 764.140625,
+          "width": 153,
+          "height": 30
+        },
+        {
+          "x": 202,
+          "y": 750.34375,
+          "width": 153,
+          "height": 43.796875
+        },
+        {
+          "x": 18,
+          "y": 906.140625,
+          "width": 153,
+          "height": 30
+        },
+        {
+          "x": 202,
+          "y": 906.140625,
+          "width": 153,
+          "height": 30
+        },
+        {
+          "x": 18,
+          "y": 456.40625,
+          "width": 153,
+          "height": 56.265625
+        },
+        {
+          "x": 202,
+          "y": 474.671875,
+          "width": 153,
+          "height": 38
+        },
+        {
+          "x": 18,
+          "y": 598.40625,
+          "width": 153,
+          "height": 56.265625
+        },
+        {
+          "x": 202,
+          "y": 598.40625,
+          "width": 153,
+          "height": 56.265625
+        },
+        {
+          "x": 18,
+          "y": 740.40625,
+          "width": 153,
+          "height": 56.265625
+        },
+        {
+          "x": 202,
+          "y": 740.40625,
+          "width": 153,
+          "height": 56.265625
+        },
+        {
+          "x": 18,
+          "y": 900.671875,
+          "width": 153,
+          "height": 38
+        },
+        {
+          "x": 202,
+          "y": 900.671875,
+          "width": 153,
+          "height": 38
+        },
+        {
+          "x": 227.78260869565213,
+          "y": 88.43478260869566,
+          "width": 390.0869565217391,
+          "height": 253.56521739130434
+        }
+      ]
+    }
+  ],
+  "errors": []
+}
