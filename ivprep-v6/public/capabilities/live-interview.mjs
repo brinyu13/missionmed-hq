@@ -2,6 +2,16 @@ const START_TIMEOUT_MS = 15_000;
 const DIRECTOR_OBJECTIVE_KINDS = new Set(['FOLLOW_HOOK', 'CLARIFY', 'SEEK_EVIDENCE', 'DEEPEN', 'CHALLENGE_GENTLY', 'FOLLOW_PROGRAM_CONTEXT', 'MOVE_TO_NEXT_PLANNED_QUESTION', 'CLOSING_TRANSITION', 'ANSWER_CANDIDATE_QUESTION', 'PROFESSIONAL_SIGNOFF']);
 const OVERALL_START_TIMEOUT_MS = 90_000;
 
+// GPT-Live WebRTC has no native speech-response ID, output-done event or
+// output-cancel acknowledgment. Delegated response.event IDs, transcript gaps
+// and instructions.appended are NOT playback boundaries. Keep this explicit
+// at the visual Actor seam; a renderer must not infer safe resume from silence.
+export const NATIVE_PLAYBACK_CONTRACT = Object.freeze({
+  authority: 'openai-gpt-live-native', transport: 'webrtc',
+  responseIdentity: false, cancellationAcknowledgment: false,
+  interruptionRecovery: 'finish-and-save',
+});
+
 function transcriptEvent(event) {
   const type = String(event?.type || '');
   if (!type.includes('transcript')) return null;
@@ -114,6 +124,7 @@ export class LiveInterviewSession {
       authority: 'openai-gpt-live-native',
       state: this.audioAuthority || 'idle',
       remoteTrackBound: Boolean(this.remoteAudioTrackId),
+      ...(this.audioRenderer ? { playbackBoundary: NATIVE_PLAYBACK_CONTRACT } : {}),
     });
   }
 
@@ -122,6 +133,7 @@ export class LiveInterviewSession {
     try { event = JSON.parse(typeof raw === 'string' ? raw : raw?.data || '{}'); }
     catch { return; }
     this.onEvent(event);
+    // Candidate speech is an interruption hint, NOT a native cancellation ack.
     if(event.type==='session.input_transcript.delta'&&event.delta?.trim())void this.audioRenderer?.interrupt?.();
     if (event.type === 'session.delegation.created') {
       const delegation = event.delegation;
@@ -340,7 +352,7 @@ export class LiveInterviewSession {
         // never after generated speech or a transport-only readiness flag.
         if(this.audioRenderer)await started;
         if(!current())return;
-        const heardStream=this.audioRenderer?await this.audioRenderer.render(stream,{microphoneTrack:audioTrack,ivocSessionId}):stream;
+        const heardStream=this.audioRenderer?await this.audioRenderer.render(stream,{microphoneTrack:audioTrack,ivocSessionId,nativePlaybackContract:NATIVE_PLAYBACK_CONTRACT}):stream;
         if(!current()){await this.audioRenderer?.stop?.();return;}
         this.audioElement.srcObject = heardStream;
         // Bind the silent, stable rendered tap before the first audible sample.

@@ -62,7 +62,7 @@ export class EmbodimentRenderer {
   constructor({host,csrfToken,sessionId,AudioContextCtor=window.AudioContext,AudioWorkletNodeCtor=globalThis.AudioWorkletNode,loadSdk=loadLiveKit,fetchImpl=fetch,timeoutSignal=ms=>AbortSignal.timeout(ms),onFailure=()=>{}}={}){
     this.host=host;this.csrfToken=csrfToken;this.sessionId=sessionId;this.AC=AudioContextCtor;this.loadSdk=loadSdk;this.fetch=fetchImpl.bind(globalThis);this.onFailure=onFailure;
     this.closed=false;this.generation=0;this.sequence=0;this.ticket=null;this.cleanup=null;this.sources=[];this.holds=false;this.speaking=false;this.silentMs=0;
-    this.timeoutSignal=timeoutSignal;this.Worklet=AudioWorkletNodeCtor;this.startRequested=false;
+    this.timeoutSignal=timeoutSignal;this.Worklet=AudioWorkletNodeCtor;this.startRequested=false;this.pcmGeneration=1;
     this.transitions=[];this.failure=null;this.decodeAbort=new AbortController();
     this.visualReady=new Promise((resolve,reject)=>{this.visualResolve=resolve;this.visualReject=reject;});this.visualReady.catch(()=>{});
     this.transition('IVOC_READY','IVOC_CLIENT','RENDERER_INITIALIZED');
@@ -73,7 +73,7 @@ export class EmbodimentRenderer {
     if(previous&&previous.completedAtMs==null){previous.completedAtMs=at;previous.successEvidence=evidence;}
     this.transitions.push({state,owner,startedAtMs:at,completedAtMs:null,entryEvidence:evidence,successEvidence:null,failureEvidence:null,cleanup:'EXACT_SESSION_ROOM_AND_MEDIA'});
   }
-  diagnostics(){return {state:this.transitions.at(-1)?.state||null,visualReady:this.visible===true,audioBound:this.returnAudioBound===true,transitions:this.transitions,failure:this.failure};}
+  diagnostics(){return {state:this.transitions.at(-1)?.state||null,visualReady:this.visible===true,audioBound:this.returnAudioBound===true,interruptionRecovery:'finish-and-save',nativePlaybackBoundary:'UNAVAILABLE',transitions:this.transitions,failure:this.failure};}
   waitForVisualReady(){return this.visualReady;}
   async api(command,body=null,{keepalive=false}={}){
     const startedAtMs=Date.now();let response;
@@ -92,13 +92,21 @@ export class EmbodimentRenderer {
     return result;
   }
   fail(error){if(this.closed)return;this.failure=error?.diagnostics||{category:'STARTUP_FAILED',boundary:this.transitions.at(-1)?.state};const row=this.transitions.at(-1);if(row){row.completedAtMs=Date.now();row.failureEvidence=this.failure;}this.visualReject(error);this.onFailure(error);void this.stop();}
-  async render(stream,{microphoneTrack,ivocSessionId}={}){
+  async render(stream,{microphoneTrack,ivocSessionId,nativePlaybackContract}={}){
+    if(this.closed)throw stageError('CLIENT_ABORT','IVOC_CLIENT');
+    // No permissive opt-in: a future native playback contract needs explicit
+    // integration/review, not a caller-supplied true flag or invented turn ID.
+    if(nativePlaybackContract && (nativePlaybackContract.authority!=='openai-gpt-live-native'
+      ||nativePlaybackContract.transport!=='webrtc'||nativePlaybackContract.responseIdentity!==false
+      ||nativePlaybackContract.cancellationAcknowledgment!==false
+      ||nativePlaybackContract.interruptionRecovery!=='finish-and-save'))throw stageError('NATIVE_PLAYBACK_CONTRACT_INVALID','AUDIO_BINDING');
     if(ivocSessionId!==this.sessionId)throw new Error('Avatar canonical session identity changed.');
     const generation=++this.generation,current=()=>!this.closed&&this.generation===generation;
     if(this.context)throw new Error('Only one avatar playback authority is permitted.');
     try{
     this.context=new this.AC({sampleRate:16000});if(this.context.sampleRate!==16000)throw new Error('This browser cannot supply the required avatar audio format.');
     await this.context.resume();
+    if(!current())throw stageError('CLIENT_ABORT','IVOC_CLIENT');
     this.destination=this.context.createMediaStreamDestination();
     this.gain=this.context.createGain();this.gain.gain.value=1;this.gain.connect(this.destination); // NOT context.destination
     // Stable silent output exists before opening: avoids a speech/startup deadlock.
@@ -147,7 +155,11 @@ export class EmbodimentRenderer {
     this.transition('LIVEKIT_CONNECTING','LIVEKIT_CLIENT','SCOPED_VIEWER_TICKET');
     try{await this.room.connect(this.ticket.livekitUrl,this.ticket.viewerToken,{autoSubscribe:true});}
     catch{throw stageError('LIVEKIT_FAILURE','LIVEKIT_CONNECTING');}
-    if(!current())throw new Error('Avatar startup cancelled.');
+    if(!current()){
+      // stop's first disconnect may precede this in-flight join completing.
+      await this.room.disconnect().catch(()=>{});
+      throw new Error('Avatar startup cancelled.');
+    }
     // Tracks can arrive during connect(); don't overwrite a later media phase.
     if(this.transitions.at(-1)?.state==='LIVEKIT_CONNECTING')this.transition('LIVEKIT_CONNECTED','LIVEKIT_CLIENT','ROOM_CONNECT_RESOLVED');
     await this.context.audioWorklet.addModule('/iv-prep-on-call/assets/capabilities/embodiment-pcm-worklet.mjs');
@@ -158,9 +170,16 @@ export class EmbodimentRenderer {
     this.batcher=new PcmBatcher(pcm=>void this.queue.push('audio',{audio:encode(pcm)}).catch(()=>{}));
     this.silentSink=this.context.createGain();this.silentSink.gain.value=0;this.extractor.connect(this.silentSink);this.silentSink.connect(this.context.destination); // processor always emits zero
     this.extractor.port.onmessage=({data})=>{
-      if(!current())return;
+      if(!current()||data.generation!==this.pcmGeneration)return;
+      if(data.command==='flushed'){this.pcmFlushConfirmed=true;this.resumeAfterFlush();return;}
       const active=data.rms>=0.003;
-      if(this.holds){if(!active)this.silentMs+=80;else this.silentMs=0;if(this.flushConfirmed&&this.silentMs>=400){this.holds=false;this.silentMs=0;this.gain.gain.value=1;}return;}
+      if(this.holds){
+        // Without a native response boundary we cannot distinguish a cancelled
+        // tail from a new answer. Never silently consume either and then resume.
+        if(active){this.fail(stageError('NATIVE_TURN_BOUNDARY_UNCONFIRMED','AUDIO_BINDING'));return;}
+        this.silentMs+=80;
+        this.resumeAfterFlush();return;
+      }
       // Preserve every PCM sample, including quiet speech and pauses. RMS is
       // only a delivery-boundary hint, never a content filter/canonical turn.
       this.batcher.push(data.pcm);
@@ -189,18 +208,41 @@ export class EmbodimentRenderer {
   }
   async interrupt(){
     if(this.closed||this.holds||!this.queue||!(this.speaking||this.returnedSpeaking))return;
-    this.holds=true;this.flushConfirmed=false;this.silentMs=0;this.speaking=false;
+    this.holds=true;this.flushConfirmed=false;this.pcmFlushConfirmed=false;this.silentMs=0;this.speaking=false;
     this.batcher?.clear();
     // This same gain gates both audible playback and the durable recording tap.
     this.gain.gain.value=0;
-    try{await this.queue.interrupt();this.flushConfirmed=true;}catch(error){this.fail(error);}
+    // Fence partial worklet frames and messages already posted to the main
+    // thread, not just the HTTP queue. Resume needs both exact acknowledgments.
+    const generation=++this.pcmGeneration;
+    this.holdTimer=setTimeout(()=>this.fail(stageError('NATIVE_TURN_BOUNDARY_UNCONFIRMED','AUDIO_BINDING')),1500);
+    try{
+      this.extractor.port.postMessage({command:'flush',generation});
+      const receipt=await this.queue.interrupt();
+      if(this.closed)return;
+      if(receipt?.flushed!==true||receipt.generation!==generation)throw stageError('FLUSH_UNCONFIRMED','AUDIO_BINDING');
+      this.flushConfirmed=true;this.resumeAfterFlush();
+    }catch(error){this.fail(error);}
+  }
+  resumeAfterFlush(){
+    if(this.closed||!this.holds||!this.flushConfirmed||!this.pcmFlushConfirmed)return;
+    // Provider+worklet flush confirms those queues only. GPT-Live's continuing
+    // WebRTC track has no correlated cancellation/next-response boundary.
+    // Even a quiet gap can precede a cancelled tail; never unmute on RMS/time,
+    // a transcript delta, delegated response ID or instruction acknowledgment.
+    clearTimeout(this.holdTimer);
+    const error=stageError('NATIVE_PLAYBACK_BOUNDARY_UNAVAILABLE','AUDIO_BINDING');
+    error.message='Avatar playback stopped safely after interruption. Finish and save this attempt; automatic avatar resume is not supported yet.';
+    this.fail(error);
   }
   async stop({keepalive=false,late=false}={}){
     this.closed=true;++this.generation;if(this.gain)this.gain.gain.value=0;
     this.decodeAbort.abort();this.visualReject(stageError('CLIENT_ABORT','IVOC_CLIENT'));
-    clearTimeout(this.deadline);clearTimeout(this.joinTimer);clearInterval(this.poll);clearInterval(this.micTimer);
+    clearTimeout(this.deadline);clearTimeout(this.joinTimer);clearTimeout(this.holdTimer);clearInterval(this.poll);clearInterval(this.micTimer);
     this.batcher?.clear();this.queue?.close();this.extractor?.disconnect();if(this.extractor)this.extractor.port.onmessage=null;
     for(const source of this.sources)try{source.disconnect();}catch{}this.sources=[];
+    this.silentSink?.disconnect();this.gain?.disconnect();this.extractor?.port.close?.();
+    for(const track of this.destination?.stream?.getTracks?.()||[])track.stop();
     this.video?.pause();if(this.video)this.video.srcObject=null;
     if(this.host){this.host.dataset.avatarState='stopped';this.host.replaceChildren();}
     // A stop during provider creation has no ticket yet. render's late receipt

@@ -989,7 +989,7 @@ export function createIvocHandler({
     recordReceipt:async (sessionId,receipt)=>{
       console.info(JSON.stringify({event:'ivoc_embodiment_stop',sessionId,...receipt})); // controller's closed, non-secret receipt schema
       return audit({actor:'wp:1',owner:'wp:1',sessionId,
-        action:'embodiment_canary_stop',decision:receipt.providerConfirmed?'allow':'deny',reason:receipt.providerConfirmed?'provider_terminal':'termination_unconfirmed'});
+        action:'embodiment_canary_stop',decision:receipt.cleanupConfirmed===true?'allow':'deny',reason:receipt.cleanupConfirmed===true?'provider_terminal_and_room_absent':receipt.providerConfirmed===true?'room_absence_unconfirmed':'termination_unconfirmed'});
     },
   });
   const enabled = bool(env.IVPREP_ENABLED) && bool(env.IVPREP_ADMIN_CANARY_ENABLED);

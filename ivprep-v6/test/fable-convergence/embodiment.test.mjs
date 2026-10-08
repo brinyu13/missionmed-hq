@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {readFile} from 'node:fs/promises';
+import {runInNewContext} from 'node:vm';
 import {EmbodimentCommandQueue,PcmBatcher,EmbodimentRenderer,EMBODIMENT_START_TIMEOUT_MS,decodedAvatarFrame} from '../../public/capabilities/embodiment-renderer.mjs';
 import {LiveInterviewSession} from '../../public/capabilities/live-interview.mjs';
 const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};};
@@ -91,7 +92,7 @@ test('audio-driven avatar returns its stable silent output before generated A/V,
   try{
     assert.equal(await renderer.render({id:'native'},{ivocSessionId:'canonical'}),output);
     assert.equal(host.dataset.avatarState,'connecting');assert.equal(renderer.video,undefined);
-    for(let i=0;i<3;i++)nodes[0].port.onmessage({data:{rms:0.04,pcm:new Int16Array(1280).fill(1).buffer}});
+    for(let i=0;i<3;i++)nodes[0].port.onmessage({data:{rms:0.04,pcm:new Int16Array(1280).fill(1).buffer,generation:1}});
     await new Promise(resolve=>setImmediate(resolve));
     assert.equal(commands.filter(c=>c.url.endsWith('/start')).length,1);
     assert.equal(commands.some(c=>c.body?.command==='audio'),true);
@@ -144,7 +145,17 @@ test('sole opening drives audio-dependent avatar; decoded frame still gates star
   assert.ok(order.indexOf('GPT_READY')<order.indexOf('render'));
   visual.resolve();await starting;
   assert.deepEqual(order.filter(v=>['render','record-tap','play','session.instructions.append'].includes(v)),['render','record-tap','play','session.instructions.append']);
-  await session.stop();assert.equal(rendererStops,1);assert.ok(order.indexOf('mute')<order.indexOf('end-provider'));assert.equal(audio.srcObject,null);
+  let micStops=0;microphone.stop=()=>{micStops++;};
+  renderer.onFailure(new Error('Avatar playback stopped safely. Finish and save this attempt.'));
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(rendererStops,1);assert.ok(order.indexOf('mute')<order.indexOf('end-provider'));assert.equal(audio.srcObject,null);
+  assert.equal(session.state,'closed');assert.equal(micStops,0);assert.equal(microphone.enabled,true);
+  assert.equal(order.filter(v=>v==='play').length,1,'never fall back to another native audio output');
+  const room=await readFile(new URL('../../public/studio-fable/app/room.mjs',import.meta.url),'utf8');
+  assert.match(room,/status.state==='closed'&&started\)providerFailed\(\)/);
+  assert.match(room,/Finish and save what you recorded/);
+  const failureHandler=room.slice(room.indexOf('function providerFailed()'),room.indexOf('function renderPlan()'));
+  assert.doesNotMatch(failureHandler,/controller\.(stop|finish)|\.disabled\s*=\s*true/,'generic visible guidance preserves user-owned Finish/save');
 });
 test('missing decoded avatar after the opening fails startup and tears down the single audio owner',async()=>{
   const sent=[];let stopped=0,ended=0;
@@ -174,4 +185,97 @@ test('cancel before GPT session.started settles the ontrack wait without creatin
   while(!peer?.bound)await new Promise(resolve=>setImmediate(resolve));
   await session.stop();await assert.rejects(starting,/stopped/);await peer.bound;
   assert.equal(rendered,0);assert.equal(session.startedReject,null);
+});
+
+function lifecycleHarness({resume=async()=>{},connect=async()=>{},interrupt=async body=>({flushed:true,generation:body.generation}),ackWorklet=true}={}){
+  const commands=[],workletMessages=[],counts={contexts:0,sdk:0,disconnects:0,trackStops:0};
+  const node=()=>({connect(){},disconnect(){}}),output={getTracks:()=>[{stop(){counts.trackStops++;}}]};
+  class Context{
+    sampleRate=16000;destination={};audioWorklet={addModule:async()=>{}};
+    constructor(){counts.contexts++;}resume=resume;async close(){}
+    createMediaStreamDestination(){return {...node(),stream:output};}createGain(){return {...node(),gain:{value:1}};}
+    createMediaStreamSource(){return node();}createAnalyser(){return {...node(),getFloatTimeDomainData:a=>a.fill(0)};}
+  }
+  class Worklet{port={onmessage:null,postMessage:data=>{workletMessages.push(data);if(ackWorklet)queueMicrotask(()=>this.port.onmessage?.({data:{command:'flushed',generation:data.generation}}));},close(){}};connect(){}disconnect(){}}
+  class Room{on(){}connect=connect;async disconnect(){counts.disconnects++;}}
+  const failures=[],renderer=new EmbodimentRenderer({host:{dataset:{},replaceChildren(){}},sessionId:'canonical',AudioContextCtor:Context,AudioWorkletNodeCtor:Worklet,
+    loadSdk:async()=>{counts.sdk++;return {Room,RoomEvent:{TrackSubscribed:'track',Disconnected:'closed',TrackUnsubscribed:'untrack'}};},onFailure:e=>failures.push(e),
+    fetchImpl:async(url,options)=>{const body=options.body?JSON.parse(options.body):null;commands.push({url,body});
+      const result=url.endsWith('/start')?{id:'attempt',publisherIdentity:'publisher',deadlineMs:Date.now()+45000}:body?.command==='interrupt'?await interrupt(body):url.includes('/status')?{closed:false}:{accepted:true};
+      return {ok:true,json:async()=>result};}});
+  const pcm=(rms=0,value=0,generation=renderer.pcmGeneration)=>renderer.extractor.port.onmessage?.({data:{rms,pcm:new Int16Array(1280).fill(value).buffer,generation}});
+  return {renderer,counts,commands,workletMessages,failures,pcm,start:()=>renderer.render({id:'native'},{ivocSessionId:'canonical'})};
+}
+test('cancelled renderer never allocates or continues startup after delayed audio resume',async()=>{
+  const stopped=lifecycleHarness();await stopped.renderer.stop();await assert.rejects(stopped.start(),/client_abort/);assert.equal(stopped.counts.contexts,0);
+  const gate=deferred(),h=lifecycleHarness({resume:()=>gate.promise});const starting=h.start();
+  await h.renderer.stop();gate.resolve();await assert.rejects(starting,/client_abort/);
+  assert.equal(h.counts.sdk,0);assert.equal(h.commands.length,0);
+});
+test('late LiveKit join after cancellation receives another exact disconnect without a second create',async()=>{
+  const gate=deferred();let joining=false;const h=lifecycleHarness({connect:()=>{joining=true;return gate.promise;}});
+  const starting=h.start();while(!joining)await new Promise(resolve=>setImmediate(resolve));
+  await h.renderer.stop();assert.equal(h.counts.disconnects,1);gate.resolve();await assert.rejects(starting,/cancelled/);
+  assert.equal(h.counts.disconnects,2);assert.equal(h.commands.filter(c=>c.url.endsWith('/start')).length,1);
+});
+test('worklet flush discards partial and posted old-generation PCM without an audible output',async()=>{
+  let Processor;const messages=[];
+  class Base{port={postMessage:message=>messages.push(message)};}
+  runInNewContext(await readFile(new URL('../../public/capabilities/embodiment-pcm-worklet.mjs',import.meta.url),'utf8'),{AudioWorkletProcessor:Base,registerProcessor:(name,ctor)=>{Processor=ctor;}});
+  const p=new Processor(),output=[[new Float32Array(128).fill(1)]];
+  p.process([[new Float32Array(640).fill(1)]],output);assert.ok(output[0][0].every(v=>v===0));
+  p.port.onmessage({data:{command:'flush',generation:2}});assert.equal(messages.at(-1).command,'flushed');
+  p.process([[new Float32Array(1280).fill(-2)]],output);
+  const frame=messages.at(-1);assert.equal(frame.generation,2);assert.ok(new Int16Array(frame.pcm).every(v=>v===-32768));
+  p.port.onmessage({data:{command:'flush',generation:1}});assert.equal(p.generation,2);
+});
+test('native quiet gap and exact downstream flush cannot fabricate a safe GPT playback boundary',async()=>{
+  const gate=deferred(),h=lifecycleHarness({interrupt:()=>gate.promise});await h.start();
+  try{
+    for(let i=0;i<3;i++)h.pcm(0.04,1);await new Promise(resolve=>setImmediate(resolve));
+    const pending=h.renderer.interrupt();await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(h.renderer.gain.gain.value,0);assert.deepEqual(h.workletMessages,[{command:'flush',generation:2}]);
+    h.pcm(0.1,777,1); // queued old port message must never cross the generation fence
+    for(let i=0;i<5;i++)h.pcm();assert.equal(h.renderer.holds,true);
+    gate.resolve({flushed:true,generation:2});await pending;
+    assert.equal(h.renderer.closed,true);assert.equal(h.renderer.gain.gain.value,0);
+    for(let i=0;i<3;i++)h.pcm(0.04,222);await new Promise(resolve=>setImmediate(resolve));
+    const frames=h.commands.filter(c=>c.body?.command==='audio').map(c=>new Int16Array(Uint8Array.from(Buffer.from(c.body.audio,'base64')).buffer));
+    assert.ok(frames.every(f=>!f.includes(777)&&!f.includes(222)));
+    assert.equal(h.failures[0].diagnostics.category,'NATIVE_PLAYBACK_BOUNDARY_UNAVAILABLE');
+    assert.match(h.failures[0].message,/Finish and save/);
+    assert.equal(h.renderer.diagnostics().nativePlaybackBoundary,'UNAVAILABLE');
+    assert.equal(h.commands.filter(c=>c.url.endsWith('/start')).length,1);
+  }finally{await h.renderer.stop();}
+});
+test('discarded or wrong-generation provider receipt never unmutes the shared playback and recording tap',async()=>{
+  for(const receipt of [{discarded:true},{flushed:true,generation:1}]){
+    const h=lifecycleHarness({interrupt:async()=>receipt});await h.start();h.renderer.speaking=true;
+    await h.renderer.interrupt();assert.equal(h.renderer.closed,true);assert.equal(h.renderer.gain.gain.value,0);assert.equal(h.failures[0].diagnostics.category,'FLUSH_UNCONFIRMED');await h.renderer.stop();
+  }
+});
+test('new speech before flush confirmation fails explicitly instead of silently discarding a new turn',async()=>{
+  const gate=deferred(),h=lifecycleHarness({interrupt:()=>gate.promise});await h.start();h.renderer.speaking=true;
+  const pending=h.renderer.interrupt();await new Promise(resolve=>setImmediate(resolve));
+  for(let i=0;i<5;i++)h.pcm();h.pcm(0.04,222);
+  assert.equal(h.renderer.closed,true);assert.equal(h.failures[0].diagnostics.category,'NATIVE_TURN_BOUNDARY_UNCONFIRMED');assert.equal(h.renderer.gain.gain.value,0);
+  gate.resolve({flushed:true,generation:2});await pending;await h.renderer.stop();
+});
+test('missing worklet flush acknowledgement stays muted and fails within the bounded hold',async()=>{
+  const h=lifecycleHarness({ackWorklet:false});await h.start();h.renderer.speaking=true;await h.renderer.interrupt();
+  for(let i=0;i<5;i++)h.pcm();assert.equal(h.renderer.holds,true);assert.equal(h.renderer.gain.gain.value,0);
+  await new Promise(resolve=>setTimeout(resolve,1550));assert.equal(h.renderer.closed,true);assert.equal(h.failures[0].diagnostics.category,'NATIVE_TURN_BOUNDARY_UNCONFIRMED');await h.renderer.stop();
+});
+test('short or immediate native speech during the muted flush window is an explicit failure, never a swallowed turn',async()=>{
+  for(const quietFrames of [0,3]){
+    const h=lifecycleHarness({ackWorklet:false});await h.start();h.renderer.speaking=true;await h.renderer.interrupt();
+    for(let i=0;i<quietFrames;i++)h.pcm();h.pcm(0.04,222);
+    assert.equal(h.renderer.closed,true);assert.equal(h.failures[0].diagnostics.category,'NATIVE_TURN_BOUNDARY_UNCONFIRMED');assert.equal(h.renderer.gain.gain.value,0);
+    await h.renderer.stop();
+  }
+});
+test('a caller cannot opt into unproven native response or cancellation guarantees',async()=>{
+  const h=lifecycleHarness();
+  await assert.rejects(h.renderer.render({}, {ivocSessionId:'canonical',nativePlaybackContract:{authority:'openai-gpt-live-native',transport:'webrtc',responseIdentity:true,cancellationAcknowledgment:true}}),/native_playback_contract_invalid/);
+  assert.equal(h.counts.contexts,0);assert.equal(h.commands.length,0);
 });

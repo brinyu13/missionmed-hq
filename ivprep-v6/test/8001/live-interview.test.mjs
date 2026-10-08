@@ -1,7 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { LiveInterviewSession } from '../../public/capabilities/live-interview.mjs';
+import { LiveInterviewSession, NATIVE_PLAYBACK_CONTRACT } from '../../public/capabilities/live-interview.mjs';
 import { IvocApi } from '../../public/ivoc-standalone/app/api.mjs';
+
+test('native speech boundary is unavailable; delegated response and append receipts never resume the Actor',()=>{
+  let hints=0;const session=new LiveInterviewSession({createSession:async()=>({}),endSession:async()=>{},PeerConnection:class {},audioRenderer:{interrupt(){hints++;},resume(){throw new Error('unsafe resume');}}});
+  assert.equal(Object.isFrozen(NATIVE_PLAYBACK_CONTRACT),true);
+  assert.deepEqual(session.diagnostics().playbackBoundary,NATIVE_PLAYBACK_CONTRACT);
+  assert.equal(NATIVE_PLAYBACK_CONTRACT.responseIdentity,false);
+  assert.equal(NATIVE_PLAYBACK_CONTRACT.cancellationAcknowledgment,false);
+  for(const event of [{type:'response.event',event:{type:'response.completed',response:{id:'delegated'}}},{type:'session.instructions.appended',client_event_id:'cancel'},{type:'session.output_transcript.delta',delta:'A later fragment',start_ms:9000,end_ms:10000}])session.handleEvent(JSON.stringify(event));
+  assert.equal(hints,0);
+  session.handleEvent(JSON.stringify({type:'session.input_transcript.delta',delta:'Please stop'}));assert.equal(hints,1);
+});
 
 test('provisional transcript preserves provider item/response identities, not speech-boundary claims', () => {
   const events = [];
