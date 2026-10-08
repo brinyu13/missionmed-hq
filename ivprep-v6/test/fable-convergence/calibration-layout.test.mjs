@@ -7,6 +7,12 @@ const source=readFileSync(new URL('../../public/studio-fable/app/calibration.mjs
 const cockpit=css.slice(css.indexOf('/* Calibration cockpit */'),css.indexOf('/* Film room */'));
 const rule=selector=>cockpit.match(new RegExp(selector.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\s*\\{([^}]+)\\}'))?.[1]||'';
 
+test('return-to-setup stays inside the header, preserving the three-row calibration grid',()=>{
+  assert.match(source,/<div class="screen-head"><div><a [^>]*id="return-setup"/);
+  assert.doesNotMatch(source,/<section class="cal-screen">\s*<a/);
+  assert.match(source,/returnToMock\)\{\$\('return-setup'\)\.hidden=false/);
+});
+
 test('calibration center cannot grow into the voice rail from intrinsic prompt/media width',()=>{
   const center=rule('.cal-stage-col');
   assert.match(center,/min-width:\s*0/);

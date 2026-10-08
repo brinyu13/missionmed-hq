@@ -38,8 +38,7 @@ export async function mountCalibration(main, { isCurrent = () => true, returnToM
   let stepIndex = 0; const resolved = {}; let engine = null; let timer = null; let latest = null; let lastT = 0;let disposeDevices=null,disposePrimary=null,verifiedCapture=null;
   main.innerHTML = `
     <div class="cal-screen">
-    <a class="btn btn-quiet" href="#/mock" id="return-setup" hidden>Return to interview setup ▸</a>
-    <div class="screen-head"><div><div class="t-kick gold">Devices &amp; calibration</div><h1 class="t-hero">Instrument <em>rehearsal.</em></h1><p class="t-edit">Not a tech check. You smile, nod, gesture, read, vary your volume and pace, and watch every instrument respond truthfully before any interview. Unresolved instruments stay dark; nothing is invented.</p></div><div style="display:flex;gap:8px;align-items:center"><span class="chip warn" id="calibration-record-state">Connect devices to verify saved calibration</span></div></div>
+    <div class="screen-head"><div><a class="btn btn-quiet" href="#/mock" id="return-setup" hidden>Return to interview setup ▸</a><div class="t-kick gold">Devices &amp; calibration</div><h1 class="t-hero">Instrument <em>rehearsal.</em></h1><p class="t-edit">Not a tech check. You smile, nod, gesture, read, vary your volume and pace, and watch every instrument respond truthfully before any interview. Unresolved instruments stay dark; nothing is invented.</p></div><div style="display:flex;gap:8px;align-items:center"><span class="chip warn" id="calibration-record-state">Connect devices to verify saved calibration</span></div></div>
     <div class="cal">
       <aside class="housing panel"><div class="t-label" style="margin-bottom:10px">Rehearsal</div><div class="cal-steps" id="cal-steps"></div></aside>
       <div class="cal-stage-col">
