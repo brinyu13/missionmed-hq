@@ -1,3 +1,4 @@
+import {proseOutput as tracedOutput} from '../helpers/loi-prose.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {compositionInput,standardPlans,validatePlans,validateProsePlans,APPROACHES} from '../../server/loi-composition.mjs';
@@ -10,7 +11,7 @@ import {compositionInput,standardPlans,validatePlans,validateProsePlans,APPROACH
 const payload = () => ({
   context: { whyNow: 'Following up on my application.', applicationState: 'Applied.', interviewState: 'Not invited.' },
   contextConfirmed: true,
-  motivations: [{ id: '11111111-1111-4111-8111-111111111111', text: 'I value published outcomes.', confirmed: true }],
+  motivations: [{ id: '11111111-1111-4111-8111-111111111111', text: 'I value transparent published board outcomes in training.', confirmed: true }],
   facts: [],
   count: 1,
   approach: 'WARM_PERSONAL',
@@ -24,10 +25,7 @@ const fresh = value => ({
 
 test('compositionInput produces refs that validateProsePlans can consume', () => {
   const input = compositionInput(payload(), fresh({ rate: 'Verified 95% pass rate from public report.' }), null, 'WARM_PERSONAL');
-  // Build valid prose: all refs verbatim + substantial authored tissue
-  const tissue = '\n\nI am deeply committed to pursuing residency training that aligns with my long-term career goals in medicine. My background in clinical research and patient care has prepared me uniquely for this opportunity. ';
-  const text = input.refs.map(r => r.text).join(tissue) + tissue;
-  const output = { schema: 'iiq-loi-prose-plan-v1', candidates: [{ approach: 'WARM_PERSONAL', text }] };
+  const output=tracedOutput(input);
   const validated = validateProsePlans(output, input);
   assert.equal(validated.length, 1);
   assert.equal(validated[0].studentReviewRequired, true);
@@ -62,14 +60,9 @@ test('all six approaches produce valid compositionInput', () => {
 });
 
 test('prose schema is distinct from reference schema', () => {
-  const input = compositionInput(payload(), fresh({ s: 'Statement.' }), null, 'WARM_PERSONAL');
-  const tissue = '\n\nSubstantial authored content demonstrating composition beyond verbatim concatenation and genuine thoughtful engagement. ';
-  const text = input.refs.map(r => r.text).join(tissue) + tissue;
-
-  // Prose output uses prose schema
-  const proseOutput = { schema: 'iiq-loi-prose-plan-v1', candidates: [{ approach: 'WARM_PERSONAL', text }] };
-  const proseValidated = validateProsePlans(proseOutput, input);
-  assert.equal(proseValidated[0].approach, 'WARM_PERSONAL');
+  const input = compositionInput(payload(), fresh({ s: 'Residents attend a continuity clinic each week.' }), null, 'WARM_PERSONAL');
+  const proseValidated=validateProsePlans(tracedOutput(input),input);
+  assert.equal(proseValidated[0].approach,'WARM_PERSONAL');
 
   // Reference output uses reference schema
   const refOutput = standardPlans(input);

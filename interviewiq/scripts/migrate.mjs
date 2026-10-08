@@ -38,7 +38,9 @@ export function transactionBody(sql) {
   assertNoTransactionEscape(body);
   return body;
 }
-export async function migrate({connectionString,local=false,bootstrap=false,approvalPath,directory,log=console.log}) {
+export async function migrate({connectionString,local=false,bootstrap=false,approvalPath,directory,log=console.log,beforeCommit}) {
+  if(beforeCommit!==undefined&&typeof beforeCommit!=='function')fail('beforeCommit must be an async-capable function');
+  if(bootstrap&&beforeCommit)fail('Live-fenced embedded bootstrap is unsupported; this release must use bootstrap=false');
   if(!connectionString)fail('IIQ_MIGRATION_DATABASE_URL is required');
   const url=new URL(connectionString);
   const manifest=await migrationManifest(directory);
@@ -50,6 +52,7 @@ export async function migrate({connectionString,local=false,bootstrap=false,appr
     if(!approvalPath)fail('Independent migration approval receipt is required');
     approval=JSON.parse(await fs.readFile(approvalPath,'utf8'));
     if(approval.status!=='APPROVED'||!approval.reviewedBy||!approval.reviewedAt||!approval.authorityRef||!approval.target)fail('Incomplete independent approval receipt');
+    if(approval.requiresLiveFence===true){if(typeof beforeCommit!=='function')fail('Live-fenced approval requires beforeCommit before any persistent write');}
     if(approval.bootstrapSha256!==manifest.bootstrap.sha256||JSON.stringify(approval.migrations)!==JSON.stringify(manifest.migrations.map(({name,sha256})=>({name,sha256}))))fail('Approval hashes do not match candidate migration bytes');
     if(bootstrap&&approval.allowBootstrap!==true)fail('Bootstrap is not approved');
     if(bootstrap)assertProductionBootstrap(manifest.bootstrap.sha256);
@@ -91,6 +94,7 @@ export async function migrate({connectionString,local=false,bootstrap=false,appr
       await client.query('REVOKE ALL ON SCHEMA iiq_migrations FROM PUBLIC');
       await client.query('CREATE TABLE IF NOT EXISTS iiq_migrations.applied(name text PRIMARY KEY,sha256 text NOT NULL CHECK(sha256 ~ \'^[0-9a-f]{64}$\'),applied_at timestamptz NOT NULL DEFAULT now())');
       await client.query('REVOKE ALL ON iiq_migrations.applied FROM PUBLIC');
+      if(beforeCommit)await beforeCommit({kind:'ledger',approval,manifest});
       await client.query('COMMIT');
     } catch(e){await client.query('ROLLBACK');throw e;}}
     if(bootstrap){await client.query(manifest.bootstrap.sql);log(`Bootstrap verified: ${manifest.bootstrap.sha256}`);}
@@ -102,6 +106,7 @@ export async function migrate({connectionString,local=false,bootstrap=false,appr
         await client.query(transactionBody(migration.sql));
         await client.query('RESET ROLE');
         await client.query('INSERT INTO iiq_migrations.applied(name,sha256) VALUES($1,$2)',[migration.name,migration.sha256]);
+        if(beforeCommit)await beforeCommit({kind:'migration',migration:{name:migration.name,sha256:migration.sha256},approval,manifest});
         await client.query('COMMIT');log(`Applied: ${migration.name} ${migration.sha256}`);
       } catch(e){await client.query('ROLLBACK');throw e;}
     }

@@ -4,7 +4,7 @@
 // candidate → provenance → canonical program match → approval → reusable program
 // media → promotion into canonical RISE program media.
 //
-// Packet 2 exposes NO RISE media contract, so this module never mutates RISE.
+// This pure validator never mutates RISE; program-media-owner.mjs consumes the governed owner projection.
 // It defines the pure, validated InterviewIQ-side candidate record, the approval
 // state machine and the projection the client uses to decide whether an image may
 // be shown as a program hero. Promotion into RISE is a protected owner action
@@ -46,4 +46,4 @@ export function heroEligible(candidate,programId){return !!(candidate&&candidate
 export function heroFor(candidates,programId){if(!Array.isArray(candidates))return null;const list=candidates.filter(c=>heroEligible(c,programId)).sort((a,b)=>(IDENTITY_CONFIDENCE.indexOf(a.identityConfidence)-IDENTITY_CONFIDENCE.indexOf(b.identityConfidence))||String(b.verifiedAt).localeCompare(String(a.verifiedAt)));const c=list[0];return c?Object.freeze({programId:c.programId,url:c.assetRef,alt:c.alt,caption:c.caption,publisher:c.publisher,sourceUrl:c.sourceUrl,category:c.category,approvalState:c.approvalState,verifiedAt:c.verifiedAt,licenseState:c.licenseState}):null;}
 export function programMediaProjection(candidates){const out=Object.create(null);for(const c of Array.isArray(candidates)?candidates:[]){if(!c||typeof c.programId!=='string')continue;const h=heroFor([c],c.programId);if(h)(out[c.programId]||=[]).push(h);}return out;}
 // Protected owner action for Codex. InterviewIQ never calls RISE with this; it is the documented adapter proposal.
-export const PROMOTION_PROPOSAL=Object.freeze({owner:'RISE',action:'program-media.promote',authority:'Codex / MissionMed production owner',requires:['approvalState=APPROVED','identityConfidence in VERIFIED|HIGH','licenseState permitted','registryReleaseId matches current release'],payload:Object.freeze(['programId','registryReleaseId','category','assetRef','sourceUrl','publisher','caption','alt','verifiedAt','identityConfidence','licenseState','decision']),status:'NOT_WIRED — no RISE media contract exists in Packet 2'});
+export const PROMOTION_PROPOSAL=Object.freeze({owner:'RISE',action:'program-media.promote',authority:'Codex / MissionMed production owner',requires:['approvalState=APPROVED','identityConfidence in VERIFIED|HIGH','licenseState permitted','registryReleaseId matches current release'],payload:Object.freeze(['programId','registryReleaseId','category','assetRef','sourceUrl','publisher','caption','alt','verifiedAt','identityConfidence','licenseState','decision']),status:'SOURCE_CANDIDATE_DEFAULT_OFF — governed RISE program-media storage/read projection; explicit human approval required'});

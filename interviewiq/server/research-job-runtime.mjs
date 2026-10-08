@@ -2,6 +2,8 @@ import {createHash} from 'node:crypto';
 import tls from 'node:tls';
 import pg from 'pg';
 import {createResearchJobStore} from './research-job-store.mjs';
+import {createMRXProof} from './mrx-proof.mjs';
+import {MRX_PROOF_PATH} from './mrx-contract.mjs';
 import {createResearchJobProof} from './research-job-proof.mjs';
 
 export const RESEARCH_PROOF_PATH='/api/owner/rise/research-authority';
@@ -20,10 +22,10 @@ export function readResearchProofConfig(env={}){
  const q=[...u.searchParams];need(['postgres:','postgresql:'].includes(u.protocol)&&u.hostname==='postgres.railway.internal'&&Number(u.port||5432)===5432&&u.pathname==='/railway'&&u.username==='iiq_research_proof_login'&&u.password&&!u.hash&&(q.length===0||q.length===1&&q[0][0]==='sslmode'&&q[0][1]==='require'));
  need(![proofSecret,eligibilitySecret].includes(decodeURIComponent(u.password)));u.search='';
  const ca=Buffer.from(String(env.INTERVIEWIQ_RESEARCH_PROOF_DATABASE_CA_PEM??''));need(sha(ca)===CA);
- return Object.freeze({enabled:true,proofSecret,eligibilitySecret,pool:{connectionString:u.href,max:2,connectionTimeoutMillis:3000,idleTimeoutMillis:30000,query_timeout:3000,statement_timeout:3000,application_name:'interviewiq-research-proof',ssl:{ca,rejectUnauthorized:true,checkServerIdentity:(_host,cert)=>cert.fingerprint256===LEAF?tls.checkServerIdentity('postgres.railway.internal',cert):denied()}}});
+ return Object.freeze({enabled:true,mrxEnabled:['1','true'].includes(String(env.INTERVIEWIQ_MRX_PUBLICATION_ENABLED??'')),proofSecret,eligibilitySecret,pool:{connectionString:u.href,max:2,connectionTimeoutMillis:3000,idleTimeoutMillis:30000,query_timeout:3000,statement_timeout:3000,application_name:'interviewiq-research-proof',ssl:{ca,rejectUnauthorized:true,checkServerIdentity:(_host,cert)=>cert.fingerprint256===LEAF?tls.checkServerIdentity('postgres.railway.internal',cert):denied()}}});
 }
 export async function readResearchProofBody(req){
- need(req.method==='POST'&&req.url===RESEARCH_PROOF_PATH&&Array.isArray(req.rawHeaders)&&req.rawHeaders.length%2===0&&req.rawHeaders.length<=100&&!req.aborted&&!req.destroyed);
+ need(req.method==='POST'&&[RESEARCH_PROOF_PATH,MRX_PROOF_PATH].includes(req.url)&&Array.isArray(req.rawHeaders)&&req.rawHeaders.length%2===0&&req.rawHeaders.length<=100&&!req.aborted&&!req.destroyed);
  const seen=new Set();let length;
  for(let i=0;i<req.rawHeaders.length;i+=2){const k=String(req.rawHeaders[i]).toLowerCase(),v=req.rawHeaders[i+1];need(!seen.has(k));seen.add(k);need(!['transfer-encoding','content-encoding','expect'].includes(k));if(k==='content-length'){need(typeof v==='string'&&/^\d+$/.test(v)&&Number(v)>0&&Number(v)<=16384);length=Number(v);}}
  need(length!==undefined);
@@ -39,7 +41,7 @@ export async function createResearchJobRuntime(config={}, {Pool=pg.Pool,fetchImp
  let underlying;try{
   underlying=new Pool(config.pool);underlying.on('error',()=>{});
   const pool={async connect(){const c=await underlying.connect();if(c.connection?.stream?.encrypted!==true||c.connection?.stream?.authorized!==true){c.release(true);throw denied();}return c;}};
-  const proofReader=await createResearchJobStore({enabled:true},{pool}),prove=createResearchJobProof(config,{proofReader,fetchImpl});let closed=false;
-  return Object.freeze({async handle(req){if(closed)return no();try{return await prove({method:req.method,url:req.url,rawHeaders:req.rawHeaders,body:await readResearchProofBody(req)});}catch{return no();}},async close(){if(!closed){closed=true;await underlying.end();}}});
+  const proofReader=await createResearchJobStore({enabled:true,mrxEnabled:config.mrxEnabled===true},{pool}),prove=createResearchJobProof(config,{proofReader,fetchImpl}),proveMRX=createMRXProof(config,{proofReader,fetchImpl});let closed=false;
+  return Object.freeze({async handle(req){if(closed)return no();try{return await (req.url===MRX_PROOF_PATH?proveMRX:prove)({method:req.method,url:req.url,rawHeaders:req.rawHeaders,body:await readResearchProofBody(req)});}catch{return no();}},async close(){if(!closed){closed=true;await underlying.end();}}});
  }catch{if(underlying)await underlying.end().catch(()=>{});throw denied();}
 }

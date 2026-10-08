@@ -1,3 +1,4 @@
+import {AUTHORED_SCHEMA,validateAuthoredTrace,PROSE_SCHEMA,validateProseTrace,validateProseVerification,VERIFICATION_SCHEMA,SINGLE_CALL_SCHEMA,validateLocalProseTrace} from './loi-prose-contract.mjs';
 import * as v from './validation.mjs';
 import {requireValue} from './errors.mjs';
 export const APPROACHES=Object.freeze(['WARM_PERSONAL','DIRECT_CONCISE','ACADEMIC_PROGRAM','POST_INTERVIEW','UPDATE_LED','STRONG_INTEREST']);
@@ -107,27 +108,28 @@ export function measureVariation(candidates) {
   return true;
 }
 
-/** Validate prose-composed (v2) plans: authored text that embeds factual spans verbatim. */
-export function validateProsePlans(output, input, maxBytes = 32768) {
-  requireValue(typeof output === 'object' && output !== null && Buffer.byteLength(JSON.stringify(output)) <= maxBytes, 'loi_composition_output', 'Prose output exceeded its contract.');
-  v.onlyKeys(output, ['schema', 'candidates']);
-  requireValue(output.schema === 'iiq-loi-prose-plan-v1', 'loi_composition_output', 'Use the prose composition schema.');
-  const rows = v.array(output.candidates, 'Candidates', 3);
-  requireValue(rows.length === input.approaches.length, 'loi_composition_output', 'Return the explicitly requested number of candidates.');
-  const validated = rows.map((row, i) => {
-    v.onlyKeys(row, ['approach', 'text']);
-    requireValue(row.approach === input.approaches[i], 'loi_composition_output', 'Return each requested approach in order.');
-    requireValue(typeof row.text === 'string' && row.text.length > 0 && row.text.length <= 20000, 'loi_composition_output', 'Each proposal must contain authored text within limits.');
-    // Every factual ref must appear verbatim
-    for (const ref of input.refs) {
-      requireValue(row.text.includes(ref.text), 'loi_composition_reference', `Every confirmed factual span must appear verbatim in authored prose. Missing: ${ref.ref}`);
-    }
-    // Specificity gate: authored prose must add meaningful composition, not just concatenate spans
-    const specificity = measureProseSpecificity(row.text, input.refs);
-    requireValue(specificity >= MINIMUM_SPECIFICITY_RATIO, 'loi_composition_specificity', `Authored prose must demonstrate composition beyond verbatim span concatenation (specificity: ${(specificity * 100).toFixed(1)}%, minimum: ${(MINIMUM_SPECIFICITY_RATIO * 100).toFixed(1)}%).`);
-    return { approach: row.approach, text: row.text, studentReviewRequired: true, studentFactualConfirmation: false, studentSpecificityConfirmation: false };
-  });
-  // Variation gate: candidates must be structurally different
-  requireValue(measureVariation(validated), 'loi_composition_variation', 'Each candidate must use a genuinely different structure and ordering.');
-  return validated;
+/** Structural author traces are untrusted until the independent pass succeeds. */
+export function validateAuthoredPlans(output,input,maxBytes=32768){
+ requireValue(typeof output==='object'&&output!==null&&Buffer.byteLength(JSON.stringify(output))<=maxBytes,'loi_composition_output','Prose output exceeded its contract.');v.onlyKeys(output,['schema','candidates']);requireValue(output.schema===PROSE_SCHEMA,'loi_composition_output','Use the current traced prose schema.');
+ const rows=v.array(output.candidates,'Candidates',3);requireValue(rows.length===input.approaches.length,'loi_composition_output','Return the explicitly requested number of candidates.');const structures=new Set();
+ return rows.map((row,i)=>{requireValue(row.approach===input.approaches[i],'loi_composition_output','Return each requested approach in order.');if(row.approach==='POST_INTERVIEW')requireValue(input.contextConfirmations?.postInterviewOccurred===true,'loi_composition_structure','A confirmed interview is required.');if(row.approach==='UPDATE_LED')requireValue(input.contextConfirmations?.updateConfirmed===true,'loi_composition_structure','A confirmed update is required.');const trace=validateProseTrace(row,input.refs);requireValue(!structures.has(trace.structure),'loi_composition_variation','Use a different factual ordering for each requested approach.');structures.add(trace.structure);return {...row,claims:trace.claims,fitLinks:trace.fitLinks};});
+}
+export function validateProsePlans(output,input,maxBytes=32768){
+ requireValue(output&&Buffer.byteLength(JSON.stringify(output))<=maxBytes,'loi_composition_output','Combined prose review exceeded its bound.');v.onlyKeys(output,['schema','candidates','verification']);const rows=validateAuthoredPlans({schema:output.schema,candidates:output.candidates},input,maxBytes),report=output.verification;
+ requireValue(report?.schema===VERIFICATION_SCHEMA&&Array.isArray(report.candidates)&&report.candidates.length===rows.length,'loi_verifier_completeness','An independent factual and quality review is required.');v.onlyKeys(report,['schema','candidates']);
+ return rows.map((row,i)=>{const verification=validateProseVerification(row,input.refs,report.candidates[i],input.program,i);return {...row,verification,studentReviewRequired:true,studentFactualConfirmation:false,studentSpecificityConfirmation:false};});
+}
+
+// New drafts use only deterministic local validation. Saved V3 independent
+// verification remains readable through validateProsePlans above.
+export function validateSingleCallPlans(output,input,maxBytes=32768){
+ requireValue(output&&Buffer.byteLength(JSON.stringify(output))<=maxBytes,'loi_composition_output','Prose output exceeded its bound.');v.onlyKeys(output,['schema','candidates']);requireValue(output.schema===SINGLE_CALL_SCHEMA,'loi_composition_output','Use the single-call prose contract.');
+ const rows=validateAuthoredPlans({schema:PROSE_SCHEMA,candidates:output.candidates},input,maxBytes),openings=new Set(),cadences=new Set();
+ return rows.map(row=>{const local=validateLocalProseTrace(row,input.refs,input.program);requireValue(!openings.has(local.opening)&&!cadences.has(local.cadence),'loi_composition_variation','Requested approaches must vary opening and paragraph cadence as well as factual order.');openings.add(local.opening);cadences.add(local.cadence);return {...row,studentReviewRequired:true,studentFactualConfirmation:false,studentSpecificityConfirmation:false};});
+}
+
+// New generation only. The V4 validator above is retained for saved output.
+export function validateAuthoredSingleCallPlans(output,input,maxBytes=32768){
+ requireValue(output&&Buffer.byteLength(JSON.stringify(output))<=maxBytes,'loi_composition_output','Authored output exceeded its bound.');v.onlyKeys(output,['schema','candidates']);requireValue(output.schema===AUTHORED_SCHEMA,'loi_composition_output','Use the authored single-call contract.');const rows=v.array(output.candidates,'Candidates',3);requireValue(rows.length===input.approaches.length,'loi_composition_output','Return only the explicitly requested approaches.');const structures=new Set(),openings=new Set(),cadences=new Set();
+ return rows.map((row,i)=>{requireValue(row.approach===input.approaches[i],'loi_composition_output','Return approaches in order.');if(row.approach==='POST_INTERVIEW')requireValue(input.contextConfirmations?.postInterviewOccurred===true,'loi_composition_structure','Confirm the interview.');if(row.approach==='UPDATE_LED')requireValue(input.contextConfirmations?.updateConfirmed===true,'loi_composition_structure','Confirm the update.');const t=validateAuthoredTrace(row,input.refs,input.program);requireValue(!structures.has(t.structure)&&!openings.has(t.opening)&&!cadences.has(t.cadence),'loi_composition_variation','Requested approaches must change organization, opening and cadence.');structures.add(t.structure);openings.add(t.opening);cadences.add(t.cadence);return {...row,claims:t.claims,fitLinks:t.fitLinks,review:t.review,studentReviewRequired:true,studentFactualConfirmation:false,studentSpecificityConfirmation:false};});
 }

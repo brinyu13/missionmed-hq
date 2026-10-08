@@ -181,18 +181,18 @@ test('wizard distinguishes NEEDED TO SAVE from HELPS IV IQ PREPARE YOU BETTER an
 test('hero imagery is only ever an approved, canonical-program-matched exterior with an honest fallback', () => {
   const hero = fn(views, 'programHero');
   assert.ok(hero.includes("m.approvalState==='APPROVED'") && hero.includes("m.category==='INSTITUTION_EXTERIOR'") && hero.includes('m.programId===programId'), 'strict eligibility');
-  assert.ok(hero.includes('/^https:\\/\\//.test(m.url)'), 'https only');
+  assert.ok(hero.includes('upload\\.wikimedia\\.org'), 'fixed permitted HTTPS raster provider');
   const media = fn(views, 'heroMedia');
   assert.ok(media.includes('loading="lazy"') && media.includes('decoding="async"') && media.includes('width="1200" height="514"'), 'lazy, async, sized (no layout shift)');
-  assert.ok(media.includes('class="heroMedia heroFallback'), 'MissionMed fallback');
-  assert.ok(media.includes('Verified hospital imagery arrives once approved for this program.'), 'fallback is truthful');
+  assert.ok(fn(views,'heroFallback').includes('class="heroMedia heroFallback'), 'MissionMed fallback');
+  assert.ok(fn(views,'heroFallback').includes('Verified hospital imagery arrives once approved for this program.'), 'fallback is truthful');
   assert.ok(v2css.includes('.heroMedia{position:relative;display:block;width:100%;aspect-ratio:21/9'), 'fixed aspect ratio');
 });
 
-test('server program-media contract exists and does not wire RISE', () => {
+test('pure program-media validator remains separate from governed owner transport', () => {
   const pm = readFileSync(new URL('../../server/program-media.mjs', import.meta.url), 'utf8');
   for (const k of ['sourceUrl', 'publisher', 'assetRef', 'programId', 'category', 'caption', 'alt', 'verifiedAt', 'identityConfidence', 'licenseState', 'approvalState']) assert.ok(pm.includes(k), `contract preserves ${k}`);
-  assert.ok(pm.includes('NOT_WIRED'), 'promotion is a documented protected owner action');
+  assert.ok(pm.includes('SOURCE_CANDIDATE_DEFAULT_OFF'), 'promotion is a documented protected owner action');
   assert.ok(!/fetch\(|rise-owner|owner-services/.test(pm), 'no RISE calls');
 });
 

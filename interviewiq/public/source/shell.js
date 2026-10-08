@@ -24,7 +24,7 @@ function navItems(){
   const r=roleName(); let items=NAV[r].slice();
   if(r==='student'&&(loiEnabled()||studentPreview()))items.splice(3,0,['letters','Letters of Interest','My Letters']);
   if(r==='admin'&&calendarV2()&&capabilities.adminLogistics===true)items.splice(1,0,['calendar','Student Calendar','Calendar']);
-  if(r==='student' && (capabilities.contributions===true||coreOnly())) items.splice(5,0,['contribute','Research access','Access']);
+  if(r==='student' && (capabilities.contributions===true||capabilities.researchMissions===true||coreOnly())) items.splice(5,0,['contribute','Research access','Access']);
   return items;
 }
 function badgeFor(route){
@@ -74,6 +74,7 @@ async function switchAdministratorView(view){
 function renderShell(){
   document.body.dataset.role = roleName()==='mentor'?'advisor':roleName();
   document.body.dataset.adminPreview=String(studentPreview());
+  document.body.dataset.mrxNavigation=String(mrxUI());
   const items=navItems(); if(!items.some(x=>x[0]===S.ui.route) && !['experiments','contribute'].includes(S.ui.route)) S.ui.route=items[0][0];
   const student=roleName()==='student';
   rail().innerHTML=`
@@ -265,7 +266,7 @@ function renderDrawer(){
       <label class="f" for="ar-zone">Event timezone</label><select id="ar-zone">${ZONES.map(z=>`<option ${z===(st.zone||F.student_zone)?'selected':''}>${z}</option>`).join('')}</select>${foldSelect('ar-fold')}<div class="mcv2-drawer-actions"><button class="rowBtn solid" type="button" data-act="add-related-save">Save event</button><button class="rowBtn" type="button" data-act="drawer-close">Cancel</button></div>`;
   }
   w.innerHTML=`<div class="scrim" data-act="drawer-close"></div><aside class="mcv2-drawer ${d.kind==='myeras'?'myerasModal':d.kind==='intake'?'intakeModal':''}" role="dialog" aria-modal="true" aria-label="${d.kind==='myeras'?'Import MyERAS programs':d.kind==='intake'?'Add interview':'Calendar detail'}" aria-describedby="drawer-desc"><button class="close" type="button" data-act="drawer-close" aria-label="Close">×</button><div id="drawer-desc">${inner}</div></aside>`;
-  applyDrafts();markComingSoonActions();w.classList.add('open'); for(const id of ['main','hdr','rail'])document.getElementById(id).inert=true;
+  applyDrafts();markComingSoonActions();loadProgramMedia();w.classList.add('open'); for(const id of ['main','hdr','rail'])document.getElementById(id).inert=true;
   setTimeout(()=>{ const first=w.querySelector('input,select,button.rowBtn,button.mcv2-event,.close'); (first||w.querySelector('.close'))?.focus(); },0);
 }
 
@@ -406,7 +407,7 @@ function renderPrepare(){
 function renderIntel(){
   const mine=myInterviews().filter(i=>i.program); const pids=[...new Set(mine.map(i=>i.program))];
   const cards=pids.map(pid=>{ const prog=P(pid); const cs=riseCheatSheet(pid); const ivs=mine.filter(i=>i.program===pid); const rs=researchState(ivs[0]); const reports=reviewedReports(pid);
-    if(cs.denied) return `<div class="progCard"><div class="nm">${esc(prog.name.replace('Fictional ',''))}</div><div class="mt">${esc(prog.specialty)} · ${esc(prog.track)} · ${esc(zoneShort(prog.zone))}</div><div class="panel rust pad"><b>Shared research is not available to you.</b> <span class="tiny">${esc(cs.reason)}.</span>${(capabilities.contributions===true||coreOnly())?'<div class="row" style="margin-top:8px"><button class="rowBtn pri" type="button" data-act="nav" data-to="contribute">How research access works</button></div>':''}</div></div>`;
+    if(cs.denied) return `<div class="progCard"><div class="nm">${esc(prog.name.replace('Fictional ',''))}</div><div class="mt">${esc(prog.specialty)} · ${esc(prog.track)} · ${esc(zoneShort(prog.zone))}</div><div class="panel rust pad"><b>Shared research is not available to you.</b> <span class="tiny">${esc(cs.reason)}.</span>${(capabilities.contributions===true||capabilities.researchMissions===true||coreOnly())?'<div class="row" style="margin-top:8px"><button class="rowBtn pri" type="button" data-act="nav" data-to="contribute">How research access works</button></div>':''}</div></div>`;
     return `<div class="progCard"><div class="nm">${esc(prog.name.replace('Fictional ',''))}</div><div class="mt">${esc(prog.specialty)} · ${esc(prog.track)} · ${esc(zoneShort(prog.zone))} · ${chip('Research · '+rs.state, ['available','partial'].includes(rs.state)?'ok':'sky')}</div>
       <h4 class="f" style="margin-top:6px">High-yield facts</h4>${(cs.payload.high_yield_facts||[]).length? (cs.payload.high_yield_facts||[]).map(f=>`<div class="src ok"><b>${esc(f.fact)}</b><code>${esc(f.source_ref)} · as of ${esc(f.as_of)}</code></div>`).join('') : `<p class="tiny">${esc(rs.short)} No supported fact yet.</p>`}
       ${(cs.unknowns||[]).length? `<h4 class="f">Kept open</h4>${(cs.unknowns||[]).map(u=>`<div class="src ${u.status==='unknown'?'unk':'conf'}"><b>${esc(u.claim)}</b><span class="tiny">${esc(u.status)} — ask the program; nothing is inferred.</span></div>`).join('')}`:''}
@@ -496,6 +497,7 @@ function render(){syncLoiCompositionView();
   document.querySelectorAll('main details > summary').forEach(s=>{ if(openSet.has(s.textContent.trim())) s.parentElement.open=true; });
   renderDrawer();
   applyDrafts();
+  loadProgramMedia();
   markComingSoonActions();
   if(document.body.classList.contains('opening-active'))for(const id of ['main','hdr','rail','drawer'])document.getElementById(id).inert=true;
 }

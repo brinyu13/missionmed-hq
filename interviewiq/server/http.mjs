@@ -4,6 +4,7 @@ import {readAdminLogistics,writeAdminLogistics} from './calendar-admin.mjs';
 import {uploadItinerary,listItineraries,downloadItinerary,withdrawItinerary} from './calendar-itinerary.mjs';
 import {emptyStudentPreview} from './calendar-preview.mjs';
 import {intakeEnabled} from './interview-intake.mjs';
+import {MRX_PROOF_PATH} from './mrx-contract.mjs';
 import {RESEARCH_PROOF_PATH} from './research-job-runtime.mjs';
 import {deepResearchEnabled} from './research-dispatch.mjs';
 import {createHash,randomUUID,timingSafeEqual} from 'node:crypto';
@@ -47,7 +48,7 @@ export function createHandler({config,database,authorize,commands,owners,recordi
         return send(200,{service:'interviewiq',status:config.enabled?'ready':'disabled',release:config.release});
       }
       if(!config.enabled)throw new AppError(503,'feature_unavailable','InterviewIQ is not available yet.');
-      if(path===RESEARCH_PROOF_PATH){if(!researchProof||req.method!=='POST'||req.url!==RESEARCH_PROOF_PATH)return send(503,{error:'research_authority_unavailable'});const result=await researchProof.handle(req);return send(result.status,result.body);}
+      if([RESEARCH_PROOF_PATH,MRX_PROOF_PATH].includes(path)){if(!researchProof||req.method!=='POST'||req.url!==path)return send(503,{error:'research_authority_unavailable'});const result=await researchProof.handle(req);return send(result.status,result.body);}
       requireValue(secretEquals(req.headers['x-mmed-iiq-gateway'],config.gatewaySecret),'gateway_required','Use the MissionMed InterviewIQ entry.',403);
       requireValue(req.headers.origin===config.publicOrigin && !req.headers.cookie,'origin_denied','This request did not come through the authorized entry.',403);
       const route=resolveRoute(req.method,path,url);

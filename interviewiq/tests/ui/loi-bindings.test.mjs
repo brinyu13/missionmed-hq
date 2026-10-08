@@ -1,3 +1,5 @@
+import {validateProseTrace,PROSE_GUARD} from '../../server/loi-prose-contract.mjs';
+import {proseFixture,proseOutput} from '../helpers/loi-prose.mjs';
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';
 const source=fs.readFileSync(process.env.IIQ_TEST_MODEL||new URL('../../public/source/model.js',import.meta.url),'utf8');
 // Bound extraction uses the next function; unrelated UI execution is unnecessary.
@@ -5,7 +7,7 @@ const start=source.indexOf('function readCompositionGeneration('),tail=source.in
 const headStart=source.indexOf('function compositionHeadMatches('),headEnd=source.indexOf('\n',headStart);
 const U='22222222-2222-4222-8222-222222222222',H='33333333-3333-4333-8333-333333333333',L='44444444-4444-4444-8444-444444444444';
 const h={letterId:L,expectedHead:H,expectedLetterVersion:3};
-const c=vm.createContext({clone:x=>JSON.parse(JSON.stringify(x)),LOI_APPROACHES:[['DIRECT_CONCISE']],loiHeadData:()=>h});vm.runInContext(source.slice(start,tail)+'\n'+source.slice(headStart,headEnd)+'\nthis.read=readCompositionGeneration;this.matches=compositionHeadMatches;',c);
+const c=vm.createContext({validateProseTrace,clone:x=>JSON.parse(JSON.stringify(x)),LOI_APPROACHES:[['DIRECT_CONCISE']],loiHeadData:()=>h});vm.runInContext(source.slice(start,tail)+'\n'+source.slice(headStart,headEnd)+'\nthis.read=readCompositionGeneration;this.matches=compositionHeadMatches;',c);
 const i={targetKind:'program',id:U,program:'rise-test',programName:'Test Program',track:'',registryReleaseId:'registry-test'};
 function generation(){return {generationId:'55555555-5555-4555-8555-555555555555',status:'STANDARD_FALLBACK',reason:'AI_UNAVAILABLE',proposals:[{approach:'DIRECT_CONCISE',text:'Evidence-bound test.',studentReviewRequired:true,studentFactualConfirmation:false,studentSpecificityConfirmation:false,blocks:[]}],approaches:['DIRECT_CONCISE'],baseHead:{expectedLetterVersion:3,expectedHead:H,letterId:L},subject:{targetId:U,targetKind:'program'},provenance:{program:{id:'rise-test',name:'Test Program',track:'',registryReleaseId:'registry-test'},factualSpans:[]},factualGuard:'REFERENCE_ONLY',currentEvidenceState:'RECHECK_REQUIRED',usage:null,studentReviewRequired:true};}
 test('JSONB-reordered program subject reloads its exact saved proposals',()=>assert.equal(c.read(i,generation()).generationId,generation().generationId));
@@ -17,3 +19,7 @@ test('head and canonical provenance validation remain fail-closed',()=>{for(cons
 
 test('current API reference-mode fallback and legacy absent mode are accepted',()=>{assert.ok(c.read(i,generation()));assert.equal(c.read(i,{...generation(),compositionMode:'reference'}).compositionMode,'reference');});
 test('unsupported composition modes and extra contract fields fail closed',()=>{for(const mode of ['prose','unknown',null,false,undefined])assert.throws(()=>c.read(i,{...generation(),compositionMode:mode}),/reviewed letter contract/);assert.throws(()=>c.read(i,{...generation(),compositionMode:'reference',factualGuard:'PROSE_VERBATIM_SPANS'}));assert.throws(()=>c.read(i,{...generation(),unexpected:true}));});
+
+function tracedGeneration(){const input=proseFixture(),out=proseOutput(input),g=generation();g.status='PROPOSED';g.compositionMode='prose';g.factualGuard=PROSE_GUARD;g.provenance.factualSpans=input.refs;g.provenance.evidenceQualification={contract:'SOURCE_PINNED_CLAIM_REVIEW_V1',claimDigests:['a'.repeat(64)]};g.proposals=out.candidates.map(c=>({...c,studentReviewRequired:true,studentFactualConfirmation:false,studentSpecificityConfirmation:false}));return g;}
+test('exact current prose mode reloads traced saved proposal without reference blocks',()=>{const g=tracedGeneration();assert.equal(c.read(i,g).proposals[0].text,g.proposals[0].text);});
+test('browser rejects untraced unsupported assertions, changed spans/offsets and legacy prose guard',()=>{for(const mutate of [g=>g.proposals[0].text+='\n\nI won three national awards.',g=>g.proposals[0].claims[0].start++,g=>g.proposals[0].claims[1].ref='invented',g=>g.proposals[0].fitLinks=[],g=>g.factualGuard='PROSE_VERBATIM_SPANS',g=>g.proposals[0].blocks=[]]){const g=tracedGeneration();mutate(g);assert.throws(()=>c.read(i,g));}});

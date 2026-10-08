@@ -1,3 +1,4 @@
+import {attachProgramMedia} from './program-media-owner.mjs';
 import {threeboxEnabled,attachThreebox} from './threebox.mjs';
 import {calendarEnabled} from './calendar-admission.mjs';
 import {attachIntake,intakeEnabled} from './interview-intake.mjs';
@@ -105,6 +106,7 @@ export async function readModel(db,actor,{owners,config,clock=()=>new Date(),spe
   for(const note of mentorNotes){if(note.kind==='priority' && !state.mentorPriority[note.target_student_id])state.mentorPriority[note.target_student_id]={text:note.text,at:iso(note.created_at)};}
   state.mentorNudges=mentorNotes.filter(x=>x.kind==='nudge').map(x=>({id:x.id,student:x.target_student_id,text:x.text,at:iso(x.created_at)}));
   if(compositionEnabled(config,actor))state.loiPreferences=await readPreferences(db,actor,config);
+  await attachProgramMedia({state,actor,config,owners,programIds:programIds,now:clock().getTime()});
   if(targetsEnabled(config,actor))state.loiTargets=await readTargets({db,actor,config,owners},loiHistory);
   if(researchEnabled(config,actor))state.research=await readResearchSummary(db,actor,config);
   const research=['360','ivprep_complete'].includes(actor.tier)||actor.role==='admin';
@@ -115,7 +117,7 @@ export async function readModel(db,actor,{owners,config,clock=()=>new Date(),spe
   await attachIntake(db,actor,config,state);
   await attachThreebox(db,actor,config,state);
   return {actor:{id:actor.id,role:actor.role,displayName:actor.displayName,firstName:actor.firstName,tier:actor.tier,zone:actor.zone},
-    capabilities:{threebox:threeboxEnabled(config,actor),...(calendarEnabled(config,actor)?{calendarV2:true,itinerary:true,adminLogistics:actor.role==='admin'}:{}),...(intakeEnabled(config,actor)?{intakeV2:true}:{}),...(myerasEnabled(config,actor)?{myerasImport:true}:{}),...(compositionEnabled(config,actor)?{loiComposition:true}:{}),...(targetsEnabled(config,actor)?{loiTargets:true}:{}),loi:loiEnabled(config,actor),loiCanonicalLookup:loiCanonicalLookup(config,actor),research,researchMissions:researchEnabled(config,actor),researchByProgram,contributions:state.policy.contributions===true},catalog:{programs,facts:context.facts||[],sources:context.sources||[],profiles,student_zone:actor.zone,registry_release:context.registryRelease||null,storyforgeProjection:context.storyforgeProjection||null,riseProjections:context.riseProjections||{}},
+    capabilities:{threebox:threeboxEnabled(config,actor),...(calendarEnabled(config,actor)?{calendarV2:true,itinerary:true,adminLogistics:actor.role==='admin'}:{}),...(intakeEnabled(config,actor)?{intakeV2:true}:{}),...(myerasEnabled(config,actor)?{myerasImport:true}:{}),...(compositionEnabled(config,actor)?{loiComposition:true}:{}),...(targetsEnabled(config,actor)?{loiTargets:true}:{}),loi:loiEnabled(config,actor),loiCanonicalLookup:loiCanonicalLookup(config,actor),research,researchMissions:researchEnabled(config,actor),mrxPublication:researchEnabled(config,actor)&&config?.mrxPublication?.enabled===true,researchByProgram,contributions:state.policy.contributions===true},catalog:{programs,facts:context.facts||[],sources:context.sources||[],profiles,student_zone:actor.zone,registry_release:context.registryRelease||null,storyforgeProjection:context.storyforgeProjection||null,riseProjections:context.riseProjections||{}},
     state,version,server_time:current,integrations:{matrix:{available:true,status:'available',url:`${config.publicOrigin}/member-dashboard/`},
       rise:{available:context.status?.rise==='available',status:context.status?.rise||'unavailable',url:`${config.publicOrigin}/rise/`},
       storyforge:{available:context.status?.storyforge==='available',status:context.status?.storyforge||'unavailable',url:`${config.publicOrigin}/storyforge/`},

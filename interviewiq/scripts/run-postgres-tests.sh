@@ -21,6 +21,8 @@ for ARG in "$@"; do
   case "$ARG" in
     --keep) KEEP_REQUESTED=true ;;
     --preservation) MODE=preservation ;;
+    --mrx) MODE=mrx ;;
+    --program-media) MODE=program-media ;;
     --research-dispatch) MODE=research-dispatch ;;
     *) echo 'Unknown PostgreSQL harness argument.' >&2; exit 1 ;;
   esac
@@ -50,7 +52,11 @@ import fs from 'node:fs';
 const [directory,bin]=process.argv.slice(2);
 fs.writeFileSync(`${directory}/connection.json`,JSON.stringify({directory,pgBin:bin,databaseUrl:process.env.IIQ_TEST_DATABASE_URL,adminDatabaseUrl:process.env.IIQ_TEST_ADMIN_DATABASE_URL,queueDatabaseUrl:process.env.IIQ_TEST_QUEUE_DATABASE_URL,syntheticOnly:true,unixSocketOnly:true},null,2),{flag:'wx',mode:0o600});
 JS
-if [[ "$MODE" == preservation ]]; then
+if [[ "$MODE" == program-media ]]; then
+  node --test "$ROOT/tests/postgres/program-media.test.mjs" | tee "$RUN_DIR/media-tests.log"
+elif [[ "$MODE" == mrx ]]; then
+  node --test "$ROOT/tests/postgres/mrx.test.mjs" | tee "$RUN_DIR/mrx-tests.log"
+elif [[ "$MODE" == preservation ]]; then
   node "$ROOT/tests/preservation/preservation.test.mjs" | tee "$RUN_DIR/preservation-tests.log"
 elif [[ "$MODE" == research-dispatch ]]; then
   node --test "$ROOT/tests/postgres/research-dispatch.test.mjs" | tee "$RUN_DIR/research-dispatch-tests.log"

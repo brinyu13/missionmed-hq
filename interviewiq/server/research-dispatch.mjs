@@ -21,25 +21,28 @@ export function parseResearchFlatJSON(raw,keys){
  for(;;){entry.lastIndex=at;const m=entry.exec(raw);need(m);const key=JSON.parse(m[1]);need(!seen.has(key)&&!['__proto__','constructor','prototype'].includes(key));seen.add(key);at=entry.lastIndex;if(raw[at]!==',')break;at++;}
  need(raw[at++]==='}'&&/^\s*$/.test(raw.slice(at))&&[...seen].sort().join()===[...keys].sort().join());return JSON.parse(raw);
 }
-export function createRiseResearchJobTransport({enabled=false,requestSecret}={}, {fetchImpl=fetch,now=Date.now}={}){
+export function createRiseResearchJobTransport({enabled=false,requestSecret}={}, {fetchImpl=fetch,now=Date.now,ownerReadReceipts}={}){
  return async(binding,expectedDigest)=>{
   need(enabled===true&&typeof requestSecret==='string'&&Buffer.byteLength(requestSecret)>=32);
   binding=Object.freeze(Object.fromEntries(KEYS.map(k=>[k,binding?.[k]])));
   const raw=researchJobBody(binding),digest=sha(raw);need(digest===expectedDigest);
   const start=now(),mono=performance.now(),iat=Math.floor(start/1000),nonce=randomUUID();
-  const canonical=`iiq-research-job-v1\nrequest\n${AUD}\n${iat}\n${nonce}\nPOST\n${PATH}\n${digest}`;
+  const receiptMode=ownerReadReceipts?.activeJobFor(binding)===true;
+  const canonical=`${receiptMode?'iiq-research-job-v2':'iiq-research-job-v1'}\nrequest\n${AUD}\n${iat}\n${nonce}\nPOST\n${PATH}\n${digest}`;
   const controller=new AbortController();let timer,reader;
   try{return await Promise.race([new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();void reader?.cancel().catch(()=>{});reject(unavailable());},10000);}), (async()=>{
-   const response=await fetchImpl(ORIGIN+PATH,{method:'POST',redirect:'error',credentials:'omit',signal:controller.signal,headers:{'Content-Type':'application/json','Content-Length':String(Buffer.byteLength(raw)),Accept:'application/json','X-MMED-IIQ-Job-Timestamp':String(iat),'X-MMED-IIQ-Job-Nonce':nonce,'X-MMED-IIQ-Job-Signature':mac(requestSecret,canonical)},body:raw});
+   const response=await fetchImpl(ORIGIN+PATH,{method:'POST',redirect:'error',credentials:'omit',signal:controller.signal,headers:{'Content-Type':'application/json','Content-Length':String(Buffer.byteLength(raw)),Accept:'application/json','X-MMED-IIQ-Job-Timestamp':String(iat),'X-MMED-IIQ-Job-Nonce':nonce,'X-MMED-IIQ-Job-Signature':mac(requestSecret,canonical),...(receiptMode?{'X-MMED-IIQ-Job-Receipt':'synthetic-hash-v1'}:{})},body:raw});
    need(response.ok&&!response.redirected&&/^application\/json(?:\s*;|$)/i.test(response.headers.get('content-type')??''));
    const length=response.headers.get('content-length');if(length!==null)need(/^\d+$/.test(length)&&Number(length)<=16384);
    reader=response.body?.getReader();need(reader);const chunks=[];let size=0;
    for(;;){const {done,value}=await reader.read();if(done)break;size+=value.length;need(size<=16384);chunks.push(Buffer.from(value));}
    const envelope=parseResearchFlatJSON(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks)),['payload','signature']);
    need(typeof envelope.payload==='string'&&typeof envelope.signature==='string'&&/^[a-f0-9]{64}$/.test(envelope.signature)&&timingSafeEqual(Buffer.from(envelope.signature,'hex'),Buffer.from(mac(requestSecret,`iiq-research-job-v1\nresponse\n${envelope.payload}`),'hex')));
-   const r=parseResearchFlatJSON(envelope.payload,['audience','nonce','request_sha256',...KEYS,'status','jobId','iat','exp']),current=now();
+   const r=parseResearchFlatJSON(envelope.payload,['audience','nonce','request_sha256',...KEYS,'status','jobId','iat','exp',...(receiptMode?['proofNonceSha256','proofRequestSha256']:[])]),current=now();
    need(current>=start&&current-start<10000&&performance.now()-mono<10000&&r.audience===AUD&&r.nonce===nonce&&r.request_sha256===digest&&KEYS.every(k=>r[k]===binding[k])&&Object.hasOwn(statuses,r.status)&&
     (typeof r.jobId==='string'&&UUID.test(r.jobId)||r.jobId===null&&r.status==='NO_OP')&&Number.isSafeInteger(r.iat)&&Number.isSafeInteger(r.exp)&&r.iat>=iat&&r.iat<=Math.floor(current/1000)&&r.exp>Math.floor(current/1000)&&r.exp-r.iat>0&&r.exp-r.iat<=30);
+   need(!receiptMode||/^[a-f0-9]{64}$/.test(r.proofNonceSha256)&&/^[a-f0-9]{64}$/.test(r.proofRequestSha256));
+   if(receiptMode)ownerReadReceipts.recordJob(binding,{nonceSha256:sha(nonce),requestSha256:sha(canonical),method:'POST',path:PATH,bodySha256:digest,proofNonceSha256:r.proofNonceSha256,proofRequestSha256:r.proofRequestSha256});
    return {binding:Object.fromEntries(KEYS.map(k=>[k,r[k]])),bodyHash:digest,status:r.status,jobId:r.jobId,envelope:{payload:envelope.payload,signature:envelope.signature},verifiedAt:new Date(current).toISOString()};
   })()]);}catch{throw unavailable();}finally{clearTimeout(timer);controller.abort();void reader?.cancel().catch(()=>{});}
  };

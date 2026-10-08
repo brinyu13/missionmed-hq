@@ -1,3 +1,4 @@
+import {readMRX} from './mrx-publication.mjs';
 import {notFound,requireValue} from './errors.mjs';
 import * as v from './validation.mjs';
 import {MRX_VERSION,MRX_SCHEMA} from './research-standard.mjs';
@@ -21,7 +22,7 @@ const ownReview="LEFT JOIN LATERAL (SELECT * FROM iiq.review_items x WHERE x.sub
 const subColumns=`s.id,s.mission_id,s.repair_parent_id,s.sha256,s.created_at,m.program_id,
   s.parsed_package#>>'{_iiq,status}' AS structural_status,s.parsed_package#>'{_iiq,reasons}' AS reasons,
   s.parsed_package#>'{_iiq,eligibleForReview}' AS eligible_for_review,s.parsed_package#>>'{_iiq,version}' AS package_version,
-  r.id AS review_id,r.status AS review_status,r.execution_status,r.quality_status,r.publication_status,r.credit_status`;
+  r.id AS review_id,r.version AS review_version,r.status AS review_status,r.execution_status,r.quality_status,r.publication_status,r.credit_status`;
 const timestamp=alias=>`to_char(${alias}.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_at`;
 function cursor(value){
   if(value===undefined||value===null)return [null,null];
@@ -33,7 +34,7 @@ function cursor(value){
 const missionMeta=row=>({id:row.id,program:row.program_id,name:row.program_name||row.public_payload?.program?.name||'',track:row.program_track||row.public_payload?.program?.track||'',policy:row.standard_version,status:row.status,at:iso(row.created_at),expiresAt:iso(row.expires_at)});
 const submissionMeta=row=>({id:row.id,mission:row.mission_id,parent:row.repair_parent_id,program:row.program_id,at:iso(row.created_at),sha256:row.sha256,
   status:row.structural_status||'quarantined',eligibleForReview:row.eligible_for_review===true,reasons:Array.isArray(row.reasons)?row.reasons:[],version:Number(row.package_version)||1,
-  reviewId:row.review_id||null,reviewStatus:row.review_status||null,
+  reviewId:row.review_id||null,reviewVersion:Number(row.review_version)||null,reviewStatus:row.review_status||null,
   decisions:{execution:row.execution_status||'unverified',quality:row.quality_status||'pending',publication:row.publication_status||'unpublished',credit:row.credit_status||'none'}});
 async function list(db,actor,kind,pageCursor){
   const [at,id]=cursor(pageCursor);let sql;
@@ -59,7 +60,8 @@ export async function readResearchSummary(db,actor,config){
   if(!researchEnabled(config,actor))return null;
   const missions=await list(db,actor,'missions'),submissions=await list(db,actor,'submissions');
   const reviews=actor.role==='admin'?await list(db,actor,'reviews'):null;
-  return {missions,submissions,reviews,policyVersion:MRX_VERSION,publicationAvailable:false,executionVerificationAvailable:false,creditAvailable:false};
+  const publicationQueue=config?.mrxPublication?.enabled===true&&actor.role==='admin'?(await db.query("SELECT i.id,i.operation,d.submission_id,d.program_id FROM iiq.mrx_intents i JOIN iiq.mrx_decisions d ON d.id=i.decision_id LEFT JOIN iiq.mrx_receipts r ON r.intent_id=i.id WHERE r.intent_id IS NULL ORDER BY i.created_at,i.id LIMIT 40")).rows:[];
+  return {missions,submissions,reviews,publicationQueue,policyVersion:MRX_VERSION,publicationAvailable:config?.mrxPublication?.enabled===true,executionVerificationAvailable:false,creditAvailable:false};
 }
 export async function readResearch({db,actor,config,data}){
   requireResearch(config,actor);v.onlyKeys(data,['kind','id','cursor']);
@@ -87,5 +89,5 @@ export async function readResearch({db,actor,config,data}){
     WHERE object_id=ANY($1::uuid[]) AND event_type IN ('submission.quality','submission.withdraw')
     ORDER BY created_at DESC,id DESC LIMIT 50`,[[row.id,row.review_id].filter(Boolean)]);
   return {kind,submission:{...submissionMeta(row),original:row.parsed_package?._iiq?.original||'',package:row.parsed_package?.package||null,
-    mission:row.public_payload,audit:audit.map(x=>({event:x.event_type,at:iso(x.created_at),decision:x.metadata?.decision||null,value:x.metadata?.value||null,reason:x.metadata?.reason||''}))}};
+    mission:row.public_payload,mrx:await readMRX(db,actor,config,row.id),audit:audit.map(x=>({event:x.event_type,at:iso(x.created_at),decision:x.metadata?.decision||null,value:x.metadata?.value||null,reason:x.metadata?.reason||''}))}};
 }

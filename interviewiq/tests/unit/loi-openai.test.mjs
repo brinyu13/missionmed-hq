@@ -275,7 +275,7 @@ test('proseSchema returns valid JSON Schema', () => {
   assert.equal(schema.type, 'object');
   assert.ok(schema.properties.schema);
   assert.ok(schema.properties.candidates);
-  assert.deepEqual(schema.properties.schema.enum, ['iiq-loi-prose-plan-v1']);
+  assert.deepEqual(schema.properties.schema.enum, ['iiq-loi-authored-plan-v5']);
 });
 
 test('proseSchema candidates use approach enum from input', () => {
@@ -301,7 +301,7 @@ test('buildLoiProseRequest returns valid JSON string', () => {
   const json = buildLoiProseRequest(validInput(), 4096);
   const parsed = JSON.parse(json);
   assert.equal(parsed.model, LOI_MODEL);
-  assert.equal(parsed.text.format.name, 'iiq_loi_prose_plan_v1');
+  assert.equal(parsed.text.format.name, 'iiq_loi_authored_plan_v5');
   assert.equal(parsed.store, false);
 });
 
@@ -318,7 +318,7 @@ test('buildLoiProseRequest rejects same invalid inputs as buildLoiRequest', () =
 
 test('buildLoiProseRequest includes prose schema', () => {
   const parsed = JSON.parse(buildLoiProseRequest(validInput(), 4096));
-  assert.equal(parsed.text.format.schema.properties.schema.enum[0], 'iiq-loi-prose-plan-v1');
+  assert.equal(parsed.text.format.schema.properties.schema.enum[0], 'iiq-loi-authored-plan-v5');
 });
 
 // ── PROSE_INSTRUCTIONS content ───────────────────────────────────────────

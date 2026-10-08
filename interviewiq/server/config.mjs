@@ -1,3 +1,4 @@
+import {APPROVED_LOI_EVIDENCE_PINS} from './loi-evidence.mjs';
 import {MODEL_CONTEXT_TOKENS} from './loi-openai.mjs';
 import {readResearchProofConfig} from './research-job-runtime.mjs';
 import { fileURLToPath } from 'node:url';
@@ -27,9 +28,11 @@ export function readConfig(env = process.env) {
     calendar:{enabled:bool('INTERVIEWIQ_CALENDAR_V2_ENABLED')},
     intake:{enabled:bool('INTERVIEWIQ_INTAKE_V2_ENABLED')},
     loiOpenai:{apiKey:text('INTERVIEWIQ_OPENAI_API_KEY')},
-    loiComposition:{canaryOwnerId:text('INTERVIEWIQ_LOI_AI_CANARY_OWNER_ID'),lifetimeBudgetMicros:integer('INTERVIEWIQ_LOI_AI_LIFETIME_BUDGET_MICROS',0,0,25000000),enabled:bool('INTERVIEWIQ_LOI_COMPOSITION_ENABLED'),aiEnabled:bool('INTERVIEWIQ_LOI_AI_ENABLED'),authorizationId:text('INTERVIEWIQ_LOI_AI_AUTHORIZATION_ID'),model:text('INTERVIEWIQ_LOI_AI_MODEL'),maxInputTokens:integer('INTERVIEWIQ_LOI_AI_MAX_INPUT_TOKENS',MODEL_CONTEXT_TOKENS,256,MODEL_CONTEXT_TOKENS),maxOutputTokens:integer('INTERVIEWIQ_LOI_AI_MAX_OUTPUT_TOKENS',2048,128,8192),timeoutMs:integer('INTERVIEWIQ_LOI_AI_TIMEOUT_MS',20000,100,30000),maxCostMicros:integer('INTERVIEWIQ_LOI_AI_MAX_COST_MICROS',0,0,1000000),dailyBudgetMicros:integer('INTERVIEWIQ_LOI_AI_DAILY_BUDGET_MICROS',0,0,10000000),dailyRequests:integer('INTERVIEWIQ_LOI_AI_DAILY_REQUESTS',0,0,100)},
+    loiComposition:{evidencePins:APPROVED_LOI_EVIDENCE_PINS,canaryOwnerId:text('INTERVIEWIQ_LOI_AI_CANARY_OWNER_ID'),lifetimeBudgetMicros:integer('INTERVIEWIQ_LOI_AI_LIFETIME_BUDGET_MICROS',0,0,25000000),enabled:bool('INTERVIEWIQ_LOI_COMPOSITION_ENABLED'),aiEnabled:bool('INTERVIEWIQ_LOI_AI_ENABLED'),authorizationId:text('INTERVIEWIQ_LOI_AI_AUTHORIZATION_ID'),model:text('INTERVIEWIQ_LOI_AI_MODEL'),maxInputTokens:integer('INTERVIEWIQ_LOI_AI_MAX_INPUT_TOKENS',MODEL_CONTEXT_TOKENS,256,MODEL_CONTEXT_TOKENS),maxOutputTokens:integer('INTERVIEWIQ_LOI_AI_MAX_OUTPUT_TOKENS',2048,128,8192),timeoutMs:integer('INTERVIEWIQ_LOI_AI_TIMEOUT_MS',20000,100,30000),maxCostMicros:integer('INTERVIEWIQ_LOI_AI_MAX_COST_MICROS',0,0,1000000),dailyBudgetMicros:integer('INTERVIEWIQ_LOI_AI_DAILY_BUDGET_MICROS',0,0,10000000),dailyRequests:integer('INTERVIEWIQ_LOI_AI_DAILY_REQUESTS',0,0,100)},
+    mrxPublication:{enabled:bool('INTERVIEWIQ_MRX_PUBLICATION_ENABLED'),requestSecret:text('INTERVIEWIQ_RESEARCH_JOB_REQUEST_SECRET'),proofSecret:text('INTERVIEWIQ_RESEARCH_JOB_PROOF_SECRET')},
     researchMissionsEnabled: bool('INTERVIEWIQ_RESEARCH_MISSIONS_ENABLED'),
-    rise: {enabled:bool('INTERVIEWIQ_RISE_ENABLED'),requestSecret:text('INTERVIEWIQ_RISE_REQUEST_SECRET'),researchCoverageEnabled:bool('INTERVIEWIQ_RESEARCH_MISSIONS_ENABLED')},
+    programMediaEnabled:bool('INTERVIEWIQ_PROGRAM_MEDIA_ENABLED'),
+    rise: {programMediaEnabled:bool('INTERVIEWIQ_PROGRAM_MEDIA_ENABLED'),enabled:bool('INTERVIEWIQ_RISE_ENABLED'),requestSecret:text('INTERVIEWIQ_RISE_REQUEST_SECRET'),researchCoverageEnabled:bool('INTERVIEWIQ_RESEARCH_MISSIONS_ENABLED')},
     databaseUrl: text('INTERVIEWIQ_DATABASE_URL'),
     publicOrigin: text('INTERVIEWIQ_PUBLIC_ORIGIN', 'https://missionmedinstitute.com'),
     jwtIssuer: text('INTERVIEWIQ_JWT_ISSUER', 'https://missionmedinstitute.com'),
@@ -58,6 +61,9 @@ export function readConfig(env = process.env) {
       throw new AppError(503, 'invalid_configuration', 'Enabled InterviewIQ requires database and server-only authentication configuration.');
   if(config.enabled&&config.researchMissionsEnabled&&(!config.rise.enabled||Buffer.byteLength(config.rise.requestSecret)<32))
     throw new AppError(503,'invalid_configuration','Research missions require the configured authenticated RISE connection.');
+  if(config.mrxPublication.enabled){if(!config.enabled||!config.researchMissionsEnabled||!config.researchProof.enabled||!config.researchProof.mrxEnabled||[config.mrxPublication.requestSecret,config.mrxPublication.proofSecret].some(x=>Buffer.byteLength(x)<32)||config.mrxPublication.requestSecret===config.mrxPublication.proofSecret)throw new AppError(503,'invalid_configuration','MRX requires explicit mission, proof and separated existing service keys.');}
+  Object.freeze(config.mrxPublication);
+  if(config.programMediaEnabled&&!config.rise.enabled)throw new AppError(503,'invalid_configuration','Program media requires the existing RISE owner read.');
   if(config.deepResearch.enabled){
     const d=config.deepResearch;
     if(!config.enabled||!config.rise.enabled||!config.researchProof.enabled||Buffer.byteLength(config.rise.requestSecret)<32||

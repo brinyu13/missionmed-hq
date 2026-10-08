@@ -1,0 +1,24 @@
+import {PROSE_SCHEMA,PROSE_FRAMES,PROSE_FIT_FRAME,VERIFICATION_SCHEMA,proseUnits} from '../../server/loi-prose-contract.mjs';
+export function proseCandidate(input,approach=input.approaches[0]){
+ const reason=input.refs.find(r=>r.kind==='reason'),ev=input.refs.find(r=>r.kind==='evidence'),identity=input.refs.find(r=>r.kind==='identity');
+ const context=input.refs.filter(r=>r.kind==='context'),facts=input.refs.filter(r=>r.kind==='fact');let ordered;
+ if(approach==='ACADEMIC_PROGRAM')ordered=[ev,PROSE_FIT_FRAME,reason,...context,...facts];
+ else if(approach==='WARM_PERSONAL'||approach==='STRONG_INTEREST')ordered=[reason,PROSE_FIT_FRAME,ev,...facts,...context];
+ else if(approach==='UPDATE_LED')ordered=[...facts,...context,reason,PROSE_FIT_FRAME,ev];
+ else ordered=[...context,reason,PROSE_FIT_FRAME,ev,...facts];
+ const used=new Set(ordered.filter(x=>typeof x!=='string').map(x=>x?.ref));ordered.push(...input.refs.filter(r=>r!==identity&&!used.has(r.ref)));
+ const parts=[PROSE_FRAMES[0],identity,'I would like to explain why this program interests me.',...ordered,PROSE_FRAMES.at(-1)],claims=[];let text='';
+ for(const p of parts){if(text)text+='\n\n';const start=text.length;text+=typeof p==='string'?p:p.text;if(typeof p!=='string')claims.push({ref:p.ref,start,end:text.length});}
+ return {approach,text,claims,fitLinks:[{evidenceRef:ev.ref,reasonRef:reason.ref}]};
+}
+export const authorOutput=input=>({schema:PROSE_SCHEMA,candidates:input.approaches.map(a=>proseCandidate(input,a))});
+export const proseOutput=input=>{const out=authorOutput(input);return {...out,verification:reviewOutput({program:input.program,originalRefs:input.refs,approaches:input.approaches,drafts:out.candidates.map((r,i)=>({candidateId:'candidate:'+i,approach:r.approach,text:r.text,units:proseUnits(r.text)}))})};};
+export const proseFixture=(overrides={})=>({program:{id:'rise-test',name:'Test Program',track:'',registryReleaseId:'registry-test'},approaches:['DIRECT_CONCISE'],contextConfirmations:{postInterviewOccurred:false,updateConfirmed:false},refs:[{ref:'program',kind:'identity',text:'Test Program'},{ref:'context:whyNow',kind:'context',text:'I am following up on my application.'},{ref:'context:applicationState',kind:'context',text:'I have applied to your program.'},{ref:'context:interviewState',kind:'context',text:'I have not interviewed at this program.'},{ref:'reason:0',kind:'reason',text:'I value longitudinal follow-up with underserved patients.'},{ref:'fact:0',kind:'fact',text:'I volunteered at a community clinic last year.'},{ref:'evidence:0',kind:'evidence',field:'research.curriculum',claimRef:'rise-claim:test',sources:[{urls:['https://example.test/curriculum']}],text:'Residents attend a supervised continuity clinic each week.'}],...overrides});
+
+// Synthetic independent reviewer oracle for contract tests, never production authority.
+export function reviewOutput(data){return {schema:VERIFICATION_SCHEMA,candidates:data.drafts.map(d=>{
+ const refs=data.originalRefs,spans=refs.map(r=>({ref:r.ref,start:d.text.indexOf(r.text),end:d.text.indexOf(r.text)+r.text.length}));
+ return {schema:VERIFICATION_SCHEMA,programId:data.program.id,registryReleaseId:data.program.registryReleaseId,candidateId:d.candidateId,approach:d.approach,units:d.units.map(u=>{const supported=spans.filter(s=>s.start>=0&&s.start<u.end&&s.end>u.start).map(s=>s.ref);return {...u,classification:supported.length?'SUPPORTED_FACT':'NONFACTUAL',refs:supported,reason:'SYNTHETIC independently supplied review verdict for this exact clause.'};}),fit:{evidenceRef:refs.find(r=>r.kind==='evidence').ref,reasonRef:refs.find(r=>r.kind==='reason').ref,supported:true,explanation:'SYNTHETIC reviewed detail and confirmed reason are specifically connected.'},quality:{personalized:true,couldSendUnchangedToOtherProgram:false,coherent:true,approachDistinct:true,explanation:'SYNTHETIC reviewer accepts the provided personalized authored fixture.'},variation:{materiallyDifferent:true,explanation:'SYNTHETIC reviewer accepts distinct opening, cadence and organization.'}};
+ })};}
+export function authoredOutput(input){const out=authorOutput(input);for(const row of out.candidates){const old='I would like to explain why this program interests me.',next={WARM_PERSONAL:'What draws me here begins with a priority that matters personally.',DIRECT_CONCISE:'I am writing with a focused purpose and a clear next step.',ACADEMIC_PROGRAM:'The educational connection is the strongest reason for this letter.',POST_INTERVIEW:'The experience I confirmed below gives this letter its context.',UPDATE_LED:'A confirmed update gives me a timely reason to write.',STRONG_INTEREST:'My interest has a specific foundation that I want to make clear.'}[row.approach],at=row.text.indexOf(old),delta=next.length-old.length;row.text=row.text.replace(old,next);for(const c of row.claims)if(c.start>at){c.start+=delta;c.end+=delta;}}
+ return out;}

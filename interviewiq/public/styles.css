@@ -1036,3 +1036,19 @@ body[data-role="admin"] .founderChip,body[data-role="admin"] .roleReadOnly,body[
 
 /* General → Details → Personal: evidence deliberately has the most space. */
 .tbBuilder{max-width:1100px;margin:auto}.tbTeaching{margin:1rem 0}.tbBoxes{display:grid;grid-template-columns:minmax(150px,1fr) minmax(280px,2fr) minmax(170px,1.1fr);gap:1rem;margin:1rem 0}.tbBoxes>section{min-width:0;padding:.7rem;border:1px solid var(--line,#d6d6d6);border-radius:12px}.tbDetails{background:rgba(109,139,112,.06)}.tbReason{margin:1rem 0}.tbReasonHeader{display:flex;flex-wrap:wrap;align-items:center;gap:1rem;justify-content:space-between}.tbReasonHeader input[type=number]{width:65px}.tbBoxes select,.tbBoxes textarea,.tbIntel input{width:100%;box-sizing:border-box}.tbEvidence{display:flex;gap:.65rem;align-items:flex-start;border-bottom:1px solid var(--line,#d6d6d6);padding:.8rem 0}.tbEvidence input{flex:0 0 auto;margin-top:.3rem}.tbEvidence small{display:block;margin-top:.5rem}.tbReview{display:grid;gap:.65rem;margin:1rem 0}.tbNeeded{color:#8b3524;font-weight:600}.tbAnswer{white-space:pre-wrap;overflow-wrap:anywhere}.tbIntel{border-top:1px solid var(--line,#d6d6d6);padding:.7rem 0}.tbIntel label{display:block}.tbChecks{padding-left:1.25rem}.tbBuilder details{margin:.75rem 0}.tbBuilder input[type=checkbox]{min-width:18px;min-height:18px}.tbBuilder button{min-height:44px}.tbBuilder h3 small{font-size:.7em;font-weight:400}.tbBuilder :focus-visible{outline:3px solid #93704b;outline-offset:3px}@media(max-width:800px){.tbBoxes{grid-template-columns:1fr}.tbDetails{min-height:150px}.tbReasonHeader{align-items:flex-start}.tbReason{padding:.8rem}.tbBuilder textarea{font-size:16px}.tbBuilder .row{flex-wrap:wrap}}
+
+
+.mrxWorkspace{display:grid;gap:1rem;min-width:0}.mrxWorkspace article{padding:1rem 0;border-bottom:1px solid var(--line,#dce1db)}.mrxWorkspace fieldset{min-width:0;margin:1rem 0;padding:1rem;border:1px solid #cbd3ca;border-radius:12px}.mrxWorkspace pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:24rem;overflow:auto}.mrxWorkspace textarea{min-height:9rem;width:100%;max-width:100%}.mrxWorkspace button,.mrxWorkspace input:not([type=checkbox]){min-height:44px}.mrxWorkspace button{margin:.25rem .3rem .25rem 0;white-space:normal}.mrxWorkspace input[type=checkbox]{width:20px;height:20px;vertical-align:middle;margin-right:.4rem}.mrxWorkspace .mrxHash,.mrxWorkspace a{overflow-wrap:anywhere}.mrxWorkspace label{display:block;margin:.75rem 0 .35rem}@media(max-width:600px){.mrxWorkspace .panel{padding:1rem}.mrxWorkspace button{width:100%}.mrxWorkspace legend{overflow-wrap:anywhere;max-width:100%}}
+
+/* Active mission workspaces remain reachable in the existing mobile rail. */
+@media(max-width:860px){body[data-mrx-navigation="true"] #rail{overflow-x:auto;justify-content:flex-start}body[data-mrx-navigation="true"] #rail .rtab{display:flex;flex:0 0 auto;min-width:60px;min-height:44px}}
+
+/* Governed media retains complete rights attribution and historical-date caveats. */
+figure.heroMedia,figure.heroMedia.compact{aspect-ratio:auto}
+figure.heroMedia img{height:auto;aspect-ratio:21/9}
+figure.heroMedia.compact img{aspect-ratio:4/1}
+figure.heroMedia img[hidden]{display:none}
+figure.heroMedia figcaption{position:static;background:var(--card);color:var(--muted);line-height:1.45;overflow-wrap:anywhere}
+figure.heroMedia figcaption a{color:var(--sky)}
+/* LOI composition controls remain usable at mobile touch sizes. */
+.loiComposition button { min-height: 44px; }

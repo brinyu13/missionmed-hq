@@ -1,4 +1,5 @@
 import {createHash} from 'node:crypto';
+import {mrxBinding,mrxCanonical} from './mrx-contract.mjs';
 
 const ROLE='iiq_research_proof';
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$(?![\s\S])/;
@@ -19,9 +20,10 @@ const SELECT={actors:['id','wp_user_id'],interviews:['id','owner_id','program_id
   research_demands:['id','owner_id','interview_id','program_id','external_request_id'],
   research_job_grants:['request_id','owner_id','demand_id','interview_id','program_id','registry_release_id','request_sha256'],
   research_proof_nonces:['nonce']};
+const MRX_SELECT={mrx_decisions:['id','owner_id','submission_id','review_id','review_version','consent_id','admin_id','submission_sha256','program_id','registry_release_id','payload_sha256'],mrx_intents:['id','decision_id','publication_id','operation','binding'],review_items:['id','status','quality_status','version'],consents:['id','status']};
 const INSERT={research_proof_nonces:['issuer','nonce','request_sha256','created_at','expires_at']};
 const unsafe=r=>r.rolsuper||r.rolbypassrls||r.rolinherit||r.rolcreatedb||r.rolcreaterole||r.rolreplication;
-async function qualify(client) {
+async function qualify(client,{mrxEnabled=false}={}) {
   const {rows:roles}=await client.query(`SELECT r.rolname AS name,r.rolsuper,r.rolbypassrls,r.rolinherit,
     r.rolcreatedb,r.rolcreaterole,r.rolreplication,r.rolcanlogin,r.rolname=current_user AS login,
     pg_has_role(current_user,r.oid,'MEMBER') AS member,pg_has_role(current_user,r.oid,'SET') AS can_set,
@@ -54,11 +56,12 @@ async function qualify(client) {
       has_table_privilege(current_user,c.oid,'DELETE,TRUNCATE,TRIGGER') AS direct
     FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_attribute a ON a.attrelid=c.oid
     WHERE n.nspname='iiq' AND c.relkind IN('r','p','v','m','f') AND a.attnum>0 AND NOT a.attisdropped`);
-  if(!columns.length||columns.some(c=>c.owner!=='iiq_owner'||(SELECT[c.table_name]&&c.kind!=='r')||
+  const mrxSchema=columns.some(c=>c.table_name==='mrx_decisions');if(mrxEnabled&&!mrxSchema)fail();const selected=mrxSchema?{...SELECT,...MRX_SELECT}:SELECT;
+  if(!columns.length||columns.some(c=>c.owner!=='iiq_owner'||(selected[c.table_name]&&c.kind!=='r')||
     (['r','p'].includes(c.kind)&&(!c.rls||!c.forced))||c.persistence!=='p'||c.mutable||c.direct||
-    c.readable!==Boolean(SELECT[c.table_name]?.includes(c.column_name))||
+    c.readable!==Boolean(selected[c.table_name]?.includes(c.column_name))||
     c.insertable!==Boolean(INSERT[c.table_name]?.includes(c.column_name))))fail();
-  for(const [table,names] of [...Object.entries(SELECT),...Object.entries(INSERT)])for(const column of names)
+  for(const [table,names] of [...Object.entries(selected),...Object.entries(INSERT)])for(const column of names)
     if(!columns.some(c=>c.table_name===table&&c.column_name===column))fail();
   const {rows:[functions]}=await client.query(`SELECT NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
     WHERE n.nspname='iiq' AND (has_function_privilege('${ROLE}',p.oid,'EXECUTE') OR has_function_privilege(current_user,p.oid,'EXECUTE'))) AS safe`);
@@ -67,7 +70,7 @@ async function qualify(client) {
 
 // No connection URL, environment lookup or runtime pool fallback. The caller
 // must qualify transport separately before supplying the dedicated pool.
-export async function createResearchJobStore({enabled=false}={}, {pool,now=Date.now}={}) {
+export async function createResearchJobStore({enabled=false,mrxEnabled=false}={}, {pool,now=Date.now}={}) {
   if(enabled!==true)return Object.freeze({getCommittedDemand:async()=>null,consumeNonce:async()=>false});
   if(typeof pool?.connect!=='function')fail();
   async function transaction(operation) {
@@ -93,7 +96,7 @@ export async function createResearchJobStore({enabled=false}={}, {pool,now=Date.
       await query('BEGIN');
       await query('SET LOCAL search_path=pg_catalog');
       await query("SET LOCAL statement_timeout='3000'; SET LOCAL lock_timeout='1000'; SET LOCAL idle_in_transaction_session_timeout='5000'");
-      await qualify({query});
+      await qualify({query},{mrxEnabled});
       await query(`SET LOCAL ROLE ${ROLE}`);
       const result=await operation({query});
       await query('COMMIT');remaining();
@@ -124,8 +127,19 @@ export async function createResearchJobStore({enabled=false}={}, {pool,now=Date.
         return {...row,wpUserId};
       });}catch{return null;}
     },
+    async getCommittedMRX(binding) {
+      if(!mrxEnabled)return null;try{mrxBinding(binding);return await transaction(async client=>{
+        const {rows:[row]}=await client.query(`SELECT i.binding,a.wp_user_id AS "wpUserId",
+          CASE WHEN i.operation='publish' THEN r.version=d.review_version AND r.status='approved' AND r.quality_status='approved' AND c.status='active'
+            AND NOT EXISTS(SELECT 1 FROM iiq.mrx_intents x WHERE x.decision_id=d.id AND x.operation='retract')
+          ELSE EXISTS(SELECT 1 FROM iiq.mrx_intents x WHERE x.decision_id=d.id AND x.operation='publish' AND x.publication_id=i.publication_id AND x.binding->>'payloadSha256'=i.binding->>'priorReceiptSha256')
+            AND (r.version<>d.review_version OR r.status IN('withdrawn','retracted','rejected','repair_requested') OR r.quality_status<>'approved' OR c.status<>'active') END AS valid
+          FROM iiq.mrx_intents i JOIN iiq.mrx_decisions d ON d.id=i.decision_id JOIN iiq.review_items r ON r.id=d.review_id JOIN iiq.consents c ON c.id=d.consent_id JOIN iiq.actors a ON a.id=d.admin_id WHERE i.id=$1`,[binding.intentId]);
+        if(!row||mrxCanonical(row.binding)!==mrxCanonical(binding))return null;return {binding:row.binding,wpUserId:Number(row.wpUserId),valid:row.valid===true};
+      });}catch{return null;}
+    },
     async consumeNonce(value) {
-      if(!value||Object.keys(value).sort().join()!=='expiresAt,issuer,nonce,requestHash'||value.issuer!=='rise-research-proof'||
+      if(!value||Object.keys(value).sort().join()!=='expiresAt,issuer,nonce,requestHash'||!['rise-research-proof',...(mrxEnabled?['rise-mrx-proof']:[])].includes(value.issuer)||
         typeof value.nonce!=='string'||!UUID.test(value.nonce)||typeof value.requestHash!=='string'||!HASH.test(value.requestHash)||
         typeof value.expiresAt!=='string')return false;
       const time=now(),expiry=Date.parse(value.expiresAt);

@@ -133,7 +133,7 @@ function strictJson(input){
   const primitive=/(?:true|false|null|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)/y;
   const ws=()=>{while(/[ \t\r\n]/.test(input[i]??'X'))i++;};
   const token=re=>{re.lastIndex=i;const found=re.exec(input);need(found,'malformed_json');i=re.lastIndex;return found[0];};
-  function str(){const x=JSON.parse(token(string));need(x.length<=30000&&x.isWellFormed()&&!x.includes('\0'),'invalid_string');return x;}
+  function str(){const x=JSON.parse(token(string));need(x.length<=30000&&x.isWellFormed()&&!x.includes('\0'),'invalid_string');need(!/(?:^|\n)\s*[=+@]|(?:^|\n)\s*-\s*\d/.test(x),'formula_like_string');return x;}
   function value(depth){
     need(depth<=18&&++nodes<=6000,'package_complexity');ws();
     if(input[i]==='"')return str();

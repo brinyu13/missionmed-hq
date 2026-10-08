@@ -1,3 +1,4 @@
+import {mrxCommands,mrxEnabled,writeMRX,reconcileMRX,createMRXTransport} from './mrx-publication.mjs';
 import {threeboxCommands,threeboxEnabled,requireThreebox,threeboxEvidence,readThreebox,writeThreebox} from './threebox.mjs';
 import {syncCalendarProjection} from './calendar-cohort.mjs';
 import {intakeCommands,requireIntake,intakeEnabled,writeIntake,readIntake} from './interview-intake.mjs';
@@ -22,7 +23,7 @@ const interviewCommands=new Set(['interview.create','interview.identity','interv
 const debriefCommands=new Set(['debrief.occurrence','debrief.save','debrief.propose','debrief.accept','debrief.reject']);
 const loiCommands=new Set(['loi.save','loi.approve','loi.evidence','loi.export','loi.handoff','loi.mark_sent']);
 const learningCommands=new Set(['learning.propose','learning.confirm','learning.correct','learning.revoke','learning.mentor']);
-export function createCommands({database,owners,config,clock,speechAvailable=false,additionalCommands={},loiComposer=null,loiProseComposer=null,researchTransport=createRiseResearchJobTransport(config.deepResearch)}) {
+export function createCommands({database,owners,config,clock,speechAvailable=false,additionalCommands={},loiComposer=null,loiProseComposer=null,ownerReadReceipts,researchTransport=createRiseResearchJobTransport(config.deepResearch,{ownerReadReceipts}),mrxTransport=createMRXTransport(config.mrxPublication)}) {
   const settings={owners,config,clock,speechAvailable};
   async function bootstrap(actor) {coreActor(actor,config);return database.withActor(actor,async db=>{await syncActor(db,actor);return readModel(db,actor,settings);});}
   async function execute(actor,body,{revalidateActor,ownerReadReceiptsActive=false}={}) {
@@ -36,7 +37,7 @@ export function createCommands({database,owners,config,clock,speechAvailable=fal
     if(loiCommands.has(envelope.command))requireLoi(config,actor);
     if(compositionCommands.has(envelope.command))return executeComposition({database,actor,envelope,owners,config,clock,revalidateActor,composer:loiComposer,proseComposer:loiProseComposer,bootstrap});
     if(config.coreOnly) {
-      requireValue(threeboxEnabled(config,actor)&&threeboxCommands.has(envelope.command)||coreCommands.has(envelope.command)||intakeEnabled(config,actor)&&intakeCommands.has(envelope.command)||envelope.targetKind==='program'&&targetCommands.has(envelope.command)||loiEnabled(config,actor)&&loiCommands.has(envelope.command)||envelope.command==='research.check'&&deepResearchEnabled(config,actor)||researchEnabled(config,actor)&&researchCommands.has(envelope.command),'coming_soon','COMING SOON — this integration is not active. Your saved calendar is unchanged.',503);
+      requireValue(mrxEnabled(config,actor)&&mrxCommands.has(envelope.command)||threeboxEnabled(config,actor)&&threeboxCommands.has(envelope.command)||coreCommands.has(envelope.command)||intakeEnabled(config,actor)&&intakeCommands.has(envelope.command)||envelope.targetKind==='program'&&targetCommands.has(envelope.command)||loiEnabled(config,actor)&&loiCommands.has(envelope.command)||envelope.command==='research.check'&&deepResearchEnabled(config,actor)||researchEnabled(config,actor)&&researchCommands.has(envelope.command),'coming_soon','COMING SOON — this integration is not active. Your saved calendar is unchanged.',503);
       requireValue(!envelope.data.program||envelope.command==='mission.create'||envelope.targetKind==='program'&&targetCommands.has(envelope.command)||deepResearchEnabled(config,actor)||loiCanonicalLookup(config,actor)&&['interview.create','interview.identity'].includes(envelope.command)&&loiProgramAllowed(config,actor,envelope.data.program),'coming_soon','Canonical program lookup is not available for this selection. Enter the program name from your invitation.',503);
     }
     if(['threebox.read','threebox.evidence'].includes(envelope.command)){requireValue(Object.keys(envelope.data).length===0,'unexpected_fields','This read accepts no additional fields.');return database.withActor(actor,async db=>{await db.query('SET TRANSACTION READ ONLY');const ctx={db,actor,...envelope,owners,config,clock};return envelope.command==='threebox.evidence'?threeboxEvidence(ctx):readThreebox(ctx);});}
@@ -86,6 +87,7 @@ export function createCommands({database,owners,config,clock,speechAvailable=fal
       else if(['story.consent','rank.consent'].includes(envelope.command))result=await writeConsent(context);
       else if(['share.submit','share.retract'].includes(envelope.command))result=await writeShare(context);
       else if(['practice.start','practice.feedback','practice.retry','practice.reflect','practice.overrule','practice.discard'].includes(envelope.command))result=await writeRehearsal(context);
+      else if(mrxCommands.has(envelope.command))result=await writeMRX(context);
       else if(researchCommands.has(envelope.command))result=await writeResearch(context);
       else if(['review.approve','review.reject','review.retract','policy.update','grant.revoke','grant.reinstate','mentor.priority','mentor.nudge'].includes(envelope.command))result=await writeAdmin(context);
       else if(additionalCommands[envelope.command])result=await additionalCommands[envelope.command](context);
@@ -100,6 +102,7 @@ export function createCommands({database,owners,config,clock,speechAvailable=fal
         [actor.id,envelope.command,result.type,result.id,JSON.stringify({requestId:envelope.requestId,revision:next,...(result.researchBinding?{researchBinding:result.researchBinding}:{})})]);
       return {bootstrap:await readModel(db,actor,settings),...result};
     },{write:true});
+    if(['mrx.publish','mrx.reconcile'].includes(envelope.command)&&mrxEnabled(config,actor)){requireValue(typeof revalidateActor==='function','mrx_revalidation_required','Current owner authority is required.',503);result.mrx=await reconcileMRX({database,actor,config,intentId:result.id||result.resultId,transport:mrxTransport,revalidateActor});result.bootstrap=await bootstrap(await revalidateActor());}
     const binding=result.researchBinding;delete result.researchBinding;
     if(binding&&deepResearchEnabled(config,actor)&&typeof revalidateActor==='function'){
       const work=()=>checkCommittedResearch({database,actor,interviewId:binding.interviewId,expectedRequestId:binding.requestId,owners,transport:researchTransport,revalidateActor,config});

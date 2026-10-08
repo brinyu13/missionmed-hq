@@ -1,3 +1,4 @@
+import {projectOwnerMedia} from './program-media-owner.mjs';
 import {createHash} from 'node:crypto';
 import {isIP} from 'node:net';
 import {AppError} from './errors.mjs';
@@ -27,6 +28,7 @@ export function createRiseOwner(config={},dependencies={}) {
     async listSavedPrograms(actor,query={}) {
       return projectSavedPrograms(await request(actor,{kind:'saved',query}),query,now());
     },
+    async getProgramMedia(actor,id){if(config.programMediaEnabled!==true)throw invalid();const result=await request(actor,{kind:'detail',id}),program=identity(result);if(program.id!==id)throw invalid();return projectOwnerMedia(result.programMedia,program,now());},
     async getIntakeProgram(actor,id) {
       const result=identity(await request(actor,{kind:'detail',id}),undefined,true);
       if(result.id!==id)throw invalid();return result;

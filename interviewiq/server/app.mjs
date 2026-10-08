@@ -1,5 +1,5 @@
 import {createOwnerReadReceipts} from './owner-read-receipts.mjs';
-import {createNativeLoiComposer} from './loi-openai.mjs';
+import {createNativeLoiComposer,createNativeLoiProseComposer} from './loi-openai.mjs';
 import {createResearchJobRuntime} from './research-job-runtime.mjs';
 import {createServer} from 'node:http';
 import {pathToFileURL} from 'node:url';
@@ -12,7 +12,7 @@ import {createHandler} from './http.mjs';
 import {createPrivateAudioStorage} from './storage.mjs';
 import {createPostgresRecordingStore,createRecordingTranscription,createRecordingsService} from './recordings.mjs';
 
-export async function startApp({config=readConfig(),database,owners,authorize,recordings=null,loiComposer=null,logger=entry=>process.stderr.write(JSON.stringify(entry)+'\n')}={}) {
+export async function startApp({config=readConfig(),database,owners,authorize,recordings=null,loiComposer=null,loiProseComposer=null,logger=entry=>process.stderr.write(JSON.stringify(entry)+'\n')}={}) {
   const ownerReadReceipts=createOwnerReadReceipts({enabled:config.ownerReadReceiptsEnabled===true});
   owners ||= createOwnerServices(config,{ownerReadReceipts});
   if(config.enabled) {
@@ -28,7 +28,8 @@ export async function startApp({config=readConfig(),database,owners,authorize,re
       transcription:createRecordingTranscription({apiKey:config.speech.apiKey}),bootstrap:actor=>commands.bootstrap(actor)});
   }
   loiComposer ??= createNativeLoiComposer(config);
-  commands=config.enabled?createCommands({database,owners,config,loiComposer,speechAvailable:recordings?.available===true}):null;
+  loiProseComposer ??= createNativeLoiProseComposer(config);
+  commands=config.enabled?createCommands({database,owners,config,loiComposer,loiProseComposer,ownerReadReceipts,speechAvailable:recordings?.available===true}):null;
   authorize ||= createAuthorizer(config);
   server=createServer(createHandler({config,database,authorize,commands,owners,recordings,researchProof,ownerReadReceipts,logger}));
   server.requestTimeout=50000;server.headersTimeout=10000;server.keepAliveTimeout=5000;server.maxHeadersCount=40;

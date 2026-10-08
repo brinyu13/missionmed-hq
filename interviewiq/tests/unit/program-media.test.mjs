@@ -159,7 +159,7 @@ test('programMediaProjection groups approved heroes by program and skips the res
 // ── promotion proposal ──────────────────────────────────────────────
 test('PROMOTION_PROPOSAL documents the protected owner action and is not wired', () => {
   assert.equal(PROMOTION_PROPOSAL.owner, 'RISE');
-  assert.ok(PROMOTION_PROPOSAL.status.startsWith('NOT_WIRED'));
+  assert.ok(PROMOTION_PROPOSAL.status.startsWith('SOURCE_CANDIDATE_DEFAULT_OFF'));
   assert.ok(PROMOTION_PROPOSAL.payload.includes('decision') && PROMOTION_PROPOSAL.payload.includes('sourceUrl'));
   assert.ok(Object.isFrozen(PROMOTION_PROPOSAL));
 });

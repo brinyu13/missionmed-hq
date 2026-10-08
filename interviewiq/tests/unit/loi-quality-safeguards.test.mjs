@@ -94,74 +94,10 @@ test('measureVariation fails for near-identical candidates', () => {
   assert.equal(measureVariation([{ text }, { text }]), false);
 });
 
-// ── validateProsePlans ──────────────────────────────────────────────────────
-
-const payload = () => ({
-  context: { whyNow: 'Following up.', applicationState: 'Applied.', interviewState: 'Not interviewed.' },
-  contextConfirmed: true,
-  motivations: [{ id: '11111111-1111-4111-8111-111111111111', text: 'Training outcomes matter.', confirmed: true }],
-  facts: [],
-  count: 1,
-  approach: 'DIRECT_CONCISE',
-});
-
-const fresh = value => ({
-  program: { id: 'prog-1', name: 'Test Program', track: 'Categorical', registryReleaseId: 'r-1' },
-  evidence: [{ field: 'research.abim', claimRef: 'ev-abim', value, sources: [{ url: 'https://example.org' }], asOf: '2026-09-10' }],
-  evidenceDigest: 'ed-1', resultDigest: 'rd-1', coverageDigest: 'cd-1', observedAt: '2026-10-06',
-});
-
-test('validateProsePlans accepts well-formed prose with verbatim spans and sufficient specificity', () => {
-  const input = compositionInput(payload(), fresh({ detail: 'Exact public statement from verified source.' }), null, 'DIRECT_CONCISE');
-  // Build a prose candidate that includes every ref verbatim plus authored connective tissue
-  const authored = input.refs.map(r => r.text).join('\n\nThis demonstrates my deep commitment to excellence and leadership in medicine. Furthermore, I believe my background uniquely positions me to contribute meaningfully to your program. ');
-  const output = { schema: 'iiq-loi-prose-plan-v1', candidates: [{ approach: 'DIRECT_CONCISE', text: authored }] };
-  const validated = validateProsePlans(output, input);
-  assert.equal(validated.length, 1);
-  assert.equal(validated[0].approach, 'DIRECT_CONCISE');
-  assert.equal(validated[0].studentReviewRequired, true);
-});
-
-test('validateProsePlans rejects prose missing a verbatim span', () => {
-  const input = compositionInput(payload(), fresh({ detail: 'Exact public statement from verified source.' }), null, 'DIRECT_CONCISE');
-  const output = { schema: 'iiq-loi-prose-plan-v1', candidates: [{ approach: 'DIRECT_CONCISE', text: 'Completely authored text with no factual spans at all.' }] };
-  assert.throws(() => validateProsePlans(output, input), { code: 'loi_composition_reference' });
-});
-
-test('validateProsePlans rejects prose below minimum specificity', () => {
-  const input = compositionInput(payload(), fresh({ detail: 'Exact public statement from verified source.' }), null, 'DIRECT_CONCISE');
-  // Text that is almost entirely the verbatim spans with minimal authoring
-  const bareConcat = input.refs.map(r => r.text).join(' ');
-  const output = { schema: 'iiq-loi-prose-plan-v1', candidates: [{ approach: 'DIRECT_CONCISE', text: bareConcat }] };
-  assert.throws(() => validateProsePlans(output, input), { code: 'loi_composition_specificity' });
-});
-
-test('validateProsePlans rejects wrong schema', () => {
-  const input = compositionInput(payload(), fresh({ detail: 'Statement.' }), null, 'DIRECT_CONCISE');
-  const authored = input.refs.map(r => r.text).join('\n\nSubstantial authored prose demonstrating genuine composition and thoughtful engagement. ');
-  const output = { schema: 'iiq-loi-composition-plan-v1', candidates: [{ approach: 'DIRECT_CONCISE', text: authored }] };
-  assert.throws(() => validateProsePlans(output, input), { code: 'loi_composition_output' });
-});
-
-test('validateProsePlans rejects near-identical three-candidate output', () => {
-  const p = payload();
-  delete p.approach;
-  p.count = 3;
-  p.approaches = ['WARM_PERSONAL', 'DIRECT_CONCISE', 'ACADEMIC_PROGRAM'];
-  const input = compositionInput(p, fresh({ detail: 'Exact statement.' }), null, 'DIRECT_CONCISE');
-  const sameText = input.refs.map(r => r.text).join('\n\nAuthored prose with strong commitment and leadership qualities. ');
-  const output = {
-    schema: 'iiq-loi-prose-plan-v1',
-    candidates: [
-      { approach: 'WARM_PERSONAL', text: sameText },
-      { approach: 'DIRECT_CONCISE', text: sameText },
-      { approach: 'ACADEMIC_PROGRAM', text: sameText },
-    ],
-  };
-  assert.throws(() => validateProsePlans(output, input), { code: 'loi_composition_variation' });
-});
-
-test('MINIMUM_SPECIFICITY_RATIO and MAXIMUM_OVERLAP_RATIO have expected values', () => {
-  assert.equal(MINIMUM_SPECIFICITY_RATIO, 0.15);
-  assert.equal(MAXIMUM_OVERLAP_RATIO, 0.85);
-});
+// Current prose acceptance is traced and specific; ratios remain diagnostics only.
+import {proseFixture,proseOutput} from '../helpers/loi-prose.mjs';
+test('validateProsePlans accepts traced concrete program fit',()=>{const input=proseFixture(),out=validateProsePlans(proseOutput(input),input);assert.equal(out.length,1);assert.equal(out[0].studentReviewRequired,true);assert.equal(out[0].claims.length,input.refs.length);});
+test('validateProsePlans rejects missing traces and legacy untraced prose',()=>{const input=proseFixture(),output=proseOutput(input);output.candidates[0].claims.pop();assert.throws(()=>validateProsePlans(output,input),{code:'loi_composition_reference'});assert.throws(()=>validateProsePlans({...output,schema:'iiq-loi-prose-plan-v1'},input),{code:'loi_composition_output'});});
+test('validateProsePlans rejects missing explicit fit link',()=>{const input=proseFixture(),output=proseOutput(input);output.candidates[0].fitLinks=[];assert.throws(()=>validateProsePlans(output,input),{code:'loi_composition_specificity'});});
+test('validateProsePlans rejects three copies instead of distinct structures',()=>{const input=proseFixture({approaches:['WARM_PERSONAL','DIRECT_CONCISE','ACADEMIC_PROGRAM']}),output=proseOutput(input);output.candidates[1]={...output.candidates[0],approach:'DIRECT_CONCISE'};assert.throws(()=>validateProsePlans(output,input));});
+test('existing specificity/overlap constants remain diagnostic utilities',()=>{assert.equal(MINIMUM_SPECIFICITY_RATIO,.15);assert.equal(MAXIMUM_OVERLAP_RATIO,.85);});

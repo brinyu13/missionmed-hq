@@ -1,0 +1,14 @@
+import {randomUUID} from 'node:crypto';
+import {MRX_PROOF_PATH,MRX_WP,mrxHeaders,mrxExact,mrxBinding,mrxCanonical,mrxSha,mrxNeed,mrxMac,mrxEqual,mrxResponse,mrxParse} from './mrx-contract.mjs';
+export function createMRXProof(config={}, {proofReader,fetchImpl=fetch,now=Date.now}={}){
+ return async request=>{if(config.enabled!==true||config.mrxEnabled!==true)return {status:503,body:{error:'mrx_authority_unavailable'}};const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),10000);try{
+  const p=mrxHeaders(request,{path:MRX_PROOF_PATH,secret:config.proofSecret,domain:'proof-request',header:'x-mmed-iiq-mrx-proof',max:16384,now:now()});mrxExact(p,['audience','nonce','iat','binding']);mrxNeed(p.audience==='rise-interviewiq-mrx-proof');mrxBinding(p.binding);
+  mrxNeed(await proofReader.consumeNonce({issuer:'rise-mrx-proof',nonce:p.nonce,requestHash:mrxSha(request.body),expiresAt:new Date(now()+90000).toISOString()}));
+  const first=await proofReader.getCommittedMRX(p.binding);mrxNeed(first?.valid===true&&Number.isSafeInteger(first.wpUserId)&&first.wpUserId>0);
+  const sent={audience:'interviewiq-rise-mrx-proof',nonce:randomUUID(),iat:Math.floor(now()/1000),subject:p.binding.adminId,wp_user_id:first.wpUserId,operation:p.binding.operation,intentId:p.binding.intentId,publicationId:p.binding.publicationId,request_sha256:mrxSha(mrxCanonical(p.binding))},body=mrxCanonical(sent);
+  const response=await mrxResponse(await fetchImpl(MRX_WP,{method:'POST',redirect:'error',credentials:'omit',signal:controller.signal,headers:{'Content-Type':'application/json',Accept:'application/json','X-MMED-IIQ-MRX-Eligibility':mrxMac(config.eligibilitySecret,'eligibility-request',body)},body}),16384);
+  mrxNeed(typeof response.payload==='string'&&mrxEqual(response.signature,mrxMac(config.eligibilitySecret,'eligibility-response',response.payload)));const wp=mrxParse(Buffer.from(response.payload),16384);mrxExact(wp,[...Object.keys(sent),'allowed','role','tier','exp']);mrxNeed(Object.keys(sent).every(k=>sent[k]===wp[k])&&wp.allowed===true&&Number.isSafeInteger(wp.exp)&&wp.exp>now()/1000&&wp.exp<=sent.iat+30&&(p.binding.operation==='retract'||wp.role==='admin'&&wp.tier==='admin'));
+  const last=await proofReader.getCommittedMRX(p.binding);mrxNeed(mrxCanonical(last)===mrxCanonical(first)&&last.valid===true&&now()/1000<p.iat+30&&!controller.signal.aborted);
+  const payload=mrxCanonical({...p,allowed:true,reason:p.binding.operation==='publish'?'current_admin_review_and_consent':'committed_lineage_removal',exp:Math.min(p.iat+30,wp.exp),wpUserId:first.wpUserId,role:wp.role,tier:wp.tier});return {status:200,body:{payload,signature:mrxMac(config.proofSecret,'proof-response',payload)}};
+ }catch{return {status:403,body:{error:'mrx_authority_denied'}};}finally{clearTimeout(timer);controller.abort();}};
+}

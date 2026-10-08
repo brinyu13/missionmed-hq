@@ -71,12 +71,12 @@ async function missionCreate(context){
 }
 async function submissionUpload(context){
  const {db,actor,data,command,config}=context;
- const repair=command==='submission.repair';v.onlyKeys(data,repair?['submissionId','text']:['missionId','text']);const text=v.text(data.text,'Original research package',128000,{empty:false});
+ const repair=command==='submission.repair';v.onlyKeys(data,repair?['submissionId','text','consentConfirmed']:['missionId','text','consentConfirmed']);const text=v.text(data.text,'Original research package',128000,{empty:false});
  let parent=null,missionId;
  if(repair){const {rows:[row]}=await db.query('SELECT * FROM iiq.research_submissions WHERE id=$1 AND owner_id=$2',[v.uuid(data.submissionId,'Submission'),actor.id]);if(!row)throw notFound();parent=row;missionId=row.mission_id;}else missionId=v.uuid(data.missionId,'Mission');
  const {rows:[mission]}=await db.query('SELECT * FROM iiq.research_missions WHERE id=$1 AND owner_id=$2 FOR UPDATE',[missionId,actor.id]);if(!mission)throw notFound();
  const provisional=provisionalMission(mission);
- if(provisional)requireResearch(config,actor);else {requireValue(!config?.coreOnly,'coming_soon','Legacy contribution workflows are not active in CORE.',503);student(actor);}
+ if(provisional){requireResearch(config,actor);if(config?.mrxPublication?.enabled===true)requireValue(data.consentConfirmed===true,'consent_required','Explicit permitted use is required for this immutable research version.',403);}else {requireValue(!config?.coreOnly,'coming_soon','Legacy contribution workflows are not active in CORE.',503);student(actor);}
  requireValue(mission.status!=='closed'&&(!mission.expires_at||new Date(mission.expires_at).getTime()>nowOf(context)),'mission_closed','This mission is closed or expired. Obtain the current mission before uploading.',409);
  if(provisional)requireValue(text.isWellFormed()&&!text.includes('\0')&&Buffer.byteLength(text,'utf8')<=128000,'original_not_storable','The original must be valid Unicode without NUL and at most 128,000 UTF-8 bytes. Nothing was saved.');
  const digest=sha(text);const {rows:[existing]}=await db.query('SELECT id FROM iiq.research_submissions WHERE owner_id=$1 AND mission_id=$2 AND sha256=$3',[actor.id,mission.id,digest]);
@@ -111,7 +111,7 @@ async function submissionWithdraw({db,actor,config,data}){
  const {rows:[submission]}=await db.query('SELECT s.id FROM iiq.research_submissions s JOIN iiq.research_missions m ON m.id=s.mission_id AND m.owner_id=s.owner_id WHERE s.id=$1 AND s.owner_id=$2 AND m.standard_version=$3',[id,actor.id,MRX_VERSION]);
  if(!submission)throw notFound();
  const {rows:[review]}=await db.query("SELECT * FROM iiq.review_items WHERE submission_id=$1 AND owner_id=$2 AND source_kind='research' FOR UPDATE",[id,actor.id]);
- requireValue(review?.publication_status!=='published','coming_soon','Published research retraction requires the canonical owner workflow.',503);
+ requireValue(config?.mrxPublication?.enabled===true||review?.publication_status!=='published','coming_soon','Published research retraction requires the canonical owner workflow.',503);
  if(!review||['withdrawn','retracted'].includes(review.status))return {type:'research_submission',id,withdrawn:true,unchanged:true};
  // The existing synchronous consent trigger closes the locked review. Preserve
  // all originals and decisions; no legacy publication or remote outbox action.

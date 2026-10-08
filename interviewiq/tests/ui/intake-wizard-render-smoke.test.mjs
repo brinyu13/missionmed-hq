@@ -17,7 +17,7 @@ function harness(overrides = {}) {
     console, Intl, Date, Math, Number, String, Object, Array, Set, Map, JSON, RegExp, Error, crypto: { randomUUID: () => '00000000-0000-4000-8000-000000000000' },
     esc: s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]),
     intakeEnabled: () => true, calendarV2: () => true, loiTargetsEnabled: () => true, deepResearch: () => true, coreOnly: () => false,
-    todayKey: () => '2026-10-07', fmtInZone: (iso) => 'Tue, Oct 14 · 8:00 AM', now: () => Date.parse('2026-10-07T12:00:00Z'),
+    todayKey: () => '2026-10-07', fmtInZone: (iso) => 'Tue, Oct 14 · 8:00 AM', now: () => '2026-10-07T12:00:00.000Z',
     ZONES: ['America/New_York', 'America/Chicago', 'UTC'],
     F: { student_zone: 'America/New_York', programs: [] },
     actor: { id: 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d', role: 'student', tier: '360', eligible: true },
@@ -73,16 +73,16 @@ test('step 1 renders program cards, specialty filter, chosen program and confirm
 
 test('step 1 uses an approved institution exterior as hero only for the matching program', () => {
   const ctx = harness({ S: { interviews: [], loiTargets: { targets: [] }, demands: {}, why: {}, debriefs: {}, learning: {}, practice: {},
-    programMedia: { [program.id]: [{ programId: program.id, url: 'https://cdn.example-hospital.org/entrance.jpg', alt: 'Entrance', caption: 'Main entrance', publisher: 'Example Hospital', category: 'INSTITUTION_EXTERIOR', approvalState: 'APPROVED' }],
+    programMedia: { [program.id]: [{ programId: program.id, url: 'https://upload.wikimedia.org/wikipedia/commons/3/39/UIC_Medical_Center.JPG', alt: 'Entrance', caption: 'Main entrance', publisher: 'Example Hospital', licenseState:'CREATIVE_COMMONS',assetSha256:'c'.repeat(64),assetBytes:100,validThrough:'2026-10-08T12:00:00.000Z',sourceUrl:'https://commons.wikimedia.org/wiki/File:UIC_Medical_Center.JPG',licenseUrl:'https://creativecommons.org/licenses/by/3.0/',attribution:'SYNTHETIC',changes:'None', category: 'INSTITUTION_EXTERIOR', approvalState: 'APPROVED' }],
       rise_other: [{ programId: 'rise_other', url: 'https://cdn.other.org/x.jpg', category: 'INSTITUTION_EXTERIOR', approvalState: 'APPROVED' }] } } });
   const f = flowAt(ctx, 1); f.program = program; f.identity.programId = program.id;
   const html = render(ctx);
-  assert.ok(html.includes('<img src="https://cdn.example-hospital.org/entrance.jpg"'), 'approved hero used');
+  assert.ok(html.includes('data-media-url="https://upload.wikimedia.org/wikipedia/commons/3/39/UIC_Medical_Center.JPG"'), 'approved hero used');
   assert.ok(html.includes('loading="lazy"'), 'lazy loaded');
   assert.ok(!html.includes('cdn.other.org'), 'unrelated hospital never shown');
   // Pending or non-exterior media must not be shown.
   ctx.S.programMedia[program.id] = [{ ...ctx.S.programMedia[program.id][0], approvalState: 'CANDIDATE' }];
-  assert.ok(!render(ctx).includes('<img src="https://cdn.example-hospital.org'), 'candidate media hidden');
+  assert.ok(!render(ctx).includes('<img data-program-media'), 'candidate media hidden');
 });
 
 test('step 2 renders the calendar picker with today, choice cards for position/format, and the Advanced PGY-1 panel', () => {

@@ -105,7 +105,14 @@ export async function verifyMigrationPolicy(approval,pending,{bodyOf,now=Date.no
    // DR-390 independently reviewed exact additive intake/Calendar bytes; no generic DDL allowance.
    migration.name==="20261005221501_iiq_1204_calendar_projection_itinerary.sql"&&
    migration.sha256==="3af3b280f00c652572aba98ec631656389a40b96b5f948b12b372d4f242a43ca"&&
-   sha(migration.sql)===migration.sha256&&sha(body)==="0aa5048dba10676bdf64e17903670e2e487b8af14ef019570c3009329d981bb3";
+   sha(migration.sql)===migration.sha256&&sha(body)==="0aa5048dba10676bdf64e17903670e2e487b8af14ef019570c3009329d981bb3" ||
+   // DR-373/DR-390: exact independently reviewed Wave1 expansions only.
+   migration.name==='20261008002000_iiq_1204_loi_shared_budget.sql'&&
+   migration.sha256==='ae211ec7e9690311ca4a95f84a1280502c51ad71652248d48aca8baac5516856'&&
+   sha(migration.sql)===migration.sha256&&sha(body)==='e9e63c6a6f8b23a47668e8932fb4f3b5e90d0089bc704613e7674953ebcc547c' ||
+   migration.name==='20261008013000_iiq_1204_mrx_publication.sql'&&
+   migration.sha256==='1f8e78ea9f7b63eeab768263a6e9e25927d22a871ff9073df7754b45b5097aa2'&&
+   sha(migration.sql)===migration.sha256&&sha(body)==='14511fd945da9052f4740d8d3c4ecea931e69261967e6dd70d60ca536d6c0240';
   if(!classified.additiveOnly&&!reviewedExpansion)requiring.push({name:migration.name,sha256:migration.sha256});
  }
  if(!requiring.length)return {additiveOnly:true,requiresFounder:[]};
