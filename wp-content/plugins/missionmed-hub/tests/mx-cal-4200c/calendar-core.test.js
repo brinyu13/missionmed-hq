@@ -30,8 +30,10 @@ test('StoryForge Month view exposes overflow instead of clipping live events', (
 test('V2 restores centered, viewport-bounded event detail and Add/Edit modals', () => {
 	assert.match(v2Source, /class="mcv2-event-detail mcv2-modal mcv2-command-card" open aria-modal="true"/);
 	assert.match(v2Source, /class="mcv2-event-form mcv2-modal" open aria-modal="true"/);
-	assert.match(v2Styles, /\.mcv2-modal \{[^}]*top: 50%;[^}]*left: 50%;[^}]*transform: translate\(-50%,-50%\);[^}]*max-height: calc\(100dvh - 32px\);[^}]*overflow: hidden;/s);
+	assert.match(v2Styles, /\.mcv2-modal \{[^}]*top: var\(--mcv2-modal-center-y,50dvh\);[^}]*left: 50%;[^}]*transform: translate\(-50%,-50%\);[^}]*max-height: var\(--mcv2-modal-max-height,calc\(100dvh - 32px\)\);[^}]*overflow: hidden;/s);
 	assert.match(v2Styles, /\.mcv2-form-scroll \{[^}]*overflow-y: auto;/s);
+	assert.match(v2Source, /function syncModalViewport\(root\)/);
+	assert.match(v2Source, /global\.visualViewport\.addEventListener\('resize', modalViewportHandler\)/);
 	assert.match(v2Source, /event\.key === 'Escape'.*close\(\)/s);
 	assert.match(v2Source, /trapModalFocus\(event, eventModal/);
 });

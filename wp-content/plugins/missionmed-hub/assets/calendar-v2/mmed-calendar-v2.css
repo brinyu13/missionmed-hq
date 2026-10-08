@@ -1275,7 +1275,7 @@
 
 .mmed-calendar-v2 .mcv2-modal {
 	position: fixed;
-	top: 50%;
+	top: var(--mcv2-modal-center-y,50dvh);
 	left: 50%;
 	transform: translate(-50%,-50%);
 	z-index: 10022;
@@ -1283,7 +1283,7 @@
 	flex-direction: column;
 	margin: 0;
 	padding: 0;
-	max-height: calc(100dvh - 32px);
+	max-height: var(--mcv2-modal-max-height,calc(100dvh - 32px));
 	overflow: hidden;
 	border: 1px solid #344968;
 	border-radius: 16px;
@@ -1364,7 +1364,7 @@
 .mmed-calendar-v2 .mcv2-experience-status small { color: #aebdd2; line-height: 1.45; }
 
 @media (max-width: 560px) {
-	.mmed-calendar-v2 .mcv2-modal { width: calc(100vw - 14px); max-height: calc(100dvh - 16px); overflow: hidden; }
+	.mmed-calendar-v2 .mcv2-modal { width: calc(100vw - 14px); max-height: var(--mcv2-modal-max-height,calc(100dvh - 16px)); overflow: hidden; }
 	.mmed-calendar-v2 .mcv2-modal-head { padding: 14px 15px 11px; }
 	.mmed-calendar-v2 .mcv2-modal-head h2 { font-size: 20px; }
 	.mmed-calendar-v2 .mcv2-modal-body,

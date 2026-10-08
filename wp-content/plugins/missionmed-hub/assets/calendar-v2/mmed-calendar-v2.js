@@ -23,6 +23,7 @@
 	var mobileRailOpen = false;
 	var eventPrefillCategory = '';
 	var eventPrefillDate = '';
+	var modalViewportHandler = null;
 
 	var V1_CATEGORIES = [
 		{ id: 'exam_prep', name: 'ExamPrep', color: '#24b7ed', sortOrder: 10, parentId: '', adminOnly: false },
@@ -249,6 +250,26 @@
 		return '<svg class="mcv2-command-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + paths[name] + '</svg>';
 	}
 
+	function syncModalViewport(root) {
+		if (!root) return;
+		var viewport = global.visualViewport;
+		var viewportTop = viewport ? viewport.offsetTop : 0;
+		var viewportHeight = viewport ? viewport.height : global.innerHeight;
+		var viewportBottom = viewportTop + viewportHeight;
+		var main = root.querySelector('.mcv2-main');
+		var mainRect = main ? main.getBoundingClientRect() : null;
+		var desktopWorkspace = global.innerWidth > 900 && mainRect && mainRect.top < viewportBottom;
+		var padding = global.innerWidth <= 560 ? 8 : 12;
+		var usableTop = desktopWorkspace ? Math.max(viewportTop, mainRect.top) + padding : viewportTop + padding;
+		var usableBottom = mainRect && mainRect.bottom > usableTop ? Math.min(viewportBottom, mainRect.bottom) - padding : viewportBottom - padding;
+		if (usableBottom - usableTop < 280) {
+			usableTop = viewportTop + padding;
+			usableBottom = viewportBottom - padding;
+		}
+		root.style.setProperty('--mcv2-modal-center-y', Math.round((usableTop + usableBottom) / 2) + 'px');
+		root.style.setProperty('--mcv2-modal-max-height', Math.max(240, Math.round(usableBottom - usableTop)) + 'px');
+	}
+
 	function renderDrawer(state) {
 		var event = state.events.filter(function (item) { return String(item.id) === String(selectedEventId); })[0];
 		if (!event) return '';
@@ -430,6 +451,7 @@
 			'</main></div>' +
 			renderDrawer(state) + renderEventForm(state) + renderTodoDetail(state) + renderSyncDialog(state) + renderSettings(state) +
 			'<div class="mcv2-live" aria-live="polite">' + esc(announcement) + '</div>';
+		syncModalViewport(root);
 		bind(root, state);
 		if (drawerNeedsFocus) {
 			drawerNeedsFocus = false;
@@ -753,12 +775,27 @@
 		unmount();
 		activate();
 		content.innerHTML = '<section class="sos-page mmed-calendar-v2" data-calendar-experience="storyforge"></section>';
+		var root = content.querySelector('.mmed-calendar-v2');
+		modalViewportHandler = function () { syncModalViewport(root); };
+		global.addEventListener('resize', modalViewportHandler);
+		if (global.visualViewport) {
+			global.visualViewport.addEventListener('resize', modalViewportHandler);
+			global.visualViewport.addEventListener('scroll', modalViewportHandler);
+		}
 		instance = global.MMEDCalendarCore.create(app);
 		unsubscribe = instance.subscribe(render);
 		instance.start().catch(function () {});
 	}
 
 	function unmount() {
+		if (modalViewportHandler) {
+			global.removeEventListener('resize', modalViewportHandler);
+			if (global.visualViewport) {
+				global.visualViewport.removeEventListener('resize', modalViewportHandler);
+				global.visualViewport.removeEventListener('scroll', modalViewportHandler);
+			}
+			modalViewportHandler = null;
+		}
 		if (unsubscribe) unsubscribe();
 		unsubscribe = null;
 		if (instance && typeof instance.destroy === 'function') instance.destroy();
