@@ -6956,3 +6956,46 @@ body.admin-bar.matrix-app-mode-file-vault #mmed-matrix-app-return {
  .fv2-cinematic .fv2-home-aside{padding-top:42px;}
  .fv2-cinematic .fv2-home-activity li{padding:10px 0;}
 }
+
+/* Founder-approved surgical refinements: category titles and homepage laptop only. */
+.fv2-cinematic .fv2-category-copy strong {
+ font-family:Impact,"Arial Narrow","Roboto Condensed",sans-serif;
+ font-size:clamp(17.4px,1.25vw,18px);font-weight:900;line-height:1.05;
+ color:#fff;text-transform:uppercase;letter-spacing:.1px;overflow-wrap:anywhere;
+ text-shadow:0 1px 3px #000,0 2px 7px #000b;
+ transform-origin:left bottom;transition:transform .2s ease,text-shadow .2s ease;
+}
+.fv2-cinematic .fv2-category-card:is(:hover,:focus-visible) .fv2-category-copy strong {
+ transform:scale(1.03);text-shadow:0 1px 3px #000,0 0 8px #ffb347a6,0 0 14px #ffad4538;
+}
+/* The overlay shares every crop and size with the original, unchanged photograph. */
+.fv2-cinematic:has(.fv2-stage[data-fv2-current-view="vault"]) .fv2-atmosphere {
+ background-image:linear-gradient(0deg,#030b13 0%,rgba(3,11,19,.25) 46%,rgba(3,11,19,.15) 100%),url('file-vault-cinematic/laptop-screen-brand.svg'),url('file-vault-cinematic/hero.webp');
+ background-size:100% 100%,100% auto,100% auto;
+}
+@media(min-width:761px) and (max-width:1180px){
+ .fv2-cinematic:has(.fv2-stage[data-fv2-current-view="vault"]) .fv2-atmosphere{background-size:100% 100%,auto 520px,auto 520px;}
+}
+@media(max-width:760px){
+ .fv2-cinematic:has(.fv2-stage[data-fv2-current-view="vault"]) .fv2-atmosphere{background-size:100% 100%,auto 580px,auto 580px;}
+}
+@media(min-width:1181px){
+ .fv2-cinematic:has(.fv2-stage[data-fv2-current-view="vault"]) .fv2-atmosphere{background:#030b13;}
+ .fv2-cinematic:has(.fv2-stage[data-fv2-current-view="vault"]) .fv2-atmosphere::before{
+  background-image:url('file-vault-cinematic/laptop-screen-brand.svg'),linear-gradient(#030b1326,#030b1326),url('file-vault-cinematic/hero.webp');
+  background-size:cover;background-position:center;
+ }
+}
+
+@media(min-width:761px) and (max-width:900px){
+ .fv2-cinematic .fv2-category-copy strong{width:calc((100% + 10px) / .70);transform:scaleX(.70);overflow-wrap:normal;}
+ .fv2-cinematic .fv2-category-card:is(:hover,:focus-visible) .fv2-category-copy strong{transform:scale(.721,1.03);}
+}
+
+@media(min-width:1181px) and (max-width:1360px){
+ .fv2-cinematic .fv2-category-copy strong{width:calc(100% + 10px);overflow-wrap:normal;}
+}
+@media(max-width:380px){
+ .fv2-cinematic .fv2-category-copy strong{width:calc((100% + 5px) / .8);transform:scaleX(.8);overflow-wrap:normal;}
+ .fv2-cinematic .fv2-category-card:is(:hover,:focus-visible) .fv2-category-copy strong{transform:scale(.824,1.03);}
+}

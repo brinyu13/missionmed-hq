@@ -98,6 +98,24 @@
       "sha256": "9f960ed9c312f3671cb1720c30d96321bc3cebfe5547dc81ba215e7510864b37",
       "bytes": 31611,
       "provenance": "Founder-supplied authentic MissionMed logo, used under direct Founder branding authorization. Original pixels retained; filename lacks the attachment duplicate suffix (7)."
+    },
+    {
+      "name": "Mission Residency logo",
+      "source": "/Users/brianb/Downloads/mission-residency-logo-email-dark.png",
+      "source_sha256": "7134e0bf375a0917a064bca5382f8c44bc3d33c9e80441f8c1dd11b0d9147f21",
+      "file": "mission-residency-logo.png",
+      "bytes": 10659,
+      "sha256": "7134e0bf375a0917a064bca5382f8c44bc3d33c9e80441f8c1dd11b0d9147f21",
+      "provenance": "Founder-supplied authentic Mission Residency logo. Byte-identical copy; no redrawing or regeneration."
+    },
+    {
+      "name": "Homepage laptop branding overlay",
+      "source": "/Users/brianb/Downloads/mission-residency-logo-email-dark.png",
+      "source_sha256": "7134e0bf375a0917a064bca5382f8c44bc3d33c9e80441f8c1dd11b0d9147f21",
+      "file": "laptop-screen-brand.svg",
+      "bytes": 15189,
+      "sha256": "f64258e413a3bbfe8ab08e10904b9840200fc655eb24ecc110dc71cdd0cc7969",
+      "provenance": "Deterministic SVG presentation layer embedding the unchanged Founder PNG; screen-clipped illumination and reflection. Original hero.webp unchanged. ViewBox 1600x667; original PNG transform matrix(1.13 .035 -.15 .92 894 207)."
     }
   ],
   "rights": "Generated assets subject to applicable OpenAI terms; no exclusive copyright claim. MissionMed branding remains Founder-owned. No external image hotlinks."
