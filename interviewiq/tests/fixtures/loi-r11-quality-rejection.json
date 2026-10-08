@@ -1,0 +1,391 @@
+{
+  "provenance": {
+    "source": "R11 generation response",
+    "generationId": "4ec3eeb1-aba8-4b11-a910-e7459ac19cc2",
+    "classification": "SYNTHETIC ONLY",
+    "rawResponseSha256": "849e5c3736555493fe9914eabfe647aa2a2057c5259437e5c0c4969dbe58d9ee",
+    "humanQualityAccepted": false
+  },
+  "program": {
+    "id": "rise_ps_d0382fec-f389-5cf8-8b25-ac0e256f710e",
+    "name": "Ascension Illinois/Saint Joseph (Chicago) Program",
+    "track": "",
+    "registryReleaseId": "rise_registry_acgme_2026-09-20_50d08ea6f2da"
+  },
+  "refs": [
+    {
+      "ref": "program",
+      "kind": "identity",
+      "text": "Ascension Illinois/Saint Joseph (Chicago) Program"
+    },
+    {
+      "ref": "context:whyNow",
+      "kind": "context",
+      "text": "For this synthetic QA letter, I am testing a concise expression of program interest."
+    },
+    {
+      "ref": "context:applicationState",
+      "kind": "context",
+      "text": "This is synthetic QA; no real application event is asserted."
+    },
+    {
+      "ref": "context:interviewState",
+      "kind": "context",
+      "text": "This is synthetic QA; no real interview event is asserted."
+    },
+    {
+      "ref": "reason:0",
+      "kind": "reason",
+      "text": "For this synthetic QA letter, I value being able to identify program leadership before an interview."
+    },
+    {
+      "ref": "evidence:0",
+      "asOf": {
+        "kind": "reviewed_snapshot",
+        "label": "2026-09-10"
+      },
+      "kind": "evidence",
+      "text": "Bruce Blacker, MD\nSection Chief, General Medicine\nBruce Lewis, MD\nSection Chief, Cardiology\nFaisal Qureshi, MD\nSection Chief, Endocrinology\nGopika Chandra, MD, PhD, MPH, FACP, FASAM\nAssociate Program Director\nJessica Garcia, MD\nSection Chief, Hematology/Oncology\nJonathan E. Vogel, MD\nSection Chief, Neurology\nKris McGrath, MD\nSection Chief, Allergy & Immunology\nLawrence Gluskin, MD\nSection Chief, Gastroenterology\nM. Todd Grendon, MD\nActing Chairman; Chief, Geriatrics\nMatthew J. Tyler, MD\nSection Chief, Hospice and Palliative Care\nMitchell R. Weinstein, MD\nChief, Infectious Diseases\nMohamed Salem, MD\nSection Chief, Nephrology\nMonica Sharma, DO\nAssociate Program Director; Director of Internal Medicine Student Programs\nRediet Kokebie, MD\nSection Chief, Rheumatology\nShyam Chalise, MD\nProgram Director, Internal Medicine Residency\nWilliam Sanders, MD\nChief, Pulmonary/Critical Care",
+      "field": "research.leadership",
+      "sources": [
+        {
+          "urls": [
+            "https://dph.illinois.gov/topics-services/emergency-preparedness-response/ems/trauma-program/trauma-centers-by-region.html",
+            "https://freida.ama-assn.org/program/1401611122",
+            "https://healthcare.ascension.org/-/media/healthcare/compliance-documents/illinois/2021-is-ascension-saint-joseph-chicago.pdf",
+            "https://healthcare.ascension.org/locations/illinois/ilchi/chicago-ascension-saint-joseph-chicago",
+            "https://healthcarereportcard.illinois.gov/hospital/101266",
+            "https://linkedin.com/in/mohamed-ebrahim-b71655293",
+            "https://linkedin.com/in/sulav-khanal-590975145",
+            "https://linkedin.com/in/tatevik-aloyan-md-8b226819"
+          ],
+          "claimRef": "rise-claim:d9dc3d802ae83b5fd392e7a7d31e26b0a663d4213ee6bdbd10115a6ded5f5419",
+          "reviewRef": "rise-review:576678883be0f1105344c066208e93282a3b1380e1763bd5d3cf1df06d57fc15",
+          "reviewedAt": "2026-09-10T23:13:30.000Z",
+          "retrievedAt": "2026-09-06T19:44:02.236Z"
+        },
+        {
+          "urls": [
+            "https://medicaleducation.ascension.org/illinois-internal-medicine-saint-joseph-chicago",
+            "https://medicaleducation.ascension.org/illinois-internal-medicine-saint-joseph-chicago/curriculum",
+            "https://medicaleducation.ascension.org/illinois-internal-medicine-saint-joseph-chicago/faculty",
+            "https://medicaleducation.ascension.org/illinois-internal-medicine-saint-joseph-chicago/how-to-apply",
+            "https://medicaleducation.ascension.org/illinois-internal-medicine-saint-joseph-chicago/salary-and-benefits",
+            "https://oral_medicine.cureus.com/users/736180-shreyashi-khanal",
+            "https://programdirectory.nrmp.org/ascension-st-joseph-il-1405140c0/",
+            "https://residencyadvisor.com/program/ascension-illinoissaint-joseph-chicago-program-internal-medicine-chicago-il-1401611122"
+          ],
+          "claimRef": "rise-claim:d9dc3d802ae83b5fd392e7a7d31e26b0a663d4213ee6bdbd10115a6ded5f5419",
+          "reviewRef": "rise-review:576678883be0f1105344c066208e93282a3b1380e1763bd5d3cf1df06d57fc15",
+          "reviewedAt": "2026-09-10T23:13:30.000Z",
+          "retrievedAt": "2026-09-06T19:44:02.236Z"
+        },
+        {
+          "urls": [
+            "https://www.abim.org/media/ep2awh1x/residency-program-pass-rates.pdf",
+            "https://www.cureus.com/users/699608-bekure-b-siraw",
+            "https://www.instagram.com/saintjosephchicago_im/?hl=en",
+            "https://www.linkedin.com/in/ajanta-kumari-804256290",
+            "https://www.linkedin.com/in/betsy-medina-inojosa-9aa723114",
+            "https://www.linkedin.com/in/gopika-chandra-220a32164",
+            "https://www.residencymatch.ai/programs/internal-medicine/ascension-illinois-saint-joseph-chicago-program",
+            "https://x.com/SaintJoseph_IM?lang=en"
+          ],
+          "claimRef": "rise-claim:d9dc3d802ae83b5fd392e7a7d31e26b0a663d4213ee6bdbd10115a6ded5f5419",
+          "reviewRef": "rise-review:576678883be0f1105344c066208e93282a3b1380e1763bd5d3cf1df06d57fc15",
+          "reviewedAt": "2026-09-10T23:13:30.000Z",
+          "retrievedAt": "2026-09-06T19:44:02.236Z"
+        },
+        {
+          "urls": [
+            "https://dph.illinois.gov/topics-services/emergency-preparedness-response/ems/trauma-program/trauma-centers-by-region.html",
+            "https://freida.ama-assn.org/program/1401611122",
+            "https://healthcare.ascension.org/-/media/healthcare/compliance-documents/illinois/2021-is-ascension-saint-joseph-chicago.pdf",
+            "https://healthcare.ascension.org/locations/illinois/ilchi/chicago-ascension-saint-joseph-chicago",
+            "https://healthcarereportcard.illinois.gov/hospital/101266",
+            "https://linkedin.com/in/mohamed-ebrahim-b71655293",
+            "https://linkedin.com/in/sulav-khanal-590975145",
+            "https://linkedin.com/in/tatevik-aloyan-md-8b226819"
+          ],
+          "claimRef": "rise-claim:be002b7b02446f872733799f004031a23664362c460b4ef63cd1f08812978397",
+          "reviewRef": "rise-review:84a8eedcb34fd71e44e7b165dfcb8db4199f62b240229bd33e2f249568dc2fd7",
+          "reviewedAt": "2026-09-10T23:13:30.000Z",
+          "retrievedAt": "2026-08-28T10:50:48.187Z"
+        },
+        {
+          "urls": [
+            "https://medicaleducation.ascension.org/illinois-internal-medicine-saint-joseph-chicago",
+            "https://medicaleducation.ascension.org/illinois-internal-medicine-saint-joseph-chicago/curriculum",
+            "https://medicaleducation.ascension.org/illinois-internal-medicine-saint-joseph-chicago/faculty",
+            "https://medicaleducation.ascension.org/illinois-internal-medicine-saint-joseph-chicago/how-to-apply",
+            "https://medicaleducation.ascension.org/illinois-internal-medicine-saint-joseph-chicago/salary-and-benefits",
+            "https://oral_medicine.cureus.com/users/736180-shreyashi-khanal",
+            "https://www.abim.org/media/ep2awh1x/residency-program-pass-rates.pdf",
+            "https://www.instagram.com/saintjosephchicago_im/?hl=en"
+          ],
+          "claimRef": "rise-claim:be002b7b02446f872733799f004031a23664362c460b4ef63cd1f08812978397",
+          "reviewRef": "rise-review:84a8eedcb34fd71e44e7b165dfcb8db4199f62b240229bd33e2f249568dc2fd7",
+          "reviewedAt": "2026-09-10T23:13:30.000Z",
+          "retrievedAt": "2026-08-28T10:50:48.187Z"
+        },
+        {
+          "urls": [
+            "https://www.linkedin.com/in/ajanta-kumari-804256290",
+            "https://www.linkedin.com/in/betsy-medina-inojosa-9aa723114",
+            "https://www.linkedin.com/in/gopika-chandra-220a32164",
+            "https://x.com/SaintJoseph_IM?lang=en"
+          ],
+          "claimRef": "rise-claim:be002b7b02446f872733799f004031a23664362c460b4ef63cd1f08812978397",
+          "reviewRef": "rise-review:84a8eedcb34fd71e44e7b165dfcb8db4199f62b240229bd33e2f249568dc2fd7",
+          "reviewedAt": "2026-09-10T23:13:30.000Z",
+          "retrievedAt": "2026-08-28T10:50:48.187Z"
+        }
+      ],
+      "claimRef": "rise-claim:b30ab92700c01f9d54ebb8e5a4724601a5eea1c004fec12b1a8c30ead7cbe7bb"
+    }
+  ],
+  "proposal": {
+    "text": "I am writing to express my current purpose in engaging with the Ascension Illinois/Saint Joseph (Chicago) Program and to acknowledge my status as of now in this synthetic QA context. I aim to understand how leadership and program structure align with my ongoing considerations about internal medicine training, and I intend to learn more about the program leadership before any interview would occur.\n\nThe program identity is Ascension Illinois/Saint Joseph (Chicago) Program, and I reference that identity here to ground my inquiry within the named residency path.\n\nI note that this letter is set within a synthetic QA framework and that no real application event is asserted at this time.\n\nSimilarly, there is no real interview event described in this synthetic scenario, per the context provided.\n\nFor this synthetic QA letter, I value being able to identify program leadership before an interview.\n\nLead by the confirmed leadership that has been documented in the leadership roster for the program, which is cited here as part of the evidence base for program quality and structure.",
+    "claims": [
+      {
+        "end": 182,
+        "refs": [
+          "program",
+          "context:whyNow",
+          "context:applicationState",
+          "context:interviewState",
+          "reason:0",
+          "evidence:0"
+        ],
+        "start": 0
+      },
+      {
+        "end": 400,
+        "refs": [
+          "program",
+          "context:whyNow",
+          "context:applicationState",
+          "context:interviewState",
+          "reason:0",
+          "evidence:0"
+        ],
+        "start": 182
+      },
+      {
+        "end": 565,
+        "refs": [
+          "program"
+        ],
+        "start": 402
+      },
+      {
+        "end": 690,
+        "refs": [
+          "context:applicationState"
+        ],
+        "start": 567
+      },
+      {
+        "end": 799,
+        "refs": [
+          "context:interviewState"
+        ],
+        "start": 692
+      },
+      {
+        "end": 901,
+        "refs": [
+          "reason:0",
+          "evidence:0"
+        ],
+        "start": 801
+      },
+      {
+        "end": 1086,
+        "refs": [
+          "evidence:0"
+        ],
+        "start": 903
+      }
+    ],
+    "review": {
+      "state": "STUDENT_VERIFICATION_REQUIRED",
+      "units": [
+        {
+          "end": 182,
+          "flag": "UNRESOLVED_SEMANTIC_SUPPORT",
+          "refs": [
+            "program",
+            "context:whyNow",
+            "context:applicationState",
+            "context:interviewState",
+            "reason:0",
+            "evidence:0"
+          ],
+          "quote": "I am writing to express my current purpose in engaging with the Ascension Illinois/Saint Joseph (Chicago) Program and to acknowledge my status as of now in this synthetic QA context.",
+          "start": 0,
+          "sourceTexts": [
+            {
+              "ref": "program",
+              "text": "Ascension Illinois/Saint Joseph (Chicago) Program"
+            },
+            {
+              "ref": "context:whyNow",
+              "text": "For this synthetic QA letter, I am testing a concise expression of program interest."
+            },
+            {
+              "ref": "context:applicationState",
+              "text": "This is synthetic QA; no real application event is asserted."
+            },
+            {
+              "ref": "context:interviewState",
+              "text": "This is synthetic QA; no real interview event is asserted."
+            },
+            {
+              "ref": "reason:0",
+              "text": "For this synthetic QA letter, I value being able to identify program leadership before an interview."
+            },
+            {
+              "ref": "evidence:0",
+              "text": "Bruce Blacker, MD\nSection Chief, General Medicine\nBruce Lewis, MD\nSection Chief, Cardiology\nFaisal Qureshi, MD\nSection Chief, Endocrinology\nGopika Chandra, MD, PhD, MPH, FACP, FASAM\nAssociate Program Director\nJessica Garcia, MD\nSection Chief, Hematology/Oncology\nJonathan E. Vogel, MD\nSection Chief, Neurology\nKris McGrath, MD\nSection Chief, Allergy & Immunology\nLawrence Gluskin, MD\nSection Chief, Gastroenterology\nM. Todd Grendon, MD\nActing Chairman; Chief, Geriatrics\nMatthew J. Tyler, MD\nSection Chief, Hospice and Palliative Care\nMitchell R. Weinstein, MD\nChief, Infectious Diseases\nMohamed Salem, MD\nSection Chief, Nephrology\nMonica Sharma, DO\nAssociate Program Director; Director of Internal Medicine Student Programs\nRediet Kokebie, MD\nSection Chief, Rheumatology\nShyam Chalise, MD\nProgram Director, Internal Medicine Residency\nWilliam Sanders, MD\nChief, Pulmonary/Critical Care"
+            }
+          ]
+        },
+        {
+          "end": 400,
+          "flag": "UNRESOLVED_SEMANTIC_SUPPORT",
+          "refs": [
+            "program",
+            "context:whyNow",
+            "context:applicationState",
+            "context:interviewState",
+            "reason:0",
+            "evidence:0"
+          ],
+          "quote": " I aim to understand how leadership and program structure align with my ongoing considerations about internal medicine training, and I intend to learn more about the program leadership before any interview would occur.",
+          "start": 182,
+          "sourceTexts": [
+            {
+              "ref": "program",
+              "text": "Ascension Illinois/Saint Joseph (Chicago) Program"
+            },
+            {
+              "ref": "context:whyNow",
+              "text": "For this synthetic QA letter, I am testing a concise expression of program interest."
+            },
+            {
+              "ref": "context:applicationState",
+              "text": "This is synthetic QA; no real application event is asserted."
+            },
+            {
+              "ref": "context:interviewState",
+              "text": "This is synthetic QA; no real interview event is asserted."
+            },
+            {
+              "ref": "reason:0",
+              "text": "For this synthetic QA letter, I value being able to identify program leadership before an interview."
+            },
+            {
+              "ref": "evidence:0",
+              "text": "Bruce Blacker, MD\nSection Chief, General Medicine\nBruce Lewis, MD\nSection Chief, Cardiology\nFaisal Qureshi, MD\nSection Chief, Endocrinology\nGopika Chandra, MD, PhD, MPH, FACP, FASAM\nAssociate Program Director\nJessica Garcia, MD\nSection Chief, Hematology/Oncology\nJonathan E. Vogel, MD\nSection Chief, Neurology\nKris McGrath, MD\nSection Chief, Allergy & Immunology\nLawrence Gluskin, MD\nSection Chief, Gastroenterology\nM. Todd Grendon, MD\nActing Chairman; Chief, Geriatrics\nMatthew J. Tyler, MD\nSection Chief, Hospice and Palliative Care\nMitchell R. Weinstein, MD\nChief, Infectious Diseases\nMohamed Salem, MD\nSection Chief, Nephrology\nMonica Sharma, DO\nAssociate Program Director; Director of Internal Medicine Student Programs\nRediet Kokebie, MD\nSection Chief, Rheumatology\nShyam Chalise, MD\nProgram Director, Internal Medicine Residency\nWilliam Sanders, MD\nChief, Pulmonary/Critical Care"
+            }
+          ]
+        },
+        {
+          "end": 565,
+          "flag": "UNRESOLVED_SEMANTIC_SUPPORT",
+          "refs": [
+            "program"
+          ],
+          "quote": "The program identity is Ascension Illinois/Saint Joseph (Chicago) Program, and I reference that identity here to ground my inquiry within the named residency path.",
+          "start": 402,
+          "sourceTexts": [
+            {
+              "ref": "program",
+              "text": "Ascension Illinois/Saint Joseph (Chicago) Program"
+            }
+          ]
+        },
+        {
+          "end": 690,
+          "flag": "UNRESOLVED_SEMANTIC_SUPPORT",
+          "refs": [
+            "context:applicationState"
+          ],
+          "quote": "I note that this letter is set within a synthetic QA framework and that no real application event is asserted at this time.",
+          "start": 567,
+          "sourceTexts": [
+            {
+              "ref": "context:applicationState",
+              "text": "This is synthetic QA; no real application event is asserted."
+            }
+          ]
+        },
+        {
+          "end": 799,
+          "flag": "UNRESOLVED_SEMANTIC_SUPPORT",
+          "refs": [
+            "context:interviewState"
+          ],
+          "quote": "Similarly, there is no real interview event described in this synthetic scenario, per the context provided.",
+          "start": 692,
+          "sourceTexts": [
+            {
+              "ref": "context:interviewState",
+              "text": "This is synthetic QA; no real interview event is asserted."
+            }
+          ]
+        },
+        {
+          "end": 901,
+          "flag": "UNRESOLVED_SEMANTIC_SUPPORT",
+          "refs": [
+            "reason:0",
+            "evidence:0"
+          ],
+          "quote": "For this synthetic QA letter, I value being able to identify program leadership before an interview.",
+          "start": 801,
+          "sourceTexts": [
+            {
+              "ref": "reason:0",
+              "text": "For this synthetic QA letter, I value being able to identify program leadership before an interview."
+            },
+            {
+              "ref": "evidence:0",
+              "text": "Bruce Blacker, MD\nSection Chief, General Medicine\nBruce Lewis, MD\nSection Chief, Cardiology\nFaisal Qureshi, MD\nSection Chief, Endocrinology\nGopika Chandra, MD, PhD, MPH, FACP, FASAM\nAssociate Program Director\nJessica Garcia, MD\nSection Chief, Hematology/Oncology\nJonathan E. Vogel, MD\nSection Chief, Neurology\nKris McGrath, MD\nSection Chief, Allergy & Immunology\nLawrence Gluskin, MD\nSection Chief, Gastroenterology\nM. Todd Grendon, MD\nActing Chairman; Chief, Geriatrics\nMatthew J. Tyler, MD\nSection Chief, Hospice and Palliative Care\nMitchell R. Weinstein, MD\nChief, Infectious Diseases\nMohamed Salem, MD\nSection Chief, Nephrology\nMonica Sharma, DO\nAssociate Program Director; Director of Internal Medicine Student Programs\nRediet Kokebie, MD\nSection Chief, Rheumatology\nShyam Chalise, MD\nProgram Director, Internal Medicine Residency\nWilliam Sanders, MD\nChief, Pulmonary/Critical Care"
+            }
+          ]
+        },
+        {
+          "end": 1086,
+          "flag": "UNRESOLVED_SEMANTIC_SUPPORT",
+          "refs": [
+            "evidence:0"
+          ],
+          "quote": "Lead by the confirmed leadership that has been documented in the leadership roster for the program, which is cited here as part of the evidence base for program quality and structure.",
+          "start": 903,
+          "sourceTexts": [
+            {
+              "ref": "evidence:0",
+              "text": "Bruce Blacker, MD\nSection Chief, General Medicine\nBruce Lewis, MD\nSection Chief, Cardiology\nFaisal Qureshi, MD\nSection Chief, Endocrinology\nGopika Chandra, MD, PhD, MPH, FACP, FASAM\nAssociate Program Director\nJessica Garcia, MD\nSection Chief, Hematology/Oncology\nJonathan E. Vogel, MD\nSection Chief, Neurology\nKris McGrath, MD\nSection Chief, Allergy & Immunology\nLawrence Gluskin, MD\nSection Chief, Gastroenterology\nM. Todd Grendon, MD\nActing Chairman; Chief, Geriatrics\nMatthew J. Tyler, MD\nSection Chief, Hospice and Palliative Care\nMitchell R. Weinstein, MD\nChief, Infectious Diseases\nMohamed Salem, MD\nSection Chief, Nephrology\nMonica Sharma, DO\nAssociate Program Director; Director of Internal Medicine Student Programs\nRediet Kokebie, MD\nSection Chief, Rheumatology\nShyam Chalise, MD\nProgram Director, Internal Medicine Residency\nWilliam Sanders, MD\nChief, Pulmonary/Critical Care"
+            }
+          ]
+        }
+      ],
+      "contract": "iiq-loi-authored-review-v1",
+      "editedTrace": false,
+      "studentVerificationRequired": true,
+      "automaticFactualCertification": false
+    },
+    "approach": "DIRECT_CONCISE",
+    "fitLinks": [
+      {
+        "reasonRef": "reason:0",
+        "evidenceRef": "evidence:0"
+      }
+    ],
+    "studentReviewRequired": true,
+    "studentFactualConfirmation": false,
+    "studentSpecificityConfirmation": false
+  }
+}

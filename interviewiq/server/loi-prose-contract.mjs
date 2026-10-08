@@ -228,3 +228,30 @@ export function authoredReview(text,refs,program,claims=null){
  proseNeed(all.length>0,'loi_composition_reference');authoredSpecificity(text,refs,reviewUnits);
  return {contract:AUTHORED_REVIEW,state:'STUDENT_VERIFICATION_REQUIRED',automaticFactualCertification:false,studentVerificationRequired:true,editedTrace:claims===null,units:reviewUnits};
 }
+
+// Admission for NEW provider output only. Retained drafts and student edits keep
+// their existing read/review contract. These checks reject known low-quality
+// output; they are not semantic certification or a replacement for review.
+export function validateGeneratedLoiQuality(row,refs,program){
+ const reject=rule=>{const e=new Error('loi_composition_quality');e.code='loi_composition_quality';e.rule=rule;throw e;};
+ const text=row.text;
+ if(text.split(program.name).length!==2)reject('REPEATED_PROGRAM_IDENTITY');
+ if(/\b(?:program identity is|reference (?:that|the) identity|evidence base|source labels?|reference IDs?|refs array|confirmed leadership|writing approach|composition strategy)\b/i.test(text))reject('COMPOSITION_METADISCOURSE');
+ if(/(?:^|\n\s*\n)Lead by\b/.test(text))reject('INCOMPLETE_SENTENCE');
+ // A roster establishes who holds a role, not training quality, mentorship,
+ // access, or outcomes. For leadership-only selected evidence, require an
+ // actual cited name AND its roster role rather than generic leadership talk.
+ const evidence=refs.filter(r=>r.kind==='evidence');
+ if(evidence.length&&evidence.every(r=>r.field==='research.leadership')){
+  if(/\b(?:program quality|excellent training|exceptional training|world[- ]class|high[- ]quality training|superior training|outstanding training)\b/i.test(text))reject('ROSTER_IS_NOT_QUALITY_EVIDENCE');
+  const norm=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+  const concrete=evidence.some(r=>{
+   const people=[...r.text.matchAll(/^([^\n,]+),[^\n]*\n([^\n]+)$/gm)];
+   return people.some(([,name,role])=>row.claims.some(c=>c.refs.includes(r.ref)&&
+    norm(text.slice(c.start,c.end)).includes(norm(name))&&
+    norm(text.slice(c.start,c.end)).includes(norm(role.split(/[;,]/)[0]))));
+  });
+  if(!concrete)reject('MISSING_CONCRETE_LEADERSHIP_DETAIL');
+ }
+ return {qualityGate:'GENERATED_LOI_QUALITY_V1',studentReviewRequired:true,automaticFactualCertification:false};
+}
