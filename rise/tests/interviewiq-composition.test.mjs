@@ -507,3 +507,17 @@ test('job raw ingress preserves bytes and rejects framing ambiguity and truncati
 });
 
 test('new signing secrets cannot equal decoded database password',()=>{for(const key of ['RISE_IIQ_JOB_REQUEST_SECRET','RISE_IIQ_JOB_PROOF_SECRET']){const env={...JOB_ENV};const url=new URL(env.RISE_DATABASE_URL);url.password=env[key];env.RISE_DATABASE_URL=url.href;assert.throws(()=>readInterviewiqRuntimeConfig(env));}});
+
+test('MRX configuration is default off, reuses separated service keys without enabling paid jobs',()=>{
+ assert.equal(readInterviewiqRuntimeConfig(ENV).mrx,undefined);
+ const env={...ENV,RISE_IIQ_MRX_PUBLICATION_ENABLED:'true',RISE_IIQ_JOB_REQUEST_SECRET:JOB_ENV.RISE_IIQ_JOB_REQUEST_SECRET,RISE_IIQ_JOB_PROOF_SECRET:JOB_ENV.RISE_IIQ_JOB_PROOF_SECRET};
+ const config=readInterviewiqRuntimeConfig(env);assert.equal(config.mrx.enabled,true);assert.equal(config.jobs,undefined);assert.equal(config.mrx.requestSecret,env.RISE_IIQ_JOB_REQUEST_SECRET);
+ for(const value of ['yes','TRUE','2'])assert.throws(()=>readInterviewiqRuntimeConfig({...env,RISE_IIQ_MRX_PUBLICATION_ENABLED:value}));
+ for(const key of ['RISE_IIQ_JOB_REQUEST_SECRET','RISE_IIQ_JOB_PROOF_SECRET']){
+  for(const value of ['',SECRET,PROOF,env.RISE_IIQ_JOB_REQUEST_SECRET]){if(value===env[key])continue;assert.throws(()=>readInterviewiqRuntimeConfig({...env,[key]:value}));}
+  assert.throws(()=>readInterviewiqRuntimeConfig({...env,RISE_STUDENT_STATE_SUBJECT_HMAC_KEY:env[key]}));
+  const url=new URL(env.RISE_DATABASE_URL);url.password=env[key];assert.throws(()=>readInterviewiqRuntimeConfig({...env,RISE_DATABASE_URL:url.href}));
+ }
+});
+
+test('program media configuration remains subordinate/default off and does not start paid jobs',()=>{assert.equal(readInterviewiqRuntimeConfig(ENV).mediaEnabled,false);const c=readInterviewiqRuntimeConfig({...ENV,RISE_IIQ_PROGRAM_MEDIA_ENABLED:'true'});assert.equal(c.mediaEnabled,true);assert.equal(c.jobs,undefined);assert.equal(c.mrx,undefined);for(const flag of ['yes','TRUE','2'])assert.throws(()=>readInterviewiqRuntimeConfig({...ENV,RISE_IIQ_PROGRAM_MEDIA_ENABLED:flag}));assert.throws(()=>readInterviewiqRuntimeConfig({...ENV,RISE_IIQ_ENABLED:'false',RISE_IIQ_PROGRAM_MEDIA_ENABLED:'true'}));});

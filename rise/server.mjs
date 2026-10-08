@@ -1,3 +1,4 @@
+import {mediaRoute} from './src/program-media.mjs';
 import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import fs from "node:fs/promises";
 import http from "node:http";
@@ -1662,6 +1663,8 @@ export function createRiseServer({
         sourceRightsDecisionId = decision.decisionId;
       }
       if (authMode === "local-preview") response.setHeader("X-RISE-Preview", "true");
+      const mediaResult=await mediaRoute(request,url,{session,store:interviewiqRuntime?.media});
+      if(mediaResult){status=mediaResult.status;sendJson(response,status,mediaResult.body,{cache:'no-store',requestId});return;}
 
       if (request.method === "GET" && url.pathname === "/api/rise/v1/session") {
         status = 200;

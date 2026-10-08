@@ -1,0 +1,50 @@
+import {createHash,createHmac,timingSafeEqual} from 'node:crypto';
+import {isIP} from 'node:net';
+export const MRX_PATH='/api/rise/v1/interviewiq/mrx-publications';
+export const MRX_PROOF_PATH='/api/owner/rise/mrx-authority';
+export const MRX_WP='https://missionmedinstitute.com/wp-json/missionmed/v1/interviewiq-owner/rise/mrx-introspect';
+export const MRX_RULE='iiq-mrx-governed-v1';
+export const MRX_FIELDS=new Set(['research.program_overview','research.visa','research.application_requirements','research.resident_roster','research.resident_medical_schools','research.img_accessibility','research.do_accessibility','research.usmd_accessibility','research.caribbean_accessibility','research.leadership','research.core_faculty','research.faculty_training_graph','research.abim','research.fellowship_inventory','research.outcomes','research.salary_benefits','research.curriculum','research.research_opportunities','research.program_differentiators','research.culture','research.facilities_patient_population']);
+export const MRX_BINDING=['intentId','publicationId','submissionId','submissionSha256','reviewId','reviewVersion','programId','registryReleaseId','consentId','adminId','operation','idempotencyKey','payloadSha256','priorReceiptSha256'];
+export const mrxNeed=x=>{if(!x)throw Error('mrx_authority_unavailable');};
+export const mrxSha=x=>createHash('sha256').update(x).digest('hex');
+export const mrxCanonical=x=>JSON.stringify(canon(x));
+function canon(x){return Array.isArray(x)?x.map(canon):x&&typeof x==='object'?Object.fromEntries(Object.keys(x).sort().map(k=>[k,canon(x[k])])):x;}
+export const mrxMac=(secret,domain,x)=>createHmac('sha256',secret).update('iiq-mrx-v1\n'+domain+'\n').update(x).digest('hex');
+export const mrxEqual=(a,b)=>typeof a==='string'&&typeof b==='string'&&/^[a-f0-9]{64}$/.test(a)&&/^[a-f0-9]{64}$/.test(b)&&timingSafeEqual(Buffer.from(a,'hex'),Buffer.from(b,'hex'));
+export const mrxExact=(x,keys)=>mrxNeed(x&&Object.getPrototypeOf(x)===Object.prototype&&Object.keys(x).sort().join() === [...keys].sort().join());
+const uuid=x=>typeof x==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(x);
+const id=x=>typeof x==='string'&&/^[A-Za-z0-9][A-Za-z0-9._:-]{0,179}$/.test(x);
+const hash=x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x);
+// No executor, CSV or HTML renderer consumes this text. Reject spreadsheet
+// formulas, instructions and obvious private narrative before human review too.
+export function mrxPublicText(x,max=5000){mrxNeed(typeof x==='string'&&x.trim()&&x.length<=max&&x.isWellFormed()&&!/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(x)&&!/(?:^|\n)\s*[=+@]|(?:^|\n)\s*-\s*\d|ignore (?:all |any )?(?:previous|prior) instructions|system prompt|bypass (?:the )?(?:rules|authentication)|grant (?:me |admin )?access|\b(?:my interview|my patient|my story|my application|I interviewed|I experienced)\b|\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i.test(x));return x;}
+export function mrxUrl(x){mrxPublicText(x,2048);const u=new URL(x),h=u.hostname.replace(/^\[|\]$/g,'');mrxNeed(u.protocol==='https:'&&!u.username&&!u.password&&!u.search&&!u.hash&&!isIP(h)&&h.includes('.')&&!/(^|\.)(local|localhost|internal|invalid|test|example|private|lan|home)$/.test(h)&&(!u.port||u.port==='443'));return x;}
+export function mrxBinding(x){mrxExact(x,MRX_BINDING);for(const k of ['intentId','publicationId','submissionId','reviewId','consentId','adminId'])mrxNeed(uuid(x[k]));for(const k of ['submissionSha256','idempotencyKey','payloadSha256','priorReceiptSha256'])mrxNeed(hash(x[k]));mrxNeed(Number.isSafeInteger(x.reviewVersion)&&x.reviewVersion>0&&id(x.programId)&&id(x.registryReleaseId)&&['publish','retract'].includes(x.operation));return x;}
+export function mrxPayload(x,now=Date.now()){
+ mrxExact(x,['schema','programId','registryReleaseId','submissionSha256','claims','review']);mrxNeed(x.schema===MRX_RULE&&id(x.programId)&&id(x.registryReleaseId)&&hash(x.submissionSha256));
+ mrxExact(x.review,['factsVerified','sourceRightsVerified','publicProgramOnly','sourceAssociationVerified','authorityRef','validThrough','reviewedAt']);
+ for(const k of ['factsVerified','sourceRightsVerified','publicProgramOnly','sourceAssociationVerified'])mrxNeed(x.review[k]===true);
+ mrxPublicText(x.review.authorityRef,500);const reviewed=Date.parse(x.review.reviewedAt),until=Date.parse(x.review.validThrough);mrxNeed(Number.isFinite(reviewed)&&reviewed<=now&&now-reviewed<=86400000&&Number.isFinite(until)&&until>now&&until<=now+366*86400000);
+ mrxNeed(Array.isArray(x.claims)&&x.claims.length>0&&x.claims.length<=40);const seen=new Set();
+ for(const c of x.claims){mrxExact(c,['id','field','text','value','asOf','sources']);mrxNeed(id(c.id)&&!seen.has(c.id)&&MRX_FIELDS.has(c.field));seen.add(c.id);mrxPublicText(c.text);mrxNeed(!/\b(?:contested|uncertain|ambiguous|conflict(?:ed|ing)?|unclear|unverified|not verified|may be|might be|cannot confirm)\b/i.test(c.text));mrxNeed(Number.isFinite(Date.parse(c.asOf))&&Date.parse(c.asOf)<=now&&now-Date.parse(c.asOf)<=365*86400000);
+  // Values are an independently reviewed structured public projection, not the
+  // original upload. A bounded inert tree keeps arbitrary containers out.
+  let nodes=0;function walk(v,d=0){mrxNeed(++nodes<=500&&d<=8);if(typeof v==='string'){mrxPublicText(v,5000);mrxNeed(!/\b(?:contested|uncertain|ambiguous|conflict(?:ed|ing)?|unclear|unverified|not verified|cannot confirm)\b/i.test(v));}else if(typeof v==='number')mrxNeed(Number.isFinite(v));else if(Array.isArray(v)){mrxNeed(v.length<=100);v.forEach(z=>walk(z,d+1));}else if(v&&typeof v==='object'){mrxNeed(Object.keys(v).length<=40);for(const [k,z]of Object.entries(v)){mrxNeed(/^[A-Za-z][A-Za-z0-9_]{0,79}$/.test(k)&&!['constructor','prototype','__proto__'].includes(k)&&!/(?:student|owner|private|story|prompt|instruction|execution|credit|credential|token|secret)/i.test(k));walk(z,d+1);}}else mrxNeed(typeof v==='boolean');}walk(c.value);
+  mrxNeed(Array.isArray(c.sources)&&c.sources.length>0&&c.sources.length<=16);const urls=new Set();for(const s of c.sources){mrxExact(s,['id','url','title','retrievedAt']);mrxNeed(id(s.id));mrxUrl(s.url);mrxPublicText(s.title,1000);mrxNeed(!urls.has(s.url));urls.add(s.url);const t=Date.parse(s.retrievedAt);mrxNeed(Number.isFinite(t)&&t<=now&&now-t<=365*86400000);}
+ }
+ mrxNeed(Buffer.byteLength(mrxCanonical(x))<=128000);return x;
+}
+export function mrxReviewProjection(pkg,mission,decision,now=Date.now()){
+ mrxExact(decision,['claims','review']);mrxNeed(Array.isArray(decision.claims));
+ const claims=decision.claims.map(c=>{mrxExact(c,['claimId','value']);const original=pkg.claims.find(z=>z.id===c.claimId);mrxNeed(original&&pkg.results.some(r=>r.field===original.field&&r.state==='SUPPORTED'&&r.claim_ids.includes(original.id)));
+  return {id:original.id,field:original.field,text:original.text,value:c.value,asOf:original.as_of,sources:original.source_ids.map(id=>{const s=pkg.sources.find(z=>z.id===id);mrxNeed(s);return {id:s.id,url:s.url,title:s.title,retrievedAt:s.retrieved_at};})};});
+ return mrxPayload({schema:MRX_RULE,programId:mission.program.id,registryReleaseId:mission.program.registryReleaseId,submissionSha256:pkg.__submissionSha256,claims,review:decision.review},now);
+}
+// Duplicate decoded keys are rejected before JSON.parse, including nested keys.
+export function mrxParse(bytes,max=160000){mrxNeed(Buffer.isBuffer(bytes)&&bytes.length>0&&bytes.length<=max);const t=new TextDecoder('utf-8',{fatal:true}).decode(bytes);let i=0,n=0;const ws=()=>{while(/[ \r\n\t]/.test(t[i]||'X'))i++;};const str=()=>{const start=i++;while(i<t.length){if(t[i]==='\\'){i+=2;continue;}if(t[i++]==='"')return JSON.parse(t.slice(start,i));}mrxNeed(false);};function value(d){mrxNeed(d<=20&&++n<10000);ws();if(t[i]==='{'){i++;ws();const seen=new Set();if(t[i]!=='}')for(;;){mrxNeed(t[i]==='"');const k=str();mrxNeed(!seen.has(k)&&!['__proto__','constructor','prototype'].includes(k));seen.add(k);ws();mrxNeed(t[i++]===':');value(d+1);ws();if(t[i]!==',')break;i++;ws();}mrxNeed(t[i++]==='}');}else if(t[i]==='['){i++;ws();if(t[i]!==']')for(;;){value(d+1);ws();if(t[i]!==',')break;i++;}mrxNeed(t[i++]==']');}else if(t[i]==='"')str();else{const m=/^(true|false|null|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)/.exec(t.slice(i));mrxNeed(m);i+=m[0].length;}}value(0);ws();mrxNeed(i===t.length);return JSON.parse(t);}
+export function mrxHeaders(request,{path,secret,domain,header,max=160000,now=Date.now()}){
+ mrxNeed(request?.method==='POST'&&request.url===path&&Buffer.isBuffer(request.body)&&request.body.length<=max&&Array.isArray(request.rawHeaders)&&request.rawHeaders.length%2===0&&request.rawHeaders.length<=100);const h=new Map();for(let i=0;i<request.rawHeaders.length;i+=2){const k=String(request.rawHeaders[i]).toLowerCase(),v=request.rawHeaders[i+1];mrxNeed(!h.has(k)&&typeof v==='string'&&!/[\u0000-\u001f\u007f]/.test(v)&&!['origin','cookie','cookie2','authorization','proxy-authorization','transfer-encoding','content-encoding','expect','x-http-method-override','x-method-override','x-http-method'].includes(k)&&(!k.startsWith('x-mmed-')||k===header));h.set(k,v);}
+ mrxNeed(/^application\/json(?:\s*;\s*charset=utf-8)?$/i.test(h.get('content-type')||'')&&(!h.has('content-length')||h.get('content-length')===String(request.body.length))&&mrxEqual(h.get(header),mrxMac(secret,domain,request.body)));const x=mrxParse(request.body,max);mrxNeed(uuid(x.nonce)&&Number.isSafeInteger(x.iat)&&Math.abs(Math.floor(now/1000)-x.iat)<30);return x;
+}
+export async function mrxResponse(response,max=160000){mrxNeed(response?.ok===true&&response.redirected!==true&&/^application\/json(?:\s*;|$)/i.test(response.headers.get('content-type')||''));const reader=response.body?.getReader();mrxNeed(reader);const chunks=[];let size=0;try{for(;;){const {done,value}=await reader.read();if(done)break;size+=value.length;mrxNeed(size<=max);chunks.push(Buffer.from(value));}}finally{void reader.cancel().catch(()=>{});}return mrxParse(Buffer.concat(chunks),max);}

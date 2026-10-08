@@ -22,7 +22,7 @@ function identity(record,release) {
 // strict current source-rights and a durable nonce store before enabling it.
 export function createInterviewiqOwner(config={},dependencies={}) {
   const authenticate=createInterviewiqAuthenticator(config,dependencies);
-  const {getRegistry,assertSourceRights,readCoverage,readResults,readSavedPrograms,now=Date.now}=dependencies;
+  const {getRegistry,assertSourceRights,readCoverage,readResults,readMedia,readSavedPrograms,now=Date.now}=dependencies;
   return async request=>{
     try {
       if(typeof getRegistry!=='function'||typeof assertSourceRights!=='function')throw new Error('unavailable');
@@ -67,6 +67,9 @@ export function createInterviewiqOwner(config={},dependencies={}) {
           try{const results=await Promise.race([readResults({programId:body.id,registryReleaseId:index.registryReleaseId}),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('unavailable')),5000);})]);
             body={...body,researchResults:projectInterviewiqResearchResults(results,{programId:body.id,registryReleaseId:index.registryReleaseId,now:now()})};
           }finally{clearTimeout(timer);}
+        }
+        if(status===200&&config.mediaEnabled===true){
+          let timer;try{if(typeof readMedia!=='function')throw Error('unavailable');const programMedia=await Promise.race([readMedia({programId:body.id,registryReleaseId:index.registryReleaseId}),new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('unavailable')),5000);})]);body={...body,programMedia};}catch{body={...body,programMedia:{schema:'rise-program-media-v1',programId:body.id,registryReleaseId:index.registryReleaseId,observedAt:new Date(now()).toISOString(),media:null}};}finally{clearTimeout(timer);}
         }
       } else {
         const {q,page,pageSize}=auth.route;

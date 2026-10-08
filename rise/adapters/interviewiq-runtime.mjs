@@ -1,3 +1,7 @@
+import {createProgramMediaStore} from './program-media-store.mjs';
+import {MRX_PATH} from './interviewiq-mrx-contract.mjs';
+import {createInterviewiqMRX,createCommittedMRXProof} from './interviewiq-mrx.mjs';
+import {createInterviewiqMRXStore} from './interviewiq-mrx-store.mjs';
 import {createHash} from 'node:crypto';
 import tls from 'node:tls';
 import pg from 'pg';
@@ -38,6 +42,7 @@ export function readInterviewiqRuntimeConfig(env=process.env) {
   if(!['','0','false','1','true'].includes(coverageFlag)||['1','true'].includes(coverageFlag)&&!['1','true'].includes(flag))throw unavailable();
   if(!['','0','false','1','true'].includes(flag))throw unavailable();
   const optionalFlag=name=>{const v=String(env[name]??'').trim();if(!['','0','false','1','true'].includes(v)||['1','true'].includes(v)&&!['1','true'].includes(flag))throw unavailable();return ['1','true'].includes(v);};
+  const mediaEnabled=optionalFlag('RISE_IIQ_PROGRAM_MEDIA_ENABLED');
   const jobsEnabled=optionalFlag('RISE_IIQ_RESEARCH_JOBS_ENABLED'),resultsEnabled=optionalFlag('RISE_IIQ_RESEARCH_RESULTS_ENABLED');
   if(!['1','true'].includes(flag))return {enabled:false};
   if(env.NODE_TLS_REJECT_UNAUTHORIZED==='0'||Object.keys(env).some(k=>/^PG(?:HOST|HOSTADDR|PORT|DATABASE|USER|PASSWORD|SERVICE|SERVICEFILE|SYSCONFDIR|OPTIONS)$/.test(k)&&env[k]))throw unavailable();
@@ -53,7 +58,7 @@ export function readInterviewiqRuntimeConfig(env=process.env) {
     url.pathname!=='/railway'||url.username!=='rise_app_login'||!url.password||url.hash||
     query.length>1||query.length===1&&(query[0][0]!=='sslmode'||query[0][1]!=='require'))throw unavailable();
   if([requestSecret,proofSecret].includes(decodeURIComponent(url.password)))throw unavailable();
-  let jobs;
+  let jobs,mrx;const mrxEnabled=optionalFlag('RISE_IIQ_MRX_PUBLICATION_ENABLED');
   if(jobsEnabled){
     const requestSecret=env.RISE_IIQ_JOB_REQUEST_SECRET,proofSecret=env.RISE_IIQ_JOB_PROOF_SECRET,subjectHmacKey=env.RISE_STUDENT_STATE_SUBJECT_HMAC_KEY;
     if([requestSecret,proofSecret].includes(decodeURIComponent(url.password)))throw unavailable();
@@ -61,9 +66,10 @@ export function readInterviewiqRuntimeConfig(env=process.env) {
     for(const [key,value] of Object.entries(env))if(!['RISE_IIQ_JOB_REQUEST_SECRET','RISE_IIQ_JOB_PROOF_SECRET'].includes(key)&&/SECRET|TOKEN|HMAC|JWT|GATEWAY|SIGNING|API_KEY/.test(key)&&value&&[requestSecret,proofSecret].includes(value))throw unavailable();
     jobs={enabled:true,requestSecret,proofSecret,subjectHmacKey};
   }
+  if(mrxEnabled){const requestSecret=env.RISE_IIQ_JOB_REQUEST_SECRET,proofSecret=env.RISE_IIQ_JOB_PROOF_SECRET;if([requestSecret,proofSecret].some(s=>typeof s!=='string'||Buffer.byteLength(s)<32)||requestSecret===proofSecret||[requestSecret,proofSecret].includes(decodeURIComponent(url.password)))throw unavailable();for(const [key,value] of Object.entries(env))if(!['RISE_IIQ_JOB_REQUEST_SECRET','RISE_IIQ_JOB_PROOF_SECRET'].includes(key)&&/SECRET|TOKEN|HMAC|JWT|GATEWAY|SIGNING|API_KEY/.test(key)&&value&&[requestSecret,proofSecret].includes(value))throw unavailable();mrx={enabled:true,requestSecret,proofSecret};}
   url.search='';
   const ca=Buffer.from(String(env.RISE_IIQ_DATABASE_CA_PEM??''));if(sha(ca)!==CA_SHA)throw unavailable();
-  return {enabled:true,coverageEnabled:['1','true'].includes(coverageFlag),jobs,resultsEnabled,requestSecret,proofSecret,pool:{connectionString:url.href,max:4,connectionTimeoutMillis:5000,
+  return {enabled:true,mediaEnabled,coverageEnabled:['1','true'].includes(coverageFlag),jobs,mrx,resultsEnabled,requestSecret,proofSecret,pool:{connectionString:url.href,max:4,connectionTimeoutMillis:5000,
     idleTimeoutMillis:30000,statement_timeout:5000,query_timeout:5000,application_name:'rise-interviewiq-owner',
     ssl:{ca,rejectUnauthorized:true,checkServerIdentity:(_host,cert)=>cert.fingerprint256===LEAF?tls.checkServerIdentity('localhost',cert):unavailable()}}};
 }
@@ -91,17 +97,17 @@ export async function readEmptyInterviewiqBody(request) {
   });
 }
 
-export async function readInterviewiqJobBody(request){
-  if(request.method!=='POST'||request.url!==IIQ_JOB_PATH||!Array.isArray(request.rawHeaders)||request.rawHeaders.length%2||request.rawHeaders.length>100)throw unavailable();
+export async function readInterviewiqJobBody(request,{path=IIQ_JOB_PATH,maxBytes=16384}={}){
+  if(request.method!=='POST'||request.url!==path||!Array.isArray(request.rawHeaders)||request.rawHeaders.length%2||request.rawHeaders.length>100)throw unavailable();
   const seen=new Set();let length;
   for(let i=0;i<request.rawHeaders.length;i+=2){const key=String(request.rawHeaders[i]).toLowerCase(),v=request.rawHeaders[i+1];
     if(seen.has(key)||['transfer-encoding','content-encoding','expect'].includes(key))throw unavailable();seen.add(key);
-    if(key==='content-length'){if(typeof v!=='string'||!/^\d+$/.test(v)||Number(v)<1||Number(v)>16384)throw unavailable();length=Number(v);}
+    if(key==='content-length'){if(typeof v!=='string'||!/^\d+$/.test(v)||Number(v)<1||Number(v)>maxBytes)throw unavailable();length=Number(v);}
   }
   if(!length||request.aborted||request.destroyed)throw unavailable();
   return new Promise((resolve,reject)=>{let size=0,settled=false,timer;const parts=[];
     const finish=bad=>{if(settled)return;settled=true;clearTimeout(timer);request.off('data',data);request.off('end',end);request.off('error',error);request.off('aborted',error);request.off('close',close);if(bad){request.pause();reject(unavailable());}else resolve(Buffer.concat(parts));};
-    const data=chunk=>{size+=chunk.length;if(size>16384||size>length)return finish(true);parts.push(Buffer.from(chunk));},end=()=>finish(size!==length),error=()=>finish(true),close=()=>{if(!request.readableEnded)finish(true);};
+    const data=chunk=>{size+=chunk.length;if(size>maxBytes||size>length)return finish(true);parts.push(Buffer.from(chunk));},end=()=>finish(size!==length),error=()=>finish(true),close=()=>{if(!request.readableEnded)finish(true);};
     request.on('data',data);request.once('end',end);request.once('error',error);request.once('aborted',error);request.once('close',close);timer=setTimeout(()=>finish(true),1000);if(request.readableEnded)end();else request.resume();
   });
 }
@@ -149,7 +155,7 @@ async function qualifyPool(pool) {
   if(sha(JSON.stringify(stable(await readNonceCatalog(pool))))!=='808f6ee9d17efcebb8b13739a323a4cb471c131830316be17c1e9a13cfa77902')throw unavailable();
 }
 
-export async function createInterviewiqRuntime({registryIndex,env=process.env,workerEnvelope}={}, {Pool=pg.Pool,fetchImpl=fetch}={}) {
+export async function createInterviewiqRuntime({registryIndex,env=process.env,workerEnvelope}={}, {Pool=pg.Pool,fetchImpl=fetch,onVerifiedProof}={}) {
   const config=readInterviewiqRuntimeConfig(env);
   const frozenEnvelope=workerEnvelope===undefined?undefined:structuredClone(workerEnvelope),providerApiKey=env.RISE_OPENAI_API_KEY??env.OPENAI_API_KEY??null;
   if(!config.enabled)return Object.freeze({enabled:false,handle:async()=>deny(),close:async()=>{}});
@@ -162,7 +168,7 @@ export async function createInterviewiqRuntime({registryIndex,env=process.env,wo
       !rights?.length||rights.some(x=>typeof x!=='string'||!/^[a-f0-9]{64}$/.test(x))||new Set(rights).size!==rights.length)throw unavailable();
     const registryReleaseId=registryIndex.registryReleaseId;
     const registrySha256=registryIndex.activationReceipt.apiIndexSha256;
-    if(config.jobs&&!/^[a-f0-9]{64}$/.test(registrySha256??''))throw unavailable();
+    if((config.jobs||config.mrx||config.mediaEnabled)&&!/^[a-f0-9]{64}$/.test(registrySha256??''))throw unavailable();
     if(workerEnvelope!==undefined&&!config.jobs)throw unavailable();
     const frozenRegistry=structuredClone(registryIndex);
     Object.freeze(rights);
@@ -189,8 +195,9 @@ export async function createInterviewiqRuntime({registryIndex,env=process.env,wo
     const readCoverage=config.coverageEnabled?createInterviewiqCoverageReader({enabled:true,pool,registryIndex:frozenRegistry,registrySha256}):undefined;
     const readResults=config.resultsEnabled?createInterviewiqResearchResultsReader({enabled:true,pool,registryIndex:frozenRegistry,registrySha256}):undefined;
     const readSavedPrograms=createInterviewiqSavedProgramsReader({pool,subjectHmacKey:env.RISE_STUDENT_STATE_SUBJECT_HMAC_KEY});
-    const owner=createInterviewiqOwner(config,{readSavedPrograms,consumeNonce:store.consumeNonce,fetchImpl,getRegistry:async()=>ownerIndex,assertSourceRights,readCoverage,readResults});
-    let jobs,runJob;
+    const media=config.mediaEnabled?createProgramMediaStore({enabled:true,registryIndex:frozenRegistry,registrySha256,authorizationSha256s:rights},{pool}):undefined;
+    const owner=createInterviewiqOwner(config,{readSavedPrograms,consumeNonce:store.consumeNonce,fetchImpl,getRegistry:async()=>ownerIndex,assertSourceRights,readCoverage,readResults,readMedia:media?.readApproved});
+    let jobs,runJob,mrx;if(config.mrx){const mrxStore=createInterviewiqMRXStore({enabled:true,registryIndex:frozenRegistry,registrySha256,authorizationSha256s:rights},{pool});mrx=createInterviewiqMRX(config.mrx,{consumeNonce:store.consumeNonce,prove:createCommittedMRXProof(config.mrx,{fetchImpl}),store:mrxStore,assertSourceRights});}
     if(config.jobs){
       const researchConfig={...config.jobs,registryIndex:frozenRegistry,registrySha256,authorizationSha256s:rights};
       const acceptance=createInterviewiqResearchAcceptance(researchConfig,{pool});
@@ -199,16 +206,16 @@ export async function createInterviewiqRuntime({registryIndex,env=process.env,wo
         const envelope=frozenEnvelope;
         if(!envelope||Object.keys(envelope).sort().join()!=='binding,bodyHash,expectedSubjectKey,jobId,modelKey,providerKey')throw unavailable();
         const workerStore=createInterviewiqResearchWorkerStore({...researchConfig,...envelope},{pool});
-        const prove=createCommittedResearchProof(config.jobs,{fetchImpl});
+        const prove=createCommittedResearchProof(config.jobs,{fetchImpl,onVerifiedProof});
         const apiKey=providerApiKey;
         const provider={providerKey:envelope.providerKey,modelKey:envelope.modelKey,execute:args=>createOpenAiResearchProvider({providerKey:envelope.providerKey,apiKey,fetchImpl}).execute(args)};
         runJob=()=>runInterviewiqResearchWorkerOnce({store:workerStore,provider,getProof:phase=>prove({binding:envelope.binding,bodyHash:envelope.bodyHash,phase})});
       }
     }
     let closed=false;
-    return Object.freeze({enabled:true,async runResearchJob(){if(closed||!runJob)throw unavailable();return runJob();},async handle(request){
+    return Object.freeze({enabled:true,media,async runResearchJob(){if(closed||!runJob)throw unavailable();return runJob();},async handle(request){
       if(closed)return deny();
-      try {if(request.url===IIQ_JOB_PATH){if(!jobs)return deny();const body=await readInterviewiqJobBody(request);return await jobs({method:request.method,url:request.url,rawHeaders:request.rawHeaders,body});}
+      try {if(request.url===MRX_PATH){if(!mrx)return deny();const body=await readInterviewiqJobBody(request,{path:MRX_PATH,maxBytes:160000});return await mrx({method:request.method,url:request.url,rawHeaders:request.rawHeaders,body});}if(request.url===IIQ_JOB_PATH){if(!jobs)return deny();const body=await readInterviewiqJobBody(request);return await jobs({method:request.method,url:request.url,rawHeaders:request.rawHeaders,body});}
         const body=await readEmptyInterviewiqBody(request);return await owner({method:request.method,url:request.url,rawHeaders:request.rawHeaders,body});}
       catch{return deny();}
     },async close(){if(!closed){closed=true;await underlying.end();}}});

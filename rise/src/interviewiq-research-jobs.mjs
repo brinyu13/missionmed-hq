@@ -26,10 +26,11 @@ export function createInterviewiqResearchJobs(config={},dependencies={}) {
         await registry(auth.binding);auth.assertFresh();
         const proof=await prove({binding:auth.binding,bodyHash:auth.bodyHash,phase:'reserve'});current();
         await registry(auth.binding);proof.assertFresh();auth.assertFresh();current();
+        if(auth.receiptMode&&(proof.principal.wpUserId!==1397||proof.principal.role!=='student'||proof.principal.tier!=='ivprep_complete'))deny();
         const result=await acceptJob({ownerId:auth.binding.ownerId,requestId:auth.binding.requestId,bodyHash:auth.bodyHash,binding:auth.binding,proof});
         current();await registry(auth.binding);proof.assertFresh();auth.assertFresh();current();
         if(!result||!STATUSES.has(result.status)||!(exactJobId(result.jobId)||result.status==='NO_OP'&&result.jobId===null))deny();
-        const body=auth.signReceipt({status:result.status,jobId:result.jobId,proofExpiresAt:proof.expiresAt});
+        const body=auth.signReceipt({status:result.status,jobId:result.jobId,proofExpiresAt:proof.expiresAt,proofReceipt:proof.receipt});
         return {status:200,headers:{'Cache-Control':'no-store'},body};
       },10000);
     } catch {return {status:503,headers:{'Cache-Control':'no-store'},body:{error:'interviewiq_job_unavailable'}};}

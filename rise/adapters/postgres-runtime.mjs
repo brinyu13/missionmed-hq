@@ -1010,7 +1010,7 @@ export async function ingestProviderRecordTransaction(client, { ingest }) {
           INSERT INTO rise_runtime.canonical_evidence_sources (
             source_id, provider, provider_run_id, source_type, source_file_sha256,
             source_url, source_locator, retrieved_at, rights_state, exposure_state, metadata
-          ) VALUES ($1, $2, $3, 'completed_research_factory', $4, $5, $6, $7, 'REVIEW_REQUIRED', 'INTERNAL_ONLY', $8::jsonb)
+          ) VALUES ($1, $2, $3, $9, $4, $5, $6, $7, 'REVIEW_REQUIRED', 'INTERNAL_ONLY', $8::jsonb)
           ON CONFLICT (source_id) DO NOTHING
         `, [
           sourceId, ingest.provider, ingest.providerRunId, ingest.sourceFileSha256,
@@ -1021,7 +1021,9 @@ export async function ingestProviderRecordTransaction(client, { ingest }) {
             newSpendUsd: Number(ingest.newSpendUsd ?? 0), providerKey: ingest.providerKey ?? null,
             modelKey: ingest.modelKey ?? null,
             claimSourceUrlCount: new Set(ingest.claims.flatMap((claim) => claim.sourceUrls ?? [])).size,
+            ...(ingest.provider==='MRX_PUBLIC_RESEARCH'?{mrxAttribution:ingest.mrxAttribution}:{}),
           }),
+          ingest.provider==='MRX_PUBLIC_RESEARCH'?'mrx_governed_public_submission':'completed_research_factory',
         ]);
         let insertedClaims = 0;
         for (const claim of ingest.claims) {
@@ -1112,6 +1114,7 @@ export async function applyCorpusTransaction(client, {
             observed_period: { kind: "reviewed_snapshot", label: timestamp.slice(0, 10) }, retrieved_at: timestamp,
             content_sha256: sha256({ ticket, subjectId, field: promotion.field, value: promotion.canonicalValue }),
             supersedes_claim_id: promotion.sourceClaimIds[0], source_claim_ids: promotion.sourceClaimIds,
+            conflict_state: promotion.conflictState==='CONFLICTING'?'CONFLICTING':'RESOLVED',
           };
         });
         let insertedPromotions = 0;
@@ -1123,13 +1126,13 @@ export async function applyCorpusTransaction(client, {
               observed_period, retrieved_at, content_sha256, supersedes_claim_id
             )
             SELECT x.claim_id, x.subject_id, x.field, x.knowledge, x.canonical_value,
-                   'source_attributed_reconciled', 'PRIVATE_BETA', 'APPROVED', 'RESOLVED',
+                   'source_attributed_reconciled', 'PRIVATE_BETA', 'APPROVED', x.conflict_state,
                    x.source_id, x.source_locator, x.observed_period, x.retrieved_at,
                    x.content_sha256, x.supersedes_claim_id
             FROM jsonb_to_recordset($1::jsonb) AS x(
               claim_id text, subject_id text, field text, knowledge jsonb, canonical_value jsonb,
               source_id text, source_locator text, observed_period jsonb, retrieved_at timestamptz,
-              content_sha256 char(64), supersedes_claim_id text
+              content_sha256 char(64), supersedes_claim_id text, conflict_state text
             ) ON CONFLICT (content_sha256) DO NOTHING
           `, [JSON.stringify(batch)]);
           insertedPromotions += result.rowCount;
@@ -1261,6 +1264,7 @@ export async function createRiseCanonicalEvidenceStore({ pool = databasePool() }
             reviewRequired: release.counts.reviewRequired,
             newSpendUsd: 0,
           }),
+          ingest.provider==='MRX_PUBLIC_RESEARCH'?'mrx_governed_public_submission':'completed_research_factory',
         ]);
         let insertedClaims = 0;
         for (const claim of claims) {

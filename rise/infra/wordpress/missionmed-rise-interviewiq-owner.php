@@ -9,7 +9,7 @@ function mmiiq_rise_setting($key, $fallback = '') {
     // Dedicated server-only settings follow the existing MissionMed option pattern.
     // Provisioning must keep this option nonautoloaded; this reader never writes it.
     $allowed = array('RISE_IIQ_ENABLED', 'RISE_IIQ_OWNER_PROOF_SECRET', 'RISE_IIQ_OWNER_REQUEST_SECRET',
-        'RISE_IIQ_JOB_ENABLED', 'RISE_IIQ_JOB_ELIGIBILITY_SECRET', 'RISE_IIQ_JOB_REQUEST_SECRET', 'RISE_IIQ_JOB_PROOF_SECRET');
+        'RISE_IIQ_MRX_ENABLED', 'RISE_IIQ_JOB_ENABLED', 'RISE_IIQ_JOB_ELIGIBILITY_SECRET', 'RISE_IIQ_JOB_REQUEST_SECRET', 'RISE_IIQ_JOB_PROOF_SECRET');
     if (!in_array($key, $allowed, true) || !function_exists('get_option')) { return $fallback; }
     $stored = get_option('missionmed_rise_interviewiq_settings', array());
     return is_array($stored) && array_key_exists($key, $stored) && is_scalar($stored[$key]) ? $stored[$key] : $fallback;
@@ -203,9 +203,85 @@ function mmiiq_rise_job_introspect($request) {
     } catch (Throwable $error) { return mmiiq_rise_error(); }
 }
 
+// MRX removal is a scoped revocation proof, never an interactive access grant.
+function mmiiq_rise_mrx_introspect($request) {
+    try {
+        $enabled = mmiiq_rise_setting('RISE_IIQ_MRX_ENABLED', false);
+        $secret = mmiiq_rise_setting('RISE_IIQ_JOB_ELIGIBILITY_SECRET');
+        if (!in_array($enabled, array(true, 'true', '1'), true) || !is_string($secret) || strlen($secret) < 32 || strlen($secret) > 1024 ||
+            $request->get_method() !== 'POST' || $request->get_route() !== '/missionmed/v1/interviewiq-owner/rise/mrx-introspect' ||
+            $request->get_query_params() !== array()) { return mmiiq_rise_error(); }
+        // The canonical issuer uses env-first, then constants/options, and trims
+        // values. Its own resolver is required; a different precedence can hide
+        // an active key collision behind an unused configuration value.
+        if (!function_exists('mmiiq_setting')) { return mmiiq_rise_error(); }
+        foreach (array('INTERVIEWIQ_JWT_SECRET', 'INTERVIEWIQ_OWNER_PROOF_SECRET', 'INTERVIEWIQ_GATEWAY_SECRET') as $key) {
+            $other = mmiiq_setting($key);
+            if (!is_string($other) || strlen($other) < 32 || hash_equals($secret, $other)) { return mmiiq_rise_error(); }
+        }
+        foreach (array('RISE_IIQ_OWNER_PROOF_SECRET', 'RISE_IIQ_OWNER_REQUEST_SECRET', 'RISE_IIQ_JOB_REQUEST_SECRET', 'RISE_IIQ_JOB_PROOF_SECRET', 'MMED_JWT_SECRET') as $key) {
+            $other = mmiiq_rise_setting($key);
+            if (!is_string($other) || ($other !== '' && hash_equals($secret, $other))) { return mmiiq_rise_error(); }
+        }
+        $raw = $request->get_body(); $headers = $request->get_headers(); $normalized = array();
+        if (!is_string($raw) || strlen($raw) < 1 || strlen($raw) > 16384 || !is_array($headers) || count($headers) > 50) { return mmiiq_rise_error(); }
+        foreach ($headers as $key => $values) {
+            if (!is_string($key) || !preg_match('/^[A-Za-z0-9_-]+$/D', $key) || !is_array($values) || count($values) !== 1 ||
+                !is_string($values[0]) || preg_match('/[\x00-\x1f\x7f]/', $values[0])) { return mmiiq_rise_error(); }
+            $name = strtolower(str_replace('_', '-', $key));
+            if (isset($normalized[$name]) || in_array($name, array('origin', 'cookie', 'cookie2', 'authorization', 'proxy-authorization',
+                'transfer-encoding', 'content-encoding', 'expect', 'x-http-method-override', 'x-method-override', 'x-http-method'), true) ||
+                (strpos($name, 'x-mmed-') === 0 && $name !== 'x-mmed-iiq-mrx-eligibility')) { return mmiiq_rise_error(); }
+            $normalized[$name] = $values[0];
+        }
+        $signature = $normalized['x-mmed-iiq-mrx-eligibility'] ?? null;
+        if (!preg_match('/^application\/json(?:\s*;\s*charset=utf-8)?$/iD', $normalized['content-type'] ?? '') ||
+            (isset($normalized['content-length']) && $normalized['content-length'] !== (string) strlen($raw)) || !mmiiq_rise_hex($signature) ||
+            !hash_equals(hash_hmac('sha256', "iiq-mrx-v1\neligibility-request\n" . $raw, $secret), $signature)) { return mmiiq_rise_error(); }
+        $keys = array('audience', 'nonce', 'iat', 'subject', 'wp_user_id', 'operation', 'intentId', 'publicationId', 'request_sha256');
+        $p = mmiiq_rise_flat_json($raw, $keys); $now = time();
+        if (!$p || $p['audience'] !== 'interviewiq-rise-mrx-proof' || !is_int($p['iat']) || abs($now - $p['iat']) > 30 || $p['iat'] + 30 <= $now ||
+            !is_int($p['wp_user_id']) || $p['wp_user_id'] < 1 || $p['wp_user_id'] > 9007199254740991 || !mmiiq_rise_hex($p['request_sha256']) ||
+            !in_array($p['operation'], array('publish', 'retract'), true)) { return mmiiq_rise_error(); }
+        foreach (array('nonce', 'subject', 'intentId', 'publicationId') as $key) {
+            if (!mmiiq_rise_uuid($p[$key])) { return mmiiq_rise_error(); }
+        }
+        foreach (array('mmiiq_access_for_user', 'mmiiq_actor_uuid', 'mmhq_cam_restricted', 'get_user_by') as $dependency) {
+            if (!function_exists($dependency)) { return mmiiq_rise_error(); }
+        }
+        global $wpdb;
+        if (!is_object($wpdb) || !isset($wpdb->options) || !is_string($wpdb->options) || !preg_match('/^[A-Za-z0-9_]+$/D', $wpdb->options)) { return mmiiq_rise_error(); }
+        $nonce_key = '_mmiiq_rise_mrx_' . hash('sha256', $p['audience'] . ':' . $p['nonce']);
+        $claim = $wpdb->query($wpdb->prepare("INSERT IGNORE INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, %s, %s)",
+            $nonce_key, (string) ($now + 90), 'no'));
+        if ($claim !== 1) { return mmiiq_rise_error(); }
+        $id = $p['wp_user_id'];
+        // Explicit false is required: absent/unknown restriction state cannot
+        // take the administrator early-return path in the eligibility helper.
+        if (!is_bool(mmhq_cam_restricted($id)) || ($p['operation'] === 'publish' && mmhq_cam_restricted($id) !== false)) { return mmiiq_rise_error(); }
+        $user = get_user_by('id', $id);
+        if (!($user instanceof WP_User) || (int) $user->ID !== $id || !$user->exists()) { return mmiiq_rise_error(); }
+        $subject = mmiiq_actor_uuid($id, false);
+        if (!is_string($subject) || !hash_equals($p['subject'], $subject)) { return mmiiq_rise_error(); }
+        $grant = mmiiq_access_for_user($user);
+        if ((is_wp_error($grant) || !is_array($grant)) && $p['operation'] === 'publish') { return mmiiq_rise_error(); }
+        if (!is_array($grant)) { $grant = array('role' => 'revoked', 'tier' => 'none'); }
+        $role = $grant['role'] ?? ''; $tier = $grant['tier'] ?? '';
+        if ($p['operation'] === 'publish' && !($role === 'admin' && $tier === 'admin')) { return mmiiq_rise_error(); }
+        $now = time(); $exp = min($p['iat'] + 30, $now + 30);
+        if ($exp <= $now || $exp <= $p['iat'] || abs($now - $p['iat']) > 30) { return mmiiq_rise_error(); }
+        $payload = wp_json_encode(array_merge($p, array('allowed' => true, 'role' => $role, 'tier' => $tier, 'exp' => $exp)));
+        if (!is_string($payload)) { return mmiiq_rise_error(); }
+        return new WP_REST_Response(array('payload' => $payload, 'signature' => hash_hmac('sha256', "iiq-mrx-v1\neligibility-response\n" . $payload, $secret)),
+            200, array('Content-Type' => 'application/json; charset=utf-8', 'Cache-Control' => 'no-store'));
+    } catch (Throwable $error) { return mmiiq_rise_error(); }
+}
+
 add_action('rest_api_init', static function () {
     register_rest_route('missionmed/v1', '/interviewiq-owner/rise/introspect', array('methods' => 'POST',
         'callback' => 'mmiiq_rise_introspect', 'permission_callback' => '__return_true'));
+    register_rest_route('missionmed/v1', '/interviewiq-owner/rise/mrx-introspect', array('methods' => 'POST',
+        'callback' => 'mmiiq_rise_mrx_introspect', 'permission_callback' => '__return_true'));
     register_rest_route('missionmed/v1', '/interviewiq-owner/rise/job-introspect', array('methods' => 'POST',
         'callback' => 'mmiiq_rise_job_introspect', 'permission_callback' => '__return_true'));
 });
