@@ -33,7 +33,7 @@ test('unqualified input fails before provider and before durable AUTHOR intent',
  await assert.rejects(x.composer.compose({...request(input),recordPass:async()=>intents++}),e=>e.code==='loi_composition_specificity');assert.equal(x.calls.length,0);assert.equal(intents,0);
 });
 test('failed trace records only allowlisted code, stage and digest, retaining usage and no retry',async()=>{
- const x=native({author:input=>{const out=authoredOutput(input);out.candidates[0].claims[1].start++;return out;}}),r=request();
+ const x=native({author:input=>{const out=authoredOutput(input);out.candidates[0].claims[1].refs=['unknown-source'];return out;}}),r=request();
  await assert.rejects(x.composer.compose(r),e=>{assert.equal(e.code,'LOI_PROVIDER_FAILED');assert.equal(e.loiDiagnostic.code,'loi_composition_trace');assert.equal(e.loiDiagnostic.stage,'PROSE_VALIDATION');assert.match(e.loiDiagnostic.outputSha256,/^[a-f0-9]{64}$/);assert.deepEqual(Object.keys(e.loiDiagnostic).sort(),['code','outputSha256','stage']);assert.equal(e.validatedUsage.costMicros,30);return true;});
  await assert.rejects(x.composer.compose(r),e=>e.code==='LOI_PROVIDER_ALREADY_ATTEMPTED');assert.equal(x.calls.length,1);
 });
